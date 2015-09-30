@@ -86,15 +86,23 @@
     overflow: hidden;
 }
 
-.data-grid :-webkit-any(th, td):not(:last-child) {
+body.window-inactive .data-grid th {
+    border-bottom-color: rgb(219, 219, 219);
+}
+
+.data-grid :matches(th, td):not(:last-child) {
     border-right: 1px solid rgb(179, 179, 179);
+}
+
+body.window-inactive .data-grid :matches(th, td):not(:last-child) {
+    border-right-color: rgb(219, 219, 219);
 }
 
 .data-grid th.sortable:active {
     background-color: rgb(179, 179, 179);
 }
 
-.data-grid th:-webkit-any(.sort-ascending, .sort-descending) {
+.data-grid th:matches(.sort-ascending, .sort-descending) {
     background-color: rgb(230, 230, 230);
 }
 
@@ -142,15 +150,11 @@
     overflow: hidden;
 }
 
-.data-grid:focus tr.selected td:not(:last-child) {
+.data-grid:matches(:focus, .force-focus) tr.selected td:not(:last-child) {
     border-right-color: rgb(0, 102, 204);
 }
 
-body.mac-platform.legacy .data-grid:focus tr.selected td:not(:last-child) {
-    border-right-color: rgb(53, 109, 189);
-}
-
-.data-grid :-webkit-any(th, td) > div {
+.data-grid :matches(th, td) > div {
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
@@ -168,7 +172,7 @@ body.mac-platform.legacy .data-grid:focus tr.selected td:not(:last-child) {
     position: relative;
 }
 
-.data-grid th:-webkit-any(.sort-ascending, .sort-descending) > div:first-child {
+.data-grid th:matches(.sort-ascending, .sort-descending) > div:first-child {
     padding-right: 12px;
 }
 
@@ -234,11 +238,11 @@ body.mac-platform.legacy .data-grid:focus tr.selected td:not(:last-child) {
     background-image: -webkit-canvas(disclosure-triangle-tiny-open-normal);
 }
 
-.data-grid:focus tr.parent.selected td.disclosure::before {
+.data-grid:matches(:focus, .force-focus) tr.parent.selected td.disclosure::before {
     background-image: -webkit-canvas(disclosure-triangle-tiny-closed-selected);
 }
 
-.data-grid:focus tr.parent.expanded.selected td.disclosure::before {
+.data-grid:matches(:focus, .force-focus) tr.parent.expanded.selected td.disclosure::before {
     background-image: -webkit-canvas(disclosure-triangle-tiny-open-selected);
 }
 
@@ -247,13 +251,9 @@ body.mac-platform.legacy .data-grid:focus tr.selected td:not(:last-child) {
     color: inherit !important;
 }
 
-.data-grid:focus tr.selected {
+.data-grid:matches(:focus, .force-focus) tr.selected {
     background-color: rgb(0, 128, 252) !important;
     color: white !important;
-}
-
-body.mac-platform.legacy .data-grid:focus tr.selected {
-    background-color: rgb(56, 121, 217) !important;
 }
 
 .data-grid tr:not(.parent) td.disclosure {
@@ -268,7 +268,7 @@ body.mac-platform.legacy .data-grid:focus tr.selected {
     content: " — ";
 }
 
-.data-grid:focus tr.selected td .subtitle {
+.data-grid:matches(:focus, .force-focus) tr.selected td .subtitle {
     color: rgba(255, 255, 255, 0.9);
 }
 
@@ -298,15 +298,10 @@ body.mac-platform.legacy .data-grid:focus tr.selected {
     margin-left: 2px;
 }
 
-.data-grid tr:-webkit-any(.selected, :hover) .go-to-arrow {
+.data-grid tr:matches(.selected, :hover) .go-to-arrow {
     display: block;
 }
 
-.data-grid-resizer {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 5px;
+.data-grid .resizer {
     z-index: 500;
-    cursor: col-resize;
 }

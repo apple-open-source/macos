@@ -70,12 +70,14 @@ IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void)
                             CFSTR(kIOPSDynamicStoreLowBattPathKey));
     if (!key)
         goto SAD_EXIT;
-        
-    scWarnValue = isA_CFNumber(SCDynamicStoreCopyValue(store, key));
+
+    scWarnValue = SCDynamicStoreCopyValue(store, key);
     if (scWarnValue) {
 
-        CFNumberGetValue(scWarnValue, kCFNumberIntType, &return_level);    
-    
+        if(isA_CFType(scWarnValue, CFNumberGetTypeID()))
+        {
+            CFNumberGetValue(scWarnValue, kCFNumberIntType, &return_level);
+        }
         CFRelease(scWarnValue);
         scWarnValue = NULL;
     }
@@ -237,7 +239,14 @@ CFDictionaryRef IOPSCopyExternalPowerAdapterDetails(void)
     if (!key)
         goto SAD_EXIT;
         
-    ret_dict = isA_CFDictionary(SCDynamicStoreCopyValue(store, key));
+    ret_dict = SCDynamicStoreCopyValue(store, key);
+    if(ret_dict)
+    {
+        if(!isA_CFDictionary(ret_dict)) {
+            CFRelease(ret_dict);
+            ret_dict = NULL;
+        }
+    }
 
 SAD_EXIT:
     if (store) CFRelease(store);
@@ -249,14 +258,7 @@ SAD_EXIT:
 __private_extern__ IOReturn _pm_connect(mach_port_t *newConnection);
 __private_extern__ IOReturn _pm_disconnect(mach_port_t connection);
 
-/***
- Returns a blob of Power Source information in an opaque CFTypeRef. Clients should
- not actually look directly at data in the CFTypeRef - they should use the accessor
- functions IOPSCopyPowerSourcesList and IOPSGetPowerSourceDescription, instead.
- Returns NULL if errors were encountered.
- Return: Caller must CFRelease() the return value when done.
-***/
-CFTypeRef IOPSCopyPowerSourcesInfo(void) {
+CFTypeRef IOPSCopyPowerSourcesByType(int type) {
     CFArrayRef          ps_arr = NULL;
 
     mach_port_t pm_server = MACH_PORT_NULL;
@@ -269,6 +271,7 @@ CFTypeRef IOPSCopyPowerSourcesInfo(void) {
         int                     return_code;
 
         io_ps_copy_powersources_info(pm_server,
+                                      type,
                                       &buffer,
                                       (mach_msg_type_number_t *) &size,
                                      &return_code);
@@ -291,6 +294,18 @@ CFTypeRef IOPSCopyPowerSourcesInfo(void) {
 
     // Return CFDictionary as opaque CFTypeRef
     return (CFTypeRef)ps_arr;
+}
+
+/***
+ Returns a blob of Power Source information in an opaque CFTypeRef. Clients should
+ not actually look directly at data in the CFTypeRef - they should use the accessor
+ functions IOPSCopyPowerSourcesList and IOPSGetPowerSourceDescription, instead.
+ Returns NULL if errors were encountered.
+ Return: Caller must CFRelease() the return value when done.
+***/
+CFTypeRef IOPSCopyPowerSourcesInfo(void) {
+
+    return IOPSCopyPowerSourcesByType(kIOPSSourceInternalAndUPS);
 }
 
 
@@ -458,3 +473,14 @@ CFRunLoopSourceRef IOPSCreateLimitedPowerNotification(IOPowerSourceCallbackType 
     return doCreatePSRLS(kIOPSNotifyPowerSource, callback, context);
 }
 
+CFRunLoopSourceRef IOPSAccNotificationCreateRunLoopSource(IOPowerSourceCallbackType callback, void *context) {
+    return doCreatePSRLS(kIOPSAccNotifyTimeRemaining, callback, context);
+}
+
+CFRunLoopSourceRef IOPSAccCreateLimitedPowerNotification(IOPowerSourceCallbackType callback, void *context) {
+    return doCreatePSRLS(kIOPSAccNotifyPowerSource, callback, context);
+}
+
+CFRunLoopSourceRef IOPSAccCreateAttachNotification(IOPowerSourceCallbackType callback, void *context) {
+    return doCreatePSRLS(kIOPSAccNotifyAttach, callback, context);
+}

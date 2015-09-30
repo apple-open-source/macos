@@ -31,7 +31,7 @@
 .\"
 .\" $Id$
 .\"
-.Dd April 14, 2005
+.Dd Dec 1, 2014
 .Dt KTUTIL 8
 .Os HEIMDAL
 .Sh NAME
@@ -63,6 +63,7 @@ can be one of the following:
 .It add Oo Fl p Ar principal Oc Oo Fl Fl principal= Ns Ar principal Oc \
 Oo Fl V Ar kvno Oc Oo Fl Fl kvno= Ns Ar kvno Oc Oo Fl e Ar enctype Oc \
 Oo Fl Fl enctype= Ns Ar enctype Oc Oo Fl w Ar password Oc \
+Oo Fl Fl pw-file= Ns Ar filename Oc \
 Oo Fl Fl password= Ns Ar password Oc Oo Fl r Oc Oo Fl Fl random Oc \
 Oo Fl s Oc Oo Fl Fl no-salt Oc Oo Fl H Oc Op Fl Fl hex
 Adds a key to the keytab. Options that are not specified will be
@@ -71,6 +72,9 @@ principal to add; if what you really want is to add a new principal to
 the keytab, you should consider the
 .Ar get
 command, which talks to the kadmin server.
+.Fl Fl pw-file
+can specify either a file with a password, or the string STDIN.  In the
+latter case the password is read from stdin.
 .It change Oo Fl r Ar realm Oc Oo Fl Fl realm= Ns Ar realm Oc \
 Oo Fl Fl a Ar host Oc Oo Fl Fl admin-server= Ns Ar host Oc \
 Oo Fl Fl s Ar port Oc Op Fl Fl server-port= Ns Ar port
@@ -79,7 +83,7 @@ server for the realm of a keytab entry.  Otherwise it will use the
 values specified by the options.
 .Pp
 If no principals are given, all the ones in the keytab are updated.
-.It copy Oo Fl Fl filter-principal= NS Ar string Oc
+.It copy Oo Fl Fl filter-principal= Ns Ar string Oc
 Ar keytab-src Ar keytab-dest
 Copies all the entries from
 .Ar keytab-src

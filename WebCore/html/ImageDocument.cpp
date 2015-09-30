@@ -45,7 +45,6 @@
 #include "Page.h"
 #include "RawDataDocumentParser.h"
 #include "RenderElement.h"
-#include "ResourceBuffer.h"
 #include "Settings.h"
 
 namespace WebCore {
@@ -55,7 +54,7 @@ using namespace HTMLNames;
 #if !PLATFORM(IOS)
 class ImageEventListener final : public EventListener {
 public:
-    static PassRefPtr<ImageEventListener> create(ImageDocument& document) { return adoptRef(new ImageEventListener(document)); }
+    static Ref<ImageEventListener> create(ImageDocument& document) { return adoptRef(*new ImageEventListener(document)); }
 
 private:
     ImageEventListener(ImageDocument& document)
@@ -73,9 +72,9 @@ private:
 
 class ImageDocumentParser final : public RawDataDocumentParser {
 public:
-    static PassRefPtr<ImageDocumentParser> create(ImageDocument& document)
+    static Ref<ImageDocumentParser> create(ImageDocument& document)
     {
-        return adoptRef(new ImageDocumentParser(document));
+        return adoptRef(*new ImageDocumentParser(document));
     }
 
 private:
@@ -92,7 +91,7 @@ private:
 
 class ImageDocumentElement final : public HTMLImageElement {
 public:
-    static PassRefPtr<ImageDocumentElement> create(ImageDocument&);
+    static RefPtr<ImageDocumentElement> create(ImageDocument&);
 
 private:
     ImageDocumentElement(ImageDocument& document)
@@ -107,7 +106,7 @@ private:
     ImageDocument* m_imageDocument;
 };
 
-inline PassRefPtr<ImageDocumentElement> ImageDocumentElement::create(ImageDocument& document)
+inline RefPtr<ImageDocumentElement> ImageDocumentElement::create(ImageDocument& document)
 {
     return adoptRef(new ImageDocumentElement(document));
 }
@@ -134,7 +133,8 @@ void ImageDocument::updateDuringParsing()
     if (!m_imageElement)
         createDocumentStructure();
 
-    m_imageElement->cachedImage()->addDataBuffer(loader()->mainResourceData().get());
+    if (RefPtr<SharedBuffer> buffer = loader()->mainResourceData())
+        m_imageElement->cachedImage()->addDataBuffer(*buffer);
 
     imageUpdated();
 }
@@ -143,11 +143,11 @@ void ImageDocument::finishedParsing()
 {
     if (!parser()->isStopped() && m_imageElement) {
         CachedImage& cachedImage = *m_imageElement->cachedImage();
-        RefPtr<ResourceBuffer> data = loader()->mainResourceData();
+        RefPtr<SharedBuffer> data = loader()->mainResourceData();
 
         // If this is a multipart image, make a copy of the current part, since the resource data
         // will be overwritten by the next part.
-        if (loader()->isLoadingMultipartContent())
+        if (data && loader()->isLoadingMultipartContent())
             data = data->copy();
 
         cachedImage.finishLoading(data.get());
@@ -176,7 +176,7 @@ inline ImageDocument& ImageDocumentParser::document() const
 {
     // Only used during parsing, so document is guaranteed to be non-null.
     ASSERT(RawDataDocumentParser::document());
-    return toImageDocument(*RawDataDocumentParser::document());
+    return downcast<ImageDocument>(*RawDataDocumentParser::document());
 }
 
 void ImageDocumentParser::appendBytes(DocumentWriter&, const char*, size_t)
@@ -202,7 +202,7 @@ ImageDocument::ImageDocument(Frame& frame, const URL& url)
     lockCompatibilityMode();
 }
     
-PassRefPtr<DocumentParser> ImageDocument::createParser()
+Ref<DocumentParser> ImageDocument::createParser()
 {
     return ImageDocumentParser::create(*this);
 }
@@ -211,14 +211,14 @@ void ImageDocument::createDocumentStructure()
 {
     RefPtr<Element> rootElement = Document::createElement(htmlTag, false);
     appendChild(rootElement);
-    toHTMLHtmlElement(rootElement.get())->insertedByParser();
+    downcast<HTMLHtmlElement>(*rootElement).insertedByParser();
 
     frame()->injectUserScripts(InjectAtDocumentStart);
 
     RefPtr<Element> body = Document::createElement(bodyTag, false);
     body->setAttribute(styleAttr, "margin: 0px");
     if (MIMETypeRegistry::isPDFMIMEType(document().loader()->responseMIMEType()))
-        toHTMLBodyElement(body.get())->setInlineStyleProperty(CSSPropertyBackgroundColor, "white", CSSPrimitiveValue::CSS_IDENT);
+        downcast<HTMLBodyElement>(*body).setInlineStyleProperty(CSSPropertyBackgroundColor, "white", CSSPrimitiveValue::CSS_IDENT);
     rootElement->appendChild(body);
     
     RefPtr<ImageDocumentElement> imageElement = ImageDocumentElement::create(*this);
@@ -301,7 +301,7 @@ void ImageDocument::resizeImageToFit()
     m_imageElement->setWidth(static_cast<int>(imageSize.width() * scale));
     m_imageElement->setHeight(static_cast<int>(imageSize.height() * scale));
 
-    m_imageElement->setInlineStyleProperty(CSSPropertyCursor, CSSValueWebkitZoomIn);
+    m_imageElement->setInlineStyleProperty(CSSPropertyCursor, CSSValueZoomIn);
 }
 
 void ImageDocument::restoreImageSize()
@@ -316,7 +316,7 @@ void ImageDocument::restoreImageSize()
     if (imageFitsInWindow())
         m_imageElement->removeInlineStyleProperty(CSSPropertyCursor);
     else
-        m_imageElement->setInlineStyleProperty(CSSPropertyCursor, CSSValueWebkitZoomOut);
+        m_imageElement->setInlineStyleProperty(CSSPropertyCursor, CSSValueZoomOut);
 
     m_didShrinkImage = false;
 }
@@ -349,7 +349,7 @@ void ImageDocument::windowSizeChanged()
         if (fitsInWindow)
             m_imageElement->removeInlineStyleProperty(CSSPropertyCursor);
         else
-            m_imageElement->setInlineStyleProperty(CSSPropertyCursor, CSSValueWebkitZoomOut);
+            m_imageElement->setInlineStyleProperty(CSSPropertyCursor, CSSValueZoomOut);
         return;
     }
 
@@ -398,8 +398,8 @@ void ImageEventListener::handleEvent(ScriptExecutionContext*, Event* event)
 {
     if (event->type() == eventNames().resizeEvent)
         m_document.windowSizeChanged();
-    else if (event->type() == eventNames().clickEvent && event->isMouseEvent()) {
-        MouseEvent& mouseEvent = toMouseEvent(*event);
+    else if (event->type() == eventNames().clickEvent && is<MouseEvent>(*event)) {
+        MouseEvent& mouseEvent = downcast<MouseEvent>(*event);
         m_document.imageClicked(mouseEvent.x(), mouseEvent.y());
     }
 }

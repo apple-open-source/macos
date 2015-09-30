@@ -24,16 +24,19 @@
  */
 
 .toolbar {
-    display: -webkit-flex;
+    display: flex;
 
     white-space: nowrap;
     overflow: hidden;
 
-    border-bottom: 1px solid rgb(179, 179, 179);
-    background-image: linear-gradient(to bottom, rgb(232, 232, 232), rgb(209, 209, 209));
+    background-image: linear-gradient(to bottom, rgb(237, 237, 237), rgb(222, 222, 222));
     box-shadow: inset rgba(255, 255, 255, 0.5) 0 1px 1px;
 
     outline: none;
+
+    padding-top: 3px;
+    padding-bottom: 3px;
+    height: 36px;
 }
 
 body.window-inactive .toolbar {
@@ -41,118 +44,157 @@ body.window-inactive .toolbar {
     background-color: rgb(246, 246, 246);
 }
 
-.toolbar.icon-and-label-vertical {
-    height: 56px;
-}
-
-.toolbar.icon-and-label-vertical.small-size {
-    height: 48px;
-}
-
-.toolbar.icon-and-label-horizontal,
-.toolbar.icon-only {
-    height: 40px;
-}
-
-.toolbar.icon-and-label-horizontal.small-size,
-.toolbar.icon-only.small-size,
-.toolbar.label-only {
-    height: 32px;
-}
-
-body.mac-platform:not(.legacy):not(.docked) .toolbar {
-    padding-top: 22px;
-}
-
-body.mac-platform:not(.legacy):not(.docked) .toolbar.icon-and-label-vertical {
-    height: 78px;
-}
-
-body.mac-platform:not(.legacy):not(.docked) .toolbar.icon-and-label-vertical.small-size {
-    height: 70px;
-}
-
-body.mac-platform:not(.legacy):not(.docked) .toolbar.icon-and-label-horizontal,
-body.mac-platform:not(.legacy):not(.docked) .toolbar.icon-only {
-    height: 62px;
-}
-
-body.mac-platform:not(.legacy):not(.docked) .toolbar.icon-and-label-horizontal.small-size,
-body.mac-platform:not(.legacy):not(.docked) .toolbar.icon-only.small-size,
-body.mac-platform:not(.legacy):not(.docked) .toolbar.label-only {
+body.mac-platform:not(.docked) .toolbar {
+    padding-top: 21px;
     height: 54px;
 }
 
-body.mac-platform.legacy .toolbar {
-    box-shadow: none;
-    background-image: none;
-    background-color: transparent;
-    border-bottom-color: rgb(85, 85, 85);
-}
-
-body.mac-platform.legacy.docked .toolbar {
-    background-image: linear-gradient(to bottom, rgb(216, 216, 216), rgb(190, 190, 190));
-    box-shadow: inset rgba(255, 255, 255, 0.1) 0 1px 0, inset rgba(0, 0, 0, 0.02) 0 -1px 0;
-}
-
-body.mac-platform.legacy:not(.docked) .toolbar .item.button > .label {
- /* We need to disable sub-pixel antialiasing in the toolbar when not docked because the
-    toolbar is transparent and so is the WebView. */
-    -webkit-font-smoothing: antialiased;
-
- /* Compensate for the text not being sub-pixel antialiased by adding a small stroke. */
-    -webkit-text-stroke: 0.2px;
-}
-
-body.mac-platform.legacy.window-inactive .toolbar {
-    border-bottom-color: rgb(128, 128, 128);
-}
-
 .toolbar .control-section {
-    display: -webkit-flex;
+    display: flex;
 
-    -webkit-flex-direction: column;
-    -webkit-align-items: center;
-    -webkit-justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 
     padding-left: 6px;
-    padding-right: 6px;
+    padding-right: 2px;
 
     min-width: -webkit-min-content;
 }
 
-.toolbar.icon-and-label-horizontal.small-size .control-section,
-.toolbar.icon-only.small-size .control-section,
-.toolbar.label-only .control-section {
-    -webkit-flex-direction: row;
+.toolbar:matches(.icon-and-label-horizontal.small-size, .icon-only.small-size, .label-only) .control-section {
+    flex-direction: row;
 }
 
 .toolbar .item-section {
-    display: -webkit-flex;
+    display: flex;
+    flex: 1;
     min-width: -webkit-min-content;
 }
 
-.toolbar .item-section:not(.center) {
-    -webkit-flex: 1;
+.toolbar .item-section.left {
+    justify-content: flex-start;
 }
 
-.toolbar .item-section.left {
-    -webkit-justify-content: flex-start;
-    margin-right: 12px;
+.toolbar .item-section.center-left {
+    justify-content: flex-start;
+}
+
+.toolbar .item-section.center-right {
+    justify-content: center;
 }
 
 .toolbar .item-section.center {
-    -webkit-flex: 2;
-    -webkit-justify-content: center;
+    justify-content: center;
 }
 
 .toolbar .item-section.right {
-    -webkit-justify-content: flex-end;
-    margin-left: 12px;
-    margin-right: 12px;
+    justify-content: flex-end;
+    padding-right: 4px;
 }
 
 .toolbar .item {
-    display: -webkit-flex;
+    display: flex;
     outline: none;
+}
+
+.toolbar .search-bar {
+    width: 100%;
+    min-width: 100px;
+}
+
+.toolbar .search-bar > input[type="search"] {
+    width: 100%;
+    font-size: 12px;
+    background-clip: initial;
+    margin: 4px;
+}
+
+.toolbar .search-bar > input[type="search"]::-webkit-textfield-decoration-container {
+    margin-left: 4px;
+}
+
+body:not(.unknown-mac) .toolbar .item.button,
+body:not(.unknown-mac) .toolbar .search-bar > input[type="search"],
+body:not(.unknown-mac) .toolbar .dashboard-container {
+    background-color: hsl(0, 0%, 99%);
+    border: 1px solid transparent;
+    border-top-color: hsl(0, 0%, 100%);
+    box-shadow: hsla(0, 0%, 0%, 0.15) 0 1px 0;
+    border-radius: 4px;
+}
+
+body:not(.unknown-mac) .toolbar .search-bar > input[type="search"] {
+    box-shadow: 0 0 0 7px hsla(211, 96%, 48%, 0);
+    transition: box-shadow .25s cubic-bezier(0.165, 0.840, 0.440, 1) /* easeOutQuart */;
+}
+
+body:not(.unknown-mac) .toolbar .search-bar > input[type="search"]:focus {
+    box-shadow: hsla(0, 0%, 0%, 0.15) 0 1px 0, 0 0 0 3px hsla(211, 96%, 48%, 0.4);
+}
+
+body:not(.unknown-mac) .toolbar .item.button:active {
+    border-top-color: hsl(0, 0%, 94%);
+    background-color: hsl(0, 0%, 89%);
+}
+
+body.window-inactive:not(.unknown-mac) .toolbar .item.button,
+body.window-inactive:not(.unknown-mac) .toolbar .search-bar > input[type="search"],
+body.window-inactive:not(.unknown-mac) .toolbar .dashboard-container {
+    border: 1px solid hsl(0, 0%, 86%);
+    background-color: hsl(0, 0%, 96%);
+    box-shadow: none;
+}
+
+body.unknown-mac .toolbar .item.button,
+body.unknown-mac .toolbar .search-bar > input[type="search"],
+body.unknown-mac .toolbar .dashboard-container {
+    background-image: linear-gradient(hsl(0, 0%, 99%), hsl(0, 0%, 94%));
+    box-shadow: hsla(0, 0%, 0%, 0.3) 0 1px 1px -1px;
+
+    border-radius: 4px;
+    border: 1px solid hsl(0, 1%, 82%);
+    border-top-color: hsl(0, 0%, 83%);
+    border-bottom-color: hsl(0, 0%, 76%);
+}
+
+body.unknown-mac .toolbar .search-bar > input[type="search"] {
+    box-shadow: hsla(0, 0%, 0%, 0.3) 0 1px 1px -1px, 0 0 0 7px hsla(211, 96%, 48%, 0);
+    transition: box-shadow .25s cubic-bezier(0.165, 0.840, 0.440, 1) /* easeOutQuart */;
+}
+
+body.unknown-mac .toolbar .search-bar > input[type="search"]:focus {
+    box-shadow: hsla(0, 0%, 0%, 0.15) 0 1px 0, 0 0 0 3px hsla(211, 96%, 48%, 0.4);
+}
+
+@media (-webkit-min-device-pixel-ratio: 2) {
+    body.unknown-mac .toolbar .item.button,
+    body.unknown-mac .toolbar .search-bar > input[type="search"],
+    body.unknown-mac .toolbar .dashboard-container {
+        border: 0.5px solid hsl(0, 0%, 78%);
+        border-top-color: hsl(0, 0%, 80%);
+        border-bottom-color: hsl(0, 0%, 65%);
+    }
+}
+
+body.unknown-mac .toolbar .item.button:active {
+    background-image: linear-gradient(hsl(0, 0%, 89%), hsl(0, 0%, 86%));
+    box-shadow: hsla(0, 0%, 0%, 0.3) 0 1px 1px -1px, inset 0 1px 1px -1px white;
+}
+
+body.unknown-mac.window-inactive .toolbar .item.button,
+body.unknown-mac.window-inactive .toolbar .search-bar > input[type="search"],
+body.unknown-mac.window-inactive .toolbar .dashboard-container {
+    opacity: 0.65;
+    border-color: hsla(0, 0%, 0%, 0.15);
+    background-color: transparent;
+    background-image: none;
+}
+
+@media (-webkit-min-device-pixel-ratio: 2) {
+    body.unknown-mac.window-inactive .toolbar .item.button,
+    body.unknown-mac.window-inactive .toolbar .search-bar > input[type="search"],
+    body.unknown-mac.window-inactive .toolbar .dashboard-container {
+        box-shadow: inset 0 0 1px 0 hsla(0, 0%, 0%, 0.1);
+    }
 }

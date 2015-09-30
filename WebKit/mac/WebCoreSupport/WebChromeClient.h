@@ -89,9 +89,6 @@ public:
     virtual void runJavaScriptAlert(WebCore::Frame*, const WTF::String&) override;
     virtual bool runJavaScriptConfirm(WebCore::Frame*, const WTF::String&) override;
     virtual bool runJavaScriptPrompt(WebCore::Frame*, const WTF::String& message, const WTF::String& defaultValue, WTF::String& result) override;
-    virtual bool shouldInterruptJavaScript() override;
-
-    virtual WebCore::IntRect windowResizerRect() const override;
 
     virtual bool supportsImmediateInvalidation() override;
     virtual void invalidateRootView(const WebCore::IntRect&) override;
@@ -119,12 +116,9 @@ public:
     virtual void setToolTip(const WTF::String&, WebCore::TextDirection) override;
 
     virtual void print(WebCore::Frame*) override;
-#if ENABLE(SQL_DATABASE)
     virtual void exceededDatabaseQuota(WebCore::Frame*, const WTF::String& databaseName, WebCore::DatabaseDetails) override;
-#endif
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded) override;
     virtual void reachedApplicationCacheOriginQuota(WebCore::SecurityOrigin*, int64_t totalSpaceNeeded) override;
-    virtual void populateVisitedLinks() override;
 
 #if ENABLE(DASHBOARD_SUPPORT)
     virtual void annotatedRegionsChanged() override;
@@ -139,7 +133,7 @@ public:
 #endif
 
 #if ENABLE(INPUT_TYPE_COLOR)
-    virtual PassOwnPtr<WebCore::ColorChooser> createColorChooser(WebCore::ColorChooserClient*, const WebCore::Color&) override;
+    virtual std::unique_ptr<WebCore::ColorChooser> createColorChooser(WebCore::ColorChooserClient*, const WebCore::Color&) override;
 #endif
 
     virtual WebCore::KeyboardUIMode keyboardUIMode() override;
@@ -167,7 +161,7 @@ public:
     virtual void setNeedsOneShotDrawingSynchronization() override;
     virtual void scheduleCompositingLayerFlush() override;
 
-    virtual CompositingTriggerFlags allowedCompositingTriggers() const
+    virtual CompositingTriggerFlags allowedCompositingTriggers() const override
     {
         return static_cast<CompositingTriggerFlags>(
             ThreeDTransformTrigger |
@@ -181,9 +175,9 @@ public:
     }
 
 #if ENABLE(VIDEO)
-    virtual bool supportsFullscreenForNode(const WebCore::Node*) override;
-    virtual void enterFullscreenForNode(WebCore::Node*) override;
-    virtual void exitFullscreenForNode(WebCore::Node*) override;
+    virtual bool supportsVideoFullscreen() override;
+    virtual void enterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode) override;
+    virtual void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&) override;
 #endif
     
 #if ENABLE(FULLSCREEN_API)
@@ -198,7 +192,7 @@ public:
     virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const override;
     virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const override;
 
-    virtual void numWheelEventHandlersChanged(unsigned) override { }
+    virtual void wheelEventHandlersChanged(bool) override { }
 
 #if ENABLE(SUBTLE_CRYPTO)
     virtual bool wrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const override;
@@ -214,6 +208,13 @@ public:
     WebView* webView() const { return m_webView; }
 #else
     WebView* webView() { return m_webView; }
+#endif
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+    virtual void addPlaybackTargetPickerClient(uint64_t /*contextId*/) override;
+    virtual void removePlaybackTargetPickerClient(uint64_t /*contextId*/) override;
+    virtual void showPlaybackTargetPicker(uint64_t /*contextId*/, const WebCore::IntPoint&, bool /* hasVideo */) override;
+    virtual void playbackTargetPickerClientStateDidChange(uint64_t /*contextId*/, WebCore::MediaProducer::MediaStateFlags) override;
 #endif
 
 private:

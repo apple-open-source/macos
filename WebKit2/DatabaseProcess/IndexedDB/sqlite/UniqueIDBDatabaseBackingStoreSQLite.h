@@ -51,9 +51,9 @@ class SQLiteIDBTransaction;
 
 class UniqueIDBDatabaseBackingStoreSQLite final : public UniqueIDBDatabaseBackingStore {
 public:
-    static PassRefPtr<UniqueIDBDatabaseBackingStore> create(const UniqueIDBDatabaseIdentifier& identifier, const String& databaseDirectory)
+    static Ref<UniqueIDBDatabaseBackingStore> create(const UniqueIDBDatabaseIdentifier& identifier, const String& databaseDirectory)
     {
-        return adoptRef(new UniqueIDBDatabaseBackingStoreSQLite(identifier, databaseDirectory));
+        return adoptRef(*new UniqueIDBDatabaseBackingStoreSQLite(identifier, databaseDirectory));
     }
 
     virtual ~UniqueIDBDatabaseBackingStoreSQLite();
@@ -100,6 +100,8 @@ private:
     std::unique_ptr<WebCore::SQLiteDatabase> openSQLiteDatabaseAtPath(const String&);
     std::unique_ptr<WebCore::IDBDatabaseMetadata> extractExistingMetadata();
     std::unique_ptr<WebCore::IDBDatabaseMetadata> createAndPopulateInitialMetadata();
+
+    bool ensureValidRecordsTable();
 
     bool deleteRecord(SQLiteIDBTransaction&, int64_t objectStoreID, const WebCore::IDBKeyData&);
     bool uncheckedPutIndexRecord(int64_t objectStoreID, int64_t indexID, const WebCore::IDBKeyData& keyValue, const WebCore::IDBKeyData& indexKey);

@@ -177,6 +177,19 @@ IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds )
 			NULL, NULL, NULL,   NULL);				// Output
 }
 
+extern kern_return_t
+IOHIDSetOnScreenCursorBounds( io_connect_t connect, const IOGPoint * point, const IOGBounds * bounds )
+{
+    if ( !bounds || !point )
+        return kIOReturnBadArgument;
+    
+    int16_t   data[6] = {point->x, point->y, bounds->minx, bounds->miny, bounds->maxx, bounds->maxy};
+    
+    return IOConnectCallMethod(connect, 12,			// Index
+                               NULL, 0,    data, sizeof(data),	// Input,
+                               NULL, NULL, NULL,   NULL);				// Output
+}
+
 kern_return_t
 IOHIDSetMouseLocation( io_connect_t connect, int x, int y )
 {

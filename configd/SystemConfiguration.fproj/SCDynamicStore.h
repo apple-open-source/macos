@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2008-2010, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,8 @@
 #include <dispatch/dispatch.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+CF_IMPLICIT_BRIDGING_ENABLED
+CF_ASSUME_NONNULL_BEGIN
 
 /*!
 	@header SCDynamicStore
@@ -59,7 +61,7 @@
 	@discussion This is the handle to an open a dynamic store session
 		with the system configuration daemon.
  */
-typedef const struct __SCDynamicStore *	SCDynamicStoreRef;
+typedef const struct CF_BRIDGED_TYPE(id) __SCDynamicStore *	SCDynamicStoreRef;
 
 /*!
 	@typedef SCDynamicStoreContext
@@ -81,10 +83,10 @@ typedef const struct __SCDynamicStore *	SCDynamicStoreRef;
  */
 typedef struct {
 	CFIndex		version;
-	void *		info;
-	const void	*(*retain)(const void *info);
-	void		(*release)(const void *info);
-	CFStringRef	(*copyDescription)(const void *info);
+	void *		__nullable info;
+	const void	* __nonnull (* __nullable retain)(const void *info);
+	void		(* __nullable release)(const void *info);
+	CFStringRef	__nonnull (* __nullable copyDescription)(const void *info);
 } SCDynamicStoreContext;
 
 /*!
@@ -107,9 +109,9 @@ typedef struct {
 	@param info A C pointer to a user-specified block of data.
  */
 typedef void (*SCDynamicStoreCallBack)	(
-					SCDynamicStoreRef	store,
-					CFArrayRef		changedKeys,
-					void			*info
+					SCDynamicStoreRef			store,
+					CFArrayRef				changedKeys,
+					void			* __nullable	info
 					);
 
 
@@ -142,12 +144,12 @@ SCDynamicStoreGetTypeID			(void)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE
 	@result Returns a reference to the new SCDynamicStore session.
 		You must release the returned value.
  */
-SCDynamicStoreRef
+SCDynamicStoreRef __nullable
 SCDynamicStoreCreate			(
-					CFAllocatorRef			allocator,
-					CFStringRef			name,
-					SCDynamicStoreCallBack		callout,
-					SCDynamicStoreContext		*context
+					CFAllocatorRef			__nullable	allocator,
+					CFStringRef					name,
+					SCDynamicStoreCallBack		__nullable	callout,
+					SCDynamicStoreContext		* __nullable	context
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -187,13 +189,13 @@ SCDynamicStoreCreate			(
 	@result Returns a reference to the new SCDynamicStore session.
 		You must release the returned value.
  */
-SCDynamicStoreRef
+SCDynamicStoreRef __nullable
 SCDynamicStoreCreateWithOptions		(
-					CFAllocatorRef			allocator,
-					CFStringRef			name,
-					CFDictionaryRef			storeOptions,
-					SCDynamicStoreCallBack		callout,
-					SCDynamicStoreContext		*context
+					CFAllocatorRef			__nullable	allocator,
+					CFStringRef					name,
+					CFDictionaryRef			__nullable	storeOptions,
+					SCDynamicStoreCallBack		__nullable	callout,
+					SCDynamicStoreContext		* __nullable	context
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
 
 extern const CFStringRef	kSCDynamicStoreUseSessionKeys		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);	/* CFBoolean */
@@ -221,11 +223,11 @@ extern const CFStringRef	kSCDynamicStoreUseSessionKeys		__OSX_AVAILABLE_STARTING
 		You must release the returned value.
 
  */
-CFRunLoopSourceRef
+CFRunLoopSourceRef __nullable
 SCDynamicStoreCreateRunLoopSource	(
-					CFAllocatorRef			allocator,
-					SCDynamicStoreRef		store,
-					CFIndex				order
+					CFAllocatorRef			__nullable	allocator,
+					SCDynamicStoreRef				store,
+					CFIndex						order
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -240,8 +242,8 @@ SCDynamicStoreCreateRunLoopSource	(
  */
 Boolean
 SCDynamicStoreSetDispatchQueue		(
-					SCDynamicStoreRef		store,
-					dispatch_queue_t		queue
+					SCDynamicStoreRef				store,
+					dispatch_queue_t		__nullable	queue
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0/*SPI*/);
 
 /*!
@@ -255,10 +257,10 @@ SCDynamicStoreSetDispatchQueue		(
 		encountered.
 		You must release the returned value.
  */
-CFArrayRef
+CFArrayRef __nullable
 SCDynamicStoreCopyKeyList		(
-					SCDynamicStoreRef		store,
-					CFStringRef			pattern
+					SCDynamicStoreRef		__nullable	store,
+					CFStringRef					pattern
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -273,9 +275,9 @@ SCDynamicStoreCopyKeyList		(
  */
 Boolean
 SCDynamicStoreAddValue			(
-					SCDynamicStoreRef		store,
-					CFStringRef			key,
-					CFPropertyListRef		value
+					SCDynamicStoreRef		__nullable	store,
+					CFStringRef					key,
+					CFPropertyListRef				value
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -306,10 +308,10 @@ SCDynamicStoreAddTemporaryValue		(
 		key; NULL if no value was located or an error was encountered.
 		You must release the returned value.
  */
-CFPropertyListRef
+CFPropertyListRef __nullable
 SCDynamicStoreCopyValue			(
-					SCDynamicStoreRef		store,
-					CFStringRef			key
+					SCDynamicStoreRef		__nullable	store,
+					CFStringRef					key
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -325,11 +327,11 @@ SCDynamicStoreCopyValue			(
 		NULL if an error was encountered.
 		You must release the returned value.
  */
-CFDictionaryRef
+CFDictionaryRef __nullable
 SCDynamicStoreCopyMultiple		(
-					SCDynamicStoreRef		store,
-					CFArrayRef			keys,
-					CFArrayRef			patterns
+					SCDynamicStoreRef		__nullable	store,
+					CFArrayRef			__nullable	keys,
+					CFArrayRef			__nullable	patterns
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -343,9 +345,9 @@ SCDynamicStoreCopyMultiple		(
  */
 Boolean
 SCDynamicStoreSetValue			(
-					SCDynamicStoreRef		store,
-					CFStringRef			key,
-					CFPropertyListRef		value
+					SCDynamicStoreRef		__nullable	store,
+					CFStringRef					key,
+					CFPropertyListRef				value
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -359,10 +361,10 @@ SCDynamicStoreSetValue			(
  */
 Boolean
 SCDynamicStoreSetMultiple		(
-					SCDynamicStoreRef		store,
-					CFDictionaryRef			keysToSet,
-					CFArrayRef			keysToRemove,
-					CFArrayRef			keysToNotify
+					SCDynamicStoreRef		__nullable	store,
+					CFDictionaryRef			__nullable	keysToSet,
+					CFArrayRef			__nullable	keysToRemove,
+					CFArrayRef			__nullable	keysToNotify
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -376,8 +378,8 @@ SCDynamicStoreSetMultiple		(
  */
 Boolean
 SCDynamicStoreRemoveValue		(
-					SCDynamicStoreRef		store,
-					CFStringRef			key
+					SCDynamicStoreRef		__nullable	store,
+					CFStringRef					key
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -392,8 +394,8 @@ SCDynamicStoreRemoveValue		(
  */
 Boolean
 SCDynamicStoreNotifyValue		(
-					SCDynamicStoreRef		store,
-					CFStringRef			key
+					SCDynamicStoreRef		__nullable	store,
+					CFStringRef					key
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -410,9 +412,9 @@ SCDynamicStoreNotifyValue		(
  */
 Boolean
 SCDynamicStoreSetNotificationKeys	(
-					SCDynamicStoreRef		store,
-					CFArrayRef			keys,
-					CFArrayRef			patterns
+					SCDynamicStoreRef				store,
+					CFArrayRef			__nullable	keys,
+					CFArrayRef			__nullable	patterns
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -427,12 +429,15 @@ SCDynamicStoreSetNotificationKeys	(
 		NULL if an error was encountered.
 		You must release the returned value.
  */
-CFArrayRef
+CFArrayRef __nullable
 SCDynamicStoreCopyNotifiedKeys		(
 					SCDynamicStoreRef		store
 					)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 __END_DECLS
+
+CF_ASSUME_NONNULL_END
+CF_IMPLICIT_BRIDGING_DISABLED
 
 #endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #endif	/* _SCDYNAMICSTORE_H */

@@ -20,7 +20,7 @@
 #include "config.h"
 #include "WebSoupCustomProtocolRequestManagerClient.h"
 
-#if ENABLE(CUSTOM_PROTOCOLS)
+#include "WebSoupCustomProtocolRequestManager.h"
 
 namespace WebKit {
 
@@ -29,8 +29,8 @@ bool WebSoupCustomProtocolRequestManagerClient::startLoading(WebSoupCustomProtoc
     if (!m_client.startLoading)
         return false;
 
-    RefPtr<API::URLRequest> urlRequest = API::URLRequest::create(request);
-    m_client.startLoading(toAPI(soupRequestManager), customProtocolID, toAPI(urlRequest.get()), m_client.base.clientInfo);
+    Ref<API::URLRequest> urlRequest = API::URLRequest::create(request);
+    m_client.startLoading(toAPI(soupRequestManager), customProtocolID, toAPI(urlRequest.ptr()), m_client.base.clientInfo);
     return true;
 }
 
@@ -41,5 +41,3 @@ void WebSoupCustomProtocolRequestManagerClient::stopLoading(WebSoupCustomProtoco
 }
 
 } // namespace WebKit
-
-#endif // ENABLE(CUSTOM_PROTOCOLS)

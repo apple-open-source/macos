@@ -34,6 +34,7 @@
 #include "Path.h"
 #include "RenderStyleConstants.h"
 #include <wtf/RefCounted.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -51,8 +52,8 @@ public:
     virtual bool operator==(const ClipPathOperation&) const = 0;
     bool operator!=(const ClipPathOperation& o) const { return !(*this == o); }
 
-    virtual OperationType type() const { return m_type; }
-    virtual bool isSameType(const ClipPathOperation& o) const { return o.type() == m_type; }
+    OperationType type() const { return m_type; }
+    bool isSameType(const ClipPathOperation& o) const { return o.type() == m_type; }
 
 protected:
     explicit ClipPathOperation(OperationType type)
@@ -63,11 +64,11 @@ protected:
     OperationType m_type;
 };
 
-class ReferenceClipPathOperation : public ClipPathOperation {
+class ReferenceClipPathOperation final : public ClipPathOperation {
 public:
-    static PassRefPtr<ReferenceClipPathOperation> create(const String& url, const String& fragment)
+    static Ref<ReferenceClipPathOperation> create(const String& url, const String& fragment)
     {
-        return adoptRef(new ReferenceClipPathOperation(url, fragment));
+        return adoptRef(*new ReferenceClipPathOperation(url, fragment));
     }
 
     const String& url() const { return m_url; }
@@ -93,20 +94,19 @@ private:
     String m_fragment;
 };
 
-class ShapeClipPathOperation : public ClipPathOperation {
+class ShapeClipPathOperation final : public ClipPathOperation {
 public:
-    static PassRefPtr<ShapeClipPathOperation> create(PassRefPtr<BasicShape> shape)
+    static Ref<ShapeClipPathOperation> create(Ref<BasicShape>&& shape)
     {
-        return adoptRef(new ShapeClipPathOperation(shape));
+        return adoptRef(*new ShapeClipPathOperation(WTF::move(shape)));
     }
 
-    const BasicShape* basicShape() const { return m_shape.get(); }
-    WindRule windRule() const { return m_shape->windRule(); }
-    const Path pathForReferenceRect(const FloatRect& boundingRect) const
+    const BasicShape& basicShape() const { return m_shape; }
+    WindRule windRule() const { return m_shape.get().windRule(); }
+    const Path pathForReferenceRect(const FloatRect& boundingRect)
     {
-        ASSERT(m_shape);
         Path path;
-        m_shape->path(path, boundingRect);
+        m_shape.get().path(path, boundingRect);
         return path;
     }
 
@@ -114,33 +114,33 @@ public:
     CSSBoxType referenceBox() const { return m_referenceBox; }
 
 private:
-    virtual bool operator==(const ClipPathOperation& o) const override
+    virtual bool operator==(const ClipPathOperation& other) const override
     {
-        if (!isSameType(o))
+        if (!isSameType(other))
             return false;
-        const ShapeClipPathOperation* other = static_cast<const ShapeClipPathOperation*>(&o);
-        return m_shape == other->m_shape;
+        const auto& shapeClip = downcast<ShapeClipPathOperation>(other);
+        return m_shape.ptr() == shapeClip.m_shape.ptr();
     }
 
-    explicit ShapeClipPathOperation(PassRefPtr<BasicShape> shape)
+    explicit ShapeClipPathOperation(Ref<BasicShape>&& shape)
         : ClipPathOperation(Shape)
-        , m_shape(shape)
+        , m_shape(WTF::move(shape))
         , m_referenceBox(BoxMissing)
     {
     }
 
-    RefPtr<BasicShape> m_shape;
+    Ref<BasicShape> m_shape;
     CSSBoxType m_referenceBox;
 };
 
-class BoxClipPathOperation : public ClipPathOperation {
+class BoxClipPathOperation final : public ClipPathOperation {
 public:
-    static PassRefPtr<BoxClipPathOperation> create(CSSBoxType referenceBox)
+    static Ref<BoxClipPathOperation> create(CSSBoxType referenceBox)
     {
-        return adoptRef(new BoxClipPathOperation(referenceBox));
+        return adoptRef(*new BoxClipPathOperation(referenceBox));
     }
 
-    const Path pathForReferenceRect(const RoundedRect& boundingRect) const
+    const Path pathForReferenceRect(const FloatRoundedRect& boundingRect) const
     {
         Path path;
         path.addRoundedRect(boundingRect);
@@ -166,13 +166,15 @@ private:
     CSSBoxType m_referenceBox;
 };
 
-#define CLIP_PATH_OPERATION_CASTS(ToValueTypeName, predicate) \
-    TYPE_CASTS_BASE(ToValueTypeName, ClipPathOperation, operation, operation->type() == ClipPathOperation::predicate, operation.type() == ClipPathOperation::predicate)
-
-CLIP_PATH_OPERATION_CASTS(ReferenceClipPathOperation, Reference)
-CLIP_PATH_OPERATION_CASTS(ShapeClipPathOperation, Shape)
-CLIP_PATH_OPERATION_CASTS(BoxClipPathOperation, Box)
-
 } // namespace WebCore
+
+#define SPECIALIZE_TYPE_TRAITS_CLIP_PATH_OPERATION(ToValueTypeName, predicate) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToValueTypeName) \
+    static bool isType(const WebCore::ClipPathOperation& operation) { return operation.type() == WebCore::predicate; } \
+SPECIALIZE_TYPE_TRAITS_END()
+
+SPECIALIZE_TYPE_TRAITS_CLIP_PATH_OPERATION(ReferenceClipPathOperation, ClipPathOperation::Reference)
+SPECIALIZE_TYPE_TRAITS_CLIP_PATH_OPERATION(ShapeClipPathOperation, ClipPathOperation::Shape)
+SPECIALIZE_TYPE_TRAITS_CLIP_PATH_OPERATION(BoxClipPathOperation, ClipPathOperation::Box)
 
 #endif // ClipPathOperation_h

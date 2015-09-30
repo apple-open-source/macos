@@ -1,0 +1,7 @@
+SRCROOT=$PWD
+antlr=$SRCROOT/antlr2/antlr.jar
+DEBUG=""
+mkdir -p $SRCROOT/lib
+rm -f $SRCROOT/lib/Requirement{Parser,Lexer}*
+java -cp "$antlr" antlr.Tool -o $SRCROOT/lib $DEBUG requirements.grammar || exit 1
+sed -n 's/^.*=\(".*"\)=.*$/        \1,/p' $SRCROOT/lib/RequirementParserTokenTypes.txt >$SRCROOT/lib/RequirementKeywords.h

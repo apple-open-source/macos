@@ -30,6 +30,7 @@
 #include "InjectedBundleNodeHandle.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
+#include "WebFrame.h"
 
 using namespace WebKit;
 
@@ -42,6 +43,12 @@ WKBundleNodeHandleRef WKBundleHitTestResultCopyNodeHandle(WKBundleHitTestResultR
 {
     RefPtr<InjectedBundleNodeHandle> nodeHandle = toImpl(hitTestResultRef)->nodeHandle();
     return toAPI(nodeHandle.release().leakRef());
+}
+
+WKBundleNodeHandleRef WKBundleHitTestResultCopyURLElementHandle(WKBundleHitTestResultRef hitTestResultRef)
+{
+    RefPtr<InjectedBundleNodeHandle> urlElementNodeHandle = toImpl(hitTestResultRef)->urlElementHandle();
+    return toAPI(urlElementNodeHandle.release().leakRef());
 }
 
 WKBundleFrameRef WKBundleHitTestResultGetFrame(WKBundleHitTestResultRef hitTestResultRef)

@@ -31,26 +31,30 @@
 #if PLATFORM(IOS)
 
 #import "GestureTypes.h"
+#import "WKActionSheetAssistant.h"
 #import "WKContentViewInteraction.h"
 #import "_WKActivatedElementInfoInternal.h"
-#import <SafariServices/SSReadingList.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/SoftLinking.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/text/WTFString.h>
 
+#if HAVE(SAFARI_SERVICES_FRAMEWORK)
+#import <SafariServices/SSReadingList.h>
 SOFT_LINK_FRAMEWORK(SafariServices);
 SOFT_LINK_CLASS(SafariServices, SSReadingList);
+#endif
 
-typedef void (^WKElementActionHandlerInternal)(WKContentView *, _WKActivatedElementInfo *);
+typedef void (^WKElementActionHandlerInternal)(WKActionSheetAssistant *, _WKActivatedElementInfo *);
 
 @implementation _WKElementAction  {
     RetainPtr<NSString> _title;
     WKElementActionHandlerInternal _actionHandler;
     WKElementActionDismissalHandler _dismissalHandler;
+    __weak WKActionSheetAssistant *_defaultActionSheetAssistant;
 }
 
-- (id)_initWithTitle:(NSString *)title actionHandler:(WKElementActionHandlerInternal)handler type:(_WKElementActionType)type
+- (id)_initWithTitle:(NSString *)title actionHandler:(WKElementActionHandlerInternal)handler type:(_WKElementActionType)type assistant:(WKActionSheetAssistant *)assistant
 {
     if (!(self = [super init]))
         return nil;
@@ -58,6 +62,7 @@ typedef void (^WKElementActionHandlerInternal)(WKContentView *, _WKActivatedElem
     _title = adoptNS([title copy]);
     _type = type;
     _actionHandler = [handler copy];
+    _defaultActionSheetAssistant = assistant;
     return self;
 }
 
@@ -71,20 +76,11 @@ typedef void (^WKElementActionHandlerInternal)(WKContentView *, _WKActivatedElem
 
 + (instancetype)elementActionWithTitle:(NSString *)title actionHandler:(WKElementActionHandler)handler
 {
-    return [[[self alloc] _initWithTitle:title actionHandler:^(WKContentView *view, _WKActivatedElementInfo *actionInfo) { handler(actionInfo); }
-       type:_WKElementActionTypeCustom] autorelease];
+    return [[[self alloc] _initWithTitle:title actionHandler:^(WKActionSheetAssistant *, _WKActivatedElementInfo *actionInfo) { handler(actionInfo); }
+        type:_WKElementActionTypeCustom assistant:nil] autorelease];
 }
 
-static void copyElement(WKContentView *view)
-{
-    [view _performAction:WebKit::SheetAction::Copy];
-}
-
-static void saveImage(WKContentView *view)
-{
-    [view _performAction:WebKit::SheetAction::SaveImage];
-}
-
+#if HAVE(SAFARI_SERVICES_FRAMEWORK)
 static void addToReadingList(NSURL *targetURL, NSString *title)
 {
     if (!title || [title length] == 0)
@@ -92,42 +88,61 @@ static void addToReadingList(NSURL *targetURL, NSString *title)
 
     [[getSSReadingListClass() defaultReadingList] addReadingListItemWithURL:targetURL title:title previewText:nil error:nil];
 }
+#endif
 
-+ (instancetype)elementActionWithType:(_WKElementActionType)type customTitle:(NSString *)customTitle
++ (instancetype)_elementActionWithType:(_WKElementActionType)type title:(NSString *)title actionHandler:(WKElementActionHandler)actionHandler
+{
+    WKElementActionHandlerInternal handler = ^(WKActionSheetAssistant *, _WKActivatedElementInfo *actionInfo) { actionHandler(actionInfo); };
+    return [[[self alloc] _initWithTitle:title actionHandler:handler type:type assistant:nil] autorelease];
+}
+
++ (instancetype)_elementActionWithType:(_WKElementActionType)type customTitle:(NSString *)customTitle assistant:(WKActionSheetAssistant *)assistant
 {
     NSString *title;
     WKElementActionHandlerInternal handler;
     switch (type) {
     case _WKElementActionTypeCopy:
-        title = WEB_UI_STRING_KEY("Copy", "Copy ActionSheet Link", "Title for Copy Link or Image action button");
-        handler = ^(WKContentView *view, _WKActivatedElementInfo *actionInfo) {
-            copyElement(view);
+        title = WEB_UI_STRING_KEY("Copy", "Copy (ActionSheet)", "Title for Copy Link or Image action button");
+        handler = ^(WKActionSheetAssistant *assistant, _WKActivatedElementInfo *actionInfo) {
+            [assistant.delegate actionSheetAssistant:assistant performAction:WebKit::SheetAction::Copy];
         };
         break;
     case _WKElementActionTypeOpen:
-        title = WEB_UI_STRING_KEY("Open", "Open ActionSheet Link", "Title for Open Link action button");
-        handler = ^(WKContentView *view, _WKActivatedElementInfo *actionInfo) {
-            [view _attemptClickAtLocation:actionInfo._interactionLocation];
+        title = WEB_UI_STRING("Open", "Title for Open Link action button");
+        handler = ^(WKActionSheetAssistant *assistant, _WKActivatedElementInfo *actionInfo) {
+            [assistant.delegate actionSheetAssistant:assistant openElementAtLocation:actionInfo._interactionLocation];
         };
         break;
     case _WKElementActionTypeSaveImage:
-        title = WEB_UI_STRING_KEY("Save Image", "Save Image", "Title for Save Image action button");
-        handler = ^(WKContentView *view, _WKActivatedElementInfo *actionInfo) {
-            saveImage(view);
+        title = WEB_UI_STRING("Save Image", "Title for Save Image action button");
+        handler = ^(WKActionSheetAssistant *assistant, _WKActivatedElementInfo *actionInfo) {
+            [assistant.delegate actionSheetAssistant:assistant performAction:WebKit::SheetAction::SaveImage];
         };
         break;
+#if HAVE(SAFARI_SERVICES_FRAMEWORK)
     case _WKElementActionTypeAddToReadingList:
         title = WEB_UI_STRING("Add to Reading List", "Title for Add to Reading List action button");
-        handler = ^(WKContentView *view, _WKActivatedElementInfo *actionInfo) {
+        handler = ^(WKActionSheetAssistant *, _WKActivatedElementInfo *actionInfo) {
             addToReadingList(actionInfo.URL, actionInfo.title);
         };
         break;
+#endif
     default:
         [NSException raise:NSInvalidArgumentException format:@"There is no standard web element action of type %ld.", (long)type];
         return nil;
     }
 
-    return [[[self alloc] _initWithTitle:(customTitle ? customTitle : title) actionHandler:handler type:type] autorelease];
+    return [[[self alloc] _initWithTitle:(customTitle ? customTitle : title) actionHandler:handler type:type assistant:assistant] autorelease];
+}
+
++ (instancetype)_elementActionWithType:(_WKElementActionType)type assistant:(WKActionSheetAssistant *)assistant
+{
+    return [self _elementActionWithType:type customTitle:nil assistant:assistant];
+}
+
++ (instancetype)elementActionWithType:(_WKElementActionType)type customTitle:(NSString *)customTitle
+{
+    return [self _elementActionWithType:type customTitle:customTitle assistant:nil];
 }
 
 + (instancetype)elementActionWithType:(_WKElementActionType)type
@@ -140,9 +155,14 @@ static void addToReadingList(NSURL *targetURL, NSString *title)
     return _title.get();
 }
 
-- (void)_runActionWithElementInfo:(_WKActivatedElementInfo *)info view:(WKContentView *)view
+- (void)_runActionWithElementInfo:(_WKActivatedElementInfo *)info forActionSheetAssistant:(WKActionSheetAssistant *)assistant
 {
-    _actionHandler(view, info);
+    _actionHandler(assistant, info);
+}
+
+- (void)runActionWithElementInfo:(_WKActivatedElementInfo *)info
+{
+    [self _runActionWithElementInfo:info forActionSheetAssistant:_defaultActionSheetAssistant];
 }
 
 @end

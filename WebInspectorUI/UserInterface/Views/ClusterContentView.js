@@ -27,7 +27,7 @@ WebInspector.ClusterContentView = function(representedObject)
 {
     WebInspector.ContentView.call(this, representedObject);
 
-    this.element.classList.add(WebInspector.ClusterContentView.StyleClassName);
+    this.element.classList.add("cluster");
 
     this._contentViewContainer = new WebInspector.ContentViewContainer();
     this._contentViewContainer.addEventListener(WebInspector.ContentViewContainer.Event.CurrentContentViewDidChange, this._currentContentViewDidChange, this);
@@ -37,8 +37,6 @@ WebInspector.ClusterContentView = function(representedObject)
     WebInspector.ContentView.addEventListener(WebInspector.ContentView.Event.SupplementalRepresentedObjectsDidChange, this._contentViewSupplementalRepresentedObjectsDidChange, this);
     WebInspector.ContentView.addEventListener(WebInspector.ContentView.Event.NumberOfSearchResultsDidChange, this._contentViewNumberOfSearchResultsDidChange, this);
 };
-
-WebInspector.ClusterContentView.StyleClassName = "cluster";
 
 WebInspector.ClusterContentView.prototype = {
     constructor: WebInspector.ClusterContentView,
@@ -84,9 +82,7 @@ WebInspector.ClusterContentView.prototype = {
     {
         this._contentViewContainer.closeAllContentViews();
 
-        WebInspector.ContentView.removeEventListener(WebInspector.ContentView.Event.SelectionPathComponentsDidChange, this._contentViewSelectionPathComponentDidChange, this);
-        WebInspector.ContentView.removeEventListener(WebInspector.ContentView.Event.SupplementalRepresentedObjectsDidChange, this._contentViewSupplementalRepresentedObjectsDidChange, this);
-        WebInspector.ContentView.removeEventListener(WebInspector.ContentView.Event.NumberOfSearchResultsDidChange, this._contentViewNumberOfSearchResultsDidChange, this);
+        WebInspector.ContentView.removeEventListener(null, null, this);
     },
 
     canGoBack: function()
@@ -101,12 +97,12 @@ WebInspector.ClusterContentView.prototype = {
 
     goBack: function()
     {
-        this._contentViewContainer.goBack()
+        this._contentViewContainer.goBack();
     },
 
     goForward: function()
     {
-        this._contentViewContainer.goForward()
+        this._contentViewContainer.goForward();
     },
 
     get selectionPathComponents()

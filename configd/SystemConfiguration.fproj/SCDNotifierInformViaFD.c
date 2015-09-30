@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2008-2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2008-2011, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -78,7 +78,7 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 
 	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_NOTICE, CFSTR("SCDynamicStoreNotifyFileDescriptor socket(): %s"), strerror(errno));
+		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 		return FALSE;
 	}
 
@@ -104,7 +104,7 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 
 	if (bind(sock, (struct sockaddr *)&un, sizeof(un)) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_NOTICE, CFSTR("SCDynamicStoreNotifyFileDescriptor bind(): %s"), strerror(errno));
+		SC_log(LOG_ERR, "bind() failed: %s", strerror(errno));
 		(void) unlink(un.sun_path);
 		(void) close(sock);
 		return FALSE;
@@ -112,7 +112,7 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 
 	if (listen(sock, 0) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_NOTICE, CFSTR("SCDynamicStoreNotifyFileDescriptor listen(): %s"), strerror(errno));
+		SC_log(LOG_ERR, "listen() failed: %s", strerror(errno));
 		(void) unlink(un.sun_path);
 		(void) close(sock);
 		return FALSE;
@@ -142,9 +142,7 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);
-		SCLog(TRUE, LOG_NOTICE,
-		      CFSTR("SCDynamicStoreNotifyFileDescriptor server error: %s"),
-		      SCErrorString(sc_status));
+		SC_log(LOG_NOTICE, "SCDynamicStoreNotifyFileDescriptor server error: %s", SCErrorString(sc_status));
 		(void) close(sock);
 		return FALSE;
 	}
@@ -152,7 +150,7 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 	*fd = accept(sock, 0, 0);
 	if (*fd == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_NOTICE, CFSTR("SCDynamicStoreNotifyFileDescriptor accept(): %s"), strerror(errno));
+		SC_log(LOG_ERR, "accept() failed: %s", strerror(errno));
 		(void) close(sock);
 		return FALSE;
 	}

@@ -30,9 +30,12 @@
 #include "DeferGC.h"
 #include "Handle.h"
 #include "JSCell.h"
+#include "JSDestructibleObject.h"
 #include "JSObject.h"
 #include "JSString.h"
+#include "MarkedBlock.h"
 #include "Structure.h"
+#include "Symbol.h"
 #include <wtf/CompilationThread.h>
 
 namespace JSC {
@@ -110,18 +113,24 @@ inline void JSCell::visitChildren(JSCell* cell, SlotVisitor& visitor)
     visitor.appendUnbarrieredPointer(&structure);
 }
 
+inline VM* JSCell::vm() const
+{
+    return MarkedBlock::blockFor(this)->vm();
+}
+
+inline VM& ExecState::vm() const
+{
+    ASSERT(callee());
+    ASSERT(callee()->vm());
+    return *calleeAsValue().asCell()->vm();
+}
+
 template<typename T>
 void* allocateCell(Heap& heap, size_t size)
 {
     ASSERT(!DisallowGC::isGCDisallowedOnCurrentThread());
     ASSERT(size >= sizeof(T));
-    JSCell* result = 0;
-    if (T::needsDestruction && T::hasImmortalStructure)
-        result = static_cast<JSCell*>(heap.allocateWithImmortalStructureDestructor(size));
-    else if (T::needsDestruction)
-        result = static_cast<JSCell*>(heap.allocateWithNormalDestructor(size));
-    else 
-        result = static_cast<JSCell*>(heap.allocateWithoutDestructor(size));
+    JSCell* result = static_cast<JSCell*>(heap.allocateObjectOfType<T>(size));
 #if ENABLE(GC_VALIDATION)
     ASSERT(!heap.vm()->isInitializingObject());
     heap.vm()->setInitializingObjectClass(T::info());
@@ -151,6 +160,11 @@ inline bool JSCell::isString() const
     return m_type == StringType;
 }
 
+inline bool JSCell::isSymbol() const
+{
+    return m_type == SymbolType;
+}
+
 inline bool JSCell::isGetterSetter() const
 {
     return m_type == GetterSetterType;
@@ -173,7 +187,6 @@ inline bool JSCell::isAPIValueWrapper() const
 
 inline void JSCell::setStructure(VM& vm, Structure* structure)
 {
-    ASSERT(structure->typeInfo().overridesVisitChildren() == this->structure()->typeInfo().overridesVisitChildren());
     ASSERT(structure->classInfo() == this->structure()->classInfo());
     ASSERT(!this->structure()
         || this->structure()->transitionWatchpointSetHasBeenInvalidated()
@@ -209,16 +222,10 @@ inline bool JSCell::inherits(const ClassInfo* info) const
     return classInfo()->isSubClassOf(info);
 }
 
-// Fast call to get a property where we may not yet have converted the string to an
-// identifier. The first time we perform a property access with a given string, try
-// performing the property map lookup without forming an identifier. We detect this
-// case by checking whether the hash has yet been set for this string.
-ALWAYS_INLINE JSValue JSCell::fastGetOwnProperty(VM& vm, Structure& structure, const String& name)
+ALWAYS_INLINE JSValue JSCell::fastGetOwnProperty(VM& vm, Structure& structure, PropertyName name)
 {
     ASSERT(canUseFastGetOwnProperty(structure));
-    PropertyOffset offset = name.impl()->hasHash()
-        ? structure.get(vm, Identifier(&vm, name))
-        : structure.get(vm, name);
+    PropertyOffset offset = structure.get(vm, name);
     if (offset != invalidOffset)
         return asObject(this)->locationForOffset(offset)->get();
     return JSValue();
@@ -231,17 +238,27 @@ inline bool JSCell::canUseFastGetOwnProperty(const Structure& structure)
         && !structure.typeInfo().overridesGetOwnPropertySlot();
 }
 
+inline const ClassInfo* JSCell::classInfo() const
+{
+    MarkedBlock* block = MarkedBlock::blockFor(this);
+    if (block->needsDestruction() && !(inlineTypeFlags() & StructureIsImmortal))
+        return static_cast<const JSDestructibleObject*>(this)->classInfo();
+    return structure(*block->vm())->classInfo();
+}
+
 inline bool JSCell::toBoolean(ExecState* exec) const
 {
-    if (isString()) 
+    if (isString())
         return static_cast<const JSString*>(this)->toBoolean();
     return !structure()->masqueradesAsUndefined(exec->lexicalGlobalObject());
 }
 
 inline TriState JSCell::pureToBoolean() const
 {
-    if (isString()) 
+    if (isString())
         return static_cast<const JSString*>(this)->toBoolean() ? TrueTriState : FalseTriState;
+    if (isSymbol())
+        return TrueTriState;
     return MixedTriState;
 }
 

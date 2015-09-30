@@ -46,6 +46,7 @@
 #include <libc.h>
 #include <pthread.h>
 #include <mach/host_priv.h>
+#include <mach/machine.h>
 #include <zlib.h>
 #include <sys/file.h>
 #include <sys/mman.h>
@@ -58,6 +59,7 @@
 #include "fat_util.h"
 #include "macho_util.h"
 #include "misc_util.h"
+#include "cross_link.h"
 
 #define SHARED_EXECUTABLE 1
 
@@ -164,7 +166,7 @@ typedef struct __OSKext {
 
    /* May be flushed, may need to reload from disk.
     */
-    CFDictionaryRef       infoDictionary;  // read with IOCFUnserialize()
+    CFMutableDictionaryRef  infoDictionary;  // read with IOCFUnserialize()
 
    /* Allocated and maintained as necessary. */
     __OSKextDiagnostics * diagnostics;
@@ -234,6 +236,13 @@ typedef struct __OSKext {
 #define __kStringUnknown                 "(unknown)"
 
 #define __kOSKextMaxKextDisplacement_x86_64	(2 * 1024 * 1024 * 1024ULL)
+
+/* Used when reading OSKextExcludeList
+ */
+#define __kOSKextExcludeListKey             CFSTR("OSKextExcludeList")
+#define __kOSKextExcludeListVersionKey      CFSTR("Versions")
+#define __kOSKextExcludeListAnyMatchKey     CFSTR("Any_Match")
+#define __kOSKextExcludeListAllMatchKey     CFSTR("All_Match")
 
 /*********************************************************************
  * Kext Cache Stuff
@@ -845,6 +854,10 @@ static u_long __OSKextCopyPrelinkInfoDictionary(
     CFDataRef prelinkInfoData,
     u_long fileOffset,
     uint64_t sourceAddr);
+
+static Boolean _excludeThisVersion(OSKextVersion theKextVers,
+                                   CFStringRef theExcludedKextVers);
+
 #endif /* !IOKIT_EMBEDDED */
 
 CFComparisonResult __OSKextCompareIdentifiers(
@@ -859,6 +872,10 @@ CFStringRef __OSKextCopyExecutableRelativePath(OSKextRef aKext);
 static bool __OSKextShouldLog(
     OSKextRef        aKext,
     OSKextLogSpec    msgLogSpec);
+
+Boolean _isArray(CFTypeRef);
+Boolean _isDictionary(CFTypeRef);
+Boolean _isString(CFTypeRef);
 
 #pragma mark Function-Like Macros
 /*********************************************************************
@@ -1639,7 +1656,7 @@ static Boolean __OSKextInitFromMkext(
         // xxx - if we support mkext1 format, they definitely won't!
         // xxx - goto finish; // ?
     }
-    aKext->infoDictionary = CFRetain(infoDict);
+    aKext->infoDictionary = CFDictionaryCreateMutableCopy(CFGetAllocator(infoDict), 0, infoDict);
 
     if (!__OSKextCreateMkextInfo(aKext)) {
         OSKextLogMemError();
@@ -6099,7 +6116,9 @@ CFDataRef OSKextCopyExecutableForArchitecture(
 
                 goto finish;
             }
-            
+
+            /* We want to use the host PAGE_SIZE here, not the target page
+             * size since we're checking to do an mmap */
             if ((1 << fatArchInfo.align) == PAGE_SIZE) {
                 result = __OSKextMapExecutable(aKext,
                     /* offset */ fatArchInfo.offset,
@@ -6234,18 +6253,6 @@ finish:
 
 #ifndef IOKIT_EMBEDDED
 
-#define GET_CSTRING_PTR(the_cfstring, the_ptr, the_buffer, the_size) \
-do { \
-    the_ptr = CFStringGetCStringPtr(the_cfstring, kCFStringEncodingUTF8); \
-    if (the_ptr == NULL) { \
-        the_buffer[0] = 0x00; \
-        the_ptr = the_buffer;  \
-        CFStringGetCString(the_cfstring, the_buffer, the_size, kCFStringEncodingUTF8); \
-    } \
-} while(0)
-
-#define isWhiteSpace(c)	((c) == ' ' || (c) == '\t' || (c) == '\r' || (c) == '\n')
-
 /*********************************************************************
  * OSKextIsInExcludeList checks to see if the given kext is in the 
  * kext exclude list (com.apple.driver.KextExcludeList).  If useCache
@@ -6289,7 +6296,7 @@ Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
         
         excludelistDict = OSKextGetValueForInfoDictionaryKey(
                                                 excludelistKext,
-                                                CFSTR("OSKextExcludeList"));
+                                                __kOSKextExcludeListKey);
         if (!excludelistDict) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -6307,10 +6314,28 @@ Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
        }
     }
     
+#define __kOSKextExcludeListAnyMatchKey     CFSTR("Any_Match")
+#define __kOSKextExcludeListAllMatchKey     CFSTR("All_Match")
+
+    
     /*********************************************************************
      * myDictionary is a dictionary with keys / values of:
      *  key = bundleID string of kext we will not allow to load
-     *  value = version string(s) of kexts to not load.
+     *  value = version string(s) of kexts to not load (see below for details 
+     *          about the version strings)
+     *
+     *  key = bundleID string of kext we will not allow to load
+     *  value = dictionary with keys / values of:
+     *    key = "Any_Match" (optional)
+     *    value = array of matching dictionaries to search for in IORegistry
+     *      If the array is present and not empty then one of the matching
+     *      dictionaries has to be found for us to exclude this kext.
+     *    key = "All_Match" (optional)
+     *    value = array of matching dictionaries to search for in IORegistry
+     *      If the array is present and not empty then all of the matching
+     *      dictionaries must be found for us to exclude this kext.
+     *    key = "Versions"
+     *    value = version string(s) of kexts to not load.
      *      The version strings can be comma delimited.  For example if kext
      *      com.foocompany.fookext has two versions that we want to deny
      *      adding to kernel cache then the version strings might look like:
@@ -6334,17 +6359,62 @@ Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
      *      Which would exclude all versions less than or equal to 1.5.0,
      *      versions 2.0.0 thru 3.1.4, version 4.2.2 and versions 4.9.0 thru 
      *      5.1.0
+     *
+     * Example using "Any_Match", IONameMatch name must match "MacPro6,1" and
+     * the IOPropertyMatch must match with a "board-id" of Mac-F60DEB81FF30ACF6
+     * and FooKext must be less than or equal to 7.0 to exclude FooKextlocal
+     
+     
+     <key>OSKextExcludeList</key>
+     <dict>
+        <key>com.foo.FooKext</key>
+        <dict>
+            <key>Versions</key>
+            <string>LE 7.0</string>
+            <key>Any_Match</key>
+            <array>
+            <dict>
+                <key>IONameMatch</key>
+                <string>MacPro6,1</string>
+                <key>IOPropertyMatch</key>
+                <dict>
+                    <key>board-id</key>
+                    <string>Mac-F60DEB81FF30ACF6</string>
+                </dict>
+            </dict>
+            </array>
+        </dict>
+     </dict>
+     
+     * Example using "All_Match", both IONameMatch names must be
+     * matched and FooKext must be version 5.0.3 in order to exclude FooKext
+     
+     <key>OSKextExcludeList</key>
+     <dict>
+        <key>com.foo.FooKext</key>
+        <dict>
+            <key>Versions</key>
+            <string>5.0.3</string>
+            <key>All_Match</key>
+            <array>
+            <dict>
+                <key>IONameMatch</key>
+                <string>MacPro6,1</string>
+            </dict>
+            <dict>
+                <key>IONameMatch</key>
+                <string>AMDTahitiGraphicsAccelerator</string>
+            </dict>
+            </array>
+        </dict>
+     </dict>
      *********************************************************************/
     if (theKext != NULL) {
-        CFStringRef     bundleID                = NULL;  // do NOT release
-        CFStringRef     excludedKextVersString  = NULL;  // do NOT release
+        CFArrayRef      excludedKextArray       = NULL; // do NOT release
+        CFStringRef     bundleID                = NULL; // do NOT release
+        CFStringRef     excludedKextVersString  = NULL; // do NOT release
         OSKextVersion   kextVers                = -1;
-        const char *    versCString             = NULL;  // do not free
-        size_t          i, j;
-        Boolean         wantLessThan            = FALSE;
-        Boolean         wantLessThanEqualTo     = FALSE;
-        Boolean         needUpperRange          = FALSE;
-        char            versBuffer[256];
+        CFDictionaryRef excludedKextDict        = NULL; // do NOT release
         
         bundleID = OSKextGetIdentifier(theKext);
         if (!bundleID) {
@@ -6364,149 +6434,246 @@ Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
             goto finish;
         }
         
-        excludedKextVersString = CFDictionaryGetValue(myDictionary, bundleID);
-        if (!excludedKextVersString) {
-            goto finish;
-        }
-        
-        /* parse version strings */
-        GET_CSTRING_PTR(excludedKextVersString,
-                        versCString,
-                        versBuffer,
-                        sizeof(versBuffer));
-        if (strlen(versCString) < 1) {
-            goto finish;
-        }
-        /* look for "LT" or "LE" form of version string, must be in first two
-         * positions.
+        /* The value can be either a string or a dictionary, if a string then
+         * we have the simpler exclusion with just the version(s) to check.
          */
-        if (strlen(versCString) > 1) {
-            if (*versCString == 'L' && *(versCString + 1) == 'T') {
-                wantLessThan = true;
-                versCString +=2;
-            }
-            else if (*versCString == 'L' && *(versCString + 1) == 'E') {
-                wantLessThanEqualTo = true;
-                versCString +=2;
-            }
+        excludedKextVersString = CFDictionaryGetValue(myDictionary,
+                                                      bundleID);
+        if (_isString(excludedKextVersString)) {
+            result = _excludeThisVersion(kextVers, excludedKextVersString);
+            goto finish;
         }
-        
-        for (i = 0, j = 0; i < strlen(versCString) + 1; i++) {
-            Boolean         excludeIt = FALSE;
-            char            myBuffer[32];
-            char            myUpperBuffer[32];
-            
-            /* skip whitespace */
-            if ( isWhiteSpace(*(versCString + i)) ) {
-                continue;
-            }
-            
-            /* look for version string separator or null terminator */
-            if (*(versCString + i) == ',' ||
-                *(versCString + i) == 0x00 ||
-                strncmp(versCString + i, "thru", strlen("thru")) == 0) {
-                
-                if (needUpperRange) {
-                    myUpperBuffer[j] = 0x00;
-                }
-                else {
-                    if (strncmp(versCString + i, "thru", strlen("thru")) == 0) {
-                        needUpperRange = TRUE;
-                        /* OK, we have lower range of version */
-                        myBuffer[j] = 0x00;
-                        i += 3;
-                        j = 0;
-                        continue;
-                   }
-                    else {
-                        /* OK, we have a version string */
-                        myBuffer[j] = 0x00;
-                    }
-                }
- 
-                OSKextVersion excludedKextVers;
-                OSKextVersion excludedKextVersUpper;
-                
-                excludedKextVers = OSKextParseVersionString(myBuffer);
-                if (needUpperRange) {
-                    excludedKextVersUpper = OSKextParseVersionString(myUpperBuffer);
-                    if (kextVers >= excludedKextVers &&
-                        kextVers <= excludedKextVersUpper) {
-                        excludeIt = TRUE;
-                    }
-                }
-                else {
-                    if (wantLessThanEqualTo) {
-                        if (kextVers <= excludedKextVers) {
-                            excludeIt = TRUE;
+      
+        excludedKextDict = CFDictionaryGetValue(myDictionary,
+                                                bundleID);
+        if (_isDictionary(excludedKextDict) == FALSE) {
+            /* no matching bundle ID so we're done */
+            goto finish;
+        }
+  
+        /* Look to see if we have any matching dictionaries to check out.  We 
+         * support:
+         *  an "any" match array, where any match means exclude this kext and
+         *  an "all" match array, where all entries must match to exclude the kext
+         */
+        excludedKextArray = CFDictionaryGetValue(excludedKextDict,
+                                                 __kOSKextExcludeListAnyMatchKey);
+        /* If the array is present and not empty then one of the matching dict
+         * in the array must match for us to exclude this kext.
+         */
+        if (_isArray(excludedKextArray)) {
+            CFIndex len = CFArrayGetCount(excludedKextArray);
+            if (len > 0) {
+                Boolean match = false;
+                for (int i = 0; i < len; i++) {
+                    CFDictionaryRef matchDict; // do NOT release
+                    matchDict = CFArrayGetValueAtIndex(excludedKextArray, i);
+                    if (_isDictionary(matchDict)) {
+                        io_service_t serv;
+                        CFRetain(matchDict); // IOServiceGetMatchingService consumes ref
+                        serv = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                                           matchDict);
+                        if (serv) {
+                            match = true;
+                            IOObjectRelease(serv);
+                            break;
                         }
                     }
-                    else if (wantLessThan) {
-                        if (kextVers < excludedKextVers) {
-                            excludeIt = TRUE;
-                        }
-                    }
-                    else if (kextVers == excludedKextVers)  {
-                        excludeIt = TRUE;
-                    }
-                }
-                
-                if (excludeIt) {
-#if 0
-                    const char *    cp;
-                    char            tempBuffer[256];
-                    
-                    GET_CSTRING_PTR(bundleID, cp, tempBuffer, sizeof(tempBuffer));
-                    
-                    if (needUpperRange) {
-                        OSKextLog(/* kext */ NULL,
-                                  kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
-                                  "bundleID \"%s\" %lld is in exclude list range %lld - %lld",
-                                  cp, kextVers, excludedKextVers, excludedKextVersUpper);
-                    }
-                    else {
-                        OSKextLog(/* kext */ NULL,
-                                  kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
-                                  "bundleID \"%s\" %lld is in exclude list %lld",
-                                  cp, kextVers, excludedKextVers);
-                    }
-#endif
-                    
-                    result = true;
+                } // for ...
+                if (!match) {
+                    /* we didn't find any matches so we shouldn't exclude this 
+                     * kext.
+                     */
                     goto finish;
                 }
-                
-                /* now move to the next (if any) version string */
-                j = 0;
-                wantLessThan = FALSE;
-                wantLessThanEqualTo = FALSE;
-                needUpperRange = FALSE;
             }
-            else {
-                /* save valid version character */
-                if (needUpperRange) {
-                    myUpperBuffer[j++] = *(versCString + i);
-                    /* make sure bogus version string doesn't overrun local buffer */
-                    if ( j >= sizeof(myUpperBuffer) ) {
-                        break; /* bogus form of version string */
+        }
+        
+        excludedKextArray = CFDictionaryGetValue(excludedKextDict,
+                                                 __kOSKextExcludeListAllMatchKey);
+        /* If the array is present and not empty then all of the matching dict
+         * in the array must match for us to exclude this kext.
+         */
+        if (_isArray(excludedKextArray)) {
+            CFIndex len = CFArrayGetCount(excludedKextArray);
+            if (len > 0) {
+                int i;
+                for (i = 0; i < len; i++) {
+                    CFDictionaryRef matchDict; // do NOT release
+                    matchDict = CFArrayGetValueAtIndex(excludedKextArray, i);
+                    if (_isDictionary(matchDict)) {
+                        io_service_t serv;
+                        CFRetain(matchDict); // IOServiceGetMatchingService consumes ref
+                        serv = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                                           matchDict);
+                        if (serv) {
+                            IOObjectRelease(serv);
+                            continue;
+                        }
+                        break;
                     }
-                }
-                else {
-                    myBuffer[j++] = *(versCString + i);
-                    /* make sure bogus version string doesn't overrun local buffer */
-                    if ( j >= sizeof(myBuffer) ) {
-                        break; /* bogus form of version string */
-                    }
+                } // for ...
+                if (i < len) {
+                    /* we didn't find all matches so we shouldn't exclude this
+                     * kext.
+                     */
+                    goto finish;
                 }
             }
-        } // for ...
-    } // theKext != NULL
+        }
+
+        /* now grab the kext version number to check against */
+        excludedKextVersString = CFDictionaryGetValue(excludedKextDict,
+                                                      __kOSKextExcludeListVersionKey);
+        if (_isString(excludedKextVersString)) {
+            result = _excludeThisVersion(kextVers, excludedKextVersString);
+        }
+   } // theKext != NULL
     
 finish:
     SAFE_RELEASE(kextID);
     SAFE_RELEASE(excludelistKext);
     return result;
 }
+
+#define GET_CSTRING_PTR(the_cfstring, the_ptr, the_buffer, the_size) \
+do { \
+the_ptr = CFStringGetCStringPtr(the_cfstring, kCFStringEncodingUTF8); \
+if (the_ptr == NULL) { \
+the_buffer[0] = 0x00; \
+the_ptr = the_buffer;  \
+CFStringGetCString(the_cfstring, the_buffer, the_size, kCFStringEncodingUTF8); \
+} \
+} while(0)
+
+#define isWhiteSpace(c)	((c) == ' ' || (c) == '\t' || (c) == '\r' || (c) == '\n')
+
+static Boolean _excludeThisVersion(OSKextVersion theKextVers,
+                                   CFStringRef theExcludedKextVers)
+{
+    Boolean         result                  = false;
+    size_t          i, j;
+    const char *    versCString             = NULL;  // do not free
+    Boolean         wantLessThan            = FALSE;
+    Boolean         wantLessThanEqualTo     = FALSE;
+    Boolean         needUpperRange          = FALSE;
+    char            versBuffer[256];
+  
+    /* parse version strings */
+    GET_CSTRING_PTR(theExcludedKextVers,
+                    versCString,
+                    versBuffer,
+                    sizeof(versBuffer));
+    if (strlen(versCString) < 1) {
+        goto finish;
+    }
+    /* look for "LT" or "LE" form of version string, must be in first two
+     * positions.
+     */
+    if (strlen(versCString) > 1) {
+        if (*versCString == 'L' && *(versCString + 1) == 'T') {
+            wantLessThan = true;
+            versCString +=2;
+        }
+        else if (*versCString == 'L' && *(versCString + 1) == 'E') {
+            wantLessThanEqualTo = true;
+            versCString +=2;
+        }
+    }
+    
+    for (i = 0, j = 0; i < strlen(versCString) + 1; i++) {
+        Boolean         excludeIt = FALSE;
+        char            myBuffer[32];
+        char            myUpperBuffer[32];
+        
+        /* skip whitespace */
+        if ( isWhiteSpace(*(versCString + i)) ) {
+            continue;
+        }
+        
+        /* look for version string separator or null terminator */
+        if (*(versCString + i) == ',' ||
+            *(versCString + i) == 0x00 ||
+            strncmp(versCString + i, "thru", strlen("thru")) == 0) {
+            
+            if (needUpperRange) {
+                myUpperBuffer[j] = 0x00;
+            }
+            else {
+                if (strncmp(versCString + i, "thru", strlen("thru")) == 0) {
+                    needUpperRange = TRUE;
+                    /* OK, we have lower range of version */
+                    myBuffer[j] = 0x00;
+                    i += 3;
+                    j = 0;
+                    continue;
+                }
+                else {
+                    /* OK, we have a version string */
+                    myBuffer[j] = 0x00;
+                }
+            }
+            
+            OSKextVersion excludedKextVers;
+            OSKextVersion excludedKextVersUpper;
+            
+            excludedKextVers = OSKextParseVersionString(myBuffer);
+            if (needUpperRange) {
+                excludedKextVersUpper = OSKextParseVersionString(myUpperBuffer);
+                if (theKextVers >= excludedKextVers &&
+                    theKextVers <= excludedKextVersUpper) {
+                    excludeIt = TRUE;
+                }
+            }
+            else {
+                if (wantLessThanEqualTo) {
+                    if (theKextVers <= excludedKextVers) {
+                        excludeIt = TRUE;
+                    }
+                }
+                else if (wantLessThan) {
+                    if (theKextVers < excludedKextVers) {
+                        excludeIt = TRUE;
+                    }
+                }
+                else if (theKextVers == excludedKextVers)  {
+                    excludeIt = TRUE;
+                }
+            }
+            
+            if (excludeIt) {
+                result = true;
+                goto finish;
+            }
+            
+            /* now move to the next (if any) version string */
+            j = 0;
+            wantLessThan = FALSE;
+            wantLessThanEqualTo = FALSE;
+            needUpperRange = FALSE;
+        }
+        else {
+            /* save valid version character */
+            if (needUpperRange) {
+                myUpperBuffer[j++] = *(versCString + i);
+                /* make sure bogus version string doesn't overrun local buffer */
+                if ( j >= sizeof(myUpperBuffer) ) {
+                    break; /* bogus form of version string */
+                }
+            }
+            else {
+                myBuffer[j++] = *(versCString + i);
+                /* make sure bogus version string doesn't overrun local buffer */
+                if ( j >= sizeof(myBuffer) ) {
+                    break; /* bogus form of version string */
+                }
+            }
+        }
+    } // for ...
+finish:
+    return result;
+}
+
 #endif /* !IOKIT_EMBEDDED */
 
 #pragma mark Dependency Resolution
@@ -6721,19 +6888,31 @@ Boolean __OSKextResolveDependencies(
         * dig a little more for a proper diagnostic.
         */
         if (dependency) {
-            Boolean kernelComponent = OSKextIsKernelComponent(dependency);
+            Boolean     kernelComponent = OSKextIsKernelComponent(dependency);
+            CFTypeRef   promotion       = OSKextGetValueForInfoDictionaryKey(dependency, CFSTR("OSBundleRequiredPromotion"));
+            Boolean     promotable      = promotion && CFEqual(promotion, kCFBooleanTrue);
 
             __OSKextGetFileSystemPath(dependency, /* otherURL */ NULL,
                 /* resolveToBase */ false, dependencyPath);
             OSKextLog(aKext, kOSKextLogDetailLevel | kOSKextLogDependenciesFlag,
-                "%s found %s%sdependency %s for %s%s.",
+                "%s found %s%s%sdependency %s for %s%s.",
                 kextPath,
                 compatible ? "compatible " : "incompatible ",
+                promotable ? "promotable " : "",
                 loaded ? "loaded " : "",
                 dependencyPath, libIDCString,
                 kernelComponent ? " (kernel component)" : "");
 
-           CFArrayAppendValue(aKext->loadInfo->dependencies, dependency);
+            CFArrayAppendValue(aKext->loadInfo->dependencies, dependency);
+            
+            //
+            if (promotable) {
+                CFStringRef current = (CFStringRef)OSKextGetValueForInfoDictionaryKey(aKext, CFSTR(kOSBundleRequiredKey));
+                if (!current || (CFStringCompare(current, CFSTR(kOSBundleRequiredSafeBoot), 0) == kCFCompareEqualTo)) {
+                    CFDictionarySetValue(aKext->infoDictionary, CFSTR(kOSBundleRequiredKey), CFSTR(kOSBundleRequiredConsole));
+                }
+            }
+            
         } else {
 
             dependency = OSKextGetKextWithIdentifier(libID);
@@ -6758,7 +6937,7 @@ Boolean __OSKextResolveDependencies(
             } else {
                 OSKextLog(aKext,
                     kOSKextLogErrorLevel | kOSKextLogDependenciesFlag,
-                    "%s - no dependency found for %s.",
+                    "%s - dependency '%s' not found.",
                     kextPath, libIDCString);
                 __OSKextAddDiagnostic(aKext,
                     kOSKextDiagnosticsFlagDependencies,
@@ -6856,9 +7035,9 @@ Boolean __OSKextResolveDependencies(
 
             if (!kernel6) {
                 OSKextLog(aKext,
-                    kOSKextLogErrorLevel | kOSKextLogDependenciesFlag,
-                    "%s - no dependency found for %s.",
-                    kextPath, __kOSKextCompatibilityBundleID);
+                          kOSKextLogErrorLevel | kOSKextLogDependenciesFlag,
+                          "%s - dependency '%s' not found.",
+                          kextPath, __kOSKextCompatibilityBundleID);
                 goto finish;
             }
 
@@ -9023,8 +9202,8 @@ CFDataRef __OSKextCopyStrippedExecutable(OSKextRef aKext)
             macho_get_segment_by_name_64((struct mach_header_64 *)file, SEG_LINKEDIT);
         if (!linkedit) goto finish;
 
-        if ((round_page(aKext->loadInfo->loadAddress) + round_page(aKext->loadInfo->loadSize)) !=
-             round_page(linkedit->vmaddr) + round_page(linkedit->vmsize))
+        if ((roundPageCrossSafe(aKext->loadInfo->loadAddress) + roundPageCrossSafe(aKext->loadInfo->loadSize)) !=
+             roundPageCrossSafe(linkedit->vmaddr) + roundPageCrossSafe(linkedit->vmsize))
         {
             goto finish;
         }
@@ -9033,8 +9212,8 @@ CFDataRef __OSKextCopyStrippedExecutable(OSKextRef aKext)
             macho_get_segment_by_name((struct mach_header *)file, SEG_LINKEDIT);
         if (!linkedit) goto finish;
 
-        if ((round_page(aKext->loadInfo->loadAddress) + round_page(aKext->loadInfo->loadSize)) !=
-             round_page(linkedit->vmaddr) + round_page(linkedit->vmsize))
+        if ((roundPageCrossSafe(aKext->loadInfo->loadAddress) + roundPageCrossSafe(aKext->loadInfo->loadSize)) !=
+             roundPageCrossSafe(linkedit->vmaddr) + roundPageCrossSafe(linkedit->vmsize))
         {
             goto finish;
         }
@@ -9044,6 +9223,7 @@ CFDataRef __OSKextCopyStrippedExecutable(OSKextRef aKext)
     if (!macho_trim_linkedit(file, &linkeditSize)) {
         goto finish;
     }
+
     fileSize -= linkeditSize;
     CFDataSetLength(strippedExecutable, fileSize);
 
@@ -9237,6 +9417,21 @@ static Boolean __OSKextPerformLink(
 #endif  // KMOD_INFO_DEBUG
 
             aKext->loadInfo->prelinkedExecutable = __OSKextCopyStrippedExecutable(aKext);
+            if (!aKext->loadInfo->prelinkedExecutable) {
+                char tempStr[1024];
+
+                CFStringGetCString(aKext->bundleID, tempStr, sizeof(tempStr), 
+                                   kCFStringEncodingUTF8);
+                OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
+                          "Can't strip executable for %s", tempStr);
+
+                aKext->loadInfo->prelinkedExecutable = CFRetain(relocData);
+
+                /* XXX: Should we fail here? Seems like the right thing to do for
+                 * security reasons */
+                goto finish;
+            }
+
             aKext->loadInfo->loadSize = CFDataGetLength(aKext->loadInfo->prelinkedExecutable);
 
             // 03/16/12 - <rdar://problem/10980607>
@@ -9469,6 +9664,43 @@ void __OSKextLoggingCallback(
     OSKextVLog(aKext, logSpec, format, argList);
 }
 
+
+/*********************************************************************
+*********************************************************************/
+static uint64_t __OSKextSetupCrossLinkByArch(cpu_type_t cputype)
+{
+    uint64_t kxldPageSize = 0;
+
+#if defined(CPU_TYPE_ARM64)
+    const cpu_type_t arm64_cputype = CPU_TYPE_ARM64;
+#else
+    const cpu_type_t arm64_cputype = CPU_TYPE_ARM | CPU_ARCH_ABI64;
+#endif /* defined(CPU_TYPE_ARM64) */
+
+    /* We will only set cross linking for ARM64 */
+    if (cputype == arm64_cputype) {
+
+        /* We will link the kexts with a 16k page size for all ARM64 */
+        const vm_size_t crossLinkPageSize = 0x4000;
+
+        if (!setCrossLinkPageSize(crossLinkPageSize)) {
+            OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
+                 "Can't setup cross linking page size = 0x%lx.",
+                 crossLinkPageSize);
+        }
+    }
+
+    if (isCrossLinking()) {
+        kxldPageSize = getEffectivePageSize();
+    } else {
+        /* tell kxld to use native page size */
+        kxldPageSize = 0;
+    }
+
+    return kxldPageSize;
+}
+
+
 /*********************************************************************
 *********************************************************************/
 CFDictionaryRef OSKextGenerateDebugSymbols(
@@ -9486,6 +9718,7 @@ CFDictionaryRef OSKextGenerateDebugSymbols(
     const UInt8 *            kernelEnd;
     fat_iterator             fatIterator        = NULL; // must fat_iterator_close()
     struct mach_header_64 *  machHeader         = NULL; // do not free
+    uint64_t                 kxldPageSize       = 0;
 
     if (!kernelImage) {
         OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
@@ -9536,9 +9769,12 @@ CFDictionaryRef OSKextGenerateDebugSymbols(
                   "kernel does NOT support KASLR");
     }
 
+    /* Handle cross-linking if necessary */
+    kxldPageSize = __OSKextSetupCrossLinkByArch(OSKextGetArchitecture()->cputype);
+
     kxldResult = kxld_create_context(&kxldContext, __OSKextLinkAddressCallback,
         __OSKextLoggingCallback, kxldFlags, OSKextGetArchitecture()->cputype, 
-        OSKextGetArchitecture()->cpusubtype);
+        OSKextGetArchitecture()->cpusubtype, kxldPageSize);
     if (kxldResult != KERN_SUCCESS) {
         OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
              "Can't create link context.");
@@ -10374,7 +10610,8 @@ Boolean __OSKextSetLoadAddress(OSKextRef aKext, uint64_t address)
     }
     
     __OSKextGetFileSystemPath(aKext, /* otherURL */ NULL,
-        /* resolveToBase */ false, kextPath);
+                              /* resolveToBase */ true,
+                              kextPath);
 
     if (!__OSKextIsArchitectureLP64() && address > UINT32_MAX) {
 
@@ -12628,7 +12865,7 @@ Boolean __OSKextReadInfoDictionary(
 
     infoDictXML[totalBytesRead] = '\0';
 
-    aKext->infoDictionary = (CFDictionaryRef)IOCFUnserialize(
+    aKext->infoDictionary = (CFMutableDictionaryRef)IOCFUnserialize(
         (const char *)infoDictXML, kCFAllocatorDefault, 0, &errorString);
     if (!aKext->infoDictionary ||
         CFDictionaryGetTypeID() != CFGetTypeID(aKext->infoDictionary)) {
@@ -14452,7 +14689,7 @@ static uint64_t __OSKextGetFakeLoadAddress(CFDataRef kernelImage)
    /* LP64 uses a "kext basement", which is an offset below the end of the
     * kernel's text segment.
     */
-    result = mach_vm_round_page(textSegment->vmaddr + textSegment->vmsize) 
+    result = roundPageCrossSafeFixedWidth(textSegment->vmaddr + textSegment->vmsize) 
         - LP64_LOAD_ADDRESS_OFFSET;
 
 finish:
@@ -14574,7 +14811,7 @@ static CFArrayRef __OSKextPrelinkKexts(
             continue;
         }
 
-        loadSize += round_page(aKext->loadInfo->loadSize);
+        loadSize += roundPageCrossSafe(aKext->loadInfo->loadSize);
     }
 
     result = CFRetain(loadList);
@@ -14983,7 +15220,7 @@ static u_long __OSKextCopyPrelinkedKexts(
             CFDataGetBytePtr(aKext->loadInfo->prelinkedExecutable),
             CFDataGetLength(aKext->loadInfo->prelinkedExecutable));
 
-        size += round_page(CFDataGetLength(aKext->loadInfo->prelinkedExecutable));
+        size += roundPageCrossSafe(CFDataGetLength(aKext->loadInfo->prelinkedExecutable));
     }
 
     sourceAddr += size;
@@ -15037,7 +15274,7 @@ static u_long __OSKextCopyPrelinkInfoDictionary(
     }
 
     success = __OSKextSetSegmentVMSize(prelinkImage, kPrelinkInfoSegment, 
-        round_page(size));
+        roundPageCrossSafe(size));
     if (!success) {
         goto finish;
     }
@@ -15075,8 +15312,9 @@ static u_long __OSKextCopyPrelinkInfoDictionary(
     }
 
 finish:
-    return round_page(size);
+    return roundPageCrossSafe(size);
 }
+
 
 /*********************************************************************
 *********************************************************************/
@@ -15106,6 +15344,7 @@ CFDataRef OSKextCreatePrelinkedKernel(
     uint64_t                 baseLoadAddr       = 0;
     uint64_t                 baseSourceAddr     = 0;
     uint64_t                 sourceAddr         = 0;
+    uint64_t                 kxldPageSize       = 0;
     
     /* Set up kxld's link context */
 
@@ -15118,10 +15357,21 @@ CFDataRef OSKextCreatePrelinkedKernel(
     if (flags & kOSKextKernelcacheKASLRFlag) {
         kxldFlags |= kKXLDFlagIncludeRelocs;
     }
-    
+
+    /* Handle cross-linking if necessary */
+    kxldPageSize = __OSKextSetupCrossLinkByArch(OSKextGetArchitecture()->cputype);
+
+    if (isCrossLinking()) {
+        kxldPageSize = getEffectivePageSize();
+    } else {
+        /* tell kxld to use native page size */
+        kxldPageSize = 0;
+    }
+
     kxldResult = kxld_create_context(&kxldContext,
         __OSKextLinkAddressCallback, __OSKextLoggingCallback, kxldFlags,
-        OSKextGetArchitecture()->cputype, OSKextGetArchitecture()->cpusubtype);
+        OSKextGetArchitecture()->cputype, OSKextGetArchitecture()->cpusubtype,
+        kxldPageSize);
     if (kxldResult != KERN_SUCCESS) {
         OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
              "Can't create link context.");
@@ -15141,8 +15391,8 @@ CFDataRef OSKextCreatePrelinkedKernel(
         goto finish;
     }
 
-    baseFileOffset = round_page(CFDataGetLength(kernelImage));
-    baseSourceAddr = mach_vm_round_page(baseSourceAddr);
+    baseFileOffset = roundPageCrossSafe(CFDataGetLength(kernelImage));
+    baseSourceAddr = roundPageCrossSafeFixedWidth(baseSourceAddr);
 
     /* For x86_64 systems, we prelink the kexts into a VM region that starts 2GB
      * from the top of the kernel __TEXT segment.
@@ -15166,7 +15416,7 @@ CFDataRef OSKextCreatePrelinkedKernel(
             goto finish;
         }
 
-        baseLoadAddr = mach_vm_round_page(textLoadAddr + textVMSize);
+        baseLoadAddr = roundPageCrossSafeFixedWidth(textLoadAddr + textVMSize);
         if (baseLoadAddr < __kOSKextMaxKextDisplacement_x86_64) {
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
@@ -15205,7 +15455,7 @@ CFDataRef OSKextCreatePrelinkedKernel(
         goto finish;
     }
 
-    size = round_page(CFDataGetLength(prelinkInfoData));
+    size = roundPageCrossSafe(CFDataGetLength(prelinkInfoData));
     prelinkSize += size;
 
    /* Allocate a buffer to contain the prelinked kernel.
@@ -15744,3 +15994,34 @@ static const char * safe_mach_error_string(mach_error_t error_code)
     }
     return result;
 }
+
+#if PRAGMA_MARK
+/*********************************************************************/
+#pragma mark Dictionary Utilities
+/*********************************************************************/
+#endif
+
+Boolean _isDictionary(CFTypeRef cf)
+{
+    if (cf) {
+        return CFGetTypeID(cf) == CFDictionaryGetTypeID();
+    }
+    return false;
+}
+
+Boolean _isArray(CFTypeRef cf)
+{
+    if (cf) {
+        return CFGetTypeID(cf) == CFArrayGetTypeID();
+    }
+    return false;
+}
+
+Boolean _isString(CFTypeRef cf)
+{
+    if (cf) {
+        return CFGetTypeID(cf) == CFStringGetTypeID();
+    }
+    return false;
+}
+

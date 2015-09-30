@@ -7889,6 +7889,131 @@ else
 fi
 
     done
+    case "$target" in #(
+  *-darwin*) :
+
+	    # doesn't seem necessary on Mac OS X
+	 ;; #(
+  i[4-6]86*|i386*mingw*) :
+
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether -msse2 -mfpmath=sse is accepted as CFLAGS" >&5
+$as_echo_n "checking whether -msse2 -mfpmath=sse is accepted as CFLAGS... " >&6; }
+    save_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS $rb_cv_warnflags"
+if test "${ac_c_werror_flag+set}"; then
+  rb_c_werror_flag="$ac_c_werror_flag"
+else
+  unset rb_c_werror_flag
+fi
+ac_c_werror_flag=yes
+
+    CFLAGS="$CFLAGS -msse2 -mfpmath=sse"
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+
+		# RUBY_APPEND_OPTION(XCFLAGS, -msse2 -mfpmath=sse)
+	case " ${XCFLAGS-} " in #(
+  *' -msse2 -mfpmath=sse '*) :
+     ;; #(
+  '  ') :
+     XCFLAGS="-msse2 -mfpmath=sse" ;; #(
+  *) :
+     XCFLAGS="$XCFLAGS -msse2 -mfpmath=sse" ;;
+esac
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+CFLAGS="$save_CFLAGS"
+save_CFLAGS=
+if test "${rb_c_werror_flag+set}"; then
+  ac_c_werror_flag="$rb_c_werror_flag"
+else
+  unset ac_c_werror_flag
+fi
+
+            case "$XCFLAGS" in #(
+  *-msse2*) :
+
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether -mstackrealign is accepted as CFLAGS" >&5
+$as_echo_n "checking whether -mstackrealign is accepted as CFLAGS... " >&6; }
+    save_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS $rb_cv_warnflags"
+if test "${ac_c_werror_flag+set}"; then
+  rb_c_werror_flag="$ac_c_werror_flag"
+else
+  unset rb_c_werror_flag
+fi
+ac_c_werror_flag=yes
+
+    CFLAGS="$CFLAGS -mstackrealign"
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+
+                        # RUBY_APPEND_OPTION(XCFLAGS, -mstackrealign)
+	case " ${XCFLAGS-} " in #(
+  *' -mstackrealign '*) :
+     ;; #(
+  '  ') :
+     XCFLAGS="-mstackrealign" ;; #(
+  *) :
+     XCFLAGS="$XCFLAGS -mstackrealign" ;;
+esac
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+CFLAGS="$save_CFLAGS"
+save_CFLAGS=
+if test "${rb_c_werror_flag+set}"; then
+  ac_c_werror_flag="$rb_c_werror_flag"
+else
+  unset ac_c_werror_flag
+fi
+
+                 ;; #(
+  *) :
+     ;;
+esac
+
+     ;; #(
+  *) :
+     ;;
+esac
 fi
 
 test -z "${ac_env_CFLAGS_set}" -a -n "${cflags+set}" && eval CFLAGS="\"$cflags $ARCH_FLAG\""
@@ -8814,6 +8939,21 @@ cat largefile.h >> confdefs.h
 case "$target_os" in #(
   mingw*) :
     ac_cv_type_off_t=yes;ac_cv_sizeof_off_t=8 ;; #(
+  aix*) :
+
+    case "$target_cpu:$ac_cv_sys_large_files" in #(
+  ppc64:*|powerpc64:*) :
+     ;; #(
+  *:no|*:unknown) :
+     ;; #(
+  *) :
+
+	    # AIX currently does not support a 32-bit call to posix_fadvise()
+	    # if _LARGE_FILES is defined.
+	    ac_cv_func_posix_fadvise=no
+	 ;;
+esac
+     ;; #(
   *) :
      ;;
 esac
@@ -12091,11 +12231,11 @@ fi
 ac_c_werror_flag=yes
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-#include <stdlib.h>
+volatile int zero;
 int
 main ()
 {
-exit(0); __builtin_unreachable();
+if (zero) __builtin_unreachable();
   ;
   return 0;
 }
@@ -15752,7 +15892,7 @@ for ac_func in fmod killpg wait4 waitpid fork spawnv syscall __syscall chroot ge
 	      setuid setgid daemon select_large_fdset setenv unsetenv\
               mktime timegm gmtime_r clock_gettime gettimeofday poll ppoll\
               pread sendfile shutdown sigaltstack dl_iterate_phdr\
-              dup dup3 pipe2 posix_memalign memalign ioctl
+              dup dup3 pipe2 posix_memalign memalign ioctl isfinite
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
@@ -17288,8 +17428,8 @@ main ()
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
 
-case "`head -1 conftest$EXEEXT | cat -e`" in #(
-  '^?ELF'*) :
+case "`head -1 conftest$EXEEXT | tr -dc '\177ELF' | tr '\177' .`" in #(
+  .ELF*) :
     rb_cv_binary_elf=yes ;; #(
   *) :
     rb_cv_binary_elf=no ;;

@@ -2133,7 +2133,7 @@ hod_get_realms(krb5_context context, HDB *db, krb5_realm **realms)
     *realms = NULL;
 
     if (d->LKDCRealm) {
-	*realms = calloc(2, sizeof(realms[0]));
+	*realms = calloc(2, sizeof((*realms)[0]));
 	if (*realms == NULL)
 	    return ENOMEM;
 	(*realms)[0] = strdup(d->LKDCRealm);

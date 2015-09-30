@@ -79,7 +79,7 @@ void WebContextMenuClient::searchWithSpotlight()
     Frame& mainFrame = m_page->corePage()->mainFrame();
     
     Frame* selectionFrame = &mainFrame;
-    for (; selectionFrame; selectionFrame = selectionFrame->tree().traverseNext(&mainFrame)) {
+    for (; selectionFrame; selectionFrame = selectionFrame->tree().traverseNext()) {
         if (selectionFrame->selection().isRange())
             break;
     }
@@ -92,6 +92,11 @@ void WebContextMenuClient::searchWithSpotlight()
         return;
 
     m_page->send(Messages::WebPageProxy::SearchWithSpotlight(selectedString));
+}
+
+ContextMenuItem WebContextMenuClient::shareMenuItem(const HitTestResult&)
+{
+    return ContextMenuItem(SubmenuType, ContextMenuItemTagShareMenu, emptyString());
 }
 
 } // namespace WebKit

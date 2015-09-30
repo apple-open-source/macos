@@ -19,7 +19,6 @@ echo [ -neE ] [ arg ... ]
        \UNNNNNNNN
               unicode character code in hexadecimal
 
-       The -E flag, or the BSD ECHO option,  can  be  used  to  disable
-                              -
+       The -E flag, or the BSD_ECHO option,  can  be  used  to  disable
        these escape sequences.  In the latter case, -e flag can be used
        to enable them.

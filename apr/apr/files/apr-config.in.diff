@@ -1,0 +1,11 @@
+--- apr-config.in.orig	2015-04-01 16:25:35.000000000 -0700
++++ apr-config.in	2015-04-01 16:25:36.000000000 -0700
+@@ -28,7 +28,7 @@
+ datarootdir="@datadir@"
+ datadir="@datadir@"
+ installbuilddir="@installbuilddir@"
+-includedir="@includedir@"
++includedir="${SDKROOT}@includedir@"
+ 
+ CC="@CC@"
+ CPP="@CPP@"

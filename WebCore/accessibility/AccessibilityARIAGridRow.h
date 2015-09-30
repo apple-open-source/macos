@@ -35,12 +35,9 @@ namespace WebCore {
     
 class AccessibilityTable;
     
-class AccessibilityARIAGridRow : public AccessibilityTableRow {
-    
-private:
-    explicit AccessibilityARIAGridRow(RenderObject*);
+class AccessibilityARIAGridRow final : public AccessibilityTableRow {
 public:
-    static PassRefPtr<AccessibilityARIAGridRow> create(RenderObject*);
+    static Ref<AccessibilityARIAGridRow> create(RenderObject*);
     virtual ~AccessibilityARIAGridRow();
     
     void disclosedRows(AccessibilityChildrenVector&);
@@ -49,12 +46,15 @@ public:
     virtual AccessibilityObject* headerObject() override;
     
 private:
+    explicit AccessibilityARIAGridRow(RenderObject*);
+
     virtual bool isARIATreeGridRow() const override;
     virtual AccessibilityTable* parentTable() const override;
-}; 
-
-ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityARIAGridRow, isARIATreeGridRow())
+    virtual AccessibilityObject* parentObjectUnignored() const override;
+};
 
 } // namespace WebCore 
+
+SPECIALIZE_TYPE_TRAITS_ACCESSIBILITY(AccessibilityARIAGridRow, isARIATreeGridRow())
 
 #endif // AccessibilityARIAGridRow_h

@@ -79,7 +79,7 @@ PassRefPtr<ShareableBitmap> ShareableBitmap::createShareable(const IntSize& size
 {
     size_t numBytes = numBytesForSize(size);
 
-    RefPtr<SharedMemory> sharedMemory = SharedMemory::create(numBytes);
+    RefPtr<SharedMemory> sharedMemory = SharedMemory::allocate(numBytes);
     if (!sharedMemory)
         return nullptr;
 
@@ -99,7 +99,7 @@ PassRefPtr<ShareableBitmap> ShareableBitmap::create(const IntSize& size, Flags f
 PassRefPtr<ShareableBitmap> ShareableBitmap::create(const Handle& handle, SharedMemory::Protection protection)
 {
     // Create the shared memory.
-    RefPtr<SharedMemory> sharedMemory = SharedMemory::create(handle.m_handle, protection);
+    RefPtr<SharedMemory> sharedMemory = SharedMemory::map(handle.m_handle, protection);
     if (!sharedMemory)
         return nullptr;
 
@@ -136,29 +136,6 @@ ShareableBitmap::~ShareableBitmap()
 {
     if (!isBackedBySharedMemory())
         fastFree(m_data);
-}
-
-bool ShareableBitmap::resize(const IntSize& size)
-{
-    // We can't resize backing stores that are backed by shared memory.
-    ASSERT(!isBackedBySharedMemory());
-
-    if (size == m_size)
-        return true;
-
-    size_t newNumBytes = numBytesForSize(size);
-    
-    // Try to resize.
-    char* newData = 0;
-    if (!tryFastRealloc(m_data, newNumBytes).getValue(newData)) {
-        // We failed, but the backing store is still kept in a consistent state.
-        return false;
-    }
-
-    m_size = size;
-    m_data = newData;
-
-    return true;
 }
 
 void* ShareableBitmap::data() const

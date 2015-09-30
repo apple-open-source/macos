@@ -121,7 +121,7 @@ enum {
         E_FreeBlocks            =  553,	/* Invalid volume free block count */
         E_MDBDamaged            =  554, /* Master Directory Block needs minor repair */
         E_VolumeHeaderDamaged   =  555, /* Volume Header needs minor repair */
-        E_VBMDamaged            =  556, /* Volume Bit Map needs minor repair */
+        E_VBMDamaged            =  556, /* Volume Bit Map needs repair */
         E_InvalidNodeSize       = -557, /* Invalid B-tree node size */
         E_LeafCnt               =  558,	/* Invalid leaf record count */
         E_BadValue              =  559,	/* (It should be %s instead of %s) */

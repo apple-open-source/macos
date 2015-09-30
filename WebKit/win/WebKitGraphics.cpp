@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitGraphics.h"
 
 #include "WebKit.h"
@@ -31,8 +30,7 @@
 
 #include "WebPreferences.h"
 
-#include <WebCore/Font.h>
-#include <WebCore/FontCache.h>
+#include <WebCore/FontCascade.h>
 #include <WebCore/FontDescription.h>
 #include <WebCore/FontSelector.h>
 #include <WebCore/GraphicsContext.h>
@@ -48,7 +46,7 @@
 
 using namespace WebCore;
 
-static Font makeFont(const WebFontDescription& description)
+static FontCascade makeFont(const WebFontDescription& description)
 {
     AtomicString::init();
 
@@ -58,7 +56,7 @@ static Font makeFont(const WebFontDescription& description)
     f.setOneFamily(fontFamilyString);
     f.setSpecifiedSize(description.size);
     f.setComputedSize(description.size);
-    f.setItalic(description.italic);
+    f.setIsItalic(description.italic);
     f.setWeight(description.bold ? FontWeightBold : FontWeightNormal);
     f.setIsAbsoluteSize(true);
 
@@ -66,7 +64,7 @@ static Font makeFont(const WebFontDescription& description)
     if (SUCCEEDED(WebPreferences::sharedStandardPreferences()->fontSmoothing(&smoothingType)))
         f.setRenderingMode(smoothingType == FontSmoothingTypeWindows ? AlternateRenderingMode : NormalRenderingMode);
 
-    Font font(f, 0, 0);
+    FontCascade font(f, 0, 0);
     font.update(0);
 
     return font;
@@ -98,7 +96,7 @@ void FontMetrics(const WebFontDescription& description, int* ascent, int* descen
     if (!ascent && !descent && !lineSpacing)
         return;
 
-    Font font(makeFont(description));
+    FontCascade font(makeFont(description));
     const WebCore::FontMetrics& fontMetrics(font.fontMetrics());
 
     if (ascent)
@@ -115,8 +113,6 @@ unsigned CenterTruncateStringToWidth(LPCTSTR text, int length, const WebFontDesc
 {
     ASSERT(buffer);
 
-    FontCachePurgePreventer fontCachePurgePreventer;
-
     String result = StringTruncator::centerTruncate(String(text, length), width, makeFont(description), StringTruncator::EnableRoundingHacks);
     StringView(result).getCharactersWithUpconvert(buffer);
     buffer[result.length()] = '\0';
@@ -126,8 +122,6 @@ unsigned CenterTruncateStringToWidth(LPCTSTR text, int length, const WebFontDesc
 unsigned RightTruncateStringToWidth(LPCTSTR text, int length, const WebFontDescription& description, float width, WCHAR* buffer)
 {
     ASSERT(buffer);
-
-    FontCachePurgePreventer fontCachePurgePreventer;
 
     String result = StringTruncator::rightTruncate(String(text, length), width, makeFont(description), StringTruncator::EnableRoundingHacks);
     StringView(result).getCharactersWithUpconvert(buffer);

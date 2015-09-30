@@ -88,6 +88,10 @@ class TestPathname < Test::Unit::TestCase
     defassert(:cleanpath_aggressive, '/',       '///a/../..')
   end
 
+  if DOSISH
+    defassert(:cleanpath_aggressive, 'c:/foo/bar', 'c:\\foo\\bar')
+  end
+
   def cleanpath_conservative(path)
     Pathname.new(path).cleanpath(true).to_s
   end
@@ -123,6 +127,10 @@ class TestPathname < Test::Unit::TestCase
   defassert(:cleanpath_conservative, 'a/..',   'a/../.')
   defassert(:cleanpath_conservative, '/a',     '/../.././../a')
   defassert(:cleanpath_conservative, 'a/b/../../../../c/../d', 'a/b/../../../../c/../d')
+
+  if DOSISH
+    defassert(:cleanpath_conservative, 'c:/foo/bar', 'c:\\foo\\bar')
+  end
 
   if DOSISH_UNC
     defassert(:cleanpath_conservative, '//',     '//')
@@ -1297,5 +1305,18 @@ class TestPathname < Test::Unit::TestCase
       $SAFE = 1
       assert_equal("foo/bar", File.join(Pathname.new("foo"), Pathname.new("bar").taint))
     }.call
+  end
+
+  def test_relative_path_from_casefold
+    assert_separately([], <<-'end;') #    do
+      module File::Constants
+        remove_const :FNM_SYSCASE
+        FNM_SYSCASE = FNM_CASEFOLD
+      end
+      require 'pathname'
+      foo = Pathname.new("fo\u{f6}")
+      bar = Pathname.new("b\u{e4}r".encode("ISO-8859-1"))
+      assert_instance_of(Pathname, foo.relative_path_from(bar))
+    end;
   end
 end

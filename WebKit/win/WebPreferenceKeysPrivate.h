@@ -48,6 +48,7 @@
 #define WebKitTextAreasAreResizablePreferenceKey "WebKitTextAreasAreResizable"
 #define WebKitJavaEnabledPreferenceKey "WebKitJavaEnabled"
 #define WebKitJavaScriptEnabledPreferenceKey "WebKitJavaScriptEnabled"
+#define WebKitJavaScriptRuntimeFlagsPreferenceKey "WebKitJavaScriptRuntimeFlags"
 #define WebKitWebSecurityEnabledPreferenceKey "WebKitWebSecurityEnabled"
 #define WebKitAllowUniversalAccessFromFileURLsPreferenceKey "WebKitAllowUniversalAccessFromFileURLs"
 #define WebKitAllowFileAccessFromFileURLsPreferenceKey "WebKitAllowFileAccessFromFileURLs"
@@ -94,10 +95,6 @@
 // to NO, or has no value.  For compatibility with Mac OS X 10.4.6, deferred updates are OFF by
 // default.
 #define WebKitEnableDeferredUpdatesPreferenceKey "WebKitEnableDeferredUpdates"
-
-// For debugging only.  Don't use these.
-#define WebKitPageCacheSizePreferenceKey "WebKitPageCacheSizePreferenceKey"
-#define WebKitObjectCacheSizePreferenceKey "WebKitObjectCacheSizePreferenceKey"
 
 // From WebHistory.h
 #define WebKitHistoryItemLimitKey "WebKitHistoryItemLimit" // default: "1000"
@@ -165,6 +162,6 @@
 
 #define WebKitMockScrollbarsEnabledPreferenceKey "WebKitMockScrollbarsEnabled"
 
-#define WebKitScreenFontSubstitutionEnabledPreferenceKey "WebKitScreenFontSubstitutionEnabledPreferenceKey"
-
 #define WebKitEnableInheritURIQueryComponentPreferenceKey "WebKitEnableInheritURIQueryComponent"
+
+#define WebKitAllowDisplayAndRunningOfInsecureContentPreferenceKey "WebKitAllowDisplayAndRunningOfInsecureContent"

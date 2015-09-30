@@ -217,7 +217,7 @@ DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, netscapePluginInstanceProxy
 NetscapePluginInstanceProxy::NetscapePluginInstanceProxy(NetscapePluginHostProxy* pluginHostProxy, WebHostedNetscapePluginView *pluginView, bool fullFramePlugin)
     : m_pluginHostProxy(pluginHostProxy)
     , m_pluginView(pluginView)
-    , m_requestTimer(this, &NetscapePluginInstanceProxy::requestTimerFired)
+    , m_requestTimer(*this, &NetscapePluginInstanceProxy::requestTimerFired)
     , m_currentURLRequestID(0)
     , m_renderContextID(0)
     , m_rendererType(UseSoftwareRenderer)
@@ -580,7 +580,7 @@ NPError NetscapePluginInstanceProxy::loadURL(const char* url, const char* target
                 path = [fileURL path];
             else
                 path = (NSString *)bufString.get();
-            httpBody = [NSData dataWithContentsOfFile:[path _webkit_fixedCarbonPOSIXPath]];
+            httpBody = [NSData dataWithContentsOfFile:path];
             if (!httpBody)
                 return NPERR_FILE_NOT_FOUND;
         } else
@@ -735,7 +735,7 @@ void NetscapePluginInstanceProxy::evaluateJavaScript(PluginRequest* pluginReques
     }
 }
 
-void NetscapePluginInstanceProxy::requestTimerFired(Timer*)
+void NetscapePluginInstanceProxy::requestTimerFired()
 {
     ASSERT(!m_pluginRequests.isEmpty());
     ASSERT(m_pluginView);
@@ -790,7 +790,7 @@ NPError NetscapePluginInstanceProxy::loadRequest(NSURLRequest *request, const ch
     requestID = ++m_currentURLRequestID;
         
     if (cTarget || JSString) {
-        // Make when targetting a frame or evaluating a JS string, perform the request after a delay because we don't
+        // Make when targeting a frame or evaluating a JS string, perform the request after a delay because we don't
         // want to potentially kill the plug-in inside of its URL request.
         
         if (JSString && target && [frame findFrameNamed:target] != frame) {
@@ -1231,7 +1231,7 @@ bool NetscapePluginInstanceProxy::enumerate(uint32_t objectID, data_t& resultDat
     JSLockHolder lock(exec);
  
     PropertyNameArray propertyNames(exec);
-    object->methodTable()->getPropertyNames(object, exec, propertyNames, ExcludeDontEnumProperties);
+    object->methodTable()->getPropertyNames(object, exec, propertyNames, EnumerationMode());
 
     RetainPtr<NSMutableArray*> array = adoptNS([[NSMutableArray alloc] init]);
     for (unsigned i = 0; i < propertyNames.size(); i++) {

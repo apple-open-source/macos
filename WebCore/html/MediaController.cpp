@@ -37,9 +37,9 @@
 
 using namespace WebCore;
 
-PassRefPtr<MediaController> MediaController::create(ScriptExecutionContext& context)
+Ref<MediaController> MediaController::create(ScriptExecutionContext& context)
 {
-    return adoptRef(new MediaController(context));
+    return adoptRef(*new MediaController(context));
 }
 
 MediaController::MediaController(ScriptExecutionContext& context)
@@ -50,12 +50,12 @@ MediaController::MediaController(ScriptExecutionContext& context)
     , m_muted(false)
     , m_readyState(HAVE_NOTHING)
     , m_playbackState(WAITING)
-    , m_asyncEventTimer(this, &MediaController::asyncEventTimerFired)
-    , m_clearPositionTimer(this, &MediaController::clearPositionTimerFired)
+    , m_asyncEventTimer(*this, &MediaController::asyncEventTimerFired)
+    , m_clearPositionTimer(*this, &MediaController::clearPositionTimerFired)
     , m_closedCaptionsVisible(false)
     , m_clock(Clock::create())
     , m_scriptExecutionContext(context)
-    , m_timeupdateTimer(this, &MediaController::timeupdateTimerFired)
+    , m_timeupdateTimer(*this, &MediaController::timeupdateTimerFired)
     , m_previousTimeupdateTime(0)
 {
 }
@@ -538,7 +538,7 @@ void MediaController::scheduleEvent(const AtomicString& eventName)
         m_asyncEventTimer.startOneShot(0);
 }
 
-void MediaController::asyncEventTimerFired(Timer&)
+void MediaController::asyncEventTimerFired()
 {
     Vector<RefPtr<Event>> pendingEvents;
 
@@ -548,7 +548,7 @@ void MediaController::asyncEventTimerFired(Timer&)
         dispatchEvent(pendingEvents[index].release(), IGNORE_EXCEPTION);
 }
 
-void MediaController::clearPositionTimerFired(Timer&)
+void MediaController::clearPositionTimerFired()
 {
     m_position = MediaPlayer::invalidTime();
 }
@@ -672,7 +672,7 @@ void MediaController::startTimeupdateTimer()
     m_timeupdateTimer.startRepeating(maxTimeupdateEventFrequency);
 }
 
-void MediaController::timeupdateTimerFired(Timer&)
+void MediaController::timeupdateTimerFired()
 {
     scheduleTimeupdateEvent();
 }

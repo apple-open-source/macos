@@ -256,7 +256,7 @@ void postNoteAboutKextLoadsMT(CFStringRef theNotificationCenterName,
     
     if (theKextPathArray == NULL || theNotificationCenterName == NULL)
         return;
-    
+ 
     myCenter = CFNotificationCenterGetDistributedCenter();
     myInfoDict = CFDictionaryCreateMutable(
                                            kCFAllocatorDefault, 0,
@@ -278,7 +278,7 @@ void postNoteAboutKextLoadsMT(CFStringRef theNotificationCenterName,
     }
     
     SAFE_RELEASE(myInfoDict);
-    
+   
     return;
 }
 
@@ -294,6 +294,7 @@ void addKextToAlertDict( CFMutableDictionaryRef *theDictPtr, OSKextRef theKext )
     CFMutableDictionaryRef  myKextInfoDict = NULL;  // must release
     CFMutableDictionaryRef  myAlertInfoDict = NULL; // do NOT release
     CFIndex                myCount, i;
+  
     
     if ( theDictPtr == NULL || theKext == NULL ) {
         return;
@@ -966,6 +967,74 @@ finish:
     return suffixPtr;
 }
 
+/*******************************************************************************
+ *******************************************************************************/
+int getFileDevAndIno(const char * thePath, dev_t * the_dev_t, ino_t * the_ino_t)
+{
+    int             my_result = -1;
+    struct stat     my_stat_buf;
+    
+    if (stat(thePath, &my_stat_buf) == 0) {
+        if (the_dev_t) {
+            *the_dev_t = my_stat_buf.st_dev;
+        }
+        if (the_ino_t) {
+            *the_ino_t = my_stat_buf.st_ino;
+        }
+        my_result = 0;
+    }
+    else {
+        my_result = errno;
+    }
+    
+    return(my_result);
+}
+
+/*******************************************************************************
+ * If the_dev_t and the_ino_t are 0 then we expect thePath to NOT exist.
+ *******************************************************************************/
+Boolean isSameFileDevAndIno(int the_fd,
+                            const char * thePath,
+                            dev_t the_dev_t,
+                            ino_t the_ino_t)
+{
+    Boolean         my_result = FALSE;
+    struct stat     my_stat_buf;
+    
+    if (the_fd == -1) {
+        /* means we are passed a full path in thePath */
+        if (stat(thePath, &my_stat_buf) == 0) {
+            if (the_dev_t == my_stat_buf.st_dev &&
+                the_ino_t == my_stat_buf.st_ino) {
+                my_result = TRUE;
+            }
+        }
+        else if (errno == ENOENT && the_dev_t == 0 && the_ino_t == 0) {
+            /* special case where thePath did not exist so it still should not
+             * exist
+             */
+            my_result = TRUE;
+        }
+    }
+    else {
+        /* means we are passed a relative path from the_fd */
+        if (fstatat(the_fd, thePath, &my_stat_buf, 0) == 0) {
+            if (the_dev_t == my_stat_buf.st_dev &&
+                the_ino_t == my_stat_buf.st_ino) {
+                my_result = TRUE;
+            }
+        }
+        else if (errno == ENOENT && the_dev_t == 0 && the_ino_t == 0) {
+            /* special case where thePath did not exist so it still should not
+             * exist
+             */
+            my_result = TRUE;
+        }
+    }
+    
+    return(my_result);
+}
+
 #if PRAGMA_MARK
 #pragma mark Logging
 #endif /* PRAGMA_MARK */
@@ -1142,7 +1211,7 @@ Boolean useDevelopmentKernel(const char * theKernelPath)
         length = strlcpy(tempPath, theKernelPath, PATH_MAX);
         if (length >= PATH_MAX)   break;
         length = strlcat(tempPath,
-                         kDefaultKernelSuffix,
+                         kDefaultDevKernelSuffix,
                          PATH_MAX);
         if (length >= PATH_MAX)   break;
         if (statPath(tempPath, &statBuf) == EX_OK) {
@@ -1286,7 +1355,7 @@ Boolean getKernelPathForURL(CFURLRef    theVolRootURL,
     CFDictionaryRef myDict              = NULL;     // must release
     CFDictionaryRef postBootPathsDict   = NULL;     // do not release
     CFDictionaryRef kernelCacheDict     = NULL;     // do not release
-    Boolean			myResult            = FALSE;
+    Boolean         myResult            = FALSE;
    
     if (theBuffer) {
         *theBuffer = 0x00;

@@ -69,16 +69,17 @@ static String protectionSpaceMapKeyFromURL(const URL& url)
 
 void CredentialStorage::set(const Credential& credential, const ProtectionSpace& protectionSpace, const URL& url)
 {
-    ASSERT(protectionSpace.isProxy() || url.protocolIsInHTTPFamily());
-    ASSERT(protectionSpace.isProxy() || url.isValid());
+    ASSERT(protectionSpace.isProxy() || protectionSpace.authenticationScheme() == ProtectionSpaceAuthenticationSchemeClientCertificateRequested || url.protocolIsInHTTPFamily());
+    ASSERT(protectionSpace.isProxy() || protectionSpace.authenticationScheme() == ProtectionSpaceAuthenticationSchemeClientCertificateRequested || url.isValid());
 
     m_protectionSpaceToCredentialMap.set(protectionSpace, credential);
 
 #if PLATFORM(IOS)
-    saveToPersistentStorage(protectionSpace, credential);
+    if (protectionSpace.authenticationScheme() != ProtectionSpaceAuthenticationSchemeClientCertificateRequested)
+        saveToPersistentStorage(protectionSpace, credential);
 #endif
 
-    if (!protectionSpace.isProxy()) {
+    if (!protectionSpace.isProxy() && protectionSpace.authenticationScheme() != ProtectionSpaceAuthenticationSchemeClientCertificateRequested) {
         m_originsWithCredentials.add(originStringFromURL(url));
 
         ProtectionSpaceAuthenticationScheme scheme = protectionSpace.authenticationScheme();

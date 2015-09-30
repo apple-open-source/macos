@@ -145,13 +145,15 @@ open_lock_file(krb5_context context, const char *db_name, int *fd)
     }
 
     *fd = open(lock_file, O_RDWR | O_CREAT, 0600);
-    free(lock_file);
     if(*fd < 0) {
 	int ret = errno;
 	krb5_set_error_message(context, ret, "open(%s): %s", lock_file,
 			       strerror(ret));
+	free(lock_file);
 	return ret;
     }
+    free(lock_file);
+
     return 0;
 }
 

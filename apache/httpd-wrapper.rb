@@ -1,6 +1,6 @@
 #!/usr/bin/ruby
 
-# Copyright (c) 2012, 2014 Apple Inc. All Rights Reserved.
+# Copyright (c) 2012, 2014-2015 Apple Inc. All Rights Reserved.
 
 # IMPORTANT NOTE: This file is licensed only for use on Apple-branded
 # computers and is subject to the terms and conditions of the Apple Software
@@ -12,6 +12,13 @@
 # sent to Apple if the "send usage data" option is turned on.
 
 begin
+	if File.basename($0) == 'httpd-wrapper'
+		Executable = '/usr/sbin/httpd'
+	elsif File.basename($0) == 'server-httpd-wrapper'
+		Executable = '/Applications/Server.app/Contents/ServerRoot/usr/sbin/server-httpd'
+	else
+		exit 1
+	end
 	LastUseFile = "/var/db/.httpd-wrapper"
 	TooSoonInSeconds = 3600.0		# Throttle
 	if !FileTest.exists?(LastUseFile) || Time.now - File.new(LastUseFile).atime > TooSoonInSeconds
@@ -32,6 +39,7 @@ begin
 			'has_server_webservice_enabled' => 0,
 			'has_php_enabled' => 0,
 			'has_perl_enabled' => 0,
+			'has_ldap_enabled' => 0,
 			'has_ssl_enabled_for_desktop' => 0
 		}
 		for i in 0..ARGV.count - 2
@@ -45,9 +53,11 @@ begin
 			settings['uses_server_config'] = 1
 		elsif activeConfigFile == DesktopDefaultWebConfigPath
 			sum = `/usr/bin/cksum #{activeConfigFile} 2>&1`.chomp.split(/\s+/)[0]
-			if ['725083195'].include?(sum)
+			if ['1000290830'].include?(sum)
 				settings['uses_pristine_desktop_config_file'] = 1
 			end
+		else
+			exec("#{Executable} #{ARGV.join(' ')}")
 		end
 		open(activeConfigFile) do |file|
 			file.each_line do |line|
@@ -55,12 +65,14 @@ begin
 					settings['has_php_enabled'] = 1
 				elsif line.match(/^LoadModule perl_module/)
 					settings['has_perl_enabled'] = 1
+				elsif line.match(/^LoadModule \S*ldap_module/)
+					settings['has_ldap_enabled'] = 1
 				elsif settings['uses_server_config'] == 0 && line.match(/^Include \/private\/etc\/apache2\/extra\/httpd-ssl.conf/)
 					settings['has_ssl_enabled_for_desktop'] = 1
 				end
 			end
 		end
-		`/usr/sbin/httpd #{ARGV.join(' ')} -t 2>&1`
+		`#{Executable} #{ARGV.join(' ')} -t 2>&1`
 		settings['config_has_valid_syntax'] = $?.exitstatus == 0 ? 1 : 0
 		settings['has_server_app_installed'] = FileTest.exists?(ServerAppPath) ? 1 : 0
 		`syslog -s -l Notice -k com.apple.message.domain com.apple.server.apache.launch.stats \
@@ -71,15 +83,16 @@ begin
 			com.apple.message.has_server_app_installed #{settings['has_server_app_installed']} \
 			com.apple.message.has_php_enabled #{settings['has_php_enabled']} \
 			com.apple.message.has_perl_enabled #{settings['has_perl_enabled']} \
+			com.apple.message.has_ldap_enabled #{settings['has_ldap_enabled']} \
 			com.apple.message.has_ssl_enabled_for_desktop #{settings['has_ssl_enabled_for_desktop']} \
 			com.apple.message.has_server_webservice_enabled #{settings['has_server_webservice_enabled']}`
 	end
-	exec("/usr/sbin/httpd #{ARGV.join(' ')}")
+	exec("#{Executable} #{ARGV.join(' ')}")
 rescue => e
 	require 'logger'
 	$logger = Logger.new('/var/log/apache2/httpd-wrapper.log')
 	$logger.level = Logger::ERROR
-	$logger.error("Exception raised running httpd-wrapper: #{e.message}")
-	$logger.error("Proceeding with exec of httpd")
-	exec("/usr/sbin/httpd #{ARGV.join(' ')}")
+	$logger.error("Exception raised running #{$0}: #{e.message}")
+	$logger.error("Proceeding with exec of #{Executable}")
+	exec("#{Executable} #{ARGV.join(' ')}")
 end

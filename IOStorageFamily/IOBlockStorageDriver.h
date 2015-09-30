@@ -343,11 +343,7 @@ protected:
 
     struct ExpansionData
     {
-#ifdef __LP64__
         UInt64         reserved0000;
-#else /* !__LP64__ */
-        UInt32         reserved0000;
-#endif /* !__LP64__ */
         UInt64         maxReadBlockTransfer;
         UInt64         maxWriteBlockTransfer;
         IONotifier *   powerEventNotifier;
@@ -425,7 +421,6 @@ protected:
 
     struct Context
     {
-#ifdef __LP64__
         struct
         {
             UInt64               byteStart;
@@ -447,30 +442,6 @@ protected:
         UInt64 reserved0768;
         UInt64 reserved0832;
         UInt64 reserved0896;
-#else /* !__LP64__ */
-        struct
-        {
-            UInt32               size;
-            UInt8                type;
-            UInt8                typeSub[3];
-        } block;
-
-        struct
-        {
-            UInt64               byteStart;
-            IOMemoryDescriptor * buffer;
-            IOStorageCompletion  completion;
-        } original;
-
-        AbsoluteTime timeStart;
-
-        struct
-        {
-            IOStorageAttributes  attributes;
-        } request;
-
-        UInt32 reserved0448;
-#endif /* !__LP64__ */
 
         Context * next;
     };
@@ -613,12 +584,6 @@ protected:
 
     virtual void deleteContext(Context * context);
 
-#ifndef __LP64__
-    virtual void prepareRequest(UInt64               byteStart,
-                                IOMemoryDescriptor * buffer,
-                                IOStorageCompletion  completion) __attribute__ ((deprecated));
-#endif /* !__LP64__ */
-
     /*!
      * @function deblockRequest
      * @discussion
@@ -653,18 +618,11 @@ protected:
      * Additional context information for the data transfer (e.g. block size).
      */
 
-#ifdef __LP64__
     virtual void deblockRequest(UInt64                byteStart,
                                 IOMemoryDescriptor *  buffer,
                                 IOStorageAttributes * attributes,
                                 IOStorageCompletion * completion,
                                 Context *             context);
-#else /* !__LP64__ */
-    virtual void deblockRequest(UInt64                byteStart,
-                                IOMemoryDescriptor *  buffer,
-                                IOStorageCompletion   completion,
-                                Context *             context);
-#endif /* !__LP64__ */
 
     /*!
      * @function executeRequest
@@ -696,18 +654,11 @@ protected:
      * Additional context information for the data transfer (e.g. block size).
      */
 
-#ifdef __LP64__
     virtual void executeRequest(UInt64                byteStart,
                                 IOMemoryDescriptor *  buffer,
                                 IOStorageAttributes * attributes,
                                 IOStorageCompletion * completion,
                                 Context *             context);
-#else /* !__LP64__ */
-    virtual void executeRequest(UInt64                byteStart,
-                                IOMemoryDescriptor *  buffer,
-                                IOStorageCompletion   completion,
-                                Context *             context);
-#endif /* !__LP64__ */
 
     /*!
      * @function handleStart
@@ -728,9 +679,11 @@ protected:
 
     virtual bool handleStart(IOService * provider);
 
+#ifdef __x86_64__
     virtual bool handleYield(IOService *  provider,
                              IOOptionBits options  = 0,
                              void *       argument = 0) __attribute__ ((deprecated));
+#endif /* __x86_64__ */
 
     /*!
      * @function getMediaBlockSize
@@ -776,9 +729,11 @@ public:
                               IOOptionBits options,
                               bool *       defer);
 
+#ifdef __x86_64__
     virtual bool yield(IOService *  provider,
                        IOOptionBits options  = 0,
                        void *       argument = 0) __attribute__ ((deprecated));
+#endif /* __x86_64__ */
 
     /*!
      * @function read
@@ -857,22 +812,30 @@ public:
                        IOStorageCompletion * completion);
 
     /*!
-     * @function synchronizeCache
+     * @function synchronize
      * @discussion
-     * Flush the cached data in the storage object, if any, synchronously.
+     * Flush the cached data in the storage object, if any.
      * @param client
-     * Client requesting the cache synchronization.
+     * Client requesting the synchronization.
+     * @param byteStart
+     * Starting byte offset for the synchronization.
+     * @param byteCount
+     * Size of the synchronization.  Set to zero to specify the end-of-media.
+     * @param options
+     * Options for the synchronization.  See IOStorageSynchronizeOptions.
      * @result
-     * Returns the status of the cache synchronization.
+     * Returns the status of the synchronization.
      */
 
-    virtual IOReturn synchronizeCache(IOService * client);
+    virtual IOReturn synchronize(IOService *                 client,
+                                 UInt64                      byteStart,
+                                 UInt64                      byteCount,
+                                 IOStorageSynchronizeOptions options = 0);
 
     /*!
      * @function unmap
      * @discussion
-     * Delete unused data from the storage object at the specified byte offsets,
-     * synchronously.
+     * Delete unused data from the storage object at the specified byte offsets.
      * @param client
      * Client requesting the operation.
      * @param extents
@@ -880,14 +843,16 @@ public:
      * overwrite the contents of this buffer in order to satisfy the request.
      * @param extentsCount
      * Number of extents.
+     * @param options
+     * Options for the unmap.  See IOStorageUnmapOptions.
      * @result
      * Returns the status of the operation.
      */
 
-    virtual IOReturn unmap(IOService *       client,
-                           IOStorageExtent * extents,
-                           UInt32            extentsCount,
-                           UInt32            options = 0);
+    virtual IOReturn unmap(IOService *           client,
+                           IOStorageExtent *     extents,
+                           UInt32                extentsCount,
+                           IOStorageUnmapOptions options = 0);
 
     /*!
      * @function lockPhysicalExtents
@@ -983,9 +948,11 @@ public:
 
     virtual IOReturn formatMedia(UInt64 byteCapacity);
 
+#ifdef __x86_64__
     virtual IOReturn lockMedia(bool lock) __attribute__ ((deprecated));
 
     virtual IOReturn pollMedia() __attribute__ ((deprecated));
+#endif /* __x86_64__ */
 
     /*!
      * @function isMediaEjectable
@@ -997,7 +964,6 @@ public:
 
     virtual bool isMediaEjectable() const;
 
-#ifdef __LP64__
     /*!
      * @function isMediaRemovable
      * @discussion
@@ -1007,11 +973,12 @@ public:
      */
 
     virtual bool isMediaRemovable() const;
-#endif /* __LP64__ */
 
+#ifdef __x86_64__
     virtual bool isMediaPollExpensive() const __attribute__ ((deprecated));
 
     virtual bool isMediaPollRequired() const __attribute__ ((deprecated));
+#endif /* __x86_64__ */
 
     /*!
      * @function isMediaWritable
@@ -1113,11 +1080,7 @@ protected:
 
     IOLock *      _deblockRequestWriteLock;
 
-#ifdef __LP64__
     UInt64        _reserved1024;
-#else /* !__LP64__ */
-    UInt32        _reserved1024;
-#endif /* !__LP64__ */
 
     static void breakUpRequestExecute(void * parameter, void * target);
 
@@ -1156,9 +1119,11 @@ protected:
                                          IOReturn status,
                                          UInt64   actualByteCount);
 
+#ifdef __x86_64__
     virtual void schedulePoller() __attribute__ ((deprecated));
 
     virtual void unschedulePoller() __attribute__ ((deprecated));
+#endif /* __x86_64__ */
 
     /*
      * This method is the power event handler for restarts and shutdowns.
@@ -1215,11 +1180,7 @@ protected:
     bool		_writeProtected;
 
     UInt16		_reserved1264;
-#ifdef __LP64__
     UInt64		_reserved1280;
-#else /* !__LP64__ */
-    UInt32		_reserved1280;
-#endif /* !__LP64__ */
 
     /*!
      * @var _mediaBlockSize
@@ -1259,23 +1220,9 @@ protected:
      */
     virtual IOReturn	acceptNewMedia(void);
     
-    /*!
-     * @function constrainByteCount
-     * @abstract
-     * Constrain the byte count for this IO to device limits.
-     * @discussion
-     * This function should be called prior to each read or write operation, so that
-     * the driver can constrain the requested byte count, as necessary, to meet
-     * current device limits. Such limits could be imposed by the device depending
-     * on operating modes, media types, or transport protocol (e.g. ATA, SCSI).
-     * 
-     * At present, this method is not used.
-     * @param requestedCount
-     * The requested byte count for the next read or write operation.
-     * @param isWrite
-     * True if the operation will be a write; False if the operation will be a read.
-     */
-    virtual UInt64	constrainByteCount(UInt64 requestedCount,bool isWrite);
+#ifdef __x86_64__
+    virtual UInt64	constrainByteCount(UInt64 requestedCount,bool isWrite) __attribute__ ((deprecated));
+#endif /* __x86_64__ */
 
     /*!
      * @function decommissionMedia
@@ -1462,18 +1409,11 @@ protected:
      * Additional context information for the data transfer (e.g. block size).
      */
 
-#ifdef __LP64__
     virtual void breakUpRequest(UInt64                byteStart,
                                 IOMemoryDescriptor *  buffer,
                                 IOStorageAttributes * attributes,
                                 IOStorageCompletion * completion,
                                 Context *             context);
-#else /* !__LP64__ */
-    virtual void breakUpRequest(UInt64                byteStart,
-                                IOMemoryDescriptor *  buffer,
-                                IOStorageCompletion   completion,
-                                Context *             context); /* 10.1.2 */
-#endif /* !__LP64__ */
 
     /*!
      * @function prepareRequest
@@ -1507,7 +1447,7 @@ protected:
     virtual void prepareRequest(UInt64                byteStart,
                                 IOMemoryDescriptor *  buffer,
                                 IOStorageAttributes * attributes,
-                                IOStorageCompletion * completion); /* 10.5.0 */
+                                IOStorageCompletion * completion);
 
 public:
 
@@ -1521,17 +1461,11 @@ public:
      * to spin down when it enters such an idle state, and spin up on the next read request
      * from the system.
      */
-    virtual IOReturn	requestIdle(void); /* 10.6.0 */
+    virtual IOReturn	requestIdle(void);
 
-#ifdef __LP64__
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  0);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  1);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  2);
-#else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOBlockStorageDriver,  0);
-    OSMetaClassDeclareReservedUsed(IOBlockStorageDriver,  1);
-    OSMetaClassDeclareReservedUsed(IOBlockStorageDriver,  2);
-#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  3);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  4);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  5);

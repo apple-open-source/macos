@@ -44,16 +44,16 @@ typedef struct idattr_ismember_t {
 } idattr_ismember_t;
 
 static ObjectClass		*idattr_posixGroup;
-AttributeDescription	*idattr_memberUid;
+static AttributeDescription	*idattr_memberUid;
 static ObjectClass		*idattr_posixAccount;
 static AttributeDescription	*idattr_uidNumber;
 
 static ObjectClass		*idattr_apple_user;
 static ObjectClass		*idattr_extensible_object;
-AttributeDescription	*idattr_uuid;
+static AttributeDescription	*idattr_uuid;
 static AttributeDescription	*idattr_owneruuid;
 static AttributeDescription	*idattr_sid;
-AttributeDescription	*idattr_memberships;
+static AttributeDescription	*idattr_memberships;
 static AttributeDescription	*idattr_expandedmemberships;
 
 static const char *group_subtree="cn=groups";

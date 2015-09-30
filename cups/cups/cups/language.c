@@ -1,9 +1,9 @@
 /*
- * "$Id: language.c 11560 2014-02-06 20:10:19Z msweet $"
+ * "$Id: language.c 12836 2015-08-06 14:13:37Z msweet $"
  *
  * I18N/language support for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2015 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -1139,7 +1139,7 @@ appleLangDefault(void)
   int			i;		/* Looping var */
   CFBundleRef		bundle;		/* Main bundle (if any) */
   CFArrayRef		bundleList;	/* List of localizations in bundle */
-  CFPropertyListRef 	localizationList;
+  CFPropertyListRef 	localizationList = NULL;
 					/* List of localization data */
   CFStringRef		languageName;	/* Current name */
   CFStringRef		localeName;	/* Canonical from of name */
@@ -1165,14 +1165,42 @@ appleLangDefault(void)
     else if ((bundle = CFBundleGetMainBundle()) != NULL &&
              (bundleList = CFBundleCopyBundleLocalizations(bundle)) != NULL)
     {
+      CFURLRef resources = CFBundleCopyResourcesDirectoryURL(bundle);
+
       DEBUG_puts("3appleLangDefault: Getting localizationList from bundle.");
 
-      localizationList =
-	  CFBundleCopyPreferredLocalizationsFromArray(bundleList);
+      if (resources)
+      {
+        CFStringRef	cfpath = CFURLCopyPath(resources);
+	char		path[1024];
+
+        if (cfpath)
+	{
+	 /*
+	  * See if we have an Info.plist file in the bundle...
+	  */
+
+	  CFStringGetCString(cfpath, path,sizeof(path), kCFStringEncodingUTF8);
+	  DEBUG_printf(("3appleLangDefault: Got a resource URL (\"%s\")", path));
+	  strlcat(path, "Contents/Info.plist", sizeof(path));
+
+          if (!access(path, R_OK))
+	    localizationList = CFBundleCopyPreferredLocalizationsFromArray(bundleList);
+	  else
+	    DEBUG_puts("3appleLangDefault: No Info.plist, ignoring resource URL...");
+
+	  CFRelease(cfpath);
+	}
+
+	CFRelease(resources);
+      }
+      else
+        DEBUG_puts("3appleLangDefault: No resource URL.");
 
       CFRelease(bundleList);
     }
-    else
+
+    if (!localizationList)
     {
       DEBUG_puts("3appleLangDefault: Getting localizationList from preferences.");
 
@@ -1277,7 +1305,8 @@ static cups_array_t *			/* O - Message catalog */
 appleMessageLoad(const char *locale)	/* I - Locale ID */
 {
   char			filename[1024],	/* Path to cups.strings file */
-			applelang[256];	/* Apple language ID */
+			applelang[256],	/* Apple language ID */
+			baselang[3];	/* Base language */
   CFURLRef		url;		/* URL to cups.strings file */
   CFReadStreamRef	stream = NULL;	/* File stream */
   CFPropertyListRef	plist = NULL;	/* Localization file */
@@ -1295,6 +1324,18 @@ appleMessageLoad(const char *locale)	/* I - Locale ID */
   snprintf(filename, sizeof(filename),
            CUPS_BUNDLEDIR "/Resources/%s.lproj/cups.strings",
 	   _cupsAppleLanguage(locale, applelang, sizeof(applelang)));
+
+  if (access(filename, 0))
+  {
+   /*
+    * <rdar://problem/22086642>
+    *
+    * Try with original locale string...
+    */
+
+    snprintf(filename, sizeof(filename), CUPS_BUNDLEDIR "/Resources/%s.lproj/cups.strings", locale);
+  }
+
   DEBUG_printf(("1appleMessageLoad: filename=\"%s\"", filename));
 
   if (access(filename, 0))
@@ -1317,6 +1358,28 @@ appleMessageLoad(const char *locale)	/* I - Locale ID */
       locale = "Japanese";
     else if (!strncmp(locale, "es", 2))
       locale = "Spanish";
+    else if (!strcmp(locale, "zh_HK"))
+    {
+     /*
+      * <rdar://problem/22130168>
+      *
+      * Try zh_TW first, then zh...  Sigh...
+      */
+
+      if (!access(CUPS_BUNDLEDIR "/Resources/zh_TW.lproj/cups.strings", 0))
+        locale = "zh_TW";
+      else
+        locale = "zh";
+    }
+    else if (strstr(locale, "_") != NULL || strstr(locale, "-") != NULL)
+    {
+     /*
+      * Drop country code, just try language...
+      */
+
+      strlcpy(baselang, locale, sizeof(baselang));
+      locale = baselang;
+    }
 
     snprintf(filename, sizeof(filename),
 	     CUPS_BUNDLEDIR "/Resources/%s.lproj/cups.strings", locale);
@@ -1560,5 +1623,5 @@ cups_unquote(char       *d,		/* O - Unquoted string */
 
 
 /*
- * End of "$Id: language.c 11560 2014-02-06 20:10:19Z msweet $".
+ * End of "$Id: language.c 12836 2015-08-06 14:13:37Z msweet $".
  */

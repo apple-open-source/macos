@@ -173,12 +173,10 @@
 		95A7266F1426CFE6006CE6F2 /* MBCUserDefaults.h in Headers */ = {isa = PBXBuildFile; fileRef = 95A7266C1426CFE6006CE6F2 /* MBCUserDefaults.h */; };
 		95A726701426CFE6006CE6F2 /* MBCUserDefaults.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95A7266D1426CFE6006CE6F2 /* MBCUserDefaults.mm */; };
 		95A726711426CFE6006CE6F2 /* MBCUserDefaults.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95A7266D1426CFE6006CE6F2 /* MBCUserDefaults.mm */; };
-		95B4181914E0B5FE006B675E /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 95B4181814E0B5FE006B675E /* libCrashReporterClient.a */; settings = {ATTRIBUTES = (Weak, ); }; };
 		95B65BF91471C8C8008DBB60 /* MBCRemotePlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B65BF71471C8C8008DBB60 /* MBCRemotePlayer.h */; };
 		95B65BFA1471C8C8008DBB60 /* MBCRemotePlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B65BF71471C8C8008DBB60 /* MBCRemotePlayer.h */; };
 		95B65BFB1471C8C9008DBB60 /* MBCRemotePlayer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95B65BF81471C8C8008DBB60 /* MBCRemotePlayer.mm */; };
 		95B65BFC1471C8C9008DBB60 /* MBCRemotePlayer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95B65BF81471C8C8008DBB60 /* MBCRemotePlayer.mm */; };
-		95B81B7D11F65D2B0047D0A0 /* GeoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95B81B7C11F65D2B0047D0A0 /* GeoKit.framework */; };
 		95C31C58125E2E020085159C /* MBCMoveTableView.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C31C56125E2E020085159C /* MBCMoveTableView.h */; };
 		95C31C59125E2E020085159C /* MBCMoveTableView.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95C31C57125E2E020085159C /* MBCMoveTableView.mm */; };
 		95C31C5A125E2E020085159C /* MBCMoveTableView.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C31C56125E2E020085159C /* MBCMoveTableView.h */; };
@@ -198,6 +196,8 @@
 		95DC571C0A670E2F00BA2962 /* sjeng.ChessEngine in Resources */ = {isa = PBXBuildFile; fileRef = 95844C900A670C1E0068CA82 /* sjeng.ChessEngine */; };
 		95ECDE271491C5B100DFD47B /* container-migration.plist in Resources */ = {isa = PBXBuildFile; fileRef = 95ECDE261491C5B100DFD47B /* container-migration.plist */; };
 		D71B7D5D19E5D6FC00CB06F5 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29B97324FDCFA39411CA2CEA /* AppKit.framework */; };
+		D73E3F281B5FE9EF002BCF37 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */; };
+		D74735DE1AC9A07D00AB3466 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D74735DD1AC9A07D00AB3466 /* CoreFoundation.framework */; };
 		D7AA0A7619E7691400A65121 /* GameCenterFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7AA0A7519E7691400A65121 /* GameCenterFoundation.framework */; };
 		D7AA0A7819E7692300A65121 /* GameCenterUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7AA0A7719E7692300A65121 /* GameCenterUI.framework */; };
 /* End PBXBuildFile section */
@@ -274,7 +274,6 @@
 		950BD1700A1E582B00395116 /* Chess.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chess.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		950EE08807769701004ED524 /* Chess.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Chess.plist; path = Resources/Chess.plist; sourceTree = "<group>"; };
 		950EE08907769701004ED524 /* Chess.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Chess.txt; path = Resources/Chess.txt; sourceTree = "<group>"; };
-		951539B81634A15000BE0652 /* MBChess copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "MBChess copy-Info.plist"; path = "/Volumes/Nardis/Shared/Work/Chess/MBChess copy-Info.plist"; sourceTree = "<absolute>"; };
 		95261CDC1478580E004EF501 /* background.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; name = background.pdf; path = Resources/background.pdf; sourceTree = "<group>"; };
 		9534EBC3046627320000E7BB /* MBCBoardAnimation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardAnimation.h; path = Sources/MBCBoardAnimation.h; sourceTree = "<group>"; };
 		9534EBC4046627320000E7BB /* MBCBoardAnimation.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardAnimation.mm; path = Sources/MBCBoardAnimation.mm; sourceTree = "<group>"; };
@@ -354,6 +353,8 @@
 		CA51FF1E1768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/Board.xib; sourceTree = "<group>"; };
 		CA51FF1F1768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/About.xib; sourceTree = "<group>"; };
 		CA51FF201768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		D74735DD1AC9A07D00AB3466 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		D7AA0A7519E7691400A65121 /* GameCenterFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameCenterFoundation.framework; path = ../../../System/Library/PrivateFrameworks/GameCenterFoundation.framework; sourceTree = "<group>"; };
 		D7AA0A7719E7692300A65121 /* GameCenterUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameCenterUI.framework; path = ../../../System/Library/PrivateFrameworks/GameCenterUI.framework; sourceTree = "<group>"; };
 		F505DC4103032B9F01F7F1A0 /* MBCEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCEngine.h; path = Sources/MBCEngine.h; sourceTree = "<group>"; };
@@ -398,6 +399,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D73E3F281B5FE9EF002BCF37 /* SystemConfiguration.framework in Frameworks */,
+				D74735DE1AC9A07D00AB3466 /* CoreFoundation.framework in Frameworks */,
 				D7AA0A7819E7692300A65121 /* GameCenterUI.framework in Frameworks */,
 				D7AA0A7619E7691400A65121 /* GameCenterFoundation.framework in Frameworks */,
 				D71B7D5D19E5D6FC00CB06F5 /* AppKit.framework in Frameworks */,
@@ -405,8 +408,6 @@
 				950BD1640A1E582B00395116 /* Cocoa.framework in Frameworks */,
 				950BD1650A1E582B00395116 /* OpenGL.framework in Frameworks */,
 				950BD1660A1E582B00395116 /* Carbon.framework in Frameworks */,
-				95B81B7D11F65D2B0047D0A0 /* GeoKit.framework in Frameworks */,
-				95B4181914E0B5FE006B675E /* libCrashReporterClient.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -484,7 +485,6 @@
 				29B97317FDCFA39411CA2CEA /* Resources */,
 				29B97323FDCFA39411CA2CEA /* Frameworks */,
 				19C28FACFE9D520D11CA2CBB /* Products */,
-				951539B81634A15000BE0652 /* MBChess copy-Info.plist */,
 			);
 			name = MBChess;
 			sourceTree = "<group>";
@@ -536,6 +536,8 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */,
+				D74735DD1AC9A07D00AB3466 /* CoreFoundation.framework */,
 				D7AA0A7719E7692300A65121 /* GameCenterUI.framework */,
 				D7AA0A7519E7691400A65121 /* GameCenterFoundation.framework */,
 				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,

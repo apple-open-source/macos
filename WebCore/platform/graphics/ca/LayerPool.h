@@ -32,7 +32,6 @@
 #include "Timer.h"
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 
@@ -41,8 +40,8 @@ namespace WebCore {
 class LayerPool {
     WTF_MAKE_NONCOPYABLE(LayerPool);
 public:
-    LayerPool();
-    ~LayerPool();
+    WEBCORE_EXPORT LayerPool();
+    WEBCORE_EXPORT ~LayerPool();
 
     static HashSet<LayerPool*>& allLayerPools();
     
@@ -61,7 +60,7 @@ private:
 
     bool canReuseLayerWithSize(const IntSize& size) const { return m_maxBytesForPool && !size.isEmpty(); }
     void schedulePrune();
-    void pruneTimerFired(Timer&);
+    void pruneTimerFired();
 
     typedef enum { LeaveUnchanged, MarkAsUsed } AccessType;
     LayerList& listOfLayersWithSize(const IntSize&, AccessType = LeaveUnchanged);

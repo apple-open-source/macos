@@ -42,7 +42,7 @@
 #include <gtk/gtk.h>
 #include <memory>
 #include <wtf/Vector.h>
-#include <wtf/gobject/GUniquePtr.h>
+#include <wtf/glib/GUniquePtr.h>
 
 #if HAVE(GTK_UNIX_PRINTING)
 #include "PrinterListGtk.h"
@@ -67,7 +67,8 @@ public:
         m_printContext = printContext;
         m_callbackID = callbackID;
 
-        RefPtr<PrinterListGtk> printerList = PrinterListGtk::shared();
+        RefPtr<PrinterListGtk> printerList = PrinterListGtk::getOrCreate();
+        ASSERT(printerList);
         const char* printerName = gtk_print_settings_get_printer(m_printSettings.get());
         GtkPrinter* printer = printerName ? printerList->findPrinter(printerName) : printerList->defaultPrinter();
         if (!printer) {
@@ -149,13 +150,13 @@ public:
     static void printJobFinished(WebPrintOperationGtkUnix* printOperation)
     {
         printOperation->deref();
-        WebProcess::shared().enableTermination();
+        WebProcess::singleton().enableTermination();
     }
 
     void endPrint() override
     {
         // Disable web process termination until the print job finishes.
-        WebProcess::shared().disableTermination();
+        WebProcess::singleton().disableTermination();
 
         cairo_surface_finish(gtk_print_job_get_surface(m_printJob.get(), 0));
         // Make sure the operation is alive until the job is sent.
@@ -698,7 +699,7 @@ void WebPrintOperationGtk::printPagesDone()
 {
     m_printPagesIdleId = 0;
     endPrint();
-    m_cairoContext = 0;
+    m_cairoContext = nullptr;
 }
 
 void WebPrintOperationGtk::printDone(const WebCore::ResourceError& error)

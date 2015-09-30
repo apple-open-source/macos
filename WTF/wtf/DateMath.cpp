@@ -121,7 +121,6 @@ static const int firstDayOfMonth[2][12] = {
     {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335}
 };
 
-#if !OS(WINCE)
 static inline void getLocalTime(const time_t* localTime, struct tm* localTM)
 {
 #if COMPILER(MINGW)
@@ -132,7 +131,6 @@ static inline void getLocalTime(const time_t* localTime, struct tm* localTM)
     localtime_r(localTime, localTM);
 #endif
 }
-#endif
 
 bool isLeapYear(int year)
 {
@@ -363,21 +361,52 @@ int equivalentYearForDST(int year)
     return year;
 }
 
-#if !HAVE(TM_GMTOFF)
+#if OS(WINDOWS)
+typedef BOOL(WINAPI* callGetTimeZoneInformationForYear_t)(USHORT, PDYNAMIC_TIME_ZONE_INFORMATION, LPTIME_ZONE_INFORMATION);
+
+static callGetTimeZoneInformationForYear_t timeZoneInformationForYearFunction()
+{
+    static callGetTimeZoneInformationForYear_t getTimeZoneInformationForYear = nullptr;
+
+    if (getTimeZoneInformationForYear)
+        return getTimeZoneInformationForYear;
+
+    HMODULE module = ::GetModuleHandleW(L"kernel32.dll");
+    if (!module)
+        return nullptr;
+
+    getTimeZoneInformationForYear = reinterpret_cast<callGetTimeZoneInformationForYear_t>(::GetProcAddress(module, "GetTimeZoneInformationForYear"));
+
+    return getTimeZoneInformationForYear;
+}
+#endif
 
 static int32_t calculateUTCOffset()
 {
 #if OS(WINDOWS)
     TIME_ZONE_INFORMATION timeZoneInformation;
-    DWORD rc = ::GetTimeZoneInformation(&timeZoneInformation);
-    if (rc == TIME_ZONE_ID_INVALID)
-        return 0;
+    DWORD rc = 0;
 
-    int32_t bias = 0;
+    if (callGetTimeZoneInformationForYear_t timeZoneFunction = timeZoneInformationForYearFunction()) {
+        // If available, use the Windows API call that takes into account the varying DST from
+        // year to year.
+        SYSTEMTIME systemTime;
+        ::GetSystemTime(&systemTime);
+        rc = timeZoneFunction(systemTime.wYear, nullptr, &timeZoneInformation);
+        if (rc == TIME_ZONE_ID_INVALID)
+            return 0;
+    } else {
+        rc = ::GetTimeZoneInformation(&timeZoneInformation);
+        if (rc == TIME_ZONE_ID_INVALID)
+            return 0;
+    }
+
+    int32_t bias = timeZoneInformation.Bias;
+
     if (rc == TIME_ZONE_ID_DAYLIGHT)
-        bias = timeZoneInformation.Bias + timeZoneInformation.DaylightBias;
+        bias += timeZoneInformation.DaylightBias;
     else if (rc == TIME_ZONE_ID_STANDARD || rc == TIME_ZONE_ID_UNKNOWN)
-        bias = timeZoneInformation.Bias + timeZoneInformation.StandardBias;
+        bias += timeZoneInformation.StandardBias;
 
     return -bias * 60 * 1000;
 #else
@@ -414,6 +443,8 @@ static int32_t calculateUTCOffset()
 #endif
 }
 
+#if !HAVE(TM_GMTOFF)
+
 #if OS(WINDOWS)
 // Code taken from http://support.microsoft.com/kb/167296
 static void UnixTimeToFileTime(time_t t, LPFILETIME pft)
@@ -432,11 +463,7 @@ static void UnixTimeToFileTime(time_t t, LPFILETIME pft)
  */
 static double calculateDSTOffset(time_t localTime, double utcOffset)
 {
-#if OS(WINCE)
-    UNUSED_PARAM(localTime);
-    UNUSED_PARAM(utcOffset);
-    return 0;
-#elif OS(WINDOWS)
+#if OS(WINDOWS)
     FILETIME utcFileTime;
     UnixTimeToFileTime(localTime, &utcFileTime);
     SYSTEMTIME utcSystemTime, localSystemTime;
@@ -477,8 +504,16 @@ static double calculateDSTOffset(time_t localTime, double utcOffset)
 #endif
 
 // Returns combined offset in millisecond (UTC + DST).
-LocalTimeOffset calculateLocalTimeOffset(double ms)
+LocalTimeOffset calculateLocalTimeOffset(double ms, TimeType inputTimeType)
 {
+#if HAVE(TM_GMTOFF)
+    double localToUTCTimeOffset = inputTimeType == LocalTime ? calculateUTCOffset() : 0;
+#else
+    double localToUTCTimeOffset = calculateUTCOffset();
+#endif
+    if (inputTimeType == LocalTime)
+        ms -= localToUTCTimeOffset;
+
     // On Mac OS X, the call to localtime (see calculateDSTOffset) will return historically accurate
     // DST information (e.g. New Zealand did not have DST from 1946 to 1974) however the JavaScript
     // standard explicitly dictates that historical information should not be considered when
@@ -508,9 +543,8 @@ LocalTimeOffset calculateLocalTimeOffset(double ms)
     getLocalTime(&localTime, &localTM);
     return LocalTimeOffset(localTM.tm_isdst, localTM.tm_gmtoff * msPerSecond);
 #else
-    double utcOffset = calculateUTCOffset();
-    double dstOffset = calculateDSTOffset(localTime, utcOffset);
-    return LocalTimeOffset(dstOffset, utcOffset + dstOffset);
+    double dstOffset = calculateDSTOffset(localTime, localToUTCTimeOffset);
+    return LocalTimeOffset(dstOffset, localToUTCTimeOffset + dstOffset);
 #endif
 }
 
@@ -1101,7 +1135,7 @@ double parseDateFromNullTerminatedCharacters(const char* dateString)
 
     // fall back to local timezone
     if (!haveTZ)
-        offset = calculateLocalTimeOffset(ms).offset / msPerMinute;
+        offset = calculateLocalTimeOffset(ms, LocalTime).offset / msPerMinute; // ms value is in local time milliseconds.
 
     return ms - (offset * msPerMinute);
 }

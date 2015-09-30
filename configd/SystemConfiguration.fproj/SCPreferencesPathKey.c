@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2004, 2005, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001, 2004, 2005, 2010, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -152,6 +152,16 @@ SCPreferencesPathKeyCreateSetNetworkInterfaceEntity(CFAllocatorRef	allocator,
 	/*
 	 * create "/Sets/set-id/Network/Interface/interface-name/entity"
 	 */
+	if (entity == NULL) {
+		return CFStringCreateWithFormat(allocator,
+						NULL,
+						CFSTR("/%@/%@/%@/%@/%@"),
+						kSCPrefSets,
+						set,
+						kSCCompNetwork,
+						kSCCompInterface,
+						ifname);
+	}
 	return CFStringCreateWithFormat(allocator,
 					NULL,
 					CFSTR("/%@/%@/%@/%@/%@/%@"),

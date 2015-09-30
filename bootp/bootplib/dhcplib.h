@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,9 @@
 
 void	dhcp_packet_print_cfstr(CFMutableStringRef str, 
 				struct dhcp * dp, int pkt_len);
+void	dhcp_packet_with_options_print_cfstr(CFMutableStringRef str,
+					     struct dhcp * dp, int pkt_len,
+					     dhcpol_t * options);
 void	dhcp_packet_fprint(FILE * f, struct dhcp * dp, int pkt_len);
 void	dhcp_packet_print(struct dhcp * dp, int pkt_len);
 

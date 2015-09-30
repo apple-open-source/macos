@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -413,7 +413,7 @@ SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
 	CFDictionaryRef		service_info	= NULL;
 	int			status		= kSCStatusFailed;
 
-	if (copyconninfo(sock_fd, CONNID_ANY, &info) != 0) {
+	if (copyconninfo(sock_fd, SAE_CONNID_ANY, &info) != 0) {
 		status = kSCStatusInvalidArgument;
 		goto done;
 	}

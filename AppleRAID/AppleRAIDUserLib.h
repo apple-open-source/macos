@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -511,6 +511,6 @@ CF_EXPORT
 AppleLVMVolumeRef AppleLVMMergeGroups(AppleRAIDSetRef setRef, AppleRAIDSetRef donorSetRef);
 
 
-#endif !KERNEL
+#endif /* !KERNEL */
 
-#endif _APPLERAIDUSERLIB_H
+#endif /* _APPLERAIDUSERLIB_H */

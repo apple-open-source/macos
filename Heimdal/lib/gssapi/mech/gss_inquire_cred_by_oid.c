@@ -33,10 +33,10 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_inquire_cred_by_oid (OM_uint32 *minor_status,
-			 const gss_cred_id_t cred_handle,
-			 const gss_OID desired_object,
-			 gss_buffer_set_t *data_set)
+gss_inquire_cred_by_oid (OM_uint32 *__nonnull minor_status,
+			 __nonnull const gss_cred_id_t cred_handle,
+			 __nonnull const gss_OID desired_object,
+			 __nonnull gss_buffer_set_t *__nullable data_set)
 {
 	struct _gss_cred *cred = (struct _gss_cred *) cred_handle;
 	OM_uint32		status = GSS_S_COMPLETE;

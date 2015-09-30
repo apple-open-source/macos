@@ -49,10 +49,10 @@ AccessibilityListBox::AccessibilityListBox(RenderObject* renderer)
 AccessibilityListBox::~AccessibilityListBox()
 {
 }
-    
-PassRefPtr<AccessibilityListBox> AccessibilityListBox::create(RenderObject* renderer)
+
+Ref<AccessibilityListBox> AccessibilityListBox::create(RenderObject* renderer)
 {
-    return adoptRef(new AccessibilityListBox(renderer));
+    return adoptRef(*new AccessibilityListBox(renderer));
 }
     
 bool AccessibilityListBox::canSetSelectedChildrenAttribute() const
@@ -61,7 +61,7 @@ bool AccessibilityListBox::canSetSelectedChildrenAttribute() const
     if (!selectNode)
         return false;
     
-    return !toHTMLSelectElement(selectNode)->isDisabledFormControl();
+    return !downcast<HTMLSelectElement>(*selectNode).isDisabledFormControl();
 }
 
 void AccessibilityListBox::addChildren()
@@ -72,7 +72,7 @@ void AccessibilityListBox::addChildren()
     
     m_haveChildren = true;
     
-    for (const auto& listItem : toHTMLSelectElement(selectNode)->listItems()) {
+    for (const auto& listItem : downcast<HTMLSelectElement>(*selectNode).listItems()) {
         // The cast to HTMLElement below is safe because the only other possible listItem type
         // would be a WMLElement, but WML builds don't use accessibility features at all.
         AccessibilityObject* listOption = listBoxOptionAccessibilityObject(listItem);
@@ -92,16 +92,16 @@ void AccessibilityListBox::setSelectedChildren(const AccessibilityChildrenVector
     
     // disable any selected options
     for (const auto& child : m_children) {
-        AccessibilityListBoxOption* listBoxOption = toAccessibilityListBoxOption(child.get());
-        if (listBoxOption->isSelected())
-            listBoxOption->setSelected(false);
+        auto& listBoxOption = downcast<AccessibilityListBoxOption>(*child);
+        if (listBoxOption.isSelected())
+            listBoxOption.setSelected(false);
     }
     
     for (const auto& obj : children) {
         if (obj->roleValue() != ListBoxOptionRole)
             continue;
                 
-        toAccessibilityListBoxOption(obj.get())->setSelected(true);
+        downcast<AccessibilityListBoxOption>(*obj).setSelected(true);
     }
 }
     
@@ -113,7 +113,7 @@ void AccessibilityListBox::selectedChildren(AccessibilityChildrenVector& result)
         addChildren();
         
     for (const auto& child : m_children) {
-        if (toAccessibilityListBoxOption(child.get())->isSelected())
+        if (downcast<AccessibilityListBoxOption>(*child).isSelected())
             result.append(child.get());
     }    
 }
@@ -127,7 +127,7 @@ void AccessibilityListBox::visibleChildren(AccessibilityChildrenVector& result)
     
     unsigned length = m_children.size();
     for (unsigned i = 0; i < length; i++) {
-        if (toRenderListBox(m_renderer)->listIndexIsVisible(i))
+        if (downcast<RenderListBox>(*m_renderer).listIndexIsVisible(i))
             result.append(m_children[i]);
     }
 }
@@ -136,12 +136,12 @@ AccessibilityObject* AccessibilityListBox::listBoxOptionAccessibilityObject(HTML
 {
     // skip hr elements
     if (!element || element->hasTagName(hrTag))
-        return 0;
+        return nullptr;
     
-    AccessibilityObject* listBoxObject = m_renderer->document().axObjectCache()->getOrCreate(ListBoxOptionRole);
-    toAccessibilityListBoxOption(listBoxObject)->setHTMLElement(element);
+    AccessibilityObject& listBoxObject = *m_renderer->document().axObjectCache()->getOrCreate(ListBoxOptionRole);
+    downcast<AccessibilityListBoxOption>(listBoxObject).setHTMLElement(element);
     
-    return listBoxObject;
+    return &listBoxObject;
 }
     
 AccessibilityObject* AccessibilityListBox::elementAccessibilityHitTest(const IntPoint& point) const
@@ -149,18 +149,18 @@ AccessibilityObject* AccessibilityListBox::elementAccessibilityHitTest(const Int
     // the internal HTMLSelectElement methods for returning a listbox option at a point
     // ignore optgroup elements.
     if (!m_renderer)
-        return 0;
+        return nullptr;
     
     Node* node = m_renderer->node();
     if (!node)
-        return 0;
+        return nullptr;
     
     LayoutRect parentRect = boundingBoxRect();
     
-    AccessibilityObject* listBoxOption = 0;
+    AccessibilityObject* listBoxOption = nullptr;
     unsigned length = m_children.size();
-    for (unsigned i = 0; i < length; i++) {
-        LayoutRect rect = toRenderListBox(m_renderer)->itemBoundingBoxRect(parentRect.location(), i);
+    for (unsigned i = 0; i < length; ++i) {
+        LayoutRect rect = downcast<RenderListBox>(*m_renderer).itemBoundingBoxRect(parentRect.location(), i);
         // The cast to HTMLElement below is safe because the only other possible listItem type
         // would be a WMLElement, but WML builds don't use accessibility features at all.
         if (rect.contains(point)) {

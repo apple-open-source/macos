@@ -1,9 +1,9 @@
 /*
- * "$Id: config.h 12142 2014-08-30 02:35:43Z msweet $"
+ * "$Id: config.h 12836 2015-08-06 14:13:37Z msweet $"
  *
  * Configuration file for CUPS and Xcode.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2015 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -16,12 +16,14 @@
 #ifndef _CUPS_CONFIG_H_
 #define _CUPS_CONFIG_H_
 
+#include <AvailabilityMacros.h>
+
 /*
  * Version of software...
  */
 
-#define CUPS_SVERSION "CUPS v2.0.0"
-#define CUPS_MINIMAL "CUPS/2.0.0"
+#define CUPS_SVERSION "CUPS v2.1.0"
+#define CUPS_MINIMAL "CUPS/2.1.0"
 
 
 /*
@@ -246,6 +248,20 @@
 
 
 /*
+ * Do we have the ASL functions?
+ */
+
+#define HAVE_ASL_H
+
+
+/*
+ * Do we have the systemd journal functions?
+ */
+
+/*#undef HAVE_SYSTEMD_SD_JOURNAL_H*/
+
+
+/*
  * Do we have the (v)snprintf() functions?
  */
 
@@ -301,6 +317,20 @@
 
 
 /*
+ * Do we have the gnutls_transport_set_pull_timeout_function function?
+ */
+
+/* #undef HAVE_GNUTLS_TRANSPORT_SET_PULL_TIMEOUT_FUNCTION */
+
+
+/*
+ * Do we have the gnutls_priority_set_direct function?
+ */
+
+/* #undef HAVE_GNUTLS_PRIORITY_SET_DIRECT */
+
+
+/*
  * What Security framework headers do we have?
  */
 
@@ -334,6 +364,15 @@
  */
 
 #define HAVE_SECKEYCHAINOPEN 1
+
+
+/*
+ * Do we have (a working) SSLSetEnabledCiphers function?
+ */
+
+#ifdef AVAILABLE_MAC_OS_X_VERSION_10_11_AND_LATER
+#  define HAVE_SSLSETENABLEDCIPHERS 1
+#endif /* AVAILABLE_MAC_OS_X_VERSION_10_11_AND_LATER */
 
 
 /*
@@ -454,7 +493,7 @@
 
 #define HAVE_LAUNCH_H 1
 #define HAVE_LAUNCHD 1
-#undef HAVE_LAUNCH_ACTIVATE_SOCKET
+#define HAVE_LAUNCH_ACTIVATE_SOCKET 1
 
 
 /*
@@ -699,5 +738,5 @@ static __inline int _cups_abs(int i) { return (i < 0 ? -i : i); }
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h 12142 2014-08-30 02:35:43Z msweet $".
+ * End of "$Id: config.h 12836 2015-08-06 14:13:37Z msweet $".
  */

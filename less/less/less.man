@@ -10,7 +10,7 @@ LESS(1)                                                                LESS(1)
        [1mless --help[0m
        [1mless -V[0m
        [1mless --version[0m
-       [1mless [-[+]aBcCdeEfFgGiIJKLmMnNqQrRsSuUVwWX~][0m
+       [1mless [-[+]aABcCdeEfFgGiIJKLmMnNqQrRsSuUVwWX~][0m
             [1m[-b [4m[22mspace[24m[1m] [-h [4m[22mlines[24m[1m] [-j [4m[22mline[24m[1m] [-k [4m[22mkeyfile[24m[1m][0m
             [1m[-{oO} [4m[22mlogfile[24m[1m] [-p [4m[22mpattern[24m[1m] [-P [4m[22mprompt[24m[1m] [-t [4m[22mtag[24m[1m][0m
             [1m[-T [4m[22mtagsfile[24m[1m] [-x [4m[22mtab[24m[1m,...] [-y [4m[22mlines[24m[1m] [-[z] [4m[22mlines[24m[1m][0m
@@ -55,7 +55,7 @@ LESS(1)                                                                LESS(1)
               Like SPACE, but scrolls a full screenful,  even  if  it  reaches
               end-of-file in the process.
 
-       RETURN or ^N or e or ^E or j or ^J
+       ENTER or RETURN or ^N or e or ^E or j or ^J
               Scroll  forward N lines, default 1.  The entire N lines are dis-
               played, even if N is more than the screen size.
 
@@ -106,6 +106,10 @@ LESS(1)                                                                LESS(1)
               the  end of the file.  It is a way to monitor the tail of a file
               which is growing while it is being  viewed.   (The  behavior  is
               similar to the "tail -f" command.)
+
+       ESC-F  Like  F,  but  as soon as a line is found which matches the last
+              search pattern, the terminal bell is rung and forward  scrolling
+              stops.
 
        g or < or ESC-<
               Go to line N in the file, default 1 (beginning of file).  (Warn-
@@ -172,7 +176,7 @@ LESS(1)                                                                LESS(1)
               Search forward in the file for the N-th line containing the pat-
               tern.  N defaults to 1.  The pattern is a regular expression, as
               recognized by the regular expression library  supplied  by  your
-              system.  The search starts at the second line displayed (but see
+              system.   The search starts at the first line displayed (but see
               the -a and -j options, which change this).
 
               Certain characters are special if entered at  the  beginning  of
@@ -195,8 +199,8 @@ LESS(1)                                                                LESS(1)
                      options.
 
               ^K     Highlight any text which matches the pattern on the  cur-
-                     rent  screen,  but  don't  move  to the first match (KEEP
-                     current position).
+                     rent screen, but don't move to the first match (KEEP cur-
+                     rent position).
 
               ^R     Don't interpret regular expression  metacharacters;  that
                      is, do a simple textual comparison.
@@ -257,6 +261,22 @@ LESS(1)                                                                LESS(1)
               (Highlighting can also be disabled by toggling the -G option; in
               that case search commands do not turn highlighting back on.)
 
+       &pattern
+              Display  only  lines which match the pattern; lines which do not
+              match the pattern are not displayed.  If pattern  is  empty  (if
+              you  type  &  immediately  followed  by ENTER), any filtering is
+              turned off, and all lines are displayed.  While filtering is  in
+              effect,  an  ampersand  is  displayed  at  the  beginning of the
+              prompt, as a reminder that some lines in the file may be hidden.
+
+              Certain characters are special as in the / command:
+
+              ^N or !
+                     Display only lines which do NOT match the pattern.
+
+              ^R     Don't interpret regular expression  metacharacters;  that
+                     is, do a simple textual comparison.
+
        :e [filename]
               Examine  a  new file.  If the filename is missing, the "current"
               file (see the :n and :p commands below) from the list  of  files
@@ -315,10 +335,10 @@ LESS(1)                                                                LESS(1)
               ting is printed and nothing is changed.
 
        --     Like  the  -  command, but takes a long option name (see OPTIONS
-              below) rather than a  single  option  letter.   You  must  press
-              RETURN after typing the option name.  A ^P immediately after the
-              second dash suppresses printing of a message describing the  new
-              setting, as in the - command.
+              below) rather than a single option letter.  You must press ENTER
+              or  RETURN after typing the option name.  A ^P immediately after
+              the second dash suppresses printing of a message describing  the
+              new setting, as in the - command.
 
        -+     Followed  by  one  of  the command line option letters this will
               reset the option to its default  setting  and  print  a  message
@@ -343,7 +363,7 @@ LESS(1)                                                                LESS(1)
 
        __     (Double underscore.)  Like the _ (underscore) command, but takes
               a long option name rather than a single option letter.  You must
-              press RETURN after typing the option name.
+              press ENTER or RETURN after typing the option name.
 
        +cmd   Causes the specified cmd to be executed each time a new file  is
               examined.  For example, +G causes [4mless[24m to initially display each
@@ -356,7 +376,6 @@ LESS(1)                                                                LESS(1)
 
        The following four commands may or may not be valid, depending on  your
        particular installation.
-
 
        v      Invokes  an  editor  to edit the current file being viewed.  The
               editor is taken from the environment variable VISUAL if defined,
@@ -385,7 +404,6 @@ LESS(1)                                                                LESS(1)
        s filename
               Save  the  input  to  a file.  This only works if the input is a
               pipe, not an ordinary file.
-
 
 [1mOPTIONS[0m
        Command line options are described below.  Most options may be  changed
@@ -419,13 +437,18 @@ LESS(1)                                                                LESS(1)
        appears in the LESS variable, it can be reset to its default  value  on
        the command line by beginning the command line option with "-+".
 
-       For  options like -P or -D which take a following string, a dollar sign
-       ($) must be used to signal the end of the string.  For example, to  set
-       two  -D  options  on  MS-DOS, you must have a dollar sign between them,
+       Some  options  like -k or -D require a string to follow the option let-
+       ter.  The string for that option is considered to  end  when  a  dollar
+       sign  ($)  is found.  For example, you can set two -D options on MS-DOS
        like this:
 
-       LESS="-Dn9.1$-Ds4.1"
+       LESS="Dn9.1$Ds4.1"
 
+       If the --use-backslash option appears earlier in the  options,  then  a
+       dollar  sign or backslash may be included literally in an option string
+       by preceding it with a backslash.  If the --use-backslash option is not
+       in  effect, then backslashes are not treated specially, and there is no
+       way to include a dollar sign in the option string.
 
        -? or --help
               This option displays a summary of the commands accepted by  [4mless[0m
@@ -434,34 +457,48 @@ LESS(1)                                                                LESS(1)
               question mark, thus: "-\?".)
 
        -a or --search-skip-screen
-              Causes  searches  to  start after the last line displayed on the
-              screen, thus skipping all lines displayed  on  the  screen.   By
-              default,  searches  start  at  the second line on the screen (or
-              after the last found line; see the -j option).
+              By  default,  forward searches start at the top of the displayed
+              screen and backwards searches start at the bottom  of  the  dis-
+              played  screen (except for repeated searches invoked by the n or
+              N commands, which  start  after  or  before  the  "target"  line
+              respectively; see the -j option for more about the target line).
+              The -a option causes forward searches to instead  start  at  the
+              bottom  of  the screen and backward searches to start at the top
+              of the screen, thus skipping all lines displayed on the screen.
+
+       -A or --SEARCH-SKIP-SCREEN
+              Causes all forward searches (not just non-repeated searches)  to
+              start  just  after the target line, and all backward searches to
+              start just before the target line.  Thus, forward searches  will
+              skip part of the displayed screen (from the first line up to and
+              including the target line).  Similarly backwards  searches  will
+              skip the displayed screen from the last line up to and including
+              the target line.  This was the default behavior in less versions
+              prior to 441.
 
        -b[4mn[24m or --buffers=[4mn[0m
-              Specifies the amount of buffer space  [4mless[24m  will  use  for  each
-              file,  in  units  of  kilobytes (1024 bytes).  By default 64K of
-              buffer space is used for each file (unless the file is  a  pipe;
-              see  the  -B  option).   The  -b option specifies instead that [4mn[0m
+              Specifies  the  amount  of  buffer  space [4mless[24m will use for each
+              file, in units of kilobytes (1024 bytes).   By  default  64K  of
+              buffer  space  is used for each file (unless the file is a pipe;
+              see the -B option).  The -b  option  specifies  instead  that  [4mn[0m
               kilobytes of buffer space should be used for each file.  If [4mn[24m is
-              -1,  buffer  space is unlimited; that is, the entire file can be
+              -1, buffer space is unlimited; that is, the entire file  can  be
               read into memory.
 
        -B or --auto-buffers
               By default, when data is read from a pipe, buffers are allocated
               automatically as needed.  If a large amount of data is read from
-              the pipe, this can cause a large amount of memory  to  be  allo-
-              cated.   The  -B  option  disables  this automatic allocation of
-              buffers for pipes, so that only 64K  (or  the  amount  of  space
-              specified  by the -b option) is used for the pipe.  Warning: use
-              of -B can result in  erroneous  display,  since  only  the  most
-              recently  viewed  part  of the piped data is kept in memory; any
-              earlier data is lost.
+              the  pipe,  this  can cause a large amount of memory to be allo-
+              cated.  The -B option disables this automatic allocation of buf-
+              fers  for pipes, so that only 64K (or the amount of space speci-
+              fied by the -b option) is used for the pipe.  Warning: use of -B
+              can  result  in  erroneous display, since only the most recently
+              viewed part of the piped data is kept  in  memory;  any  earlier
+              data is lost.
 
        -c or --clear-screen
-              Causes full screen repaints to be  painted  from  the  top  line
-              down.   By  default,  full screen repaints are done by scrolling
+              Causes  full  screen  repaints  to  be painted from the top line
+              down.  By default, full screen repaints are  done  by  scrolling
               from the bottom of the screen.
 
        -C or --CLEAR-SCREEN
@@ -469,23 +506,24 @@ LESS(1)                                                                LESS(1)
 
        -d or --dumb
               The -d option suppresses the error message normally displayed if
-              the  terminal is dumb; that is, lacks some important capability,
+              the terminal is dumb; that is, lacks some important  capability,
               such as the ability to clear the screen or scroll backward.  The
-              -d  option  does  not otherwise change the behavior of [4mless[24m on a
+              -d option does not otherwise change the behavior of  [4mless[24m  on  a
               dumb terminal.
 
        -D[1mx[4m[22mcolor[24m or --color=[1mx[4m[22mcolor[0m
               [MS-DOS only] Sets the color of the text displayed.  [1mx [22mis a sin-
-              gle  character  which  selects  the  type of text whose color is
-              being set: n=normal, s=standout, d=bold, u=underlined,  k=blink.
-              [4mcolor[24m  is  a  pair  of numbers separated by a period.  The first
-              number selects the foreground color and the second  selects  the
-              background  color of the text.  A single number [4mN[24m is the same as
-              [4mN.0[24m.
+              gle character which selects the type  of  text  whose  color  is
+              being  set: n=normal, s=standout, d=bold, u=underlined, k=blink.
+              [4mcolor[24m is a pair of numbers separated by  a  period.   The  first
+              number  selects  the foreground color and the second selects the
+              background color of the text.  A single number [4mN[24m is the same  as
+              [4mN.M[24m, where [4mM[24m is the normal background color.
+
 
        -e or --quit-at-eof
-              Causes [4mless[24m to automatically exit the  second  time  it  reaches
-              end-of-file.   By  default, the only way to exit [4mless[24m is via the
+              Causes  [4mless[24m  to  automatically  exit the second time it reaches
+              end-of-file.  By default, the only way to exit [4mless[24m is  via  the
               "q" command.
 
        -E or --QUIT-AT-EOF
@@ -494,7 +532,7 @@ LESS(1)                                                                LESS(1)
 
        -f or --force
               Forces non-regular files to be opened.  (A non-regular file is a
-              directory or a device special file.)  Also suppresses the  warn-
+              directory  or a device special file.)  Also suppresses the warn-
               ing message when a binary file is opened.  By default, [4mless[24m will
               refuse to open non-regular files.  Note that some operating sys-
               tems will not allow directories to be read, even if -f is set.
@@ -504,53 +542,54 @@ LESS(1)                                                                LESS(1)
               played on the first screen.
 
        -g or --hilite-search
-              Normally, [4mless[24m will highlight ALL strings which match  the  last
-              search  command.   The  -g option changes this behavior to high-
-              light only the particular string which was  found  by  the  last
+              Normally,  [4mless[24m  will highlight ALL strings which match the last
+              search command.  The -g option changes this  behavior  to  high-
+              light  only  the  particular  string which was found by the last
               search command.  This can cause [4mless[24m to run somewhat faster than
               the default.
 
        -G or --HILITE-SEARCH
-              The -G option suppresses all highlighting of  strings  found  by
+              The  -G  option  suppresses all highlighting of strings found by
               search commands.
 
        -h[4mn[24m or --max-back-scroll=[4mn[0m
-              Specifies  a  maximum number of lines to scroll backward.  If it
+              Specifies a maximum number of lines to scroll backward.   If  it
               is necessary to scroll backward more than [4mn[24m lines, the screen is
               repainted in a forward direction instead.  (If the terminal does
               not have the ability to scroll backward, -h0 is implied.)
 
        -i or --ignore-case
               Causes searches to ignore case; that is, uppercase and lowercase
-              are  considered identical.  This option is ignored if any upper-
-              case letters appear in the search pattern; in other words, if  a
-              pattern  contains  uppercase  letters, then that search does not
+              are considered identical.  This option is ignored if any  upper-
+              case  letters appear in the search pattern; in other words, if a
+              pattern contains uppercase letters, then that  search  does  not
               ignore case.
 
        -I or --IGNORE-CASE
-              Like -i, but searches ignore case even if the  pattern  contains
+              Like  -i,  but searches ignore case even if the pattern contains
               uppercase letters.
 
        -j[4mn[24m or --jump-target=[4mn[0m
-              Specifies  a line on the screen where the "target" line is to be
-              positioned.  The target line is the line specified by  any  com-
-              mand  to  search for a pattern, jump to a line number, jump to a
+              Specifies a line on the screen where the "target" line is to  be
+              positioned.   The  target line is the line specified by any com-
+              mand to search for a pattern, jump to a line number, jump  to  a
               file percentage or jump to a tag.  The screen line may be speci-
-              fied  by  a number: the top line on the screen is 1, the next is
+              fied by a number: the top line on the screen is 1, the  next  is
               2, and so on.  The number may be negative to specify a line rel-
               ative to the bottom of the screen: the bottom line on the screen
-              is -1, the second to the bottom is -2, and so on.   Alternately,
-              the  screen line may be specified as a fraction of the height of
-              the screen, starting with a decimal point: .5 is in  the  middle
-              of  the screen, .3 is three tenths down from the first line, and
-              so on.  If the line is specified as a fraction, the actual  line
-              number  is  recalculated  if  the terminal window is resized, so
-              that the target line remains at the specified  fraction  of  the
-              screen  height.   If  any form of the -j option is used, forward
-              searches begin at the line immediately after  the  target  line,
-              and backward searches begin at the target line.  For example, if
-              "-j4" is used, the target line is the fourth line on the screen,
-              so forward searches begin at the fifth line on the screen.
+              is  -1, the second to the bottom is -2, and so on.  Alternately,
+              the screen line may be specified as a fraction of the height  of
+              the  screen,  starting with a decimal point: .5 is in the middle
+              of the screen, .3 is three tenths down from the first line,  and
+              so  on.  If the line is specified as a fraction, the actual line
+              number is recalculated if the terminal  window  is  resized,  so
+              that  the  target  line remains at the specified fraction of the
+              screen height.  If any form of the -j option  is  used,  forward
+              searches  begin  at  the line immediately after the target line,
+              and backward searches begin at the target line,  unless  changed
+              by  -a or -A.  For example, if "-j4" is used, the target line is
+              the fourth line on the screen, so forward searches begin at  the
+              fifth line on the screen.
 
        -J or --status-column
               Displays  a  status  column at the left edge of the screen.  The
@@ -566,17 +605,17 @@ LESS(1)                                                                LESS(1)
               used as a [4mlesskey[24m file.
 
        -K or --quit-on-intr
-              Causes [4mless[24m to exit  immediately  when  an  interrupt  character
-              (usually  ^C) is typed.  Normally, an interrupt character causes
-              [4mless[24m to stop whatever it is doing  and  return  to  its  command
-              prompt.   Note  that  use  of this option makes it impossible to
-              return to the command prompt from the "F" command.
+              Causes [4mless[24m to exit immediately (with status 2) when  an  inter-
+              rupt  character  (usually  ^C) is typed.  Normally, an interrupt
+              character causes [4mless[24m to stop whatever it is doing and return to
+              its  command  prompt.   Note  that  use  of this option makes it
+              impossible to return to the command prompt from the "F" command.
 
        -L or --no-lessopen
-              Ignore the LESSOPEN environment variable (see the INPUT  PREPRO-
-              CESSOR section below).  This option can be set from within [4mless[24m,
-              but it will apply only to files opened subsequently, not to  the
-              file which is currently open.
+              Ignore the LESSOPEN environment variable  (see  the  INPUT  PRE-
+              PROCESSOR  section  below).   This option can be set from within
+              [4mless[24m, but it will apply only to files opened  subsequently,  not
+              to the file which is currently open.
 
        -m or --long-prompt
               Causes  [4mless[24m  to  prompt verbosely (like [4mmore[24m), with the percent
@@ -631,58 +670,59 @@ LESS(1)                                                                LESS(1)
               changes  the  message printed by the = command.  -Pw changes the
               message printed while waiting for data (in the F command).   All
               prompt  strings  consist  of  a  sequence of letters and special
-              escape sequences.  See the section on PROMPTS for more  details.
+              escape sequences.  See the section on PROMPTS for more details.
 
        -q or --quiet or --silent
-              Causes  moderately  "quiet"  operation: the terminal bell is not
+              Causes moderately "quiet" operation: the terminal  bell  is  not
               rung if an attempt is made to scroll past the end of the file or
               before the beginning of the file.  If the terminal has a "visual
-              bell", it is used instead.  The bell will  be  rung  on  certain
-              other  errors, such as typing an invalid character.  The default
+              bell",  it  is  used  instead.  The bell will be rung on certain
+              other errors, such as typing an invalid character.  The  default
               is to ring the terminal bell in all such cases.
 
        -Q or --QUIET or --SILENT
-              Causes totally "quiet" operation: the  terminal  bell  is  never
+              Causes  totally  "quiet"  operation:  the terminal bell is never
               rung.
 
        -r or --raw-control-chars
               Causes "raw" control characters to be displayed.  The default is
-              to display control characters  using  the  caret  notation;  for
+              to  display  control  characters  using  the caret notation; for
               example, a control-A (octal 001) is displayed as "^A".  Warning:
               when the -r option is used, [4mless[24m cannot keep track of the actual
-              appearance  of  the screen (since this depends on how the screen
+              appearance of the screen (since this depends on how  the  screen
               responds to each type of control character).  Thus, various dis-
-              play  problems may result, such as long lines being split in the
+              play problems may result, such as long lines being split in  the
               wrong place.
 
        -R or --RAW-CONTROL-CHARS
-              Like -r, but only ANSI "color" escape sequences  are  output  in
+              Like  -r,  but  only ANSI "color" escape sequences are output in
               "raw" form.  Unlike -r, the screen appearance is maintained cor-
               rectly  in  most  cases.   ANSI  "color"  escape  sequences  are
               sequences of the form:
 
                    ESC [ ... m
 
-              where  the  "..." is zero or more color specification characters
-              For the purpose of keeping  track  of  screen  appearance,  ANSI
-              color  escape sequences are assumed to not move the cursor.  You
-              can make [4mless[24m think that characters other than "m" can end  ANSI
-              color  escape  sequences  by  setting  the  environment variable
+              where the "..." is zero or more color  specification  characters
+              For  the  purpose  of  keeping  track of screen appearance, ANSI
+              color escape sequences are assumed to not move the cursor.   You
+              can  make [4mless[24m think that characters other than "m" can end ANSI
+              color escape  sequences  by  setting  the  environment  variable
               LESSANSIENDCHARS to the list of characters which can end a color
-              escape  sequence.   And  you can make [4mless[24m think that characters
-              other than the standard ones may appear between the ESC and  the
-              m  by  setting  the environment variable LESSANSIMIDCHARS to the
+              escape sequence.  And you can make [4mless[24m  think  that  characters
+              other  than the standard ones may appear between the ESC and the
+              m by setting the environment variable  LESSANSIMIDCHARS  to  the
               list of characters which can appear.
 
        -s or --squeeze-blank-lines
-              Causes consecutive blank lines to  be  squeezed  into  a  single
+              Causes  consecutive  blank  lines  to  be squeezed into a single
               blank line.  This is useful when viewing [4mnroff[24m output.
 
        -S or --chop-long-lines
-              Causes  lines  longer than the screen width to be chopped rather
-              than folded.  That is, the portion of a long line that does  not
-              fit  in  the  screen width is not shown.  The default is to fold
-              long lines; that is, display the remainder on the next line.
+              Causes lines longer than the screen width to be  chopped  (trun-
+              cated) rather than wrapped.  That is, the portion of a long line
+              that does not fit in the screen width is not shown.  The default
+              is  to  wrap  long  lines; that is, display the remainder on the
+              next line.
 
        -t[4mtag[24m or --tag=[4mtag[0m
               The -t option, followed immediately by a TAG, will edit the file
@@ -718,7 +758,7 @@ LESS(1)                                                                LESS(1)
               overstruck  text  is printed using the terminal's hardware bold-
               face capability.  Other backspaces are deleted, along  with  the
               preceding character.  Carriage returns immediately followed by a
-              newline are deleted.  other  carriage  returns  are  handled  as
+              newline are deleted.  Other  carriage  returns  are  handled  as
               specified  by the -r option.  Text which is overstruck or under-
               lined can be searched for if neither -u nor -U is in effect.
 
@@ -732,55 +772,55 @@ LESS(1)                                                                LESS(1)
               screen.  Also highlights the target line after a g or p command.
               The highlight is removed at the next command which causes  move-
               ment.   The  entire line is highlighted, unless the -J option is
-              in effect, in which case only the status column is  highlighted.
+              in effect, in which case only the status column is highlighted.
 
        -W or --HILITE-UNREAD
               Like -w, but temporarily highlights the first new line after any
               forward movement command larger than one line.
 
        -x[4mn[24m,... or --tabs=[4mn[24m,...
-              Sets tab stops.  If only one [4mn[24m is specified, tab stops  are  set
-              at  multiples  of [4mn[24m.  If multiple values separated by commas are
-              specified, tab stops are set at those positions, and  then  con-
-              tinue  with  the  same  spacing  as  the last two.  For example,
-              [4m-x9,17[24m will set tabs at positions  9,  17,  25,  33,  etc.   The
+              Sets  tab  stops.  If only one [4mn[24m is specified, tab stops are set
+              at multiples of [4mn[24m.  If multiple values separated by  commas  are
+              specified,  tab  stops are set at those positions, and then con-
+              tinue with the same spacing  as  the  last  two.   For  example,
+              [4m-x9,17[24m  will  set  tabs  at  positions  9, 17, 25, 33, etc.  The
               default for [4mn[24m is 8.
 
        -X or --no-init
               Disables sending the termcap initialization and deinitialization
-              strings to the terminal.  This is  sometimes  desirable  if  the
-              deinitialization  string does something unnecessary, like clear-
+              strings  to  the  terminal.   This is sometimes desirable if the
+              deinitialization string does something unnecessary, like  clear-
               ing the screen.
 
        -y[4mn[24m or --max-forw-scroll=[4mn[0m
               Specifies a maximum number of lines to scroll forward.  If it is
-              necessary  to  scroll  forward  more than [4mn[24m lines, the screen is
-              repainted instead.  The -c or -C option may be used  to  repaint
-              from  the top of the screen if desired.  By default, any forward
+              necessary to scroll forward more than [4mn[24m  lines,  the  screen  is
+              repainted  instead.   The -c or -C option may be used to repaint
+              from the top of the screen if desired.  By default, any  forward
               movement causes scrolling.
 
        -[z][4mn[24m or --window=[4mn[0m
-              Changes the default scrolling  window  size  to  [4mn[24m  lines.   The
+              Changes  the  default  scrolling  window  size  to [4mn[24m lines.  The
               default is one screenful.  The z and w commands can also be used
-              to change the window size.  The "z" may be omitted for  compati-
+              to  change the window size.  The "z" may be omitted for compati-
               bility with some versions of [4mmore.[24m  If the number [4mn[24m is negative,
-              it indicates [4mn[24m lines less than the  current  screen  size.   For
+              it  indicates  [4mn[24m  lines  less than the current screen size.  For
               example, if the screen is 24 lines, [4m-z-4[24m sets the scrolling win-
-              dow to 20 lines.  If the screen is  resized  to  40  lines,  the
+              dow  to  20  lines.   If  the screen is resized to 40 lines, the
               scrolling window automatically changes to 36 lines.
 
        -[4m"cc[24m or --quotes=[4mcc[0m
-              Changes  the  filename quoting character.  This may be necessary
-              if you are trying to name a file which contains both spaces  and
-              quote  characters.  Followed by a single character, this changes
-              the quote character to that character.  Filenames  containing  a
+              Changes the filename quoting character.  This may  be  necessary
+              if  you are trying to name a file which contains both spaces and
+              quote characters.  Followed by a single character, this  changes
+              the  quote  character to that character.  Filenames containing a
               space should then be surrounded by that character rather than by
-              double quotes.  Followed by two  characters,  changes  the  open
-              quote  to the first character, and the close quote to the second
+              double  quotes.   Followed  by  two characters, changes the open
+              quote to the first character, and the close quote to the  second
               character.  Filenames containing a space should then be preceded
-              by  the  open  quote  character  and followed by the close quote
-              character.  Note  that  even  after  the  quote  characters  are
-              changed,  this  option  remains  -" (a dash followed by a double
+              by the open quote character and  followed  by  the  close  quote
+              character.   Note  that  even  after  the  quote  characters are
+              changed, this option remains -" (a dash  followed  by  a  double
               quote).
 
        -~ or --tilde
@@ -790,24 +830,38 @@ LESS(1)                                                                LESS(1)
 
        -# or --shift
               Specifies the default number of positions to scroll horizontally
-              in  the RIGHTARROW and LEFTARROW commands.  If the number speci-
-              fied is zero, it sets the default number  of  positions  to  one
-              half of the screen width.
+              in the RIGHTARROW and LEFTARROW commands.  If the number  speci-
+              fied  is  zero,  it  sets the default number of positions to one
+              half of the screen width.  Alternately, the number may be speci-
+              fied  as  a fraction of the width of the screen, starting with a
+              decimal point: .5 is half of  the  screen  width,  .3  is  three
+              tenths  of the screen width, and so on.  If the number is speci-
+              fied as a fraction, the actual number  of  scroll  positions  is
+              recalculated  if  the  terminal  window  is resized, so that the
+              actual scroll remains at the specified fraction  of  the  screen
+              width.
+
+       --follow-name
+              Normally,  if  the  input  file is renamed while an F command is
+              executing, [4mless[24m will continue to display  the  contents  of  the
+              original  file  despite  its  name  change.  If --follow-name is
+              specified, during an F command [4mless[24m will periodically attempt to
+              reopen the file by name.  If the reopen succeeds and the file is
+              a different file from the original (which means that a new  file
+              has  been  created  with  the  same  name  as  the original (now
+              renamed) file), [4mless[24m will display the contents of that new file.
 
        --no-keypad
-              Disables  sending the keypad initialization and deinitialization
+              Disables sending the keypad initialization and  deinitialization
               strings to the terminal.  This is sometimes useful if the keypad
               strings make the numeric keypad behave in an undesirable manner.
 
-       --follow-name
-              Normally, if the input file is renamed while  an  F  command  is
-              executing,  [4mless[24m  will  continue  to display the contents of the
-              original file despite its  name  change.   If  --follow-name  is
-              specified, during an F command [4mless[24m will periodically attempt to
-              reopen the file by name.  If the reopen succeeds and the file is
-              a  different file from the original (which means that a new file
-              has been created  with  the  same  name  as  the  original  (now
-              renamed) file), [4mless[24m will display the contents of that new file.
+       --use-backslash
+              This option changes the interpretations of options which  follow
+              this one.  After the --use-backslash option, any backslash in an
+              option string is removed and the following  character  is  taken
+              literally.   This  allows a dollar sign to be included in option
+              strings.
 
        --     A command line argument of "--" marks the end  of  option  argu-
               ments.   Any  arguments  following this are interpreted as file-
@@ -875,10 +929,14 @@ LESS(1)                                                                LESS(1)
               under the cursor.
 
        UPARROW [ ESC-k ]
-              Retrieve the previous command line.
+              Retrieve  the  previous  command  line.  If you first enter some
+              text and then press UPARROW, it will retrieve the previous  com-
+              mand which begins with that text.
 
        DOWNARROW [ ESC-j ]
-              Retrieve the next command line.
+              Retrieve  the  next  command line.  If you first enter some text
+              and then press DOWNARROW, it  will  retrieve  the  next  command
+              which begins with that text.
 
        TAB    Complete  the partial filename to the left of the cursor.  If it
               matches more than one filename, the first match is entered  into
@@ -886,52 +944,54 @@ LESS(1)                                                                LESS(1)
               matching filenames.  If the completed filename is a directory, a
               "/"  is  appended to the filename.  (On MS-DOS systems, a "\" is
               appended.)  The environment variable LESSSEPARATOR can  be  used
-              to  specify a different character to append to a directory name.
+              to specify a different character to append to a directory name.
 
        BACKTAB [ ESC-TAB ]
               Like, TAB, but cycles in the reverse direction thru the matching
               filenames.
 
-       ^L     Complete  the partial filename to the left of the cursor.  If it
+       ^L     Complete the partial filename to the left of the cursor.  If  it
               matches more than one filename, all matches are entered into the
               command line (if they fit).
 
        ^U (Unix and OS/2) or ESC (MS-DOS)
-              Delete  the  entire  command  line, or cancel the command if the
+              Delete the entire command line, or cancel  the  command  if  the
               command line is empty.  If you have changed your line-kill char-
               acter in Unix to something other than ^U, that character is used
               instead of ^U.
 
+       ^G     Delete the entire command line and return to the main prompt.
+
 
 [1mKEY BINDINGS[0m
-       You may define your own [4mless[24m commands by using the program [4mlesskey[24m  (1)
-       to  create  a  lesskey file.  This file specifies a set of command keys
-       and an action associated with each key.  You may also  use  [4mlesskey[24m  to
+       You  may define your own [4mless[24m commands by using the program [4mlesskey[24m (1)
+       to create a lesskey file.  This file specifies a set  of  command  keys
+       and  an  action  associated with each key.  You may also use [4mlesskey[24m to
        change the line-editing keys (see LINE EDITING), and to set environment
-       variables.  If the environment variable LESSKEY is set, [4mless[24m uses  that
-       as  the  name of the lesskey file.  Otherwise, [4mless[24m looks in a standard
-       place for the lesskey file: On Unix systems, [4mless[24m looks for  a  lesskey
-       file  called  "$HOME/.less".  On MS-DOS and Windows systems, [4mless[24m looks
-       for a lesskey file called "$HOME/_less", and if it is not found  there,
+       variables.   If the environment variable LESSKEY is set, [4mless[24m uses that
+       as the name of the lesskey file.  Otherwise, [4mless[24m looks in  a  standard
+       place  for  the lesskey file: On Unix systems, [4mless[24m looks for a lesskey
+       file called "$HOME/.less".  On MS-DOS and Windows systems,  [4mless[24m  looks
+       for  a lesskey file called "$HOME/_less", and if it is not found there,
        then looks for a lesskey file called "_less" in any directory specified
-       in the PATH environment variable.  On OS/2 systems, [4mless[24m  looks  for  a
-       lesskey  file  called  "$HOME/less.ini",  and  if it is not found, then
-       looks for a lesskey file called "less.ini" in any  directory  specified
+       in  the  PATH  environment variable.  On OS/2 systems, [4mless[24m looks for a
+       lesskey file called "$HOME/less.ini", and if  it  is  not  found,  then
+       looks  for  a lesskey file called "less.ini" in any directory specified
        in the INIT environment variable, and if it not found there, then looks
-       for a lesskey file called "less.ini" in any directory specified in  the
-       PATH  environment  variable.   See  the  [4mlesskey[24m  manual  page for more
+       for  a lesskey file called "less.ini" in any directory specified in the
+       PATH environment variable.   See  the  [4mlesskey[24m  manual  page  for  more
        details.
 
-       A system-wide lesskey file may also be set up to provide key  bindings.
+       A  system-wide lesskey file may also be set up to provide key bindings.
        If a key is defined in both a local lesskey file and in the system-wide
-       file, key bindings in the local file take precedence over those in  the
-       system-wide  file.   If the environment variable LESSKEY_SYSTEM is set,
+       file,  key bindings in the local file take precedence over those in the
+       system-wide file.  If the environment variable LESSKEY_SYSTEM  is  set,
        [4mless[24m uses that as the name of the system-wide lesskey file.  Otherwise,
-       [4mless[24m  looks  in  a  standard place for the system-wide lesskey file: On
-       Unix systems, the system-wide lesskey file  is  /usr/local/etc/sysless.
-       (However,  if  [4mless[24m  was  built with a different sysconf directory than
+       [4mless[24m looks in a standard place for the  system-wide  lesskey  file:  On
+       Unix  systems,  the system-wide lesskey file is /usr/local/etc/sysless.
+       (However, if [4mless[24m was built with a  different  sysconf  directory  than
        /usr/local/etc, that directory is where the sysless file is found.)  On
-       MS-DOS  and  Windows  systems, the system-wide lesskey file is c:\_sys-
+       MS-DOS and Windows systems, the system-wide lesskey  file  is  c:\_sys-
        less.  On OS/2 systems, the system-wide lesskey file is c:\sysless.ini.
 
 
@@ -988,39 +1048,65 @@ LESS(1)                                                                LESS(1)
             #! /bin/sh
             rm $2
 
-       To use these scripts, put them both where they can be executed and  set
+       To  use these scripts, put them both where they can be executed and set
        LESSOPEN="lessopen.sh %s",  and  LESSCLOSE="lessclose.sh %s %s".   More
-       complex LESSOPEN and LESSCLOSE scripts may be written to  accept  other
+       complex  LESSOPEN  and LESSCLOSE scripts may be written to accept other
        types of compressed files, and so on.
 
-       It  is  also  possible to set up an input preprocessor to pipe the file
-       data directly to [4mless,[24m rather than putting the data into a  replacement
+       It is also possible to set up an input preprocessor to  pipe  the  file
+       data  directly to [4mless,[24m rather than putting the data into a replacement
        file.  This avoids the need to decompress the entire file before start-
        ing to view it.  An input preprocessor that works this way is called an
-       input  pipe.   An input pipe, instead of writing the name of a replace-
-       ment file on its standard output, writes the  entire  contents  of  the
-       replacement  file  on  its standard output.  If the input pipe does not
-       write any characters on its standard output, then there is no  replace-
-       ment  file and [4mless[24m uses the original file, as normal.  To use an input
-       pipe, make the first character in the LESSOPEN environment  variable  a
-       vertical  bar  (|)  to  signify that the input preprocessor is an input
+       input pipe.  An input pipe, instead of writing the name of  a  replace-
+       ment  file  on  its  standard output, writes the entire contents of the
+       replacement file on its standard output.  If the input  pipe  does  not
+       write  any characters on its standard output, then there is no replace-
+       ment file and [4mless[24m uses the original file, as normal.  To use an  input
+       pipe,  make  the first character in the LESSOPEN environment variable a
+       vertical bar (|) to signify that the input  preprocessor  is  an  input
        pipe.
 
-       For example, on many Unix systems, this script will work like the  pre-
+       For  example, on many Unix systems, this script will work like the pre-
        vious example scripts:
 
        lesspipe.sh:
             #! /bin/sh
             case "$1" in
             *.Z) uncompress -c $1  2>/dev/null
+            *)   exit 1
                  ;;
             esac
+            exit $?
 
        To  use  this  script,  put  it  where  it  can  be  executed  and  set
-       LESSOPEN="|lesspipe.sh %s".  When an input pipe is  used,  a  LESSCLOSE
-       postprocessor  can be used, but it is usually not necessary since there
-       is no replacement file to clean up.  In this case, the replacement file
-       name passed to the LESSCLOSE postprocessor is "-".
+       LESSOPEN="|lesspipe.sh %s".
+
+       Note  that  a  preprocessor  cannot output an empty file, since that is
+       interpreted as meaning there is no replacement, and the  original  file
+       is used.  To avoid this, if LESSOPEN starts with two vertical bars, the
+       exit status of the script becomes meaningful.  If the  exit  status  is
+       zero,  the  output  is  considered  to  be replacement text, even if it
+       empty.  If the exit status is nonzero, any output is  ignored  and  the
+       original  file  is  used.   For compatibility with previous versions of
+       [4mless,[24m if LESSOPEN starts with only one vertical bar, the exit status of
+       the preprocessor is ignored.
+
+       When  an input pipe is used, a LESSCLOSE postprocessor can be used, but
+       it is usually not necessary since there is no replacement file to clean
+       up.   In  this  case, the replacement file name passed to the LESSCLOSE
+       postprocessor is "-".
+
+       For compatibility with previous versions of [4mless,[24m the input  preproces-
+       sor or pipe is not used if [4mless[24m is viewing standard input.  However, if
+       the first character of LESSOPEN is a dash (-), the  input  preprocessor
+       is  used  on  standard input as well as other files.  In this case, the
+       dash is not considered to be part  of  the  preprocessor  command.   If
+       standard input is being viewed, the input preprocessor is passed a file
+       name consisting of a single dash.  Similarly, if the first two  charac-
+       ters  of  LESSOPEN  are vertical bar and dash (|-) or two vertical bars
+       and a dash (||-), the input pipe is used on standard input as  well  as
+       other files.  Again, in this case the dash is not considered to be part
+       of the input pipe command.
 
 
 [1mNATIONAL CHARACTER SETS[0m
@@ -1030,25 +1116,25 @@ LESS(1)                                                                LESS(1)
               can be displayed directly to the screen.
 
        control characters
-              should  not  be displayed directly, but are expected to be found
+              should not be displayed directly, but are expected to  be  found
               in ordinary text files (such as backspace and tab).
 
        binary characters
-              should not be displayed directly and  are  not  expected  to  be
+              should  not  be  displayed  directly  and are not expected to be
               found in text files.
 
        A "character set" is simply a description of which characters are to be
-       considered normal, control, and binary.   The  LESSCHARSET  environment
-       variable  may  be  used to select a character set.  Possible values for
+       considered  normal,  control,  and binary.  The LESSCHARSET environment
+       variable may be used to select a character set.   Possible  values  for
        LESSCHARSET are:
 
-       ascii  BS, TAB, NL, CR, and formfeed are control characters, all  chars
-              with  values  between  32 and 126 are normal, and all others are
+       ascii  BS,  TAB, NL, CR, and formfeed are control characters, all chars
+              with values between 32 and 126 are normal, and  all  others  are
               binary.
 
        iso8859
-              Selects an ISO 8859 character set.  This is the same  as  ASCII,
-              except  characters  between  160  and  255 are treated as normal
+              Selects  an  ISO 8859 character set.  This is the same as ASCII,
+              except characters between 160 and  255  are  treated  as  normal
               characters.
 
        latin1 Same as iso8859.
@@ -1060,8 +1146,8 @@ LESS(1)                                                                LESS(1)
        ebcdic Selects an EBCDIC character set.
 
        IBM-1047
-              Selects an EBCDIC character set used by  OS/390  Unix  Services.
-              This  is the EBCDIC analogue of latin1.  You get similar results
+              Selects  an  EBCDIC  character set used by OS/390 Unix Services.
+              This is the EBCDIC analogue of latin1.  You get similar  results
               by setting either LESSCHARSET=IBM-1047 or LC_CTYPE=en_US in your
               environment.
 
@@ -1069,29 +1155,29 @@ LESS(1)                                                                LESS(1)
 
        next   Selects a character set appropriate for NeXT computers.
 
-       utf-8  Selects  the  UTF-8  encoding  of  the  ISO 10646 character set.
-              UTF-8 is special in that it supports  multi-byte  characters  in
-              the  input  file.   It  is  the only character set that supports
+       utf-8  Selects the UTF-8 encoding  of  the  ISO  10646  character  set.
+              UTF-8  is  special  in that it supports multi-byte characters in
+              the input file.  It is the  only  character  set  that  supports
               multi-byte characters.
 
        windows
-              Selects a character set appropriate for  Microsoft  Windows  (cp
+              Selects  a  character  set appropriate for Microsoft Windows (cp
               1251).
 
-       In  rare cases, it may be desired to tailor [4mless[24m to use a character set
-       other than the ones definable by LESSCHARSET.  In this case, the  envi-
+       In rare cases, it may be desired to tailor [4mless[24m to use a character  set
+       other  than the ones definable by LESSCHARSET.  In this case, the envi-
        ronment variable LESSCHARDEF can be used to define a character set.  It
        should be set to a string where each character in the string represents
-       one  character  in  the character set.  The character "." is used for a
-       normal character, "c" for control, and "b" for binary.  A decimal  num-
-       ber  may  be  used  for  repetition.  For example, "bccc4b." would mean
-       character 0 is binary, 1, 2 and 3 are  control,  4,  5,  6  and  7  are
+       one character in the character set.  The character "." is  used  for  a
+       normal  character, "c" for control, and "b" for binary.  A decimal num-
+       ber may be used for repetition.   For  example,  "bccc4b."  would  mean
+       character  0  is  binary,  1,  2  and  3 are control, 4, 5, 6 and 7 are
        binary, and 8 is normal.  All characters after the last are taken to be
-       the same as the last, so characters 9  through  255  would  be  normal.
-       (This  is an example, and does not necessarily represent any real char-
+       the  same  as  the  last,  so characters 9 through 255 would be normal.
+       (This is an example, and does not necessarily represent any real  char-
        acter set.)
 
-       This table shows the value of LESSCHARDEF which is equivalent  to  each
+       This  table  shows the value of LESSCHARDEF which is equivalent to each
        of the possible values for LESSCHARSET:
 
             ascii     8bcccbcc18b95.b
@@ -1105,66 +1191,66 @@ LESS(1)                                                                LESS(1)
             latin1    8bcccbcc18b95.33b.
             next      8bcccbcc18b95.bb125.bb
 
-       If  neither  LESSCHARSET nor LESSCHARDEF is set, but any of the strings
-       "UTF-8", "UTF8", "utf-8" or "utf8" is found in the LC_ALL,  LC_TYPE  or
+       If neither LESSCHARSET nor LESSCHARDEF is set, but any of  the  strings
+       "UTF-8",  "UTF8", "utf-8" or "utf8" is found in the LC_ALL, LC_CTYPE or
        LANG environment variables, then the default character set is utf-8.
 
-       If  that  string  is  not found, but your system supports the [4msetlocale[0m
-       interface, [4mless[24m will use setlocale  to  determine  the  character  set.
-       setlocale  is  controlled  by  setting the LANG or LC_CTYPE environment
+       If that string is not found, but your  system  supports  the  [4msetlocale[0m
+       interface,  [4mless[24m  will  use  setlocale  to determine the character set.
+       setlocale is controlled by setting the  LANG  or  LC_CTYPE  environment
        variables.
 
-       Finally, if the [4msetlocale[24m interface is also not available, the  default
+       Finally,  if the [4msetlocale[24m interface is also not available, the default
        character set is latin1.
 
-       Control  and  binary  characters  are  displayed  in  standout (reverse
+       Control and  binary  characters  are  displayed  in  standout  (reverse
        video).  Each such character is displayed in caret notation if possible
-       (e.g.  ^A for control-A).  Caret notation is used only if inverting the
+       (e.g. ^A for control-A).  Caret notation is used only if inverting  the
        0100 bit results in a normal printable character.  Otherwise, the char-
-       acter  is displayed as a hex number in angle brackets.  This format can
-       be changed by setting the LESSBINFMT environment variable.   LESSBINFMT
+       acter is displayed as a hex number in angle brackets.  This format  can
+       be  changed by setting the LESSBINFMT environment variable.  LESSBINFMT
        may begin with a "*" and one character to select the display attribute:
-       "*k" is blinking, "*d" is bold, "*u" is underlined, "*s"  is  standout,
-       and  "*n"  is  normal.  If LESSBINFMT does not begin with a "*", normal
-       attribute is assumed.  The remainder of LESSBINFMT is  a  string  which
-       may  include one printf-style escape sequence (a % followed by x, X, o,
-       d, etc.).  For example, if LESSBINFMT is  "*u[%x]",  binary  characters
-       are  displayed  in  underlined hexadecimal surrounded by brackets.  The
-       default if no LESSBINFMT is specified is "*s<%X>".  The default  if  no
-       LESSBINFMT  is specified is "*s<%02X>".  Warning: the result of expand-
-       ing the character via LESSBINFMT must be less than 31 characters.
+       "*k"  is  blinking, "*d" is bold, "*u" is underlined, "*s" is standout,
+       and "*n" is normal.  If LESSBINFMT does not begin with  a  "*",  normal
+       attribute  is  assumed.   The remainder of LESSBINFMT is a string which
+       may include one printf-style escape sequence (a % followed by x, X,  o,
+       d,  etc.).   For  example, if LESSBINFMT is "*u[%x]", binary characters
+       are displayed in underlined hexadecimal surrounded  by  brackets.   The
+       default  if  no  LESSBINFMT  is  specified is "*s<%02X>".  Warning: the
+       result of expanding the character via LESSBINFMT must be less  than  31
+       characters.
 
        When the character set is utf-8, the LESSUTFBINFMT environment variable
        acts similarly to LESSBINFMT but it applies to Unicode code points that
-       were successfully decoded but are unsuitable for display  (e.g.,  unas-
-       signed  code  points).   Its  default  value is "<U+%04lX>".  Note that
-       LESSUTFBINFMT and LESSBINFMT  share  their  display  attribute  setting
-       ("*x")  so specifying one will affect both; LESSUTFBINFMT is read after
-       LESSBINFMT so its setting, if any,  will  have  priority.   Problematic
-       octets  in  a  UTF-8  file (octets of a truncated sequence, octets of a
-       complete but non-shortest form  sequence,  illegal  octets,  and  stray
-       trailing  octets)  are displayed individually using LESSBINFMT so as to
+       were  successfully  decoded but are unsuitable for display (e.g., unas-
+       signed code points).  Its default  value  is  "<U+%04lX>".   Note  that
+       LESSUTFBINFMT  and  LESSBINFMT  share  their  display attribute setting
+       ("*x") so specifying one will affect both; LESSUTFBINFMT is read  after
+       LESSBINFMT  so  its  setting,  if any, will have priority.  Problematic
+       octets in a UTF-8 file (octets of a truncated  sequence,  octets  of  a
+       complete  but  non-shortest  form  sequence,  illegal octets, and stray
+       trailing octets) are displayed individually using LESSBINFMT so  as  to
        facilitate diagnostic of how the UTF-8 file is ill-formed.
 
 
 [1mPROMPTS[0m
-       The -P option allows you to tailor the prompt to your preference.   The
-       string  given  to  the  -P option replaces the specified prompt string.
+       The  -P option allows you to tailor the prompt to your preference.  The
+       string given to the -P option replaces  the  specified  prompt  string.
        Certain characters in the string are interpreted specially.  The prompt
-       mechanism  is  rather complicated to provide flexibility, but the ordi-
-       nary user need not understand the details of constructing  personalized
+       mechanism is rather complicated to provide flexibility, but  the  ordi-
+       nary  user need not understand the details of constructing personalized
        prompt strings.
 
-       A  percent sign followed by a single character is expanded according to
+       A percent sign followed by a single character is expanded according  to
        what the following character is:
 
-       %b[4mX[24m    Replaced by the byte offset into the current input file.  The  b
+       %b[4mX[24m    Replaced  by the byte offset into the current input file.  The b
               is followed by a single character (shown as [4mX[24m above) which spec-
-              ifies the line whose byte offset is to be used.  If the  charac-
-              ter  is a "t", the byte offset of the top line in the display is
+              ifies  the line whose byte offset is to be used.  If the charac-
+              ter is a "t", the byte offset of the top line in the display  is
               used, an "m" means use the middle line, a "b" means use the bot-
-              tom  line,  a "B" means use the line just after the bottom line,
-              and a "j" means use the "target" line, as specified  by  the  -j
+              tom line, a "B" means use the line just after the  bottom  line,
+              and  a  "j"  means use the "target" line, as specified by the -j
               option.
 
        %B     Replaced by the size of the current input file.
@@ -1172,17 +1258,20 @@ LESS(1)                                                                LESS(1)
        %c     Replaced by the column number of the text appearing in the first
               column of the screen.
 
-       %d[4mX[24m    Replaced by the page number of a line in the  input  file.   The
+       %d[4mX[24m    Replaced  by  the  page number of a line in the input file.  The
               line to be used is determined by the [4mX[24m, as with the %b option.
 
-       %D     Replaced  by  the  number of pages in the input file, or equiva-
+       %D     Replaced by the number of pages in the input  file,  or  equiva-
               lently, the page number of the last line in the input file.
 
-       %E     Replaced by the name of the editor (from the VISUAL  environment
-              variable,  or  the  EDITOR environment variable if VISUAL is not
+       %E     Replaced  by the name of the editor (from the VISUAL environment
+              variable, or the EDITOR environment variable if  VISUAL  is  not
               defined).  See the discussion of the LESSEDIT feature below.
 
        %f     Replaced by the name of the current input file.
+
+       %F     Replaced  by the last component of the name of the current input
+              file.
 
        %i     Replaced by the index of the current file in the list  of  input
               files.
@@ -1190,21 +1279,21 @@ LESS(1)                                                                LESS(1)
        %l[4mX[24m    Replaced  by  the  line number of a line in the input file.  The
               line to be used is determined by the [4mX[24m, as with the %b option.
 
-       %L     Replaced by the line number of the last line in the input  file.
+       %L     Replaced by the line number of the last line in the input file.
 
        %m     Replaced by the total number of input files.
 
-       %p[4mX[24m    Replaced  by  the  percent into the current input file, based on
-              byte offsets.  The line used is determined by the [4mX[24m as with  the
+       %p[4mX[24m    Replaced by the percent into the current input  file,  based  on
+              byte  offsets.  The line used is determined by the [4mX[24m as with the
               %b option.
 
-       %P[4mX[24m    Replaced  by  the  percent into the current input file, based on
-              line numbers.  The line used is determined by the [4mX[24m as with  the
+       %P[4mX[24m    Replaced by the percent into the current input  file,  based  on
+              line  numbers.  The line used is determined by the [4mX[24m as with the
               %b option.
 
        %s     Same as %B.
 
-       %t     Causes  any  trailing spaces to be removed.  Usually used at the
+       %t     Causes any trailing spaces to be removed.  Usually used  at  the
               end of the string, but may appear anywhere.
 
        %x     Replaced by the name of the next input file in the list.
@@ -1212,18 +1301,18 @@ LESS(1)                                                                LESS(1)
        If any item is unknown (for example, the file size if input is a pipe),
        a question mark is printed instead.
 
-       The  format  of  the  prompt string can be changed depending on certain
-       conditions.  A question mark followed by a single character  acts  like
-       an  "IF":  depending  on the following character, a condition is evalu-
-       ated.  If the condition is true, any characters following the  question
-       mark  and  condition  character,  up  to  a period, are included in the
-       prompt.  If the condition is false, such characters are  not  included.
-       A  colon appearing between the question mark and the period can be used
+       The format of the prompt string can be  changed  depending  on  certain
+       conditions.   A  question mark followed by a single character acts like
+       an "IF": depending on the following character, a  condition  is  evalu-
+       ated.   If the condition is true, any characters following the question
+       mark and condition character, up to  a  period,  are  included  in  the
+       prompt.   If  the condition is false, such characters are not included.
+       A colon appearing between the question mark and the period can be  used
        to establish an "ELSE": any characters between the colon and the period
-       are  included  in  the string if and only if the IF condition is false.
+       are included in the string if and only if the IF  condition  is  false.
        Condition characters (which follow a question mark) may be:
 
-       ?a     True if any characters have been included in the prompt so  far.
+       ?a     True if any characters have been included in the prompt so far.
 
        ?b[4mX[24m    True if the byte offset of the specified line is known.
 
@@ -1482,10 +1571,13 @@ LESS(1)                                                                LESS(1)
               the  window  system's  idea  of the screen size takes precedence
               over the LINES and COLUMNS environment variables.)
 
-       PATH   User's search path (used to find a lesskey file  on  MS-DOS  and
+       MORE   Options which are passed to [4mless[24m automatically when  running  in
+              [4mmore[24m compatible mode.
+
+       PATH   User's  search  path  (used to find a lesskey file on MS-DOS and
               OS/2 systems).
 
-       SHELL  The  shell  used  to execute the ! command, as well as to expand
+       SHELL  The shell used to execute the ! command, as well  as  to  expand
               filenames.
 
        TERM   The type of terminal on which [4mless[24m is being run.
@@ -1498,33 +1590,32 @@ LESS(1)                                                                LESS(1)
 
 
 [1mCOPYRIGHT[0m
-       Copyright (C) 1984-2007  Mark Nudelman
+       Copyright (C) 1984-2012  Mark Nudelman
 
-       less is part of the GNU project and is free software.  You  can  redis-
-       tribute  it and/or modify it under the terms of either (1) the GNU Gen-
-       eral Public License as published by the Free  Software  Foundation;  or
+       less  is  part of the GNU project and is free software.  You can redis-
+       tribute it and/or modify it under the terms of either (1) the GNU  Gen-
+       eral  Public  License  as published by the Free Software Foundation; or
        (2) the Less License.  See the file README in the less distribution for
        more details regarding redistribution.  You should have received a copy
-       of  the  GNU General Public License along with the source for less; see
-       the file COPYING.  If not, write to the Free  Software  Foundation,  59
-       Temple  Place, Suite 330, Boston, MA  02111-1307, USA.  You should also
+       of the GNU General Public License along with the source for  less;  see
+       the  file  COPYING.   If not, write to the Free Software Foundation, 59
+       Temple Place, Suite 330, Boston, MA  02111-1307, USA.  You should  also
        have received a copy of the Less License; see the file LICENSE.
 
        less is distributed in the hope that it will be useful, but WITHOUT ANY
-       WARRANTY;  without even the implied warranty of MERCHANTABILITY or FIT-
-       NESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License  for
+       WARRANTY; without even the implied warranty of MERCHANTABILITY or  FIT-
+       NESS  FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
        more details.
 
 
 [1mAUTHOR[0m
-       Mark Nudelman <markn@greenwoodsoftware.com>
+       Mark Nudelman
+       Send bug reports or comments to <bug-less@gnu.org>
        See http://www.greenwoodsoftware.com/less/bugs.html for the latest list
        of known bugs in less.
-       Send bug reports or comments to the above address or to
-       bug-less@gnu.org.
        For more information, see the less homepage at
        http://www.greenwoodsoftware.com/less.
 
 
 
-                           Version 418: 02 Jan 2008                    LESS(1)
+                           Version 458: 04 Apr 2013                    LESS(1)

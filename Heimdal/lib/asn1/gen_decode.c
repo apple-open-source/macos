@@ -505,6 +505,9 @@ decode_type (const char *name, const Type *t, int optional,
 		    "if (e == 0 && %s != %s) { e = ASN1_BAD_ID; }\n",
 		    typestring,
 		    is_primitive_type(t->subtype->type) ? "PRIM" : "CONS");
+	    fprintf(codefile,
+		    "if (e == 0 && %s_datalen == ASN1_INDEFINITE) { e = ASN1_GOT_INDEFINITE; }\n",
+		    tmpstr);
 	}
 
 	if(optional) {
@@ -531,7 +534,9 @@ decode_type (const char *name, const Type *t, int optional,
 	else
 	    fprintf(codefile,
 		    "if (%s_datalen > len) { e = ASN1_OVERRUN; %s; }\n"
-		    "len = %s_datalen;\n", tmpstr, forwstr, tmpstr);
+		    "len = %s_datalen;\n",
+		    tmpstr, forwstr,
+		    tmpstr);
 	if (asprintf (&tname, "%s_Tag", tmpstr) < 0 || tname == NULL)
 	    errx(1, "malloc");
 	decode_type (name, t->subtype, 0, forwstr, tname, ide, depth + 1);

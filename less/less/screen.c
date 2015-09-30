@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 1984-2007  Mark Nudelman
+ * Copyright (C) 1984-2012  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
  *
- * For more information about less, or for information on how to 
- * contact the author, see the README file.
+ * For more information, see the README file.
  */
 
 
@@ -799,55 +798,41 @@ scrsize()
 #endif
 
 	if (unix2003_compat) {
-		if (dashn_numline_count) /* Overrides all other sources */
+		if (dashn_numline_count) { /* Overrides all other sources */
 			sc_height = dashn_numline_count;
-		else {
-			if (sys_height > 0)
-				sc_height = sys_height;
-			/* don't override LINES/COLUMNS if conforming to UNIX 03 */
-			if ((s = lgetenv("LINES")) != NULL)
-				sc_height = atoi(s);
-#if !MSDOS_COMPILER
-			else if ((n = ltgetnum("li")) > 0)
- 				sc_height = n;
-#endif
-			else
-				sc_height = DEF_SC_HEIGHT;
+			goto done_height;
 		}
-
-		if (sys_width > 0)
-			sc_width = sys_width;
-		if ((s = lgetenv("COLUMNS")) != NULL)
-			sc_width = atoi(s);
-#if !MSDOS_COMPILER
-		else if ((n = ltgetnum("co")) > 0)
- 			sc_width = n;
-#endif
-		else
-			sc_width = DEF_SC_WIDTH;
-	} else {
-		if (sys_height > 0)
-			sc_height = sys_height;
-		else if ((s = lgetenv("LINES")) != NULL)
-			sc_height = atoi(s);
-#if !MSDOS_COMPILER
-		else if ((n = ltgetnum("li")) > 0)
- 			sc_height = n;
-#endif
-		else
-			sc_height = DEF_SC_HEIGHT;
-
-		if (sys_width > 0)
-			sc_width = sys_width;
-		else if ((s = lgetenv("COLUMNS")) != NULL)
-			sc_width = atoi(s);
-#if !MSDOS_COMPILER
-		else if ((n = ltgetnum("co")) > 0)
- 			sc_width = n;
-#endif
-		else
-			sc_width = DEF_SC_WIDTH;
 	}
+    if (sys_height > 0) {
+		sc_height = sys_height;
+        if (!unix2003_compat) {
+            goto done_height;
+        }
+    }
+    if ((s = lgetenv("LINES")) != NULL)
+		sc_height = atoi(s);
+#if !MSDOS_COMPILER
+	else if ((n = ltgetnum("li")) > 0)
+ 		sc_height = n;
+#endif
+done_height:
+    if (sc_height <= 0)
+		sc_height = DEF_SC_HEIGHT;
+    if (sys_width > 0) {
+		sc_width = sys_width;
+        if (!unix2003_compat) {
+            goto done;
+        }
+    }
+	if ((s = lgetenv("COLUMNS")) != NULL)
+		sc_width = atoi(s);
+#if !MSDOS_COMPILER
+	else if ((n = ltgetnum("co")) > 0)
+ 		sc_width = n;
+#endif
+done:
+	if (sc_width <= 0)
+		sc_width = DEF_SC_WIDTH;
 }
 
 #if MSDOS_COMPILER==MSOFTC
@@ -1583,7 +1568,8 @@ init()
 		 */
 		for (i = 1; i < sc_height; i++)
 			putchr('\n');
-	}
+	} else
+		line_left();
 #else
 #if MSDOS_COMPILER==WIN32C
 	if (!no_init)
@@ -1820,7 +1806,7 @@ win32_scroll_up(n)
 
 	/* Move the source text to the top of the screen. */
 	new_org.X = rcSrc.Left;
-	new_org.Y = 0;
+	new_org.Y = rcClip.Top;
 
 	/* Fill the right character and attributes. */
 	fillchar.Char.AsciiChar = ' ';
@@ -2522,7 +2508,8 @@ WIN32textout(text, len)
 	int len;
 {
 #if MSDOS_COMPILER==WIN32C
-	WriteConsole(con_out, text, len, NULL, NULL);
+	DWORD written;
+	WriteConsole(con_out, text, len, &written, NULL);
 #else
 	char c = text[len];
 	text[len] = '\0';

@@ -128,6 +128,8 @@ toogle_ntlm () {
 
     killall -9 digest-service
     killall -9 kcm
+
+    sleep 10
 }
 
 echo "Checking if UserEventAgent and smbplugin have done their job"
@@ -322,7 +324,26 @@ ${kinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword
 
 echo "testing Kerberos GSS mech" ; > ${logfile}
 env KRB5CCNAME=FILE:/tmp/heimdal/cache.krb5 ${test_context} \
-    --mech=krb5 --wrap --verbose \
+    --mech=krb5 \
+    --wrap \
+    --verbose \
+    service@localhost || { ec=1 ; eval "${testfailed}"; }
+
+echo "testing that Kerberos GSS mech uses PFS" ; > ${logfile}
+env KRB5CCNAME=FILE:/tmp/heimdal/cache.krb5 ${test_context} \
+    --mech=krb5 \
+    --require-pfs \
+    --mutual \
+    --wrap \
+    --verbose \
+    service@localhost || { ec=1 ; eval "${testfailed}"; }
+
+echo "testing that Kerberos GSS mech does not use PFS" ; > ${logfile}
+env KRB5CCNAME=FILE:/tmp/heimdal/cache.krb5 ${test_context} \
+    --mech=krb5 \
+    --no-require-pfs \
+    --wrap \
+    --verbose \
     service@localhost || { ec=1 ; eval "${testfailed}"; }
 
 
@@ -331,7 +352,9 @@ sandbox-exec -p '(version 1) (allow default) (deny file* (subpath #"/private/var
 env CFFIXED_USER_HOME=/ KRB5CCNAME=/tmp/heimdal/cache.krb5 \
 ${test_context} \
     --no-homedir \
-    --mech=krb5 --wrap --verbose \
+    --mech=krb5 \
+    --wrap \
+    --verbose \
     service@localhost || { ec=1 ; eval "${testfailed}"; }
 
 ${kdestroy}
@@ -341,8 +364,21 @@ ${kdestroy}
 #    --client-name=heimdaltestuser@WELLKNOWN:COM.APPLE.LKDC \
 #    --password="$pw" \
 #    --cred-type=iakerb \
-#    --mech=iakerb --wrap --verbose \
-#    service@localhost || { ec=1 ; eval "${testfailed}"; }
+#    --mech=iakerb \
+#    --wrap \
+#    --verbose \
+#    host@localhost || { ec=1 ; eval "${testfailed}"; }
+#
+#echo "testing that IAKERB GSS mech uses PFS"
+#${test_context} \
+#    --client-name=heimdaltestuser@WELLKNOWN:COM.APPLE.LKDC \
+#    --password="$pw" \
+#    --cred-type=iakerb \
+#    --mech=iakerb \
+#    --require-pfs \
+#    --wrap \
+#    --verbose \
+#    host@localhost || { ec=1 ; eval "${testfailed}"; }
 
 echo "test_gssntlm"
 
@@ -412,6 +448,7 @@ do
 done
 
 defaults delete /Library/Preferences/com.apple.GSS.NTLM AllowedHosts
+sleep 10
 
 echo "check NTLM GUEST account"; > ${logfile}
 ${test_context} \
@@ -420,7 +457,8 @@ ${test_context} \
 	--mech-type=ntlm \
 	--mutual \
         --ret-mech-type=ntlm \
-    	cifs@localhost || { echo "test failed"; exit 1; }
+    	cifs@localhost >${logfile} 2>&1 || \
+        { echo "test failed"; eval "${testfailed}"; }
 
 echo "check that NTLM can be disabled"; > ${logfile}
 toogle_ntlm disable
@@ -430,8 +468,8 @@ ${test_context} \
     --mech-type=ntlm \
     --mutual \
     --ret-mech-type=ntlm \
-       cifs@localhost > /dev/null 2>&1 && \
-        { echo "test failed"; exit 1; }
+       cifs@localhost >${logfile} 2>&1 && \
+        { echo "test failed"; eval "${testfailed}"; }
 
 echo "check that NTLM can be enabled again"; > ${logfile}
 toogle_ntlm enable
@@ -442,8 +480,8 @@ ${test_context} \
     --mech-type=ntlm \
     --mutual \
     --ret-mech-type=ntlm \
-       cifs@localhost > /dev/null 2>&1 || \
-        { echo "test failed"; exit 1; }
+       cifs@localhost >${logfile} 2>&1 || \
+        { echo "test failed"; eval "${testfailed}"; }
 
 
 echo "check NTLM GUEST@domain account"; > ${logfile}
@@ -454,7 +492,7 @@ ${test_context} \
 	--mutual \
         --ret-mech-type=ntlm \
         --verbose \
-    	cifs@localhost > ${tempfile} || { echo "test failed"; exit 1; }
+    	cifs@localhost > ${tempfile} 2>&1 || { echo "test failed"; cat "${tempfile}"; eval "${testfailed}"; }
 
 grep -e "^source.server.: GUEST@${domain}" ${tempfile} > /dev/null || \
 	{ echo "failed to find guest@DOMAIN"; exit 1; }

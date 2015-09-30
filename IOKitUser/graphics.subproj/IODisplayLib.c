@@ -100,21 +100,31 @@ IODisplayCreateOverrides( io_service_t framebuffer, IOOptionBits options,
     CFTypeRef                   obj = 0;
     CFMutableDictionaryRef      dict = 0;
 
+#define DISPLAY_BUNDLE_PATH 	"/System/Library/Displays"
+
+    static const char * overridesPath1 = DISPLAY_BUNDLE_PATH "/Contents/Resources/Overrides";
+    static const char * overridesPath2 = DISPLAY_BUNDLE_PATH "/Overrides";
+
+    const char * overridesPath = overridesPath1;
+
+    if (0 != access(overridesPath, F_OK)) overridesPath = overridesPath2;
+
     if( 0 == (options & kIODisplayMatchingInfo)) {
 
-        snprintf( path, sizeof(path), "/System/Library/Displays/Overrides"
+        snprintf( path, sizeof(path), "%s"
                         "/" kDisplayVendorID "-%x"
                         "/" kDisplayProductID "-%x",
-                        (unsigned) vendor, (unsigned) product );
+                        overridesPath, (unsigned) vendor, (unsigned) product );
     
         obj = readPlist( path, ((vendor & 0xffff) << 16) | (product & 0xffff) );
 
 	if ((!obj) && manufactureYear && manufactureWeek)
 	{
-	    snprintf( path, sizeof(path), "/System/Library/Displays/Overrides"
+	    snprintf( path, sizeof(path), "%s"
 			    "/" kDisplayVendorID "-%x"
 			    "/" kDisplayYearOfManufacture "-%d"
 			    "-" kDisplayWeekOfManufacture "-%d",
+			    overridesPath,
 			    (unsigned) vendor,
 			    manufactureYear, manufactureWeek );
 	    obj = readPlist( path, ((vendor & 0xffff) << 16) | (product & 0xffff) );
@@ -175,7 +185,7 @@ IODisplayCreateOverrides( io_service_t framebuffer, IOOptionBits options,
         if((kIODisplayMatchingInfo | kIODisplayNoProductName) & options)
             continue;
 
-        snprintf( path, sizeof(path), "/System/Library/Displays/Overrides");
+        snprintf( path, sizeof(path), DISPLAY_BUNDLE_PATH);
 //                            "/" kDisplayVendorID "-%lx", vendor );
     
         string = CFStringCreateWithCString( kCFAllocatorDefault, path,
@@ -230,18 +240,21 @@ IODisplayCreateOverrides( io_service_t framebuffer, IOOptionBits options,
                                                                         kCFAllocatorDefault, kNilOptions);
         
         CFMutableDictionaryRef iconDict = NULL;
-        if (access("/System/Library/Displays/Overrides/Icons.plist", F_OK) == 0)
-            iconDict = readPlist("/System/Library/Displays/Overrides/Icons.plist", 0);
+        snprintf(path, sizeof(path), "%s"
+		 "/" "Icons.plist",
+		 overridesPath);
+        if (access(path, F_OK) == 0) iconDict = readPlist(path, 0);
         
-        CFStringRef vendorIdString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%x"), vendor);
-        CFStringRef productIdString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%x"), product);
-        CFStringRef productIdWithColorString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%x%s"), product, enclosureColor);
+        CFStringRef vendorIdString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%x"), (unsigned int)vendor);
+        CFStringRef productIdString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%x"), (unsigned int)product);
+        CFStringRef productIdWithColorString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%x%s"), (unsigned int)product, enclosureColor);
         CFStringRef modelString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s"), gIODisplayBoardID);
         CFStringRef modelWithColorString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s%s"), gIODisplayBoardID, enclosureColor);
         
-        snprintf(path, sizeof(path), "/System/Library/Displays/Overrides"
+        snprintf(path, sizeof(path), "%s"
                  "/" kDisplayVendorID "-%x"
                  "/" kDisplayProductID "-%x-%s%s.icns",
+                 overridesPath,
                  (unsigned)vendor, (unsigned)product, gIODisplayBoardID, enclosureColor);
         
         Boolean foundIcon = false;
@@ -249,10 +262,11 @@ IODisplayCreateOverrides( io_service_t framebuffer, IOOptionBits options,
             foundIcon = true;
         
         if (!foundIcon) {
-            snprintf(path, sizeof(path), "/System/Library/Displays/Overrides"
+            snprintf(path, sizeof(path), "%s"
                      "/" kDisplayVendorID "-%x"
                      "/" kDisplayYearOfManufacture "-%d"
                      "-" kDisplayWeekOfManufacture "-%d-%s%s.icns",
+                     overridesPath,
                      (unsigned)vendor,
                      manufactureYear, manufactureWeek, gIODisplayBoardID, enclosureColor);
             
@@ -266,15 +280,16 @@ IODisplayCreateOverrides( io_service_t framebuffer, IOOptionBits options,
         
         CFStringRef modelDisplayIconFilePath = NULL;
         if (builtin) {
-            snprintf(path, sizeof(path), "/System/Library/Displays/Overrides/Models/%s%s.icns", gIODisplayBoardID, enclosureColor);
+            snprintf(path, sizeof(path), "%s/Models/%s%s.icns", overridesPath, gIODisplayBoardID, enclosureColor);
             
             if (access(path, F_OK) == 0)
                 modelDisplayIconFilePath = CFStringCreateWithFileSystemRepresentation(kCFAllocatorDefault, path);
         }
         
-        snprintf(path, sizeof(path), "/System/Library/Displays/Overrides"
+        snprintf(path, sizeof(path), "%s"
                  "/" kDisplayVendorID "-%x"
                  "/" kDisplayProductID "-%x%s.icns",
+                 overridesPath, 
                  (unsigned)vendor, (unsigned)product, enclosureColor);
         
         foundIcon = false;
@@ -282,10 +297,11 @@ IODisplayCreateOverrides( io_service_t framebuffer, IOOptionBits options,
             foundIcon = true;
         
         if (!foundIcon) {
-            snprintf(path, sizeof(path), "/System/Library/Displays/Overrides"
+            snprintf(path, sizeof(path), "%s"
                      "/" kDisplayVendorID "-%x"
                      "/" kDisplayYearOfManufacture "-%d"
                      "-" kDisplayWeekOfManufacture "-%d%s.icns",
+                     overridesPath,
                      (unsigned)vendor,
                      manufactureYear, manufactureWeek, enclosureColor);
             
@@ -298,8 +314,9 @@ IODisplayCreateOverrides( io_service_t framebuffer, IOOptionBits options,
             productDisplayIconFilePath = CFStringCreateWithFileSystemRepresentation(kCFAllocatorDefault, path);
 
         
-        snprintf(path, sizeof(path), "/System/Library/Displays/Overrides"
-                 "/" kDisplayVendorID "-%x.icns",
+        snprintf(path, sizeof(path), "%s" 
+        	"/" kDisplayVendorID "-%x.icns",
+                 overridesPath,
                  (unsigned)vendor);
         
         CFStringRef vendorDisplayIconFilePath = NULL;
@@ -405,7 +422,9 @@ IODisplayCreateOverrides( io_service_t framebuffer, IOOptionBits options,
         if (productModelDisplayIconFilePath)
             CFRelease(productModelDisplayIconFilePath);
         
+        CFRelease(modelWithColorString);
         CFRelease(modelString);
+        CFRelease(productIdWithColorString);
         CFRelease(productIdString);
         CFRelease(vendorIdString);
     }
@@ -2865,6 +2884,13 @@ InstallFromDisplayIDDetailedType1(IOFBConnectRef connectRef, EDID * edid,
     {
         DEBG(connectRef, "default\n");
         dmFlags |= kDisplayModeDefaultFlag;
+
+        if (!connectRef->defaultWidth)
+        {
+            // this mode is default
+            connectRef->defaultWidth       = timing->horizontalActive;
+            connectRef->defaultHeight      = timing->verticalActive;
+        }
     }
 
 	modeDesc.info.imageWidth  = connectRef->displayImageWidth;
@@ -2879,8 +2905,6 @@ InstallFromDisplayIDDetailedType1(IOFBConnectRef connectRef, EDID * edid,
 static void
 InstallDisplayIDEXT(IOFBConnectRef connectRef, EDID * edid, DisplayIDEXT * ext, Boolean installModes)
 {
-    if (!installModes) return;
-
     const DisplayIDBlock * block;
     uint32_t               bytes, offset;
 
@@ -2899,10 +2923,17 @@ InstallDisplayIDEXT(IOFBConnectRef connectRef, EDID * edid, DisplayIDEXT * ext, 
         block  = (typeof(block)) &ext->section[offset];
         bytes -= sizeof(DisplayIDBlock);
         if (bytes < block->size) break;
+        
+        // Product Identification Block is only valid if it is the first block.
+        // Otherwise, the ProductIdentification tag code is interpretted as fill data.
+        if (offset && kDIDBlockTypeProductIdentification == block->type) break;
+        
         switch (block->type)
         {
             case kDIDBlockTypeDetailedType1:
             {
+                if (!installModes) break;
+                
                 const DisplayIDBlockDetailedType1 * detailedBlock = (typeof(detailedBlock)) block;
                 uint32_t                            count, idx;
 
@@ -2914,11 +2945,56 @@ InstallDisplayIDEXT(IOFBConnectRef connectRef, EDID * edid, DisplayIDEXT * ext, 
                 }
                 break;
             }
+            case kDIDBlockTypeVendorSpecific:
+            {
+                if (installModes) break;
+                
+                if (block->version == 0x81      // DisplayID VSDB with IEEE Vendor ID
+                    && block->size > 5          // IEEE ID (3 bytes) + Apple VSDB Type (1 byte) + Apple VSDB Version
+                    && block->data[0] == 0xFA   // Apple IEEE ID 0xFA1000
+                    && block->data[1] == 0x10
+                    && block->data[2] == 0x00
+                    && block->data[3] == 0x01   // Apple VSDB Type is BLC Info/Corrections (0x01)
+                    && block->data[4] == 0x01)  // BLC Info/Corrections structure version 1
+                {
+                    if (connectRef->displayAttributes)
+                    {
+                        CFMutableDataRef data;
+                        CFStringRef key;
+                        char name[strlen("IODisplayVSDB") + 10];
+                        sprintf(name, "IODisplayVSDB%02X%02X%02X",
+                                block->data[0], block->data[1], block->data[2]);
+                        key = CFStringCreateWithCString(kCFAllocatorDefault, name,
+                                                        kCFStringEncodingMacRoman);
+                        if (key)
+                        {
+                            data = (CFMutableDataRef) CFDictionaryGetValue(connectRef->displayAttributes, key);
+                            if (!data)
+                            {
+                                data = CFDataCreateMutable(kCFAllocatorDefault, 0);
+                                if (data)
+                                {
+                                    CFDictionarySetValue(connectRef->displayAttributes, key, data);
+                                    CFRelease(data);
+                                }
+                            }
+                            if (data)
+                            {
+                                CFDataAppendBytes(data, &block->data[5], block->size - 5);
+                            }
+                            CFRelease(key);
+                        }
+                    }
+                    DEBG( connectRef, "Found DisplayID VSDB 24-bit IEEE Registration Identifier (0x%02x%02x%02x)\n",
+                         block->data[0], block->data[1], block->data[2] );
+                }
+                break;
+            }
             default:
                 break;
         }
         bytes -= block->size;
-        offset += block->size;
+        offset += block->size + 3;
     }
 }
 
@@ -3276,8 +3352,6 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
                 kDisplayModeValidFlag | kDisplayModeSafeFlag);
     }
 
-    IODisplayGetAspect( connectRef );
-
     if (edidData && edid)
     {
 	count = CFDataGetLength(edidData);
@@ -3286,6 +3360,8 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 	    LookExtensions(connectRef, edid, (UInt8 *)(edid + 1), count - sizeof(EDID), true);
 	}
     }
+
+    IODisplayGetAspect( connectRef );
 
     if (!connectRef->hasHDMI)
     {

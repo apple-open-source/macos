@@ -39,11 +39,15 @@
 #include <sys/time.h>
 #endif
 
-#if COMPILER(MSVC) && !OS(WINCE)
+#if COMPILER(MSVC)
 #include <crtdbg.h>
 #include <mmsystem.h>
 #include <windows.h>
 #endif
+
+namespace JSC {
+WTF_IMPORT extern const struct HashTable globalObjectTable;
+}
 
 const int MaxLineLength = 100 * 1024;
 
@@ -133,7 +137,7 @@ protected:
     }
 };
 
-const ClassInfo GlobalObject::s_info = { "global", &JSGlobalObject::s_info, 0, ExecState::globalObjectTable, CREATE_METHOD_TABLE(GlobalObject) };
+const ClassInfo GlobalObject::s_info = { "global", &JSGlobalObject::s_info, &globalObjectTable, CREATE_METHOD_TABLE(GlobalObject) };
 
 GlobalObject::GlobalObject(VM& vm, Structure* structure, const Vector<String>& arguments)
     : JSGlobalObject(vm, structure)
@@ -146,7 +150,7 @@ GlobalObject::GlobalObject(VM& vm, Structure* structure, const Vector<String>& a
 // be in a separate main function because the realMain function requires object
 // unwinding.
 
-#if COMPILER(MSVC) && !defined(_DEBUG) && !OS(WINCE)
+#if COMPILER(MSVC) && !defined(_DEBUG)
 #define TRY       __try {
 #define EXCEPT(x) } __except (EXCEPTION_EXECUTE_HANDLER) { x; }
 #else
@@ -168,12 +172,10 @@ int main(int argc, char** argv)
     _set_FMA3_enable(0);
 #endif
 
-#if !OS(WINCE)
     // Cygwin calls ::SetErrorMode(SEM_FAILCRITICALERRORS), which we will inherit. This is bad for
     // testing/debugging, as it causes the post-mortem debugger not to be invoked. We reset the
     // error mode here to work around Cygwin's behavior. See <http://webkit.org/b/55222>.
     ::SetErrorMode(0);
-#endif
 
 #if defined(_DEBUG)
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
@@ -213,12 +215,22 @@ static bool testOneRegExp(VM& vm, RegExp* regexp, RegExpTest* regExpTest, bool v
     } else if (matchResult != -1) {
         if (outVector.size() != regExpTest->expectVector.size()) {
             result = false;
-            if (verbose)
-                printf("Line %d: output vector size mismatch - expected %lu got %lu\n", lineNumber, regExpTest->expectVector.size(), outVector.size());
+            if (verbose) {
+#if OS(WINDOWS)
+                printf("Line %d: output vector size mismatch - expected %Iu got %Iu\n", lineNumber, regExpTest->expectVector.size(), outVector.size());
+#else
+                printf("Line %d: output vector size mismatch - expected %zu got %zu\n", lineNumber, regExpTest->expectVector.size(), outVector.size());
+#endif
+            }
         } else if (outVector.size() % 2) {
             result = false;
-            if (verbose)
-                printf("Line %d: output vector size is odd (%lu), should be even\n", lineNumber, outVector.size());
+            if (verbose) {
+#if OS(WINDOWS)
+                printf("Line %d: output vector size is odd (%Iu), should be even\n", lineNumber, outVector.size());
+#else
+                printf("Line %d: output vector size is odd (%zu), should be even\n", lineNumber, outVector.size());
+#endif
+            }
         } else {
             // Check in pairs since the first value of the pair could be -1 in which case the second doesn't matter.
             size_t pairCount = outVector.size() / 2;
@@ -226,13 +238,23 @@ static bool testOneRegExp(VM& vm, RegExp* regexp, RegExpTest* regExpTest, bool v
                 size_t startIndex = i*2;
                 if (outVector[startIndex] != regExpTest->expectVector[startIndex]) {
                     result = false;
-                    if (verbose)
-                        printf("Line %d: output vector mismatch at index %lu - expected %d got %d\n", lineNumber, startIndex, regExpTest->expectVector[startIndex], outVector[startIndex]);
+                    if (verbose) {
+#if OS(WINDOWS)
+                        printf("Line %d: output vector mismatch at index %Iu - expected %d got %d\n", lineNumber, startIndex, regExpTest->expectVector[startIndex], outVector[startIndex]);
+#else
+                        printf("Line %d: output vector mismatch at index %zu - expected %d got %d\n", lineNumber, startIndex, regExpTest->expectVector[startIndex], outVector[startIndex]);
+#endif
+                    }
                 }
                 if ((i > 0) && (regExpTest->expectVector[startIndex] != -1) && (outVector[startIndex+1] != regExpTest->expectVector[startIndex+1])) {
                     result = false;
-                    if (verbose)
-                        printf("Line %d: output vector mismatch at index %lu - expected %d got %d\n", lineNumber, startIndex+1, regExpTest->expectVector[startIndex+1], outVector[startIndex+1]);
+                    if (verbose) {
+#if OS(WINDOWS)
+                        printf("Line %d: output vector mismatch at index %Iu - expected %d got %d\n", lineNumber, startIndex + 1, regExpTest->expectVector[startIndex + 1], outVector[startIndex + 1]);
+#else
+                        printf("Line %d: output vector mismatch at index %zu - expected %d got %d\n", lineNumber, startIndex + 1, regExpTest->expectVector[startIndex + 1], outVector[startIndex + 1]);
+#endif
+                    }
                 }
             }
         }
@@ -497,7 +519,7 @@ static void parseArguments(int argc, char** argv, CommandLine& options)
 
 int realMain(int argc, char** argv)
 {
-    VM* vm = VM::create(LargeHeap).leakRef();
+    VM* vm = &VM::create(LargeHeap).leakRef();
     JSLockHolder locker(vm);
 
     CommandLine options;
@@ -508,3 +530,10 @@ int realMain(int argc, char** argv)
 
     return success ? 0 : 3;
 }
+
+#if OS(WINDOWS)
+extern "C" __declspec(dllexport) int WINAPI dllLauncherEntryPoint(int argc, const char* argv[])
+{
+    return main(argc, const_cast<char**>(argv));
+}
+#endif

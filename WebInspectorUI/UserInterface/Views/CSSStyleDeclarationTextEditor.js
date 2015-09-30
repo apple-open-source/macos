@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Tobias Reiss <tobi+webkit@basecode.de>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,85 +24,94 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.CSSStyleDeclarationTextEditor = function(delegate, style, element)
+WebInspector.CSSStyleDeclarationTextEditor = class CSSStyleDeclarationTextEditor extends WebInspector.Object
 {
-    WebInspector.Object.call(this);
+    constructor(delegate, style, element)
+    {
+        super();
 
-    this._element = element || document.createElement("div");
-    this._element.classList.add(WebInspector.CSSStyleDeclarationTextEditor.StyleClassName);
-    this._element.classList.add(WebInspector.SyntaxHighlightedStyleClassName);
+        this._element = element || document.createElement("div");
+        this._element.classList.add(WebInspector.CSSStyleDeclarationTextEditor.StyleClassName);
+        this._element.classList.add(WebInspector.SyntaxHighlightedStyleClassName);
+        this._element.addEventListener("mousedown", this._handleMouseDown.bind(this));
+        this._element.addEventListener("mouseup", this._handleMouseUp.bind(this));
 
-    this._showsImplicitProperties = true;
-    this._alwaysShowPropertyNames = {};
-    this._sortProperties = false;
+        this._mouseDownCursorPosition = null;
 
-    this._prefixWhitespace = "";
-    this._suffixWhitespace = "";
-    this._linePrefixWhitespace = "";
+        this._showsImplicitProperties = true;
+        this._alwaysShowPropertyNames = {};
+        this._filterResultPropertyNames = null;
+        this._sortProperties = false;
 
-    this._delegate = delegate || null;
+        this._prefixWhitespace = "";
+        this._suffixWhitespace = "";
+        this._linePrefixWhitespace = "";
 
-    this._codeMirror = CodeMirror(this.element, {
-        readOnly: true,
-        lineWrapping: true,
-        mode: "css-rule",
-        electricChars: false,
-        indentWithTabs: true,
-        indentUnit: 4,
-        smartIndent: false,
-        matchBrackets: true,
-        autoCloseBrackets: true
-    });
+        this._delegate = delegate || null;
 
-    this._codeMirror.on("change", this._contentChanged.bind(this));
-    this._codeMirror.on("blur", this._editorBlured.bind(this));
+        this._codeMirror = CodeMirror(this.element, {
+            readOnly: true,
+            lineWrapping: true,
+            mode: "css-rule",
+            electricChars: false,
+            indentWithTabs: true,
+            indentUnit: 4,
+            smartIndent: false,
+            matchBrackets: true,
+            autoCloseBrackets: true
+        });
 
-    this._completionController = new WebInspector.CodeMirrorCompletionController(this._codeMirror, this);
-    this._tokenTrackingController = new WebInspector.CodeMirrorTokenTrackingController(this._codeMirror, this);
+        this._codeMirror.addKeyMap({
+            "Enter": this._handleEnterKey.bind(this),
+            "Shift-Enter": this._insertNewlineAfterCurrentLine.bind(this),
+            "Shift-Tab": this._handleShiftTabKey.bind(this),
+            "Tab": this._handleTabKey.bind(this)
+        });
 
-    this._jumpToSymbolTrackingModeEnabled = false;
-    this._tokenTrackingController.classNameForHighlightedRange = WebInspector.CodeMirrorTokenTrackingController.JumpToSymbolHighlightStyleClassName;
-    this._tokenTrackingController.mouseOverDelayDuration = 0;
-    this._tokenTrackingController.mouseOutReleaseDelayDuration = 0;
-    this._tokenTrackingController.mode = WebInspector.CodeMirrorTokenTrackingController.Mode.NonSymbolTokens;
+        this._completionController = new WebInspector.CodeMirrorCompletionController(this._codeMirror, this);
+        this._tokenTrackingController = new WebInspector.CodeMirrorTokenTrackingController(this._codeMirror, this);
 
-    this.style = style;
-};
+        this._completionController.noEndingSemicolon = true;
 
-WebInspector.Object.addConstructorFunctions(WebInspector.CSSStyleDeclarationTextEditor);
+        this._jumpToSymbolTrackingModeEnabled = false;
+        this._tokenTrackingController.classNameForHighlightedRange = WebInspector.CodeMirrorTokenTrackingController.JumpToSymbolHighlightStyleClassName;
+        this._tokenTrackingController.mouseOverDelayDuration = 0;
+        this._tokenTrackingController.mouseOutReleaseDelayDuration = 0;
+        this._tokenTrackingController.mode = WebInspector.CodeMirrorTokenTrackingController.Mode.NonSymbolTokens;
 
-WebInspector.CSSStyleDeclarationTextEditor.StyleClassName = "css-style-text-editor";
-WebInspector.CSSStyleDeclarationTextEditor.ReadOnlyStyleClassName = "read-only";
-WebInspector.CSSStyleDeclarationTextEditor.ColorSwatchElementStyleClassName = "color-swatch";
-WebInspector.CSSStyleDeclarationTextEditor.CheckboxPlaceholderElementStyleClassName = "checkbox-placeholder";
-WebInspector.CSSStyleDeclarationTextEditor.EditingLineStyleClassName = "editing-line";
-WebInspector.CSSStyleDeclarationTextEditor.CommitCoalesceDelay = 250;
-WebInspector.CSSStyleDeclarationTextEditor.RemoveEditingLineClassesDelay = 2000;
+        // Make sure CompletionController adds event listeners first.
+        // Otherwise we end up in race conditions during complete or delete-complete phases.
+        this._codeMirror.on("change", this._contentChanged.bind(this));
+        this._codeMirror.on("blur", this._editorBlured.bind(this));
+        this._codeMirror.on("beforeChange", this._handleBeforeChange.bind(this));
 
-WebInspector.CSSStyleDeclarationTextEditor.prototype = {
-    constructor: WebInspector.CSSStyleDeclarationTextEditor,
+        if (typeof this._delegate.cssStyleDeclarationTextEditorFocused === "function")
+            this._codeMirror.on("focus", this._editorFocused.bind(this));
+
+        this.style = style;
+    }
 
     // Public
 
     get element()
     {
         return this._element;
-    },
+    }
 
     get delegate()
     {
         return this._delegate;
-    },
+    }
 
     set delegate(delegate)
     {
         this._delegate = delegate || null;
-    },
+    }
 
     get style()
     {
         return this._style;
-    },
+    }
 
     set style(style)
     {
@@ -125,29 +135,29 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         this._updateJumpToSymbolTrackingMode();
 
         this._resetContent();
-    },
+    }
 
     get focused()
     {
         return this._codeMirror.getWrapperElement().classList.contains("CodeMirror-focused");
-    },
+    }
 
     get alwaysShowPropertyNames()
     {
         return Object.keys(this._alwaysShowPropertyNames);
-    },
+    }
 
     set alwaysShowPropertyNames(alwaysShowPropertyNames)
     {
         this._alwaysShowPropertyNames = (alwaysShowPropertyNames || []).keySet();
 
         this._resetContent();
-    },
+    }
 
     get showsImplicitProperties()
     {
         return this._showsImplicitProperties;
-    },
+    }
 
     set showsImplicitProperties(showsImplicitProperties)
     {
@@ -157,12 +167,12 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         this._showsImplicitProperties = showsImplicitProperties;
 
         this._resetContent();
-    },
+    }
 
     get sortProperties()
     {
         return this._sortProperties;
-    },
+    }
 
     set sortProperties(sortProperties)
     {
@@ -172,32 +182,217 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         this._sortProperties = sortProperties;
 
         this._resetContent();
-    },
+    }
 
-    focus: function()
+    focus()
     {
         this._codeMirror.focus();
-    },
+    }
 
-    refresh: function()
+    refresh()
     {
         this._resetContent();
-    },
+    }
 
-    updateLayout: function(force)
+    updateLayout(force)
     {
         this._codeMirror.refresh();
-    },
+    }
+
+    highlightProperty(property)
+    {
+        function propertiesMatch(cssProperty)
+        {
+            if (cssProperty.enabled && !cssProperty.overridden) {
+                if (cssProperty.canonicalName === property.canonicalName || hasMatchingLonghandProperty(cssProperty))
+                    return true;
+            }
+
+            return false;
+        }
+
+        function hasMatchingLonghandProperty(cssProperty)
+        {
+            var cssProperties = cssProperty.relatedLonghandProperties;
+
+            if (!cssProperties.length)
+                return false;
+
+            for (var property of cssProperties) {
+                if (propertiesMatch(property))
+                    return true;
+            }
+
+            return false;
+        }
+
+        for (var cssProperty of this.style.properties) {
+            if (propertiesMatch(cssProperty)) {
+                var selection = cssProperty.__propertyTextMarker.find();
+                this._codeMirror.setSelection(selection.from, selection.to);
+                this.focus();
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    clearSelection()
+    {
+        this._codeMirror.setCursor({line: 0, ch: 0});
+    }
+
+    findMatchingProperties(needle)
+    {
+        if (!needle) {
+            this.resetFilteredProperties();
+            return false;
+        }
+
+        var propertiesList = this._style.visibleProperties.length ? this._style.visibleProperties : this._style.properties;
+        var matchingProperties = [];
+
+        for (var property of propertiesList)
+            matchingProperties.push(property.text.includes(needle));
+
+        if (!matchingProperties.includes(true)) {
+            this.resetFilteredProperties();
+            return false;
+        }
+
+        for (var i = 0; i < matchingProperties.length; ++i) {
+            var property = propertiesList[i];
+
+            if (matchingProperties[i])
+                property.__filterResultClassName = WebInspector.CSSStyleDetailsSidebarPanel.FilterMatchSectionClassName;
+            else
+                property.__filterResultClassName = WebInspector.CSSStyleDetailsSidebarPanel.NoFilterMatchInPropertyClassName;
+
+            this._updateTextMarkerForPropertyIfNeeded(property);
+        }
+
+        return true;
+    }
+
+    resetFilteredProperties()
+    {
+        var propertiesList = this._style.visibleProperties.length ? this._style.visibleProperties : this._style.properties;
+
+        for (var property of propertiesList) {
+            if (property.__filterResultClassName) {
+                property.__filterResultClassName = null;
+                this._updateTextMarkerForPropertyIfNeeded(property)
+            }
+        }
+    }
+
+    removeNonMatchingProperties(needle)
+    {
+        this._filterResultPropertyNames = null;
+
+        if (!needle) {
+            this._resetContent();
+            return false;
+        }
+
+        var matchingPropertyNames = [];
+
+        for (var property of this._style.properties) {
+            var indexesOfNeedle = property.text.getMatchingIndexes(needle);
+
+            if (indexesOfNeedle.length) {
+                matchingPropertyNames.push(property.name);
+                property.__filterResultClassName = WebInspector.CSSStyleDetailsSidebarPanel.FilterMatchSectionClassName;
+                property.__filterResultNeedlePosition = {start: indexesOfNeedle, length: needle.length};
+            }
+        }
+
+        this._filterResultPropertyNames = matchingPropertyNames.length ? matchingPropertyNames.keySet() : {};
+
+        this._resetContent();
+
+        return matchingPropertyNames.length > 0;
+    }
+
+    uncommentAllProperties()
+    {
+        function uncommentProperties(properties)
+        {
+            if (!properties.length)
+                return false;
+
+            for (var property of properties) {
+                if (property._commentRange) {
+                    this._uncommentRange(property._commentRange);
+                    property._commentRange = null;
+                }
+            }
+
+            return true;
+        }
+
+        return uncommentProperties.call(this, this._style.pendingProperties) || uncommentProperties.call(this, this._style.properties);
+    }
+
+    commentAllProperties()
+    {
+        if (!this._style.properties.length)
+            return false;
+
+        for (var property of this._style.properties) {
+            if (property.__propertyTextMarker)
+                this._commentProperty(property);
+        }
+
+        return true;
+    }
+
+    selectFirstProperty()
+    {
+        var line = this._codeMirror.getLine(0);
+        var trimmedLine = line.trimRight();
+
+        if (!line || !trimmedLine.trimLeft().length)
+            this.clearSelection();
+
+        var index = line.indexOf(":");
+        var cursor = {line: 0, ch: 0};
+
+        this._codeMirror.setSelection(cursor, {line: 0, ch: index < 0 || this._textAtCursorIsComment(this._codeMirror, cursor) ? trimmedLine.length : index});
+    }
+
+    selectLastProperty()
+    {
+        var line = this._codeMirror.lineCount() - 1;
+        var lineText = this._codeMirror.getLine(line);
+        var trimmedLine = lineText.trimRight();
+
+        var lastAnchor;
+        var lastHead;
+
+        if (this._textAtCursorIsComment(this._codeMirror, {line, ch: line.length})) {
+            lastAnchor = 0;
+            lastHead = line.length;
+        } else {
+            var colon = /(?::\s*)/.exec(lineText);
+            lastAnchor = colon ? colon.index + colon[0].length : 0;
+            lastHead = trimmedLine.length - trimmedLine.endsWith(";");
+        }
+
+        this._codeMirror.setSelection({line, ch: lastAnchor}, {line, ch: lastHead});
+    }
 
     // Protected
 
-    didDismissPopover: function(popover)
+    didDismissPopover(popover)
     {
         if (popover === this._colorPickerPopover)
             delete this._colorPickerPopover;
-    },
+    }
 
-    completionControllerCompletionsHidden: function(completionController)
+    completionControllerCompletionsHidden(completionController)
     {
         var styleText = this._style.text;
         var currentText = this._formattedContent();
@@ -209,20 +404,276 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             this._commitChanges();
         else
             this._propertiesChanged();
-    },
+    }
 
     // Private
 
-    _clearRemoveEditingLineClassesTimeout: function()
+    _textAtCursorIsComment(codeMirror, cursor)
+    {
+        var token = codeMirror.getTokenTypeAt(cursor);
+        return token && token.includes("comment");
+    }
+
+    _highlightNextNameOrValue(codeMirror, cursor, text)
+    {
+        var nextAnchor;
+        var nextHead;
+
+        if (this._textAtCursorIsComment(codeMirror, cursor)) {
+            nextAnchor = 0;
+            nextHead = text.length;
+        } else {
+            var colonIndex = text.indexOf(":");
+            var substringIndex = colonIndex >= 0 && cursor.ch >= colonIndex ? colonIndex : 0;
+
+            var regExp = /(?:[^:;\s]\s*)+/g;
+            regExp.lastIndex = substringIndex;
+            var match = regExp.exec(text);
+
+            nextAnchor = match.index;
+            nextHead = nextAnchor + match[0].length;
+        }
+
+        codeMirror.setSelection({line: cursor.line, ch: nextAnchor}, {line: cursor.line, ch: nextHead});
+    }
+
+    _handleMouseDown(event)
+    {
+        if (this._codeMirror.options.readOnly || this._codeMirror.state.focused)
+            return;
+
+        var cursor = this._codeMirror.coordsChar({left: event.x, top: event.y});
+        var line = this._codeMirror.getLine(cursor.line);
+        var trimmedLine = line.trimRight();
+
+        if (!trimmedLine.trimLeft().length || cursor.ch !== trimmedLine.length)
+            return;
+
+        this._mouseDownCursorPosition = cursor;
+    }
+
+    _handleMouseUp(event)
+    {
+        if (this._codeMirror.options.readOnly || !this._mouseDownCursorPosition)
+            return;
+
+        var cursor = this._codeMirror.coordsChar({left: event.x, top: event.y});
+        var line = this._codeMirror.getLine(cursor.line);
+
+        if (this._mouseDownCursorPosition.line === cursor.line && this._mouseDownCursorPosition.ch === cursor.ch) {
+            var replacement = "\n";
+
+            if (!line.trimRight().endsWith(";") && !this._textAtCursorIsComment(this._codeMirror, cursor))
+                replacement = ";" + replacement;
+
+            this._codeMirror.replaceRange(replacement, cursor);
+        }
+
+        this._mouseDownCursorPosition = null;
+    }
+
+    _handleBeforeChange(codeMirror, change)
+    {
+        if (change.origin !== "+delete" || (!change.to.line && !change.to.ch) || this._completionController.isShowingCompletions())
+            return CodeMirror.Pass;
+
+        var marks = codeMirror.findMarksAt(change.to);
+
+        if (!marks.length)
+            return CodeMirror.Pass;
+
+        for (var mark of marks)
+            mark.clear();
+    }
+
+    _handleEnterKey(codeMirror)
+    {
+        var cursor = codeMirror.getCursor();
+        var line = codeMirror.getLine(cursor.line);
+        var trimmedLine = line.trimRight();
+        var hasEndingSemicolon = trimmedLine.endsWith(";");
+
+        if (!trimmedLine.trimLeft().length)
+            return CodeMirror.Pass;
+
+        if (hasEndingSemicolon && cursor.ch === trimmedLine.length - 1)
+            ++cursor.ch;
+
+        if (cursor.ch === trimmedLine.length) {
+            var replacement = "\n";
+
+            if (!hasEndingSemicolon && !this._textAtCursorIsComment(this._codeMirror, cursor))
+                replacement = ";" + replacement;
+
+            this._codeMirror.replaceRange(replacement, cursor);
+            return;
+        }
+
+        return CodeMirror.Pass;
+    }
+
+    _insertNewlineAfterCurrentLine(codeMirror)
+    {
+        var cursor = codeMirror.getCursor();
+        var line = codeMirror.getLine(cursor.line);
+        var trimmedLine = line.trimRight();
+
+        cursor.ch = trimmedLine.length;
+
+        if (cursor.ch) {
+            var replacement = "\n";
+
+            if (!trimmedLine.endsWith(";") && !this._textAtCursorIsComment(this._codeMirror, cursor))
+                replacement = ";" + replacement;
+
+            this._codeMirror.replaceRange(replacement, cursor);
+            return;
+        }
+
+        return CodeMirror.Pass;
+    }
+
+    _handleShiftTabKey(codeMirror)
+    {
+        function switchRule()
+        {
+            if (this._delegate && typeof this._delegate.cssStyleDeclarationTextEditorSwitchRule === "function") {
+                this._delegate.cssStyleDeclarationTextEditorSwitchRule(true);
+                return;
+            }
+
+            return CodeMirror.Pass;
+        }
+
+        var cursor = codeMirror.getCursor();
+        var line = codeMirror.getLine(cursor.line);
+        var previousLine = codeMirror.getLine(cursor.line - 1);
+
+        if (!line && !previousLine && !cursor.line)
+            return switchRule.call(this);
+
+        var trimmedPreviousLine = previousLine ? previousLine.trimRight() : "";
+        var previousAnchor;
+        var previousHead;
+        var isComment = this._textAtCursorIsComment(codeMirror, cursor);
+
+        if (cursor.ch === line.indexOf(":") || line.indexOf(":") < 0 || isComment) {
+            if (previousLine) {
+                --cursor.line;
+
+                if (this._textAtCursorIsComment(codeMirror, cursor)) {
+                    previousAnchor = 0;
+                    previousHead = trimmedPreviousLine.length;
+                } else {
+                    var colon = /(?::\s*)/.exec(previousLine);
+                    previousAnchor = colon ? colon.index + colon[0].length : 0;
+                    previousHead = trimmedPreviousLine.length - trimmedPreviousLine.endsWith(";");
+                }
+                
+                codeMirror.setSelection({line: cursor.line, ch: previousAnchor}, {line: cursor.line, ch: previousHead});
+                return;
+            }
+
+            if (cursor.line) {
+                codeMirror.setCursor(cursor.line - 1, 0);
+                return;
+            }
+
+            return switchRule.call(this);
+        }
+
+        if (isComment) {
+            previousAnchor = 0;
+            previousHead = line.length;
+        } else {
+            var match = /(?:[^:;\s]\s*)+/.exec(line);
+            previousAnchor = match.index;
+            previousHead = previousAnchor + match[0].length;
+        }
+
+        codeMirror.setSelection({line: cursor.line, ch: previousAnchor}, {line: cursor.line, ch: previousHead});
+    }
+
+    _handleTabKey(codeMirror)
+    {
+        function switchRule() {
+            if (this._delegate && typeof this._delegate.cssStyleDeclarationTextEditorSwitchRule === "function") {
+                this._delegate.cssStyleDeclarationTextEditorSwitchRule();
+                return;
+            }
+
+            return CodeMirror.Pass;
+        }
+
+        var cursor = codeMirror.getCursor();
+        var line = codeMirror.getLine(cursor.line);
+        var trimmedLine = line.trimRight();
+        var lastLine = cursor.line === codeMirror.lineCount() - 1;
+        var nextLine = codeMirror.getLine(cursor.line + 1);
+        var trimmedNextLine = nextLine ? nextLine.trimRight() : "";
+
+        if (!trimmedLine.trimLeft().length) {
+            if (lastLine)
+                return switchRule.call(this);
+
+            if (!trimmedNextLine.trimLeft().length) {
+                codeMirror.setCursor(cursor.line + 1, 0);
+                return;
+            }
+
+            ++cursor.line;
+            this._highlightNextNameOrValue(codeMirror, cursor, nextLine);
+            return;
+        }
+
+        if (trimmedLine.endsWith(":")) {
+            codeMirror.setCursor(cursor.line, line.length);
+            this._completionController._completeAtCurrentPosition(true);
+            return;
+        }
+
+        var hasEndingSemicolon = trimmedLine.endsWith(";");
+
+        if (cursor.ch >= line.trimRight().length - hasEndingSemicolon) {
+            this._completionController.completeAtCurrentPositionIfNeeded().then(function(result) {
+                if (result !== WebInspector.CodeMirrorCompletionController.UpdatePromise.NoCompletionsFound)
+                    return;
+
+                var replacement = "";
+
+                if (!hasEndingSemicolon && !this._textAtCursorIsComment(codeMirror, cursor))
+                    replacement += ";";
+
+                if (lastLine)
+                    replacement += "\n";
+
+                if (replacement.length)
+                    codeMirror.replaceRange(replacement, {line: cursor.line, ch: trimmedLine.length});
+
+                if (!nextLine) {
+                    codeMirror.setCursor(cursor.line + 1, 0);
+                    return;
+                }
+
+                this._highlightNextNameOrValue(codeMirror, {line: cursor.line + 1, ch: 0}, nextLine);
+            }.bind(this));
+
+            return;
+        }
+
+        this._highlightNextNameOrValue(codeMirror, cursor, line);
+    }
+
+    _clearRemoveEditingLineClassesTimeout()
     {
         if (!this._removeEditingLineClassesTimeout)
             return;
 
         clearTimeout(this._removeEditingLineClassesTimeout);
         delete this._removeEditingLineClassesTimeout;
-    },
+    }
 
-    _removeEditingLineClasses: function()
+    _removeEditingLineClasses()
     {
         this._clearRemoveEditingLineClassesTimeout();
 
@@ -234,16 +685,16 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         }
 
         this._codeMirror.operation(removeEditingLineClasses.bind(this));
-    },
+    }
 
-    _removeEditingLineClassesSoon: function()
+    _removeEditingLineClassesSoon()
     {
         if (this._removeEditingLineClassesTimeout)
             return;
         this._removeEditingLineClassesTimeout = setTimeout(this._removeEditingLineClasses.bind(this), WebInspector.CSSStyleDeclarationTextEditor.RemoveEditingLineClassesDelay);
-    },
+    }
 
-    _formattedContent: function()
+    _formattedContent()
     {
         // Start with the prefix whitespace we stripped.
         var content = this._prefixWhitespace;
@@ -261,9 +712,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         content += this._suffixWhitespace;
 
         return content;
-    },
+    }
 
-    _commitChanges: function()
+    _commitChanges()
     {
         if (this._commitChangesTimeout) {
             clearTimeout(this._commitChangesTimeout);
@@ -271,9 +722,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         }
 
         this._style.text = this._formattedContent();
-    },
+    }
 
-    _editorBlured: function(codeMirror)
+    _editorBlured(codeMirror)
     {
         // Clicking a suggestion causes the editor to blur. We don't want to reset content in this case.
         if (this._completionController.isHandlingClickEvent())
@@ -282,9 +733,15 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         // Reset the content on blur since we stop accepting external changes while the the editor is focused.
         // This causes us to pick up any change that was suppressed while the editor was focused.
         this._resetContent();
-    },
+    }
 
-    _contentChanged: function(codeMirror, change)
+    _editorFocused(codeMirror)
+    {
+        if (typeof this._delegate.cssStyleDeclarationTextEditorFocused === "function")
+            this._delegate.cssStyleDeclarationTextEditorFocused();
+    }
+
+    _contentChanged(codeMirror, change)
     {
         // Return early if the style isn't editable. This still can be called when readOnly is set because
         // clicking on a color swatch modifies the text.
@@ -305,21 +762,19 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         // Use a short delay for user input to coalesce more changes before committing. Other actions like
         // undo, redo and paste are atomic and work better with a zero delay. CodeMirror identifies changes that
         // get coalesced in the undo stack with a "+" prefix on the origin. Use that to set the delay for our coalescing.
-        const delay = change.origin && change.origin.charAt(0) === "+" ? WebInspector.CSSStyleDeclarationTextEditor.CommitCoalesceDelay : 0;
+        var delay = change.origin && change.origin.charAt(0) === "+" ? WebInspector.CSSStyleDeclarationTextEditor.CommitCoalesceDelay : 0;
 
         // Reset the timeout so rapid changes coalesce after a short delay.
         if (this._commitChangesTimeout)
             clearTimeout(this._commitChangesTimeout);
         this._commitChangesTimeout = setTimeout(this._commitChanges.bind(this), delay);
-    },
+    }
 
-    _updateTextMarkers: function(nonatomic)
+    _updateTextMarkers(nonatomic)
     {
         function update()
         {
             this._clearTextMarkers(true);
-
-            var styleText = this._style.text;
 
             this._iterateOverProperties(true, function(property) {
                 var styleTextRange = property.styleDeclarationTextRange;
@@ -344,34 +799,10 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             });
 
             if (!this._codeMirror.getOption("readOnly")) {
-                // Matches a comment like: /* -webkit-foo: bar; */
-                const commentedPropertyRegex = /\/\*\s*[-\w]+\s*:\s*[^;]+;?\s*\*\//g;
-
                 // Look for comments that look like properties and add checkboxes in front of them.
-                var lineCount = this._codeMirror.lineCount();
-                for (var i = 0; i < lineCount; ++i) {
-                    var lineContent = this._codeMirror.getLine(i);
-
-                    var match = commentedPropertyRegex.exec(lineContent);
-                    while (match) {
-                        var checkboxElement = document.createElement("input");
-                        checkboxElement.type = "checkbox";
-                        checkboxElement.checked = false;
-                        checkboxElement.addEventListener("change", this._propertyCommentCheckboxChanged.bind(this));
-
-                        var from = {line: i, ch: match.index};
-                        var to = {line: i, ch: match.index + match[0].length};
-
-                        var checkboxMarker = this._codeMirror.setUniqueBookmark(from, checkboxElement);
-                        checkboxMarker.__propertyCheckbox = true;
-
-                        var commentTextMarker = this._codeMirror.markText(from, to);
-
-                        checkboxElement.__commentTextMarker = commentTextMarker;
-
-                        match = commentedPropertyRegex.exec(lineContent);
-                    }
-                }
+                this._codeMirror.eachLine(function(lineHandler) {
+                    this._createCommentedCheckboxMarker(lineHandler);
+                }.bind(this));
             }
 
             // Look for colors and make swatches.
@@ -384,9 +815,44 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             update.call(this);
         else
             this._codeMirror.operation(update.bind(this));
-    },
+    }
 
-    _createColorSwatches: function(nonatomic, lineNumber)
+    _createCommentedCheckboxMarker(lineHandle)
+    {
+        var lineNumber = lineHandle.lineNo();
+
+        // Since lineNumber can be 0, it is also necessary to check if it is a number before returning.
+        if (!lineNumber && isNaN(lineNumber))
+            return;
+
+        // Matches a comment like: /* -webkit-foo: bar; */
+        var commentedPropertyRegex = /\/\*\s*[-\w]+\s*:\s*[^;]+;?\s*\*\//g;
+
+        var match = commentedPropertyRegex.exec(lineHandle.text);
+        if (!match)
+            return;
+
+        while (match) {
+            var checkboxElement = document.createElement("input");
+            checkboxElement.type = "checkbox";
+            checkboxElement.checked = false;
+            checkboxElement.addEventListener("change", this._propertyCommentCheckboxChanged.bind(this));
+
+            var from = {line: lineNumber, ch: match.index};
+            var to = {line: lineNumber, ch: match.index + match[0].length};
+
+            var checkboxMarker = this._codeMirror.setUniqueBookmark(from, checkboxElement);
+            checkboxMarker.__propertyCheckbox = true;
+
+            var commentTextMarker = this._codeMirror.markText(from, to);
+
+            checkboxElement.__commentTextMarker = commentTextMarker;
+
+            match = commentedPropertyRegex.exec(lineHandle.text);
+        }
+    }
+
+    _createColorSwatches(nonatomic, lineNumber)
     {
         function update()
         {
@@ -404,7 +870,7 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
                 swatchElement.appendChild(swatchInnerElement);
 
                 var codeMirrorTextMarker = marker.codeMirrorTextMarker;
-                var swatchMarker = this._codeMirror.setUniqueBookmark(codeMirrorTextMarker.find().from, swatchElement);
+                this._codeMirror.setUniqueBookmark(codeMirrorTextMarker.find().from, swatchElement);
 
                 swatchInnerElement.__colorTextMarker = codeMirrorTextMarker;
                 swatchInnerElement.__color = color;
@@ -415,9 +881,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             update.call(this);
         else
             this._codeMirror.operation(update.bind(this));
-    },
+    }
 
-    _updateTextMarkerForPropertyIfNeeded: function(property)
+    _updateTextMarkerForPropertyIfNeeded(property)
     {
         var textMarker = property.__propertyTextMarker;
         console.assert(textMarker);
@@ -430,9 +896,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             return;
 
         this._createTextMarkerForPropertyIfNeeded(range.from, range.to, property);
-    },
+    }
 
-    _createTextMarkerForPropertyIfNeeded: function(from, to, property)
+    _createTextMarkerForPropertyIfNeeded(from, to, property)
     {
         if (!this._codeMirror.getOption("readOnly")) {
             // Create a new checkbox element and marker.
@@ -447,7 +913,36 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
 
             var checkboxMarker = this._codeMirror.setUniqueBookmark(from, checkboxElement);
             checkboxMarker.__propertyCheckbox = true;
+        } else if (this._delegate.cssStyleDeclarationTextEditorShouldAddPropertyGoToArrows
+                && !property.implicit && typeof this._delegate.cssStyleDeclarationTextEditorShowProperty === "function") {
+
+            var arrowElement = WebInspector.createGoToArrowButton();
+
+            var delegate = this._delegate;
+            arrowElement.addEventListener("click", function() {
+                delegate.cssStyleDeclarationTextEditorShowProperty(property);
+            });
+
+            this._codeMirror.setUniqueBookmark(to, arrowElement);
         }
+
+        function duplicatePropertyExistsBelow(cssProperty)
+        {
+            var propertyFound = false;
+
+            for (var property of this._style.properties) {
+                if (property === cssProperty)
+                    propertyFound = true;
+                else if (property.name === cssProperty.name && propertyFound)
+                    return true;
+            }
+
+            return false;
+        }
+
+        var propertyNameIsValid = false;
+        if (WebInspector.CSSCompletions.cssNameCompletions)
+            propertyNameIsValid = WebInspector.CSSCompletions.cssNameCompletions.isValidPropertyName(property.name);
 
         var classNames = ["css-style-declaration-property"];
 
@@ -462,11 +957,14 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
 
         if (!property.valid && property.hasOtherVendorNameOrKeyword())
             classNames.push("other-vendor");
-        else if (!property.valid)
+        else if (!property.valid && (!propertyNameIsValid || duplicatePropertyExistsBelow.call(this, property)))
             classNames.push("invalid");
 
         if (!property.enabled)
             classNames.push("disabled");
+
+        if (property.__filterResultClassName && !property.__filterResultNeedlePosition)
+            classNames.push(property.__filterResultClassName);
 
         var classNamesString = classNames.join(" ");
 
@@ -489,9 +987,146 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         property.addEventListener(WebInspector.CSSProperty.Event.OverriddenStatusChanged, this._propertyOverriddenStatusChanged, this);
 
         this._removeCheckboxPlaceholder(from.line);
-    },
 
-    _clearTextMarkers: function(nonatomic, all)
+        if (property.__filterResultClassName && property.__filterResultNeedlePosition) {
+            for (var needlePosition of property.__filterResultNeedlePosition.start) {
+                var start = {line: from.line, ch: needlePosition};
+                var end = {line: to.line, ch: start.ch + property.__filterResultNeedlePosition.length};
+
+                this._codeMirror.markText(start, end, {className: property.__filterResultClassName});
+            }
+        }
+
+        if (property.hasOtherVendorNameOrKeyword() || property.text.trim().endsWith(":"))
+            return;
+
+        var propertyHasUnnecessaryPrefix = property.name.startsWith("-webkit-") && WebInspector.CSSCompletions.cssNameCompletions.isValidPropertyName(property.canonicalName);
+
+        function generateInvalidMarker(options)
+        {
+            var invalidMarker = document.createElement("button");
+            invalidMarker.className = "invalid-warning-marker";
+            invalidMarker.title = options.title;
+
+            if (typeof options.correction === "string") {
+                // Allow for blank strings
+                invalidMarker.classList.add("clickable");
+                invalidMarker.addEventListener("click", function() {
+                    this._codeMirror.replaceRange(options.correction, from, to);
+
+                    if (options.autocomplete) {
+                        this._codeMirror.setCursor(to);
+                        this.focus();
+                        this._completionController._completeAtCurrentPosition(true);
+                    }
+                }.bind(this));
+            }
+
+            this._codeMirror.setBookmark(options.position, invalidMarker);
+        }
+
+        function instancesOfProperty(propertyName)
+        {
+            var count = 0;
+
+            for (var property of this._style.properties) {
+                if (property.name === propertyName)
+                    ++count;
+            }
+
+            return count;
+        }
+
+        // Number of times this property name is listed in the rule.
+        var instances = instancesOfProperty.call(this, property.name);
+        var invalidMarkerInfo;
+
+        if (propertyHasUnnecessaryPrefix && !instancesOfProperty.call(this, property.canonicalName)) {
+            // This property has a prefix and is valid without the prefix and the rule containing this property does not have the unprefixed version of the property.
+            generateInvalidMarker.call(this, {
+                position: from,
+                title: WebInspector.UIString("The 'webkit' prefix is not necessary.\nClick to insert a duplicate without the prefix."),
+                correction: property.text + "\n" + property.text.replace("-webkit-", ""),
+                autocomplete: false
+            });
+        } else if (instances > 1) {
+            invalidMarkerInfo = {
+                position: from,
+                title: WebInspector.UIString("Duplicate property '%s'.\nClick to delete this property.").format(property.name),
+                correction: "",
+                autocomplete: false
+            };
+        }
+
+        if (property.valid) {
+            if (invalidMarkerInfo)
+                generateInvalidMarker.call(this, invalidMarkerInfo);
+
+            return;
+        }
+
+        if (propertyNameIsValid) {
+            // The property's name is valid but its value is not (either it is not supported for this property or there is no value).
+            var semicolon = /:\s*/.exec(property.text);
+            var start = {line: from.line, ch: semicolon.index + semicolon[0].length};
+            var end = {line: to.line, ch: start.ch + property.value.length};
+
+            this._codeMirror.markText(start, end, {className: "invalid"});
+
+            var valueReplacement = property.value.length ? WebInspector.UIString("The value '%s' is not supported for this property.\nClick to delete and open autocomplete.").format(property.value) : WebInspector.UIString("This property needs a value.\nClick to open autocomplete.");
+
+            invalidMarkerInfo = {
+                position: start,
+                title: valueReplacement,
+                correction: property.name + ": ",
+                autocomplete: true
+            };
+        } else if (!instancesOfProperty.call(this, "-webkit-" + property.name) && WebInspector.CSSCompletions.cssNameCompletions.propertyRequiresWebkitPrefix(property.name)) {
+            // The property is valid and exists in the rule while its prefixed version does not.
+            invalidMarkerInfo = {
+                position: from,
+                title: WebInspector.UIString("The 'webkit' prefix is needed for this property.\nClick to insert a duplicate with the prefix."),
+                correction: "-webkit-" + property.text + "\n" + property.text,
+                autocomplete: false
+            };
+        } else if (!propertyHasUnnecessaryPrefix && !WebInspector.CSSCompletions.cssNameCompletions.isValidPropertyName("-webkit-" + property.name)) {
+            // The property either has no prefix and is invalid with a prefix or is invalid without a prefix.
+            var closestPropertyName = WebInspector.CSSCompletions.cssNameCompletions.getClosestPropertyName(property.name);
+
+            if (closestPropertyName) {
+                // The property name has less than 3 other properties that have the same Levenshtein distance.
+                invalidMarkerInfo = {
+                    position: from,
+                    title: WebInspector.UIString("Did you mean '%s'?\nClick to replace.").format(closestPropertyName),
+                    correction: property.text.replace(property.name, closestPropertyName),
+                    autocomplete: true
+                };
+            } else if (property.name.startsWith("-webkit-") && (closestPropertyName = WebInspector.CSSCompletions.cssNameCompletions.getClosestPropertyName(property.canonicalName))) {
+                // The unprefixed property name has less than 3 other properties that have the same Levenshtein distance.
+                invalidMarkerInfo = {
+                    position: from,
+                    title: WebInspector.UIString("Did you mean '%s'?\nClick to replace.").format("-webkit-" + closestPropertyName),
+                    correction: property.text.replace(property.canonicalName, closestPropertyName),
+                    autocomplete: true
+                };
+            } else {
+                // The property name is so vague or nonsensical that there are more than 3 other properties that have the same Levenshtein value.
+                invalidMarkerInfo = {
+                    position: from,
+                    title: WebInspector.UIString("The property '%s' is not supported.").format(property.name),
+                    correction: false,
+                    autocomplete: false
+                };
+            }
+        }
+
+        if (!invalidMarkerInfo)
+            return;
+
+        generateInvalidMarker.call(this, invalidMarkerInfo);
+    }
+
+    _clearTextMarkers(nonatomic, all)
     {
         function clear()
         {
@@ -522,35 +1157,47 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             clear.call(this);
         else
             this._codeMirror.operation(clear.bind(this));
-    },
+    }
 
-    _iterateOverProperties: function(onlyVisibleProperties, callback)
+    _iterateOverProperties(onlyVisibleProperties, callback)
     {
         var properties = onlyVisibleProperties ? this._style.visibleProperties : this._style.properties;
 
-        if (!onlyVisibleProperties) {
-            // Filter based on options only when all properties are used.
-            properties = properties.filter((function(property) {
-                return !property.implicit || this._showsImplicitProperties || property.canonicalName in this._alwaysShowPropertyNames;
-            }).bind(this));
+        if (this._filterResultPropertyNames) {
+            properties = properties.filter(function(property) {
+                return (!property.implicit || this._showsImplicitProperties) && property.name in this._filterResultPropertyNames;
+            }, this);
 
             if (this._sortProperties)
-                properties.sort(function(a, b) { return a.name.localeCompare(b.name) });
+                properties.sort(function(a, b) { return a.name.localeCompare(b.name); });
+        } else if (!onlyVisibleProperties) {
+            // Filter based on options only when all properties are used.
+            properties = properties.filter(function(property) {
+                return !property.implicit || this._showsImplicitProperties || property.canonicalName in this._alwaysShowPropertyNames;
+            }, this);
+
+            if (this._sortProperties)
+                properties.sort(function(a, b) { return a.name.localeCompare(b.name); });
         }
 
         for (var i = 0; i < properties.length; ++i) {
             if (callback.call(this, properties[i], i === properties.length - 1))
                 break;
         }
-    },
+    }
 
-    _propertyCheckboxChanged: function(event)
+    _propertyCheckboxChanged(event)
     {
         var property = event.target.__cssProperty;
         console.assert(property);
         if (!property)
             return;
 
+        this._commentProperty(property);
+    }
+
+    _commentProperty(property)
+    {
         var textMarker = property.__propertyTextMarker;
         console.assert(textMarker);
         if (!textMarker)
@@ -561,6 +1208,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         var range = textMarker.find();
         if (!range)
             return;
+
+        property._commentRange = range;
+        property._commentRange.to.ch += 6; // Number of characters added by comments.
 
         var text = this._codeMirror.getRange(range.from, range.to);
 
@@ -574,9 +1224,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         }
 
         this._codeMirror.operation(update.bind(this));
-    },
+    }
 
-    _propertyCommentCheckboxChanged: function(event)
+    _propertyCommentCheckboxChanged(event)
     {
         var commentTextMarker = event.target.__commentTextMarker;
         console.assert(commentTextMarker);
@@ -589,6 +1239,11 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         if (!range)
             return;
 
+        this._uncommentRange(range);
+    }
+
+    _uncommentRange(range)
+    {
         var text = this._codeMirror.getRange(range.from, range.to);
 
         // Remove the comment prefix and suffix.
@@ -608,9 +1263,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         }
 
         this._codeMirror.operation(update.bind(this));
-    },
+    }
 
-    _colorSwatchClicked: function(event)
+    _colorSwatchClicked(event)
     {
         if (this._colorPickerPopover)
             return;
@@ -711,14 +1366,14 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
 
             colorPicker.color = color;
         }
-    },
+    }
 
-    _propertyOverriddenStatusChanged: function(event)
+    _propertyOverriddenStatusChanged(event)
     {
         this._updateTextMarkerForPropertyIfNeeded(event.target);
-    },
+    }
 
-    _propertiesChanged: function(event)
+    _propertiesChanged(event)
     {
         // Don't try to update the document while completions are showing. Doing so will clear
         // the completion hint and prevent further interaction with the completion.
@@ -726,7 +1381,7 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             return;
 
         // Reset the content if the text is different and we are not focused.
-        if (!this.focused && this._style.text !== this._formattedContent()) {
+        if (!this.focused && (!this._style.text || this._style.text !== this._formattedContent())) {
             this._resetContent();
             return;
         }
@@ -734,9 +1389,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         this._removeEditingLineClassesSoon();
 
         this._updateTextMarkers();
-    },
+    }
 
-    _markLinesWithCheckboxPlaceholder: function()
+    _markLinesWithCheckboxPlaceholder()
     {
         if (this._codeMirror.getOption("readOnly"))
             return;
@@ -772,9 +1427,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             var placeholderMark = this._codeMirror.setUniqueBookmark(position, placeholderElement);
             placeholderMark.__checkboxPlaceholder = true;
         }
-    },
+    }
 
-    _removeCheckboxPlaceholder: function(lineNumber)
+    _removeCheckboxPlaceholder(lineNumber)
     {
         var marks = this._codeMirror.findMarksAt({line: lineNumber, ch: 0});
         for (var i = 0; i < marks.length; ++i) {
@@ -785,9 +1440,23 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             mark.clear();
             return;
         }
-    },
+    }
 
-    _resetContent: function()
+    _formattedContentFromEditor()
+    {
+        var mapping = {original: [0], formatted: [0]};
+        // FIXME: <rdar://problem/10593948> Provide a way to change the tab width in the Web Inspector
+        var indentString = "    ";
+        var builder = new FormatterContentBuilder(mapping, [], [], 0, 0, indentString);
+        var formatter = new Formatter(this._codeMirror, builder);
+        var start = {line: 0, ch: 0};
+        var end = {line: this._codeMirror.lineCount() - 1};
+        formatter.format(start, end);
+
+        return builder.formattedContent.trim();
+    }
+
+    _resetContent()
     {
         if (this._commitChangesTimeout) {
             clearTimeout(this._commitChangesTimeout);
@@ -827,114 +1496,81 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             // Remember the cursor position/selection.
             var selectionAnchor = this._codeMirror.getCursor("anchor");
             var selectionHead = this._codeMirror.getCursor("head");
+            var isEditorReadOnly = this._codeMirror.getOption("readOnly");
+            var styleText = this._style.text.trim();
+            var findWhitespace = /\s+/g;
 
-            function countNewLineCharacters(text)
-            {
-                var matches = text.match(/\n/g);
-                return matches ? matches.length : 0;
+            // We only need to format non-empty styles, but prepare checkbox placeholders
+            // in any case because that will indent the cursor when the User starts typing.
+            if (!styleText && !isEditorReadOnly) {
+                this._markLinesWithCheckboxPlaceholder();
+                return;
             }
 
-            var styleText = this._style.text;
-
-            // Pretty print the content if there are more properties than there are lines.
-            // This could be an option exposed to the user; however, it is almost always
-            // desired in this case.
-
-            if (styleText && this._style.visibleProperties.length <= countNewLineCharacters(styleText.trim()) + 1) {
-                // This style has formatted text content, so use it for a high-fidelity experience.
-
-                var prefixWhitespaceMatch = styleText.match(/^[ \t]*\n/);
-                this._prefixWhitespace = prefixWhitespaceMatch ? prefixWhitespaceMatch[0] : "";
-
-                var suffixWhitespaceMatch = styleText.match(/\n[ \t]*$/);
-                this._suffixWhitespace = suffixWhitespaceMatch ? suffixWhitespaceMatch[0] : "";
-
-                this._codeMirror.setValue(styleText);
-
-                if (this._prefixWhitespace)
-                    this._codeMirror.replaceRange("", {line: 0, ch: 0}, {line: 1, ch: 0});
-
-                if (this._suffixWhitespace) {
-                    var lineCount = this._codeMirror.lineCount();
-                    this._codeMirror.replaceRange("", {line: lineCount - 2}, {line: lineCount - 1});
-                }
-
-                this._linePrefixWhitespace = "";
-
-                var linesToStrip = [];
-
-                // Remember the whitespace so it can be restored on commit.
-                var lineCount = this._codeMirror.lineCount();
-                for (var i = 0; i < lineCount; ++i) {
-                    var lineContent = this._codeMirror.getLine(i);
-                    var prefixWhitespaceMatch = lineContent.match(/^\s+/);
-
-                    // If there is no prefix whitespace (except for empty lines) then the prefix
-                    // whitespace of all other lines will be retained as is. Update markers and return.
-                    if (!prefixWhitespaceMatch) {
-                        if (!lineContent)
-                            continue;
-                        this._linePrefixWhitespace = "";
-                        this._updateTextMarkers(true);
-                        return;
-                    }
-
-                    linesToStrip.push(i);
-
-                    // Only remember the shortest whitespace so we don't loose any of the
-                    // original author's whitespace if their indentation lengths differed.
-                    // Using the shortest also makes the adjustment work in _updateTextMarkers.
-
-                    // FIXME: This messes up if there is a mix of spaces and tabs. A tab
-                    // is treated the same as a space when prefix whitespace is omitted,
-                    // so if the shortest prefixed whitespace is, say, two tab characters,
-                    // lines that begin with four spaces will only have a two space indent.
-                    if (!this._linePrefixWhitespace || prefixWhitespaceMatch[0].length < this._linePrefixWhitespace.length)
-                        this._linePrefixWhitespace = prefixWhitespaceMatch[0];
-                }
-
-                // Strip the whitespace from the beginning of each line.
-                for (var i = 0; i < linesToStrip.length; ++i) {
-                    var lineNumber = linesToStrip[i];
-                    var from = {line: lineNumber, ch: 0};
-                    var to = {line: lineNumber, ch: this._linePrefixWhitespace.length};
-                    this._codeMirror.replaceRange("", from, to);
-                }
-
-                // Update all the text markers.
-                this._updateTextMarkers(true);
-            } else {
-                // This style does not have text content or it is minified, so we want to synthesize the text content.
-
-                this._prefixWhitespace = "";
-                this._suffixWhitespace = "";
-                this._linePrefixWhitespace = "";
-
+            // Generate formatted content for readonly editors by iterating properties.
+            if (isEditorReadOnly) {
                 this._codeMirror.setValue("");
-
                 var lineNumber = 0;
-
-                // Iterate only visible properties if we have original style text. That way we known we only synthesize
-                // what was originaly in the style text.
-                this._iterateOverProperties(styleText ? true : false, function(property) {
-                    // Some property text can have line breaks, so consider that in the ranges below.
-                    var propertyText = property.synthesizedText;
-                    var propertyLineCount = countNewLineCharacters(propertyText);
-
+                this._iterateOverProperties(false, function(property) {
                     var from = {line: lineNumber, ch: 0};
-                    var to = {line: lineNumber + propertyLineCount};
-
-                    this._codeMirror.replaceRange((lineNumber ? "\n" : "") + propertyText, from);
+                    var to = {line: lineNumber};
+                    // Readonly properties are pretty printed by `synthesizedText` and not the Formatter.
+                    this._codeMirror.replaceRange((lineNumber ? "\n" : "") + property.synthesizedText, from);
                     this._createTextMarkerForPropertyIfNeeded(from, to, property);
-
-                    lineNumber += propertyLineCount + 1;
+                    lineNumber++;
                 });
-
-                // Look for colors and make swatches.
-                this._createColorSwatches(true);
+                return;
             }
 
-            this._markLinesWithCheckboxPlaceholder();
+            // Set non-optimized, valid and invalid styles in preparation for the Formatter.
+            this._codeMirror.setValue(styleText);
+
+            // Now the Formatter pretty prints the styles.
+            this._codeMirror.setValue(this._formattedContentFromEditor());
+
+            // We need to workaround the fact that...
+            // 1) `this._style.properties` only holds valid CSSProperty instances but not
+            // comments and invalid properties like `color;`.
+            // 2) `_createTextMarkerForPropertyIfNeeded` relies on CSSProperty instances.
+            var cssPropertiesMap = new Map();
+            this._iterateOverProperties(false, function(cssProperty) {
+                cssProperty.__refreshedAfterBlur = false;
+
+                var propertyTextSansWhitespace = cssProperty.text.replace(findWhitespace, "");
+                var existingProperties = cssPropertiesMap.get(propertyTextSansWhitespace) || [];
+                existingProperties.push(cssProperty);
+
+                cssPropertiesMap.set(propertyTextSansWhitespace, existingProperties);
+            });
+
+            // Go through the Editor line by line and create TextMarker when a
+            // CSSProperty instance for that property exists. If not, then don't create a TextMarker.
+            this._codeMirror.eachLine(function(lineHandler) {
+                var lineNumber = lineHandler.lineNo();
+                var lineContentSansWhitespace = lineHandler.text.replace(findWhitespace, "");
+                var properties = cssPropertiesMap.get(lineContentSansWhitespace);
+
+                if (!properties) {
+                    this._createCommentedCheckboxMarker(lineHandler);
+                    return;
+                }
+
+                for (var property of properties) {
+                    if (property.__refreshedAfterBlur)
+                        continue;
+
+                    var from = {line: lineNumber, ch: 0};
+                    var to = {line: lineNumber};
+
+                    this._createTextMarkerForPropertyIfNeeded(from, to, property);
+                    property.__refreshedAfterBlur = true;
+
+                    break;
+                }
+            }.bind(this));
+
+            // Look for colors and make swatches.
+            this._createColorSwatches(true);
 
             // Restore the cursor position/selection.
             this._codeMirror.setSelection(selectionAnchor, selectionHead);
@@ -945,6 +1581,8 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
 
             // Mark the editor as clean (unedited state).
             this._codeMirror.markClean();
+
+            this._markLinesWithCheckboxPlaceholder();
         }
 
         // This needs to be done first and as a separate operation to avoid an exception in CodeMirror.
@@ -953,9 +1591,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
         this._ignoreCodeMirrorContentDidChangeEvent = true;
         this._codeMirror.operation(update.bind(this));
         delete this._ignoreCodeMirrorContentDidChangeEvent;
-    },
+    }
 
-    _updateJumpToSymbolTrackingMode: function()
+    _updateJumpToSymbolTrackingMode()
     {
         var oldJumpToSymbolTrackingModeEnabled = this._jumpToSymbolTrackingModeEnabled;
 
@@ -973,9 +1611,9 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
                 this._tokenTrackingController.enabled = false;
             }
         }
-    },
+    }
 
-    tokenTrackingControllerHighlightedRangeWasClicked: function(tokenTrackingController)
+    tokenTrackingControllerHighlightedRangeWasClicked(tokenTrackingController)
     {
         console.assert(this._style.ownerRule.sourceCodeLocation);
         if (!this._style.ownerRule.sourceCodeLocation)
@@ -1004,13 +1642,19 @@ WebInspector.CSSStyleDeclarationTextEditor.prototype = {
             }
         }
 
-        WebInspector.resourceSidebarPanel.showSourceCodeLocation(sourceCodeLocation);
-    },
+        WebInspector.showSourceCodeLocation(sourceCodeLocation);
+    }
 
-    tokenTrackingControllerNewHighlightCandidate: function(tokenTrackingController, candidate)
+    tokenTrackingControllerNewHighlightCandidate(tokenTrackingController, candidate)
     {
         this._tokenTrackingController.highlightRange(candidate.hoveredTokenRange);
     }
 };
 
-WebInspector.CSSStyleDeclarationTextEditor.prototype.__proto__ = WebInspector.Object.prototype;
+WebInspector.CSSStyleDeclarationTextEditor.StyleClassName = "css-style-text-editor";
+WebInspector.CSSStyleDeclarationTextEditor.ReadOnlyStyleClassName = "read-only";
+WebInspector.CSSStyleDeclarationTextEditor.ColorSwatchElementStyleClassName = "color-swatch";
+WebInspector.CSSStyleDeclarationTextEditor.CheckboxPlaceholderElementStyleClassName = "checkbox-placeholder";
+WebInspector.CSSStyleDeclarationTextEditor.EditingLineStyleClassName = "editing-line";
+WebInspector.CSSStyleDeclarationTextEditor.CommitCoalesceDelay = 250;
+WebInspector.CSSStyleDeclarationTextEditor.RemoveEditingLineClassesDelay = 2000;

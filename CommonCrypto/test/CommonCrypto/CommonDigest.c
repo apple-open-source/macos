@@ -310,7 +310,7 @@ testOriginalDiscreetDigest(CCDigestAlgorithm alg, char *input, byteBuffer expect
         case kCCDigestMD2:		comp_intr = cc_md2_discreet_legacy(input, inputLen, computedMD->bytes); break;
         case kCCDigestMD4:		comp_intr = cc_md4_discreet_legacy(input, inputLen, computedMD->bytes); break;
         case kCCDigestMD5:		comp_intr = cc_md5_discreet_legacy(input, inputLen, computedMD->bytes); break;
-        case kCCDigestSHA1:   comp_intr = cc_sha1_discreet_legacy(input, inputLen, computedMD->bytes); break;
+        case kCCDigestSHA1:     comp_intr = cc_sha1_discreet_legacy(input, inputLen, computedMD->bytes); break;
         case kCCDigestSHA224:	comp_intr = cc_sha224_discreet_legacy(input, inputLen, computedMD->bytes); break;
         case kCCDigestSHA256:	comp_intr = cc_sha256_discreet_legacy(input, inputLen, computedMD->bytes); break;
         case kCCDigestSHA384:	comp_intr = cc_sha384_discreet_legacy(input, inputLen, computedMD->bytes); break;
@@ -323,6 +323,7 @@ testOriginalDiscreetDigest(CCDigestAlgorithm alg, char *input, byteBuffer expect
     ok(status = expectedEqualsComputed(testString("Original Discreet Digest %s", alg), expected, computedMD), "Digest is as expected");
     ok(status = expectedEqualsComputed(testString("Original Discreet Digest Intermediate %s", alg), expectedIntermediate, comp_intr), "Intermediate State is as expected");
     free(computedMD);
+    free(comp_intr);
     return status;
 }
 

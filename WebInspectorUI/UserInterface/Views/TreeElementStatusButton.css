@@ -27,29 +27,22 @@
     width: 16px;
     height: 16px;
     display: inline-block;
+    vertical-align: middle;
 }
 
-.item > .status > .status-button > svg path.filled {
+.item > .status > .status-button > svg .filled {
     fill: rgb(128, 128, 128);
 }
 
-body.mac-platform.legacy .item > .status > .status-button > svg path.filled {
-    fill: rgb(64, 64, 64);
-}
-
-:focus .item.selected > .status > .status-button > svg path.filled {
+:matches(:focus, .force-focus) .item.selected > .status > .status-button > svg .filled {
     fill: white !important;
 }
 
-.item > .status > .status-button > svg path.stroked {
+.item > .status > .status-button > svg .stroked {
     stroke: rgb(128, 128, 128);
 }
 
-body.mac-platform.legacy .item > .status > .status-button > svg path.stroked {
-    stroke: rgb(64, 64, 64);
-}
-
-:focus .item.selected > .status > .status-button > svg path.stroked {
+:matches(:focus, .force-focus) .item.selected > .status > .status-button > svg .stroked {
     stroke: white !important;
 }
 

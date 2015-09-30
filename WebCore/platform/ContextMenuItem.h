@@ -30,7 +30,6 @@
 #if ENABLE(CONTEXT_MENUS)
 
 #include "PlatformMenuDescription.h"
-#include <wtf/OwnPtr.h>
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(COCOA)
@@ -45,6 +44,8 @@ typedef struct _GtkAction GtkAction;
 namespace WebCore {
 
     class ContextMenu;
+    class Image;
+    class URL;
 
     // This enum needs to be in sync with the WebMenuItemTag enum in WebUIDelegate.h and the
     // extra values in WebUIDelegatePrivate.h
@@ -130,9 +131,7 @@ namespace WebCore {
         ContextMenuItemTagRightToLeft,
         ContextMenuItemTagPDFSinglePageScrolling,
         ContextMenuItemTagPDFFacingPagesScrolling,
-#if ENABLE(INSPECTOR)
         ContextMenuItemTagInspectElement,
-#endif
         ContextMenuItemTagTextDirectionMenu, // Text Direction sub-menu
         ContextMenuItemTagTextDirectionDefault,
         ContextMenuItemTagTextDirectionLeftToRight,
@@ -163,6 +162,7 @@ namespace WebCore {
         ContextMenuItemTagDictationAlternative,
         ContextMenuItemTagOpenLinkInThisWindow,
         ContextMenuItemTagToggleVideoFullscreen,
+        ContextMenuItemTagShareMenu, 
         ContextMenuItemBaseCustomTag = 5000,
         ContextMenuItemCustomTagNoAction = 5998,
         ContextMenuItemLastCustomTag = 5999,
@@ -188,24 +188,26 @@ namespace WebCore {
     class ContextMenuItem {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, ContextMenu* subMenu = 0);
-        ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, bool enabled, bool checked);
+        WEBCORE_EXPORT ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, ContextMenu* subMenu = 0);
+        WEBCORE_EXPORT ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, bool enabled, bool checked);
 
-        ~ContextMenuItem();
+        WEBCORE_EXPORT ~ContextMenuItem();
 
         void setType(ContextMenuItemType);
-        ContextMenuItemType type() const;
+        WEBCORE_EXPORT ContextMenuItemType type() const;
 
         void setAction(ContextMenuAction);
-        ContextMenuAction action() const;
+        WEBCORE_EXPORT ContextMenuAction action() const;
 
         void setChecked(bool = true);
-        bool checked() const;
+        WEBCORE_EXPORT bool checked() const;
 
         void setEnabled(bool = true);
-        bool enabled() const;
+        WEBCORE_EXPORT bool enabled() const;
 
         void setSubMenu(ContextMenu*);
+
+        WEBCORE_EXPORT static ContextMenuItem shareMenuItem(const URL& absoluteLinkURL, const URL& downloadableMediaURL, Image*, const String& selectedText);
 
 #if PLATFORM(GTK)
         GtkAction* gtkAction() const;
@@ -214,6 +216,9 @@ namespace WebCore {
 #if USE(CROSS_PLATFORM_CONTEXT_MENUS)
         ContextMenuItem(ContextMenuAction, const String&, bool enabled, bool checked, const Vector<ContextMenuItem>& subMenuItems);
         explicit ContextMenuItem(const PlatformContextMenuItem&);
+        ContextMenuItem();
+
+        bool isNull() const;
 
         // On Windows, the title (dwTypeData of the MENUITEMINFO) is not set in this function. Callers can set the title themselves,
         // and handle the lifetime of the title, if they need it.
@@ -225,16 +230,23 @@ namespace WebCore {
         const Vector<ContextMenuItem>& subMenuItems() const { return m_subMenuItems; }
 #else
     public:
-        explicit ContextMenuItem(PlatformMenuItemDescription);
-        explicit ContextMenuItem(ContextMenu* subMenu = 0);
+        WEBCORE_EXPORT explicit ContextMenuItem(PlatformMenuItemDescription);
+        explicit ContextMenuItem(ContextMenu* subMenu);
         ContextMenuItem(ContextMenuAction, const String&, bool enabled, bool checked, Vector<ContextMenuItem>& submenuItems);
+        WEBCORE_EXPORT ContextMenuItem();
 
-        PlatformMenuItemDescription releasePlatformDescription();
+        bool isNull() const { return !m_platformDescription; }
 
-        String title() const;
+#if PLATFORM(GTK)
+        WEBCORE_EXPORT PlatformMenuItemDescription releasePlatformDescription();
+#endif
+
+        WEBCORE_EXPORT PlatformMenuItemDescription platformDescription() const;
+
+        WEBCORE_EXPORT String title() const;
         void setTitle(const String&);
 
-        PlatformMenuDescription platformSubMenu() const;
+        WEBCORE_EXPORT PlatformMenuDescription platformSubMenu() const;
         void setSubMenu(Vector<ContextMenuItem>&);
 
 #endif // USE(CROSS_PLATFORM_CONTEXT_MENUS)

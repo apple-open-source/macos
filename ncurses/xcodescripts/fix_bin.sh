@@ -6,8 +6,8 @@ set -e -x
 
 if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
 	[ -z "${DSTROOT}" ] && exit 1
-	if [ -d "${DSTROOT}${INSTALL_PATH_PREFIX}/usr/bin" ]; then
-		rm -rf "${DSTROOT}${INSTALL_PATH_PREFIX}/usr/bin"
+	if [ -d "${DSTROOT}/usr/bin" ]; then
+		rm -rf "${DSTROOT}/usr/bin"
 	fi
 	exit 0
 fi

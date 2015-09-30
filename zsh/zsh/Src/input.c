@@ -56,8 +56,9 @@
  * inpop(), which effectively flushes any unread input as well as restoring
  * the previous input state.
  *
- * The internal flag INP_ALCONT shows that the stack element was pushed
- * by an alias expansion; it should not be needed elsewhere.
+ * The internal flags INP_ALCONT and INP_HISTCONT show that the stack
+ * element was pushed by an alias or history expansion; they should not
+ * be needed elsewhere.
  *
  * The global variable inalmore is set to indicate aliases should
  * continue to be expanded because the last alias expansion ended
@@ -179,12 +180,12 @@ shingetline(void)
 /* Get the next character from the input.
  * Will call inputline() to get a new line where necessary.
  */
-  
+
 /**/
 int
 ingetc(void)
 {
-    int lastc;
+    int lastc = ' ';
 
     if (lexstop)
 	return ' ';
@@ -196,7 +197,7 @@ ingetc(void)
 		continue;
 	    if (((inbufflags & INP_LINENO) || !strin) && lastc == '\n')
 		lineno++;
-	    return lastc;
+	    break;
 	}
 
 	/*
@@ -208,7 +209,7 @@ ingetc(void)
 	 */
 	if (!inbufct && (strin || errflag)) {
 	    lexstop = 1;
-	    return ' ';
+	    break;
 	}
 	/* If the next element down the input stack is a continuation of
 	 * this, use it.
@@ -219,8 +220,10 @@ ingetc(void)
 	}
 	/* As a last resort, get some more input */
 	if (inputline())
-	    return ' ';
+	    break;
     }
+    zshlex_raw_add(lastc);
+    return lastc;
 }
 
 /* Read a line from the current command stream and store it as input */
@@ -291,7 +294,8 @@ inputline(void)
     }
     if (errflag) {
 	free(ingetcline);
-	return lexstop = errflag = 1;
+	errflag |= ERRFLAG_ERROR;
+	return lexstop = 1;
     }
     if (isset(VERBOSE)) {
 	/* Output the whole line read so far. */
@@ -327,8 +331,38 @@ inputline(void)
 	}
     }
     isfirstch = 1;
-    /* Put this into the input channel. */
-    inputsetline(ingetcline, INP_FREE);
+    if ((inbufflags & INP_APPEND) && inbuf) {
+	/*
+	 * We need new input but need to be able to back up
+	 * over the old input, so append this line.
+	 * Pushing the line onto the stack doesn't have the right
+	 * effect.
+	 *
+	 * This is quite a simple and inefficient fix, but currently
+	 * we only need it when backing up over a multi-line $((...
+	 * that turned out to be a command substitution rather than
+	 * a math substitution, which is a very special case.
+	 * So it's not worth rewriting.
+	 */
+	char *oinbuf = inbuf;
+	int newlen = strlen(ingetcline);
+	int oldlen = (int)(inbufptr - inbuf) + inbufleft;
+	if (inbufflags & INP_FREE) {
+	    inbuf = realloc(inbuf, oldlen + newlen + 1);
+	} else {
+	    inbuf = zalloc(oldlen + newlen + 1);
+	    memcpy(inbuf, oinbuf, oldlen);
+	}
+	inbufptr += inbuf - oinbuf;
+	strcpy(inbuf + oldlen, ingetcline);
+	free(ingetcline);
+	inbufleft += newlen;
+	inbufct += newlen;
+	inbufflags |= INP_FREE;
+    } else {
+	/* Put this into the input channel. */
+	inputsetline(ingetcline, INP_FREE);
+    }
 
     return 0;
 }
@@ -390,12 +424,14 @@ inungetc(int c)
 	    if (((inbufflags & INP_LINENO) || !strin) && c == '\n')
 		lineno--;
 	}
-#ifdef DEBUG
         else if (!(inbufflags & INP_CONT)) {
+#ifdef DEBUG
 	    /* Just for debugging */
 	    fprintf(stderr, "Attempt to inungetc() at start of input.\n");
-	}
 #endif
+	    zerr("Garbled input at %c (binary file as commands?)", c);
+	    return;
+	}
 	else {
 	    /*
 	     * The character is being backed up from a previous input stack
@@ -411,7 +447,8 @@ inungetc(int c)
 	 * we may need to restore an alias popped from the stack.
 	 * Note this may be a dummy (history expansion) entry.
 	 */
-	if (inbufptr == inbufpush && inbufflags & INP_ALCONT) {
+	if (inbufptr == inbufpush &&
+	    (inbufflags & (INP_ALCONT|INP_HISTCONT))) {
 	    /*
 	     * Go back up the stack over all entries which were alias
 	     * expansions and were pushed with nothing remaining to read.
@@ -420,11 +457,16 @@ inungetc(int c)
 		if (instacktop->alias)
 		    instacktop->alias->inuse = 1;
 		instacktop++;
-	    } while ((instacktop->flags & INP_ALCONT) && !instacktop->bufleft);
-	    inbufflags = INP_CONT|INP_ALIAS;
+	    } while ((instacktop->flags & (INP_ALCONT|INP_HISTCONT))
+		     && !instacktop->bufleft);
+	    if (inbufflags & INP_HISTCONT)
+		inbufflags = INP_CONT|INP_ALIAS|INP_HIST;
+	    else
+		inbufflags = INP_CONT|INP_ALIAS;
 	    inbufleft = 0;
 	    inbuf = inbufptr = "";
 	}
+	zshlex_raw_back();
     }
 }
 
@@ -486,7 +528,7 @@ inpush(char *str, int flags, Alias inalias)
     instacktop->bufptr = inbufptr;
     instacktop->bufleft = inbufleft;
     instacktop->bufct = inbufct;
-    inbufflags &= ~INP_ALCONT;
+    inbufflags &= ~(INP_ALCONT|INP_HISTCONT);
     if (flags & (INP_ALIAS|INP_HIST)) {
 	/*
 	 * Text is expansion for history or alias, so continue
@@ -495,7 +537,10 @@ inpush(char *str, int flags, Alias inalias)
 	 * and mark alias as in use.
 	 */
 	flags |= INP_CONT|INP_ALIAS;
-	instacktop->flags = inbufflags | INP_ALCONT;
+	if (flags & INP_HIST)
+	    instacktop->flags = inbufflags | INP_HISTCONT;
+	else
+	    instacktop->flags = inbufflags | INP_ALCONT;
 	if ((instacktop->alias = inalias))
 	    inalias->inuse = 1;
     } else {
@@ -533,6 +578,24 @@ inpush(char *str, int flags, Alias inalias)
 static void
 inpoptop(void)
 {
+    if (!lexstop) {
+	inbufflags &= ~(INP_ALCONT|INP_HISTCONT);
+	while (inbufptr > inbuf) {
+	    inbufptr--;
+	    inbufct++;
+	    inbufleft++;
+	    /*
+	     * As elsewhere in input and history mechanisms:
+	     * unwinding aliases and unwinding history have different
+	     * implications as aliases are after the lexer while
+	     * history is before, but they're both pushed onto
+	     * the input stack.
+	     */
+	    if ((inbufflags & (INP_ALIAS|INP_HIST)) == INP_ALIAS)
+		zshlex_raw_back();
+	}
+    }
+
     if (inbuf && (inbufflags & INP_FREE))
 	free(inbuf);
 
@@ -544,7 +607,7 @@ inpoptop(void)
     inbufct = instacktop->bufct;
     inbufflags = instacktop->flags;
 
-    if (!(inbufflags & INP_ALCONT))
+    if (!(inbufflags & (INP_ALCONT|INP_HISTCONT)))
 	return;
 
     if (instacktop->alias) {

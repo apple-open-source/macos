@@ -581,7 +581,7 @@ struct bpf_program {
 
 #ifdef __APPLE__
 #define DLT_PKTAP       DLT_USER2
-#define DLT_PCAPNG      DLT_USER3
+#define DLT_PCAPNG      DLT_USER4
 #endif
 /*
  * For future use with 802.11 captures - defined by AbsoluteValue

@@ -130,7 +130,7 @@ int run_one_test(struct one_test_s *test, int argc, char * const *argv);
 
 #define ok_status(THIS, TESTNAME) \
 ({ \
-	OSStatus _this = (THIS); \
+	CCCryptorStatus _this = (THIS); \
 	test_ok(!_this, TESTNAME, test_directive, test_reason, \
 		__FILE__, __LINE__, \
 	   "#     status: %s(%ld)\n", \

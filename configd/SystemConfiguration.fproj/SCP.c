@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -106,11 +106,11 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 	pathStr = _SC_cfstring_to_cstring(path, NULL, 0, kCFStringEncodingASCII);
 	if (pathStr == NULL) {
 		CFIndex pathLen;
-		
+
 		pathLen = CFStringGetMaximumSizeOfFileSystemRepresentation(path);
-		pathStr = CFAllocatorAllocate(NULL, pathLen, 0);		
+		pathStr = CFAllocatorAllocate(NULL, pathLen, 0);
 		if (CFStringGetFileSystemRepresentation(path, pathStr, pathLen) == FALSE) {
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("could not convert path to C string"));
+			SC_log(LOG_INFO, "could not convert path to C string");
 			CFAllocatorDeallocate(NULL, pathStr);
 			pathStr = NULL;
 		}
@@ -168,16 +168,16 @@ __SCPreferencesCreateNIPrefsFromPrefs(SCPreferencesRef prefs)
 	SCPreferencesRef ni_prefs = NULL;
 	SCPreferencesPrivateRef prefsPrivate = (SCPreferencesPrivateRef)prefs;
 	char * prefsPath = __SCPreferencesPath(NULL, prefsPrivate->prefsID, FALSE);
-	
-	
+
+
 	newPath = CFStringCreateMutable(NULL, 0);
 	CFStringAppendFormat(newPath, NULL, CFSTR("%s"), prefsPath);
-	
+
 	CFStringFindAndReplace(newPath, PREFS_DEFAULT_CONFIG,
 			       NETWORK_INTERFACES_PREFS,
 			       CFRangeMake(0, CFStringGetLength(newPath)),
 			       kCFCompareBackwards);
-	
+
 	newURL = CFURLCreateWithFileSystemPath(NULL, newPath, kCFURLPOSIXPathStyle, FALSE);
 	if (CFURLResourceIsReachable(newURL, NULL) == FALSE) {
 		ni_prefs = __SCNetworkCreateDefaultNIPrefs(newPath);
@@ -188,7 +188,7 @@ __SCPreferencesCreateNIPrefsFromPrefs(SCPreferencesRef prefs)
 	CFAllocatorDeallocate(NULL, prefsPath);
 	CFRelease(newPath);
 	CFRelease(newURL);
-	
+
 	return ni_prefs;
 }
 

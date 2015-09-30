@@ -26,13 +26,19 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKitLegacy/WebBasePluginPackage.h>
+#import "WebBasePluginPackage.h"
 
-#import <algorithm>
+#import "WebKitLogging.h"
+#import "WebKitNSStringExtras.h"
+#import "WebNetscapePluginPackage.h"
+#import "WebPluginPackage.h"
+#import "WebTypesInternal.h"
+#import <WebCore/WebCoreNSStringExtras.h> 
 #import <WebCore/WebCoreObjCExtras.h>
-#import <WebKitLegacy/WebKitNSStringExtras.h>
-#import <WebKitLegacy/WebNetscapePluginPackage.h>
-#import <WebKitLegacy/WebPluginPackage.h>
+#import <algorithm>
+#import <mach-o/arch.h>
+#import <mach-o/fat.h>
+#import <mach-o/loader.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
@@ -41,14 +47,6 @@
 #import <wtf/Vector.h>
 #import <wtf/text/CString.h>
 
-#import <WebKitSystemInterface.h>
-
-#import "WebKitLogging.h"
-#import "WebTypesInternal.h"
-
-#import <mach-o/arch.h>
-#import <mach-o/fat.h>
-#import <mach-o/loader.h>
 
 #define JavaCocoaPluginIdentifier   "com.apple.JavaPluginCocoa"
 #define JavaCarbonPluginIdentifier  "com.apple.JavaAppletPlugin"
@@ -88,11 +86,6 @@ using namespace WebCore;
     }
 
     return [pluginPackage autorelease];
-}
-
-+ (NSString *)preferredLocalizationName
-{
-    return CFBridgingRelease(WKCopyCFLocalizationPreferredName(NULL));
 }
 
 #if COMPILER(CLANG)
@@ -187,6 +180,8 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
         return NO;
     
     NSDictionary *MIMETypes = nil;
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
     NSString *pListFilename = [self _objectForInfoDictionaryKey:WebPluginMIMETypesFilenameKey];
     
     // Check if the MIME types are claimed in a plist in the user's preferences directory.
@@ -196,13 +191,14 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
         if (pList) {
             // If the plist isn't localized, have the plug-in recreate it in the preferred language.
             NSString *localizationName = [pList objectForKey:WebPluginLocalizationNameKey];
-            if (![localizationName isEqualToString:[[self class] preferredLocalizationName]])
+            if (![localizationName isEqualToString:preferredBundleLocalizationName()])
                 pList = [self pListForPath:pListPath createFile:YES];
             MIMETypes = [pList objectForKey:WebPluginMIMETypesKey];
         } else
             // Plist doesn't exist, ask the plug-in to create it.
             MIMETypes = [[self pListForPath:pListPath createFile:YES] objectForKey:WebPluginMIMETypesKey];
     }
+#endif
 
     if (!MIMETypes) {
         MIMETypes = [self _objectForInfoDictionaryKey:WebPluginMIMETypesKey];
@@ -256,6 +252,11 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
     pluginInfo.desc = description;
 
     pluginInfo.isApplicationPlugin = false;
+    pluginInfo.clientLoadPolicy = PluginLoadClientPolicyUndefined;
+#if PLATFORM(MAC)
+    pluginInfo.bundleIdentifier = self.bundleIdentifier;
+    pluginInfo.versionString = self.bundleVersion;
+#endif
 
     return YES;
 }
@@ -278,7 +279,6 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
 
 - (void)finalize
 {
-    ASSERT_MAIN_THREAD();
     ASSERT(!pluginDatabases || [pluginDatabases count] == 0);
     [pluginDatabases release];
 

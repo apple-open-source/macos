@@ -50,40 +50,44 @@ class PlatformCALayerRemote;
 class RemoteLayerTreeTransaction {
 public:
     enum LayerChanges {
-        NoChange = 0,
-        NameChanged = 1 << 1,
-        ChildrenChanged = 1 << 2,
-        PositionChanged = 1 << 3,
-        BoundsChanged = 1 << 4,
-        BackgroundColorChanged = 1 << 5,
-        AnchorPointChanged = 1 << 6,
-        BorderWidthChanged = 1 << 7,
-        BorderColorChanged = 1 << 8,
-        OpacityChanged = 1 << 9,
-        TransformChanged = 1 << 10,
-        SublayerTransformChanged = 1 << 11,
-        HiddenChanged = 1 << 12,
-        GeometryFlippedChanged = 1 << 13,
-        DoubleSidedChanged = 1 << 14,
-        MasksToBoundsChanged = 1 << 15,
-        OpaqueChanged = 1 << 16,
-        MaskLayerChanged = 1 << 17,
-        ClonedContentsChanged = 1 << 18,
-        ContentsRectChanged = 1 << 19,
-        ContentsScaleChanged = 1 << 20,
-        MinificationFilterChanged = 1 << 21,
-        MagnificationFilterChanged = 1 << 22,
-        BlendModeChanged = 1 << 23,
-        SpeedChanged = 1 << 24,
-        TimeOffsetChanged = 1 << 25,
-        BackingStoreChanged = 1 << 26,
-        FiltersChanged = 1 << 27,
-        AnimationsChanged = 1 << 28,
-        EdgeAntialiasingMaskChanged = 1 << 29,
-        CustomAppearanceChanged = 1 << 30,
-        CustomBehaviorChanged = 1 << 31
+        NoChange                        = 0,
+        NameChanged                     = 1LLU << 1,
+        ChildrenChanged                 = 1LLU << 2,
+        PositionChanged                 = 1LLU << 3,
+        BoundsChanged                   = 1LLU << 4,
+        BackgroundColorChanged          = 1LLU << 5,
+        AnchorPointChanged              = 1LLU << 6,
+        BorderWidthChanged              = 1LLU << 7,
+        BorderColorChanged              = 1LLU << 8,
+        OpacityChanged                  = 1LLU << 9,
+        TransformChanged                = 1LLU << 10,
+        SublayerTransformChanged        = 1LLU << 11,
+        HiddenChanged                   = 1LLU << 12,
+        GeometryFlippedChanged          = 1LLU << 13,
+        DoubleSidedChanged              = 1LLU << 14,
+        MasksToBoundsChanged            = 1LLU << 15,
+        OpaqueChanged                   = 1LLU << 16,
+        MaskLayerChanged                = 1LLU << 17,
+        ClonedContentsChanged           = 1LLU << 18,
+        ContentsRectChanged             = 1LLU << 19,
+        ContentsScaleChanged            = 1LLU << 20,
+        CornerRadiusChanged             = 1LLU << 21,
+        ShapeRoundedRectChanged         = 1LLU << 22,
+        ShapePathChanged                = 1LLU << 23,
+        MinificationFilterChanged       = 1LLU << 24,
+        MagnificationFilterChanged      = 1LLU << 25,
+        BlendModeChanged                = 1LLU << 26,
+        WindRuleChanged                 = 1LLU << 27,
+        SpeedChanged                    = 1LLU << 28,
+        TimeOffsetChanged               = 1LLU << 29,
+        BackingStoreChanged             = 1LLU << 30,
+        BackingStoreAttachmentChanged   = 1LLU << 31,
+        FiltersChanged                  = 1LLU << 32,
+        AnimationsChanged               = 1LLU << 33,
+        EdgeAntialiasingMaskChanged     = 1LLU << 34,
+        CustomAppearanceChanged         = 1LLU << 35,
     };
-    typedef unsigned LayerChange;
+    typedef uint64_t LayerChange;
 
     struct LayerCreationProperties {
         LayerCreationProperties();
@@ -95,6 +99,7 @@ public:
         WebCore::PlatformCALayer::LayerType type;
 
         uint32_t hostingContextID;
+        float hostingDeviceScaleFactor;
     };
 
     struct LayerProperties {
@@ -121,6 +126,8 @@ public:
         String name;
         std::unique_ptr<WebCore::TransformationMatrix> transform;
         std::unique_ptr<WebCore::TransformationMatrix> sublayerTransform;
+        std::unique_ptr<WebCore::FloatRoundedRect> shapeRoundedRect;
+
         Vector<WebCore::GraphicsLayer::PlatformLayerID> children;
 
         Vector<std::pair<String, PlatformCAAnimationRemote::Properties>> addedAnimations;
@@ -132,22 +139,25 @@ public:
         WebCore::FloatRect contentsRect;
         std::unique_ptr<RemoteLayerBackingStore> backingStore;
         std::unique_ptr<WebCore::FilterOperations> filters;
+        WebCore::Path shapePath;
         WebCore::GraphicsLayer::PlatformLayerID maskLayerID;
         WebCore::GraphicsLayer::PlatformLayerID clonedLayerID;
         double timeOffset;
         float speed;
         float contentsScale;
+        float cornerRadius;
         float borderWidth;
         float opacity;
         WebCore::Color backgroundColor;
         WebCore::Color borderColor;
         unsigned edgeAntialiasingMask;
         WebCore::GraphicsLayer::CustomAppearance customAppearance;
-        WebCore::GraphicsLayer::CustomBehavior customBehavior;
         WebCore::PlatformCALayer::FilterType minificationFilter;
         WebCore::PlatformCALayer::FilterType magnificationFilter;
         WebCore::BlendMode blendMode;
+        WebCore::WindRule windRule;
         bool hidden;
+        bool backingStoreAttached;
         bool geometryFlipped;
         bool doubleSided;
         bool masksToBounds;
@@ -185,9 +195,17 @@ public:
 
     WebCore::IntSize contentsSize() const { return m_contentsSize; }
     void setContentsSize(const WebCore::IntSize& size) { m_contentsSize = size; };
+
+    WebCore::IntPoint scrollOrigin() const { return m_scrollOrigin; }
+    void setScrollOrigin(const WebCore::IntPoint& origin) { m_scrollOrigin = origin; };
     
     WebCore::Color pageExtendedBackgroundColor() const { return m_pageExtendedBackgroundColor; }
     void setPageExtendedBackgroundColor(WebCore::Color color) { m_pageExtendedBackgroundColor = color; }
+
+#if PLATFORM(MAC)
+    WebCore::IntPoint scrollPosition() const { return m_scrollPosition; }
+    void setScrollPosition(WebCore::IntPoint p) { m_scrollPosition = p; }
+#endif
 
     double pageScaleFactor() const { return m_pageScaleFactor; }
     void setPageScaleFactor(double pageScaleFactor) { m_pageScaleFactor = pageScaleFactor; }
@@ -227,6 +245,10 @@ private:
     Vector<TransactionCallbackID> m_callbackIDs;
 
     WebCore::IntSize m_contentsSize;
+    WebCore::IntPoint m_scrollOrigin;
+#if PLATFORM(MAC)
+    WebCore::IntPoint m_scrollPosition;
+#endif
     WebCore::Color m_pageExtendedBackgroundColor;
     double m_pageScaleFactor;
     double m_minimumScaleFactor;

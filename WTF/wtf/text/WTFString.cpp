@@ -452,33 +452,8 @@ Vector<UChar> String::charactersWithNullTermination() const
 
 String String::format(const char *format, ...)
 {
-#if OS(WINCE)
     va_list args;
     va_start(args, format);
-
-    Vector<char, 256> buffer;
-
-    int bufferSize = 256;
-    buffer.resize(bufferSize);
-    for (;;) {
-        int written = vsnprintf(buffer.data(), bufferSize, format, args);
-        va_end(args);
-
-        if (written == 0)
-            return String("");
-        if (written > 0)
-            return StringImpl::create(reinterpret_cast<const LChar*>(buffer.data()), written);
-        
-        bufferSize <<= 1;
-        buffer.resize(bufferSize);
-        va_start(args, format);
-    }
-
-#else
-    va_list args;
-    va_start(args, format);
-
-    Vector<char, 256> buffer;
 
     // Do the format once to get the length.
 #if COMPILER(MSVC)
@@ -486,30 +461,25 @@ String String::format(const char *format, ...)
 #else
     char ch;
     int result = vsnprintf(&ch, 1, format, args);
-    // We need to call va_end() and then va_start() again here, as the
-    // contents of args is undefined after the call to vsnprintf
-    // according to http://man.cx/snprintf(3)
-    //
-    // Not calling va_end/va_start here happens to work on lots of
-    // systems, but fails e.g. on 64bit Linux.
-    va_end(args);
-    va_start(args, format);
 #endif
+    va_end(args);
 
     if (result == 0)
         return String("");
     if (result < 0)
         return String();
+
+    Vector<char, 256> buffer;
     unsigned len = result;
     buffer.grow(len + 1);
     
+    va_start(args, format);
     // Now do the formatting again, guaranteed to fit.
     vsnprintf(buffer.data(), buffer.size(), format, args);
 
     va_end(args);
     
     return StringImpl::create(reinterpret_cast<const LChar*>(buffer.data()), len);
-#endif
 }
 
 String String::number(int number)
@@ -714,13 +684,13 @@ bool String::isSafeToSendToAnotherThread() const
 {
     if (!impl())
         return true;
+    if (isEmpty())
+        return true;
     // AtomicStrings are not safe to send between threads as ~StringImpl()
     // will try to remove them from the wrong AtomicStringTable.
     if (impl()->isAtomic())
         return false;
     if (impl()->hasOneRef())
-        return true;
-    if (isEmpty())
         return true;
     return false;
 }
@@ -1206,7 +1176,7 @@ String* string(const char* s)
 Vector<char> asciiDebug(StringImpl* impl)
 {
     if (!impl)
-        return asciiDebug(String("[null]").impl());
+        return asciiDebug(String(ASCIILiteral("[null]")).impl());
 
     Vector<char> buffer;
     for (unsigned i = 0; i < impl->length(); ++i) {

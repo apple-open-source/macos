@@ -286,10 +286,14 @@ struct timezone {
 # include <limits.h>
 #endif
 
+#ifdef USE_STACK_ALLOCATION
 #ifdef HAVE_VARIABLE_LENGTH_ARRAYS
 # define VARARR(X,Y,Z)	X (Y)[Z]
 #else
 # define VARARR(X,Y,Z)	X *(Y) = (X *) alloca(sizeof(X) * (Z))
+#endif
+#else
+# define VARARR(X,Y,Z)	X *(Y) = (X *) zhalloc(sizeof(X) * (Z))
 #endif
 
 /* we should handle unlimited sizes from pathconf(_PC_PATH_MAX) */
@@ -708,7 +712,10 @@ struct timezone {
 #endif
 
 #ifndef HAVE_MEMMOVE
-# define memmove(dest, src, len) bcopy((src), (dest), (len))
+# ifndef memmove
+static char *zmmv;
+# define memmove(dest, src, len) (bcopy((src), zmmv = (dest), (len)), zmmv)
+# endif
 #endif
 
 #ifndef offsetof
@@ -873,4 +880,9 @@ extern short ospeed;
 #   include <termcap.h>
 #  endif
 # endif
+#endif
+
+#ifdef ZSH_VALGRIND
+# include "valgrind/valgrind.h"
+# include "valgrind/memcheck.h"
 #endif

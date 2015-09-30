@@ -29,9 +29,14 @@
 #include "APIArray.h"
 #include "APIData.h"
 #include "InjectedBundle.h"
+#include "InjectedBundleScriptWorld.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
 #include "WKBundlePrivate.h"
+#include "WebConnection.h"
+#include "WebFrame.h"
+#include "WebPage.h"
+#include "WebPageGroupProxy.h"
 
 using namespace WebKit;
 
@@ -63,16 +68,6 @@ WKConnectionRef WKBundleGetApplicationConnection(WKBundleRef bundleRef)
     return toAPI(toImpl(bundleRef)->webConnectionToUIProcess());
 }
 
-void WKBundleRemoveAllVisitedLinks(WKBundleRef bundleRef)
-{
-    toImpl(bundleRef)->removeAllVisitedLinks();
-}
-
-void WKBundleSetCacheModel(WKBundleRef bundleRef, uint32_t cacheModel)
-{
-    toImpl(bundleRef)->setCacheModel(cacheModel);
-}
-
 void WKBundleGarbageCollectJavaScriptObjects(WKBundleRef bundleRef)
 {
     toImpl(bundleRef)->garbageCollectJavaScriptObjects();
@@ -86,11 +81,6 @@ void WKBundleGarbageCollectJavaScriptObjectsOnAlternateThreadForDebugging(WKBund
 size_t WKBundleGetJavaScriptObjectsCount(WKBundleRef bundleRef)
 {
     return toImpl(bundleRef)->javaScriptObjectsCount();
-}
-
-void WKBundleSetAlwaysAcceptCookies(WKBundleRef bundleRef, bool accept)
-{
-    toImpl(bundleRef)->setAlwaysAcceptCookies(accept);
 }
 
 void WKBundleAddUserScript(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, WKBundleScriptWorldRef scriptWorldRef, WKStringRef sourceRef, WKURLRef urlRef, WKArrayRef whitelistRef, WKArrayRef blacklistRef, _WKUserScriptInjectionTime injectionTimeRef, WKUserContentInjectedFrames injectedFramesRef)
@@ -307,14 +297,4 @@ uint64_t WKBundleGetWebNotificationID(WKBundleRef bundleRef, JSContextRef contex
 void WKBundleSetTabKeyCyclesThroughElements(WKBundleRef bundleRef, WKBundlePageRef pageRef, bool enabled)
 {
     toImpl(bundleRef)->setTabKeyCyclesThroughElements(toImpl(pageRef), enabled);
-}
-
-void WKBundleSetSerialLoadingEnabled(WKBundleRef bundleRef, bool enabled)
-{
-    toImpl(bundleRef)->setSerialLoadingEnabled(enabled);
-}
-
-void WKBundleDispatchPendingLoadRequests(WKBundleRef bundleRef)
-{
-    toImpl(bundleRef)->dispatchPendingLoadRequests();
 }

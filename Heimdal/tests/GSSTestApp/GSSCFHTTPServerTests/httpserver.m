@@ -75,7 +75,7 @@ _connection_didReceiveRequest(const void* arg, _CFHTTPServerRequestRef req)
         return;
     }
 
-    NSArray *components = [((__bridge NSString *)header) componentsSeparatedByString:@" "];
+    NSArray<NSString *> *components = [((__bridge NSString *)header) componentsSeparatedByString:@" "];
     if ([components count] != 2 || ![[components objectAtIndex:0] isEqualToString:@"NTLM"]) {
         provideError(req, 401, NULL, "Authentication failure, not NTLM");
         gss_delete_sec_context(&min_stat, &handle, NULL);

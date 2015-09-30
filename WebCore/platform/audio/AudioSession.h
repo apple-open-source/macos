@@ -39,7 +39,7 @@ class AudioSessionPrivate;
 class AudioSession {
     WTF_MAKE_NONCOPYABLE(AudioSession);
 public:
-    static AudioSession& sharedSession();
+    WEBCORE_EXPORT static AudioSession& sharedSession();
 
     enum CategoryType {
         None,
@@ -50,7 +50,7 @@ public:
         PlayAndRecord,
         AudioProcessing,
     };
-    void setCategory(CategoryType);
+    WEBCORE_EXPORT void setCategory(CategoryType);
     CategoryType category() const;
 
     void setCategoryOverride(CategoryType);
@@ -59,7 +59,7 @@ public:
     float sampleRate() const;
     size_t numberOfOutputChannels() const;
 
-    void setActive(bool);
+    bool tryToSetActive(bool);
 
     size_t preferredBufferSize() const;
     void setPreferredBufferSize(size_t);

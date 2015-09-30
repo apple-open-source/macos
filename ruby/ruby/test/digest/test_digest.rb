@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 #
 # $RoughId: test.rb,v 1.4 2001/07/13 15:38:27 knu Exp $
-# $Id: test_digest.rb 36588 2012-08-01 13:30:51Z eregon $
+# $Id: test_digest.rb 47333 2014-08-31 07:11:29Z usa $
 
 require 'test/unit'
 
@@ -67,6 +67,9 @@ module TestDigest
     md1 << "ABC"
 
     assert_equal(md1, md1.clone, self.class::ALGO)
+
+    bug9913 = '[ruby-core:62967] [Bug #9913]'
+    assert_not_equal(md1, nil, bug9913)
 
     md2 = self.class::ALGO.new
     md2 << "A"

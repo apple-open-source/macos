@@ -26,8 +26,6 @@
 #ifndef WebDatabaseManager_h
 #define WebDatabaseManager_h
 
-#if ENABLE(SQL_DATABASE)
-
 #include "MessageReceiver.h"
 #include "WebProcessSupplement.h"
 #include <WebCore/DatabaseManagerClient.h>
@@ -48,12 +46,14 @@ public:
     void setQuotaForOrigin(const String& originIdentifier, unsigned long long quota) const;
     void deleteAllDatabases() const;
 
+    void closeAllDatabases() const;
+
 private:
     // WebProcessSupplement
     virtual void initialize(const WebProcessCreationParameters&) override;
 
     // IPC::MessageReceiver
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
     void getDatabasesByOrigin(uint64_t callbackID) const;
     void getDatabaseOrigins(uint64_t callbackID) const;
@@ -74,7 +74,5 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // ENABLE(SQL_DATABASE)
 
 #endif // WebDatabaseManager_h

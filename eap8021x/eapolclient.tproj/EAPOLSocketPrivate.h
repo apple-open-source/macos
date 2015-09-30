@@ -46,7 +46,8 @@ EAPOLSocketSourceFree(EAPOLSocketSourceRef * source_p);
 
 SupplicantRef
 EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
-				  CFDictionaryRef control_dict);
+				  CFDictionaryRef control_dict,
+				  int * packet_identifier);
 void
 EAPOLSocketSetGlobals(SCPreferencesRef prefs);
 

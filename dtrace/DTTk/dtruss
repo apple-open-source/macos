@@ -242,11 +242,19 @@ dtrace='
 	OPT_counts == 1 ? @Counts[probefunc] = count() : 1;
  }
 
-/* 5 and 6 arguments */
+/* 4, 5 and 6 arguments */
  syscall::select:entry,
  syscall::mmap:entry,
  syscall::pwrite:entry,
- syscall::pread:entry
+ syscall::pread:entry,
+ syscall::openat:entry,
+ syscall::unlinkat:entry,
+ syscall::getattrlistat:entry,
+ syscall::readlinkat:entry,
+ syscall::linkat:entry,
+ syscall::fchownat:entry,
+ syscall::renameat:entry,
+ syscall::faccessat:entry
  /(OPT_command && pid == $target) || 
   (OPT_pid && pid == PID) ||
   (OPT_name && NAME == strstr(NAME, execname)) ||
@@ -393,7 +401,7 @@ dtrace='
 	self->arg2 = 0;
  }
 
- /* print 3 args, arg1 as a string */
+ /* print 3 args, arg1 as a string, for read/write variant */
  syscall::write:return,
  syscall::write_nocancel:return,
  syscall::read:return,
@@ -424,6 +432,66 @@ dtrace='
 	self->arg1 = 0;
 	self->arg2 = 0;
  }
+
+ /* print 3 args, arg1 as a string */
+ syscall::mkdirat:return,
+ syscall::unlinkat:return
+ /self->start/
+ {
+	/* calculate elapsed time */
+	this->elapsed = timestamp - self->start;
+	self->start = 0;
+	this->cpu = vtimestamp - self->vstart;
+	self->vstart = 0;
+	self->code = errno == 0 ? "" : "Err#";
+ 
+	/* print optional fields */
+	/* OPT_printid  ? printf("%5d/%d:  ",pid,tid) : 1; */
+	OPT_printid  ? printf("%5d/0x%x:  ",pid,tid) : 1;
+	OPT_relative ? printf("%8d ",vtimestamp/1000) : 1;
+	OPT_elapsed  ? printf("%7d ",this->elapsed/1000) : 1;
+	OPT_cpu      ? printf("%6d ",this->cpu/1000) : 1;
+ 
+	/* print main data */
+	printf("%s(0x%X, \"%S\", 0x%X)\t\t = %d %s%d\n",probefunc,self->arg0,
+	    copyinstr(self->arg1),self->arg2,(int)arg0,
+	    self->code,(int)errno);
+	OPT_stack ? ustack()    : 1;
+	OPT_stack ? trace("\n") : 1;
+	self->arg0 = 0;
+	self->arg1 = 0;
+	self->arg2 = 0;
+ }
+
+ /* print 3 args, arg0 and arg2 as strings */
+ syscall::symlinkat:return
+ /self->start/
+ {
+	/* calculate elapsed time */
+	this->elapsed = timestamp - self->start;
+	self->start = 0;
+	this->cpu = vtimestamp - self->vstart;
+	self->vstart = 0;
+	self->code = errno == 0 ? "" : "Err#";
+
+	/* print optional fields */
+	/* OPT_printid  ? printf("%5d/%d:  ",pid,tid) : 1; */
+	OPT_printid  ? printf("%5d/0x%x:  ",pid,tid) : 1;
+	OPT_relative ? printf("%8d ",vtimestamp/1000) : 1;
+	OPT_elapsed  ? printf("%7d ",this->elapsed/1000) : 1;
+	OPT_cpu      ? printf("%6d ",this->cpu/1000) : 1;
+
+	/* print main data */
+	printf("%s(\"%S\", 0x%X, \"%S\")\t\t = %d %s%d\n",probefunc,
+	    copyinstr(self->arg0), self->arg1, copyinstr(self->arg2), (int)arg0,
+	    self->code,(int)errno);
+	OPT_stack ? ustack()    : 1;
+	OPT_stack ? trace("\n") : 1;
+	self->arg0 = 0;
+	self->arg1 = 0;
+	self->arg2 = 0;
+ }
+
 
  /* print 2 args, arg0 and arg1 as strings */
  syscall::rename:return,
@@ -572,6 +640,70 @@ dtrace='
 	self->arg3 = 0;
  }
 
+ /* print 4 args, arg1 as string */
+ syscall::openat:return,
+ syscall::faccessat:return,
+ syscall::fchmodat:return,
+ syscall::readlinkat:return,
+ syscall::fstatat:return
+ /self->start/
+ {
+	/* calculate elapsed time */
+	this->elapsed = timestamp - self->start;
+	self->start = 0;
+	this->cpu = vtimestamp - self->vstart;
+	self->vstart = 0;
+	self->code = errno == 0 ? "" : "Err#";
+
+	/* print optional fields */
+	/* OPT_printid  ? printf("%5d/%d:  ",pid,tid) : 1; */
+	OPT_printid  ? printf("%5d/0x%x:  ",pid,tid) : 1;
+	OPT_relative ? printf("%8d ",vtimestamp/1000) : 1;
+	OPT_elapsed  ? printf("%7d ",this->elapsed/1000) : 1;
+	OPT_cpu      ? printf("%6d ",this->cpu/1000) : 1;
+
+	/* print main data */
+	printf("%s(0x%X, \"%S\", 0x%X, 0x%X)\t\t = %d %s%d\n",probefunc,
+	    self->arg0, copyinstr(self->arg1),self->arg2,self->arg3,(int)arg0,
+	    self->code,(int)errno);
+	OPT_stack ? ustack()    : 1;
+	OPT_stack ? trace("\n") : 1;
+	self->arg0 = 0;
+	self->arg1 = 0;
+	self->arg2 = 0;
+	self->arg3 = 0;
+ }
+
+ /* print 4 args, arg1 and arg3 as strings */
+ syscall::renameat:return
+ /self->start/
+ {
+	/* calculate elapsed time */
+	this->elapsed = timestamp - self->start;
+	self->start = 0;
+	this->cpu = vtimestamp - self->vstart;
+	self->vstart = 0;
+	self->code = errno == 0 ? "" : "Err#";
+
+	/* print optional fields */
+	/* OPT_printid  ? printf("%5d/%d:  ",pid,tid) : 1; */
+	OPT_printid  ? printf("%5d/0x%x:  ",pid,tid) : 1;
+	OPT_relative ? printf("%8d ",vtimestamp/1000) : 1;
+	OPT_elapsed  ? printf("%7d ",this->elapsed/1000) : 1;
+	OPT_cpu      ? printf("%6d ",this->cpu/1000) : 1;
+
+	/* print main data */
+	printf("%s(0x%X, \"%S\", 0x%X, \"%S\")\t\t = %d %s%d\n",probefunc,
+		self->arg0, copyinstr(self->arg1), self->arg2, copyinstr(self->arg3), (int)arg0,
+	    self->code,(int)errno);
+	OPT_stack ? ustack()    : 1;
+	OPT_stack ? trace("\n") : 1;
+	self->arg0 = 0;
+	self->arg1 = 0;
+	self->arg2 = 0;
+	self->arg3 = 0;
+ }
+
  /* print select with 5 arguments */
  syscall::select:return
  /self->start/
@@ -600,6 +732,100 @@ dtrace='
 	self->arg2 = 0;
 	self->arg3 = 0;
 	self->arg4 = 0;
+ }
+
+ /* print 5 args, arg1 as string */
+ syscall::fchownat:return
+ /self->start/
+ {
+	/* calculate elapsed time */
+	this->elapsed = timestamp - self->start;
+	self->start = 0;
+	this->cpu = vtimestamp - self->vstart;
+	self->vstart = 0;
+	self->code = errno == 0 ? "" : "Err#";
+
+	/* print optional fields */
+	/* OPT_printid  ? printf("%5d/%d:  ",pid,tid) : 1; */
+	OPT_printid  ? printf("%5d/0x%x:  ",pid,tid) : 1;
+	OPT_relative ? printf("%8d ",vtimestamp/1000) : 1;
+	OPT_elapsed  ? printf("%7d ",this->elapsed/1000) : 1;
+	OPT_cpu      ? printf("%6d ",this->cpu/1000) : 1;
+
+	/* print main data */
+	printf("%s(0x%X, \"%S\", 0x%X, 0x%X, 0x%X)\t\t = %d %s%d\n",probefunc,
+		self->arg0, copyinstr(self->arg1), self->arg2, self->arg3, self->arg4,
+		(int)arg0,self->code,(int)errno);
+
+	OPT_stack ? ustack()    : 1;
+	OPT_stack ? trace("\n") : 1;
+	self->arg0 = 0;
+	self->arg1 = 0;
+	self->arg2 = 0;
+	self->arg3 = 0;
+	self->arg4 = 0;
+ }
+ /* print 5 args, arg1 and arg3 as strings */
+ syscall::linkat:return
+ /self->start/
+ {
+	/* calculate elapsed time */
+	this->elapsed = timestamp - self->start;
+	self->start = 0;
+	this->cpu = vtimestamp - self->vstart;
+	self->vstart = 0;
+	self->code = errno == 0 ? "" : "Err#";
+
+	/* print optional fields */
+	/* OPT_printid  ? printf("%5d/%d:  ",pid,tid) : 1; */
+	OPT_printid  ? printf("%5d/0x%x:  ",pid,tid) : 1;
+	OPT_relative ? printf("%8d ",vtimestamp/1000) : 1;
+	OPT_elapsed  ? printf("%7d ",this->elapsed/1000) : 1;
+	OPT_cpu      ? printf("%6d ",this->cpu/1000) : 1;
+
+	/* print main data */
+	printf("%s(0x%X, \"%S\", 0x%X, \"%S\", 0x%X)\t\t = %d %s%d\n",probefunc,
+		self->arg0, copyinstr(self->arg1), self->arg2, self->arg3 ? copyinstr(self->arg3) : "", self->arg4,
+		(int)arg0,self->code,(int)errno);
+
+	OPT_stack ? ustack()    : 1;
+	OPT_stack ? trace("\n") : 1;
+	self->arg0 = 0;
+	self->arg1 = 0;
+	self->arg2 = 0;
+	self->arg3 = 0;
+	self->arg4 = 0;
+ }
+
+ /* getattrlistat has 6 arguments */
+ syscall::getattrlistat:return
+ /self->start/
+ {
+	/* calculate elapsed time */
+	this->elapsed = timestamp - self->start;
+	self->start = 0;
+	this->cpu = vtimestamp - self->vstart;
+	self->vstart = 0;
+	self->code = errno == 0 ? "" : "Err#";
+ 
+	/* print optional fields */
+	/* OPT_printid  ? printf("%5d/%d:  ",pid,tid) : 1; */
+	OPT_printid  ? printf("%5d/0x%x:  ",pid,tid) : 1;
+	OPT_relative ? printf("%8d ",vtimestamp/1000) : 1;
+	OPT_elapsed  ? printf("%7d ",this->elapsed/1000) : 1;
+	OPT_cpu      ? printf("%6d ",this->cpu/1000) : 1;
+ 
+	/* print main data */
+	printf("%s(0x%X, \"%S\", 0x%X, 0x%X, 0x%X, 0x%X)\t\t = 0x%X %s%d\n",probefunc,self->arg0,
+		copyinstr(self->arg1),self->arg2,self->arg3,self->arg4,self->arg5, arg0,self->code,(int)errno);
+	OPT_stack ? ustack()    : 1;
+	OPT_stack ? trace("\n") : 1;
+	self->arg0 = 0;
+	self->arg1 = 0;
+	self->arg2 = 0;
+	self->arg3 = 0;
+	self->arg4 = 0;
+	self->arg5 = 0;
  }
 
  /* mmap has 6 arguments */

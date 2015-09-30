@@ -50,7 +50,7 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/text/CString.h>
 
-#if ENABLE(TOUCH_EVENTS)
+#if PLATFORM(IOS) || ENABLE(TOUCH_EVENTS)
 #include "Chrome.h"
 #include "ChromeClient.h"
 #endif
@@ -89,10 +89,10 @@ void CachedFrameBase::restore()
     m_cachedFrameScriptData->restore(frame);
 
     if (m_document->svgExtensions())
-        m_document->accessSVGExtensions()->unpauseAnimations();
+        m_document->accessSVGExtensions().unpauseAnimations();
 
     frame.animation().resumeAnimationsForDocument(m_document.get());
-    m_document->resumeActiveDOMObjects(ActiveDOMObject::DocumentWillBecomeInactive);
+    m_document->resumeActiveDOMObjects(ActiveDOMObject::PageCache);
     m_document->resumeScriptedAnimationControllerCallbacks();
 
     // It is necessary to update any platform script objects after restoring the
@@ -116,6 +116,7 @@ void CachedFrameBase::restore()
 
         if (DOMWindow* domWindow = m_document->domWindow()) {
             // FIXME: Add SCROLL_LISTENER to the list of event types on Document, and use m_document->hasListenerType(). See <rdar://problem/9615482>.
+            // FIXME: Can use Document::hasListenerType() now.
             if (domWindow->scrollEventListenerCount() && frame.page())
                 frame.page()->chrome().client().setNeedsScrollNotifications(&frame, true);
         }
@@ -166,14 +167,14 @@ CachedFrame::CachedFrame(Frame& frame)
     // those create more objects.
     m_document->documentWillSuspendForPageCache();
     m_document->suspendScriptedAnimationControllerCallbacks();
-    m_document->suspendActiveDOMObjects(ActiveDOMObject::DocumentWillBecomeInactive);
+    m_document->suspendActiveDOMObjects(ActiveDOMObject::PageCache);
     m_cachedFrameScriptData = std::make_unique<ScriptCachedFrameData>(frame);
 
     m_document->domWindow()->suspendForPageCache();
 
     frame.loader().client().savePlatformDataToCachedFrame(this);
 
-    if (m_isComposited && pageCache()->shouldClearBackingStores())
+    if (m_isComposited && PageCache::singleton().shouldClearBackingStores())
         frame.view()->clearBackingStores();
 
     // documentWillSuspendForPageCache() can set up a layout timer on the FrameView, so clear timers after that.
@@ -206,6 +207,8 @@ CachedFrame::CachedFrame(Frame& frame)
         }
     }
 #endif
+
+    ASSERT_WITH_SECURITY_IMPLICATION(!m_documentLoader->isLoading());
 }
 
 void CachedFrame::open()

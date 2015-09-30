@@ -41,7 +41,7 @@ LN_S            = @LN_S@
 MAKEINFO = makeinfo
 TEXI2DVI = texi2dvi
 DVIPS = dvips
-TEXI2HTML = @TEXI2HTML@ --output . --ifinfo --split=chapter --node-files
+TEXI2HTML = @TEXI2HTML@
 
 .SUFFIXES: .yo .1
 
@@ -59,7 +59,7 @@ MODDOCSRC = \
 Zsh/mod_attr.yo Zsh/mod_cap.yo Zsh/mod_clone.yo \
 Zsh/mod_compctl.yo Zsh/mod_complete.yo Zsh/mod_complist.yo \
 Zsh/mod_computil.yo Zsh/mod_curses.yo \
-Zsh/mod_datetime.yo Zsh/mod_deltochar.yo \
+Zsh/mod_datetime.yo Zsh/mod_db_gdbm.yo Zsh/mod_deltochar.yo \
 Zsh/mod_example.yo Zsh/mod_files.yo Zsh/mod_langinfo.yo \
 Zsh/mod_mapfile.yo Zsh/mod_mathfunc.yo Zsh/mod_newuser.yo \
 Zsh/mod_parameter.yo Zsh/mod_pcre.yo Zsh/mod_regex.yo \
@@ -117,8 +117,10 @@ texi: $(sdir)/zsh.texi
 .PHONY: texi
 
 $(sdir)/zsh.texi: version.yo
-	$(YODL) -o $@ -I$(sdir) -w ztexi.yo version.yo zsh.yo; \
-	test -f $@
+	case '$(YODL)' in :*) touch $@ ;; *) \
+	    $(YODL) -o $@ -I$(sdir) -w ztexi.yo version.yo zsh.yo; \
+	    test -f $@ \
+	;; esac
 
 info: zsh.info
 .PHONY: info
@@ -158,8 +160,9 @@ zsh_a4.ps: zsh.dvi
 html: zsh_toc.html
 .PHONY: html
 
-zsh_toc.html: $(sdir)/zsh.texi
-	$(TEXI2HTML) $(sdir)/zsh.texi
+zsh_toc.html: $(sdir)/zsh.texi texi2html.conf
+	$(TEXI2HTML) --output . --ifinfo --split=chapter --node-files \
+	             --init-file texi2html.conf $(sdir)/zsh.texi
 
 zshall.1: zsh.yo
 	@case $@ in \
@@ -190,7 +193,8 @@ help.txt: zshbuiltins.1
 	@-rm -f $(sdir)/help.txt $(sdir)/help/*
 	perl $(sdir_top)/Util/helpfiles \
 	    $(sdir)/zshbuiltins.1 $(sdir)/help $(sdir)/help.txt \
-	    || { rm -f $(sdir)/help.txt $(sdir)/help/*; false; }
+	    || rm -f $(sdir)/help.txt $(sdir)/help/*
+	touch $(sdir)/$@
 
 $(MAN): zmacros.yo zman.yo
 
@@ -243,6 +247,14 @@ version.yo: $(sdir_top)/Config/version.mk
 	  echo 'def(zlogout)(0)(@zlogout@)'; \
 	  echo 'IFDEF(DECWSLEVEL)(DECWSLEVEL())(ENDDEF())#' | tr '#' '\\'; \
 	) > $(sdir)/version.yo
+
+texi2html.conf: $(sdir_top)/Config/version.mk
+	d=`echo $(VERSION_DATE)`; \
+	v="<font size=\"-1\">Zsh version $(VERSION), released on $$d.</font>"; \
+	case '$(TEXI2HTML)' in \
+	  *texi2any*) echo "set_from_init_file('PRE_BODY_CLOSE','$$v');" ;; \
+	  *) echo "\$$PRE_BODY_CLOSE = '$$v';" ;; \
+	esac > $@
 
 Zsh/modlist.yo: $(MODDOCSRC)
 	( \
@@ -384,6 +396,7 @@ clean-here:
 	rm -f *.aux *.cp *.cps *.fn *.fns *.ky *.log
 	rm -f *.pg *.pgs *.toc *.tp *.tps *.vr *.vrs
 	rm -rf infodir
+	rm -f texi2html.conf
 .PHONY: clean-here
 
 distclean-here: clean-here

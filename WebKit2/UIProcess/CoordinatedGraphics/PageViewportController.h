@@ -43,7 +43,7 @@ class PageViewportController {
     WTF_MAKE_NONCOPYABLE(PageViewportController);
 
 public:
-    PageViewportController(WebKit::WebPageProxy*, PageViewportControllerClient*);
+    PageViewportController(WebKit::WebPageProxy*, PageViewportControllerClient&);
     virtual ~PageViewportController() { }
 
     float innerBoundedViewportScale(float) const;
@@ -66,6 +66,7 @@ public:
     float currentScale() const { return m_pageScaleFactor; }
 
     void setHadUserInteraction(bool didUserInteract) { m_hadUserInteraction = didUserInteract; }
+    void setInitiallyFitToViewport(bool initiallyFit) { m_initiallyFitToViewport = initiallyFit; }
 
     // Notifications from the viewport.
     void didChangeViewportSize(const WebCore::FloatSize& newSize);
@@ -80,13 +81,13 @@ public:
     void pageDidRequestScroll(const WebCore::IntPoint& cssPosition);
 
 private:
-    void syncVisibleContents(const WebCore::FloatPoint &trajectoryVector = WebCore::FloatPoint::zero());
+    bool syncVisibleContents(const WebCore::FloatPoint &trajectoryVector = WebCore::FloatPoint::zero());
     void applyScaleAfterRenderingContents(float scale);
     void applyPositionAfterRenderingContents(const WebCore::FloatPoint& pos);
     bool updateMinimumScaleToFit(bool userInitiatedUpdate);
 
     WebPageProxy* const m_webPageProxy;
-    PageViewportControllerClient* m_client;
+    PageViewportControllerClient& m_client;
 
     WebCore::ViewportAttributes m_rawAttributes;
 
@@ -104,10 +105,9 @@ private:
 
     bool m_pendingPositionChange;
     bool m_pendingScaleChange;
+    bool m_layerTreeStateIsFrozen;
     WebCore::FloatRect m_lastFrameCoveredRect;
 };
-
-bool fuzzyCompare(float, float, float epsilon);
 
 } // namespace WebKit
 

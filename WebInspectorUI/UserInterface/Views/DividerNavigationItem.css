@@ -32,6 +32,8 @@
     background-position: center;
 }
 
-body.mac-platform.legacy .navigation-bar .item.divider {
-    background-size: 100% 13px;
+@media (-webkit-min-device-pixel-ratio: 2) {
+    .navigation-bar .item.divider {
+        width: 0.5px;
+    }
 }

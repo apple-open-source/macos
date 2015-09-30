@@ -50,9 +50,9 @@ inline SVGAltGlyphElement::SVGAltGlyphElement(const QualifiedName& tagName, Docu
     registerAnimatedPropertiesForSVGAltGlyphElement();
 }
 
-PassRefPtr<SVGAltGlyphElement> SVGAltGlyphElement::create(const QualifiedName& tagName, Document& document)
+Ref<SVGAltGlyphElement> SVGAltGlyphElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new SVGAltGlyphElement(tagName, document));
+    return adoptRef(*new SVGAltGlyphElement(tagName, document));
 }
 
 void SVGAltGlyphElement::setGlyphRef(const AtomicString&, ExceptionCode& ec)
@@ -82,7 +82,7 @@ bool SVGAltGlyphElement::childShouldCreateRenderer(const Node& child) const
     return false;
 }
 
-RenderPtr<RenderElement> SVGAltGlyphElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> SVGAltGlyphElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderSVGTSpan>(*this, WTF::move(style));
 }
@@ -94,13 +94,13 @@ bool SVGAltGlyphElement::hasValidGlyphElements(Vector<String>& glyphNames) const
     if (!element)
         return false;
 
-    if (isSVGGlyphElement(element)) {
+    if (is<SVGGlyphElement>(*element)) {
         glyphNames.append(target);
         return true;
     }
 
-    if (isSVGAltGlyphDefElement(element)
-        && toSVGAltGlyphDefElement(element)->hasValidGlyphElements(glyphNames))
+    if (is<SVGAltGlyphDefElement>(*element)
+        && downcast<SVGAltGlyphDefElement>(*element).hasValidGlyphElements(glyphNames))
         return true;
 
     return false;

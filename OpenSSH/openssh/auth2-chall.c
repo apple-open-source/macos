@@ -1,4 +1,4 @@
-/* $OpenBSD: auth2-chall.c,v 1.36 2012/12/03 00:14:06 djm Exp $ */
+/* $OpenBSD: auth2-chall.c,v 1.43 2015/07/18 07:57:14 djm Exp $ */
 /*
  * Copyright (c) 2001 Markus Friedl.  All rights reserved.
  * Copyright (c) 2001 Per Allansson.  All rights reserved.
@@ -41,6 +41,7 @@
 #include "packet.h"
 #include "dispatch.h"
 #include "log.h"
+#include "misc.h"
 #include "servconf.h"
 
 /* import */
@@ -48,7 +49,7 @@ extern ServerOptions options;
 
 static int auth2_challenge_start(Authctxt *);
 static int send_userauth_info_request(Authctxt *);
-static void input_userauth_info_response(int, u_int32_t, void *);
+static int input_userauth_info_response(int, u_int32_t, void *);
 
 #ifdef BSD_AUTH
 extern KbdintDevice bsdauth_device;
@@ -112,7 +113,7 @@ kbdint_alloc(const char *devs)
 		remove_kbdint_device("pam");
 #endif
 
-	kbdintctxt = xmalloc(sizeof(KbdintAuthctxt));
+	kbdintctxt = xcalloc(1, sizeof(KbdintAuthctxt));
 	if (strcmp(devs, "") == 0) {
 		buffer_init(&b);
 		for (i = 0; devices[i]; i++) {
@@ -122,7 +123,7 @@ kbdint_alloc(const char *devs)
 			    strlen(devices[i]->name));
 		}
 		buffer_append(&b, "\0", 1);
-		kbdintctxt->devices = xstrdup(buffer_ptr(&b));
+		kbdintctxt->devices = xstrdup((const char *)buffer_ptr(&b));
 		buffer_free(&b);
 	} else {
 		kbdintctxt->devices = xstrdup(devs);
@@ -149,15 +150,13 @@ kbdint_free(KbdintAuthctxt *kbdintctxt)
 {
 	if (kbdintctxt->device)
 		kbdint_reset_device(kbdintctxt);
-	if (kbdintctxt->devices) {
-		xfree(kbdintctxt->devices);
-		kbdintctxt->devices = NULL;
-	}
-	xfree(kbdintctxt);
+	free(kbdintctxt->devices);
+	explicit_bzero(kbdintctxt, sizeof(*kbdintctxt));
+	free(kbdintctxt);
 }
 /* get next device */
 static int
-kbdint_next_device(KbdintAuthctxt *kbdintctxt)
+kbdint_next_device(Authctxt *authctxt, KbdintAuthctxt *kbdintctxt)
 {
 	size_t len;
 	char *t;
@@ -172,16 +171,19 @@ kbdint_next_device(KbdintAuthctxt *kbdintctxt)
 		if (len == 0)
 			break;
 		for (i = 0; devices[i]; i++) {
-			if ((kbdintctxt->devices_done & (1 << i)) != 0)
+			if ((kbdintctxt->devices_done & (1 << i)) != 0 ||
+			    !auth2_method_allowed(authctxt,
+			    "keyboard-interactive", devices[i]->name))
 				continue;
-			if (strncmp(kbdintctxt->devices, devices[i]->name, len) == 0) {
+			if (strncmp(kbdintctxt->devices, devices[i]->name,
+			    len) == 0) {
 				kbdintctxt->device = devices[i];
 				kbdintctxt->devices_done |= 1 << i;
 			}
 		}
 		t = kbdintctxt->devices;
 		kbdintctxt->devices = t[len] ? xstrdup(t+len+1) : NULL;
-		xfree(t);
+		free(t);
 		debug2("kbdint_next_device: devices %s", kbdintctxt->devices ?
 		    kbdintctxt->devices : "<empty>");
 	} while (kbdintctxt->devices && !kbdintctxt->device);
@@ -228,7 +230,7 @@ auth2_challenge_start(Authctxt *authctxt)
 	debug2("auth2_challenge_start: devices %s",
 	    kbdintctxt->devices ?  kbdintctxt->devices : "<empty>");
 
-	if (kbdint_next_device(kbdintctxt) == 0) {
+	if (kbdint_next_device(authctxt, kbdintctxt) == 0) {
 		auth2_challenge_stop(authctxt);
 		return 0;
 	}
@@ -275,15 +277,15 @@ send_userauth_info_request(Authctxt *authctxt)
 	packet_write_wait();
 
 	for (i = 0; i < kbdintctxt->nreq; i++)
-		xfree(prompts[i]);
-	xfree(prompts);
-	xfree(echo_on);
-	xfree(name);
-	xfree(instr);
+		free(prompts[i]);
+	free(prompts);
+	free(echo_on);
+	free(name);
+	free(instr);
 	return 1;
 }
 
-static void
+static int
 input_userauth_info_response(int type, u_int32_t seq, void *ctxt)
 {
 	Authctxt *authctxt = ctxt;
@@ -317,11 +319,10 @@ input_userauth_info_response(int type, u_int32_t seq, void *ctxt)
 	res = kbdintctxt->device->respond(kbdintctxt->ctxt, nresp, response);
 
 	for (i = 0; i < nresp; i++) {
-		memset(response[i], 'r', strlen(response[i]));
-		xfree(response[i]);
+		explicit_bzero(response[i], strlen(response[i]));
+		free(response[i]);
 	}
-	if (response)
-		xfree(response);
+	free(response);
 
 	switch (res) {
 	case 0:
@@ -349,6 +350,7 @@ input_userauth_info_response(int type, u_int32_t seq, void *ctxt)
 	}
 	userauth_finish(authctxt, authenticated, "keyboard-interactive",
 	    devicename);
+	return 0;
 }
 
 void

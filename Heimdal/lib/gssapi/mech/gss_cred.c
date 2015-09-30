@@ -43,9 +43,9 @@
 */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_export_cred(OM_uint32 * minor_status,
-		gss_cred_id_t cred_handle,
-		gss_buffer_t token)
+gss_export_cred(OM_uint32 * __nonnull minor_status,
+		__nonnull gss_cred_id_t cred_handle,
+		__nonnull gss_buffer_t token)
 {
     struct _gss_cred *cred = (struct _gss_cred *)cred_handle;
     struct _gss_mechanism_cred *mc;
@@ -122,9 +122,9 @@ gss_export_cred(OM_uint32 * minor_status,
 }
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_import_cred(OM_uint32 * minor_status,
-		gss_buffer_t token,
-		gss_cred_id_t * cred_handle)
+gss_import_cred(OM_uint32 * __nonnull minor_status,
+		__nonnull gss_buffer_t token,
+		__nonnull gss_cred_id_t * __nullable cred_handle)
 {
     gssapi_mech_interface m;
     krb5_error_code ret;
@@ -237,10 +237,10 @@ gss_import_cred(OM_uint32 * minor_status,
 }
 
 OM_uint32
-gss_cred_label_get(OM_uint32 * min_stat,
-		   gss_cred_id_t cred_handle,
-		   const char * label,
-		   gss_buffer_t value)
+gss_cred_label_get(OM_uint32 * __nonnull min_stat,
+		   __nonnull gss_cred_id_t cred_handle,
+		   const char * __nonnull label,
+		   __nonnull gss_buffer_t value)
 {
     struct _gss_cred *cred = (struct _gss_cred *)cred_handle;
     struct _gss_mechanism_cred *mc;
@@ -264,10 +264,10 @@ gss_cred_label_get(OM_uint32 * min_stat,
 }
 
 OM_uint32
-gss_cred_label_set(OM_uint32 * min_stat,
-		   gss_cred_id_t cred_handle,
-		   const char * label,
-		   gss_buffer_t value)
+gss_cred_label_set(OM_uint32 * __nonnull min_stat,
+		   __nonnull gss_cred_id_t cred_handle,
+		   const char * __nonnull label,
+		   __nullable gss_buffer_t value)
 {
     struct _gss_cred *cred = (struct _gss_cred *)cred_handle;
     struct _gss_mechanism_cred *mc;

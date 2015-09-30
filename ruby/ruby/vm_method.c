@@ -172,6 +172,7 @@ rb_free_method_entry(rb_method_entry_t *me)
     xfree(me);
 }
 
+static inline rb_method_entry_t *search_method(VALUE klass, ID id, VALUE *defined_class_ptr);
 static int rb_method_definition_eq(const rb_method_definition_t *d1, const rb_method_definition_t *d2);
 
 static inline rb_method_entry_t *
@@ -332,7 +333,7 @@ rb_method_entry_make(VALUE klass, ID mid, rb_method_type_t type,
     }
     /* check mid */
     if (mid == object_id || mid == id__send__) {
-	if (type == VM_METHOD_TYPE_ISEQ) {
+	if (type == VM_METHOD_TYPE_ISEQ && search_method(klass, mid, 0)) {
 	    rb_warn("redefining `%s' may cause serious problems", rb_id2name(mid));
 	}
     }
@@ -689,16 +690,22 @@ remove_method(VALUE klass, ID mid)
 
     if (!st_lookup(RCLASS_M_TBL(klass), mid, &data) ||
 	!(me = (rb_method_entry_t *)data) ||
-	(!me->def || me->def->type == VM_METHOD_TYPE_UNDEF)) {
+	(!me->def || me->def->type == VM_METHOD_TYPE_UNDEF) ||
+        UNDEFINED_REFINED_METHOD_P(me->def)) {
 	rb_name_error(mid, "method `%s' not defined in %s",
 		      rb_id2name(mid), rb_class2name(klass));
     }
+
     key = (st_data_t)mid;
     st_delete(RCLASS_M_TBL(klass), &key, &data);
 
     rb_vm_check_redefinition_opt_method(me, klass);
     rb_clear_cache_for_undef(klass, mid);
     rb_unlink_method_entry(me);
+
+    if (me->def->type == VM_METHOD_TYPE_REFINED) {
+	rb_add_refined_method_entry(klass, mid);
+    }
 
     CALL_METHOD_HOOK(self, removed, mid);
 }
@@ -770,7 +777,8 @@ rb_export_method(VALUE klass, ID name, rb_method_flag_t noex)
 	me = search_method(rb_cObject, name, &defined_class);
     }
 
-    if (UNDEFINED_METHOD_ENTRY_P(me)) {
+    if (UNDEFINED_METHOD_ENTRY_P(me) ||
+	UNDEFINED_REFINED_METHOD_P(me->def)) {
 	rb_print_undef(klass, name, 0);
     }
 
@@ -878,8 +886,7 @@ rb_undef(VALUE klass, ID id)
     me = search_method(klass, id, 0);
 
     if (UNDEFINED_METHOD_ENTRY_P(me) ||
-	(me->def->type == VM_METHOD_TYPE_REFINED &&
-	 UNDEFINED_METHOD_ENTRY_P(me->def->body.orig_me))) {
+	UNDEFINED_REFINED_METHOD_P(me->def)) {
 	const char *s0 = " class";
 	VALUE c = klass;
 
@@ -1006,7 +1013,7 @@ check_definition(VALUE mod, VALUE mid, rb_method_flag_t noex)
     const rb_method_entry_t *me;
     ID id = rb_check_id(&mid);
     if (!id) return Qfalse;
-    me = rb_method_entry(mod, id, 0);
+    me = rb_method_entry_without_refinements(mod, id, 0);
     if (me) {
 	if (VISI_CHECK(me->flag, noex))
 	    return Qtrue;
@@ -1218,7 +1225,8 @@ rb_alias(VALUE klass, ID name, ID def)
   again:
     orig_me = search_method(klass, def, &defined_class);
 
-    if (UNDEFINED_METHOD_ENTRY_P(orig_me)) {
+    if (UNDEFINED_METHOD_ENTRY_P(orig_me) ||
+	UNDEFINED_REFINED_METHOD_P(orig_me->def)) {
 	if ((!RB_TYPE_P(klass, T_MODULE)) ||
 	    (orig_me = search_method(rb_cObject, def, 0),
 	     UNDEFINED_METHOD_ENTRY_P(orig_me))) {

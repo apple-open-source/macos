@@ -2,7 +2,7 @@
 
   sprintf.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Fri Oct 15 10:39:26 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -14,6 +14,7 @@
 #include "ruby/ruby.h"
 #include "ruby/re.h"
 #include "ruby/encoding.h"
+#include "internal.h"
 #include <math.h>
 #include <stdarg.h>
 
@@ -103,6 +104,9 @@ sign_bits(int base, const char *p)
 } while (0)
 
 #define GETARG() (nextvalue != Qundef ? nextvalue : \
+		  GETNEXTARG())
+
+#define GETNEXTARG() ( \
     posarg == -1 ? \
     (rb_raise(rb_eArgError, "unnumbered(%d) mixed with numbered", nextarg), 0) : \
     posarg == -2 ? \
@@ -146,7 +150,7 @@ sign_bits(int base, const char *p)
 	tmp = GETPOSARG(n); \
     } \
     else { \
-	tmp = GETARG(); \
+	tmp = GETNEXTARG(); \
 	p = t; \
     } \
     (val) = NUM2INT(tmp); \
@@ -1195,6 +1199,7 @@ ruby__sfvextra(rb_printf_buffer *fp, size_t valsize, void *valp, long *sz, int s
     }
     else {
 	value = rb_obj_as_string(value);
+	if (sign == ' ') value = QUOTE(value);
     }
     enc = rb_enc_compatible(result, value);
     if (enc) {

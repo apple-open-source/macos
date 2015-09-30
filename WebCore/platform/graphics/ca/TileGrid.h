@@ -51,7 +51,9 @@ public:
     TileGrid(TileController&);
     ~TileGrid();
 
-    PlatformCALayer& containerLayer() { return m_containerLayer.get(); }
+    PlatformCALayer& containerLayer() { return m_containerLayer; }
+
+    void setIsZoomedOutTileGrid(bool);
 
     void setScale(float);
     float scale() const { return m_scale; }
@@ -64,12 +66,14 @@ public:
 
     bool prepopulateRect(const FloatRect&);
 
-    enum TileValidationPolicyFlag {
+    enum TileValidationPolicyFlags {
         PruneSecondaryTiles = 1 << 0,
-        UnparentAllTiles = 1 << 1
+        UnparentAllTiles    = 1 << 1
     };
-    void revalidateTiles(unsigned validationPolicyFlags);
-    bool tilesWouldChangeForVisibleRect(const FloatRect& newVisibleRect, const FloatRect& oldVisibleRect) const;
+    typedef unsigned TileValidationPolicy;
+    void revalidateTiles(TileValidationPolicy);
+
+    bool tilesWouldChangeForCoverageRect(const FloatRect&) const;
 
     IntRect tileCoverageRect() const;
     IntRect extent() const;
@@ -123,7 +127,7 @@ private:
     void removeTilesInCohort(TileCohort);
 
     void scheduleCohortRemoval();
-    void cohortRemovalTimerFired(Timer*);
+    void cohortRemovalTimerFired();
     TileCohort nextTileCohort() const;
     void startedNewCohort(TileCohort);
     TileCohort newestTileCohort() const;

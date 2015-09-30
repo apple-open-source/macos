@@ -35,14 +35,13 @@
 
 namespace WebKit {
 
-PassRef<ViewUpdateDispatcher> ViewUpdateDispatcher::create()
+Ref<ViewUpdateDispatcher> ViewUpdateDispatcher::create()
 {
     return adoptRef(*new ViewUpdateDispatcher);
 }
 
 ViewUpdateDispatcher::ViewUpdateDispatcher()
     : m_queue(WorkQueue::create("com.apple.WebKit.ViewUpdateDispatcher"))
-    , m_dataMutex(SPINLOCK_INITIALIZER)
 {
 }
 
@@ -52,7 +51,7 @@ ViewUpdateDispatcher::~ViewUpdateDispatcher()
 
 void ViewUpdateDispatcher::initializeConnection(IPC::Connection* connection)
 {
-    connection->addWorkQueueMessageReceiver(Messages::ViewUpdateDispatcher::messageReceiverName(), m_queue.get(), this);
+    connection->addWorkQueueMessageReceiver(Messages::ViewUpdateDispatcher::messageReceiverName(), &m_queue.get(), this);
 }
 
 void ViewUpdateDispatcher::visibleContentRectUpdate(uint64_t pageID, const VisibleContentRectUpdateInfo& visibleContentRectUpdateInfo)
@@ -67,20 +66,24 @@ void ViewUpdateDispatcher::visibleContentRectUpdate(uint64_t pageID, const Visib
         else
             iterator->value.visibleContentRectUpdateInfo = visibleContentRectUpdateInfo;
     }
-    if (updateListWasEmpty)
-        RunLoop::main().dispatch(bind(&ViewUpdateDispatcher::dispatchVisibleContentRectUpdate, this));
+    if (updateListWasEmpty) {
+        RefPtr<ViewUpdateDispatcher> protector(this);
+        RunLoop::main().dispatch([protector] {
+            protector->dispatchVisibleContentRectUpdate();
+        });
+    }
 }
 
 void ViewUpdateDispatcher::dispatchVisibleContentRectUpdate()
 {
-    HashMap<uint64_t, UpdateData> localCopy;
+    HashMap<uint64_t, UpdateData> update;
     {
         SpinLockHolder locker(&m_dataMutex);
-        localCopy.swap(m_latestUpdate);
+        update = WTF::move(m_latestUpdate);
     }
 
-    for (auto& slot : localCopy) {
-        if (WebPage* webPage = WebProcess::shared().webPage(slot.key))
+    for (auto& slot : update) {
+        if (WebPage* webPage = WebProcess::singleton().webPage(slot.key))
             webPage->updateVisibleContentRects(slot.value.visibleContentRectUpdateInfo, slot.value.oldestTimestamp);
     }
 }

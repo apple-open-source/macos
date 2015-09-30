@@ -40,6 +40,8 @@
 #include "ewk_application_cache_manager.h"
 #include "ewk_cookie_manager.h"
 #include "ewk_database_manager.h"
+#include "ewk_download_job.h"
+#include "ewk_error.h"
 #include "ewk_favicon_database.h"
 #include "ewk_navigation_data.h"
 #include "ewk_storage_manager.h"
@@ -50,12 +52,27 @@
 extern "C" {
 #endif
 
+/// Creates a type name for Ewk_Download_Job_Error.
+typedef struct Ewk_Download_Job_Error Ewk_Download_Job_Error;
+
+/**
+ * @brief Structure containing details about a download failure.
+ */
+struct Ewk_Download_Job_Error {
+    Ewk_Download_Job *download_job; /**< download that failed */
+    Ewk_Error *error; /**< download error */
+};
+
 /**
  * Declare Ewk_Context as Ewk_Object.
  *
  * @see Ewk_Object
  */
+#ifdef __cplusplus
+typedef class EwkObject Ewk_Context;
+#else
 typedef struct EwkObject Ewk_Context;
+#endif
 
 /**
  * \enum    Ewk_Cache_Model
@@ -131,6 +148,30 @@ typedef void (*Ewk_History_Server_Redirection_Cb)(const Evas_Object *view, const
 typedef void (*Ewk_History_Title_Update_Cb)(const Evas_Object *view, const char *title, const char *url, void *user_data);
 
 /**
+ * @typedef Ewk_Download_Requested_Cb Ewk_Download_Requested_Cb
+ * @brief Type definition for a function that will be called back when new download job is requested.
+ */
+typedef void (*Ewk_Download_Requested_Cb)(Ewk_Download_Job *download, void *user_data);
+
+/**
+ * @typedef Ewk_Download_Failed_Cb Ewk_Download_Failed_Cb
+ * @brief Type definition for a function that will be called back when a download job has failed.
+ */
+typedef void (*Ewk_Download_Failed_Cb)(Ewk_Download_Job_Error *error, void *user_data);
+
+/**
+ * @typedef Ewk_Download_Cancelled_Cb Ewk_Download_Cancelled_Cb
+ * @brief Type definition for a function that will be called back when a download job is cancelled.
+ */
+typedef void (*Ewk_Download_Cancelled_Cb)(Ewk_Download_Job *download, void *user_data);
+
+/**
+ * @typedef Ewk_Download_Finished_Cb Ewk_Download_Finished_Cb
+ * @brief Type definition for a function that will be called back when a download job is finished.
+ */
+typedef void (*Ewk_Download_Finished_Cb)(Ewk_Download_Job *download, void *user_data);
+
+/**
  * @typedef Ewk_Context_History_Client_Visited_Links_Populate_Cb Ewk_Context_History_Client_Visited_Links_Populate_Cb
  * @brief Type definition for a function that will be called back when client is asked to provide visited links from a client-managed storage.
  *
@@ -139,17 +180,16 @@ typedef void (*Ewk_History_Title_Update_Cb)(const Evas_Object *view, const char 
 typedef void (*Ewk_History_Populate_Visited_Links_Cb)(void *user_data);
 
 /**
- * Callback for didReceiveMessageFromInjectedBundle and didReceiveSynchronousMessageFromInjectedBundle
+ * Callback to receive message from extension.
  *
- * User should allocate new string for return_data before setting it.
- * The return_data string will be freed on WebKit side.
+ * @param name name of message from extension
+ * @param body body of message from extendion
+ * @param user_data user_data will be passsed when receiving message from extension
  *
- * @param name name of message from injected bundle
- * @param body body of message from injected bundle
- * @param return_data return_data string from application
- * @param user_data user_data will be passsed when receiving message from injected bundle
+ * @see ewk_context_message_from_extensions_callback_set
+ * @see ewk_extension_message_post
  */
-typedef void (*Ewk_Context_Message_From_Injected_Bundle_Cb)(const char *name, const char *body, char **return_data, void *user_data);
+typedef void (*Ewk_Context_Message_From_Extension_Cb)(const char *name, const Eina_Value *body, void *user_data);
 
 /**
  * Gets default Ewk_Context instance.
@@ -169,7 +209,7 @@ EAPI Ewk_Context *ewk_context_default_get(void);
  * @return Ewk_Context object on success or @c NULL on failure
  *
  * @see ewk_object_unref
- * @see ewk_context_new_with_injected_bundle_path
+ * @see ewk_context_new_with_extensions_path
  */
 EAPI Ewk_Context *ewk_context_new(void);
 
@@ -178,14 +218,17 @@ EAPI Ewk_Context *ewk_context_new(void);
  *
  * The returned Ewk_Context object @b should be unref'ed after use.
  *
- * @param path path of injected bundle library
+ * @param path directory path of extensions
  *
  * @return Ewk_Context object on success or @c NULL on failure
  *
+ * @note All shared objects which have ewk_extension_init() in the given @a path will be loaded.
+ *
  * @see ewk_object_unref
  * @see ewk_context_new
+ * @see Ewk_Extension_Initialize_Function
  */
-EAPI Ewk_Context *ewk_context_new_with_injected_bundle_path(const char *path);
+EAPI Ewk_Context *ewk_context_new_with_extensions_path(const char *path);
 
 /**
  * Gets the application cache manager instance for this @a context.
@@ -257,9 +300,12 @@ EAPI Ewk_Storage_Manager *ewk_context_storage_manager_get(const Ewk_Context *con
  * When an URL request with @a scheme is made in the #Ewk_Context, the callback
  * function provided will be called with a #Ewk_Url_Scheme_Request.
  *
- * It is possible to handle URL scheme requests asynchronously, by calling ewk_url_scheme_ref() on the
+ * It is possible to handle URL scheme requests asynchronously, by calling ewk_object_ref() on the
  * #Ewk_Url_Scheme_Request and calling ewk_url_scheme_request_finish() later when the data of
  * the request is available.
+ *
+ * To replace registered callback with new callback, calls ewk_context_url_scheme_register()
+ * with new callback again.
  *
  * @param context a #Ewk_Context object.
  * @param scheme the network scheme to register
@@ -267,24 +313,20 @@ EAPI Ewk_Storage_Manager *ewk_context_storage_manager_get(const Ewk_Context *con
  * @param user_data data to pass to callback function
  *
  * @code
- * static void about_url_scheme_request_cb(Ewk_Url_Scheme_Request *request, void *user_data)
+ * static void custom_url_scheme_request_cb(Ewk_Url_Scheme_Request *request, void *user_data)
  * {
- *     const char *path;
+ *     const char *scheme;
  *     char *contents_data = NULL;
- *     unsigned int contents_length = 0;
+ *     unsigned contents_length = 0;
  *
- *     path = ewk_url_scheme_request_path_get(request);
- *     if (!strcmp(path, "plugins")) {
- *         // Initialize contents_data with the contents of plugins about page, and set its length to contents_length
- *     } else if (!strcmp(path, "memory")) {
- *         // Initialize contents_data with the contents of memory about page, and set its length to contents_length
- *     } else if (!strcmp(path, "applications")) {
- *         // Initialize contents_data with the contents of application about page, and set its length to contents_length
+ *     scheme = ewk_url_scheme_request_scheme_get(request);
+ *     if (!strcmp(scheme, "myapp")) {
+ *         // Initialize contents_data with a welcome page, and set its length to contents_length
  *     } else {
  *         Eina_Strbuf *buf = eina_strbuf_new();
- *         eina_strbuf_append_printf(buf, "&lt;html&gt;&lt;body&gt;&lt;p&gt;Invalid about:%s page&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;", path);
+ *         eina_strbuf_append_printf(buf, "&lt;html&gt;&lt;body&gt;&lt;p&gt;Invalid application: %s&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;", scheme);
  *         contents_data = eina_strbuf_string_steal(buf);
- *         contents_length = strlen(contents);
+ *         contents_length = strlen(contents_data);
  *         eina_strbuf_free(buf);
  *     }
  *     ewk_url_scheme_request_finish(request, contents_data, contents_length, "text/html");
@@ -316,6 +358,26 @@ EAPI void ewk_context_history_callbacks_set(Ewk_Context *context,
                                             Ewk_History_Title_Update_Cb title_update_func,
                                             Ewk_History_Populate_Visited_Links_Cb populate_visited_links_func,
                                             void *data);
+
+/**
+ * Sets download callbacks for the given @a context.
+ *
+ * To stop listening for download events, you may call this function with @c
+ * NULL for the callbacks.
+ *
+ * @param context context object to set download callbacks
+ * @param download_requested_func the function to call when new download is requested (may be @c NULL).
+ * @param download_failed_func the function to call when a download job has failed (may be @c NULL).
+ * @param download_cancelled_func the function to call when a download job is cancelled (may be @c NULL).
+ * @param download_finished_func the function to call when a download job is finished (may be @c NULL).
+ * @param data User data (may be @c NULL).
+ */
+EAPI void ewk_context_download_callbacks_set(Ewk_Context *context,
+                                             Ewk_Download_Requested_Cb download_requested_func,
+                                             Ewk_Download_Failed_Cb download_failed_func,
+                                             Ewk_Download_Cancelled_Cb download_cancelled_func,
+                                             Ewk_Download_Finished_Cb download_finished_func,
+                                             void* data);
 
 /**
  * Registers the given @a visited_url as visited link in @a context visited link cache.
@@ -369,16 +431,22 @@ EAPI Eina_Bool ewk_context_additional_plugin_path_set(Ewk_Context *context, cons
 EAPI void ewk_context_resource_cache_clear(Ewk_Context *context);
 
 /**
- * Posts message to injected bundle.
+ * Posts message to extensions asynchronously.
  *
- * @param context context object to post message to injected bundle
+ * @note body only supports @c EINA_VALUE_TYPE_STRINGSHARE or @c EINA_VALUE_TYPE_STRING,
+ * now.
+ *
+ * @param context context object to post message to extensions
  * @param name message name
  * @param body message body
+ *
+ * @return @c EINA_TRUE on success of @c EINA_FALSE on failure or when the type
+ * of @p body is not supported.
  */
-EAPI void ewk_context_message_post_to_injected_bundle(Ewk_Context *context, const char *name, const char *body);
+EAPI Eina_Bool ewk_context_message_post_to_extensions(Ewk_Context *context, const char *name, const Eina_Value *body);
 
 /**
- * Sets callback for received injected bundle message.
+ * Sets callback for received extension message.
  *
  * Client can pass @c NULL for callback to stop listening for messages.
  *
@@ -386,7 +454,7 @@ EAPI void ewk_context_message_post_to_injected_bundle(Ewk_Context *context, cons
  * @param callback callback for received injected bundle message or @c NULL
  * @param user_data user data
  */
-EAPI void ewk_context_message_from_injected_bundle_callback_set(Ewk_Context *context, Ewk_Context_Message_From_Injected_Bundle_Cb callback, void *user_data);
+EAPI void ewk_context_message_from_extensions_callback_set(Ewk_Context *context, Ewk_Context_Message_From_Extension_Cb callback, void *user_data);
 
 /**
  * Sets a process model for @a context.
@@ -443,6 +511,16 @@ EAPI void ewk_context_tls_error_policy_set(Ewk_Context *context, Ewk_TLS_Error_P
  * @note all contexts will be affected.
  */
 EAPI void ewk_context_preferred_languages_set(Eina_List *languages);
+
+
+/**
+ * Allows accepting the specified TLS certificate for the speficied host.
+ *
+ * @param context context object to allow accepting a specific certificate for a specific host
+ * @param pem the certificate to be accepted in PEM format
+ * @param host the host for which the certificate is to be accepted
+ */
+EAPI void ewk_context_tls_certificate_for_host_allow(Ewk_Context *context, const char *pem, const char *host);
 
 #ifdef __cplusplus
 }

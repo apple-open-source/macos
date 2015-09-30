@@ -34,6 +34,8 @@
 
 #define _kExternalMediaAssertionName 	"com.apple.powermanagement.externalmediamounted"
 
+static dispatch_queue_t  extMediaQ;
+
 /*****************************************************************************/
 
 
@@ -53,18 +55,22 @@ static DASessionRef         gDASession = NULL;
 
 __private_extern__ void ExternalMedia_prime(void)
 {    
-    gExternalMediaSet = CFSetCreateMutable(0, 0, &kCFTypeSetCallBacks);
-    
-    if (!gExternalMediaSet)
-        return;
-    
-    gDASession = DASessionCreate(0);
-    
-    DARegisterDiskAppearedCallback(gDASession, kDADiskDescriptionMatchVolumeMountable, _DiskAppeared, NULL);
-    
-    DARegisterDiskDisappearedCallback(gDASession, kDADiskDescriptionMatchVolumeMountable, _DiskDisappeared, NULL);
-    
-    DASessionScheduleWithRunLoop(gDASession, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+    extMediaQ = dispatch_queue_create("com.apple.powermanagent.extMediaQ", DISPATCH_QUEUE_SERIAL);
+
+    dispatch_async(extMediaQ, ^{
+        gExternalMediaSet = CFSetCreateMutable(0, 0, &kCFTypeSetCallBacks);
+        
+        if (!gExternalMediaSet)
+            return;
+        
+        gDASession = DASessionCreate(0);
+        
+        DARegisterDiskAppearedCallback(gDASession, kDADiskDescriptionMatchVolumeMountable, _DiskAppeared, NULL);
+        
+        DARegisterDiskDisappearedCallback(gDASession, kDADiskDescriptionMatchVolumeMountable, _DiskDisappeared, NULL);
+        
+        DASessionSetDispatchQueue(gDASession, extMediaQ);
+    });
     
 }
 
@@ -148,6 +154,7 @@ static void adjustExternalDiskAssertion()
          * Release assertion
          */
         
+        // This call dispatches assertion release to main queue
         InternalReleaseAssertion(&gDiskAssertionID);
         
 
@@ -168,6 +175,7 @@ static void adjustExternalDiskAssertion()
                                         CFSTR(_kExternalMediaAssertionName), 
                                         NULL, CFSTR("An external media device is attached."), NULL, 0, NULL);
         
+        // This call dispatches assertion create to main queue
         InternalCreateAssertion(assertionDescription, 
                                 &gDiskAssertionID);
 

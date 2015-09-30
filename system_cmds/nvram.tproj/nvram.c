@@ -26,6 +26,7 @@ cc -o nvram nvram.c -framework CoreFoundation -framework IOKit -Wall
 #include <stdio.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitKeys.h>
+#include <IOKit/IOKitKeysPrivate.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <err.h>
 #include <mach/mach_error.h>
@@ -52,6 +53,7 @@ static void NVRamSyncNow(char *name);
 static char                *gToolName;
 static io_registry_entry_t gOptionsRef;
 static bool                gUseXML;
+static bool                gUseForceSync;
 
 
 int main(int argc, char **argv)
@@ -112,7 +114,11 @@ int main(int argc, char **argv)
 	case 'c':
 	  ClearOFVariables();
 	  break;
-	  
+	case 's':
+	  // -s option is unadvertised -- advises the kernel more forcibly to
+	  // commit the variable to nonvolatile storage
+	  gUseForceSync = true;
+	  break;
 	default:
 	  strcpy(errorMessage, "no such option as --");
 	  errorMessage[strlen(errorMessage)-1] = *str;
@@ -500,7 +506,11 @@ static void DeleteOFVariable(char *name)
 
 static void NVRamSyncNow(char *name)
 {
-  SetOFVariable(kIONVRAMSyncNowPropertyKey, name);
+  if (!gUseForceSync) {
+    SetOFVariable(kIONVRAMSyncNowPropertyKey, name);
+  } else {
+    SetOFVariable(kIONVRAMForceSyncNowPropertyKey, name);
+  }
 }
 
 // PrintOFVariables()

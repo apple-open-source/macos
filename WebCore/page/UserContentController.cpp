@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #include "Document.h"
 #include "MainFrame.h"
 #include "Page.h"
+#include "ResourceLoadInfo.h"
 #include "UserScript.h"
 #include "UserStyleSheet.h"
 
@@ -37,11 +38,16 @@
 #include "UserMessageHandlerDescriptor.h"
 #endif
 
+#if ENABLE(CONTENT_EXTENSIONS)
+#include "ContentExtensionCompiler.h"
+#include "ContentExtensionsBackend.h"
+#endif
+
 namespace WebCore {
 
-RefPtr<UserContentController> UserContentController::create()
+Ref<UserContentController> UserContentController::create()
 {
-    return adoptRef(new UserContentController);
+    return adoptRef(*new UserContentController);
 }
 
 UserContentController::UserContentController()
@@ -170,6 +176,54 @@ void UserContentController::removeUserMessageHandlerDescriptor(UserMessageHandle
         return;
 
     m_userMessageHandlerDescriptors->remove(std::make_pair(descriptor.name(), &descriptor.world()));
+}
+#endif
+
+#if ENABLE(CONTENT_EXTENSIONS)
+void UserContentController::addUserContentExtension(const String& name, RefPtr<ContentExtensions::CompiledContentExtension> contentExtension)
+{
+    if (!m_contentExtensionBackend)
+        m_contentExtensionBackend = std::make_unique<ContentExtensions::ContentExtensionsBackend>();
+    
+    m_contentExtensionBackend->addContentExtension(name, contentExtension);
+}
+
+void UserContentController::removeUserContentExtension(const String& name)
+{
+    if (!m_contentExtensionBackend)
+        return;
+
+    m_contentExtensionBackend->removeContentExtension(name);
+}
+
+void UserContentController::removeAllUserContentExtensions()
+{
+    if (!m_contentExtensionBackend)
+        return;
+
+    m_contentExtensionBackend->removeAllContentExtensions();
+}
+
+void UserContentController::processContentExtensionRulesForLoad(Page& page, ResourceRequest& request, ResourceType resourceType, DocumentLoader& initiatingDocumentLoader)
+{
+    if (!m_contentExtensionBackend)
+        return;
+
+    if (!page.userContentExtensionsEnabled())
+        return;
+
+    m_contentExtensionBackend->processContentExtensionRulesForLoad(request, resourceType, initiatingDocumentLoader);
+}
+
+Vector<ContentExtensions::Action> UserContentController::actionsForResourceLoad(Page& page, const ResourceLoadInfo& resourceLoadInfo)
+{
+    if (!m_contentExtensionBackend)
+        return Vector<ContentExtensions::Action>();
+    
+    if (!page.userContentExtensionsEnabled())
+        return Vector<ContentExtensions::Action>();
+
+    return m_contentExtensionBackend->actionsForResourceLoad(resourceLoadInfo);
 }
 #endif
 

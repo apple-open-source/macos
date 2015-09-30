@@ -24,11 +24,13 @@
 
 #include "Document.h"
 #include "HTMLElement.h"
+#include "HTMLWBRElement.h"
 #include "InlineElementBox.h"
 #include "LogicalSelectionOffsetCaches.h"
 #include "RenderBlock.h"
 #include "RenderView.h"
 #include "RootInlineBox.h"
+#include "SimpleLineLayoutFunctions.h"
 #include "VisiblePosition.h"
 
 #if PLATFORM(IOS)
@@ -39,11 +41,25 @@ namespace WebCore {
 
 static const int invalidLineHeight = -1;
 
-RenderLineBreak::RenderLineBreak(HTMLElement& element, PassRef<RenderStyle> style)
+static const SimpleLineLayout::Layout* simpleLineLayout(const RenderLineBreak& renderer)
+{
+    if (!is<RenderBlockFlow>(*renderer.parent()))
+        return nullptr;
+    return downcast<RenderBlockFlow>(*renderer.parent()).simpleLineLayout();
+}
+
+static void ensureLineBoxes(const RenderLineBreak& renderer)
+{
+    if (!is<RenderBlockFlow>(*renderer.parent()))
+        return;
+    downcast<RenderBlockFlow>(*renderer.parent()).ensureLineBoxes();
+}
+
+RenderLineBreak::RenderLineBreak(HTMLElement& element, Ref<RenderStyle>&& style)
     : RenderBoxModelObject(element, WTF::move(style), 0)
     , m_inlineBoxWrapper(nullptr)
     , m_cachedLineHeight(invalidLineHeight)
-    , m_isWBR(element.hasTagName(HTMLNames::wbrTag))
+    , m_isWBR(is<HTMLWBRElement>(element))
 {
     setIsLineBreak();
 }
@@ -113,6 +129,12 @@ void RenderLineBreak::dirtyLineBoxes(bool fullLayout)
     m_inlineBoxWrapper->dirtyLineBoxes();
 }
 
+void RenderLineBreak::deleteLineBoxesBeforeSimpleLineLayout()
+{
+    delete m_inlineBoxWrapper;
+    m_inlineBoxWrapper = nullptr;
+}
+
 int RenderLineBreak::caretMinOffset() const
 {
     return 0;
@@ -130,11 +152,14 @@ bool RenderLineBreak::canBeSelectionLeaf() const
 
 VisiblePosition RenderLineBreak::positionForPoint(const LayoutPoint&, const RenderRegion*)
 {
+    ensureLineBoxes(*this);
     return createVisiblePosition(0, DOWNSTREAM);
 }
 
 void RenderLineBreak::setSelectionState(SelectionState state)
 {
+    if (state != SelectionNone)
+        ensureLineBoxes(*this);
     RenderBoxModelObject::setSelectionState(state);
     if (!m_inlineBoxWrapper)
         return;
@@ -154,6 +179,9 @@ LayoutRect RenderLineBreak::localCaretRect(InlineBox* inlineBox, int caretOffset
 
 IntRect RenderLineBreak::linesBoundingBox() const
 {
+    if (auto* layout = simpleLineLayout(*this))
+        return SimpleLineLayout::computeBoundingBox(*this, *layout);
+
     if (!m_inlineBoxWrapper)
         return IntRect();
 
@@ -171,6 +199,11 @@ IntRect RenderLineBreak::linesBoundingBox() const
 
 void RenderLineBreak::absoluteRects(Vector<IntRect>& rects, const LayoutPoint& accumulatedOffset) const
 {
+    if (auto* layout = simpleLineLayout(*this)) {
+        rects.appendVector(SimpleLineLayout::collectAbsoluteRects(*this, *layout, accumulatedOffset));
+        return;
+    }
+
     if (!m_inlineBoxWrapper)
         return;
     rects.append(enclosingIntRect(FloatRect(accumulatedOffset + m_inlineBoxWrapper->topLeft(), m_inlineBoxWrapper->size())));
@@ -178,9 +211,13 @@ void RenderLineBreak::absoluteRects(Vector<IntRect>& rects, const LayoutPoint& a
 
 void RenderLineBreak::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
 {
+    if (auto* layout = simpleLineLayout(*this)) {
+        quads.appendVector(SimpleLineLayout::collectAbsoluteQuads(*this, *layout, wasFixed));
+        return;
+    }
     if (!m_inlineBoxWrapper)
         return;
-    quads.append(localToAbsoluteQuad(FloatRect(m_inlineBoxWrapper->topLeft(), m_inlineBoxWrapper->size()), 0 /* mode */, wasFixed));
+    quads.append(localToAbsoluteQuad(FloatRect(m_inlineBoxWrapper->topLeft(), m_inlineBoxWrapper->size()), UseTransforms, wasFixed));
 }
 
 void RenderLineBreak::updateFromStyle()
@@ -196,6 +233,7 @@ IntRect RenderLineBreak::borderBoundingBox() const
 #if PLATFORM(IOS)
 void RenderLineBreak::collectSelectionRects(Vector<SelectionRect>& rects, unsigned, unsigned)
 {
+    ensureLineBoxes(*this);
     InlineElementBox* box = m_inlineBoxWrapper;
     if (!box)
         return;
@@ -230,7 +268,7 @@ void RenderLineBreak::collectSelectionRects(Vector<SelectionRect>& rects, unsign
         isLastOnLine = !containingBlock->containingBlock()->inlineBoxWrapper()->nextOnLineExists();
 
     bool isFixed = false;
-    IntRect absRect = localToAbsoluteQuad(FloatRect(rect), false, &isFixed).enclosingBoundingBox();
+    IntRect absRect = localToAbsoluteQuad(FloatRect(rect), UseTransforms, &isFixed).enclosingBoundingBox();
     bool boxIsHorizontal = !box->isSVGInlineTextBox() ? box->isHorizontal() : !style().svgStyle().isVerticalWritingMode();
     // If the containing block is an inline element, we want to check the inlineBoxWrapper orientation
     // to determine the orientation of the block. In this case we also use the inlineBoxWrapper to

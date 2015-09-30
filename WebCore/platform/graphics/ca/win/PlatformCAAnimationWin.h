@@ -73,7 +73,7 @@ public:
     virtual void setFillMode(FillModeType) override;
     
     virtual void setTimingFunction(const TimingFunction*, bool reverse = false) override;
-    void copyTimingFunctionFrom(const PlatformCAAnimation*) override;
+    void copyTimingFunctionFrom(const PlatformCAAnimation&) override;
 
     virtual bool isRemovedOnCompletion() const override;
     virtual void setRemovedOnCompletion(bool) override;
@@ -89,35 +89,29 @@ public:
     virtual void setFromValue(const WebCore::TransformationMatrix&) override;
     virtual void setFromValue(const FloatPoint3D&) override;
     virtual void setFromValue(const WebCore::Color&) override;
-#if ENABLE(CSS_FILTERS)
     virtual void setFromValue(const FilterOperation*, int internalFilterPropertyIndex) override;
-#endif
-    virtual void copyFromValueFrom(const PlatformCAAnimation*) override;
+    virtual void copyFromValueFrom(const PlatformCAAnimation&) override;
 
     virtual void setToValue(float) override;
     virtual void setToValue(const WebCore::TransformationMatrix&) override;
     virtual void setToValue(const FloatPoint3D&) override;
     virtual void setToValue(const WebCore::Color&) override;
-#if ENABLE(CSS_FILTERS)
     virtual void setToValue(const FilterOperation*, int internalFilterPropertyIndex) override;
-#endif
-    virtual void copyToValueFrom(const PlatformCAAnimation*) override;
+    virtual void copyToValueFrom(const PlatformCAAnimation&) override;
 
     // Keyframe-animation properties.
     virtual void setValues(const Vector<float>&) override;
     virtual void setValues(const Vector<WebCore::TransformationMatrix>&) override;
     virtual void setValues(const Vector<FloatPoint3D>&) override;
     virtual void setValues(const Vector<WebCore::Color>&) override;
-#if ENABLE(CSS_FILTERS)
     virtual void setValues(const Vector<RefPtr<FilterOperation>>&, int internalFilterPropertyIndex) override;
-#endif
-    virtual void copyValuesFrom(const PlatformCAAnimation*) override;
+    virtual void copyValuesFrom(const PlatformCAAnimation&) override;
 
     virtual void setKeyTimes(const Vector<float>&) override;
-    virtual void copyKeyTimesFrom(const PlatformCAAnimation*) override;
+    virtual void copyKeyTimesFrom(const PlatformCAAnimation&) override;
 
     virtual void setTimingFunctions(const Vector<const TimingFunction*>&, bool reverse = false) override;
-    virtual void copyTimingFunctionsFrom(const PlatformCAAnimation*) override;
+    virtual void copyTimingFunctionsFrom(const PlatformCAAnimation&) override;
 
 protected:
     PlatformCAAnimationWin(AnimationType, const String& keyPath);
@@ -127,9 +121,9 @@ private:
     RetainPtr<CACFAnimationRef> m_animation;
 };
 
-PLATFORM_CAANIMATION_TYPE_CASTS(PlatformCAAnimationWin, isPlatformCAAnimationWin())
+} // namespace WebCore
 
-}
+SPECIALIZE_TYPE_TRAITS_CAANIMATION(WebCore::PlatformCAAnimationWin, isPlatformCAAnimationWin())
 
 #endif // PLATFORM(WIN)
 

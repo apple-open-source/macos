@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012, 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,7 +38,8 @@ namespace JSC { namespace DFG {
 #if ENABLE(DFG_JIT)
 // Fast check functions; if they return true it is still necessary to
 // check opcodes.
-bool isSupported(CodeBlock*);
+bool isSupported();
+bool isSupportedForInlining(CodeBlock*);
 bool mightCompileEval(CodeBlock*);
 bool mightCompileProgram(CodeBlock*);
 bool mightCompileFunctionForCall(CodeBlock*);
@@ -85,9 +86,7 @@ inline CapabilityLevel functionCapabilityLevel(bool mightCompile, bool mightInli
         return leastUpperBound(CanCompileAndInline, computedCapabilityLevel);
     if (mightCompile && !mightInline)
         return leastUpperBound(CanCompile, computedCapabilityLevel);
-    if (!mightCompile && mightInline)
-        return leastUpperBound(CanInline, computedCapabilityLevel);
-    if (!mightCompile && !mightInline)
+    if (!mightCompile)
         return CannotCompile;
     RELEASE_ASSERT_NOT_REACHED();
     return CannotCompile;
@@ -139,6 +138,14 @@ inline bool mightInlineFunctionFor(CodeBlock* codeBlock, CodeSpecializationKind 
         return mightInlineFunctionForCall(codeBlock);
     ASSERT(kind == CodeForConstruct);
     return mightInlineFunctionForConstruct(codeBlock);
+}
+
+inline bool mightCompileFunctionFor(CodeBlock* codeBlock, CodeSpecializationKind kind)
+{
+    if (kind == CodeForCall)
+        return mightCompileFunctionForCall(codeBlock);
+    ASSERT(kind == CodeForConstruct);
+    return mightCompileFunctionForConstruct(codeBlock);
 }
 
 inline bool mightInlineFunction(CodeBlock* codeBlock)

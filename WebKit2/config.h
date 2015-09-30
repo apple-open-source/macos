@@ -30,21 +30,10 @@
 
 #include <wtf/Platform.h>
 
+#include <WebCore/PlatformExportMacros.h>
 #include <runtime/JSExportMacros.h>
 #include <wtf/DisallowCType.h>
 #include <wtf/ExportMacros.h>
-
-#ifdef __cplusplus
-#ifndef EXTERN_C_BEGIN
-#define EXTERN_C_BEGIN extern "C" {
-#endif
-#ifndef EXTERN_C_END
-#define EXTERN_C_END }
-#endif
-#else
-#define EXTERN_C_BEGIN
-#define EXTERN_C_END
-#endif
 
 #ifdef __cplusplus
 
@@ -69,7 +58,7 @@
 #define PLUGIN_ARCHITECTURE(ARCH) (defined PLUGIN_ARCHITECTURE_##ARCH && PLUGIN_ARCHITECTURE_##ARCH)
 
 #ifndef ENABLE_INSPECTOR_SERVER
-#if ENABLE(INSPECTOR) && ENABLE(WEB_SOCKETS) && (PLATFORM(GTK) || PLATFORM(EFL))
+#if ENABLE(WEB_SOCKETS) && (PLATFORM(GTK) || PLATFORM(EFL))
 #define ENABLE_INSPECTOR_SERVER 1
 #endif
 #endif
@@ -80,20 +69,36 @@
 #endif
 #endif
 
+#if PLATFORM(MAC)
 #ifndef HAVE_WINDOW_SERVER_OCCLUSION_NOTIFICATIONS
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 #define HAVE_WINDOW_SERVER_OCCLUSION_NOTIFICATIONS 1
-#endif
-#endif
-
-#ifndef HAVE_VOUCHERS
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
-#define HAVE_VOUCHERS 1
 #endif
 #endif
 
 #ifndef HAVE_SEC_ACCESS_CONTROL
 #if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
 #define HAVE_SEC_ACCESS_CONTROL 1
+#endif
+#endif
+
+#ifndef HAVE_OS_ACTIVITY
+#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
+#define HAVE_OS_ACTIVITY 1
+#endif
+#endif
+
+#ifndef ENABLE_NETWORK_CACHE
+#if ENABLE(NETWORK_PROCESS) && (PLATFORM(COCOA) || PLATFORM(GTK))
+#define ENABLE_NETWORK_CACHE 1
+#else
+#define ENABLE_NETWORK_CACHE 0
+#endif
+#endif
+
+#ifndef HAVE_SAFARI_SERVICES_FRAMEWORK
+#if PLATFORM(IOS) && (!defined TARGET_OS_IOS || TARGET_OS_IOS)
+#define HAVE_SAFARI_SERVICES_FRAMEWORK 1
+#else
+#define HAVE_SAFARI_SERVICES_FRAMEWORK 0
 #endif
 #endif

@@ -36,6 +36,7 @@
 #import "WebTypesInternal.h"
 #import "WebView.h"
 #import "WebViewPrivate.h"
+#import <WebCore/DragController.h>
 #import <WebCore/Frame.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/Image.h>
@@ -124,7 +125,6 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
 
 - (void)finalize
 {
-    ASSERT_MAIN_THREAD();
     delete _result;
     [super finalize];
 }
@@ -160,7 +160,7 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
         return nil;
     value = [self performSelector:selector];
 
-    unsigned lookupTableCount = CFDictionaryGetCount(lookupTable);
+    NSUInteger lookupTableCount = CFDictionaryGetCount(lookupTable);
     if (value) {
         if (!_cache)
             _cache = [[NSMutableDictionary alloc] initWithCapacity:lookupTableCount];
@@ -265,7 +265,8 @@ static NSString* NSStringOrNil(String coreString)
 
 - (NSNumber *)_isLiveLink
 {
-    return [NSNumber numberWithBool:_result->isLiveLink()];
+    Element* urlElement = _result->URLElement();
+    return [NSNumber numberWithBool:(urlElement && isDraggableLink(*urlElement))];
 }
 
 - (NSNumber *)_isContentEditable

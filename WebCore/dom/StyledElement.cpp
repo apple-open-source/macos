@@ -59,7 +59,7 @@ public:
     RefPtr<StyleProperties> value;
 };
 
-typedef HashMap<unsigned, OwnPtr<PresentationAttributeCacheEntry>, AlreadyHashed> PresentationAttributeCache;
+typedef HashMap<unsigned, std::unique_ptr<PresentationAttributeCacheEntry>, AlreadyHashed> PresentationAttributeCache;
     
 static bool operator!=(const PresentationAttributeCacheKey& a, const PresentationAttributeCacheKey& b)
 {
@@ -70,7 +70,7 @@ static bool operator!=(const PresentationAttributeCacheKey& a, const Presentatio
 
 static PresentationAttributeCache& presentationAttributeCache()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(PresentationAttributeCache, cache, ());
+    static NeverDestroyed<PresentationAttributeCache> cache;
     return cache;
 }
 
@@ -79,7 +79,7 @@ class PresentationAttributeCacheCleaner {
 public:
     PresentationAttributeCacheCleaner()
         : m_hitCount(0)
-        , m_cleanTimer(this, &PresentationAttributeCacheCleaner::cleanCache)
+        , m_cleanTimer(*this, &PresentationAttributeCacheCleaner::cleanCache)
     {
     }
 
@@ -99,9 +99,8 @@ private:
     static const int minimumPresentationAttributeCacheSizeForCleaning = 100;
     static const unsigned minimumPresentationAttributeCacheHitCountPerMinute = (100 * presentationAttributeCacheCleanTimeInSeconds) / 60;
 
-    void cleanCache(Timer* timer)
+    void cleanCache()
     {
-        ASSERT_UNUSED(timer, timer == &m_cleanTimer);
         unsigned hitCount = m_hitCount;
         m_hitCount = 0;
         if (hitCount > minimumPresentationAttributeCacheHitCountPerMinute)
@@ -115,8 +114,13 @@ private:
 
 static PresentationAttributeCacheCleaner& presentationAttributeCacheCleaner()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(PresentationAttributeCacheCleaner, cleaner, ());
+    static NeverDestroyed<PresentationAttributeCacheCleaner> cleaner;
     return cleaner;
+}
+
+void StyledElement::clearPresentationAttributeCache()
+{
+    presentationAttributeCache().clear();
 }
 
 void StyledElement::synchronizeStyleAttributeInternal(StyledElement* styledElement)
@@ -144,10 +148,9 @@ MutableStyleProperties& StyledElement::ensureMutableInlineStyle()
     RefPtr<StyleProperties>& inlineStyle = ensureUniqueElementData().m_inlineStyle;
     if (!inlineStyle)
         inlineStyle = MutableStyleProperties::create(strictToCSSParserMode(isHTMLElement() && !document().inQuirksMode()));
-    else if (!inlineStyle->isMutable())
+    else if (!is<MutableStyleProperties>(*inlineStyle))
         inlineStyle = inlineStyle->mutableCopy();
-    ASSERT_WITH_SECURITY_IMPLICATION(inlineStyle->isMutable());
-    return static_cast<MutableStyleProperties&>(*inlineStyle);
+    return downcast<MutableStyleProperties>(*inlineStyle);
 }
 
 void StyledElement::attributeChanged(const QualifiedName& name, const AtomicString& oldValue, const AtomicString& newValue, AttributeModificationReason reason)
@@ -181,15 +184,13 @@ inline void StyledElement::setInlineStyleFromString(const AtomicString& newStyle
 
     // We reconstruct the property set instead of mutating if there is no CSSOM wrapper.
     // This makes wrapperless property sets immutable and so cacheable.
-    if (inlineStyle && !inlineStyle->isMutable())
-        inlineStyle.clear();
+    if (inlineStyle && !is<MutableStyleProperties>(*inlineStyle))
+        inlineStyle = nullptr;
 
     if (!inlineStyle)
         inlineStyle = CSSParser::parseInlineStyleDeclaration(newStyleString, this);
-    else {
-        ASSERT(inlineStyle->isMutable());
-        static_pointer_cast<MutableStyleProperties>(inlineStyle)->parseDeclaration(newStyleString, &document().elementSheet().contents());
-    }
+    else
+        downcast<MutableStyleProperties>(*inlineStyle).parseDeclaration(newStyleString, &document().elementSheet().contents());
 }
 
 void StyledElement::styleAttributeChanged(const AtomicString& newStyleString, AttributeModificationReason reason)
@@ -201,14 +202,14 @@ void StyledElement::styleAttributeChanged(const AtomicString& newStyleString, At
     if (newStyleString.isNull()) {
         if (PropertySetCSSStyleDeclaration* cssomWrapper = inlineStyleCSSOMWrapper())
             cssomWrapper->clearParentElement();
-        ensureUniqueElementData().m_inlineStyle.clear();
+        ensureUniqueElementData().m_inlineStyle = nullptr;
     } else if (reason == ModifiedByCloning || document().contentSecurityPolicy()->allowInlineStyle(document().url(), startLineNumber, isInUserAgentShadowTree()))
         setInlineStyleFromString(newStyleString);
 
     elementData()->setStyleAttributeIsDirty(false);
 
     setNeedsStyleRecalc(InlineStyleChange);
-    InspectorInstrumentation::didInvalidateStyleAttr(&document(), this);
+    InspectorInstrumentation::didInvalidateStyleAttr(document(), *this);
 }
 
 void StyledElement::inlineStyleChanged()
@@ -216,7 +217,7 @@ void StyledElement::inlineStyleChanged()
     setNeedsStyleRecalc(InlineStyleChange);
     ASSERT(elementData());
     elementData()->setStyleAttributeIsDirty(true);
-    InspectorInstrumentation::didInvalidateStyleAttr(&document(), this);
+    InspectorInstrumentation::didInvalidateStyleAttr(document(), *this);
 }
     
 bool StyledElement::setInlineStyleProperty(CSSPropertyID propertyID, CSSValueID identifier, bool important)
@@ -347,7 +348,7 @@ void StyledElement::rebuildPresentationAttributeStyle()
     if (!cacheHash || cacheIterator->value)
         return;
 
-    OwnPtr<PresentationAttributeCacheEntry> newEntry = adoptPtr(new PresentationAttributeCacheEntry);
+    std::unique_ptr<PresentationAttributeCacheEntry> newEntry = std::make_unique<PresentationAttributeCacheEntry>();
     newEntry->key = cacheKey;
     newEntry->value = style.release();
 
@@ -355,9 +356,9 @@ void StyledElement::rebuildPresentationAttributeStyle()
     if (presentationAttributeCache().size() > presentationAttributeCacheMaximumSize) {
         // Start building from scratch if the cache ever gets big.
         presentationAttributeCache().clear();
-        presentationAttributeCache().set(cacheHash, newEntry.release());
+        presentationAttributeCache().set(cacheHash, WTF::move(newEntry));
     } else
-        cacheIterator->value = newEntry.release();
+        cacheIterator->value = WTF::move(newEntry);
 }
 
 void StyledElement::addPropertyToPresentationAttributeStyle(MutableStyleProperties& style, CSSPropertyID propertyID, CSSValueID identifier)

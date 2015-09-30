@@ -1129,7 +1129,7 @@ IOEthernetInterface::controllerWillChangePowerState(
 
                 enableFilter( ctr,
                               gIOEthernetWakeOnLANFilterGroup,
-                              filters,
+                              (UInt32)filters,
                               kFilterOptionNoStateChange |
                               kFilterOptionSyncPendingIO );
             }

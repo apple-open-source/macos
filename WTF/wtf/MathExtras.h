@@ -67,13 +67,12 @@ const double piOverFourDouble = M_PI_4;
 const float piOverFourFloat = static_cast<float>(M_PI_4);
 #endif
 
-#if OS(DARWIN)
-
-// Work around a bug in the Mac OS X libc where ceil(-0.1) return +0.
-inline double wtf_ceil(double x) { return copysign(ceil(x), x); }
-
-#define ceil(x) wtf_ceil(x)
-
+#ifndef M_SQRT2
+const double sqrtOfTwoDouble = 1.41421356237309504880;
+const float sqrtOfTwoFloat = 1.41421356237309504880f;
+#else
+const double sqrtOfTwoDouble = M_SQRT2;
+const float sqrtOfTwoFloat = static_cast<float>(M_SQRT2);
 #endif
 
 #if OS(SOLARIS)
@@ -88,21 +87,6 @@ inline bool signbit(double x) { return copysign(1.0, x) < 0; }
 #endif
 #ifndef isinf
 inline bool isinf(double x) { return !finite(x) && !isnand(x); }
-#endif
-
-} // namespace std
-
-#endif
-
-#if OS(OPENBSD)
-
-namespace std {
-
-#ifndef isfinite
-inline bool isfinite(double x) { return finite(x); }
-#endif
-#ifndef signbit
-inline bool signbit(double x) { struct ieee_double *p = (struct ieee_double *)&x; return p->dbl_sign; }
 #endif
 
 } // namespace std
@@ -382,6 +366,38 @@ inline unsigned fastLog2(unsigned i)
     if (i >> 1)
         log2 += 1;
     return log2;
+}
+
+template <typename T>
+inline typename std::enable_if<std::is_floating_point<T>::value, T>::type safeFPDivision(T u, T v)
+{
+    // Protect against overflow / underflow.
+    if (v < 1 && u > v * std::numeric_limits<T>::max())
+        return std::numeric_limits<T>::max();
+    if (v > 1 && u < v * std::numeric_limits<T>::min())
+        return 0;
+    return u / v;
+}
+
+// Floating point numbers comparison:
+// u is "essentially equal" [1][2] to v if: | u - v | / |u| <= e and | u - v | / |v| <= e
+//
+// [1] Knuth, D. E. "Accuracy of Floating Point Arithmetic." The Art of Computer Programming. 3rd ed. Vol. 2.
+//     Boston: Addison-Wesley, 1998. 229-45.
+// [2] http://www.boost.org/doc/libs/1_34_0/libs/test/doc/components/test_tools/floating_point_comparison.html
+template <typename T>
+inline typename std::enable_if<std::is_floating_point<T>::value, bool>::type areEssentiallyEqual(T u, T v, T epsilon = std::numeric_limits<T>::epsilon())
+{
+    if (u == v)
+        return true;
+
+    const T delta = std::abs(u - v);
+    return safeFPDivision(delta, std::abs(u)) <= epsilon && safeFPDivision(delta, std::abs(v)) <= epsilon;
+}
+
+inline bool isIntegral(float value)
+{
+    return static_cast<int>(value) == value;
 }
 
 } // namespace WTF

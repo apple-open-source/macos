@@ -47,13 +47,13 @@ complete_block(void *ctx, OM_uint32 maj_stat,
 }
 
 OM_uint32 GSSAPI_LIB_FUNCTION
-gss_acquire_cred_ex(const gss_name_t desired_name,
+gss_acquire_cred_ex(__nonnull const gss_name_t desired_name,
 		    OM_uint32 flags,
 		    OM_uint32 time_req,
-		    gss_const_OID desired_mech,
+		    __nonnull gss_const_OID desired_mech,
 		    gss_cred_usage_t cred_usage,
-		    gss_auth_identity_t identity,
-		    gss_acquire_cred_complete complete)
+		    __nonnull gss_auth_identity_t identity,
+		    __nonnull gss_acquire_cred_complete complete)
 {
     OM_uint32 ret;
 
@@ -76,15 +76,15 @@ gss_acquire_cred_ex(const gss_name_t desired_name,
 
 
 OM_uint32 GSSAPI_LIB_FUNCTION
-gss_acquire_cred_ex_f(gss_status_id_t status,
-		      gss_name_t desired_name,
+gss_acquire_cred_ex_f(__nullable gss_status_id_t status,
+		      __nullable gss_name_t desired_name,
 		      OM_uint32 flags,
 		      OM_uint32 time_req,
-		      gss_const_OID desired_mech,
+		      __nonnull gss_const_OID desired_mech,
 		      gss_cred_usage_t cred_usage,
-		      gss_auth_identity_t identity,
-		      void * userctx,
-		      void (*usercomplete)(void *, OM_uint32, gss_status_id_t, gss_cred_id_t, gss_OID_set, OM_uint32))
+		      __nonnull gss_auth_identity_t identity,
+		       void * __nullable userctx,
+		      void (*__nonnull usercomplete)(void *__nullable, OM_uint32, gss_status_id_t __nullable, gss_cred_id_t __nullable, gss_OID_set __nullable, OM_uint32))
 {
         OM_uint32 major_status, minor_status;
 	gss_name_t name = GSS_C_NO_NAME;

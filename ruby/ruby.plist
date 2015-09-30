@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2014-06-03</string>
+	<string>2015-04-14</string>
 	<key>OpenSourceLicense</key>
 	<string>ruby</string>
 	<key>OpenSourceLicenseFile</key>
@@ -13,15 +13,16 @@
 		<string>disable -static in rbconfig</string>
 		<string>make [md5|sha1].bundle using CommonCrypto instead of OpenSSL</string>
 		<string>Use SDKROOT / xcrun to find set RbConfig::CONFIG["includedir"]</string>
+		<string>Change default bindir for gems to /usr/local/bin</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>ruby</string>
 	<key>OpenSourceSHA256</key>
-	<string>0762dad7e96d8091bdf33b3e3176c2066fbf3dc09dfe85fbf40e74e83c63d8e2</string>
+	<string>875be4f57bdbb2d2be0d64bfd8fc5022f004d55261ead8fd0cdc2e9e415e9f7b</string>
 	<key>OpenSourceURL</key>
-	<string>http://cache.ruby-lang.org/pub/ruby/2.0/ruby-2.0.0-p481.tar.bz2</string>
+	<string>http://cache.ruby-lang.org/pub/ruby/2.0/ruby-2.0.0-p645.tar.xz</string>
 	<key>OpenSourceVersion</key>
-	<string>2.0.0-p481</string>
+	<string>2.0.0-p645</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.ruby-lang.org/</string>
 </dict>

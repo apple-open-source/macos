@@ -16,7 +16,13 @@
   print -- $(( rnd = there * 10000 ))
 # save rounding problems by converting to integer
 0:basic floating point arithmetic
->31415.
+>31415
+
+  integer rnd
+  (( rnd = ((29.1 % 13.0 * 10) + 0.5) ))
+  print $rnd
+0:Test floating point modulo function
+>31
 
   print $(( 0x10 + 0X01 + 2#1010 ))
 0:base input
@@ -266,3 +272,126 @@
 >48.5
 >77.5
 >63.5
+
+  underscore_integer() {
+    setopt cbases localoptions
+    print $(( [#_] 1000000 ))
+    print $(( [#16_] 65536 ))
+    print $(( [#16_4] 65536 * 32768 ))
+  }
+  underscore_integer
+0:Grouping output with underscores: integers
+>1_000_000
+>0x10_000
+>0x8000_0000
+
+  print $(( [#_] (5. ** 10) / 16. ))
+0:Grouping output with underscores: floating point
+>610_351.562_5
+
+  env SHLVL=1+RANDOM $ZTST_testdir/../Src/zsh -f -c 'print $SHLVL'
+0:Imported integer functions are not evaluated
+>2
+
+  print $(( 0b0 + 0b1 + 0b11 + 0b110 ))
+0:Binary input
+>10
+
+  print $(( 0b2 ))
+1:Binary numbers don't tend to have 2's in
+?(eval):1: bad math expression: operator expected at `2 '
+# ` for emacs shell mode
+
+  integer varassi
+  print $(( varassi = 5.5 / 2.0 ))
+  print $varassi
+0:Integer variable assignment converts result to integer
+>2
+>2
+# It's hard to test for integer to float.
+
+  integer ff1=3 ff2=4
+  print $(( ff1/ff2 ))
+  setopt force_float
+  print $(( ff1/ff2 ))
+  unsetopt force_float
+0:Variables are forced to floating point where necessary
+# 0.75 is exactly representable, don't expect rounding error.
+>0
+>0.75
+
+  # The following tests for a bug that only happens when
+  # backing up over input read a line at a time, so we'll
+  # read the input from stdin.
+  $ZTST_testdir/../Src/zsh -f <<<'
+  print $((echo first command
+  ); echo second command)
+  print third command
+  '
+0:Backing up a line of input when finding out it's not arithmetic
+>first command second command
+>third command
+
+  $ZTST_testdir/../Src/zsh -f <<<'
+  print $((3 +
+  4))
+  print next line
+  '
+0:Not needing to back up a line when reading multiline arithmetic
+>7
+>next line
+
+  $ZTST_testdir/../Src/zsh -f <<<'
+  print $((case foo in
+  bar)
+  echo not this no, no
+  ;;
+  foo)
+  echo yes, this one
+  ;;
+  esac)
+  print after case in subshell)
+  '
+0:Non-arithmetic subst with command subsitution parse from hell
+>yes, this one after case in subshell
+
+  print "a$((echo one subst)
+  (echo two subst))b"
+0:Another tricky case that is actually a command substitution
+>aone subst
+>two substb
+
+  print "x$((echo one frob); (echo two frob))y"
+0:Same on a single line
+>xone frob
+>two froby
+
+  # This case actually only works by accident: if it wasn't for the
+  # unbalanced parenthesis this would be a valid math substitution.
+  # Hence it's definitely not recommended code.  However, it does give
+  # the algorithm an extra check.
+  print $((case foo in
+  foo)
+  print Worked OK
+  ;;
+  esac))
+0:Would-be math expansion with extra parenthesis making it a cmd subst
+>Worked OK
+
+  (setopt extendedglob
+  set -- 32.463
+  print ${$(( $1 * 100 ))%%.[0-9]#})
+0:Arithmetic substitution nested in parameter substitution
+>3246
+
+  print $((`:`))
+0:Null string in arithmetic evaluation after command substitution
+>0
+
+  print $(( 1 + $(( 2 + 3 )) ))
+  print $(($((3+4))))
+  print $((1*$((2*$((3))*4))*5))
+0:Nested math substitutions.  Yes, I know, very useful.
+>6
+>7
+>120

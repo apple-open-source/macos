@@ -31,6 +31,9 @@
 #include <notify.h>
 #include <execinfo.h>
 #include <asl.h>
+#if !TARGET_OS_SIMULATOR
+#include <energytrace.h>
+#endif
 
 #include "powermanagement_mig.h"
 #include "powermanagement.h"
@@ -45,7 +48,8 @@ static uint64_t  collectBackTrace = 0;
 
 IOReturn _pm_connect(mach_port_t *newConnection);
 IOReturn _pm_disconnect(mach_port_t connection);
-__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, CFTypeRef *objectOut);
+__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID,
+                                                CFTypeRef selectorData, CFTypeRef *objectOut);
 __private_extern__ io_registry_entry_t getPMRootDomainRef(void);
 
 static IOReturn pm_connect_init(mach_port_t *newConnection)
@@ -114,7 +118,6 @@ static inline void saveBackTrace(CFMutableDictionaryRef props)
 {
 
     void *              bt[NUM_BT_FRAMES];
-    size_t              btsize = 0;
     char                **syms = NULL;
     int                 i;
     CFStringRef         frame_cf = NULL;
@@ -122,7 +125,6 @@ static inline void saveBackTrace(CFMutableDictionaryRef props)
 
 
     int nframes = backtrace((void**)(&bt), NUM_BT_FRAMES);
-    btsize = nframes * sizeof(bt[0]);
 
     syms = backtrace_symbols(bt, nframes);
     syms_cf = CFArrayCreateMutable(0, nframes, &kCFTypeArrayCallBacks);   
@@ -273,6 +275,7 @@ IOReturn IOPMAssertionCreateWithProperties(
     CFStringRef             assertionTypeString = NULL;
     CFMutableDictionaryRef  mutableProps = NULL;
     int                     disableAppSleep = 0;
+    int                     enTrIntensity = -1;
 #if TARGET_OS_IPHONE
     static int              resyncToken = 0;
     static CFMutableDictionaryRef  resyncCopy = NULL;
@@ -332,26 +335,36 @@ IOReturn IOPMAssertionCreateWithProperties(
                                           CFDataGetLength(flattenedProps),
                                           (int *)AssertionID, 
                                           &disableAppSleep,
+                                          &enTrIntensity,
                                           &return_code);
 
     if(KERN_SUCCESS != kern_result) {
         return_code = kIOReturnInternalError;
-    }
+        goto exit;
+    } else {
 #if !TARGET_OS_IPHONE
-    else if (disableAppSleep) {
-        CFStringRef assertionName = NULL;
-        CFStringRef appSleepString = NULL;
+        if (disableAppSleep) {
+            CFStringRef assertionName = NULL;
+            CFStringRef appSleepString = NULL;
 
-        assertionName = CFDictionaryGetValue(AssertionProperties, kIOPMAssertionNameKey);
-        appSleepString = CFStringCreateWithFormat(NULL, NULL, 
-                                                  CFSTR("App is holding power assertion %u with name \'%@\' "),
-                                                  *AssertionID, assertionName);
+            assertionName = CFDictionaryGetValue(AssertionProperties, kIOPMAssertionNameKey);
+            appSleepString = CFStringCreateWithFormat(NULL, NULL, 
+                                                      CFSTR("App is holding power assertion %u with name \'%@\' "),
+                                                      *AssertionID, assertionName);
 
-        __CFRunLoopSetOptionsReason(__CFRunLoopOptionsTakeAssertion,  appSleepString);
+            __CFRunLoopSetOptionsReason(__CFRunLoopOptionsTakeAssertion,  appSleepString);
 
-        CFRelease(appSleepString);
-    }
+            CFRelease(appSleepString);
+        }
 #endif
+
+#if !TARGET_OS_SIMULATOR
+        if (enTrIntensity != kEnTrQualNone) {
+            entr_act_begin(kEnTrCompSysPower, kEnTrActSPPMAssertion, *AssertionID,
+                                    enTrIntensity, kEnTrValNone);
+        }
+#endif
+    }
 
 exit:
     if (flattenedProps) {
@@ -406,6 +419,7 @@ void IOPMAssertionRetain(IOPMAssertionID theAssertion)
     IOReturn                err;
     int                     disableAppSleep = 0;
     int                     enableAppSleep = 0;
+    int                     retainCnt = 0;
 
     if (!theAssertion) {
         return_code = kIOReturnBadArgument;
@@ -421,24 +435,30 @@ void IOPMAssertionRetain(IOPMAssertionID theAssertion)
     kern_result = io_pm_assertion_retain_release( pm_server, 
                                                   (int)theAssertion,
                                                   kIOPMAssertionMIGDoRetain,
+                                                  &retainCnt,
                                                   &disableAppSleep,
                                                   &enableAppSleep,
                                                   &return_code);
 
     if(KERN_SUCCESS != kern_result) {
         return_code = kIOReturnInternalError;
-    }
+    } else {
 #if !TARGET_OS_IPHONE
-    else if (disableAppSleep) {
-        CFStringRef appSleepString = NULL;
+        if (disableAppSleep) {
+            CFStringRef appSleepString = NULL;
 
-        appSleepString = CFStringCreateWithFormat(NULL, NULL, CFSTR("App is holding power assertion %u"),
-                                                  theAssertion);
-        __CFRunLoopSetOptionsReason(__CFRunLoopOptionsTakeAssertion,  appSleepString);
+            appSleepString = CFStringCreateWithFormat(NULL, NULL, CFSTR("App is holding power assertion %u"),
+                                                      theAssertion);
+            __CFRunLoopSetOptionsReason(__CFRunLoopOptionsTakeAssertion,  appSleepString);
 
-        CFRelease(appSleepString);
-    }
+            CFRelease(appSleepString);
+        }
 #endif
+#if !TARGET_OS_SIMULATOR
+        entr_act_modify(kEnTrCompSysPower, kEnTrActSPPMAssertion,
+                                (int)theAssertion, kEnTrModSPRetain, kEnTrValNone); 
+#endif
+    }
 
 
 exit:
@@ -461,6 +481,7 @@ IOReturn IOPMAssertionRelease(IOPMAssertionID AssertionID)
     IOReturn                err;
     int                     disableAppSleep = 0;
     int                     enableAppSleep = 0;
+    int                     retainCnt = 0;
 
     if (!AssertionID) {
         return_code = kIOReturnBadArgument;
@@ -476,24 +497,35 @@ IOReturn IOPMAssertionRelease(IOPMAssertionID AssertionID)
     kern_result = io_pm_assertion_retain_release( pm_server, 
                                                   (int)AssertionID,
                                                   kIOPMAssertionMIGDoRelease,
+                                                  &retainCnt,
                                                   &disableAppSleep,
                                                   &enableAppSleep,
                                                   &return_code);
 
     if(KERN_SUCCESS != kern_result) {
         return_code = kIOReturnInternalError;
-    }
+    } else {
 #if !TARGET_OS_IPHONE
-    else if (enableAppSleep) {
-        CFStringRef appSleepString = NULL;
+        if (enableAppSleep) {
+            CFStringRef appSleepString = NULL;
 
-        appSleepString = CFStringCreateWithFormat(NULL, NULL, CFSTR("App released its last power assertion %u"),
-                                                  AssertionID);
-        __CFRunLoopSetOptionsReason(__CFRunLoopOptionsDropAssertion, appSleepString);
+            appSleepString = CFStringCreateWithFormat(NULL, NULL, CFSTR("App released its last power assertion %u"),
+                                                      AssertionID);
+            __CFRunLoopSetOptionsReason(__CFRunLoopOptionsDropAssertion, appSleepString);
 
-        CFRelease(appSleepString);
-    }
+            CFRelease(appSleepString);
+        }
 #endif
+
+#if !TARGET_OS_SIMULATOR
+        if (retainCnt)
+            entr_act_modify(kEnTrCompSysPower, kEnTrActSPPMAssertion,
+                                    (int)AssertionID, kEnTrModSPRelease, kEnTrValNone);
+        else
+            entr_act_end(kEnTrCompSysPower, kEnTrActSPPMAssertion,
+                                    (int)AssertionID, kEnTrQualNone, kEnTrValNone);
+#endif
+    }
 
     pm_connect_close(pm_server);
 exit:
@@ -907,6 +939,8 @@ IOReturn IOPMSetReservePowerMode(bool enable)
     int                     rc = kIOReturnSuccess;
 
     return_code = _pm_connect(&pm_server);
+    if (return_code != kIOReturnSuccess)
+        return return_code;
 
     if(pm_server == MACH_PORT_NULL)
         return kIOReturnNotReady; 
@@ -921,12 +955,11 @@ IOReturn IOPMSetReservePowerMode(bool enable)
     return kern_result;
 }
 
-
 /******************************************************************************
- * IOPMCopyAssertionsByProcess
+ * IOPMCopyAssertionsByProcessWithAllocator
  *
  ******************************************************************************/
-IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef         *AssertionsByPid)
+IOReturn IOPMCopyAssertionsByProcessWithAllocator(CFDictionaryRef *AssertionsByPid, CFAllocatorRef allocator)
 {
     IOReturn                return_code     = kIOReturnError;
     CFArrayRef              flattenedDictionary = NULL;
@@ -937,7 +970,7 @@ IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef         *AssertionsByPid)
     if (!AssertionsByPid)
         return kIOReturnBadArgument;
 
-    return_code = _copyPMServerObject(kIOPMAssertionMIGCopyAll, 0, (CFTypeRef *)&flattenedDictionary);
+    return_code = _copyPMServerObject(kIOPMAssertionMIGCopyAll, 0, NULL, (CFTypeRef *)&flattenedDictionary);
 
     if (kIOReturnSuccess != return_code)
         goto exit;
@@ -949,7 +982,7 @@ IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef         *AssertionsByPid)
      * serialization.
      *
      * To serialize this dictionary and pass it from configd to the caller's process,
-     * we re-formatted it as a "flattened" array of dictionaries in configd, 
+     * we re-formatted it as a "flattened" array of dictionaries in configd,
      * and we will re-constitute with pid's for keys here.
      *
      * Next time around, I will simply not use CFNumberRefs for keys in API.
@@ -958,14 +991,14 @@ IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef         *AssertionsByPid)
 
     if (flattenedDictionary) {
         flattenedArrayCount = CFArrayGetCount(flattenedDictionary);
-    }    
+    }
 
     if (0 == flattenedArrayCount) {
         goto exit;
     }
 
-    newDictKeys = (CFNumberRef *)malloc(sizeof(CFTypeRef) * flattenedArrayCount);
-    newDictValues = (CFArrayRef *)malloc(sizeof(CFTypeRef) * flattenedArrayCount);
+    newDictKeys = (CFNumberRef *)malloc(sizeof(CFNumberRef) * flattenedArrayCount);
+    newDictValues = (CFArrayRef *)malloc(sizeof(CFArrayRef) * flattenedArrayCount);
 
     if (!newDictKeys || !newDictValues)
         goto exit;
@@ -978,11 +1011,11 @@ IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef         *AssertionsByPid)
         {
 
             newDictKeys[i]      = CFDictionaryGetValue(dictionaryAtIndex, kIOPMAssertionPIDKey);
-            newDictValues[i]    = CFDictionaryGetValue(dictionaryAtIndex, CFSTR("PerTaskAssertions"));    
+            newDictValues[i]    = CFDictionaryGetValue(dictionaryAtIndex, CFSTR("PerTaskAssertions"));
         }
     }
 
-    *AssertionsByPid = CFDictionaryCreate(kCFAllocatorDefault,
+    *AssertionsByPid = CFDictionaryCreate(allocator,
                                           (const void **)newDictKeys, (const void **)newDictValues, flattenedArrayCount,
                                           &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
@@ -995,8 +1028,30 @@ exit:
         free(newDictValues);
     if (flattenedDictionary)
         CFRelease(flattenedDictionary);
-    return return_code;    
-}    
+    return return_code;
+}
+
+/******************************************************************************
+ * IOPMCopyAssertionsByProcess
+ *
+ ******************************************************************************/
+IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef         *AssertionsByPid)
+{
+    return IOPMCopyAssertionsByProcessWithAllocator(AssertionsByPid, kCFAllocatorDefault);
+}
+
+/******************************************************************************
+ * IOPMCopyAssertionsByType
+ *
+ ******************************************************************************/
+IOReturn IOPMCopyAssertionsByType(CFStringRef type, CFArrayRef *assertionsArray)
+{
+    if (!assertionsArray) {
+        return kIOReturnBadArgument;
+    }
+
+    return _copyPMServerObject(kIOPMAssertionMIGCopyByType, 0, type, (CFTypeRef *)assertionsArray);
+}
 
 /******************************************************************************
  * IOPMAssertionCopyProperties
@@ -1006,7 +1061,7 @@ CFDictionaryRef IOPMAssertionCopyProperties(IOPMAssertionID theAssertion)
 {
     CFDictionaryRef         theResult       = NULL;    
 
-    _copyPMServerObject(kIOPMAssertionMIGCopyOneAssertionProperties, theAssertion, (CFTypeRef *)&theResult);
+    _copyPMServerObject(kIOPMAssertionMIGCopyOneAssertionProperties, theAssertion, NULL, (CFTypeRef *)&theResult);
 
     return theResult;
 }
@@ -1020,14 +1075,15 @@ IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *AssertionsStatus)
     if (!AssertionsStatus)
         return kIOReturnBadArgument;
 
-    return _copyPMServerObject(kIOPMAssertionMIGCopyStatus, 0, (CFTypeRef *)AssertionsStatus);
+    return _copyPMServerObject(kIOPMAssertionMIGCopyStatus, 0, NULL, (CFTypeRef *)AssertionsStatus);
 }
 
 /******************************************************************************
  * _copyPMServerObject
  *
  ******************************************************************************/
-__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, CFTypeRef *objectOut)
+__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID,
+                                                CFTypeRef selectorData, CFTypeRef *objectOut)
 {
     IOReturn                return_code     = kIOReturnError;
     kern_return_t           kern_result     = KERN_SUCCESS;
@@ -1035,6 +1091,9 @@ __private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, C
     vm_offset_t             theResultsPtr   = 0;
     mach_msg_type_number_t  theResultsCnt   = 0;
     CFDataRef               theResultData   = NULL;
+    CFDataRef               inData          = NULL;
+    vm_offset_t             inDataPtr       = NULL;
+    CFIndex                 inDataLen       = 0;
 
     *objectOut = NULL;
 
@@ -1042,15 +1101,24 @@ __private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, C
         return kIOReturnNotFound;
     }
 
+    if (selectorData) {
+        inData = CFPropertyListCreateData(0, selectorData, kCFPropertyListBinaryFormat_v1_0, 0, NULL );
+        if (inData) {
+            inDataPtr = (vm_offset_t)CFDataGetBytePtr(inData);
+            inDataLen = CFDataGetLength(inData);
+        }
+    }
     kern_result = io_pm_assertion_copy_details(pm_server, assertionID, selector,
+                                               inDataPtr, inDataLen,
                                                &theResultsPtr, &theResultsCnt, &return_code);
 
     if(KERN_SUCCESS != kern_result) {
-        return kIOReturnInternalError;
+        goto exit;
     }
 
-    if (return_code != kIOReturnSuccess)
-        return return_code;
+    if (return_code != kIOReturnSuccess) {
+        goto exit;
+    }
 
     if ((theResultData = CFDataCreate(0, (const UInt8 *)theResultsPtr, (CFIndex)theResultsCnt)))
     {
@@ -1062,6 +1130,11 @@ __private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, C
         vm_deallocate(mach_task_self(), theResultsPtr, theResultsCnt);
     }
 
+exit:
+    if (inData) {
+        CFRelease(inData);
+    }
+
     if (MACH_PORT_NULL != pm_server) {
         pm_connect_close(pm_server);
     }
@@ -1069,6 +1142,17 @@ __private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, C
     return kIOReturnSuccess;
 }
 
+/******************************************************************************
+ * IOPMCopyAssertionActivityLog
+ *
+ ******************************************************************************/
+IOReturn IOPMCopyAssertionActivityLogWithAllocator(CFArrayRef *activityLog, bool *overflow, CFAllocatorRef allocator)
+{
+    static uint32_t refCnt = UINT_MAX;
+    
+    return IOPMCopyAssertionActivityUpdateWithAllocator(activityLog, overflow, &refCnt, allocator);
+    
+}
 
 /******************************************************************************
  * IOPMCopyAssertionActivityLog
@@ -1082,9 +1166,8 @@ IOReturn IOPMCopyAssertionActivityLog(CFArrayRef *activityLog, bool *overflow)
 
 }
 
-IOReturn IOPMCopyAssertionActivityUpdate(CFArrayRef *logUpdates, bool *overflow, uint32_t *refCnt)
+IOReturn IOPMCopyAssertionActivityUpdateWithAllocator(CFArrayRef *logUpdates, bool *overflow, uint32_t *refCnt, CFAllocatorRef allocator)
 {
-
     uint32_t                of;
     IOReturn                rc = kIOReturnInternalError;
     CFDataRef               unfolder = NULL;
@@ -1097,10 +1180,10 @@ IOReturn IOPMCopyAssertionActivityUpdate(CFArrayRef *logUpdates, bool *overflow,
     _pm_connect(&pm_server);
 
     if(pm_server == MACH_PORT_NULL)
-      return NULL;
+        return NULL;
 
-    kern_result = io_pm_assertion_activity_log(pm_server, 
-                                               &logPtr, &logSize, 
+    kern_result = io_pm_assertion_activity_log(pm_server,
+                                               &logPtr, &logSize,
                                                refCnt, &of, &rc);
 
     if ((KERN_SUCCESS != kern_result) || (rc != kIOReturnSuccess)) {
@@ -1114,8 +1197,8 @@ IOReturn IOPMCopyAssertionActivityUpdate(CFArrayRef *logUpdates, bool *overflow,
     unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)logPtr, (CFIndex)logSize, kCFAllocatorNull);
     if (unfolder)
     {
-        *logUpdates = CFPropertyListCreateWithData(0, unfolder, 
-                                                   kCFPropertyListMutableContainers, 
+        *logUpdates = CFPropertyListCreateWithData(allocator, unfolder,
+                                                   kCFPropertyListMutableContainers,
                                                    NULL, NULL);
         CFRelease(unfolder);
     }
@@ -1130,11 +1213,15 @@ exit:
         vm_deallocate(mach_task_self(), logPtr, logSize);
     }
 
-    if (MACH_PORT_NULL != pm_server) 
+    if (MACH_PORT_NULL != pm_server)
         pm_connect_close(pm_server);
-
+    
     return rc;
-
+    
+}
+IOReturn IOPMCopyAssertionActivityUpdate(CFArrayRef *logUpdates, bool *overflow, uint32_t *refCnt)
+{
+    return IOPMCopyAssertionActivityUpdateWithAllocator(logUpdates, overflow,  refCnt, kCFAllocatorDefault);
 }
 
 /*****************************************************************************/
@@ -1147,6 +1234,9 @@ IOReturn IOPMSetAssertionActivityLog(bool enable)
     int                     rc = kIOReturnSuccess;
 
     return_code = _pm_connect(&pm_server);
+    if(return_code != kIOReturnSuccess) {
+        return return_code;
+    }
 
     if(pm_server == MACH_PORT_NULL)
         return kIOReturnNotReady; 
@@ -1167,6 +1257,9 @@ IOReturn IOPMSetAssertionActivityAggregate(bool enable)
     int                     rc = kIOReturnSuccess;
 
     return_code = _pm_connect(&pm_server);
+    if(return_code != kIOReturnSuccess) {
+        return return_code;
+    }
 
     if(pm_server == MACH_PORT_NULL)
         return kIOReturnNotReady; 
@@ -1180,7 +1273,7 @@ IOReturn IOPMSetAssertionActivityAggregate(bool enable)
 
 
 /*****************************************************************************/
-CFDictionaryRef IOPMCopyAssertionActivityAggregate( )
+CFDictionaryRef IOPMCopyAssertionActivityAggregateWithAllocator(CFAllocatorRef allocator)
 {
     IOReturn                rc = kIOReturnInternalError;
     CFDataRef               unfolder = NULL;
@@ -1194,11 +1287,11 @@ CFDictionaryRef IOPMCopyAssertionActivityAggregate( )
     _pm_connect(&pm_server);
 
     if(pm_server == MACH_PORT_NULL)
-      return NULL;
+        return NULL;
 
     kern_result = io_pm_assertion_activity_aggregate(pm_server,
-                                               &addr,  &size,
-                                               &rc);
+                                                     &addr,  &size,
+                                                     &rc);
 
     if ((KERN_SUCCESS != kern_result) || (rc != kIOReturnSuccess)) {
         goto exit;
@@ -1207,8 +1300,8 @@ CFDictionaryRef IOPMCopyAssertionActivityAggregate( )
     unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)addr, (CFIndex)size, kCFAllocatorNull);
     if (unfolder)
     {
-        statsData = CFPropertyListCreateWithData(0, unfolder, 
-                                                   kCFPropertyListMutableContainers, NULL, NULL);
+        statsData = CFPropertyListCreateWithData(allocator, unfolder,
+                                                 kCFPropertyListMutableContainers, NULL, NULL);
         CFRelease(unfolder);
     }
 
@@ -1218,10 +1311,15 @@ exit:
         vm_deallocate(mach_task_self(), addr, size);
 
 
-    if (MACH_PORT_NULL != pm_server) 
+    if (MACH_PORT_NULL != pm_server)
         pm_connect_close(pm_server);
 
     return statsData;
+}
+
+CFDictionaryRef IOPMCopyAssertionActivityAggregate( )
+{
+    return IOPMCopyAssertionActivityAggregateWithAllocator(kCFAllocatorDefault);
 }
 /*****************************************************************************/
 void IOPMAssertionSetBTCollection(bool enable)

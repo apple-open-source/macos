@@ -58,8 +58,7 @@ public:
     void setUnreachableURL(const String&);
     const String& unreachableURL() const { return m_unreachableURL; }
 
-    // FIXME: These should all be private, and FrameLoadState should
-    // provide state transition member functions.
+private:
     State m_state;
     String m_url;
     String m_provisionalURL;

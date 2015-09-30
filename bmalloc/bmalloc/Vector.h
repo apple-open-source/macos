@@ -29,7 +29,7 @@
 #include "Inline.h"
 #include "VMAllocate.h"
 #include <cstddef>
-#include <string>
+#include <cstring>
 
 namespace bmalloc {
 
@@ -66,7 +66,7 @@ public:
 private:
     static const size_t growFactor = 2;
     static const size_t shrinkFactor = 4;
-    static const size_t initialCapacity = vmPageSize;
+    static const size_t initialCapacity = vmPageSize / sizeof(T);
 
     void growCapacity(size_t size);
     void shrinkCapacity();
@@ -88,7 +88,8 @@ inline Vector<T>::Vector()
 template<typename T>
 Vector<T>::~Vector()
 {
-    vmDeallocate(m_buffer, vmSize(m_capacity * sizeof(T)));
+    if (m_buffer)
+        vmDeallocate(m_buffer, vmSize(m_capacity * sizeof(T)));
 }
 
 template<typename T>
@@ -112,7 +113,7 @@ void Vector<T>::push(const T* begin, const T* end)
     size_t newSize = m_size + (end - begin);
     if (newSize > m_capacity)
         growCapacity(newSize);
-    memcpy(this->end(), begin, (end - begin) * sizeof(T));
+    std::memcpy(this->end(), begin, (end - begin) * sizeof(T));
     m_size = newSize;
 }
 
@@ -148,7 +149,7 @@ void Vector<T>::reallocateBuffer(size_t newCapacity)
     size_t vmSize = bmalloc::vmSize(newCapacity * sizeof(T));
     T* newBuffer = static_cast<T*>(vmAllocate(vmSize));
     if (m_buffer) {
-        memcpy(newBuffer, m_buffer, m_size * sizeof(T));
+        std::memcpy(newBuffer, m_buffer, m_size * sizeof(T));
         vmDeallocate(m_buffer, bmalloc::vmSize(m_capacity * sizeof(T)));
     }
 

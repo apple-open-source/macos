@@ -43,17 +43,17 @@ public:
     explicit ScrollingCoordinatorIOS(Page*);
     virtual ~ScrollingCoordinatorIOS();
 
-    virtual void pageDestroyed();
+    virtual void pageDestroyed() override;
 
     virtual void commitTreeStateIfNeeded() override;
 
     // Handle the wheel event on the scrolling thread. Returns whether the event was handled or not.
-    virtual bool handleWheelEvent(FrameView*, const PlatformWheelEvent&) override { return false; }
+    virtual bool handleWheelEvent(FrameView&, const PlatformWheelEvent&) override { return false; }
 
 private:
     virtual void scheduleTreeStateCommit() override;
 
-    void scrollingStateTreeCommitterTimerFired(Timer*);
+    void scrollingStateTreeCommitterTimerFired();
     void commitTreeState();
 
     Timer m_scrollingStateTreeCommitterTimer;

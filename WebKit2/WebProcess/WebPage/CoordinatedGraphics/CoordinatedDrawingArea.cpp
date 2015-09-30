@@ -29,6 +29,7 @@
 #if USE(COORDINATED_GRAPHICS)
 #include "CoordinatedDrawingArea.h"
 
+#include "CoordinatedLayerTreeHost.h"
 #include "DrawingAreaProxyMessages.h"
 #include "LayerTreeContext.h"
 #include "PageOverlayController.h"
@@ -39,7 +40,9 @@
 #include "WebPreferencesKeys.h"
 #include "WebProcess.h"
 #include <WebCore/GraphicsContext.h>
+#include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
+#include <WebCore/PageOverlayController.h>
 #include <WebCore/Settings.h>
 
 using namespace WebCore;
@@ -227,7 +230,7 @@ void CoordinatedDrawingArea::updatePreferences(const WebPreferencesStore& store)
 
 void CoordinatedDrawingArea::mainFrameContentSizeChanged(const WebCore::IntSize&)
 {
-    m_webPage.pageOverlayController().didChangeDocumentSize();
+    m_webPage.mainFrame()->pageOverlayController().didChangeDocumentSize();
 }
 
 void CoordinatedDrawingArea::layerHostDidFlushLayers()
@@ -529,8 +532,8 @@ static bool shouldPaintBoundsRect(const IntRect& bounds, const Vector<IntRect>& 
     // is too large, then we will do individual rect painting instead.
     unsigned boundsArea = bounds.width() * bounds.height();
     unsigned rectsArea = 0;
-    for (size_t i = 0; i < rects.size(); ++i)
-        rectsArea += rects[i].width() * rects[i].height();
+    for (auto& rect : rects)
+        rectsArea += rect.width() * rect.height();
 
     double wastedSpace = 1 - (static_cast<double>(rectsArea) / boundsArea);
 
@@ -587,9 +590,9 @@ void CoordinatedDrawingArea::display(UpdateInfo& updateInfo)
 
     graphicsContext->translate(-bounds.x(), -bounds.y());
 
-    for (size_t i = 0; i < rects.size(); ++i) {
-        m_webPage.drawRect(*graphicsContext, rects[i]);
-        updateInfo.updateRects.append(rects[i]);
+    for (auto& rect : rects) {
+        m_webPage.drawRect(*graphicsContext, rect);
+        updateInfo.updateRects.append(rect);
     }
 
     // Layout can trigger more calls to setNeedsDisplay and we don't want to process them
@@ -597,10 +600,34 @@ void CoordinatedDrawingArea::display(UpdateInfo& updateInfo)
     m_displayTimer.stop();
 }
 
-void CoordinatedDrawingArea::didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection* connection, IPC::MessageDecoder& decoder)
+#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
+void CoordinatedDrawingArea::didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection& connection, IPC::MessageDecoder& decoder)
 {
     if (m_layerTreeHost)
         m_layerTreeHost->didReceiveCoordinatedLayerTreeHostMessage(connection, decoder);
+}
+#endif
+
+void CoordinatedDrawingArea::viewStateDidChange(ViewState::Flags changed, bool, const Vector<uint64_t>&)
+{
+    if (changed & ViewState::IsVisible) {
+        if (m_webPage.isVisible())
+            resumePainting();
+        else
+            suspendPainting();
+    }
+}
+
+void CoordinatedDrawingArea::attachViewOverlayGraphicsLayer(WebCore::Frame* frame, WebCore::GraphicsLayer* viewOverlayRootLayer)
+{
+    if (!frame->isMainFrame())
+        return;
+
+    if (!m_layerTreeHost)
+        return;
+
+    CoordinatedLayerTreeHost* coordinatedLayerTreeHost = static_cast<CoordinatedLayerTreeHost*>(m_layerTreeHost.get());
+    coordinatedLayerTreeHost->setViewOverlayRootLayer(viewOverlayRootLayer);
 }
 
 } // namespace WebKit

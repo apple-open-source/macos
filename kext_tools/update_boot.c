@@ -638,10 +638,14 @@ finish:
    invalidateKextCache - if TRUE then we mimic 
    "sudo touch /System/Library/Extensions"
 */
+// FIXME: eliminate unnecessary 'anyUpdates' parameter.  Callers can
+// detect whether caches were rebuilt by checking filesystem timestamps
+// with needUpdates().
 int
 checkRebuildAllCaches(struct bootCaches *caches,
                       int oodLogSpec,
                       Boolean invalidateKextCache,
+                      Boolean earlyBootCheckUpdate,
                       Boolean *anyUpdates)
 {
     int opres, result = ELAST + 1;  // no pathc() [yet]
@@ -696,7 +700,7 @@ checkRebuildAllCaches(struct bootCaches *caches,
             OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
                       "Error %d rebuilding %s", result,
                       caches->kext_boot_cache_file->rpath);
-                result = opres; goto finish;
+            result = opres; goto finish;
         } else {
             didUpdate = true;
         }
@@ -739,8 +743,6 @@ checkRebuildAllCaches(struct bootCaches *caches,
     
 #endif
     
-    
-    
     // Check/rebuild the CSFDE property cache which goes into the Apple_Boot.
     // It's less critical for booting, but more critical for security.
     if (check_csfde(caches)) {
@@ -759,7 +761,9 @@ checkRebuildAllCaches(struct bootCaches *caches,
     }
     
     // check on the (optional) localized resources used by EFI Login
-    if (check_loccache(caches)) {
+    // Match kextd shutdown policy in 16513211 and don't bother rebuilding
+    // EFILoginLocalizations during early boot (probably wouldn't work anyway?).
+    if (!earlyBootCheckUpdate && check_loccache(caches)) {
         OSKextLog(NULL,oodLogSpec,"rebuilding %s",caches->efiloccache->rpath);
         if ((result = rebuild_loccache(caches))) {
             OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogArchiveFlag,
@@ -999,39 +1003,34 @@ finish:
  * 12369781: allow asr to change the fsys UUID w/o first boot rebooting
  *
  */
-static int
-needUpdatesNoUUID(CFURLRef volURL, Boolean *anyCritical)
+static bool
+noUUIDStampsUpToDate(CFURLRef volURL)
 {
-    int rval = ELAST + 1;           // all paths should reset
-    Boolean doAnyNoUUID = false;
+    Boolean altStampsUTD = false;
     char volRoot[PATH_MAX];
     struct bootCaches *caches = NULL;
 
     if (!CFURLGetFileSystemRepresentation(volURL, /* resolve */ true,
                                           (UInt8*)volRoot, sizeof(volRoot))) {
         OSKextLogStringError(NULL);
-        rval = ENOMEM; goto finish;
+        goto finish;
     }
 
     // "any stamps" option changes the embedded bootstamp paths
     caches = readBootCaches(volRoot, kBRAnyBootStamps);
     if (!caches) {
-        rval = errno ? errno : ELAST + 1;
         goto finish;
     }
 
     // needUpdates() has already been called once with higher verbosity
-    doAnyNoUUID = needUpdates(caches, kBROptsNone, NULL, NULL, NULL,
-                              kOSKextLogGeneralFlag | kOSKextLogDetailLevel);
-
-    if (anyCritical) {
-        *anyCritical = doAnyNoUUID;
-    }
+    altStampsUTD = (false == needUpdates(caches, kBROptsNone,
+                                         NULL, NULL, NULL,
+                               kOSKextLogGeneralFlag | kOSKextLogDetailLevel));
 
 finish:
     if (caches)     destroyCaches(caches);
 
-    return rval;
+    return altStampsUTD;
 }
 
 /******************************************************************************
@@ -1050,12 +1049,14 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
 {
     int opres, result = ELAST + 1;          // try to always set on error
     OSKextLogSpec oodLogSpec = kOSKextLogGeneralFlag | kOSKextLogBasicLevel;
-    Boolean expectUpToDate = (opts & kBRUExpectUpToDate);   // used a lot
+    Boolean earlyBootCheckUpdate;           // used in several places
     Boolean anyCacheUpdates = false;
-    Boolean doAny = false, cachesUpToDate = false, *doMiscp;
+    Boolean doAny = false, cachesUpToDate = false, doMisc;
     Boolean loggedOOD = false;
     struct updatingVol up = { /*NULL...*/ };
     up.curbootfd = -1;
+
+    earlyBootCheckUpdate = ((opts & kBRUExpectUpToDate) && (opts & kBRUEarlyBoot));
     
     // try to configure 'up'; treat missing data per opts
     if ((opres = initContext(&up, volumeURL, NULL, opts))) {
@@ -1085,13 +1086,15 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
     }
 
     // -U logs what is out of date at a a more urgent level than -u
-    if (expectUpToDate) {
+    if (opts & kBRUExpectUpToDate) {
         oodLogSpec = up.errLogSpec;
     }
 
-    // do some real work updating caches *in* the source volume
+    // Do some real work updating caches *in* the source volume.
+    // earlyBootCheckUpdate restricts which caches are rebuilt.
     if ((opres = checkRebuildAllCaches(up.caches, oodLogSpec,
                                        (opts & kBRUInvalidateKextcache),
+                                       earlyBootCheckUpdate,
                                        &anyCacheUpdates))) {
         result = opres; goto finish;    // error logged by function
     }
@@ -1115,27 +1118,28 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
     // these are helper (not OS) partitions & should be clean
     up.doSanitize = true;
 
-    // -U -Boot means we don't care about misc files
-    if (expectUpToDate && (opts & kBRUEarlyBoot)) {
-        doMiscp = NULL;
-    } else {
-        doMiscp = &up.doMisc;
-    }
-
     // figure out what needs updating
     // needUpdates() also populates the timestamp values used by updateStamps()
-    doAny = needUpdates(up.caches, opts, &up.doRPS, &up.doBooters, doMiscp,
-                        oodLogSpec);
-
-    // for -U, give the non-UUID paths a chance (possibly resetting doAny)
-    if (doAny && expectUpToDate) {
+    if (needUpdates(up.caches, opts, &up.doRPS, &up.doBooters, &doMisc,
+                    oodLogSpec)) {
+        // if we don't do updates, at least emit a reassuring message
         loggedOOD = true;
-        (void)needUpdatesNoUUID(volumeURL, &doAny);
+    }
+
+    // calculate doAny; misc files aren't worth a reboot in the -U -Boot case
+    if (!earlyBootCheckUpdate) {
+        up.doMisc = doMisc;
+    } 
+    doAny = up.doRPS || up.doBooters || up.doMisc;
+
+    // for -U -Boot, reset doAny if the non-UUID paths are up to date
+    if (doAny && earlyBootCheckUpdate && noUUIDStampsUpToDate(volumeURL)) {
+        doAny = false;
     }
 
 #ifdef BRDBG_OOD_HANG_BOOT_F
     // check to see if out of date at early boot should cause a hang
-    if (doAny && expectUpToDate && (opts & kBRUEarlyBoot)) {
+    if (doAny && earlyBootCheckUpdate) {
         struct stat sb;
         int consfd = open(_PATH_CONSOLE, O_WRONLY|O_APPEND);
         while (stat(BRDBG_OOD_HANG_BOOT_F, &sb) == 0) {
@@ -1161,8 +1165,9 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
         } else {
             utdlogSpec |= kOSKextLogBasicLevel;
         }
-        OSKextLog(NULL, utdlogSpec, "%s: helper partitions appear up to date.",
-                  up.srcRoot);
+        OSKextLog(NULL, utdlogSpec, "%s: helper partitions %s up to date.",
+                  up.srcRoot,
+                  (loggedOOD|earlyBootCheckUpdate) ? "sufficiently":"appear");
         goto doneUpdatingHelpers;
     }
 
@@ -1199,8 +1204,15 @@ doneUpdatingHelpers:
 
     // kBRUExpectUpToDate is used to differentiate "success: everything clean"
     // from "successfully updated:" the latter exits with EX_OSFILE.  During
-    // early boot, this informs launchd to force a reboot off fresh caches.
-    if (expectUpToDate && (anyCacheUpdates || doAny)) {
+    // early boot, there is a restricted set of caches that must be updated.
+    // In that case, the exit(EX_OSFILE) informs launchd to force a reboot.
+    // FIXME: anyCacheUpdates is redundant: caches are all part of up.doRPS
+    // so any cache update should cause doAny to be true.
+    if ((opts & kBRUExpectUpToDate) && (anyCacheUpdates || doAny)) {
+        if (earlyBootCheckUpdate) {
+            OSKextLog(NULL, oodLogSpec, "%s updated critical boot files, "
+                      "requesting launchd reboot", PRODUCT_NAME);
+        }
         result = EX_OSFILE;
     } 
 
@@ -1210,7 +1222,7 @@ finish:
         result = 0;
     }
 
-    // since updateBoots() -> exit(), convert common errors to sysexits(3)
+    // since updateBoots()->exit(), convert common errno values->sysexits(3)
     if (result && result != EX_OSFILE) {
         result = getExitValueFor(result);
     }
@@ -1403,8 +1415,10 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
 
     // Make sure all caches are up to date on the source
     // (undefined if OOD & system's kext management/EFILogin can't rebuild)
-    errnum = checkRebuildAllCaches(up.caches, kBRCheckLogSpec,
-                                   (opts & kBRUInvalidateKextcache), NULL);
+    errnum = checkRebuildAllCaches(up.caches, kBRCheckLogSpec, 
+                                   (opts & kBRUInvalidateKextcache),
+                   (opts & kBRUExpectUpToDate) && (opts & kBRUEarlyBoot),
+                                   NULL);
     if (errnum) {
         result = errnum; goto finish;
     }
@@ -2463,7 +2477,7 @@ ucopyRPS(struct updatingVol *up)
 
         // 15860955: skip release kernel if preferred has already been copied
         if (copiedPrefKernel && curItem == up->caches->kext_boot_cache_file) {
-            continue;
+           continue;
         }
 
         pathcpy(srcpath, up->caches->root);
@@ -3063,7 +3077,6 @@ activateMisc(struct updatingVol *up)     // rename the .new
         pathcpy(newpath, path);     // just rename
         pathcat(newpath, NEWEXT);
         (void)srename(up->curbootfd, newpath, path);
-    }
 
     // assign type/creator to the label
     if (0 == (stat(path, &sb))) {

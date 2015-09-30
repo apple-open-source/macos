@@ -113,23 +113,13 @@ public:
 
     virtual bool terminate(IOOptionBits options);
 
-#ifndef __LP64__
-    virtual AnchorTable * getAnchors()             __attribute__ ((deprecated));
-    virtual MinorTable *  getMinors()              __attribute__ ((deprecated));
-    virtual MinorSlot *   getMinor(UInt32 minorID) __attribute__ ((deprecated));
-#endif /* !__LP64__ */
-
     /*
      * Process a foreign ioctl.
      */
 
     virtual int ioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc);
 
-#ifdef __LP64__
     OSMetaClassDeclareReservedUnused(IOMediaBSDClient,  0);
-#else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOMediaBSDClient,  0);
-#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOMediaBSDClient,  1);
     OSMetaClassDeclareReservedUnused(IOMediaBSDClient,  2);
     OSMetaClassDeclareReservedUnused(IOMediaBSDClient,  3);

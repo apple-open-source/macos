@@ -123,7 +123,10 @@ private:
     
     virtual void willChangeTitle(WebCore::DocumentLoader*) override;
     virtual void didChangeTitle(WebCore::DocumentLoader*) override;
-    
+
+    virtual void willReplaceMultipartContent() override;
+    virtual void didReplaceMultipartContent() override;
+
     virtual void committedLoad(WebCore::DocumentLoader*, const char*, int) override;
     virtual void finishedLoading(WebCore::DocumentLoader*) override;
     
@@ -131,7 +134,6 @@ private:
     virtual void updateGlobalHistoryRedirectLinks() override;
     
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const override;
-    virtual void willChangeCurrentHistoryItem() override;
 
     virtual void didDisplayInsecureContent() override;
     virtual void didRunInsecureContent(WebCore::SecurityOrigin*, const WebCore::URL&) override;
@@ -161,7 +163,9 @@ private:
     virtual void didFinishLoad() override;
     virtual void prepareForDataSourceReplacement() override;
     
-    virtual PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
+    virtual PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&) override;
+    virtual void updateCachedDocumentLoader(WebCore::DocumentLoader&) override;
+
     virtual void setTitle(const WebCore::StringWithDirection&, const WebCore::URL&) override;
     
     virtual String userAgent(const WebCore::URL&) override;
@@ -223,14 +227,18 @@ private:
 
     virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext() override;
 
+#if ENABLE(REQUEST_AUTOCOMPLETE)
+    virtual void didRequestAutocomplete(PassRefPtr<WebCore::FormState>) override;
+#endif
+
     virtual void forcePageTransitionIfNeeded() override;
 
 #if USE(QUICK_LOOK)
     virtual void didCreateQuickLookHandle(WebCore::QuickLookHandle&) override;
 #endif
 
-#if USE(CONTENT_FILTERING)
-    virtual void contentFilterDidBlockLoad(std::unique_ptr<WebCore::ContentFilter>) override;
+#if ENABLE(CONTENT_FILTERING)
+    void contentFilterDidBlockLoad(WebCore::ContentFilterUnblockHandler) override;
 #endif
 
     WebFrame* m_frame;

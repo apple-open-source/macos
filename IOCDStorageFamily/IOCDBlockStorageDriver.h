@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,12 +67,8 @@ public:
     virtual IOReturn	ejectMedia(void);
     virtual void 	executeRequest(UInt64 byteStart,
                 	               IOMemoryDescriptor *buffer,
-#ifdef __LP64__
                 	               IOStorageAttributes *attributes,
                 	               IOStorageCompletion *completion,
-#else /* !__LP64__ */
-                	               IOStorageCompletion completion,
-#endif /* !__LP64__ */
                 	               Context *context);
     virtual const char * getDeviceTypeName(void);
     virtual IOMedia *	instantiateDesiredMediaObject(void);
@@ -105,33 +101,13 @@ public:
                 	       IOMemoryDescriptor *buffer,
                 	       CDSectorArea sectorArea,
                 	       CDSectorType sectorType,
-#ifdef __LP64__
                 	       IOStorageAttributes *attributes,
                 	       IOStorageCompletion *completion);
-#else /* !__LP64__ */
-                	       IOStorageCompletion completion);
-#endif /* !__LP64__ */
     virtual IOReturn	readISRC(UInt8 track,CDISRC isrc);
     virtual IOReturn	readMCN(CDMCN mcn);
 
     /* end of IOCDMedia APIs */
     
-#ifndef __LP64__
-    /* --------------------------------------------------------*/
-    /* APIs implemented here, exported by IOCDAudioControl:    */
-    /* --------------------------------------------------------*/
-
-    virtual IOReturn	audioPause(bool pause)	__attribute__ ((deprecated));
-    virtual IOReturn	audioPlay(CDMSF timeStart,CDMSF timeStop)	__attribute__ ((deprecated));
-    virtual IOReturn	audioScan(CDMSF timeStart,bool reverse)	__attribute__ ((deprecated));
-    virtual IOReturn	audioStop()	__attribute__ ((deprecated));
-    virtual IOReturn	getAudioStatus(CDAudioStatus *status)	__attribute__ ((deprecated));
-    virtual IOReturn	getAudioVolume(UInt8 *leftVolume,UInt8 *rightVolume)	__attribute__ ((deprecated));
-    virtual IOReturn	setAudioVolume(UInt8 leftVolume,UInt8 rightVolume)	__attribute__ ((deprecated));
-
-    /* end of IOCDAudioControl APIs */
-#endif /* !__LP64__ */
-
     /*
      * Obtain this object's provider.  We override the superclass's method to
      * return a more specific subclass of IOService -- IOCDBlockStorageDevice.  
@@ -163,12 +139,8 @@ protected:
                 	               IOMemoryDescriptor *buffer,
                 	               CDSectorArea sectorArea,
                 	               CDSectorType sectorType,
-#ifdef __LP64__
                 	               IOStorageAttributes *attributes,
                 	               IOStorageCompletion *completion);
-#else /* !__LP64__ */
-                	               IOStorageCompletion completion);
-#endif /* !__LP64__ */
 
     /* ------- */
 
@@ -203,48 +175,35 @@ protected:
 
 public:
 
-    virtual IOReturn	getSpeed(UInt16 * kilobytesPerSecond); /* 10.1.0 */
+    virtual IOReturn	getSpeed(UInt16 * kilobytesPerSecond);
 
-    virtual IOReturn	setSpeed(UInt16 kilobytesPerSecond); /* 10.1.0 */
+    virtual IOReturn	setSpeed(UInt16 kilobytesPerSecond);
 
     virtual IOReturn	readTOC(IOMemoryDescriptor *buffer,CDTOCFormat format,
                     	        UInt8 formatAsTime,UInt8 trackOrSessionNumber,
-                    	        UInt16 *actualByteCount); /* 10.1.3 */
+                    	        UInt16 *actualByteCount);
 
     virtual IOReturn	readDiscInfo(IOMemoryDescriptor *buffer,
-                    	             UInt16 *actualByteCount); /* 10.1.3 */
+                    	             UInt16 *actualByteCount);
 
     virtual IOReturn	readTrackInfo(IOMemoryDescriptor *buffer,UInt32 address,
                     	              CDTrackInfoAddressType addressType,
-                    	              UInt16 *actualByteCount); /* 10.1.3 */
+                    	              UInt16 *actualByteCount);
 
     virtual void	writeCD(IOService *client,
                 	        UInt64 byteStart,
                 	        IOMemoryDescriptor *buffer,
                 	        CDSectorArea sectorArea,
                 	        CDSectorType sectorType,
-#ifdef __LP64__
                 	        IOStorageAttributes *attributes,
                 	        IOStorageCompletion *completion);
-#else /* !__LP64__ */
-                	        IOStorageCompletion completion); /* 10.2.0 */
-#endif /* !__LP64__ */
 
-#ifdef __LP64__
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  0);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  1);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  2);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  3);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  4);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  5);
-#else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver,  0);
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver,  1);
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver,  2);
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver,  3);
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver,  4);
-    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver,  5);
-#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  6);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  7);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  8);

@@ -39,6 +39,7 @@
 
 #ifdef __APPLE_TARGET_EMBEDDED__
 
+#define XCACHE_IS_API_CACHE 1
 #define KRB5_DEFAULT_CCTYPE (&krb5_xcc_ops)
 
 #define HAVE_XCC 1

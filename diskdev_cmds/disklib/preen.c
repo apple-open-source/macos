@@ -272,16 +272,14 @@ addpart(name, fsname, auxdata)
 		exit (8);
 	}
 	pt = *ppt;
-	if ((pt->name = malloc(strlen(name) + 1)) == NULL) {
+	if ((pt->name = strdup(name)) == NULL) {
 		fprintf(stderr, "out of memory");
 		exit (8);
 	}
-	(void)strcpy(pt->name, name);
-	if ((pt->fsname = malloc(strlen(fsname) + 1)) == NULL) {
+	if ((pt->fsname = strdup(fsname)) == NULL) {
 		fprintf(stderr, "out of memory");
 		exit (8);
 	}
-	(void)strcpy(pt->fsname, fsname);
 	pt->next = NULL;
 	pt->auxdata = auxdata;
 }
@@ -356,6 +354,7 @@ unrawname(name)
 {
 	char *dp;
 	struct stat stb;
+	size_t dp_len;
 
 	if ((dp = strrchr(name, '/')) == 0)
 		return (name);
@@ -365,7 +364,8 @@ unrawname(name)
 		return (name);
 	if (dp[1] != 'r')
 		return (name);
-	(void)strcpy(&dp[1], &dp[2]);
+	dp_len = strlen(&dp[2]) + 1;
+	(void)memmove(&dp[1], &dp[2], dp_len);
 	return (name);
 }
 

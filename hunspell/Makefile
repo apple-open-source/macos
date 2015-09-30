@@ -6,7 +6,7 @@
 Project           = hunspell
 UserType          = Developer
 ToolType          = Libraries
-GnuAfterInstall   = install-strip move-files install-pl install-plist
+GnuAfterInstall   = install-strip move-files install-plist
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 

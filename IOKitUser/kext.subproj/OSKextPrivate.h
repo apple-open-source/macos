@@ -29,7 +29,7 @@
 #define __OSKEXTPRIVATE_H__
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <System/libkern/OSKextLib.h>
+#include <libkern/OSKextLib.h>
 #include <System/libkern/OSKextLibPrivate.h>
 #include <mach-o/arch.h>
 #include <paths.h>
@@ -80,7 +80,9 @@
 * com.apple.kext.caches folder. See the kext_tools project for more.
 *********************************************************************/
 #define _kOSKextCachesRootFolder                       \
-            "/System/Library/Caches/com.apple.kext.caches"
+    "/System/Library/Caches/com.apple.kext.caches"
+#define _kOSKextPrelinkedKernelsPath                       \
+    "/System/Library/PrelinkedKernels"
 
 #define _kOSKextDirectoryCachesSubfolder   "Directories"
 #define _kOSKextStartupCachesSubfolder     "Startup"
@@ -92,7 +94,8 @@
                                            _kOSKextStartupMkextFilename
 
 #define _kOSKextIdentifierCacheBasename    "KextIdentifiers"
-#define _kOSKextPrelinkedKernelBasename    "kernelcache"
+#define _kOSKextPrelinkedKernelBasename    "kernelcache"  // deprecated - use _kOSKextPrelinkedKernelFileName
+#define _kOSKextPrelinkedKernelFileName    "prelinkedkernel"
 
 #define _kOSKextCacheFileMode      (0644)
 #define _kOSKextCacheFileModeMask  (0777)

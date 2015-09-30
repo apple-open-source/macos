@@ -142,17 +142,17 @@ choose_mech(const gss_buffer_t input, gss_OID *mech_oid)
 
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_accept_sec_context(OM_uint32 *minor_status,
-    gss_ctx_id_t *context_handle,
-    const gss_cred_id_t acceptor_cred_handle,
-    const gss_buffer_t input_token,
-    const gss_channel_bindings_t input_chan_bindings,
-    gss_name_t *src_name,
-    gss_OID *mech_type,
-    gss_buffer_t output_token,
-    OM_uint32 *ret_flags,
-    OM_uint32 *time_rec,
-    gss_cred_id_t *delegated_cred_handle)
+gss_accept_sec_context( OM_uint32 * __nonnull minor_status,
+    __nonnull gss_ctx_id_t * __nullable context_handle,
+    __nullable const gss_cred_id_t acceptor_cred_handle,
+    __nullable const gss_buffer_t input_token,
+    __nullable const gss_channel_bindings_t input_chan_bindings,
+    __nullable gss_name_t * __nullable src_name,
+    __nullable gss_OID * __nullable mech_type,
+    __nonnull gss_buffer_t output_token,
+     OM_uint32 * __nullable ret_flags,
+     OM_uint32 * __nullable time_rec,
+     gss_cred_id_t __nullable * __nullable delegated_cred_handle)
 {
 	OM_uint32 major_status, mech_ret_flags, junk;
 	gssapi_mech_interface m;

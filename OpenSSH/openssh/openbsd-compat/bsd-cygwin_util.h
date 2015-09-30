@@ -1,4 +1,4 @@
-/* $Id: bsd-cygwin_util.h,v 1.15.4.1 2013/04/04 23:53:31 dtucker Exp $ */
+/* $Id: bsd-cygwin_util.h,v 1.18 2014/05/27 04:34:43 djm Exp $ */
 
 /*
  * Copyright (c) 2000, 2001, 2011, 2013 Corinna Vinschen <vinschen@redhat.com>
@@ -39,9 +39,19 @@
 /* Avoid including windows headers. */
 typedef void *HANDLE;
 #define INVALID_HANDLE_VALUE ((HANDLE) -1)
+#define DNLEN 16
+#define UNLEN 256
+
+/* Cygwin functions for which declarations are only available when including
+   windows headers, so we have to define them here explicitely. */
+extern HANDLE cygwin_logon_user (const struct passwd *, const char *);
+extern void cygwin_set_impersonation_token (const HANDLE);
 
 #include <sys/cygwin.h>
 #include <io.h>
+
+#define CYGWIN_SSH_PRIVSEP_USER (cygwin_ssh_privsep_user())
+const char *cygwin_ssh_privsep_user();
 
 int binary_open(const char *, int , ...);
 int check_ntsec(const char *);

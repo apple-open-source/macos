@@ -70,8 +70,8 @@ bool IndentOutdentCommand::tryIndentingAsListItem(const Position& start, const P
         return false;
     
     // FIXME: previousElementSibling does not ignore non-rendered content like <span></span>.  Should we?
-    RefPtr<Element> previousList = ElementTraversal::previousSibling(selectedListItem.get());
-    RefPtr<Element> nextList = ElementTraversal::nextSibling(selectedListItem.get());
+    RefPtr<Element> previousList = ElementTraversal::previousSibling(*selectedListItem);
+    RefPtr<Element> nextList = ElementTraversal::nextSibling(*selectedListItem);
 
     RefPtr<Element> newList = document().createElement(listNode->tagQName(), false);
     insertNodeBefore(newList, selectedListItem);
@@ -156,7 +156,7 @@ void IndentOutdentCommand::outdentParagraph()
                 if (splitPointParent->hasTagName(blockquoteTag)
                     && !splitPoint->hasTagName(blockquoteTag)
                     && splitPointParent->parentNode()->hasEditableStyle()) // We can't outdent if there is no place to go!
-                    splitElement(toElement(splitPointParent), splitPoint);
+                    splitElement(downcast<Element>(splitPointParent), splitPoint);
             }
         }
 
@@ -177,7 +177,7 @@ void IndentOutdentCommand::outdentParagraph()
     else {
         // We split the blockquote at where we start outdenting.
         Node* highestInlineNode = highestEnclosingNodeOfType(visibleStartOfParagraph.deepEquivalent(), isInline, CannotCrossEditingBoundary, enclosingBlockFlow);
-        splitElement(toElement(enclosingNode), (highestInlineNode) ? highestInlineNode : visibleStartOfParagraph.deepEquivalent().deprecatedNode());
+        splitElement(downcast<Element>(enclosingNode), highestInlineNode ? highestInlineNode : visibleStartOfParagraph.deepEquivalent().deprecatedNode());
     }
     RefPtr<Node> placeholder = createBreakElement(document());
     insertNodeBefore(placeholder, splitBlockquoteNode);
@@ -232,7 +232,7 @@ void IndentOutdentCommand::formatSelection(const VisiblePosition& startOfSelecti
 void IndentOutdentCommand::formatRange(const Position& start, const Position& end, const Position&, RefPtr<Element>& blockquoteForNextIndent)
 {
     if (tryIndentingAsListItem(start, end))
-        blockquoteForNextIndent = 0;
+        blockquoteForNextIndent = nullptr;
     else
         indentIntoBlockquote(start, end, blockquoteForNextIndent);
 }

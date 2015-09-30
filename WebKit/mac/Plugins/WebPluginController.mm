@@ -54,7 +54,6 @@
 #import <WebCore/FrameLoader.h>
 #import <WebCore/HTMLMediaElement.h>
 #import <WebCore/HTMLNames.h>
-#import <WebCore/MediaPlayerProxy.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/WebCoreURLResponse.h>
@@ -517,7 +516,7 @@ static void cancelOutstandingCheck(const void *item, void *context)
             LOG_ERROR("could not load URL %@", [request URL]);
             return;
         }
-        FrameLoadRequest frameRequest(core(frame), request);
+        FrameLoadRequest frameRequest(core(frame), request, ShouldOpenExternalURLsPolicy::ShouldNotAllow);
         frameRequest.setFrameName(target);
         frameRequest.setShouldCheckNewWindowPolicy(true);
         core(frame)->loader().load(frameRequest);
@@ -668,9 +667,11 @@ static beginSheetModalForWindowIMP original_NSAlert_beginSheetModalForWindow_mod
 typedef void (*alertDidEndIMP)(id, SEL, NSAlert *, NSInteger, void*);
 static alertDidEndIMP original_TSUpdateCheck_alertDidEnd_returnCode_contextInfo_;
 
+@class TSUpdateCheck;
+
 static void WebKit_TSUpdateCheck_alertDidEnd_returnCode_contextInfo_(id object, SEL selector, NSAlert *alert, NSInteger returnCode, void* contextInfo)
 {
-    [[object delegate] autorelease];
+    [[(TSUpdateCheck *)object delegate] autorelease];
 
     original_TSUpdateCheck_alertDidEnd_returnCode_contextInfo_(object, selector, alert, returnCode, contextInfo);
 }
@@ -678,7 +679,7 @@ static void WebKit_TSUpdateCheck_alertDidEnd_returnCode_contextInfo_(id object, 
 static void WebKit_NSAlert_beginSheetModalForWindow_modalDelegate_didEndSelector_contextInfo_(id object, SEL selector, NSWindow *window, id modalDelegate, SEL didEndSelector, void* contextInfo)
 {
     if (isKindOfClass(modalDelegate, @"TSUpdateCheck"))
-        [[modalDelegate delegate] retain];
+        [[(TSUpdateCheck *)modalDelegate delegate] retain];
 
     original_NSAlert_beginSheetModalForWindow_modalDelegate_didEndSelector_contextInfo_(object, selector, window, modalDelegate, didEndSelector, contextInfo);
 }

@@ -40,6 +40,8 @@
 #include "WebPageProxyMessages.h"
 #include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
+#include <WebCore/MainFrame.h>
+#include <WebCore/PageOverlayController.h>
 #include <WebCore/Settings.h>
 #include <wtf/CurrentTime.h>
 
@@ -47,9 +49,9 @@ using namespace WebCore;
 
 namespace WebKit {
 
-PassRefPtr<CoordinatedLayerTreeHost> CoordinatedLayerTreeHost::create(WebPage* webPage)
+Ref<CoordinatedLayerTreeHost> CoordinatedLayerTreeHost::create(WebPage* webPage)
 {
-    return adoptRef(new CoordinatedLayerTreeHost(webPage));
+    return adoptRef(*new CoordinatedLayerTreeHost(webPage));
 }
 
 CoordinatedLayerTreeHost::~CoordinatedLayerTreeHost()
@@ -62,9 +64,11 @@ CoordinatedLayerTreeHost::CoordinatedLayerTreeHost(WebPage* webPage)
     , m_isValid(true)
     , m_isSuspended(false)
     , m_isWaitingForRenderer(true)
-    , m_layerFlushTimer(this, &CoordinatedLayerTreeHost::layerFlushTimerFired)
+    , m_layerFlushTimer(*this, &CoordinatedLayerTreeHost::layerFlushTimerFired)
     , m_layerFlushSchedulingEnabled(true)
     , m_forceRepaintAsyncCallbackID(0)
+    , m_contentLayer(nullptr)
+    , m_viewOverlayRootLayer(nullptr)
 {
     m_coordinator = std::make_unique<CompositingCoordinator>(webPage->corePage(), this);
 
@@ -110,9 +114,24 @@ void CoordinatedLayerTreeHost::setShouldNotifyAfterNextScheduledLayerFlush(bool 
     m_notifyAfterScheduledLayerFlush = notifyAfterScheduledLayerFlush;
 }
 
+void CoordinatedLayerTreeHost::updateRootLayers()
+{
+    if (!m_contentLayer && !m_viewOverlayRootLayer)
+        return;
+
+    m_coordinator->setRootCompositingLayer(m_contentLayer, m_viewOverlayRootLayer);
+}
+
+void CoordinatedLayerTreeHost::setViewOverlayRootLayer(WebCore::GraphicsLayer* viewOverlayRootLayer)
+{
+    m_viewOverlayRootLayer = viewOverlayRootLayer;
+    updateRootLayers();
+}
+
 void CoordinatedLayerTreeHost::setRootCompositingLayer(WebCore::GraphicsLayer* graphicsLayer)
 {
-    m_coordinator->setRootCompositingLayer(graphicsLayer, m_webPage->pageOverlayController().viewOverlayRootLayer());
+    m_contentLayer = graphicsLayer;
+    updateRootLayers();
 }
 
 void CoordinatedLayerTreeHost::invalidate()
@@ -175,7 +194,9 @@ void CoordinatedLayerTreeHost::purgeBackingStores()
 
 void CoordinatedLayerTreeHost::didFlushRootLayer(const FloatRect& visibleContentRect)
 {
-    m_webPage->pageOverlayController().flushPageOverlayLayers(visibleContentRect);
+    // Because our view-relative overlay root layer is not attached to the FrameView's GraphicsLayer tree, we need to flush it manually.
+    if (m_coordinator->mainContentsLayer())
+        m_coordinator->mainContentsLayer()->flushCompositingState(visibleContentRect,  m_webPage->mainFrame()->view()->viewportIsStable());
 }
 
 void CoordinatedLayerTreeHost::performScheduledLayerFlush()
@@ -201,7 +222,7 @@ void CoordinatedLayerTreeHost::performScheduledLayerFlush()
     }
 }
 
-void CoordinatedLayerTreeHost::layerFlushTimerFired(Timer*)
+void CoordinatedLayerTreeHost::layerFlushTimerFired()
 {
     performScheduledLayerFlush();
 }
@@ -224,7 +245,7 @@ PassRefPtr<CoordinatedSurface> CoordinatedLayerTreeHost::createCoordinatedSurfac
 void CoordinatedLayerTreeHost::deviceOrPageScaleFactorChanged()
 {
     m_coordinator->deviceOrPageScaleFactorChanged();
-    m_webPage->pageOverlayController().didChangeDeviceScaleFactor();
+    m_webPage->mainFrame()->pageOverlayController().didChangeDeviceScaleFactor();
 }
 
 void CoordinatedLayerTreeHost::pageBackgroundTransparencyChanged()
@@ -249,11 +270,6 @@ void CoordinatedLayerTreeHost::scheduleAnimation()
     m_layerFlushTimer.startOneShot(m_coordinator->nextAnimationServiceTime());
 }
 #endif
-
-void CoordinatedLayerTreeHost::setBackgroundColor(const WebCore::Color& color)
-{
-    m_webPage->send(Messages::CoordinatedLayerTreeHostProxy::SetBackgroundColor(color));
-}
 
 void CoordinatedLayerTreeHost::commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset)
 {

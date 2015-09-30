@@ -20,9 +20,9 @@
 #include "config.h"
 #include "WebKitSecurityManager.h"
 
-#include "WebContext.h"
 #include "WebKitSecurityManagerPrivate.h"
 #include "WebKitWebContextPrivate.h"
+#include "WebProcessPool.h"
 #include <WebCore/SchemeRegistry.h>
 
 using namespace WebKit;
@@ -69,7 +69,7 @@ WebKitSecurityManager* webkitSecurityManagerCreate(WebKitWebContext* webContext)
 static void registerSecurityPolicyForURIScheme(WebKitSecurityManager* manager, const char* scheme, SecurityPolicy policy)
 {
     String urlScheme = String::fromUTF8(scheme);
-    WebContext* webContext = webkitWebContextGetContext(manager->priv->webContext);
+    WebProcessPool* webContext = webkitWebContextGetContext(manager->priv->webContext);
 
     // We keep the WebCore::SchemeRegistry of the UI process in sync with the
     // web process one, so that we can return the SecurityPolicy for
@@ -302,7 +302,7 @@ gboolean webkit_security_manager_uri_scheme_is_cors_enabled(WebKitSecurityManage
  * @scheme: a URI scheme
  *
  * Register @scheme as an empty document scheme. This means that
- * they are allowd to commit synchronously.
+ * they are allowed to commit synchronously.
  */
 void webkit_security_manager_register_uri_scheme_as_empty_document(WebKitSecurityManager* manager, const char* scheme)
 {

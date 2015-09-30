@@ -20,17 +20,17 @@
 #include "config.h"
 #include "WebSoupCustomProtocolRequestManager.h"
 
-#if ENABLE(CUSTOM_PROTOCOLS)
-
 #include "APIData.h"
 #include "CustomProtocolManagerMessages.h"
-#include "WebContext.h"
+#include "WebProcessPool.h"
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
 
 #if PLATFORM(GTK)
 #include <WebCore/ErrorsGtk.h>
+#elif PLATFORM(EFL)
+#include <WebCore/ErrorsEfl.h>
 #endif
 
 namespace WebKit {
@@ -40,13 +40,13 @@ const char* WebSoupCustomProtocolRequestManager::supplementName()
     return "WebSoupCustomProtocolRequestManager";
 }
 
-PassRefPtr<WebSoupCustomProtocolRequestManager> WebSoupCustomProtocolRequestManager::create(WebContext* context)
+Ref<WebSoupCustomProtocolRequestManager> WebSoupCustomProtocolRequestManager::create(WebProcessPool* processPool)
 {
-    return adoptRef(new WebSoupCustomProtocolRequestManager(context));
+    return adoptRef(*new WebSoupCustomProtocolRequestManager(processPool));
 }
 
-WebSoupCustomProtocolRequestManager::WebSoupCustomProtocolRequestManager(WebContext* context)
-    : WebContextSupplement(context)
+WebSoupCustomProtocolRequestManager::WebSoupCustomProtocolRequestManager(WebProcessPool* processPool)
+    : WebContextSupplement(processPool)
 {
 }
 
@@ -60,7 +60,7 @@ void WebSoupCustomProtocolRequestManager::initializeClient(const WKSoupCustomPro
 }
 
 // WebContextSupplement
-void WebSoupCustomProtocolRequestManager::contextDestroyed()
+void WebSoupCustomProtocolRequestManager::processPoolDestroyed()
 {
 }
 
@@ -80,24 +80,27 @@ void WebSoupCustomProtocolRequestManager::derefWebContextSupplement()
 
 void WebSoupCustomProtocolRequestManager::registerSchemeForCustomProtocol(const String& scheme)
 {
-    if (!context())
+    ASSERT(!scheme.isNull());
+    if (m_registeredSchemes.contains(scheme))
         return;
 
-    context()->registerSchemeForCustomProtocol(scheme);
+    if (!processPool())
+        return;
 
-    ASSERT(!m_registeredSchemes.contains(scheme));
+    processPool()->registerSchemeForCustomProtocol(scheme);
+
     m_registeredSchemes.append(scheme);
 }
 
 void WebSoupCustomProtocolRequestManager::unregisterSchemeForCustomProtocol(const String& scheme)
 {
-    if (!context())
+    if (!processPool())
         return;
 
-    context()->unregisterSchemeForCustomProtocol(scheme);
+    processPool()->unregisterSchemeForCustomProtocol(scheme);
 
-    ASSERT(m_registeredSchemes.contains(scheme));
-    m_registeredSchemes.remove(m_registeredSchemes.find(scheme));
+    bool removed = m_registeredSchemes.removeFirst(scheme);
+    ASSERT_UNUSED(removed, removed);
 }
 
 void WebSoupCustomProtocolRequestManager::startLoading(uint64_t customProtocolID, const WebCore::ResourceRequest& request)
@@ -113,36 +116,34 @@ void WebSoupCustomProtocolRequestManager::stopLoading(uint64_t customProtocolID)
 
 void WebSoupCustomProtocolRequestManager::didReceiveResponse(uint64_t customProtocolID, const WebCore::ResourceResponse& response)
 {
-    if (!context())
+    if (!processPool())
         return;
 
-    context()->networkingProcessConnection()->send(Messages::CustomProtocolManager::DidReceiveResponse(customProtocolID, response, 0), 0);
+    processPool()->networkingProcessConnection()->send(Messages::CustomProtocolManager::DidReceiveResponse(customProtocolID, response, 0), 0);
 }
 
 void WebSoupCustomProtocolRequestManager::didLoadData(uint64_t customProtocolID, const API::Data* data)
 {
-    if (!context())
+    if (!processPool())
         return;
 
-    context()->networkingProcessConnection()->send(Messages::CustomProtocolManager::DidLoadData(customProtocolID, data->dataReference()), 0);
+    processPool()->networkingProcessConnection()->send(Messages::CustomProtocolManager::DidLoadData(customProtocolID, data->dataReference()), 0);
 }
 
 void WebSoupCustomProtocolRequestManager::didFailWithError(uint64_t customProtocolID, const WebCore::ResourceError& error)
 {
-    if (!context())
+    if (!processPool())
         return;
 
-    context()->networkingProcessConnection()->send(Messages::CustomProtocolManager::DidFailWithError(customProtocolID, error), 0);
+    processPool()->networkingProcessConnection()->send(Messages::CustomProtocolManager::DidFailWithError(customProtocolID, error), 0);
 }
 
 void WebSoupCustomProtocolRequestManager::didFinishLoading(uint64_t customProtocolID)
 {
-    if (!context())
+    if (!processPool())
         return;
 
-    context()->networkingProcessConnection()->send(Messages::CustomProtocolManager::DidFinishLoading(customProtocolID), 0);
+    processPool()->networkingProcessConnection()->send(Messages::CustomProtocolManager::DidFinishLoading(customProtocolID), 0);
 }
 
 } // namespace WebKit
-
-#endif // ENABLE(CUSTOM_PROTOCOLS)

@@ -1625,6 +1625,11 @@ CFDictionaryRef create_dns(SCDynamicStoreRef store, CFStringRef serviceID, CFArr
     if (neverSearchDomains) {
         AddNumber(dict, kSCPropNetDNSSupplementalMatchDomainsNoSearch, 1);
     }
+
+#ifndef kSCPropNetDNSConfirmedServiceID
+#define kSCPropNetDNSConfirmedServiceID	CFSTR("ConfirmedServiceID")
+#endif
+	CFDictionarySetValue(dict, kSCPropNetDNSConfirmedServiceID, serviceID);
 	
 	/* warn lookupd of upcoming change */
 	notify_post("com.apple.system.dns.delay");

@@ -43,7 +43,7 @@ class Document;
 class CSSCrossfadeValue : public CSSImageGeneratorValue {
     friend class CrossfadeSubimageObserverProxy;
 public:
-    static PassRef<CSSCrossfadeValue> create(PassRefPtr<CSSValue> fromValue, PassRefPtr<CSSValue> toValue)
+    static Ref<CSSCrossfadeValue> create(PassRefPtr<CSSValue> fromValue, PassRefPtr<CSSValue> toValue)
     {
         return adoptRef(*new CSSCrossfadeValue(fromValue, toValue));
     }
@@ -59,11 +59,11 @@ public:
     bool isPending() const;
     bool knownToBeOpaque(const RenderElement*) const;
 
-    void loadSubimages(CachedResourceLoader*, const ResourceLoaderOptions&);
+    void loadSubimages(CachedResourceLoader&, const ResourceLoaderOptions&);
 
     void setPercentage(PassRefPtr<CSSPrimitiveValue> percentageValue) { m_percentageValue = percentageValue; }
 
-    bool hasFailedOrCanceledSubresources() const;
+    bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
     PassRefPtr<CSSCrossfadeValue> blend(const CSSCrossfadeValue&, double) const;
 
@@ -80,7 +80,7 @@ private:
     {
     }
 
-    class CrossfadeSubimageObserverProxy : public CachedImageClient {
+    class CrossfadeSubimageObserverProxy final : public CachedImageClient {
     public:
         CrossfadeSubimageObserverProxy(CSSCrossfadeValue* ownerValue)
             : m_ownerValue(ownerValue)
@@ -89,7 +89,7 @@ private:
         }
 
         virtual ~CrossfadeSubimageObserverProxy() { }
-        virtual void imageChanged(CachedImage*, const IntRect* = 0) override;
+        virtual void imageChanged(CachedImage*, const IntRect* = nullptr) override;
         void setReady(bool ready) { m_ready = ready; }
     private:
         CSSCrossfadeValue* m_ownerValue;
@@ -110,8 +110,8 @@ private:
     CrossfadeSubimageObserverProxy m_crossfadeSubimageObserver;
 };
 
-CSS_VALUE_TYPE_CASTS(CSSCrossfadeValue, isCrossfadeValue())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSCrossfadeValue, isCrossfadeValue())
 
 #endif // CSSCrossfadeValue_h

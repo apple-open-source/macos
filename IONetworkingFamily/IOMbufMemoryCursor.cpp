@@ -114,10 +114,10 @@ static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
     mbuf_t temp;
     mbuf_t head = srcm;
 	
-    srcLen = mbuf_len( srcm );
+    srcLen = (SInt32)mbuf_len( srcm );
     src = (uintptr_t) mbuf_data(srcm);
 
-    dstLen = mbuf_len( dstm );
+    dstLen = (SInt32)mbuf_len( dstm );
     dst = (uintptr_t) mbuf_data( dstm );
 	
     for (;;) {
@@ -134,7 +134,7 @@ static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
 				mbuf_free(srcm);
             srcm = temp;
 
-            srcLen = mbuf_len( srcm );
+            srcLen = (SInt32)mbuf_len( srcm );
             src = (uintptr_t)mbuf_data(srcm);
         }
         else if (srcLen > dstLen) {
@@ -148,7 +148,7 @@ static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
             temp = mbuf_next( dstm ); assert(temp);
             dstm = temp;
 
-            dstLen = mbuf_len( dstm );
+            dstLen = (SInt32)mbuf_len( dstm );
             dst = (uintptr_t)mbuf_data( dstm );
         }
         else {  /* (srcLen == dstLen) */
@@ -172,9 +172,9 @@ static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
             dstm = mbuf_next ( dstm );
 
             assert(srcm);
-            dstLen = mbuf_len ( dstm );
+            dstLen = (SInt32)mbuf_len ( dstm );
             dst = (uintptr_t)mbuf_data( dstm );
-            srcLen = mbuf_len( srcm );
+            srcLen = (SInt32)mbuf_len( srcm );
             src = (uintptr_t)mbuf_data( srcm );
         }
     }
@@ -273,7 +273,7 @@ static inline bool analyseSegments(
 
         // Compute number of segment in current outgoing mbuf.
         vmo = (uintptr_t)mbuf_data(out);
-        outSegs = (round_page(vmo + outLen) - trunc_page(vmo)) / PAGE_SIZE;
+        outSegs = ((SInt32)round_page(vmo + outLen) - (SInt32)trunc_page(vmo)) / (SInt32)PAGE_SIZE;
         if (doneSegs + outSegs > (int) maxSegs) {
             ERROR_LOG("analyseSegments: maxSegs limit 2 reached! %ld %ld %ld\n",
                       doneSegs, outSegs, maxSegs);
@@ -288,8 +288,8 @@ static inline bool analyseSegments(
             int thisLen = 0, mbufLen;
 
             vmo = (uintptr_t)mbuf_data(in);
-            for (mbufLen = mbuf_len(in); mbufLen; mbufLen -= thisLen) {
-                thisLen = MIN(next_page(vmo), vmo + mbufLen) - vmo;
+            for (mbufLen = (SInt32)mbuf_len(in); mbufLen; mbufLen -= thisLen) {
+                thisLen = MIN((SInt32)next_page(vmo), (SInt32)(vmo + mbufLen)) - (SInt32)vmo;
                 vmo += thisLen;
                 numSegs--;
             }

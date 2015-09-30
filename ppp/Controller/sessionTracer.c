@@ -42,56 +42,44 @@
 #include "../Drivers/PPPoE/PPPoE-extension/PPPoE.h"
 #include "scnc_utils.h"
 
-const char *sessionString			   = "Controller";
+const char *sessionString				= "Controller";
+const char *nullString					= "NULL";
 
 static const char *
-sessionGetConnectionDomain (struct service *serv)
+sessionGetConnectionDomain ()
 {
-    switch (serv->type) {
-        case TYPE_PPP:
-            switch (serv->subtype) {
-                case PPP_TYPE_L2TP:
-                    return L2TPVPN_CONNECTION_ESTABLISHED_DOMAIN;
-                case PPP_TYPE_PPTP:
-                    return PPTPVPN_CONNECTION_ESTABLISHED_DOMAIN;
-                case PPP_TYPE_PPPoE:
-                    return PPPOEVPN_CONNECTION_ESTABLISHED_DOMAIN;
-                case PPP_TYPE_SERIAL:
-                    return PPPSERIALVPN_CONNECTION_ESTABLISHED_DOMAIN;
-                default:
-                    return PLAINPPPVPN_CONNECTION_ESTABLISHED_DOMAIN;
-            }
-            break;
-        case TYPE_IPSEC:
-            return CISCOVPN_CONNECTION_ESTABLISHED_DOMAIN;
-        default:
-            return PLAINPPPVPN_CONNECTION_ESTABLISHED_DOMAIN;
-    }
+	return PPP_CONNECTION_ESTABLISHED_DOMAIN;
 }
 
 static const char *
-sessionGetConnectionLessDomain (struct service *serv)
+sessionGetConnectionLessDomain ()
 {
-    switch (serv->type) {
-        case TYPE_PPP:
-            switch (serv->subtype) {
-                case PPP_TYPE_L2TP:
-                    return L2TPVPN_CONNECTION_NOTESTABLISHED_DOMAIN;
-                case PPP_TYPE_PPTP:
-                    return PPTPVPN_CONNECTION_NOTESTABLISHED_DOMAIN;
-                case PPP_TYPE_PPPoE:
-                    return PPPOEVPN_CONNECTION_NOTESTABLISHED_DOMAIN;
-                case PPP_TYPE_SERIAL:
-                    return PPPSERIALVPN_CONNECTION_NOTESTABLISHED_DOMAIN;
-                default:
-                    return PLAINPPPVPN_CONNECTION_NOTESTABLISHED_DOMAIN;
-            }
-            break;
-        case TYPE_IPSEC:
-            return CISCOVPN_CONNECTION_NOTESTABLISHED_DOMAIN;
-        default:
-            return PLAINPPPVPN_CONNECTION_NOTESTABLISHED_DOMAIN;
-    }
+	return PPP_CONNECTION_NOTESTABLISHED_DOMAIN;
+}
+
+static const char *
+sessionGetType (struct service *serv)
+{
+	switch (serv->type) {
+		case TYPE_PPP:
+			switch (serv->subtype) {
+				case PPP_TYPE_L2TP:
+					return nullString;
+				case PPP_TYPE_PPTP:
+					return nullString;
+				case PPP_TYPE_PPPoE:
+					return PPPOENONVPN;
+				case PPP_TYPE_SERIAL:
+					return PPPSERIALNONVPN;
+				default:
+					return PLAINPPPNONVPN;
+			}
+			break;
+		case TYPE_IPSEC:
+			return nullString;
+		default:
+			return PLAINPPPNONVPN;
+	}
 }
 
 static int
@@ -104,9 +92,6 @@ sessionCheckStatusForFailure (struct service *serv)
                       serv->u.ppp.laststatus == EXIT_IDLE_TIMEOUT ||
                       serv->u.ppp.laststatus == EXIT_CONNECT_TIME /* ||
                       serv->u.ppp.laststatus == EXIT_TRAFFIC_LIMIT */));
-        case TYPE_IPSEC:
-            return (!(serv->u.ipsec.laststatus == IPSEC_NO_ERROR ||
-                      serv->u.ipsec.laststatus == IPSEC_IDLETIMEOUT_ERROR));
         default:
             return 0;
     }
@@ -147,22 +132,8 @@ sessionGetReasonString (struct service *serv,
             }
             break;
         }
-        case TYPE_IPSEC:
-        {
-            const char *ipsec_err = ipsec_error_to_string(serv->u.ipsec.laststatus);
-            if (!ipsec_err && !serv->u.ipsec.laststatus) {
-                // nothing worthwile to report
-                return -1;
-            }
-            if (ipsec_err) {
-                snprintf(reason_buf, reason_bufsize, "%s", ipsec_err);
-            } else {
-                snprintf(reason_buf, reason_bufsize, "Error %d", serv->u.ipsec.laststatus);
-            }
-            break;
-        }
-        default:
-            snprintf(reason_buf, reason_bufsize, "Unknown Service Type %d", serv->type);
+		default:
+            snprintf(reason_buf, reason_bufsize, "Unknown/Unsupported Service Type %d", serv->type);
             break;
     }
     return 0;
@@ -173,8 +144,6 @@ sessionCheckIfEstablished (struct service *serv)
 {
     switch (serv->type) {
         case TYPE_PPP:
-            return (serv->establishtime != 0);
-        case TYPE_IPSEC:
             return (serv->establishtime != 0);
         default:
             return 0;
@@ -188,10 +157,7 @@ sessionIsEstablished (struct service *serv)
         case TYPE_PPP:
             serv->establishtime = mach_absolute_time() * gTimeScaleSeconds;
             return;
-        case TYPE_IPSEC:
-            serv->establishtime = mach_absolute_time() * gTimeScaleSeconds;
-            return;
-    }
+	}
 }
 
 static u_int32_t
@@ -208,17 +174,43 @@ sessionGetConnectionDuration (struct service *serv)
                 return ((now > serv->connecttime)? now - serv->connecttime : 0);
             }
             return 0;
-        case TYPE_IPSEC:
-            if (serv->establishtime) {
-                return ((now > serv->establishtime)? now - serv->establishtime : 0);
-            }
-            if (serv->connecttime) {
-                return ((now > serv->connecttime)? now - serv->connecttime : 0);
-            }
-            return 0;
-        default:
+		default:
             return 0;
     }
+}
+
+static void
+sessionTracerLogPPPInfo(aslmsg m, struct service *serv)
+{
+	PPPSession_t pppSess;
+	
+	MT_pppGetTracerOptions(serv, &pppSess);
+	
+	switch (serv->subtype) {
+		case PPP_TYPE_PPPoE:
+			asl_set(m, "com.apple.message.manualipv4", pppSess.manualIPv4);
+			asl_set(m, "com.apple.message.manualipv6", pppSess.manualIPv6);
+		break;
+			
+		default:
+			asl_set(m, "com.apple.message.cclscript", pppSess.modem);
+			asl_set(m, "com.apple.message.authprompt", pppSess.authPrompt);
+			asl_set(m, "com.apple.message.hardwareinfo", pppSess.hardwareInfo);
+			asl_set(m, "com.apple.message.redialenabled", pppSess.redialEnabled);
+			asl_set(m, "com.apple.message.vjcompression", pppSess.vjCompression);
+			asl_set(m, "com.apple.message.terminalwindow", pppSess.useTerminal);
+		break;
+	}
+
+	asl_set(m, "com.apple.message.dialondemand", pppSess.dialOnDemand);
+	asl_set(m, "com.apple.message.idlereminder", pppSess.idleReminder);
+	asl_set(m, "com.apple.message.disconnectonlogout", pppSess.disconnectOnLogout);
+	asl_set(m, "com.apple.message.disconnectonuserswitch", pppSess.disconnectOnUserSwitch);
+	asl_set(m, "com.apple.message.echoenabled", pppSess.echoEnabled);
+	asl_set(m, "com.apple.message.verboselogging", pppSess.verboseLogging);
+	asl_set(m, "com.apple.message.manualdns", pppSess.manualDNS);
+	asl_set(m, "com.apple.message.proxiesenabled", pppSess.proxiesEnabled);
+	asl_set(m, "com.apple.message.winsenabled", pppSess.winsEnabled);
 }
 
 #if 0
@@ -240,14 +232,41 @@ sessionLogEvent (const char *domain, const char *event_msg)
 }
 #endif
 
+#define ONE_MINUTE		60
+#define FIVE_MINUTES	5	* ONE_MINUTE
+#define ONE_HOUR		60	* ONE_MINUTE
+#define FOUR_HOURS		4	* ONE_HOUR
+#define EIGHT_HOURS		8	* ONE_HOUR
+#define ONE_DAY			24	* ONE_HOUR
+
+static char *
+sessionTracerBucketizeTime (u_int32_t duration)
+{
+	if (duration <= FIVE_MINUTES) {
+		return "< 5 mins";
+	} else if (duration <= ONE_HOUR) {
+		return "< 1 hour";
+	} else if (duration <= FOUR_HOURS) {
+		return "< 4 hours";
+	} else if (duration <= EIGHT_HOURS) {
+		return "< 8 hours";
+	} else if (duration <= ONE_DAY) {
+		return "< 1 day";
+	} else {
+		return "> 1 day";
+	}
+}
+
 static void
-sessionTracerLogStop (const char *domain, int caused_by_failure, const char *reason, u_int32_t established, u_int32_t duration)
+sessionTracerLogStop (const char *domain, const char *type, int caused_by_failure, const char *reason, u_int32_t established, u_int32_t duration)
 {
 	aslmsg      m;
-	char        buf[128];
+	char *      buf;
+	char		data[256] = {0};
 
 	m = asl_new(ASL_TYPE_MSG);
 	asl_set(m, "com.apple.message.domain", domain);
+	asl_set(m, "com.apple.message.type", type);
 	asl_set(m, ASL_KEY_FACILITY, domain);
 	asl_set(m, ASL_KEY_MSG, sessionString);
 	if (caused_by_failure) {
@@ -256,24 +275,30 @@ sessionTracerLogStop (const char *domain, int caused_by_failure, const char *rea
 		asl_set(m, "com.apple.message.result", CONSTSTR("success"));	// success
 	}
 	if (reason) {
-		asl_set(m, "com.apple.message.signature", reason);
+		asl_set(m, "com.apple.message.reason", reason);
 	} else {
 		// reason was NULL; make sure success/failure have different signature
 		if (caused_by_failure) {
-			asl_set(m, "com.apple.message.signature", CONSTSTR("Internal/Server-side error"));
+			asl_set(m, "com.apple.message.reason", CONSTSTR("Internal/Server-side error"));
 		} else {
-			asl_set(m, "com.apple.message.signature", CONSTSTR("User/System initiated the disconnect"));
+			asl_set(m, "com.apple.message.reason", CONSTSTR("User/System initiated the disconnect"));
 		}
 	}
+	
+	buf = sessionTracerBucketizeTime(duration);
+	
 	if (established) {
-		snprintf(buf, sizeof(buf), "%d", duration);
-		asl_set(m, "com.apple.message.value", buf);	// stuff the up time into value
-		asl_log(NULL, m, ASL_LEVEL_NOTICE, "SCNCController: Disconnecting. (Connection was up for, %s seconds).", buf);
+		asl_set(m, "com.apple.message.connectiontime", buf);	// stuff the up time into value
+		snprintf(data, sizeof(data), "SCNCController: Disconnecting.");
+		asl_set(m, "com.apple.message.controller", data);
+		asl_log(NULL, m, ASL_LEVEL_NOTICE, "");
 	} else {
-		snprintf(buf, sizeof(buf), "%d", duration);
-		asl_set(m, "com.apple.message.value2", buf);	/// stuff the negoing time into value2
-		asl_log(NULL, m, ASL_LEVEL_NOTICE, "SCNCController: Disconnecting. (Connection tried to negotiate for, %s seconds).", buf);
+		asl_set(m, "com.apple.message.negotiatingtime", buf);	/// stuff the negoing time into value2
+		snprintf(data, sizeof(data), "SCNCController: Disconnecting.");
+		asl_set(m, "com.apple.message.controller", data);
+		asl_log(NULL, m, ASL_LEVEL_NOTICE, "");
 	}
+	
 	asl_free(m);
 }
 
@@ -281,11 +306,19 @@ void
 sessionTracerStop (struct service *serv)
 {
 	if (serv && (serv->connecttime || serv->establishtime)) {
+		const char *type = sessionGetType(serv);
+		
+		if (!strcmp(type, nullString)) {
+			/* We do not trace VPN */
+			return;
+		}
+		
         int established = sessionCheckIfEstablished(serv);
 		u_int32_t duration = sessionGetConnectionDuration(serv);
-        char reason_buf[512];        
+        char reason_buf[512];
 
-        sessionTracerLogStop((established)? sessionGetConnectionDomain(serv) : sessionGetConnectionLessDomain(serv),
+        sessionTracerLogStop((established)? sessionGetConnectionDomain() : sessionGetConnectionLessDomain(),
+							 type,
                              sessionCheckStatusForFailure(serv),
                              (sessionGetReasonString(serv, reason_buf, sizeof(reason_buf)) == 0)? reason_buf : NULL,
                              established,
@@ -300,24 +333,38 @@ sessionTracerStop (struct service *serv)
 void
 sessionTracerLogEstablished (struct service *serv)
 {
-    if (serv) {
-        aslmsg      m;
-        const char *domain = sessionGetConnectionLessDomain(serv);
-
-        if (sessionCheckIfEstablished(serv)) {
-            // already established no need to log (mostly here due to sleep-wake)
-            return;
-        }
-
-        sessionIsEstablished(serv);
-
-        m = asl_new(ASL_TYPE_MSG);
-        asl_set(m, "com.apple.message.domain", domain);
-        asl_set(m, ASL_KEY_FACILITY, domain);
-        asl_set(m, ASL_KEY_MSG, sessionString);
-        asl_set(m, "com.apple.message.result", "success");	// success
-        asl_set(m, "com.apple.message.signature", "success");
-        asl_log(NULL, m, ASL_LEVEL_NOTICE, "SCNCController: Connected.");
-        asl_free(m);
-    }
+	if (serv) {
+		aslmsg      m;
+		char data[256] = {0};
+		const char *type = sessionGetType(serv);
+		
+		if (!strcmp(type, nullString)) {
+			/* We do not trace VPN */
+			return;
+		}
+		
+		const char *domain	= sessionGetConnectionLessDomain();
+		
+		if (sessionCheckIfEstablished(serv)) {
+			// already established no need to log (mostly here due to sleep-wake)
+			return;
+		}
+		
+		sessionIsEstablished(serv);
+		
+		m = asl_new(ASL_TYPE_MSG);
+		asl_set(m, "com.apple.message.domain", domain);
+		asl_set(m, "com.apple.message.type", type);
+		asl_set(m, "com.apple.message.result", CONSTSTR("success"));
+		asl_set(m, "com.apple.message.reason", CONSTSTR("established"));
+		asl_set(m, ASL_KEY_FACILITY, domain);
+		asl_set(m, ASL_KEY_MSG, sessionString);
+		
+		sessionTracerLogPPPInfo(m, serv);
+		
+		snprintf(data, sizeof(data), "SCNCController: Connected.");
+		asl_set(m, "com.apple.message.controller", data);
+		asl_log(NULL, m, ASL_LEVEL_NOTICE, "");
+		asl_free(m);
+	}
 }

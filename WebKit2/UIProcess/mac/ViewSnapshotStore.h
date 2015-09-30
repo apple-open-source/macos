@@ -62,9 +62,9 @@ class WebPageProxy;
 class ViewSnapshot : public RefCounted<ViewSnapshot> {
 public:
 #if USE_IOSURFACE_VIEW_SNAPSHOTS
-    static PassRefPtr<ViewSnapshot> create(WebCore::IOSurface*, WebCore::IntSize, size_t imageSizeInBytes);
+    static Ref<ViewSnapshot> create(std::unique_ptr<WebCore::IOSurface>);
 #elif USE_RENDER_SERVER_VIEW_SNAPSHOTS
-    static PassRefPtr<ViewSnapshot> create(uint32_t slotID, WebCore::IntSize, size_t imageSizeInBytes);
+    static Ref<ViewSnapshot> create(uint32_t slotID, WebCore::IntSize, size_t imageSizeInBytes);
 #endif
 
     ~ViewSnapshot();
@@ -90,13 +90,13 @@ public:
 
 private:
 #if USE_IOSURFACE_VIEW_SNAPSHOTS
-    explicit ViewSnapshot(WebCore::IOSurface*, WebCore::IntSize, size_t imageSizeInBytes);
+    explicit ViewSnapshot(std::unique_ptr<WebCore::IOSurface>);
 #elif USE_RENDER_SERVER_VIEW_SNAPSHOTS
     explicit ViewSnapshot(uint32_t slotID, WebCore::IntSize, size_t imageSizeInBytes);
 #endif
 
 #if USE_IOSURFACE_VIEW_SNAPSHOTS
-    RefPtr<WebCore::IOSurface> m_surface;
+    std::unique_ptr<WebCore::IOSurface> m_surface;
 #elif USE_RENDER_SERVER_VIEW_SNAPSHOTS
     uint32_t m_slotID;
 #endif
@@ -115,7 +115,7 @@ public:
     ViewSnapshotStore();
     ~ViewSnapshotStore();
 
-    static ViewSnapshotStore& shared();
+    static ViewSnapshotStore& singleton();
 
     void recordSnapshot(WebPageProxy&, WebBackForwardListItem&);
 

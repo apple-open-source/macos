@@ -109,7 +109,7 @@ vtd_bfree(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 
 static vtd_baddr_t
 vtd_balloc(vtd_space_t * bf, vtd_baddr_t size, 
-		   uint32_t mapOptions, upl_page_info_t * pageList)
+		   uint32_t mapOptions, const upl_page_info_t * pageList)
 {
 	uint32_t          list, idx;
 	vtd_baddr_t       addr;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,8 +29,6 @@
 #include <wtf/Forward.h>
 
 namespace WebKit {
-class WebContext;
-class WebFrameProxy;
 class WebPageProxy;
 struct WebNavigationDataStore;
 }
@@ -41,15 +39,10 @@ class HistoryClient {
 public:
     virtual ~HistoryClient() { }
 
-    virtual void didNavigateWithNavigationData(WebKit::WebContext*, WebKit::WebPageProxy*, const WebKit::WebNavigationDataStore&, WebKit::WebFrameProxy*) { }
-    virtual void didPerformClientRedirect(WebKit::WebContext*, WebKit::WebPageProxy*, const WTF::String&, const WTF::String&, WebKit::WebFrameProxy*) { }
-    virtual void didPerformServerRedirect(WebKit::WebContext*, WebKit::WebPageProxy*, const WTF::String&, const WTF::String&, WebKit::WebFrameProxy*) { }
-    virtual void didUpdateHistoryTitle(WebKit::WebContext*, WebKit::WebPageProxy*, const WTF::String&, const WTF::String&, WebKit::WebFrameProxy*) { }
-    virtual void populateVisitedLinks(WebKit::WebContext*) { }
-
-    // FIXME: This is only used by the legacy SPI. We should add an API::Context object that
-    // can hold these things so we won't have to get it through API::HistoryClient.
-    virtual bool addsVisitedLinks() const { return false; }
+    virtual void didNavigateWithNavigationData(WebKit::WebPageProxy&, const WebKit::WebNavigationDataStore&) { }
+    virtual void didPerformClientRedirect(WebKit::WebPageProxy&, const WTF::String&, const WTF::String&) { }
+    virtual void didPerformServerRedirect(WebKit::WebPageProxy&, const WTF::String&, const WTF::String&) { }
+    virtual void didUpdateHistoryTitle(WebKit::WebPageProxy&, const WTF::String&, const WTF::String&) { }
 };
 
 } // namespace API

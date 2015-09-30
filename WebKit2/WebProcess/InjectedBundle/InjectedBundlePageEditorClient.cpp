@@ -28,11 +28,13 @@
 
 #include "APIArray.h"
 #include "APIData.h"
+#include "InjectedBundleCSSStyleDeclarationHandle.h"
 #include "InjectedBundleNodeHandle.h"
 #include "InjectedBundleRangeHandle.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
 #include "WKString.h"
+#include "WebPage.h"
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
@@ -98,8 +100,9 @@ bool InjectedBundlePageEditorClient::shouldChangeSelectedRange(WebPage* page, Ra
 bool InjectedBundlePageEditorClient::shouldApplyStyle(WebPage* page, CSSStyleDeclaration* style, Range* range)
 {
     if (m_client.shouldApplyStyle) {
+        RefPtr<InjectedBundleCSSStyleDeclarationHandle> styleHandle = InjectedBundleCSSStyleDeclarationHandle::getOrCreate(style);
         RefPtr<InjectedBundleRangeHandle> rangeHandle = InjectedBundleRangeHandle::getOrCreate(range);
-        return m_client.shouldApplyStyle(toAPI(page), toAPI(style), toAPI(rangeHandle.get()), m_client.base.clientInfo);
+        return m_client.shouldApplyStyle(toAPI(page), toAPI(styleHandle.get()), toAPI(rangeHandle.get()), m_client.base.clientInfo);
     }
     return true;
 }

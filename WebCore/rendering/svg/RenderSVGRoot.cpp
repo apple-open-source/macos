@@ -36,6 +36,7 @@
 #include "RenderNamedFlowFragment.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGResourceContainer.h"
+#include "RenderSVGResourceFilter.h"
 #include "RenderView.h"
 #include "SVGImage.h"
 #include "SVGLength.h"
@@ -47,13 +48,9 @@
 #include "TransformState.h"
 #include <wtf/StackStats.h>
 
-#if ENABLE(FILTERS)
-#include "RenderSVGResourceFilter.h"
-#endif
-
 namespace WebCore {
 
-RenderSVGRoot::RenderSVGRoot(SVGSVGElement& element, PassRef<RenderStyle> style)
+RenderSVGRoot::RenderSVGRoot(SVGSVGElement& element, Ref<RenderStyle>&& style)
     : RenderReplaced(element, WTF::move(style))
     , m_objectBoundingBoxValid(false)
     , m_isLayoutSizeChanged(false)
@@ -69,7 +66,7 @@ RenderSVGRoot::~RenderSVGRoot()
 
 SVGSVGElement& RenderSVGRoot::svgSVGElement() const
 {
-    return toSVGSVGElement(nodeForNonAnonymous());
+    return downcast<SVGSVGElement>(nodeForNonAnonymous());
 }
 
 void RenderSVGRoot::computeIntrinsicRatioInformation(FloatSize& intrinsicSize, double& intrinsicRatio) const
@@ -247,7 +244,7 @@ void RenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paint
 
     // Don't paint if we don't have kids, except if we have filters we should paint those.
     if (!firstChild()) {
-        SVGResources* resources = SVGResourcesCache::cachedResourcesForRenderObject(*this);
+        auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
         if (!resources || !resources->filter()) {
             if (page && paintInfo.phase == PaintPhaseForeground)
                 page->addRelevantUnpaintedObject(this, visualOverflowRect());
@@ -264,7 +261,7 @@ void RenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paint
 
     // Apply initial viewport clip
     if (shouldApplyViewportClip())
-        childPaintInfo.context->clip(pixelSnappedIntRect(overflowClipRect(paintOffset, currentRenderNamedFlowFragment())));
+        childPaintInfo.context->clip(snappedIntRect(overflowClipRect(paintOffset, currentRenderNamedFlowFragment())));
 
     // Convert from container offsets (html renderers) to a relative transform (svg renderers).
     // Transform from our paint container's coordinate system to our local coords.
@@ -313,10 +310,10 @@ void RenderSVGRoot::addChild(RenderObject* child, RenderObject* beforeChild)
     SVGResourcesCache::clientWasAddedToTree(*child);
 }
 
-RenderObject* RenderSVGRoot::removeChild(RenderObject& child)
+void RenderSVGRoot::removeChild(RenderObject& child)
 {
     SVGResourcesCache::clientWillBeRemovedFromTree(child);
-    return RenderReplaced::removeChild(child);
+    RenderReplaced::removeChild(child);
 }
 
 // RenderBox methods will expect coordinates w/o any transforms in coordinates
@@ -439,17 +436,17 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 
 bool RenderSVGRoot::hasRelativeDimensions() const
 {
-    return svgSVGElement().intrinsicHeight().isPercent() || svgSVGElement().intrinsicWidth().isPercent();
+    return svgSVGElement().intrinsicHeight().isPercentOrCalculated() || svgSVGElement().intrinsicWidth().isPercentOrCalculated();
 }
 
 void RenderSVGRoot::addResourceForClientInvalidation(RenderSVGResourceContainer* resource)
 {
-    RenderObject* svgRoot = resource->parent();
-    while (svgRoot && !svgRoot->isSVGRoot())
+    RenderElement* svgRoot = resource->parent();
+    while (svgRoot && !is<RenderSVGRoot>(*svgRoot))
         svgRoot = svgRoot->parent();
     if (!svgRoot)
         return;
-    toRenderSVGRoot(svgRoot)->m_resourcesNeedingToInvalidateClients.add(resource);
+    downcast<RenderSVGRoot>(*svgRoot).m_resourcesNeedingToInvalidateClients.add(resource);
 }
 
 }

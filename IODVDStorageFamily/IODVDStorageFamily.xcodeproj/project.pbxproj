@@ -197,7 +197,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0630;
 			};
 			buildConfigurationList = 60218F97095B74720026C3D8 /* Build configuration list for PBXProject "IODVDStorageFamily" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -290,13 +290,68 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		3032E1741A8DA3B300BC0F17 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = DebugCoverage;
+		};
+		3032E1751A8DA3B300BC0F17 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Info.plist;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = IODVDStorageFamily;
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = DebugCoverage;
+		};
+		3032E1761A8DA3B300BC0F17 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				PRODUCT_NAME = "IODVDStorageFamily Headers";
+			};
+			name = DebugCoverage;
+		};
+		3032E1771A8DA3BB00BC0F17 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = ReleaseCoverage;
+		};
+		3032E1781A8DA3BB00BC0F17 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Info.plist;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = IODVDStorageFamily;
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = ReleaseCoverage;
+		};
+		3032E1791A8DA3BB00BC0F17 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				PRODUCT_NAME = "IODVDStorageFamily Headers";
+			};
+			name = ReleaseCoverage;
+		};
 		60218F94095B74720026C3D8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				PRODUCT_NAME = IODVDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -307,7 +362,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				PRODUCT_NAME = IODVDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -349,7 +403,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60218F94095B74720026C3D8 /* Debug */,
+				3032E1751A8DA3B300BC0F17 /* DebugCoverage */,
 				60218F95095B74720026C3D8 /* Release */,
+				3032E1781A8DA3BB00BC0F17 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -358,7 +414,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60218F98095B74720026C3D8 /* Debug */,
+				3032E1741A8DA3B300BC0F17 /* DebugCoverage */,
 				60218F99095B74720026C3D8 /* Release */,
+				3032E1771A8DA3BB00BC0F17 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -367,7 +425,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60FD67F30D4026D7000D088D /* Debug */,
+				3032E1761A8DA3B300BC0F17 /* DebugCoverage */,
 				60FD67F40D4026D7000D088D /* Release */,
+				3032E1791A8DA3BB00BC0F17 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

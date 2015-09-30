@@ -24,18 +24,19 @@
 
 #include "FilterOperations.h"
 #include "FloatRect.h"
-#include "GraphicsLayerAnimation.h"
 #include "GraphicsLayerTransform.h"
 #include "TextureMapper.h"
+#include "TextureMapperAnimation.h"
 #include "TextureMapperBackingStore.h"
 
 namespace WebCore {
 
+class GraphicsLayer;
 class Region;
 class TextureMapperPaintOptions;
 class TextureMapperPlatformLayer;
 
-class TextureMapperLayer : public GraphicsLayerAnimation::Client {
+class TextureMapperLayer : public TextureMapperAnimation::Client {
     WTF_MAKE_NONCOPYABLE(TextureMapperLayer);
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -74,9 +75,10 @@ public:
     void setIsScrollable(bool isScrollable) { m_isScrollable = isScrollable; }
     bool isScrollable() const { return m_isScrollable; }
 
-    TextureMapper* textureMapper() const;
+    TextureMapper* textureMapper() const { return rootLayer().m_textureMapper; }
     void setTextureMapper(TextureMapper* texmap) { m_textureMapper = texmap; }
 
+    void setChildren(const Vector<GraphicsLayer*>&);
     void setChildren(const Vector<TextureMapperLayer*>&);
     void setMaskLayer(TextureMapperLayer*);
     void setReplicaLayer(TextureMapperLayer*);
@@ -100,25 +102,19 @@ public:
     void setOpacity(float);
     void setSolidColor(const Color&);
     void setContentsTileSize(const FloatSize&);
-    void setContentsTilePhase(const FloatPoint&);
-#if ENABLE(CSS_FILTERS)
+    void setContentsTilePhase(const FloatSize&);
     void setFilters(const FilterOperations&);
-#endif
 
     bool hasFilters() const
     {
-#if ENABLE(CSS_FILTERS)
         return !m_currentFilters.isEmpty();
-#else
-        return false;
-#endif
     }
 
     void setDebugVisuals(bool showDebugBorders, const Color& debugBorderColor, float debugBorderWidth, bool showRepaintCounter);
     bool isShowingRepaintCounter() const { return m_state.showRepaintCounter; }
     void setRepaintCount(int);
     void setContentsLayer(TextureMapperPlatformLayer*);
-    void setAnimations(const GraphicsLayerAnimations&);
+    void setAnimations(const TextureMapperAnimations&);
     void setFixedToViewport(bool);
     bool fixedToViewport() const { return m_fixedToViewport; }
     void setBackingStore(PassRefPtr<TextureMapperBackingStore>);
@@ -134,10 +130,16 @@ public:
     void addChild(TextureMapperLayer*);
 
 private:
-    const TextureMapperLayer* rootLayer() const;
+    const TextureMapperLayer& rootLayer() const
+    {
+        if (m_effectTarget)
+            return m_effectTarget->rootLayer();
+        if (m_parent)
+            return m_parent->rootLayer();
+        return *this;
+    }
     void computeTransformsRecursive();
 
-    static int compareGraphicsLayersZValue(const void* a, const void* b);
     static void sortByZOrder(Vector<TextureMapperLayer* >& array);
 
     PassRefPtr<BitmapTexture> texture() { return m_backingStore ? m_backingStore->texture() : 0; }
@@ -163,12 +165,10 @@ private:
     void applyMask(const TextureMapperPaintOptions&);
     void computePatternTransformIfNeeded();
 
-    // GraphicsLayerAnimation::Client
+    // TextureMapperAnimation::Client
     virtual void setAnimatedTransform(const TransformationMatrix&) override;
     virtual void setAnimatedOpacity(float) override;
-#if ENABLE(CSS_FILTERS)
     virtual void setAnimatedFilters(const FilterOperations&) override;
-#endif
 
     bool isVisible() const;
     enum ContentsLayerCount {
@@ -191,9 +191,7 @@ private:
     TextureMapperPlatformLayer* m_contentsLayer;
     GraphicsLayerTransform m_currentTransform;
     float m_currentOpacity;
-#if ENABLE(CSS_FILTERS)
     FilterOperations m_currentFilters;
-#endif
     float m_centerZ;
 
     template<class HitTestCondition> TextureMapperLayer* hitTest(const FloatPoint&, HitTestCondition);
@@ -211,13 +209,11 @@ private:
         float opacity;
         FloatRect contentsRect;
         FloatSize contentsTileSize;
-        FloatPoint contentsTilePhase;
+        FloatSize contentsTilePhase;
         TextureMapperLayer* maskLayer;
         TextureMapperLayer* replicaLayer;
         Color solidColor;
-#if ENABLE(CSS_FILTERS)
         FilterOperations filters;
-#endif
         Color debugBorderColor;
         float debugBorderWidth;
         int repaintCount;
@@ -253,7 +249,7 @@ private:
 
     State m_state;
     TextureMapper* m_textureMapper;
-    GraphicsLayerAnimations m_animations;
+    TextureMapperAnimations m_animations;
     FloatSize m_scrollPositionDelta;
     bool m_fixedToViewport;
     uint32_t m_id;

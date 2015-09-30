@@ -35,7 +35,7 @@ using namespace WebCore;
 
 namespace JSC {
 
-const ClassInfo RuntimeArray::s_info = { "RuntimeArray", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(RuntimeArray) };
+const ClassInfo RuntimeArray::s_info = { "RuntimeArray", &Base::s_info, 0, CREATE_METHOD_TABLE(RuntimeArray) };
 
 RuntimeArray::RuntimeArray(ExecState* exec, Structure* structure)
     : JSArray(exec->vm(), structure, 0)
@@ -75,7 +75,7 @@ void RuntimeArray::getOwnPropertyNames(JSObject* object, ExecState* exec, Proper
     for (unsigned i = 0; i < length; ++i)
         propertyNames.add(Identifier::from(exec, i));
 
-    if (mode == IncludeDontEnumProperties)
+    if (mode.includeDontEnumProperties())
         propertyNames.add(exec->propertyNames().length);
 
     JSObject::getOwnPropertyNames(thisObject, exec, propertyNames, mode);
@@ -89,11 +89,10 @@ bool RuntimeArray::getOwnPropertySlot(JSObject* object, ExecState* exec, Propert
         return true;
     }
     
-    unsigned index = propertyName.asIndex();
-    if (index < thisObject->getLength()) {
-        ASSERT(index != PropertyName::NotAnIndex);
+    Optional<uint32_t> index = parseIndex(propertyName);
+    if (index && index.value() < thisObject->getLength()) {
         slot.setValue(thisObject, DontDelete | DontEnum,
-            thisObject->getConcreteArray()->valueAt(exec, index));
+            thisObject->getConcreteArray()->valueAt(exec, index.value()));
         return true;
     }
     
@@ -120,9 +119,8 @@ void RuntimeArray::put(JSCell* cell, ExecState* exec, PropertyName propertyName,
         return;
     }
     
-    unsigned index = propertyName.asIndex();
-    if (index != PropertyName::NotAnIndex) {
-        thisObject->getConcreteArray()->setValueAt(exec, index, value);
+    if (Optional<uint32_t> index = parseIndex(propertyName)) {
+        thisObject->getConcreteArray()->setValueAt(exec, index.value(), value);
         return;
     }
     

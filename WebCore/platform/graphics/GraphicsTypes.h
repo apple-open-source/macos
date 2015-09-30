@@ -63,7 +63,9 @@ namespace WebCore {
         BlendModeHue,
         BlendModeSaturation,
         BlendModeColor,
-        BlendModeLuminosity
+        BlendModeLuminosity,
+        BlendModePlusDarker,
+        BlendModePlusLighter
     };
 
     enum GradientSpreadMethod {

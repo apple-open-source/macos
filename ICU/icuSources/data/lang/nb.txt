@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/nb.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/nb.xml
- */
 nb{
     Keys{
         calendar{"kalender"}
@@ -108,7 +105,7 @@ nb{
         chn{"chinook"}
         cho{"choctaw"}
         chp{"chipewiansk"}
-        chr{"cherokee"}
+        chr{"cherokesisk"}
         chy{"cheyenne"}
         ckb{"kurdisk (sorani)"}
         co{"korsikansk"}
@@ -182,6 +179,7 @@ nb{
         fy{"vestfrisisk"}
         ga{"irsk"}
         gaa{"ga"}
+        gag{"gagausisk"}
         gay{"gayo"}
         gba{"gbaya"}
         gd{"skotsk gælisk"}
@@ -199,7 +197,7 @@ nb{
         gsw{"sveitsertysk"}
         gu{"gujarati"}
         guz{"gusii"}
-        gv{"manx"}
+        gv{"mansk"}
         gwi{"gwichin"}
         ha{"hausa"}
         hai{"haida"}
@@ -265,6 +263,7 @@ nb{
         kmb{"kimbundu"}
         kn{"kannada"}
         ko{"koreansk"}
+        koi{"komipermjakisk"}
         kok{"konkani"}
         kos{"kosraeansk"}
         kpe{"kpelle"}
@@ -303,7 +302,7 @@ nb{
         lun{"lunda"}
         luo{"luo"}
         lus{"lushai"}
-        luy{"oluluyia"}
+        luy{"luhya"}
         lv{"latvisk"}
         mad{"maduresisk"}
         maf{"mafa"}
@@ -321,7 +320,7 @@ nb{
         mg{"madagassisk"}
         mga{"mellomirsk"}
         mgh{"makhuwa-meetto"}
-        mgo{"meta'"}
+        mgo{"meta’"}
         mh{"marshallesisk"}
         mi{"maori"}
         mic{"micmac"}
@@ -350,7 +349,7 @@ nb{
         nb{"norsk bokmål"}
         nd{"nord-ndebele"}
         nds{"lavtysk"}
-        ne{"nepalsk"}
+        ne{"nepali"}
         new{"newari"}
         ng{"ndonga"}
         nia{"nias"}
@@ -381,7 +380,7 @@ nb{
         os{"ossetisk"}
         osa{"osage"}
         ota{"ottomansk tyrkisk"}
-        pa{"panjabi"}
+        pa{"punjabi"}
         pag{"pangasinan"}
         pal{"pahlavi"}
         pam{"pampanga"}
@@ -398,19 +397,20 @@ nb{
         pt_BR{"brasiliansk portugisisk"}
         pt_PT{"europeisk portugisisk"}
         qu{"quechua"}
+        quc{"quiché"}
         raj{"rajasthani"}
         rap{"rapanui"}
         rar{"rarotongansk"}
         rm{"retoromansk"}
         rn{"rundi"}
         ro{"rumensk"}
-        ro_MD{"moldavisk"}
+        ro_MD{"moldovsk"}
         rof{"rombo"}
         rom{"romani"}
         root{"rot"}
         ru{"russisk"}
         rup{"aromansk"}
-        rw{"kinjarwanda"}
+        rw{"kinyarwanda"}
         rwk{"rwa"}
         sa{"sanskrit"}
         sad{"sandawe"}
@@ -466,7 +466,7 @@ nb{
         swc{"kongolesisk swahili"}
         syc{"klassisk syrisk"}
         syr{"syrisk"}
-        ta{"tamil"}
+        ta{"tamilsk"}
         te{"telugu"}
         tem{"temne"}
         teo{"teso"}
@@ -542,10 +542,13 @@ nb{
         zxx{"uten språklig innhold"}
         zza{"zaza"}
     }
-    LanguagesShort{
+    Languages%short{
         az{"azeri"}
         en_GB{"engelsk – britisk"}
         en_US{"engelsk – USA"}
+    }
+    Languages%variant{
+        ps{"pushto"}
     }
     Scripts{
         Afak{"afaka"}
@@ -642,7 +645,7 @@ nb{
         Narb{"gammelnordarabisk"}
         Nbat{"nabataeansk"}
         Nkgb{"naxi geba"}
-        Nkoo{"n'ko"}
+        Nkoo{"n’ko"}
         Nshu{"nüshu"}
         Ogam{"ogham"}
         Olck{"ol-chiki"}
@@ -681,7 +684,7 @@ nb{
         Takr{"takri"}
         Tale{"tai le"}
         Talu{"ny tai lue"}
-        Taml{"tamil"}
+        Taml{"tamilsk"}
         Tang{"tangut"}
         Tavt{"tai viet"}
         Telu{"telugu"}
@@ -711,6 +714,9 @@ nb{
         Hans{"forenklet han"}
         Hant{"tradisjonell han"}
     }
+    Scripts%variant{
+        Arab{"persisk-arabisk"}
+    }
     Types{
         calendar{
             buddhist{"buddhistisk kalender"}
@@ -727,7 +733,7 @@ nb{
             islamic-rgsa{"islamsk kalender (Saudi-Arabia. synlighet)"}
             islamic-tbla{"islamsk kalender (tabellarisk, astronomisk epoke)"}
             islamic-umalqura{"islamsk kalender (Umm al-Qura)"}
-            iso8601{"ISO-8601-kalender"}
+            iso8601{"ISO 8601-kalender"}
             japanese{"japansk kalender"}
             persian{"persisk kalender"}
             roc{"kalender for Republikken Kina"}
@@ -828,7 +834,7 @@ nb{
             mymr{"myanmar-tall"}
             mymrshan{"myanmar shan-tall"}
             native{"Språkspesifikke sifre"}
-            nkoo{"n'ko-tall"}
+            nkoo{"n’ko-tall"}
             olck{"ol chiki-tall"}
             orya{"oriya-tall"}
             osma{"osmanya-tall"}
@@ -880,6 +886,7 @@ nb{
         KSCOR{"standard ortografi"}
         LAUKIKA{"laukika"}
         LIPAW{"resia med Lipovaz-dialekt"}
+        LUNA1918{"LUNA1918"}
         METELKO{"Metelko-alfabet"}
         MONOTON{"monotonisk rettskriving"}
         NDYUKA{"Ndyuka-dialekt"}
@@ -888,12 +895,15 @@ nb{
         NULIK{"moderne volapük"}
         OSOJS{"oseacco- og osojanedialekt"}
         PAMAKA{"Pamaka-dialekt"}
+        PETR1708{"PETR1708"}
         PINYIN{"pinyin"}
         POLYTON{"polytonisk rettskriving"}
         POSIX{"dataspråk"}
+        PUTER{"PUTER"}
         REVISED{"revidert rettskriving"}
         RIGIK{"klassisk volapük"}
         ROZAJ{"resisk dialekt"}
+        RUMGR{"RUMGR"}
         SAAHO{"saaho dialekt"}
         SCOTLAND{"skotsk standard engelsk"}
         SCOUSE{"scouse dialekt"}
@@ -909,7 +919,7 @@ nb{
         VALLADER{"vallader"}
         WADEGILE{"Wade-Giles"}
     }
-    Version{"2.0.98.52"}
+    Version{"2.1.12.94"}
     codePatterns{
         language{"Språk: {0}"}
         script{"Skrift: {0}"}

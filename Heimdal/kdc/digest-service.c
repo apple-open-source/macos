@@ -640,7 +640,7 @@ od_init(krb5_context context, void **ctx)
     });
     
     if (ntlmDomain == NULL)
-	return ENOENT;
+	return HNTLM_ERR_NO_OD_CONFIGURED;
     
     c = calloc(1, sizeof(*c));
     if (c == NULL)
@@ -793,7 +793,7 @@ od_authenticate(void *ctx,
 			      username, meta_keys, &error);
     if (record == NULL) {
 	kdc_log(context, config, 2, "digest-request: failed to find user %s in OD", ntq->loginUserName);
-	ret = ENOENT;
+	ret = HNTLM_ERR_OD_NO_USER;
 	goto out;
     }
     
@@ -801,12 +801,12 @@ od_authenticate(void *ctx,
     if (values && CFArrayGetCount(values) > 0) {
 	CFStringRef str = (CFStringRef)CFArrayGetValueAtIndex(values, 0);
 	if (CFStringGetTypeID() != CFGetTypeID(str)) {
-	    ret = HNTLM_ERR_NOT_CONFIGURED;
+	    ret = HNTLM_ERR_NO_OD_CONFIGURED;
 	    goto out;
 	}
 	if (!CFStringHasPrefix(str, CFSTR("/LDAPv3/"))) {
 	    kdc_log(context, config, 2, "digest-request: user not in /LDAPv3");
-	    ret = ENOENT;
+	    ret = HNTLM_ERR_NO_OD_CONFIGURED;
 	    goto out;
 	}
     }
@@ -818,7 +818,7 @@ od_authenticate(void *ctx,
     
     if (!b) {
 	kdc_log(context, config, 2, "digest-request: authentication failed");
-	ret = ENOENT;
+	ret = HNTLM_ERR_INVALID_RESPONSE;
 	goto out;
     }
     

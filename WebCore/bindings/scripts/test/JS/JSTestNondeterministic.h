@@ -23,21 +23,23 @@
 
 #include "JSDOMWrapper.h"
 #include "TestNondeterministic.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
 class JSTestNondeterministic : public JSDOMWrapper {
 public:
     typedef JSDOMWrapper Base;
-    static JSTestNondeterministic* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<TestNondeterministic> impl)
+    static JSTestNondeterministic* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestNondeterministic>&& impl)
     {
-        JSTestNondeterministic* ptr = new (NotNull, JSC::allocateCell<JSTestNondeterministic>(globalObject->vm().heap)) JSTestNondeterministic(structure, globalObject, impl);
+        JSTestNondeterministic* ptr = new (NotNull, JSC::allocateCell<JSTestNondeterministic>(globalObject->vm().heap)) JSTestNondeterministic(structure, globalObject, WTF::move(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
     static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static TestNondeterministic* toWrapped(JSC::JSValue);
     static void destroy(JSC::JSCell*);
     ~JSTestNondeterministic();
 
@@ -50,20 +52,12 @@ public:
 
     static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
     TestNondeterministic& impl() const { return *m_impl; }
-    void releaseImpl() { m_impl->deref(); m_impl = 0; }
-
-    void releaseImplIfNotNull()
-    {
-        if (m_impl) {
-            m_impl->deref();
-            m_impl = 0;
-        }
-    }
+    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
 
 private:
     TestNondeterministic* m_impl;
 protected:
-    JSTestNondeterministic(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<TestNondeterministic>);
+    JSTestNondeterministic(JSC::Structure*, JSDOMGlobalObject*, Ref<TestNondeterministic>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -81,17 +75,12 @@ public:
 
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestNondeterministic*)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(JSTestNondeterministicOwner, jsTestNondeterministicOwner, ());
-    return &jsTestNondeterministicOwner;
-}
-
-inline void* wrapperContext(DOMWrapperWorld& world, TestNondeterministic*)
-{
-    return &world;
+    static NeverDestroyed<JSTestNondeterministicOwner> owner;
+    return &owner.get();
 }
 
 JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestNondeterministic*);
-TestNondeterministic* toTestNondeterministic(JSC::JSValue);
+inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, TestNondeterministic& impl) { return toJS(exec, globalObject, &impl); }
 
 
 } // namespace WebCore

@@ -47,16 +47,16 @@ class UniqueIDBDatabase;
 
 class DatabaseProcessIDBConnection : public RefCounted<DatabaseProcessIDBConnection>, public IPC::MessageSender {
 public:
-    static RefPtr<DatabaseProcessIDBConnection> create(DatabaseToWebProcessConnection& connection, uint64_t serverConnectionIdentifier)
+    static Ref<DatabaseProcessIDBConnection> create(DatabaseToWebProcessConnection& connection, uint64_t serverConnectionIdentifier)
     {
-        return adoptRef(new DatabaseProcessIDBConnection(connection, serverConnectionIdentifier));
+        return adoptRef(*new DatabaseProcessIDBConnection(connection, serverConnectionIdentifier));
     }
 
     virtual ~DatabaseProcessIDBConnection();
 
     // Message handlers.
-    void didReceiveDatabaseProcessIDBConnectionMessage(IPC::Connection*, IPC::MessageDecoder&);
-    void didReceiveSyncDatabaseProcessIDBConnectionMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
+    void didReceiveDatabaseProcessIDBConnectionMessage(IPC::Connection&, IPC::MessageDecoder&);
+    void didReceiveSyncDatabaseProcessIDBConnectionMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
 
     void disconnectedFromWebProcess();
 

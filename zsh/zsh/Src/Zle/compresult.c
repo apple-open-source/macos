@@ -1090,15 +1090,16 @@ do_single(Cmatch m)
 		    }
 		    if (tryit) {
 			noerrs = 1;
-			parsestr(p);
+			p = dupstring(p);
+			parsestr(&p);
 			singsub(&p);
-			errflag = 0;
+			errflag &= ~ERRFLAG_ERROR;
 			noerrs = ne;
 		    }
 		} else {
 		    p = (char *) zhalloc(strlen(prpre) + strlen(str) +
 				 strlen(psuf) + 3);
-		    sprintf(p, "%s%s%s", ((prpre && *prpre) ?
+		    sprintf(p, "%s%s%s", (*prpre ?
 					  prpre : "./"), str, psuf);
 		}
 		/* And do the stat. */
@@ -1131,7 +1132,7 @@ do_single(Cmatch m)
 	    /* If a suffix was added, and is removable, let *
 	     * `,' and `}' remove it.                       */
 	    if (isset(AUTOPARAMKEYS))
-		addsuffix(SUFTYP_POSSTR, 0, ZWS(",}"), 2, suffixnoinslen);
+		addsuffix(SUFTYP_POSSTR, 0, ZWS(",}"), 2, suffixlen);
 	} else if (!menucmp) {
 	    /*{{*/
 	    /* Otherwise, add a `,' suffix, and let `}' remove it. */

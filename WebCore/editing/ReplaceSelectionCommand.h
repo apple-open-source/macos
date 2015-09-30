@@ -48,17 +48,16 @@ public:
 
     typedef unsigned CommandOptions;
 
-    static PassRefPtr<ReplaceSelectionCommand> create(Document& document, PassRefPtr<DocumentFragment> fragment, CommandOptions options, EditAction action = EditActionPaste)
+    static Ref<ReplaceSelectionCommand> create(Document& document, RefPtr<DocumentFragment>&& fragment, CommandOptions options, EditAction editingAction = EditActionInsert)
     {
-        return adoptRef(new ReplaceSelectionCommand(document, fragment, options, action));
+        return adoptRef(*new ReplaceSelectionCommand(document, WTF::move(fragment), options, editingAction));
     }
 
 private:
-    ReplaceSelectionCommand(Document&, PassRefPtr<DocumentFragment>, CommandOptions, EditAction);
+    ReplaceSelectionCommand(Document&, RefPtr<DocumentFragment>&&, CommandOptions, EditAction);
 
     virtual void doApply();
-    virtual EditAction editingAction() const;
-    
+
     class InsertedNodes {
     public:
         void respondToNodeInsertion(Node*);
@@ -68,7 +67,14 @@ private:
 
         Node* firstNodeInserted() const { return m_firstNodeInserted.get(); }
         Node* lastLeafInserted() const { return m_lastNodeInserted->lastDescendant(); }
-        Node* pastLastLeaf() const { return m_lastNodeInserted ? NodeTraversal::next(lastLeafInserted()) : 0; }
+        Node* pastLastLeaf() const
+        {
+            if (m_lastNodeInserted) {
+                ASSERT(lastLeafInserted());
+                return NodeTraversal::next(*lastLeafInserted());
+            }
+            return nullptr;
+        }
 
     private:
         RefPtr<Node> m_firstNodeInserted;
@@ -89,8 +95,8 @@ private:
     void removeUnrenderedTextNodesAtEnds(InsertedNodes&);
     
     void removeRedundantStylesAndKeepStyleSpanInline(InsertedNodes&);
-    void makeInsertedContentRoundTrippableWithHTMLTreeBuilder(const InsertedNodes&);
-    void moveNodeOutOfAncestor(PassRefPtr<Node>, PassRefPtr<Node> ancestor);
+    void makeInsertedContentRoundTrippableWithHTMLTreeBuilder(InsertedNodes&);
+    void moveNodeOutOfAncestor(PassRefPtr<Node>, PassRefPtr<Node> ancestor, InsertedNodes&);
     void handleStyleSpans(InsertedNodes&);
     void handlePasteAsQuotationNode();
     
@@ -113,7 +119,6 @@ private:
     RefPtr<DocumentFragment> m_documentFragment;
     bool m_preventNesting;
     bool m_movingParagraph;
-    EditAction m_editAction;
     bool m_sanitizeFragment;
     bool m_shouldMergeEnd;
     bool m_ignoreMailBlockquote;

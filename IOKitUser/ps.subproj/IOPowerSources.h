@@ -187,6 +187,31 @@ IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void);
  */
 #define     kIOPSTimeRemainingUnlimited         ((CFTimeInterval)-2.0)
 
+ 
+/*!
+ * @constant    kIOPMUPSPowerKey
+ *              Possible return value from <code>@link IOPSGetProvidingPowerSourceType@/link</code>
+ *              Indicates that the system is connected to an external power source, that identifies itself as
+ *              as an UPS.
+ */
+
+#define kIOPMUPSPowerKey                                "UPS Power"
+
+/*!
+ * @constant    kIOPMBatteryPowerKey
+ *              Possible return value from <code>@link IOPSGetProvidingPowerSourceType@/link</code>
+ *              Indicates that the system is connected to internal battery power source.
+ */
+#define kIOPMBatteryPowerKey                            "Battery Power"
+
+/*!
+ * @constant    kIOPMACPowerKey
+ *              Possible return value from <code>@link IOPSGetProvidingPowerSourceType@/link</code>
+ *              Indicates that the system is connected to an external unlimited power source.
+ */
+#define kIOPMACPowerKey                                 "AC Power"
+
+
 /*! 
  * @function    IOPSGetTimeRemainingEstimate
  *
@@ -243,19 +268,6 @@ typedef void  (*IOPowerSourceCallbackType)(void *context);
  *              Caller must CFRelease() the return value when done accessing it.
  */
 CFTypeRef IOPSCopyPowerSourcesInfo(void);
-
-/*! 
- * @function    IOPSGetProvidingPowerSourceType
- *
- * @abstract    Indicates the power source the computer is currently drawing from.
- *
- * @discussion  Determines which power source is providing power.
- *
- * @param       snapshot The CFTypeRef returned by IOPSCopyPowerSourcesInfo(); caller may pass NULL.
- *
- * @result      One of: CFSTR(kIOPMACPowerKey), CFSTR(kIOPMBatteryPowerKey), CFSTR(kIOPMUPSPowerKey)
- */
-CFStringRef     IOPSGetProvidingPowerSourceType(CFTypeRef snapshot);
 
 /*! @function   IOPSCopyPowerSourcesList
  *

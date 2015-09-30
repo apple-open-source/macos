@@ -47,15 +47,18 @@ def(startitem)(0)() \
 def(enditem)(0)()\
 def(item)(2)(
 ARG1: ARG2)\
-def(nofill)(1)(ARG1)
+def(nofill)(1)(ARG1)\
+def(uref)(1)(url(ARG1)(ARG1))\
+def(LPAR)(0)(CHAR(40))\
+def(RPAR)(1)(CHAR(41))
 myreport(Z-Shell Frequently-Asked Questions)(Peter Stephenson)(2010/02/15)
 COMMENT(-- the following are for Usenet and must appear first)\
 description(\
 mydit(Archive-Name:) unix-faq/shell/zsh
-mydit(Last-Modified:) 2012/06/15
+mydit(Last-Modified:) 2015/05/31
 mydit(Submitted-By:) email(coordinator@zsh.org (Peter Stephenson))
 mydit(Posting-Frequency:) Monthly
-mydit(Copyright:) (C) P.W. Stephenson, 1995--2010 (see end of document)
+mydit(Copyright:) (C) P.W. Stephenson, 1995--2015 (see end of document)
 )
 
 This document contains a list of frequently-asked (or otherwise
@@ -302,7 +305,7 @@ sect(On what machines will it run?)
 
 sect(What's the latest version?)
 
-  Zsh 5.0.5 is the latest production version.  For details of all the
+  Zsh 5.0.8 is the latest production version.  For details of all the
   changes, see the NEWS file in the source distribution.
 
   A beta of the next version is sometimes available.  Development of zsh is
@@ -696,9 +699,9 @@ label(23)
     cd() { builtin cd "$@"; print -D $PWD; }
   )
   (which converts your home directory to a tt(~)).  In fact, this problem is
-  better solved by defining the special function chpwd() (see the manual).
-  Note also that the mytt(;) at the end of the function is optional in zsh,
-  but not in ksh or sh (for sh's where it exists).
+  better solved by defining the special function chpwd+LPAR()RPAR() (see
+  the manual). Note also that the mytt(;) at the end of the function is
+  optional in zsh, but not in ksh or sh (for sh's where it exists).
 
   Here is Bart Schaefer's guide to converting csh aliases for zsh.
 
@@ -1017,19 +1020,26 @@ sect(In which startup file do I put...?)
   reason it is important for administrators to make sure tt(/etc/zshenv)
   is as brief as possible.
 
-  The order in which the four files are searched (none of them myem(need)
-  to exist) is the one just given.  However, tt(.zprofile) and tt(.zlogin)
-  are only run when the shell is a login shell --- when you first login,
-  of course, and whenever you start zsh with the tt(-l) option.  All
-  login shells are interactive.  The order is the only difference
-  between those; you should decide whether you need things set before or
-  after tt(.zshrc).  These files are a good place to set environment
-  variables (i.e. mytt(export) commands), since they are passed on to
-  all shells without you having to set them again, and also to check
-  that your terminal is set up properly (except that if you want to
-  change settings for terminal emulator windows like tt(xterm) you will
-  need to put those in tt(.zshrc), since usually you do not get a login
-  shell here).  
+  The order in which the four files are searched (none of them
+  myem(need) to exist) is the one just given.  However, tt(.zprofile)
+  and tt(.zlogin) are only run when the shell is a login shell --- when
+  you first login, of course, and whenever you start zsh with the tt(-l)
+  option.  The order is the only difference between those; you should
+  decide whether you need things set before or after tt(.zshrc).  These
+  files are a good place to set environment variables (i.e. mytt(export)
+  commands), since they are passed on to all shells without you having
+  to set them again, and also to check that your terminal is set up
+  properly (except that if you want to change settings for terminal
+  emulator windows like tt(xterm) you will need to put those in
+  tt(.zshrc), since usually you do not get a login shell here).
+
+  Login shells are often interactive, but this is not necessarily the
+  case.  It is the programme that starts the shell that decides if it is
+  to be a login shell, and it is not required that the shell be run
+  interactively.  A possible example is a display manager that starts a
+  shell to initialise your environment before running the window manager
+  to create terminals: it might run this as a login shell but with no
+  terminal, so it is not interactive.
 
   The only file you can alter which is started with every zsh (unless
   you use the tt(-f) option) is tt(.zshenv), so this is a good place to \
@@ -1756,7 +1766,7 @@ sect(Why is my output duplicated with `tt(foo 2>&1 >foo.out | bar)'?)
   actually see is that the output is going both to the pipe and into the
   file.  To be more explicit, here's the same example with real commands:
   verb(
-    % { print output; print error >&2 } 2>&1 >foo.out | sed 's/error/erratic'
+    % { print output; print error >&2 } 2>&1 >foo.out | sed 's/error/erratic/'
     erratic
     output
     % cat foo.out
@@ -1777,7 +1787,14 @@ sect(Why is my output duplicated with `tt(foo 2>&1 >foo.out | bar)'?)
   to both files when the redirector appears twice.  What's going on in the
   first example is exactly the same, however the second redirector is
   disguised as a pipe.  So if you want to turn this effect off, you need
-  to unset the option mytt(MULTIOS).
+  to unset the option mytt(MULTIOS), or alternatively write the following:
+  verb(
+    % { print output; print error >&2 } 2>&1 >&- >foo.out | sed 's/error/erratic/'
+    erratic
+  )
+  By closing stdout with tt(>&-), we're cancelling the previous redirections
+  (to the pipe) and start anew with tt(>foo.out) instead of adding it as a
+  redirection target to stdout.
 
 
 sect(What are these `^' and `~' pattern characters, anyway?)
@@ -1863,7 +1880,7 @@ label(327)
   mytt(something) mustn't contain tt(/) if the pattern is being used for
   globbing.
 
-  Likewise, mytt(abc(<->~<10-100>).txt) matches a file consisting of
+  Likewise, mytt(abc+LPAR()<->~<10-100>RPAR().txt) matches a file consisting of
   tt(abc), then some digits, then tt(.txt), unless the digits happen to
   match a number from 10 to 100 inclusive (remember the handy mytt(<->)
   pattern for matching integers with optional limits to the range).  So

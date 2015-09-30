@@ -115,7 +115,7 @@ Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithNodeNameInArray",
 {
     value: function(nameArray)
     {
-        var lowerCaseNameArray = nameArray.map(function(name) { return name.toLowerCase() });
+        var lowerCaseNameArray = nameArray.map(function(name) { return name.toLowerCase(); });
         for (var node = this; node && node !== this.ownerDocument; node = node.parentNode) {
             for (var i = 0; i < nameArray.length; ++i) {
                 if (node.nodeName.toLowerCase() === lowerCaseNameArray[i])
@@ -311,6 +311,22 @@ Object.defineProperty(Node.prototype, "rangeOfWord",
     }
 });
 
+Object.defineProperty(Element.prototype, "realOffsetWidth",
+{
+    get: function()
+    {
+        return this.getBoundingClientRect().width;
+    }
+});
+
+Object.defineProperty(Element.prototype, "realOffsetHeight",
+{
+    get: function()
+    {
+        return this.getBoundingClientRect().height;
+    }
+});
+
 Object.defineProperty(Element.prototype, "totalOffsetLeft",
 {
     get: function()
@@ -391,22 +407,6 @@ Object.defineProperty(Element.prototype, "recalculateStyles",
 Object.defineProperty(DocumentFragment.prototype, "createChild",
 {
     value: Element.prototype.createChild
-});
-
-Object.defineProperty(String.prototype, "contains",
-{
-    value: function(value)
-    {
-        return this.indexOf(value) !== -1;
-    }
-});
-
-Object.defineProperty(Array.prototype, "contains",
-{
-    value: function(value)
-    {
-        return this.indexOf(value) !== -1;
-    }
 });
 
 Object.defineProperty(Array.prototype, "lastValue",
@@ -525,12 +525,12 @@ Object.defineProperty(String, "tokenizeFormatString",
 
         function addStringToken(str)
         {
-            tokens.push({ type: "string", value: str });
+            tokens.push({type: "string", value: str});
         }
 
         function addSpecifierToken(specifier, precision, substitutionIndex)
         {
-            tokens.push({ type: "specifier", specifier: specifier, precision: precision, substitutionIndex: substitutionIndex });
+            tokens.push({type: "specifier", specifier, precision, substitutionIndex});
         }
 
         var index = 0;
@@ -581,14 +581,6 @@ Object.defineProperty(String, "tokenizeFormatString",
         addStringToken(format.substring(index));
 
         return tokens;
-    }
-});
-
-Object.defineProperty(String.prototype, "startsWith", 
-{
-    value: function(string)
-    {
-        return this.lastIndexOf(string, 0) === 0;
     }
 });
 
@@ -663,7 +655,7 @@ Object.defineProperty(String, "format",
     value: function(format, substitutions, formatters, initialValue, append)
     {
         if (!format || !substitutions || !substitutions.length)
-            return { formattedResult: append(initialValue, format), unusedSubstitutions: substitutions };
+            return {formattedResult: append(initialValue, format), unusedSubstitutions: substitutions};
 
         function prettyFunctionName()
         {
@@ -724,7 +716,7 @@ Object.defineProperty(String, "format",
             unusedSubstitutions.push(substitutions[i]);
         }
 
-        return {formattedResult: result, unusedSubstitutions: unusedSubstitutions};
+        return {formattedResult: result, unusedSubstitutions};
     }
 });
 
@@ -753,6 +745,63 @@ Object.defineProperty(String.prototype, "removeWordBreakCharacters",
     {
         // Undoes what insertWordBreakCharacters did.
         return this.replace(/\u200b/g, "");
+    }
+});
+
+Object.defineProperty(String.prototype, "getMatchingIndexes",
+{
+    value: function(needle)
+    {
+        var indexesOfNeedle = [];
+        var index = this.indexOf(needle);
+
+        while (index >= 0) {
+            indexesOfNeedle.push(index);
+            index = this.indexOf(needle, index + 1);
+        }
+
+        return indexesOfNeedle;
+    }
+});
+
+Object.defineProperty(String.prototype, "levenshteinDistance",
+{
+    value: function(s)
+    {
+        var m = this.length;
+        var n = s.length;
+        var d = new Array(m + 1);
+
+        for (var i = 0; i <= m; ++i) {
+            d[i] = new Array(n + 1);
+            d[i][0] = i;
+        }
+
+        for (var j = 0; j <= n; ++j)
+            d[0][j] = j;
+
+        for (var j = 1; j <= n; ++j) {
+            for (var i = 1; i <= m; ++i) {
+                if (this[i - 1] === s[j - 1])
+                    d[i][j] = d[i - 1][j - 1];
+                else {
+                    var deletion = d[i - 1][j] + 1;
+                    var insertion = d[i][j - 1] + 1;
+                    var substitution = d[i - 1][j - 1] + 1;
+                    d[i][j] = Math.min(deletion, insertion, substitution);
+                }
+            }
+        }
+
+        return d[m][n];
+    }
+});
+
+Object.defineProperty(Math, "roundTo",
+{
+    value: function(num, step)
+    {
+        return Math.round(num / step) * step;
     }
 });
 
@@ -918,7 +967,7 @@ function parseMIMEType(fullMimeType)
             encoding = subparts[1].replace("^\"|\"$", ""); // Trim quotes.
     }
 
-    return {type: type, boundary: boundary || null, encoding: encoding || null};
+    return {type, boundary: boundary || null, encoding: encoding || null};
 }
 
 function simpleGlobStringToRegExp(globString, regExpFlags)
@@ -1015,6 +1064,21 @@ Object.defineProperty(Array.prototype, "binaryIndexOf",
     }
 });
 
+function appendWebInspectorSourceURL(string)
+{
+    return string + "\n//# sourceURL=__WebInspectorInternal__\n";
+}
+
+function isFunctionStringNativeCode(str)
+{
+    return str.endsWith("{\n    [native code]\n}");
+}
+
+function doubleQuotedString(str)
+{
+    return "\"" + str.replace(/"/g, "\\\"") + "\"";
+}
+
 function clamp(min, value, max)
 {
     return Math.min(Math.max(min, value), max);
@@ -1032,4 +1096,28 @@ function insertionIndexForObjectInListSortedByFunction(object, list, comparator,
 function insertObjectIntoSortedArray(object, array, comparator)
 {
     array.splice(insertionIndexForObjectInListSortedByFunction(object, array, comparator), 0, object);
+}
+
+function decodeBase64ToBlob(base64Data, mimeType)
+{
+    mimeType = mimeType || '';
+
+    const sliceSize = 1024;
+    var byteCharacters = atob(base64Data);
+    var bytesLength = byteCharacters.length;
+    var slicesCount = Math.ceil(bytesLength / sliceSize);
+    var byteArrays = new Array(slicesCount);
+
+    for (var sliceIndex = 0; sliceIndex < slicesCount; ++sliceIndex) {
+        var begin = sliceIndex * sliceSize;
+        var end = Math.min(begin + sliceSize, bytesLength);
+
+        var bytes = new Array(end - begin);
+        for (var offset = begin, i = 0 ; offset < end; ++i, ++offset)
+            bytes[i] = byteCharacters[offset].charCodeAt(0);
+
+        byteArrays[sliceIndex] = new Uint8Array(bytes);
+    }
+
+    return new Blob(byteArrays, {type: mimeType});
 }

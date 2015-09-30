@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@ class PlatformTouchEvent;
 
 class ScrollAnimatorIOS : public ScrollAnimator {
 public:
-    ScrollAnimatorIOS(ScrollableArea*);
+    ScrollAnimatorIOS(ScrollableArea&);
     virtual ~ScrollAnimatorIOS();
 
 #if ENABLE(TOUCH_EVENTS)
@@ -44,6 +44,7 @@ public:
 #endif
 
 private:
+#if ENABLE(TOUCH_EVENTS)
     void determineScrollableAreaForTouchSequence(const IntSize& touchDelta);
 
     // State for handling sequences of touches in defaultTouchEventHandler.
@@ -63,6 +64,7 @@ private:
     // When we're in a touch sequence, this will point to the scrollable area that
     // should actually be scrolled during the sequence.
     ScrollableArea* m_scrollableAreaForTouchSequence;
+#endif
 };
 
 } // namespace WebCore

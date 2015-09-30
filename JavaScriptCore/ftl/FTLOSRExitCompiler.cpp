@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include "FTLExitArgumentForOperand.h"
 #include "FTLJITCode.h"
 #include "FTLOSRExit.h"
+#include "FTLOperations.h"
 #include "FTLState.h"
 #include "FTLSaveRestore.h"
 #include "LinkBuffer.h"
@@ -45,6 +46,83 @@
 namespace JSC { namespace FTL {
 
 using namespace DFG;
+
+static void compileRecovery(
+    CCallHelpers& jit, const ExitValue& value, StackMaps::Record* record, StackMaps& stackmaps,
+    char* registerScratch,
+    const HashMap<ExitTimeObjectMaterialization*, EncodedJSValue*>& materializationToPointer)
+{
+    switch (value.kind()) {
+    case ExitValueDead:
+        jit.move(MacroAssembler::TrustedImm64(JSValue::encode(jsUndefined())), GPRInfo::regT0);
+        break;
+            
+    case ExitValueConstant:
+        jit.move(MacroAssembler::TrustedImm64(JSValue::encode(value.constant())), GPRInfo::regT0);
+        break;
+            
+    case ExitValueArgument:
+        record->locations[value.exitArgument().argument()].restoreInto(
+            jit, stackmaps, registerScratch, GPRInfo::regT0);
+        break;
+            
+    case ExitValueInJSStack:
+    case ExitValueInJSStackAsInt32:
+    case ExitValueInJSStackAsInt52:
+    case ExitValueInJSStackAsDouble:
+        jit.load64(AssemblyHelpers::addressFor(value.virtualRegister()), GPRInfo::regT0);
+        break;
+            
+    case ExitValueRecovery:
+        record->locations[value.rightRecoveryArgument()].restoreInto(
+            jit, stackmaps, registerScratch, GPRInfo::regT1);
+        record->locations[value.leftRecoveryArgument()].restoreInto(
+            jit, stackmaps, registerScratch, GPRInfo::regT0);
+        switch (value.recoveryOpcode()) {
+        case AddRecovery:
+            switch (value.recoveryFormat()) {
+            case ValueFormatInt32:
+                jit.add32(GPRInfo::regT1, GPRInfo::regT0);
+                break;
+            case ValueFormatInt52:
+                jit.add64(GPRInfo::regT1, GPRInfo::regT0);
+                break;
+            default:
+                RELEASE_ASSERT_NOT_REACHED();
+                break;
+            }
+            break;
+        case SubRecovery:
+            switch (value.recoveryFormat()) {
+            case ValueFormatInt32:
+                jit.sub32(GPRInfo::regT1, GPRInfo::regT0);
+                break;
+            case ValueFormatInt52:
+                jit.sub64(GPRInfo::regT1, GPRInfo::regT0);
+                break;
+            default:
+                RELEASE_ASSERT_NOT_REACHED();
+                break;
+            }
+            break;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            break;
+        }
+        break;
+        
+    case ExitValueMaterializeNewObject:
+        jit.loadPtr(materializationToPointer.get(value.objectMaterialization()), GPRInfo::regT0);
+        break;
+            
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+        break;
+    }
+        
+    reboxAccordingToFormat(
+        value.valueFormat(), jit, GPRInfo::regT0, GPRInfo::regT1, GPRInfo::regT2);
+}
 
 static void compileStub(
     unsigned exitID, JITCode* jitCode, OSRExit& exit, VM* vm, CodeBlock* codeBlock)
@@ -64,12 +142,38 @@ static void compileStub(
 
     CCallHelpers jit(vm, codeBlock);
     
-    // We need scratch space to save all registers and to build up the JSStack.
-    // Use a scratch buffer to transfer all values.
-    ScratchBuffer* scratchBuffer = vm->scratchBufferForSize(sizeof(EncodedJSValue) * exit.m_values.size() + requiredScratchMemorySizeInBytes() + jitCode->unwindInfo.m_registers.size() * sizeof(uint64_t));
+    // We need scratch space to save all registers, to build up the JS stack, to deal with unwind
+    // fixup, pointers to all of the objects we materialize, and the elements inside those objects
+    // that we materialize.
+    
+    // Figure out how much space we need for those object allocations.
+    unsigned numMaterializations = 0;
+    size_t maxMaterializationNumArguments = 0;
+    for (ExitTimeObjectMaterialization* materialization : exit.m_materializations) {
+        numMaterializations++;
+        
+        maxMaterializationNumArguments = std::max(
+            maxMaterializationNumArguments,
+            materialization->properties().size());
+    }
+    
+    ScratchBuffer* scratchBuffer = vm->scratchBufferForSize(
+        sizeof(EncodedJSValue) * (
+            exit.m_values.size() + numMaterializations + maxMaterializationNumArguments) +
+        requiredScratchMemorySizeInBytes() +
+        jitCode->unwindInfo.m_registers.size() * sizeof(uint64_t));
     EncodedJSValue* scratch = scratchBuffer ? static_cast<EncodedJSValue*>(scratchBuffer->dataBuffer()) : 0;
-    char* registerScratch = bitwise_cast<char*>(scratch + exit.m_values.size());
+    EncodedJSValue* materializationPointers = scratch + exit.m_values.size();
+    EncodedJSValue* materializationArguments = materializationPointers + numMaterializations;
+    char* registerScratch = bitwise_cast<char*>(materializationArguments + maxMaterializationNumArguments);
     uint64_t* unwindScratch = bitwise_cast<uint64_t*>(registerScratch + requiredScratchMemorySizeInBytes());
+    
+    HashMap<ExitTimeObjectMaterialization*, EncodedJSValue*> materializationToPointer;
+    unsigned materializationCount = 0;
+    for (ExitTimeObjectMaterialization* materialization : exit.m_materializations) {
+        materializationToPointer.add(
+            materialization, materializationPointers + materializationCount++);
+    }
     
     // Note that we come in here, the stack used to be as LLVM left it except that someone called pushToSave().
     // We don't care about the value they saved. But, we do appreciate the fact that they did it, because we use
@@ -87,7 +191,7 @@ static void compileStub(
         
         Profiler::OSRExit* profilerExit = compilation->addOSRExit(
             exitID, Profiler::OriginStack(database, codeBlock, exit.m_codeOrigin),
-            exit.m_kind, isWatchpoint(exit.m_kind));
+            exit.m_kind, exit.m_kind == UncountableInvalidation);
         jit.add64(CCallHelpers::TrustedImm32(1), CCallHelpers::AbsoluteAddress(profilerExit->counterAddress()));
     }
 
@@ -120,83 +224,73 @@ static void compileStub(
         if (!!exit.m_valueProfile)
             jit.store64(GPRInfo::regT0, exit.m_valueProfile.getSpecFailBucket(0));
     }
-
-    // Save all state from wherever the exit data tells us it was, into the appropriate place in
-    // the scratch buffer. This doesn't rebox any values yet.
     
-    for (unsigned index = exit.m_values.size(); index--;) {
-        ExitValue value = exit.m_values[index];
+    // Materialize all objects. Don't materialize an object until all of the objects it needs
+    // have been materialized. Curiously, this is the only place that we have an algorithm that prevents
+    // OSR exit from handling cyclic object materializations. Of course, object allocation sinking
+    // currently wouldn't recognize a cycle as being sinkable - but if it did then the only thing that
+    // would ahve to change is this fixpoint. Instead we would allocate the objects first and populate
+    // them with data later.
+    HashSet<ExitTimeObjectMaterialization*> toMaterialize;
+    for (ExitTimeObjectMaterialization* materialization : exit.m_materializations)
+        toMaterialize.add(materialization);
+    
+    while (!toMaterialize.isEmpty()) {
+        unsigned previousToMaterializeSize = toMaterialize.size();
         
-        switch (value.kind()) {
-        case ExitValueDead:
-            jit.move(MacroAssembler::TrustedImm64(JSValue::encode(jsUndefined())), GPRInfo::regT0);
-            break;
-            
-        case ExitValueConstant:
-            jit.move(MacroAssembler::TrustedImm64(JSValue::encode(value.constant())), GPRInfo::regT0);
-            break;
-            
-        case ExitValueArgument:
-            record->locations[value.exitArgument().argument()].restoreInto(
-                jit, jitCode->stackmaps, registerScratch, GPRInfo::regT0);
-            break;
-            
-        case ExitValueInJSStack:
-        case ExitValueInJSStackAsInt32:
-        case ExitValueInJSStackAsInt52:
-        case ExitValueInJSStackAsDouble:
-            jit.load64(AssemblyHelpers::addressFor(value.virtualRegister()), GPRInfo::regT0);
-            break;
-            
-        case ExitValueArgumentsObjectThatWasNotCreated:
-            // We can't actually recover this yet, but we can make the stack look sane. This is
-            // a prerequisite to running the actual arguments recovery.
-            jit.move(MacroAssembler::TrustedImm64(JSValue::encode(JSValue())), GPRInfo::regT0);
-            break;
-            
-        case ExitValueRecovery:
-            record->locations[value.rightRecoveryArgument()].restoreInto(
-                jit, jitCode->stackmaps, registerScratch, GPRInfo::regT1);
-            record->locations[value.leftRecoveryArgument()].restoreInto(
-                jit, jitCode->stackmaps, registerScratch, GPRInfo::regT0);
-            switch (value.recoveryOpcode()) {
-            case AddRecovery:
-                switch (value.recoveryFormat()) {
-                case ValueFormatInt32:
-                    jit.add32(GPRInfo::regT1, GPRInfo::regT0);
-                    break;
-                case ValueFormatInt52:
-                    jit.add64(GPRInfo::regT1, GPRInfo::regT0);
-                    break;
-                default:
-                    RELEASE_ASSERT_NOT_REACHED();
+        Vector<ExitTimeObjectMaterialization*> worklist;
+        worklist.appendRange(toMaterialize.begin(), toMaterialize.end());
+        for (ExitTimeObjectMaterialization* materialization : worklist) {
+            // Check if we can do anything about this right now.
+            bool allGood = true;
+            for (ExitPropertyValue value : materialization->properties()) {
+                if (!value.value().isObjectMaterialization())
+                    continue;
+                if (toMaterialize.contains(value.value().objectMaterialization())) {
+                    // Gotta skip this one, since one of its fields points to a materialization
+                    // that hasn't been materialized.
+                    allGood = false;
                     break;
                 }
-                break;
-            case SubRecovery:
-                switch (value.recoveryFormat()) {
-                case ValueFormatInt32:
-                    jit.sub32(GPRInfo::regT1, GPRInfo::regT0);
-                    break;
-                case ValueFormatInt52:
-                    jit.sub64(GPRInfo::regT1, GPRInfo::regT0);
-                    break;
-                default:
-                    RELEASE_ASSERT_NOT_REACHED();
-                    break;
-                }
-                break;
-            default:
-                RELEASE_ASSERT_NOT_REACHED();
-                break;
             }
-            break;
+            if (!allGood)
+                continue;
             
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
-            break;
+            // All systems go for materializing the object. First we recover the values of all of
+            // its fields and then we call a function to actually allocate the beast.
+            for (unsigned propertyIndex = materialization->properties().size(); propertyIndex--;) {
+                const ExitValue& value = materialization->properties()[propertyIndex].value();
+                compileRecovery(
+                    jit, value, record, jitCode->stackmaps, registerScratch,
+                    materializationToPointer);
+                jit.storePtr(GPRInfo::regT0, materializationArguments + propertyIndex);
+            }
+            
+            // This call assumes that we don't pass arguments on the stack.
+            jit.setupArgumentsWithExecState(
+                CCallHelpers::TrustedImmPtr(materialization),
+                CCallHelpers::TrustedImmPtr(materializationArguments));
+            jit.move(CCallHelpers::TrustedImmPtr(bitwise_cast<void*>(operationMaterializeObjectInOSR)), GPRInfo::nonArgGPR0);
+            jit.call(GPRInfo::nonArgGPR0);
+            jit.storePtr(GPRInfo::returnValueGPR, materializationToPointer.get(materialization));
+            
+            // Let everyone know that we're done.
+            toMaterialize.remove(materialization);
         }
         
+        // We expect progress! This ensures that we crash rather than looping infinitely if there
+        // is something broken about this fixpoint. Or, this could happen if we ever violate the
+        // "materializations form a DAG" rule.
+        RELEASE_ASSERT(toMaterialize.size() < previousToMaterializeSize);
+    }
+
+    // Save all state from wherever the exit data tells us it was, into the appropriate place in
+    // the scratch buffer. This also does the reboxing.
+    
+    for (unsigned index = exit.m_values.size(); index--;) {
+        compileRecovery(
+            jit, exit.m_values[index], record, jitCode->stackmaps, registerScratch,
+            materializationToPointer);
         jit.store64(GPRInfo::regT0, scratch + index);
     }
     
@@ -338,29 +432,17 @@ static void compileStub(
     
     arityReturnPCReady.link(&jit);
     
-    // Now get state out of the scratch buffer and place it back into the stack. This part does
-    // all reboxing.
+    // Now get state out of the scratch buffer and place it back into the stack. The values are
+    // already reboxed so we just move them.
     for (unsigned index = exit.m_values.size(); index--;) {
         int operand = exit.m_values.operandForIndex(index);
-        ExitValue value = exit.m_values[index];
         
         jit.load64(scratch + index, GPRInfo::regT0);
-        reboxAccordingToFormat(
-            value.valueFormat(), jit, GPRInfo::regT0, GPRInfo::regT1, GPRInfo::regT2);
         jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(static_cast<VirtualRegister>(operand)));
     }
     
     handleExitCounts(jit, exit);
     reifyInlinedCallFrames(jit, exit);
-    
-    ArgumentsRecoveryGenerator argumentsRecovery;
-    for (unsigned index = exit.m_values.size(); index--;) {
-        if (!exit.m_values[index].isArgumentsObjectThatWasNotCreated())
-            continue;
-        int operand = exit.m_values.operandForIndex(index);
-        argumentsRecovery.generateFor(operand, exit.m_codeOrigin, jit);
-    }
-    
     adjustAndJumpToTarget(jit, exit);
     
     LinkBuffer patchBuffer(*vm, jit, codeBlock);
@@ -395,6 +477,19 @@ extern "C" void* compileFTLOSRExit(ExecState* exec, unsigned exitID)
     JITCode* jitCode = codeBlock->jitCode()->ftl();
     OSRExit& exit = jitCode->osrExit[exitID];
     
+    if (shouldShowDisassembly() || Options::verboseOSR() || Options::verboseFTLOSRExit()) {
+        dataLog("    Owning block: ", pointerDump(codeBlock), "\n");
+        dataLog("    Origin: ", exit.m_codeOrigin, "\n");
+        if (exit.m_codeOriginForExitProfile != exit.m_codeOrigin)
+            dataLog("    Origin for exit profile: ", exit.m_codeOriginForExitProfile, "\n");
+        dataLog("    Exit values: ", exit.m_values, "\n");
+        if (!exit.m_materializations.isEmpty()) {
+            dataLog("    Materializations:\n");
+            for (ExitTimeObjectMaterialization* materialization : exit.m_materializations)
+                dataLog("        ", pointerDump(materialization), "\n");
+        }
+    }
+
     prepareCodeOriginForOSRExit(exec, exit.m_codeOrigin);
     
     compileStub(exitID, jitCode, exit, vm, codeBlock);

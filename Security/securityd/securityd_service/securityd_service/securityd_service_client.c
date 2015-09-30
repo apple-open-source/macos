@@ -104,7 +104,13 @@ int
 service_client_kb_load(service_context_t *context)
 {
     return _service_client_send_secret(context, SERVICE_KB_LOAD, NULL, 0, NULL, 0);
-    }
+}
+
+int
+service_client_kb_save(service_context_t *context)
+{
+    return _service_client_send_secret(context, SERVICE_KB_SAVE, NULL, 0, NULL, 0);
+}
     
 int
 service_client_kb_unlock(service_context_t *context, const void * secret, int secret_len)

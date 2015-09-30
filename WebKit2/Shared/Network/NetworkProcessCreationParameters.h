@@ -52,26 +52,29 @@ struct NetworkProcessCreationParameters {
 
     bool privateBrowsingEnabled;
     CacheModel cacheModel;
+    int64_t diskCacheSizeOverride { -1 };
     bool canHandleHTTPSServerTrustEvaluation;
 
     String diskCacheDirectory;
     SandboxExtension::Handle diskCacheDirectoryExtensionHandle;
-
+#if ENABLE(NETWORK_CACHE)
+    bool shouldEnableNetworkCache;
+    bool shouldEnableNetworkCacheEfficacyLogging;
+#endif
+#if ENABLE(SECCOMP_FILTERS)
     String cookieStorageDirectory;
-
+#endif
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+    Vector<uint8_t> uiProcessCookieStorageIdentifier;
+#endif
 #if PLATFORM(IOS)
     SandboxExtension::Handle cookieStorageDirectoryExtensionHandle;
-
-    // FIXME: Remove this once <rdar://problem/17726660> is fixed.
-    SandboxExtension::Handle hstsDatabasePathExtensionHandle;
-
+    SandboxExtension::Handle containerCachesDirectoryExtensionHandle;
     SandboxExtension::Handle parentBundleDirectoryExtensionHandle;
 #endif
     bool shouldUseTestingNetworkSession;
 
-#if ENABLE(CUSTOM_PROTOCOLS)
     Vector<String> urlSchemesRegisteredForCustomProtocols;
-#endif
 
 #if PLATFORM(COCOA)
     String parentProcessName;
@@ -81,6 +84,9 @@ struct NetworkProcessCreationParameters {
 
     String httpProxy;
     String httpsProxy;
+#if (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+    RetainPtr<CFDataRef> networkATSContext;
+#endif
 #endif
 
 #if USE(SOUP)

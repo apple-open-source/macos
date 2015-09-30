@@ -38,22 +38,22 @@ using WTF::ThreadSpecific;
 
 namespace JSC {
 
-PassRef<StringImpl> Identifier::add(VM* vm, const char* c)
+Ref<StringImpl> Identifier::add(VM* vm, const char* c)
 {
     ASSERT(c);
     ASSERT(c[0]);
     if (!c[1])
         return *vm->smallStrings.singleCharacterStringRep(c[0]);
 
-    return *AtomicString::add(c);
+    return *AtomicStringImpl::add(c);
 }
 
-PassRef<StringImpl> Identifier::add(ExecState* exec, const char* c)
+Ref<StringImpl> Identifier::add(ExecState* exec, const char* c)
 {
     return add(&exec->vm(), c);
 }
 
-PassRef<StringImpl> Identifier::add8(VM* vm, const UChar* s, int length)
+Ref<StringImpl> Identifier::add8(VM* vm, const UChar* s, int length)
 {
     if (length == 1) {
         UChar c = s[0];
@@ -64,7 +64,7 @@ PassRef<StringImpl> Identifier::add8(VM* vm, const UChar* s, int length)
     if (!length)
         return *StringImpl::empty();
 
-    return *AtomicString::add(s, length);
+    return *AtomicStringImpl::add(s, length);
 }
 
 Identifier Identifier::from(ExecState* exec, unsigned value)
@@ -95,6 +95,14 @@ Identifier Identifier::from(VM* vm, int value)
 Identifier Identifier::from(VM* vm, double value)
 {
     return Identifier(vm, vm->numericStrings.add(value));
+}
+
+void Identifier::dump(PrintStream& out) const
+{
+    if (impl())
+        out.print(impl());
+    else
+        out.print("<null identifier>");
 }
 
 #ifndef NDEBUG

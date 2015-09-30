@@ -25,6 +25,7 @@
 #import "CSSValueKeywords.h"
 #import "CSSValueList.h"
 #import "ColorMac.h"
+#import "CoreGraphicsSPI.h"
 #import "Document.h"
 #import "Element.h"
 #import "ExceptionCodePlaceholder.h"
@@ -32,21 +33,27 @@
 #import "FloatRoundedRect.h"
 #import "FocusController.h"
 #import "Frame.h"
+#import "FrameSelection.h"
 #import "FrameView.h"
 #import "GraphicsContextCG.h"
+#import "HTMLAttachmentElement.h"
 #import "HTMLAudioElement.h"
 #import "HTMLInputElement.h"
 #import "HTMLMediaElement.h"
 #import "HTMLNames.h"
 #import "HTMLPlugInImageElement.h"
+#import "Icon.h"
 #import "Image.h"
 #import "ImageBuffer.h"
 #import "LocalCurrentGraphicsContext.h"
 #import "LocalizedStrings.h"
 #import "MediaControlElements.h"
+#import "NSColorSPI.h"
 #import "NSSharingServicePickerSPI.h"
 #import "Page.h"
 #import "PaintInfo.h"
+#import "PathUtilities.h"
+#import "RenderAttachment.h"
 #import "RenderLayer.h"
 #import "RenderMedia.h"
 #import "RenderMediaControlElements.h"
@@ -169,7 +176,7 @@ const double progressAnimationNumFrames = 256;
 @implementation WebCoreRenderThemeBundle
 @end
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 10100
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
 @interface NSSearchFieldCell(Details)
 @property (getter=isCenteredLook) BOOL centeredLook;
 @end
@@ -195,13 +202,13 @@ enum {
 
 PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page*)
 {
-    static RenderTheme* rt = RenderThemeMac::create().leakRef();
-    return rt;
+    static RenderTheme& rt = RenderThemeMac::create().leakRef();
+    return &rt;
 }
 
-PassRefPtr<RenderTheme> RenderThemeMac::create()
+Ref<RenderTheme> RenderThemeMac::create()
 {
-    return adoptRef(new RenderThemeMac);
+    return adoptRef(*new RenderThemeMac);
 }
 
 RenderThemeMac::RenderThemeMac()
@@ -319,7 +326,7 @@ static FontWeight toFontWeight(NSInteger appKitFontWeight)
     else if (appKitFontWeight < 1)
         appKitFontWeight = 1;
 
-    static FontWeight fontWeights[] = {
+    static const FontWeight fontWeights[] = {
         FontWeight100,
         FontWeight100,
         FontWeight200,
@@ -338,65 +345,50 @@ static FontWeight toFontWeight(NSInteger appKitFontWeight)
     return fontWeights[appKitFontWeight - 1];
 }
 
-void RenderThemeMac::systemFont(CSSValueID cssValueId, FontDescription& fontDescription) const
+void RenderThemeMac::updateCachedSystemFontDescription(CSSValueID cssValueId, FontDescription& fontDescription) const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(FontDescription, systemFont, ());
-    DEPRECATED_DEFINE_STATIC_LOCAL(FontDescription, smallSystemFont, ());
-    DEPRECATED_DEFINE_STATIC_LOCAL(FontDescription, menuFont, ());
-    DEPRECATED_DEFINE_STATIC_LOCAL(FontDescription, labelFont, ());
-    DEPRECATED_DEFINE_STATIC_LOCAL(FontDescription, miniControlFont, ());
-    DEPRECATED_DEFINE_STATIC_LOCAL(FontDescription, smallControlFont, ());
-    DEPRECATED_DEFINE_STATIC_LOCAL(FontDescription, controlFont, ());
-
-    FontDescription* cachedDesc;
-    NSFont* font = nil;
+    NSFont* font;
+    // System-font-ness can't be encapsulated by simply a font name. Instead, we must use a token
+    // which FontCache will look for.
+    // Make sure we keep this list of possible tokens in sync with FontCascade::primaryFontIsSystemFont()
+    AtomicString fontName;
     switch (cssValueId) {
         case CSSValueSmallCaption:
-            cachedDesc = &smallSystemFont;
-            if (!smallSystemFont.isAbsoluteSize())
-                font = [NSFont systemFontOfSize:[NSFont smallSystemFontSize]];
+            font = [NSFont systemFontOfSize:[NSFont smallSystemFontSize]];
             break;
         case CSSValueMenu:
-            cachedDesc = &menuFont;
-            if (!menuFont.isAbsoluteSize())
-                font = [NSFont menuFontOfSize:[NSFont systemFontSize]];
+            font = [NSFont menuFontOfSize:[NSFont systemFontSize]];
+            fontName = AtomicString("-apple-menu", AtomicString::ConstructFromLiteral);
             break;
         case CSSValueStatusBar:
-            cachedDesc = &labelFont;
-            if (!labelFont.isAbsoluteSize())
-                font = [NSFont labelFontOfSize:[NSFont labelFontSize]];
+            font = [NSFont labelFontOfSize:[NSFont labelFontSize]];
+            fontName = AtomicString("-apple-status-bar", AtomicString::ConstructFromLiteral);
             break;
         case CSSValueWebkitMiniControl:
-            cachedDesc = &miniControlFont;
-            if (!miniControlFont.isAbsoluteSize())
-                font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSMiniControlSize]];
+            font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSMiniControlSize]];
             break;
         case CSSValueWebkitSmallControl:
-            cachedDesc = &smallControlFont;
-            if (!smallControlFont.isAbsoluteSize())
-                font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSSmallControlSize]];
+            font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSSmallControlSize]];
             break;
         case CSSValueWebkitControl:
-            cachedDesc = &controlFont;
-            if (!controlFont.isAbsoluteSize())
-                font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSRegularControlSize]];
+            font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSRegularControlSize]];
             break;
         default:
-            cachedDesc = &systemFont;
-            if (!systemFont.isAbsoluteSize())
-                font = [NSFont systemFontOfSize:[NSFont systemFontSize]];
+            font = [NSFont systemFontOfSize:[NSFont systemFontSize]];
     }
 
-    if (font) {
-        NSFontManager *fontManager = [NSFontManager sharedFontManager];
-        cachedDesc->setIsAbsoluteSize(true);
-        cachedDesc->setGenericFamily(FontDescription::NoFamily);
-        cachedDesc->setOneFamily([font webCoreFamilyName]);
-        cachedDesc->setSpecifiedSize([font pointSize]);
-        cachedDesc->setWeight(toFontWeight([fontManager weightOfFont:font]));
-        cachedDesc->setItalic([fontManager traitsOfFont:font] & NSItalicFontMask);
-    }
-    fontDescription = *cachedDesc;
+    if (!font)
+        return;
+
+    if (fontName.isNull())
+        fontName = AtomicString("-apple-system", AtomicString::ConstructFromLiteral);
+
+    NSFontManager *fontManager = [NSFontManager sharedFontManager];
+    fontDescription.setIsAbsoluteSize(true);
+    fontDescription.setOneFamily(fontName);
+    fontDescription.setSpecifiedSize([font pointSize]);
+    fontDescription.setWeight(toFontWeight([fontManager weightOfFont:font]));
+    fontDescription.setIsItalic([fontManager traitsOfFont:font] & NSItalicFontMask);
 }
 
 static RGBA32 convertNSColorToColor(NSColor *color)
@@ -473,18 +465,24 @@ void RenderThemeMac::platformColorsDidChange()
     RenderTheme::platformColorsDidChange();
 }
 
-Color RenderThemeMac::systemColor(CSSValueID cssValueId) const
+Color RenderThemeMac::systemColor(CSSValueID cssValueID) const
 {
-    {
-        HashMap<int, RGBA32>::iterator it = m_systemColorCache.find(cssValueId);
-        if (it != m_systemColorCache.end())
-            return it->value;
-    }
+    auto addResult = m_systemColorCache.add(cssValueID, Color());
+    if (!addResult.isNewEntry)
+        return addResult.iterator->value;
 
     Color color;
-    switch (cssValueId) {
+    switch (cssValueID) {
     case CSSValueActiveborder:
         color = convertNSColorToColor([NSColor keyboardFocusIndicatorColor]);
+        break;
+    case CSSValueActivebuttontext:
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+        // There is no corresponding NSColor for this so we use a hard coded value.
+        color = Color::white;
+#else
+        color = convertNSColorToColor([NSColor controlTextColor]);
+#endif
         break;
     case CSSValueActivecaption:
         color = convertNSColorToColor([NSColor windowFrameTextColor]);
@@ -578,17 +576,48 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueId) const
     case CSSValueWindowtext:
         color = convertNSColorToColor([NSColor windowFrameTextColor]);
         break;
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    case CSSValueAppleWirelessPlaybackTargetActive:
+        color = convertNSColorToColor([NSColor systemBlueColor]);
+        break;
+    case CSSValueAppleSystemBlue:
+        color = convertNSColorToColor([NSColor systemBlueColor]);
+        break;
+    case CSSValueAppleSystemBrown:
+        color = convertNSColorToColor([NSColor systemBrownColor]);
+        break;
+    case CSSValueAppleSystemGray:
+        color = convertNSColorToColor([NSColor systemGrayColor]);
+        break;
+    case CSSValueAppleSystemGreen:
+        color = convertNSColorToColor([NSColor systemGreenColor]);
+        break;
+    case CSSValueAppleSystemOrange:
+        color = convertNSColorToColor([NSColor systemOrangeColor]);
+        break;
+    case CSSValueAppleSystemPink:
+        color = convertNSColorToColor([NSColor systemPinkColor]);
+        break;
+    case CSSValueAppleSystemPurple:
+        color = convertNSColorToColor([NSColor systemPurpleColor]);
+        break;
+    case CSSValueAppleSystemRed:
+        color = convertNSColorToColor([NSColor systemRedColor]);
+        break;
+    case CSSValueAppleSystemYellow:
+        color = convertNSColorToColor([NSColor systemYellowColor]);
+        break;
+#endif
     default:
         break;
     }
 
     if (!color.isValid())
-        color = RenderTheme::systemColor(cssValueId);
+        color = RenderTheme::systemColor(cssValueID);
 
-    if (color.isValid())
-        m_systemColorCache.set(cssValueId, color.rgb());
+    addResult.iterator->value = color;
 
-    return color;
+    return addResult.iterator->value;
 }
 
 bool RenderThemeMac::usesTestModeFocusRingColor() const
@@ -669,7 +698,8 @@ FloatRect RenderThemeMac::convertToPaintingRect(const RenderObject& inputRendere
     const RenderObject* renderer = &partRenderer;
     while (renderer && renderer != &inputRenderer) {
         RenderElement* containingRenderer = renderer->container();
-        offsetFromInputRenderer -= roundedIntSize(renderer->offsetFromContainer(containingRenderer, LayoutPoint()));
+        ASSERT(containingRenderer);
+        offsetFromInputRenderer -= roundedIntSize(renderer->offsetFromContainer(*containingRenderer, LayoutPoint()));
         renderer = containingRenderer;
     }
     // If the input renderer was not a container, something went wrong
@@ -717,7 +747,7 @@ void RenderThemeMac::updateFocusedState(NSCell* cell, const RenderObject& o)
 void RenderThemeMac::updatePressedState(NSCell* cell, const RenderObject& o)
 {
     bool oldPressed = [cell isHighlighted];
-    bool pressed = o.node() && o.node()->isElementNode() && toElement(o.node())->active();
+    bool pressed = is<Element>(o.node()) && downcast<Element>(*o.node()).active();
     if (pressed != oldPressed)
         [cell setHighlighted:pressed];
 }
@@ -802,10 +832,9 @@ void RenderThemeMac::setFontFromControlSize(StyleResolver&, RenderStyle& style, 
 {
     FontDescription fontDescription;
     fontDescription.setIsAbsoluteSize(true);
-    fontDescription.setGenericFamily(FontDescription::SerifFamily);
 
     NSFont* font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:controlSize]];
-    fontDescription.setOneFamily([font webCoreFamilyName]);
+    fontDescription.setOneFamily(AtomicString("-apple-system", AtomicString::ConstructFromLiteral));
     fontDescription.setComputedSize([font pointSize] * style.effectiveZoom());
     fontDescription.setSpecifiedSize([font pointSize] * style.effectiveZoom());
 
@@ -813,7 +842,7 @@ void RenderThemeMac::setFontFromControlSize(StyleResolver&, RenderStyle& style, 
     style.setLineHeight(RenderStyle::initialLineHeight());
 
     if (style.setFontDescription(fontDescription))
-        style.font().update(0);
+        style.fontCascade().update(0);
 }
 
 NSControlSize RenderThemeMac::controlSizeForSystemFont(RenderStyle& style) const
@@ -842,19 +871,8 @@ bool RenderThemeMac::paintTextField(const RenderObject& o, const PaintInfo& pain
     return false;
 }
 
-void RenderThemeMac::adjustTextFieldStyle(StyleResolver&, RenderStyle&, Element&) const
+void RenderThemeMac::adjustTextFieldStyle(StyleResolver&, RenderStyle&, Element*) const
 {
-}
-
-bool RenderThemeMac::paintCapsLockIndicator(const RenderObject&, const PaintInfo& paintInfo, const IntRect& r)
-{
-    if (paintInfo.context->paintingDisabled())
-        return true;
-
-    LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawCapsLockIndicator(localContext.cgContext(), r);
-
-    return false;
 }
 
 bool RenderThemeMac::paintTextArea(const RenderObject& o, const PaintInfo& paintInfo, const FloatRect& r)
@@ -864,7 +882,7 @@ bool RenderThemeMac::paintTextArea(const RenderObject& o, const PaintInfo& paint
     return false;
 }
 
-void RenderThemeMac::adjustTextAreaStyle(StyleResolver&, RenderStyle&, Element&) const
+void RenderThemeMac::adjustTextAreaStyle(StyleResolver&, RenderStyle&, Element*) const
 {
 }
 
@@ -915,8 +933,10 @@ bool RenderThemeMac::paintMenuList(const RenderObject& renderer, const PaintInfo
 
     GraphicsContextStateSaver stateSaver(*paintInfo.context);
 
-    // On Leopard, the cell will draw outside of the given rect, so we have to clip to the rect
+    // Before Yosemite we did not want the cell to ever draw outside the given rectangle.
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101000
     paintInfo.context->clip(inflatedRect);
+#endif
 
     if (zoomLevel != 1.0f) {
         inflatedRect.setWidth(inflatedRect.width() / zoomLevel);
@@ -954,12 +974,12 @@ IntSize RenderThemeMac::meterSizeForBounds(const RenderMeter& renderMeter, const
 
 bool RenderThemeMac::paintMeter(const RenderObject& renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    if (!renderObject.isMeter())
+    if (!is<RenderMeter>(renderObject))
         return true;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
 
-    NSLevelIndicatorCell* cell = levelIndicatorFor(toRenderMeter(renderObject));
+    NSLevelIndicatorCell* cell = levelIndicatorFor(downcast<RenderMeter>(renderObject));
     GraphicsContextStateSaver stateSaver(*paintInfo.context);
 
     [cell drawWithFrame:rect inView:documentViewFor(renderObject)];
@@ -1096,19 +1116,19 @@ double RenderThemeMac::animationDurationForProgressBar(RenderProgress&) const
     return progressAnimationNumFrames * progressAnimationFrameRate;
 }
 
-void RenderThemeMac::adjustProgressBarStyle(StyleResolver&, RenderStyle&, Element&) const
+void RenderThemeMac::adjustProgressBarStyle(StyleResolver&, RenderStyle&, Element*) const
 {
 }
 
 bool RenderThemeMac::paintProgressBar(const RenderObject& renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    if (!renderObject.isProgress())
+    if (!is<RenderProgress>(renderObject))
         return true;
 
     IntRect inflatedRect = progressBarRectForBounds(renderObject, rect);
     NSControlSize controlSize = controlSizeForFont(renderObject.style());
 
-    const RenderProgress& renderProgress = *toRenderProgress(&renderObject);
+    const auto& renderProgress = downcast<RenderProgress>(renderObject);
     HIThemeTrackDrawInfo trackInfo;
     trackInfo.version = 0;
     if (controlSize == NSRegularControlSize)
@@ -1127,7 +1147,7 @@ bool RenderThemeMac::paintProgressBar(const RenderObject& renderObject, const Pa
     trackInfo.reserved = 0;
     trackInfo.filler1 = 0;
 
-    std::unique_ptr<ImageBuffer> imageBuffer = ImageBuffer::create(inflatedRect.size(), deviceScaleFactor);
+    std::unique_ptr<ImageBuffer> imageBuffer = ImageBuffer::createCompatibleBuffer(inflatedRect.size(), deviceScaleFactor, ColorSpaceDeviceRGB, paintInfo.context, true);
     if (!imageBuffer)
         return true;
 
@@ -1160,8 +1180,8 @@ const int styledPopupPaddingBottom = 2;
 
 static void TopGradientInterpolate(void*, const CGFloat* inData, CGFloat* outData)
 {
-    static float dark[4] = { 1.0f, 1.0f, 1.0f, 0.4f };
-    static float light[4] = { 1.0f, 1.0f, 1.0f, 0.15f };
+    static const float dark[4] = { 1.0f, 1.0f, 1.0f, 0.4f };
+    static const float light[4] = { 1.0f, 1.0f, 1.0f, 0.15f };
     float a = inData[0];
     int i = 0;
     for (i = 0; i < 4; i++)
@@ -1170,8 +1190,8 @@ static void TopGradientInterpolate(void*, const CGFloat* inData, CGFloat* outDat
 
 static void BottomGradientInterpolate(void*, const CGFloat* inData, CGFloat* outData)
 {
-    static float dark[4] = { 1.0f, 1.0f, 1.0f, 0.0f };
-    static float light[4] = { 1.0f, 1.0f, 1.0f, 0.3f };
+    static const float dark[4] = { 1.0f, 1.0f, 1.0f, 0.0f };
+    static const float light[4] = { 1.0f, 1.0f, 1.0f, 0.3f };
     float a = inData[0];
     int i = 0;
     for (i = 0; i < 4; i++)
@@ -1180,8 +1200,8 @@ static void BottomGradientInterpolate(void*, const CGFloat* inData, CGFloat* out
 
 static void MainGradientInterpolate(void*, const CGFloat* inData, CGFloat* outData)
 {
-    static float dark[4] = { 0.0f, 0.0f, 0.0f, 0.15f };
-    static float light[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    static const float dark[4] = { 0.0f, 0.0f, 0.0f, 0.15f };
+    static const float light[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     float a = inData[0];
     int i = 0;
     for (i = 0; i < 4; i++)
@@ -1190,8 +1210,8 @@ static void MainGradientInterpolate(void*, const CGFloat* inData, CGFloat* outDa
 
 static void TrackGradientInterpolate(void*, const CGFloat* inData, CGFloat* outData)
 {
-    static float dark[4] = { 0.0f, 0.0f, 0.0f, 0.678f };
-    static float light[4] = { 0.0f, 0.0f, 0.0f, 0.13f };
+    static const float dark[4] = { 0.0f, 0.0f, 0.0f, 0.678f };
+    static const float light[4] = { 0.0f, 0.0f, 0.0f, 0.13f };
     float a = inData[0];
     int i = 0;
     for (i = 0; i < 4; i++)
@@ -1332,7 +1352,7 @@ static const IntSize* menuListButtonSizes()
     return sizes;
 }
 
-void RenderThemeMac::adjustMenuListStyle(StyleResolver& styleResolver, RenderStyle& style, Element& e) const
+void RenderThemeMac::adjustMenuListStyle(StyleResolver& styleResolver, RenderStyle& style, Element* e) const
 {
     NSControlSize controlSize = controlSizeForFont(style);
 
@@ -1347,7 +1367,7 @@ void RenderThemeMac::adjustMenuListStyle(StyleResolver& styleResolver, RenderSty
 
     // Set the foreground color to black or gray when we have the aqua look.
     // Cast to RGB32 is to work around a compiler bug.
-    style.setColor(!e.isDisabledFormControl() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
+    style.setColor(e && !e->isDisabledFormControl() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
 
     // Set the button's vertical size.
     setSizeFromFont(style, menuListButtonSizes());
@@ -1415,7 +1435,7 @@ PopupMenuStyle::PopupMenuSize RenderThemeMac::popupMenuSize(const RenderStyle& s
     }
 }
 
-void RenderThemeMac::adjustMenuListButtonStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeMac::adjustMenuListButtonStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     float fontScale = style.fontSize() / baseFontSize;
 
@@ -1455,7 +1475,7 @@ int RenderThemeMac::minimumMenuListSize(RenderStyle& style) const
 const int trackWidth = 5;
 const int trackRadius = 2;
 
-void RenderThemeMac::adjustSliderTrackStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeMac::adjustSliderTrackStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     style.setBoxShadow(nullptr);
 }
@@ -1501,7 +1521,7 @@ bool RenderThemeMac::paintSliderTrack(const RenderObject& o, const PaintInfo& pa
     return false;
 }
 
-void RenderThemeMac::adjustSliderThumbStyle(StyleResolver& styleResolver, RenderStyle& style, Element& element) const
+void RenderThemeMac::adjustSliderThumbStyle(StyleResolver& styleResolver, RenderStyle& style, Element* element) const
 {
     RenderTheme::adjustSliderThumbStyle(styleResolver, style, element);
     style.setBoxShadow(nullptr);
@@ -1519,7 +1539,7 @@ bool RenderThemeMac::paintSliderThumb(const RenderObject& o, const PaintInfo& pa
 
     // Update the various states we respond to.
     updateEnabledState(sliderThumbCell, o);
-        Element* focusDelegate = (o.node() && o.node()->isElementNode()) ? toElement(o.node())->focusDelegate() : 0;
+        Element* focusDelegate = is<Element>(o.node()) ? downcast<Element>(*o.node()).focusDelegate() : nullptr;
     if (focusDelegate)
         updateFocusedState(sliderThumbCell, *focusDelegate->renderer());
 
@@ -1537,11 +1557,13 @@ bool RenderThemeMac::paintSliderThumb(const RenderObject& o, const PaintInfo& pa
     else
         m_isSliderThumbHorizontalPressed = pressed;
 
+    NSView *view = documentViewFor(o);
+
     if (pressed != oldPressed) {
         if (pressed)
-            [sliderThumbCell startTrackingAt:NSPoint() inView:nil];
+            [sliderThumbCell startTrackingAt:NSPoint() inView:view];
         else
-            [sliderThumbCell stopTracking:NSPoint() at:NSPoint() inView:nil mouseIsUp:YES];
+            [sliderThumbCell stopTracking:NSPoint() at:NSPoint() inView:view mouseIsUp:YES];
     }
 
     FloatRect bounds = r;
@@ -1561,7 +1583,7 @@ bool RenderThemeMac::paintSliderThumb(const RenderObject& o, const PaintInfo& pa
         paintInfo.context->translate(-unzoomedRect.x(), -unzoomedRect.y());
     }
 
-    [sliderThumbCell drawInteriorWithFrame:unzoomedRect inView:documentViewFor(o)];
+    [sliderThumbCell drawKnob:unzoomedRect];
     [sliderThumbCell setControlView:nil];
 
     return false;
@@ -1591,11 +1613,17 @@ bool RenderThemeMac::paintSearchField(const RenderObject& o, const PaintInfo& pa
     // Set the search button to nil before drawing.  Then reset it so we can draw it later.
     [search setSearchButtonCell:nil];
 
-    [search drawWithFrame:NSRect(unzoomedRect) inView:documentViewFor(o)];
+    NSView *documentView = documentViewFor(o);
+    [search drawWithFrame:NSRect(unzoomedRect) inView:documentView];
 
     [search setControlView:nil];
     [search resetSearchButtonCell];
 
+    if (isFocused(o) && o.style().outlineStyleIsAuto()) {
+        if (wkDrawCellFocusRingWithFrameAtTime(search, NSRect(unzoomedRect), documentView, std::numeric_limits<double>::max()))
+            o.document().page()->focusController().setFocusedElementNeedsRepaint();
+    }
+    
     return false;
 }
 
@@ -1603,6 +1631,7 @@ void RenderThemeMac::setSearchCellState(const RenderObject& o, const IntRect&)
 {
     NSSearchFieldCell* search = this->search();
 
+    [search setPlaceholderString:@""];
     [search setControlSize:controlSizeForFont(o.style())];
 
     // Update the various states we respond to.
@@ -1626,7 +1655,7 @@ void RenderThemeMac::setSearchFieldSize(RenderStyle& style) const
     setSizeFromFont(style, searchFieldSizes());
 }
 
-void RenderThemeMac::adjustSearchFieldStyle(StyleResolver& styleResolver, RenderStyle& style, Element&) const
+void RenderThemeMac::adjustSearchFieldStyle(StyleResolver& styleResolver, RenderStyle& style, Element*) const
 {
     // Override border.
     style.resetBorder();
@@ -1661,7 +1690,7 @@ bool RenderThemeMac::paintSearchFieldCancelButton(const RenderObject& o, const P
 {
     Element* input = o.node()->shadowHost();
     if (!input)
-        input = toElement(o.node());
+        input = downcast<Element>(o.node());
 
     if (!input->renderer()->isBox())
         return false;
@@ -1671,7 +1700,7 @@ bool RenderThemeMac::paintSearchFieldCancelButton(const RenderObject& o, const P
 
     NSSearchFieldCell* search = this->search();
 
-    if (!input->isDisabledFormControl() && (input->isTextFormControl() && !toHTMLTextFormControlElement(input)->isReadOnly()))
+    if (!input->isDisabledFormControl() && (is<HTMLTextFormControlElement>(*input) && !downcast<HTMLTextFormControlElement>(*input).isReadOnly()))
         updatePressedState([search cancelButtonCell], o);
     else if ([[search cancelButtonCell] isHighlighted])
         [[search cancelButtonCell] setHighlighted:NO];
@@ -1681,16 +1710,6 @@ bool RenderThemeMac::paintSearchFieldCancelButton(const RenderObject& o, const P
     float zoomLevel = o.style().effectiveZoom();
 
     FloatRect localBounds = [search cancelButtonRectForBounds:NSRect(input->renderBox()->pixelSnappedBorderBoxRect())];
-
-#if ENABLE(INPUT_SPEECH)
-    // Take care of cases where the cancel button was not aligned with the right border of the input element (for e.g.
-    // when speech input is enabled for the input element.
-    IntRect absBoundingBox = input->renderer()->absoluteBoundingBoxRect();
-    int absRight = absBoundingBox.x() + absBoundingBox.width() - input->renderBox()->paddingRight() - input->renderBox()->borderRight();
-    int spaceToRightOfCancelButton = absRight - (r.x() + r.width());
-    localBounds.setX(localBounds.x() - spaceToRightOfCancelButton);
-#endif
-
     localBounds = convertToPaintingRect(*input->renderer(), o, localBounds, r);
 
     FloatRect unzoomedRect(localBounds);
@@ -1713,7 +1732,7 @@ const IntSize* RenderThemeMac::cancelButtonSizes() const
     return sizes;
 }
 
-void RenderThemeMac::adjustSearchFieldCancelButtonStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeMac::adjustSearchFieldCancelButtonStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     IntSize size = sizeForSystemFont(style, cancelButtonSizes());
     style.setWidth(Length(size.width(), Fixed));
@@ -1728,7 +1747,7 @@ const IntSize* RenderThemeMac::resultsButtonSizes() const
 }
 
 const int emptyResultsOffset = 9;
-void RenderThemeMac::adjustSearchFieldDecorationPartStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeMac::adjustSearchFieldDecorationPartStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     IntSize size = sizeForSystemFont(style, resultsButtonSizes());
     style.setWidth(Length(size.width() - emptyResultsOffset, Fixed));
@@ -1741,7 +1760,7 @@ bool RenderThemeMac::paintSearchFieldDecorationPart(const RenderObject&, const P
     return false;
 }
 
-void RenderThemeMac::adjustSearchFieldResultsDecorationPartStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeMac::adjustSearchFieldResultsDecorationPartStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     IntSize size = sizeForSystemFont(style, resultsButtonSizes());
     style.setWidth(Length(size.width(), Fixed));
@@ -1774,7 +1793,7 @@ bool RenderThemeMac::paintSearchFieldResultsDecorationPart(const RenderObject& o
 }
 
 const int resultsArrowWidth = 5;
-void RenderThemeMac::adjustSearchFieldResultsButtonStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeMac::adjustSearchFieldResultsButtonStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     IntSize size = sizeForSystemFont(style, resultsButtonSizes());
     style.setWidth(Length(size.width() + resultsArrowWidth, Fixed));
@@ -1819,15 +1838,15 @@ bool RenderThemeMac::paintSearchFieldResultsButton(const RenderObject& o, const 
     return false;
 }
 
-bool RenderThemeMac::paintSnapshottedPluginOverlay(const RenderObject& o, const PaintInfo& paintInfo, const IntRect&)
+bool RenderThemeMac::paintSnapshottedPluginOverlay(const RenderObject& renderer, const PaintInfo& paintInfo, const IntRect&)
 {
     if (paintInfo.phase != PaintPhaseBlockBackground)
         return true;
 
-    if (!o.isRenderBlock())
+    if (!is<RenderBlock>(renderer))
         return true;
 
-    const RenderBlock& renderBlock = *toRenderBlock(&o);
+    const RenderBlock& renderBlock = downcast<RenderBlock>(renderer);
 
     LayoutUnit contentWidth = renderBlock.contentWidth();
     LayoutUnit contentHeight = renderBlock.contentHeight();
@@ -1841,7 +1860,7 @@ bool RenderThemeMac::paintSnapshottedPluginOverlay(const RenderObject& o, const 
     contentLocation.move(renderBlock.borderLeft() + renderBlock.paddingLeft(), renderBlock.borderTop() + renderBlock.paddingTop());
 
     LayoutRect rect(contentLocation, contentSize);
-    IntRect alignedRect = pixelSnappedIntRect(rect);
+    IntRect alignedRect = snappedIntRect(rect);
     if (alignedRect.width() <= 0 || alignedRect.height() <= 0)
         return true;
 
@@ -1849,50 +1868,48 @@ bool RenderThemeMac::paintSnapshottedPluginOverlay(const RenderObject& o, const 
     // from our node. Assuming this node is the plugin overlay element, we should get to the
     // plugin itself by asking for the shadow root parent, and then its parent.
 
-    if (!renderBlock.element()->isHTMLElement())
+    if (!is<HTMLElement>(*renderBlock.element()))
         return true;
 
-    HTMLElement* plugInOverlay = toHTMLElement(renderBlock.element());
-    Element* parent = plugInOverlay->parentOrShadowHostElement();
-    while (parent && !parent->isPluginElement())
+    HTMLElement& plugInOverlay = downcast<HTMLElement>(*renderBlock.element());
+    Element* parent = plugInOverlay.parentOrShadowHostElement();
+    while (parent && !is<HTMLPlugInElement>(*parent))
         parent = parent->parentOrShadowHostElement();
 
     if (!parent)
         return true;
 
-    HTMLPlugInElement* plugInElement = toHTMLPlugInElement(parent);
-    if (!plugInElement->isPlugInImageElement())
+    HTMLPlugInElement& plugInElement = downcast<HTMLPlugInElement>(*parent);
+    if (!is<HTMLPlugInImageElement>(plugInElement))
         return true;
 
-    HTMLPlugInImageElement* plugInImageElement = toHTMLPlugInImageElement(plugInElement);
+    HTMLPlugInImageElement& plugInImageElement = downcast<HTMLPlugInImageElement>(plugInElement);
 
-    Image* snapshot = plugInImageElement->snapshotImage();
+    Image* snapshot = plugInImageElement.snapshotImage();
     if (!snapshot)
         return true;
 
-    RenderSnapshottedPlugIn* plugInRenderer = toRenderSnapshottedPlugIn(plugInImageElement->renderer());
-    FloatPoint snapshotAbsPos = plugInRenderer->localToAbsolute();
-    snapshotAbsPos.move(plugInRenderer->borderLeft() + plugInRenderer->paddingLeft(), plugInRenderer->borderTop() + plugInRenderer->paddingTop());
+    RenderSnapshottedPlugIn& plugInRenderer = downcast<RenderSnapshottedPlugIn>(*plugInImageElement.renderer());
+    FloatPoint snapshotAbsPos = plugInRenderer.localToAbsolute();
+    snapshotAbsPos.move(plugInRenderer.borderLeft() + plugInRenderer.paddingLeft(), plugInRenderer.borderTop() + plugInRenderer.paddingTop());
 
     // We could draw the snapshot with that coordinates, but we need to make sure there
     // isn't a composited layer between us and the plugInRenderer.
-    const RenderBox* renderBox = toRenderBox(&o);
-    while (renderBox != plugInRenderer) {
+    for (auto* renderBox = &downcast<RenderBox>(renderer); renderBox != &plugInRenderer; renderBox = renderBox->parentBox()) {
         if (renderBox->hasLayer() && renderBox->layer() && renderBox->layer()->isComposited()) {
             snapshotAbsPos = -renderBox->location();
             break;
         }
-        renderBox = renderBox->parentBox();
     }
 
-    LayoutSize pluginSize(plugInRenderer->contentWidth(), plugInRenderer->contentHeight());
+    LayoutSize pluginSize(plugInRenderer.contentWidth(), plugInRenderer.contentHeight());
     LayoutRect pluginRect(snapshotAbsPos, pluginSize);
-    IntRect alignedPluginRect = pixelSnappedIntRect(pluginRect);
+    IntRect alignedPluginRect = snappedIntRect(pluginRect);
 
     if (alignedPluginRect.width() <= 0 || alignedPluginRect.height() <= 0)
         return true;
 
-    context->drawImage(snapshot, plugInRenderer->style().colorSpace(), alignedPluginRect, CompositeSourceOver);
+    context->drawImage(snapshot, plugInRenderer.style().colorSpace(), alignedPluginRect, CompositeSourceOver);
     return false;
 }
 
@@ -1911,7 +1928,7 @@ int RenderThemeMac::sliderTickOffsetFromTrackCenter() const
 const int sliderThumbWidth = 15;
 const int sliderThumbHeight = 15;
 
-void RenderThemeMac::adjustSliderThumbSize(RenderStyle& style, Element&) const
+void RenderThemeMac::adjustSliderThumbSize(RenderStyle& style, Element*) const
 {
     float zoomLevel = style.effectiveZoom();
     if (style.appearance() == SliderThumbHorizontalPart || style.appearance() == SliderThumbVerticalPart) {
@@ -1923,6 +1940,11 @@ void RenderThemeMac::adjustSliderThumbSize(RenderStyle& style, Element&) const
 bool RenderThemeMac::shouldShowPlaceholderWhenFocused() const
 {
     return true;
+}
+
+bool RenderThemeMac::shouldHaveCapsLockIndicator(HTMLInputElement& element) const
+{
+    return element.isPasswordField();
 }
 
 NSPopUpButtonCell* RenderThemeMac::popupButton() const
@@ -1949,7 +1971,7 @@ NSSearchFieldCell* RenderThemeMac::search() const
         [m_search.get() setBezeled:YES];
         [m_search.get() setEditable:YES];
         [m_search.get() setFocusRingType:NSFocusRingTypeExterior];
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 10100
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
         [m_search.get() setCenteredLook:NO];
 #endif
     }
@@ -2005,7 +2027,7 @@ NSTextFieldCell* RenderThemeMac::textField() const
     return m_textField.get();
 }
 
-String RenderThemeMac::fileListNameForWidth(const FileList* fileList, const Font& font, int width, bool multipleFilesAllowed) const
+String RenderThemeMac::fileListNameForWidth(const FileList* fileList, const FontCascade& font, int width, bool multipleFilesAllowed) const
 {
     if (width <= 0)
         return String();
@@ -2019,6 +2041,15 @@ String RenderThemeMac::fileListNameForWidth(const FileList* fileList, const Font
         return StringTruncator::rightTruncate(multipleFileUploadText(fileList->length()), width, font, StringTruncator::EnableRoundingHacks);
 
     return StringTruncator::centerTruncate(strToTruncate, width, font, StringTruncator::EnableRoundingHacks);
+}
+
+bool RenderThemeMac::defaultButtonHasAnimation() const
+{
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    return false;
+#else
+    return true;
+#endif
 }
 
 #if ENABLE(SERVICE_CONTROLS)
@@ -2087,6 +2118,387 @@ IntSize RenderThemeMac::imageControlsButtonPositionOffset() const
 #endif
 }
 #endif
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+const CGFloat attachmentIconSize = 48;
+const CGFloat attachmentIconBackgroundPadding = 6;
+const CGFloat attachmentIconBackgroundSize = attachmentIconSize + attachmentIconBackgroundPadding;
+const CGFloat attachmentIconSelectionBorderThickness = 1;
+const CGFloat attachmentIconBackgroundRadius = 3;
+const CGFloat attachmentIconToTitleMargin = 2;
+
+static Color attachmentIconBackgroundColor() { return Color(0, 0, 0, 30); }
+static Color attachmentIconBorderColor() { return Color(255, 255, 255, 125); }
+
+const CGFloat attachmentTitleFontSize = 12;
+const CGFloat attachmentTitleBackgroundRadius = 3;
+const CGFloat attachmentTitleBackgroundPadding = 3;
+const CGFloat attachmentTitleMaximumWidth = 100 - (attachmentTitleBackgroundPadding * 2);
+const CFIndex attachmentTitleMaximumLineCount = 2;
+
+static Color attachmentTitleInactiveBackgroundColor() { return Color(204, 204, 204, 255); }
+static Color attachmentTitleInactiveTextColor() { return Color(100, 100, 100, 255); }
+
+const CGFloat attachmentSubtitleFontSize = 10;
+static Color attachmentSubtitleTextColor() { return Color(82, 145, 214, 255); }
+
+const CGFloat attachmentProgressBarWidth = 30;
+const CGFloat attachmentProgressBarHeight = 5;
+const CGFloat attachmentProgressBarOffset = -9;
+const CGFloat attachmentProgressBarBorderWidth = 1;
+static Color attachmentProgressBarBackgroundColor() { return Color(0, 0, 0, 89); }
+static Color attachmentProgressBarFillColor() { return Color(Color::white); }
+static Color attachmentProgressBarBorderColor() { return Color(0, 0, 0, 128); }
+
+const CGFloat attachmentMargin = 3;
+
+struct AttachmentLayout {
+    explicit AttachmentLayout(const RenderAttachment&);
+
+    struct LabelLine {
+        FloatRect backgroundRect;
+        FloatPoint origin;
+        RetainPtr<CTLineRef> line;
+    };
+
+    Vector<LabelLine> lines;
+
+    FloatRect iconRect;
+    FloatRect iconBackgroundRect;
+    FloatRect attachmentRect;
+
+    int baseline;
+
+    RetainPtr<CTLineRef> subtitleLine;
+    FloatRect subtitleTextRect;
+
+private:
+    void layOutTitle(const RenderAttachment&);
+    void layOutSubtitle(const RenderAttachment&);
+
+    void addTitleLine(CTLineRef, CGFloat& yOffset, Vector<CGPoint> origins, CFIndex lineIndex, const RenderAttachment&);
+};
+
+static NSColor *titleTextColorForAttachment(const RenderAttachment& attachment)
+{
+    if (attachment.selectionState() != RenderObject::SelectionNone) {
+        if (attachment.frame().selection().isFocusedAndActive())
+            return [NSColor alternateSelectedControlTextColor];    
+        return (NSColor *)cachedCGColor(attachmentTitleInactiveTextColor(), ColorSpaceDeviceRGB);
+    }
+
+    return [NSColor blackColor];
+}
+
+void AttachmentLayout::addTitleLine(CTLineRef line, CGFloat& yOffset, Vector<CGPoint> origins, CFIndex lineIndex, const RenderAttachment& attachment)
+{
+    CGRect lineBounds = CTLineGetBoundsWithOptions(line, 0);
+    CGFloat trailingWhitespaceWidth = CTLineGetTrailingWhitespaceWidth(line);
+    CGFloat lineWidthIgnoringTrailingWhitespace = lineBounds.size.width - trailingWhitespaceWidth;
+    CGFloat lineHeight = CGCeiling(lineBounds.size.height);
+
+    // Center the line relative to the icon.
+    CGFloat xOffset = (attachmentIconBackgroundSize / 2) - (lineWidthIgnoringTrailingWhitespace / 2);
+
+    if (lineIndex)
+        yOffset += origins[lineIndex - 1].y - origins[lineIndex].y;
+
+    LabelLine labelLine;
+    labelLine.origin = FloatPoint(xOffset, yOffset + lineHeight - origins.last().y);
+    labelLine.line = line;
+    labelLine.backgroundRect = FloatRect(xOffset, yOffset, lineWidthIgnoringTrailingWhitespace, lineHeight);
+    labelLine.backgroundRect.inflateX(attachmentTitleBackgroundPadding);
+    labelLine.backgroundRect = encloseRectToDevicePixels(labelLine.backgroundRect, attachment.document().deviceScaleFactor());
+
+    // If the text rects are close in size, the curved enclosing background won't
+    // look right, so make them the same exact size.
+    if (!lines.isEmpty()) {
+        float previousBackgroundRectWidth = lines.last().backgroundRect.width();
+        if (fabs(labelLine.backgroundRect.width() - previousBackgroundRectWidth) < attachmentTitleBackgroundRadius * 4) {
+            float newBackgroundRectWidth = std::max(previousBackgroundRectWidth, labelLine.backgroundRect.width());
+            labelLine.backgroundRect.inflateX((newBackgroundRectWidth - labelLine.backgroundRect.width()) / 2);
+            lines.last().backgroundRect.inflateX((newBackgroundRectWidth - previousBackgroundRectWidth) / 2);
+        }
+    }
+
+    lines.append(labelLine);
+}
+
+void AttachmentLayout::layOutTitle(const RenderAttachment& attachment)
+{
+    CFStringRef language = 0; // By not specifying a language we use the system language.
+    RetainPtr<CTFontRef> font = adoptCF(CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, attachmentTitleFontSize, language));
+    baseline = CGRound(attachmentIconBackgroundSize + attachmentIconToTitleMargin + CTFontGetAscent(font.get()));
+
+    String title = attachment.attachmentElement().attachmentTitle();
+    if (title.isEmpty())
+        return;
+
+    NSDictionary *textAttributes = @{
+        (id)kCTFontAttributeName: (id)font.get(),
+        (id)kCTForegroundColorAttributeName: titleTextColorForAttachment(attachment)
+    };
+    RetainPtr<NSAttributedString> attributedTitle = adoptNS([[NSAttributedString alloc] initWithString:title attributes:textAttributes]);
+    RetainPtr<CTFramesetterRef> titleFramesetter = adoptCF(CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attributedTitle.get()));
+
+    CFRange fitRange;
+    CGSize titleTextSize = CTFramesetterSuggestFrameSizeWithConstraints(titleFramesetter.get(), CFRangeMake(0, 0), nullptr, CGSizeMake(attachmentTitleMaximumWidth, CGFLOAT_MAX), &fitRange);
+
+    RetainPtr<CGPathRef> titlePath = adoptCF(CGPathCreateWithRect(CGRectMake(0, 0, titleTextSize.width, titleTextSize.height), nullptr));
+    RetainPtr<CTFrameRef> titleFrame = adoptCF(CTFramesetterCreateFrame(titleFramesetter.get(), fitRange, titlePath.get(), nullptr));
+
+    CFArrayRef ctLines = CTFrameGetLines(titleFrame.get());
+    CFIndex lineCount = CFArrayGetCount(ctLines);
+    if (!lineCount)
+        return;
+
+    Vector<CGPoint> origins(lineCount);
+    CTFrameGetLineOrigins(titleFrame.get(), CFRangeMake(0, 0), origins.data());
+
+    // Lay out and record the first (attachmentTitleMaximumLineCount - 1) lines.
+    CFIndex lineIndex = 0;
+    CGFloat yOffset = attachmentIconBackgroundSize + attachmentIconToTitleMargin;
+    for (; lineIndex < std::min(attachmentTitleMaximumLineCount - 1, lineCount); ++lineIndex) {
+        CTLineRef line = (CTLineRef)CFArrayGetValueAtIndex(ctLines, lineIndex);
+        addTitleLine(line, yOffset, origins, lineIndex, attachment);
+    }
+
+    if (lineIndex == lineCount)
+        return;
+
+    // We had text that didn't fit in the first (attachmentTitleMaximumLineCount - 1) lines.
+    // Combine it into one last line, and center-truncate it.
+    CTLineRef firstRemainingLine = (CTLineRef)CFArrayGetValueAtIndex(ctLines, lineIndex);
+    CFIndex remainingRangeStart = CTLineGetStringRange(firstRemainingLine).location;
+    NSRange remainingRange = NSMakeRange(remainingRangeStart, [attributedTitle length] - remainingRangeStart);
+    NSAttributedString *remainingString = [attributedTitle attributedSubstringFromRange:remainingRange];
+    RetainPtr<CTLineRef> remainingLine = adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)remainingString));
+    RetainPtr<NSAttributedString> ellipsisString = adoptNS([[NSAttributedString alloc] initWithString:@"\u2026" attributes:textAttributes]);
+    RetainPtr<CTLineRef> ellipsisLine = adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)ellipsisString.get()));
+    RetainPtr<CTLineRef> truncatedLine = adoptCF(CTLineCreateTruncatedLine(remainingLine.get(), attachmentTitleMaximumWidth, kCTLineTruncationMiddle, ellipsisLine.get()));
+
+    if (!truncatedLine)
+        truncatedLine = remainingLine;
+
+    addTitleLine(truncatedLine.get(), yOffset, origins, lineIndex, attachment);
+}
+
+void AttachmentLayout::layOutSubtitle(const RenderAttachment& attachment)
+{
+    String subtitleText = attachment.attachmentElement().fastGetAttribute(subtitleAttr);
+
+    if (subtitleText.isEmpty())
+        return;
+
+    CFStringRef language = 0; // By not specifying a language we use the system language.
+    RetainPtr<CTFontRef> font = adoptCF(CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, attachmentSubtitleFontSize, language));
+    NSDictionary *textAttributes = @{
+        (id)kCTFontAttributeName: (id)font.get(),
+        (id)kCTForegroundColorAttributeName: (NSColor *)cachedCGColor(attachmentSubtitleTextColor(), ColorSpaceDeviceRGB)
+    };
+    RetainPtr<NSAttributedString> attributedSubtitleText = adoptNS([[NSAttributedString alloc] initWithString:subtitleText attributes:textAttributes]);
+    subtitleLine = adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)attributedSubtitleText.get()));
+
+    CGRect lineBounds = CTLineGetBoundsWithOptions(subtitleLine.get(), 0);
+
+    // Center the line relative to the icon.
+    CGFloat xOffset = (attachmentIconBackgroundSize / 2) - (lineBounds.size.width / 2);
+    CGFloat yOffset = 0;
+
+    if (!lines.isEmpty())
+        yOffset = lines.last().backgroundRect.maxY();
+    else
+        yOffset = attachmentIconBackgroundSize + attachmentIconToTitleMargin;
+
+    LabelLine labelLine;
+    subtitleTextRect = FloatRect(xOffset, yOffset, lineBounds.size.width, lineBounds.size.height);
+}
+
+AttachmentLayout::AttachmentLayout(const RenderAttachment& attachment)
+{
+    layOutTitle(attachment);
+    layOutSubtitle(attachment);
+
+    iconBackgroundRect = FloatRect(0, 0, attachmentIconBackgroundSize, attachmentIconBackgroundSize);
+
+    iconRect = iconBackgroundRect;
+    iconRect.setSize(FloatSize(attachmentIconSize, attachmentIconSize));
+    iconRect.move(attachmentIconBackgroundPadding / 2, attachmentIconBackgroundPadding / 2);
+
+    attachmentRect = iconBackgroundRect;
+    for (const auto& line : lines)
+        attachmentRect.unite(line.backgroundRect);
+    attachmentRect.unite(subtitleTextRect);
+    attachmentRect.inflate(attachmentMargin);
+    attachmentRect = encloseRectToDevicePixels(attachmentRect, attachment.document().deviceScaleFactor());
+}
+
+LayoutSize RenderThemeMac::attachmentIntrinsicSize(const RenderAttachment& attachment) const
+{
+    AttachmentLayout layout(attachment);
+    return LayoutSize(layout.attachmentRect.size());
+}
+
+int RenderThemeMac::attachmentBaseline(const RenderAttachment& attachment) const
+{
+    AttachmentLayout layout(attachment);
+    return layout.baseline;
+}
+
+static void paintAttachmentIconBackground(const RenderAttachment&, GraphicsContext& context, AttachmentLayout& layout)
+{
+    // FIXME: Finder has a discontinuous behavior here when you have a background color other than white,
+    // where it switches into 'bordered mode' and the border pops in on top of the background.
+    bool paintBorder = true;
+
+    FloatRect backgroundRect = layout.iconBackgroundRect;
+    if (paintBorder)
+        backgroundRect.inflate(-attachmentIconSelectionBorderThickness);
+
+    context.fillRoundedRect(FloatRoundedRect(backgroundRect, FloatRoundedRect::Radii(attachmentIconBackgroundRadius)), attachmentIconBackgroundColor(), ColorSpaceDeviceRGB);
+
+    if (paintBorder) {
+        FloatRect borderRect = layout.iconBackgroundRect;
+        borderRect.inflate(-attachmentIconSelectionBorderThickness / 2);
+
+        FloatSize iconBackgroundRadiusSize(attachmentIconBackgroundRadius, attachmentIconBackgroundRadius);
+        Path borderPath;
+        borderPath.addRoundedRect(borderRect, iconBackgroundRadiusSize);
+        context.setStrokeColor(attachmentIconBorderColor(), ColorSpaceDeviceRGB);
+        context.setStrokeThickness(attachmentIconSelectionBorderThickness);
+        context.strokePath(borderPath);
+    }
+}
+
+static void paintAttachmentIcon(const RenderAttachment& attachment, GraphicsContext& context, AttachmentLayout& layout)
+{
+    Vector<String> filenames;
+    if (File* file = attachment.attachmentElement().file())
+        filenames.append(file->path());
+    RefPtr<Icon> icon = Icon::createIconForFiles(filenames);
+    if (!icon)
+        return;
+    icon->paint(context, layout.iconRect);
+}
+
+static void paintAttachmentTitleBackground(const RenderAttachment& attachment, GraphicsContext& context, AttachmentLayout& layout)
+{
+    if (layout.lines.isEmpty())
+        return;
+
+    Vector<FloatRect> backgroundRects;
+
+    for (size_t i = 0; i < layout.lines.size(); ++i)
+        backgroundRects.append(layout.lines[i].backgroundRect);
+
+    Color backgroundColor;
+    if (attachment.frame().selection().isFocusedAndActive())
+        backgroundColor = convertNSColorToColor([NSColor alternateSelectedControlColor]);
+    else
+        backgroundColor = attachmentTitleInactiveBackgroundColor();
+
+    context.setFillColor(backgroundColor, ColorSpaceDeviceRGB);
+
+    Path backgroundPath = PathUtilities::pathWithShrinkWrappedRects(backgroundRects, attachmentTitleBackgroundRadius);
+    context.fillPath(backgroundPath);
+}
+
+static void paintAttachmentTitle(const RenderAttachment&, GraphicsContext& context, AttachmentLayout& layout)
+{
+    for (const auto& line : layout.lines) {
+        GraphicsContextStateSaver saver(context);
+
+        context.translate(toFloatSize(line.origin));
+        context.scale(FloatSize(1, -1));
+
+        CGContextSetTextMatrix(context.platformContext(), CGAffineTransformIdentity);
+        CTLineDraw(line.line.get(), context.platformContext());
+    }
+}
+
+static void paintAttachmentSubtitle(const RenderAttachment&, GraphicsContext& context, AttachmentLayout& layout)
+{
+    GraphicsContextStateSaver saver(context);
+
+    context.translate(toFloatSize(layout.subtitleTextRect.minXMaxYCorner()));
+    context.scale(FloatSize(1, -1));
+
+    CGContextSetTextMatrix(context.platformContext(), CGAffineTransformIdentity);
+    CTLineDraw(layout.subtitleLine.get(), context.platformContext());
+}
+
+static void paintAttachmentProgress(const RenderAttachment& attachment, GraphicsContext& context, AttachmentLayout& layout)
+{
+    String progressString = attachment.attachmentElement().fastGetAttribute(progressAttr);
+    if (progressString.isEmpty())
+        return;
+    bool validProgress;
+    float progress = progressString.toFloat(&validProgress);
+    if (!validProgress)
+        return;
+
+    GraphicsContextStateSaver saver(context);
+
+    FloatRect progressBounds((attachmentIconBackgroundSize - attachmentProgressBarWidth) / 2, layout.iconBackgroundRect.maxY() + attachmentProgressBarOffset - attachmentProgressBarHeight, attachmentProgressBarWidth, attachmentProgressBarHeight);
+
+    FloatRect borderRect = progressBounds;
+    borderRect.inflate(-0.5);
+    FloatRect backgroundRect = borderRect;
+    backgroundRect.inflate(-attachmentProgressBarBorderWidth / 2);
+
+    FloatRoundedRect backgroundRoundedRect(backgroundRect, FloatRoundedRect::Radii(backgroundRect.height() / 2));
+    context.fillRoundedRect(backgroundRoundedRect, attachmentProgressBarBackgroundColor(), ColorSpaceDeviceRGB);
+
+    {
+        GraphicsContextStateSaver clipSaver(context);
+        context.clipRoundedRect(backgroundRoundedRect);
+
+        FloatRect progressRect = progressBounds;
+        progressRect.setWidth(progressRect.width() * progress);
+        progressRect = encloseRectToDevicePixels(progressRect, attachment.document().deviceScaleFactor());
+
+        context.fillRect(progressRect, attachmentProgressBarFillColor(), ColorSpaceDeviceRGB);
+    }
+
+    Path borderPath;
+    float borderRadius = borderRect.height() / 2;
+    borderPath.addRoundedRect(borderRect, FloatSize(borderRadius, borderRadius));
+    context.setStrokeColor(attachmentProgressBarBorderColor(), ColorSpaceDeviceRGB);
+    context.setStrokeThickness(attachmentProgressBarBorderWidth);
+    context.strokePath(borderPath);
+}
+
+bool RenderThemeMac::paintAttachment(const RenderObject& renderer, const PaintInfo& paintInfo, const IntRect& paintRect)
+{
+    if (!is<RenderAttachment>(renderer))
+        return false;
+
+    const RenderAttachment& attachment = downcast<RenderAttachment>(renderer);
+
+    AttachmentLayout layout(attachment);
+
+    GraphicsContext& context = *paintInfo.context;
+    LocalCurrentGraphicsContext localContext(&context);
+    GraphicsContextStateSaver saver(context);
+
+    context.translate(toFloatSize(paintRect.location()));
+    context.translate(FloatSize((layout.attachmentRect.width() - attachmentIconBackgroundSize) / 2, 0));
+
+    bool useSelectedStyle = attachment.selectionState() != RenderObject::SelectionNone;
+
+    if (useSelectedStyle)
+        paintAttachmentIconBackground(attachment, context, layout);
+    paintAttachmentIcon(attachment, context, layout);
+    if (useSelectedStyle)
+        paintAttachmentTitleBackground(attachment, context, layout);
+    paintAttachmentTitle(attachment, context, layout);
+    paintAttachmentSubtitle(attachment, context, layout);
+    paintAttachmentProgress(attachment, context, layout);
+
+    return true;
+}
+
+#endif // ENABLE(ATTACHMENT_ELEMENT)
 
 } // namespace WebCore
 

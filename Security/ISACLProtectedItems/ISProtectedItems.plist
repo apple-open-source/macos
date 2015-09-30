@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>title</key>
+	<string>AKPU/ACL protected items</string>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>buttonAction</key>
+			<string>createBatchOfItems:</string>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Create batch of protected items</string>
+		</dict>
+		<dict>
+			<key>buttonAction</key>
+			<string>deleteBatchOfItems:</string>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Delete batch of protected items</string>
+		</dict>
+	</array>
+</dict>
+</plist>

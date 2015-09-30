@@ -23,8 +23,6 @@
 #ifndef _H_AUTHHOST
 #define _H_AUTHHOST
 
-#include <security_agent_client/sa_types.h>
-
 #include "structure.h"
 #include "child.h"
 
@@ -42,7 +40,7 @@ public:
 	virtual ~AuthHostInstance();
 
 	Session &session() const;
-	mach_port_t lookup(SessionId jobId);
+	mach_port_t lookup();
 	Port activate();
 		
 protected:

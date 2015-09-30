@@ -1,9 +1,9 @@
 #
-# "$Id: ipp-tests.test 12131 2014-08-28 23:38:16Z msweet $"
+# "$Id: ipp-tests.test 12698 2015-06-08 17:47:35Z msweet $"
 #
 # IPP Everywhere Printer Self-Certification Manual 1.0: Section 6: IPP Tests.
 #
-# Copyright 2014 by The Printer Working Group.
+# Copyright 2014-2015 by The Printer Working Group.
 # Copyright 2007-2013 by Apple Inc.
 # Copyright 2001-2006 by Easy Software Products. All rights reserved.
 #
@@ -244,7 +244,7 @@ DEFINE SUPPLY_REGEX "/^(type\=[A-Za-z]+|(maxcapacity\=([0-9]|\-){0,1})(level\=([
 	EXPECT ?job-password-supported OF-TYPE integer IN-GROUP printer-attributes-tag COUNT 1
 	EXPECT ?job-password-encryption-supported OF-TYPE keyword IN-GROUP printer-attributes-tag
 
-	EXPECT job-preferred-attributes-supported OF-TYPE boolean IN-GROUP printer-attributes-tag COUNT 1
+	EXPECT preferred-attributes-supported OF-TYPE boolean IN-GROUP printer-attributes-tag COUNT 1
 
 	EXPECT job-resolvers-supported OF-TYPE collection IN-GROUP printer-attributes-tag IF-DEFINED HAVE_JOB_CONSTRAINTS
 
@@ -705,7 +705,7 @@ DEFINE SUPPLY_REGEX "/^(type\=[A-Za-z]+|(maxcapacity\=([0-9]|\-){0,1})(level\=([
 	EXPECT ?job-account-id OF-TYPE name IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?job-accounting-user-id OF-TYPE name IN-GROUP job-attributes-tag COUNT 1
 	EXPECT media OF-TYPE keyword IN-GROUP job-attributes-tag COUNT 1 WITH-VALUE "$DEFAULT_MEDIA"
-	EXPECT !media-col
+	EXPECT ?media-col OF-TYPE collection IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?multiple-document-handling OF-TYPE keyword IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?orientation-requested OF-TYPE enum IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?output-bin OF-TYPE keyword|name IN-GROUP job-attributes-tag COUNT 1 WITH-VALUE "$DEFAULT_OUTPUT_BIN"
@@ -929,7 +929,7 @@ DEFINE SUPPLY_REGEX "/^(type\=[A-Za-z]+|(maxcapacity\=([0-9]|\-){0,1})(level\=([
 	EXPECT ?job-account-id OF-TYPE name IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?job-accounting-user-id OF-TYPE name IN-GROUP job-attributes-tag COUNT 1
 	EXPECT media OF-TYPE keyword IN-GROUP job-attributes-tag COUNT 1 WITH-VALUE "$DEFAULT_MEDIA"
-	EXPECT !media-col
+	EXPECT ?media-col OF-TYPE collection IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?multiple-document-handling OF-TYPE keyword IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?orientation-requested OF-TYPE enum IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?output-bin OF-TYPE keyword|name IN-GROUP job-attributes-tag COUNT 1 WITH-VALUE "$DEFAULT_OUTPUT_BIN"
@@ -1053,7 +1053,7 @@ DEFINE SUPPLY_REGEX "/^(type\=[A-Za-z]+|(maxcapacity\=([0-9]|\-){0,1})(level\=([
 	EXPECT ?job-account-id OF-TYPE name IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?job-accounting-user-id OF-TYPE name IN-GROUP job-attributes-tag COUNT 1
 	EXPECT media OF-TYPE keyword IN-GROUP job-attributes-tag COUNT 1 WITH-VALUE "$DEFAULT_MEDIA"
-	EXPECT !media-col
+	EXPECT ?media-col OF-TYPE collection IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?multiple-document-handling OF-TYPE keyword IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?orientation-requested OF-TYPE enum IN-GROUP job-attributes-tag COUNT 1
 	EXPECT ?output-bin OF-TYPE keyword|name IN-GROUP job-attributes-tag COUNT 1 WITH-VALUE "$DEFAULT_OUTPUT_BIN"
@@ -1154,5 +1154,5 @@ DEFINE SUPPLY_REGEX "/^(type\=[A-Za-z]+|(maxcapacity\=([0-9]|\-){0,1})(level\=([
 
 
 #
-# End of "$Id: ipp-tests.test 12131 2014-08-28 23:38:16Z msweet $".
+# End of "$Id: ipp-tests.test 12698 2015-06-08 17:47:35Z msweet $".
 #

@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ug.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/ug.xml
- */
 ug{
     Keys{
         calendar{"يىلنامە"}
@@ -308,7 +305,7 @@ ug{
         mg{"ماداغاسقارچە"}
         mga{"ئوتتۇرا ئەسىر ئىرېلاندچە"}
         mgh{"ماكۇۋاچە"}
-        mgo{"مېتاچە'"}
+        mgo{"مېتاچە’"}
         mh{"مارشالچە"}
         mi{"ماۋرىچە"}
         mic{"مىكماكچە"}
@@ -526,7 +523,7 @@ ug{
         zxx{"تىل مەزمۇنى يوق"}
         zza{"زازاچە"}
     }
-    LanguagesShort{
+    Languages%short{
         en_GB{"ئەنگلىيە ئىنگلىزچە"}
         en_US{"ئامېرىكا ئىنگلىزچە"}
     }
@@ -839,7 +836,7 @@ ug{
         VALENCIA{"ۋالېنسىيە"}
         WADEGILE{"ۋېي ئائىلىسى پىنيىن لاتىنلاشتۇرۇش"}
     }
-    Version{"2.0.98.76"}
+    Version{"2.1.7.39"}
     codePatterns{
         language{"تىل: {0}"}
         script{"يېزىق: {0}"}

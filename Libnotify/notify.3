@@ -46,6 +46,8 @@
 .Fn notify_post "const char *name"
 .Ft uint32_t
 .Fn notify_register_check "const char *name, int *out_token"
+.Ft void
+.Fn (^notify_handler_t) "int token"
 .Ft uint32_t
 .Fn notify_register_dispatch "const char *name, int *out_token" "dispatch_queue_t queue" "notify_handler_t handler"
 .Ft uint32_t
@@ -160,6 +162,8 @@ set in the flags parameter.
 The notification service must be able to extract
 send rights to the port.
 .Pp
+Values for the flags parameter may only be 0 (zero) or NOTIFY_REUSE.
+.Pp
 Note that the kernel limits the size of the message queue for any port.
 If it is important that notifications should not be lost due to queue
 overflow, clients should service messages quickly, and be cautious in
@@ -180,7 +184,9 @@ is returned as the value of the "notify_fd" parameter.
 A file descriptor
 created by a previous call to this routine may be used for notifications
 if a pointer to that file descriptor is passed in to the routine and
-NOTIFY_REUSE is set in the flags parameter. 
+NOTIFY_REUSE is set in the flags parameter.
+.Pp
+Values for the flags parameter may only be 0 (zero) or NOTIFY_REUSE.
 .Pp
 Note that the kernel limits the buffer space for queued writes on a
 file descriptor.

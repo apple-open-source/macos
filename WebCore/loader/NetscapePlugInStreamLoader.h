@@ -38,6 +38,7 @@ class NetscapePlugInStreamLoader;
 
 class NetscapePlugInStreamLoaderClient {
 public:
+    virtual void willSendRequest(NetscapePlugInStreamLoader*, ResourceRequest&&, const ResourceResponse& redirectResponse, std::function<void (ResourceRequest&&)>&&) = 0;
     virtual void didReceiveResponse(NetscapePlugInStreamLoader*, const ResourceResponse&) = 0;
     virtual void didReceiveData(NetscapePlugInStreamLoader*, const char*, int) = 0;
     virtual void didFail(NetscapePlugInStreamLoader*, const ResourceError&) = 0;
@@ -50,12 +51,15 @@ protected:
 
 class NetscapePlugInStreamLoader final : public ResourceLoader {
 public:
-    static PassRefPtr<NetscapePlugInStreamLoader> create(Frame*, NetscapePlugInStreamLoaderClient*, const ResourceRequest&);
+    WEBCORE_EXPORT static PassRefPtr<NetscapePlugInStreamLoader> create(Frame*, NetscapePlugInStreamLoaderClient*, const ResourceRequest&);
     virtual ~NetscapePlugInStreamLoader();
 
-    bool isDone() const;
+    WEBCORE_EXPORT bool isDone() const;
 
 private:
+    virtual bool init(const ResourceRequest&) override;
+
+    virtual void willSendRequest(ResourceRequest&&, const ResourceResponse& redirectResponse, std::function<void(ResourceRequest&&)>&& callback) override;
     virtual void didReceiveResponse(const ResourceResponse&) override;
     virtual void didReceiveData(const char*, unsigned, long long encodedDataLength, DataPayloadType) override;
     virtual void didReceiveBuffer(PassRefPtr<SharedBuffer>, long long encodedDataLength, DataPayloadType) override;
@@ -71,7 +75,10 @@ private:
 
     void didReceiveDataOrBuffer(const char*, int, PassRefPtr<SharedBuffer>, long long encodedDataLength, DataPayloadType);
 
+    void notifyDone();
+
     NetscapePlugInStreamLoaderClient* m_client;
+    bool m_isInitialized { false };
 };
 
 }

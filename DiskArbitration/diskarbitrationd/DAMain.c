@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -102,94 +102,84 @@ static Boolean __DAMainCreateMountPointFolder( void )
      * Create the mount point folder in which our mounts will be made.
      */
 
-    struct stat status;
-    Boolean     success;
+    int status;
 
     /*
-     * Determine whether the mount point folder exists.
+     * Determine whether the mount point folder exists already.
      */
 
-    if ( stat( kDAMainMountPointFolder, &status ) )
+    status = access( kDAMainMountPointFolder, F_OK );
+
+    if ( status )
     {
         /*
          * Create the mount point folder.
          */
 
-        success = ___mkdir( kDAMainMountPointFolder, 01777 ) ? FALSE : TRUE;
+        status = ___mkdir( kDAMainMountPointFolder, 01777 );
     }
     else
     {
+        DIR * folder;
+
         /*
-         * Determine whether the mount point folder is a folder.
+         * Correct the mount point folder's contents.
          */
 
-        success = S_ISDIR( status.st_mode ) ? TRUE : FALSE;
+        folder = opendir( kDAMainMountPointFolder );
 
-        if ( success )
+        if ( folder )
         {
-            DIR * folder;
+            struct dirent * item;
 
-            /*
-             * Correct the mount point folder's contents.
-             */
-
-            folder = opendir( kDAMainMountPointFolder );
-
-            if ( folder )
+            while ( ( item = readdir( folder ) ) )
             {
-                struct dirent * item;
+                char path[MAXPATHLEN];
 
-                while ( ( item = readdir( folder ) ) )
+                strlcpy( path, kDAMainMountPointFolder, sizeof( path ) );
+                strlcat( path, "/",                     sizeof( path ) );
+                strlcat( path, item->d_name,            sizeof( path ) );
+
+                if ( item->d_type == DT_DIR )
                 {
-                    char path[MAXPATHLEN];
+///w:start
+                    char file[MAXPATHLEN];
 
-                    if ( item->d_type == DT_DIR )
-                    {
-                        /*
-                         * Determine whether the mount point cookie file exists.
-                         */
+                    strlcpy( file, path,                              sizeof( file ) );
+                    strlcat( file, "/",                               sizeof( file ) );
+                    strlcat( file, kDAMainMountPointFolderCookieFile, sizeof( file ) );
 
-                        strlcpy( path, kDAMainMountPointFolder,           sizeof( path ) );
-                        strlcat( path, "/",                               sizeof( path ) );
-                        strlcat( path, item->d_name,                      sizeof( path ) );
-                        strlcat( path, "/",                               sizeof( path ) );
-                        strlcat( path, kDAMainMountPointFolderCookieFile, sizeof( path ) );
+                    /*
+                     * Remove the mount point cookie file.
+                     */
 
-                        if ( stat( path, &status ) == 0 )
-                        {
-                            /*
-                             * Remove the mount point cookie file.
-                             */
+                    unlink( file );
+///w:stop
+                    /*
+                     * Remove the mount point.
+                     */
 
-                            unlink( path );
-                        }
-
-                        /*
-                         * Remove the mount point.
-                         */
-
-                        rmdir( dirname( path ) );
-                    }
-                    else if ( item->d_type == DT_LNK )
-                    {
-                        /*
-                         * Remove the link.
-                         */
-
-                        strlcpy( path, kDAMainMountPointFolder, sizeof( path ) );
-                        strlcat( path, "/",                     sizeof( path ) );
-                        strlcat( path, item->d_name,            sizeof( path ) );
-
-                        unlink( path );
-                    }
+                    rmdir( path );
                 }
+                else if ( item->d_type == DT_LNK )
+                {
+                    /*
+                     * Remove the link.
+                     */
 
-                closedir( folder );
+                    unlink( path );
+                }
             }
+
+            closedir( folder );
+        }
+        else
+        {
+            status = ENOTDIR;
         }
     }
 
-    return success;
+    return status ? FALSE : TRUE;
 }
 
 static void __DAMainSignal( int sig )

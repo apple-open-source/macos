@@ -24,23 +24,29 @@
  */
 
 .filter-bar {
-    display: -webkit-flex;
+    display: flex;
 
-    height: 26px;
+    height: 29px;
 
     white-space: nowrap;
     overflow: hidden;
+
+    background-color: rgb(242, 242, 242);
 }
 
-body.mac-platform.legacy .filter-bar {
-    height: 21px;
+.filter-bar > .navigation-bar {
+    margin-top: 1px;
+}
+
+.filter-bar > .navigation-bar > .item {
+    padding: 0 0 3px 8px;
 }
 
 .filter-bar > input[type="search"] {
-    display: -webkit-flex;
-    -webkit-flex: 1;
+    display: flex;
+    flex: 1;
 
-    margin: 1px 6px;
+    margin: 3px 6px 4px;
     padding-top: 0;
 
     outline: none;
@@ -53,15 +59,6 @@ body.mac-platform.legacy .filter-bar {
     background-clip: padding-box;
 
     height: 22px;
-}
-
-body.mac-platform.legacy .filter-bar > input[type="search"] {
-    border: 1px solid rgba(0, 0, 0, 0.35);
-    border-radius: 10px;
-    box-shadow: inset rgba(0, 0, 0, 0.1) 0 1px 0;
-
-    height: 19px;
-    transition: background-color 200ms ease-in-out;
 }
 
 .filter-bar > input[type="search"]::-webkit-input-placeholder {
@@ -82,8 +79,4 @@ body.mac-platform.legacy .filter-bar > input[type="search"] {
     background-image: url(../Images/FilterFieldGlyph.svg);
 
     -webkit-appearance: none;
-}
-
-body.mac-platform.legacy .filter-bar > input[type="search"]::-webkit-search-decoration {
-    background-image: url(../Images/Legacy/FilterFieldGlyph.svg);
 }

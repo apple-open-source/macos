@@ -206,6 +206,39 @@
  */
 #define kIOPSCommandStartupDelayKey           "Startup Delay"
 
+/*!
+ * @define      kIOPSCommandSetCurrentLimitKey
+ *
+ * @abstract Tell the UPS the max current it can draw from an attached power source
+ * @discussion
+ *              <ul>
+ *                  <li>The matching argument should be a CFNumber of kCFNumberIntType specifying the UPS' new current
+ *                  <li>limit in mA.
+ */
+#define kIOPSCommandSetCurrentLimitKey        "Set Current Limit"
+
+/*!
+ * @define      kIOPSCommandSetRequiredVoltageKey
+ *
+ * @abstract Tell the UPS the minimum voltage it needs to provide.
+ * @discussion
+ *              <ul>
+ *                  <li>The matching argument should be a CFNumber of kCFNumberIntType specifying the required voltage
+ *                  <li>from a UPS in mV.
+ */
+#define kIOPSCommandSetRequiredVoltageKey       "Set Required Voltage"
+
+/*!
+ * @define      kIOPSCommandSendCurrentStateOfCharge
+ *
+ * @abstract Tell the UPS the device's current state of charge
+ * @discussion
+ *              <ul>
+ *                  <li>The matching argument should be a CFNumber of kCFNumberIntType specifying the device's
+ *                  <li>state of charge as a percentage.
+ */
+#define kIOPSCommandSendCurrentStateOfCharge       "Send Current State of Charge"
+
 
 /*!
  * @group       Power Source data keys
@@ -310,6 +343,20 @@
 #define kIOPSDesignCapacityKey          "DesignCapacity"
 
 /*!
+ * @define      kIOPSNominalCapacityKey
+ * @abstract    CFDictionary key for the current power source's normalized full, or "nominal", charge capacity
+ * @discussion
+ *              <ul>
+ *              <li> Apple-defined power sources might not publish this key.
+ *              <li> The power source's software may specify the units for this key. The units must be consistent for all capacities reported by this power source.
+ *              <li> For power source creators: Providing this key is RECOMMENDED.
+ *              <li> Type CFNumber kCFNumberIntType (signed integer)
+ *              </ul>
+ */
+
+#define kIOPSNominalCapacityKey         "Nominal Capacity"
+
+/*!
  * @define      kIOPSTimeToEmptyKey
  * @abstract    CFDictionary key for the current power source's time remaining until empty.
  * @discussion
@@ -354,6 +401,19 @@
  */
 
 #define kIOPSIsChargingKey             "Is Charging"
+
+/*!
+ * @define      kIOPSInternalFailureKey
+ * @abstract    CFDictionary key for whether the current power source has experienced a failure
+ * @discussion
+ *              <ul>
+ *              <li> Apple-defined power sources might not publish this key.
+ *              <li> For power source creators: Providing this key is RECOMMENDED.
+ *              <li> Type CFBoolean - kCFBooleanTrue or kCFBooleanFalse
+ *              </ul>
+ */
+
+#define kIOPSInternalFailureKey        "Internal Failure"
 
 /*!
  * @define      kIOPSIsPresentKey
@@ -452,6 +512,32 @@
  */
 
 #define kIOPSTransportTypeKey          "Transport Type"
+
+/*!
+ * @define      kIOPSVendorIDKey
+ * @abstract    CFDictionary key for the current power source's vendor ID.
+ * @discussion
+ *              <ul>
+ *              <li> Apple-defined power sources will publish this key.
+ *              <li> For power source creators: Providing this key is RECOMMENDED.
+ *              <li> Type CFNumberRef
+ *              </ul>
+ */
+
+#define kIOPSVendorIDKey          "Vendor ID"
+
+/*!
+ * @define      kIOPSProductIDKey
+ * @abstract    CFDictionary key for the current power source's product ID.
+ * @discussion
+ *              <ul>
+ *              <li> Apple-defined power sources will publish this key.
+ *              <li> For power source creators: Providing this key is RECOMMENDED.
+ *              <li> Type CFNumberRef
+ *              </ul>
+ */
+
+#define kIOPSProductIDKey          "Product ID"
 
 /*!
  * @define      kIOPSVendorDataKey

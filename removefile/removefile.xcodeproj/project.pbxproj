@@ -221,21 +221,12 @@
 					"-L/usr/lib/system",
 					"-ldyld",
 					"-lcompiler_rt",
-					"-lsystem_kernel",
-					"-lsystem_platform",
+					"-lsystem$(SIM_SUFFIX)_kernel",
+					"-lsystem$(SIM_SUFFIX)_platform",
 					"-lsystem_malloc",
 					"-lsystem_c",
 				);
-				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
-					"-Wl,-umbrella,System",
-					"-L/usr/lib/system",
-					"-ldyld",
-					"-lcompiler_rt",
-					"-lsystem_sim_kernel",
-					"-lsystem_sim_platform",
-					"-lsystem_malloc",
-					"-lsystem_sim_c",
-				);
+				"SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;

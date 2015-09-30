@@ -225,14 +225,30 @@ _os_construct_message(uint64_t code, _SIMPLE_STRING asl_message, Dl_info *info, 
 }
 
 #pragma mark Internal Implementations
+
+os_crash_callback_t _os_crash_callback = NULL;
+
+__attribute__((always_inline))
+static inline void
+_os_crash_impl(const char *message) {
+	os_set_crash_message(message);
+	if (!_os_crash_callback) {
+		_os_crash_callback = dlsym(RTLD_MAIN_ONLY, "os_crash_function");
+	}
+	if (_os_crash_callback) {
+		_os_crash_callback(message);
+	}
+}
+
 __attribute__((always_inline))
 static inline void
 _os_assumes_log_impl(uint64_t code)
 {
+	char message[256] = "";
+
 	_SIMPLE_STRING asl_message = _simple_asl_msg_new();
 	if (asl_message) {
 		Dl_info info;
-		char message[256];
 		_os_construct_message(code, asl_message, &info, message, sizeof(message));
 		if (!_os_log_redirect(info.dli_fbase, message)) {
 			_os_debug_log_error_str(message);
@@ -245,7 +261,7 @@ _os_assumes_log_impl(uint64_t code)
 	}
 
 	if (_os_abort_on_assumes()) {
-		__builtin_trap();
+		os_crash(message);
 	}
 }
 
@@ -297,10 +313,11 @@ __attribute__((always_inline))
 static inline void
 _os_assumes_log_ctx_impl(os_log_callout_t callout, void *ctx, uint64_t code)
 {
+	char message[256] = "";
+
 	_SIMPLE_STRING asl_message = _simple_asl_msg_new();
 	if (asl_message) {
 		Dl_info info;
-		char message[256];
 		_os_construct_message(code, asl_message, &info, message, sizeof(message));
 
 		(void)callout(asl_message, ctx, message);
@@ -308,7 +325,7 @@ _os_assumes_log_ctx_impl(os_log_callout_t callout, void *ctx, uint64_t code)
 	}
 
 	if (_os_abort_on_assumes()) {
-		__builtin_trap();
+		os_crash(message);
 	}
 }
 
@@ -332,6 +349,11 @@ _os_assert_log_ctx_impl(os_log_callout_t callout, void *ctx, uint64_t code)
 }
 
 #pragma mark Public Interfaces
+void _os_crash(const char *message)
+{
+	_os_crash_impl(message);
+}
+
 void
 _os_assumes_log(uint64_t code)
 {

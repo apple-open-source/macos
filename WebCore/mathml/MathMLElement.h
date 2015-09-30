@@ -37,7 +37,7 @@ namespace WebCore {
 
 class MathMLElement : public StyledElement {
 public:
-    static PassRefPtr<MathMLElement> create(const QualifiedName& tagName, Document&);
+    static Ref<MathMLElement> create(const QualifiedName& tagName, Document&);
 
     int colSpan() const;
     int rowSpan() const;
@@ -73,16 +73,16 @@ private:
     virtual void updateSelectedChild() { }
 };
 
-void isMathMLElement(const MathMLElement&); // Catch unnecessary runtime check of type known at compile time.
-inline bool isMathMLElement(const Node& node) { return node.isMathMLElement(); }
-NODE_TYPE_CASTS(MathMLElement)
-
 inline bool Node::hasTagName(const MathMLQualifiedName& name) const
 {
-    return isMathMLElement() && toMathMLElement(*this).hasTagName(name);
+    return isMathMLElement() && downcast<MathMLElement>(*this).hasTagName(name);
 }
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::MathMLElement)
+    static bool isType(const WebCore::Node& node) { return node.isMathMLElement(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #include "MathMLElementTypeHelpers.h"
 

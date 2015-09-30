@@ -86,8 +86,7 @@ static	void	do_resaddflags	(sockaddr_u *, struct interface *, struct req_pkt *);
 static	void	do_ressubflags	(sockaddr_u *, struct interface *, struct req_pkt *);
 static	void	do_unrestrict	(sockaddr_u *, struct interface *, struct req_pkt *);
 static	void	do_restrict	(sockaddr_u *, struct interface *, struct req_pkt *, int);
-static	void	mon_getlist_0	(sockaddr_u *, struct interface *, struct req_pkt *);
-static	void	mon_getlist_1	(sockaddr_u *, struct interface *, struct req_pkt *);
+static	void	mon_getlist	(sockaddr_u *, struct interface *, struct req_pkt *);
 static	void	reset_stats	(sockaddr_u *, struct interface *, struct req_pkt *);
 static	void	reset_peer	(sockaddr_u *, struct interface *, struct req_pkt *);
 static	void	do_key_reread	(sockaddr_u *, struct interface *, struct req_pkt *);
@@ -147,8 +146,8 @@ static	struct req_proc ntp_codes[] = {
 				sizeof(struct conf_restrict), do_ressubflags },
 	{ REQ_UNRESTRICT, AUTH, v4sizeof(struct conf_restrict),
 				sizeof(struct conf_restrict), do_unrestrict },
-	{ REQ_MON_GETLIST,	NOAUTH,	0, 0,	mon_getlist_0 },
-	{ REQ_MON_GETLIST_1,	NOAUTH,	0, 0,	mon_getlist_1 },
+	{ REQ_MON_GETLIST,	NOAUTH,	0, 0,	mon_getlist },
+	{ REQ_MON_GETLIST_1,	NOAUTH,	0, 0,	mon_getlist },
 	{ REQ_RESET_STATS, AUTH, sizeof(struct reset_flags), 0, reset_stats },
 	{ REQ_RESET_PEER,  AUTH, v4sizeof(struct conf_unpeer),
 				sizeof(struct conf_unpeer), reset_peer },
@@ -582,13 +581,13 @@ process_private(
 		 */
 		if (!INFO_IS_AUTH(inpkt->auth_seq) || !info_auth_keyid
 		    || ntohl(tailinpkt->keyid) != info_auth_keyid) {
-			DPRINTF(5, ("failed auth %d info_auth_keyid %u pkt keyid %u maclen %u\n",
+			DPRINTF(5, ("failed auth %d info_auth_keyid %u pkt keyid %u maclen %zu\n",
 				    INFO_IS_AUTH(inpkt->auth_seq),
 				    info_auth_keyid,
 				    ntohl(tailinpkt->keyid), mac_len));
 #ifdef DEBUG
 			msyslog(LOG_DEBUG,
-				"process_private: failed auth %d info_auth_keyid %u pkt keyid %u maclen %u\n",
+				"process_private: failed auth %d info_auth_keyid %u pkt keyid %u maclen %zu\n",
 				INFO_IS_AUTH(inpkt->auth_seq),
 				info_auth_keyid,
 				ntohl(tailinpkt->keyid), mac_len);
@@ -597,9 +596,9 @@ process_private(
 			return;
 		}
 		if (recv_len > REQ_LEN_NOMAC + MAX_MAC_LEN) {
-			DPRINTF(5, ("bad pkt length %d\n", recv_len));
+			DPRINTF(5, ("bad pkt length %zu\n", recv_len));
 			msyslog(LOG_ERR,
-				"process_private: bad pkt length %d",
+				"process_private: bad pkt length %zu",
 				recv_len);
 			req_ack(srcadr, inter, inpkt, INFO_ERR_FMT);
 			return;
@@ -1905,106 +1904,13 @@ do_restrict(
  * mon_getlist - return monitor data
  */
 static void
-mon_getlist_0(
+mon_getlist(
 	sockaddr_u *srcadr,
 	struct interface *inter,
 	struct req_pkt *inpkt
 	)
 {
-	register struct info_monitor *im;
-	register struct mon_data *md;
-	extern struct mon_data mon_mru_list;
-	extern int mon_enabled;
-
-#ifdef DEBUG
-	if (debug > 2)
-	    printf("wants monitor 0 list\n");
-#endif
-	if (!mon_enabled) {
-		req_ack(srcadr, inter, inpkt, INFO_ERR_NODATA);
-		return;
-	}
-	im = (struct info_monitor *)prepare_pkt(srcadr, inter, inpkt,
-	    v6sizeof(struct info_monitor));
-	for (md = mon_mru_list.mru_next; md != &mon_mru_list && im != 0;
-	     md = md->mru_next) {
-		im->lasttime = htonl((u_int32)((current_time -
-		    md->firsttime) / md->count));
-		im->firsttime = htonl((u_int32)(current_time - md->lasttime));
-		im->restr = htonl((u_int32)md->flags);
-		im->count = htonl((u_int32)(md->count));
-		if (IS_IPV6(&md->rmtadr)) {
-			if (!client_v6_capable)
-				continue;
-			im->addr6 = SOCK_ADDR6(&md->rmtadr);
-			im->v6_flag = 1;
-		} else {
-			im->addr = NSRCADR(&md->rmtadr);
-			if (client_v6_capable)
-				im->v6_flag = 0;
-		}
-		im->port = md->rmtport;
-		im->mode = md->mode;
-		im->version = md->version;
-		im = (struct info_monitor *)more_pkt();
-	}
-	flush_pkt();
-}
-
-/*
- * mon_getlist - return monitor data
- */
-static void
-mon_getlist_1(
-	sockaddr_u *srcadr,
-	struct interface *inter,
-	struct req_pkt *inpkt
-	)
-{
-	register struct info_monitor_1 *im;
-	register struct mon_data *md;
-	extern struct mon_data mon_mru_list;
-	extern int mon_enabled;
-
-	if (!mon_enabled) {
-		req_ack(srcadr, inter, inpkt, INFO_ERR_NODATA);
-		return;
-	}
-	im = (struct info_monitor_1 *)prepare_pkt(srcadr, inter, inpkt,
-	    v6sizeof(struct info_monitor_1));
-	for (md = mon_mru_list.mru_next; md != &mon_mru_list && im != 0;
-	     md = md->mru_next) {
-		im->lasttime = htonl((u_int32)((current_time -
-		    md->firsttime) / md->count));
-		im->firsttime = htonl((u_int32)(current_time - md->lasttime));
-		im->restr = htonl((u_int32)md->flags);
-		im->count = htonl((u_int32)md->count);
-		if (IS_IPV6(&md->rmtadr)) {
-			if (!client_v6_capable)
-				continue;
-			im->addr6 = SOCK_ADDR6(&md->rmtadr);
-			im->v6_flag = 1;
-			im->daddr6 = SOCK_ADDR6(&md->interface->sin);
-		} else {
-			im->addr = NSRCADR(&md->rmtadr);
-			if (client_v6_capable)
-				im->v6_flag = 0;
-			if (MDF_BCAST == md->cast_flags)
-				im->daddr = NSRCADR(&md->interface->bcast);
-			else if (md->cast_flags) {
-				im->daddr = NSRCADR(&md->interface->sin);
-				if (!im->daddr)
-					im->daddr = NSRCADR(&md->interface->bcast);
-			} else
-				im->daddr = 4;
-		}
-		im->flags = htonl(md->cast_flags);
-		im->port = md->rmtport;
-		im->mode = md->mode;
-		im->version = md->version;
-		im = (struct info_monitor_1 *)more_pkt();
-	}
-	flush_pkt();
+	req_ack(srcadr, inter, inpkt, INFO_ERR_NODATA);
 }
 
 /*

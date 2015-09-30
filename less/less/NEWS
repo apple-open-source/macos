@@ -7,11 +7,148 @@
       http://www.greenwoodsoftware.com/less
   You can also download the latest version of less from there.
 
-  To report bugs, suggestions or comments, send email to 
-  bug-less@gnu.org or markn@greenwoodsoftware.com.
+  To report bugs, suggestions or comments, send email to bug-less@gnu.org.
 
 ======================================================================
 
+	Major changes between "less" versions 451 and 458
+
+* Allow backslash escaping of metacharacters in LESS environment variable
+  after the --use-backslash option.
+
+* Don't quit if syntax errors are found in command line options.
+
+* Increase sizes of some internal buffers.
+
+* Fix configure bug with --with-regex=none.
+
+* Fix crash with "stty rows 0".
+
+* Fix Win32 attribute display bug.
+
+* Fix display bug when using up/down arrow on the command line.
+
+======================================================================
+
+	Major changes between "less" versions 444 and 451
+
+* Add ESC-F command to keep reading data until a pattern is found.
+
+* Use exit code of LESSOPEN script if LESSOPEN starts with "||".
+
+* When up/down arrow is used on the command line immediately after
+  typing text, the next command starting with that text is found.
+
+* Add support for GNU regex.
+
+* Add configure option --with-regex=none and fix compile errors
+  when compiling with no regex library.
+
+* Fix bugs handling SGR sequences in Win32.
+
+* Fix possible crashes caused by malformed LESSOPEN or 
+  LESSCLOSE variables.
+
+* Fix bug highlighting text which is discontiguous in the file 
+  due to backspace processing.
+
+* Fix bug in displaying status column when scrolling backwards 
+  with -J and -S in effect.
+
+======================================================================
+
+	Major changes between "less" versions 443 and 444
+
+* Fix bug in unget handling that can cause strange effects on the
+  command line.
+
+* Remove vestiges of obsolete -l option that can cause a crash.
+
+======================================================================
+
+	Major changes between "less" versions 436 and 443
+
+* Change search behavior such that when a search is given an explicit 
+  pattern, the entire displayed screen is included in the search and 
+  not just the portion after the target line.
+
+* Add -A option to change search behavior to the old way: only
+  the portion of the screen after the target line is searched.
+
+* Add %F formatting to prompt strings, replaced by the last component
+  of the input file.
+
+* Control-G while editing a command exits the command.
+
+* Less now exits with status 2 if control-C is pressed and -K is in effect.
+
+* Fix "ungetc overflow" when passing long commands via the -p option.
+
+* Fix bug in using line filtering via the & command 
+  in combination with -i and -I.
+
+* Fix bug in handling negative arguments to the -j option.
+
+* Fix bug in handling %t in prompt strings.
+
+* Improve handling of long option names.
+
+* Improve percentage calculation for very large files.
+
+======================================================================
+
+	Major changes between "less" versions 429 and 436
+
+* Don't pass "-" to non-pipe LESSOPEN unless it starts with "-".
+
+* Allow a fraction as the argument to the -# (--shift) option.
+
+* Fix highlight bug when underlined/overstruck text matches at end of line.
+
+* Fix non-regex searches with ctrl-R.
+
+======================================================================
+
+	Major changes between "less" versions 424 and 429
+
+* LESSOPEN pipe will now be used on standard input, if the LESSOPEN
+  environment variable begins with "|-".
+
+* The -D option with one number now means use the normal background color.
+
+* Don't change permissions on history file if it is not a regular file.
+
+* Fix non-ANSI-compliant code that caused problems with some compilers.
+
+* Fix binary file detection in UTF-8 mode.
+
+* Fix display problems with long lines on "ignaw" terminals.
+
+* Fix problem interrupting the line number calculation for initial prompt.
+
+* Fix SGR emulation when dealing with multiple attributes (eg. bold+underline).
+
+* Fix highlight bug when searching for underlined/overstruck text.
+
+======================================================================
+
+	Major changes between "less" versions 418 and 424
+
+* New "&" command allows filtering of lines based on a pattern.
+
+* Status column now displays a search match, even if the matched
+  string is scrolled off screen because -S is in effect.
+
+* Improve behavior of -F option.
+
+* Allow CSI character (0x9B) to work in UTF-8 mode.
+
+* Output carriage return at startup in case terminal doesn't default
+  to column 1.
+
+* Fix bug in '' (quote, quote) command after G command.
+
+======================================================================
 
 	Major changes between "less" versions 416 and 418
 

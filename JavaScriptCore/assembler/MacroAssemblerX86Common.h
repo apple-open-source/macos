@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@
 
 namespace JSC {
 
-class MacroAssemblerX86Common : public AbstractMacroAssembler<X86Assembler> {
+class MacroAssemblerX86Common : public AbstractMacroAssembler<X86Assembler, MacroAssemblerX86Common> {
 public:
 #if CPU(X86_64)
     static const X86Registers::RegisterID scratchRegister = X86Registers::r11;
@@ -181,6 +181,18 @@ public:
     {
         move(src, dest);
         and32(imm, dest);
+    }
+
+    void countLeadingZeros32(RegisterID src, RegisterID dst)
+    {
+        m_assembler.bsr_rr(src, dst);
+        Jump srcIsNonZero = m_assembler.jCC(x86Condition(NonZero));
+        move(TrustedImm32(32), dst);
+
+        Jump skipNonZeroCase = jump();
+        srcIsNonZero.link(this);
+        xor32(TrustedImm32(0x1f), dst);
+        skipNonZeroCase.link(this);
     }
 
     void lshift32(RegisterID shift_amount, RegisterID dest)
@@ -525,12 +537,12 @@ public:
         m_assembler.movzbl_mr(address.offset, address.base, dest);
     }
     
-    void load8Signed(BaseIndex address, RegisterID dest)
+    void load8SignedExtendTo32(BaseIndex address, RegisterID dest)
     {
         m_assembler.movsbl_mr(address.offset, address.base, address.index, address.scale, dest);
     }
 
-    void load8Signed(ImplicitAddress address, RegisterID dest)
+    void load8SignedExtendTo32(ImplicitAddress address, RegisterID dest)
     {
         m_assembler.movsbl_mr(address.offset, address.base, dest);
     }
@@ -545,12 +557,12 @@ public:
         m_assembler.movzwl_mr(address.offset, address.base, dest);
     }
 
-    void load16Signed(BaseIndex address, RegisterID dest)
+    void load16SignedExtendTo32(BaseIndex address, RegisterID dest)
     {
         m_assembler.movswl_mr(address.offset, address.base, address.index, address.scale, dest);
     }
     
-    void load16Signed(Address address, RegisterID dest)
+    void load16SignedExtendTo32(Address address, RegisterID dest)
     {
         m_assembler.movswl_mr(address.offset, address.base, dest);
     }
@@ -909,8 +921,17 @@ public:
         m_assembler.cvttsd2si_rr(src, dest);
 
         // If the result is zero, it might have been -0.0, and the double comparison won't catch this!
+#if CPU(X86_64)
+        if (negZeroCheck) {
+            Jump valueIsNonZero = branchTest32(NonZero, dest);
+            m_assembler.movmskpd_rr(src, scratchRegister);
+            failureCases.append(branchTest32(NonZero, scratchRegister, TrustedImm32(1)));
+            valueIsNonZero.link(this);
+        }
+#else
         if (negZeroCheck)
             failureCases.append(branchTest32(Zero, dest));
+#endif
 
         // Convert the integer result back to float & compare to the original value - if not equal or unordered (NaN) then jump.
         convertInt32ToDouble(dest, fpTemp);
@@ -1469,28 +1490,14 @@ public:
         return X86Assembler::maxJumpReplacementSize();
     }
 
-#if USE(MASM_PROBE)
-    struct CPUState {
-        #define DECLARE_REGISTER(_type, _regName) \
-            _type _regName;
-        FOR_EACH_CPU_REGISTER(DECLARE_REGISTER)
-        #undef DECLARE_REGISTER
-    };
-
-    struct ProbeContext;
-    typedef void (*ProbeFunction)(struct ProbeContext*);
-
-    struct ProbeContext {
-        ProbeFunction probeFunction;
-        void* arg1;
-        void* arg2;
-        CPUState cpu;
-
-        void dump(const char* indentation = 0);
-    private:
-        void dumpCPURegisters(const char* indentation);
-    };
-#endif // USE(MASM_PROBE)
+#if ENABLE(MASM_PROBE)
+    // Methods required by the MASM_PROBE mechanism as defined in
+    // AbstractMacroAssembler.h. 
+    static void printCPURegisters(CPUState&, int indentation = 0);
+    static void printRegister(CPUState&, RegisterID);
+    static void printRegister(CPUState&, FPRegisterID);
+    void probe(ProbeFunction, void* arg1 = 0, void* arg2 = 0);
+#endif // ENABLE(MASM_PROBE)
 
 protected:
     X86Assembler::Condition x86Condition(RelationalCondition cond)

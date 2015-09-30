@@ -41,32 +41,43 @@ namespace WebCore {
 // Simple NSCursor calls shouldn't need protection,
 // but creating a cursor with a bad image might throw.
 
+#if ENABLE(MOUSE_CURSOR_SCALE)
+static RetainPtr<NSCursor> createCustomCursor(Image* image, const IntPoint& hotSpot, float scale)
+#else
 static RetainPtr<NSCursor> createCustomCursor(Image* image, const IntPoint& hotSpot)
+#endif
 {
     // FIXME: The cursor won't animate.  Not sure if that's a big deal.
     NSImage* nsImage = image->getNSImage();
     if (!nsImage)
         return 0;
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
+#if ENABLE(MOUSE_CURSOR_SCALE)
+    NSSize size = NSMakeSize(image->width() / scale, image->height() / scale);
+    NSSize expandedSize = NSMakeSize(ceil(size.width), ceil(size.height));
+
+    // Pad the image with transparent pixels so it has an integer boundary.
+    if (size.width != expandedSize.width || size.height != expandedSize.height) {
+        RetainPtr<NSImage> expandedImage = adoptNS([[NSImage alloc] initWithSize:expandedSize]);
+        NSRect toRect = NSMakeRect(0, expandedSize.height - size.height, size.width, size.height);
+        NSRect fromRect = NSMakeRect(0, 0, image->width(), image->height());
+
+        [expandedImage lockFocus];
+        [nsImage drawInRect:toRect fromRect:fromRect operation:NSCompositeSourceOver fraction:1];
+        [expandedImage unlockFocus];
+
+        return adoptNS([[NSCursor alloc] initWithImage:expandedImage.get() hotSpot:hotSpot]);
+    }
+
+    // Scale the image and its representation to match retina resolution.
+    [nsImage setSize:expandedSize];
+    [[[nsImage representations] objectAtIndex:0] setSize:expandedSize];
+#endif
+
     return adoptNS([[NSCursor alloc] initWithImage:nsImage hotSpot:hotSpot]);
     END_BLOCK_OBJC_EXCEPTIONS;
-    return 0;
-}
-
-static RetainPtr<NSCursor> createNamedCursor(const char* name, int x, int y)
-{
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    RetainPtr<NSString> resourceName = adoptNS([[NSString alloc] initWithUTF8String:name]);
-    RetainPtr<NSImage> cursorImage = adoptNS([[NSImage alloc] initWithContentsOfFile:[[NSBundle bundleForClass:[WebCoreCursorBundle class]] pathForResource:resourceName.get() ofType:@"png"]]);
-    
-    RetainPtr<NSCursor> cursor;
-
-    if (cursorImage)
-        cursor = adoptNS([[NSCursor alloc] initWithImage:cursorImage.get() hotSpot:NSMakePoint(x, y)]);
-
-    return cursor;
-    END_BLOCK_OBJC_EXCEPTIONS;
-    return nil;
+    return nullptr;
 }
 
 void Cursor::ensurePlatformCursor() const
@@ -97,9 +108,6 @@ void Cursor::ensurePlatformCursor() const
 
     case Cursor::Help:
         m_platformCursor = wkCursor("Help");
-        if (m_platformCursor)
-            break;
-        m_platformCursor = createNamedCursor("helpCursor", 8, 8);
         break;
 
     case Cursor::Move:
@@ -177,9 +185,6 @@ void Cursor::ensurePlatformCursor() const
 
     case Cursor::Cell:
         m_platformCursor = wkCursor("Cell");
-        if (m_platformCursor)
-            break;
-        m_platformCursor = createNamedCursor("cellCursor", 7, 7);
         break;
 
     case Cursor::ContextMenu:
@@ -203,7 +208,7 @@ void Cursor::ensurePlatformCursor() const
         break;
 
     case Cursor::None:
-        m_platformCursor = createNamedCursor("noneCursor", 7, 7);
+        m_platformCursor = adoptNS([[NSCursor alloc] initWithImage:adoptNS([[NSImage alloc] initWithSize:NSMakeSize(1, 1)]).get() hotSpot:NSZeroPoint]);
         break;
 
     case Cursor::NotAllowed:
@@ -212,16 +217,10 @@ void Cursor::ensurePlatformCursor() const
 
     case Cursor::ZoomIn:
         m_platformCursor = wkCursor("ZoomIn");
-        if (m_platformCursor)
-            break;
-        m_platformCursor = createNamedCursor("zoomInCursor", 7, 7);
         break;
 
     case Cursor::ZoomOut:
         m_platformCursor = wkCursor("ZoomOut");
-        if (m_platformCursor)
-            break;
-        m_platformCursor = createNamedCursor("zoomOutCursor", 7, 7);
         break;
 
     case Cursor::Grab:
@@ -233,7 +232,11 @@ void Cursor::ensurePlatformCursor() const
         break;
 
     case Cursor::Custom:
+#if ENABLE(MOUSE_CURSOR_SCALE)
+        m_platformCursor = createCustomCursor(m_image.get(), m_hotSpot, m_imageScaleFactor);
+#else
         m_platformCursor = createCustomCursor(m_image.get(), m_hotSpot);
+#endif
         break;
     }
 }

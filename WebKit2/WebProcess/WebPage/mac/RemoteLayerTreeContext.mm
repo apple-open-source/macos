@@ -61,10 +61,12 @@ void RemoteLayerTreeContext::layerWasCreated(PlatformCALayerRemote& layer, Platf
     creationProperties.layerID = layerID;
     creationProperties.type = type;
 
-    if (layer.isPlatformCALayerRemoteCustom())
+    if (layer.isPlatformCALayerRemoteCustom()) {
         creationProperties.hostingContextID = layer.hostingContextID();
+        creationProperties.hostingDeviceScaleFactor = deviceScaleFactor();
+    }
 
-    m_createdLayers.append(creationProperties);
+    m_createdLayers.add(layerID, WTF::move(creationProperties));
     m_liveLayers.add(layerID, &layer);
 }
 
@@ -73,12 +75,13 @@ void RemoteLayerTreeContext::layerWillBeDestroyed(PlatformCALayerRemote& layer)
     ASSERT(layer.layerID());
     GraphicsLayer::PlatformLayerID layerID = layer.layerID();
 
+    m_createdLayers.remove(layerID);
     m_liveLayers.remove(layerID);
 
     ASSERT(!m_destroyedLayers.contains(layerID));
     m_destroyedLayers.append(layerID);
     
-    m_layersAwaitingAnimationStart.remove(layerID);
+    m_layersWithAnimations.remove(layerID);
 }
 
 void RemoteLayerTreeContext::backingStoreWasCreated(RemoteLayerBackingStore& backingStore)
@@ -91,27 +94,31 @@ void RemoteLayerTreeContext::backingStoreWillBeDestroyed(RemoteLayerBackingStore
     m_backingStoreCollection.backingStoreWillBeDestroyed(backingStore);
 }
 
-void RemoteLayerTreeContext::backingStoreWillBeDisplayed(RemoteLayerBackingStore& backingStore)
+bool RemoteLayerTreeContext::backingStoreWillBeDisplayed(RemoteLayerBackingStore& backingStore)
 {
-    m_backingStoreCollection.backingStoreWillBeDisplayed(backingStore);
+    return m_backingStoreCollection.backingStoreWillBeDisplayed(backingStore);
 }
 
-std::unique_ptr<GraphicsLayer> RemoteLayerTreeContext::createGraphicsLayer(GraphicsLayerClient& client)
+std::unique_ptr<GraphicsLayer> RemoteLayerTreeContext::createGraphicsLayer(WebCore::GraphicsLayer::Type layerType, GraphicsLayerClient& client)
 {
-    return std::make_unique<GraphicsLayerCARemote>(client, *this);
+    return std::make_unique<GraphicsLayerCARemote>(layerType, client, *this);
 }
 
 void RemoteLayerTreeContext::buildTransaction(RemoteLayerTreeTransaction& transaction, PlatformCALayer& rootLayer)
 {
-    PlatformCALayerRemote& rootLayerRemote = toPlatformCALayerRemote(rootLayer);
+    PlatformCALayerRemote& rootLayerRemote = downcast<PlatformCALayerRemote>(rootLayer);
     transaction.setRootLayerID(rootLayerRemote.layerID());
 
     m_currentTransaction = &transaction;
     rootLayerRemote.recursiveBuildTransaction(*this, transaction);
     m_currentTransaction = nullptr;
 
-    transaction.setCreatedLayers(WTF::move(m_createdLayers));
+    Vector<RemoteLayerTreeTransaction::LayerCreationProperties> createdLayerProperties;
+    copyValuesToVector(m_createdLayers, createdLayerProperties);
+    transaction.setCreatedLayers(WTF::move(createdLayerProperties));
     transaction.setDestroyedLayerIDs(WTF::move(m_destroyedLayers));
+    
+    m_createdLayers.clear();
 }
 
 void RemoteLayerTreeContext::layerPropertyChangedWhileBuildingTransaction(PlatformCALayerRemote& layer)
@@ -122,14 +129,21 @@ void RemoteLayerTreeContext::layerPropertyChangedWhileBuildingTransaction(Platfo
 
 void RemoteLayerTreeContext::willStartAnimationOnLayer(PlatformCALayerRemote& layer)
 {
-    m_layersAwaitingAnimationStart.add(layer.layerID(), &layer);
+    m_layersWithAnimations.add(layer.layerID(), &layer);
 }
 
 void RemoteLayerTreeContext::animationDidStart(WebCore::GraphicsLayer::PlatformLayerID layerID, const String& key, double startTime)
 {
-    auto it = m_layersAwaitingAnimationStart.find(layerID);
-    if (it != m_layersAwaitingAnimationStart.end())
+    auto it = m_layersWithAnimations.find(layerID);
+    if (it != m_layersWithAnimations.end())
         it->value->animationStarted(key, startTime);
+}
+
+void RemoteLayerTreeContext::animationDidEnd(WebCore::GraphicsLayer::PlatformLayerID layerID, const String& key)
+{
+    auto it = m_layersWithAnimations.find(layerID);
+    if (it != m_layersWithAnimations.end())
+        it->value->animationEnded(key);
 }
 
 } // namespace WebKit

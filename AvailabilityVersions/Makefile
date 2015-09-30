@@ -3,12 +3,7 @@ Project=AvailabilityVersions
 include $(MAKEFILEPATH)/CoreOS/Standard/Commands.make
 include $(MAKEFILEPATH)/CoreOS/Standard/Variables.make
 
-ifeq "$(RC_INDIGO)" "YES"
-	include $(MAKEFILEPATH)/../AppleInternal/Makefiles/Makefile.indigo
-	VerifierDest	=	$(INDIGO_PREFIX)/usr/local/libexec
-else
-	VerifierDest	=	/usr/local/libexec
-endif
+VerifierDest	=	/usr/local/libexec
 
 install:
 	$(_v) $(MKDIR) "$(DSTROOT)$(VerifierDest)"

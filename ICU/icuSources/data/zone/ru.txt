@@ -1,16 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ru.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/ru.xml
- */
 ru{
-    Version{"2.0.98.62"}
+    Version{"2.1.13.53"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Абиджан"}
@@ -292,7 +289,7 @@ ru{
             ec{"Доусон"}
         }
         "America:Dawson_Creek"{
-            ec{"Досон-Крик"}
+            ec{"Доусон-Крик"}
         }
         "America:Denver"{
             ec{"Денвер"}
@@ -481,7 +478,7 @@ ru{
             ec{"Бойла, Северная Дакота"}
         }
         "America:North_Dakota:Center"{
-            ec{"Северная Дакота - Центр"}
+            ec{"Центр, Северная Дакота"}
         }
         "America:North_Dakota:New_Salem"{
             ec{"Нью-Салем"}
@@ -613,7 +610,7 @@ ru{
             ec{"Дейвис"}
         }
         "Antarctica:DumontDUrville"{
-            ec{"Дюмон-д'Юрвиль"}
+            ec{"Дюмон-д’Юрвиль"}
         }
         "Antarctica:Macquarie"{
             ec{"Маккуори"}
@@ -632,6 +629,9 @@ ru{
         }
         "Antarctica:Syowa"{
             ec{"Сёва"}
+        }
+        "Antarctica:Troll"{
+            ec{"Тролль"}
         }
         "Antarctica:Vostok"{
             ec{"Восток"}
@@ -687,9 +687,6 @@ ru{
         "Asia:Choibalsan"{
             ec{"Чойбалсан"}
         }
-        "Asia:Chongqing"{
-            ec{"Чунцин"}
-        }
         "Asia:Colombo"{
             ec{"Коломбо"}
         }
@@ -710,9 +707,6 @@ ru{
         }
         "Asia:Gaza"{
             ec{"Газа"}
-        }
-        "Asia:Harbin"{
-            ec{"Харбин"}
         }
         "Asia:Hebron"{
             ec{"Хеврон"}
@@ -743,9 +737,6 @@ ru{
         }
         "Asia:Karachi"{
             ec{"Карачи"}
-        }
-        "Asia:Kashgar"{
-            ec{"Кашгар"}
         }
         "Asia:Katmandu"{
             ec{"Катманду"}
@@ -898,7 +889,7 @@ ru{
             ec{"Рейкьявик"}
         }
         "Atlantic:South_Georgia"{
-            ec{"Южная Георгия и Южные Сандвичевы о-ва"}
+            ec{"Юж. Георгия и Юж. Сэндвинчевы о-ва"}
         }
         "Atlantic:St_Helena"{
             ec{"О-в Св. Елены"}
@@ -1122,7 +1113,7 @@ ru{
             ec{"Чагос"}
         }
         "Indian:Christmas"{
-            ec{"О-в Рождества"}
+            ec{"Рождества, о-в"}
         }
         "Indian:Cocos"{
             ec{"Кокосовые о-ва"}
@@ -1176,7 +1167,7 @@ ru{
             ec{"Фунафути"}
         }
         "Pacific:Galapagos"{
-            ec{"Галапагосcкие о-ва"}
+            ec{"Галапагосские о-ва"}
         }
         "Pacific:Gambier"{
             ec{"О-в Гамбье"}
@@ -1324,6 +1315,11 @@ ru{
             lg{"Анадырь"}
             ls{"Анадырь, стандартное время"}
         }
+        "meta:Apia"{
+            ld{"летнее время Апиа, Самоа"}
+            lg{"время Апиа, Самоа"}
+            ls{"Стандартное время Апиа, Самоа"}
+        }
         "meta:Aqtau"{
             ld{"Актау, летнее время"}
             lg{"Актау"}
@@ -1385,9 +1381,9 @@ ru{
             ls{"Азербайджан, стандартное время"}
         }
         "meta:Azores"{
-            ld{"Азоры, летнее время"}
-            lg{"Азоры"}
-            ls{"Азоры, стандартное время"}
+            ld{"Азорские о-ва, летнее время"}
+            lg{"Азорские о-ва"}
+            ls{"Азорские о-ва, стандартное время"}
         }
         "meta:Bangladesh"{
             ld{"Бангладеш, летнее время"}
@@ -1487,15 +1483,18 @@ ru{
             lg{"Восточная Европа"}
             ls{"Восточная Европа, стандартное время"}
         }
+        "meta:Europe_Further_Eastern"{
+            ls{"время в Калининграде и Минске"}
+        }
         "meta:Europe_Western"{
             ld{"Западная Европа, летнее время"}
             lg{"Западная Европа"}
             ls{"Западная Европа, стандартное время"}
         }
         "meta:Falkland"{
-            ld{"Фолкленды, летнее время"}
-            lg{"Фолкленды"}
-            ls{"Фолкленды, стандартное время"}
+            ld{"Фолклендские о-ва, летнее время"}
+            lg{"Фолклендские о-ва"}
+            ls{"Фолклендские о-ва, стандартное время"}
         }
         "meta:Fiji"{
             ld{"Фиджи, летнее время"}
@@ -1668,6 +1667,16 @@ ru{
         "meta:Mawson"{
             ls{"Моусон, стандартное время"}
         }
+        "meta:Mexico_Northwest"{
+            ld{"Североамериканское мексиканское летнее время"}
+            lg{"Североамериканское мексиканское время"}
+            ls{"Североамериканское мексиканское стандартное время"}
+        }
+        "meta:Mexico_Pacific"{
+            ld{"Тихоокеанское мексиканское летнее время"}
+            lg{"Тихоокеанское мексиканское время"}
+            ls{"Тихоокеанское мексиканское стандартное время"}
+        }
         "meta:Mongolia"{
             ld{"Улан-Батор, летнее время"}
             lg{"Улан-Батор"}
@@ -1753,7 +1762,7 @@ ru{
             ls{"Филиппины, стандартное время"}
         }
         "meta:Phoenix_Islands"{
-            ls{"О-ва Феникс"}
+            ls{"Феникс, о-ва"}
         }
         "meta:Pierre_Miquelon"{
             ld{"Сен-Пьер и Микелон, летнее время"}
@@ -1764,7 +1773,7 @@ ru{
             ls{"Питкэрн"}
         }
         "meta:Ponape"{
-            ls{"О-ва Понапе"}
+            ls{"Понапе, о-ва"}
         }
         "meta:Qyzylorda"{
             ld{"Кызылорда, летнее время"}
@@ -1811,7 +1820,7 @@ ru{
             ls{"Сёва, стандартное время"}
         }
         "meta:Tahiti"{
-            ls{"О-в Таити"}
+            ls{"Таити, о-в"}
         }
         "meta:Taipei"{
             ld{"Тайвань, летнее время"}
@@ -1872,7 +1881,7 @@ ru{
             ls{"Восток, время"}
         }
         "meta:Wake"{
-            ls{"О-в Уэйк"}
+            ls{"Уэйк, о-в"}
         }
         "meta:Wallis"{
             ls{"Уоллис и Футуна"}
@@ -1891,7 +1900,7 @@ ru{
         gmtFormat{"GMT{0}"}
         gmtZeroFormat{"GMT"}
         hourFormat{"+HH:mm;-HH:mm"}
-        regionFormat{"{0} время"}
+        regionFormat{"{0}"}
         regionFormatDaylight{"{0} (+1)"}
         regionFormatStandard{"{0} (+0)"}
     }

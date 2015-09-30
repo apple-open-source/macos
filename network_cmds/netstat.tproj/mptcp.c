@@ -34,6 +34,7 @@
 #include <err.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <inttypes.h>
 
 #include <sys/errno.h>
 #include <sys/types.h>
@@ -72,10 +73,17 @@ printmptcp(int id, conninfo_mptcp_t *mptcp)
 	mptcp_flow_t *flow;
 	int af;
 
-	printf("mptcp/%-2.2d %69s\n", id,
-	    mptcpstates[mptcp->mptcpci_state]);
+	printf("mptcp/%-2.2d  %-8.8x/%-8.8x %50s \n"
+	    "      [tok(%#"PRIx32") snd(%#"PRIx64") rcv(%#"PRIx64") "
+	    "aid(%d)]\n", id,
+	    mptcp->mptcpci_mpte_flags, mptcp->mptcpci_flags,
+	    mptcpstates[mptcp->mptcpci_state], mptcp->mptcpci_rtoken,
+	    mptcp->mptcpci_sndnxt, mptcp->mptcpci_rcvatmark,
+	    mptcp->mptcpci_mpte_addrid);
+
+	flow = (mptcp_flow_t*)((caddr_t)mptcp + mptcp->mptcpci_flow_offset);
+
 	for (i = 0; i < mptcp->mptcpci_nflows; i++) {
-		flow = &mptcp->mptcpci_flows[i];
 		src = &flow->flow_src;
 		dst = &flow->flow_dst;
 		af = src->ss_family;
@@ -102,8 +110,16 @@ printmptcp(int id, conninfo_mptcp_t *mptcp)
 #endif
 #undef SIN
 #undef SIN6
-		tcpci = &flow->flow_ci;
-		printf("%s\n", tcpstates[tcpci->tcpci_tcp_info.tcpi_state]);	
+		tcpci = (conninfo_tcp_t*)((caddr_t)flow +
+		    flow->flow_tcpci_offset);
+		printf("%s \n"
+		    "      [dsn(%#"PRIx64"), relseq(%-4.4d), err(%d)]\n",
+		    tcpstates[tcpci->tcpci_tcp_info.tcpi_state],
+		    flow->flow_sndnxt,
+		    flow->flow_relseq,
+		    flow->flow_soerror);
+
+		flow = (mptcp_flow_t*)((caddr_t)flow + flow->flow_len);
 	}
 }
 

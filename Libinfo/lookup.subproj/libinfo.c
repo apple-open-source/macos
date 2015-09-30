@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -731,6 +731,7 @@ _getgrouplist_2_internal(const char *name, gid_t basegid, gid_t **groups)
 	 * we add one to the count that was found in case the basegid is not there
 	 */
 	gids = calloc(gl->gl_count + 1, sizeof(gid_t));
+	if (gids == NULL) return -1;
 
 	count = 0;
 	merge_gid(gids, basegid, &count);

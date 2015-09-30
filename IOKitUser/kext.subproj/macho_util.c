@@ -41,6 +41,7 @@
 #include <sys/mman.h>
 
 #include "macho_util.h"
+#include "cross_link.h"
 
 static boolean_t macho_swap_32(u_char *file);
 static boolean_t macho_swap_64(u_char *file);
@@ -1227,7 +1228,7 @@ boolean_t macho_trim_linkedit(
                 : ((struct segment_command_64 *) linkedit_segment)->vmsize);
 
         /* calculate new segment size after removal of symtab/stringtab data */
-        u_long  new_vmsize = round_page(reloc_size);
+        u_long  new_vmsize = roundPageCrossSafe(reloc_size);
 
         /* If the relocation entries are positioned within the LINKEDIT segment AFTER
          * the symbol table, those entries must be moved within the segment. Otherwise,
@@ -1249,6 +1250,11 @@ boolean_t macho_trim_linkedit(
              * appropriately
              */
             bzero(macho + symtab->symoff, symtab_size);	/* wipe any existing data */
+        }
+
+        /* sanity check so we don't accidentally grow the segment */
+        if (new_vmsize > old_vmsize) {
+            new_vmsize = old_vmsize;
         }
 
         /* update LINKEDIT segment command with new size */

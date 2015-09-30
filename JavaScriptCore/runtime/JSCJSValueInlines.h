@@ -26,6 +26,8 @@
 #ifndef JSValueInlines_h
 #define JSValueInlines_h
 
+#include "ExceptionHelpers.h"
+#include "Identifier.h"
 #include "InternalFunction.h"
 #include "JSCJSValue.h"
 #include "JSCellInlines.h"
@@ -211,10 +213,10 @@ inline JSValue::JSValue(const JSCell* ptr)
     u.asBits.payload = reinterpret_cast<int32_t>(const_cast<JSCell*>(ptr));
 }
 
-inline JSValue::operator UnspecifiedBoolType*() const
+inline JSValue::operator bool() const
 {
     ASSERT(tag() != DeletedValueTag);
-    return tag() != EmptyValueTag ? reinterpret_cast<UnspecifiedBoolType*>(1) : 0;
+    return tag() != EmptyValueTag;
 }
 
 inline bool JSValue::operator==(const JSValue& other) const
@@ -327,7 +329,7 @@ inline bool JSValue::isNumber() const
 
 inline bool JSValue::isBoolean() const
 {
-    return isTrue() || isFalse();
+    return tag() == BooleanTag;
 }
 
 inline bool JSValue::asBoolean() const
@@ -360,9 +362,9 @@ inline JSValue::JSValue(const JSCell* ptr)
     u.asInt64 = reinterpret_cast<uintptr_t>(const_cast<JSCell*>(ptr));
 }
 
-inline JSValue::operator UnspecifiedBoolType*() const
+inline JSValue::operator bool() const
 {
-    return u.asInt64 ? reinterpret_cast<UnspecifiedBoolType*>(1) : 0;
+    return u.asInt64;
 }
 
 inline bool JSValue::operator==(const JSValue& other) const
@@ -549,9 +551,14 @@ inline bool JSValue::isString() const
     return isCell() && asCell()->isString();
 }
 
+inline bool JSValue::isSymbol() const
+{
+    return isCell() && asCell()->isSymbol();
+}
+
 inline bool JSValue::isPrimitive() const
 {
-    return !isCell() || asCell()->isString();
+    return !isCell() || asCell()->isString() || asCell()->isSymbol();
 }
 
 inline bool JSValue::isGetterSetter() const
@@ -602,6 +609,17 @@ ALWAYS_INLINE bool JSValue::getUInt32(uint32_t& v) const
         return v == d;
     }
     return false;
+}
+
+ALWAYS_INLINE Identifier JSValue::toPropertyKey(ExecState* exec) const
+{
+    if (isString())
+        return asString(*this)->toIdentifier(exec);
+
+    JSValue primitive = toPrimitive(exec, PreferString);
+    if (primitive.isSymbol())
+        return Identifier::fromUid(asSymbol(primitive)->privateName());
+    return primitive.toString(exec)->toIdentifier(exec);
 }
 
 inline JSValue JSValue::toPrimitive(ExecState* exec, PreferredPrimitiveType preferredType) const
@@ -682,19 +700,23 @@ ALWAYS_INLINE JSValue JSValue::get(ExecState* exec, PropertyName propertyName) c
 
 ALWAYS_INLINE JSValue JSValue::get(ExecState* exec, PropertyName propertyName, PropertySlot& slot) const
 {
+    return getPropertySlot(exec, propertyName, slot) ? 
+        slot.getValue(exec, propertyName) : jsUndefined();
+}
+
+ALWAYS_INLINE bool JSValue::getPropertySlot(ExecState* exec, PropertyName propertyName, PropertySlot& slot) const
+{
     // If this is a primitive, we'll need to synthesize the prototype -
     // and if it's a string there are special properties to check first.
     JSObject* object;
     if (UNLIKELY(!isObject())) {
-        if (isCell() && asString(*this)->getStringPropertySlot(exec, propertyName, slot))
-            return slot.getValue(exec, propertyName);
+        if (isString() && asString(*this)->getStringPropertySlot(exec, propertyName, slot))
+            return true;
         object = synthesizePrototype(exec);
     } else
         object = asObject(asCell());
     
-    if (object->getPropertySlot(exec, propertyName, slot))
-        return slot.getValue(exec, propertyName);
-    return jsUndefined();
+    return object->getPropertySlot(exec, propertyName, slot);
 }
 
 ALWAYS_INLINE JSValue JSValue::get(ExecState* exec, unsigned propertyName) const
@@ -709,7 +731,7 @@ ALWAYS_INLINE JSValue JSValue::get(ExecState* exec, unsigned propertyName, Prope
     // and if it's a string there are special properties to check first.
     JSObject* object;
     if (UNLIKELY(!isObject())) {
-        if (isCell() && asString(*this)->getStringPropertySlot(exec, propertyName, slot))
+        if (isString() && asString(*this)->getStringPropertySlot(exec, propertyName, slot))
             return slot.getValue(exec, propertyName);
         object = synthesizePrototype(exec);
     } else
@@ -802,6 +824,14 @@ ALWAYS_INLINE bool JSValue::equalSlowCaseInline(ExecState* exec, JSValue v1, JSV
             continue;
         }
 
+        bool sym1 = v1.isSymbol();
+        bool sym2 = v2.isSymbol();
+        if (sym1 || sym2) {
+            if (sym1 && sym2)
+                return asSymbol(v1)->privateName() == asSymbol(v2)->privateName();
+            return false;
+        }
+
         if (s1 || s2) {
             double d1 = v1.toNumber(exec);
             double d2 = v2.toNumber(exec);
@@ -827,6 +857,8 @@ ALWAYS_INLINE bool JSValue::strictEqualSlowCaseInline(ExecState* exec, JSValue v
 
     if (v1.asCell()->isString() && v2.asCell()->isString())
         return WTF::equal(*asString(v1)->value(exec).impl(), *asString(v2)->value(exec).impl());
+    if (v1.asCell()->isSymbol() && v2.asCell()->isSymbol())
+        return asSymbol(v1)->privateName() == asSymbol(v2)->privateName();
 
     return v1 == v2;
 }
@@ -883,6 +915,14 @@ inline TriState JSValue::pureToBoolean() const
     if (isCell())
         return asCell()->pureToBoolean();
     return isTrue() ? TrueTriState : FalseTriState;
+}
+
+ALWAYS_INLINE bool JSValue::requireObjectCoercible(ExecState* exec) const
+{
+    if (!isUndefinedOrNull())
+        return true;
+    exec->vm().throwException(exec, createNotAnObjectError(exec, *this));
+    return false;
 }
 
 } // namespace JSC

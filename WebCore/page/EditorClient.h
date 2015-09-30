@@ -88,11 +88,13 @@ public:
     virtual bool shouldChangeSelectedRange(Range* fromRange, Range* toRange, EAffinity, bool stillSelecting) = 0;
     
     virtual bool shouldApplyStyle(StyleProperties*, Range*) = 0;
+    virtual void didApplyStyle() = 0;
     virtual bool shouldMoveRangeAfterDelete(Range*, Range*) = 0;
 
     virtual void didBeginEditing() = 0;
     virtual void respondToChangedContents() = 0;
     virtual void respondToChangedSelection(Frame*) = 0;
+    virtual void didChangeSelectionAndUpdateLayout() = 0;
     virtual void didEndEditing() = 0;
     virtual void willWriteSelectionToPasteboard(Range*) = 0;
     virtual void didWriteSelectionToPasteboard() = 0;
@@ -168,10 +170,6 @@ public:
     virtual void toggleAutomaticSpellingCorrection() = 0;
 #endif
     
-#if ENABLE(DELETION_UI)
-    virtual bool shouldShowDeleteInterface(HTMLElement*) = 0;
-#endif
-
 #if PLATFORM(GTK)
     virtual bool shouldShowUnicodeMenu() = 0;
 #endif

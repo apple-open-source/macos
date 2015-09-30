@@ -35,6 +35,7 @@
 #include <os/assumes.h>
 #include <xpc/xpc.h>
 #include <syslog.h>
+#include <asl_core.h>
 #include <asl_private.h>
 
 static uint8_t *b64charset = (uint8_t *)"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

@@ -36,12 +36,15 @@
 
 namespace IPC {
 
-static inline void* allocBuffer(size_t size)
+template <typename T>
+static inline bool allocBuffer(T*& buffer, size_t size)
 {
 #if OS(DARWIN)
-    return mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    buffer = static_cast<T*>(mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0));
+    return buffer != MAP_FAILED;
 #else
-    return fastMalloc(size);
+    buffer = static_cast<T*>(fastMalloc(size));
+    return !!buffer;
 #endif
 }
 
@@ -67,13 +70,7 @@ ArgumentEncoder::~ArgumentEncoder()
 {
     if (m_buffer != m_inlineBuffer)
         freeBuffer(m_buffer, m_bufferCapacity);
-
-#if !USE(UNIX_DOMAIN_SOCKETS)
     // FIXME: We need to dispose of the attachments in cases of failure.
-#else
-    for (size_t i = 0; i < m_attachments.size(); ++i)
-        m_attachments[i].dispose();
-#endif
 }
 
 static inline size_t roundUpToAlignment(size_t value, unsigned alignment)
@@ -90,8 +87,8 @@ void ArgumentEncoder::reserve(size_t size)
     while (newCapacity < size)
         newCapacity *= 2;
 
-    uint8_t* newBuffer = static_cast<uint8_t*>(allocBuffer(newCapacity));
-    if (!newBuffer)
+    uint8_t* newBuffer;
+    if (!allocBuffer(newBuffer, newCapacity))
         CRASH();
 
     memcpy(newBuffer, m_buffer, m_bufferSize);
@@ -188,16 +185,14 @@ void ArgumentEncoder::encode(double n)
     copyValueToBuffer(n, buffer);
 }
 
-void ArgumentEncoder::addAttachment(const Attachment& attachment)
+void ArgumentEncoder::addAttachment(Attachment&& attachment)
 {
-    m_attachments.append(attachment);
+    m_attachments.append(WTF::move(attachment));
 }
 
 Vector<Attachment> ArgumentEncoder::releaseAttachments()
 {
-    Vector<Attachment> newList;
-    newList.swap(m_attachments);
-    return newList;
+    return WTF::move(m_attachments);
 }
 
 } // namespace IPC

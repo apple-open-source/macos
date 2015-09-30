@@ -55,10 +55,8 @@ copy-src :
 	@echo "***** copy source complete"
 
 apply-patches :
-	@echo "***** applying patches"
-	#cd "$(BuildDirectory)/$(PROJECT)" && patch -p1 < "$(SRCROOT)/patches/postfix-2.9-patch03.txt"
-	#cd "$(BuildDirectory)/$(PROJECT)" && patch -p1 < "$(SRCROOT)/patches/postfix-2.9-patch04.txt"
-	@echo "***** applying patches complete"
+	@echo "***** applying patches "
+	$(_v) cd $(BuildDirectory)/$(PROJECT) && patch -p1 < "$(SRCROOT)/patches/postfix-2.11.0-patch01.txt"
 	@echo "***** creating MIG API files "
 	$(_v) cd $(BuildDirectory)/$(PROJECT)/src/global && mig -v "$(SDKROOT)/usr/local/include/opendirectory/DSlibinfoMIG.defs"
 	@echo "***** creating MIG API files complete"
@@ -168,6 +166,9 @@ install-extras :
 	install -m 0644 $(SRCROOT)/Postfix.Config/master.cf.default $(DSTROOT)/private/etc/postfix/master.cf
 	install -m 0644 $(SRCROOT)/Postfix.LaunchDaemons/org.postfix.master.plist \
 			$(DSTROOT)/System/Library/LaunchDaemons/org.postfix.master.plist
+	install -m 0644 $(SRCROOT)/Postfix.LaunchDaemons/org.postfix.newaliases.plist \
+			$(DSTROOT)/System/Library/LaunchDaemons/org.postfix.newaliases.plist
+	install -m 0755 $(SRCROOT)/Postfix.ServerSetup/check-aliases.sh $(DSTROOT)/usr/libexec/postfix/check-aliases.sh
 	install -m 0755 $(SRCROOT)/Postfix.ServerSetup/set_credentials.sh $(DSTROOT)/usr/libexec/postfix/set_credentials.sh
 	@echo "*** Installing smtpstone binaries"
 	install -s -m 0755 $(BuildDirectory)/$(PROJECT)/src/smtpstone/qmqp-sink $(DSTROOT)/usr/libexec/postfix

@@ -34,21 +34,13 @@
 #if !PLATFORM(IOS)
 #include <ApplicationServices/ApplicationServices.h>
 #else
-#include <CoreGraphics/CGColorTransform.h>
-#include <CoreGraphics/CoreGraphics.h>
+#include <WebCore/CoreGraphicsSPI.h>
 #include <wtf/StdLibExtras.h>
 #endif // !PLATFORM(IOS)
 
 namespace WebCore {
 
 #if PLATFORM(IOS)
-CGColorRef createCGColorWithDeviceWhite(CGFloat white, CGFloat alpha)
-{
-    static CGColorSpaceRef graySpace = CGColorSpaceCreateDeviceGray();
-    const CGFloat components[] = { white, alpha };
-    return CGColorCreate(graySpace, components);
-}
-
 static CGColorRef createCGColorWithDeviceRGBA(CGColorRef sourceColor)
 {
     if (!sourceColor || CFEqual(CGColorGetColorSpace(sourceColor), deviceRGBColorSpaceRef()))

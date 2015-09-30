@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright(c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -115,7 +115,9 @@ __SCPreferencesDeallocate(CFTypeRef cf)
 	}
 	if (prefsPrivate->lockPath)		CFAllocatorDeallocate(NULL, prefsPrivate->lockPath);
 	if (prefsPrivate->signature)		CFRelease(prefsPrivate->signature);
-	if (prefsPrivate->session)		CFRelease(prefsPrivate->session);
+	if (prefsPrivate->sessionNoO_EXLOCK != NULL) {
+		CFRelease(prefsPrivate->sessionNoO_EXLOCK);
+	}
 	if (prefsPrivate->sessionKeyLock)	CFRelease(prefsPrivate->sessionKeyLock);
 	if (prefsPrivate->sessionKeyCommit)	CFRelease(prefsPrivate->sessionKeyCommit);
 	if (prefsPrivate->sessionKeyApply)	CFRelease(prefsPrivate->sessionKeyApply);
@@ -193,6 +195,8 @@ __SCPreferencesCreatePrivate(CFAllocatorRef	allocator)
 	prefsPrivate->lockPath				= NULL;
 	prefsPrivate->signature				= NULL;
 	prefsPrivate->session				= NULL;
+	prefsPrivate->sessionNoO_EXLOCK			= NULL;
+	prefsPrivate->sessionRefcnt			= 0;
 	prefsPrivate->sessionKeyLock			= NULL;
 	prefsPrivate->sessionKeyCommit			= NULL;
 	prefsPrivate->sessionKeyApply			= NULL;
@@ -211,7 +215,6 @@ __SCPreferencesCreatePrivate(CFAllocatorRef	allocator)
 	prefsPrivate->isRoot				= (geteuid() == 0);
 	prefsPrivate->limit_SCNetworkConfiguration	= FALSE;
 	prefsPrivate->authorizationData			= NULL;
-	prefsPrivate->authorizationRequired		= FALSE;
 	prefsPrivate->helper_port			= MACH_PORT_NULL;
 
 	return prefsPrivate;
@@ -467,11 +470,11 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 				goto done;
 			}
 
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCPreferencesCreate open() failed: %s"), strerror(errno));
+			SC_log(LOG_INFO, "open() failed: %s", strerror(errno));
 			sc_status = kSCStatusAccessError;
 			break;
 		default :
-			SCLog(TRUE, LOG_ERR, CFSTR("__SCPreferencesCreate open() failed: %s"), strerror(errno));
+			SC_log(LOG_INFO, "open() failed: %s", strerror(errno));
 			sc_status = kSCStatusFailed;
 			break;
 	}
@@ -503,19 +506,15 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 		return;
 	}
 
-	if (!prefsPrivate->authorizationRequired) {
-		if (access(prefsPrivate->path, R_OK) == 0) {
-			fd = open(prefsPrivate->path, O_RDONLY, 0644);
-		} else {
-			fd = -1;
-		}
+	if (access(prefsPrivate->path, R_OK) == 0) {
+		fd = open(prefsPrivate->path, O_RDONLY, 0644);
 	} else {
-		errno = EACCES;
+		fd = -1;
 	}
 	if (fd != -1) {
 		// create signature
 		if (fstat(fd, &statBuf) == -1) {
-			SCLog(TRUE, LOG_ERR, CFSTR("__SCPreferencesAccess fstat() failed: %s"), strerror(errno));
+			SC_log(LOG_NOTICE, "fstat() failed: %s", strerror(errno));
 			bzero(&statBuf, sizeof(statBuf));
 		}
 	} else {
@@ -529,15 +528,14 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 					if (__SCPreferencesAccess_helper(prefs)) {
 						goto done;
 					} else {
-						SCLog(TRUE, LOG_ERR,
-						      CFSTR("__SCPreferencesAccess_helper() failed: %s"),
-						      SCErrorString(SCError()));
+						SC_log(LOG_NOTICE, "__SCPreferencesAccess_helper() failed: %s",
+						       SCErrorString(SCError()));
 					}
 					break;
 				}
 				// fall through
 			default :
-				SCLog(TRUE, LOG_ERR, CFSTR("__SCPreferencesAccess open() failed: %s"), strerror(errno));
+				SC_log(LOG_NOTICE, "open() failed: %s", strerror(errno));
 				break;
 		}
 		bzero(&statBuf, sizeof(statBuf));
@@ -558,7 +556,7 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 		CFDataSetLength(xmlData, (CFIndex)statBuf.st_size);
 		if (read(fd, (void *)CFDataGetBytePtr(xmlData), (CFIndex)statBuf.st_size) != (CFIndex)statBuf.st_size) {
 			/* corrupt prefs file, start fresh */
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCPreferencesAccess read(): could not load preference data."));
+			SC_log(LOG_INFO, "read(): could not load preference data");
 			CFRelease(xmlData);
 			xmlData = NULL;
 			goto done;
@@ -572,9 +570,7 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 		if (dict == NULL) {
 			/* corrupt prefs file, start fresh */
 			if (error != NULL) {
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("__SCPreferencesAccess CFPropertyListCreateWithData(): %@"),
-				      error);
+				SC_log(LOG_NOTICE, "CFPropertyListCreateWithData(): %@", error);
 				CFRelease(error);
 			}
 			goto done;
@@ -585,7 +581,7 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 		 */
 		if (!isA_CFDictionary(dict)) {
 			/* corrupt prefs file, start fresh */
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCPreferencesAccess CFGetTypeID(): not a dictionary."));
+			SC_log(LOG_INFO, "CFGetTypeID(): not a dictionary");
 			CFRelease(dict);
 			goto done;
 		}
@@ -604,7 +600,7 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 		/*
 		 * new file, create empty preferences
 		 */
-//		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCPreferencesAccess(): creating new preferences file."));
+//		SC_log(LOG_INFO, "creating new preferences file");
 		prefsPrivate->prefs = CFDictionaryCreateMutable(allocator,
 								0,
 								&kCFTypeDictionaryKeyCallBacks,
@@ -684,7 +680,7 @@ SCPreferencesCreateWithOptions(CFAllocatorRef	allocator,
 
 			os_status = AuthorizationMakeExternalForm(authorization, &extForm);
 			if (os_status != errAuthorizationSuccess) {
-				SCLog(TRUE, LOG_INFO, CFSTR("_SCHelperOpen AuthorizationMakeExternalForm() failed"));
+				SC_log(LOG_INFO, "AuthorizationMakeExternalForm() failed");
 				_SCErrorSet(kSCStatusInvalidArgument);
 				CFRelease(authorizationDict);
 				return NULL;
@@ -810,39 +806,71 @@ prefsNotify(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 }
 
 
+__private_extern__ void
+__SCPreferencesAddSessionKeys(SCPreferencesRef prefs)
+{
+	SCPreferencesPrivateRef		prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+
+	/* create the session "commit" key */
+	if (prefsPrivate->sessionKeyCommit == NULL) {
+		prefsPrivate->sessionKeyCommit = _SCPNotificationKey(NULL,
+								     prefsPrivate->prefsID,
+								     kSCPreferencesKeyCommit);
+	}
+
+	/* create the session "apply" key */
+	if (prefsPrivate->sessionKeyApply == NULL) {
+		prefsPrivate->sessionKeyApply = _SCPNotificationKey(NULL,
+								    prefsPrivate->prefsID,
+								    kSCPreferencesKeyApply);
+	}
+
+	return;
+}
+
+
 __private_extern__ Boolean
 __SCPreferencesAddSession(SCPreferencesRef prefs)
 {
 	CFAllocatorRef			allocator	= CFGetAllocator(prefs);
 	SCDynamicStoreContext		context		= { 0
 							  , (void *)prefs
-							  , NULL
-							  , NULL
-							  , NULL
+							  , CFRetain
+							  , CFRelease
+							  , CFCopyDescription
 							  };
 	SCPreferencesPrivateRef		prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 
-	/* establish a dynamic store session */
-	prefsPrivate->session = SCDynamicStoreCreate(allocator,
-						     prefsPrivate->name,
-						     prefsNotify,
-						     &context);
-	if (prefsPrivate->session == NULL) {
-		SCLog(_sc_verbose, LOG_INFO, CFSTR("__SCPreferencesAddSession SCDynamicStoreCreate() failed"));
-		return FALSE;
+	if (prefsPrivate->sessionRefcnt == 0) {
+		/* establish a dynamic store session */
+		prefsPrivate->session = SCDynamicStoreCreate(allocator,
+							     prefsPrivate->name,
+							     prefsNotify,
+							     &context);
+		if (prefsPrivate->session == NULL) {
+			SC_log(LOG_INFO, "SCDynamicStoreCreate() failed");
+			return FALSE;
+		}
 	}
 
-	/* create the session "commit" key */
-	prefsPrivate->sessionKeyCommit = _SCPNotificationKey(NULL,
-							     prefsPrivate->prefsID,
-							     kSCPreferencesKeyCommit);
-
-	/* create the session "apply" key */
-	prefsPrivate->sessionKeyApply = _SCPNotificationKey(NULL,
-							    prefsPrivate->prefsID,
-							    kSCPreferencesKeyApply);
-
+	prefsPrivate->sessionRefcnt++;
 	return TRUE;
+}
+
+
+__private_extern__ void
+__SCPreferencesRemoveSession(SCPreferencesRef prefs)
+{
+	SCPreferencesPrivateRef		prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+
+	if (prefsPrivate->sessionRefcnt > 0) {
+		if (--prefsPrivate->sessionRefcnt == 0) {
+			CFRelease(prefsPrivate->session);
+			prefsPrivate->session = NULL;
+		}
+	}
+
+	return;
 }
 
 
@@ -904,6 +932,7 @@ __SCPreferencesScheduleWithRunLoop(SCPreferencesRef	prefs,
 	if (!prefsPrivate->scheduled) {
 		CFMutableArrayRef       keys;
 
+		// add SCDynamicStore session (for notifications) ... and hold a 'prefs' reference
 		if (prefsPrivate->session == NULL) {
 			ok = __SCPreferencesAddSession(prefs);
 			if (!ok) {
@@ -911,7 +940,8 @@ __SCPreferencesScheduleWithRunLoop(SCPreferencesRef	prefs,
 			}
 		}
 
-		CFRetain(prefs);	// hold a reference to the prefs
+		// add SCDynamicStore "keys"
+		__SCPreferencesAddSessionKeys(prefs);
 
 		keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		CFArrayAppendValue(keys, prefsPrivate->sessionKeyCommit);
@@ -932,7 +962,7 @@ __SCPreferencesScheduleWithRunLoop(SCPreferencesRef	prefs,
 		if (!ok) {
 			prefsPrivate->scheduled = FALSE;
 			(void) SCDynamicStoreSetNotificationKeys(prefsPrivate->session, NULL, NULL);
-			CFRelease(prefs);
+			__SCPreferencesRemoveSession(prefs);
 			goto done;
 		}
 
@@ -1026,8 +1056,8 @@ __SCPreferencesUnscheduleFromRunLoop(SCPreferencesRef	prefs,
 			CFRelease(changedKeys);
 		}
 
-		// release our reference to the prefs
-		CFRelease(prefs);
+		// remove SCDynamicStore session, release 'prefs' reference
+		__SCPreferencesRemoveSession(prefs);
 	}
 
 	ok = TRUE;

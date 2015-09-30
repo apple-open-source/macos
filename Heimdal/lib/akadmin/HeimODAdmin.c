@@ -1278,6 +1278,8 @@ HeimODCreateSRPKeys(CFArrayRef srptype, /* XXX should be list of srp types */
     }
 
  out:
+    if (princ)
+	krb5_free_principal(context, princ);
     if (context)
 	krb5_free_context(context);
     if (passwdstr)

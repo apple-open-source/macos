@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,8 @@ extern "C" {
 #define ___ATTR_INVISIBLE 0x4000
 
 #define ___EDIRTY EILSEQ
+
+#define ___FS_DEFAULT_DIR "/Library/Filesystems"
 
 #define ___PREFS_DEFAULT_DIR "/Library/Preferences/SystemConfiguration"
 

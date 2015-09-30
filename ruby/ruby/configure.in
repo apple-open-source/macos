@@ -771,6 +771,22 @@ if test "$GCC" = yes; then
     for oflag in -fno-fast-math; do
 	RUBY_TRY_CFLAGS($oflag, [RUBY_APPEND_OPTION(optflags, $oflag)])
     done
+    AS_CASE(["$target"],
+	[*-darwin*], [
+	    # doesn't seem necessary on Mac OS X
+	],
+	[[i[4-6]86*|i386*mingw*]], [
+	    RUBY_TRY_CFLAGS(-msse2 -mfpmath=sse, [
+		RUBY_APPEND_OPTION(XCFLAGS, -msse2 -mfpmath=sse)
+	    ])
+            AS_CASE(["$XCFLAGS"],
+                [[*-msse2*]], [
+                    RUBY_TRY_CFLAGS(-mstackrealign, [
+                        RUBY_APPEND_OPTION(XCFLAGS, -mstackrealign)
+                    ])
+                ])
+	]
+    )
 fi
 
 test -z "${ac_env_CFLAGS_set}" -a -n "${cflags+set}" && eval CFLAGS="\"$cflags $ARCH_FLAG\""
@@ -985,7 +1001,18 @@ mv confdefs.h largefile.h
 mv confdefs1.h confdefs.h
 cat largefile.h >> confdefs.h
 
-AS_CASE(["$target_os"],[mingw*], [ac_cv_type_off_t=yes;ac_cv_sizeof_off_t=8])
+AS_CASE(["$target_os"],
+    [mingw*], [ac_cv_type_off_t=yes;ac_cv_sizeof_off_t=8],
+    [aix*], [
+    AS_CASE(["$target_cpu:$ac_cv_sys_large_files"],
+	[ppc64:*|powerpc64:*], [],
+	[*:no|*:unknown], [],
+	[
+	    # AIX currently does not support a 32-bit call to posix_fadvise()
+	    # if _LARGE_FILES is defined.
+	    ac_cv_func_posix_fadvise=no
+	])
+    ])
 
 AC_C_BIGENDIAN
 AC_C_CONST
@@ -1371,8 +1398,8 @@ if test "$GCC" = yes; then
 
     AC_CACHE_CHECK(for __builtin_unreachable, rb_cv_func___builtin_unreachable,
     [RUBY_WERROR_FLAG(
-    [AC_TRY_LINK([@%:@include <stdlib.h>],
-	[exit(0); __builtin_unreachable();],
+    [AC_TRY_LINK([volatile int zero;],
+	[if (zero) __builtin_unreachable();],
 	[rb_cv_func___builtin_unreachable=yes],
 	[rb_cv_func___builtin_unreachable=no])
     ])
@@ -1658,7 +1685,7 @@ AC_CHECK_FUNCS(fmod killpg wait4 waitpid fork spawnv syscall __syscall chroot ge
 	      setuid setgid daemon select_large_fdset setenv unsetenv\
               mktime timegm gmtime_r clock_gettime gettimeofday poll ppoll\
               pread sendfile shutdown sigaltstack dl_iterate_phdr\
-              dup dup3 pipe2 posix_memalign memalign ioctl)
+              dup dup3 pipe2 posix_memalign memalign ioctl isfinite)
 
 AC_CACHE_CHECK(for unsetenv returns a value, rb_cv_unsetenv_return_value,
   [AC_TRY_COMPILE([
@@ -2218,8 +2245,8 @@ AC_ARG_WITH(dln-a-out,
 
 AC_CACHE_CHECK(whether ELF binaries are produced, rb_cv_binary_elf,
 [AC_TRY_LINK([],[], [
-AS_CASE(["`head -1 conftest$EXEEXT | cat -e`"],
-['^?ELF'*], [rb_cv_binary_elf=yes], [rb_cv_binary_elf=no])],
+AS_CASE(["`head -1 conftest$EXEEXT | tr -dc '\177ELF' | tr '\177' .`"],
+[.ELF*], [rb_cv_binary_elf=yes], [rb_cv_binary_elf=no])],
 rb_cv_binary_elf=no)])
 
 if test "$rb_cv_binary_elf" = yes; then

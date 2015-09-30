@@ -1,17 +1,17 @@
-# *   Copyright (C) 1998-2014, International Business Machines
+# *   Copyright (C) 1998-2015, International Business Machines
 # *   Corporation and others.  All Rights Reserved.
-BRK_RES_CLDR_VERSION = 25
+BRK_RES_CLDR_VERSION = %version%
 # A list of txt's to build
 # Note:
 #
 #   If you are thinking of modifying this file, READ THIS.
 #
 # Instead of changing this file [unless you want to check it back in],
-# you should consider creating a 'brklocal.mk' file in this same directory.
+# you should consider creating a '%local%' file in this same directory.
 # Then, you can have your local changes remain even if you upgrade or
 # reconfigure ICU.
 #
-# Example 'brklocal.mk' files:
+# Example '%local%' files:
 #
 #  * To add an additional locale to the list:
 #    _____________________________________________________
@@ -34,13 +34,13 @@ BRK_RES_ALIAS_SOURCE = $(BRK_RES_SYNTHETIC_ALIAS)
 
 
 # List of dictionary files (dict).
-BRK_DICT_SOURCE = cjdict.txt khmerdict.txt laodict.txt thaidict.txt
+BRK_DICT_SOURCE = burmesedict.txt cjdict.txt khmerdict.txt laodict.txt\
+ thaidict.txt
 
 
 # List of break iterator files (brk).
-BRK_SOURCE = char.txt line.txt line_fi.txt\
- line_loose.txt line_loose_cj.txt line_loose_fi.txt\
- line_normal.txt line_normal_cj.txt line_normal_fi.txt\
+BRK_SOURCE = char.txt line.txt line_fi.txt line_loose.txt\
+ line_loose_cj.txt line_loose_fi.txt line_normal.txt line_normal_cj.txt line_normal_fi.txt\
  sent.txt sent_el.txt title.txt word.txt word_POSIX.txt
 
 

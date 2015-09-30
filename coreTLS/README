@@ -1,0 +1,53 @@
+===========
+= coreTLS =
+===========
+
+*** Debugging ***
+
+To enabled logging to syslog
+
+    sudo defaults write /Library/Preferences/com.apple.security SSLDebugScope -bool true
+
+On Release builds, only errors are logged (no warning or debug)
+
+*** Test coverage analysis ****
+
+There is a _coverage build variant of the libraries and tls_test app that can be used for code coverage analysis.
+gcov does not work for libsystem components, so tls_test_coverage is statically linked to the coretls libraries.
+As such you can only see test coverage data for tls_test.
+(See: <rdar://problem/18126876> Test program crash after enabling gcov for libsystem component.)
+
+To get coverage data, build tls_test in xocde, then run ./tls_test_coverage. The coverage data is stored alongside the .o files.
+You can use CoverStory to visualize the data, by pointing it at the build folder.
+
+The _coverage variant is only built for Debug.
+
+*** SSL2 ***
+
+Some client still send a SSL2 compatible Client Hello, even if they are trying to negotiate TLS 1.x,
+In particular OpenSSL s_client. The record layer only support SSL3/TLS1.x decryption, but there is some
+support to process SSL2 compatible Client Hello:
+
+
+int
+tls_stream_parser_parse(tls_stream_parser_t parser, tls_buffer data);
+
+ This function will parse SSL2 records properly. But the callback does not include the record type as argument,
+ so it will be necessary to verify again in the process callback.
+ An SSL2 record should be passed directly to the tls_handshake_process() function, without attempting to decrypt.
+
+int
+tls_record_parse_ssl2_header(tls_record_t filter, tls_buffer input, size_t *len, uint8_t *content_type);
+
+ Parse an SSL2 record header. Will return 0 if this is really a SSL2 record. The toral lenght of the record is 2+len.
+ content_type will be set to tls_record_type_SSL2 (0x80).
+
+int
+tls_record_parse_header(tls_record_t filter, tls_buffer input, size_t *len, uint8_t *content_type);
+
+ This will parse SSL2 record without errors, but the returned length will be bogus.
+ The returned content type can be used to determine if this was an SSL2 record.
+ content_type will be in the range 0x80-0xFF for SSL2 record.
+
+Applications can directly check if a record is SSL2 or TLS by checking the first byte of the record,
+which will be in the 0x80-0xFF range for SSL2

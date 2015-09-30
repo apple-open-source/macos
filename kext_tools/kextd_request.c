@@ -58,6 +58,8 @@
 #include "bootcaches.h"
 #include "security.h"
 
+#include "pgo.h"
+
 
 #define setCrashLogMessage(m)
 
@@ -393,15 +395,16 @@ bool kextd_process_kernel_requests(void)
 // finish:
 
     if (prelinkedKernelRequested) {
-        Boolean       readOnlyFS = FALSE;
+        Boolean       skipRebuild = FALSE;
         struct statfs statfsBuffer;
 
        /* If the statfs() fails we will forge ahead and try kextcache.
-        * Only if we know for sure it's read-only do we skip.
+        * We will skip rebuild if volume is read-only or if kext-dev-mode 
+        * has disable auto rebuilds. 
         */
         if (statfs("/System/Library/Caches", &statfsBuffer) == 0) {
             if (statfsBuffer.f_flags & MNT_RDONLY) {
-                readOnlyFS = TRUE;
+                skipRebuild = TRUE;
 
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogProgressLevel | kOSKextLogFileAccessFlag,
@@ -409,7 +412,14 @@ bool kextd_process_kernel_requests(void)
             }
         }
 
-        if (!readOnlyFS) {
+        if (isPrelinkedKernelAutoRebuildDisabled()) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogGeneralFlag | kOSKextLogBasicLevel,
+                      "Skipping prelinked kernel rebuild request; kext-dev-mode setting.");
+            skipRebuild = TRUE;
+        }
+        
+        if (!skipRebuild) {
             char * const kextcacheArgs[] = {
                 "/usr/sbin/kextcache",
                 "-F",
@@ -536,13 +546,31 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
         }
     }
     
-    osLoadResult = OSKextLoad(osKext);
+
+    CFBooleanRef pgoref = (CFBooleanRef)
+        OSKextGetValueForInfoDictionaryKey(osKext, CFSTR("PGO"));
+    bool pgo = false;
+    if (pgoref &&
+        CFGetTypeID(pgoref) == CFBooleanGetTypeID())
+    {
+        pgo = CFBooleanGetValue(pgoref);
+    }
+
+    osLoadResult = OSKextLoadWithOptions(osKext,
+        /* startExclusion */ kOSKextExcludeNone,
+        /* addPersonalitiesExclusion */ kOSKextExcludeAll,
+        /* personalityNames */ NULL,
+        /* delayAutounload */ pgo);
+
     if (osLoadResult != kOSReturnSuccess) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
             "Load %s failed; removing personalities from kernel.", kext_id);
         OSKextRemoveKextPersonalitiesFromKernel(osKext);
     } else {
+        if (pgo) {
+            pgo_start_thread(osKext);
+        }
         if (kOSReturnSuccess != IOCatalogueModuleLoaded(
             kIOMasterPortDefault, kext_id)) {
 
@@ -1233,9 +1261,7 @@ kextdProcessUserLoadRequest(
         if (kextIDString != NULL) {
             xpc_dictionary_set_string(dict, "kextID", kextIDString);
         }
-        if (kextPathString != NULL) {
-            xpc_dictionary_set_string(dict, "kextPath", kextPathString);
-        }
+        xpc_dictionary_set_string(dict, "kextPath", kextPathString);
         int esp_result = __esp_check("kext-load", dict);
         xpc_release(dict);
         if (esp_result != 0) {
@@ -1284,14 +1310,28 @@ kextdProcessUserLoadRequest(
         }
     }
     
-   /* The codepath from this function will do any error logging
-    * and cleanup needed.
-    */
+    CFBooleanRef pgoref = (CFBooleanRef)
+        OSKextGetValueForInfoDictionaryKey(theKext, CFSTR("PGO"));
+    bool pgo = false;
+    if (pgoref &&
+        CFGetTypeID(pgoref) == CFBooleanGetTypeID())
+    {
+        pgo = CFBooleanGetValue(pgoref);
+    }
+
+    /* The codepath from this function will do any error logging
+     * and cleanup needed.
+     */
     result = OSKextLoadWithOptions(theKext,
         /* statExclusion */ kOSKextExcludeNone,
         /* addPersonalitiesExclusion */ kOSKextExcludeNone,
         /* personalityNames */ NULL,
-        /* delayAutounloadFlag */ false);
+        /* delayAutounloadFlag */ pgo);
+
+    if (pgo && result == kOSReturnSuccess)
+    {
+        pgo_start_thread(theKext);
+    }
     
 finish:            
     SAFE_RELEASE(kextURL);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2012, 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2012-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,6 @@
 #include "SpillRegistersMode.h"
 #include "Structure.h"
 #include "StructureStubClearingWatchpoint.h"
-#include <wtf/OwnPtr.h>
 
 namespace JSC {
 
@@ -47,7 +46,6 @@ class PolymorphicPutByIdList;
 
 enum AccessType {
     access_get_by_id_self,
-    access_get_by_id_chain,
     access_get_by_id_list,
     access_put_by_id_transition_normal,
     access_put_by_id_transition_direct,
@@ -61,7 +59,6 @@ inline bool isGetByIdAccess(AccessType accessType)
 {
     switch (accessType) {
     case access_get_by_id_self:
-    case access_get_by_id_chain:
     case access_get_by_id_list:
         return true;
     default:
@@ -97,6 +94,7 @@ struct StructureStubInfo {
         : accessType(access_unset)
         , seen(false)
         , resetByGC(false)
+        , tookSlowPath(false)
     {
     }
 
@@ -105,16 +103,6 @@ struct StructureStubInfo {
         accessType = access_get_by_id_self;
 
         u.getByIdSelf.baseObjectStructure.set(vm, owner, baseObjectStructure);
-    }
-
-    void initGetByIdChain(VM& vm, JSCell* owner, Structure* baseObjectStructure, StructureChain* chain, unsigned count, bool isDirect)
-    {
-        accessType = access_get_by_id_chain;
-
-        u.getByIdChain.baseObjectStructure.set(vm, owner, baseObjectStructure);
-        u.getByIdChain.chain.set(vm, owner, chain);
-        u.getByIdChain.count = count;
-        u.getByIdChain.isDirect = isDirect;
     }
 
     void initGetByIdList(PolymorphicGetByIdList* list)
@@ -161,8 +149,8 @@ struct StructureStubInfo {
     {
         deref();
         accessType = access_unset;
-        stubRoutine.clear();
-        watchpoints.clear();
+        stubRoutine = nullptr;
+        watchpoints = nullptr;
     }
 
     void deref();
@@ -196,6 +184,7 @@ struct StructureStubInfo {
     int8_t accessType;
     bool seen : 1;
     bool resetByGC : 1;
+    bool tookSlowPath : 1;
 
     CodeOrigin codeOrigin;
 

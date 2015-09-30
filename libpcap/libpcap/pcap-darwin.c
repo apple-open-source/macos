@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/errno.h>
 #include <sys/ioctl.h>
+#include <sys/kern_event.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/sysctl.h>
@@ -447,7 +448,7 @@ pcap_filter_pktap(pcap_t *pcap, struct pcap_if_info *if_info,
 		 */
 		if (if_info == NULL) {
 			if_info = pcap_add_if_info(pcap, pktp_hdr->pth_ifname, -1,
-											pktp_hdr->pth_dlt, pcap->snapshot);
+						   pktp_hdr->pth_dlt, pcap->snapshot);
 			if (if_info == NULL) {
 				snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
 						 "%s: pcap_add_if_info(%s) failed",
@@ -477,6 +478,90 @@ pcap_filter_pktap(pcap_t *pcap, struct pcap_if_info *if_info,
 	}
 	
 	return (match);
+}
+
+/*
+ * Add a section header block when needed
+ */
+static int
+pcapng_dump_shb(pcap_t *pcap, pcap_dumper_t *dumper)
+{
+	pcapng_block_t block = NULL;
+	int retval;
+	static struct utsname utsname;
+	static struct proc_bsdshortinfo bsdinfo;
+	static int info_done = 0;
+
+	if (info_done == 0) {
+		if (uname(&utsname) == -1) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: uname() failed", __func__);
+			return (0);
+		}
+		if (proc_pidinfo(getpid(), PROC_PIDT_SHORTBSDINFO, 1, &bsdinfo, sizeof(bsdinfo)) < 0) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: proc_pidinfo(PROC_PIDT_SHORTBSDINFO) failed", __func__);
+			return (0);
+		}
+		info_done = 1;
+	}
+	
+	if (pcap->dump_block == NULL) {
+		pcap->dump_block = pcap_ng_block_alloc(65536);
+		if (pcap->dump_block == NULL) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: pcap_ng_block_alloc() failed ", __func__);
+			return (0);
+		}
+	}
+	block = pcap->dump_block;
+
+	if (pcap->shb_added == 0) {
+		char buf[256];
+		
+		retval = pcap_ng_block_reset(block, PCAPNG_BT_SHB);
+		if (retval != 0) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: pcap_ng_block_reset(PCAPNG_BT_SHB) failed", __func__);
+			return (0);
+		}
+		retval = pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT,
+							      "section header block");
+		if(retval != 0) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_OPT_COMMENT) failed", __func__);
+			return (0);
+		}
+		
+		retval = pcap_ng_block_add_option_with_string(block, PCAPNG_SHB_HARDWARE,
+							      utsname.machine);
+		if(retval != 0) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_SHB_HARDWARE) failed", __func__);
+			return (0);
+		}
+		
+		snprintf(buf, sizeof(buf), "%s %s", utsname.sysname, utsname.release);
+		retval = pcap_ng_block_add_option_with_string(block, PCAPNG_SHB_OS, buf);
+		if(retval != 0) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_SHB_OS) failed", __func__);
+			return (0);
+		}
+		
+		snprintf(buf, sizeof(buf), "%s (%s)", bsdinfo.pbsi_comm, pcap_lib_version());
+		retval = pcap_ng_block_add_option_with_string(block, PCAPNG_SHB_USERAPPL, buf);
+		if(retval != 0) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_SHB_USERAPPL) failed", __func__);
+			return (0);
+		}
+		
+		pcap_ng_dump_block(dumper, block);
+		
+		pcap->shb_added = 1;
+	}
+	return (1);
 }
 
 static struct pcap_proc_info *
@@ -543,6 +628,37 @@ pcap_ng_dump_proc_info(pcap_t *pcap, pcap_dumper_t *dumper, pcapng_block_t block
 	return (proc_info);
 }
 
+int
+pcap_ng_dump_kern_event(pcap_t *pcap, pcap_dumper_t *dumper,
+		       struct kern_event_msg *kev, struct timeval *ts)
+{
+	int retval;
+	pcapng_block_t block = NULL;
+	struct pcapng_os_event_fields *osev_fields;
+
+	if (pcapng_dump_shb(pcap, dumper) == 0)
+		return (0);
+	
+	block = pcap->dump_block;
+
+	retval = pcap_ng_block_reset(block, PCAPNG_BT_OSEV);
+	if (retval != 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: pcap_ng_block_reset(PCAPNG_BT_OSEV) failed", __func__);
+		return (0);
+	}
+	osev_fields = pcap_ng_get_os_event_fields(block);
+	osev_fields->type = PCAPNG_OSEV_KEV;
+	osev_fields->timestamp_high = ts->tv_sec;
+	osev_fields->timestamp_low = ts->tv_usec;
+	osev_fields->len = kev->total_size;
+	pcap_ng_block_packet_set_data(block, kev, kev->total_size);
+
+	pcap_ng_dump_block(dumper, block);
+	
+	return (1);
+}
+
 static struct pcap_if_info *
 pcap_ng_dump_if_info(pcap_t *pcap, pcap_dumper_t *dumper, pcapng_block_t block,
 		     char *ifname, u_short dlt, u_short snaplen)
@@ -598,8 +714,8 @@ pcap_ng_dump_if_info(pcap_t *pcap, pcap_dumper_t *dumper, pcapng_block_t block,
 			return (0);
 		}
 		idb = pcap_ng_get_interface_description_fields(block);
-		idb->linktype = dlt_to_linktype(tmp_ifi->if_linktype);
-		idb->snaplen = tmp_ifi->if_snaplen;
+		idb->idb_linktype = dlt_to_linktype(tmp_ifi->if_linktype);
+		idb->idb_snaplen = tmp_ifi->if_snaplen;
 		
 		if (pcap_ng_block_add_option_with_string(block, PCAPNG_IF_NAME,
 							 tmp_ifi->if_name) != 0) {
@@ -626,7 +742,7 @@ int
 pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
 		   const struct pcap_pkthdr *h, const u_char *sp)
 {
-	static pcapng_block_t block = NULL;
+	pcapng_block_t block = NULL;
 	struct pktap_header *pktp_hdr;
 	const u_char *pkt_data;
 	struct pcap_if_info *if_info = NULL;
@@ -636,23 +752,6 @@ pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
 	struct pcap_proc_info *e_proc_info = NULL;
 	uint32_t pktflags = 0;
 	int retval;
-	static struct utsname utsname;
-	static struct proc_bsdshortinfo bsdinfo;
-	static int info_done = 0;
-	
-	if (info_done == 0) {
-		if (uname(&utsname) == -1) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: uname() failed", __func__);
-			return (0);
-		}
-		if (proc_pidinfo(getpid(), PROC_PIDT_SHORTBSDINFO, 1, &bsdinfo, sizeof(bsdinfo)) < 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: proc_pidinfo(PROC_PIDT_SHORTBSDINFO) failed", __func__);
-			return (0);
-		}
-		info_done = 1;
-	}
 	
 	pktp_hdr = (struct pktap_header *)sp;
 	
@@ -664,63 +763,11 @@ pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
 		return (0);
 	}
 	
-	if (block == NULL) {
-		block = pcap_ng_block_alloc(65536);
-		if (block == NULL) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_alloc() failed ", __func__);
-			return (0);
-		}
-	}
-	
-	/*
-	 * Add a section header block when needed
-	 */
-	if (pcap->shb_added == 0) {
-		char buf[256];
-		
-		retval = pcap_ng_block_reset(block, PCAPNG_BT_SHB);
-		if (retval != 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_reset(PCAPNG_BT_SHB) failed", __func__);
-			return (0);
-		}
-		retval = pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT,
-							      "section header block");
-		if(retval != 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_OPT_COMMENT) failed", __func__);
-			return (0);
-		}
-		
-		retval = pcap_ng_block_add_option_with_string(block, PCAPNG_SHB_HARDWARE,
-							      utsname.machine);
-		if(retval != 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_SHB_HARDWARE) failed", __func__);
-			return (0);
-		}
-		
-		snprintf(buf, sizeof(buf), "%s %s", utsname.sysname, utsname.release);
-		retval = pcap_ng_block_add_option_with_string(block, PCAPNG_SHB_OS, buf);
-		if(retval != 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_SHB_OS) failed", __func__);
-			return (0);
-		}
-		
-		snprintf(buf, sizeof(buf), "%s (%s)", bsdinfo.pbsi_comm, pcap_lib_version());
-		retval = pcap_ng_block_add_option_with_string(block, PCAPNG_SHB_USERAPPL, buf);
-		if(retval != 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_SHB_USERAPPL) failed", __func__);
-			return (0);
-		}
-		
-		pcap_ng_dump_block(dumper, block);
-		
-		pcap->shb_added = 1;
-	}
+	if (pcapng_dump_shb(pcap, dumper) == 0)
+		return (0);
+
+	block = pcap->dump_block;
+
 	
 	/*
 	 * Add an interface info block for a new interface

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# Copyright (C) 2007, 2014 Apple Inc.  All rights reserved.
+# Copyright (C) 2007, 2014-2015 Apple Inc.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,11 +28,12 @@
 
 use strict;
 use Cwd;
+use Config;
 use File::Path qw(make_path);
 use File::Spec;
 
 # Not all build environments have the webkitdirs module installed.
-my $NUMCPUS = 2;
+my $NUMCPUS = 8;
 eval "use webkitdirs";
 unless ($@) {
     $NUMCPUS = numberOfCPUs();
@@ -74,5 +75,17 @@ $ENV{'FEATURE_DEFINES'} = $featureDefines;
 $ENV{'InspectorScripts'} = File::Spec->catdir($XDSTROOT, 'include', 'private', 'JavaScriptCore');
 $ENV{'WebReplayScripts'} = File::Spec->catdir($XDSTROOT, 'include', 'private', 'JavaScriptCore');
 
+if ($ARGV[2] eq 'cairo') {
+    $ENV{'PLATFORM_FEATURE_DEFINES'} = File::Spec->catfile($SDKROOT, 'tools', 'vsprops', 'FeatureDefinesCairo.props');
+} else {
+    $ENV{'PLATFORM_FEATURE_DEFINES'} = File::Spec->catfile($SDKROOT, 'tools', 'vsprops', 'FeatureDefines.props');
+}
+
+if ($Config{osname} eq 'MSWin32') {
+    my $ccPath = `where $ARGV[4]`;
+    chomp($ccPath);
+    $ENV{CC} = $ccPath;
+}
+
 my $DERIVED_SOURCES_MAKEFILE = File::Spec->catfile($XSRCROOT, 'DerivedSources.make');
-system('/usr/bin/make', '-f', $DERIVED_SOURCES_MAKEFILE, '-j', $NUMCPUS) and die "Failed to build $DERIVED_SOURCES_MAKEFILE: $!";
+system('make', '-f', $DERIVED_SOURCES_MAKEFILE, '-j', $NUMCPUS) and die "Failed to build $DERIVED_SOURCES_MAKEFILE: $!";

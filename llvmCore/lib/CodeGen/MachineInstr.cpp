@@ -615,6 +615,9 @@ MachineInstr::MachineInstr(MachineFunction &MF, const MachineInstr &MI)
   // Copy all the flags.
   Flags = MI.Flags;
 
+  // AMD Workaround for  <rdar://problem/17444861> for R8xx plugins.
+  AsmPrinterFlags = MI.AsmPrinterFlags;
+
   // Set parent to null.
   Parent = 0;
 

@@ -58,5 +58,6 @@
 #define _PATH_SBIN	"/sbin"
 #define _PATH_USRSBIN	"/usr/sbin"
 #define _PATH_FSBNDL	"/System/Library/Filesystems"
+#define _PATH_USRFSBNDL	"/Library/Filesystems"
 #define _PATH_FSBNDLBIN	"Contents/Resources"
 #define	_PATH_MOUNTDPID	"/var/run/mountd.pid"

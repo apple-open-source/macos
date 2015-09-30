@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,12 +54,12 @@ RemoteScrollingCoordinator::RemoteScrollingCoordinator(WebPage* page)
     : AsyncScrollingCoordinator(page->corePage())
     , m_webPage(page)
 {
-    WebProcess::shared().addMessageReceiver(Messages::RemoteScrollingCoordinator::messageReceiverName(), m_webPage->pageID(), *this);
+    WebProcess::singleton().addMessageReceiver(Messages::RemoteScrollingCoordinator::messageReceiverName(), m_webPage->pageID(), *this);
 }
 
 RemoteScrollingCoordinator::~RemoteScrollingCoordinator()
 {
-    WebProcess::shared().removeMessageReceiver(Messages::RemoteScrollingCoordinator::messageReceiverName(), m_webPage->pageID());
+    WebProcess::singleton().removeMessageReceiver(Messages::RemoteScrollingCoordinator::messageReceiverName(), m_webPage->pageID());
 }
 
 void RemoteScrollingCoordinator::scheduleTreeStateCommit()
@@ -67,13 +67,19 @@ void RemoteScrollingCoordinator::scheduleTreeStateCommit()
     m_webPage->drawingArea()->scheduleCompositingLayerFlush();
 }
 
-bool RemoteScrollingCoordinator::coordinatesScrollingForFrameView(FrameView* frameView) const
+bool RemoteScrollingCoordinator::coordinatesScrollingForFrameView(const FrameView& frameView) const
 {
-    RenderView* renderView = frameView->renderView();
+    RenderView* renderView = frameView.renderView();
     return renderView && renderView->usesCompositing();
 }
 
 bool RemoteScrollingCoordinator::isRubberBandInProgress() const
+{
+    // FIXME: need to maintain state in the web process?
+    return false;
+}
+
+bool RemoteScrollingCoordinator::isScrollSnapInProgress() const
 {
     // FIXME: need to maintain state in the web process?
     return false;
@@ -86,6 +92,7 @@ void RemoteScrollingCoordinator::setScrollPinningBehavior(ScrollPinningBehavior)
 
 void RemoteScrollingCoordinator::buildTransaction(RemoteScrollingCoordinatorTransaction& transaction)
 {
+    willCommitTree();
     transaction.setStateTreeToEncode(scrollingStateTree()->commit(LayerRepresentation::PlatformLayerIDRepresentation));
 }
 
@@ -93,6 +100,11 @@ void RemoteScrollingCoordinator::buildTransaction(RemoteScrollingCoordinatorTran
 void RemoteScrollingCoordinator::scrollPositionChangedForNode(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, bool syncLayerPosition)
 {
     scheduleUpdateScrollPositionAfterAsyncScroll(nodeID, scrollPosition, false /* FIXME */, syncLayerPosition ? SyncScrollingLayerPosition : SetScrollingLayerPosition);
+}
+
+void RemoteScrollingCoordinator::currentSnapPointIndicesChangedForNode(ScrollingNodeID nodeID, unsigned horizontal, unsigned vertical)
+{
+    setActiveScrollSnapIndices(nodeID, horizontal, vertical);
 }
 
 } // namespace WebKit

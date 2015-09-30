@@ -2,7 +2,7 @@
 
   compar.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Thu Aug 26 14:39:48 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -20,7 +20,7 @@ rb_cmperr(VALUE x, VALUE y)
 {
     const char *classname;
 
-    if (SPECIAL_CONST_P(y)) {
+    if (SPECIAL_CONST_P(y) || BUILTIN_TYPE(y) == T_FLOAT) {
 	y = rb_inspect(y);
 	classname = StringValuePtr(y);
     }

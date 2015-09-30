@@ -22,7 +22,7 @@
 #			not available
 
 NETBOOT_MOUNT=/var/netboot
-NETBOOT_SHADOW=${NETBOOT_SHADOW:-NETWORK-}
+NETBOOT_SHADOW=${NETBOOT_SHADOW:=-NETWORK-}
 LOCAL_NETBOOT_DIR=private/var/run/com.apple.NetBootX
 
 Failed()

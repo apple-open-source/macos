@@ -23,6 +23,7 @@
 
 #include "JSDOMWrapper.h"
 #include "TestEventConstructor.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -31,15 +32,16 @@ class JSDictionary;
 class JSTestEventConstructor : public JSDOMWrapper {
 public:
     typedef JSDOMWrapper Base;
-    static JSTestEventConstructor* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<TestEventConstructor> impl)
+    static JSTestEventConstructor* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestEventConstructor>&& impl)
     {
-        JSTestEventConstructor* ptr = new (NotNull, JSC::allocateCell<JSTestEventConstructor>(globalObject->vm().heap)) JSTestEventConstructor(structure, globalObject, impl);
+        JSTestEventConstructor* ptr = new (NotNull, JSC::allocateCell<JSTestEventConstructor>(globalObject->vm().heap)) JSTestEventConstructor(structure, globalObject, WTF::move(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
     static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static TestEventConstructor* toWrapped(JSC::JSValue);
     static void destroy(JSC::JSCell*);
     ~JSTestEventConstructor();
 
@@ -52,20 +54,12 @@ public:
 
     static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
     TestEventConstructor& impl() const { return *m_impl; }
-    void releaseImpl() { m_impl->deref(); m_impl = 0; }
-
-    void releaseImplIfNotNull()
-    {
-        if (m_impl) {
-            m_impl->deref();
-            m_impl = 0;
-        }
-    }
+    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
 
 private:
     TestEventConstructor* m_impl;
 protected:
-    JSTestEventConstructor(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<TestEventConstructor>);
+    JSTestEventConstructor(JSC::Structure*, JSDOMGlobalObject*, Ref<TestEventConstructor>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -83,17 +77,12 @@ public:
 
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestEventConstructor*)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(JSTestEventConstructorOwner, jsTestEventConstructorOwner, ());
-    return &jsTestEventConstructorOwner;
-}
-
-inline void* wrapperContext(DOMWrapperWorld& world, TestEventConstructor*)
-{
-    return &world;
+    static NeverDestroyed<JSTestEventConstructorOwner> owner;
+    return &owner.get();
 }
 
 JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestEventConstructor*);
-TestEventConstructor* toTestEventConstructor(JSC::JSValue);
+inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, TestEventConstructor& impl) { return toJS(exec, globalObject, &impl); }
 
 bool fillTestEventConstructorInit(TestEventConstructorInit&, JSDictionary&);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,6 +48,25 @@
 
 extern void
 my_log(int priority, const char *message, ...);
+
+static ODRecordRef
+groupRecordCopy(ODNodeRef node, const char * group)
+{
+    CFArrayRef 		attribs;
+    CFStringRef		group_cf;
+    ODRecordRef		group_record = NULL;
+
+    attribs = CFArrayCreate(NULL,
+			    (CFTypeRef *)&kODAttributeTypeStandardOnly,
+			    1,
+			    &kCFTypeArrayCallBacks);
+    group_cf = CFStringCreateWithCString(NULL, group, kCFStringEncodingUTF8);
+    group_record = ODNodeCopyRecord(node, kODRecordTypeGroups,
+				    group_cf, attribs, NULL);
+    CFRelease(group_cf);
+    CFRelease(attribs);
+    return (group_record);
+}
 
 #define kAFPUserODRecord		CFSTR("record")
 #define kAFPUserUID			CFSTR("uid")
@@ -157,13 +176,14 @@ AFPUserList_free(AFPUserListRef users)
 {
     my_CFRelease(&users->node);
     my_CFRelease(&users->list);
+    my_CFRelease(&users->afp_access_group);
     bzero(users, sizeof(*users));
 }
 
 Boolean
 AFPUserList_init(AFPUserListRef users)
 {
-    CFErrorRef	error;
+    CFErrorRef	error = NULL;
     int		i;
     int		n;
     CFArrayRef	results;
@@ -201,6 +221,12 @@ AFPUserList_init(AFPUserListRef users)
 	my_CFRelease(&error);
 	goto failed;
     }
+#define AFP_ACCESS_GROUP	"com.apple.access_afp"
+    users->afp_access_group = groupRecordCopy(users->node, AFP_ACCESS_GROUP);
+    if (users->afp_access_group == NULL) {
+	my_log(LOG_NOTICE, "AFPUserList_init: group %s does not exist",
+	       AFP_ACCESS_GROUP);
+    }
 
     users->list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     n = CFArrayGetCount(results);
@@ -210,6 +236,16 @@ AFPUserList_init(AFPUserListRef users)
 
 	record = (ODRecordRef)CFArrayGetValueAtIndex(results, i);
 	user = AFPUser_create(record);
+	if (users->afp_access_group != NULL) {
+	    if (!ODRecordAddMember(users->afp_access_group,
+				   record, &error)) {
+		my_log(LOG_NOTICE,
+		       "AFPUsers: failed to add user to group %s, %d",
+		       AFP_ACCESS_GROUP, CFErrorGetCode(error));
+		my_CFRelease(&error);
+	    }
+	}
+
 	CFArrayAppendValue(users->list, user);
 	CFRelease(user);
     }
@@ -224,7 +260,7 @@ AFPUserList_init(AFPUserListRef users)
 static __inline__ Boolean
 S_uid_taken(AFPUserListRef users, CFStringRef uid)
 {
-    CFErrorRef	error;
+    CFErrorRef	error = NULL;
     Boolean	taken	= FALSE;
     ODQueryRef	query;
     CFArrayRef	results;
@@ -276,7 +312,7 @@ _myCFDictionarySetStringValueAsArray(CFMutableDictionaryRef dict,
 
 Boolean
 AFPUserList_create(AFPUserListRef users, gid_t gid,
-		uid_t start, int count)
+		   uid_t start, int count)
 {
     CFMutableDictionaryRef	attributes;
     char			buf[256];
@@ -348,6 +384,15 @@ AFPUserList_create(AFPUserListRef users, gid_t gid,
 	    goto nextUid;
 	}
 	user = AFPUser_create(record);
+	if (users->afp_access_group != NULL) {
+	    if (!ODRecordAddMember(users->afp_access_group,
+				   record, &error)) {
+		my_log(LOG_NOTICE,
+		       "AFPUsers: failed to add user to group %s, %d",
+		       AFP_ACCESS_GROUP, CFErrorGetCode(error));
+	    }
+	    my_CFRelease(&error);
+	}
 	CFArrayAppendValue(users->list, user);
 	CFRelease(user);
 	need--;
@@ -630,6 +675,7 @@ my_log(int priority, const char *message, ...)
 
     va_start(ap, message);
     vprintf(message, ap);
+    printf("\n");
     return;
 }
 

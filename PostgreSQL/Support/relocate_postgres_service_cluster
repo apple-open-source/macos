@@ -1,0 +1,106 @@
+#!/usr/bin/perl
+#
+# relocate_postgres_service_cluster
+#
+# Author:: Apple Inc.
+# Documentation:: Apple Inc.
+# Copyright (c) 2013-2015 Apple Inc. All Rights Reserved.
+#
+# IMPORTANT NOTE: This file is licensed only for use on Apple-branded
+# computers and is subject to the terms and conditions of the Apple Software
+# License Agreement accompanying the package this file is a part of.
+# You may not port this file to another platform without Apple's written consent.
+# License:: All rights reserved.
+#
+# perltidy options: -pbp -l=100
+
+use strict;
+use warnings;
+use Getopt::Std;
+use File::Basename qw(dirname);
+use Cwd qw(abs_path);
+
+my $MY_NAME             = 'relocate_postgres_service_cluster';
+my $FORKED_CLUSTERS_DIR = '/Library/Server/postgres_service_clusters';
+
+our ( $opt_d, $opt_s );
+getopt('ds');
+
+sub usage {
+    print "$MY_NAME\n";
+    print "\tThis tool is intended for use when upgrading Server.app from a version\n";
+    print "\twhere the services used the same shared postgres database cluster.\n";
+    print "\tThis is not intended for direct use by customers.\n";
+    print "\n";
+    print "Usage:\n";
+    print "\t$MY_NAME -d <path> -s <service name>\n";
+    print "\tOptions:\n";
+    print "\t-d <path>: Specify a destination path for your service's\n";
+    print "\t           postgres database cluster.  This should include\n";
+    print "\t           the name of the database cluster directory itself.\n";
+    print "\t-s <service name>: Specify the name of your service.\n";
+    print "\t           Specify one of: calendar, wiki, or profile_manager.\n.";
+    print "\tExample:\n";
+    print
+        "\t$MY_NAME -d \"/Library/Server/Calendar and Contacts/Data/Database.xpg/cluster\" -s calendar\n";
+    print "\n";
+}
+
+if ( !-d $FORKED_CLUSTERS_DIR ) {
+    die "Error: there is no directory at $FORKED_CLUSTERS_DIR";
+}
+
+if ( !( defined $opt_d && defined $opt_s ) ) {
+    die 'Error: insufficient arguments provided.';
+}
+
+my $destination_cluster_path = $opt_d;
+my $service_name             = $opt_s;
+my $destination_path_parent  = dirname($destination_cluster_path);
+
+if ( -e $destination_cluster_path ) {
+    die 'Error: a file or directory already exists at specified destination path.';
+}
+
+if ( !-d $destination_path_parent ) {
+    die
+        "Error: Cannot create directory at specified path, parent directory does not exist at $destination_path_parent";
+}
+
+my $source_directory;
+if (!(  $service_name eq 'calendar' || $service_name eq 'wiki' || $service_name eq 'profile_manager'
+    )
+    )
+{
+    die 'Error: invalid service name was provided.';
+}
+
+$source_directory = $FORKED_CLUSTERS_DIR . q{/} . $service_name;
+
+if ( !-d $source_directory ) {
+    die "Error: could not find source directory at $source_directory";
+}
+
+my $symlink_to_remove;
+
+# If the original data was located on a non-boot partition, the source directory will be a symlink.
+if ( -l $source_directory ) {
+    $symlink_to_remove = $source_directory;
+    $source_directory  = abs_path($source_directory);
+    if ( !-d $source_directory ) {
+        die "Error: symlink does not resolve to a valid directory at $source_directory";
+    }
+}
+
+system '/bin/mv', $source_directory, $destination_cluster_path;
+if ( $? != 0 ) {
+    die "Error executing 'mv'";
+}
+
+if ( defined $symlink_to_remove ) {
+    if ( !unlink $symlink_to_remove ) {
+        die "Error deleting symlink: $!";
+    }
+}
+
+exit 0;

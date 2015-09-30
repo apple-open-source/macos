@@ -447,10 +447,11 @@ int
 main(int argc, const char *argv[])
 {
 	int32_t i;
+	uint64_t master_val;
 #if !TARGET_IPHONE_SIMULATOR
 	int network_change_token;
 #endif
-	int quota_file_token, asl_db_token;
+	int quota_file_token, asl_db_token, master_token;
 	char tstr[32], *notify_key;
 	time_t now;
 	int first_syslogd_start = 1;
@@ -649,6 +650,11 @@ main(int argc, const char *argv[])
 	 * Log UTMPX boot time record
 	 */
 	write_boot_log(first_syslogd_start);
+
+	/* default NOTIFY_SYSTEM_MASTER settings */
+	master_val = 0x0;
+	notify_register_plain(NOTIFY_SYSTEM_MASTER, &master_token);
+	notify_set_state(master_token, master_val);
 
 	asldebug("reading launch plist\n");
 	launch_config();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -454,6 +454,12 @@ __SCNetworkServiceMigrateNew			(SCPreferencesRef		prefs,
 						 CFDictionaryRef		bsdMapping,
 						 CFDictionaryRef		setMapping,
 						 CFDictionaryRef		serviceSetMapping);
+
+void
+__SCNetworkServiceAddProtocolToService		(SCNetworkServiceRef		service,
+						 CFStringRef			protocolType,
+						 CFDictionaryRef		configuration,
+						 Boolean			enabled);
 
 #pragma mark -
 #pragma mark SCNetworkSet configuration (internal)

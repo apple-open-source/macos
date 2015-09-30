@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Yoav Weiss <yoav@yoav.ws>
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,23 +23,22 @@
 
 #include "CSSParser.h"
 #include "CSSToLengthConversionData.h"
-#include "Document.h"
 #include "MediaList.h"
 #include "MediaQuery.h"
 #include "MediaQueryEvaluator.h"
-#include "RenderObject.h"
+#include "MediaQueryExp.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
 
 namespace WebCore {
 
-#if ENABLE(PICTURE_SIZES)
-bool SourceSize::match(RenderStyle& style, Frame* frame)
+static bool match(std::unique_ptr<MediaQueryExp>&& expression, RenderStyle& style, Frame* frame)
 {
-    if (m_mediaExp->mediaFeature().isEmpty())
+    if (expression->mediaFeature().isEmpty())
         return true;
+
     auto expList = std::make_unique<Vector<std::unique_ptr<MediaQueryExp>>>();
-    expList->append(m_mediaExp.release());
+    expList->append(WTF::move(expression));
 
     RefPtr<MediaQuerySet> mediaQuerySet = MediaQuerySet::create();
     mediaQuerySet->addMediaQuery(std::make_unique<MediaQuery>(MediaQuery::None, "all", WTF::move(expList)));
@@ -47,62 +47,35 @@ bool SourceSize::match(RenderStyle& style, Frame* frame)
     return mediaQueryEvaluator.eval(mediaQuerySet.get());
 }
 
-static unsigned computeLength(CSSParserValue& value, RenderStyle& style, RenderView* view)
+static float defaultLength(RenderStyle& style, RenderView* view)
+{
+    return clampTo<float>(CSSPrimitiveValue::computeNonCalcLengthDouble(CSSToLengthConversionData(&style, &style, view), CSSPrimitiveValue::CSS_VW, 100.0));
+}
+
+static float computeLength(CSSValue* value, RenderStyle& style, RenderView* view)
 {
     CSSToLengthConversionData conversionData(&style, &style, view);
-    if (CSSParser::isCalculation(&value)) {
-        CSSParserValueList* args = value.function->args.get();
-        if (args && args->size()) {
-            RefPtr<CSSCalcValue> calcValue = CSSCalcValue::create(value.function->name, *args, CalculationRangeNonNegative);
-            Length length(calcValue->createCalculationValue(conversionData));
-            RefPtr<CSSPrimitiveValue> primitiveValue = CSSPrimitiveValue::create(length, &style);
-            return primitiveValue->computeLength<unsigned>(conversionData);
-        }
+    if (is<CSSPrimitiveValue>(value)) {
+        CSSPrimitiveValue& primitiveValue = downcast<CSSPrimitiveValue>(*value);
+        if (!primitiveValue.isLength())
+            return defaultLength(style, view);
+        return primitiveValue.computeLength<float>(conversionData);
     }
-    RefPtr<CSSValue> cssValue = value.createCSSValue();
-    RefPtr<CSSPrimitiveValue> primitiveValue = toCSSPrimitiveValue(cssValue.get());
-    return primitiveValue->computeLength<unsigned>(conversionData);
+    if (is<CSSCalcValue>(value))
+        return downcast<CSSCalcValue>(*value).computeLengthPx(conversionData);
+    return defaultLength(style, view);
 }
 
-static unsigned defaultValue(RenderStyle& style, RenderView* view)
-{
-    const unsigned defaultSizesAttributeValueInVW = 100;
-
-    CSSParserValue value;
-    value.id = CSSValueInvalid;
-    value.isInt = true;
-    value.fValue = defaultSizesAttributeValueInVW;
-    value.unit = CSSPrimitiveValue::CSS_VW;
-
-    return computeLength(value, style, view);
-}
-
-unsigned SourceSize::length(RenderStyle& style, RenderView* view)
-{
-    return computeLength(m_length, style, view);
-}
-
-unsigned SourceSizeList::parseSizesAttribute(const String& sizesAttribute, RenderView* view, Frame* frame)
+float parseSizesAttribute(StringView sizesAttribute, RenderView* view, Frame* frame)
 {
     if (!view)
         return 0;
-    CSSParser parser(CSSStrictMode);
-    std::unique_ptr<SourceSizeList> sourceSizeList = parser.parseSizesAttribute(sizesAttribute);
-    if (!sourceSizeList)
-        return defaultValue(view->style(), view);
-    return sourceSizeList->getEffectiveSize(view->style(), view, frame);
-}
-
-unsigned SourceSizeList::getEffectiveSize(RenderStyle& style, RenderView* view, Frame* frame)
-{
-    for (int i = m_list.size() - 1; i >= 0; --i) {
-        SourceSize* sourceSize = m_list[i].get();
-        if (sourceSize->match(style, frame))
-            return sourceSize->length(style, view);
+    RenderStyle& style = view->style();
+    for (auto& sourceSize : CSSParser(CSSStrictMode).parseSizesAttribute(sizesAttribute)) {
+        if (match(WTF::move(sourceSize.expression), style, frame))
+            return computeLength(sourceSize.length.get(), style, view);
     }
-    return defaultValue(style, view);
+    return defaultLength(style, view);
 }
-
-#endif
 
 } // namespace WebCore

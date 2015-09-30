@@ -18799,7 +18799,6 @@ Process:         test_ipv4_routelist [XXXX]
 Path: XXXX
 Load Address:    0xXXXX
 Identifier:      test_ipv4_routelist
-Version:         0
 Code Type:       X86-64
 Parent Process:  sh [XXXX]
 

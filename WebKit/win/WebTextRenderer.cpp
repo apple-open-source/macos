@@ -26,7 +26,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
 #include "WebTextRenderer.h"
 
 #include "WebKitDLL.h"
@@ -42,13 +41,13 @@ WebTextRenderer::WebTextRenderer()
     : m_refCount(0)
 {
     gClassCount++;
-    gClassNameCount.add("WebTextRenderer");
+    gClassNameCount().add("WebTextRenderer");
 }
 
 WebTextRenderer::~WebTextRenderer()
 {
     gClassCount--;
-    gClassNameCount.remove("WebTextRenderer");
+    gClassNameCount().remove("WebTextRenderer");
 }
 
 HRESULT STDMETHODCALLTYPE WebTextRenderer::QueryInterface(const IID &riid, void** ppvObject)

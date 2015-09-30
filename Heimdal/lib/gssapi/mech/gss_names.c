@@ -31,9 +31,26 @@
 #include "mech_locl.h"
 
 
+__nullable gss_name_t
+_gss_mg_get_underlaying_mech_name(__nonnull gss_name_t name,
+				  __nonnull gss_const_OID mech)
+{
+	struct _gss_name *n = (struct _gss_name *)name;
+	struct _gss_mechanism_name *mn;
+
+	HEIM_SLIST_FOREACH(mn, &n->gn_mn, gmn_link) {
+		if (gss_oid_equal(mech, mn->gmn_mech_oid))
+			return mn->gmn_name;
+	}
+	return GSS_C_NO_NAME;
+}
+
+
 OM_uint32
-_gss_find_mn(OM_uint32 *minor_status, struct _gss_name *name, gss_const_OID mech,
-	     struct _gss_mechanism_name **output_mn)
+_gss_find_mn(OM_uint32 *__nonnull minor_status,
+	     struct _gss_name *__nonnull name,
+	     __nonnull gss_const_OID mech,
+	     struct _gss_mechanism_name *__nonnull* __nullable output_mn)
 {
 	OM_uint32 major_status;
 	gssapi_mech_interface m;
@@ -89,8 +106,9 @@ _gss_find_mn(OM_uint32 *minor_status, struct _gss_name *name, gss_const_OID mech
 /*
  * Make a name from an MN.
  */
-struct _gss_name *
-_gss_create_name(gss_name_t new_mn, struct gssapi_mech_interface_desc *m)
+struct _gss_name * __nullable
+_gss_create_name(__nullable gss_name_t new_mn,
+		 struct gssapi_mech_interface_desc * __nullable m)
 {
 	struct _gss_name *name;
 	struct _gss_mechanism_name *mn;
@@ -122,7 +140,7 @@ _gss_create_name(gss_name_t new_mn, struct gssapi_mech_interface_desc *m)
  */
 
 void
-_gss_mg_release_name(struct _gss_name *name)
+_gss_mg_release_name(struct _gss_name *__nonnull name)
 {
 	OM_uint32 junk;
 
@@ -140,7 +158,7 @@ _gss_mg_release_name(struct _gss_name *name)
 }
 
 void
-_gss_mg_check_name(gss_name_t name)
+_gss_mg_check_name(__nonnull gss_name_t name)
 {
 	if (name == NULL) return;
 }
@@ -150,12 +168,12 @@ _gss_mg_check_name(gss_name_t name)
  */
 
 OM_uint32
-_gss_mech_import_name(OM_uint32 * minor_status,
-		      gss_const_OID mech,
-		      struct _gss_name_type *names,
-		      const gss_buffer_t input_name_buffer,
-		      gss_const_OID input_name_type,
-		      gss_name_t * output_name)
+_gss_mech_import_name(OM_uint32 * __nonnull minor_status,
+		      __nonnull gss_const_OID mech,
+		      struct _gss_name_type *__nonnull names,
+		      __nonnull const gss_buffer_t input_name_buffer,
+		      __nonnull gss_const_OID input_name_type,
+		      __nonnull gss_name_t * __nullable output_name)
 {
     struct _gss_name_type *name;
     gss_buffer_t name_buffer = input_name_buffer;
@@ -220,12 +238,12 @@ _gss_mech_import_name(OM_uint32 * minor_status,
 }
 
 OM_uint32
-_gss_mech_inquire_names_for_mech(OM_uint32 * minor_status,
-				 struct _gss_name_type *names,
-				 gss_OID_set * name_types)
+_gss_mech_inquire_names_for_mech(OM_uint32 * __nonnull minor_status,
+				 struct _gss_name_type *__nonnull names,
+				 gss_OID_set __nonnull * __nullable name_types)
 {
     struct _gss_name_type *name;
-    OM_uint32 ret;
+    OM_uint32 ret, junk;
 
     ret = gss_create_empty_oid_set(minor_status, name_types);
     if (ret != GSS_S_COMPLETE)
@@ -242,7 +260,7 @@ _gss_mech_inquire_names_for_mech(OM_uint32 * minor_status,
     }
 
     if (ret != GSS_S_COMPLETE)
-	gss_release_oid_set(NULL, name_types);
+	gss_release_oid_set(&junk, name_types);
 	
     return GSS_S_COMPLETE;
 }

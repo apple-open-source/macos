@@ -24,16 +24,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "COMPtr.h"
 #include "MediaPlayerPrivate.h"
+
+#include <Mfapi.h>
+#include <Mfidl.h>
+#include <evr.h>
+
+#include <wtf/ThreadingPrimitives.h>
 
 namespace WebCore {
 
 class MediaPlayerPrivateMediaFoundation : public MediaPlayerPrivateInterface {
 public:
-    MediaPlayerPrivateMediaFoundation(MediaPlayer*);
+    explicit MediaPlayerPrivateMediaFoundation(MediaPlayer*);
+    ~MediaPlayerPrivateMediaFoundation();
     static void registerMediaEngine(MediaEngineRegistrar);
 
-    static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
     static void getSupportedTypes(HashSet<String>& types);
     static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
     static bool isAvailable();
@@ -52,6 +59,8 @@ public:
     virtual void setVisible(bool);
 
     virtual bool seeking() const;
+    virtual void seekDouble(double) override;
+    virtual double durationDouble() const override;
 
     virtual bool paused() const;
 
@@ -68,6 +77,81 @@ public:
 
 private:
     MediaPlayer* m_player;
+    IntSize m_size;
+    bool m_visible;
+    bool m_loadingProgress;
+    bool m_paused;
+    bool m_hasAudio;
+    bool m_hasVideo;
+    HWND m_hwndVideo;
+    MediaPlayer::ReadyState m_readyState;
+    FloatRect m_lastPaintRect;
+
+    class MediaPlayerListener;
+    HashSet<MediaPlayerListener*> m_listeners;
+    Mutex m_mutexListeners;
+
+    COMPtr<IMFMediaSession> m_mediaSession;
+    COMPtr<IMFSourceResolver> m_sourceResolver;
+    COMPtr<IMFMediaSource> m_mediaSource;
+    COMPtr<IMFTopology> m_topology;
+    COMPtr<IMFPresentationDescriptor> m_sourcePD;
+    COMPtr<IMFVideoDisplayControl> m_videoDisplay;
+
+    bool createSession();
+    bool endSession();
+    bool startCreateMediaSource(const String& url);
+    bool endCreatedMediaSource(IMFAsyncResult*);
+    bool endGetEvent(IMFAsyncResult*);
+    bool createTopologyFromSource();
+    bool addBranchToPartialTopology(int stream);
+    bool createOutputNode(COMPtr<IMFStreamDescriptor> sourceSD, COMPtr<IMFTopologyNode>&);
+    bool createSourceStreamNode(COMPtr<IMFStreamDescriptor> sourceSD, COMPtr<IMFTopologyNode>&);
+
+    void onCreatedMediaSource();
+    void onTopologySet();
+    static void onCreatedMediaSourceCallback(void* context);
+    static void onTopologySetCallback(void* context);
+
+    LPCWSTR registerVideoWindowClass();
+    void createVideoWindow();
+    void destroyVideoWindow();
+
+    void addListener(MediaPlayerListener*);
+    void removeListener(MediaPlayerListener*);
+    void notifyDeleted();
+
+    static LRESULT CALLBACK VideoViewWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+    class MediaPlayerListener {
+    public:
+        MediaPlayerListener() { }
+        virtual ~MediaPlayerListener() { }
+
+        virtual void onMediaPlayerDeleted() { }
+    };
+
+    class AsyncCallback : public IMFAsyncCallback, public MediaPlayerListener {
+    public:
+        AsyncCallback(MediaPlayerPrivateMediaFoundation*, bool event);
+        ~AsyncCallback();
+
+        virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, __RPC__deref_out void __RPC_FAR *__RPC_FAR *ppvObject) override;
+        virtual ULONG STDMETHODCALLTYPE AddRef() override;
+        virtual ULONG STDMETHODCALLTYPE Release() override;
+
+        virtual HRESULT STDMETHODCALLTYPE GetParameters(__RPC__out DWORD *pdwFlags, __RPC__out DWORD *pdwQueue) override;
+        virtual HRESULT STDMETHODCALLTYPE Invoke(__RPC__in_opt IMFAsyncResult *pAsyncResult) override;
+
+        virtual void onMediaPlayerDeleted() override;
+
+    private:
+        ULONG m_refCount;
+        MediaPlayerPrivateMediaFoundation* m_mediaPlayer;
+        bool m_event;
+        Mutex m_mutex;
+    };
+
 };
 
 }

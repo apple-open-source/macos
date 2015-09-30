@@ -230,7 +230,7 @@ done
 echo "Interactive kinit"
     kinitpty=${testdir}/foopassword.rkpty
 cat > ${kinitpty} <<EOF
-expect Password
+expect password
 password foo\n
 EOF
    ${rkpty} ${kinitpty} ${kinit} foo@${R} >/dev/null|| 	{ ec=1 ; eval "${testfailed}"; }

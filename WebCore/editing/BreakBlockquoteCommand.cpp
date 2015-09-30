@@ -104,18 +104,18 @@ void BreakBlockquoteCommand::doApply()
     
     // startNode is the first node that we need to move to the new blockquote.
     Node* startNode = pos.deprecatedNode();
-        
+    ASSERT(startNode);
     // Split at pos if in the middle of a text node.
-    if (startNode->isTextNode()) {
-        Text* textNode = toText(startNode);
-        if ((unsigned)pos.deprecatedEditingOffset() >= textNode->length()) {
-            startNode = NodeTraversal::next(startNode);
+    if (is<Text>(*startNode)) {
+        Text& textNode = downcast<Text>(*startNode);
+        if ((unsigned)pos.deprecatedEditingOffset() >= textNode.length()) {
+            startNode = NodeTraversal::next(*startNode);
             ASSERT(startNode);
         } else if (pos.deprecatedEditingOffset() > 0)
-            splitTextNode(textNode, pos.deprecatedEditingOffset());
+            splitTextNode(&textNode, pos.deprecatedEditingOffset());
     } else if (pos.deprecatedEditingOffset() > 0) {
-        Node* childAtOffset = startNode->childNode(pos.deprecatedEditingOffset());
-        startNode = childAtOffset ? childAtOffset : NodeTraversal::next(startNode);
+        Node* childAtOffset = startNode->traverseToChildAt(pos.deprecatedEditingOffset());
+        startNode = childAtOffset ? childAtOffset : NodeTraversal::next(*startNode);
         ASSERT(startNode);
     }
     
@@ -131,7 +131,7 @@ void BreakBlockquoteCommand::doApply()
         ancestors.append(node);
     
     // Insert a clone of the top blockquote after the break.
-    RefPtr<Element> clonedBlockquote = toElement(topBlockquote)->cloneElementWithoutChildren();
+    RefPtr<Element> clonedBlockquote = downcast<Element>(*topBlockquote).cloneElementWithoutChildren(document());
     insertNodeAfter(clonedBlockquote.get(), breakNode.get());
     
     // Clone startNode's ancestors into the cloned blockquote.
@@ -140,7 +140,7 @@ void BreakBlockquoteCommand::doApply()
     // or clonedBlockquote if ancestors is empty).
     RefPtr<Element> clonedAncestor = clonedBlockquote;
     for (size_t i = ancestors.size(); i != 0; --i) {
-        RefPtr<Element> clonedChild = ancestors[i - 1]->cloneElementWithoutChildren();
+        RefPtr<Element> clonedChild = ancestors[i - 1]->cloneElementWithoutChildren(document());
         // Preserve list item numbering in cloned lists.
         if (clonedChild->isElementNode() && clonedChild->hasTagName(olTag)) {
             Node* listChildNode = i > 1 ? ancestors[i - 2].get() : startNode;
@@ -148,8 +148,8 @@ void BreakBlockquoteCommand::doApply()
             // find the first one so that we know where to start numbering.
             while (listChildNode && !listChildNode->hasTagName(liTag))
                 listChildNode = listChildNode->nextSibling();
-            if (listChildNode && listChildNode->renderer() && listChildNode->renderer()->isListItem())
-                setNodeAttribute(clonedChild, startAttr, AtomicString::number(toRenderListItem(listChildNode->renderer())->value()));
+            if (listChildNode && is<RenderListItem>(listChildNode->renderer()))
+                setNodeAttribute(clonedChild, startAttr, AtomicString::number(downcast<RenderListItem>(*listChildNode->renderer()).value()));
         }
             
         appendNode(clonedChild.get(), clonedAncestor.get());

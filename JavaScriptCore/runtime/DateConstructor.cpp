@@ -40,10 +40,6 @@
 #include "JSReplayInputs.h"
 #endif
 
-#if OS(WINCE)
-extern "C" time_t time(time_t* timer); // Provided by libce.
-#endif
-
 #if HAVE(SYS_TIME_H)
 #include <sys/time.h>
 #endif
@@ -56,9 +52,9 @@ using namespace WTF;
 
 namespace JSC {
 
-static EncodedJSValue JSC_HOST_CALL dateParse(ExecState*);
-static EncodedJSValue JSC_HOST_CALL dateNow(ExecState*);
-static EncodedJSValue JSC_HOST_CALL dateUTC(ExecState*);
+EncodedJSValue JSC_HOST_CALL dateParse(ExecState*);
+EncodedJSValue JSC_HOST_CALL dateNow(ExecState*);
+EncodedJSValue JSC_HOST_CALL dateUTC(ExecState*);
 
 }
 
@@ -66,7 +62,7 @@ static EncodedJSValue JSC_HOST_CALL dateUTC(ExecState*);
 
 namespace JSC {
 
-const ClassInfo DateConstructor::s_info = { "Function", &InternalFunction::s_info, 0, ExecState::dateConstructorTable, CREATE_METHOD_TABLE(DateConstructor) };
+const ClassInfo DateConstructor::s_info = { "Function", &InternalFunction::s_info, &dateConstructorTable, CREATE_METHOD_TABLE(DateConstructor) };
 
 /* Source for DateConstructor.lut.h
 @begin dateConstructorTable
@@ -114,7 +110,7 @@ void DateConstructor::finishCreation(VM& vm, DatePrototype* datePrototype)
 
 bool DateConstructor::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot &slot)
 {
-    return getStaticFunctionSlot<InternalFunction>(exec, ExecState::dateConstructorTable(exec->vm()), jsCast<DateConstructor*>(object), propertyName, slot);
+    return getStaticFunctionSlot<InternalFunction>(exec, dateConstructorTable, jsCast<DateConstructor*>(object), propertyName, slot);
 }
 
 // ECMA 15.9.3
@@ -166,7 +162,7 @@ JSObject* constructDate(ExecState* exec, JSGlobalObject* globalObject, const Arg
             t.setSecond(JSC::toInt32(doubleArguments[5]));
             t.setIsDST(-1);
             double ms = (numArgs >= 7) ? doubleArguments[6] : 0;
-            value = gregorianDateTimeToMS(vm, t, ms, false);
+            value = gregorianDateTimeToMS(vm, t, ms, WTF::LocalTime);
         }
     }
 
@@ -190,7 +186,7 @@ static EncodedJSValue JSC_HOST_CALL callDate(ExecState* exec)
 {
     VM& vm = exec->vm();
     GregorianDateTime ts;
-    msToGregorianDateTime(vm, currentTimeMS(), false, ts);
+    msToGregorianDateTime(vm, currentTimeMS(), WTF::LocalTime, ts);
     return JSValue::encode(jsNontrivialString(&vm, formatDateTime(ts, DateTimeFormatDateAndTime, false)));
 }
 
@@ -200,12 +196,12 @@ CallType DateConstructor::getCallData(JSCell*, CallData& callData)
     return CallTypeHost;
 }
 
-static EncodedJSValue JSC_HOST_CALL dateParse(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dateParse(ExecState* exec)
 {
     return JSValue::encode(jsNumber(parseDate(exec->vm(), exec->argument(0).toString(exec)->value(exec))));
 }
 
-static EncodedJSValue JSC_HOST_CALL dateNow(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dateNow(ExecState* exec)
 {
 #if !ENABLE(WEB_REPLAY)
     UNUSED_PARAM(exec);
@@ -214,7 +210,7 @@ static EncodedJSValue JSC_HOST_CALL dateNow(ExecState* exec)
     return JSValue::encode(jsNumber(NORMAL_OR_DETERMINISTIC_FUNCTION(jsCurrentTime(), deterministicCurrentTime(exec->lexicalGlobalObject()))));
 }
 
-static EncodedJSValue JSC_HOST_CALL dateUTC(ExecState* exec) 
+EncodedJSValue JSC_HOST_CALL dateUTC(ExecState* exec) 
 {
     double doubleArguments[7] = {
         exec->argument(0).toNumber(exec), 
@@ -244,7 +240,7 @@ static EncodedJSValue JSC_HOST_CALL dateUTC(ExecState* exec)
     t.setMinute(JSC::toInt32(doubleArguments[4]));
     t.setSecond(JSC::toInt32(doubleArguments[5]));
     double ms = (n >= 7) ? doubleArguments[6] : 0;
-    return JSValue::encode(jsNumber(timeClip(gregorianDateTimeToMS(exec->vm(), t, ms, true))));
+    return JSValue::encode(jsNumber(timeClip(gregorianDateTimeToMS(exec->vm(), t, ms, WTF::UTCTime))));
 }
 
 } // namespace JSC

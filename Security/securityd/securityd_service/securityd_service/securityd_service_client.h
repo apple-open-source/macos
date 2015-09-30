@@ -29,6 +29,7 @@ typedef struct {
     
 int service_client_kb_create(service_context_t *context, const void * secret, int secret_len);
 int service_client_kb_load(service_context_t *context);
+int service_client_kb_save(service_context_t *context);
 int service_client_kb_unlock(service_context_t *context, const void * secret, int secret_len);
 int service_client_kb_lock(service_context_t *context);
 int service_client_kb_change_secret(service_context_t *context, const void * secret, int secret_len, const void * new_secret, int new_secret_len);

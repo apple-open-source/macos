@@ -44,7 +44,7 @@ ScrollingTreeScrollingNode::~ScrollingTreeScrollingNode()
 
 void ScrollingTreeScrollingNode::updateBeforeChildren(const ScrollingStateNode& stateNode)
 {
-    const ScrollingStateScrollingNode& state = toScrollingStateScrollingNode(stateNode);
+    const ScrollingStateScrollingNode& state = downcast<ScrollingStateScrollingNode>(stateNode);
 
     if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollableAreaSize))
         m_scrollableAreaSize = state.scrollableAreaSize();
@@ -67,13 +67,27 @@ void ScrollingTreeScrollingNode::updateBeforeChildren(const ScrollingStateNode& 
     if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollOrigin))
         m_scrollOrigin = state.scrollOrigin();
 
+#if ENABLE(CSS_SCROLL_SNAP)
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::HorizontalSnapOffsets))
+        m_horizontalSnapOffsets = state.horizontalSnapOffsets();
+
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::VerticalSnapOffsets))
+        m_verticalSnapOffsets = state.verticalSnapOffsets();
+
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::CurrentHorizontalSnapOffsetIndex))
+        m_currentHorizontalSnapPointIndex = state.currentHorizontalSnapPointIndex();
+
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::CurrentVerticalSnapOffsetIndex))
+        m_currentVerticalSnapPointIndex = state.currentVerticalSnapPointIndex();
+#endif
+
     if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollableAreaParams))
         m_scrollableAreaParameters = state.scrollableAreaParameters();
 }
 
 void ScrollingTreeScrollingNode::updateAfterChildren(const ScrollingStateNode& stateNode)
 {
-    const ScrollingStateScrollingNode& scrollingStateNode = toScrollingStateScrollingNode(stateNode);
+    const ScrollingStateScrollingNode& scrollingStateNode = downcast<ScrollingStateScrollingNode>(stateNode);
     if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::RequestedScrollPosition))
         scrollingTree().scrollingTreeNodeRequestsScroll(scrollingNodeID(), scrollingStateNode.requestedScrollPosition(), scrollingStateNode.requestedScrollPositionRepresentsProgrammaticScroll());
 }

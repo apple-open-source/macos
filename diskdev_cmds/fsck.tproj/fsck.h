@@ -93,6 +93,10 @@ typedef struct disk {
 #define EEXIT			8				/* Standard Error exit code for fsck */
 #define _PATH_SBIN		"/sbin"			/* Path prefix used for fork/exec */
 
+#define ROOT_PASSNO		1		/* passno field for root FSes */
+#define NONROOT_PASSNO	2 		/* passno field for non-root FSes */
+
+
 /* Function prototypes */
 int checkfstab(void);
 void catchquit(int sig);

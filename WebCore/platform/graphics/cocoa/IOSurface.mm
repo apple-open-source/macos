@@ -30,47 +30,53 @@
 
 #import "GraphicsContextCG.h"
 #import "IOSurfacePool.h"
-#import <IOSurface/IOSurface.h>
+#import "IOSurfaceSPI.h"
+#import "MachSendRight.h"
 #import <wtf/Assertions.h>
-
-#if __has_include(<IOSurface/IOSurfacePrivate.h>)
-#import <IOSurface/IOSurfacePrivate.h>
-#else
-enum {
-    kIOSurfacePurgeableNonVolatile = 0,
-    kIOSurfacePurgeableVolatile = 1,
-    kIOSurfacePurgeableEmpty = 2,
-    kIOSurfacePurgeableKeepCurrent = 3,
-};
-#endif
 
 extern "C" {
 CGContextRef CGIOSurfaceContextCreate(IOSurfaceRef, size_t, size_t, size_t, size_t, CGColorSpaceRef, CGBitmapInfo);
 CGImageRef CGIOSurfaceContextCreateImage(CGContextRef);
-IOReturn IOSurfaceSetPurgeable(IOSurfaceRef, uint32_t, uint32_t *);
 }
 
 using namespace WebCore;
 
-PassRefPtr<IOSurface> IOSurface::create(IntSize size, ColorSpace colorSpace)
+inline std::unique_ptr<IOSurface> IOSurface::surfaceFromPool(IntSize size, IntSize contextSize, ColorSpace colorSpace)
 {
-    if (RefPtr<IOSurface> cachedSurface = IOSurfacePool::sharedPool().takeSurface(size, colorSpace))
-        return cachedSurface.release();
-    return adoptRef(new IOSurface(size, colorSpace));
+    auto cachedSurface = IOSurfacePool::sharedPool().takeSurface(size, colorSpace);
+    if (!cachedSurface)
+        return nullptr;
+
+    cachedSurface->setContextSize(contextSize);
+    return cachedSurface;
 }
 
-PassRefPtr<IOSurface> IOSurface::createFromMachPort(mach_port_t machPort, ColorSpace colorSpace)
+std::unique_ptr<IOSurface> IOSurface::create(IntSize size, ColorSpace colorSpace)
 {
-    RetainPtr<IOSurfaceRef> surface = adoptCF(IOSurfaceLookupFromMachPort(machPort));
+    if (auto cachedSurface = surfaceFromPool(size, size, colorSpace))
+        return cachedSurface;
+    return std::unique_ptr<IOSurface>(new IOSurface(size, colorSpace));
+}
+
+std::unique_ptr<IOSurface> IOSurface::create(IntSize size, IntSize contextSize, ColorSpace colorSpace)
+{
+    if (auto cachedSurface = surfaceFromPool(size, contextSize, colorSpace))
+        return cachedSurface;
+    return std::unique_ptr<IOSurface>(new IOSurface(size, contextSize, colorSpace));
+}
+
+std::unique_ptr<IOSurface> IOSurface::createFromSendRight(const MachSendRight& sendRight, ColorSpace colorSpace)
+{
+    auto surface = adoptCF(IOSurfaceLookupFromMachPort(sendRight.sendRight()));
     return IOSurface::createFromSurface(surface.get(), colorSpace);
 }
 
-PassRefPtr<IOSurface> IOSurface::createFromSurface(IOSurfaceRef surface, ColorSpace colorSpace)
+std::unique_ptr<IOSurface> IOSurface::createFromSurface(IOSurfaceRef surface, ColorSpace colorSpace)
 {
-    return adoptRef(new IOSurface(surface, colorSpace));
+    return std::unique_ptr<IOSurface>(new IOSurface(surface, colorSpace));
 }
 
-PassRefPtr<IOSurface> IOSurface::createFromImage(CGImageRef image)
+std::unique_ptr<IOSurface> IOSurface::createFromImage(CGImageRef image)
 {
     if (!image)
         return nullptr;
@@ -78,17 +84,18 @@ PassRefPtr<IOSurface> IOSurface::createFromImage(CGImageRef image)
     size_t width = CGImageGetWidth(image);
     size_t height = CGImageGetHeight(image);
 
-    RefPtr<IOSurface> surface = IOSurface::create(IntSize(width, height), ColorSpaceDeviceRGB);
+    auto surface = IOSurface::create(IntSize(width, height), ColorSpaceDeviceRGB);
     auto surfaceContext = surface->ensurePlatformContext();
     CGContextDrawImage(surfaceContext, CGRectMake(0, 0, width, height), image);
     CGContextFlush(surfaceContext);
 
-    return surface.release();
+    return surface;
 }
 
 IOSurface::IOSurface(IntSize size, ColorSpace colorSpace)
     : m_colorSpace(colorSpace)
     , m_size(size)
+    , m_contextSize(size)
 {
     unsigned pixelFormat = 'BGRA';
     unsigned bytesPerElement = 4;
@@ -116,6 +123,14 @@ IOSurface::IOSurface(IntSize size, ColorSpace colorSpace)
     m_surface = adoptCF(IOSurfaceCreate((CFDictionaryRef)options));
 }
 
+IOSurface::IOSurface(IntSize size, IntSize contextSize, ColorSpace colorSpace)
+    : IOSurface(size, colorSpace)
+{
+    ASSERT(contextSize.width() <= size.width());
+    ASSERT(contextSize.height() <= size.height());
+    m_contextSize = contextSize;
+}
+
 IOSurface::IOSurface(IOSurfaceRef surface, ColorSpace colorSpace)
     : m_colorSpace(colorSpace)
     , m_surface(surface)
@@ -129,14 +144,25 @@ IntSize IOSurface::maximumSize()
     return IntSize(IOSurfaceGetPropertyMaximum(kIOSurfaceWidth), IOSurfaceGetPropertyMaximum(kIOSurfaceHeight));
 }
 
-mach_port_t IOSurface::createMachPort() const
+MachSendRight IOSurface::createSendRight() const
 {
-    return IOSurfaceCreateMachPort(m_surface.get());
+    return MachSendRight::adopt(IOSurfaceCreateMachPort(m_surface.get()));
 }
 
 RetainPtr<CGImageRef> IOSurface::createImage()
 {
     return adoptCF(CGIOSurfaceContextCreateImage(ensurePlatformContext()));
+}
+
+void IOSurface::setContextSize(IntSize contextSize)
+{
+    if (contextSize == m_contextSize)
+        return;
+
+    // Release the graphics context and update the context size. Next time the graphics context is
+    // accessed, we will construct it again with the right size.
+    releaseGraphicsContext();
+    m_contextSize = contextSize;
 }
 
 CGContextRef IOSurface::ensurePlatformContext()
@@ -147,7 +173,7 @@ CGContextRef IOSurface::ensurePlatformContext()
     CGBitmapInfo bitmapInfo = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host;
     size_t bitsPerComponent = 8;
     size_t bitsPerPixel = 32;
-    m_cgContext = adoptCF(CGIOSurfaceContextCreate(m_surface.get(), m_size.width(), m_size.height(), bitsPerComponent, bitsPerPixel, cachedCGColorSpace(m_colorSpace), bitmapInfo));
+    m_cgContext = adoptCF(CGIOSurfaceContextCreate(m_surface.get(), m_contextSize.width(), m_contextSize.height(), bitsPerComponent, bitsPerPixel, cachedCGColorSpace(m_colorSpace), bitmapInfo));
 
     return m_cgContext.get();
 }
@@ -157,47 +183,36 @@ GraphicsContext& IOSurface::ensureGraphicsContext()
     if (m_graphicsContext)
         return *m_graphicsContext;
 
-    m_graphicsContext = adoptPtr(new GraphicsContext(ensurePlatformContext()));
+    m_graphicsContext = std::make_unique<GraphicsContext>(ensurePlatformContext());
+    m_graphicsContext->setIsAcceleratedContext(true);
 
     return *m_graphicsContext;
 }
 
 IOSurface::SurfaceState IOSurface::state() const
 {
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), kIOSurfacePurgeableKeepCurrent, &previousState);
     ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
     return previousState == kIOSurfacePurgeableEmpty ? IOSurface::SurfaceState::Empty : IOSurface::SurfaceState::Valid;
-#else
-    return SurfaceState::Valid;
-#endif
 }
 
 bool IOSurface::isVolatile() const
 {
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), kIOSurfacePurgeableKeepCurrent, &previousState);
     ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
     return previousState != kIOSurfacePurgeableNonVolatile;
-#else
-    return false;
-#endif
 }
 
 IOSurface::SurfaceState IOSurface::setIsVolatile(bool isVolatile)
 {
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), isVolatile ? kIOSurfacePurgeableVolatile : kIOSurfacePurgeableNonVolatile, &previousState);
     ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
 
     if (previousState == kIOSurfacePurgeableEmpty)
         return IOSurface::SurfaceState::Empty;
-#else
-    UNUSED_PARAM(isVolatile);
-#endif
 
     return IOSurface::SurfaceState::Valid;
 }

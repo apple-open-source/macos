@@ -130,7 +130,6 @@ using namespace WebCore;
 
 - (void)finalize
 {
-    ASSERT_MAIN_THREAD();
     ASSERT(!_isStarted);
 
     [super finalize];
@@ -290,11 +289,11 @@ using namespace WebCore;
 
 - (NSRect)_windowClipRect
 {
-    RenderObject* renderer = _element->renderer();
+    auto* renderer = _element->renderer();
     if (!renderer)
         return NSZeroRect;
 
-    return toRenderWidget(renderer)->windowClipRect();
+    return downcast<RenderWidget>(*renderer).windowClipRect();
 }
 
 - (NSRect)visibleRect
@@ -864,7 +863,7 @@ using namespace WebCore;
 
 - (void)invalidatePluginContentRect:(NSRect)rect
 {
-    if (RenderBoxModelObject *renderer = toRenderBoxModelObject(_element->renderer())) {
+    if (RenderBoxModelObject* renderer = downcast<RenderBoxModelObject>(_element->renderer())) {
         IntRect contentRect(rect);
         contentRect.move(renderer->borderLeft() + renderer->paddingLeft(), renderer->borderTop() + renderer->paddingTop());
         
@@ -874,13 +873,13 @@ using namespace WebCore;
 
 - (NSRect)actualVisibleRectInWindow
 {
-    RenderObject* renderer = _element->renderer();
+    auto* renderer = _element->renderer();
     if (!renderer)
         return NSZeroRect;
 
     IntRect widgetRect = renderer->pixelSnappedAbsoluteClippedOverflowRect();
     widgetRect = renderer->view().frameView().contentsToWindow(widgetRect);
-    return intersection(toRenderWidget(renderer)->windowClipRect(), widgetRect);
+    return intersection(downcast<RenderWidget>(*renderer).windowClipRect(), widgetRect);
 }
 
 - (CALayer *)pluginLayer
@@ -928,7 +927,7 @@ bool getAuthenticationInfo(const char* protocolStr, const char* hostStr, int32_t
     
     RetainPtr<NSURLProtectionSpace> protectionSpace = adoptNS([[NSURLProtectionSpace alloc] initWithHost:host port:port protocol:protocol realm:realm authenticationMethod:authenticationMethod]);
     
-    NSURLCredential *credential = mac(CredentialStorage::defaultCredentialStorage().get(ProtectionSpace(protectionSpace.get())));
+    NSURLCredential *credential = CredentialStorage::defaultCredentialStorage().get(ProtectionSpace(protectionSpace.get())).nsCredential();
     if (!credential)
         credential = [[NSURLCredentialStorage sharedCredentialStorage] defaultCredentialForProtectionSpace:protectionSpace.get()];
     if (!credential)

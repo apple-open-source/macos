@@ -59,12 +59,15 @@ StdoutDevNullRedirector::StdoutDevNullRedirector()
         return;
     m_savedStdout = dup(STDOUT_FILENO);
     dup2(newStdout, STDOUT_FILENO);
+    close(newStdout);
 }
 
 StdoutDevNullRedirector::~StdoutDevNullRedirector()
 {
-    if (m_savedStdout != -1)
+    if (m_savedStdout != -1) {
         dup2(m_savedStdout, STDOUT_FILENO);
+        close(m_savedStdout);
+    }
 }
 
 
@@ -149,10 +152,6 @@ bool NetscapePluginModule::getPluginInfoForLoadedPlugin(RawPluginMetaData& metaD
 
     metaData.mimeDescription = mimeDescription;
 
-#if PLATFORM(GTK)
-    metaData.requiresGtk2 = module->functionPointer<void (*)()>("gtk_progress_get_type");
-#endif
-
     return true;
 }
 
@@ -190,6 +189,7 @@ void NetscapePluginModule::determineQuirks()
 #if PLATFORM(EFL)
             m_pluginQuirks.add(PluginQuirks::ForceFlashWindowlessMode);
 #endif
+            m_pluginQuirks.add(PluginQuirks::DoNotCancelSrcStreamInWindowedMode);
             break;
         }
     }
@@ -241,10 +241,6 @@ bool NetscapePluginModule::scanPlugin(const String& pluginPath)
     writeLine(metaData.name);
     writeLine(metaData.description);
     writeLine(metaData.mimeDescription);
-#if PLATFORM(GTK)
-    if (metaData.requiresGtk2)
-        writeLine("requires-gtk2");
-#endif
 
     fflush(stdout);
 

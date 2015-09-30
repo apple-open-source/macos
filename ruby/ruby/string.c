@@ -2,7 +2,7 @@
 
   string.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Mon Aug  9 17:12:58 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -838,7 +838,7 @@ RUBY_FUNC_EXPORTED size_t
 rb_str_memsize(VALUE str)
 {
     if (!STR_EMBED_P(str) && !STR_SHARED_P(str)) {
-	return RSTRING(str)->as.heap.aux.capa;
+	return RSTRING(str)->as.heap.aux.capa + 1; /* termlen */
     }
     else {
 	return 0;
@@ -1786,10 +1786,10 @@ rb_str_substr(VALUE str, long beg, long len)
     }
     else {
 	str2 = rb_str_new5(str, p, len);
-	rb_enc_cr_str_copy_for_substr(str2, str);
 	OBJ_INFECT(str2, str);
 	RB_GC_GUARD(str);
     }
+    rb_enc_cr_str_copy_for_substr(str2, str);
 
     return str2;
 }
@@ -1863,9 +1863,11 @@ rb_str_resize(VALUE str, long len)
     independent = str_independent(str);
     ENC_CODERANGE_CLEAR(str);
     slen = RSTRING_LEN(str);
-    if (len != slen) {
+    {
+	long capa;
 	if (STR_EMBED_P(str)) {
-	    if (len <= RSTRING_EMBED_LEN_MAX) {
+	    if (len == slen) return str;
+	    if (len + 1 <= RSTRING_EMBED_LEN_MAX + 1) {
 		STR_SET_EMBED_LEN(str, len);
 		RSTRING(str)->as.ary[len] = '\0';
 		return str;
@@ -1884,14 +1886,15 @@ rb_str_resize(VALUE str, long len)
 	    return str;
 	}
 	else if (!independent) {
+	    if (len == slen) return str;
 	    str_make_independent_expand(str, len - slen);
 	}
-	else if (slen < len || slen - len > 1024) {
+	else if ((capa = RSTRING(str)->as.heap.aux.capa) < len ||
+		 (capa - len) > (len < 1024 ? len : 1024)) {
 	    REALLOC_N(RSTRING(str)->as.heap.ptr, char, len+1);
-	}
-	if (!STR_NOCAPA_P(str)) {
 	    RSTRING(str)->as.heap.aux.capa = len;
 	}
+	else if (len == slen) return str;
 	RSTRING(str)->as.heap.len = len;
 	RSTRING(str)->as.heap.ptr[len] = '\0';	/* sentinel */
     }
@@ -1925,7 +1928,7 @@ str_buf_cat(VALUE str, const char *ptr, long len)
     if (capa <= total) {
 	while (total > capa) {
 	    if (capa + 1 >= LONG_MAX / 2) {
-		capa = (total + 4095) / 4096;
+		capa = (total + 4095) / 4096 * 4096;
 		break;
 	    }
 	    capa = (capa + 1) * 2;
@@ -5791,21 +5794,25 @@ rb_str_count(int argc, VALUE *argv, VALUE str)
 {
     char table[TR_TABLE_SIZE];
     rb_encoding *enc = 0;
-    VALUE del = 0, nodel = 0;
+    VALUE del = 0, nodel = 0, tstr;
     char *s, *send;
     int i;
     int ascompat;
 
     rb_check_arity(argc, 1, UNLIMITED_ARGUMENTS);
-    for (i=0; i<argc; i++) {
-	VALUE tstr = argv[i];
-	unsigned char c;
 
-	StringValue(tstr);
-	enc = rb_enc_check(str, tstr);
-	if (argc == 1 && RSTRING_LEN(tstr) == 1 && rb_enc_asciicompat(enc) &&
-	    (c = RSTRING_PTR(tstr)[0]) < 0x80 && !is_broken_string(str)) {
+    tstr = argv[0];
+    StringValue(tstr);
+    enc = rb_enc_check(str, tstr);
+    if (argc == 1) {
+	const char *ptstr;
+	if (RSTRING_LEN(tstr) == 1 && rb_enc_asciicompat(enc) &&
+	    (ptstr = RSTRING_PTR(tstr),
+	     ONIGENC_IS_ALLOWED_REVERSE_MATCH(enc, (const unsigned char *)ptstr, (const unsigned char *)ptstr+1)) &&
+	    !is_broken_string(str)) {
 	    int n = 0;
+	    int clen;
+	    unsigned char c = rb_enc_codepoint_len(ptstr, ptstr+1, &clen, enc);
 
 	    s = RSTRING_PTR(str);
 	    if (!s || RSTRING_LEN(str) == 0) return INT2FIX(0);
@@ -5815,7 +5822,14 @@ rb_str_count(int argc, VALUE *argv, VALUE str)
 	    }
 	    return INT2NUM(n);
 	}
-	tr_setup_table(tstr, table, i==0, &del, &nodel, enc);
+    }
+
+    tr_setup_table(tstr, table, TRUE, &del, &nodel, enc);
+    for (i=1; i<argc; i++) {
+	tstr = argv[i];
+	StringValue(tstr);
+	enc = rb_enc_check(str, tstr);
+	tr_setup_table(tstr, table, FALSE, &del, &nodel, enc);
     }
 
     s = RSTRING_PTR(str);
@@ -6803,15 +6817,18 @@ rb_str_chomp_bang(int argc, VALUE *argv, VALUE str)
  *  from the end of <i>str</i> (if present). If <code>$/</code> has not been
  *  changed from the default Ruby record separator, then <code>chomp</code> also
  *  removes carriage return characters (that is it will remove <code>\n</code>,
- *  <code>\r</code>, and <code>\r\n</code>).
+ *  <code>\r</code>, and <code>\r\n</code>). If <code>$/</code> is an empty string,
+ *  it will remove all trailing newlines from the string.
  *
- *     "hello".chomp            #=> "hello"
- *     "hello\n".chomp          #=> "hello"
- *     "hello\r\n".chomp        #=> "hello"
- *     "hello\n\r".chomp        #=> "hello\n"
- *     "hello\r".chomp          #=> "hello"
- *     "hello \n there".chomp   #=> "hello \n there"
- *     "hello".chomp("llo")     #=> "he"
+ *     "hello".chomp                #=> "hello"
+ *     "hello\n".chomp              #=> "hello"
+ *     "hello\r\n".chomp            #=> "hello"
+ *     "hello\n\r".chomp            #=> "hello\n"
+ *     "hello\r".chomp              #=> "hello"
+ *     "hello \n there".chomp       #=> "hello \n there"
+ *     "hello".chomp("llo")         #=> "he"
+ *     "hello\r\n\r\n".chomp('')    #=> "hello"
+ *     "hello\r\n\r\r\n".chomp('')  #=> "hello\r\n\r"
  */
 
 static VALUE

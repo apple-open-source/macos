@@ -204,48 +204,35 @@ static char *
 uuid_to_name(uuid_t *uu) 
 {
 #if TARGET_OS_EMBEDDED
-  return strdup("<UNKNOWN>");
+	return strdup("<UNKNOWN>");
 #else  /* !TARGET_OS_EMBEDDED */
-  int is_gid = -1;
-  struct group *tgrp = NULL;
-  struct passwd *tpass = NULL;
-  char *name = NULL;
-  uid_t id;
-
-
+	int type;
+	char *name = NULL;
+	char *recname = NULL;
+	
 #define MAXNAMETAG (MAXLOGNAME + 6) /* + strlen("group:") */
-  name = (char *) malloc(MAXNAMETAG);
-  
-  if (NULL == name)
-	  err(1, "malloc");
-
-	if (!f_numericonly) {
-  if (0 != mbr_uuid_to_id(*uu, &id, &is_gid))
-	  goto errout;
+	name = (char *) malloc(MAXNAMETAG);
+	
+	if (NULL == name) {
+		err(1, "malloc");
 	}
-  
-  switch (is_gid) {
-  case ID_TYPE_UID:
-	  tpass = getpwuid(id);
-	  if (!tpass) {
-		  goto errout;
-	  }
-	  snprintf(name, MAXNAMETAG, "%s:%s", "user", tpass->pw_name);
-	  break;
-  case ID_TYPE_GID:
-	  tgrp = getgrgid((gid_t) id);
-	  if (!tgrp) {
-		  goto errout;
-	  }
-	  snprintf(name, MAXNAMETAG, "%s:%s", "group", tgrp->gr_name);
-	  break;
-  default:
+	
+	if (f_numericonly) {
 		goto errout;
-  }
-  return name;
- errout:
-  uuid_unparse_upper(*uu, name);
-  return name;
+	}
+	
+	if (mbr_identifier_translate(ID_TYPE_UUID, *uu, sizeof(*uu), ID_TYPE_NAME, (void **) &recname, &type)) {
+		goto errout;
+	}
+	
+	snprintf(name, MAXNAMETAG, "%s:%s", (type == MBR_REC_TYPE_USER ? "user" : "group"), recname);
+	free(recname);
+	
+	return name;
+errout:
+	uuid_unparse_upper(*uu, name);
+	
+	return name;
 #endif	/* !TARGET_OS_EMBEDDED */
 }
 

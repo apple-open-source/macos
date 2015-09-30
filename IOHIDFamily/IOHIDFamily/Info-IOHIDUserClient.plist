@@ -25,7 +25,7 @@
 		<key>IOHIDLibUPSUserClient</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOUSBUserClient</string>
+			<string>com.apple.iokit.IOHIDFamily</string>
 			<key>DeviceUsagePairs</key>
 			<array>
 				<dict>
@@ -38,7 +38,7 @@
 				</dict>
 			</array>
 			<key>IOClass</key>
-			<string>IOUSBUserClientInit</string>
+			<string>IOHIDProviderPropertyMerger</string>
 			<key>IOProviderClass</key>
 			<string>IOHIDDevice</string>
 			<key>IOProviderMergeProperties</key>
@@ -61,9 +61,9 @@
 		<key>IOHIDLibUserClient</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOUSBUserClient</string>
+			<string>com.apple.iokit.IOHIDFamily</string>
 			<key>IOClass</key>
-			<string>IOUSBUserClientInit</string>
+			<string>IOHIDProviderPropertyMerger</string>
 			<key>IOProviderClass</key>
 			<string>IOHIDDevice</string>
 			<key>IOProviderMergeProperties</key>
@@ -82,8 +82,6 @@
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.iokit.IOUSBUserClient</key>
-		<string>2.2.0</string>
 		<key>com.apple.iokit.IOHIDFamily</key>
 		<string>1.5</string>
 		<key>com.apple.kpi.private</key>

@@ -39,6 +39,7 @@
 &__gss_c_cred_set_default_oid_desc
 &__gss_c_cred_get_default_oid_desc
 &__gss_c_cred_renew_oid_desc
+&__gss_c_ctx_pfs_x_oid_desc
 &__gss_c_ma_sasl_mech_name_oid_desc
 &__gss_c_ma_mech_name_oid_desc
 &__gss_c_ma_mech_description_oid_desc

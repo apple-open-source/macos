@@ -54,12 +54,6 @@
 					</dict>
 					<dict>
 						<key>Content Hint</key>
-						<string></string>
-						<key>RAID</key>
-						<true/>
-					</dict>
-					<dict>
-						<key>Content Hint</key>
 						<string>Apple_HFS</string>
 						<key>Leaf</key>
 						<true/>

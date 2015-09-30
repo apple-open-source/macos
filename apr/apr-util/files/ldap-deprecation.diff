@@ -1,0 +1,11 @@
+--- configure.orig	2015-03-25 13:22:33.000000000 -0700
++++ configure	2015-03-25 13:22:41.000000000 -0700
+@@ -11524,7 +11524,7 @@
+   apr_save_CFLAGS=$CFLAGS
+  CFLAGS="$CFLAGS $CFLAGS_WARN"
+  if test "$ac_cv_c_compiler_gnu" = "yes"; then
+-   CFLAGS="$CFLAGS -Werror"
++   CFLAGS="$CFLAGS -Werror -Wno-error=deprecated-declarations"
+  fi
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */

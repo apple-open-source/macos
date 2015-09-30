@@ -45,6 +45,9 @@ const struct pthread_functions_s pthread_internal_functions = {
 	.psynch_rw_unlock = _psynch_rw_unlock,
 	.psynch_rw_wrlock = _psynch_rw_wrlock,
 	.psynch_rw_yieldwrlock = _psynch_rw_yieldwrlock,
+
+	.workq_reqthreads = _workq_reqthreads,
+	.thread_qos_from_pthread_priority = _thread_qos_from_pthread_priority,
 };
 
 kern_return_t pthread_start(__unused kmod_info_t * ki, __unused void *d)

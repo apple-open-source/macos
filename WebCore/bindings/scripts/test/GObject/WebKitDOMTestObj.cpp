@@ -25,14 +25,15 @@
 #include "DOMObjectCache.h"
 #include "Document.h"
 #include "ExceptionCode.h"
+#include "ExceptionCodeDescription.h"
 #include "HTMLNames.h"
 #include "JSMainThreadExecState.h"
+#include "SerializedScriptValue.h"
 #include "WebKitDOMDictionaryPrivate.h"
 #include "WebKitDOMDocumentPrivate.h"
 #include "WebKitDOMNodePrivate.h"
 #include "WebKitDOMPrivate.h"
 #include "WebKitDOMSVGPointPrivate.h"
-#include "WebKitDOMSerializedScriptValuePrivate.h"
 #include "WebKitDOMTestEnumTypePrivate.h"
 #include "WebKitDOMTestNodePrivate.h"
 #include "WebKitDOMTestObjPrivate.h"
@@ -1139,14 +1140,13 @@ WebKitDOMTestObj* webkit_dom_test_obj_method_that_requires_all_args_and_throws(W
     return WebKit::kit(gobjectResult.get());
 }
 
-void webkit_dom_test_obj_serialized_value(WebKitDOMTestObj* self, WebKitDOMSerializedScriptValue* serializedArg)
+void webkit_dom_test_obj_serialized_value(WebKitDOMTestObj* self, const gchar* serializedArg)
 {
     WebCore::JSMainThreadNullState state;
     g_return_if_fail(WEBKIT_DOM_IS_TEST_OBJ(self));
-    g_return_if_fail(WEBKIT_DOM_IS_SERIALIZED_SCRIPT_VALUE(serializedArg));
+    g_return_if_fail(serializedArg);
     WebCore::TestObj* item = WebKit::core(self);
-    WebCore::SerializedScriptValue* convertedSerializedArg = WebKit::core(serializedArg);
-    item->serializedValue(convertedSerializedArg);
+    item->serializedValue(WebCore::SerializedScriptValue::create(WTF::String::fromUTF8(serializedArg)));
 }
 
 void webkit_dom_test_obj_options_object(WebKitDOMTestObj* self, WebKitDOMDictionary* oo, WebKitDOMDictionary* ooo)
@@ -1362,53 +1362,6 @@ void webkit_dom_test_obj_conditional_method3(WebKitDOMTestObj* self)
 #endif /* ENABLE(Condition1) || ENABLE(Condition2) */
 }
 
-void webkit_dom_test_obj_class_method(WebKitDOMTestObj* self)
-{
-    WebCore::JSMainThreadNullState state;
-    g_return_if_fail(WEBKIT_DOM_IS_TEST_OBJ(self));
-    WebCore::TestObj* item = WebKit::core(self);
-    item->classMethod();
-}
-
-glong webkit_dom_test_obj_class_method_with_optional(WebKitDOMTestObj* self, glong arg)
-{
-    WebCore::JSMainThreadNullState state;
-    g_return_val_if_fail(WEBKIT_DOM_IS_TEST_OBJ(self), 0);
-    WebCore::TestObj* item = WebKit::core(self);
-    glong result = item->classMethodWithOptional(arg);
-    return result;
-}
-
-void webkit_dom_test_obj_overloaded_method1(WebKitDOMTestObj* self, glong arg)
-{
-#if ENABLE(Condition1)
-    WebCore::JSMainThreadNullState state;
-    g_return_if_fail(WEBKIT_DOM_IS_TEST_OBJ(self));
-    WebCore::TestObj* item = WebKit::core(self);
-    item->overloadedMethod1(arg);
-#else
-    UNUSED_PARAM(self);
-    UNUSED_PARAM(arg);
-    WEBKIT_WARN_FEATURE_NOT_PRESENT("Condition1")
-#endif /* ENABLE(Condition1) */
-}
-
-void webkit_dom_test_obj_overloaded_method1(WebKitDOMTestObj* self, const gchar* type)
-{
-#if ENABLE(Condition1)
-    WebCore::JSMainThreadNullState state;
-    g_return_if_fail(WEBKIT_DOM_IS_TEST_OBJ(self));
-    g_return_if_fail(type);
-    WebCore::TestObj* item = WebKit::core(self);
-    WTF::String convertedType = WTF::String::fromUTF8(type);
-    item->overloadedMethod1(convertedType);
-#else
-    UNUSED_PARAM(self);
-    UNUSED_PARAM(type);
-    WEBKIT_WARN_FEATURE_NOT_PRESENT("Condition1")
-#endif /* ENABLE(Condition1) */
-}
-
 void webkit_dom_test_obj_convert1(WebKitDOMTestObj* self, WebKitDOMTestNode* value)
 {
     WebCore::JSMainThreadNullState state;
@@ -1485,6 +1438,25 @@ WebKitDOMbool* webkit_dom_test_obj_strict_function(WebKitDOMTestObj* self, const
     WTF::String convertedStr = WTF::String::fromUTF8(str);
     WebCore::ExceptionCode ec = 0;
     RefPtr<WebCore::bool> gobjectResult = WTF::getPtr(item->strictFunction(convertedStr, a, b, ec));
+    if (ec) {
+        WebCore::ExceptionCodeDescription ecdesc(ec);
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);
+    }
+    return WebKit::kit(gobjectResult.get());
+}
+
+WebKitDOMbool* webkit_dom_test_obj_strict_function_with_array(WebKitDOMTestObj* self, WebKitDOMTestObj* objArg, glong array, GError** error)
+{
+    WebCore::JSMainThreadNullState state;
+    g_return_val_if_fail(WEBKIT_DOM_IS_TEST_OBJ(self), 0);
+    g_return_val_if_fail(WEBKIT_DOM_IS_TEST_OBJ(objArg), 0);
+    g_return_val_if_fail(WEBKIT_DOM_IS_LONG[](array), 0);
+    g_return_val_if_fail(!error || !*error, 0);
+    WebCore::TestObj* item = WebKit::core(self);
+    WebCore::TestObj* convertedObjArg = WebKit::core(objArg);
+    WebCore::long[]* convertedArray = WebKit::core(array);
+    WebCore::ExceptionCode ec = 0;
+    RefPtr<WebCore::bool> gobjectResult = WTF::getPtr(item->strictFunctionWithArray(convertedObjArg, array, ec));
     if (ec) {
         WebCore::ExceptionCodeDescription ecdesc(ec);
         g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), ecdesc.code, ecdesc.name);

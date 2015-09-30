@@ -28,6 +28,7 @@
 
 #include "kern_internal.h"
 #include <kern/debug.h>
+#include <kern/assert.h>
 
 pthread_priority_t
 pthread_qos_class_get_priority(int qos)
@@ -70,6 +71,7 @@ pthread_priority_from_class_index(int index)
 		case 3: qos = QOS_CLASS_UTILITY; break;
 		case 4: qos = QOS_CLASS_BACKGROUND; break;
 		case 5: qos = QOS_CLASS_MAINTENANCE; break;
+		case 6: assert(index != 6); // EVENT_MANAGER should be handled specially
 		default:
 			/* Return the utility band if we don't understand the input. */
 			qos = QOS_CLASS_UTILITY;
@@ -82,9 +84,8 @@ pthread_priority_from_class_index(int index)
 }
 
 int
-pthread_priority_get_class_index(pthread_priority_t priority)
-{
-	switch (_pthread_priority_get_qos_newest(priority)) {
+qos_get_class_index(int qos){
+	switch (qos){
 		case QOS_CLASS_USER_INTERACTIVE: return 0;
 		case QOS_CLASS_USER_INITIATED: return 1;
 		case QOS_CLASS_DEFAULT: return 2;
@@ -95,4 +96,18 @@ pthread_priority_get_class_index(pthread_priority_t priority)
 			/* Return the utility band if we don't understand the input. */
 			return 2;
 	}
+}
+
+int
+pthread_priority_get_class_index(pthread_priority_t priority)
+{
+	return qos_get_class_index(_pthread_priority_get_qos_newest(priority));
+}
+
+integer_t
+_thread_qos_from_pthread_priority(unsigned long priority, unsigned long *flags){
+    if (flags){
+        *flags = (int)_pthread_priority_get_flags(priority) >> _PTHREAD_PRIORITY_FLAGS_SHIFT;
+    }
+    return pthread_priority_get_qos_class(priority);
 }

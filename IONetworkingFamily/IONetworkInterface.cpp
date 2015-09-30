@@ -81,49 +81,53 @@ OSMetaClassDefineReservedUnused( IONetworkInterface, 15);
 //------------------------------------------------------------------------------
 // Macros
 
-#define IFNET_TO_THIS(x)        ((IONetworkInterface *) ifnet_softc(ifp))
+#define IFNET_TO_THIS(x)            ((IONetworkInterface *) ifnet_softc(ifp))
 
-#define WAITING_FOR_DETACH(n)   ((n)->_clientVar[1])
+#define WAITING_FOR_DETACH(n)       ((n)->_clientVar[1])
 
-#define _unit                   _reserved->unit
-#define _type                   _reserved->type
-#define _mtu                    _reserved->mtu
-#define _flags                  _reserved->flags
-#define _eflags                 _reserved->eflags
-#define _addrlen                _reserved->addrlen
-#define _hdrlen                 _reserved->hdrlen
-#define _loggingLevel           _reserved->loggingLevel
-#define _outputQueueModel       _reserved->outputQueueModel
-#define _inputDeltas            _reserved->inputDeltas
-#define _driverStats            _reserved->driverStats
-#define _lastDriverStats        _reserved->lastDriverStats
-#define _publicLock             _reserved->publicLock
-#define _remote_NMI_pattern     _reserved->remote_NMI_pattern
-#define _remote_NMI_len         _reserved->remote_NMI_len
-#define _controller             _reserved->controller
-#define _configFlags            _reserved->configFlags
-#define _txRingSize             _reserved->txRingSize
-#define _txPullOptions          _reserved->txPullOptions
-#define _txQueueSize            _reserved->txQueueSize
-#define _txSchedulingModel      _reserved->txSchedulingModel
-#define _txThreadState          _reserved->txThreadState
-#define _txThreadFlags          _reserved->txThreadFlags
-#define _txThreadSignal         _reserved->txThreadSignal
-#define _txThreadSignalLast     _reserved->txThreadSignalLast
-#define _txStartThread          _reserved->txStartThread
-#define _txStartAction          _reserved->txStartAction
-#define _txWorkLoop             _reserved->txWorkLoop
-#define _rxRingSize             _reserved->rxRingSize
-#define _rxPollOptions          _reserved->rxPollOptions
-#define _rxPollModel            _reserved->rxPollModel
-#define _rxPollAction           _reserved->rxPollAction
-#define _rxCtlAction            _reserved->rxCtlAction
-#define _rxPollEmpty            _reserved->rxPollEmpty
-#define _rxPollTotal            _reserved->rxPollTotal
-#define _peqHandler             _reserved->peqHandler
-#define _peqTarget              _reserved->peqTarget
-#define _peqRefcon              _reserved->peqRefcon
-#define _subType                _reserved->subType
+#define _unit                       _reserved->unit
+#define _type                       _reserved->type
+#define _mtu                        _reserved->mtu
+#define _flags                      _reserved->flags
+#define _eflags                     _reserved->eflags
+#define _addrlen                    _reserved->addrlen
+#define _hdrlen                     _reserved->hdrlen
+#define _loggingLevel               _reserved->loggingLevel
+#define _outputQueueModel           _reserved->outputQueueModel
+#define _inputDeltas                _reserved->inputDeltas
+#define _driverStats                _reserved->driverStats
+#define _lastDriverStats            _reserved->lastDriverStats
+#define _publicLock                 _reserved->publicLock
+#define _remote_NMI_pattern         _reserved->remote_NMI_pattern
+#define _remote_NMI_len             _reserved->remote_NMI_len
+#define _controller                 _reserved->controller
+#define _configFlags                _reserved->configFlags
+#define _txRingSize                 _reserved->txRingSize
+#define _txPullOptions              _reserved->txPullOptions
+#define _txQueueSize                _reserved->txQueueSize
+#define _txSchedulingModel          _reserved->txSchedulingModel
+#define _txTargetQdelay             _reserved->txTargetQdelay
+#define _txThreadState              _reserved->txThreadState
+#define _txThreadFlags              _reserved->txThreadFlags
+#define _txThreadSignal             _reserved->txThreadSignal
+#define _txThreadSignalLast         _reserved->txThreadSignalLast
+#define _txStartThread              _reserved->txStartThread
+#define _txStartAction              _reserved->txStartAction
+#define _txWorkLoop                 _reserved->txWorkLoop
+#define _rxRingSize                 _reserved->rxRingSize
+#define _rxPollOptions              _reserved->rxPollOptions
+#define _rxPollModel                _reserved->rxPollModel
+#define _rxPollAction               _reserved->rxPollAction
+#define _rxCtlAction                _reserved->rxCtlAction
+#define _rxPollEmpty                _reserved->rxPollEmpty
+#define _rxPollTotal                _reserved->rxPollTotal
+#define _peqHandler                 _reserved->peqHandler
+#define _peqTarget                  _reserved->peqTarget
+#define _peqRefcon                  _reserved->peqRefcon
+#define _subType                    _reserved->subType
+#define _txStartDelayQueueLength    _reserved->txStartDelayQueueLength
+#define _txStartDelayTimeout        _reserved->txStartDelayTimeout
+
 
 #define kRemoteNMI                  "remote_nmi"
 #define REMOTE_NMI_PATTERN_LEN      32
@@ -508,6 +512,24 @@ bool IONetworkInterface::initIfnetParams( struct ifnet_init_params *params )
     return true;
 }
 
+IOReturn IONetworkInterface::configureOutputStartDelay(
+                                    uint16_t outputStartDelayQueueLength,
+                                    uint16_t outputStartDelayTimeout )
+{
+    IOReturn ret = kIOReturnError;
+    
+    IOLockLock(_privateLock);
+    if ((_configFlags & kConfigFrozen) == 0)
+    {
+        _txStartDelayQueueLength = outputStartDelayQueueLength;
+        _txStartDelayTimeout = outputStartDelayTimeout;
+        ret = kIOReturnSuccess;
+    }
+    IOLockUnlock(_privateLock);
+    
+    return ret;
+}
+
 //------------------------------------------------------------------------------
 // Take/release the interface lock.
 
@@ -882,7 +904,7 @@ UInt32 IONetworkInterface::inputPacket( mbuf_t          packet,
     }
     else
     {
-        length = mbuf_pkthdr_len(packet);
+        length = (UInt32)mbuf_pkthdr_len(packet);
     }
 
     // check for special debugger packet 
@@ -1434,7 +1456,7 @@ int IONetworkInterface::if_output( ifnet_t ifp, mbuf_t m )
 	self->_lastDriverStats.outputPackets = noraceTemp;
 	
 	// update the stats in the interface
-	ifnet_stat_increment_out(self->getIfnet(), outPackets, mbuf_pkthdr_len(m), outErrors);
+	ifnet_stat_increment_out(self->getIfnet(), outPackets, (u_int32_t)mbuf_pkthdr_len(m), outErrors);
 	
     // Feed the output filter tap.
 	if(self->_outputFilterFunc)
@@ -1901,7 +1923,7 @@ IONetworkInterface::powerStateWillChangeTo( IOPMPowerFlags  powerFlags,
 
     notice.policyMaker = policyMaker;
     notice.powerFlags  = powerFlags;
-    notice.stateNumber = stateNumber;
+    notice.stateNumber = (uint32_t)stateNumber;
     notice.phase       = kPhasePowerStateWillChange;
 
     powerChangeHandler( (void *) this, (void *) &notice,
@@ -1918,7 +1940,7 @@ IONetworkInterface::powerStateDidChangeTo( IOPMPowerFlags  powerFlags,
 
     notice.policyMaker = policyMaker;
     notice.powerFlags  = powerFlags;
-    notice.stateNumber = stateNumber;
+    notice.stateNumber = (uint32_t)stateNumber;
     notice.phase       = kPhasePowerStateDidChange;
 
     powerChangeHandler( (void *) this, (void *) &notice,
@@ -2030,30 +2052,33 @@ IOReturn IONetworkInterface::attachToDataLinkLayer( IOOptionBits options,
     // the new ifnet_init_eparams. All this to avoid burning another
     // vtable pad slot, and subclasses don't need to change.
 
-    eparams.ver             = IFNET_INIT_CURRENT_VERSION;
-    eparams.len             = sizeof(eparams);
+    eparams.ver                 = IFNET_INIT_CURRENT_VERSION;
+    eparams.len                 = sizeof(eparams);
 
-    eparams.uniqueid        = params.uniqueid;
-    eparams.uniqueid_len    = params.uniqueid_len;
-    eparams.name            = params.name;
-    eparams.unit            = params.unit;
-    eparams.family          = params.family;
-    eparams.type            = params.type;
-    eparams.subfamily       = _subType;
+    eparams.uniqueid            = params.uniqueid;
+    eparams.uniqueid_len        = params.uniqueid_len;
+    eparams.name                = params.name;
+    eparams.unit                = params.unit;
+    eparams.family              = params.family;
+    eparams.type                = params.type;
+    eparams.subfamily           = _subType;
 
-    eparams.demux           = params.demux;
-    eparams.add_proto       = params.add_proto;
-    eparams.del_proto       = params.del_proto;
-    eparams.check_multi     = params.check_multi;
-    eparams.framer          = params.framer;
-    eparams.softc           = params.softc;
-    eparams.ioctl           = params.ioctl;
-    eparams.set_bpf_tap     = params.set_bpf_tap;
-    eparams.detach          = params.detach;
-    eparams.event           = params.event;
-    eparams.broadcast_addr  = params.broadcast_addr;
-    eparams.broadcast_len   = params.broadcast_len;
+    eparams.demux               = params.demux;
+    eparams.add_proto           = params.add_proto;
+    eparams.del_proto           = params.del_proto;
+    eparams.check_multi         = params.check_multi;
+    eparams.framer              = params.framer;
+    eparams.softc               = params.softc;
+    eparams.ioctl               = params.ioctl;
+    eparams.set_bpf_tap         = params.set_bpf_tap;
+    eparams.detach              = params.detach;
+    eparams.event               = params.event;
+    eparams.broadcast_addr      = params.broadcast_addr;
+    eparams.broadcast_len       = params.broadcast_len;
 
+    eparams.start_delay_qlen    = _txStartDelayQueueLength;
+    eparams.start_delay_timeout = _txStartDelayTimeout;
+    
     if (!(_configFlags & kConfigRxPoll) &&
         !(_configFlags & kConfigTxPull))
     {
@@ -2087,6 +2112,8 @@ IOReturn IONetworkInterface::attachToDataLinkLayer( IOOptionBits options,
 
         eparams.output_sched_model = _txSchedulingModel;
 
+        eparams.output_target_qdelay = _txTargetQdelay;
+        
         if (_txPullOptions & kIONetworkWorkLoopSynchronous)
         {
             eparams.start   = if_start_gated;
@@ -2289,7 +2316,8 @@ IOReturn IONetworkInterface::configureOutputPullModel(
     uint32_t       driverQueueSize,
     IOOptionBits   options,
     uint32_t       outputQueueSize,
-    uint32_t       outputSchedulingModel )
+    uint32_t       outputSchedulingModel,
+    uint32_t       outputTargetQdelay )
 {
     IOReturn ret = kIOReturnError;
 
@@ -2300,6 +2328,7 @@ IOReturn IONetworkInterface::configureOutputPullModel(
         _txPullOptions      = options;
         _txQueueSize        = outputQueueSize;
         _txSchedulingModel  = outputSchedulingModel;
+        _txTargetQdelay     = outputTargetQdelay;
         _configFlags       |= kConfigTxPull;
         ret = kIOReturnSuccess;
     }
@@ -2511,7 +2540,7 @@ IOReturn IONetworkInterface::dequeueOutputPackets(
                 *packetTail = *packetHead;
             if (packetCount)
                 *packetCount = 1;
-            txByteCount  = mbuf_pkthdr_len(*packetHead);
+            txByteCount  = (uint32_t)mbuf_pkthdr_len(*packetHead);
         }
     }
     else
@@ -2622,7 +2651,7 @@ IOReturn IONetworkInterface::dequeueOutputPacketsWithServiceClass(
                 *packetTail = *packetHead;
             if (packetCount)
                 *packetCount = 1;
-            txByteCount  = mbuf_pkthdr_len(*packetHead);
+            txByteCount  = (uint32_t)mbuf_pkthdr_len(*packetHead);
         }
     }
     else
@@ -3046,7 +3075,7 @@ IOReturn IONetworkInterface::enqueueInputPacket(
 
 	mbuf_pkthdr_setrcvif(packet, _backingIfnet);
 
-    length = mbuf_pkthdr_len(packet);
+    length = (uint32_t)mbuf_pkthdr_len(packet);
     assert(length != 0);
 
     // check for special debugger packet 

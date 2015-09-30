@@ -67,7 +67,7 @@
 #endif
 #define kBCArchsKey                 CFSTR("Archs")           //   ... i386
 #define kBCExtensionsDirKey         CFSTR("ExtensionsDir")   //   /S/L/E, /L/E
-#define kBCPathKey                  CFSTR("Path")            //   ...kernelcache
+#define kBCPathKey                  CFSTR("Path")            //   ...prelinkedkernel
 // AdditionalPaths are optional w/PreBootPaths, required w/PostBootPaths
 #define kBCAdditionalPathsKey       CFSTR("AdditionalPaths") // array
 #define kBCBootConfigKey            CFSTR("BootConfig")      // bc.plist
@@ -79,7 +79,6 @@
 #define kBCCSFDELanguagesPrefKey    CFSTR("LanguagesPref")   //   .GlobalPrefs
 #define kBCCSFDEBackgroundImageKey  CFSTR("BackgroundImage") //   desktop..png
 #define kBCCSFDELocRsrcsCacheKey    CFSTR("LocalizedResourcesCache") // EFILocs
-
 
 typedef enum {
     kMkextCRCError = -1,
@@ -221,7 +220,6 @@ int rebuild_loccache(struct bootCaches *caches);
 // diskarb helpers
 void _daDone(DADiskRef disk, DADissenterRef dissenter, void *ctx);
 int updateMount(mountpoint_t mount, uint32_t mntgoal);
-
 
 pid_t launch_rebuild_all(char * rootPath, Boolean force, Boolean wait);
 

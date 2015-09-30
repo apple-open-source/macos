@@ -46,15 +46,15 @@ static PageOverlay::PageOverlayID generatePageOverlayID()
     return ++pageOverlayID;
 }
 
-PassRefPtr<PageOverlay> PageOverlay::create(Client& client, OverlayType overlayType)
+Ref<PageOverlay> PageOverlay::create(Client& client, OverlayType overlayType)
 {
-    return adoptRef(new PageOverlay(client, overlayType));
+    return adoptRef(*new PageOverlay(client, overlayType));
 }
 
 PageOverlay::PageOverlay(Client& client, OverlayType overlayType)
     : m_client(client)
     , m_page(nullptr)
-    , m_fadeAnimationTimer(this, &PageOverlay::fadeAnimationTimerFired)
+    , m_fadeAnimationTimer(*this, &PageOverlay::fadeAnimationTimerFired)
     , m_fadeAnimationStartTime(0)
     , m_fadeAnimationDuration(fadeAnimationDuration)
     , m_fadeAnimationType(NoAnimation)
@@ -101,7 +101,7 @@ IntRect PageOverlay::bounds() const
     }
     case OverlayType::Document:
         return IntRect(IntPoint(), frameView->contentsSize());
-    };
+    }
 
     ASSERT_NOT_REACHED();
     return IntRect(IntPoint(), frameView->contentsSize());
@@ -124,6 +124,20 @@ void PageOverlay::setFrame(IntRect frame)
 
     if (auto pageOverlayController = controller())
         pageOverlayController->didChangeOverlayFrame(*this);
+}
+
+IntSize PageOverlay::viewToOverlayOffset() const
+{
+    switch (m_overlayType) {
+    case OverlayType::View:
+        return IntSize();
+
+    case OverlayType::Document: {
+        FrameView* frameView = m_page->mainFrame().view();
+        return frameView ? toIntSize(frameView->viewToContents(IntPoint())) : IntSize();
+    }
+    }
+    return IntSize();
 }
 
 void PageOverlay::setBackgroundColor(RGBA32 backgroundColor)
@@ -232,7 +246,7 @@ void PageOverlay::startFadeAnimation()
     m_fadeAnimationTimer.startRepeating(1 / fadeAnimationFrameRate);
 }
 
-void PageOverlay::fadeAnimationTimerFired(Timer&)
+void PageOverlay::fadeAnimationTimerFired()
 {
     float animationProgress = (currentTime() - m_fadeAnimationStartTime) / m_fadeAnimationDuration;
 
@@ -251,7 +265,7 @@ void PageOverlay::fadeAnimationTimerFired(Timer&)
         bool wasFadingOut = m_fadeAnimationType == FadeOutAnimation;
         m_fadeAnimationType = NoAnimation;
 
-        // If this was a fade out, go ahead and uninstall the page overlay.
+        // If this was a fade out, uninstall the page overlay.
         if (wasFadingOut)
             controller()->uninstallPageOverlay(this, PageOverlay::FadeMode::DoNotFade);
     }

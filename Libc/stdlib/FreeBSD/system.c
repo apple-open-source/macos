@@ -49,6 +49,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/system.c,v 1.11 2007/01/09 00:28:10 imp 
 #include <crt_externs.h>
 #define environ (*_NSGetEnviron())
 
+#include <TargetConditionals.h>
+
 #if __DARWIN_UNIX03
 #include <pthread.h>
 
@@ -60,6 +62,10 @@ int
 __system(command)
 	const char *command;
 {
+#if TARGET_OS_IPHONE && (TARGET_OS_SIMULATOR || !TARGET_OS_IOS)
+	// Don't abort() on iOS for now
+	LIBC_ABORT("system() is not supported on this platform.");
+#else
 	pid_t pid, savedpid;
 	int pstat, err;
 	struct sigaction ign, intact, quitact;
@@ -139,6 +145,7 @@ __system(command)
 	pthread_mutex_unlock(&__systemfn_mutex);
 #endif /* __DARWIN_UNIX03 */
 	return(pstat);
+#endif /* TARGET_OS_IPHONE && (TARGET_OS_SIMULATOR || !TARGET_OS_IOS) */
 }
 
 __weak_reference(__system, system);

@@ -37,7 +37,7 @@ using namespace JSC;
 
 namespace WebCore {
 
-const ClassInfo JSDOMGlobalObject::s_info = { "DOMGlobalObject", &JSGlobalObject::s_info, 0, 0, CREATE_METHOD_TABLE(JSDOMGlobalObject) };
+const ClassInfo JSDOMGlobalObject::s_info = { "DOMGlobalObject", &JSGlobalObject::s_info, 0, CREATE_METHOD_TABLE(JSDOMGlobalObject) };
 
 JSDOMGlobalObject::JSDOMGlobalObject(VM& vm, Structure* structure, PassRefPtr<DOMWrapperWorld> world, const GlobalObjectMethodTable* globalObjectMethodTable)
     : JSGlobalObject(vm, structure, globalObjectMethodTable)
@@ -57,20 +57,12 @@ void JSDOMGlobalObject::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     ASSERT(inherits(info()));
-
-#if ENABLE(REMOTE_INSPECTOR)
-    setRemoteDebuggingEnabled(false);
-#endif
 }
 
 void JSDOMGlobalObject::finishCreation(VM& vm, JSObject* thisValue)
 {
     Base::finishCreation(vm, thisValue);
     ASSERT(inherits(info()));
-
-#if ENABLE(REMOTE_INSPECTOR)
-    setRemoteDebuggingEnabled(false);
-#endif
 }
 
 ScriptExecutionContext* JSDOMGlobalObject::scriptExecutionContext() const
@@ -87,8 +79,6 @@ void JSDOMGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     JSDOMGlobalObject* thisObject = jsCast<JSDOMGlobalObject*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
-    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
-    ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
     Base::visitChildren(thisObject, visitor);
 
     for (auto& structure : thisObject->structures().values())
@@ -115,14 +105,14 @@ JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, JSC::ExecState* exec)
 
 JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext* scriptExecutionContext, JSC::ExecState* exec)
 {
-    if (scriptExecutionContext->isDocument())
-        return toJSDOMGlobalObject(toDocument(scriptExecutionContext), exec);
+    if (is<Document>(*scriptExecutionContext))
+        return toJSDOMGlobalObject(downcast<Document>(scriptExecutionContext), exec);
 
-    if (scriptExecutionContext->isWorkerGlobalScope())
-        return toWorkerGlobalScope(scriptExecutionContext)->script()->workerGlobalScopeWrapper();
+    if (is<WorkerGlobalScope>(*scriptExecutionContext))
+        return downcast<WorkerGlobalScope>(*scriptExecutionContext).script()->workerGlobalScopeWrapper();
 
     ASSERT_NOT_REACHED();
-    return 0;
+    return nullptr;
 }
 
 JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, DOMWrapperWorld& world)
@@ -132,14 +122,14 @@ JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, DOMWrapperWorld& worl
 
 JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext* scriptExecutionContext, DOMWrapperWorld& world)
 {
-    if (scriptExecutionContext->isDocument())
-        return toJSDOMGlobalObject(toDocument(scriptExecutionContext), world);
+    if (is<Document>(*scriptExecutionContext))
+        return toJSDOMGlobalObject(downcast<Document>(scriptExecutionContext), world);
 
-    if (scriptExecutionContext->isWorkerGlobalScope())
-        return toWorkerGlobalScope(scriptExecutionContext)->script()->workerGlobalScopeWrapper();
+    if (is<WorkerGlobalScope>(*scriptExecutionContext))
+        return downcast<WorkerGlobalScope>(*scriptExecutionContext).script()->workerGlobalScopeWrapper();
 
     ASSERT_NOT_REACHED();
-    return 0;
+    return nullptr;
 }
 
 } // namespace WebCore

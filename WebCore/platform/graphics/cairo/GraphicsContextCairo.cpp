@@ -41,26 +41,23 @@
 #include "FloatConversion.h"
 #include "FloatRect.h"
 #include "FloatRoundedRect.h"
+#include "Font.h"
 #include "GraphicsContextPlatformPrivateCairo.h"
 #include "IntRect.h"
 #include "NotImplemented.h"
-#include "OwnPtrCairo.h"
 #include "Path.h"
 #include "Pattern.h"
 #include "PlatformContextCairo.h"
 #include "PlatformPathCairo.h"
 #include "RefPtrCairo.h"
 #include "ShadowBlur.h"
-#include "SimpleFontData.h"
 #include "TransformationMatrix.h"
 #include <cairo.h>
 #include <math.h>
 #include <stdio.h>
 #include <wtf/MathExtras.h>
 
-#if PLATFORM(GTK)
-#include <gdk/gdk.h>
-#elif PLATFORM(WIN)
+#if PLATFORM(WIN)
 #include <cairo-win32.h>
 #endif
 
@@ -100,7 +97,9 @@ static inline void drawPathShadow(GraphicsContext* context, PathDrawingStyle dra
 
     // Calculate the extents of the rendered solid paths.
     cairo_t* cairoContext = context->platformContext()->cr();
-    OwnPtr<cairo_path_t> path = adoptPtr(cairo_copy_path(cairoContext));
+    std::unique_ptr<cairo_path_t, void(*)(cairo_path_t*)> path(cairo_copy_path(cairoContext), [](cairo_path_t* path) {
+        cairo_path_destroy(path);
+    });
 
     FloatRect solidFigureExtents;
     double x0 = 0;
@@ -181,7 +180,7 @@ GraphicsContext::GraphicsContext(cairo_t* cr)
     m_data = new GraphicsContextPlatformPrivateToplevel(new PlatformContextCairo(cr));
 }
 
-void GraphicsContext::platformInit(PlatformContextCairo* platformContext, bool)
+void GraphicsContext::platformInit(PlatformContextCairo* platformContext)
 {
     m_data = new GraphicsContextPlatformPrivate(platformContext);
     if (platformContext)
@@ -344,7 +343,7 @@ void GraphicsContext::drawLine(const FloatPoint& point1, const FloatPoint& point
 }
 
 // This method is only used to draw the little circles used in lists.
-void GraphicsContext::drawEllipse(const IntRect& rect)
+void GraphicsContext::drawEllipse(const FloatRect& rect)
 {
     if (paintingDisabled())
         return;
@@ -557,36 +556,16 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
     if (paintingDisabled())
         return;
 
-    unsigned rectCount = rects.size();
-
     cairo_t* cr = platformContext()->cr();
     cairo_save(cr);
     cairo_push_group(cr);
     cairo_new_path(cr);
 
 #if PLATFORM(GTK)
-#ifdef GTK_API_VERSION_2
-    GdkRegion* reg = gdk_region_new();
+    for (const auto& rect : rects)
+        cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
 #else
-    cairo_region_t* reg = cairo_region_create();
-#endif
-
-    for (unsigned i = 0; i < rectCount; i++) {
-#ifdef GTK_API_VERSION_2
-        GdkRectangle rect = rects[i];
-        gdk_region_union_with_rect(reg, &rect);
-#else
-        cairo_rectangle_int_t rect = rects[i];
-        cairo_region_union_rectangle(reg, &rect);
-#endif
-    }
-    gdk_cairo_region(cr, reg);
-#ifdef GTK_API_VERSION_2
-    gdk_region_destroy(reg);
-#else
-    cairo_region_destroy(reg);
-#endif
-#else
+    unsigned rectCount = rects.size();
     int radius = (width - 1) / 2;
     Path path;
     for (unsigned i = 0; i < rectCount; ++i) {
@@ -764,8 +743,8 @@ void GraphicsContext::setPlatformStrokeThickness(float strokeThickness)
 
 void GraphicsContext::setPlatformStrokeStyle(StrokeStyle strokeStyle)
 {
-    static double dashPattern[] = {5.0, 5.0};
-    static double dotPattern[] = {1.0, 1.0};
+    static const double dashPattern[] = { 5.0, 5.0 };
+    static const double dotPattern[] = { 1.0, 1.0 };
 
     if (paintingDisabled())
         return;
@@ -950,7 +929,7 @@ void GraphicsContext::setMiterLimit(float miter)
     cairo_set_miter_limit(platformContext()->cr(), miter);
 }
 
-void GraphicsContext::setAlpha(float alpha)
+void GraphicsContext::setPlatformAlpha(float alpha)
 {
     platformContext()->setGlobalAlpha(alpha);
 }
@@ -975,10 +954,10 @@ void GraphicsContext::clip(const Path& path, WindRule windRule)
         return;
 
     cairo_t* cr = platformContext()->cr();
-    OwnPtr<cairo_path_t> pathCopy;
     if (!path.isNull()) {
-        pathCopy = adoptPtr(cairo_copy_path(path.platformPath()->context()));
-        cairo_append_path(cr, pathCopy.get());
+        cairo_path_t* pathCopy = cairo_copy_path(path.platformPath()->context());
+        cairo_append_path(cr, pathCopy);
+        cairo_path_destroy(pathCopy);
     }
     cairo_fill_rule_t savedFillRule = cairo_get_fill_rule(cr);
     if (windRule == RULE_NONZERO)
@@ -1086,26 +1065,6 @@ void GraphicsContext::fillRectWithRoundedHole(const FloatRect& rect, const Float
     cairo_restore(cr);
 }
 
-#if PLATFORM(GTK)
-void GraphicsContext::setGdkExposeEvent(GdkEventExpose* expose)
-{
-    m_data->expose = expose;
-}
-
-GdkEventExpose* GraphicsContext::gdkExposeEvent() const
-{
-    return m_data->expose;
-}
-
-GdkWindow* GraphicsContext::gdkWindow() const
-{
-    if (!m_data->expose)
-        return 0;
-
-    return m_data->expose->window;
-}
-#endif
-
 void GraphicsContext::setPlatformShouldAntialias(bool enable)
 {
     if (paintingDisabled())
@@ -1132,7 +1091,7 @@ bool GraphicsContext::isAcceleratedContext() const
     return cairo_surface_get_type(cairo_get_target(platformContext()->cr())) == CAIRO_SURFACE_TYPE_GL;
 }
 
-#if ENABLE(3D_RENDERING) && USE(TEXTURE_MAPPER)
+#if ENABLE(3D_TRANSFORMS) && USE(TEXTURE_MAPPER)
 TransformationMatrix GraphicsContext::get3DTransform() const
 {
     // FIXME: Can we approximate the transformation better than this?
@@ -1148,7 +1107,7 @@ void GraphicsContext::set3DTransform(const TransformationMatrix& transform)
 {
     setCTM(transform.toAffineTransform());
 }
-#endif
+#endif // ENABLE(3D_TRANSFORMS) && USE(TEXTURE_MAPPER)
 
 } // namespace WebCore
 

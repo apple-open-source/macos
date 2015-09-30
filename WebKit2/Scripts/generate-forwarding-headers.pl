@@ -32,24 +32,32 @@ use File::Find;
 use File::Basename;
 use File::Path qw(mkpath);
 use File::Spec::Functions;
+use Getopt::Long;
 
 my $srcRoot = realpath(File::Spec->catfile(dirname(abs_path($0)), "../.."));
-my $incFromRoot = abs_path($ARGV[0]);
-my @platformPrefixes = ("cf", "Cocoa", "CoordinatedGraphics", "curl", "efl", "gtk", "mac", "soup", "win");
+my @platformPrefixes = ("ca", "cf", "cocoa", "Cocoa", "CoordinatedGraphics", "curl", "efl", "gtk", "ios", "mac", "soup", "win");
 my @frameworks = ("JavaScriptCore", "WebCore", "WebKit");
 my @skippedPrefixes;
 my @frameworkHeaders;
 my $framework;
 my $frameworkDirectoryName;
 my %neededHeaders;
+my $verbose = 0; # enable it for debugging purpose
 
-shift;
-my $outputDirectory = $ARGV[0];
-shift;
-my $platform  = $ARGV[0];
+my $incFromRoot;
+my $outputDirectory;
+my @platform;
+
+my %options = (
+    'include-path=s' => \$incFromRoot,
+    'output=s' => \$outputDirectory,
+    'platform=s' => \@platform
+);
+
+GetOptions(%options);
 
 foreach my $prefix (@platformPrefixes) {
-    push(@skippedPrefixes, $prefix) unless ($prefix =~ $platform);
+    push(@skippedPrefixes, $prefix) if grep($_ =~ "$prefix", @platform) == 0;
 }
 
 foreach (@frameworks) {
@@ -58,7 +66,7 @@ foreach (@frameworks) {
     @frameworkHeaders = ();
     %neededHeaders = ();
 
-    find(\&collectNeededHeaders, $incFromRoot);
+    find(\&collectNeededHeaders, abs_path($incFromRoot) );
     find(\&collectFrameworkHeaderPaths, File::Spec->catfile($srcRoot, $frameworkDirectoryName));
     createForwardingHeadersForFramework();
 }
@@ -66,7 +74,7 @@ foreach (@frameworks) {
 sub collectNeededHeaders {
     my $filePath = $File::Find::name;
     my $file = $_;
-    if ($filePath =~ '\.h$|\.cpp$|\.c$|\.mm$') {
+    if ($filePath =~ '\.h$|\.cpp$|\.c$') {
         open(FILE, "<$file") or die "Could not open $filePath.\n";
         while (<FILE>) {
            if (m/^#.*<$framework\/(.*\.h)/) {
@@ -92,23 +100,28 @@ sub createForwardingHeadersForFramework {
     foreach my $header (@frameworkHeaders) {
         my $headerName = basename($header);
 
-        # If we found more headers with the same name, only generate a forwarding header for the current platform
-        if(grep($_ =~ "/$headerName\$", @frameworkHeaders) == 1 || $header =~ "/$platform/" ) {
-            my $forwardingHeaderPath = File::Spec->catfile($targetDirectory, $headerName);
-            my $expectedIncludeStatement = "#include \"$frameworkDirectoryName/$header\"";
-            my $foundIncludeStatement = 0;
-
-            $foundIncludeStatement = <EXISTING_HEADER> if open(EXISTING_HEADER, "<$forwardingHeaderPath");
-            chomp($foundIncludeStatement);
-
-            if (! $foundIncludeStatement || $foundIncludeStatement ne $expectedIncludeStatement) {
-                print "[Creating forwarding header for $framework/$header]\n";
-                open(FORWARDING_HEADER, ">$forwardingHeaderPath") or die "Could not open $forwardingHeaderPath.";
-                print FORWARDING_HEADER "$expectedIncludeStatement\n";
-                close(FORWARDING_HEADER);
-            }
-
-            close(EXISTING_HEADER);
+        # If we found more headers with the same name, exit immediately.
+        my @headers = grep($_ =~ "/$headerName\$", @frameworkHeaders);
+        if (@headers != 1) {
+            print("ERROR: Can't create $headerName forwarding header, because there are more headers with the same name:\n");
+            foreach (@headers) { print " - $_\n" };
+            die();
         }
+
+        my $forwardingHeaderPath = File::Spec->catfile($targetDirectory, $headerName);
+        my $expectedIncludeStatement = "#include \"$frameworkDirectoryName/$header\"";
+        my $foundIncludeStatement = 0;
+
+        $foundIncludeStatement = <EXISTING_HEADER> if open(EXISTING_HEADER, "<$forwardingHeaderPath");
+        chomp($foundIncludeStatement);
+
+        if (! $foundIncludeStatement || $foundIncludeStatement ne $expectedIncludeStatement) {
+            print "[Creating forwarding header for $framework/$header]\n" if $verbose;
+            open(FORWARDING_HEADER, ">$forwardingHeaderPath") or die "Could not open $forwardingHeaderPath.";
+            print FORWARDING_HEADER "$expectedIncludeStatement\n";
+            close(FORWARDING_HEADER);
+        }
+
+        close(EXISTING_HEADER);
     }
 }

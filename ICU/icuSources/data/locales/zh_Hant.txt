@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/zh_Hant.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/zh_Hant.xml
- */
 zh_Hant{
     %%Parent{"root"}
     AuxExemplarCharacters{
@@ -87,10 +84,6 @@ zh_Hant{
         " ． ﹒ ‥ ︰ … 。 · ＇ ‘ ’ \u0022 ＂ “ ” 〝 〞 ( （ ﹙ ︵ ) ） ﹚ ︶ \\[ ［ \\] ］ \\{ ｛ ﹛ ︷ "
         "\\} ｝ ﹜ ︸ 〈 ︿ 〉 ﹀ 《 ︽ 》 ︾ 「 ﹁ 」 ﹂ 『 ﹃ 』 ﹄ 【 ︻ 】 ︼ 〔 ﹝ ︹ 〕 ﹞ ︺ § @ ＠ ﹫ * ＊ ﹡ "
         "/ ／ \\\\ ＼ ﹨ \\& ＆ ﹠ # ＃ ﹟ % ％ ﹪ ‰ † ‡ ‧ ′ ″ ‵ 〃 ※]"
-    }
-    LocaleScript{
-        "Hani",
-        "Bopo",
     }
     MoreInformation{"？"}
     NumberElements{
@@ -200,12 +193,14 @@ zh_Hant{
                 percentSign{"%"}
                 plusSign{"+"}
                 superscriptingExponent{"×"}
+                timeSeparator{":"}
             }
         }
+        minimumGroupingDigits{"3"}
         native{"hanidec"}
         traditional{"hant"}
     }
-    Version{"2.0.98.52"}
+    Version{"2.1.12.94"}
     calendar{
         buddhist{
             eras{
@@ -216,8 +211,8 @@ zh_Hant{
         }
         chinese{
             DateTimePatterns{
-                "zzzzah時mm分ss秒",
-                "zah時mm分ss秒",
+                "zzzz ah:mm:ss",
+                "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
                 {
@@ -252,12 +247,12 @@ zh_Hant{
                 Md{"M/d"}
                 UM{"U年MMM"}
                 UMMM{"U年MMM"}
-                UMd{"U年MMMd"}
                 UMMMd{"U年MMMd"}
+                UMd{"U年MMMd"}
                 d{"d"}
-                y{"rU年"}
+                y{"U年"}
                 yMd{"r年MMMd"}
-                yyyy{"rU年"}
+                yyyy{"U年"}
                 yyyyM{"rU年MMM"}
                 yyyyMEd{"rU年MMMd，E"}
                 yyyyMMM{"rU年MMM"}
@@ -283,6 +278,36 @@ zh_Hant{
                             "酉",
                             "戌",
                             "亥",
+                        }
+                    }
+                }
+                solarTerms{
+                    format{
+                        abbreviated{
+                            "立春",
+                            "雨水",
+                            "驚蟄",
+                            "春分",
+                            "清明",
+                            "穀雨",
+                            "立夏",
+                            "小滿",
+                            "芒種",
+                            "夏至",
+                            "小暑",
+                            "大暑",
+                            "立秋",
+                            "處暑",
+                            "白露",
+                            "秋分",
+                            "寒露",
+                            "霜降",
+                            "立冬",
+                            "小雪",
+                            "大雪",
+                            "冬至",
+                            "小寒",
+                            "大寒",
                         }
                     }
                 }
@@ -373,11 +398,11 @@ zh_Hant{
             }
             intervalFormats{
                 Hmv{
-                    H{"HH:mm–HH:mm [v]"}
-                    m{"HH:mm–HH:mm [v]"}
+                    H{"v HH:mm–HH:mm"}
+                    m{"v HH:mm–HH:mm"}
                 }
                 Hv{
-                    H{"HH–HH [v]"}
+                    H{"v HH–HH"}
                 }
                 M{
                     M{"MMM至MMM"}
@@ -418,13 +443,13 @@ zh_Hant{
                     m{"ah:mm至h:mm"}
                 }
                 hmv{
-                    a{"ah:mm至ah:mm [v]"}
-                    h{"ah:mm至h:mm [v]"}
-                    m{"ah:mm至h:mm [v]"}
+                    a{"v ah:mm至ah:mm"}
+                    h{"v ah:mm至h:mm"}
+                    m{"v ah:mm至h:mm"}
                 }
                 hv{
-                    a{"ah時至ah時 [v]"}
-                    h{"ah時至h時 [v]"}
+                    a{"v ah時至ah時"}
+                    h{"v ah時至h時"}
                 }
                 y{
                     y{"rU至rU"}
@@ -478,6 +503,20 @@ zh_Hant{
                         "冬月",
                         "臘月",
                     }
+                    narrow{
+                        "正",
+                        "二",
+                        "三",
+                        "四",
+                        "五",
+                        "六",
+                        "七",
+                        "八",
+                        "九",
+                        "十",
+                        "冬",
+                        "臘",
+                    }
                     wide{
                         "正月",
                         "二月",
@@ -494,6 +533,20 @@ zh_Hant{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "正月",
+                        "二月",
+                        "三月",
+                        "四月",
+                        "五月",
+                        "六月",
+                        "七月",
+                        "八月",
+                        "九月",
+                        "十月",
+                        "冬月",
+                        "臘月",
+                    }
                     narrow{
                         "正",
                         "二",
@@ -507,6 +560,20 @@ zh_Hant{
                         "十",
                         "冬",
                         "臘",
+                    }
+                    wide{
+                        "正月",
+                        "二月",
+                        "三月",
+                        "四月",
+                        "五月",
+                        "六月",
+                        "七月",
+                        "八月",
+                        "九月",
+                        "十月",
+                        "冬月",
+                        "臘月",
                     }
                 }
             }
@@ -628,8 +695,8 @@ zh_Hant{
         }
         dangi{
             DateTimePatterns{
-                "zzzzah時mm分ss秒",
-                "zah時mm分ss秒",
+                "zzzz ah:mm:ss",
+                "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
                 "U年MMMd日EEEE",
@@ -937,8 +1004,8 @@ zh_Hant{
         }
         generic{
             DateTimePatterns{
-                "zzzzah時mm分ss秒",
-                "zah時mm分ss秒",
+                "zzzz ah:mm:ss",
+                "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
                 "Gy年M月d日 EEEE",
@@ -990,11 +1057,11 @@ zh_Hant{
                     H{"HH:mm–HH:mm"}
                 }
                 Hmv{
-                    H{"HH:mm–HH:mm [v]"}
-                    m{"HH:mm–HH:mm [v]"}
+                    H{"v HH:mm–HH:mm"}
+                    m{"v HH:mm–HH:mm"}
                 }
                 Hv{
-                    H{"HH–HH [v]"}
+                    H{"v HH–HH"}
                 }
                 M{
                     M{"M月至M月"}
@@ -1035,13 +1102,13 @@ zh_Hant{
                     m{"ah:mm至h:mm"}
                 }
                 hmv{
-                    a{"ah:mm至ah:mm [v]"}
-                    h{"ah:mm至h:mm [v]"}
-                    m{"ah:mm至h:mm [v]"}
+                    a{"v ah:mm至ah:mm"}
+                    h{"v ah:mm至h:mm"}
+                    m{"v ah:mm至h:mm"}
                 }
                 hv{
-                    a{"ah時至ah時 [v]"}
-                    h{"ah時至h時 [v]"}
+                    a{"v ah時至ah時"}
+                    h{"v ah時至h時"}
                 }
                 y{
                     y{"Gy至y"}
@@ -1090,8 +1157,8 @@ zh_Hant{
                 "下午",
             }
             DateTimePatterns{
-                "zzzzah時mm分ss秒",
-                "zah時mm分ss秒",
+                "zzzz ah:mm:ss",
+                "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
                 "y年M月d日 EEEE",
@@ -1110,6 +1177,7 @@ zh_Hant{
                 Timezone{"{0} {1}"}
             }
             availableFormats{
+                E{"ccc"}
                 EHm{"E HH:mm"}
                 EHms{"E HH:mm:ss"}
                 Ed{"d E"}
@@ -1122,6 +1190,8 @@ zh_Hant{
                 H{"H時"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
+                Hmsv{"v HH:mm:ss"}
+                Hmv{"v HH:mm"}
                 M{"M月"}
                 MEd{"M/d（E）"}
                 MMM{"LLL"}
@@ -1134,6 +1204,8 @@ zh_Hant{
                 h{"ah時"}
                 hm{"ah:mm"}
                 hms{"ah:mm:ss"}
+                hmsv{"v ah:mm:ss"}
+                hmv{"v ah:mm"}
                 ms{"mm:ss"}
                 y{"y年"}
                 yM{"y/M"}
@@ -1230,13 +1302,25 @@ zh_Hant{
                     "西元前",
                     "西元",
                 }
+                abbreviated%variant{
+                    "公元前",
+                    "公元",
+                }
                 narrow{
                     "西元前",
                     "西元",
                 }
+                narrow%variant{
+                    "公元前",
+                    "公元",
+                }
                 wide{
                     "西元前",
                     "西元",
+                }
+                wide%variant{
+                    "公元前",
+                    "公元",
                 }
             }
             intervalFormats{
@@ -1248,11 +1332,11 @@ zh_Hant{
                     m{"HH:mm–HH:mm"}
                 }
                 Hmv{
-                    H{"HH:mm–HH:mm [v]"}
-                    m{"HH:mm–HH:mm [v]"}
+                    H{"v HH:mm–HH:mm"}
+                    m{"v HH:mm–HH:mm"}
                 }
                 Hv{
-                    H{"HH–HH [v]"}
+                    H{"v HH–HH"}
                 }
                 M{
                     M{"M月至M月"}
@@ -1293,13 +1377,13 @@ zh_Hant{
                     m{"ah:mm至h:mm"}
                 }
                 hmv{
-                    a{"ah:mm至ah:mm [v]"}
-                    h{"ah:mm至h:mm [v]"}
-                    m{"ah:mm至h:mm [v]"}
+                    a{"v ah:mm至ah:mm"}
+                    h{"v ah:mm至h:mm"}
+                    m{"v ah:mm至h:mm"}
                 }
                 hv{
-                    a{"ah時至ah時 [v]"}
-                    h{"ah時至h時 [v]"}
+                    a{"v ah時至ah時"}
+                    h{"v ah時至h時"}
                 }
                 y{
                     y{"y至y"}
@@ -1494,6 +1578,22 @@ zh_Hant{
                         "13月",
                         "閏7月",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
+                        "7",
+                    }
                     wide{
                         "提斯利月",
                         "瑪西班月",
@@ -1527,6 +1627,22 @@ zh_Hant{
                         "12月",
                         "13月",
                         "閏7月",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
+                        "7",
                     }
                     wide{
                         "提斯利月",
@@ -1988,6 +2104,9 @@ zh_Hant{
                 abbreviated{
                     "波斯曆",
                 }
+                wide{
+                    "波斯曆",
+                }
             }
             monthNames{
                 format{
@@ -2095,11 +2214,6 @@ zh_Hant{
         quotationEnd{"」"}
         quotationStart{"「"}
     }
-    durationUnits{
-        hm{"h:mm"}
-        hms{"h:mm:ss"}
-        ms{"m:ss"}
-    }
     fields{
         day{
             dn{"日"}
@@ -2110,6 +2224,28 @@ zh_Hant{
                 "1"{"明天"}
                 "2"{"後天"}
             }
+            relativeTime{
+                future{
+                    other{"{0} 天後"}
+                }
+                past{
+                    other{"{0} 天前"}
+                }
+            }
+        }
+        day-narrow{
+            dn{"日"}
+            relativeTime{
+                future{
+                    other{"{0} 天後"}
+                }
+                past{
+                    other{"{0} 天前"}
+                }
+            }
+        }
+        day-short{
+            dn{"日"}
             relativeTime{
                 future{
                     other{"{0} 天後"}
@@ -2132,7 +2268,43 @@ zh_Hant{
                 "1"{"下週五"}
             }
         }
+        fri-narrow{
+            relative{
+                "-1"{"上週五"}
+                "0"{"本週五"}
+                "1"{"下週五"}
+            }
+        }
+        fri-short{
+            relative{
+                "-1"{"上週五"}
+                "0"{"本週五"}
+                "1"{"下週五"}
+            }
+        }
         hour{
+            dn{"小時"}
+            relativeTime{
+                future{
+                    other{"{0} 小時後"}
+                }
+                past{
+                    other{"{0} 小時前"}
+                }
+            }
+        }
+        hour-narrow{
+            dn{"小時"}
+            relativeTime{
+                future{
+                    other{"{0} 小時後"}
+                }
+                past{
+                    other{"{0} 小時前"}
+                }
+            }
+        }
+        hour-short{
             dn{"小時"}
             relativeTime{
                 future{
@@ -2154,7 +2326,43 @@ zh_Hant{
                 }
             }
         }
+        minute-narrow{
+            dn{"分鐘"}
+            relativeTime{
+                future{
+                    other{"{0} 分鐘後"}
+                }
+                past{
+                    other{"{0} 分鐘前"}
+                }
+            }
+        }
+        minute-short{
+            dn{"分鐘"}
+            relativeTime{
+                future{
+                    other{"{0} 分鐘後"}
+                }
+                past{
+                    other{"{0} 分鐘前"}
+                }
+            }
+        }
         mon{
+            relative{
+                "-1"{"上週一"}
+                "0"{"本週一"}
+                "1"{"下週一"}
+            }
+        }
+        mon-narrow{
+            relative{
+                "-1"{"上週一"}
+                "0"{"本週一"}
+                "1"{"下週一"}
+            }
+        }
+        mon-short{
             relative{
                 "-1"{"上週一"}
                 "0"{"本週一"}
@@ -2177,7 +2385,76 @@ zh_Hant{
                 }
             }
         }
+        month-narrow{
+            dn{"月"}
+            relativeTime{
+                future{
+                    other{"{0} 個月後"}
+                }
+                past{
+                    other{"{0} 個月前"}
+                }
+            }
+        }
+        month-short{
+            dn{"月"}
+            relativeTime{
+                future{
+                    other{"{0} 個月後"}
+                }
+                past{
+                    other{"{0} 個月前"}
+                }
+            }
+        }
+        quarter{
+            dn{"季"}
+            relativeTime{
+                future{
+                    other{"{0} 季後"}
+                }
+                past{
+                    other{"{0} 季前"}
+                }
+            }
+        }
+        quarter-narrow{
+            dn{"季"}
+            relativeTime{
+                future{
+                    other{"{0} 季後"}
+                }
+                past{
+                    other{"{0} 季前"}
+                }
+            }
+        }
+        quarter-short{
+            dn{"季"}
+            relativeTime{
+                future{
+                    other{"{0} 季後"}
+                }
+                past{
+                    other{"{0} 季前"}
+                }
+            }
+        }
         sat{
+            relative{
+                "-1"{"上週六"}
+                "0"{"本週六"}
+                "1"{"下週六"}
+            }
+        }
+        sat-narrow{
+            relative{
+                "-1"{"上週六"}
+                "0"{"本週六"}
+                "1"{"下週六"}
+            }
+        }
+        sat-short{
             relative{
                 "-1"{"上週六"}
                 "0"{"本週六"}
@@ -2198,7 +2475,43 @@ zh_Hant{
                 }
             }
         }
+        second-narrow{
+            dn{"秒"}
+            relativeTime{
+                future{
+                    other{"{0} 秒後"}
+                }
+                past{
+                    other{"{0} 秒前"}
+                }
+            }
+        }
+        second-short{
+            dn{"秒"}
+            relativeTime{
+                future{
+                    other{"{0} 秒後"}
+                }
+                past{
+                    other{"{0} 秒前"}
+                }
+            }
+        }
         sun{
+            relative{
+                "-1"{"上週日"}
+                "0"{"本週日"}
+                "1"{"下週日"}
+            }
+        }
+        sun-narrow{
+            relative{
+                "-1"{"上週日"}
+                "0"{"本週日"}
+                "1"{"下週日"}
+            }
+        }
+        sun-short{
             relative{
                 "-1"{"上週日"}
                 "0"{"本週日"}
@@ -2212,7 +2525,35 @@ zh_Hant{
                 "1"{"下週四"}
             }
         }
+        thu-narrow{
+            relative{
+                "-1"{"上週四"}
+                "0"{"本週四"}
+                "1"{"下週四"}
+            }
+        }
+        thu-short{
+            relative{
+                "-1"{"上週四"}
+                "0"{"本週四"}
+                "1"{"下週四"}
+            }
+        }
         tue{
+            relative{
+                "-1"{"上週二"}
+                "0"{"本週二"}
+                "1"{"下週二"}
+            }
+        }
+        tue-narrow{
+            relative{
+                "-1"{"上週二"}
+                "0"{"本週二"}
+                "1"{"下週二"}
+            }
+        }
+        tue-short{
             relative{
                 "-1"{"上週二"}
                 "0"{"本週二"}
@@ -2226,6 +2567,20 @@ zh_Hant{
                 "1"{"下週三"}
             }
         }
+        wed-narrow{
+            relative{
+                "-1"{"上週三"}
+                "0"{"本週三"}
+                "1"{"下週三"}
+            }
+        }
+        wed-short{
+            relative{
+                "-1"{"上週三"}
+                "0"{"本週三"}
+                "1"{"下週三"}
+            }
+        }
         week{
             dn{"週"}
             relative{
@@ -2233,6 +2588,28 @@ zh_Hant{
                 "0"{"本週"}
                 "1"{"下週"}
             }
+            relativeTime{
+                future{
+                    other{"{0} 週後"}
+                }
+                past{
+                    other{"{0} 週前"}
+                }
+            }
+        }
+        week-narrow{
+            dn{"週"}
+            relativeTime{
+                future{
+                    other{"{0} 週後"}
+                }
+                past{
+                    other{"{0} 週前"}
+                }
+            }
+        }
+        week-short{
+            dn{"週"}
             relativeTime{
                 future{
                     other{"{0} 週後"}
@@ -2261,6 +2638,28 @@ zh_Hant{
                 }
             }
         }
+        year-narrow{
+            dn{"年"}
+            relativeTime{
+                future{
+                    other{"{0} 年後"}
+                }
+                past{
+                    other{"{0} 年前"}
+                }
+            }
+        }
+        year-short{
+            dn{"年"}
+            relativeTime{
+                future{
+                    other{"{0} 年後"}
+                }
+                past{
+                    other{"{0} 年前"}
+                }
+            }
+        }
         zone{
             dn{"時區"}
         }
@@ -2279,10 +2678,10 @@ zh_Hant{
             start{"{0} {1}"}
         }
         unit-narrow{
-            2{"{0}{1}"}
-            end{"{0}{1}"}
-            middle{"{0}{1}"}
-            start{"{0}{1}"}
+            2{"{0} {1}"}
+            end{"{0} {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
         unit-short{
             2{"{0} {1}"}
@@ -2307,560 +2706,5 @@ zh_Hant{
         x-Jamo{"韓文字母"}
         x-Pinyin{"拼音"}
         x-Publishing{"出版"}
-    }
-    units{
-        acceleration{
-            g-force{
-                other{"{0} G"}
-            }
-        }
-        angle{
-            arc-minute{
-                other{"{0} 分鐘"}
-            }
-            arc-second{
-                other{"{0} 秒"}
-            }
-            degree{
-                other{"{0} 度"}
-            }
-        }
-        area{
-            acre{
-                other{"{0} 英畝"}
-            }
-            hectare{
-                other{"{0} 公頃"}
-            }
-            square-foot{
-                other{"{0} 平方英尺"}
-            }
-            square-kilometer{
-                other{"{0} 平方公里"}
-            }
-            square-meter{
-                other{"{0} 平方公尺"}
-            }
-            square-mile{
-                other{"{0} 平方英里"}
-            }
-        }
-        compound{
-            per{"{0}/{1}"}
-        }
-        duration{
-            day{
-                other{"{0} 天"}
-            }
-            hour{
-                other{"{0} 小時"}
-            }
-            millisecond{
-                other{"{0} 毫秒"}
-            }
-            minute{
-                other{"{0} 分鐘"}
-            }
-            month{
-                other{"{0} 個月"}
-            }
-            second{
-                other{"{0} 秒"}
-            }
-            week{
-                other{"{0} 週"}
-            }
-            year{
-                other{"{0} 年"}
-            }
-        }
-        energy{
-            calorie{
-                other{"{0} 卡路里"}
-            }
-            foodcalorie{
-                other{"{0} 大卡"}
-            }
-            joule{
-                other{"{0} 焦耳"}
-            }
-            kilocalorie{
-                other{"{0} 千卡路里"}
-            }
-            kilojoule{
-                other{"{0} 千焦耳"}
-            }
-        }
-        length{
-            centimeter{
-                other{"{0} 公分"}
-            }
-            foot{
-                other{"{0} 呎"}
-            }
-            inch{
-                other{"{0} 吋"}
-            }
-            kilometer{
-                other{"{0} 公里"}
-            }
-            light-year{
-                other{"{0} 光年"}
-            }
-            meter{
-                other{"{0} 公尺"}
-            }
-            mile{
-                other{"{0} 英里"}
-            }
-            millimeter{
-                other{"{0} 公釐"}
-            }
-            picometer{
-                other{"{0} 皮米"}
-            }
-            yard{
-                other{"{0} 碼"}
-            }
-        }
-        mass{
-            gram{
-                other{"{0} 克"}
-            }
-            kilogram{
-                other{"{0} 公斤"}
-            }
-            ounce{
-                other{"{0} 盎司"}
-            }
-            pound{
-                other{"{0} 磅"}
-            }
-            stone{
-                other{"{0} 英石"}
-            }
-        }
-        power{
-            horsepower{
-                other{"{0} 匹"}
-            }
-            kilowatt{
-                other{"{0} 千瓦"}
-            }
-            watt{
-                other{"{0} 瓦特"}
-            }
-        }
-        pressure{
-            hectopascal{
-                other{"{0} 百帕"}
-            }
-            inch-hg{
-                other{"{0} 英吋水銀柱"}
-            }
-            millibar{
-                other{"{0} 毫巴"}
-            }
-        }
-        speed{
-            kilometer-per-hour{
-                other{"{0} 公里/小時"}
-            }
-            meter-per-second{
-                other{"{0} 公尺/秒"}
-            }
-            mile-per-hour{
-                other{"{0} 英里/小時"}
-            }
-        }
-        temperature{
-            celsius{
-                other{"{0}°C"}
-            }
-            fahrenheit{
-                other{"{0}°F"}
-            }
-        }
-        volume{
-            cubic-kilometer{
-                other{"{0} 立方公里"}
-            }
-            cubic-mile{
-                other{"{0} 立方英里"}
-            }
-            liter{
-                other{"{0} 公升"}
-            }
-        }
-    }
-    unitsNarrow{
-        acceleration{
-            g-force{
-                other{"{0}G"}
-            }
-        }
-        angle{
-            arc-minute{
-                other{"{0} 分鐘"}
-            }
-            arc-second{
-                other{"{0} 秒"}
-            }
-            degree{
-                other{"{0} 度"}
-            }
-        }
-        area{
-            acre{
-                other{"{0} 英畝"}
-            }
-            hectare{
-                other{"{0} 公頃"}
-            }
-            square-foot{
-                other{"{0} 平方英尺"}
-            }
-            square-kilometer{
-                other{"{0} km²"}
-            }
-            square-meter{
-                other{"{0} m²"}
-            }
-            square-mile{
-                other{"{0} 平方英里"}
-            }
-        }
-        compound{
-            per{"{0}/{1}"}
-        }
-        duration{
-            day{
-                other{"{0}天"}
-            }
-            hour{
-                other{"{0}時"}
-            }
-            millisecond{
-                other{"{0}毫秒"}
-            }
-            minute{
-                other{"{0}分"}
-            }
-            month{
-                other{"{0}個月"}
-            }
-            second{
-                other{"{0}秒"}
-            }
-            week{
-                other{"{0}週"}
-            }
-            year{
-                other{"{0}年"}
-            }
-        }
-        energy{
-            calorie{
-                other{"{0}卡"}
-            }
-            foodcalorie{
-                other{"{0}大卡"}
-            }
-            joule{
-                other{"{0}焦"}
-            }
-            kilocalorie{
-                other{"{0}千卡"}
-            }
-            kilojoule{
-                other{"{0}千焦"}
-            }
-        }
-        length{
-            centimeter{
-                other{"{0} 公分"}
-            }
-            foot{
-                other{"{0} 呎"}
-            }
-            inch{
-                other{"{0} 吋"}
-            }
-            kilometer{
-                other{"{0} 公里"}
-            }
-            light-year{
-                other{"{0} 光年"}
-            }
-            meter{
-                other{"{0} 公尺"}
-            }
-            mile{
-                other{"{0} 英里"}
-            }
-            millimeter{
-                other{"{0} 公釐"}
-            }
-            picometer{
-                other{"{0} 皮米"}
-            }
-            yard{
-                other{"{0} 碼"}
-            }
-        }
-        mass{
-            gram{
-                other{"{0} 克"}
-            }
-            kilogram{
-                other{"{0} 公斤"}
-            }
-            ounce{
-                other{"{0} 盎司"}
-            }
-            pound{
-                other{"{0} 磅"}
-            }
-            stone{
-                other{"{0}石"}
-            }
-        }
-        power{
-            horsepower{
-                other{"{0} 匹"}
-            }
-            kilowatt{
-                other{"{0} 千瓦"}
-            }
-            watt{
-                other{"{0} 瓦特"}
-            }
-        }
-        pressure{
-            hectopascal{
-                other{"{0} 百帕"}
-            }
-            inch-hg{
-                other{"{0} 英吋汞柱"}
-            }
-            millibar{
-                other{"{0} 毫巴"}
-            }
-        }
-        speed{
-            kilometer-per-hour{
-                other{"{0} 公里/小時"}
-            }
-            meter-per-second{
-                other{"{0} 公尺/秒"}
-            }
-            mile-per-hour{
-                other{"{0} 英里/小時"}
-            }
-        }
-        temperature{
-            celsius{
-                other{"{0}°"}
-            }
-            fahrenheit{
-                other{"{0}°F"}
-            }
-        }
-        volume{
-            cubic-kilometer{
-                other{"{0} km³"}
-            }
-            cubic-mile{
-                other{"{0} 立方英里"}
-            }
-            liter{
-                other{"{0} 升"}
-            }
-        }
-    }
-    unitsShort{
-        acceleration{
-            g-force{
-                other{"{0} G"}
-            }
-        }
-        angle{
-            arc-minute{
-                other{"{0} 分鐘"}
-            }
-            arc-second{
-                other{"{0} 秒"}
-            }
-            degree{
-                other{"{0} 度"}
-            }
-        }
-        area{
-            acre{
-                other{"{0} 英畝"}
-            }
-            hectare{
-                other{"{0} 公頃"}
-            }
-            square-foot{
-                other{"{0} 平方英尺"}
-            }
-            square-kilometer{
-                other{"{0} 平方公里"}
-            }
-            square-meter{
-                other{"{0} 平方公尺"}
-            }
-            square-mile{
-                other{"{0} 平方英里"}
-            }
-        }
-        compound{
-            per{"{0}/{1}"}
-        }
-        duration{
-            day{
-                other{"{0} 天"}
-            }
-            hour{
-                other{"{0} 小時"}
-            }
-            millisecond{
-                other{"{0} 毫秒"}
-            }
-            minute{
-                other{"{0} 分鐘"}
-            }
-            month{
-                other{"{0} 個月"}
-            }
-            second{
-                other{"{0} 秒"}
-            }
-            week{
-                other{"{0} 週"}
-            }
-            year{
-                other{"{0} 年"}
-            }
-        }
-        energy{
-            calorie{
-                other{"{0} 卡"}
-            }
-            foodcalorie{
-                other{"{0} 大卡"}
-            }
-            joule{
-                other{"{0} 焦"}
-            }
-            kilocalorie{
-                other{"{0} 千卡"}
-            }
-            kilojoule{
-                other{"{0} 千焦"}
-            }
-        }
-        length{
-            centimeter{
-                other{"{0} 公分"}
-            }
-            foot{
-                other{"{0} 呎"}
-            }
-            inch{
-                other{"{0} 吋"}
-            }
-            kilometer{
-                other{"{0} 公里"}
-            }
-            light-year{
-                other{"{0} 光年"}
-            }
-            meter{
-                other{"{0} 公尺"}
-            }
-            mile{
-                other{"{0} 英里"}
-            }
-            millimeter{
-                other{"{0} 公釐"}
-            }
-            picometer{
-                other{"{0} 皮米"}
-            }
-            yard{
-                other{"{0} 碼"}
-            }
-        }
-        mass{
-            gram{
-                other{"{0} 克"}
-            }
-            kilogram{
-                other{"{0} 公斤"}
-            }
-            ounce{
-                other{"{0} 盎司"}
-            }
-            pound{
-                other{"{0} 磅"}
-            }
-            stone{
-                other{"{0} 石"}
-            }
-        }
-        power{
-            horsepower{
-                other{"{0} 匹"}
-            }
-            kilowatt{
-                other{"{0} 千瓦"}
-            }
-            watt{
-                other{"{0} 瓦特"}
-            }
-        }
-        pressure{
-            hectopascal{
-                other{"{0} 百帕"}
-            }
-            inch-hg{
-                other{"{0} 英吋水銀柱"}
-            }
-            millibar{
-                other{"{0} 毫巴"}
-            }
-        }
-        speed{
-            kilometer-per-hour{
-                other{"{0} 公里/小時"}
-            }
-            meter-per-second{
-                other{"{0} 公尺 / 秒"}
-            }
-            mile-per-hour{
-                other{"{0} 英里/小時"}
-            }
-        }
-        temperature{
-            celsius{
-                other{"{0}°C"}
-            }
-            fahrenheit{
-                other{"{0}°F"}
-            }
-        }
-        volume{
-            cubic-kilometer{
-                other{"{0} 立方公里"}
-            }
-            cubic-mile{
-                other{"{0} 立方英里"}
-            }
-            liter{
-                other{"{0} 升"}
-            }
-        }
     }
 }

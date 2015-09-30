@@ -681,7 +681,7 @@ static void executeTimedActions(const char *why)
     else if (args.callIOKit[0]) {
         printf("Call IOKit function %s\n", args.callIOKit);
         execute_APICall(args.callIOKit);
-    } else if (args.exec) {
+    } else if (args.exec[0]) {
     
         exec_exec(args.exec);
     }

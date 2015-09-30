@@ -95,8 +95,8 @@ static ExceptionCode processIceServer(const Dictionary& iceServer, RTCConfigurat
         return INVALID_ACCESS_ERR;
 
     if (urlString.find(',') != notFound && iceServer.get("urls", urlsList) && urlsList.size()) {
-        for (auto iter = urlsList.begin(); iter != urlsList.end(); ++iter) {
-            if (!validateIceServerURL(*iter))
+        for (auto& url : urlsList) {
+            if (!validateIceServerURL(url))
                 return INVALID_ACCESS_ERR;
         }
     } else {
@@ -110,7 +110,7 @@ static ExceptionCode processIceServer(const Dictionary& iceServer, RTCConfigurat
     return 0;
 }
 
-PassRefPtr<RTCConfiguration> RTCPeerConnection::parseConfiguration(const Dictionary& configuration, ExceptionCode& ec)
+RefPtr<RTCConfiguration> RTCPeerConnection::parseConfiguration(const Dictionary& configuration, ExceptionCode& ec)
 {
     if (configuration.isUndefinedOrNull())
         return nullptr;
@@ -152,10 +152,10 @@ PassRefPtr<RTCConfiguration> RTCPeerConnection::parseConfiguration(const Diction
             return nullptr;
     }
 
-    return rtcConfiguration.release();
+    return rtcConfiguration;
 }
 
-PassRefPtr<RTCPeerConnection> RTCPeerConnection::create(ScriptExecutionContext& context, const Dictionary& rtcConfiguration, ExceptionCode& ec)
+RefPtr<RTCPeerConnection> RTCPeerConnection::create(ScriptExecutionContext& context, const Dictionary& rtcConfiguration, ExceptionCode& ec)
 {
     RefPtr<RTCConfiguration> configuration = parseConfiguration(rtcConfiguration, ec);
     if (ec)
@@ -174,11 +174,11 @@ RTCPeerConnection::RTCPeerConnection(ScriptExecutionContext& context, PassRefPtr
     , m_signalingState(SignalingStateStable)
     , m_iceGatheringState(IceGatheringStateNew)
     , m_iceConnectionState(IceConnectionStateNew)
-    , m_scheduledEventTimer(this, &RTCPeerConnection::scheduledEventTimerFired)
+    , m_scheduledEventTimer(*this, &RTCPeerConnection::scheduledEventTimerFired)
     , m_configuration(configuration)
     , m_stopped(false)
 {
-    Document& document = toDocument(context);
+    Document& document = downcast<Document>(context);
 
     if (!document.frame()) {
         ec = NOT_SUPPORTED_ERR;
@@ -203,8 +203,8 @@ RTCPeerConnection::~RTCPeerConnection()
 {
     stop();
 
-    for (auto stream = m_localStreams.begin(), end = m_localStreams.end(); stream != end; ++stream)
-        (*stream)->removeObserver(this);
+    for (auto& localStream : m_localStreams)
+        localStream->removeObserver(this);
 }
 
 void RTCPeerConnection::createOffer(PassRefPtr<RTCSessionDescriptionCallback> successCallback, PassRefPtr<RTCPeerConnectionErrorCallback> errorCallback, const Dictionary& offerOptions, ExceptionCode& ec)
@@ -514,14 +514,14 @@ Vector<RefPtr<MediaStream>> RTCPeerConnection::getRemoteStreams() const
 
 MediaStream* RTCPeerConnection::getStreamById(const String& streamId)
 {
-    for (auto iter = m_localStreams.begin(); iter != m_localStreams.end(); ++iter) {
-        if ((*iter)->id() == streamId)
-            return iter->get();
+    for (auto& localStream : m_localStreams) {
+        if (localStream->id() == streamId)
+            return localStream.get();
     }
 
-    for (auto iter = m_remoteStreams.begin(); iter != m_remoteStreams.end(); ++iter) {
-        if ((*iter)->id() == streamId)
-            return iter->get();
+    for (auto& remoteStream : m_remoteStreams) {
+        if (remoteStream->id() == streamId)
+            return remoteStream.get();
     }
 
     return nullptr;
@@ -551,8 +551,8 @@ PassRefPtr<RTCDataChannel> RTCPeerConnection::createDataChannel(String label, co
 
 bool RTCPeerConnection::hasLocalStreamWithTrackId(const String& trackId)
 {
-    for (auto iter = m_localStreams.begin(); iter != m_localStreams.end(); ++iter) {
-        if ((*iter)->getTrackById(trackId))
+    for (auto& localStream : m_localStreams) {
+        if (localStream->getTrackById(trackId))
             return true;
     }
     return false;
@@ -651,7 +651,6 @@ void RTCPeerConnection::didRemoveRemoteStream(MediaStreamPrivate* privateStream)
 
     // FIXME: this class shouldn't know that the private stream client is a MediaStream!
     RefPtr<MediaStream> stream = static_cast<MediaStream*>(privateStream->client());
-    stream->setActive(false);
 
     if (m_signalingState == SignalingStateClosed)
         return;
@@ -685,9 +684,19 @@ void RTCPeerConnection::stop()
     m_iceConnectionState = IceConnectionStateClosed;
     m_signalingState = SignalingStateClosed;
 
-    Vector<RefPtr<RTCDataChannel>>::iterator i = m_dataChannels.begin();
-    for (; i != m_dataChannels.end(); ++i)
-        (*i)->stop();
+    for (auto& channel : m_dataChannels)
+        channel->stop();
+}
+
+const char* RTCPeerConnection::activeDOMObjectName() const
+{
+    return "RTCPeerConnection";
+}
+
+bool RTCPeerConnection::canSuspendForPageCache() const
+{
+    // FIXME: We should try and do better here.
+    return false;
 }
 
 void RTCPeerConnection::didAddOrRemoveTrack()
@@ -724,7 +733,7 @@ void RTCPeerConnection::scheduleDispatchEvent(PassRefPtr<Event> event)
         m_scheduledEventTimer.startOneShot(0);
 }
 
-void RTCPeerConnection::scheduledEventTimerFired(Timer*)
+void RTCPeerConnection::scheduledEventTimerFired()
 {
     if (m_stopped)
         return;
@@ -732,9 +741,8 @@ void RTCPeerConnection::scheduledEventTimerFired(Timer*)
     Vector<RefPtr<Event>> events;
     events.swap(m_scheduledEvents);
 
-    Vector<RefPtr<Event>>::iterator it = events.begin();
-    for (; it != events.end(); ++it)
-        dispatchEvent((*it).release());
+    for (auto& event : events)
+        dispatchEvent(event.release());
 
     events.clear();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -72,6 +72,7 @@
 #include <net/route.h>
 #include <net/if.h>
 #include <net/if_var.h>
+#include <net/net_perf.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
@@ -355,6 +356,27 @@ static	char *ip6nh[] = {
 	"#255",
 };
 
+
+static const char *srcrulenames[IP6S_SRCRULE_COUNT] = {
+	"default",			// IP6S_SRCRULE_0
+	"prefer same address",		// IP6S_SRCRULE_1
+	"prefer appropriate scope",	// IP6S_SRCRULE_2
+	"avoid deprecated addresses",	// IP6S_SRCRULE_3
+	"prefer home addresses",	// IP6S_SRCRULE_4
+	"prefer outgoing interface",	// IP6S_SRCRULE_5
+	"prefer addresses in a prefix advertised by the next-hop",
+					// IP6S_SRCRULE_5_5
+	"prefer matching label",	// IP6S_SRCRULE_6
+	"prefer temporary addresses",	// IP6S_SRCRULE_7
+	"prefer addresses on alive interfaces",	// IP6S_SRCRULE_7x
+	"use longest matching prefix",	// IP6S_SRCRULE_8
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
+
 /*
  * Dump IP6 statistics structure.
  */
@@ -366,6 +388,20 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	int first, i;
 	int mib[4];
 	size_t len;
+	static net_perf_t pout_net_perf, pin_net_perf;
+	net_perf_t out_net_perf, in_net_perf;
+	size_t out_net_perf_len = sizeof (out_net_perf);
+	size_t in_net_perf_len = sizeof (in_net_perf);
+
+	if (sysctlbyname("net.inet6.ip6.output_perf_data", &out_net_perf, &out_net_perf_len, 0, 0) < 0) {
+		perror("sysctl: net.inet6.ip6.output_perf_data");
+		return;
+	}
+
+	if (sysctlbyname("net.inet6.ip6.input_perf_data", &in_net_perf, &in_net_perf_len, 0, 0) < 0) {
+		perror("sysctl: net.inet6.ip6.input_perf_data");
+		return;
+	}
 
 	mib[0] = CTL_NET;
 	mib[1] = PF_INET6;
@@ -414,6 +450,31 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	p1a(ip6s_forward_cachemiss, "\t\t%llu forward cache miss\n");
 	p(ip6s_pktdropcntrl,
 	    "\t\t%llu packet%s dropped due to no bufs for control data\n");
+
+#define INPERFDIFF(f) (in_net_perf.f - pin_net_perf.f)
+	if (INPERFDIFF(np_total_pkts) > 0 && in_net_perf.np_total_usecs > 0) {
+		printf("\tInput Performance Stats:\n");
+		printf("\t\t%llu total packets measured\n", INPERFDIFF(np_total_pkts));
+		printf("\t\t%llu total usec elapsed\n", INPERFDIFF(np_total_usecs));
+		printf("\t\t%f usec per packet\n",
+		    (double)in_net_perf.np_total_usecs/(double)in_net_perf.np_total_pkts);
+		printf("\t\tPerformance Histogram:\n");
+		printf("\t\t\t x <= %u: %llu\n", in_net_perf.np_hist_bars[0],
+		    INPERFDIFF(np_hist1));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    in_net_perf.np_hist_bars[0], in_net_perf.np_hist_bars[1],
+		    INPERFDIFF(np_hist2));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    in_net_perf.np_hist_bars[1], in_net_perf.np_hist_bars[2],
+		    INPERFDIFF(np_hist3));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    in_net_perf.np_hist_bars[2], in_net_perf.np_hist_bars[3],
+		    INPERFDIFF(np_hist4));
+		printf("\t\t\t %u < x: %llu\n",
+		    in_net_perf.np_hist_bars[3], INPERFDIFF(np_hist5));
+	}
+#undef INPERFDIFF
+
 	p(ip6s_localout, "\t%llu packet%s sent from this host\n");
 	p(ip6s_rawout, "\t\t%llu packet%s sent with fabricated ip header\n");
 	p(ip6s_odropped,
@@ -423,6 +484,31 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	p(ip6s_ofragments, "\t\t%llu fragment%s created\n");
 	p(ip6s_cantfrag, "\t\t%llu datagram%s that can't be fragmented\n");
 	p(ip6s_badscope, "\t\t%llu packet%s that violated scope rules\n");
+
+#define OUTPERFDIFF(f) (out_net_perf.f - pout_net_perf.f)
+	if (OUTPERFDIFF(np_total_pkts) > 0 && out_net_perf.np_total_usecs > 0) {
+		printf("\tOutput Performance Stats:\n");
+		printf("\t\t%llu total packets measured\n", OUTPERFDIFF(np_total_pkts));
+		printf("\t\t%llu total usec elapsed\n", OUTPERFDIFF(np_total_usecs));
+		printf("\t\t%f usec per packet\n",
+		    (double)out_net_perf.np_total_usecs/(double)out_net_perf.np_total_pkts);
+		printf("\t\tHistogram:\n");
+		printf("\t\t\t x <= %u: %llu\n", out_net_perf.np_hist_bars[0],
+		    OUTPERFDIFF(np_hist1));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    out_net_perf.np_hist_bars[0], out_net_perf.np_hist_bars[1],
+		    OUTPERFDIFF(np_hist2));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    out_net_perf.np_hist_bars[1], out_net_perf.np_hist_bars[2],
+		    OUTPERFDIFF(np_hist3));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    out_net_perf.np_hist_bars[2], out_net_perf.np_hist_bars[3],
+		    OUTPERFDIFF(np_hist4));
+		printf("\t\t\t %u < x: %llu\n",
+		    out_net_perf.np_hist_bars[3], OUTPERFDIFF(np_hist5));
+	}
+#undef OUTPERFDIFF
+
 	for (first = 1, i = 0; i < 256; i++)
 		if (IP6DIFF(ip6s_nxthist[i]) != 0) {
 			if (first) {
@@ -474,8 +560,8 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 
 	p(ip6s_sources_none,
 	  "\t\t%llu failure%s of source address selection\n");
-	for (first = 1, i = 0; i < 16; i++) {
-		if (IP6DIFF(ip6s_sources_sameif[i])) {
+	for (first = 1, i = 0; i < SCOPE6_ID_MAX; i++) {
+		if (IP6DIFF(ip6s_sources_sameif[i]) || 1) {
 			if (first) {
 				printf("\t\tsource addresses on an outgoing I/F\n");
 				first = 0;
@@ -483,8 +569,8 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 			PRINT_SCOPESTAT(ip6s_sources_sameif[i], i);
 		}
 	}
-	for (first = 1, i = 0; i < 16; i++) {
-		if (IP6DIFF(ip6s_sources_otherif[i])) {
+	for (first = 1, i = 0; i < SCOPE6_ID_MAX; i++) {
+		if (IP6DIFF(ip6s_sources_otherif[i]) || 1) {
 			if (first) {
 				printf("\t\tsource addresses on a non-outgoing I/F\n");
 				first = 0;
@@ -492,8 +578,8 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 			PRINT_SCOPESTAT(ip6s_sources_otherif[i], i);
 		}
 	}
-	for (first = 1, i = 0; i < 16; i++) {
-		if (IP6DIFF(ip6s_sources_samescope[i])) {
+	for (first = 1, i = 0; i < SCOPE6_ID_MAX; i++) {
+		if (IP6DIFF(ip6s_sources_samescope[i]) || 1) {
 			if (first) {
 				printf("\t\tsource addresses of same scope\n");
 				first = 0;
@@ -501,8 +587,8 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 			PRINT_SCOPESTAT(ip6s_sources_samescope[i], i);
 		}
 	}
-	for (first = 1, i = 0; i < 16; i++) {
-		if (IP6DIFF(ip6s_sources_otherscope[i])) {
+	for (first = 1, i = 0; i < SCOPE6_ID_MAX; i++) {
+		if (IP6DIFF(ip6s_sources_otherscope[i]) || 1) {
 			if (first) {
 				printf("\t\tsource addresses of a different scope\n");
 				first = 0;
@@ -510,8 +596,8 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 			PRINT_SCOPESTAT(ip6s_sources_otherscope[i], i);
 		}
 	}
-	for (first = 1, i = 0; i < 16; i++) {
-		if (IP6DIFF(ip6s_sources_deprecated[i])) {
+	for (first = 1, i = 0; i < SCOPE6_ID_MAX; i++) {
+		if (IP6DIFF(ip6s_sources_deprecated[i]) || 1) {
 			if (first) {
 				printf("\t\tdeprecated source addresses\n");
 				first = 0;
@@ -519,10 +605,33 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 			PRINT_SCOPESTAT(ip6s_sources_deprecated[i], i);
 		}
 	}
+#define PRINT_SRCRULESTAT(s,i) do {\
+	if (srcrulenames[i] != NULL) \
+		printf("\t\t\t%llu rule%s %s\n", \
+			(unsigned long long)IP6DIFF(s), \
+			plural(IP6DIFF(s)), \
+			srcrulenames[i]); \
+} while (0);
 
-	if (interval > 0)
+	for (first = 1, i = 0; i < IP6S_SRCRULE_COUNT; i++) {
+		if (IP6DIFF(ip6s_sources_rule[i]) || 1) {
+			if (first) {
+				printf("\t\tsource addresse selection\n");
+				first = 0;
+			}
+			PRINT_SRCRULESTAT(ip6s_sources_rule[i], i);
+		}
+	}
+	
+	p(ip6s_dad_collide, "\t\t%llu duplicate address detection collision%s\n");
+
+	p(ip6s_sources_skip_expensive_secondary_if, "\t\t%llu times%s ignored source on secondary expensive I/F\n");
+
+	if (interval > 0) {
 		bcopy(&ip6stat, &pip6stat, len);
-
+		bcopy(&in_net_perf, &pin_net_perf, in_net_perf_len);
+		bcopy(&out_net_perf, &pout_net_perf, out_net_perf_len);
+	}
 #undef IP6DIFF
 #undef p
 #undef p1a

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,43 +23,44 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.StyleDetailsPanel = function(className, identifier, label)
+WebInspector.StyleDetailsPanel = class StyleDetailsPanel extends WebInspector.Object
 {
-    this._element = document.createElement("div");
-    this._element.className = className;
+    constructor(delegate, className, identifier, label)
+    {
+        super();
 
-    // Add this offset-sections class name so the sticky headers don't overlap the navigation bar.
-    this.element.classList.add(WebInspector.StyleDetailsPanel.OffsetSectionsStyleClassName);
+        this._delegate = delegate || null;
 
-    this._navigationItem = new WebInspector.RadioButtonNavigationItem(identifier, label);
+        this._element = document.createElement("div");
+        this._element.className = className;
 
-    this._nodeStyles = null;
-    this._visible = false;
-};
+        // Add this offset-sections class name so the sticky headers don't overlap the navigation bar.
+        this.element.classList.add("offset-sections");
 
-WebInspector.StyleDetailsPanel.OffsetSectionsStyleClassName = "offset-sections";
+        this._navigationItem = new WebInspector.RadioButtonNavigationItem(identifier, label);
 
-WebInspector.StyleDetailsPanel.prototype = {
-    constructor: WebInspector.StyleDetailsPanel,
+        this._nodeStyles = null;
+        this._visible = false;
+    }
 
     // Public
 
     get element()
     {
         return this._element;
-    },
+    }
 
     get navigationItem()
     {
         return this._navigationItem;
-    },
+    }
 
     get nodeStyles()
     {
         return this._nodeStyles;
-    },
+    }
 
-    shown: function()
+    shown()
     {
         if (this._visible)
             return;
@@ -67,19 +68,19 @@ WebInspector.StyleDetailsPanel.prototype = {
         this._visible = true;
 
         this._refreshNodeStyles();
-    },
+    }
 
-    hidden: function()
+    hidden()
     {
         this._visible = false;
-    },
+    }
 
-    widthDidChange: function()
+    widthDidChange()
     {
         // Implemented by subclasses.
-    },
+    }
 
-    markAsNeedsRefresh: function(domNode)
+    markAsNeedsRefresh(domNode)
     {
         console.assert(domNode);
         if (!domNode)
@@ -87,7 +88,7 @@ WebInspector.StyleDetailsPanel.prototype = {
 
         if (!this._nodeStyles || this._nodeStyles.node !== domNode) {
             if (this._nodeStyles) {
-                this._nodeStyles.removeEventListener(WebInspector.DOMNodeStyles.Event.Refreshed, this._nodeStylesRefreshed, this);
+                this._nodeStyles.removeEventListener(WebInspector.DOMNodeStyles.Event.Refreshed, this.nodeStylesRefreshed, this);
                 this._nodeStyles.removeEventListener(WebInspector.DOMNodeStyles.Event.NeedsRefresh, this._nodeStylesNeedsRefreshed, this);
             }
 
@@ -97,7 +98,7 @@ WebInspector.StyleDetailsPanel.prototype = {
             if (!this._nodeStyles)
                 return;
 
-            this._nodeStyles.addEventListener(WebInspector.DOMNodeStyles.Event.Refreshed, this._nodeStylesRefreshed, this);
+            this._nodeStyles.addEventListener(WebInspector.DOMNodeStyles.Event.Refreshed, this.nodeStylesRefreshed, this);
             this._nodeStyles.addEventListener(WebInspector.DOMNodeStyles.Event.NeedsRefresh, this._nodeStylesNeedsRefreshed, this);
 
             this._forceSignificantChange = true;
@@ -105,12 +106,21 @@ WebInspector.StyleDetailsPanel.prototype = {
 
         if (this._visible)
             this._refreshNodeStyles();
-    },
+    }
 
-    refresh: function(significantChange)
+    refresh(significantChange)
     {
         // Implemented by subclasses.
-    },
+        this.dispatchEventToListeners(WebInspector.StyleDetailsPanel.Event.Refreshed);
+    }
+
+    // Protected
+
+    nodeStylesRefreshed(event)
+    {
+        if (this._visible)
+            this._refreshPreservingScrollPosition(event.data.significantChange);
+    }
 
     // Private
 
@@ -119,16 +129,16 @@ WebInspector.StyleDetailsPanel.prototype = {
         if (!WebInspector.cssStyleManager.canForcePseudoClasses())
             return 0;
         return this.nodeStyles.node.enabledPseudoClasses.length ? 0 : WebInspector.CSSStyleDetailsSidebarPanel.NoForcedPseudoClassesScrollOffset;
-    },
+    }
 
-    _refreshNodeStyles: function()
+    _refreshNodeStyles()
     {
         if (!this._nodeStyles)
             return;
         this._nodeStyles.refresh();
-    },
+    }
 
-    _refreshPreservingScrollPosition: function(significantChange)
+    _refreshPreservingScrollPosition(significantChange)
     {
         significantChange = this._forceSignificantChange || significantChange || false;
         delete this._forceSignificantChange;
@@ -145,19 +155,15 @@ WebInspector.StyleDetailsPanel.prototype = {
 
         if (this.element.parentNode)
             this.element.parentNode.scrollTop = previousScrollTop;
-    },
+    }
 
-    _nodeStylesRefreshed: function(event)
-    {
-        if (this._visible)
-            this._refreshPreservingScrollPosition(event.data.significantChange);
-    },
-
-    _nodeStylesNeedsRefreshed: function(event)
+    _nodeStylesNeedsRefreshed(event)
     {
         if (this._visible)
             this._refreshNodeStyles();
     }
 };
 
-WebInspector.StyleDetailsPanel.prototype.__proto__ = WebInspector.Object.prototype;
+WebInspector.StyleDetailsPanel.Event = {
+    Refreshed: "style-details-panel-refreshed"
+};

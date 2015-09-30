@@ -36,7 +36,7 @@ namespace WebCore {
     
 using namespace MathMLNames;
 
-RenderMathMLSpace::RenderMathMLSpace(MathMLTextElement& element, PassRef<RenderStyle> style)
+RenderMathMLSpace::RenderMathMLSpace(MathMLTextElement& element, Ref<RenderStyle>&& style)
     : RenderMathMLBlock(element, WTF::move(style))
     , m_width(0)
     , m_height(0)
@@ -91,9 +91,9 @@ void RenderMathMLSpace::styleDidChange(StyleDifference diff, const RenderStyle* 
     updateFromElement();
 }
 
-int RenderMathMLSpace::firstLineBaseline() const
+Optional<int> RenderMathMLSpace::firstLineBaseline() const
 {
-    return m_height;
+    return Optional<int>(m_height);
 }
 
 }

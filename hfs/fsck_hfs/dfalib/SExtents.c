@@ -679,7 +679,10 @@ OSErr DeallocateFile(SVCB *vcb, CatalogRecord * fileRec)
 	if (fileRec->recordType == kHFSFileRecord) {
 		HFSPlusExtentRecord dataForkExtents;
 		HFSPlusExtentRecord rsrcForkExtents;
-		
+
+		ClearMemory(&dataForkExtents, sizeof(dataForkExtents));
+		ClearMemory(&rsrcForkExtents, sizeof(rsrcForkExtents));
+
 		for (i = 0; i < kHFSExtentDensity; ++i) {
 			dataForkExtents[i].startBlock =
 				(UInt32) (fileRec->hfsFile.dataExtents[i].startBlock);
@@ -691,11 +694,6 @@ OSErr DeallocateFile(SVCB *vcb, CatalogRecord * fileRec)
 			rsrcForkExtents[i].blockCount =
 				(UInt32) (fileRec->hfsFile.rsrcExtents[i].blockCount);
 		}
-		ClearMemory(&dataForkExtents[i].startBlock,
-			sizeof(HFSPlusExtentRecord) - sizeof(HFSExtentRecord));
-
-		ClearMemory(&rsrcForkExtents[i].startBlock,
-			sizeof(HFSPlusExtentRecord) - sizeof(HFSExtentRecord));
 		
 		errDF = DeallocateFork(vcb, fileRec->hfsFile.fileID, kDataForkType,
 				dataForkExtents, &recordDeleted );

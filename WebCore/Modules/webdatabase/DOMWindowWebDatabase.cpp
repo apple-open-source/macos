@@ -25,9 +25,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(SQL_DATABASE)
-
 #include "DOMWindowWebDatabase.h"
 
 #include "DOMWindow.h"
@@ -40,13 +37,13 @@
 
 namespace WebCore {
 
-PassRefPtr<Database> DOMWindowWebDatabase::openDatabase(DOMWindow* window, const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode& ec)
+RefPtr<Database> DOMWindowWebDatabase::openDatabase(DOMWindow* window, const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode& ec)
 {
     if (!window->isCurrentlyDisplayedInFrame())
-        return 0;
+        return nullptr;
 
-    RefPtr<Database> database = 0;
-    DatabaseManager& dbManager = DatabaseManager::manager();
+    RefPtr<Database> database = nullptr;
+    DatabaseManager& dbManager = DatabaseManager::singleton();
     DatabaseError error = DatabaseError::None;
     if (dbManager.isAvailable() && window->document()->securityOrigin()->canAccessDatabase(window->document()->topOrigin())) {
         database = dbManager.openDatabase(window->document(), name, version, displayName, estimatedSize, creationCallback, error);
@@ -59,5 +56,3 @@ PassRefPtr<Database> DOMWindowWebDatabase::openDatabase(DOMWindow* window, const
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(SQL_DATABASE)

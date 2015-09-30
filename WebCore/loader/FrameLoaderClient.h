@@ -37,6 +37,11 @@
 #include <functional>
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
+
+#if ENABLE(CONTENT_FILTERING)
+#include "ContentFilterUnblockHandler.h"
+#endif
 
 #if PLATFORM(COCOA)
 #ifdef __OBJC__ 
@@ -79,7 +84,7 @@ namespace WebCore {
     class NavigationAction;
     class Page;
     class ProtectionSpace;
-    class PluginView;
+    class PluginViewBase;
     class PolicyChecker;
     class ResourceError;
     class ResourceHandle;
@@ -98,13 +103,9 @@ namespace WebCore {
     class QuickLookHandle;
 #endif
 
-#if USE(CONTENT_FILTERING)
-    class ContentFilter;
-#endif
-
     typedef std::function<void (PolicyAction)> FramePolicyFunction;
 
-    class FrameLoaderClient {
+    class WEBCORE_EXPORT FrameLoaderClient {
     public:
         // An inline function cannot be the first non-abstract virtual function declared
         // in the class as it results in the vtable being generated as a weak symbol.
@@ -185,8 +186,6 @@ namespace WebCore {
 
         virtual void dispatchUnableToImplementPolicy(const ResourceError&) = 0;
 
-        virtual void dispatchWillRequestResource(CachedResourceRequest*) { }
-
         virtual void dispatchWillSendSubmitEvent(PassRefPtr<FormState>) = 0;
         virtual void dispatchWillSubmitForm(PassRefPtr<FormState>, FramePolicyFunction) = 0;
 
@@ -200,6 +199,9 @@ namespace WebCore {
         virtual void willChangeTitle(DocumentLoader*) = 0;
         virtual void didChangeTitle(DocumentLoader*) = 0;
 
+        virtual void willReplaceMultipartContent() = 0;
+        virtual void didReplaceMultipartContent() = 0;
+
         virtual void committedLoad(DocumentLoader*, const char*, int) = 0;
         virtual void finishedLoading(DocumentLoader*) = 0;
         
@@ -208,8 +210,6 @@ namespace WebCore {
 
         virtual bool shouldGoToHistoryItem(HistoryItem*) const = 0;
         virtual void updateGlobalHistoryItemForPage() { }
-
-        virtual void willChangeCurrentHistoryItem() { }
 
         // This frame has set its opener to null, disowning it for the lifetime of the frame.
         // See http://html.spec.whatwg.org/#dom-opener.
@@ -251,6 +251,7 @@ namespace WebCore {
         virtual void prepareForDataSourceReplacement() = 0;
 
         virtual PassRefPtr<DocumentLoader> createDocumentLoader(const ResourceRequest&, const SubstituteData&) = 0;
+        virtual void updateCachedDocumentLoader(DocumentLoader&) = 0;
         virtual void setTitle(const StringWithDirection&, const URL&) = 0;
 
         virtual String userAgent(const URL&) = 0;
@@ -277,7 +278,7 @@ namespace WebCore {
 
         virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const URL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues) = 0;
 
-        virtual void dispatchDidFailToStartPlugin(const PluginView*) const { }
+        virtual void dispatchDidFailToStartPlugin(const PluginViewBase*) const { }
 
         virtual ObjectContentType objectContentType(const URL&, const String& mimeType, bool shouldPreferPlugInsForImages) = 0;
         virtual String overrideMediaType() const = 0;
@@ -308,6 +309,10 @@ namespace WebCore {
 
         virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext() = 0;
 
+#if ENABLE(REQUEST_AUTOCOMPLETE)
+        virtual void didRequestAutocomplete(PassRefPtr<FormState>) = 0;
+#endif
+
         virtual bool shouldPaintBrokenImage(const URL&) const { return true; }
 
         virtual void dispatchGlobalObjectAvailable(DOMWrapperWorld&) { }
@@ -333,12 +338,14 @@ namespace WebCore {
         // FIXME (bug 116233): We need to get rid of EmptyFrameLoaderClient completely, then this will no longer be needed.
         virtual bool isEmptyFrameLoaderClient() { return false; }
 
+        virtual FrameLoader* dataProtocolLoader() const { return nullptr; }
+
 #if USE(QUICK_LOOK)
         virtual void didCreateQuickLookHandle(QuickLookHandle&) { }
 #endif
 
-#if USE(CONTENT_FILTERING)
-        virtual void contentFilterDidBlockLoad(std::unique_ptr<ContentFilter>) { }
+#if ENABLE(CONTENT_FILTERING)
+        virtual void contentFilterDidBlockLoad(ContentFilterUnblockHandler) { }
 #endif
     };
 

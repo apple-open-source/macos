@@ -19,15 +19,12 @@ disable [ -afmprs ] name ...
        below.
 
        Note  that  patterns not allowed by the current settings for the
-       options EXTENDED GLOB, KSH GLOB and SH GLOB are  never  enabled,
-                       -         -           -
-       regardless  of  the setting here.  For example, if EXTENDED GLOB
-                                                                  -
+       options EXTENDED_GLOB, KSH_GLOB and SH_GLOB are  never  enabled,
+       regardless  of  the setting here.  For example, if EXTENDED_GLOB
        is not active, the pattern ^ is ineffective even if `disable  -p
        "^"'  has  not been issued.  The list below indicates any option
        settings that restrict the use of the  pattern.   It  should  be
-       noted  that  setting SH GLOB has a wider effect then merely dis-
-                              -
+       noted  that  setting SH_GLOB has a wider effect than merely dis-
        abling patterns as  certain  expressions,  in  particular  those
        involving parentheses, are parsed differently.
 
@@ -35,69 +32,54 @@ disable [ -afmprs ] name ...
        quoting on the command line to prevent them  from  being  inter-
        preted  immediately as patterns and the patterns are shown below
        in single quotes as a reminder.
+
        '?'    The pattern character ?  wherever  it  occurs,  including
-              when preceding a parenthesis with KSH GLOB.
-                                                   -
+              when preceding a parenthesis with KSH_GLOB.
 
        '*'    The  pattern  character  *  wherever it occurs, including
               recursive globbing and when preceding a parenthesis  with
-              KSH GLOB.
-                 -
+              KSH_GLOB.
 
        '['    Character classes.
 
-       '<' (NO SH GLOB)
-              -  -
+       '<' (NO_SH_GLOB)
               Numeric ranges.
 
-       '|' (NO SH GLOB)
-              -  -
+       '|' (NO_SH_GLOB)
               Alternation  in  grouped  patterns,  case  statements, or
-              KSH GLOB parenthesised expressions.
-                 -
+              KSH_GLOB parenthesised expressions.
 
-       '(' (NO SH GLOB)
-              -  -
+       '(' (NO_SH_GLOB)
               Grouping using single parentheses.  Disabling  this  does
-              not  disable  the  use  of parentheses for KSH GLOB where
-                                                            -
+              not  disable  the  use  of parentheses for KSH_GLOB where
               they are introduced by a special character, nor for  glob
-              qualifiers  (use  `setopt  NO BARE GLOB QUAL'  to disable
-                                           -    -    -
+              qualifiers  (use  `setopt  NO_BARE_GLOB_QUAL'  to disable
               glob qualifiers that use parentheses only).
 
-       '~' (EXTENDED GLOB)
-                    -
+       '~' (EXTENDED_GLOB)
               Exclusion in the form A~B.
 
-       '^' (EXTENDED GLOB)
-                    -
+       '^' (EXTENDED_GLOB)
               Exclusion in the form A^B.
 
-       '#' (EXTENDED GLOB)
-                    -
+       '#' (EXTENDED_GLOB)
               The pattern character # wherever it occurs, both for rep-
               etition of a previous pattern and for indicating globbing
               flags.
 
-       '?(' (KSH GLOB)
-                -
+       '?(' (KSH_GLOB)
               The grouping form ?(...).  Note this is also disabled  if
               '?' is disabled.
 
-       '*(' (KSH GLOB)
-                -
+       '*(' (KSH_GLOB)
               The  grouping form *(...).  Note this is also disabled if
               '*' is disabled.
 
-       '+(' (KSH GLOB)
-                -
+       '+(' (KSH_GLOB)
               The grouping form +(...).
 
-       '!(' (KSH GLOB)
-                -
+       '!(' (KSH_GLOB)
               The grouping form !(...).
 
-       '@(' (KSH GLOB)
-                -
+       '@(' (KSH_GLOB)
               The grouping form @(...).

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -250,7 +250,6 @@ struct pcap_ng_sf {
 	struct pcap_ng_if *ifaces;	/* array of interface information */
 };
 
-static void pcap_ng_cleanup(pcap_t *p);
 static int pcap_ng_next_packet(pcap_t *p, struct pcap_pkthdr *hdr,
 			       u_char **data);
 static int pcap_ng_next_block(pcap_t *p, struct pcap_pkthdr *hdr,
@@ -887,6 +886,8 @@ pcap_ng_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 
 	/*
 	 * Now start looking for an Interface Description Block.
+	 * It's OK not to have any interface description block as 
+	 * long as they are not needed by other block types
 	 */
 	for (;;) {
 		/*
@@ -895,9 +896,7 @@ pcap_ng_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 		status = read_block(fp, p, &cursor, errbuf);
 		if (status == 0) {
 			/* EOF - no IDB in this file */
-			snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "the capture file has no Interface Description Blocks");
-			goto fail;
+			break;
 		}
 		if (status == -1)
 			goto fail;	/* error */
@@ -950,12 +949,20 @@ pcap_ng_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 
 done:
 	p->tzoff = 0;	/* XXX - not used in pcap */
-	p->snapshot = idbp->snaplen;
-	p->linktype = linktype_to_dlt(idbp->linktype);
+	if (idbp != NULL) {
+		p->snapshot = idbp->snaplen;
+		p->linktype = linktype_to_dlt(idbp->linktype);
+	} else {
+		/*
+		 * By default assume NULL
+		 */
+		p->snapshot = 65536;
+		p->linktype = linktype_to_dlt(DLT_NULL);
+	}
+	
 	p->linktype_ext = 0;
 
 	p->next_packet_op = pcap_ng_next_packet;
-	p->cleanup_op = pcap_ng_cleanup;
 	
 	/*
 	 * Special using block based API
@@ -985,12 +992,13 @@ fail:
 	return (NULL);
 }
 
-static void
+void
 pcap_ng_cleanup(pcap_t *p)
 {
 	struct pcap_ng_sf *ps = p->priv;
 
 	free(ps->ifaces);
+
 	sf_cleanup(p);
 }
 
@@ -1424,9 +1432,9 @@ sf_ng_write_header(FILE *fp, int linktype, int thiszone, int snaplen)
 	bh.block_type   = PCAPNG_BT_IDB;
 	bh.total_length = len;
 	
-	idb.reserved = 0;
-	idb.linktype = linktype;
-	idb.snaplen  = snaplen;
+	idb.idb_reserved = 0;
+	idb.idb_linktype = linktype;
+	idb.idb_snaplen  = snaplen;
 	
 	bt.total_length = len;
 	

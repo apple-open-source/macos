@@ -20,18 +20,16 @@
 #include "config.h"
 #include "CustomProtocolManagerImpl.h"
 
-#if ENABLE(CUSTOM_PROTOCOLS)
-
 #include "ChildProcess.h"
 #include "CustomProtocolManagerProxyMessages.h"
 #include "DataReference.h"
 #include "WebCoreArgumentCoders.h"
-#include "WebKitSoupRequestGeneric.h"
 #include "WebKitSoupRequestInputStream.h"
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/SoupNetworkSession.h>
+#include <WebCore/WebKitSoupRequestGeneric.h>
 
 namespace WebKit {
 
@@ -95,7 +93,7 @@ void CustomProtocolManagerImpl::registerScheme(const String& scheme)
     SoupSession* session = WebCore::SoupNetworkSession::defaultSession().soupSession();
     SoupRequestClass* genericRequestClass = static_cast<SoupRequestClass*>(g_type_class_ref(WEBKIT_TYPE_SOUP_REQUEST_GENERIC));
     genericRequestClass->schemes = const_cast<const char**>(reinterpret_cast<char**>(m_schemes->pdata));
-    static_cast<WebKitSoupRequestGenericClass*>(g_type_class_ref(WEBKIT_TYPE_SOUP_REQUEST_GENERIC))->customProtocolManager = this;
+    static_cast<WebKitSoupRequestGenericClass*>(g_type_class_ref(WEBKIT_TYPE_SOUP_REQUEST_GENERIC))->client = this;
     soup_session_add_feature_by_type(session, WEBKIT_TYPE_SOUP_REQUEST_GENERIC);
 }
 
@@ -186,14 +184,13 @@ void CustomProtocolManagerImpl::didFinishLoading(uint64_t customProtocolID)
     m_customProtocolMap.remove(customProtocolID);
 }
 
-void CustomProtocolManagerImpl::send(GTask* task)
+void CustomProtocolManagerImpl::start(GTask* task)
 {
     uint64_t customProtocolID = generateCustomProtocolID();
     WebKitSoupRequestGeneric* request = WEBKIT_SOUP_REQUEST_GENERIC(g_task_get_source_object(task));
     m_customProtocolMap.set(customProtocolID, std::make_unique<WebSoupRequestAsyncData>(task, request));
 
-    WebCore::ResourceRequest resourceRequest(SOUP_REQUEST(request));
-    m_childProcess->send(Messages::CustomProtocolManagerProxy::StartLoading(customProtocolID, resourceRequest), 0);
+    m_childProcess->send(Messages::CustomProtocolManagerProxy::StartLoading(customProtocolID, *webkitSoupRequestGenericGetRequest(request)), 0);
 }
 
 GInputStream* CustomProtocolManagerImpl::finish(GTask* task, GError** error)
@@ -203,5 +200,3 @@ GInputStream* CustomProtocolManagerImpl::finish(GTask* task, GError** error)
 }
 
 } // namespace WebKit
-
-#endif // ENABLE(CUSTOM_PROTOCOLS)

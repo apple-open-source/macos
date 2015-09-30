@@ -38,10 +38,10 @@
 #include <glib.h>
 #include <locale.h>
 #include <wtf/RunLoop.h>
+#include <wtf/glib/GLibUtilities.h>
+#include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
-#include <wtf/gobject/GUniquePtr.h>
-#include <wtf/gobject/GlibUtilities.h>
 
 using namespace WebCore;
 
@@ -65,16 +65,25 @@ void ProcessLauncher::launchProcess()
     case WebProcess:
         executablePath = executablePathOfWebProcess();
         break;
+#if ENABLE(NETSCAPE_PLUGIN_API)
     case PluginProcess:
         executablePath = executablePathOfPluginProcess();
+#if ENABLE(PLUGIN_PROCESS_GTK2)
         if (m_launchOptions.extraInitializationData.contains("requires-gtk2"))
             executablePath.append('2');
+#endif
         pluginPath = m_launchOptions.extraInitializationData.get("plugin-path");
         realPluginPath = fileSystemRepresentation(pluginPath);
         break;
+#endif
 #if ENABLE(NETWORK_PROCESS)
     case NetworkProcess:
         executablePath = executablePathOfNetworkProcess();
+        break;
+#endif
+#if ENABLE(DATABASE_PROCESS)
+    case DatabaseProcess:
+        executablePath = executablePathOfDatabaseProcess();
         break;
 #endif
     default:
@@ -124,7 +133,11 @@ void ProcessLauncher::launchProcess()
     m_processIdentifier = pid;
 
     // We've finished launching the process, message back to the main run loop.
-    RunLoop::main().dispatch(bind(&ProcessLauncher::didFinishLaunchingProcess, this, m_processIdentifier, socketPair.server));
+    RefPtr<ProcessLauncher> protector(this);
+    IPC::Connection::Identifier serverSocket = socketPair.server;
+    RunLoop::main().dispatch([protector, pid, serverSocket] {
+        protector->didFinishLaunchingProcess(pid, serverSocket);
+    });
 }
 
 void ProcessLauncher::terminateProcess()

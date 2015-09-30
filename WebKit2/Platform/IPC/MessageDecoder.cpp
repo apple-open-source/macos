@@ -31,7 +31,7 @@
 #include "MessageFlags.h"
 #include "StringReference.h"
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if PLATFORM(MAC)
 #include "ImportanceAssertion.h"
 #endif
 
@@ -39,6 +39,10 @@ namespace IPC {
 
 MessageDecoder::~MessageDecoder()
 {
+#if HAVE(QOS_CLASSES)
+    if (m_qosClassOverride)
+        pthread_override_qos_class_end_np(m_qosClassOverride);
+#endif
 }
 
 MessageDecoder::MessageDecoder(const DataReference& buffer, Vector<Attachment> attachments)
@@ -53,7 +57,11 @@ MessageDecoder::MessageDecoder(const DataReference& buffer, Vector<Attachment> a
     if (!decode(m_messageName))
         return;
 
-    decode(m_destinationID);
+    if (!decode(m_destinationID))
+        return;
+#if HAVE(DTRACE)
+    decode(m_UUID);
+#endif
 }
 
 bool MessageDecoder::isSyncMessage() const
@@ -66,7 +74,7 @@ bool MessageDecoder::shouldDispatchMessageWhenWaitingForSyncReply() const
     return m_messageFlags & DispatchMessageWhenWaitingForSyncReply;
 }
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if PLATFORM(MAC)
 void MessageDecoder::setImportanceAssertion(std::unique_ptr<ImportanceAssertion> assertion)
 {
     m_importanceAssertion = WTF::move(assertion);

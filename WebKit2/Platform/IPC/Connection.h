@@ -32,26 +32,24 @@
 #include "MessageDecoder.h"
 #include "MessageEncoder.h"
 #include "MessageReceiver.h"
-#include "WorkQueue.h"
+#include "ProcessType.h"
 #include <atomic>
 #include <condition_variable>
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/HashMap.h>
+#include <wtf/WorkQueue.h>
 #include <wtf/text/CString.h>
 
 #if OS(DARWIN)
-#include "XPCPtr.h"
 #include <mach/mach_port.h>
+#include <wtf/OSObjectPtr.h>
+#include <wtf/spi/darwin/XPCSPI.h>
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(EFL)
 #include "PlatformProcessIdentifier.h"
 #endif
-
-namespace WTF {
-class RunLoop;
-}
 
 namespace IPC {
 
@@ -75,7 +73,7 @@ enum WaitForMessageFlags {
     // Use this to make waitForMessage be interrupted immediately by any incoming sync messages.
     InterruptWaitingIfSyncMessageArrives = 1 << 0,
 };
-    
+
 #define MESSAGE_CHECK_BASE(assertion, connection) do \
     if (!(assertion)) { \
         ASSERT(assertion); \
@@ -88,8 +86,10 @@ class Connection : public ThreadSafeRefCounted<Connection> {
 public:
     class Client : public MessageReceiver {
     public:
-        virtual void didClose(Connection*) = 0;
-        virtual void didReceiveInvalidMessage(Connection*, StringReference messageReceiverName, StringReference messageName) = 0;
+        virtual void didClose(Connection&) = 0;
+        virtual void didReceiveInvalidMessage(Connection&, StringReference messageReceiverName, StringReference messageName) = 0;
+        virtual IPC::ProcessType localProcessType() = 0;
+        virtual IPC::ProcessType remoteProcessType() = 0;
 
     protected:
         virtual ~Client() { }
@@ -110,21 +110,22 @@ public:
         {
         }
 
-        Identifier(mach_port_t port, XPCPtr<xpc_connection_t> xpcConnection)
+        Identifier(mach_port_t port, OSObjectPtr<xpc_connection_t> xpcConnection)
             : port(port)
             , xpcConnection(WTF::move(xpcConnection))
         {
         }
 
         mach_port_t port;
-        XPCPtr<xpc_connection_t> xpcConnection;
+        OSObjectPtr<xpc_connection_t> xpcConnection;
     };
     static bool identifierIsNull(Identifier identifier) { return identifier.port == MACH_PORT_NULL; }
-    xpc_connection_t xpcConnection() { return m_xpcConnection.get(); }
+    xpc_connection_t xpcConnection() const { return m_xpcConnection.get(); }
     bool getAuditToken(audit_token_t&);
+    pid_t remoteProcessID() const;
 #elif USE(UNIX_DOMAIN_SOCKETS)
     typedef int Identifier;
-    static bool identifierIsNull(Identifier identifier) { return !identifier; }
+    static bool identifierIsNull(Identifier identifier) { return identifier == -1; }
 
     struct SocketPair {
         int client;
@@ -139,13 +140,13 @@ public:
     static Connection::SocketPair createPlatformConnection(unsigned options = SetCloexecOnClient | SetCloexecOnServer);
 #endif
 
-    static PassRefPtr<Connection> createServerConnection(Identifier, Client*, WTF::RunLoop& clientRunLoop);
-    static PassRefPtr<Connection> createClientConnection(Identifier, Client*, WTF::RunLoop& clientRunLoop);
+    static Ref<Connection> createServerConnection(Identifier, Client&);
+    static Ref<Connection> createClientConnection(Identifier, Client&);
     ~Connection();
 
     Client* client() const { return m_client; }
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
     void setShouldCloseConnectionOnMachExceptions();
 #endif
 
@@ -174,7 +175,7 @@ public:
     template<typename T> bool waitForAndDispatchImmediately(uint64_t destinationID, std::chrono::milliseconds timeout, unsigned waitForMessageFlags = 0);
 
     std::unique_ptr<MessageEncoder> createSyncMessageEncoder(StringReference messageReceiverName, StringReference messageName, uint64_t destinationID, uint64_t& syncRequestID);
-    bool sendMessage(std::unique_ptr<MessageEncoder>, unsigned messageSendFlags = 0);
+    bool sendMessage(std::unique_ptr<MessageEncoder>, unsigned messageSendFlags = 0, bool alreadyRecordedMessage = false);
     std::unique_ptr<MessageDecoder> sendSyncMessage(uint64_t syncRequestID, std::unique_ptr<MessageEncoder>, std::chrono::milliseconds timeout, unsigned syncSendFlags = 0);
     std::unique_ptr<MessageDecoder> sendSyncMessageFromSecondaryThread(uint64_t syncRequestID, std::unique_ptr<MessageEncoder>, std::chrono::milliseconds timeout);
     bool sendSyncReply(std::unique_ptr<MessageEncoder>);
@@ -193,12 +194,20 @@ public:
     void terminateSoon(double intervalInSeconds);
 #endif
 
+    bool isValid() const { return m_client; }
+
+#if HAVE(QOS_CLASSES)
+    void setShouldBoostMainThreadOnSyncMessage(bool b) { m_shouldBoostMainThreadOnSyncMessage = b; }
+#endif
+
+    uint64_t installIncomingSyncMessageCallback(std::function<void ()>);
+    void uninstallIncomingSyncMessageCallback(uint64_t);
+    bool hasIncomingSyncMessage();
+
 private:
-    Connection(Identifier, bool isServer, Client*, WTF::RunLoop& clientRunLoop);
+    Connection(Identifier, bool isServer, Client&);
     void platformInitialize(Identifier);
     void platformInvalidate();
-    
-    bool isValid() const { return m_client; }
     
     std::unique_ptr<MessageDecoder> waitForMessage(StringReference messageReceiverName, StringReference messageName, uint64_t destinationID, std::chrono::milliseconds timeout, unsigned waitForMessageFlags);
     
@@ -208,7 +217,7 @@ private:
     void processIncomingMessage(std::unique_ptr<MessageDecoder>);
     void processIncomingSyncReply(std::unique_ptr<MessageDecoder>);
 
-    void dispatchWorkQueueMessageReceiverMessage(WorkQueueMessageReceiver*, MessageDecoder*);
+    void dispatchWorkQueueMessageReceiverMessage(WorkQueueMessageReceiver&, MessageDecoder&);
 
     bool canSendOutgoingMessages() const;
     bool platformCanSendOutgoingMessages() const;
@@ -239,8 +248,7 @@ private:
     DidCloseOnConnectionWorkQueueCallback m_didCloseOnConnectionWorkQueueCallback;
 
     bool m_isConnected;
-    RefPtr<WorkQueue> m_connectionQueue;
-    WTF::RunLoop& m_clientRunLoop;
+    Ref<WorkQueue> m_connectionQueue;
 
     HashMap<StringReference, std::pair<RefPtr<WorkQueue>, RefPtr<WorkQueueMessageReceiver>>> m_workQueueMessageReceivers;
 
@@ -250,11 +258,11 @@ private:
     bool m_didReceiveInvalidMessage;
 
     // Incoming messages.
-    Mutex m_incomingMessagesLock;
+    std::mutex m_incomingMessagesMutex;
     Deque<std::unique_ptr<MessageDecoder>> m_incomingMessages;
 
     // Outgoing messages.
-    Mutex m_outgoingMessagesLock;
+    std::mutex m_outgoingMessagesMutex;
     Deque<std::unique_ptr<MessageEncoder>> m_outgoingMessages;
     
     std::condition_variable m_waitForMessageCondition;
@@ -289,7 +297,6 @@ private:
 
     class SyncMessageState;
     friend class SyncMessageState;
-    RefPtr<SyncMessageState> m_syncMessageState;
 
     Mutex m_syncReplyStateMutex;
     bool m_shouldWaitForSyncReplies;
@@ -298,6 +305,16 @@ private:
     class SecondaryThreadPendingSyncReply;
     typedef HashMap<uint64_t, SecondaryThreadPendingSyncReply*> SecondaryThreadPendingSyncReplyMap;
     SecondaryThreadPendingSyncReplyMap m_secondaryThreadPendingSyncReplyMap;
+
+    std::mutex m_incomingSyncMessageCallbackMutex;
+    HashMap<uint64_t, std::function<void ()>> m_incomingSyncMessageCallbacks;
+    RefPtr<WorkQueue> m_incomingSyncMessageCallbackQueue;
+    uint64_t m_nextIncomingSyncMessageCallbackID { 0 };
+
+#if HAVE(QOS_CLASSES)
+    pthread_t m_mainThread { 0 };
+    bool m_shouldBoostMainThreadOnSyncMessage { false };
+#endif
 
 #if OS(DARWIN)
     // Called on the connection queue.
@@ -310,7 +327,7 @@ private:
     mach_port_t m_receivePort;
     dispatch_source_t m_receivePortDataAvailableSource;
 
-#if !PLATFORM(IOS)
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
     void exceptionSourceEventHandler();
 
     // If setShouldCloseConnectionOnMachExceptions has been called, this has
@@ -319,7 +336,7 @@ private:
     dispatch_source_t m_exceptionPortDataAvailableSource;
 #endif
 
-    XPCPtr<xpc_connection_t> m_xpcConnection;
+    OSObjectPtr<xpc_connection_t> m_xpcConnection;
 
 #elif USE(UNIX_DOMAIN_SOCKETS)
     // Called on the connection queue.
@@ -370,7 +387,7 @@ template<typename T> bool Connection::waitForAndDispatchImmediately(uint64_t des
         return false;
 
     ASSERT(decoder->destinationID() == destinationID);
-    m_client->didReceiveMessage(this, *decoder);
+    m_client->didReceiveMessage(*this, *decoder);
     return true;
 }
 

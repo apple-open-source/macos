@@ -503,7 +503,18 @@ selectkeymap(char *name, int fb)
 mod_export void
 selectlocalmap(Keymap m)
 {
+    Keymap oldm = localkeymap;
     localkeymap = m;
+    if (oldm && !m)
+    {
+	/*
+	 * No local keymap; so we are returning to the global map.  If
+	 * the user ^Ced in the local map, they probably just want to go
+	 * back to normal editing.  So remove the interrupt error
+	 * status.
+	 */
+	errflag &= ~ERRFLAG_INT;
+    }
 }
 
 /* Reopen the currently selected keymap, in case it got deleted.  This *
@@ -1191,7 +1202,7 @@ init_keymaps(void)
 {
     createkeymapnamtab();
     default_bindings();
-    keybuf = (char *)zalloc(keybufsz);
+    keybuf = (char *)zshcalloc(keybufsz);
     lastnamed = refthingy(t_undefinedkey);
 }
 
@@ -1277,8 +1288,10 @@ default_bindings(void)
     Keymap vmap = newkeymap(NULL, "viins");
     Keymap emap = newkeymap(NULL, "emacs");
     Keymap amap = newkeymap(NULL, "vicmd");
+    Keymap oppmap = newkeymap(NULL, "viopp");
+    Keymap vismap = newkeymap(NULL, "visual");
     Keymap smap = newkeymap(NULL, ".safe");
-    Keymap vimaps[2], kptr;
+    Keymap vimaps[2], vilmaps[2], kptr;
     char buf[3], *ed;
     int i;
 
@@ -1332,6 +1345,36 @@ default_bindings(void)
 	add_cursor_key(kptr, TCLEFTCURSOR, t_vibackwardchar, 'D');
 	add_cursor_key(kptr, TCRIGHTCURSOR, t_viforwardchar, 'C');
     }
+    vilmaps[0] = oppmap;
+    vilmaps[1] = vismap;
+    for (i = 0; i < 2; i++) {
+	/* vi visual selection and operator pending local maps */
+	kptr = vilmaps[i];
+	add_cursor_key(kptr, TCUPCURSOR, t_upline, 'A');
+	add_cursor_key(kptr, TCDOWNCURSOR, t_downline, 'B');
+	bindkey(kptr, "k", refthingy(t_upline), NULL);
+	bindkey(kptr, "j", refthingy(t_downline), NULL);
+	bindkey(kptr, "aa", refthingy(t_selectashellword), NULL);
+	bindkey(kptr, "ia", refthingy(t_selectinshellword), NULL);
+	bindkey(kptr, "aw", refthingy(t_selectaword), NULL);
+	bindkey(kptr, "iw", refthingy(t_selectinword), NULL);
+	bindkey(kptr, "aW", refthingy(t_selectablankword), NULL);
+	bindkey(kptr, "iW", refthingy(t_selectinblankword), NULL);
+    }
+    /* escape in operator pending cancels the operation */
+    bindkey(oppmap, "\33", refthingy(t_vicmdmode), NULL);
+    bindkey(vismap, "o", refthingy(t_exchangepointandmark), NULL);
+    bindkey(vismap, "p", refthingy(t_putreplaceselection), NULL);
+    bindkey(vismap, "x", refthingy(t_videlete), NULL);
+    bindkey(vismap, "~", refthingy(t_vioperswapcase), NULL);
+
+    /* vi mode: some common vim bindings */
+    bindkey(amap, "ga", refthingy(t_whatcursorposition), NULL);
+    bindkey(amap, "ge", refthingy(t_vibackwardwordend), NULL);
+    bindkey(amap, "gE", refthingy(t_vibackwardblankwordend), NULL);
+    bindkey(amap, "gg", refthingy(t_beginningofbufferorhistory), NULL);
+    bindkey(amap, "g~", refthingy(t_vioperswapcase), NULL);
+    bindkey(amap, "g~~", NULL, "g~g~");
 
     /* emacs mode: arrow keys */ 
     add_cursor_key(emap, TCUPCURSOR, t_uplineorhistory, 'A');
@@ -1373,6 +1416,8 @@ default_bindings(void)
     linkkeymap(vmap, "viins", 0);
     linkkeymap(emap, "emacs", 0);
     linkkeymap(amap, "vicmd", 0);
+    linkkeymap(oppmap, "viopp", 0);
+    linkkeymap(vismap, "visual", 0);
     linkkeymap(smap, ".safe", 1);
     if (((ed = zgetenv("VISUAL")) && strstr(ed, "vi")) ||
 	((ed = zgetenv("EDITOR")) && strstr(ed, "vi")))
@@ -1408,6 +1453,7 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
     Thingy func = t_undefinedkey;
     char *str = NULL;
     int lastlen = 0, lastc = lastchar;
+    int timeout = 0;
 
     keybuflen = 0;
     keybuf[0] = 0;
@@ -1425,7 +1471,7 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
      * argument to bindkey is in the correct form for the locale.
      * That's beyond our control.
      */
-    while(getkeybuf(!!lastlen) != EOF) {
+    while(getkeybuf(timeout) != EOF) {
 	char *s;
 	Thingy f;
 	int loc = !!localkeymap;
@@ -1435,7 +1481,7 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
 	    loc = ((f = keybind(localkeymap, keybuf, &s)) != t_undefinedkey);
 	    ispfx = keyisprefix(localkeymap, keybuf);
 	}
-	if (!loc)
+	if (!loc && !ispfx)
 	    f = keybind(km, keybuf, &s);
 	ispfx |= keyisprefix(km, keybuf);
 
@@ -1444,6 +1490,11 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
 	    func = f;
 	    str = s;
 	    lastc = lastchar;
+
+	    /* can be patient with vi commands that need a motion operator: *
+	     * they wait till a key is pressed for the movement anyway      */
+	    timeout = !(!virangeflag && !region_active && f && f->widget &&
+		    f->widget->flags & ZLE_VIOPER);
 	}
 	if (!ispfx)
 	    break;

@@ -27,21 +27,12 @@
 
 #define CONSTSTR(str) (const char *)str
 
-#define L2TPVPN_CONNECTION_ESTABLISHED_DOMAIN                           CONSTSTR("com.apple.Networking.vpn.disconnect.l2tpipsec")
-#define PPTPVPN_CONNECTION_ESTABLISHED_DOMAIN                           CONSTSTR("com.apple.Networking.vpn.disconnect.pptp")
-#define CISCOVPN_CONNECTION_ESTABLISHED_DOMAIN                          CONSTSTR("com.apple.Networking.vpn.disconnect.ciscoipsec")
-#define PPPOEVPN_CONNECTION_ESTABLISHED_DOMAIN                          CONSTSTR("com.apple.Networking.vpn.disconnect.pppoe")
-#define PPPSERIALVPN_CONNECTION_ESTABLISHED_DOMAIN                      CONSTSTR("com.apple.Networking.vpn.disconnect.pppserial")
-#define PLAINPPPVPN_CONNECTION_ESTABLISHED_DOMAIN                       CONSTSTR("com.apple.Networking.vpn.disconnect.ppp")
-#define L2TPVPN_CONNECTION_NOTESTABLISHED_DOMAIN                        CONSTSTR("com.apple.Networking.vpn.connect.l2tpipsec")
-#define PPTPVPN_CONNECTION_NOTESTABLISHED_DOMAIN                        CONSTSTR("com.apple.Networking.vpn.connect.pptp")
-#define CISCOVPN_CONNECTION_NOTESTABLISHED_DOMAIN                       CONSTSTR("com.apple.Networking.vpn.connect.ciscoipsec")
-#define PPPOEVPN_CONNECTION_NOTESTABLISHED_DOMAIN                       CONSTSTR("com.apple.Networking.vpn.connect.pppoe")
-#define PPPSERIALVPN_CONNECTION_NOTESTABLISHED_DOMAIN                   CONSTSTR("com.apple.Networking.vpn.connect.pppserial")
-#define PLAINPPPVPN_CONNECTION_NOTESTABLISHED_DOMAIN                    CONSTSTR("com.apple.Networking.vpn.connect.ppp")
+#define PPP_CONNECTION_ESTABLISHED_DOMAIN									CONSTSTR("com.apple.Networking.ppp.disconnect")
+#define PPP_CONNECTION_NOTESTABLISHED_DOMAIN								CONSTSTR("com.apple.Networking.ppp.connect")
 
-#define IPSECASLDOMAIN                                                  CONSTSTR("com.apple.Networking.vpn.asl.ipsec")
-#define IPSECASLKEY                                                     CONSTSTR("IPSEC")
+#define PPPOENONVPN															CONSTSTR("pppoe")
+#define PPPSERIALNONVPN														CONSTSTR("pppserial")
+#define PLAINPPPNONVPN														CONSTSTR("ppp")
 
 extern void nelog(int level, const char *format, ...) __attribute__((format(__printf__, 2, 3)));
 #define IPSECLOGASLMSG(format, args...) nelog(LOG_NOTICE, format, ##args);

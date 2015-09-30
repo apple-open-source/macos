@@ -91,8 +91,8 @@ static Opcode16GroupInitializer opcode16BitGroupList[] = {
     OPCODE_GROUP_ENTRY(0xd, ARMv7DOpcodeLoadStoreRegisterImmediateWordAndByte),
     OPCODE_GROUP_ENTRY(0xe, ARMv7DOpcodeLoadStoreRegisterImmediateWordAndByte),
     OPCODE_GROUP_ENTRY(0xf, ARMv7DOpcodeLoadStoreRegisterImmediateWordAndByte),
-    OPCODE_GROUP_ENTRY(0x10, ARMv7DOpcodeLoadStoreRegisterImmediateHalfWord),
-    OPCODE_GROUP_ENTRY(0x11, ARMv7DOpcodeLoadStoreRegisterImmediateHalfWord),
+    OPCODE_GROUP_ENTRY(0x10, ARMv7DOpcodeStoreRegisterImmediateHalfWord),
+    OPCODE_GROUP_ENTRY(0x11, ARMv7DOpcodeLoadRegisterImmediateHalfWord),
     OPCODE_GROUP_ENTRY(0x12, ARMv7DOpcodeLoadStoreRegisterSPRelative),
     OPCODE_GROUP_ENTRY(0x13, ARMv7DOpcodeLoadStoreRegisterSPRelative),
     OPCODE_GROUP_ENTRY(0x14, ARMv7DOpcodeGeneratePCRelativeAddress),
@@ -113,11 +113,16 @@ static Opcode16GroupInitializer opcode16BitGroupList[] = {
 };
 
 static Opcode32GroupInitializer opcode32BitGroupList[] = {
+    OPCODE_GROUP_ENTRY(0x4, ARMv7DOpcodeDataPopMultiple),
+    OPCODE_GROUP_ENTRY(0x4, ARMv7DOpcodeDataPushMultiple),
     OPCODE_GROUP_ENTRY(0x5, ARMv7DOpcodeDataProcessingShiftedReg),
+    OPCODE_GROUP_ENTRY(0x6, ARMv7DOpcodeVLDR),
     OPCODE_GROUP_ENTRY(0x6, ARMv7DOpcodeVMOVSinglePrecision),
     OPCODE_GROUP_ENTRY(0x6, ARMv7DOpcodeVMOVDoublePrecision),
     OPCODE_GROUP_ENTRY(0x7, ARMv7DOpcodeFPTransfer),
     OPCODE_GROUP_ENTRY(0x7, ARMv7DOpcodeVMSR),
+    OPCODE_GROUP_ENTRY(0x7, ARMv7DOpcodeVCMP),
+    OPCODE_GROUP_ENTRY(0x7, ARMv7DOpcodeVCVTBetweenFPAndInt),
     OPCODE_GROUP_ENTRY(0x8, ARMv7DOpcodeDataProcessingModifiedImmediate),
     OPCODE_GROUP_ENTRY(0x8, ARMv7DOpcodeConditionalBranchT3),
     OPCODE_GROUP_ENTRY(0x8, ARMv7DOpcodeBranchOrBranchLink),
@@ -133,6 +138,8 @@ static Opcode32GroupInitializer opcode32BitGroupList[] = {
     OPCODE_GROUP_ENTRY(0xb, ARMv7DOpcodeBranchOrBranchLink),
     OPCODE_GROUP_ENTRY(0xc, ARMv7DOpcodeLoadRegister),
     OPCODE_GROUP_ENTRY(0xc, ARMv7DOpcodeDataPushPopSingle), // Should be before StoreSingle*
+    OPCODE_GROUP_ENTRY(0xc, ARMv7DOpcodeDataPopMultiple),
+    OPCODE_GROUP_ENTRY(0xc, ARMv7DOpcodeDataPushMultiple),
     OPCODE_GROUP_ENTRY(0xc, ARMv7DOpcodeStoreSingleRegister),
     OPCODE_GROUP_ENTRY(0xc, ARMv7DOpcodeStoreSingleImmediate12),
     OPCODE_GROUP_ENTRY(0xc, ARMv7DOpcodeStoreSingleImmediate8),
@@ -143,6 +150,9 @@ static Opcode32GroupInitializer opcode32BitGroupList[] = {
     OPCODE_GROUP_ENTRY(0xd, ARMv7DOpcodeDataProcessingRegExtend),
     OPCODE_GROUP_ENTRY(0xd, ARMv7DOpcodeDataProcessingRegParallel),
     OPCODE_GROUP_ENTRY(0xd, ARMv7DOpcodeDataProcessingRegMisc),
+    OPCODE_GROUP_ENTRY(0xe, ARMv7DOpcodeVLDR),
+    OPCODE_GROUP_ENTRY(0xf, ARMv7DOpcodeVCMP),
+    OPCODE_GROUP_ENTRY(0xf, ARMv7DOpcodeVCVTBetweenFPAndInt),
 };
 
 bool ARMv7DOpcode::s_initialized = false;
@@ -512,6 +522,25 @@ const char* ARMv7DOpcodeLoadStoreRegisterImmediate::format()
     appendCharacter(']');
 
     return m_formatBuffer;
+}
+
+unsigned ARMv7DOpcodeLoadStoreRegisterImmediate::scale()
+{
+    switch (op()) {
+    case 0:
+    case 1:
+        return 2;
+    case 2:
+    case 3:
+        return 0;
+    case 4:
+    case 5:
+        return 1;
+    default:
+        break;
+    }
+    ASSERT_NOT_REACHED();
+    return 0;
 }
 
 const char* const ARMv7DOpcodeLoadStoreRegisterOffsetT1::s_opNames[8] = {
@@ -1425,6 +1454,46 @@ const char* ARMv7DOpcodeDataPushPopSingle::format()
     return m_formatBuffer;
 }
 
+void ARMv7DOpcodeDataPushPopMultiple::appendRegisterList()
+{
+    unsigned registers = registerList();
+
+    appendCharacter('{');
+    bool needSeparator = false;
+
+    for (unsigned i = 0; i < 16; i++) {
+        if (registers & (1 << i)) {
+            if (needSeparator)
+                appendSeparator();
+            appendRegisterName(i);
+            needSeparator = true;
+        }
+    }
+    appendCharacter('}');
+}
+
+const char* ARMv7DOpcodeDataPopMultiple::format()
+{
+    if (condition() != 0xe)
+        bufferPrintf("   pop%-4.4s", conditionName(condition()));
+    else
+        appendInstructionName("pop");
+    appendRegisterList();
+
+    return m_formatBuffer;
+}
+
+const char* ARMv7DOpcodeDataPushMultiple::format()
+{
+    if (condition() != 0xe)
+        bufferPrintf("   push%-3.3s", conditionName(condition()));
+    else
+        appendInstructionName("push");
+    appendRegisterList();
+
+    return m_formatBuffer;
+}
+
 const char* ARMv7DOpcodeStoreSingleImmediate12::format()
 {
     appendInstructionName(opName());
@@ -1489,6 +1558,104 @@ const char* ARMv7DOpcodeStoreSingleRegister::format()
         appendString("lsl ");
         appendUnsignedImmediate(immediate2());
     }
+    appendCharacter(']');
+
+    return m_formatBuffer;
+}
+
+const char* ARMv7DOpcodeVCMP::format()
+{
+    bufferPrintf("   vcmp");
+
+    if (eBit())
+        appendCharacter('e'); // Raise exception on qNaN
+
+    if (condition() != 0xe)
+        appendString(conditionName(condition()));
+
+    appendCharacter('.');
+    appendString(szBit() ? "f64" : "f32");
+    appendCharacter(' ');
+    if (szBit()) {
+        appendFPRegisterName('d', (dBit() << 4) | vd());
+        appendSeparator();
+        appendFPRegisterName('d', (mBit() << 4) | vm());
+    } else {
+        appendFPRegisterName('s', (vd() << 1) | dBit());
+        appendSeparator();
+        appendFPRegisterName('s', (vm() << 1) | mBit());
+    }
+
+    return m_formatBuffer;
+}
+
+const char* ARMv7DOpcodeVCVTBetweenFPAndInt::format()
+{
+    bufferPrintf("   vcvt");
+    bool convertToInteger = op2() & 0x4;
+
+    if (convertToInteger) {
+        if (!op())
+            appendCharacter('r'); // Round using mode in FPSCR
+        if (condition() != 0xe)
+            appendString(conditionName(condition()));
+        appendCharacter('.');
+        appendCharacter((op2() & 1) ? 's' : 'u');
+        appendString("32.f");
+        appendString(szBit() ? "64" : "32");
+        appendCharacter(' ');
+        appendFPRegisterName('s', (vd() << 1) | dBit());
+        appendSeparator();
+        if (szBit())
+            appendFPRegisterName('d', (mBit() << 4) | vm());
+        else
+            appendFPRegisterName('s', (vm() << 1) | mBit());
+    } else {
+        if (condition() != 0xe)
+            appendString(conditionName(condition()));
+        appendCharacter('.');
+        appendString(szBit() ? "f64." : "f32.");
+        appendString(op() ? "s32" : "u32");
+        appendCharacter(' ');
+        if (szBit())
+            appendFPRegisterName('d', (dBit() << 4) | vd());
+        else
+            appendFPRegisterName('s', (vd() << 1) | dBit());
+        appendSeparator();
+        appendFPRegisterName('s', (vm() << 1) | mBit());
+    }
+
+    return m_formatBuffer;
+}
+
+const char* ARMv7DOpcodeVLDR::format()
+{
+    if (condition() != 0xe)
+        bufferPrintf("   vldr%-3.3s", conditionName(condition()));
+    else
+        appendInstructionName("vldr");
+
+    appendFPRegisterName(doubleReg() ? 'd' : 's', vd());
+    appendSeparator();
+
+    int immediate = immediate8() * 4;
+
+    if (!uBit())
+        immediate = -immediate;
+
+    appendCharacter('[');
+
+    if (rn() == RegPC)
+        appendPCRelativeOffset(immediate);
+    else {
+        appendRegisterName(rn());
+
+        if (immediate) {
+            appendSeparator();
+            appendSignedImmediate(immediate);
+        }
+    }
+
     appendCharacter(']');
 
     return m_formatBuffer;

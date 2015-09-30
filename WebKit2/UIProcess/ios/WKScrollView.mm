@@ -29,7 +29,7 @@
 #if PLATFORM(IOS)
 
 #import "WKWebViewInternal.h"
-#import <CoreGraphics/CGFloat.h>
+#import <WebCore/CoreGraphicsSPI.h>
 
 @interface UIScrollView (UIScrollViewInternalHack)
 - (CGFloat)_rubberBandOffsetForOffset:(CGFloat)newOffset maxOffset:(CGFloat)maxOffset minOffset:(CGFloat)minOffset range:(CGFloat)range outside:(BOOL *)outside;
@@ -111,6 +111,17 @@
     WKScrollViewDelegateForwarder *_delegateForwarder;
 }
 
+- (id)initWithFrame:(CGRect)frame
+{
+    if (self = [super initWithFrame:frame]) {
+        ASSERT([self verticalScrollDecelerationFactor] == [self horizontalScrollDecelerationFactor]);
+        // FIXME: use UIWebPreferredScrollDecelerationFactor() from UIKit: rdar://problem/18931007.
+        _preferredScrollDecelerationFactor = [self verticalScrollDecelerationFactor];
+    }
+    
+    return self;
+}
+
 - (void)setInternalDelegate:(WKWebView <UIScrollViewDelegate> *)internalDelegate
 {
     if (internalDelegate == _internalDelegate)
@@ -165,6 +176,11 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
     CGRect bounds = self.bounds;
 
     CGFloat minimalHorizontalRange = bounds.size.width - contentInsets.left - contentInsets.right;
+    CGFloat contentWidthAtMinimumScale = contentSize.width * (self.minimumZoomScale / self.zoomScale);
+    if (contentWidthAtMinimumScale < minimalHorizontalRange) {
+        CGFloat unobscuredEmptyHorizontalMarginAtMinimumScale = minimalHorizontalRange - contentWidthAtMinimumScale;
+        minimalHorizontalRange -= unobscuredEmptyHorizontalMarginAtMinimumScale;
+    }
     if (contentSize.width < minimalHorizontalRange) {
         if (valuesAreWithinOnePixel(minOffset, -contentInsets.left)
             && valuesAreWithinOnePixel(maxOffset, contentSize.width + contentInsets.right - bounds.size.width)
@@ -177,6 +193,11 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
     }
 
     CGFloat minimalVerticalRange = bounds.size.height - contentInsets.top - contentInsets.bottom;
+    CGFloat contentHeightAtMinimumScale = contentSize.height * (self.minimumZoomScale / self.zoomScale);
+    if (contentHeightAtMinimumScale < minimalVerticalRange) {
+        CGFloat unobscuredEmptyVerticalMarginAtMinimumScale = minimalVerticalRange - contentHeightAtMinimumScale;
+        minimalVerticalRange -= unobscuredEmptyVerticalMarginAtMinimumScale;
+    }
     if (contentSize.height < minimalVerticalRange) {
         if (valuesAreWithinOnePixel(minOffset, -contentInsets.top)
             && valuesAreWithinOnePixel(maxOffset, contentSize.height + contentInsets.bottom - bounds.size.height)

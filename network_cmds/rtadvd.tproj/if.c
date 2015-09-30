@@ -89,7 +89,7 @@ if_nametosdl(char *name)
 	size_t len;
 	struct if_msghdr *ifm;
 	struct sockaddr *sa, *rti_info[RTAX_MAX];
-	struct sockaddr_dl *sdl = NULL, *ret_sdl;
+	struct sockaddr_dl *sdl = NULL, *ret_sdl = NULL;
 
 	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0)
 		return(NULL);
@@ -126,7 +126,7 @@ if_nametosdl(char *name)
 		return(NULL);
 	}
 
-	if ((ret_sdl = malloc(sdl->sdl_len)) == NULL)
+	if (sdl == NULL || (ret_sdl = malloc(sdl->sdl_len)) == NULL)
 		goto end;
 	memcpy((caddr_t)ret_sdl, (caddr_t)sdl, sdl->sdl_len);
 

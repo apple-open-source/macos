@@ -29,20 +29,28 @@
 #include "Length.h"
 #include "LengthFunctions.h"
 #include "TransformOperation.h"
+#include <wtf/Ref.h>
 
 namespace WebCore {
 
 class PerspectiveTransformOperation final : public TransformOperation {
 public:
-    static PassRefPtr<PerspectiveTransformOperation> create(const Length& p)
+    static Ref<PerspectiveTransformOperation> create(const Length& p)
     {
-        return adoptRef(new PerspectiveTransformOperation(p));
+        return adoptRef(*new PerspectiveTransformOperation(p));
+    }
+
+    virtual Ref<TransformOperation> clone() const override
+    {
+        return adoptRef(*new PerspectiveTransformOperation(m_p));
     }
 
     Length perspective() const { return m_p; }
     
 private:
     virtual bool isIdentity() const override { return !floatValueForLength(m_p, 1); }
+    virtual bool isAffectedByTransformOrigin() const override { return !isIdentity(); }
+
     virtual OperationType type() const override { return PERSPECTIVE; }
     virtual bool isSameType(const TransformOperation& o) const override { return o.type() == PERSPECTIVE; }
 
@@ -54,7 +62,7 @@ private:
         return false;
     }
 
-    virtual PassRefPtr<TransformOperation> blend(const TransformOperation* from, double progress, bool blendToIdentity = false) override;
+    virtual Ref<TransformOperation> blend(const TransformOperation* from, double progress, bool blendToIdentity = false) override;
 
     PerspectiveTransformOperation(const Length& p)
         : m_p(p)
@@ -65,8 +73,8 @@ private:
     Length m_p;
 };
 
-TRANSFORMOPERATION_TYPE_CASTS(PerspectiveTransformOperation, type() == TransformOperation::PERSPECTIVE);
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_TRANSFORMOPERATION(WebCore::PerspectiveTransformOperation, type() == WebCore::TransformOperation::PERSPECTIVE)
 
 #endif // PerspectiveTransformOperation_h

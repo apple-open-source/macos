@@ -244,7 +244,7 @@ void XSSAuditor::init(Document* document, XSSAuditorDelegate* auditorDelegate)
     if (!m_isEnabled)
         return;
 
-    m_documentURL = document->url().copy();
+    m_documentURL = document->url().isolatedCopy();
 
     // In theory, the Document could have detached from the Frame after the
     // XSSAuditor was constructed.
@@ -300,7 +300,7 @@ void XSSAuditor::init(Document* document, XSSAuditorDelegate* auditorDelegate)
         m_xssProtection = combineXSSProtectionHeaderAndCSP(xssProtectionHeader, cspHeader);
         // FIXME: Combine the two report URLs in some reasonable way.
         if (auditorDelegate)
-            auditorDelegate->setReportURL(xssProtectionReportURL.copy());
+            auditorDelegate->setReportURL(xssProtectionReportURL.isolatedCopy());
         FormData* httpBody = documentLoader->originalRequest().httpBody();
         if (httpBody && !httpBody->isEmpty()) {
             httpBodyAsString = httpBody->flattenToString();
@@ -388,8 +388,9 @@ bool XSSAuditor::filterCharacterToken(const FilterTokenRequest& request)
 {
     ASSERT(m_scriptTagNestingLevel);
     if (isContainedInRequest(m_cachedDecodedSnippet) && isContainedInRequest(decodedSnippetForJavaScript(request))) {
-        request.token.eraseCharacters();
-        request.token.appendToCharacter(' '); // Technically, character tokens can't be empty.
+        request.token.clear();
+        LChar space = ' ';
+        request.token.appendToCharacter(space); // Technically, character tokens can't be empty.
         return true;
     }
     return false;
@@ -565,18 +566,18 @@ bool XSSAuditor::eraseAttributeIfInjected(const FilterTokenRequest& request, con
 String XSSAuditor::decodedSnippetForName(const FilterTokenRequest& request)
 {
     // Grab a fixed number of characters equal to the length of the token's name plus one (to account for the "<").
-    return fullyDecodeString(request.sourceTracker.sourceForToken(request.token), m_encoding).substring(0, request.token.name().size() + 1);
+    return fullyDecodeString(request.sourceTracker.source(request.token), m_encoding).substring(0, request.token.name().size() + 1);
 }
 
 String XSSAuditor::decodedSnippetForAttribute(const FilterTokenRequest& request, const HTMLToken::Attribute& attribute, AttributeKind treatment)
 {
-    // The range doesn't inlcude the character which terminates the value. So,
+    // The range doesn't include the character which terminates the value. So,
     // for an input of |name="value"|, the snippet is |name="value|. For an
     // unquoted input of |name=value |, the snippet is |name=value|.
     // FIXME: We should grab one character before the name also.
-    int start = attribute.nameRange.start - request.token.startIndex();
-    int end = attribute.valueRange.end - request.token.startIndex();
-    String decodedSnippet = fullyDecodeString(request.sourceTracker.sourceForToken(request.token).substring(start, end - start), m_encoding);
+    unsigned start = attribute.startOffset;
+    unsigned end = attribute.endOffset;
+    String decodedSnippet = fullyDecodeString(request.sourceTracker.source(request.token, start, end), m_encoding);
     decodedSnippet.truncate(kMaximumFragmentLengthTarget);
     if (treatment == SrcLikeAttribute) {
         int slashCount = 0;
@@ -618,7 +619,7 @@ String XSSAuditor::decodedSnippetForAttribute(const FilterTokenRequest& request,
         // !-- following a less-than sign. We stop instead on any ampersand
         // slash, or less-than sign.
         size_t position = 0;
-        if ((position = decodedSnippet.find("=")) != notFound
+        if ((position = decodedSnippet.find('=')) != notFound
             && (position = decodedSnippet.find(isNotHTMLSpace, position + 1)) != notFound
             && (position = decodedSnippet.find(isTerminatingCharacter, isHTMLQuote(decodedSnippet[position]) ? position + 1 : position)) != notFound) {
             decodedSnippet.truncate(position);
@@ -629,7 +630,7 @@ String XSSAuditor::decodedSnippetForAttribute(const FilterTokenRequest& request,
 
 String XSSAuditor::decodedSnippetForJavaScript(const FilterTokenRequest& request)
 {
-    String string = request.sourceTracker.sourceForToken(request.token);
+    String string = request.sourceTracker.source(request.token);
     size_t startPosition = 0;
     size_t endPosition = string.length();
     size_t foundPosition = notFound;
@@ -734,14 +735,6 @@ bool XSSAuditor::isLikelySafeResource(const String& url)
 
     URL resourceURL(m_documentURL, url);
     return (m_documentURL.host() == resourceURL.host() && resourceURL.query().isEmpty());
-}
-
-bool XSSAuditor::isSafeToSendToAnotherThread() const
-{
-    return m_documentURL.isSafeToSendToAnotherThread()
-        && m_decodedURL.isSafeToSendToAnotherThread()
-        && m_decodedHTTPBody.isSafeToSendToAnotherThread()
-        && m_cachedDecodedSnippet.isSafeToSendToAnotherThread();
 }
 
 } // namespace WebCore

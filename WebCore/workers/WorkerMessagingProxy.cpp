@@ -63,31 +63,26 @@ WorkerMessagingProxy::WorkerMessagingProxy(Worker* workerObject)
     , m_unconfirmedMessageCount(0)
     , m_workerThreadHadPendingActivity(false)
     , m_askedToTerminate(false)
-#if ENABLE(INSPECTOR)
-    , m_pageInspector(0)
-#endif
+    , m_pageInspector(nullptr)
 {
     ASSERT(m_workerObject);
-    ASSERT((m_scriptExecutionContext->isDocument() && isMainThread())
-           || (m_scriptExecutionContext->isWorkerGlobalScope() && currentThread() == toWorkerGlobalScope(*m_scriptExecutionContext).thread().threadID()));
+    ASSERT((is<Document>(*m_scriptExecutionContext) && isMainThread())
+        || (is<WorkerGlobalScope>(*m_scriptExecutionContext) && currentThread() == downcast<WorkerGlobalScope>(*m_scriptExecutionContext).thread().threadID()));
 }
 
 WorkerMessagingProxy::~WorkerMessagingProxy()
 {
     ASSERT(!m_workerObject);
-    ASSERT((m_scriptExecutionContext->isDocument() && isMainThread())
-           || (m_scriptExecutionContext->isWorkerGlobalScope() && currentThread() == toWorkerGlobalScope(*m_scriptExecutionContext).thread().threadID()));
+    ASSERT((is<Document>(*m_scriptExecutionContext) && isMainThread())
+        || (is<WorkerGlobalScope>(*m_scriptExecutionContext) && currentThread() == downcast<WorkerGlobalScope>(*m_scriptExecutionContext).thread().threadID()));
 }
 
 void WorkerMessagingProxy::startWorkerGlobalScope(const URL& scriptURL, const String& userAgent, const String& sourceCode, WorkerThreadStartMode startMode)
 {
     // FIXME: This need to be revisited when we support nested worker one day
-    ASSERT_WITH_SECURITY_IMPLICATION(m_scriptExecutionContext->isDocument());
-    Document* document = static_cast<Document*>(m_scriptExecutionContext.get());
-    GroupSettings* settings = 0;
-    if (document->page())
-        settings = &document->page()->group().groupSettings();
-    RefPtr<DedicatedWorkerThread> thread = DedicatedWorkerThread::create(scriptURL, userAgent, settings, sourceCode, *this, *this, startMode, document->contentSecurityPolicy()->deprecatedHeader(), document->contentSecurityPolicy()->deprecatedHeaderType(), document->topOrigin());
+    ASSERT(m_scriptExecutionContext);
+    Document& document = downcast<Document>(*m_scriptExecutionContext);
+    RefPtr<DedicatedWorkerThread> thread = DedicatedWorkerThread::create(scriptURL, userAgent, sourceCode, *this, *this, startMode, document.contentSecurityPolicy()->deprecatedHeader(), document.contentSecurityPolicy()->deprecatedHeaderType(), document.topOrigin());
     workerThreadCreated(thread);
     thread->start();
     InspectorInstrumentation::didStartWorkerGlobalScope(m_scriptExecutionContext.get(), this, scriptURL);
@@ -96,7 +91,7 @@ void WorkerMessagingProxy::startWorkerGlobalScope(const URL& scriptURL, const St
 void WorkerMessagingProxy::postMessageToWorkerObject(PassRefPtr<SerializedScriptValue> message, std::unique_ptr<MessagePortChannelArray> channels)
 {
     MessagePortChannelArray* channelsPtr = channels.release();
-    m_scriptExecutionContext->postTask([=] (ScriptExecutionContext& context) {
+    m_scriptExecutionContext->postTask([this, channelsPtr, message] (ScriptExecutionContext& context) {
         Worker* workerObject = this->workerObject();
         if (!workerObject || askedToTerminate())
             return;
@@ -112,7 +107,7 @@ void WorkerMessagingProxy::postMessageToWorkerGlobalScope(PassRefPtr<SerializedS
         return;
 
     MessagePortChannelArray* channelsPtr = channels.release();
-    ScriptExecutionContext::Task task([=] (ScriptExecutionContext& scriptContext) {
+    ScriptExecutionContext::Task task([channelsPtr, message] (ScriptExecutionContext& scriptContext) {
         ASSERT_WITH_SECURITY_IMPLICATION(scriptContext.isWorkerGlobalScope());
         DedicatedWorkerGlobalScope& context = static_cast<DedicatedWorkerGlobalScope&>(scriptContext);
         std::unique_ptr<MessagePortArray> ports = MessagePort::entanglePorts(scriptContext, std::unique_ptr<MessagePortChannelArray>(channelsPtr));
@@ -146,9 +141,9 @@ bool WorkerMessagingProxy::postTaskForModeToWorkerGlobalScope(ScriptExecutionCon
 
 void WorkerMessagingProxy::postExceptionToWorkerObject(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL)
 {
-    String errorMessageCopy = errorMessage.isolatedCopy();
-    String sourceURLCopy = sourceURL.isolatedCopy();
-    m_scriptExecutionContext->postTask([=] (ScriptExecutionContext& context) {
+    StringCapture capturedErrorMessage(errorMessage);
+    StringCapture capturedSourceURL(sourceURL);
+    m_scriptExecutionContext->postTask([this, capturedErrorMessage, capturedSourceURL, lineNumber, columnNumber] (ScriptExecutionContext& context) {
         Worker* workerObject = this->workerObject();
         if (!workerObject)
             return;
@@ -156,20 +151,20 @@ void WorkerMessagingProxy::postExceptionToWorkerObject(const String& errorMessag
         // We don't bother checking the askedToTerminate() flag here, because exceptions should *always* be reported even if the thread is terminated.
         // This is intentionally different than the behavior in MessageWorkerTask, because terminated workers no longer deliver messages (section 4.6 of the WebWorker spec), but they do report exceptions.
 
-        bool errorHandled = !workerObject->dispatchEvent(ErrorEvent::create(errorMessageCopy, sourceURLCopy, lineNumber, columnNumber));
+        bool errorHandled = !workerObject->dispatchEvent(ErrorEvent::create(capturedErrorMessage.string(), capturedSourceURL.string(), lineNumber, columnNumber));
         if (!errorHandled)
-            context.reportException(errorMessageCopy, lineNumber, columnNumber, sourceURLCopy, 0);
+            context.reportException(capturedErrorMessage.string(), lineNumber, columnNumber, capturedSourceURL.string(), 0);
     });
 }
 
 void WorkerMessagingProxy::postConsoleMessageToWorkerObject(MessageSource source, MessageLevel level, const String& message, int lineNumber, int columnNumber, const String& sourceURL)
 {
-    String messageCopy = message.isolatedCopy();
-    String sourceURLCopy = sourceURL.isolatedCopy();
-    m_scriptExecutionContext->postTask([=] (ScriptExecutionContext& context) {
+    StringCapture capturedMessage(message);
+    StringCapture capturedSourceURL(sourceURL);
+    m_scriptExecutionContext->postTask([this, source, level, capturedMessage, capturedSourceURL, lineNumber, columnNumber] (ScriptExecutionContext& context) {
         if (askedToTerminate())
             return;
-        context.addConsoleMessage(source, level, messageCopy, sourceURLCopy, lineNumber, columnNumber);
+        context.addConsoleMessage(source, level, capturedMessage.string(), capturedSourceURL.string(), lineNumber, columnNumber);
     });
 }
 
@@ -211,12 +206,11 @@ void WorkerMessagingProxy::notifyNetworkStateChange(bool isOnline)
     if (!m_workerThread)
         return;
 
-    m_workerThread->runLoop().postTask([=] (ScriptExecutionContext& context) {
-        toWorkerGlobalScope(&context)->dispatchEvent(Event::create(isOnline ? eventNames().onlineEvent : eventNames().offlineEvent, false, false));
+    m_workerThread->runLoop().postTask([isOnline] (ScriptExecutionContext& context) {
+        downcast<WorkerGlobalScope>(context).dispatchEvent(Event::create(isOnline ? eventNames().onlineEvent : eventNames().offlineEvent, false, false));
     });
 }
 
-#if ENABLE(INSPECTOR)
 void WorkerMessagingProxy::connectToInspector(WorkerGlobalScopeProxy::PageInspector* pageInspector)
 {
     if (m_askedToTerminate)
@@ -224,17 +218,17 @@ void WorkerMessagingProxy::connectToInspector(WorkerGlobalScopeProxy::PageInspec
     ASSERT(!m_pageInspector);
     m_pageInspector = pageInspector;
     m_workerThread->runLoop().postTaskForMode([] (ScriptExecutionContext& context) {
-        toWorkerGlobalScope(&context)->workerInspectorController().connectFrontend();
+        downcast<WorkerGlobalScope>(context).workerInspectorController().connectFrontend();
     }, WorkerDebuggerAgent::debuggerTaskMode);
 }
 
 void WorkerMessagingProxy::disconnectFromInspector()
 {
-    m_pageInspector = 0;
+    m_pageInspector = nullptr;
     if (m_askedToTerminate)
         return;
     m_workerThread->runLoop().postTaskForMode([] (ScriptExecutionContext& context) {
-        toWorkerGlobalScope(&context)->workerInspectorController().disconnectFrontend(Inspector::InspectorDisconnectReason::InspectorDestroyed);
+        downcast<WorkerGlobalScope>(context).workerInspectorController().disconnectFrontend(Inspector::DisconnectReason::InspectorDestroyed);
     }, WorkerDebuggerAgent::debuggerTaskMode);
 }
 
@@ -242,13 +236,12 @@ void WorkerMessagingProxy::sendMessageToInspector(const String& message)
 {
     if (m_askedToTerminate)
         return;
-    String messageCopy = message.isolatedCopy();
-    m_workerThread->runLoop().postTaskForMode([messageCopy] (ScriptExecutionContext& context) {
-        toWorkerGlobalScope(&context)->workerInspectorController().dispatchMessageFromFrontend(messageCopy);
+    StringCapture capturedMessage(message);
+    m_workerThread->runLoop().postTaskForMode([capturedMessage] (ScriptExecutionContext& context) {
+        downcast<WorkerGlobalScope>(context).workerInspectorController().dispatchMessageFromFrontend(capturedMessage.string());
     }, WorkerDebuggerAgent::debuggerTaskMode);
     WorkerDebuggerAgent::interruptAndDispatchInspectorCommands(m_workerThread.get());
 }
-#endif
 
 void WorkerMessagingProxy::workerGlobalScopeDestroyed()
 {
@@ -271,7 +264,7 @@ void WorkerMessagingProxy::workerGlobalScopeDestroyedInternal()
     // WorkerGlobalScopeDestroyedTask is always the last to be performed, so the proxy is not needed for communication
     // in either side any more. However, the Worker object may still exist, and it assumes that the proxy exists, too.
     m_askedToTerminate = true;
-    m_workerThread = 0;
+    m_workerThread = nullptr;
 
     InspectorInstrumentation::workerGlobalScopeTerminated(m_scriptExecutionContext.get(), this);
 
@@ -291,19 +284,18 @@ void WorkerMessagingProxy::terminateWorkerGlobalScope()
     InspectorInstrumentation::workerGlobalScopeTerminated(m_scriptExecutionContext.get(), this);
 }
 
-#if ENABLE(INSPECTOR)
 void WorkerMessagingProxy::postMessageToPageInspector(const String& message)
 {
-    String messageCopy = message.isolatedCopy();
-    m_scriptExecutionContext->postTask([=] (ScriptExecutionContext&) {
-        m_pageInspector->dispatchMessageFromWorker(messageCopy);
+    StringCapture capturedMessage(message);
+    m_scriptExecutionContext->postTask([this, capturedMessage] (ScriptExecutionContext&) {
+        if (m_pageInspector)
+            m_pageInspector->dispatchMessageFromWorker(capturedMessage.string());
     });
 }
-#endif
 
 void WorkerMessagingProxy::confirmMessageFromWorkerObject(bool hasPendingActivity)
 {
-    m_scriptExecutionContext->postTask([=] (ScriptExecutionContext&) {
+    m_scriptExecutionContext->postTask([this, hasPendingActivity] (ScriptExecutionContext&) {
         reportPendingActivityInternal(true, hasPendingActivity);
     });
     // Will execute reportPendingActivityInternal() on context's thread.
@@ -311,7 +303,7 @@ void WorkerMessagingProxy::confirmMessageFromWorkerObject(bool hasPendingActivit
 
 void WorkerMessagingProxy::reportPendingActivity(bool hasPendingActivity)
 {
-    m_scriptExecutionContext->postTask([=] (ScriptExecutionContext&) {
+    m_scriptExecutionContext->postTask([this, hasPendingActivity] (ScriptExecutionContext&) {
         reportPendingActivityInternal(false, hasPendingActivity);
     });
     // Will execute reportPendingActivityInternal() on context's thread.

@@ -33,7 +33,8 @@ WebInspector.ScriptTimelineDataGridNode = function(scriptTimelineRecord, baseSta
     this._rangeEndTime = typeof rangeEndTime === "number" ? rangeEndTime : Infinity;
 };
 
-WebInspector.Object.addConstructorFunctions(WebInspector.ScriptTimelineDataGridNode);
+// FIXME: Move to a WebInspector.Object subclass and we can remove this.
+WebInspector.Object.deprecatedAddConstructorFunctions(WebInspector.ScriptTimelineDataGridNode);
 
 WebInspector.ScriptTimelineDataGridNode.IconStyleClassName = "icon";
 
@@ -70,11 +71,20 @@ WebInspector.ScriptTimelineDataGridNode.prototype = {
 
     get data()
     {
-        var startTime = Math.max(this._rangeStartTime, this._record.startTime);
-        var duration = Math.min(this._record.startTime + this._record.duration, this._rangeEndTime) - startTime;
+        var startTime = this._record.startTime;
+        var duration = this._record.startTime + this._record.duration - startTime;
         var callFrameOrSourceCodeLocation = this._record.initiatorCallFrame || this._record.sourceCodeLocation;
 
-        return {eventType: this._record.eventType, startTime: startTime, selfTime: duration, totalTime: duration,
+        // COMPATIBILITY (iOS8): Profiles included per-call information and can be finely partitioned.
+        if (this._record.profile) {
+            var oneRootNode = this._record.profile.topDownRootNodes[0];
+            if (oneRootNode && oneRootNode.calls) {
+                startTime = Math.max(this._rangeStartTime, this._record.startTime);
+                duration = Math.min(this._record.startTime + this._record.duration, this._rangeEndTime) - startTime;
+            }
+        }
+
+        return {eventType: this._record.eventType, startTime, selfTime: duration, totalTime: duration,
             averageTime: duration, callCount: 1, location: callFrameOrSourceCodeLocation};
     },
 
@@ -88,7 +98,7 @@ WebInspector.ScriptTimelineDataGridNode.prototype = {
 
         this._rangeStartTime = startTime;
         this._rangeEndTime = endTime;
-        
+
         // If we have no duration the range does not matter.
         if (!this._record.duration)
             return;

@@ -45,6 +45,7 @@ public:
             , minimumScale(0)
             , maximumScale(0)
             , allowsUserScaling(false)
+            , allowsShrinkToFit(false)
             , widthIsSet(false)
             , heightIsSet(false)
             , initialScaleIsSet(false)
@@ -57,66 +58,68 @@ public:
         double minimumScale;
         double maximumScale;
         bool allowsUserScaling;
+        bool allowsShrinkToFit;
 
         bool widthIsSet;
         bool heightIsSet;
         bool initialScaleIsSet;
     };
 
-    ViewportConfiguration();
+    WEBCORE_EXPORT ViewportConfiguration();
 
     const Parameters& defaultConfiguration() const { return m_defaultConfiguration; }
-    void setDefaultConfiguration(const Parameters&);
+    WEBCORE_EXPORT void setDefaultConfiguration(const Parameters&);
 
     const IntSize& contentsSize() const { return m_contentSize; }
-    void setContentsSize(const IntSize&);
+    WEBCORE_EXPORT void setContentsSize(const IntSize&);
 
     const FloatSize& minimumLayoutSize() const { return m_minimumLayoutSize; }
-    void setMinimumLayoutSize(const FloatSize&);
-
-    const FloatSize& minimumLayoutSizeForMinimalUI() const { return m_minimumLayoutSizeForMinimalUI.isEmpty() ? m_minimumLayoutSize : m_minimumLayoutSizeForMinimalUI; }
-    void setMinimumLayoutSizeForMinimalUI(const FloatSize&);
-
-    const FloatSize& activeMinimumLayoutSizeInScrollViewCoordinates() const;
+    WEBCORE_EXPORT void setMinimumLayoutSize(const FloatSize&);
 
     const ViewportArguments& viewportArguments() const { return m_viewportArguments; }
-    void setViewportArguments(const ViewportArguments&);
+    WEBCORE_EXPORT void setViewportArguments(const ViewportArguments&);
 
-    void resetMinimalUI();
-    void didFinishDocumentLoad();
+    void setCanIgnoreScalingConstraints(bool canIgnoreScalingConstraints) { m_canIgnoreScalingConstraints = canIgnoreScalingConstraints; }
+    void setForceAlwaysUserScalable(bool forceAlwaysUserScalable) { m_forceAlwaysUserScalable = forceAlwaysUserScalable; }
 
-    IntSize layoutSize() const;
-    double initialScale() const;
-    double minimumScale() const;
+    WEBCORE_EXPORT IntSize layoutSize() const;
+    WEBCORE_EXPORT double initialScale() const;
+    WEBCORE_EXPORT double initialScaleIgnoringContentSize() const;
+    WEBCORE_EXPORT double minimumScale() const;
     double maximumScale() const { return m_configuration.maximumScale; }
-    bool allowsUserScaling() const { return m_configuration.allowsUserScaling; }
-    bool usesMinimalUI() const { return m_usesMinimalUI; }
+    WEBCORE_EXPORT bool allowsUserScaling() const;
+    bool allowsShrinkToFit() const;
 
-    static Parameters webpageParameters();
-    static Parameters textDocumentParameters();
-    static Parameters imageDocumentParameters();
-    static Parameters xhtmlMobileParameters();
-    static Parameters testingParameters();
+    WEBCORE_EXPORT static Parameters webpageParameters();
+    WEBCORE_EXPORT static Parameters textDocumentParameters();
+    WEBCORE_EXPORT static Parameters imageDocumentParameters();
+    WEBCORE_EXPORT static Parameters xhtmlMobileParameters();
+    WEBCORE_EXPORT static Parameters testingParameters();
     
 #ifndef NDEBUG
     WTF::CString description() const;
     void dump() const;
 #endif
-    
+
 private:
     void updateConfiguration();
+    double viewportArgumentsLength(double length) const;
+    double initialScaleFromSize(double width, double height, bool shouldIgnoreScalingConstraints) const;
     int layoutWidth() const;
     int layoutHeight() const;
+
+    bool shouldIgnoreScalingConstraints() const;
+    bool shouldIgnoreVerticalScalingConstraints() const;
+    bool shouldIgnoreHorizontalScalingConstraints() const;
 
     Parameters m_configuration;
     Parameters m_defaultConfiguration;
     IntSize m_contentSize;
     FloatSize m_minimumLayoutSize;
-    FloatSize m_minimumLayoutSizeForMinimalUI;
     ViewportArguments m_viewportArguments;
 
-    bool m_usesMinimalUI;
-    bool m_pageDidFinishDocumentLoad;
+    bool m_canIgnoreScalingConstraints;
+    bool m_forceAlwaysUserScalable;
 };
 
 } // namespace WebCore

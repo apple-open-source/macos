@@ -38,7 +38,7 @@ class SecItemResponseData;
 class SecItemShim : public IPC::Connection::WorkQueueMessageReceiver {
 WTF_MAKE_NONCOPYABLE(SecItemShim);
 public:
-    static SecItemShim& shared();
+    static SecItemShim& singleton();
 
     void initialize(ChildProcess*);
     void initializeConnection(IPC::Connection*);
@@ -47,11 +47,11 @@ private:
     SecItemShim();
 
     // IPC::Connection::WorkQueueMessageReceiver.
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
     void secItemResponse(uint64_t requestID, const SecItemResponseData&);
 
-    RefPtr<WorkQueue> m_queue;
+    Ref<WorkQueue> m_queue;
 };
 
 } // namespace WebKit

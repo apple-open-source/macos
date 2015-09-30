@@ -60,10 +60,7 @@ typedef void* DragDataRef;
 
 namespace WebCore {
 
-class Frame;
-class DocumentFragment;
 class URL;
-class Range;
 
 enum DragApplicationFlags {
     DragApplicationNone = 0,
@@ -82,10 +79,10 @@ public:
     enum FilenameConversionPolicy { DoNotConvertFilenames, ConvertFilenames };
 
     // clientPosition is taken to be the position of the drag event within the target window, with (0,0) at the top left
-    DragData(DragDataRef, const IntPoint& clientPosition, const IntPoint& globalPosition, DragOperation, DragApplicationFlags = DragApplicationNone);
-    DragData(const String& dragStorageName, const IntPoint& clientPosition, const IntPoint& globalPosition, DragOperation, DragApplicationFlags = DragApplicationNone);
+    WEBCORE_EXPORT DragData(DragDataRef, const IntPoint& clientPosition, const IntPoint& globalPosition, DragOperation, DragApplicationFlags = DragApplicationNone);
+    WEBCORE_EXPORT DragData(const String& dragStorageName, const IntPoint& clientPosition, const IntPoint& globalPosition, DragOperation, DragApplicationFlags = DragApplicationNone);
 #if PLATFORM(WIN)
-    DragData(const DragDataMap&, const IntPoint& clientPosition, const IntPoint& globalPosition, DragOperation sourceOperationMask, DragApplicationFlags = DragApplicationNone);
+    WEBCORE_EXPORT DragData(const DragDataMap&, const IntPoint& clientPosition, const IntPoint& globalPosition, DragOperation sourceOperationMask, DragApplicationFlags = DragApplicationNone);
     const DragDataMap& dragDataMap();
     void getDragFileDescriptorData(int& size, String& pathname);
     void getDragFileContentData(int size, void* dataBlob);
@@ -95,14 +92,13 @@ public:
     DragApplicationFlags flags() const { return m_applicationFlags; }
     DragDataRef platformData() const { return m_platformDragData; }
     DragOperation draggingSourceOperationMask() const { return m_draggingSourceOperationMask; }
-    bool containsURL(Frame*, FilenameConversionPolicy filenamePolicy = ConvertFilenames) const;
+    bool containsURL(FilenameConversionPolicy = ConvertFilenames) const;
     bool containsPlainText() const;
     bool containsCompatibleContent() const;
-    String asURL(Frame*, FilenameConversionPolicy filenamePolicy = ConvertFilenames, String* title = 0) const;
-    String asPlainText(Frame*) const;
+    String asURL(FilenameConversionPolicy = ConvertFilenames, String* title = nullptr) const;
+    String asPlainText() const;
     void asFilenames(Vector<String>&) const;
     Color asColor() const;
-    PassRefPtr<DocumentFragment> asFragment(Frame*, Range& context, bool allowPlainText, bool& chosePlainText) const;
     bool canSmartReplace() const;
     bool containsColor() const;
     bool containsFiles() const;

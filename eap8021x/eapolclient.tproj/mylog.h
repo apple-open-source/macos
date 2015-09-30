@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@
 enum {
     kLogFlagBasic 		= 0x00000001,
     kLogFlagConfig		= 0x00000002,
-    kLogFlagStatus		= 0x00000004,
+    kLogFlagStatusDetails	= 0x00000004,
     kLogFlagTunables		= 0x00000008,
     kLogFlagPacketDetails 	= 0x00000010,
     kLogFlagDisableInnerDetails	= 0x00001000, /* e.g. LogFlags 0xffffefff */
@@ -60,7 +60,7 @@ eapolclient_should_log(uint32_t flags);
 
 #define eapolclient_log(__flags, __format, ...)			\
     if (eapolclient_should_log(__flags))			\
-	EAPLog(LOG_DEBUG, CFSTR(__format), ## __VA_ARGS__)
+	EAPLog(LOG_INFO, CFSTR(__format), ## __VA_ARGS__)
 
 #endif /* _S_MYLOG_H */
 

@@ -22,7 +22,6 @@
 #
 
 if [ "$ACTION" = build ]; then exit 0; fi
-DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
 
 #
 # Symlink old header locations.

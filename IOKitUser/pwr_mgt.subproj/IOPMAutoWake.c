@@ -34,6 +34,7 @@
 
 #include <servers/bootstrap.h>
 #include <notify.h>
+#include <asl.h>
 
 enum {
     kIOPMMaxScheduledEntries = 1000
@@ -49,12 +50,11 @@ enum {
 
 // Forward decls
 
-static CFAbsoluteTime roundOffDate( 
-    CFAbsoluteTime time);
-static CFDictionaryRef _IOPMCreatePowerOnDictionary(
-    CFAbsoluteTime the_time, 
+static IOReturn _IOPMCreatePowerOnDictionary(
+    CFDateRef   the_time, 
     CFStringRef the_id, 
-    CFStringRef type);
+    CFStringRef type,
+    CFMutableDictionaryRef *d);
 static bool inputsValid(
     CFDateRef time_to_wake, 
     CFStringRef my_id, 
@@ -72,50 +72,48 @@ IOReturn IOPMSchedulePowerEvent(
 IOReturn IOPMCancelScheduledPowerEvent(
     CFDateRef time_to_wake, 
     CFStringRef my_id, 
-    CFStringRef wake_or_restart);    
+    CFStringRef wake_or_restart);
+IOReturn IOPMCancelAllScheduledPowerEvents( void );
 CFArrayRef IOPMCopyScheduledPowerEvents( void );
 
 static IOReturn doAMaintenanceWake(CFDateRef earliestRequest, int type);
 
-__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, CFTypeRef *objectOut);
+__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID,
+                                                CFTypeRef selectorData,  CFTypeRef *objectOut);
 
 
 IOReturn _pm_connect(mach_port_t *newConnection);
 IOReturn _pm_disconnect(mach_port_t connection);
 
-#define ROUND_SCHEDULE_TIME	(5.0)
-#define MIN_SCHEDULE_TIME	(5.0)
 
-static CFAbsoluteTime roundOffDate(CFAbsoluteTime time)
-{
-    // round time down to the closest multiple of ROUND_SCHEDULE_TIME seconds
-    // CFAbsoluteTimes are encoded as doubles
-    return (CFAbsoluteTime) (trunc(time / ((double) ROUND_SCHEDULE_TIME)) * ((double) ROUND_SCHEDULE_TIME)); 
-}
-
-static CFDictionaryRef 
+static IOReturn 
 _IOPMCreatePowerOnDictionary(
-    CFAbsoluteTime the_time, 
+    CFDateRef   the_time, 
     CFStringRef the_id, 
-    CFStringRef type)
+    CFStringRef type,
+    CFMutableDictionaryRef *dict)
 {
     CFMutableDictionaryRef          d;
-    CFDateRef                       the_date;
 
     // make sure my_id is valid or NULL
     the_id = isA_CFString(the_id);        
-    // round wakeup time to last ROUND_SCHEDULE_TIME second increment
-    the_time = roundOffDate(the_time);
-    // package AbsoluteTime as a date for CFType purposes
-    the_date = CFDateCreate(0, the_time);
-    d = CFDictionaryCreateMutable(0, 3, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if(!d) return NULL;
-    CFDictionaryAddValue(d, CFSTR(kIOPMPowerEventTimeKey), the_date);
     if(!the_id) the_id = CFSTR("");
+
+    if (!isA_CFDate(the_time)) {
+        asl_log(0,0,ASL_LEVEL_ERR, "_IOPMCreatePowerOnDictionary received invalid date\n");
+        return kIOReturnBadArgument;
+    }
+ 
+    d = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if(!d) return kIOReturnNoMemory;
+
+    CFDictionaryAddValue(d, CFSTR(kIOPMPowerEventTimeKey), the_time);
     CFDictionaryAddValue(d, CFSTR(kIOPMPowerEventAppNameKey), the_id);
     CFDictionaryAddValue(d, CFSTR(kIOPMPowerEventTypeKey), type);
-    CFRelease(the_date);
-    return d;
+
+    *dict = d;
+
+    return kIOReturnSuccess;
 }
 
 static bool 
@@ -356,12 +354,11 @@ IOReturn IOPMSchedulePowerEvent(
     CFStringRef my_id,
     CFStringRef type)
 {
-    CFDictionaryRef         package = 0;
     IOReturn                ret = kIOReturnError;
-    CFAbsoluteTime          abs_time_to_wake;
     CFDataRef               flatPackage = NULL;
     kern_return_t           rc = KERN_SUCCESS;
     mach_port_t       		pm_server = MACH_PORT_NULL;
+    CFMutableDictionaryRef  package = 0;
 
     //  verify inputs
     if(!inputsValid(time_to_wake, my_id, type))
@@ -430,20 +427,17 @@ IOReturn IOPMSchedulePowerEvent(
         goto exit;
     }
 
-    abs_time_to_wake = CFDateGetAbsoluteTime(time_to_wake);
-    if(abs_time_to_wake < (CFAbsoluteTimeGetCurrent() + MIN_SCHEDULE_TIME))
-    {
-        ret = kIOReturnNotReady;
-        goto exit;
-    }
-        
     if(kIOReturnSuccess != _pm_connect(&pm_server)) {
         ret = kIOReturnInternalError;
         goto exit;
     }
     
     // Package the event in a CFDictionary
-    package = _IOPMCreatePowerOnDictionary(abs_time_to_wake, my_id, type);
+    ret = _IOPMCreatePowerOnDictionary(time_to_wake, my_id, type, &package);
+    if (ret != kIOReturnSuccess) {
+        goto exit;
+    }
+
     flatPackage = CFPropertyListCreateData(0, package,
                           kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
     if ( !flatPackage ) {
@@ -452,7 +446,7 @@ IOReturn IOPMSchedulePowerEvent(
     }
 
     rc = io_pm_schedule_power_event(pm_server, (vm_offset_t)CFDataGetBytePtr(flatPackage), 
-                CFDataGetLength(flatPackage), 1, &ret);
+                CFDataGetLength(flatPackage), kIOPMScheduleEvent, &ret);
     if (rc != KERN_SUCCESS)
         ret = kIOReturnInternalError;
     
@@ -469,17 +463,94 @@ exit:
 }
 
 
+IOReturn IOPMRequestSysWake(CFDictionaryRef req)
+{
+    IOReturn                ret = kIOReturnSuccess;
+    mach_port_t             pm_server = MACH_PORT_NULL;
+    IOReturn                err = kIOReturnSuccess;
+    CFDateRef               date = NULL;
+    CFStringRef             desc = NULL;
+    CFNumberRef             leeway = NULL;
+    CFDataRef               flatPackage = NULL;
+    kern_return_t           kern_result = KERN_SUCCESS;
+    CFMutableDictionaryRef  package = 0;
+    CFBooleanRef            userVisible = kCFBooleanFalse;
+    
+    if(!isA_CFDictionary(req)) {
+        ret = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    date = CFDictionaryGetValue(req, CFSTR(kIOPMPowerEventTimeKey));
+    desc = CFDictionaryGetValue(req, CFSTR(kIOPMPowerEventAppNameKey));
+    leeway = CFDictionaryGetValue(req, CFSTR(kIOPMPowerEventLeewayKey));
+
+    if (!isA_CFDate(date) || !isA_CFString(desc)) {
+        ret = kIOReturnBadArgument;
+        goto exit;
+    }
+        
+    if ((leeway != NULL) && !isA_CFNumber(leeway)) {
+        ret = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    if (CFDictionaryGetValue(req, CFSTR(kIOPMPowerEventUserVisible)) == kCFBooleanTrue) {
+        userVisible = kCFBooleanTrue;
+    }
+
+    err = _pm_connect(&pm_server);
+    if(kIOReturnSuccess != err) {
+        ret = kIOReturnInternalError;
+        goto exit;
+    }
+
+    ret = _IOPMCreatePowerOnDictionary(date, desc, CFSTR(kIOPMAutoWake), &package);
+    if (ret != kIOReturnSuccess) {
+        goto exit;
+    }
+    if (leeway) {
+        CFDictionaryAddValue(package, CFSTR(kIOPMPowerEventLeewayKey), leeway);
+    }
+    CFDictionaryAddValue(package, CFSTR(kIOPMPowerEventUserVisible), userVisible);
+
+    flatPackage = CFPropertyListCreateData(0, package,
+                          kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
+    if ( !flatPackage ) {
+        ret = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    kern_result = io_pm_schedule_power_event(pm_server, 
+            (vm_offset_t)CFDataGetBytePtr(flatPackage), CFDataGetLength(flatPackage), 1, &ret);
+
+    if (kern_result != KERN_SUCCESS) {
+        ret = kIOReturnInternalError;
+        goto exit;
+    }
+
+
+exit:
+
+    if (pm_server != MACH_PORT_NULL)
+        _pm_disconnect(pm_server);
+    if(package) CFRelease(package);
+    if(flatPackage) CFRelease(flatPackage);
+    return ret;
+}
+
+
 IOReturn IOPMCancelScheduledPowerEvent(
     CFDateRef time_to_wake, 
     CFStringRef my_id, 
     CFStringRef wake_or_restart)
 {
-    CFDictionaryRef         package = 0;
     IOReturn                ret = kIOReturnSuccess;
     mach_port_t             pm_server = MACH_PORT_NULL;
-    kern_return_t           err = KERN_SUCCESS;
-    CFAbsoluteTime          abs_time_to_wake;
+    IOReturn                err = KERN_SUCCESS;
     CFDataRef               flatPackage = NULL;
+    kern_return_t           kern_result = KERN_SUCCESS;
+    CFMutableDictionaryRef  package = 0;
     
     if(!inputsValid(time_to_wake, my_id, wake_or_restart)) 
     {
@@ -493,8 +564,10 @@ IOReturn IOPMCancelScheduledPowerEvent(
         goto exit;
     }
 
-    abs_time_to_wake = CFDateGetAbsoluteTime(time_to_wake);
-    package = _IOPMCreatePowerOnDictionary(abs_time_to_wake, my_id, wake_or_restart);
+    ret = _IOPMCreatePowerOnDictionary(time_to_wake, my_id, wake_or_restart, &package);
+    if (ret != kIOReturnSuccess) {
+        goto exit;
+    }
     flatPackage = CFPropertyListCreateData(0, package,
                           kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
     if ( !flatPackage ) {
@@ -502,8 +575,13 @@ IOReturn IOPMCancelScheduledPowerEvent(
         goto exit;
     }
 
-    io_pm_schedule_power_event(pm_server, 
-            (vm_offset_t)CFDataGetBytePtr(flatPackage), CFDataGetLength(flatPackage), 0, &ret);
+    kern_result = io_pm_schedule_power_event(pm_server, 
+            (vm_offset_t)CFDataGetBytePtr(flatPackage), CFDataGetLength(flatPackage), kIOPMCancelScheduledEvent, &ret);
+
+    if (kern_result != KERN_SUCCESS) {
+        ret = kIOReturnInternalError;
+        goto exit;
+    }
 
 
 exit:
@@ -515,11 +593,31 @@ exit:
     return ret;
 }
 
+IOReturn IOPMCancelAllScheduledPowerEvents( void )
+{
+    IOReturn                ret = kIOReturnInternalError;
+    mach_port_t             pm_server = MACH_PORT_NULL;
+    kern_return_t           err = KERN_SUCCESS;
+    
+    err = _pm_connect(&pm_server);
+    if(kIOReturnSuccess != err) {
+        ret = kIOReturnInternalError;
+        goto exit;
+    }
+
+    io_pm_schedule_power_event(pm_server, NULL, NULL, kIOPMCancelAllScheduledEvents, &ret);
+exit:
+
+    if (pm_server != MACH_PORT_NULL)
+        _pm_disconnect(pm_server);
+    return ret;
+}
+
 CFArrayRef IOPMCopyScheduledPowerEvents(void)
 {
     CFMutableArrayRef           new_arr = NULL;
 
-    _copyPMServerObject(kIOPMPowerEventsMIGCopyScheduledEvents, 0, (CFTypeRef *)&new_arr);
+    _copyPMServerObject(kIOPMPowerEventsMIGCopyScheduledEvents, 0, NULL, (CFTypeRef *)&new_arr);
 
     return (CFArrayRef)new_arr;
 }

@@ -6,16 +6,21 @@
 //  Copyright (c) 2013 Apple, Inc. All rights reserved.
 //
 
-#import "HTTPTest.h"
-#import "SenTestCase+GSS.h"
+#import "XCTestCase+GSS.h"
 
 #import <Foundation/Foundation.h>
 #import <Foundation/NSURLCredential_Private.h>
+#if 0
 #import <CoreServices/CoreServices.h>
 #import <CoreServices/CoreServicesPriv.h>
+#endif
 
 #import "TestUsers.h"
 
+
+@interface HTTPTest : XCTestCase
+
+@end
 
 @interface HTTPTest ()
 @property (retain) dispatch_semaphore_t sema;
@@ -37,7 +42,7 @@
 
 - (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace
 {
-    [self STCOutput:@"canAuthenticateAgainstProtectionSpace: %@", [protectionSpace authenticationMethod]];
+    [self XCTOutput:@"canAuthenticateAgainstProtectionSpace: %@", [protectionSpace authenticationMethod]];
     if ([[protectionSpace authenticationMethod] isEqualToString:NSURLAuthenticationMethodNegotiate])
         return YES;
     
@@ -45,32 +50,32 @@
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
-    [self STCOutput:@"Connection didReceiveResponse! Response - %@", response];
+    [self XCTOutput:@"Connection didReceiveResponse! Response - %@", response];
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection {
     NSLog(@"Finished...");
     self.testPassed = YES;
-    [self STCOutput:@"data:\n\n%@\n", [[NSString alloc] initWithData:self.content encoding:NSUTF8StringEncoding]];
+    [self XCTOutput:@"data:\n\n%@\n", [[NSString alloc] initWithData:self.content encoding:NSUTF8StringEncoding]];
     self.content = NULL;
     dispatch_semaphore_signal(self.sema);
 }
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
-	[self STCOutput:@"didFailWithError: %@", error];
+	[self XCTOutput:@"didFailWithError: %@", error];
     dispatch_semaphore_signal(self.sema);
 }
 
 - (NSURLRequest *)connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse
 {
-	[self STCOutput:@"willSendRequest"];
+	[self XCTOutput:@"willSendRequest"];
 	return request;
 }
 
 - (BOOL)connectionShouldUseCredentialStorage:(NSURLConnection *)connection
 {
-	[self STCOutput:@"connectionShouldUseCredentialStorage"];
+	[self XCTOutput:@"connectionShouldUseCredentialStorage"];
 	return NO;
 }
 
@@ -79,7 +84,7 @@
 {
     NSURLProtectionSpace *protectionSpace = [challenge protectionSpace];
 	
-	[self STCOutput:@"didReceiveAuthenticationChallenge: %@ %@", [protectionSpace authenticationMethod], [protectionSpace host]];
+	[self XCTOutput:@"didReceiveAuthenticationChallenge: %@ %@", [protectionSpace authenticationMethod], [protectionSpace host]];
     
     NSString *serverPrincipal = [NSString stringWithFormat:@"HTTP/%@", [protectionSpace host]];
     
@@ -107,12 +112,16 @@
     self.testPassed = NO;
     self.content = [NSMutableData data];
     
-    [self STCDestroyCredential:GSS_C_NO_OID];
+    [self XTCDestroyCredential:GSS_C_NO_OID];
     
     self.client = @"ktestuser@QAD.APPLE.COM";
+
+    NSDictionary *options = @{
+        (id)kGSSICPassword : passwordKtestuserQAD
+    };
     
-    cred = [self STCAcquireCredential:self.client withPassword:passwordKtestuserQAD mech:GSS_KRB5_MECHANISM];
-    STAssertTrue(cred, @"Failed to acquire credential from ADS");
+    cred = [self XTCAcquireCredential:self.client withOptions:options mech:GSS_KRB5_MECHANISM];
+    XCTAssertTrue(cred, @"Failed to acquire credential from ADS");
     if (cred == NULL)
         return;
     
@@ -128,7 +137,7 @@
     
     dispatch_semaphore_wait(self.sema, dispatch_time(DISPATCH_TIME_NOW, 30ULL * NSEC_PER_SEC));
     
-    STAssertTrue(self.testPassed, @"http test didn't pass");
+    XCTAssertTrue(self.testPassed, @"http test didn't pass");
 }
 
 @end

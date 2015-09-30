@@ -24,6 +24,14 @@ error_code BAD_HDBENT_ENCODING,	"Invalid HDB entry encoding"
 error_code PA_CONTINUE_NEEDED,	"Need to continue preauth stepping"
 error_code PA_CANT_CONTINUE,	"Can't continue with this preauth"
 error_code NO_MORE_PA_MECHS,	"No more PA mechanisms available"
+error_code UNICODE_STRING,	"Failed parsing unicode string"
+
+index 32
+prefix HEIM_PFS
+error_code GROUP_INVALID,	"Server doesn't accept this PFS group"
+error_code CHECKSUM_WRONG,	"Peer sent invalid checksum of the PFS public key"
+error_code ENCTYPE_PRF_NOT_SUPPORTED,	"Encryption type have no support for PRF"
+
 
 index 64
 prefix HEIM_PKINIT
@@ -32,6 +40,15 @@ error_code NO_PRIVATE_KEY,	"Private key missing"
 error_code NO_VALID_CA,		"No valid certificate authority"
 error_code CERTIFICATE_INVALID,	"Certificate invalid"
 error_code PRIVATE_KEY_INVALID,	"Private key invalid"
+
+index 80
+prefix HEIM_PAC
+error_code INVALID_ENCTYPE,	"Enctype not supported in PAC"
+error_code CINFO_MISSING,	"Credential info missing from PAC"
+error_code VERSION,		"PAC have unsupported version"
+error_code MALFORMED,		"PAC is malformed"
+error_code NOT_VALID,		"PAC not valid"
+error_code TOO_MANY,		"PAC contains too many of something"
 
 index 128
 prefix HEIM_EAI
@@ -52,6 +69,11 @@ error_code SYSTEM,		"system error returned in errno"
 index 192
 prefix HEIM_NET
 error_code CONN_REFUSED,	"connection refused"
+
+index 224
+prefix HEIM_NDR
+error_code UNSUPPORTED_VERSION,	"NDR version not supported"
+error_code INVALID_LENGTH,	"NDR invalid length"
 
 end
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
 
 /*!
  * @enum       DADiskMountOptions
@@ -103,19 +106,11 @@ typedef UInt32 DADiskClaimOptions;
 /*!
  * @enum       DADiskOptions
  * @abstract   Options for DADiskGetOptions() and DADiskSetOptions().
- * @constant   kDADiskOptionEjectUponLogout       Deprecated.  Use DADiskEject() at logout instead.
- * @constant   kDADiskOptionMountAutomatic        Deprecated.  Use DADiskMountApprovalCallback() instead.
- * @constant   kDADiskOptionMountAutomaticNoDefer Deprecated.  Use DADiskMount() instead.
- * @constant   kDADiskOptionPrivate               Deprecated.  Use DADiskMountWithArguments() with "nobrowse" instead.
  */
 
 enum
 {
-    kDADiskOptionDefault                                                  = 0x00000000,
-    kDADiskOptionEjectUponLogout       CF_ENUM_DEPRECATED_MAC(10_3, 10_8) = 0x00000001,
-    kDADiskOptionMountAutomatic        CF_ENUM_DEPRECATED_MAC(10_3, 10_8) = 0x00000010,
-    kDADiskOptionMountAutomaticNoDefer CF_ENUM_DEPRECATED_MAC(10_3, 10_8) = 0x00000020,
-    kDADiskOptionPrivate               CF_ENUM_DEPRECATED_MAC(10_3, 10_8) = 0x00000100
+    kDADiskOptionDefault = 0x00000000
 };
 
 typedef UInt32 DADiskOptions;
@@ -177,7 +172,7 @@ extern CFArrayRef kDADiskDescriptionWatchVolumePath;
  * @param      context The user-defined context parameter given to the registration function.
  */
 
-typedef void ( *DADiskAppearedCallback )( DADiskRef disk, void * context );
+typedef void ( *DADiskAppearedCallback )( DADiskRef disk, void * __nullable context );
 
 /*!
  * @function   DARegisterDiskAppearedCallback
@@ -188,10 +183,10 @@ typedef void ( *DADiskAppearedCallback )( DADiskRef disk, void * context );
  * @param      context  The user-defined context parameter to pass to the callback function.
  */
 
-extern void DARegisterDiskAppearedCallback( DASessionRef           session,
-                                            CFDictionaryRef        match,
-                                            DADiskAppearedCallback callback,
-                                            void *                 context );
+extern void DARegisterDiskAppearedCallback( DASessionRef               session,
+                                            CFDictionaryRef __nullable match,
+                                            DADiskAppearedCallback     callback,
+                                            void * __nullable          context );
 
 /*!
  * @typedef    DADiskDescriptionChangedCallback
@@ -201,7 +196,7 @@ extern void DARegisterDiskAppearedCallback( DASessionRef           session,
  * @param      context The user-defined context parameter given to the registration function.
  */
 
-typedef void ( *DADiskDescriptionChangedCallback )( DADiskRef disk, CFArrayRef keys, void * context );
+typedef void ( *DADiskDescriptionChangedCallback )( DADiskRef disk, CFArrayRef keys, void * __nullable context );
 
 /*!
  * @function   DARegisterDiskDescriptionChangedCallback
@@ -214,10 +209,10 @@ typedef void ( *DADiskDescriptionChangedCallback )( DADiskRef disk, CFArrayRef k
  */
 
 extern void DARegisterDiskDescriptionChangedCallback( DASessionRef                     session,
-                                                      CFDictionaryRef                  match,
-                                                      CFArrayRef                       watch,
+                                                      CFDictionaryRef __nullable       match,
+                                                      CFArrayRef __nullable            watch,
                                                       DADiskDescriptionChangedCallback callback,
-                                                      void *                           context );
+                                                      void * __nullable                context );
 
 /*!
  * @typedef    DADiskDisappearedCallback
@@ -226,7 +221,7 @@ extern void DARegisterDiskDescriptionChangedCallback( DASessionRef              
  * @param      context The user-defined context parameter given to the registration function.
  */
 
-typedef void ( *DADiskDisappearedCallback )( DADiskRef disk, void * context );
+typedef void ( *DADiskDisappearedCallback )( DADiskRef disk, void * __nullable context );
 
 /*!
  * @function   DARegisterDiskDisappearedCallback
@@ -237,10 +232,10 @@ typedef void ( *DADiskDisappearedCallback )( DADiskRef disk, void * context );
  * @param      context  The user-defined context parameter to pass to the callback function.
  */
 
-extern void DARegisterDiskDisappearedCallback( DASessionRef              session,
-                                               CFDictionaryRef           match,
-                                               DADiskDisappearedCallback callback,
-                                               void *                    context );
+extern void DARegisterDiskDisappearedCallback( DASessionRef               session,
+                                               CFDictionaryRef __nullable match,
+                                               DADiskDisappearedCallback  callback,
+                                               void * __nullable          context );
 
 /*!
  * @typedef    DADiskMountCallback
@@ -250,7 +245,7 @@ extern void DARegisterDiskDisappearedCallback( DASessionRef              session
  * @param      context   The user-defined context parameter given to the mount function.
  */
 
-typedef void ( *DADiskMountCallback )( DADiskRef disk, DADissenterRef dissenter, void * context );
+typedef void ( *DADiskMountCallback )( DADiskRef disk, DADissenterRef __nullable dissenter, void * __nullable context );
 
 /*!
  * @function   DADiskMount
@@ -262,11 +257,11 @@ typedef void ( *DADiskMountCallback )( DADiskRef disk, DADissenterRef dissenter,
  * @param      context  The user-defined context parameter to pass to the callback function.
  */
 
-extern void DADiskMount( DADiskRef           disk,
-                         CFURLRef            path,
-                         DADiskMountOptions  options,
-                         DADiskMountCallback callback,
-                         void *              context );
+extern void DADiskMount( DADiskRef                      disk,
+                         CFURLRef __nullable            path,
+                         DADiskMountOptions             options,
+                         DADiskMountCallback __nullable callback,
+                         void * __nullable              context );
 
 /*!
  * @function   DADiskMountWithArguments
@@ -279,12 +274,12 @@ extern void DADiskMount( DADiskRef           disk,
  * @param      arguments The null-terminated list of mount options to pass to /sbin/mount -o.
  */
 
-extern void DADiskMountWithArguments( DADiskRef           disk,
-                                      CFURLRef            path,
-                                      DADiskMountOptions  options,
-                                      DADiskMountCallback callback,
-                                      void *              context,
-                                      CFStringRef         arguments[] );
+extern void DADiskMountWithArguments( DADiskRef                      disk,
+                                      CFURLRef __nullable            path,
+                                      DADiskMountOptions             options,
+                                      DADiskMountCallback __nullable callback,
+                                      void * __nullable              context,
+                                      CFStringRef                    arguments[] );
 
 /*!
  * @typedef    DADiskMountApprovalCallback
@@ -298,7 +293,7 @@ extern void DADiskMountWithArguments( DADiskRef           disk,
  * with CFRelease().
  */
 
-typedef DADissenterRef ( *DADiskMountApprovalCallback )( DADiskRef disk, void * context );
+typedef DADissenterRef __nullable ( *DADiskMountApprovalCallback )( DADiskRef disk, void * __nullable context );
 
 /*!
  * @function   DARegisterDiskMountApprovalCallback
@@ -310,9 +305,9 @@ typedef DADissenterRef ( *DADiskMountApprovalCallback )( DADiskRef disk, void * 
  */
 
 extern void DARegisterDiskMountApprovalCallback( DASessionRef                session,
-                                                 CFDictionaryRef             match,
+                                                 CFDictionaryRef __nullable  match,
                                                  DADiskMountApprovalCallback callback,
-                                                 void *                      context );
+                                                 void * __nullable           context );
 
 /*!
  * @typedef    DADiskRenameCallback
@@ -322,7 +317,7 @@ extern void DARegisterDiskMountApprovalCallback( DASessionRef                ses
  * @param      context   The user-defined context parameter given to the rename function.
  */
 
-typedef void ( *DADiskRenameCallback )( DADiskRef disk, DADissenterRef dissenter, void * context );
+typedef void ( *DADiskRenameCallback )( DADiskRef disk, DADissenterRef __nullable dissenter, void * __nullable context );
 
 /*!
  * @function   DADiskRename
@@ -333,11 +328,11 @@ typedef void ( *DADiskRenameCallback )( DADiskRef disk, DADissenterRef dissenter
  * @param      context  The user-defined context parameter to pass to the callback function.
  */
 
-extern void DADiskRename( DADiskRef            disk,
-                          CFStringRef          name,
-                          DADiskRenameOptions  options,
-                          DADiskRenameCallback callback,
-                          void *               context );
+extern void DADiskRename( DADiskRef                       disk,
+                          CFStringRef                     name,
+                          DADiskRenameOptions             options,
+                          DADiskRenameCallback __nullable callback,
+                          void * __nullable               context );
 
 /*!
  * @typedef    DADiskUnmountCallback
@@ -347,7 +342,7 @@ extern void DADiskRename( DADiskRef            disk,
  * @param      context   The user-defined context parameter given to the unmount function.
  */
 
-typedef void ( *DADiskUnmountCallback )( DADiskRef disk, DADissenterRef dissenter, void * context );
+typedef void ( *DADiskUnmountCallback )( DADiskRef disk, DADissenterRef __nullable dissenter, void * __nullable context );
 
 /*!
  * @function   DADiskUnmount
@@ -358,10 +353,10 @@ typedef void ( *DADiskUnmountCallback )( DADiskRef disk, DADissenterRef dissente
  * @param      context  The user-defined context parameter to pass to the callback function.
  */
 
-extern void DADiskUnmount( DADiskRef             disk,
-                           DADiskUnmountOptions  options,
-                           DADiskUnmountCallback callback,
-                           void *                context );
+extern void DADiskUnmount( DADiskRef                        disk,
+                           DADiskUnmountOptions             options,
+                           DADiskUnmountCallback __nullable callback,
+                           void * __nullable                context );
 
 /*!
  * @typedef    DADiskUnmountApprovalCallback
@@ -375,7 +370,7 @@ extern void DADiskUnmount( DADiskRef             disk,
  * with CFRelease().
  */
 
-typedef DADissenterRef ( *DADiskUnmountApprovalCallback )( DADiskRef disk, void * context );
+typedef DADissenterRef __nullable ( *DADiskUnmountApprovalCallback )( DADiskRef disk, void * __nullable context );
 
 /*!
  * @function   DARegisterDiskUnmountApprovalCallback
@@ -387,9 +382,9 @@ typedef DADissenterRef ( *DADiskUnmountApprovalCallback )( DADiskRef disk, void 
  */
 
 extern void DARegisterDiskUnmountApprovalCallback( DASessionRef                  session,
-                                                   CFDictionaryRef               match,
+                                                   CFDictionaryRef __nullable    match,
                                                    DADiskUnmountApprovalCallback callback,
-                                                   void *                        context );
+                                                   void * __nullable             context );
 
 /*!
  * @typedef    DADiskEjectCallback
@@ -399,7 +394,7 @@ extern void DARegisterDiskUnmountApprovalCallback( DASessionRef                 
  * @param      context   The user-defined context parameter given to the eject function.
  */
 
-typedef void ( *DADiskEjectCallback )( DADiskRef disk, DADissenterRef dissenter, void * context );
+typedef void ( *DADiskEjectCallback )( DADiskRef disk, DADissenterRef __nullable dissenter, void * __nullable context );
 
 /*!
  * @function   DADiskEject
@@ -410,10 +405,10 @@ typedef void ( *DADiskEjectCallback )( DADiskRef disk, DADissenterRef dissenter,
  * @param      context  The user-defined context parameter to pass to the callback function.
  */
 
-extern void DADiskEject( DADiskRef           disk,
-                         DADiskEjectOptions  options,
-                         DADiskEjectCallback callback,
-                         void *              context );
+extern void DADiskEject( DADiskRef                      disk,
+                         DADiskEjectOptions             options,
+                         DADiskEjectCallback __nullable callback,
+                         void * __nullable              context );
 
 /*!
  * @typedef    DADiskEjectApprovalCallback
@@ -427,7 +422,7 @@ extern void DADiskEject( DADiskRef           disk,
  * with CFRelease().
  */
 
-typedef DADissenterRef ( *DADiskEjectApprovalCallback )( DADiskRef disk, void * context );
+typedef DADissenterRef __nullable ( *DADiskEjectApprovalCallback )( DADiskRef disk, void * __nullable context );
 
 /*!
  * @function   DARegisterDiskEjectApprovalCallback
@@ -439,9 +434,9 @@ typedef DADissenterRef ( *DADiskEjectApprovalCallback )( DADiskRef disk, void * 
  */
 
 extern void DARegisterDiskEjectApprovalCallback( DASessionRef                session,
-                                                 CFDictionaryRef             match,
+                                                 CFDictionaryRef __nullable  match,
                                                  DADiskEjectApprovalCallback callback,
-                                                 void *                      context );
+                                                 void * __nullable           context );
 
 /*!
  * @typedef    DADiskClaimCallback
@@ -451,7 +446,7 @@ extern void DARegisterDiskEjectApprovalCallback( DASessionRef                ses
  * @param      context   The user-defined context parameter given to the claim function.
  */
 
-typedef void ( *DADiskClaimCallback )( DADiskRef disk, DADissenterRef dissenter, void * context );
+typedef void ( *DADiskClaimCallback )( DADiskRef disk, DADissenterRef __nullable dissenter, void * __nullable context );
 
 /*!
  * @typedef    DADiskClaimReleaseCallback
@@ -465,7 +460,7 @@ typedef void ( *DADiskClaimCallback )( DADiskRef disk, DADissenterRef dissenter,
  * with CFRelease().
  */
 
-typedef DADissenterRef ( *DADiskClaimReleaseCallback )( DADiskRef disk, void * context );
+typedef DADissenterRef __nullable ( *DADiskClaimReleaseCallback )( DADiskRef disk, void * __nullable context );
 
 /*!
  * @function   DADiskClaim
@@ -478,12 +473,12 @@ typedef DADissenterRef ( *DADiskClaimReleaseCallback )( DADiskRef disk, void * c
  * @param      callbackContext The user-defined context parameter to pass to the callback function.
  */
 
-extern void DADiskClaim( DADiskRef                  disk,
-                         DADiskClaimOptions         options,
-                         DADiskClaimReleaseCallback release,
-                         void *                     releaseContext,
-                         DADiskClaimCallback        callback,
-                         void *                     callbackContext );
+extern void DADiskClaim( DADiskRef                             disk,
+                         DADiskClaimOptions                    options,
+                         DADiskClaimReleaseCallback __nullable release,
+                         void * __nullable                     releaseContext,
+                         DADiskClaimCallback __nullable        callback,
+                         void * __nullable                     callbackContext );
 
 /*!
  * @function   DADiskIsClaimed
@@ -513,7 +508,7 @@ extern void DADiskUnclaim( DADiskRef disk );
  * could be used here to set up options on the disk object.
  */
 
-typedef void ( *DADiskPeekCallback )( DADiskRef disk, void * context );
+typedef void ( *DADiskPeekCallback )( DADiskRef disk, void * __nullable context );
 
 /*!
  * @function   DARegisterDiskPeekCallback
@@ -525,11 +520,11 @@ typedef void ( *DADiskPeekCallback )( DADiskRef disk, void * context );
  * @param      context  The user-defined context parameter to pass to the callback function.
  */
 
-extern void DARegisterDiskPeekCallback( DASessionRef        session,
-                                        CFDictionaryRef     match,
-                                        CFIndex             order,
-                                        DADiskPeekCallback  callback,
-                                        void *              context );
+extern void DARegisterDiskPeekCallback( DASessionRef               session,
+                                        CFDictionaryRef __nullable match,
+                                        CFIndex                    order,
+                                        DADiskPeekCallback         callback,
+                                        void * __nullable          context );
 
 /*!
  * @function   DADiskGetOptions
@@ -559,9 +554,9 @@ extern DAReturn DADiskSetOptions( DADiskRef disk, DADiskOptions options, Boolean
  * @param      context  The user-defined context parameter.
  */
 
-extern void DAUnregisterCallback( DASessionRef session, void * callback, void * context );
+extern void DAUnregisterCallback( DASessionRef session, void * callback, void * __nullable context );
 
-/*!
+/*
  * @function   DAUnregisterApprovalCallback
  * @abstract   Unregisters a registered callback function.
  * @param      session  The session object.
@@ -569,9 +564,12 @@ extern void DAUnregisterCallback( DASessionRef session, void * callback, void * 
  * @param      context  The user-defined context parameter.
  */
 
-extern void DAUnregisterApprovalCallback( DASessionRef session, void * callback, void * context );
+extern void DAUnregisterApprovalCallback( DASessionRef session, void * callback, void * __nullable context ) CF_SWIFT_UNAVAILABLE( "Use DAUnregisterCallback instead" );
 
 #endif /* !__DISKARBITRATIOND__ */
+
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
 
 #ifdef __cplusplus
 }

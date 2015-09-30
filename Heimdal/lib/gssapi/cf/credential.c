@@ -60,26 +60,39 @@
  *
  * attributes must contains one of the following keys
  * * kGSSICPassword - CFStringRef password
- * * kGSSICCertificate - SecIdentityRef to the certificate to use with PKINIT/PKU2U
+ * * kGSSICCertificate - SecIdentityRef, SecCertificate, or CFDataRef[data of a Keychain Persistent Reference] to the certificate to use with PKINIT/PKU2U
  *
  * optional keys
  * * kGSSCredentialUsage - one of kGSS_C_INITIATE, kGSS_C_ACCEPT, kGSS_C_BOTH, default if not given is kGSS_C_INITIATE
  * * kGSSICVerifyCredential - validate the credential with a trusted source that there was no MITM
  * * kGSSICLKDCHostname - CFStringRef hostname of LKDC hostname
  * * kGSSICKerberosCacheName - CFStringRef name of cache that will be created (including type)
+ * * kGSSICSiteName - CFStringRef name of site (you are authenticating too) used for load balancing in DNS in Kerberos)
  * * kGSSICAppIdentifierACL - CFArrayRef[CFStringRef] prefix of bundle ID allowed to access this credential
+ * * kGSSICCreateNewCredential - CFBooleanRef if set caller wants to create a new credential and not overwrite a credential with the same name
  *
+ * * kGSSICAppleSourceApp - CFDictionaryRef application we are performing this on behalf of (only applies to AppVPN)
+ *
+ * Keys for kGSSICAppleSourceApp dictionary:
+ *
+ * - kGSSICAppleSourceAppAuditToken - audit token of process this is
+ *  		preformed on behalf of, the audit_token_t is wrapped
+ *  		in a CFDataRef.
+ * - kGSSICAppleSourceAppPID - PID in a CFNumberRef of process this is
+ *              preformed on behalf of
+ * - kGSSICAppleSourceAppUUID - UUID of the application
+ * - kGSSICAppleSourceAppSigningIdentity - bundle/signing identity of the application
  *
  *	  
  * @ingroup gssapi
  */
 
 OM_uint32 GSSAPI_LIB_FUNCTION
-gss_aapl_initial_cred(const gss_name_t desired_name,
-		      gss_const_OID desired_mech,
-		      CFDictionaryRef attributes,
-		      gss_cred_id_t * output_cred_handle,
-		      CFErrorRef *error)
+gss_aapl_initial_cred(__nonnull const gss_name_t desired_name,
+		      __nonnull gss_const_OID desired_mech,
+		      __nullable CFDictionaryRef attributes,
+		      __nonnull gss_cred_id_t * __nullable output_cred_handle,
+		      __nullable CFErrorRef *__nullable error)
 {
     OM_uint32 major_status, minor_status;
     gss_buffer_desc credential;
@@ -179,24 +192,6 @@ gss_aapl_initial_cred(const gss_name_t desired_name,
 	return major_status;
     }
     
-    /**
-     * The credential can be validated by adding kGSSICVerifyCredential to the attributes with any value.
-     */
-
-    if (CFDictionaryGetValue(attributes, kGSSICVerifyCredential)) {
-	gss_buffer_set_t bufferset = GSS_C_NO_BUFFER_SET;
-
-	major_status = gss_inquire_cred_by_oid(&minor_status, *output_cred_handle,
-					       GSS_C_CRED_VALIDATE, &bufferset);
-	if (major_status == GSS_S_COMPLETE)
-	    gss_release_buffer_set(&minor_status, &bufferset);
-	else {
-	    if (error)
-		*error = _gss_mg_create_cferror(major_status, minor_status, desired_mech);
-	    gss_destroy_cred(&minor_status, output_cred_handle);
-	}
-    }
-
     return major_status;
 }
 
@@ -216,10 +211,10 @@ gss_aapl_initial_cred(const gss_name_t desired_name,
  */
 
 OM_uint32 GSSAPI_LIB_FUNCTION
-gss_aapl_change_password(const gss_name_t name,
-			 gss_const_OID mech,
-			 CFDictionaryRef attributes,
-			 CFErrorRef *error)
+gss_aapl_change_password(__nonnull const gss_name_t name,
+			 __nonnull gss_const_OID mech,
+			 __nonnull CFDictionaryRef attributes,
+			 __nullable CFErrorRef *__nullable error)
 {
     struct _gss_mechanism_name *mn = NULL;
     char *oldpw = NULL, *newpw = NULL;
@@ -295,8 +290,8 @@ gss_aapl_change_password(const gss_name_t name,
  * @ingroup gssapi
  */
 
-CFUUIDRef
-GSSCredentialCopyUUID(gss_cred_id_t credential)
+__nullable CFUUIDRef
+GSSCredentialCopyUUID(gss_cred_id_t __nonnull credential)
 {
     OM_uint32 major, minor;
     gss_buffer_set_t dataset = GSS_C_NO_BUFFER_SET;
@@ -336,8 +331,8 @@ GSSCredentialCopyUUID(gss_cred_id_t credential)
  * @ingroup gssapi
  */
 
-gss_cred_id_t GSSAPI_LIB_FUNCTION
-GSSCreateCredentialFromUUID(CFUUIDRef uuid)
+__nullable gss_cred_id_t GSSAPI_LIB_FUNCTION
+GSSCreateCredentialFromUUID(__nonnull CFUUIDRef uuid)
 {
     OM_uint32 min_stat, maj_stat;
     gss_cred_id_t cred;
@@ -432,7 +427,7 @@ FoldedHostName(CFStringRef stringOrURL, CFStringRef *scheme, CFStringRef *host, 
  */
 
 void
-GSSRuleAddMatch(CFMutableDictionaryRef rules, CFStringRef host, CFStringRef value)
+GSSRuleAddMatch(__nonnull CFMutableDictionaryRef rules, __nonnull CFStringRef host, __nonnull CFStringRef value)
 {
     CFStringRef scheme = NULL, hostname = NULL, path = NULL;
     CFMutableDictionaryRef match;
@@ -492,8 +487,8 @@ out:
  * host is a URL string or hostname string
  */
 
-CFStringRef
-GSSRuleGetMatch(CFDictionaryRef rules, CFStringRef hostname)
+__nullable CFStringRef
+GSSRuleGetMatch(__nonnull CFDictionaryRef rules, __nonnull CFStringRef hostname)
 {
     CFStringRef scheme = NULL, hostFolded = NULL, path = NULL;
     CFTypeRef result = NULL;
@@ -558,8 +553,8 @@ GSSRuleGetMatch(CFDictionaryRef rules, CFStringRef hostname)
  * @ingroup gssapi
  */
 
-gss_name_t
-GSSCreateName(CFTypeRef name, gss_const_OID name_type, CFErrorRef *error)
+__nullable gss_name_t
+GSSCreateName(__nonnull CFTypeRef name, __nonnull gss_const_OID name_type, __nullable CFErrorRef *__nullable error)
 {
     OM_uint32 maj_stat, min_stat;
     gss_buffer_desc buffer;
@@ -603,8 +598,8 @@ GSSCreateName(CFTypeRef name, gss_const_OID name_type, CFErrorRef *error)
  * @ingroup gssapi
  */
 
-gss_name_t
-GSSCredentialCopyName(gss_cred_id_t cred)
+__nullable gss_name_t
+GSSCredentialCopyName(__nonnull gss_cred_id_t cred)
 {
     OM_uint32 major, minor;
     gss_name_t name;
@@ -628,7 +623,7 @@ GSSCredentialCopyName(gss_cred_id_t cred)
  */
 
 OM_uint32
-GSSCredentialGetLifetime(gss_cred_id_t cred)
+GSSCredentialGetLifetime(__nonnull gss_cred_id_t cred)
 {
     OM_uint32 maj_stat, min_stat;
     OM_uint32 lifetime;
@@ -651,8 +646,8 @@ GSSCredentialGetLifetime(gss_cred_id_t cred)
  * @ingroup gssapi
  */
 
-CFStringRef
-GSSNameCreateDisplayString(gss_name_t name)
+__nullable CFStringRef
+GSSNameCreateDisplayString(__nonnull gss_name_t name)
 {
     OM_uint32 maj_stat, min_stat;
     gss_buffer_desc buffer;
@@ -680,8 +675,8 @@ GSSNameCreateDisplayString(gss_name_t name)
  * @ingroup gssapi
  */
 
-CFErrorRef
-GSSCreateError(gss_const_OID mech,
+__nullable CFErrorRef
+GSSCreateError(__nonnull gss_const_OID mech,
 	       OM_uint32 major_status,
 	       OM_uint32 minor_status)
 {
@@ -691,13 +686,13 @@ GSSCreateError(gss_const_OID mech,
 
 /* deprecated */
 OM_uint32
-GSSCredGetLifetime(gss_cred_id_t cred)
+GSSCredGetLifetime(__nonnull gss_cred_id_t cred)
 {
     return GSSCredentialGetLifetime(cred);
 }
 
 gss_name_t
-GSSCredCopyName(gss_cred_id_t cred)
+GSSCredCopyName(__nonnull gss_cred_id_t cred)
 {
     return GSSCredentialCopyName(cred);
 }

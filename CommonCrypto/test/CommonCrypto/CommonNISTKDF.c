@@ -56,6 +56,7 @@ static int test_answer(CCDigestAlgorithm alg, test_vector *vector, size_t answer
     if(correct_answer == NULL || strcmp(correct_answer, "") == 0) {
         diag("Returned Answer for Test (%d) for NistKDF-CTR-HMac-%s\n", vector->testnum, CCDigestName(alg));
         diag("\t\t\"%s\", // %s\n", bytesToHexString(answer_bb), CCDigestName(alg));
+        if (answer_bb) free(answer_bb);
         return 1;
     }
     byteBuffer correct_answer_bb = hexStringToBytes((char *) correct_answer);

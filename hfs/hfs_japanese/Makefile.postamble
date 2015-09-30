@@ -100,7 +100,7 @@
 #
 
 SYS_EXTENSIONS_DIR = /System/Library/Extensions
-HFS_ENCODINGS_DIR = /System/Library/Filesystems/hfs.fs/Encodings
+HFS_ENCODINGS_DIR = /System/Library/Filesystems/hfs.fs/Contents/Resources/Encodings
 
 after_install:
 	$(MKDIRS) $(DSTROOT)/$(HFS_ENCODINGS_DIR)

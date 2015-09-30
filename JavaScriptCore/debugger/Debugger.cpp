@@ -25,7 +25,6 @@
 #include "CodeBlock.h"
 #include "DebuggerCallFrame.h"
 #include "Error.h"
-
 #include "HeapIterationScope.h"
 #include "Interpreter.h"
 #include "JSCJSValueInlines.h"
@@ -44,11 +43,13 @@ class Recompiler : public MarkedBlock::VoidFunctor {
 public:
     Recompiler(JSC::Debugger*);
     ~Recompiler();
-    void operator()(JSCell*);
+    IterationStatus operator()(JSCell*);
 
 private:
     typedef HashSet<FunctionExecutable*> FunctionExecutableSet;
     typedef HashMap<SourceProvider*, ExecState*> SourceProviderMap;
+    
+    void visit(JSCell*);
     
     JSC::Debugger* m_debugger;
     FunctionExecutableSet m_functionExecutables;
@@ -69,7 +70,7 @@ inline Recompiler::~Recompiler()
         m_debugger->sourceParsed(iter->value, iter->key, -1, String());
 }
 
-inline void Recompiler::operator()(JSCell* cell)
+inline void Recompiler::visit(JSCell* cell)
 {
     if (!cell->inherits(JSFunction::info()))
         return;
@@ -86,19 +87,25 @@ inline void Recompiler::operator()(JSCell* cell)
         return;
 
     ExecState* exec = function->scope()->globalObject()->JSGlobalObject::globalExec();
-    executable->clearCodeIfNotCompiling();
-    executable->clearUnlinkedCodeForRecompilationIfNotCompiling();
+    executable->clearCode();
+    executable->clearUnlinkedCodeForRecompilation();
     if (m_debugger == function->scope()->globalObject()->debugger())
         m_sourceProviders.add(executable->source().provider(), exec);
+}
+
+inline IterationStatus Recompiler::operator()(JSCell* cell)
+{
+    visit(cell);
+    return IterationStatus::Continue;
 }
 
 } // namespace
 
 namespace JSC {
 
-class DebuggerCallFrameScope {
+class DebuggerPausedScope {
 public:
-    DebuggerCallFrameScope(Debugger& debugger)
+    DebuggerPausedScope(Debugger& debugger)
         : m_debugger(debugger)
     {
         ASSERT(!m_debugger.m_currentDebuggerCallFrame);
@@ -106,11 +113,11 @@ public:
             m_debugger.m_currentDebuggerCallFrame = DebuggerCallFrame::create(debugger.m_currentCallFrame);
     }
 
-    ~DebuggerCallFrameScope()
+    ~DebuggerPausedScope()
     {
         if (m_debugger.m_currentDebuggerCallFrame) {
             m_debugger.m_currentDebuggerCallFrame->invalidate();
-            m_debugger.m_currentDebuggerCallFrame = 0;
+            m_debugger.m_currentDebuggerCallFrame = nullptr;
         }
     }
 
@@ -141,7 +148,7 @@ private:
 template<typename Functor>
 void Debugger::forEachCodeBlock(Functor& functor)
 {
-    m_vm->waitForCompilationsToComplete();
+    m_vm->prepareToDiscardCode();
     m_vm->heap.forEachCodeBlock(functor);
 }
 
@@ -160,6 +167,7 @@ Debugger::Debugger(bool isInWorkerThread)
     , m_lastExecutedLine(UINT_MAX)
     , m_lastExecutedSourceID(noSourceID)
     , m_topBreakpointID(noBreakpointID)
+    , m_pausingBreakpointID(noBreakpointID)
 {
 }
 
@@ -206,6 +214,11 @@ void Debugger::detach(JSGlobalObject* globalObject, ReasonForDetach reason)
         m_vm = nullptr;
 }
 
+bool Debugger::isAttached(JSGlobalObject* globalObject)
+{
+    return globalObject->debugger() == this;
+}
+
 class Debugger::SetSteppingModeFunctor {
 public:
     SetSteppingModeFunctor(Debugger* debugger, SteppingMode mode)
@@ -235,7 +248,7 @@ void Debugger::setSteppingMode(SteppingMode mode)
     if (mode == m_steppingMode || !m_vm)
         return;
 
-    m_vm->waitForCompilationsToComplete();
+    m_vm->prepareToDiscardCode();
 
     m_steppingMode = mode;
     SetSteppingModeFunctor functor(this, mode);
@@ -264,7 +277,7 @@ void Debugger::toggleBreakpoint(CodeBlock* codeBlock, Breakpoint& breakpoint, Br
     unsigned line = breakpoint.line;
     unsigned column = breakpoint.column;
 
-    unsigned startLine = executable->lineNo();
+    unsigned startLine = executable->firstLine();
     unsigned startColumn = executable->startColumn();
     unsigned endLine = executable->lastLine();
     unsigned endColumn = executable->endColumn();
@@ -335,11 +348,17 @@ void Debugger::recompileAllJSFunctions(VM* vm)
     // If JavaScript is running, it's not safe to recompile, since we'll end
     // up throwing away code that is live on the stack.
     if (vm->entryScope) {
-        vm->entryScope->setRecompilationNeeded(true);
+        auto listener = [] (VM& vm, JSGlobalObject* globalObject) 
+        {
+            if (Debugger* debugger = globalObject->debugger())
+                debugger->recompileAllJSFunctions(&vm);
+        };
+
+        vm->entryScope->setEntryScopeDidPopListener(this, listener);
         return;
     }
 
-    vm->waitForCompilationsToComplete();
+    vm->prepareToDiscardCode();
 
     Recompiler recompiler(this);
     HeapIterationScope iterationScope(vm->heap);
@@ -467,7 +486,7 @@ bool Debugger::hasBreakpoint(SourceID sourceID, const TextPosition& position, Br
     // so make it looks like the debugger is already paused.
     TemporaryPausedState pausedState(*this);
 
-    JSValue exception;
+    NakedPtr<Exception> exception;
     DebuggerCallFrame* debuggerCallFrame = currentDebuggerCallFrame();
     JSValue result = debuggerCallFrame->evaluate(breakpoint->condition, exception);
 
@@ -601,7 +620,8 @@ void Debugger::stepOutOfFunction()
     if (!m_isPaused)
         return;
 
-    m_pauseOnCallFrame = m_currentCallFrame ? m_currentCallFrame->callerFrameSkippingVMEntrySentinel() : 0;
+    VMEntryFrame* topVMEntryFrame = m_vm->topVMEntryFrame;
+    m_pauseOnCallFrame = m_currentCallFrame ? m_currentCallFrame->callerFrame(topVMEntryFrame) : 0;
     notifyDoneProcessingDebuggerEvents();
 }
 
@@ -637,7 +657,7 @@ void Debugger::pauseIfNeeded(CallFrame* callFrame)
     bool pauseNow = m_pauseOnNextStatement;
     pauseNow |= (m_pauseOnCallFrame == m_currentCallFrame);
 
-    DebuggerCallFrameScope debuggerCallFrameScope(*this);
+    DebuggerPausedScope debuggerPausedScope(*this);
 
     intptr_t sourceID = DebuggerCallFrame::sourceIDForCallFrame(m_currentCallFrame);
     TextPosition position = DebuggerCallFrame::positionForCallFrame(m_currentCallFrame);
@@ -653,14 +673,20 @@ void Debugger::pauseIfNeeded(CallFrame* callFrame)
     m_pauseOnNextStatement = false;
 
     if (didHitBreakpoint) {
-        handleBreakpointHit(breakpoint);
+        handleBreakpointHit(vmEntryGlobalObject, breakpoint);
         // Note that the actions can potentially stop the debugger, so we need to check that
         // we still have a current call frame when we get back.
         if (breakpoint.autoContinue || !m_currentCallFrame)
             return;
+        m_pausingBreakpointID = breakpoint.id;
     }
 
-    handlePause(m_reasonForPause, vmEntryGlobalObject);
+    {
+        PauseReasonDeclaration reason(*this, didHitBreakpoint ? PausedForBreakpoint : m_reasonForPause);
+        handlePause(vmEntryGlobalObject, m_reasonForPause);
+    }
+
+    m_pausingBreakpointID = noBreakpointID;
 
     if (!m_pauseOnNextStatement && !m_pauseOnCallFrame) {
         setSteppingMode(SteppingModeDisabled);
@@ -668,13 +694,13 @@ void Debugger::pauseIfNeeded(CallFrame* callFrame)
     }
 }
 
-void Debugger::exception(CallFrame* callFrame, JSValue exception, bool hasHandler)
+void Debugger::exception(CallFrame* callFrame, JSValue exception, bool hasCatchHandler)
 {
     if (m_isPaused)
         return;
 
     PauseReasonDeclaration reason(*this, PausedForException);
-    if (m_pauseOnExceptionsState == PauseOnAllExceptions || (m_pauseOnExceptionsState == PauseOnUncaughtExceptions && !hasHandler)) {
+    if (m_pauseOnExceptionsState == PauseOnAllExceptions || (m_pauseOnExceptionsState == PauseOnUncaughtExceptions && !hasCatchHandler)) {
         m_pauseOnNextStatement = true;
         setSteppingMode(SteppingModeEnabled);
     }
@@ -717,10 +743,13 @@ void Debugger::returnEvent(CallFrame* callFrame)
         return;
 
     // Treat stepping over a return statement like stepping out.
-    if (m_currentCallFrame == m_pauseOnCallFrame)
-        m_pauseOnCallFrame = m_currentCallFrame->callerFrameSkippingVMEntrySentinel();
+    if (m_currentCallFrame == m_pauseOnCallFrame) {
+        VMEntryFrame* topVMEntryFrame = m_vm->topVMEntryFrame;
+        m_pauseOnCallFrame = m_currentCallFrame->callerFrame(topVMEntryFrame);
+    }
 
-    m_currentCallFrame = m_currentCallFrame->callerFrameSkippingVMEntrySentinel();
+    VMEntryFrame* topVMEntryFrame = m_vm->topVMEntryFrame;
+    m_currentCallFrame = m_currentCallFrame->callerFrame(topVMEntryFrame);
 }
 
 void Debugger::willExecuteProgram(CallFrame* callFrame)
@@ -750,11 +779,13 @@ void Debugger::didExecuteProgram(CallFrame* callFrame)
     if (!m_currentCallFrame)
         return;
     if (m_currentCallFrame == m_pauseOnCallFrame) {
-        m_pauseOnCallFrame = m_currentCallFrame->callerFrameSkippingVMEntrySentinel();
+        VMEntryFrame* topVMEntryFrame = m_vm->topVMEntryFrame;
+        m_pauseOnCallFrame = m_currentCallFrame->callerFrame(topVMEntryFrame);
         if (!m_currentCallFrame)
             return;
     }
-    m_currentCallFrame = m_currentCallFrame->callerFrameSkippingVMEntrySentinel();
+    VMEntryFrame* topVMEntryFrame = m_vm->topVMEntryFrame;
+    m_currentCallFrame = m_currentCallFrame->callerFrame(topVMEntryFrame);
 }
 
 void Debugger::didReachBreakpoint(CallFrame* callFrame)
@@ -762,7 +793,7 @@ void Debugger::didReachBreakpoint(CallFrame* callFrame)
     if (m_isPaused)
         return;
 
-    PauseReasonDeclaration reason(*this, PausedForBreakpoint);
+    PauseReasonDeclaration reason(*this, PausedForDebuggerStatement);
     m_pauseOnNextStatement = true;
     setSteppingMode(SteppingModeEnabled);
     updateCallFrameAndPauseIfNeeded(callFrame);

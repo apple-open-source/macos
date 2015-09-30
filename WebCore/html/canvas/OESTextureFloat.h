@@ -30,9 +30,9 @@
 
 namespace WebCore {
 
-class OESTextureFloat : public WebGLExtension {
+class OESTextureFloat final : public WebGLExtension {
 public:
-    OESTextureFloat(WebGLRenderingContext*);
+    OESTextureFloat(WebGLRenderingContextBase*);
     virtual ~OESTextureFloat();
 
     virtual ExtensionName getName() const override;

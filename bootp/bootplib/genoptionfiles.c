@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 1999-2012 Apple Inc. All rights reserved.\n"
+" * Copyright (c) 1999-2014 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " * \n"
@@ -90,7 +90,8 @@ struct {
     { "ip_mult",	4,	"ip", TRUE },
     { "ip_pairs",	8,	"ip", TRUE },
     { "dns_namelist",	0,	0, TRUE },
-    { 0, 0, 0 },
+    { "classless_route", 0,	0, TRUE },
+    { 0, 0, 0, 0 },
 };
 
 struct {
@@ -193,6 +194,8 @@ struct {
     { 116,	"uint8",	"auto_configure" },
     { COMMENT, "/* DNS domain search option (RFC 3397) */", 0 },
     { 119,	"dns_namelist",	"domain_search" },
+    { COMMENT, "/* classless static route option (RFC 3442) */", 0 },
+    { 121,	"classless_route", "classless_static_route" },
     { COMMENT, "/* proxy auto discovery */", 0 }, /* http://www.wpad.com/draft-ietf-wrec-wpad-01.txt */
     { 252,	"string",	"proxy_auto_discovery_url" },
     { END, 0, 0 },

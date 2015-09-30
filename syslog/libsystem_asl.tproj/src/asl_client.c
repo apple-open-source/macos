@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -136,6 +136,10 @@ asl_client_open(const char *ident, const char *facility, uint32_t opts)
 
 	client->filter = ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE);
 
+	client->filter |= EVAL_ACTIVE;
+	if (!(opts & ASL_OPT_SHIM_NO_ASL)) client->filter |= EVAL_SEND_ASL;
+	if (!(opts & ASL_OPT_SHIM_NO_TRACE)) client->filter |= EVAL_SEND_TRACE;
+	
 	if (client->options & ASL_OPT_STDERR)
 	{
 		/* only add stderr if it is valid */
@@ -161,6 +165,7 @@ asl_client_open_from_file(int descriptor, const char *ident, const char *facilit
 	if (client == NULL) return NULL;
 
 	client->filter = ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG);
+	client->filter |= (EVAL_ACTIVE | EVAL_SEND_ASL);
 
 	status = asl_file_open_write_fd(descriptor, &(client->aslfile));
 	if (status != ASL_STATUS_OK)
@@ -224,7 +229,7 @@ _do_server_match(asl_msg_list_t *qlist, size_t *last, size_t start, size_t count
 
 	if (str == NULL) return NULL;
 
-	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmstr, len, TRUE);
+	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmstr, len, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_ASL));
 	if (kstatus != KERN_SUCCESS) return NULL;
 
 	memmove(vmstr, str, len);
@@ -274,7 +279,7 @@ _do_server_search(asl_msg_t *q)
 
 	if (str == NULL) return NULL;
 
-	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmstr, len, TRUE);
+	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmstr, len, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_ASL));
 	if (kstatus != KERN_SUCCESS) return NULL;
 
 	memmove(vmstr, str, len);
@@ -367,16 +372,38 @@ asl_client_search(asl_client_t *client, asl_msg_t *query)
 #pragma mark -
 #pragma mark output control
 
-/* returns last filter value, or -1 on error */
+/*
+ * Returns last filter value, or -1 on error.
+ * Note that this allows ASL_FILTER_MASK_TUNNEL (0x100) to be set.
+ * That is SPI that's used by some clients.
+ */
 int
 asl_client_set_filter(asl_client_t *client, int filter)
 {
-	int last;
-
 	if (client == NULL) return -1;
-	last = client->filter;
+
+	uint32_t allbits = client->filter;
+	int last = allbits & (~EVAL_ACTION_MASK);
+	client->filter = (allbits & EVAL_ACTION_MASK) | (filter & (~EVAL_ACTION_MASK));
+	return last;
+}
+
+/* SPI */
+uint32_t
+asl_client_set_control(asl_client_t *client, uint32_t filter)
+{
+	if (client == NULL) return UINT32_MAX;
+
+	uint32_t last = client->filter;
 	client->filter = filter;
 	return last;
+}
+
+uint32_t
+asl_client_get_control(asl_client_t *client)
+{
+	if (client == NULL) return UINT32_MAX;
+	return client->filter;
 }
 
 ASL_STATUS
@@ -414,7 +441,9 @@ asl_client_add_output_file(asl_client_t *client, int descriptor, const char *mfm
 	client->out_list[client->out_count].fd = descriptor;
 	client->out_list[client->out_count].encoding = text_encoding;
 	client->out_list[client->out_count].filter = filter;
+	client->out_list[client->out_count].mfmt = NULL;
 	if (mfmt != NULL) client->out_list[client->out_count].mfmt = strdup(mfmt);
+	client->out_list[client->out_count].tfmt = NULL;
 	if (tfmt != NULL) client->out_list[client->out_count].tfmt = strdup(tfmt);
 
 	client->out_count++;

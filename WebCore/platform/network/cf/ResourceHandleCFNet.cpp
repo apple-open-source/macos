@@ -178,13 +178,6 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
     if (sslProps)
         CFURLRequestSetSSLProperties(request.get(), sslProps.get());
 
-#if PLATFORM(WIN)
-    if (CFHTTPCookieStorageRef cookieStorage = overridenCookieStorage()) {
-        // Overridden cookie storage doesn't come from a session, so the request does not have it yet.
-        CFURLRequestSetHTTPCookieStorage(request.get(), cookieStorage);
-    }
-#endif
-
     CFMutableDictionaryRef streamProperties  = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
     if (!shouldUseCredentialStorage) {
@@ -201,7 +194,7 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
         CFDictionarySetValue(streamProperties, CFSTR("_WebKitSynchronousRequest"), kCFBooleanTrue);
     }
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090)
+#if PLATFORM(COCOA)
     RetainPtr<CFDataRef> sourceApplicationAuditData = d->m_context->sourceApplicationAuditData();
     if (sourceApplicationAuditData)
         CFDictionarySetValue(streamProperties, CFSTR("kCFStreamPropertySourceApplication"), sourceApplicationAuditData.get());
@@ -213,6 +206,13 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
         propertiesDictionary = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, clientProperties));
     else
         propertiesDictionary = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+#if HAVE(TIMINGDATAOPTIONS)
+    const int64_t TimingDataOptionsEnableW3CNavigationTiming = (1 << 0);
+    auto enableW3CNavigationTiming = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &TimingDataOptionsEnableW3CNavigationTiming));
+    auto timingDataOptionsDictionary = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    CFDictionaryAddValue(timingDataOptionsDictionary.get(), CFSTR("_kCFURLConnectionPropertyTimingDataOptions"), enableW3CNavigationTiming.get());
+    CFDictionaryAddValue(propertiesDictionary.get(), CFSTR("kCFURLConnectionURLConnectionProperties"), timingDataOptionsDictionary.get());
+#endif
 
     // FIXME: This code is different from iOS code in ResourceHandleMac.mm in that here we ignore stream properties that were present in client properties.
     CFDictionaryAddValue(propertiesDictionary.get(), kCFURLConnectionSocketStreamProperties, streamProperties);
@@ -232,7 +232,10 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
     if (shouldUseCredentialStorage)
         client.shouldUseCredentialStorage = 0;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     d->m_connection = adoptCF(CFURLConnectionCreateWithProperties(0, request.get(), reinterpret_cast<CFURLConnectionClient*>(&client), propertiesDictionary.get()));
+#pragma clang diagnostic pop
 }
 
 bool ResourceHandle::start()
@@ -249,16 +252,18 @@ bool ResourceHandle::start()
 
     bool shouldUseCredentialStorage = !client() || client()->shouldUseCredentialStorage(this);
 
-    createCFURLConnection(shouldUseCredentialStorage, d->m_shouldContentSniff, SchedulingBehavior::Asynchronous, client()->connectionProperties(this).get());
+#if ENABLE(WEB_TIMING) && PLATFORM(COCOA)
+    setCollectsTimingData();
+#endif
+
+    SchedulingBehavior schedulingBehavior = client()->loadingSynchronousXHR() ? SchedulingBehavior::Synchronous : SchedulingBehavior::Asynchronous;
+
+    createCFURLConnection(shouldUseCredentialStorage, d->m_shouldContentSniff, schedulingBehavior, client()->connectionProperties(this).get());
 
     d->m_connectionDelegate->setupConnectionScheduling(d->m_connection.get());
     CFURLConnectionStart(d->m_connection.get());
 
     LOG(Network, "CFNet - Starting URL %s (handle=%p, conn=%p)", firstRequest().url().string().utf8().data(), this, d->m_connection.get());
-    
-#if ENABLE(WEB_TIMING)
-    setCollectsTimingData();
-#endif
     
     return true;
 }
@@ -342,19 +347,42 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
     }
 #endif
 
+    if (tryHandlePasswordBasedAuthentication(challenge))
+        return;
+
+    d->m_currentWebChallenge = challenge;
+    
+    if (client())
+        client()->didReceiveAuthenticationChallenge(this, d->m_currentWebChallenge);
+    else {
+        clearAuthentication();
+        CFURLConnectionPerformDefaultHandlingForChallenge(d->m_connection.get(), challenge.cfURLAuthChallengeRef());
+    }
+}
+
+bool ResourceHandle::tryHandlePasswordBasedAuthentication(const AuthenticationChallenge& challenge)
+{
+    if (!challenge.protectionSpace().isPasswordBased())
+        return false;
+
     if (!d->m_user.isNull() && !d->m_pass.isNull()) {
-        RetainPtr<CFURLCredentialRef> credential = adoptCF(CFURLCredentialCreate(kCFAllocatorDefault, d->m_user.createCFString().get(), d->m_pass.createCFString().get(), 0, kCFURLCredentialPersistenceNone));
+        RetainPtr<CFURLCredentialRef> cfCredential = adoptCF(CFURLCredentialCreate(kCFAllocatorDefault, d->m_user.createCFString().get(), d->m_pass.createCFString().get(), 0, kCFURLCredentialPersistenceNone));
+#if PLATFORM(COCOA)
+        Credential credential = Credential(cfCredential.get());
+#else
+        Credential credential = core(cfCredential.get());
+#endif
         
         URL urlToStore;
         if (challenge.failureResponse().httpStatusCode() == 401)
             urlToStore = challenge.failureResponse().url();
-        d->m_context->storageSession().credentialStorage().set(core(credential.get()), challenge.protectionSpace(), urlToStore);
+        d->m_context->storageSession().credentialStorage().set(credential, challenge.protectionSpace(), urlToStore);
         
-        CFURLConnectionUseCredential(d->m_connection.get(), credential.get(), challenge.cfURLAuthChallengeRef());
+        CFURLConnectionUseCredential(d->m_connection.get(), cfCredential.get(), challenge.cfURLAuthChallengeRef());
         d->m_user = String();
         d->m_pass = String();
         // FIXME: Per the specification, the user shouldn't be asked for credentials if there were incorrect ones provided explicitly.
-        return;
+        return true;
     }
 
     if (!client() || client()->shouldUseCredentialStorage(this)) {
@@ -373,17 +401,18 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
                     // Store the credential back, possibly adding it as a default for this directory.
                     d->m_context->storageSession().credentialStorage().set(credential, challenge.protectionSpace(), challenge.failureResponse().url());
                 }
+#if PLATFORM(COCOA)
+                CFURLConnectionUseCredential(d->m_connection.get(), credential.cfCredential(), challenge.cfURLAuthChallengeRef());
+#else
                 RetainPtr<CFURLCredentialRef> cfCredential = adoptCF(createCF(credential));
                 CFURLConnectionUseCredential(d->m_connection.get(), cfCredential.get(), challenge.cfURLAuthChallengeRef());
-                return;
+#endif
+                return true;
             }
         }
     }
 
-    d->m_currentWebChallenge = challenge;
-    
-    if (client())
-        client()->didReceiveAuthenticationChallenge(this, d->m_currentWebChallenge);
+    return false;
 }
 
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
@@ -413,21 +442,31 @@ void ResourceHandle::receivedCredential(const AuthenticationChallenge& challenge
         return;
     }
 
-    if (credential.persistence() == CredentialPersistenceForSession) {
+    if (credential.persistence() == CredentialPersistenceForSession && challenge.protectionSpace().authenticationScheme() != ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested) {
         // Manage per-session credentials internally, because once NSURLCredentialPersistencePerSession is used, there is no way
         // to ignore it for a particular request (short of removing it altogether).
-        Credential webCredential(credential.user(), credential.password(), CredentialPersistenceNone);
-        RetainPtr<CFURLCredentialRef> cfCredential = adoptCF(createCF(webCredential));
-        
+        Credential webCredential(credential, CredentialPersistenceNone);
+
         URL urlToStore;
         if (challenge.failureResponse().httpStatusCode() == 401)
             urlToStore = challenge.failureResponse().url();      
         d->m_context->storageSession().credentialStorage().set(webCredential, challenge.protectionSpace(), urlToStore);
 
-        CFURLConnectionUseCredential(d->m_connection.get(), cfCredential.get(), challenge.cfURLAuthChallengeRef());
-    } else {
+        if (d->m_connection) {
+#if PLATFORM(COCOA)
+            CFURLConnectionUseCredential(d->m_connection.get(), webCredential.cfCredential(), challenge.cfURLAuthChallengeRef());
+#else
+            RetainPtr<CFURLCredentialRef> cfCredential = adoptCF(createCF(webCredential));
+            CFURLConnectionUseCredential(d->m_connection.get(), cfCredential.get(), challenge.cfURLAuthChallengeRef());
+#endif
+        }
+    } else if (d->m_connection) {
+#if PLATFORM(COCOA)
+        CFURLConnectionUseCredential(d->m_connection.get(), credential.cfCredential(), challenge.cfURLAuthChallengeRef());
+#else
         RetainPtr<CFURLCredentialRef> cfCredential = adoptCF(createCF(credential));
         CFURLConnectionUseCredential(d->m_connection.get(), cfCredential.get(), challenge.cfURLAuthChallengeRef());
+#endif
     }
 
     clearAuthentication();
@@ -441,7 +480,8 @@ void ResourceHandle::receivedRequestToContinueWithoutCredential(const Authentica
     if (challenge != d->m_currentWebChallenge)
         return;
 
-    CFURLConnectionUseCredential(d->m_connection.get(), 0, challenge.cfURLAuthChallengeRef());
+    if (d->m_connection)
+        CFURLConnectionUseCredential(d->m_connection.get(), 0, challenge.cfURLAuthChallengeRef());
 
     clearAuthentication();
 }
@@ -464,7 +504,8 @@ void ResourceHandle::receivedRequestToPerformDefaultHandling(const Authenticatio
     if (challenge != d->m_currentWebChallenge)
         return;
 
-    CFURLConnectionPerformDefaultHandlingForChallenge(d->m_connection.get(), challenge.cfURLAuthChallengeRef());
+    if (d->m_connection)
+        CFURLConnectionPerformDefaultHandlingForChallenge(d->m_connection.get(), challenge.cfURLAuthChallengeRef());
 
     clearAuthentication();
 }
@@ -477,7 +518,8 @@ void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge& c
     if (challenge != d->m_currentWebChallenge)
         return;
 
-    CFURLConnectionRejectChallenge(d->m_connection.get(), challenge.cfURLAuthChallengeRef());
+    if (d->m_connection)
+        CFURLConnectionRejectChallenge(d->m_connection.get(), challenge.cfURLAuthChallengeRef());
 
     clearAuthentication();
 }
@@ -512,10 +554,10 @@ void ResourceHandle::platformLoadResourceSynchronously(NetworkingContext* contex
     ASSERT(response.isNull());
     ASSERT(error.isNull());
 
-    OwnPtr<SynchronousLoaderClient> client = SynchronousLoaderClient::create();
-    client->setAllowStoredCredentials(storedCredentials == AllowStoredCredentials);
+    SynchronousLoaderClient client;
+    client.setAllowStoredCredentials(storedCredentials == AllowStoredCredentials);
 
-    RefPtr<ResourceHandle> handle = adoptRef(new ResourceHandle(context, request, client.get(), false /*defersLoading*/, true /*shouldContentSniff*/));
+    RefPtr<ResourceHandle> handle = adoptRef(new ResourceHandle(context, request, &client, false /*defersLoading*/, true /*shouldContentSniff*/));
 
     handle->d->m_storageSession = context->storageSession().platformSession();
 
@@ -531,17 +573,17 @@ void ResourceHandle::platformLoadResourceSynchronously(NetworkingContext* contex
     CFURLConnectionScheduleDownloadWithRunLoop(handle->connection(), CFRunLoopGetCurrent(), synchronousLoadRunLoopMode());
     CFURLConnectionStart(handle->connection());
 
-    while (!client->isDone())
+    while (!client.isDone())
         CFRunLoopRunInMode(synchronousLoadRunLoopMode(), UINT_MAX, true);
 
-    error = client->error();
+    error = client.error();
 
     CFURLConnectionCancel(handle->connection());
 
     if (error.isNull())
-        response = client->response();
+        response = client.response();
 
-    data.swap(client->mutableData());
+    data.swap(client.mutableData());
 }
 
 void ResourceHandle::setHostAllowsAnyHTTPSCertificate(const String& host)
@@ -563,11 +605,6 @@ void ResourceHandle::platformSetDefersLoading(bool defers)
         CFURLConnectionHalt(d->m_connection.get());
     else
         CFURLConnectionResume(d->m_connection.get());
-}
-
-bool ResourceHandle::loadsBlocked()
-{
-    return false;
 }
 
 #if PLATFORM(COCOA)

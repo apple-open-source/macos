@@ -29,7 +29,7 @@
 #include <WebCore/GUniquePtrSoup.h>
 #include <WebCore/ResourceError.h>
 #include <libsoup/soup.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 #include <wtf/text/CString.h>
 
 using namespace WebKit;
@@ -167,16 +167,16 @@ static void webkitURISchemeRequestReadCallback(GInputStream* inputStream, GAsync
     }
 
     WebKitURISchemeRequestPrivate* priv = request->priv;
-    RefPtr<API::Data> webData = API::Data::create(reinterpret_cast<const unsigned char*>(priv->readBuffer), bytesRead);
+    Ref<API::Data> webData = API::Data::create(reinterpret_cast<const unsigned char*>(priv->readBuffer), bytesRead);
     if (!priv->bytesRead) {
         // First chunk read. In case of empty reply an empty API::Data is sent to the networking process.
         WebCore::ResourceResponse response(WebCore::URL(WebCore::URL(), String::fromUTF8(priv->uri)), String::fromUTF8(priv->mimeType.data()),
-            priv->streamLength, emptyString(), emptyString());
+            priv->streamLength, emptyString());
         priv->webRequestManager->didReceiveResponse(priv->requestID, response);
-        priv->webRequestManager->didLoadData(priv->requestID, webData.get());
+        priv->webRequestManager->didLoadData(priv->requestID, webData.ptr());
     } else if (bytesRead || (!bytesRead && !priv->streamLength)) {
         // Subsequent chunk read. We only send an empty API::Data to the networking process when stream length is unknown.
-        priv->webRequestManager->didLoadData(priv->requestID, webData.get());
+        priv->webRequestManager->didLoadData(priv->requestID, webData.ptr());
     }
 
     if (!bytesRead) {

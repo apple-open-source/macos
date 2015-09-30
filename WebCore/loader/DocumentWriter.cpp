@@ -43,15 +43,12 @@
 #include "ScriptController.h"
 #include "ScriptableDocumentParser.h"
 #include "SecurityOrigin.h"
+#include "SecurityOriginPolicy.h"
 #include "SegmentedString.h"
 #include "Settings.h"
 #include "SinkDocument.h"
 #include "TextResourceDecoder.h"
 #include <wtf/Ref.h>
-
-#if PLATFORM(IOS)
-#include "PDFDocument.h"
-#endif
 
 namespace WebCore {
 
@@ -93,7 +90,7 @@ void DocumentWriter::replaceDocument(const String& source, Document* ownerDocume
 
 void DocumentWriter::clear()
 {
-    m_decoder = 0;
+    m_decoder = nullptr;
     m_hasReceivedSomeData = false;
     if (!m_encodingWasChosenByUser)
         m_encoding = String();
@@ -110,7 +107,7 @@ PassRefPtr<Document> DocumentWriter::createDocument(const URL& url)
         return PluginDocument::create(m_frame, url);
 #if PLATFORM(IOS)
     if (MIMETypeRegistry::isPDFMIMEType(m_mimeType) && (m_frame->isMainFrame() || !m_frame->settings().useImageDocumentForSubframePDF()))
-        return PDFDocument::create(m_frame, url);
+        return SinkDocument::create(m_frame, url);
 #endif
     if (!m_frame->loader().client().hasHTMLView())
         return Document::createNonRenderedPlaceholder(m_frame, url);
@@ -148,13 +145,13 @@ void DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* own
         m_frame->script().updatePlatformScriptObjects();
 
     m_frame->loader().setOutgoingReferrer(url);
-    m_frame->setDocument(document);
+    m_frame->setDocument(document.copyRef());
 
     if (m_decoder)
         document->setDecoder(m_decoder.get());
     if (ownerDocument) {
         document->setCookieURL(ownerDocument->cookieURL());
-        document->setSecurityOrigin(ownerDocument->securityOrigin());
+        document->setSecurityOriginPolicy(ownerDocument->securityOriginPolicy());
     }
 
     m_frame->loader().didBeginDocument(dispatch);
@@ -248,7 +245,7 @@ void DocumentWriter::end()
     if (!m_parser)
         return;
     m_parser->finish();
-    m_parser = 0;
+    m_parser = nullptr;
 }
 
 void DocumentWriter::setEncoding(const String& name, bool userChosen)

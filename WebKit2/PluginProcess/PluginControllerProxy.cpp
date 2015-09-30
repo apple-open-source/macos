@@ -41,6 +41,7 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebProcessConnection.h"
 #include <WebCore/GraphicsContext.h>
+#include <WebCore/HTTPHeaderMap.h>
 #include <WebCore/IdentifierRep.h>
 #include <WebCore/NotImplemented.h>
 #include <wtf/TemporaryChange.h>
@@ -59,6 +60,7 @@ PluginControllerProxy::PluginControllerProxy(WebProcessConnection* connection, c
     , m_pluginInstanceID(creationParameters.pluginInstanceID)
     , m_userAgent(creationParameters.userAgent)
     , m_isPrivateBrowsingEnabled(creationParameters.isPrivateBrowsingEnabled)
+    , m_isMuted(creationParameters.isMuted)
     , m_isAcceleratedCompositingEnabled(creationParameters.isAcceleratedCompositingEnabled)
     , m_isInitializing(false)
     , m_isVisible(false)
@@ -107,7 +109,7 @@ bool PluginControllerProxy::initialize(const PluginCreationParameters& creationP
     ASSERT(!m_isInitializing);
     m_isInitializing = true; // Cannot use TemporaryChange here, because this object can be deleted before the function returns.
 
-    m_plugin = NetscapePlugin::create(PluginProcess::shared().netscapePluginModule());
+    m_plugin = NetscapePlugin::create(PluginProcess::singleton().netscapePluginModule());
     if (!m_plugin) {
         // This will delete the plug-in controller proxy object.
         m_connection->removePluginControllerProxy(this, 0);
@@ -124,7 +126,7 @@ bool PluginControllerProxy::initialize(const PluginCreationParameters& creationP
         // used as an identifier so it's OK to just get a weak reference.
         Plugin* plugin = m_plugin.get();
         
-        m_plugin = 0;
+        m_plugin = nullptr;
 
         // This will delete the plug-in controller proxy object.
         m_connection->removePluginControllerProxy(this, plugin);
@@ -154,7 +156,7 @@ void PluginControllerProxy::destroy()
     Plugin* plugin = m_plugin.get();
 
     m_plugin->destroyPlugin();
-    m_plugin = 0;
+    m_plugin = nullptr;
 
     platformDestroy();
 
@@ -218,13 +220,6 @@ void PluginControllerProxy::startPaintTimer()
     m_waitingForDidUpdate = true;
 }
 
-bool PluginControllerProxy::isPluginVisible()
-{
-    // FIXME: Implement this.
-    notImplemented();
-    return false;
-}
-
 void PluginControllerProxy::invalidate(const IntRect& rect)
 {
     IntRect dirtyRect = rect;
@@ -244,6 +239,11 @@ String PluginControllerProxy::userAgent()
 void PluginControllerProxy::loadURL(uint64_t requestID, const String& method, const String& urlString, const String& target, const HTTPHeaderMap& headerFields, const Vector<uint8_t>& httpBody, bool allowPopups)
 {
     m_connection->connection()->send(Messages::PluginProxy::LoadURL(requestID, method, urlString, target, headerFields, httpBody, allowPopups), m_pluginInstanceID);
+}
+
+void PluginControllerProxy::continueStreamLoad(uint64_t streamID)
+{
+    m_connection->connection()->send(Messages::PluginProxy::ContinueStreamLoad(streamID), m_pluginInstanceID);
 }
 
 void PluginControllerProxy::cancelStreamLoad(uint64_t streamID)
@@ -309,6 +309,11 @@ bool PluginControllerProxy::evaluate(NPObject* npObject, const String& scriptStr
     return true;
 }
 
+void PluginControllerProxy::setPluginIsPlayingAudio(bool pluginIsPlayingAudio)
+{
+    m_connection->connection()->send(Messages::PluginProxy::SetPluginIsPlayingAudio(pluginIsPlayingAudio), m_pluginInstanceID);
+}
+
 void PluginControllerProxy::setStatusbarText(const String& statusbarText)
 {
     m_connection->connection()->send(Messages::PluginProxy::SetStatusbarText(statusbarText), m_pluginInstanceID);
@@ -322,12 +327,6 @@ bool PluginControllerProxy::isAcceleratedCompositingEnabled()
 void PluginControllerProxy::pluginProcessCrashed()
 {
     // This should never be called from here.
-    ASSERT_NOT_REACHED();
-}
-
-void PluginControllerProxy::willSendEventToPlugin()
-{
-    // This is only used when running plugins in the web process.
     ASSERT_NOT_REACHED();
 }
 
@@ -467,6 +466,11 @@ void PluginControllerProxy::updateVisibilityActivity()
 void PluginControllerProxy::didEvaluateJavaScript(uint64_t requestID, const String& result)
 {
     m_plugin->didEvaluateJavaScript(requestID, result);
+}
+
+void PluginControllerProxy::streamWillSendRequest(uint64_t streamID, const String& requestURLString, const String& redirectResponseURLString, uint32_t redirectResponseStatusCode)
+{
+    m_plugin->streamWillSendRequest(streamID, URL(ParsedURLString, requestURLString), URL(ParsedURLString, redirectResponseURLString), redirectResponseStatusCode);
 }
 
 void PluginControllerProxy::streamDidReceiveResponse(uint64_t streamID, const String& responseURLString, uint32_t streamLength, uint32_t lastModifiedTime, const String& mimeType, const String& headers)
@@ -629,6 +633,15 @@ void PluginControllerProxy::privateBrowsingStateChanged(bool isPrivateBrowsingEn
     m_isPrivateBrowsingEnabled = isPrivateBrowsingEnabled;
 
     m_plugin->privateBrowsingStateChanged(isPrivateBrowsingEnabled);
+}
+
+void PluginControllerProxy::mutedStateChanged(bool isMuted)
+{
+    if (m_isMuted == isMuted)
+        return;
+    
+    m_isMuted = isMuted;
+    m_plugin->mutedStateChanged(isMuted);
 }
 
 void PluginControllerProxy::getFormValue(bool& returnValue, String& formValue)

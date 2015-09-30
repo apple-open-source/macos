@@ -50,26 +50,26 @@ MathMLInlineContainerElement::MathMLInlineContainerElement(const QualifiedName& 
 {
 }
 
-PassRefPtr<MathMLInlineContainerElement> MathMLInlineContainerElement::create(const QualifiedName& tagName, Document& document)
+Ref<MathMLInlineContainerElement> MathMLInlineContainerElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new MathMLInlineContainerElement(tagName, document));
+    return adoptRef(*new MathMLInlineContainerElement(tagName, document));
 }
 
 void MathMLInlineContainerElement::childrenChanged(const ChildChange& change)
 {
     if (renderer()) {
-        if (renderer()->isRenderMathMLRow())
-            toRenderMathMLRow(renderer())->updateOperatorProperties();
+        if (is<RenderMathMLRow>(*renderer()))
+            downcast<RenderMathMLRow>(*renderer()).updateOperatorProperties();
         else if (hasTagName(mathTag) || hasTagName(msqrtTag)) {
-            auto childRenderer = renderer()->firstChild();
-            if (childRenderer && childRenderer->isRenderMathMLRow())
-                toRenderMathMLRow(childRenderer)->updateOperatorProperties();
+            auto* childRenderer = renderer()->firstChild();
+            if (is<RenderMathMLRow>(childRenderer))
+                downcast<RenderMathMLRow>(*childRenderer).updateOperatorProperties();
         }
     }
     MathMLElement::childrenChanged(change);
 }
 
-RenderPtr<RenderElement> MathMLInlineContainerElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> MathMLInlineContainerElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     if (hasTagName(annotation_xmlTag))
         return createRenderer<RenderMathMLRow>(*this, WTF::move(style));

@@ -24,6 +24,9 @@
     <Filter Include="UserInterface\Legacy\7.0">
       <UniqueIdentifier>{f3a0840d-35a0-41f6-8642-162354612341}</UniqueIdentifier>
     </Filter>
+    <Filter Include="UserInterface\Legacy\8.0">
+      <UniqueIdentifier>{f3a0840d-35a0-41f6-8642-928734972394}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Images">
       <UniqueIdentifier>{af041f00-ecbb-405c-a2e0-02bbd07bfc7c}</UniqueIdentifier>
     </Filter>
@@ -138,6 +141,12 @@
     <None Include="..\UserInterface\CanvasProfileView.js">
       <Filter>UserInterface</Filter>
     </None>
+    <None Include="..\UserInterface\ChartDetailsSectionRow.js">
+      <Filter>UserInterface</Filter>
+    </None>
+    <None Include="..\UserInterface\ChartDetailsSectionRow.css">
+      <Filter>UserInterface</Filter>
+    </None>
     <None Include="..\UserInterface\ClusterContentView.css">
       <Filter>UserInterface</Filter>
     </None>
@@ -192,10 +201,10 @@
     <None Include="..\UserInterface\ConsoleGroup.js">
       <Filter>UserInterface</Filter>
     </None>
-    <None Include="..\UserInterface\ConsoleMessage.js">
+    <None Include="..\UserInterface\LegacyConsoleMessage.js">
       <Filter>UserInterface</Filter>
     </None>
-    <None Include="..\UserInterface\ConsoleMessageImpl.js">
+    <None Include="..\UserInterface\LegacyConsoleMessageImpl.js">
       <Filter>UserInterface</Filter>
     </None>
     <None Include="..\UserInterface\ConsoleObserver.js">
@@ -384,9 +393,6 @@
     <None Include="..\UserInterface\DetailsSectionSimpleRow.js">
       <Filter>UserInterface</Filter>
     </None>
-    <None Include="..\UserInterface\DetailsSidebarPanel.css">
-      <Filter>UserInterface</Filter>
-    </None>
     <None Include="..\UserInterface\DetailsSidebarPanel.js">
       <Filter>UserInterface</Filter>
     </None>
@@ -510,6 +516,9 @@
     <None Include="..\UserInterface\FolderTreeElement.js">
       <Filter>UserInterface</Filter>
     </None>
+    <None Include="..\UserInterface\FolderizedTreeElement.js">
+      <Filter>UserInterface</Filter>
+    </None>
     <None Include="..\UserInterface\FontResourceContentView.css">
       <Filter>UserInterface</Filter>
     </None>
@@ -630,19 +639,19 @@
     <None Include="..\UserInterface\LayerTreeObserver.js">
       <Filter>UserInterface</Filter>
     </None>
-    <None Include="..\UserInterface\LayerTreeSidebarPanel.css">
+    <None Include="..\UserInterface\LayerTreeDetailsSidebarPanel.css">
       <Filter>UserInterface</Filter>
     </None>
-    <None Include="..\UserInterface\LayerTreeSidebarPanel.js">
-      <Filter>UserInterface</Filter>
-    </None>
-    <None Include="..\UserInterface\LayoutTimelineDataGrid.js">
+    <None Include="..\UserInterface\LayerTreeDetailsSidebarPanel.js">
       <Filter>UserInterface</Filter>
     </None>
     <None Include="..\UserInterface\LayoutTimelineDataGridNode.js">
       <Filter>UserInterface</Filter>
     </None>
     <None Include="..\UserInterface\LayoutTimelineRecord.js">
+      <Filter>UserInterface</Filter>
+    </None>
+    <None Include="..\UserInterface\LinearTimelineOverview.js">
       <Filter>UserInterface</Filter>
     </None>
     <None Include="..\UserInterface\LoadInspectorBackendCommands.js">
@@ -717,9 +726,6 @@
     <None Include="..\UserInterface\Object.js">
       <Filter>UserInterface</Filter>
     </None>
-    <None Include="..\UserInterface\ObjectPropertiesSection.js">
-      <Filter>UserInterface</Filter>
-    </None>
     <None Include="..\UserInterface\PageObserver.js">
       <Filter>UserInterface</Filter>
     </None>
@@ -774,6 +780,27 @@
     <None Include="..\UserInterface\RemoteObject.js">
       <Filter>UserInterface</Filter>
     </None>
+    <None Include="..\UserInterface\RenderingFrameTimelineDataGridNode.js">
+      <Filter>UserInterface</Filter>
+    </None>
+    <None Include="..\UserInterface\RenderingFrameTimelineOverview.js">
+      <Filter>UserInterface</Filter>
+    </None>
+    <None Include="..\UserInterface\RenderingFrameTimelineOverviewGraph.css">
+      <Filter>UserInterface</Filter>
+    </None>
+    <None Include="..\UserInterface\RenderingFrameTimelineOverviewGraph.js">
+      <Filter>UserInterface</Filter>
+    </None>
+    <None Include="..\UserInterface\RenderingFrameTimelineRecord.js">
+      <Filter>UserInterface</Filter>
+    </None>
+    <None Include="..\UserInterface\RenderingFrameTimelineView.css">
+      <Filter>UserInterface</Filter>
+    </None>
+    <None Include="..\UserInterface\RenderingFrameTimelineView.js">
+      <Filter>UserInterface</Filter>
+    </None>
     <None Include="..\UserInterface\Resource.js">
       <Filter>UserInterface</Filter>
     </None>
@@ -790,9 +817,6 @@
       <Filter>UserInterface</Filter>
     </None>
     <None Include="..\UserInterface\ResourceIcons.css">
-      <Filter>UserInterface</Filter>
-    </None>
-    <None Include="..\UserInterface\ResourceSearchMatchObject.js">
       <Filter>UserInterface</Filter>
     </None>
     <None Include="..\UserInterface\ResourceSidebarPanel.css">
@@ -843,9 +867,6 @@
     <None Include="..\UserInterface\ScopeChainNode.js">
       <Filter>UserInterface</Filter>
     </None>
-    <None Include="..\UserInterface\ScopeVariableTreeElement.js">
-      <Filter>UserInterface</Filter>
-    </None>
     <None Include="..\UserInterface\Script.js">
       <Filter>UserInterface</Filter>
     </None>
@@ -894,6 +915,9 @@
     <None Include="..\UserInterface\Sidebar.js">
       <Filter>UserInterface</Filter>
     </None>
+    <None Include="..\UserInterface\SidebarPanel.css">
+      <Filter>UserInterface</Filter>
+    </None>
     <None Include="..\UserInterface\SidebarPanel.js">
       <Filter>UserInterface</Filter>
     </None>
@@ -907,6 +931,9 @@
       <Filter>UserInterface</Filter>
     </None>
     <None Include="..\UserInterface\SourceCodeRevision.js">
+      <Filter>UserInterface</Filter>
+    </None>
+    <None Include="..\UserInterface\SourceCodeSearchMatchObject.js">
       <Filter>UserInterface</Filter>
     </None>
     <None Include="..\UserInterface\SourceCodeTextEditor.css">
@@ -1002,6 +1029,12 @@
     <None Include="..\UserInterface\TimelineRecord.js">
       <Filter>UserInterface</Filter>
     </None>
+    <None Include="..\UserInterface\TimelineRecordFrame.css">
+      <Filter>UserInterface</Filter>
+    </None>
+    <None Include="..\UserInterface\TimelineRecordFrame.js">
+      <Filter>UserInterface</Filter>
+    </None>
     <None Include="..\UserInterface\TimelinesContentView.css">
       <Filter>UserInterface</Filter>
     </None>
@@ -1095,11 +1128,14 @@
     <None Include="..\UserInterface\External\CodeMirror\xml.js">
       <Filter>UserInterface\External\CodeMirror</Filter>
     </None>
-    <None Include="..\UserInterface\Legacy\6.0\InspectorWebBackendCommands.js">
+    <None Include="..\UserInterface\Legacy\6.0\InspectorBackendCommands.js">
       <Filter>UserInterface\Legacy\6.0</Filter>
     </None>
-    <None Include="..\UserInterface\Legacy\7.0\InspectorWebBackendCommands.js">
+    <None Include="..\UserInterface\Legacy\7.0\InspectorBackendCommands.js">
       <Filter>UserInterface\Legacy\7.0</Filter>
+    </None>
+    <None Include="..\UserInterface\Legacy\8.0\InspectorBackendCommands.js">
+      <Filter>UserInterface\Legacy\8.0</Filter>
     </None>
     <None Include="..\UserInterface\Images\Weight.svg">
       <Filter>Images</Filter>
@@ -1402,6 +1438,9 @@
       <Filter>Images</Filter>
     </None>
     <None Include="..\UserInterface\Images\NavigationItemCurleyBraces.svg">
+      <Filter>Images</Filter>
+    </None>
+    <None Include="..\UserInterface\Images\NavigationItemDoughnutChart.svg">
       <Filter>Images</Filter>
     </None>
     <None Include="..\UserInterface\Images\NavigationItemFile.svg">

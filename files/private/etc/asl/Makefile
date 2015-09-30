@@ -1,12 +1,6 @@
 # Common Makefile
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-ifdef RC_TARGET_CONFIG
-Product=$(RC_TARGET_CONFIG)
-else
-Product=MacOSX
-endif
-
 install:: validate-all install-files
 
 validate-all:
@@ -16,12 +10,14 @@ validate-all:
 	done
 
 install-files:
-	@echo "Installing $(Destination) for $(Product)"
+ifneq "$(CONTENT_PLATFORM)" "ios_sim"
+	@echo "Installing $(Destination) for $(CONTENT_PLATFORM)"
 	$(_v) $(INSTALL_FILE) -m 0644 -c com.apple.MessageTracer "$(Destination)/com.apple.MessageTracer"
 	$(_v) $(INSTALL_FILE) -m 0644 -c com.apple.performance   "$(Destination)/com.apple.performance"
 	$(_v) $(INSTALL_FILE) -m 0644 -c com.apple.eventmonitor  "$(Destination)/com.apple.eventmonitor"
-ifeq "$(Product)" "MacOSX"
+ifeq "$(CONTENT_PLATFORM)" "osx"
 	$(_v) $(INSTALL_FILE) -m 0644 -c com.apple.install     "$(Destination)/com.apple.install"
 	$(_v) $(INSTALL_FILE) -m 0644 -c com.apple.mail        "$(Destination)/com.apple.mail"
 	$(_v) $(INSTALL_FILE) -m 0644 -c com.apple.login.guest "$(Destination)/com.apple.login.guest"
+endif
 endif

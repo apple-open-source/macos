@@ -24,8 +24,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(FILTERS)
 #include "FEGaussianBlur.h"
 
 #include "FEGaussianBlurNEON.h"
@@ -33,7 +31,7 @@
 #include "GraphicsContext.h"
 #include "TextStream.h"
 
-#if HAVE(ACCELERATE)
+#if USE(ACCELERATE)
 #include <Accelerate/Accelerate.h>
 #endif
 
@@ -80,7 +78,7 @@ inline void kernelPosition(int blurIteration, unsigned& radius, int& deltaLeft, 
     }
 }
 
-FEGaussianBlur::FEGaussianBlur(Filter* filter, float x, float y, EdgeModeType edgeMode)
+FEGaussianBlur::FEGaussianBlur(Filter& filter, float x, float y, EdgeModeType edgeMode)
     : FilterEffect(filter)
     , m_stdX(x)
     , m_stdY(y)
@@ -88,9 +86,9 @@ FEGaussianBlur::FEGaussianBlur(Filter* filter, float x, float y, EdgeModeType ed
 {
 }
 
-PassRefPtr<FEGaussianBlur> FEGaussianBlur::create(Filter* filter, float x, float y, EdgeModeType edgeMode)
+Ref<FEGaussianBlur> FEGaussianBlur::create(Filter& filter, float x, float y, EdgeModeType edgeMode)
 {
-    return adoptRef(new FEGaussianBlur(filter, x, y, edgeMode));
+    return adoptRef(*new FEGaussianBlur(filter, x, y, edgeMode));
 }
 
 float FEGaussianBlur::stdDeviationX() const
@@ -297,7 +295,7 @@ inline void boxBlur(const Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* d
     }
 }
 
-#if HAVE(ACCELERATE)
+#if USE(ACCELERATE)
 inline void accelerateBoxBlur(const Uint8ClampedArray* src, Uint8ClampedArray* dst, unsigned kernelSize, int stride, int effectWidth, int effectHeight)
 {
     // We must always use an odd radius.
@@ -347,7 +345,7 @@ inline void standardBoxBlur(Uint8ClampedArray* src, Uint8ClampedArray* dst, unsi
         if (kernelSizeX) {
             kernelPosition(i, kernelSizeX, dxLeft, dxRight);
 #if HAVE(ARM_NEON_INTRINSICS)
-            if (!isAlphaImage())
+            if (!isAlphaImage)
                 boxBlurNEON(src, dst, kernelSizeX, dxLeft, dxRight, 4, stride, paintSize.width(), paintSize.height());
             else
                 boxBlur(src, dst, kernelSizeX, dxLeft, dxRight, 4, stride, paintSize.width(), paintSize.height(), true, edgeMode);
@@ -360,7 +358,7 @@ inline void standardBoxBlur(Uint8ClampedArray* src, Uint8ClampedArray* dst, unsi
         if (kernelSizeY) {
             kernelPosition(i, kernelSizeY, dyLeft, dyRight);
 #if HAVE(ARM_NEON_INTRINSICS)
-            if (!isAlphaImage())
+            if (!isAlphaImage)
                 boxBlurNEON(src, dst, kernelSizeY, dyLeft, dyRight, stride, 4, paintSize.height(), paintSize.width());
             else
                 boxBlur(src, dst, kernelSizeY, dyLeft, dyRight, stride, 4, paintSize.height(), paintSize.width(), true, edgeMode);
@@ -382,7 +380,7 @@ inline void FEGaussianBlur::platformApplyGeneric(Uint8ClampedArray* srcPixelArra
 {
     int stride = 4 * paintSize.width();
 
-#if HAVE(ACCELERATE)
+#if USE(ACCELERATE)
     if (kernelSizeX == kernelSizeY && (m_edgeMode == EDGEMODE_NONE || m_edgeMode == EDGEMODE_DUPLICATE)) {
         accelerateBoxBlur(srcPixelArray, tmpPixelArray, kernelSizeX, stride, paintSize.width(), paintSize.height());
         return;
@@ -401,7 +399,7 @@ void FEGaussianBlur::platformApplyWorker(PlatformApplyParameters* parameters)
 
 inline void FEGaussianBlur::platformApply(Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize)
 {
-#if !HAVE(ACCELERATE)
+#if !USE(ACCELERATE)
     int scanline = 4 * paintSize.width();
     int extraHeight = 3 * kernelSizeY * 0.5f;
     int optimalThreadNumber = (paintSize.width() * paintSize.height()) / (s_minimalRectDimension + extraHeight * paintSize.width());
@@ -562,5 +560,3 @@ TextStream& FEGaussianBlur::externalRepresentation(TextStream& ts, int indent) c
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(FILTERS)

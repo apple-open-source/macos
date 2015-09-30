@@ -28,13 +28,9 @@
 
 #if PLATFORM(IOS)
 
-#import <QuartzCore/CAFilter.h>
-#import <QuartzCore/CALayerPrivate.h>
-#import <UIKit/UIGeometry_Private.h>
-#import <UIKit/UIKit.h>
-#import <UIKit/UIView_Private.h>
-#import <UIKit/_UIBackdropView_Private.h>
+#import "UIKitSPI.h"
 #import <WebCore/LocalizedStrings.h>
+#import <WebCore/QuartzCoreSPI.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/text/WTFString.h>
 
@@ -120,6 +116,11 @@ const NSTimeInterval indicatorMoveDuration = 0.3;
         [_timer setFireDate:[NSDate dateWithTimeIntervalSinceNow:indicatorTimeout]];
     else
         _timer = [NSTimer scheduledTimerWithTimeInterval:indicatorTimeout target:self selector:@selector(hide:) userInfo:nil repeats:NO];
+}
+
+- (void)hide
+{
+    [self hide:nil];
 }
 
 - (void)hide:(NSTimer *)timer

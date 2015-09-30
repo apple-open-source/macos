@@ -144,10 +144,10 @@ bool SandboxExtension::HandleArray::decode(IPC::ArgumentDecoder& decoder, Sandbo
     return true;
 }
 
-PassRefPtr<SandboxExtension> SandboxExtension::create(const Handle& handle)
+RefPtr<SandboxExtension> SandboxExtension::create(const Handle& handle)
 {
     if (!handle.m_sandboxExtension)
-        return 0;
+        return nullptr;
 
     return adoptRef(new SandboxExtension(handle));
 }
@@ -212,28 +212,31 @@ String stringByResolvingSymlinksInPath(const String& path)
     return String::fromUTF8(resolveSymlinksInPath(path.utf8()));
 }
 
-void SandboxExtension::createHandle(const String& path, Type type, Handle& handle)
+bool SandboxExtension::createHandle(const String& path, Type type, Handle& handle)
 {
     ASSERT(!handle.m_sandboxExtension);
 
     // FIXME: Do we need both resolveSymlinksInPath() and -stringByStandardizingPath?
     CString standardizedPath = resolveSymlinksInPath(fileSystemRepresentation([(NSString *)path stringByStandardizingPath]));
     handle.m_sandboxExtension = WKSandboxExtensionCreate(standardizedPath.data(), wkSandboxExtensionType(type));
-    if (!handle.m_sandboxExtension)
-        WTFLogAlways("Could not create a sandbox extension for '%s'", path.utf8().data());
+    if (!handle.m_sandboxExtension) {
+        LOG_ERROR("Could not create a sandbox extension for '%s'", path.utf8().data());
+        return false;
+    }
+    return true;
 }
 
-void SandboxExtension::createHandleForReadWriteDirectory(const String& path, SandboxExtension::Handle& handle)
+bool SandboxExtension::createHandleForReadWriteDirectory(const String& path, SandboxExtension::Handle& handle)
 {
     NSError *error = nil;
     NSString *nsPath = path;
 
     if (![[NSFileManager defaultManager] createDirectoryAtPath:nsPath withIntermediateDirectories:YES attributes:nil error:&error]) {
         NSLog(@"could not create \"%@\", error %@", nsPath, error);
-        return;
+        return false;
     }
 
-    SandboxExtension::createHandle(path, SandboxExtension::ReadWrite, handle);
+    return SandboxExtension::createHandle(path, SandboxExtension::ReadWrite, handle);
 }
 
 String SandboxExtension::createHandleForTemporaryFile(const String& prefix, Type type, Handle& handle)

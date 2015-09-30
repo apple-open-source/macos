@@ -566,7 +566,7 @@ acceptor_start
 	    /*
 	     * Check that client sent what they said the would
 	     */
-	    if (!gss_oid_equal(&ctx->negotiated_mech_type, &ctx->selected_mech_type)) {
+	    if (!gss_oid_equal(ctx->negotiated_mech_type, ctx->selected_mech_type)) {
 		_gss_mg_log(1, "client didn't send the mech they said they would");
 	    }
 

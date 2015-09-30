@@ -17,6 +17,7 @@
 #include "cstring.h"
 #include "hash.h"
 #include "uresimp.h"
+#include "ureslocs.h"
 #include "unicode/msgfmt.h"
 #include "uassert.h"
 
@@ -188,7 +189,7 @@ TimeUnitFormat::parseObject(const UnicodeString& source,
          i < TimeUnit::UTIMEUNIT_FIELD_COUNT;
          i = (TimeUnit::UTimeUnitFields)(i+1)) {
         Hashtable* countToPatterns = fTimeUnitToCountToPatterns[i];
-        int32_t elemPos = -1;
+        int32_t elemPos = UHASH_FIRST;
         const UHashElement* elem = NULL;
         while ((elem = countToPatterns->nextElement(elemPos)) != NULL){
             const UHashTok keyTok = elem->key;
@@ -358,7 +359,7 @@ TimeUnitFormat::readFromCurrentLocale(UTimeUnitFormatStyle style, const char* ke
     // status does not affect "err".
     UErrorCode status = U_ZERO_ERROR;
     UResourceBundle *rb, *unitsRes;
-    rb = ures_open(NULL, getLocaleID(status), &status);
+    rb = ures_open(U_ICUDATA_UNIT, getLocaleID(status), &status);
     unitsRes = ures_getByKey(rb, key, NULL, &status);
     unitsRes = ures_getByKey(unitsRes, "duration", unitsRes, &status);
     if (U_FAILURE(status)) {
@@ -554,7 +555,7 @@ TimeUnitFormat::searchInLocaleChain(UTimeUnitFormatStyle style, const char* key,
                                         ULOC_FULLNAME_CAPACITY, &status)) >= 0){
         // look for pattern for srcPluralCount in locale tree
         UResourceBundle *rb, *unitsRes, *countsToPatternRB;
-        rb = ures_open(NULL, parentLocale, &status);
+        rb = ures_open(U_ICUDATA_UNIT, parentLocale, &status);
         unitsRes = ures_getByKey(rb, key, NULL, &status);
         const char* timeUnitName = getTimeUnitName(srcTimeUnitField, status);
         countsToPatternRB = ures_getByKey(unitsRes, timeUnitName, NULL, &status);
@@ -685,7 +686,7 @@ TimeUnitFormat::setNumberFormat(const NumberFormat& format, UErrorCode& status){
 
 void
 TimeUnitFormat::deleteHash(Hashtable* htable) {
-    int32_t pos = -1;
+    int32_t pos = UHASH_FIRST;
     const UHashElement* element = NULL;
     if ( htable ) {
         while ( (element = htable->nextElement(pos)) != NULL ) {
@@ -706,7 +707,7 @@ TimeUnitFormat::copyHash(const Hashtable* source, Hashtable* target, UErrorCode&
     if ( U_FAILURE(status) ) {
         return;
     }
-    int32_t pos = -1;
+    int32_t pos = UHASH_FIRST;
     const UHashElement* element = NULL;
     if ( source ) {
         while ( (element = source->nextElement(pos)) != NULL ) {

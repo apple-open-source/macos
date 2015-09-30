@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2007, 2008, 2009, 2012 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2007, 2008, 2009, 2012, 2015 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -37,6 +37,7 @@ class JSArray : public JSNonFinalObject {
 
 public:
     typedef JSNonFinalObject Base;
+    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetPropertyNames;
 
     static size_t allocationSize(size_t inlineCapacity)
     {
@@ -52,6 +53,7 @@ protected:
 
 public:
     static JSArray* create(VM&, Structure*, unsigned initialLength = 0);
+    static JSArray* createWithButterfly(VM&, Structure*, Butterfly*);
 
     // tryCreateUninitialized is used for fast construction of arrays whose size and
     // contents are known at time of creation. Clients of this interface must:
@@ -61,20 +63,34 @@ public:
 
     JS_EXPORT_PRIVATE static bool defineOwnProperty(JSObject*, ExecState*, PropertyName, const PropertyDescriptor&, bool throwException);
 
-    static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
+    JS_EXPORT_PRIVATE static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
 
     DECLARE_EXPORT_INFO;
-        
+
+    // OK if we know this is a JSArray, but not if it could be an object of a derived class; for RuntimeArray this always returns 0.
     unsigned length() const { return getArrayLength(); }
-    // OK to use on new arrays, but not if it might be a RegExpMatchArray.
-    bool setLength(ExecState*, unsigned, bool throwException = false);
 
-    void sort(ExecState*);
-    void sort(ExecState*, JSValue compareFunction, CallType, const CallData&);
-    void sortNumeric(ExecState*, JSValue compareFunction, CallType, const CallData&);
+    // OK to use on new arrays, but not if it might be a RegExpMatchArray or RuntimeArray.
+    JS_EXPORT_PRIVATE bool setLength(ExecState*, unsigned, bool throwException = false);
 
-    void push(ExecState*, JSValue);
-    JSValue pop(ExecState*);
+    JS_EXPORT_PRIVATE void push(ExecState*, JSValue);
+    JS_EXPORT_PRIVATE JSValue pop(ExecState*);
+
+    JSArray* fastSlice(ExecState&, unsigned startIndex, unsigned count);
+
+    static IndexingType fastConcatType(VM& vm, JSArray& firstArray, JSArray& secondArray)
+    {
+        IndexingType type = firstArray.indexingType();
+        if (type != secondArray.indexingType())
+            return NonArray;
+        if (type != ArrayWithDouble && type != ArrayWithInt32 && type != ArrayWithContiguous)
+            return NonArray;
+        if (firstArray.structure(vm)->holesMustForwardToPrototype(vm)
+            || secondArray.structure(vm)->holesMustForwardToPrototype(vm))
+            return NonArray;
+        return type;
+    }
+    EncodedJSValue fastConcatWith(ExecState&, JSArray&);
 
     enum ShiftCountMode {
         // This form of shift hints that we're doing queueing. With this assumption in hand,
@@ -131,8 +147,8 @@ public:
         }
     }
 
-    void fillArgList(ExecState*, MarkedArgumentBuffer&);
-    void copyToArguments(ExecState*, CallFrame*, uint32_t length, int32_t firstVarArgOffset);
+    JS_EXPORT_PRIVATE void fillArgList(ExecState*, MarkedArgumentBuffer&);
+    JS_EXPORT_PRIVATE void copyToArguments(ExecState*, VirtualRegister firstElementDest, unsigned offset, unsigned length);
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype, IndexingType indexingType)
     {
@@ -140,7 +156,6 @@ public:
     }
         
 protected:
-    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | JSObject::StructureFlags;
     static void put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
 
     static bool deleteProperty(JSCell*, ExecState*, PropertyName);
@@ -157,26 +172,14 @@ private:
     }
         
     bool shiftCountWithAnyIndexingType(ExecState*, unsigned& startIndex, unsigned count);
-    bool shiftCountWithArrayStorage(VM&, unsigned startIndex, unsigned count, ArrayStorage*);
+    JS_EXPORT_PRIVATE bool shiftCountWithArrayStorage(VM&, unsigned startIndex, unsigned count, ArrayStorage*);
 
     bool unshiftCountWithAnyIndexingType(ExecState*, unsigned startIndex, unsigned count);
     bool unshiftCountWithArrayStorage(ExecState*, unsigned startIndex, unsigned count, ArrayStorage*);
     bool unshiftCountSlowCase(VM&, bool, unsigned);
 
-    template<IndexingType indexingType>
-    void sortNumericVector(ExecState*, JSValue compareFunction, CallType, const CallData&);
-        
-    template<IndexingType indexingType, typename StorageType>
-    void sortCompactedVector(ExecState*, ContiguousData<StorageType>, unsigned relevantLength);
-        
-    template<IndexingType indexingType>
-    void sortVector(ExecState*, JSValue compareFunction, CallType, const CallData&);
-
     bool setLengthWithArrayStorage(ExecState*, unsigned newLength, bool throwException, ArrayStorage*);
     void setLengthWritable(ExecState*, bool writable);
-        
-    template<IndexingType indexingType>
-    void compactForSorting(unsigned& numDefined, unsigned& newRelevantLength);
 };
 
 inline Butterfly* createContiguousArrayButterfly(VM& vm, JSCell* intendedOwner, unsigned length, unsigned& vectorLength)
@@ -216,7 +219,7 @@ inline JSArray* JSArray::create(VM& vm, Structure* structure, unsigned initialLe
             || hasContiguous(structure->indexingType()));
         unsigned vectorLength;
         butterfly = createContiguousArrayButterfly(vm, 0, initialLength, vectorLength);
-        ASSERT(initialLength < MIN_SPARSE_ARRAY_INDEX);
+        ASSERT(initialLength < MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH);
         if (hasDouble(structure->indexingType())) {
             for (unsigned i = 0; i < vectorLength; ++i)
                 butterfly->contiguousDouble()[i] = PNaN;
@@ -227,9 +230,8 @@ inline JSArray* JSArray::create(VM& vm, Structure* structure, unsigned initialLe
             || structure->indexingType() == ArrayWithArrayStorage);
         butterfly = createArrayButterfly(vm, 0, initialLength);
     }
-    JSArray* array = new (NotNull, allocateCell<JSArray>(vm.heap)) JSArray(vm, structure, butterfly);
-    array->finishCreation(vm);
-    return array;
+
+    return createWithButterfly(vm, structure, butterfly);
 }
 
 inline JSArray* JSArray::tryCreateUninitialized(VM& vm, Structure* structure, unsigned initialLength)
@@ -267,7 +269,12 @@ inline JSArray* JSArray::tryCreateUninitialized(VM& vm, Structure* structure, un
         storage->m_sparseMap.clear();
         storage->m_numValuesInVector = initialLength;
     }
-        
+
+    return createWithButterfly(vm, structure, butterfly);
+}
+
+inline JSArray* JSArray::createWithButterfly(VM& vm, Structure* structure, Butterfly* butterfly)
+{
     JSArray* array = new (NotNull, allocateCell<JSArray>(vm.heap)) JSArray(vm, structure, butterfly);
     array->finishCreation(vm);
     return array;

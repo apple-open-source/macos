@@ -214,7 +214,7 @@ void IOPMUnregisterNotification(IOPMNotificationHandle handle)
         if (_useractive->dtoken) {
             notify_cancel(_useractive->dtoken);
         }
-        bzero(_useractive, sizeof(_useractive));
+        bzero(_useractive, sizeof(*_useractive));
         free(_useractive);
     }
 }
@@ -434,6 +434,7 @@ IOReturn IOPMCopyPowerHistory(CFArrayRef *outArray)
 
   char *tok;
   char *d_name;
+  char *copy = NULL;
   int fileCount = 0;
 
   while ((ep = readdir(dp))) {
@@ -446,7 +447,7 @@ IOReturn IOPMCopyPowerHistory(CFArrayRef *outArray)
                                              0,
                                              &kCFTypeDictionaryKeyCallBacks,
                                              &kCFTypeDictionaryValueCallBacks);
-    d_name = strdup(ep->d_name);
+    copy = d_name = strdup(ep->d_name);
 
     // Parse filename for metadata
     int part = 1;
@@ -485,10 +486,9 @@ IOReturn IOPMCopyPowerHistory(CFArrayRef *outArray)
       
       part++;
     }
-    
     CFArrayAppendValue(logs, uuid_details);
     CFRelease(uuid_details);
-    free(d_name);
+    free(copy);
   }
   
   closedir(dp);
@@ -549,6 +549,7 @@ IOReturn IOPMCopyPowerHistoryDetailed(CFStringRef UUID, CFDictionaryRef *details
                                                     ep->d_name,
                                                     kCFStringEncodingUTF8);
         CFStringAppend(fileName, uuid_file);
+        if(fileURL) CFRelease(fileURL);
         fileURL = CFURLCreateWithFileSystemPath(
                                                kCFAllocatorDefault,
                                                fileName,
@@ -585,10 +586,9 @@ IOReturn IOPMCopyPowerHistoryDetailed(CFStringRef UUID, CFDictionaryRef *details
         return_code = kIOReturnSuccess;
     }
 
-    CFRelease(fileURL);
+exit:
+    if(fileURL) CFRelease(fileURL);
     CFRelease(fileName);
-
-exit:   
     return return_code;
 }
 
@@ -776,8 +776,14 @@ CFDictionaryRef IOPMCopySleepWakeFailure(void)
     if (!scFailureKey)
         goto exit;
 
-    scFailureDictionary = isA_CFDictionary(SCDynamicStoreCopyValue(scDynStore, scFailureKey));
-
+    scFailureDictionary = SCDynamicStoreCopyValue(scDynStore, scFailureKey);
+    if(scFailureDictionary)
+    {
+        if(!isA_CFDictionary(scFailureDictionary)) {
+            CFRelease(scFailureDictionary);
+            scFailureDictionary = NULL;
+        }
+    }
 exit:
     if (scDynStore)
         CFRelease(scDynStore);    
@@ -1218,6 +1224,7 @@ IOReturn IOPMConnectionCreate(
 
     if (KERN_SUCCESS != kern_result) {
         return_code = kern_result;
+        free(connection);
         goto exit;
     }
     
@@ -1415,7 +1422,6 @@ IOPMCapabilityBits IOPMConnectionGetSystemCapabilities(void)
 {
 
     mach_port_t             pm_server = MACH_PORT_NULL;
-    kern_return_t           kern_result;
     IOPMCapabilityBits      ret_cap = SYSTEM_ON_CAPABILITIES;
     IOReturn                return_code = kIOReturnError;
 
@@ -1424,7 +1430,7 @@ IOPMCapabilityBits IOPMConnectionGetSystemCapabilities(void)
     if(pm_server == MACH_PORT_NULL)
       return ret_cap; 
 
-    kern_result = io_pm_get_capability_bits(pm_server, &ret_cap, &return_code);
+    io_pm_get_capability_bits(pm_server, &ret_cap, &return_code);
 
     _pm_disconnect(pm_server);
 
@@ -1799,6 +1805,44 @@ IOReturn IOPMAssertionNotify(char *name, int req_type)
         return return_code;
 }
 
+/*****************************************************************************/
+IOReturn  IOPMCopySleepPreventersList(int preventerType, CFArrayRef *outArray)
+{
+    io_service_t                service = IO_OBJECT_NULL;
+    CFStringRef                 key;
+    CFArrayRef                  obj;
+
+    if (outArray == NULL)
+    {
+        return kIOReturnBadArgument;
+    }
+    if (preventerType == kIOPMIdleSleepPreventers)
+    {
+        key = CFSTR(kIOPMIdleSleepPreventersKey);
+    }
+    else if (preventerType == kIOPMSystemSleepPreventers)
+    {
+        key = CFSTR(kIOPMSystemSleepPreventersKey);
+    }
+    else
+    {
+        return kIOReturnBadArgument;
+    }
+
+    service = IORegistryEntryFromPath(kIOMasterPortDefault,
+            kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+
+    if (IO_OBJECT_NULL == service)
+    {
+        return kIOReturnInternalError;
+    }
+    obj  = IORegistryEntryCreateCFProperty( service, key, kCFAllocatorDefault, 0);
+    IOObjectRelease(service);
+
+    *outArray = obj;
+    return kIOReturnSuccess;
+
+}
 /*****************************************************************************/
 
 #if 0

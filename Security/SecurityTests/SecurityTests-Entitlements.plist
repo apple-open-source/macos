@@ -27,6 +27,7 @@
 		<string>com.apple.security.regressions</string>
 		<string>lockdown-identities</string>
 		<string>apple</string>
+		<string>com.apple.security.sos</string>
 	</array>
 	<key>com.apple.private.ubiquity-kvstore-access</key>
 	<array>

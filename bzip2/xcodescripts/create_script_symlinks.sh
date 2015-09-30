@@ -2,8 +2,6 @@
 
 set -ex
 
-DSTROOT=${DSTROOT}${INSTALL_PATH_PREFIX}
-
 chmod +x ${DSTROOT}/usr/bin/bzdiff
 ln -s bzdiff ${DSTROOT}/usr/bin/bzcmp
 

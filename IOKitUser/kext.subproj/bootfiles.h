@@ -109,7 +109,7 @@
 
 /* The kernel */
 #define kDefaultKernelPath  "/System/Library/Kernels/kernel"
-#define kDefaultKernel      "/mach_kernel"
+//#define kDefaultKernel      "/mach_kernel"
 #define kKernelSymfile        (_PATH_VARRUN "mach.sym")
 // kKernelSymfile obsolete, remove when load.c deleted
 
@@ -117,6 +117,9 @@
 #define kSystemExtensionsDir  "/System/Library/Extensions"
 /* The library extensions folder */
 #define kLibraryExtensionsDir  "/Library/Extensions"
+
+/* Prelinked kernel */
+#define kPrelinkedKernelPath "/System/Library/PrelinkedKernels/prelinkedkernel"
 
 
 /* The booter configuration file */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -272,6 +272,13 @@ si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *inte
 		{
 			struct hostent *h;
 			h = (struct hostent *)((uintptr_t)item + sizeof(si_item_t));
+			if (h->h_name == NULL)
+			{
+				si_item_release(item);
+				if (err != NULL) *err = SI_STATUS_EAI_FAIL;
+				return NULL;
+			}
+
 			host = strdup(h->h_name);
 			si_item_release(item);
 			if (host == NULL)
@@ -289,6 +296,14 @@ si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *inte
 		{
 			struct servent *s;
 			s = (struct servent *)((uintptr_t)item + sizeof(si_item_t));
+			if (s->s_name == NULL)
+			{
+				si_item_release(item);
+				free(host);
+				if (err != NULL) *err = SI_STATUS_EAI_FAIL;
+				return NULL;
+			}
+	
 			serv = strdup(s->s_name);
 			si_item_release(item);
 			if (serv == NULL)
@@ -1324,6 +1339,7 @@ lower_case(const char *s)
 	if (s == NULL) return NULL;
 
 	t = malloc(strlen(s) + 1);
+	if (t == NULL) return NULL;
 
 	for (i = 0; s[i] != '\0'; i++) 
 	{
@@ -1343,6 +1359,7 @@ merge_alias(const char *name, build_hostent_t *h)
 
 	if (name == NULL) return 0;
 	if (h == NULL) return 0;
+	if (h->host.h_name == NULL) return 0;
 
 	if ((h->host.h_name != NULL) && (string_equal(name, h->host.h_name))) return 0;
 

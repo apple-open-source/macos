@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -138,7 +138,6 @@
 #define MDNS_DEBUG_STDERR 0x00000002
 #define MDNS_DEBUG_ASL    0x00000004
 #define MDNS_DEBUG_OUT    0x00000007
-#define MDNS_DEBUG_MORE   0x00000010
 
 static int _mdns_debug = 0;
 
@@ -313,6 +312,7 @@ _mdns_hostent_append_alias(mdns_hostent_t *h, const char *alias)
 	int i;
 	char *name;
 
+	_mdns_debug_message(";; _mdns_hostent_append_alias(%p, %s)\n", h, alias);
 	if ((h == NULL) || (alias == NULL)) return 0;
 
 	name = _mdns_canonicalize(alias);
@@ -357,6 +357,7 @@ _mdns_hostent_append_alias(mdns_hostent_t *h, const char *alias)
 static int
 _mdns_hostent_append_addr(mdns_hostent_t *h, const uint8_t *addr, uint32_t len)
 {
+	_mdns_debug_message(";; _mdns_hostent_append_addr(%p, %p, %u)\n", h, addr, len);
 	if ((h == NULL) || (addr == NULL) || (len == 0)) return 0;
 
 	/* copy the address buffer */
@@ -464,7 +465,7 @@ mdns_hostbyname(si_mod_t *si, const char *name, int af, const char *interface, u
 	}
 
 	_mdns_debug_message(";; mdns_hostbyname %s type %u class %u\n", name, type, ns_c_in);
-	
+
 	h.host.h_addrtype = af;
 
 	status = _mdns_search(name, ns_c_in, type, interface, flags, NULL, NULL, &reply);
@@ -539,7 +540,7 @@ mdns_hostbyaddr(si_mod_t *si, const void *addr, int af, const char *interface, u
 	h.host.h_addrtype = af;
 
 	_mdns_debug_message(";; mdns_hostbyaddr %s type %u class %u\n", name, ns_t_ptr, ns_c_in);
-	
+
 	status = _mdns_search(name, ns_c_in, ns_t_ptr, interface, flags, NULL, NULL, &reply);
 	free(name);
 	if (status != 0)
@@ -610,7 +611,7 @@ mdns_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family,
 	if (err != NULL) *err = SI_STATUS_NO_ERROR;
 
 	_mdns_debug_message(";; mdns_addrinfo node %s serv %s\n", (const char *)node, (const char *)serv);
-	
+
 	si_list_t *out = NULL;
 
 	memset(&h4, 0, sizeof(h4));
@@ -772,7 +773,7 @@ mdns_item_call(si_mod_t *si, int call, const char *name, const char *ignored, co
 	if (err != NULL) *err = SI_STATUS_NO_ERROR;
 
 	_mdns_debug_message(";; mdns_item_call %s type %u class %u\n", name, type, class);
-	
+
 	memset(&h4, 0, sizeof(h4));
 	memset(&h6, 0, sizeof(h6));
 	memset(&reply, 0, sizeof(reply));
@@ -868,7 +869,6 @@ _mdns_init(void)
 			if ((c[i] == 'o') || (c[i] == 'O')) _mdns_debug |= MDNS_DEBUG_STDOUT;
 			if ((c[i] == 'e') || (c[i] == 'E')) _mdns_debug |= MDNS_DEBUG_STDERR;
 			if ((c[i] == 'a') || (c[i] == 'A')) _mdns_debug |= MDNS_DEBUG_ASL;
-			if ((c[i] == 'm') || (c[i] == 'M')) _mdns_debug |= MDNS_DEBUG_MORE;
 		}
 	}
 }
@@ -1127,7 +1127,7 @@ _mdns_make_query(const char* name, int class, int type, uint8_t *buf, uint32_t b
 	return len;
 }
 
-typedef struct
+typedef struct mdns_query_context_s
 {
 	mdns_reply_t *reply;
 	mdns_hostent_t *host;
@@ -1141,7 +1141,10 @@ typedef struct
 	DNSServiceFlags flags;
 	DNSServiceErrorType error;
 	int kq;					// kqueue to notify when callback received
+	struct mdns_query_context_s *next; // linked list
 } mdns_query_context_t;
+
+static mdns_query_context_t *in_flight;
 
 static void
 _mdns_query_callback(DNSServiceRef, DNSServiceFlags, uint32_t, DNSServiceErrorType, const char *, uint16_t, uint16_t, uint16_t, const void *, uint32_t, void *);
@@ -1208,6 +1211,11 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
 
 	status = DNSServiceQueryRecord(&ctx->sd, flags, iface, qname, type, class, _mdns_query_callback, ctx);
 	if (qname != name) free(qname);
+
+	/* keep a linked list of all in-flight queries */
+	ctx->next = in_flight;
+	in_flight = ctx;
+
 	return status;
 }
 
@@ -1217,25 +1225,23 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
  * considered complete.
  */
 static bool
-_mdns_query_is_complete(mdns_query_context_t *ctx)
+_mdns_query_is_complete(mdns_query_context_t *ctx, bool *more)
 {
 	bool complete = false;
 
 	/* NULL context is an error, but we call it complete */
 	if (ctx == NULL) return true;
 
-	/*
-	 * The default is to ignore kDNSServiceFlagsMoreComing, since it has either
-	 * never been supported or worked correctly.  MDNS_DEBUG_MORE makes us honor it.
-	 */
+	/* not complete if discoveryd says there is more coming (for some in-flight query - possibly not this one) */
 	if (ctx->flags & kDNSServiceFlagsMoreComing)
 	{
-		if (_mdns_debug & MDNS_DEBUG_MORE)
-		{
-			_mdns_debug_message(";; mdns is_complete type %d ctx %p more coming - incomplete\n", ctx->type, ctx);
-			return false;
-		}
-	}
+		if (more != NULL) *more = true;
+		_mdns_debug_message(";; mdns is_complete type %d ctx %p more coming - incomplete\n", ctx->type, ctx);
+		return false;
+    } else {
+        if (more != NULL) *more = false;
+        _mdns_debug_message(";; mdns is_complete type %d ctx %p clear more coming - complete\n", ctx->type, ctx);
+    }
 
 	if (ctx->last_type != ctx->type)
 	{
@@ -1247,19 +1253,31 @@ _mdns_query_is_complete(mdns_query_context_t *ctx)
 	{
 		case ns_t_a:
 		case ns_t_aaaa:
-			if (ctx->host != NULL && ctx->host->addr_count > 0) complete = true;
+			if (ctx->host != NULL && ctx->host->addr_count > 0)
+			{
+				_mdns_debug_message(";; mdns is_complete type %d ctx %p host addr count %d complete -> true\n", ctx->type, ctx, ctx->host->addr_count);
+				complete = true;
+			}
 			break;
 		case ns_t_ptr:
-			if (ctx->host != NULL && ctx->host->host.h_name != NULL) complete = true;
+			if (ctx->host != NULL && ctx->host->host.h_name != NULL)
+			{
+				complete = true;
+				_mdns_debug_message(";; mdns is_complete type %d ctx %p host name %s complete -> true\n", ctx->type, ctx, ctx->host->host.h_name);
+			}
 			break;
 		case ns_t_srv:
-			if (ctx->reply != NULL && ctx->reply->srv != NULL) complete = true;
+			if (ctx->reply != NULL && ctx->reply->srv != NULL)
+			{
+				_mdns_debug_message(";; mdns is_complete type %d ctx %p srv %s complete -> true\n", ctx->type, ctx, ctx->reply->srv);
+				complete = true;
+			}
 			break;
 		default:
 			_mdns_debug_message(";; mdns is_complete unexpected type %d ctx %p\n", ctx->type, ctx);
 	}
 
-	_mdns_debug_message(";; mdns is_complete type %d ctx %p %s%scomplete\n", ctx->type, ctx, (ctx->flags & kDNSServiceFlagsMoreComing) ? "(more coming flag ignored)" : "", complete ? " - " : " - in");
+    _mdns_debug_message(";; mdns is_complete type %d ctx %p %scomplete\n", ctx->type, ctx, complete ?  " - " : " - in");
 
 	return complete;
 }
@@ -1267,14 +1285,17 @@ _mdns_query_is_complete(mdns_query_context_t *ctx)
 /*
  * _mdns_query_clear
  * Clear out the temporary fields of the context, and clear any result
- * structures that are incomplete.  Retrns 1 if the query was complete.
+ * structures that are incomplete.  Returns true if the query was complete.
  */
 static bool
 _mdns_query_clear(mdns_query_context_t *ctx)
 {
-	bool complete = _mdns_query_is_complete(ctx);
+	mdns_query_context_t *p;
 
-	if (ctx == NULL) return complete;
+	if (ctx == NULL) return true;
+
+	bool more = false;
+	bool complete = _mdns_query_is_complete(ctx, &more);
 
 	if (ctx->sd != NULL)
 	{
@@ -1290,26 +1311,53 @@ _mdns_query_clear(mdns_query_context_t *ctx)
 	ctx->flags = 0;
 	ctx->kq = -1;
 
-	if (!complete)
+	if (in_flight == ctx)
+	{
+		in_flight = ctx->next;
+	}
+	else
+	{
+		p = in_flight;
+		while ((p != NULL) && (p->next != ctx)) p = p->next;
+		if (p != NULL) p->next = ctx->next;
+	}
+
+	ctx->next = NULL;
+
+	if (!complete && !more)
 	{
 		_mdns_hostent_clear(ctx->host);
 		ctx->anslen = -1;
 	}
 
-	return complete;
+	return complete | more;
 }
 
 static void
 _mdns_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifIndex, DNSServiceErrorType errorCode, const char *fullname, uint16_t rrtype, uint16_t rrclass, uint16_t rdlen, const void *rdata, uint32_t ttl, void *ctx)
 {
-	mdns_query_context_t *context;
+	mdns_query_context_t *p, *context;
 	struct in6_addr a6;
 
 	context = (mdns_query_context_t *)ctx;
+	_mdns_debug_message(";; _mdns_query_callback ctx %p flags=0x%08x%s\n", context, flags, (flags & kDNSServiceFlagsMoreComing) ? " (kDNSServiceFlagsMoreComing is set)" : "");
 
 	context->flags = flags;
 	context->error = errorCode;
 	context->last_type = rrtype;
+
+	/* if kDNSServiceFlagsMoreComing is NOT set, there is no more data coming for ALL in-flight queries */
+	if (!(flags & kDNSServiceFlagsMoreComing))
+	{
+		for (p = in_flight; p != NULL; p = p->next)
+		{
+			if (p->flags & kDNSServiceFlagsMoreComing)
+			{
+				_mdns_debug_message(";; cleared kDNSServiceFlagsMoreComing flag for ctx %p\n", p);
+				p->flags &= ~kDNSServiceFlagsMoreComing;
+			}
+		}
+	}
 
 	if (errorCode != kDNSServiceErr_NoError)
 	{
@@ -1524,6 +1572,7 @@ wakeup_kevent:
 	/* Ping the waiting thread in case this callback was invoked on another */
 	if (context->kq != -1)
 	{
+		_mdns_debug_message(";; _mdns_query_callback sending kevent wakeup\n");
 		struct kevent ev;
 		EV_SET(&ev, 1, EVFILT_USER, 0, NOTE_TRIGGER, 0, 0);
 		int res = kevent(context->kq, &ev, 1, NULL, 0, NULL);
@@ -1607,6 +1656,7 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 	/* 2 for A and AAAA parallel queries */
 	int n_ctx = 0;
 	mdns_query_context_t ctx[2];
+    bool more_coming[2];
 
 	if (name == NULL) return -1;
 
@@ -1638,8 +1688,11 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 	timeout = delta;
 	_mdns_now(&start);
 
-	for (i = 0; i < 2; ++i) memset(&ctx[i], 0 , sizeof(mdns_query_context_t));
 
+    for (i = 0; i < 2; ++i) {
+        memset(&ctx[i], 0 , sizeof(mdns_query_context_t));
+        more_coming[i] = false;
+    }
 	/* set up the kqueue */
 	kq = kqueue();
 	EV_SET(&ev, 1, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, 0);
@@ -1648,6 +1701,8 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 
 	while (wait)
 	{
+		_mdns_debug_message(";; _mdns_search wait loop\n");
+
 		if (initialize)
 		{
 			initialize = false;
@@ -1726,6 +1781,7 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 
 		_mdns_debug_message(";; set kevent timeout %ld.%ld [ctx %p %p]\n", timeout.tv_sec, timeout.tv_nsec, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
 
+		errno = 0;
 		n = kevent(kq, NULL, 0, &ev, 1, &timeout);
 		if ((n < 0) && (errno != EINTR))
 		{
@@ -1745,10 +1801,13 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 		if (_mdns_sdref == NULL)
 		{
 			initialize = true;
+			_mdns_debug_message(";; _mdns_sdref is NULL, initialize = true\n");
 		}
 		else if (m > 0 && ev.filter == EVFILT_READ)
 		{
+			_mdns_debug_message(";; _mdns_search calling DNSServiceProcessResult\n", err);
 			err = DNSServiceProcessResult(_mdns_sdref);
+			_mdns_debug_message(";; DNSServiceProcessResult -> %s\n", err);
 			if ((err == kDNSServiceErr_ServiceNotRunning) || (err == kDNSServiceErr_BadReference))
 			{
 				_mdns_debug_message(";; DNSServiceProcessResult status %d [ctx %p %p]\n", err, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
@@ -1761,17 +1820,29 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 				initialize = true;
 			}
 		}
+		else if (m == 0 && ev.filter == EVFILT_USER)
+		{
+			_mdns_debug_message(";; kevent wakeup\n", m, (int)ev.filter);
+		}
+		else
+		{
+			_mdns_debug_message(";; kevent m=%d ev.filter=0x%08x\n", m, ev.filter);
+		}
 
 		/* Check if all queries are complete (including errors) */
 		complete = true;
 		for (i = 0; i < n_ctx; ++i)
 		{
-			if ((ctx[i].error != 0) || _mdns_query_is_complete(&ctx[i]))
+			bool qc = _mdns_query_is_complete(&ctx[i], &more_coming[i]);
+			_mdns_debug_message(";; ctx %d %p error=%d complete=%s\n", i, &(ctx[i]), ctx[i].error, qc ? "true" : "false");
+
+			if ((ctx[i].error != 0) || qc)
 			{
 				if (ctx[i].type == ns_t_a)
 				{
 					got_a_response = GOT_DATA;
 					if (ctx[i].error != 0) got_a_response = GOT_ERROR;
+					_mdns_debug_message(";; type ns_t_a got_a_response=%s ctx %p\n", (got_a_response == GOT_DATA) ? "GOT_DATA" : "GOT_ERROR", &(ctx[i]));
 				}
 
 				_mdns_debug_message(";; [%s type %d class %d] finished processing ctx %p\n", name, type, class, &(ctx[i]));
@@ -1795,7 +1866,30 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 			_mdns_debug_message(";; [%s type %d class %d] done [ctx %p %p]\n", name, type, class, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
 			break;
 		}
-		else if (got_a_response != 0)
+		else if (more_coming[0] || more_coming[1])
+		{
+			/* got partial data - probably from cache - reduce wait time */
+			struct timespec now, tmp, extra;
+
+			/* tmp = now - start */
+			_mdns_now(&now);
+			_mdns_sub_time(&tmp, &now, &start);
+
+			extra.tv_sec = MEDIUM_AAAA_EXTRA;
+			extra.tv_nsec = 0;
+
+			/* delta = tmp + extra */
+			_mdns_add_time(&delta, &tmp, &extra);
+
+			/* check that delta doesn't exceed our total timeout */
+			_mdns_sub_time(&tmp, &timeout, &delta);
+			if (tmp.tv_sec >= 0)
+			{
+				_mdns_debug_message(";; new timeout [%s type %d class %d] (waiting for more) %ld.%ld [ctx %p %p]\n", name, type, class, delta.tv_sec, delta.tv_nsec, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
+				_mdns_deadline(&finish, &delta);
+			}
+		}
+		else if (got_a_response == GOT_DATA)
 		{
 			/* got A, adjust deadline for AAAA */
 			struct timespec now, tn, extra;
@@ -1807,7 +1901,7 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 			extra.tv_sec = SHORT_AAAA_EXTRA;
 			extra.tv_nsec = 0;
 
-			/* if delta is small (<= 20 milliseconds), we probably got a result from mDNSResponder's cache */
+			/* if delta is small (<= 20 milliseconds), we probably got a result from cache */
 			if ((delta.tv_sec == 0) && (delta.tv_nsec <= 20000000))
 			{
 				extra.tv_sec = MEDIUM_AAAA_EXTRA;
@@ -1847,16 +1941,22 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 		}
 	}
 
+	_mdns_debug_message(";; finished _mdns_search loop [ctx %p %p]\n", (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
+
 	complete = false;
 	pthread_mutex_lock(&_mdns_mutex);
 
 	for (i = 0; i < n_ctx; ++i)
 	{
-		if (err == 0) err = ctx[i].error;
 		/* only clears hostents if result is incomplete */
-		complete = _mdns_query_clear(&ctx[i]) | complete;
+		bool cc = _mdns_query_clear(&ctx[i]);
+		complete = cc | complete;
+		_mdns_debug_message(";; _mdns_search ctx %p %scomplete\n", &ctx[i], cc ? "" : "in");
 	}
 
+	if (more_coming[0] || more_coming[1]) complete = false;
+
+	_mdns_debug_message(";; _mdns_search overall %scomplete\n", complete ? "" : "in");
 	pthread_mutex_unlock(&_mdns_mutex);
 
 	/* everything should be done with the kq by now */
@@ -1866,5 +1966,6 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 	if (!complete) res = -1;
 
 	if (anslen != NULL) *anslen = ctx[0].anslen;
+	_mdns_debug_message(";; _mdns_search exit res %d\n", res);
 	return res;
 }

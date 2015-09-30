@@ -279,10 +279,7 @@ eapolclientitemid_remove_password(mach_port_t server,
 				  int * result)
 {
     EAPOLClientConfigurationRef	cfg = NULL;
-    SecIdentityRef		identity = NULL;
     EAPOLClientItemIDRef	itemID = NULL;
-    CFDataRef			name_data = NULL;
-    CFDataRef			password_data = NULL;
     int				ret = 0;
 
     if (authorization_is_valid(auth_data, auth_data_length) == FALSE) {
@@ -319,14 +316,11 @@ eapolclientitemid_check_password(mach_port_t server,
 				 int * result)
 {
     EAPOLClientConfigurationRef	cfg = NULL;
-    SecIdentityRef		identity = NULL;
     EAPOLClientItemIDRef	itemID = NULL;
     CFDataRef			name_data = NULL;
     vm_address_t		name_vm_data = 0;
     mach_msg_type_number_t	name_vm_length = 0;
     CFDataRef			password_data = NULL;
-    vm_address_t		password_vm_data = 0;
-    mach_msg_type_number_t	password_vm_length = 0;
     int				ret = 0;
 
     *password_set = FALSE;

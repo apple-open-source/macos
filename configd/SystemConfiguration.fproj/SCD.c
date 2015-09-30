@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2008, 2010-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -44,9 +44,12 @@
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 
+// asl logging
+#define INSTALL_FACILITY	"install"
+#define INSTALL_ENVIRONMENT	"__OSINSTALL_ENVIRONMENT"
+
 // LIBASL SPI
 extern asl_object_t	_asl_server_control_query(void);
-
 
 /* framework variables */
 int	_sc_debug	= FALSE;	/* non-zero if debugging enabled */
@@ -379,15 +382,15 @@ _SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-__private_extern__ Boolean
-is_install_environment() {
+Boolean
+_SC_isInstallEnvironment() {
 	static dispatch_once_t	once;
 	static Boolean		is_install;
-	
+
 	dispatch_once(&once, ^{
 		is_install = (getenv(INSTALL_ENVIRONMENT) != NULL);
 	});
-	
+
 	return is_install;
 }
 
@@ -403,12 +406,12 @@ __SCLog(asl_object_t asl, asl_object_t msg, int level, CFStringRef formatString,
 
 		tsd = __SCGetThreadSpecificData();
 		if (tsd->_asl == NULL) {
-			tsd->_asl = asl_open(NULL, (is_install_environment() ? INSTALL_FACILITY : NULL), 0);
+			tsd->_asl = asl_open(NULL, (_SC_isInstallEnvironment() ? INSTALL_FACILITY : NULL), 0);
 			asl_set_filter(tsd->_asl, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
 		}
 		asl = tsd->_asl;
 	}
-	
+
 #ifdef	ENABLE_SC_FORMATTING
 	str = _CFStringCreateWithFormatAndArgumentsAux(NULL,
 						       _SCCopyDescription,
@@ -624,16 +627,14 @@ SCPrint(Boolean condition, FILE *stream, CFStringRef formatString, ...)
 
 
 void
-SCTrace(Boolean condition, FILE *stream, CFStringRef formatString, ...)
+SCTrace(FILE *stream, CFStringRef formatString, ...)
 {
 	va_list		formatArguments;
 
-	if (!condition) {
-		return;
-	}
-
 	va_start(formatArguments, formatString);
-	__SCPrint(stream, formatString, formatArguments, TRUE, FALSE);
+	if (stream != NULL) {
+		__SCPrint(stream, formatString, formatArguments, TRUE, FALSE);
+	}
 	va_end(formatArguments);
 
 	return;
@@ -760,7 +761,7 @@ __SCLoggerCreate(void)
 	tempLogger = __SCLoggerAllocate(kCFAllocatorDefault);
 	tempLogger->loggerID = NULL;
 	tempLogger->flags = kSCLoggerFlagsDefault;
-	tempLogger->aslc = asl_open(NULL, (is_install_environment() ? INSTALL_FACILITY : NULL), ASL_OPT_NO_DELAY);
+	tempLogger->aslc = asl_open(NULL, (_SC_isInstallEnvironment() ? INSTALL_FACILITY : NULL), ASL_OPT_NO_DELAY);
 	tempLogger->aslm = asl_new(ASL_TYPE_MSG);
 	pthread_mutex_init(&(tempLogger->lock), NULL);
 	tempLogger->module_status = kModuleStatusDoesNotExist;

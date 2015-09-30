@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,21 +42,18 @@ typedef UInt32 DADiskOption;
 
 enum
 {
-///w:start
-    _kDADiskStateMountPreferenceNoWrite = 0x08000000,
-    _kDADiskStateRequireAuthorize       = 0x04000000,
-///w:stop
-    kDADiskStateCommandActive        = 0x00000001,
-    kDADiskStateRequireRepair        = 0x00000002,
-    kDADiskStateRequireRepairQuotas  = 0x00000004,
-    kDADiskStateStagedProbe          = 0x00010000,
-    kDADiskStateStagedPeek           = 0x00020000,
-    kDADiskStateStagedAppear         = 0x00040000,
-    kDADiskStateStagedApprove        = 0x00100000,
-    kDADiskStateStagedAuthorize      = 0x00200000,
-    kDADiskStateStagedMount          = 0x00400000,
-    kDADiskStateStagedUnrepairable   = 0x00800000,
-    kDADiskStateZombie               = 0x10000000
+    _kDADiskStateMountAutomatic        = 0x00000010,
+    _kDADiskStateMountAutomaticNoDefer = 0x00000020,
+
+    kDADiskStateCommandActive       = 0x00000001,
+    kDADiskStateRequireRepair       = 0x00000002,
+    kDADiskStateRequireRepairQuotas = 0x00000004,
+    kDADiskStateStagedProbe         = 0x00010000,
+    kDADiskStateStagedPeek          = 0x00020000,
+    kDADiskStateStagedMount         = 0x00040000,
+    kDADiskStateStagedAppear        = 0x00080000,
+    kDADiskStateStagedUnrepairable  = 0x00100000,
+    kDADiskStateZombie              = 0x10000000
 };
 
 typedef UInt32 DADiskState;

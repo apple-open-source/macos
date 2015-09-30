@@ -126,12 +126,12 @@ public:
     unsigned startOffset() const { return m_startOffset; }
     unsigned endOffset() const { return m_endOffset; }
 
-    const String& description() const;
+    WEBCORE_EXPORT const String& description() const;
     bool activeMatch() const;
     DocumentMarkerDetails* details() const;
 
     void setActiveMatch(bool);
-    void clearDetails() { m_details.clear(); }
+    void clearDetails() { m_details = nullptr; }
 
     // Offset modifications are done by DocumentMarkerController.
     // Other classes should not call following setters.

@@ -22,15 +22,8 @@ ARCHS = $(filter $(SUPPORTED_ARCHS),$(sort $(foreach x,$(RC_ARCHS),$(if $(CANONI
 # install machine-independent and per-arch headers
 DIRS = . $(ARCHS)
 
-ifeq ($(RC_ProjectName),architecture_Sim)
-	include $(MAKEFILEPATH)/../AppleInternal/Makefiles/Makefile.indigo_prefix
-	HEADER_INSTALL_PREFIX = $(INDIGO_PREFIX)
-else
-	HEADER_INSTALL_PREFIX =
-endif
-
-EXPORT_DSTDIR=$(HEADER_INSTALL_PREFIX)/usr/include/architecture
-LOCAL_DSTDIR=$(HEADER_INSTALL_PREFIX)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture
+EXPORT_DSTDIR=/usr/include/architecture
+LOCAL_DSTDIR=/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture
 
 INSTALL = /usr/bin/install
 INSTALL_FLAGS= -p -m 444

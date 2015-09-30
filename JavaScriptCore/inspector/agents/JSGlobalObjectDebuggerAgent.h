@@ -26,8 +26,6 @@
 #ifndef JSGlobalObjectDebuggerAgent_h
 #define JSGlobalObjectDebuggerAgent_h
 
-#if ENABLE(INSPECTOR)
-
 #include "InspectorDebuggerAgent.h"
 #include "JSGlobalObjectScriptDebugServer.h"
 
@@ -46,7 +44,7 @@ public:
 
     virtual void startListeningScriptDebugServer() override;
     virtual void stopListeningScriptDebugServer(bool isBeingDestroyed) override;
-    virtual InjectedScript injectedScriptForEval(ErrorString*, const int* executionContextId) override;
+    virtual InjectedScript injectedScriptForEval(ErrorString&, const int* executionContextId) override;
 
     virtual void breakpointActionLog(JSC::ExecState*, const String&) override;
 
@@ -61,7 +59,5 @@ private:
 };
 
 } // namespace Inspector
-
-#endif // ENABLE(INSPECTOR)
 
 #endif // !defined(JSGlobalObjectDebuggerAgent_h)

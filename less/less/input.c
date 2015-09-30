@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 1984-2007  Mark Nudelman
+ * Copyright (C) 1984-2012  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
  *
- * For more information about less, or for information on how to 
- * contact the author, see the README file.
+ * For more information, see the README file.
  */
 
 
@@ -53,13 +52,14 @@ forw_line(curr_pos)
 	int endline;
 	int backchars;
 
+get_forw_line:
 	if (curr_pos == NULL_POSITION)
 	{
 		null_line();
 		return (NULL_POSITION);
 	}
 #if HILITE_SEARCH
-	if (hilite_search == OPT_ONPLUS || status_col)
+	if (hilite_search == OPT_ONPLUS || is_filtering() || status_col)
 		/*
 		 * If we are ignoring EOI (command F), only prepare
 		 * one line ahead, to avoid getting stuck waiting for
@@ -76,6 +76,9 @@ forw_line(curr_pos)
 		return (NULL_POSITION);
 	}
 
+	/*
+	 * Step back to the beginning of the line.
+	 */
 	base_pos = curr_pos;
 	for (;;)
 	{
@@ -95,10 +98,14 @@ forw_line(curr_pos)
 		--base_pos;
 	}
 
+	/*
+	 * Read forward again to the position we should start at.
+	 */
  	prewind();
 	plinenum(base_pos);
 	(void) ch_seek(base_pos);
-	while (base_pos < curr_pos)
+	new_pos = base_pos;
+	while (new_pos < curr_pos)
 	{
 		if (ABORT_SIGS())
 		{
@@ -106,12 +113,12 @@ forw_line(curr_pos)
 			return (NULL_POSITION);
 		}
 		c = ch_forw_get();
-		backchars = pappend(c, base_pos);
-		base_pos++;
+		backchars = pappend(c, new_pos);
+		new_pos++;
 		if (backchars > 0)
 		{
 			pshift_all();
-			base_pos -= backchars;
+			new_pos -= backchars;
 			while (--backchars >= 0)
 				(void) ch_back_get();
 		}
@@ -119,6 +126,9 @@ forw_line(curr_pos)
 	(void) pflushmbc();
 	pshift_all();
 
+	/*
+	 * Read the first character to display.
+	 */
 	c = ch_forw_get();
 	if (c == EOI)
 	{
@@ -127,6 +137,9 @@ forw_line(curr_pos)
 	}
 	blankline = (c == '\n' || c == '\r');
 
+	/*
+	 * Read each character in the line and append to the line buffer.
+	 */
 	for (;;)
 	{
 		if (ABORT_SIGS())
@@ -167,6 +180,11 @@ forw_line(curr_pos)
 			{
 				do
 				{
+					if (ABORT_SIGS())
+					{
+						null_line();
+						return (NULL_POSITION);
+					}
 					c = ch_forw_get();
 				} while (c != '\n' && c != EOI);
 				new_pos = ch_tell();
@@ -181,7 +199,23 @@ forw_line(curr_pos)
 		}
 		c = ch_forw_get();
 	}
-	pdone(endline);
+
+	pdone(endline, 1);
+
+#if HILITE_SEARCH
+	if (is_filtered(base_pos))
+	{
+		/*
+		 * We don't want to display this line.
+		 * Get the next line.
+		 */
+		curr_pos = new_pos;
+		goto get_forw_line;
+	}
+
+	if (status_col && is_hilited(base_pos, ch_tell()-1, 1, NULL))
+		set_status_col('*');
+#endif
 
 	if (squeeze && blankline)
 	{
@@ -215,18 +249,19 @@ forw_line(curr_pos)
 back_line(curr_pos)
 	POSITION curr_pos;
 {
-	POSITION new_pos, begin_new_pos;
+	POSITION new_pos, begin_new_pos, base_pos;
 	int c;
 	int endline;
 	int backchars;
 
+get_back_line:
 	if (curr_pos == NULL_POSITION || curr_pos <= ch_zero())
 	{
 		null_line();
 		return (NULL_POSITION);
 	}
 #if HILITE_SEARCH
-	if (hilite_search == OPT_ONPLUS || status_col)
+	if (hilite_search == OPT_ONPLUS || is_filtering() || status_col)
 		prep_hilite((curr_pos < 3*size_linebuf) ? 
 				0 : curr_pos - 3*size_linebuf, curr_pos, -1);
 #endif
@@ -241,9 +276,9 @@ back_line(curr_pos)
 		/*
 		 * Find out if the "current" line was blank.
 		 */
-		(void) ch_forw_get();	/* Skip the newline */
-		c = ch_forw_get();	/* First char of "current" line */
-		(void) ch_back_get();	/* Restore our position */
+		(void) ch_forw_get();    /* Skip the newline */
+		c = ch_forw_get();       /* First char of "current" line */
+		(void) ch_back_get();    /* Restore our position */
 		(void) ch_back_get();
 
 		if (c == '\n' || c == '\r')
@@ -285,7 +320,7 @@ back_line(curr_pos)
 			 * This is the newline ending the previous line.
 			 * We have hit the beginning of the line.
 			 */
-			new_pos = ch_tell() + 1;
+			base_pos = ch_tell() + 1;
 			break;
 		}
 		if (c == EOI)
@@ -295,7 +330,7 @@ back_line(curr_pos)
 			 * This must be the first line in the file.
 			 * This must, of course, be the beginning of the line.
 			 */
-			new_pos = ch_tell();
+			base_pos = ch_tell();
 			break;
 		}
 	}
@@ -309,6 +344,7 @@ back_line(curr_pos)
 	 *    are much longer than the screen width, 
 	 *    but I don't know of any better way. }}
 	 */
+	new_pos = base_pos;
 	if (ch_seek(new_pos))
 	{
 		null_line();
@@ -366,7 +402,22 @@ back_line(curr_pos)
 		}
 	} while (new_pos < curr_pos);
 
-	pdone(endline);
+	pdone(endline, 0);
+
+#if HILITE_SEARCH
+	if (is_filtered(base_pos))
+	{
+		/*
+		 * We don't want to display this line.
+		 * Get the previous line.
+		 */
+		curr_pos = begin_new_pos;
+		goto get_back_line;
+	}
+
+	if (status_col && curr_pos > 0 && is_hilited(base_pos, curr_pos-1, 1, NULL))
+		set_status_col('*');
+#endif
 
 	return (begin_new_pos);
 }

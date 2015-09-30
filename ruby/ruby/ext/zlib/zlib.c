@@ -3,7 +3,7 @@
  *
  *   Copyright (C) UENO Katsuhiro 2000-2003
  *
- * $Id: zlib.c 45096 2014-02-22 02:49:01Z nagachika $
+ * $Id: zlib.c 49382 2015-01-22 09:15:53Z usa $
  */
 
 #include <ruby.h>
@@ -461,7 +461,7 @@ rb_zlib_adler32_combine(VALUE klass, VALUE adler1, VALUE adler2, VALUE len2)
 /*
  * Document-method: Zlib.crc32
  *
- * call-seq: Zlib.crc32(string, adler)
+ * call-seq: Zlib.crc32(string, crc)
  *
  * Calculates CRC checksum for +string+, and returns updated value of +crc+. If
  * +string+ is omitted, it returns the CRC initial value. If +crc+ is omitted, it
@@ -2286,6 +2286,7 @@ static void
 gzfile_reset(struct gzfile *gz)
 {
     zstream_reset(&gz->z);
+    gz->z.flags |= ZSTREAM_FLAG_GZFILE;
     gz->crc = crc32(0, Z_NULL, 0);
     gz->lineno = 0;
     gz->ungetc = 0;

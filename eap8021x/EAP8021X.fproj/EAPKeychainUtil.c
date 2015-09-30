@@ -979,8 +979,8 @@ copy_trusted_applications(void)
     status = SecTrustedApplicationCreateFromPath(NULL, &trusted_app);
     if (status != noErr) {
 	fprintf(stderr,
-		"SecTrustedApplicationCreateFromPath(NULL) failed, %d\n",
-		status);
+		"SecTrustedApplicationCreateFromPath(NULL) failed, %ld\n",
+		(long)status);
     }
     else {
 	CFArrayAppendValue(array, trusted_app);
@@ -992,9 +992,9 @@ copy_trusted_applications(void)
 						 &trusted_app);
     if (status != noErr) {
 	fprintf(stderr,
-		"SecTrustedApplicationCreateFromPath(%s) failed, %d\n",
+		"SecTrustedApplicationCreateFromPath(%s) failed, %ld\n",
 		keapolclientPath,
-		status);
+		(long)status);
     }
     else {
 	CFArrayAppendValue(array, trusted_app);
@@ -1007,9 +1007,9 @@ copy_trusted_applications(void)
 						 &trusted_app);
     if (status != noErr) {
 	fprintf(stderr,
-		"SecTrustedApplicationCreateFromPath(%s) failed, %d\n",
+		"SecTrustedApplicationCreateFromPath(%s) failed, %ld\n",
 		kSystemUIServerPath,
-		status);
+		(long)status);
     }
     else {
 	CFArrayAppendValue(array, trusted_app);
@@ -1023,8 +1023,8 @@ copy_trusted_applications(void)
     if (status != noErr) {
 	fprintf(stderr,
 		"SecTrustedApplicationCreateApplicationGroup("
-		kAirPortApplicationGroup ") failed, %d\n",
-		status);
+		kAirPortApplicationGroup ") failed, %ld\n",
+		(long)status);
     }
     else {
 	CFArrayAppendValue(array, trusted_app);

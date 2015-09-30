@@ -56,9 +56,6 @@ public:
         void encode(IPC::ArgumentEncoder&) const;
         static bool decode(IPC::ArgumentDecoder&, Handle&);
 
-#if USE(CF)
-        RetainPtr<CFDataRef> tryWrapInCFData() const;
-#endif
         PassRefPtr<WebCore::SharedBuffer> tryWrapInSharedBuffer() const;
 
     private:
@@ -70,10 +67,10 @@ public:
     };
 
     // Create a shareable resource that uses malloced memory.
-    static PassRefPtr<ShareableResource> create(PassRefPtr<SharedMemory>, unsigned offset, unsigned size);
+    static Ref<ShareableResource> create(PassRefPtr<SharedMemory>, unsigned offset, unsigned size);
 
     // Create a shareable resource from a handle.
-    static PassRefPtr<ShareableResource> create(const Handle&);
+    static PassRefPtr<ShareableResource> map(const Handle&);
 
     // Create a handle.
     bool createHandle(Handle&);
@@ -85,6 +82,7 @@ public:
     
 private:
     ShareableResource(PassRefPtr<SharedMemory>, unsigned offset, unsigned size);
+    PassRefPtr<WebCore::SharedBuffer> wrapInSharedBuffer();
 
     RefPtr<SharedMemory> m_sharedMemory;
 

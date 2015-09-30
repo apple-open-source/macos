@@ -72,6 +72,7 @@ requestToURL(krb5_context context,
     }
     CFHTTPMessageSetBody(message, bodyData);
     CFHTTPMessageSetHeaderFieldValue(message, CFSTR("Content-Type"), CFSTR("application/octet-stream"));
+    CFHTTPMessageSetHeaderFieldValue(message, CFSTR("X-Kerberos-Client"), CFSTR(PACKAGE_STRING));
 
     requestStream = CFReadStreamCreateForHTTPRequest(NULL, message);
     if (requestStream == NULL) {

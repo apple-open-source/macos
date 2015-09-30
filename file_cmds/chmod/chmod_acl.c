@@ -100,31 +100,22 @@ static struct {
 
 uuid_t *
 name_to_uuid(char *tok, int nametype) {
-	struct passwd *tpass = NULL;
-	struct group *tgrp = NULL;
 	uuid_t *entryg = NULL;
+	size_t len = strlen(tok);
 
-	if ((entryg = (uuid_t *) calloc(1,sizeof(uuid_t))) == NULL)
-		err(1, "Unable to allocate a uuid");
-
-	if (nametype & NAME_USER)
-		tpass = getpwnam(tok);
-
-	if (NULL == tpass && (nametype & NAME_GROUP))
-		tgrp = getgrnam(tok);
-
-	if (tpass) {
-		if (0 != mbr_uid_to_uuid(tpass->pw_uid, *entryg)) {
-			errx(1, "mbr_uid_to_uuid(): Unable to translate uid %d", tpass->pw_uid);
-		}
-	} else if (tgrp) {
-		if (0 != mbr_gid_to_uuid(tgrp->gr_gid, *entryg)) {
-			errx(1, "mbr_gid_to_uuid(): Unable to translate gid %d", tgrp->gr_gid);
-		}
-	} else {
-		errx(1, "Unable to translate '%s' to a UID/GID", tok);
+	if ((entryg = (uuid_t *) calloc(1, sizeof(uuid_t))) == NULL) {
+		errx(1, "Unable to allocate a uuid");
 	}
-	return entryg;
+
+	if ((nametype & NAME_USER) && mbr_identifier_to_uuid(ID_TYPE_USERNAME, tok, len, *entryg) == 0) {
+		return entryg;
+	}
+	
+	if ((nametype & NAME_GROUP) && mbr_identifier_to_uuid(ID_TYPE_GROUPNAME, tok, len, *entryg) == 0) {
+		return entryg;
+	}
+	
+	errx(1, "Unable to translate '%s' to a UUID", tok);
 }
 
 /* Convert an acl entry in string form to an acl_entry_t */

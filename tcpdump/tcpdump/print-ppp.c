@@ -51,8 +51,6 @@
 #include "ethertype.h"
 #include "oui.h"
 
-extern netdissect_options *gndo;
-
 /*
  * The following constatns are defined by IANA. Please refer to
  *    http://www.isi.edu/in-notes/iana/assignments/ppp-numbers
@@ -451,7 +449,7 @@ handle_ctrl_proto(netdissect_options *ndo,
 	ND_PRINT((ndo, "\n\tencoded length %u (=Option(s) length %u)", len, len - 4));
 
 	if (ndo->ndo_vflag > 1)
-		print_unknown_data(pptr - 2, "\n\t", 6);
+		print_unknown_data(ndo, pptr - 2, "\n\t", 6);
 
 
 	switch (code) {
@@ -525,7 +523,7 @@ handle_ctrl_proto(netdissect_options *ndo,
 		/* XXX: need to decode Rejected-Information? - hexdump for now */
 		if (len > 6) {
 			ND_PRINT((ndo, "\n\t  Rejected Packet"));
-			print_unknown_data(tptr + 2, "\n\t    ", len - 2);
+			print_unknown_data(ndo, tptr + 2, "\n\t    ", len - 2);
 		}
 		break;
 	case CPCODES_ECHO_REQ:
@@ -539,7 +537,7 @@ handle_ctrl_proto(netdissect_options *ndo,
 		if (len > 8) {
 			ND_PRINT((ndo, "\n\t  -----trailing data-----"));
 			ND_TCHECK2(tptr[4], len - 8);
-			print_unknown_data(tptr + 4, "\n\t  ", len - 8);
+			print_unknown_data(ndo, tptr + 4, "\n\t  ", len - 8);
 		}
 		break;
 	case CPCODES_ID:
@@ -550,7 +548,7 @@ handle_ctrl_proto(netdissect_options *ndo,
 		/* RFC 1661 says this is intended to be human readable */
 		if (len > 8) {
 			ND_PRINT((ndo, "\n\t  Message\n\t    "));
-			if (fn_printn(tptr + 4, len - 4, ndo->ndo_snapend))
+			if (fn_printn(ndo, tptr + 4, len - 4, ndo->ndo_snapend))
 				goto trunc;
 		}
 		break;
@@ -568,7 +566,7 @@ handle_ctrl_proto(netdissect_options *ndo,
 		 * original pointer passed to the begin
 		 * the PPP packet */
 		if (ndo->ndo_vflag <= 1)
-			print_unknown_data(pptr - 2, "\n\t  ", length + 2);
+			print_unknown_data(ndo, pptr - 2, "\n\t  ", length + 2);
 		break;
 	}
 	return;
@@ -661,7 +659,7 @@ print_lcp_config_options(netdissect_options *ndo,
 		case PPP_SPAP_OLD:
                         break;
 		default:
-			print_unknown_data(p, "\n\t", len);
+			print_unknown_data(ndo, p, "\n\t", len);
 		}
 		break;
 	case LCPOPT_QP:
@@ -733,7 +731,7 @@ print_lcp_config_options(netdissect_options *ndo,
 				return 0;
 			}
 			ND_TCHECK2(*(p + 3), 4);
-			ND_PRINT((ndo, ": IPv4 %s", ipaddr_string(p + 3)));
+			ND_PRINT((ndo, ": IPv4 %s", ipaddr_string(ndo, p + 3)));
 			break;
 		case MEDCLASS_MAC:
 			if (len != 9) {
@@ -741,7 +739,7 @@ print_lcp_config_options(netdissect_options *ndo,
 				return 0;
 			}
 			ND_TCHECK2(*(p + 3), 6);
-			ND_PRINT((ndo, ": MAC %s", etheraddr_string(p + 3)));
+			ND_PRINT((ndo, ": MAC %s", etheraddr_string(ndo, p + 3)));
 			break;
 		case MEDCLASS_MNB:
 			ND_PRINT((ndo, ": Magic-Num-Block")); /* XXX */
@@ -784,12 +782,12 @@ print_lcp_config_options(netdissect_options *ndo,
 		 * not going to do so below.
 		 */
 		if (ndo->ndo_vflag < 2)
-			print_unknown_data(&p[2], "\n\t    ", len - 2);
+			print_unknown_data(ndo, &p[2], "\n\t    ", len - 2);
 		break;
 	}
 
 	if (ndo->ndo_vflag > 1)
-		print_unknown_data(&p[2], "\n\t    ", len - 2); /* exclude TLV header */
+		print_unknown_data(ndo, &p[2], "\n\t    ", len - 2); /* exclude TLV header */
 
 	return len;
 
@@ -879,7 +877,7 @@ handle_chap(netdissect_options *ndo,
 		ND_PRINT((ndo, ", Name "));
 		for (i = 0; i < name_size; i++) {
 			ND_TCHECK(*p);
-			safeputchar(*p++);
+			safeputchar(ndo, *p++);
 		}
 		break;
 	case CHAP_SUCC:
@@ -888,7 +886,7 @@ handle_chap(netdissect_options *ndo,
 		ND_PRINT((ndo, ", Msg "));
 		for (i = 0; i< msg_size; i++) {
 			ND_TCHECK(*p);
-			safeputchar(*p++);
+			safeputchar(ndo, *p++);
 		}
 		break;
 	}
@@ -955,7 +953,7 @@ handle_pap(netdissect_options *ndo,
 		ND_PRINT((ndo, ", Peer "));
 		for (i = 0; i < peerid_len; i++) {
 			ND_TCHECK(*p);
-			safeputchar(*p++);
+			safeputchar(ndo, *p++);
 		}
 
 		if (length - (p - p0) < 1)
@@ -968,7 +966,7 @@ handle_pap(netdissect_options *ndo,
 		ND_PRINT((ndo, ", Name "));
 		for (i = 0; i < passwd_len; i++) {
 			ND_TCHECK(*p);
-			safeputchar(*p++);
+			safeputchar(ndo, *p++);
 		}
 		break;
 	case PAP_AACK:
@@ -983,7 +981,7 @@ handle_pap(netdissect_options *ndo,
 		ND_PRINT((ndo, ", Msg "));
 		for (i = 0; i< msg_len; i++) {
 			ND_TCHECK(*p);
-			safeputchar(*p++);
+			safeputchar(ndo, *p++);
 		}
 		break;
 	}
@@ -1038,8 +1036,8 @@ print_ipcp_config_options(netdissect_options *ndo,
 		}
 		ND_TCHECK2(*(p + 6), 4);
 		ND_PRINT((ndo, ": src %s, dst %s",
-		       ipaddr_string(p + 2),
-		       ipaddr_string(p + 6)));
+		       ipaddr_string(ndo, p + 2),
+		       ipaddr_string(ndo, p + 6)));
 		break;
 	case IPCPOPT_IPCOMP:
 		if (len < 4) {
@@ -1119,7 +1117,7 @@ print_ipcp_config_options(netdissect_options *ndo,
 			return 0;
 		}
 		ND_TCHECK2(*(p + 2), 4);
-		ND_PRINT((ndo, ": %s", ipaddr_string(p + 2)));
+		ND_PRINT((ndo, ": %s", ipaddr_string(ndo, p + 2)));
 		break;
 	default:
 		/*
@@ -1127,11 +1125,11 @@ print_ipcp_config_options(netdissect_options *ndo,
 		 * not going to do so below.
 		 */
 		if (ndo->ndo_vflag < 2)
-			print_unknown_data(&p[2], "\n\t    ", len - 2);
+			print_unknown_data(ndo, &p[2], "\n\t    ", len - 2);
 		break;
 	}
 	if (ndo->ndo_vflag > 1)
-		print_unknown_data(&p[2], "\n\t    ", len - 2); /* exclude TLV header */
+		print_unknown_data(ndo, &p[2], "\n\t    ", len - 2); /* exclude TLV header */
 	return len;
 
 trunc:
@@ -1185,11 +1183,11 @@ print_ip6cp_config_options(netdissect_options *ndo,
 		 * not going to do so below.
 		 */
 		if (ndo->ndo_vflag < 2)
-			print_unknown_data(&p[2], "\n\t    ", len - 2);
+			print_unknown_data(ndo, &p[2], "\n\t    ", len - 2);
 		break;
 	}
 	if (ndo->ndo_vflag > 1)
-		print_unknown_data(&p[2], "\n\t    ", len - 2); /* exclude TLV header */
+		print_unknown_data(ndo, &p[2], "\n\t    ", len - 2); /* exclude TLV header */
 
 	return len;
 
@@ -1281,11 +1279,11 @@ print_ccp_config_options(netdissect_options *ndo,
 		 * not going to do so below.
 		 */
 		if (ndo->ndo_vflag < 2)
-			print_unknown_data(&p[2], "\n\t    ", len - 2);
+			print_unknown_data(ndo, &p[2], "\n\t    ", len - 2);
 		break;
 	}
 	if (ndo->ndo_vflag > 1)
-		print_unknown_data(&p[2], "\n\t    ", len - 2); /* exclude TLV header */
+		print_unknown_data(ndo, &p[2], "\n\t    ", len - 2); /* exclude TLV header */
 
 	return len;
 
@@ -1336,11 +1334,11 @@ print_bacp_config_options(netdissect_options *ndo,
 		 * not going to do so below.
 		 */
 		if (ndo->ndo_vflag < 2)
-			print_unknown_data(&p[2], "\n\t    ", len - 2);
+			print_unknown_data(ndo, &p[2], "\n\t    ", len - 2);
 		break;
 	}
 	if (ndo->ndo_vflag > 1)
-		print_unknown_data(&p[2], "\n\t    ", len - 2); /* exclude TLV header */
+		print_unknown_data(ndo, &p[2], "\n\t    ", len - 2); /* exclude TLV header */
 
 	return len;
 
@@ -1472,34 +1470,34 @@ handle_ppp(netdissect_options *ndo,
 		break;
 	case ETHERTYPE_IPX:	/*XXX*/
 	case PPP_IPX:
-		ipx_print(p, length);
+		ipx_print(ndo, p, length);
 		break;
 	case PPP_OSI:
-		isoclns_print(p, length, length);
+		isoclns_print(ndo, p, length, length);
 		break;
 	case PPP_MPLS_UCAST:
 	case PPP_MPLS_MCAST:
-		mpls_print(p, length);
+		mpls_print(ndo, p, length);
 		break;
 	case PPP_COMP:
 		ND_PRINT((ndo, "compressed PPP data"));
 		break;
 	default:
 		ND_PRINT((ndo, "%s ", tok2str(ppptype2str, "unknown PPP protocol (0x%04x)", proto)));
-		print_unknown_data(p, "\n\t", length);
+		print_unknown_data(ndo, p, "\n\t", length);
 		break;
 	}
 }
 
 /* Standard PPP printer */
 u_int
-ppp_print(register const u_char *p, u_int length)
+ppp_print(netdissect_options *ndo,
+          register const u_char *p, u_int length)
 {
 	u_int proto,ppp_header;
         u_int olen = length; /* _o_riginal length */
 	u_int hdr_len = 0;
-	netdissect_options *ndo = gndo;
-	
+
 	/*
 	 * Here, we assume that p points to the Address and Control
 	 * field (if they present).
@@ -1564,11 +1562,11 @@ trunc:
 
 /* PPP I/F printer */
 u_int
-ppp_if_print(const struct pcap_pkthdr *h, register const u_char *p)
+ppp_if_print(netdissect_options *ndo,
+             const struct pcap_pkthdr *h, register const u_char *p)
 {
 	register u_int length = h->len;
 	register u_int caplen = h->caplen;
-	netdissect_options *ndo = gndo;
 
 	if (caplen < PPP_HDRLEN) {
 		ND_PRINT((ndo, "[|ppp]"));
@@ -1616,7 +1614,7 @@ ppp_if_print(const struct pcap_pkthdr *h, register const u_char *p)
 		ND_PRINT((ndo, "%c %4d %02x ", p[0] ? 'O' : 'I', length, p[1]));
 #endif
 
-	ppp_print(p, length);
+	ppp_print(ndo, p, length);
 
 	return (0);
 }
@@ -1631,13 +1629,13 @@ ppp_if_print(const struct pcap_pkthdr *h, register const u_char *p)
  * This handles, for example, DLT_PPP_SERIAL in NetBSD.
  */
 u_int
-ppp_hdlc_if_print(const struct pcap_pkthdr *h, register const u_char *p)
+ppp_hdlc_if_print(netdissect_options *ndo,
+                  const struct pcap_pkthdr *h, register const u_char *p)
 {
 	register u_int length = h->len;
 	register u_int caplen = h->caplen;
 	u_int proto;
 	u_int hdrlen = 0;
-	netdissect_options *ndo = gndo;
 
 	if (caplen < 2) {
 		ND_PRINT((ndo, "[|ppp]"));
@@ -1669,7 +1667,7 @@ ppp_hdlc_if_print(const struct pcap_pkthdr *h, register const u_char *p)
 
 	case CHDLC_UNICAST:
 	case CHDLC_BCAST:
-		return (chdlc_if_print(h, p));
+		return (chdlc_if_print(ndo, h, p));
 
 	default:
 		if (ndo->ndo_eflag)
@@ -1693,7 +1691,8 @@ ppp_hdlc_if_print(const struct pcap_pkthdr *h, register const u_char *p)
 
 /* BSD/OS specific PPP printer */
 u_int
-ppp_bsdos_if_print(const struct pcap_pkthdr *h _U_, register const u_char *p _U_)
+ppp_bsdos_if_print(netdissect_options *ndo _U_,
+                   const struct pcap_pkthdr *h _U_, register const u_char *p _U_)
 {
 	register int hdrlength;
 #ifdef __bsdi__
@@ -1783,7 +1782,7 @@ ppp_bsdos_if_print(const struct pcap_pkthdr *h _U_, register const u_char *p _U_
 				break;
 			case PPP_MPLS_UCAST:
 			case PPP_MPLS_MCAST:
-				mpls_print(p, length);
+				mpls_print(ndo, p, length);
 				break;
 			}
 			goto printx;
@@ -1800,7 +1799,7 @@ ppp_bsdos_if_print(const struct pcap_pkthdr *h _U_, register const u_char *p _U_
 				break;
 			case PPP_MPLS_UCAST:
 			case PPP_MPLS_MCAST:
-				mpls_print(p, length);
+				mpls_print(ndo, p, length);
 				break;
 			}
 			goto printx;
@@ -1830,7 +1829,7 @@ ppp_bsdos_if_print(const struct pcap_pkthdr *h _U_, register const u_char *p _U_
 		break;
 	case PPP_MPLS_UCAST:
 	case PPP_MPLS_MCAST:
-		mpls_print(p, length);
+		mpls_print(ndo, p, length);
 		break;
 	default:
 		ND_PRINT((ndo, "%s ", tok2str(ppptype2str, "unknown PPP protocol (0x%04x)", ptype)));

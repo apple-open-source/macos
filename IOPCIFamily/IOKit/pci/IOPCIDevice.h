@@ -273,6 +273,8 @@ struct IOPCIPhysicalAddress {
 
 #define kIOPCIBridgeInterruptESKey      "IOPCIBridgeInterruptES"
 
+#define kIOPCIDeviceDeviceTreeEntryKey  "IOPCIDeviceDeviceTreeEntry"
+
 enum {
     kIOPCIDevicePowerStateCount = 4,
     kIOPCIDeviceOffState        = 0,
@@ -302,6 +304,13 @@ enum
     kIOPCIProbeOptionNeedsScan = 0x00200000,
 };
 
+
+// saveDeviceState options
+enum
+{
+	kIOPCIConfigShadowPermanent = 0x80000000,
+};
+
 #if defined(KERNEL)
 
 #include <IOKit/IOService.h>
@@ -323,6 +332,42 @@ enum
     kIOPCIEventFatalError       = 3,
     kIOPCIEventLinkEnableChange = 4,
 };
+
+
+// PCIe error bits
+enum 
+{
+    kIOPCIUncorrectableErrorBitDataLinkProtocol      = 4,
+    kIOPCIUncorrectableErrorBitSurpriseDown          = 5,
+    kIOPCIUncorrectableErrorBitPoisonedTLP           = 12,
+    kIOPCIUncorrectableErrorBitFlowControlProtocol   = 13,
+    kIOPCIUncorrectableErrorBitCompletionTimeout     = 14,
+    kIOPCIUncorrectableErrorBitCompleterAbort        = 15,
+    kIOPCIUncorrectableErrorBitUnexpectedCompletion  = 16,
+    kIOPCIUncorrectableErrorBitReceiverOverflow      = 17,
+    kIOPCIUncorrectableErrorBitMalformedTLP          = 18,
+    kIOPCIUncorrectableErrorBitECRC                  = 19,
+    kIOPCIUncorrectableErrorBitUnsupportedRequest    = 20,
+
+    kIOPCIUncorrectableErrorBitACSViolation          = 21,
+    kIOPCIUncorrectableErrorBitInternal              = 22,
+    kIOPCIUncorrectableErrorBitMCBlockedTLP          = 23,
+    kIOPCIUncorrectableErrorBitAtomicOpEgressBlocked = 24,
+    kIOPCIUncorrectableErrorBitTLPPrefixBlocked      = 25
+};
+
+enum 
+{
+    kIOPCICorrectableErrorBitReceiver           = 0,
+    kIOPCICorrectableErrorBitBadTLP             = 6,
+    kIOPCICorrectableErrorBitBadDLLP            = 7,
+    kIOPCICorrectableErrorBitReplayNumRollover  = 8,
+    kIOPCICorrectableErrorBitReplayTimerTimeout = 12,
+    kIOPCICorrectableErrorBitAdvisoryNonFatal   = 13,
+    kIOPCICorrectableErrorBitCorrectedInternal  = 14,
+    kIOPCICorrectableErrorBitHeaderLogOverflow  = 15,
+};
+
 
 struct IOPCIEvent
 {
@@ -853,6 +898,10 @@ public:
 	IOReturn setTunnelL1Enable(IOService * client, bool l1Enable);
 
 	IOReturn setASPMState(IOService * client, IOOptionBits state);
+
+    enum { kIOPCIAERErrorDescriptionMaxLength = 256 };
+
+    void copyAERErrorDescriptionForBit(bool correctable, uint32_t bit, char * string, size_t maxLength);
 };
 
 #endif /* defined(KERNEL) */

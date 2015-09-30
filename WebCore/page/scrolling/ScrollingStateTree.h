@@ -29,8 +29,6 @@
 #if ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
 
 #include "ScrollingStateFrameScrollingNode.h"
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/RefPtr.h>
  
 namespace WebCore {
@@ -45,24 +43,23 @@ class AsyncScrollingCoordinator;
 class ScrollingStateTree {
     friend class ScrollingStateNode;
 public:
-    
-    static PassOwnPtr<ScrollingStateTree> create(AsyncScrollingCoordinator* = 0);
-    ~ScrollingStateTree();
+    WEBCORE_EXPORT ScrollingStateTree(AsyncScrollingCoordinator* = nullptr);
+    WEBCORE_EXPORT ~ScrollingStateTree();
 
     ScrollingStateFrameScrollingNode* rootStateNode() const { return m_rootStateNode.get(); }
-    ScrollingStateNode* stateNodeForID(ScrollingNodeID);
+    WEBCORE_EXPORT ScrollingStateNode* stateNodeForID(ScrollingNodeID);
 
-    ScrollingNodeID attachNode(ScrollingNodeType, ScrollingNodeID, ScrollingNodeID parentID);
+    WEBCORE_EXPORT ScrollingNodeID attachNode(ScrollingNodeType, ScrollingNodeID, ScrollingNodeID parentID);
     void detachNode(ScrollingNodeID);
     void clear();
     
     const HashSet<ScrollingNodeID>& removedNodes() const { return m_nodesRemovedSinceLastCommit; }
-    void setRemovedNodes(HashSet<ScrollingNodeID>);
+    WEBCORE_EXPORT void setRemovedNodes(HashSet<ScrollingNodeID>);
 
     // Copies the current tree state and clears the changed properties mask in the original.
-    PassOwnPtr<ScrollingStateTree> commit(LayerRepresentation::Type preferredLayerRepresentation);
+    WEBCORE_EXPORT std::unique_ptr<ScrollingStateTree> commit(LayerRepresentation::Type preferredLayerRepresentation);
 
-    void setHasChangedProperties(bool = true);
+    WEBCORE_EXPORT void setHasChangedProperties(bool = true);
     bool hasChangedProperties() const { return m_hasChangedProperties; }
 
     bool hasNewRootStateNode() const { return m_hasNewRootStateNode; }
@@ -77,8 +74,6 @@ public:
     void setPreferredLayerRepresentation(LayerRepresentation::Type representation) { m_preferredLayerRepresentation = representation; }
 
 private:
-    ScrollingStateTree(AsyncScrollingCoordinator*);
-
     void setRootStateNode(PassRefPtr<ScrollingStateFrameScrollingNode> rootStateNode) { m_rootStateNode = rootStateNode; }
     void addNode(ScrollingStateNode*);
 
@@ -104,6 +99,11 @@ private:
 };
 
 } // namespace WebCore
+
+#ifndef NDEBUG
+void showScrollingStateTree(const WebCore::ScrollingStateTree*);
+void showScrollingStateTree(const WebCore::ScrollingStateNode*);
+#endif
 
 #endif // ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
 

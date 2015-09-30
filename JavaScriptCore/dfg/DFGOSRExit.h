@@ -32,7 +32,6 @@
 #include "DFGCommon.h"
 #include "DFGExitProfile.h"
 #include "DFGOSRExitBase.h"
-#include "DFGValueRecoveryOverride.h"
 #include "GPRInfo.h"
 #include "MacroAssembler.h"
 #include "MethodOfGettingAValueProfile.h"
@@ -102,11 +101,9 @@ struct OSRExit : public OSRExitBase {
 
     unsigned m_streamIndex;
     
-    RefPtr<ValueRecoveryOverride> m_valueRecoveryOverride;
-    
-    bool considerAddingAsFrequentExitSite(CodeBlock* profiledCodeBlock)
+    void considerAddingAsFrequentExitSite(CodeBlock* profiledCodeBlock)
     {
-        return OSRExitBase::considerAddingAsFrequentExitSite(profiledCodeBlock, ExitFromDFG);
+        OSRExitBase::considerAddingAsFrequentExitSite(profiledCodeBlock, ExitFromDFG);
     }
 };
 

@@ -55,7 +55,7 @@ class FloatSize {
 public:
     FloatSize() : m_width(0), m_height(0) { }
     FloatSize(float width, float height) : m_width(width), m_height(height) { }
-    FloatSize(const IntSize&);
+    WEBCORE_EXPORT FloatSize(const IntSize&);
 
     static FloatSize narrowPrecision(double width, double height);
 
@@ -66,7 +66,7 @@ public:
     void setHeight(float height) { m_height = height; }
 
     bool isEmpty() const { return m_width <= 0 || m_height <= 0; }
-    bool isZero() const;
+    WEBCORE_EXPORT bool isZero() const;
     bool isExpressibleAsIntSize() const;
 
     float aspectRatio() const { return m_width / m_height; }
@@ -97,7 +97,7 @@ public:
            m_height < other.m_height ? m_height : other.m_height);
     }
 
-    float diagonalLength() const;
+    WEBCORE_EXPORT float diagonalLength() const;
     float diagonalLengthSquared() const
     {
         return m_width * m_width + m_height * m_height;
@@ -109,12 +109,12 @@ public:
     }
 
 #if USE(CG)
-    explicit FloatSize(const CGSize&); // don't do this implicitly since it's lossy
-    operator CGSize() const;
+    WEBCORE_EXPORT explicit FloatSize(const CGSize&); // don't do this implicitly since it's lossy
+    WEBCORE_EXPORT operator CGSize() const;
 #endif
 
 #if PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)
-    explicit FloatSize(const NSSize &); // don't do this implicitly since it's lossy
+    WEBCORE_EXPORT explicit FloatSize(const NSSize &); // don't do this implicitly since it's lossy
     operator NSSize() const;
 #endif
 
@@ -153,19 +153,34 @@ inline FloatSize operator-(const FloatSize& size)
     return FloatSize(-size.width(), -size.height());
 }
 
-inline FloatSize operator*(const FloatSize& a, const float b)
+inline FloatSize operator*(const FloatSize& a, float b)
 {
     return FloatSize(a.width() * b, a.height() * b);
 }
 
-inline FloatSize operator*(const float a, const FloatSize& b)
+inline FloatSize operator*(float a, const FloatSize& b)
 {
     return FloatSize(a * b.width(), a * b.height());
+}
+
+inline FloatSize operator/(const FloatSize& a, float b)
+{
+    return FloatSize(a.width() / b, a.height() / b);
+}
+
+inline FloatSize operator/(float a, const FloatSize& b)
+{
+    return FloatSize(a / b.width(), a / b.height());
 }
 
 inline bool operator==(const FloatSize& a, const FloatSize& b)
 {
     return a.width() == b.width() && a.height() == b.height();
+}
+
+inline bool areEssentiallyEqual(const FloatSize& a, const FloatSize& b)
+{
+    return WTF::areEssentiallyEqual(a.width(), b.width()) && WTF::areEssentiallyEqual(a.height(), b.height());
 }
 
 inline bool operator!=(const FloatSize& a, const FloatSize& b)

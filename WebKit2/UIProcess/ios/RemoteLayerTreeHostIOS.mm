@@ -30,12 +30,16 @@
 #import "RemoteLayerTreeHost.h"
 #import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIScrollView.h>
+#import <UIKitSPI.h>
 #import <WebKitSystemInterface.h>
 
 using namespace WebCore;
 
 @interface CALayer(WKLayerInternal)
 - (void)setContextId:(uint32_t)contextID;
+@end
+
+@interface CABackdropLayer : CALayer
 @end
 
 @interface UIView (WKHitTesting)
@@ -80,6 +84,7 @@ using namespace WebCore;
 @end
 
 @implementation WKCompositingView
+
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
 {
     return [self _findDescendantViewAtPoint:point withEvent:event];
@@ -91,15 +96,41 @@ using namespace WebCore;
     NSString *webKitDetails = [NSString stringWithFormat:@" layerID = %llu \"%@\"", WebKit::RemoteLayerTreeHost::layerID(self.layer), self.layer.name ? self.layer.name : @""];
     return [viewDescription stringByAppendingString:webKitDetails];
 }
+
 @end
 
 @interface WKTransformView : WKCompositingView
 @end
 
 @implementation WKTransformView
+
 + (Class)layerClass
 {
     return [CATransformLayer self];
+}
+
+@end
+
+@interface WKSimpleBackdropView : WKCompositingView
+@end
+
+@implementation WKSimpleBackdropView
+
++ (Class)layerClass
+{
+    return [CABackdropLayer self];
+}
+
+@end
+
+@interface WKShapeView : WKCompositingView
+@end
+
+@implementation WKShapeView
+
++ (Class)layerClass
+{
+    return [CAShapeLayer self];
 }
 
 @end
@@ -108,10 +139,14 @@ using namespace WebCore;
 @end
 
 @implementation WKRemoteView
-- (instancetype)initWithFrame:(CGRect)frame contextID:(uint32_t)contextID
+
+- (instancetype)initWithFrame:(CGRect)frame contextID:(uint32_t)contextID hostingDeviceScaleFactor:(float)scaleFactor
 {
     if ((self = [super initWithFrame:frame])) {
         [[self layer] setContextId:contextID];
+        // Invert the scale transform added in the WebProcess to fix <rdar://problem/18316542>.
+        float inverseScale = 1 / scaleFactor;
+        [[self layer] setTransform:CATransform3DMakeScale(inverseScale, inverseScale, 1)];
     }
     
     return self;
@@ -120,6 +155,25 @@ using namespace WebCore;
 + (Class)layerClass
 {
     return NSClassFromString(@"CALayerHost");
+}
+
+@end
+
+@interface WKBackdropView : _UIBackdropView
+@end
+
+@implementation WKBackdropView
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
+{
+    return [self _findDescendantViewAtPoint:point withEvent:event];
+}
+
+- (NSString *)description
+{
+    NSString *viewDescription = [super description];
+    NSString *webKitDetails = [NSString stringWithFormat:@" layerID = %llu \"%@\"", WebKit::RemoteLayerTreeHost::layerID(self.layer), self.layer.name ? self.layer.name : @""];
+    return [viewDescription stringByAppendingString:webKitDetails];
 }
 
 @end
@@ -140,13 +194,16 @@ LayerOrView *RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::
     case PlatformCALayer::LayerTypeTiledBackingLayer:
     case PlatformCALayer::LayerTypePageTiledBackingLayer:
     case PlatformCALayer::LayerTypeTiledBackingTileLayer:
-        if (layerProperties && layerProperties->customBehavior == GraphicsLayer::CustomScrollingBehavior) {
-            if (!m_isDebugLayerTreeHost)
-                view = adoptNS([[UIScrollView alloc] init]);
-            else // The debug indicator parents views under layers, which can cause crashes with UIScrollView.
-                view = adoptNS([[UIView alloc] init]);
-        } else
-            view = adoptNS([[WKCompositingView alloc] init]);
+        view = adoptNS([[WKCompositingView alloc] init]);
+        break;
+    case PlatformCALayer::LayerTypeBackdropLayer:
+        view = adoptNS([[WKSimpleBackdropView alloc] init]);
+        break;
+    case PlatformCALayer::LayerTypeLightSystemBackdropLayer:
+        view = adoptNS([[WKBackdropView alloc] initWithFrame:CGRectZero privateStyle:_UIBackdropViewStyle_Light]);
+        break;
+    case PlatformCALayer::LayerTypeDarkSystemBackdropLayer:
+        view = adoptNS([[WKBackdropView alloc] initWithFrame:CGRectZero privateStyle:_UIBackdropViewStyle_Dark]);
         break;
     case PlatformCALayer::LayerTypeTransformLayer:
         view = adoptNS([[WKTransformView alloc] init]);
@@ -155,9 +212,18 @@ LayerOrView *RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::
     case PlatformCALayer::LayerTypeAVPlayerLayer:
     case PlatformCALayer::LayerTypeWebGLLayer:
         if (!m_isDebugLayerTreeHost)
-            view = adoptNS([[WKRemoteView alloc] initWithFrame:CGRectZero contextID:properties.hostingContextID]);
+            view = adoptNS([[WKRemoteView alloc] initWithFrame:CGRectZero contextID:properties.hostingContextID hostingDeviceScaleFactor:properties.hostingDeviceScaleFactor]);
         else
             view = adoptNS([[WKCompositingView alloc] init]);
+        break;
+    case PlatformCALayer::LayerTypeShapeLayer:
+        view = adoptNS([[WKShapeView alloc] init]);
+        break;
+    case PlatformCALayer::LayerTypeScrollingLayer:
+        if (!m_isDebugLayerTreeHost)
+            view = adoptNS([[UIScrollView alloc] init]);
+        else // The debug indicator parents views under layers, which can cause crashes with UIScrollView.
+            view = adoptNS([[UIView alloc] init]);
         break;
     default:
         ASSERT_NOT_REACHED();

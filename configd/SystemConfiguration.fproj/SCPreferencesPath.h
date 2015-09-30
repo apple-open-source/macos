@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2008, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPreferences.h>
 
+CF_IMPLICIT_BRIDGING_ENABLED
+CF_ASSUME_NONNULL_BEGIN
 
 /*!
 	@header SCPreferencesPath
@@ -90,7 +92,7 @@ __BEGIN_DECLS
 	@result Returns a string representing the new (unique) child path; NULL
 		if the specified path does not exist.
  */
-CFStringRef
+CFStringRef __nullable
 SCPreferencesPathCreateUniqueChild	(
 					SCPreferencesRef	prefs,
 					CFStringRef		prefix
@@ -105,7 +107,7 @@ SCPreferencesPathCreateUniqueChild	(
 	@result Returns the dictionary associated with the specified path; NULL
 		if the path does not exist.
  */
-CFDictionaryRef
+CFDictionaryRef __nullable
 SCPreferencesPathGetValue		(
 					SCPreferencesRef	prefs,
 					CFStringRef		path
@@ -120,7 +122,7 @@ SCPreferencesPathGetValue		(
 	@result Returns the dictionary associated with the specified path; NULL
 		if the path is not a link or does not exist.
  */
-CFStringRef
+CFStringRef __nullable
 SCPreferencesPathGetLink		(
 					SCPreferencesRef	prefs,
 					CFStringRef		path
@@ -173,6 +175,9 @@ SCPreferencesPathRemoveValue		(
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 __END_DECLS
+
+CF_ASSUME_NONNULL_END
+CF_IMPLICIT_BRIDGING_DISABLED
 
 #endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #endif /* _SCPREFERENCESPATH_H */

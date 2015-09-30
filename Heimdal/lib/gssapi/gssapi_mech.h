@@ -569,31 +569,16 @@ typedef struct gssapi_mech_interface_desc {
 	_gss_aapl_change_password_t	*gm_aapl_change_password;
 } gssapi_mech_interface_desc, *gssapi_mech_interface;
 
-gssapi_mech_interface
+__nullable gssapi_mech_interface
 __gss_get_mechanism(gss_const_OID /* oid */);
 
-gssapi_mech_interface __gss_spnego_initialize(void);
-gssapi_mech_interface __gss_krb5_initialize(void);
-gssapi_mech_interface __gss_pku2u_initialize(void);
-gssapi_mech_interface __gss_iakerb_initialize(void);
-gssapi_mech_interface __gss_ntlm_initialize(void);
-gssapi_mech_interface __gss_scram_initialize(void);
-gssapi_mech_interface __gss_netlogon_initialize(void);
-
-void		gss_mg_collect_error(gss_OID, OM_uint32, OM_uint32);
-OM_uint32	gss_mg_export_name(OM_uint32 *, gss_const_OID,
-				   const void *, size_t, gss_buffer_t);
-OM_uint32	gss_mg_set_error_string(gss_OID mech, OM_uint32 maj, OM_uint32 min, const char *fmt, ...)
-    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5));
-
-int		_gss_mg_log_level(int);
-void		_gss_mg_log(int, const char *, ...)
-    HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3));
-void		_gss_mg_log_name(int, struct _gss_name *, gss_OID, const char *, ...)
-    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5));
-void		_gss_mg_log_cred(int level, struct _gss_cred *name, const char *fmt, ...)
-    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4));
-
+__nullable gssapi_mech_interface __gss_spnego_initialize(void);
+__nullable gssapi_mech_interface __gss_krb5_initialize(void);
+__nullable gssapi_mech_interface __gss_pku2u_initialize(void);
+__nullable gssapi_mech_interface __gss_iakerb_initialize(void);
+__nullable gssapi_mech_interface __gss_ntlm_initialize(void);
+__nullable gssapi_mech_interface __gss_scram_initialize(void);
+__nullable gssapi_mech_interface __gss_netlogon_initialize(void);
 
 
 struct _gss_name_type {
@@ -601,31 +586,6 @@ struct _gss_name_type {
     OM_uint32	(*gnt_parse)(OM_uint32 *, gss_const_OID, const gss_buffer_t,
 			     gss_const_OID, gss_name_t *);
 };
-
-
-OM_uint32
-_gss_mech_import_name(OM_uint32 *, gss_const_OID,
-    struct _gss_name_type *, const gss_buffer_t, gss_const_OID, gss_name_t *);
-
-OM_uint32
-_gss_mech_inquire_names_for_mech(OM_uint32 *,
-    struct _gss_name_type *, gss_OID_set *);
-
-gss_iov_buffer_desc *
-_gss_mg_find_buffer(gss_iov_buffer_desc *, int, OM_uint32);
-
-OM_uint32
-_gss_mg_allocate_buffer(OM_uint32 *, gss_iov_buffer_desc *, size_t);
-
-OM_uint32
-gss_mg_validate_cb(OM_uint32 *, const gss_channel_bindings_t,
-		   const uint8_t [16], gss_buffer_t);
-
-OM_uint32 gss_mg_gen_cb(OM_uint32 *, const gss_channel_bindings_t,
-			uint8_t [16], gss_buffer_t);
-
-gss_OID
-_gss_mg_support_mechanism(gss_const_OID mech);
 
 struct _gss_oid_name_table {
     gss_OID oid;
@@ -650,13 +610,13 @@ extern gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_cred_certificate_oid_desc;
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 
-CFTypeRef
-_gss_mg_copy_key(CFStringRef domain, CFStringRef key);
+__nullable CFTypeRef
+_gss_mg_copy_key(__nonnull CFStringRef domain, __nonnull CFStringRef key);
 
-CFErrorRef
+__nullable CFErrorRef
 _gss_mg_cferror(OM_uint32 major,
 		OM_uint32 minor,
-		gss_const_OID mech);
+		__nullable gss_const_OID mech);
 
 #endif /* __APPLE__ */
 

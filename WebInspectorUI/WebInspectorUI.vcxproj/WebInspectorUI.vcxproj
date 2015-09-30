@@ -59,27 +59,27 @@
     <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'" Label="Configuration">
     <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Production|Win32'" Label="Configuration">
     <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|Win32'" Label="Configuration">
     <ConfigurationType>Makefile</ConfigurationType>
@@ -297,6 +297,8 @@
     <None Include="..\UserInterface\CanvasProfileObject.js" />
     <None Include="..\UserInterface\CanvasProfileType.js" />
     <None Include="..\UserInterface\CanvasProfileView.js" />
+    <None Include="..\UserInterface\ChartDetailsSectionRow.js" />
+    <None Include="..\UserInterface\ChartDetailsSectionRow.css" />
     <None Include="..\UserInterface\ClusterContentView.css" />
     <None Include="..\UserInterface\ClusterContentView.js" />
     <None Include="..\UserInterface\CodeMirrorAdditions.js" />
@@ -315,8 +317,8 @@
     <None Include="..\UserInterface\ConsoleCommand.js" />
     <None Include="..\UserInterface\ConsoleCommandResult.js" />
     <None Include="..\UserInterface\ConsoleGroup.js" />
-    <None Include="..\UserInterface\ConsoleMessage.js" />
-    <None Include="..\UserInterface\ConsoleMessageImpl.js" />
+    <None Include="..\UserInterface\LegacyConsoleMessage.js" />
+    <None Include="..\UserInterface\LegacyConsoleMessageImpl.js" />
     <None Include="..\UserInterface\ConsoleObserver.js" />
     <None Include="..\UserInterface\ConsolePrompt.css" />
     <None Include="..\UserInterface\ConsolePrompt.js" />
@@ -379,7 +381,6 @@
     <None Include="..\UserInterface\DetailsSectionPropertiesRow.js" />
     <None Include="..\UserInterface\DetailsSectionRow.js" />
     <None Include="..\UserInterface\DetailsSectionSimpleRow.js" />
-    <None Include="..\UserInterface\DetailsSidebarPanel.css" />
     <None Include="..\UserInterface\DetailsSidebarPanel.js" />
     <None Include="..\UserInterface\DividerNavigationItem.css" />
     <None Include="..\UserInterface\DividerNavigationItem.js" />
@@ -441,6 +442,7 @@
     <None Include="..\UserInterface\FlexibleSpaceNavigationItem.js" />
     <None Include="..\UserInterface\FolderIcon.css" />
     <None Include="..\UserInterface\FolderTreeElement.js" />
+    <None Include="..\UserInterface\FolderizedTreeElement.js" />
     <None Include="..\UserInterface\FontResourceContentView.css" />
     <None Include="..\UserInterface\FontResourceContentView.js" />
     <None Include="..\UserInterface\Formatter.js" />
@@ -525,6 +527,10 @@
     <None Include="..\UserInterface\Images\FolderGeneric.png" />
     <None Include="..\UserInterface\Images\ForwardArrow.svg" />
     <None Include="..\UserInterface\Images\ForwardArrowLegacy.svg" />
+    <None Include="..\UserInterface\Images\Frames.png" />
+    <None Include="..\UserInterface\Images\Frames%402x.png" />
+    <None Include="..\UserInterface\Images\FramesLarge.png" />
+    <None Include="..\UserInterface\Images\FramesLarge%402x.png" />
     <None Include="..\UserInterface\Images\Function.svg" />
     <None Include="..\UserInterface\Images\GoToArrow.svg" />
     <None Include="..\UserInterface\Images\HierarchicalNavigationItemChevron.svg" />
@@ -559,6 +565,7 @@
     <None Include="..\UserInterface\Images\NavigationItemBrushAndRuler.svg" />
     <None Include="..\UserInterface\Images\NavigationItemBug.svg" />
     <None Include="..\UserInterface\Images\NavigationItemCurleyBraces.svg" />
+    <None Include="..\UserInterface\Images\NavigationItemDoughnutChart.svg" />
     <None Include="..\UserInterface\Images\NavigationItemFile.svg" />
     <None Include="..\UserInterface\Images\NavigationItemLayers.svg" />
     <None Include="..\UserInterface\Images\NavigationItemLog.svg" />
@@ -680,13 +687,14 @@
     <None Include="..\UserInterface\LayerTreeDataGridNode.js" />
     <None Include="..\UserInterface\LayerTreeManager.js" />
     <None Include="..\UserInterface\LayerTreeObserver.js" />
-    <None Include="..\UserInterface\LayerTreeSidebarPanel.css" />
-    <None Include="..\UserInterface\LayerTreeSidebarPanel.js" />
-    <None Include="..\UserInterface\LayoutTimelineDataGrid.js" />
+    <None Include="..\UserInterface\LayerTreeDetailsSidebarPanel.css" />
+    <None Include="..\UserInterface\LayerTreeDetailsSidebarPanel.js" />
     <None Include="..\UserInterface\LayoutTimelineDataGridNode.js" />
     <None Include="..\UserInterface\LayoutTimelineRecord.js" />
-    <None Include="..\UserInterface\Legacy\6.0\InspectorWebBackendCommands.js" />
-    <None Include="..\UserInterface\Legacy\7.0\InspectorWebBackendCommands.js" />
+    <None Include="..\UserInterface\Legacy\6.0\InspectorBackendCommands.js" />
+    <None Include="..\UserInterface\Legacy\7.0\InspectorBackendCommands.js" />
+    <None Include="..\UserInterface\Legacy\8.0\InspectorBackendCommands.js" />
+    <None Include="..\UserInterface\LinearTimelineOverview.js" />
     <None Include="..\UserInterface\LoadInspectorBackendCommands.js" />
     <None Include="..\UserInterface\LoadLocalizedStrings.js" />
     <None Include="..\UserInterface\LogContentView.css" />
@@ -711,7 +719,6 @@
     <None Include="..\UserInterface\NetworkObserver.js" />
     <None Include="..\UserInterface\NetworkTimeline.css" />
     <None Include="..\UserInterface\Object.js" />
-    <None Include="..\UserInterface\ObjectPropertiesSection.js" />
     <None Include="..\UserInterface\PageObserver.js" />
     <None Include="..\UserInterface\PathComponentIcons.css" />
     <None Include="..\UserInterface\Popover.css" />
@@ -730,13 +737,19 @@
     <None Include="..\UserInterface\RadioButtonNavigationItem.css" />
     <None Include="..\UserInterface\RadioButtonNavigationItem.js" />
     <None Include="..\UserInterface\RemoteObject.js" />
+    <None Include="..\UserInterface\RenderingFrameTimeDataGridNode.js" />
+    <None Include="..\UserInterface\RenderingFrameTimelineOverview.js" />
+    <None Include="..\UserInterface\RenderingFrameTimelineOverviewGraph.css" />
+    <None Include="..\UserInterface\RenderingFrameTimelineOverviewGraph.js" />
+    <None Include="..\UserInterface\RenderingFrameTimelineRecord.js" />
+    <None Include="..\UserInterface\RenderingFrameTimelineView.css" />
+    <None Include="..\UserInterface\RenderingFrameTimelineView.js" />
     <None Include="..\UserInterface\Resource.js" />
     <None Include="..\UserInterface\ResourceClusterContentView.js" />
     <None Include="..\UserInterface\ResourceCollection.js" />
     <None Include="..\UserInterface\ResourceContentView.js" />
     <None Include="..\UserInterface\ResourceDetailsSidebarPanel.js" />
     <None Include="..\UserInterface\ResourceIcons.css" />
-    <None Include="..\UserInterface\ResourceSearchMatchObject.js" />
     <None Include="..\UserInterface\ResourceSidebarPanel.css" />
     <None Include="..\UserInterface\ResourceSidebarPanel.js" />
     <None Include="..\UserInterface\ResourceTimelineDataGridNode.js" />
@@ -753,7 +766,6 @@
     <None Include="..\UserInterface\ScopeBarItem.js" />
     <None Include="..\UserInterface\ScopeChainDetailsSidebarPanel.js" />
     <None Include="..\UserInterface\ScopeChainNode.js" />
-    <None Include="..\UserInterface\ScopeVariableTreeElement.js" />
     <None Include="..\UserInterface\Script.js" />
     <None Include="..\UserInterface\ScriptContentView.css" />
     <None Include="..\UserInterface\ScriptContentView.js" />
@@ -770,11 +782,13 @@
     <None Include="..\UserInterface\Setting.js" />
     <None Include="..\UserInterface\Sidebar.css" />
     <None Include="..\UserInterface\Sidebar.js" />
+    <None Include="..\UserInterface\SidebarPanel.css" />
     <None Include="..\UserInterface\SidebarPanel.js" />
     <None Include="..\UserInterface\SourceCode.js" />
     <None Include="..\UserInterface\SourceCodeLocation.js" />
     <None Include="..\UserInterface\SourceCodePosition.js" />
     <None Include="..\UserInterface\SourceCodeRevision.js" />
+    <None Include="..\UserInterface\SourceCodeSearchMatchObject.js" />
     <None Include="..\UserInterface\SourceCodeTextEditor.css" />
     <None Include="..\UserInterface\SourceCodeTextEditor.js" />
     <None Include="..\UserInterface\SourceCodeTextRange.js" />
@@ -806,6 +820,8 @@
     <None Include="..\UserInterface\TimelineOverview.css" />
     <None Include="..\UserInterface\TimelineOverview.js" />
     <None Include="..\UserInterface\TimelineRecord.js" />
+    <None Include="..\UserInterface\TimelineRecordFrame.css" />
+    <None Include="..\UserInterface\TimelineRecordFrame.js" />
     <None Include="..\UserInterface\TimelinesContentView.css" />
     <None Include="..\UserInterface\TimelinesContentView.js" />
     <None Include="..\UserInterface\TimelinesObject.js" />

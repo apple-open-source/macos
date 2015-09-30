@@ -52,7 +52,7 @@ public:
     PassRefPtr<JSC::Bindings::Instance> getInstance();
 
     enum class PluginLoadingPolicy { DoNotLoad, Load };
-    Widget* pluginWidget(PluginLoadingPolicy = PluginLoadingPolicy::Load) const;
+    WEBCORE_EXPORT Widget* pluginWidget(PluginLoadingPolicy = PluginLoadingPolicy::Load) const;
 
     enum DisplayState {
         WaitingForSnapshot,
@@ -72,7 +72,7 @@ public:
     JSC::JSObject* scriptObjectForPluginReplacement();
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    NPObject* getNPObject();
+    WEBCORE_EXPORT NPObject* getNPObject();
 #endif
 
     bool isCapturingMouseEvents() const { return m_isCapturingMouseEvents; }
@@ -103,7 +103,7 @@ protected:
     virtual void defaultEventHandler(Event*) override;
 
     virtual bool requestObject(const String& url, const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues);
-    virtual RenderPtr<RenderElement> createElementRenderer(PassRef<RenderStyle>) override;
+    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
     virtual void didAddUserAgentShadowRoot(ShadowRoot*) override;
 
     // Subclasses should use guardedDispatchBeforeLoadEvent instead of calling dispatchBeforeLoadEvent directly.
@@ -112,7 +112,7 @@ protected:
     bool m_inBeforeLoadEventHandler;
 
 private:
-    void swapRendererTimerFired(Timer&);
+    void swapRendererTimerFired();
     bool shouldOverridePlugin(const String& url, const String& mimeType);
 
     bool dispatchBeforeLoadEvent(const String& sourceURL); // Not implemented, generates a compile error if subclasses call this by mistake.
@@ -136,10 +136,10 @@ private:
     DisplayState m_displayState;
 };
 
-void isHTMLPlugInElement(const HTMLPlugInElement&); // Catch unnecessary runtime check of type known at compile time.
-inline bool isHTMLPlugInElement(const Node& node) { return node.isPluginElement(); }
-NODE_TYPE_CASTS(HTMLPlugInElement)
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::HTMLPlugInElement)
+    static bool isType(const WebCore::Node& node) { return node.isPluginElement(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // HTMLPlugInElement_h

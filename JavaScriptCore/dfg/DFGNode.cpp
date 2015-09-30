@@ -30,6 +30,7 @@
 
 #include "DFGGraph.h"
 #include "DFGNodeAllocator.h"
+#include "DFGPromotedHeapLocation.h"
 #include "JSCInlines.h"
 
 namespace JSC { namespace DFG {
@@ -37,7 +38,7 @@ namespace JSC { namespace DFG {
 bool MultiPutByOffsetData::writesStructures() const
 {
     for (unsigned i = variants.size(); i--;) {
-        if (variants[i].kind() == PutByIdVariant::Transition)
+        if (variants[i].writesStructures())
             return true;
     }
     return false;
@@ -46,14 +47,8 @@ bool MultiPutByOffsetData::writesStructures() const
 bool MultiPutByOffsetData::reallocatesStorage() const
 {
     for (unsigned i = variants.size(); i--;) {
-        if (variants[i].kind() != PutByIdVariant::Transition)
-            continue;
-        
-        if (variants[i].oldStructure()->outOfLineCapacity() ==
-            variants[i].newStructure()->outOfLineCapacity())
-            continue;
-        
-        return true;
+        if (variants[i].reallocatesStorage())
+            return true;
     }
     return false;
 }
@@ -80,7 +75,6 @@ bool Node::hasVariableAccessData(Graph& graph)
     case Phi:
         return graph.m_form != SSA;
     case GetLocal:
-    case GetArgument:
     case SetLocal:
     case SetArgument:
     case Flush:
@@ -91,6 +85,15 @@ bool Node::hasVariableAccessData(Graph& graph)
     }
 }
 
+void Node::remove()
+{
+    ASSERT(!(flags() & NodeHasVarArgs));
+    
+    children = children.justChecks();
+    
+    setOpAndDefaultFlags(Check);
+}
+
 void Node::convertToIdentity()
 {
     RELEASE_ASSERT(child1());
@@ -98,6 +101,101 @@ void Node::convertToIdentity()
     NodeFlags result = canonicalResultRepresentation(this->result());
     setOpAndDefaultFlags(Identity);
     setResult(result);
+}
+
+void Node::convertToIdentityOn(Node* child)
+{
+    children.reset();
+    child1() = child->defaultEdge();
+    NodeFlags output = canonicalResultRepresentation(this->result());
+    NodeFlags input = canonicalResultRepresentation(child->result());
+    if (output == input) {
+        setOpAndDefaultFlags(Identity);
+        setResult(output);
+        return;
+    }
+    switch (output) {
+    case NodeResultDouble:
+        setOpAndDefaultFlags(DoubleRep);
+        switch (input) {
+        case NodeResultInt52:
+            child1().setUseKind(Int52RepUse);
+            return;
+        case NodeResultJS:
+            child1().setUseKind(NumberUse);
+            return;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return;
+        }
+    case NodeResultInt52:
+        setOpAndDefaultFlags(Int52Rep);
+        switch (input) {
+        case NodeResultDouble:
+            child1().setUseKind(DoubleRepMachineIntUse);
+            return;
+        case NodeResultJS:
+            child1().setUseKind(MachineIntUse);
+            return;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return;
+        }
+    case NodeResultJS:
+        setOpAndDefaultFlags(ValueRep);
+        switch (input) {
+        case NodeResultDouble:
+            child1().setUseKind(DoubleRepUse);
+            return;
+        case NodeResultInt52:
+            child1().setUseKind(Int52RepUse);
+            return;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return;
+        }
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+        return;
+    }
+}
+
+void Node::convertToPutHint(const PromotedLocationDescriptor& descriptor, Node* base, Node* value)
+{
+    m_op = PutHint;
+    m_opInfo = descriptor.imm1().m_value;
+    m_opInfo2 = descriptor.imm2().m_value;
+    child1() = base->defaultEdge();
+    child2() = value->defaultEdge();
+    child3() = Edge();
+}
+
+void Node::convertToPutStructureHint(Node* structure)
+{
+    ASSERT(m_op == PutStructure);
+    ASSERT(structure->castConstant<Structure*>() == transition()->next);
+    convertToPutHint(StructurePLoc, child1().node(), structure);
+}
+
+void Node::convertToPutByOffsetHint()
+{
+    ASSERT(m_op == PutByOffset);
+    convertToPutHint(
+        PromotedLocationDescriptor(NamedPropertyPLoc, storageAccessData().identifierNumber),
+        child2().node(), child3().node());
+}
+
+void Node::convertToPutClosureVarHint()
+{
+    ASSERT(m_op == PutClosureVar);
+    convertToPutHint(
+        PromotedLocationDescriptor(ClosureVarPLoc, scopeOffset().offset()),
+        child1().node(), child2().node());
+}
+
+PromotedLocationDescriptor Node::promotedLocationDescriptor()
+{
+    return PromotedLocationDescriptor(static_cast<PromotedLocationKind>(m_opInfo), m_opInfo2);
 }
 
 } } // namespace JSC::DFG
@@ -118,6 +216,9 @@ void printInternal(PrintStream& out, SwitchKind kind)
         return;
     case SwitchString:
         out.print("SwitchString");
+        return;
+    case SwitchCell:
+        out.print("SwitchCell");
         return;
     }
     RELEASE_ASSERT_NOT_REACHED();

@@ -34,6 +34,8 @@
 #include "LineClampValue.h"
 #include "NinePieceImage.h"
 #include "ShapeValue.h"
+#include "StyleContentAlignmentData.h"
+#include "StyleSelfAlignmentData.h"
 #include <memory>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
@@ -43,9 +45,7 @@ namespace WebCore {
 class AnimationList;
 class ShadowData;
 class StyleDeprecatedFlexibleBoxData;
-#if ENABLE(CSS_FILTERS)
 class StyleFilterData;
-#endif
 class StyleFlexibleBoxData;
 #if ENABLE(CSS_GRID_LAYOUT)
 class StyleGridData;
@@ -56,6 +56,9 @@ class StyleMultiColData;
 class StyleReflection;
 class StyleResolver;
 class StyleTransformData;
+#if ENABLE(CSS_SCROLL_SNAP)
+class StyleScrollSnapPoints;
+#endif
 
 class ContentData;
 struct LengthSize;
@@ -79,8 +82,8 @@ enum PageSizeType {
 // actually uses one of these properties.
 class StyleRareNonInheritedData : public RefCounted<StyleRareNonInheritedData> {
 public:
-    static PassRef<StyleRareNonInheritedData> create() { return adoptRef(*new StyleRareNonInheritedData); }
-    PassRef<StyleRareNonInheritedData> copy() const;
+    static Ref<StyleRareNonInheritedData> create() { return adoptRef(*new StyleRareNonInheritedData); }
+    Ref<StyleRareNonInheritedData> copy() const;
     ~StyleRareNonInheritedData();
     
     bool operator==(const StyleRareNonInheritedData&) const;
@@ -93,7 +96,12 @@ public:
     bool animationDataEquivalent(const StyleRareNonInheritedData&) const;
     bool transitionDataEquivalent(const StyleRareNonInheritedData&) const;
     bool hasFilters() const;
+#if ENABLE(FILTERS_LEVEL_2)
+    bool hasBackdropFilters() const;
+#endif
     bool hasOpacity() const { return opacity < 1; }
+
+    bool hasAnimationsOrTransitions() const { return m_animations || m_transitions; }
 
     float opacity;
 
@@ -105,6 +113,9 @@ public:
     Length m_perspectiveOriginY;
 
     LineClampValue lineClamp; // An Apple extension.
+    
+    IntSize m_initialLetter;
+
 #if ENABLE(DASHBOARD_SUPPORT)
     Vector<StyleDashboardRegion> m_dashboardRegions;
 #endif
@@ -114,14 +125,18 @@ public:
     DataRef<StyleMarqueeData> m_marquee; // Marquee properties
     DataRef<StyleMultiColData> m_multiCol; //  CSS3 multicol properties
     DataRef<StyleTransformData> m_transform; // Transform properties (rotate, scale, skew, etc.)
-
-#if ENABLE(CSS_FILTERS)
     DataRef<StyleFilterData> m_filter; // Filter operations (url, sepia, blur, etc.)
+#if ENABLE(FILTERS_LEVEL_2)
+    DataRef<StyleFilterData> m_backdropFilter; // Filter operations (url, sepia, blur, etc.)
 #endif
 
 #if ENABLE(CSS_GRID_LAYOUT)
     DataRef<StyleGridData> m_grid;
     DataRef<StyleGridItemData> m_gridItem;
+#endif
+
+#if ENABLE(CSS_SCROLL_SNAP)
+    DataRef<StyleScrollSnapPoints> m_scrollSnapPoints;
 #endif
 
     std::unique_ptr<ContentData> m_content;
@@ -161,6 +176,18 @@ public:
 
     AtomicString m_flowThread;
     AtomicString m_regionThread;
+
+    StyleContentAlignmentData m_alignContent;
+    StyleSelfAlignmentData m_alignItems;
+    StyleSelfAlignmentData m_alignSelf;
+    StyleContentAlignmentData m_justifyContent;
+    StyleSelfAlignmentData m_justifyItems;
+    StyleSelfAlignmentData m_justifySelf;
+
+#if ENABLE(CSS_SCROLL_SNAP)
+    unsigned m_scrollSnapType : 2; // ScrollSnapType
+#endif
+
     unsigned m_regionFragment : 1; // RegionFragment
 
     unsigned m_regionBreakAfter : 2; // EPageBreak
@@ -171,13 +198,6 @@ public:
     unsigned m_transformStyle3D : 1; // ETransformStyle3D
     unsigned m_backfaceVisibility : 1; // EBackfaceVisibility
 
-    unsigned m_alignContent : 3; // EAlignContent
-    unsigned m_alignItems : 3; // EAlignItems
-    unsigned m_alignSelf : 3; // EAlignItems
-    unsigned m_justifyContent : 3; // EJustifyContent
-
-    unsigned m_justifySelf : 4; // EJustifySelf
-    unsigned m_justifySelfOverflowAlignment : 2; // EJustifySelfOverflowAlignment
 
     unsigned userDrag : 2; // EUserDrag
     unsigned textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."

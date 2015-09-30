@@ -44,7 +44,7 @@ class SpeechSynthesisVoice;
     
 class SpeechSynthesis : public PlatformSpeechSynthesizerClient, public RefCounted<SpeechSynthesis> {
 public:
-    static PassRefPtr<SpeechSynthesis> create();
+    static Ref<SpeechSynthesis> create();
     
     bool pending() const;
     bool speaking() const;
@@ -58,7 +58,7 @@ public:
     const Vector<RefPtr<SpeechSynthesisVoice>>& getVoices();
     
     // Used in testing to use a mock platform synthesizer
-    void setPlatformSynthesizer(std::unique_ptr<PlatformSpeechSynthesizer>);
+    WEBCORE_EXPORT void setPlatformSynthesizer(std::unique_ptr<PlatformSpeechSynthesizer>);
     
 private:
     SpeechSynthesis();

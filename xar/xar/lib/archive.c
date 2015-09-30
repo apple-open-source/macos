@@ -276,8 +276,14 @@ xar_t xar_open(const char *file, int32_t flags) {
 			XAR(ret)->toc_hash_ctx = xar_hash_new("sha512", (void *)ret);
 			break;
 		case XAR_CKSUM_MD5:
+#ifdef XAR_SUPPORT_MD5
 			XAR(ret)->toc_hash_ctx = xar_hash_new("md5", (void *)ret);
 			break;
+#else
+			fprintf(stderr, "Archive uses unsafe hashing algorithm (MD5), aborting\n");
+			xar_close(ret);
+			return NULL;
+#endif // XAR_SUPPORT_MD5
 		default:
 			fprintf(stderr, "Unknown hashing algorithm, skipping\n");
 			break;
@@ -311,6 +317,7 @@ xar_t xar_open(const char *file, int32_t flags) {
 				cksum_match = (cksum_style != NULL && strcmp(cksum_style, XAR_OPT_VAL_SHA512) == 0);
 				break;
 			case XAR_CKSUM_MD5:
+				// This is left in place regardless of XAR_SUPPORT_MD5 setting so we can still detect mismatches
 				cksum_match = (cksum_style != NULL && strcmp(cksum_style, XAR_OPT_VAL_MD5) == 0);
 				break;
 			default:
@@ -458,12 +465,14 @@ int xar_close(xar_t x) {
 				xar_attr_set(XAR_FILE(x), "checksum", "style", XAR_OPT_VAL_SHA512);
 				xar_prop_set(XAR_FILE(x), "checksum/size", "64");
 			}
+#ifdef XAR_SUPPORT_MD5
 			if( strcmp(tmpser, XAR_OPT_VAL_MD5) == 0 ) {
 				XAR(x)->toc_hash_ctx = xar_hash_new("md5", (void *)x);
 				XAR(x)->header.cksum_alg = htonl(XAR_CKSUM_MD5);
 				xar_attr_set(XAR_FILE(x), "checksum", "style", XAR_OPT_VAL_MD5);
 				xar_prop_set(XAR_FILE(x), "checksum/size", "16");
 			}
+#endif // XAR_SUPPORT_MD5
 
 			xar_prop_set(XAR_FILE(x), "checksum/offset", "0");
 		} else {

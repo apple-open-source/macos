@@ -440,13 +440,21 @@ void RBBITableBuilder::calcChainedFollowPos(RBBINode *tree) {
         //                            don't chain from it.
         // TODO:  Add rule syntax for this behavior, get specifics out of here and
         //        into the rule file.
-        if (fRB->fLBCMNoChain) {
+        if (fRB->fLBCMNoChain || fRB->fRINoChain) {
             UChar32 c = this->fRB->fSetBuilder->getFirstChar(endNode->fVal);
             if (c != -1) {
                 // c == -1 occurs with sets containing only the {eof} marker string.
-                ULineBreak cLBProp = (ULineBreak)u_getIntPropertyValue(c, UCHAR_LINE_BREAK);
-                if (cLBProp == U_LB_COMBINING_MARK) {
-                    continue;
+                if (fRB->fLBCMNoChain) {
+                    ULineBreak cLBProp = (ULineBreak)u_getIntPropertyValue(c, UCHAR_LINE_BREAK);
+                    if (cLBProp == U_LB_COMBINING_MARK) {
+                        continue;
+                    }
+                }
+                if (fRB->fRINoChain) {
+                    UGraphemeClusterBreak cGBProp = (UGraphemeClusterBreak)u_getIntPropertyValue(c, UCHAR_GRAPHEME_CLUSTER_BREAK);
+                    if (cGBProp == U_GCB_REGIONAL_INDICATOR) {
+                        continue;
+                    }
                 }
             }
         }

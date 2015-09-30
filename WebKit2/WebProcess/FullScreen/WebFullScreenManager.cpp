@@ -59,9 +59,9 @@ static IntRect screenRectOfContents(Element* element)
     return element->screenRect();
 }
 
-PassRefPtr<WebFullScreenManager> WebFullScreenManager::create(WebPage* page)
+Ref<WebFullScreenManager> WebFullScreenManager::create(WebPage* page)
 {
-    return adoptRef(new WebFullScreenManager(page));
+    return adoptRef(*new WebFullScreenManager(page));
 }
 
 WebFullScreenManager::WebFullScreenManager(WebPage* page)
@@ -79,7 +79,7 @@ WebCore::Element* WebFullScreenManager::element()
     return m_element.get(); 
 }
 
-void WebFullScreenManager::didReceiveMessage(IPC::Connection* connection, IPC::MessageDecoder& decoder)
+void WebFullScreenManager::didReceiveMessage(IPC::Connection& connection, IPC::MessageDecoder& decoder)
 {
     didReceiveWebFullScreenManagerMessage(connection, decoder);
 }

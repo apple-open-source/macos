@@ -49,6 +49,29 @@ my %baseTypeHash = ("Object" => 1, "Node" => 1, "NodeList" => 1, "NamedNodeMap" 
                     "NodeIterator" => 1, "TreeWalker" => 1, "AbstractView" => 1, "Blob" => 1, "DOMTokenList" => 1,
                     "HTMLCollection" => 1, "TextTrackCue" => 1);
 
+# Only objects derived from Node are released by the DOM object cache and can be
+# transfer none. Ideally we could use GetBaseClass with the parent type to check
+# whether it's Node, but unfortunately we only have the name of the return type,
+# and we can't know its parent base class. Since there are fewer classes in the
+# API that are not derived from Node, we will list them here to decide the
+# transfer type.
+my %transferFullTypeHash = ("AudioTrack" => 1, "AudioTrackList" => 1, "BarProp" => 1, "BatteryManager" => 1,
+    "CSSRuleList" => 1, "CSSStyleDeclaration" => 1, "CSSStyleSheet" => 1,
+    "DOMApplicationCache" => 1, "DOMMimeType" => 1, "DOMMimeTypeArray" => 1, "DOMNamedFlowCollection" => 1,
+    "DOMPlugin" => 1, "DOMPluginArray" => 1, "DOMSecurityPolicy" => 1,
+    "DOMSelection" => 1, "DOMSettableTokenList" => 1, "DOMStringList" => 1,
+    "DOMWindow" => 1, "DOMWindowCSS" => 1, "EventTarget" => 1,
+    "File" => 1, "FileList" => 1, "Gamepad" => 1, "GamepadList" => 1,
+    "Geolocation" => 1, "HTMLOptionsCollection" => 1, "History" => 1,
+    "KeyboardEvent" => 1, "MediaError" => 1, "MediaController" => 1,
+    "MouseEvent" => 1, "MediaQueryList" => 1, "Navigator" => 1, "NodeFilter" => 1,
+    "Performance" => 1, "PerformanceEntry" => 1, "PerformanceEntryList" => 1, "PerformanceNavigation" => 1, "PerformanceTiming" => 1,
+    "Range" => 1, "Screen" => 1, "SpeechSynthesis" => 1, "SpeechSynthesisVoice" => 1,
+    "Storage" => 1, "StyleMedia" => 1, "TextTrack" => 1, "TextTrackCueList" => 1,
+    "TimeRanges" => 1, "Touch" => 1, "UIEvent" => 1, "UserMessageHandler" => 1, "UserMessageHandlersNamespace" => 1,
+    "ValidityState" => 1, "VideoTrack" => 1, "WebKitNamedFlow" => 1,
+    "WebKitNamespace" => 1, "WebKitPoint" => 1, "WheelEvent" => 1, "XPathNSResolver" => 1);
+
 # List of function parameters that are allowed to be NULL
 my $canBeNullParams = {
     'webkit_dom_document_create_attribute_ns' => ['namespaceURI'],
@@ -237,9 +260,7 @@ sub SkipAttribute {
         return 1;
     }
 
-    if ($attribute->signature->type eq "EventListener") {
-        return 1;
-    }
+    return 1 if $attribute->signature->type eq "EventHandler";
 
     if ($attribute->signature->type eq "MediaQueryListListener") {
         return 1;
@@ -265,6 +286,9 @@ sub SkipFunction {
     my $isCustomFunction = $function->signature->extendedAttributes->{"Custom"};
     my $callWith = $function->signature->extendedAttributes->{"CallWith"};
     my $isUnsupportedCallWith = $codeGenerator->ExtendedAttributeContains($callWith, "ScriptArguments") || $codeGenerator->ExtendedAttributeContains($callWith, "CallStack");
+
+    # Static methods are unsupported
+    return 1 if $function->isStatic;
 
     if (($isCustomFunction || $isUnsupportedCallWith) &&
         $functionName ne "webkit_dom_node_replace_child" &&
@@ -341,6 +365,14 @@ sub SkipFunction {
         return 1;
     }
 
+    if ($function->signature->type eq "Promise") {
+        return 1;
+    }
+
+    if ($function->signature->type eq "Date") {
+        return 1;
+    }
+
     return 0;
 }
 
@@ -380,6 +412,7 @@ sub GetGlibTypeName {
     my %types = ("DOMString", "gchar*",
                  "DOMTimeStamp", "guint32",
                  "CompareHow", "gushort",
+                 "SerializedScriptValue", "gchar*",
                  "float", "gfloat",
                  "unrestricted float", "gfloat",
                  "double", "gdouble",
@@ -406,7 +439,7 @@ sub GetGlibTypeName {
 sub IsGDOMClassType {
     my $type = shift;
 
-    return 0 if $codeGenerator->IsNonPointerType($type) || $codeGenerator->IsStringType($type);
+    return 0 if $codeGenerator->IsNonPointerType($type) || $codeGenerator->IsStringType($type) || $type eq "SerializedScriptValue";
     return 1;
 }
 
@@ -759,8 +792,10 @@ sub GenerateConstants {
             my $conditionalString = $codeGenerator->GenerateConditionalString($constant);
             my $constantName = $prefix . $constant->name;
             my $constantValue = $constant->value;
-            my $isStableSymbol = grep {$_ eq $constantName} @stableSymbols;
-            if ($isStableSymbol) {
+            my $stableSymbol = grep {$_ =~ /^\Q$constantName/} @stableSymbols;
+            my $stableSymbolVersion;
+            if ($stableSymbol) {
+                ($dummy, $stableSymbolVersion) = split('@', $stableSymbol, 2);
                 push(@symbols, "$constantName\n");
             }
 
@@ -768,12 +803,15 @@ sub GenerateConstants {
             push(@constantHeader, "#if ${conditionalString}") if $conditionalString;
             push(@constantHeader, "/**");
             push(@constantHeader, " * ${constantName}:");
+            if ($stableSymbolVersion) {
+                push(@constantHeader, " * Since: ${stableSymbolVersion}");
+            }
             push(@constantHeader, " */");
             push(@constantHeader, "#define $constantName $constantValue");
             push(@constantHeader, "#endif /* ${conditionalString} */") if $conditionalString;
             push(@constantHeader, "\n");
 
-            if ($isStableSymbol or !$isStableClass) {
+            if ($stableSymbol or !$isStableClass) {
                 push(@hBody, join("\n", @constantHeader));
             } else {
                 push(@hBodyUnstable, join("\n", @constantHeader));
@@ -941,6 +979,20 @@ sub GetFunctionSignatureName {
     return "${name}_type";
 }
 
+sub GetTransferTypeForReturnType {
+    my $returnType = shift;
+
+    # Node is always transfer none.
+    return "none" if $returnType eq "Node";
+
+    # Any base class but Node is transfer full.
+    return "full" if IsBaseType($returnType);
+
+    # Any other class not derived from Node is transfer full.
+    return "full" if $transferFullTypeHash{$returnType};
+    return "none";
+}
+
 sub GenerateFunction {
     my ($object, $interfaceName, $function, $prefix, $parentNode) = @_;
 
@@ -968,6 +1020,8 @@ sub GenerateFunction {
     my @callImplParams;
     foreach my $param (@{$function->parameters}) {
         my $paramIDLType = $param->type;
+        my $arrayOrSequenceType = $codeGenerator->GetArrayOrSequenceType($paramIDLType);
+        $paramIDLType = $arrayOrSequenceType if $arrayOrSequenceType ne "";
         my $paramType = GetGlibTypeName($paramIDLType);
         my $const = $paramType eq "gchar*" ? "const " : "";
         my $paramName = $param->name;
@@ -987,6 +1041,10 @@ sub GenerateFunction {
         if ($paramIDLType eq "NodeFilter" || $paramIDLType eq "XPathNSResolver") {
             $paramName = "WTF::getPtr(" . $paramName . ")";
         }
+        if ($paramIDLType eq "SerializedScriptValue") {
+            $implIncludes{"SerializedScriptValue.h"} = 1;
+            $paramName = "WebCore::SerializedScriptValue::create(WTF::String::fromUTF8(" . $paramName . "))";
+        }
         push(@callImplParams, $paramName);
     }
 
@@ -999,8 +1057,10 @@ sub GenerateFunction {
 
     my $symbol = "$returnType $functionName($symbolSig)";
     my $isStableClass = scalar(@stableSymbols);
-    my $isStableSymbol = grep {$_ eq $symbol} @stableSymbols;
-    if ($isStableSymbol and $isStableClass) {
+    my ($stableSymbol) = grep {$_ =~ /^\Q$symbol/} @stableSymbols;
+    my $stableSymbolVersion;
+    if ($stableSymbol and $isStableClass) {
+        ($dummy, $stableSymbolVersion) = split('@', $stableSymbol, 2);
         push(@symbols, "$symbol\n");
     }
 
@@ -1011,7 +1071,10 @@ sub GenerateFunction {
     push(@functionHeader, " * \@self: A #${className}");
 
     foreach my $param (@{$function->parameters}) {
-        my $paramType = GetGlibTypeName($param->type);
+        my $paramIDLType = $param->type;
+        my $arrayOrSequenceType = $codeGenerator->GetArrayOrSequenceType($paramIDLType);
+        $paramIDLType = $arrayOrSequenceType if $arrayOrSequenceType ne "";
+        my $paramType = GetGlibTypeName($paramIDLType);
         # $paramType can have a trailing * in some cases
         $paramType =~ s/\*$//;
         my $paramName = $param->name;
@@ -1027,23 +1090,29 @@ sub GenerateFunction {
     my $hasReturnTag = 0;
     $returnTypeName =~ s/\*$//;
     if ($returnValueIsGDOMType) {
-        push(@functionHeader, " * Returns: (transfer none): A #${returnTypeName}");
+        my $transferType = GetTransferTypeForReturnType($functionSigType);
+        push(@functionHeader, " * Returns: (transfer $transferType): A #${returnTypeName}");
         $hasReturnTag = 1;
     } elsif ($returnType ne "void") {
         push(@functionHeader, " * Returns: A #${returnTypeName}");
         $hasReturnTag = 1;
     }
-    if (!$isStableSymbol) {
+    if (!$stableSymbol) {
         if ($hasReturnTag) {
             push(@functionHeader, " *");
         }
         push(@functionHeader, " * Stability: Unstable");
+    } elsif ($stableSymbolVersion) {
+        if ($hasReturnTag) {
+            push(@functionHeader, " *");
+        }
+        push(@functionHeader, " * Since: ${stableSymbolVersion}");
     }
     push(@functionHeader, "**/");
 
     push(@functionHeader, "WEBKIT_API $returnType\n$functionName($functionSig);");
     push(@functionHeader, "\n");
-    if ($isStableSymbol or !$isStableClass) {
+    if ($stableSymbol or !$isStableClass) {
         push(@hBody, join("\n", @functionHeader));
     } else {
         push(@hBodyUnstable, join("\n", @functionHeader));
@@ -1115,6 +1184,11 @@ sub GenerateFunction {
             $assignPost = ")";
         } else {
             $assign = "${returnType} result = ";
+        }
+
+        if ($functionSigType eq "SerializedScriptValue") {
+            $assignPre = "convertToUTF8String(";
+            $assignPost = "->toString())";
         }
     }
 
@@ -1189,7 +1263,7 @@ EOF
             } else {
                 $functionName = "item->${functionName}";
             }
-            $contentHead = "${assign}${assignPre}${functionName}(" . join(", ", @arguments) . "${assignPost});\n";
+            $contentHead = "${assign}${assignPre}${functionName}(" . join(", ", @arguments) . ")${assignPost};\n";
         } elsif ($prefix eq "set_") {
             my ($functionName, @arguments) = $codeGenerator->SetterExpression(\%implIncludes, $interfaceName, $function);
             push(@arguments, @callImplParams);
@@ -1198,10 +1272,10 @@ EOF
                 $implIncludes{"${implementedBy}.h"} = 1;
                 unshift(@arguments, "item");
                 $functionName = "WebCore::${implementedBy}::${functionName}";
-                $contentHead = "${assign}${assignPre}${functionName}(" . join(", ", @arguments) . "${assignPost});\n";
+                $contentHead = "${assign}${assignPre}${functionName}(" . join(", ", @arguments) . ")${assignPost};\n";
             } else {
                 $functionName = "item->${functionName}";
-                $contentHead = "${assign}${assignPre}${functionName}(" . join(", ", @arguments) . "${assignPost});\n";
+                $contentHead = "${assign}${assignPre}${functionName}(" . join(", ", @arguments) . ")${assignPost};\n";
             }
         } else {
             my @arguments = @callImplParams;
@@ -1209,9 +1283,9 @@ EOF
                 my $implementedBy = $function->signature->extendedAttributes->{"ImplementedBy"};
                 $implIncludes{"${implementedBy}.h"} = 1;
                 unshift(@arguments, "item");
-                $contentHead = "${assign}${assignPre}WebCore::${implementedBy}::${functionImplementationName}(" . join(", ", @arguments) . "${assignPost});\n";
+                $contentHead = "${assign}${assignPre}WebCore::${implementedBy}::${functionImplementationName}(" . join(", ", @arguments) . ")${assignPost};\n";
             } else {
-                $contentHead = "${assign}${assignPre}item->${functionImplementationName}(" . join(", ", @arguments) . "${assignPost});\n";
+                $contentHead = "${assign}${assignPre}item->${functionImplementationName}(" . join(", ", @arguments) . ")${assignPost};\n";
             }
         }
         push(@cBody, "    ${contentHead}");
@@ -1552,6 +1626,7 @@ sub Generate {
     $implIncludes{"Document.h"} = 1;
     $implIncludes{"JSMainThreadExecState.h"} = 1;
     $implIncludes{"ExceptionCode.h"} = 1;
+    $implIncludes{"ExceptionCodeDescription.h"} = 1;
     $implIncludes{"CSSImportRule.h"} = 1;
     if ($parentImplClassName ne "Object" and IsPolymorphic($baseClassName)) {
         $implIncludes{"WebKitDOM${baseClassName}Private.h"} = 1;
@@ -1562,6 +1637,12 @@ sub Generate {
     $object->GenerateHeader($interfaceName, $parentClassName, $interface);
     $object->GenerateCFile($interfaceName, $parentClassName, $parentGObjType, $interface);
     $object->GenerateEndHeader();
+}
+
+sub HasUnstableCustomAPI {
+    my $domClassName = shift;
+
+    return scalar(grep {$_ eq $domClassName} qw(WebKitDOMDOMWindow WebKitDOMUserMessageHandlersNamespace WebKitDOMHTMLLinkElement));
 }
 
 sub WriteData {
@@ -1631,6 +1712,9 @@ EOF
     if ($isStableClass) {
         print HEADER "#include <webkitdom/webkitdomdefines.h>\n\n";
     } else {
+        if (HasUnstableCustomAPI($className)) {
+            print HEADER "#include <webkitdom/WebKitDOMCustomUnstable.h>\n";
+        }
         print HEADER "#include <webkitdom/webkitdomdefines-unstable.h>\n\n";
     }
     print HEADER @hBodyPre;
@@ -1654,11 +1738,13 @@ EOF
 
 #ifdef WEBKIT_DOM_USE_UNSTABLE_API
 
-#include <webkitdom/webkitdomdefines-unstable.h>
 EOF
-
         print UNSTABLE $text;
-        print UNSTABLE "\n";
+        if (HasUnstableCustomAPI($className)) {
+            print UNSTABLE "#include <webkitdom/WebKitDOMCustomUnstable.h>\n";
+        }
+        print UNSTABLE "#include <webkitdom/webkitdomdefines-unstable.h>\n\n";
+
         print UNSTABLE "#if ${conditionalString}\n\n" if $conditionalString;
         print UNSTABLE "G_BEGIN_DECLS\n";
         print UNSTABLE "\n";
@@ -1756,17 +1842,19 @@ sub ReadStableSymbols {
     foreach $line (@lines) {
         $line =~ s/\n$//;
 
-        if ($line eq "GType ${lowerCaseIfaceName}_get_type(void)") {
+        my ($symbol) = split('@', $line, 2);
+
+        if ($symbol eq "GType ${lowerCaseIfaceName}_get_type(void)") {
             push(@stableSymbols, $line);
             next;
         }
 
-        if (scalar(@stableSymbols) and IsInterfaceSymbol($line, $lowerCaseIfaceName) and $line !~ /^GType/) {
+        if (scalar(@stableSymbols) and IsInterfaceSymbol($symbol, $lowerCaseIfaceName) and $symbol !~ /^GType/) {
             push(@stableSymbols, $line);
             next;
         }
 
-        if (scalar(@stableSymbols) and $line !~ /^GType/) {
+        if (scalar(@stableSymbols) and $symbol !~ /^GType/) {
             warn "Symbol %line found, but a get_type was expected";
         }
 

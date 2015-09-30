@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -65,7 +65,7 @@ getSession(mach_port_t server)
 	int	i;
 
 	if (server == MACH_PORT_NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("Excuse me, why is getSession() being called with an invalid port?"));
+		SC_log(LOG_NOTICE, "Excuse me, why is getSession() being called with an invalid port?");
 		return NULL;
 	}
 
@@ -220,14 +220,14 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 		if (kr != KERN_SUCCESS) {
 			char	*err	= NULL;
 
-			SCLog(TRUE, LOG_ERR, CFSTR("addSession: could not allocate mach port: %s"), mach_error_string(kr));
+			SC_log(LOG_NOTICE, "could not allocate mach port: %s", mach_error_string(kr));
 			if ((kr == KERN_NO_SPACE) || (kr == KERN_RESOURCE_SHORTAGE)) {
 				sleep(1);
 				goto retry_allocate;
 			}
 
-			(void) asprintf(&err, "addSession: could not allocate mach port: %s", mach_error_string(kr));
-			_SC_crash(err != NULL ? err : "addSession: could not allocate mach port",
+			(void) asprintf(&err, "Could not allocate mach port: %s", mach_error_string(kr));
+			_SC_crash(err != NULL ? err : "Could not allocate new session (mach) port",
 				  NULL,
 				  NULL);
 			if (err != NULL) free(err);
@@ -263,7 +263,7 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 			 * only happen if someone stomped on OUR port (so let's leave
 			 * the port alone).
 			 */
-			SCLog(TRUE, LOG_ERR, CFSTR("addSession mach_port_insert_right(): %s"), mach_error_string(kr));
+			SC_log(LOG_NOTICE, "mach_port_insert_right() failed: %s", mach_error_string(kr));
 
 			free(newSession);
 			return NULL;
@@ -302,9 +302,7 @@ cleanupSession(mach_port_t server)
 			 * session entry still exists.
 			 */
 
-			if (_configd_trace) {
-				SCTrace(TRUE, _configd_trace, CFSTR("cleanup : %5d\n"), server);
-			}
+			SC_trace(_configd_trace, "cleanup : %5d\n", server);
 
 			/*
 			 * Close any open connections including cancelling any outstanding
@@ -358,7 +356,7 @@ cleanupSession(mach_port_t server)
 		}
 	}
 
-	SCLog(TRUE, LOG_ERR, CFSTR("MACH_NOTIFY_NO_SENDERS w/no session, port = %d"), server);
+	SC_log(LOG_NOTICE, "MACH_NOTIFY_NO_SENDERS w/no session, port = %d", server);
 	__MACH_PORT_DEBUG(TRUE, "*** cleanupSession w/no session", server);
 	return;
 }
@@ -462,20 +460,18 @@ copyEntitlement(serverSessionRef session, CFStringRef entitlement)
 			if (!CFEqual(domain, kCFErrorDomainMach) ||
 			    ((code != kIOReturnInvalid) && (code != kIOReturnNotFound))) {
 				// if unexpected error
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("SecTaskCopyValueForEntitlement(,\"%@\",) failed, error = %@ : %@"),
-				      entitlement,
-				      error,
-				      sessionName(session));
+				SC_log(LOG_NOTICE, "SecTaskCopyValueForEntitlement(,\"%@\",) failed, error = %@ : %@",
+				       entitlement,
+				       error,
+				       sessionName(session));
 			}
 			CFRelease(error);
 		}
 
 		CFRelease(task);
 	} else {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SecTaskCreateWithAuditToken() failed: %@"),
-		      sessionName(session));
+		SC_log(LOG_NOTICE, "SecTaskCreateWithAuditToken() failed: %@",
+		       sessionName(session));
 	}
 
 	return value;
@@ -566,10 +562,9 @@ hasWriteAccess(serverSessionRef session, CFStringRef key)
 			 * general, this is unwise and we should at the
 			 * very least complain.
 			 */
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("*** Non-configd process (pid=%d) attempting to modify \"%@\" ***"),
-			      pid,
-			      key);
+			SC_log(LOG_NOTICE, "*** Non-configd process (pid=%d) attempting to modify \"%@\" ***",
+			       pid,
+			       key);
 		}
 
 		return TRUE;
@@ -584,10 +579,9 @@ hasWriteAccess(serverSessionRef session, CFStringRef key)
 		 * something we should ever allow (regardless of
 		 * any entitlements).
 		 */
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("*** Non-root process (pid=%d) attempting to modify \"%@\" ***"),
-		      sessionPid(session),
-		      key);
+		SC_log(LOG_NOTICE, "*** Non-root process (pid=%d) attempting to modify \"%@\" ***",
+		       sessionPid(session),
+		       key);
 
 		//return FALSE;		// return FALSE when rdar://9811832 has beed fixed
 	}
@@ -654,7 +648,7 @@ hasPathAccess(serverSessionRef session, const char *path)
 	char	realPath[PATH_MAX];
 
 	if (realpath(path, realPath) == NULL) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("hasPathAccess realpath() failed: %s"), strerror(errno));
+		SC_log(LOG_INFO, "realpath() failed: %s", strerror(errno));
 		return FALSE;
 	}
 
@@ -675,7 +669,7 @@ hasPathAccess(serverSessionRef session, const char *path)
 			  "file-write-data",					// operation
 			  SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT,	// sandbox_filter_type
 			  realPath) > 0) {					// ...
-		SCLog(TRUE, LOG_DEBUG, CFSTR("hasPathAccess sandbox access denied: %s"), strerror(errno));
+		SC_log(LOG_INFO, "sandbox access denied: %s", strerror(errno));
 		return FALSE;
 	}
 

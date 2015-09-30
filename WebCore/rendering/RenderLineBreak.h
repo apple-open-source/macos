@@ -32,7 +32,7 @@ class Position;
 
 class RenderLineBreak final : public RenderBoxModelObject {
 public:
-    RenderLineBreak(HTMLElement&, PassRef<RenderStyle>);
+    RenderLineBreak(HTMLElement&, Ref<RenderStyle>&&);
     virtual ~RenderLineBreak();
 
     // FIXME: The lies here keep render tree dump based test results unchanged.
@@ -46,6 +46,7 @@ public:
     void deleteInlineBoxWrapper();
     void replaceInlineBoxWrapper(InlineElementBox&);
     void dirtyLineBoxes(bool fullLayout);
+    void deleteLineBoxesBeforeSimpleLineLayout();
 
     IntRect linesBoundingBox() const;
 
@@ -59,7 +60,7 @@ private:
     void node() const = delete;
 
     virtual bool canHaveChildren() const override { return false; }
-    virtual void paint(PaintInfo&, const LayoutPoint&) override final { }
+    virtual void paint(PaintInfo&, const LayoutPoint&) override { }
 
     virtual VisiblePosition positionForPoint(const LayoutPoint&, const RenderRegion*) override;
     virtual int caretMinOffset() const override;
@@ -93,8 +94,8 @@ private:
     bool m_isWBR;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderLineBreak, isLineBreak())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderLineBreak, isLineBreak())
 
 #endif // RenderLineBreak_h

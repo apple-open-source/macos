@@ -1,5 +1,5 @@
 /********************************************************************
- * Copyright (c) 1997-2014, International Business Machines
+ * Copyright (c) 1997-2015, International Business Machines
  * Corporation and others. All Rights Reserved.
  ********************************************************************
  *
@@ -37,6 +37,8 @@ void TestGetTZTransition(void);
 
 void TestGetWindowsTimeZoneID(void);
 void TestGetTimeZoneIDByWindowsID(void);
+void TestClear(void);
+void TestGetDayPeriods(); /* Apple-specific */
 
 void addCalTest(TestNode** root);
 
@@ -59,6 +61,8 @@ void addCalTest(TestNode** root)
     addTest(root, &TestGetTZTransition, "tsformat/ccaltst/TestGetTZTransition");
     addTest(root, &TestGetWindowsTimeZoneID, "tsformat/ccaltst/TestGetWindowsTimeZoneID");
     addTest(root, &TestGetTimeZoneIDByWindowsID, "tsformat/ccaltst/TestGetTimeZoneIDByWindowsID");
+    addTest(root, &TestClear, "tsformat/ccaltst/TestClear");
+    addTest(root, &TestGetDayPeriods, "tsformat/ccaltst/TestGetDayPeriods"); /* Apple-specific */
 }
 
 /* "GMT" */
@@ -1679,12 +1683,12 @@ static const TestWeekendDates weekendDates_en_US[] = {
 static const TestWeekendDates weekendDates_ar_OM[] = {
     { 2000, UCAL_MARCH, 15, 23,  0, 0 }, /* Wed 23:00        */
     { 2000, UCAL_MARCH, 16,  0, -1, 0 }, /* Wed 23:59:59.999 */
-    { 2000, UCAL_MARCH, 16,  0,  0, 1 }, /* Thu 00:00        */
-    { 2000, UCAL_MARCH, 16, 15,  0, 1 }, /* Thu 15:00        */
+    { 2000, UCAL_MARCH, 16,  0,  0, 0 }, /* Thu 00:00        */
+    { 2000, UCAL_MARCH, 16, 15,  0, 0 }, /* Thu 15:00        */
     { 2000, UCAL_MARCH, 17, 23,  0, 1 }, /* Fri 23:00        */
     { 2000, UCAL_MARCH, 18,  0, -1, 1 }, /* Fri 23:59:59.999 */
-    { 2000, UCAL_MARCH, 18,  0,  0, 0 }, /* Sat 00:00        */
-    { 2000, UCAL_MARCH, 18,  8,  0, 0 }, /* Sat 08:00        */
+    { 2000, UCAL_MARCH, 18,  0,  0, 1 }, /* Sat 00:00        */
+    { 2000, UCAL_MARCH, 18,  8,  0, 1 }, /* Sat 08:00        */
 };
 static const TestWeekendDatesList testDates[] = {
     { "en_US", weekendDates_en_US, sizeof(weekendDates_en_US)/sizeof(weekendDates_en_US[0]) },
@@ -1708,11 +1712,11 @@ static const TestDaysOfWeek daysOfWeek_en_US[] = {
     { UCAL_SATURDAY, UCAL_WEEKEND,       0        },
     { UCAL_SUNDAY,   UCAL_WEEKEND,       0        },
 };
-static const TestDaysOfWeek daysOfWeek_ar_OM[] = { /* Thursday:Friday */
+static const TestDaysOfWeek daysOfWeek_ar_OM[] = { /* Friday:Saturday */
     { UCAL_WEDNESDAY,UCAL_WEEKDAY,       0        },
-    { UCAL_SATURDAY, UCAL_WEEKDAY,       0        },
-    { UCAL_THURSDAY, UCAL_WEEKEND,       0        },
+    { UCAL_THURSDAY, UCAL_WEEKDAY,       0        },
     { UCAL_FRIDAY,   UCAL_WEEKEND,       0        },
+    { UCAL_SATURDAY, UCAL_WEEKEND,       0        },
 };
 static const TestDaysOfWeek daysOfWeek_hi_IN[] = { /* Sunday only */
     { UCAL_MONDAY,   UCAL_WEEKDAY,       0        },
@@ -2443,5 +2447,90 @@ void TestGetTimeZoneIDByWindowsID() {
     }
 }
 
+typedef struct {
+    const char * localeWithCal;
+    UDate        clearDate;
+} LocaleWithCalendarAndClearDate;
+
+static const LocaleWithCalendarAndClearDate calAndClearDates[] = {
+//                                       ucal_clear sets         era     grego
+//                                       this date for GMT       in cal  date
+    { "en@calendar=gregorian",                         0.0 }, //    1    1970-01-01
+    { "en@calendar=iso8601",                           0.0 }, //    1    1970-01-01
+    { "en@calendar=buddhist",                          0.0 }, //    0    1970-01-01
+    { "en@calendar=japanese",                          0.0 }, //  234    1970-01-01
+    { "en@calendar=roc",                               0.0 }, //    1    1970-01-01
+    { "en@calendar=chinese",                444528000000.0 }, //   78    1984-02-02
+    { "en@calendar=dangi",                  444528000000.0 }, //   78    1984-02-02
+    { "en@calendar=coptic",              -53184211200000.0 }, //    1     284-08-29
+    { "en@calendar=ethiopic",            -61894108800000.0 }, //    1       8-08-29
+    { "en@calendar=ethiopic-amete-alem", -61894108800000.0 }, //    0       8-08-29
+    { "en@calendar=hebrew",             -180799776000000.0 }, //    0    3761-10-07
+    { "en@calendar=indian",              -59667235200000.0 }, //    0      79-03-24
+    { "en@calendar=islamic",             -42521673600000.0 }, //    0     622-07-15
+    { "en@calendar=islamic-civil",       -42521587200000.0 }, //    0     622-07-16
+    { "en@calendar=islamic-tbla",        -42521673600000.0 }, //    0     622-07-15
+    { "en@calendar=islamic-umalqura",    -42521587200000.0 }, //    0     622-07-16
+    { "en@calendar=persian",             -42531955200000.0 }, //    0     622-03-18
+    { NULL, 0.0 }
+};
+
+void TestClear() {
+    const LocaleWithCalendarAndClearDate * calAndClearDatesPtr;
+    for (calAndClearDatesPtr = calAndClearDates; calAndClearDatesPtr->localeWithCal != NULL; calAndClearDatesPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        UCalendar * ucal = ucal_open(zoneGMT, -1, calAndClearDatesPtr->localeWithCal, UCAL_DEFAULT, &status);
+        if ( U_FAILURE(status) ) {
+            log_data_err("FAIL: ucal_open for locale %s, status %s\n", calAndClearDatesPtr->localeWithCal, u_errorName(status)); 
+        } else {
+            UDate date;
+            ucal_clear(ucal);
+            date = ucal_getMillis(ucal, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("FAIL: ucal_clear, ucal_getMillis for locale %s, status %s\n", calAndClearDatesPtr->localeWithCal, u_errorName(status)); 
+            } else if (date != calAndClearDatesPtr->clearDate) {
+                log_err("FAIL: ucal_clear, ucal_getMillis for locale %s, expected %.1f, got %.1f\n", calAndClearDatesPtr->localeWithCal, calAndClearDatesPtr->clearDate, date); 
+            }
+        }
+    }
+}
+
+/* Apple-specific */
+typedef struct {
+    const char * locale;
+    UBool formatStyle;
+    UADayPeriod expected[12]; // expected results for 0..22 in 2-hour increments
+} DayPeriodTestItem;
+
+static const DayPeriodTestItem dpItems[] = {
+    { "en", FALSE, { UADAYPERIOD_NIGHT1, UADAYPERIOD_NIGHT1, UADAYPERIOD_NIGHT1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1,
+                     UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_EVENING1, UADAYPERIOD_EVENING1, UADAYPERIOD_NIGHT1 } },
+    { "en", TRUE,  { UADAYPERIOD_MIDNIGHT, UADAYPERIOD_NIGHT1, UADAYPERIOD_NIGHT1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1,
+                     UADAYPERIOD_NOON, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_EVENING1, UADAYPERIOD_EVENING1, UADAYPERIOD_NIGHT1 } },
+    { "ta", FALSE, { UADAYPERIOD_NIGHT1, UADAYPERIOD_NIGHT1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING2, UADAYPERIOD_MORNING2, UADAYPERIOD_MORNING2,
+                     UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON2, UADAYPERIOD_EVENING1, UADAYPERIOD_EVENING2, UADAYPERIOD_EVENING2, UADAYPERIOD_NIGHT1 } },
+    // test fallback for languages with no data. Should be to root, but that is broken in the data, so to en for now.
+    { "tlh", FALSE, { UADAYPERIOD_NIGHT1, UADAYPERIOD_NIGHT1, UADAYPERIOD_NIGHT1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1, UADAYPERIOD_MORNING1,
+                     UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_AFTERNOON1, UADAYPERIOD_EVENING1, UADAYPERIOD_EVENING1, UADAYPERIOD_NIGHT1 } },
+    { NULL, FALSE, { 0 } }
+};
+
+void TestGetDayPeriods() {
+    static const DayPeriodTestItem * dpItemPtr;
+    for (dpItemPtr = dpItems; dpItemPtr->locale != NULL; dpItemPtr++) {
+        int32_t hourIndex;
+        for (hourIndex = 0; hourIndex < 12; hourIndex++) {
+            UErrorCode status = U_ZERO_ERROR;
+            UADayPeriod dp = uacal_getDayPeriod(dpItemPtr->locale, hourIndex*2, 0, dpItemPtr->formatStyle, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("FAIL: uacal_getDayPeriod, locale %s, hour %d, formatStyle %d, status %s\n",
+                        dpItemPtr->locale, hourIndex*2, dpItemPtr->formatStyle, u_errorName(status)); 
+            } else if (dp != dpItemPtr->expected[hourIndex]) {
+                log_err("FAIL: uacal_getDayPeriod, locale %s, hour %d, formatStyle %d, expected dp %d, got %d\n",
+                        dpItemPtr->locale, hourIndex*2, dpItemPtr->formatStyle, dpItemPtr->expected[hourIndex], dp); 
+            }
+        }
+    }
+}
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

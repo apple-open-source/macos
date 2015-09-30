@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -129,9 +129,9 @@ struct pcapng_section_header_fields {
 #define PCAPNG_BT_IDB			0x00000001
 
 struct pcapng_interface_description_fields {
-	u_short		linktype;
-	u_short		reserved;
-	bpf_u_int32	snaplen;
+	u_short		idb_linktype;
+	u_short		idb_reserved;
+	bpf_u_int32	idb_snaplen;
 	/* followed by options and trailer */
 };
 
@@ -264,7 +264,7 @@ struct pcapng_enhanced_packet_fields {
  * The following options are experimental Apple additions
  */
 #define PCAPNG_EPB_PIB_INDEX	0x8001	/* 32 bits number of process information block within the section */
-#define PCAPNG_EPB_SVC			0x8002	/* 32 bits number with type of service code */
+#define PCAPNG_EPB_SVC		0x8002	/* 32 bits number with type of service code */
 #define PCAPNG_EPB_E_PIB_INDEX	0x8003	/* 32 bits number of the effective process information block */
 
 /*
@@ -281,6 +281,25 @@ struct pcapng_process_information_fields {
 
 #define PCAPNG_PIB_NAME			2	/* UTF-8 string with name of process */
 #define PCAPNG_PIB_PATH			3	/* UTF-8 string with path of process */
+
+/*
+ * Process Information Block
+ *
+ * NOTE: Experimental, this block type is not standardized
+ *
+ * Format simiar to simple packet block
+ */
+#define PCAPNG_BT_OSEV			0x80000002
+	
+struct pcapng_os_event_fields {
+	bpf_u_int32	type;
+	bpf_u_int32	timestamp_high;
+	bpf_u_int32	timestamp_low;
+	bpf_u_int32	len;
+	/* followed by event structure (of size len), options and trailer */
+};
+
+#define	PCAPNG_OSEV_KEV	0x0001
 
 /*
  * To open for reading a file in pcap-ng file format
@@ -368,6 +387,7 @@ struct pcapng_enhanced_packet_fields *pcap_ng_get_enhanced_packet_fields(pcapng_
 struct pcapng_simple_packet_fields *pcap_ng_get_simple_packet_fields(pcapng_block_t );
 struct pcapng_packet_fields *pcap_ng_get_packet_fields(pcapng_block_t );
 struct pcapng_process_information_fields *pcap_ng_get_process_information_fields(pcapng_block_t );
+struct pcapng_os_event_fields *pcap_ng_get_os_event_fields(pcapng_block_t );
 
 /*
  * Set the packet data to the passed buffer by copying into the internal block buffer

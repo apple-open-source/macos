@@ -4,5 +4,7 @@
 <dict>
 	<key>task_for_pid-allow</key>
 	<true/>
+	<key>com.apple.system-task-ports</key>
+	<true/>
 </dict>
 </plist>

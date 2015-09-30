@@ -28,7 +28,8 @@
 
 #import "ChildProcess.h"
 #import "WebKit2Initialize.h"
-#import "XPCPtr.h"
+#import <wtf/OSObjectPtr.h>
+#import <wtf/spi/darwin/XPCSPI.h>
 
 #if HAVE(VOUCHERS)
 #if __has_include(<os/voucher_private.h>)
@@ -42,7 +43,7 @@ namespace WebKit {
 
 class XPCServiceInitializerDelegate {
 public:
-    XPCServiceInitializerDelegate(IPC::XPCPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
+    XPCServiceInitializerDelegate(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
         : m_connection(WTF::move(connection))
         , m_initializerMessage(initializerMessage)
     {
@@ -61,12 +62,12 @@ protected:
     bool hasEntitlement(const char* entitlement);
     bool isClientSandboxed();
 
-    IPC::XPCPtr<xpc_connection_t> m_connection;
+    OSObjectPtr<xpc_connection_t> m_connection;
     xpc_object_t m_initializerMessage;
 };
 
 template<typename XPCServiceType, typename XPCServiceInitializerDelegateType>
-void XPCServiceInitializer(IPC::XPCPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
+void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
 {
     XPCServiceInitializerDelegateType delegate(WTF::move(connection), initializerMessage);
 
@@ -97,7 +98,7 @@ void XPCServiceInitializer(IPC::XPCPtr<xpc_connection_t> connection, xpc_object_
     voucher_replace_default_voucher();
 #endif
 
-    XPCServiceType::shared().initialize(parameters);
+    XPCServiceType::singleton().initialize(parameters);
 }
 
 } // namespace WebKit

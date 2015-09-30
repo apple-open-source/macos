@@ -480,10 +480,10 @@ timeprt(seconds)
 		return (buf);
 	}
 	if (minutes >= 60) {
-		sprintf(buf, "%2d:%d", (int)(minutes / 60), (int)(minutes % 60));
+		snprintf(buf, sizeof(buf), "%2d:%d", (int)(minutes / 60), (int)(minutes % 60));
 		return (buf);
 	}
-	sprintf(buf, "%2d", (int)minutes);
+	snprintf(buf, sizeof(buf), "%2d", (int)minutes);
 	return (buf);
 }
 
@@ -687,6 +687,7 @@ getprivs(id, quotatype)
 			close(fd);
 		}
 		strlcpy(qup->fsname, fs->fs_file, sizeof(qup->fsname));
+
 		if (quphead == NULL)
 			quphead = qup;
 		else

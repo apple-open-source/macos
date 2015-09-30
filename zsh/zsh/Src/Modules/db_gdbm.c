@@ -39,16 +39,17 @@
 
 #include <gdbm.h>
 
-#if 0 /* what is this for? */
 static char *backtype = "db/gdbm";
-#endif
 
 static const struct gsu_scalar gdbm_gsu =
 { gdbmgetfn, gdbmsetfn, gdbmunsetfn };
+/**/
+static const struct gsu_hash gdbm_hash_gsu =
+{ hashgetfn, gdbmhashsetfn, gdbmhashunsetfn };
 
 static struct builtin bintab[] = {
-    BUILTIN("ztie", 0, bin_ztie, 1, -1, 0, "d:f:", NULL),
-    BUILTIN("zuntie", 0, bin_zuntie, 1, -1, 0, NULL, NULL),
+    BUILTIN("ztie", 0, bin_ztie, 1, -1, 0, "d:f:r", NULL),
+    BUILTIN("zuntie", 0, bin_zuntie, 1, -1, 0, "u", NULL),
 };
 
 /**/
@@ -57,36 +58,67 @@ bin_ztie(char *nam, char **args, Options ops, UNUSED(int func))
 {
     char *resource_name, *pmname;
     GDBM_FILE dbf = NULL;
+    int read_write = GDBM_SYNC, pmflags = PM_REMOVABLE;
     Param tied_param;
 
     if(!OPT_ISSET(ops,'d')) {
-        zwarnnam(nam, "you must pass `-d db/gdbm' to ztie", NULL);
+        zwarnnam(nam, "you must pass `-d %s'", backtype);
 	return 1;
     }
     if(!OPT_ISSET(ops,'f')) {
-        zwarnnam(nam, "you must pass `-f' with a filename to ztie", NULL);
+        zwarnnam(nam, "you must pass `-f' with a filename", NULL);
 	return 1;
+    }
+    if (OPT_ISSET(ops,'r')) {
+	read_write |= GDBM_READER;
+	pmflags |= PM_READONLY;
+    } else {
+	read_write |= GDBM_WRCREAT;
     }
 
     /* Here should be a lookup of the backend type against
      * a registry.
      */
-
-    pmname = ztrdup(*args);
+    if (strcmp(OPT_ARG(ops, 'd'), backtype) != 0) {
+        zwarnnam(nam, "unsupported backend type `%s'", OPT_ARG(ops, 'd'));
+	return 1;
+    }
 
     resource_name = OPT_ARG(ops, 'f');
+    pmname = *args;
 
-    if (!(tied_param = createspecialhash(pmname, &getgdbmnode, &scangdbmkeys, 0))) {
-        zwarnnam(nam, "cannot create the requested parameter name", NULL);
-	return 1;
+    if ((tied_param = (Param)paramtab->getnode(paramtab, pmname)) &&
+	!(tied_param->node.flags & PM_UNSET)) {
+	/*
+	 * Unset any existing parameter.  Note there's no implicit
+	 * "local" here, but if the existing parameter is local
+	 * that will be reflected in the new one.
+	 *
+	 * We need to do this before attempting to open the DB
+	 * in case this variable is already tied to a DB.
+	 *
+	 * This can fail if the variable is readonly or restricted.
+	 * We could call unsetparam() and check errflag instead
+	 * of the return status.
+	 */
+	if (unsetparam_pm(tied_param, 0, 1))
+	    return 1;
     }
 
-    dbf = gdbm_open(resource_name, 0, GDBM_WRCREAT | GDBM_SYNC, 0666, 0);
+    dbf = gdbm_open(resource_name, 0, read_write, 0666, 0);
     if(!dbf) {
-        zwarnnam(nam, "error opening database file %s", resource_name);
+	zwarnnam(nam, "error opening database file %s", resource_name);
 	return 1;
     }
 
+    if (!(tied_param = createspecialhash(pmname, &getgdbmnode, &scangdbmkeys,
+					 pmflags))) {
+        zwarnnam(nam, "cannot create the requested parameter %s", pmname);
+	gdbm_close(dbf);
+	return 1;
+    }
+
+    tied_param->gsu.h = &gdbm_hash_gsu;
     tied_param->u.hash->tmpdata = (void *)dbf;
 
     return 0;
@@ -97,20 +129,33 @@ static int
 bin_zuntie(char *nam, char **args, Options ops, UNUSED(int func))
 {
     Param pm;
-    GDBM_FILE dbf;
+    char *pmname;
+    int ret = 0;
 
-    pm = (Param) paramtab->getnode(paramtab, args[0]);
-    if(!pm) {
-        zwarnnam(nam, "cannot untie %s", args[0]);
-	return 1;
+    for (pmname = *args; *args++; pmname = *args) {
+	pm = (Param) paramtab->getnode(paramtab, pmname);
+	if(!pm) {
+	    zwarnnam(nam, "cannot untie %s", pmname);
+	    ret = 1;
+	    continue;
+	}
+	if (pm->gsu.h != &gdbm_hash_gsu) {
+	    zwarnnam(nam, "not a tied gdbm hash: %s", pmname);
+	    ret = 1;
+	    continue;
+	}
+
+	queue_signals();
+	if (OPT_ISSET(ops,'u'))
+	    gdbmuntie(pm);	/* clear read-only-ness */
+	if (unsetparam_pm(pm, 0, 1)) {
+	    /* assume already reported */
+	    ret = 1;
+	}
+	unqueue_signals();
     }
 
-    dbf = (GDBM_FILE)(pm->u.hash->tmpdata);
-    gdbm_close(dbf);
-/*    free(pm->u.hash->tmpdata); */
-    paramtab->removenode(paramtab, pm->node.nam);
-
-    return 0;
+    return ret;
 }
 
 /**/
@@ -153,7 +198,7 @@ gdbmsetfn(Param pm, char *val)
 
 /**/
 static void
-gdbmunsetfn(Param pm, int um)
+gdbmunsetfn(Param pm, UNUSED(int um))
 {
     datum key;
     GDBM_FILE dbf;
@@ -191,9 +236,7 @@ scangdbmkeys(HashTable ht, ScanFunc func, int flags)
 {
     Param pm = NULL;
     datum key, content;
-    GDBM_FILE dbf;
-
-    dbf = (GDBM_FILE)(ht->tmpdata);
+    GDBM_FILE dbf = (GDBM_FILE)(ht->tmpdata);
 
     pm = (Param) hcalloc(sizeof(struct param));
 
@@ -214,6 +257,89 @@ scangdbmkeys(HashTable ht, ScanFunc func, int flags)
         key = gdbm_nextkey(dbf, key);
     }
 
+}
+
+/**/
+static void
+gdbmhashsetfn(Param pm, HashTable ht)
+{
+    int i;
+    HashNode hn;
+    GDBM_FILE dbf;
+    datum key, content;
+
+    if (!pm->u.hash || pm->u.hash == ht)
+	return;
+
+    if (!(dbf = (GDBM_FILE)(pm->u.hash->tmpdata)))
+	return;
+
+    key = gdbm_firstkey(dbf);
+    while (key.dptr) {
+	queue_signals();
+	(void)gdbm_delete(dbf, key);
+	free(key.dptr);
+	unqueue_signals();
+	key = gdbm_firstkey(dbf);
+    }
+
+    /* just deleted everything, clean up */
+    (void)gdbm_reorganize(dbf);
+
+    if (!ht)
+	return;
+
+    for (i = 0; i < ht->hsize; i++)
+	for (hn = ht->nodes[i]; hn; hn = hn->next) {
+	    struct value v;
+
+	    v.isarr = v.flags = v.start = 0;
+	    v.end = -1;
+	    v.arr = NULL;
+	    v.pm = (Param) hn;
+
+	    key.dptr = v.pm->node.nam;
+	    key.dsize = strlen(key.dptr) + 1;
+
+	    queue_signals();
+
+	    content.dptr = getstrvalue(&v);
+	    content.dsize = strlen(content.dptr) + 1;
+
+	    (void)gdbm_store(dbf, key, content, GDBM_REPLACE);	
+
+	    unqueue_signals();
+	}
+}
+
+/**/
+static void
+gdbmuntie(Param pm)
+{
+    GDBM_FILE dbf = (GDBM_FILE)(pm->u.hash->tmpdata);
+    HashTable ht = pm->u.hash;
+
+    if (dbf) /* paranoia */
+	gdbm_close(dbf);
+
+    ht->tmpdata = NULL;
+
+    /* for completeness ... createspecialhash() should have an inverse */
+    ht->getnode = ht->getnode2 = gethashnode2;
+    ht->scantab = NULL;
+
+    pm->node.flags &= ~(PM_SPECIAL|PM_READONLY);
+    pm->gsu.h = &stdhash_gsu;
+}
+
+/**/
+static void
+gdbmhashunsetfn(Param pm, UNUSED(int exp))
+{
+    gdbmuntie(pm);
+    /* hash table is now normal, so proceed normally... */
+    pm->gsu.h->setfn(pm, NULL);
+    pm->node.flags |= PM_UNSET;
 }
 
 #else

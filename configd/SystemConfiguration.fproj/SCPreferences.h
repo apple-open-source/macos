@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2007-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2007-2010, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,8 @@
 typedef const struct AuthorizationOpaqueRef *	AuthorizationRef;
 #endif	// !TARGET_OS_IPHONE
 
+CF_IMPLICIT_BRIDGING_ENABLED
+CF_ASSUME_NONNULL_BEGIN
 
 /*!
 	@header SCPreferences
@@ -71,7 +73,7 @@ typedef const struct AuthorizationOpaqueRef *	AuthorizationRef;
 	@discussion This is the handle to an open preferences session for
 		accessing system configuration preferences.
  */
-typedef const struct __SCPreferences *	SCPreferencesRef;
+typedef const struct CF_BRIDGED_TYPE(id) __SCPreferences *	SCPreferencesRef;
 
 /*!
 	@enum SCPreferencesNotification
@@ -83,12 +85,10 @@ typedef const struct __SCPreferences *	SCPreferencesRef;
 		request has been made to apply the currently saved
 		preferences to the active system configuration.
  */
-enum {
+typedef CF_OPTIONS(uint32_t, SCPreferencesNotification) {
 	kSCPreferencesNotificationCommit	= 1<<0,	// __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/)
 	kSCPreferencesNotificationApply		= 1<<1	// __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/)
 };
-
-typedef	uint32_t	SCPreferencesNotification;
 
 /*!
 	@typedef SCPreferencesContext
@@ -111,10 +111,10 @@ typedef	uint32_t	SCPreferencesNotification;
  */
 typedef struct {
 	CFIndex		version;
-	void *		info;
-	const void	*(*retain)(const void *info);
-	void		(*release)(const void *info);
-	CFStringRef	(*copyDescription)(const void *info);
+	void *		__nullable info;
+	const void	* __nonnull (* __nullable retain)(const void *info);
+	void		(* __nullable release)(const void *info);
+	CFStringRef	__nonnull (* __nullable copyDescription)(const void *info);
 } SCPreferencesContext;
 
 /*!
@@ -127,9 +127,9 @@ typedef struct {
 	@param info A C pointer to a user-specified block of data.
  */
 typedef void (*SCPreferencesCallBack)   (
-					SCPreferencesRef		prefs,
-					SCPreferencesNotification	notificationType,
-					void				*info
+					SCPreferencesRef				prefs,
+					SCPreferencesNotification			notificationType,
+					void			     *	__nullable	info
 					);
 
 
@@ -159,11 +159,11 @@ SCPreferencesGetTypeID			(void)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2
 	@result Returns a reference to the new SCPreferences.
 		You must release the returned value.
  */
-SCPreferencesRef
+SCPreferencesRef __nullable
 SCPreferencesCreate			(
-					CFAllocatorRef		allocator,
-					CFStringRef		name,
-					CFStringRef		prefsID
+					CFAllocatorRef		__nullable	allocator,
+					CFStringRef				name,
+					CFStringRef		__nullable	prefsID
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 
@@ -187,12 +187,12 @@ SCPreferencesCreate			(
 	@result Returns a reference to the new SCPreferences.
 		You must release the returned value.
  */
-SCPreferencesRef
+SCPreferencesRef __nullable
 SCPreferencesCreateWithAuthorization	(
-					CFAllocatorRef		allocator,
-					CFStringRef		name,
-					CFStringRef		prefsID,
-					AuthorizationRef	authorization
+					CFAllocatorRef		__nullable	allocator,
+					CFStringRef				name,
+					CFStringRef		__nullable	prefsID,
+					AuthorizationRef	__nullable	authorization
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -275,7 +275,7 @@ SCPreferencesUnlock			(
 	@result Returns a CFDataRef that reflects the signature of the configuration
 		preferences at the time of the call to the SCPreferencesCreate function.
  */
-CFDataRef
+CFDataRef __nullable
 SCPreferencesGetSignature		(
 					SCPreferencesRef	prefs
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
@@ -287,7 +287,7 @@ SCPreferencesGetSignature		(
 	@result Returns the list of keys.
 		You must release the returned value.
  */
-CFArrayRef
+CFArrayRef __nullable
 SCPreferencesCopyKeyList		(
 					SCPreferencesRef	prefs
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
@@ -306,7 +306,7 @@ SCPreferencesCopyKeyList		(
 	@result Returns the value associated with the specified preference key;
 		NULL if no value was located.
  */
-CFPropertyListRef
+CFPropertyListRef __nullable
 SCPreferencesGetValue			(
 					SCPreferencesRef	prefs,
 					CFStringRef		key
@@ -388,9 +388,9 @@ SCPreferencesRemoveValue		(
  */
 Boolean
 SCPreferencesSetCallback		(
-					SCPreferencesRef	prefs,
-					SCPreferencesCallBack	callout,
-					SCPreferencesContext	*context
+					SCPreferencesRef			prefs,
+					SCPreferencesCallBack	__nullable	callout,
+					SCPreferencesContext	* __nullable	context
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -444,8 +444,8 @@ SCPreferencesUnscheduleFromRunLoop	(
  */
 Boolean
 SCPreferencesSetDispatchQueue		(
-					 SCPreferencesRef	prefs,
-					 dispatch_queue_t	queue
+					 SCPreferencesRef			prefs,
+					 dispatch_queue_t	__nullable	queue
 					 )			__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0/*SPI*/);
 
 /*!
@@ -465,6 +465,9 @@ SCPreferencesSynchronize		(
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
 
 __END_DECLS
+
+CF_ASSUME_NONNULL_END
+CF_IMPLICIT_BRIDGING_DISABLED
 
 #endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #endif /* _SCPREFERENCES_H */

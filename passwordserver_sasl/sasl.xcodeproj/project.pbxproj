@@ -44,6 +44,7 @@
 				B062B58E0D9C55E200C883E4 /* PBXTargetDependency */,
 				B062B5900D9C55E200C883E4 /* PBXTargetDependency */,
 				B062B5920D9C55E200C883E4 /* PBXTargetDependency */,
+				72C289EB1A16C6110094D54A /* PBXTargetDependency */,
 				7297BC081822E4A8004A1588 /* PBXTargetDependency */,
 				B062B5940D9C55E200C883E4 /* PBXTargetDependency */,
 			);
@@ -90,17 +91,33 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		720B78961A2D29B900AFBFEA /* libcorecrypto.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 720B78951A2D29B900AFBFEA /* libcorecrypto.a */; };
+		720B789E1A2FD03000AFBFEA /* CoreUtils.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 720B789D1A2FD03000AFBFEA /* CoreUtils.framework */; };
+		7266BBD11A6EF2640086EC52 /* libsasl2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA687F970A6C37610095EF75 /* libsasl2.dylib */; };
+		7266BBE21A6EF2E80086EC52 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266BBDB1A6EF2E80086EC52 /* common.c */; };
+		7266BBE31A6EF2E80086EC52 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266BBDB1A6EF2E80086EC52 /* common.c */; };
+		7266BBE61A6EF2E80086EC52 /* sample-client.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266BBDD1A6EF2E80086EC52 /* sample-client.c */; };
+		7266BBE91A6EF2E80086EC52 /* sample-server.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266BBDE1A6EF2E80086EC52 /* sample-server.c */; };
+		72C289DB1A16C5B40094D54A /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		72C289DC1A16C5B40094D54A /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
+		72C289DE1A16C5B40094D54A /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		72C289E81A16C5E60094D54A /* srp.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCE0236DDED05DD284B /* srp.c */; };
+		72C289E91A16C5E60094D54A /* srp_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 7733E7190238197D05DD284B /* srp_init.c */; };
+		72C289EF1A1A873A0094D54A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72C289EE1A1A873A0094D54A /* CoreFoundation.framework */; };
 		843E97B4182B10AC006926ED /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
-		846FD01617ECDF4B009E08C2 /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
-		846FD01717ECE0D1009E08C2 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C600236E73C05DD284B /* common.c */; };
-		846FD01817ECE103009E08C2 /* saslutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C6B0236E73C05DD284B /* saslutil.c */; };
-		846FD01917ECE113009E08C2 /* canonusr.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C5D0236E73C05DD284B /* canonusr.c */; };
+		8446CA0B1A6EF7D40082B731 /* libreadline.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8446CA0A1A6EF7D40082B731 /* libreadline.dylib */; };
+		8446CA0C1A6EF7D90082B731 /* libreadline.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8446CA0A1A6EF7D40082B731 /* libreadline.dylib */; };
+		8446CA0E1A6EF7F00082B731 /* libsasl2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA687F970A6C37610095EF75 /* libsasl2.dylib */; };
 		844E62F31824564F0027D2EB /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
 		844E62F71824564F0027D2EB /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
 		844E6303182456900027D2EB /* gs2_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 844E6300182456810027D2EB /* gs2_init.c */; };
 		844E6304182456900027D2EB /* gs2_token.c in Sources */ = {isa = PBXBuildFile; fileRef = 844E6301182456810027D2EB /* gs2_token.c */; };
 		844E6305182456900027D2EB /* gs2.c in Sources */ = {isa = PBXBuildFile; fileRef = 844E6302182456810027D2EB /* gs2.c */; };
 		8458FD05182468870011CC38 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8458FD04182468870011CC38 /* GSS.framework */; };
+		846FD01617ECDF4B009E08C2 /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		846FD01717ECE0D1009E08C2 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C600236E73C05DD284B /* common.c */; };
+		846FD01817ECE103009E08C2 /* saslutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C6B0236E73C05DD284B /* saslutil.c */; };
+		846FD01917ECE113009E08C2 /* canonusr.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C5D0236E73C05DD284B /* canonusr.c */; };
 		B062B4100D9C55E100C883E4 /* gai.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A710236D84505DD284B /* gai.h */; };
 		B062B4110D9C55E100C883E4 /* hmac-md5.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A720236D84505DD284B /* hmac-md5.h */; };
 		B062B4120D9C55E100C883E4 /* md5global.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 777745B10236D8FA05DD284B /* md5global.h */; };
@@ -248,6 +265,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = B062B4EA0D9C55E200C883E4;
 			remoteInfo = plugin_ntlm;
+		};
+		72C289EA1A16C6110094D54A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72C289D91A16C5B40094D54A;
+			remoteInfo = plugin_srp;
 		};
 		B062B57B0D9C55E200C883E4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -489,6 +513,18 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		720B78951A2D29B900AFBFEA /* libcorecrypto.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcorecrypto.a; path = ../../../usr/local/lib/libcorecrypto.a; sourceTree = "<group>"; };
+		720B789D1A2FD03000AFBFEA /* CoreUtils.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreUtils.framework; path = ../../../System/Library/PrivateFrameworks/CoreUtils.framework; sourceTree = "<group>"; };
+		7266BBB81A6EF2400086EC52 /* sample-client */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "sample-client"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7266BBD81A6EF2640086EC52 /* sample-server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "sample-server"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7266BBD91A6EF2E80086EC52 /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = cyrus_sasl/sample/common.h; sourceTree = "<group>"; };
+		7266BBDB1A6EF2E80086EC52 /* common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = common.c; path = cyrus_sasl/sample/common.c; sourceTree = "<group>"; };
+		7266BBDC1A6EF2E80086EC52 /* http_digest_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = http_digest_client.c; path = cyrus_sasl/sample/http_digest_client.c; sourceTree = "<group>"; };
+		7266BBDD1A6EF2E80086EC52 /* sample-client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "sample-client.c"; path = "cyrus_sasl/sample/sample-client.c"; sourceTree = "<group>"; };
+		7266BBDE1A6EF2E80086EC52 /* sample-server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "sample-server.c"; path = "cyrus_sasl/sample/sample-server.c"; sourceTree = "<group>"; };
+		72C289E71A16C5B40094D54A /* srp.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = srp.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		72C289EC1A16C6630094D54A /* libcrypto.0.9.8.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.0.9.8.dylib; path = ../../../usr/lib/libcrypto.0.9.8.dylib; sourceTree = "<group>"; };
+		72C289EE1A1A873A0094D54A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = ../../../System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<group>"; };
 		7733E7110238197D05DD284B /* anonymous_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = anonymous_init.c; sourceTree = "<group>"; };
 		7733E7120238197D05DD284B /* crammd5_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = crammd5_init.c; sourceTree = "<group>"; };
 		7733E7130238197D05DD284B /* digestmd5_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = digestmd5_init.c; sourceTree = "<group>"; };
@@ -545,6 +581,7 @@
 		77D234430236F4E905DD284B /* libotp.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libotp.la; sourceTree = "<group>"; };
 		77D234440236F4E905DD284B /* libplain.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libplain.la; sourceTree = "<group>"; };
 		77D234450236F4E905DD284B /* libsasldb.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libsasldb.la; sourceTree = "<group>"; };
+		8446CA0A1A6EF7D40082B731 /* libreadline.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libreadline.dylib; path = ../../../usr/lib/libreadline.dylib; sourceTree = "<group>"; };
 		844E62FF1824564F0027D2EB /* libgs2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libgs2.so; sourceTree = BUILT_PRODUCTS_DIR; };
 		844E6300182456810027D2EB /* gs2_init.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gs2_init.c; sourceTree = "<group>"; };
 		844E6301182456810027D2EB /* gs2_token.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gs2_token.c; sourceTree = "<group>"; };
@@ -703,6 +740,34 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		7266BBAF1A6EF2400086EC52 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8446CA0E1A6EF7F00082B731 /* libsasl2.dylib in Frameworks */,
+				8446CA0C1A6EF7D90082B731 /* libreadline.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7266BBCF1A6EF2640086EC52 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7266BBD11A6EF2640086EC52 /* libsasl2.dylib in Frameworks */,
+				8446CA0B1A6EF7D40082B731 /* libreadline.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72C289E11A16C5B40094D54A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				720B789E1A2FD03000AFBFEA /* CoreUtils.framework in Frameworks */,
+				72C289EF1A1A873A0094D54A /* CoreFoundation.framework in Frameworks */,
+				720B78961A2D29B900AFBFEA /* libcorecrypto.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		844E62F81824564F0027D2EB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -804,6 +869,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		7266BBEC1A6EF2F10086EC52 /* sample */ = {
+			isa = PBXGroup;
+			children = (
+				7266BBD91A6EF2E80086EC52 /* common.h */,
+				7266BBDB1A6EF2E80086EC52 /* common.c */,
+				7266BBDC1A6EF2E80086EC52 /* http_digest_client.c */,
+				7266BBDD1A6EF2E80086EC52 /* sample-client.c */,
+				7266BBDE1A6EF2E80086EC52 /* sample-server.c */,
+			);
+			name = sample;
+			sourceTree = "<group>";
+		};
 		7738414F0236DD5105DD284B /* sasldb */ = {
 			isa = PBXGroup;
 			children = (
@@ -915,6 +992,11 @@
 		77F5D6980236D69405DD284B = {
 			isa = PBXGroup;
 			children = (
+				8446CA0A1A6EF7D40082B731 /* libreadline.dylib */,
+				720B789D1A2FD03000AFBFEA /* CoreUtils.framework */,
+				720B78951A2D29B900AFBFEA /* libcorecrypto.a */,
+				72C289EE1A1A873A0094D54A /* CoreFoundation.framework */,
+				72C289EC1A16C6630094D54A /* libcrypto.0.9.8.dylib */,
 				8458FD04182468870011CC38 /* GSS.framework */,
 				777745CC0236DCA805DD284B /* config.h */,
 				77753A700236D84505DD284B /* include */,
@@ -927,6 +1009,7 @@
 				77F5D6A70236D6B705DD284B /* Products */,
 				AA687F930A6C36C80095EF75 /* libkrb5.dylib */,
 				AA687F970A6C37610095EF75 /* libsasl2.dylib */,
+				7266BBEC1A6EF2F10086EC52 /* sample */,
 				B0A0768F0C0CFCA600B52312 /* Kerberos.framework */,
 			);
 			sourceTree = "<group>";
@@ -948,6 +1031,9 @@
 				B062B5690D9C55E200C883E4 /* saslpasswd2 */,
 				B062B5790D9C55E200C883E4 /* sasldblistusers2 */,
 				844E62FF1824564F0027D2EB /* libgs2.so */,
+				72C289E71A16C5B40094D54A /* srp.so */,
+				7266BBB81A6EF2400086EC52 /* sample-client */,
+				7266BBD81A6EF2640086EC52 /* sample-server */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1119,6 +1205,15 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		72C289DA1A16C5B40094D54A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72C289DB1A16C5B40094D54A /* plugin_common.h in Headers */,
+				72C289DC1A16C5B40094D54A /* config.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		844E62F21824564F0027D2EB /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -1211,6 +1306,57 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		7266BB991A6EF2400086EC52 /* sample-client */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7266BBB41A6EF2400086EC52 /* Build configuration list for PBXNativeTarget "sample-client" */;
+			buildPhases = (
+				7266BB9A1A6EF2400086EC52 /* Sources */,
+				7266BBAF1A6EF2400086EC52 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "sample-client";
+			productName = saslauthd;
+			productReference = 7266BBB81A6EF2400086EC52 /* sample-client */;
+			productType = "com.apple.product-type.tool";
+		};
+		7266BBB91A6EF2640086EC52 /* sample-server */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7266BBD41A6EF2640086EC52 /* Build configuration list for PBXNativeTarget "sample-server" */;
+			buildPhases = (
+				7266BBBA1A6EF2640086EC52 /* Sources */,
+				7266BBCF1A6EF2640086EC52 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "sample-server";
+			productName = saslauthd;
+			productReference = 7266BBD81A6EF2640086EC52 /* sample-server */;
+			productType = "com.apple.product-type.tool";
+		};
+		72C289D91A16C5B40094D54A /* plugin_srp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72C289E31A16C5B40094D54A /* Build configuration list for PBXNativeTarget "plugin_srp" */;
+			buildPhases = (
+				72C289DA1A16C5B40094D54A /* Headers */,
+				72C289DD1A16C5B40094D54A /* Sources */,
+				72C289E11A16C5B40094D54A /* Frameworks */,
+				72C289E21A16C5B40094D54A /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = plugin_srp;
+			productInstallPath = /usr/lib/sasl2;
+			productName = plugin_plain;
+			productReference = 72C289E71A16C5B40094D54A /* srp.so */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
 		844E62F11824564F0027D2EB /* plugin_gs2 */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 844E62FB1824564F0027D2EB /* Build configuration list for PBXNativeTarget "plugin_gs2" */;
@@ -1474,7 +1620,7 @@
 		77F5D69C0236D69405DD284B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0500;
+				LastUpgradeCheck = 0630;
 			};
 			buildConfigurationList = AAD4EA2E09856D170066F8B3 /* Build configuration list for PBXProject "sasl" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1503,16 +1649,26 @@
 				B062B4C80D9C55E200C883E4 /* plugin_login */,
 				B062B4EA0D9C55E200C883E4 /* plugin_ntlm */,
 				B062B50C0D9C55E200C883E4 /* plugin_plain */,
+				72C289D91A16C5B40094D54A /* plugin_srp */,
 				B062B51D0D9C55E200C883E4 /* plugin_sasldb */,
 				B062B52F0D9C55E200C883E4 /* sasldb */,
 				B062B53D0D9C55E200C883E4 /* saslauthd */,
 				B062B55E0D9C55E200C883E4 /* saslpasswd2 */,
 				B062B56B0D9C55E200C883E4 /* sasldblistusers2 */,
+				7266BB991A6EF2400086EC52 /* sample-client */,
+				7266BBB91A6EF2640086EC52 /* sample-server */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXRezBuildPhase section */
+		72C289E21A16C5B40094D54A /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B062B43B0D9C55E100C883E4 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
@@ -1597,6 +1753,34 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		7266BB9A1A6EF2400086EC52 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7266BBE21A6EF2E80086EC52 /* common.c in Sources */,
+				7266BBE61A6EF2E80086EC52 /* sample-client.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7266BBBA1A6EF2640086EC52 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7266BBE91A6EF2E80086EC52 /* sample-server.c in Sources */,
+				7266BBE31A6EF2E80086EC52 /* common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72C289DD1A16C5B40094D54A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72C289DE1A16C5B40094D54A /* plugin_common.c in Sources */,
+				72C289E81A16C5E60094D54A /* srp.c in Sources */,
+				72C289E91A16C5E60094D54A /* srp_init.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		844E62F41824564F0027D2EB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1772,6 +1956,11 @@
 			target = B062B4EA0D9C55E200C883E4 /* plugin_ntlm */;
 			targetProxy = 7297BC071822E4A8004A1588 /* PBXContainerItemProxy */;
 		};
+		72C289EB1A16C6110094D54A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72C289D91A16C5B40094D54A /* plugin_srp */;
+			targetProxy = 72C289EA1A16C6110094D54A /* PBXContainerItemProxy */;
+		};
 		B062B57C0D9C55E200C883E4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B062B3DB0D9C55E100C883E4 /* KerberosTargets */;
@@ -1865,10 +2054,239 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		7266BBB51A6EF2400086EC52 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				OTHER_CFLAGS = (
+					"-DHAVE_CONFIG_H",
+					"$(OTHER_CFLAGS_QUOTED_1)",
+				);
+				PRODUCT_NAME = "sample-client";
+				STRIP_INSTALLED_PRODUCT = NO;
+				USER_HEADER_SEARCH_PATHS = ..;
+			};
+			name = Development;
+		};
+		7266BBB61A6EF2400086EC52 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				OTHER_CFLAGS = (
+					"-DHAVE_CONFIG_H",
+					"$(OTHER_CFLAGS_QUOTED_1)",
+				);
+				PRODUCT_NAME = "sample-client";
+				STRIP_INSTALLED_PRODUCT = NO;
+				USER_HEADER_SEARCH_PATHS = ..;
+			};
+			name = Deployment;
+		};
+		7266BBB71A6EF2400086EC52 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				OTHER_CFLAGS = (
+					"-DHAVE_CONFIG_H",
+					"$(OTHER_CFLAGS_QUOTED_1)",
+				);
+				PRODUCT_NAME = "sample-client";
+				STRIP_INSTALLED_PRODUCT = NO;
+				USER_HEADER_SEARCH_PATHS = ..;
+			};
+			name = Default;
+		};
+		7266BBD51A6EF2640086EC52 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				OTHER_CFLAGS = (
+					"-DHAVE_CONFIG_H",
+					"$(OTHER_CFLAGS_QUOTED_1)",
+				);
+				PRODUCT_NAME = "sample-server";
+				STRIP_INSTALLED_PRODUCT = NO;
+				USER_HEADER_SEARCH_PATHS = ..;
+			};
+			name = Development;
+		};
+		7266BBD61A6EF2640086EC52 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				OTHER_CFLAGS = (
+					"-DHAVE_CONFIG_H",
+					"$(OTHER_CFLAGS_QUOTED_1)",
+				);
+				PRODUCT_NAME = "sample-server";
+				STRIP_INSTALLED_PRODUCT = NO;
+				USER_HEADER_SEARCH_PATHS = ..;
+			};
+			name = Deployment;
+		};
+		7266BBD71A6EF2640086EC52 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				OTHER_CFLAGS = (
+					"-DHAVE_CONFIG_H",
+					"$(OTHER_CFLAGS_QUOTED_1)",
+				);
+				PRODUCT_NAME = "sample-server";
+				STRIP_INSTALLED_PRODUCT = NO;
+				USER_HEADER_SEARCH_PATHS = ..;
+			};
+			name = Default;
+		};
+		72C289E41A16C5B40094D54A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = "";
+				DYLIB_CURRENT_VERSION = "";
+				EXECUTABLE_EXTENSION = so;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				MACH_O_TYPE = mh_bundle;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = srp;
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wbool-conversion",
+					"-Wconstant-conversion",
+					"-Wconversion",
+					"-Wempty-body",
+					"-Wenum-conversion",
+					"-Wfour-char-constants",
+					"-Wint-conversion",
+					"-Wmissing-braces",
+					"-Wmissing-field-initializers",
+					"-Wmissing-prototypes",
+					"-Wnewline-eof",
+					"-Wreturn-type",
+					"-Wshadow",
+					"-Wshorten-64-to-32",
+					"-Wsign-conversion",
+					"-Wtrigraphs",
+					"-Wuninitialized",
+					"-Wunknown-pragmas",
+					"-Wunused-function",
+					"-Wunused-label",
+					"-Wunused-parameter",
+					"-Wunused-variable",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		72C289E51A16C5B40094D54A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = "";
+				DYLIB_CURRENT_VERSION = "";
+				EXECUTABLE_EXTENSION = so;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				MACH_O_TYPE = mh_bundle;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = srp;
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		72C289E61A16C5B40094D54A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				DYLIB_COMPATIBILITY_VERSION = "";
+				DYLIB_CURRENT_VERSION = "";
+				EXECUTABLE_EXTENSION = so;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				MACH_O_TYPE = mh_bundle;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = srp;
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
 		844E62FC1824564F0027D2EB /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -1889,7 +2307,7 @@
 		844E62FD1824564F0027D2EB /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -1909,7 +2327,7 @@
 		844E62FE1824564F0027D2EB /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXECUTABLE_EXTENSION = so;
@@ -2155,6 +2573,7 @@
 		B062B4400D9C55E100C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 3.0.0;
 				DYLIB_CURRENT_VERSION = 3.15;
@@ -2192,6 +2611,7 @@
 		B062B4410D9C55E100C883E4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 3.0.0;
 				DYLIB_CURRENT_VERSION = 3.15;
@@ -2227,6 +2647,7 @@
 		B062B4420D9C55E100C883E4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 3.0.0;
 				DYLIB_CURRENT_VERSION = 3.15;
 				EXPORTED_SYMBOLS_FILE = "cyrus_sasl/lib/sasl-lib.exp";
@@ -2288,6 +2709,7 @@
 		B062B4810D9C55E200C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2320,6 +2742,7 @@
 		B062B4820D9C55E200C883E4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2350,6 +2773,7 @@
 		B062B4830D9C55E200C883E4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
 				EXECUTABLE_EXTENSION = so;
@@ -2377,6 +2801,7 @@
 		B062B4920D9C55E200C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2410,6 +2835,7 @@
 		B062B4930D9C55E200C883E4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2441,6 +2867,7 @@
 		B062B4940D9C55E200C883E4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
 				EXECUTABLE_EXTENSION = so;
@@ -2469,6 +2896,7 @@
 		B062B4A30D9C55E200C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2500,6 +2928,7 @@
 		B062B4A40D9C55E200C883E4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2529,6 +2958,7 @@
 		B062B4A50D9C55E200C883E4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
 				EXECUTABLE_EXTENSION = so;
@@ -2555,6 +2985,7 @@
 		B062B4B40D9C55E200C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -2578,6 +3009,7 @@
 		B062B4B50D9C55E200C883E4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -2600,6 +3032,7 @@
 		B062B4B60D9C55E200C883E4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXECUTABLE_EXTENSION = so;
@@ -2620,6 +3053,7 @@
 		B062B4D50D9C55E200C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2652,6 +3086,7 @@
 		B062B4D60D9C55E200C883E4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2682,6 +3117,7 @@
 		B062B4D70D9C55E200C883E4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
 				EXECUTABLE_EXTENSION = so;
@@ -2709,6 +3145,7 @@
 		B062B4F60D9C55E200C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2739,6 +3176,7 @@
 		B062B4F70D9C55E200C883E4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2766,6 +3204,7 @@
 		B062B4F80D9C55E200C883E4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
 				EXECUTABLE_EXTENSION = so;
@@ -2790,6 +3229,7 @@
 		B062B5190D9C55E200C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2822,6 +3262,7 @@
 		B062B51A0D9C55E200C883E4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2852,6 +3293,7 @@
 		B062B51B0D9C55E200C883E4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
 				EXECUTABLE_EXTENSION = so;
@@ -2879,6 +3321,7 @@
 		B062B52B0D9C55E200C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2917,6 +3360,7 @@
 		B062B52C0D9C55E200C883E4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
@@ -2953,6 +3397,7 @@
 		B062B52D0D9C55E200C883E4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = "";
 				DYLIB_CURRENT_VERSION = "";
 				EXECUTABLE_EXTENSION = so;
@@ -2986,6 +3431,7 @@
 		B062B5390D9C55E200C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -3015,6 +3461,7 @@
 		B062B53A0D9C55E200C883E4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -3042,6 +3489,7 @@
 		B062B53B0D9C55E200C883E4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -3192,7 +3640,6 @@
 				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
 				PREBINDING = NO;
 				PRODUCT_NAME = sasldblistusers2;
-				VALID_ARCHS = "ppc i386 x86_64";
 				ZERO_LINK = NO;
 			};
 			name = Development;
@@ -3209,7 +3656,6 @@
 				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
 				PREBINDING = NO;
 				PRODUCT_NAME = sasldblistusers2;
-				VALID_ARCHS = "ppc i386 x86_64";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -3224,7 +3670,6 @@
 				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
 				PREBINDING = NO;
 				PRODUCT_NAME = sasldblistusers2;
-				VALID_ARCHS = "ppc i386 x86_64";
 				ZERO_LINK = NO;
 			};
 			name = Default;
@@ -3232,6 +3677,36 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		7266BBB41A6EF2400086EC52 /* Build configuration list for PBXNativeTarget "sample-client" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7266BBB51A6EF2400086EC52 /* Development */,
+				7266BBB61A6EF2400086EC52 /* Deployment */,
+				7266BBB71A6EF2400086EC52 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		7266BBD41A6EF2640086EC52 /* Build configuration list for PBXNativeTarget "sample-server" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7266BBD51A6EF2640086EC52 /* Development */,
+				7266BBD61A6EF2640086EC52 /* Deployment */,
+				7266BBD71A6EF2640086EC52 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		72C289E31A16C5B40094D54A /* Build configuration list for PBXNativeTarget "plugin_srp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72C289E41A16C5B40094D54A /* Development */,
+				72C289E51A16C5B40094D54A /* Deployment */,
+				72C289E61A16C5B40094D54A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
 		844E62FB1824564F0027D2EB /* Build configuration list for PBXNativeTarget "plugin_gs2" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

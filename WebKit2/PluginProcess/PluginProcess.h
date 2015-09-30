@@ -35,6 +35,10 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/WTFString.h>
 
+#if PLATFORM(COCOA)
+#include <WebCore/MachSendRight.h>
+#endif
+
 namespace WebKit {
 
 class NetscapePluginModule;
@@ -46,7 +50,7 @@ class PluginProcess : public ChildProcess, private WebCore::AudioHardwareListene
     WTF_MAKE_NONCOPYABLE(PluginProcess);
     friend class NeverDestroyed<PluginProcess>;
 public:
-    static PluginProcess& shared();
+    static PluginProcess& singleton();
 
     void removeWebProcessConnection(WebProcessConnection*);
 
@@ -58,7 +62,7 @@ public:
     void setModalWindowIsShowing(bool);
     void setFullscreenWindowIsShowing(bool);
 
-    mach_port_t compositingRenderServerPort() const { return m_compositingRenderServerPort; }
+    const WebCore::MachSendRight& compositingRenderServerPort() const { return m_compositingRenderServerPort; }
 
     bool launchProcess(const String& launchPath, const Vector<String>& arguments);
     bool launchApplicationAtURL(const String& urlString, const Vector<String>& arguments);
@@ -84,23 +88,27 @@ private:
 #endif
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
-    virtual void didClose(IPC::Connection*) override;
-    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    virtual void didClose(IPC::Connection&) override;
+    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::Plugin; }
+    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::UI; }
 
     // Message handlers.
-    void didReceivePluginProcessMessage(IPC::Connection*, IPC::MessageDecoder&);
-    void initializePluginProcess(const PluginProcessCreationParameters&);
+    void didReceivePluginProcessMessage(IPC::Connection&, IPC::MessageDecoder&);
+    void initializePluginProcess(PluginProcessCreationParameters&&);
     void createWebProcessConnection();
+
     void getSitesWithData(uint64_t callbackID);
-    void clearSiteData(const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID);
-    
+    void deleteWebsiteData(std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID);
+    void deleteWebsiteDataForHostNames(const Vector<String>& hostNames, uint64_t callbackID);
+
     // AudioHardwareListenerClient
     virtual void audioHardwareDidBecomeActive() override;
     virtual void audioHardwareDidBecomeInactive() override;
     virtual void audioOutputDeviceChanged() override { }
 
-    void platformInitializePluginProcess(const PluginProcessCreationParameters&);
+    void platformInitializePluginProcess(PluginProcessCreationParameters&&);
     
     void setMinimumLifetime(double);
     void minimumLifetimeTimerFired();
@@ -123,12 +131,11 @@ private:
 
 #if PLATFORM(COCOA)
     // The Mach port used for accelerated compositing.
-    mach_port_t m_compositingRenderServerPort;
+    WebCore::MachSendRight m_compositingRenderServerPort;
 
     String m_nsurlCacheDirectory;
 #endif
 
-    static void lowMemoryHandler(bool critical);
     CountedUserActivity m_connectionActivity;
 
     RefPtr<WebCore::AudioHardwareListener> m_audioHardwareListener;

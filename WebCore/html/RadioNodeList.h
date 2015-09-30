@@ -35,7 +35,7 @@ namespace WebCore {
 
 class RadioNodeList final : public CachedLiveNodeList<RadioNodeList> {
 public:
-    static PassRef<RadioNodeList> create(ContainerNode& rootNode, const AtomicString& name)
+    static Ref<RadioNodeList> create(ContainerNode& rootNode, const AtomicString& name)
     {
         return adoptRef(*new RadioNodeList(rootNode, name));
     }
@@ -45,12 +45,12 @@ public:
     String value() const;
     void setValue(const String&);
 
-    virtual bool nodeMatches(Element*) const override;
+    virtual bool elementMatches(Element&) const override;
     virtual bool isRootedAtDocument() const override { return m_isRootedAtDocument; }
 
 private:
     RadioNodeList(ContainerNode&, const AtomicString& name);
-    bool checkElementMatchesRadioNodeListFilter(Element*) const;
+    bool checkElementMatchesRadioNodeListFilter(const Element&) const;
 
     AtomicString m_name;
     bool m_isRootedAtDocument;

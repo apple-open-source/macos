@@ -24,14 +24,16 @@
 #include "WebKitFileChooserRequestPrivate.h"
 #include "WebKitGeolocationPermissionRequestPrivate.h"
 #include "WebKitNavigationActionPrivate.h"
+#include "WebKitNotificationPermissionRequestPrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitURIRequestPrivate.h"
+#include "WebKitUserMediaPermissionRequestPrivate.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebKitWebViewPrivate.h"
 #include "WebKitWindowPropertiesPrivate.h"
 #include "WebPageProxy.h"
 #include <WebCore/GtkUtilities.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 
 using namespace WebKit;
 
@@ -43,7 +45,7 @@ public:
     }
 
 private:
-    virtual PassRefPtr<WebPageProxy> createNewPage(WebPageProxy*, WebFrameProxy*, const WebCore::ResourceRequest& resourceRequest, const WebCore::WindowFeatures& windowFeatures, const NavigationActionData& navigationActionData) override
+    virtual PassRefPtr<WebPageProxy> createNewPage(WebPageProxy*, WebFrameProxy*, const SecurityOriginData&, const WebCore::ResourceRequest& resourceRequest, const WebCore::WindowFeatures& windowFeatures, const NavigationActionData& navigationActionData) override
     {
         GRefPtr<WebKitURIRequest> request = adoptGRef(webkitURIRequestCreateForResourceRequest(resourceRequest));
         WebKitNavigationAction navigationAction(request.get(), navigationActionData);
@@ -60,18 +62,18 @@ private:
         webkitWebViewClosePage(m_webView);
     }
 
-    virtual void runJavaScriptAlert(WebPageProxy*, const String& message, WebFrameProxy*, std::function<void ()> completionHandler) override
+    virtual void runJavaScriptAlert(WebPageProxy*, const String& message, WebFrameProxy*, const SecurityOriginData&, std::function<void ()> completionHandler) override
     {
         webkitWebViewRunJavaScriptAlert(m_webView, message.utf8());
         completionHandler();
     }
 
-    virtual void runJavaScriptConfirm(WebPageProxy*, const String& message, WebFrameProxy*, std::function<void (bool)> completionHandler) override
+    virtual void runJavaScriptConfirm(WebPageProxy*, const String& message, WebFrameProxy*, const SecurityOriginData&, std::function<void (bool)> completionHandler) override
     {
         completionHandler(webkitWebViewRunJavaScriptConfirm(m_webView, message.utf8()));
     }
 
-    virtual void runJavaScriptPrompt(WebPageProxy*, const String& message, const String& defaultValue, WebFrameProxy*, std::function<void (const String&)> completionHandler) override
+    virtual void runJavaScriptPrompt(WebPageProxy*, const String& message, const String& defaultValue, WebFrameProxy*, const SecurityOriginData&, std::function<void (const String&)> completionHandler) override
     {
         CString result = webkitWebViewRunJavaScriptPrompt(m_webView, message.utf8(), defaultValue.utf8());
         if (result.isNull()) {
@@ -144,6 +146,13 @@ private:
         return WebCore::FloatRect(geometry);
     }
 
+    virtual void exceededDatabaseQuota(WebPageProxy*, WebFrameProxy*, API::SecurityOrigin*, const String&, const String&, unsigned long long /*currentQuota*/, unsigned long long /*currentOriginUsage*/, unsigned long long /*currentDatabaseUsage*/, unsigned long long /*expectedUsage*/, std::function<void (unsigned long long)> completionHandler) override
+    {
+        static const unsigned long long defaultQuota = 5 * 1024 * 1204; // 5 MB
+        // FIXME: Provide API for this.
+        completionHandler(defaultQuota);
+    }
+
     virtual bool runOpenPanel(WebPageProxy*, WebFrameProxy*, WebOpenPanelParameters* parameters, WebOpenPanelResultListenerProxy* listener) override
     {
         GRefPtr<WebKitFileChooserRequest> request = adoptGRef(webkitFileChooserRequestCreate(parameters, listener));
@@ -151,10 +160,24 @@ private:
         return true;
     }
 
-    virtual bool decidePolicyForGeolocationPermissionRequest(WebPageProxy*, WebFrameProxy*, WebSecurityOrigin*, GeolocationPermissionRequestProxy* permissionRequest) override
+    virtual bool decidePolicyForGeolocationPermissionRequest(WebPageProxy*, WebFrameProxy*, API::SecurityOrigin*, GeolocationPermissionRequestProxy* permissionRequest) override
     {
         GRefPtr<WebKitGeolocationPermissionRequest> geolocationPermissionRequest = adoptGRef(webkitGeolocationPermissionRequestCreate(permissionRequest));
         webkitWebViewMakePermissionRequest(m_webView, WEBKIT_PERMISSION_REQUEST(geolocationPermissionRequest.get()));
+        return true;
+    }
+
+    virtual bool decidePolicyForUserMediaPermissionRequest(WebPageProxy&, WebFrameProxy&, API::SecurityOrigin& securityOrigin, UserMediaPermissionRequestProxy& permissionRequest) override
+    {
+        GRefPtr<WebKitUserMediaPermissionRequest> userMediaPermissionRequest = adoptGRef(webkitUserMediaPermissionRequestCreate(permissionRequest, securityOrigin));
+        webkitWebViewMakePermissionRequest(m_webView, WEBKIT_PERMISSION_REQUEST(userMediaPermissionRequest.get()));
+        return true;
+    }
+
+    virtual bool decidePolicyForNotificationPermissionRequest(WebPageProxy*, API::SecurityOrigin*, NotificationPermissionRequest* permissionRequest) override
+    {
+        GRefPtr<WebKitNotificationPermissionRequest> notificationPermissionRequest = adoptGRef(webkitNotificationPermissionRequestCreate(permissionRequest));
+        webkitWebViewMakePermissionRequest(m_webView, WEBKIT_PERMISSION_REQUEST(notificationPermissionRequest.get()));
         return true;
     }
 
@@ -168,6 +191,11 @@ private:
     virtual void runModal(WebPageProxy*) override
     {
         webkitWebViewRunAsModal(m_webView);
+    }
+
+    virtual void isPlayingAudioDidChange(WebPageProxy&) override
+    {
+        webkitWebViewIsPlayingAudioChanged(m_webView);
     }
 
     WebKitWebView* m_webView;

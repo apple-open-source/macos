@@ -41,14 +41,19 @@ using namespace WebCore;
 
 namespace WebKit {
 
-PassRefPtr<InjectedBundleHitTestResult> InjectedBundleHitTestResult::create(const WebCore::HitTestResult& hitTestResult)
+Ref<InjectedBundleHitTestResult> InjectedBundleHitTestResult::create(const WebCore::HitTestResult& hitTestResult)
 {
-    return adoptRef(new InjectedBundleHitTestResult(hitTestResult));
+    return adoptRef(*new InjectedBundleHitTestResult(hitTestResult));
 }
 
 PassRefPtr<InjectedBundleNodeHandle> InjectedBundleHitTestResult::nodeHandle() const
 {
     return InjectedBundleNodeHandle::getOrCreate(m_hitTestResult.innerNonSharedNode());
+}
+
+PassRefPtr<InjectedBundleNodeHandle> InjectedBundleHitTestResult::urlElementHandle() const
+{
+    return InjectedBundleNodeHandle::getOrCreate(m_hitTestResult.URLElement());
 }
 
 WebFrame* InjectedBundleHitTestResult::frame() const
@@ -114,10 +119,10 @@ BundleHitTestResultMediaType InjectedBundleHitTestResult::mediaType() const
     return BundleHitTestResultMediaTypeNone;
 #else
     WebCore::Node* node = m_hitTestResult.innerNonSharedNode();
-    if (!node->isElementNode())
+    if (!is<Element>(*node))
         return BundleHitTestResultMediaTypeNone;
     
-    if (!toElement(node)->isMediaElement())
+    if (!downcast<Element>(*node).isMediaElement())
         return BundleHitTestResultMediaTypeNone;
     
     return m_hitTestResult.mediaIsVideo() ? BundleHitTestResultMediaTypeVideo : BundleHitTestResultMediaTypeAudio;    

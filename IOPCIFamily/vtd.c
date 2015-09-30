@@ -39,6 +39,7 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 #define ENA_QI			1
 #define TABLE_CB		0
 #define BSIMPLE			0
+#define FREE_ON_FREE		0
 
 #define KP				0
 #define	VTASRT			0
@@ -65,6 +66,7 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
     } while(0)
 
 
+#define VTASRT 0
 #if VTASRT
 
 #define vtassert(ex)  \
@@ -662,7 +664,7 @@ vtd_space_fault(vtd_space_t * bf, vtd_vaddr_t start, vtd_vaddr_t size)
 
 static void
 vtd_space_set(vtd_space_t * bf, vtd_vaddr_t start, vtd_vaddr_t size,
-			  uint32_t mapOptions, upl_page_info_t * pageList)
+			  uint32_t mapOptions, const upl_page_info_t * pageList)
 {
 	ppnum_t idx;
 	uint8_t access = kReadAccess | 0*kWriteAccess;
@@ -764,7 +766,7 @@ public:
 							   uint32_t buddybits, ppnum_t rsize);
 	vtd_vaddr_t space_alloc(vtd_space_t * bf, vtd_vaddr_t size,
 							uint32_t mapOptions, const IODMAMapSpecification * mapSpecification, 
-							upl_page_info_t * pageList);
+							const upl_page_info_t * pageList);
 	void space_free(vtd_space_t * bf, vtd_vaddr_t addr, vtd_vaddr_t size);
 	void space_alloc_fixed(vtd_space_t * bf, vtd_vaddr_t addr, vtd_vaddr_t size);
 
@@ -779,24 +781,33 @@ public:
 	void iovmInvalidateSync(ppnum_t addr, IOItemCount pages);
     void checkFree(uint32_t queue);
 
-    virtual ppnum_t iovmAlloc(IOItemCount pages);
-    virtual void iovmFree(ppnum_t addr, IOItemCount pages);
+    // { IOMapper
 
-    virtual void iovmInsert(ppnum_t addr, IOItemCount offset, ppnum_t page);
-    virtual void iovmInsert(ppnum_t addr, IOItemCount offset,
-                            ppnum_t *pageList, IOItemCount pageCount);
-    virtual void iovmInsert(ppnum_t addr, IOItemCount offset,
-                            upl_page_info_t *pageList, IOItemCount pageCount);
+    // Get the mapper page size
+    virtual uint64_t getPageSize(void) const override;
 
-    virtual ppnum_t iovmMapMemory(
-    			  OSObject                    * memory,   // dma command or iomd
-				  ppnum_t                       offsetPage,
-				  ppnum_t                       pageCount,
-				  uint32_t                      options,
-				  upl_page_info_t             * pageList,
-				  const IODMAMapSpecification * mapSpecification);
+    virtual IOReturn iovmMapMemory(IOMemoryDescriptor          * memory,
+								   uint64_t                      descriptorOffset,
+								   uint64_t                      length,
+								   uint32_t                      mapOptions,
+								   const IODMAMapSpecification * mapSpecification,
+								   IODMACommand                * dmaCommand,
+								   const IODMAMapPageList      * pageList,
+								   uint64_t                    * mapAddress,
+								   uint64_t                    * mapLength) override;
 
-    virtual addr64_t mapAddr(IOPhysicalAddress addr);
+    virtual IOReturn iovmUnmapMemory(IOMemoryDescriptor * memory, 
+    	                              IODMACommand * dmaCommand, 
+    				     			 uint64_t mapAddress, uint64_t mapLength) override;
+
+    virtual IOReturn iovmInsert(
+			    uint32_t mapOptions,
+			    uint64_t mapAddress, uint64_t offset, 
+			    uint64_t physicalAddress, uint64_t length) override;
+
+    virtual uint64_t mapToPhysicalAddress(uint64_t mappedAddress);
+
+    // }
 };
 
 
@@ -1032,7 +1043,7 @@ AppleVTD::space_create(uint32_t cachelinesize,
 vtd_baddr_t
 AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 					  uint32_t mapOptions, const IODMAMapSpecification * mapSpecification,
-					  upl_page_info_t * pageList)
+					  const upl_page_info_t * pageList)
 {
 	vtd_vaddr_t addr;
     vtd_vaddr_t align = 1;
@@ -1081,7 +1092,7 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 		if (align > size) size = align;	
 	}
 
-#if 0
+#if !FREE_ON_FREE
 	IOSimpleLockLock(fHWLock);
 	checkFree(uselarge);
 	IOSimpleLockUnlock(fHWLock);
@@ -1475,40 +1486,123 @@ AppleVTD::callPlatformFunction(const OSSymbol * functionName,
                                         param1, param2, param3, param4));
 }
 
-ppnum_t 
+uint64_t AppleVTD::getPageSize(void) const
+{
+    return (4096);
+}
+
+IOReturn 
 AppleVTD::iovmMapMemory(
-			  OSObject                    * memory,   // dma command or iomd
-			  ppnum_t                       offsetPage,
-			  ppnum_t                       pageCount,
+			  IOMemoryDescriptor          * memory,
+			  uint64_t                      descriptorOffset,
+			  uint64_t                      length,
 			  uint32_t                      mapOptions,
-			  upl_page_info_t             * pageList,
-			  const IODMAMapSpecification * mapSpecification)
+			  const IODMAMapSpecification * mapSpecification,
+			  IODMACommand                * dmaCommand,
+			  const IODMAMapPageList      * pageList,
+			  uint64_t                    * mapAddress,
+			  uint64_t                    * mapLength)
 {
 	vtd_vaddr_t base;
+	uint32_t pageCount;
+	const upl_page_info_t * pageInfo;
 
-	base = space_alloc(fSpace, pageCount, mapOptions, mapSpecification, pageList);
-	vtassert((base + pageCount) <= fSpace->vsize);
+	IOMDDMAWalkSegmentState  walkState;
+	IOMDDMAWalkSegmentArgs * walkArgs = (IOMDDMAWalkSegmentArgs *) (void *)&walkState;
+	IOOptionBits             mdOp;
+	uint64_t                 index;
+	IOPhysicalLength         segLen;
+	uint64_t                 phys, align;
 
-//	space_free(fSpace, base, pageCount);
-//	base = space_alloc(fSpace, pageCount, mapOptions, mapSpecification, pageList);
+	uint64_t mapperPageMask;
+	uint64_t mapperPageShift;
+	uint64_t insertOffset;
+
+    uint64_t mappedAddress;
+    uint64_t mappedLength;
+    uint64_t pageOffset;
+    IOReturn ret;
+
+	mapperPageMask  = 4096 - 1;
+	mapperPageShift = (64 - __builtin_clzll(mapperPageMask));
+	pageInfo = NULL;
+	pageOffset = 0;
+
+	if (pageList)
+	{
+		pageOffset = pageList->pageOffset;
+		pageCount  = pageList->pageListCount;
+		pageInfo   = pageList->pageList;
+	}
+	else if (memory)
+	{
+		walkArgs->fMapped = false;
+		mdOp = kIOMDFirstSegment;
+		pageCount = 0;
+
+		for (index = 0; index < length; )
+		{
+			if (index && (mapperPageMask & (index + pageOffset))) break;
+
+			walkArgs->fOffset = descriptorOffset + index;
+			ret = memory->dmaCommandOperation(mdOp, &walkState, sizeof(walkState));
+			mdOp = kIOMDWalkSegments;
+			if (ret != kIOReturnSuccess) break;
+			phys = walkArgs->fIOVMAddr;
+			segLen = walkArgs->fLength;
+
+			align = (phys & mapperPageMask);
+			if (!index) pageOffset = align;
+			else if (align) break;
+			pageCount += ((align + segLen + mapperPageMask) >> mapperPageShift);
+			index += segLen;
+		}
+
+		assert (index >= length);
+		if (index < length) return (kIOReturnVMError);
+	}
+	else pageCount = ((length + mapperPageMask) >> mapperPageShift);
+
+	base = space_alloc(fSpace, pageCount, mapOptions, mapSpecification, pageInfo);
+
+	if (!base) return (kIOReturnNoResources);
+	vtassert((base + pageListCount) <= fSpace->vsize);
 
 #if KP
 	VTLOG("iovmMapMemory: (0x%x)=0x%x\n", length, (int)base);
 #endif
 
-    return (base);
-}
+	mappedAddress   = base;      mappedAddress <<= mapperPageShift;
+	mappedLength    = pageCount; mappedLength  <<= mapperPageShift;
 
-ppnum_t
-AppleVTD::iovmAlloc(IOItemCount pages)
-{
-	ppnum_t result;
+	if (memory && !pageInfo)
+	{
+		mdOp = kIOMDFirstSegment;
+		for (insertOffset = 0, index = 0; index < length; )
+		{
+			walkArgs->fOffset = descriptorOffset + index;
+			ret = memory->dmaCommandOperation(mdOp, &walkState, sizeof(walkState));
+			mdOp = kIOMDWalkSegments;
+			if (ret != kIOReturnSuccess) break;
+			phys = walkArgs->fIOVMAddr;
+			segLen = walkArgs->fLength;
 
-	result = space_alloc(fSpace, pages, 0, NULL, NULL);
-#if KP
-	VTLOG("iovmAlloc: 0x%x=0x%x\n", (int)pages, (int)result );
-#endif
-    return (result);
+			index += segLen;
+
+			align = (phys & mapperPageMask);
+			segLen = ((phys + segLen + mapperPageMask) & ~mapperPageMask);
+			phys -= align;
+			segLen -= phys;
+
+			iovmInsert(mapOptions, mappedAddress, insertOffset, phys, segLen);
+			insertOffset += segLen;
+		}
+	}
+
+    *mapAddress = mappedAddress + pageOffset;
+    *mapLength  = mappedLength  - pageOffset;
+
+    return (kIOReturnSuccess);
 }
 
 void
@@ -1560,8 +1654,11 @@ AppleVTD::iovmInvalidateSync(ppnum_t addr, IOItemCount pages)
 	while (more);
 }
 
-void
-AppleVTD::iovmFree(ppnum_t addr, IOItemCount pages)
+
+IOReturn 
+AppleVTD::iovmUnmapMemory(IOMemoryDescriptor * memory, 
+    	                  IODMACommand * dmaCommand, 
+    				      uint64_t mapAddress, uint64_t mapLength)
 {
 	vtd_unit_t * unit;
 	unsigned int leaf, isLarge;
@@ -1573,6 +1670,11 @@ AppleVTD::iovmFree(ppnum_t addr, IOItemCount pages)
 	uint32_t     next;
 	uint32_t     count;
 	uint64_t     stamp;
+	ppnum_t      addr;
+	ppnum_t      pages;
+
+    addr = atop_64(mapAddress);
+    pages = atop_64(round_page_64(mapAddress + mapLength)) - addr;
 
 #if KP
 	VTLOG("iovmFree: 0x%x,0x%x\n", (int)pages, addr);
@@ -1603,15 +1705,28 @@ AppleVTD::iovmFree(ppnum_t addr, IOItemCount pages)
 	if (freeCount < 0) freeCount = kFreeQElems - freeCount;
 	if (freeCount >= 8)
 #endif
+#if FREE_ON_FREE
 	{
 		checkFree(isLarge);
 	}
-
-	stamp = ++fSpace->stamp;
+#endif
 
 	idx = fSpace->free_tail[isLarge];
 	next = (idx + 1) & fSpace->free_mask;
-	if (next == fSpace->free_head[isLarge]) panic("qfull");
+	if (next == fSpace->free_head[isLarge])
+	{
+	    uint64_t deadline;
+	    clock_interval_to_deadline(200, kMillisecondScale, &deadline);
+	    while (true)
+	    {
+		checkFree(isLarge);
+		idx = fSpace->free_tail[isLarge];
+		next = (idx + 1) & fSpace->free_mask;
+		if (next != fSpace->free_head[isLarge]) break;
+		if (mach_absolute_time() >= deadline) panic("qfull");
+	    }
+	}
+	stamp = ++fSpace->stamp;
 	fSpace->free_queue[isLarge][idx].addr = addr;
 	fSpace->free_queue[isLarge][idx].size = pages;
 	fSpace->free_queue[isLarge][idx].stamp = stamp;
@@ -1677,6 +1792,9 @@ AppleVTD::iovmFree(ppnum_t addr, IOItemCount pages)
 	IOSimpleLockUnlock(fHWLock);
 
 #endif /* ENA_QI */
+
+
+    return (kIOReturnSuccess);
 }
 
 #define stampPassed(a,b)	(((int32_t)((a)-(b))) >= 0)
@@ -1733,8 +1851,8 @@ AppleVTD::checkFree(uint32_t isLarge)
 	if (count > fSpace->stats.max_inval[isLarge]) fSpace->stats.max_inval[isLarge] = count;
 }
 
-addr64_t 
-AppleVTD::mapAddr(IOPhysicalAddress addr)
+uint64_t 
+AppleVTD::mapToPhysicalAddress(uint64_t addr)
 {
 	ppnum_t      page = atop_64(addr);
 	page_entry_t entry;
@@ -1746,7 +1864,7 @@ AppleVTD::mapAddr(IOPhysicalAddress addr)
 	entry = fSpace->tables[0][page].bits;
 
 #if KP
-	VTLOG("mapAddr: 0x%x=0x%llx\n", (int)addr, entry);
+	VTLOG("mapToPhysicalAddress: 0x%x=0x%llx\n", (int)addr, entry);
 #endif
 
 	if (kPageAccess & entry)
@@ -1757,51 +1875,32 @@ AppleVTD::mapAddr(IOPhysicalAddress addr)
     return (0);
 }
 
-void 
-AppleVTD::iovmInsert(ppnum_t addr, IOItemCount offset, ppnum_t page)
+IOReturn AppleVTD::iovmInsert(uint32_t mapOptions,
+							  uint64_t mapAddress, uint64_t byteOffset, 
+							  uint64_t physicalAddress, uint64_t length)
 {
-	addr += offset;
-	vtassert(addr < fSpace->vsize);
-	vtd_space_nfault(fSpace, addr, 1);
-	fSpace->tables[0][addr].bits = ptoa_64(page) | kPageAccess;
-	table_flush(&fSpace->tables[0][addr], sizeof(vtd_table_entry_t), fCacheLineSize);
-	STAT_ADD(fSpace, inserts, 1);
-}
-
-
-void 
-AppleVTD::iovmInsert(ppnum_t addr, IOItemCount offset, 
-						ppnum_t *pageList, IOItemCount pageCount)
-{
+	ppnum_t addr;
+	ppnum_t offset;
 	ppnum_t idx;
+	ppnum_t phys;
+	uint32_t pageCount;
+
+    addr = atop_64(mapAddress);
+    offset = atop_64(mapAddress + byteOffset) - addr;
+	phys = atop_64(physicalAddress);
+	pageCount = atop_64(physicalAddress + length) - phys;
 
 	addr += offset;
 	vtassert((addr + pageCount) <= fSpace->vsize);
 	vtd_space_nfault(fSpace, addr, pageCount);
     for (idx = 0; idx < pageCount; idx++)
     {
-		fSpace->tables[0][addr + idx].bits = ptoa_64(pageList[idx]) | kPageAccess;
+		fSpace->tables[0][addr + idx].bits = (ptoa_64(phys + idx)) | kPageAccess;
 	}
 	table_flush(&fSpace->tables[0][addr], pageCount * sizeof(vtd_table_entry_t), fCacheLineSize);
 	STAT_ADD(fSpace, inserts, pageCount);
-}
 
-void
-AppleVTD::iovmInsert(ppnum_t addr, IOItemCount offset,
-					 upl_page_info_t *pageList, IOItemCount pageCount)
-{
-	ppnum_t idx;
-
-	addr += offset;
-
-	vtassert((addr + pageCount) <= fSpace->vsize);
-	vtd_space_nfault(fSpace, addr, pageCount);
-    for (idx = 0; idx < pageCount; idx++)
-    {
-		fSpace->tables[0][addr + idx].bits = ptoa_64(pageList[idx].phys_addr) | kPageAccess;
-	}
-	table_flush(&fSpace->tables[0][addr], pageCount * sizeof(vtd_table_entry_t), fCacheLineSize);
-	STAT_ADD(fSpace, inserts, pageCount);
+    return (kIOReturnSuccess);
 }
 
 #endif /* ACPI_SUPPORT */

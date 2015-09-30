@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp-support.c 12104 2014-08-20 15:23:40Z msweet $"
+ * "$Id: ipp-support.c 12669 2015-05-27 19:42:43Z msweet $"
  *
  * Internet Printing Protocol support functions for CUPS.
  *
@@ -195,7 +195,7 @@ static const char * const ipp_std_ops[] =
 		  "Suspend-Current-Job",
 		  "Resume-Job",
 
-		  /* 0x0030 - 0x003e */
+		  /* 0x0030 - 0x003f */
 		  "Promote-Job",
 		  "Schedule-Job-After",
 		  "0x0032",
@@ -210,7 +210,21 @@ static const char * const ipp_std_ops[] =
 		  "Close-Job",
 		  "Identify-Printer",
 		  "Validate-Document",
-		  "Send-Hardcopy-Document"
+		  "Send-Hardcopy-Document",
+		  "Acknowledge-Document",
+
+		  /* 0x0040 - 0x004a */
+		  "Acknowledge-Identify-Printer",
+		  "Acknowledge-Job",
+		  "Fetch-Document",
+		  "Fetch-Job",
+		  "Get-Output-Device-Attributes",
+		  "Update-Active-Jobs",
+		  "Deregister-Output-Device",
+		  "Update-Document-Status",
+		  "Update-Job-Status",
+		  "Update-Output-Device-Attributes",
+		  "Get-Next-Document-Data"
 		},
 		* const ipp_cups_ops[] =
 		{
@@ -2223,6 +2237,14 @@ ipp_col_string(ipp_t  *col,		/* I - Collection attribute */
   ipp_attribute_t	*attr;		/* Current member attribute */
 
 
+  if (!col)
+  {
+    if (buffer)
+      *buffer = '\0';
+
+    return (0);
+  }
+
   bufptr = buffer;
   bufend = buffer + bufsize - 1;
 
@@ -2263,5 +2285,5 @@ ipp_col_string(ipp_t  *col,		/* I - Collection attribute */
 
 
 /*
- * End of "$Id: ipp-support.c 12104 2014-08-20 15:23:40Z msweet $".
+ * End of "$Id: ipp-support.c 12669 2015-05-27 19:42:43Z msweet $".
  */

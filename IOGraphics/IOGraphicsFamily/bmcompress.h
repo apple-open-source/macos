@@ -489,7 +489,7 @@ static inline int compress_line_8(uint8_t *srcbase, int width, uint8_t *dstbase)
 }
 
 static int CompressData(uint8_t *srcbase[], uint32_t imageCount,
-                 uint32_t depth, uint32_t width, uint32_t height,
+                 uint32_t pixelBytes, uint32_t pixelBits, uint32_t width, uint32_t height,
                  uint32_t rowbytes, uint8_t *dstbase, uint32_t dlen,
                  uint32_t gammaChannelCount, uint32_t gammaDataCount, 
                  uint32_t gammaDataWidth, uint8_t * gammaData)
@@ -511,14 +511,14 @@ static int CompressData(uint8_t *srcbase[], uint32_t imageCount,
     hdr = (typeof(hdr)) dstbase;
 	dst = (typeof(dst)) (hdr + 1);
 
-    lineLen = width * depth;
+    lineLen = width * pixelBytes;
     dlen -= lineLen;
 
 	bzero(hdr, sizeof(*hdr));
 #if !IOHIB_PREVIEW_V0
     hdr->imageCount = imageCount;
 #endif
-    hdr->depth      = depth;
+    hdr->depth      = pixelBits;
     hdr->width      = width;
     hdr->height     = height;
 
@@ -568,8 +568,8 @@ static int CompressData(uint8_t *srcbase[], uint32_t imageCount,
 	
 			if (srcbase[image])	lineBuffer = srcbase[image] + y*rowbytes;
 	
-			cSize = (depth <= 1 ? compress_line_8 :
-					(depth <= 2 ? compress_line_16 :
+			cSize = (pixelBytes <= 1 ? compress_line_8 :
+					(pixelBytes <= 2 ? compress_line_16 :
 					 compress_line_32))(lineBuffer, width, (uint8_t *)cScan);
 	
 			if(cSize != pSize  ||  bcmp(pScan, cScan, cSize))
@@ -609,7 +609,7 @@ static void DecompressData(uint8_t *srcbase, uint32_t image, UInt8 *dstbase, uin
         return;
     }
 
-    depth = hdr->depth;
+    depth = ((7 + hdr->depth) / 8);
     src   = (typeof(src)) (hdr + 1); 
     src   += dy + image * dh;
 
@@ -849,7 +849,7 @@ PreviewDecompressData(void *srcbase, uint32_t image, void *dstbase,
 {
 	const hibernate_preview_t * src = (typeof(src)) srcbase;
 
-    if ((bytesPerPixel != src->depth)
+    if ((bytesPerPixel != ((7 + src->depth) / 8))
 #if !IOHIB_PREVIEW_V0
     	|| (image >= src->imageCount) 
 #endif

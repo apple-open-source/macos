@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 1984-2007  Mark Nudelman
+ * Copyright (C) 1984-2012  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
  *
- * For more information about less, or for information on how to 
- * contact the author, see the README file.
+ * For more information, see the README file.
  */
 
 
@@ -41,6 +40,7 @@ public int force_open;		/* Open the file even if not regular file */
 public int swindow;		/* Size of scrolling window */
 public int jump_sline;		/* Screen line of "jump target" */
 public long jump_sline_fraction = -1;
+public long shift_count_fraction = -1;
 public int chopline;		/* Truncate displayed lines at screen width */
 public int no_init;		/* Disable sending ti/te termcap strings */
 public int no_keypad;		/* Disable sending ks/ke termcap strings */
@@ -53,6 +53,7 @@ public int use_lessopen;	/* Use the LESSOPEN filter */
 public int quit_on_intr;	/* Quit on interrupt */
 public int follow_mode;		/* F cmd Follows file desc or file name? */
 public int oldbot;		/* Old bottom of screen behavior {{REMOVE}} */
+public int opt_use_backslash;	/* Use backslash escaping in option parsing */
 #if HILITE_SEARCH
 public int hilite_search;	/* Highlight matched search patterns? */
 #endif
@@ -116,6 +117,9 @@ static struct optname pound_optname  = { "shift",                NULL };
 static struct optname keypad_optname = { "no-keypad",            NULL };
 static struct optname oldbot_optname = { "old-bot",              NULL };
 static struct optname follow_optname = { "follow-name",          NULL };
+static struct optname use_backslash_optname = { "use-backslash", NULL };
+static struct optname unix2003_n_optname = { "unix2003-n",       NULL };
+static struct optname unix2003_p_optname = { "unix2003-p",       NULL };
 
 
 /*
@@ -133,11 +137,11 @@ static struct optname follow_optname = { "follow-name",          NULL };
 static struct loption option[] =
 {
 	{ 'a', &a_optname,
-		BOOL, OPT_OFF, &how_search, NULL,
+		TRIPLE, OPT_ONPLUS, &how_search, NULL,
 		{
 			"Search includes displayed screen",
 			"Search skips displayed screen",
-			NULL
+			"Search includes all of displayed screen"
 		}
 	},
 
@@ -237,7 +241,7 @@ static struct loption option[] =
 		STRING, 0, NULL, opt_j,
 		{
 			"Target line: ",
-			"0123456789.",
+			"0123456789.-",
 			NULL
 		}
 	},
@@ -262,10 +266,6 @@ static struct loption option[] =
 			"Interrupt (ctrl-C) exits less",
 			NULL
 		}
-	},
-	{ 'l', NULL,
-		STRING|NO_TOGGLE|NO_QUERY, 0, NULL, opt_l,
-		{ NULL, NULL, NULL }
 	},
 	{ 'L', &L__optname,
 		BOOL, OPT_ON, &use_lessopen, NULL,
@@ -420,14 +420,14 @@ static struct loption option[] =
 		{ NULL, NULL, NULL }
 	},
 	{ '#', &pound_optname,
-		NUMBER, 0, &shift_count, NULL,
+		STRING, 0, NULL, opt_shift,
 		{
 			"Horizontal shift: ",
-			"Horizontal shift %d positions",
+			"0123456789.",
 			NULL
 		}
 	},
-	{ '.', &keypad_optname,
+	{ OLETTER_NONE, &keypad_optname,
 		BOOL|NO_TOGGLE, OPT_OFF, &no_keypad, NULL,
 		{
 			"Use keypad mode",
@@ -435,7 +435,7 @@ static struct loption option[] =
 			NULL
 		}
 	},
-	{ '.', &oldbot_optname,
+	{ OLETTER_NONE, &oldbot_optname,
 		BOOL, OPT_OFF, &oldbot, NULL,
 		{
 			"Use new bottom of screen behavior",
@@ -443,11 +443,19 @@ static struct loption option[] =
 			NULL
 		}
 	},
-	{ '.', &follow_optname,
+	{ OLETTER_NONE, &follow_optname,
 		BOOL, FOLLOW_DESC, &follow_mode, NULL,
 		{
-			"F command Follows file descriptor",
-			"F command Follows file name",
+			"F command follows file descriptor",
+			"F command follows file name",
+			NULL
+		}
+	},
+	{ OLETTER_NONE, &use_backslash_optname,
+		BOOL, OPT_OFF, &opt_use_backslash, NULL,
+		{
+			"Use backslash escaping in command line parameters",
+			"Don't use backslash escaping in command line parameters",
 			NULL
 		}
 	},
@@ -455,7 +463,7 @@ static struct loption option[] =
 	   compatibility. Each is used because the original option
 	   was already defined in "less".
 	 */
-	{ ']', NULL,
+	{ ']', &unix2003_n_optname,
 		NUMBER, 0, &dashn_numline_count, NULL,
 		{	/* This entry maps from the -n option */
 			NULL,
@@ -463,7 +471,7 @@ static struct loption option[] =
 			NULL
 		}
 	},
-	{ '}', NULL,
+	{ '}', &unix2003_p_optname,
 		STRING, 0, NULL, opt_dashp,
 		{	/* This entry maps from the -p option */
 			NULL,

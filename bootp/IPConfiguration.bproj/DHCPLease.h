@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,6 +45,8 @@
 #include "timer.h"
 #include "interfaces.h"
 #include "arp_session.h"
+
+#define DHCP_LEASE_NOT_FOUND	(-1)
 
 /**
  ** DHCPLease, DHCPLeaseList
@@ -116,6 +118,9 @@ int
 DHCPLeaseListFindLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
 		       struct in_addr router_ip,
 		       const uint8_t * router_hwaddr, int router_hwaddr_length);
+
+int
+DHCPLeaseListFindLeaseWithSSID(DHCPLeaseListRef list_p, CFStringRef ssid);
 
 static __inline__ int
 DHCPLeaseListCount(DHCPLeaseListRef list_p)

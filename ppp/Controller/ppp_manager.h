@@ -62,4 +62,45 @@ int ppp_is_pid(struct service *serv, int pid);
 int ppp_install(struct service *serv);
 int ppp_uninstall(struct service *serv);
 
+#define OPT_LEN 4
+#define MT_STR_LEN 256
+
+typedef struct sessionDetails {
+	/* Modem Option */
+	char modem[MT_STR_LEN];					//Modem
+	
+	/* Hardware Info */
+	char hardwareInfo[MT_STR_LEN];
+	
+	/* DNS Option */
+	char manualDNS[OPT_LEN];
+	
+	/* Proxies Options */
+	
+	/* PPP Options */
+	char dialOnDemand[OPT_LEN];				//Connect automatically when needed
+	char idleReminder[OPT_LEN];				//Prompt every X minutes to maintain connection
+	char disconnectOnLogout[OPT_LEN];		//Disconnect when user logs out
+	char disconnectOnUserSwitch[OPT_LEN];	//Disconnect when switiching user accounts
+	char authPrompt[MT_STR_LEN];			//Password prompt before/after dialling
+	char redialEnabled[OPT_LEN];			//Redial X times if busy...
+	char echoEnabled[OPT_LEN];				//Send PPP echo packet
+	char verboseLogging[OPT_LEN];			//Use verbose logging
+	char vjCompression[OPT_LEN];			//TCP Header compression
+	char useTerminal[OPT_LEN];				//Connect using terminal window
+	
+	/* TCP/IP Options */
+	char manualIPv4[OPT_LEN];
+	char manualIPv6[OPT_LEN];
+	
+	/* WINS options */
+	char winsEnabled[OPT_LEN];
+	
+	/* Proxies options */
+	char proxiesEnabled[OPT_LEN];
+} PPPSession_t;
+
+void MT_pppGetTracerOptions(struct service *serv, PPPSession_t *pppSess);
+
+
 #endif

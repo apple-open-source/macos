@@ -49,22 +49,22 @@ WebNotificationClient::~WebNotificationClient()
 
 bool WebNotificationClient::show(Notification* notification)
 {
-    return WebProcess::shared().supplement<WebNotificationManager>()->show(notification, m_page);
+    return WebProcess::singleton().supplement<WebNotificationManager>()->show(notification, m_page);
 }
 
 void WebNotificationClient::cancel(Notification* notification)
 {
-    WebProcess::shared().supplement<WebNotificationManager>()->cancel(notification, m_page);
+    WebProcess::singleton().supplement<WebNotificationManager>()->cancel(notification, m_page);
 }
 
 void WebNotificationClient::clearNotifications(ScriptExecutionContext* context)
 {
-    WebProcess::shared().supplement<WebNotificationManager>()->clearNotifications(context, m_page);
+    WebProcess::singleton().supplement<WebNotificationManager>()->clearNotifications(context, m_page);
 }
 
 void WebNotificationClient::notificationObjectDestroyed(Notification* notification)
 {
-    WebProcess::shared().supplement<WebNotificationManager>()->didDestroyNotification(notification, m_page);
+    WebProcess::singleton().supplement<WebNotificationManager>()->didDestroyNotification(notification, m_page);
 }
 
 void WebNotificationClient::notificationControllerDestroyed()
@@ -85,6 +85,11 @@ void WebNotificationClient::requestPermission(ScriptExecutionContext* context, P
     m_page->notificationPermissionRequestManager()->startRequest(context->securityOrigin(), callback);
 }
 #endif
+
+bool WebNotificationClient::hasPendingPermissionRequests(ScriptExecutionContext* context) const
+{
+    return m_page->notificationPermissionRequestManager()->hasPendingPermissionRequests(context->securityOrigin());
+}
 
 void WebNotificationClient::cancelRequestsForPermission(ScriptExecutionContext* context)
 {

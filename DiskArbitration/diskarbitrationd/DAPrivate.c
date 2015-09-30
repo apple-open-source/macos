@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,7 +34,6 @@
 #include <sysexits.h>
 #include <unistd.h>
 #include <sys/attr.h>
-#include <sys/dirent.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
 
@@ -347,7 +346,7 @@ Boolean _DAUnitIsUnreadable( DADiskRef disk )
                 return FALSE;
             }
 
-            if ( DADiskGetOption( item, kDADiskOptionMountAutomatic ) == FALSE )
+            if ( DADiskGetState( item, _kDADiskStateMountAutomatic ) == FALSE )
             {
                 return FALSE;
             }

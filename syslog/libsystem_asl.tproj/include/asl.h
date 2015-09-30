@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,7 +31,7 @@
 #include <Availability.h>
 
 /* Version number encodes the date YYYYMMDD */
-#define ASL_API_VERSION 20131108
+#define ASL_API_VERSION 20150225
 
 typedef struct __asl_object_s *asl_object_t;
 typedef asl_object_t aslclient;
@@ -902,7 +902,7 @@ asl_object_t asl_open_from_file(int descriptor, const char *ident, const char *f
  * similarly must still be freed by the caller by calling asl_free() if the
  * caller loses reference to it.  Any changes made to it after calling
  * asl_log_descriptor() are not applicable to the message used. descriptor
- * is treated differentlty based on the value of fd_type.
+ * is treated differently based on the value of fd_type.
  *
  * If fd_type is ASL_LOG_DESCRIPTOR_READ, the descriptor must be open for read
  * access.  ASL uses GCD to read from the descriptor as data becomes available.

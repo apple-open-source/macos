@@ -29,13 +29,20 @@
 #if ENABLE(DRAG_SUPPORT)
 
 #import "DataTransfer.h"
+#import "Document.h"
+#import "DocumentFragment.h"
 #import "DragClient.h"
 #import "DragData.h"
+#import "Editor.h"
+#import "EditorClient.h"
 #import "Element.h"
+#import "File.h"
 #import "FrameView.h"
+#import "HTMLAttachmentElement.h"
 #import "MainFrame.h"
 #import "Page.h"
 #import "Pasteboard.h"
+#import "Range.h"
 
 namespace WebCore {
 
@@ -54,7 +61,7 @@ bool DragController::isCopyKeyDown(DragData& dragData)
     
 DragOperation DragController::dragOperation(DragData& dragData)
 {
-    if ((dragData.flags() & DragApplicationIsModal) || !dragData.containsURL(&m_page.mainFrame()))
+    if ((dragData.flags() & DragApplicationIsModal) || !dragData.containsURL())
         return DragOperationNone;
 
     if (!m_documentUnderMouse || (!(dragData.flags() & (DragApplicationHasAttachedSheet | DragApplicationIsSource))))
@@ -82,6 +89,14 @@ void DragController::cleanupAfterSystemDrag()
         dragEnded();
 }
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+void DragController::declareAndWriteAttachment(DataTransfer& dataTransfer, Element& element, const URL& url)
+{
+    const HTMLAttachmentElement& attachment = downcast<HTMLAttachmentElement>(element);
+    m_client.declareAndWriteAttachment(dataTransfer.pasteboard().name(), element, url, attachment.file()->path(), element.document().frame());
+}
+#endif
+    
 void DragController::declareAndWriteDragImage(DataTransfer& dataTransfer, Element& element, const URL& url, const String& label)
 {
     m_client.declareAndWriteDragImage(dataTransfer.pasteboard().name(), element, url, label, element.document().frame());

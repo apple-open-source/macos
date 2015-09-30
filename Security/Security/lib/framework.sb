@@ -1,2 +1,0 @@
-;; allow clients to communicate with secd
-(allow mach-lookup (global-name "com.apple.secd"))

@@ -83,3 +83,22 @@ kern_return_t
 _IOServiceSetAuthorizationID(
 	io_service_t    service,
 	uint64_t	authorizationID );
+
+boolean_t
+_IOObjectConformsTo(
+	io_object_t	object,
+	const io_name_t	className,
+	uint64_t        options);
+
+kern_return_t
+_IOObjectGetClass(
+	io_object_t	object,
+	uint64_t        options,
+	io_name_t       className);
+
+CFStringRef
+_IOObjectCopyClass(
+	io_object_t     object,
+	uint64_t        options);
+
+

@@ -22,18 +22,15 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		D63CF5E31A0D932B00B806D1 /* gssd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D63CF5E21A0D932B00B806D1 /* gssd_mach.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
+		D63CF5E61A0D97F000B806D1 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D63CF5E41A0D97F000B806D1 /* GSS.framework */; };
+		D63CF5E91A0D98DD00B806D1 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D63CF5E81A0D98DD00B806D1 /* Heimdal.framework */; };
 		D67ECAD6118F80A0005B80DF /* gssd_util.c in Sources */ = {isa = PBXBuildFile; fileRef = D68D83BA10A4E98600042EDD /* gssd_util.c */; };
 		D68D83BE10A4E98600042EDD /* gssd_util.c in Sources */ = {isa = PBXBuildFile; fileRef = D68D83BA10A4E98600042EDD /* gssd_util.c */; };
 		D68D83BF10A4E98600042EDD /* gssd.c in Sources */ = {isa = PBXBuildFile; fileRef = D68D83BB10A4E98600042EDD /* gssd.c */; };
 		D68D83D310A4EA6900042EDD /* gsstest.c in Sources */ = {isa = PBXBuildFile; fileRef = D68D83CA10A4EA2700042EDD /* gsstest.c */; };
 		D68D850D10A50BFA00042EDD /* gssd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D68D83B610A4E93700042EDD /* gssd.8 */; };
 		D68D851110A50C5A00042EDD /* com.apple.gssd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D68D83C110A4E99B00042EDD /* com.apple.gssd.plist */; };
-		D69CCC69116AB901002EA446 /* gssd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D69CCC68116AB901002EA446 /* gssd_mach.defs */; settings = {ATTRIBUTES = (Server, Client, ); }; };
-		D69CCC6A116AB901002EA446 /* gssd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D69CCC68116AB901002EA446 /* gssd_mach.defs */; };
-		D6E1FB9D10A8BF5F0009D272 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6E1FB9C10A8BF5F0009D272 /* Heimdal.framework */; };
-		D6E1FB9E10A8BF5F0009D272 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6E1FB9C10A8BF5F0009D272 /* Heimdal.framework */; };
-		D6E1FBA510A8BF990009D272 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6E1FBA410A8BF990009D272 /* GSS.framework */; };
-		D6E1FBA810A8BFA50009D272 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6E1FBA410A8BF990009D272 /* GSS.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +82,9 @@
 
 /* Begin PBXFileReference section */
 		8DD76FB20486AB0100D96B5E /* gssd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gssd; sourceTree = BUILT_PRODUCTS_DIR; };
+		D63CF5E21A0D932B00B806D1 /* gssd_mach.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = gssd_mach.defs; path = System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/gssd/gssd_mach.defs; sourceTree = SDKROOT; };
+		D63CF5E41A0D97F000B806D1 /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = System/Library/Frameworks/GSS.framework; sourceTree = SDKROOT; };
+		D63CF5E81A0D98DD00B806D1 /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = SDKROOT; };
 		D68D83B610A4E93700042EDD /* gssd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gssd.8; sourceTree = "<group>"; };
 		D68D83BA10A4E98600042EDD /* gssd_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gssd_util.c; sourceTree = "<group>"; };
 		D68D83BB10A4E98600042EDD /* gssd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gssd.c; sourceTree = "<group>"; };
@@ -92,11 +92,6 @@
 		D68D83C110A4E99B00042EDD /* com.apple.gssd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.gssd.plist; sourceTree = "<group>"; };
 		D68D83CA10A4EA2700042EDD /* gsstest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gsstest.c; sourceTree = "<group>"; };
 		D68D83CF10A4EA5400042EDD /* gsstest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gsstest; sourceTree = BUILT_PRODUCTS_DIR; };
-		D69509CD1471C5F0002063A2 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
-		D69509CF1471C5F0002063A2 /* getport.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = getport.1; sourceTree = "<group>"; };
-		D69CCC68116AB901002EA446 /* gssd_mach.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = gssd_mach.defs; path = /System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/gssd/gssd_mach.defs; sourceTree = "<absolute>"; };
-		D6E1FB9C10A8BF5F0009D272 /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = /System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = "<absolute>"; };
-		D6E1FBA410A8BF990009D272 /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = /System/Library/Frameworks/GSS.framework; sourceTree = "<absolute>"; };
 		EB805B8A1492DB4300F1E44F /* gssd-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "gssd-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -105,8 +100,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D6E1FB9D10A8BF5F0009D272 /* Heimdal.framework in Frameworks */,
-				D6E1FBA510A8BF990009D272 /* GSS.framework in Frameworks */,
+				D63CF5E61A0D97F000B806D1 /* GSS.framework in Frameworks */,
+				D63CF5E91A0D98DD00B806D1 /* Heimdal.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -114,8 +109,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D6E1FBA810A8BFA50009D272 /* GSS.framework in Frameworks */,
-				D6E1FB9E10A8BF5F0009D272 /* Heimdal.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,7 +118,6 @@
 		08FB7794FE84155DC02AAC07 /* gssd */ = {
 			isa = PBXGroup;
 			children = (
-				D69509CC1471C5F0002063A2 /* getport */,
 				D68D84CE10A507B300042EDD /* Frameworks */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
@@ -137,7 +129,7 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				D69CCC68116AB901002EA446 /* gssd_mach.defs */,
+				D63CF5E21A0D932B00B806D1 /* gssd_mach.defs */,
 				D68D83CA10A4EA2700042EDD /* gsstest.c */,
 				D68D83C110A4E99B00042EDD /* com.apple.gssd.plist */,
 				D68D83BA10A4E98600042EDD /* gssd_util.c */,
@@ -168,19 +160,10 @@
 		D68D84CE10A507B300042EDD /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				D6E1FB9C10A8BF5F0009D272 /* Heimdal.framework */,
-				D6E1FBA410A8BF990009D272 /* GSS.framework */,
+				D63CF5E81A0D98DD00B806D1 /* Heimdal.framework */,
+				D63CF5E41A0D97F000B806D1 /* GSS.framework */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		D69509CC1471C5F0002063A2 /* getport */ = {
-			isa = PBXGroup;
-			children = (
-				D69509CD1471C5F0002063A2 /* main.c */,
-				D69509CF1471C5F0002063A2 /* getport.1 */,
-			);
-			path = getport;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -228,7 +211,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0440;
+				LastUpgradeCheck = 0630;
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "gssd" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -258,7 +241,7 @@
 			files = (
 				D68D83BE10A4E98600042EDD /* gssd_util.c in Sources */,
 				D68D83BF10A4E98600042EDD /* gssd.c in Sources */,
-				D69CCC69116AB901002EA446 /* gssd_mach.defs in Sources */,
+				D63CF5E31A0D932B00B806D1 /* gssd_mach.defs in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -268,7 +251,6 @@
 			files = (
 				D67ECAD6118F80A0005B80DF /* gssd_util.c in Sources */,
 				D68D83D310A4EA6900042EDD /* gsstest.c in Sources */,
-				D69CCC6A116AB901002EA446 /* gssd_mach.defs in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -300,7 +282,8 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G5;
@@ -327,7 +310,8 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_MODEL_TUNING = G5;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
@@ -348,8 +332,15 @@
 		1DEB928A08733DD80010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
@@ -366,6 +357,7 @@
 				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = NO;
 				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
@@ -376,6 +368,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "";
 				RUN_CLANG_STATIC_ANALYZER = YES;
+				SDKROOT = macosx.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = Debug;
@@ -383,7 +376,14 @@
 		1DEB928B08733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -398,6 +398,7 @@
 				GCC_WARN_PROTOTYPE_CONVERSION = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
@@ -405,6 +406,7 @@
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

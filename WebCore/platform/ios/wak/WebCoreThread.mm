@@ -45,7 +45,6 @@
 #import <wtf/Threading.h>
 #import <wtf/text/AtomicString.h>
 
-#import <CoreFoundation/CFPriv.h>
 #import <Foundation/NSInvocation.h>
 #import <libkern/OSAtomic.h>
 #import <objc/runtime.h>
@@ -136,7 +135,7 @@ static unsigned mainThreadLockCount;
 static unsigned otherThreadLockCount;
 static unsigned sMainThreadModalCount;
 
-volatile bool webThreadShouldYield;
+WEBCORE_EXPORT volatile bool webThreadShouldYield;
 
 static pthread_mutex_t WebCoreReleaseLock;
 static void WebCoreObjCDeallocOnWebThreadImpl(id self, SEL _cmd);
@@ -643,7 +642,7 @@ NO_RETURN
 #endif
 void *RunWebThread(void *arg)
 {
-    FloatingPointEnvironment::shared().propagateMainThreadEnvironment();
+    FloatingPointEnvironment::singleton().propagateMainThreadEnvironment();
 
     UNUSED_PARAM(arg);
     // WTF::initializeMainThread() needs to be called before JSC::initializeThreading() since the
@@ -758,7 +757,7 @@ static void StartWebThread()
     ASSERT_WITH_MESSAGE(result == 0, "startup lock failed with code:%d", result);
 
     // Propagate the mainThread's fenv to workers & the web thread.
-    FloatingPointEnvironment::shared().saveMainThreadEnvironment();
+    FloatingPointEnvironment::singleton().saveMainThreadEnvironment();
 
     pthread_create(&webThread, &tattr, RunWebThread, NULL);
     pthread_attr_destroy(&tattr);

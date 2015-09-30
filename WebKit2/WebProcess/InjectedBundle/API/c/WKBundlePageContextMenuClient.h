@@ -46,6 +46,8 @@ typedef struct WKBundlePageContextMenuClientV1 {
     WKBundlePageContextMenuClientBase                                   base;
 
     WKBundlePageGetContextMenuFromDefaultContextMenuCallback            getContextMenuFromDefaultMenu;
+
+    // This is actually about immediate actions; we should consider deprecating and renaming.
     WKBundlePagePrepareForActionMenuCallback                            prepareForActionMenu;
 } WKBundlePageContextMenuClientV1;
 
@@ -56,6 +58,6 @@ typedef struct WKBundlePageContextMenuClient {
 
     // Version 0.
     WKBundlePageGetContextMenuFromDefaultContextMenuCallback            getContextMenuFromDefaultMenu;
-} WKBundlePageContextMenuClient WK_DEPRECATED("Use an explicit versioned struct instead");
+} WKBundlePageContextMenuClient WK_C_DEPRECATED("Use an explicit versioned struct instead");
 
 #endif // WKBundlePageContextMenuClient_h

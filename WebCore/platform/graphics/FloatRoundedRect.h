@@ -57,6 +57,14 @@ public:
         {
         }
 
+        explicit Radii(float uniformRadius)
+            : m_topLeft(uniformRadius, uniformRadius)
+            , m_topRight(uniformRadius, uniformRadius)
+            , m_bottomLeft(uniformRadius, uniformRadius)
+            , m_bottomRight(uniformRadius, uniformRadius)
+        {
+        }
+
         void setTopLeft(const FloatSize& size) { m_topLeft = size; }
         void setTopRight(const FloatSize& size) { m_topRight = size; }
         void setBottomLeft(const FloatSize& size) { m_bottomLeft = size; }
@@ -67,6 +75,7 @@ public:
         const FloatSize& bottomRight() const { return m_bottomRight; }
 
         bool isZero() const;
+        bool isUniformCornerRadius() const; // Including no radius.
 
         void scale(float factor);
         void scale(float horizontalFactor, float verticalFactor);
@@ -82,7 +91,7 @@ public:
         FloatSize m_bottomRight;
     };
 
-    explicit FloatRoundedRect(const FloatRect&, const Radii& = Radii());
+    WEBCORE_EXPORT explicit FloatRoundedRect(const FloatRect& = FloatRect(), const Radii& = Radii());
     explicit FloatRoundedRect(const RoundedRect&);
     FloatRoundedRect(float x, float y, float width, float height);
     FloatRoundedRect(const FloatRect&, const FloatSize& topLeft, const FloatSize& topRight, const FloatSize& bottomLeft, const FloatSize& bottomRight);

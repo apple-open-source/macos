@@ -74,6 +74,15 @@ _krb5_mk_req_internal(krb5_context context,
     if (ret)
 	goto out;
 
+    /*
+     * Now that we know the enctype, setup PFS if possible
+     */
+    if (auth_context && (ap_req_options & AP_OPTS_USE_PFS) != 0) {
+	ret = _krb5_auth_con_setup_pfs(context, ac, ac->keyblock->keytype);
+	if (ret)
+	    goto out;
+    }
+
     /* it's unclear what type of checksum we can use.  try the best one, except:
      * a) if it's configured differently for the current realm, or
      * b) if the session key is des-cbc-crc
@@ -136,8 +145,8 @@ _krb5_mk_req_internal(krb5_context context,
     if (ret)
 	goto out;
 
-    ret = krb5_build_ap_req (context, ac->keyblock->keytype,
-			     in_creds, ap_req_options, authenticator, outbuf);
+    ret = krb5_build_ap_req(context, ac->keyblock->keytype,
+			    in_creds, ap_req_options, authenticator, outbuf);
 out:
     if(auth_context == NULL)
 	krb5_auth_con_free(context, ac);

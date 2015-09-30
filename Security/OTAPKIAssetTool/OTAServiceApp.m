@@ -81,6 +81,10 @@ static void OTAPKI_LOG(const char* sz, ...)
 								
 	kkManifestFileName - 		The file name of the manifest file for the
 								OTA PKI trust asset
+ 
+    	kAllowListFileName -        	The file name of the asset file that contains
+								hashes of the allowed leaf certificates whose
+								trust store root has been removed
 								
 	kAssetVersionFileName - 	The file name of the plist file in the asset
 								that contains the version number of this 
@@ -135,6 +139,7 @@ static const NSString* kBaseAssetDirectoryPath = @"/var/Keychains";
 #endif
 
 static const NSString* kManifestFileName = @"manifest.data";
+static const NSString* kAllowListFileName = @"Allowed.plist";
 static const NSString* kAssetVersionFileName =  @"AssetVersion.plist";
 static const NSString* kAppleESCertificatesName = @"AppleESCertificates.plist";
 static const NSString* kBlockKeyFileName = @"Blocked.plist";
@@ -155,6 +160,7 @@ static const NSString* kVersionDirectoryNamePrefix = @"Version_";
 static const NSString* kPKITrustDataAssetType =@"com.apple.MobileAsset.PKITrustServices.PKITrustData";
 
 const char *kOTAPKIAssetToolActivity = "com.apple.OTAPKIAssetTool.asset-check";
+const char *kOTAPKIAssetToolBTAJob = "com.apple.BTA.OTAPKIAssetTool.asset-check";
 
 static const UInt8 kApplePKISettingsRootCACert[] = {
 	0x30, 0x82, 0x07, 0xca, 0x30, 0x82, 0x05, 0xb2, 0xa0, 0x03, 0x02, 0x01, 0x02, 0x02, 0x08, 0x4e,
@@ -492,7 +498,8 @@ out:
 		_asset_version_file_name = (NSString *)kAssetVersionFileName;
 		_file_list = [NSArray arrayWithObjects:kBlockKeyFileName, kGrayListedKeysFileName, 
 								kEVRootsFileName, kCertsIndexFileName, kCertsTableFileName,
-								kManifestFileName, kAssetVersionFileName, kAppleESCertificatesName, nil];	
+								kManifestFileName, kAssetVersionFileName, kAppleESCertificatesName, 
+								kAllowListFileName, nil];
 								
 		_current_asset_version = nil;
 		_next_asset_version = nil;
@@ -588,7 +595,7 @@ out:
 	}
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-	BackgroundTaskAgentAddJob(kOTAPKIAssetToolActivity, job);
+	BackgroundTaskAgentAddJob(kOTAPKIAssetToolBTAJob, job);
 #pragma GCC diagnostic pop
 }
 
@@ -639,7 +646,7 @@ out:
 				{
 					syslog(LOG_NOTICE, "Unscheduling BTA job");
 				}
-				BackgroundTaskAgentRemoveJob(kOTAPKIAssetToolActivity);
+				BackgroundTaskAgentRemoveJob(kOTAPKIAssetToolBTAJob);
 			}
 			else
 			{
@@ -701,7 +708,7 @@ out:
 #if !TARGET_IPHONE_SIMULATOR
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-			xpc_object_t job = BackgroundTaskAgentCopyJob(kOTAPKIAssetToolActivity);
+			xpc_object_t job = BackgroundTaskAgentCopyJob(kOTAPKIAssetToolBTAJob);
 #pragma GCC diagnostic pop
 			if (job == NULL)
 			{
@@ -888,6 +895,7 @@ out:
 					int didUpdate = 0;
 					(void)SecTrustOTAPKIGetUpdatedAsset(&didUpdate);
                     syslog(LOG_NOTICE, "OTAPKIAssetTool: installed new asset %d", asset_version);
+                    _current_asset_version = contentVersion;
 				}
                 else
                 {

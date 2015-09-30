@@ -32,34 +32,33 @@
 
 #include <replay/InputCursor.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
 class EventLoopInputExtent;
-class SegmentedInputStorage;
+class Page;
+class ReplaySessionSegment;
 
 class CapturingInputCursor final : public InputCursor {
     WTF_MAKE_NONCOPYABLE(CapturingInputCursor);
 public:
-    static PassRefPtr<CapturingInputCursor> create(SegmentedInputStorage&);
+    static Ref<CapturingInputCursor> create(RefPtr<ReplaySessionSegment>&&);
     virtual ~CapturingInputCursor();
 
     virtual bool isCapturing() const override { return true; }
     virtual bool isReplaying() const override { return false; }
 
-    void setWithinEventLoopInputExtent(bool);
-    bool withinEventLoopInputExtent() const { return m_withinEventLoopInputExtent; }
+protected:
+    virtual NondeterministicInputBase* loadInput(InputQueue, const String& type) override;
+
+private:
+    CapturingInputCursor(RefPtr<ReplaySessionSegment>&&);
 
     virtual NondeterministicInputBase* uncheckedLoadInput(InputQueue) override;
     virtual void storeInput(std::unique_ptr<NondeterministicInputBase>) override;
-protected:
-    virtual NondeterministicInputBase* loadInput(InputQueue, const AtomicString& type) override;
 
-private:
-    explicit CapturingInputCursor(SegmentedInputStorage&);
-
-    SegmentedInputStorage& m_storage;
-    bool m_withinEventLoopInputExtent;
+    RefPtr<ReplaySessionSegment> m_segment;
 };
 
 } // namespace WebCore

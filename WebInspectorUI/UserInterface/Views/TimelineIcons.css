@@ -31,14 +31,6 @@
     content: -webkit-image-set(url(../Images/NetworkLarge.png) 1x, url(../Images/NetworkLarge@2x.png) 2x);
 }
 
-body.mac-platform.legacy .network-icon .icon {
-    content: -webkit-image-set(url(../Images/Legacy/Network.png) 1x, url(../Images/Legacy/Network@2x.png) 2x);
-}
-
-body.mac-platform.legacy .network-icon.large .icon {
-    content: -webkit-image-set(url(../Images/Legacy/NetworkLarge.png) 1x, url(../Images/Legacy/NetworkLarge@2x.png) 2x);
-}
-
 .colors-icon .icon {
     content: -webkit-image-set(url(../Images/Colors.png) 1x, url(../Images/Colors@2x.png) 2x);
 }
@@ -47,20 +39,20 @@ body.mac-platform.legacy .network-icon.large .icon {
     content: -webkit-image-set(url(../Images/ColorsLarge.png) 1x, url(../Images/ColorsLarge@2x.png) 2x);
 }
 
-body.mac-platform.legacy .colors-icon .icon {
-    content: -webkit-image-set(url(../Images/Legacy/Colors.png) 1x, url(../Images/Legacy/Colors@2x.png) 2x);
-}
-
-body.mac-platform.legacy .colors-icon.large .icon {
-    content: -webkit-image-set(url(../Images/Legacy/ColorsLarge.png) 1x, url(../Images/Legacy/ColorsLarge@2x.png) 2x);
-}
-
 .script-icon .icon {
     content: -webkit-image-set(url(../Images/Script.png) 1x, url(../Images/Script@2x.png) 2x);
 }
 
 .script-icon.large .icon {
     content: -webkit-image-set(url(../Images/ScriptLarge.png) 1x, url(../Images/ScriptLarge@2x.png) 2x);
+}
+
+.rendering-frame-icon .icon {
+    content: -webkit-image-set(url(../Images/Frames.png) 1x, url(../Images/Frames@2x.png) 2x);
+}
+
+.rendering-frame-icon.large .icon {
+    content: -webkit-image-set(url(../Images/FramesLarge.png) 1x, url(../Images/FramesLarge@2x.png) 2x);
 }
 
 .stopwatch-icon .icon {
@@ -83,6 +75,14 @@ body.mac-platform.legacy .colors-icon.large .icon {
     content: url(../Images/TimelineRecordPaint.svg);
 }
 
+.composite-record .icon {
+    content: url(../Images/TimelineRecordComposite.svg);
+}
+
+.rendering-frame-record .icon {
+    content: url(../Images/TimelineRecordRenderingFrame.svg);
+}
+
 .evaluated-record .icon {
     content: url(../Images/TimelineRecordScriptEvaluated.svg);
 }
@@ -93,6 +93,10 @@ body.mac-platform.legacy .colors-icon.large .icon {
 
 .probe-record .icon {
     content: url(../Images/TimelineRecordProbeSampled.svg);
+}
+
+.runloop-record .icon {
+    width: 0 !important;
 }
 
 .console-profile-record .icon {

@@ -36,8 +36,8 @@
 struct pcap_if_info {
 	int if_id;
 	char *if_name;
-	u_short if_linktype;
-	u_short if_snaplen;
+	int if_linktype;
+	int if_snaplen;
 	struct bpf_program if_filter_program;
 	int if_block_added;
 };
@@ -71,6 +71,9 @@ extern char * pcap_setup_pktap_interface(const char *, char *);
 extern void pcap_cleanup_pktap_interface(const char *);
 
 extern int pcap_ng_dump_pktap(pcap_t *, pcap_dumper_t *, const struct pcap_pkthdr *, const u_char *);
+struct kern_event_msg;
+extern int pcap_ng_dump_kern_event(pcap_t *, pcap_dumper_t *,
+				   struct kern_event_msg *, struct timeval *);
 
 #endif /* PRIVATE */
 

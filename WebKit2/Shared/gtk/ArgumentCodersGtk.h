@@ -27,7 +27,7 @@
 #define ArgumentCodersGtk_h
 
 #include "ArgumentCoders.h"
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 
 typedef struct _GtkPrintSettings GtkPrintSettings;
 typedef struct _GtkPageSetup GtkPageSetup;
@@ -39,10 +39,12 @@ class DragData;
 
 namespace IPC {
 
+#if ENABLE(DRAG_SUPPORT)
 template<> struct ArgumentCoder<WebCore::DragData> {
     static void encode(ArgumentEncoder&, const WebCore::DragData&);
     static bool decode(ArgumentDecoder&, WebCore::DragData&);
 };
+#endif
 
 void encode(ArgumentEncoder&, GtkPrintSettings*);
 bool decode(ArgumentDecoder&, GRefPtr<GtkPrintSettings>&);

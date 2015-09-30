@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,13 +29,13 @@
 #include "config.h"
 #include "SpeculatedType.h"
 
-#include "Arguments.h"
+#include "DirectArguments.h"
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "JSCInlines.h"
+#include "ScopedArguments.h"
 #include "StringObject.h"
 #include "ValueProfile.h"
-#include <wtf/BoundsCheckedPointer.h>
 #include <wtf/StringPrintStream.h>
 
 namespace JSC {
@@ -127,8 +127,13 @@ void dumpSpeculation(PrintStream& out, SpeculatedType value)
             else
                 isTop = false;
     
-            if (value & SpecArguments)
-                myOut.print("Arguments");
+            if (value & SpecDirectArguments)
+                myOut.print("Directarguments");
+            else
+                isTop = false;
+    
+            if (value & SpecScopedArguments)
+                myOut.print("Scopedarguments");
             else
                 isTop = false;
     
@@ -151,12 +156,26 @@ void dumpSpeculation(PrintStream& out, SpeculatedType value)
             else
                 isTop = false;
         }
+
+        if (value & SpecSymbol)
+            myOut.print("Symbol");
+        else
+            isTop = false;
     }
     
-    if (value & SpecInt32)
+    if (value == SpecInt32)
         myOut.print("Int32");
-    else
-        isTop = false;
+    else {
+        if (value & SpecBoolInt32)
+            myOut.print("Boolint32");
+        else
+            isTop = false;
+        
+        if (value & SpecNonBoolInt32)
+            myOut.print("Nonboolint32");
+        else
+            isTop = false;
+    }
     
     if (value & SpecInt52)
         myOut.print("Int52");
@@ -232,8 +251,10 @@ static const char* speculationToAbbreviatedString(SpeculatedType prediction)
         return "<Float32array>";
     if (isFloat64ArraySpeculation(prediction))
         return "<Float64array>";
-    if (isArgumentsSpeculation(prediction))
-        return "<Arguments>";
+    if (isDirectArgumentsSpeculation(prediction))
+        return "<DirectArguments>";
+    if (isScopedArgumentsSpeculation(prediction))
+        return "<ScopedArguments>";
     if (isStringObjectSpeculation(prediction))
         return "<StringObject>";
     if (isStringOrStringObjectSpeculation(prediction))
@@ -242,6 +263,8 @@ static const char* speculationToAbbreviatedString(SpeculatedType prediction)
         return "<Object>";
     if (isCellSpeculation(prediction))
         return "<Cell>";
+    if (isBoolInt32Speculation(prediction))
+        return "<BoolInt32>";
     if (isInt32Speculation(prediction))
         return "<Int32>";
     if (isInt52AsDoubleSpeculation(prediction))
@@ -305,8 +328,11 @@ SpeculatedType speculationFromClassInfo(const ClassInfo* classInfo)
     if (classInfo == JSArray::info())
         return SpecArray;
     
-    if (classInfo == Arguments::info())
-        return SpecArguments;
+    if (classInfo == DirectArguments::info())
+        return SpecDirectArguments;
+    
+    if (classInfo == ScopedArguments::info())
+        return SpecScopedArguments;
     
     if (classInfo == StringObject::info())
         return SpecStringObject;
@@ -327,6 +353,8 @@ SpeculatedType speculationFromStructure(Structure* structure)
 {
     if (structure->typeInfo().type() == StringType)
         return SpecString;
+    if (structure->typeInfo().type() == SymbolType)
+        return SpecSymbol;
     return speculationFromClassInfo(structure->classInfo());
 }
 
@@ -346,8 +374,11 @@ SpeculatedType speculationFromValue(JSValue value)
 {
     if (value.isEmpty())
         return SpecEmpty;
-    if (value.isInt32())
-        return SpecInt32;
+    if (value.isInt32()) {
+        if (value.asInt32() & ~1)
+            return SpecNonBoolInt32;
+        return SpecBoolInt32;
+    }
     if (value.isDouble()) {
         double number = value.asNumber();
         if (number != number)
@@ -497,7 +528,7 @@ SpeculatedType typeOfDoubleAbs(SpeculatedType value)
     return typeOfDoubleNegation(value);
 }
 
-SpeculatedType typeOfDoubleFRound(SpeculatedType value)
+SpeculatedType typeOfDoubleRounding(SpeculatedType value)
 {
     // We might lose bits, which leads to a NaN being purified.
     if (value & SpecDoubleImpureNaN)
@@ -506,6 +537,15 @@ SpeculatedType typeOfDoubleFRound(SpeculatedType value)
     if (value & SpecNonIntAsDouble)
         value |= SpecInt52AsDouble;
     return value;
+}
+
+SpeculatedType typeOfDoublePow(SpeculatedType xValue, SpeculatedType yValue)
+{
+    // Math.pow() always return NaN if the exponent is NaN, unlike std::pow().
+    // We always set a pure NaN in that case.
+    if (yValue & SpecDoubleNaN)
+        xValue |= SpecDoublePureNaN;
+    return polluteDouble(xValue);
 }
 
 SpeculatedType typeOfDoubleBinaryOp(SpeculatedType a, SpeculatedType b)

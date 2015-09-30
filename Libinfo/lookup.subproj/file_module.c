@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -236,12 +236,12 @@ char *
 _fsi_get_line(FILE *fp)
 {
 	char s[4096];
-	char *out;
+	char *x, *out;
 
 	s[0] = '\0';
 
-	fgets(s, sizeof(s), fp);
-	if ((s == NULL) || (s[0] == '\0')) return NULL;
+	x = fgets(s, sizeof(s), fp);
+	if ((x == NULL) || (s[0] == '\0')) return NULL;
 
 	if (s[0] != '#') s[strlen(s) - 1] = '\0';
 
@@ -464,6 +464,8 @@ _fsi_append_char_to_line(char c, char *buf, size_t *x)
 	if ((*x % CHUNK) == 0)
 	{
 		buf = reallocf(buf, *x + CHUNK);
+		if (buf == NULL) return NULL;
+
 		memset(buf + *x, 0, CHUNK);
 	}
 

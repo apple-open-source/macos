@@ -45,6 +45,7 @@ oid	base	GSS_C_CRED_VALIDATE			1.2.752.43.13.37
 oid	base	GSS_C_CRED_SET_DEFAULT			1.2.752.43.13.38
 oid	base	GSS_C_CRED_GET_DEFAULT			1.2.752.43.13.39
 oid	base	GSS_C_CRED_RENEW			1.2.752.43.13.40
+oid	base	GSS_C_CTX_PFS_X				1.2.752.43.13.41
 
 # /* glue for gss_inquire_saslname_for_mech */
 oid	base	GSS_C_MA_SASL_MECH_NAME			1.2.752.43.13.100

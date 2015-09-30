@@ -10,6 +10,15 @@
 #include <HeimODAdmin/HeimODAdmin.h>
 #include <Heimdal/krb5.h>
 #include <CommonAuth/CommonAuth.h>
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonRandomSPI.h>
+#include <CommonCrypto/CommonKeyDerivation.h>
+#include <corecrypto/cc.h>
+#include <corecrypto/ccdigest.h>
+#include <corecrypto/ccsha2.h>
+#include <corecrypto/ccsrp.h>
+#include <corecrypto/ccsrp_gp.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include "applehelpers.h"
 #include <sys/types.h>
@@ -21,28 +30,12 @@
 #include <PasswordServer/AuthDBFileDefs.h>
 #include <PasswordServer/AuthFile.h>
 
-extern AttributeDescription *idattr_uuid;
-extern AttributeDescription *idattr_memberships;
-extern AttributeDescription *idattr_memberUid;
 extern int idattr_is_member(Operation *op, struct berval* groupDN, AttributeDescription *searchAttr, struct berval* searchID, u_int32_t* result);
 
 extern BerVarray cf_accountpolicy_override;
 
 static Filter generic_filter = { LDAP_FILTER_PRESENT, { 0 }, NULL };
 static struct berval generic_filterstr = BER_BVC("(objectclass=*)");
-
-static  AttributeDescription *failedLoginsAD = NULL;
-static  AttributeDescription *creationDateAD = NULL;
-static  AttributeDescription *passModDateAD = NULL;
-static  AttributeDescription *lastLoginAD = NULL;
-static  AttributeDescription *lastFailedLoginAD = NULL;
-static 	AttributeDescription *disableReasonAD = NULL;
-static 	AttributeDescription *realnameAD = NULL;
-static 	AttributeDescription *pwslocAD = NULL;
-static  AttributeDescription *appleAccountPolicyAD = NULL;
-// shared with odusers
-AttributeDescription *passwordRequiredDateAD = NULL;
-AttributeDescription *policyAD = NULL;
 
 #undef malloc
 #undef free
@@ -76,8 +69,7 @@ Attribute  *odusers_copy_attr(char *dn, char*attribute)
 
 	connection_fake_init2(&conn, &opbuf, ldap_pvt_thread_pool_context(), 0);
 	fakeop = &opbuf.ob_op;
-	fakeop->o_req_dn.bv_len = asprintf(&fakeop->o_req_dn.bv_val, dn);
-	fakeop->o_req_dn.bv_len = strlen(fakeop->o_req_dn.bv_val);
+	fakeop->o_req_dn.bv_len = asprintf(&fakeop->o_req_dn.bv_val, "%s", dn);
 	fakeop->o_dn = fakeop->o_ndn = fakeop->o_req_ndn = fakeop->o_req_dn;
 	fakeop->o_conn->c_listener->sl_url.bv_val = "ldapi://%2Fvar%2Frun%2Fldapi";
 	fakeop->o_conn->c_listener->sl_url.bv_len = strlen("ldapi://%2Fvar%2Frun%2Fldapi");
@@ -693,6 +685,9 @@ bool odusers_ismember(struct berval *userdn, struct berval *groupdn) {
 	Attribute *guidattr = NULL;
 	bool ret = false;
 	struct berval groupndn;
+	AttributeDescription *idattr_memberships = NULL;
+	AttributeDescription *idattr_uuid = NULL;
+	const char *text = NULL;
 
 	dnNormalize(0, NULL, NULL, groupdn, &groupndn, NULL);
 
@@ -709,23 +704,14 @@ bool odusers_ismember(struct berval *userdn, struct berval *groupdn) {
 		goto out;
 	}
 
-	if(idattr_memberships == NULL) {
-		int rc;
-		const char *text = NULL;
-		rc = slap_str2ad( "apple-group-memberguid", &idattr_memberships, &text );
-		if(rc != LDAP_SUCCESS) {
-			Debug(LDAP_DEBUG_ANY, "%s: Unable to lookup attribute description for apple-group-memberguid\n", __func__, 0, 0);
-			goto out;
-		}
+	if(slap_str2ad("apple-group-memberguid", &idattr_memberships, &text) != 0) {
+		Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for apple-group-memberguid", __PRETTY_FUNCTION__, 0, 0);
+		goto out;
 	}
-	if(idattr_uuid == NULL) {
-		int rc;
-		const char *text = NULL;
-		rc = slap_str2ad( "apple-generateduid", &idattr_uuid, &text );
-		if(rc != LDAP_SUCCESS) {
-			Debug(LDAP_DEBUG_ANY, "%s: Unable to lookup attribute description for apple-generateduid\n", __func__, 0, 0);
-			goto out;
-		}
+
+	if(slap_str2ad("apple-generateduid", &idattr_uuid, &text) != 0) {
+		Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for apple-generateduid", __PRETTY_FUNCTION__, 0, 0);
+		goto out;
 	}
 
 	guidattr = attr_find(usere->e_attrs, idattr_uuid);
@@ -773,6 +759,12 @@ CFDictionaryRef odusers_copy_effectiveuserpoldict(struct berval *dn) {
 	int zero = 0;
 	CFNumberRef cfone = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &one);
 	CFNumberRef cfzero = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &zero);
+	AttributeDescription *policyAD = NULL;
+	AttributeDescription *lastLoginAD = NULL;
+	AttributeDescription *creationDateAD = NULL;
+	AttributeDescription *passModDateAD = NULL;
+	AttributeDescription *failedLoginsAD = NULL;
+	AttributeDescription *disableReasonAD = NULL;
 
 	e = odusers_copy_authdata(dn);
 	if(!e) {
@@ -780,27 +772,27 @@ CFDictionaryRef odusers_copy_effectiveuserpoldict(struct berval *dn) {
 		goto out;
 	}
 
-	if(!policyAD && slap_str2ad("apple-user-passwordpolicy", &policyAD, &text) != 0) {
+	if(slap_str2ad("apple-user-passwordpolicy", &policyAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of apple-user-passwordpolicy attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(!lastLoginAD && slap_str2ad("lastLoginTime", &lastLoginAD, &text) != 0) {
+	if(slap_str2ad("lastLoginTime", &lastLoginAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of lastLoginTime attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(!creationDateAD && slap_str2ad("creationDate", &creationDateAD, &text) != 0) {
+	if(slap_str2ad("creationDate", &creationDateAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of creationDate attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(!passModDateAD && slap_str2ad("passwordModDate", &passModDateAD, &text) != 0) {
+	if(slap_str2ad("passwordModDate", &passModDateAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of passwordModDate attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(!failedLoginsAD && slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
+	if(slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of loginFailedAttempts attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(!disableReasonAD && slap_str2ad("disableReason", &disableReasonAD, &text) != 0) {
+	if(slap_str2ad("disableReason", &disableReasonAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of disableReason attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -1049,8 +1041,9 @@ int odusers_reset_failedlogin(struct berval *dn) {
 	Attribute *failedLogins = NULL;
 	const char *text = NULL;
 	short optype = LDAP_MOD_ADD;
-
-	if(!failedLoginsAD && slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
+	AttributeDescription *failedLoginsAD = NULL;
+	
+	if(slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
 		Debug(LDAP_DEBUG_TRACE, "%s: Unable to retrieve description of loginFailedAttempts attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -1119,8 +1112,9 @@ int odusers_increment_failedlogin(struct berval *dn) {
 	const char *text = NULL;
 	uint16_t loginattempts = 0;
 	short optype = LDAP_MOD_ADD;
+	AttributeDescription *failedLoginsAD = NULL;
 
-	if(!failedLoginsAD && slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
+	if(slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
 		Debug(LDAP_DEBUG_TRACE, "%s: Unable to retrieve description of loginFailedAttempts attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -1284,6 +1278,7 @@ char *odusers_copy_krbrealm(Operation *op) {
 	char *suffix = NULL;
 	struct berval *suffixdn = NULL;
 	struct berval *configdn = NULL;
+	AttributeDescription *realnameAD = NULL;
 	
 	if(savedrealm) {
 		return ch_strdup(savedrealm);
@@ -1314,7 +1309,7 @@ char *odusers_copy_krbrealm(Operation *op) {
 		goto out;
 	}
 	
-	if(!realnameAD && slap_str2ad("apple-config-realname", &realnameAD, &text) != 0) {
+	if(slap_str2ad("apple-config-realname", &realnameAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for apple-config-realname", __func__, 0, 0);
 		goto out;
 	}
@@ -1373,6 +1368,7 @@ char *odusers_copy_primarymasterip(Operation *op) {
 	static char *savedprimarymasterip = NULL;
 	char *ret = NULL;
 	char *suffix = NULL;
+	AttributeDescription *pwslocAD = NULL;
 	
 	if(savedprimarymasterip) {
 		return ch_strdup(savedprimarymasterip);
@@ -1399,7 +1395,7 @@ char *odusers_copy_primarymasterip(Operation *op) {
 		goto out;
 	}
 	
-	if(!pwslocAD && slap_str2ad("apple-password-server-location", &pwslocAD, &text) != 0) {
+	if(slap_str2ad("apple-password-server-location", &pwslocAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for apple-password-server-location", __func__, 0, 0);
 		goto out;
 	}
@@ -1571,6 +1567,13 @@ int odusers_set_password(struct berval *dn, char *password, int isChangingOwnPas
 	const char *text = NULL;
 	unsigned long tmplong;
 	char needPlaintext = 0;
+	AttributeDescription *krbkeysAD = NULL;
+	AttributeDescription *crammd5AD = NULL;
+	AttributeDescription *digestmd5AD = NULL;
+	AttributeDescription *digestumd5AD = NULL;
+	AttributeDescription *passwordAD = NULL;
+	AttributeDescription *passModDateAD = NULL;
+	AttributeDescription *failedLoginsAD = NULL;
 
 	connection_fake_init2(&conn, &opbuf, ldap_pvt_thread_pool_context(), 0);
 	fakeop = &opbuf.ob_op;
@@ -1805,6 +1808,95 @@ int odusers_set_password(struct berval *dn, char *password, int isChangingOwnPas
 		}
 	}
 
+        // SRP is always calculated.
+        // SRP + SALTED-SHA512-PBKDF2 hash, based on opendirectoryd/src/modules/PlistFile/PlistFile.c
+        // TODO: refactor into CommonAuth
+
+#define PBKDF2_SALT_LEN 32
+#define PBKDF2_MIN_HASH_TIME 100
+#define PBKDF2_HASH_LEN 128
+
+        uint8_t salt[PBKDF2_SALT_LEN]; 
+        uint8_t entropy[PBKDF2_HASH_LEN];
+        AttributeDescription *pbkdfAD = NULL;
+        size_t passwordLen = strlen(password);
+        uint64_t iterations;
+
+        iterations = CCCalibratePBKDF(kCCPBKDF2, passwordLen,
+                                      sizeof(salt), kCCPRFHmacAlgSHA512,
+                                      sizeof(entropy), PBKDF2_MIN_HASH_TIME);
+
+        int rc = CCRandomCopyBytes(kCCRandomDefault, salt, sizeof(salt));
+        if (rc == kCCSuccess) {
+            rc = CCKeyDerivationPBKDF(kCCPBKDF2, password, passwordLen, salt, sizeof(salt), kCCPRFHmacAlgSHA512,
+                                      iterations, entropy, sizeof(entropy));
+        }
+
+        CFMutableDictionaryRef record = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+        const struct ccdigest_info *md = ccsha512_di();
+        CFDictionarySetValue(record, CFSTR("md"), CFSTR("sha512"));
+
+        ccsrp_const_gp_t gp = ccsrp_gp_rfc5054_4096();
+        CFDictionarySetValue(record, CFSTR("gp"), CFSTR("rfc5054_4096"));
+
+        ccsrp_ctx *srp = malloc(cc_ctx_sizeof(ccsrp_ctx, ccsrp_sizeof_srp(md, gp)));
+        ccsrp_ctx_init(srp, md, gp);
+
+        size_t v_buf_len = ccsrp_ctx_sizeof_n(srp);
+        uint8_t *v_buf = malloc(v_buf_len);
+
+        int result = ccsrp_generate_verifier(srp, "", sizeof(entropy), (const void *)entropy, sizeof(salt), salt, v_buf);
+        free(srp);
+
+        if (result) {
+            Debug(LDAP_DEBUG_ANY, "%s: ccsrp_generate_verifier failed\n", __func__, 0, 0);
+            free(v_buf);
+            goto out;
+        }
+
+        CFDataRef cfVerifier = CFDataCreate(kCFAllocatorDefault, v_buf, v_buf_len);
+        CFNumberRef cfIterations = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &iterations);
+        CFDataRef cfSalt = CFDataCreate(kCFAllocatorDefault, salt, sizeof(salt));
+					
+        CFDictionarySetValue(record, CFSTR("verifier"), cfVerifier);
+        CFDictionarySetValue(record, CFSTR("iterations"), cfIterations);
+        CFDictionarySetValue(record, CFSTR("salt"), cfSalt);
+
+        if (cfVerifier) CFRelease(cfVerifier);
+        if (cfIterations) CFRelease(cfIterations);
+        if (cfSalt) CFRelease(cfSalt);
+        free(v_buf);
+					
+        CFDataRef data = CFPropertyListCreateData(kCFAllocatorDefault, record, kCFPropertyListXMLFormat_v1_0, 0, NULL);
+
+        CFRelease(record);
+
+        if(slap_str2ad("SRP-RFC5054-4096-SHA512-PBKDF2", &pbkdfAD, &text) != 0) {
+            Debug(LDAP_DEBUG_ANY, "%s: Could not find attribute description for SRP-RFC5054-4096-SHA512-PBKDF2\n", __func__, 0, 0);
+            goto out;
+        }
+
+        CFIndex length = CFDataGetLength(data);
+        m = ch_calloc(1, sizeof(Modifications));
+        m->sml_op = LDAP_MOD_REPLACE;
+        m->sml_flags = 0;
+        m->sml_type = pbkdfAD->ad_cname;
+        m->sml_desc = pbkdfAD;
+        m->sml_numvals = 1;
+        m->sml_values = ch_calloc(m->sml_numvals+1, sizeof(struct berval));
+        m->sml_nvalues = ch_calloc(m->sml_numvals+1, sizeof(struct berval));
+        m->sml_values[0].bv_len = length;
+        m->sml_values[0].bv_val = ch_calloc(1, length);
+        CFDataGetBytes(data, CFRangeMake(0, length), (UInt8*)m->sml_values[0].bv_val);
+        m->sml_nvalues[0].bv_len = length;
+        m->sml_nvalues[0].bv_val = ch_calloc(1, length);
+        CFDataGetBytes(data, CFRangeMake(0, length), (UInt8*)m->sml_nvalues[0].bv_val);
+        m->sml_next = mhead;
+        mhead = m;
+
+        CFRelease(data);
+
 	if(needPlaintext) {
 		AttributeDescription *passwordAD = NULL;
 		int encodeLen = strlen(password);
@@ -1833,53 +1925,6 @@ int odusers_set_password(struct berval *dn, char *password, int isChangingOwnPas
 		m->sml_next = mhead;
 		mhead = m;
 	}
-
-	if(!passModDateAD && slap_str2ad("passwordModDate", &passModDateAD, &text) != 0) {
-		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of passwordModDate attribute", __PRETTY_FUNCTION__, 0, 0);
-		goto out;
-	}
-
-	authe = odusers_copy_authdata(dn);
-	if(!authe) {
-		Debug(LDAP_DEBUG_ANY, "%s: Could not locate authdata for %s\n", __func__, dn->bv_val, 0);
-		goto out;
-	}
-
-	time_t tmptime;
-	struct tm tmptm;
-	tmptime = time(NULL);
-	gmtime_r(&tmptime, &tmptm);
-	m = ch_calloc(1, sizeof(Modifications));
-	m->sml_op = LDAP_MOD_REPLACE;
-	m->sml_flags = 0;
-	m->sml_type = passModDateAD->ad_cname;
-	m->sml_values = (struct berval*) ch_calloc(2, sizeof(struct berval));
-	m->sml_values[0].bv_val = ch_calloc(1, 256);
-	m->sml_values[0].bv_len = strftime(m->sml_values[0].bv_val, 256, "%Y%m%d%H%M%SZ", &tmptm);
-	m->sml_nvalues = NULL;
-	m->sml_numvals = 1;
-	m->sml_desc = passModDateAD;
-	m->sml_next = mhead;
-	mhead = m;
-
-	if(!failedLoginsAD && slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
-		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of loginFailedAttempts attribute", __PRETTY_FUNCTION__, 0, 0);
-		goto out;
-	}
-	m = (Modifications *) ch_malloc(sizeof(Modifications));
-
-	m->sml_op = LDAP_MOD_REPLACE;
-	m->sml_flags = 0;
-	m->sml_type = failedLoginsAD->ad_cname;
-	m->sml_values = (struct berval*) ch_calloc(2, sizeof(struct berval));
-	m->sml_values[0].bv_val = ch_strdup("0");
-	m->sml_values[0].bv_len = 1;
-	m->sml_numvals = 1;
-	m->sml_nvalues = NULL;
-
-	m->sml_desc = failedLoginsAD;
-	m->sml_next = mhead;
-	mhead = m;
 
 	odusers_clear_authhashes(authguid);
 
@@ -2240,7 +2285,7 @@ int odusers_store_history(struct berval *dn, const char *password) {
 	AttributeDescription *ad = NULL;
 	const char *text = NULL;
 	heim_CRAM_MD5_STATE crammd5state;
-	heim_CRAM_MD5_STATE empytcrammd5state;
+	heim_CRAM_MD5_STATE emptycrammd5state;
 	char *history = NULL;
 	int i;
 	short historyCount = 0;
@@ -2252,7 +2297,9 @@ int odusers_store_history(struct berval *dn, const char *password) {
 	Connection conn = {0};
 	SlapReply rs = {REP_RESULT};
 
-	bzero(&empytcrammd5state, sizeof(empytcrammd5state));
+	bzero(&emptycrammd5state, sizeof(emptycrammd5state));
+	bzero(&crammd5state, sizeof(crammd5state));
+
 	heim_cram_md5_export(password, &crammd5state);
 
 	authe = odusers_copy_authdata(dn);
@@ -2286,7 +2333,7 @@ int odusers_store_history(struct berval *dn, const char *password) {
 			if(memcmp(&crammd5state, history, sizeof(crammd5state)) == 0) { /* If the password already exists in the history, return success */
 				ret = 0;
 				goto out;
-			} else if (memcmp(&empytcrammd5state, history, sizeof(crammd5state)) == 0) { /* history list is null padded - halt on first empty entry */
+			} else if (memcmp(&emptycrammd5state, history, sizeof(emptycrammd5state)) == 0) { /* history list is null padded - halt on first empty entry */
 				break;
 			}
 			historyCount++;
@@ -2449,8 +2496,9 @@ int odusers_accountpolicy_set(struct berval *dn, Entry *authe, CFDictionaryRef a
 
 	Modifications *mod = NULL;
 	Modifications *modhead = NULL;
+	AttributeDescription *appleAccountPolicyAD = NULL;
 
-	if(!appleAccountPolicyAD && slap_str2ad("apple-accountpolicy", &appleAccountPolicyAD, &text) != 0) {
+	if(slap_str2ad("apple-accountpolicy", &appleAccountPolicyAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of apple-accountpolicy attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -2525,11 +2573,15 @@ void odusers_accountpolicy_updatedata( CFDictionaryRef updates, struct berval *d
 	CFNumberRef passModDate = NULL;
 	const char *text = NULL;
         int cFailedLogins = 0;
-        long long cLastLoginTime = 0;
-        long long cLastFailedLoginTime = 0;
-        long long cPassModTime = 0;
+        double cLastLoginTime = 0.0;
+        double cLastFailedLoginTime = 0.0;
+        double cPassModTime = 0.0;
         
 	char * pass = NULL;
+	AttributeDescription *failedLoginsAD = NULL;
+	AttributeDescription *lastLoginAD = NULL;
+	AttributeDescription *passModDateAD = NULL;
+	AttributeDescription *lastFailedLoginAD = NULL;
 
         if (!updates) return;
 
@@ -2540,9 +2592,8 @@ void odusers_accountpolicy_updatedata( CFDictionaryRef updates, struct berval *d
         }
 
         failedLogins = CFDictionaryGetValue(updates, kAPAttributeFailedAuthentications);
-        if(failedLogins) CFNumberGetValue(failedLogins, kCFNumberIntType, &cFailedLogins);
-        if(cFailedLogins) {
-                if(!failedLoginsAD && slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
+        if(failedLogins && CFNumberGetValue(failedLogins, kCFNumberIntType, &cFailedLogins)) {
+                if(slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
                         Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of loginFailedAttempts attribute", __PRETTY_FUNCTION__, 0, 0);
                         goto out;
                 }
@@ -2568,13 +2619,13 @@ void odusers_accountpolicy_updatedata( CFDictionaryRef updates, struct berval *d
 		modhead = mod;
 	}
 
+        /* AccountPolicy.fw sends the last login time as a CFTimeInterval (i.e. double). */
 	lastLoginTime = CFDictionaryGetValue(updates, kAPAttributeLastAuthenticationTime);
-	if(lastLoginTime) CFNumberGetValue(lastLoginTime, kCFNumberLongLongType, &cLastLoginTime);
-	if(cLastLoginTime) {
+	if(lastLoginTime && CFNumberGetValue(lastLoginTime, kCFNumberDoubleType, &cLastLoginTime)) {
                 time_t tmptime = (time_t)cLastLoginTime;
 		struct tm tmptm;
 
-		if(!lastLoginAD && slap_str2ad("lastLoginTime", &lastLoginAD, &text) != 0) {
+		if(slap_str2ad("lastLoginTime", &lastLoginAD, &text) != 0) {
 			Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of lastLoginTime attribute", __PRETTY_FUNCTION__, 0, 0);
 			goto out;
 		}
@@ -2599,13 +2650,13 @@ void odusers_accountpolicy_updatedata( CFDictionaryRef updates, struct berval *d
 		modhead = mod;
 	}
 
+        /* AccountPolicy.fw sends the last failed login time as a CFTimeInterval (i.e. double). */
 	lastFailedLoginTime = CFDictionaryGetValue(updates, kAPAttributeLastFailedAuthenticationTime);
-	if(lastFailedLoginTime) CFNumberGetValue(lastFailedLoginTime, kCFNumberLongLongType, &cLastFailedLoginTime);
-	if(cLastFailedLoginTime) {
+	if(lastFailedLoginTime && CFNumberGetValue(lastFailedLoginTime, kCFNumberDoubleType, &cLastFailedLoginTime)) {
                 time_t tmptime = (time_t)cLastFailedLoginTime;
 		struct tm tmptm;
 
-		if(!lastFailedLoginAD && slap_str2ad("lastFailedLoginTime", &lastFailedLoginAD, &text) != 0) {
+		if(slap_str2ad("lastFailedLoginTime", &lastFailedLoginAD, &text) != 0) {
 			Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of lastFailedLoginTime attribute", __PRETTY_FUNCTION__, 0, 0);
 			goto out;
 		}
@@ -2616,7 +2667,7 @@ void odusers_accountpolicy_updatedata( CFDictionaryRef updates, struct berval *d
 
 		mod->sml_op = LDAP_MOD_REPLACE;
 		mod->sml_flags = 0;
-		mod->sml_type = lastLoginAD->ad_cname;
+		mod->sml_type = lastFailedLoginAD->ad_cname;
 		mod->sml_values = (struct berval*) ch_malloc(2 * sizeof(struct berval));
 		mod->sml_values[0].bv_val = ch_calloc(1, 256);
 		mod->sml_values[0].bv_len = strftime(mod->sml_values[0].bv_val, 256, "%Y%m%d%H%M%SZ", &tmptm);
@@ -2631,9 +2682,9 @@ void odusers_accountpolicy_updatedata( CFDictionaryRef updates, struct berval *d
 	}
 
 /* for APPasswordChangeAllowed */
+        /* AccountPolicy.fw sends the mod time as a CFTimeInterval (i.e. double). */
 	passModDate = CFDictionaryGetValue(updates, kAPAttributeLastPasswordChangeTime);
-	if(passModDate) CFNumberGetValue(passModDate, kCFNumberLongLongType, &cPassModTime);
-	if(cPassModTime) {
+	if(passModDate && CFNumberGetValue(passModDate, kCFNumberDoubleType, &cPassModTime)) {
                 time_t tmptime = (time_t)cPassModTime;
 		struct tm tmptm;
 
@@ -2710,6 +2761,8 @@ out:
 CFDictionaryRef odusers_accountpolicy_retrievedata( CFDictionaryRef *policyData, CFArrayRef keys, struct berval *dn )
 {
 	CFMutableDictionaryRef data = NULL;
+        CFMutableArrayRef groups = NULL;
+        char *suffix = NULL;
 	int i;
 	int count;
 	
@@ -2737,6 +2790,15 @@ CFDictionaryRef odusers_accountpolicy_retrievedata( CFDictionaryRef *policyData,
 		}
 	}
 	
+	if (suffix) {
+		ch_free(suffix);
+	}
+
+	if (groups) {
+		CFDictionarySetValue(data, kAPAttributeIsMemberOfGroup, groups);
+		CFRelease(groups);
+	}
+
 	if (policyData) *policyData = data;
 	return data;
 }
@@ -2787,6 +2849,7 @@ CFDictionaryRef  odusers_copy_globalaccountpolicy()
 	Attribute *appleAccountPolicyAttr = NULL;
 	const char *text = NULL;
 	CFDictionaryRef globaldict = NULL;
+	AttributeDescription *appleAccountPolicyAD = NULL;
 
 	connection_fake_init2(&conn, &opbuf, ldap_pvt_thread_pool_context(), 0);
 	fakeop = &opbuf.ob_op;
@@ -2799,7 +2862,7 @@ CFDictionaryRef  odusers_copy_globalaccountpolicy()
 	e = odusers_copy_entry(fakeop);
 	if(!e) goto out;
 
-	if(!appleAccountPolicyAD && slap_str2ad("apple-accountpolicy", &appleAccountPolicyAD, &text) != 0) {
+	if(slap_str2ad("apple-accountpolicy", &appleAccountPolicyAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of apple-accountpolicy attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -2825,8 +2888,9 @@ CFDictionaryRef odusers_copy_accountpolicy_fromentry(Entry *authe)
 	const char *text = NULL;
 	Attribute *appleAccountPolicyAttr = NULL;
 	CFDictionaryRef policyDict = NULL;
+	AttributeDescription *appleAccountPolicyAD = NULL;
 
-	if(!appleAccountPolicyAD && slap_str2ad("apple-accountpolicy", &appleAccountPolicyAD, &text) != 0) {
+	if(slap_str2ad("apple-accountpolicy", &appleAccountPolicyAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of apple-accountpolicy attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -2850,11 +2914,12 @@ CFDictionaryRef  odusers_copy_accountpolicy(struct berval *dn)
 	const char *text = NULL;
 	Attribute *appleAccountPolicyAttr = NULL;
 	CFDictionaryRef policyDict = NULL;
+	AttributeDescription *appleAccountPolicyAD = NULL;
 	
 	authe = odusers_copy_authdata(dn);
 	if(!authe) goto out;
 
-	if(!appleAccountPolicyAD && slap_str2ad("apple-accountpolicy", &appleAccountPolicyAD, &text) != 0) {
+	if(slap_str2ad("apple-accountpolicy", &appleAccountPolicyAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of apple-accountpolicy attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -2900,12 +2965,17 @@ CFDictionaryRef odusers_copy_accountpolicyinfo(struct berval *dn) {
 	const char *text = NULL;
 	uint16_t loginattempts = 0;
 	
-	CFDictionaryRef userdict = NULL;
+	CFMutableDictionaryRef ret = NULL;
 	CFStringRef userpolicyGUID = NULL;
 	CFStringRef globalaccountpolicyGUID = NULL;
 	CFStringRef cfrecordname = NULL;
 	CFNumberRef cfzero = NULL;
 	CFNumberRef cfone = NULL;
+	AttributeDescription *lastLoginAD = NULL;
+	AttributeDescription *creationDateAD = NULL;
+	AttributeDescription *passModDateAD = NULL;
+	AttributeDescription *failedLoginsAD = NULL;
+	AttributeDescription *lastFailedLoginAD = NULL;
 
 	connection_fake_init2(&conn, &opbuf, ldap_pvt_thread_pool_context(), 0);
 	fakeop = &opbuf.ob_op;
@@ -2947,7 +3017,7 @@ CFDictionaryRef odusers_copy_accountpolicyinfo(struct berval *dn) {
 	
 	cfrecordname = CFStringCreateWithCString(NULL, recname, kCFStringEncodingUTF8);
 
-	CFMutableDictionaryRef ret = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	ret = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         if (strnstr(dn->bv_val, "cn=computer", dn->bv_len) == NULL) {
             CFDictionarySetValue(ret, kAPAttributeRecordType, kAPAttributeRecordTypeUser);
         } else {
@@ -2957,8 +3027,6 @@ CFDictionaryRef odusers_copy_accountpolicyinfo(struct berval *dn) {
 	CFDictionarySetValue(ret, kAPAttributeIsAdmin, isAdmin ? cfone : cfzero);
 	CFDictionarySetValue(ret, kAPAttributeIsAdministrativelyDisabled, isDisabled ? cfone : cfzero);
 	
-	userdict = ret;
-
 	usereUUID = attr_find( usere->e_attrs, slap_schema.si_ad_entryUUID );
 	if(!usereUUID) {
 		Debug(LDAP_DEBUG_ANY, "%s: couldn't find usereUUID attribute for %s", __PRETTY_FUNCTION__, dn->bv_val, 0);
@@ -2971,23 +3039,23 @@ CFDictionaryRef odusers_copy_accountpolicyinfo(struct berval *dn) {
 		goto out;
 	}
 	
-	if(!lastLoginAD && slap_str2ad("lastLoginTime", &lastLoginAD, &text) != 0) {
+	if(slap_str2ad("lastLoginTime", &lastLoginAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of lastLoginTime attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(!creationDateAD && slap_str2ad("creationDate", &creationDateAD, &text) != 0) {
+	if(slap_str2ad("creationDate", &creationDateAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of creationDate attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(!passModDateAD && slap_str2ad("passwordModDate", &passModDateAD, &text) != 0) {
+	if(slap_str2ad("passwordModDate", &passModDateAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of passwordModDate attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(!failedLoginsAD && slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
+	if(slap_str2ad("loginFailedAttempts", &failedLoginsAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of loginFailedAttempts attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
-	if(!lastFailedLoginAD && slap_str2ad("lastFailedLoginTime", &lastFailedLoginAD, &text) != 0) {
+	if(slap_str2ad("lastFailedLoginTime", &lastFailedLoginAD, &text) != 0) {
 		Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve description of lastLoginTime attribute", __PRETTY_FUNCTION__, 0, 0);
 		goto out;
 	}
@@ -3071,12 +3139,12 @@ CFDictionaryRef odusers_copy_accountpolicyinfo(struct berval *dn) {
 	historyData = attrs_find(authe->e_attrs, historyDataAD);
 	if (historyData) {
 		char historyArray[sizeof(heim_CRAM_MD5_STATE)*16] = {0};		
-		heim_CRAM_MD5_STATE empytcrammd5state = {0};
+		heim_CRAM_MD5_STATE emptycrammd5state = {0};
 		CFMutableArrayRef historyDataCFArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		bzero(&empytcrammd5state, sizeof(heim_CRAM_MD5_STATE));
+		bzero(&emptycrammd5state, sizeof(heim_CRAM_MD5_STATE));
 		memcpy(historyArray, historyData->a_nvals[0].bv_val, historyData->a_nvals[0].bv_len);
 		for (int i = 0; i < 16; i++) {
-			if (memcmp(&empytcrammd5state, historyArray, sizeof(heim_CRAM_MD5_STATE)) != 0) {
+			if (memcmp(&emptycrammd5state, historyArray, sizeof(heim_CRAM_MD5_STATE)) != 0) {
 				CFDataRef hash = CFDataCreate(NULL, (UInt8*)historyArray+(i* sizeof(heim_CRAM_MD5_STATE)), sizeof(heim_CRAM_MD5_STATE));
 				if (hash) {
 					CFArrayAppendValue(historyDataCFArray, hash);
@@ -3084,7 +3152,7 @@ CFDictionaryRef odusers_copy_accountpolicyinfo(struct berval *dn) {
 				}
 			}
 		}
-		CFDictionaryAddValue(userdict, kAPAttributePasswordHistory, historyDataCFArray);
+		CFDictionaryAddValue(ret, kAPAttributePasswordHistory, historyDataCFArray);
 		CFRelease(historyDataCFArray);
 	}
 
@@ -3102,7 +3170,7 @@ out:
 	if (globalaccountpolicyGUID) CFRelease(globalaccountpolicyGUID);
 	ch_free(suffix);
 	
-	return userdict;
+	return ret;
 }
 
 int odusers_joingroup(const char *group, struct berval *dn, bool remove) {
@@ -3121,6 +3189,10 @@ int odusers_joingroup(const char *group, struct berval *dn, bool remove) {
 	char *name = NULL;
 	Modifications *mod = NULL;
 	SlapReply rs = {REP_RESULT};
+	AttributeDescription *idattr_uuid = NULL;
+	AttributeDescription *idattr_memberships = NULL;
+	AttributeDescription *idattr_memberUid = NULL;
+	const char *text = NULL;
 
 	suffix = odusers_copy_suffix();
 	if(!suffix) {
@@ -3143,14 +3215,9 @@ int odusers_joingroup(const char *group, struct berval *dn, bool remove) {
 		goto out;
 	}
 
-	if(idattr_uuid == NULL) {
-		int rc;
-		const char *text = NULL;
-		rc = slap_str2ad( "apple-generateduid", &idattr_uuid, &text );
-		if(rc != LDAP_SUCCESS) {
-			Debug(LDAP_DEBUG_ANY, "%s: Unable to lookup attribute description for apple-generateduid\n", __func__, 0, 0);
-			goto out;
-		}
+	if(slap_str2ad("apple-generateduid", &idattr_uuid, &text) != 0) {
+		Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for apple-generateduid", __PRETTY_FUNCTION__, 0, 0);
+		goto out;
 	}
 	
 	guidattr = attr_find(usere->e_attrs, idattr_uuid);
@@ -3185,24 +3252,14 @@ int odusers_joingroup(const char *group, struct berval *dn, bool remove) {
 	name = ch_calloc(1, (tmpptr2 - tmpptr1) + 1);
 	memcpy(name, tmpptr1, (tmpptr2 - tmpptr1));
 
-	if(idattr_memberships == NULL) {
-		int rc;
-		const char *text = NULL;
-		rc = slap_str2ad( "apple-group-memberguid", &idattr_memberships, &text );
-		if(rc != LDAP_SUCCESS) {
-			Debug(LDAP_DEBUG_ANY, "%s: Unable to lookup attribute description for apple-group-memberguid\n", __func__, 0, 0);
-			goto out;
-		}
+	if(slap_str2ad("memberUid", &idattr_memberUid, &text) != 0) {
+		Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for memberUid", __PRETTY_FUNCTION__, 0, 0);
+		goto out;
 	}
 
-	if(idattr_memberUid == NULL) {
-		int rc;
-		const char *text = NULL;
-		rc = slap_str2ad( "memberUid", &idattr_memberUid, &text );
-		if(rc != LDAP_SUCCESS) {
-			Debug(LDAP_DEBUG_ANY, "%s: Unable to lookup attribute description for memberUid\n", __func__, 0, 0);
-			goto out;
-		}
+	if(slap_str2ad("apple-group-memberguid", &idattr_memberships, &text) != 0) {
+		Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed for apple-group-memberguid", __PRETTY_FUNCTION__, 0, 0);
+		goto out;
 	}
 
 	mod = (Modifications *) ch_calloc(1, sizeof(Modifications));
@@ -3275,14 +3332,15 @@ out:
 }
 
 int odusers_accountpolicy_override(struct berval *account_dn) {
-	int match = 0;
-	int rc = 0;
+	int match = -1;
+	int rc = -1;
 	const char *text;
 	
 	if ( cf_accountpolicy_override ) {
 		rc = value_match( &match, slap_schema.si_ad_entryDN, slap_schema.si_ad_entryDN->ad_type->sat_equality, 0, account_dn, cf_accountpolicy_override, &text );
 	}
 
-	Debug(LDAP_DEBUG_TRACE, "odusers_accountpolicy_override: match(%d) rc(%d) dn(%s)\n", match, rc, account_dn->bv_val);							
+	Debug(LDAP_DEBUG_TRACE, "odusers_accountpolicy_override: match(%d) rc(%d) dn(%s)\n", match, rc, account_dn->bv_val);
+
 	return ( rc == LDAP_SUCCESS && match == 0 );
 }

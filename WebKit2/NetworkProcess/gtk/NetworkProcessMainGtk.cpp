@@ -42,19 +42,18 @@ class NetworkProcessMain final: public ChildProcessMainBase {
 public:
     bool platformInitialize() override
     {
-        // Despite using system CAs to validate certificates we're
-        // accepting invalid certificates by default. New API will be
-        // added later to let client accept/discard invalid certificates.
         SoupNetworkSession::defaultSession().setSSLPolicy(SoupNetworkSession::SSLUseSystemCAFile);
         return true;
     }
 
     void platformFinalize() override
     {
+#if !ENABLE(NETWORK_CACHE)
         if (SoupCache* soupCache = SoupNetworkSession::defaultSession().cache()) {
             soup_cache_flush(soupCache);
             soup_cache_dump(soupCache);
         }
+#endif
     }
 };
 

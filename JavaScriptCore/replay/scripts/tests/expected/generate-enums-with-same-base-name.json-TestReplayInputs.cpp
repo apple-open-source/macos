@@ -35,10 +35,12 @@
 #include <platform/ExternalNamespaceImplIncludeDummy.h>
 
 namespace Test {
-FormCombo::FormCombo(PlatformEvent::Type eventType, FormData::Type formType)
+FormCombo::FormCombo(PlatformEvent1::Type eventType1, PlatformEvent2::Type eventType2, FormData1::Type formType1, FormData2::Type formType2)
     : NondeterministicInput<FormCombo>()
-    , m_eventType(eventType)
-    , m_formType(formType)
+    , m_eventType1(eventType1)
+    , m_eventType2(eventType2)
+    , m_formType1(formType1)
+    , m_formType2(formType2)
 {
 }
 
@@ -48,93 +50,94 @@ FormCombo::~FormCombo()
 } // namespace Test
 
 namespace JSC {
-const AtomicString& InputTraits<Test::FormCombo>::type()
+const String& InputTraits<Test::FormCombo>::type()
 {
-    static NeverDestroyed<const AtomicString> type("FormCombo", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const String> type(ASCIILiteral("FormCombo"));
     return type;
 }
 
 void InputTraits<Test::FormCombo>::encode(EncodedValue& encodedValue, const Test::FormCombo& input)
 {
-    encodedValue.put<PlatformEvent::Type>(ASCIILiteral("eventType"), input.eventType());
-    encodedValue.put<WebCore::FormData::Type>(ASCIILiteral("formType"), input.formType());
+    encodedValue.put<PlatformEvent1::Type>(ASCIILiteral("eventType1"), input.eventType1());
+    encodedValue.put<PlatformEvent2::Type>(ASCIILiteral("eventType2"), input.eventType2());
+    encodedValue.put<Test::FormData1::Type>(ASCIILiteral("formType1"), input.formType1());
+    encodedValue.put<Test::FormData2::Type>(ASCIILiteral("formType2"), input.formType2());
 }
 
 bool InputTraits<Test::FormCombo>::decode(EncodedValue& encodedValue, std::unique_ptr<Test::FormCombo>& input)
 {
-    PlatformEvent::Type eventType;
-    if (!encodedValue.get<PlatformEvent::Type>(ASCIILiteral("eventType"), eventType))
+    PlatformEvent1::Type eventType1;
+    if (!encodedValue.get<PlatformEvent1::Type>(ASCIILiteral("eventType1"), eventType1))
         return false;
 
-    WebCore::FormData::Type formType;
-    if (!encodedValue.get<WebCore::FormData::Type>(ASCIILiteral("formType"), formType))
+    PlatformEvent2::Type eventType2;
+    if (!encodedValue.get<PlatformEvent2::Type>(ASCIILiteral("eventType2"), eventType2))
         return false;
 
-    input = std::make_unique<Test::FormCombo>(eventType, formType);
+    Test::FormData1::Type formType1;
+    if (!encodedValue.get<Test::FormData1::Type>(ASCIILiteral("formType1"), formType1))
+        return false;
+
+    Test::FormData2::Type formType2;
+    if (!encodedValue.get<Test::FormData2::Type>(ASCIILiteral("formType2"), formType2))
+        return false;
+
+    input = std::make_unique<Test::FormCombo>(eventType1, eventType2, formType1, formType2);
     return true;
 }
-EncodedValue EncodingTraits<WebCore::FormData::Type>::encodeValue(const WebCore::FormData::Type& enumValue)
+EncodedValue EncodingTraits<Test::FormData1::Type>::encodeValue(const Test::FormData1::Type& enumValue)
 {
     EncodedValue encodedValue = EncodedValue::createArray();
-    if (enumValue & WebCore::FormData::Text) {
+    if (enumValue & Test::FormData1::Text) {
         encodedValue.append<String>(ASCIILiteral("Text"));
-        if (enumValue == WebCore::FormData::Text)
+        if (enumValue == Test::FormData1::Text)
             return encodedValue;
     }
-    if (enumValue & WebCore::FormData::Blob) {
+    if (enumValue & Test::FormData1::Blob) {
         encodedValue.append<String>(ASCIILiteral("Blob"));
-        if (enumValue == WebCore::FormData::Blob)
+        if (enumValue == Test::FormData1::Blob)
             return encodedValue;
     }
     return encodedValue;
 }
 
-bool EncodingTraits<WebCore::FormData::Type>::decodeValue(EncodedValue& encodedValue, WebCore::FormData::Type& enumValue)
+bool EncodingTraits<Test::FormData1::Type>::decodeValue(EncodedValue& encodedValue, Test::FormData1::Type& enumValue)
 {
     Vector<String> enumStrings;
     if (!EncodingTraits<Vector<String>>::decodeValue(encodedValue, enumStrings))
         return false;
 
-    for (String enumString : enumStrings) {
+    for (const String& enumString : enumStrings) {
         if (enumString == "Text")
-            enumValue = static_cast<WebCore::FormData::Type>(enumValue | WebCore::FormData::Text);
-        if (enumString == "Blob")
-            enumValue = static_cast<WebCore::FormData::Type>(enumValue | WebCore::FormData::Blob);
+            enumValue = static_cast<Test::FormData1::Type>(enumValue | Test::FormData1::Text);
+        else if (enumString == "Blob")
+            enumValue = static_cast<Test::FormData1::Type>(enumValue | Test::FormData1::Blob);
     }
 
     return true;
 }
 
-EncodedValue EncodingTraits<PlatformEvent::Type>::encodeValue(const PlatformEvent::Type& enumValue)
+EncodedValue EncodingTraits<Test::FormData2::Type>::encodeValue(const Test::FormData2::Type& enumValue)
 {
-    EncodedValue encodedValue = EncodedValue::createArray();
-    if (enumValue & PlatformEvent::Mouse) {
-        encodedValue.append<String>(ASCIILiteral("Mouse"));
-        if (enumValue == PlatformEvent::Mouse)
-            return encodedValue;
+    switch (enumValue) {
+    case Test::FormData2::Type::Text: return EncodedValue::createString("Text");
+    case Test::FormData2::Type::Blob: return EncodedValue::createString("Blob");
+    default: ASSERT_NOT_REACHED(); return EncodedValue::createString("Error!");
     }
-    if (enumValue & PlatformEvent::Keyboard) {
-        encodedValue.append<String>(ASCIILiteral("Keyboard"));
-        if (enumValue == PlatformEvent::Keyboard)
-            return encodedValue;
-    }
-    return encodedValue;
 }
 
-bool EncodingTraits<PlatformEvent::Type>::decodeValue(EncodedValue& encodedValue, PlatformEvent::Type& enumValue)
+bool EncodingTraits<Test::FormData2::Type>::decodeValue(EncodedValue& encodedValue, Test::FormData2::Type& enumValue)
 {
-    Vector<String> enumStrings;
-    if (!EncodingTraits<Vector<String>>::decodeValue(encodedValue, enumStrings))
-        return false;
-
-    for (String enumString : enumStrings) {
-        if (enumString == "Mouse")
-            enumValue = static_cast<PlatformEvent::Type>(enumValue | PlatformEvent::Mouse);
-        if (enumString == "Keyboard")
-            enumValue = static_cast<PlatformEvent::Type>(enumValue | PlatformEvent::Keyboard);
+    String enumString = encodedValue.convertTo<String>();
+    if (enumString == "Text") {
+        enumValue = Test::FormData2::Type::Text;
+        return true;
     }
-
-    return true;
+    if (enumString == "Blob") {
+        enumValue = Test::FormData2::Type::Blob;
+        return true;
+    }
+    return false;
 }
 } // namespace JSC
 

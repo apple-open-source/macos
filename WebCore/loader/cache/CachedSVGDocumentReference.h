@@ -26,7 +26,6 @@
 #ifndef CachedSVGDocumentReference_h
 #define CachedSVGDocumentReference_h
 
-#if ENABLE(CSS_FILTERS)
 #include "CachedResourceHandle.h"
 #include "CachedSVGDocumentClient.h"
 #include <wtf/text/WTFString.h>
@@ -43,7 +42,7 @@ public:
 
     virtual ~CachedSVGDocumentReference();
 
-    void load(CachedResourceLoader*, const ResourceLoaderOptions&);
+    void load(CachedResourceLoader&, const ResourceLoaderOptions&);
     bool loadRequested() const { return m_loadRequested; }
 
     CachedSVGDocument* document() { return m_document.get(); }
@@ -55,7 +54,5 @@ private:
 };
 
 };
-
-#endif // ENABLE(CSS_FILTERS)
 
 #endif // CachedSVGDocumentReference_h

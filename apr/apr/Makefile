@@ -35,7 +35,8 @@ AEP_Patches    = configure.diff \
                  legacy-32-bit-inode.diff \
                  apr_proc_spawn.diff \
                  remove-darwin10-hacks.diff \
-                 PR10582643.diff
+                 PR10582643.diff \
+                 apr-config.in.diff
 
 # Extract the source.
 install_source::

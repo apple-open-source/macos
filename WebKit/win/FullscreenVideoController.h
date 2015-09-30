@@ -30,7 +30,7 @@
 
 #include "MediaPlayerPrivateFullscreenWindow.h"
 
-#include <WebCore/HTMLMediaElement.h>
+#include <WebCore/HTMLVideoElement.h>
 #include <WebCore/Image.h>
 #include <WebCore/IntPoint.h>
 #include <WebCore/IntSize.h>
@@ -107,8 +107,8 @@ public:
     FullscreenVideoController();
     virtual ~FullscreenVideoController();
 
-    void setMediaElement(WebCore::HTMLMediaElement*);
-    WebCore::HTMLMediaElement* mediaElement() const { return m_mediaElement.get(); }
+    void setVideoElement(WebCore::HTMLVideoElement*);
+    WebCore::HTMLVideoElement* videoElement() const { return m_videoElement.get(); }
 
     void enterFullscreen();
     void exitFullscreen();
@@ -138,7 +138,7 @@ private:
     static void registerHUDWindowClass();
     static LRESULT CALLBACK hudWndProc(HWND, UINT message, WPARAM, LPARAM);
     void createHUDWindow();
-    void timerFired(WebCore::Timer*);
+    void timerFired();
 
     void togglePlay();
     void draw();
@@ -149,17 +149,17 @@ private:
     void onMouseUp(const WebCore::IntPoint&);
     void onKeyDown(int virtualKey);
 
-    RefPtr<WebCore::HTMLMediaElement> m_mediaElement;
+    RefPtr<WebCore::HTMLVideoElement> m_videoElement;
 
     HWND m_hudWindow;
     GDIObject<HBITMAP> m_bitmap;
     WebCore::IntSize m_fullscreenSize;
     WebCore::IntPoint m_hudPosition;
-    OwnPtr<WebCore::MediaPlayerPrivateFullscreenWindow> m_fullscreenWindow;
+    std::unique_ptr<WebCore::MediaPlayerPrivateFullscreenWindow> m_fullscreenWindow;
 
     class LayerClient;
     friend class LayerClient;
-    OwnPtr<LayerClient> m_layerClient;
+    std::unique_ptr<LayerClient> m_layerClient;
     RefPtr<WebCore::PlatformCALayer> m_rootChild;
 
     HUDButton m_playPauseButton;

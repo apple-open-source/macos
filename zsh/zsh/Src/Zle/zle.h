@@ -203,13 +203,16 @@ struct widget {
 #define WIDGET_INT	(1<<0)	/* widget is internally implemented */
 #define WIDGET_NCOMP    (1<<1)	/* new style completion widget */
 #define ZLE_MENUCMP	(1<<2)	/* DON'T invalidate completion list */
-#define ZLE_YANK	(1<<3)
-#define ZLE_LINEMOVE	(1<<4)	/* command is a line-oriented movement */
-#define ZLE_LASTCOL     (1<<5)	/* command maintains lastcol correctly */
-#define ZLE_KILL	(1<<6)
-#define ZLE_KEEPSUFFIX	(1<<7)	/* DON'T remove added suffix */
-#define ZLE_NOTCOMMAND  (1<<8)	/* widget should not alter lastcmd */
-#define ZLE_ISCOMP      (1<<9)	/* usable for new style completion */
+#define ZLE_YANKAFTER	(1<<3)
+#define ZLE_YANKBEFORE	(1<<4)
+#define ZLE_YANK        (ZLE_YANKAFTER | ZLE_YANKBEFORE)
+#define ZLE_LINEMOVE	(1<<5)	/* command is a line-oriented movement */
+#define ZLE_VIOPER	(1<<6)  /* widget reads further keys so wait if prefix */
+#define ZLE_LASTCOL     (1<<7)	/* command maintains lastcol correctly */
+#define ZLE_KILL	(1<<8)
+#define ZLE_KEEPSUFFIX	(1<<9)	/* DON'T remove added suffix */
+#define ZLE_NOTCOMMAND  (1<<10)	/* widget should not alter lastcmd */
+#define ZLE_ISCOMP      (1<<11)	/* usable for new style completion */
 
 /* thingies */
 
@@ -240,6 +243,9 @@ struct modifier {
 #define MOD_VIBUF (1<<2)   /* a vi cut buffer has been selected */
 #define MOD_VIAPP (1<<3)   /* appending to the vi cut buffer */
 #define MOD_NEG   (1<<4)   /* last command was negate argument */
+#define MOD_NULL  (1<<5)   /* throw away text for the vi cut buffer */
+#define MOD_CHAR  (1<<6)   /* force character-wise movement */
+#define MOD_LINE  (1<<7)   /* force line-wise movement */
 
 /* current modifier status */
 
@@ -256,6 +262,7 @@ struct modifier {
 			      * of visible characters directly input by
 			      * the user.
 			      */
+#define CUT_YANK    (1<<3)   /* vi yank: use register 0 instead of 1-9 */
 
 /* undo system */
 

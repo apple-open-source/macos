@@ -1,0 +1,9 @@
+#include "base.xcconfig"
+
+PRODUCT_NAME = $(TARGET_NAME)
+
+HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/sec/ProjectHeaders
+
+STRIP_STYLE = all
+STRIP_INSTALLED_PRODUCT = YES
+DEPLOYMENT_POSTPROCESSING = NO

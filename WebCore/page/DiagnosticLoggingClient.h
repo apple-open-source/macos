@@ -26,25 +26,36 @@
 #ifndef DiagnosticLoggingClient_h
 #define DiagnosticLoggingClient_h
 
+#include "DiagnosticLoggingResultType.h"
 #include <wtf/Forward.h>
+#include <wtf/RandomNumber.h>
 
 namespace WebCore {
 
+enum class ShouldSample { No, Yes };
+
 class DiagnosticLoggingClient {
 public:
-    virtual void logDiagnosticMessage(const String& message, const String& description) { UNUSED_PARAM(message); UNUSED_PARAM(description); }
+    virtual void logDiagnosticMessage(const String& message, const String& description, ShouldSample) = 0;
+    virtual void logDiagnosticMessageWithResult(const String& message, const String& description, DiagnosticLoggingResultType, ShouldSample) = 0;
+    virtual void logDiagnosticMessageWithValue(const String& message, const String& description, const String& value, ShouldSample) = 0;
 
-    enum LogResultType {
-        Pass,
-        Fail,
-        Noop,
-    };
-    virtual void logDiagnosticMessageWithResult(const String& message, const String& description, LogResultType) { UNUSED_PARAM(message); UNUSED_PARAM(description); }
-    virtual void logDiagnosticMessageWithValue(const String& message, const String& description, const String& value) { UNUSED_PARAM(message); UNUSED_PARAM(description); UNUSED_PARAM(value); }
+    virtual void mainFrameDestroyed() = 0;
+
+    static bool shouldLogAfterSampling(ShouldSample);
 
 protected:
     virtual ~DiagnosticLoggingClient() { }
 };
+
+inline bool DiagnosticLoggingClient::shouldLogAfterSampling(ShouldSample shouldSample)
+{
+    if (shouldSample == ShouldSample::No)
+        return true;
+
+    static const double selectionProbability = 0.05;
+    return randomNumber() <= selectionProbability;
+}
 
 }
 

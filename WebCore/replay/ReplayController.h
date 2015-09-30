@@ -110,6 +110,7 @@ struct ReplayPosition {
 };
 
 class ReplayController final : public EventLoopInputDispatcherClient {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(ReplayController);
 public:
     ReplayController(Page&);
@@ -128,18 +129,23 @@ public:
         replayToPosition(ReplayPosition(), speed);
     }
 
-    void switchSession(PassRefPtr<ReplaySession>);
+    void switchSession(RefPtr<ReplaySession>&&);
 
     // InspectorReplayAgent notifications.
     void frameNavigated(DocumentLoader*);
-    void frameDetached(Frame*);
+    void frameDetached(Frame&);
     void willDispatchEvent(const Event&, Frame*);
 
     Page& page() const { return m_page; }
+
     SessionState sessionState() const { return m_sessionState; }
-    PassRefPtr<ReplaySession> loadedSession() const;
-    PassRefPtr<ReplaySessionSegment> loadedSegment() const;
-    JSC::InputCursor& activeInputCursor() const;
+    SegmentState segmentState() const { return m_segmentState; }
+
+    RefPtr<ReplaySession> loadedSession() const;
+    RefPtr<ReplaySessionSegment> loadedSegment() const;
+
+    JSC::InputCursor& activeInputCursor();
+    ReplayPosition currentPosition() const { return m_currentPosition; }
 
 private:
     // EventLoopInputDispatcherClient API
@@ -156,6 +162,7 @@ private:
     EventLoopInputDispatcher& dispatcher() const;
 
     void setSessionState(SessionState);
+    void setSegmentState(SegmentState);
     void setForceDeterministicSettings(bool);
 
     struct SavedSettings {
@@ -170,7 +177,7 @@ private:
 
     RefPtr<ReplaySessionSegment> m_loadedSegment;
     RefPtr<ReplaySession> m_loadedSession;
-    const RefPtr<JSC::InputCursor> m_emptyCursor;
+    Ref<JSC::InputCursor> m_emptyCursor;
     // The active cursor is set to nullptr when invalid.
     RefPtr<JSC::InputCursor> m_activeCursor;
 

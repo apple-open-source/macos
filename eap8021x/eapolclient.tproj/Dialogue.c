@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -713,7 +713,7 @@ CredentialsDialogueCreateUserNotification(CredentialsDialogueRef dialogue_p,
     }
     notif = CFUserNotificationCreate(NULL, 0, flags, &error, dict);
     if (notif == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "CFUserNotificationCreate failed, %d", error);
+	EAPLOG_FL(LOG_NOTICE, "CFUserNotificationCreate failed, %d", (int)error);
     }
     my_CFRelease(&dict);
     return (notif);
@@ -913,7 +913,7 @@ TrustDialogue_setup_parent(TrustDialogueRef dialogue_p)
 		      strerror(errno));
 	}
 	else {
-	    EAPLOG_FL(LOG_NOTICE, "wrote %d expected %d",
+	    EAPLOG_FL(LOG_NOTICE, "wrote %lu expected %lu",
 		      write_count, count);
 	}
     }
@@ -1104,7 +1104,7 @@ AlertDialogueCopy(AlertDialogueRef dialogue_p,
     CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, message);
     notif = CFUserNotificationCreate(NULL, 0, 0, &error, dict);
     if (notif == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "CFUserNotificationCreate failed, %d", error);
+	EAPLOG_FL(LOG_NOTICE, "CFUserNotificationCreate failed, %d", (int)error);
     }
     my_CFRelease(&dict);
     return (notif);

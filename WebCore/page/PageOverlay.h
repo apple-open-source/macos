@@ -69,17 +69,17 @@ public:
         Document, // Scales and scrolls with the document.
     };
 
-    static PassRefPtr<PageOverlay> create(Client&, OverlayType = OverlayType::View);
-    virtual ~PageOverlay();
+    WEBCORE_EXPORT static Ref<PageOverlay> create(Client&, OverlayType = OverlayType::View);
+    WEBCORE_EXPORT virtual ~PageOverlay();
 
-    PageOverlayController* controller() const;
+    WEBCORE_EXPORT PageOverlayController* controller() const;
 
     typedef uint64_t PageOverlayID;
     virtual PageOverlayID pageOverlayID() const { return m_pageOverlayID; }
 
     void setPage(Page*);
-    void setNeedsDisplay(const IntRect& dirtyRect);
-    void setNeedsDisplay();
+    WEBCORE_EXPORT void setNeedsDisplay(const IntRect& dirtyRect);
+    WEBCORE_EXPORT void setNeedsDisplay();
 
     void drawRect(GraphicsContext&, const IntRect& dirtyRect);
     bool mouseEvent(const PlatformMouseEvent&);
@@ -91,9 +91,9 @@ public:
     
     void startFadeInAnimation();
     void startFadeOutAnimation();
-    void stopFadeOutAnimation();
+    WEBCORE_EXPORT void stopFadeOutAnimation();
 
-    void clear();
+    WEBCORE_EXPORT void clear();
 
     Client& client() const { return m_client; }
 
@@ -101,21 +101,23 @@ public:
 
     OverlayType overlayType() { return m_overlayType; }
 
-    IntRect bounds() const;
-    IntRect frame() const;
-    void setFrame(IntRect);
+    WEBCORE_EXPORT IntRect bounds() const;
+    WEBCORE_EXPORT IntRect frame() const;
+    WEBCORE_EXPORT void setFrame(IntRect);
+
+    WEBCORE_EXPORT IntSize viewToOverlayOffset() const;
 
     RGBA32 backgroundColor() const { return m_backgroundColor; }
     void setBackgroundColor(RGBA32);
-    
+
     // FIXME: PageOverlay should own its layer, instead of PageOverlayController.
-    GraphicsLayer& layer();
+    WEBCORE_EXPORT GraphicsLayer& layer();
 
 private:
     explicit PageOverlay(Client&, OverlayType);
 
     void startFadeAnimation();
-    void fadeAnimationTimerFired(Timer&);
+    void fadeAnimationTimerFired();
 
     Client& m_client;
     Page* m_page;

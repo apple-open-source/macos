@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,7 +65,8 @@ enum {
     kEAPTypePEAP = 25,
     kEAPTypeMSCHAPv2 = 26,
     kEAPTypeExtensions = 33,
-    kEAPTypeEAPFAST = 43
+    kEAPTypeEAPFAST = 43,
+    kEAPTypeEAPAKAPrime = 50,
 };
 typedef uint32_t EAPType;
 
@@ -90,7 +91,8 @@ typedef struct EAPRequestResponsePacket_s {
     uint8_t		type;		/* EAPType values */
     uint8_t		type_data[0];
 } EAPRequestPacket, *EAPRequestPacketRef, 
-    EAPResponsePacket, *EAPResponsePacketRef;
+    EAPResponsePacket, *EAPResponsePacketRef,
+    EAPNakPacket, *EAPNakPacketRef;
 
 typedef struct EAPNotificationPacket_s {
     uint8_t		code;
@@ -98,14 +100,6 @@ typedef struct EAPNotificationPacket_s {
     uint8_t		length[2];	/* sizeof(EAPNotificationPacket) */
     uint8_t		type;		/* kEAPTypeNotification */
 } EAPNotificationPacket, *EAPNotificationPacketRef;
-
-typedef struct EAPNakPacket_s {
-    uint8_t		code;
-    uint8_t		identifier;
-    uint8_t		length[2];	/* of entire response */
-    uint8_t		type;
-    uint8_t	       	desired_type;
-} EAPNakPacket, *EAPNakPacketRef;
 
 typedef struct EAPMD5ChallengePacket_s {
     uint8_t		code;

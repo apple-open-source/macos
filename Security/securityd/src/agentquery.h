@@ -28,7 +28,6 @@
 #ifndef _H_AGENTQUERY
 #define _H_AGENTQUERY
 
-#include <security_agent_client/agentclient.h>
 #include <security_cdsa_utilities/AuthorizationData.h>
 #include <security_utilities/ccaudit.h> // some queries do their own authentication
 #include <Security/AuthorizationPlugin.h>
@@ -43,29 +42,7 @@ using Authorization::AuthItemSet;
 using Authorization::AuthValueVector;
 using Security::OSXCode;
 
-//
-// base for classes talking to SecurityAgent and authorizationhost
-//
-class SecurityAgentConnection : public SecurityAgent::Client,
-public SecurityAgentConnectionInterface
-{
-public:
-    SecurityAgentConnection(const AuthHostType type = securityAgent, Session &session = Server::session());
-    virtual ~SecurityAgentConnection();
-    virtual void activate();
-    virtual void reconnect();
-    virtual void disconnect()  { };
-    virtual void terminate();
-    
-    AuthHostType hostType()  { return mAuthHostType; }
-    
-protected:
-    AuthHostType mAuthHostType;
-    RefPointer<AuthHostInstance> mHostInstance;
-    Port mPort;
-    const RefPointer<Connection> mConnection;
-    audit_token_t *mAuditToken;
-};
+const uint64_t kMaximumAuthorizationTries = 10000;
 
 //
 // base for classes talking to com.apple.security.agent and com.apple.security.authhost 
@@ -87,7 +64,6 @@ protected:
     RefPointer<AuthHostInstance> mHostInstance;
     Session &mSession;
     xpc_connection_t mXPCConnection;
-    xpc_connection_t mXPCStubConnection;
     const RefPointer<Connection> mConnection;
     audit_token_t *mAuditToken;
     uid_t mNobodyUID;
@@ -96,34 +72,6 @@ protected:
 
 };
 
-//
-// The main SecurityAgent/authorizationhost interaction base class
-//
-class SecurityAgentQuery : public SecurityAgentConnection
-{
-public:
-	typedef SecurityAgent::Reason Reason;
-	
-	SecurityAgentQuery(const AuthHostType type = securityAgent, Session &session = Server::session());
-	
-    
-	void inferHints(Process &thisProcess);
-	void addHint(const char *name, const void *value = NULL, UInt32 valueLen = 0, UInt32 flags = 0);
-    
-	virtual ~SecurityAgentQuery();
-    
-	virtual void disconnect();
-	virtual void terminate();
-	void create(const char *pluginId, const char *mechanismId, const SessionId inSessionId);
-    
-	void readChoice();
-    
-	bool allow;
-	bool remember;
-    
-protected:
-	AuthItemSet mClientHints;
-};
 
 //
 // The main com.apple.security.agent/com.apple.security.authhost interaction base class
@@ -145,7 +93,7 @@ public:
     
 	virtual void disconnect();
 	virtual void terminate();
-	void create(const char *pluginId, const char *mechanismId, const SessionId inSessionId);
+	void create(const char *pluginId, const char *mechanismId);
     OSStatus invoke();
     void setTerminateOnSleep(bool terminateOnSleep) {mTerminateOnSleep = terminateOnSleep;}
     bool getTerminateOnSleep() {return mTerminateOnSleep;}
@@ -310,19 +258,6 @@ public:
 protected:
     Reason query(DbHandle *dbHandleArray, uint8 dbHandleArrayCount, DbHandle *dbHandleAuthenticated);
 	Reason accept(CssmManagedData &passphrase, DbHandle *dbHandlesToAuthenticate, uint8 dbHandleCount, DbHandle *dbHandleAuthenticated);
-};
-
-class QueryInvokeMechanism : public SecurityAgentQuery, public RefCount {
-public:
-	QueryInvokeMechanism(const AuthHostType type, Session &session);
-    void initialize(const string &inPluginId, const string &inMechanismId, const AuthValueVector &arguments, const SessionId inSessionId = 0);
-    void run(const AuthValueVector &inArguments, AuthItemSet &inHints, AuthItemSet &inContext, AuthorizationResult *outResult);
-
-    bool operator () (const string &inPluginId, const string &inMechanismId, const Authorization::AuthValueVector &inArguments, AuthItemSet &inHints, AuthItemSet &inContext, AuthorizationResult *outResult);
-    void terminateAgent();
-    //~QueryInvokeMechanism();
-
-    AuthValueVector mArguments;
 };
 
 // hybrid of confirm-access and generic authentication queries, for

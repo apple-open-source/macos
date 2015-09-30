@@ -90,9 +90,8 @@ values can be a list of year, month, day, hour, min, second.
 Example: 1 month 2 days 30 min.
 If no unit is given, seconds is assumed.
 .It etypes
-valid encryption types are: des-cbc-crc, des-cbc-md4, des-cbc-md5,
-des3-cbc-sha1, arcfour-hmac-md5, aes128-cts-hmac-sha1-96, and
-aes256-cts-hmac-sha1-96 .
+valid encryption types are: des3-cbc-sha1, arcfour-hmac-md5,
+aes128-cts-hmac-sha1-96, and aes256-cts-hmac-sha1-96 .
 .It address
 an address can be either a IPv4 or a IPv6 address.
 .El
@@ -144,8 +143,7 @@ Default realm to use, this is also known as your
 The default is the result of
 .Fn krb5_get_host_realm "local hostname" .
 .It Li allow_weak_crypto = Va boolean
-is weaks crypto algorithms allowed to be used, among others, DES is
-considered weak.
+is weaks crypto algorithms allowed to be used.
 .It Li clockskew = Va time
 Maximum time differential (in seconds) allowed when comparing
 times.
@@ -177,16 +175,13 @@ Only support variable now is
 .Li %{uid}
 that expands to the current user id.
 .It Li default_etypes = Va etypes ...
-A list of default encryption types to use. (Default: all enctypes if
-allow_weak_crypto = TRUE, else all enctypes except single DES enctypes.)
+A list of default encryption types to use. (Default: all enctypes)
 .It Li default_as_etypes = Va etypes ...
 A list of default encryption types to use in AS requests.  (Default: the
 value of default_etypes.)
 .It Li default_tgs_etypes = Va etypes ...
 A list of default encryption types to use in TGS requests.  (Default:
 the value of default_etypes.)
-.It Li default_etypes_des = Va etypes ...
-A list of default encryption types to use when requesting a DES credential.
 .It Li default_keytab_name = Va keytab
 The keytab to use if no other is specified, default is
 .Dq FILE:/etc/krb5.keytab .
@@ -484,7 +479,7 @@ try to parse it as a sequence of
 .Va etype:salttype:salt
 syntax of this if something like:
 .Pp
-[(des|des3|etype):](pw-salt|afs3-salt)[:string]
+[(des3|etype):](pw-salt|afs3-salt)[:string]
 .Pp
 If
 .Ar etype
@@ -495,17 +490,6 @@ Additional special values of keytypes are:
 .It Li v5
 The Kerberos 5 salt
 .Va pw-salt
-.It Li v4
-The Kerberos 4 salt
-.Va des:pw-salt:
-.El
-.It Li use_v4_salt = Va BOOL
-When true, this is the same as
-.Pp
-.Va default_keys = Va des3:pw-salt Va v4
-.Pp
-and is only left for backwards compatibility.
-.El
 .It Li [password_quality]
 Check the Password quality assurance in the info documentation for
 more information.

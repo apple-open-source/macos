@@ -81,6 +81,7 @@ static int argtoi(int flag, char *req, char *str, int base);
 static void usage();
 static int startdiskcheck(disk_t* disk);
 
+
 /* Global Variables */
 int preen = 0;				/* We're checking all fs'es in 'preen' mode */
 int returntosingle = 0;		/* Return a non-zero status to prevent multi-user start up */
@@ -91,7 +92,7 @@ int debug = 0;				/* Output Debugging info */
 int force_fsck = 0;			/* Force an fsck even if the underlying FS is clean */
 int maximum_running = 0;	/* Maximum number of sub-processes we'll allow to be spawned */
 int quick_check = 0;		/* Do a quick check.  Quick check returns clean, dirty, or fail */
-
+int requested_passno = 0;	/* only check the filesystems with the specified passno */
 /*
  * The two following globals are mutually exclusive; you cannot assume "yes" and "no."
  * The last one observed will be the one that is honored.  e.g. fsck -fdnyny will result 
@@ -207,7 +208,7 @@ int main (int argc, char** argv) {
 	
 
 	sync();
-	while ((ch = getopt(argc, argv, "dfpqnNyYl:")) != EOF) {
+	while ((ch = getopt(argc, argv, "dfpR:qnNyYl:")) != EOF) {
 		switch (ch) {
 			case 'd':
 				debug++;
@@ -219,6 +220,15 @@ int main (int argc, char** argv) {
 				
 			case 'f':
 				force_fsck++;
+				break;
+
+			case 'R':
+				requested_passno = argtoi('R', "number", optarg, 10);
+				/* only allowed to specify 1 or 2 as argument here */
+				if ((requested_passno < ROOT_PASSNO) || (requested_passno > NONROOT_PASSNO)) {
+					usage();
+					exit(EINVAL);
+				}
 				break;
 								
 			case 'N':
@@ -351,6 +361,17 @@ int build_disklist(void) {
 	int retval;
 	int running_status = 0;
 
+	int starting_passno = ROOT_PASSNO;  //1
+	int ending_passno = NONROOT_PASSNO; //2
+
+	if (requested_passno) {
+		if (requested_passno == NONROOT_PASSNO) {
+			starting_passno = NONROOT_PASSNO;
+		}
+		else if (requested_passno == ROOT_PASSNO) {
+			ending_passno = ROOT_PASSNO;
+		}
+	}
 	 
 	/*
 	 * We may need to iterate over the elements in the fstab in non-sequential order.
@@ -359,8 +380,18 @@ int build_disklist(void) {
 	 * field.  The library code used to fill in the fsp structure will specify an 
 	 * fsp->fs_passno == 1 for the root. All other filesystems should get fsp->fs_passno == 2.
 	 * (See fstab manpage for more info.)
+	 *
+	 * However, note that with the addition of the -R argument to this utility, we might "skip" 
+	 * one of these two passes. By passing in -R 1 or -R 2, the executor of this utility is
+	 * specifying that they only want 'fsck' to run on either the root filesystem (passno == 1)
+	 * or the non-root filesystems (passno == 2). 
 	 */
-	for (passno = 1; passno <= 2; passno++) {
+#if DEBUG
+	fprintf(stderr, "fsck: iterating fstab - starting passno %d, ending passno %d\n", 
+			starting_passno, ending_passno);
+#endif
+
+	for (passno = starting_passno; passno <= ending_passno; passno++) {
 		/* Open or reset the fstab entry */
 		if (setfsent() == 0) {
 			fprintf(stderr, "Can't open checklist file: %s\n", _PATH_FSTAB);
@@ -376,8 +407,15 @@ int build_disklist(void) {
 				continue;
 			}
 			/*
+			 * 'preen' mode is a holdover from the BSD days of long ago.  It is semi-
+			 * equivalent to a fsck -q, except that it skips filesystems who say that they
+			 * are cleanly unmounted and fsck -q will actually call into fsck_hfs to do a 
+			 * journaling check.
+			 * 
 			 * If preen is off, then we will wind up checking everything in order, so 
-			 * go ahead and just check this item now.
+			 * go ahead and just check this item now. However, if requested_passno is set, then
+			 * the caller is asking us to explicitly only check partitions with a certain passno
+			 * identifier.
 			 *
 			 * Otherwise, only work on the root filesystem in the first pass.  We can
 			 * tell that the fsp represents the root filesystem if fsp->fs_passno == 1.
@@ -393,9 +431,22 @@ int build_disklist(void) {
 			 * Once we're booted to multi-user, this block of code shouldn't ever really check anything
 			 * unless it's a valid fstab entry because the synthesized fstab entries don't supply a passno
 			 * field.  Also, they would have to be valid /dev/disk fstab entries as opposed to 
-			 * UUID or LABEL ones. 
+			 * UUID or LABEL ones.
+			 *
+			 * on iOS the above is not true; we rely on the fstab file, like a BSD system, to infer
+			 * the partition state and what is root vs. non-root.
 			 */
-			if (preen == 0 || (passno == 1 && fsp->fs_passno == 1)) {
+			if ((preen == 0) || (passno == 1 && fsp->fs_passno == 1)) {
+
+				/*
+				 * If the caller specified a -R argument for us to examine only a certain
+				 * range of passno fields AND that value does not match our current passno,
+				 * then let the loop march on.
+				 */	
+				if (requested_passno && (fsp->fs_passno != requested_passno)) {
+					continue; //skip to the next fsent entry.
+				}
+
 				/* Take the special device name, and do some cursory checks. */
 				if ((name = blockcheck(fsp->fs_spec)) != 0) {
 					/* Construct a temporary disk_t for checkfilesys */
@@ -1103,18 +1154,16 @@ void addpart(char *name, char *fsname, char *vfstype) {
 		exit (8);
 	}
 	part = *ppt;
-	if ((part->name = malloc(strlen(name) + 1)) == NULL) {
+	if ((part->name = strdup(name)) == NULL) {
 		fprintf(stderr, "out of memory");
 		exit (8);
 	}
 	
 	/* Add the name & vfs info to the partition struct */
-	(void)strcpy(part->name, name);
-	if ((part->fsname = malloc(strlen(fsname) + 1)) == NULL) {
+	if ((part->fsname = strdup(fsname)) == NULL) {
 		fprintf(stderr, "out of memory");
 		exit (8);
 	}
-	(void)strcpy(part->fsname, fsname);
 	part->next = NULL;
 	part->vfstype = strdup(vfstype);
 	if (part->vfstype == NULL) {

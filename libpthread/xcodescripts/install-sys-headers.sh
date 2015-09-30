@@ -24,7 +24,6 @@
 set -e
 
 if [ "$ACTION" = build ]; then exit 0; fi
-DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
 
 DESTDIR="$DSTROOT/usr/include/sys"
 mkdir -p "$DESTDIR"

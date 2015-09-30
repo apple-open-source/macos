@@ -3,6 +3,7 @@
 
 #ifndef HMAC_MD5_H
 #define HMAC_MD5_H 1
+#include <Availability.h>
 
 #define HMAC_MD5_SIZE 16
 
@@ -29,28 +30,28 @@ extern "C" {
  */
 void _sasl_hmac_md5(const unsigned char *text, int text_len,
 		    const unsigned char *key, int key_len,
-		    unsigned char digest[HMAC_MD5_SIZE]);
+		    unsigned char digest[HMAC_MD5_SIZE]) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* create context from key
  */
 void _sasl_hmac_md5_init(HMAC_MD5_CTX *hmac,
-			 const unsigned char *key, int key_len);
+			 const unsigned char *key, int key_len) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* precalculate intermediate state from key
  */
 void _sasl_hmac_md5_precalc(HMAC_MD5_STATE *hmac,
-			    const unsigned char *key, int key_len);
+			    const unsigned char *key, int key_len) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* initialize context from intermediate state
  */
-void _sasl_hmac_md5_import(HMAC_MD5_CTX *hmac, HMAC_MD5_STATE *state);
+void _sasl_hmac_md5_import(HMAC_MD5_CTX *hmac, HMAC_MD5_STATE *state) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 #define _sasl_hmac_md5_update(hmac, text, text_len) _sasl_MD5Update(&(hmac)->ictx, (text), (text_len))
 
 /* finish hmac from intermediate result.  Intermediate result is zeroed.
  */
 void _sasl_hmac_md5_final(unsigned char digest[HMAC_MD5_SIZE],
-			  HMAC_MD5_CTX *hmac);
+			  HMAC_MD5_CTX *hmac) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 #ifdef __cplusplus
 }

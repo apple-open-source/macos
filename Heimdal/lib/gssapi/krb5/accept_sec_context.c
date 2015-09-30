@@ -187,7 +187,7 @@ gsskrb5_accept_delegated_token
 {
     krb5_ccache ccache = NULL;
     krb5_error_code kret;
-    int32_t ac_flags, ret = GSS_S_COMPLETE;
+    OM_uint32 ret = GSS_S_COMPLETE;
 
     *minor_status = 0;
 
@@ -210,17 +210,10 @@ gsskrb5_accept_delegated_token
 	goto out;
     }
 
-    krb5_auth_con_removeflags(context,
-			      ctx->auth_context,
-			      KRB5_AUTH_CONTEXT_DO_TIME,
-			      &ac_flags);
     kret = krb5_rd_cred2(context,
-			 ctx->auth_context,
+			 ctx->deleg_auth_context,
 			 ccache,
 			 &ctx->fwd_data);
-    krb5_auth_con_setflags(context,
-			   ctx->auth_context,
-			   ac_flags);
     if (kret) {
 	ctx->flags &= ~GSS_C_DELEG_FLAG;
 	ret = GSS_S_FAILURE;
@@ -913,6 +906,38 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
 	    if (ap_options & AP_OPTS_MUTUAL_REQUIRED)
 		ctx->flags |= GSS_C_MUTUAL_FLAG;
         }
+    }
+
+    /*
+     * Make a copy of the auth context for the delegation credential
+     * in case we are doing PFS.
+     */
+
+    if (ctx->fwd_data.length) {
+	kret = krb5_auth_con_init (context, &ctx->deleg_auth_context);
+	if (kret == 0)
+	    krb5_auth_con_setkey(context, ctx->deleg_auth_context, ctx->auth_context->keyblock);
+	if (kret == 0)
+	    krb5_auth_con_setremotesubkey(context, ctx->deleg_auth_context, ctx->auth_context->remote_subkey);
+	if (kret) {
+	    ret = GSS_S_FAILURE;
+	    *minor_status = kret;
+	    return ret;
+	}
+    }
+
+    if (_gss_mg_log_level(10)) {
+	char *tprinc = NULL, *sprinc = NULL;
+	(void)krb5_unparse_name(context, ctx->target, &tprinc);
+	(void)krb5_unparse_name(context, ctx->source, &sprinc);
+
+	_gss_mg_log(10, "gss-asc: krb5 (server: %s client: %s) using session enctype: %d",
+		    tprinc, sprinc,
+		    ctx->auth_context->keyblock->keytype);
+	if (sprinc)
+	    krb5_xfree(sprinc);
+	if (tprinc)
+	    krb5_xfree(tprinc);
     }
 
     if(ctx->flags & GSS_C_MUTUAL_FLAG) {

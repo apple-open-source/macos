@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,8 @@
 #import "Editor.h"
 
 #import "BlockExceptions.h"
+#import "CSSPrimitiveValueMappings.h"
+#import "CSSValuePool.h"
 #import "CachedResourceLoader.h"
 #import "ColorMac.h"
 #import "DOMRangeInternal.h"
@@ -35,10 +37,12 @@
 #import "DocumentLoader.h"
 #import "Editor.h"
 #import "EditorClient.h"
-#import "Font.h"
+#import "File.h"
+#import "FontCascade.h"
 #import "Frame.h"
 #import "FrameLoaderClient.h"
 #import "FrameView.h"
+#import "HTMLAttachmentElement.h"
 #import "HTMLConverter.h"
 #import "HTMLElement.h"
 #import "HTMLNames.h"
@@ -52,7 +56,6 @@
 #import "Range.h"
 #import "RenderBlock.h"
 #import "RenderImage.h"
-#import "ResourceBuffer.h"
 #import "RuntimeApplicationChecks.h"
 #import "Sound.h"
 #import "StyleProperties.h"
@@ -106,7 +109,7 @@ bool Editor::insertParagraphSeparatorInQuotedContent()
     return true;
 }
 
-const SimpleFontData* Editor::fontForSelection(bool& hasMultipleFonts) const
+const Font* Editor::fontForSelection(bool& hasMultipleFonts) const
 {
     hasMultipleFonts = false;
 
@@ -114,9 +117,9 @@ const SimpleFontData* Editor::fontForSelection(bool& hasMultipleFonts) const
         Node* nodeToRemove;
         RenderStyle* style = styleForSelectionStart(&m_frame, nodeToRemove); // sets nodeToRemove
 
-        const SimpleFontData* result = 0;
+        const Font* result = nullptr;
         if (style)
-            result = style->font().primaryFont();
+            result = &style->fontCascade().primaryFont();
 
         if (nodeToRemove)
             nodeToRemove->remove(ASSERT_NO_EXCEPTION);
@@ -124,22 +127,22 @@ const SimpleFontData* Editor::fontForSelection(bool& hasMultipleFonts) const
         return result;
     }
 
-    const SimpleFontData* font = 0;
+    const Font* font = 0;
     RefPtr<Range> range = m_frame.selection().toNormalizedRange();
     Node* startNode = adjustedSelectionStartForStyleComputation(m_frame.selection().selection()).deprecatedNode();
     if (range && startNode) {
         Node* pastEnd = range->pastLastNode();
         // In the loop below, n should eventually match pastEnd and not become nil, but we've seen at least one
         // unreproducible case where this didn't happen, so check for null also.
-        for (Node* node = startNode; node && node != pastEnd; node = NodeTraversal::next(node)) {
+        for (Node* node = startNode; node && node != pastEnd; node = NodeTraversal::next(*node)) {
             auto renderer = node->renderer();
             if (!renderer)
                 continue;
             // FIXME: Are there any node types that have renderers, but that we should be skipping?
-            const SimpleFontData* primaryFont = renderer->style().font().primaryFont();
+            const Font& primaryFont = renderer->style().fontCascade().primaryFont();
             if (!font)
-                font = primaryFont;
-            else if (font != primaryFont) {
+                font = &primaryFont;
+            else if (font != &primaryFont) {
                 hasMultipleFonts = true;
                 break;
             }
@@ -161,8 +164,8 @@ NSDictionary* Editor::fontAttributesForSelectionStart() const
     if (style->visitedDependentColor(CSSPropertyBackgroundColor).isValid() && style->visitedDependentColor(CSSPropertyBackgroundColor).alpha() != 0)
         [result setObject:nsColor(style->visitedDependentColor(CSSPropertyBackgroundColor)) forKey:NSBackgroundColorAttributeName];
 
-    if (style->font().primaryFont()->getNSFont())
-        [result setObject:style->font().primaryFont()->getNSFont() forKey:NSFontAttributeName];
+    if (style->fontCascade().primaryFont().getNSFont())
+        [result setObject:style->fontCascade().primaryFont().getNSFont() forKey:NSFontAttributeName];
 
     if (style->visitedDependentColor(CSSPropertyColor).isValid() && style->visitedDependentColor(CSSPropertyColor) != Color::black)
         [result setObject:nsColor(style->visitedDependentColor(CSSPropertyColor)) forKey:NSForegroundColorAttributeName];
@@ -175,10 +178,6 @@ NSDictionary* Editor::fontAttributesForSelectionStart() const
         [s.get() setShadowColor:nsColor(shadow->color())];
         [result setObject:s.get() forKey:NSShadowAttributeName];
     }
-
-    int decoration = style->textDecorationsInEffect();
-    if (decoration & TextDecorationLineThrough)
-        [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSStrikethroughStyleAttributeName];
 
     int superscriptInt = 0;
     switch (style->verticalAlign()) {
@@ -201,8 +200,7 @@ NSDictionary* Editor::fontAttributesForSelectionStart() const
     if (superscriptInt)
         [result setObject:[NSNumber numberWithInt:superscriptInt] forKey:NSSuperscriptAttributeName];
 
-    if (decoration & TextDecorationUnderline)
-        [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
+    getTextDecorationAttributesRespectingTypingStyle(*style, result);
 
     if (nodeToRemove)
         nodeToRemove->remove(ASSERT_NO_EXCEPTION);
@@ -250,8 +248,8 @@ static void maybeCopyNodeAttributesToFragment(const Node& node, DocumentFragment
         return;
 
     // And only if the source Element and destination Element have the same HTML tag name.
-    const HTMLElement& oldElement = toHTMLElement(node);
-    HTMLElement& newElement = toHTMLElement(*firstChild);
+    const HTMLElement& oldElement = downcast<HTMLElement>(node);
+    HTMLElement& newElement = downcast<HTMLElement>(*firstChild);
     if (oldElement.localName() != newElement.localName())
         return;
 
@@ -270,7 +268,7 @@ void Editor::replaceNodeFromPasteboard(Node* node, const String& pasteboardName)
         return;
 
     RefPtr<Range> range = Range::create(node->document(), Position(node, Position::PositionIsBeforeAnchor), Position(node, Position::PositionIsAfterAnchor));
-    m_frame.selection().setSelection(VisibleSelection(range.get()), FrameSelection::DoNotSetFocus);
+    m_frame.selection().setSelection(VisibleSelection(*range), FrameSelection::DoNotSetFocus);
 
     Pasteboard pasteboard(pasteboardName);
 
@@ -338,7 +336,7 @@ static PassRefPtr<SharedBuffer> dataInRTFDFormat(NSAttributedString *string)
         return nullptr;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    return SharedBuffer::wrapNSData([string RTFDFromRange:NSMakeRange(0, length) documentAttributes:nil]);
+    return SharedBuffer::wrapNSData([string RTFDFromRange:NSMakeRange(0, length) documentAttributes:@{ }]);
     END_BLOCK_OBJC_EXCEPTIONS;
 
     return nullptr;
@@ -351,7 +349,7 @@ static PassRefPtr<SharedBuffer> dataInRTFFormat(NSAttributedString *string)
         return nullptr;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    return SharedBuffer::wrapNSData([string RTFFromRange:NSMakeRange(0, length) documentAttributes:nil]);
+    return SharedBuffer::wrapNSData([string RTFFromRange:NSMakeRange(0, length) documentAttributes:@{ }]);
     END_BLOCK_OBJC_EXCEPTIONS;
 
     return nullptr;
@@ -401,15 +399,13 @@ void Editor::writeSelectionToPasteboard(Pasteboard& pasteboard)
 
 static void getImage(Element& imageElement, RefPtr<Image>& image, CachedImage*& cachedImage)
 {
-    auto renderer = imageElement.renderer();
-    if (!renderer || !renderer->isRenderImage())
+    auto* renderer = imageElement.renderer();
+    if (!is<RenderImage>(renderer))
         return;
 
-    CachedImage* tentativeCachedImage = toRenderImage(renderer)->cachedImage();
-    if (!tentativeCachedImage || tentativeCachedImage->errorOccurred()) {
-        tentativeCachedImage = 0;
+    CachedImage* tentativeCachedImage = downcast<RenderImage>(*renderer).cachedImage();
+    if (!tentativeCachedImage || tentativeCachedImage->errorOccurred())
         return;
-    }
 
     image = tentativeCachedImage->imageForRenderer(renderer);
     if (!image)
@@ -449,7 +445,7 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
     pasteboardImage.url.url = url;
     pasteboardImage.url.title = title;
     pasteboardImage.url.userVisibleForm = client()->userVisibleString(pasteboardImage.url.url);
-    pasteboardImage.resourceData = cachedImage->resourceBuffer()->sharedBuffer();
+    pasteboardImage.resourceData = cachedImage->resourceBuffer();
     pasteboardImage.resourceMIMEType = cachedImage->response().mimeType();
 
     pasteboard.write(pasteboardImage);
@@ -530,11 +526,17 @@ bool Editor::WebContentReader::readFilenames(const Vector<String>& paths)
 
     for (size_t i = 0; i < size; i++) {
         String text = paths[i];
+#if ENABLE(ATTACHMENT_ELEMENT)
+        RefPtr<HTMLAttachmentElement> attachment = HTMLAttachmentElement::create(attachmentTag, document);
+        attachment->setFile(File::create([[NSURL fileURLWithPath:text] path]).ptr());
+        fragment->appendChild(attachment.release());
+#else
         text = frame.editor().client()->userVisibleString([NSURL fileURLWithPath:text]);
 
         RefPtr<HTMLElement> paragraph = createDefaultParagraphElement(document);
         paragraph->appendChild(document.createTextNode(text));
         fragment->appendChild(paragraph.release());
+#endif
     }
 
     return true;
@@ -682,6 +684,16 @@ void Editor::replaceSelectionWithAttributedString(NSAttributedString *attributed
         if (shouldInsertText(text, selectedRange().get(), EditorInsertActionPasted))
             pasteAsPlainText(text, false);
     }
+}
+
+void Editor::applyFontStyles(const String& fontFamily, double fontSize, unsigned fontTraits)
+{
+    Ref<MutableStyleProperties> style = MutableStyleProperties::create();
+    style->setProperty(CSSPropertyFontFamily, cssValuePool().createFontFamilyValue(fontFamily));
+    style->setProperty(CSSPropertyFontStyle, (fontTraits & NSFontItalicTrait) ? CSSValueItalic : CSSValueNormal);
+    style->setProperty(CSSPropertyFontWeight, cssValuePool().createValue(fontTraits & NSFontBoldTrait ? FontWeightBold : FontWeightNormal));
+    style->setProperty(CSSPropertyFontSize, cssValuePool().createValue(fontSize, CSSPrimitiveValue::CSS_PX));
+    applyStyleToSelection(style.ptr(), EditActionSetFont);
 }
 
 } // namespace WebCore

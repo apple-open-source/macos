@@ -71,6 +71,8 @@ static int max_loops = 0;
 static char *limit_enctype_string = NULL;
 static int version_flag = 0;
 static int homedir_flag = 1;
+static int verify_pac_flag = 0;
+static int require_pfs_flag = -1;
 static int verbose_flag = 0;
 static int help_flag	= 0;
 
@@ -616,6 +618,31 @@ check_sasl_names(void)
  *
  */
 
+static void
+validate_pfs(gss_ctx_id_t ctx, const char *peer)
+{
+    OM_uint32 min_stat, maj_stat;
+    gss_buffer_set_t ds;
+
+    maj_stat = gss_inquire_sec_context_by_oid(&min_stat,
+					      ctx,
+					      GSS_C_CTX_PFS_X,
+					      &ds);
+    if (maj_stat != GSS_S_COMPLETE || ds->count != 1) {
+	if (require_pfs_flag == 1)
+	    errx(1, "no PFS %s", peer);
+    } else {
+	if (require_pfs_flag == 0)
+	    errx(1, "PFS %s", peer);
+    }
+    
+    gss_release_buffer_set(&min_stat, &ds);
+}
+
+/*
+ *
+ */
+
 static struct getargs args[] = {
     {"name-type",0,	arg_string, &type_string,  "type of name", NULL },
     {"mech-type",0,	arg_string, &mech_string,  "type of mech", NULL },
@@ -649,6 +676,8 @@ static struct getargs args[] = {
     {"max-loops",	0, arg_integer,	&max_loops, "time", NULL },
     {"channel-binding",	0, arg_string,	&gsschannel_appl_data, "string", NULL },
     {"homedir",	0,	arg_negative_flag, &homedir_flag, "don't allow homedir access", NULL },
+    {"verify-pac", 0,	arg_flag, &verify_pac_flag, "verify PAC", NULL },
+    {"require-pfs", 0,	arg_flag, 	&require_pfs_flag, "require that pfs was used", NULL },
     {"version",	0,	arg_flag,	&version_flag, "print version", NULL },
     {"verbose",	'v',	arg_flag,	&verbose_flag, "verbose", NULL },
     {"help",	0,	arg_flag,	&help_flag,  NULL, NULL }
@@ -914,14 +943,17 @@ main(int argc, char **argv)
 		 gssapi_err(maj_stat, min_stat, GSS_C_NO_OID));
     }
 
+
     /*
      * generic tests.
      */
 
     ctx = GSS_C_NO_CONTEXT;
 
-    maj_stat = gss_inquire_context(&min_stat, NULL, NULL, NULL,
-				   NULL, NULL, NULL, NULL, NULL);
+    maj_stat = gss_inquire_context(&min_stat,
+				   (__nonnull const gss_ctx_id_t)NULL,
+				   NULL, NULL, NULL, NULL, NULL,
+				   NULL, NULL);
     if (maj_stat != GSS_S_NO_CONTEXT)
 	errx(1, "gss_inquire_context didn't fail");
 
@@ -957,6 +989,49 @@ main(int argc, char **argv)
 	    errx(1, "actual_mech mech is not the expected type %s",
 		 ret_mech_string);
     }
+
+    /*
+     *
+     */
+
+    if (verify_pac_flag) {
+	gss_buffer_desc data;
+
+	if (verbose_flag)
+	    printf("checking for a pac...\n");
+
+	maj_stat = gsskrb5_extract_authz_data_from_sec_context(&min_stat,
+							       sctx,
+							       KRB5_AUTHDATA_WIN2K_PAC,
+							       &data);
+	if (maj_stat == GSS_S_COMPLETE) {
+	    krb5_error_code ret;
+	    krb5_pac pac = NULL;
+
+	    if (verbose_flag)
+		printf("...got pac when expecting one\n");
+
+	    ret = krb5_pac_parse(context, data.value, data.length, &pac);
+	    if (ret)
+		krb5_err(context, 1, ret, "failed to parse pac");
+
+	    gss_release_buffer(&min_stat, &data);
+
+	    if (verbose_flag)
+		printf("...manged to parse it\n");
+
+	    krb5_pac_free(context, pac);
+	} else {
+	    errx(1, "we didn't get a PAC");
+	}
+    }
+
+    /*
+     *
+     */
+
+    validate_pfs(sctx, "server");
+    validate_pfs(cctx, "client");
 
     /* XXX should be actual_mech */
     if (gss_oid_equal(mechoid, GSS_KRB5_MECHANISM)
@@ -1170,14 +1245,14 @@ main(int argc, char **argv)
 						  sctx,
 						  GSS_NTLM_GET_SESSION_KEY_X,
 						  &sds);
-	if (min_stat != GSS_S_COMPLETE || sds->count != 1)
+	if (maj_stat != GSS_S_COMPLETE || sds->count != 1)
 	    server_no_session_key = 1;
 
 	maj_stat = gss_inquire_sec_context_by_oid(&min_stat,
 						  cctx,
 						  GSS_NTLM_GET_SESSION_KEY_X,
 						  &cds);
-	if (min_stat != GSS_S_COMPLETE || cds->count != 1)
+	if (maj_stat != GSS_S_COMPLETE || cds->count != 1)
 	    client_no_session_key = 1;
 
 	if (client_no_session_key && server_no_session_key) {

@@ -104,15 +104,6 @@ int prev_errflag, prev_breaks, errbrk_saved;
 /**/
 int numpipestats, pipestats[MAX_PIPESTATS];
 
-/*
- * The status associated with the process lastpid.
- * -1 if not set and no associated lastpid
- * -2 if lastpid is set and status isn't yet
- * else the value returned by wait().
- */
-/**/
-long lastpid_status;
-
 /* Diff two timevals for elapsed-time computations */
 
 /**/
@@ -384,9 +375,11 @@ storepipestats(Job jn, int inforeground, int fixlastval)
     Process p;
 
     for (p = jn->procs, i = 0; p && i < MAX_PIPESTATS; p = p->next, i++) {
-	jpipestats[i] = ((WIFSIGNALED(p->status)) ?
+	jpipestats[i] = (WIFSIGNALED(p->status) ?
 			 0200 | WTERMSIG(p->status) :
-			 WEXITSTATUS(p->status));
+			 (WIFSTOPPED(p->status) ?
+			  0200 | WEXITSTATUS(p->status) :
+			  WEXITSTATUS(p->status)));
 	if (jpipestats[i])
 	    pipefail = jpipestats[i];
     }
@@ -428,16 +421,21 @@ update_job(Job jn)
 
     for (pn = jn->procs; pn; pn = pn->next) {
 #ifdef WIFCONTINUED
-	if (WIFCONTINUED(pn->status))
+	if (WIFCONTINUED(pn->status)) {
+	    jn->stat &= ~STAT_STOPPED;
 	    pn->status = SP_RUNNING;
+	}
 #endif
 	if (pn->status == SP_RUNNING)      /* some processes in this job are running       */
 	    return;                        /* so no need to update job table entry         */
 	if (WIFSTOPPED(pn->status))        /* some processes are stopped                   */
 	    somestopped = 1;               /* so job is not done, but entry needs updating */
 	if (!pn->next)                     /* last job in pipeline determines exit status  */
-	    val = (WIFSIGNALED(pn->status)) ? 0200 | WTERMSIG(pn->status) :
-		WEXITSTATUS(pn->status);
+	    val = (WIFSIGNALED(pn->status) ?
+		   0200 | WTERMSIG(pn->status) :
+		   (WIFSTOPPED(pn->status) ?
+		    0200 | WEXITSTATUS(pn->status) :
+		    WEXITSTATUS(pn->status)));
 	if (pn->pid == jn->gleader)        /* if this process is process group leader      */
 	    status = pn->status;
     }
@@ -513,7 +511,7 @@ update_job(Job jn)
 			prev_errflag = errflag;
 		    }
 		    breaks = loops;
-		    errflag = 1;
+		    errflag |= ERRFLAG_INT;
 		    inerrflush();
 		}
 	    } else {
@@ -530,14 +528,14 @@ update_job(Job jn)
 	    prev_errflag = errflag;
 	}
 	breaks = loops;
-	errflag = 1;
+	errflag |= ERRFLAG_INT;
 	inerrflush();
     }
     if (somestopped && jn->stat & STAT_SUPERJOB)
 	return;
     jn->stat |= (somestopped) ? STAT_CHANGED | STAT_STOPPED :
 	STAT_CHANGED | STAT_DONE;
-    if (jn->stat & STAT_DONE) {
+    if (jn->stat & (STAT_DONE|STAT_STOPPED)) {
 	/* This may be redundant with printjob() but note that inforeground
 	 * is true here for STAT_CURSH jobs even when job != thisjob, most
 	 * likely because thisjob = -1 from exec.c:execsimple() trickery.
@@ -585,7 +583,7 @@ update_job(Job jn)
 		    breaks = loops;
 	    } else {
 		breaks = loops;
-		errflag = 1;
+		errflag |= ERRFLAG_INT;
 	    }
 	    check_cursh_sig(sig);
 	}
@@ -618,13 +616,11 @@ setprevjob(void)
 }
 
 /**/
-#ifndef HAVE_GETRUSAGE
-static long clktck = 0;
-
-/**/
-static void
-set_clktck(void)
+long
+get_clktck(void)
 {
+    static long clktck;
+
 #ifdef _SC_CLK_TCK
     if (!clktck)
 	/* fetch clock ticks per second from *
@@ -646,9 +642,9 @@ set_clktck(void)
 #  endif
 # endif
 #endif
+
+     return clktck;
 }
-/**/
-#endif
 
 /**/
 static void
@@ -698,16 +694,20 @@ printtime(struct timeval *real, child_times_t *ti, char *desc)
     percent = 100.0 * total_time
 	/ (real->tv_sec + real->tv_usec / 1000000.0);
 #else
-    set_clktck();
-    user_time    = ti->ut / (double) clktck;
-    system_time  = ti->st / (double) clktck;
-    percent      =  100.0 * (ti->ut + ti->st)
-	/ (clktck * real->tv_sec + clktck * real->tv_usec / 1000000.0);
+    {
+	long clktck = get_clktck();
+	user_time    = ti->ut / (double) clktck;
+	system_time  = ti->st / (double) clktck;
+	percent      =  100.0 * (ti->ut + ti->st)
+	    / (clktck * real->tv_sec + clktck * real->tv_usec / 1000000.0);
+    }
 #endif
 
     queue_signals();
     if (!(s = getsparam("TIMEFMT")))
 	s = DEFAULT_TIMEFMT;
+    else
+	s = unmetafy(s, NULL);
 
     for (; *s; s++)
 	if (*s == '%')
@@ -910,8 +910,10 @@ should_report_time(Job j)
 	reporttime--;
     return reporttime <= 0;
 #else
-    set_clktck();
-    return ((j->procs->ti.ut + j->procs->ti.st) / clktck >= reporttime);
+    {
+	clktck = get_clktck();
+	return ((j->procs->ti.ut + j->procs->ti.st) / clktck >= reporttime);
+    }
 #endif
 }
 
@@ -1302,14 +1304,6 @@ addproc(pid_t pid, char *text, int aux, struct timeval *bgtime)
 {
     Process pn, *pnlist;
 
-    if (pid == lastpid && lastpid_status != -2L) {
-	/*
-	 * The status for the previous lastpid is invalid.
-	 * Presumably process numbers have wrapped.
-	 */
-	lastpid_status = -1L;
-    }
-
     DPUTS(thisjob == -1, "No valid job in addproc.");
     pn = (Process) zshcalloc(sizeof *pn);
     pn->pid = pid;
@@ -1452,12 +1446,19 @@ zwaitjob(int job, int wait_cmd)
 		restore_queue_signals(q);
 		return 128 + last_signal;
 	    }
-	    /* Commenting this out makes ^C-ing a job started by a function
-	       stop the whole function again.  But I guess it will stop
-	       something else from working properly, we have to find out
-	       what this might be.  --oberon
+           /* Commenting this out makes ^C-ing a job started by a function
+              stop the whole function again.  But I guess it will stop
+              something else from working properly, we have to find out
+              what this might be.  --oberon
 
-	    errflag = 0; */
+	      When attempting to separate errors and interrupts, we
+	      assumed because of the previous comment it would be OK
+	      to remove ERRFLAG_ERROR and leave ERRFLAG_INT set, since
+	      that's the one related to ^C.  But that doesn't work.
+	      There's something more here we don't understand.  --pws
+
+           errflag = 0; */
+
 	    if (subsh) {
 		killjb(jn, SIGCONT);
 		jn->stat &= ~STAT_STOPPED;
@@ -1620,8 +1621,10 @@ spawnjob(void)
     }
     if (!hasprocs(thisjob))
 	deletejob(jobtab + thisjob, 0);
-    else
+    else {
 	jobtab[thisjob].stat |= STAT_LOCKED;
+	pipecleanfilelist(jobtab[thisjob].filelist);
+    }
     thisjob = -1;
 }
 
@@ -1819,7 +1822,9 @@ static int hackspace;
 void
 init_jobs(char **argv, char **envp)
 {
+#ifndef HAVE_SETPROCTITLE
     char *p, *q;
+#endif
     size_t init_bytes = MAXJOBS_ALLOC*sizeof(struct job);
 
     /*
@@ -1931,6 +1936,122 @@ maybeshrinkjobtab(void)
     unqueue_signals();
 }
 
+/*
+ * Definitions for the background process stuff recorded below.
+ * This would be more efficient as a hash, but
+ * - that's quite heavyweight for something not needed very often
+ * - we need some kind of ordering as POSIX allows us to limit
+ *   the size of the list to the value of _SC_CHILD_MAX and clearly
+ *   we want to clear the oldest first
+ * - cases with a long list of background jobs where the user doesn't
+ *   wait for a large number, and then does wait for one (the only
+ *   inefficient case) are rare
+ * - in the context of waiting for an external process, looping
+ *   over a list isn't so very inefficient.
+ * Enough excuses already.
+ */
+
+/* Data in the link list, a key (process ID) / value (exit status) pair. */
+struct bgstatus {
+    pid_t pid;
+    int status;
+};
+typedef struct bgstatus *Bgstatus;
+/* The list of those entries */
+LinkList bgstatus_list;
+/* Count of entries.  Reaches value of _SC_CHILD_MAX and stops. */
+long bgstatus_count;
+
+/*
+ * Remove and free a bgstatus entry.
+ */
+static void rembgstatus(LinkNode node)
+{
+    zfree(remnode(bgstatus_list, node), sizeof(struct bgstatus));
+    bgstatus_count--;
+}
+
+/*
+ * Record the status of a background process that exited so we
+ * can execute the builtin wait for it.
+ *
+ * We can't execute the wait builtin for something that exited in the
+ * foreground as it's not visible to the user, so don't bother recording.
+ */
+
+/**/
+void
+addbgstatus(pid_t pid, int status)
+{
+    static long child_max;
+    Bgstatus bgstatus_entry;
+
+    if (!child_max) {
+#ifdef _SC_CHILD_MAX
+	child_max = sysconf(_SC_CHILD_MAX);
+	if (!child_max) /* paranoia */
+#endif
+	{
+	    /* Be inventive */
+	    child_max = 1024L;
+	}
+    }
+
+    if (!bgstatus_list) {
+	bgstatus_list = znewlinklist();
+	/*
+	 * We're not always robust about memory failures, but
+	 * this is pretty deep in the shell basics to be failing owing
+	 * to memory, and a failure to wait is reported loudly, so test
+	 * and fail silently here.
+	 */
+	if (!bgstatus_list)
+	    return;
+    }
+    if (bgstatus_count == child_max) {
+	/* Overflow.  List is in order, remove first */
+	rembgstatus(firstnode(bgstatus_list));
+    }
+    bgstatus_entry = (Bgstatus)zalloc(sizeof(*bgstatus_entry));
+    if (!bgstatus_entry) {
+	/* See note above */
+	return;
+    }
+    bgstatus_entry->pid = pid;
+    bgstatus_entry->status = status;
+    if (!zaddlinknode(bgstatus_list, bgstatus_entry)) {
+	zfree(bgstatus_entry, sizeof(*bgstatus_entry));
+	return;
+    }
+    bgstatus_count++;
+}
+
+/*
+ * See if pid has a recorded exit status.
+ * Note we make no guarantee that the PIDs haven't wrapped, so this
+ * may not be the right process.
+ *
+ * This is only used by wait, which must only work on each
+ * pid once, so we need to remove the entry if we find it.
+ */
+
+static int getbgstatus(pid_t pid)
+{
+    LinkNode node;
+    Bgstatus bgstatus_entry;
+
+    if (!bgstatus_list)
+	return -1;
+    for (node = firstnode(bgstatus_list); node; incnode(node)) {
+	bgstatus_entry = (Bgstatus)getdata(node);
+	if (bgstatus_entry->pid == pid) {
+	    int status = bgstatus_entry->status;
+	    rembgstatus(node);
+	    return status;
+	}
+    }
+    return -1;
+}
 
 /* bg, disown, fg, jobs, wait: most of the job control commands are     *
  * here.  They all take the same type of argument.  Exception: wait can *
@@ -2076,10 +2197,7 @@ bin_fg(char *name, char **argv, Options ops, int func)
 		}
 		if (retval == 0)
 		    retval = lastval2;
-	    } else if (isset(POSIXJOBS) &&
-		       pid == lastpid && lastpid_status >= 0L) {
-		retval = (int)lastpid_status;
-	    } else {
+	    } else if ((retval = getbgstatus(pid)) < 0) {
 		zwarnnam(name, "pid %d is not a child of this shell", pid);
 		/* presumably lastval2 doesn't tell us a heck of a lot? */
 		retval = 1;
@@ -2602,7 +2720,7 @@ findjobnam(const char *s)
     for (jobnum = maxjob; jobnum >= 0; jobnum--)
 	if (!(jobtab[jobnum].stat & (STAT_SUBJOB | STAT_NOPRINT)) &&
 	    jobtab[jobnum].stat && jobtab[jobnum].procs && jobnum != thisjob &&
-	    jobtab[jobnum].procs->text && strpfx(s, jobtab[jobnum].procs->text))
+	    jobtab[jobnum].procs->text[0] && strpfx(s, jobtab[jobnum].procs->text))
 	    return jobnum;
     return -1;
 }
@@ -2618,7 +2736,7 @@ acquire_pgrp(void)
     long ttpgrp;
     sigset_t blockset, oldset;
 
-    if ((mypgrp = GETPGRP()) > 0) {
+    if ((mypgrp = GETPGRP()) >= 0) {
 	long lastpgrp = mypgrp;
 	sigemptyset(&blockset);
 	sigaddset(&blockset, SIGTTIN);
@@ -2663,8 +2781,11 @@ void
 release_pgrp(void)
 {
     if (origpgrp != mypgrp) {
-	attachtty(origpgrp);
-	setpgrp(0, origpgrp);
+	/* in linux pid namespaces, origpgrp may never have been set */
+	if (origpgrp) {
+	    attachtty(origpgrp);
+	    setpgrp(0, origpgrp);
+	}
 	mypgrp = origpgrp;
     }
 }

@@ -21,6 +21,9 @@
  *
  * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
 
 #pragma ident	"@(#)dt_lex.l	1.12	07/11/12 SMI"
@@ -156,6 +159,7 @@ if (yypcb->pcb_token != 0) {
 <S0>volatile	return (DT_KEY_VOLATILE);
 <S0>while	return (DT_KEY_WHILE);
 <S0>xlate	return (DT_TOK_XLATE);
+<S0>userland	return (DT_KEY_USERLAND);
 
 <S2>auto	{ yybegin(YYS_EXPR);	return (DT_KEY_AUTO); }
 <S2>char	{ yybegin(YYS_EXPR);	return (DT_KEY_CHAR); }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -327,17 +327,17 @@ arp_client_close_fd(arp_client_t * client)
 	return;
     }
     if (if_session->read_fd_refcount <= 0) {
-	my_log(LOG_ERR, "arp_client_close_fd(%s): bpf open fd count is %d",
+	my_log(LOG_NOTICE, "arp_client_close_fd(%s): bpf open fd count is %d",
 	       if_name(if_session->if_p), if_session->read_fd_refcount);
 	return;
     }
     if_session->read_fd_refcount--;
-    my_log(LOG_DEBUG, "arp_client_close_fd(%s): bpf open fd count is %d",
+    my_log(LOG_INFO, "arp_client_close_fd(%s): bpf open fd count is %d",
 	   if_name(if_session->if_p), if_session->read_fd_refcount);
     client->fd_open = FALSE;
     if (if_session->read_fd_refcount == 0) {
 	if (if_session->read_fd != NULL) {
-	    my_log(LOG_DEBUG, "arp_client_close_fd(%s): closing bpf fd %d",
+	    my_log(LOG_INFO, "arp_client_close_fd(%s): closing bpf fd %d",
 		   if_name(if_session->if_p),
 		   FDCalloutGetFD(if_session->read_fd));
 	    /* this closes the file descriptor */
@@ -495,7 +495,7 @@ arp_if_session_update_hardware_address(arp_if_session_t * if_session)
     /* copy in the latest firewire address */
     if (getFireWireAddress(if_name(if_session->if_p), 
 			   &if_session->fw_addr) == FALSE) {
-	my_log(LOG_ERR,
+	my_log(LOG_NOTICE,
 	       "arp_if_session_update_hardware_address(%s):"
 	       "could not retrieve firewire address",
 	       if_name(if_session->if_p));
@@ -535,7 +535,7 @@ arp_if_session_read(void * arg1, void * arg2)
     errmsg[0] = '\0';
 
     if (if_session->read_fd_refcount == 0) {
-	my_log(LOG_ERR, "arp_if_session_read: no pending clients?");
+	my_log(LOG_NOTICE, "arp_if_session_read: no pending clients?");
 	return;
     }
 
@@ -700,7 +700,7 @@ arp_if_session_read(void * arg1, void * arg2)
 		if (client->command == arp_client_command_probe_e
 		    && client->probes_are_collisions == FALSE) {
 		    client->conflict_count++;
-		    my_log(LOG_DEBUG,
+		    my_log(LOG_INFO,
 			   "arp_session: encountered conflict,"
 			   " trying again %d (of %d)",
 			   client->conflict_count,
@@ -755,7 +755,7 @@ arp_client_open_fd(arp_client_t * client)
 	return (TRUE);
     }
     if_session->read_fd_refcount++;
-    my_log(LOG_DEBUG, "arp_client_open_fd (%s): refcount %d", 
+    my_log(LOG_INFO, "arp_client_open_fd (%s): refcount %d", 
 	   if_name(if_session->if_p), if_session->read_fd_refcount);
     client->fd_open = TRUE;
     if (if_session->read_fd_refcount > 1) {
@@ -833,7 +833,7 @@ arp_client_open_fd(arp_client_t * client)
     if (if_session->read_fd == NULL) {
 	goto failed;
     }
-    my_log(LOG_DEBUG, "arp_client_open_fd (%s): opened bpf fd %d",
+    my_log(LOG_INFO, "arp_client_open_fd (%s): opened bpf fd %d",
 	   if_name(if_session->if_p), bpf_fd);
     return (TRUE);
 
@@ -1022,29 +1022,27 @@ arp_client_probe_retransmit(void * arg1, void * arg2, void * arg3)
     
     client->try++;
 
-    if (client->probe_info.skip_first ||
-	arp_client_transmit(client,
-                            (tries_left <= probe_info->gratuitous_count),
-                            NULL)) {
-	if (G_IPConfiguration_verbose) {
-	    if (client->probe_info.skip_first) {
-	        my_log(LOG_DEBUG, ARP_STR 
-	         	  "(%s): skipping the first arp announcement.",
-			   if_name(if_session->if_p));
-	    }
-	    else if (tries_left <= probe_info->gratuitous_count) {
-	        my_log(LOG_DEBUG, 
-		       ARP_STR 
-                       "(%s): sending (%d of %d) arp announcements ", 
-	               if_name(if_session->if_p), 
-		       probe_info->gratuitous_count - tries_left + 1, 
-		       probe_info->gratuitous_count); 
-	    }
-	    else {
-		my_log(LOG_DEBUG, ARP_STR "(%s): sending (%d of %d) "
-		       "arp probes ", if_name(if_session->if_p),
-                       client->try, probe_info->probe_count);
-	    }
+    if (client->probe_info.skip_first
+	|| arp_client_transmit(client,
+			       (tries_left <= probe_info->gratuitous_count),
+			       NULL)) {
+	if (client->probe_info.skip_first) {
+	    my_log(LOG_INFO, ARP_STR 
+		   "(%s): skipping the first arp announcement.",
+		   if_name(if_session->if_p));
+	}
+	else if (tries_left <= probe_info->gratuitous_count) {
+	    my_log(LOG_INFO, 
+		   ARP_STR 
+		   "(%s): sending (%d of %d) arp announcements ", 
+		   if_name(if_session->if_p), 
+		   probe_info->gratuitous_count - tries_left + 1, 
+		   probe_info->gratuitous_count); 
+	}
+	else {
+	    my_log(LOG_INFO, ARP_STR "(%s): sending (%d of %d) "
+		   "arp probes ", if_name(if_session->if_p),
+		   client->try, probe_info->probe_count);
 	}
         timer_set_relative(client->timer_callout,
                            probe_info->retry_interval,
@@ -1281,7 +1279,7 @@ arp_client_free(arp_client_t * * client_p)
 	dynarray_remove(&if_session->clients, i, NULL);
     }
     else {
-	my_log(LOG_ERR, "arp_client_free(%s) not in list?",
+	my_log(LOG_NOTICE, "arp_client_free(%s) not in list?",
 	       if_name(if_session->if_p));
     }
 
@@ -1471,13 +1469,13 @@ arp_client_defend(arp_client_t * client, struct in_addr our_ip)
     arp_if_session_update_hardware_address(if_session);
 
     if (!arp_client_open_fd(client)) {
-	my_log(LOG_ERR, "arp_client_defend(%s): open fd failed",
+	my_log(LOG_NOTICE, "arp_client_defend(%s): open fd failed",
 	       if_name(if_session->if_p));
     }
     else {
 	client->target_ip = client->sender_ip = our_ip;
 	if (!arp_client_transmit(client, FALSE, NULL)) {
-	    my_log(LOG_ERR, "arp_client_defend(%s): transmit failed",
+	    my_log(LOG_NOTICE, "arp_client_defend(%s): transmit failed",
 		   if_name(if_session->if_p));
 	}
 	else {
@@ -1631,7 +1629,7 @@ arp_if_session_free(arp_if_session_t * * if_session_p)
 	dynarray_remove(&session->if_sessions, i, NULL);
     }
     else {
-	my_log(LOG_ERR, "arp_if_session_free(%s) not in list?",
+	my_log(LOG_NOTICE, "arp_if_session_free(%s) not in list?",
 	       if_name(if_session->if_p));
     }
 
@@ -1762,7 +1760,7 @@ arp_session_log(int priority, const char * message, ...)
 {
     va_list 		ap;
 
-    if (priority == LOG_DEBUG) {
+    if (priority == LOG_INFO) {
 	if (S_arp_session->debug == FALSE)
 	    return;
     }

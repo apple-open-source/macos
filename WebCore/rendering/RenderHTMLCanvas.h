@@ -34,7 +34,7 @@ class HTMLCanvasElement;
 
 class RenderHTMLCanvas final : public RenderReplaced {
 public:
-    RenderHTMLCanvas(HTMLCanvasElement&, PassRef<RenderStyle>);
+    RenderHTMLCanvas(HTMLCanvasElement&, Ref<RenderStyle>&&);
 
     HTMLCanvasElement& canvasElement() const;
 
@@ -49,8 +49,8 @@ private:
     virtual void intrinsicSizeChanged() override { canvasSizeChanged(); }
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderHTMLCanvas, isCanvas())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderHTMLCanvas, isCanvas())
 
 #endif // RenderHTMLCanvas_h

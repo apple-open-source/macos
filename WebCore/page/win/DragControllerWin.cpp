@@ -27,9 +27,9 @@
 #include "DragController.h"
 
 #include "DataTransfer.h"
+#include "Document.h"
 #include "DragData.h"
 #include "Element.h"
-#include "FrameSelection.h"
 #include "Pasteboard.h"
 #include "markup.h"
 #include "windows.h"
@@ -50,7 +50,7 @@ DragOperation DragController::dragOperation(DragData& dragData)
     //if we are a modal window, we are the drag source, or the window is an attached sheet
     //If this can be determined from within WebCore operationForDrag can be pulled into 
     //WebCore itself
-    return dragData.containsURL(0) && !m_didInitiateDrag ? DragOperationCopy : DragOperationNone;
+    return dragData.containsURL() && !m_didInitiateDrag ? DragOperationCopy : DragOperationNone;
 }
 
 bool DragController::isCopyKeyDown(DragData&)
@@ -68,6 +68,12 @@ const IntSize& DragController::maxDragImageSize()
 void DragController::cleanupAfterSystemDrag()
 {
 }
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+void DragController::declareAndWriteAttachment(DataTransfer&, Element&, const URL&)
+{
+}
+#endif
 
 void DragController::declareAndWriteDragImage(DataTransfer& dataTransfer, Element& element, const URL& url, const String& label)
 {

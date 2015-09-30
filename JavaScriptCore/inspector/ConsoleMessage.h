@@ -31,10 +31,8 @@
 #ifndef ConsoleMessage_h
 #define ConsoleMessage_h
 
-#if ENABLE(INSPECTOR)
-
 #include "ConsoleTypes.h"
-#include "InspectorJSFrontendDispatchers.h"
+#include "InspectorFrontendDispatchers.h"
 #include <wtf/Forward.h>
 
 namespace JSC {
@@ -57,13 +55,16 @@ public:
     ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& message, PassRefPtr<ScriptArguments>, JSC::ExecState*, unsigned long requestIdentifier = 0);
     ~ConsoleMessage();
 
-    void addToFrontend(InspectorConsoleFrontendDispatcher*, InjectedScriptManager*, bool generatePreview);
-    void updateRepeatCountInConsole(InspectorConsoleFrontendDispatcher*);
+    void addToFrontend(ConsoleFrontendDispatcher*, InjectedScriptManager*, bool generatePreview);
+    void updateRepeatCountInConsole(ConsoleFrontendDispatcher*);
 
     MessageSource source() const { return m_source; }
     const String& message() const { return m_message; }
     MessageType type() const { return m_type; }
     JSC::ExecState* scriptState() const;
+    const String& url() const { return m_url; }
+    unsigned line() const { return m_line; }
+    unsigned column() const { return m_column; }
 
     void incrementCount() { ++m_repeatCount; }
 
@@ -92,5 +93,3 @@ private:
 } // namespace Inspector
 
 #endif // ConsoleMessage_h
-
-#endif // ENABLE(INSPECTOR)

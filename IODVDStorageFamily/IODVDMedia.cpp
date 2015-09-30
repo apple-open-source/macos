@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -189,7 +189,6 @@ IOReturn IODVDMedia::readRZoneInfo( IOMemoryDescriptor *    buffer,
                                         /* actualByteCount */ actualByteCount );
 }
 
-#ifdef __LP64__
 OSMetaClassDefineReservedUnused(IODVDMedia,  0);
 OSMetaClassDefineReservedUnused(IODVDMedia,  1);
 OSMetaClassDefineReservedUnused(IODVDMedia,  2);
@@ -197,15 +196,6 @@ OSMetaClassDefineReservedUnused(IODVDMedia,  3);
 OSMetaClassDefineReservedUnused(IODVDMedia,  4);
 OSMetaClassDefineReservedUnused(IODVDMedia,  5);
 OSMetaClassDefineReservedUnused(IODVDMedia,  6);
-#else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IODVDMedia,  0);
-OSMetaClassDefineReservedUsed(IODVDMedia,  1);
-OSMetaClassDefineReservedUsed(IODVDMedia,  2);
-OSMetaClassDefineReservedUsed(IODVDMedia,  3);
-OSMetaClassDefineReservedUsed(IODVDMedia,  4);
-OSMetaClassDefineReservedUsed(IODVDMedia,  5);
-OSMetaClassDefineReservedUsed(IODVDMedia,  6);
-#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IODVDMedia,  7);
 OSMetaClassDefineReservedUnused(IODVDMedia,  8);
 OSMetaClassDefineReservedUnused(IODVDMedia,  9);

@@ -94,19 +94,25 @@ get_option_def(int def, gss_const_OID mech, struct gss_mo_desc *mo, gss_buffer_t
 }
 
 int
-_gss_mo_get_option_1(gss_const_OID mech, struct gss_mo_desc *mo, gss_buffer_t value)
+_gss_mo_get_option_1(__nonnull gss_const_OID mech,
+		     struct gss_mo_desc *__nonnull mo,
+		     __nonnull gss_buffer_t value)
 {
     return get_option_def(1, mech, mo, value);
 }
 
 int
-_gss_mo_get_option_0(gss_const_OID mech, struct gss_mo_desc *mo, gss_buffer_t value)
+_gss_mo_get_option_0(__nonnull gss_const_OID mech,
+		     struct gss_mo_desc *__nonnull mo,
+		     __nonnull gss_buffer_t value)
 {
     return get_option_def(0, mech, mo, value);
 }
 
 int
-_gss_mo_get_ctx_as_string(gss_const_OID mech, struct gss_mo_desc *mo, gss_buffer_t value)
+_gss_mo_get_ctx_as_string(__nonnull gss_const_OID mech,
+			  struct gss_mo_desc *__nonnull mo,
+			  __nullable gss_buffer_t value)
 {
     if (value) {
 	value->value = strdup((char *)mo->ctx);
@@ -118,8 +124,10 @@ _gss_mo_get_ctx_as_string(gss_const_OID mech, struct gss_mo_desc *mo, gss_buffer
 }
 
 GSSAPI_LIB_FUNCTION int GSSAPI_LIB_CALL
-gss_mo_set(gss_const_OID mech, gss_const_OID option,
-	   int enable, gss_buffer_t value)
+gss_mo_set(__nonnull gss_const_OID mech,
+	   __nonnull gss_const_OID option,
+	   int enable,
+	   __nullable gss_buffer_t value)
 {
     gssapi_mech_interface m;
     size_t n;
@@ -134,7 +142,9 @@ gss_mo_set(gss_const_OID mech, gss_const_OID option,
 }
 
 GSSAPI_LIB_FUNCTION int GSSAPI_LIB_CALL
-gss_mo_get(gss_const_OID mech, gss_const_OID option, gss_buffer_t value)
+gss_mo_get(__nonnull gss_const_OID mech,
+	   __nonnull gss_const_OID option,
+	   __nullable gss_buffer_t value)
 {
     gssapi_mech_interface m;
     size_t n;
@@ -167,7 +177,8 @@ add_all_mo(gssapi_mech_interface m, gss_OID_set *options, OM_uint32 mask)
 }
 
 GSSAPI_LIB_FUNCTION void GSSAPI_LIB_CALL
-gss_mo_list(gss_const_OID mech, gss_OID_set *options)
+gss_mo_list(__nonnull gss_const_OID mech,
+	    __nonnull gss_OID_set *__nullable options)
 {
     gssapi_mech_interface m;
     OM_uint32 major, minor;
@@ -188,7 +199,9 @@ gss_mo_list(gss_const_OID mech, gss_OID_set *options)
 }
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_mo_name(gss_const_OID mech, gss_const_OID option, gss_buffer_t name)
+gss_mo_name(__nonnull gss_const_OID mech,
+	    __nonnull gss_const_OID option,
+	    __nonnull gss_buffer_t name)
 {
     gssapi_mech_interface m;
     size_t n;
@@ -324,11 +337,11 @@ inquire_saslname_for_mech_compat(OM_uint32 *minor,
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_inquire_saslname_for_mech(OM_uint32 *minor_status,
-			      const gss_OID desired_mech,
-			      gss_buffer_t sasl_mech_name,
-			      gss_buffer_t mech_name,
-			      gss_buffer_t mech_description)
+gss_inquire_saslname_for_mech(OM_uint32 *__nonnull minor_status,
+			      __nonnull const gss_OID desired_mech,
+			      __nullable gss_buffer_t sasl_mech_name,
+			      __nullable gss_buffer_t mech_name,
+			      __nullable gss_buffer_t mech_description)
 {
     OM_uint32 major;
 
@@ -391,9 +404,9 @@ gss_inquire_saslname_for_mech(OM_uint32 *minor_status,
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_inquire_mech_for_saslname(OM_uint32 *minor_status,
-			      const gss_buffer_t sasl_mech_name,
-			      gss_OID *mech_type)
+gss_inquire_mech_for_saslname(OM_uint32 *__nonnull minor_status,
+			      __nullable const gss_buffer_t sasl_mech_name,
+			      __nullable gss_OID *__nullable mech_type)
 {
     struct _gss_mech_switch *m;
     gss_buffer_desc name;
@@ -489,11 +502,11 @@ test_mech_attrs(gssapi_mech_interface mi,
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_indicate_mechs_by_attrs(OM_uint32 * minor_status,
-			    gss_const_OID_set desired_mech_attrs,
-			    gss_const_OID_set except_mech_attrs,
-			    gss_const_OID_set critical_mech_attrs,
-			    gss_OID_set *mechs)
+gss_indicate_mechs_by_attrs(OM_uint32 * __nonnull minor_status,
+			    __nullable gss_const_OID_set desired_mech_attrs,
+			    __nullable gss_const_OID_set except_mech_attrs,
+			    __nullable gss_const_OID_set critical_mech_attrs,
+			    __nonnull gss_OID_set * __nullable mechs)
 {
     struct _gss_mech_switch *ms;
     gss_OID_set mech_attrs = GSS_C_NO_OID_SET;
@@ -556,10 +569,10 @@ gss_indicate_mechs_by_attrs(OM_uint32 * minor_status,
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_inquire_attrs_for_mech(OM_uint32 * minor_status,
-			   gss_const_OID mech,
-			   gss_OID_set *mech_attr,
-			   gss_OID_set *known_mech_attrs)
+gss_inquire_attrs_for_mech(OM_uint32 * __nonnull minor_status,
+			   __nonnull gss_const_OID mech,
+			   __nullable gss_OID_set *__nullable mech_attr,
+			   __nullable gss_OID_set *__nullable known_mech_attrs)
 {
     OM_uint32 major, junk;
 
@@ -626,11 +639,11 @@ gss_inquire_attrs_for_mech(OM_uint32 * minor_status,
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_display_mech_attr(OM_uint32 * minor_status,
-		      gss_const_OID mech_attr,
-		      gss_buffer_t name,
-		      gss_buffer_t short_desc,
-		      gss_buffer_t long_desc)
+gss_display_mech_attr(OM_uint32 * __nonnull minor_status,
+		      __nonnull gss_const_OID mech_attr,
+		      __nullable gss_buffer_t name,
+		      __nullable gss_buffer_t short_desc,
+		      __nullable gss_buffer_t long_desc)
 {
     struct _gss_oid_name_table *ma = NULL;
     OM_uint32 major;

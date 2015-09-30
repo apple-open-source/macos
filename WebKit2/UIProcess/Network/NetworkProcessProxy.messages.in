@@ -26,6 +26,19 @@ messages -> NetworkProcessProxy LegacyReceiver {
     DidCreateNetworkConnectionToWebProcess(IPC::Attachment connectionIdentifier)
 
     DidReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, WebCore::AuthenticationChallenge challenge, uint64_t challengeID)
+
+    DidFetchWebsiteData(uint64_t callbackID, struct WebKit::WebsiteData websiteData)
+    DidDeleteWebsiteData(uint64_t callbackID)
+    DidDeleteWebsiteDataForOrigins(uint64_t callbackID)
+
+    ProcessReadyToSuspend()
+    DidCancelProcessSuspension()
+    SetIsHoldingLockedFiles(bool isHoldingLockedFiles)
+
+    # Diagnostic messages logging
+    LogSampledDiagnosticMessage(uint64_t pageID, String message, String description)
+    LogSampledDiagnosticMessageWithResult(uint64_t pageID, String message, String description, uint32_t result)
+    LogSampledDiagnosticMessageWithValue(uint64_t pageID, String message, String description, String value)
 }
 
 #endif // ENABLE(NETWORK_PROCESS)

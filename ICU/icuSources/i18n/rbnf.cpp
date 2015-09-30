@@ -13,6 +13,7 @@
 #if U_HAVE_RBNF
 
 #include "unicode/normlzr.h"
+#include "unicode/plurfmt.h"
 #include "unicode/tblcoll.h"
 #include "unicode/uchar.h"
 #include "unicode/ucol.h"
@@ -32,9 +33,9 @@
 #include "uresimp.h"
 
 // debugging
-// #define DEBUG
+// #define RBNF_DEBUG
 
-#ifdef DEBUG
+#ifdef RBNF_DEBUG
 #include "stdio.h"
 #endif
 
@@ -327,7 +328,7 @@ private:
     UChar*  nextString(void);
 };
 
-#ifdef DEBUG
+#ifdef RBNF_DEBUG
 #define ERROR(msg) parseError(msg); return NULL;
 #define EXPLANATION_ARG explanationArg
 #else
@@ -556,7 +557,7 @@ void LocDataParser::parseError(const char* EXPLANATION_ARG)
     pe.postContext[limit-p] = 0;
     pe.offset = (int32_t)(p - data);
     
-#ifdef DEBUG
+#ifdef RBNF_DEBUG
     fprintf(stderr, "%s at or near character %ld: ", EXPLANATION_ARG, p-data);
 
     UnicodeString msg;
@@ -1065,8 +1066,9 @@ RuleBasedNumberFormat::format(int32_t number,
                               FieldPosition& /* pos */) const
 {
     if (defaultRuleSet) {
+        UErrorCode status = U_ZERO_ERROR;
         int32_t startPos = toAppendTo.length();
-        defaultRuleSet->format((int64_t)number, toAppendTo, toAppendTo.length());
+        defaultRuleSet->format((int64_t)number, toAppendTo, toAppendTo.length(), status);
         adjustForCapitalizationContext(startPos, toAppendTo);
     }
     return toAppendTo;
@@ -1079,8 +1081,9 @@ RuleBasedNumberFormat::format(int64_t number,
                               FieldPosition& /* pos */) const
 {
     if (defaultRuleSet) {
+        UErrorCode status = U_ZERO_ERROR;
         int32_t startPos = toAppendTo.length();
-        defaultRuleSet->format(number, toAppendTo, toAppendTo.length());
+        defaultRuleSet->format(number, toAppendTo, toAppendTo.length(), status);
         adjustForCapitalizationContext(startPos, toAppendTo);
     }
     return toAppendTo;
@@ -1100,7 +1103,8 @@ RuleBasedNumberFormat::format(double number,
             toAppendTo += decFmtSyms->getConstSymbol(DecimalFormatSymbols::kNaNSymbol);
         }
     } else if (defaultRuleSet) {
-        defaultRuleSet->format(number, toAppendTo, toAppendTo.length());
+        UErrorCode status = U_ZERO_ERROR;
+        defaultRuleSet->format(number, toAppendTo, toAppendTo.length(), status);
     }
     return adjustForCapitalizationContext(startPos, toAppendTo);
 }
@@ -1122,7 +1126,7 @@ RuleBasedNumberFormat::format(int32_t number,
             NFRuleSet *rs = findRuleSet(ruleSetName, status);
             if (rs) {
                 int32_t startPos = toAppendTo.length();
-                rs->format((int64_t)number, toAppendTo, toAppendTo.length());
+                rs->format((int64_t)number, toAppendTo, toAppendTo.length(), status);
                 adjustForCapitalizationContext(startPos, toAppendTo);
             }
         }
@@ -1146,7 +1150,7 @@ RuleBasedNumberFormat::format(int64_t number,
             NFRuleSet *rs = findRuleSet(ruleSetName, status);
             if (rs) {
                 int32_t startPos = toAppendTo.length();
-                rs->format(number, toAppendTo, toAppendTo.length());
+                rs->format(number, toAppendTo, toAppendTo.length(), status);
                 adjustForCapitalizationContext(startPos, toAppendTo);
             }
         }
@@ -1170,7 +1174,7 @@ RuleBasedNumberFormat::format(double number,
             NFRuleSet *rs = findRuleSet(ruleSetName, status);
             if (rs) {
                 int32_t startPos = toAppendTo.length();
-                rs->format(number, toAppendTo, toAppendTo.length());
+                rs->format(number, toAppendTo, toAppendTo.length(), status);
                 adjustForCapitalizationContext(startPos, toAppendTo);
             }
         }
@@ -1741,6 +1745,14 @@ void
 RuleBasedNumberFormat::setDecimalFormatSymbols(const DecimalFormatSymbols& symbols)
 {
     adoptDecimalFormatSymbols(new DecimalFormatSymbols(symbols));
+}
+
+PluralFormat *
+RuleBasedNumberFormat::createPluralFormat(UPluralType pluralType,
+                                          const UnicodeString &pattern,
+                                          UErrorCode& status) const
+{
+    return new PluralFormat(locale, pluralType, pattern, status);
 }
 
 U_NAMESPACE_END

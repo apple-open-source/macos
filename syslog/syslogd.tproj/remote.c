@@ -619,6 +619,12 @@ session(void *x)
 						}
 						else
 						{
+							free(out);
+							out = NULL;
+
+							asl_msg_list_release(res);
+							res = NULL;
+
 							goto exit_session;
 						}
 					}

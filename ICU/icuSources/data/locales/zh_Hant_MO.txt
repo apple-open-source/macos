@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/zh_Hant_MO.xml
@@ -8,72 +8,5 @@
 // ***************************************************************************
 zh_Hant_MO{
     %%Parent{"zh_Hant_HK"}
-    Version{"2.0.92.80"}
-    calendar{
-        generic{
-            DateTimePatterns{
-                "ah:mm:ss [zzzz]",
-                "ah:mm:ss [z]",
-                "ah:mm:ss",
-                "ah:mm",
-                "Gy年M月d日 EEEE",
-                "Gy年M月d日",
-                "Gy年M月d日",
-                "d/M/yGGGGG",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
-            availableFormats{
-                Ed{"d E"}
-                GyMMM{"Gy年M月"}
-                GyMMMEd{"Gy年M月d日 E"}
-                MEd{"E, d/M"}
-                MMMEd{"M月d日 E"}
-                MMMd{"M月d日"}
-                Md{"d/M"}
-                yyyyM{"M/yGGGGG"}
-                yyyyMEd{"E, d/M/yGGGGG"}
-                yyyyMMMEd{"Gy年M月d日 E"}
-                yyyyMd{"d/M/yGGGGG"}
-                yyyyQQQ{"Gy年第QQQ"}
-                yyyyQQQQ{"Gy年QQQQ"}
-            }
-        }
-        gregorian{
-            DateTimePatterns{
-                "ah:mm:ss [zzzz]",
-                "ah:mm:ss [z]",
-                "ah:mm:ss",
-                "ah:mm",
-                "y年M月d日 EEEE",
-                "y年M月d日",
-                "y年M月d日",
-                "d/M/y",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
-            availableFormats{
-                Ed{"d E"}
-                GyMMMEd{"Gy年M月d日 E"}
-                MEd{"E, d/M"}
-                MMMEd{"M月d日 E"}
-                MMdd{"dd/MM"}
-                Md{"d/M"}
-                yM{"M/y"}
-                yMEd{"d/M/y（E）"}
-                yMM{"MM/y"}
-                yMMM{"y年M月"}
-                yMMMEd{"y年M月d日 E"}
-                yMMMM{"y年M月"}
-                yMMMd{"y年M月d日"}
-                yMd{"d/M/y"}
-            }
-        }
-    }
+    Version{"2.1.11.35"}
 }

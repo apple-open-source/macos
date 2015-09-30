@@ -50,6 +50,9 @@
 #include "ev_private.h"
 #include "IOHIDFamilyTrace.h"
 
+extern "C" int  kern_stack_snapshot_with_reason(char *reason);
+extern "C" kern_return_t sysdiagnose_notify_user(uint32_t keycode);
+
 enum {
     kBootProtocolNone   = 0,
     kBootProtocolKeyboard,
@@ -111,6 +114,8 @@ enum {
 #define     _clientDict                         _reserved->clientDict
 
 #define     kDebuggerDelayMS                    2500
+#define     kDebuggerLongDelayMS                5000
+#define     kATVChordDelayMS                    5000
 
 //===========================================================================
 // IOHIDClientData class
@@ -340,13 +345,13 @@ void IOHIDEventService::stop( IOService * provider )
 
 #if TARGET_OS_EMBEDDED
 
-    if ( _keyboard.debug.timer ) {
-        _keyboard.debug.timer->cancelTimeout();
+    if ( _keyboard.debug.nmiTimer ) {
+        _keyboard.debug.nmiTimer->cancelTimeout();
         if ( _workLoop )
-            _workLoop->removeEventSource(_keyboard.debug.timer);
+            _workLoop->removeEventSource(_keyboard.debug.nmiTimer);
 
-        _keyboard.debug.timer->release();
-        _keyboard.debug.timer = 0;
+        _keyboard.debug.nmiTimer->release();
+        _keyboard.debug.nmiTimer = 0;
     }
 
 #else
@@ -398,51 +403,51 @@ bool IOHIDEventService::_publishMatchingNotificationHandler(
 #if !TARGET_OS_EMBEDDED
     IOHIDEventService * self    = (IOHIDEventService *) target;
     IOHIDEventService * service = (IOHIDEventService *) newService;
-
+    IONotifier * publishNotify  = NULL;
     // NUB_LOCK;
     if (self->_nubLock) IORecursiveLockLock(self->_nubLock);
+    if (self->_publishNotify) {
+        if ( service->_keyboardNub ) {
+            if ( self->_keyboardNub
+                    && self->_keyboardNub->isDispatcher()
+                    && !service->_keyboardNub->isDispatcher() ) {
+                stopAndReleaseShim ( self->_keyboardNub, self );
+                self->_keyboardNub = 0;
+            }
 
-    if ( service->_keyboardNub ) {
-        if ( self->_keyboardNub
-                && self->_keyboardNub->isDispatcher()
-                && !service->_keyboardNub->isDispatcher() ) {
-            stopAndReleaseShim ( self->_keyboardNub, self );
-            self->_keyboardNub = 0;
+            if ( !self->_keyboardNub ) {
+                self->_keyboardNub = service->_keyboardNub;
+                self->_keyboardNub->retain();
+
+                if (self->_publishNotify) {
+                    publishNotify = self->_publishNotify;
+                    self->_publishNotify = 0;
+                }
+            }
         }
 
-        if ( !self->_keyboardNub ) {
-            self->_keyboardNub = service->_keyboardNub;
-            self->_keyboardNub->retain();
+        if ( service->_consumerNub ) {
+            if ( self->_consumerNub
+                    && self->_consumerNub->isDispatcher()
+                    && !service->_consumerNub->isDispatcher() ) {
+                stopAndReleaseShim ( self->_consumerNub, self );
+                self->_consumerNub = 0;
+            }
 
-            if (self->_publishNotify) {
-                self->_publishNotify->remove();
-                self->_publishNotify = 0;
+            if ( !self->_consumerNub ) {
+                self->_consumerNub = service->_consumerNub;
+                self->_consumerNub->retain();
+
+                if (self->_publishNotify) {
+                    publishNotify = self->_publishNotify;
+                    self->_publishNotify = 0;
+                }
             }
         }
     }
-
-    if ( service->_consumerNub ) {
-        if ( self->_consumerNub
-                && self->_consumerNub->isDispatcher()
-                && !service->_consumerNub->isDispatcher() ) {
-            stopAndReleaseShim ( self->_consumerNub, self );
-            self->_consumerNub = 0;
-        }
-
-        if ( !self->_consumerNub ) {
-            self->_consumerNub = service->_consumerNub;
-            self->_consumerNub->retain();
-
-            if (self->_publishNotify) {
-                self->_publishNotify->remove();
-                self->_publishNotify = 0;
-            }
-        }
-    }
-
     // NUB_UNLOCK;
     if (self->_nubLock) IORecursiveLockUnlock(self->_nubLock);
-
+    if (publishNotify) publishNotify->remove();
 #endif /* TARGET_OS_EMBEDDED */
     return true;
 }
@@ -1139,12 +1144,12 @@ void IOHIDEventService::free()
         _clientDict = NULL;
     }
 
-    if (_keyboard.debug.timer) {
+    if (_keyboard.debug.nmiTimer) {
         if ( _workLoop )
-            _workLoop->removeEventSource(_keyboard.debug.timer);
+            _workLoop->removeEventSource(_keyboard.debug.nmiTimer);
 
-        _keyboard.debug.timer->release();
-        _keyboard.debug.timer = 0;
+        _keyboard.debug.nmiTimer->release();
+        _keyboard.debug.nmiTimer = 0;
     }
 
 #endif /* TARGET_OS_EMBEDDED */
@@ -1455,6 +1460,19 @@ void IOHIDEventService::debuggerTimerCallback(IOTimerEventSource *sender)
 
 #endif /* TARGET_OS_EMBEDDED */
 
+#if TARGET_OS_EMBEDDED
+//==============================================================================
+// IOHIDEventService::stackshotTimerCallback
+//==============================================================================
+void IOHIDEventService::stackshotTimerCallback(IOTimerEventSource *sender)
+{
+    if ( _keyboard.debug.mask && _keyboard.debug.mask == _keyboard.debug.startMask   ) {
+        handle_stackshot_keychord(_keyboard.debug.mask);
+    }
+}
+
+#endif /* TARGET_OS_EMBEDDED */
+
 //==============================================================================
 // IOHIDEventService::multiAxisTimerCallback
 //==============================================================================
@@ -1483,6 +1501,22 @@ void IOHIDEventService::dispatchKeyboardEvent(
 #if TARGET_OS_EMBEDDED // {
     IOHIDEvent * event = NULL;
     UInt32 debugMask = 0;
+    if ( !_keyboard.debug.nmiMask ) {
+        OSData * nmi_mask = OSDynamicCast(OSData, getProperty("button-nmi_mask", gIOServicePlane));
+        if ( nmi_mask) {
+            _keyboard.debug.nmiMask = *(UInt32 *) nmi_mask->getBytesNoCopy();
+            _keyboard.debug.nmiDelay = kDebuggerLongDelayMS;
+        } else {
+#if TARGET_OS_TV // Apple TV NMI keychord: FAV (List button) + PlayPause
+            _keyboard.debug.nmiMask = 0x50;
+            _keyboard.debug.nmiDelay = kATVChordDelayMS;
+#else
+            _keyboard.debug.nmiMask = 0x3;
+            _keyboard.debug.nmiDelay = kDebuggerDelayMS;
+#endif // TARGET_OS_TV
+        }
+    }
+    
 
     switch (usagePage) {
         case kHIDPage_KeyboardOrKeypad:
@@ -1503,9 +1537,25 @@ void IOHIDEventService::dispatchKeyboardEvent(
                 case kHIDUsage_Csmr_Power:
                     debugMask = 0x1;
                     break;
-                case kHIDUsage_Csmr_VolumeIncrement:
                 case kHIDUsage_Csmr_VolumeDecrement:
+#if TARGET_OS_TV // Volume- should be treated differently than Volume+ for ATV stackshot only
+                    debugMask = 0x20;
+                    break;
+#endif // TARGET_OS_TV
+                case kHIDUsage_Csmr_VolumeIncrement:
                     debugMask = 0x2;
+                    break;
+                case kHIDUsage_Csmr_Menu:
+                    debugMask = 0x4;
+                    break;
+                case kHIDUsage_Csmr_Help:
+                    debugMask = 0x8;
+                    break;
+                case kHIDUsage_Csmr_PlayOrPause:
+                    debugMask = 0x10;
+                    break;
+                case kHIDUsage_Csmr_DataOnScreen:
+                    debugMask = 0x40;
                     break;
             };
             break;
@@ -1523,20 +1573,28 @@ void IOHIDEventService::dispatchKeyboardEvent(
     else
         _keyboard.debug.mask &= ~debugMask;
 
-    if ( _keyboard.debug.mask == 0x3) {
-        if ( !_keyboard.debug.timer ) {
-            _keyboard.debug.timer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::debuggerTimerCallback));
-            if (_keyboard.debug.timer) {
-                if ((_workLoop->addEventSource(_keyboard.debug.timer) != kIOReturnSuccess)) {
-                    _keyboard.debug.timer->release();
-                    _keyboard.debug.timer = NULL;
+    if ( _keyboard.debug.mask == _keyboard.debug.nmiMask ) {
+        if ( !_keyboard.debug.nmiTimer ) {
+            _keyboard.debug.nmiTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::debuggerTimerCallback));
+            if (_keyboard.debug.nmiTimer) {
+                if ((_workLoop->addEventSource(_keyboard.debug.nmiTimer) != kIOReturnSuccess)) {
+                    _keyboard.debug.nmiTimer->release();
+                    _keyboard.debug.nmiTimer = NULL;
                 }
             }
         }
-        if ( _keyboard.debug.timer ) {
-            _keyboard.debug.timer->setTimeoutMS( kDebuggerDelayMS );
+        if ( _keyboard.debug.nmiTimer ) {
+            _keyboard.debug.nmiTimer->setTimeoutMS( _keyboard.debug.nmiDelay );
             _keyboard.debug.startMask = _keyboard.debug.mask;
         }
+    }
+
+    // stackshot keychord check
+    if(_keyboard.debug.mask == 0x3 || // Power + Volume
+       _keyboard.debug.mask == 0x6 || // Menu (Home)  + Volume
+       _keyboard.debug.mask == 0xc || // Menu (Crown) + Help (Pill)
+       _keyboard.debug.mask == 0x30) {// ATV PlayPause + Volume-
+        handle_stackshot_keychord(_keyboard.debug.mask);
     }
 
     event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, options);
@@ -2038,7 +2096,7 @@ void IOHIDEventService::dispatchMultiAxisPointerEvent(
             GET_RELATIVE_VALUE_FROM_CENTERED(z, sx);
 
 #if TARGET_OS_EMBEDDED
-        IOHIDEvent * subEvent = IOHIDEvent::multiAxisPointerEvent(timeStamp, x, y, z, rX, rY, rZ, buttonState, _multiAxis.buttonState);
+        IOHIDEvent * subEvent = IOHIDEvent::multiAxisPointerEvent(timeStamp, x, y, z, rX, rY, rZ, buttonState, _multiAxis.buttonState, options);
         if ( subEvent ) {
 
             IOHIDEvent * event;
@@ -2096,7 +2154,7 @@ void IOHIDEventService::dispatchMultiAxisPointerEvent(
     _multiAxis.rY           = rY;
     _multiAxis.rZ           = rZ;
     _multiAxis.buttonState  = buttonState;
-    _multiAxis.options      = options;
+    _multiAxis.options      = (options & ~kIOHIDEventOptionIsRepeat);
 }
 
 //==============================================================================
@@ -2334,6 +2392,65 @@ void IOHIDEventService::dispatchUnicodeEvent(AbsoluteTime timeStamp, UInt8 * pay
 }
 
 #if TARGET_OS_EMBEDDED
+//==============================================================================
+// IOHIDEventService::dispatchStandardGameControllerEvent
+//==============================================================================
+OSMetaClassDefineReservedUsed(IOHIDEventService,  12);
+void IOHIDEventService::dispatchStandardGameControllerEvent(
+                                                            AbsoluteTime                    timeStamp,
+                                                            IOFixed                         dpadUp,
+                                                            IOFixed                         dpadDown,
+                                                            IOFixed                         dpadLeft,
+                                                            IOFixed                         dpadRight,
+                                                            IOFixed                         faceX,
+                                                            IOFixed                         faceY,
+                                                            IOFixed                         faceA,
+                                                            IOFixed                         faceB,
+                                                            IOFixed                         shoulderL,
+                                                            IOFixed                         shoulderR,
+                                                            IOOptionBits                    options)
+{
+    IOHIDEvent * event = IOHIDEvent::standardGameControllerEvent(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL, shoulderR, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
+//==============================================================================
+// IOHIDEventService::dispatchExtendedGameControllerEvent
+//==============================================================================
+OSMetaClassDefineReservedUsed(IOHIDEventService,  13);
+void IOHIDEventService::dispatchExtendedGameControllerEvent(
+                                                            AbsoluteTime                    timeStamp,
+                                                            IOFixed                         dpadUp,
+                                                            IOFixed                         dpadDown,
+                                                            IOFixed                         dpadLeft,
+                                                            IOFixed                         dpadRight,
+                                                            IOFixed                         faceX,
+                                                            IOFixed                         faceY,
+                                                            IOFixed                         faceA,
+                                                            IOFixed                         faceB,
+                                                            IOFixed                         shoulderL1,
+                                                            IOFixed                         shoulderR1,
+                                                            IOFixed                         shoulderL2,
+                                                            IOFixed                         shoulderR2,
+                                                            IOFixed                         joystickX,
+                                                            IOFixed                         joystickY,
+                                                            IOFixed                         joystickZ,
+                                                            IOFixed                         joystickRz,
+                                                            IOOptionBits                    options)
+{
+    IOHIDEvent * event = IOHIDEvent::extendedGameControllerEvent(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL1, shoulderR1, shoulderL2, shoulderR2, joystickX, joystickY, joystickZ, joystickRz, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
+
 void IOHIDEventService::close(IOService *forClient, IOOptionBits options)
 {
     _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventService::closeGated), forClient, &options);
@@ -2502,9 +2619,9 @@ OSMetaClassDefineReservedUnused(IOHIDEventService,  8);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  9);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 10);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 11);
-#endif /* TARGET_OS_EMBEDDED */
 OSMetaClassDefineReservedUnused(IOHIDEventService, 12);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 13);
+#endif /* TARGET_OS_EMBEDDED */
 OSMetaClassDefineReservedUnused(IOHIDEventService, 14);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 15);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 16);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,8 @@
 #include "ElementIterator.h"
 
 namespace WebCore {
+
+template<typename ElementType> class DoubleTypedElementDescendantIterator;
 
 template <typename ElementType>
 class TypedElementDescendantIterator : public ElementIterator<ElementType> {
@@ -78,8 +80,40 @@ private:
     const ContainerNode& m_root;
 };
 
+template<typename ElementType> class DoubleTypedElementDescendantIteratorAdapter {
+public:
+    typedef TypedElementDescendantIteratorAdapter<ElementType> SingleAdapter;
+    typedef DoubleTypedElementDescendantIterator<ElementType> Iterator;
+
+    DoubleTypedElementDescendantIteratorAdapter(SingleAdapter&&, SingleAdapter&&);
+    Iterator begin();
+    Iterator end();
+
+private:
+    std::pair<SingleAdapter, SingleAdapter> m_pair;
+};
+
+template<typename ElementType> class DoubleTypedElementDescendantIterator {
+public:
+    typedef TypedElementDescendantIterator<ElementType> SingleIterator;
+    typedef std::pair<ElementType&, ElementType&> ReferenceProxy;
+
+    DoubleTypedElementDescendantIterator(SingleIterator&&, SingleIterator&&);
+    ReferenceProxy operator*() const;
+    bool operator==(const DoubleTypedElementDescendantIterator&) const;
+    bool operator!=(const DoubleTypedElementDescendantIterator&) const;
+    DoubleTypedElementDescendantIterator& operator++();
+
+private:
+    std::pair<SingleIterator, SingleIterator> m_pair;
+};
+
 template <typename ElementType> TypedElementDescendantIteratorAdapter<ElementType> descendantsOfType(ContainerNode&);
 template <typename ElementType> TypedElementDescendantConstIteratorAdapter<ElementType> descendantsOfType(const ContainerNode&);
+
+// This must only be used when both sets of descendants are known to be the same length.
+// If they are different lengths, this will stop when the shorter one reaches the end, but also an assertion will fail.
+template<typename ElementType> DoubleTypedElementDescendantIteratorAdapter<ElementType> descendantsOfType(ContainerNode& firstRoot, ContainerNode& secondRoot);
 
 // TypedElementDescendantIterator
 
@@ -133,7 +167,7 @@ inline TypedElementDescendantIteratorAdapter<ElementType>::TypedElementDescendan
 template <typename ElementType>
 inline TypedElementDescendantIterator<ElementType> TypedElementDescendantIteratorAdapter<ElementType>::begin()
 {
-    return TypedElementDescendantIterator<ElementType>(m_root, Traversal<ElementType>::firstWithin(&m_root));
+    return TypedElementDescendantIterator<ElementType>(m_root, Traversal<ElementType>::firstWithin(m_root));
 }
 
 template <typename ElementType>
@@ -153,22 +187,22 @@ template <typename ElementType>
 inline TypedElementDescendantIterator<ElementType> TypedElementDescendantIteratorAdapter<ElementType>::from(Element& descendant)
 {
     ASSERT(descendant.isDescendantOf(&m_root));
-    if (isElementOfType<const ElementType>(descendant))
-        return TypedElementDescendantIterator<ElementType>(m_root, static_cast<ElementType*>(&descendant));
-    ElementType* next = Traversal<ElementType>::next(&m_root, &descendant);
+    if (is<ElementType>(descendant))
+        return TypedElementDescendantIterator<ElementType>(m_root, downcast<ElementType>(&descendant));
+    ElementType* next = Traversal<ElementType>::next(descendant, &m_root);
     return TypedElementDescendantIterator<ElementType>(m_root, next);
 }
 
 template <typename ElementType>
 inline ElementType* TypedElementDescendantIteratorAdapter<ElementType>::first()
 {
-    return Traversal<ElementType>::firstWithin(&m_root);
+    return Traversal<ElementType>::firstWithin(m_root);
 }
 
 template <typename ElementType>
 inline ElementType* TypedElementDescendantIteratorAdapter<ElementType>::last()
 {
-    return Traversal<ElementType>::lastWithin(&m_root);
+    return Traversal<ElementType>::lastWithin(m_root);
 }
 
 // TypedElementDescendantConstIteratorAdapter
@@ -182,7 +216,7 @@ inline TypedElementDescendantConstIteratorAdapter<ElementType>::TypedElementDesc
 template <typename ElementType>
 inline TypedElementDescendantConstIterator<ElementType> TypedElementDescendantConstIteratorAdapter<ElementType>::begin() const
 {
-    return TypedElementDescendantConstIterator<ElementType>(m_root, Traversal<ElementType>::firstWithin(&m_root));
+    return TypedElementDescendantConstIterator<ElementType>(m_root, Traversal<ElementType>::firstWithin(m_root));
 }
 
 template <typename ElementType>
@@ -202,22 +236,69 @@ template <typename ElementType>
 inline TypedElementDescendantConstIterator<ElementType> TypedElementDescendantConstIteratorAdapter<ElementType>::from(const Element& descendant) const
 {
     ASSERT(descendant.isDescendantOf(&m_root));
-    if (isElementOfType<const ElementType>(descendant))
-        return TypedElementDescendantConstIterator<ElementType>(m_root, static_cast<const ElementType*>(&descendant));
-    const ElementType* next = Traversal<ElementType>::next(&m_root, &descendant);
+    if (is<ElementType>(descendant))
+        return TypedElementDescendantConstIterator<ElementType>(m_root, downcast<ElementType>(&descendant));
+    const ElementType* next = Traversal<ElementType>::next(descendant, &m_root);
     return TypedElementDescendantConstIterator<ElementType>(m_root, next);
 }
 
 template <typename ElementType>
 inline const ElementType* TypedElementDescendantConstIteratorAdapter<ElementType>::first() const
 {
-    return Traversal<ElementType>::firstWithin(&m_root);
+    return Traversal<ElementType>::firstWithin(m_root);
 }
 
 template <typename ElementType>
 inline const ElementType* TypedElementDescendantConstIteratorAdapter<ElementType>::last() const
 {
-    return Traversal<ElementType>::lastWithin(&m_root);
+    return Traversal<ElementType>::lastWithin(m_root);
+}
+
+// DoubleTypedElementDescendantIteratorAdapter
+
+template<typename ElementType> inline DoubleTypedElementDescendantIteratorAdapter<ElementType>::DoubleTypedElementDescendantIteratorAdapter(SingleAdapter&& first, SingleAdapter&& second)
+    : m_pair(WTF::move(first), WTF::move(second))
+{
+}
+
+template<typename ElementType> inline auto DoubleTypedElementDescendantIteratorAdapter<ElementType>::begin() -> Iterator
+{
+    return Iterator(m_pair.first.begin(), m_pair.second.begin());
+}
+
+template<typename ElementType> inline auto DoubleTypedElementDescendantIteratorAdapter<ElementType>::end() -> Iterator
+{
+    return Iterator(m_pair.first.end(), m_pair.second.end());
+}
+
+// DoubleTypedElementDescendantIterator
+
+template<typename ElementType> inline DoubleTypedElementDescendantIterator<ElementType>::DoubleTypedElementDescendantIterator(SingleIterator&& first, SingleIterator&& second)
+    : m_pair(WTF::move(first), WTF::move(second))
+{
+}
+
+template<typename ElementType> inline auto DoubleTypedElementDescendantIterator<ElementType>::operator*() const -> ReferenceProxy
+{
+    return { *m_pair.first, *m_pair.second };
+}
+
+template<typename ElementType> inline bool DoubleTypedElementDescendantIterator<ElementType>::operator==(const DoubleTypedElementDescendantIterator& other) const
+{
+    ASSERT((m_pair.first == other.m_pair.first) == (m_pair.second == other.m_pair.second));
+    return m_pair.first == other.m_pair.first || m_pair.second == other.m_pair.second;
+}
+
+template<typename ElementType> inline bool DoubleTypedElementDescendantIterator<ElementType>::operator!=(const DoubleTypedElementDescendantIterator& other) const
+{
+    return !(*this == other);
+}
+
+template<typename ElementType> inline DoubleTypedElementDescendantIterator<ElementType>& DoubleTypedElementDescendantIterator<ElementType>::operator++()
+{
+    ++m_pair.first;
+    ++m_pair.second;
+    return *this;
 }
 
 // Standalone functions
@@ -232,6 +313,11 @@ template <typename ElementType>
 inline TypedElementDescendantConstIteratorAdapter<ElementType> descendantsOfType(const ContainerNode& root)
 {
     return TypedElementDescendantConstIteratorAdapter<ElementType>(root);
+}
+
+template<typename ElementType> inline DoubleTypedElementDescendantIteratorAdapter<ElementType> descendantsOfType(ContainerNode& firstRoot, ContainerNode& secondRoot)
+{
+    return { descendantsOfType<ElementType>(firstRoot), descendantsOfType<ElementType>(secondRoot) };
 }
 
 }

@@ -31,13 +31,13 @@
 #include "Nodes.h"
 #include "ParserArena.h"
 #include "ParserError.h"
+#include "ParserFunctionInfo.h"
 #include "ParserTokens.h"
 #include "SourceProvider.h"
 #include "SourceProviderCache.h"
 #include "SourceProviderCacheItem.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 namespace JSC {
 struct Scope;
@@ -70,33 +70,43 @@ class SourceCode;
 #define TreeArguments typename TreeBuilder::Arguments
 #define TreeArgumentsList typename TreeBuilder::ArgumentsList
 #define TreeFunctionBody typename TreeBuilder::FunctionBody
+#if ENABLE(ES6_CLASS_SYNTAX)
+#define TreeClassExpression typename TreeBuilder::ClassExpression
+#endif
 #define TreeProperty typename TreeBuilder::Property
 #define TreePropertyList typename TreeBuilder::PropertyList
-#define TreeDeconstructionPattern typename TreeBuilder::DeconstructionPattern
+#define TreeDestructuringPattern typename TreeBuilder::DestructuringPattern
 
 COMPILE_ASSERT(LastUntaggedToken < 64, LessThan64UntaggedTokens);
 
 enum SourceElementsMode { CheckForStrictMode, DontCheckForStrictMode };
+#if ENABLE(ES6_ARROWFUNCTION_SYNTAX)
+enum FunctionParseType { StandardFunctionParseType, ArrowFunctionParseType };
+#else
+enum FunctionParseType { StandardFunctionParseType};
+#endif
 enum FunctionRequirements { FunctionNoRequirements, FunctionNeedsName };
-enum FunctionParseMode { FunctionMode, GetterMode, SetterMode };
-enum DeconstructionKind {
-    DeconstructToVariables,
-    DeconstructToParameters,
-    DeconstructToExpressions
+enum FunctionParseMode {
+    FunctionMode,
+    GetterMode,
+    SetterMode,
+    MethodMode,
+#if ENABLE(ES6_ARROWFUNCTION_SYNTAX)
+    ArrowFunctionMode
+#endif
+};
+enum DestructuringKind {
+    DestructureToVariables,
+    DestructureToParameters,
+    DestructureToExpressions
 };
 
 template <typename T> inline bool isEvalNode() { return false; }
 template <> inline bool isEvalNode<EvalNode>() { return true; }
 
 struct ScopeLabelInfo {
-    ScopeLabelInfo(StringImpl* ident, bool isLoop)
-        : m_ident(ident)
-        , m_isLoop(isLoop)
-    {
-    }
-
-    StringImpl* m_ident;
-    bool m_isLoop;
+    UniquedStringImpl* uid;
+    bool isLoop;
 };
 
 struct Scope {
@@ -105,6 +115,8 @@ struct Scope {
         , m_shadowsArguments(false)
         , m_usesEval(false)
         , m_needsFullActivation(false)
+        , m_hasDirectSuper(false)
+        , m_needsSuperBinding(false)
         , m_allowsNewDecls(true)
         , m_strictMode(strictMode)
         , m_isFunction(isFunction)
@@ -120,6 +132,8 @@ struct Scope {
         , m_shadowsArguments(rhs.m_shadowsArguments)
         , m_usesEval(rhs.m_usesEval)
         , m_needsFullActivation(rhs.m_needsFullActivation)
+        , m_hasDirectSuper(rhs.m_hasDirectSuper)
+        , m_needsSuperBinding(rhs.m_needsSuperBinding)
         , m_allowsNewDecls(rhs.m_allowsNewDecls)
         , m_strictMode(rhs.m_strictMode)
         , m_isFunction(rhs.m_isFunction)
@@ -129,12 +143,12 @@ struct Scope {
         , m_switchDepth(rhs.m_switchDepth)
     {
         if (rhs.m_labels) {
-            m_labels = adoptPtr(new LabelStack);
+            m_labels = std::make_unique<LabelStack>();
 
             typedef LabelStack::const_iterator iterator;
             iterator end = rhs.m_labels->end();
             for (iterator it = rhs.m_labels->begin(); it != end; ++it)
-                m_labels->append(ScopeLabelInfo(it->m_ident, it->m_isLoop));
+                m_labels->append(ScopeLabelInfo { it->uid, it->isLoop });
         }
     }
 
@@ -149,8 +163,8 @@ struct Scope {
     void pushLabel(const Identifier* label, bool isLoop)
     {
         if (!m_labels)
-            m_labels = adoptPtr(new LabelStack);
-        m_labels->append(ScopeLabelInfo(label->impl(), isLoop));
+            m_labels = std::make_unique<LabelStack>();
+        m_labels->append(ScopeLabelInfo { label->impl(), isLoop });
     }
 
     void popLabel()
@@ -165,7 +179,7 @@ struct Scope {
         if (!m_labels)
             return 0;
         for (int i = m_labels->size(); i > 0; i--) {
-            if (m_labels->at(i - 1).m_ident == label->impl())
+            if (m_labels->at(i - 1).uid == label->impl())
                 return &m_labels->at(i - 1);
         }
         return 0;
@@ -181,14 +195,14 @@ struct Scope {
 
     void declareCallee(const Identifier* ident)
     {
-        m_declaredVariables.add(ident->string().impl());
+        m_declaredVariables.add(ident->impl());
     }
 
     bool declareVariable(const Identifier* ident)
     {
         bool isValidStrictMode = m_vm->propertyNames->eval != *ident && m_vm->propertyNames->arguments != *ident;
         m_isValidStrictMode = m_isValidStrictMode && isValidStrictMode;
-        m_declaredVariables.add(ident->string().impl());
+        m_declaredVariables.add(ident->impl());
         return isValidStrictMode;
     }
 
@@ -214,9 +228,9 @@ struct Scope {
     bool declareParameter(const Identifier* ident)
     {
         bool isArguments = m_vm->propertyNames->arguments == *ident;
-        bool isValidStrictMode = m_declaredVariables.add(ident->string().impl()).isNewEntry && m_vm->propertyNames->eval != *ident && !isArguments;
+        bool isValidStrictMode = m_declaredVariables.add(ident->impl()).isNewEntry && m_vm->propertyNames->eval != *ident && !isArguments;
         m_isValidStrictMode = m_isValidStrictMode && isValidStrictMode;
-        m_declaredParameters.add(ident->string().impl());
+        m_declaredParameters.add(ident->impl());
 
         if (isArguments)
             m_shadowsArguments = true;
@@ -231,7 +245,7 @@ struct Scope {
     BindingResult declareBoundParameter(const Identifier* ident)
     {
         bool isArguments = m_vm->propertyNames->arguments == *ident;
-        bool newEntry = m_declaredVariables.add(ident->string().impl()).isNewEntry;
+        bool newEntry = m_declaredVariables.add(ident->impl()).isNewEntry;
         bool isValidStrictMode = newEntry && m_vm->propertyNames->eval != *ident && !isArguments;
         m_isValidStrictMode = m_isValidStrictMode && isValidStrictMode;
     
@@ -250,10 +264,24 @@ struct Scope {
     void useVariable(const Identifier* ident, bool isEval)
     {
         m_usesEval |= isEval;
-        m_usedVariables.add(ident->string().impl());
+        m_usedVariables.add(ident->impl());
     }
 
     void setNeedsFullActivation() { m_needsFullActivation = true; }
+
+#if ENABLE(ES6_CLASS_SYNTAX)
+    bool hasDirectSuper() { return m_hasDirectSuper; }
+#else
+    bool hasDirectSuper() { return false; }
+#endif
+    void setHasDirectSuper() { m_hasDirectSuper = true; }
+
+#if ENABLE(ES6_CLASS_SYNTAX)
+    bool needsSuperBinding() { return m_needsSuperBinding; }
+#else
+    bool needsSuperBinding() { return false; }
+#endif
+    void setNeedsSuperBinding() { m_needsSuperBinding = true; }
 
     bool collectFreeVariables(Scope* nestedScope, bool shouldTrackClosedVariables)
     {
@@ -279,11 +307,11 @@ struct Scope {
         return true;
     }
 
-    void getCapturedVariables(IdentifierSet& capturedVariables, bool& modifiedParameter)
+    void getCapturedVariables(IdentifierSet& capturedVariables, bool& modifiedParameter, bool& modifiedArguments)
     {
         if (m_needsFullActivation || m_usesEval) {
             modifiedParameter = true;
-            capturedVariables.swap(m_declaredVariables);
+            capturedVariables = m_declaredVariables;
             return;
         }
         for (IdentifierSet::iterator ptr = m_closedVariables.begin(); ptr != m_closedVariables.end(); ++ptr) {
@@ -292,9 +320,13 @@ struct Scope {
             capturedVariables.add(*ptr);
         }
         modifiedParameter = false;
+        if (shadowsArguments())
+            modifiedArguments = true;
         if (m_declaredParameters.size()) {
             IdentifierSet::iterator end = m_writtenVariables.end();
             for (IdentifierSet::iterator ptr = m_writtenVariables.begin(); ptr != end; ++ptr) {
+                if (*ptr == m_vm->propertyNames->arguments.impl())
+                    modifiedArguments = true;
                 if (!m_declaredParameters.contains(*ptr))
                     continue;
                 modifiedParameter = true;
@@ -307,7 +339,7 @@ struct Scope {
     bool isValidStrictMode() const { return m_isValidStrictMode; }
     bool shadowsArguments() const { return m_shadowsArguments; }
 
-    void copyCapturedVariablesToVector(const IdentifierSet& capturedVariables, Vector<RefPtr<StringImpl>>& vector)
+    void copyCapturedVariablesToVector(const IdentifierSet& capturedVariables, Vector<RefPtr<UniquedStringImpl>>& vector)
     {
         IdentifierSet::iterator end = capturedVariables.end();
         for (IdentifierSet::iterator it = capturedVariables.begin(); it != end; ++it) {
@@ -344,6 +376,8 @@ private:
     bool m_shadowsArguments : 1;
     bool m_usesEval : 1;
     bool m_needsFullActivation : 1;
+    bool m_hasDirectSuper : 1;
+    bool m_needsSuperBinding : 1;
     bool m_allowsNewDecls : 1;
     bool m_strictMode : 1;
     bool m_isFunction : 1;
@@ -353,7 +387,7 @@ private:
     int m_switchDepth;
 
     typedef Vector<ScopeLabelInfo, 2> LabelStack;
-    OwnPtr<LabelStack> m_labels;
+    std::unique_ptr<LabelStack> m_labels;
     IdentifierSet m_declaredParameters;
     IdentifierSet m_declaredVariables;
     IdentifierSet m_usedVariables;
@@ -394,14 +428,18 @@ class Parser {
     WTF_MAKE_FAST_ALLOCATED;
 
 public:
-    Parser(VM*, const SourceCode&, FunctionParameters*, const Identifier&, JSParserStrictness, JSParserMode);
+    Parser(
+        VM*, const SourceCode&, FunctionParameters*, const Identifier&, 
+        JSParserBuiltinMode, JSParserStrictMode, JSParserCodeType,
+        ConstructorKind defaultConstructorKind = ConstructorKind::None, ThisTDZMode = ThisTDZMode::CheckIfNeeded);
     ~Parser();
 
     template <class ParsedNode>
-    PassRefPtr<ParsedNode> parse(ParserError&, bool needReparsingAdjustment);
+    std::unique_ptr<ParsedNode> parse(ParserError&);
 
     JSTextPosition positionBeforeLastNewline() const { return m_lexer->positionBeforeLastNewline(); }
-    Vector<RefPtr<StringImpl>>&& closedVariables() { return WTF::move(m_closedVariables); }
+    JSTokenLocation locationBeforeLastToken() const { return m_lexer->lastTokenLocation(); }
+    Vector<RefPtr<UniquedStringImpl>>&& closedVariables() { return WTF::move(m_closedVariables); }
 
 private:
     struct AllowInOverride {
@@ -527,8 +565,8 @@ private:
     Parser();
     String parseInner();
 
-    void didFinishParsing(SourceElements*, ParserArenaData<DeclarationStacks::VarStack>*, 
-        ParserArenaData<DeclarationStacks::FunctionStack>*, CodeFeatures, int, IdentifierSet&, const Vector<RefPtr<StringImpl>>&&);
+    void didFinishParsing(SourceElements*, DeclarationStacks::VarStack&, 
+        DeclarationStacks::FunctionStack&, CodeFeatures, int, IdentifierSet&, const Vector<RefPtr<UniquedStringImpl>>&&);
 
     // Used to determine type of error to report.
     bool isFunctionBodyNode(ScopeNode*) { return false; }
@@ -583,6 +621,47 @@ private:
         return m_token.m_type == IDENT && *m_token.m_data.ident == m_vm->propertyNames->of;
     }
     
+#if ENABLE(ES6_ARROWFUNCTION_SYNTAX)
+    ALWAYS_INLINE bool isEndOfArrowFunction()
+    {
+        return match(SEMICOLON) || match(COMMA) || match(CLOSEPAREN) || match(CLOSEBRACE) || match(CLOSEBRACKET) || match(EOFTOK) || m_lexer->prevTerminator();
+    }
+    
+    ALWAYS_INLINE bool isArrowFunctionParamters()
+    {
+        bool isArrowFunction = false;
+        
+        if (match(EOFTOK))
+            return isArrowFunction;
+        
+        SavePoint saveArrowFunctionPoint = createSavePoint();
+        
+        if (consume(OPENPAREN)) {
+            bool isArrowFunctionParamters = true;
+            
+            while (consume(IDENT)) {
+                if (consume(COMMA)) {
+                    if (!match(IDENT)) {
+                        isArrowFunctionParamters = false;
+                        break;
+                    }
+                } else
+                    break;
+            }
+            
+            if (isArrowFunctionParamters) {
+                if (consume(CLOSEPAREN) && match(ARROWFUNCTION))
+                    isArrowFunction = true;
+            }
+        } else if (consume(IDENT) && match(ARROWFUNCTION))
+            isArrowFunction = true;
+
+        restoreSavePoint(saveArrowFunctionPoint);
+        
+        return isArrowFunction;
+    }
+#endif
+    
     ALWAYS_INLINE unsigned tokenStart()
     {
         return m_token.m_location.startOffset;
@@ -618,9 +697,9 @@ private:
         return m_token.m_location;
     }
 
-    void setErrorMessage(String msg)
+    void setErrorMessage(const String& message)
     {
-        m_errorMessage = msg;
+        m_errorMessage = message;
     }
     
     NEVER_INLINE void logError(bool);
@@ -632,9 +711,9 @@ private:
     template <typename A, typename B, typename C, typename D, typename E, typename F> NEVER_INLINE void logError(bool, const A&, const B&, const C&, const D&, const E&, const F&);
     template <typename A, typename B, typename C, typename D, typename E, typename F, typename G> NEVER_INLINE void logError(bool, const A&, const B&, const C&, const D&, const E&, const F&, const G&);
     
-    NEVER_INLINE void updateErrorWithNameAndMessage(const char* beforeMsg, String name, const char* afterMsg)
+    NEVER_INLINE void updateErrorWithNameAndMessage(const char* beforeMessage, const String& name, const char* afterMessage)
     {
-        m_errorMessage = makeString(beforeMsg, " '", name, "' ", afterMsg);
+        m_errorMessage = makeString(beforeMessage, " '", name, "' ", afterMessage);
     }
     
     NEVER_INLINE void updateErrorMessage(const char* msg)
@@ -686,9 +765,13 @@ private:
         }
         return result;
     }
-    
-    template <class TreeBuilder> TreeSourceElements parseSourceElements(TreeBuilder&, SourceElementsMode);
+
+    template <class TreeBuilder> TreeSourceElements parseSourceElements(TreeBuilder&, SourceElementsMode, FunctionParseType);
+    template <class TreeBuilder> TreeStatement parseStatementListItem(TreeBuilder&, const Identifier*& directive, unsigned* directiveLiteralLength);
     template <class TreeBuilder> TreeStatement parseStatement(TreeBuilder&, const Identifier*& directive, unsigned* directiveLiteralLength = 0);
+#if ENABLE(ES6_CLASS_SYNTAX)
+    template <class TreeBuilder> TreeStatement parseClassDeclaration(TreeBuilder&);
+#endif
     template <class TreeBuilder> TreeStatement parseFunctionDeclaration(TreeBuilder&);
     template <class TreeBuilder> TreeStatement parseVarDeclaration(TreeBuilder&);
     template <class TreeBuilder> TreeStatement parseConstDeclaration(TreeBuilder&);
@@ -722,15 +805,39 @@ private:
     enum SpreadMode { AllowSpread, DontAllowSpread };
     template <class TreeBuilder> ALWAYS_INLINE TreeArguments parseArguments(TreeBuilder&, SpreadMode);
     template <class TreeBuilder> TreeProperty parseProperty(TreeBuilder&, bool strict);
-    template <class TreeBuilder> ALWAYS_INLINE TreeFunctionBody parseFunctionBody(TreeBuilder&);
+    template <class TreeBuilder> TreeExpression parsePropertyMethod(TreeBuilder& context, const Identifier* methodName);
+    template <class TreeBuilder> TreeProperty parseGetterSetter(TreeBuilder&, bool strict, PropertyNode::Type, unsigned getterOrSetterStartOffset, ConstructorKind = ConstructorKind::None, SuperBinding = SuperBinding::NotNeeded);
+    template <class TreeBuilder> ALWAYS_INLINE TreeFunctionBody parseFunctionBody(TreeBuilder&, int functionKeywordStart, int functionNameStart, int parametersStart, ConstructorKind, FunctionParseType);
     template <class TreeBuilder> ALWAYS_INLINE TreeFormalParameterList parseFormalParameters(TreeBuilder&);
-    template <class TreeBuilder> TreeExpression parseVarDeclarationList(TreeBuilder&, int& declarations, TreeDeconstructionPattern& lastPattern, TreeExpression& lastInitializer, JSTextPosition& identStart, JSTextPosition& initStart, JSTextPosition& initEnd);
+    enum VarDeclarationListContext { ForLoopContext, VarDeclarationContext };
+    template <class TreeBuilder> TreeExpression parseVarDeclarationList(TreeBuilder&, int& declarations, TreeDestructuringPattern& lastPattern, TreeExpression& lastInitializer, JSTextPosition& identStart, JSTextPosition& initStart, JSTextPosition& initEnd, VarDeclarationListContext);
     template <class TreeBuilder> NEVER_INLINE TreeConstDeclList parseConstDeclarationList(TreeBuilder&);
 
-    template <class TreeBuilder> NEVER_INLINE TreeDeconstructionPattern createBindingPattern(TreeBuilder&, DeconstructionKind, const Identifier&, int depth);
-    template <class TreeBuilder> NEVER_INLINE TreeDeconstructionPattern parseDeconstructionPattern(TreeBuilder&, DeconstructionKind, int depth = 0);
-    template <class TreeBuilder> NEVER_INLINE TreeDeconstructionPattern tryParseDeconstructionPatternExpression(TreeBuilder&);
-    template <class TreeBuilder> NEVER_INLINE bool parseFunctionInfo(TreeBuilder&, FunctionRequirements, FunctionParseMode, bool nameIsInContainingScope, const Identifier*&, TreeFormalParameterList&, TreeFunctionBody&, unsigned& openBraceOffset, unsigned& closeBraceOffset, int& bodyStartLine, unsigned& bodyStartColumn);
+#if ENABLE(ES6_ARROWFUNCTION_SYNTAX)
+    template <class TreeBuilder> TreeStatement parseArrowFunctionSingleExpressionBody(TreeBuilder&, FunctionParseType);
+    template <class TreeBuilder> TreeExpression parseArrowFunctionExpression(TreeBuilder&);
+#endif
+
+    template <class TreeBuilder> NEVER_INLINE TreeDestructuringPattern createBindingPattern(TreeBuilder&, DestructuringKind, const Identifier&, int depth, JSToken);
+    template <class TreeBuilder> NEVER_INLINE TreeDestructuringPattern parseDestructuringPattern(TreeBuilder&, DestructuringKind, int depth = 0);
+    template <class TreeBuilder> NEVER_INLINE TreeDestructuringPattern tryParseDestructuringPatternExpression(TreeBuilder&);
+    template <class TreeBuilder> NEVER_INLINE TreeExpression parseDefaultValueForDestructuringPattern(TreeBuilder&);
+
+    template <class TreeBuilder> NEVER_INLINE bool parseFunctionInfo(TreeBuilder&, FunctionRequirements, FunctionParseMode, bool nameIsInContainingScope, ConstructorKind, SuperBinding, int functionKeywordStart, ParserFunctionInfo<TreeBuilder>&, FunctionParseType);
+    
+    template <class TreeBuilder> NEVER_INLINE int parseFunctionParameters(TreeBuilder&, FunctionParseMode, ParserFunctionInfo<TreeBuilder>&);
+
+#if ENABLE(ES6_CLASS_SYNTAX)
+    template <class TreeBuilder> NEVER_INLINE TreeClassExpression parseClass(TreeBuilder&, FunctionRequirements, ParserClassInfo<TreeBuilder>&);
+#endif
+
+#if ENABLE(ES6_TEMPLATE_LITERAL_SYNTAX)
+    template <class TreeBuilder> NEVER_INLINE typename TreeBuilder::TemplateString parseTemplateString(TreeBuilder& context, bool isTemplateHead, typename LexerType::RawStringsBuildMode, bool& elementIsTail);
+    template <class TreeBuilder> NEVER_INLINE typename TreeBuilder::TemplateLiteral parseTemplateLiteral(TreeBuilder&, typename LexerType::RawStringsBuildMode);
+#endif
+
+    template <class TreeBuilder> ALWAYS_INLINE bool shouldCheckPropertyForUnderscoreProtoDuplicate(TreeBuilder&, const TreeProperty&);
+
     ALWAYS_INLINE int isBinaryOperator(JSTokenType);
     bool allowAutomaticSemicolon();
     
@@ -743,6 +850,14 @@ private:
         return allowAutomaticSemicolon();
     }
     
+
+#if ENABLE(ES6_ARROWFUNCTION_SYNTAX)
+    void setEndOfStatement()
+    {
+        m_lexer->setTokenPosition(&m_token);
+    }
+#endif
+
     bool canRecurse()
     {
         return m_vm->isSafeToRecurse();
@@ -811,8 +926,8 @@ private:
 
     VM* m_vm;
     const SourceCode* m_source;
-    ParserArena* m_arena;
-    OwnPtr<LexerType> m_lexer;
+    ParserArena m_parserArena;
+    std::unique_ptr<LexerType> m_lexer;
     
     bool m_hasStackOverflow;
     String m_errorMessage;
@@ -829,10 +944,12 @@ private:
     RefPtr<SourceProviderCache> m_functionCache;
     SourceElements* m_sourceElements;
     bool m_parsingBuiltin;
-    ParserArenaData<DeclarationStacks::VarStack>* m_varDeclarations;
-    ParserArenaData<DeclarationStacks::FunctionStack>* m_funcDeclarations;
+    ConstructorKind m_defaultConstructorKind;
+    ThisTDZMode m_thisTDZMode;
+    DeclarationStacks::VarStack m_varDeclarations;
+    DeclarationStacks::FunctionStack m_funcDeclarations;
     IdentifierSet m_capturedVariables;
-    Vector<RefPtr<StringImpl>> m_closedVariables;
+    Vector<RefPtr<UniquedStringImpl>> m_closedVariables;
     CodeFeatures m_features;
     int m_numConstants;
     
@@ -857,12 +974,12 @@ private:
 
 template <typename LexerType>
 template <class ParsedNode>
-PassRefPtr<ParsedNode> Parser<LexerType>::parse(ParserError& error, bool needReparsingAdjustment)
+std::unique_ptr<ParsedNode> Parser<LexerType>::parse(ParserError& error)
 {
     int errLine;
     String errMsg;
 
-    if (ParsedNode::scopeIsFunction && needReparsingAdjustment)
+    if (ParsedNode::scopeIsFunction)
         m_lexer->setIsReparsing();
 
     m_sourceElements = 0;
@@ -888,26 +1005,27 @@ PassRefPtr<ParsedNode> Parser<LexerType>::parse(ParserError& error, bool needRep
         m_sourceElements = 0;
     }
 
-    RefPtr<ParsedNode> result;
+    std::unique_ptr<ParsedNode> result;
     if (m_sourceElements) {
         JSTokenLocation endLocation;
         endLocation.line = m_lexer->lineNumber();
         endLocation.lineStartOffset = m_lexer->currentLineStartOffset();
         endLocation.startOffset = m_lexer->currentOffset();
         unsigned endColumn = endLocation.startOffset - endLocation.lineStartOffset;
-        result = ParsedNode::create(m_vm,
+        result = std::make_unique<ParsedNode>(m_parserArena,
                                     startLocation,
                                     endLocation,
                                     startColumn,
                                     endColumn,
                                     m_sourceElements,
-                                    m_varDeclarations ? &m_varDeclarations->data : 0,
-                                    m_funcDeclarations ? &m_funcDeclarations->data : 0,
+                                    m_varDeclarations,
+                                    m_funcDeclarations,
                                     m_capturedVariables,
                                     *m_source,
                                     m_features,
                                     m_numConstants);
         result->setLoc(m_source->firstLine(), m_lexer->lineNumber(), m_lexer->currentOffset(), m_lexer->currentLineStartOffset());
+        result->setEndOffset(m_lexer->currentOffset());
     } else {
         // We can never see a syntax error when reparsing a function, since we should have
         // reported the error when parsing the containing program or eval code. So if we're
@@ -931,35 +1049,39 @@ PassRefPtr<ParsedNode> Parser<LexerType>::parse(ParserError& error, bool needRep
         }
     }
 
-    m_arena->reset();
-
-    return result.release();
+    return result;
 }
 
 template <class ParsedNode>
-PassRefPtr<ParsedNode> parse(VM* vm, const SourceCode& source, FunctionParameters* parameters, const Identifier& name, JSParserStrictness strictness, JSParserMode parserMode, ParserError& error, JSTextPosition* positionBeforeLastNewline = 0, bool needReparsingAdjustment = false)
+std::unique_ptr<ParsedNode> parse(
+    VM* vm, const SourceCode& source, FunctionParameters* parameters,
+    const Identifier& name, JSParserBuiltinMode builtinMode,
+    JSParserStrictMode strictMode, JSParserCodeType codeType,
+    ParserError& error, JSTextPosition* positionBeforeLastNewline = 0,
+    ConstructorKind defaultConstructorKind = ConstructorKind::None, ThisTDZMode thisTDZMode = ThisTDZMode::CheckIfNeeded)
 {
     SamplingRegion samplingRegion("Parsing");
 
     ASSERT(!source.provider()->source().isNull());
     if (source.provider()->source().is8Bit()) {
-        Parser<Lexer<LChar>> parser(vm, source, parameters, name, strictness, parserMode);
-        RefPtr<ParsedNode> result = parser.parse<ParsedNode>(error, needReparsingAdjustment);
+        Parser<Lexer<LChar>> parser(vm, source, parameters, name, builtinMode, strictMode, codeType, defaultConstructorKind, thisTDZMode);
+        std::unique_ptr<ParsedNode> result = parser.parse<ParsedNode>(error);
         if (positionBeforeLastNewline)
             *positionBeforeLastNewline = parser.positionBeforeLastNewline();
-        if (strictness == JSParseBuiltin) {
+        if (builtinMode == JSParserBuiltinMode::Builtin) {
             if (!result)
-                WTF::dataLog("Error compiling builtin: ", error.m_message, "\n");
+                WTF::dataLog("Error compiling builtin: ", error.message(), "\n");
             RELEASE_ASSERT(result);
             result->setClosedVariables(parser.closedVariables());
         }
-        return result.release();
+        return result;
     }
-    Parser<Lexer<UChar>> parser(vm, source, parameters, name, strictness, parserMode);
-    RefPtr<ParsedNode> result = parser.parse<ParsedNode>(error, needReparsingAdjustment);
+    ASSERT_WITH_MESSAGE(defaultConstructorKind == ConstructorKind::None, "BuiltinExecutables::createDefaultConstructor should always use a 8-bit string");
+    Parser<Lexer<UChar>> parser(vm, source, parameters, name, builtinMode, strictMode, codeType, defaultConstructorKind, thisTDZMode);
+    std::unique_ptr<ParsedNode> result = parser.parse<ParsedNode>(error);
     if (positionBeforeLastNewline)
         *positionBeforeLastNewline = parser.positionBeforeLastNewline();
-    return result.release();
+    return result;
 }
 
 } // namespace

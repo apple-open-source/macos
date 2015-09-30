@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -527,8 +527,6 @@ protected:
 	bool                IsPhysicalInterconnectLocationInternal ( void );
 	    
 	IOReturn            SuspendPort ( bool suspend );
-	
-	bool				DidWakeFromHibernationOrStandby ( void );
 	
 private:
 	

@@ -28,41 +28,33 @@
 
 #if PLATFORM(IOS)
 
+#import "ApplicationStateTracker.h"
 #import "PageClientImplIOS.h"
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteScrollingCoordinatorProxy.h"
 #import "SmartMagnificationController.h"
+#import "UIKitSPI.h"
 #import "WKBrowsingContextControllerInternal.h"
 #import "WKBrowsingContextGroupPrivate.h"
-#import "WKGeolocationProviderIOS.h"
 #import "WKInspectorHighlightView.h"
 #import "WKPreferencesInternal.h"
 #import "WKProcessGroupPrivate.h"
-#import "WKProcessPoolInternal.h"
 #import "WKWebViewConfiguration.h"
 #import "WKWebViewInternal.h"
-#import "WebContext.h"
 #import "WebFrameProxy.h"
 #import "WebKit2Initialize.h"
 #import "WebKitSystemInterfaceIOS.h"
 #import "WebPageGroup.h"
+#import "WebProcessPool.h"
 #import "WebSystemInterface.h"
 #import <CoreGraphics/CoreGraphics.h>
-#import <UIKit/UIWindow_Private.h>
 #import <WebCore/FloatQuad.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/InspectorOverlay.h>
 #import <WebCore/NotImplemented.h>
+#import <WebCore/QuartzCoreSPI.h>
 #import <wtf/CurrentTime.h>
 #import <wtf/RetainPtr.h>
-
-#if __has_include(<QuartzCore/QuartzCorePrivate.h>)
-#import <QuartzCore/QuartzCorePrivate.h>
-#endif
-
-@interface CALayer (Details)
-@property BOOL hitTestsAsOpaque;
-@end
 
 using namespace WebCore;
 using namespace WebKit;
@@ -183,28 +175,23 @@ private:
     RetainPtr<WKInspectorHighlightView> _inspectorHighlightView;
 
     HistoricalVelocityData _historicalKinematicData;
+
+    RetainPtr<NSUndoManager> _undoManager;
+
+    std::unique_ptr<ApplicationStateTracker> _applicationStateTracker;
 }
 
-- (instancetype)initWithFrame:(CGRect)frame context:(WebKit::WebContext&)context configuration:(WebKit::WebPageConfiguration)webPageConfiguration webView:(WKWebView *)webView
+- (instancetype)_commonInitializationWithProcessPool:(WebKit::WebProcessPool&)processPool configuration:(WebKit::WebPageConfiguration)webPageConfiguration
 {
-    if (!(self = [super initWithFrame:frame]))
-        return nil;
+    ASSERT(_pageClient);
 
-    InitializeWebKit2();
-
-    _pageClient = std::make_unique<PageClientImpl>(self, webView);
-
-    _page = context.createWebPage(*_pageClient, WTF::move(webPageConfiguration));
+    _page = processPool.createWebPage(*_pageClient, WTF::move(webPageConfiguration));
     _page->initializeWebPage();
     _page->setIntrinsicDeviceScaleFactor(WKGetScaleFactorForScreen([UIScreen mainScreen]));
     _page->setUseFixedLayout(true);
     _page->setDelegatesScrolling(true);
 
-    _webView = webView;
-    
-    _isBackground = [UIApplication sharedApplication].applicationState == UIApplicationStateBackground;
-
-    WebContext::statistics().wkViewCount++;
+    WebProcessPool::statistics().wkViewCount++;
 
     _rootContentView = adoptNS([[UIView alloc] init]);
     [_rootContentView layer].masksToBounds = NO;
@@ -225,12 +212,35 @@ private:
 
     self.layer.hitTestsAsOpaque = YES;
 
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationDidEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:[UIApplication sharedApplication]];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillEnterForeground:) name:UIApplicationWillEnterForegroundNotification object:[UIApplication sharedApplication]];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillResignActive:) name:UIApplicationWillResignActiveNotification object:[UIApplication sharedApplication]];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:[UIApplication sharedApplication]];
 
     return self;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(WebKit::WebPageConfiguration)webPageConfiguration webView:(WKWebView *)webView
+{
+    if (!(self = [super initWithFrame:frame]))
+        return nil;
+
+    InitializeWebKit2();
+
+    _pageClient = std::make_unique<PageClientImpl>(self, webView);
+    _webView = webView;
+
+    return [self _commonInitializationWithProcessPool:processPool configuration:webPageConfiguration];
+}
+
+- (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(WebKit::WebPageConfiguration)webPageConfiguration wkView:(WKView *)wkView
+{
+    if (!(self = [super initWithFrame:frame]))
+        return nil;
+
+    InitializeWebKit2();
+
+    _pageClient = std::make_unique<PageClientImpl>(self, wkView);
+
+    return [self _commonInitializationWithProcessPool:processPool configuration:webPageConfiguration];
 }
 
 - (void)dealloc
@@ -241,7 +251,7 @@ private:
 
     _page->close();
 
-    WebContext::statistics().wkViewCount--;
+    WebProcessPool::statistics().wkViewCount--;
 
     [super dealloc];
 }
@@ -256,18 +266,29 @@ private:
     NSNotificationCenter *defaultCenter = [NSNotificationCenter defaultCenter];
     UIWindow *window = self.window;
 
-    if (window)
+    if (window) {
         [defaultCenter removeObserver:self name:UIWindowDidMoveToScreenNotification object:window];
 
-    if (newWindow)
+        if (!newWindow) {
+            ASSERT(_applicationStateTracker);
+            _applicationStateTracker = nullptr;
+        }
+    }
+
+    if (newWindow) {
         [defaultCenter addObserver:self selector:@selector(_windowDidMoveToScreenNotification:) name:UIWindowDidMoveToScreenNotification object:newWindow];
+
+        [self _updateForScreen:newWindow.screen];
+    }
 }
 
 - (void)didMoveToWindow
 {
-    if (self.window)
-        [self _updateForScreen:self.window.screen];
-    _page->viewStateDidChange(ViewState::AllFlags);
+    if (!self.window)
+        return;
+
+    ASSERT(!_applicationStateTracker);
+    _applicationStateTracker = std::make_unique<ApplicationStateTracker>(self, @selector(_applicationDidEnterBackground), @selector(_applicationWillEnterForeground));
 }
 
 - (WKBrowsingContextController *)browsingContextController
@@ -290,7 +311,10 @@ private:
 
 - (BOOL)isBackground
 {
-    return _isBackground;
+    if (!_applicationStateTracker)
+        return YES;
+
+    return _applicationStateTracker->isInBackground();
 }
 
 - (void)_showInspectorHighlight:(const WebCore::Highlight&)highlight
@@ -370,6 +394,11 @@ private:
     [self _didEndScrollingOrZooming];
 }
 
+- (void)didInterruptScrolling
+{
+    _historicalKinematicData.clear();
+}
+
 - (void)willStartZoomOrScroll
 {
     [self _willStartScrollingOrZooming];
@@ -378,6 +407,14 @@ private:
 - (void)didZoomToScale:(CGFloat)scale
 {
     [self _didEndScrollingOrZooming];
+}
+
+- (NSUndoManager *)undoManager
+{
+    if (!_undoManager)
+        _undoManager = adoptNS([[NSUndoManager alloc] init]);
+
+    return _undoManager.get();
 }
 
 #pragma mark Internal
@@ -422,7 +459,7 @@ private:
 
 - (std::unique_ptr<DrawingAreaProxy>)_createDrawingAreaProxy
 {
-    return std::make_unique<RemoteLayerTreeDrawingAreaProxy>(_page.get());
+    return std::make_unique<RemoteLayerTreeDrawingAreaProxy>(*_page);
 }
 
 - (void)_processDidExit
@@ -442,27 +479,42 @@ private:
 - (void)_didCommitLoadForMainFrame
 {
     [self _stopAssistingNode];
+    [self _cancelLongPressGestureRecognizer];
     [_webView _didCommitLoadForMainFrame];
 }
 
 - (void)_didCommitLayerTree:(const WebKit::RemoteLayerTreeTransaction&)layerTreeTransaction
 {
     CGSize contentsSize = layerTreeTransaction.contentsSize();
-    CGRect contentBounds = { CGPointZero, contentsSize };
-    CGRect oldBounds = [self bounds];
+    CGPoint scrollOrigin = -layerTreeTransaction.scrollOrigin();
+    CGRect contentBounds = { scrollOrigin, contentsSize };
 
-    BOOL boundsChanged = !CGRectEqualToRect(oldBounds, contentBounds);
+    BOOL boundsChanged = !CGRectEqualToRect([self bounds], contentBounds);
     if (boundsChanged)
         [self setBounds:contentBounds];
 
     [_webView _didCommitLayerTree:layerTreeTransaction];
+
+    if (_interactionViewsContainerView) {
+        FloatPoint scaledOrigin = layerTreeTransaction.scrollOrigin();
+        float scale = [[_webView scrollView] zoomScale];
+        scaledOrigin.scale(scale, scale);
+        [_interactionViewsContainerView setFrame:CGRectMake(scaledOrigin.x(), scaledOrigin.y(), 0, 0)];
+    }
     
     if (boundsChanged) {
         FloatRect fixedPositionRect = _page->computeCustomFixedPositionRect(_page->unobscuredContentRect(), [[_webView scrollView] zoomScale]);
         [self updateFixedClippingView:fixedPositionRect];
+
+        // We need to push the new content bounds to the webview to update fixed position rects.
+        [_webView _updateVisibleContentRects];
     }
     
-    [self _updateChangedSelection];
+    // Updating the selection requires a full editor state. If the editor state is missing post layout
+    // data then it means there is a layout pending and we're going to be called again after the layout
+    // so we delay the selection update.
+    if (!_page->editorState().isMissingPostLayoutData)
+        [self _updateChangedSelection];
 }
 
 - (void)_setAcceleratedCompositingRootView:(UIView *)rootView
@@ -471,11 +523,6 @@ private:
         [subview removeFromSuperview];
 
     [_rootContentView addSubview:rootView];
-}
-
-- (void)_decidePolicyForGeolocationRequestFromOrigin:(WebSecurityOrigin&)origin frame:(WebFrameProxy&)frame request:(GeolocationPermissionRequestProxy&)permissionRequest
-{
-    [[wrapper(_page->process().context()) _geolocationProvider] decidePolicyForGeolocationRequestFromOrigin:toAPI(&origin) frame:toAPI(&frame) request:toAPI(&permissionRequest) window:[self window]];
 }
 
 - (BOOL)_scrollToRect:(CGRect)targetRect withOrigin:(CGPoint)origin minimumScrollDistance:(CGFloat)minimumScrollDistance
@@ -501,7 +548,7 @@ private:
 
 - (void)_zoomOutWithOrigin:(CGPoint)origin
 {
-    return [_webView _zoomOutWithOrigin:origin];
+    return [_webView _zoomOutWithOrigin:origin animated:YES];
 }
 
 - (void)_applicationWillResignActive:(NSNotification*)notification
@@ -509,18 +556,17 @@ private:
     _page->applicationWillResignActive();
 }
 
-- (void)_applicationDidEnterBackground:(NSNotification*)notification
+- (void)_applicationDidEnterBackground
 {
-    _isBackground = YES;
+    _page->applicationDidEnterBackground();
     _page->viewStateDidChange(ViewState::AllFlags & ~ViewState::IsInWindow);
 }
 
-- (void)_applicationWillEnterForeground:(NSNotification*)notification
+- (void)_applicationWillEnterForeground
 {
-    _isBackground = NO;
     _page->applicationWillEnterForeground();
     if (auto drawingArea = _page->drawingArea())
-        drawingArea->hideContentUntilNextUpdate();
+        drawingArea->hideContentUntilAnyUpdate();
     _page->viewStateDidChange(ViewState::AllFlags & ~ViewState::IsInWindow, true, WebPageProxy::ViewStateChangeDispatchMode::Immediate);
 }
 

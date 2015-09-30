@@ -26,57 +26,52 @@
 #ifndef Allocator_h
 #define Allocator_h
 
-#include "FixedVector.h"
-#include "MediumAllocator.h"
-#include "Sizes.h"
-#include "SmallAllocator.h"
+#include "BumpAllocator.h"
 #include <array>
 
 namespace bmalloc {
 
 class Deallocator;
+class Heap;
 
 // Per-cache object allocator.
 
 class Allocator {
 public:
-    Allocator(Deallocator&);
+    Allocator(Heap*, Deallocator&);
     ~Allocator();
 
+    void* tryAllocate(size_t);
     void* allocate(size_t);
-    bool allocateFastCase(size_t, void*&);
-    void* allocateSlowCase(size_t);
-    
+    void* allocate(size_t alignment, size_t);
+    void* reallocate(void*, size_t);
+
     void scavenge();
 
 private:
-    void* allocateFastCase(SmallAllocator&);
-
+    bool allocateFastCase(size_t, void*&);
+    void* allocateSlowCase(size_t);
+    
     void* allocateMedium(size_t);
     void* allocateLarge(size_t);
     void* allocateXLarge(size_t);
     
-    void log(SmallAllocator&);
-    void log(MediumAllocator&);
+    BumpRange allocateBumpRange(size_t sizeClass);
+    BumpRange allocateBumpRangeSlowCase(size_t sizeClass);
+    
+    std::array<BumpAllocator, mediumMax / alignment> m_bumpAllocators;
+    std::array<BumpRangeCache, mediumMax / alignment> m_bumpRangeCaches;
 
-    void processSmallAllocatorLog();
-    void processMediumAllocatorLog();
-
+    bool m_isBmallocEnabled;
     Deallocator& m_deallocator;
-
-    std::array<SmallAllocator, smallMax / alignment> m_smallAllocators;
-    MediumAllocator m_mediumAllocator;
-
-    FixedVector<std::pair<SmallLine*, unsigned char>, smallAllocatorLogCapacity> m_smallAllocatorLog;
-    FixedVector<std::pair<MediumLine*, unsigned char>, mediumAllocatorLogCapacity> m_mediumAllocatorLog;
 };
 
 inline bool Allocator::allocateFastCase(size_t size, void*& object)
 {
-    if (size > smallMax)
+    if (size > mediumMax)
         return false;
 
-    SmallAllocator& allocator = m_smallAllocators[smallSizeClassFor(size)];
+    BumpAllocator& allocator = m_bumpAllocators[sizeClass(size)];
     if (!allocator.canAllocate())
         return false;
 

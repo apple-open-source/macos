@@ -31,6 +31,7 @@
 #import <wtf/RetainPtr.h>
 
 @class WKContentView;
+@class WKView;
 @class WKWebView;
 
 namespace WebCore {
@@ -41,10 +42,9 @@ namespace WebKit {
 class DrawingAreaProxy;
 class GeolocationPermissionRequestProxy;
 class RemoteLayerTreeTransaction;
-class WebContext;
 class WebFrameProxy;
 class WebPageProxy;
-class WebSecurityOrigin;
+class WebProcessPool;
 struct WebPageConfiguration;
 }
 
@@ -52,7 +52,6 @@ struct WebPageConfiguration;
 @package
     RefPtr<WebKit::WebPageProxy> _page;
     WKWebView *_webView;
-    BOOL _isBackground;
 }
 
 @property (nonatomic, readonly) WKBrowsingContextController *browsingContextController;
@@ -62,7 +61,8 @@ struct WebPageConfiguration;
 @property (nonatomic, getter=isShowingInspectorIndication) BOOL showingInspectorIndication;
 @property (nonatomic, readonly) BOOL isBackground;
 
-- (instancetype)initWithFrame:(CGRect)frame context:(WebKit::WebContext&)context configuration:(WebKit::WebPageConfiguration)webPageConfiguration webView:(WKWebView *)webView;
+- (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(WebKit::WebPageConfiguration)webPageConfiguration webView:(WKWebView *)webView;
+- (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(WebKit::WebPageConfiguration)webPageConfiguration wkView:(WKView *)webView;
 
 - (void)didUpdateVisibleRect:(CGRect)visibleRect unobscuredRect:(CGRect)unobscuredRect
     unobscuredRectInScrollViewCoordinates:(CGRect)unobscuredRectInScrollViewCoordinates
@@ -70,6 +70,7 @@ struct WebPageConfiguration;
     inStableState:(BOOL)isStableState isChangingObscuredInsetsInteractively:(BOOL)isChangingObscuredInsetsInteractively;
 
 - (void)didFinishScrolling;
+- (void)didInterruptScrolling;
 - (void)didZoomToScale:(CGFloat)scale;
 - (void)willStartZoomOrScroll;
 
@@ -83,8 +84,6 @@ struct WebPageConfiguration;
 
 - (void)_didCommitLoadForMainFrame;
 - (void)_didCommitLayerTree:(const WebKit::RemoteLayerTreeTransaction&)layerTreeTransaction;
-
-- (void)_decidePolicyForGeolocationRequestFromOrigin:(WebKit::WebSecurityOrigin&)origin frame:(WebKit::WebFrameProxy&)frame request:(WebKit::GeolocationPermissionRequestProxy&)permissionRequest;
 
 - (void)_setAccessibilityWebProcessToken:(NSData *)data;
 

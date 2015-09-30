@@ -26,7 +26,7 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
-#include <TargetConditionals.h>	// for TARGET_OS_EMBEDDED
+#include <TargetConditionals.h>	// for TARGET_OS_*
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -36,6 +36,8 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <_libkernel_init.h> // Must be after voucher_private.h
+
+#include <mach-o/dyld_priv.h>
 
 // system library initialisers
 extern void mach_init(void);			// from libsystem_kernel.dylib
@@ -47,6 +49,7 @@ extern void _dyld_initializer(void);		// from libdyld.dylib
 extern void libdispatch_init(void);		// from libdispatch.dylib
 extern void _libxpc_initializer(void);		// from libxpc.dylib
 extern void _libsecinit_initializer(void);        // from libsecinit.dylib
+extern void _libtrace_init(void);		// from libsystem_trace.dylib
 
 
 // signal malloc stack logging that initialisation has finished
@@ -65,6 +68,8 @@ extern void _pthread_exit_if_canceled(int);
 extern void dispatch_atfork_prepare(void);
 extern void dispatch_atfork_parent(void);
 extern void dispatch_atfork_child(void);
+
+extern void _libtrace_fork_child(void);
 
 extern void _malloc_fork_prepare(void);
 extern void _malloc_fork_parent(void);
@@ -87,9 +92,8 @@ extern void _libcoreservices_fork_child(void);
 extern char *_dirhelper(int, char *, size_t);
 #endif
 
-#if TARGET_IPHONE_SIMULATOR
-// no-op _pthread_clear_qos_tsd in the simulator, as its an upcall from libsyscall
-#define _pthread_clear_qos_tsd NULL
+#if TARGET_OS_EMBEDDED && !TARGET_OS_WATCH && !__LP64__
+extern void _vminterpose_init(void);
 #endif
 
 // advance decls for below;
@@ -146,21 +150,40 @@ libSystem_initializer(int argc,
 	// TODO: Move __malloc_init before __libc_init after breaking malloc's upward link to Libc
 	__malloc_init(apple);
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	/* <rdar://problem/9664631> */
 	__keymgr_initializer();
 #endif
 
 	_dyld_initializer();
+
+
 	libdispatch_init();
 	_libxpc_initializer();
 
-#if !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR)
+#if !(TARGET_OS_EMBEDDED || TARGET_OS_SIMULATOR)
 	_libsecinit_initializer();
 #endif
 
 	__stack_logging_early_finished();
 
+#if TARGET_OS_EMBEDDED && !TARGET_OS_WATCH && !__LP64__
+	_vminterpose_init();
+#endif
+
+	_libtrace_init(); // must be initialized after dispatch
+
+#if !TARGET_OS_IPHONE
+    /* <rdar://problem/22139800> - Preserve the old behavior of apple[] for
+     * programs that haven't linked against newer SDK.
+	 */
+#define APPLE0_PREFIX "executable_path="
+	if (dyld_get_program_sdk_version() < DYLD_MACOSX_VERSION_10_11){
+		if (strncmp(apple[0], APPLE0_PREFIX, strlen(APPLE0_PREFIX)) == 0){
+			apple[0] = apple[0] + strlen(APPLE0_PREFIX);
+		}
+	}
+#endif
 
 	/* <rdar://problem/11588042>
 	 * C99 standard has the following in section 7.5(3):
@@ -215,6 +238,7 @@ libSystem_atfork_child(void)
 	_libSC_info_fork_child();
 
 	_pthread_fork_child_postinit();
+	_libtrace_fork_child(); // no prep work required for the fork
 }
 
 /*  

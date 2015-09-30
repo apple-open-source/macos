@@ -173,10 +173,10 @@ _gss_import_export_name(OM_uint32 *minor_status,
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_import_name(OM_uint32 *minor_status,
-    const gss_buffer_t input_name_buffer,
-    gss_const_OID input_name_type,
-    gss_name_t *output_name)
+gss_import_name(OM_uint32 *__nonnull minor_status,
+    __nonnull const gss_buffer_t input_name_buffer,
+    __nullable gss_const_OID input_name_type,
+    __nonnull gss_name_t * __nullable output_name)
 {
         struct _gss_mechanism_name *mn;
 	gss_OID			name_type = rk_UNCONST(input_name_type);

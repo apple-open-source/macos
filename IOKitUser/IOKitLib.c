@@ -58,6 +58,7 @@
 #include <IOKit/IOCFUnserialize.h>
 
 #include <IOKit/IOKitLibPrivate.h>
+#include <IOKit/IOKitKeysPrivate.h>
 
 #if __LP64__
 typedef struct OSNotificationHeader64 NotificationHeader;
@@ -214,12 +215,46 @@ IOObjectGetClass(
 	io_object_t	object,
 	io_name_t       className )
 {
-    return( io_object_get_class( object, className ));
+    return _IOObjectGetClass(object, 0, className);
+}
+
+kern_return_t
+_IOObjectGetClass(
+	io_object_t	object,
+	uint64_t        options,
+	io_name_t       className )
+{
+    CFTypeRef overrideType  = NULL;
+    boolean_t override      = false;
+
+#if !TARGET_IPHONE_SIMULATOR
+    if ( (options & kIOClassNameOverrideNone) == 0 ) {
+        overrideType = IORegistryEntryCreateCFProperty(object, CFSTR(kIOClassNameOverrideKey), kCFAllocatorDefault, 0);
+        
+        if ( overrideType ) {
+            if ( CFGetTypeID(overrideType) == CFStringGetTypeID() ) {
+                override = CFStringGetCString((CFStringRef)overrideType, className, sizeof(io_name_t), kCFStringEncodingUTF8);
+            }
+            CFRelease(overrideType);
+        }
+    }
+#endif /* !TARGET_IPHONE_SIMULATOR */
+
+    return( override ? kIOReturnSuccess : io_object_get_class( object, className ));
 }
 
 
-CFStringRef 
-IOObjectCopyClass(io_object_t object)
+CFStringRef
+IOObjectCopyClass(
+	io_object_t     object)
+{
+    return _IOObjectCopyClass(object, 0);
+}
+
+CFStringRef
+_IOObjectCopyClass(
+	io_object_t     object,
+	uint64_t        options)
 {
     io_name_t my_name;
     CFStringRef my_str = NULL;
@@ -228,7 +263,7 @@ IOObjectCopyClass(io_object_t object)
     if (!object)
 	return my_str;
     
-    io_object_get_class( object, my_name );	
+    _IOObjectGetClass( object, options, my_name );
     my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
 
     return my_str;
@@ -305,12 +340,39 @@ IOObjectConformsTo(
 	io_object_t	object,
 	const io_name_t	className )
 {
+    return _IOObjectConformsTo(object, className, 0);
+}
+
+
+boolean_t
+_IOObjectConformsTo(
+	io_object_t	object,
+	const io_name_t	className,
+	uint64_t        options)
+{
     boolean_t	conforms;
 
     if( kIOReturnSuccess != io_object_conforms_to(
 		object, (char *) className, &conforms ))
 	conforms = 0;
-
+    
+#if !TARGET_IPHONE_SIMULATOR
+    if ( !conforms && ((options & kIOClassNameOverrideNone) == 0) ) {
+        CFTypeRef overrideType = IORegistryEntryCreateCFProperty(object, CFSTR(kIOClassNameOverrideKey), kCFAllocatorDefault, 0);
+        
+        if ( overrideType ) {
+            if ( CFGetTypeID(overrideType) == CFStringGetTypeID() ) {
+                CFStringRef classNameString = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, className, kCFStringEncodingUTF8, kCFAllocatorNull);
+                if ( classNameString ) {
+                    conforms = kCFCompareEqualTo == CFStringCompare((CFStringRef)overrideType, classNameString, 0);
+                    CFRelease(classNameString);
+                }
+            }
+            CFRelease(overrideType);
+        }
+    }
+#endif /* !TARGET_IPHONE_SIMULATOR */
+    
     return( conforms );
 }
 
@@ -2084,6 +2146,68 @@ IORegistryEntryFromPath(
 }
 
 io_registry_entry_t
+IORegistryEntryCopyFromPath(
+	mach_port_t	_masterPort,
+	CFStringRef	cfpath )
+{
+#if IOKIT_SERVER_VERSION < 20150715
+    return (MACH_PORT_NULL);
+#else
+
+    kern_return_t	   kr;
+    kern_return_t          result;
+    io_registry_entry_t	   entry;
+    mach_port_t		   masterPort;
+    io_buf_ptr_t           path_ool;
+    mach_msg_type_number_t path_oolCnt;
+    char                 * path;
+    size_t                 pathLen;
+    void                 * buffer;
+
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
+
+    buffer      = NULL;
+    pathLen     = 0;
+    path_ool    = NULL;
+    path_oolCnt = 0;
+    path = (char *) CFStringGetCStringPtr(cfpath, kCFStringEncodingUTF8);
+    if (!path)
+    {
+	CFIndex bufferSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfpath),
+	       kCFStringEncodingUTF8) + sizeof('\0');
+        buffer = malloc(bufferSize);
+        if (buffer && CFStringGetCString(cfpath, buffer, bufferSize, kCFStringEncodingUTF8))
+            path = buffer;
+    }
+    if (!path) kr = kIOReturnBadArgument;
+    else
+    {
+ 	pathLen = strlen(path);
+ 	if (pathLen > sizeof(io_string_inband_t))
+	{
+	    path_ool = path;
+	    path_oolCnt = pathLen + 1;
+	    path = "\0";
+	}
+
+	kr = io_registry_entry_from_path_ool(masterPort, path, path_ool, path_oolCnt, &result, &entry);
+    }
+
+    if ((kIOReturnSuccess != kr) || (kIOReturnSuccess != result)) entry = 0;
+
+    if (buffer) free(buffer);
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
+
+    return( entry );
+#endif /* IOKIT_SERVER_VERSION < 20150715 */
+}
+
+io_registry_entry_t
 IORegistryGetRootEntry(
         mach_port_t	_masterPort )
 {
@@ -2113,6 +2237,39 @@ IORegistryEntryGetPath(
 	io_string_t		path )
 {
     return( io_registry_entry_get_path( entry, (char *) plane, path ));
+}
+
+CFStringRef
+IORegistryEntryCopyPath(
+	io_registry_entry_t	entry,
+	const io_name_t         plane)
+{
+#if IOKIT_SERVER_VERSION < 20150715
+    return (NULL);
+#else
+
+    kern_return_t err, kr;
+    io_string_inband_t path;
+    io_buf_ptr_t path_ool;
+    mach_msg_type_number_t path_oolCnt;
+    CFStringRef result;
+
+    err = io_registry_entry_get_path_ool(entry, (char *) plane, path, &path_ool, &path_oolCnt);
+    if (kIOReturnSuccess != err) return (NULL);
+
+    if (path_ool && path_oolCnt)
+    {
+        result = CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8 *) path_ool, path_oolCnt, kCFStringEncodingUTF8, false);
+	kr = vm_deallocate(mach_task_self(), path_ool, path_oolCnt);
+    }
+    else
+    {
+        result = CFStringCreateWithCString(kCFAllocatorDefault, path, kCFStringEncodingUTF8);
+    }
+
+    return (result);
+
+#endif /* IOKIT_SERVER_VERSION < 20150715 */
 }
 
 boolean_t

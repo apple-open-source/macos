@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,40 +35,36 @@
 
 namespace JSC {
 
-typedef void (*LoggerFunction)(const char*, ...) WTF_ATTRIBUTE_PRINTF(1, 2);
-typedef LLVMAPI* (*InitializerFunction)(LoggerFunction);
-
-void initializeLLVMPOSIX(const char* libraryName)
+LLVMInitializerFunction getLLVMInitializerFunctionPOSIX(const char* libraryName, bool verbose)
 {
-    const bool verbose =
-        Options::verboseFTLCompilation()
-        || Options::showFTLDisassembly()
-        || Options::verboseFTLFailure()
-        || Options::verboseCompilation()
-        || Options::showDFGDisassembly()
-        || Options::showDisassembly();
+    int flags = RTLD_NOW;
     
-    void* library = dlopen(libraryName, RTLD_NOW);
+#if OS(LINUX)
+    // We need this to cause our overrides (like __cxa_atexit) to take precedent over the __cxa_atexit that is already
+    // globally exported. Those overrides are necessary to prevent crashes (our __cxa_atexit turns off LLVM's exit-time
+    // destruction, which causes exit-time crashes if the concurrent JIT is still running) and to make LLVM assertion
+    // failures funnel through WebKit's mechanisms. This flag induces behavior that is the default on Darwin. Other OSes
+    // may need their own flags in place of this.
+    flags |= RTLD_DEEPBIND;
+#endif
+    
+    void* library = dlopen(libraryName, flags);
     if (!library) {
         if (verbose)
             dataLog("Failed to load LLVM library at ", libraryName, ": ", dlerror(), "\n");
-        return;
+        return nullptr;
     }
     
     const char* symbolName = "initializeAndGetJSCLLVMAPI";
-    InitializerFunction initializer = bitwise_cast<InitializerFunction>(
+    LLVMInitializerFunction initializer = bitwise_cast<LLVMInitializerFunction>(
         dlsym(library, symbolName));
     if (!initializer) {
         if (verbose)
             dataLog("Failed to find ", symbolName, " in ", libraryName, ": ", dlerror());
-        return;
+        return nullptr;
     }
     
-    llvm = initializer(WTFLogAlwaysAndCrash);
-    if (!llvm) {
-        if (verbose)
-            dataLog("LLVM initilization failed.\n");
-    }
+    return initializer;
 }
 
 } // namespace JSC

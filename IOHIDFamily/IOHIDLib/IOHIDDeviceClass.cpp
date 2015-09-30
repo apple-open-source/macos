@@ -549,13 +549,19 @@ IOReturn IOHIDDeviceClass::getProperty(CFStringRef key, CFTypeRef * pProperty)
     CFTypeRef property = CFDictionaryGetValue(fProperties, key);
     
     if ( !property ) {
-        property = IORegistryEntrySearchCFProperty(fService, kIOServicePlane, key, kCFAllocatorDefault, kIORegistryIterateRecursively| kIORegistryIterateParents);
+        if ( CFStringCompare( key, CFSTR(kIOHIDUniqueIDKey), 0 ) == kCFCompareEqualTo ) {
+            uint64_t entryID;
+            IORegistryEntryGetRegistryEntryID( fService, &entryID);
+            property = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongLongType, &entryID );
+        } else {
+            property = IORegistryEntrySearchCFProperty(fService, kIOServicePlane, key, kCFAllocatorDefault, kIORegistryIterateRecursively| kIORegistryIterateParents);
+        }
         if ( property ) {
             CFDictionarySetValue(fProperties, key, property);
             CFRelease(property);
         }
     }
-    
+
     if ( pProperty )
         *pProperty = property;
         

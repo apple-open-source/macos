@@ -464,7 +464,7 @@
 		59C496DF0FE189F800B4278B /* bashbug */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/bin";
+			dstPath = "/usr/bin";
 			dstSubfolderSpec = 0;
 			files = (
 				59C496E00FE189FF00B4278B /* bashbug in bashbug */,
@@ -475,7 +475,7 @@
 		59C496F20FE18B0100B4278B /* RC files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/private/etc";
+			dstPath = "/private/etc";
 			dstSubfolderSpec = 0;
 			files = (
 				59C496F50FE18B2300B4278B /* bashrc in RC files */,
@@ -487,7 +487,7 @@
 		59C496FD0FE18D1B00B4278B /* Info file */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/info";
+			dstPath = "/usr/share/info";
 			dstSubfolderSpec = 0;
 			files = (
 				59C496FF0FE18D7300B4278B /* bash.info in Info file */,
@@ -498,7 +498,7 @@
 		723F1FC20FE16C4E00CA2753 /* HTML & PDFs */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/doc/bash";
+			dstPath = "/usr/share/doc/bash";
 			dstSubfolderSpec = 0;
 			files = (
 				723F1FD80FE16D3F00CA2753 /* bash.html in HTML & PDFs */,
@@ -517,7 +517,7 @@
 		728BBCA70FE0CECE00EC5E03 /* OS plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceVersions";
+			dstPath = "/usr/local/OpenSourceVersions";
 			dstSubfolderSpec = 0;
 			files = (
 				728BBCAB0FE0CF8800EC5E03 /* bash.plist in OS plist */,
@@ -528,7 +528,7 @@
 		728BBCA90FE0CF0F00EC5E03 /* OS License */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceLicenses";
+			dstPath = "/usr/local/OpenSourceLicenses";
 			dstSubfolderSpec = 0;
 			files = (
 				728BBCBE0FE0D0DC00EC5E03 /* bash.txt in OS License */,
@@ -539,7 +539,7 @@
 		8DD76FAF0486AB0100D96B5E /* man page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man1";
+			dstPath = "/usr/share/man/man1";
 			dstSubfolderSpec = 0;
 			files = (
 				723F1FBA0FE16B3500CA2753 /* bashbug.1 in man page */,
@@ -1442,7 +1442,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/bash;
-			shellScript = "set -ev\n\nDSTROOT=${DSTROOT}${INSTALL_PATH_PREFIX}\n\nln -fs bash.1 ${DSTROOT}/usr/share/man/man1/sh.1\n\nif [[ ${PLATFORM_NAME} =~ \"simulator\" ]] ; then\n    # Don't need bashbug nor docs\n\trm -rf ${DSTROOT}/usr\n\n    # Use host bashrc\n    rm -rf ${DSTROOT}/private\n\texit 0\nfi\n\nchmod a+x ${DSTROOT}/usr/bin/bashbug\nmkdir -p ${DSTROOT}/usr/local/bin\nln -fs /bin/bash ${DSTROOT}/usr/local/bin/bash\nif [[ ${UID} -eq 0 ]]; then\n\tchown -hR root:wheel ${DSTROOT}\nfi\nfind ${DSTROOT} -type f -perm -u+w -print0 | xargs -0t chmod u-w\nexit 0\n";
+			shellScript = "set -ev\n\nln -fs bash.1 ${DSTROOT}/usr/share/man/man1/sh.1\n\nif [[ ${PLATFORM_NAME} =~ \"simulator\" ]] ; then\n    # Don't need bashbug nor docs\n\trm -rf ${DSTROOT}/usr\n\n    # Use host bashrc\n    rm -rf ${DSTROOT}/private\n\texit 0\nfi\n\nchmod a+x ${DSTROOT}/usr/bin/bashbug\nmkdir -p ${DSTROOT}/usr/local/bin\nln -fs /bin/bash ${DSTROOT}/usr/local/bin/bash\nif [[ ${UID} -eq 0 ]]; then\n\tchown -hR root:wheel ${DSTROOT}\nfi\nfind ${DSTROOT} -type f -perm -u+w -print0 | xargs -0t chmod u-w\nexit 0\n";
 			showEnvVarsInLog = 0;
 		};
 		59DC3C521120DC9C00B033EC /* ostype.h */ = {
@@ -1899,7 +1899,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				INSTALL_PATH_ACTUAL = /bin;
+				INSTALL_PATH = /bin;
 				OTHER_LDFLAGS = "-Wl,-search_paths_first";
 				PRODUCT_NAME = bash;
 			};
@@ -1941,7 +1941,7 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH_ACTUAL = /usr/local/lib;
+				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = sh;
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "";
@@ -1954,7 +1954,7 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH_ACTUAL = /usr/local/lib;
+				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = glob;
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "";
@@ -1967,7 +1967,7 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH_ACTUAL = /usr/local/lib;
+				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = intl;
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "";
@@ -1980,7 +1980,7 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH_ACTUAL = /usr/local/lib;
+				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = readline;
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "";
@@ -2012,7 +2012,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH_ACTUAL = /usr/local/bin;
+				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = recho;
 				SKIP_INSTALL = YES;
 			};
@@ -2023,7 +2023,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH_ACTUAL = /usr/local/bin;
+				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = zecho;
 				SKIP_INSTALL = YES;
 			};
@@ -2033,7 +2033,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH_ACTUAL = /usr/local/bin;
+				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = printenv;
 				SKIP_INSTALL = YES;
 			};
@@ -2058,7 +2058,7 @@
 					SHELL,
 					HAVE_CONFIG_H,
 				);
-				INSTALL_PATH_ACTUAL = /bin;
+				INSTALL_PATH = /bin;
 				OTHER_LDFLAGS = "-Wl,-search_paths_first";
 				PRODUCT_NAME = sh;
 				STRIP_INSTALLED_PRODUCT = YES;

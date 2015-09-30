@@ -2,7 +2,7 @@
 
   variable.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Tue Apr 19 23:55:15 JST 1994
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -1517,7 +1517,7 @@ const_missing(VALUE klass, ID id)
 VALUE
 rb_mod_const_missing(VALUE klass, VALUE name)
 {
-    rb_frame_pop(); /* pop frame for "const_missing" */
+    rb_vm_pop_cfunc_frame();
     uninitialized_constant(klass, rb_to_id(name));
 
     UNREACHABLE;

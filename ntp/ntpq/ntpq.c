@@ -795,9 +795,9 @@ sendpkt(
 	)
 {
 	if (debug >= 3)
-		printf("Sending %u octets\n", xdatalen);
+		printf("Sending %zu octets\n", xdatalen);
 
-	if (send(sockfd, xdata, (size_t)xdatalen, 0) == -1) {
+	if (send(sockfd, xdata, xdatalen, 0) == -1) {
 		warning("write to %s failed", currenthost, "");
 		return -1;
 	}
@@ -1235,6 +1235,7 @@ sendrequest(
 		return 1;
 	}
 
+    memset(&qpkt, 0, sizeof(qpkt));
 	/*
 	 * Fill in the packet
 	 */
@@ -1312,7 +1313,7 @@ sendrequest(
 		return 1;
 	} else if ((size_t)maclen != (info_auth_hashlen + sizeof(keyid_t))) {
 		fprintf(stderr,
-			"%d octet MAC, %u expected with %u octet digest\n",
+			"%d octet MAC, %lu expected with %zu octet digest\n",
 			maclen, (info_auth_hashlen + sizeof(keyid_t)),
 			info_auth_hashlen);
 		return 1;
@@ -1822,7 +1823,7 @@ getnetnum(
 		return 1;
 	} else if (getaddrinfo(hname, "ntp", &hints, &ai) == 0) {
 		memmove((char *)num, ai->ai_addr, ai->ai_addrlen);
-		if (ai->ai_canonname != 0)
+		if ((ai->ai_canonname != 0) && fullhost != NULL)
 		    (void) strcpy(fullhost, ai->ai_canonname);
 		return 1;
 	} else {
@@ -2393,7 +2394,7 @@ keytype(
 	int		key_type;
 
 	if (!pcmd->nargs) {
-		fprintf(fp, "keytype is %s with %u octet digests\n",
+		fprintf(fp, "keytype is %s with %zu octet digests\n",
 			keytype_name(info_auth_keytype),
 			info_auth_hashlen);
 		return;

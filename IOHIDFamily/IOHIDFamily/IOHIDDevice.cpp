@@ -51,6 +51,10 @@
 #include "IOHIPointing.h"
 #endif
 
+#ifndef kMFiAccessoryAuthenticatedKey
+#define kMFiAccessoryAuthenticatedKey "Authenticated"
+#endif
+
 //===========================================================================
 // IOHIDAsyncReportQueue class
 
@@ -418,6 +422,11 @@ bool IOHIDDevice::start( IOService * provider )
     OSData *                reportDescriptorData    = NULL;
     OSNumber *              primaryUsagePage        = NULL;
     OSNumber *              primaryUsage            = NULL;
+    OSArray *               deviceUsagePairs        = NULL;
+    OSNumber *              deviceUsagePage         = NULL;
+    OSNumber *              deviceUsage             = NULL;
+    bool                    gameDevice              = false;
+    bool                    authenticated           = true;
     IOReturn                ret;
     bool                    result;
 
@@ -471,6 +480,43 @@ bool IOHIDDevice::start( IOService * provider )
     // Publish properties to the registry before any clients are
     // attached.
     require_action(publishProperties(provider), error, result=false);
+    
+    deviceUsagePairs = OSDynamicCast(OSArray, copyProperty(kIOHIDDeviceUsagePairsKey));
+    if (deviceUsagePairs) {
+        int i                           = 0;
+        OSDictionary *  usagePair       = NULL;
+        OSBoolean *     auth            = NULL;
+        for (;i < deviceUsagePairs->getCount(); i++) {
+            usagePair = OSDynamicCast(OSDictionary, deviceUsagePairs->getObject(i));
+            
+            if (!usagePair) continue;
+            
+            deviceUsagePage = OSDynamicCast(OSNumber, usagePair->getObject(kIOHIDDeviceUsagePageKey));
+            deviceUsage = OSDynamicCast(OSNumber, usagePair->getObject(kIOHIDDeviceUsageKey));
+            
+            if ((deviceUsagePage && deviceUsagePage->unsigned32BitValue() == kHIDPage_GenericDesktop) &&
+                (deviceUsage && (deviceUsage->unsigned32BitValue() == kHIDUsage_GD_GamePad || deviceUsage->unsigned32BitValue() == kHIDUsage_GD_Joystick))) {
+                gameDevice = true;
+            }
+        }
+        
+        deviceUsagePairs->release();
+        
+        if (gameDevice) {
+            auth = (OSBoolean *)copyProperty(kMFiAccessoryAuthenticatedKey);
+            
+            if (auth) {
+                if (auth == kOSBooleanFalse) {
+                    authenticated = false;
+                    IOLog("Un-authenticated device attached\n");
+                }
+                
+                auth->release();
+            }
+        }
+    }
+    
+    require_action(authenticated, error, result = false);
 
     // *** GAME DEVICE HACK ***
     primaryUsagePage    = (OSNumber*)copyProperty(kIOHIDPrimaryUsagePageKey);
@@ -525,7 +571,7 @@ bool IOHIDDevice::_publishDeviceNotificationHandler(void * target __unused,
                                                     IONotifier * notifier __unused)
 {
     IOHIDDevice *self = OSDynamicCast(IOHIDDevice, newService);
-    if (self) {
+    if (self && self->_interfaceNub) {
         if ( self->_interfaceNub->attach(self) )
         {
             if (!self->_interfaceNub->start(self))

@@ -25,7 +25,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 
 typedef struct _WebKitWebExtension WebKitWebExtension;
 
@@ -39,7 +39,7 @@ class WebGtkExtensionManager {
     WTF_MAKE_NONCOPYABLE(WebGtkExtensionManager);
 
 public:
-    WK_EXPORT static WebGtkExtensionManager& shared();
+    WK_EXPORT static WebGtkExtensionManager& singleton();
 
     WK_EXPORT void initialize(WKBundleRef, WKTypeRef);
 

@@ -42,6 +42,13 @@
 #define kAggregateDictionaryVolumeDecrementButtonPressedCountKey    "com.apple.iokit.hid.volumeDecrementButton.pressed"
 #define kAggregateDictionaryVolumeDecrementButtonFilteredCountKey   "com.apple.iokit.hid.volumeDecrementButton.filtered"
 
+#define kAggregateDictionaryMotionAccelSampleCount              "com.apple.CoreMotion.Accel.SampleCount"
+#define kAggregateDictionaryMotionGyroSampleCount               "com.apple.CoreMotion.Gyro.SampleCount"
+#define kAggregateDictionaryMotionMagSampleCount                "com.apple.CoreMotion.Mag.SampleCount"
+#define kAggregateDictionaryMotionPressureSampleCount           "com.apple.CoreMotion.Pressure.SampleCount"
+#define kAggregateDictionaryMotionDeviceMotionSampleCount       "com.apple.CoreMotion.DeviceMotion.SampleCount"
+
+#define kAggregateDictionaryMotionFlushInterval 60.0
 
 // 072BC077-E984-4C2A-BB72-D4769CE44FAF
 #define kIOHIDEventSystemStatisticsFactory CFUUIDGetConstantUUIDWithBytes(kCFAllocatorSystemDefault, 0x07, 0x2B, 0xC0, 0x77, 0xE9, 0x84, 0x4C, 0x2A, 0xBB, 0x72, 0xD4, 0x76, 0x9C, 0xE4, 0x4F, 0xAF)
@@ -110,12 +117,14 @@ _displayState(1),
 _displayToken(0),
 _pending_source(0),
 _dispatch_queue(0),
+_last_motionstat_ts(0),
 _logButtonFiltering(false),
 _logStrings(NULL),
 _logfd(-1),
 _asl(NULL)
 {
     bzero(&_pending_buttons, sizeof(_pending_buttons));
+    bzero(&_pending_motionstats, sizeof(_pending_motionstats));
     CFPlugInAddInstanceForFactory( factoryID );
 }
 //------------------------------------------------------------------------------
@@ -325,11 +334,14 @@ void IOHIDEventSystemStatistics::handlePendingStats()
 {
     __block Buttons     buttons     = {};
     __block CFArrayRef  logStrings  = NULL;
-    
+    __block MotionStats motionStats = {};
     dispatch_sync(_dispatch_queue, ^{
         bcopy(&_pending_buttons, &buttons, sizeof(Buttons));
         bzero(&_pending_buttons, sizeof(Buttons));
-        
+
+        bcopy(&_pending_motionstats, &motionStats, sizeof(MotionStats));
+        bzero(&_pending_motionstats, sizeof(MotionStats));
+
         if (_logStrings) {
             logStrings = CFArrayCreateCopy(kCFAllocatorDefault, _logStrings);
             CFArrayRemoveAllValues(_logStrings);
@@ -348,7 +360,13 @@ void IOHIDEventSystemStatistics::handlePendingStats()
     
     ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryVolumeDecrementButtonPressedCountKey), buttons.volume_decrement);
     ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryVolumeDecrementButtonFilteredCountKey), buttons.volume_decrement_filtered);
-    
+
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryMotionAccelSampleCount), motionStats.accel_count);
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryMotionGyroSampleCount), motionStats.gyro_count);
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryMotionMagSampleCount), motionStats.mag_count);
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryMotionPressureSampleCount), motionStats.pressure_count);
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryMotionDeviceMotionSampleCount), motionStats.devmotion_count);
+
     if (logStrings) {
         for (int i = 0; i < CFArrayGetCount(logStrings); i++) {
             CFStringRef cfstr;
@@ -367,6 +385,50 @@ void IOHIDEventSystemStatistics::handlePendingStats()
     }
 }
 
+//------------------------------------------------------------------------------
+// IOHIDEventSystemStatistics::collectMotionStats
+//------------------------------------------------------------------------------
+bool IOHIDEventSystemStatistics::collectMotionStats(IOHIDServiceRef sender, IOHIDEventRef event)
+{
+    // Synchronize writing to motionstats on the session queue
+    switch (IOHIDEventGetType(event)) {
+        case kIOHIDEventTypeAccelerometer:
+            _pending_motionstats.accel_count++;
+            break;
+        case kIOHIDEventTypeGyro:
+            _pending_motionstats.gyro_count++;
+            break;
+        case kIOHIDEventTypeCompass:
+            _pending_motionstats.mag_count++;
+            break;
+        case kIOHIDEventTypeAtmosphericPressure:
+            _pending_motionstats.pressure_count++;
+            break;
+        case kIOHIDEventTypeVendorDefined:
+            if (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldVendorDefinedUsagePage) == kHIDPage_AppleVendorMotion &&
+                IOHIDEventGetIntegerValue(event, kIOHIDEventFieldVendorDefinedUsage) == kHIDUsage_AppleVendorMotion_DeviceMotion) {
+                _pending_motionstats.devmotion_count++;
+            }
+            break;
+    }
+
+    uint64_t event_ts = IOHIDEventGetTimeStamp(event);
+    uint64_t elapsed_ts = event_ts - _last_motionstat_ts;
+    if ( sTimebaseInfo.denom == 0 ) {
+        (void) mach_timebase_info(&sTimebaseInfo);
+    }
+    elapsed_ts = elapsed_ts * sTimebaseInfo.numer / sTimebaseInfo.denom;
+    float elapsed_secs = (float)elapsed_ts / NSEC_PER_SEC;
+
+    // signal aggd low priority queue if >1min has passed since last committed sample
+    // this is easier than tracking the first uncommitted sample
+    if (elapsed_secs > kAggregateDictionaryMotionFlushInterval) {
+        _last_motionstat_ts = event_ts;
+        return true; // signal pending source
+    } else {
+        return false;
+    }
+}
 //------------------------------------------------------------------------------
 // IOHIDEventSystemStatistics::filter
 //------------------------------------------------------------------------------
@@ -429,9 +491,7 @@ IOHIDEventRef IOHIDEventSystemStatistics::filter(IOHIDServiceRef sender, IOHIDEv
                     
                     CFStringRef str = CFStringCreateWithFormat(kCFAllocatorDefault,
                                                                0,
-                                                               CFStringCreateWithCString(kCFAllocatorDefault,
-                                                                                         "ts=%0.9f,action=down,button=%s",
-                                                                                         kCFStringEncodingUTF8),
+                                                               CFSTR("ts=%0.9f,action=down,button=%s"),
                                                                secs,
                                                                button ? button : "unknown");
                     
@@ -495,8 +555,10 @@ IOHIDEventRef IOHIDEventSystemStatistics::filter(IOHIDServiceRef sender, IOHIDEv
                         }
                     }
                 }
+            } else {
+                signal = collectMotionStats(sender, event);
             }
-            
+
             if ( signal )
                 dispatch_source_merge_data(_pending_source, 1);
         }

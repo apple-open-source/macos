@@ -2,7 +2,7 @@
 
   numeric.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Fri Aug 13 18:33:09 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -28,6 +28,14 @@
 
 #ifdef HAVE_IEEEFP_H
 #include <ieeefp.h>
+#endif
+
+#if !defined HAVE_ISFINITE && !defined isfinite
+#if defined HAVE_FINITE && !defined finite && !defined _WIN32
+extern int finite(double);
+# define HAVE_ISFINITE 1
+# define isfinite(x) finite(x)
+#endif
 #endif
 
 /* use IEEE 64bit values if not defined */
@@ -227,9 +235,14 @@ NORETURN(static void coerce_failed(VALUE x, VALUE y));
 static void
 coerce_failed(VALUE x, VALUE y)
 {
+    if (SPECIAL_CONST_P(y) || BUILTIN_TYPE(y) == T_FLOAT) {
+	y = rb_inspect(y);
+    }
+    else {
+	y = rb_obj_class(y);
+    }
     rb_raise(rb_eTypeError, "%"PRIsVALUE" can't be coerced into %"PRIsVALUE,
-	     (rb_special_const_p(y)? rb_inspect(y) : rb_obj_class(y)),
-	     rb_obj_class(x));
+	     y, rb_obj_class(x));
 }
 
 static VALUE
@@ -1482,8 +1495,8 @@ flo_is_finite_p(VALUE num)
 {
     double value = RFLOAT_VALUE(num);
 
-#if HAVE_FINITE
-    if (!finite(value))
+#if HAVE_ISFINITE
+    if (!isfinite(value))
 	return Qfalse;
 #else
     if (isinf(value) || isnan(value))
@@ -3202,11 +3215,12 @@ static int
 bit_coerce(VALUE *x, VALUE *y, int err)
 {
     if (!FIXNUM_P(*y) && !RB_TYPE_P(*y, T_BIGNUM)) {
+	VALUE orig = *x;
 	do_coerce(x, y, err);
 	if (!FIXNUM_P(*x) && !RB_TYPE_P(*x, T_BIGNUM)
 	    && !FIXNUM_P(*y) && !RB_TYPE_P(*y, T_BIGNUM)) {
 	    if (!err) return FALSE;
-	    coerce_failed(*x, *y);
+	    coerce_failed(orig, *y);
 	}
     }
     return TRUE;

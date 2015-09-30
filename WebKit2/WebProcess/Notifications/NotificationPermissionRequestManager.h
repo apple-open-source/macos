@@ -47,7 +47,7 @@ class WebPage;
 /// FIXME: Need to keep a queue of pending notifications which permission is still being requested.
 class NotificationPermissionRequestManager : public RefCounted<NotificationPermissionRequestManager> {
 public:
-    static PassRefPtr<NotificationPermissionRequestManager> create(WebPage*);
+    static Ref<NotificationPermissionRequestManager> create(WebPage*);
 
 #if ENABLE(NOTIFICATIONS)
     void startRequest(WebCore::SecurityOrigin*, PassRefPtr<WebCore::NotificationPermissionCallback>);
@@ -56,6 +56,7 @@ public:
     void startRequest(WebCore::SecurityOrigin*, PassRefPtr<WebCore::VoidCallback>);
 #endif
     void cancelRequest(WebCore::SecurityOrigin*);
+    bool hasPendingPermissionRequests(WebCore::SecurityOrigin*) const;
     
     WebCore::NotificationClient::Permission permissionLevel(WebCore::SecurityOrigin*);
 

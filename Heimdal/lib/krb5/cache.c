@@ -1554,6 +1554,8 @@ krb5_cccol_cursor_next(krb5_context context, krb5_cccol_cursor cursor,
 		if (krb5_cc_get_full_name(context, *cache, &full_name) == 0) {
 		    if (strcmp(cursor->env_cache, full_name) == 0) {
 			free(full_name);
+			krb5_cc_close(context, *cache);
+			*cache = NULL;
 			continue;
 		    }
 		    free(full_name);

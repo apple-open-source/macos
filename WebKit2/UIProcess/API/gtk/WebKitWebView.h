@@ -32,6 +32,7 @@
 #include <webkit2/WebKitAuthenticationRequest.h>
 #include <webkit2/WebKitBackForwardList.h>
 #include <webkit2/WebKitDefines.h>
+#include <webkit2/WebKitColorChooserRequest.h>
 #include <webkit2/WebKitFileChooserRequest.h>
 #include <webkit2/WebKitFindController.h>
 #include <webkit2/WebKitFormSubmissionRequest.h>
@@ -39,6 +40,7 @@
 #include <webkit2/WebKitHitTestResult.h>
 #include <webkit2/WebKitJavascriptResult.h>
 #include <webkit2/WebKitNavigationAction.h>
+#include <webkit2/WebKitNotification.h>
 #include <webkit2/WebKitPermissionRequest.h>
 #include <webkit2/WebKitPolicyDecision.h>
 #include <webkit2/WebKitScriptDialog.h>
@@ -49,7 +51,6 @@
 #include <webkit2/WebKitWebInspector.h>
 #include <webkit2/WebKitWebResource.h>
 #include <webkit2/WebKitWebViewBase.h>
-#include <webkit2/WebKitWebViewGroup.h>
 #include <webkit2/WebKitWindowProperties.h>
 
 G_BEGIN_DECLS
@@ -156,6 +157,8 @@ typedef enum {
  * @WEBKIT_SNAPSHOT_OPTIONS_NONE: Do not include any special options.
  * @WEBKIT_SNAPSHOT_OPTIONS_INCLUDE_SELECTION_HIGHLIGHTING: Whether to include in the
  * snapshot the highlight of the selected content.
+ * @WEBKIT_SNAPSHOT_OPTIONS_TRANSPARENT_BACKGROUND: Do not fill the background with white before
+ * rendering the snapshot. Since 2.8
  *
  * Enum values used to specify options when taking a snapshot
  * from a #WebKitWebView.
@@ -163,6 +166,7 @@ typedef enum {
 typedef enum {
   WEBKIT_SNAPSHOT_OPTIONS_NONE = 0,
   WEBKIT_SNAPSHOT_OPTIONS_INCLUDE_SELECTION_HIGHLIGHTING = 1 << 0,
+  WEBKIT_SNAPSHOT_OPTIONS_TRANSPARENT_BACKGROUND = 1 << 1,
 } WebKitSnapshotOptions;
 
 /**
@@ -236,14 +240,18 @@ struct _WebKitWebViewClass {
     gboolean   (* authenticate)                (WebKitWebView               *web_view,
                                                 WebKitAuthenticationRequest *request);
     gboolean   (* load_failed_with_tls_errors) (WebKitWebView               *web_view,
-                                                WebKitCertificateInfo       *info,
-                                                const gchar                 *host);
+                                                const gchar                 *failing_uri,
+                                                GTlsCertificate             *certificate,
+                                                GTlsCertificateFlags         errors);
+    gboolean   (* show_notification)           (WebKitWebView               *web_view,
+                                                WebKitNotification          *notification);
+    gboolean   (* run_color_chooser)           (WebKitWebView               *web_view,
+                                                WebKitColorChooserRequest   *request);
+
     void (*_webkit_reserved0) (void);
     void (*_webkit_reserved1) (void);
     void (*_webkit_reserved2) (void);
     void (*_webkit_reserved3) (void);
-    void (*_webkit_reserved4) (void);
-    void (*_webkit_reserved5) (void);
 };
 
 WEBKIT_API GType
@@ -256,19 +264,16 @@ WEBKIT_API GtkWidget *
 webkit_web_view_new_with_context                     (WebKitWebContext          *context);
 
 WEBKIT_API GtkWidget *
-webkit_web_view_new_with_related_view                (WebKitWebView             *web_view);
+webkit_web_view_new_with_settings                    (WebKitSettings            *settings);
 
 WEBKIT_API GtkWidget *
-webkit_web_view_new_with_group                       (WebKitWebViewGroup        *group);
+webkit_web_view_new_with_related_view                (WebKitWebView             *web_view);
 
 WEBKIT_API GtkWidget *
 webkit_web_view_new_with_user_content_manager        (WebKitUserContentManager  *user_content_manager);
 
 WEBKIT_API WebKitWebContext *
 webkit_web_view_get_context                          (WebKitWebView             *web_view);
-
-WEBKIT_API WebKitWebViewGroup *
-webkit_web_view_get_group                            (WebKitWebView             *web_view);
 
 WEBKIT_API void
 webkit_web_view_load_uri                             (WebKitWebView             *web_view,
@@ -288,6 +293,13 @@ webkit_web_view_load_plain_text                      (WebKitWebView             
                                                       const gchar               *plain_text);
 
 WEBKIT_API void
+webkit_web_view_load_bytes                           (WebKitWebView             *web_view,
+                                                      GBytes                    *bytes,
+                                                      const gchar               *mime_type,
+                                                      const gchar               *encoding,
+                                                      const gchar               *base_uri);
+
+WEBKIT_API void
 webkit_web_view_load_request                         (WebKitWebView             *web_view,
                                                       WebKitURIRequest          *request);
 
@@ -296,6 +308,9 @@ webkit_web_view_stop_loading                         (WebKitWebView             
 
 WEBKIT_API gboolean
 webkit_web_view_is_loading                           (WebKitWebView             *web_view);
+
+WEBKIT_API gboolean
+webkit_web_view_is_playing_audio                     (WebKitWebView             *web_view);
 
 WEBKIT_API guint64
 webkit_web_view_get_page_id                          (WebKitWebView             *web_view);
@@ -462,6 +477,21 @@ webkit_web_view_get_snapshot_finish                  (WebKitWebView             
 
 WEBKIT_API WebKitUserContentManager *
 webkit_web_view_get_user_content_manager             (WebKitWebView             *web_view);
+
+WEBKIT_API void
+webkit_web_view_set_background_color                 (WebKitWebView             *web_view,
+                                                      const GdkRGBA             *rgba);
+
+WEBKIT_API void
+webkit_web_view_get_background_color                 (WebKitWebView             *web_view,
+                                                      GdkRGBA                   *rgba);
+
+WEBKIT_API gboolean
+webkit_web_view_is_editable                          (WebKitWebView             *web_view);
+
+WEBKIT_API void
+webkit_web_view_set_editable                         (WebKitWebView             *web_view,
+                                                      gboolean                  editable);
 
 G_END_DECLS
 

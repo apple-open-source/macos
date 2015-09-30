@@ -14,7 +14,6 @@
 			);
 			dependencies = (
 				4825E17E158FA3770059CCF8 /* PBXTargetDependency */,
-				48BA299919426F47004DF472 /* PBXTargetDependency */,
 				485906C6167170DB00976E15 /* PBXTargetDependency */,
 			);
 			name = libCommonCryptoMacOSX;
@@ -27,7 +26,6 @@
 			);
 			dependencies = (
 				4825E180158FA37F0059CCF8 /* PBXTargetDependency */,
-				48BA299719426F3A004DF472 /* PBXTargetDependency */,
 			);
 			name = commonCryptoMacIOS;
 			productName = commonCryptoMacIOS;
@@ -283,6 +281,7 @@
 		48EEF08F15E2E65B00429FF7 /* reverse_crc.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C489B115DAF0E500B301EC /* reverse_crc.c */; };
 		48EEF09015E2E65B00429FF7 /* reverse_poly.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C489B215DAF0E500B301EC /* reverse_poly.c */; };
 		48EEF09515E2EAA600429FF7 /* adler32.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C4899115DAF0E500B301EC /* adler32.c */; };
+		4BF74BC61A608F64007DB706 /* CommonCryptoSymECB.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BF74BC51A608F64007DB706 /* CommonCryptoSymECB.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -349,27 +348,6 @@
 			remoteGlobalIDString = 486C539815DDBD5700C8DE50;
 			remoteInfo = cn;
 		};
-		48BA299619426F3A004DF472 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 48BEE6AC1580085A00A6A1E7 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 48BA299019426EF9004DF472;
-			remoteInfo = CommonCryptoExecutables;
-		};
-		48BA299819426F47004DF472 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 48BEE6AC1580085A00A6A1E7 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 48BA299019426EF9004DF472;
-			remoteInfo = CommonCryptoExecutables;
-		};
-		48EEF03B15E2E0B300429FF7 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 48BEE6AC1580085A00A6A1E7 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 48BEE6B41580085A00A6A1E7;
-			remoteInfo = CommonCrypto;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -396,7 +374,7 @@
 		4825E1C3158FD6150059CCF8 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man3";
+			dstPath = /usr/share/man/man3;
 			dstSubfolderSpec = 0;
 			files = (
 				4825E1C4158FD64D0059CCF8 /* CC_crypto.3cc in CopyFiles */,
@@ -453,7 +431,7 @@
 		486C539715DDBD5700C8DE50 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/share/man/man1";
+			dstPath = /usr/local/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
 				48B4205B15E2BB5800871A6E /* cn.1 in CopyFiles */,
@@ -464,7 +442,6 @@
 
 /* Begin PBXFileReference section */
 		1CC9AFCC18F65AD100DF8C58 /* CommonHKDF.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonHKDF.c; sourceTree = "<group>"; };
-		3FF8CEEC185EB64000E4B34B /* CommonCrypto.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CommonCrypto.xcconfig; sourceTree = "<group>"; };
 		4825E18A158FD5AB0059CCF8 /* CC_crypto.3cc */ = {isa = PBXFileReference; lastKnownFileType = text; path = CC_crypto.3cc; sourceTree = "<group>"; };
 		4825E18B158FD5AB0059CCF8 /* CC_MD2.3cc */ = {isa = PBXFileReference; lastKnownFileType = text; path = CC_MD2.3cc; sourceTree = "<group>"; };
 		4825E18C158FD5AB0059CCF8 /* CC_MD2_Final.3cc */ = {isa = PBXFileReference; lastKnownFileType = text; path = CC_MD2_Final.3cc; sourceTree = "<group>"; };
@@ -621,7 +598,6 @@
 		48BEE6F815800C2600A6A1E7 /* CommonSymmetricKeywrap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonSymmetricKeywrap.c; sourceTree = "<group>"; };
 		48BEE6F915800C2600A6A1E7 /* corecryptoSymmetricBridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = corecryptoSymmetricBridge.c; sourceTree = "<group>"; };
 		48BEE6FA15800C2600A6A1E7 /* corecryptoSymmetricBridge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = corecryptoSymmetricBridge.h; sourceTree = "<group>"; };
-		48BEE77E1580112E00A6A1E7 /* libcorecrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcorecrypto.dylib; path = ../../../../../../usr/lib/system/libcorecrypto.dylib; sourceTree = "<group>"; };
 		48C4899115DAF0E500B301EC /* adler32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = adler32.c; sourceTree = "<group>"; };
 		48C4899315DAF0E500B301EC /* ccMemory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccMemory.h; sourceTree = "<group>"; };
 		48C4899415DAF0E500B301EC /* cn_globals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cn_globals.h; sourceTree = "<group>"; };
@@ -664,6 +640,7 @@
 		48E5035515DDAC1D00045A4B /* CommonBaseXX.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonBaseXX.h; sourceTree = "<group>"; };
 		48E5035815DDB99900045A4B /* CommonBaseEncoding.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonBaseEncoding.c; sourceTree = "<group>"; };
 		48ED815C15D308A900E40487 /* CommonCryptorWithData.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCryptorWithData.c; sourceTree = "<group>"; };
+		4BF74BC51A608F64007DB706 /* CommonCryptoSymECB.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCryptoSymECB.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -773,6 +750,7 @@
 				482B9DE61586B50F00F49463 /* CommonCryptoCTSPadding.c */,
 				482B9DE71586B50F00F49463 /* CommonCryptoReset.c */,
 				482B9DE81586B50F00F49463 /* CommonCryptoSymCBC.c */,
+				4BF74BC51A608F64007DB706 /* CommonCryptoSymECB.c */,
 				482B9DE91586B50F00F49463 /* CommonCryptoSymCFB.c */,
 				482B9DEA1586B50F00F49463 /* CommonCryptoSymCTR.c */,
 				482B9DEB1586B50F00F49463 /* CommonCryptoSymGCM.c */,
@@ -868,9 +846,7 @@
 		48BEE6AA1580085A00A6A1E7 = {
 			isa = PBXGroup;
 			children = (
-				3FF8CEEC185EB64000E4B34B /* CommonCrypto.xcconfig */,
 				48AC91E51581508C00BA9060 /* exports.exp-in */,
-				48BEE77E1580112E00A6A1E7 /* libcorecrypto.dylib */,
 				48BEE6E115800C2600A6A1E7 /* lib */,
 				48C4899015DAF0E500B301EC /* libcn */,
 				48BEE6BC15800C1800A6A1E7 /* include */,
@@ -1134,7 +1110,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				48EEF03C15E2E0B300429FF7 /* PBXTargetDependency */,
 			);
 			name = cn;
 			productName = cn;
@@ -1254,6 +1229,7 @@
 				482B9E071586B50F00F49463 /* CommonCryptoSymCFB.c in Sources */,
 				482B9E081586B50F00F49463 /* CommonCryptoSymCTR.c in Sources */,
 				482B9E091586B50F00F49463 /* CommonCryptoSymGCM.c in Sources */,
+				4BF74BC61A608F64007DB706 /* CommonCryptoSymECB.c in Sources */,
 				482B9E0A1586B50F00F49463 /* CommonCryptoSymmetricWrap.c in Sources */,
 				488F70A9188F0BB000978232 /* CommonHMac.c in Sources */,
 				482B9E0B1586B50F00F49463 /* CommonCryptoSymOFB.c in Sources */,
@@ -1381,21 +1357,6 @@
 			target = 486C539815DDBD5700C8DE50 /* cn */;
 			targetProxy = 48BA299419426F1A004DF472 /* PBXContainerItemProxy */;
 		};
-		48BA299719426F3A004DF472 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 48BA299019426EF9004DF472 /* CommonCryptoExecutables */;
-			targetProxy = 48BA299619426F3A004DF472 /* PBXContainerItemProxy */;
-		};
-		48BA299919426F47004DF472 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 48BA299019426EF9004DF472 /* CommonCryptoExecutables */;
-			targetProxy = 48BA299819426F47004DF472 /* PBXContainerItemProxy */;
-		};
-		48EEF03C15E2E0B300429FF7 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 48BEE6B41580085A00A6A1E7 /* CommonCrypto */;
-			targetProxy = 48EEF03B15E2E0B300429FF7 /* PBXContainerItemProxy */;
-		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -1481,9 +1442,9 @@
 				EXECUTABLE_EXTENSION = empty.a;
 				EXECUTABLE_PREFIX = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
-				PRIVATE_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/local/include/CommonCrypto";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/CommonCrypto;
 				PRODUCT_NAME = CommonCrypto;
-				PUBLIC_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/include/CommonCrypto";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/CommonCrypto;
 				SKIP_INSTALL = YES;
 			};
 			name = Debug;
@@ -1496,9 +1457,9 @@
 				EXECUTABLE_EXTENSION = empty.a;
 				EXECUTABLE_PREFIX = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
-				PRIVATE_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/local/include/CommonCrypto";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/CommonCrypto;
 				PRODUCT_NAME = CommonCrypto;
-				PUBLIC_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/include/CommonCrypto";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/CommonCrypto;
 				SKIP_INSTALL = YES;
 			};
 			name = Release;
@@ -1509,9 +1470,9 @@
 				CLANG_CXX_LIBRARY = "libc++";
 				EXECUTABLE_PREFIX = lib;
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
-				PRIVATE_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/local/include/CommonNumerics";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/CommonNumerics;
 				PRODUCT_NAME = CommonNumerics;
-				PUBLIC_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/include/CommonNumerics";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/CommonNumerics;
 				SKIP_INSTALL = YES;
 			};
 			name = Debug;
@@ -1523,9 +1484,9 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_PREFIX = lib;
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
-				PRIVATE_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/local/include/CommonNumerics";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/CommonNumerics;
 				PRODUCT_NAME = CommonNumerics;
-				PUBLIC_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/include/CommonNumerics";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/CommonNumerics;
 				SKIP_INSTALL = YES;
 			};
 			name = Release;
@@ -1536,7 +1497,7 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_WARN_EMPTY_BODY = YES;
-				INSTALL_PATH_ACTUAL = /usr/local/bin;
+				INSTALL_PATH = /usr/local/bin;
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/include/** $BUILT_PRODUCTS_DIR/usr/local/include/**";
@@ -1550,7 +1511,7 @@
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_WARN_EMPTY_BODY = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALL_PATH_ACTUAL = /usr/local/bin;
+				INSTALL_PATH = /usr/local/bin;
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/include/** $BUILT_PRODUCTS_DIR/usr/local/include/**";
@@ -1561,7 +1522,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				INSTALL_PATH_ACTUAL = /usr/local/bin;
+				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
 			};
@@ -1571,7 +1532,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				INSTALL_PATH_ACTUAL = /usr/local/bin;
+				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
 			};
@@ -1593,7 +1554,6 @@
 		};
 		48BEE6B71580085A00A6A1E7 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3FF8CEEC185EB64000E4B34B /* CommonCrypto.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				"ARCHS[sdk=iphoneos*]" = (
@@ -1642,13 +1602,13 @@
 				ONLY_ACTIVE_ARCH = NO;
 				PROVISIONING_PROFILE = "";
 				RUN_CLANG_STATIC_ANALYZER = YES;
+				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
 			};
 			name = Debug;
 		};
 		48BEE6B81580085A00A6A1E7 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3FF8CEEC185EB64000E4B34B /* CommonCrypto.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				"ARCHS[sdk=iphoneos*]" = (
@@ -1689,6 +1649,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				PROVISIONING_PROFILE = "";
+				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
 			};
 			name = Release;
@@ -1700,7 +1661,7 @@
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				EXECUTABLE_PREFIX = lib;
 				EXPORTED_SYMBOLS_FILE = "$(BUILT_PRODUCTS_DIR)/commonCrypto_dylib.$(CURRENT_ARCH).exp";
-				INSTALL_PATH_ACTUAL = /usr/lib/system;
+				INSTALL_PATH = /usr/lib/system;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/lib/system,
@@ -1710,8 +1671,8 @@
 					"-Wl,-umbrella,System",
 					"-ldyld",
 					"-lcompiler_rt",
-					"-lsystem_kernel",
-					"-lsystem_platform",
+					"-lsystem$(SIM_SUFFIX)_kernel",
+					"-lsystem$(SIM_SUFFIX)_platform",
 					"-lsystem_malloc",
 					"-lsystem_c",
 					"-lsystem_blocks",
@@ -1719,22 +1680,10 @@
 					"-lsystem_asl",
 					"-lcorecrypto",
 				);
-				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
-					"-Wl,-umbrella,System",
-					"-ldyld",
-					"-lcompiler_rt",
-					"-lsystem_sim_kernel",
-					"-lsystem_sim_platform",
-					"-lsystem_malloc",
-					"-lsystem_sim_c",
-					"-lsystem_sim_blocks",
-					"-ldispatch",
-					"-lsystem_sim_asl",
-					"-lcorecrypto",
-				);
-				PRIVATE_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/local/include/CommonCrypto";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/CommonCrypto;
 				PRODUCT_NAME = commonCrypto;
-				PUBLIC_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/include/CommonCrypto";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/CommonCrypto;
+				"SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
 			};
 			name = Debug;
 		};
@@ -1745,7 +1694,7 @@
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				EXECUTABLE_PREFIX = lib;
 				EXPORTED_SYMBOLS_FILE = "$(BUILT_PRODUCTS_DIR)/commonCrypto_dylib.$(CURRENT_ARCH).exp";
-				INSTALL_PATH_ACTUAL = /usr/lib/system;
+				INSTALL_PATH = /usr/lib/system;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/lib/system,
@@ -1755,8 +1704,8 @@
 					"-Wl,-umbrella,System",
 					"-ldyld",
 					"-lcompiler_rt",
-					"-lsystem_kernel",
-					"-lsystem_platform",
+					"-lsystem$(SIM_SUFFIX)_kernel",
+					"-lsystem$(SIM_SUFFIX)_platform",
 					"-lsystem_malloc",
 					"-lsystem_c",
 					"-lsystem_blocks",
@@ -1764,22 +1713,10 @@
 					"-lsystem_asl",
 					"-lcorecrypto",
 				);
-				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
-					"-Wl,-umbrella,System",
-					"-ldyld",
-					"-lcompiler_rt",
-					"-lsystem_sim_kernel",
-					"-lsystem_sim_platform",
-					"-lsystem_malloc",
-					"-lsystem_sim_c",
-					"-lsystem_sim_blocks",
-					"-ldispatch",
-					"-lsystem_sim_asl",
-					"-lcorecrypto",
-				);
-				PRIVATE_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/local/include/CommonCrypto";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/CommonCrypto;
 				PRODUCT_NAME = commonCrypto;
-				PUBLIC_HEADERS_FOLDER_PATH = "$(INSTALL_PATH_PREFIX)/usr/include/CommonCrypto";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/CommonCrypto;
+				"SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
 			};
 			name = Release;
 		};

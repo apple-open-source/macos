@@ -78,10 +78,12 @@ CCDigestRef digestRef_from_name(const char* name, unsigned int *outHashSize) {
         result = CCDigestCreate(kCCDigestSHA1);
         if (NULL != outHashSize)
             *outHashSize = CC_SHA1_DIGEST_LENGTH;
+#ifdef XAR_SUPPORT_MD5
     } else if (0 == strcasecmp(name, "md5")) {
         result = CCDigestCreate(kCCDigestMD5);
         if (NULL != outHashSize)
             *outHashSize = CC_MD5_DIGEST_LENGTH;
+#endif // XAR_SUPPORT_MD5
     } else if (0 == strcasecmp(name, "md2")) {
         result = CCDigestCreate(kCCDigestMD2);
         if (NULL != outHashSize)

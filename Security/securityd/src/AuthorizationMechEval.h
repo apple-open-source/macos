@@ -36,7 +36,7 @@
 
 namespace Authorization {
    
-class AgentMechanismRef : public RefPointer<QueryInvokeMechanism>
+class AgentMechanismRef
 {
 public:
     AgentMechanismRef(const AuthHostType type, Session &session);

@@ -35,8 +35,6 @@
 #include "RoundedRect.h"
 #include "TextRun.h"
 
-#include "stdio.h"
-
 namespace WebCore {
 
 class TextRunIterator {
@@ -74,7 +72,7 @@ public:
 
 private:
     const TextRun* m_textRun;
-    int m_offset;
+    unsigned m_offset;
 };
 
 class InterpolationQualityMaintainer {
@@ -100,21 +98,12 @@ private:
     bool m_interpolationQualityChanged;
 };
 
-#if !PLATFORM(IOS)
 GraphicsContext::GraphicsContext(PlatformGraphicsContext* platformGraphicsContext)
     : m_updatingControlTints(false)
     , m_transparencyCount(0)
 {
     platformInit(platformGraphicsContext);
 }
-#else
-GraphicsContext::GraphicsContext(PlatformGraphicsContext* platformGraphicsContext, bool shouldUseContextColors)
-    : m_updatingControlTints(false)
-    , m_transparencyCount(0)
-{
-    platformInit(platformGraphicsContext, shouldUseContextColors);
-}
-#endif
 
 GraphicsContext::~GraphicsContext()
 {
@@ -145,10 +134,14 @@ void GraphicsContext::restore()
     m_state = m_stack.last();
     m_stack.removeLast();
 
+    // Make sure we deallocate the state stack buffer when it goes empty.
+    // Canvas elements will immediately save() again, but that goes into inline capacity.
+    if (m_stack.isEmpty())
+        m_stack.clear();
+
     restorePlatformState();
 }
 
-#if PLATFORM(IOS)
 void GraphicsContext::drawRaisedEllipse(const FloatRect& rect, const Color& ellipseColor, ColorSpace ellipseColorSpace, const Color& shadowColor, ColorSpace shadowColorSpace)
 {
     if (paintingDisabled())
@@ -168,7 +161,6 @@ void GraphicsContext::drawRaisedEllipse(const FloatRect& rect, const Color& elli
 
     restore();
 }
-#endif
 
 void GraphicsContext::setStrokeThickness(float thickness)
 {
@@ -186,8 +178,8 @@ void GraphicsContext::setStrokeColor(const Color& color, ColorSpace colorSpace)
 {
     m_state.strokeColor = color;
     m_state.strokeColorSpace = colorSpace;
-    m_state.strokeGradient.clear();
-    m_state.strokePattern.clear();
+    m_state.strokeGradient = nullptr;
+    m_state.strokePattern = nullptr;
     setPlatformStrokeColor(color, colorSpace);
 }
 
@@ -221,12 +213,6 @@ void GraphicsContext::clearShadow()
     clearPlatformShadow();
 }
 
-bool GraphicsContext::hasShadow() const
-{
-    return m_state.shadowColor.isValid() && m_state.shadowColor.alpha()
-           && (m_state.shadowBlur || m_state.shadowOffset.width() || m_state.shadowOffset.height());
-}
-
 bool GraphicsContext::getShadow(FloatSize& offset, float& blur, Color& color, ColorSpace& colorSpace) const
 {
     offset = m_state.shadowOffset;
@@ -235,11 +221,6 @@ bool GraphicsContext::getShadow(FloatSize& offset, float& blur, Color& color, Co
     colorSpace = m_state.shadowColorSpace;
 
     return hasShadow();
-}
-
-bool GraphicsContext::hasBlurredShadow() const
-{
-    return m_state.shadowColor.isValid() && m_state.shadowColor.alpha() && m_state.shadowBlur;
 }
 
 #if USE(CAIRO)
@@ -260,164 +241,54 @@ bool GraphicsContext::mustUseShadowBlur() const
 }
 #endif
 
-float GraphicsContext::strokeThickness() const
-{
-    return m_state.strokeThickness;
-}
-
-StrokeStyle GraphicsContext::strokeStyle() const
-{
-    return m_state.strokeStyle;
-}
-
-Color GraphicsContext::strokeColor() const
-{
-    return m_state.strokeColor;
-}
-
-ColorSpace GraphicsContext::strokeColorSpace() const
-{
-    return m_state.strokeColorSpace;
-}
-
-WindRule GraphicsContext::fillRule() const
-{
-    return m_state.fillRule;
-}
-
-void GraphicsContext::setFillRule(WindRule fillRule)
-{
-    m_state.fillRule = fillRule;
-}
-
 void GraphicsContext::setFillColor(const Color& color, ColorSpace colorSpace)
 {
     m_state.fillColor = color;
     m_state.fillColorSpace = colorSpace;
-    m_state.fillGradient.clear();
-    m_state.fillPattern.clear();
+    m_state.fillGradient = nullptr;
+    m_state.fillPattern = nullptr;
     setPlatformFillColor(color, colorSpace);
 }
 
-Color GraphicsContext::fillColor() const
+void GraphicsContext::setShouldAntialias(bool shouldAntialias)
 {
-    return m_state.fillColor;
+    m_state.shouldAntialias = shouldAntialias;
+    setPlatformShouldAntialias(shouldAntialias);
 }
 
-ColorSpace GraphicsContext::fillColorSpace() const
+void GraphicsContext::setShouldSmoothFonts(bool shouldSmoothFonts)
 {
-    return m_state.fillColorSpace;
+    m_state.shouldSmoothFonts = shouldSmoothFonts;
+    setPlatformShouldSmoothFonts(shouldSmoothFonts);
 }
 
-void GraphicsContext::setShouldAntialias(bool b)
+void GraphicsContext::setAntialiasedFontDilationEnabled(bool antialiasedFontDilationEnabled)
 {
-    m_state.shouldAntialias = b;
-    setPlatformShouldAntialias(b);
+    m_state.antialiasedFontDilationEnabled = antialiasedFontDilationEnabled;
 }
 
-bool GraphicsContext::shouldAntialias() const
+void GraphicsContext::setStrokePattern(Ref<Pattern>&& pattern)
 {
-    return m_state.shouldAntialias;
+    m_state.strokeGradient = nullptr;
+    m_state.strokePattern = WTF::move(pattern);
 }
 
-void GraphicsContext::setShouldSmoothFonts(bool b)
+void GraphicsContext::setFillPattern(Ref<Pattern>&& pattern)
 {
-    m_state.shouldSmoothFonts = b;
-    setPlatformShouldSmoothFonts(b);
+    m_state.fillGradient = nullptr;
+    m_state.fillPattern = WTF::move(pattern);
 }
 
-bool GraphicsContext::shouldSmoothFonts() const
+void GraphicsContext::setStrokeGradient(Ref<Gradient>&& gradient)
 {
-    return m_state.shouldSmoothFonts;
+    m_state.strokeGradient = WTF::move(gradient);
+    m_state.strokePattern = nullptr;
 }
 
-void GraphicsContext::setShouldSubpixelQuantizeFonts(bool b)
+void GraphicsContext::setFillGradient(Ref<Gradient>&& gradient)
 {
-    m_state.shouldSubpixelQuantizeFonts = b;
-}
-
-bool GraphicsContext::shouldSubpixelQuantizeFonts() const
-{
-    return m_state.shouldSubpixelQuantizeFonts;
-}
-
-const GraphicsContextState& GraphicsContext::state() const
-{
-    return m_state;
-}
-
-void GraphicsContext::setStrokePattern(PassRefPtr<Pattern> pattern)
-{
-    ASSERT(pattern);
-    if (!pattern) {
-        setStrokeColor(Color::black, ColorSpaceDeviceRGB);
-        return;
-    }
-    m_state.strokeGradient.clear();
-    m_state.strokePattern = pattern;
-}
-
-void GraphicsContext::setFillPattern(PassRefPtr<Pattern> pattern)
-{
-    ASSERT(pattern);
-    if (!pattern) {
-        setFillColor(Color::black, ColorSpaceDeviceRGB);
-        return;
-    }
-    m_state.fillGradient.clear();
-    m_state.fillPattern = pattern;
-}
-
-void GraphicsContext::setStrokeGradient(PassRefPtr<Gradient> gradient)
-{
-    ASSERT(gradient);
-    if (!gradient) {
-        setStrokeColor(Color::black, ColorSpaceDeviceRGB);
-        return;
-    }
-    m_state.strokeGradient = gradient;
-    m_state.strokePattern.clear();
-}
-
-void GraphicsContext::setFillGradient(PassRefPtr<Gradient> gradient)
-{
-    ASSERT(gradient);
-    if (!gradient) {
-        setFillColor(Color::black, ColorSpaceDeviceRGB);
-        return;
-    }
-    m_state.fillGradient = gradient;
-    m_state.fillPattern.clear();
-}
-
-Gradient* GraphicsContext::fillGradient() const
-{
-    return m_state.fillGradient.get();
-}
-
-Gradient* GraphicsContext::strokeGradient() const
-{
-    return m_state.strokeGradient.get();
-}
-
-Pattern* GraphicsContext::fillPattern() const
-{
-    return m_state.fillPattern.get();
-}
-
-Pattern* GraphicsContext::strokePattern() const
-{
-    return m_state.strokePattern.get();
-}
-
-void GraphicsContext::setShadowsIgnoreTransforms(bool ignoreTransforms)
-{
-    m_state.shadowsIgnoreTransforms = ignoreTransforms;
-}
-
-bool GraphicsContext::shadowsIgnoreTransforms() const
-{
-    return m_state.shadowsIgnoreTransforms;
+    m_state.fillGradient = WTF::move(gradient);
+    m_state.fillPattern = nullptr;
 }
 
 void GraphicsContext::beginTransparencyLayer(float opacity)
@@ -433,63 +304,29 @@ void GraphicsContext::endTransparencyLayer()
     --m_transparencyCount;
 }
 
-bool GraphicsContext::isInTransparencyLayer() const
-{
-    return (m_transparencyCount > 0) && supportsTransparencyLayers();
-}
-
-bool GraphicsContext::updatingControlTints() const
-{
-    return m_updatingControlTints;
-}
-
 void GraphicsContext::setUpdatingControlTints(bool b)
 {
     setPaintingDisabled(b);
     m_updatingControlTints = b;
 }
 
-void GraphicsContext::setPaintingDisabled(bool f)
-{
-    m_state.paintingDisabled = f;
-}
-
-bool GraphicsContext::paintingDisabled() const
-{
-    return m_state.paintingDisabled;
-}
-
-// FIXME: Replace the non-iOS implementation with the iOS implementation since the latter computes returns
-// the width of the drawn text. Ensure that there aren't noticeable differences in layout.
-#if !PLATFORM(IOS)
-#if !USE(WINGDI)
-void GraphicsContext::drawText(const Font& font, const TextRun& run, const FloatPoint& point, int from, int to)
-{
-    if (paintingDisabled())
-        return;
-
-    font.drawText(this, run, point, from, to);
-}
-#endif
-#else
-float GraphicsContext::drawText(const Font& font, const TextRun& run, const FloatPoint& point, int from, int to)
+float GraphicsContext::drawText(const FontCascade& font, const TextRun& run, const FloatPoint& point, int from, int to)
 {
     if (paintingDisabled())
         return 0;
 
     return font.drawText(this, run, point, from, to);
 }
-#endif // !PLATFORM(IOS)
 
-void GraphicsContext::drawGlyphs(const Font& font, const SimpleFontData& fontData, const GlyphBuffer& buffer, int from, int numGlyphs, const FloatPoint& point)
+void GraphicsContext::drawGlyphs(const FontCascade& fontCascade, const Font& font, const GlyphBuffer& buffer, int from, int numGlyphs, const FloatPoint& point)
 {
     if (paintingDisabled())
         return;
 
-    font.drawGlyphs(this, &fontData, buffer, from, numGlyphs, point);
+    fontCascade.drawGlyphs(this, &font, buffer, from, numGlyphs, point);
 }
 
-void GraphicsContext::drawEmphasisMarks(const Font& font, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to)
+void GraphicsContext::drawEmphasisMarks(const FontCascade& font, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to)
 {
     if (paintingDisabled())
         return;
@@ -497,44 +334,22 @@ void GraphicsContext::drawEmphasisMarks(const Font& font, const TextRun& run, co
     font.drawEmphasisMarks(this, run, mark, point, from, to);
 }
 
-// FIXME: Better merge the iOS and non-iOS differences. In particular, make this method use the
-// returned width of the drawn text, Font::drawText(), instead of computing it. Ensure that there
-// aren't noticeable differences in layout with such a change.
-#if !PLATFORM(IOS)
-void GraphicsContext::drawBidiText(const Font& font, const TextRun& run, const FloatPoint& point, Font::CustomFontNotReadyAction customFontNotReadyAction)
-#else
-float GraphicsContext::drawBidiText(const Font& font, const TextRun& run, const FloatPoint& point, Font::CustomFontNotReadyAction customFontNotReadyAction, BidiStatus* status, int length)
-#endif
+void GraphicsContext::drawBidiText(const FontCascade& font, const TextRun& run, const FloatPoint& point, FontCascade::CustomFontNotReadyAction customFontNotReadyAction)
 {
     if (paintingDisabled())
-#if !PLATFORM(IOS)
         return;
-#else
-        return 0;
-#endif
 
     BidiResolver<TextRunIterator, BidiCharacterRun> bidiResolver;
-#if !PLATFORM(IOS)
     bidiResolver.setStatus(BidiStatus(run.direction(), run.directionalOverride()));
-#else
-    bidiResolver.setStatus(status ? *status : BidiStatus(run.direction(), run.directionalOverride()));
-#endif
     bidiResolver.setPositionIgnoringNestedIsolates(TextRunIterator(&run, 0));
 
     // FIXME: This ownership should be reversed. We should pass BidiRunList
     // to BidiResolver in createBidiRunsForLine.
     BidiRunList<BidiCharacterRun>& bidiRuns = bidiResolver.runs();
-#if !PLATFORM(IOS)
     bidiResolver.createBidiRunsForLine(TextRunIterator(&run, run.length()));
-#else
-    bidiResolver.createBidiRunsForLine(TextRunIterator(&run, length < 0 ? run.length() : length));
-#endif    
+
     if (!bidiRuns.runCount())
-#if !PLATFORM(IOS)
         return;
-#else
-        return 0;
-#endif
 
     FloatPoint currPoint = point;
     BidiCharacterRun* bidiRun = bidiRuns.firstRun();
@@ -544,30 +359,13 @@ float GraphicsContext::drawBidiText(const Font& font, const TextRun& run, const 
         subrun.setDirection(isRTL ? RTL : LTR);
         subrun.setDirectionalOverride(bidiRun->dirOverride(false));
 
-#if !PLATFORM(IOS)
-        font.drawText(this, subrun, currPoint, 0, -1, customFontNotReadyAction);
-
-        bidiRun = bidiRun->next();
-        // FIXME: Have Font::drawText return the width of what it drew so that we don't have to re-measure here.
-        if (bidiRun)
-            currPoint.move(font.width(subrun), 0);
-#else
         float width = font.drawText(this, subrun, currPoint, 0, -1, customFontNotReadyAction);
         currPoint.move(width, 0);
 
         bidiRun = bidiRun->next();
-#endif
     }
 
-#if PLATFORM(IOS)
-    if (status)
-        *status = bidiResolver.status();
-#endif
     bidiRuns.deleteRuns();
-
-#if PLATFORM(IOS)
-    return currPoint.x() - static_cast<float>(point.x());
-#endif
 }
 
 void GraphicsContext::drawImage(Image* image, ColorSpace colorSpace, const FloatPoint& destination, const ImagePaintingOptions& imagePaintingOptions)
@@ -696,11 +494,6 @@ IntRect GraphicsContext::clipBounds() const
 }
 #endif
 
-TextDrawingModeFlags GraphicsContext::textDrawingMode() const
-{
-    return m_state.textDrawingMode;
-}
-
 void GraphicsContext::setTextDrawingMode(TextDrawingModeFlags mode)
 {
     m_state.textDrawingMode = mode;
@@ -765,6 +558,12 @@ void GraphicsContext::fillRectWithRoundedHole(const IntRect& rect, const FloatRo
 }
 #endif
 
+void GraphicsContext::setAlpha(float alpha)
+{
+    m_state.alpha = alpha;
+    setPlatformAlpha(alpha);
+}
+
 void GraphicsContext::setCompositeOperation(CompositeOperator compositeOperation, BlendMode blendMode)
 {
     m_state.compositeOperator = compositeOperation;
@@ -772,41 +571,8 @@ void GraphicsContext::setCompositeOperation(CompositeOperator compositeOperation
     setPlatformCompositeOperation(compositeOperation, blendMode);
 }
 
-CompositeOperator GraphicsContext::compositeOperation() const
-{
-    return m_state.compositeOperator;
-}
-
-BlendMode GraphicsContext::blendModeOperation() const
-{
-    return m_state.blendMode;
-}
-
-#if PLATFORM(IOS)
-bool GraphicsContext::emojiDrawingEnabled()
-{
-    return m_state.emojiDrawingEnabled;
-}
-
-void GraphicsContext::setEmojiDrawingEnabled(bool emojiDrawingEnabled)
-{
-    m_state.emojiDrawingEnabled = emojiDrawingEnabled;
-}
-#endif
-
-void GraphicsContext::setDrawLuminanceMask(bool drawLuminanceMask)
-{
-    m_state.drawLuminanceMask = drawLuminanceMask;
-}
-
-bool GraphicsContext::drawLuminanceMask() const
-{
-    return m_state.drawLuminanceMask;
-}
-
 #if !USE(CG)
-// Implement this if you want to go ahead and push the drawing mode into your native context
-// immediately.
+// Implement this if you want to go push the drawing mode into your native context immediately.
 void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags)
 {
 }

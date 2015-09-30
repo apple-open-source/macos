@@ -45,14 +45,14 @@ public:
     WebResourceLoadScheduler();
     virtual ~WebResourceLoadScheduler();
     
-    virtual PassRefPtr<WebCore::SubresourceLoader> scheduleSubresourceLoad(WebCore::Frame*, WebCore::CachedResource*, const WebCore::ResourceRequest&, WebCore::ResourceLoadPriority, const WebCore::ResourceLoaderOptions&) override;
+    virtual PassRefPtr<WebCore::SubresourceLoader> scheduleSubresourceLoad(WebCore::Frame*, WebCore::CachedResource*, const WebCore::ResourceRequest&, const WebCore::ResourceLoaderOptions&) override;
     virtual PassRefPtr<WebCore::NetscapePlugInStreamLoader> schedulePluginStreamLoad(WebCore::Frame*, WebCore::NetscapePlugInStreamLoaderClient*, const WebCore::ResourceRequest&) override;
     
     virtual void remove(WebCore::ResourceLoader*) override;
     virtual void setDefersLoading(WebCore::ResourceLoader*, bool) override;
     virtual void crossOriginRedirectReceived(WebCore::ResourceLoader*, const WebCore::URL& redirectURL) override;
     
-    virtual void servePendingRequests(WebCore::ResourceLoadPriority minimumPriority = WebCore::ResourceLoadPriorityVeryLow) override;
+    virtual void servePendingRequests(WebCore::ResourceLoadPriority minimumPriority) override;
 
     virtual void suspendPendingRequests() override;
     virtual void resumePendingRequests() override;
@@ -64,7 +64,7 @@ public:
     void networkProcessCrashed();
 
 private:
-    void scheduleLoad(WebCore::ResourceLoader*, WebCore::CachedResource*, WebCore::ResourceLoadPriority, bool shouldClearReferrerOnHTTPSToHTTPRedirect);
+    void scheduleLoad(WebCore::ResourceLoader*, WebCore::CachedResource*, bool shouldClearReferrerOnHTTPSToHTTPRedirect);
     void scheduleInternallyFailedLoad(WebCore::ResourceLoader*);
     void internallyFailedLoadTimerFired();
     
@@ -72,9 +72,6 @@ private:
     RunLoop::Timer<WebResourceLoadScheduler> m_internallyFailedLoadTimer;
     
     HashMap<unsigned long, RefPtr<WebResourceLoader>> m_webResourceLoaders;
-    
-    unsigned m_suspendPendingRequestsCount;
-
 };
 
 } // namespace WebKit

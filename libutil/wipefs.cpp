@@ -127,6 +127,14 @@ AddExtentsForPartitions(class ExtentManager *extMan)
 	extMan->AddByteRangeExtent(extMan->totalBytes - 512 * 33, 512 * 33);
 }
 
+static void
+AddExtentsForCoreStorage(class ExtentManager *extMan)
+{
+	// the CoreStorage VolumeHeader structures reside in the first/last 512 bytes of each PV
+	extMan->AddByteRangeExtent(0, 512);
+	extMan->AddByteRangeExtent(extMan->totalBytes - 512, 512);
+}
+
 extern "C" int
 wipefs_alloc(int fd, size_t block_size, wipefs_ctx *handle)
 {
@@ -188,6 +196,7 @@ wipefs_alloc(int fd, size_t block_size, wipefs_ctx *handle)
 		AddExtentsForUFS(extMan);
 		AddExtentsForZFS(extMan);
 		AddExtentsForPartitions(extMan);
+		AddExtentsForCoreStorage(extMan);
 	}
 	catch (bad_alloc &e) {
 		err = ENOMEM;
@@ -300,6 +309,8 @@ wipefs_wipe(wipefs_ctx handle)
 	}	
 
   labelExit:
+
+	(void)ioctl(handle->fd, DKIOCSYNCHRONIZECACHE);
 	if (bufZero != NULL)
 		delete[] bufZero;
 	return err;

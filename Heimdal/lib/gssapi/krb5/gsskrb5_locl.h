@@ -220,9 +220,18 @@ extern HEIMDAL_MUTEX gssapi_keytab_mutex;
 
 extern heim_string_t _gsskrb5_kGSSICPassword;
 extern heim_string_t _gsskrb5_kGSSICKerberosCacheName;
+extern heim_string_t _gsskrb5_kGSSICSiteName;
 extern heim_string_t _gsskrb5_kGSSICCertificate;
 extern heim_string_t _gsskrb5_kGSSICLKDCHostname;
 extern heim_string_t _gsskrb5_kGSSICAppIdentifierACL;
+extern heim_string_t _gsskrb5_kGSSICAppleSourceApp;
+extern heim_string_t _gsskrb5_kGSSICAppleSourceAppAuditToken;
+extern heim_string_t _gsskrb5_kGSSICAppleSourceAppPID;
+extern heim_string_t _gsskrb5_kGSSICAppleSourceAppUUID;
+extern heim_string_t _gsskrb5_kGSSICAppleSourceAppSigningIdentity;
+extern heim_string_t _gsskrb5_kGSSICVerifyCredential;
+extern heim_string_t _gsskrb5_kGSSICVerifyCredentialAcceptorName;
+extern heim_string_t _gsskrb5_kGSSICCreateNewCredential;
 
 
 #endif

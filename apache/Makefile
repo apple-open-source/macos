@@ -5,7 +5,8 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 Version    = 2.4.16
 Sources    = $(SRCROOT)/$(Project)
 
-Patch_List = patch-config.layout \
+Patch_List = PR-18640257-SDK.diff \
+             patch-config.layout \
              patch-configure \
              PR-3921505.diff \
              PR-5432464.diff_httpd.conf \
@@ -24,8 +25,8 @@ Patch_List = patch-config.layout \
 
 Configure_Flags = --prefix=/usr \
                   --enable-layout=Darwin \
-                  --with-apr=/usr \
-                  --with-apr-util=/usr \
+                  --with-apr=$(SDKROOT)/usr/bin/apr-1-config \
+                  --with-apr-util=$(SDKROOT)/usr/bin/apu-1-config  \
                   --with-pcre=$(SRCROOT)/$(Project)/../\
                   --enable-mods-shared=all \
                   --enable-ssl \

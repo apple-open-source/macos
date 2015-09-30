@@ -150,7 +150,6 @@ __BEGIN_DECLS
 #define PTHREAD_SCOPE_SYSTEM         1
 #define PTHREAD_SCOPE_PROCESS        2
 
-/* We only support PTHREAD_PROCESS_PRIVATE */
 #define PTHREAD_PROCESS_SHARED         1
 #define PTHREAD_PROCESS_PRIVATE        2
 

@@ -36,16 +36,22 @@ class Document;
 
 class HTMLAudioElement final : public HTMLMediaElement {
 public:
-    static PassRefPtr<HTMLAudioElement> create(const QualifiedName&, Document&, bool);
-    static PassRefPtr<HTMLAudioElement> createForJSConstructor(Document&, const String& src);
+    static Ref<HTMLAudioElement> create(const QualifiedName&, Document&, bool);
+    static Ref<HTMLAudioElement> createForJSConstructor(Document&, const String& src);
 
 private:
     HTMLAudioElement(const QualifiedName&, Document&, bool);
+
+    virtual PlatformMediaSession::MediaType presentationType() const override { return PlatformMediaSession::Audio; }
 };
 
-NODE_TYPE_CASTS(HTMLAudioElement)
+} // namespace WebCore
 
-} //namespace
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::HTMLAudioElement)
+    static bool isType(const WebCore::HTMLMediaElement& element) { return element.hasTagName(WebCore::HTMLNames::audioTag); }
+    static bool isType(const WebCore::Element& element) { return is<WebCore::HTMLMediaElement>(element) && isType(downcast<WebCore::HTMLMediaElement>(element)); }
+    static bool isType(const WebCore::Node& node) { return is<WebCore::HTMLMediaElement>(node) && isType(downcast<WebCore::HTMLMediaElement>(node)); }
+SPECIALIZE_TYPE_TRAITS_END()
 
-#endif
-#endif
+#endif // ENABLE(VIDEO)
+#endif // HTMLAudioElement_h

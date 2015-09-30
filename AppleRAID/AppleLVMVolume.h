@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -165,6 +165,6 @@ class AppleLVMVolume : public IOMedia
     virtual bool zeroVolume(void);
 };
 
-#endif KERNEL
+#endif /* KERNEL */
 
-#endif _APPLELVMVOLUME_H
+#endif /* _APPLELVMVOLUME_H */

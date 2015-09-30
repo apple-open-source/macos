@@ -37,6 +37,7 @@
 
 #ifdef __APPLE__
 
+
 #include <notify.h>
 #include <notify_keys.h>
 #include "kcm.h"
@@ -1576,6 +1577,14 @@ init_auth_step(OM_uint32 * minor_status,
     if (req_flags & GSS_C_MUTUAL_FLAG) {
 	flags |= GSS_C_MUTUAL_FLAG;
 	ap_options |= AP_OPTS_MUTUAL_REQUIRED;
+	/*
+	 * Set AP_OPTS_USE_PFS even though we don't use
+	 * krb5_mk_req_extended() that would be the parts the picks up
+	 * this flag to be consistent. GSS/krb5 is special enough that
+	 * we use the lower layer of Kerberos library and for that
+	 * reason we do the PFS setup ourself below.
+	 */
+	ap_options |= AP_OPTS_USE_PFS;
     }
 
     if (req_flags & GSS_C_REPLAY_FLAG)
@@ -1682,6 +1691,25 @@ init_auth_step(OM_uint32 * minor_status,
 	}
     }
 
+    /*
+     * Setup PFS if we are doing mutual auth
+     */
+    
+    if (flags & GSS_C_MUTUAL_FLAG) {
+
+	kret = _krb5_auth_con_setup_pfs(context, ctx->auth_context,
+				       ctx->auth_context->keyblock->keytype);
+	if (kret) {
+	    *minor_status = kret;
+	    ret = GSS_S_FAILURE;
+	    goto failure;
+	}
+    }
+
+    /*
+     *
+     */
+
     kret = _krb5_build_authenticator(context,
 				     ctx->auth_context,
 				     enctype,
@@ -1698,12 +1726,12 @@ init_auth_step(OM_uint32 * minor_status,
 	goto failure;
     }
 
-    kret = krb5_build_ap_req (context,
-			      enctype,
-			      ctx->kcred,
-			      ap_options,
-			      authenticator,
-			      &outbuf);
+    kret = krb5_build_ap_req(context,
+			     enctype,
+			     ctx->kcred,
+			     ap_options,
+			     authenticator,
+			     &outbuf);
     if (offset)
 	krb5_set_kdc_sec_offset (context, oldoffset, -1);
     if (kret) {

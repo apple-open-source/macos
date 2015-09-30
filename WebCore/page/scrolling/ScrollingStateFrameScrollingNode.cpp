@@ -30,29 +30,16 @@
 
 #include "ScrollingStateTree.h"
 #include "TextStream.h"
-#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
-PassRefPtr<ScrollingStateFrameScrollingNode> ScrollingStateFrameScrollingNode::create(ScrollingStateTree& stateTree, ScrollingNodeID nodeID)
+Ref<ScrollingStateFrameScrollingNode> ScrollingStateFrameScrollingNode::create(ScrollingStateTree& stateTree, ScrollingNodeID nodeID)
 {
-    return adoptRef(new ScrollingStateFrameScrollingNode(stateTree, nodeID));
+    return adoptRef(*new ScrollingStateFrameScrollingNode(stateTree, nodeID));
 }
 
 ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(ScrollingStateTree& stateTree, ScrollingNodeID nodeID)
     : ScrollingStateScrollingNode(stateTree, FrameScrollingNode, nodeID)
-#if PLATFORM(MAC)
-    , m_verticalScrollbarPainter(0)
-    , m_horizontalScrollbarPainter(0)
-#endif
-    , m_frameScaleFactor(1)
-    , m_wheelEventHandlerCount(0)
-    , m_synchronousScrollingReasons(0)
-    , m_behaviorForFixed(StickToDocumentBounds)
-    , m_headerHeight(0)
-    , m_footerHeight(0)
-    , m_requestedScrollPositionRepresentsProgrammaticScroll(false)
-    , m_topContentInset(0)
 {
 }
 
@@ -63,15 +50,15 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(const Scrolli
     , m_horizontalScrollbarPainter(stateNode.horizontalScrollbarPainter())
 #endif
     , m_nonFastScrollableRegion(stateNode.nonFastScrollableRegion())
+    , m_requestedScrollPosition(stateNode.requestedScrollPosition())
     , m_frameScaleFactor(stateNode.frameScaleFactor())
-    , m_wheelEventHandlerCount(stateNode.wheelEventHandlerCount())
-    , m_synchronousScrollingReasons(stateNode.synchronousScrollingReasons())
-    , m_behaviorForFixed(stateNode.scrollBehaviorForFixedElements())
+    , m_topContentInset(stateNode.topContentInset())
     , m_headerHeight(stateNode.headerHeight())
     , m_footerHeight(stateNode.footerHeight())
-    , m_requestedScrollPosition(stateNode.requestedScrollPosition())
+    , m_synchronousScrollingReasons(stateNode.synchronousScrollingReasons())
+    , m_behaviorForFixed(stateNode.scrollBehaviorForFixedElements())
     , m_requestedScrollPositionRepresentsProgrammaticScroll(stateNode.requestedScrollPositionRepresentsProgrammaticScroll())
-    , m_topContentInset(stateNode.topContentInset())
+    , m_fixedElementsLayoutRelativeToFrame(stateNode.fixedElementsLayoutRelativeToFrame())
 {
     if (hasChangedProperty(ScrolledContentsLayer))
         setScrolledContentsLayer(stateNode.scrolledContentsLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
@@ -96,9 +83,9 @@ ScrollingStateFrameScrollingNode::~ScrollingStateFrameScrollingNode()
 {
 }
 
-PassRefPtr<ScrollingStateNode> ScrollingStateFrameScrollingNode::clone(ScrollingStateTree& adoptiveTree)
+Ref<ScrollingStateNode> ScrollingStateFrameScrollingNode::clone(ScrollingStateTree& adoptiveTree)
 {
-    return adoptRef(new ScrollingStateFrameScrollingNode(*this, adoptiveTree));
+    return adoptRef(*new ScrollingStateFrameScrollingNode(*this, adoptiveTree));
 }
 
 void ScrollingStateFrameScrollingNode::setFrameScaleFactor(float scaleFactor)
@@ -118,15 +105,6 @@ void ScrollingStateFrameScrollingNode::setNonFastScrollableRegion(const Region& 
 
     m_nonFastScrollableRegion = nonFastScrollableRegion;
     setPropertyChanged(NonFastScrollableRegion);
-}
-
-void ScrollingStateFrameScrollingNode::setWheelEventHandlerCount(unsigned wheelEventHandlerCount)
-{
-    if (m_wheelEventHandlerCount == wheelEventHandlerCount)
-        return;
-
-    m_wheelEventHandlerCount = wheelEventHandlerCount;
-    setPropertyChanged(WheelEventHandlerCount);
 }
 
 void ScrollingStateFrameScrollingNode::setSynchronousScrollingReasons(SynchronousScrollingReasons reasons)
@@ -226,6 +204,15 @@ void ScrollingStateFrameScrollingNode::setFooterLayer(const LayerRepresentation&
     
     m_footerLayer = layerRepresentation;
     setPropertyChanged(FooterLayer);
+}
+
+void ScrollingStateFrameScrollingNode::setFixedElementsLayoutRelativeToFrame(bool fixedElementsLayoutRelativeToFrame)
+{
+    if (fixedElementsLayoutRelativeToFrame == m_fixedElementsLayoutRelativeToFrame)
+        return;
+    
+    m_fixedElementsLayoutRelativeToFrame = fixedElementsLayoutRelativeToFrame;
+    setPropertyChanged(FixedElementsLayoutRelativeToFrame);
 }
 
 #if !PLATFORM(MAC)

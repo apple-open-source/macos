@@ -288,11 +288,11 @@ static int type[TOKCOUNT] =
 {
 /*  0 */  LR, LR|OP_OP|OP_OPF, RL, RL, RL|OP_OP|OP_OPF,
 /*  5 */  RL|OP_OP|OP_OPF, RL, RL, LR|OP_A2IO, LR|OP_A2IO,
-/* 10 */  LR|OP_A2IO, LR|OP_A2, LR|OP_A2, LR|OP_A2IO, LR|OP_A2,
+/* 10 */  LR|OP_A2IO, LR|OP_A2, LR|OP_A2, LR|OP_A2, LR|OP_A2,
 /* 15 */  LR|OP_A2, LR|OP_A2IO, LR|OP_A2IO, LR|OP_A2IR, LR|OP_A2IR,
 /* 20 */  LR|OP_A2IR, LR|OP_A2IR, LR|OP_A2IR, LR|OP_A2IR, BOOL|OP_A2IO,
 /* 25 */  BOOL|OP_A2IO, LR|OP_A2IO, RL|OP_OP, RL|OP_OP, RL|OP_E2,
-/* 30 */  RL|OP_E2, RL|OP_E2, RL|OP_E2, RL|OP_E2, RL|OP_E2IO,
+/* 30 */  RL|OP_E2, RL|OP_E2, RL|OP_E2, RL|OP_E2, RL|OP_E2,
 /* 35 */  RL|OP_E2IO, RL|OP_E2IO, RL|OP_E2IO, RL|OP_E2IO, RL|OP_E2IO,
 /* 40 */  BOOL|OP_E2IO, BOOL|OP_E2IO, RL|OP_A2IO, RL|OP_A2, RL|OP_OP,
 /* 45 */  RL, RL, LR|OP_OPF, LR|OP_OPF, RL|OP_A2,
@@ -336,16 +336,27 @@ enum prec_type {
 static mnumber
 getmathparam(struct mathvalue *mptr)
 {
+    mnumber result;
     if (!mptr->pval) {
 	char *s = mptr->lval;
 	mptr->pval = (Value)zhalloc(sizeof(struct value));
 	if (!getvalue(mptr->pval, &s, 1))
 	{
 	    mptr->pval = NULL;
+	    if (isset(FORCEFLOAT)) {
+		result.type = MN_FLOAT;
+		result.u.d = 0.0;
+		return result;
+	    }
 	    return zero_mnumber;
 	}
     }
-    return getnumvalue(mptr->pval);
+    result = getnumvalue(mptr->pval);
+    if (isset(FORCEFLOAT) && result.type == MN_INTEGER) {
+	result.type = MN_FLOAT;
+	result.u.d = (double)result.u.l;
+    }
+    return result;
 }
 
 static mnumber
@@ -449,12 +460,14 @@ lexconstant(void)
 	nptr++;
 
     if (*nptr == '0') {
+	int lowchar;
 	nptr++;
-	if (*nptr == 'x' || *nptr == 'X') {
+	lowchar = tolower(*nptr);
+	if (lowchar == 'x' || lowchar == 'b') {
 	    /* Let zstrtol parse number with base */
 	    yyval.u.l = zstrtol_underscore(ptr, &ptr, 0, 1);
 	    /* Should we set lastbase here? */
-	    lastbase = 16;
+	    lastbase = (lowchar == 'b') ? 2 : 16;
 	    if (isset(FORCEFLOAT))
 	    {
 		yyval.type = MN_FLOAT;
@@ -554,6 +567,9 @@ lexconstant(void)
 
 /**/
 int outputradix;
+
+/**/
+int outputunderscore;
 
 /**/
 static int
@@ -713,7 +729,7 @@ zzlex(void)
 	    return EOI;
 	case '[':
 	    {
-		int n;
+		int n, checkradix = 0;
 
 		if (idigit(*ptr)) {
 		    n = zstrtol(ptr, &ptr, 10);
@@ -730,9 +746,19 @@ zzlex(void)
 			n = -1;
 			ptr++;
 		    }
-		    if (!idigit(*ptr))
+		    if (!idigit(*ptr) && *ptr != '_')
 			goto bofs;
-		    outputradix = n * zstrtol(ptr, &ptr, 10);
+		    if (idigit(*ptr)) {
+			outputradix = n * zstrtol(ptr, &ptr, 10);
+			checkradix = 1;
+		    }
+		    if (*ptr == '_') {
+			ptr++;
+			if (idigit(*ptr))
+			    outputunderscore = zstrtol(ptr, &ptr, 10);
+			else
+			    outputunderscore = 3;
+		    }
 		} else {
 		    bofs:
 		    zerr("bad output format specification");
@@ -740,11 +766,13 @@ zzlex(void)
 		}
 		if(*ptr != ']')
 			goto bofs;
-		n = (outputradix < 0) ? -outputradix : outputradix;
-		if (n < 2 || n > 36) {
-		    zerr("invalid base (must be 2 to 36 inclusive): %d",
-			 outputradix);
-		    return EOI;
+		if (checkradix) {
+		    n = (outputradix < 0) ? -outputradix : outputradix;
+		    if (n < 2 || n > 36) {
+			zerr("invalid base (must be 2 to 36 inclusive): %d",
+			     outputradix);
+			return EOI;
+		    }
 		}
 		ptr++;
 		break;
@@ -863,6 +891,8 @@ getcvar(char *s)
 static mnumber
 setmathvar(struct mathvalue *mvp, mnumber v)
 {
+    Param pm;
+
     if (mvp->pval) {
 	/*
 	 * This value may have been hanging around for a while.
@@ -892,7 +922,32 @@ setmathvar(struct mathvalue *mvp, mnumber v)
     if (noeval)
 	return v;
     untokenize(mvp->lval);
-    setnparam(mvp->lval, v);
+    pm = setnparam(mvp->lval, v);
+    if (pm) {
+	/*
+	 * If we are performing an assignment, we return the
+	 * number with the same type as the parameter we are
+	 * assigning to, in the spirit of the way assignments
+	 * in C work.  Note this was a change to long-standing
+	 * zsh behaviour.
+	 */
+	switch (PM_TYPE(pm->node.flags)) {
+	case PM_INTEGER:
+	    if (v.type != MN_INTEGER) {
+		v.u.l = (zlong)v.u.d;
+		v.type = MN_INTEGER;
+	    }
+	    break;
+
+	case PM_EFLOAT:
+	case PM_FFLOAT:
+	    if (v.type != MN_FLOAT) {
+		v.u.d = (double)v.u.l;
+		v.type = MN_FLOAT;
+	    }
+	    break;
+	}
+    }
     return v;
 }
 
@@ -1116,7 +1171,9 @@ op(int what)
 		 * Any integer mod -1 is the same as any integer mod 1
 		 * i.e. zero.
 		 */
-		if (b.u.l == -1)
+		if (c.type == MN_FLOAT)
+		    c.u.d = fmod(a.u.d, b.u.d);
+		else if (b.u.l == -1)
 		    c.u.l = 0;
 		else
 		    c.u.l = a.u.l % b.u.l;
@@ -1337,10 +1394,12 @@ matheval(char *s)
     char *junk;
     mnumber x;
     int xmtok = mtok;
-    /* maintain outputradix across levels of evaluation */
+    /* maintain outputradix and outputunderscore across levels of evaluation */
     if (!mlevel)
-	outputradix = 0;
+	outputradix = outputunderscore = 0;
 
+    if (*s == Nularg)
+	s++;
     if (!*s) {
 	x.type = MN_INTEGER;
 	x.u.l = 0;
@@ -1378,6 +1437,8 @@ mathevalarg(char *s, char **ss)
      *
      * To avoid a more opaque error further in, bail out here.
      */
+    if (*s == Nularg)
+	s++;
     if (!*s) {
 	zerr("bad math expression: empty string");
 	return (zlong)0;

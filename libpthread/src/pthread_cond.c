@@ -163,24 +163,34 @@ _pthread_cond_init(_pthread_cond *cond, const pthread_condattr_t *attr, int conf
 	return 0;
 }
 
+PTHREAD_NOINLINE
 static int
+_pthread_cond_check_init_slow(_pthread_cond *cond, bool *inited)
+{
+	int res = EINVAL;
+	if (cond->sig == _PTHREAD_COND_SIG_init) {
+		LOCK(cond->lock);
+		if (cond->sig == _PTHREAD_COND_SIG_init) {
+			res = _pthread_cond_init(cond, NULL, 0);
+			if (inited) {
+				*inited = true;
+			}
+		} else if (cond->sig == _PTHREAD_COND_SIG) {
+			res = 0;
+		}
+		UNLOCK(cond->lock);
+	} else if (cond->sig == _PTHREAD_COND_SIG) {
+		res = 0;
+	}
+	return res;
+}
+
+static inline int
 _pthread_cond_check_init(_pthread_cond *cond, bool *inited)
 {
 	int res = 0;
 	if (cond->sig != _PTHREAD_COND_SIG) {
-		res = EINVAL;
-		if (cond->sig == _PTHREAD_COND_SIG_init) {
-			LOCK(cond->lock);
-			if (cond->sig == _PTHREAD_COND_SIG_init) {
-				res = _pthread_cond_init(cond, NULL, 0);
-				if (inited) {
-					*inited = true;
-				}
-			} else if (cond->sig == _PTHREAD_COND_SIG) {
-				res = 0;
-			}
-			UNLOCK(cond->lock);
-		}
+		return _pthread_cond_check_init_slow(cond, inited);
 	}
 	return res;
 }
@@ -432,7 +442,8 @@ extern void _pthread_testcancel(pthread_t thread, int isconforming);
 	}
 
 	if (isconforming) {
-		if (mutex->sig != _PTHREAD_MUTEX_SIG && (mutex->sig & _PTHREAD_MUTEX_SIG_init_MASK) != _PTHREAD_MUTEX_SIG_CMP) {
+		if (!_pthread_mutex_check_signature(mutex) &&
+				!_pthread_mutex_check_signature_init(mutex)) {
 			return EINVAL;
 		}
 		if (isconforming > 0) {

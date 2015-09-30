@@ -33,6 +33,7 @@
 #include "CSSPrimitiveValue.h"
 #include "WindRule.h"
 #include <wtf/RefPtr.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -62,9 +63,9 @@ protected:
     RefPtr<CSSPrimitiveValue> m_referenceBox;
 };
 
-class CSSBasicShapeInset : public CSSBasicShape {
+class CSSBasicShapeInset final : public CSSBasicShape {
 public:
-    static PassRefPtr<CSSBasicShapeInset> create() { return adoptRef(new CSSBasicShapeInset); }
+    static Ref<CSSBasicShapeInset> create() { return adoptRef(*new CSSBasicShapeInset); }
 
     CSSPrimitiveValue* top() const { return m_top.get(); }
     CSSPrimitiveValue* right() const { return m_right.get(); }
@@ -109,12 +110,13 @@ public:
     void setBottomRightRadius(PassRefPtr<CSSPrimitiveValue> radius) { m_bottomRightRadius = radius; }
     void setBottomLeftRadius(PassRefPtr<CSSPrimitiveValue> radius) { m_bottomLeftRadius = radius; }
 
-    virtual Type type() const override { return CSSBasicShapeInsetType; }
     virtual String cssText() const override;
     virtual bool equals(const CSSBasicShape&) const override;
 
 private:
     CSSBasicShapeInset() { }
+
+    virtual Type type() const override { return CSSBasicShapeInsetType; }
 
     RefPtr<CSSPrimitiveValue> m_top;
     RefPtr<CSSPrimitiveValue> m_right;
@@ -127,11 +129,10 @@ private:
     RefPtr<CSSPrimitiveValue> m_bottomLeftRadius;
 };
 
-class CSSBasicShapeCircle : public CSSBasicShape {
+class CSSBasicShapeCircle final : public CSSBasicShape {
 public:
-    static PassRefPtr<CSSBasicShapeCircle> create() { return adoptRef(new CSSBasicShapeCircle); }
+    static Ref<CSSBasicShapeCircle> create() { return adoptRef(*new CSSBasicShapeCircle); }
 
-    virtual Type type() const override { return CSSBasicShapeCircleType; }
     virtual String cssText() const override;
     virtual bool equals(const CSSBasicShape&) const override;
 
@@ -146,14 +147,16 @@ public:
 private:
     CSSBasicShapeCircle() { }
 
+    virtual Type type() const override { return CSSBasicShapeCircleType; }
+
     RefPtr<CSSPrimitiveValue> m_centerX;
     RefPtr<CSSPrimitiveValue> m_centerY;
     RefPtr<CSSPrimitiveValue> m_radius;
 };
 
-class CSSBasicShapeEllipse : public CSSBasicShape {
+class CSSBasicShapeEllipse final : public CSSBasicShape {
 public:
-    static PassRefPtr<CSSBasicShapeEllipse> create() { return adoptRef(new CSSBasicShapeEllipse); }
+    static Ref<CSSBasicShapeEllipse> create() { return adoptRef(*new CSSBasicShapeEllipse); }
 
     CSSPrimitiveValue* centerX() const { return m_centerX.get(); }
     CSSPrimitiveValue* centerY() const { return m_centerY.get(); }
@@ -165,12 +168,13 @@ public:
     void setRadiusX(PassRefPtr<CSSPrimitiveValue> radiusX) { m_radiusX = radiusX; }
     void setRadiusY(PassRefPtr<CSSPrimitiveValue> radiusY) { m_radiusY = radiusY; }
 
-    virtual Type type() const override { return CSSBasicShapeEllipseType; }
     virtual String cssText() const override;
     virtual bool equals(const CSSBasicShape&) const override;
 
 private:
     CSSBasicShapeEllipse() { }
+
+    virtual Type type() const override { return CSSBasicShapeEllipseType; }
 
     RefPtr<CSSPrimitiveValue> m_centerX;
     RefPtr<CSSPrimitiveValue> m_centerY;
@@ -178,9 +182,9 @@ private:
     RefPtr<CSSPrimitiveValue> m_radiusY;
 };
 
-class CSSBasicShapePolygon : public CSSBasicShape {
+class CSSBasicShapePolygon final : public CSSBasicShape {
 public:
-    static PassRefPtr<CSSBasicShapePolygon> create() { return adoptRef(new CSSBasicShapePolygon); }
+    static Ref<CSSBasicShapePolygon> create() { return adoptRef(*new CSSBasicShapePolygon); }
 
     void appendPoint(PassRefPtr<CSSPrimitiveValue> x, PassRefPtr<CSSPrimitiveValue> y)
     {
@@ -195,7 +199,6 @@ public:
     void setWindRule(WindRule w) { m_windRule = w; }
     WindRule windRule() const { return m_windRule; }
 
-    virtual Type type() const override { return CSSBasicShapePolygonType; }
     virtual String cssText() const override;
     virtual bool equals(const CSSBasicShape&) const override;
 
@@ -205,10 +208,22 @@ private:
     {
     }
 
+    virtual Type type() const override { return CSSBasicShapePolygonType; }
+
     Vector<RefPtr<CSSPrimitiveValue>> m_values;
     WindRule m_windRule;
 };
 
 } // namespace WebCore
+
+#define SPECIALIZE_TYPE_TRAITS_CSS_BASIC_SHAPES(ToValueTypeName) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToValueTypeName) \
+    static bool isType(const WebCore::CSSBasicShape& basicShape) { return basicShape.type() == WebCore::CSSBasicShape::ToValueTypeName##Type; } \
+SPECIALIZE_TYPE_TRAITS_END()
+
+SPECIALIZE_TYPE_TRAITS_CSS_BASIC_SHAPES(CSSBasicShapeInset)
+SPECIALIZE_TYPE_TRAITS_CSS_BASIC_SHAPES(CSSBasicShapeCircle)
+SPECIALIZE_TYPE_TRAITS_CSS_BASIC_SHAPES(CSSBasicShapeEllipse)
+SPECIALIZE_TYPE_TRAITS_CSS_BASIC_SHAPES(CSSBasicShapePolygon)
 
 #endif // CSSBasicShapes_h

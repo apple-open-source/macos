@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/bo.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/bo.xml
- */
 bo{
     AuxExemplarCharacters{"[ༀ]"}
     ExemplarCharacters{
@@ -23,9 +20,6 @@ bo{
         "\u0F80} \u0F79 \u0F7A \u0F7B \u0F7C \u0F7D \u0F84]"
     }
     ExemplarCharactersIndex{"[ཀ ཁ ག ང ཅ ཆ ཇ ཉ ཏ ཐ ད ན པ ཕ བ མ ཙ ཚ ཛ ཝ ཞ ཟ འ ཡ ར ལ ཤ ས ཧ ཨ]"}
-    LocaleScript{
-        "Tibt",
-    }
     NumberElements{
         default{"latn"}
         latn{
@@ -44,7 +38,7 @@ bo{
             }
         }
     }
-    Version{"2.0.92.87"}
+    Version{"2.1.6.69"}
     calendar{
         generic{
             DateTimePatterns{
@@ -52,10 +46,22 @@ bo{
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "G y MMMM d, EEEE",
-                "G སྤྱི་ལོ་y MMMMའི་ཚེས་d",
-                "G y ལོའི་MMMཚེས་d",
-                "GGGGG y-MM-dd",
+                {
+                    "G y MMMM d, EEEE",
+                    "tibt",
+                }
+                {
+                    "G སྤྱི་ལོ་y MMMMའི་ཚེས་d",
+                    "tibt",
+                }
+                {
+                    "G y ལོའི་MMMཚེས་d",
+                    "tibt",
+                }
+                {
+                    "GGGGG y-MM-dd",
+                    "tibt",
+                }
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -77,10 +83,22 @@ bo{
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "y MMMMའི་ཚེས་d, EEEE",
-                "སྤྱི་ལོ་y MMMMའི་ཚེས་d",
-                "y ལོའི་MMMཚེས་d",
-                "y-MM-dd",
+                {
+                    "y MMMMའི་ཚེས་d, EEEE",
+                    "tibt",
+                }
+                {
+                    "སྤྱི་ལོ་y MMMMའི་ཚེས་d",
+                    "tibt",
+                }
+                {
+                    "y ལོའི་MMMཚེས་d",
+                    "tibt",
+                }
+                {
+                    "y-MM-dd",
+                    "tibt",
+                }
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",

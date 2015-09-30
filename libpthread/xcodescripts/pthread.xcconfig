@@ -1,17 +1,14 @@
 #include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
-#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig"
-
-// Set INSTALL_PATH[sdk=macosx*] when SimulatorSupport.xcconfig is unavailable
-INSTALL_PATH[sdk=macosx*] = $(INSTALL_PATH_ACTUAL)
 
 // Standard settings
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator
-SRCROOT_SEARCH_PATHS = $(SRCROOT) $(SRCROOT)/private
+SDKROOT = macosx.internal
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
+SRCROOT_SEARCH_PATHS = $(SRCROOT) $(SRCROOT)/private $(SRCROOT)/os
 SYSTEM_FRAMEWORK_HEADERS = $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
-HEADER_SEARCH_PATHS = $($(TARGET_NAME)_SEARCH_PATHS) $(SRCROOT_SEARCH_PATHS) $(SYSTEM_FRAMEWORK_HEADERS) $(SDKROOT)/usr/local/include $(inherited)
+HEADER_SEARCH_PATHS = $($(PRODUCT_NAME)_SEARCH_PATHS) $(SRCROOT_SEARCH_PATHS) $(SYSTEM_FRAMEWORK_HEADERS) $(SDKROOT)/usr/local/include $(inherited)
 ALWAYS_SEARCH_USER_PATHS = YES
 USE_HEADERMAP = NO
-BUILD_VARIANTS = normal
+BUILD_VARIANTS = normal debug
 
 GCC_OPTIMIZATION_LEVEL = s
 GCC_C_LANGUAGE_STANDARD = gnu99
@@ -39,19 +36,20 @@ DYLIB_CURRENT_VERSION = $(RC_ProjectSourceVersion)
 DYLIB_COMPATIBILITY_VERSION = 1
 
 // Installation paths
-INSTALL_PATH_ACTUAL = /usr/lib/system
-PUBLIC_HEADERS_FOLDER_PATH = $(INSTALL_PATH_PREFIX)/usr/include/pthread
-PRIVATE_HEADERS_FOLDER_PATH = $(INSTALL_PATH_PREFIX)/usr/local/include/pthread
+INSTALL_PATH = /usr/lib/system
+PUBLIC_HEADERS_FOLDER_PATH = /usr/include/pthread
+PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/pthread
 SKIP_INSTALL = NO
 
 // Base definitions
 // TODO: Remove -fstack-protector on _debug when it is moved to libplatform
 LINK_WITH_STANDARD_LIBRARIES = NO
 BASE_PREPROCESSOR_MACROS = __LIBC__ __DARWIN_UNIX03=1 __DARWIN_64_BIT_INO_T=1 __DARWIN_NON_CANCELABLE=1 __DARWIN_VERS_1050=1 _FORTIFY_SOURCE=0 __PTHREAD_BUILDING_PTHREAD__=1 $(SIM_PREPROCESSOR_MACROS)
-OTHER_CFLAGS = -fno-stack-protector -fdollars-in-identifiers -fno-common -fno-builtin -momit-leaf-frame-pointer $($(TARGET_NAME)_CFLAGS)
+GCC_PREPROCESSOR_DEFINITIONS = $(BASE_PREPROCESSOR_MACROS)
+
+OTHER_CFLAGS = -fno-stack-protector -fdollars-in-identifiers -fno-common -fno-builtin -momit-leaf-frame-pointer $($(PRODUCT_NAME)_CFLAGS)
 OTHER_CFLAGS_debug = -fno-stack-protector -fno-inline -O0 -DDEBUG=1
 OTHER_LDFLAGS = -Wl,-alias_list,$(SRCROOT)/xcodescripts/pthread.aliases -Wl,-umbrella,System -L/usr/lib/system -lsystem_kernel -lsystem_platform -ldyld -lcompiler_rt $(UPLINK_LDFLAGS) $(CR_LDFLAGS)
-GCC_PREPROCESSOR_DEFINITIONS = $(BASE_PREPROCESSOR_MACROS)
 
 // CrashReporter
 CR_LDFLAGS = -lCrashReporterClient
@@ -60,6 +58,6 @@ ORDER_FILE = $(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/libsystem_pthread.order
 ORDER_FILE[sdk=iphonesimulator*] =
 
 // Simulator build rules
-EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*] = *.c *.d *.s
+EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*] = *.c *.s
 SKIP_INSTALL[sdk=iphonesimulator*] = YES
 OTHER_LDFLAGS[sdk=iphonesimulator*] =

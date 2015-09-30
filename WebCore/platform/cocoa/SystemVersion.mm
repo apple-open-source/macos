@@ -27,42 +27,18 @@
 
 namespace WebCore {
 
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
-
 static NSString *createSystemMarketingVersion()
 {
     // Can't use -[NSProcessInfo operatingSystemVersionString] because it has too much stuff we don't want.
     NSString *systemLibraryPath = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSSystemDomainMask, YES) objectAtIndex:0];
+#if PLATFORM(IOS_SIMULATOR)
+    if (char *simulatorRoot = getenv("SIMULATOR_ROOT"))
+        systemLibraryPath = [NSString stringWithFormat:@"%s/%@", simulatorRoot, systemLibraryPath];
+#endif
     NSString *systemVersionPlistPath = [systemLibraryPath stringByAppendingPathComponent:@"CoreServices/SystemVersion.plist"];
     NSDictionary *systemVersionInfo = [NSDictionary dictionaryWithContentsOfFile:systemVersionPlistPath];
     return [[systemVersionInfo objectForKey:@"ProductVersion"] copy];
 }
-
-#else
-
-static inline int callGestalt(OSType selector)
-{
-    SInt32 value = 0;
-    Gestalt(selector, &value);
-    return value;
-}
-
-static NSString *createSystemMarketingVersion()
-{
-    // Can't use -[NSProcessInfo operatingSystemVersionString] because it has too much stuff we don't want.
-    int major = callGestalt(gestaltSystemVersionMajor);
-    ASSERT(major);
-
-    int minor = callGestalt(gestaltSystemVersionMinor);
-    int bugFix = callGestalt(gestaltSystemVersionBugFix);
-    if (bugFix)
-        return [[NSString alloc] initWithFormat:@"%d.%d.%d", major, minor, bugFix];
-    if (minor)
-        return [[NSString alloc] initWithFormat:@"%d.%d", major, minor];
-    return [[NSString alloc] initWithFormat:@"%d", major];
-}
-
-#endif // PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
 
 NSString *systemMarketingVersion()
 {

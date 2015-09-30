@@ -4,60 +4,161 @@ CHANGES FROM PREVIOUS VERSIONS OF ZSH
 
 Note also the list of incompatibilities in the README file.
 
-Changes since 5.0.0
--------------------
+Changes from 5.0.7 to 5.0.8
+---------------------------
 
-Numeric constants encountered in mathematical expressions (but not other
-contexts) can contain underscores as separators that will be ignored on
-evaluation, as allowed in other scripting languages.  For example,
-0xFFFF_FFFF, or 3.141_592_654.
+- Global aliases can be created for syntactic tokens such as command
+  separators (";", "&", "|", "&&", "||"), redirection operators, etc.
+  Use at your own risk!  The POSIX_ALIASES option is interpreted more
+  strictly to prevent expansion of these and other alias names containing
+  quotes, glob metacharacters, parameter references, etc.
 
-"functions -T" turns on tracing for the specified function(s) only,
-similar to "functions -t" except that tracing is turned off for any
-functions called from the specified one(s) that don't also have the -t
-or -T flag.
+- There have been various further improvements to builtin handling
+  with the POSIX_BUILTINS option (off by default) for compatibility with
+  the POSIX standard.
 
-The option FORCE_FLOAT has been added to force all arithmetic constants
-to be treated as floating point.  This is most useful locally within
-functions or scripts performing floating point calculations.
+- 'whence -v' is now more informative, and 'whence -S' shows you
+  how a full chain of symbolic links resolves to a command.
 
-Individual pattern characters can be disabled.  For example, to allow '^'
-to be an ordinary character even if the option EXTENDED_GLOB is set, use
-"disable -p '^'".
+- The 'p' parameter flag now allows an argument to be specified
+  as a reference to a variable, e.g. ${(ps.$sep.)foo} to split $foo
+  on a string given by $sep.
 
-The variable editing builtin vared can be given custom editing widgets
-for initialisation and finishing.
+- The option FORCE_FLOAT now forces variables, not just constants,
+  to floating point in arithmetic expressions.
 
-The line editor's capability for listening on file descriptors
-additional to the terminal has been enhanced so that the handler for
-such file descriptors can be a line editor widget.  Previously the
-handler always behaved as a standard shell function.
+- The type of an assignment in arithmetic expressions, e.g. the
+  type seen by the variable res in $(( res = a = b )), is now
+  more logical and C-like.
 
-Hooks for adding history (the function zshaddhistory and the
-array zshaddhistory_functions) can return status 2 to indicate that
-history is to be saved internally within the shell but not written.
+- The default binding of 'u' in vi command mode has changed to undo
+  multiple changes when invoked repeatedly. '^R' is now bound to redo
+  changes. To revert to toggling of the last edit use:
+    bindkey -a u vi-undo-change
 
-In file completion, the recursive-files style can be set to an array of
-patterns to match against "$PWD/".  In any matched location, it is
-possibly to complete files in arbitrarily deep subdirectories without
-needing to type the directory prefix.  See example in the zshcompsys
-manual.
+- Compatibility with Vim has been improved for vi editing mode. Most
+  notably, Vim style text objects are supported and the region can be
+  manipulated with vi commands in the same manner as Vim's visual mode.
 
-The _user_expand completer now allows expansion functions in the
-user-expand files to return a string in REPLY that will be used to name
-the set of expansions returned.
+- Elements of the watch variable may now be patterns.
 
-The parameter HISTORY_IGNORE may be set to a pattern which matches
-lines in the internal history that are to be omitted from the history
-file at file write time.  This differs from history changes made in
-the zshaddhistory hook or by the HIST_IGNORE_* options, all of which
-take effect immediately on the internal history list itself.
+- The logic for retrying history locking has been improved.
 
-The parameter ZLE_RPROMPT_INDENT can be set to 0 to remove the space
-between the right hand side of the screen (this causes problems with
-some terminals).  It is not special and is not set by default; the
-effect in that case is as if it was 1, as in previous versions.
+- Some rationalisations have been made to the zsh/db/gdbm module that
+  should make it more useful and predictable in operation.
 
+Changes from 5.0.0 to 5.0.7
+---------------------------
+
+- Numeric constants encountered in mathematical expressions (but not other
+  contexts) can contain underscores as separators that will be ignored on
+  evaluation, as allowed in other scripting languages.  For example,
+  0xFFFF_FFFF, or 3.141_592_654.  From 5.0.6 this is also available
+  in output, e.g.
+    setopt cbases
+    zmodload zsh/mathfunc
+    print $(( [#16_4] 2**32 - 1 )) $(( [#_3] 4 * atan(1.0) ))
+
+- "functions -T" turns on tracing for the specified function(s) only,
+  similar to "functions -t" except that tracing is turned off for any
+  functions called from the specified one(s) that don't also have the -t
+  or -T flag.
+
+- The option FORCE_FLOAT has been added to force all arithmetic constants
+  to be treated as floating point.  This is most useful locally within
+  functions or scripts performing floating point calculations.
+
+- The default $fpath/$FPATH is now designed to include
+  /usr/local/share/zsh/site-functions unless the installer has
+  specifically decided to use another path, i.e. regardless of
+  the standard installation location.  This directory does not need to
+  exist.  Sites that set an explicit site directory can put that in
+  /etc/zshenv as before.  The intention of the new path element is to
+  increase the likelihood that locally added functions can be found with
+  the shell running "out of the box", unless the shell has been
+  deliberately configured differently by the installer for some special
+  purpose.
+
+- Individual pattern characters can be disabled.  For example, to allow '^'
+  to be an ordinary character even if the option EXTENDED_GLOB is set, use
+  "disable -p '^'".
+
+- The variable editing builtin vared can be given custom editing widgets
+  for initialisation and finishing.
+
+- The line editor's capability for listening on file descriptors
+  additional to the terminal has been enhanced so that the handler for
+  such file descriptors can be a line editor widget.  Previously the
+  handler always behaved as a standard shell function.
+
+- Hooks for adding history (the function zshaddhistory and the
+  array zshaddhistory_functions) can return status 2 to indicate that
+  history is to be saved internally within the shell but not written.
+
+- In file completion, the recursive-files style can be set to an array of
+  patterns to match against "$PWD/".  In any matched location, it is
+  possible to complete files in arbitrarily deep subdirectories without
+  needing to type the directory prefix.  See example in the zshcompsys
+  manual.
+
+- The _user_expand completer now allows expansion functions in the
+  user-expand files to return a string in REPLY that will be used to name
+  the set of expansions returned.
+
+- The parameter HISTORY_IGNORE may be set to a pattern which matches
+  lines in the internal history that are to be omitted from the history
+  file at file write time.  This differs from history changes made in
+  the zshaddhistory hook or by the HIST_IGNORE_* options, all of which
+  take effect immediately on the internal history list itself.
+
+- The parameter ZLE_RPROMPT_INDENT can be set to 0 to remove the space
+  before the right hand side of the screen (this causes problems with
+  some terminals).  It is not special and is not set by default; the
+  effect in that case is as if it was 1, as in previous versions.
+
+- If the option EXTENDED_GLOB is in effect, it is possible to force
+  globbing within conditional code using the [[ ... ]] syntax by flagging
+  that a certain string is a glob using the (#q) glob qualifier syntax.
+  The resulting glob is treated as a single argument.  For example,
+  [[ -n *.c(#qN) ]] tests whether there are any .c files in the current
+  directory.
+
+- In prompt strings, the %N(l.true.false) conditional (line length) and
+  the %N<..< and %N>..> truncation operators now accept negative values
+  of N, which count the remaining space to the opposite margin (positive
+  values of N still count the space used since the start of the prompt).
+  In PS1 and PROMPT, this counts to the right margin, whereas in RPS1 and
+  RPROMPT, it counts to the left margin (not to the opposite prompt).
+
+- Also in prompt strings, %e or the equivalent test %(e..) are used to
+  output or test the execution / evaluation depth of a shell
+  construct within functions etc.  This is useful in $PS4.
+
+- Another new prompt feature is the %. escape within time strings, for
+  example %D{%H:%M:%S.%.}.  It provides zero-padded decimal fractions of a
+  second; by default milliseconds are shown, but the number of digits may
+  be indicated from 1 to 6, e.g. "%6.".  (Note this is part of the
+  extensions to strftime() formats rather than basic prompt escapes.)
+
+- The operators :^ and :^^ in parameter substitution allow for array
+  zipping in the form ${name:^array}. With the :^ operator, all entries
+  in $name and $array will be output in alternating order. With :^ the
+  longer array is trimmed whereas the :^^ operator repeats the shorter
+  array enough to match the longer array.
+
+- The value of $? when a job becomes stopped is now the signal number plus
+  128, for compatibility with other shells.  Note that different operating
+  systems use different values e.g. for SIGTSTP, so it is not possible in
+  portable scripts to detect stopped jobs by comparing to a fixed number.
+  Also, the value of $pipestatus is now updated when a job stops, not just
+  when it exits.
+
+- Redirections applied to function definitions take effect when the
+  function is executed, not when it is defined.  Other shells already
+  work this way.  For example,
+    fn() { echo hello } >~/logfile
+  Running fn writes "hello" to logfile.  In older versions of the shell
+  it would create an empty file at the point of definition.
 
 Changes between 4.2 and 5.0.0
 -----------------------------
@@ -572,7 +673,7 @@ Further enhancements to new completion system:
    different styles
  - Many more supplied completions for standard commands which work out of
    the box, and better handling of command line options/arguments which
-   behave in the usual way   
+   behave in the usual way
  - $fpath now set up to use installed functions by default; functions
    can be loaded just by `autoload -U compinit; compinit'
  - Much improved handling of nested quoting and nested braces
@@ -930,7 +1031,7 @@ The shell will drop privileges when this option is unset by resetting its
 euid to uid and its egid to gid.
 
 The =number substitution for accessing the directory stack is changed to
-~number to allow =command substitution when a command name begins with a 
+~number to allow =command substitution when a command name begins with a
 digit.
 
 <> is a redirection operator which opens the standard input for both

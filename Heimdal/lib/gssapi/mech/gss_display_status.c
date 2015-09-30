@@ -136,12 +136,12 @@ supplementary_error(OM_uint32 v)
 
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_display_status(OM_uint32 *minor_status,
+gss_display_status(OM_uint32 *__nonnull minor_status,
     OM_uint32 status_value,
     int status_type,
-    const gss_OID mech_type,
-    OM_uint32 *message_content,
-    gss_buffer_t status_string)
+    __nullable const gss_OID mech_type,
+    OM_uint32 *__nonnull message_content,
+    __nonnull gss_buffer_t status_string)
 {
 	OM_uint32 major_status;
 

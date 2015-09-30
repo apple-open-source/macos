@@ -36,7 +36,7 @@
 
 namespace WebCore {
 
-RenderMultiColumnSet::RenderMultiColumnSet(RenderFlowThread& flowThread, PassRef<RenderStyle> style)
+RenderMultiColumnSet::RenderMultiColumnSet(RenderFlowThread& flowThread, Ref<RenderStyle>&& style)
     : RenderRegionSet(flowThread.document(), WTF::move(style), flowThread)
     , m_computedColumnCount(1)
     , m_computedColumnWidth(0)
@@ -52,8 +52,8 @@ RenderMultiColumnSet::RenderMultiColumnSet(RenderFlowThread& flowThread, PassRef
 RenderMultiColumnSet* RenderMultiColumnSet::nextSiblingMultiColumnSet() const
 {
     for (RenderObject* sibling = nextSibling(); sibling; sibling = sibling->nextSibling()) {
-        if (sibling->isRenderMultiColumnSet())
-            return toRenderMultiColumnSet(sibling);
+        if (is<RenderMultiColumnSet>(*sibling))
+            return downcast<RenderMultiColumnSet>(sibling);
     }
     return nullptr;
 }
@@ -61,8 +61,8 @@ RenderMultiColumnSet* RenderMultiColumnSet::nextSiblingMultiColumnSet() const
 RenderMultiColumnSet* RenderMultiColumnSet::previousSiblingMultiColumnSet() const
 {
     for (RenderObject* sibling = previousSibling(); sibling; sibling = sibling->previousSibling()) {
-        if (sibling->isRenderMultiColumnSet())
-            return toRenderMultiColumnSet(sibling);
+        if (is<RenderMultiColumnSet>(*sibling))
+            return downcast<RenderMultiColumnSet>(sibling);
     }
     return nullptr;
 }
@@ -138,8 +138,8 @@ void RenderMultiColumnSet::setLogicalBottomInFlowThread(LayoutUnit logicalBottom
 
 LayoutUnit RenderMultiColumnSet::heightAdjustedForSetOffset(LayoutUnit height) const
 {
-    RenderBlockFlow* multicolBlock = toRenderBlockFlow(parent());
-    LayoutUnit contentLogicalTop = logicalTop() - multicolBlock->borderAndPaddingBefore();
+    RenderBlockFlow& multicolBlock = downcast<RenderBlockFlow>(*parent());
+    LayoutUnit contentLogicalTop = logicalTop() - multicolBlock.borderAndPaddingBefore();
 
     height -= contentLogicalTop;
     return std::max(height, LayoutUnit::fromPixel(1)); // Let's avoid zero height, as that would probably cause an infinite amount of columns to be created.
@@ -415,7 +415,7 @@ LayoutUnit RenderMultiColumnSet::calculateMaxColumnHeight() const
     LayoutUnit availableHeight = multiColumnFlowThread()->columnHeightAvailable();
     LayoutUnit maxColumnHeight = availableHeight ? availableHeight : RenderFlowThread::maxLogicalHeight();
     if (!multicolStyle.logicalMaxHeight().isUndefined()) {
-        LayoutUnit logicalMaxHeight = multicolBlock->computeContentLogicalHeight(multicolStyle.logicalMaxHeight());
+        LayoutUnit logicalMaxHeight = multicolBlock->computeContentLogicalHeight(multicolStyle.logicalMaxHeight(), -1);
         if (logicalMaxHeight != -1 && maxColumnHeight > logicalMaxHeight)
             maxColumnHeight = logicalMaxHeight;
     }
@@ -426,10 +426,10 @@ LayoutUnit RenderMultiColumnSet::columnGap() const
 {
     // FIXME: Eventually we will cache the column gap when the widths of columns start varying, but for now we just
     // go to the parent block to get the gap.
-    RenderBlockFlow* parentBlock = toRenderBlockFlow(parent());
-    if (parentBlock->style().hasNormalColumnGap())
-        return parentBlock->style().fontDescription().computedPixelSize(); // "1em" is recommended as the normal gap setting. Matches <p> margins.
-    return parentBlock->style().columnGap();
+    RenderBlockFlow& parentBlock = downcast<RenderBlockFlow>(*parent());
+    if (parentBlock.style().hasNormalColumnGap())
+        return parentBlock.style().fontDescription().computedPixelSize(); // "1em" is recommended as the normal gap setting. Matches <p> margins.
+    return parentBlock.style().columnGap();
 }
 
 unsigned RenderMultiColumnSet::columnCount() const
@@ -578,7 +578,7 @@ void RenderMultiColumnSet::paintColumnRules(PaintInfo& paintInfo, const LayoutPo
 
     RenderMultiColumnFlowThread* flowThread = multiColumnFlowThread();
     const RenderStyle& blockStyle = parent()->style();
-    const Color& ruleColor = blockStyle.visitedDependentColor(CSSPropertyWebkitColumnRuleColor);
+    const Color& ruleColor = blockStyle.visitedDependentColor(CSSPropertyColumnRuleColor);
     bool ruleTransparent = blockStyle.columnRuleIsTransparent();
     EBorderStyle ruleStyle = blockStyle.columnRuleStyle();
     LayoutUnit ruleThickness = blockStyle.columnRuleWidth();
@@ -619,7 +619,7 @@ void RenderMultiColumnSet::paintColumnRules(PaintInfo& paintInfo, const LayoutPo
                 LayoutUnit ruleRight = isHorizontalWritingMode() ? ruleLeft + ruleThickness : ruleLeft + contentWidth();
                 LayoutUnit ruleTop = isHorizontalWritingMode() ? paintOffset.y() + borderTop() + paddingTop() : paintOffset.y() + ruleLogicalLeft - ruleThickness / 2 + ruleAdd;
                 LayoutUnit ruleBottom = isHorizontalWritingMode() ? ruleTop + contentHeight() : ruleTop + ruleThickness;
-                IntRect pixelSnappedRuleRect = pixelSnappedIntRectFromEdges(ruleLeft, ruleTop, ruleRight, ruleBottom);
+                IntRect pixelSnappedRuleRect = snappedIntRect(ruleLeft, ruleTop, ruleRight - ruleLeft, ruleBottom - ruleTop);
                 drawLineForBoxSide(paintInfo.context, pixelSnappedRuleRect.x(), pixelSnappedRuleRect.y(), pixelSnappedRuleRect.maxX(), pixelSnappedRuleRect.maxY(), boxSide, ruleColor, ruleStyle, 0, 0, antialias);
             }
             
@@ -650,7 +650,7 @@ void RenderMultiColumnSet::paintColumnRules(PaintInfo& paintInfo, const LayoutPo
 
         for (unsigned i = 1; i < colCount; i++) {
             ruleRect.move(step);
-            IntRect pixelSnappedRuleRect = pixelSnappedIntRect(ruleRect);
+            IntRect pixelSnappedRuleRect = snappedIntRect(ruleRect);
             drawLineForBoxSide(paintInfo.context, pixelSnappedRuleRect.x(), pixelSnappedRuleRect.y(), pixelSnappedRuleRect.maxX(), pixelSnappedRuleRect.maxY(), boxSide, ruleColor, ruleStyle, 0, 0, antialias);
         }
     }
@@ -799,7 +799,7 @@ void RenderMultiColumnSet::collectLayerFragments(LayerFragments& fragments, cons
             else
                 blockOffset -= i * (computedColumnHeight() + colGap);
         }
-        if (isFlippedBlocksWritingMode(style().writingMode()))
+        if (isFlippedWritingMode(style().writingMode()))
             blockOffset = -blockOffset;
         translationOffset.setHeight(blockOffset);
         if (!isHorizontalWritingMode())
@@ -851,7 +851,7 @@ LayoutPoint RenderMultiColumnSet::columnTranslationForOffset(const LayoutUnit& o
         else
             blockOffset -= startColumn * (computedColumnHeight() + colGap);
     }
-    if (isFlippedBlocksWritingMode(style().writingMode()))
+    if (isFlippedWritingMode(style().writingMode()))
         blockOffset = -blockOffset;
     translationOffset.setY(blockOffset);
     
@@ -861,7 +861,7 @@ LayoutPoint RenderMultiColumnSet::columnTranslationForOffset(const LayoutUnit& o
     return translationOffset;
 }
 
-void RenderMultiColumnSet::adjustRegionBoundsFromFlowThreadPortionRect(const LayoutPoint&, LayoutRect&)
+void RenderMultiColumnSet::adjustRegionBoundsFromFlowThreadPortionRect(LayoutRect&) const
 {
     // This only fires for named flow thread compositing code, so let's make sure to ASSERT if this ever gets invoked.
     ASSERT_NOT_REACHED();

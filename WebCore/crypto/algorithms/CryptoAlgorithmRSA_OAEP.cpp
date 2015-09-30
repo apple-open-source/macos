@@ -61,10 +61,9 @@ bool CryptoAlgorithmRSA_OAEP::keyAlgorithmMatches(const CryptoAlgorithmRsaOaepPa
 {
     if (key.algorithmIdentifier() != s_identifier)
         return false;
-    ASSERT(isCryptoKeyRSA(key));
 
     CryptoAlgorithmIdentifier keyHash;
-    if (toCryptoKeyRSA(key).isRestrictedToHash(keyHash) && keyHash != algorithmParameters.hash)
+    if (downcast<CryptoKeyRSA>(key).isRestrictedToHash(keyHash) && keyHash != algorithmParameters.hash)
         return false;
 
     return true;
@@ -72,31 +71,31 @@ bool CryptoAlgorithmRSA_OAEP::keyAlgorithmMatches(const CryptoAlgorithmRsaOaepPa
 
 void CryptoAlgorithmRSA_OAEP::encrypt(const CryptoAlgorithmParameters& parameters, const CryptoKey& key, const CryptoOperationData& data, VectorCallback callback, VoidCallback failureCallback, ExceptionCode& ec)
 {
-    const CryptoAlgorithmRsaOaepParams& rsaOAEPParameters = toCryptoAlgorithmRsaOaepParams(parameters);
+    const CryptoAlgorithmRsaOaepParams& rsaOAEPParameters = downcast<CryptoAlgorithmRsaOaepParams>(parameters);
 
     if (!keyAlgorithmMatches(rsaOAEPParameters, key)) {
         ec = NOT_SUPPORTED_ERR;
         return;
     }
 
-    platformEncrypt(rsaOAEPParameters, toCryptoKeyRSA(key), data, WTF::move(callback), WTF::move(failureCallback), ec);
+    platformEncrypt(rsaOAEPParameters, downcast<CryptoKeyRSA>(key), data, WTF::move(callback), WTF::move(failureCallback), ec);
 }
 
 void CryptoAlgorithmRSA_OAEP::decrypt(const CryptoAlgorithmParameters& parameters, const CryptoKey& key, const CryptoOperationData& data, VectorCallback callback, VoidCallback failureCallback, ExceptionCode& ec)
 {
-    const CryptoAlgorithmRsaOaepParams& rsaOAEPParameters = toCryptoAlgorithmRsaOaepParams(parameters);
+    const CryptoAlgorithmRsaOaepParams& rsaOAEPParameters = downcast<CryptoAlgorithmRsaOaepParams>(parameters);
 
     if (!keyAlgorithmMatches(rsaOAEPParameters, key)) {
         ec = NOT_SUPPORTED_ERR;
         return;
     }
 
-    platformDecrypt(rsaOAEPParameters, toCryptoKeyRSA(key), data, WTF::move(callback), WTF::move(failureCallback), ec);
+    platformDecrypt(rsaOAEPParameters, downcast<CryptoKeyRSA>(key), data, WTF::move(callback), WTF::move(failureCallback), ec);
 }
 
 void CryptoAlgorithmRSA_OAEP::generateKey(const CryptoAlgorithmParameters& parameters, bool extractable, CryptoKeyUsage usages, KeyOrKeyPairCallback callback, VoidCallback failureCallback, ExceptionCode&)
 {
-    const CryptoAlgorithmRsaKeyGenParams& rsaParameters = toCryptoAlgorithmRsaKeyGenParams(parameters);
+    const CryptoAlgorithmRsaKeyGenParams& rsaParameters = downcast<CryptoAlgorithmRsaKeyGenParams>(parameters);
 
     auto keyPairCallback = [callback](CryptoKeyPair& pair) {
         callback(nullptr, &pair);
@@ -107,8 +106,8 @@ void CryptoAlgorithmRSA_OAEP::generateKey(const CryptoAlgorithmParameters& param
 
 void CryptoAlgorithmRSA_OAEP::importKey(const CryptoAlgorithmParameters& parameters, const CryptoKeyData& keyData, bool extractable, CryptoKeyUsage usage, KeyCallback callback, VoidCallback failureCallback, ExceptionCode&)
 {
-    const CryptoAlgorithmRsaKeyParamsWithHash& rsaKeyParameters = toCryptoAlgorithmRsaKeyParamsWithHash(parameters);
-    const CryptoKeyDataRSAComponents& rsaComponents = toCryptoKeyDataRSAComponents(keyData);
+    const CryptoAlgorithmRsaKeyParamsWithHash& rsaKeyParameters = downcast<CryptoAlgorithmRsaKeyParamsWithHash>(parameters);
+    const CryptoKeyDataRSAComponents& rsaComponents = downcast<CryptoKeyDataRSAComponents>(keyData);
 
     RefPtr<CryptoKeyRSA> result = CryptoKeyRSA::create(CryptoAlgorithmIdentifier::RSA_OAEP, rsaComponents, extractable, usage);
     if (!result) {

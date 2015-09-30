@@ -52,18 +52,21 @@ static uint64_t generateRequestID()
 }
 #endif
 
-PassRefPtr<NotificationPermissionRequestManager> NotificationPermissionRequestManager::create(WebPage* page)
+Ref<NotificationPermissionRequestManager> NotificationPermissionRequestManager::create(WebPage* page)
 {
-    return adoptRef(new NotificationPermissionRequestManager(page));
+    return adoptRef(*new NotificationPermissionRequestManager(page));
 }
 
-NotificationPermissionRequestManager::NotificationPermissionRequestManager(WebPage* page)
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+NotificationPermissionRequestManager::NotificationPermissionRequestManager(WebPage* page)
     : m_page(page)
-#endif
 {
-    (void)page;
 }
+#else
+NotificationPermissionRequestManager::NotificationPermissionRequestManager(WebPage*)
+{
+}
+#endif
 
 #if ENABLE(NOTIFICATIONS)
 void NotificationPermissionRequestManager::startRequest(SecurityOrigin* origin, PassRefPtr<NotificationPermissionCallback> callback)
@@ -120,13 +123,23 @@ void NotificationPermissionRequestManager::cancelRequest(SecurityOrigin* origin)
 #endif
 }
 
+bool NotificationPermissionRequestManager::hasPendingPermissionRequests(SecurityOrigin* origin) const
+{
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+    return m_originToIDMap.contains(origin);
+#else
+    UNUSED_PARAM(origin);
+    return false;
+#endif
+}
+
 NotificationClient::Permission NotificationPermissionRequestManager::permissionLevel(SecurityOrigin* securityOrigin)
 {
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
     if (!m_page->corePage()->settings().notificationsEnabled())
         return NotificationClient::PermissionDenied;
     
-    return WebProcess::shared().supplement<WebNotificationManager>()->policyForOrigin(securityOrigin);
+    return WebProcess::singleton().supplement<WebNotificationManager>()->policyForOrigin(securityOrigin);
 #else
     UNUSED_PARAM(securityOrigin);
     return NotificationClient::PermissionDenied;
@@ -136,7 +149,7 @@ NotificationClient::Permission NotificationPermissionRequestManager::permissionL
 void NotificationPermissionRequestManager::setPermissionLevelForTesting(const String& originString, bool allowed)
 {
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
-    WebProcess::shared().supplement<WebNotificationManager>()->didUpdateNotificationDecision(originString, allowed);
+    WebProcess::singleton().supplement<WebNotificationManager>()->didUpdateNotificationDecision(originString, allowed);
 #else
     UNUSED_PARAM(originString);
     UNUSED_PARAM(allowed);
@@ -146,7 +159,7 @@ void NotificationPermissionRequestManager::setPermissionLevelForTesting(const St
 void NotificationPermissionRequestManager::removeAllPermissionsForTesting()
 {
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
-    WebProcess::shared().supplement<WebNotificationManager>()->removeAllPermissionsForTesting();
+    WebProcess::singleton().supplement<WebNotificationManager>()->removeAllPermissionsForTesting();
 #endif
 }
 
@@ -162,7 +175,7 @@ void NotificationPermissionRequestManager::didReceiveNotificationPermissionDecis
 
     m_originToIDMap.remove(origin);
 
-    WebProcess::shared().supplement<WebNotificationManager>()->didUpdateNotificationDecision(origin->toString(), allowed);
+    WebProcess::singleton().supplement<WebNotificationManager>()->didUpdateNotificationDecision(origin->toString(), allowed);
 
 #if ENABLE(LEGACY_NOTIFICATIONS)
     RefPtr<WebCore::VoidCallback> voidCallback = m_idToVoidCallbackMap.take(requestID);

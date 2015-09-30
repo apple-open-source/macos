@@ -30,6 +30,7 @@
 #include "RuleSet.h"
 
 #include "CSSFontSelector.h"
+#include "CSSKeyframesRule.h"
 #include "CSSSelector.h"
 #include "CSSSelectorList.h"
 #include "HTMLNames.h"
@@ -41,7 +42,6 @@
 #include "StyleRule.h"
 #include "StyleRuleImport.h"
 #include "StyleSheetContents.h"
-#include "WebKitCSSKeyframesRule.h"
 
 #if ENABLE(VIDEO_TRACK)
 #include "TextTrackCue.h"
@@ -53,18 +53,28 @@ using namespace HTMLNames;
 
 // -----------------------------------------------------------------
 
-static inline bool isSelectorMatchingHTMLBasedOnRuleHash(const CSSSelector& selector)
+static inline MatchBasedOnRuleHash computeMatchBasedOnRuleHash(const CSSSelector& selector)
 {
     if (selector.tagHistory())
-        return false;
+        return MatchBasedOnRuleHash::None;
 
-    if (selector.m_match == CSSSelector::Tag) {
-        const AtomicString& selectorNamespace = selector.tagQName().namespaceURI();
-        return selectorNamespace == starAtom || selectorNamespace == xhtmlNamespaceURI;
+    if (selector.match() == CSSSelector::Tag) {
+        const QualifiedName& tagQualifiedName = selector.tagQName();
+        const AtomicString& selectorNamespace = tagQualifiedName.namespaceURI();
+        if (selectorNamespace == starAtom || selectorNamespace == xhtmlNamespaceURI) {
+            if (tagQualifiedName == anyQName())
+                return MatchBasedOnRuleHash::Universal;
+            return MatchBasedOnRuleHash::ClassC;
+        }
+        return MatchBasedOnRuleHash::None;
     }
     if (SelectorChecker::isCommonPseudoClassSelector(&selector))
-        return true;
-    return selector.m_match == CSSSelector::Id || selector.m_match == CSSSelector::Class;
+        return MatchBasedOnRuleHash::ClassB;
+    if (selector.match() == CSSSelector::Id)
+        return MatchBasedOnRuleHash::ClassA;
+    if (selector.match() == CSSSelector::Class)
+        return MatchBasedOnRuleHash::ClassB;
+    return MatchBasedOnRuleHash::None;
 }
 
 static bool selectorCanMatchPseudoElement(const CSSSelector& rootSelector)
@@ -86,47 +96,42 @@ static bool selectorCanMatchPseudoElement(const CSSSelector& rootSelector)
     return false;
 }
 
-static inline bool selectorListContainsAttributeSelector(const CSSSelector* selector)
-{
-    const CSSSelectorList* selectorList = selector->selectorList();
-    if (!selectorList)
-        return false;
-    for (const CSSSelector* selector = selectorList->first(); selector; selector = CSSSelectorList::next(selector)) {
-        for (const CSSSelector* component = selector; component; component = component->tagHistory()) {
-            if (component->isAttributeSelector())
-                return true;
-        }
-    }
-    return false;
-}
-
 static inline bool isCommonAttributeSelectorAttribute(const QualifiedName& attribute)
 {
     // These are explicitly tested for equality in canShareStyleWithElement.
     return attribute == typeAttr || attribute == readonlyAttr;
 }
 
-static inline bool containsUncommonAttributeSelector(const CSSSelector* selector)
+static bool containsUncommonAttributeSelector(const CSSSelector& rootSelector, bool matchesRightmostElement)
 {
-    for (; selector; selector = selector->tagHistory()) {
-        // Allow certain common attributes (used in the default style) in the selectors that match the current element.
-        if (selector->isAttributeSelector() && !isCommonAttributeSelectorAttribute(selector->attribute()))
-            return true;
-        if (selectorListContainsAttributeSelector(selector))
-            return true;
-        if (selector->relation() != CSSSelector::SubSelector) {
-            selector = selector->tagHistory();
-            break;
+    const CSSSelector* selector = &rootSelector;
+    do {
+        if (selector->isAttributeSelector()) {
+            // FIXME: considering non-rightmost simple selectors is necessary because of the style sharing of cousins.
+            // It is a primitive solution which disable a lot of style sharing on pages that rely on attributes for styling.
+            // We should investigate better ways of doing this.
+            if (!isCommonAttributeSelectorAttribute(selector->attribute()) || !matchesRightmostElement)
+                return true;
         }
-    }
 
-    for (; selector; selector = selector->tagHistory()) {
-        if (selector->isAttributeSelector())
-            return true;
-        if (selectorListContainsAttributeSelector(selector))
-            return true;
-    }
+        if (const CSSSelectorList* selectorList = selector->selectorList()) {
+            for (const CSSSelector* subSelector = selectorList->first(); subSelector; subSelector = CSSSelectorList::next(subSelector)) {
+                if (containsUncommonAttributeSelector(*subSelector, matchesRightmostElement))
+                    return true;
+            }
+        }
+
+        if (selector->relation() != CSSSelector::SubSelector)
+            matchesRightmostElement = false;
+
+        selector = selector->tagHistory();
+    } while (selector);
     return false;
+}
+
+static inline bool containsUncommonAttributeSelector(const CSSSelector& rootSelector)
+{
+    return containsUncommonAttributeSelector(rootSelector, true);
 }
 
 static inline PropertyWhitelistType determinePropertyWhitelistType(const AddRuleFlags addRuleFlags, const CSSSelector* selector)
@@ -135,7 +140,7 @@ static inline PropertyWhitelistType determinePropertyWhitelistType(const AddRule
         return PropertyWhitelistRegion;
 #if ENABLE(VIDEO_TRACK)
     for (const CSSSelector* component = selector; component; component = component->tagHistory()) {
-        if (component->m_match == CSSSelector::PseudoElement && (component->pseudoElementType() == CSSSelector::PseudoElementCue || component->value() == TextTrackCue::cueShadowPseudoId()))
+        if (component->match() == CSSSelector::PseudoElement && (component->pseudoElementType() == CSSSelector::PseudoElementCue || component->value() == TextTrackCue::cueShadowPseudoId()))
             return PropertyWhitelistCue;
     }
 #else
@@ -149,10 +154,9 @@ RuleData::RuleData(StyleRule* rule, unsigned selectorIndex, unsigned position, A
     , m_selectorIndex(selectorIndex)
     , m_hasDocumentSecurityOrigin(addRuleFlags & RuleHasDocumentSecurityOrigin)
     , m_position(position)
-    , m_specificity(selector()->specificity())
-    , m_hasRightmostSelectorMatchingHTMLBasedOnRuleHash(isSelectorMatchingHTMLBasedOnRuleHash(*selector()))
+    , m_matchBasedOnRuleHash(static_cast<unsigned>(computeMatchBasedOnRuleHash(*selector())))
     , m_canMatchPseudoElement(selectorCanMatchPseudoElement(*selector()))
-    , m_containsUncommonAttributeSelector(WebCore::containsUncommonAttributeSelector(selector()))
+    , m_containsUncommonAttributeSelector(WebCore::containsUncommonAttributeSelector(*selector()))
     , m_linkMatchType(SelectorChecker::determineLinkMatchType(selector()))
     , m_propertyWhitelistType(determinePropertyWhitelistType(addRuleFlags, selector()))
 #if ENABLE(CSS_SELECTOR_JIT) && CSS_SELECTOR_JIT_PROFILING
@@ -166,20 +170,10 @@ RuleData::RuleData(StyleRule* rule, unsigned selectorIndex, unsigned position, A
 
 static void collectFeaturesFromRuleData(RuleFeatureSet& features, const RuleData& ruleData)
 {
-    bool foundSiblingSelector = false;
-    for (const CSSSelector* selector = ruleData.selector(); selector; selector = selector->tagHistory()) {
-        features.collectFeaturesFromSelector(selector);
-        
-        if (const CSSSelectorList* selectorList = selector->selectorList()) {
-            for (const CSSSelector* subSelector = selectorList->first(); subSelector; subSelector = CSSSelectorList::next(subSelector)) {
-                if (!foundSiblingSelector && selector->isSiblingSelector())
-                    foundSiblingSelector = true;
-                features.collectFeaturesFromSelector(subSelector);
-            }
-        } else if (!foundSiblingSelector && selector->isSiblingSelector())
-            foundSiblingSelector = true;
-    }
-    if (foundSiblingSelector)
+    bool hasSiblingSelector;
+    features.collectFeaturesFromSelector(*ruleData.selector(), hasSiblingSelector);
+
+    if (hasSiblingSelector)
         features.siblingRules.append(RuleFeature(ruleData.rule(), ruleData.selectorIndex(), ruleData.hasDocumentSecurityOrigin()));
     if (ruleData.containsUncommonAttributeSelector())
         features.uncommonAttributeRules.append(RuleFeature(ruleData.rule(), ruleData.selectorIndex(), ruleData.hasDocumentSecurityOrigin()));
@@ -189,15 +183,15 @@ void RuleSet::addToRuleSet(AtomicStringImpl* key, AtomRuleMap& map, const RuleDa
 {
     if (!key)
         return;
-    std::unique_ptr<Vector<RuleData>>& rules = map.add(key, nullptr).iterator->value;
+    auto& rules = map.add(key, nullptr).iterator->value;
     if (!rules)
-        rules = std::make_unique<Vector<RuleData>>();
+        rules = std::make_unique<RuleDataVector>();
     rules->append(ruleData);
 }
 
 static unsigned rulesCountForName(const RuleSet::AtomRuleMap& map, AtomicStringImpl* name)
 {
-    if (const Vector<RuleData>* rules = map.get(name))
+    if (const auto* rules = map.get(name))
         return rules->size();
     return 0;
 }
@@ -214,13 +208,13 @@ void RuleSet::addRule(StyleRule* rule, unsigned selectorIndex, AddRuleFlags addR
     const CSSSelector* focusSelector = nullptr;
     const CSSSelector* selector = ruleData.selector();
     do {
-        if (selector->m_match == CSSSelector::Id) {
+        if (selector->match() == CSSSelector::Id) {
             addToRuleSet(selector->value().impl(), m_idRules, ruleData);
             return;
         }
 
 #if ENABLE(VIDEO_TRACK)
-        if (selector->m_match == CSSSelector::PseudoElement && selector->pseudoElementType() == CSSSelector::PseudoElementCue) {
+        if (selector->match() == CSSSelector::PseudoElement && selector->pseudoElementType() == CSSSelector::PseudoElementCue) {
             m_cuePseudoRules.append(ruleData);
             return;
         }
@@ -231,7 +225,7 @@ void RuleSet::addRule(StyleRule* rule, unsigned selectorIndex, AddRuleFlags addR
             return;
         }
 
-        if (selector->m_match == CSSSelector::Class) {
+        if (selector->match() == CSSSelector::Class) {
             AtomicStringImpl* className = selector->value().impl();
             if (!classSelector) {
                 classSelector = selector;
@@ -245,7 +239,7 @@ void RuleSet::addRule(StyleRule* rule, unsigned selectorIndex, AddRuleFlags addR
             }
         }
 
-        if (selector->m_match == CSSSelector::Tag && selector->tagQName().localName() != starAtom)
+        if (selector->match() == CSSSelector::Tag && selector->tagQName().localName() != starAtom)
             tagSelector = selector;
 
         if (SelectorChecker::isCommonPseudoClassSelector(selector)) {
@@ -253,6 +247,7 @@ void RuleSet::addRule(StyleRule* rule, unsigned selectorIndex, AddRuleFlags addR
             case CSSSelector::PseudoClassLink:
             case CSSSelector::PseudoClassVisited:
             case CSSSelector::PseudoClassAnyLink:
+            case CSSSelector::PseudoClassAnyLinkDeprecated:
                 linkSelector = selector;
                 break;
             case CSSSelector::PseudoClassFocus:
@@ -284,7 +279,8 @@ void RuleSet::addRule(StyleRule* rule, unsigned selectorIndex, AddRuleFlags addR
     }
 
     if (tagSelector) {
-        addToRuleSet(tagSelector->tagQName().localName().impl(), m_tagRules, ruleData);
+        addToRuleSet(tagSelector->tagQName().localName().impl(), m_tagLocalNameRules, ruleData);
+        addToRuleSet(tagSelector->tagLowercaseLocalName().impl(), m_tagLowercaseLocalNameRules, ruleData);
         return;
     }
 
@@ -310,10 +306,9 @@ void RuleSet::addRegionRule(StyleRuleRegion* regionRule, bool hasDocumentSecurit
     const Vector<RefPtr<StyleRuleBase>>& childRules = regionRule->childRules();
     AddRuleFlags addRuleFlags = hasDocumentSecurityOrigin ? RuleHasDocumentSecurityOrigin : RuleHasNoSpecialState;
     addRuleFlags = static_cast<AddRuleFlags>(addRuleFlags | RuleIsInRegionRule);
-    for (unsigned i = 0; i < childRules.size(); ++i) {
-        StyleRuleBase* regionStylingRule = childRules[i].get();
-        if (regionStylingRule->isStyleRule())
-            regionRuleSet->addStyleRule(static_cast<StyleRule*>(regionStylingRule), addRuleFlags);
+    for (auto& childRule : childRules) {
+        if (is<StyleRule>(*childRule))
+            regionRuleSet->addStyleRule(downcast<StyleRule>(childRule.get()), addRuleFlags);
     }
     // Update the "global" rule count so that proper order is maintained
     m_ruleCount = regionRuleSet->m_ruleCount;
@@ -323,39 +318,32 @@ void RuleSet::addRegionRule(StyleRuleRegion* regionRule, bool hasDocumentSecurit
 
 void RuleSet::addChildRules(const Vector<RefPtr<StyleRuleBase>>& rules, const MediaQueryEvaluator& medium, StyleResolver* resolver, bool hasDocumentSecurityOrigin, bool isInitiatingElementInUserAgentShadowTree, AddRuleFlags addRuleFlags)
 {
-    for (unsigned i = 0; i < rules.size(); ++i) {
-        StyleRuleBase* rule = rules[i].get();
-
-        if (rule->isStyleRule()) {
-            StyleRule* styleRule = static_cast<StyleRule*>(rule);
-            addStyleRule(styleRule, addRuleFlags);
-        } else if (rule->isPageRule())
-            addPageRule(static_cast<StyleRulePage*>(rule));
-        else if (rule->isMediaRule()) {
-            StyleRuleMedia* mediaRule = static_cast<StyleRuleMedia*>(rule);
-            if ((!mediaRule->mediaQueries() || medium.eval(mediaRule->mediaQueries(), resolver)))
-                addChildRules(mediaRule->childRules(), medium, resolver, hasDocumentSecurityOrigin, isInitiatingElementInUserAgentShadowTree, addRuleFlags);
-        } else if (rule->isFontFaceRule() && resolver) {
+    for (auto& rule : rules) {
+        if (is<StyleRule>(*rule))
+            addStyleRule(downcast<StyleRule>(rule.get()), addRuleFlags);
+        else if (is<StyleRulePage>(*rule))
+            addPageRule(downcast<StyleRulePage>(rule.get()));
+        else if (is<StyleRuleMedia>(*rule)) {
+            auto& mediaRule = downcast<StyleRuleMedia>(*rule);
+            if ((!mediaRule.mediaQueries() || medium.eval(mediaRule.mediaQueries(), resolver)))
+                addChildRules(mediaRule.childRules(), medium, resolver, hasDocumentSecurityOrigin, isInitiatingElementInUserAgentShadowTree, addRuleFlags);
+        } else if (is<StyleRuleFontFace>(*rule) && resolver) {
             // Add this font face to our set.
-            const StyleRuleFontFace* fontFaceRule = static_cast<StyleRuleFontFace*>(rule);
-            resolver->fontSelector()->addFontFaceRule(fontFaceRule, isInitiatingElementInUserAgentShadowTree);
+            resolver->document().fontSelector().addFontFaceRule(downcast<StyleRuleFontFace>(rule.get()), isInitiatingElementInUserAgentShadowTree);
             resolver->invalidateMatchedPropertiesCache();
-        } else if (rule->isKeyframesRule() && resolver) {
-            resolver->addKeyframeStyle(static_cast<StyleRuleKeyframes*>(rule));
-        }
+        } else if (is<StyleRuleKeyframes>(*rule) && resolver)
+            resolver->addKeyframeStyle(downcast<StyleRuleKeyframes>(rule.get()));
+        else if (is<StyleRuleSupports>(*rule) && downcast<StyleRuleSupports>(*rule).conditionIsSupported())
+            addChildRules(downcast<StyleRuleSupports>(*rule).childRules(), medium, resolver, hasDocumentSecurityOrigin, isInitiatingElementInUserAgentShadowTree, addRuleFlags);
 #if ENABLE(CSS_REGIONS)
-        else if (rule->isRegionRule() && resolver) {
-            addRegionRule(static_cast<StyleRuleRegion*>(rule), hasDocumentSecurityOrigin);
+        else if (is<StyleRuleRegion>(*rule) && resolver) {
+            addRegionRule(downcast<StyleRuleRegion>(rule.get()), hasDocumentSecurityOrigin);
         }
 #endif
 #if ENABLE(CSS_DEVICE_ADAPTATION)
-        else if (rule->isViewportRule() && resolver) {
-            resolver->viewportStyleResolver()->addViewportRule(static_cast<StyleRuleViewport*>(rule));
+        else if (is<StyleRuleViewport>(*rule) && resolver) {
+            resolver->viewportStyleResolver()->addViewportRule(downcast<StyleRuleViewport>(rule.get()));
         }
-#endif
-#if ENABLE(CSS3_CONDITIONAL_RULES)
-        else if (rule->isSupportsRule() && static_cast<StyleRuleSupports*>(rule)->conditionIsSupported())
-            addChildRules(static_cast<StyleRuleSupports*>(rule)->childRules(), medium, resolver, hasDocumentSecurityOrigin, addRuleFlags);
 #endif
     }
 }
@@ -391,16 +379,16 @@ void RuleSet::addStyleRule(StyleRule* rule, AddRuleFlags addRuleFlags)
 
 static inline void shrinkMapVectorsToFit(RuleSet::AtomRuleMap& map)
 {
-    RuleSet::AtomRuleMap::iterator end = map.end();
-    for (RuleSet::AtomRuleMap::iterator it = map.begin(); it != end; ++it)
-        it->value->shrinkToFit();
+    for (auto& vector : map.values())
+        vector->shrinkToFit();
 }
 
 void RuleSet::shrinkToFit()
 {
     shrinkMapVectorsToFit(m_idRules);
     shrinkMapVectorsToFit(m_classRules);
-    shrinkMapVectorsToFit(m_tagRules);
+    shrinkMapVectorsToFit(m_tagLocalNameRules);
+    shrinkMapVectorsToFit(m_tagLowercaseLocalNameRules);
     shrinkMapVectorsToFit(m_shadowPseudoElementRules);
     m_linkPseudoClassRules.shrinkToFit();
 #if ENABLE(VIDEO_TRACK)
@@ -409,6 +397,8 @@ void RuleSet::shrinkToFit()
     m_focusPseudoClassRules.shrinkToFit();
     m_universalRules.shrinkToFit();
     m_pageRules.shrinkToFit();
+    m_features.shrinkToFit();
+    m_regionSelectorsAndRuleSets.shrinkToFit();
 }
 
 } // namespace WebCore

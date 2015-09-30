@@ -44,15 +44,18 @@ public:
     enum ExternalPlaybackTargetType { TargetTypeNone, TargetTypeAirPlay, TargetTypeTVOut };
     
     virtual ~WebVideoFullscreenInterface() { };
+    virtual void resetMediaState() = 0;
     virtual void setDuration(double) = 0;
     virtual void setCurrentTime(double currentTime, double anchorTime) = 0;
+    virtual void setBufferedTime(double bufferedTime) = 0;
     virtual void setRate(bool isPlaying, float playbackRate) = 0;
     virtual void setVideoDimensions(bool hasVideo, float width, float height) = 0;
     virtual void setSeekableRanges(const TimeRanges&) = 0;
     virtual void setCanPlayFastReverse(bool) = 0;
-    virtual void setAudioMediaSelectionOptions(const Vector<String>& options, uint64_t selectedIndex) = 0;
-    virtual void setLegibleMediaSelectionOptions(const Vector<String>& options, uint64_t selectedIndex) = 0;
-    virtual void setExternalPlayback(bool enabled, ExternalPlaybackTargetType, String localizedDeviceName) = 0;
+    virtual void setAudioMediaSelectionOptions(const Vector<WTF::String>& options, uint64_t selectedIndex) = 0;
+    virtual void setLegibleMediaSelectionOptions(const Vector<WTF::String>& options, uint64_t selectedIndex) = 0;
+    virtual void setExternalPlayback(bool enabled, ExternalPlaybackTargetType, WTF::String localizedDeviceName) = 0;
+    virtual void setWirelessVideoPlaybackDisabled(bool) = 0;
 };
 
 }

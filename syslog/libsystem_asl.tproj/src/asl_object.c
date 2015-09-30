@@ -161,7 +161,7 @@ asl_object_remove_object_at_index(asl_object_private_t *obj, size_t n)
 void
 asl_object_append(asl_object_private_t *obj, asl_object_private_t *newobj)
 {
-	int type = ASL_TYPE_CLIENT;
+	uint32_t type = ASL_TYPE_CLIENT;
 
 	if (obj != NULL) type = obj->asl_type;
 	if (type >= ASL_TYPE_COUNT) return;

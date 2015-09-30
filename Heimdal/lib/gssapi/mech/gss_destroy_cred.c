@@ -45,8 +45,8 @@
  */
 
 OM_uint32 GSSAPI_LIB_FUNCTION
-gss_destroy_cred(OM_uint32 *min_stat,
-		 gss_cred_id_t *cred_handle)
+gss_destroy_cred(OM_uint32 *__nonnull min_stat,
+		 __nonnull gss_cred_id_t * __nullable cred_handle)
 {
     struct _gss_cred *cred;
     struct _gss_mechanism_cred *mc;

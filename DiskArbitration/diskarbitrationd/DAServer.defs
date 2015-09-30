@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -98,13 +98,13 @@ simpleroutine _DAServerSessionQueueResponse( _session    : mach_port_t;
                                              _response   : ___vm_address_t;
                                              _responseID : int32_t );
 
-simpleroutine _DAServerSessionRegisterCallback( _session : mach_port_t;
-                                                _address : mach_vm_offset_t;
-                                                _context : mach_vm_offset_t;
-                                                _kind    : int32_t;
-                                                _order   : int32_t;
-                                                _match   : ___vm_address_t;
-                                                _watch   : ___vm_address_t );
+routine _DAServerSessionRegisterCallback( _session : mach_port_t;
+                                          _address : mach_vm_offset_t;
+                                          _context : mach_vm_offset_t;
+                                          _kind    : int32_t;
+                                          _order   : int32_t;
+                                          _match   : ___vm_address_t;
+                                          _watch   : ___vm_address_t );
 
 simpleroutine _DAServerSessionRelease( _session : mach_port_t );
 

@@ -404,7 +404,14 @@ extern GSSAPI_LIB_VARIABLE gss_buffer_desc __gss_c_attr_local_login_user;
 #define kGSSICLKDCHostname		CFSTR("kGSSICLKDCHostname")
 
 #define kGSSICKerberosCacheName		CFSTR("kGSSICKerberosCacheName")
+#define kGSSICSiteName			CFSTR("kGSSICSiteName")
 #define kGSSICAppIdentifierACL		CFSTR("kGSSICAppIdentifierACL")
+#define kGSSICVerifyCredentialAcceptorName CFSTR("kGSSICVerifyCredentialAcceptorName")
+#define kGSSICCreateNewCredential	CFSTR("kGSSICCreateNewCredential")
+#define kGSSICAppleSourceApp		CFSTR("kGSSICAppleSourceApp")
+#define kGSSICAppleSourceAppAuditToken	CFSTR("kGSSICAppleSourceAppAuditToken")
+#define kGSSICAppleSourceAppPID		CFSTR("kGSSICAppleSourceAppPID")
+#define kGSSICAppleSourceAppSigningIdentity CFSTR("kGSSICAppleSourceAppSigningIdentity")
 
 #include <gssapi_apple.h>
 

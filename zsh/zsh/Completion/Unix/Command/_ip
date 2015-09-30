@@ -8,8 +8,11 @@
 #
 # Values encoding simple types
 #
-local -a subcmd_dev
-subcmd_dev=(/$'[[:alpha:]]##[[:digit:]]##(\.[[:digit:]]##)#\0'/ ':interfaces:network interface:_net_interfaces')
+local -a subcmd_dev net_intf_disp net_intf_list
+# subcmd_dev=(/$'[[:alnum:][:punct:][:cntrl:][:digit:]]##\0'/ ':interfaces:network interface:_net_interfaces')
+_find_net_interfaces
+subcmd_dev=(/"(${(j.|.)net_intf_list})"$'\0'/
+	    ':interfaces:network interface:_net_interfaces')
 
 local -a subcmd_onoff
 subcmd_onoff=(/$'(on|off)\0'/ ':onoff:state (on or off):(on off)')
@@ -38,9 +41,10 @@ subcmd_ipaddrs=(
   /$'(<->(.<->(.<->(.<->|)|)|)|[:[:xdigit]]#:[:[:xdigit:]]#)(|/<->)\0'/
   ":ipaddress:IP address (v4 or v6) currently set:( $(ip addr show | sed -n 's/^ *inet6* \([0-9a-f\.:/]*\) .*$/\1/p') )"
 )
+local -a subcmd_prefix_label
 subcmd_prefix_label=(
   /$'(<->(.<->(.<->(.<->|)|)|)|[:[:xdigit]]#:[:[:xdigit:]]#)(|/<->)\0'/
-  ":ipaddresslabel:IP addrlabel prefix currently set:( $(ip -6 addrlabel list | sed -n 's/^prefix \([0-9a-f\.:/]*\) .*$/\1/p') )"
+  ":ipaddresslabel:IP addrlabel prefix currently set:( $(ip -6 addrlabel list 2>/dev/null | sed -n 's/^prefix \([0-9a-f\.:/]*\) .*$/\1/p') )"
 )
 
 
@@ -98,7 +102,7 @@ _regex_words nexthop 'nexthop route keyword' \
     'weight:specify relative quality of route:$subcmd_number'
 subcmd_nexthop=("$reply[@]" "#")
 
-local -a subcmd_rtproto
+local -a subcmd_rtprotocol
 _regex_words rtprotocol 'route protocol' \
   'redirect:installed from ICMP redirect' \
   'kernel:installed automatically by kernel' \
@@ -527,6 +531,8 @@ args=(
 )
 
 _regex_words options "ip options" \
+  '-h*uman:output statistics with human readable values' \
+  '-i*ec:print human readable rates in IEC units (ie. 1K = 1024)' \
   '-s*tatistics:output statistics' \
   '-f*amily:select protocol family:$subcmd_family' \
   '-4:IPv4' \

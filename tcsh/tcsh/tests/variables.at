@@ -547,7 +547,7 @@ history
 ]])
 AT_CHECK([tcsh -f -i -q < history.csh | sed "s,$PWD,CWD,"], ,
 [> 1 100
-CWD,~,     6,     6,     6,%,-1,value,>,history
+CWD,~,     6,     6,     6,%,0,value,>,history
 > exit
 ])
 
@@ -594,10 +594,10 @@ sh -c 'echo 2 >&2'
 sh -c 'echo 3 >&2'
 set implicitcd
 subdir
-pwd
+/bin/pwd
 ..
 ~/subdir
-pwd
+/bin/pwd
 cd
 set implicitcd=verbose
 subdir
@@ -606,7 +606,7 @@ subdir
 ]])
 (echo 1; echo 'subdir: Command not found.';
  echo 2; echo "$PWD/subdir: Permission denied."; echo 3) > experr
-AT_CHECK([tcsh -f -i -q < implicitcd.csh | sed "s,$PWD,CWD,"], ,
+AT_CHECK([tcsh -f -i -q < implicitcd.csh | sed "s,`/bin/pwd`,CWD,"], ,
 [> 0
 CWD/subdir
 CWD/subdir
@@ -866,7 +866,7 @@ set shlvl=8
 printenv SHLVL
 setenv SHLVL 2
 echo $shlvl
-tcsh -c 'echo $shlvl'
+tcsh -f -c 'echo $shlvl'
 ]])
 AT_CHECK([SHLVL=5 tcsh -f shlvl.csh], ,
 [6
@@ -915,9 +915,9 @@ cd ..
 echo $cwd
 set symlinks=expand
 cd a
-(echo ../a; echo `pwd`) | uniq | wc -l | tr -d ' \t'
+(echo ../a; echo $cwd) | uniq | wc -l | tr -d ' \t'
 ]])
-AT_CHECK([tcsh -f symlinks.csh | sed "s,$PWD,CWD,"], ,
+AT_CHECK([tcsh -f symlinks.csh | sed "s,`tcsh -f -c echo\\ \\$PWD`,CWD,"], ,
 [0
 CWD/a/b
 CWD/link

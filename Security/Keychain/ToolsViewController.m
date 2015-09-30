@@ -10,8 +10,8 @@
 #import "MyKeychain.h"
 
 #include <CKBridge/SOSCloudKeychainClient.h>
-#include <SecureObjectSync/SOSCloudCircle.h>
-#include <SecureObjectSync/SOSCloudCircleInternal.h>
+#include <Security/SecureObjectSync/SOSCloudCircle.h>
+#include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 #include <notify.h>
 #include <dispatch/dispatch.h>
 //#include <utilities/SecCFWrappers.h>

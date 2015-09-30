@@ -28,8 +28,8 @@
 
 #include "mech_locl.h"
 
-struct _gss_mechanism_cred *
-_gss_copy_cred(struct _gss_mechanism_cred *mc)
+struct _gss_mechanism_cred *__nullable
+_gss_copy_cred(struct _gss_mechanism_cred *__nonnull mc)
 {
 	struct _gss_mechanism_cred *new_mc;
 	gssapi_mech_interface m = mc->gmc_mech;
@@ -71,17 +71,17 @@ _gss_copy_cred(struct _gss_mechanism_cred *mc)
 }
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_add_cred(OM_uint32 *minor_status,
-    const gss_cred_id_t input_cred_handle,
-    const gss_name_t desired_name,
-    const gss_OID desired_mech,
+gss_add_cred(OM_uint32 * __nonnull minor_status,
+    __nullable const gss_cred_id_t input_cred_handle,
+    __nullable const gss_name_t desired_name,
+    __nullable const gss_OID desired_mech,
     gss_cred_usage_t cred_usage,
     OM_uint32 initiator_time_req,
     OM_uint32 acceptor_time_req,
-    gss_cred_id_t *output_cred_handle,
-    gss_OID_set *actual_mechs,
-    OM_uint32 *initiator_time_rec,
-    OM_uint32 *acceptor_time_rec)
+    __nonnull gss_cred_id_t * __nullable output_cred_handle,
+    __nullable gss_OID_set * __nullable actual_mechs,
+    OM_uint32 * __nullable initiator_time_rec,
+    OM_uint32 * __nullable acceptor_time_rec)
 {
 	OM_uint32 major_status;
 	gssapi_mech_interface m;

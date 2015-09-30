@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +45,6 @@
     [RaisesException] void setTextAutosizingFontScaleFactor(unrestricted float fontScaleFactor);
 
     // Features
-    [RaisesException] void setCSSExclusionsEnabled(boolean enabled);
     [RaisesException] void setCSSShapesEnabled(boolean enabled);
 
     // Media
@@ -54,6 +54,9 @@
     [RaisesException] void setDefaultVideoPosterURL(DOMString poster);
     [RaisesException] void setTimeWithoutMouseMovementBeforeHidingControls(unrestricted double time);
     [RaisesException] void setMediaTypeOverride(DOMString mediaTypeOverride);
+    void setWirelessPlaybackDisabled(boolean available);
+
+    [RaisesException] void setForcePendingWebGLPolicy(boolean forced);
 
     void setPluginReplacementEnabled(boolean enabled);
 
@@ -72,3 +75,4 @@
 
     [RaisesException] void setMinimumTimerInterval(unrestricted double intervalInSeconds);
 };
+

@@ -56,8 +56,6 @@
 #include <wtf/Deque.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/HashMap.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
@@ -69,11 +67,11 @@ const double TCPMaximumSegmentLifetime = 2 * 60.0;
 WebSocketChannel::WebSocketChannel(Document* document, WebSocketChannelClient* client)
     : m_document(document)
     , m_client(client)
-    , m_resumeTimer(this, &WebSocketChannel::resumeTimerFired)
+    , m_resumeTimer(*this, &WebSocketChannel::resumeTimerFired)
     , m_suspended(false)
     , m_closing(false)
     , m_receivedClosingHandshake(false)
-    , m_closingTimer(this, &WebSocketChannel::closingTimerFired)
+    , m_closingTimer(*this, &WebSocketChannel::closingTimerFired)
     , m_closed(false)
     , m_shouldDiscardReceivedData(false)
     , m_unhandledBufferedAmount(0)
@@ -101,7 +99,7 @@ void WebSocketChannel::connect(const URL& url, const String& protocol)
     LOG(Network, "WebSocketChannel %p connect()", this);
     ASSERT(!m_handle);
     ASSERT(!m_suspended);
-    m_handshake = adoptPtr(new WebSocketHandshake(url, protocol, m_document));
+    m_handshake = std::make_unique<WebSocketHandshake>(url, protocol, m_document);
     m_handshake->reset();
     if (m_deflateFramer.canDeflate())
         m_handshake->addExtensionProcessor(m_deflateFramer.createExtensionProcessor());
@@ -203,7 +201,14 @@ void WebSocketChannel::fail(const String& reason)
     ASSERT(!m_suspended);
     if (m_document) {
         InspectorInstrumentation::didReceiveWebSocketFrameError(m_document, m_identifier, reason);
-        m_document->addConsoleMessage(MessageSource::Network, MessageLevel::Error, "WebSocket connection to '" + m_handshake->url().stringCenterEllipsizedToLength() + "' failed: " + reason);
+
+        String consoleMessage;
+        if (m_handshake)
+            consoleMessage = makeString("WebSocket connection to '", m_handshake->url().stringCenterEllipsizedToLength(), "' failed: ", reason);
+        else
+            consoleMessage = makeString("WebSocket connection failed: ", reason);
+
+        m_document->addConsoleMessage(MessageSource::Network, MessageLevel::Error, consoleMessage);
     }
 
     // Hybi-10 specification explicitly states we must not continue to handle incoming data
@@ -220,7 +225,8 @@ void WebSocketChannel::fail(const String& reason)
     if (m_handle && !m_closed)
         m_handle->disconnect(); // Will call didClose().
 
-    ASSERT(m_closed);
+    // We should be closed by now, but if we never got a handshake then we never even opened.
+    ASSERT(m_closed || !m_handshake);
 }
 
 void WebSocketChannel::disconnect()
@@ -230,8 +236,8 @@ void WebSocketChannel::disconnect()
         InspectorInstrumentation::didCloseWebSocket(m_document, m_identifier);
     if (m_handshake)
         m_handshake->clearScriptExecutionContext();
-    m_client = 0;
-    m_document = 0;
+    m_client = nullptr;
+    m_document = nullptr;
     if (m_handle)
         m_handle->disconnect();
 }
@@ -282,9 +288,9 @@ void WebSocketChannel::didCloseSocketStream(SocketStreamHandle* handle)
         if (m_suspended)
             return;
         WebSocketChannelClient* client = m_client;
-        m_client = 0;
-        m_document = 0;
-        m_handle = 0;
+        m_client = nullptr;
+        m_document = nullptr;
+        m_handle = nullptr;
         if (client)
             client->didClose(m_unhandledBufferedAmount, m_receivedClosingHandshake ? WebSocketChannelClient::ClosingHandshakeComplete : WebSocketChannelClient::ClosingHandshakeIncomplete, m_closeEventCode, m_closeEventReason);
     }
@@ -382,7 +388,7 @@ void WebSocketChannel::didFail(int errorCode)
     LOG(Network, "WebSocketChannel %p didFail() errorCode=%d", this, errorCode);
     ASSERT(m_blobLoader);
     ASSERT(m_blobLoaderStatus == BlobLoaderStarted);
-    m_blobLoader.clear();
+    m_blobLoader = nullptr;
     m_blobLoaderStatus = BlobLoaderFailed;
     fail("Failed to load Blob: error code = " + String::number(errorCode)); // FIXME: Generate human-friendly reason message.
     deref();
@@ -456,10 +462,8 @@ bool WebSocketChannel::processBuffer()
     return processFrame();
 }
 
-void WebSocketChannel::resumeTimerFired(Timer* timer)
+void WebSocketChannel::resumeTimerFired()
 {
-    ASSERT_UNUSED(timer, timer == &m_resumeTimer);
-
     Ref<WebSocketChannel> protect(*this); // The client can close the channel, potentially removing the last reference.
     while (!m_suspended && m_client && !m_buffer.isEmpty())
         if (!processBuffer())
@@ -498,10 +502,9 @@ void WebSocketChannel::startClosingHandshake(int code, const String& reason)
         m_client->didStartClosingHandshake();
 }
 
-void WebSocketChannel::closingTimerFired(Timer* timer)
+void WebSocketChannel::closingTimerFired()
 {
     LOG(Network, "WebSocketChannel %p closingTimerFired()", this);
-    ASSERT_UNUSED(timer, &m_closingTimer == timer);
     if (m_handle)
         m_handle->disconnect();
 }
@@ -525,7 +528,7 @@ bool WebSocketChannel::processFrame()
     ASSERT(m_buffer.data() < frameEnd);
     ASSERT(frameEnd <= m_buffer.data() + m_buffer.size());
 
-    OwnPtr<InflateResultHolder> inflateResult = m_deflateFramer.inflate(frame);
+    auto inflateResult = m_deflateFramer.inflate(frame);
     if (!inflateResult->succeeded()) {
         fail(inflateResult->failureReason());
         return false;
@@ -583,22 +586,20 @@ bool WebSocketChannel::processFrame()
             // so we should pretend that we have finished to read this frame and
             // make sure that the member variables are in a consistent state before
             // the handler is invoked.
-            // Vector<char>::swap() is used here to clear m_continuousFrameData.
-            OwnPtr<Vector<char>> continuousFrameData = adoptPtr(new Vector<char>);
-            m_continuousFrameData.swap(*continuousFrameData);
+            Vector<char> continuousFrameData = WTF::move(m_continuousFrameData);
             m_hasContinuousFrame = false;
             if (m_continuousFrameOpCode == WebSocketFrame::OpCodeText) {
                 String message;
-                if (continuousFrameData->size())
-                    message = String::fromUTF8(continuousFrameData->data(), continuousFrameData->size());
+                if (continuousFrameData.size())
+                    message = String::fromUTF8(continuousFrameData.data(), continuousFrameData.size());
                 else
-                    message = "";
+                    message = emptyString();
                 if (message.isNull())
                     fail("Could not decode a text frame as UTF-8.");
                 else
                     m_client->didReceiveMessage(message);
             } else if (m_continuousFrameOpCode == WebSocketFrame::OpCodeBinary)
-                m_client->didReceiveBinaryData(continuousFrameData.release());
+                m_client->didReceiveBinaryData(WTF::move(continuousFrameData));
         }
         break;
 
@@ -608,7 +609,7 @@ bool WebSocketChannel::processFrame()
             if (frame.payloadLength)
                 message = String::fromUTF8(frame.payload, frame.payloadLength);
             else
-                message = "";
+                message = emptyString();
             skipBuffer(frameEnd - m_buffer.data());
             if (message.isNull())
                 fail("Could not decode a text frame as UTF-8.");
@@ -625,10 +626,10 @@ bool WebSocketChannel::processFrame()
 
     case WebSocketFrame::OpCodeBinary:
         if (frame.final) {
-            OwnPtr<Vector<char>> binaryData = adoptPtr(new Vector<char>(frame.payloadLength));
-            memcpy(binaryData->data(), frame.payload, frame.payloadLength);
+            Vector<char> binaryData(frame.payloadLength);
+            memcpy(binaryData.data(), frame.payload, frame.payloadLength);
             skipBuffer(frameEnd - m_buffer.data());
-            m_client->didReceiveBinaryData(binaryData.release());
+            m_client->didReceiveBinaryData(WTF::move(binaryData));
         } else {
             m_hasContinuousFrame = true;
             m_continuousFrameOpCode = WebSocketFrame::OpCodeBinary;
@@ -658,12 +659,13 @@ bool WebSocketChannel::processFrame()
         if (frame.payloadLength >= 3)
             m_closeEventReason = String::fromUTF8(&frame.payload[2], frame.payloadLength - 2);
         else
-            m_closeEventReason = "";
+            m_closeEventReason = emptyString();
         skipBuffer(frameEnd - m_buffer.data());
         m_receivedClosingHandshake = true;
         startClosingHandshake(m_closeEventCode, m_closeEventReason);
         if (m_closing) {
-            m_outgoingFrameQueueStatus = OutgoingFrameQueueClosing;
+            if (m_outgoingFrameQueueStatus == OutgoingFrameQueueOpen)
+                m_outgoingFrameQueueStatus = OutgoingFrameQueueClosing;
             processOutgoingFrameQueue();
         }
         break;
@@ -692,7 +694,7 @@ bool WebSocketChannel::processFrame()
 void WebSocketChannel::enqueueTextFrame(const CString& string)
 {
     ASSERT(m_outgoingFrameQueueStatus == OutgoingFrameQueueOpen);
-    OwnPtr<QueuedFrame> frame = adoptPtr(new QueuedFrame);
+    auto frame = std::make_unique<QueuedFrame>();
     frame->opCode = WebSocketFrame::OpCodeText;
     frame->frameType = QueuedFrameTypeString;
     frame->stringData = string;
@@ -702,7 +704,7 @@ void WebSocketChannel::enqueueTextFrame(const CString& string)
 void WebSocketChannel::enqueueRawFrame(WebSocketFrame::OpCode opCode, const char* data, size_t dataLength)
 {
     ASSERT(m_outgoingFrameQueueStatus == OutgoingFrameQueueOpen);
-    OwnPtr<QueuedFrame> frame = adoptPtr(new QueuedFrame);
+    auto frame = std::make_unique<QueuedFrame>();
     frame->opCode = opCode;
     frame->frameType = QueuedFrameTypeVector;
     frame->vectorData.resize(dataLength);
@@ -714,7 +716,7 @@ void WebSocketChannel::enqueueRawFrame(WebSocketFrame::OpCode opCode, const char
 void WebSocketChannel::enqueueBlobFrame(WebSocketFrame::OpCode opCode, Blob& blob)
 {
     ASSERT(m_outgoingFrameQueueStatus == OutgoingFrameQueueOpen);
-    OwnPtr<QueuedFrame> frame = adoptPtr(new QueuedFrame);
+    auto frame = std::make_unique<QueuedFrame>();
     frame->opCode = opCode;
     frame->frameType = QueuedFrameTypeBlob;
     frame->blobData = &blob;
@@ -729,7 +731,7 @@ void WebSocketChannel::processOutgoingFrameQueue()
     Ref<WebSocketChannel> protect(*this); // Any call to fail() will get the channel closed and dereferenced.
 
     while (!m_outgoingFrameQueue.isEmpty()) {
-        OwnPtr<QueuedFrame> frame = m_outgoingFrameQueue.takeFirst();
+        auto frame = m_outgoingFrameQueue.takeFirst();
         switch (frame->frameType) {
         case QueuedFrameTypeString: {
             if (!sendFrame(frame->opCode, frame->stringData.data(), frame->stringData.length()))
@@ -747,7 +749,7 @@ void WebSocketChannel::processOutgoingFrameQueue()
             case BlobLoaderNotStarted:
                 ref(); // Will be derefed after didFinishLoading() or didFail().
                 ASSERT(!m_blobLoader);
-                m_blobLoader = adoptPtr(new FileReaderLoader(FileReaderLoader::ReadAsArrayBuffer, this));
+                m_blobLoader = std::make_unique<FileReaderLoader>(FileReaderLoader::ReadAsArrayBuffer, this);
                 m_blobLoaderStatus = BlobLoaderStarted;
                 m_blobLoader->start(m_document, frame->blobData.get());
                 m_outgoingFrameQueue.prepend(frame.release());
@@ -760,7 +762,7 @@ void WebSocketChannel::processOutgoingFrameQueue()
 
             case BlobLoaderFinished: {
                 RefPtr<ArrayBuffer> result = m_blobLoader->arrayBufferResult();
-                m_blobLoader.clear();
+                m_blobLoader = nullptr;
                 m_blobLoaderStatus = BlobLoaderNotStarted;
                 if (!sendFrame(frame->opCode, static_cast<const char*>(result->data()), result->byteLength()))
                     fail("Failed to send WebSocket frame.");
@@ -801,7 +803,7 @@ bool WebSocketChannel::sendFrame(WebSocketFrame::OpCode opCode, const char* data
     WebSocketFrame frame(opCode, true, false, true, data, dataLength);
     InspectorInstrumentation::didSendWebSocketFrame(m_document, m_identifier, frame);
 
-    OwnPtr<DeflateResultHolder> deflateResult = m_deflateFramer.deflate(frame);
+    auto deflateResult = m_deflateFramer.deflate(frame);
     if (!deflateResult->succeeded()) {
         fail(deflateResult->failureReason());
         return false;

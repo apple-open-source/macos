@@ -2,7 +2,7 @@
 
   eval.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -714,7 +714,7 @@ rb_rescue2(VALUE (* b_proc) (ANYARGS), VALUE data1,
 	result = (*b_proc) (data1);
     }
     else {
-	th->cfp = cfp; /* restore */
+	rb_vm_rewind_cfp(th, cfp);
 
 	if (state == TAG_RAISE) {
 	    int handle = FALSE;
@@ -793,7 +793,7 @@ rb_protect(VALUE (* proc) (VALUE), VALUE data, int * state)
 	*state = status;
     }
     if (status != 0) {
-	th->cfp = cfp;
+	rb_vm_rewind_cfp(th, cfp);
 	return Qnil;
     }
 
@@ -931,11 +931,17 @@ rb_frame_caller(void)
     return frame_func_id(prev_cfp);
 }
 
-void
-rb_frame_pop(void)
+ID
+rb_frame_last_func(void)
 {
     rb_thread_t *th = GET_THREAD();
-    th->cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(th->cfp);
+    rb_control_frame_t *cfp = th->cfp;
+    ID mid;
+
+    while (!(mid = frame_func_id(cfp)) &&
+	   (cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp),
+	    !RUBY_VM_CONTROL_FRAME_STACK_OVERFLOW_P(th, cfp)));
+    return mid;
 }
 
 /*

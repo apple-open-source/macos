@@ -368,8 +368,8 @@ void extract(const char *srcName, const char *dstName)
 		derive(&dlDbData, spec, masterKey);
 	}
 	
-	addReferralRecord(srcDb, dstDb->dlDbIdentifier(), NULL, NULL);
-	
+    addReferralRecord(srcDb, dstDb->dlDbIdentifier(), NULL, CFDataCreate(kCFAllocatorDefault, (UInt8*)keyLabel.data(), keyLabel.length()));
+    
 	notice("%s can now be unlocked with a key in %s", srcName, dstName);
 }
 
@@ -531,6 +531,9 @@ void flattenKey(const CssmKey &rawKey, CssmDataContainer &flatKey)
 	// We also convert it to network byte order in case the referral
 	// record ends up being used on a different machine
 	// A CSSM_KEY is a CSSM_KEYHEADER followed by a CSSM_DATA
+    // <rdar://problem/19782660> systemkeychain -T option does not work as expected
+    // we should be very careful to use sizeof(CSSM_KEY) in both flatten and unflatten
+    // functions because of structure alignment
 	
 	CssmKey rawKeyCopy(rawKey);
 	const uint32 keyDataLength = (uint32)rawKeyCopy.length();
@@ -543,7 +546,7 @@ void flattenKey(const CssmKey &rawKey, CssmDataContainer &flatKey)
 	// Now copy: header, then key struct, then key data
 	memcpy(flatKey.Data, &rawKeyCopy.header(), sizeof(CSSM_KEYHEADER));
 	memcpy(flatKey.Data + sizeof(CSSM_KEYHEADER), &rawKeyCopy.keyData(), sizeof(CSSM_DATA));
-	memcpy(flatKey.Data + sizeof(CSSM_KEYHEADER) + sizeof(CSSM_DATA), rawKeyCopy.data(), keyDataLength);
+	memcpy(flatKey.Data + sizeof(CSSM_KEY), rawKeyCopy.data(), keyDataLength);
 	// Note that the Data pointer in the CSSM_DATA portion will not be meaningful when unpacked later
 	// We will also fill in the unflattened key length based on the size of flatKey
 }

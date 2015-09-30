@@ -26,12 +26,11 @@
 #include "WebContextMenu.h"
 
 #include "ContextMenuContextData.h"
-#include "InjectedBundleHitTestResult.h"
-#include "InjectedBundleUserMessageCoders.h"
+#include "UserData.h"
 #include "WebCoreArgumentCoders.h"
-#include "WebHitTestResult.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
+#include "WebProcess.h"
 #include <WebCore/ContextMenu.h>
 #include <WebCore/ContextMenuController.h>
 #include <WebCore/Frame.h>
@@ -68,7 +67,7 @@ void WebContextMenu::show()
 
     // Mark the WebPage has having a shown context menu then notify the UIProcess.
     m_page->contextMenuShowing();
-    m_page->send(Messages::WebPageProxy::ShowContextMenu(view->contentsToWindow(controller.hitTestResult().roundedPointInInnerNodeFrame()), contextMenuContextData, menuItems, InjectedBundleUserMessageEncoder(userData.get())));
+    m_page->send(Messages::WebPageProxy::ShowContextMenu(view->contentsToWindow(controller.hitTestResult().roundedPointInInnerNodeFrame()), contextMenuContextData, menuItems, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
 }
 
 void WebContextMenu::itemSelected(const WebContextMenuItemData& item)
@@ -92,12 +91,9 @@ void WebContextMenu::menuItemsWithUserData(Vector<WebContextMenuItemData> &menuI
     Vector<ContextMenuItem> coreItems = contextMenuItemVector(menu->platformDescription());
 #endif
 
-    Vector<WebContextMenuItemData> proposedMenu = kitItems(coreItems);
-    Vector<WebContextMenuItemData> newMenu;
-    RefPtr<InjectedBundleHitTestResult> hitTestResult = InjectedBundleHitTestResult::create(controller.hitTestResult());
-    if (m_page->injectedBundleContextMenuClient().getCustomMenuFromDefaultItems(m_page, hitTestResult.get(), proposedMenu, newMenu, userData))
-        proposedMenu = newMenu;
-    menuItems = proposedMenu;
+    if (m_page->injectedBundleContextMenuClient().getCustomMenuFromDefaultItems(*m_page, controller.hitTestResult(), coreItems, menuItems, userData))
+        return;
+    menuItems = kitItems(coreItems);
 }
 
 Vector<WebContextMenuItemData> WebContextMenu::items() const

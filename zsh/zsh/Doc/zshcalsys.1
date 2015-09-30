@@ -1,4 +1,4 @@
-.TH "ZSHCALSYS" "1" "January 5, 2014" "zsh 5\&.0\&.5"
+.TH "ZSHCALSYS" "1" "May 31, 2015" "zsh 5\&.0\&.8"
 .SH "NAME"
 zshcalsys \- zsh calendar system
 .\" Yodl file: Zsh/calsys.yo
@@ -10,9 +10,9 @@ or future events, details of which are stored in a text file (typically
 \fBcalendar\fP in the user\&'s home directory)\&.  The version provided here
 includes a mechanism for alerting the user when an event is due\&.
 .PP
-In addition a function \fBage\fP is provided that can be used in a glob
-qualifier; it allows files to be selected based on their modification
-times\&.
+In addition functions \fBage\fP, \fBbefore\fP and \fBafter\fP are provided
+that can be used in a glob qualifier; they allow files to be selected
+based on their modification times\&.
 .PP
 The format of the \fBcalendar\fP file and the dates used there in and in
 the \fBage\fP function are described first, then the functions that can
@@ -124,10 +124,10 @@ if they are present\&.  This limits time formats to the following:
 Here, square brackets indicate optional elements, possibly with
 alternatives\&.  Fractions of a second are recognised but ignored\&.  For
 absolute times (the normal format require by the \fBcalendar\fP file and the
-\fBage\fP function) a date is mandatory but a time of day is not; the time
-returned is at the start of the date\&.  One variation is allowed: if
-\fBa\&.m\&.\fP or \fBp\&.m\&.\fP or one of their variants is present, an hour without a
-minute is allowed, e\&.g\&. \fB3 p\&.m\&.\fP\&.
+\fBage\fP, \fBbefore\fP and \fBafter\fP functions) a date is mandatory but a
+time of day is not; the time returned is at the start of the date\&.  One
+variation is allowed: if \fBa\&.m\&.\fP or \fBp\&.m\&.\fP or one of their variants
+is present, an hour without a minute is allowed, e\&.g\&. \fB3 p\&.m\&.\fP\&.
 .PP
 Time zones are not handled, though if one is matched following a time
 specification it will be removed to allow a surrounding date to be
@@ -306,7 +306,7 @@ When an anchor time is present, there is an extension to handle regular
 events in the form of the \fIn\fPth \fIsome\fPday of the month\&.  Such a
 specification must occur immediately after any year and month
 specification, but before any time of day, and must be in the form
-\fIn\fP\fB(th|st|rd)\fP \fIday\fP, for example \fB1st Tuesday\fP or
+\fIn\fP(\fBth\fP|\fBst\fP|\fBrd\fP) \fIday\fP, for example \fB1st Tuesday\fP or
 \fB3rd Monday\fP\&.  As in other places, days are matched case insensitively,
 must be in English, and only the first three letters are significant except
 that a form beginning `month\&' does not match `Monday'\&.  No attempt is made
@@ -360,12 +360,19 @@ the use in glob qualifiers\&.
 .SS "Calendar system functions"
 .PP
 .PD 0
+
 .TP
 .PD 0
-\fBcalendar\fP [ \fB\-abdDsv\fP ] [ \fB\-C\fP \fIcalfile\fP ] [ \-n \fInum\fP ] [ \fB\-S\fP \fIshowprog\fP ] [ [ \fIstart\fP ] \fIend\fP ](
+\fBcalendar \fP[ \fB\-abdDsv\fP ] [ \fB\-C\fP \fIcalfile\fP ] [ \fB\-n\fP \fInum\fP ] [ \fB\-S\fP \fIshowprog\fP ]
+.TP
+.PD 0
+\fB         \fP[ [ \fIstart\fP ] \fIend\fP ]
+.TP
+.PD 0
+\fBcalendar \-r\fP [ \fB\-abdDrsv\fP ] [ \fB\-C\fP \fIcalfile\fP ] [ \fB\-n\fP \fInum\fP ] [ \fB\-S\fP \fIshowprog\fP ]
 .TP
 .PD
-\fBcalendar \-r\fP [ \fB\-abdDrsv\fP ] [ \fB\-C\fP \fIcalfile\fP ] [ \-n \fInum\fP ] [ \fB\-S\fP \fIshowprog\fP ] [ \fIstart\fP ]
+\fB         \fP[ \fIstart\fP ]
 Show events in the calendar\&.
 .RS
 .PP
@@ -426,9 +433,9 @@ Show at least \fInum\fP events, if present in the calendar file, regardless
 of the \fBstart\fP and \fBend\fP\&.
 .TP
 \fB\-r\fP
-Show all the remaining options in the calendar, ignoring the given \fBend\fP
-time\&.  The \fBstart\fP time is respected; any argument given is treated
-as a \fBstart\fP time\&.
+Show all the remaining options in the calendar, ignoring the given \fIend\fP
+time\&.  The \fIstart\fP time is respected; any argument given is treated
+as a \fIstart\fP time\&.
 .TP
 \fB\-s\fP
 Use the shell\&'s \fBsched\fP command to schedule a timed event that
@@ -521,7 +528,7 @@ is useful for confirming that the function has successfully parsed
 the dates in the calendar file\&.
 .RE
 .TP
-\fBcalendar_add\fP [ \fB\-BL\fP ] \fIevent \&.\&.\&.\fP
+\fBcalendar_add\fP [ \fB\-BL\fP ] \fIevent\fP \&.\&.\&.
 Adds a single event to the calendar in the appropriate location\&.
 The event can contain multiple lines, as described in
 the section Calendar File Format above\&.
@@ -602,54 +609,57 @@ and status 2 if the wrong number of arguments were passed; it also sets the
 parameter \fBreply\fP to an empty associative array\&.  Otherwise,
 it returns status 0 and sets elements of the associative
 array \fBreply\fP as follows:
+.RS
+.PP
 .PD 0
 .TP
-time
+\fBtime\fP
 The time as a string of digits in the same units as
 \fB$EPOCHSECONDS\fP
 .TP
-schedtime
+\fBschedtime\fP
 The regularly scheduled time\&.  This may differ from
 the actual event time \fBtime\fP if this is a recurring event and the next
 occurrence has been rescheduled\&.  Then \fBtime\fP gives the actual time
 and \fBschedtime\fP the time of the regular recurrence before modification\&.
 .TP
-text1
+\fBtext1\fP
 The text from the line not including the date and time of the
 event, but including any \fBWARN\fP or \fBRPT\fP keywords and values\&.
 .TP
-warntime
+\fBwarntime\fP
 Any warning time given by the \fBWARN\fP keyword as a string
 of digits containing the time at which to warn in the same units as
 \fB$EPOCHSECONDS\fP\&.  (Note this is an absolute time, not the relative time
 passed down\&.)  Not set no \fBWARN\fP keyword and value were
 matched\&.
 .TP
-warnstr
+\fBwarnstr\fP
 The raw string matched after the \fBWARN\fP keyword, else unset\&.
 .TP
-rpttime
+\fBrpttime\fP
 Any recurrence time given by the \fBRPT\fP keyword as a string
 of digits containing the time of the recurrence in the same units
 as \fB$EPOCHSECONDS\fP\&.  (Note this is an absolute time\&.)  Not set if
 no \fBRPT\fP keyword and value were matched\&.
 .TP
-schedrpttime
+\fBschedrpttime\fP
 The next regularly scheduled occurrence of a recurring
 event before modification\&.  This may differ from \fBrpttime\fP, which is the
 actual time of the event that may have been rescheduled from the regular
 time\&.
 .TP
-rptstr
+\fBrptstr\fP
 The raw string matched after the \fBRPT\fP keyword, else unset\&.
 .TP
-text2
+\fBtext2\fP
 The text from the line after removal of the date and any
 keywords and values\&.
+.RE
 .PD
-)
+.PP
 .TP
-\fBcalendar_showdate\fP [ \fB\-r\fP ] [ \fB\-f\fP \fIfmt\fP ] \fIdate\-spec \&.\&.\&.\fP
+\fBcalendar_showdate\fP [ \fB\-r\fP ] [ \fB\-f\fP \fIfmt\fP ] \fIdate\-spec\fP \&.\&.\&.
 The given \fIdate\-spec\fP is interpreted and the corresponding date and
 time printed\&.  If the initial \fIdate\-spec\fP begins with a \fB+\fP or
 \fB\-\fP it is treated as relative to the current time; \fIdate\-spec\fPs after
@@ -676,10 +686,15 @@ left in a file with the suffix \fB\&.old\fP\&.
 .PP
 .SS "Glob qualifiers"
 .PP
+.PD 0
+.TP
+.PD
+\fBage\fP
 The function \fBage\fP can be autoloaded and use separately from
 the calendar system, although it uses the function \fBcalendar_scandate\fP
 for date formatting\&.  It requires the \fBzsh/stat\fP builtin, but uses
 only the builtin \fBzstat\fP\&.
+.RS
 .PP
 \fBage\fP selects files having a given modification time for use
 as a glob qualifier\&.  The format of the date is the same as that
@@ -775,6 +790,29 @@ midnight) as \fBfile1\fP\&.
 .PP
 matches all files modified no earlier than \fBfile1\fP and
 no later than \fBfile2\fP; precision here is to the nearest second\&.
+.RE
+.TP
+.PD 0
+\fBafter\fP
+.TP
+.PD
+\fBbefore\fP
+The functions \fBafter\fP and \fBbefore\fP are simpler versions of \fBage\fP
+that take just one argument\&.  The argument is parsed similarly to an
+argument of \fBage\fP; if it is not given the variable \fBAGEREF\fP is
+consulted\&.  As the names of the functions suggest, a file matches if its
+modification time is after or before the time and date specified\&.  If
+a time only is given the date is today\&.
+.RS
+.PP
+The two following examples are therefore equivalent:
+.RS
+.nf
+\fBprint *(e\-after 12:00\-)
+print *(e\-after today:12:00\-)\fP
+.fi
+.RE
+.RE
 .PP
 .SH "STYLES"
 .PP
@@ -943,7 +981,6 @@ redisplayed after the output\&.
 If the parameter \fBDISPLAY\fP is set and the start and end times are
 the same (indicating a scheduled event), the function uses the
 command \fBxmessage\fP to display a window with the event details\&.
-.RE
 .RE
 .PP
 .SH "BUGS"

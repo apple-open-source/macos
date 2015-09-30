@@ -12,6 +12,8 @@
 #include "unicode/utypes.h"
 #include "unicode/uobject.h"
 
+#if !UCONFIG_NO_FORMATTING
+
 U_NAMESPACE_BEGIN
 
 class SimplePatternFormatter;
@@ -35,7 +37,6 @@ class FieldPosition;
  * 
  */
 class U_I18N_API QuantityFormatter : public UMemory {
-// TODO(Travis Keep): Add test for copy constructor, assignment, and reset.
 public:
     /**
      * Default constructor.
@@ -68,7 +69,7 @@ public:
       * @param variant "zero", "one", "two", "few", "many", "other"
       * @param rawPattern the pattern for the variant e.g "{0} meters"
       * @param status any error returned here.
-      * @return TRUE on success; FALSE otherwise.
+      * @return TRUE on success; FALSE if status was set to a non zero error.
       */
     UBool add(
             const char *variant,
@@ -79,6 +80,13 @@ public:
      * returns TRUE if this object has at least the "other" variant.
      */
     UBool isValid() const;
+
+    /**
+     * Gets the pattern formatter that would be used for a particular variant.
+     * If isValid() returns TRUE, this method is guaranteed to return a
+     * non-NULL value.
+     */
+    const SimplePatternFormatter *getByVariant(const char *variant) const;
 
     /**
      * Formats a quantity with this object appending the result to appendTo.
@@ -105,5 +113,7 @@ private:
 };
 
 U_NAMESPACE_END
+
+#endif
 
 #endif

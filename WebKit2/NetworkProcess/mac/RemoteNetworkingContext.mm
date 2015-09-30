@@ -48,11 +48,6 @@ bool RemoteNetworkingContext::isValid() const
     return true;
 }
 
-bool RemoteNetworkingContext::needsSiteSpecificQuirks() const
-{
-    return m_needsSiteSpecificQuirks;
-}
-
 bool RemoteNetworkingContext::localFileContentSniffingEnabled() const
 {
     return m_localFileContentSniffingEnabled;
@@ -72,7 +67,7 @@ RetainPtr<CFDataRef> RemoteNetworkingContext::sourceApplicationAuditData() const
 {
 #if PLATFORM(IOS)
     audit_token_t auditToken;
-    if (!NetworkProcess::shared().parentProcessConnection()->getAuditToken(auditToken))
+    if (!NetworkProcess::singleton().parentProcessConnection()->getAuditToken(auditToken))
         return nullptr;
     return adoptCF(CFDataCreate(0, (const UInt8*)&auditToken, sizeof(auditToken)));
 #else

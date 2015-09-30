@@ -35,12 +35,9 @@
 
 namespace WebCore {
     
-class AccessibilityImageMapLink : public AccessibilityMockObject {
-        
-private:
-    AccessibilityImageMapLink();
+class AccessibilityImageMapLink final : public AccessibilityMockObject {
 public:
-    static PassRefPtr<AccessibilityImageMapLink> create();
+    static Ref<AccessibilityImageMapLink> create();
     virtual ~AccessibilityImageMapLink();
     
     void setHTMLAreaElement(HTMLAreaElement* element) { m_areaElement = element; }
@@ -68,21 +65,22 @@ public:
 
     virtual LayoutRect elementRect() const override;
 
-private:    
-    RefPtr<HTMLAreaElement> m_areaElement;
-    RefPtr<HTMLMapElement> m_mapElement;
+private:
+    AccessibilityImageMapLink();
 
     virtual void detachFromParent() override;
-
     virtual Path elementPath() const override;
     RenderElement* imageMapLinkRenderer() const;
     virtual void accessibilityText(Vector<AccessibilityText>&) override;
     virtual bool isImageMapLink() const override { return true; }
     virtual bool supportsPath() const override { return true; }
-};
 
-ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityImageMapLink, isImageMapLink())
+    RefPtr<HTMLAreaElement> m_areaElement;
+    RefPtr<HTMLMapElement> m_mapElement;
+};
     
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_ACCESSIBILITY(AccessibilityImageMapLink, isImageMapLink())
 
 #endif // AccessibilityImageMapLink_h

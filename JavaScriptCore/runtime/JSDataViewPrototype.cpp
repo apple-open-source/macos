@@ -36,11 +36,6 @@
 
 namespace JSC {
 
-const ClassInfo JSDataViewPrototype::s_info = {
-    "DataViewPrototype", &Base::s_info, 0, ExecState::dataViewTable,
-    CREATE_METHOD_TABLE(JSDataViewPrototype)
-};
-
 /* Source for JSDataViewPrototype.lut.h
 @begin dataViewTable
   getInt8               dataViewProtoFuncGetInt8             DontEnum|Function       0
@@ -61,6 +56,34 @@ const ClassInfo JSDataViewPrototype::s_info = {
   setFloat64            dataViewProtoFuncSetFloat64          DontEnum|Function       0
 @end
 */
+
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetInt8(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetInt16(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetInt32(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetUint8(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetUint16(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetUint32(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetFloat32(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetFloat64(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetInt8(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetInt16(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetInt32(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint8(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint16(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint32(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetFloat32(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetFloat64(ExecState*);
+
+}
+
+#include "JSDataViewPrototype.lut.h"
+
+namespace JSC {
+
+const ClassInfo JSDataViewPrototype::s_info = {
+    "DataViewPrototype", &Base::s_info, &dataViewTable,
+    CREATE_METHOD_TABLE(JSDataViewPrototype)
+};
 
 JSDataViewPrototype::JSDataViewPrototype(VM& vm, Structure* structure)
     : Base(vm, structure)
@@ -87,19 +110,19 @@ bool JSDataViewPrototype::getOwnPropertySlot(
     JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
 {
     return getStaticFunctionSlot<JSObject>(
-        exec, ExecState::dataViewTable(exec->vm()), jsCast<JSDataViewPrototype*>(object),
+        exec, dataViewTable, jsCast<JSDataViewPrototype*>(object),
         propertyName, slot);
 }
 
 template<typename Adaptor>
-EncodedJSValue getData(ExecState* exec)
+EncodedJSValue ATTR_USED getData(ExecState* exec)
 {
     JSDataView* dataView = jsDynamicCast<JSDataView*>(exec->thisValue());
     if (!dataView)
-        return throwVMError(exec, createTypeError(exec, "Receiver of DataView method must be a DataView"));
+        return throwVMError(exec, createTypeError(exec, ASCIILiteral("Receiver of DataView method must be a DataView")));
     
     if (!exec->argumentCount())
-        return throwVMError(exec, createTypeError(exec, "Need at least one argument (the byteOffset)"));
+        return throwVMError(exec, createTypeError(exec, ASCIILiteral("Need at least one argument (the byteOffset)")));
     
     unsigned byteOffset = exec->uncheckedArgument(0).toUInt32(exec);
     if (exec->hadException())
@@ -115,7 +138,7 @@ EncodedJSValue getData(ExecState* exec)
     
     unsigned byteLength = dataView->length();
     if (elementSize > byteLength || byteOffset > byteLength - elementSize)
-        return throwVMError(exec, createRangeError(exec, "Out of bounds access"));
+        return throwVMError(exec, createRangeError(exec, ASCIILiteral("Out of bounds access")));
 
     const unsigned dataSize = sizeof(typename Adaptor::Type);
     union {
@@ -137,14 +160,14 @@ EncodedJSValue getData(ExecState* exec)
 }
 
 template<typename Adaptor>
-EncodedJSValue setData(ExecState* exec)
+EncodedJSValue ATTR_USED setData(ExecState* exec)
 {
     JSDataView* dataView = jsDynamicCast<JSDataView*>(exec->thisValue());
     if (!dataView)
-        return throwVMError(exec, createTypeError(exec, "Receiver of DataView method must be a DataView"));
+        return throwVMError(exec, createTypeError(exec, ASCIILiteral("Receiver of DataView method must be a DataView")));
     
     if (exec->argumentCount() < 2)
-        return throwVMError(exec, createTypeError(exec, "Need at least two argument (the byteOffset and value)"));
+        return throwVMError(exec, createTypeError(exec, ASCIILiteral("Need at least two argument (the byteOffset and value)")));
     
     unsigned byteOffset = exec->uncheckedArgument(0).toUInt32(exec);
     if (exec->hadException())
@@ -170,7 +193,7 @@ EncodedJSValue setData(ExecState* exec)
     
     unsigned byteLength = dataView->length();
     if (elementSize > byteLength || byteOffset > byteLength - elementSize)
-        return throwVMError(exec, createRangeError(exec, "Out of bounds access"));
+        return throwVMError(exec, createRangeError(exec, ASCIILiteral("Out of bounds access")));
 
     uint8_t* dataPtr = static_cast<uint8_t*>(dataView->vector()) + byteOffset;
 
@@ -185,87 +208,92 @@ EncodedJSValue setData(ExecState* exec)
     return JSValue::encode(jsUndefined());
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetInt8(ExecState* exec)
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+#endif
+
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetInt8(ExecState* exec)
 {
     return getData<Int8Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetInt16(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetInt16(ExecState* exec)
 {
     return getData<Int16Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetInt32(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetInt32(ExecState* exec)
 {
     return getData<Int32Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetUint8(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetUint8(ExecState* exec)
 {
     return getData<Uint8Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetUint16(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetUint16(ExecState* exec)
 {
     return getData<Uint16Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetUint32(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetUint32(ExecState* exec)
 {
     return getData<Uint32Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetFloat32(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetFloat32(ExecState* exec)
 {
     return getData<Float32Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetFloat64(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetFloat64(ExecState* exec)
 {
     return getData<Float64Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetInt8(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetInt8(ExecState* exec)
 {
     return setData<Int8Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetInt16(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetInt16(ExecState* exec)
 {
     return setData<Int16Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetInt32(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetInt32(ExecState* exec)
 {
     return setData<Int32Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint8(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint8(ExecState* exec)
 {
     return setData<Uint8Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint16(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint16(ExecState* exec)
 {
     return setData<Uint16Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint32(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint32(ExecState* exec)
 {
     return setData<Uint32Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetFloat32(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetFloat32(ExecState* exec)
 {
     return setData<Float32Adaptor>(exec);
 }
 
-static EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetFloat64(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetFloat64(ExecState* exec)
 {
     return setData<Float64Adaptor>(exec);
 }
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
 
 } // namespace JSC
-
-#include "JSDataViewPrototype.lut.h"
-

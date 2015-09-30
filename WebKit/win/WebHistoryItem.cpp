@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebHistoryItem.h"
 
@@ -34,7 +33,6 @@
 #include <WebCore/COMPtr.h>
 #include <WebCore/HistoryItem.h>
 #include <WebCore/URL.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/CString.h>
 
@@ -56,7 +54,7 @@ WebHistoryItem::WebHistoryItem(PassRefPtr<HistoryItem> historyItem)
     historyItemWrappers().set(m_historyItem.get(), this);
 
     gClassCount++;
-    gClassNameCount.add("WebHistoryItem");
+    gClassNameCount().add("WebHistoryItem");
 }
 
 WebHistoryItem::~WebHistoryItem()
@@ -65,7 +63,7 @@ WebHistoryItem::~WebHistoryItem()
     historyItemWrappers().remove(m_historyItem.get());
 
     gClassCount--;
-    gClassNameCount.remove("WebHistoryItem");
+    gClassNameCount().remove("WebHistoryItem");
 }
 
 WebHistoryItem* WebHistoryItem::createInstance()
@@ -287,7 +285,7 @@ HRESULT STDMETHODCALLTYPE WebHistoryItem::children(unsigned* outChildCount, SAFE
         return E_OUTOFMEMORY;
 
     for (unsigned i = 0; i < childCount; ++i) {
-        COMPtr<WebHistoryItem> item(AdoptCOM, WebHistoryItem::createInstance(coreChildren[i]));
+        COMPtr<WebHistoryItem> item(AdoptCOM, WebHistoryItem::createInstance(const_cast<HistoryItem*>(coreChildren[i].ptr())));
         if (!item) {
             SafeArrayDestroy(children);
             return E_OUTOFMEMORY;

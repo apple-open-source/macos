@@ -389,8 +389,8 @@ copy_app_layer_vpn_proxies(CFDictionaryRef services, CFArrayRef order, CFDiction
 		CFDictionaryRef		proxy;
 		CFDictionaryRef		service;
 		CFStringRef		serviceID;
-		CFDictionaryRef		vpn;
-		CFStringRef		vpn_key;
+		CFNumberRef		isServiceSpecific;
+		int			boolValue = 0;
 
 		serviceID = CFArrayGetValueAtIndex(order, i);
 		service = CFDictionaryGetValue(services, serviceID);
@@ -405,15 +405,9 @@ copy_app_layer_vpn_proxies(CFDictionaryRef services, CFArrayRef order, CFDiction
 			continue;
 		}
 
-		vpn_key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
-								      kSCDynamicStoreDomainSetup,
-								      serviceID,
-								      kSCEntNetVPN);
-		vpn = CFDictionaryGetValue(services_info, vpn_key);
-		CFRelease(vpn_key);
-
-		if (!isA_CFDictionary(vpn) || !CFDictionaryContainsKey(vpn, kSCPropNetVPNAppRules)) {
-			// if not App Layer vpn
+		isServiceSpecific = CFDictionaryGetValue(proxy, kSCPropNetProxiesServiceSpecific);
+		if (!isA_CFNumber(isServiceSpecific) || !CFNumberGetValue(isServiceSpecific, kCFNumberIntType, &boolValue) || !boolValue) {
+			// if not a service-specific proxy configuration
 			continue;
 		}
 
@@ -427,6 +421,7 @@ copy_app_layer_vpn_proxies(CFDictionaryRef services, CFArrayRef order, CFDiction
 		newProxy = CFDictionaryCreateMutableCopy(NULL, 0, proxy);
 		CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesSupplementalMatchDomains);
 		CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesSupplementalMatchOrders);
+		CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesServiceSpecific);
 		if (app_layer_proxies == NULL) {
 			app_layer_proxies = CFDictionaryCreateMutable(NULL,
 								      0,

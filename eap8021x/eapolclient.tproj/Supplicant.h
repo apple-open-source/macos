@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,8 @@
 #include "EAPOLControlTypes.h"
 #include "EAPOLSocket.h"
 
+#define BAD_IDENTIFIER		(-1)
+
 typedef struct Supplicant_s Supplicant, *SupplicantRef;
 
 SupplicantRef 
@@ -51,7 +53,7 @@ void
 Supplicant_free(SupplicantRef * supp_p);
 
 void
-Supplicant_start(SupplicantRef supp);
+Supplicant_start(SupplicantRef supp, int packet_identifier);
 
 void
 Supplicant_set_no_ui(SupplicantRef supp);

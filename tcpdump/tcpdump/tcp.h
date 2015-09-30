@@ -1,4 +1,3 @@
-/* @(#) $Header: /tcpdump/master/tcpdump/tcp.h,v 1.14 2007-12-09 00:30:47 guy Exp $ (LBL) */
 /*
  * Copyright (c) 1982, 1986, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,22 +33,22 @@
  *	@(#)tcp.h	8.1 (Berkeley) 6/10/93
  */
 
-typedef	u_int32_t	tcp_seq;
+typedef	uint32_t	tcp_seq;
 /*
  * TCP header.
  * Per RFC 793, September, 1981.
  */
 struct tcphdr {
-	u_int16_t	th_sport;		/* source port */
-	u_int16_t	th_dport;		/* destination port */
+	uint16_t	th_sport;		/* source port */
+	uint16_t	th_dport;		/* destination port */
 	tcp_seq		th_seq;			/* sequence number */
 	tcp_seq		th_ack;			/* acknowledgement number */
-	u_int8_t	th_offx2;		/* data offset, rsvd */
-	u_int8_t	th_flags;
-	u_int16_t	th_win;			/* window */
-	u_int16_t	th_sum;			/* checksum */
-	u_int16_t	th_urp;			/* urgent pointer */
-};
+	uint8_t		th_offx2;		/* data offset, rsvd */
+	uint8_t		th_flags;
+	uint16_t	th_win;			/* window */
+	uint16_t	th_sum;			/* checksum */
+	uint16_t	th_urp;			/* urgent pointer */
+} UNALIGNED;
 
 #define TH_OFF(th)	(((th)->th_offx2 & 0xf0) >> 4)
 
@@ -85,21 +84,9 @@ struct tcphdr {
 #define TCPOPT_AUTH             20      /* Enhanced AUTH option */
 #define	TCPOPT_UTO		28	/* tcp user timeout (rfc5482) */
 #define	   TCPOLEN_UTO			4
-#define TCPOPT_MPTCP		30	/* Multipath TCP (draft-ietf-mptcp-multiaddressed-10) */
-#define    TCPOPT_MPTCP_MP_CAPABLE		0x0
-#define    TCPOPT_MPTCP_MP_JOIN			0x1
-#define    TCPOPT_MPTCP_DSS				0x2
-#define    TCPOPT_MPTCP_ADD_ADDR		0x3
-#define    TCPOPT_MPTCP_REMOVE_ADDR		0x4
-#define    TCPOPT_MPTCP_MP_PRIO			0x5
-#define    TCPOPT_MPTCP_MP_FAIL			0x6
-#define    TCPOPT_MPTCP_MP_FASTCLOSE	0x7
-
-#define MPDSS_FLAG_F	0x10
-#define MPDSS_FLAG_m	0x08
-#define MPDSS_FLAG_M	0x04
-#define MPDSS_FLAG_a	0x02
-#define MPDSS_FLAG_A	0x01
+#define	TCPOPT_MPTCP		30	/* MPTCP options */
+#define	TCPOPT_TFO		34	/* TCP Fast Open Cookie (rfc 7413) */
+#define TCPOPT_EXPERIMENT2	254	/* experimental headers (rfc4727) */
 
 #define TCPOPT_TSTAMP_HDR	\
     (TCPOPT_NOP<<24|TCPOPT_NOP<<16|TCPOPT_TIMESTAMP<<8|TCPOLEN_TIMESTAMP)
@@ -107,10 +94,19 @@ struct tcphdr {
 #ifndef TELNET_PORT
 #define TELNET_PORT             23
 #endif
+#ifndef SMTP_PORT
+#define SMTP_PORT		25
+#endif
 #ifndef BGP_PORT
 #define BGP_PORT                179
 #endif
 #define NETBIOS_SSN_PORT        139
+#ifndef OPENFLOW_PORT_OLD
+#define OPENFLOW_PORT_OLD       6633
+#endif
+#ifndef OPENFLOW_PORT_IANA
+#define OPENFLOW_PORT_IANA      6653
+#endif
 #ifndef PPTP_PORT
 #define PPTP_PORT	        1723
 #endif
@@ -123,4 +119,19 @@ struct tcphdr {
 #define LDP_PORT                646
 #ifndef SMB_PORT
 #define SMB_PORT                445
+#endif
+#ifndef HTTP_PORT
+#define HTTP_PORT		80
+#endif
+#ifndef HTTP_PORT_ALT
+#define HTTP_PORT_ALT		8080
+#endif
+#ifndef RTSP_PORT
+#define RTSP_PORT		554
+#endif
+#ifndef RTSP_PORT_ALT
+#define RTSP_PORT_ALT		8554
+#endif
+#ifndef FTP_PORT
+#define FTP_PORT		21
 #endif

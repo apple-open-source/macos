@@ -42,7 +42,7 @@ FunctionWhitelist& FunctionWhitelist::ensureGlobalWhitelist()
     static LazyNeverDestroyed<FunctionWhitelist> functionWhitelist;
     static std::once_flag initializeWhitelistFlag;
     std::call_once(initializeWhitelistFlag, [] {
-        const char* functionWhitelistFile = Options::dfgFunctionWhitelistFile();
+        const char* functionWhitelistFile = Options::dfgWhitelist();
         functionWhitelist.construct(functionWhitelistFile);
     });
     return functionWhitelist;
@@ -92,7 +92,7 @@ void FunctionWhitelist::parseFunctionNamesInFile(const char* filename)
 bool FunctionWhitelist::contains(CodeBlock* codeBlock) const 
 {
     ASSERT(!isCompilationThread());
-    if (!Options::dfgFunctionWhitelistFile())
+    if (!Options::dfgWhitelist())
         return true;
 
     if (m_entries.isEmpty())
@@ -106,10 +106,7 @@ bool FunctionWhitelist::contains(CodeBlock* codeBlock) const
     if (m_entries.contains(hash))
         return true;
 
-    String nameAndHash = name;
-    nameAndHash.append('#');
-    nameAndHash.append(hash);
-    return m_entries.contains(nameAndHash);
+    return m_entries.contains(name + '#' + hash);
 }
 
 } } // namespace JSC::DFG

@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2013-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -44,8 +44,6 @@
 #include "symbol_scope.h"
 #include "IPMonitorControlPrivate.h"
 #include <SystemConfiguration/SCPrivate.h>
-
-STATIC Boolean *	S_verbose;
 
 #ifdef TEST_IPMONITOR_CONTROL
 #define my_log(__level, fmt, ...)	SCPrint(TRUE, stdout, CFSTR(fmt "\n"), ## __VA_ARGS__)
@@ -178,14 +176,12 @@ AddChangedInterface(const void * key, const void * value, void * context)
 STATIC void
 ControlSessionInvalidate(ControlSessionRef session)
 {
-    if (*S_verbose) {
-	my_log(LOG_NOTICE, "Invalidating %p", session);
-    }
+    my_log(LOG_DEBUG, "Invalidating %p", session);
     LIST_REMOVE(session, link);
     if (session->assertions != NULL) {
 	my_log(LOG_DEBUG,
 	       "IPMonitorControlServer: %p pid %d removing assertions %@",
-	       session->connection, 
+	       session->connection,
 	       xpc_connection_get_pid(session->connection),
 	       session->assertions);
 	CFDictionaryApplyFunction(session->assertions, AddChangedInterface,
@@ -200,9 +196,7 @@ ControlSessionInvalidate(ControlSessionRef session)
 STATIC void
 ControlSessionRelease(void * p)
 {
-    if (*S_verbose) {
-	my_log(LOG_NOTICE, "Releasing %p", p);
-    }
+    my_log(LOG_DEBUG, "Releasing %p", p);
     free(p);
     return;
 }
@@ -224,9 +218,7 @@ ControlSessionCreate(xpc_connection_t connection)
     xpc_connection_set_finalizer_f(connection, ControlSessionRelease);
     xpc_connection_set_context(connection, session);
     LIST_INSERT_HEAD(&S_ControlSessions, session, link);
-    if (*S_verbose) {
-	my_log(LOG_NOTICE, "Created %p (connection %p)", session, connection);
-    }
+    my_log(LOG_DEBUG, "Created %p (connection %p)", session, connection);
     return (session);
 }
 
@@ -261,7 +253,7 @@ ControlSessionSetInterfaceRank(ControlSessionRef session,
     }
     ifname_cf = CFStringCreateWithCString(NULL, ifname,
 					  kCFStringEncodingUTF8);
-    
+
     if (rank == kSCNetworkServicePrimaryRankDefault) {
 	CFDictionaryRemoveValue(session->assertions, ifname_cf);
 	if (CFDictionaryGetCount(session->assertions) == 0) {
@@ -325,12 +317,11 @@ IPMonitorControlServerHandleSetInterfaceRank(xpc_connection_t connection,
     ControlSessionRef		session;
 
     if (IPMonitorControlServerValidateConnection(connection) == FALSE) {
-	my_log(LOG_DEBUG,
-	       "IPMonitorControlServer: %p pid %d permission denied",
+	my_log(LOG_INFO, "connection %p pid %d permission denied",
 	       connection, xpc_connection_get_pid(connection));
 	return (EPERM);
     }
-    ifname 
+    ifname
 	= xpc_dictionary_get_string(request,
 				    kIPMonitorControlRequestKeyInterfaceName);
     if (ifname == NULL) {
@@ -351,8 +342,7 @@ IPMonitorControlServerHandleSetInterfaceRank(xpc_connection_t connection,
     }
     session = ControlSessionGet(connection);
     ControlSessionSetInterfaceRank(session, ifname, rank);
-    my_log(LOG_DEBUG,
-	   "IPMonitorControlServer: %p pid %d set %s %u",
+    my_log(LOG_INFO, "connection %p pid %d set %s %u",
 	   connection, xpc_connection_get_pid(connection), ifname, rank);
     return (0);
 }
@@ -375,7 +365,7 @@ IPMonitorControlServerHandleGetInterfaceRank(xpc_connection_t connection,
 	/* no session, no rank assertion */
 	return (ENOENT);
     }
-    ifname 
+    ifname
 	= xpc_dictionary_get_string(request,
 				    kIPMonitorControlRequestKeyInterfaceName);
     if (ifname == NULL) {
@@ -392,10 +382,7 @@ IPMonitorControlServerHandleDisconnect(xpc_connection_t connection)
 {
     ControlSessionRef	session;
 
-    if (*S_verbose) {
-	my_log(LOG_NOTICE, "IPMonitorControlServer: client %p went away",
-	       connection);
-    }
+    my_log(LOG_DEBUG, "IPMonitorControlServer: client %p went away", connection);
     session = ControlSessionLookup(connection);
     if (session == NULL) {
 	/* never asserted anything */
@@ -410,15 +397,15 @@ IPMonitorControlServerHandleRequest(xpc_connection_t connection,
 				    xpc_object_t request)
 {
     xpc_type_t	type;
-    
+
     type = xpc_get_type(request);
     if (type == XPC_TYPE_DICTIONARY) {
 	int			error = 0;
 	uint64_t		request_type;
 	xpc_connection_t	remote;
 	xpc_object_t		reply;
-	
-	request_type 
+
+	request_type
 	    = xpc_dictionary_get_uint64(request,
 					kIPMonitorControlRequestKeyType);
 	reply = xpc_dictionary_create_reply(request);
@@ -452,12 +439,11 @@ IPMonitorControlServerHandleRequest(xpc_connection_t connection,
 	    IPMonitorControlServerHandleDisconnect(connection);
 	}
 	else if (request == XPC_ERROR_CONNECTION_INTERRUPTED) {
-	    my_log(LOG_NOTICE,
-		   "IPMonitorControlServer: connection interrupted");
+	    my_log(LOG_INFO, "connection interrupted");
 	}
     }
     else {
-	my_log(LOG_NOTICE, "IPMonitorControlServer: unexpected event");
+	my_log(LOG_NOTICE, "unexpected event");
     }
     return;
 }
@@ -468,7 +454,14 @@ IPMonitorControlServerHandleNewConnection(xpc_connection_t connection)
     xpc_handler_t	handler;
 
     handler = ^(xpc_object_t event) {
+	os_activity_t	activity_id;
+
+	activity_id = os_activity_start("processing IPMonitor [rank] request",
+					OS_ACTIVITY_FLAG_DEFAULT);
+
 	IPMonitorControlServerHandleRequest(connection, event);
+
+	os_activity_end(activity_id);
     };
     xpc_connection_set_event_handler(connection, handler);
     xpc_connection_resume(connection);
@@ -487,28 +480,33 @@ IPMonitorControlServerCreate(dispatch_queue_t queue, const char * name)
 	return (NULL);
     }
     handler = ^(xpc_object_t event) {
+	os_activity_t	activity_id;
 	xpc_type_t	type;
-	
+
+	activity_id = os_activity_start("processing IPMonitor [rank] connection request",
+					OS_ACTIVITY_FLAG_DEFAULT);
+
 	type = xpc_get_type(event);
 	if (type == XPC_TYPE_CONNECTION) {
 	    IPMonitorControlServerHandleNewConnection(event);
 	}
 	else if (type == XPC_TYPE_ERROR) {
 	    const char	*	desc;
-	    
+
 	    desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
 	    if (event == XPC_ERROR_CONNECTION_INVALID) {
-		my_log(LOG_NOTICE, "IPMonitorControlServer: %s", desc);
+		my_log(LOG_NOTICE, "%s", desc);
 		xpc_release(connection);
 	    }
 	    else {
-		my_log(LOG_NOTICE, "IPMonitorControlServer: %s", desc);
-	    } 
+		my_log(LOG_NOTICE, "%s", desc);
+	    }
 	}
 	else {
-	    my_log(LOG_NOTICE, "IPMonitorControlServer: unknown event %p",
-		   type);
+	    my_log(LOG_NOTICE, "unknown event %p", type);
 	}
+
+	os_activity_end(activity_id);
     };
     S_IPMonitorControlServerQueue = queue;
     xpc_connection_set_event_handler(connection, handler);
@@ -523,7 +521,6 @@ IPMonitorControlServerStart(CFRunLoopRef runloop, CFRunLoopSourceRef rls,
     dispatch_queue_t	q;
     xpc_connection_t	connection;
 
-    S_verbose = verbose;
     SetNotificationInfo(runloop, rls);
     q = dispatch_queue_create("IPMonitorControlServer", NULL);
     connection = IPMonitorControlServerCreate(q, kIPMonitorControlServerName);

@@ -48,11 +48,11 @@ enum CSSGradientType {
 enum CSSGradientRepeat { NonRepeating, Repeating };
 
 struct CSSGradientColorStop {
-    CSSGradientColorStop() : m_colorIsDerivedFromElement(false) { };
     RefPtr<CSSPrimitiveValue> m_position; // percentage or length
     RefPtr<CSSPrimitiveValue> m_color;
     Color m_resolvedColor;
-    bool m_colorIsDerivedFromElement;
+    bool m_colorIsDerivedFromElement = false;
+    bool isMidpoint = false;
     bool operator==(const CSSGradientColorStop& other) const
     {
         return compareCSSValuePtr(m_color, other.m_color)
@@ -85,7 +85,7 @@ public:
     bool isPending() const { return false; }
     bool knownToBeOpaque(const RenderElement*) const;
 
-    void loadSubimages(CachedResourceLoader*, const ResourceLoaderOptions&) { }
+    void loadSubimages(CachedResourceLoader&, const ResourceLoaderOptions&) { }
     PassRefPtr<CSSGradientValue> gradientWithStylesResolved(StyleResolver*);
 
 protected:
@@ -131,12 +131,10 @@ protected:
     bool m_repeating;
 };
 
-CSS_VALUE_TYPE_CASTS(CSSGradientValue, isGradientValue())
-
 class CSSLinearGradientValue : public CSSGradientValue {
 public:
 
-    static PassRef<CSSLinearGradientValue> create(CSSGradientRepeat repeat, CSSGradientType gradientType = CSSLinearGradient)
+    static Ref<CSSLinearGradientValue> create(CSSGradientRepeat repeat, CSSGradientType gradientType = CSSLinearGradient)
     {
         return adoptRef(*new CSSLinearGradientValue(repeat, gradientType));
     }
@@ -148,7 +146,7 @@ public:
     // Create the gradient for a given size.
     PassRefPtr<Gradient> createGradient(RenderElement&, const FloatSize&);
 
-    PassRef<CSSLinearGradientValue> clone() const
+    Ref<CSSLinearGradientValue> clone() const
     {
         return adoptRef(*new CSSLinearGradientValue(*this));
     }
@@ -170,16 +168,14 @@ private:
     RefPtr<CSSPrimitiveValue> m_angle; // may be null.
 };
 
-CSS_VALUE_TYPE_CASTS(CSSLinearGradientValue, isLinearGradientValue())
-
 class CSSRadialGradientValue : public CSSGradientValue {
 public:
-    static PassRef<CSSRadialGradientValue> create(CSSGradientRepeat repeat, CSSGradientType gradientType = CSSRadialGradient)
+    static Ref<CSSRadialGradientValue> create(CSSGradientRepeat repeat, CSSGradientType gradientType = CSSRadialGradient)
     {
         return adoptRef(*new CSSRadialGradientValue(repeat, gradientType));
     }
 
-    PassRef<CSSRadialGradientValue> clone() const
+    Ref<CSSRadialGradientValue> clone() const
     {
         return adoptRef(*new CSSRadialGradientValue(*this));
     }
@@ -233,8 +229,10 @@ private:
     RefPtr<CSSPrimitiveValue> m_endVerticalSize;
 };
 
-CSS_VALUE_TYPE_CASTS(CSSRadialGradientValue, isRadialGradientValue())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSGradientValue, isGradientValue())
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSLinearGradientValue, isLinearGradientValue())
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSRadialGradientValue, isRadialGradientValue())
 
 #endif // CSSGradientValue_h

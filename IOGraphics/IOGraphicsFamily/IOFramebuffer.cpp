@@ -2158,6 +2158,7 @@ IOReturn IOFramebuffer::createSharedCursor(
     shmemVersion = version & kIOFBShmemVersionMask;
 
     if ((maxWidth > 1024) || (maxWaitWidth > 1024)) return (kIOReturnNoMemory);
+    if ((maxWidth < 0)    || (maxWaitWidth < 0))    return (kIOReturnNoMemory);
 
     if (shmemVersion == kIOFBTenPtTwoShmemVersion)
     {
@@ -2995,12 +2996,13 @@ IOOptionBits IOFramebuffer::_setCursorImage( UInt32 frame )
     StdFBShmem_t * shmem = GetShmem(this);
     IOGPoint *     hs;
     IOOptionBits   flags;
-    bool           animation = (((int) frame) != shmem->frame);
+    bool           liftCursor, hsChange;
 
     hs = &shmem->hotSpot[0 != frame];
-    if (false && ((hs->x != __private->lastHotSpot.x) || (hs->y != __private->lastHotSpot.y)))
+    hsChange = ((hs->x != __private->lastHotSpot.x) || (hs->y != __private->lastHotSpot.y));
+    __private->lastHotSpot = *hs;
+    if (false && hsChange)
     {
-        __private->lastHotSpot = *hs;
         if (GetShmem(this) && __private->deferredCLUTSetEvent && shmem->vblCount && !__private->cursorSlept && !suspended)
         {
             if (false)
@@ -3017,13 +3019,14 @@ IOOptionBits IOFramebuffer::_setCursorImage( UInt32 frame )
         }
     }
 
-    if (!animation && ((kIOFBHardwareCursorActive == shmem->hardwareCursorActive) || !shmem->cursorShow))
+	liftCursor = ((kIOFBHardwareCursorActive != shmem->hardwareCursorActive) && !shmem->cursorShow);
+    if (liftCursor)
 	{
         RemoveCursor(this);
     }
     flags = (kIOReturnSuccess == setCursorImage( (void *)(uintptr_t) frame ))
             ? kIOFBHardwareCursorActive : 0;
-    if (!animation && !shmem->cursorShow)
+    if (liftCursor || (hsChange && !shmem->cursorShow))
 	{
         DisplayCursor(this);
 	}
@@ -3087,6 +3090,8 @@ void IOFramebuffer::moveCursor( IOGPoint * cursorLoc, int frame )
 {
     UInt32 hwCursorActive;
 
+    if ((frame < 0) || (frame >= __private->numCursorFrames)) return;
+
 	nextCursorLoc = *cursorLoc;
     nextCursorFrame = frame;
 
@@ -3136,6 +3141,8 @@ void IOFramebuffer::hideCursor( void )
 void IOFramebuffer::showCursor( IOGPoint * cursorLoc, int frame )
 {
     UInt32 hwCursorActive;
+
+    if ((frame < 0) || (frame >= __private->numCursorFrames)) return;
 
 	CURSORLOCK(this);
 
@@ -3563,14 +3570,13 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
     {
         IOHardwareCursorDescriptor copy;
 
+		copy = *hwDesc;
+		copy.colorEncodings = NULL;
         if ((hwDesc->numColors == 0) && (hwDesc->bitDepth > 8) && (hwDesc->bitDepth < 32))
         {
-            copy = *hwDesc;
-            hwDesc = &copy;
             copy.bitDepth = 32;
         }
-
-        OSData * data = OSData::withBytes( hwDesc, sizeof(IOHardwareCursorDescriptor) );
+        OSData * data = OSData::withBytes( &copy, sizeof(IOHardwareCursorDescriptor) );
         if (data)
         {
             __private->cursorAttributes->setObject( data );
@@ -4082,13 +4088,18 @@ void IOFramebuffer::saveFramebuffer(void)
 			}
 			else
 			{
+				uint32_t  pixelBits;
 				uint8_t * gammaData = __private->gammaData;
 				if (gammaData) gammaData += __private->gammaHeaderSize;
-				dLen = CompressData( bits, kIOPreviewImageCount, bytesPerPixel,
+				if (__private->pixelInfo.bitsPerComponent > 8)
+					pixelBits = __private->pixelInfo.componentCount * __private->pixelInfo.bitsPerComponent;
+				else
+					pixelBits = __private->pixelInfo.bitsPerPixel;
+				dLen = CompressData( bits, kIOPreviewImageCount, bytesPerPixel, pixelBits,
 									 __private->framebufferWidth, __private->framebufferHeight, rowBytes,
 									 (UInt8 *) __private->saveFramebuffer, __private->saveLength,
-									 __private->gammaChannelCount, __private->gammaDataCount, 
-									__private->gammaDataWidth, gammaData);
+									 __private->rawGammaChannelCount, __private->rawGammaDataCount,
+									__private->rawGammaDataWidth, __private->rawGammaData);
 			}
 			DEBG1(thisName, " compressed to %d%%\n", (int) ((dLen * 100) / sLen));
 
@@ -4221,7 +4232,7 @@ IOReturn IOFramebuffer::restoreFramebuffer(IOIndex event)
 			}
 		}
 		DEBG1(thisName, " restoretype %d->%d\n", __private->restoreType, restoreType);
-		__private->needGammaRestore = (0 == __private->restoreType);
+		__private->needGammaRestore = (frameBuffer && (0 == __private->restoreType));
 		__private->restoreType      = restoreType;
 
 		if (kIOFBNotifyVRAMReady != event)
@@ -7807,7 +7818,7 @@ IOReturn IOFramebuffer::extGetAttribute(
 
 			uintptr_t result = (uintptr_t) other;
 			err = inst->getAttribute( attribute, &result );
-			*value = (UInt32) result;
+			if (kIOReturnSuccess == err) *value = (UInt32) result;
 
 			inst->extExit(err);
             break;
@@ -10518,7 +10529,9 @@ bool IOFramebufferI2CInterface::start( IOService * provider )
             setProperty(kIOI2CSupportedCommFlagsKey, (UInt64) fSupportedCommFlags, 32);
         }
 
-        UInt64 id = (((UInt64) (uintptr_t) fFramebuffer) << 32) | fBusID;
+        num = OSDynamicCast(OSNumber, fFramebuffer->getProperty(kIOFramebufferOpenGLIndexKey));
+        UInt64 id = fBusID;
+        if (num) id |= (num->unsigned64BitValue() << 32);
         registerI2C(id);
 
         ok = true;

@@ -52,6 +52,7 @@
 #include <security_cdsa_utilities/osxverifier.h>
 #include <algorithm>
 
+#include <Security/AuthorizationTagsPriv.h>
 
 #define ACCEPT_LEGACY_FORM 1
 

@@ -191,6 +191,16 @@ void __IOHIDManagerRelease( CFTypeRef object )
         IONotificationPortDestroy(manager->notifyPort);
         manager->notifyPort = NULL;
     }
+    
+    if (manager->initEnumRunLoopSource) {
+        CFRunLoopSourceInvalidate(manager->initEnumRunLoopSource);
+        if (manager->runLoop)
+            CFRunLoopRemoveSource(manager->runLoop,
+                                  manager->initEnumRunLoopSource,
+                                  manager->runLoopMode);
+        CFRelease(manager->initEnumRunLoopSource);
+        manager->initEnumRunLoopSource = NULL;
+    }
 
     if ( manager->devices ) {
         CFRelease(manager->devices);

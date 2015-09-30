@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2015 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -84,9 +84,9 @@ VisibleSelection::VisibleSelection(const VisiblePosition& base, const VisiblePos
     validate();
 }
 
-VisibleSelection::VisibleSelection(const Range* range, EAffinity affinity, bool isDirectional)
-    : m_base(range->startPosition())
-    , m_extent(range->endPosition())
+VisibleSelection::VisibleSelection(const Range& range, EAffinity affinity, bool isDirectional)
+    : m_base(range.startPosition())
+    , m_extent(range.endPosition())
     , m_affinity(affinity)
     , m_isDirectional(isDirectional)
 {
@@ -322,14 +322,12 @@ void VisibleSelection::setStartAndEndFromBaseAndExtentRespectingGranularity(Text
             }
                 
             m_end = end.deepEquivalent();
-#if PLATFORM(IOS)
             // End must not be before start.
             if (m_start.deprecatedNode() == m_end.deprecatedNode() && m_start.deprecatedEditingOffset() > m_end.deprecatedEditingOffset()) {
                 Position swap(m_start);
                 m_start = m_end;    
                 m_end = swap;    
             }
-#endif
             break;
         }
         case SentenceGranularity: {
@@ -531,12 +529,10 @@ void VisibleSelection::adjustSelectionToAvoidCrossingEditingBoundaries()
     if (m_base.isNull() || m_start.isNull() || m_end.isNull())
         return;
 
-#if PLATFORM(IOS)
-    // Early return in the caret case (the state hasn't actually been set yet, so we can't use isCaret()) to avoid the 
+    // Early return in the caret case (the state hasn't actually been set yet, so we can't use isCaret()) to avoid the
     // expense of computing highestEditableRoot.
     if (m_base == m_start && m_base == m_end)
         return;
-#endif
 
     Node* baseRoot = highestEditableRoot(m_base);
     Node* startRoot = highestEditableRoot(m_start);
@@ -647,7 +643,9 @@ bool VisibleSelection::isContentEditable() const
 
 bool VisibleSelection::hasEditableStyle() const
 {
-    return isEditablePosition(start(), ContentIsEditable, DoNotUpdateStyle);
+    if (Node* containerNode = start().containerNode())
+        return containerNode->hasEditableStyle();
+    return false;
 }
 
 bool VisibleSelection::isContentRichlyEditable() const
@@ -662,16 +660,16 @@ Element* VisibleSelection::rootEditableElement() const
 
 Node* VisibleSelection::nonBoundaryShadowTreeRootNode() const
 {
-    return start().deprecatedNode() ? start().deprecatedNode()->nonBoundaryShadowTreeRootNode() : 0;
+    return start().deprecatedNode() ? start().deprecatedNode()->nonBoundaryShadowTreeRootNode() : nullptr;
 }
 
 bool VisibleSelection::isInPasswordField() const
 {
     HTMLTextFormControlElement* textControl = enclosingTextFormControl(start());
-    return textControl && isHTMLInputElement(textControl) && toHTMLInputElement(textControl)->isPasswordField();
+    return is<HTMLInputElement>(textControl) && downcast<HTMLInputElement>(*textControl).isPasswordField();
 }
 
-#ifndef NDEBUG
+#if ENABLE(TREE_DEBUGGING)
 
 void VisibleSelection::debugPosition() const
 {
@@ -728,7 +726,7 @@ void VisibleSelection::showTreeForThis() const
 
 } // namespace WebCore
 
-#ifndef NDEBUG
+#if ENABLE(TREE_DEBUGGING)
 
 void showTree(const WebCore::VisibleSelection& sel)
 {

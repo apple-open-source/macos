@@ -96,7 +96,7 @@ SOFT_LINK_CONSTANT(MobileCoreServices, kUTTypeRTF, CFStringRef)
 namespace WebCore {
 
 // FIXME: Does this need to be declared in the header file?
-NSString *WebArchivePboardType = @"Apple Web Archive pasteboard type";
+WEBCORE_EXPORT NSString *WebArchivePboardType = @"Apple Web Archive pasteboard type";
 
 // Making this non-inline so that WebKit 2's decoding doesn't have to include SharedBuffer.h.
 PasteboardWebContent::PasteboardWebContent()
@@ -121,14 +121,14 @@ Pasteboard::Pasteboard()
 {
 }
 
-PassOwnPtr<Pasteboard> Pasteboard::createForCopyAndPaste()
+std::unique_ptr<Pasteboard> Pasteboard::createForCopyAndPaste()
 {
-    return adoptPtr(new Pasteboard);
+    return std::make_unique<Pasteboard>();
 }
 
-PassOwnPtr<Pasteboard> Pasteboard::createPrivate()
+std::unique_ptr<Pasteboard> Pasteboard::createPrivate()
 {
-    return adoptPtr(new Pasteboard);
+    return std::make_unique<Pasteboard>();
 }
 
 void Pasteboard::write(const PasteboardWebContent& content)
@@ -169,6 +169,8 @@ void Pasteboard::read(PasteboardPlainText& text)
 {
     PasteboardStrategy& strategy = *platformStrategies()->pasteboardStrategy();
     text.text = strategy.readStringFromPasteboard(0, kUTTypeText);
+    if (text.text.isEmpty())
+        text.text = strategy.readStringFromPasteboard(0, kUTTypeURL);
 }
 
 static NSArray* supportedImageTypes()
@@ -244,7 +246,7 @@ void Pasteboard::read(PasteboardWebContentReader& reader)
 
 NSArray* Pasteboard::supportedPasteboardTypes()
 {
-    return @[(id)WebArchivePboardType, (id)kUTTypeHTML, (id)kUTTypePNG, (id)kUTTypeTIFF, (id)kUTTypeJPEG, (id)kUTTypeGIF, (id)kUTTypeURL, (id)kUTTypeText, (id)kUTTypeRTFD, (id)kUTTypeRTF];
+    return @[(id)WebArchivePboardType, (id)kUTTypeRTFD, (id)kUTTypeRTF, (id)kUTTypeHTML, (id)kUTTypePNG, (id)kUTTypeTIFF, (id)kUTTypeJPEG, (id)kUTTypeGIF, (id)kUTTypeURL, (id)kUTTypeText];
 }
 
 bool Pasteboard::hasData()
@@ -322,7 +324,7 @@ String Pasteboard::readString(const String& type)
     } else if ([cocoaType isEqualToString:(NSString *)kUTTypeText]) {
         String value = strategy.readStringFromPasteboard(0, kUTTypeText);
         if (!value.isNull())
-            cocoaValue = [(NSString *)value precomposedStringWithCanonicalMapping];;
+            cocoaValue = [(NSString *)value precomposedStringWithCanonicalMapping];
     } else if (cocoaType) {
         if (RefPtr<SharedBuffer> buffer = strategy.readBufferFromPasteboard(0, cocoaType.get()))
             cocoaValue = [[[NSString alloc] initWithData:buffer->createNSData().get() encoding:NSUTF8StringEncoding] autorelease];

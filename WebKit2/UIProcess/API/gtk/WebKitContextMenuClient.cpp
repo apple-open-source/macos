@@ -20,32 +20,44 @@
 #include "config.h"
 #include "WebKitContextMenuClient.h"
 
-#include "WebKitPrivate.h"
+#include "APIContextMenuClient.h"
+#include "WebContextMenuItem.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebKitWebViewPrivate.h"
 
 using namespace WebKit;
 
-static void getContextMenuFromProposedMenu(WKPageRef, WKArrayRef proposedMenu, WKArrayRef*, WKHitTestResultRef hitTestResult, WKTypeRef /* userData */, const void* clientInfo)
-{
-    webkitWebViewPopulateContextMenu(WEBKIT_WEB_VIEW(clientInfo), toImpl(proposedMenu), toImpl(hitTestResult));
-}
+class ContextMenuClient final: public API::ContextMenuClient {
+public:
+    explicit ContextMenuClient(WebKitWebView* webView)
+        : m_webView(webView)
+    {
+    }
+
+private:
+    bool getContextMenuFromProposedMenu(WebPageProxy&, const Vector<RefPtr<WebContextMenuItem>>& proposedMenu, Vector<RefPtr<WebContextMenuItem>>&, const WebHitTestResult::Data& hitTestResultData, API::Object* userData) override
+    {
+        GRefPtr<GVariant> variant;
+        if (userData) {
+            ASSERT(userData->type() == API::Object::Type::String);
+            CString userDataString = static_cast<API::String*>(userData)->string().utf8();
+            variant = adoptGRef(g_variant_parse(nullptr, userDataString.data(), userDataString.data() + userDataString.length(), nullptr, nullptr));
+        }
+
+        Vector<WebContextMenuItemData> menuItems;
+        menuItems.reserveInitialCapacity(proposedMenu.size());
+        for (auto& item : proposedMenu)
+            menuItems.uncheckedAppend(*item->data());
+        webkitWebViewPopulateContextMenu(m_webView, menuItems, hitTestResultData, variant.get());
+        return true;
+    }
+
+    WebKitWebView* m_webView;
+};
 
 void attachContextMenuClientToView(WebKitWebView* webView)
 {
-    WKPageContextMenuClientV3 wkContextMenuClient = {
-        {
-            3, // version
-            webView, // clientInfo
-        },
-        0, // getContextMenuFromProposedMenu_deprecatedForUseWithV0
-        0, // customContextMenuItemSelected
-        0, // contextMenuDismissed
-        getContextMenuFromProposedMenu,
-        0, // showContextMenu
-        0, // hideContextMenu
-    };
-    WKPageRef wkPage = toAPI(webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(webView)));
-    WKPageSetPageContextMenuClient(wkPage, &wkContextMenuClient.base);
+    WebPageProxy* page = webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(webView));
+    page->setContextMenuClient(std::make_unique<ContextMenuClient>(webView));
 }
 

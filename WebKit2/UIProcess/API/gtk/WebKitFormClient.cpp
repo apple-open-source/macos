@@ -20,11 +20,13 @@
 #include "config.h"
 #include "WebKitFormClient.h"
 
+#include "APIDictionary.h"
+#include "WebFormSubmissionListenerProxy.h"
 #include "WebKitFormSubmissionRequestPrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebKitWebViewPrivate.h"
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 
 using namespace WebKit;
 

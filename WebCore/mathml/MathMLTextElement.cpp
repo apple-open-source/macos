@@ -45,35 +45,50 @@ inline MathMLTextElement::MathMLTextElement(const QualifiedName& tagName, Docume
     setHasCustomStyleResolveCallbacks();
 }
 
-PassRefPtr<MathMLTextElement> MathMLTextElement::create(const QualifiedName& tagName, Document& document)
+Ref<MathMLTextElement> MathMLTextElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new MathMLTextElement(tagName, document));
+    return adoptRef(*new MathMLTextElement(tagName, document));
 }
 
 void MathMLTextElement::didAttachRenderers()
 {
     MathMLElement::didAttachRenderers();
-    if (renderer() && renderer()->isRenderMathMLToken())
-        toRenderMathMLToken(renderer())->updateTokenContent();
+    if (is<RenderMathMLToken>(renderer()))
+        downcast<RenderMathMLToken>(*renderer()).updateTokenContent();
 }
 
 void MathMLTextElement::childrenChanged(const ChildChange& change)
 {
     MathMLElement::childrenChanged(change);
-    if (renderer() && renderer()->isRenderMathMLToken())
-        toRenderMathMLToken(renderer())->updateTokenContent();
+    if (is<RenderMathMLToken>(renderer()))
+        downcast<RenderMathMLToken>(*renderer()).updateTokenContent();
 }
 
-RenderPtr<RenderElement> MathMLTextElement::createElementRenderer(PassRef<RenderStyle> style)
+void MathMLTextElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
+{
+    if (name == stretchyAttr) {
+        if (is<RenderMathMLOperator>(renderer()))
+            downcast<RenderMathMLOperator>(*renderer()).setOperatorFlagAndScheduleLayoutIfNeeded(MathMLOperatorDictionary::Stretchy, value);
+        return;
+    }
+
+    MathMLElement::parseAttribute(name, value);
+}
+
+RenderPtr<RenderElement> MathMLTextElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition& insertionPosition)
 {
     if (hasTagName(MathMLNames::moTag))
         return createRenderer<RenderMathMLOperator>(*this, WTF::move(style));
     if (hasTagName(MathMLNames::mspaceTag))
         return createRenderer<RenderMathMLSpace>(*this, WTF::move(style));
     if (hasTagName(MathMLNames::annotationTag))
-        return MathMLElement::createElementRenderer(WTF::move(style));
+        return MathMLElement::createElementRenderer(WTF::move(style), insertionPosition);
 
     ASSERT(hasTagName(MathMLNames::miTag) || hasTagName(MathMLNames::mnTag) || hasTagName(MathMLNames::msTag) || hasTagName(MathMLNames::mtextTag));
+
+    // FIXME: why do we have to set the alignment here ? It seems needed to make the
+    // style-changed.htmt test to pass, since mathml renders expect Stretch as default.
+    style.get().setAlignItemsPosition(ItemPositionStretch);
 
     return createRenderer<RenderMathMLToken>(*this, WTF::move(style));
 }

@@ -690,7 +690,7 @@ EAPSecCertificateCopyAttributesDictionary(const SecCertificateRef cert)
 	}
     }
     
-    /* get the NTPrincipalName */
+    /* get the Subject Alternative Name extension */
     entry = CFDictionaryGetValue(cert_values, kSecOIDSubjectAltName);
     value = NULL;
     if (entry != NULL) {
@@ -709,8 +709,22 @@ EAPSecCertificateCopyAttributesDictionary(const SecCertificateRef cert)
 	    if (label == NULL || this_val == NULL) {
 		continue;
 	    }
+	    /* DNSName */
+#define kCertificateLabel_DNSName        CFSTR("DNS Name")
+	    if (CFStringCompare(label, 
+				kCertificateLabel_DNSName, 
+				kCFCompareCaseInsensitive) == kCFCompareEqualTo) {
+		if (isA_CFString(this_val)) {
+		    if (CFDictionaryContainsKey(dict, 
+			    kEAPSecCertificateAttributeDNSName) == false) {
+			CFDictionarySetValue(dict, 
+					     kEAPSecCertificateAttributeDNSName, 
+					     this_val);
+		    }
+		}
+	    }		
 	    /* NT Principal Name */
-	    if (CFEqual(label, kSecOIDMS_NTPrincipalName)) {
+	    else if (CFEqual(label, kSecOIDMS_NTPrincipalName)) {
 		dictSetValue(dict, 
 			     kEAPSecCertificateAttributeNTPrincipalName,
 			     this_val, FALSE);

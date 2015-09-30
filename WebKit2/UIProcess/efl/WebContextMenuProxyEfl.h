@@ -48,14 +48,11 @@ public:
 
     ~WebContextMenuProxyEfl();
 
-    void showContextMenu(const WebCore::IntPoint&, const Vector<WebContextMenuItemData>&, const ContextMenuContextData&);
+    void showContextMenu(const WebCore::IntPoint&, const Vector<RefPtr<WebContextMenuItem>>&, const ContextMenuContextData&);
     void hideContextMenu();
 
 private:
     WebContextMenuProxyEfl(EwkView*, WebPageProxy*);
-
-    EwkView* m_view;
-    WebPageProxy* m_page;
 };
 
 

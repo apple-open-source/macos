@@ -30,7 +30,6 @@
 
 #import "InspectorFrontendChannel.h"
 #import "RemoteInspectorDebuggable.h"
-#import <dispatch/dispatch.h>
 #import <mutex>
 #import <wtf/RetainPtr.h>
 #import <wtf/ThreadSafeRefCounted.h>
@@ -75,7 +74,7 @@ private:
 
 typedef Vector<RemoteInspectorBlock> RemoteInspectorQueue;
 
-class RemoteInspectorDebuggableConnection final : public ThreadSafeRefCounted<RemoteInspectorDebuggableConnection>, public InspectorFrontendChannel {
+class RemoteInspectorDebuggableConnection final : public ThreadSafeRefCounted<RemoteInspectorDebuggableConnection>, public FrontendChannel {
 public:
     RemoteInspectorDebuggableConnection(RemoteInspectorDebuggable*, NSString *connectionIdentifier, NSString *destination, RemoteInspectorDebuggable::DebuggableType);
     virtual ~RemoteInspectorDebuggableConnection();
@@ -84,7 +83,7 @@ public:
     NSString *connectionIdentifier() const;
     unsigned identifier() const { return m_identifier; }
 
-    bool setup();
+    bool setup(bool isAutomaticInspection, bool automaticallyPause);
 
     void close();
     void closeFromDebuggable();

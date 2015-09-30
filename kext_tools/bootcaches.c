@@ -180,7 +180,6 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
     CFIndex keyCount;       // track whether we've handled all keys
     CFIndex rpsindex = 0;   // index into rps; compared to caches->nrps @ end
     CFStringRef str;        // used to point to objects owned by others
-    CFStringRef createdStr = NULL;
 
     rval = EFTYPE;
     keyCount = CFDictionaryGetCount(bcDict);        // start with the top
@@ -235,14 +234,12 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
             caches->label = &caches->miscpaths[miscindex];
 
             miscindex++;    // get ready for the next guy
-#pragma unused(miscindex)
             keyCount--;     // DiskLabel is dealt with
         }
 
         // add new keys here
         keyCount--;     // preboot dict
     }
-
 
     // process booter keys
     dict = (CFDictionaryRef)CFDictionaryGetValue(bcDict, kBCBootersKey);
@@ -457,12 +454,10 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
                 goto finish;
             }
 
-            // path to the cache itself
-            // currently /System/Library/Caches/com.apple.kext.caches/Startup/kernelcache
+            // path to the prelinkedkernel (or kernelcache)
             str = (CFStringRef)CFDictionaryGetValue(mkDict, kBCPathKey);
-            MAKE_CACHEDPATH(&caches->rpspaths[rpsindex], caches, str);   // M
+            MAKE_CACHEDPATH(&caches->rpspaths[rpsindex], caches, str);
             caches->kext_boot_cache_file = &caches->rpspaths[rpsindex++];
-#pragma unused(rpsindex)
 
             // Starting with Kernelcache v1.3 kBCExtensionsDirKey is a key for
             // an array of paths to extensions directory. Pre v1.3 it is just
@@ -542,7 +537,6 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
 #if DEV_KERNEL_SUPPORT
                 getExtraKernelCachePaths(caches);
 #endif
-                
             }
  
             // Archs are fetched from the cacheinfo dictionary when needed
@@ -558,7 +552,6 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
     }
 
 finish:
-    if (createdStr)     CFRelease(createdStr);
     if (rval != 0 && caches->exts != NULL) {
         free(caches->exts);
         caches->exts = NULL;
@@ -659,11 +652,17 @@ getExtraKernelCachePaths(struct bootCaches *caches)
             caches->kernelsCount++;
             continue;
         }
-      
+     
         // only want kernel.SUFFIX from here on
         if (CFStringHasPrefix(tmpCFString,
                               CFSTR("kernel.")) == false) {
             continue;
+        }
+        
+        // skip "dSYM" suffix - 18098771
+        if (CFStringHasSuffix(tmpCFString,
+                              CFSTR("dSYM"))) {
+           continue;
         }
 
         // skip any kernels with more than one '.' character.
@@ -1500,13 +1499,12 @@ rebuild_kext_boot_cache_file(
     char            fullkernelp[PATH_MAX] = "";
     Boolean         generateKernelcache     = false;
     int             mkextVersion            = 0;
-
+    
     // bootcaches.plist might not request mkext/kernelcache rebuilds
-    if (!caches->kext_boot_cache_file
-    ) {
+    if (!caches->kext_boot_cache_file) {
        goto finish;
     }
-    
+
     fullextsp = malloc(caches->nexts * PATH_MAX);
     if (!fullextsp)  goto finish;
     *fullextsp = 0x00;
@@ -1545,7 +1543,7 @@ rebuild_kext_boot_cache_file(
 
     if (!mkDict || CFGetTypeID(mkDict) != CFDictionaryGetTypeID())  goto finish;
 
-        archArray = CFDictionaryGetValue(mkDict, kBCArchsKey);
+    archArray = CFDictionaryGetValue(mkDict, kBCArchsKey);
     if (archArray) {
         narchs = CFArrayGetCount(archArray);
         archstrs = calloc(narchs, sizeof(char*));
@@ -1771,7 +1769,7 @@ check_kext_boot_cache_file(
     */
     if (cache_path == NULL)
         goto finish;
-    
+
    /* If so, check the mod time of the cache file vs. the extensions folder.
     */
     // we support multiple extensions directories, use latest mod time
@@ -1888,6 +1886,8 @@ finish:
     return rval;
 }
 
+extern __attribute__ ((weak_import)) CFMutableDictionaryRef
+CoreStorageCopyFamilyProperties(CoreStorageFamilyRef familyRef); // 18021143
 
 /*****************************************************************************
 * CoreStorage FDE check & update routines
@@ -1914,7 +1914,7 @@ copyCSFDEInfo(CFStringRef uuidStr, CFDictionaryRef *econtext,
     if (CoreStorageCopyFamilyProperties == NULL) {
         rval = ESHLIBVERS; goto finish;
     }
-
+    
     lvfprops = CoreStorageCopyFamilyProperties(uuidStr);
     if (!lvfprops) {
         rval = EFTYPE; goto finish;
@@ -2078,6 +2078,14 @@ finish:
     return rval;
 }
 
+extern __attribute__ ((weak_import)) CFStringRef
+CoreStorageCopyPVWipeKeyUUID(const char * BSDName); // 18021143
+
+extern __attribute__ ((weak_import)) bool
+CSFDEWritePropertyCacheToFD(CFDictionaryRef context,
+                            int fd,
+                            CFStringRef wipeKeyUUID); // 18021143
+
 // NOTE: weak-linking depends on -weak-l/-weak_framemwork *and* the
 // function declaration being marked correctly in the header file!
 int
@@ -2091,7 +2099,7 @@ writeCSFDEProps(int scopefd, CFDictionaryRef ectx,
 
     // 9168337 didn't quite do it, see 10831618
     // check for required weak-linked symbol
-    if (CoreStorageCopyPVWipeKeyUUID==NULL) {
+    if (CoreStorageCopyPVWipeKeyUUID == NULL) {
         rval = ESHLIBVERS;
         LOGERRxlate("no CoreStorageCopyPVWipeKeyUUID()", NULL, rval);
         goto finish;
@@ -2117,9 +2125,9 @@ writeCSFDEProps(int scopefd, CFDictionaryRef ectx,
     if ((errnum = sdeepmkdir(scopefd, dstparent, kCacheDirMode))) {
         rval = errnum; LOGERRxlate(dstparent, NULL, rval); goto finish;
     }
-
+    
     // use modern function if available
-    if (CSFDEWritePropertyCacheToFD!=NULL) {
+    if (CSFDEWritePropertyCacheToFD != NULL) {
         // open and write to FD
         erfd = sopen(scopefd, dstpath, O_CREAT|O_RDWR, kCacheFileMode);
         if (-1 == erfd) {
@@ -2435,6 +2443,10 @@ finish:
     return;
 }
 
+extern __attribute__ ((weak_import)) CFArrayRef
+EFILoginCopyInterfaceGraphics(CFArrayRef localizationsArray,
+                              CFStringRef targetPartitionPath); // 18021143
+
 // ahh, ye olde SysLang.h :]
 // #define GLOBALPREFSFILE "/Library/Preferences/.GlobalPreferences.plist"
 #define LANGSKEY    CFSTR("AppleLanguages")   // key in .GlobalPreferences
@@ -2453,7 +2465,7 @@ _writeEFILoginResources(struct bootCaches *caches,
 
     CFRange allEntries;
     struct writeRsrcCtx applyCtx = { caches, locCacheDir, &result };
-
+    
     // can't operate without EFILogin.framework function
     // (XX as of Zin12A190, this function is not properly decorated ...)
     if (EFILoginCopyInterfaceGraphics == NULL) {
@@ -2750,8 +2762,6 @@ static void removeTrailingSlashes(char * path)
     return;
 }
 
-
-
 /******************************************************************************
  * updateMount() remounts the volume with the requested flags!
  *****************************************************************************/
@@ -2827,7 +2837,7 @@ launch_rebuild_all(char * rootPath, Boolean force, Boolean wait)
     pid_t rval = -1;
     int argc, argi = 0; 
     char **kcargs = NULL;
-
+    
     //  argv[0] '-F'  '-u'  root          -f ?       NULL
     argc =  1  +  1  +  1  +  1  + (force == true) +  1;
     kcargs = malloc(argc * sizeof(char*));

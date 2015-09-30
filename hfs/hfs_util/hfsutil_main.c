@@ -77,7 +77,7 @@
 
 #include <CoreFoundation/CFString.h>
 
-#include <System/uuid/uuid.h>
+#include <uuid/uuid.h>
 #include <System/uuid/namespace.h>
 
 #define READ_DEFAULT_ENCODING 1
@@ -322,7 +322,7 @@ static struct hfs_mnt_encoding hfs_mnt_encodinglist[] = {
 };
 
 #define KEXT_LOAD_COMMAND	"/sbin/kextload"
-#define ENCODING_MODULE_PATH	"/System/Library/Filesystems/hfs.fs/Encodings/"
+#define ENCODING_MODULE_PATH	"/System/Library/Filesystems/hfs.fs/Contents/Resources/Encodings/"
 
 static int load_encoding(CFStringEncoding encoding)
 {

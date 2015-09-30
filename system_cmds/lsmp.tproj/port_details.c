@@ -309,7 +309,7 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
             
 			/* show other rights (in this and other tasks) for the port */
 			for (j = 0; j < taskCount; j++) {
-				for (k = 0; k < allTaskInfos->tableCount; k++) {
+				for (k = 0; k < allTaskInfos[j].tableCount; k++) {
 					if (allTaskInfos[j].valid == FALSE ||
 						&allTaskInfos[j].table[k] == &taskinfo->table[i] ||
 						allTaskInfos[j].table[k].iin_object != taskinfo->table[i].iin_object)

@@ -24,7 +24,7 @@
 #include "internal.h"
 #include <dlfcn.h>
 #include <_simple.h>
-#include <CrashReporterClient.h>
+
 
 #define __SIGABRT 6
 
@@ -45,21 +45,11 @@ __pthread_abort(void)
 	} else {
 		__kill(__getpid(), __SIGABRT, 0);
 	}
+	__builtin_trap();
 }
 
 void
 __pthread_abort_reason(const char *fmt, ...)
 {
-#if !TARGET_OS_EMBEDDED
-	va_list ap;
-	const char *str = fmt;
-	_SIMPLE_STRING s = _simple_salloc();
-	va_start(ap, fmt);
-	if (_simple_vsprintf(s, fmt, ap) == 0) {
-		str = _simple_string(s);
-	}
-	CRSetCrashLogMessage(str);
-	va_end(ap);
-#endif
 	__pthread_abort();
 }

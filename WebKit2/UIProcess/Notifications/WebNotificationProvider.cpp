@@ -27,12 +27,13 @@
 #include "WebNotificationProvider.h"
 
 #include "APIArray.h"
+#include "APIDictionary.h"
 #include "APINumber.h"
-#include "ImmutableDictionary.h"
+#include "APISecurityOrigin.h"
 #include "WKAPICast.h"
 #include "WebNotification.h"
 #include "WebNotificationManagerProxy.h"
-#include "WebSecurityOrigin.h"
+#include "WebPageProxy.h"
 
 namespace WebKit {
 
@@ -71,7 +72,7 @@ void WebNotificationProvider::clearNotifications(const Vector<uint64_t>& notific
     for (const auto& notificationID : notificationIDs)
         arrayIDs.uncheckedAppend(API::UInt64::create(notificationID));
 
-    m_client.clearNotifications(toAPI(API::Array::create(WTF::move(arrayIDs)).get()), m_client.base.clientInfo);
+    m_client.clearNotifications(toAPI(API::Array::create(WTF::move(arrayIDs)).ptr()), m_client.base.clientInfo);
 }
 
 void WebNotificationProvider::addNotificationManager(WebNotificationManagerProxy* manager)
@@ -90,10 +91,10 @@ void WebNotificationProvider::removeNotificationManager(WebNotificationManagerPr
     m_client.removeNotificationManager(toAPI(manager), m_client.base.clientInfo);
 }
 
-PassRefPtr<ImmutableDictionary> WebNotificationProvider::notificationPermissions()
+PassRefPtr<API::Dictionary> WebNotificationProvider::notificationPermissions()
 {
     if (!m_client.notificationPermissions)
-        return ImmutableDictionary::create();
+        return API::Dictionary::create();
 
     return adoptRef(toImpl(m_client.notificationPermissions(m_client.base.clientInfo)));
 }

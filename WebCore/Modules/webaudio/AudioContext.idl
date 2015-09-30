@@ -23,6 +23,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+enum AudioContextState {
+    "suspended",
+    "running",
+    "interrupted",
+    "closed"
+};
+
 [
     EnabledBySetting=WebAudio,
     Conditional=WEB_AUDIO,
@@ -42,6 +49,13 @@
 
     // All panning is relative to this listener.
     readonly attribute AudioListener listener;
+
+    Promise suspend();
+    Promise resume();
+    Promise close();
+
+    readonly attribute AudioContextState state;
+    attribute EventHandler onstatechange;
 
     // Number of AudioBufferSourceNodes that are currently playing.
     readonly attribute unsigned long activeSourceCount;
@@ -83,7 +97,7 @@
 
     // Offline rendering
     // void prepareOfflineBufferRendering(unsigned long numberOfChannels, unsigned long numberOfFrames, unrestricted float sampleRate);
-    attribute EventListener oncomplete;
+    attribute EventHandler oncomplete;
     void startRendering();
 
     [Conditional=LEGACY_WEB_AUDIO, ImplementedAs=createGain] GainNode createGainNode();

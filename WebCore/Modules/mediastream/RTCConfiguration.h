@@ -44,7 +44,7 @@ namespace WebCore {
 
 class RTCConfiguration : public RefCounted<RTCConfiguration> {
 public:
-    static PassRefPtr<RTCConfiguration> create() { return adoptRef(new RTCConfiguration()); }
+    static Ref<RTCConfiguration> create() { return adoptRef(*new RTCConfiguration()); }
     virtual ~RTCConfiguration() { }
 
     void appendServer(PassRefPtr<RTCIceServer> server) { m_private->appendServer(server->privateServer()); }
@@ -67,10 +67,8 @@ public:
     Vector<RefPtr<RTCIceServer>> iceServers() const
     {
         Vector<RefPtr<RTCIceServer>> servers;
-        Vector<RefPtr<RTCIceServerPrivate>> privateServers = m_private->iceServers();
-
-        for (auto iter = privateServers.begin(); iter != privateServers.end(); ++iter)
-            servers.append(RTCIceServer::create(*iter));
+        for (auto& server : m_private->iceServers())
+            servers.append(RTCIceServer::create(server));
 
         return servers;
     }

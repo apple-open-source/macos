@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2005-2007, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2005-2007, 2012, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,6 +69,7 @@ void	do_prefs_set		(int argc, char **argv);
 void	do_prefs_remove		(int argc, char **argv);
 
 void	do_log			(char *pref, int argc, char **argv);
+void	do_disable_until_needed	(int argc, char **argv);
 __END_DECLS
 
 #endif /* !_PREFS_H */

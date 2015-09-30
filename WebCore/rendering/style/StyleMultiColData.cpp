@@ -35,9 +35,9 @@ StyleMultiColData::StyleMultiColData()
     , m_normalGap(true)
     , m_fill(RenderStyle::initialColumnFill())
     , m_columnSpan(false)
-    , m_breakBefore(RenderStyle::NonInheritedFlags::initialPageBreak())
-    , m_breakAfter(RenderStyle::NonInheritedFlags::initialPageBreak())
-    , m_breakInside(RenderStyle::NonInheritedFlags::initialPageBreak())
+    , m_breakBefore(RenderStyle::initialPageBreak())
+    , m_breakAfter(RenderStyle::initialPageBreak())
+    , m_breakInside(RenderStyle::initialPageBreak())
     , m_axis(RenderStyle::initialColumnAxis())
     , m_progression(RenderStyle::initialColumnProgression())
 {
@@ -63,7 +63,7 @@ inline StyleMultiColData::StyleMultiColData(const StyleMultiColData& o)
 {
 }
 
-PassRef<StyleMultiColData> StyleMultiColData::copy() const
+Ref<StyleMultiColData> StyleMultiColData::copy() const
 {
     return adoptRef(*new StyleMultiColData(*this));
 }

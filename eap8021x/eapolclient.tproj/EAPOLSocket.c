@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -325,6 +325,94 @@ S_simulated_event_occurred(int percent)
     return (false);
 }
 
+static void
+log_packet_simple(const char * dest_mac,
+		  EAPOLPacketRef eapol_p, int size, boolean_t is_receive,
+		  CFMutableStringRef str)
+{
+    const char *	prefix;
+    const char *	dest;
+
+    if (is_receive) {
+	prefix = "Receive";
+	dest = "From";
+    }
+    else {
+	prefix = "Transmit";
+	dest = "To";
+    }
+
+    if (eapol_p->packet_type == kEAPOLPacketTypeEAPPacket) {
+	EAPRequestPacketRef	req;
+
+	req = (EAPRequestPacketRef)eapol_p->body;
+	switch (req->code) {
+	case kEAPCodeRequest:
+	case kEAPCodeResponse:
+	    if (str != NULL) {
+		STRING_APPEND(str,
+			      "%s Packet Size %d: EAP %s (%d) %s (%d) %s %s",
+			      prefix,
+			      size,
+			      EAPCodeStr(req->code), req->code,
+			      EAPTypeStr(req->type), req->type,
+			      dest, dest_mac);
+	    }
+	    else {
+		EAPLOG(LOG_INFO,
+		       "%s Packet Size %d: EAP %s (%d) %s (%d) %s %s",
+		       prefix,
+		       size,
+		       EAPCodeStr(req->code), req->code,
+		       EAPTypeStr(req->type), req->type,
+		       dest, dest_mac);
+	    }
+	    break;
+	default:
+	    if (str != NULL) {
+		STRING_APPEND(str,
+			      "%s Packet Size %d: EAP %s (%d) %s %s",
+			      prefix,
+			      size,
+			      EAPCodeStr(req->code), req->code,
+			      dest, dest_mac);
+	    }
+	    else {
+		EAPLOG(LOG_INFO,
+		       "%s Packet Size %d: EAP %s (%d) %s %s",
+		       prefix,
+		       size,
+		       EAPCodeStr(req->code), req->code,
+		       dest, dest_mac);
+	    }
+	    break;
+	}
+    }
+    else {
+	if (str != NULL) {
+	    STRING_APPEND(str,
+			  "%s Packet Size %d: EAPOL %s (%d) %s %s",
+			  prefix,
+			  size,
+			  EAPOLPacketTypeStr(eapol_p->packet_type),
+			  eapol_p->packet_type,
+			  dest, dest_mac);
+	}
+	else {
+	    EAPLOG(LOG_INFO,
+		   "%s Packet Size %d: EAPOL %s (%d) %s %s",
+		   prefix,
+		   size,
+		   EAPOLPacketTypeStr(eapol_p->packet_type),
+		   eapol_p->packet_type,
+		   dest, dest_mac);
+	}
+    }
+    return;
+}
+
+
+
 PRIVATE_EXTERN void
 EAPOLSocketSetGlobals(SCPreferencesRef prefs)
 {
@@ -348,6 +436,7 @@ EAPOLSocketSetGlobals(SCPreferencesRef prefs)
 		      mtu_val, EAPOL_MTU_MIN, EAPOL_MTU_DEFAULT);
 	}
 	else {
+	    EAPLOG(LOG_NOTICE, "Using MTU %d", mtu_val);
 	    S_mtu = mtu_val;
 	}
     }
@@ -691,9 +780,6 @@ EAPOLSocketReportStatus(EAPOLSocketRef sock, CFDictionaryRef status_dict)
 	case kSupplicantStateLogoff:
 	    if (EAPOLSocketIsWireless(sock) == FALSE) {
 		source->need_force_renew = TRUE;
-	    }
-	    else {
-		EAPOLSocketSourceForceRenew(source);
 	    }
 	    break;
 	}
@@ -1058,7 +1144,7 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
     }
     if (n < sizeof(*eh_p)) {
 	EAPLOG_FL(LOG_NOTICE, "Packet truncated (%d < %d)",
-		  n, (int)sizeof(*eh_p));
+		  (int)n, (int)sizeof(*eh_p));
 	goto done;
     }
     ether_type = ntohs(eh_p->ether_type);
@@ -1079,8 +1165,8 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
 	    log_msg = CFStringCreateMutable(NULL, 0);
 	    ether_header_print_to_string(log_msg, eh_p);
 	    EAPOLPacketIsValid(eapol_p, length, log_msg);
-	    EAPLOG(-LOG_DEBUG, "Ignoring Receive Packet Size %d\n%@",
-		   n, log_msg);
+	    EAPLOG(-LOG_INFO, "Ignoring Receive Packet Size %d\n%@",
+		   (int)n, log_msg);
 	    CFRelease(log_msg);
 	}
 	goto done;
@@ -1106,17 +1192,18 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
 	CFMutableStringRef	log_msg;
 
 	log_msg = CFStringCreateMutable(NULL, 0);
-	ether_header_print_to_string(log_msg, eh_p);
+	log_packet_simple(ether_ntoa((void *)eh_p->ether_shost),
+			  eapol_p, (int)n, TRUE, log_msg);
+	STRING_APPEND(log_msg, "\n");
 	EAPOLPacketIsValid(eapol_p, length, log_msg);
-	EAPLOG(-LOG_DEBUG, "Receive Packet Size %d\n%@", n, log_msg);
+	EAPLOG(-LOG_DEBUG, "%@", log_msg);
 	CFRelease(log_msg);
     }
     else if (eapolclient_should_log(kLogFlagBasic)) {
-	EAPLOG(LOG_DEBUG,
-	       "Receive Size %d Type 0x%04x From %s",
-	       n, ntohs(eh_p->ether_type),
-	       ether_ntoa((void *)eh_p->ether_shost));
+	log_packet_simple(ether_ntoa((void *)eh_p->ether_shost),
+			  eapol_p, (int)n, TRUE, NULL);
     }
+
     /* dispatch the packet to the right socket */
     if (ether_type == EAPOL_802_1_X_ETHERTYPE) {
 	sock = source->sock;
@@ -1201,7 +1288,7 @@ EAPOLSocketSourceTransmit(EAPOLSocketSourceRef source,
 		    eapolclient_log(kLogFlagBasic,
 				    "Transmit: unknown BSSID,"
 				    " not sending %d bytes",
-				    body_length + sizeof(*eapol_p));
+				    (int)(body_length + sizeof(*eapol_p)));
 		    return (-1);
 		}
 	    }
@@ -1241,18 +1328,17 @@ EAPOLSocketSourceTransmit(EAPOLSocketSourceRef source,
 	CFMutableStringRef	log_msg;
 
 	log_msg = CFStringCreateMutable(NULL, 0);
-	ether_header_print_to_string(log_msg, eh_p);
+	log_packet_simple(ether_ntoa((void *)eh_p->ether_dhost),
+			  eapol_p, body_length + sizeof(*eapol_p),
+			  FALSE, log_msg);
+	STRING_APPEND(log_msg, "\n");
 	EAPOLPacketIsValid(eapol_p, body_length + sizeof(*eapol_p), log_msg);
-	EAPLOG(-LOG_DEBUG, "Transmit Packet Size %d\n%@", 
-	       body_length + sizeof(*eapol_p), log_msg);
+	EAPLOG(-LOG_DEBUG, "%@", log_msg);
 	CFRelease(log_msg);
     }
     else if (eapolclient_should_log(kLogFlagBasic)) {
-	EAPLOG(LOG_DEBUG,
-	       "Transmit Size %d Type 0x%04x To %s",
-	       body_length + sizeof(*eapol_p),
-	       ntohs(eh_p->ether_type),
-	       ether_ntoa((void *)eh_p->ether_dhost));
+	log_packet_simple(ether_ntoa((void *)eh_p->ether_dhost),
+			  eapol_p, body_length + sizeof(*eapol_p), FALSE, NULL);
     }
     if (S_transmit_loss_percent != 0 
 	&& S_simulated_event_occurred(S_transmit_loss_percent)) {
@@ -1354,7 +1440,7 @@ EAPOLSocketSourceCreate(const char * if_name,
 	fd = eapol_socket(if_name, is_wireless);
 	if (fd == -1) {
 	    EAPLOG_FL(LOG_NOTICE, "eapol_socket(%s) failed, %s",
-		      strerror(errno));
+		      if_name, strerror(errno));
 	    goto failed;
 	}
     }
@@ -1622,7 +1708,8 @@ EAPOLSocketSourceCreateSocket(EAPOLSocketSourceRef source,
 
 PRIVATE_EXTERN SupplicantRef
 EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
-				  CFDictionaryRef control_dict)
+				  CFDictionaryRef control_dict,
+				  int * packet_identifier)
 {
     CFDictionaryRef		config_dict = NULL;
     EAPOLControlMode		mode = kEAPOLControlModeNone;
@@ -1630,6 +1717,7 @@ EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
     EAPOLSocketRef		sock = NULL;
     SupplicantRef		supp = NULL;
 
+    *packet_identifier = BAD_IDENTIFIER;
     if (control_dict != NULL) {
 	EAPOLClientControlCommand	command;
 	CFNumberRef			command_cf;
@@ -1658,6 +1746,20 @@ EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
 	    EAPLOG_FL(LOG_NOTICE, "%s: configuration empty", source->if_name);
 	    goto failed;
 	}
+#if ! TARGET_OS_EMBEDDED
+	{
+	    CFNumberRef			packet_id;
+
+	    packet_id
+		= CFDictionaryGetValue(control_dict,
+				       kEAPOLClientControlPacketIdentifier);
+	    if (isA_CFNumber(packet_id) == NULL
+		|| CFNumberGetValue(packet_id, kCFNumberIntType,
+				    packet_identifier) == FALSE) {
+		*packet_identifier = BAD_IDENTIFIER;
+	    }
+	}
+#endif /* ! TARGET_OS_EMBEDDED */
     }
     source->mode = mode;
     sock = EAPOLSocketSourceCreateSocket(source, NULL);
@@ -1709,7 +1811,7 @@ S_log_bssid_list(CFArrayRef bssid_list)
 	STRING_APPEND(log_msg, "%s%s", (i == 0) ? "" : ", ",
 		      ether_ntoa(bssid));
     }
-    EAPLOG(-LOG_DEBUG, "Scan complete: %d AP%s = { %@ }", 
+    EAPLOG(-LOG_DEBUG, "Scan complete: %ld AP%s = { %@ }", 
 	   count, (count == 1) ? "" : "s", log_msg);
     CFRelease(log_msg);
     return;
@@ -1766,7 +1868,7 @@ EAPOLSocketSourceScanCallback(wireless_t wref,
 		eapolclient_log(kLogFlagBasic,
 				"Supplicant %s created",
 				ether_ntoa(&sock->bssid));
-		Supplicant_start(sock->supp);
+		Supplicant_start(sock->supp, BAD_IDENTIFIER);
 	    }
 	}
     }

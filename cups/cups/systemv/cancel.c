@@ -1,5 +1,5 @@
 /*
- * "$Id: cancel.c 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: cancel.c 12279 2014-12-01 13:57:05Z msweet $"
  *
  *   "cancel" command for CUPS.
  *
@@ -315,7 +315,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       ippDelete(response);
     }
 
-  if (num_dests == 0 && op == IPP_PURGE_JOBS)
+  if (num_dests == 0 && op != IPP_CANCEL_JOB)
   {
    /*
     * Open a connection to the server...
@@ -383,5 +383,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: cancel.c 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: cancel.c 12279 2014-12-01 13:57:05Z msweet $".
  */

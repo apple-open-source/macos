@@ -210,6 +210,25 @@ cd_calc()
     }
 }
 
+/* Return 1 if cd_state specifies unsorted groups, 0 otherwise. */
+static int
+cd_groups_want_sorting(void)
+{
+    Cdset set;
+    char *const *i;
+
+    for (set = cd_state.sets; set; set = set->next)
+        for (i = set->opts; *i; i++) {
+            if (!strncmp(*i, "-V", 2))
+                return 0;
+            else if (!strncmp(*i, "-J", 2))
+                return 1;
+        }
+
+    /* Sorted by default */
+    return 1;
+}
+
 static int
 cd_sort(const void *a, const void *b)
 {
@@ -283,7 +302,8 @@ cd_prep()
 	    unmetafy(s->sortstr, &dummy);
 	}
 
-        qsort(grps, preplines, sizeof(Cdstr), cd_sort);
+        if (cd_groups_want_sorting())
+            qsort(grps, preplines, sizeof(Cdstr), cd_sort);
 
         for (i = preplines, strp = grps; i > 1; i--, strp++) {
             strp2 = strp + 1;
@@ -441,7 +461,17 @@ cd_arrcat(char **a, char **b)
     }
 }
 
-/* Initialisation. Store and calculate the string and matches and so on. */
+/* Initialisation. Store and calculate the string and matches and so on.
+ *
+ * nam: argv[0] of the builtin
+ * hide: ???
+ * mlen: see max-matches-width style
+ * sep: see list-seperator style
+ * opts: options to (eventually) pass to compadd.
+ *       Returned via 2nd return parameter of 'compdescribe -g'.
+ * args: ??? (the positional arguments to 'compdescribe')
+ * disp: 1 if descriptions should be shown, 0 otherwise
+ */
 
 static int
 cd_init(char *nam, char *hide, char *mlen, char *sep,
@@ -699,8 +729,12 @@ cd_get(char **params)
             dpys[0] = ztrdup(run->strs->str);
             mats[1] = dpys[1] = NULL;
             opts = cd_arrdup(run->strs->set->opts);
+
+            /* Set -2V, possibly reusing the group name from an existing -J/-V
+             * flag. */
             for (dp = opts + 1; *dp; dp++)
-                if (dp[0][0] == '-' && dp[0][1] == 'J')
+                if ((dp[0][0] == '-' && dp[0][1] == 'J') ||
+		    (dp[0][0] == '-' && dp[0][1] == 'V'))
                     break;
             if (*dp) {
                 char *s = tricat("-2V", "", dp[0] + 2);
@@ -1500,9 +1534,11 @@ parse_cadef(char *nam, char **args)
 		nodopts++;
 
 	    /* If this is for single-letter option we also store a
-	     * pointer for the definition in the array for fast lookup. */
+	     * pointer for the definition in the array for fast lookup.
+	     * But don't treat '--' as a single option called '-' */
 
-	    if (single && name[1] && !name[2])
+
+	    if (single && name[1] && !name[2] && name[1] != '-')
 		ret->single[STOUC(name[1])] = opt;
 
 	    if (again == 1) {
@@ -2034,7 +2070,9 @@ ca_parse_line(Cadef d, int multi, int first)
 	    state.optbeg = state.argbeg = state.inopt = cur;
 	    state.argend = argend;
 	    state.singles = (d->single && (!pe || !*pe) &&
-			     state.curopt->name[1] && !state.curopt->name[2]);
+			     state.curopt->name[1] && !state.curopt->name[2] &&
+			     /* Don't treat '--' as a single option called '-' */
+			     state.curopt->name[1] != '-');
 
 	    if (!state.oargs[state.curopt->num])
 		state.oargs[state.curopt->num] = znewlinklist();
@@ -4056,7 +4094,8 @@ cfp_test_exact(LinkList names, char **accept, char *skipped)
     if (sl > PATH_MAX2)
 	return NULL;
 
-    suf = dyncat(skipped, rembslash(dyncat(compprefix, compsuffix)));
+    suf = dyncat(skipped, rembslash(dyncat(compprefix ? compprefix : "",
+		                           compsuffix ? compsuffix : "")));
 
     for (node = firstnode(names); node; incnode(node)) {
 	l = strlen(p = (char *) getdata(node));

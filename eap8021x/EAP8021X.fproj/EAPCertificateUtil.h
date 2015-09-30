@@ -148,6 +148,7 @@ isA_SecCertificate(CFTypeRef obj);
 #define kEAPSecCertificateAttributeNTPrincipalName	CFSTR("NTPrincipalName")
 #define kEAPSecCertificateAttributeRFC822Name		CFSTR("RFC822Name")
 #define kEAPSecCertificateAttributeEmailAddress		CFSTR("EmailAddress")
+#define kEAPSecCertificateAttributeDNSName		CFSTR("DNSName")
 
 /*
  * Function: EAPSecCertificateCopyAttributesDictionary

@@ -28,6 +28,8 @@
 #include <IOKit/IOKitLib.h>
 #include <sys/cdefs.h>
 
+#include <IOKit/ps/IOPowerSources.h>
+#include <IOKit/ps/IOPSKeysPrivate.h>
 __BEGIN_DECLS
 
 /*! 
@@ -235,6 +237,7 @@ IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
 #if TARGET_OS_IPHONE
 #define kPSCriticalLevelBit                     (1 << 24)
 #define kPSRestrictedLevelBit                   (1 << 25)
+#define kPSTimeRemainingNotifyRawExternalBit    (1 << 26)
 #endif
 #define kPSTimeRemainingNotifyActivePS8BitsStarts   56
 
@@ -303,72 +306,111 @@ IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
  */
 IOReturn IOPSCopyChargeLog(CFAbsoluteTime sinceTime, CFDictionaryRef *chargeLog);
 
+/* kIOPSAccNotifyPowerSource - Posted when an accessory's power changes to/from limited power source */
+#define kIOPSAccNotifyPowerSource               "com.apple.system.accpowersources.source"
 
-/*
- * Power adapter related internal keys
+/* kIOPSAccNotifyAttach - Posted when an accessory with power source is added/removed to/from system */
+#define kIOPSAccNotifyAttach                    "com.apple.system.accpowersources.attach"
+
+/* kIOPSAccNotifyTimeRemaining - Posted when any accessory's power source capacity/time remaining changes */
+#define kIOPSAccNotifyTimeRemaining              "com.apple.system.accpowersources.timeremaining"
+
+
+enum {
+    kIOPSSourceAll = 0,
+    kIOPSSourceInternal,
+    kIOPSSourceUPS,
+    kIOPSSourceInternalAndUPS,
+    kIOPSSourceForAccessories
+};
+
+/*! @function   IOPSCopyPowerSourcesByType
+ *
+ *  @abstract   Returns a blob of information for the speecified power sources in an opaque CFTypeRef. 
+ *
+ *  @discussion Clients should not directly access data in the returned CFTypeRef - 
+ *              they should use the accessor functions IOPSCopyPowerSourcesList and 
+ *              IOPSGetPowerSourceDescription, instead.
+ *
+ *  @param      type - one of the values specifed below
+ *                      kIOPSSourceInternal - returns info about internal battery
+ *                      kIOPSSourceUPS      - returns info about any UPS devices attached to the system
+ *                      kIOPSSourceInternalAndUPS - returns info about internal battery and any UPS devices attached
+ *                      kIOPSSourceForAccessories - returns info about all power sources to accessories
+ *                      kIOPSSourceAll      - returns info about all of the above
+ *
+ *  @result     NULL if errors were encountered, a CFTypeRef otherwise.
+ *              Caller must CFRelease() the return value when done accessing it.
  */
 
-/*!
- * @define      kIOPSPowerAdapterSerialStringKey
+CFTypeRef IOPSCopyPowerSourcesByType(int type);
+
+
+/*! @function   IOPSAccNotificationCreateRunLoopSource
+ *  
+ *  @abstract   Returns a CFRunLoopSourceRef that notifies the caller when an accessory's power source
+ *              information changes.
  *
- * @abstract    The power adapter's serial string.
- *              The value associated with this key is a CFString value
+ *  @discussion Returns a CFRunLoopSourceRef for scheduling with your CFRunLoop. 
+ *              If your project does not use a CFRunLoop, you can alternatively
+ *              receive notifications via mach port, dispatch, or signal, via <code>notify.h</code>
+ *              using the name <code>@link kIOPSAccNotifyTimeRemaining @/link</code>.
  *
- * @discussion  This key may be present in the dictionary returned from
- *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
- *              This key might not be defined in the adapter details dictionary.
+ *              IOKit delivers this notification when percent remaining or time remaining changes.
+ *              Thus it fires fairly frequently while discharging or charging the battery; 
+ *              please consider using:
+ *              <code>@link IOPSAccCreateLimitedPowerNotification @/link</code> if you only require
+ *              notifications when the accessory's power source type changes from limited to unlimited.
+ *
+ *  @param      callback A function to be called whenever any accessory's  power source is added, removed, or changes.
+ *
+ *  @param      context Any user-defined pointer, passed to the IOPowerSource callback.
+ *
+ *  @result     Returns NULL if an error was encountered, otherwise a CFRunLoopSource. Caller must
+ *              release the CFRunLoopSource.
  */
-#define kIOPSPowerAdapterSerialStringKey    "SerialString"
+CFRunLoopSourceRef IOPSAccNotificationCreateRunLoopSource(IOPowerSourceCallbackType callback, void *context);
 
-/*!
- * @define      kIOPSPowerAdapterNameKey
+/*! @function   IOPSAccCreateLimitedPowerNotification
  *
- * @abstract    The power adapter's name.
- *              The value associated with this key is a CFString value
+ *  @abstract   Returns a CFRunLoopSourceRef that notifies the caller when any accessory's power source
+ *              changes from an unlimited power source (like attached to wall, car, or airplane power), to a limited
+ *              power source (like a battery or UPS).
  *
- * @discussion  This key may be present in the dictionary returned from
- *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
- *              This key might not be defined in the adapter details dictionary.
+ *  @discussion Returns a CFRunLoopSourceRef for scheduling with your CFRunLoop.
+ *              If your project does not use a CFRunLoop, you can alternatively
+ *              receive this notification via <code>notify.h</code>
+ *              using the name <code>@link kIOPSAccNotifyPowerSource @/link</code>
+ *
+ *  @param      callback A function to be called whenever any accessory's power source changes from AC to DC..
+ *
+ *  @param      context Any user-defined pointer, passed to the IOPowerSource callback.
+ *
+ *  @result     Returns NULL if an error was encountered, otherwise a CFRunLoopSource. Caller must
+ *              release the CFRunLoopSource.
  */
 
-#define kIOPSPowerAdapterNameKey            "Name"
+CFRunLoopSourceRef IOPSAccCreateLimitedPowerNotification(IOPowerSourceCallbackType callback, void *context);
 
-/*!
- * @define      kIOPSPowerAdapterNameKey
+/*! @function   IOPSAccCreateAttachNotification
  *
- * @abstract    The power adapter's manufacturer's id.
- *              The value associated with this key is a CFNumber kCFNumberIntType integer value
+ *  @abstract   Returns a CFRunLoopSourceRef that notifies the caller when any accessory's power source
+ *              is registered or deregistered. 
  *
- * @discussion  This key may be present in the dictionary returned from
- *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
- *              This key might not be defined in the adapter details dictionary.
+ *  @discussion Returns a CFRunLoopSourceRef for scheduling with your CFRunLoop.
+ *              If your project does not use a CFRunLoop, you can alternatively
+ *              receive this notification via <code>notify.h</code>
+ *              using the name <code>@link kIOPSAccNotifyAttach @/link</code>
+ *
+ *  @param      callback A function to be called whenever any accessory's power source is
+ *                       registered or deregistered
+ *
+ *  @param      context Any user-defined pointer, passed to the IOPowerSource callback.
+ *
+ *  @result     Returns NULL if an error was encountered, otherwise a CFRunLoopSource. Caller must
+ *              release the CFRunLoopSource.
  */
-#define kIOPSPowerAdapterManufacturerIDKey  "Manufacturer"
-
-/*!
- * @define      kIOPSPowerAdapterHardwareVersionKey
- *
- * @abstract    The power adapter's hardware version.
- *              The value associated with this key is a CFString value
- *
- * @discussion  This key may be present in the dictionary returned from
- *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
- *              This key might not be defined in the adapter details dictionary.
- */
-#define kIOPSPowerAdapterHardwareVersionKey       "HwVersion"
-
-/*!
- * @define      kIOPSPowerAdapterFirmwareVersionKey
- *
- * @abstract    The power adapter's firmware version.
- *              The value associated with this key is a CFString value
- *
- * @discussion  This key may be present in the dictionary returned from
- *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
- *              This key might not be defined in the adapter details dictionary.
- */
-#define kIOPSPowerAdapterFirmwareVersionKey       "FwVersion"
-
+CFRunLoopSourceRef IOPSAccCreateAttachNotification(IOPowerSourceCallbackType callback, void *context);
 
 __END_DECLS
 

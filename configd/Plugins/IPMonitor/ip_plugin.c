@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2015 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -383,7 +383,8 @@ typedef struct {
 
 typedef CF_ENUM(uint16_t, RouteListFlags) {
     kRouteListFlagsExcludeNWI	= 0x0001,
-    kRouteListFlagsHasDefault	= 0x0002
+    kRouteListFlagsHasDefault	= 0x0002,
+    kRouteListFlagsScopedOnly	= 0x0004
 };
 
 #define ROUTELIST_COMMON			\
@@ -436,6 +437,7 @@ typedef struct Candidate {
     CFStringRef			if_name;
     Rank			rank;
     boolean_t			ip_is_coupled;
+    boolean_t			ineligible;
     SCNetworkReachabilityFlags	reachability_flags;
     in_addr			addr;
     in_sockaddr			vpn_server_addr;
@@ -852,15 +854,15 @@ keyChangeListApplyToStore(keyChangeListRef keys, SCDynamicStoreRef session)
     if (set == NULL && remove == NULL && notify == NULL) {
 	return;
     }
-    if (S_IPMonitor_debug & kDebugFlag1) {
+    if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
 	if (set != NULL) {
-	    my_log(LOG_DEBUG, "IPMonitor: Setting:\n%@", set);
+	    my_log(LOG_DEBUG, "Setting:\n%@", set);
 	}
 	if (remove != NULL) {
-	    my_log(LOG_DEBUG, "IPMonitor: Removing:\n%@", remove);
+	    my_log(LOG_DEBUG, "Removing:\n%@", remove);
 	}
 	if (notify != NULL) {
-	    my_log(LOG_DEBUG, "IPMonitor: Notifying:\n%@", notify);
+	    my_log(LOG_DEBUG, "Notifying:\n%@", notify);
 	}
     }
     (void)SCDynamicStoreSetMultiple(session, set, remove, notify);
@@ -885,10 +887,10 @@ S_nwi_ifstate_dump(nwi_ifstate_t ifstate, int i)
 			       vpn_ntopbuf,
 			       sizeof(vpn_ntopbuf));
     }
-    my_log(LOG_DEBUG,
+    my_log(LOG_INFO,
 	   "    [%d]: %s%s%s%s rank 0x%x iaddr %s%s%s reach_flags 0x%x",
 	   i, ifstate->ifname,
-	   ifstate->diff_str != NULL ? ifstate->diff_str : "",
+	   nwi_ifstate_get_diff_str(ifstate),
 	   (ifstate->flags & NWI_IFSTATE_FLAGS_HAS_DNS) != 0
 	   ? " dns" : "",
 	   (ifstate->flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST) != 0
@@ -908,31 +910,41 @@ S_nwi_state_dump(nwi_state_t state)
     nwi_ifstate_t 	scan;
 
     if (state == NULL) {
-	my_log(LOG_DEBUG, "nwi_state = <none>");
+	my_log(LOG_INFO, "nwi_state = <none>");
 	return;
     }
-    my_log(LOG_DEBUG,
+    my_log(LOG_INFO,
 	   "nwi_state = { "
-	   "gen=%llu size=%u #v4=%u #v6=%u "
+	   "gen=%llu size=%lu #v4=%u #v6=%u "
 	   "reach_flags=(v4=0x%x, v6=0x%x) }",
 	   state->generation_count,
-	   state->size,
+	   nwi_state_size(state),
 	   state->ipv4_count,
 	   state->ipv6_count,
 	   nwi_state_get_reachability_flags(state, AF_INET),
 	   nwi_state_get_reachability_flags(state, AF_INET6));
     if (state->ipv4_count) {
-	my_log(LOG_DEBUG, "IPv4:");
-	for (i = 0, scan = state->nwi_ifstates;
+	my_log(LOG_INFO, "IPv4:");
+	for (i = 0, scan = nwi_state_ifstate_list(state, AF_INET);
 	     i < state->ipv4_count; i++, scan++) {
 	    S_nwi_ifstate_dump(scan, i);
 	}
     }
     if (state->ipv6_count) {
-	my_log(LOG_DEBUG, "IPv6:");
-	for (i = 0, scan = state->nwi_ifstates + state->ipv6_start;
+	my_log(LOG_INFO, "IPv6:");
+	for (i = 0, scan = nwi_state_ifstate_list(state, AF_INET6);
 	     i < state->ipv6_count; i++, scan++) {
 	    S_nwi_ifstate_dump(scan, i);
+	}
+    }
+    if (state->max_if_count) {
+	nwi_ifindex_t	* ifindex;
+
+	my_log(LOG_INFO, "%d interfaces:", state->if_list_count);
+	for (i = 0, ifindex = nwi_state_if_list(state);
+	     i < state->if_list_count;
+	     i++, ifindex++) {
+	    my_log(LOG_INFO, "%s", state->ifstate_list[*ifindex].ifname);
 	}
     }
     return;
@@ -961,17 +973,22 @@ open_routing_socket(void)
     int sockfd;
 
     if ((sockfd = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE)) == -1) {
-	my_log(LOG_NOTICE,
-	       "IPMonitor: open_routing_socket: socket failed, %s",
-	       strerror(errno));
+	my_log(LOG_ERR, "socket() failed: %s", strerror(errno));
     }
     return (sockfd);
 }
 
 static __inline__ int
-inet6_dgram_socket()
+inet6_dgram_socket(void)
 {
-    return (socket(AF_INET6, SOCK_DGRAM, 0));
+    int	sockfd;
+
+    sockfd = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (sockfd == -1) {
+	my_log(LOG_ERR, "socket() failed: %s", strerror(errno));
+    }
+
+    return sockfd;
 }
 
 static int
@@ -1935,16 +1952,13 @@ RouteProcess(RouteRef route,
 				  route->ifindex,
 				  kRouteLookupFlagsNone);
 	    if (gateway_route == NULL) {
-		(*route_log)(LOG_NOTICE, route,
-			     "IPMonitor RouteProcess: no gateway route");
+		(*route_log)(LOG_NOTICE, route, "no gateway route");
 	    }
 	    else {
 #define MAX_RECURSE_DEPTH	10
 		/* avoid infinite recursion */
 		if (context->depth == MAX_RECURSE_DEPTH) {
-		    (*route_log)(LOG_NOTICE, route,
-				 "IPMonitor RouteProcess: "
-				 "routing loop detected, not adding");
+		    (*route_log)(LOG_NOTICE, route, "routing loop detected, not adding");
 		    return (FALSE);
 		}
 		/* recurse to add gateway route */
@@ -1954,8 +1968,7 @@ RouteProcess(RouteRef route,
 				     context);
 		context->depth--;
 		if (added == FALSE) {
-		    (*route_log)(LOG_NOTICE, route,
-				 "IPMonitor RouteProcess: failed to add");
+		    (*route_log)(LOG_NOTICE, route, "failed to add");
 		    return (FALSE);
 		}
 	    }
@@ -1969,7 +1982,7 @@ RouteProcess(RouteRef route,
 	switch (retval) {
 	default:
 	    my_log(LOG_NOTICE,
-		   "IPMonitor RouteProcess failed to add route, %s:",
+		   "failed to add route, %s:",
 		   strerror(retval));
 	    (*route_log)(LOG_NOTICE, route, NULL);
 	    break;
@@ -2013,8 +2026,8 @@ RouteProcess(RouteRef route,
 	    break;
 	default:
 	    my_log(LOG_NOTICE,
-		   "IPMonitor RouteProcess failed to remove"
-		   " route, %s", strerror(retval));
+		   "failed to remove route, %s",
+		   strerror(retval));
 	    (*route_log)(LOG_NOTICE, route, NULL);
 	    break;
 	}
@@ -2130,8 +2143,7 @@ RouteListFinalize(RouteListInfoRef info, RouteListRef routes)
 				(*info->route_destination)(scan),
 				scan->prefix_length, ifindex, flags);
 	if (route == NULL) {
-	    (*info->route_log)(LOG_NOTICE, (RouteRef)scan,
-			       "IPMonitor: can't resolve excluded route");
+	    (*info->route_log)(LOG_NOTICE, (RouteRef)scan, "can't resolve excluded route");
 	}
 	else {
 	    if ((S_IPMonitor_debug & kDebugFlag8) != 0) {
@@ -2427,7 +2439,7 @@ typedef struct {
 static int
 IPv4RouteApply(RouteRef r_route, int cmd, int sockfd)
 {
-    int				len;
+    size_t			len;
     int				ret = 0;
     IPv4RouteRef		route = (IPv4RouteRef)r_route;
     route_msg			rtmsg;
@@ -2450,8 +2462,7 @@ IPv4RouteApply(RouteRef r_route, int cmd, int sockfd)
     }
     if (route->ifindex == 0) {
 	my_log(LOG_NOTICE,
-	       "IPMonitor IPv4RouteApply: " IP_FORMAT
-	       " no interface specified, ignoring",
+	       IP_FORMAT " no interface specified, ignoring",
 	       IP_LIST(&route->dest));
 	return (ENXIO);
     }
@@ -2642,17 +2653,17 @@ AddIPv4Route(const void * value, void * context)
 	|| !dict_get_ip(dict, kSCPropNetIPv4RouteSubnetMask, &r->mask)) {
 	/* one less route than we expected */
 	if (dict == NULL) {
-	    my_log(LOG_NOTICE, "IPMonitor: %s route is not a dictionary",
+	    my_log(LOG_NOTICE, "%s route is not a dictionary",
 		   ctx->descr);
 	}
 	else {
-	    my_log(LOG_NOTICE, "IPMonitor: %s route is invalid, %@",
+	    my_log(LOG_NOTICE, "%s route is invalid, %@",
 		   ctx->descr, dict);
 	}
 	goto skip;
     }
     if (IPv4RouteSetPrefixLength(r) == FALSE) {
-	my_log(LOG_NOTICE, "IPMonitor: %s route has invalid subnet mask, %@",
+	my_log(LOG_NOTICE, "%s route has invalid subnet mask, %@",
 	       ctx->descr, dict);
 	goto skip;
     }
@@ -2681,13 +2692,13 @@ AddIPv4Route(const void * value, void * context)
 	    ifindex = my_if_nametoindex(ifname);
 	    if (ifindex == 0) {
 		my_log(LOG_NOTICE,
-		       "IPMonitor %s: interface %s does not exist, %@",
+		       "%s: interface %s does not exist, %@",
 		       ctx->descr, ifname, dict);
 		goto skip;
 	    }
 	    else if (ifindex == ctx->ifindex) {
 		my_log(LOG_NOTICE,
-		       "IPMonitor %s: interface %s unexpected, %@",
+		       "%s: interface %s unexpected, %@",
 		       ctx->descr, ifname, dict);
 		goto skip;
 	    }
@@ -2758,6 +2769,7 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
     IPv4RouteRef	r;
     Rank		rank = kRankAssertionDefault;
     struct in_addr	router = { 0 };
+    boolean_t		scoped_only = FALSE;
     struct in_addr	subnet = { 0 };
 
     if (dict == NULL) {
@@ -2786,7 +2798,7 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
 	    prefix_length = mask_get_prefix_length(mask);
 	    if (prefix_length < 0) {
 		my_log(LOG_NOTICE,
-		       "IPMonitor: ignoring bad subnet mask "
+		       "ignoring bad subnet mask "
 		       IP_FORMAT " on %s",
 		       IP_LIST(&mask), ifname);
 	    }
@@ -2848,6 +2860,7 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
 	/* Scoped means all routes for the service get scoped */
 	primary_rank = rank = kRankAssertionNever;
 	flags |= kRouteFlagsIsScoped;
+	scoped_only = TRUE;
 	break;
     case kRankAssertionNever:
 	/* Never means just the default route gets scoped */
@@ -2864,7 +2877,7 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
 	n++;
     }
 
-    if (ifindex != lo0_ifindex()) {
+    if (ifindex != lo0_ifindex() && router.s_addr != 0) {
 	add_default = TRUE;
 	n++;
     }
@@ -2892,6 +2905,9 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
     routes->count = n;
     if (exclude_from_nwi) {
 	routes->flags |= kRouteListFlagsExcludeNWI;
+    }
+    else if (scoped_only) {
+	routes->flags |= kRouteListFlagsScopedOnly;
     }
 
     /* start at the beginning */
@@ -3176,11 +3192,11 @@ AddIPv6Route(const void * value, void * context)
 	|| !ipv6_prefix_length_is_valid(r->prefix_length)) {
 	/* one less route than we expected */
 	if (dict == NULL) {
-	    my_log(LOG_NOTICE, "IPMonitor: %s route is not a dictionary",
+	    my_log(LOG_NOTICE, "%s route is not a dictionary",
 		   ctx->descr);
 	}
 	else {
-	    my_log(LOG_NOTICE, "IPMonitor: %s route is invalid, %@",
+	    my_log(LOG_NOTICE, "%s route is invalid, %@",
 		   ctx->descr, dict);
 	}
 	goto skip;
@@ -3210,13 +3226,13 @@ AddIPv6Route(const void * value, void * context)
 	    ifindex = my_if_nametoindex(ifname);
 	    if (ifindex == 0) {
 		my_log(LOG_NOTICE,
-		       "IPMonitor %s: interface %s does not exist, %@",
+		       "%s: interface %s does not exist, %@",
 		       ctx->descr, ifname, dict);
 		goto skip;
 	    }
 	    else if (ifindex == ctx->ifindex) {
 		my_log(LOG_NOTICE,
-		       "IPMonitor %s: interface %s unexpected, %@",
+		       "%s: interface %s unexpected, %@",
 		       ctx->descr, ifname, dict);
 		goto skip;
 	    }
@@ -3266,6 +3282,7 @@ IPv6RouteListCreateWithDictionary(IPv6RouteListRef routes,
     IPv6RouteRef	r;
     Rank		rank = kRankAssertionDefault;
     struct in6_addr	router = in6addr_any;
+    boolean_t		scoped_only = FALSE;
 
     if (dict == NULL) {
 	return (NULL);
@@ -3337,6 +3354,7 @@ IPv6RouteListCreateWithDictionary(IPv6RouteListRef routes,
 	/* Scoped means all routes for the service get scoped */
 	primary_rank = rank = kRankAssertionNever;
 	flags |= kRouteFlagsIsScoped;
+	scoped_only = TRUE;
 	break;
     case kRankAssertionNever:
 	/* Never means just the default route gets scoped */
@@ -3379,6 +3397,9 @@ IPv6RouteListCreateWithDictionary(IPv6RouteListRef routes,
     routes->count = n;
     if (exclude_from_nwi) {
 	routes->flags |= kRouteListFlagsExcludeNWI;
+    }
+    else if (scoped_only) {
+	routes->flags |= kRouteListFlagsScopedOnly;
     }
 
     /* start at the beginning */
@@ -3555,7 +3576,7 @@ IPv6RouteApply(RouteRef r_route, int cmd, int sockfd)
     }
     if (route->ifindex == 0) {
 	IPv6RouteLog(LOG_NOTICE, (RouteRef)route,
-		     "IPMonitor IPv6RouteApply: no interface specified");
+		     "no interface specified");
 	return (ENXIO);
     }
     if (sockfd == -1) {
@@ -3790,6 +3811,62 @@ service_dict_copy(CFStringRef serviceID)
     return (service_dict);
 }
 
+__private_extern__ boolean_t
+service_is_scoped_only(CFDictionaryRef service_dict)
+{
+    nwi_ifstate_t	alias;
+    CFDictionaryRef	dict;
+    char		ifname[IFNAMSIZ];
+    nwi_ifstate_t	ifstate;
+    CFStringRef		interface = NULL;
+
+    // get IPv4 (or IPv6) info
+    dict = CFDictionaryGetValue(service_dict, kSCEntNetIPv4);
+    if (dict == NULL) {
+	dict = CFDictionaryGetValue(service_dict, kSCEntNetIPv6);
+    }
+    if (dict == NULL) {
+	// if no connectivity
+	return FALSE;
+    }
+
+    // get interface
+    interface = ipdict_get_ifname(dict);
+    if ((interface == NULL) ||
+	!CFStringGetCString(interface, ifname, sizeof(ifname), kCFStringEncodingUTF8)) {
+	// if no interface / interface name
+	return FALSE;
+    }
+
+#ifdef TEST_DNS
+    if (S_nwi_state == NULL) {
+	S_nwi_state = nwi_state_copy();
+    }
+#endif // TEST_DNS
+
+    // get [nwi] interface state
+    ifstate = nwi_state_get_ifstate(S_nwi_state, ifname);
+    if (ifstate == NULL) {
+	// if unknown state
+	return FALSE;
+    } else if ((ifstate->flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST) != 0) {
+	// if scoped (i.e. not in list)
+	return TRUE;
+    }
+
+    // check both both IPv4 and IPv6
+    alias = nwi_ifstate_get_alias(ifstate, ifstate->af == AF_INET ? AF_INET6 : AF_INET);
+    if (alias == NULL) {
+	// if only one address family
+	return FALSE;
+    } else if ((alias->flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST) != 0) {
+	// if scoped (i.e. not in list)
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
 static void
 log_service_entity(int level, CFStringRef serviceID, CFStringRef entity,
 		   CFStringRef operation, CFTypeRef val)
@@ -3827,7 +3904,7 @@ log_service_entity(int level, CFStringRef serviceID, CFStringRef entity,
     if (val == NULL) {
 	val = CFSTR("<none>");
     }
-    my_log(level, "IPMonitor: serviceID %@ %@ %@ value = %@",
+    my_log(level, "serviceID %@ %@ %@ value = %@",
 	   serviceID, operation, entity, val);
     my_CFRelease(&this_val);
     return;
@@ -3880,6 +3957,9 @@ service_dict_get(CFStringRef serviceID, CFStringRef entity)
 {
     CFDictionaryRef	service_dict;
 
+    if (S_service_state_dict == NULL) {
+	return (NULL);
+    }
     service_dict = CFDictionaryGetValue(S_service_state_dict, serviceID);
     if (service_dict == NULL) {
 	return (NULL);
@@ -3957,9 +4037,6 @@ ipv6_service_update_router(CFStringRef serviceID, CFDictionaryRef new_service)
     }
     s = inet6_dgram_socket();
     if (s < 0) {
-	my_log(LOG_ERR,
-	       "IPMonitor: ipv6_service_update_router: socket failed, %s",
-	       strerror(errno));
 	goto done;
     }
     /* remove the old router if it was defined */
@@ -3967,19 +4044,16 @@ ipv6_service_update_router(CFStringRef serviceID, CFDictionaryRef new_service)
 	&& (new_router == NULL
 	    || !IN6_ARE_ADDR_EQUAL(old_router, new_router))) {
 	if (siocdrdel_in6(s, ifindex, old_router) < 0) {
-	    if (errno != EINVAL
-		|| (S_IPMonitor_debug & kDebugFlag1) != 0) {
-		my_log((errno == EINVAL) ? LOG_DEBUG : LOG_ERR,
-		       "IPMonitor: siocdrdel_in6(%@, %s) failed, %s",
-		       ifname,
-		       inet_ntop(AF_INET6, old_router,
-				 ntopbuf, sizeof(ntopbuf)),
-		       strerror(errno));
-	    }
+	    my_log((errno == EINVAL) ? LOG_DEBUG : LOG_ERR,
+		   "siocdrdel_in6(%@, %s) failed: %s",
+		   ifname,
+		   inet_ntop(AF_INET6, old_router,
+			     ntopbuf, sizeof(ntopbuf)),
+		   strerror(errno));
 	}
-	else if (S_IPMonitor_debug & kDebugFlag1) {
-	    my_log(LOG_DEBUG,
-		   "IPMonitor: %@ removed default route %s",
+	else {
+	    my_log(LOG_INFO,
+		   "%@ removed default route %s",
 		   ifname,
 		   inet_ntop(AF_INET6, old_router, ntopbuf, sizeof(ntopbuf)));
 	}
@@ -3989,19 +4063,16 @@ ipv6_service_update_router(CFStringRef serviceID, CFDictionaryRef new_service)
 	&& (old_router == NULL
 	    || !IN6_ARE_ADDR_EQUAL(old_router, new_router))) {
 	if (siocdradd_in6(s, ifindex, new_router, 0) < 0) {
-	    if (errno != EINVAL
-		|| (S_IPMonitor_debug & kDebugFlag1) != 0) {
-		my_log((errno == EINVAL) ? LOG_DEBUG : LOG_ERR,
-		       "IPMonitor: siocdradd_in6(%@, %s) failed, %s",
-		       ifname,
-		       inet_ntop(AF_INET6, new_router,
-				 ntopbuf, sizeof(ntopbuf)),
-		       strerror(errno));
-	    }
+	    my_log((errno == EINVAL) ? LOG_DEBUG : LOG_ERR,
+		   "siocdradd_in6(%@, %s) failed: %s",
+		   ifname,
+		   inet_ntop(AF_INET6, new_router,
+			     ntopbuf, sizeof(ntopbuf)),
+		   strerror(errno));
 	}
-	else if (S_IPMonitor_debug & kDebugFlag1) {
-	    my_log(LOG_DEBUG,
-		   "IPMonitor: %@ added default route %s",
+	else {
+	    my_log(LOG_INFO,
+		   "%@ added default route %s",
 		   ifname,
 		   inet_ntop(AF_INET6, new_router, ntopbuf, sizeof(ntopbuf)));
 	}
@@ -4394,12 +4465,10 @@ accumulate_dns_servers(CFArrayRef in_servers, ProtocolFlags active_protos,
 	    /* IPv4 address */
 	    if ((active_protos & kProtocolFlagsIPv4) == 0
 		&& ntohl(ip_addr.s_addr) != INADDR_LOOPBACK) {
-		if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-		    my_log(LOG_DEBUG,
-			   "IPMonitor: no IPv4 connectivity, "
-			   "ignoring DNS server address " IP_FORMAT,
-			   IP_LIST(&ip_addr));
-		}
+		my_log(LOG_INFO,
+			"no IPv4 connectivity, "
+			"ignoring DNS server address " IP_FORMAT,
+			IP_LIST(&ip_addr));
 		continue;
 	    }
 
@@ -4409,15 +4478,13 @@ accumulate_dns_servers(CFArrayRef in_servers, ProtocolFlags active_protos,
 	    /* IPv6 address */
 	    if ((active_protos & kProtocolFlagsIPv6) == 0
 		&& !IN6_IS_ADDR_LOOPBACK(&ipv6_addr)) {
-		if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-		    char	ntopbuf[INET6_ADDRSTRLEN];
+		char	ntopbuf[INET6_ADDRSTRLEN];
 
-		    my_log(LOG_DEBUG,
-			   "IPMonitor: no IPv6 connectivity, "
-			   "ignoring DNS server address %s",
-			    inet_ntop(AF_INET6, &ipv6_addr,
-				      ntopbuf, sizeof(ntopbuf)));
-		}
+		my_log(LOG_INFO,
+		       "no IPv6 connectivity, "
+		       "ignoring DNS server address %s",
+			inet_ntop(AF_INET6, &ipv6_addr,
+				  ntopbuf, sizeof(ntopbuf)));
 		continue;
 	    }
 
@@ -4436,9 +4503,7 @@ accumulate_dns_servers(CFArrayRef in_servers, ProtocolFlags active_protos,
 	}
 	else {
 	    /* bad IP address */
-	    my_log(LOG_NOTICE,
-		   "IPMonitor: ignoring bad DNS server address '%@'",
-		   addr);
+	    my_log(LOG_NOTICE, "ignoring bad DNS server address '%@'", addr);
 	    continue;
 	}
 
@@ -4454,6 +4519,7 @@ merge_dns_servers(CFMutableDictionaryRef new_dict,
 		  CFArrayRef state_servers,
 		  CFArrayRef setup_servers,
 		  Boolean have_setup,
+		  Boolean			trust_state,
 		  ProtocolFlags active_protos,
 		  CFStringRef interface)
 {
@@ -4505,11 +4571,18 @@ merge_dns_servers(CFMutableDictionaryRef new_dict,
      * We also add an exception to the "follow the dynamically derived
      * network configuration" path for on-the-fly (no Setup: content)
      * network services.
+     *
+     * But, we add an exception to the exception to support our own
+     * VPN code.  Here, we look for a "ServiceID" property in the DNS
+     * entity.  If present, and if it matches, then we extend our
+     * trust even when there is no Setup: content.
      */
     if (CFArrayGetCount(dns_servers) != 0) {
 	CFDictionarySetValue(new_dict,
 			     kSCPropNetDNSServerAddresses, dns_servers);
-	if (have_setup && !have_dns_setup) {
+	if ((have_setup && !have_dns_setup) || (!have_setup && trust_state)) {
+	    // if this is a "setup"+"state" service with only "state" DNS content (i.e. no
+	    // setup override) or this is a TRUSTED "state"-only service
 	    CFDictionarySetValue(new_dict, DNS_CONFIGURATION_SCOPED_QUERY_KEY, kCFBooleanTrue);
 	}
     }
@@ -4551,6 +4624,7 @@ get_dns_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 	kSCPropNetDNSServiceIdentifier,
 	kSCPropNetDNSSupplementalMatchDomainsNoSearch,
     };
+    Boolean		    trust_state	    = FALSE;
 
     if ((state_dict == NULL) && (setup_dict == NULL)) {
 	/* there is no DNS content */
@@ -4589,6 +4663,18 @@ get_dns_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 	setup_dict = NULL;
     }
 
+    if (state_dict != NULL) {
+	CFStringRef	state_serviceID	= NULL;
+
+	if (CFDictionaryGetValueIfPresent(state_dict,
+					  kSCPropNetDNSConfirmedServiceID,
+					  (const void **)&state_serviceID) &&
+	    isA_CFString(state_serviceID) &&
+	    CFEqual(serviceID, state_serviceID)) {
+	    trust_state = TRUE;
+	}
+    }
+
     /* merge DNS configuration */
     new_dict = CFDictionaryCreateMutable(NULL, 0,
 					 &kCFTypeDictionaryKeyCallBacks,
@@ -4600,6 +4686,7 @@ get_dns_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 						  kSCPropNetDNSServerAddresses),
 			  NULL,
 			  FALSE,
+			  trust_state,
 			  kProtocolFlagsIPv4 | kProtocolFlagsIPv6,
 			  NULL);
     }
@@ -4610,6 +4697,7 @@ get_dns_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 			  my_CFDictionaryGetArray(setup_dict,
 						  kSCPropNetDNSServerAddresses),
 			  have_setup,
+			  trust_state,
 			  active_protos,
 			  interface);
     }
@@ -5133,6 +5221,22 @@ get_transient_status_changes(CFStringRef serviceID,
 }
 
 static boolean_t
+if_dict_is_expensive(CFDictionaryRef if_dict)
+{
+    boolean_t		is_expensive = FALSE;
+
+    if (isA_CFDictionary(if_dict) != NULL) {
+	CFBooleanRef	expensive;
+	expensive = CFDictionaryGetValue(if_dict, kSCPropNetLinkExpensive);
+	if (isA_CFBoolean(expensive) != NULL
+	    && CFBooleanGetValue(expensive)) {
+	    is_expensive = TRUE;
+	}
+    }
+    return is_expensive;
+}
+
+static boolean_t
 service_is_expensive(CFStringRef serviceID, CFDictionaryRef services_info)
 {
     CFStringRef		ifname;
@@ -5146,14 +5250,26 @@ service_is_expensive(CFStringRef serviceID, CFDictionaryRef services_info)
 	key = interface_entity_key_copy(ifname, kSCEntNetLink);
 	if_dict = CFDictionaryGetValue(services_info, key);
 	CFRelease(key);
-	if (isA_CFDictionary(if_dict) != NULL) {
-	    CFBooleanRef	expensive;
+	is_expensive = if_dict_is_expensive(if_dict);
+    }
+    return (is_expensive);
+}
 
-	    expensive = CFDictionaryGetValue(if_dict, kSCPropNetLinkExpensive);
-	    if (isA_CFBoolean(expensive) != NULL
-		&& CFBooleanGetValue(expensive)) {
-		is_expensive = TRUE;
-	    }
+static boolean_t
+interface_is_expensive(CFStringRef ifname)
+{
+    boolean_t           is_expensive = FALSE;
+
+    if (ifname != NULL) {
+	CFDictionaryRef	    if_dict;
+	CFStringRef         key;
+
+	key = interface_entity_key_copy(ifname, kSCEntNetLink);
+	if_dict = SCDynamicStoreCopyValue(S_session, key);
+	CFRelease(key);
+	if (if_dict != NULL) {
+	    is_expensive = if_dict_is_expensive(if_dict);
+	    CFRelease(if_dict);
 	}
     }
     return (is_expensive);
@@ -5231,11 +5347,11 @@ get_rank_changes(CFStringRef serviceID, CFDictionaryRef state_options,
 	    rank_assertion
 		= InterfaceRankGetRankAssertion(if_rank,
 						&rank_assertion_is_set);
-	    if (S_IPMonitor_debug & kDebugFlag1) {
-		my_log(LOG_DEBUG,
-		       "serviceID %@ interface %@ rank = %@",
-		       serviceID, interface, if_rank);
-	    }
+	    my_log(LOG_INFO,
+		   "serviceID %@ interface %@ rank = %@",
+		   serviceID,
+		   interface,
+		   (if_rank != NULL) ? if_rank : (CFNumberRef)CFSTR("Not set)"));
 	}
     }
 
@@ -5425,22 +5541,19 @@ set_ipv6_default_interface(IFIndex ifindex)
 	ndifreq.ifindex = lo0_ifindex();
     }
     sock = inet6_dgram_socket();
-    if (sock == -1) {
+    if (sock < 0) {
+	goto done;
+    }
+    if (ioctl(sock, SIOCSDEFIFACE_IN6, (caddr_t)&ndifreq) == -1) {
 	my_log(LOG_ERR,
-	       "IPMonitor: set_ipv6_default_interface: socket failed, %s",
+	       "ioctl(SIOCSDEFIFACE_IN6) failed: %s",
 	       strerror(errno));
     }
     else {
-	if (ioctl(sock, SIOCSDEFIFACE_IN6, (caddr_t)&ndifreq) == -1) {
-	    my_log(LOG_ERR,
-		   "IPMonitor: ioctl(SIOCSDEFIFACE_IN6) failed, %s",
-		   strerror(errno));
-	}
-	else {
-	    success = TRUE;
-	}
-	close(sock);
+	success = TRUE;
     }
+    close(sock);
+done:
     return (success);
 }
 
@@ -5857,8 +5970,9 @@ update_nwi(nwi_state_t state)
     unsigned char		signature[CC_SHA1_DIGEST_LENGTH];
     static unsigned char	signature_last[CC_SHA1_DIGEST_LENGTH];
 
-    _nwi_state_signature(state, signature, sizeof(signature));
+    _nwi_state_compute_sha1_hash(state, signature);
     if (bcmp(signature, signature_last, sizeof(signature)) == 0) {
+	my_log(LOG_DEBUG, "Not updating network information");
 	return FALSE;
     }
 
@@ -5866,10 +5980,9 @@ update_nwi(nwi_state_t state)
     bcopy(signature, signature_last, sizeof(signature));
 
     // save [new] configuration
-    if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-	my_log(LOG_DEBUG, "Updating network information");
-	S_nwi_state_dump(state);
-    }
+    my_log(LOG_INFO, "Updating network information");
+    S_nwi_state_dump(state);
+
     if (_nwi_state_store(state) == FALSE) {
 	my_log(LOG_ERR, "Notifying nwi_state_store failed");
     }
@@ -5951,7 +6064,7 @@ update_smb(CFDictionaryRef	services_info,
 #endif	/* !TARGET_OS_IPHONE */
 
 static Rank
-get_service_rank(CFArrayRef order, int n_order, CFStringRef serviceID)
+get_service_rank(CFArrayRef order, CFIndex n_order, CFStringRef serviceID)
 {
     CFIndex		i;
     Rank		rank = kRankIndexMask;
@@ -6365,7 +6478,7 @@ typedef struct ElectionInfo {
     CFStringRef			entity;
     int				n_services;
     CFArrayRef			order;
-    int				n_order;
+    CFIndex			n_order;
     ElectionResultsRef		results;
     CFMutableDictionaryRef	rank_dict;
 } ElectionInfo, * ElectionInfoRef;
@@ -6441,8 +6554,9 @@ ElectionResultsLog(int level, ElectionResultsRef results, const char * prefix)
 	char	ntopbuf[INET6_ADDRSTRLEN];
 
 	(void)inet_ntop(results->af, &scan->addr, ntopbuf, sizeof(ntopbuf));
-	my_log(level, "%d. %@ serviceID=%@ addr=%s rank=0x%x",
-	       i, scan->if_name, scan->serviceID, ntopbuf, scan->rank);
+	my_log(level, "%d. %@ serviceID=%@ addr=%s rank=0x%x%s",
+	       i, scan->if_name, scan->serviceID, ntopbuf, scan->rank,
+	       scan->ineligible ? " [ineligible]" : "");
     }
     return;
 }
@@ -6501,7 +6615,7 @@ elect_ip(const void * key, const void * value, void * context);
  *   function.  Return the results of the election.
  */
 static ElectionResultsRef
-ElectionResultsCopy(int af, CFArrayRef order, int n_order)
+ElectionResultsCopy(int af, CFArrayRef order)
 {
     int			count;
     ElectionInfo	info;
@@ -6522,7 +6636,12 @@ ElectionResultsCopy(int af, CFArrayRef order, int n_order)
     info.results = ElectionResultsAlloc(af, count);
     info.n_services = count;
     info.order = order;
-    info.n_order = n_order;
+    if (order != NULL) {
+	info.n_order = CFArrayGetCount(order);
+    }
+    else {
+	info.order = 0;
+    }
     CFDictionaryApplyFunction(S_service_state_dict, elect_ip, (void *)&info);
     if (info.results->count == 0) {
 	ElectionResultsRelease(info.results);
@@ -6601,7 +6720,8 @@ get_signature_sha1(CFStringRef		signature,
 
 static void
 add_candidate_to_nwi_state(nwi_state_t nwi_state, int af,
-			   CandidateRef candidate, Rank rank)
+			   CandidateRef candidate, Boolean not_in_list,
+			   Boolean not_in_iflist)
 {
     uint64_t		flags = 0;
     char		ifname[IFNAMSIZ];
@@ -6611,8 +6731,12 @@ add_candidate_to_nwi_state(nwi_state_t nwi_state, int af,
 	/* can't happen */
 	return;
     }
-    if (RANK_ASSERTION_MASK(rank) == kRankAssertionNever) {
+    if (not_in_list
+	|| RANK_ASSERTION_MASK(candidate->rank) == kRankAssertionNever) {
 	flags |= NWI_IFSTATE_FLAGS_NOT_IN_LIST;
+    }
+    if (not_in_iflist) {
+	flags |= NWI_IFSTATE_FLAGS_NOT_IN_IFLIST;
     }
     if (service_dict_get(candidate->serviceID, kSCEntNetDNS) != NULL) {
 	flags |= NWI_IFSTATE_FLAGS_HAS_DNS;
@@ -6624,15 +6748,16 @@ add_candidate_to_nwi_state(nwi_state_t nwi_state, int af,
 
 	(void)inet_ntop(af, &candidate->addr, ntopbuf, sizeof(ntopbuf));
 	my_log(LOG_DEBUG,
-	       "Inserting IPv%c [%s] %s "
+	       "Adding IPv%c [%s] %s "
 	       "with flags 0x%llx rank 0x%x reach_flags 0x%x",
 	       ipvx_char(af), ifname, ntopbuf,
-	       flags, rank, candidate->reachability_flags);
+	       flags, candidate->rank, candidate->reachability_flags);
     }
-    ifstate = nwi_insert_ifstate(nwi_state, ifname, af, flags, rank,
-				 (void *)&candidate->addr,
-				 (void *)&candidate->vpn_server_addr,
-				 candidate->reachability_flags);
+    ifstate = nwi_state_add_ifstate(nwi_state, ifname, af, flags,
+				    candidate->rank,
+				    (void *)&candidate->addr,
+				    (void *)&candidate->vpn_server_addr,
+				    candidate->reachability_flags);
     if (ifstate != NULL && candidate->signature) {
 	uint8_t	    hash[CC_SHA1_DIGEST_LENGTH];
 
@@ -6693,9 +6818,6 @@ ElectionResultsCopyPrimary(ElectionResultsRef results,
     Boolean		primary_is_null = FALSE;
     RouteListRef	routes = NULL;
 
-    if (nwi_state != NULL) {
-	nwi_state_clear(nwi_state, af);
-    }
     if (results != NULL) {
 	CandidateRef		deferred[results->count];
 	int			deferred_count;
@@ -6723,20 +6845,19 @@ ElectionResultsCopyPrimary(ElectionResultsRef results,
 	     i < results->count;
 	     i++, scan++) {
 	    Boolean		is_primary = FALSE;
-	    Rank		rank = scan->rank;
 	    CFDictionaryRef	service_dict;
 	    RouteListRef	service_routes;
 	    Boolean		skip = FALSE;
 
-	    if (primary == NULL
-		&& RANK_ASSERTION_MASK(rank) != kRankAssertionNever) {
+	    if (scan->ineligible == FALSE
+		&& primary == NULL
+		&& RANK_ASSERTION_MASK(scan->rank) != kRankAssertionNever) {
 		if (ElectionResultsCandidateNeedsDemotion(other_results,
 							  scan)) {
-		    /* demote to RankNever */
+		    /* demote the service */
 		    my_log(LOG_NOTICE,
 			   "IPv%c over %@ demoted: not primary for IPv%c",
 			   ipvx_char(af), scan->if_name, ipvx_other_char(af));
-		    rank = RankMake(rank, kRankAssertionNever);
 		    deferred[deferred_count++] = scan;
 		    skip = TRUE;
 		}
@@ -6749,6 +6870,12 @@ ElectionResultsCopyPrimary(ElectionResultsRef results,
 	    service_dict = service_dict_get(scan->serviceID, entity_name);
 	    service_routes = ipdict_get_routelist(service_dict);
 	    if (service_routes != NULL) {
+		Rank		rank = scan->rank;
+
+		if (skip) {
+		    /* routes are RankNever to prevent becoming primary */
+		    rank = RankMake(rank, kRankAssertionNever);
+		}
 		routes = RouteListAddRouteList(info, routes, initial_size,
 					       service_routes, rank);
 		if ((service_routes->flags & kRouteListFlagsExcludeNWI) != 0) {
@@ -6764,27 +6891,23 @@ ElectionResultsCopyPrimary(ElectionResultsRef results,
 		    primary_is_null = TRUE;
 		}
 	    }
-	    else {
-		if (primary_is_null) {
-		    /* everything after the primary must be Never */
-		    rank = RankMake(rank, kRankAssertionNever);
-		}
+	    else if (scan->ineligible == FALSE) {
+		Boolean		not_in_iflist;
+
 		add_reachability_flags_to_candidate(scan, services_info, af);
-		add_candidate_to_nwi_state(nwi_state, af, scan, rank);
+		not_in_iflist
+		    = (service_routes->flags & kRouteListFlagsScopedOnly) != 0;
+		add_candidate_to_nwi_state(nwi_state, af, scan,
+					   primary_is_null,
+					   not_in_iflist);
 	    }
 	}
 	for (i = 0; i < deferred_count; i++) {
 	    CandidateRef	candidate = deferred[i];
-	    Rank		rank;
 
-	    /* demote to RankNever */
-	    rank = RankMake(candidate->rank, kRankAssertionNever);
 	    add_reachability_flags_to_candidate(candidate, services_info, af);
-	    add_candidate_to_nwi_state(nwi_state, af, candidate, rank);
+	    add_candidate_to_nwi_state(nwi_state, af, candidate, TRUE, FALSE);
 	}
-    }
-    if (nwi_state != NULL) {
-	nwi_state_set_last(nwi_state, af);
     }
     if (ret_routes != NULL) {
 	*ret_routes = routes;
@@ -6845,10 +6968,6 @@ elect_ip(const void * key, const void * value, void * context)
 	/* no connectivity */
 	return;
     }
-    if ((routelist.common->flags & kRouteListFlagsHasDefault) == 0) {
-	/* no default route, not a candidate for being primary */
-	return;
-    }
     if_name = CFDictionaryGetValue(service_dict, kSCPropInterfaceName);
     if (if_name == NULL) {
 	/* need an interface name */
@@ -6860,6 +6979,10 @@ elect_ip(const void * key, const void * value, void * context)
     }
     bzero(&candidate, sizeof(candidate));
     candidate.serviceID = (CFStringRef)key;
+    if ((routelist.common->flags & kRouteListFlagsHasDefault) == 0) {
+	/* no default route means it's ineligible to become primary */
+	candidate.ineligible = TRUE;
+    }
     candidate.rank = get_service_rank(elect_info->order, elect_info->n_order,
 				      candidate.serviceID);
     if (elect_info->af == AF_INET) {
@@ -6927,6 +7050,31 @@ service_changed(CFDictionaryRef services_info, CFStringRef serviceID)
     return (changed);
 }
 
+static CFStringRef
+serviceID_get_ifname(CFStringRef serviceID)
+{
+    CFDictionaryRef entity_dict;
+    CFStringRef	ifname = NULL;
+
+    entity_dict = service_dict_get(serviceID, kSCEntNetIPv4);
+    if (entity_dict == NULL) {
+	entity_dict = service_dict_get(serviceID, kSCEntNetIPv6);
+    }
+    if (entity_dict != NULL) {
+	ifname = ipdict_get_ifname(entity_dict);
+    }
+    return (ifname);
+}
+
+__private_extern__ boolean_t
+check_if_service_expensive(CFStringRef serviceID)
+{
+    CFStringRef ifname;
+    ifname = serviceID_get_ifname(serviceID);
+
+    return interface_is_expensive(ifname);
+}
+
 static CFArrayRef
 service_order_get(CFDictionaryRef services_info)
 {
@@ -6966,29 +7114,17 @@ set_new_primary(CFStringRef * primary_p, CFStringRef new_primary,
 
     if (new_primary != NULL) {
 	if (primary != NULL && CFEqual(new_primary, primary)) {
-	    if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-		my_log(LOG_DEBUG,
-		       "IPMonitor: %@ is still primary %s",
-		       new_primary, entity);
-	    }
+	    my_log(LOG_INFO, "%@ is still primary %s", new_primary, entity);
 	}
 	else {
 	    my_CFRelease(primary_p);
 	    *primary_p = CFRetain(new_primary);
-	    if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-		my_log(LOG_DEBUG,
-		       "IPMonitor: %@ is the new primary %s",
-		       new_primary, entity);
-	    }
+	    my_log(LOG_INFO, "%@ is the new primary %s", new_primary, entity);
 	    changed = TRUE;
 	}
     }
     else if (primary != NULL) {
-	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-	    my_log(LOG_DEBUG,
-		   "IPMonitor: %@ is no longer primary %s",
-		   primary, entity);
-	}
+	my_log(LOG_INFO, "%@ is no longer primary %s", primary, entity);
 	my_CFRelease(primary_p);
 	changed = TRUE;
     }
@@ -7046,11 +7182,9 @@ append_serviceIDs_for_interface(CFMutableArrayRef services_changed,
 	}
 	interface = ipdict_get_ifname(ipdict);
 	if (interface != NULL && CFEqual(interface, ifname)) {
-	    if (S_IPMonitor_debug & kDebugFlag1) {
-		my_log(LOG_DEBUG,
-		       "Found IP service %@ on interface %@.",
-		       serviceID, ifname);
-	    }
+	    my_log(LOG_DEBUG,
+		   "Found IP service %@ on interface %@",
+		   serviceID, ifname);
 	    my_CFArrayAppendUniqueValue(services_changed, serviceID);
 	}
     }
@@ -7084,30 +7218,154 @@ get_changed_str(CFStringRef serviceID, CFStringRef entity,
     return "";
 }
 
-static CF_RETURNS_RETAINED CFStringRef
-generate_log_changes(nwi_state_t	changes_state,
-		     boolean_t		dns_changed,
-		     boolean_t		dnsinfo_changed,
-		     CFDictionaryRef	old_primary_dns,
-		     boolean_t		proxy_changed,
-		     CFDictionaryRef	old_primary_proxy,
-		     boolean_t		smb_changed,
-		     CFDictionaryRef	old_primary_smb
-		     )
+#if ! TARGET_IPHONE_SIMULATOR
+
+#ifdef SIOCSIFNETSIGNATURE
+#define MANAGE_IF_SIGNATURE
+
+static int
+inet_dgram_socket(void)
+{
+    int	sockfd;
+
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd == -1) {
+	my_log(LOG_ERR, "socket() failed: %s", strerror(errno));
+    }
+
+    return sockfd;
+}
+
+static int
+siocsifnetsignature(int s, const char * ifname, int af,
+		    const uint8_t * signature, int signature_length)
+{
+    struct if_nsreq	nsreq;
+
+    bzero(&nsreq, sizeof(nsreq));
+    strlcpy(nsreq.ifnsr_name, ifname, sizeof(nsreq.ifnsr_name));
+    nsreq.ifnsr_family = af;
+    if (signature_length > 0) {
+	if (signature_length > sizeof(nsreq.ifnsr_data)) {
+	    signature_length = sizeof(nsreq.ifnsr_data);
+	}
+	nsreq.ifnsr_len = signature_length;
+	memcpy(nsreq.ifnsr_data, signature, signature_length);
+    }
+    return (ioctl(s, SIOCSIFNETSIGNATURE, &nsreq));
+}
+
+static void
+process_ifstate_difference(nwi_ifstate_t ifstate, int af, int sockfd)
+{
+    nwi_ifstate_difference_t	diff;
+    boolean_t			set_signature = FALSE;
+    int				signature_length = 0;
+
+    diff = nwi_ifstate_get_difference(ifstate);
+    switch (diff) {
+    case knwi_ifstate_difference_changed:
+	/* set signature for this interface */
+	set_signature = TRUE;
+	if ((ifstate->flags & NWI_IFSTATE_FLAGS_HAS_SIGNATURE) != 0) {
+	    signature_length = sizeof(ifstate->signature);
+	}
+	break;
+    case knwi_ifstate_difference_removed:
+	/* remove signature for this interface */
+	set_signature = TRUE;
+	break;
+    default:
+	break;
+    }
+    if (set_signature) {
+	if (siocsifnetsignature(sockfd, ifstate->ifname, af,
+				ifstate->signature,
+				signature_length) < 0) {
+	    my_log(LOG_ERR,
+		   "siocsifnetsignature(%s, IPv%c, %d) failed: %s",
+		   ifstate->ifname, ipvx_char(af),
+		   signature_length,
+		   strerror(errno));
+	}
+	else {
+	    my_log(LOG_DEBUG, "IPv%c Network Signature %s %s",
+		   ipvx_char(af),
+		   (signature_length > 0) ? "Set" : "Cleared",
+		   ifstate->ifname);
+	    if (signature_length > 0
+		&& (S_IPMonitor_debug & kDebugFlag1) != 0) {
+		int	i;
+		char	sig_buf[signature_length * 3 + 1];
+
+		sig_buf[0] = '\0';
+		for (i = 0; i < signature_length; i++) {
+		    char	byte_buf[4];
+
+		    snprintf(byte_buf, sizeof(byte_buf),
+			     "%02x ", ifstate->signature[i]);
+		    strlcat(sig_buf, byte_buf, sizeof(sig_buf));
+		}
+		my_log(LOG_DEBUG, "Signature Bytes: %s", sig_buf);
+	    }
+	}
+    }
+    return;
+}
+
+static void
+process_state_differences(nwi_state_t state, int af, int sockfd)
+{
+    int			count;
+    int			i;
+    nwi_ifstate_t 	scan;
+
+    if (af == AF_INET) {
+	count = state->ipv4_count;
+    }
+    else {
+	count = state->ipv6_count;
+    }
+    for (i = 0, scan = nwi_state_ifstate_list(state, af);
+	 i < count; i++, scan++) {
+	process_ifstate_difference(scan, af, sockfd);
+    }
+    return;
+}
+
+#endif /* SIOCSIFNETSIGNATURE */
+
+#endif /* !TARGET_IPHONE_SIMULATOR */
+
+static void
+process_nwi_changes(CFMutableStringRef	log_output,
+		    nwi_state_t		changes_state,
+		    boolean_t		dns_changed,
+		    boolean_t		dnsinfo_changed,
+		    CFDictionaryRef	old_primary_dns,
+		    boolean_t		proxy_changed,
+		    CFDictionaryRef	old_primary_proxy,
+		    boolean_t		smb_changed,
+		    CFDictionaryRef	old_primary_smb)
 {
     int idx;
-    CFMutableStringRef log_output;
-    nwi_ifstate_t scan;
-
-    log_output = CFStringCreateMutable(NULL, 0);
 
     if (changes_state != NULL) {
-	for (idx = 0; idx < countof(nwi_af_list); idx++) {
-	    CFMutableStringRef changes = NULL;
-	    CFMutableStringRef primary_str = NULL;
+	const sa_family_t 	af_list[] = {AF_INET, AF_INET6};
+	nwi_ifstate_t 		scan;
+#ifdef MANAGE_IF_SIGNATURE
+	int			sockfd = inet_dgram_socket();
+#endif /* MANAGE_IF_SIGNATURE */
 
-	    scan = nwi_state_get_first_ifstate(changes_state, nwi_af_list[idx]);
+	for (idx = 0; idx < countof(af_list); idx++) {
+	    int			af = af_list[idx];
+	    CFMutableStringRef	changes = NULL;
+	    CFMutableStringRef	primary_str = NULL;
 
+#ifdef MANAGE_IF_SIGNATURE
+	    process_state_differences(changes_state, af, sockfd);
+#endif /* MANAGE_IF_SIGNATURE */
+	    scan = nwi_state_get_first_ifstate(changes_state, af);
 	    while (scan != NULL) {
 		const char * changed_str;
 
@@ -7120,7 +7378,7 @@ generate_log_changes(nwi_state_t	changes_state,
 		    address = (void *)nwi_ifstate_get_address(scan);
 		    addr_str = inet_ntop(scan->af, address, ntopbuf,
 					 sizeof(ntopbuf));
-		    if (primary_str ==  NULL) {
+		    if (primary_str == NULL) {
 			primary_str = CFStringCreateMutable(NULL, 0);
 			CFStringAppendFormat(primary_str, NULL,
 					     CFSTR("%s%s:%s"),
@@ -7132,7 +7390,7 @@ generate_log_changes(nwi_state_t	changes_state,
 			}
 			CFStringAppendFormat(changes, NULL, CFSTR(", %s"),
 					     nwi_ifstate_get_ifname(scan));
-			if (strcmp(changed_str,  "") != 0) {
+			if (strcmp(changed_str, "") != 0) {
 			    CFStringAppendFormat(changes, NULL, CFSTR("%s:%s"),
 						 changed_str, addr_str);
 			}
@@ -7143,7 +7401,7 @@ generate_log_changes(nwi_state_t	changes_state,
 
 	    if (primary_str != NULL) {
 		CFStringAppendFormat(log_output, NULL, CFSTR(" %s(%@"),
-				     nwi_af_list[idx] == AF_INET ? "v4" : "v6",
+				     af == AF_INET ? "v4" : "v6",
 				     primary_str);
 
 		if (changes != NULL && CFStringGetLength(changes) != 0) {
@@ -7156,6 +7414,11 @@ generate_log_changes(nwi_state_t	changes_state,
 		my_CFRelease(&changes);
 	    }
 	}
+#ifdef MANAGE_IF_SIGNATURE
+	if (sockfd >= 0) {
+	    close(sockfd);
+	}
+#endif /* MANAGE_IF_SIGNATURE */
     }
 
     if (dns_changed || dnsinfo_changed) {
@@ -7190,7 +7453,7 @@ generate_log_changes(nwi_state_t	changes_state,
     }
 #endif	// !TARGET_OS_IPHONE
 
-    return log_output;
+    return;
 }
 
 #pragma mark -
@@ -7223,13 +7486,10 @@ post_network_change_when_ready()
 	(!S_dnsinfo_synced || !S_nwi_synced)) {
 	// if we [still] need to wait for the DNS configuration
 	// or network information changes to be ack'd
-
-	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-	    my_log(LOG_DEBUG,
-		   "Defer \"" _SC_NOTIFY_NETWORK_CHANGE "\" (%s, %s)",
-		   S_dnsinfo_synced ? "DNS" : "!DNS",
-		   S_nwi_synced     ? "nwi" : "!nwi");
-	}
+	my_log(LOG_DEBUG,
+	       "Defer \"" _SC_NOTIFY_NETWORK_CHANGE "\" (%s, %s)",
+	       S_dnsinfo_synced ? "DNS" : "!DNS",
+	       S_nwi_synced     ? "nwi" : "!nwi");
 	return;
     }
 
@@ -7242,7 +7502,7 @@ post_network_change_when_ready()
     }
 
     // set (and log?) the post time
-    if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
+    {
 	struct timeval  elapsed;
 	struct timeval  end;
 
@@ -7252,7 +7512,7 @@ post_network_change_when_ready()
 #define	QUERY_TIME__FMT	"%ld.%6.6d"
 #define	QUERY_TIME__DIV	1
 
-	my_log(LOG_DEBUG,
+	my_log(LOG_INFO,
 	       "Post \"" _SC_NOTIFY_NETWORK_CHANGE "\" (%s: " QUERY_TIME__FMT ": 0x%x)",
 	       S_network_change_timeout ? "timeout" : "delayed",
 	       elapsed.tv_sec,
@@ -7264,7 +7524,7 @@ post_network_change_when_ready()
 	status = notify_post(_SC_NOTIFY_NETWORK_CHANGE_NWI);
 	if (status != NOTIFY_STATUS_OK) {
 	    my_log(LOG_ERR,
-		   "IPMonitor: notify_post(" _SC_NOTIFY_NETWORK_CHANGE_NWI ") failed: error=%d", status);
+		   "notify_post(" _SC_NOTIFY_NETWORK_CHANGE_NWI ") failed: error=%d", status);
 	}
     }
 
@@ -7272,7 +7532,7 @@ post_network_change_when_ready()
 	status = notify_post(_SC_NOTIFY_NETWORK_CHANGE_DNS);
 	if (status != NOTIFY_STATUS_OK) {
 	    my_log(LOG_ERR,
-		   "IPMonitor: notify_post(" _SC_NOTIFY_NETWORK_CHANGE_DNS ") failed: error=%d", status);
+		   "notify_post(" _SC_NOTIFY_NETWORK_CHANGE_DNS ") failed: error=%d", status);
 	}
     }
 
@@ -7280,14 +7540,14 @@ post_network_change_when_ready()
 	status = notify_post(_SC_NOTIFY_NETWORK_CHANGE_PROXY);
 	if (status != NOTIFY_STATUS_OK) {
 	    my_log(LOG_ERR,
-		   "IPMonitor: notify_post(" _SC_NOTIFY_NETWORK_CHANGE_PROXY ") failed: error=%d", status);
+		   "notify_post(" _SC_NOTIFY_NETWORK_CHANGE_PROXY ") failed: error=%d", status);
 	}
     }
 
     status = notify_post(_SC_NOTIFY_NETWORK_CHANGE);
     if (status != NOTIFY_STATUS_OK) {
 	my_log(LOG_ERR,
-	       "IPMonitor: notify_post(" _SC_NOTIFY_NETWORK_CHANGE ") failed: error=%d", status);
+	       "notify_post(" _SC_NOTIFY_NETWORK_CHANGE ") failed: error=%d", status);
     }
 
     S_network_change_needed = 0;
@@ -7323,8 +7583,15 @@ post_network_change(uint32_t change)
 							0,
 							__network_change_queue());
 	dispatch_source_set_event_handler(S_network_change_timer, ^{
+	    os_activity_t   activity_id;
+
+	    activity_id = os_activity_start("posting delayed network change",
+					    OS_ACTIVITY_FLAG_DEFAULT);
+
 	    S_network_change_timeout = TRUE;
 	    post_network_change_when_ready();
+
+	    os_activity_end(activity_id);
 	});
 	dispatch_source_set_timer(S_network_change_timer,
 				  dispatch_time(DISPATCH_TIME_NOW,
@@ -7356,9 +7623,8 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
     CFIndex		i;
     keyChangeList	keys;
     CFIndex		n;
-    CFStringRef		network_change_msg	= NULL;
+    CFMutableStringRef	network_change_msg	= NULL;
     int			n_services;
-    int			n_service_order		= 0;
     nwi_state_t		old_nwi_state		= NULL;
     CFDictionaryRef	old_primary_dns		= NULL;
     CFDictionaryRef	old_primary_proxy	= NULL;
@@ -7381,7 +7647,7 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	count = CFArrayGetCount(changed_keys);
 	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
 	    my_log(LOG_DEBUG,
-		   "IPMonitor: changed keys %@ (%ld)", changed_keys, count);
+		   "changed keys %@ (%ld)", changed_keys, count);
 	}
     }
     if (if_rank_changes == NULL && count == 0) {
@@ -7472,9 +7738,8 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	for (i = 0; i < n; i++) {
 	    CFStringRef ifname = CFArrayGetValueAtIndex(if_rank_changes, i);
 
-	    if (S_IPMonitor_debug & kDebugFlag1) {
-		my_log(LOG_DEBUG, "Interface rank changed %@",
-		       ifname);
+	    if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
+		my_log(LOG_DEBUG, "Interface rank changed %@", ifname);
 	    }
 	    append_serviceIDs_for_interface(service_changes, ifname);
 	}
@@ -7484,10 +7749,8 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
     services_info = services_info_copy(session, service_changes);
     service_order = service_order_get(services_info);
     if (service_order != NULL) {
-	n_service_order = (int)CFArrayGetCount(service_order);
 	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-	    my_log(LOG_DEBUG,
-		   "IPMonitor: service_order %@ ", service_order);
+	    my_log(LOG_DEBUG, "service_order %@ ", service_order);
 	}
     }
 
@@ -7540,7 +7803,7 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 
     /* ensure S_nwi_state can hold as many services as we have currently */
     n_services = (int)CFDictionaryGetCount(S_service_state_dict);
-    old_nwi_state = nwi_state_copy_priv(S_nwi_state);
+    old_nwi_state = nwi_state_make_copy(S_nwi_state);
     S_nwi_state = nwi_state_new(S_nwi_state, n_services);
 
     if (global_ipv4_changed) {
@@ -7548,30 +7811,33 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	    ElectionResultsRelease(S_ipv4_results);
 	}
 	S_ipv4_results
-	    = ElectionResultsCopy(AF_INET, service_order, n_service_order);
-	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-	    ElectionResultsLog(LOG_DEBUG, S_ipv4_results, "IPv4");
-	}
+	    = ElectionResultsCopy(AF_INET, service_order);
+	ElectionResultsLog(LOG_INFO, S_ipv4_results, "IPv4");
     }
     if (global_ipv6_changed) {
 	if (S_ipv6_results != NULL) {
 	    ElectionResultsRelease(S_ipv6_results);
 	}
 	S_ipv6_results
-	    = ElectionResultsCopy(AF_INET6, service_order, n_service_order);
-	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-	    ElectionResultsLog(LOG_DEBUG, S_ipv6_results, "IPv6");
-	}
+	    = ElectionResultsCopy(AF_INET6, service_order);
+	ElectionResultsLog(LOG_INFO, S_ipv6_results, "IPv6");
     }
     if (global_ipv4_changed || global_ipv6_changed || dnsinfo_changed) {
-	CFStringRef		new_primary;
-	RouteListUnion		new_routelist;
+	CFStringRef	new_primary;
+	CFStringRef	new_primary_dns	    = NULL;
+	CFStringRef	new_primary_proxies = NULL;
+#if	!TARGET_OS_IPHONE
+	CFStringRef	new_primary_smb	    = NULL;
+#endif	/* !TARGET_OS_IPHONE */
+	RouteListUnion	new_routelist;
+
+	if (S_nwi_state != NULL) {
+	    nwi_state_clear(S_nwi_state, AF_INET);
+	    nwi_state_clear(S_nwi_state, AF_INET6);
+	}
 
 	/* IPv4 */
-	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-	    my_log(LOG_DEBUG,
-		   "IPMonitor: electing IPv4 primary");
-	}
+	my_log(LOG_DEBUG, "electing IPv4 primary");
 	new_routelist.ptr = NULL;
 	new_primary = ElectionResultsCopyPrimary(S_ipv4_results,
 						 S_ipv6_results,
@@ -7583,10 +7849,7 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	my_CFRelease(&new_primary);
 
 	/* IPv6 */
-	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
-	    my_log(LOG_DEBUG,
-		   "IPMonitor: electing IPv6 primary");
-	}
+	my_log(LOG_DEBUG, "electing IPv6 primary");
 	new_routelist.ptr = NULL;
 	new_primary = ElectionResultsCopyPrimary(S_ipv6_results,
 						 S_ipv4_results,
@@ -7596,14 +7859,8 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	(void)set_new_primary(&S_primary_ipv6, new_primary, "IPv6");
 	update_ipv6(S_primary_ipv6, new_routelist.v6, &keys);
 	my_CFRelease(&new_primary);
-    }
 
-    if (global_ipv4_changed || global_ipv6_changed) {
-	CFStringRef	new_primary_dns	    = NULL;
-	CFStringRef	new_primary_proxies = NULL;
-#if	!TARGET_OS_IPHONE
-	CFStringRef	new_primary_smb	    = NULL;
-#endif	/* !TARGET_OS_IPHONE */
+	nwi_state_finalize(S_nwi_state);
 
 	if (S_primary_ipv4 != NULL && S_primary_ipv6 != NULL) {
 	    /* decide between IPv4 and IPv6 */
@@ -7747,21 +8004,22 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
     my_CFRelease(&services_info);
 
     if (changes != 0) {
-	network_change_msg =
-	    generate_log_changes(changes_state,
-				 dns_changed,
-				 dnsinfo_changed,
-				 old_primary_dns,
-				 proxies_changed,
-				 old_primary_proxy,
+	network_change_msg = CFStringCreateMutable(NULL, 0);
+	process_nwi_changes(network_change_msg,
+			    changes_state,
+			    dns_changed,
+			    dnsinfo_changed,
+			    old_primary_dns,
+			    proxies_changed,
+			    old_primary_proxy,
 #if	!TARGET_OS_IPHONE
-				 smb_changed,
-				 old_primary_smb
+			    smb_changed,
+			    old_primary_smb
 #else	// !TARGET_OS_IPHONE
-				 FALSE,		// smb_changed
-				 NULL		// old_primary_smb
+			    FALSE,		// smb_changed
+			    NULL		// old_primary_smb
 #endif	// !TARGET_OS_IPHONE
-				 );
+			    );
     }
 
     keyChangeListApplyToStore(&keys, session);
@@ -7781,18 +8039,18 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	&& (CFStringGetLength(network_change_msg) != 0)) {
 	my_log(LOG_NOTICE, "network changed:%@", network_change_msg);
     } else if (keyChangeListActive(&keys)) {
-	my_log(LOG_NOTICE, "network changed.");
+	my_log(LOG_NOTICE, "network changed");
     } else {
-	my_log(LOG_DEBUG, "network event w/no changes");
+	my_log(LOG_INFO, "network event w/no changes");
     }
 
     my_CFRelease(&network_change_msg);
 
     if (changes_state != NULL) {
-	nwi_state_release(changes_state);
+	nwi_state_free(changes_state);
     }
     if (old_nwi_state != NULL) {
-	nwi_state_release(old_nwi_state);
+	nwi_state_free(old_nwi_state);
     }
     keyChangeListFree(&keys);
 
@@ -7827,7 +8085,7 @@ watch_proxies()
 			     ^{
 				 SCDynamicStoreNotifyValue(NULL, S_state_global_proxies);
 				 notify_post(_SC_NOTIFY_NETWORK_CHANGE_PROXY);
-				 my_log(LOG_DEBUG, "IPMonitor: Notifying:\n%@",
+				 my_log(LOG_INFO, "Notifying:\n%@",
 					S_state_global_proxies);
 			     });
     return;
@@ -7848,9 +8106,9 @@ prefs_changed(__unused SCPreferencesRef prefs)
 	S_IPMonitor_debug = kDebugFlagDefault;
 	S_IPMonitor_verbose = TRUE;
 	SCLoggerSetFlags(S_IPMonitor_logger, kSCLoggerFlagsFile | kSCLoggerFlagsDefault);
-	my_log(LOG_DEBUG, "IPMonitor: Setting logging verbose mode on.");
+	my_log(LOG_DEBUG, "Setting logging verbose mode on");
     } else {
-	my_log(LOG_DEBUG, "IPMonitor: Setting logging verbose mode off.");
+	my_log(LOG_DEBUG, "Setting logging verbose mode off");
 	S_IPMonitor_debug = 0;
 	S_IPMonitor_verbose = FALSE;
 	SCLoggerSetFlags(S_IPMonitor_logger, kSCLoggerFlagsDefault);
@@ -7862,9 +8120,6 @@ prefs_changed(__unused SCPreferencesRef prefs)
 static void
 my_log_init()
 {
-    if (S_IPMonitor_logger != NULL) {
-	return;
-    }
     S_IPMonitor_logger = SCLoggerCreate(LOGGER_ID);
     return;
 
@@ -7918,26 +8173,26 @@ flush_routes(int s)
 	addr = ntohl(sin->sin_addr.s_addr);
 	if (IN_LOOPBACK(addr)) {
 	    my_log(LOG_DEBUG,
-		   "IPMonitor: flush_routes: ignoring loopback route");
+		   "flush_routes: ignoring loopback route");
 	    continue;
 	}
 	if (IN_LOCAL_GROUP(addr)) {
 	    my_log(LOG_DEBUG,
-		   "IPMonitor: flush_routes: ignoring multicast route");
+		   "flush_routes: ignoring multicast route");
 	    continue;
 	}
 	rtm->rtm_type = RTM_DELETE;
 	rtm->rtm_seq = ++rtm_seq;
 	if (write(s, rtm, rtm->rtm_msglen) < 0) {
-	    my_log(LOG_DEBUG,
-		   "IPMonitor: flush_routes: removing route for "
-		   IP_FORMAT " failed, %s",
+	    my_log(LOG_NOTICE,
+		   "flush_routes: removing route for "
+		   IP_FORMAT " failed: %s",
 		   IP_LIST(&sin->sin_addr),
 		   strerror(errno));
 	}
 	else {
 	    my_log(LOG_DEBUG,
-		   "IPMonitor: flush_routes: removed route for " IP_FORMAT,
+		   "flush_routes: removed route for " IP_FORMAT,
 		   IP_LIST(&sin->sin_addr));
 	}
     }
@@ -8091,17 +8346,15 @@ ip_plugin_init()
 
     if (!SCDynamicStoreSetNotificationKeys(S_session, keys, patterns)) {
 	my_log(LOG_ERR,
-	       "IPMonitor ip_plugin_init "
-	       "SCDynamicStoreSetNotificationKeys failed: %s",
-	      SCErrorString(SCError()));
+	       "SCDynamicStoreSetNotificationKeys() failed: %s",
+	       SCErrorString(SCError()));
 	goto done;
     }
 
     rls = SCDynamicStoreCreateRunLoopSource(NULL, S_session, 0);
     if (rls == NULL) {
 	my_log(LOG_ERR,
-	       "IPMonitor ip_plugin_init "
-	       "SCDynamicStoreCreateRunLoopSource failed: %s",
+	       "SCDynamicStoreCreateRunLoopSource() failed: %s",
 	       SCErrorString(SCError()));
 	goto done;
     }
@@ -8158,8 +8411,12 @@ S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key,
 static void
 InterfaceRankChanged(void * info)
 {
+    os_activity_t	activity_id;
     CFDictionaryRef 	assertions = NULL;
     CFArrayRef		changes;
+
+    activity_id = os_activity_start("processing IPMonitor [rank] change",
+				    OS_ACTIVITY_FLAG_DEFAULT);
 
     changes = IPMonitorControlServerCopyInterfaceRankInformation(&assertions);
     if (S_if_rank_dict != NULL) {
@@ -8170,6 +8427,9 @@ InterfaceRankChanged(void * info)
 	IPMonitorProcessChanges(S_session, NULL, changes);
 	CFRelease(changes);
     }
+
+    os_activity_end(activity_id);
+
     return;
 }
 
@@ -8212,7 +8472,7 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
     }
     if (bundleVerbose) {
 	S_IPMonitor_debug = kDebugFlagDefault;
-	S_bundle_logging_verbose = bundleVerbose;
+	S_bundle_logging_verbose = TRUE;
 	S_IPMonitor_verbose = TRUE;
     }
 
@@ -8222,17 +8482,15 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
     IPMonitorControlPrefsInit(CFRunLoopGetCurrent(), prefs_changed);
     prefs_changed(NULL);
 
-
     load_DNSConfiguration(bundle,			// bundle
 			  S_IPMonitor_logger,		// SCLogger
-			  &S_bundle_logging_verbose,	// bundleVerbose
 			  ^(Boolean inSync) {		// syncHandler
 			      dispatch_async(__network_change_queue(), ^{
 				  S_dnsinfo_synced = inSync;
 
 				  if (inSync &&
 				      ((S_network_change_needed & NETWORK_CHANGE_DNS) == 0)) {
-				      // all of the mDNSResponder ack's should result
+				      // all of the DNS service ack's should result
 				      // in a [new] network change being posted
 				      post_network_change(NETWORK_CHANGE_DNS);
 				  } else {
@@ -8243,7 +8501,6 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 
     load_NetworkInformation(bundle,			// bundle
 			    S_IPMonitor_logger,		// SCLogger
-			    &S_bundle_logging_verbose,	// bundleVerbose
 			    ^(Boolean inSync) {		// syncHandler
 				dispatch_async(__network_change_queue(), ^{
 				    S_nwi_synced = inSync;
@@ -8267,11 +8524,11 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 #endif	/* !TARGET_OS_IPHONE */
 
 #if	!TARGET_IPHONE_SIMULATOR
-    load_hostname((S_IPMonitor_debug & kDebugFlag1) != 0);
+    load_hostname(TRUE);
 #endif	/* !TARGET_IPHONE_SIMULATOR */
 
 #if	!TARGET_OS_IPHONE
-    load_smb_configuration((S_IPMonitor_debug & kDebugFlag1) != 0);
+    load_smb_configuration(TRUE);
 #endif	/* !TARGET_OS_IPHONE */
 
     return;
@@ -8937,7 +9194,7 @@ make_IPv4RouteList_for_test(IPv4RouteListRef list,
 	CFStringRef	descr;
 
 	descr = IPv4RouteListCopyDescription(r);
-	SCLog(TRUE, LOG_NOTICE, CFSTR("Adding %@"), descr);
+	SCPrint(TRUE, stdout, CFSTR("Adding %@"), descr);
 	CFRelease(descr);
     }
     ret = IPv4RouteListAddRouteList(list, 1, r, rank);
@@ -9606,7 +9863,7 @@ make_IPv6RouteList_for_test(IPv6RouteListRef list,
 	CFStringRef	descr;
 
 	descr = IPv6RouteListCopyDescription(r);
-	SCLog(TRUE, LOG_NOTICE, CFSTR("Adding %@"), descr);
+	SCPrint(TRUE, stdout, CFSTR("Adding %@"), descr);
 	CFRelease(descr);
     }
     ret = IPv6RouteListAddRouteList(list, 1, r, rank);

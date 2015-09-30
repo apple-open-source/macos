@@ -64,7 +64,7 @@ static BackForwardListMap& backForwardLists()
     return staticBackForwardLists;
 }
 
-@implementation WebBackForwardList (WebBackForwardListInternal)
+@implementation WebBackForwardList
 
 BackForwardList* core(WebBackForwardList *webBackForwardList)
 {
@@ -96,10 +96,6 @@ WebBackForwardList *kit(BackForwardList* backForwardList)
     backForwardLists().set(core(self), self);
     return self;
 }
-
-@end
-
-@implementation WebBackForwardList
 
 + (void)initialize
 {
@@ -153,7 +149,8 @@ WebBackForwardList *kit(BackForwardList* backForwardList)
 
 - (void)addItem:(WebHistoryItem *)entry
 {
-    core(self)->addItem(core(entry));
+    ASSERT(entry);
+    core(self)->addItem(*core(entry));
     
     // Since the assumed contract with WebBackForwardList is that it retains its WebHistoryItems,
     // the following line prevents a whole class of problems where a history item will be created in
@@ -178,11 +175,11 @@ WebBackForwardList *kit(BackForwardList* backForwardList)
 {
     BackForwardList *coreBFList = core(self);
     
-    HistoryItemVector historyItems = coreBFList->entries();
+    HistoryItemVector& historyItems = coreBFList->entries();
     unsigned size = historyItems.size();
     NSMutableArray *entriesArray = [[NSMutableArray alloc] initWithCapacity:size];
     for (unsigned i = 0; i < size; ++i)
-        [entriesArray addObject:[kit(historyItems[i].get()) dictionaryRepresentationIncludingChildren:NO]];
+        [entriesArray addObject:[kit(historyItems[i].ptr()) dictionaryRepresentationIncludingChildren:NO]];
     
     NSDictionary *dictionary = [NSDictionary dictionaryWithObjectsAndKeys:
         entriesArray, WebBackForwardListDictionaryEntriesKey,
@@ -203,7 +200,7 @@ WebBackForwardList *kit(BackForwardList* backForwardList)
     
     for (NSDictionary *itemDictionary in [dictionary objectForKey:WebBackForwardListDictionaryEntriesKey]) {
         WebHistoryItem *item = [[WebHistoryItem alloc] initFromDictionaryRepresentation:itemDictionary];
-        coreBFList->addItem(core(item));
+        coreBFList->addItem(*core(item));
         [item release];
     }
 
@@ -255,7 +252,7 @@ static NSArray* vectorToNSArray(HistoryItemVector& list)
     unsigned size = list.size();
     NSMutableArray *result = [[[NSMutableArray alloc] initWithCapacity:size] autorelease];
     for (unsigned i = 0; i < size; ++i)
-        [result addObject:kit(list[i].get())];
+        [result addObject:kit(list[i].ptr())];
 
     return result;
 }
@@ -327,14 +324,14 @@ static bool bumperCarBackForwardHackNeeded()
     
     unsigned size = entries.size();
     for (unsigned i = 0; i < size; ++i) {
-        if (entries[i] == backForwardList->currentItem()) {
+        if (entries[i].ptr() == backForwardList->currentItem()) {
             [result appendString:@" >>>"]; 
         } else {
             [result appendString:@"    "]; 
         }   
         [result appendFormat:@"%2d) ", i];
         int currPos = [result length];
-        [result appendString:[kit(entries[i].get()) description]];
+        [result appendString:[kit(entries[i].ptr()) description]];
 
         // shift all the contents over.  a bit slow, but this is for debugging
         NSRange replRange = { static_cast<NSUInteger>(currPos), [result length] - currPos };
@@ -355,7 +352,7 @@ static bool bumperCarBackForwardHackNeeded()
 
 - (NSUInteger)pageCacheSize
 {
-    return [kit(core(self)->page()) usesPageCache] ? pageCache()->capacity() : 0;
+    return [kit(core(self)->page()) usesPageCache] ? PageCache::singleton().maxSize() : 0;
 }
 
 - (int)backListCount

@@ -28,7 +28,7 @@
 
 #include "EditingBoundary.h"
 #include "Position.h"
-#include "TextDirection.h"
+#include "TextFlags.h"
 #include <wtf/Forward.h>
 #include <wtf/unicode/CharacterNames.h>
 
@@ -41,6 +41,7 @@ class HTMLTextFormControlElement;
 class Node;
 class Position;
 class Range;
+class RenderBlock;
 class VisiblePosition;
 class VisibleSelection;
 
@@ -78,11 +79,14 @@ Node* previousLeafNode(const Node*);
 
 // offset functions on Node
 
-int lastOffsetForEditing(const Node*);
+WEBCORE_EXPORT int lastOffsetForEditing(const Node*);
 int caretMinOffset(const Node*);
 int caretMaxOffset(const Node*);
 
 // boolean functions on Node
+
+bool hasEditableStyle(const Node&, EditableType);
+bool isEditableNode(const Node&);
 
 // FIXME: editingIgnoresContent, canHaveChildrenForEditing, and isAtomicNode
 // should be renamed to reflect its usage.
@@ -119,7 +123,12 @@ bool isRenderedAsNonInlineTableImageOrHR(const Node*);
 bool areIdenticalElements(const Node*, const Node*);
 bool isNonTableCellHTMLBlockElement(const Node*);
 
-TextDirection directionOfEnclosingBlock(const Position&);
+inline bool positionBeforeOrAfterNodeIsCandidate(Node* node)
+{
+    return isRenderedTable(node) || editingIgnoresContent(node);
+}
+
+WEBCORE_EXPORT TextDirection directionOfEnclosingBlock(const Position&);
 
 // -------------------------------------------------------------------------
 // Position
@@ -158,9 +167,8 @@ int comparePositions(const Position&, const Position&);
 
 // boolean functions on Position
 
-enum EUpdateStyle { UpdateStyle, DoNotUpdateStyle };
-bool isEditablePosition(const Position&, EditableType = ContentIsEditable, EUpdateStyle = UpdateStyle);
-bool isRichlyEditablePosition(const Position&, EditableType = ContentIsEditable);
+WEBCORE_EXPORT bool isEditablePosition(const Position&, EditableType = ContentIsEditable);
+bool isRichlyEditablePosition(const Position&);
 bool isFirstVisiblePositionInSpecialElement(const Position&);
 bool isLastVisiblePositionInSpecialElement(const Position&);
 bool lineBreakExistsAtPosition(const Position&);
@@ -170,7 +178,7 @@ bool isAtUnsplittableElement(const Position&);
 // miscellaneous functions on Position
 
 unsigned numEnclosingMailBlockquotes(const Position&);
-void updatePositionForNodeRemoval(Position&, Node*);
+void updatePositionForNodeRemoval(Position&, Node&);
 
 // -------------------------------------------------------------------------
 // VisiblePosition
@@ -198,13 +206,13 @@ VisiblePosition visiblePositionForIndexUsingCharacterIterator(Node*, int index);
     
 // Functions returning HTMLElement
     
-PassRefPtr<HTMLElement> createDefaultParagraphElement(Document&);
+WEBCORE_EXPORT PassRefPtr<HTMLElement> createDefaultParagraphElement(Document&);
 PassRefPtr<HTMLElement> createBreakElement(Document&);
 PassRefPtr<HTMLElement> createOrderedListElement(Document&);
 PassRefPtr<HTMLElement> createUnorderedListElement(Document&);
 PassRefPtr<HTMLElement> createListItemElement(Document&);
-PassRefPtr<HTMLElement> createHTMLElement(Document&, const QualifiedName&);
-PassRefPtr<HTMLElement> createHTMLElement(Document&, const AtomicString&);
+Ref<HTMLElement> createHTMLElement(Document&, const QualifiedName&);
+Ref<HTMLElement> createHTMLElement(Document&, const AtomicString&);
 
 HTMLElement* enclosingList(Node*);
 HTMLElement* outermostEnclosingList(Node*, Node* rootList = 0);
@@ -259,9 +267,9 @@ const String& nonBreakingSpaceString();
 
 // Miscellaaneous functions that for caret rendering
 
-RenderObject* rendererForCaretPainting(Node*);
-LayoutRect localCaretRectInRendererForCaretPainting(const VisiblePosition&, RenderObject*&);
-IntRect absoluteBoundsForLocalCaretRect(RenderObject* rendererForCaretPainting, const LayoutRect&);
+RenderBlock* rendererForCaretPainting(Node*);
+LayoutRect localCaretRectInRendererForCaretPainting(const VisiblePosition&, RenderBlock*&);
+IntRect absoluteBoundsForLocalCaretRect(RenderBlock* rendererForCaretPainting, const LayoutRect&);
 
 }
 

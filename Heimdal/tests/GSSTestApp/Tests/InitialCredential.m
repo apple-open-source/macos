@@ -6,28 +6,52 @@
 //  Copyright (c) 2013 Apple, Inc. All rights reserved.
 //
 
-#import "InitialCredential.h"
+#import "FakeXCTest.h"
+#import "XCTestCase+GSS.h"
 #import "TestUsers.h"
+
+@interface InitialCredential : XCTestCase
+
+@end
 
 @implementation InitialCredential
 
 - (void)testAcquireQAD {
     gss_cred_id_t cred = NULL;
     
-    [self STCDestroyCredential:GSS_C_NO_OID];
-    
-    cred = [self STCAcquireCredential:@"ktestuser@QAD.APPLE.COM" withPassword:passwordKtestuserQAD mech:GSS_KRB5_MECHANISM];
-    STAssertTrue(cred, @"Failed to acquire credential from QAD");
+    [self XTCDestroyCredential:GSS_C_NO_OID];
+
+    NSDictionary *options = @{
+        (id)kGSSICPassword : passwordKtestuserQAD
+    };
+
+    cred = [self XTCAcquireCredential:@"ktestuser@QAD.APPLE.COM" withOptions:options mech:GSS_KRB5_MECHANISM];
+    XCTAssertTrue(cred, @"Failed to acquire credential from QAD");
     if (cred == NULL)
         return;
+
+    {
+	OM_uint32 maj_stat, min_stat;
+	gss_cred_id_t cred2 = NULL;
+	gss_buffer_desc buffer;
+
+	maj_stat = gss_export_cred(&min_stat, cred, &buffer);
+	XCTAssertTrue (maj_stat == GSS_S_COMPLETE, @"GSS export failed");
+
+	maj_stat = gss_import_cred(&min_stat, &buffer, &cred2);
+	XCTAssertTrue (maj_stat == GSS_S_COMPLETE, @"GSS import failed");
+
+	gss_release_buffer(&min_stat, &buffer);
+	if (cred2)
+	    CFRelease(cred2);
+    }
 
     CFRelease(cred);
 }
 
-
 #if TARGET_OS_IPHONE
 - (void)testAcquireWithSpecificName {
-    [self STCDestroyCredential:GSS_C_NO_OID];
+    [self XTCDestroyCredential:GSS_C_NO_OID];
 
     OM_uint32 maj_stat;
     gss_name_t gname = GSS_C_NO_NAME;
@@ -36,9 +60,9 @@
     
     
     gname = GSSCreateName(@"ktestuser@QAD.APPLE.COM", GSS_C_NT_USER_NAME, &error);
-    STAssertTrue(gname, @"failed to create name");
+    XCTAssertTrue(gname, @"failed to create name");
     if (gname == NULL) {
-        [self STCOutput:@"GSSCreateName error: %@", error];
+        [self XCTOutput:@"GSSCreateName error: %@", error];
         return;
     }
     
@@ -52,24 +76,27 @@
     
     maj_stat = gss_aapl_initial_cred(gname, GSS_KRB5_MECHANISM, (__bridge CFDictionaryRef)attrs, &cred, &error);
     CFRelease(gname);
-    STAssertTrue(maj_stat == 0, @"failed to acquire cred");
+    XCTAssertTrue(maj_stat == 0, @"failed to acquire cred");
     if (maj_stat) {
-        [self STCOutput:@"error: %d %@", (int)maj_stat, error];
+        [self XCTOutput:@"error: %d %@", (int)maj_stat, error];
         return;
     }
     
     CFUUIDRef creduuid = GSSCredentialCopyUUID(cred);
+
+    XCTAssert(creduuid, @"No credential uuid for %@", cred);
     
-    STAssertTrue(CFEqual(creduuid, uuid), @"credential uuid not the same after acquire");
+    XCTAssertTrue(creduuid && CFEqual(creduuid, uuid), @"credential uuid not the same after acquire");
     
     CFRelease(cred);
-    CFRelease(creduuid);
+    if (creduuid)
+        CFRelease(creduuid);
     CFRelease(uuid);
 }
 #endif
 
 - (void)testAcquireCaseInsensitive {
-    [self STCDestroyCredential:GSS_C_NO_OID];
+    [self XTCDestroyCredential:GSS_C_NO_OID];
     
     OM_uint32 maj_stat;
     gss_name_t gname = GSS_C_NO_NAME;
@@ -78,7 +105,7 @@
     
     
     gname = GSSCreateName(@"ktestuser@qad.apple.com", GSS_C_NT_USER_NAME, NULL);
-    STAssertTrue(gname, @"failed to create name");
+    XCTAssertTrue(gname, @"failed to create name");
     if (gname == NULL)
         return;
     
@@ -89,9 +116,9 @@
     
     maj_stat = gss_aapl_initial_cred(gname, GSS_KRB5_MECHANISM, (__bridge CFDictionaryRef)attrs, &cred, &error);
     CFRelease(gname);
-    STAssertTrue(maj_stat == 0, @"failed to acquire cred");
+    XCTAssertTrue(maj_stat == 0, @"failed to acquire cred");
     if (maj_stat) {
-        [self STCOutput:@"error: %d %@", (int)maj_stat, error];
+        [self XCTOutput:@"error: %d %@", (int)maj_stat, error];
         return;
     }
     
@@ -103,14 +130,18 @@
 - (void)testAcquireQAD_ISC_HTTP {
     gss_cred_id_t cred = NULL;
     
-    [self STCDestroyCredential:GSS_C_NO_OID];
-    
-    cred = [self STCAcquireCredential:@"ktestuser@QAD.APPLE.COM" withPassword:passwordKtestuserQAD mech:GSS_KRB5_MECHANISM];
-    STAssertTrue(cred, @"Failed to acquire credential from QAD");
+    [self XTCDestroyCredential:GSS_C_NO_OID];
+
+    NSDictionary *options = @{
+        (id)kGSSICPassword : passwordKtestuserQAD
+    };
+
+    cred = [self XTCAcquireCredential:@"ktestuser@QAD.APPLE.COM" withOptions:options mech:GSS_KRB5_MECHANISM];
+    XCTAssertTrue(cred, @"Failed to acquire credential from QAD");
     if (cred == NULL)
         return;
     
-    STAssertTrue([self STCAuthenticate:cred nameType:GSS_C_NT_HOSTBASED_SERVICE toServer:@"HTTP@dc01qad.qad.apple.com"],
+    XCTAssertTrue([self STCAuthenticate:cred nameType:GSS_C_NT_HOSTBASED_SERVICE toServer:@"HTTP@dc01qad.qad.apple.com"],
                  @"Failed to get HTTP/dc01.qad.apple.com credentials");
     
     CFRelease(cred);

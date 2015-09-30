@@ -35,17 +35,18 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/text/WTFString.h>
 
-#if USE(CONTENT_FILTERING)
-#include <WebCore/ContentFilter.h>
+#if ENABLE(CONTENT_FILTERING)
+#include <WebCore/ContentFilterUnblockHandler.h>
 #endif
+
+namespace API {
+class Navigation;
+}
+
 
 namespace IPC {
     class ArgumentDecoder;
     class Connection;
-}
-
-namespace WebCore {
-class CertificateInfo;
 }
 
 namespace WebKit {
@@ -68,7 +69,7 @@ public:
     uint64_t frameID() const { return m_frameID; }
     WebPageProxy* page() const { return m_page; }
 
-    void disconnect();
+    void webProcessWillShutDown();
 
     bool isMainFrame() const;
 
@@ -80,13 +81,14 @@ public:
     void loadURL(const String&);
     void stopLoading() const;
 
-    const String& url() const { return m_frameLoadState.m_url; }
-    const String& provisionalURL() const { return m_frameLoadState.m_provisionalURL; }
+    const String& url() const { return m_frameLoadState.url(); }
+    const String& provisionalURL() const { return m_frameLoadState.provisionalURL(); }
 
     void setUnreachableURL(const String&);
-    const String& unreachableURL() const { return m_frameLoadState.m_unreachableURL; }
+    const String& unreachableURL() const { return m_frameLoadState.unreachableURL(); }
 
     const String& mimeType() const { return m_MIMEType; }
+    bool containsPluginDocument() const { return m_containsPluginDocument; }
 
     const String& title() const { return m_title; }
 
@@ -96,6 +98,7 @@ public:
     bool canShowMIMEType(const String& mimeType) const;
 
     bool isDisplayingStandaloneImageDocument() const;
+    bool isDisplayingStandaloneMediaDocument() const;
     bool isDisplayingMarkupDocument() const;
     bool isDisplayingPDFDocument() const;
 
@@ -106,20 +109,20 @@ public:
     void didStartProvisionalLoad(const String& url);
     void didReceiveServerRedirectForProvisionalLoad(const String& url);
     void didFailProvisionalLoad();
-    void didCommitLoad(const String& contentType, const WebCore::CertificateInfo&);
+    void didCommitLoad(const String& contentType, WebCertificateInfo&, bool containsPluginDocument);
     void didFinishLoad();
     void didFailLoad();
     void didSameDocumentNavigation(const String&); // eg. anchor navigation, session state change.
     void didChangeTitle(const String&);
 
     // Policy operations.
-    void receivedPolicyDecision(WebCore::PolicyAction, uint64_t listenerID, uint64_t navigationID = 0);
-    WebFramePolicyListenerProxy* setUpPolicyListenerProxy(uint64_t listenerID);
-    WebFormSubmissionListenerProxy* setUpFormSubmissionListenerProxy(uint64_t listenerID);
+    void receivedPolicyDecision(WebCore::PolicyAction, uint64_t listenerID, API::Navigation* = nullptr);
+    WebFramePolicyListenerProxy& setUpPolicyListenerProxy(uint64_t listenerID);
+    WebFormSubmissionListenerProxy& setUpFormSubmissionListenerProxy(uint64_t listenerID);
 
-#if USE(CONTENT_FILTERING)
-    void setContentFilterForBlockedLoad(std::unique_ptr<WebCore::ContentFilter> contentFilter) { m_contentFilterForBlockedLoad = WTF::move(contentFilter); }
-    bool contentFilterDidHandleNavigationAction(const WebCore::ResourceRequest&);
+#if ENABLE(CONTENT_FILTERING)
+    void contentFilterDidBlockLoad(WebCore::ContentFilterUnblockHandler contentFilterUnblockHandler) { m_contentFilterUnblockHandler = WTF::move(contentFilterUnblockHandler); }
+    bool didHandleContentFilterUnblockNavigation(const WebCore::ResourceRequest&);
 #endif
 
 private:
@@ -132,12 +135,13 @@ private:
     String m_MIMEType;
     String m_title;
     bool m_isFrameSet;
+    bool m_containsPluginDocument { false };
     RefPtr<WebCertificateInfo> m_certificateInfo;
     RefPtr<WebFrameListenerProxy> m_activeListener;
     uint64_t m_frameID;
 
-#if USE(CONTENT_FILTERING)
-    std::unique_ptr<WebCore::ContentFilter> m_contentFilterForBlockedLoad;
+#if ENABLE(CONTENT_FILTERING)
+    WebCore::ContentFilterUnblockHandler m_contentFilterUnblockHandler;
 #endif
 };
 

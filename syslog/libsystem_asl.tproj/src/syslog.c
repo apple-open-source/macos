@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -65,6 +65,8 @@
 #include <asl.h>
 #include <asl_msg.h>
 #include <asl_private.h>
+#include <os/trace.h>
+#include <os/log_private.h>
 
 #ifdef __STDC__
 #include <stdarg.h>
@@ -77,79 +79,150 @@ extern const char *asl_syslog_faciliy_num_to_name(int n);
 
 #ifdef BUILDING_VARIANT
 __private_extern__ pthread_mutex_t _sl_lock;
-__private_extern__ aslclient _sl_asl;
+__private_extern__ asl_object_t _sl_asl;
 __private_extern__ char *_sl_ident;
 __private_extern__ int _sl_fac;
 __private_extern__ int _sl_opts;
 __private_extern__ int _sl_mask;
 #else /* !BUILDING_VARIANT */
 __private_extern__ pthread_mutex_t _sl_lock = PTHREAD_MUTEX_INITIALIZER;
-__private_extern__ aslclient _sl_asl = NULL;
+__private_extern__ asl_object_t _sl_asl = NULL;
 __private_extern__ char *_sl_ident = NULL;
 __private_extern__ int _sl_fac = 0;
 __private_extern__ int _sl_opts = 0;
 __private_extern__ int _sl_mask = 0;
 #endif /* BUILDING_VARIANT */
 
-/*
- * syslog, vsyslog --
- *	print message on log file; output is intended for syslogd(8).
- */
-void
-#ifdef __STDC__
-syslog(int pri, const char *fmt, ...)
-#else
-syslog(pri, fmt, va_alist)
-	int pri;
-	char *fmt;
-	va_dcl
-#endif
+#define EVAL_ASL (EVAL_SEND_ASL | EVAL_TEXT_FILE | EVAL_ASL_FILE)
+
+static const uint8_t shim_syslog_to_trace_type[8] = {
+	OS_TRACE_TYPE_FAULT, OS_TRACE_TYPE_FAULT, OS_TRACE_TYPE_FAULT, // LOG_EMERG, LOG_ALERT, LOG_CRIT
+	OS_TRACE_TYPE_ERROR, // LOG_ERROR
+	OS_TRACE_TYPE_RELEASE, OS_TRACE_TYPE_RELEASE, OS_TRACE_TYPE_RELEASE, // LOG_WARN, LOG_NOTICE, LOG_INFO
+	OS_TRACE_TYPE_DEBUG // LOG_DEBUG
+};
+
+extern uint32_t _asl_evaluate_send(asl_object_t client, asl_object_t m, int slevel);
+extern uint32_t _asl_lib_vlog(asl_object_t obj, uint32_t eval, asl_object_t msg, const char *format, va_list ap);
+
+
+/* SHIM SPI */
+asl_object_t
+_syslog_asl_client()
 {
-	va_list ap;
-
-#ifdef __STDC__
-	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
-	vsyslog(pri, fmt, ap);
-	va_end(ap);
-}
-
-void
-vsyslog(int pri, const char *fmt, va_list ap)
-{
-	int fac;
-	asl_msg_t *facmsg;
-	const char *facility;
-
-	facmsg = NULL;
-	fac = pri & LOG_FACMASK;
-	if (fac != 0)
-	{
-		facility = asl_syslog_faciliy_num_to_name(fac);
-		if (facility != NULL)
-		{
-			facmsg = asl_msg_new(ASL_TYPE_MSG);
-			asl_msg_set_key_val(facmsg, ASL_KEY_FACILITY, facility);
-		}
-	}
-
 	pthread_mutex_lock(&_sl_lock);
-
-	/* open syslog ASL client if required */
 	if (_sl_asl == NULL)
 	{
 		_sl_asl = asl_open(NULL, NULL, ASL_OPT_SYSLOG_LEGACY);
 		_sl_mask = ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG);
 		asl_set_filter(_sl_asl, _sl_mask);
 	}
-
-	asl_vlog(_sl_asl, (aslmsg)facmsg, LOG_PRI(pri), fmt, ap);
-
 	pthread_mutex_unlock(&_sl_lock);
 
-	if (facmsg != NULL) asl_msg_release(facmsg);
+	return _sl_asl;
+}
+
+/*
+ * syslog, vsyslog --
+ *	print message on log file; output is intended for syslogd(8).
+ */
+
+void
+vsyslog(int pri, const char *fmt, va_list ap)
+{
+	int level = pri & LOG_PRIMASK;
+	uint32_t eval;
+ 
+	_syslog_asl_client();
+
+	eval = _asl_evaluate_send(_sl_asl, NULL, level);
+	
+	if (eval & EVAL_SEND_TRACE)
+	{
+		va_list ap_copy;
+		uint8_t trace_type = shim_syslog_to_trace_type[level];
+
+		va_copy(ap_copy, ap);
+		os_log_shim_with_va_list(__builtin_return_address(0), OS_LOG_DEFAULT, trace_type, fmt, ap_copy, NULL);
+		va_end(ap_copy);
+	}
+	
+	if (os_log_shim_legacy_logging_enabled() && (eval & EVAL_ASL))
+	{
+		asl_object_t msg = asl_new(ASL_TYPE_MSG);
+		const char *facility;
+		int fac = pri & LOG_FACMASK;
+		
+		if (fac != 0)
+		{
+			facility = asl_syslog_faciliy_num_to_name(fac);
+			if (facility != NULL) asl_set(msg, ASL_KEY_FACILITY, facility);
+		}
+		
+		if (eval & EVAL_SEND_TRACE) asl_set(msg, "ASLSHIM", "2");
+		
+		_asl_lib_vlog(_sl_asl, eval, msg, fmt, ap);
+		
+		asl_release(msg);
+	}
+}
+
+void
+#ifdef __STDC__
+syslog(int pri, const char *fmt, ...)
+#else
+syslog(pri, fmt, va_alist)
+int pri;
+char *fmt;
+va_dcl
+#endif
+{
+	int level = pri & LOG_PRIMASK;
+	uint32_t eval;
+ 
+	_syslog_asl_client();
+
+	eval = _asl_evaluate_send(_sl_asl, NULL, level);
+	
+	if (eval & EVAL_SEND_TRACE)
+	{
+		va_list ap;
+		uint8_t trace_type = shim_syslog_to_trace_type[level];
+		
+#ifdef __STDC__
+		va_start(ap, fmt);
+#else
+		va_start(ap);
+#endif
+		os_log_shim_with_va_list(__builtin_return_address(0), OS_LOG_DEFAULT, trace_type, fmt, ap, NULL);
+		va_end(ap);
+	}
+	
+	if (os_log_shim_legacy_logging_enabled() && (eval & EVAL_ASL))
+	{
+		va_list ap;
+		asl_object_t msg = asl_new(ASL_TYPE_MSG);
+		const char *facility;
+		int fac = pri & LOG_FACMASK;
+
+		if (fac != 0)
+		{
+			facility = asl_syslog_faciliy_num_to_name(fac);
+			if (facility != NULL) asl_set(msg, ASL_KEY_FACILITY, facility);
+		}
+	
+		if (eval & EVAL_SEND_TRACE) asl_set(msg, "ASLSHIM", "2");
+		
+#ifdef __STDC__
+		va_start(ap, fmt);
+#else
+		va_start(ap);
+#endif
+		_asl_lib_vlog(_sl_asl, eval, msg, fmt, ap);
+		va_end(ap);
+		
+		asl_release(msg);
+	}
 }
 
 #ifndef BUILDING_VARIANT
@@ -162,7 +235,7 @@ openlog(const char *ident, int opts, int logfac)
 
 	pthread_mutex_lock(&_sl_lock);
 
-	if (_sl_asl != NULL) asl_close(_sl_asl);
+	if (_sl_asl != NULL) asl_release(_sl_asl);
 	_sl_asl = NULL;
 
 	free(_sl_ident);

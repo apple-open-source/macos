@@ -47,19 +47,24 @@ class DocumentLoader;
 class Frame;
 class FrameLoader;
 class URL;
-class ResourceBuffer;
 
 #if USE(QUICK_LOOK)
 class QuickLookHandle;
+#endif
+
+#if ENABLE(CONTENT_EXTENSIONS)
+enum class ResourceType : uint16_t;
 #endif
 
 class ResourceLoader : public RefCounted<ResourceLoader>, protected ResourceHandleClient {
 public:
     virtual ~ResourceLoader() = 0;
 
-    void cancel();
+    WEBCORE_EXPORT void cancel();
 
     virtual bool init(const ResourceRequest&);
+
+    void deliverResponseAndData(const ResourceResponse&, RefPtr<SharedBuffer>&&);
 
 #if PLATFORM(IOS)
     virtual bool startLoading()
@@ -71,12 +76,13 @@ public:
     virtual const ResourceRequest& iOSOriginalRequest() const { return request(); }
 #endif
 
-    FrameLoader* frameLoader() const;
+    WEBCORE_EXPORT FrameLoader* frameLoader() const;
+    FrameLoader& dataProtocolFrameLoader() const;
     DocumentLoader* documentLoader() const { return m_documentLoader.get(); }
     const ResourceRequest& originalRequest() const { return m_originalRequest; }
     
-    void cancel(const ResourceError&);
-    ResourceError cancelledError();
+    WEBCORE_EXPORT void cancel(const ResourceError&);
+    WEBCORE_EXPORT ResourceError cancelledError();
     ResourceError blockedError();
     ResourceError cannotShowURLError();
     
@@ -88,12 +94,12 @@ public:
     virtual void releaseResources();
     const ResourceResponse& response() const;
 
-    ResourceBuffer* resourceData() const { return m_resourceData.get(); }
+    SharedBuffer* resourceData() const { return m_resourceData.get(); }
     void clearResourceData();
     
     virtual bool isSubresourceLoader();
-    
-    virtual void willSendRequest(ResourceRequest&, const ResourceResponse& redirectResponse);
+
+    virtual void willSendRequest(ResourceRequest&&, const ResourceResponse& redirectResponse, std::function<void(ResourceRequest&&)>&& callback);
     virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
     virtual void didReceiveResponse(const ResourceResponse&);
     virtual void didReceiveData(const char*, unsigned, long long encodedDataLength, DataPayloadType);
@@ -103,11 +109,10 @@ public:
 #if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
     virtual void didReceiveDataArray(CFArrayRef dataArray);
 #endif
-    void didChangePriority(ResourceLoadPriority);
 
     virtual bool shouldUseCredentialStorage();
     virtual void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
-    void didCancelAuthenticationChallenge(const AuthenticationChallenge&);
+    WEBCORE_EXPORT void didCancelAuthenticationChallenge(const AuthenticationChallenge&);
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     virtual bool canAuthenticateAgainstProtectionSpace(const ProtectionSpace&);
 #endif
@@ -116,15 +121,18 @@ public:
 #if USE(QUICK_LOOK)
     virtual void didCreateQuickLookHandle(QuickLookHandle&) override;
 #endif
+    bool isQuickLookResource() { return m_isQuickLookResource; }
 
     const URL& url() const { return m_request.url(); }
     ResourceHandle* handle() const { return m_handle.get(); }
     bool shouldSendResourceLoadCallbacks() const { return m_options.sendLoadCallbacks() == SendCallbacks; }
     void setSendCallbackPolicy(SendCallbackPolicy sendLoadCallbacks) { m_options.setSendLoadCallbacks(sendLoadCallbacks); }
     bool shouldSniffContent() const { return m_options.sniffContent() == SniffContent; }
-    ClientCredentialPolicy clientCredentialPolicy() const { return m_options.clientCredentialPolicy(); }
+    WEBCORE_EXPORT bool isAllowedToAskUserForCredentials() const;
+    bool shouldIncludeCertificateInfo() const { return m_options.certificateInfoPolicy() == IncludeCertificateInfo; }
 
     bool reachedTerminalState() const { return m_reachedTerminalState; }
+
 
     const ResourceRequest& request() const { return m_request; }
 
@@ -153,6 +161,15 @@ protected:
     void didReceiveDataOrBuffer(const char*, unsigned, PassRefPtr<SharedBuffer>, long long encodedDataLength, DataPayloadType);
 
     const ResourceLoaderOptions& options() { return m_options; }
+
+#if PLATFORM(COCOA) && !USE(CFNETWORK)
+    virtual NSCachedURLResponse* willCacheResponse(ResourceHandle*, NSCachedURLResponse*) override;
+#endif
+#if PLATFORM(COCOA) && USE(CFNETWORK)
+    virtual CFCachedURLResponseRef willCacheResponse(ResourceHandle*, CFCachedURLResponseRef) override;
+#endif
+
+    virtual void willSendRequestInternal(ResourceRequest&, const ResourceResponse& redirectResponse);
 
     RefPtr<ResourceHandle> m_handle;
     RefPtr<Frame> m_frame;
@@ -185,12 +202,6 @@ private:
     virtual bool canAuthenticateAgainstProtectionSpace(ResourceHandle*, const ProtectionSpace& protectionSpace) override { return canAuthenticateAgainstProtectionSpace(protectionSpace); }
 #endif
     virtual void receivedCancellation(ResourceHandle*, const AuthenticationChallenge& challenge) override { receivedCancellation(challenge); }
-#if PLATFORM(COCOA) && !USE(CFNETWORK)
-    virtual NSCachedURLResponse* willCacheResponse(ResourceHandle*, NSCachedURLResponse*) override;
-#endif
-#if PLATFORM(COCOA) && USE(CFNETWORK)
-    virtual CFCachedURLResponseRef willCacheResponse(ResourceHandle*, CFCachedURLResponseRef) override;
-#endif
 #if PLATFORM(IOS)
     virtual RetainPtr<CFDictionaryRef> connectionProperties(ResourceHandle*) override;
 #endif
@@ -201,7 +212,7 @@ private:
 
     ResourceRequest m_request;
     ResourceRequest m_originalRequest; // Before redirects.
-    RefPtr<ResourceBuffer> m_resourceData;
+    RefPtr<SharedBuffer> m_resourceData;
     
     unsigned long m_identifier;
 
@@ -219,6 +230,12 @@ private:
     bool m_defersLoading;
     ResourceRequest m_deferredRequest;
     ResourceLoaderOptions m_options;
+    bool m_isQuickLookResource;
+
+#if ENABLE(CONTENT_EXTENSIONS)
+protected:
+    ResourceType m_resourceType;
+#endif
 };
 
 inline const ResourceResponse& ResourceLoader::response() const

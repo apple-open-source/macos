@@ -24,7 +24,6 @@
 #include "config.h"
 #include "HTMLFrameElementBase.h"
 
-#include "Attribute.h"
 #include "Document.h"
 #include "EventNames.h"
 #include "FocusController.h"
@@ -118,11 +117,6 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const Atomi
         else if (equalIgnoringCase(value, "no"))
             m_scrolling = ScrollbarAlwaysOff;
         // FIXME: If we are already attached, this has no effect.
-    } else if (name == onbeforeloadAttr)
-        setAttributeEventListener(eventNames().beforeloadEvent, name, value);
-    else if (name == onbeforeunloadAttr) {
-        // FIXME: should <frame> elements have beforeunload handlers?
-        setAttributeEventListener(eventNames().beforeunloadEvent, name, value);
     } else
         HTMLFrameOwnerElement::parseAttribute(name, value);
 }
@@ -139,11 +133,11 @@ Node::InsertionNotificationRequest HTMLFrameElementBase::insertedInto(ContainerN
 {
     HTMLFrameOwnerElement::insertedInto(insertionPoint);
     if (insertionPoint.inDocument())
-        return InsertionShouldCallDidNotifySubtreeInsertions;
+        return InsertionShouldCallFinishedInsertingSubtree;
     return InsertionDone;
 }
 
-void HTMLFrameElementBase::didNotifySubtreeInsertions(ContainerNode*)
+void HTMLFrameElementBase::finishedInsertingSubtree()
 {
     if (!inDocument())
         return;
@@ -172,7 +166,7 @@ URL HTMLFrameElementBase::location() const
 {
     if (fastHasAttribute(srcdocAttr))
         return URL(ParsedURLString, "about:srcdoc");
-    return document().completeURL(getAttribute(srcAttr));
+    return document().completeURL(fastGetAttribute(srcAttr));
 }
 
 void HTMLFrameElementBase::setLocation(const String& str)

@@ -29,8 +29,8 @@
 #include "config.h"
 #include "JSSymbolTableObject.h"
 
-#include "JSActivation.h"
 #include "JSGlobalObject.h"
+#include "JSLexicalEnvironment.h"
 #include "JSNameScope.h"
 #include "JSCInlines.h"
 #include "PropertyNameArray.h"
@@ -41,9 +41,6 @@ void JSSymbolTableObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     JSSymbolTableObject* thisObject = jsCast<JSSymbolTableObject*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
-    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
-    ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
-
     Base::visitChildren(thisObject, visitor);
     visitor.append(&thisObject->m_symbolTable);
 }
@@ -64,10 +61,11 @@ void JSSymbolTableObject::getOwnNonIndexPropertyNames(JSObject* object, ExecStat
         ConcurrentJITLocker locker(thisObject->symbolTable()->m_lock);
         SymbolTable::Map::iterator end = thisObject->symbolTable()->end(locker);
         for (SymbolTable::Map::iterator it = thisObject->symbolTable()->begin(locker); it != end; ++it) {
-            if (it->key->isEmptyUnique())
-                continue;
-            if (!(it->value.getAttributes() & DontEnum) || (mode == IncludeDontEnumProperties))
-                propertyNames.add(Identifier(exec, it->key.get()));
+            if (!(it->value.getAttributes() & DontEnum) || mode.includeDontEnumProperties()) {
+                if (it->key->isSymbol() && !mode.includeSymbolProperties())
+                    continue;
+                propertyNames.add(Identifier::fromUid(exec, it->key.get()));
+            }
         }
     }
     

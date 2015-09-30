@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -147,7 +147,7 @@ static const dhcptag_info_t dhcptag_info_table[] = {
   /* 118 */ { dhcptype_opaque_e   , "option_118" },
   /* 119 */ { dhcptype_dns_namelist_e, "domain_search" },
   /* 120 */ { dhcptype_opaque_e   , "option_120" },
-  /* 121 */ { dhcptype_opaque_e   , "option_121" },
+  /* 121 */ { dhcptype_classless_route_e, "classless_static_route" },
   /* 122 */ { dhcptype_opaque_e   , "option_122" },
   /* 123 */ { dhcptype_opaque_e   , "option_123" },
   /* 124 */ { dhcptype_opaque_e   , "option_124" },
@@ -299,5 +299,6 @@ static const dhcptype_info_t dhcptype_info_table[] = {
   /* 11 */ { 4, dhcptype_ip_e, "ip_mult", 1 },
   /* 12 */ { 8, dhcptype_ip_e, "ip_pairs", 1 },
   /* 13 */ { 0, dhcptype_none_e, "dns_namelist", 1 },
+  /* 14 */ { 0, dhcptype_none_e, "classless_route", 1 },
 };
 #endif /* _S_DHCP_PARSE_TABLE */

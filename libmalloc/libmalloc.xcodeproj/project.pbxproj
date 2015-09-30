@@ -21,6 +21,17 @@
 			name = libmalloc;
 			productName = libmalloc;
 		};
+		45039161198FFF73004EE2A3 /* libmalloc_test */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 45039162198FFF73004EE2A3 /* Build configuration list for PBXAggregateTarget "libmalloc_test" */;
+			buildPhases = (
+			);
+			dependencies = (
+				45039168198FFFA6004EE2A3 /* PBXTargetDependency */,
+			);
+			name = libmalloc_test;
+			productName = libmalloc_test;
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
@@ -43,6 +54,7 @@
 		3FE9200416A9109E00D1238A /* nano_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FDA16A90A8D00D1238A /* nano_malloc.c */; };
 		3FE9200516A9109E00D1238A /* stack_logging.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FDB16A90A8D00D1238A /* stack_logging.c */; };
 		3FE9200616A9109E00D1238A /* stack_logging_disk.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FDC16A90A8D00D1238A /* stack_logging_disk.c */; };
+		456E51CC197DF0D600A7E488 /* stress_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 456E51CB197DF0D600A7E488 /* stress_test.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,7 +72,26 @@
 			remoteGlobalIDString = 3FE91FE716A90AEC00D1238A;
 			remoteInfo = libsystem_malloc;
 		};
+		45039167198FFFA6004EE2A3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3FFC1BE516A908F800027192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 456E51C8197DF0D600A7E488;
+			remoteInfo = libmalloc_stress_test;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		456E51C7197DF0D600A7E488 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		3F5732E016A9478E00EC61B4 /* stack_logging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stack_logging.h; sourceTree = "<group>"; };
@@ -84,6 +115,8 @@
 		3FE91FF916A90BEF00D1238A /* malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = malloc.h; sourceTree = "<group>"; };
 		3FE91FFB16A90E6C00D1238A /* scalable_malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = scalable_malloc.h; sourceTree = "<group>"; };
 		3FE9201016A9109E00D1238A /* libmalloc_eOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libmalloc_eOS.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		456E51C9197DF0D600A7E488 /* libmalloc_stress_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libmalloc_stress_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		456E51CB197DF0D600A7E488 /* stress_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stress_test.c; path = tests/stress_test.c; sourceTree = "<group>"; };
 		E47677CF17A899C9007D4A00 /* malloc_internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = malloc_internal.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -96,6 +129,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3FE9200716A9109E00D1238A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		456E51C6197DF0D600A7E488 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -118,6 +158,7 @@
 		3FE91FCC16A90A8D00D1238A /* src */ = {
 			isa = PBXGroup;
 			children = (
+				455A32E3197EE511001A3F0A /* tests */,
 				3FE91FD116A90A8D00D1238A /* bitarray.c */,
 				3FE91FD216A90A8D00D1238A /* bitarray.h */,
 				E47677CF17A899C9007D4A00 /* malloc_internal.h */,
@@ -157,6 +198,7 @@
 			children = (
 				3FE91FE816A90AEC00D1238A /* libsystem_malloc.dylib */,
 				3FE9201016A9109E00D1238A /* libmalloc_eOS.a */,
+				456E51C9197DF0D600A7E488 /* libmalloc_stress_test */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -190,6 +232,14 @@
 			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
+		};
+		455A32E3197EE511001A3F0A /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				456E51CB197DF0D600A7E488 /* stress_test.c */,
+			);
+			name = tests;
+			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -250,6 +300,23 @@
 			productReference = 3FE9201016A9109E00D1238A /* libmalloc_eOS.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		456E51C8197DF0D600A7E488 /* libmalloc_stress_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 456E51CF197DF0D600A7E488 /* Build configuration list for PBXNativeTarget "libmalloc_stress_test" */;
+			buildPhases = (
+				456E51C5197DF0D600A7E488 /* Sources */,
+				456E51C6197DF0D600A7E488 /* Frameworks */,
+				456E51C7197DF0D600A7E488 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libmalloc_stress_test;
+			productName = libmalloc_stress_test;
+			productReference = 456E51C9197DF0D600A7E488 /* libmalloc_stress_test */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -257,6 +324,14 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0500;
+				TargetAttributes = {
+					45039161198FFF73004EE2A3 = {
+						CreatedOnToolsVersion = 6.0;
+					};
+					456E51C8197DF0D600A7E488 = {
+						CreatedOnToolsVersion = 6.0;
+					};
+				};
 			};
 			buildConfigurationList = 3FFC1BE816A908F800027192 /* Build configuration list for PBXProject "libmalloc" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -271,8 +346,10 @@
 			projectRoot = "";
 			targets = (
 				3FE9201116A9111000D1238A /* libmalloc */,
+				45039161198FFF73004EE2A3 /* libmalloc_test */,
 				3FE91FE716A90AEC00D1238A /* libsystem_malloc */,
 				3FE91FFD16A9109E00D1238A /* libmalloc_eOS */,
+				456E51C8197DF0D600A7E488 /* libmalloc_stress_test */,
 			);
 		};
 /* End PBXProject section */
@@ -339,6 +416,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		456E51C5197DF0D600A7E488 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				456E51CC197DF0D600A7E488 /* stress_test.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -351,6 +436,11 @@
 			isa = PBXTargetDependency;
 			target = 3FE91FE716A90AEC00D1238A /* libsystem_malloc */;
 			targetProxy = 3FE9201716A9111600D1238A /* PBXContainerItemProxy */;
+		};
+		45039168198FFFA6004EE2A3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 456E51C8197DF0D600A7E488 /* libmalloc_stress_test */;
+			targetProxy = 45039167198FFFA6004EE2A3 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -415,6 +505,102 @@
 			};
 			name = Release;
 		};
+		45039163198FFF73004EE2A3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		45039164198FFF73004EE2A3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		456E51CD197DF0D600A7E488 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				METAL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = "";
+				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
+			};
+			name = Debug;
+		};
+		456E51CE197DF0D600A7E488 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				METAL_ENABLE_DEBUG_INFO = NO;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = "";
+				SKIP_INSTALL = NO;
+				"SKIP_INSTALL[sdk=iphonesimulator*]" = YES;
+				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -450,6 +636,24 @@
 			buildConfigurations = (
 				3FFC1BE916A908F800027192 /* Debug */,
 				3FFC1BEA16A908F800027192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		45039162198FFF73004EE2A3 /* Build configuration list for PBXAggregateTarget "libmalloc_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				45039163198FFF73004EE2A3 /* Debug */,
+				45039164198FFF73004EE2A3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		456E51CF197DF0D600A7E488 /* Build configuration list for PBXNativeTarget "libmalloc_stress_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				456E51CD197DF0D600A7E488 /* Debug */,
+				456E51CE197DF0D600A7E488 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

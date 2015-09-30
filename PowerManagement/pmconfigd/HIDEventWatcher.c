@@ -59,8 +59,8 @@ __private_extern__ kern_return_t _io_pm_hid_event_report_activity(
     CFDataRef                           dataEvent = NULL;
     IOPMHIDPostEventActivityWindow      *ev = NULL;
     CFAbsoluteTime                      timeNow = CFAbsoluteTimeGetCurrent();
-    int                                 arrayCount = 0;
-    int                                 i = 0;
+    long                                arrayCount = 0;
+    long                                i = 0;
     
 
     if ((__NX_NULL_EVENT == _action) && (isA_NotificationDisplayWake())) {
@@ -210,7 +210,7 @@ __private_extern__ kern_return_t _io_pm_hid_event_copy_history(
     }
 
     *array_data = (vm_offset_t)CFDataGetBytePtr(sendData);
-    *array_dataLen = (size_t)CFDataGetLength(sendData);
+    *array_dataLen = (mach_msg_type_number_t)CFDataGetLength(sendData);
     vm_allocate(mach_task_self(), (vm_address_t *)array_data, *array_dataLen, TRUE);
     if (*array_data) {
         memcpy((void *)*array_data, CFDataGetBytePtr(sendData), *array_dataLen);

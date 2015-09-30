@@ -329,6 +329,7 @@ getprivs(id, quotatype)
 	int qcmd, fd;
 	size_t qupsize;
 	char *qfpathname;
+	size_t qfpathname_len;
 	static int warned = 0;
 	int nfst, i;
 	extern int errno;
@@ -349,7 +350,8 @@ getprivs(id, quotatype)
 		}
 		if (!hasquota(&fst[i], quotatype, &qfpathname))
 			continue;
-		qupsize = sizeof(*qup) + strlen(qfpathname);
+		qfpathname_len = strlen(qfpathname);
+		qupsize = sizeof(*qup) + qfpathname_len;
 		if ((qup = (struct quotause *)malloc(qupsize)) == NULL) {
 			fprintf(stderr, "edquota: out of memory\n");
 			exit(2);
@@ -390,7 +392,7 @@ getprivs(id, quotatype)
 			}
 			close(fd);
 		}
-		strcpy(qup->qfname, qfpathname);	// malloc'd size is correct for this
+		strlcpy(qup->qfname, qfpathname, qfpathname_len);	// malloc'd size is correct for this
 		strlcpy(qup->fsname, fst[i].f_mntonname, sizeof(qup->fsname));
 
 		if (quphead == NULL)
@@ -414,6 +416,7 @@ getprivs(id, quotatype)
 	int qcmd, fd;
 	size_t qupsize;
 	char *qfpathname;
+	size_t qfpathname_len;
 	static int warned = 0;
 	extern int errno;
 
@@ -423,7 +426,8 @@ getprivs(id, quotatype)
 	while (fs = getfsent()) {
 		if (!hasquota(fs, quotatype, &qfpathname))
 			continue;
-		qupsize = sizeof(*qup) + strlen(qfpathname);
+		qfpathname_len = strlen(qfpathname);
+		qupsize = sizeof(*qup) + qfpathname_len;
 		if ((qup = (struct quotause *)malloc(qupsize)) == NULL) {
 			fprintf(stderr, "edquota: out of memory\n");
 			exit(2);
@@ -472,8 +476,9 @@ getprivs(id, quotatype)
 			}
 			close(fd);
 		}
-		strcpy(qup->qfname, qfpathname);	// malloc'd size is correct for this
+		strlcpy(qup->qfname, qfpathname, qfpathname_len);	// malloc'd size is correct for this
 		strlcpy(qup->fsname, fs->fs_file, sizeof(qup->fsname));
+
 		if (quphead == NULL)
 			quphead = qup;
 		else

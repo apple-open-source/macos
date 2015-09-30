@@ -157,10 +157,10 @@ mod_export char *statusline;
 /**/
 int stackhist, stackcs;
 
-/* != 0 if we are making undo records */
+/* position in undo stack from when the current vi change started */
 
 /**/
-int undoing;
+zlong vistartchange;
 
 /* current modifier status */
 
@@ -187,10 +187,6 @@ mod_export char *zlenoargs[1] = { NULL };
 
 static char **raw_lp, **raw_rp;
 
-#ifdef FIONREAD
-static int delayzsetterm;
-#endif
-
 /*
  * File descriptors we are watching as well as the terminal fd. 
  * These are all for reading; we don't watch for writes or exceptions.
@@ -210,9 +206,6 @@ mod_export void
 zsetterm(void)
 {
     struct ttyinfo ti;
-#if defined(FIONREAD)
-    int val;
-#endif
 
     if (fetchttyinfo) {
 	/*
@@ -223,30 +216,6 @@ zsetterm(void)
 	    gettyinfo(&shttyinfo);
 	fetchttyinfo = 0;
     }
-
-#if defined(FIONREAD)
-    ioctl(SHTTY, FIONREAD, (char *)&val);
-    if (val) {
-	/*
-	 * Problems can occur on some systems when switching from
-	 * canonical to non-canonical input.  The former is usually
-	 * set while running programmes, but the latter is necessary
-	 * for zle.  If there is input in canonical mode, then we
-	 * need to read it without setting up the terminal.  Furthermore,
-	 * while that input gets processed there may be more input
-	 * being typed (i.e. further typeahead).  This means that
-	 * we can't set up the terminal for zle *at all* until
-	 * we are sure there is no more typeahead to come.  So
-	 * if there is typeahead, we set the flag delayzsetterm.
-	 * Then getbyte() performs another FIONREAD call; if that is
-	 * 0, we have finally used up all the typeahead, and it is
-	 * safe to alter the terminal, which we do at that point.
-	 */
-	delayzsetterm = 1;
-	return;
-    } else
-	delayzsetterm = 0;
-#endif
 
 /* sanitize the tty */
 #ifdef HAS_TIO
@@ -343,7 +312,7 @@ zsetterm(void)
 	ti.ltchars.t_dsuspc = ti.ltchars.t_lnextc = -1;
 #endif
 
-#if defined(TTY_NEEDS_DRAINING) && defined(TIOCOUTQ) && defined(HAVE_SELECT)
+#if defined(TIOCOUTQ) && defined(HAVE_SELECT)
     if (baud) {			/**/
 	int n = 0;
 
@@ -525,7 +494,8 @@ raw_getbyte(long do_keytmout, char *cptr)
 #endif
 #ifndef HAVE_POLL
 # ifdef HAVE_SELECT
-    fd_set foofd;
+    fd_set foofd, errfd;
+    FD_ZERO(&errfd);
 # endif
 #endif
 
@@ -540,11 +510,7 @@ raw_getbyte(long do_keytmout, char *cptr)
      * timeouts may be external, so we may have both a permanent watched
      * fd and a long-term timeout.
      */
-    if ((nwatch || tmout.tp != ZTM_NONE)
-#ifdef FIONREAD
-	&& ! delayzsetterm
-#endif
-	) {
+    if ((nwatch || tmout.tp != ZTM_NONE)) {
 #if defined(HAVE_SELECT) || defined(HAVE_POLL)
 	int i, errtry = 0, selret;
 # ifdef HAVE_POLL
@@ -613,11 +579,14 @@ raw_getbyte(long do_keytmout, char *cptr)
 	    if (!errtry) {
 		for (i = 0; i < nwatch; i++) {
 		    int fd = watch_fds[i].fd;
+		    if (FD_ISSET(fd, &errfd))
+			continue;
 		    FD_SET(fd, &foofd);
 		    if (fd > fdmax)
 			fdmax = fd;
 		}
 	    }
+	    FD_ZERO(&errfd);
 
 	    if (tmout.tp != ZTM_NONE) {
 		expire_tv.tv_sec = tmout.exp100ths / 100;
@@ -732,9 +701,10 @@ raw_getbyte(long do_keytmout, char *cptr)
 		    Watch_fd lwatch_fd = lwatch_fds + i;
 		    if (
 # ifdef HAVE_POLL
-			(fds[i+1].revents & POLLIN)
+			(fds[i+1].revents & (POLLIN|POLLERR|POLLHUP|POLLNVAL))
 # else
-			FD_ISSET(lwatch_fd->fd, &foofd)
+			FD_ISSET(lwatch_fd->fd, &foofd) ||
+			FD_ISSET(lwatch_fd->fd, &errfd)
 # endif
 			) {
 			/* Handle the fd. */
@@ -765,13 +735,16 @@ raw_getbyte(long do_keytmout, char *cptr)
 			    if (fds[i+1].revents & POLLNVAL)
 				zaddlinknode(funcargs, ztrdup("nval"));
 #  endif
+# else
+			    if (FD_ISSET(lwatch_fd->fd, &errfd))
+				zaddlinknode(funcargs, ztrdup("err"));
 # endif
 			    callhookfunc(lwatch_fd->func, funcargs, 0, NULL);
 			    freelinklist(funcargs, freestr);
 			}
 			if (errflag) {
 			    /* No sensible way of handling errors here */
-			    errflag = 0;
+			    errflag &= ~ERRFLAG_ERROR;
 			    /*
 			     * Paranoia: don't run the hooks again this
 			     * time.
@@ -786,6 +759,31 @@ raw_getbyte(long do_keytmout, char *cptr)
 		for (i = 0; i < lnwatch; i++)
 		    zsfree(lwatch_fds[i].func);
 		zfree(lwatch_fds, lnwatch*sizeof(struct watch_fd));
+
+# ifdef HAVE_POLL
+		/* Function may have added or removed handlers */
+		nfds = 1 + nwatch;
+		if (nfds > 1) {
+		    fds = zrealloc(fds, sizeof(struct pollfd) * nfds);
+		    for (i = 0; i < nwatch; i++) {
+			/*
+			 * This is imperfect because it assumes fds[] and
+			 * watch_fds[] remain in sync, which may be false
+			 * if handlers are shuffled.  However, it should
+			 * be harmless (e.g., produce one extra pass of
+			 * the loop) in the event they fall out of sync.
+			 */
+			if (fds[i+1].fd == watch_fds[i].fd &&
+			    (fds[i+1].revents & (POLLERR|POLLHUP|POLLNVAL))) {
+			    fds[i+1].events = 0;	/* Don't poll this */
+			} else {
+			    fds[i+1].fd = watch_fds[i].fd;
+			    fds[i+1].events = POLLIN;
+			}
+			fds[i+1].revents = 0;
+		    }
+		}
+# endif
 	    }
 	}
 # ifdef HAVE_POLL
@@ -850,14 +848,6 @@ getbyte(long do_keytmout, int *timeout)
     if (kungetct)
 	ret = STOUC(kungetbuf[--kungetct]);
     else {
-#ifdef FIONREAD
-	if (delayzsetterm) {
-	    int val;
-	    ioctl(SHTTY, FIONREAD, (char *)&val);
-	    if (!val)
-		zsetterm();
-	}
-#endif
 	for (;;) {
 	    int q = queue_signal_level();
 	    dont_queue_signals();
@@ -892,7 +882,7 @@ getbyte(long do_keytmout, int *timeout)
 		die = 0;
 		if (!errflag && !retflag && !breaks && !exit_pending)
 		    continue;
-		errflag = 0;
+		errflag &= ~ERRFLAG_ERROR;
 		breaks = obreaks;
 		errno = old_errno;
 		return lastchar = EOF;
@@ -1034,6 +1024,7 @@ getrestchar(int inchar)
 void
 zlecore(void)
 {
+    Keymap km;
 #if !defined(HAVE_POLL) && defined(HAVE_SELECT)
     struct timeval tv;
     fd_set foofd;
@@ -1055,8 +1046,10 @@ zlecore(void)
 	statusline = NULL;
 	vilinerange = 0;
 	reselectkeymap();
-	selectlocalmap(NULL);
+	selectlocalmap(invicmdmode() && region_active && (km = openkeymap("visual"))
+	    ? km : NULL);
 	bindk = getkeycmd();
+	selectlocalmap(NULL);
 	if (bindk) {
 	    if (!zlell && isfirstln && !(zlereadflags & ZLRF_IGNOREEOF) &&
 		lastchar == eofchar) {
@@ -1080,10 +1073,9 @@ zlecore(void)
 	    if (invicmdmode() && zlecs > findbol() &&
 		(zlecs == zlell || zleline[zlecs] == ZWC('\n')))
 		DECCS();
-	    if (undoing)
-		handleundo();
+	    handleundo();
 	} else {
-	    errflag = 1;
+	    errflag |= ERRFLAG_ERROR;
 	    break;
 	}
 #ifdef HAVE_POLL
@@ -1190,7 +1182,7 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
     zlereadflags = flags;
     zlecontext = context;
     histline = curhist;
-    undoing = 1;
+    vistartchange = -1;
     zleline = (ZLE_STRING_T)zalloc(((linesz = 256) + 2) * ZLE_CHAR_SIZE);
     *zleline = ZWC('\0');
     virangeflag = lastcmd = done = zlecs = zlell = mark = 0;
@@ -1198,14 +1190,7 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
     viinsbegin = 0;
     statusline = NULL;
     selectkeymap("main", 1);
-    /*
-     * If main is linked to the viins keymap, we need to register
-     * explicitly that we're now in vi insert mode as there's
-     * no user operation to indicate this.
-     */
-    if (openkeymap("main") == openkeymap("viins"))
-	viinsert(NULL);
-    selectlocalmap(NULL);
+    initundo();
     fixsuffix();
     if ((s = getlinknode(bufstack))) {
 	setline(s, ZSL_TOEND);
@@ -1222,7 +1207,14 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
 	    stackhist = -1;
 	}
     }
-    initundo();
+    /*
+     * If main is linked to the viins keymap, we need to register
+     * explicitly that we're now in vi insert mode as there's
+     * no user operation to indicate this.
+     */
+    if (openkeymap("main") == openkeymap("viins"))
+	viinsert_init();
+    selectlocalmap(NULL);
     if (isset(PROMPTCR))
 	putc('\r', shout);
     if (tmout)
@@ -1241,6 +1233,10 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
 
     zleactive = 1;
     resetneeded = 1;
+    /*
+     * Start of the main zle read.
+     * Fully reset error conditions, including user interrupt.
+     */
     errflag = retflag = 0;
     lastcol = -1;
     initmodifier(&zmod);
@@ -1257,7 +1253,9 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
     zlecore();
 
     if (errflag)
-	setsparam("ZLE_LINE_ABORTED", zlegetline(NULL, NULL));
+	setsparam((zlecontext == ZLCON_VARED) ?
+		  "ZLE_VARED_ABORTED" :
+		  "ZLE_LINE_ABORTED", zlegetline(NULL, NULL));
 
     if (done && !exit_pending && !errflag)
 	zlecallhook(finish, NULL);
@@ -1666,7 +1664,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     }
     if (!t || errflag) {
 	/* error in editing */
-	errflag = 0;
+	errflag &= ~ERRFLAG_ERROR;
 	breaks = obreaks;
 	if (t)
 	    zsfree(t);
@@ -1786,7 +1784,7 @@ recursiveedit(UNUSED(char **args))
     zrefresh();
     zlecore();
 
-    locerror = errflag;
+    locerror = errflag ? 1 : 0;
     errflag = done = eofsent = 0;
 
     return locerror;
@@ -2096,7 +2094,7 @@ finish_(UNUSED(Module m))
 	    free(kring[i].buf);
 	zfree(kring, kringsize * sizeof(struct cutbuffer));
     }
-    for(i = 35; i--; )
+    for(i = 36; i--; )
 	zfree(vibuf[i].buf, vibuf[i].len);
 
     /* editor entry points */

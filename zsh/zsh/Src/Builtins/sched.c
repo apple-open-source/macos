@@ -211,7 +211,7 @@ bin_sched(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 
 	    t = sch->time;
 	    tmp = localtime(&t);
-	    ztrftime(tbuf, 40, "%a %b %e %k:%M:%S", tmp);
+	    ztrftime(tbuf, 40, "%a %b %e %k:%M:%S", tmp, 0L);
 	    if (sch->flags & SCHEDFLAG_TRASH_ZLE)
 		flagstr = "-o ";
 	    else
@@ -346,7 +346,7 @@ schedgetfn(UNUSED(Param pm))
     for (i = 0, sch = schedcmds; sch; sch = sch->next, i++)
 	;
 
-    aptr = ret = zhalloc(sizeof(char **) * (i+1));
+    aptr = ret = zhalloc(sizeof(char *) * (i+1));
     for (sch = schedcmds; sch; sch = sch->next, aptr++) {
 	char tbuf[40], *flagstr;
 	time_t t;

@@ -40,6 +40,7 @@ typedef unsigned long pthread_priority_t;
 // masks for splitting the handling the contents of a pthread_priority_t, the mapping from
 // qos_class_t to the class bits, however, is intentionally not exposed.
 #define _PTHREAD_PRIORITY_FLAGS_MASK		(~0xffffff)
+#define _PTHREAD_PRIORITY_FLAGS_SHIFT       (24ull)
 #define _PTHREAD_PRIORITY_QOS_CLASS_MASK	0x00ffff00
 #define _PTHREAD_PRIORITY_QOS_CLASS_SHIFT	(8ull)
 #define _PTHREAD_PRIORITY_PRIORITY_MASK		0x000000ff
@@ -50,6 +51,21 @@ typedef unsigned long pthread_priority_t;
 #define _PTHREAD_PRIORITY_ROOTQUEUE_FLAG	0x20000000
 #define _PTHREAD_PRIORITY_ENFORCE_FLAG		0x10000000
 #define _PTHREAD_PRIORITY_OVERRIDE_FLAG		0x08000000
+
+// libdispatch defines the following, so it's not safe to use for anything we
+// expect to be passed in from userspace
+//#define _PTHREAD_PRIORITY_DEFAULTQUEUE_FLAG 0x04000000
+
+// The event manager flag indicates that this thread/request is for a event
+// manager thread.  There can only ever be one event manager thread at a time and
+// it is brought up at the highest of all event manager priorities passed to the
+// kext.
+#define _PTHREAD_PRIORITY_EVENT_MANAGER_FLAG    0x02000000
+
+// Used to indicate to the pthread kext that the provided event manager thread
+// priority is actually a scheduling priority not a QoS.  We can have ROOTQUEUE_FLAG
+// perform double duty because it's never provided to the kernel.
+#define _PTHREAD_PRIORITY_SCHED_PRI_FLAG	0x20000000
 
 // redeffed here to avoid leaving __QOS_ENUM defined in the public header
 #define __QOS_ENUM(name, type, ...) enum { __VA_ARGS__ }; typedef type name##_t
@@ -73,6 +89,8 @@ __QOS_ENUM(_pthread_set_flags, unsigned int,
 		   __QOS_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0) = 0x2,
    _PTHREAD_SET_SELF_FIXEDPRIORITY_FLAG
 		   __QOS_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0) = 0x4,
+   _PTHREAD_SET_SELF_TIMESHARE_FLAG
+		   __QOS_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0) = 0x8,
 );
 
 #undef __QOS_ENUM
@@ -156,6 +174,11 @@ _pthread_set_properties_self(_pthread_set_flags_t flags, pthread_priority_t prio
 __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
 int
 pthread_set_fixedpriority_self(void);
+
+// Inverse of pthread_set_fixedpriority_self()
+__OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0)
+int
+pthread_set_timeshare_self(void);
 
 #endif
 

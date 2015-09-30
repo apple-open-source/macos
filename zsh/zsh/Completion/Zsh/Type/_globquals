@@ -132,13 +132,13 @@ while [[ -n $PREFIX ]]; do
 
     (L)
     # complete/skip file size
-    if ! compset -P '([kKmMpP]|)([-+]|)<->'; then
+    if ! compset -P '([kKmMgGtTpP]|)([-+]|)<->'; then
       # complete/skip size spec
       alts=()
-      if ! compset -P '[kKmMpP]' && [[ -z $PREFIX ]]; then
+      if ! compset -P '[kKmMgGtTpP]' && [[ -z $PREFIX ]]; then
         alts+=(
           "size-specifiers:size specifier:\
-((k\:kb m\:mb p\:512-byte\ blocks))")
+((k\:kb m\:mb g\:gb t\:tb p\:512-byte\ blocks))")
       fi
       if ! compset -P '[-+]' && [[ -z $PREFIX ]]; then
         alts+=("senses:sense:((-\:less\ than +\:more\ than))")
@@ -213,7 +213,7 @@ case $state in
     ".:plain files"
     "@:symbolic links"
     "=:sockets"
-    "p:name pipes (FIFOS)"
+    "p:named pipes (FIFOs)"
     "*:executable plain files"
     "%:device files"
     "r:owner-readable"
@@ -251,6 +251,7 @@ case $state in
     "o:+ sort order, up"
     "O:+ sort order, down"
     "P:prepend word"
+    "Y:+ at most ARG matches"
     "[:+ range of files"
     "):end of qualifiers"
     "\::modifier"

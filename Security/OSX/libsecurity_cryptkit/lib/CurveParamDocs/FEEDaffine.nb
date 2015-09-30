@@ -1,0 +1,253 @@
+(***********************************************************************
+
+                    Mathematica-Compatible Notebook
+
+This notebook can be used on any computer system with Mathematica 3.0,
+MathReader 3.0, or any compatible application. The data for the notebook 
+starts with the line of stars above.
+
+To get the notebook into a Mathematica-compatible application, do one of 
+the following:
+
+* Save the data starting with the line of stars above into a file
+  with a name ending in .nb, then open the file inside the application;
+
+* Copy the data starting with the line of stars above to the
+  clipboard, then use the Paste menu command inside the application.
+
+Data for notebooks contains only printable 7-bit ASCII and can be
+sent directly in email or through ftp in text mode.  Newlines can be
+CR, LF or CRLF (Unix, Macintosh or MS-DOS style).
+
+NOTE: If you modify the data for this notebook not in a Mathematica-
+compatible application, you must delete the line below containing the 
+word CacheID, otherwise Mathematica-compatible applications may try to 
+use invalid cache data.
+
+For more information on notebooks and Mathematica-compatible 
+applications, contact Wolfram Research:
+  web: http://www.wolfram.com
+  email: info@wolfram.com
+  phone: +1-217-398-0700 (U.S.)
+
+Notebook reader applications are available free of charge from 
+Wolfram Research.
+***********************************************************************)
+
+(*CacheID: 232*)
+
+
+(*NotebookFileLineBreakTest
+NotebookFileLineBreakTest*)
+(*NotebookOptionsPosition[     10630,        213]*)
+(*NotebookOutlinePosition[     11308,        238]*)
+(*  CellTagsIndexPosition[     11264,        234]*)
+(*WindowFrame->Normal*)
+
+
+
+Notebook[{
+Cell[BoxData[
+    \(\( (*\n\ 
+      Algorithm\ 8.1  .10\ 
+        \((Direct - embedding\ ECC\ encryption)\) . \t\t\t\n\ Support\ code\ 
+        for\n\ R . \ Crandall\ and\ C . \ Pomerance, \n\ 
+      "\<Prime Numbers: a Computational Perspective,\>"\n\ Springer - 
+        Verlag\ 2001. \n\ c . \ 2000\ Perfectly\ Scientific, \ 
+      Inc . \n\ All\ Rights\ Reserved . \n\t\n\t20\ Apr\ 2001\ RC\ 
+        \((revamped\ for\ simplicity)\)\n\ 10\ Dec\ 2000\ AH\ 
+        \((Formatting)\)\n\t14\ Sep\ 2000\ RT\ \((Creation)\)\n*) \n\)\)], 
+  "Input"],
+
+Cell[BoxData[{
+    \( (*\ CODE\ *) \n
+    \[IndentingNewLine] (*\ 
+      We\ include\ functions\ from\ algorithm\ 7.2  .2\ for\ performing\ 
+        elliptic\ \n\(arithmetic . \)\ *) \n
+    \n (*\ Next, \ 
+      a\ function\ that\ negates\ a\ point\ pt\ on\ an\ elliptic\ 
+        \(curve . \)\ *) \n
+    ellneg[pt_]\  := \ Mod[pt\ *\ {1, \(-1\), \ 1}, \ p]; \n
+    \n (*\ Next, \ elliptic\ subtraction\ pt1 - \(pt2 . \)\ *) \n
+    \(ellsub[pt1_, \ pt2_]\  := \ elladd[pt1, \ ellneg[pt2]]; \)\n
+    \n (*\ Next, \ the\ double\ of\ a\ \(point . \)\ *) \), 
+    \(elldouble[pt_]\  := \ elladd[pt, pt]; \n
+    \n (*\ Next, \ elliptic\ addition\ pt1 + \(pt2 . \)\ *) \n\n\n
+    \(elladd[pt1_, \ pt2_]\  := \ \n\t
+      Block[{x1, y1, x2, y2, x3, y3, m}, \n\t\t
+        If[pt1[\([3]\)]\  == \ 0, \ Return[pt2]]; \n\t\t
+        If[pt2[\([3]\)]\  == \ 0, \ Return[pt1]]; \n\t\t
+        x1\  = \ pt1[\([1]\)]; \ y1\  = \ pt1[\([2]\)]; \n\t\t
+        x2\  = \ pt2[\([1]\)]; \ y2\  = \ pt2[\([2]\)]; \n\t\t
+        If[x1\  == \ x2, \ \n\t\t\t
+          If[Mod[y1 + y2, p] == 0, \ Return[{1, 1, 0}]]; \n\t\t\t
+          m\  = \ Mod[\((3\ x1^2\  + \ a)\)\ *\ PowerMod[2  y1, \(-1\), p], \ 
+              p], \n\t\t\t
+          m\  = \ Mod[\((y2 - y1)\)\ PowerMod[x2 - x1, \(-1\), p], p]\n\t\t]; 
+        \n\t\tx3\  = \ Mod[m^2\  - \ x1\  - \ x2, p]; \n\t\t
+        y3\  = \ Mod[m \((x1 - x3)\)\  - \ y1, \ p]; \n\t\t
+        Return[{x3, y3, 1}]\n\t]; \)\n\ \ 
+    \n (*\ Next, \ elliptic - multiply\ a\ point\ pt\ by\ \(k . \)\ *) \), 
+    \(\n\nelliptic[pt_, \ k_]\  := \ \n\t
+      Block[{hh, \ kk, pt2, lenh, \ lenk, \ hb, \ kb}, \n\t\t
+        If[k == 0, \ Return[{1, 1, 0}]]; \n\t\t
+        hh\  = \ Reverse[IntegerDigits[3  k, 2]]; \n\t\t
+        kk\  = \ Reverse[IntegerDigits[k, 2]]; \n\t\tpt2\  = \ pt; \n\t\t
+        lenh\  = \ Length[hh]; \n\t\tlenk\  = \ Length[kk]; \n\t\t
+        Do[\n\t\t\tpt2\  = \ elldouble[pt2]; \n\t\t\thb\  = \ hh[\([b]\)]; \n
+          \t\t\tIf[b\  <= \ lenk, \ kb\  = \ kk[\([b]\)], \ kb\  = \ 0]; \n
+          \t\t\tIf[{hb, kb}\  == \ {1, 0}, \n\t\t\t\t
+            pt2\  = \ elladd[pt2, \ pt], \n\t\t\t\t
+            If[{hb, \ kb}\  == \ {0, 1}, \n\t\t\t\t
+              pt2\  = \ ellsub[pt2, \ pt]]\n\t\t\t]\n\t\t\t, \n
+          \t\t\t{b, \ lenh - 1, \ 2, \(-1\)}\n\t\t\ ]; \n\tReturn[pt2]\n]\n
+    \n (*\ Next, \ 
+      we\ include\ algorithm\ 2.3  .8\ for\ finding\ square\ roots\ \nmodulo\ 
+        a\ prime\ p, \ 
+      to\ be\ used\ to\ seek\ out\ valid\ y - 
+        coordinates\ on\ \(curves . \)\ *) \n\), 
+    \(sqrtmod[b_, p_] := \ \n\t
+      Module[{a, x, c, d, cd, m, t, tst}, \n\ \ \ \t\ta\  = \ Mod[b, p]; \n
+        \ \ \ \t\tIf[p\  == \ 2, \ Return[a]]; \n\ \ \ \ \t
+        If[MemberQ[{3, 7}, Mod[p, 8]], \n\ \ \ \ \ \ \t\t
+          Return[PowerMod[a, \((p + 1)\)/4, p]]\n\ \ \ \ \ \ \t]; \n\ \ \ \ \t
+        If[Mod[p, 8]\  == \ 5, \n\ \ \ \ \ \ \t\t
+          x\  = \ PowerMod[a, \((p + 3)\)/8, p]; \n\ \ \ \ \ \ \t\t
+          c\  = \ Mod[x^2, p]; \n\ \ \ \ \ \ \t\t
+          If[Not[c\  == \ a], \n\ \ \ \ \ \ \ \ \t\t
+            Return[Mod[x\ PowerMod[2, \((p - 1)\)/4, p], \ p]]\n
+            \ \ \ \ \ \ \ \ \t]; \n\ \ \ \ \ \ \t]; \n\ \ \ \ \t\n
+        \ \ \ \ \t (*\ Here, \ p\  = \ 1\ \(\((mod\ 8)\) . \)\ *) \n
+        \ \ \ \ \ \ \ttst\  = \ 1; \n\ \ \ \ \ \ \t
+        While[Not[tst\  == \ \(-1\)], \n\ \ \ \ \ \ \ \ \t
+          d\  = \ Random[Integer, {1, p}]; \n\ \ \ \ \ \ \ \ \t
+          tst\  = \ JacobiSymbol[d, p]\n\ \ \ \ \ \ \ \ ]; \n\ \ \ \ \ \ \t
+        t\  = \ \((p - 1)\)/2; \ s\  = \ 1; \n\ \ \ \ \ \ \t
+        While[EvenQ[t], \ t\  = \ t/2; \ \(++s\)]; \n\ \ \ \ \ \ \t
+        ca\  = \ PowerMod[a, t, p]; \n\ \ \ \ \ \ \t
+        cd\  = \ PowerMod[d, t, p]; \n\ \ \ \ \ \ \tm\  = \ 0; \n
+        \ \ \ \ \ \ \t
+        Do[\n\ \ \ \ \ \ \t\ \ \ 
+          If[PowerMod[Mod[ca\ PowerMod[cd, \ m, \ p], p], \ 
+                2^\((s - 1 - i)\), \ p]\n\ \ \ \ \ \ \t\ \ \ \t\t == \ p - 1, 
+            \ m\  += \ 2^i]\n\ \ \ \ \ \ \t\ \ \ , {i, 0, s - 1}\n
+          \ \ \ \ \ \ \t]; \ \ \ \ \ \ \t\ \ \ \ \n\ \ \ \ \ \ \t
+        Return[Mod[PowerMod[a, \ \((t + 1)\)/2, p]\ PowerMod[cd, \ m/2, p], 
+            p]]; \ \n\t]; \n\n
+    \n (*\ Now, \ 
+      the\ main\ routine . \ Parameters\ are\ given\ for\ 161 - 
+        bit\ prime\ field\n\t\t\tand\ specific\ curve; \n\t\ \ 
+      direct\ embedding\ proceeds\ on\ "\<plaintext\>"\ integers\ x\ 
+        \((mod\ p)\) . \ \n\ \ \ We\ start\ with\ relevant\ global\ 
+        \((and\ public, \ except\ for\ kb)\)\n\ \ \ parameters\n\ *) \n
+    \[IndentingNewLine]p\  = \ 
+      1654338658923174831024422729553880293604080853451; \nA\  = \ \(-152\); 
+    \nB\  = \ 722; \ng\  = \ \(-1\); 
+    \ \  (*\ Quadratic\ nonresidue\ \((mod\ p)\)\ for\ this\ case, \ 
+      as\ p\  = \ 3\ \(\((mod\ 4)\) . \)\ *) \n
+    Atwist\  = \ Mod[A\ \ Mod[h\  = \ g^2, p], \ p]; \n
+    Btwist\  = \ Mod[B\ \ Mod[h\ g, p], p]; \n
+    \n (*\ Next, \ 
+      create\ public\ point\ P\ of\ prime\ order\ on\ main\ \(curve . \)\ *) 
+      \nx1 = \ 124590448755381588517063157600522073397838354227; \ \ \n
+    pubpoint\  = 
+      \ {x1, \ sqrtmod[Mod[x1\ Mod[x1^2\  + \ A, p]\  + \ B, p], \ p], 1}; \n
+    \n (*\ Next, \ 
+      create\ public\ point\ P'\ of\ prime\ order\ on\ twist\ 
+        \(curve . \)\ *) \n
+    x1twist\  = \ 480775151193986876474195670157924389403361833567; \n
+    pubpointtwist\  = 
+      \ {x1twist, \ 
+        sqrtmod[Mod[x1twist\ Mod[x1twist^2\  + \ Atwist, p]\  + \ Btwist, p], 
+          \ p], 1}; \n\nkb\  = \ 968525826201321079923232842886222248; 
+    \ \  (*\ Private\ key\ \(K_B . \)\ *) \n\n{a, b}\  = \ {A, B}; 
+    \ \  (*\ Prepare\ elliptic\ algebra\ for\ main\ \(curve . \)\ *) \n
+    pubkey\  = \ \ \ elliptic[pubpoint, \ kb]; 
+    \ \ \ \ \ \ \ \  (*\ Public\ key\ \(P_B . \)\ *) \n\ 
+    \n{a, b}\  = \ {Atwist, \ Btwist}; 
+    \ \ \  (*\ Prepare\ elliptic\ algebra\ for\ twist\ \(curve . \)\ *) \n
+    pubkeytwist\  = \ \telliptic[pubpointtwist, \ kb]; 
+    \ \ \ \ \  (*\ Public\ key\ \(P_B' . \)\ *) \n\ \n\t\t\n
+    encryptEmbed[x_] := \ 
+      Module[{cubic, \ curve, \ X\  = \ x, \ Y, \ pbk, \ X1}, 
+        \[IndentingNewLine] (*\ First, \ 
+          let\ us\ determine\ which\ curve . \ \n\t\t\ \ \ EITHER\ X\ lies\ in
+              \ the\ curve\ y^2\  = \ X^3\  + \ A\ X\  + \ B, \n\t\t\ \ \ 
+          or\ Xt\  := \ 
+            \(g\ X\ lies\ on\ y^2\  = \ 
+              Xt^3\  + \ Atwist\ Xt\  + \ Btwist\)\ *) \n\t\t\ 
+        cubic\  = \ Mod[X\ Mod[X^2\  + \ A, p]\  + \ B, p]; \n\t\t\ 
+        If[JacobiSymbol[cubic, \ p]\  > \ \(-1\), \ \n\t\t\t\ \ \ \ \ \ 
+          curve\  = \ 1; \ {a, b}\  = \ {A, B}; \ pbk\  = \ pubkey; \ 
+          pbp\  = \ pubpoint, \t\t\t\ \ \ \ \ \ \n\t\t\t\t\ \ \ \ \ 
+          curve\  = \ \(-1\); \ {a, b}\  = \ {Atwist, \ Btwist}; \ 
+          pbk\  = \ pubkeytwist; \ pbp\  = \ pubpointtwist; \ \n
+          \t\t\t\t\t\t\t\t\tX\  = \ g\ X; \ \n\t\t\ \ \ \ \ \ \ 
+          cubic\  = \ Mod[X\ Mod[X^2\  + \ Atwist, p]\  + \ Btwist, p]\n
+          \t\t\ \ ]; \n\t\t\ \ Y\  = \ sqrtmod[cubic, \ p]; \ \ \n
+        \t\t\t (*\ 
+          Now\ we\ \(have : \ \n\t\t\t\t\t\t\ \ 
+              \((X\  = \ x, Y)\)\ or\ \((X\  = \ g\ x, \ Y)\) lies\ on\ the\ 
+                respective\ curve\); \n\t\t\t\t\ \ \ \ 
+          \((a, b)\)\ parameters\ are\ set\ up\ for\ respective\ 
+            \(curve . \)\ *) \n\t\t\t\ \n\t\t\t
+        r\  = \ Random[Integer, \ {2, p - 2}]; \n\t\t\t
+        u\  = \ elladd[elliptic[pbk, \ r], \ {X, \ Y, 1}]; \n\t\t\t
+        c\  = \ elliptic[pbp, \ r]; \n
+        \t\t\ \ {u, \ c, \ curve}\[IndentingNewLine]]; \[IndentingNewLine]\n
+    decryptEmbed[cipherList_] := \ 
+      Module[{u\  = \ cipherList[\([1]\)], \ c\  = \ cipherList[\([2]\)], \ 
+          curve\  = \ cipherList[\([3]\)]}, 
+        \[IndentingNewLine]If[curve\  == \ 1, \n
+          \t\t\t\t{a, b}\  = \ {A, \ B}, \n
+          \t\t\t\ \ {a, b}\  = \ {Atwist, \ Btwist}\n\t\t\ \ \ ]; \n\t\t
+        X\  = \ \(ellsub[u, \ elliptic[c, \ kb]]\)[\([1]\)]; \n\t\t
+        If[curve\  != \ 1, \ X\  = \ Mod[X\ PowerMod[g, \(-1\), \ p], p]]; \n
+        \t\t\tX\[IndentingNewLine]]; \[IndentingNewLine]\n\)}], "Input"],
+
+Cell[BoxData[{
+    \( (*\ EXAMPLE\ *) \ \n\n
+    \[IndentingNewLine]ciph\  = \ 
+      encryptEmbed[plain\  = \ 1324578918324567]\), 
+    \(decryptEmbed[ciph]\)}], "Input"]
+},
+FrontEndVersion->"NeXT 3.0",
+ScreenRectangle->{{0, 957}, {0, 768}},
+WindowToolbars->{},
+WindowSize->{762, 676},
+WindowMargins->{{Automatic, 45}, {Automatic, 0}},
+ShowCellLabel->False
+]
+
+
+(***********************************************************************
+Cached data follows.  If you edit this Notebook file directly, not using
+Mathematica, you must remove the line containing CacheID at the top of 
+the file.  The cache data will then be recreated when you save this file 
+from within Mathematica.
+***********************************************************************)
+
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+
+(*NotebookFileOutline
+Notebook[{
+Cell[1709, 49, 546, 10, 202, "Input"],
+Cell[2258, 61, 8194, 144, 2206, "Input"],
+Cell[10455, 207, 171, 4, 78, "Input"]
+}
+]
+*)
+
+
+
+
+(***********************************************************************
+End of Mathematica Notebook file.
+***********************************************************************)
+

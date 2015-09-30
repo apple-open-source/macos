@@ -45,7 +45,7 @@ struct KeyboardEventInit : public UIEventInit {
     bool metaKey;
 };
 
-class KeyboardEvent : public UIEventWithKeyState {
+class KeyboardEvent final : public UIEventWithKeyState {
 public:
     enum KeyLocationCode {
         DOM_KEY_LOCATION_STANDARD   = 0x00,
@@ -57,19 +57,19 @@ public:
         // DOM_KEY_LOCATION_JOYSTICK   = 0x05
     };
         
-    static PassRefPtr<KeyboardEvent> create()
+    static Ref<KeyboardEvent> create()
     {
-        return adoptRef(new KeyboardEvent);
+        return adoptRef(*new KeyboardEvent);
     }
 
-    static PassRefPtr<KeyboardEvent> create(const PlatformKeyboardEvent& platformEvent, AbstractView* view)
+    static Ref<KeyboardEvent> create(const PlatformKeyboardEvent& platformEvent, AbstractView* view)
     {
-        return adoptRef(new KeyboardEvent(platformEvent, view));
+        return adoptRef(*new KeyboardEvent(platformEvent, view));
     }
 
-    static PassRefPtr<KeyboardEvent> create(const AtomicString& type, const KeyboardEventInit& initializer)
+    static Ref<KeyboardEvent> create(const AtomicString& type, const KeyboardEventInit& initializer)
     {
-        return adoptRef(new KeyboardEvent(type, initializer));
+        return adoptRef(*new KeyboardEvent(type, initializer));
     }
 
     virtual ~KeyboardEvent();
@@ -103,8 +103,8 @@ public:
 #endif
 
 private:
-    KeyboardEvent();
-    KeyboardEvent(const PlatformKeyboardEvent&, AbstractView*);
+    WEBCORE_EXPORT KeyboardEvent();
+    WEBCORE_EXPORT KeyboardEvent(const PlatformKeyboardEvent&, AbstractView*);
     KeyboardEvent(const AtomicString&, const KeyboardEventInit&);
 
     std::unique_ptr<PlatformKeyboardEvent> m_keyEvent;
@@ -119,10 +119,10 @@ private:
 #endif
 };
 
-EVENT_TYPE_CASTS(KeyboardEvent)
-
 KeyboardEvent* findKeyboardEvent(Event*);
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENT(KeyboardEvent)
 
 #endif // KeyboardEvent_h

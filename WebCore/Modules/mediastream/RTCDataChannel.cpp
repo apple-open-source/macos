@@ -54,7 +54,7 @@ static const AtomicString& arraybufferKeyword()
     return arraybuffer;
 }
 
-PassRefPtr<RTCDataChannel> RTCDataChannel::create(ScriptExecutionContext* context, RTCPeerConnectionHandler* peerConnectionHandler, const String& label, const Dictionary& options, ExceptionCode& ec)
+RefPtr<RTCDataChannel> RTCDataChannel::create(ScriptExecutionContext* context, RTCPeerConnectionHandler* peerConnectionHandler, const String& label, const Dictionary& options, ExceptionCode& ec)
 {
     RTCDataChannelInit initData;
     String maxRetransmitsStr;
@@ -80,13 +80,13 @@ PassRefPtr<RTCDataChannel> RTCDataChannel::create(ScriptExecutionContext* contex
         ec = NOT_SUPPORTED_ERR;
         return nullptr;
     }
-    return adoptRef(new RTCDataChannel(context, WTF::move(handler)));
+    return adoptRef(*new RTCDataChannel(context, WTF::move(handler)));
 }
 
-PassRefPtr<RTCDataChannel> RTCDataChannel::create(ScriptExecutionContext* context, std::unique_ptr<RTCDataChannelHandler> handler)
+Ref<RTCDataChannel> RTCDataChannel::create(ScriptExecutionContext* context, std::unique_ptr<RTCDataChannelHandler> handler)
 {
     ASSERT(handler);
-    return adoptRef(new RTCDataChannel(context, WTF::move(handler)));
+    return adoptRef(*new RTCDataChannel(context, WTF::move(handler)));
 }
 
 RTCDataChannel::RTCDataChannel(ScriptExecutionContext* context, std::unique_ptr<RTCDataChannelHandler> handler)
@@ -95,7 +95,7 @@ RTCDataChannel::RTCDataChannel(ScriptExecutionContext* context, std::unique_ptr<
     , m_stopped(false)
     , m_readyState(ReadyStateConnecting)
     , m_binaryType(BinaryTypeArrayBuffer)
-    , m_scheduledEventTimer(this, &RTCDataChannel::scheduledEventTimerFired)
+    , m_scheduledEventTimer(*this, &RTCDataChannel::scheduledEventTimerFired)
 {
     m_handler->setClient(this);
 }
@@ -300,8 +300,8 @@ void RTCDataChannel::stop()
 {
     m_stopped = true;
     m_readyState = ReadyStateClosed;
-    m_handler->setClient(0);
-    m_scriptExecutionContext = 0;
+    m_handler->setClient(nullptr);
+    m_scriptExecutionContext = nullptr;
 }
 
 void RTCDataChannel::scheduleDispatchEvent(PassRefPtr<Event> event)
@@ -312,7 +312,7 @@ void RTCDataChannel::scheduleDispatchEvent(PassRefPtr<Event> event)
         m_scheduledEventTimer.startOneShot(0);
 }
 
-void RTCDataChannel::scheduledEventTimerFired(Timer*)
+void RTCDataChannel::scheduledEventTimerFired()
 {
     if (m_stopped)
         return;
@@ -320,11 +320,8 @@ void RTCDataChannel::scheduledEventTimerFired(Timer*)
     Vector<RefPtr<Event>> events;
     events.swap(m_scheduledEvents);
 
-    Vector<RefPtr<Event>>::iterator it = events.begin();
-    for (; it != events.end(); ++it)
-        dispatchEvent((*it).release());
-
-    events.clear();
+    for (auto& event : events)
+        dispatchEvent(event.release());
 }
 
 } // namespace WebCore

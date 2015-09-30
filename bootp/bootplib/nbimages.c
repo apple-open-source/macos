@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,16 +52,9 @@
 #include <CoreFoundation/CFURL.h>
 #include <SystemConfiguration/SCValidation.h>
 
-#ifdef TEST_NBIMAGES
-#define CHECK_TOTAL_SPACE 1
-#endif /* TEST_NBIMAGES */
-
 struct NBImageList_s {
     dynarray_t		list;
 };
-
-extern void
-my_log(int priority, const char *message, ...);
 
 static int
 cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
@@ -1076,11 +1069,11 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     default:
 	break;
     }
-#if CHECK_TOTAL_SPACE
-    printf("tail_space %d - actual %d = %d\n",
-	   tail_space, (int)(offset - (char *)(entry + 1)),
-	   tail_space - (int)(offset - (char *)(entry + 1)));
-#endif /* CHECK_TOTAL_SPACE */
+    if (tail_space != (int)(offset - (char *)(entry + 1))) {
+	fprintf(stderr, "tail_space %d - actual %d = %d\n",
+		tail_space, (int)(offset - (char *)(entry + 1)),
+		tail_space - (int)(offset - (char *)(entry + 1)));
+    }
     my_CFRelease(&plist);
     return (entry);
 

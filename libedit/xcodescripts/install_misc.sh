@@ -2,8 +2,6 @@
 
 set -ex
 
-DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
-
 if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
 	[ -z "${DSTROOT}" ] && exit 1
 	# Don't keep static libraries for the simulator SDK

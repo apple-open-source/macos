@@ -642,8 +642,13 @@ static int dump_header(const char *filename) {
 		break;
 	case XAR_CKSUM_SHA512: printf("(SHA512)\n");
 		break;
+#ifdef XAR_SUPPORT_MD5
 	case XAR_CKSUM_MD5: printf("(MD5)\n");
-	                    break;
+		break;
+#else
+	case XAR_CKSUM_MD5: printf("(unsupported (MD5))\n");
+            break;
+#endif XAR_SUPPORT_MD5
 	default: printf("(unknown)\n");
 	         break;
 	};
@@ -718,11 +723,19 @@ static void usage(const char *prog) {
 	fprintf(stderr, "\t-P               On extract, set ownership based on uid/gid.\n");
 	fprintf(stderr, "\t--toc-cksum      Specifies the hashing algorithm to use for\n");
 	fprintf(stderr, "\t                      xml header verification.\n");
+#ifdef XAR_SUPPORT_MD5
 	fprintf(stderr, "\t                      Valid values: none, md5, sha1, sha256, and sha512\n");
+#else
+	fprintf(stderr, "\t                      Valid values: none, sha1, sha256, and sha512\n");
+#endif // XAR_SUPPORT_MD5
 	fprintf(stderr, "\t                      Default: sha1\n");
 	fprintf(stderr, "\t--file-cksum     Specifies the hashing algorithm to use for\n");
 	fprintf(stderr, "\t                      file content verification.\n");
+#ifdef XAR_SUPPORT_MD5
 	fprintf(stderr, "\t                      Valid values: none, md5, sha1, sha256, and sha512\n");
+#else
+	fprintf(stderr, "\t                      Valid values: none, sha1, sha256, and sha512\n");
+#endif
 	fprintf(stderr, "\t                      Default: sha1\n");
 	fprintf(stderr, "\t--dump-toc=<filename> Has xar dump the xml header into the\n");
 	fprintf(stderr, "\t                      specified file.\n");
@@ -815,10 +828,12 @@ int main(int argc, char *argv[]) {
 				exit(1);
 			}
 			if( (strcmp(optarg, XAR_OPT_VAL_NONE) != 0) &&
+#ifdef XAR_SUPPORT_MD5
+				(strcmp(optarg, XAR_OPT_VAL_MD5) != 0) &&
+#endif // XAR_SUPPORT_MD5
 				(strcmp(optarg, XAR_OPT_VAL_SHA1) != 0) &&
 				(strcmp(optarg, XAR_OPT_VAL_SHA256) != 0) &&
-				(strcmp(optarg, XAR_OPT_VAL_SHA512) != 0) &&
-				(strcmp(optarg, XAR_OPT_VAL_MD5)  != 0) ) {
+				(strcmp(optarg, XAR_OPT_VAL_SHA512) != 0) ) {
 				usage(argv[0]);
 				exit(1);
 			}
@@ -830,10 +845,12 @@ int main(int argc, char *argv[]) {
 				exit(1);
 			}
 			if( (strcmp(optarg, XAR_OPT_VAL_NONE) != 0) &&
+#ifdef XAR_SUPPORT_MD5
+			   (strcmp(optarg, XAR_OPT_VAL_MD5) != 0) &&
+#endif // XAR_SUPPORT_MD5
 			   (strcmp(optarg, XAR_OPT_VAL_SHA1) != 0) &&
 			   (strcmp(optarg, XAR_OPT_VAL_SHA256) != 0) &&
-			   (strcmp(optarg, XAR_OPT_VAL_SHA512) != 0) &&
-			   (strcmp(optarg, XAR_OPT_VAL_MD5)  != 0) ) {
+			   (strcmp(optarg, XAR_OPT_VAL_SHA512) != 0) ) {
 				usage(argv[0]);
 				exit(1);
 			}

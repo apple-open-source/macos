@@ -33,9 +33,9 @@ class BeforeUnloadEvent final : public Event {
 public:
     virtual ~BeforeUnloadEvent();
 
-    static PassRefPtr<BeforeUnloadEvent> create()
+    static Ref<BeforeUnloadEvent> create()
     {
-        return adoptRef(new BeforeUnloadEvent);
+        return adoptRef(*new BeforeUnloadEvent);
     }
 
     String returnValue() const { return m_returnValue; }
@@ -51,8 +51,8 @@ private:
     String m_returnValue;
 };
 
-EVENT_TYPE_CASTS(BeforeUnloadEvent)
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENT(BeforeUnloadEvent)
 
 #endif // BeforeUnloadEvent_h

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,19 +23,25 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "RemoteScrollingCoordinatorProxy.h"
+#import "config.h"
+#import "RemoteScrollingCoordinatorProxy.h"
 
 #if PLATFORM(IOS)
 #if ENABLE(ASYNC_SCROLLING)
 
-#include "LayerRepresentation.h"
-#include "RemoteLayerTreeHost.h"
-#include "WebPageProxy.h"
-#include <WebCore/ScrollingStateFrameScrollingNode.h>
-#include <WebCore/ScrollingStateOverflowScrollingNode.h>
-#include <WebCore/ScrollingStateTree.h>
-#include <UIKit/UIView.h>
+#import "LayerRepresentation.h"
+#import "RemoteLayerTreeHost.h"
+#import "WebPageProxy.h"
+#import <UIKit/UIView.h>
+#import <WebCore/ScrollingStateFrameScrollingNode.h>
+#import <WebCore/ScrollingStateOverflowScrollingNode.h>
+#import <WebCore/ScrollingStateTree.h>
+
+#if ENABLE(CSS_SCROLL_SNAP)
+#import <WebCore/AxisScrollSnapOffsets.h>
+#import <WebCore/ScrollTypes.h>
+#import <WebCore/ScrollingTreeFrameScrollingNode.h>
+#endif
 
 using namespace WebCore;
 
@@ -51,30 +57,30 @@ void RemoteScrollingCoordinatorProxy::connectStateNodeLayers(ScrollingStateTree&
     for (auto& currNode : stateTree.nodeMap().values()) {
         switch (currNode->nodeType()) {
         case OverflowScrollingNode: {
-            ScrollingStateOverflowScrollingNode* scrollingStateNode = toScrollingStateOverflowScrollingNode(currNode);
+            ScrollingStateOverflowScrollingNode& scrollingStateNode = downcast<ScrollingStateOverflowScrollingNode>(*currNode);
             
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::ScrollLayer))
-                scrollingStateNode->setLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode->layer())));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::ScrollLayer))
+                scrollingStateNode.setLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode.layer())));
             
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateOverflowScrollingNode::ScrolledContentsLayer))
-                scrollingStateNode->setScrolledContentsLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode->scrolledContentsLayer())));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateOverflowScrollingNode::ScrolledContentsLayer))
+                scrollingStateNode.setScrolledContentsLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode.scrolledContentsLayer())));
             break;
         };
         case FrameScrollingNode: {
-            ScrollingStateFrameScrollingNode* scrollingStateNode = toScrollingStateFrameScrollingNode(currNode);
+            ScrollingStateFrameScrollingNode& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(*currNode);
             
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::ScrollLayer))
-                scrollingStateNode->setLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode->layer())));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::ScrollLayer))
+                scrollingStateNode.setLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode.layer())));
 
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateFrameScrollingNode::CounterScrollingLayer))
-                scrollingStateNode->setCounterScrollingLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode->counterScrollingLayer())));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::CounterScrollingLayer))
+                scrollingStateNode.setCounterScrollingLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode.counterScrollingLayer())));
 
             // FIXME: we should never have header and footer layers coming from the WebProcess.
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateFrameScrollingNode::HeaderLayer))
-                scrollingStateNode->setHeaderLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode->headerLayer())));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::HeaderLayer))
+                scrollingStateNode.setHeaderLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode.headerLayer())));
 
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateFrameScrollingNode::FooterLayer))
-                scrollingStateNode->setFooterLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode->footerLayer())));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::FooterLayer))
+                scrollingStateNode.setFooterLayer(layerRepresentationFromLayerOrView(layerTreeHost.getLayer(scrollingStateNode.footerLayer())));
             break;
         }
         case FixedNode:
@@ -105,6 +111,102 @@ void RemoteScrollingCoordinatorProxy::scrollingTreeNodeDidEndScroll()
 {
     m_webPageProxy.overflowScrollDidEndScroll();
 }
+
+#if ENABLE(CSS_SCROLL_SNAP)
+void RemoteScrollingCoordinatorProxy::adjustTargetContentOffsetForSnapping(CGSize maxScrollOffsets, CGPoint velocity, CGFloat topInset, CGPoint* targetContentOffset)
+{
+    // The bounds checking with maxScrollOffsets is to ensure that we won't interfere with rubber-banding when scrolling to the edge of the page.
+    if (shouldSnapForMainFrameScrolling(WebCore::ScrollEventAxis::Horizontal)) {
+        float potentialSnapPosition = closestSnapOffsetForMainFrameScrolling(WebCore::ScrollEventAxis::Horizontal, targetContentOffset->x, velocity.x, m_currentHorizontalSnapPointIndex);
+        if (targetContentOffset->x > 0 && targetContentOffset->x < maxScrollOffsets.width)
+            targetContentOffset->x = std::min<float>(maxScrollOffsets.width, potentialSnapPosition);
+    }
+
+    if (shouldSnapForMainFrameScrolling(WebCore::ScrollEventAxis::Vertical)) {
+        float potentialSnapPosition = closestSnapOffsetForMainFrameScrolling(WebCore::ScrollEventAxis::Vertical, targetContentOffset->y, velocity.y, m_currentVerticalSnapPointIndex);
+        potentialSnapPosition -= topInset;
+        if (targetContentOffset->y > 0 && targetContentOffset->y < maxScrollOffsets.height)
+            targetContentOffset->y = std::min<float>(maxScrollOffsets.height, potentialSnapPosition);
+    }
+}
+
+bool RemoteScrollingCoordinatorProxy::shouldSetScrollViewDecelerationRateFast() const
+{
+    return shouldSnapForMainFrameScrolling(ScrollEventAxis::Horizontal) || shouldSnapForMainFrameScrolling(ScrollEventAxis::Vertical);
+}
+
+bool RemoteScrollingCoordinatorProxy::shouldSnapForMainFrameScrolling(ScrollEventAxis axis) const
+{
+    ScrollingTreeNode* root = m_scrollingTree->rootNode();
+    if (root && root->isFrameScrollingNode()) {
+        ScrollingTreeFrameScrollingNode* rootFrame = static_cast<ScrollingTreeFrameScrollingNode*>(root);
+        const Vector<float>& snapOffsets = axis == ScrollEventAxis::Horizontal ? rootFrame->horizontalSnapOffsets() : rootFrame->verticalSnapOffsets();
+        unsigned currentIndex = axis == ScrollEventAxis::Horizontal ? m_currentHorizontalSnapPointIndex : m_currentVerticalSnapPointIndex;
+        return (snapOffsets.size() > 0) && (currentIndex < snapOffsets.size());
+    }
+    return false;
+}
+
+float RemoteScrollingCoordinatorProxy::closestSnapOffsetForMainFrameScrolling(ScrollEventAxis axis, float scrollDestination, float velocity, unsigned& currentIndex) const
+{
+    ScrollingTreeNode* root = m_scrollingTree->rootNode();
+    ASSERT(root && root->isFrameScrollingNode());
+    ScrollingTreeFrameScrollingNode* rootFrame = static_cast<ScrollingTreeFrameScrollingNode*>(root);
+    const Vector<float>& snapOffsets = axis == ScrollEventAxis::Horizontal ? rootFrame->horizontalSnapOffsets() : rootFrame->verticalSnapOffsets();
+
+    float scaledScrollDestination = scrollDestination / m_webPageProxy.displayedContentScale();
+    float rawClosestSnapOffset = closestSnapOffset<float, float>(snapOffsets, scaledScrollDestination, velocity, currentIndex);
+    return rawClosestSnapOffset * m_webPageProxy.displayedContentScale();
+}
+
+bool RemoteScrollingCoordinatorProxy::hasActiveSnapPoint() const
+{
+    ScrollingTreeNode* root = m_scrollingTree->rootNode();
+    if (!root)
+        return false;
+
+    if (!is<ScrollingTreeFrameScrollingNode>(root))
+        return false;
+
+    ScrollingTreeFrameScrollingNode& rootFrame = downcast<ScrollingTreeFrameScrollingNode>(*root);
+    const Vector<float>& horizontal = rootFrame.horizontalSnapOffsets();
+    const Vector<float>& vertical = rootFrame.verticalSnapOffsets();
+
+    if (horizontal.isEmpty() && vertical.isEmpty())
+        return false;
+
+    if ((!horizontal.isEmpty() && m_currentHorizontalSnapPointIndex >= horizontal.size())
+        || (!vertical.isEmpty() && m_currentVerticalSnapPointIndex >= vertical.size())) {
+        return false;
+    }
+    
+    return true;
+}
+    
+CGPoint RemoteScrollingCoordinatorProxy::nearestActiveContentInsetAdjustedSnapPoint(CGFloat topInset, const CGPoint& currentPoint) const
+{
+    CGPoint activePoint = currentPoint;
+
+    ScrollingTreeNode* root = m_scrollingTree->rootNode();
+    ASSERT(root && is<ScrollingTreeFrameScrollingNode>(root));
+    ScrollingTreeFrameScrollingNode& rootFrame = downcast<ScrollingTreeFrameScrollingNode>(*root);
+    const Vector<float>& horizontal = rootFrame.horizontalSnapOffsets();
+    const Vector<float>& vertical = rootFrame.verticalSnapOffsets();
+
+    // The bounds checking with maxScrollOffsets is to ensure that we won't interfere with rubber-banding when scrolling to the edge of the page.
+    if (!horizontal.isEmpty() && m_currentHorizontalSnapPointIndex < horizontal.size())
+        activePoint.x = horizontal[m_currentHorizontalSnapPointIndex] * m_webPageProxy.displayedContentScale();
+
+    if (!vertical.isEmpty() && m_currentVerticalSnapPointIndex < vertical.size()) {
+        float potentialSnapPosition = vertical[m_currentVerticalSnapPointIndex] * m_webPageProxy.displayedContentScale();
+        potentialSnapPosition -= topInset;
+        activePoint.y = potentialSnapPosition;
+    }
+
+    return activePoint;
+}
+
+#endif
 
 } // namespace WebKit
 

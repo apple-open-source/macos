@@ -35,7 +35,7 @@ class Path;
 
 class HTMLAreaElement final : public HTMLAnchorElement {
 public:
-    static PassRefPtr<HTMLAreaElement> create(const QualifiedName&, Document&);
+    static Ref<HTMLAreaElement> create(const QualifiedName&, Document&);
 
     bool isDefault() const { return m_shape == Default; }
 
@@ -70,8 +70,6 @@ private:
     LayoutSize m_lastSize;
     Shape m_shape;
 };
-
-NODE_TYPE_CASTS(HTMLAreaElement)
 
 } //namespace
 

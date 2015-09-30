@@ -28,13 +28,8 @@
 
 #include "includes.h"
 
-#ifdef __APPLE_CRYPTO__
-#include "ossl-crypto.h"
-#include "ossl-bn.h"
-#else
 #include <openssl/crypto.h>
 #include <openssl/bn.h>
-#endif
 
 #include <string.h>
 
@@ -47,24 +42,31 @@
 #include "log.h"
 #include "packet.h"
 #include "dh.h"
+#include "digest.h"
 
 #include "ssh-gss.h"
 
-void
-kexgss_client(Kex *kex) {
+int
+kexgss_client(struct ssh *ssh)
+{
+	struct kex *kex = ssh->kex;
+	
 	gss_buffer_desc send_tok = GSS_C_EMPTY_BUFFER;
 	gss_buffer_desc recv_tok, gssbuf, msg_tok, *token_ptr;
 	Gssctxt *ctxt;
 	OM_uint32 maj_status, min_status, ret_flags;
-	u_int klen, kout, slen = 0, hashlen, strlen;
+	u_int klen, slen = 0, strlen;
+	size_t hashlen;
+	int klength;
 	DH *dh; 
 	BIGNUM *dh_server_pub = NULL;
 	BIGNUM *shared_secret = NULL;
 	BIGNUM *p = NULL;
 	BIGNUM *g = NULL;	
-	u_char *kbuf, *hash;
+	u_char *kbuf;
+	u_char hash[SSH_DIGEST_MAX_LENGTH];
 	u_char *serverhostkey = NULL;
-	u_char *empty = "";
+	u_char *empty = (u_char *)"";
 	char *msg;
 	char *lang;
 	int type = 0;
@@ -149,7 +151,7 @@ kexgss_client(Kex *kex) {
 
 		/* If we've got an old receive buffer get rid of it */
 		if (token_ptr != GSS_C_NO_BUFFER)
-			xfree(recv_tok.value);
+			free(recv_tok.value);
 
 		if (maj_status == GSS_S_COMPLETE) {
 			/* If mutual state flag is not true, kex fails */
@@ -178,7 +180,10 @@ kexgss_client(Kex *kex) {
 				    send_tok.length);
 			}
 			packet_send();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 			gss_release_buffer(&min_status, &send_tok);
+#pragma clang diagnostic pop
 
 			/* If we've sent them data, they should reply */
 			do {	
@@ -254,48 +259,49 @@ kexgss_client(Kex *kex) {
 	/* compute K=f^x mod p */
 	klen = DH_size(dh);
 	kbuf = xmalloc(klen);
-	kout = DH_compute_key(kbuf, dh_server_pub, dh);
-	if (kout < 0)
+	klength = DH_compute_key(kbuf, dh_server_pub, dh);
+	if (klength < 0)
 		fatal("DH_compute_key: failed");
 
 	shared_secret = BN_new();
 	if (shared_secret == NULL)
 		fatal("kexgss_client: BN_new failed");
 
-	if (BN_bin2bn(kbuf, kout, shared_secret) == NULL)
+	if (BN_bin2bn(kbuf, klength, shared_secret) == NULL)
 		fatal("kexdh_client: BN_bin2bn failed");
 
 	memset(kbuf, 0, klen);
-	xfree(kbuf);
+	free(kbuf);
 
+	hashlen = sizeof(hash);
 	switch (kex->kex_type) {
 	case KEX_GSS_GRP1_SHA1:
 	case KEX_GSS_GRP14_SHA1:
 		kex_dh_hash( kex->client_version_string, 
 		    kex->server_version_string,
-		    buffer_ptr(&kex->my), buffer_len(&kex->my),
-		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
+		    sshbuf_ptr(kex->my), sshbuf_len(kex->my),
+		    sshbuf_ptr(kex->peer), sshbuf_len(kex->peer),
 		    (serverhostkey ? serverhostkey : empty), slen,
 		    dh->pub_key,	/* e */
 		    dh_server_pub,	/* f */
 		    shared_secret,	/* K */
-		    &hash, &hashlen
+		    hash, &hashlen
 		);
 		break;
 	case KEX_GSS_GEX_SHA1:
 		kexgex_hash(
-		    kex->evp_md,
+		    kex->hash_alg,
 		    kex->client_version_string,
 		    kex->server_version_string,
-		    buffer_ptr(&kex->my), buffer_len(&kex->my),
-		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
+		    sshbuf_ptr(kex->my), sshbuf_len(kex->my),
+		    sshbuf_ptr(kex->peer), sshbuf_len(kex->peer),
 		    (serverhostkey ? serverhostkey : empty), slen,
  		    min, nbits, max,
 		    dh->p, dh->g,
 		    dh->pub_key,
 		    dh_server_pub,
 		    shared_secret,
-		    &hash, &hashlen
+		    hash, &hashlen
 		);
 		break;
 	default:
@@ -309,11 +315,11 @@ kexgss_client(Kex *kex) {
 	if (GSS_ERROR(ssh_gssapi_checkmic(ctxt, &gssbuf, &msg_tok)))
 		packet_disconnect("Hash's MIC didn't verify");
 
-	xfree(msg_tok.value);
+	free(msg_tok.value);
 
 	DH_free(dh);
 	if (serverhostkey)
-		xfree(serverhostkey);
+		free(serverhostkey);
 	BN_clear_free(dh_server_pub);
 
 	/* save session id */
@@ -330,10 +336,12 @@ kexgss_client(Kex *kex) {
 		gss_kex_context = ctxt;
 	else
 		ssh_gssapi_delete_ctx(&ctxt);
-
-	kex_derive_keys(kex, hash, hashlen, shared_secret);
+	
+	kex_derive_keys_bn(ssh, hash, hashlen, shared_secret);
 	BN_clear_free(shared_secret);
-	kex_finish(kex);
+	kex_send_newkeys(ssh);
+	
+	return 0;
 }
 
 #endif /* GSSAPI */

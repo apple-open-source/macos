@@ -66,6 +66,7 @@ BASE_PAGES="pthread.3 \
 	pthread_join.3 \
 	pthread_key_create.3 \
 	pthread_key_delete.3 \
+	pthread_main_np.3 \
 	pthread_mutex_destroy.3 \
 	pthread_mutex_init.3 \
 	pthread_mutex_lock.3 \

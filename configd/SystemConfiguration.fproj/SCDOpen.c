@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2006, 2008-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -272,9 +272,8 @@ __SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t 
 			break;
 		default :
 #ifdef	DEBUG
-			SCLog(_sc_verbose, LOG_DEBUG,
-			      CFSTR("SCDynamicStoreCreate[WithOptions] bootstrap_look_up() failed: status=%s"),
-			      bootstrap_strerror(*status));
+			SC_log(LOG_INFO, "bootstrap_look_up() failed: status=%s",
+			       bootstrap_strerror(*status));
 #endif	/* DEBUG */
 			break;
 	}
@@ -483,16 +482,12 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 		case kSCStatusOK :
 			return TRUE;
 		case BOOTSTRAP_UNKNOWN_SERVICE :
-			SCLog(TRUE,
-			      (kr == KERN_SUCCESS) ? LOG_DEBUG : LOG_ERR,
-			      CFSTR("SCDynamicStore server not available"));
+			SC_log((kr == KERN_SUCCESS) ? LOG_INFO : LOG_ERR, "SCDynamicStore server not available");
 			sc_status = kSCStatusNoStoreServer;
 			break;
 		default :
-			SCLog(TRUE,
-			      (kr == KERN_SUCCESS) ? LOG_DEBUG : LOG_ERR,
-			      CFSTR("SCDynamicStoreAddSession configopen(): %s"),
-			      SCErrorString(sc_status));
+			SC_log((kr == KERN_SUCCESS) ? LOG_INFO : LOG_ERR, "configopen() failed: %s",
+			       SCErrorString(sc_status));
 			break;
 	}
 
@@ -566,7 +561,7 @@ __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef	store,
 		}
 	} else {
 		/* an unexpected error, leave the [session] port alone */
-		SCLog(TRUE, LOG_ERR, CFSTR("%s: %s"), log_str, mach_error_string(status));
+		SC_log(LOG_NOTICE, "%s: %s", log_str, mach_error_string(status));
 		storePrivate->server = MACH_PORT_NULL;
 	}
 
@@ -638,9 +633,7 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 	// cancel [old] notifications
 	if (!SCDynamicStoreNotifyCancel(store)) {
 		// if we could not cancel / reconnect
-		SCLog(TRUE, LOG_DEBUG,
-		      CFSTR("__SCDynamicStoreReconnectNotifications: SCDynamicStoreNotifyCancel() failed: %s"),
-		      SCErrorString(SCError()));
+		SC_log(LOG_NOTICE, "SCDynamicStoreNotifyCancel() failed: %s", SCErrorString(SCError()));
 	}
 
 	// set notification keys & patterns
@@ -649,9 +642,9 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 						       storePrivate->keys,
 						       storePrivate->patterns);
 		if (!ok) {
-			SCLog((SCError() != BOOTSTRAP_UNKNOWN_SERVICE),
-			      LOG_ERR,
-			      CFSTR("__SCDynamicStoreReconnectNotifications: SCDynamicStoreSetNotificationKeys() failed"));
+			if (SCError() != BOOTSTRAP_UNKNOWN_SERVICE) {
+				SC_log(LOG_NOTICE, "SCDynamicStoreSetNotificationKeys() failed");
+			}
 			goto done;
 		}
 	}
@@ -664,9 +657,9 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 
 			rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
 			if (rls == NULL) {
-				SCLog((SCError() != BOOTSTRAP_UNKNOWN_SERVICE),
-				      LOG_ERR,
-				      CFSTR("__SCDynamicStoreReconnectNotifications: SCDynamicStoreCreateRunLoopSource() failed"));
+				if (SCError() != BOOTSTRAP_UNKNOWN_SERVICE) {
+					SC_log(LOG_NOTICE, "SCDynamicStoreCreateRunLoopSource() failed");
+				}
 				ok = FALSE;
 				break;
 			}
@@ -685,9 +678,9 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 		case Using_NotifierInformViaDispatch :
 			ok = SCDynamicStoreSetDispatchQueue(store, dispatchQueue);
 			if (!ok) {
-				SCLog((SCError() != BOOTSTRAP_UNKNOWN_SERVICE),
-				      LOG_ERR,
-				      CFSTR("__SCDynamicStoreReconnectNotifications: SCDynamicStoreSetDispatchQueue() failed"));
+				if (SCError() != BOOTSTRAP_UNKNOWN_SERVICE) {
+					SC_log(LOG_NOTICE, "SCDynamicStoreSetDispatchQueue() failed");
+				}
 				goto done;
 			}
 			break;
@@ -713,10 +706,9 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 	}
 
 	if (!ok) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCDynamicStore server %s, notification (%s) not restored"),
-		      (SCError() == BOOTSTRAP_UNKNOWN_SERVICE) ? "shutdown" : "failed",
-		      notifyType[notifyStatus]);
+		SC_log(LOG_NOTICE, "SCDynamicStore server %s, notification (%s) not restored",
+		       (SCError() == BOOTSTRAP_UNKNOWN_SERVICE) ? "shutdown" : "failed",
+		       notifyType[notifyStatus]);
 	}
 
 	// inform the client

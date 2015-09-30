@@ -42,20 +42,22 @@ namespace JSC {
         MachineThreads(Heap*);
         ~MachineThreads();
 
-        void gatherConservativeRoots(ConservativeRoots&, JITStubRoutineSet&, CodeBlockSet&, void* stackCurrent, RegisterState& registers);
+        void gatherConservativeRoots(ConservativeRoots&, JITStubRoutineSet&, CodeBlockSet&, void* stackOrigin, void* stackTop, RegisterState& calleeSavedRegisters);
 
-        JS_EXPORT_PRIVATE void makeUsableFromMultipleThreads();
         JS_EXPORT_PRIVATE void addCurrentThread(); // Only needs to be called by clients that can use the same heap from multiple threads.
 
     private:
-        void gatherFromCurrentThread(ConservativeRoots&, JITStubRoutineSet&, CodeBlockSet&, void* stackCurrent, RegisterState& registers);
-
         class Thread;
 
-        static void removeThread(void*);
-        void removeCurrentThread();
+        void gatherFromCurrentThread(ConservativeRoots&, JITStubRoutineSet&, CodeBlockSet&, void* stackOrigin, void* stackTop, RegisterState& calleeSavedRegisters);
 
-        void gatherFromOtherThread(ConservativeRoots&, Thread*, JITStubRoutineSet&, CodeBlockSet&);
+        void tryCopyOtherThreadStack(Thread*, void*, size_t capacity, size_t*);
+        bool tryCopyOtherThreadStacks(MutexLocker&, void*, size_t capacity, size_t*);
+
+        static void removeThread(void*);
+
+        template<typename PlatformThread>
+        void removeThreadIfFound(PlatformThread);
 
         Mutex m_registeredThreadsMutex;
         Thread* m_registeredThreads;

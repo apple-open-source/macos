@@ -35,10 +35,10 @@ mirroring ftp.cs.elte.hu instead of the primary site.
             ftp://ftp.cs.elte.hu/pub/zsh/
             http://www.cs.elte.hu/pub/zsh/
 
-The up-to-date source code is available via anonymous CVS and Git from
-Sourceforge.  See http://sourceforge.net/projects/zsh/ for details.
-A summary of instructions for the CVS and Git archives can be found at
-http://zsh.sourceforget.net/.
+The up-to-date source code is available via Git from Sourceforge.  See
+http://sourceforge.net/projects/zsh/ for details.  A summary of
+instructions for the archive can be found at
+http://zsh.sourceforge.net/.
 
 
 Mailing Lists

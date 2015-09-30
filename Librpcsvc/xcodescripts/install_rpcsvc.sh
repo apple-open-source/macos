@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-destination="$DSTROOT$INSTALL_PATH_PREFIX"/usr/include/rpcsvc
+destination="$DSTROOT"/usr/include/rpcsvc
 
 printf "Creating installation directory\n"
 printf " install -m 0755 -d %s\n" "$destination"

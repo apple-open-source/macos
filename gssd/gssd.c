@@ -153,6 +153,10 @@ static int acquire_default = 0;  /* Don't acquire default credentials in do_acqu
 static  int maxthreads = MAXTHREADS;	/* Maximum number of service threads. */
 static int numthreads = 0;		/* Current number of service threads */
 static int kernel_only = TRUE;		/* Restricts mach_gss_lookup for kernel only */
+static int realm_matching = 0;		/*
+					 * If set try and find a non expired principal
+					 * that is in the same realm as the service
+					 */
 static pthread_mutex_t numthreads_lock[1]; /* lock to protect above */
 static pthread_cond_t	 numthreads_cv[1]; /* To signal when we're below max. */
 static pthread_attr_t attr[1];		/* Needed to create detached threads */
@@ -188,235 +192,23 @@ static gss_OID  mechtab[] = {
 };
 
 
-/*
- * Hopefully Heimdal will fix this in their library and this can go away.
- */
-
-#ifdef WIN2K_HACK
-static size_t
-derlen(uint8_t **dptr, uint8_t *eptr)
-{
-	int i;
-	uint8_t *p = *dptr;
-	size_t len = 0;
-
-	if (*p &  0x80) {
-		for (i = *p & 0x7f; i > 0 && (eptr == NULL || (p < eptr)); i--)
-			len = (len << 8) + *++p;
-	} else
-		len = *p;
-
-	*dptr = p + 1;
-
-	return (len);
-}
-
-#define ADVANCE(p, l, e) do { \
-	(p) += (l); \
-	DEBUG(4, "Advancing %d bytes\n", (int)(l)); \
-	if ((p) > (e)) { \
-		DEBUG(4, "Defective p = %p e = %p\n", (p), (e)); \
-		return (GSS_S_DEFECTIVE_TOKEN); \
-	} \
-	} while (0)
-
-#define CHK(p, v, e) (((p) >= (e) || *(p) != (v)) ? 0 : 1)
-
-static size_t
-encode_derlen(size_t len, size_t max, uint8_t *value)
-{
-	size_t i;
-	size_t count, len_save = len;
-
-	if (len < 0x80) {
-		if (max > 0 && value)
-			value[0] = len;
-		return 1;
-	}
-
-	for (count = 0; len; count++)
-		len >>= 8;
-
-	len = len_save;
-	if (value && max > count) {
-		for (i = count; i > 0; i--, len >>= 8) {
-			value[i] = (len & 0xff );
-		}
-		value[0] = (0x80 | count);
-	}
-	/* Extra octet to hold the count of length bytes */
-	return (count + 1);
-}
-
-#define SEQUENCE 0x30
-#define CONTEXT 0xA0
-#define ENUM 0x0A
-#define OCTETSTRING 0x04
-
-/*
- * Windows 2k is including a bogus MIC in the return token from the server
- * which fails in the gss_init_sec_context call. The mic appears to always be
- * another copy of the kerberos AP_REP token. Go figure. At any rate this
- * routine takes the input token, ASN1 decodes it and if there is a bad Mic
- * removes it and adjust the token so that it is valid again. We should move
- * this into the kerberos library when we have enough experience that this routine
- * covers all the w2k cases.
- */
-
-static uint32_t
-spnego_win2k_hack(gss_buffer_t token)
-{
-	uint8_t *ptr, *eptr, *response, *start, *end;
-	size_t len, rlen, seqlen, seqlenbytes, negresplen, negresplenbytes, tlen;
-
-	ptr = token->value;
-	eptr = ptr + token->length;
-
-	DEBUG(3, "token value\n");
-	HEXDUMP(e, token->value, token->length);
-
-
-	/* CHOICE [1] negTokenResp */
-	if (!CHK(ptr, (CONTEXT | 1), eptr))
-		return (GSS_S_DEFECTIVE_TOKEN);
-	ADVANCE(ptr, 1, eptr);
-	len = derlen(&ptr, eptr);
-	/* Sequence */
-	if (!CHK(ptr, SEQUENCE, eptr))
-		return (GSS_S_DEFECTIVE_TOKEN);
-	ADVANCE(ptr, 1, eptr);
-	len = derlen(&ptr, eptr);
-	/* Save start of first element in sequence [0] enum*/
-	start = ptr;
-	if (!CHK(ptr, (CONTEXT | 0), eptr))
-		return (GSS_S_DEFECTIVE_TOKEN);
-	ADVANCE(ptr, 1, eptr);
-	len = derlen(&ptr, eptr);
-	if (len != 3)
-		return (GSS_S_DEFECTIVE_TOKEN);
-	if (!CHK(ptr, ENUM, eptr))
-		return (GSS_S_DEFECTIVE_TOKEN);
-	ADVANCE(ptr, 1, eptr);
-	len = derlen(&ptr, eptr);
-	if (len != 1)
-		return (GSS_S_DEFECTIVE_TOKEN);
-	if (!CHK(ptr, 0x0, eptr)) /* != ACCEPT_COMPLETE */
-		return (GSS_S_DEFECTIVE_TOKEN);
-	ADVANCE(ptr, 1, eptr);
-	/* Get the mech type accepted */
-	if (!CHK(ptr, (CONTEXT | 1), eptr))
-		return (GSS_S_DEFECTIVE_TOKEN);
-	ADVANCE(ptr, 1, eptr);
-	len = derlen(&ptr, eptr);
-	/* Skip past the oid bytes -- should check for kerberos? */
-	ADVANCE(ptr, len, eptr);
-	/* Check for the response token */
-	if (!CHK(ptr, (CONTEXT | 2), eptr))
-		return (GSS_S_DEFECTIVE_TOKEN);
-	ADVANCE(ptr, 1, eptr);
-	len = derlen(&ptr, eptr);
-	if (!CHK(ptr, OCTETSTRING, eptr))
-		return (GSS_S_DEFECTIVE_TOKEN);
-	ADVANCE(ptr, 1, eptr);
-	rlen = derlen(&ptr, eptr);
-	response = ptr;
-	/* Skip rest of response token */
-	ADVANCE(ptr, rlen, eptr);
-	if (ptr == eptr)
-		/* No mic part so nothing to do */
-		return (GSS_S_COMPLETE);
-	end = ptr;  /* Save the end of the token */
-	/* See if we have a mechMic */
-	if (!CHK(ptr, (CONTEXT | 3), eptr))
-		return (GSS_S_DEFECTIVE_TOKEN);
-	ADVANCE(ptr, 1, eptr);
-	len = derlen(&ptr, eptr);
-	if (!CHK(ptr, OCTETSTRING, eptr))
-		return (GSS_S_DEFECTIVE_TOKEN);
-	ADVANCE(ptr, 1, eptr);
-	len = derlen(&ptr, eptr);
-	if (len != rlen || ptr + rlen != eptr || memcmp(response, ptr, rlen) != 0) {
-		DEBUG(3, "Mic does not equal response %p %p %p len = %d rlen = %d\n",
-			ptr, ptr + rlen, eptr, (int)len, (int)rlen);
-		return (GSS_S_DEFECTIVE_TOKEN);
-	}
-
-	/*
-	 * Ok we have a bogus mic, lets chop it off. This is the length value
-	 * of the sequence in the negTokenResp
-	 */
-	seqlen = end - start;
-
-	/* Number of bytes to ecode the length */
-	seqlenbytes = encode_derlen(seqlen, 0, 0);
-	/*
-	 * Length of the sequence in the negToken response. Note we add one
-	 * for the sequence tag itself
-	 */
-	negresplen = seqlen + seqlenbytes + 1;
-	negresplenbytes = encode_derlen(negresplen, 0, 0);
-	/*
-	 * Total negTokenResp length
-	 */
-	tlen = negresplen + negresplenbytes + 1; /* One for the context 1 tag */
-	/*
-	 * Now we do surgery on the token,
-	 */
-	ptr = token->value;
-	*ptr++ = CONTEXT | 1;
-	encode_derlen(negresplen, negresplenbytes, ptr);
-	ptr += negresplenbytes;
-	*ptr++ = SEQUENCE;
-	encode_derlen(seqlen, seqlenbytes, ptr);
-	ptr += seqlenbytes;
-	memmove(ptr, start, seqlen);
-	token->length = tlen;
-
-	DEBUG(3, "Returning token");
-	HEXDUMP(3, token->value, token->length);
-
-	return (GSS_S_COMPLETE);
-}
-#endif
-
 static kern_return_t
 checkin_or_register(char *service, mach_port_t *server_port)
 {
 	kern_return_t kr;
 
 	/*
-	 * Check in with launchd to get the receive right.
-	 * N.B. Since we're using a task special port, if launchd
-	 * does not have the receive right we can't get it.
-	 * And since we should always be started by launchd
-	 * this should always succeed.
+	 * Check in with launchd to get the receive right.  N.B. Since
+	 * we're using a host special port, or port created by launchd
+	 * itself this should always succeed.
 	 */
 
 	kr = bootstrap_check_in(bootstrap_port, service, server_port);
 	if (kr == BOOTSTRAP_SUCCESS)
 		return (KERN_SUCCESS);
 
-	Log("Could not checkin for receive right: %s\n", bootstrap_strerror(kr));
-
 	/* This should never happen */
-
-	kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, server_port);
-	if (kr != KERN_SUCCESS) {
-		Log("mach_port_allocation failed: %s\n", mach_error_string(kr));
-		return (kr);
-	}
-
-	kr = mach_port_insert_right(mach_task_self(), *server_port, *server_port, MACH_MSG_TYPE_MAKE_SEND);
-	if (kr != KERN_SUCCESS) {
-		Log("mach_port_insert_right failed: %s\n", mach_error_string(kr));
-		return (kr);
-	}
-
-	kr = bootstrap_register2(bootstrap_port, service, *server_port, 0);
-	if (kr != KERN_SUCCESS) {
-		Log("bootstrap_register2 failed: %s\n", mach_error_string(kr));
-		return (kr);
-	}
+	Log("Could not checkin for receive right: %s\n", bootstrap_strerror(kr));
 
 	return (kr);
 }
@@ -610,7 +402,7 @@ int main(int argc, char *argv[])
 	strlcpy(label_buf, APPLE_PREFIX, sizeof(label_buf));
 	strlcat(label_buf, getprogname(), sizeof(label_buf));
 
-	while ((ch = getopt(argc, argv, "b:Cdhm:n:t:DT")) != -1) {
+	while ((ch = getopt(argc, argv, "b:Cdhm:n:Rt:DT")) != -1) {
 		switch (ch) {
 		case 'C':
 			no_canon = 1;
@@ -634,6 +426,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'D':
 			acquire_default = 1;
+			break;
+		case 'R':
+			realm_matching = 1;
 			break;
 		case 'T':
 			kernel_only = FALSE;
@@ -1645,7 +1440,7 @@ shutdown_thread(void *arg __attribute__((unused)))
 	int master_token;
 	sigset_t quitset[1];
 	char *notify_name = asl_remote_notify_name();
-	
+
 	pthread_setname_np("Signal thread");
 
 	sigemptyset(quitset);
@@ -2006,22 +1801,31 @@ gss_name_to_kprinc(uint32_t *minor, gss_name_t name, krb5_principal *princ, krb5
 }
 
 /*
- * krb5_find_cache_name(krb5_principal princ)
+ * krb5_find_principal
  *
- * Given a kerberos principal find the best cache name to use.
+ * Given a kerberos service principal return the name of
+ * a principal in the credential cache collection that
+ * is not expired and is in the same realm as the server
+ * principal. If no or only expired principals are found
+ * return NULL. In addition in the flags field we return
+ * KFCN_ALIVE if there is at least one non expired cache
+ * in the collection. And KFCN_EXPIRED if the only matching
+ * credential found is expired. So if the flags field
+ * equals KFCN_EXPIRED, we just return expired and not bother
+ * driving on in find_realm_principal. Note that KFCN_EXPIRED
+ * being set means that the return principal name is NULL.
  */
 
 #define KFCN_ALIVE 1
 #define KFCN_EXPIRED 2
 
 static char*
-krb5_find_cache_name(krb5_context kcontext, krb5_principal sprinc, int *flags)
+krb5_find_principal(krb5_context kcontext, krb5_principal sprinc, int *flags)
 {
 	krb5_error_code error, err;
 	krb5_cc_cache_cursor cursor;
 	krb5_ccache ccache;
 	krb5_principal ccache_princ;
-	char *cname = NULL;
 	char *kname = NULL;
 	time_t ltime;
 	const char *msg = NULL;
@@ -2038,25 +1842,13 @@ krb5_find_cache_name(krb5_context kcontext, krb5_principal sprinc, int *flags)
 	while (!(error = krb5_cc_cache_next(kcontext, cursor, &ccache))) {
 		int isdead = 0;
 		cnt += 1;
-		err = krb5_cc_get_full_name(kcontext, ccache, &cname);
-		if (err) {
-			msg = krb5_get_error_message(kcontext, err);
-			Info("krb5_cc_get_full_name error: %s\n", msg);
-			krb5_free_error_message(kcontext, msg);
-			krb5_cc_close(kcontext, ccache);
-			if (cname)   /* Shouldn't happen */
-				free(cname);
-			cname = NULL;
-			continue;
-		}
+
 		err = krb5_cc_get_principal(kcontext, ccache, &ccache_princ);
 		if (err) {
 			krb5_cc_close(kcontext, ccache);
 			msg = krb5_get_error_message(kcontext, err);
 			Info("krb5_cc_get_principal error: %s\n", msg);
 			krb5_free_error_message(kcontext, msg);
-			free(cname);
-			cname = NULL;
 			continue;
 		}
 
@@ -2076,51 +1868,60 @@ krb5_find_cache_name(krb5_context kcontext, krb5_principal sprinc, int *flags)
 		if (krb5_realm_compare(kcontext, sprinc, ccache_princ)) {
 			(void) krb5_unparse_name(kcontext, ccache_princ, &kname);
 			krb5_free_principal(kcontext, ccache_princ);
-			Info("Found cache %d: %s for %s lifetime %ld\n",
-			     cnt, cname, kname ? kname : "could not get principal name", ltime);
-			free(kname);
-
+			Info("Found  %d: principal %s lifetime %ld\n",
+			     cnt, kname ? kname : "could not get principal name", ltime);
 			if (!isdead) {
 				krb5_cc_close(kcontext, ccache);
 				*flags &= ~KFCN_EXPIRED;
 				break;
 			} else {
 				*flags |= KFCN_EXPIRED;
+				free(kname);
+				kname = NULL;
 			}
 		} else {
 			(void) krb5_free_principal(kcontext, ccache_princ);
 		}
-		
+
 		krb5_cc_close(kcontext, ccache);
-		free(cname);
-		cname = NULL;
 	}
-	if (error != KRB5_CC_END) {
+	if (error && error != KRB5_CC_END) {
 		msg = krb5_get_error_message(kcontext, error);
 		Log("Could not iterate through cache collections: %s\n", msg);
 		krb5_free_error_message(kcontext, msg);
 	}
 	(void) krb5_cc_cache_end_seq_get(kcontext, cursor);
-	
-	return (cname);
+
+	return (kname);
 }
 
 /*
- * set_principal_identity:
- * Given a service principal try and set the default identity so that
- * calls to gss_init_sec_context will work.
- * Currently this only groks kerberos.
+ * find_realm_principal:
+ * Given a service principal try and find a non-expired principal in the cache
+ * in the same realm so that calls to gss_init_sec_context will work.
+ * Currently this only groks kerberos. This is useful if credentials have
+ * been acquired (kinit'ed) that aren't in the service's realm after the
+ * a TGT has been acquired in the service's realm. Cross realm relationships may
+ * not do what you want here, so this has been made optional. To enable this
+ * the launchd plist file will need to be modified to add the realm matching option
+ * of "-R".
  */
 static uint32_t
-set_principal_identity(gss_name_t sname, uint32_t *minor)
+find_realm_principal(uint32_t *minor, gss_name_t sname,  char **name, size_t *size)
 {
 	krb5_principal sprinc;
 	uint32_t major;
-	char *cname;
+	char *pname = NULL;
 	krb5_context kctx;
 	int error, flags;
 
 	*minor = 0;
+	*size = 0;
+	*name = NULL;
+
+	if (!realm_matching)
+		return (GSS_S_COMPLETE);
+
 	error = krb5_init_context(&kctx);
 	if (error) {
 		Log("Can't get kerberos context");
@@ -2134,35 +1935,47 @@ set_principal_identity(gss_name_t sname, uint32_t *minor)
 		return (major);
 	}
 
-	cname = krb5_find_cache_name(kctx, sprinc, &flags);
+	pname = krb5_find_principal(kctx, sprinc, &flags);
 	krb5_free_principal(kctx, sprinc);
 	krb5_free_context(kctx);
-	Debug("Using ccache <%s> flags = %d\n", cname ? cname : "Default", flags);
+	Debug("Using principal <%s> flags = %d\n", pname ? pname : "Default", flags);
 	if (flags == KFCN_EXPIRED)
 		return (GSS_S_CREDENTIALS_EXPIRED);
-	if (cname) {
-		major = gss_krb5_ccache_name(minor, cname, NULL);
-		DEBUG(3, "gss_krb5_ccache_name returned %#K; %#k\n", major, GSS_KRB5_MECHANISM,  minor);
-		free(cname);
-	}
+	if (pname)
+		*size = strlen(pname);
+	*name = pname;
 
 	return (GSS_S_COMPLETE);
 }
 
+static uint32_t
+do_acquire_cred(uint32_t *, gssd_nametype, gssd_byte_buffer, uint32_t, gssd_mechtype, gss_cred_id_t *);
 
 static uint32_t
 do_acquire_cred_v1(uint32_t *minor, char *principal, gssd_mechtype mech, gss_name_t sname, uint32_t uid,
-		   gssd_cred *cred_handle, uint32_t flags)
+		   gss_cred_id_t *cred_handle, uint32_t flags)
 {
 	uint32_t major = GSS_S_FAILURE, mstat;
 	gss_buffer_desc buf_name;
 	gss_name_t clnt_gss_name;
 	gss_OID_set mechset = GSS_C_NULL_OID_SET;
 	gss_OID name_type = GSS_KRB5_NT_PRINCIPAL_NAME;
+	size_t size;
 
-	major = set_principal_identity(sname, minor);
-	if (major)
-		return (major);
+	if (principal == NULL) {
+		major = find_realm_principal(minor, sname,  &principal, &size);
+		if (major) {
+			free(principal);
+			return (major);
+		}
+		if (principal) {
+			major =  do_acquire_cred(minor, GSSD_KRB5_PRINCIPAL, (gssd_byte_buffer)principal,
+						 (uint32_t)size, GSSD_KRB5_MECH, cred_handle);
+			free(principal);
+			return (major);
+		}
+	}
+
 	major = gss_create_empty_oid_set(minor, &mechset);
 	if (major != GSS_S_COMPLETE)
 		goto done;
@@ -2190,7 +2003,7 @@ do_acquire_cred_v1(uint32_t *minor, char *principal, gssd_mechtype mech, gss_nam
 						 GSS_C_INDEFINITE,
 						 mechset,
 						 GSS_C_INITIATE,
-						 (gss_cred_id_t *) cred_handle,
+						 cred_handle,
 						 NULL, NULL);
 			nt_oid = oid_name(name_type);
 			Info("gss_acuire_cred for %s using %s, returned: %K; %#k", principal, nt_oid, major, mechtab[mech], *minor);
@@ -2220,7 +2033,7 @@ do_acquire_cred_v1(uint32_t *minor, char *principal, gssd_mechtype mech, gss_nam
 					 GSS_C_INDEFINITE,
 					 mechset,
 					 GSS_C_INITIATE,
-					 (gss_cred_id_t *) cred_handle,
+					 cred_handle,
 					 NULL, NULL);
 
 		if (major == GSS_S_COMPLETE) {
@@ -2241,7 +2054,7 @@ do_acquire_cred_v1(uint32_t *minor, char *principal, gssd_mechtype mech, gss_nam
 				 GSS_C_INDEFINITE,
 				 mechset,
 				 GSS_C_INITIATE,
-				 (gss_cred_id_t *) cred_handle,
+				 cred_handle,
 				 NULL, NULL);
 	Info("Trying to aquire cred with uid %d. Returned %#K; %#k", uid, major, mechtab[mech], *minor);
 
@@ -2439,7 +2252,7 @@ svc_mach_gss_init_sec_context_common(
 	uint32_t major_stat;
 	uint32_t major, minor;
 	uint32_t __unused in_gssd_flags = *gssd_flags;
-	
+
 	DEBUG(2, "Using mech = %d\n", mech);
 	DEBUG(3, "\tcred_handle = %p\n", cred_handle);
 	DEBUG(3, "\tgss_context = %p\n", context);
@@ -2709,7 +2522,7 @@ svc_mach_gss_init_sec_context_v2(
 	if (CAST(gss_cred_id_t, *cred_handle) == GSS_C_NO_CREDENTIAL || (*gssd_flags & GSSD_RESTART)) {
 		if (clnt_nt == GSSD_STRING_NAME)
 			*major_stat = do_acquire_cred_v1(minor_stat, (char *)clnt_princ, mech,
-							 *svc_gss_name, uid, cred_handle, *gssd_flags);
+							 *svc_gss_name, uid, (gss_cred_id_t *)cred_handle, *gssd_flags);
 		else {
 			*major_stat = do_acquire_cred(minor_stat, clnt_nt,
 						      clnt_princ, clnt_princCnt,
@@ -3090,7 +2903,7 @@ svc_mach_gss_hold_cred(mach_port_t server __unused,
 		       uint32_t *major_stat,
 		       uint32_t *minor_stat)
 {
-	gss_cred_id_t cred = NULL;
+	gss_cred_id_t cred = GSS_C_NO_CREDENTIAL;
 	uint32_t m;
 	vproc_transaction_t gssd_vproc_handle;
 	kern_return_t kr = KERN_SUCCESS;
@@ -3105,7 +2918,7 @@ svc_mach_gss_hold_cred(mach_port_t server __unused,
 	}
 
 	*major_stat = do_acquire_cred(minor_stat, nt, princ, princCnt, mech, &cred);
-	if (*major_stat != GSS_S_COMPLETE)
+	if (*major_stat != GSS_S_COMPLETE || cred == GSS_C_NO_CREDENTIAL)
 		goto out;
 	*major_stat = gss_cred_hold(minor_stat, cred);
 	(void) gss_release_cred(&m, &cred);
@@ -3127,7 +2940,7 @@ svc_mach_gss_unhold_cred(mach_port_t server __unused,
 			 uint32_t *major_stat,
 			 uint32_t *minor_stat)
 {
-	gss_cred_id_t cred = NULL;
+	gss_cred_id_t cred = GSS_C_NO_CREDENTIAL;
 	uint32_t m;
 	vproc_transaction_t gssd_vproc_handle;
 	kern_return_t kr = KERN_SUCCESS;
@@ -3142,7 +2955,7 @@ svc_mach_gss_unhold_cred(mach_port_t server __unused,
 	}
 
 	*major_stat = do_acquire_cred(minor_stat, nt, princ, princCnt, mech, &cred);
-	if (*major_stat != GSS_S_COMPLETE)
+	if (*major_stat != GSS_S_COMPLETE || cred == GSS_C_NO_CREDENTIAL)
 		goto out;
 	*major_stat = gss_cred_unhold(minor_stat, cred);
 	(void) gss_release_cred(&m, &cred);

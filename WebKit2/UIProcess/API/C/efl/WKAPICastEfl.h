@@ -24,7 +24,7 @@
 #error "Please #include \"WKAPICast.h\" instead of this file directly."
 #endif
 
-#include <WebCore/TextDirection.h>
+#include <WebCore/WritingMode.h>
 #include <WebKit/WKPopupItem.h>
 
 #if ENABLE(TOUCH_EVENTS)
@@ -103,6 +103,18 @@ inline WKTouchPointState toAPI(WebPlatformTouchPoint::TouchPointState state)
     return kWKTouchPointStateTouchCancelled;
 }
 #endif
+
+template<>
+inline WKPopupMenuListenerRef toAPI(WebPopupMenuListenerEfl* popup)
+{
+    return static_cast<WKPopupMenuListenerRef>(static_cast<void*>(popup));
+}
+
+template<>
+inline WebPopupMenuListenerEfl* toImpl(WKPopupMenuListenerRef popupRef)
+{
+    return static_cast<WebPopupMenuListenerEfl*>(static_cast<void*>(const_cast<OpaqueWKPopupMenuListener*>(popupRef)));
+}
 
 }
 

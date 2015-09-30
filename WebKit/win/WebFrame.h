@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2011, 2013-2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,16 +30,13 @@
 #include "WebDataSource.h"
 
 #include "AccessibleDocument.h"
-
 #include <WebCore/AdjustViewSizeOrNot.h>
 #include <WebCore/FrameWin.h>
 #include <WebCore/GraphicsContext.h>
-#include <WebCore/URL.h>
 #include <WebCore/ResourceHandleClient.h>
-
-#include <WTF/RefPtr.h>
-#include <WTF/HashMap.h>
-#include <WTF/OwnPtr.h>
+#include <WebCore/URL.h>
+#include <wtf/HashMap.h>
+#include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -78,7 +75,7 @@ interface IWebHistoryItemPrivate;
 WebFrame* kit(WebCore::Frame*);
 WebCore::Frame* core(WebFrame*);
 
-class DECLSPEC_UUID("{A3676398-4485-4a9d-87DC-CB5A40E6351D}") WebFrame : public IWebFrame, IWebFramePrivate, IWebDocumentText
+class DECLSPEC_UUID("{A3676398-4485-4a9d-87DC-CB5A40E6351D}") WebFrame : public IWebFrame2, IWebFramePrivate, IWebDocumentText
 {
 public:
     static WebFrame* createInstance();
@@ -287,6 +284,8 @@ public:
     virtual HRESULT STDMETHODCALLTYPE selectAll();
     
     virtual HRESULT STDMETHODCALLTYPE deselectAll();
+
+    virtual HRESULT STDMETHODCALLTYPE isMainFrame(BOOL*);
     
     // FrameLoaderClient
     virtual void frameLoaderDestroyed();

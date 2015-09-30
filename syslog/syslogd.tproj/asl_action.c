@@ -500,7 +500,7 @@ _asl_dir_today_close(asl_out_rule_t *r)
 	if (as_data->pending != 0)
 	{
 		char *str = NULL;
-		asprintf(&str, "[Sender syslogd] [Level 4] [PID %u] [Facility syslog] [Message ASL Store %s was closed with %d pending messages]", global.pid, r->dst->fname, as_data->pending);
+		asprintf(&str, "[Sender syslogd] [Level 4] [PID %u] [Facility syslog] [Message ASL Store %s was closed with %d pending messages]", global.pid, r->dst->current_name, as_data->pending);
 		internal_log_message(str);
 		free(str);
 	}
@@ -529,8 +529,8 @@ _asl_dir_today_close(asl_out_rule_t *r)
 	as_data->p_month = 0;
 	as_data->p_day = 0;
 
-	free(r->dst->fname);
-	r->dst->fname = NULL;
+	free(r->dst->current_name);
+	r->dst->current_name = NULL;
 
 	as_data->aslfile = NULL;
 }
@@ -541,22 +541,22 @@ _asl_dir_today_close(asl_out_rule_t *r)
 static int
 _act_checkpoint(asl_out_rule_t *r, uint32_t force)
 {
-	char tmpfname[MAXPATHLEN], *fn;
+	char tmpcurrent_name[MAXPATHLEN], *fn;
 
 	if (r == NULL) return 0;
 	if (r->dst == NULL) return 0;
 
-	fn = r->dst->fname;
+	fn = r->dst->current_name;
 	if (fn == NULL)
 	{
 		if (r->dst->path == NULL) return 0;
-		asl_make_dst_filename(r->dst, tmpfname, sizeof(tmpfname));
-		fn = tmpfname;
+		asl_dst_make_current_name(r->dst, 0, tmpcurrent_name, sizeof(tmpcurrent_name));
+		fn = tmpcurrent_name;
 	}
 
 	if ((force == CHECKPOINT_TEST) && (r->dst->file_max == 0)) return 0;
 
-	if ((r->dst->size == 0) || (r->dst->stamp == 0))
+	if ((r->dst->size == 0) || (r->dst->timestamp == 0))
 	{
 		struct stat sb;
 
@@ -568,8 +568,8 @@ _act_checkpoint(asl_out_rule_t *r, uint32_t force)
 			return -1;
 		}
 
-		if (r->dst->stamp == 0) r->dst->stamp = sb.st_birthtimespec.tv_sec;
-		if (r->dst->stamp == 0) r->dst->stamp = sb.st_mtimespec.tv_sec;
+		if (r->dst->timestamp == 0) r->dst->timestamp = sb.st_birthtimespec.tv_sec;
+		if (r->dst->timestamp == 0) r->dst->timestamp = sb.st_mtimespec.tv_sec;
 		r->dst->size = sb.st_size;
 	}
 	
@@ -583,19 +583,21 @@ _act_checkpoint(asl_out_rule_t *r, uint32_t force)
 	{
 		char srcpath[MAXPATHLEN];
 		char dstpath[MAXPATHLEN];
-		char tstamp[32];
-
-		if (r->dst->stamp == 0) r->dst->stamp = time(NULL);
-		asl_make_timestamp(r->dst->stamp, r->dst->flags, tstamp, sizeof(tstamp));
 
 		snprintf(srcpath, sizeof(srcpath), "%s", fn);
-		snprintf(dstpath, sizeof(dstpath), "%s.%s", fn, tstamp);
+
+		r->dst->timestamp = time(NULL);
+		asl_dst_make_current_name(r->dst, MODULE_FLAG_BASESTAMP, dstpath, sizeof(dstpath));
 
 		_act_dst_close(r, DST_CLOSE_CHECKPOINT);
-		rename(srcpath, dstpath);
+		if (strneq(srcpath, dstpath))
+		{
+			rename(srcpath, dstpath);
+			asldebug("CHECKPOINT RENAME %s %s\n", srcpath, dstpath);
+		}
 	}
 
-	r->dst->stamp = 0;
+	r->dst->timestamp = 0;
 	r->dst->size = 0;
 	return 1;
 }
@@ -640,7 +642,7 @@ _asl_dir_today_open(asl_out_rule_t *r, const time_t *tick)
 
 	/* checks file_max and closes if required */
 	status = _act_checkpoint(r, CHECKPOINT_TEST);
-	if (status == 1) trigger_aslmanager();
+	if (status == 1) asl_trigger_aslmanager();
 
 	if (as_data->aslfile != NULL)
 	{
@@ -663,16 +665,16 @@ _asl_dir_today_open(asl_out_rule_t *r, const time_t *tick)
 			tick = (const time_t *)&now;
 		}
 
-		asl_make_timestamp(now, r->dst->flags, tstamp, sizeof(tstamp));
-		asprintf(&(r->dst->fname), "%s/%s.asl", r->dst->path, tstamp);
+		asl_make_timestamp(now, r->dst->style_flags, tstamp, sizeof(tstamp));
+		asprintf(&(r->dst->current_name), "%s/%s.asl", r->dst->path, tstamp);
 	}
 	else
 	{
-		asprintf(&(r->dst->fname), "%s/%d.%02d.%02d.asl", r->dst->path, ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+		asprintf(&(r->dst->current_name), "%s/%d.%02d.%02d.asl", r->dst->path, ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
 	}
 
 
-	if (r->dst->fname == NULL)
+	if (r->dst->current_name == NULL)
 	{
 		asldebug("_asl_dir_today_open: asprintf error %s\n", strerror(errno));
 		return -1;
@@ -687,22 +689,22 @@ _asl_dir_today_open(asl_out_rule_t *r, const time_t *tick)
 #endif
 
 	mask = umask(0);
-	status = asl_file_open_write(r->dst->fname, (r->dst->mode & 00666), uid, gid, &(as_data->aslfile));
+	status = asl_file_open_write(r->dst->current_name, (r->dst->mode & 00666), uid, gid, &(as_data->aslfile));
 	umask(mask);
 
 	if (status != ASL_STATUS_OK)
 	{
-		asldebug("_asl_dir_today_open: asl_file_open_write %s error %s\n", r->dst->fname, asl_core_error(status));
-		free(r->dst->fname);
-		r->dst->fname = NULL;
+		asldebug("_asl_dir_today_open: asl_file_open_write %s error %s\n", r->dst->current_name, asl_core_error(status));
+		free(r->dst->current_name);
+		r->dst->current_name = NULL;
 		return -1;
 	}
 
 	if (fseek(as_data->aslfile->store, 0, SEEK_END) != 0)
 	{
-		asldebug("_asl_dir_today_open: fseek %s error %s\n", r->dst->fname, strerror(errno));
-		free(r->dst->fname);
-		r->dst->fname = NULL;
+		asldebug("_asl_dir_today_open: fseek %s error %s\n", r->dst->current_name, strerror(errno));
+		free(r->dst->current_name);
+		r->dst->current_name = NULL;
 		return -1;
 	}
 
@@ -729,7 +731,7 @@ _asl_dir_today_open(asl_out_rule_t *r, const time_t *tick)
 		dispatch_resume(as_data->aslfile_monitor);
 	}
 
-	asldebug("_asl_dir_today_open ASL file %s fd %d\n", r->dst->fname, fd);
+	asldebug("_asl_dir_today_open ASL file %s fd %d\n", r->dst->current_name, fd);
 
 	return 0;
 }
@@ -746,7 +748,7 @@ _asl_file_close(asl_out_rule_t *r)
 	if (af_data->pending != 0)
 	{
 		char *str = NULL;
-		asprintf(&str, "[Sender syslogd] [Level 4] [PID %u] [Facility syslog] [Message ASL File %s was closed with %d pending messages]", global.pid, r->dst->fname, af_data->pending);
+		asprintf(&str, "[Sender syslogd] [Level 4] [PID %u] [Facility syslog] [Message ASL File %s was closed with %d pending messages]", global.pid, r->dst->current_name, af_data->pending);
 		internal_log_message(str);
 		free(str);
 	}
@@ -796,18 +798,18 @@ _asl_file_open(asl_out_rule_t *r)
 	fd = _act_file_create_open(r->dst);
 	if (fd < 0)
 	{
-		asldebug("_asl_file_open: _act_file_create_open %s failed %d %s\n", r->dst->fname, errno, strerror(errno));
+		asldebug("_asl_file_open: _act_file_create_open %s failed %d %s\n", r->dst->current_name, errno, strerror(errno));
 		return -1;
 	}
 
 	close(fd);
 
-	if (r->dst->fname == NULL) return -1;
+	if (r->dst->current_name == NULL) return -1;
 
-	status = asl_file_open_write(r->dst->fname, 0, -1, -1, &(af_data->aslfile));
+	status = asl_file_open_write(r->dst->current_name, 0, -1, -1, &(af_data->aslfile));
 	if (status != ASL_STATUS_OK)
 	{
-		asldebug("_asl_file_open: asl_file_open_write %s failed %d %s\n", r->dst->fname, errno, strerror(errno));
+		asldebug("_asl_file_open: asl_file_open_write %s failed %d %s\n", r->dst->current_name, errno, strerror(errno));
 		return -1;
 	}
 
@@ -830,7 +832,7 @@ _asl_file_open(asl_out_rule_t *r)
 		dispatch_resume(af_data->monitor);
 	}
 
-	asldebug("_asl_file_open ASL file %s fd %d\n", r->dst->fname, fd);
+	asldebug("_asl_file_open ASL file %s fd %d\n", r->dst->current_name, fd);
 	return 0;
 }
 
@@ -843,7 +845,7 @@ _text_file_close(asl_out_rule_t *r)
 	if (f_data->pending != 0)
 	{
 		char *str = NULL;
-		asprintf(&str, "[Sender syslogd] [Level 4] [PID %u] [Facility syslog] [Message File %s was closed with %d pending messages]", global.pid, r->dst->fname, f_data->pending);
+		asprintf(&str, "[Sender syslogd] [Level 4] [PID %u] [Facility syslog] [Message File %s was closed with %d pending messages]", global.pid, r->dst->current_name, f_data->pending);
 		internal_log_message(str);
 		free(str);
 	}
@@ -969,12 +971,12 @@ _act_dst_close(asl_out_rule_t *r, int why)
 	}
 	else if (r->action == ACTION_ASL_FILE)
 	{
-		asldebug("_act_dst_close: %s ASL FILE %s\n", why_str[why], (r->dst->fname == NULL) ? r->dst->path : r->dst->fname);
+		asldebug("_act_dst_close: %s ASL FILE %s\n", why_str[why], (r->dst->current_name == NULL) ? r->dst->path : r->dst->current_name);
 		_asl_file_close(r);
 	}
 	else if (r->action == ACTION_FILE)
 	{
-		asldebug("_act_dst_close: %s FILE %s\n", why_str[why], (r->dst->fname == NULL) ? r->dst->path : r->dst->fname);
+		asldebug("_act_dst_close: %s FILE %s\n", why_str[why], (r->dst->current_name == NULL) ? r->dst->path : r->dst->current_name);
 		_text_file_close(r);
 	}
 }
@@ -1181,7 +1183,7 @@ _act_store_file(asl_out_module_t *m, asl_out_rule_t *r, asl_msg_t *msg)
 		{
 			r->dst->size = af_data->aslfile->file_size;
 
-			if (_act_checkpoint(r, CHECKPOINT_TEST) == 1) trigger_aslmanager();
+			if (_act_checkpoint(r, CHECKPOINT_TEST) == 1) asl_trigger_aslmanager();
 		}
 	}
 
@@ -1337,7 +1339,7 @@ _send_repeat_msg(asl_out_rule_t *r)
 
 	if ((status < 0) || (status < len))
 	{
-		asldebug("%s: error writing repeat message (%s): %s\n", MY_ID, r->dst->fname, strerror(errno));
+		asldebug("%s: error writing repeat message (%s): %s\n", MY_ID, r->dst->current_name, strerror(errno));
 		return -1;
 	}
 
@@ -1449,7 +1451,7 @@ _act_file_checkpoint_all(uint32_t force)
 		if (_act_file_checkpoint(m, NULL, force) > 0) did_checkpoint = 1;
 	}
 
-	trigger_aslmanager();
+	asl_trigger_aslmanager();
 
 	return did_checkpoint;
 }
@@ -1466,6 +1468,8 @@ _act_file_final(asl_out_module_t *m, asl_out_rule_t *r, asl_msg_t *msg)
 	char *str;
 	time_t now;
 
+	if (r == NULL) return;
+	if (r->dst == NULL) return;
 	if (r->dst->private == NULL) return;
 
 	f_data = (asl_action_file_data_t *)r->dst->private;
@@ -1559,7 +1563,7 @@ _act_file_final(asl_out_module_t *m, asl_out_rule_t *r, asl_msg_t *msg)
 			size_t bytes = write(f_data->fd, str, len - 1);
 			if (bytes > 0) r->dst->size += bytes;
 
-			if (_act_checkpoint(r, CHECKPOINT_TEST) == 1) trigger_aslmanager();
+			if (_act_checkpoint(r, CHECKPOINT_TEST) == 1) asl_trigger_aslmanager();
 		}
 	}
 
@@ -1702,7 +1706,7 @@ _asl_out_process_message(asl_out_module_t *m, asl_msg_t *msg)
 }
 
 void
-asl_out_message(asl_msg_t *msg)
+asl_out_message(asl_msg_t *msg, int64_t msize)
 {
 	OSAtomicIncrement32(&global.asl_queue_count);
 	asl_msg_retain(msg);
@@ -1743,6 +1747,14 @@ asl_out_message(asl_msg_t *msg)
 
 		p = asl_msg_get_val_for_key(msg, ASL_KEY_FINAL_NOTIFICATION);
 		if (p != NULL) asl_msg_set_key_val(msg, ASL_KEY_FREE_NOTE, p);
+
+		/* chain to the next output module (done this way to make queue size accounting easier */
+#if !TARGET_IPHONE_SIMULATOR
+		if (global.bsd_out_enabled) bsd_out_message(msg, msize);
+		else OSAtomicAdd64(-1ll * msize, &global.memory_size);
+#else
+		OSAtomicAdd64(-1ll * msize, &global.memory_size);
+#endif
 
 		asl_msg_release(msg);
 		OSAtomicDecrement32(&global.asl_queue_count);

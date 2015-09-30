@@ -33,7 +33,6 @@ namespace WebKit {
 WebFrameListenerProxy::WebFrameListenerProxy(WebFrameProxy* frame, uint64_t listenerID)
     : m_frame(frame)
     , m_listenerID(listenerID)
-    , m_navigationID(0)
 {
 }
 
@@ -43,7 +42,7 @@ WebFrameListenerProxy::~WebFrameListenerProxy()
 
 void WebFrameListenerProxy::invalidate()
 {
-    m_frame = 0;
+    m_frame = nullptr;
 }
 
 void WebFrameListenerProxy::receivedPolicyDecision(WebCore::PolicyAction action)
@@ -51,8 +50,8 @@ void WebFrameListenerProxy::receivedPolicyDecision(WebCore::PolicyAction action)
     if (!m_frame)
         return;
 
-    m_frame->receivedPolicyDecision(action, m_listenerID, m_navigationID);
-    m_frame = 0;
+    m_frame->receivedPolicyDecision(action, m_listenerID, m_navigation.get());
+    m_frame = nullptr;
 }
 
 } // namespace WebKit

@@ -42,9 +42,9 @@
 
 /*
  * Limit the number of contexts that we can have.
- * If a kernel thread gets a context from us with 
+ * If a kernel thread gets a context from us with
  * CONTINUE NEEDED, but never finish the context we
- * and then loops before we idle out we can end up 
+ * and then loops before we idle out we can end up
  * consuming a large amount of memory.
  */
 #define MAX_GSS_CONTEXTS 100
@@ -86,7 +86,7 @@ gssd_enter(void *ptr)
 		/* Will exit with 0 so lanchd will start as again */
 		exit(0);
 	}
-	
+
 	if ((tfind(ptr, &rootp, compare) == (void *)0)) {
 		if (tsearch(ptr, &rootp, compare))
 			ctx_counter++;
@@ -984,7 +984,7 @@ gssd_log(int log_level, const char *fmt, ...)
 
 	va_start(ap, fmt);
 #ifndef GSSD_LOG_DEBUG
-	if (!has_gss_conv(fmt) && 0) {
+	if (!has_gss_conv(fmt)) {
 		g_vlog(log_level, fmt, ap);
 		va_end(ap);
 		return;

@@ -28,7 +28,7 @@
 #include "IOAudioTypes.h"
 #include "IOAudioDefines.h"
 #include "IOAudioControl.h"
-#include "AudioTracepoints.h"
+#include <IOKit/audio/AudioTracepoints.h>
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOWorkLoop.h>

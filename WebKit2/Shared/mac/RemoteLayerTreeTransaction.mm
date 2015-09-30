@@ -47,6 +47,7 @@ RemoteLayerTreeTransaction::LayerCreationProperties::LayerCreationProperties()
     : layerID(0)
     , type(PlatformCALayer::LayerTypeLayer)
     , hostingContextID(0)
+    , hostingDeviceScaleFactor(1)
 {
 }
 
@@ -55,6 +56,7 @@ void RemoteLayerTreeTransaction::LayerCreationProperties::encode(IPC::ArgumentEn
     encoder << layerID;
     encoder.encodeEnum(type);
     encoder << hostingContextID;
+    encoder << hostingDeviceScaleFactor;
 }
 
 bool RemoteLayerTreeTransaction::LayerCreationProperties::decode(IPC::ArgumentDecoder& decoder, LayerCreationProperties& result)
@@ -66,6 +68,9 @@ bool RemoteLayerTreeTransaction::LayerCreationProperties::decode(IPC::ArgumentDe
         return false;
 
     if (!decoder.decode(result.hostingContextID))
+        return false;
+
+    if (!decoder.decode(result.hostingDeviceScaleFactor))
         return false;
 
     return true;
@@ -81,17 +86,19 @@ RemoteLayerTreeTransaction::LayerProperties::LayerProperties()
     , timeOffset(0)
     , speed(1)
     , contentsScale(1)
+    , cornerRadius(0)
     , borderWidth(0)
     , opacity(1)
     , backgroundColor(Color::transparent)
     , borderColor(Color::black)
     , edgeAntialiasingMask(kCALayerLeftEdge | kCALayerRightEdge | kCALayerBottomEdge | kCALayerTopEdge)
     , customAppearance(GraphicsLayer::NoCustomAppearance)
-    , customBehavior(GraphicsLayer::NoCustomBehavior)
     , minificationFilter(PlatformCALayer::FilterType::Linear)
     , magnificationFilter(PlatformCALayer::FilterType::Linear)
     , blendMode(BlendModeNormal)
+    , windRule(RULE_NONZERO)
     , hidden(false)
+    , backingStoreAttached(true)
     , geometryFlipped(false)
     , doubleSided(true)
     , masksToBounds(false)
@@ -110,22 +117,25 @@ RemoteLayerTreeTransaction::LayerProperties::LayerProperties(const LayerProperti
     , anchorPoint(other.anchorPoint)
     , bounds(other.bounds)
     , contentsRect(other.contentsRect)
+    , shapePath(other.shapePath)
     , maskLayerID(other.maskLayerID)
     , clonedLayerID(other.clonedLayerID)
     , timeOffset(other.timeOffset)
     , speed(other.speed)
     , contentsScale(other.contentsScale)
+    , cornerRadius(other.cornerRadius)
     , borderWidth(other.borderWidth)
     , opacity(other.opacity)
     , backgroundColor(other.backgroundColor)
     , borderColor(other.borderColor)
     , edgeAntialiasingMask(other.edgeAntialiasingMask)
     , customAppearance(other.customAppearance)
-    , customBehavior(other.customBehavior)
     , minificationFilter(other.minificationFilter)
     , magnificationFilter(other.magnificationFilter)
     , blendMode(other.blendMode)
+    , windRule(other.windRule)
     , hidden(other.hidden)
+    , backingStoreAttached(other.backingStoreAttached)
     , geometryFlipped(other.geometryFlipped)
     , doubleSided(other.doubleSided)
     , masksToBounds(other.masksToBounds)
@@ -213,6 +223,15 @@ void RemoteLayerTreeTransaction::LayerProperties::encode(IPC::ArgumentEncoder& e
     if (changedProperties & ContentsScaleChanged)
         encoder << contentsScale;
 
+    if (changedProperties & CornerRadiusChanged)
+        encoder << cornerRadius;
+
+    if (changedProperties & ShapeRoundedRectChanged)
+        encoder << *shapeRoundedRect;
+
+    if (changedProperties & ShapePathChanged)
+        encoder << shapePath;
+
     if (changedProperties & MinificationFilterChanged)
         encoder.encodeEnum(minificationFilter);
 
@@ -221,6 +240,9 @@ void RemoteLayerTreeTransaction::LayerProperties::encode(IPC::ArgumentEncoder& e
 
     if (changedProperties & BlendModeChanged)
         encoder.encodeEnum(blendMode);
+
+    if (changedProperties & WindRuleChanged)
+        encoder.encodeEnum(windRule);
 
     if (changedProperties & SpeedChanged)
         encoder << speed;
@@ -235,6 +257,9 @@ void RemoteLayerTreeTransaction::LayerProperties::encode(IPC::ArgumentEncoder& e
             encoder << *backingStore;
     }
 
+    if (changedProperties & BackingStoreAttachmentChanged)
+        encoder << backingStoreAttached;
+
     if (changedProperties & FiltersChanged)
         encoder << *filters;
 
@@ -243,9 +268,6 @@ void RemoteLayerTreeTransaction::LayerProperties::encode(IPC::ArgumentEncoder& e
 
     if (changedProperties & CustomAppearanceChanged)
         encoder.encodeEnum(customAppearance);
-
-    if (changedProperties & CustomBehaviorChanged)
-        encoder.encodeEnum(customBehavior);
 }
 
 bool RemoteLayerTreeTransaction::LayerProperties::decode(IPC::ArgumentDecoder& decoder, LayerProperties& result)
@@ -372,6 +394,27 @@ bool RemoteLayerTreeTransaction::LayerProperties::decode(IPC::ArgumentDecoder& d
             return false;
     }
 
+    if (result.changedProperties & CornerRadiusChanged) {
+        if (!decoder.decode(result.cornerRadius))
+            return false;
+    }
+
+    if (result.changedProperties & ShapeRoundedRectChanged) {
+        FloatRoundedRect roundedRect;
+        if (!decoder.decode(roundedRect))
+            return false;
+        
+        result.shapeRoundedRect = std::make_unique<FloatRoundedRect>(roundedRect);
+    }
+
+    if (result.changedProperties & ShapePathChanged) {
+        Path path;
+        if (!decoder.decode(path))
+            return false;
+        
+        result.shapePath = WTF::move(path);
+    }
+
     if (result.changedProperties & MinificationFilterChanged) {
         if (!decoder.decodeEnum(result.minificationFilter))
             return false;
@@ -384,6 +427,11 @@ bool RemoteLayerTreeTransaction::LayerProperties::decode(IPC::ArgumentDecoder& d
 
     if (result.changedProperties & BlendModeChanged) {
         if (!decoder.decodeEnum(result.blendMode))
+            return false;
+    }
+
+    if (result.changedProperties & WindRuleChanged) {
+        if (!decoder.decodeEnum(result.windRule))
             return false;
     }
 
@@ -411,6 +459,11 @@ bool RemoteLayerTreeTransaction::LayerProperties::decode(IPC::ArgumentDecoder& d
             result.backingStore = nullptr;
     }
 
+    if (result.changedProperties & BackingStoreAttachmentChanged) {
+        if (!decoder.decode(result.backingStoreAttached))
+            return false;
+    }
+
     if (result.changedProperties & FiltersChanged) {
         std::unique_ptr<FilterOperations> filters = std::make_unique<FilterOperations>();
         if (!decoder.decode(*filters))
@@ -428,15 +481,17 @@ bool RemoteLayerTreeTransaction::LayerProperties::decode(IPC::ArgumentDecoder& d
             return false;
     }
 
-    if (result.changedProperties & CustomBehaviorChanged) {
-        if (!decoder.decodeEnum(result.customBehavior))
-            return false;
-    }
-
     return true;
 }
 
 RemoteLayerTreeTransaction::RemoteLayerTreeTransaction()
+    : m_pageScaleFactor(1)
+    , m_minimumScaleFactor(1)
+    , m_maximumScaleFactor(1)
+    , m_renderTreeSize(0)
+    , m_transactionID(0)
+    , m_scaleWasSetByUIProcess(false)
+    , m_allowsUserScaling(false)
 {
 }
 
@@ -461,6 +516,10 @@ void RemoteLayerTreeTransaction::encode(IPC::ArgumentEncoder& encoder) const
     encoder << m_layerIDsWithNewlyUnreachableBackingStore;
 
     encoder << m_contentsSize;
+    encoder << m_scrollOrigin;
+#if PLATFORM(MAC)
+    encoder << m_scrollPosition;
+#endif
     encoder << m_pageExtendedBackgroundColor;
     encoder << m_pageScaleFactor;
     encoder << m_minimumScaleFactor;
@@ -522,6 +581,14 @@ bool RemoteLayerTreeTransaction::decode(IPC::ArgumentDecoder& decoder, RemoteLay
 
     if (!decoder.decode(result.m_contentsSize))
         return false;
+
+    if (!decoder.decode(result.m_scrollOrigin))
+        return false;
+
+#if PLATFORM(MAC)
+    if (!decoder.decode(result.m_scrollPosition))
+        return false;
+#endif
     
     if (!decoder.decode(result.m_pageExtendedBackgroundColor))
         return false;
@@ -594,6 +661,7 @@ public:
 
     RemoteLayerTreeTextStream& operator<<(const TransformationMatrix&);
     RemoteLayerTreeTextStream& operator<<(PlatformCALayer::FilterType);
+    RemoteLayerTreeTextStream& operator<<(const FloatRoundedRect&);
     RemoteLayerTreeTextStream& operator<<(FloatPoint3D);
     RemoteLayerTreeTextStream& operator<<(Color);
     RemoteLayerTreeTextStream& operator<<(FloatRect);
@@ -602,6 +670,7 @@ public:
     RemoteLayerTreeTextStream& operator<<(const FilterOperations&);
     RemoteLayerTreeTextStream& operator<<(const PlatformCAAnimationRemote::Properties&);
     RemoteLayerTreeTextStream& operator<<(const RemoteLayerBackingStore&);
+    RemoteLayerTreeTextStream& operator<<(const WebCore::GraphicsLayer::CustomAppearance&);
     RemoteLayerTreeTextStream& operator<<(BlendMode);
     RemoteLayerTreeTextStream& operator<<(PlatformCAAnimation::AnimationType);
     RemoteLayerTreeTextStream& operator<<(PlatformCAAnimation::FillModeType);
@@ -643,6 +712,25 @@ RemoteLayerTreeTextStream& RemoteLayerTreeTextStream::operator<<(const Transform
     ts.writeIndent();
     ts << "[" << transform.m41() << " " << transform.m42() << " " << transform.m43() << " " << transform.m44() << "]";
     ts.decreaseIndent();
+    return ts;
+}
+
+RemoteLayerTreeTextStream& RemoteLayerTreeTextStream::operator<<(const FloatRoundedRect& roundedRect)
+{
+    RemoteLayerTreeTextStream& ts = *this;
+    ts << roundedRect.rect().x() << " " << roundedRect.rect().y() << " " << roundedRect.rect().width() << " " << roundedRect.rect().height() << "\n";
+
+    ts.increaseIndent();
+    ts.writeIndent();
+    ts << "topLeft=" << roundedRect.topLeftCorner().width() << " " << roundedRect.topLeftCorner().height() << "\n";
+    ts.writeIndent();
+    ts << "topRight=" << roundedRect.topRightCorner().width() << " " << roundedRect.topRightCorner().height() << "\n";
+    ts.writeIndent();
+    ts << "bottomLeft=" << roundedRect.bottomLeftCorner().width() << " " << roundedRect.bottomLeftCorner().height() << "\n";
+    ts.writeIndent();
+    ts << "bottomRight=" << roundedRect.bottomRightCorner().width() << " " << roundedRect.bottomRightCorner().height();
+    ts.decreaseIndent();
+
     return ts;
 }
 
@@ -689,52 +777,52 @@ RemoteLayerTreeTextStream& RemoteLayerTreeTextStream::operator<<(const FilterOpe
         ts << "reference";
         break;
     case FilterOperation::GRAYSCALE: {
-        const BasicColorMatrixFilterOperation& colorMatrixFilter = toBasicColorMatrixFilterOperation(filter);
+        const auto& colorMatrixFilter = downcast<BasicColorMatrixFilterOperation>(filter);
         ts << "grayscale(" << colorMatrixFilter.amount() << ")";
         break;
     }
     case FilterOperation::SEPIA: {
-        const BasicColorMatrixFilterOperation& colorMatrixFilter = toBasicColorMatrixFilterOperation(filter);
+        const auto& colorMatrixFilter = downcast<BasicColorMatrixFilterOperation>(filter);
         ts << "sepia(" << colorMatrixFilter.amount() << ")";
         break;
     }
     case FilterOperation::SATURATE: {
-        const BasicColorMatrixFilterOperation& colorMatrixFilter = toBasicColorMatrixFilterOperation(filter);
+        const auto& colorMatrixFilter = downcast<BasicColorMatrixFilterOperation>(filter);
         ts << "saturate(" << colorMatrixFilter.amount() << ")";
         break;
     }
     case FilterOperation::HUE_ROTATE: {
-        const BasicColorMatrixFilterOperation& colorMatrixFilter = toBasicColorMatrixFilterOperation(filter);
+        const auto& colorMatrixFilter = downcast<BasicColorMatrixFilterOperation>(filter);
         ts << "hue-rotate(" << colorMatrixFilter.amount() << ")";
         break;
     }
     case FilterOperation::INVERT: {
-        const BasicComponentTransferFilterOperation& componentTransferFilter = toBasicComponentTransferFilterOperation(filter);
+        const auto& componentTransferFilter = downcast<BasicComponentTransferFilterOperation>(filter);
         ts << "invert(" << componentTransferFilter.amount() << ")";
         break;
     }
     case FilterOperation::OPACITY: {
-        const BasicComponentTransferFilterOperation& componentTransferFilter = toBasicComponentTransferFilterOperation(filter);
+        const auto& componentTransferFilter = downcast<BasicComponentTransferFilterOperation>(filter);
         ts << "opacity(" << componentTransferFilter.amount() << ")";
         break;
     }
     case FilterOperation::BRIGHTNESS: {
-        const BasicComponentTransferFilterOperation& componentTransferFilter = toBasicComponentTransferFilterOperation(filter);
+        const auto& componentTransferFilter = downcast<BasicComponentTransferFilterOperation>(filter);
         ts << "brightness(" << componentTransferFilter.amount() << ")";
         break;
     }
     case FilterOperation::CONTRAST: {
-        const BasicComponentTransferFilterOperation& componentTransferFilter = toBasicComponentTransferFilterOperation(filter);
+        const auto& componentTransferFilter = downcast<BasicComponentTransferFilterOperation>(filter);
         ts << "contrast(" << componentTransferFilter.amount() << ")";
         break;
     }
     case FilterOperation::BLUR: {
-        const BlurFilterOperation& blurFilter = toBlurFilterOperation(filter);
+        const auto& blurFilter = downcast<BlurFilterOperation>(filter);
         ts << "blur(" << floatValueForLength(blurFilter.stdDeviation(), 0) << ")";
         break;
     }
     case FilterOperation::DROP_SHADOW: {
-        const DropShadowFilterOperation& dropShadowFilter = toDropShadowFilterOperation(filter);
+        const auto& dropShadowFilter = downcast<DropShadowFilterOperation>(filter);
         ts << "drop-shadow(" << dropShadowFilter.x() << " " << dropShadowFilter.y() << " " << dropShadowFilter.location() << " ";
         ts << dropShadowFilter.color() << ")";
         break;
@@ -743,13 +831,26 @@ RemoteLayerTreeTextStream& RemoteLayerTreeTextStream::operator<<(const FilterOpe
         ts << "passthrough";
         break;
     case FilterOperation::DEFAULT: {
-        const DefaultFilterOperation& defaultFilter = toDefaultFilterOperation(filter);
+        const auto& defaultFilter = downcast<DefaultFilterOperation>(filter);
         ts << "default type=" << (int)defaultFilter.representedType();
         break;
     }
     case FilterOperation::NONE:
         ts << "none";
         break;
+    }
+    return ts;
+}
+
+RemoteLayerTreeTextStream& RemoteLayerTreeTextStream::operator<<(const WebCore::GraphicsLayer::CustomAppearance& customAppearance)
+{
+    RemoteLayerTreeTextStream& ts = *this;
+    switch (customAppearance) {
+    case WebCore::GraphicsLayer::CustomAppearance::NoCustomAppearance: ts << "none"; break;
+    case WebCore::GraphicsLayer::CustomAppearance::ScrollingOverhang: ts << "scrolling-overhang"; break;
+    case WebCore::GraphicsLayer::CustomAppearance::ScrollingShadow: ts << "scrolling-shadow"; break;
+    case WebCore::GraphicsLayer::CustomAppearance::LightBackdropAppearance: ts << "light-backdrop"; break;
+    case WebCore::GraphicsLayer::CustomAppearance::DarkBackdropAppearance: ts << "dark-backdrop"; break;
     }
     return ts;
 }
@@ -774,6 +875,8 @@ RemoteLayerTreeTextStream& RemoteLayerTreeTextStream::operator<<(BlendMode blend
     case BlendModeSaturation: ts << "saturation"; break;
     case BlendModeColor: ts << "color"; break;
     case BlendModeLuminosity: ts << "luminosity"; break;
+    case BlendModePlusDarker: ts << "plus-darker"; break;
+    case BlendModePlusLighter: ts << "plus-lighter"; break;
     }
     return ts;
 }
@@ -1078,6 +1181,12 @@ static void dumpChangedLayers(RemoteLayerTreeTextStream& ts, const RemoteLayerTr
         if (layerProperties.changedProperties & RemoteLayerTreeTransaction::ContentsScaleChanged)
             dumpProperty(ts, "contentsScale", layerProperties.contentsScale);
 
+        if (layerProperties.changedProperties & RemoteLayerTreeTransaction::CornerRadiusChanged)
+            dumpProperty(ts, "cornerRadius", layerProperties.cornerRadius);
+
+        if (layerProperties.changedProperties & RemoteLayerTreeTransaction::ShapeRoundedRectChanged)
+            dumpProperty(ts, "shapeRect", layerProperties.shapeRoundedRect ? *layerProperties.shapeRoundedRect : FloatRoundedRect());
+
         if (layerProperties.changedProperties & RemoteLayerTreeTransaction::MinificationFilterChanged)
             dumpProperty(ts, "minificationFilter", layerProperties.minificationFilter);
 
@@ -1100,6 +1209,9 @@ static void dumpChangedLayers(RemoteLayerTreeTextStream& ts, const RemoteLayerTr
                 dumpProperty(ts, "backingStore", "removed");
         }
 
+        if (layerProperties.changedProperties & RemoteLayerTreeTransaction::BackingStoreAttachmentChanged)
+            dumpProperty(ts, "backingStoreAttached", layerProperties.backingStoreAttached);
+
         if (layerProperties.changedProperties & RemoteLayerTreeTransaction::FiltersChanged)
             dumpProperty(ts, "filters", layerProperties.filters ? *layerProperties.filters : FilterOperations());
 
@@ -1117,9 +1229,6 @@ static void dumpChangedLayers(RemoteLayerTreeTextStream& ts, const RemoteLayerTr
         if (layerProperties.changedProperties & RemoteLayerTreeTransaction::CustomAppearanceChanged)
             dumpProperty(ts, "customAppearance", layerProperties.customAppearance);
 
-        if (layerProperties.changedProperties & RemoteLayerTreeTransaction::CustomBehaviorChanged)
-            dumpProperty(ts, "customBehavior", layerProperties.customBehavior);
-
         ts << ")";
 
         ts.decreaseIndent();
@@ -1136,6 +1245,15 @@ void RemoteLayerTreeTransaction::dump() const
 CString RemoteLayerTreeTransaction::description() const
 {
     RemoteLayerTreeTextStream ts;
+
+    ts << "(";
+    dumpProperty(ts, "transactionID", m_transactionID);
+    dumpProperty(ts, "contentsSize", m_contentsSize);
+    if (m_scrollOrigin != IntPoint::zero())
+        dumpProperty(ts, "scrollOrigin", m_scrollOrigin);
+
+    if (m_pageScaleFactor != 1)
+        dumpProperty(ts, "pageScaleFactor", m_pageScaleFactor);
 
     ts << "(\n";
     ts.increaseIndent();
@@ -1175,14 +1293,29 @@ CString RemoteLayerTreeTransaction::description() const
             case PlatformCALayer::LayerTypeRootLayer:
                 ts << "root-layer";
                 break;
+            case PlatformCALayer::LayerTypeBackdropLayer:
+                ts << "backdrop-layer";
+                break;
             case PlatformCALayer::LayerTypeAVPlayerLayer:
                 ts << "av-player-layer (context-id " << createdLayer.hostingContextID << ")";
                 break;
             case PlatformCALayer::LayerTypeWebGLLayer:
                 ts << "web-gl-layer (context-id " << createdLayer.hostingContextID << ")";
                 break;
+            case PlatformCALayer::LayerTypeShapeLayer:
+                ts << "shape-layer";
+                break;
+            case PlatformCALayer::LayerTypeScrollingLayer:
+                ts << "scrolling-layer";
+                break;
             case PlatformCALayer::LayerTypeCustom:
                 ts << "custom-layer (context-id " << createdLayer.hostingContextID << ")";
+                break;
+            case PlatformCALayer::LayerTypeLightSystemBackdropLayer:
+                ts << "light-system-backdrop-layer";
+                break;
+            case PlatformCALayer::LayerTypeDarkSystemBackdropLayer:
+                ts << "dark-system-backdrop-layer";
                 break;
             }
             ts << " " << createdLayer.layerID << ")";

@@ -42,6 +42,7 @@
 #define IDLE_HID_ACTIVITY_SECS ((uint64_t)(5*60))
 static int minOfThree(int a, int b, int c);
 
+extern uint32_t                     gDebugFlags;
 // Forwards
 const bool  kNoNotify  = false;
 const bool  kYesNotify = true;
@@ -227,6 +228,11 @@ void updateUserActivityLevels(void)
         notify_set_state(token, levels);
         notify_post("com.apple.system.powermanagement.useractivity2");
 
+        if (gDebugFlags & kIOPMDebugLogUserActivity) {
+            asl_log(0,0,ASL_LEVEL_ERR, "Activity changes from 0x%llx to 0x%llx. Assertions:%d HidState:%d\n",
+                userActive.postedLevels, levels, userActive.assertionsActive, userActive.hidActive);
+        }
+
         if (((userActive.postedLevels & kIOPMUserNotificationActive) == 0) &&
             (levels & kIOPMUserNotificationActive)) {
             /*
@@ -244,10 +250,7 @@ void updateUserActivityLevels(void)
             }
 
         }
-        if ((levels & kIOPMUserNotificationActive) || (userActive.postedLevels & kIOPMUserNotificationActive)) {
-            asl_log(0,0,ASL_LEVEL_ERR, "Activity changes from 0x%llx to 0x%llx. Assertions:%d HidState:%d\n",
-                userActive.postedLevels, levels, userActive.assertionsActive, userActive.hidActive);
-        }
+
         userActive.postedLevels = levels;
     }
 }
@@ -283,6 +286,10 @@ static void updateUserPresentActive( )
 
        notify_post(kIOUserActivityNotifyName);
 
+       if (gDebugFlags & kIOPMDebugLogUserActivity) {
+           asl_log(0,0,ASL_LEVEL_ERR, "PresentActive changes from %d to %d. Assertions: %d HidState:%d displayIsOff:%d\n",
+                   userActive.presentActive, presentActive, userActive.assertionsActive, userActive.hidActive, displayIsOff);
+       }
        userActive.presentActive = presentActive;
 
        updateUserActivityLevels();
@@ -602,7 +609,8 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool _displayIsOff
     if (displayIsOff) {
         // Force set user active assertions to false
         userActive.assertionsActive = false;
-        dispatch_suspend(userActive.timer);
+        if (userActive.timer)
+            dispatch_suspend(userActive.timer);
     }
     
     shareTheSystemLoad(kYesNotify);

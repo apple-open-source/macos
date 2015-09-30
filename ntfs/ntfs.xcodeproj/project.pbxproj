@@ -349,7 +349,6 @@
 				BE3E0A210AD9A1700054ACA0 /* Sources */,
 				BE3E0A220AD9A1700054ACA0 /* Frameworks */,
 				BE3E0A7A0AD9A2EA0054ACA0 /* CopyFiles */,
-				4DDA8CC3150E689B00631F4D /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -452,22 +451,6 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		4DDA8CC3150E689B00631F4D /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/ntfs.util",
-			);
-			outputPaths = (
-				"$(DSTROOT)$(FS_BUNDLE_PATH)/ntfs.util",
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_DIR}/ntfs.util ${DSTROOT}${FS_BUNDLE_PATH}/ntfs.util";
-			showEnvVarsInLog = 0;
-		};
 		4DDA8CC4150E68D800631F4D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;

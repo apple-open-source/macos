@@ -1,6 +1,6 @@
 /* srm */
 /* Copyright (c) 2000 Matthew D. Gauthier
- * Portions copyright (c) 2007 Apple Inc.  All rights reserved.
+ * Portions copyright (c) 2015 Apple Inc.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -117,6 +117,7 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 	FTSENT *current_file;
 	FTS *stream;
 	int rval = 0;
+	int open_flags = 0;
 
 	removefile_callback_t cb_confirm = NULL;
 	removefile_callback_t cb_status = NULL;
@@ -126,8 +127,22 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 	cb_status = state->status_callback;
 	cb_error = state->error_callback;
 
-	stream = fts_open(trees, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
-	if (stream == NULL) return -1;
+	open_flags = FTS_PHYSICAL | FTS_NOCHDIR | FTS_XDEV;
+
+	/*
+	 * Don't cross a mount point when deleting recursively by default.
+	 * This default was changed in 10.11, previous to which there was
+	 * no way to prevent removefile from crossing mount points.
+	 * see: rdar://problem/6799948
+	 */
+	if ((REMOVEFILE_CROSS_MOUNT & state->unlink_flags) != 0)
+		open_flags &= ~FTS_XDEV;
+
+	stream = fts_open(trees, open_flags, NULL);
+	if (stream == NULL) {
+		state->error_num = errno;
+		return -1;
+	}
 
 	while ((current_file = fts_read(stream)) != NULL) {
 		int res = REMOVEFILE_PROCEED;
@@ -141,6 +156,16 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 		if (current_file->fts_info == FTS_DP &&
 		    current_file->fts_number == REMOVEFILE_SKIP) {
 			current_file->fts_number = 0;
+			continue;
+		}
+
+		/* Setting FTS_XDEV skips the mountpoint on pre-order traversal,
+		 * but you have to manually hop over it on post-order or
+		 * removefile will return an error.
+		 */
+		if (current_file->fts_info == FTS_DP &&
+			stream->fts_options & FTS_XDEV &&
+			stream->fts_dev != current_file->fts_dev) {
 			continue;
 		}
 
@@ -209,7 +234,7 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 	}
 
 	if (__removefile_state_test_cancel(state)) {
-		errno = ECANCELED;
+		state->error_num = ECANCELED;
 		rval = -1;
 	}
 

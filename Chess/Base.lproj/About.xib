@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="7519.1" systemVersion="14C109" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="8052.4" systemVersion="15A131a" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="7519.1"/>
+        <deployment identifier="macosx"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="8052.4"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="MBCAbout">
@@ -16,7 +17,7 @@
             <windowStyleMask key="styleMask" titled="YES" closable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="538" y="186" width="522" height="405"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="3840" height="2137"/>
             <value key="minSize" type="size" width="520" height="400"/>
             <view key="contentView" id="8">
                 <rect key="frame" x="0.0" y="0.0" width="522" height="405"/>
@@ -30,10 +31,10 @@
                         </constraints>
                         <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="chess" id="100012"/>
                     </imageView>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="6">
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="6">
                         <rect key="frame" x="117" y="314" width="286" height="19"/>
                         <constraints>
-                            <constraint firstAttribute="width" constant="280" id="200024"/>
+                            <constraint firstAttribute="width" constant="282" id="200024"/>
                             <constraint firstAttribute="height" constant="19" id="200025"/>
                         </constraints>
                         <textFieldCell key="cell" alignment="center" title="Chess" id="100006">
@@ -73,8 +74,8 @@
                             <autoresizingMask key="autoresizingMask"/>
                         </scroller>
                     </scrollView>
-                    <button verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="9">
-                        <rect key="frame" x="307" y="17" width="199" height="32"/>
+                    <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="9">
+                        <rect key="frame" x="312" y="17" width="194" height="32"/>
                         <string key="toolTip">Open web location to download 
 the source code for this application.</string>
                         <buttonCell key="cell" type="push" title="Download Source Code…" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="100009">
@@ -85,11 +86,11 @@ the source code for this application.</string>
                             <action selector="downloadSource:" target="-2" id="16"/>
                         </connections>
                     </button>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="13">
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="13">
                         <rect key="frame" x="17" y="15" width="154" height="42"/>
                         <constraints>
                             <constraint firstAttribute="height" constant="42" id="200052"/>
-                            <constraint firstAttribute="width" constant="148" id="200053"/>
+                            <constraint firstAttribute="width" constant="150" id="200053"/>
                         </constraints>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="100013">
                             <font key="font" metaFont="label"/>
@@ -100,11 +101,11 @@ the source code for this application.</string>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="7">
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="7">
                         <rect key="frame" x="179" y="294" width="165" height="16"/>
                         <constraints>
                             <constraint firstAttribute="height" constant="16" id="200050"/>
-                            <constraint firstAttribute="width" constant="159" id="200051"/>
+                            <constraint firstAttribute="width" constant="161" id="200051"/>
                         </constraints>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="100007">
                             <font key="font" metaFont="label"/>
@@ -122,11 +123,25 @@ the source code for this application.</string>
                             </binding>
                         </connections>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200014">
-                        <rect key="frame" x="324" y="5" width="165" height="16"/>
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="200011">
+                        <rect key="frame" x="92" y="15" width="154" height="42"/>
+                        <constraints>
+                            <constraint firstAttribute="width" constant="150" id="200023"/>
+                        </constraints>
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="200012">
+                            <font key="font" metaFont="label"/>
+                            <string key="title">Apple Inc.
+Gian-Carlo Pascutto
+R. Ancell &amp; M. Duelli</string>
+                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                        </textFieldCell>
+                    </textField>
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="200014">
+                        <rect key="frame" x="327" y="0.0" width="165" height="16"/>
                         <constraints>
                             <constraint firstAttribute="height" constant="16" id="200026"/>
-                            <constraint firstAttribute="width" constant="159" id="200027"/>
+                            <constraint firstAttribute="width" constant="161" id="200027"/>
                         </constraints>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="200015">
                             <font key="font" metaFont="label"/>
@@ -144,20 +159,6 @@ the source code for this application.</string>
                             </binding>
                         </connections>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200011">
-                        <rect key="frame" x="92" y="15" width="154" height="42"/>
-                        <constraints>
-                            <constraint firstAttribute="width" constant="148" id="200023"/>
-                        </constraints>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="200012">
-                            <font key="font" metaFont="label"/>
-                            <string key="title">Apple Inc.
-Gian-Carlo Pascutto
-R. Ancell &amp; M. Duelli</string>
-                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
                 </subviews>
                 <constraints>
                     <constraint firstItem="10" firstAttribute="leading" secondItem="8" secondAttribute="leading" constant="19" id="200032"/>
@@ -165,10 +166,10 @@ R. Ancell &amp; M. Duelli</string>
                     <constraint firstItem="13" firstAttribute="top" secondItem="10" secondAttribute="bottom" constant="8" symbolic="YES" id="200034"/>
                     <constraint firstItem="9" firstAttribute="top" secondItem="10" secondAttribute="bottom" constant="20" symbolic="YES" id="200035"/>
                     <constraint firstItem="6" firstAttribute="top" secondItem="12" secondAttribute="bottom" constant="8" symbolic="YES" id="200036"/>
-                    <constraint firstItem="13" firstAttribute="leading" secondItem="8" secondAttribute="leading" constant="20" symbolic="YES" id="200037"/>
-                    <constraint firstAttribute="bottom" secondItem="200014" secondAttribute="bottom" constant="5" id="200038"/>
+                    <constraint firstItem="13" firstAttribute="leading" secondItem="8" secondAttribute="leading" constant="19" id="200037"/>
+                    <constraint firstAttribute="bottom" secondItem="200014" secondAttribute="bottom" id="200038"/>
                     <constraint firstItem="7" firstAttribute="top" secondItem="8" secondAttribute="top" constant="95" id="200039"/>
-                    <constraint firstItem="200011" firstAttribute="leading" secondItem="8" secondAttribute="leading" constant="95" id="200040"/>
+                    <constraint firstItem="200011" firstAttribute="leading" secondItem="8" secondAttribute="leading" constant="94" id="200040"/>
                     <constraint firstItem="10" firstAttribute="top" secondItem="8" secondAttribute="top" constant="131" id="200041"/>
                     <constraint firstAttribute="bottom" secondItem="13" secondAttribute="bottom" constant="15" id="200042"/>
                     <constraint firstAttribute="trailing" secondItem="9" secondAttribute="trailing" constant="22" id="200043"/>

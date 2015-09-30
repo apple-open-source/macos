@@ -150,7 +150,7 @@ IOExternalMethod * IOHIDUserClient::getTargetAndMethodForIndex(
 /* 2 */  { NULL, (IOMethod) &IOHIDSystem::setCursorEnable,
             kIOUCScalarIScalarO, 1, 0 },
 /* 3 */  { NULL, (IOMethod) &IOHIDSystem::extPostEvent,
-            kIOUCStructIStructO, kIOUCVariableStructureSize, 0 },
+            kIOUCStructIStructO, sizeof( struct evioLLEvent) + sizeof(int), 0 },
 /* 4 */  { NULL, (IOMethod) &IOHIDSystem::extSetMouseLocation,
             kIOUCStructIStructO, kIOUCVariableStructureSize, 0 },
 /* 5 */  { NULL, (IOMethod) &IOHIDSystem::extGetButtonEventNum,
@@ -167,8 +167,10 @@ IOExternalMethod * IOHIDUserClient::getTargetAndMethodForIndex(
             kIOUCScalarIScalarO, 0, 1 },
 /* 11 */ { NULL, (IOMethod) &IOHIDSystem::setContinuousCursorEnable,
             kIOUCScalarIScalarO, 1, 0 },
+/* 12 */ { NULL, (IOMethod) &IOHIDSystem::extSetOnScreenBounds,
+            kIOUCStructIStructO, 12, 0 },
 };
-
+    
     if( index >= (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
         return( NULL );
 
@@ -220,7 +222,7 @@ IOExternalMethod * IOHIDParamUserClient::getTargetAndMethodForIndex(
         /* 0 */  { NULL, NULL, kIOUCScalarIScalarO, 1, 0 },
         /* 1 */  { NULL, NULL, kIOUCScalarIScalarO, 1, 0 },
         /* 2 */  { NULL, NULL, kIOUCScalarIScalarO, 1, 0 },
-        /* 3 */  { NULL, (IOMethod) &IOHIDParamUserClient::extPostEvent, kIOUCStructIStructO, 0xffffffff, 0 },
+        /* 3 */  { NULL, (IOMethod) &IOHIDParamUserClient::extPostEvent, kIOUCStructIStructO, sizeof( struct evioLLEvent) + sizeof(int), 0 },
         /* 4 */  { NULL, (IOMethod) &IOHIDSystem::extSetMouseLocation, kIOUCStructIStructO, 0xffffffff, 0 },
         /* 5 */  { NULL, (IOMethod) &IOHIDSystem::extGetStateForSelector, kIOUCScalarIScalarO, 1, 1 },
         /* 6 */  { NULL, (IOMethod) &IOHIDSystem::extSetStateForSelector, kIOUCScalarIScalarO, 2, 0 },
@@ -497,7 +499,7 @@ IOExternalMethod * IOHIDEventSystemUserClient::getTargetAndMethodForIndex(
             kIOUCScalarIScalarO, 1, 0 }
     };
 
-    if( index > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
+    if( index >= (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
         return( NULL );
 
     *targetP = this;

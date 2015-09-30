@@ -100,7 +100,7 @@ pw=ak4unandsop39NuJ
 
 echo "Changing password"
 cat > cpw.tmp <<EOF
-expect Password
+expect password
 password ${oldpw}\n
 expect New password
 send ${pw}\n

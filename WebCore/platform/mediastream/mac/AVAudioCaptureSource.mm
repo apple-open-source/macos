@@ -29,10 +29,11 @@
 
 #import "AVAudioCaptureSource.h"
 
+#import "CoreMediaSoftLink.h"
 #import "Logging.h"
 #import "MediaConstraints.h"
-#import "MediaStreamSourceStates.h"
 #import "NotImplemented.h"
+#import "RealtimeMediaSourceStates.h"
 #import "SoftLinking.h"
 #import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
@@ -51,12 +52,6 @@ SOFT_LINK_CLASS(AVFoundation, AVCaptureDevice)
 SOFT_LINK_CLASS(AVFoundation, AVCaptureDeviceInput)
 SOFT_LINK_CLASS(AVFoundation, AVCaptureOutput)
 
-#define AVCaptureAudioDataOutput getAVCaptureAudioDataOutputClass()
-#define AVCaptureConnection getAVCaptureConnectionClass()
-#define AVCaptureDevice getAVCaptureDeviceClass()
-#define AVCaptureDeviceInput getAVCaptureDeviceInputClass()
-#define AVCaptureOutput getAVCaptureOutputClass()
-
 SOFT_LINK_POINTER(AVFoundation, AVMediaTypeAudio, NSString *)
 
 #define AVMediaTypeAudio getAVMediaTypeAudio()
@@ -69,17 +64,17 @@ RefPtr<AVMediaCaptureSource> AVAudioCaptureSource::create(AVCaptureDeviceType* d
 }
     
 AVAudioCaptureSource::AVAudioCaptureSource(AVCaptureDeviceType* device, const AtomicString& id, PassRefPtr<MediaConstraints> constraints)
-    : AVMediaCaptureSource(device, id, MediaStreamSource::Audio, constraints)
+    : AVMediaCaptureSource(device, id, RealtimeMediaSource::Audio, constraints)
 {
     currentStates()->setSourceId(id);
-    currentStates()->setSourceType(MediaStreamSourceStates::Microphone);
+    currentStates()->setSourceType(RealtimeMediaSourceStates::Microphone);
 }
     
 AVAudioCaptureSource::~AVAudioCaptureSource()
 {
 }
 
-RefPtr<MediaStreamSourceCapabilities> AVAudioCaptureSource::capabilities() const
+RefPtr<RealtimeMediaSourceCapabilities> AVAudioCaptureSource::capabilities() const
 {
     notImplemented();
     return 0;
@@ -92,12 +87,12 @@ void AVAudioCaptureSource::updateStates()
 
 void AVAudioCaptureSource::setupCaptureSession()
 {
-    RetainPtr<AVCaptureDeviceInputType> audioIn = adoptNS([[AVCaptureDeviceInput alloc] initWithDevice:device() error:nil]);
+    RetainPtr<AVCaptureDeviceInputType> audioIn = adoptNS([allocAVCaptureDeviceInputInstance() initWithDevice:device() error:nil]);
     ASSERT([session() canAddInput:audioIn.get()]);
     if ([session() canAddInput:audioIn.get()])
         [session() addInput:audioIn.get()];
     
-    RetainPtr<AVCaptureAudioDataOutputType> audioOutput = adoptNS([[AVCaptureAudioDataOutput alloc] init]);
+    RetainPtr<AVCaptureAudioDataOutputType> audioOutput = adoptNS([allocAVCaptureAudioDataOutputInstance() init]);
     setAudioSampleBufferDelegate(audioOutput.get());
     ASSERT([session() canAddOutput:audioOutput.get()]);
     if ([session() canAddOutput:audioOutput.get()])

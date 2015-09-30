@@ -1,31 +1,42 @@
-fc [ -e ename ] [ -m match ] [ old=new ... ] [ first [ last ] ]
-fc -l [ -nrdfEiD ] [ -t timefmt ] [ -m match ]
+fc [ -e ename ] [-L] [ -m match ] [ old=new ... ] [ first [ last ] ]
+fc -l [ -LnrdfEiD ] [ -t timefmt ] [ -m match ]
       [ old=new ... ] [ first [ last ] ]
 fc -p [ -a ] [ filename [ histsize [ savehistsize ] ] ]
 fc -P
 fc -ARWI [ filename ]
-       Select a range of commands from first to last from  the  history
+       The fc command controls the interactive history mechanism.  Note
+       that reading and writing of history options is only performed if
+       the  shell  is  interactive.  Usually this is detected automati-
+       cally, but it can be forced by setting  the  interactive  option
+       when starting the shell.
+
+       Select  a  range of commands from first to last from the history
        list.  The arguments first and last may be specified as a number
-       or as a string.  A negative number is used as an offset  to  the
-       current  history  event  number.   A  string  specifies the most
+       or  as  a string.  A negative number is used as an offset to the
+       current history event  number.   A  string  specifies  the  most
        recent event beginning with the given string.  All substitutions
        old=new, if any, are then performed on the commands.
 
-       If  the  -l  flag is given, the resulting commands are listed on
-       standard output.  If the -m flag is also given the  first  argu-
-       ment  is taken as a pattern (should be quoted) and only the his-
-       tory events matching this pattern will be shown.  Otherwise  the
-       editor  program ename is invoked on a file containing these his-
-       tory events.  If ename is not given, the value of the  parameter
-       FCEDIT  is  used;  if that is not set the value of the parameter
-       EDITOR is used; if that is not set a  builtin  default,  usually
-       `vi'  is  used.   If  ename  is `-', no editor is invoked.  When
-       editing is complete, the edited command is executed.
+       If the -L flag is given, only the local  history  is  considered
+       (see  SHARE_HISTORY in zshoptions(1)).  If the -m flag is given,
+       the first argument is taken as a pattern (should be quoted)  and
+       only the history events matching this pattern are considered.
+
+       When  the -l flag is given, the resulting commands are listed on
+       standard output.  Otherwise the editor program ename is  invoked
+       on  a  file  containing  these  history events.  If ename is not
+       given, the value of the parameter FCEDIT is used; if that is not
+       set  the  value  of the parameter EDITOR is used; if that is not
+       set a builtin default, usually `vi' is used.  If ename  is  `-',
+       no editor is invoked.  When editing is complete, the edited com-
+       mand is executed.
 
        If first is not specified, it will be set to -1 (the most recent
        event), or to -16 if the -l flag is given.  If last is not spec-
        ified, it will be set to first, or to  -1  if  the  -l  flag  is
-       given.
+       given.   However,  if the current event has added entries to the
+       history with `print -s' or `fc -R', then the default last for -l
+       includes all new history entries since the current event began.
 
        The  flag  -r reverses the order of the commands and the flag -n
        suppresses command numbers when listing.

@@ -205,7 +205,6 @@ memset_s.3 memset_s.3
 memset_pattern.3 memset_pattern.3 memset_pattern4.3 memset_pattern8.3 memset_pattern16.3
 mkpath_np.3 mkpath_np.3
 mktemp.3 mktemp.3 mkdtemp.3 mkstemp.3 mkstemps.3
-moncontrol.3 moncontrol.3 monstartup.3
 mpool.3 mpool.3 mpool_close.3 mpool_filter.3 mpool_get.3 mpool_new.3 mpool_open.3 mpool_put.3 mpool_sync.3
 multibyte.3 multibyte.3
 newlocale.3 newlocale.3

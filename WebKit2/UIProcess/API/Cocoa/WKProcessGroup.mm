@@ -29,6 +29,7 @@
 #if WK_API_ENABLED
 
 #import "APINavigationData.h"
+#import "APIProcessPoolConfiguration.h"
 #import "ObjCObjectGraph.h"
 #import "WKAPICast.h"
 #import "WKBrowsingContextControllerInternal.h"
@@ -41,8 +42,8 @@
 #import "WKStringCF.h"
 #import "WeakObjCPtr.h"
 #import "WebCertificateInfo.h"
-#import "WebContext.h"
 #import "WebFrameProxy.h"
+#import "WebProcessPool.h"
 #import <wtf/RetainPtr.h>
 
 #if PLATFORM(IOS)
@@ -54,7 +55,7 @@
 using namespace WebKit;
 
 @implementation WKProcessGroup {
-    RefPtr<WebContext> _context;
+    RefPtr<WebProcessPool> _processPool;
 
     WeakObjCPtr<id <WKProcessGroupDelegate>> _delegate;
 
@@ -91,8 +92,8 @@ static WKTypeRef getInjectedBundleInitializationUserData(WKContextRef, const voi
 
     if ([delegate respondsToSelector:@selector(processGroupWillCreateConnectionToWebProcessPlugIn:)]) {
         RetainPtr<id> initializationUserData = [delegate processGroupWillCreateConnectionToWebProcessPlugIn:processGroup];
-        RefPtr<WebKit::ObjCObjectGraph> wkMessageBody = WebKit::ObjCObjectGraph::create(initializationUserData.get());
-        return (WKTypeRef)wkMessageBody.release().leakRef();
+
+        return toAPI(&WebKit::ObjCObjectGraph::create(initializationUserData.get()).leakRef());
     }
 
     return 0;
@@ -189,20 +190,18 @@ static void setUpHistoryClient(WKProcessGroup *processGroup, WKContextRef contex
     InitWebCoreThreadSystemInterface();
 #endif
 
-    WebContextConfiguration webContextConfiguration;
-    webContextConfiguration.injectedBundlePath = bundleURL ? String(bundleURL.path) : String();
-
-    WebContext::applyPlatformSpecificConfigurationDefaults(webContextConfiguration);
-
-    _context = WebContext::create(WTF::move(webContextConfiguration));
-
-    setUpConnectionClient(self, toAPI(_context.get()));
-    setUpInectedBundleClient(self, toAPI(_context.get()));
-    setUpHistoryClient(self, toAPI(_context.get()));
+    auto configuration = API::ProcessPoolConfiguration::createWithLegacyOptions();
+    configuration->setInjectedBundlePath(bundleURL ? String(bundleURL.path) : String());
 #if PLATFORM(IOS)
-    _context->setUsesNetworkProcess(true);
-    _context->setProcessModel(ProcessModelMultipleSecondaryProcesses);
+    configuration->setUseNetworkProcess(true);
+    configuration->setProcessModel(ProcessModelMultipleSecondaryProcesses);
 #endif
+
+    _processPool = WebProcessPool::create(configuration);
+
+    setUpConnectionClient(self, toAPI(_processPool.get()));
+    setUpInectedBundleClient(self, toAPI(_processPool.get()));
+    setUpHistoryClient(self, toAPI(_processPool.get()));
 
     return self;
 }
@@ -223,19 +222,19 @@ static void setUpHistoryClient(WKProcessGroup *processGroup, WKContextRef contex
 
 - (WKContextRef)_contextRef
 {
-    return toAPI(_context.get());
+    return toAPI(_processPool.get());
 }
 
 - (void)_setAllowsSpecificHTTPSCertificate:(NSArray *)certificateChain forHost:(NSString *)host
 {
-    _context->allowSpecificHTTPSCertificateForHost(WebCertificateInfo::create(WebCore::CertificateInfo((CFArrayRef)certificateChain)).get(), host);
+    _processPool->allowSpecificHTTPSCertificateForHost(WebCertificateInfo::create(WebCore::CertificateInfo((CFArrayRef)certificateChain)).ptr(), host);
 }
 
 #if PLATFORM(IOS)
 - (WKGeolocationProviderIOS *)_geolocationProvider
 {
     if (!_geolocationProvider)
-        _geolocationProvider = adoptNS([[WKGeolocationProviderIOS alloc] initWithContext:_context.get()]);
+        _geolocationProvider = adoptNS([[WKGeolocationProviderIOS alloc] initWithProcessPool:*_processPool.get()]);
     return _geolocationProvider.get();
 }
 #endif // PLATFORM(IOS)

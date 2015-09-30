@@ -48,6 +48,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		8533E07D1B322F46002A1747 /* Allowed.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8533E07C1B322F46002A1747 /* Allowed.plist */; };
 		BE4DBC631A9401410025962E /* TrustStore.html in Resources */ = {isa = PBXBuildFile; fileRef = BE4DBC621A9401410025962E /* TrustStore.html */; };
 		BE9D63131A73159E0021F0B6 /* Certificates.bundle in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE7F81FB1A3F697800784BBB /* Certificates.bundle */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		BE9D63151A7315BD0021F0B6 /* Certificates.bundle in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE7F81FB1A3F697800784BBB /* Certificates.bundle */; };
@@ -136,7 +137,7 @@
 		BE9D63101A7315850021F0B6 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /private/var/Keychains;
+			dstPath = /System/Library/Security;
 			dstSubfolderSpec = 0;
 			files = (
 				BE9D63131A73159E0021F0B6 /* Certificates.bundle in CopyFiles */,
@@ -146,7 +147,7 @@
 		BE9D63141A7315B20021F0B6 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /private/var/Keychains;
+			dstPath = /System/Library/Security;
 			dstSubfolderSpec = 0;
 			files = (
 				BE9D63151A7315BD0021F0B6 /* Certificates.bundle in CopyFiles */,
@@ -171,6 +172,7 @@
 
 /* Begin PBXFileReference section */
 		7D6C4B7B19A56E57008147F3 /* security_certificates.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = security_certificates.xcconfig; path = config/security_certificates.xcconfig; sourceTree = "<group>"; };
+		8533E07C1B322F46002A1747 /* Allowed.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Allowed.plist; sourceTree = "<group>"; };
 		BE43DA441A71C54C000A4297 /* Info-Certificates.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-Certificates.plist"; path = "config/Info-Certificates.plist"; sourceTree = "<group>"; };
 		BE4DBC621A9401410025962E /* TrustStore.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = TrustStore.html; sourceTree = "<group>"; };
 		BE7F81FB1A3F697800784BBB /* Certificates.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Certificates.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -255,6 +257,7 @@
 				BED4A7EF1A72D41900C14393 /* EVRoots.plist */,
 				BED4A7F01A72D41900C14393 /* GrayListedKeys.plist */,
 				BED4A7F11A72D41900C14393 /* manifest.data */,
+				8533E07C1B322F46002A1747 /* Allowed.plist */,
 				BED4A7EB1A72D40300C14393 /* Blocked.plist */,
 				BED4A7E91A72D3FD00C14393 /* AssetVersion.plist */,
 				BED4A7E71A72D3F900C14393 /* AppleESCertificates.plist */,
@@ -404,6 +407,7 @@
 				BED4A8031A72D73A00C14393 /* manifest.data in Resources */,
 				BED4A8041A72D73A00C14393 /* Blocked.plist in Resources */,
 				BED4A8051A72D73A00C14393 /* AssetVersion.plist in Resources */,
+				8533E07D1B322F46002A1747 /* Allowed.plist in Resources */,
 				BED4A8061A72D73A00C14393 /* AppleESCertificates.plist in Resources */,
 				BE4DBC631A9401410025962E /* TrustStore.html in Resources */,
 			);
@@ -534,7 +538,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = "config/Info-Certificates.plist";
-				INSTALL_PATH = /var/Keychains;
+				INSTALL_PATH = /System/Library/Security;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -600,7 +604,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = "config/Info-Certificates.plist";
-				INSTALL_PATH = /var/Keychains;
+				INSTALL_PATH = /System/Library/Security;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;

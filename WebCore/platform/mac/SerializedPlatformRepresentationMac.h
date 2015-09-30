@@ -39,14 +39,14 @@ namespace WebCore {
 class SerializedPlatformRepresentationMac : public SerializedPlatformRepresentation {
 public:
     virtual ~SerializedPlatformRepresentationMac();
-    static PassRef<SerializedPlatformRepresentation> create(id);
+    static Ref<SerializedPlatformRepresentation> create(id);
 
     virtual JSC::JSValue deserialize(JSC::ExecState*) const override;
     virtual PassRefPtr<ArrayBuffer> data() const override;
 
     virtual bool isEqual(const SerializedPlatformRepresentation&) const override;
 
-    virtual PlatformType platformType() const { return SerializedPlatformRepresentation::ObjC; }
+    virtual PlatformType platformType() const override { return SerializedPlatformRepresentation::ObjC; }
 
     id nativeValue() const { return m_nativeValue.get(); }
 

@@ -54,9 +54,9 @@ public:
     // The owner of SpinButtonElement must call removeSpinButtonOwner
     // because SpinButtonElement can be outlive SpinButtonOwner
     // implementation, e.g. during event handling.
-    static PassRefPtr<SpinButtonElement> create(Document&, SpinButtonOwner&);
+    static Ref<SpinButtonElement> create(Document&, SpinButtonOwner&);
     UpDownState upDownState() const { return m_upDownState; }
-    virtual void releaseCapture();
+    void releaseCapture();
     void removeSpinButtonOwner() { m_spinButtonOwner = 0; }
 
     void step(int amount);
@@ -69,18 +69,16 @@ public:
 private:
     SpinButtonElement(Document&, SpinButtonOwner&);
 
-    virtual const AtomicString& shadowPseudoId() const override;
     virtual void willDetachRenderers() override;
     virtual bool isSpinButtonElement() const override { return true; }
     virtual bool isDisabledFormControl() const override { return shadowHost() && shadowHost()->isDisabledFormControl(); }
-    virtual bool matchesReadOnlyPseudoClass() const override;
     virtual bool matchesReadWritePseudoClass() const override;
     virtual void defaultEventHandler(Event*) override;
     virtual void willOpenPopup() override;
     void doStepAction(int);
     void startRepeatingTimer();
     void stopRepeatingTimer();
-    void repeatingTimerFired(Timer*);
+    void repeatingTimerFired();
     virtual void setHovered(bool = true) override;
     bool shouldRespondToMouseEvents();
     virtual bool isMouseFocusable() const override { return false; }
@@ -92,6 +90,11 @@ private:
     Timer m_repeatingTimer;
 };
 
-} // namespace
+} // namespace WebCore
 
-#endif
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::SpinButtonElement)
+    static bool isType(const WebCore::Element& element) { return element.isSpinButtonElement(); }
+    static bool isType(const WebCore::Node& node) { return is<WebCore::Element>(node) && isType(downcast<WebCore::Element>(node)); }
+SPECIALIZE_TYPE_TRAITS_END()
+
+#endif // SpinButtonElement_h

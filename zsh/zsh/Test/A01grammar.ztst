@@ -543,6 +543,7 @@
   . ./bad_syntax
 126: Attempt to "." file with bad syntax.
 ?./bad_syntax:2: parse error near `\n'
+# `
 
   echo 'false' >dot_false
   . ./dot_false
@@ -572,6 +573,7 @@
   $ZTST_testdir/../Src/zsh -f myscript
 127q:PATHSCRIPT option not used.
 ?$ZTST_testdir/../Src/zsh: can't open input file: myscript
+# '
 
   $ZTST_testdir/../Src/zsh -fc 'echo $0; echo $1' myargzero myargone
 0:$0 is traditionally if bizarrely set to the first argument with -c
@@ -589,3 +591,107 @@
 >success2
 >read it
 >read it
+
+  (
+  mywrap() { echo BEGIN; true; echo END }
+  mytest() { { exit 3 } always { mywrap }; print Exited before this }
+  mytest
+  print Exited before this, too
+  )
+3:Exit and always block with functions: simple
+>BEGIN
+>END
+
+  (
+  mytrue() { echo mytrue; return 0 }
+  mywrap() { echo BEGIN; mytrue; echo END }
+  mytest() { { exit 4 } always { mywrap }; print Exited before this }
+  mytest
+  print Exited before this, too
+  )
+4:Exit and always block with functions: nested
+>BEGIN
+>mytrue
+>END
+
+  (emulate sh -c '
+   fn() {
+    case $1 in
+      ( one | two | three )
+      print Matched $1
+      ;;
+      ( fo* | fi* | si* )
+      print Pattern matched $1
+      ;;
+      ( []x | a[b]* )
+      print Character class matched $1
+      ;;
+    esac
+  }
+  '
+  which fn
+  fn one
+  fn two
+  fn three
+  fn four
+  fn five
+  fn six
+  fn abecedinarian
+  fn xylophone)
+0: case word handling in sh emulation (SH_GLOB parentheses)
+>fn () {
+>	case $1 in
+>		(one | two | three) print Matched $1 ;;
+>		(fo* | fi* | si*) print Pattern matched $1 ;;
+>		([]x | a[b]*) print Character class matched $1 ;;
+>	esac
+>}
+>Matched one
+>Matched two
+>Matched three
+>Pattern matched four
+>Pattern matched five
+>Pattern matched six
+>Character class matched abecedinarian
+
+  case grumph in
+    ( no | (grumph) )
+    print 1 OK
+    ;;
+  esac
+  case snruf in
+    ( fleer | (|snr(|[au]f)) )
+    print 2 OK
+    ;;
+  esac
+0: case patterns within words
+>1 OK
+>2 OK
+
+  case horrible in
+    ([a-m])(|[n-z])rr(|ib(um|le|ah)))
+    print It worked
+    ;;
+  esac
+  case "a string with separate words" in
+    (*with separate*))
+    print That worked, too
+    ;;
+  esac
+0:Unbalanced parentheses and spaces with zsh pattern
+>It worked
+>That worked, too
+
+  case horrible in
+    (([a-m])(|[n-z])rr(|ib(um|le|ah)))
+    print It worked
+    ;;
+  esac
+  case "a string with separate words" in
+    (*with separate*)
+    print That worked, too
+    ;;
+  esac
+0:Balanced parentheses and spaces with zsh pattern
+>It worked
+>That worked, too

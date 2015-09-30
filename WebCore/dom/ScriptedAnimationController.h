@@ -52,9 +52,9 @@ class ScriptedAnimationController : public RefCounted<ScriptedAnimationControlle
 #endif
 {
 public:
-    static PassRefPtr<ScriptedAnimationController> create(Document* document, PlatformDisplayID displayID)
+    static Ref<ScriptedAnimationController> create(Document* document, PlatformDisplayID displayID)
     {
-        return adoptRef(new ScriptedAnimationController(document, displayID));
+        return adoptRef(*new ScriptedAnimationController(document, displayID));
     }
     ~ScriptedAnimationController();
     void clearDocumentPointer() { m_document = 0; }
@@ -68,6 +68,7 @@ public:
     void suspend();
     void resume();
     void setThrottled(bool);
+    WEBCORE_EXPORT bool isThrottled() const;
 
     void windowScreenDidChange(PlatformDisplayID);
 
@@ -84,7 +85,7 @@ private:
     void scheduleAnimation();
 
 #if USE(REQUEST_ANIMATION_FRAME_TIMER)
-    void animationTimerFired(Timer&);
+    void animationTimerFired();
     Timer m_animationTimer;
     double m_lastAnimationFrameTimeMonotonic { 0 };
 

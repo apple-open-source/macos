@@ -28,8 +28,8 @@
 
 #if ENABLE(SERVICE_CONTROLS)
 
-#import "WebContext.h"
 #import "WebProcessMessages.h"
+#import "WebProcessPool.h"
 #import <WebCore/NSExtensionSPI.h>
 #import <WebCore/NSSharingServicePickerSPI.h>
 #import <WebCore/NSSharingServiceSPI.h>
@@ -37,7 +37,7 @@
 
 namespace WebKit {
 
-ServicesController& ServicesController::shared()
+ServicesController& ServicesController::singleton()
 {
     static NeverDestroyed<ServicesController> sharedController;
     return sharedController;
@@ -53,9 +53,9 @@ ServicesController::ServicesController()
     refreshExistingServices();
 
 #ifdef __LP64__
-    auto refreshCallback = [](NSArray *, NSError *) {
+    auto refreshCallback = [this](NSArray *, NSError *) {
         // We coalese refreshes from the notification callbacks because they can come in small batches.
-        ServicesController::shared().refreshExistingServices(false);
+        refreshExistingServices(false);
     };
 
     auto extensionAttributes = @{ @"NSExtensionPointName" : @"com.apple.services" };
@@ -105,8 +105,8 @@ void ServicesController::refreshExistingServices(bool refreshImmediately)
             m_hasRichContentServices = hasRichContentServices;
 
             if (availableServicesChanged) {
-                for (auto& context : WebContext::allContexts())
-                    context->sendToAllProcesses(Messages::WebProcess::SetEnabledServices(m_hasImageServices, m_hasSelectionServices, m_hasRichContentServices));
+                for (auto& processPool : WebProcessPool::allProcessPools())
+                    processPool->sendToAllProcesses(Messages::WebProcess::SetEnabledServices(m_hasImageServices, m_hasSelectionServices, m_hasRichContentServices));
             }
 
             m_hasPendingRefresh = false;

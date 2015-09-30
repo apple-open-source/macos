@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BATSConfigVersion</key>
+	<string>0.1.0</string>
+	<key>Project</key>
+	<string>Libc</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>Arch</key>
+			<string>platform-native</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/bsdtesttool</string>
+				<string>Libc</string>
+			</array>
+			<key>TestName</key>
+			<string>Libc</string>
+			<key>WorkingDirectory</key>
+			<string>/tmp</string>
+		</dict>
+	</array>
+</dict>
+</plist>

@@ -67,15 +67,23 @@ int viinsbegin;
 static struct modifier lastmod;
 static int inrepeat, vichgrepeat;
 
+/**
+ * im: >= 0: is an insertmode
+ *    -1: skip setting insert mode
+ *    -2: entering viins at start of editing from clean --- don't use
+ *        inrepeat or lastchar, synthesise an i to enter insert mode.
+ */
+
 /**/
-static void
+void
 startvichange(int im)
 {
     if (im != -1) {
-	insmode = im;
 	vichgflag = 1;
+	if (im > -1)
+	    insmode = im;
     }
-    if (inrepeat) {
+    if (inrepeat && im != -2) {
 	zmod = lastmod;
 	inrepeat = vichgflag = 0;
 	vichgrepeat = 1;
@@ -84,7 +92,12 @@ startvichange(int im)
 	if (vichgbuf)
 	    free(vichgbuf);
 	vichgbuf = (char *)zalloc(vichgbufsz = 16);
-	vichgbuf[0] = lastchar;
+	if (im == -2) {
+	    vichgbuf[0] =
+		zlell ? (insmode ? (zlecs < zlell ? 'i' : 'a') : 'R') : 'o';
+	} else {
+	    vichgbuf[0] = lastchar;
+	}
 	vichgbufptr = 1;
 	vichgrepeat = 0;
     }
@@ -96,7 +109,7 @@ startvitext(int im)
 {
     startvichange(im);
     selectkeymap("main", 1);
-    undoing = 0;
+    vistartchange = undo_changeno;
     viinsbegin = zlecs;
 }
 
@@ -148,75 +161,87 @@ vigetkey(void)
 static int
 getvirange(int wf)
 {
-    int pos = zlecs, ret = 0;
+    int pos = zlecs, mpos = mark, ret = 0;
+    int visual = region_active; /* movement command might set it */
     int mult1 = zmult, hist1 = histline;
     Thingy k2;
 
-    virangeflag = 1;
-    wordflag = wf;
-    /* Now we need to execute the movement command, to see where it *
-     * actually goes.  virangeflag here indicates to the movement   *
-     * function that it should place the cursor at the end of the   *
-     * range, rather than where the cursor would actually go if it  *
-     * were executed normally.  This makes a difference to some     *
-     * commands, but not all.  For example, if searching forward    *
-     * for a character, under normal circumstances the cursor lands *
-     * on the character.  For a range, the range must include the   *
-     * character, so the cursor gets placed after the character if  *
-     * virangeflag is set.  vi-match-bracket needs to change the    *
-     * value of virangeflag under some circumstances, meaning that  *
-     * we need to change the *starting* position.                   */
-    zmod.flags &= ~MOD_TMULT;
-    do {
-	vilinerange = 0;
-	prefixflag = 0;
-	if (!(k2 = getkeycmd()) || (k2->flags & DISABLED) ||
-		k2 == Th(z_sendbreak)) {
-	    wordflag = 0;
-	    virangeflag = 0;
+    if (visual) {
+	if (!zlell)
+	    return -1;
+	pos = mark;
+	vilinerange = (visual == 2);
+	region_active = 0;
+    } else {
+	virangeflag = 1;
+	wordflag = wf;
+	mark = -1;
+	/* use operator-pending keymap if one exists */
+	Keymap km = openkeymap("viopp");
+	if (km)
+	    selectlocalmap(km);
+	/* Now we need to execute the movement command, to see where it *
+	 * actually goes.  virangeflag here indicates to the movement   *
+	 * function that it should place the cursor at the end of the   *
+	 * range, rather than where the cursor would actually go if it  *
+	 * were executed normally.  This makes a difference to some     *
+	 * commands, but not all.  For example, if searching forward    *
+	 * for a character, under normal circumstances the cursor lands *
+	 * on the character.  For a range, the range must include the   *
+	 * character, so the cursor gets placed after the character if  *
+	 * virangeflag is set.                                          */
+	zmod.flags &= ~MOD_TMULT;
+	do {
+	    vilinerange = 0;
+	    prefixflag = 0;
+	    if (!(k2 = getkeycmd()) || (k2->flags & DISABLED) ||
+		    k2 == Th(z_sendbreak)) {
+		wordflag = 0;
+		virangeflag = 0;
+		mark = mpos;
+		return -1;
+	    }
+	    /*
+	     * With k2 == bindk, the command key is repeated:
+	     * a number of lines is used.  If the function used
+	     * returns 1, we fail.
+	     */
+	    if ((k2 == bindk) ? dovilinerange() : execzlefunc(k2, zlenoargs, 1))
+		ret = -1;
+	    if(vichgrepeat)
+		zmult = mult1;
+	    else
+		zmult = mult1 * zmod.tmult;
+	} while(prefixflag && !ret);
+	wordflag = 0;
+	selectlocalmap(NULL);
+
+	/* It is an error to use a non-movement command to delimit the *
+	 * range.  We here reject the case where the command modified  *
+	 * the line, or selected a different history line.             */
+	if (histline != hist1 || zlell != lastll || memcmp(zleline, lastline, zlell)) {
+	    histline = hist1;
+	    ZS_memcpy(zleline, lastline, zlell = lastll);
+	    zlecs = pos;
+	    mark = mpos;
 	    return -1;
 	}
-	/*
-	 * With k2 == bindk, the command key is repeated:
-	 * a number of lines is used.  If the function used
-	 * returns 1, we fail.
-	 */
-	if ((k2 == bindk) ? dovilinerange() : execzlefunc(k2, zlenoargs, 1))
-	    ret = -1;
-	if(vichgrepeat)
-	    zmult = mult1;
-	else
-	    zmult = mult1 * zmod.tmult;
-    } while(prefixflag && !ret);
-    wordflag = 0;
-    virangeflag = 0;
 
-    /* It is an error to use a non-movement command to delimit the *
-     * range.  We here reject the case where the command modified  *
-     * the line, or selected a different history line.             */
-    if (histline != hist1 || zlell != lastll || memcmp(zleline, lastline, zlell)) {
-	histline = hist1;
-	ZS_memcpy(zleline, lastline, zlell = lastll);
-	zlecs = pos;
-	return -1;
+	/* Can't handle an empty file.  Also, if the movement command *
+	 * failed, or didn't move, it is an error.                    */
+	if (!zlell || (zlecs == pos && (mark == -1 || mark == zlecs) &&
+		    virangeflag != 2) || ret == -1) {
+	    mark = mpos;
+	    return -1;
+	}
+	virangeflag = 0;
+
+	/* if the mark has moved, ignore the original cursor position *
+	 * and use the mark.                                          */
+	if (mark != -1)
+	    pos = mark;
     }
-
-    /* Can't handle an empty file.  Also, if the movement command *
-     * failed, or didn't move, it is an error.                    */
-    if (!zlell || (zlecs == pos && virangeflag != 2) || ret == -1)
-	return -1;
-
-    /* vi-match-bracket changes the value of virangeflag when *
-     * moving to the opening bracket, meaning that we need to *
-     * change the *starting* position.                        */
-    if(virangeflag == -1)
-    {
-	int origcs = zlecs;
-	zlecs = pos;
-	INCCS();
-	pos = zlecs;
-	zlecs = origcs;
-    }
+    mark = mpos;
 
     /* Get the range the right way round.  zlecs is placed at the *
      * start of the range, and pos (the return value of this   *
@@ -227,17 +252,31 @@ getvirange(int wf)
 	pos = tmp;
     }
 
+    /* visual selection mode needs to include additional position */
+    if (visual == 1 && invicmdmode())
+	INCPOS(pos);
+
     /* Was it a line-oriented move?  If so, the command will have set *
      * the vilinerange flag.  In this case, entire lines are taken,   *
      * rather than just the sequence of characters delimited by pos   *
-     * and zlecs.  The terminating newline is left out of the range,     *
+     * and zlecs.  The terminating newline is left out of the range,  *
      * which the real command must deal with appropriately.  At this  *
      * point we just need to make the range encompass entire lines.   */
-    if(vilinerange) {
+    vilinerange = (zmod.flags & MOD_LINE) ||
+	    (vilinerange && !(zmod.flags & MOD_CHAR));
+    if (vilinerange) {
 	int newcs = findbol();
+	lastcol = zlecs - newcs;
 	zlecs = pos;
 	pos = findeol();
 	zlecs = newcs;
+    } else if (!visual) {
+	/* for a character-wise move don't include a newline at the *
+	 * end of the range                                         */
+	int prev = pos;
+	DECPOS(prev);
+	if (zleline[prev] == ZWC('\n'))
+	    pos = prev;
     }
     return pos;
 }
@@ -303,6 +342,18 @@ viinsert(UNUSED(char **args))
     return 0;
 }
 
+/*
+ * Go to vi insert mode when we first start the line editor.
+ * Iniialises some other stuff.
+ */
+
+/**/
+void
+viinsert_init(void)
+{
+    startvitext(-2);
+}
+
 /**/
 int
 viinsertbol(UNUSED(char **args))
@@ -323,6 +374,7 @@ videlete(UNUSED(char **args))
 	forekill(c2 - zlecs, CUT_RAW);
 	ret = 0;
 	if (vilinerange && zlell) {
+	    lastcol = -1;
 	    if (zlecs == zlell)
 		DECCS();
 	    foredel(1, 0);
@@ -340,6 +392,7 @@ videletechar(char **args)
     int n = zmult;
 
     startvichange(-1);
+
     /* handle negative argument */
     if (n < 0) {
 	int ret;
@@ -376,7 +429,7 @@ vichange(UNUSED(char **args))
 	forekill(c2 - zlecs, CUT_RAW);
 	selectkeymap("main", 1);
 	viinsbegin = zlecs;
-	undoing = 0;
+	vistartchange = undo_changeno;
     }
     return ret;
 }
@@ -393,12 +446,16 @@ visubstitute(UNUSED(char **args))
     /* it is an error to be on the end of line */
     if (zlecs == zlell || zleline[zlecs] == '\n')
 	return 1;
-    /* Put argument into the acceptable range -- it is not an error to  *
-     * specify a greater count than the number of available characters. */
-    if (n > findeol() - zlecs)
-	n = findeol() - zlecs;
-    /* do the substitution */
-    forekill(n, CUT_RAW);
+    if (region_active) {
+	killregion(zlenoargs);
+    } else {
+	/* Put argument into the acceptable range -- it is not an error to  *
+	* specify a greater count than the number of available characters. */
+	if (n > findeol() - zlecs)
+	    n = findeol() - zlecs;
+	/* do the substitution */
+	forekill(n, CUT_RAW);
+    }
     startvitext(1);
     return 0;
 }
@@ -407,7 +464,15 @@ visubstitute(UNUSED(char **args))
 int
 vichangeeol(UNUSED(char **args))
 {
-    forekill(findeol() - zlecs, CUT_RAW);
+    int a, b;
+    if (region_active) {
+	regionlines(&a, &b);
+	zlecs = a;
+	region_active = 0;
+	cut(zlecs, b - zlecs, CUT_RAW);
+	shiftchars(zlecs, b - zlecs);
+    } else
+	forekill(findeol() - zlecs, CUT_RAW);
     startvitext(1);
     return 0;
 }
@@ -424,15 +489,30 @@ vichangewholeline(char **args)
 int
 viyank(UNUSED(char **args))
 {
-    int oldcs = zlecs, c2, ret = 1;
+    int c2, ret = 1;
 
     startvichange(1);
     if ((c2 = getvirange(0)) != -1) {
-	cut(zlecs, c2 - zlecs, 0);
+	cut(zlecs, c2 - zlecs, CUT_YANK);
 	ret = 0;
     }
     vichgflag = 0;
-    zlecs = oldcs;
+    /* cursor now at the start of the range yanked. For line mode
+     * restore the column position */
+    if (vilinerange && lastcol != -1) {
+	int x = findeol();
+
+	if ((zlecs += lastcol) >= x) {
+	    zlecs = x;
+	    if (zlecs > findbol() && invicmdmode())
+		DECCS();
+	}
+#ifdef MULTIBYTE_SUPPORT
+	else
+	    CCRIGHT();
+#endif
+	lastcol = -1;
+    }
     return ret;
 }
 
@@ -445,7 +525,7 @@ viyankeol(UNUSED(char **args))
     startvichange(-1);
     if (x == zlecs)
 	return 1;
-    cut(zlecs, x - zlecs, 0);
+    cut(zlecs, x - zlecs, CUT_YANK);
     return 0;
 }
 
@@ -467,7 +547,7 @@ viyankwholeline(UNUSED(char **args))
      zlecs = findeol() + 1;
     }
     vilinerange = 1;
-    cut(bol, zlecs - bol - 1, 0);
+    cut(bol, zlecs - bol - 1, CUT_YANK);
     zlecs = oldcs;
     return 0;
 }
@@ -501,16 +581,40 @@ vireplacechars(UNUSED(char **args))
     int n = zmult, fail = 0, newchars = 0;
 
     if (n > 0) {
-	int pos = zlecs;
-	while (n-- > 0) {
-	    if (pos == zlell || zleline[pos] == ZWC('\n')) {
-		fail = 1;
-		break;
+	if (region_active) {
+	    int a, b;
+	    if (region_active == 1) {
+		if (mark > zlecs) {
+		    a = zlecs;
+		    b = mark;
+		} else {
+		    a = mark;
+		    b = zlecs;
+		}
+		INCPOS(b);
+	    } else
+		regionlines(&a, &b);
+	    zlecs = a;
+	    if (b > zlell)
+		b = zlell;
+	    n = b - a;
+	    while (a < b) {
+		newchars++;
+		INCPOS(a);
+            }
+	    region_active = 0;
+	} else {
+	    int pos = zlecs;
+	    while (n-- > 0) {
+		if (pos == zlell || zleline[pos] == ZWC('\n')) {
+		    fail = 1;
+		    break;
+		}
+		newchars++;
+		INCPOS(pos);
 	    }
-	    newchars++;
-	    INCPOS(pos);
+	    n = pos - zlecs;
 	}
-	n = pos - zlecs;
     }
     startvichange(1);
     /* check argument range */
@@ -542,6 +646,8 @@ vireplacechars(UNUSED(char **args))
 	 * buffer offset.
 	 * Use shiftchars so as not to adjust the cursor position;
 	 * we are overwriting anything that remains directly.
+	 * With a selection this will replace newlines which vim
+	 * doesn't do but this simplifies things a lot.
 	 */
 	if (n > newchars)
 	    shiftchars(zlecs, n - newchars);
@@ -561,7 +667,7 @@ vicmdmode(UNUSED(char **args))
 {
     if (invicmdmode() || selectkeymap("vicmd", 0))
 	return 1;
-    undoing = 1;
+    mergeundo();
     vichgflag = 0;
     if (zlecs != findbol())
 	DECCS();
@@ -650,8 +756,11 @@ viindent(UNUSED(char **args))
 {
     int oldcs = zlecs, c2;
 
-    /* get the range */
     startvichange(1);
+    /* force line range */
+    if (region_active == 1)
+	region_active = 2;
+    /* get the range */
     if ((c2 = getvirange(0)) == -1) {
 	vichgflag = 0;
 	return 1;
@@ -664,10 +773,14 @@ viindent(UNUSED(char **args))
     }
     oldcs = zlecs;
     /* add a tab to the beginning of each line within range */
-    while (zlecs < c2) {
-	spaceinline(1);
-	zleline[zlecs] = '\t';
-	zlecs = findeol() + 1;
+    while (zlecs <= c2 + 1) {
+	if (zleline[zlecs] == '\n') { /* leave blank lines alone */
+	    ++zlecs;
+	} else {
+	    spaceinline(1);
+	    zleline[zlecs] = '\t';
+	    zlecs = findeol() + 1;
+	}
     }
     /* go back to the first line of the range */
     zlecs = oldcs;
@@ -681,8 +794,11 @@ viunindent(UNUSED(char **args))
 {
     int oldcs = zlecs, c2;
 
-    /* get the range */
     startvichange(1);
+    /* force line range */
+    if (region_active == 1)
+	region_active = 2;
+    /* get the range */
     if ((c2 = getvirange(0)) == -1) {
 	vichgflag = 0;
 	return 1;
@@ -714,6 +830,7 @@ vibackwarddeletechar(char **args)
 
     if (invicmdmode())
 	startvichange(-1);
+
     /* handle negative argument */
     if (n < 0) {
 	int ret;
@@ -751,95 +868,44 @@ vikillline(UNUSED(char **args))
 
 /**/
 int
-viputbefore(UNUSED(char **args))
-{
-    Cutbuffer buf = &cutbuf;
-    int n = zmult;
-
-    startvichange(-1);
-    if (n < 0)
-	return 1;
-    if (zmod.flags & MOD_VIBUF)
-	buf = &vibuf[zmod.vibuf];
-    if (!buf->buf)
-	return 1;
-    if(buf->flags & CUTBUFFER_LINE) {
-	zlecs = findbol();
-	spaceinline(buf->len + 1);
-	ZS_memcpy(zleline + zlecs, buf->buf, buf->len);
-	zleline[zlecs + buf->len] = ZWC('\n');
-	vifirstnonblank(zlenoargs);
-    } else {
-	while (n--) {
-	    spaceinline(buf->len);
-	    ZS_memcpy(zleline + zlecs, buf->buf, buf->len);
-	    zlecs += buf->len;
-	}
-	if (zlecs)
-	    DECCS();
-    }
-    return 0;
-}
-
-/**/
-int
-viputafter(UNUSED(char **args))
-{
-    Cutbuffer buf = &cutbuf;
-    int n = zmult;
-
-    startvichange(-1);
-    if (n < 0)
-	return 1;
-    if (zmod.flags & MOD_VIBUF)
-	buf = &vibuf[zmod.vibuf];
-    if (!buf->buf)
-	return 1;
-    if(buf->flags & CUTBUFFER_LINE) {
-	zlecs = findeol();
-	spaceinline(buf->len + 1);
-	zleline[zlecs++] = ZWC('\n');
-	ZS_memcpy(zleline + zlecs, buf->buf, buf->len);
-	vifirstnonblank(zlenoargs);
-    } else {
-	if (zlecs != findeol())
-	    INCCS();
-	while (n--) {
-	    spaceinline(buf->len);
-	    ZS_memcpy(zleline + zlecs, buf->buf, buf->len);
-	    zlecs += buf->len;
-	}
-	if (zlecs)
-	    DECCS();
-    }
-    return 0;
-}
-
-/**/
-int
 vijoin(UNUSED(char **args))
 {
     int x, pos;
+    int n = zmult;
+    int visual = region_active;
 
     startvichange(-1);
-    if ((x = findeol()) == zlell)
+    if (n < 1)
 	return 1;
-    zlecs = x + 1;
-    pos = zlecs;
-    for (; zlecs != zlell && ZC_iblank(zleline[zlecs]); INCPOS(zlecs))
-	;
-    x = 1 + (zlecs - pos);
-    backdel(x, CUT_RAW);
-    if (zlecs) {
-	int pos = zlecs;
-	DECPOS(pos);
-	if (ZC_iblank(zleline[pos])) {
-	    zlecs = pos;
-	    return 0;
+    if (visual && zlecs > mark) {
+	exchangepointandmark(zlenoargs);
+	x = findeol();
+	if (x >= mark) {
+	    exchangepointandmark(zlenoargs);
+	    return 1;
 	}
-    }
-    spaceinline(1);
-    zleline[zlecs] = ZWC(' ');
+    } else if ((x = findeol()) == zlell || (visual && x >= mark))
+	return 1;
+
+    do {
+	zlecs = x + 1;
+	pos = zlecs;
+	for (; zlecs != zlell && ZC_iblank(zleline[zlecs]); INCPOS(zlecs))
+	    ;
+	x = 1 + (zlecs - pos);
+	backdel(x, CUT_RAW);
+	if (zlecs) {
+	    int pos = zlecs;
+	    DECPOS(pos);
+	    if (ZC_iblank(zleline[pos])) {
+		zlecs = pos;
+		continue;
+	    }
+	}
+	spaceinline(1);
+	zleline[zlecs] = ZWC(' ');
+    } while (!((!visual && --n < 2) || (x = findeol()) == zlell || (visual && x >= mark)));
+
     return 0;
 }
 
@@ -853,6 +919,8 @@ viswapcase(UNUSED(char **args))
     if (n < 1)
 	return 1;
     eol = findeol();
+    if (zlecs == eol)
+	return 1;
     while (zlecs < eol && n--) {
 	if (ZC_ilower(zleline[zlecs]))
 	    zleline[zlecs] = ZC_toupper(zleline[zlecs]);
@@ -880,14 +948,26 @@ vicapslockpanic(UNUSED(char **args))
 
 /**/
 int
-visetbuffer(UNUSED(char **args))
+visetbuffer(char **args)
 {
     ZLE_INT_T ch;
 
-    if ((zmod.flags & MOD_VIBUF) ||
-	(((ch = getfullchar(0)) < ZWC('1') || ch > ZWC('9')) &&
+    if (*args) {
+	ch = **args;
+	if (args[1] || (ch && (*args)[1]))
+	    return 1;
+    } else {
+	ch = getfullchar(0);
+    }
+    if (ch == ZWC('_')) {
+	zmod.flags |= MOD_NULL;
+	prefixflag = 1;
+	return 0;
+    } else
+	zmod.flags &= ~MOD_NULL;
+    if ((ch < ZWC('0') || ch > ZWC('9')) &&
 	 (ch < ZWC('a') || ch > ZWC('z')) &&
-	 (ch < ZWC('A') || ch > ZWC('Z'))))
+	 (ch < ZWC('A') || ch > ZWC('Z')))
 	return 1;
     if (ch >= ZWC('A') && ch <= ZWC('Z'))	/* needed in cut() */
 	zmod.flags |= MOD_VIAPP;
@@ -895,8 +975,8 @@ visetbuffer(UNUSED(char **args))
 	zmod.flags &= ~MOD_VIAPP;
     /* FIXME how portable is it for multibyte encoding? */
     zmod.vibuf = ZC_tolower(ch);
-    if (ch >= ZWC('1') && ch <= ZWC('9'))
-	zmod.vibuf += - (int)ZWC('1') + 26;
+    if (ch >= ZWC('0') && ch <= ZWC('9'))
+	zmod.vibuf += - (int)ZWC('0') + 26;
     else
 	zmod.vibuf += - (int)ZWC('a');
     zmod.flags |= MOD_VIBUF;

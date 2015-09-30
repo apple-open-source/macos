@@ -11,7 +11,7 @@
 # modify this program under the same terms as Ruby itself,
 # Ruby Distribute License or GNU General Public License.
 #
-# $Id: protocol.rb 37563 2012-11-08 10:04:24Z naruse $
+# $Id: protocol.rb 46515 2014-06-23 09:36:03Z usa $
 #++
 #
 # WARNING: This file is going to remove.
@@ -267,7 +267,7 @@ module Net # :nodoc:
     def write_message_0(src)
       prev = @written_bytes
       each_crlf_line(src) do |line|
-        write0 line.sub(/\A\./, '..')
+        write0 dot_stuff(line)
       end
       @written_bytes - prev
     end
@@ -308,11 +308,15 @@ module Net # :nodoc:
 
     private
 
+    def dot_stuff(s)
+      s.sub(/\A\./, '..')
+    end
+
     def using_each_crlf_line
       @wbuf = ''
       yield
       if not @wbuf.empty?   # unterminated last line
-        write0 @wbuf.chomp + "\r\n"
+        write0 dot_stuff(@wbuf.chomp) + "\r\n"
       elsif @written_bytes == 0   # empty src
         write0 "\r\n"
       end

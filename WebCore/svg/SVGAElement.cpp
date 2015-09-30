@@ -23,8 +23,6 @@
 #include "config.h"
 #include "SVGAElement.h"
 
-#include "Attr.h"
-#include "Attribute.h"
 #include "Document.h"
 #include "EventHandler.h"
 #include "EventNames.h"
@@ -40,15 +38,11 @@
 #include "RenderSVGText.h"
 #include "RenderSVGTransformableContainer.h"
 #include "ResourceRequest.h"
-#include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include "SVGSMILElement.h"
 #include "XLinkNames.h"
-#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
-
-using namespace HTMLNames;
 
 // Animated property definitions
 DEFINE_ANIMATED_STRING(SVGAElement, SVGNames::targetAttr, SVGTarget, svgTarget)
@@ -69,9 +63,9 @@ inline SVGAElement::SVGAElement(const QualifiedName& tagName, Document& document
     registerAnimatedPropertiesForSVGAElement();
 }
 
-PassRefPtr<SVGAElement> SVGAElement::create(const QualifiedName& tagName, Document& document)
+Ref<SVGAElement> SVGAElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new SVGAElement(tagName, document));
+    return adoptRef(*new SVGAElement(tagName, document));
 }
 
 String SVGAElement::title() const
@@ -85,62 +79,35 @@ String SVGAElement::title() const
     return SVGElement::title();
 }
 
-bool SVGAElement::isSupportedAttribute(const QualifiedName& attrName)
-{
-    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
-    if (supportedAttributes.get().isEmpty()) {
-        SVGURIReference::addSupportedAttributes(supportedAttributes);
-        SVGLangSpace::addSupportedAttributes(supportedAttributes);
-        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
-        supportedAttributes.get().add(SVGNames::targetAttr);
-    }
-    return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
-}
-
 void SVGAElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(name)) {
-        SVGGraphicsElement::parseAttribute(name, value);
-        return;
-    }
-
     if (name == SVGNames::targetAttr) {
         setSVGTargetBaseValue(value);
         return;
     }
 
-    if (SVGURIReference::parseAttribute(name, value))
-        return;
-    if (SVGLangSpace::parseAttribute(name, value))
-        return;
-    if (SVGExternalResourcesRequired::parseAttribute(name, value))
-        return;
-
-    ASSERT_NOT_REACHED();
+    SVGGraphicsElement::parseAttribute(name, value);
+    SVGURIReference::parseAttribute(name, value);
+    SVGExternalResourcesRequired::parseAttribute(name, value);
 }
 
 void SVGAElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    if (!isSupportedAttribute(attrName)) {
-        SVGGraphicsElement::svgAttributeChanged(attrName);
-        return;
-    }
-
-    SVGElementInstance::InvalidationGuard invalidationGuard(this);
-
-    // Unlike other SVG*Element classes, SVGAElement only listens to SVGURIReference changes
-    // as none of the other properties changes the linking behaviour for our <a> element.
     if (SVGURIReference::isKnownAttribute(attrName)) {
         bool wasLink = isLink();
         setIsLink(!href().isNull() && !shouldProhibitLinks(this));
-        if (wasLink != isLink())
+        if (wasLink != isLink()) {
+            InstanceInvalidationGuard guard(*this);
             setNeedsStyleRecalc();
+        }
     }
+
+    SVGGraphicsElement::svgAttributeChanged(attrName);
 }
 
-RenderPtr<RenderElement> SVGAElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> SVGAElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
-    if (parentNode() && parentNode()->isSVGElement() && toSVGElement(parentNode())->isTextContent())
+    if (parentNode() && parentNode()->isSVGElement() && downcast<SVGElement>(*parentNode()).isTextContent())
         return createRenderer<RenderSVGInline>(*this, WTF::move(style));
 
     return createRenderer<RenderSVGTransformableContainer>(*this, WTF::move(style));
@@ -155,13 +122,13 @@ void SVGAElement::defaultEventHandler(Event* event)
             return;
         }
 
-        if (isLinkClick(event)) {
+        if (MouseEvent::canTriggerActivationBehavior(*event)) {
             String url = stripLeadingAndTrailingHTMLSpaces(href());
 
             if (url[0] == '#') {
                 Element* targetElement = treeScope().getElementById(url.substringSharingImpl(1));
-                if (targetElement && isSVGSMILElement(*targetElement)) {
-                    toSVGSMILElement(*targetElement).beginByLinkActivation();
+                if (is<SVGSMILElement>(targetElement)) {
+                    downcast<SVGSMILElement>(*targetElement).beginByLinkActivation();
                     event->setDefaultHandled();
                     return;
                 }
@@ -178,7 +145,7 @@ void SVGAElement::defaultEventHandler(Event* event)
             Frame* frame = document().frame();
             if (!frame)
                 return;
-            frame->loader().urlSelected(document().completeURL(url), target, event, LockHistory::No, LockBackForwardList::No, MaybeSendReferrer);
+            frame->loader().urlSelected(document().completeURL(url), target, event, LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, document().shouldOpenExternalURLsPolicyToPropagate());
             return;
         }
     }
@@ -210,7 +177,7 @@ bool SVGAElement::isFocusable() const
 
 bool SVGAElement::isURLAttribute(const Attribute& attribute) const
 {
-    return attribute.name().localName() == hrefAttr || SVGGraphicsElement::isURLAttribute(attribute);
+    return attribute.name().localName() == XLinkNames::hrefAttr || SVGGraphicsElement::isURLAttribute(attribute);
 }
 
 bool SVGAElement::isMouseFocusable() const
@@ -248,8 +215,9 @@ bool SVGAElement::childShouldCreateRenderer(const Node& child) const
     // The 'a' element may contain any element that its parent may contain, except itself.
     if (child.hasTagName(SVGNames::aTag))
         return false;
-    if (parentNode() && parentNode()->isSVGElement())
-        return parentNode()->childShouldCreateRenderer(child);
+
+    if (parentElement() && parentElement()->isSVGElement())
+        return parentElement()->childShouldCreateRenderer(child);
 
     return SVGElement::childShouldCreateRenderer(child);
 }

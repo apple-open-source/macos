@@ -26,7 +26,6 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
-#include "AppleRAIDUserLib.h"
 
 #include <libkern/OSByteOrder.h>
 
@@ -132,7 +131,8 @@ AppleFileSystemDriver::readHFSUUID(IOMedia *media, void **uuidPtr)
     bool                       mediaIsOpen    = false;
     UInt64                     mediaBlockSize = 0;
     IOBufferMemoryDescriptor * buffer         = 0;
-    void *                     bytes          = 0;
+    uint8_t *                  bytes          = 0;
+    UInt64                     bytesAt        = 0;
     UInt64                     bufferReadAt   = 0;
     vm_size_t                  bufferSize     = 0;
     IOReturn                   status         = kIOReturnError;
@@ -151,17 +151,19 @@ AppleFileSystemDriver::readHFSUUID(IOMedia *media, void **uuidPtr)
         buffer     = IOBufferMemoryDescriptor::withCapacity(bufferSize, kIODirectionIn);
         if ( buffer == 0 ) break;
 		
-        bytes = (void *) buffer->getBytesNoCopy();
-		
-        mdbPtr = (HFSMasterDirectoryBlock *)bytes;
-        volHdrPtr = (HFSPlusVolumeHeader *)bytes;
+        bytes = (uint8_t *) buffer->getBytesNoCopy();
 		
         // Open the media with read access.
 		
         mediaIsOpen = media->open(media, 0, kIOStorageAccessReader);
         if ( mediaIsOpen == false ) break;
 		
-        bufferReadAt = 2 * kHFSBlockSize;
+        bytesAt = 2 * kHFSBlockSize;
+        bufferReadAt = IOTrunc( bytesAt, mediaBlockSize );
+        bytesAt -= bufferReadAt;
+
+        mdbPtr = (HFSMasterDirectoryBlock *)&bytes[bytesAt];
+        volHdrPtr = (HFSPlusVolumeHeader *)&bytes[bytesAt];
 		
         status = media->read(media, bufferReadAt, buffer);
         if ( status != kIOReturnSuccess )  break;
@@ -189,10 +191,16 @@ AppleFileSystemDriver::readHFSUUID(IOMedia *media, void **uuidPtr)
             startBlock = OSSwapBigToHostInt16(mdbPtr->drEmbedExtent.startBlock);
             blockCount = OSSwapBigToHostInt16(mdbPtr->drEmbedExtent.blockCount);
 			
-            bufferReadAt = ((u_int64_t)startBlock * (u_int64_t)allocationBlockSize) +
+            bytesAt = ((u_int64_t)startBlock * (u_int64_t)allocationBlockSize) +
                 ((u_int64_t)firstAllocationBlock * (u_int64_t)kHFSBlockSize) +
                 (u_int64_t)(2 * kHFSBlockSize);
 			
+            bufferReadAt = IOTrunc( bytesAt, mediaBlockSize );
+            bytesAt -= bufferReadAt;
+
+            mdbPtr = (HFSMasterDirectoryBlock *)&bytes[bytesAt];
+            volHdrPtr = (HFSPlusVolumeHeader *)&bytes[bytesAt];
+
             status = media->read(media, bufferReadAt, buffer);
             if ( status != kIOReturnSuccess )  break;
         }
@@ -242,7 +250,6 @@ AppleFileSystemDriver::mediaNotificationHandler(
     OSString *                 uuidProperty;
     uuid_t                     uuid;
     bool                       matched        = false;
-    bool                       isRAID         = false;
 
     DEBUG_LOG("%s[%p]::%s -> '%s'\n", kClassName, target, __func__, service->getName());
 
@@ -256,25 +263,6 @@ AppleFileSystemDriver::mediaNotificationHandler(
         // i.e. does it know how big it is / have a block size
         if ( media->isFormatted() == false )  break;
 
-	// the RAID might not be ready yet :P
-        isRAID = (media->getProperty(kAppleRAIDIsRAIDKey) == kOSBooleanTrue);
-	if (isRAID) {
-	    IOStorage *provider;
-	    OSString *status;
-
-	    if (!(provider = media->getProvider()))	goto notraid;
-	    if (!(status = OSDynamicCast(OSString,
-		    provider->getProperty(kAppleRAIDStatusKey))))  goto notraid;
-
-	    // if it decides to start working later, we'll get another shot
-	    if (!status->isEqualTo(kAppleRAIDStatusDegraded) &&
-			!status->isEqualTo(kAppleRAIDStatusOnline)) {
-		DEBUG_LOG("skipping prematurely-available RAID device");
-		break;
-	    }
-	}
-	notraid:
-
         // If the media already has a UUID property, try that first.
         uuidProperty = OSDynamicCast( OSString, media->getProperty("UUID") );
         if (uuidProperty != NULL) {
@@ -285,14 +273,13 @@ AppleFileSystemDriver::mediaNotificationHandler(
             }
         }
         
-	// only IOMedia's with content hints (perhaps empty) are interesting
+        // only IOMedia's with content hints are interesting
         contentHint = OSDynamicCast( OSString, media->getProperty(kIOMediaContentHintKey) );
         if (contentHint == NULL)  break;
         contentStr = contentHint->getCStringNoCopy();
         if (contentStr == NULL)  break;
         
-        // probe based on content hint, but if the hint is 
-        // empty and we see RAID, probe for anything we support
+        // probe based on content hint
         if ( strcmp(contentStr, "Apple_HFS" ) == 0 ||
              strcmp(contentStr, "Apple_HFSX" ) == 0 ||
              strcmp(contentStr, "Apple_Boot" ) == 0 ||
@@ -301,10 +288,8 @@ AppleFileSystemDriver::mediaNotificationHandler(
              strcmp(contentStr, "426F6F74-0000-11AA-AA11-00306543ECAC" ) == 0 ||  /* APPLE_BOOT_UUID */
              strcmp(contentStr, "5265636F-7665-11AA-AA11-00306543ECAC" ) == 0 ) { /* APPLE_RECOVERY_UUID */
             status = readHFSUUID( media, (void **)&volumeUUID );
-        } else if (strlen(contentStr) == 0 && isRAID) {
-            // RAIDv1 has a content hint but is empty
-            status = readHFSUUID( media, (void **)&volumeUUID );
         } else {
+            DEBUG_LOG("contentStr %s\n", contentStr);
             break;
         }
         
@@ -352,6 +337,9 @@ AppleFileSystemDriver::mediaNotificationHandler(
         // and kill the driver.
         fs->getResourceService()->removeProperty( kBootUUIDKey );
         fs->terminate( kIOServiceRequired );
+
+        // Drop the retain for asynchronous notification
+        fs->release( );
 
         VERBOSE_LOG("%s[%p]::%s returning TRUE\n", kClassName, target, __func__);
             
@@ -411,6 +399,9 @@ AppleFileSystemDriver::start(IOService * provider)
         if ( matching == 0 )
             return false;
         
+        // Retain for asynchronous matching notification
+        retain();
+
         // Set up notification for newly-appearing devices.
         // This will also notify us about existing devices.
         
@@ -437,8 +428,8 @@ AppleFileSystemDriver::free()
 {
     DEBUG_LOG("%s[%p]::%s\n", getName(), this, __func__);
     
-    if (_uuidString) _uuidString->release();
     if (_notifier) _notifier->remove();
+    if (_uuidString) _uuidString->release();
 
     super::free();
 }

@@ -32,6 +32,7 @@
 
 #include "FloatSize.h"
 #include "Glyph.h"
+#include <climits>
 #include <wtf/Vector.h>
 
 #if USE(CG)
@@ -44,7 +45,7 @@
 
 namespace WebCore {
 
-class SimpleFontData;
+class Font;
 
 #if USE(CAIRO)
 // FIXME: Why does Cairo use such a huge struct instead of just an offset into an array?
@@ -75,12 +76,12 @@ typedef FloatSize GlyphBufferAdvance;
 
 class GlyphBuffer {
 public:
-    bool isEmpty() const { return m_fontData.isEmpty(); }
-    int size() const { return m_fontData.size(); }
+    bool isEmpty() const { return m_font.isEmpty(); }
+    int size() const { return m_font.size(); }
     
     void clear()
     {
-        m_fontData.clear();
+        m_font.clear();
         m_glyphs.clear();
         m_advances.clear();
         if (m_offsetsInString)
@@ -95,10 +96,13 @@ public:
     const GlyphBufferGlyph* glyphs(int from) const { return m_glyphs.data() + from; }
     const GlyphBufferAdvance* advances(int from) const { return m_advances.data() + from; }
 
-    const SimpleFontData* fontDataAt(int index) const { return m_fontData[index]; }
+    const Font* fontAt(int index) const { return m_font[index]; }
 
     void setInitialAdvance(GlyphBufferAdvance initialAdvance) { m_initialAdvance = initialAdvance; }
     const GlyphBufferAdvance& initialAdvance() const { return m_initialAdvance; }
+
+    void setLeadingExpansion(float leadingExpansion) { m_leadingExpansion = leadingExpansion; }
+    float leadingExpansion() const { return m_leadingExpansion; }
     
     Glyph glyphAt(int index) const
     {
@@ -124,10 +128,10 @@ public:
 #endif
     }
     
-    static const int kNoOffset = -1;
-    void add(Glyph glyph, const SimpleFontData* font, float width, int offsetInString = kNoOffset, const FloatSize* offset = 0)
+    static const unsigned noOffset = UINT_MAX;
+    void add(Glyph glyph, const Font* font, float width, unsigned offsetInString = noOffset, const FloatSize* offset = 0)
     {
-        m_fontData.append(font);
+        m_font.append(font);
 
 #if USE(CAIRO)
         cairo_glyph_t cairoGlyph;
@@ -153,14 +157,14 @@ public:
         UNUSED_PARAM(offset);
 #endif
         
-        if (offsetInString != kNoOffset && m_offsetsInString)
+        if (offsetInString != noOffset && m_offsetsInString)
             m_offsetsInString->append(offsetInString);
     }
     
 #if !USE(WINGDI)
-    void add(Glyph glyph, const SimpleFontData* font, GlyphBufferAdvance advance, int offsetInString = kNoOffset)
+    void add(Glyph glyph, const Font* font, GlyphBufferAdvance advance, unsigned offsetInString = noOffset)
     {
-        m_fontData.append(font);
+        m_font.append(font);
 #if USE(CAIRO)
         cairo_glyph_t cairoGlyph;
         cairoGlyph.index = glyph;
@@ -171,7 +175,7 @@ public:
 
         m_advances.append(advance);
         
-        if (offsetInString != kNoOffset && m_offsetsInString)
+        if (offsetInString != noOffset && m_offsetsInString)
             m_offsetsInString->append(offsetInString);
     }
 #endif
@@ -191,21 +195,34 @@ public:
     
     void saveOffsetsInString()
     {
-        m_offsetsInString.reset(new Vector<int, 2048>());
+        m_offsetsInString.reset(new Vector<unsigned, 2048>());
     }
-    
+
+    // FIXME: This converts from an unsigned to an int
     int offsetInString(int index) const
     {
         ASSERT(m_offsetsInString);
         return (*m_offsetsInString)[index];
     }
 
+    void shrink(int truncationPoint)
+    {
+        m_font.shrink(truncationPoint);
+        m_glyphs.shrink(truncationPoint);
+        m_advances.shrink(truncationPoint);
+        if (m_offsetsInString)
+            m_offsetsInString->shrink(truncationPoint);
+#if PLATFORM(WIN)
+        m_offsets.shrink(truncationPoint);
+#endif
+    }
+
 private:
     void swap(int index1, int index2)
     {
-        const SimpleFontData* f = m_fontData[index1];
-        m_fontData[index1] = m_fontData[index2];
-        m_fontData[index2] = f;
+        const Font* f = m_font[index1];
+        m_font[index1] = m_font[index2];
+        m_font[index2] = f;
 
         GlyphBufferGlyph g = m_glyphs[index1];
         m_glyphs[index1] = m_glyphs[index2];
@@ -222,14 +239,15 @@ private:
 #endif
     }
 
-    Vector<const SimpleFontData*, 2048> m_fontData;
+    Vector<const Font*, 2048> m_font;
     Vector<GlyphBufferGlyph, 2048> m_glyphs;
     Vector<GlyphBufferAdvance, 2048> m_advances;
     GlyphBufferAdvance m_initialAdvance;
-    std::unique_ptr<Vector<int, 2048>> m_offsetsInString;
+    std::unique_ptr<Vector<unsigned, 2048>> m_offsetsInString;
 #if PLATFORM(WIN)
     Vector<FloatSize, 2048> m_offsets;
 #endif
+    float m_leadingExpansion;
 };
 
 }

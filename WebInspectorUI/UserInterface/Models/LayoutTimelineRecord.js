@@ -23,21 +23,103 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.LayoutTimelineRecord = function(eventType, startTime, endTime, callFrames, sourceCodeLocation, x, y, width, height, quad)
+WebInspector.LayoutTimelineRecord = class LayoutTimelineRecord extends WebInspector.TimelineRecord
 {
-    WebInspector.TimelineRecord.call(this, WebInspector.TimelineRecord.Type.Layout, startTime, endTime, callFrames, sourceCodeLocation);
+    constructor(eventType, startTime, endTime, callFrames, sourceCodeLocation, x, y, width, height, quad, duringComposite)
+    {
+        super(WebInspector.TimelineRecord.Type.Layout, startTime, endTime, callFrames, sourceCodeLocation);
 
-    console.assert(eventType);
+        console.assert(eventType);
 
-    if (eventType in WebInspector.LayoutTimelineRecord.EventType)
-        eventType = WebInspector.LayoutTimelineRecord.EventType[eventType];
+        if (eventType in WebInspector.LayoutTimelineRecord.EventType)
+            eventType = WebInspector.LayoutTimelineRecord.EventType[eventType];
 
-    this._eventType = eventType;
-    this._x = typeof x === "number" ? x : NaN;
-    this._y = typeof y === "number" ? y : NaN;
-    this._width = typeof width === "number" ? width : NaN;
-    this._height = typeof height === "number" ? height : NaN;
-    this._quad = quad instanceof WebInspector.Quad ? quad : null;
+        this._eventType = eventType;
+        this._x = typeof x === "number" ? x : NaN;
+        this._y = typeof y === "number" ? y : NaN;
+        this._width = typeof width === "number" ? width : NaN;
+        this._height = typeof height === "number" ? height : NaN;
+        this._quad = quad instanceof WebInspector.Quad ? quad : null;
+        this._duringComposite = duringComposite || false;
+    }
+
+    // Static
+
+    static displayNameForEventType(eventType)
+    {
+        switch(eventType) {
+        case WebInspector.LayoutTimelineRecord.EventType.InvalidateStyles:
+            return WebInspector.UIString("Styles Invalidated");
+        case WebInspector.LayoutTimelineRecord.EventType.RecalculateStyles:
+            return WebInspector.UIString("Styles Recalculated");
+        case WebInspector.LayoutTimelineRecord.EventType.InvalidateLayout:
+            return WebInspector.UIString("Layout Invalidated");
+        case WebInspector.LayoutTimelineRecord.EventType.ForcedLayout:
+            return WebInspector.UIString("Forced Layout");
+        case WebInspector.LayoutTimelineRecord.EventType.Layout:
+            return WebInspector.UIString("Layout");
+        case WebInspector.LayoutTimelineRecord.EventType.Paint:
+            return WebInspector.UIString("Paint");
+        case WebInspector.LayoutTimelineRecord.EventType.Composite:
+            return WebInspector.UIString("Composite");
+        }
+    }
+
+    // Public
+
+    get eventType()
+    {
+        return this._eventType;
+    }
+
+    get x()
+    {
+        return this._x;
+    }
+
+    get y()
+    {
+        return this._y;
+    }
+
+    get width()
+    {
+        return this._width;
+    }
+
+    get height()
+    {
+        return this._height;
+    }
+
+    get area()
+    {
+        return this._width * this._height;
+    }
+
+    get rect()
+    {
+        if (!isNaN(this._x) && !isNaN(this._y))
+            return new WebInspector.Rect(this._x, this._y, this._width, this._height);
+        return null;
+    }
+
+    get quad()
+    {
+        return this._quad;
+    }
+
+    get duringComposite()
+    {
+        return this._duringComposite;
+    }
+
+    saveIdentityToCookie(cookie)
+    {
+        super.saveIdentityToCookie(cookie);
+
+        cookie[WebInspector.LayoutTimelineRecord.EventTypeCookieKey] = this._eventType;
+    }
 };
 
 WebInspector.LayoutTimelineRecord.EventType = {
@@ -46,83 +128,9 @@ WebInspector.LayoutTimelineRecord.EventType = {
     InvalidateLayout: "layout-timeline-record-invalidate-layout",
     ForcedLayout: "layout-timeline-record-forced-layout",
     Layout: "layout-timeline-record-layout",
-    Paint: "layout-timeline-record-paint"
-};
-
-WebInspector.LayoutTimelineRecord.EventType.displayName = function(eventType)
-{
-    switch(eventType) {
-    case WebInspector.LayoutTimelineRecord.EventType.InvalidateStyles:
-        return WebInspector.UIString("Styles Invalidated");
-    case WebInspector.LayoutTimelineRecord.EventType.RecalculateStyles:
-        return WebInspector.UIString("Styles Recalculated");
-    case WebInspector.LayoutTimelineRecord.EventType.InvalidateLayout:
-        return WebInspector.UIString("Layout Invalidated");
-    case WebInspector.LayoutTimelineRecord.EventType.ForcedLayout:
-        return WebInspector.UIString("Forced Layout");
-    case WebInspector.LayoutTimelineRecord.EventType.Layout:
-        return WebInspector.UIString("Layout");
-    case WebInspector.LayoutTimelineRecord.EventType.Paint:
-        return WebInspector.UIString("Paint");
-    }
+    Paint: "layout-timeline-record-paint",
+    Composite: "layout-timeline-record-composite"
 };
 
 WebInspector.LayoutTimelineRecord.TypeIdentifier = "layout-timeline-record";
 WebInspector.LayoutTimelineRecord.EventTypeCookieKey = "layout-timeline-record-event-type";
-
-WebInspector.LayoutTimelineRecord.prototype = {
-    constructor: WebInspector.LayoutTimelineRecord,
-
-    // Public
-
-    get eventType()
-    {
-        return this._eventType;
-    },
-
-    get x()
-    {
-        return this._x;
-    },
-
-    get y()
-    {
-        return this._y;
-    },
-
-    get width()
-    {
-        return this._width;
-    },
-
-    get height()
-    {
-        return this._height;
-    },
-
-    get area()
-    {
-        return this._width * this._height;
-    },
-
-    get rect()
-    {
-        if (!isNaN(this._x) && !isNaN(this._y))
-            return new WebInspector.Rect(this._x, this._y, this._width, this._height);
-        return null;
-    },
-
-    get quad()
-    {
-        return this._quad;
-    },
-
-    saveIdentityToCookie: function(cookie)
-    {
-        WebInspector.TimelineRecord.prototype.saveIdentityToCookie.call(this, cookie);
-
-        cookie[WebInspector.LayoutTimelineRecord.EventTypeCookieKey] = this._eventType;
-    }
-};
-
-WebInspector.LayoutTimelineRecord.prototype.__proto__ = WebInspector.TimelineRecord.prototype;

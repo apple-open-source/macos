@@ -32,7 +32,6 @@
 namespace WebCore {
 
     class JSDedicatedWorkerGlobalScope;
-    class JSSharedWorkerGlobalScope;
     class JSWorkerGlobalScope;
     class WorkerGlobalScope;
 
@@ -58,7 +57,7 @@ namespace WebCore {
         static bool supportsRichSourceInfo(const JSC::JSGlobalObject*);
         static bool shouldInterruptScript(const JSC::JSGlobalObject*);
         static bool shouldInterruptScriptBeforeTimeout(const JSC::JSGlobalObject*);
-        static bool javaScriptExperimentsEnabled(const JSC::JSGlobalObject*);
+        static JSC::RuntimeFlags javaScriptRuntimeFlags(const JSC::JSGlobalObject*);
         static void queueTaskToEventLoop(const JSC::JSGlobalObject*, PassRefPtr<JSC::Microtask>);
 
     protected:
@@ -76,10 +75,6 @@ namespace WebCore {
 
     JSDedicatedWorkerGlobalScope* toJSDedicatedWorkerGlobalScope(JSC::JSValue);
     JSWorkerGlobalScope* toJSWorkerGlobalScope(JSC::JSValue);
-
-#if ENABLE(SHARED_WORKERS)
-    JSSharedWorkerGlobalScope* toJSSharedWorkerGlobalScope(JSC::JSValue);
-#endif
 
 } // namespace WebCore
 

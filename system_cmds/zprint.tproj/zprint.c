@@ -65,6 +65,9 @@
  *	to zones but not currently in use.
  */
 
+
+
+#include <vm_statistics.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,16 +76,35 @@
 #include <mach/mach_error.h>
 #include <libutil.h>
 #include <errno.h>
+#include <sysexits.h>
+#include <getopt.h>
+#include <malloc/malloc.h>
+#include <Kernel/IOKit/IOKitDebug.h>
+#include <Kernel/libkern/OSKextLibPrivate.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOKitKeys.h>
+#include <IOKit/kext/OSKext.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreSymbolication/CoreSymbolication.h>
+
+
+
 
 #define streql(a, b)		(strcmp((a), (b)) == 0)
 #define strneql(a, b, n)	(strncmp((a), (b), (n)) == 0)
+#define	PRINTK(fmt, value)	\
+	printf(fmt "K", (value) / 1024 )	/* ick */
 
 static void usage(void);
 static void printzone(mach_zone_name_t *, task_zone_info_t *);
 static void colprintzone(mach_zone_name_t *, task_zone_info_t *);
 static int  find_deltas(mach_zone_name_t *, task_zone_info_t *, task_zone_info_t *, char *, int, int);
 static void colprintzoneheader(void);
-static boolean_t substr(const char *a, int alen, const char *b, int blen);
+static boolean_t substr(const char *a, size_t alen, const char *b, size_t blen);
+
+static int  SortName(const void * left, const void * right);
+static int  SortSize(const void * left, const void * right);
+static void PrintLarge(mach_memory_info_t *wiredInfo, unsigned int wiredInfoCnt, int (*func)(const void *, const void *), boolean_t column);
 
 static char *program;
 
@@ -93,6 +115,7 @@ static boolean_t ShowPid = FALSE;
 static boolean_t ShowDeltas = FALSE;
 static boolean_t ShowWasted = FALSE;
 static boolean_t ShowTotal = FALSE;
+static boolean_t ShowLarge = TRUE;
 static boolean_t SortZones = FALSE;
 static boolean_t ColFormat = TRUE;
 static boolean_t PrintHeader = TRUE;
@@ -105,7 +128,7 @@ static unsigned long long pidsum = 0;
 static int last_time = 0;
 
 static	char	*zname = NULL;
-static	int	znamelen = 0;
+static	size_t	znamelen = 0;
 
 static void
 sigintr(__unused int signum)
@@ -127,7 +150,8 @@ main(int argc, char **argv)
 	unsigned int nameCnt = 0;
 	task_zone_info_t *info = NULL;
 	unsigned int infoCnt = 0;
-
+	mach_memory_info_t *wiredInfo = NULL;
+	unsigned int wiredInfoCnt = 0;
 	task_zone_info_t *max_info = NULL;
 	char		*deltas = NULL;
 
@@ -156,6 +180,10 @@ main(int argc, char **argv)
 			ShowWasted = TRUE;
 		else if (streql(argv[i], "-W"))
 			ShowWasted = FALSE;
+		else if (streql(argv[i], "-l"))
+			ShowLarge = TRUE;
+		else if (streql(argv[i], "-L"))
+			ShowLarge = FALSE;
 		else if (streql(argv[i], "-s"))
 			SortZones = TRUE;
 		else if (streql(argv[i], "-S"))
@@ -223,13 +251,15 @@ main(int argc, char **argv)
 	} else {
 	    mach_zone_info_t *zinfo = NULL;
 
-	    kr = mach_zone_info(mach_host_self(),
-				&name, &nameCnt, &zinfo, &infoCnt);
+	    kr = mach_memory_info(mach_host_self(),
+				&name, &nameCnt, &zinfo, &infoCnt,
+				&wiredInfo, &wiredInfoCnt);
 	    if (kr != KERN_SUCCESS) {
 	        fprintf(stderr, "%s: mach_zone_info: %s\n",
 			program, mach_error_string(kr));
 		exit(1);
 	    }
+
 	    kr = vm_allocate(mach_task_self(), (vm_address_t *)&info,
 			     infoCnt * sizeof *info, VM_FLAGS_ANYWHERE);
 	    if (kr != KERN_SUCCESS) {
@@ -266,7 +296,7 @@ main(int argc, char **argv)
 	if (SortZones) {
 		for (i = 0; i < nameCnt-1; i++)
 			for (j = i+1; j < nameCnt; j++) {
-				int wastei, wastej;
+				unsigned long long wastei, wastej;
 
 				wastei = (info[i].tzi_cur_size -
 					  (info[i].tzi_elem_size *
@@ -305,6 +335,11 @@ main(int argc, char **argv)
 					printzone(&name[i], &info[i]);
 			}
 		}
+
+		if (ShowLarge && first_time) {
+			PrintLarge(wiredInfo, wiredInfoCnt, 
+				   SortZones ? &SortSize : &SortName, ColFormat);
+		}
 	}
 
 	first_time = 0;
@@ -322,6 +357,16 @@ main(int argc, char **argv)
 	if ((info != NULL) && (infoCnt != 0)) {
 		kr = vm_deallocate(mach_task_self(), (vm_address_t) info,
 				   (vm_size_t) (infoCnt * sizeof *info));
+		if (kr != KERN_SUCCESS) {
+			fprintf(stderr, "%s: vm_deallocate: %s\n",
+			     program, mach_error_string(kr));
+			exit(1);
+		}
+	}
+
+	if ((wiredInfo != NULL) && (wiredInfoCnt != 0)) {
+		kr = vm_deallocate(mach_task_self(), (vm_address_t) wiredInfo,
+				   (vm_size_t) (wiredInfoCnt * sizeof *wiredInfo));
 		if (kr != KERN_SUCCESS) {
 			fprintf(stderr, "%s: vm_deallocate: %s\n",
 			     program, mach_error_string(kr));
@@ -347,7 +392,7 @@ main(int argc, char **argv)
 }
 
 static boolean_t
-substr(const char *a, int alen, const char *b, int blen)
+substr(const char *a, size_t alen, const char *b, size_t blen)
 {
 	int i;
 
@@ -405,9 +450,6 @@ printzone(mach_zone_name_t *name, task_zone_info_t *info)
 			printf("\t\t\t\t\tPID TOTAL: %llu\n", pidsum);
 	}
 }
-
-#define	PRINTK(fmt, value)	\
-	printf(fmt "K", (value) / 1024 )	/* ick */
 
 static void
 colprintzone(mach_zone_name_t *zone_name, task_zone_info_t *info)
@@ -532,4 +574,290 @@ find_deltas(mach_zone_name_t *name, task_zone_info_t *info, task_zone_info_t *ma
 	       max_info++;
        }
        return(found_one);
+}
+
+/*********************************************************************
+*********************************************************************/
+
+static char *
+kern_vm_tag_name(uint64_t tag)
+{
+    char * result;
+    const char * name;
+    switch (tag)
+    {
+	case (VM_KERN_MEMORY_NONE):		name = "VM_KERN_MEMORY_NONE"; break;
+	case (VM_KERN_MEMORY_OSFMK):		name = "VM_KERN_MEMORY_OSFMK"; break;
+	case (VM_KERN_MEMORY_BSD):		name = "VM_KERN_MEMORY_BSD"; break;
+	case (VM_KERN_MEMORY_IOKIT):		name = "VM_KERN_MEMORY_IOKIT"; break;
+	case (VM_KERN_MEMORY_LIBKERN):		name = "VM_KERN_MEMORY_LIBKERN"; break;
+	case (VM_KERN_MEMORY_OSKEXT):		name = "VM_KERN_MEMORY_OSKEXT"; break;
+	case (VM_KERN_MEMORY_KEXT):		name = "VM_KERN_MEMORY_KEXT"; break;
+	case (VM_KERN_MEMORY_IPC):		name = "VM_KERN_MEMORY_IPC"; break;
+	case (VM_KERN_MEMORY_STACK):		name = "VM_KERN_MEMORY_STACK"; break;
+	case (VM_KERN_MEMORY_CPU):		name = "VM_KERN_MEMORY_CPU"; break;
+	case (VM_KERN_MEMORY_PMAP):		name = "VM_KERN_MEMORY_PMAP"; break;
+	case (VM_KERN_MEMORY_PTE):		name = "VM_KERN_MEMORY_PTE"; break;
+	case (VM_KERN_MEMORY_ZONE):		name = "VM_KERN_MEMORY_ZONE"; break;
+	case (VM_KERN_MEMORY_KALLOC):		name = "VM_KERN_MEMORY_KALLOC"; break;
+	case (VM_KERN_MEMORY_COMPRESSOR):	name = "VM_KERN_MEMORY_COMPRESSOR"; 	 break;
+	case (VM_KERN_MEMORY_COMPRESSED_DATA):	name = "VM_KERN_MEMORY_COMPRESSED_DATA"; break;
+	case (VM_KERN_MEMORY_PHANTOM_CACHE):	name = "VM_KERN_MEMORY_PHANTOM_CACHE"; 	 break;
+	case (VM_KERN_MEMORY_WAITQ):		name = "VM_KERN_MEMORY_WAITQ"; break;
+	case (VM_KERN_MEMORY_DIAG):		name = "VM_KERN_MEMORY_DIAG"; break;
+	case (VM_KERN_MEMORY_LOG):		name = "VM_KERN_MEMORY_LOG"; break;
+	case (VM_KERN_MEMORY_FILE):		name = "VM_KERN_MEMORY_FILE"; break;
+	case (VM_KERN_MEMORY_MBUF):		name = "VM_KERN_MEMORY_MBUF"; break;
+	case (VM_KERN_MEMORY_UBC):		name = "VM_KERN_MEMORY_UBC"; break;
+	case (VM_KERN_MEMORY_SECURITY):		name = "VM_KERN_MEMORY_SECURITY"; break;
+	case (VM_KERN_MEMORY_MLOCK):		name = "VM_KERN_MEMORY_MLOCK"; break;
+	case (VM_KERN_MEMORY_ANY):		name = "VM_KERN_MEMORY_ANY"; break;
+	default:				name = NULL; break;
+    }
+    if (name) asprintf(&result, "%s", name);
+    else      asprintf(&result, "VM_KERN_MEMORY_%lld", tag);
+    return (result);
+ }
+
+static char * 
+kern_vm_counter_name(uint64_t tag)
+{
+    char * result;
+    const char * name;
+    switch (tag)
+    {
+	case (VM_KERN_COUNT_MANAGED):		name = "VM_KERN_COUNT_MANAGED"; break;
+	case (VM_KERN_COUNT_RESERVED):		name = "VM_KERN_COUNT_RESERVED"; break;
+	case (VM_KERN_COUNT_WIRED):		name = "VM_KERN_COUNT_WIRED"; break;
+	case (VM_KERN_COUNT_WIRED_MANAGED):	name = "VM_KERN_COUNT_WIRED_MANAGED"; break;
+	case (VM_KERN_COUNT_STOLEN):		name = "VM_KERN_COUNT_STOLEN"; break;
+	case (VM_KERN_COUNT_LOPAGE):		name = "VM_KERN_COUNT_LOPAGE"; break;
+	case (VM_KERN_COUNT_MAP_KERNEL):	name = "VM_KERN_COUNT_MAP_KERNEL"; break;
+	case (VM_KERN_COUNT_MAP_ZONE):		name = "VM_KERN_COUNT_MAP_ZONE"; break;
+	case (VM_KERN_COUNT_MAP_KALLOC):	name = "VM_KERN_COUNT_MAP_KALLOC"; break;
+	default:				name = NULL; break;
+    }
+    if (name) asprintf(&result, "%s", name);
+    else      asprintf(&result, "VM_KERN_COUNT_%lld", tag);
+    return (result);
+}
+
+static void
+MakeLoadTagKeys(const void * key, const void * value, void * context)
+{
+    CFMutableDictionaryRef newDict  = context;
+    CFDictionaryRef        kextInfo = value;
+    CFNumberRef            loadTag;
+    uint32_t               loadTagValue;
+
+    loadTag = (CFNumberRef)CFDictionaryGetValue(kextInfo, CFSTR(kOSBundleLoadTagKey));
+    CFNumberGetValue(loadTag, kCFNumberSInt32Type, &loadTagValue);
+    key = (const void *)(uintptr_t) loadTagValue;
+    CFDictionarySetValue(newDict, key, value);
+}
+
+static CSSymbolicatorRef 	 gSym;
+static CFMutableDictionaryRef    gTagDict;
+static mach_memory_info_t *  gSites;
+
+static char * 
+GetSiteName(int siteIdx)
+{
+    const char      * name;
+    char            * result;
+    mach_vm_address_t addr;
+    CFDictionaryRef   kextInfo;
+    CFStringRef       bundleID;
+    uint32_t          type;
+
+    const mach_memory_info_t * site;
+    const char                   * fileName;
+    CSSymbolRef                    symbol;
+    const char                   * symbolName;
+    CSSourceInfoRef                sourceInfo;
+
+    name = NULL;
+    result = NULL;
+    site = &gSites[siteIdx];
+    addr = site->site;
+    type = (VM_KERN_SITE_TYPE & site->flags);
+    switch (type)
+    {
+	case VM_KERN_SITE_TAG:
+	    result = kern_vm_tag_name(addr);
+	    break;
+
+	case VM_KERN_SITE_COUNTER:
+	    result = kern_vm_counter_name(addr);
+	    break;
+
+	case VM_KERN_SITE_KMOD:
+	    kextInfo = CFDictionaryGetValue(gTagDict, (const void *)(uintptr_t) addr);
+	    if (kextInfo) 
+	    {
+		bundleID = (CFStringRef)CFDictionaryGetValue(kextInfo,  kCFBundleIdentifierKey);
+		name = CFStringGetCStringPtr(bundleID, kCFStringEncodingUTF8);
+	    //    wiredSize = (CFNumberRef)CFDictionaryGetValue(kextInfo, CFSTR(kOSBundleWiredSizeKey));
+	    }
+	    asprintf(&result,  "%-64s%3lld", name ?  name : "(unknown kmod)", addr);
+	    break;
+
+	case VM_KERN_SITE_KERNEL:
+	    symbolName = NULL;
+	    if (addr)
+	    {
+		symbol = CSSymbolicatorGetSymbolWithAddressAtTime(gSym, addr, kCSNow);
+		symbolName = CSSymbolGetName(symbol);
+	    }
+	    if (symbolName)
+	    {
+		asprintf(&result, "%s", symbolName);
+		sourceInfo = CSSymbolicatorGetSourceInfoWithAddressAtTime(gSym, addr, kCSNow);
+		fileName = CSSourceInfoGetPath(sourceInfo);
+		if (fileName) printf(" (%s:%d)", fileName, CSSourceInfoGetLineNumber(sourceInfo));
+	    }
+	    else
+	    {
+		asprintf(&result, "site 0x%qx", addr);
+	    }
+	    break;
+	default:
+	    asprintf(&result, "");
+	    break;
+    }
+
+     return (result);
+}
+
+static int 
+SortName(const void * left, const void * right)
+{
+    const int * idxL;
+    const int * idxR;
+    char * l;
+    char * r;
+    int result;
+
+    idxL = (typeof(idxL)) left;
+    idxR = (typeof(idxR)) right;
+    l = GetSiteName(*idxL);
+    r = GetSiteName(*idxR);
+
+    result = strcmp(l, r);
+    free(l);
+    free(r);
+
+    return (result);
+}
+
+static int 
+SortSize(const void * left, const void * right)
+{
+    const mach_memory_info_t * siteL;
+    const mach_memory_info_t * siteR;
+    const int * idxL;
+    const int * idxR;
+
+    idxL = (typeof(idxL)) left;
+    idxR = (typeof(idxR)) right;
+    siteL = &gSites[*idxL];
+    siteR = &gSites[*idxR];
+
+    if (siteL->size > siteR->size) return (-1);
+    else if (siteL->size < siteR->size) return (1);
+    return (0);
+}
+
+
+static void
+PrintLarge(mach_memory_info_t *wiredInfo, unsigned int wiredInfoCnt,
+		int (*func)(const void *, const void *), boolean_t column)
+{
+    uint64_t zonetotal;
+    uint64_t top_wired;
+
+    CFDictionaryRef allKexts;
+    unsigned int idx, site, first;
+    int sorted[wiredInfoCnt];
+    char totalstr[40];
+    char * name;
+
+    zonetotal = totalsize;
+
+    gSites = wiredInfo;
+
+    gSym = CSSymbolicatorCreateWithMachKernel();
+   
+    allKexts = OSKextCopyLoadedKextInfo(NULL, NULL);
+    gTagDict = CFDictionaryCreateMutable( 
+			    kCFAllocatorDefault, (CFIndex) 0,
+			    (CFDictionaryKeyCallBacks *) 0,
+			    &kCFTypeDictionaryValueCallBacks);
+
+    CFDictionaryApplyFunction(allKexts, &MakeLoadTagKeys, gTagDict);
+    CFRelease(allKexts);
+
+    top_wired = 0;
+
+    for (idx = 0; idx < wiredInfoCnt; idx++) sorted[idx] = idx;
+    first = 0; // VM_KERN_MEMORY_FIRST_DYNAMIC
+    qsort(&sorted[first],
+	    wiredInfoCnt - first, 
+	    sizeof(sorted[0]), 
+	    func);
+
+    printf("-------------------------------------------------------------------------------------------------------------\n");
+    printf("                                                               kmod          vm                       cur\n");
+    printf("wired memory                                                     id         tag                      size\n");
+    printf("-------------------------------------------------------------------------------------------------------------\n");
+
+    for (idx = 0; idx < wiredInfoCnt; idx++) 
+    {
+        site = sorted[idx];
+	if (!gSites[site].size) continue;
+	if (VM_KERN_COUNT_WIRED == gSites[site].site) top_wired = gSites[site].size;
+	if (VM_KERN_SITE_HIDE & gSites[site].flags) continue;
+	if (!(VM_KERN_SITE_WIRED & gSites[site].flags)) continue;
+
+	name = GetSiteName(site);
+	printf("%-67s", name);
+	free(name);
+	printf("%12d", site);
+
+	printf(" %11s", "");
+	PRINTK(" %12llu", gSites[site].size);
+	totalsize += gSites[site].size;
+
+	printf("\n");
+    }
+
+    printf("%-67s", "zones");
+    printf("%12s", "");
+    printf(" %11s", "");
+    PRINTK(" %12llu", zonetotal);
+    snprintf(totalstr, sizeof(totalstr), "%6.2fM of %6.2fM", totalsize / 1024.0 / 1024.0, top_wired / 1024.0 / 1024.0);
+    printf("\ntotal%100s\n", totalstr);
+
+    printf("-------------------------------------------------------------------------------------------------------------\n");
+    printf("                                                                                    largest\n");
+    printf("maps                                                                       free        free          size\n");
+    printf("-------------------------------------------------------------------------------------------------------------\n");
+
+    for (idx = 0; idx < wiredInfoCnt; idx++) 
+    {
+        site = sorted[idx];
+	if (!gSites[site].size) continue;
+	if (VM_KERN_SITE_HIDE & gSites[site].flags) continue;
+	if (VM_KERN_SITE_WIRED & gSites[site].flags) continue;
+
+	name = GetSiteName(site);
+	printf("%-67s", name);
+	free(name);
+
+	PRINTK(" %10llu", gSites[site].free);
+	PRINTK(" %10llu", gSites[site].largest);
+	PRINTK(" %12llu", gSites[site].size);
+
+	printf("\n");
+    }
 }

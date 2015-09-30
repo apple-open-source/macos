@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ckb.xml
@@ -12,7 +12,7 @@
 ckb{
     AuxExemplarCharacters{
         "[\u200E\u200F \u064B \u064C \u064D \u064E \u064F \u0650 \u0651 \u0652 ء آ أ "
-        "ؤ إ ئ ا ب ة ث ذ ص ض ط ظ ك ه ى ي]"
+        "ؤ إ ة ث ذ ص ض ط ظ ك ه ى ي]"
     }
     ExemplarCharacters{"[ئ ا ب پ ت ج چ ح خ د ر ز ڕ ژ س ش ع غ ف ڤ ق ک گ ل ڵ م ن ھ ە و ۆ ی ێ]"}
     ExemplarCharactersIndex{"[ئ ا ب پ ت ج چ ح خ د ر ز ڕ ژ س ش ع غ ف ڤ ق ک گ ل ڵ م ن ھ ە و ۆ ی ێ]"}
@@ -30,7 +30,7 @@ ckb{
         }
         native{"arab"}
     }
-    Version{"2.0.92.90"}
+    Version{"2.1.6.69"}
     calendar{
         generic{
             AmPmMarkers{
@@ -331,20 +331,6 @@ ckb{
                         "تشرینی دووەم",
                         "کانونی یەکەم",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "D",
-                    }
                     wide{
                         "کانوونی دووەم",
                         "شوبات",
@@ -374,20 +360,6 @@ ckb{
                         "تشرینی یەکەم",
                         "تشرینی دووەم",
                         "کانونی یەکەم",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "D",
                     }
                     wide{
                         "کانوونی دووەم",
@@ -526,12 +498,5 @@ ckb{
         UK{"بریتانی"}
         US{"ئەمەریکی"}
         metric{"مەتریک"}
-    }
-    units{
-        duration{
-            day{
-                one{"{0} ڕۆژ"}
-            }
-        }
     }
 }

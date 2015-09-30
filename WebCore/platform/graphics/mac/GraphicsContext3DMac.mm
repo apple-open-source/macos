@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#if USE(3D_GRAPHICS)
+#if ENABLE(GRAPHICS_CONTEXT_3D)
 
 #include "GraphicsContext3D.h"
 #if PLATFORM(IOS)
@@ -34,7 +34,6 @@
 
 #import "BlockExceptions.h"
 
-#include "ANGLE/ShaderLang.h"
 #include "CanvasRenderingContext.h"
 #include <CoreGraphics/CGBitmapContext.h>
 #include "Extensions3DOpenGL.h"
@@ -42,6 +41,7 @@
 #include "HTMLCanvasElement.h"
 #include "ImageBuffer.h"
 #if PLATFORM(IOS)
+#import "OpenGLESSPI.h"
 #import <OpenGLES/ES2/glext.h>
 #import <OpenGLES/EAGL.h>
 #import <OpenGLES/EAGLDrawable.h>
@@ -52,6 +52,7 @@
 #endif
 #include "WebGLLayer.h"
 #include "WebGLObject.h"
+#include "WebGLRenderingContextBase.h"
 #include <runtime/ArrayBuffer.h>
 #include <runtime/ArrayBufferView.h>
 #include <runtime/Int32Array.h>
@@ -61,9 +62,15 @@
 
 namespace WebCore {
 
-const int maxActiveContexts = 16;
-int GraphicsContext3D::numActiveContexts = 0;
+#define USE_GPU_STATUS_CHECK ((PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000) || PLATFORM(IOS))
 
+const int maxActiveContexts = 64;
+int GraphicsContext3D::numActiveContexts = 0;
+#if USE_GPU_STATUS_CHECK
+const int GPUStatusCheckThreshold = 5;
+int GraphicsContext3D::GPUCheckCounter = 0;
+#endif
+    
 // FIXME: This class is currently empty on Mac, but will get populated as 
 // the restructuring in https://bugs.webkit.org/show_bug.cgi?id=66903 is done
 class GraphicsContext3DPrivate {
@@ -145,6 +152,7 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3D::Attributes attrs, HostWi
     , m_multisampleDepthStencilBuffer(0)
     , m_multisampleColorBuffer(0)
     , m_private(std::make_unique<GraphicsContext3DPrivate>(this))
+    , m_webglContext(0)
 {
     UNUSED_PARAM(hostWindow);
     UNUSED_PARAM(renderStyle);
@@ -196,6 +204,15 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3D::Attributes attrs, HostWi
         return;
 
     CGLError err = CGLCreateContext(pixelFormatObj, 0, &m_contextObj);
+#if USE_GPU_STATUS_CHECK
+    GLint abortOnBlacklist = 0;
+#if PLATFORM(MAC)
+    CGLSetParameter(m_contextObj, kCGLCPAbortOnGPURestartStatusBlacklisted, &abortOnBlacklist);
+#elif PLATFORM(IOS)
+    CGLSetParameter(m_contextObj, kEAGLCPAbortOnGPURestartStatusBlacklisted, &abortOnBlacklist);
+#endif
+#endif
+
     CGLDestroyPixelFormat(pixelFormatObj);
     
     if (err != kCGLNoError || !m_contextObj) {
@@ -207,14 +224,6 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3D::Attributes attrs, HostWi
     // Set the current context to the one given to us.
     CGLSetCurrentContext(m_contextObj);
 
-    if (attrs.multithreaded) {
-        err = CGLEnable(m_contextObj, kCGLCEMPEngine);
-        if (err != kCGLNoError) {
-            // We could not create a multi-threaded context.
-            m_contextObj = 0;
-            return;
-        }
-    }
 #endif // !PLATFORM(IOS)
     
     validateAttributes();
@@ -361,6 +370,33 @@ bool GraphicsContext3D::makeContextCurrent()
     return true;
 }
 
+void GraphicsContext3D::checkGPUStatusIfNecessary()
+{
+#if USE_GPU_STATUS_CHECK
+    GPUCheckCounter = (GPUCheckCounter + 1) % GPUStatusCheckThreshold;
+    if (GPUCheckCounter)
+        return;
+#if PLATFORM(MAC)
+    GLint restartStatus = 0;
+    CGLGetParameter(platformGraphicsContext3D(), kCGLCPGPURestartStatus, &restartStatus);
+    if (restartStatus == kCGLCPGPURestartStatusCaused || restartStatus == kCGLCPGPURestartStatusBlacklisted) {
+        CGLSetCurrentContext(0);
+        CGLDestroyContext(platformGraphicsContext3D());
+        forceContextLost();
+    }
+#elif PLATFORM(IOS)
+    GLint restartStatus = 0;
+    EAGLContext* currentContext = static_cast<EAGLContext*>(PlatformGraphicsContext3D());
+    [currentContext getParameter:kEAGLCPGPURestartStatus to:&restartStatus];
+    if (restartStatus == kEAGLCPGPURestartStatusCaused || restartStatus == kEAGLCPGPURestartStatusBlacklisted) {
+        [EAGLContext setCurrentContext:0];
+        [static_cast<EAGLContext*>(currentContext) release];
+        forceContextLost();
+    }
+#endif
+#endif
+}
+
 #if PLATFORM(IOS)
 void GraphicsContext3D::endPaint()
 {
@@ -387,4 +423,4 @@ void GraphicsContext3D::setErrorMessageCallback(std::unique_ptr<ErrorMessageCall
 
 }
 
-#endif // USE(3D_GRAPHICS)
+#endif // ENABLE(GRAPHICS_CONTEXT_3D)

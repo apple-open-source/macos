@@ -114,18 +114,22 @@ kc_rsa_sign(int type, const unsigned char *from, unsigned int flen,
 	return -1;
 
     cret = SecKeyGetCSSMKey(privKeyRef, &cssmKey);
-    if(cret) heim_abort("SecKeyGetCSSMKey failed: %d", cret);
+    if(cret)
+	return -1;
 
     cret = SecKeyGetCSPHandle(privKeyRef, &cspHandle);
-    if(cret) heim_abort("SecKeyGetCSPHandle failed: %d", cret);
+    if(cret)
+	return -1;
 
     ret = SecKeyGetCredentials(privKeyRef, CSSM_ACL_AUTHORIZATION_SIGN,
 			       kSecCredentialTypeNoUI, &creds);
-    if(ret) heim_abort("SecKeyGetCredentials failed: %d", (int)ret);
+    if(ret)
+	return -1;
 
     ret = CSSM_CSP_CreateSignatureContext(cspHandle, CSSM_ALGID_RSA,
 					  creds, cssmKey, &sigHandle);
-    if(ret) heim_abort("CSSM_CSP_CreateSignatureContext failed: %d", (int)ret);
+    if(ret)
+	return -1;
 
     in.Data = (uint8 *)from;
     in.Length = flen;
@@ -171,18 +175,22 @@ kc_rsa_private_encrypt(int flen,
 	return -1;
 
     cret = SecKeyGetCSSMKey(privKeyRef, &cssmKey);
-    if(cret) heim_abort("SecKeyGetCSSMKey failed: %d", cret);
+    if(cret)
+	return -1;
 
     cret = SecKeyGetCSPHandle(privKeyRef, &cspHandle);
-    if(cret) heim_abort("SecKeyGetCSPHandle failed: %d", cret);
+    if(cret)
+	return -1;
 
     ret = SecKeyGetCredentials(privKeyRef, CSSM_ACL_AUTHORIZATION_SIGN,
 			       kSecCredentialTypeNoUI, &creds);
-    if(ret) heim_abort("SecKeyGetCredentials failed: %d", (int)ret);
+    if(ret)
+	return -1;
 
     ret = CSSM_CSP_CreateSignatureContext(cspHandle, CSSM_ALGID_RSA,
 					  creds, cssmKey, &sigHandle);
-    if(ret) heim_abort("CSSM_CSP_CreateSignatureContext failed: %d", (int)ret);
+    if(ret)
+	return -1;
 
     in.Data = (uint8 *)from;
     in.Length = flen;
@@ -225,14 +233,17 @@ kc_rsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
 	return -1;
 
     cret = SecKeyGetCSSMKey(privKeyRef, &cssmKey);
-    if(cret) heim_abort("SecKeyGetCSSMKey failed: %d", (int)cret);
+    if(cret)
+	return -1;
 
     cret = SecKeyGetCSPHandle(privKeyRef, &cspHandle);
-    if(cret) heim_abort("SecKeyGetCSPHandle failed: %d", (int)cret);
+    if(cret)
+	return -1;
 
     ret = SecKeyGetCredentials(privKeyRef, CSSM_ACL_AUTHORIZATION_DECRYPT,
 			       kSecCredentialTypeNoUI, &creds);
-    if(ret) heim_abort("SecKeyGetCredentials failed: %d", (int)ret);
+    if(ret)
+	return -1;
 
     ret = CSSM_CSP_CreateAsymmetricContext (cspHandle,
 					    CSSM_ALGID_RSA,
@@ -240,7 +251,8 @@ kc_rsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
 					    cssmKey,
 					    CSSM_PADDING_PKCS1,
 					    &handle);
-    if(ret) heim_abort("CSSM_CSP_CreateAsymmetricContext failed: %d", (int)ret);
+    if(ret)
+	return -1;
 
     in.Data = (uint8 *)from;
     in.Length = flen;

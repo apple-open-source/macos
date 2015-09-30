@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,15 +41,29 @@
 void
 dhcp_packet_print_cfstr(CFMutableStringRef str, struct dhcp * dp, int pkt_len)
 {
-    int 		i;
-    int			j;
-    int			len;
+    dhcpol_t 		options;
 
     if (pkt_len < sizeof(struct dhcp)) {
 	STRING_APPEND(str, "Packet is too short %d < %d\n", pkt_len,
 		(int)sizeof(struct dhcp));
 	return;
     }
+    dhcpol_init(&options);
+    dhcpol_parse_packet(&options, dp, pkt_len, NULL);
+    dhcp_packet_with_options_print_cfstr(str, dp, pkt_len, &options);
+    dhcpol_free(&options);
+    return;
+}
+
+void
+dhcp_packet_with_options_print_cfstr(CFMutableStringRef str,
+				     struct dhcp * dp, int pkt_len,
+				     dhcpol_t * options)
+{
+    int 		i;
+    int			j;
+    int			len;
+
     STRING_APPEND(str, "op = ");
     if (dp->dp_op == BOOTREQUEST) {
 	STRING_APPEND(str, "BOOTREQUEST\n");
@@ -72,7 +86,7 @@ dhcp_packet_print_cfstr(CFMutableStringRef str, struct dhcp * dp, int pkt_len)
     i = dp->dp_hops;
     STRING_APPEND(str, "hops = %d\n", i);
     
-    STRING_APPEND(str, "xid = %lu\n", (u_long)ntohl(dp->dp_xid));
+    STRING_APPEND(str, "xid = 0x%lx\n", (u_long)ntohl(dp->dp_xid));
     
     STRING_APPEND(str, "secs = %hu\n", ntohs(dp->dp_secs));
     
@@ -91,16 +105,10 @@ dhcp_packet_print_cfstr(CFMutableStringRef str, struct dhcp * dp, int pkt_len)
     
     STRING_APPEND(str, "sname = %s\n", dp->dp_sname);
     STRING_APPEND(str, "file = %s\n", dp->dp_file);
-    
-    {
-	dhcpol_t t;
-	
-	dhcpol_init(&t);
-	if (dhcpol_parse_packet(&t, dp, pkt_len, NULL)) {
-	    STRING_APPEND(str, "options:\n");
-	    dhcpol_print_cfstr(str, &t);
-	}
-	dhcpol_free(&t);
+
+    if (options != NULL && dhcpol_count(options) > 0) {
+	STRING_APPEND(str, "options:\n");
+	dhcpol_print_cfstr(str, options);
     }
     return;
 }

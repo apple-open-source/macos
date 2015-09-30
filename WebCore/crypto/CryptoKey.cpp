@@ -57,11 +57,13 @@ String CryptoKey::type() const
     case CryptoKeyType::Private:
         return ASCIILiteral("private");
     }
+    RELEASE_ASSERT_NOT_REACHED();
+    return emptyString();
 }
 
 void CryptoKey::buildAlgorithmDescription(CryptoAlgorithmDescriptionBuilder& builder) const
 {
-    builder.add("name", CryptoAlgorithmRegistry::shared().nameForIdentifier(m_algorithm));
+    builder.add("name", CryptoAlgorithmRegistry::singleton().nameForIdentifier(m_algorithm));
     // Subclasses will add other keys.
 }
 

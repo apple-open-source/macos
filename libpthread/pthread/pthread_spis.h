@@ -73,6 +73,7 @@ int pthread_mutexattr_setpolicy_np(pthread_mutexattr_t *, int );
 
 #endif /* (!_POSIX_C_SOURCE && !_XOPEN_SOURCE) || _DARWIN_C_SOURCE */
 
+
 __END_DECLS
 
 #endif /* _PTHREAD_SPIS_H */

@@ -135,8 +135,16 @@ IOReturn IOPMGetThermalWarningLevel(uint32_t *thermalLevel)
         goto exit;
     }
     
-    warning_level_num = isA_CFNumber(SCDynamicStoreCopyValue(store, thermal_key));
-        
+    warning_level_num = SCDynamicStoreCopyValue(store, thermal_key);
+    if(warning_level_num)
+    {
+        if(!isA_CFType(warning_level_num, CFNumberGetTypeID()))
+        {
+            CFRelease(warning_level_num);
+            warning_level_num = NULL;
+        }
+    }
+
     if (!warning_level_num) {
         ret = kIOReturnNotFound;
         goto exit;
@@ -181,7 +189,13 @@ IOReturn IOPMGetPerformanceWarningLevel(uint32_t *perfLevel)
         goto exit;
     }
 
-    warning_level_num = isA_CFNumber(SCDynamicStoreCopyValue(store, perf_key));
+    warning_level_num = SCDynamicStoreCopyValue(store, perf_key);
+    if(warning_level_num) {
+        if(!isA_CFNumber(warning_level_num)) {
+            CFRelease(warning_level_num);
+            warning_level_num = NULL;
+        }
+    }
 
     if (!warning_level_num) {
         ret = kIOReturnNotFound;

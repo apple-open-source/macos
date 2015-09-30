@@ -195,8 +195,9 @@ int ValidateAsset(const char* asset_dir_path, unsigned long current_version)
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
     const char* files[] =
 	{
-        "AssertVersion.plist",
+		"AssertVersion.plist",
 		"Blocked.plist",
+		"Allowed.plist",
 		"EVRoots.plist",
 		"certsIndex.data",
 		"certsTable.data",

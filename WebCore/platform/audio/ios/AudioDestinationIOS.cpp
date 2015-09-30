@@ -100,7 +100,6 @@ AudioDestinationIOS::AudioDestinationIOS(AudioIOCallback& callback, double sampl
     : m_outputUnit(0)
     , m_callback(callback)
     , m_renderBus(AudioBus::create(2, kRenderBufferSize, false))
-    , m_mediaSession(MediaSession::create(*this))
     , m_sampleRate(sampleRate)
     , m_isPlaying(false)
 {
@@ -184,27 +183,19 @@ void AudioDestinationIOS::configure()
 void AudioDestinationIOS::start()
 {
     LOG(Media, "AudioDestinationIOS::start");
-    if (!m_mediaSession->clientWillBeginPlayback()) {
-        LOG(Media, "  returning because of interruption");
-        return;
-    }
 
     OSStatus result = AudioOutputUnitStart(m_outputUnit);
     if (!result)
-        m_isPlaying = true;
+        setIsPlaying(true);
 }
 
 void AudioDestinationIOS::stop()
 {
     LOG(Media, "AudioDestinationIOS::stop");
-    if (!m_mediaSession->clientWillPausePlayback()) {
-        LOG(Media, "  returning because of interruption");
-        return;
-    }
 
     OSStatus result = AudioOutputUnitStop(m_outputUnit);
     if (!result)
-        m_isPlaying = false;
+        setIsPlaying(false);
 }
 
 // Pulls on our provider to get rendered audio stream.
@@ -223,6 +214,15 @@ OSStatus AudioDestinationIOS::render(UInt32 numberOfFrames, AudioBufferList* ioD
     }
 
     return noErr;
+}
+
+void AudioDestinationIOS::setIsPlaying(bool isPlaying)
+{
+    if (m_isPlaying == isPlaying)
+        return;
+
+    m_isPlaying = isPlaying;
+    m_callback.isPlayingDidChange();
 }
 
 // DefaultOutputUnit callback

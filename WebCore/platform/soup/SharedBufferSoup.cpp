@@ -22,13 +22,12 @@
 
 #include "SharedBuffer.h"
 
-#include "PurgeableBuffer.h"
 #include <libsoup/soup.h>
 
 namespace WebCore {
 
 SharedBuffer::SharedBuffer(SoupBuffer* soupBuffer)
-    : m_size(0)
+    : m_buffer(adoptRef(new DataBuffer))
     , m_soupBuffer(soupBuffer)
 {
     ASSERT(soupBuffer);
@@ -42,11 +41,6 @@ PassRefPtr<SharedBuffer> SharedBuffer::wrapSoupBuffer(SoupBuffer* soupBuffer)
 void SharedBuffer::clearPlatformData()
 {
     m_soupBuffer.reset();
-}
-
-void SharedBuffer::tryReplaceContentsWithPlatformBuffer(SharedBuffer*)
-{
-    ASSERT_NOT_REACHED();
 }
 
 void SharedBuffer::maybeTransferPlatformData()
@@ -82,6 +76,16 @@ unsigned SharedBuffer::platformDataSize() const
 bool SharedBuffer::maybeAppendPlatformData(SharedBuffer*)
 {
     return false;
+}
+
+void SharedBuffer::tryReplaceContentsWithPlatformBuffer(SharedBuffer& newContents)
+{
+    if (!newContents.hasPlatformData())
+        return;
+
+    clear();
+    // FIXME: Use GRefPtr instead of GUniquePtr for the SoupBuffer.
+    m_soupBuffer.swap(newContents.m_soupBuffer);
 }
 
 } // namespace WebCore

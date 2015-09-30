@@ -160,6 +160,15 @@ while(<>) {
 		    $attr .= " $2$3";
 		    $_ = "$1 $4";
 		}
+		if(m/(.*)\s(\w+__nullable)(.*)/) {
+		    $attr .= " $2";
+		    $_ = "$1 $3";
+		}
+		if(m/(.*)\s(\w+__nonnull)(.*)/) {
+		    $usedRules{$2} = 1;
+		    $attr .= " $2";
+		    $_ = "$1 $3";
+		}
 		if(m/(.*)\s(\w+DEPRECATED)(.*)/) {
 		    $usedRules{$2} = 1;
 		    $attr .= " $2";

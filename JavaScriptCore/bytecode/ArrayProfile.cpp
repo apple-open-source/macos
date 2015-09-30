@@ -73,14 +73,39 @@ void dumpArrayModes(PrintStream& out, ArrayModes arrayModes)
         out.print(comma, "ArrayWithArrayStorage");
     if (arrayModes & asArrayModes(ArrayWithSlowPutArrayStorage))
         out.print(comma, "ArrayWithSlowPutArrayStorage");
+
+    if (arrayModes & Int8ArrayMode)
+        out.print(comma, "Int8ArrayMode");
+    if (arrayModes & Int16ArrayMode)
+        out.print(comma, "Int16ArrayMode");
+    if (arrayModes & Int32ArrayMode)
+        out.print(comma, "Int32ArrayMode");
+    if (arrayModes & Uint8ArrayMode)
+        out.print(comma, "Uint8ArrayMode");
+    if (arrayModes & Uint8ClampedArrayMode)
+        out.print(comma, "Uint8ClampedArrayMode");
+    if (arrayModes & Uint16ArrayMode)
+        out.print(comma, "Uint16ArrayMode");
+    if (arrayModes & Uint32ArrayMode)
+        out.print(comma, "Uint32ArrayMode");
+    if (arrayModes & Float32ArrayMode)
+        out.print(comma, "Float32ArrayMode");
+    if (arrayModes & Float64ArrayMode)
+        out.print(comma, "Float64ArrayMode");
 }
 
-void ArrayProfile::computeUpdatedPrediction(const ConcurrentJITLocker&, CodeBlock* codeBlock)
+void ArrayProfile::computeUpdatedPrediction(const ConcurrentJITLocker& locker, CodeBlock* codeBlock)
 {
     if (!m_lastSeenStructureID)
         return;
     
     Structure* lastSeenStructure = codeBlock->heap()->structureIDTable().get(m_lastSeenStructureID);
+    computeUpdatedPrediction(locker, codeBlock, lastSeenStructure);
+    m_lastSeenStructureID = 0;
+}
+
+void ArrayProfile::computeUpdatedPrediction(const ConcurrentJITLocker&, CodeBlock* codeBlock, Structure* lastSeenStructure)
+{
     m_observedArrayModes |= arrayModeFromStructure(lastSeenStructure);
     
     if (!m_didPerformFirstRunPruning
@@ -95,7 +120,6 @@ void ArrayProfile::computeUpdatedPrediction(const ConcurrentJITLocker&, CodeBloc
     if (!globalObject->isOriginalArrayStructure(lastSeenStructure)
         && !globalObject->isOriginalTypedArrayStructure(lastSeenStructure))
         m_usesOriginalArrayStructures = false;
-    m_lastSeenStructureID = 0;
 }
 
 CString ArrayProfile::briefDescription(const ConcurrentJITLocker& locker, CodeBlock* codeBlock)

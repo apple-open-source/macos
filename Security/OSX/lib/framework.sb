@@ -1,0 +1,4 @@
+;; allow clients to communicate with secd
+(allow mach-lookup (global-name "com.apple.secd"))
+;; allow clients to communicate with coreauthd
+(allow mach-lookup (global-name "com.apple.CoreAuthentication.daemon.libxpc"))

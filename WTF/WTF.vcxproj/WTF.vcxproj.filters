@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="win">
-      <UniqueIdentifier>{b7d787cb-2b2b-4898-8d03-b94115e596d1}</UniqueIdentifier>
-    </Filter>
     <Filter Include="dtoa">
       <UniqueIdentifier>{eaa36939-1976-495f-b9ed-90074ee4f2be}</UniqueIdentifier>
     </Filter>
@@ -25,8 +22,11 @@
     <Filter Include="wtf\unicode\icu">
       <UniqueIdentifier>{da29baba-10a2-4a74-ab87-2fea5e1382da}</UniqueIdentifier>
     </Filter>
-    <Filter Include="wtf\gobject">
+    <Filter Include="wtf\glib">
       <UniqueIdentifier>{edd6ccc8-e6ee-41ec-a58d-9404a30c0c7e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="wtf\win">
+      <UniqueIdentifier>{b7d787cb-2b2b-4898-8d03-b94115e596d1}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -60,7 +60,13 @@
     <ClCompile Include="..\wtf\text\StringStatics.cpp">
       <Filter>text</Filter>
     </ClCompile>
+    <ClCompile Include="..\wtf\text\StringView.cpp">
+      <Filter>text</Filter>
+    </ClCompile>
     <ClCompile Include="..\wtf\text\AtomicString.cpp">
+      <Filter>text</Filter>
+    </ClCompile>
+    <ClCompile Include="..\wtf\text\AtomicStringImpl.cpp">
       <Filter>text</Filter>
     </ClCompile>
     <ClCompile Include="..\wtf\text\Base64.cpp">
@@ -75,10 +81,13 @@
     <ClCompile Include="..\wtf\text\StringImpl.cpp">
       <Filter>text</Filter>
     </ClCompile>
+    <ClCompile Include="..\wtf\text\SymbolRegistry.cpp">
+      <Filter>text</Filter>
+    </ClCompile>
     <ClCompile Include="..\wtf\text\WTFString.cpp">
       <Filter>text</Filter>
     </ClCompile>
-    <ClCompile Include="..\wtf\text\cf\AtomicStringCF.cpp">
+    <ClCompile Include="..\wtf\text\cf\AtomicStringImplCF.cpp">
       <Filter>text</Filter>
     </ClCompile>
     <ClCompile Include="..\wtf\text\cf\StringCF.cpp">
@@ -91,10 +100,7 @@
       <Filter>text</Filter>
     </ClCompile>
     <ClCompile Include="..\wtf\win\MainThreadWin.cpp">
-      <Filter>win</Filter>
-    </ClCompile>
-    <ClCompile Include="..\wtf\threads\win\BinarySemaphoreWin.cpp">
-      <Filter>threads\win</Filter>
+      <Filter>wtf\win</Filter>
     </ClCompile>
     <ClCompile Include="..\wtf\threads\BinarySemaphore.cpp">
       <Filter>threads</Filter>
@@ -165,9 +171,6 @@
     <ClCompile Include="..\wtf\OSRandomSource.cpp">
       <Filter>wtf</Filter>
     </ClCompile>
-    <ClCompile Include="..\wtf\PageAllocationAligned.cpp">
-      <Filter>wtf</Filter>
-    </ClCompile>
     <ClCompile Include="..\wtf\PageBlock.cpp">
       <Filter>wtf</Filter>
     </ClCompile>
@@ -198,9 +201,6 @@
     <ClCompile Include="..\wtf\StringPrintStream.cpp">
       <Filter>wtf</Filter>
     </ClCompile>
-    <ClCompile Include="..\wtf\TCSystemAlloc.cpp">
-      <Filter>wtf</Filter>
-    </ClCompile>
     <ClCompile Include="..\wtf\Threading.cpp">
       <Filter>wtf</Filter>
     </ClCompile>
@@ -225,27 +225,39 @@
     <ClCompile Include="..\wtf\SixCharacterHash.cpp">
       <Filter>wtf</Filter>
     </ClCompile>
-    <ClCompile Include="..\wtf\Compression.cpp">
-      <Filter>wtf</Filter>
+    <ClCompile Include="..\wtf\glib\GLibUtilities.cpp">
+      <Filter>wtf\glib</Filter>
     </ClCompile>
-    <ClCompile Include="..\wtf\gobject\GlibUtilities.cpp">
-      <Filter>wtf\gobject</Filter>
-    </ClCompile>
-    <ClCompile Include="..\wtf\gobject\GRefPtr.cpp">
-      <Filter>wtf\gobject</Filter>
+    <ClCompile Include="..\wtf\glib\GRefPtr.cpp">
+      <Filter>wtf\glib</Filter>
     </ClCompile>
     <ClCompile Include="..\wtf\RunLoop.cpp">
       <Filter>wtf</Filter>
     </ClCompile>
     <ClCompile Include="..\wtf\win\RunLoopWin.cpp">
-      <Filter>win</Filter>
+      <Filter>wtf\win</Filter>
     </ClCompile>
-    <ClCompile Include="..\wtf\FastBitVector.cpp" />
-    <ClCompile Include="..\wtf\gobject\GMainLoopSource.cpp">
-      <Filter>wtf\gobject</Filter>
+    <ClCompile Include="..\wtf\glib\GMainLoopSource.cpp">
+      <Filter>wtf\glib</Filter>
     </ClCompile>
+    <ClCompile Include="..\wtf\FastBitVector.cpp">
+      <Filter>wtf</Filter>
+    </ClCompile>
+    <ClCompile Include="..\wtf\glib\GThreadSafeMainLoopSource.cpp">
+      <Filter>wtf\glib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\wtf\RefCounter.cpp" />
     <ClCompile Include="..\wtf\win\WTFDLL.cpp">
-      <Filter>win</Filter>
+      <Filter>wtf\win</Filter>
+    </ClCompile>
+    <ClCompile Include="..\wtf\WorkQueue.cpp">
+      <Filter>wtf</Filter>
+    </ClCompile>
+    <ClCompile Include="..\wtf\win\WorkQueueWin.cpp">
+      <Filter>wtf\win</Filter>
+    </ClCompile>
+    <ClCompile Include="..\wtf\win\WorkItemWin.cpp">
+      <Filter>wtf\win</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -315,6 +327,9 @@
     <ClInclude Include="..\wtf\text\StringBuilder.h">
       <Filter>text</Filter>
     </ClInclude>
+    <ClInclude Include="..\wtf\text\StringCommon.h">
+      <Filter>text</Filter>
+    </ClInclude>
     <ClInclude Include="..\wtf\text\StringConcatenate.h">
       <Filter>text</Filter>
     </ClInclude>
@@ -329,6 +344,15 @@
     </ClInclude>
     <ClInclude Include="..\wtf\text\StringView.h">
       <Filter>wtf</Filter>
+    </ClInclude>
+    <ClInclude Include="..\wtf\text\SymbolImpl.h">
+      <Filter>text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\wtf\text\SymbolRegistry.h">
+      <Filter>text</Filter>
+    </ClInclude>
+    <ClInclude Include="..\wtf\text\UniquedStringImpl.h">
+      <Filter>text</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\text\WTFString.h">
       <Filter>text</Filter>
@@ -363,9 +387,6 @@
     <ClInclude Include="..\wtf\Atomics.h">
       <Filter>wtf</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\AVLTree.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
     <ClInclude Include="..\wtf\Bitmap.h">
       <Filter>wtf</Filter>
     </ClInclude>
@@ -376,9 +397,6 @@
       <Filter>wtf</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\BloomFilter.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
-    <ClInclude Include="..\wtf\BoundsCheckedPointer.h">
       <Filter>wtf</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\BumpPointerAllocator.h">
@@ -513,19 +531,10 @@
     <ClInclude Include="..\wtf\OSRandomSource.h">
       <Filter>wtf</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\OwnPtr.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
-    <ClInclude Include="..\wtf\OwnPtrCommon.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
     <ClInclude Include="..\wtf\PackedIntVector.h">
       <Filter>wtf</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\PageAllocation.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
-    <ClInclude Include="..\wtf\PageAllocationAligned.h">
       <Filter>wtf</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\PageBlock.h">
@@ -546,19 +555,10 @@
     <ClInclude Include="..\wtf\ParallelJobsOpenMP.h">
       <Filter>wtf</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\PassOwnPtr.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
-    <ClInclude Include="..\wtf\PassRef.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
     <ClInclude Include="..\wtf\PassRefPtr.h">
       <Filter>wtf</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\Platform.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
-    <ClInclude Include="..\wtf\PossiblyNull.h">
       <Filter>wtf</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\PrintStream.h">
@@ -585,9 +585,6 @@
     <ClInclude Include="..\wtf\RefPtr.h">
       <Filter>wtf</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\RefPtrHashMap.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
     <ClInclude Include="..\wtf\RetainPtr.h">
       <Filter>wtf</Filter>
     </ClInclude>
@@ -606,6 +603,9 @@
     <ClInclude Include="..\wtf\SinglyLinkedList.h">
       <Filter>wtf</Filter>
     </ClInclude>
+    <ClInclude Include="..\wtf\SpinLock.h">
+      <Filter>wtf</Filter>
+    </ClInclude>
     <ClInclude Include="..\wtf\StackBounds.h">
       <Filter>wtf</Filter>
     </ClInclude>
@@ -615,6 +615,9 @@
     <ClInclude Include="..\wtf\StdLibExtras.h">
       <Filter>wtf</Filter>
     </ClInclude>
+    <ClInclude Include="..\wtf\Stopwatch.h">
+      <Filter>wtf</Filter>
+    </ClInclude>
     <ClInclude Include="..\wtf\StringExtras.h">
       <Filter>wtf</Filter>
     </ClInclude>
@@ -622,18 +625,6 @@
       <Filter>wtf</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\StringPrintStream.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
-    <ClInclude Include="..\wtf\TCPackedCache.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
-    <ClInclude Include="..\wtf\TCPageMap.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
-    <ClInclude Include="..\wtf\TCSpinLock.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
-    <ClInclude Include="..\wtf\TCSystemAlloc.h">
       <Filter>wtf</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\TemporaryChange.h">
@@ -673,9 +664,6 @@
     <ClInclude Include="..\wtf\SixCharacterHash.h">
       <Filter>wtf</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\Compression.h">
-      <Filter>wtf</Filter>
-    </ClInclude>
     <ClInclude Include="..\wtf\FlipBytes.h">
       <Filter>wtf</Filter>
     </ClInclude>
@@ -683,19 +671,19 @@
       <Filter>wtf</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\win\GDIObject.h">
-      <Filter>win</Filter>
+      <Filter>wtf\win</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\gobject\GlibUtilities.h">
-      <Filter>wtf\gobject</Filter>
+    <ClInclude Include="..\wtf\glib\GLibUtilities.h">
+      <Filter>wtf\glib</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\gobject\GMutexLocker.h">
-      <Filter>wtf\gobject</Filter>
+    <ClInclude Include="..\wtf\glib\GMutexLocker.h">
+      <Filter>wtf\glib</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\gobject\GRefPtr.h">
-      <Filter>wtf\gobject</Filter>
+    <ClInclude Include="..\wtf\glib\GRefPtr.h">
+      <Filter>wtf\glib</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\gobject\GTypedefs.h">
-      <Filter>wtf\gobject</Filter>
+    <ClInclude Include="..\wtf\glib\GTypedefs.h">
+      <Filter>wtf\glib</Filter>
     </ClInclude>
     <ClInclude Include="..\wtf\Bag.h">
       <Filter>wtf</Filter>
@@ -706,12 +694,24 @@
     <ClInclude Include="..\wtf\RunLoop.h">
       <Filter>wtf</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\HashMethod.h" />
-    <ClInclude Include="..\wtf\gobject\GMainLoopSource.h">
-      <Filter>wtf\gobject</Filter>
+    <ClInclude Include="..\wtf\glib\GMainLoopSource.h">
+      <Filter>wtf\glib</Filter>
     </ClInclude>
-    <ClInclude Include="..\wtf\gobject\GUniquePtr.h">
-      <Filter>wtf\gobject</Filter>
+    <ClInclude Include="..\wtf\glib\GUniquePtr.h">
+      <Filter>wtf\glib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\wtf\HashMethod.h">
+      <Filter>wtf</Filter>
+    </ClInclude>
+    <ClInclude Include="..\wtf\glib\GThreadSafeMainLoopSource.h">
+      <Filter>wtf\glib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\wtf\RefCounter.h" />
+    <ClInclude Include="..\wtf\WorkQueue.h">
+      <Filter>wtf</Filter>
+    </ClInclude>
+    <ClInclude Include="..\wtf\win\WorkItemWin.h">
+      <Filter>wtf\win</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

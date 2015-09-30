@@ -1,5 +1,5 @@
 /*
- * "$Id: debug.c 11560 2014-02-06 20:10:19Z msweet $"
+ * "$Id: debug.c 12489 2015-02-05 19:40:10Z msweet $"
  *
  * Debugging functions for CUPS.
  *
@@ -97,7 +97,7 @@ debug_vsnprintf(char       *buffer,	/* O - Output buffer */
 		type;			/* Format type character */
   int		width,			/* Width of field */
 		prec;			/* Number of characters of precision */
-  char		tformat[100],		/* Temporary format string for sprintf() */
+  char		tformat[100],		/* Temporary format string for snprintf() */
 		*tptr,			/* Pointer into temporary format */
 		temp[1024];		/* Buffer for formatted numbers */
   char		*s;			/* Pointer to string */
@@ -232,7 +232,7 @@ debug_vsnprintf(char       *buffer,	/* O - Output buffer */
 	    if ((size_t)(width + 2) > sizeof(temp))
 	      break;
 
-	    sprintf(temp, tformat, va_arg(ap, double));
+	    snprintf(temp, sizeof(temp), tformat, va_arg(ap, double));
 
             bytes += (int)strlen(temp);
 
@@ -256,13 +256,13 @@ debug_vsnprintf(char       *buffer,	/* O - Output buffer */
 
 #  ifdef HAVE_LONG_LONG
             if (size == 'L')
-	      sprintf(temp, tformat, va_arg(ap, long long));
+	      snprintf(temp, sizeof(temp), tformat, va_arg(ap, long long));
 	    else
 #  endif /* HAVE_LONG_LONG */
             if (size == 'l')
-	      sprintf(temp, tformat, va_arg(ap, long));
+	      snprintf(temp, sizeof(temp), tformat, va_arg(ap, long));
 	    else
-	      sprintf(temp, tformat, va_arg(ap, int));
+	      snprintf(temp, sizeof(temp), tformat, va_arg(ap, int));
 
             bytes += (int)strlen(temp);
 
@@ -277,7 +277,7 @@ debug_vsnprintf(char       *buffer,	/* O - Output buffer */
 	    if ((size_t)(width + 2) > sizeof(temp))
 	      break;
 
-	    sprintf(temp, tformat, va_arg(ap, void *));
+	    snprintf(temp, sizeof(temp), tformat, va_arg(ap, void *));
 
             bytes += (int)strlen(temp);
 
@@ -643,5 +643,5 @@ _cups_debug_set(const char *logfile,	/* I - Log file or NULL */
 
 
 /*
- * End of "$Id: debug.c 11560 2014-02-06 20:10:19Z msweet $".
+ * End of "$Id: debug.c 12489 2015-02-05 19:40:10Z msweet $".
  */

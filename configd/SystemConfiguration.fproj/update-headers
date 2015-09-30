@@ -6,6 +6,8 @@ if (!$ENV{"INSTALL_DIR"} or !$ENV{"PUBLIC_HEADERS_FOLDER_PATH"} or !$ENV{"PRIVAT
 
 $DO_SPLIT = ($#ARGV >= 0 and $ARGV[0] eq "split");
 
+$USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK = $ENV{"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK"} eq "YES";
+
 $API_BASE = $ENV{"INSTALL_DIR"} . "/" . $ENV{"PUBLIC_HEADERS_FOLDER_PATH"};
 $SPI_BASE = $ENV{"INSTALL_DIR"} . "/" . $ENV{"PRIVATE_HEADERS_FOLDER_PATH"};
 
@@ -40,6 +42,19 @@ sub clean_SPI {
 	$spi_new =~ s/(__IPHONE_\w+)\/\*SPI\*\//\1/g;
 
 	return $spi_new;
+}
+
+sub create_STUB {
+	my ($api_header) = @_;
+	my ($stub_new);
+
+	$stub_new = "
+#warning \"Please #include <SystemConfiguration/PUBLIC.h> instead of this file directly.\"
+#include <SystemConfiguration/PUBLIC.h>
+";
+	$stub_new =~ s/PUBLIC.h/$api_header/g;
+
+	return $stub_new;
 }
 
 #
@@ -95,7 +110,9 @@ for (@headers) {
 	close(API);
 
 	$api_new = clean_API($api);
-	if ($api ne $api_new) {
+	next if ($api eq $api_new);	# if no tweaks needed
+
+	if (!$USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK) {
 		printf "cleaning .../Headers/%s\n", $api_header;
 		open(API, ">", $api_path);
 		print API $api_new;
@@ -120,6 +137,29 @@ for (@headers) {
 				print SPI $spi_new;
 				close(SPI);
 			}
+		}
+	} else {
+		$spi_new = clean_SPI($api);
+		if ($api_new ne $spi_new) {
+			if ((($stub_header) = ($api =~ /#ifdef\s+USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS\s*.*?\n#include\s+<SystemConfiguration\/(.*?\.h)>\s*.*?\n/))) {
+				if ($api_header eq $stub_header) {
+					die "API & STUB header not unique: $api_header\n";
+				}
+			} else {
+				die "Header missing #ifdef/#else/#endif: $api_header\n";
+			}
+
+			printf "updating .../Headers/%s\n", $api_header;
+			open(API, ">", $api_path);
+			print API $spi_new;
+			close(API);
+
+			printf "  adding .../PrivateHeaders/%s (stub)\n", $stub_header;
+			$stub_path = $SPI_BASE . "/" . $stub_header;
+			$stub_new = create_STUB($api_header);
+			open(STUB, ">", $stub_path);
+			print STUB $stub_new;
+			close(STUB);
 		}
 	}
 }

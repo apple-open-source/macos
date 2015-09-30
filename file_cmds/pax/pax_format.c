@@ -117,6 +117,7 @@ char	*pax_list_opt_format;
 
 #define KW_PATH_CASE	0
 #define KW_SKIP_CASE	-1
+#define KW_ATIME_CASE	-2
 
 typedef struct {
 	char *	name;
@@ -136,7 +137,7 @@ typedef struct {
 
 O_OPTION_TYPE o_option_table[] = {
 	{ "atime",	5,	1,	O_OPTION_ACTION_STORE_HEADER, O_OPTION_ACTION_STORE_HEADER,
-	&atime_g,	&atime_x,	&atime_g_current,	&atime_x_current,	0,	KW_SKIP_CASE	},
+	&atime_g,	&atime_x,	&atime_g_current,	&atime_x_current,	0,	KW_ATIME_CASE	},
 	{ "charset",	7,	1,	O_OPTION_ACTION_STORE_HEADER, O_OPTION_ACTION_IGNORE,
 	&charset_g,	&charset_x,	&charset_g_current,	&charset_x_current,	0,	KW_SKIP_CASE	},
 	{ "comment",	7,	1,	O_OPTION_ACTION_STORE_HEADER, O_OPTION_ACTION_IGNORE,
@@ -757,53 +758,67 @@ expand_extended_headers(ARCHD *arcn, HD_USTAR *hd)
 	/* Acceleration: check during command option processing. If there are no -o
 	   options, and no changes from any header, do not need to run through this loop. */
 	   
-	current_value = NULL;
 	for (i = 0; i < sizeof(o_option_table)/sizeof(O_OPTION_TYPE); i++) {
 		int header_len, free_it;
-		if (!o_option_table[i].active) continue; /* deleted keywords */
+		if (!o_option_table[i].active) {
+			continue; /* deleted keywords */
+		}
 		header_len = o_option_table[i].header_len;
+		if (header_len == KW_SKIP_CASE) {
+			continue;
+		}
 		free_it = 0;
-		if (header_len >= 0) {	/* Normal keywords */
+		/* Calculate values for all non-skip keywords */
+		current_value = NULL;
+		if (o_option_table[i].x_value) {
 			current_value = *o_option_table[i].x_value;
-			if (!current_value) {	/* No -o := */
+		}
+		if (!current_value) {	/* No -o := */
+			if (o_option_table[i].x_value_current) {
 				current_value = *o_option_table[i].x_value_current;
-				if (current_value) {
-					/* Must remove it: x header values not valid beyond this header */
-					*o_option_table[i].x_value_current = NULL;
-					free_it = 1;
-				} else {	/* No x values, try globals */
-					current_value = *o_option_table[i].g_value;
-					if (!current_value)
-						current_value = *o_option_table[i].g_value_current;
-				}
 			}
 			if (current_value) {
-				/* Update current header with this value */
-				/*
+				/* Must remove it: x header values not valid beyond this header */
+				*o_option_table[i].x_value_current = NULL;
+				free_it = 1;
+			} else {	/* No x values, try globals */
+				current_value = *o_option_table[i].g_value;
+				if (!current_value) {
+					current_value = *o_option_table[i].g_value_current;
+				}
+			}
+		}
+		if (current_value) {
+			/* Update current header with this value */
+			/*
 				printf ("Found current_value:%s for %s,  pids=%d\n",
-					current_value, o_option_table[i].name, pids);
+			 current_value, o_option_table[i].name, pids);
 				*/
-				len = strlen(current_value);
-				if (header_len == KW_PATH_CASE) {	/* Special case for path keyword */
-					path_replaced = 1;
-					arcn->nlen = len;
-					strlcpy(arcn->name,current_value,sizeof(arcn->name));
+			len = strlen(current_value);
+			if (header_len == KW_ATIME_CASE) {
+				time_t asecs = strtoul(current_value, NULL, 10);
+				arcn->sb.st_atimespec.tv_sec = asecs;
+			} else if (header_len == KW_PATH_CASE) {	/* Special case for path keyword */
+				path_replaced = 1;
+				arcn->nlen = len;
+				strlcpy(arcn->name,current_value,sizeof(arcn->name));
+			} else if (header_len >= 0) { // Skip negative values
+				if (len > header_len) {
+					paxwarn(1," length of string from extended header bigger than header field:"
+						" THAT won't work!\n");
 				} else {
-					if (len > header_len) {
-						paxwarn(1," length of string from extended header bigger than header field:"
-							" THAT won't work!\n");
-					} else {
-						char * p = (char *) myhd;
-						memcpy(&p[o_option_table[i].header_inx], 
-							current_value, len);
-						if (len != header_len) {
-							/* pad with ? */
-							p[o_option_table[i].header_inx+len] = '\0';
-						}
+					char * p = (char *) myhd;
+					memcpy(&p[o_option_table[i].header_inx],
+					       current_value, len);
+					if (len != header_len) {
+						/* pad with ? */
+						p[o_option_table[i].header_inx+len] = '\0';
 					}
 				}
 			}
-			if (free_it) free(current_value);
+			if (free_it) {
+				free(current_value);
+			}
 		}
 	}
 
@@ -931,7 +946,10 @@ pax_rd(ARCHD *arcn, char *buf)
 	arcn->sb.st_size = (off_t)asc_uqd(hd->size, sizeof(hd->size), OCT);
 #endif
 	arcn->sb.st_mtime = (time_t)asc_ul(hd->mtime, sizeof(hd->mtime), OCT);
-	arcn->sb.st_ctime = arcn->sb.st_atime = arcn->sb.st_mtime;
+	if (arcn->sb.st_atimespec.tv_sec == 0) { // Can be set from header
+		arcn->sb.st_atime = arcn->sb.st_mtime;
+	}
+	arcn->sb.st_ctime = arcn->sb.st_mtime;
 
 	/*
 	 * If we can find the ascii names for gname and uname in the password

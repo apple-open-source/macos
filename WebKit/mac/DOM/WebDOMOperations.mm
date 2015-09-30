@@ -74,7 +74,7 @@ using namespace JSC;
 
     ExecState* exec = toJS(context);
     JSLockHolder lock(exec);
-    return kit(toElement(toJS(exec, value)));
+    return kit(JSElement::toWrapped(toJS(exec, value)));
 }
 
 @end
@@ -214,7 +214,7 @@ using namespace JSC;
 
 - (void)_setAutofilled:(BOOL)autofilled
 {
-    toHTMLInputElement(core((DOMElement *)self))->setAutofilled(autofilled);
+    downcast<HTMLInputElement>(core((DOMElement *)self))->setAutoFilled(autofilled);
 }
 
 @end
@@ -242,10 +242,8 @@ static NSEventPhase toNSEventPhase(PlatformWheelEventPhase platformPhase)
         phase |= NSEventPhaseEnded;
     if (platformPhase & PlatformWheelEventPhaseCancelled)
         phase |= NSEventPhaseCancelled;
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
     if (platformPhase & PlatformWheelEventPhaseMayBegin)
         phase |= NSEventPhaseMayBegin;
-#endif
 
     return static_cast<NSEventPhase>(phase);
 }

@@ -31,9 +31,7 @@
 #ifndef PageRuntimeAgent_h
 #define PageRuntimeAgent_h
 
-#if ENABLE(INSPECTOR)
-
-#include <inspector/InspectorJSFrontendDispatchers.h>
+#include <inspector/InspectorFrontendDispatchers.h>
 #include <inspector/agents/InspectorRuntimeAgent.h>
 
 namespace JSC {
@@ -57,18 +55,18 @@ class PageRuntimeAgent final : public Inspector::InspectorRuntimeAgent {
 public:
     PageRuntimeAgent(Inspector::InjectedScriptManager*, Page*, InspectorPageAgent*);
     virtual ~PageRuntimeAgent() { }
-    
-    virtual void didCreateFrontendAndBackend(Inspector::InspectorFrontendChannel*, Inspector::InspectorBackendDispatcher*) override;
-    virtual void willDestroyFrontendAndBackend(Inspector::InspectorDisconnectReason) override;
-    virtual void enable(ErrorString*) override;
-    virtual void disable(ErrorString*) override;
 
-    void didCreateMainWorldContext(Frame*);
-    void didCreateIsolatedContext(Frame*, JSC::ExecState*, SecurityOrigin*);
+    virtual void didCreateFrontendAndBackend(Inspector::FrontendChannel*, Inspector::BackendDispatcher*) override;
+    virtual void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
+    virtual void enable(ErrorString&) override;
+    virtual void disable(ErrorString&) override;
+
+    // InspectorInstrumentation callbacks.
+    void didCreateMainWorldContext(Frame&);
 
 private:
     virtual JSC::VM& globalVM() override;
-    virtual Inspector::InjectedScript injectedScriptForEval(ErrorString*, const int* executionContextId) override;
+    virtual Inspector::InjectedScript injectedScriptForEval(ErrorString&, const int* executionContextId) override;
     virtual void muteConsole() override;
     virtual void unmuteConsole() override;
     void reportExecutionContextCreation();
@@ -76,13 +74,11 @@ private:
 
     Page* m_inspectedPage;
     InspectorPageAgent* m_pageAgent;
-    std::unique_ptr<Inspector::InspectorRuntimeFrontendDispatcher> m_frontendDispatcher;
-    RefPtr<Inspector::InspectorRuntimeBackendDispatcher> m_backendDispatcher;
+    std::unique_ptr<Inspector::RuntimeFrontendDispatcher> m_frontendDispatcher;
+    RefPtr<Inspector::RuntimeBackendDispatcher> m_backendDispatcher;
     bool m_mainWorldContextCreated;
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(INSPECTOR)
 
 #endif // !defined(InspectorPagerAgent_h)

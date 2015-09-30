@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,9 +38,12 @@
 
 #if PLATFORM(COCOA)
 #include "LayerHostingContext.h"
+#include "WebHitTestResult.h"
 
+OBJC_CLASS NSDictionary;
 OBJC_CLASS NSObject;
 OBJC_CLASS PDFDocument;
+OBJC_CLASS PDFSelection;
 #endif
 
 struct NPObject;
@@ -70,6 +73,12 @@ class WebMouseEvent;
 class WebWheelEvent;
     
 class PluginController;
+
+enum PluginType {
+    PluginProxyType,
+    NetscapePluginType,
+    PDFPluginType,
+};
 
 class Plugin : public ThreadSafeRefCounted<Plugin> {
 public:
@@ -101,6 +110,8 @@ public:
     const PluginController* controller() const { return m_pluginController; }
 
     virtual ~Plugin();
+
+    PluginType type() const { return m_type; }
 
 private:
 
@@ -153,6 +164,9 @@ public:
     // Tells the plug-in that a request to evaluate JavaScript (using PluginController::loadURL) has been fulfilled and passes
     // back the result. If evaluating the script failed, result will be null.
     virtual void didEvaluateJavaScript(uint64_t requestID, const String& result) = 0;
+
+    // Tells the plug-in that a stream may send an HTTP request.
+    virtual void streamWillSendRequest(uint64_t streamID, const WebCore::URL& requestURL, const WebCore::URL& responseURL, int responseStatusCode) = 0;
 
     // Tells the plug-in that a stream has received its HTTP response.
     virtual void streamDidReceiveResponse(uint64_t streamID, const WebCore::URL& responseURL, uint32_t streamLength, 
@@ -277,16 +291,27 @@ public:
     virtual bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) = 0;
 
     virtual String getSelectionString() const = 0;
-    
+    virtual String getSelectionForWordAtPoint(const WebCore::FloatPoint&) const = 0;
+    virtual bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const = 0;
+
     virtual WebCore::AudioHardwareActivityType audioHardwareActivity() const { return WebCore::AudioHardwareActivityType::Unknown; }
 
+    virtual void mutedStateChanged(bool) { }
+
 protected:
-    Plugin();
+    Plugin(PluginType);
+
+    PluginType m_type;
 
 private:
     PluginController* m_pluginController;
 };
     
 } // namespace WebKit
+
+#define SPECIALIZE_TYPE_TRAITS_PLUGIN(ToValueTypeName, SpecificPluginType) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::ToValueTypeName) \
+static bool isType(const WebKit::Plugin& plugin) { return plugin.type() == WebKit::SpecificPluginType; } \
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // Plugin_h

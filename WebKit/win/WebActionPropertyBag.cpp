@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebActionPropertyBag.h"
 
@@ -47,13 +46,13 @@ WebActionPropertyBag::WebActionPropertyBag(const NavigationAction& action, PassR
     , m_frame(frame)
 {
     gClassCount++;
-    gClassNameCount.add("WebActionPropertyBag");
+    gClassNameCount().add("WebActionPropertyBag");
 }
 
 WebActionPropertyBag::~WebActionPropertyBag()
 {
     gClassCount--;
-    gClassNameCount.remove("WebActionPropertyBag");
+    gClassNameCount().remove("WebActionPropertyBag");
 }
 
 WebActionPropertyBag* WebActionPropertyBag::createInstance(const NavigationAction& action, PassRefPtr<HTMLFormElement> form, PassRefPtr<Frame> frame)
@@ -106,16 +105,16 @@ static const MouseEvent* findMouseEvent(const Event* event)
     return 0;
 }
 
-HRESULT STDMETHODCALLTYPE WebActionPropertyBag::Read(LPCOLESTR pszPropName, VARIANT *pVar, IErrorLog * /*pErrorLog*/)
+HRESULT WebActionPropertyBag::Read(LPCOLESTR pszPropName, VARIANT *pVar, IErrorLog * /*pErrorLog*/)
 {
     if (!pszPropName)
         return E_POINTER;
 
-    VariantClear(pVar);
+    ::VariantClear(pVar);
 
     if (isEqual(pszPropName, WebActionNavigationTypeKey)) {
         V_VT(pVar) = VT_I4;
-        V_I4(pVar) = m_action.type();
+        V_I4(pVar) = static_cast<LONG>(m_action.type());
         return S_OK;
     }
     if (isEqual(pszPropName, WebActionElementKey)) {

@@ -52,7 +52,9 @@
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_oid_to_str(OM_uint32 *minor_status, gss_OID oid, gss_buffer_t oid_str)
+gss_oid_to_str(OM_uint32 *__nonnull minor_status,
+	       __nonnull gss_OID oid,
+	       __nonnull gss_buffer_t oid_str)
 {
     int ret;
     size_t size;
@@ -97,8 +99,8 @@ gss_oid_to_str(OM_uint32 *minor_status, gss_OID oid, gss_buffer_t oid_str)
  * @ingroup gssapi
  */
 
-GSSAPI_LIB_FUNCTION const char * GSSAPI_LIB_CALL
-gss_oid_to_name(gss_const_OID oid)
+GSSAPI_LIB_FUNCTION const char * __nullable GSSAPI_LIB_CALL
+gss_oid_to_name(__nonnull gss_const_OID oid)
 {
     size_t i;
 
@@ -128,8 +130,8 @@ gss_oid_to_name(gss_const_OID oid)
  * @ingroup gssapi
  */
 
-GSSAPI_LIB_FUNCTION gss_const_OID GSSAPI_LIB_CALL
-gss_name_to_oid(const char *name)
+GSSAPI_LIB_FUNCTION __nullable gss_const_OID GSSAPI_LIB_CALL
+gss_name_to_oid(const char *__nonnull name)
 {
     size_t i, partial = (size_t)-1;
 

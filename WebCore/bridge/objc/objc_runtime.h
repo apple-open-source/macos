@@ -61,8 +61,8 @@ public:
     virtual int numParameters() const;
 
     NSMethodSignature *getMethodSignature() const;
-    
-    bool isFallbackMethod() const { return _selector == @selector(invokeUndefinedMethodFromWebScript:withArguments:); }
+
+    bool isFallbackMethod() const;
     void setJavaScriptName(CFStringRef n) { _javaScriptName = n; }
     CFStringRef javaScriptName() const { return _javaScriptName.get(); }
     
@@ -93,6 +93,7 @@ private:
 class ObjcFallbackObjectImp : public JSDestructibleObject {
 public:
     typedef JSDestructibleObject Base;
+    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | TypeOfShouldCallGetCallData;
 
     static ObjcFallbackObjectImp* create(ExecState* exec, JSGlobalObject* globalObject, ObjcInstance* instance, const String& propertyName)
     {
@@ -123,7 +124,6 @@ protected:
 private:
     ObjcFallbackObjectImp(JSGlobalObject*, Structure*, ObjcInstance*, const String& propertyName);
     static void destroy(JSCell*);
-    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | JSObject::StructureFlags;
     static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
     static void put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
     static CallType getCallData(JSCell*, CallData&);

@@ -878,7 +878,7 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
         break;
 
 	default:
-            LOGDBG(ifp, ("ppp_if_control: unknown ioctl\n"));
+            LOGDBG(ifp, ("ppp_if_control: unknown ioctl, cmd = 0x%x\n", cmd));
             error = EINVAL;
 	}
 
@@ -967,6 +967,11 @@ errno_t ppp_if_ioctl(ifnet_t ifp, u_long cmd, void *data)
             else
                 ifnet_set_mtu(ifp, ifr->ifr_mtu);
             break;
+
+		case SIOCGIFMEDIA:
+			LOGDBG(ifp, ("ppp_if_ioctl, unsupported ioctl SIOCGIFMEDIA\n"));
+			error = EOPNOTSUPP;
+			break;
 
 	default:
             LOGDBG(ifp, ("ppp_if_ioctl, unknown ioctl, cmd = 0x%x\n", cmd));

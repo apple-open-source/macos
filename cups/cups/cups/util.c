@@ -1,9 +1,9 @@
 /*
- * "$Id: util.c 12078 2014-07-31 11:45:57Z msweet $"
+ * "$Id: util.c 12489 2015-02-05 19:40:10Z msweet $"
  *
  * Printing utilities for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2015 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -846,10 +846,10 @@ cupsGetPPD3(http_t     *http,		/* I  - HTTP connection or @code CUPS_HTTP_DEFAUL
 
     snprintf(ppdname, sizeof(ppdname), "%s/ppd/%s.ppd", cg->cups_serverroot,
              name);
-    if (!stat(ppdname, &ppdinfo))
+    if (!stat(ppdname, &ppdinfo) && !access(ppdname, R_OK))
     {
      /*
-      * OK, the file exists, use it!
+      * OK, the file exists and is readable, use it!
       */
 
       if (buffer[0])
@@ -1509,7 +1509,7 @@ cups_get_printer_uri(
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, uri);
 
-  ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requested-attributes", sizeof(requested_attrs) / sizeof(requested_attrs[0]), NULL, requested_attrs);
+  ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "requested-attributes", sizeof(requested_attrs) / sizeof(requested_attrs[0]), NULL, requested_attrs);
 
  /*
   * Do the request and get back a response...
@@ -1655,5 +1655,5 @@ cups_get_printer_uri(
 
 
 /*
- * End of "$Id: util.c 12078 2014-07-31 11:45:57Z msweet $".
+ * End of "$Id: util.c 12489 2015-02-05 19:40:10Z msweet $".
  */

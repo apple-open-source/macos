@@ -1,14 +1,50 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/es_419.xml
 // *
 // ***************************************************************************
 es_419{
-    Version{"2.0.96.24"}
+    Version{"2.1.13.23"}
     zoneStrings{
+        "meta:Acre"{
+            sd{"ACST"}
+            sg{"ACT"}
+            ss{"ACT"}
+        }
+        "meta:Amazon"{
+            sd{"AMST"}
+            sg{"AMT"}
+            ss{"AMT"}
+        }
+        "meta:Argentina"{
+            sd{"ARST"}
+            sg{"ART"}
+            ss{"ART"}
+        }
+        "meta:Argentina_Western"{
+            sd{"WARST"}
+            sg{"WART"}
+            ss{"WART"}
+        }
+        "meta:Bolivia"{
+            ss{"BOT"}
+        }
+        "meta:Brasilia"{
+            sd{"BRST"}
+            sg{"BRT"}
+            ss{"BRT"}
+        }
+        "meta:Chile"{
+            sd{"CLST"}
+            sg{"CLT"}
+            ss{"CLT"}
+        }
+        "meta:Ecuador"{
+            ss{"ECT"}
+        }
         "meta:Europe_Central"{
             sd{"∅∅∅"}
             sg{"∅∅∅"}
@@ -24,8 +60,25 @@ es_419{
             sg{"∅∅∅"}
             ss{"∅∅∅"}
         }
+        "meta:French_Guiana"{
+            ss{"GFT"}
+        }
         "meta:GMT"{
             ss{"∅∅∅"}
+        }
+        "meta:Guyana"{
+            ss{"GYT"}
+        }
+        "meta:Suriname"{
+            ss{"SRT"}
+        }
+        "meta:Uruguay"{
+            sd{"UYST"}
+            sg{"UYT"}
+            ss{"UYT"}
+        }
+        "meta:Venezuela"{
+            ss{"VET"}
         }
     }
 }

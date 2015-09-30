@@ -32,14 +32,18 @@ namespace WebCore {
 
 static const double DefaultHysteresisSeconds = 5.0;
 
-template<typename Delegate>
+enum class HysteresisState {
+    Started,
+    Stopped
+};
+
 class HysteresisActivity {
 public:
-    explicit HysteresisActivity(Delegate& delegate, double hysteresisSeconds = DefaultHysteresisSeconds)
-        : m_delegate(delegate)
+    explicit HysteresisActivity(std::function<void(HysteresisState)> callback = [](HysteresisState) { }, double hysteresisSeconds = DefaultHysteresisSeconds)
+        : m_callback(callback)
         , m_hysteresisSeconds(hysteresisSeconds)
         , m_active(false)
-        , m_timer(this, &HysteresisActivity<Delegate>::hysteresisTimerFired)
+        , m_timer(*this, &HysteresisActivity::hysteresisTimerFired)
     {
     }
 
@@ -52,7 +56,7 @@ public:
         if (m_timer.isActive())
             m_timer.stop();
         else
-            m_delegate.started();
+            m_callback(HysteresisState::Started);
     }
 
     void stop()
@@ -72,14 +76,19 @@ public:
         }
     }
 
-private:
-    void hysteresisTimerFired(Timer&)
+    HysteresisState state() const
     {
-        m_delegate.stopped();
+        return m_active || m_timer.isActive() ? HysteresisState::Started : HysteresisState::Stopped;
+    }
+    
+private:
+    void hysteresisTimerFired()
+    {
         m_timer.stop();
+        m_callback(HysteresisState::Stopped);
     }
 
-    Delegate& m_delegate;
+    std::function<void(HysteresisState)> m_callback;
     double m_hysteresisSeconds;
     bool m_active;
     Timer m_timer;

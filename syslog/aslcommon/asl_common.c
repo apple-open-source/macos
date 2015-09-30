@@ -2,14 +2,14 @@
  * Copyright (c) 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,11 +17,10 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -56,6 +55,8 @@
 #define _PATH_ASL_CONF_LOCAL_DIR "/usr/local/etc/asl"
 #endif
 
+//#define DEBUG_LIST_FILES 1
+
 static const char *asl_out_action_name[] =
 {
 	"none         ",
@@ -82,12 +83,6 @@ static const char *asl_out_action_name[] =
 
 #define forever for(;;)
 #define KEYMATCH(S,K) ((strncasecmp(S, K, strlen(K)) == 0))
-
-#define STAMP_STYLE_INVALID -1
-#define STAMP_STYLE_NULL 0
-#define STAMP_STYLE_SEC 1
-#define STAMP_STYLE_SEQ 2
-#define STAMP_STYLE_UTC_OR_LCL 3
 
 asl_msg_t *
 xpc_object_to_asl_msg(xpc_object_t xobj)
@@ -231,7 +226,7 @@ _insert_string(char *s, char **l, uint32_t x)
 	int i, len;
 
 	if (s == NULL) return l;
-	if (l == NULL) 
+	if (l == NULL)
 	{
 		l = (char **)malloc(2 * sizeof(char *));
 		if (l == NULL) return NULL;
@@ -249,7 +244,7 @@ _insert_string(char *s, char **l, uint32_t x)
 
 	for (i = 0; l[i] != NULL; i++);
 
-	 /* len includes the NULL at the end of the list */
+	/* len includes the NULL at the end of the list */
 	len = i + 1;
 
 	l = (char **)reallocf(l, (len + 1) * sizeof(char *));
@@ -443,8 +438,8 @@ next_word_from_string(char **s)
 	return out;
 }
 
-static asl_out_dst_data_t *
-_asl_out_dest_for_path(asl_out_module_t *m, const char *path)
+asl_out_dst_data_t *
+asl_out_dest_for_path(asl_out_module_t *m, const char *path)
 {
 	if (m == NULL) return NULL;
 	if (path == NULL) return NULL;
@@ -454,7 +449,7 @@ _asl_out_dest_for_path(asl_out_module_t *m, const char *path)
 		asl_out_rule_t *r = m->ruleset;
 		while (r != NULL)
 		{
-			if ((r->action == ACTION_OUT_DEST) && (r->dst != NULL) && (r->dst->path != NULL) && (!strcmp(r->dst->path, path))) return r->dst;
+			if ((r->action == ACTION_OUT_DEST) && (r->dst != NULL) && (r->dst->path != NULL) && (streq(r->dst->path, path))) return r->dst;
 			r = r->next;
 		}
 
@@ -538,7 +533,7 @@ _asl_common_make_dir_path(asl_out_module_t *mlist, uint32_t flags, const char *p
 			return -1;
 		}
 
-		dst = _asl_out_dest_for_path(mlist, tmp);
+		dst = asl_out_dest_for_path(mlist, tmp);
 		if ((dst == NULL) && (flags & MODULE_FLAG_NONSTD_DIR))
 		{
 			/* no rule to create a non-standard path component! */
@@ -616,6 +611,70 @@ asl_out_mkpath(asl_out_module_t *mlist, asl_out_rule_t *r)
 	return -1;
 }
 
+int
+asl_make_database_dir(const char *dir, char **out)
+{
+	const char *asldir, *path;
+	char *str = NULL;
+	struct stat sb;
+	int status;
+	mode_t mask;
+
+	if (out != NULL) *out = NULL;
+
+	asldir = asl_filesystem_path(ASL_PLACE_DATABASE);
+	if (asldir == NULL) return -1;
+
+	if (dir == NULL)
+	{
+		/* create the database directory itself */
+		path = asldir;
+	}
+	else
+	{
+		if (strchr(dir, '/') != NULL) return -1;
+
+		asprintf(&str, "%s/%s", asldir, dir);
+		if (str == NULL) return -1;
+		path = str;
+	}
+
+	memset(&sb, 0, sizeof(struct stat));
+
+	status = stat(path, &sb);
+	if (status == 0)
+	{
+		if (S_ISDIR(sb.st_mode))
+		{
+			if (out == NULL) free(str);
+			else *out = str;
+			return 0;
+		}
+
+		free(str);
+		return -1;
+	}
+
+	if (errno != ENOENT)
+	{
+		free(str);
+		return -1;
+	}
+
+	mask = umask(0);
+	status = mkdir(path, 0755);
+	umask(mask);
+
+	if (status == 0)
+	{
+		if (out == NULL) free(str);
+		else *out = str;
+	}
+	else free(str);
+
+	return status;
+}
+
 void
 asl_make_timestamp(time_t stamp, uint32_t flags, char *buf, size_t len)
 {
@@ -624,19 +683,19 @@ asl_make_timestamp(time_t stamp, uint32_t flags, char *buf, size_t len)
 
 	if (buf == NULL) return;
 
-	if (flags & MODULE_FLAG_STYLE_UTC)
+	if (flags & MODULE_NAME_STYLE_STAMP_UTC)
 	{
 		memset(&t, 0, sizeof(t));
 		gmtime_r(&stamp, &t);
 		snprintf(buf, len, "%d-%02d-%02dT%02d:%02d:%02dZ", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
 	}
-	else if (flags & MODULE_FLAG_STYLE_UTC_B)
+	else if (flags & MODULE_NAME_STYLE_STAMP_UTC_B)
 	{
 		memset(&t, 0, sizeof(t));
 		gmtime_r(&stamp, &t);
 		snprintf(buf, len, "%d%02d%02dT%02d%02d%02dZ", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
 	}
-	else if (flags & MODULE_FLAG_STYLE_LCL)
+	else if (flags & MODULE_NAME_STYLE_STAMP_LCL)
 	{
 		bool neg = false;
 		memset(&t, 0, sizeof(t));
@@ -654,7 +713,7 @@ asl_make_timestamp(time_t stamp, uint32_t flags, char *buf, size_t len)
 		else if (m > 0) snprintf(buf, len, "%d-%02d-%02dT%02d:%02d:%02d%c%u:%02u", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec, neg ? '-' : '+', h, m);
 		else snprintf(buf, len, "%d-%02d-%02dT%02d:%02d:%02d%c%u", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec, neg ? '-' : '+', h);
 	}
-	else if (flags & MODULE_FLAG_STYLE_LCL_B)
+	else if (flags & MODULE_NAME_STYLE_STAMP_LCL_B)
 	{
 		bool neg = false;
 		memset(&t, 0, sizeof(t));
@@ -674,26 +733,37 @@ asl_make_timestamp(time_t stamp, uint32_t flags, char *buf, size_t len)
 	}
 	else
 	{
-		snprintf(buf, len, "%c%lu", STYLE_SEC_PREFIX_CHAR, stamp);
+		snprintf(buf, len, "%c%llu", STYLE_SEC_PREFIX_CHAR, (unsigned long long)stamp);
 	}
 }
 
 void
-asl_make_dst_filename(asl_out_dst_data_t *dst, char *buf, size_t len)
+asl_dst_make_current_name(asl_out_dst_data_t *dst, uint32_t xflags, char *buf, size_t len)
 {
+	char tstamp[32];
+
 	if (dst == NULL) return;
 	if (buf == NULL) return;
 
-	if (dst->flags & (MODULE_FLAG_BASESTAMP | MODULE_FLAG_TYPE_ASL_DIR))
+	xflags |= dst->flags;
+
+	if (dst->timestamp == 0) dst->timestamp = time(NULL);
+	asl_make_timestamp(dst->timestamp, dst->style_flags, tstamp, sizeof(tstamp));
+
+	if (xflags & MODULE_FLAG_TYPE_ASL_DIR)
 	{
-		char tstamp[32];
-		const char *name = dst->path;
-
-		if (dst->flags & MODULE_FLAG_TYPE_ASL_DIR) name = dst->fname;
-
-		if (dst->stamp == 0) dst->stamp = time(NULL);
-		asl_make_timestamp(dst->stamp, dst->flags, tstamp, sizeof(tstamp));
-		snprintf(buf, len, "%s.%s", name, tstamp);
+		snprintf(buf, len, "%s.%s", dst->current_name, tstamp);
+	}
+	else if (xflags & MODULE_FLAG_BASESTAMP)
+	{
+		if ((dst->dir != NULL) && (dst->style_flags & MODULE_NAME_STYLE_FORMAT_BSE))
+		{
+			snprintf(buf, len, "%s/%s.%s.%s", dst->dir, dst->base, tstamp, dst->ext);
+		}
+		else
+		{
+			snprintf(buf, len, "%s.%s", dst->path, tstamp);
+		}
 	}
 	else
 	{
@@ -741,8 +811,11 @@ asl_out_dst_data_release(asl_out_dst_data_t *dst)
 	if (dst->refcount > 0) dst->refcount--;
 	if (dst->refcount > 0) return;
 
+	free(dst->dir);
 	free(dst->path);
-	free(dst->fname);
+	free(dst->current_name);
+	free(dst->base);
+	free(dst->ext);
 	free(dst->rotate_dir);
 	free(dst->fmt);
 #if !TARGET_IPHONE_SIMULATOR
@@ -886,11 +959,11 @@ asl_out_dst_file_create_open(asl_out_dst_data_t *dst, char **pathp)
 	if (dst == NULL) return -1;
 	if (dst->path == NULL) return -1;
 
-	asl_make_dst_filename(dst, outpath, sizeof(outpath));
-	if (dst->fname != NULL) free(dst->fname);
+	asl_dst_make_current_name(dst, 0, outpath, sizeof(outpath));
+	free(dst->current_name);
 
-	dst->fname = strdup(outpath);
-	if (dst->fname == NULL) return -1;
+	dst->current_name = strdup(outpath);
+	if (dst->current_name == NULL) return -1;
 
 	if (pathp != NULL) *pathp = strdup(outpath);
 
@@ -904,10 +977,11 @@ asl_out_dst_file_create_open(asl_out_dst_data_t *dst, char **pathp)
 		/* file exists */
 		fd = open(outpath, O_RDWR | O_APPEND | O_EXCL, 0);
 
-		if (dst->stamp == 0) dst->stamp = sb.st_birthtimespec.tv_sec;
-		if (dst->stamp == 0) dst->stamp = sb.st_mtimespec.tv_sec;
+		if (dst->timestamp == 0) dst->timestamp = sb.st_birthtimespec.tv_sec;
+		if (dst->timestamp == 0) dst->timestamp = sb.st_mtimespec.tv_sec;
 		dst->size = sb.st_size;
 
+		if ((dst->flags & MODULE_FLAG_BASESTAMP) && (dst->flags & MODULE_FLAG_SYMLINK)) symlink(outpath, dst->path);
 		return fd;
 	}
 	else if (errno != ENOENT)
@@ -919,10 +993,17 @@ asl_out_dst_file_create_open(asl_out_dst_data_t *dst, char **pathp)
 	fd = open(outpath, O_RDWR | O_CREAT | O_EXCL, (dst->mode & 00666));
 	if (fd < 0) return -1;
 
-	dst->stamp = time(NULL);
+	dst->timestamp = time(NULL);
 
 	fd = asl_out_dst_set_access(fd, dst);
 	if (fd < 0) unlink(outpath);
+
+	if ((dst->flags & MODULE_FLAG_BASESTAMP) && (dst->flags & MODULE_FLAG_SYMLINK))
+	{
+		/* remove old symlink, make a new link to the "current" file */
+		unlink(dst->path);
+		symlink(outpath, dst->path);
+	}
 
 	return fd;
 }
@@ -1091,9 +1172,9 @@ _asl_out_module_parse_set_param(asl_out_module_t *m, char *s)
 		else
 		{
 			/* = param [query] */
-			if ((!strncmp(p, "[File ", 6)) || (!strncmp(p, "[File\t", 6))) out->action = ACTION_SET_FILE;
-			else if ((!strncmp(p, "[Plist ", 7)) || (!strncmp(p, "[Plist\t", 7))) out->action = ACTION_SET_PLIST;
-			else if ((!strncmp(p, "[Profile ", 9)) || (!strncmp(p, "[Profile\t", 9))) out->action = ACTION_SET_PROF;
+			if (streq_len(p, "[File ", 6) || streq_len(p, "[File\t", 6)) out->action = ACTION_SET_FILE;
+			else if (streq_len(p, "[Plist ", 7) || streq_len(p, "[Plist\t", 7)) out->action = ACTION_SET_PLIST;
+			else if (streq_len(p, "[Profile ", 9) || streq_len(p, "[Profile\t", 9)) out->action = ACTION_SET_PROF;
 
 			p--;
 			*p = '\0';
@@ -1204,28 +1285,6 @@ _dst_format_string(char *s)
 	return fmt;
 }
 
-size_t
-asl_str_to_size(char *s)
-{
-	size_t len, n, max;
-	char x;
-
-	if (s == NULL) return 0;
-
-	len = strlen(s);
-	if (len == 0) return 0;
-
-	n = 1;
-	x = s[len - 1];
-	if (x > 90) x -= 32;
-	if (x == 'K') n = 1ll << 10;
-	else if (x == 'M') n = 1ll << 20;
-	else if (x == 'G') n = 1ll << 30;
-
-	max = atoll(s) * n;
-	return max;
-}
-
 static bool
 _dst_path_match(const char *newpath, const char *existingpath)
 {
@@ -1239,12 +1298,135 @@ _dst_path_match(const char *newpath, const char *existingpath)
 	return (strcmp(newpath, trailing) == 0);
 }
 
+static uint32_t
+_parse_stamp_string(const char *in)
+{
+	char buf[16];
+	uint32_t x;
+
+	if (in == NULL) return 0;
+
+	for (x = 0; (((in[x] >= 'a') && (in[x] <= 'z')) || (in[x] == '-')) && (x < 11); x++) buf[x] = in[x];
+	buf[x] = '\0';
+
+	if (streq(buf, "sec") || streq(buf, "seconds")) return  MODULE_NAME_STYLE_STAMP_SEC;
+	if (streq(buf, "zulu") || streq(buf, "utc")) return MODULE_NAME_STYLE_STAMP_UTC;
+	if (streq(buf, "utc-b") || streq(buf, "utc-basic")) return MODULE_NAME_STYLE_STAMP_UTC_B;
+	if (streq(buf, "local") || streq(buf, "lcl")) return MODULE_NAME_STYLE_STAMP_LCL;
+	if (streq(buf, "local-b") || streq(buf, "lcl-b") || streq(buf, "local-basic") || streq(buf, "lcl-basic")) return MODULE_NAME_STYLE_STAMP_LCL_B;
+	if (streq(buf, "#") || streq(buf, "seq") || streq(buf, "sequence"))return MODULE_NAME_STYLE_STAMP_SEQ;
+
+	return 0;
+}
+
+/*
+ * Parse a file-rotation naming style.
+ *
+ * Legacy: sec / seconds, utc / date / zulu [-b], local / lcl [-b], # / seq / sequence
+ * We scan the whole line and match to one of these.
+ *
+ * New scheme: 2 or 3 components: base and style, or base, style, and extension.
+ * these define a name format.  base is the file name without a leading directory path
+ * and with no extension (e.g. "foo").  style is one of the styles above.  extension is
+ * the file name extension (e.g. "log", "txt", etc).
+ *
+ * Examples:
+ *	foo.utc.log
+ *	foo.log.lcl
+ *	foo.seq
+ *
+ * The leading base name may be ommitted (E.G. ".lcl.log", ".log.seq")
+ * If the leading base name AND extension are omitted, it is taken from the path.  E.G. ".lcl", ".seq"
+ *
+ * If we get input without a stamp spec, we default to "sec".
+ */
+static int
+_parse_dst_style(asl_out_dst_data_t *dst, const char *in)
+{
+	const char *p, *q;
+	size_t len;
+
+	if ((dst == NULL) || (in == NULL)) return -1;
+
+	/* check for base. or just . for shorthand */
+	p = NULL;
+	if (in[0] == '.')
+	{
+		p = in + 1;
+	}
+	else
+	{
+		if (dst->base == NULL) return -1;
+
+		len = strlen(dst->base);
+		if (streq_len(in, dst->base, len) && (in[len] == '.')) p = in + len + 1;
+	}
+
+	if (p == NULL)
+	{
+		/* input does not start with '.' or base, so this is legacy style */
+		dst->style_flags = _parse_stamp_string(in);
+		if (dst->style_flags == 0) return -1;
+
+		if (dst->ext == NULL) dst->style_flags |= MODULE_NAME_STYLE_FORMAT_BS;
+		else dst->style_flags |= MODULE_NAME_STYLE_FORMAT_BES;
+
+		return 0;
+	}
+
+	/* look for another dot in the name */
+	for (q = p; (*q != '.') && (*q != ' ') && (*q != '\t') && (*q != '\0'); q++);
+	if (*q != '.') q = NULL;
+
+	if (q == NULL)
+	{
+		/* we require a stamp spec, so we are expecting base.stamp */
+		dst->style_flags = _parse_stamp_string(p);
+
+		if (dst->style_flags == 0) return -1;
+
+		/*
+		 * We got a valid stamp style ("base.stamp").
+		 * Note that we might have skipped the extention if the file name was "foo.log".
+		 * That's OK - syslogd writes "foo.log", but the rotated files are e.g. foo.20141018T1745Z.
+		 */
+		dst->style_flags |= MODULE_NAME_STYLE_FORMAT_BS;
+		return 0;
+	}
+
+	/* set q to the char past the dot */
+	q++;
+
+	/* either base.stamp.ext or base.ext.stamp */
+	if (dst->ext == NULL) return -1;
+
+	len = strlen(dst->ext);
+	if (streq_len(p, dst->ext, len) && (p[len] == '.'))
+	{
+		/* got base.ext.stamp */
+		dst->style_flags = _parse_stamp_string(q);
+		if (dst->style_flags == 0) return -1;
+
+		dst->style_flags |= MODULE_NAME_STYLE_FORMAT_BES;
+		return 0;
+	}
+
+	/* must be base.stamp.ext */
+	if (strneq_len(q, dst->ext, len)) return -1;
+
+	dst->style_flags = _parse_stamp_string(p);
+	if (dst->style_flags == 0) return -1;
+
+	dst->style_flags |= MODULE_NAME_STYLE_FORMAT_BSE;
+	return 0;
+}
+
 static asl_out_dst_data_t *
 _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 {
 	asl_out_rule_t *out, *rule;
 	asl_out_dst_data_t *dst;
-	char *p, *opts, *path;
+	char *p, *dot, *opts, *path;
 	char **path_parts;
 	int has_dotdot, recursion_limit;
 	uint32_t i, flags = 0;
@@ -1275,7 +1457,7 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 
 		for (i = 0; path_parts[i] != NULL; i++)
 		{
-			if (!strncmp(path_parts[i], "$ENV(", 5))
+			if (streq_len(path_parts[i], "$ENV(", 5))
 			{
 				char *p = strchr(path_parts[i], ')');
 				if (p != NULL) *p = '\0';
@@ -1301,7 +1483,7 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 				}
 			}
 
-			if ((has_dotdot == 0) && (!strcmp(path_parts[i], ".."))) has_dotdot = 1;
+			if ((has_dotdot == 0) && streq(path_parts[i], "..")) has_dotdot = 1;
 		}
 
 		free_string_list(path_parts);
@@ -1357,7 +1539,7 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 		if (log_root == NULL) log_root = "/tmp/log";
 #endif
 
-		if (!strcmp(m->name, ASL_MODULE_NAME))
+		if (streq(m->name, ASL_MODULE_NAME))
 		{
 			asprintf(&path, "%s/%s", log_root, t);
 		}
@@ -1375,8 +1557,8 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 		 * Standard log directories get marked so that syslogd
 		 * will create them without explicit rules.
 		 */
-		if (!strncmp(path, PATH_VAR_LOG, PATH_VAR_LOG_LEN)) flags &= ~MODULE_FLAG_NONSTD_DIR;
-		else if (!strncmp(path, PATH_LIBRARY_LOGS, PATH_LIBRARY_LOGS_LEN)) flags &= ~MODULE_FLAG_NONSTD_DIR;
+		if (streq_len(path, PATH_VAR_LOG, PATH_VAR_LOG_LEN)) flags &= ~MODULE_FLAG_NONSTD_DIR;
+		else if (streq_len(path, PATH_LIBRARY_LOGS, PATH_LIBRARY_LOGS_LEN)) flags &= ~MODULE_FLAG_NONSTD_DIR;
 	}
 
 	out = (asl_out_rule_t *)calloc(1, sizeof(asl_out_rule_t));
@@ -1391,9 +1573,36 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 
 	dst->refcount = 1;
 	dst->path = path;
+
+	p = strrchr(dst->path, '/');
+	if (p != NULL)
+	{
+		*p = '\0';
+		dst->dir = strdup(dst->path);
+		*p = '/';
+	}
+
 	dst->mode = def_mode;
 	dst->ttl[LEVEL_ALL] = DEFAULT_TTL;
 	dst->flags = flags | MODULE_FLAG_COALESCE;
+
+	/*
+	 * Break out base and extension (if present) from path.
+	 * Note this only supports a '.' as a separator.
+	 */
+	p = strrchr(path, '/');
+	if (p == NULL) p = path;
+	else p++;
+
+	dot = strrchr(path, '.');
+	if (dot != NULL)
+	{
+		*dot = '\0';
+		dst->ext = strdup(dot + 1);
+	}
+
+	dst->base = strdup(p);
+	if (dot != NULL) *dot = '.';
 
 	while (NULL != (p = next_word_from_string(&opts)))
 	{
@@ -1413,46 +1622,27 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 			else if (KEYMATCH(p+9, "false")) dst->flags &= ~MODULE_FLAG_COALESCE;
 		}
 		else if (KEYMATCH(p, "compress")) dst->flags |= MODULE_FLAG_COMPRESS;
+		else if (KEYMATCH(p, "activity")) dst->flags |= MODULE_FLAG_ACTIVITY;
 		else if (KEYMATCH(p, "extern")) dst->flags |= MODULE_FLAG_EXTERNAL;
 		else if (KEYMATCH(p, "truncate")) dst->flags |= MODULE_FLAG_TRUNCATE;
 		else if (KEYMATCH(p, "dir")) dst->flags |= MODULE_FLAG_TYPE_ASL_DIR;
 		else if (KEYMATCH(p, "soft")) dst->flags |= MODULE_FLAG_SOFT_WRITE;
-		else if (KEYMATCH(p, "file_max=")) dst->file_max = asl_str_to_size(p+9);
-		else if (KEYMATCH(p, "all_max=")) dst->all_max = asl_str_to_size(p+8);
+		else if (KEYMATCH(p, "file_max=")) dst->file_max = asl_core_str_to_size(p+9);
+		else if (KEYMATCH(p, "all_max=")) dst->all_max = asl_core_str_to_size(p+8);
 		else if (KEYMATCH(p, "style=") || KEYMATCH(p, "rotate="))
 		{
 			const char *x = p + 6;
 
-			if (KEYMATCH(p, "rotate=")) x++;
+			if (*p == 'r') x++;
+			if (_parse_dst_style(dst, x) == 0) dst->flags |= MODULE_FLAG_ROTATE;
+		}
+		else if (KEYMATCH(p, "rotate"))
+		{
+			if (dst->ext == NULL) dst->style_flags = MODULE_NAME_STYLE_FORMAT_BS | MODULE_NAME_STYLE_STAMP_SEC;
+			else dst->style_flags = MODULE_NAME_STYLE_FORMAT_BES | MODULE_NAME_STYLE_STAMP_SEC;
 
 			dst->flags |= MODULE_FLAG_ROTATE;
-
-			if (KEYMATCH(x, "sec") || KEYMATCH(x, "seconds"))
-			{
-				dst->flags |= MODULE_FLAG_STYLE_SEC;
-			}
-			else if (KEYMATCH(x, "utc") || KEYMATCH(x, "date") || KEYMATCH(x, "zulu"))
-			{
-				const char *dash = strchr(x, '-');
-				if ((dash != NULL) && (*(dash + 1) == 'b')) dst->flags |= MODULE_FLAG_STYLE_UTC_B;
-				else dst->flags |= MODULE_FLAG_STYLE_UTC;
-			}
-			else if (KEYMATCH(x, "local") || KEYMATCH(x, "lcl"))
-			{
-				const char *dash = strchr(x, '-');
-				if ((dash != NULL) && (*(dash + 1) == 'b')) dst->flags |= MODULE_FLAG_STYLE_LCL_B;
-				else dst->flags |= MODULE_FLAG_STYLE_LCL;
-			}
-			else if (KEYMATCH(x, "#") || KEYMATCH(x, "seq") || KEYMATCH(x, "sequence"))
-			{
-				dst->flags |= MODULE_FLAG_STYLE_SEQ;
-			}
-			else
-			{
-				dst->flags |= MODULE_FLAG_STYLE_SEC;
-			}
 		}
-		else if (KEYMATCH(p, "rotate")) dst->flags |= MODULE_FLAG_ROTATE;
 		else if (KEYMATCH(p, "crashlog"))
 		{
 			/* crashlog implies rotation */
@@ -1465,17 +1655,21 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 		{
 			dst->flags |= MODULE_FLAG_BASESTAMP;
 		}
+		else if (KEYMATCH(p, "link") || KEYMATCH(p, "symlink"))
+		{
+			dst->flags |= MODULE_FLAG_SYMLINK;
+		}
 		else if (KEYMATCH(p, "ttl"))
 		{
 			char *q = p + 3;
 			if (*q == '=')
 			{
-				dst->ttl[LEVEL_ALL] = strtol(p+4, NULL, 0);
+				dst->ttl[LEVEL_ALL] = asl_core_str_to_time(p+4, SECONDS_PER_DAY);
 			}
 			else if ((*q >= '0') && (*q <= '7') && (*(q+1) == '='))
 			{
 				uint32_t x = *q - '0';
-				dst->ttl[x] = strtol(p+5, NULL, 0);
+				dst->ttl[x] = asl_core_str_to_time(p+5, SECONDS_PER_DAY);
 			}
 		}
 
@@ -1485,7 +1679,7 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 
 #if TARGET_OS_EMBEDDED
 	/* check for crashreporter files */
-	if ((KEYMATCH(dst->path, _PATH_CRASHREPORTER)) || (KEYMATCH(dst->path, _PATH_CRASHREPORTER_MOBILE)))
+	if ((KEYMATCH(dst->path, _PATH_CRASHREPORTER)) || (KEYMATCH(dst->path, _PATH_CRASHREPORTER_MOBILE_1)) || (KEYMATCH(dst->path, _PATH_CRASHREPORTER_MOBILE_2)))
 	{
 		dst->flags |= MODULE_FLAG_ROTATE;
 		dst->flags |= MODULE_FLAG_CRASHLOG;
@@ -1504,23 +1698,26 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 	if (strcmp(dst->fmt, "std") && strcmp(dst->fmt, "bsd")) dst->flags &= ~MODULE_FLAG_COALESCE;
 
 	/* note if format is one of std, bsd, or msg */
-	if (!strcmp(dst->fmt, "std") || !strcmp(dst->fmt, "bsd") || !strcmp(dst->fmt, "msg")) dst->flags |= MODULE_FLAG_STD_BSD_MSG;
+	if (streq(dst->fmt, "std") || streq(dst->fmt, "bsd") || streq(dst->fmt, "msg")) dst->flags |= MODULE_FLAG_STD_BSD_MSG;
 
-	/* MODULE_FLAG_STYLE_SEQ can not be used with MODULE_FLAG_BASESTAMP */
-	if ((dst->flags & MODULE_FLAG_BASESTAMP) && (dst->flags & MODULE_FLAG_STYLE_SEQ))
+	/* MODULE_NAME_STYLE_STAMP_SEQ can not be used with MODULE_FLAG_BASESTAMP */
+	if ((dst->flags & MODULE_FLAG_BASESTAMP) && (dst->flags & MODULE_NAME_STYLE_STAMP_SEQ))
 	{
-		dst->flags &= ~MODULE_FLAG_STYLE_SEQ;
-		dst->flags |= MODULE_FLAG_STYLE_SEC;
+		dst->flags &= ~MODULE_NAME_STYLE_STAMP_SEQ;
+		dst->flags |= MODULE_NAME_STYLE_STAMP_SEC;
 	}
 
 	/* set time format for raw output */
-	if (!strcmp(dst->fmt, "raw")) dst->tfmt = "sec";
+	if (streq(dst->fmt, "raw")) dst->tfmt = "sec";
 
 	/* check for ASL_PLACE_DATABASE_DEFAULT */
-	if (!strcmp(dst->path, ASL_PLACE_DATABASE_DEFAULT))
+	if (streq(dst->path, ASL_PLACE_DATABASE_DEFAULT))
 	{
 		dst->flags = MODULE_FLAG_TYPE_ASL_DIR;
 	}
+
+	/* set file_max to all_max if it is zero */
+	if (dst->file_max == 0) dst->file_max = dst->all_max;
 
 	out->action = ACTION_OUT_DEST;
 	out->dst = dst;
@@ -1551,29 +1748,29 @@ _asl_out_module_parse_query_action(asl_out_module_t *m, char *s)
 	if (p == NULL) p = strchr(act, '\t');
 	if (p != NULL) *p = '\0';
 
-	if (!strcasecmp(act, "ignore"))               out->action = ACTION_IGNORE;
-	else if (!strcasecmp(act, "skip"))            out->action = ACTION_SKIP;
-	else if (!strcasecmp(act, "claim"))           out->action = ACTION_CLAIM;
-	else if (!strcasecmp(act, "notify"))          out->action = ACTION_NOTIFY;
-	else if (!strcasecmp(act, "file"))            out->action = ACTION_FILE;
-	else if (!strcasecmp(act, "asl_file"))        out->action = ACTION_ASL_FILE;
-	else if (!strcasecmp(act, "directory"))       out->action = ACTION_ASL_DIR;
-	else if (!strcasecmp(act, "dir"))             out->action = ACTION_ASL_DIR;
-	else if (!strcasecmp(act, "asl_directory"))   out->action = ACTION_ASL_DIR;
-	else if (!strcasecmp(act, "asl_dir"))         out->action = ACTION_ASL_DIR;
-	else if (!strcasecmp(act, "store_dir"))       out->action = ACTION_ASL_DIR;
-	else if (!strcasecmp(act, "store_directory")) out->action = ACTION_ASL_DIR;
-	else if (!strcasecmp(act, "control"))		  out->action = ACTION_CONTROL;
-	else if (!strcasecmp(act, "save"))            out->action = ACTION_ASL_STORE;
-	else if (!strcasecmp(act, "store"))           out->action = ACTION_ASL_STORE;
-	else if (!strcasecmp(act, "access"))          out->action = ACTION_ACCESS;
-	else if (!strcasecmp(act, "set"))             out->action = ACTION_SET_KEY;
-	else if (!strcasecmp(act, "unset"))           out->action = ACTION_UNSET_KEY;
-	else if	(!strcmp(m->name, ASL_MODULE_NAME))
+	if (strcaseeq(act, "ignore"))               out->action = ACTION_IGNORE;
+	else if (strcaseeq(act, "skip"))            out->action = ACTION_SKIP;
+	else if (strcaseeq(act, "claim"))           out->action = ACTION_CLAIM;
+	else if (strcaseeq(act, "notify"))          out->action = ACTION_NOTIFY;
+	else if (strcaseeq(act, "file"))            out->action = ACTION_FILE;
+	else if (strcaseeq(act, "asl_file"))        out->action = ACTION_ASL_FILE;
+	else if (strcaseeq(act, "directory"))       out->action = ACTION_ASL_DIR;
+	else if (strcaseeq(act, "dir"))             out->action = ACTION_ASL_DIR;
+	else if (strcaseeq(act, "asl_directory"))   out->action = ACTION_ASL_DIR;
+	else if (strcaseeq(act, "asl_dir"))         out->action = ACTION_ASL_DIR;
+	else if (strcaseeq(act, "store_dir"))       out->action = ACTION_ASL_DIR;
+	else if (strcaseeq(act, "store_directory")) out->action = ACTION_ASL_DIR;
+	else if (strcaseeq(act, "control"))		    out->action = ACTION_CONTROL;
+	else if (strcaseeq(act, "save"))            out->action = ACTION_ASL_STORE;
+	else if (strcaseeq(act, "store"))           out->action = ACTION_ASL_STORE;
+	else if (strcaseeq(act, "access"))          out->action = ACTION_ACCESS;
+	else if (strcaseeq(act, "set"))             out->action = ACTION_SET_KEY;
+	else if (strcaseeq(act, "unset"))           out->action = ACTION_UNSET_KEY;
+	else if	(streq(m->name, ASL_MODULE_NAME))
 	{
 		/* actions only allowed in com.apple.asl */
-		if (!strcasecmp(act, "broadcast"))   out->action = ACTION_BROADCAST;
-		else if (!strcasecmp(act, "forward"))     out->action = ACTION_FORWARD;
+		if (strcaseeq(act, "broadcast"))    out->action = ACTION_BROADCAST;
+		else if (strcaseeq(act, "forward")) out->action = ACTION_FORWARD;
 	}
 
 	if (out->action == ACTION_NONE)
@@ -1622,7 +1819,7 @@ _asl_out_module_parse_query_action(asl_out_module_t *m, char *s)
 	if (out->action == ACTION_ASL_STORE)
 	{
 		if (out->options == NULL) out->dst = asl_out_dst_data_retain(_asl_out_module_parse_dst(m, ASL_PLACE_DATABASE_DEFAULT, 0755));
-		else if (!strncmp(out->options, ASL_PLACE_DATABASE_DEFAULT, strlen(ASL_PLACE_DATABASE_DEFAULT))) out->dst = asl_out_dst_data_retain(_asl_out_module_parse_dst(m, out->options, 0755));
+		else if (streq_len(out->options, ASL_PLACE_DATABASE_DEFAULT, strlen(ASL_PLACE_DATABASE_DEFAULT))) out->dst = asl_out_dst_data_retain(_asl_out_module_parse_dst(m, out->options, 0755));
 		else if (out->options != NULL) out->action = ACTION_ASL_FILE;
 	}
 
@@ -1644,7 +1841,7 @@ _asl_out_module_parse_query_action(asl_out_module_t *m, char *s)
 		 */
 		if (out->dst->mode == 010000) out->dst->mode = def_mode;
 
-		if ((out->action == ACTION_FILE) && (out->dst != NULL) && (out->dst->fmt != NULL) && (!strcasecmp(out->dst->fmt, "asl")))
+		if ((out->action == ACTION_FILE) && (out->dst != NULL) && (out->dst->fmt != NULL) && (strcaseeq(out->dst->fmt, "asl")))
 		{
 			out->action = ACTION_ASL_FILE;
 		}
@@ -1659,13 +1856,10 @@ _asl_out_module_parse_query_action(asl_out_module_t *m, char *s)
 			/* coalesce is meaningless for ASL directories */
 			out->dst->flags &= ~MODULE_FLAG_COALESCE;
 
-			/* no compression at this point */
-			out->dst->flags &= ~MODULE_FLAG_COMPRESS;
-
 			out->dst->flags |= MODULE_FLAG_TYPE_ASL_DIR;
 
 			/* set style bits for basestamp asl_dirs */
-			if (((out->dst->flags & MODULE_FLAG_STYLE_BITS) == 0) && (out->dst->flags & MODULE_FLAG_BASESTAMP)) out->dst->flags |= MODULE_FLAG_STYLE_LCL_B;
+			if (((out->dst->style_flags & MODULE_NAME_STYLE_STAMP_MASK) == 0) && (out->dst->flags & MODULE_FLAG_BASESTAMP)) out->dst->style_flags |= MODULE_NAME_STYLE_STAMP_LCL_B;
 		}
 
 		/* only ACTION_FILE and ACTION_ASL_FILE may rotate */
@@ -1703,7 +1897,7 @@ asl_out_module_parse_line(asl_out_module_t *m, char *s)
 	{
 		return _asl_out_module_parse_set_param(m, s);
 	}
-	else if (*s == '>') 
+	else if (*s == '>')
 	{
 		_asl_out_module_parse_dst(m, s + 1, 010000);
 	}
@@ -1742,7 +1936,7 @@ _asl_out_module_find(asl_out_module_t *list, const char *name)
 
 	for (x = list; x != NULL; x = x->next)
 	{
-		if ((x->name != NULL) && (!strcmp(x->name, name))) return x;
+		if ((x->name != NULL) && (streq(x->name, name))) return x;
 	}
 
 	return NULL;
@@ -1770,7 +1964,7 @@ _asl_out_module_read_and_merge_dir(asl_out_module_t **list, const char *path, ui
 	{
 		while (NULL != (ent = readdir(d)))
 		{
-			if ((ent->d_name != NULL) && (ent->d_name[0] != '.'))
+			if (ent->d_name[0] != '.')
 			{
 				/* merge: skip this file if we already have a module with this name */
 				if (_asl_out_module_find(*list, ent->d_name) != NULL) continue;
@@ -1787,7 +1981,7 @@ _asl_out_module_read_and_merge_dir(asl_out_module_t **list, const char *path, ui
 					{
 						x->flags |= flags;
 
-						if (!strcmp(ent->d_name, ASL_MODULE_NAME))
+						if (streq(ent->d_name, ASL_MODULE_NAME))
 						{
 							/* com.apple.asl goes at the head of the list */
 							x->next = *list;
@@ -1823,10 +2017,10 @@ asl_out_module_init(void)
 	char *asl_conf, *asl_conf_dir, *asl_conf_local_dir;
 
 	sim_root_path = getenv("IPHONE_SIMULATOR_ROOT");
-	assert(sim_root_path);
+	if (sim_root_path == NULL) return NULL;
 
 	sim_resources_path = getenv("IPHONE_SHARED_RESOURCES_DIRECTORY");
-	assert(sim_resources_path);
+	if (sim_resources_path == NULL) return NULL;
 
 	asprintf(&asl_conf, "%s%s", sim_root_path, _PATH_ASL_CONF);
 	asprintf(&asl_conf_dir, "%s%s", sim_root_path, _PATH_ASL_CONF_DIR);
@@ -1885,13 +2079,25 @@ asl_out_module_rule_to_string(asl_out_rule_t *r)
 
 	asprintf(&out, "  %s%s%s%s%s",
 			 asl_out_action_name[r->action],
-			 (r->query == NULL) ? "" : " ", 
+			 (r->query == NULL) ? "" : " ",
 			 (r->query == NULL) ? "" : str,
-			 (r->options == NULL) ? "" : " ", 
+			 (r->options == NULL) ? "" : " ",
 			 (r->options == NULL) ? "" : r->options);
 
 	free(str);
 	return out;
+}
+
+static const char *
+_stamp_style_name(uint32_t flags)
+{
+	if (flags & MODULE_NAME_STYLE_STAMP_SEC) return "<seconds>";
+	if (flags & MODULE_NAME_STYLE_STAMP_SEQ) return "<sequence>";
+	if (flags & MODULE_NAME_STYLE_STAMP_UTC) return "<utc>";
+	if (flags & MODULE_NAME_STYLE_STAMP_UTC_B) return "<utc-basic>";
+	if (flags & MODULE_NAME_STYLE_STAMP_LCL) return "<local>";
+	if (flags & MODULE_NAME_STYLE_STAMP_LCL_B) return "<local-basic>";
+	return "<unknown>";
 }
 
 /*
@@ -1903,6 +2109,7 @@ asl_out_module_print(FILE *f, asl_out_module_t *m)
 	asl_out_rule_t *r, *n;
 	asl_out_dst_data_t *o;
 	uint32_t i, ttlnset;
+	char tstr[150];
 
 	n = NULL;
 	for (r = m->ruleset; r != NULL; r = n)
@@ -1957,39 +2164,14 @@ asl_out_module_print(FILE *f, asl_out_module_t *m)
 						fprintf(f, "%ccompress", c);
 						c = ' ';
 					}
-					if (o->flags & MODULE_FLAG_STYLE_SEC)
-					{
-						fprintf(f, "%cseconds", c);
-						c = ' ';
-					}
-					if (o->flags & MODULE_FLAG_STYLE_SEQ)
-					{
-						fprintf(f, "%csequence", c);
-						c = ' ';
-					}
-					if (o->flags & MODULE_FLAG_STYLE_UTC)
-					{
-						fprintf(f, "%cutc", c);
-						c = ' ';
-					}
-					if (o->flags & MODULE_FLAG_STYLE_UTC_B)
-					{
-						fprintf(f, "%cutc-basic", c);
-						c = ' ';
-					}
-					if (o->flags & MODULE_FLAG_STYLE_LCL)
-					{
-						fprintf(f, "%clocal", c);
-						c = ' ';
-					}
-					if (o->flags & MODULE_FLAG_STYLE_LCL_B)
-					{
-						fprintf(f, "%clocal-basic", c);
-						c = ' ';
-					}
 					if (o->flags & MODULE_FLAG_BASESTAMP)
 					{
 						fprintf(f, "%cbasestamp", c);
+						c = ' ';
+					}
+					if (o->flags & MODULE_FLAG_SYMLINK)
+					{
+						fprintf(f, "%csymlink", c);
 						c = ' ';
 					}
 					if (o->flags & MODULE_FLAG_NONSTD_DIR)
@@ -2000,6 +2182,11 @@ asl_out_module_print(FILE *f, asl_out_module_t *m)
 					if (o->flags & MODULE_FLAG_EXTERNAL)
 					{
 						fprintf(f, "%cexternal", c);
+						c = ' ';
+					}
+					if (o->flags & MODULE_FLAG_ACTIVITY)
+					{
+						fprintf(f, "%cactivity", c);
 						c = ' ';
 					}
 					if (o->flags & MODULE_FLAG_CRASHLOG)
@@ -2021,11 +2208,45 @@ asl_out_module_print(FILE *f, asl_out_module_t *m)
 				}
 				fprintf(f, "\n");
 
-				fprintf(f, "    ttl: %u", o->ttl[LEVEL_ALL]);
+				if (o->flags & MODULE_FLAG_ROTATE)
+				{
+					fprintf(f, "        rotatation style: ");
+					if (o->style_flags & MODULE_NAME_STYLE_FORMAT_BS)
+					{
+						fprintf(f, "[base=%s].%s\n", o->base, _stamp_style_name(o->style_flags));
+					}
+					else if (o->style_flags & MODULE_NAME_STYLE_FORMAT_BES)
+					{
+						fprintf(f, "[base=%s].[ext=%s].%s\n", o->base, o->ext, _stamp_style_name(o->style_flags));
+					}
+					else if (o->style_flags & MODULE_NAME_STYLE_FORMAT_BSE)
+					{
+						fprintf(f, "[base=%s].%s.[ext=%s]\n", o->base, _stamp_style_name(o->style_flags), o->ext);
+					}
+					else
+					{
+						fprintf(f, "0x%08x\n", o->style_flags);
+					}
+				}
+
+				asl_core_time_to_str(o->ttl[LEVEL_ALL], tstr, sizeof(tstr));
+				fprintf(f, "    ttl: %s\n", tstr);
+
 				ttlnset = 0;
 				for (i = 0; (i <= 7) & (ttlnset == 0); i++) if (o->ttl[i] != 0) ttlnset = 1;
-				if (ttlnset != 0) for (i = 0; i <= 7; i++) printf(" [%d %d]", i, (o->ttl[i] == 0) ? o->ttl[LEVEL_ALL] : o->ttl[i]);
-				fprintf(f, "\n");
+				if (ttlnset != 0)
+				{
+					for (i = 0; i <= 7; i++)
+					{
+						time_t x = o->ttl[i];
+						if (x == 0) x = o->ttl[LEVEL_ALL];
+						asl_core_time_to_str(x, tstr, sizeof(tstr));
+
+						fprintf(f, " [%d %s]", i, tstr);
+					}
+
+					fprintf(f, "\n");
+				}
 
 				fprintf(f, "    mode: 0%o\n", o->mode);
 				fprintf(f, "    file_max: %lu\n", o->file_max);
@@ -2064,17 +2285,25 @@ asl_out_file_list_free(asl_out_file_list_t *l)
 }
 
 /*
- * Checks input name for the form base[.stamp][.gz]
- * name == base is allowed if src is true.
+ * Checks input name for one of the forms:
+ * MODULE_NAME_STYLE_FORMAT_BS base (src only) or base.stamp[.gz]
+ * MODULE_NAME_STYLE_FORMAT_BES base.ext (src only) or base.ext.stamp[.gz]
+ * MODULE_NAME_STYLE_FORMAT_BSE base.ext (src only) or base.stamp.ext[.gz]
+ *
+ * name == base[.ext] is allowed if src is true.
  * base.gz is not allowed.
  * Output parameter stamp must be freed by caller.
  */
 bool
-_check_file_name(const char *name, const char *base, bool src, char **stamp)
+_check_file_name(const char *name, const char *base, const char *ext, uint32_t flags, bool src, char **stamp)
 {
-	size_t baselen, nparts;
-	const char *p, *q, *part[2];
+	size_t baselen, extlen;
+	const char *p, *z;
 	bool isgz = false;
+
+#ifdef DEBUG_LIST_FILES
+	fprintf(stderr, "_check_file_name name=%s base=%s ext=%s flags=0x%08x %s\n", name, base, (ext == NULL) ? "(NULL)" : ext, flags, src ? "src" : "dst");
+#endif
 
 	if (name == NULL) return false;
 	if (base == NULL) return false;
@@ -2082,82 +2311,236 @@ _check_file_name(const char *name, const char *base, bool src, char **stamp)
 	baselen = strlen(base);
 	if (baselen == 0) return false;
 
+	extlen = 0;
+	if (ext != NULL) extlen = strlen(ext);
+
 	if (stamp != NULL) *stamp = NULL;
 
-	if (strncmp(name, base, baselen)) return false;
+	if (strneq_len(name, base, baselen))
+	{
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "  base match failed [%u]\n", __LINE__);
+#endif
+		return false;
+	}
+
+	z = strrchr(name, '.');
+	if ((z != NULL) && streq(z, ".gz")) isgz = true;
+
+#ifdef DEBUG_LIST_FILES
+	fprintf(stderr, "z=%s isgz=%s\n", (z == NULL) ? "NULL" : z, isgz ? "true" : "false");
+#endif
 
 	p = name + baselen;
 
-	/* name == base not allowed (it's the "active" file) */
-	if (*p == '\0') return false;
-
-	/* name must be base.something */
-	if (*p != '.') return false;
-
-	/* maximum of 2 parts (stamp and gz) */
-	nparts = 0;
-	for (q = p; *q != '\0'; q++)
+	if (flags & MODULE_NAME_STYLE_FORMAT_BS)
 	{
-		if (*q == '.')
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "  MODULE_NAME_STYLE_FORMAT_BS\n");
+#endif
+		if (*p == '\0')
 		{
-			if (nparts == 2) return false;
-			part[nparts++] = q + 1;
+			/* name == base OK if src is true */
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "  name == base %s [%u]\n", src ? "OK" : "failed", __LINE__);
+#endif
+			return src;
 		}
+
+		/* expecting p == .stamp[.gz] */
+		if (*p != '.')
+		{
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "  expecting dot - failed [%u]\n", __LINE__);
+#endif
+			return false;
+		}
+
+		p++;
+
+		if (p == z)
+		{
+			/* base.gz is not allowed */
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "  got base.gz - failed [%u]\n", __LINE__);
+#endif
+			return false;
+		}
+
+		/* got base.stamp[.gz] */
+		if (stamp != NULL)
+		{
+			*stamp = strdup(p);
+			char *x = strchr(*stamp, '.');
+			if (x != NULL) *x = '\0';
+		}
+
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "  got base.stamp%s - OK\n", isgz ? ".gz" : "");
+#endif
+		return true;
 	}
-
-	if (nparts == 0) return false;
-
-	isgz = strcmp(part[nparts - 1], "gz") == 0;
-
-	/* no compressed files in src */
-	if (src && isgz) return false;
-
-	/* expecting base.stamp or base.stamp.gz */
-
-	if (nparts == 1)
+	else if (flags & MODULE_NAME_STYLE_FORMAT_BES)
 	{
-		/* compressed files must have a stamp (base.gz is not allowed) */
-		if (isgz) return false;
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "  MODULE_NAME_STYLE_FORMAT_BES\n");
+#endif
+		if (*p != '.')
+		{
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "  expecting dot - failed [%u]\n", __LINE__);
+#endif
+			return false;
+		}
 
-		/* got base.stamp */
-		if (stamp != NULL) *stamp = strdup(part[0]);
+		p++;
+
+		if (strneq_len(p, ext, extlen))
+		{
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "  ext match failed [%u]\n", __LINE__);
+#endif
+			return false;
+		}
+
+		/* expecting p == .ext[.stamp][.gz] */
+		p += extlen;
+
+		if (*p == '\0')
+		{
+			/* name == base.ext OK if src is true */
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "  name == base.ext %s [%u]\n", src ? "OK" : "failed", __LINE__);
+#endif
+			return src;
+		}
+
+		/* expecting p == .stamp[.gz] */
+		if (*p != '.')
+		{
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "  expecting dot - failed [%u]\n", __LINE__);
+#endif
+			return false;
+		}
+
+		p++;
+
+		if (p == z)
+		{
+			/* base.ext.gz is not allowed */
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "  got base.ext.gz - failed [%u]\n", __LINE__);
+#endif
+			return false;
+		}
+
+		/* got base.ext.stamp[.gz] */
+		if (stamp != NULL)
+		{
+			*stamp = strdup(p);
+			char *x = strchr(*stamp, '.');
+			if (x != NULL) *x = '\0';
+		}
+
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "  got base.ext.stamp%s - OK\n", isgz ? ".gz" : "");
+#endif
+		return true;
+	}
+	else if (flags & MODULE_NAME_STYLE_FORMAT_BSE)
+	{
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "  MODULE_NAME_STYLE_FORMAT_BSE name=%s base=%s ext=%s flags=0x%08x %s\n", name, base, (ext == NULL) ? "(NULL)" : ext, flags, src ? "src" : "dst");
+#endif
+
+		if (*p != '.')
+		{
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "  expecting dot - failed [%u]\n", __LINE__);
+#endif
+			return false;
+		}
+
+		p++;
+
+		if (streq_len(p, ext, extlen))
+		{
+			p += extlen;
+			if (*p == '\0')
+			{
+				/* name == base.ext OK if src is true */
+#ifdef DEBUG_LIST_FILES
+				fprintf(stderr, "  name == base.ext %s [%u]\n", src ? "OK" : "failed", __LINE__);
+#endif
+				return src;
+			}
+		}
+
+		/* expecting p == stamp.ext[.gz] */
+
+		if (isgz)
+		{
+			if (strneq_len(z - extlen, ext, extlen))
+			{
+#ifdef DEBUG_LIST_FILES
+				fprintf(stderr, "  ext match (%s) isgz failed [%u]\n", z-extlen, __LINE__);
+#endif
+				return false;
+			}
+		}
+		else
+		{
+			if (strneq_len(z + 1, ext, extlen))
+			{
+#ifdef DEBUG_LIST_FILES
+				fprintf(stderr, "  ext match (%s) failed [%u]\n", z, __LINE__);
+#endif
+				return false;
+			}
+		}
+
+		/* got base.stamp.ext[.gz] */
+		if (stamp != NULL)
+		{
+			*stamp = strdup(p);
+			char *x = strchr(*stamp, '.');
+			if (x != NULL) *x = '\0';
+		}
+
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "  got base.stamp.ext%s - OK\n", isgz ? ".gz" : "");
+#endif
 		return true;
 	}
 
-	/* expecting base.stamp.gz */
-	if (!isgz) return false;
+#ifdef DEBUG_LIST_FILES
+	fprintf(stderr, "  unknown format - failed\n");
+#endif
 
-	/* got base.stamp.gz */
-	if (stamp != NULL)
-	{
-		*stamp = strdup(part[0]);
-		char *x = strchr(*stamp, '.');
-		if (x != NULL) *x = '\0';
-	}
-
-	return true;
+	return false;
 }
 
 /*
  * Find files in a directory (dir) that all have a common prefix (base).
  * Bits in flags further control the search.
  *
- * MODULE_FLAG_STYLE_SEQ means a numeric sequence number is expected, although not required.
+ * MODULE_NAME_STYLE_STAMP_SEQ means a numeric sequence number is expected, although not required.
  * E.g. foo.log foo.log.0
  *
- * MODULE_FLAG_STYLE_SEC also means a numeric sequence number is required following an 'T' character.
+ * MODULE_NAME_STYLE_STAMP_SEC also means a numeric sequence number is required following an 'T' character.
  * The numeric value is the file's timestamp in seconds.  E.g foo.log.T1335200452
  *
- * MODULE_FLAG_STYLE_UTC requires a date/time component as the file's timestamp.
+ * MODULE_NAME_STYLE_STAMP_UTC requires a date/time component as the file's timestamp.
  * E.g. foo.2012-04-06T15:30:00Z
  *
- * MODULE_FLAG_STYLE_UTC_B requires a date/time component as the file's timestamp.
+ * MODULE_NAME_STYLE_STAMP_UTC_B requires a date/time component as the file's timestamp.
  * E.g. foo.20120406T153000Z
  *
- * MODULE_FLAG_STYLE_LCL requires a date/time component as the file's timestamp.
+ * MODULE_NAME_STYLE_STAMP_LCL requires a date/time component as the file's timestamp.
  * E.g. foo.2012-04-06T15:30:00-7
  *
- * MODULE_FLAG_STYLE_LCL_B requires a date/time component as the file's timestamp.
+ * MODULE_NAME_STYLE_STAMP_LCL_B requires a date/time component as the file's timestamp.
  * E.g. foo.20120406T153000-07
  */
 int
@@ -2174,7 +2557,7 @@ _parse_stamp_style(char *stamp, uint32_t flags, uint32_t *sp, time_t *tp)
 	/* check for NULL (no stamp) */
 	if (stamp == NULL) return STAMP_STYLE_NULL;
 
-	/* check for MODULE_FLAG_STYLE_SEC (foo.T12345678) */
+	/* check for MODULE_NAME_STYLE_STAMP_SEC (foo.T12345678) */
 	if (stamp[0] == 'T')
 	{
 		n = atoi(stamp + 1);
@@ -2184,11 +2567,11 @@ _parse_stamp_style(char *stamp, uint32_t flags, uint32_t *sp, time_t *tp)
 		return STAMP_STYLE_SEC;
 	}
 
-	/* check for MODULE_FLAG_STYLE_SEQ (foo.0 or foo.2.gz) */
+	/* check for MODULE_NAME_STYLE_STAMP_SEQ (foo.0 or foo.2.gz) */
 	digits = true;
 	for (i = 0; digits && (stamp[i] != '\0'); i++) digits = (stamp[i] >= '0') && (stamp[i] <= '9');
 
-	if (!digits && (!strcmp(stamp + i, ".gz"))) digits = true;
+	if (!digits && (streq(stamp + i, ".gz"))) digits = true;
 
 	if (digits)
 	{
@@ -2197,25 +2580,34 @@ _parse_stamp_style(char *stamp, uint32_t flags, uint32_t *sp, time_t *tp)
 		return STAMP_STYLE_SEQ;
 	}
 
-	/* check for MODULE_FLAG_STYLE_UTC, UTC_B, LCL, or LCL_B */
+	/* check for MODULE_NAME_STYLE_STAMP_UTC, UTC_B, LCL, or LCL_B */
 	memset(&t, 0, sizeof(t));
 	h = m = s = 0;
 
 	n = 0;
-	if ((flags & MODULE_FLAG_STYLE_UTC) || (flags & MODULE_FLAG_STYLE_LCL))
+	if ((flags & MODULE_NAME_STYLE_STAMP_UTC) || (flags & MODULE_NAME_STYLE_STAMP_LCL))
 	{
 		n = sscanf(stamp, "%d-%d-%dT%d:%d:%d%c%u:%u:%u", &t.tm_year, &t.tm_mon, &t.tm_mday, &t.tm_hour, &t.tm_min, &t.tm_sec, &zone, &h, &m, &s);
 	}
-	else if ((flags & MODULE_FLAG_STYLE_UTC_B) || (flags & MODULE_FLAG_STYLE_LCL_B))
+	else if ((flags & MODULE_NAME_STYLE_STAMP_UTC_B) || (flags & MODULE_NAME_STYLE_STAMP_LCL_B))
 	{
 		n = sscanf(stamp, "%4d%2d%2dT%2d%2d%2d%c%2u%2u%2u", &t.tm_year, &t.tm_mon, &t.tm_mday, &t.tm_hour, &t.tm_min, &t.tm_sec, &zone, &h, &m, &s);
 	}
 	else
 	{
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "_parse_stamp_style fail %u\n", __LINE__);
+#endif
 		return STAMP_STYLE_INVALID;
 	}
 
-	if (n < 6) return STAMP_STYLE_INVALID;
+	if (n < 6)
+	{
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "_parse_stamp_style fail %u\n", __LINE__);
+#endif
+		return STAMP_STYLE_INVALID;
+	}
 
 	if (n == 6)
 	{
@@ -2226,7 +2618,7 @@ _parse_stamp_style(char *stamp, uint32_t flags, uint32_t *sp, time_t *tp)
 		if (n >= 8) utc_offset += (3600 * h);
 		if (n >= 9) utc_offset += (60 * m);
 		if (n == 10) utc_offset += s;
-		if (zone == '-') utc_offset *= -1;
+		if (zone == '+') utc_offset *= -1;
 	}
 	else if ((zone >= 'A') && (zone <= 'Z'))
 	{
@@ -2242,6 +2634,9 @@ _parse_stamp_style(char *stamp, uint32_t flags, uint32_t *sp, time_t *tp)
 	}
 	else
 	{
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "_parse_stamp_style fail %u\n", __LINE__);
+#endif
 		return STAMP_STYLE_INVALID;
 	}
 
@@ -2255,11 +2650,11 @@ _parse_stamp_style(char *stamp, uint32_t flags, uint32_t *sp, time_t *tp)
 
 	if (tp != NULL) *tp = ftime;
 
-	return STAMP_STYLE_UTC_OR_LCL;
+	return STAMP_STYLE_ISO8601;
 }
 
 asl_out_file_list_t *
-asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags)
+asl_list_log_files(const char *dir, const char *base, const char *ext, uint32_t flags, bool src)
 {
 	DIR *d;
 	struct dirent *ent;
@@ -2269,6 +2664,10 @@ asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags)
 	struct stat sb;
 	int pstyle, fstyle;
 	asl_out_file_list_t *out, *x, *y;
+
+#ifdef DEBUG_LIST_FILES
+	fprintf(stderr, "asl_list_log_files dir=%s base=%s ext=%s flags=0x%08x %s\n", dir, base, (ext == NULL) ? "(NULL)" : ext, flags, src ? "src" : "dst");
+#endif
 
 	if (dir == NULL) return NULL;
 	if (base == NULL) return NULL;
@@ -2282,10 +2681,9 @@ asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags)
 	{
 		char *stamp = NULL;
 		bool check;
+		bool stat_ok = false;
 
-		if (ent->d_name == NULL) continue;
-
-		check = _check_file_name(ent->d_name, base, src, &stamp);
+		check = _check_file_name(ent->d_name, base, ext, flags, src, &stamp);
 		if (!check) continue;
 
 		seq = IndexNull;
@@ -2296,11 +2694,24 @@ asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags)
 
 		if (pstyle == STAMP_STYLE_INVALID) continue;
 
+		snprintf(path, sizeof(path), "%s/%s", dir, ent->d_name);
+		memset(&sb, 0, sizeof(sb));
+		if (lstat(path, &sb) == 0)
+		{
+			/* ignore symlinks (created for basestamp / symlink files) */
+			stat_ok = true;
+			if ((sb.st_mode & S_IFMT) == S_IFLNK) continue;
+		}
+
 		fstyle = STAMP_STYLE_NULL;
-		if (flags & MODULE_FLAG_STYLE_SEC) fstyle = STAMP_STYLE_SEC;
-		else if (flags & MODULE_FLAG_STYLE_SEQ) fstyle = STAMP_STYLE_SEQ;
-		else if ((flags & MODULE_FLAG_STYLE_UTC) || (flags & MODULE_FLAG_STYLE_LCL)) fstyle = STAMP_STYLE_UTC_OR_LCL;
-		else if ((flags & MODULE_FLAG_STYLE_UTC_B) || (flags & MODULE_FLAG_STYLE_LCL_B)) fstyle = STAMP_STYLE_UTC_OR_LCL;
+		if (flags & MODULE_NAME_STYLE_STAMP_SEC) fstyle = STAMP_STYLE_SEC;
+		else if (flags & MODULE_NAME_STYLE_STAMP_SEQ) fstyle = STAMP_STYLE_SEQ;
+		else if ((flags & MODULE_NAME_STYLE_STAMP_UTC) || (flags & MODULE_NAME_STYLE_STAMP_LCL)) fstyle = STAMP_STYLE_ISO8601;
+		else if ((flags & MODULE_NAME_STYLE_STAMP_UTC_B) || (flags & MODULE_NAME_STYLE_STAMP_LCL_B)) fstyle = STAMP_STYLE_ISO8601;
+
+#ifdef DEBUG_LIST_FILES
+		fprintf(stderr, "%s %s %u fstyle %u pstyle %u\n", __func__, path, __LINE__, fstyle, pstyle);
+#endif
 
 		/*
 		 * accept the file if:
@@ -2314,8 +2725,14 @@ asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags)
 		if ((pstyle == STAMP_STYLE_SEC) && src) check = true;
 		if (pstyle == fstyle) check = true;
 
-		if (!check) continue;
-
+		if (!check)
+		{
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "%s reject %s at line %u\n", __func__, path, __LINE__);
+#endif
+			continue;
+		}
+	
 		x = (asl_out_file_list_t *)calloc(1, sizeof(asl_out_file_list_t));
 		if (x == NULL)
 		{
@@ -2324,12 +2741,11 @@ asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags)
 		}
 
 		x->name = strdup(ent->d_name);
+		x->stamp = pstyle;
 		x->ftime = ftime;
 		x->seq = seq;
 
-		memset(&sb, 0, sizeof(sb));
-		snprintf(path, sizeof(path), "%s/%s", dir, ent->d_name);
-		if (stat(path, &sb) == 0)
+		if (stat_ok)
 		{
 			x->size = sb.st_size;
 			if (pstyle == STAMP_STYLE_SEQ)
@@ -2341,11 +2757,14 @@ asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags)
 
 		if (pstyle == STAMP_STYLE_SEQ)
 		{
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "asl_list_log_files SEQ  %s %u %ld\n", path, x->seq, x->ftime);
+#endif
 			if (out == NULL)
 			{
 				out = x;
 			}
-			else if ((x->seq == IndexNull) || ((x->seq < out->seq) && (out->seq != IndexNull)))
+			else if ((x->seq == IndexNull) || ((x->seq > out->seq) && (out->seq != IndexNull)))
 			{
 				x->next = out;
 				out->prev = x;
@@ -2361,7 +2780,7 @@ asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags)
 						x->prev = y;
 						break;
 					}
-					else if ((x->seq < y->next->seq) && (y->next->seq != IndexNull))
+					else if ((x->seq > y->next->seq) && (y->next->seq != IndexNull))
 					{
 						x->next = y->next;
 						y->next = x;
@@ -2374,6 +2793,9 @@ asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags)
 		}
 		else
 		{
+#ifdef DEBUG_LIST_FILES
+			fprintf(stderr, "asl_list_log_files TIME %s %ld\n", path, x->ftime);
+#endif
 			if (out == NULL)
 			{
 				out = x;
@@ -2417,12 +2839,14 @@ asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags)
 asl_out_file_list_t *
 asl_list_src_files(asl_out_dst_data_t *dst)
 {
-	char *base;
-	uint32_t flags = MODULE_FLAG_STYLE_SEC;
-	asl_out_file_list_t *out;
+	uint32_t flags;
+#ifdef DEBUG_LIST_FILES
+	fprintf(stderr, "asl_list_src_files\n");
+#endif
 
 	if (dst == NULL) return NULL;
 	if (dst->path == NULL) return NULL;
+	if (dst->base == NULL) return NULL;
 
 	/*
 	 * MODULE_FLAG_EXTERNAL means some process other than syslogd writes the file.
@@ -2438,7 +2862,7 @@ asl_list_src_files(asl_out_dst_data_t *dst)
 		{
 			if (S_ISREG(sb.st_mode) && (sb.st_size != 0))
 			{
-				out = (asl_out_file_list_t *)calloc(1, sizeof(asl_out_file_list_t));
+				asl_out_file_list_t *out = (asl_out_file_list_t *)calloc(1, sizeof(asl_out_file_list_t));
 				if (out != NULL)
 				{
 					char *p = strrchr(dst->path, '/');
@@ -2455,40 +2879,24 @@ asl_list_src_files(asl_out_dst_data_t *dst)
 		return NULL;
 	}
 
-	/*
-	 * Checkpoint / source format may be one of:
-	 * MODULE_FLAG_STYLE_SEC   (foo.T12345678.log),
-	 * MODULE_FLAG_STYLE_UTC   (foo.20120-06-24T12:34:56Z.log)
-	 * MODULE_FLAG_STYLE_UTC_B (foo.201200624T123456Z.log)
-	 * MODULE_FLAG_STYLE_LCL   (foo.20120-06-24T12:34:56-7.log)
-	 * MODULE_FLAG_STYLE_LCL_B (foo.201200624T123456-07.log)
-	 *
-	 * MODULE_FLAG_STYLE_SEC format is used for sequenced (MODULE_FLAG_STYLE_SEQ) files.
-	 * aslmanager converts the file names.
-	 */
-
-	if (dst->flags & MODULE_FLAG_STYLE_UTC) flags = MODULE_FLAG_STYLE_UTC;
-	else if (dst->flags & MODULE_FLAG_STYLE_UTC_B) flags = MODULE_FLAG_STYLE_UTC_B;
-	else if (dst->flags & MODULE_FLAG_STYLE_LCL) flags = MODULE_FLAG_STYLE_LCL;
-	else if (dst->flags & MODULE_FLAG_STYLE_LCL_B) flags = MODULE_FLAG_STYLE_LCL_B;
-
-	if ((dst->rotate_dir == NULL) && ((dst->flags & MODULE_FLAG_STYLE_SEQ) == 0) && ((dst->flags & MODULE_FLAG_COMPRESS) == 0))
+	if ((dst->rotate_dir == NULL) && (dst->flags & MODULE_FLAG_BASESTAMP) && ((dst->flags & MODULE_FLAG_COMPRESS) == 0))
 	{
 		/* files do not move to a dest dir, get renamed, or get compressed - nothing to do */
 		return NULL;
 	}
 
-	base = strrchr(dst->path, '/');
-	if (base == NULL) return NULL;
+	/*
+	 * MODULE_NAME_STYLE_STAMP_SEC format is used for sequenced (MODULE_NAME_STYLE_STAMP_SEQ) files.
+	 * aslmanager converts the file names.
+	 */
+	flags = dst->style_flags;
+	if (flags & MODULE_NAME_STYLE_STAMP_SEQ)
+	{
+		flags &= ~MODULE_NAME_STYLE_STAMP_SEQ;
+		flags |= MODULE_NAME_STYLE_STAMP_SEC;
+	}
 
-	*base = '\0';
-	base++;
-
-	out = asl_list_log_files(dst->path, base, true, flags);
-
-	if (base != NULL) *--base = '/';
-
-	return out;
+	return asl_list_log_files(dst->dir, dst->base, dst->ext, flags, true);
 }
 
 /*
@@ -2497,26 +2905,19 @@ asl_list_src_files(asl_out_dst_data_t *dst)
 asl_out_file_list_t *
 asl_list_dst_files(asl_out_dst_data_t *dst)
 {
-	char *base, *dst_dir;
-	asl_out_file_list_t *out;
+	char *dst_dir;
+#ifdef DEBUG_LIST_FILES
+	fprintf(stderr, "asl_list_dst_files\n");
+#endif
 
 	if (dst == NULL) return NULL;
 	if (dst->path == NULL) return NULL;
-
-	base = strrchr(dst->path, '/');
-	if (base == NULL) return NULL;
-
-	*base = '\0';
-	base++;
+	if (dst->base == NULL) return NULL;
 
 	dst_dir = dst->rotate_dir;
-	if (dst_dir == NULL) dst_dir = dst->path;
+	if (dst_dir == NULL) dst_dir = dst->dir;
 
-	out = asl_list_log_files(dst_dir, base, false, dst->flags);
-
-	if (base != NULL) *--base = '/';
-
-	return out;
+	return asl_list_log_files(dst_dir, dst->base, dst->ext, dst->style_flags, false);
 }
 
 static int
@@ -2576,7 +2977,7 @@ int
 asl_secure_chown_chmod_dir(const char *path, uid_t uid, gid_t gid, mode_t mode)
 {
 	int fd, status;
- 
+
 	fd = asl_secure_open_dir(path);
 	if (fd < 0) return fd;
 

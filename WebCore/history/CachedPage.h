@@ -29,7 +29,7 @@
 #include "CachedFrame.h"
 
 namespace WebCore {
-    
+
 class Document;
 class DocumentLoader;
 class Page;
@@ -45,29 +45,30 @@ public:
     Document* document() const { return m_cachedMainFrame->document(); }
     DocumentLoader* documentLoader() const { return m_cachedMainFrame->documentLoader(); }
 
-    double timeStamp() const { return m_timeStamp; }
     bool hasExpired() const;
     
     CachedFrame* cachedMainFrame() { return m_cachedMainFrame.get(); }
 
-    void markForVistedLinkStyleRecalc() { m_needStyleRecalcForVisitedLinks = true; }
+    void markForVisitedLinkStyleRecalc() { m_needStyleRecalcForVisitedLinks = true; }
     void markForFullStyleRecalc() { m_needsFullStyleRecalc = true; }
 #if ENABLE(VIDEO_TRACK)
     void markForCaptionPreferencesChanged() { m_needsCaptionPreferencesChanged = true; }
 #endif
 
-    void markForDeviceScaleChanged() { m_needsDeviceScaleChanged = true; }
+    void markForDeviceOrPageScaleChanged() { m_needsDeviceOrPageScaleChanged = true; }
+
+    void markForContentsSizeChanged() { m_needsUpdateContentsSize = true; }
 
 private:
-    void destroy();
-
-    double m_timeStamp;
     double m_expirationTime;
     std::unique_ptr<CachedFrame> m_cachedMainFrame;
-    bool m_needStyleRecalcForVisitedLinks;
-    bool m_needsFullStyleRecalc;
-    bool m_needsCaptionPreferencesChanged;
-    bool m_needsDeviceScaleChanged;
+    bool m_needStyleRecalcForVisitedLinks { false };
+    bool m_needsFullStyleRecalc { false };
+#if ENABLE(VIDEO_TRACK)
+    bool m_needsCaptionPreferencesChanged { false };
+#endif
+    bool m_needsDeviceOrPageScaleChanged { false };
+    bool m_needsUpdateContentsSize { false };
 };
 
 } // namespace WebCore

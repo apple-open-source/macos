@@ -54,7 +54,6 @@
     <ClCompile Include="..\wtf\Assertions.cpp" />
     <ClCompile Include="..\wtf\BitVector.cpp" />
     <ClCompile Include="..\wtf\CompilationThread.cpp" />
-    <ClCompile Include="..\wtf\Compression.cpp" />
     <ClCompile Include="..\wtf\CryptographicUtilities.cpp" />
     <ClCompile Include="..\wtf\CryptographicallyRandomNumber.cpp" />
     <ClCompile Include="..\wtf\CurrentTime.cpp" />
@@ -74,7 +73,7 @@
     <ClCompile Include="..\wtf\FastMalloc.cpp" />
     <ClCompile Include="..\wtf\FilePrintStream.cpp" />
     <ClCompile Include="..\wtf\FunctionDispatcher.cpp" />
-    <ClCompile Include="..\wtf\gobject\GlibUtilities.cpp">
+    <ClCompile Include="..\wtf\glib\GLibUtilities.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
@@ -84,7 +83,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="..\wtf\gobject\GMainLoopSource.cpp">
+    <ClCompile Include="..\wtf\glib\GMainLoopSource.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
@@ -94,7 +93,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="..\wtf\gobject\GRefPtr.cpp">
+    <ClCompile Include="..\wtf\glib\GRefPtr.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
@@ -104,6 +103,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="..\wtf\glib\GThreadSafeMainLoopSource.cpp" />
     <ClCompile Include="..\wtf\GregorianDateTime.cpp" />
     <ClCompile Include="..\wtf\HashTable.cpp" />
     <ClCompile Include="..\wtf\MainThread.cpp" />
@@ -113,29 +113,31 @@
     <ClCompile Include="..\wtf\NumberOfCores.cpp" />
     <ClCompile Include="..\wtf\OSAllocatorWin.cpp" />
     <ClCompile Include="..\wtf\OSRandomSource.cpp" />
-    <ClCompile Include="..\wtf\PageAllocationAligned.cpp" />
     <ClCompile Include="..\wtf\PageBlock.cpp" />
     <ClCompile Include="..\wtf\ParallelJobsGeneric.cpp" />
     <ClCompile Include="..\wtf\PrintStream.cpp" />
     <ClCompile Include="..\wtf\RAMSize.cpp" />
     <ClCompile Include="..\wtf\RandomNumber.cpp" />
     <ClCompile Include="..\wtf\RefCountedLeakCounter.cpp" />
+    <ClCompile Include="..\wtf\RefCounter.cpp" />
     <ClCompile Include="..\wtf\RunLoop.cpp" />
     <ClCompile Include="..\wtf\SHA1.cpp" />
     <ClCompile Include="..\wtf\SixCharacterHash.cpp" />
     <ClCompile Include="..\wtf\SizeLimits.cpp" />
     <ClCompile Include="..\wtf\StackBounds.cpp" />
     <ClCompile Include="..\wtf\StringPrintStream.cpp" />
-    <ClCompile Include="..\wtf\TCSystemAlloc.cpp" />
     <ClCompile Include="..\wtf\text\AtomicString.cpp" />
+    <ClCompile Include="..\wtf\text\AtomicStringImpl.cpp" />
     <ClCompile Include="..\wtf\text\AtomicStringTable.cpp" />
     <ClCompile Include="..\wtf\text\Base64.cpp" />
     <ClCompile Include="..\wtf\text\CString.cpp" />
     <ClCompile Include="..\wtf\text\StringBuilder.cpp" />
     <ClCompile Include="..\wtf\text\StringImpl.cpp" />
     <ClCompile Include="..\wtf\text\StringStatics.cpp" />
+    <ClCompile Include="..\wtf\text\StringView.cpp" />
+    <ClCompile Include="..\wtf\text\SymbolRegistry.cpp" />
     <ClCompile Include="..\wtf\text\WTFString.cpp" />
-    <ClCompile Include="..\wtf\text\cf\AtomicStringCF.cpp" />
+    <ClCompile Include="..\wtf\text\cf\AtomicStringImplCF.cpp" />
     <ClCompile Include="..\wtf\text\cf\StringCF.cpp" />
     <ClCompile Include="..\wtf\text\cf\StringImplCF.cpp" />
     <ClCompile Include="..\wtf\text\cf\StringViewCF.cpp" />
@@ -143,12 +145,14 @@
     <ClCompile Include="..\wtf\ThreadingWin.cpp" />
     <ClCompile Include="..\wtf\threadspecificWin.cpp" />
     <ClCompile Include="..\wtf\threads\BinarySemaphore.cpp" />
-    <ClCompile Include="..\wtf\threads\win\BinarySemaphoreWin.cpp" />
     <ClCompile Include="..\wtf\unicode\icu\CollatorICU.cpp" />
     <ClCompile Include="..\wtf\unicode\UTF8.cpp" />
     <ClCompile Include="..\wtf\win\MainThreadWin.cpp" />
     <ClCompile Include="..\wtf\win\RunLoopWin.cpp" />
+    <ClCompile Include="..\wtf\win\WorkItemWin.cpp" />
+    <ClCompile Include="..\wtf\win\WorkQueueWin.cpp" />
     <ClCompile Include="..\wtf\win\WTFDLL.cpp" />
+    <ClCompile Include="..\wtf\WorkQueue.cpp" />
     <ClCompile Include="..\wtf\WTFThreadData.cpp" />
     <ClCompile Include="..\wtf\SchedulePairCF.cpp" />
   </ItemGroup>
@@ -159,19 +163,16 @@
     <ClInclude Include="..\wtf\Assertions.h" />
     <ClInclude Include="..\wtf\Atomics.h" />
     <ClInclude Include="..\wtf\AutodrainedPool.h" />
-    <ClInclude Include="..\wtf\AVLTree.h" />
     <ClInclude Include="..\wtf\Bag.h" />
     <ClInclude Include="..\wtf\BagToHashMap.h" />
     <ClInclude Include="..\wtf\Bitmap.h" />
     <ClInclude Include="..\wtf\BitVector.h" />
     <ClInclude Include="..\wtf\BlockStack.h" />
     <ClInclude Include="..\wtf\BloomFilter.h" />
-    <ClInclude Include="..\wtf\BoundsCheckedPointer.h" />
     <ClInclude Include="..\wtf\BumpPointerAllocator.h" />
     <ClInclude Include="..\wtf\CheckedArithmetic.h" />
     <ClInclude Include="..\wtf\CheckedBoolean.h" />
     <ClInclude Include="..\wtf\Compiler.h" />
-    <ClInclude Include="..\wtf\Compression.h" />
     <ClInclude Include="..\wtf\CryptographicUtilities.h" />
     <ClInclude Include="..\wtf\CryptographicallyRandomNumber.h" />
     <ClInclude Include="..\wtf\CurrentTime.h" />
@@ -202,12 +203,13 @@
     <ClInclude Include="..\wtf\FunctionDispatcher.h" />
     <ClInclude Include="..\wtf\Functional.h" />
     <ClInclude Include="..\wtf\GetPtr.h" />
-    <ClInclude Include="..\wtf\gobject\GlibUtilities.h" />
-    <ClInclude Include="..\wtf\gobject\GMainLoopSource.h" />
-    <ClInclude Include="..\wtf\gobject\GMutexLocker.h" />
-    <ClInclude Include="..\wtf\gobject\GRefPtr.h" />
-    <ClInclude Include="..\wtf\gobject\GTypedefs.h" />
-    <ClInclude Include="..\wtf\gobject\GUniquePtr.h" />
+    <ClInclude Include="..\wtf\glib\GLibUtilities.h" />
+    <ClInclude Include="..\wtf\glib\GMainLoopSource.h" />
+    <ClInclude Include="..\wtf\glib\GMutexLocker.h" />
+    <ClInclude Include="..\wtf\glib\GTypedefs.h" />
+    <ClInclude Include="..\wtf\glib\GRefPtr.h" />
+    <ClInclude Include="..\wtf\glib\GThreadSafeMainLoopSource.h" />
+    <ClInclude Include="..\wtf\glib\GUniquePtr.h" />
     <ClInclude Include="..\wtf\GregorianDateTime.h" />
     <ClInclude Include="..\wtf\HashCountedSet.h" />
     <ClInclude Include="..\wtf\HashFunctions.h" />
@@ -234,22 +236,16 @@
     <ClInclude Include="..\wtf\Noncopyable.h" />
     <ClInclude Include="..\wtf\NumberOfCores.h" />
     <ClInclude Include="..\wtf\OSRandomSource.h" />
-    <ClInclude Include="..\wtf\OwnPtr.h" />
-    <ClInclude Include="..\wtf\OwnPtrCommon.h" />
     <ClInclude Include="..\wtf\PackedIntVector.h" />
     <ClInclude Include="..\wtf\PageAllocation.h" />
-    <ClInclude Include="..\wtf\PageAllocationAligned.h" />
     <ClInclude Include="..\wtf\PageBlock.h" />
     <ClInclude Include="..\wtf\PageReservation.h" />
     <ClInclude Include="..\wtf\ParallelJobs.h" />
     <ClInclude Include="..\wtf\ParallelJobsGeneric.h" />
     <ClInclude Include="..\wtf\ParallelJobsLibdispatch.h" />
     <ClInclude Include="..\wtf\ParallelJobsOpenMP.h" />
-    <ClInclude Include="..\wtf\PassOwnPtr.h" />
-    <ClInclude Include="..\wtf\PassRef.h" />
     <ClInclude Include="..\wtf\PassRefPtr.h" />
     <ClInclude Include="..\wtf\Platform.h" />
-    <ClInclude Include="..\wtf\PossiblyNull.h" />
     <ClInclude Include="..\wtf\PrintStream.h" />
     <ClInclude Include="..\wtf\RAMSize.h" />
     <ClInclude Include="..\wtf\RandomNumber.h" />
@@ -257,8 +253,8 @@
     <ClInclude Include="..\wtf\RedBlackTree.h" />
     <ClInclude Include="..\wtf\RefCounted.h" />
     <ClInclude Include="..\wtf\RefCountedLeakCounter.h" />
+    <ClInclude Include="..\wtf\RefCounter.h" />
     <ClInclude Include="..\wtf\RefPtr.h" />
-    <ClInclude Include="..\wtf\RefPtrHashMap.h" />
     <ClInclude Include="..\wtf\RetainPtr.h" />
     <ClInclude Include="..\wtf\RunLoop.h" />
     <ClInclude Include="..\wtf\SaturatedArithmetic.h" />
@@ -268,16 +264,14 @@
     <ClInclude Include="..\wtf\SHA1.h" />
     <ClInclude Include="..\wtf\SinglyLinkedList.h" />
     <ClInclude Include="..\wtf\SixCharacterHash.h" />
+    <ClInclude Include="..\wtf\SpinLock.h" />
     <ClInclude Include="..\wtf\StackBounds.h" />
     <ClInclude Include="..\wtf\StaticConstructors.h" />
     <ClInclude Include="..\wtf\StdLibExtras.h" />
+    <ClInclude Include="..\wtf\Stopwatch.h" />
     <ClInclude Include="..\wtf\StringExtras.h" />
     <ClInclude Include="..\wtf\StringHasher.h" />
     <ClInclude Include="..\wtf\StringPrintStream.h" />
-    <ClInclude Include="..\wtf\TCPackedCache.h" />
-    <ClInclude Include="..\wtf\TCPageMap.h" />
-    <ClInclude Include="..\wtf\TCSpinLock.h" />
-    <ClInclude Include="..\wtf\TCSystemAlloc.h" />
     <ClInclude Include="..\wtf\TemporaryChange.h" />
     <ClInclude Include="..\wtf\text\ASCIIFastPath.h" />
     <ClInclude Include="..\wtf\text\AtomicString.h" />
@@ -290,17 +284,22 @@
     <ClInclude Include="..\wtf\text\LChar.h" />
     <ClInclude Include="..\wtf\text\StringBuffer.h" />
     <ClInclude Include="..\wtf\text\StringBuilder.h" />
+    <ClInclude Include="..\wtf\text\StringCommon.h" />
     <ClInclude Include="..\wtf\text\StringConcatenate.h" />
     <ClInclude Include="..\wtf\text\StringHash.h" />
     <ClInclude Include="..\wtf\text\StringImpl.h" />
     <ClInclude Include="..\wtf\text\StringOperators.h" />
     <ClInclude Include="..\wtf\text\StringView.h" />
+    <ClInclude Include="..\wtf\text\SymbolImpl.h" />
+    <ClInclude Include="..\wtf\text\SymbolRegistry.h" />
+    <ClInclude Include="..\wtf\text\UniquedStringImpl.h" />
     <ClInclude Include="..\wtf\text\WTFString.h" />
     <ClInclude Include="..\wtf\Threading.h" />
     <ClInclude Include="..\wtf\ThreadingPrimitives.h" />
     <ClInclude Include="..\wtf\threadsafeRefCounted.h" />
     <ClInclude Include="..\wtf\threadspecific.h" />
     <ClInclude Include="..\wtf\threads\BinarySemaphore.h" />
+    <ClInclude Include="..\wtf\TinyPtrSet.h" />
     <ClInclude Include="..\wtf\unicode\CharacterNames.h" />
     <ClInclude Include="..\wtf\unicode\Collator.h" />
     <ClInclude Include="..\wtf\unicode\UTF8.h" />
@@ -308,6 +307,8 @@
     <ClInclude Include="..\wtf\Vector.h" />
     <ClInclude Include="..\wtf\VMTags.h" />
     <ClInclude Include="..\wtf\win\GDIObject.h" />
+    <ClInclude Include="..\wtf\win\WorkItemWin.h" />
+    <ClInclude Include="..\wtf\WorkQueue.h" />
     <ClInclude Include="..\wtf\WTFThreadData.h" />
   </ItemGroup>
   <ItemGroup>
@@ -330,7 +331,7 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -354,7 +355,7 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -366,7 +367,7 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -390,7 +391,7 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Production|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>

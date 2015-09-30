@@ -23,21 +23,23 @@
 
 #include "JSDOMWrapper.h"
 #include "TestOverloadedConstructors.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
 class JSTestOverloadedConstructors : public JSDOMWrapper {
 public:
     typedef JSDOMWrapper Base;
-    static JSTestOverloadedConstructors* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<TestOverloadedConstructors> impl)
+    static JSTestOverloadedConstructors* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestOverloadedConstructors>&& impl)
     {
-        JSTestOverloadedConstructors* ptr = new (NotNull, JSC::allocateCell<JSTestOverloadedConstructors>(globalObject->vm().heap)) JSTestOverloadedConstructors(structure, globalObject, impl);
+        JSTestOverloadedConstructors* ptr = new (NotNull, JSC::allocateCell<JSTestOverloadedConstructors>(globalObject->vm().heap)) JSTestOverloadedConstructors(structure, globalObject, WTF::move(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
     static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static TestOverloadedConstructors* toWrapped(JSC::JSValue);
     static void destroy(JSC::JSCell*);
     ~JSTestOverloadedConstructors();
 
@@ -50,20 +52,12 @@ public:
 
     static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
     TestOverloadedConstructors& impl() const { return *m_impl; }
-    void releaseImpl() { m_impl->deref(); m_impl = 0; }
-
-    void releaseImplIfNotNull()
-    {
-        if (m_impl) {
-            m_impl->deref();
-            m_impl = 0;
-        }
-    }
+    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
 
 private:
     TestOverloadedConstructors* m_impl;
 protected:
-    JSTestOverloadedConstructors(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<TestOverloadedConstructors>);
+    JSTestOverloadedConstructors(JSC::Structure*, JSDOMGlobalObject*, Ref<TestOverloadedConstructors>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -81,17 +75,12 @@ public:
 
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestOverloadedConstructors*)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(JSTestOverloadedConstructorsOwner, jsTestOverloadedConstructorsOwner, ());
-    return &jsTestOverloadedConstructorsOwner;
-}
-
-inline void* wrapperContext(DOMWrapperWorld& world, TestOverloadedConstructors*)
-{
-    return &world;
+    static NeverDestroyed<JSTestOverloadedConstructorsOwner> owner;
+    return &owner.get();
 }
 
 JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestOverloadedConstructors*);
-TestOverloadedConstructors* toTestOverloadedConstructors(JSC::JSValue);
+inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, TestOverloadedConstructors& impl) { return toJS(exec, globalObject, &impl); }
 
 
 } // namespace WebCore

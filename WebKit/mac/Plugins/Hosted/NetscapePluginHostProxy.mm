@@ -146,7 +146,7 @@ void NetscapePluginHostProxy::pluginHostDied()
     for (PluginInstanceMap::const_iterator it = instances.begin(); it != end; ++it)
         it->value->pluginHostDied();
     
-    NetscapePluginHostManager::shared().pluginHostDied(this);
+    NetscapePluginHostManager::singleton().pluginHostDied(this);
     
     // The plug-in crashed while its menu bar was hidden. Make sure to show it.
     if (!m_menuBarIsVisible)
@@ -627,7 +627,7 @@ static Identifier identifierFromIdentifierRep(IdentifierRep* identifier)
     ASSERT(identifier->isString());
   
     const char* str = identifier->string();    
-    return Identifier(&JSDOMWindow::commonVM(), String::fromUTF8WithLatin1Fallback(str, strlen(str)));
+    return Identifier::fromString(&JSDOMWindow::commonVM(), String::fromUTF8WithLatin1Fallback(str, strlen(str)));
 }
 
 kern_return_t WKPCInvoke(mach_port_t clientPort, uint32_t pluginID, uint32_t requestID, uint32_t objectID, uint64_t serverIdentifier,

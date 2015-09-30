@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		18404F991A8D13F200F74449 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18404F981A8D13F200F74449 /* libbsm.dylib */; };
 		189D4639166AC95C001D8533 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 189D4638166AC95C001D8533 /* main.c */; };
 		189D4644166BFDCE001D8533 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4643166BFDCE001D8533 /* Security.framework */; };
 		189D4647166C03CD001D8533 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4646166C03CD001D8533 /* CoreFoundation.framework */; };
@@ -76,6 +77,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		18404F981A8D13F200F74449 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = ../../../../../../usr/lib/libbsm.dylib; sourceTree = "<group>"; };
 		1843240E1714797D00196B52 /* libsecuritydservice_client.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecuritydservice_client.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		189D4635166AC95C001D8533 /* securityd_service */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = securityd_service; sourceTree = BUILT_PRODUCTS_DIR; };
 		189D4638166AC95C001D8533 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
@@ -109,6 +111,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18404F991A8D13F200F74449 /* libbsm.dylib in Frameworks */,
 				18CD2B791715CEC800633846 /* libaks.a in Frameworks */,
 				189D4649166C11A6001D8533 /* IOKit.framework in Frameworks */,
 				189D4647166C03CD001D8533 /* CoreFoundation.framework in Frameworks */,
@@ -175,6 +178,7 @@
 		189D4645166BFDD4001D8533 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				18404F981A8D13F200F74449 /* libbsm.dylib */,
 				18CD2B781715CEC800633846 /* libaks.a */,
 				189D4648166C11A6001D8533 /* IOKit.framework */,
 				189D4646166C03CD001D8533 /* CoreFoundation.framework */,
@@ -627,6 +631,7 @@
 				18F4809817497521009724DB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

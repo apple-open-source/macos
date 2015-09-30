@@ -23,6 +23,20 @@ class TestResolvDNS < Test::Unit::TestCase
     end
   end
 
+  # [ruby-core:65836]
+  def test_resolve_with_2_ndots
+    conf = Resolv::DNS::Config.new :nameserver => ['127.0.0.1'], :ndots => 2
+    assert conf.single?
+
+    candidates = []
+    conf.resolv('example.com') { |candidate, *args|
+      candidates << candidate
+      raise Resolv::DNS::Config::NXDomain
+    }
+    n = Resolv::DNS::Name.create 'example.com.'
+    assert_equal n, candidates.last
+  end
+
   def test_query_ipv4_address
     begin
       OpenSSL
@@ -160,5 +174,18 @@ class TestResolvDNS < Test::Unit::TestCase
         Resolv::DNS::Config.parse_resolv_conf(tmpfile.path)
       end
     end
+  end
+
+  def test_dots_diffences
+    name1 = Resolv::DNS::Name.create("example.org")
+    name2 = Resolv::DNS::Name.create("ex.ampl.eo.rg")
+    assert_not_equal(name1, name2, "different dots")
+  end
+
+  def test_case_insensitive_name
+    bug10550 = '[ruby-core:66498] [Bug #10550]'
+    lower = Resolv::DNS::Name.create("ruby-lang.org")
+    upper = Resolv::DNS::Name.create("Ruby-Lang.org")
+    assert_equal(lower, upper, bug10550)
   end
 end

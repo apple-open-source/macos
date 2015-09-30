@@ -37,22 +37,22 @@
 
 namespace WebCore {
 
-static inline const SVGFontData* svgFontAndFontFaceElementForFontData(const SimpleFontData* fontData, SVGFontFaceElement*& fontFace, SVGFontElement*& font)
+static inline const SVGFontData* svgFontAndFontFaceElementForFontData(const Font* font, SVGFontFaceElement*& svgFontFaceElement, SVGFontElement*& svgFontElement)
 {
-    ASSERT(fontData);
-    ASSERT(fontData->isCustomFont());
-    ASSERT(fontData->isSVGFont());
+    ASSERT(font);
+    ASSERT(font->isCustomFont());
+    ASSERT(font->isSVGFont());
 
-    const SVGFontData* svgFontData = static_cast<const SVGFontData*>(fontData->fontData());
+    auto* svgFontData = static_cast<const SVGFontData*>(font->svgData());
 
-    fontFace = svgFontData->svgFontFaceElement();
-    ASSERT(fontFace);
+    svgFontFaceElement = svgFontData->svgFontFaceElement();
+    ASSERT(svgFontFaceElement);
 
-    font = fontFace->associatedFontElement();
+    svgFontElement = svgFontFaceElement->associatedFontElement();
     return svgFontData;
 }
 
-float SVGTextRunRenderingContext::floatWidthUsingSVGFont(const Font& font, const TextRun& run, int& charsConsumed, String& glyphName) const
+float SVGTextRunRenderingContext::floatWidthUsingSVGFont(const FontCascade& font, const TextRun& run, int& charsConsumed, String& glyphName) const
 {
     WidthIterator it(&font, run);
     GlyphBuffer glyphBuffer;
@@ -61,18 +61,21 @@ float SVGTextRunRenderingContext::floatWidthUsingSVGFont(const Font& font, const
     return it.runWidthSoFar();
 }
 
-bool SVGTextRunRenderingContext::applySVGKerning(const SimpleFontData* fontData, WidthIterator& iterator, GlyphBuffer* glyphBuffer, int from) const
+bool SVGTextRunRenderingContext::applySVGKerning(const Font* font, WidthIterator& iterator, GlyphBuffer* glyphBuffer, int from) const
 {
     ASSERT(glyphBuffer);
     ASSERT(glyphBuffer->size() > 1);
     SVGFontElement* fontElement = 0;
     SVGFontFaceElement* fontFaceElement = 0;
 
-    svgFontAndFontFaceElementForFontData(fontData, fontFaceElement, fontElement);
+    svgFontAndFontFaceElementForFontData(font, fontFaceElement, fontElement);
     if (!fontElement || !fontFaceElement)
         return false;
 
-    float scale = scaleEmToUnits(fontData->platformData().size(), fontFaceElement->unitsPerEm());
+    if (fontElement->horizontalKerningMapIsEmpty())
+        return true;
+
+    float scale = scaleEmToUnits(font->platformData().size(), fontFaceElement->unitsPerEm());
 
     String lastGlyphName;
     String lastUnicodeString;
@@ -202,7 +205,7 @@ void SVGGlyphToPathTranslator::advance()
         }
 
         ++m_index;
-        if (m_index >= m_stoppingPoint || !m_glyphBuffer.fontDataAt(m_index)->isSVGFont())
+        if (m_index >= m_stoppingPoint || !m_glyphBuffer.fontAt(m_index)->isSVGFont())
             break;
         m_glyph = m_glyphBuffer.glyphAt(m_index);
         if (!m_glyph)
@@ -241,25 +244,25 @@ class DummyGlyphToPathTranslator final : public GlyphToPathTranslator {
     }
 };
 
-std::unique_ptr<GlyphToPathTranslator> SVGTextRunRenderingContext::createGlyphToPathTranslator(const SimpleFontData& fontData, const TextRun* textRun, const GlyphBuffer& glyphBuffer, int from, int numGlyphs, const FloatPoint& point) const
+std::unique_ptr<GlyphToPathTranslator> SVGTextRunRenderingContext::createGlyphToPathTranslator(const Font& font, const TextRun* textRun, const GlyphBuffer& glyphBuffer, int from, int numGlyphs, const FloatPoint& point) const
 {
-    SVGFontElement* fontElement = 0;
-    SVGFontFaceElement* fontFaceElement = 0;
+    SVGFontElement* fontElement = nullptr;
+    SVGFontFaceElement* fontFaceElement = nullptr;
 
-    const SVGFontData* svgFontData = svgFontAndFontFaceElementForFontData(&fontData, fontFaceElement, fontElement);
+    const SVGFontData* svgFontData = svgFontAndFontFaceElementForFontData(&font, fontFaceElement, fontElement);
     if (!fontElement || !fontFaceElement)
         return std::make_unique<DummyGlyphToPathTranslator>();
 
-    auto& elementRenderer = renderer().isRenderElement() ? toRenderElement(renderer()) : *renderer().parent();
+    auto& elementRenderer = is<RenderElement>(renderer()) ? downcast<RenderElement>(renderer()) : *renderer().parent();
     RenderStyle& style = elementRenderer.style();
     bool isVerticalText = style.svgStyle().isVerticalWritingMode();
 
-    float scale = scaleEmToUnits(fontData.platformData().size(), fontFaceElement->unitsPerEm());
+    float scale = scaleEmToUnits(font.platformData().size(), fontFaceElement->unitsPerEm());
 
     return std::make_unique<SVGGlyphToPathTranslator>(textRun, glyphBuffer, point, *svgFontData, *fontElement, from, numGlyphs, scale, isVerticalText);
 }
 
-void SVGTextRunRenderingContext::drawSVGGlyphs(GraphicsContext* context, const SimpleFontData* fontData, const GlyphBuffer& glyphBuffer, int from, int numGlyphs, const FloatPoint& point) const
+void SVGTextRunRenderingContext::drawSVGGlyphs(GraphicsContext* context, const Font* font, const GlyphBuffer& glyphBuffer, int from, int numGlyphs, const FloatPoint& point) const
 {
     auto activePaintingResource = this->activePaintingResource();
     if (!activePaintingResource) {
@@ -269,92 +272,80 @@ void SVGTextRunRenderingContext::drawSVGGlyphs(GraphicsContext* context, const S
         activePaintingResource = solidPaintingResource;
     }
 
-    auto& elementRenderer = renderer().isRenderElement() ? toRenderElement(renderer()) : *renderer().parent();
+    auto& elementRenderer = is<RenderElement>(renderer()) ? downcast<RenderElement>(renderer()) : *renderer().parent();
     RenderStyle& style = elementRenderer.style();
 
     ASSERT(activePaintingResource);
 
     RenderSVGResourceMode resourceMode = context->textDrawingMode() == TextModeStroke ? ApplyToStrokeMode : ApplyToFillMode;
-    for (auto translator = createGlyphToPathTranslator(*fontData, nullptr, glyphBuffer, from, numGlyphs, point); translator->containsMorePaths(); translator->advance()) {
+    for (auto translator = createGlyphToPathTranslator(*font, nullptr, glyphBuffer, from, numGlyphs, point); translator->containsMorePaths(); translator->advance()) {
         Path glyphPath = translator->path();
         if (activePaintingResource->applyResource(elementRenderer, style, context, resourceMode)) {
             float strokeThickness = context->strokeThickness();
-            if (renderer().isSVGInlineText())
-                context->setStrokeThickness(strokeThickness * toRenderSVGInlineText(renderer()).scalingFactor());
-            activePaintingResource->postApplyResource(elementRenderer, context, resourceMode, &glyphPath, 0);
+            if (is<RenderSVGInlineText>(renderer()))
+                context->setStrokeThickness(strokeThickness * downcast<RenderSVGInlineText>(renderer()).scalingFactor());
+            activePaintingResource->postApplyResource(elementRenderer, context, resourceMode, &glyphPath, nullptr);
             context->setStrokeThickness(strokeThickness);
         }
     }
 }
 
-GlyphData SVGTextRunRenderingContext::glyphDataForCharacter(const Font& font, WidthIterator& iterator, UChar32 character, bool mirror, int currentCharacter, unsigned& advanceLength)
+static GlyphData missingGlyphForFont(const FontCascade& font)
 {
-    const SimpleFontData* primaryFont = font.primaryFont();
-    ASSERT(primaryFont);
+    const Font& primaryFont = font.primaryFont();
+    if (!primaryFont.isSVGFont())
+        return GlyphData();
+    SVGFontElement* fontElement;
+    SVGFontFaceElement* fontFaceElement;
+    svgFontAndFontFaceElementForFontData(&primaryFont, fontFaceElement, fontElement);
+    return GlyphData(fontElement->missingGlyph(), &primaryFont);
+}
 
-    std::pair<GlyphData, GlyphPage*> pair = font.glyphDataAndPageForCharacter(character, mirror, AutoVariant);
-    GlyphData glyphData = pair.first;
+GlyphData SVGTextRunRenderingContext::glyphDataForCharacter(const FontCascade& font, WidthIterator& iterator, UChar32 character, bool mirror, int currentCharacter, unsigned& advanceLength, String& normalizedSpacesStringCache)
+{
+    GlyphData glyphData = font.glyphDataForCharacter(character, mirror, AutoVariant);
+    if (!glyphData.glyph)
+        return missingGlyphForFont(font);
 
-    // Check if we have the missing glyph data, in which case we can just return.
-    GlyphData missingGlyphData = primaryFont->missingGlyphData();
-    if (glyphData.glyph == missingGlyphData.glyph && glyphData.fontData == missingGlyphData.fontData) {
-        ASSERT(glyphData.fontData);
-        return glyphData;
-    }
-
-    // Save data fromt he font fallback list because we may modify it later. Do this before the
-    // potential change to glyphData.fontData below.
-    FontGlyphs* glyph = font.glyphs();
-    ASSERT(glyph);
-    FontGlyphs::GlyphPagesStateSaver glyphPagesSaver(*glyph);
+    ASSERT(glyphData.font);
 
     // Characters enclosed by an <altGlyph> element, may not be registered in the GlyphPage.
-    const SimpleFontData* originalFontData = glyphData.fontData;
-    if (glyphData.fontData && !glyphData.fontData->isSVGFont()) {
-        auto& elementRenderer = renderer().isRenderElement() ? toRenderElement(renderer()) : *renderer().parent();
+    if (!glyphData.font->isSVGFont()) {
+        auto& elementRenderer = is<RenderElement>(renderer()) ? downcast<RenderElement>(renderer()) : *renderer().parent();
         if (Element* parentRendererElement = elementRenderer.element()) {
-            if (parentRendererElement->hasTagName(SVGNames::altGlyphTag))
-                glyphData.fontData = primaryFont;
+            if (is<SVGAltGlyphElement>(*parentRendererElement))
+                glyphData.font = &font.primaryFont();
         }
     }
 
-    const SimpleFontData* fontData = glyphData.fontData;
-    if (fontData) {
-        if (!fontData->isSVGFont())
-            return glyphData;
+    if (!glyphData.font->isSVGFont())
+        return glyphData;
 
-        SVGFontElement* fontElement = 0;
-        SVGFontFaceElement* fontFaceElement = 0;
+    SVGFontElement* fontElement = nullptr;
+    SVGFontFaceElement* fontFaceElement = nullptr;
+    const SVGFontData* svgFontData = svgFontAndFontFaceElementForFontData(glyphData.font, fontFaceElement, fontElement);
+    if (!svgFontData)
+        return glyphData;
 
-        const SVGFontData* svgFontData = svgFontAndFontFaceElementForFontData(fontData, fontFaceElement, fontElement);
-        if (!fontElement || !fontFaceElement)
-            return glyphData;
+    // If we got here, we're dealing with a glyph defined in a SVG Font.
+    // The returned glyph by glyphDataForCharacter() is a glyph stored in the SVG Font glyph table.
+    // This doesn't necessarily mean the glyph is suitable for rendering/measuring in this context, its
+    // arabic-form/orientation/... may not match, we have to apply SVG Glyph selection to discover that.
+    if (svgFontData->applySVGGlyphSelection(iterator, glyphData, mirror, currentCharacter, advanceLength, normalizedSpacesStringCache))
+        return glyphData;
 
-        // If we got here, we're dealing with a glyph defined in a SVG Font.
-        // The returned glyph by glyphDataAndPageForCharacter() is a glyph stored in the SVG Font glyph table.
-        // This doesn't necessarily mean the glyph is suitable for rendering/measuring in this context, its
-        // arabic-form/orientation/... may not match, we have to apply SVG Glyph selection to discover that.
-        if (svgFontData->applySVGGlyphSelection(iterator, glyphData, mirror, currentCharacter, advanceLength))
-            return glyphData;
-    }
+    GlyphData missingGlyphData = missingGlyphForFont(font);
+    if (missingGlyphData.glyph)
+        return missingGlyphData;
 
-    GlyphPage* page = pair.second;
-    ASSERT(page);
+    // SVG font context sensitive selection failed and there is no defined missing glyph. Drop down to a default font.
+    // The behavior does not seem to be specified. For simplicity we don't try to resolve font fallbacks context-sensitively.
+    FontDescription fallbackDescription = font.fontDescription();
+    fallbackDescription.setFamilies(Vector<AtomicString> { sansSerifFamily });
+    FontCascade fallbackFont(fallbackDescription, font.letterSpacing(), font.wordSpacing());
+    fallbackFont.update(font.fontSelector());
 
-    // No suitable glyph found that is compatible with the requirments (same language, arabic-form, orientation etc.)
-    // Even though our GlyphPage contains an entry for eg. glyph "a", it's not compatible. So we have to temporarily
-    // remove the glyph data information from the GlyphPage, and retry the lookup, which handles font fallbacks correctly.
-    page->setGlyphDataForCharacter(character, 0, 0);
-
-    // Assure that the font fallback glyph selection worked, aka. the fallbackGlyphData font data is not the same as before.
-    GlyphData fallbackGlyphData = font.glyphDataForCharacter(character, mirror);
-    ASSERT(fallbackGlyphData.fontData != fontData);
-
-    // Restore original state of the SVG Font glyph table and the current font fallback list,
-    // to assure the next lookup of the same glyph won't immediately return the fallback glyph.
-    page->setGlyphDataForCharacter(character, glyphData.glyph, originalFontData);
-    ASSERT(fallbackGlyphData.fontData);
-    return fallbackGlyphData;
+    return fallbackFont.glyphDataForCharacter(character, mirror, AutoVariant);
 }
 
 }

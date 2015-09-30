@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -29,6 +29,8 @@
 		590CF72F10323D62007112A1 /* less.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 590CF72E10323D52007112A1 /* less.1 */; };
 		590CF74B103246A7007112A1 /* less.txt in OSLicense */ = {isa = PBXBuildFile; fileRef = 590CF74A103246A7007112A1 /* less.txt */; };
 		590CF752103246E7007112A1 /* less.plist in OSVersion */ = {isa = PBXBuildFile; fileRef = 590CF71510323386007112A1 /* less.plist */; };
+		597A0FF619AFEF9F007468CF /* cvt.c in Sources */ = {isa = PBXBuildFile; fileRef = 597A0FF519AFEF59007468CF /* cvt.c */; };
+		597A0FF719AFEFA4007468CF /* pattern.c in Sources */ = {isa = PBXBuildFile; fileRef = 597A0FF319AFEF1F007468CF /* pattern.c */; };
 		59DE08BE10322DAE00739622 /* lessecho.c in Sources */ = {isa = PBXBuildFile; fileRef = 59F9B4071031F8E900A58A17 /* lessecho.c */; };
 		59F9B4371031F8E900A58A17 /* brac.c in Sources */ = {isa = PBXBuildFile; fileRef = 59F9B3EA1031F8E900A58A17 /* brac.c */; };
 		59F9B4381031F8E900A58A17 /* ch.c in Sources */ = {isa = PBXBuildFile; fileRef = 59F9B3EB1031F8E900A58A17 /* ch.c */; };
@@ -131,6 +133,9 @@
 		590CF71C10323511007112A1 /* lessecho.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = lessecho.1; sourceTree = "<group>"; };
 		590CF72E10323D52007112A1 /* less.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = less.1; sourceTree = "<group>"; };
 		590CF74A103246A7007112A1 /* less.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = less.txt; sourceTree = "<group>"; };
+		597A0FF319AFEF1F007468CF /* pattern.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pattern.c; sourceTree = "<group>"; };
+		597A0FF419AFEF1F007468CF /* pattern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pattern.h; sourceTree = "<group>"; };
+		597A0FF519AFEF59007468CF /* cvt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cvt.c; sourceTree = "<group>"; };
 		59DE08BB10322DA000739622 /* lessecho */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lessecho; sourceTree = BUILT_PRODUCTS_DIR; };
 		59DE08C210322EA000739622 /* defines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = defines.h; sourceTree = "<group>"; };
 		59F9B3E81031F88400A58A17 /* BSD.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = BSD.xcconfig; sourceTree = "<group>"; };
@@ -150,10 +155,6 @@
 		59F9B4061031F8E900A58A17 /* less.nro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = less.nro; sourceTree = "<group>"; };
 		59F9B4071031F8E900A58A17 /* lessecho.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lessecho.c; sourceTree = "<group>"; };
 		59F9B4091031F8E900A58A17 /* lessecho.nro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = lessecho.nro; sourceTree = "<group>"; };
-		59F9B40A1031F8E900A58A17 /* lesskey.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lesskey.c; sourceTree = "<group>"; };
-		59F9B40B1031F8E900A58A17 /* lesskey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lesskey.h; sourceTree = "<group>"; };
-		59F9B40C1031F8E900A58A17 /* lesskey.man */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = lesskey.man; sourceTree = "<group>"; };
-		59F9B40D1031F8E900A58A17 /* lesskey.nro */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = lesskey.nro; sourceTree = "<group>"; };
 		59F9B40E1031F8E900A58A17 /* lglob.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lglob.h; sourceTree = "<group>"; };
 		59F9B40F1031F8E900A58A17 /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		59F9B4101031F8E900A58A17 /* line.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = line.c; sourceTree = "<group>"; };
@@ -231,6 +232,9 @@
 		59F9B3E91031F8E900A58A17 /* less */ = {
 			isa = PBXGroup;
 			children = (
+				597A0FF519AFEF59007468CF /* cvt.c */,
+				597A0FF319AFEF1F007468CF /* pattern.c */,
+				597A0FF419AFEF1F007468CF /* pattern.h */,
 				59F9B3EA1031F8E900A58A17 /* brac.c */,
 				59F9B3EB1031F8E900A58A17 /* ch.c */,
 				59F9B3EC1031F8E900A58A17 /* charset.c */,
@@ -247,10 +251,6 @@
 				59F9B4061031F8E900A58A17 /* less.nro */,
 				59F9B4071031F8E900A58A17 /* lessecho.c */,
 				59F9B4091031F8E900A58A17 /* lessecho.nro */,
-				59F9B40A1031F8E900A58A17 /* lesskey.c */,
-				59F9B40B1031F8E900A58A17 /* lesskey.h */,
-				59F9B40C1031F8E900A58A17 /* lesskey.man */,
-				59F9B40D1031F8E900A58A17 /* lesskey.nro */,
 				59F9B40E1031F8E900A58A17 /* lglob.h */,
 				59F9B40F1031F8E900A58A17 /* LICENSE */,
 				59F9B4101031F8E900A58A17 /* line.c */,
@@ -330,9 +330,16 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0600;
+			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "less" */;
-			compatibilityVersion = "Xcode 3.1";
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* less */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -375,6 +382,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				597A0FF719AFEFA4007468CF /* pattern.c in Sources */,
+				597A0FF619AFEF9F007468CF /* cvt.c in Sources */,
 				59F9B4371031F8E900A58A17 /* brac.c in Sources */,
 				59F9B4381031F8E900A58A17 /* ch.c in Sources */,
 				59F9B4391031F8E900A58A17 /* charset.c in Sources */,
@@ -444,7 +453,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 59F9B3E81031F88400A58A17 /* BSD.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;

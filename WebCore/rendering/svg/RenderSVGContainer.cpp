@@ -37,7 +37,7 @@
 
 namespace WebCore {
 
-RenderSVGContainer::RenderSVGContainer(SVGElement& element, PassRef<RenderStyle> style)
+RenderSVGContainer::RenderSVGContainer(SVGElement& element, Ref<RenderStyle>&& style)
     : RenderSVGModelObject(element, WTF::move(style))
     , m_objectBoundingBoxValid(false)
     , m_needsBoundariesUpdate(true)
@@ -93,16 +93,16 @@ void RenderSVGContainer::addChild(RenderObject* child, RenderObject* beforeChild
     SVGResourcesCache::clientWasAddedToTree(*child);
 }
 
-RenderObject* RenderSVGContainer::removeChild(RenderObject& child)
+void RenderSVGContainer::removeChild(RenderObject& child)
 {
     SVGResourcesCache::clientWillBeRemovedFromTree(child);
-    return RenderSVGModelObject::removeChild(child);
+    RenderSVGModelObject::removeChild(child);
 }
 
 
 bool RenderSVGContainer::selfWillPaint()
 {
-    SVGResources* resources = SVGResourcesCache::cachedResourcesForRenderObject(*this);
+    auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
     return resources && resources->filter();
 }
 
@@ -180,14 +180,14 @@ bool RenderSVGContainer::nodeAtFloatPoint(const HitTestRequest& request, HitTest
                 
     for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
         if (child->nodeAtFloatPoint(request, result, localPoint, hitTestAction)) {
-            updateHitTestResult(result, roundedLayoutPoint(localPoint));
+            updateHitTestResult(result, LayoutPoint(localPoint));
             return true;
         }
     }
 
     // Accessibility wants to return SVG containers, if appropriate.
     if (request.type() & HitTestRequest::AccessibilityHitTest && m_objectBoundingBox.contains(localPoint)) {
-        updateHitTestResult(result, roundedLayoutPoint(localPoint));
+        updateHitTestResult(result, LayoutPoint(localPoint));
         return true;
     }
     

@@ -35,11 +35,11 @@
 #include <sys/sysctl.h>
 
 // /System//Library/Frameworks/System.framework/Versions/B/PrivateHeaders/sys/proc_info.h
-#include <System/sys/proc_info.h>
-#include <System/sys/codesign.h>
+#include <sys/proc_info.h>
+#include <sys/codesign.h>
 
 #if !TARGET_OS_EMBEDDED
-#include <System/sys/csr.h>
+#include <sys/csr.h>
 #include <sandbox/rootless.h>
 #endif
 

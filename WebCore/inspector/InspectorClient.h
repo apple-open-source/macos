@@ -34,8 +34,9 @@
 
 namespace WebCore {
 
-class InspectorController;
+class FloatRect;
 class Frame;
+class InspectorController;
 class Page;
 
 class InspectorClient {
@@ -60,23 +61,14 @@ public:
     virtual bool canClearBrowserCookies() { return false; }
     virtual void clearBrowserCookies() { }
 
-    virtual bool overridesShowPaintRects() { return false; }
+    virtual bool overridesShowPaintRects() const { return false; }
     virtual void setShowPaintRects(bool) { }
-
-    virtual bool canShowDebugBorders() { return false; }
-    virtual void setShowDebugBorders(bool) { }
-
-    virtual bool canShowFPSCounter() { return false; }
-    virtual void setShowFPSCounter(bool) { }
-
-    virtual bool canContinuouslyPaint() { return false; }
-    virtual void setContinuousPaintingEnabled(bool) { }
-
+    virtual void showPaintRect(const FloatRect&) { }
     virtual void didSetSearchingForNode(bool) { }
 
     virtual bool handleJavaScriptDialog(bool, const String*) { return false; }
 
-    static bool doDispatchMessageOnFrontendPage(Page* frontendPage, const String& message);
+    WEBCORE_EXPORT static bool doDispatchMessageOnFrontendPage(Page* frontendPage, const String& message);
 };
 
 } // namespace WebCore

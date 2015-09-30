@@ -47,6 +47,14 @@
 #define ENABLE_REMOTE_INSPECTOR 1
 #endif
 
+#if !defined(ENABLE_TOUCH_EVENTS)
+#if TARGET_OS_IPHONE
+#define ENABLE_TOUCH_EVENTS 1
+#else
+#define ENABLE_TOUCH_EVENTS 0
+#endif
+#endif
+
 @class NSError;
 @class WebFrame;
 @class WebDeviceOrientation;
@@ -434,6 +442,7 @@ Could be worth adding to the API.
 - (DOMCSSStyleDeclaration *)styleAtSelectionStart;
 
 - (NSUInteger)_renderTreeSize;
+- (NSSize)_contentsSizeRespectingOverflow;
 
 /*!
  * @method _handleMemoryWarning
@@ -451,7 +460,6 @@ Could be worth adding to the API.
 + (void)_clearMemoryPressure;
 + (BOOL)_shouldWaitForMemoryClearMessage;
 + (void)_releaseMemoryNow;
-+ (void)_clearPrivateBrowsingSessionCookieStorage;
 
 - (void)_replaceCurrentHistoryItem:(WebHistoryItem *)item;
 #endif // PLATFORM(IOS)
@@ -556,7 +564,9 @@ Could be worth adding to the API.
 - (void)_viewGeometryDidChange;
 - (void)_overflowScrollPositionChangedTo:(CGPoint)offset forNode:(DOMNode *)node isUserScroll:(BOOL)userScroll;
 
+#if ENABLE_TOUCH_EVENTS
 - (NSArray *)_touchEventRegions;
+#endif
 
 /*!
     @method _doNotStartObservingNetworkReachability
@@ -711,12 +721,6 @@ Could be worth adding to the API.
  */
 - (WebTextIterator *)textIteratorForRect:(NSRect)rect;
 
-#if ENABLE_DASHBOARD_SUPPORT
-// <rdar://problem/5217124> Clients other than Dashboard, don't use this.
-// As of this writing, Dashboard uses this on Tiger, but not on Leopard or newer.
-- (void)handleAuthenticationForResource:(id)identifier challenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)dataSource;
-#endif
-
 #if !TARGET_OS_IPHONE
 - (void)_clearUndoRedoOperations;
 #endif
@@ -737,10 +741,6 @@ Could be worth adding to the API.
 
 - (void)setMemoryCacheDelegateCallsEnabled:(BOOL)suspend;
 - (BOOL)areMemoryCacheDelegateCallsEnabled;
-
-#if !TARGET_OS_IPHONE
-+ (NSCursor *)_pointingHandCursor;
-#endif
 
 // SPI for DumpRenderTree
 - (BOOL)_postsAcceleratedCompositingNotifications;
@@ -1027,6 +1027,10 @@ Could be worth adding to the API.
 - (void)_notificationsDidClose:(NSArray *)notificationIDs;
 
 - (uint64_t)_notificationIDForTesting:(JSValueRef)jsNotification;
+@end
+
+@interface WebView (WebViewFontSelection)
++ (void)_setFontWhitelist:(NSArray *)whitelist;
 @end
 
 #if TARGET_OS_IPHONE

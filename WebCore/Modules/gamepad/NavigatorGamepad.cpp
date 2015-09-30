@@ -43,12 +43,12 @@ namespace WebCore {
 NavigatorGamepad::NavigatorGamepad()
     : m_navigationStart(std::numeric_limits<double>::infinity())
 {
-    GamepadManager::shared().registerNavigator(this);
+    GamepadManager::singleton().registerNavigator(this);
 }
 
 NavigatorGamepad::~NavigatorGamepad()
 {
-    GamepadManager::shared().unregisterNavigator(this);
+    GamepadManager::singleton().unregisterNavigator(this);
 }
 
 const char* NavigatorGamepad::supplementName()
@@ -66,17 +66,19 @@ NavigatorGamepad* NavigatorGamepad::from(Navigator* navigator)
 
         if (Frame* frame = navigator->frame()) {
             if (DocumentLoader* documentLoader = frame->loader().documentLoader())
-                supplement->m_navigationStart = documentLoader->timing()->navigationStart();
+                supplement->m_navigationStart = documentLoader->timing().navigationStart();
         }
     }
     return supplement;
 }
 
-Gamepad* NavigatorGamepad::gamepadAtIndex(unsigned index)
+Ref<Gamepad> NavigatorGamepad::gamepadFromPlatformGamepad(PlatformGamepad& platformGamepad)
 {
-    if (index >= m_gamepads.size())
-        return nullptr;
-    return m_gamepads[index].get();
+    unsigned index = platformGamepad.index();
+    if (index >= m_gamepads.size() || !m_gamepads[index])
+        return Gamepad::create(platformGamepad);
+
+    return *m_gamepads[index];
 }
 
 const Vector<RefPtr<Gamepad>>& NavigatorGamepad::getGamepads(Navigator* navigator)
@@ -89,7 +91,7 @@ const Vector<RefPtr<Gamepad>>& NavigatorGamepad::gamepads()
     if (m_gamepads.isEmpty())
         return m_gamepads;
 
-    const Vector<PlatformGamepad*>& platformGamepads = GamepadProvider::shared().platformGamepads();
+    const Vector<PlatformGamepad*>& platformGamepads = GamepadProvider::singleton().platformGamepads();
 
     for (unsigned i = 0; i < platformGamepads.size(); ++i) {
         if (!platformGamepads[i]) {
@@ -106,7 +108,7 @@ const Vector<RefPtr<Gamepad>>& NavigatorGamepad::gamepads()
 
 void NavigatorGamepad::gamepadsBecameVisible()
 {
-    const Vector<PlatformGamepad*>& platformGamepads = GamepadProvider::shared().platformGamepads();
+    const Vector<PlatformGamepad*>& platformGamepads = GamepadProvider::singleton().platformGamepads();
     m_gamepads.resize(platformGamepads.size());
 
     for (unsigned i = 0; i < platformGamepads.size(); ++i) {
@@ -126,7 +128,7 @@ void NavigatorGamepad::gamepadConnected(PlatformGamepad& platformGamepad)
     }
 
     unsigned index = platformGamepad.index();
-    ASSERT(GamepadProvider::shared().platformGamepads()[index] == &platformGamepad);
+    ASSERT(GamepadProvider::singleton().platformGamepads()[index] == &platformGamepad);
 
     // The new index should already fit in the existing array, or should be exactly one past-the-end of the existing array.
     ASSERT(index <= m_gamepads.size());

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,7 @@ typedef CFMutableDictionaryRef	AFPUserRef;
 typedef struct {
     ODNodeRef		node;
     CFMutableArrayRef	list;
+    ODRecordRef		afp_access_group;
 } AFPUserList, *AFPUserListRef;
 
 void		AFPUserList_free(AFPUserListRef users);

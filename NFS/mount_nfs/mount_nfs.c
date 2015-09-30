@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,6 +103,7 @@ struct nfs_conf_client {
 	int statfs_rate_limit;
 	int is_mobile;
 	int squishy_flags;
+	int root_steals_gss_context;
 };
 /* init to invalid values so we will only set values specified in nfs.conf */
 struct nfs_conf_client config =
@@ -117,7 +118,8 @@ struct nfs_conf_client config =
 	-1,
 	-1,
 	-1,
-	-1
+	-1,
+	-1,
 };
 
 /* mount options */
@@ -264,6 +266,7 @@ struct {
 	uint32_t	mflags_mask[NFS_MFLAG_BITMAP_LEN];	/* what flags are set */
 	uint32_t	mflags[NFS_MFLAG_BITMAP_LEN];		/* set flag values */
 	uint32_t	nfs_version, nfs_minor_version;		/* NFS version */
+	uint32_t	nfs_max_vers, nfs_min_vers;		 /* NFS min and max packed version */
 	uint32_t	rsize, wsize, readdirsize, readahead;	/* I/O values */
 	struct timespec	acregmin, acregmax, acdirmin, acdirmax;	/* attrcache values */
 	uint32_t	lockmode;				/* advisory file locking mode */
@@ -309,7 +312,7 @@ struct nfs_fs_location {
 #define AOK	(void *)	// assert alignment is OK
 
 /* function prototypes */
-void	setNFSVersion(uint32_t);
+void	setNFSVersion(uint32_t, uint32_t);
 void	dump_mount_options(struct nfs_fs_location *, char *);
 void	set_krb5_sec_flavor_for_principal();
 void	handle_mntopts(char *);
@@ -322,7 +325,7 @@ void	getaddresslists(struct nfs_fs_location *, int *);
 void	freeaddresslists(struct nfs_fs_location *);
 int	assemble_mount_args(struct nfs_fs_location *, char **);
 void	usage(void);
-
+int	nfsparsevers(const char *, uint32_t *, uint32_t *);
 
 int
 main(int argc, char *argv[])
@@ -348,13 +351,13 @@ main(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "234a:bcdF:g:I:iLlo:Pp:R:r:sTt:Uvw:x:z")) != EOF)
 		switch (c) {
 		case '4':
-			setNFSVersion(4);
+			setNFSVersion(VER2PVER(4,0), 0);
 			break;
 		case '3':
-			setNFSVersion(3);
+			setNFSVersion(VER2PVER(3,0), 0);
 			break;
 		case '2':
-			setNFSVersion(2);
+			setNFSVersion(VER2PVER(2,0), 0);
 			break;
 		case 'a':
 			num = strtol(optarg, &p, 10);
@@ -720,6 +723,10 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		xb_add_32(error, &xb, options.nfs_version);
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_NFS_MINOR_VERSION))
 		xb_add_32(error, &xb, options.nfs_minor_version);
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_NFS_VERSION_RANGE)) {
+		xb_add_32(error, &xb, options.nfs_min_vers);
+		xb_add_32(error, &xb, options.nfs_max_vers);
+	}
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READ_SIZE))
 		xb_add_32(error, &xb, options.rsize);
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_WRITE_SIZE))
@@ -860,18 +867,113 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 	return (error);
 }
 
+
+/*
+ * nfsparsvers returns packed minimum and maximum versions to try.
+ * The high order 16 bits hold the major version and the low
+ * order 16 bits hold the minor version. Major and minor versions
+ * are further constrain by the defines NFS_MAX_SUPPORTED_VERSION
+ * and NFS_MAX_SUPPORTED_MINOR_VERSION below. On success return
+ * 1, else return 0. If the mnt string being parsed has the maximum
+ * version before the minimum version, will swap them.
+ */
+uint32_t verstab[] = {
+	0,  /* Version 0 (does not exist) */
+	0,  /* Version 1 (does not exist) */
+	0,  /* Version 2 */
+	0,  /* Version 3 */
+	0   /* Version 4 */
+};
+
+#define NFS_MAX_SUPPORTED_VERSION  ((long)(sizeof (verstab) / sizeof (uint32_t) - 1))
+#define NFS_MAX_SUPPORTED_MINOR_VERSION(v) ((long)(verstab[(v)]))
+
+int
+nfsparsevers(const char *vstr, uint32_t *pminvers, uint32_t *pmaxvers)
+{
+	const char *nptr = vstr;
+	char *eptr;
+	uint32_t tmp, *packvalp = pminvers;
+	long val;
+
+	*pmaxvers = 0;
+	/* Versions are [2-9][0-9]*(.[0-9]+)?(-[2-9][0-9]*(.[0-9]*)?)? */
+	do {
+		val = strtol(nptr, &eptr, 10);
+		if ((*eptr && *eptr != '.' &&  *eptr != '-') ||
+		    val < 2 || val > NFS_MAX_SUPPORTED_VERSION) {
+			return (0);
+		}
+		/* Assign the major version to the pack value */
+		*packvalp = (uint16_t)val << 16;
+		switch (*eptr) {
+		case '\0':
+			packvalp = NULL;
+			break;
+		case '.':
+			/* Handle the minor version */
+			nptr = eptr + 1;
+			val = strtol(nptr, &eptr, 10);
+			if ((*eptr && *eptr != '-') ||
+			    val < 0 || val > NFS_MAX_SUPPORTED_MINOR_VERSION(PVER2MAJOR(*packvalp)))
+				return (0);
+			*packvalp |= (uint16_t)val;
+			if (*eptr == '\0') {
+				packvalp = NULL;
+				break;
+			}
+		case '-':
+			/* Handle processing the max version */
+			nptr = eptr + 1;
+			if (packvalp == pmaxvers)
+				return (0);
+			packvalp = pmaxvers;
+			break;
+		default:
+			return (0);
+		}
+	} while (packvalp);
+	/* Lets be nice */
+	if (*pmaxvers && (*pminvers > *pmaxvers)) {
+		tmp = *pminvers;
+		*pminvers = *pmaxvers;
+		*pmaxvers = tmp;
+	}
+
+	return (1);
+}
+
 /*
  * Set (and sanity check) the NFS version that is being reuqested to use.
  */
 void
-setNFSVersion(uint32_t vers)
+setNFSVersion(uint32_t pminvers, uint32_t pmaxvers)
 {
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_VERSION) &&
-	    (options.nfs_version != vers))
-		errx(EINVAL,"conflicting NFS version options: %d %d",
-			options.nfs_version, vers);
-	NFS_BITMAP_SET(options.mattrs, NFS_MATTR_NFS_VERSION);
-	options.nfs_version = vers;
+	uint32_t vers = PVER2MAJOR(pminvers), mvers = PVER2MINOR(pminvers);
+
+	if (pmaxvers) {
+		/* Clear the any previous version specification */
+		NFS_BITMAP_CLR(options.mattrs, NFS_MATTR_NFS_VERSION);
+		options.nfs_version = 0;
+		NFS_BITMAP_CLR(options.mattrs, NFS_MATTR_NFS_MINOR_VERSION);
+		options.nfs_minor_version = 0;
+		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_NFS_VERSION_RANGE);
+		options.nfs_min_vers = pminvers;
+		options.nfs_max_vers = pmaxvers;
+	} else {
+		/* Clear any previous version range and old minor version */
+		NFS_BITMAP_CLR(options.mattrs, NFS_MATTR_NFS_VERSION_RANGE);
+		options.nfs_min_vers = 0;
+		options.nfs_max_vers = 0;
+		NFS_BITMAP_CLR(options.mattrs, NFS_MATTR_NFS_MINOR_VERSION);
+		options.nfs_minor_version = 0;
+		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_NFS_VERSION);
+		options.nfs_version = vers;
+		if (mvers) {
+			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_NFS_MINOR_VERSION);
+			options.nfs_minor_version = mvers;
+		}
+	}
 }
 
 /*
@@ -972,6 +1074,7 @@ set_krb5_sec_flavor_for_principal(void)
 			warnx("principal or realm specified but no kerberos is enabled");
 	}
 }
+
 
 void
 handle_mntopts(char *opts)
@@ -1183,38 +1286,29 @@ handle_mntopts(char *opts)
 		}
 	}
 	if (altflags & ALTF_VERS) {
-		if ((p2 = getmntoptstr(mop, "vers")))
-			num = getmntoptnum(mop, "vers");
-		else if ((p2 = getmntoptstr(mop, "nfsvers")))
-			num = getmntoptnum(mop, "nfsvers");
+		uint32_t pminvers, pmaxvers;
+
+		if (!(p2 = getmntoptstr(mop, "vers")))
+			p2 = getmntoptstr(mop, "nfsvers");
+
 		if (p2) {
-			switch (num) {
-			case 2:
-				setNFSVersion(2);
-				break;
-			case 3:
-				setNFSVersion(3);
-				break;
-			case 4:
-				setNFSVersion(4);
-				break;
-			default:
+			if (nfsparsevers(p2, &pminvers, &pmaxvers))
+				setNFSVersion(pminvers, pmaxvers);
+			else 
 				warnx("illegal NFS version value -- %s", p2);
-				break;
-			}
 		}
 	}
 	if (altflags & ALTF_VERS2) {
 		warnx("option nfsv2 deprecated, use vers=#");
-		setNFSVersion(2);
+		setNFSVersion(VER2PVER(2,0), 0);
 	}
 	if (altflags & ALTF_VERS3) {
 		warnx("option nfsv3 deprecated, use vers=#");
-		setNFSVersion(3);
+		setNFSVersion(VER2PVER(3,0), 0);
 	}
 	if (altflags & ALTF_VERS4) {
 		warnx("option nfsv4 deprecated, use vers=#");
-		setNFSVersion(4);
+		setNFSVersion(VER2PVER(4,0), 0);
 	}
 	if (altflags & ALTF_WSIZE) {
 		p2 = getmntoptstr(mop, "rwsize");
@@ -1540,6 +1634,9 @@ config_read(struct nfs_conf_client *conf)
 		} else if (!strcmp(key, "nfs.client.squishy_flags")) {
 			if (value && val)
 				conf->squishy_flags = val;
+		} else if (!strcmp(key, "nfs.client.root_steals_gss_context")) {
+			if (value && val)
+				conf->root_steals_gss_context = val;;
 		} else {
 			if (verbose)
 				printf("ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
@@ -1667,6 +1764,8 @@ config_sysctl(void)
 	sysctl_set("vfs.generic.nfs.client.is_mobile", config.is_mobile);
 	if (config.squishy_flags != -1)
 		sysctl_set("vfs.generic.nfs.client.squishy_flags", config.squishy_flags);
+	if (config.root_steals_gss_context != -1)
+		sysctl_set("vfs.generic.nfs.client.root_steals_gss_context", config.root_steals_gss_context);
 }
 
 /*
@@ -2128,6 +2227,14 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 		printf(",vers=%d", options.nfs_version);
 		if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_MINOR_VERSION))
 			printf(".%d", options.nfs_minor_version);
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_VERSION_RANGE)) {
+		printf(",vers=%d", PVER2MAJOR(options.nfs_min_vers));
+		if (PVER2MINOR(options.nfs_min_vers))
+			printf(".%d", PVER2MINOR(options.nfs_min_vers));
+		printf("-%d", PVER2MAJOR(options.nfs_max_vers));
+		if (PVER2MINOR(options.nfs_max_vers))
+			printf(".%d", PVER2MINOR(options.nfs_max_vers));
 	}
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_SOFT) || (verbose > 1))
 		printf(",%s", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_SOFT) ? "soft" : "hard");

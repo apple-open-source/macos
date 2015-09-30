@@ -665,7 +665,7 @@ _internal_release_name_info(notify_state_t *ns, name_info_t *n)
 		_internal_remove_controlled_name(ns, n);
 		_nc_table_delete(ns->name_table, n->name);
 		_nc_table_delete_64(ns->name_id_table, n->name_id);
-		_nc_list_release_list(n->subscriptions);
+		_nc_list_free_list(n->subscriptions);
 		free(n);
 		ns->stat_name_free++;
 	}
@@ -691,7 +691,7 @@ _internal_cancel(notify_state_t *ns, uint64_t cid)
 	n = c->name_info;
 	if (n == NULL) return;
 
-	n->subscriptions =_nc_list_find_release(n->subscriptions, c);
+	n->subscriptions =_nc_list_delete(n->subscriptions, c);
 	_internal_client_release(ns, c);
 	_internal_release_name_info(ns, n);
 }
@@ -911,7 +911,7 @@ _notify_lib_cancel_proc(notify_state_t *ns, pid_t pid)
 		_internal_cancel(ns, c->client_id);
 	}
 
-	_nc_list_release_list(x);
+	_nc_list_free_list(x);
 
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 }
@@ -949,7 +949,7 @@ _notify_lib_cancel_port(notify_state_t *ns, mach_port_t port)
 		_internal_cancel(ns, c->client_id);
 	}
 
-	_nc_list_release_list(x);
+	_nc_list_free_list(x);
 
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 }
@@ -1174,7 +1174,7 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 		if (is_new_name == 1)
 		{
 			_nc_table_delete(ns->name_table, n->name);
-			_nc_list_release_list(n->subscriptions);
+			_nc_list_free_list(n->subscriptions);
 			free(n);
 			ns->stat_name_free++;
 		}

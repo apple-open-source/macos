@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2008, 2011-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008, 2011-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -972,6 +972,12 @@ do_prefs_remove(int argc, char **argv)
 	return;
 }
 
+static const char *
+on_off_str(Boolean on)
+{
+	return (on ? "on" : "off");
+}
+
 /* -------------------- */
 
 #include "IPMonitorControlPrefs.h"
@@ -985,7 +991,7 @@ do_log(char * log, int argc, char **argv)
 	}
 	if (argc == 0) {
 	    printf("IPMonitor log is %s\n",
-		   IPMonitorControlPrefsIsVerbose() ? "on" : "off");
+		   on_off_str(IPMonitorControlPrefsIsVerbose()));
 	}
 	else {
 	    Boolean	verbose = FALSE;
@@ -997,13 +1003,13 @@ do_log(char * log, int argc, char **argv)
 		verbose = FALSE;
 	    }
 	    else {
-		fprintf(stderr, "%s invalid, must be 'on' or 'off'\n",
-			argv[0]);
-		exit(1);
+		    fprintf(stderr, "%s invalid, must be 'on' or 'off'\n",
+			    argv[0]);
+		    exit(1);
 	    }
 	    if (IPMonitorControlPrefsSetVerbose(verbose) == FALSE) {
-		fprintf(stderr, "failed to set preferences\n");
-		exit(2);
+		    fprintf(stderr, "failed to set preferences\n");
+		    exit(2);
 	    }
 	}
 	exit(0);
@@ -1011,3 +1017,138 @@ do_log(char * log, int argc, char **argv)
 }
 
 
+/* -------------------- */
+
+static SCNetworkInterfaceRef
+copy_configured_interface(SCPreferencesRef prefs, CFStringRef if_name)
+{
+	SCNetworkSetRef		current_set = NULL;
+	CFIndex			count;
+	CFIndex			i;
+	SCNetworkInterfaceRef	ret_if = NULL;
+	CFArrayRef		services = NULL;
+
+	if (prefs == NULL) {
+		goto done;
+	}
+	current_set = SCNetworkSetCopyCurrent(prefs);
+	if (current_set == NULL) {
+		goto done;
+	}
+	services = SCNetworkSetCopyServices(current_set);
+	if (services == NULL) {
+		goto done;
+	}
+
+	count = CFArrayGetCount(services);
+	for (i = 0; i < count; i++) {
+		CFStringRef		this_if_name;
+		SCNetworkInterfaceRef	this_if;
+		SCNetworkServiceRef	s;
+
+		s = (SCNetworkServiceRef)CFArrayGetValueAtIndex(services, i);
+		if (SCNetworkServiceGetEnabled(s) == FALSE) {
+			/* skip disabled services */
+			continue;
+		}
+		this_if = SCNetworkServiceGetInterface(s);
+		if (this_if == NULL) {
+			continue;
+		}
+		this_if_name = SCNetworkInterfaceGetBSDName(this_if);
+		if (this_if_name == NULL) {
+			continue;
+		}
+		if (CFEqual(this_if_name, if_name)) {
+			CFRetain(this_if);
+			ret_if = this_if;
+			break;
+		}
+	}
+
+ done:
+	if (current_set != NULL) {
+		CFRelease(current_set);
+	}
+	if (services != NULL) {
+		CFRelease(services);
+	}
+	return (ret_if);
+}
+
+static void
+disable_until_needed_usage(void)
+{
+	fprintf(stderr, "usage: scutil --disable-until-needed <ifname> [ on | off ]\n");
+	return;
+}
+
+#include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
+
+__private_extern__
+void
+do_disable_until_needed(int argc, char **argv)
+{
+	const char * 		if_name;
+	CFStringRef		if_name_cf;
+	SCNetworkInterfaceRef	net_if;
+	Boolean			on = FALSE;
+	Boolean			ok;
+	Boolean			set_value;
+
+	if (argc < 1 || argc > 2) {
+		disable_until_needed_usage();
+		exit(1);
+	}
+	if_name = argv[0];
+	if (argc == 1) {
+		set_value = FALSE;
+	}
+	else {
+		const char *	on_off = argv[1];
+
+		set_value = TRUE;
+		if (strcasecmp(on_off, "on") == 0) {
+			on = TRUE;
+		}
+		else if (strcasecmp(on_off, "off") == 0) {
+			on = FALSE;
+		}
+		else {
+			disable_until_needed_usage();
+			exit(1);
+		}
+	}
+	ok = _prefs_open(CFSTR("scutil --disable-until-needed"), NULL);
+	if (!ok) {
+		SCPrint(TRUE,
+			stdout,
+			CFSTR("Could not open prefs: %s\n"),
+			SCErrorString(SCError()));
+		exit(1);
+	}
+	if_name_cf = CFStringCreateWithCStringNoCopy(NULL,
+						     if_name,
+						     kCFStringEncodingASCII,
+						     kCFAllocatorNull);
+	net_if = copy_configured_interface(prefs, if_name_cf);
+	if (net_if == NULL) {
+		fprintf(stderr, "%s is not configured\n", if_name);
+		exit(1);
+	}
+	if (set_value) {
+		if (SCNetworkInterfaceSetDisableUntilNeeded(net_if, on) == FALSE) {
+			fprintf(stderr, "failed to turn disable-until-needed %s\n",
+				on_off_str(on));
+			exit(1);
+		}
+		_prefs_save();
+	}
+	else {
+		on = SCNetworkInterfaceGetDisableUntilNeeded(net_if);
+		printf("%s disable-until-needed is %s\n", if_name, on_off_str(on));
+	}
+	_prefs_close();
+	exit(0);
+	return;
+}

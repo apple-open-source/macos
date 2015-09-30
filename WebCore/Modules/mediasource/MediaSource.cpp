@@ -67,16 +67,16 @@ void MediaSource::setRegistry(URLRegistry* registry)
     s_registry = registry;
 }
 
-PassRefPtr<MediaSource> MediaSource::create(ScriptExecutionContext& context)
+Ref<MediaSource> MediaSource::create(ScriptExecutionContext& context)
 {
-    RefPtr<MediaSource> mediaSource(adoptRef(new MediaSource(context)));
+    Ref<MediaSource> mediaSource(adoptRef(*new MediaSource(context)));
     mediaSource->suspendIfNeeded();
-    return mediaSource.release();
+    return mediaSource;
 }
 
 MediaSource::MediaSource(ScriptExecutionContext& context)
     : ActiveDOMObject(&context)
-    , m_mediaElement(0)
+    , m_mediaElement(nullptr)
     , m_duration(MediaTime::invalidTime())
     , m_pendingSeekTime(MediaTime::invalidTime())
     , m_readyState(closedKeyword())
@@ -111,7 +111,7 @@ const AtomicString& MediaSource::endedKeyword()
     return ended;
 }
 
-void MediaSource::setPrivateAndOpen(PassRef<MediaSourcePrivate> mediaSourcePrivate)
+void MediaSource::setPrivateAndOpen(Ref<MediaSourcePrivate>&& mediaSourcePrivate)
 {
     ASSERT(!m_private);
     ASSERT(m_mediaElement);
@@ -147,7 +147,7 @@ std::unique_ptr<PlatformTimeRanges> MediaSource::buffered() const
 
     // 1. If activeSourceBuffers.length equals 0 then return an empty TimeRanges object and abort these steps.
     if (activeRanges.isEmpty())
-        return PlatformTimeRanges::create();
+        return std::make_unique<PlatformTimeRanges>();
 
     // 2. Let active ranges be the ranges returned by buffered for each SourceBuffer object in activeSourceBuffers.
     // 3. Let highest end time be the largest range end time in the active ranges.
@@ -160,7 +160,7 @@ std::unique_ptr<PlatformTimeRanges> MediaSource::buffered() const
 
     // Return an empty range if all ranges are empty.
     if (!highestEndTime)
-        return PlatformTimeRanges::create();
+        return std::make_unique<PlatformTimeRanges>();
 
     // 4. Let intersection ranges equal a TimeRange object containing a single range from 0 to highest end time.
     PlatformTimeRanges intersectionRanges(MediaTime::zeroTime(), highestEndTime);
@@ -178,7 +178,7 @@ std::unique_ptr<PlatformTimeRanges> MediaSource::buffered() const
         intersectionRanges.intersectWith(sourceRanges);
     }
 
-    return PlatformTimeRanges::create(intersectionRanges);
+    return std::make_unique<PlatformTimeRanges>(intersectionRanges);
 }
 
 void MediaSource::seekToTime(const MediaTime& time)
@@ -243,6 +243,13 @@ void MediaSource::monitorSourceBuffers()
     // Note, the behavior if activeSourceBuffers is empty is undefined.
     if (!m_activeSourceBuffers) {
         m_private->setReadyState(MediaPlayer::HaveNothing);
+        return;
+    }
+
+    // http://w3c.github.io/media-source/#buffer-monitoring, change from 11 December 2014
+    // ↳ If the the HTMLMediaElement.readyState attribute equals HAVE_NOTHING:
+    if (mediaElement()->readyState() == HTMLMediaElement::HAVE_NOTHING) {
+        // 1. Abort these steps.
         return;
     }
 
@@ -364,7 +371,7 @@ void MediaSource::setDurationInternal(const MediaTime& duration)
     // on all objects in sourceBuffers.
     if (oldDuration.isValid() && duration < oldDuration) {
         for (auto& sourceBuffer : *m_sourceBuffers)
-            sourceBuffer->remove(duration, oldDuration, IGNORE_EXCEPTION);
+            sourceBuffer->rangeRemoval(duration, oldDuration);
     }
 
     // 5. If a user agent is unable to partially render audio frames or text cues that start before and end after the
@@ -384,11 +391,11 @@ void MediaSource::setReadyState(const AtomicString& state)
     ASSERT(state == openKeyword() || state == closedKeyword() || state == endedKeyword());
 
     AtomicString oldState = readyState();
-    LOG(MediaSource, "MediaSource::setReadyState() %p : %s -> %s", this, oldState.string().ascii().data(), state.string().ascii().data());
+    LOG(MediaSource, "MediaSource::setReadyState(%p) : %s -> %s", this, oldState.string().ascii().data(), state.string().ascii().data());
 
     if (state == closedKeyword()) {
-        m_private.clear();
-        m_mediaElement = 0;
+        m_private = nullptr;
+        m_mediaElement = nullptr;
         m_duration = MediaTime::invalidTime();
     }
 
@@ -436,7 +443,13 @@ void MediaSource::streamEndedWithError(const AtomicString& error, ExceptionCode&
     DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, network, ("network", AtomicString::ConstructFromLiteral));
     DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, decode, ("decode", AtomicString::ConstructFromLiteral));
 
+    LOG(MediaSource, "MediaSource::streamEndedWithError(%p) : %s", this, error.string().ascii().data());
+
     // 2.4.7 https://dvcs.w3.org/hg/html-media/raw-file/tip/media-source/media-source.html#end-of-stream-algorithm
+
+    // 1. Change the readyState attribute value to "ended".
+    // 2. Queue a task to fire a simple event named sourceended at the MediaSource.
+    setReadyState(endedKeyword());
 
     // 3.
     if (error.isEmpty()) {
@@ -453,13 +466,6 @@ void MediaSource::streamEndedWithError(const AtomicString& error, ExceptionCode&
         // 2. Notify the media element that it now has all of the media data.
         m_private->markEndOfStream(MediaSourcePrivate::EosNoError);
     }
-
-    // NOTE: Do steps 1 & 2 after step 3 (with an empty error) to avoid the MediaSource's readyState being re-opened by a
-    // remove() operation resulting from a duration change.
-    // FIXME: Re-number or update this section once <https://www.w3.org/Bugs/Public/show_bug.cgi?id=26316> is resolved.
-    // 1. Change the readyState attribute value to "ended".
-    // 2. Queue a task to fire a simple event named sourceended at the MediaSource.
-    setReadyState(endedKeyword());
 
     if (error == network) {
         // ↳ If error is set to "network"
@@ -599,7 +605,7 @@ void MediaSource::removeSourceBuffer(SourceBuffer* buffer, ExceptionCode& ec)
             AudioTrack* track = audioTracks->lastItem();
 
             // 5.3.1 Set the sourceBuffer attribute on the AudioTrack object to null.
-            track->setSourceBuffer(0);
+            track->setSourceBuffer(nullptr);
 
             // 5.3.2 If the enabled attribute on the AudioTrack object is true, then set the removed enabled
             // audio track flag to true.
@@ -639,7 +645,7 @@ void MediaSource::removeSourceBuffer(SourceBuffer* buffer, ExceptionCode& ec)
             VideoTrack* track = videoTracks->lastItem();
 
             // 7.3.1 Set the sourceBuffer attribute on the VideoTrack object to null.
-            track->setSourceBuffer(0);
+            track->setSourceBuffer(nullptr);
 
             // 7.3.2 If the selected attribute on the VideoTrack object is true, then set the removed selected
             // video track flag to true.
@@ -679,7 +685,7 @@ void MediaSource::removeSourceBuffer(SourceBuffer* buffer, ExceptionCode& ec)
             TextTrack* track = textTracks->lastItem();
 
             // 9.3.1 Set the sourceBuffer attribute on the TextTrack object to null.
-            track->setSourceBuffer(0);
+            track->setSourceBuffer(nullptr);
 
             // 9.3.2 If the mode attribute on the TextTrack object is set to "showing" or "hidden", then
             // set the removed enabled text track flag to true.
@@ -730,7 +736,7 @@ bool MediaSource::isTypeSupported(const String& type)
     String codecs = contentType.parameter("codecs");
 
     // 2. If type does not contain a valid MIME type string, then return false.
-    if (contentType.type().isEmpty() || codecs.isEmpty())
+    if (contentType.type().isEmpty())
         return false;
 
     // 3. If type contains a media type or media subtype that the MediaSource does not support, then return false.
@@ -741,7 +747,12 @@ bool MediaSource::isTypeSupported(const String& type)
     parameters.type = contentType.type();
     parameters.codecs = codecs;
     parameters.isMediaSource = true;
-    return MediaPlayer::supportsType(parameters, 0) != MediaPlayer::IsNotSupported;
+    MediaPlayer::SupportsType supported = MediaPlayer::supportsType(parameters, 0);
+
+    if (codecs.isEmpty())
+        return supported != MediaPlayer::IsNotSupported;
+
+    return supported == MediaPlayer::IsSupported;
 }
 
 bool MediaSource::isOpen() const
@@ -800,7 +811,17 @@ void MediaSource::stop()
     m_asyncEventQueue.close();
     if (!isClosed())
         setReadyState(closedKeyword());
-    m_private.clear();
+    m_private = nullptr;
+}
+
+bool MediaSource::canSuspendForPageCache() const
+{
+    return isClosed() && !m_asyncEventQueue.hasPendingEvents();
+}
+
+const char* MediaSource::activeDOMObjectName() const
+{
+    return "MediaSource";
 }
 
 void MediaSource::onReadyStateChange(const AtomicString& oldState, const AtomicString& newState)
@@ -820,8 +841,8 @@ void MediaSource::onReadyStateChange(const AtomicString& oldState, const AtomicS
     m_activeSourceBuffers->clear();
 
     // Clear SourceBuffer references to this object.
-    for (unsigned long i = 0, length =  m_sourceBuffers->length(); i < length; ++i)
-        m_sourceBuffers->item(i)->removedFromMediaSource();
+    for (auto& buffer : *m_sourceBuffers)
+        buffer->removedFromMediaSource();
     m_sourceBuffers->clear();
     
     scheduleEvent(eventNames().sourcecloseEvent);

@@ -27,20 +27,27 @@
 #define Matrix3DTransformOperation_h
 
 #include "TransformOperation.h"
+#include <wtf/Ref.h>
 
 namespace WebCore {
 
 class Matrix3DTransformOperation final : public TransformOperation {
 public:
-    static PassRefPtr<Matrix3DTransformOperation> create(const TransformationMatrix& matrix)
+    static Ref<Matrix3DTransformOperation> create(const TransformationMatrix& matrix)
     {
-        return adoptRef(new Matrix3DTransformOperation(matrix));
+        return adoptRef(*new Matrix3DTransformOperation(matrix));
+    }
+
+    virtual Ref<TransformOperation> clone() const override
+    {
+        return adoptRef(*new Matrix3DTransformOperation(m_matrix));
     }
 
     TransformationMatrix matrix() const {return m_matrix; }
 
 private:    
     virtual bool isIdentity() const override { return m_matrix.isIdentity(); }
+    virtual bool isAffectedByTransformOrigin() const override { return !isIdentity(); }
 
     virtual OperationType type() const override { return MATRIX_3D; }
     virtual bool isSameType(const TransformOperation& o) const override { return o.type() == MATRIX_3D; }
@@ -49,11 +56,11 @@ private:
 
     virtual bool apply(TransformationMatrix& transform, const FloatSize&) const override
     {
-        transform.multiply(TransformationMatrix(m_matrix));
+        transform.multiply(m_matrix);
         return false;
     }
 
-    virtual PassRefPtr<TransformOperation> blend(const TransformOperation* from, double progress, bool blendToIdentity = false) override;
+    virtual Ref<TransformOperation> blend(const TransformOperation* from, double progress, bool blendToIdentity = false) override;
     
     Matrix3DTransformOperation(const TransformationMatrix& mat)
     {
@@ -63,8 +70,8 @@ private:
     TransformationMatrix m_matrix;
 };
 
-TRANSFORMOPERATION_TYPE_CASTS(Matrix3DTransformOperation, type() == TransformOperation::MATRIX_3D);
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_TRANSFORMOPERATION(WebCore::Matrix3DTransformOperation, type() == WebCore::TransformOperation::MATRIX_3D)
 
 #endif // Matrix3DTransformOperation_h

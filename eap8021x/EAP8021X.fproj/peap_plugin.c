@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -445,8 +445,8 @@ peap_compute_session_key(PEAPPluginDataRef context)
 				  sizeof(context->key_data));
     if (status != noErr) {
 	EAPLOG_FL(LOG_NOTICE, 
-		  "EAPTLSComputeSessionKey failed, %s",
-		  EAPSSLErrorString(status));
+		  "EAPTLSComputeSessionKey failed, %s, (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	return (FALSE);
     }
     context->key_data_valid = TRUE;
@@ -488,8 +488,8 @@ peap_start(EAPClientPluginDataRef plugin)
     ssl_context = EAPTLSMemIOContextCreate(FALSE, &context->mem_io, NULL, 
 					   &status);
     if (ssl_context == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	goto failed;
     }
     if (context->resume_sessions && plugin->unique_id != NULL) {
@@ -497,7 +497,8 @@ peap_start(EAPClientPluginDataRef plugin)
 			      plugin->unique_id_length);
 	if (status != noErr) {
 	    EAPLOG_FL(LOG_NOTICE, 
-		      "SSLSetPeerID failed, %s", EAPSSLErrorString(status));
+		      "SSLSetPeerID failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    goto failed;
 	}
     }
@@ -516,8 +517,8 @@ peap_start(EAPClientPluginDataRef plugin)
 	status = SSLSetCertificate(ssl_context, context->certs);
 	if (status != noErr) {
 	    EAPLOG_FL(LOG_NOTICE, 
-		      "SSLSetCertificate failed, %s",
-		      EAPSSLErrorString(status));
+		      "SSLSetCertificate failed, %s, (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    goto failed;
 	}
     }
@@ -792,7 +793,7 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
     char 		out_buf[2048];
     size_t		out_data_size;
     EAPResponsePacketRef out_pkt_p = NULL;
-    int			out_pkt_size;
+    int			out_pkt_size = sizeof(out_buf);
     memoryBufferRef	read_buf = &context->read_buffer;
     bool		ret = FALSE;
     OSStatus		status;
@@ -871,7 +872,7 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	switch (in_pkt_p->type) {
 	case kEAPTypeIdentity:
 	    out_pkt_p = (EAPResponsePacketRef)
-		EAPPacketCreate(out_buf, sizeof(out_buf), 
+		EAPPacketCreate(out_buf, out_pkt_size,
 				kEAPCodeResponse, in_pkt_p->identifier,
 				kEAPTypeIdentity, plugin->username,
 				plugin->username_length, 
@@ -879,13 +880,12 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	    break;
 	case kEAPTypeNotification:
 	    out_pkt_p = (EAPResponsePacketRef)
-		EAPPacketCreate(out_buf, sizeof(out_buf), 
+		EAPPacketCreate(out_buf, out_pkt_size,
 				kEAPCodeResponse, in_pkt_p->identifier,
 				kEAPTypeNotification, NULL, 0, 
 				&out_pkt_size);
 	    break;
 	case kEAPTypeExtensions:
-	    out_pkt_size = sizeof(out_buf);
 	    out_pkt_p 
 		= peap_process_extensions(context,
 					  (EAPExtensionsPacketRef) in_pkt_p,
@@ -893,7 +893,6 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 					  client_status);
 	    break;
 	default:
-	    out_pkt_size = sizeof(out_buf);
 	    out_pkt_p = peap_eap_process(plugin, in_pkt_p,
 					 out_buf, &out_pkt_size,
 					 client_status,
@@ -902,6 +901,7 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	}
 	break;
     case kEAPCodeResponse:
+	/* we shouldn't really be processing EAP Responses */
 	out_pkt_p = peap_eap_process(plugin, in_pkt_p,
 				     out_buf, &out_pkt_size,
 				     client_status,
@@ -967,7 +967,8 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
     }
     if (status != noErr) {
 	EAPLOG_FL(LOG_NOTICE, 
-		  "SSLWrite failed, %s", EAPSSLErrorString(status));
+		  "SSLWrite failed, %s (%ld)", EAPSSLErrorString(status),
+		  (long)status);
     }
     else {
 	ret = TRUE;
@@ -1180,8 +1181,8 @@ peap_request(EAPClientPluginDataRef plugin,
     if (context->ssl_context != NULL) {
 	status = SSLGetSessionState(context->ssl_context, &ssl_state);
 	if (status != noErr) {
-	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s",
-		      EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    context->plugin_state = kEAPClientStateFailure;
 	    context->last_ssl_error = status;
 	    goto done;
@@ -1537,6 +1538,7 @@ peap_publish_props_copy(EAPClientPluginDataRef plugin)
 			 context->session_was_resumed 
 			 ? kCFBooleanTrue
 			 : kCFBooleanFalse);
+    my_CFRelease(&cert_list);
     (void)SSLGetNegotiatedCipher(context->ssl_context, &cipher);
     if (cipher != SSL_NULL_WITH_NULL_NULL) {
 	int		cipher_int = cipher;
@@ -1546,7 +1548,6 @@ peap_publish_props_copy(EAPClientPluginDataRef plugin)
 	CFDictionarySetValue(dict, kEAPClientPropTLSNegotiatedCipher, c);
 	CFRelease(c);
     }
-    my_CFRelease(&cert_list);
     if (context->eap.module != NULL) {
 	dictInsertEAPTypeInfo(dict, context->eap.last_type,
 			      context->eap.last_type_name);

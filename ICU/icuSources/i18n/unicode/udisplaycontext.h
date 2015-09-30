@@ -35,13 +35,21 @@ enum UDisplayContextType {
      * UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, etc.
      * @stable ICU 51
      */
-    UDISPCTX_TYPE_CAPITALIZATION = 1,
-
-#ifndef U_HIDE_INTERNAL_API
+    UDISPCTX_TYPE_CAPITALIZATION = 1
+#ifndef U_HIDE_DRAFT_API
+    ,
     /**
-     * Type to retrieve the capitalization context setting, e.g.
-     * UDISPCTX_CAPITALIZATION_NONE, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,
-     * UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, etc.
+     * Type to retrieve the display length setting, e.g.
+     * UDISPCTX_LENGTH_FULL, UDISPCTX_LENGTH_SHORT.
+     * @draft ICU 54
+     */
+    UDISPCTX_TYPE_DISPLAY_LENGTH = 2
+#endif  /* U_HIDE_DRAFT_API */
+#ifndef U_HIDE_INTERNAL_API
+    ,
+    /**
+     * Apple-specific type to retrieve the display length setting, e.g.
+     * UADISPCTX_LENGTH_STANDARD, UADISPCTX_LENGTH_SHORT
      * @internal ICU 54
      */
     UADISPCTX_TYPE_LENGTH = 32,
@@ -116,23 +124,46 @@ enum UDisplayContext {
      * isolated name on a calendar page.
      * @stable ICU 51
      */
-    UDISPCTX_CAPITALIZATION_FOR_STANDALONE = (UDISPCTX_TYPE_CAPITALIZATION<<8) + 4,
-
-#ifndef U_HIDE_INTERNAL_API
+    UDISPCTX_CAPITALIZATION_FOR_STANDALONE = (UDISPCTX_TYPE_CAPITALIZATION<<8) + 4
+#ifndef U_HIDE_DRAFT_API
+    ,
     /**
      * ================================
-     * LENGTH can be set to one of UADISPCTX_LENGTH_STANDARD or
+     * DISPLAY_LENGTH can be set to one of UDISPCTX_LENGTH_FULL or
+     * UDISPCTX_LENGTH_SHORT. Use UDisplayContextType UDISPCTX_TYPE_DISPLAY_LENGTH
+     * to get the value.
+     */
+    /**
+     * A possible setting for DISPLAY_LENGTH:
+     * use full names when generating a locale name,
+     * e.g. "United States" for US.
+     * @draft ICU 54
+     */
+    UDISPCTX_LENGTH_FULL = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 0,
+    /**
+     * A possible setting for DISPLAY_LENGTH:
+     * use short names when generating a locale name,
+     * e.g. "U.S." for US.
+     * @draft ICU 54
+     */
+    UDISPCTX_LENGTH_SHORT = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 1
+#endif  /* U_HIDE_DRAFT_API */
+#ifndef U_HIDE_INTERNAL_API
+    ,
+    /**
+     * ================================
+     * Apple-specific LENGTH can be set to one of UADISPCTX_LENGTH_STANDARD or
      * UADISPCTX_LENGTH_SHORT. Use UDisplayContextType UADISPCTX_TYPE_LENGTH
      * to get the value.
      */
     /**
-     * A possible setting for LENGTH:
+     * A possible Apple-specific setting for LENGTH:
      * use standard length names when generating a locale name.
      * @internal ICU 54
      */
     UADISPCTX_LENGTH_STANDARD = (UADISPCTX_TYPE_LENGTH<<8) + 0,
     /**
-     * A possible setting for DIALECT_HANDLING:
+     * A possible Apple-specific setting for LENGTH:
      * use short length names (if available) when generating a locale name
      * (in most cases short names are not available and the standard
      * name will be used).

@@ -37,19 +37,17 @@ typedef struct _NPVariant NPVariant;
 typedef void* NPIdentifier;
 
 namespace WebCore {
-    class HTTPHeaderMap;
-    class IntRect;
-    class URL;
-    class ProtectionSpace;
+class HTTPHeaderMap;
+class IntRect;
+class MachSendRight;
+class ProtectionSpace;
+class URL;
 }
 
 namespace WebKit {
 
 class PluginController {
 public:
-    // Returns false if the plugin has explicitly been hidden. Returns true otherwise (even if the plugin is currently obscured from view on screen.)
-    virtual bool isPluginVisible() = 0;
-
     // Tells the controller that the plug-in wants the given rect to be repainted. The rect is in the plug-in's coordinate system.
     virtual void invalidate(const WebCore::IntRect&) = 0;
 
@@ -66,7 +64,10 @@ public:
     virtual void loadURL(uint64_t requestID, const String& method, const String& urlString, const String& target, 
                          const WebCore::HTTPHeaderMap& headerFields, const Vector<uint8_t>& httpBody, bool allowPopups) = 0;
 
-    /// Cancels the load of a stream that was requested by loadURL.
+    // Continues the load of a stream that was requested by loadURL.
+    virtual void continueStreamLoad(uint64_t streamID) = 0;
+
+    // Cancels the load of a stream that was requested by loadURL.
     virtual void cancelStreamLoad(uint64_t streamID) = 0;
 
     // Cancels the load of the manual stream.
@@ -81,6 +82,12 @@ public:
 
     // Evaluates the given script string in the context of the given NPObject.
     virtual bool evaluate(NPObject*, const String& scriptString, NPVariant* result, bool allowPopups) = 0;
+
+    // Called by the Netscape plug-in when it starts or stops playing audio.
+    virtual void setPluginIsPlayingAudio(bool) = 0;
+
+    // Returns whether the plugin should be muted.
+    virtual bool isMuted() const = 0;
 #endif
 
     // Set the statusbar text.
@@ -91,10 +98,7 @@ public:
 
     // Tells the controller that the plug-in process has crashed.
     virtual void pluginProcessCrashed() = 0;
-    
-    // Tells the controller that we're about to dispatch an event to the plug-in.
-    virtual void willSendEventToPlugin() = 0;
-    
+
 #if PLATFORM(COCOA)
     // Tells the controller that the plug-in focus or window focus did change.
     virtual void pluginFocusOrWindowFocusChanged(bool) = 0;
@@ -103,7 +107,7 @@ public:
     virtual void setComplexTextInputState(PluginComplexTextInputState) = 0;
 
     // Returns the mach port of the compositing render server.
-    virtual mach_port_t compositingRenderServerPort() = 0;
+    virtual const WebCore::MachSendRight& compositingRenderServerPort() = 0;
 
     // Open the preference pane for this plug-in (as stated in the plug-in's Info.plist).
     virtual void openPluginPreferencePane() = 0;

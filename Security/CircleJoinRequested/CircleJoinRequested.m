@@ -7,10 +7,8 @@
 //
 #import <Accounts/Accounts.h>
 #import <Accounts/ACAccountStore_Private.h>
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnewline-eof"
+#import <AggregateDictionary/ADClient.h>
 #import <AppleAccount/AppleAccount.h>
-#pragma clang diagnostic pop
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
 #import <Accounts/ACAccountType_Private.h>
 #import <Foundation/Foundation.h>
@@ -26,7 +24,7 @@
 #import <ManagedConfiguration/MCProfileConnection.h>
 #import <ManagedConfiguration/MCFeatures.h>
 #import <Security/SecFrameworkStrings.h>
-#import "PersistantState.h"
+#import "PersistentState.h"
 #include <xpc/private.h>
 #include <sys/time.h>
 #import "NSDate+TimeIntervalDescription.h"
@@ -36,7 +34,10 @@
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <MobileCoreServices/LSApplicationWorkspace.h>
 #import <CloudServices/SecureBackup.h>
+#import <AppSupport/AppSupportUtils.h>
 #import <syslog.h>
+#include "utilities/SecCFRelease.h"
+#include "utilities/debugging.h"
 
 // As long as we are logging the failure use exit code of zero to make launchd happy
 #define EXIT_LOGGED_FAILURE(code)  xpc_transaction_end();  exit(0)
@@ -52,17 +53,6 @@ dispatch_block_t doOnceInMainBlockChain = NULL;
 
 NSString *castleKeychainUrl = @"prefs:root=CASTLE&path=Keychain/ADVANCED";
 
-#if 0
-// For use with:      __attribute__((cleanup(CFReleaseSafeIndirect))) CFType auto_var;
-static void CFReleaseSafeIndirect(void *o_)
-{
-    void **o = o_;
-    if (o && *o) {
-        CFRelease(*o);
-    }
-}
-#endif
-
 static void doOnceInMain(dispatch_block_t block)
 {
     if (doOnceInMainBlockChain) {
@@ -75,17 +65,20 @@ static void doOnceInMain(dispatch_block_t block)
     }
 }
 
+
 static NSString *appleIDAccountName()
 {
-    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
+    ACAccountStore *accountStore   = [[ACAccountStore alloc] init];
     ACAccount *primaryAppleAccount = [accountStore aa_primaryAppleAccount];
     return primaryAppleAccount.username;
 }
 
+
 static CFOptionFlags flagsForAsk(Applicant *applicant)
 {
-	return kCFUserNotificationPlainAlertLevel|CFUserNotificationSecureTextField(0);
+	return kCFUserNotificationPlainAlertLevel | CFUserNotificationSecureTextField(0);
 }
+
 
 // NOTE: gives precedence to OnScreen
 static Applicant *firstApplicantWaitingOrOnScreen()
@@ -102,6 +95,7 @@ static Applicant *firstApplicantWaitingOrOnScreen()
     return waiting;
 }
 
+
 static NSMutableArray *applicantsInState(ApplicantUIState state)
 {
     NSMutableArray *results = [NSMutableArray new];
@@ -114,226 +108,242 @@ static NSMutableArray *applicantsInState(ApplicantUIState state)
     return results;
 }
 
-static BOOL processRequests(CFErrorRef *error)
-{
-    bool ok = true;
-    NSMutableArray *toAccept = [[applicantsInState(ApplicantAccepted) mapWithBlock:^id(id obj) {
-        return (id)[obj rawPeerInfo];
-    }] mutableCopy];
-    NSMutableArray *toReject = [[applicantsInState(ApplicantRejected) mapWithBlock:^id(id obj) {
-        return (id)[obj rawPeerInfo];
-    }] mutableCopy];
-    
-    NSLog(@"Process accept: %@", toAccept);
-    NSLog(@"Process reject: %@", toReject);
-    
-    if ([toAccept count]) {
-        ok = ok && SOSCCAcceptApplicants((__bridge CFArrayRef)(toAccept), error);
-    }
-    if ([toReject count]) {
-        ok = ok && SOSCCRejectApplicants((__bridge CFArrayRef)(toReject), error);
-    }
-    
-    return ok;
+
+static BOOL processRequests(CFErrorRef *error) {
+	NSMutableArray *toAccept = [[applicantsInState(ApplicantAccepted) mapWithBlock:^id(id obj) {return (id)[obj rawPeerInfo];}] mutableCopy];
+	NSMutableArray *toReject = [[applicantsInState(ApplicantRejected) mapWithBlock:^id(id obj) {return (id)[obj rawPeerInfo];}] mutableCopy];
+	bool			ok = true;
+
+	NSLog(@"Process accept: %@", toAccept);
+	NSLog(@"Process reject: %@", toReject);
+
+	if ([toAccept count])
+		ok = ok && SOSCCAcceptApplicants((__bridge CFArrayRef) toAccept, error);
+
+	if ([toReject count])
+		ok = ok && SOSCCRejectApplicants((__bridge CFArrayRef) toReject, error);
+
+	return ok;
 }
 
-static void cancelCurrentAlert(bool stopRunLoop)
-{
-    if (currentAlertSource) {
-        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), currentAlertSource, kCFRunLoopDefaultMode);
-        CFRelease(currentAlertSource);
-        currentAlertSource = NULL;
-    }
-    if (currentAlert) {
-        CFUserNotificationCancel(currentAlert);
-        CFRelease(currentAlert);
-        currentAlert = NULL;
-    }
-    if (stopRunLoop) {
-        CFRunLoopStop(CFRunLoopGetCurrent());
-    }
-    currentAlertIsForKickOut = currentAlertIsForApplicants = false;
+
+static void cancelCurrentAlert(bool stopRunLoop) {
+	if (currentAlertSource) {
+		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), currentAlertSource, kCFRunLoopDefaultMode);
+		CFReleaseNull(currentAlertSource);
+	}
+	if (currentAlert) {
+		CFUserNotificationCancel(currentAlert);
+		CFReleaseNull(currentAlert);
+	}
+	if (stopRunLoop) {
+		CFRunLoopStop(CFRunLoopGetCurrent());
+	}
+	currentAlertIsForKickOut = currentAlertIsForApplicants = false;
 }
+
 
 static void askAboutAll(bool passwordFailure);
 
+
 static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlags responseFlags)
 {
-    ApplicantUIState choice;
-    
-    if (kCFUserNotificationAlternateResponse == responseFlags) {
-        choice = ApplicantRejected;
-    } else if (kCFUserNotificationDefaultResponse == responseFlags) {
-        choice = ApplicantAccepted;
-    } else {
-        NSLog(@"Unexpected response %lu", responseFlags);
-        choice = ApplicantRejected;
-    }
-    
-    BOOL processed = NO;
-    CFErrorRef error = NULL;
-    
-    NSArray *onScreen = applicantsInState(ApplicantOnScreen);
-    
-    [onScreen enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-        Applicant* applicant = (Applicant*) obj;
-        
-        applicant.applicantUIState = choice;
-    }];
-    
-    if (choice == ApplicantRejected) {
-        // If this device has ever set up the public key this should work without the password...
-        processed = processRequests(&error);
-        if (processed) {
-            NSLog(@"Didn't need password to process %@", onScreen);
-            cancelCurrentAlert(true);
-            return;
-        } else {
-            // ...however if the public key gets lost we should "just" fall through to the validate
-            // password path.
-            NSLog(@"Couldn't process reject without password (e=%@) for %@ (will try with password next)", error, onScreen);
-        }
-    }
-    
-    NSString *password = (__bridge NSString *)(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, 0));
-    if (!password) {
-        NSLog(@"No password given, retry");
-        askAboutAll(true);
-        return;
-    }
-    const char *passwordUTF8 = [password UTF8String];
-    NSData *passwordBytes = [NSData dataWithBytes:passwordUTF8 length:strlen(passwordUTF8)];
-    
-    // Sometimes securityd crashes between the SOSCCRegisterUserCredentials and the processRequests,
-    // (which results in a process error -- I think this is 13355140); as a workaround we retry
-    // failure a few times before we give up.
-    for (int try = 0; try < 5 && !processed; try++) {
-        if (!SOSCCTryUserCredentials(CFSTR(""), (__bridge CFDataRef)(passwordBytes), &error)) {
-            NSLog(@"Try user credentials failed %@", error);
-            if ((error==NULL) || (CFEqual(kSOSErrorDomain, CFErrorGetDomain(error)) && kSOSErrorWrongPassword == CFErrorGetCode(error))) {
-                NSLog(@"Calling askAboutAll again...");
-                
-                [onScreen enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-                    Applicant* applicant = (Applicant*) obj;
-                    
-                    applicant.applicantUIState = ApplicantWaiting;
-                }];
-                askAboutAll(true);
-                return;
-            }
-            EXIT_LOGGED_FAILURE(EX_DATAERR);
-        }
-        
-        processed = processRequests(&error);
-        if (!processed) {
-            NSLog(@"Can't processRequests: %@ for %@", error, onScreen);
-        }
-    }
-    if (processed && firstApplicantWaitingOrOnScreen()) {
-        cancelCurrentAlert(false);
-        askAboutAll(false);
-    } else {
-        cancelCurrentAlert(true);
-    }
+	ApplicantUIState choice;
+
+	if (kCFUserNotificationAlternateResponse == responseFlags) {
+		choice = ApplicantRejected;
+	} else if (kCFUserNotificationDefaultResponse == responseFlags) {
+		choice = ApplicantAccepted;
+	} else {
+		NSLog(@"Unexpected response %lu", responseFlags);
+		choice = ApplicantRejected;
+	}
+
+	BOOL		processed = NO;
+	CFErrorRef	error     = NULL;
+	NSArray		*onScreen = applicantsInState(ApplicantOnScreen);
+
+	[onScreen enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+		Applicant* applicant = (Applicant *) obj;
+		applicant.applicantUIState = choice;
+	}];
+
+	if (choice == ApplicantRejected) {
+		// If this device has ever set up the public key this should work without the password...
+		processed = processRequests(&error);
+		if (processed) {
+			NSLog(@"Didn't need password to process %@", onScreen);
+			cancelCurrentAlert(true);
+			return;
+		} else {
+			// ...however if the public key gets lost we should "just" fall through to the validate
+			// password path.
+			NSLog(@"Couldn't process reject without password (e=%@) for %@ (will try with password next)", error, onScreen);
+		}
+		CFReleaseNull(error);
+	}
+
+	NSString *password = (__bridge NSString *)(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, 0));
+	if (!password) {
+		NSLog(@"No password given, retry");
+		askAboutAll(true);
+		return;
+	}
+	const char  *passwordUTF8  = [password UTF8String];
+	NSData		*passwordBytes = [NSData dataWithBytes:passwordUTF8 length:strlen(passwordUTF8)];
+
+	// Sometimes securityd crashes between SOSCCRegisterUserCredentials and processRequests
+	// (which results in a process error -- I think this is 13355140), as a workaround we retry
+	// failure a few times before we give up.
+	for (int try = 0; try < 5 && !processed; try++) {
+		if (!SOSCCTryUserCredentials(CFSTR(""), (__bridge CFDataRef)(passwordBytes), &error)) {
+			NSLog(@"Try user credentials failed %@", error);
+			if ((error == NULL) ||
+				(CFEqual(kSOSErrorDomain, CFErrorGetDomain(error)) && kSOSErrorWrongPassword == CFErrorGetCode(error))) {
+				NSLog(@"Calling askAboutAll again...");
+				[onScreen enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+					Applicant* applicant = (Applicant*) obj;
+					applicant.applicantUIState = ApplicantWaiting;
+				}];
+				askAboutAll(true);
+				CFReleaseNull(error);
+				return;
+			}
+			EXIT_LOGGED_FAILURE(EX_DATAERR);
+		}
+
+		processed = processRequests(&error);
+		if (!processed) {
+			NSLog(@"Can't processRequests: %@ for %@", error, onScreen);
+		}
+		CFReleaseNull(error);
+	}
+
+	if (processed && firstApplicantWaitingOrOnScreen()) {
+		cancelCurrentAlert(false);
+		askAboutAll(false);
+	} else {
+		cancelCurrentAlert(true);
+	}
 }
+
 
 static void passwordFailurePrompt()
 {
-    //CFBridgingRelease
-    NSString *pwIncorrect = [NSString stringWithFormat:(NSString *)CFBridgingRelease(SecCopyCKString(SEC_CK_PASSWORD_INCORRECT)), appleIDAccountName()];
-    NSString *tryAgain = CFBridgingRelease(SecCopyCKString(SEC_CK_TRY_AGAIN));
-    NSDictionary *noteAttributes = @{
-                                     (id)kCFUserNotificationAlertHeaderKey: pwIncorrect,
-                                     (id)kCFUserNotificationDefaultButtonTitleKey: tryAgain,
-                                     // TopMost gets us onto the lock screen
-                                     (id)kCFUserNotificationAlertTopMostKey: (id)kCFBooleanTrue,
-                                     (__bridge id)SBUserNotificationDontDismissOnUnlock: @YES,
-                                     (__bridge id)SBUserNotificationDismissOnLock: @NO,
-                                     };
-    CFOptionFlags flags = kCFUserNotificationPlainAlertLevel;
-    SInt32 err;
-    CFUserNotificationRef note = CFUserNotificationCreate(NULL, 0.0, flags, &err, (__bridge CFDictionaryRef)noteAttributes);
-    CFUserNotificationReceiveResponse(note, 0.0, &flags);
-    CFRelease(note);
+	NSString	 *pwIncorrect = [NSString stringWithFormat:(NSString *)CFBridgingRelease(SecCopyCKString(SEC_CK_PASSWORD_INCORRECT)), appleIDAccountName()];
+	NSString 	 *tryAgain    = CFBridgingRelease(SecCopyCKString(SEC_CK_TRY_AGAIN));
+	NSDictionary *noteAttributes = @{
+		(id) kCFUserNotificationAlertHeaderKey			   : pwIncorrect,
+		(id) kCFUserNotificationDefaultButtonTitleKey	   : tryAgain,
+		(id) kCFUserNotificationAlertTopMostKey      	   : @YES,			// get us onto the lock screen
+		(__bridge id) SBUserNotificationDontDismissOnUnlock: @YES,
+		(__bridge id) SBUserNotificationDismissOnLock	   : @NO,
+	};
+	CFOptionFlags		  flags = kCFUserNotificationPlainAlertLevel;
+	SInt32		  		  err;
+	CFUserNotificationRef note = CFUserNotificationCreate(NULL, 0.0, flags, &err, (__bridge CFDictionaryRef)noteAttributes);
+
+	if (note) {
+		CFUserNotificationReceiveResponse(note, 0.0, &flags);
+		CFRelease(note);
+	}
 }
 
-static NSDictionary *createNote(Applicant *applicantToAskAbout) {
-    if(!applicantToAskAbout) return NULL;
-    NSString *appName = applicantToAskAbout.name;
-    if(!appName) return NULL;
-    NSString *devType = applicantToAskAbout.deviceType;
-    if(!devType) return NULL;
-    return @{
-        (id)kCFUserNotificationAlertHeaderKey: [NSString stringWithFormat:(__bridge_transfer NSString*)SecCopyCKString(SEC_CK_JOIN_TITLE), appName],
-        (id)kCFUserNotificationAlertMessageKey: [NSString stringWithFormat:(__bridge_transfer NSString*)SecCopyCKString(SEC_CK_JOIN_PROMPT), appleIDAccountName(), devType],
-        (id)kCFUserNotificationDefaultButtonTitleKey: (__bridge_transfer NSString*)SecCopyCKString(SEC_CK_ALLOW),
-        (id)kCFUserNotificationAlternateButtonTitleKey: (__bridge_transfer NSString*)SecCopyCKString(SEC_CK_DONT_ALLOW),
-        (id)kCFUserNotificationTextFieldTitlesKey: (__bridge_transfer NSString*)SecCopyCKString(SEC_CK_ICLOUD_PASSWORD),
-        // TopMost gets us onto the lock screen
-        (id)kCFUserNotificationAlertTopMostKey: (id)kCFBooleanTrue,
-        (__bridge_transfer id)SBUserNotificationDontDismissOnUnlock: @YES,
-        (__bridge_transfer id)SBUserNotificationDismissOnLock: @NO,
+
+static NSString *getLocalizedApprovalBody(NSString *deviceType) {
+	CFStringRef applicationReminder = NULL;
+
+	if ([deviceType isEqualToString:@"iPhone"])
+		applicationReminder = SecCopyCKString(SEC_CK_APPROVAL_BODY_IOS_IPHONE);
+	else if ([deviceType isEqualToString:@"iPod"])
+		applicationReminder = SecCopyCKString(SEC_CK_APPROVAL_BODY_IOS_IPOD);
+	else if ([deviceType isEqualToString:@"iPad"])
+		applicationReminder = SecCopyCKString(SEC_CK_APPROVAL_BODY_IOS_IPAD);
+	else if ([deviceType isEqualToString:@"Mac"])
+		applicationReminder = SecCopyCKString(SEC_CK_APPROVAL_BODY_IOS_MAC);
+	else
+		applicationReminder = SecCopyCKString(SEC_CK_APPROVAL_BODY_IOS_GENERIC);
+
+	return (__bridge_transfer NSString *) applicationReminder;
+}
+
+
+static NSDictionary *createNote(Applicant *applicantToAskAbout)
+{
+	if(!applicantToAskAbout || !applicantToAskAbout.name || !applicantToAskAbout.deviceType)
+		return NULL;
+
+	NSString *header = [NSString stringWithFormat: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVAL_TITLE_IOS), applicantToAskAbout.name];
+	NSString *body   = [NSString stringWithFormat: getLocalizedApprovalBody(applicantToAskAbout.deviceType), appleIDAccountName()];
+
+	return @{
+		(id) kCFUserNotificationAlertHeaderKey		   : header,
+		(id) kCFUserNotificationAlertMessageKey		   : body,
+		(id) kCFUserNotificationDefaultButtonTitleKey  : (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_ALLOW),
+		(id) kCFUserNotificationAlternateButtonTitleKey: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_DONT_ALLOW),
+		(id) kCFUserNotificationTextFieldTitlesKey	   : (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_ICLOUD_PASSWORD),
+		(id) kCFUserNotificationAlertTopMostKey		   : @YES,				//  get us onto the lock screen
+		(__bridge_transfer id) SBUserNotificationDontDismissOnUnlock: @YES,
+		(__bridge_transfer id) SBUserNotificationDismissOnLock		: @NO,
     };
 }
 
+
 static void askAboutAll(bool passwordFailure)
 {
-    if ([[MCProfileConnection sharedConnection] effectiveBoolValueForSetting: MCFeatureAccountModificationAllowed] == MCRestrictedBoolExplicitNo) {
-        NSLog(@"Account modifications not allowed.");
-        return;
-    }
-    
-    if (passwordFailure) {
-        passwordFailurePrompt();
-    }
-    
-    if ((passwordFailure || !currentAlertIsForApplicants) && currentAlert) {
-        if (!currentAlertIsForApplicants) {
-            CFUserNotificationCancel(currentAlert);
-        }
-        // after password failure we need to remove the existing alert and supporting objects
-        // because we can't reuse them.
-        CFRelease(currentAlert);
-        currentAlert = NULL;
-        if (currentAlertSource) {
-            CFRelease(currentAlertSource);
-            currentAlertSource = NULL;
-        }
-    }
-    currentAlertIsForApplicants = true;
-    
-    Applicant *applicantToAskAbout = firstApplicantWaitingOrOnScreen();
-    NSLog(@"Asking about: %@ (of: %@)", applicantToAskAbout, applicants);
-    
-    NSDictionary *noteAttributes = createNote(applicantToAskAbout);
-    if(!noteAttributes) {
-        NSLog(@"NULL data for %@", applicantToAskAbout);
-        cancelCurrentAlert(true);
-        return;
-    }
-    
-    CFOptionFlags flags = flagsForAsk(applicantToAskAbout);
-    
-    if (currentAlert) {
-        SInt32 err = CFUserNotificationUpdate(currentAlert, 0, flags, (__bridge CFDictionaryRef)noteAttributes);
-        if (err) {
-            NSLog(@"CFUserNotificationUpdate err=%d", (int)err);
-            EXIT_LOGGED_FAILURE(EX_SOFTWARE);
-        }
-    } else {
-        SInt32 err = 0;
-        currentAlert = CFUserNotificationCreate(NULL, 0.0, flags, &err, (__bridge CFDictionaryRef)(noteAttributes));
-        if (err) {
-            NSLog(@"Can't make notification for %@ err=%x", applicantToAskAbout, (int)err);
-            EXIT_LOGGED_FAILURE(EX_SOFTWARE);
-        }
-        
-        currentAlertSource = CFUserNotificationCreateRunLoopSource(NULL, currentAlert, applicantChoice, 0);
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), currentAlertSource, kCFRunLoopDefaultMode);
-    }
-    
-    applicantToAskAbout.applicantUIState = ApplicantOnScreen;
+	if ([[MCProfileConnection sharedConnection] effectiveBoolValueForSetting: MCFeatureAccountModificationAllowed] == MCRestrictedBoolExplicitNo) {
+		NSLog(@"Account modifications not allowed.");
+		return;
+	}
+
+	if (passwordFailure) {
+		passwordFailurePrompt();
+	}
+
+	if ((passwordFailure || !currentAlertIsForApplicants) && currentAlert) {
+		if (!currentAlertIsForApplicants) {
+			CFUserNotificationCancel(currentAlert);
+		}
+		// after password failure we need to remove the existing alert and supporting objects
+		// because we can't reuse them.
+		CFReleaseNull(currentAlert);
+		CFReleaseNull(currentAlertSource);
+	}
+	currentAlertIsForApplicants = true;
+
+	Applicant *applicantToAskAbout = firstApplicantWaitingOrOnScreen();
+	NSLog(@"Asking about: %@ (of: %@)", applicantToAskAbout, applicants);
+
+	NSDictionary *noteAttributes = createNote(applicantToAskAbout);
+	if(!noteAttributes) {
+		NSLog(@"NULL data for %@", applicantToAskAbout);
+		cancelCurrentAlert(true);
+		return;
+	}
+
+	CFOptionFlags flags = flagsForAsk(applicantToAskAbout);
+
+	if (currentAlert) {
+		SInt32 err = CFUserNotificationUpdate(currentAlert, 0, flags, (__bridge CFDictionaryRef)noteAttributes);
+		if (err) {
+			NSLog(@"CFUserNotificationUpdate err=%d", (int)err);
+			EXIT_LOGGED_FAILURE(EX_SOFTWARE);
+		}
+	} else {
+		SInt32 err = 0;
+		currentAlert = CFUserNotificationCreate(NULL, 0.0, flags, &err, (__bridge CFDictionaryRef)(noteAttributes));
+		if (err) {
+			NSLog(@"Can't make notification for %@ err=%x", applicantToAskAbout, (int)err);
+			EXIT_LOGGED_FAILURE(EX_SOFTWARE);
+		}
+
+		currentAlertSource = CFUserNotificationCreateRunLoopSource(NULL, currentAlert, applicantChoice, 0);
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), currentAlertSource, kCFRunLoopDefaultMode);
+	}
+
+	applicantToAskAbout.applicantUIState = ApplicantOnScreen;
 }
+
 
 static void scheduleActivity(int alertInterval)
 {
@@ -349,17 +359,18 @@ static void scheduleActivity(int alertInterval)
     });
 }
 
-static void reminderChoice(CFUserNotificationRef userNotification, CFOptionFlags responseFlags)
-{
-    if (kCFUserNotificationAlternateResponse == responseFlags || kCFUserNotificationDefaultResponse == responseFlags) {
-        PersistantState *state = [PersistantState loadFromStorage];
+
+static void reminderChoice(CFUserNotificationRef userNotification, CFOptionFlags responseFlags) {
+    if (responseFlags == kCFUserNotificationAlternateResponse || responseFlags == kCFUserNotificationDefaultResponse) {
+        PersistentState *state = [PersistentState loadFromStorage];
         NSDate *nowish = [NSDate new];
         state.pendingApplicationReminder = [nowish dateByAddingTimeInterval: state.pendingApplicationReminderAlertInterval];
         scheduleActivity(state.pendingApplicationReminderAlertInterval);
         [state writeToStorage];
-        if (kCFUserNotificationAlternateResponse == responseFlags) {
+        if (responseFlags == kCFUserNotificationAlternateResponse) {
+			// Use security code
             BOOL ok = [[LSApplicationWorkspace defaultWorkspace] openSensitiveURL:[NSURL URLWithString:castleKeychainUrl] withOptions:nil];
-            NSLog(@"ok=%d opening %@", ok, [NSURL URLWithString:castleKeychainUrl]);
+			NSLog(@"%s iCSC: opening %@ ok=%d", __FUNCTION__, castleKeychainUrl, ok);
         }
     }
 
@@ -367,153 +378,177 @@ static void reminderChoice(CFUserNotificationRef userNotification, CFOptionFlags
 }
 
 
-static NSString* getLocalizedDeviceClass(void) {
-    NSString *deviceType = NULL;
-    switch (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid)) {
-        case MGDeviceClassiPhone:
-            deviceType = (__bridge NSString*)SecCopyCKString(SEC_CK_THIS_IPHONE);
-            break;
-        case MGDeviceClassiPod:
-            deviceType = (__bridge NSString*)SecCopyCKString(SEC_CK_THIS_IPOD);
-            break;
-        case MGDeviceClassiPad:
-            deviceType = (__bridge NSString*)SecCopyCKString(SEC_CK_THIS_IPAD);
-            break;
-        default:
-            deviceType = (__bridge NSString*)SecCopyCKString(SEC_CK_THIS_DEVICE);
-            break;
-    }
-    return deviceType;
+static bool iCloudResetAvailable() {
+	SecureBackup *backupd = [SecureBackup new];
+	NSDictionary *backupdResults;
+	NSError		 *error = [backupd getAccountInfoWithInfo:nil results:&backupdResults];
+	NSLog(@"SecureBackup e=%@ r=%@", error, backupdResults);
+	return (error == nil && [backupdResults[kSecureBackupIsEnabledKey] isEqualToNumber:@YES]);
 }
 
-static bool iCloudResetAvailable()
-{
-    SecureBackup *backupd = [SecureBackup new];
-    NSDictionary *backupdResults;
-    NSError *error = [backupd getAccountInfoWithInfo:nil results:&backupdResults];
-    NSLog(@"SecureBackup e=%@ r=%@", error, backupdResults);
-    return (nil == error && [backupdResults[kSecureBackupIsEnabledKey] isEqualToNumber:@YES]);
+
+
+static NSString *getLocalizedApplicationReminder() {
+	CFStringRef applicationReminder = NULL;
+	switch (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid)) {
+	case MGDeviceClassiPhone:
+		applicationReminder = SecCopyCKString(SEC_CK_REMINDER_BODY_IOS_IPHONE);
+		break;
+	case MGDeviceClassiPod:
+		applicationReminder = SecCopyCKString(SEC_CK_REMINDER_BODY_IOS_IPOD);
+		break;
+	case MGDeviceClassiPad:
+		applicationReminder = SecCopyCKString(SEC_CK_REMINDER_BODY_IOS_IPAD);
+		break;
+	default:
+		applicationReminder = SecCopyCKString(SEC_CK_REMINDER_BODY_IOS_GENERIC);
+		break;
+	}
+	return (__bridge_transfer NSString *) applicationReminder;
 }
 
-static void postApplicationReminderAlert(NSDate *nowish, PersistantState *state, unsigned int alertInterval)
+
+static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state, unsigned int alertInterval)
 {
+	NSString *body		= getLocalizedApplicationReminder();
+	bool      has_iCSC	= iCloudResetAvailable();
 
-    NSString *deviceType = getLocalizedDeviceClass();
-    
-    bool has_iCSC = iCloudResetAvailable();
-
-    NSString *alertMessage = [NSString stringWithFormat:(__bridge NSString*)SecCopyCKString(has_iCSC ? SEC_CK_ARS1_BODY : SEC_CK_ARS0_BODY), deviceType];
-    if (state.defaultPendingApplicationReminderAlertInterval != state.pendingApplicationReminderAlertInterval) {
-        alertMessage = [NSString stringWithFormat:@"%@  〖debug interval %u; wait time %@〗",
-                        alertMessage,
-                        state.pendingApplicationReminderAlertInterval,
-                        [nowish copyDescriptionOfIntervalSince:state.applcationDate]];
+	if (state.defaultPendingApplicationReminderAlertInterval != state.pendingApplicationReminderAlertInterval) {
+		body = [body stringByAppendingFormat: @"〖debug interval %u; wait time %@〗",
+					state.pendingApplicationReminderAlertInterval,
+					[nowish copyDescriptionOfIntervalSince:state.applicationDate]];
     }
-    
+
     NSDictionary *pendingAttributes = @{
-                                        (id)kCFUserNotificationAlertHeaderKey: (__bridge NSString*)SecCopyCKString(has_iCSC ? SEC_CK_ARS1_TITLE : SEC_CK_ARS0_TITLE),
-                                        (id)kCFUserNotificationAlertMessageKey: alertMessage,
-                                        (id)kCFUserNotificationDefaultButtonTitleKey: (__bridge NSString*)SecCopyCKString(SEC_CK_AR_APPROVE_OTHER),
-                                        (id)kCFUserNotificationAlternateButtonTitleKey: has_iCSC ? (__bridge NSString*)SecCopyCKString(SEC_CK_AR_USE_CODE) : @"",
-                                        (id)kCFUserNotificationAlertTopMostKey: (id)kCFBooleanTrue,
-                                        (__bridge id)SBUserNotificationHideButtonsInAwayView: @YES,
-                                        (__bridge id)SBUserNotificationDontDismissOnUnlock: @YES,
-                                        (__bridge id)SBUserNotificationDismissOnLock: @NO,
-										(__bridge id)SBUserNotificationOneButtonPerLine: @YES,
-                                        };
+		(id) kCFUserNotificationAlertHeaderKey		   : (__bridge NSString *) SecCopyCKString(SEC_CK_REMINDER_TITLE_IOS),
+		(id) kCFUserNotificationAlertMessageKey		   : body,
+		(id) kCFUserNotificationDefaultButtonTitleKey  : (__bridge NSString *) SecCopyCKString(SEC_CK_REMINDER_BUTTON_OK),
+		(id) kCFUserNotificationAlternateButtonTitleKey: has_iCSC ? (__bridge NSString *) SecCopyCKString(SEC_CK_REMINDER_BUTTON_ICSC) : @"",
+		(id) kCFUserNotificationAlertTopMostKey				: @YES,
+		(__bridge id) SBUserNotificationDontDismissOnUnlock	: @YES,
+		(__bridge id) SBUserNotificationDismissOnLock		: @NO,
+		(__bridge id) SBUserNotificationOneButtonPerLine	: @YES,
+	};
     SInt32 err = 0;
-    currentAlert = CFUserNotificationCreate(NULL, 0.0, kCFUserNotificationPlainAlertLevel, &err, (__bridge CFDictionaryRef)(pendingAttributes));
-    
-    if (err) {
-        NSLog(@"Can't make pending notification err=%x", (int)err);
-    } else {
-        currentAlertIsForApplicants = false;
-        currentAlertSource = CFUserNotificationCreateRunLoopSource(NULL, currentAlert, reminderChoice, 0);
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), currentAlertSource, kCFRunLoopDefaultMode);
-    }
+    currentAlert = CFUserNotificationCreate(NULL, 0.0, kCFUserNotificationPlainAlertLevel, &err, (__bridge CFDictionaryRef) pendingAttributes);
+
+	if (err) {
+		NSLog(@"Can't make pending notification err=%x", (int)err);
+	} else {
+		currentAlertIsForApplicants = false;
+		currentAlertSource = CFUserNotificationCreateRunLoopSource(NULL, currentAlert, reminderChoice, 0);
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), currentAlertSource, kCFRunLoopDefaultMode);
+	}
 }
 
-static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags responseFlags)
-{
-    NSLog(@"kOC %@ %lu", userNotification, responseFlags);
-    if (kCFUserNotificationAlternateResponse == responseFlags) {
-        // We need to let things unwind to main for the new state to get saved
-        doOnceInMain(^{
-            BOOL ok = [[LSApplicationWorkspace defaultWorkspace] openSensitiveURL:[NSURL URLWithString:castleKeychainUrl] withOptions:nil];
-            NSLog(@"ok=%d opening %@", ok, [NSURL URLWithString:castleKeychainUrl]);
-        });
-    }
-    cancelCurrentAlert(true);
+
+static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags responseFlags) {
+	NSLog(@"kOC %@ %lu", userNotification, responseFlags);
+	if (responseFlags == kCFUserNotificationDefaultResponse) {
+		// We need to let things unwind to main for the new state to get saved
+		doOnceInMain(^{
+			BOOL ok = [[LSApplicationWorkspace defaultWorkspace] openSensitiveURL:[NSURL URLWithString:castleKeychainUrl] withOptions:nil];
+			NSLog(@"ok=%d opening %@", ok, [NSURL URLWithString:castleKeychainUrl]);
+		});
+	}
+	cancelCurrentAlert(true);
 }
+
+
+CFStringRef const CJRAggdDepartureReasonKey  = CFSTR("com.apple.security.circlejoinrequested.departurereason");
+CFStringRef const CJRAggdNumCircleDevicesKey = CFSTR("com.apple.security.circlejoinrequested.numcircledevices");
 
 static void postKickedOutAlert(enum DepartureReason reason)
 {
-    NSString *deviceType = getLocalizedDeviceClass();
-	NSString *message = nil;
-    debugState = @"pKOA A";
-	bool ok_to_use_code = iCloudResetAvailable();
-    debugState = @"pKOA B";
-   
-	switch (reason) {
-		case kSOSNeverLeftCircle:
-            // Was: SEC_CK_CR_BODY_NEVER_LEFT
-            return;
-			break;
-			
-		case kSOSWithdrewMembership:
-            // Was: SEC_CK_CR_BODY_WITHDREW
-            // "... if you turn off a switch you have some idea why the light is off" - Murf
-            return;
-			break;
-			
-		case kSOSMembershipRevoked:
-			message = [NSString stringWithFormat:(__bridge NSString*)SecCopyCKString(SEC_CK_CR_BODY_REVOKED), deviceType];
-			break;
-			
-		case kSOSLeftUntrustedCircle:
-			message = [NSString stringWithFormat:(__bridge NSString*)SecCopyCKString(SEC_CK_CR_BODY_LEFT_UNTRUSTED), deviceType];
-			ok_to_use_code = false;
-			break;
-			
-        case kSOSNeverAppliedToCircle:
-            // We didn't get kicked out, we were never here.   This should only happen if we changed iCloud accounts
-            // (and we had sync on in the previous one, and never had it on in the new one).   As this is explicit
-            // user action alot of thd "Light switch" argument (above) applies.
-            return;
-            break;
-            
-		default:
-			message = [NSString stringWithFormat:(__bridge NSString*)SecCopyCKString(SEC_CK_CR_BODY_UNKNOWN), deviceType];
-			ok_to_use_code = false;
-            syslog(LOG_ERR, "Unknown DepartureReason %d", reason);
-			break;
+	NSString	*header  = nil;
+	NSString	*message = nil;
+
+	// <rdar://problem/20358568> iCDP telemetry: ☂ Statistics on circle reset and drop out events
+	ADClientSetValueForScalarKey(CJRAggdDepartureReasonKey, reason);
+
+	int64_t    num_peers = 0;
+	CFArrayRef peerList  = SOSCCCopyPeerPeerInfo(NULL);
+	if (peerList) {
+		num_peers = CFArrayGetCount(peerList);
+		if (num_peers > 99) {
+			// Round down # peers to 2 significant digits
+			int factor;
+			for (factor = 10; num_peers >= 100*factor; factor *= 10) ;
+			num_peers = (num_peers / factor) * factor;
+		}
+		CFRelease(peerList);
 	}
-	
+	ADClientSetValueForScalarKey(CJRAggdNumCircleDevicesKey, num_peers);
+
+	debugState = @"pKOA A";
+	syslog(LOG_ERR, "DepartureReason %d", reason);
+	switch (reason) {
+	case kSOSDiscoveredRetirement:
+	case kSOSLostPrivateKey:
+	case kSOSWithdrewMembership:
+		// Was: SEC_CK_CR_BODY_WITHDREW
+		// "... if you turn off a switch you have some idea why the light is off" - Murf
+		return;
+		break;
+
+	case kSOSNeverAppliedToCircle:
+		// We didn't get kicked out, we were never here. This should only happen if we changed iCloud accounts
+		// (and we had sync on in the previous one, and never had it on in the new one). As this is explicit
+		// user action alot of the "Light switch" argument (above) applies.
+		return;
+		break;
+
+	case kSOSNeverLeftCircle:
+	case kSOSMembershipRevoked:
+	case kSOSLeftUntrustedCircle:
+	default:
+		header  = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_PWD_REQUIRED_TITLE);
+		message = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_PWD_REQUIRED_BODY_IOS);
+		break;
+	}
+
+	if (CPIsInternalDevice()) {
+		static const char *departureReasonStrings[] = {
+			"kSOSDepartureReasonError",
+			"kSOSNeverLeftCircle",
+			"kSOSWithdrewMembership",
+			"kSOSMembershipRevoked",
+			"kSOSLeftUntrustedCircle",
+			"kSOSNeverAppliedToCircle",
+			"kSOSDiscoveredRetirement",
+			"kSOSLostPrivateKey",
+			"unknown reason"
+		};
+		int idx = (kSOSDepartureReasonError <= reason && reason <= kSOSLostPrivateKey) ? reason : (kSOSLostPrivateKey + 1);
+		NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL),
+								departureReasonStrings[idx]];
+		message = [message stringByAppendingString: reason_str];
+	}
+
     NSDictionary *kickedAttributes = @{
-                                       (id)kCFUserNotificationAlertHeaderKey: (__bridge NSString*)SecCopyCKString(SEC_CK_CR_TITLE),
-                                       (id)kCFUserNotificationAlertMessageKey: message,
-                                       (id)kCFUserNotificationDefaultButtonTitleKey: (__bridge NSString*)SecCopyCKString(SEC_CK_CR_OK),
-                                       (id)kCFUserNotificationAlternateButtonTitleKey: ok_to_use_code ? (__bridge NSString*)SecCopyCKString(SEC_CK_CR_USE_CODE)
-                                       : @"",
-                                       (id)kCFUserNotificationAlertTopMostKey: (id)kCFBooleanTrue,
-                                       (__bridge id)SBUserNotificationHideButtonsInAwayView: @YES,
-                                       (__bridge id)SBUserNotificationDontDismissOnUnlock: @YES,
-                                       (__bridge id)SBUserNotificationDismissOnLock: @NO,
-                                       (__bridge id)SBUserNotificationOneButtonPerLine: @YES,
-                                       };
+		(id) kCFUserNotificationAlertHeaderKey         : header,
+		(id) kCFUserNotificationAlertMessageKey        : message,
+		(id) kCFUserNotificationDefaultButtonTitleKey  : (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CONTINUE),
+		(id) kCFUserNotificationAlternateButtonTitleKey: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_NOT_NOW),
+		(id) kCFUserNotificationAlertTopMostKey		   : @YES,
+		(__bridge id) SBUserNotificationDismissOnLock		: @NO,
+		(__bridge id) SBUserNotificationDontDismissOnUnlock	: @YES,
+		(__bridge id) SBUserNotificationOneButtonPerLine	: @YES,
+	};
     SInt32 err = 0;
     
     if (currentAlertIsForKickOut) {
-        debugState = @"pKOA C";
+        debugState = @"pKOA B";
         NSLog(@"Updating existing alert %@ with %@", currentAlert, kickedAttributes);
-        CFUserNotificationUpdate(currentAlert, 0, kCFUserNotificationPlainAlertLevel, (__bridge CFDictionaryRef)(kickedAttributes));
+        CFUserNotificationUpdate(currentAlert, 0, kCFUserNotificationPlainAlertLevel, (__bridge CFDictionaryRef) kickedAttributes);
     } else {
-        debugState = @"pKOA D";
+        debugState = @"pKOA C";
 
-        CFUserNotificationRef note = CFUserNotificationCreate(NULL, 0.0, kCFUserNotificationPlainAlertLevel, &err, (__bridge CFDictionaryRef)(kickedAttributes));
-        if (err) {
-            NSLog(@"Can't make kicked out notification err=%x", (int)err);
-        } else {
+        CFUserNotificationRef note = CFUserNotificationCreate(NULL, 0.0, kCFUserNotificationPlainAlertLevel, &err, (__bridge CFDictionaryRef) kickedAttributes);
+		assert((note == NULL) == (err != 0));
+		if (err) {
+			NSLog(@"Can't make kicked out notification err=%x", (int)err);
+		} else {
             currentAlertIsForApplicants = false;
             currentAlertIsForKickOut = true;
             
@@ -530,242 +565,257 @@ static void postKickedOutAlert(enum DepartureReason reason)
                     NSLog(@"Backup state may have changed, but we don't care anymore (dS=%@)", debugState);
                 }
             });
-            debugState = @"pKOA E";
+            debugState = @"pKOA D";
             CFRunLoopRun();
-            debugState = @"pKOA F";
+            debugState = @"pKOA E";
             notify_cancel(backupStateChangeToken);
         }
     }
     debugState = @"pKOA Z";
 }
 
+
 static bool processEvents()
 {
-    debugState = @"processEvents A";
-    CFErrorRef error = NULL;
-    CFErrorRef departError = NULL;
-    SOSCCStatus circleStatus = SOSCCThisDeviceIsInCircle(&error);
-    NSDate *nowish = [NSDate date];
-    PersistantState *state = [PersistantState loadFromStorage];
-    enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&departError);
-    NSLog(@"CircleStatus %d -> %d{%d} (s=%p)", state.lastCircleStatus, circleStatus, departureReason, state);
+	debugState = @"processEvents A";
 
-    NSTimeInterval timeUntilApplicationAlert = [state.pendingApplicationReminder timeIntervalSinceDate:nowish];
-    
-    NSLog(@"Time until pendingApplicationReminder (%@) %f", [state.pendingApplicationReminder debugDescription], timeUntilApplicationAlert);
-    
-    if (circleStatus == kSOSCCRequestPending && timeUntilApplicationAlert <= 0) {
-        debugState = @"reminderAlert";
-        postApplicationReminderAlert(nowish, state, state.pendingApplicationReminderAlertInterval);
-    } else if (circleStatus == kSOSCCRequestPending) {
-        scheduleActivity(ceil(timeUntilApplicationAlert));
-    }
-    
-    if (((circleStatus == kSOSCCNotInCircle || circleStatus == kSOSCCCircleAbsent) && state.lastCircleStatus == kSOSCCInCircle) || state.debugShowLeftReason || (circleStatus == kSOSCCNotInCircle && state.lastCircleStatus == kSOSCCCircleAbsent && state.absentCircleWithNoReason)) {
-        debugState = @"processEvents B";
-        // Use to be in the circle, now we aren't.   We ought to tell the user why.
-        
-        if (state.debugShowLeftReason) {
-            NSLog(@"debugShowLeftReason is %@", state.debugShowLeftReason);
-            departureReason = [state.debugShowLeftReason intValue];
-            state.debugShowLeftReason = nil;
-            departError = NULL;
-            [state writeToStorage];
-        }
-        
-        if (kSOSDepartureReasonError != departureReason) {
-            if (circleStatus == kSOSCCCircleAbsent && departureReason == kSOSNeverLeftCircle) {
-                // We don't yet know why the circle has vanished, remember our current ignorance
-                state.absentCircleWithNoReason = YES;
-            } else {
-                state.absentCircleWithNoReason = NO;
-            }
-            NSLog(@"Depature reason %d", departureReason);
-            postKickedOutAlert(departureReason);
-            NSLog(@"pKOA returned (cS %d lCS %d)", circleStatus, state.lastCircleStatus);
-        } else {
-            NSLog(@"Can't get last depature reason: %@", departError);
-        }
-    }
-    
-    debugState = @"processEvents C";
-    
-    if (circleStatus != state.lastCircleStatus) {
-        SOSCCStatus lastCircleStatus = state.lastCircleStatus;
-        state.lastCircleStatus = circleStatus;
-        
-        if (lastCircleStatus != kSOSCCRequestPending && circleStatus == kSOSCCRequestPending) {
-            state.applcationDate = nowish;
-            state.pendingApplicationReminder = [nowish dateByAddingTimeInterval: state.pendingApplicationReminderAlertInterval];
-            scheduleActivity(state.pendingApplicationReminderAlertInterval);
-        }
-        if (lastCircleStatus == kSOSCCRequestPending && circleStatus != kSOSCCRequestPending) {
-            NSLog(@"Pending request completed");
-            state.applcationDate = [NSDate distantPast];
-            state.pendingApplicationReminder = [NSDate distantFuture];
-        }
-        
-        [state writeToStorage];
-    }
-    
-    if (circleStatus != kSOSCCInCircle) {
-        if (circleStatus == kSOSCCRequestPending && currentAlert) {
-            int notifyToken = 0;
-            CFUserNotificationRef postedAlert = currentAlert;
-            
-            debugState = @"processEvents D1";
-            notify_register_dispatch(kSOSCCCircleChangedNotification, &notifyToken, dispatch_get_main_queue(), ^(int token) {
-                if (postedAlert != currentAlert) {
-                    NSLog(@"-- CC after original alert gone (currentAlertIsForApplicants %d, pA %p, cA %p -- %@)", currentAlertIsForApplicants ? 1:0, postedAlert, currentAlert, currentAlert);
-                    notify_cancel(token);
-                } else {
-                    CFErrorRef localError = NULL;
-                    SOSCCStatus newCircleStatus = SOSCCThisDeviceIsInCircle(&localError);
-                    if (newCircleStatus != kSOSCCRequestPending) {
-                        if (newCircleStatus == kSOSCCError)
-                            NSLog(@"No longer pending (nCS=%d, alert=%@) error: %@", newCircleStatus, currentAlert, localError);
-                        else
-                            NSLog(@"No longer pending (nCS=%d, alert=%@)", newCircleStatus, currentAlert);
-                        cancelCurrentAlert(true);
-                    } else {
-                        NSLog(@"Still pending...");
-                    }
-                }
-            });
-            debugState = @"processEvents D2";
-            NSLog(@"NOTE: currentAlertIsForApplicants %d, token %d", currentAlertIsForApplicants ? 1:0, notifyToken);
-            CFRunLoopRun();
-            return true;
-        }
-        debugState = @"processEvents D3";
-        NSLog(@"SOSCCThisDeviceIsInCircle status %d, not checking applicants", circleStatus);
-        return false;
-    }
-    
-    debugState = @"processEvents E";
-    applicants = [NSMutableDictionary new];
-    for (id applicantInfo in (__bridge_transfer NSArray *)(SOSCCCopyApplicantPeerInfo(&error))) {
-        Applicant *applicant = [[Applicant alloc] initWithPeerInfo:(__bridge SOSPeerInfoRef)(applicantInfo)];
-        applicants[applicant.idString] = applicant;
-    }
-    
-    int notify_token = -42;
-    debugState = @"processEvents F";
-    int notify_register_status = notify_register_dispatch(kSOSCCCircleChangedNotification, &notify_token, dispatch_get_main_queue(), ^(int token) {
-        NSLog(@"Notified: %s", kSOSCCCircleChangedNotification);
-        CFErrorRef circleStatusError = NULL;
-        
-        bool needsUpdate = false;
-        CFErrorRef copyPeerError = NULL;
-        NSMutableSet *newIds = [NSMutableSet new];
-        for (id applicantInfo in (__bridge_transfer NSArray *)(SOSCCCopyApplicantPeerInfo(&copyPeerError))) {
-            Applicant *newApplicant = [[Applicant alloc] initWithPeerInfo:(__bridge SOSPeerInfoRef)(applicantInfo)];
-            [newIds addObject:newApplicant.idString];
-            Applicant *existingApplicant = applicants[newApplicant.idString];
-            if (existingApplicant) {
-                switch (existingApplicant.applicantUIState) {
-                    case ApplicantWaiting:
-                        applicants[newApplicant.idString] = newApplicant;
-                        break;
-                        
-                    case ApplicantOnScreen:
-                        newApplicant.applicantUIState = ApplicantOnScreen;
-                        applicants[newApplicant.idString] = newApplicant;
-                        break;
-                        
-                    default:
-                        NSLog(@"Update to %@ >> %@ with pending order, should work out Ok though", existingApplicant, newApplicant);
-                        break;
-                }
-            } else {
-                needsUpdate = true;
-                applicants[newApplicant.idString] = newApplicant;
-            }
-        }
-        if (copyPeerError) {
-            NSLog(@"Could not update peer info array: %@", copyPeerError);
-            return;
-        }
-        
-        NSMutableArray *idsToRemoveFromApplicants = [NSMutableArray new];
-        for (NSString *exisitngId in [applicants keyEnumerator]) {
-            if (![newIds containsObject:exisitngId]) {
-                [idsToRemoveFromApplicants addObject:exisitngId];
-                needsUpdate = true;
-            }
-        }
-        [applicants removeObjectsForKeys:idsToRemoveFromApplicants];
-        
-        if (newIds.count == 0) {
-            NSLog(@"All applicants were handled elsewhere");
-            cancelCurrentAlert(true);
-        }
-        SOSCCStatus currentCircleStatus = SOSCCThisDeviceIsInCircle(&circleStatusError);
-        if (kSOSCCInCircle != currentCircleStatus) {
-            NSLog(@"Left circle (%d), not handing remaining %lu applicants", currentCircleStatus, (unsigned long)newIds.count);
-            cancelCurrentAlert(true);
-        }
-        if (needsUpdate) {
-            askAboutAll(false);
-        } else {
-            NSLog(@"needsUpdate false, not updating alert");
-        }
-    });
-    NSLog(@"ACC token %d, status %d", notify_token, notify_register_status);
-    debugState = @"processEvents F2";
-    
-    if (applicants.count == 0) {
-        NSLog(@"No applicants");
-    } else {
-        debugState = @"processEvents F3";
-        askAboutAll(false);
-        debugState = @"processEvents F4";
-        if (currentAlert) {
-            debugState = @"processEvents F5";
-            CFRunLoopRun();
-        }
-    }
-    
-    debugState = @"processEvents F6";
-    notify_cancel(notify_token);
-    debugState = @"processEvents DONE";
-    
-    return false;
+	CFErrorRef			error			 = NULL;
+	CFErrorRef			departError		 = NULL;
+	SOSCCStatus			circleStatus	 = SOSCCThisDeviceIsInCircle(&error);
+	NSDate				*nowish			 = [NSDate date];
+	PersistentState 	*state     		 = [PersistentState loadFromStorage];
+	enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&departError);
+	NSLog(@"CircleStatus %d -> %d{%d} (s=%p)", state.lastCircleStatus, circleStatus, departureReason, state);
+
+
+	// Pending application reminder
+	NSTimeInterval timeUntilApplicationAlert = [state.pendingApplicationReminder timeIntervalSinceDate:nowish];
+	NSLog(@"Time until pendingApplicationReminder (%@) %f", [state.pendingApplicationReminder debugDescription], timeUntilApplicationAlert);
+	if (circleStatus == kSOSCCRequestPending) {
+		if (timeUntilApplicationAlert <= 0) {
+			debugState = @"reminderAlert";
+			postApplicationReminderAlert(nowish, state, state.pendingApplicationReminderAlertInterval);
+		} else {
+			scheduleActivity(ceil(timeUntilApplicationAlert));
+		}
+	}
+
+
+	// No longer in circle?
+	if ((state.lastCircleStatus == kSOSCCInCircle     && (circleStatus == kSOSCCNotInCircle || circleStatus == kSOSCCCircleAbsent)) ||
+		(state.lastCircleStatus == kSOSCCCircleAbsent && circleStatus == kSOSCCNotInCircle && state.absentCircleWithNoReason) ||
+		state.debugShowLeftReason) {
+		// Used to be in the circle, now we aren't - tell the user why
+		debugState = @"processEvents B";
+
+		if (state.debugShowLeftReason) {
+			NSLog(@"debugShowLeftReason: %@", state.debugShowLeftReason);
+			departureReason = [state.debugShowLeftReason intValue];
+			state.debugShowLeftReason = nil;
+			CFReleaseNull(departError);
+			[state writeToStorage];
+		}
+
+		if (departureReason != kSOSDepartureReasonError) {
+			state.absentCircleWithNoReason = (circleStatus == kSOSCCCircleAbsent && departureReason == kSOSNeverLeftCircle);
+			NSLog(@"Depature reason %d", departureReason);
+			postKickedOutAlert(departureReason);
+			NSLog(@"pKOA returned (cS %d lCS %d)", circleStatus, state.lastCircleStatus);
+		} else {
+			NSLog(@"Couldn't get last departure reason: %@", departError);
+		}
+	}
+
+
+	// Circle applications: pending request(s) started / completed
+	debugState = @"processEvents C";
+	if (circleStatus != state.lastCircleStatus) {
+		SOSCCStatus lastCircleStatus = state.lastCircleStatus;
+		state.lastCircleStatus = circleStatus;
+		
+		if (lastCircleStatus != kSOSCCRequestPending && circleStatus == kSOSCCRequestPending) {
+			NSLog(@"Pending request started");
+			state.applicationDate			 = nowish;
+			state.pendingApplicationReminder = [nowish dateByAddingTimeInterval: state.pendingApplicationReminderAlertInterval];
+			scheduleActivity(state.pendingApplicationReminderAlertInterval);
+		}
+		if (lastCircleStatus == kSOSCCRequestPending && circleStatus != kSOSCCRequestPending) {
+			NSLog(@"Pending request completed");
+			state.applicationDate			 = [NSDate distantPast];
+			state.pendingApplicationReminder = [NSDate distantFuture];
+		}
+		
+		[state writeToStorage];
+	}
+
+	if (circleStatus != kSOSCCInCircle) {
+		if (circleStatus == kSOSCCRequestPending && currentAlert) {
+			int notifyToken = 0;
+			CFUserNotificationRef postedAlert = currentAlert;
+			
+			debugState = @"processEvents D1";
+			notify_register_dispatch(kSOSCCCircleChangedNotification, &notifyToken, dispatch_get_main_queue(), ^(int token) {
+				if (postedAlert != currentAlert) {
+					NSLog(@"-- CC after original alert gone (currentAlertIsForApplicants %d, pA %p, cA %p -- %@)",
+						  currentAlertIsForApplicants, postedAlert, currentAlert, currentAlert);
+					notify_cancel(token);
+				} else {
+					CFErrorRef localError = NULL;
+					SOSCCStatus newCircleStatus = SOSCCThisDeviceIsInCircle(&localError);
+					if (newCircleStatus != kSOSCCRequestPending) {
+						if (newCircleStatus == kSOSCCError)
+							NSLog(@"No longer pending (nCS=%d, alert=%@) error: %@", newCircleStatus, currentAlert, localError);
+						else
+							NSLog(@"No longer pending (nCS=%d, alert=%@)", newCircleStatus, currentAlert);
+						cancelCurrentAlert(true);
+					} else {
+						NSLog(@"Still pending...");
+					}
+					CFReleaseNull(localError);
+				}
+			});
+			debugState = @"processEvents D2";
+			NSLog(@"NOTE: currentAlertIsForApplicants %d, token %d", currentAlertIsForApplicants, notifyToken);
+			CFRunLoopRun();
+			return true;
+		}
+		debugState = @"processEvents D4";
+		NSLog(@"SOSCCThisDeviceIsInCircle status %d, not checking applicants", circleStatus);
+		return false;
+	}
+
+
+	// Applicants
+	debugState = @"processEvents E";
+	applicants = [NSMutableDictionary new];
+	for (id applicantInfo in (__bridge_transfer NSArray *) SOSCCCopyApplicantPeerInfo(&error)) {
+		Applicant *applicant = [[Applicant alloc] initWithPeerInfo:(__bridge SOSPeerInfoRef) applicantInfo];
+		applicants[applicant.idString] = applicant;
+	}
+
+	// Log error from SOSCCCopyApplicantPeerInfo() above?
+	CFReleaseNull(error);
+
+	int notify_token = -42;
+	debugState = @"processEvents F";
+	int notify_register_status = notify_register_dispatch(kSOSCCCircleChangedNotification, &notify_token, dispatch_get_main_queue(), ^(int token) {
+		NSLog(@"Notified: %s", kSOSCCCircleChangedNotification);
+		CFErrorRef circleStatusError = NULL;
+		
+		bool needsUpdate = false;
+		CFErrorRef copyPeerError = NULL;
+		NSMutableSet *newIds = [NSMutableSet new];
+		for (id applicantInfo in (__bridge_transfer NSArray *) SOSCCCopyApplicantPeerInfo(&copyPeerError)) {
+			Applicant *newApplicant = [[Applicant alloc] initWithPeerInfo:(__bridge SOSPeerInfoRef) applicantInfo];
+			[newIds addObject:newApplicant.idString];
+			Applicant *existingApplicant = applicants[newApplicant.idString];
+			if (existingApplicant) {
+				switch (existingApplicant.applicantUIState) {
+				case ApplicantWaiting:
+					applicants[newApplicant.idString] = newApplicant;
+					break;
+					
+				case ApplicantOnScreen:
+					newApplicant.applicantUIState = ApplicantOnScreen;
+					applicants[newApplicant.idString] = newApplicant;
+					break;
+					
+				default:
+					NSLog(@"Update to %@ >> %@ with pending order, should work out ok though", existingApplicant, newApplicant);
+					break;
+				}
+			} else {
+				needsUpdate = true;
+				applicants[newApplicant.idString] = newApplicant;
+			}
+		}
+		if (copyPeerError) {
+			NSLog(@"Could not update peer info array: %@", copyPeerError);
+			CFRelease(copyPeerError);
+			return;
+		}
+		
+		NSMutableArray *idsToRemoveFromApplicants = [NSMutableArray new];
+		for (NSString *exisitngId in [applicants keyEnumerator]) {
+			if (![newIds containsObject:exisitngId]) {
+				[idsToRemoveFromApplicants addObject:exisitngId];
+				needsUpdate = true;
+			}
+		}
+		[applicants removeObjectsForKeys:idsToRemoveFromApplicants];
+		
+		if (newIds.count == 0) {
+			NSLog(@"All applicants were handled elsewhere");
+			cancelCurrentAlert(true);
+		}
+		SOSCCStatus currentCircleStatus = SOSCCThisDeviceIsInCircle(&circleStatusError);
+		if (kSOSCCInCircle != currentCircleStatus) {
+			NSLog(@"Left circle (%d), not handling remaining %lu applicants", currentCircleStatus, (unsigned long)newIds.count);
+			cancelCurrentAlert(true);
+		}
+		if (needsUpdate) {
+			askAboutAll(false);
+		} else {
+			NSLog(@"needsUpdate false, not updating alert");
+		}
+		// Log circleStatusError?
+		CFReleaseNull(circleStatusError);
+	});
+	NSLog(@"ACC token %d, status %d", notify_token, notify_register_status);
+	debugState = @"processEvents F2";
+
+	if (applicants.count == 0) {
+		NSLog(@"No applicants");
+	} else {
+		debugState = @"processEvents F3";
+		askAboutAll(false);
+		debugState = @"processEvents F4";
+		if (currentAlert) {
+			debugState = @"processEvents F5";
+			CFRunLoopRun();
+		}
+	}
+
+	debugState = @"processEvents F6";
+	notify_cancel(notify_token);
+	debugState = @"processEvents DONE";
+
+	return false;
 }
 
-int main (int argc, const char * argv[])
-{
-    @autoreleasepool {
-        xpc_transaction_begin();
-        
-        // NOTE: DISPATCH_QUEUE_PRIORITY_LOW will not actually manage to drain events
-        // in a lot of cases (like circleStatus != kSOSCCInCircle)
-        xpc_set_event_stream_handler("com.apple.notifyd.matching", dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^(xpc_object_t object) {
-            char *event_description = xpc_copy_description(object);
-            NSLog(@"notifyd event: %s\nAlert (%p) %s %s\ndebugState: %@", event_description, currentAlert, currentAlertIsForApplicants ? "for applicants" : "!applicants", currentAlertIsForKickOut ? "KO" : "!KO", debugState);
-            free(event_description);
-        });
-        
-        xpc_activity_register(kLaunchLaterXPCName, XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
-        });
-        
-        
-        int falseInARow = 0;
-        while (falseInARow < 2) {
-            if (processEvents()) {
-                falseInARow = 0;
-            } else {
-                falseInARow++;
-            }
-            cancelCurrentAlert(false);
-            if (doOnceInMainBlockChain) {
-                doOnceInMainBlockChain();
-                doOnceInMainBlockChain = NULL;
-            }
-        }
+
+int main (int argc, const char * argv[]) {
+	xpc_transaction_begin();
+
+	@autoreleasepool {
+		// NOTE: DISPATCH_QUEUE_PRIORITY_LOW will not actually manage to drain events in a lot of cases (like circleStatus != kSOSCCInCircle)
+		xpc_set_event_stream_handler("com.apple.notifyd.matching", dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^(xpc_object_t object) {
+			char *event_description = xpc_copy_description(object);
+			NSLog(@"notifyd event: %s\nAlert (%p) %s %s\ndebugState: %@", event_description, currentAlert,
+				  currentAlertIsForApplicants ? "for applicants" : "!applicants",
+				  currentAlertIsForKickOut ? "KO" : "!KO", debugState);
+			free(event_description);
+		});
+		
+		xpc_activity_register(kLaunchLaterXPCName, XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
+		});
+
+		int falseInARow = 0;
+		while (falseInARow < 2) {
+			if (processEvents()) {
+				falseInARow = 0;
+			} else {
+				falseInARow++;
+			}
+			cancelCurrentAlert(false);
+			if (doOnceInMainBlockChain) {
+				doOnceInMainBlockChain();
+				doOnceInMainBlockChain = NULL;
+			}
+		}
 	}
-    
-    NSLog(@"Done");
-    xpc_transaction_end();
-    return(0);
+
+	NSLog(@"Done");
+	xpc_transaction_end();
+	return(0);
 }

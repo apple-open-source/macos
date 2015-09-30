@@ -51,35 +51,35 @@ struct MessageEventInit : public EventInit {
     MessagePortArray ports;
 };
 
-class MessageEvent : public Event {
+class MessageEvent final : public Event {
 public:
-    static PassRefPtr<MessageEvent> create()
+    static Ref<MessageEvent> create()
     {
-        return adoptRef(new MessageEvent);
+        return adoptRef(*new MessageEvent);
     }
-    static PassRefPtr<MessageEvent> create(std::unique_ptr<MessagePortArray> ports, const Deprecated::ScriptValue& data = Deprecated::ScriptValue(), const String& origin = String(), const String& lastEventId = String(), PassRefPtr<EventTarget> source = 0)
+    static Ref<MessageEvent> create(std::unique_ptr<MessagePortArray> ports, const Deprecated::ScriptValue& data = Deprecated::ScriptValue(), const String& origin = String(), const String& lastEventId = String(), PassRefPtr<EventTarget> source = 0)
     {
-        return adoptRef(new MessageEvent(data, origin, lastEventId, source, WTF::move(ports)));
+        return adoptRef(*new MessageEvent(data, origin, lastEventId, source, WTF::move(ports)));
     }
-    static PassRefPtr<MessageEvent> create(std::unique_ptr<MessagePortArray> ports, PassRefPtr<SerializedScriptValue> data, const String& origin = String(), const String& lastEventId = String(), PassRefPtr<EventTarget> source = 0)
+    static Ref<MessageEvent> create(std::unique_ptr<MessagePortArray> ports, PassRefPtr<SerializedScriptValue> data, const String& origin = String(), const String& lastEventId = String(), PassRefPtr<EventTarget> source = 0)
     {
-        return adoptRef(new MessageEvent(data, origin, lastEventId, source, WTF::move(ports)));
+        return adoptRef(*new MessageEvent(data, origin, lastEventId, source, WTF::move(ports)));
     }
-    static PassRefPtr<MessageEvent> create(const String& data, const String& origin = String())
+    static Ref<MessageEvent> create(const String& data, const String& origin = String())
     {
-        return adoptRef(new MessageEvent(data, origin));
+        return adoptRef(*new MessageEvent(data, origin));
     }
-    static PassRefPtr<MessageEvent> create(PassRefPtr<Blob> data, const String& origin = String())
+    static Ref<MessageEvent> create(PassRefPtr<Blob> data, const String& origin = String())
     {
-        return adoptRef(new MessageEvent(data, origin));
+        return adoptRef(*new MessageEvent(data, origin));
     }
-    static PassRefPtr<MessageEvent> create(PassRefPtr<ArrayBuffer> data, const String& origin = String())
+    static Ref<MessageEvent> create(PassRefPtr<ArrayBuffer> data, const String& origin = String())
     {
-        return adoptRef(new MessageEvent(data, origin));
+        return adoptRef(*new MessageEvent(data, origin));
     }
-    static PassRefPtr<MessageEvent> create(const AtomicString& type, const MessageEventInit& initializer)
+    static Ref<MessageEvent> create(const AtomicString& type, const MessageEventInit& initializer)
     {
-        return adoptRef(new MessageEvent(type, initializer));
+        return adoptRef(*new MessageEvent(type, initializer));
     }
     virtual ~MessageEvent();
 
@@ -114,6 +114,8 @@ public:
     Blob* dataAsBlob() const { ASSERT(m_dataType == DataTypeBlob); return m_dataAsBlob.get(); }
     ArrayBuffer* dataAsArrayBuffer() const { ASSERT(m_dataType == DataTypeArrayBuffer); return m_dataAsArrayBuffer.get(); }
 
+    RefPtr<SerializedScriptValue> trySerializeData(JSC::ExecState*);
+    
 private:
     MessageEvent();
     MessageEvent(const AtomicString&, const MessageEventInit&);
@@ -127,6 +129,7 @@ private:
     DataType m_dataType;
     Deprecated::ScriptValue m_dataAsScriptValue;
     RefPtr<SerializedScriptValue> m_dataAsSerializedScriptValue;
+    bool m_triedToSerialize { false };
     String m_dataAsString;
     RefPtr<Blob> m_dataAsBlob;
     RefPtr<ArrayBuffer> m_dataAsArrayBuffer;

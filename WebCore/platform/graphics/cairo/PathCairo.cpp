@@ -26,11 +26,11 @@
 #include "config.h"
 #include "Path.h"
 
+#if USE(CAIRO)
+
 #include "AffineTransform.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
-#include "NotImplemented.h"
-#include "OwnPtrCairo.h"
 #include "PlatformPathCairo.h"
 #include "StrokeStyleApplier.h"
 #include <cairo.h>
@@ -58,8 +58,9 @@ Path::Path(const Path& other)
         return;
 
     cairo_t* cr = ensurePlatformPath()->context();
-    OwnPtr<cairo_path_t> pathCopy = adoptPtr(cairo_copy_path(other.platformPath()->context()));
-    cairo_append_path(cr, pathCopy.get());
+    auto pathCopy = cairo_copy_path(other.platformPath()->context());
+    cairo_append_path(cr, pathCopy);
+    cairo_path_destroy(pathCopy);
 }
 
 PlatformPathPtr Path::ensurePlatformPath()
@@ -82,8 +83,9 @@ Path& Path::operator=(const Path& other)
     } else {
         clear();
         cairo_t* cr = ensurePlatformPath()->context();
-        OwnPtr<cairo_path_t> pathCopy = adoptPtr(cairo_copy_path(other.platformPath()->context()));
-        cairo_append_path(cr, pathCopy.get());
+        auto pathCopy = cairo_copy_path(other.platformPath()->context());
+        cairo_append_path(cr, pathCopy);
+        cairo_path_destroy(pathCopy);
     }
 
     return *this;
@@ -282,6 +284,22 @@ void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
     addArc(p, radius, sa, ea, anticlockwise);
 }
 
+void Path::addEllipse(FloatPoint point, float radiusX, float radiusY, float rotation, float startAngle, float endAngle, bool anticlockwise)
+{
+    cairo_t* cr = ensurePlatformPath()->context();
+    cairo_save(cr);
+    cairo_translate(cr, point.x(), point.y());
+    cairo_rotate(cr, rotation);
+    cairo_scale(cr, radiusX, radiusY);
+
+    if (anticlockwise)
+        cairo_arc_negative(cr, 0, 0, 1, startAngle, endAngle);
+    else
+        cairo_arc(cr, 0, 0, 1, startAngle, endAngle);
+
+    cairo_restore(cr);
+}
+
 void Path::addEllipse(const FloatRect& rect)
 {
     cairo_t* cr = ensurePlatformPath()->context();
@@ -294,10 +312,22 @@ void Path::addEllipse(const FloatRect& rect)
     cairo_restore(cr);
 }
 
-void Path::addPath(const Path&, const AffineTransform&)
+void Path::addPath(const Path& path, const AffineTransform& transform)
 {
-    // FIXME: This should probably be very similar to Path::transform.
-    notImplemented();
+    if (path.isNull())
+        return;
+
+    cairo_matrix_t matrix(transform);
+    if (cairo_matrix_invert(&matrix) != CAIRO_STATUS_SUCCESS)
+        return;
+
+    cairo_t* cr = path.platformPath()->context();
+    cairo_save(cr);
+    cairo_transform(cr, &matrix);
+    auto pathCopy = cairo_copy_path(cr);
+    cairo_restore(cr);
+    cairo_append_path(ensurePlatformPath()->context(), pathCopy);
+    cairo_path_destroy(pathCopy);
 }
 
 void Path::closeSubpath()
@@ -366,7 +396,7 @@ void Path::apply(void* info, PathApplierFunction function) const
         return;
 
     cairo_t* cr = platformPath()->context();
-    OwnPtr<cairo_path_t> pathCopy = adoptPtr(cairo_copy_path(cr));
+    auto pathCopy = cairo_copy_path(cr);
     cairo_path_data_t* data;
     PathElement pelement;
     FloatPoint points[3];
@@ -398,6 +428,7 @@ void Path::apply(void* info, PathApplierFunction function) const
             break;
         }
     }
+    cairo_path_destroy(pathCopy);
 }
 
 void Path::transform(const AffineTransform& trans)
@@ -409,3 +440,5 @@ void Path::transform(const AffineTransform& trans)
 }
 
 } // namespace WebCore
+
+#endif // USE(CAIRO)

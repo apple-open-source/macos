@@ -97,20 +97,12 @@ krb5_verify_init_creds(krb5_context context,
     krb5_data_zero (&req);
 
     if (ap_req_server == NULL) {
-	char local_hostname[MAXHOSTNAMELEN];
 
-	if (gethostname (local_hostname, sizeof(local_hostname)) < 0) {
-	    ret = errno;
-	    krb5_set_error_message (context, ret, "gethostname: %s",
-				    strerror(ret));
-	    return ret;
-	}
-
-	ret = krb5_sname_to_principal (context,
-				       local_hostname,
-				       service,
-				       KRB5_NT_SRV_HST,
-				       &server);
+	ret = krb5_sname_to_principal(context,
+				      NULL,
+				      service,
+				      KRB5_NT_SRV_HST,
+				      &server);
 	if (ret) {
 	    if (fail_verify_is_ok(context, options))
 		ret = 0;

@@ -26,6 +26,7 @@
 #ifndef FrameLoadRequest_h
 #define FrameLoadRequest_h
 
+#include "FrameLoaderTypes.h"
 #include "ResourceRequest.h"
 #include "SecurityOrigin.h"
 #include "SubstituteData.h"
@@ -35,28 +36,64 @@ class Frame;
 
 struct FrameLoadRequest {
 public:
-    explicit FrameLoadRequest(SecurityOrigin* requester)
+    FrameLoadRequest(SecurityOrigin* requester, LockHistory lockHistory, LockBackForwardList lockBackForwardList, ShouldSendReferrer shouldSendReferrer, AllowNavigationToInvalidURL allowNavigationToInvalidURL, NewFrameOpenerPolicy newFrameOpenerPolicy, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy)
         : m_requester(requester)
         , m_shouldCheckNewWindowPolicy(false)
+        , m_lockHistory(lockHistory)
+        , m_lockBackForwardList(lockBackForwardList)
+        , m_shouldSendReferrer(shouldSendReferrer)
+        , m_allowNavigationToInvalidURL(allowNavigationToInvalidURL)
+        , m_newFrameOpenerPolicy(newFrameOpenerPolicy)
+        , m_shouldReplaceDocumentIfJavaScriptURL(ReplaceDocumentIfJavaScriptURL)
+        , m_shouldOpenExternalURLsPolicy(shouldOpenExternalURLsPolicy)
     {
     }
 
-    FrameLoadRequest(SecurityOrigin* requester, const ResourceRequest& resourceRequest)
+    FrameLoadRequest(SecurityOrigin* requester, const ResourceRequest& resourceRequest, LockHistory lockHistory, LockBackForwardList lockBackForwardList, ShouldSendReferrer shouldSendReferrer, AllowNavigationToInvalidURL allowNavigationToInvalidURL, NewFrameOpenerPolicy newFrameOpenerPolicy, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy)
         : m_requester(requester)
         , m_resourceRequest(resourceRequest)
         , m_shouldCheckNewWindowPolicy(false)
+        , m_lockHistory(lockHistory)
+        , m_lockBackForwardList(lockBackForwardList)
+        , m_shouldSendReferrer(shouldSendReferrer)
+        , m_allowNavigationToInvalidURL(allowNavigationToInvalidURL)
+        , m_newFrameOpenerPolicy(newFrameOpenerPolicy)
+        , m_shouldReplaceDocumentIfJavaScriptURL(ReplaceDocumentIfJavaScriptURL)
+        , m_shouldOpenExternalURLsPolicy(shouldOpenExternalURLsPolicy)
     {
     }
 
-    FrameLoadRequest(SecurityOrigin* requester, const ResourceRequest& resourceRequest, const String& frameName)
+    FrameLoadRequest(SecurityOrigin* requester, const ResourceRequest& resourceRequest, const String& frameName, LockHistory lockHistory, LockBackForwardList lockBackForwardList, ShouldSendReferrer shouldSendReferrer, AllowNavigationToInvalidURL allowNavigationToInvalidURL, NewFrameOpenerPolicy newFrameOpenerPolicy, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy)
         : m_requester(requester)
         , m_resourceRequest(resourceRequest)
         , m_frameName(frameName)
         , m_shouldCheckNewWindowPolicy(false)
+        , m_lockHistory(lockHistory)
+        , m_lockBackForwardList(lockBackForwardList)
+        , m_shouldSendReferrer(shouldSendReferrer)
+        , m_allowNavigationToInvalidURL(allowNavigationToInvalidURL)
+        , m_newFrameOpenerPolicy(newFrameOpenerPolicy)
+        , m_shouldReplaceDocumentIfJavaScriptURL(ReplaceDocumentIfJavaScriptURL)
+        , m_shouldOpenExternalURLsPolicy(shouldOpenExternalURLsPolicy)
     {
     }
 
-    FrameLoadRequest(Frame*, const ResourceRequest&, const SubstituteData& = SubstituteData());
+    FrameLoadRequest(SecurityOrigin* requester, const ResourceRequest& resourceRequest, const String& frameName, LockHistory lockHistory, LockBackForwardList lockBackForwardList, ShouldSendReferrer shouldSendReferrer, AllowNavigationToInvalidURL allowNavigationToInvalidURL, NewFrameOpenerPolicy newFrameOpenerPolicy, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy)
+        : m_requester(requester)
+        , m_resourceRequest(resourceRequest)
+        , m_frameName(frameName)
+        , m_shouldCheckNewWindowPolicy(false)
+        , m_lockHistory(lockHistory)
+        , m_lockBackForwardList(lockBackForwardList)
+        , m_shouldSendReferrer(shouldSendReferrer)
+        , m_allowNavigationToInvalidURL(allowNavigationToInvalidURL)
+        , m_newFrameOpenerPolicy(newFrameOpenerPolicy)
+        , m_shouldReplaceDocumentIfJavaScriptURL(shouldReplaceDocumentIfJavaScriptURL)
+        , m_shouldOpenExternalURLsPolicy(shouldOpenExternalURLsPolicy)
+    {
+    }
+
+    WEBCORE_EXPORT FrameLoadRequest(Frame*, const ResourceRequest&, ShouldOpenExternalURLsPolicy, const SubstituteData& = SubstituteData());
 
     bool isEmpty() const { return m_resourceRequest.isEmpty(); }
 
@@ -75,12 +112,33 @@ public:
     void setSubstituteData(const SubstituteData& data) { m_substituteData = data; }
     bool hasSubstituteData() { return m_substituteData.isValid(); }
 
+    LockHistory lockHistory() const { return m_lockHistory; }
+    LockBackForwardList lockBackForwardList() const { return m_lockBackForwardList; }
+    ShouldSendReferrer shouldSendReferrer() const { return m_shouldSendReferrer; }
+    AllowNavigationToInvalidURL allowNavigationToInvalidURL() const { return m_allowNavigationToInvalidURL; }
+    NewFrameOpenerPolicy newFrameOpenerPolicy() const { return m_newFrameOpenerPolicy; }
+
+    // The shouldReplaceDocumentIfJavaScriptURL parameter will go away when the FIXME to eliminate the
+    // corresponding parameter from ScriptController::executeIfJavaScriptURL() is addressed.
+    ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL() const { return m_shouldReplaceDocumentIfJavaScriptURL; }
+
+    void setShouldOpenExternalURLsPolicy(ShouldOpenExternalURLsPolicy policy) { m_shouldOpenExternalURLsPolicy = policy; }
+    ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy() const { return m_shouldOpenExternalURLsPolicy; }
+
 private:
     RefPtr<SecurityOrigin> m_requester;
     ResourceRequest m_resourceRequest;
     String m_frameName;
     bool m_shouldCheckNewWindowPolicy;
     SubstituteData m_substituteData;
+
+    LockHistory m_lockHistory;
+    LockBackForwardList m_lockBackForwardList;
+    ShouldSendReferrer m_shouldSendReferrer;
+    AllowNavigationToInvalidURL m_allowNavigationToInvalidURL;
+    NewFrameOpenerPolicy m_newFrameOpenerPolicy;
+    ShouldReplaceDocumentIfJavaScriptURL m_shouldReplaceDocumentIfJavaScriptURL;
+    ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy { ShouldOpenExternalURLsPolicy::ShouldNotAllow };
 };
 
 }

@@ -27,8 +27,6 @@
 #include "config.h"
 #include "PageScriptDebugServer.h"
 
-#if ENABLE(INSPECTOR)
-
 #include "Document.h"
 #include "EventLoop.h"
 #include "FrameView.h"
@@ -36,10 +34,9 @@
 #include "MainFrame.h"
 #include "Page.h"
 #include "PageGroup.h"
-#include "PluginView.h"
+#include "PluginViewBase.h"
 #include "ScriptController.h"
 #include "Timer.h"
-#include "Widget.h"
 #include <runtime/JSLock.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
@@ -140,7 +137,7 @@ bool PageScriptDebugServer::isContentScript(ExecState* exec) const
     return &currentWorld(exec) != &mainThreadNormalWorld();
 }
 
-void PageScriptDebugServer::reportException(ExecState* exec, JSValue exception) const
+void PageScriptDebugServer::reportException(ExecState* exec, Exception* exception) const
 {
     WebCore::reportException(exec, exception);
 }
@@ -192,14 +189,12 @@ void PageScriptDebugServer::setJavaScriptPaused(FrameView* view, bool paused)
     if (!view)
         return;
 
-    for (auto it = view->children().begin(), end = view->children().end(); it != end; ++it) {
-        Widget* widget = (*it).get();
-        if (!widget->isPluginView())
+    for (auto& child : view->children()) {
+        if (!is<PluginViewBase>(*child))
             continue;
-        toPluginView(widget)->setJavaScriptPaused(paused);
+
+        downcast<PluginViewBase>(*child).setJavaScriptPaused(paused);
     }
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(INSPECTOR)

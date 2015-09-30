@@ -26,7 +26,7 @@
 
 #import "config.h"
 
-#if ENABLE(SQL_DATABASE)
+#if ENABLE(SPEECH_SYNTHESIS)
 
 #import "DOMInternal.h"
 
@@ -131,7 +131,7 @@ WebCore::TestCallback* core(DOMTestCallback *wrapper)
 
 DOMTestCallback *kit(WebCore::TestCallback* value)
 {
-    { DOM_ASSERT_MAIN_THREAD(); WebCoreThreadViolationCheckRoundOne(); };
+    WebCoreThreadViolationCheckRoundOne();
     if (!value)
         return nil;
     if (DOMTestCallback *wrapper = getDOMWrapper(value))
@@ -143,4 +143,4 @@ DOMTestCallback *kit(WebCore::TestCallback* value)
     return [wrapper autorelease];
 }
 
-#endif // ENABLE(SQL_DATABASE)
+#endif // ENABLE(SPEECH_SYNTHESIS)

@@ -39,11 +39,9 @@ public:
     bool hasReplacedLogicalHeight() const;
 
 protected:
-    RenderReplaced(Element&, PassRef<RenderStyle>);
-    RenderReplaced(Element&, PassRef<RenderStyle>, const LayoutSize& intrinsicSize);
-    RenderReplaced(Document&, PassRef<RenderStyle>, const LayoutSize& intrinsicSize);
-
-    virtual void willBeDestroyed() override;
+    RenderReplaced(Element&, Ref<RenderStyle>&&);
+    RenderReplaced(Element&, Ref<RenderStyle>&&, const LayoutSize& intrinsicSize);
+    RenderReplaced(Document&, Ref<RenderStyle>&&, const LayoutSize& intrinsicSize);
 
     virtual void layout() override;
 
@@ -68,6 +66,8 @@ protected:
     bool shouldPaint(PaintInfo&, const LayoutPoint&);
     LayoutRect localSelectionRect(bool checkWhetherSelected = true) const; // This is in local coordinates, but it's a physical rect (so the top left corner is physical top left).
 
+    virtual void willBeDestroyed() override;
+
 private:
     virtual RenderBox* embeddedContentBox() const { return 0; }
     virtual const char* renderName() const override { return "RenderReplaced"; }
@@ -86,11 +86,13 @@ private:
     virtual LayoutRect selectionRectForRepaint(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent = true) override final;
     void computeAspectRatioInformationForRenderBox(RenderBox*, FloatSize& constrainedSize, double& intrinsicRatio) const;
 
+    virtual bool shouldDrawSelectionTint() const;
+
     mutable LayoutSize m_intrinsicSize;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderReplaced, isRenderReplaced())
+} // namespace WebCore
 
-}
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderReplaced, isRenderReplaced())
 
 #endif

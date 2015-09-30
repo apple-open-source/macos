@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WKDownload.h"
 
+#include "APIData.h"
 #include "APIURLRequest.h"
 #include "DownloadProxy.h"
 #include "WKAPICast.h"
@@ -44,7 +45,7 @@ uint64_t WKDownloadGetID(WKDownloadRef download)
 
 WKURLRequestRef WKDownloadCopyRequest(WKDownloadRef download)
 {
-    return toAPI(API::URLRequest::create(toImpl(download)->request()).leakRef());
+    return toAPI(&API::URLRequest::create(toImpl(download)->request()).leakRef());
 }
 
 WKDataRef WKDownloadGetResumeData(WKDownloadRef download)

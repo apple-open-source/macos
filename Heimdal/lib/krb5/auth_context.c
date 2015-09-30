@@ -61,6 +61,7 @@ krb5_auth_con_init(krb5_context context,
     p->keytype        = KRB5_ENCTYPE_NULL;
     p->cksumtype      = CKSUMTYPE_NONE;
     p->auth_data      = NULL;
+    p->pfs	      = NULL;
     *auth_context     = p;
     return 0;
 }
@@ -86,6 +87,9 @@ krb5_auth_con_free(krb5_context context,
 	    free_AuthorizationData(auth_context->auth_data);
 	    free(auth_context->auth_data);
 	}
+	if (auth_context->pfs)
+	    _krb5_auth_con_free_pfs(context, auth_context);
+	memset(auth_context, 0, sizeof(*auth_context));
 	free (auth_context);
     }
     return 0;

@@ -35,43 +35,26 @@
 #include "ReplayingInputCursor.h"
 #include "SegmentedInputStorage.h"
 #include <wtf/CurrentTime.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
 static unsigned s_nextSegmentIdentifier = 1;
 
-PassRefPtr<ReplaySessionSegment> ReplaySessionSegment::create()
+Ref<ReplaySessionSegment> ReplaySessionSegment::create()
 {
-    return adoptRef(new ReplaySessionSegment);
+    return adoptRef(*new ReplaySessionSegment);
 }
 
 ReplaySessionSegment::ReplaySessionSegment()
     : m_storage(std::make_unique<SegmentedInputStorage>())
     , m_identifier(s_nextSegmentIdentifier++)
-    , m_canCapture(true)
     , m_timestamp(currentTimeMS())
 {
 }
 
 ReplaySessionSegment::~ReplaySessionSegment()
 {
-}
-
-PassRefPtr<CapturingInputCursor> ReplaySessionSegment::createCapturingCursor(Page&)
-{
-    ASSERT(m_canCapture);
-    m_canCapture = false;
-    return CapturingInputCursor::create(*m_storage);
-}
-
-PassRefPtr<ReplayingInputCursor> ReplaySessionSegment::createReplayingCursor(Page& page, EventLoopInputDispatcherClient* client)
-{
-    return ReplayingInputCursor::create(*m_storage, page, client);
-}
-
-PassRefPtr<FunctorInputCursor> ReplaySessionSegment::createFunctorCursor()
-{
-    return FunctorInputCursor::create(*m_storage);
 }
 
 } // namespace WebCore

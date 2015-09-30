@@ -29,10 +29,10 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_test_oid_set_member(OM_uint32 *minor_status,
-    gss_const_OID member,
-    const gss_OID_set set,
-    int *present)
+gss_test_oid_set_member(OM_uint32 *__nonnull minor_status,
+    __nonnull gss_const_OID member,
+    __nonnull const gss_OID_set set,
+    int *__nonnull present)
 {
 	size_t i;
 

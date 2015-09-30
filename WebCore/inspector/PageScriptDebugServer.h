@@ -27,8 +27,6 @@
 #ifndef PageScriptDebugServer_h
 #define PageScriptDebugServer_h
 
-#if ENABLE(INSPECTOR)
-
 #include <inspector/ScriptDebugServer.h>
 #include <wtf/Forward.h>
 
@@ -51,12 +49,12 @@ public:
     virtual void recompileAllJSFunctions() override;
 
 private:
-    virtual ListenerSet* getListenersForGlobalObject(JSC::JSGlobalObject*) override { return &m_listeners; }
+    virtual ListenerSet& getListeners() override { return m_listeners; }
     virtual void didPause(JSC::JSGlobalObject*) override;
     virtual void didContinue(JSC::JSGlobalObject*) override;
     virtual void runEventLoopWhilePaused() override;
     virtual bool isContentScript(JSC::ExecState*) const override;
-    virtual void reportException(JSC::ExecState*, JSC::JSValue) const override;
+    virtual void reportException(JSC::ExecState*, JSC::Exception*) const override;
 
     void runEventLoopWhilePausedInternal();
 
@@ -70,7 +68,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(INSPECTOR)
 
 #endif // PageScriptDebugServer_h

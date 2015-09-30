@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,11 +33,15 @@
 extern "C" {
 #endif /* __cplusplus */
 
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
+
 extern const CFStringRef kDADiskDescriptionVolumeKindKey;      /* ( CFString     ) */
 extern const CFStringRef kDADiskDescriptionVolumeMountableKey; /* ( CFBoolean    ) */
 extern const CFStringRef kDADiskDescriptionVolumeNameKey;      /* ( CFString     ) */
 extern const CFStringRef kDADiskDescriptionVolumeNetworkKey;   /* ( CFBoolean    ) */
 extern const CFStringRef kDADiskDescriptionVolumePathKey;      /* ( CFURL        ) */
+extern const CFStringRef kDADiskDescriptionVolumeTypeKey;      /* ( CFString     ) */
 extern const CFStringRef kDADiskDescriptionVolumeUUIDKey;      /* ( CFUUID       ) */
 
 extern const CFStringRef kDADiskDescriptionMediaBlockSizeKey;  /* ( CFNumber     ) */
@@ -78,7 +82,7 @@ extern const CFStringRef kDADiskDescriptionBusPathKey;         /* ( CFString    
  * Type of a reference to DADisk instances.
  */
 
-typedef struct __DADisk * DADiskRef;
+typedef struct CF_BRIDGED_TYPE( id ) __DADisk * DADiskRef;
 
 /*!
  * @function   DADiskGetTypeID
@@ -100,7 +104,7 @@ extern CFTypeID DADiskGetTypeID( void );
  * with CFRelease().
  */
 
-extern DADiskRef DADiskCreateFromBSDName( CFAllocatorRef allocator, DASessionRef session, const char * name );
+extern DADiskRef __nullable DADiskCreateFromBSDName( CFAllocatorRef __nullable allocator, DASessionRef session, const char * name );
 
 /*!
  * @function   DADiskCreateFromIOMedia
@@ -115,7 +119,7 @@ extern DADiskRef DADiskCreateFromBSDName( CFAllocatorRef allocator, DASessionRef
  * with CFRelease().
  */
 
-extern DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, DASessionRef session, io_service_t media );
+extern DADiskRef __nullable DADiskCreateFromIOMedia( CFAllocatorRef __nullable allocator, DASessionRef session, io_service_t media );
 
 /*!
  * @function   DADiskCreateFromVolumePath
@@ -130,7 +134,7 @@ extern DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, DASessionRef
  * with CFRelease().
  */
 
-extern DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path );
+extern DADiskRef __nullable DADiskCreateFromVolumePath( CFAllocatorRef __nullable allocator, DASessionRef session, CFURLRef path );
 
 /*!
  * @function   DADiskGetBSDName
@@ -141,7 +145,7 @@ extern DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASession
  * The BSD device name can be used with opendev() to open the BSD device.
  */
 
-extern const char * DADiskGetBSDName( DADiskRef disk );
+extern const char * __nullable DADiskGetBSDName( DADiskRef disk );
 
 /*!
  * @function   DADiskCopyIOMedia
@@ -172,7 +176,7 @@ extern io_service_t DADiskCopyIOMedia( DADiskRef disk );
  * with CFRelease().
  */
 
-extern CFDictionaryRef DADiskCopyDescription( DADiskRef disk );
+extern CFDictionaryRef __nullable DADiskCopyDescription( DADiskRef disk );
 
 /*!
  * @function   DADiskCopyWholeDisk
@@ -185,9 +189,12 @@ extern CFDictionaryRef DADiskCopyDescription( DADiskRef disk );
  * with CFRelease().
  */
 
-extern DADiskRef DADiskCopyWholeDisk( DADiskRef disk );
+extern DADiskRef __nullable DADiskCopyWholeDisk( DADiskRef disk );
 
 #endif /* !__DISKARBITRATIOND__ */
+
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
 
 #ifdef __cplusplus
 }

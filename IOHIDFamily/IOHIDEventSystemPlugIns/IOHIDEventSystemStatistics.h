@@ -29,6 +29,9 @@ public:
     void handlePendingStats();
     void scheduleWithDispatchQueue(dispatch_queue_t queue);
     void unscheduleFromDispatchQueue(dispatch_queue_t queue);
+    
+    bool collectMotionStats(IOHIDServiceRef sender, IOHIDEventRef event);
+
 private:
     IOHIDSessionFilterPlugInInterface *_sessionInterface;
     CFUUIDRef                   _factoryID;
@@ -52,8 +55,18 @@ private:
         uint32_t                    volume_increment_filtered;
         uint32_t                    volume_decrement_filtered;
     } Buttons;
-    
+
+    typedef struct {
+        uint32_t					accel_count;
+        uint32_t					gyro_count;
+        uint32_t					mag_count;
+        uint32_t					pressure_count;
+        uint32_t					devmotion_count;
+    } MotionStats;
+
     Buttons _pending_buttons;
+    MotionStats _pending_motionstats;
+    uint64_t _last_motionstat_ts;
     
     CFMutableArrayRef           _logStrings;
     aslclient                   _asl;
@@ -67,7 +80,7 @@ private:
     static ULONG Release( void *self );
     
     static IOHIDEventRef filter(void * self, IOHIDServiceRef sender, IOHIDEventRef event);
-    
+
     static boolean_t open(void * self, IOHIDSessionRef inSession, IOOptionBits options);
     static void close(void * self, IOHIDSessionRef inSession, IOOptionBits options);
     static void registerService(void * self, IOHIDServiceRef service);

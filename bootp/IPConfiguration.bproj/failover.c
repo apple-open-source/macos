@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -101,7 +101,7 @@ failover_inactive(ServiceRef service_p)
 static void
 failover_timed_out(ServiceRef service_p)
 {
-    my_log(LOG_DEBUG, "FAILOVER %s: address timer fired", 
+    my_log(LOG_INFO, "FAILOVER %s: address timer fired",
 	   if_name(service_interface(service_p)));
     failover_cancel_pending_events(service_p);
     service_remove_address(service_p);
@@ -140,7 +140,7 @@ failover_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  arp_result_t *	result = (arp_result_t *)event_data;
 
 	  if (result->error) {
-	      my_log(LOG_ERR, "FAILOVER %s: arp probe failed, %s", 
+	      my_log(LOG_NOTICE, "FAILOVER %s: arp probe failed, %s",
 		     if_name(if_p), arp_client_errmsg(failover->arp));
 	      break;
 	  }
@@ -211,7 +211,7 @@ failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 
 	  method_data = (ipconfig_method_data_t *)event_data;
 	  if (failover != NULL) {
-	      my_log(LOG_DEBUG, "FAILOVER %s: re-entering start state", 
+	      my_log(LOG_INFO, "FAILOVER %s: re-entering start state",
 		     if_name(if_p));
 	      return (ipconfig_status_internal_error_e);
 	  }
@@ -219,38 +219,32 @@ failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      return (ipconfig_status_invalid_parameter_e);
 	  }
 	  failover = malloc(sizeof(*failover));
-	  if (failover == NULL) {
-	      my_log(LOG_ERR, "FAILOVER %s: malloc failed", 
-		     if_name(if_p));
-	      status = ipconfig_status_allocation_failed_e;
-	      break;
-	  }
 	  ServiceSetPrivate(service_p, failover);
 	  bzero(failover, sizeof(*failover));
 	  service_set_requested_ip_addr(service_p, method_data->manual.addr);
 	  service_set_requested_ip_mask(service_p, method_data->manual.mask);
 	  failover->timer = timer_callout_init();
 	  if (failover->timer == NULL) {
-	      my_log(LOG_ERR, "FAILOVER %s: timer_callout_init failed", 
+	      my_log(LOG_NOTICE, "FAILOVER %s: timer_callout_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
 	  failover->arp = arp_client_init(G_arp_session, if_p);
 	  if (failover->arp == NULL) {
-	      my_log(LOG_NOTICE, "FAILOVER %s: arp_client_init failed", 
+	      my_log(LOG_NOTICE, "FAILOVER %s: arp_client_init failed",
 		     if_name(if_p));
 	      goto stop;
 	  }
 	  failover->address_timeout_secs = method_data->manual.failover_timeout;
-	  my_log(LOG_DEBUG, "FAILOVER %s: starting", 
+	  my_log(LOG_INFO, "FAILOVER %s: starting",
 		 if_name(if_p));
 	  failover_start(service_p, IFEventID_start_e, NULL);
 	  break;
       }
       stop:
       case IFEventID_stop_e: {
-	  my_log(LOG_DEBUG, "FAILOVER %s: stop", if_name(if_p));
+	  my_log(LOG_INFO, "FAILOVER %s: stop", if_name(if_p));
 
 	  if (failover == NULL) {
 	      break;
@@ -277,7 +271,7 @@ failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  ipconfig_method_data_t * 	method_data;
 
 	  if (failover == NULL) {
-	      my_log(LOG_DEBUG, "FAILOVER %s: private data is NULL", 
+	      my_log(LOG_INFO, "FAILOVER %s: private data is NULL",
 		     if_name(if_p));
 	      status = ipconfig_status_internal_error_e;
 	      break;

@@ -52,6 +52,8 @@ WK_EXPORT void WKContextSetShouldUseFontSmoothing(WKContextRef context, bool use
 
 WK_EXPORT void WKContextRegisterURLSchemeAsSecure(WKContextRef context, WKStringRef urlScheme);
 
+WK_EXPORT void WKContextRegisterURLSchemeAsBypassingContentSecurityPolicy(WKContextRef context, WKStringRef urlScheme);
+
 WK_EXPORT void WKContextRegisterURLSchemeAsCachePartitioned(WKContextRef context, WKStringRef urlScheme);
 
 WK_EXPORT void WKContextSetDomainRelaxationForbiddenForURLScheme(WKContextRef context, WKStringRef urlScheme);
@@ -62,10 +64,6 @@ WK_EXPORT void WKContextSetIconDatabasePath(WKContextRef context, WKStringRef ic
 
 WK_EXPORT void WKContextAllowSpecificHTTPSCertificateForHost(WKContextRef context, WKCertificateInfoRef certificate, WKStringRef host);
 
-// FIXME: These functions are only effective if called before the Web process is launched. But
-// we should really change these settings to be on WebPreferences and changeable at runtime.
-WK_EXPORT void WKContextSetApplicationCacheDirectory(WKContextRef context, WKStringRef applicationCacheDirectory);
-WK_EXPORT void WKContextSetDiskCacheDirectory(WKContextRef context, WKStringRef diskCacheDirectory);
 WK_EXPORT void WKContextSetCookieStorageDirectory(WKContextRef context, WKStringRef cookieStorageDirectory);
 
 // FIXME: This is a workaround for testing purposes only and should be removed once a better
@@ -88,6 +86,8 @@ typedef void (*WKContextInvalidMessageFunction)(WKStringRef messageName);
 WK_EXPORT void WKContextSetInvalidMessageFunction(WKContextInvalidMessageFunction invalidMessageFunction);
     
 WK_EXPORT void WKContextSetMemoryCacheDisabled(WKContextRef, bool disabled);
+
+WK_EXPORT void WKContextSetFontWhitelist(WKContextRef, WKArrayRef);
 
 #ifdef __cplusplus
 }

@@ -14,9 +14,13 @@
 	<dict>
 		<key>com.apple.aslmanager</key>
 		<true/>
+		<key>com.apple.activity_tracing.cache-delete</key>
+		<true/>
 	</dict>
 	<key>EnableTransactions</key>
-	<false/>
+	<true/>
+	<key>EnablePressuredExit</key>
+	<true/>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
 </dict>

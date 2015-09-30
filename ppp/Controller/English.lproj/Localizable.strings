@@ -101,7 +101,7 @@
 "L2TP Error 8" = "The IPSec Certificate is missing. Verify your settings and try reconnecting.";
 
 
-"PPTP Error 1" = "The PPTP-VPN server was unreachable. Verify the server address and try reconnecting. If the problem continues, contact your Administrator";
+"PPTP Error 1" = "The PPTP-VPN server was unreachable. Verify the server address and try reconnecting. If the problem continues, contact your Administrator.";
 "PPTP Error 2" = "The PPTP-VPN server did not respond. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
 "PPTP Error 5" = "Your attempt to connect to the PPTP-VPN server failed. Verify the server address and try reconnecting.";
 "PPTP Error 6" = "You've been disconnected from the PPTP-VPN server because the network configuration changed.";

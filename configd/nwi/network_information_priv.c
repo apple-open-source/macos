@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,103 +31,220 @@
 #include "network_information_priv.h"
 #include <limits.h>
 #include <stdio.h>
+#include <syslog.h>
 
-__private_extern__
-const sa_family_t nwi_af_list[] = {AF_INET, AF_INET6};
+#define NWI_IFSTATE_FLAGS(flags) \
+	((flags) & NWI_IFSTATE_FLAGS_MASK)
 
-static __inline__ size_t
-nwi_state_compute_size(unsigned int n)
+#define NWI_IFSTATE_FLAGS_GET_DIFF(flags) \
+	(((flags) & NWI_IFSTATE_FLAGS_DIFF_MASK) >> 8)
+
+#define NWI_IFSTATE_FLAGS_FROM_DIFF(diff) \
+	(((diff) << 8) & NWI_IFSTATE_FLAGS_DIFF_MASK)
+
+#define NWI_IFSTATE_DIFF_UNCHANGED	0
+#define NWI_IFSTATE_DIFF_ADDED		1
+#define NWI_IFSTATE_DIFF_REMOVED	2
+#define NWI_IFSTATE_DIFF_CHANGED	3
+#define NWI_IFSTATE_DIFF_RANK_UP	4
+#define NWI_IFSTATE_DIFF_RANK_DOWN	5
+
+
+static void
+nwi_state_fix_af_aliases(nwi_state_t state, uint32_t old_max_if_count)
 {
-	return (offsetof(nwi_state, nwi_ifstates[n]));
+	int64_t		offset;
+	int 		i;
+	nwi_ifstate_t	ifstate;
 
+	offset = state->max_if_count - old_max_if_count;
+	if (offset < 0) {
+		syslog(LOG_ERR, "new count %d < old count %d",
+		       state->max_if_count, old_max_if_count);
+		return;
+	}
+
+	/* iterate IPv4 list and add the offset to any entries with an alias */
+	for (i = 0, ifstate = nwi_state_ifstate_list(state, AF_INET);
+	     i < state->ipv4_count;
+	     i++, ifstate++) {
+		if (ifstate->af_alias_offset != 0) {
+			/* IPv6 is higher in memory, alias is forward */
+			ifstate->af_alias_offset += offset;
+		}
+	}
+
+	/* iterate IPv6 list and add the offset to any entries with an alias */
+	for (i = 0, ifstate = nwi_state_ifstate_list(state, AF_INET6);
+	     i < state->ipv6_count;
+	     i++, ifstate++) {
+		if (ifstate->af_alias_offset != 0) {
+			/* IPv6 is higher in memory, alias is backward */
+			ifstate->af_alias_offset -= offset;
+		}
+	}
+	return;
 }
+
+static void
+nwi_state_add_to_if_list(nwi_state_t state, nwi_ifstate_t ifstate)
+{
+	int		i;
+	nwi_ifindex_t *	scan;
+
+	if ((ifstate->flags & NWI_IFSTATE_FLAGS_NOT_IN_IFLIST) != 0) {
+		/* doesn't get added to interface list */
+		return;
+	}
+	if (state->if_list_count >= state->max_if_count) {
+		/* sanity check */
+		return;
+	}
+	for (i = 0, scan = nwi_state_if_list(state);
+	     i < state->if_list_count;
+	     i++, scan++) {
+		nwi_ifstate_t	this;
+		
+		this = state->ifstate_list + *scan;
+		if (strcmp(this->ifname, ifstate->ifname) == 0) {
+			/* it's already in the list */
+			return;
+		}
+	}
+	/* add it to the end */
+	*scan = (nwi_ifindex_t)(ifstate - state->ifstate_list);
+	state->if_list_count++;
+	return;
+}
+
+static void
+nwi_state_set_if_list(nwi_state_t state)
+{
+	nwi_ifstate_t	scan_v4;
+	nwi_ifstate_t	scan_v6;
+	int		v4;
+	int		v6;
+	
+	v4 = 0;
+	v6 = 0;
+	state->if_list_count = 0;
+	scan_v4 = nwi_state_get_ifstate_with_index(state, AF_INET, v4);
+	scan_v6 = nwi_state_get_ifstate_with_index(state, AF_INET6, v6);
+	while (scan_v4 != NULL || scan_v6 != NULL) {
+		bool	add_v4 = FALSE;
+		
+		if (scan_v4 != NULL && scan_v6 != NULL) {
+			/* add the higher rank of v4 or v6 */
+			if (scan_v4->rank <= scan_v6->rank) {
+				add_v4 = TRUE;
+			}
+		}
+		else if (scan_v4 != NULL) {
+			add_v4 = TRUE;
+		}
+		if (add_v4) {
+			/* add v4 interface */
+			nwi_state_add_to_if_list(state, scan_v4);
+			v4++;
+			scan_v4 = nwi_state_get_ifstate_with_index(state,
+								   AF_INET,
+								   v4);
+		}
+		else {
+			/* add v6 interface, move to next item */
+			nwi_state_add_to_if_list(state, scan_v6);
+			v6++;
+			scan_v6 = nwi_state_get_ifstate_with_index(state,
+								   AF_INET6,
+								   v6);
+		}
+	}
+	return;
+}
+
 __private_extern__
 nwi_state_t
-nwi_state_copy_priv(nwi_state_t src)
+nwi_state_make_copy(nwi_state_t src)
 {
-	nwi_state_t dest = NULL;
+	nwi_state_t	dest = NULL;
+	size_t		size;
 
 	if (src == NULL) {
 		return dest;
 	}
-
-	dest = malloc(src->size);
+	size = nwi_state_size(src);
+	dest = malloc(size);
 
 	if (dest != NULL) {
-		bcopy(src, dest, src->size);
-
-		dest->ref = 1;
-		dest->svr = FALSE;
+		bcopy(src, dest, size);
 	}
 	return dest;
 }
 
 __private_extern__
 nwi_state_t
-nwi_state_new(nwi_state_t old_state, int elems)
+nwi_state_new(nwi_state_t old_state, int max_if_count)
 {
-	nwi_state_t state = NULL;
-	uint32_t new_size;
+	size_t	 	size;
+	nwi_state_t 	state = NULL;
 
-	if (old_state == NULL && elems == 0) {
+	if (old_state == NULL && max_if_count == 0) {
 		return NULL;
 	}
 
-	/* Need to insert a last node for each of the v4/v6 list */
-	new_size = (elems != 0)
-			? (uint32_t)(sizeof(nwi_state) + nwi_state_compute_size((elems+1) * 2))
-			: 0;
-
 	/* Should we reallocate? */
 	if (old_state != NULL) {
-		if (old_state->size >= new_size) {
+		if (old_state->max_if_count >= max_if_count) {
+			/* if we're staying the same or shrinking, don't grow */
 			return (old_state);
 		}
 	}
-
-	state = malloc(new_size);
-	bzero(state, new_size);
-	state->size = new_size;
-
-	/*
-	 * v4 list is stored 0 to elems,
-	 * v6 list is stored elems + 1 to 2 * elems + 2
-	 */
-	state->ipv6_start = elems + 1;
+	size = nwi_state_compute_size(max_if_count);
+	state = malloc(size);
+	bzero(state, size);
+	state->max_if_count = max_if_count;
+	state->version = NWI_STATE_VERSION;
 
 	if (old_state != NULL) {
 		state->ipv6_count = old_state->ipv6_count;
 		if (state->ipv6_count > 0) {
-			bcopy((void*) &old_state->nwi_ifstates[old_state->ipv6_start],
-			      (void*) &state->nwi_ifstates[state->ipv6_start],
+			bcopy((void *)&old_state->ifstate_list[old_state->max_if_count],
+			      (void *)&state->ifstate_list[state->max_if_count],
 			      old_state->ipv6_count * sizeof(nwi_ifstate));
 		}
 
 		state->ipv4_count = old_state->ipv4_count;
 		if (state->ipv4_count > 0) {
-			bcopy((void*) old_state->nwi_ifstates,
-			      (void*) state->nwi_ifstates,
+			bcopy((void *)old_state->ifstate_list,
+			      (void *)state->ifstate_list,
 			      old_state->ipv4_count * sizeof(nwi_ifstate));
 		}
-
-		free(old_state);
+		/* we grew the arrays so re-compute the offsets */
+		nwi_state_fix_af_aliases(state, old_state->max_if_count);
+		nwi_state_set_if_list(state);
+		nwi_state_free(old_state);
 	} else {
 		state->ipv4_count = 0;
 		state->ipv6_count = 0;
 	}
-	nwi_state_set_last(state, AF_INET);
-	nwi_state_set_last(state, AF_INET6);
-
-	state->ref = 1;
-	state->svr = FALSE;
 	return state;
+}
+
+__private_extern__ void
+nwi_state_finalize(nwi_state_t state)
+{
+	if (state == NULL) {
+		return;
+	}
+	nwi_state_set_if_list(state);
+	return;
 }
 
 static __inline__
 nwi_ifstate_t
-nwi_ifstate_get_last(nwi_state_t state, int af, uint32_t** last)
+nwi_state_get_last_ifstate(nwi_state_t state, int af, nwi_ifindex_t** last)
 {
-	uint32_t*	count;
+	nwi_ifindex_t *	count;
 	int		idx;
 
 	assert(state != NULL);
@@ -136,11 +253,11 @@ nwi_ifstate_get_last(nwi_state_t state, int af, uint32_t** last)
 				: &state->ipv6_count;
 
 	idx = (af == AF_INET) ? state->ipv4_count
-			      : (state->ipv6_start + state->ipv6_count);
+			      : (state->max_if_count + state->ipv6_count);
 
 	*last = count;
 
-	return &state->nwi_ifstates[idx];
+	return &state->ifstate_list[idx];
 }
 
 __private_extern__
@@ -152,36 +269,72 @@ nwi_ifstate_set_signature(nwi_ifstate_t ifstate, uint8_t * signature)
 	return;
 }
 
-__private_extern__
-nwi_ifstate_t
-nwi_insert_ifstate(nwi_state_t state,
-		   const char * ifname, int af,
-		   uint64_t flags, Rank rank,
-		   void * ifa,
-		   struct sockaddr * vpn_server_addr,
-		   uint32_t reach_flags)
+static void
+nwi_state_add_ifstate_alias(nwi_state_t state, nwi_ifstate_t ifstate)
+{
+	nwi_ifstate_t	alias;
+
+	alias = nwi_state_get_ifstate_with_name(state, 
+						nwi_other_af(ifstate->af),
+						ifstate->ifname);
+	if (alias == NULL) {
+		return;
+	}
+	ifstate->af_alias_offset = (nwi_ifindex_t)(alias - ifstate);
+	alias->af_alias_offset = (nwi_ifindex_t)(ifstate - alias);
+	return;
+}
+
+__private_extern__ nwi_ifstate_t
+nwi_state_add_ifstate(nwi_state_t state,
+		      const char * ifname, int af,
+		      uint64_t flags, Rank rank,
+		      void * ifa,
+		      struct sockaddr * vpn_server_addr,
+		      uint32_t reach_flags)
 {
 	nwi_ifstate_t 	ifstate;
 
-	/* Will only insert unique elements in the list */
+	/* Will only add unique elements to the list */
 	ifstate = nwi_state_get_ifstate_with_name(state, af, ifname);
 
 	/* Already present, just ignore it */
 	if (ifstate != NULL) {
 		if (ifstate->rank < rank) {
+			/* always true because they are added in order */
 			return NULL;
 		}
 	}
+	else {
+		/* add to the end */
+		nwi_ifindex_t	count;
+		nwi_ifindex_t *	count_p;
 
-	if (ifstate == NULL) {
-		uint32_t	*last;
+		/* make sure we aren't already full */
+		ifstate = nwi_state_get_last_ifstate(state, af, &count_p);
+		count = *count_p;
+		if (count == state->max_if_count) {
+			/* should not happen */
+			syslog(LOG_ERR,
+			       "nwi_state_add_ifstate: full at count %d\n",
+			       count);
+			return (NULL);
+		}
+		if (count > 0) {
+			/* previous ifstate is no longer last */
+			nwi_ifstate_t	prev = ifstate - 1;
 
-		/* We need to append it as the last element */
-		ifstate = nwi_ifstate_get_last(state, af, &last);
+			prev->flags &= ~NWI_IFSTATE_FLAGS_LAST_ITEM;
+		}
 		bzero(ifstate, sizeof(*ifstate));
 		strlcpy(ifstate->ifname, ifname, sizeof(ifstate->ifname));
 		ifstate->af = af;
-		(*last)++;
+		/* this is the new last ifstate */
+		ifstate->flags |= NWI_IFSTATE_FLAGS_LAST_ITEM;
+		(*count_p)++;
+		
+		/* add the alias */
+		nwi_state_add_ifstate_alias(state, ifstate);
 	}
 
 	/* We need to update the address/rank/flag fields for the existing/new
@@ -208,8 +361,8 @@ nwi_insert_ifstate(nwi_state_t state,
 
 	ifstate->reach_flags = reach_flags;
 	ifstate->rank = rank;
-	ifstate->flags = flags;
-
+	ifstate->flags &= ~NWI_IFSTATE_FLAGS_MASK;
+	ifstate->flags |= NWI_IFSTATE_FLAGS(flags);
 	return ifstate;
 }
 
@@ -217,41 +370,15 @@ __private_extern__
 void
 nwi_state_clear(nwi_state_t state, int af)
 {
-	uint32_t* count;
-
-	count = (af == AF_INET)
-		?&state->ipv4_count:&state->ipv6_count;
-
-	*count = 0;
-	nwi_state_set_last(state, af);
+	if (af == AF_INET) {
+		state->ipv4_count = 0;
+	}
+	else {
+		state->ipv6_count = 0;
+	}
 	return;
 
 }
-
-__private_extern__
-void
-nwi_state_set_last(nwi_state_t state, int af)
-{
-	int last_elem_idx;
-
-	if (state == NULL) {
-		return;
-	}
-
-	/* The last element is an element with the flags set as
-	 * NWI_IFSTATE_FLAGS_NOT_IN_LIST */
-	last_elem_idx = (af == AF_INET) ? state->ipv4_count
-					: (state->ipv6_start + state->ipv6_count);
-
-	state->nwi_ifstates[last_elem_idx].ifname[0] = '\0';
-	state->nwi_ifstates[last_elem_idx].flags = NWI_IFSTATE_FLAGS_NOT_IN_LIST;
-}
-
-#define	unchanged	""
-#define added		"+"
-#define deleted		"-"
-#define changed		"!"
-#define rank_change	"R"
 
 __private_extern__
 void *
@@ -260,22 +387,58 @@ nwi_ifstate_get_address(nwi_ifstate_t ifstate)
 	return (void *)&ifstate->iaddr;
 }
 
-__private_extern__
-const char *
-nwi_ifstate_get_diff_str(nwi_ifstate_t ifstate)
+
+static __inline__ uint8_t
+nwi_ifstate_get_diff(nwi_ifstate_t ifstate)
 {
-	if (strcmp(ifstate->diff_str, rank_change) == 0) {
-		return changed;
-	}
-	return ifstate->diff_str;
+	return (NWI_IFSTATE_FLAGS_GET_DIFF(ifstate->flags));
 }
 
-static
-inline
-boolean_t
+__private_extern__ const char *
+nwi_ifstate_get_diff_str(nwi_ifstate_t ifstate)
+{
+	const char *	strings[] = {
+		"",
+		"+",
+		"-",
+		"!",
+		"/",
+		"\\"
+	};
+	uint8_t		diff;
+
+	diff = nwi_ifstate_get_diff(ifstate);
+	if (diff < sizeof(strings) / sizeof(strings[0])) {
+		return (strings[diff]);
+	}
+	return ("?");
+}
+
+__private_extern__ nwi_ifstate_difference_t
+nwi_ifstate_get_difference(nwi_ifstate_t diff_ifstate)
+{
+	nwi_ifstate_difference_t	diff;
+
+	switch (nwi_ifstate_get_diff(diff_ifstate)) {
+	case NWI_IFSTATE_DIFF_ADDED:
+	case NWI_IFSTATE_DIFF_CHANGED:
+		diff = knwi_ifstate_difference_changed;
+		break;
+	case NWI_IFSTATE_DIFF_REMOVED:
+		diff = knwi_ifstate_difference_removed;
+		break;
+	default:
+		diff = knwi_ifstate_difference_none;
+		break;
+	}
+	return (diff);
+}
+
+static inline boolean_t
 nwi_ifstate_has_changed(nwi_ifstate_t ifstate1, nwi_ifstate_t ifstate2)
 {
-	if (ifstate1->flags != ifstate2->flags) {
+	if (NWI_IFSTATE_FLAGS(ifstate1->flags)
+	    != NWI_IFSTATE_FLAGS(ifstate2->flags)) {
 		return TRUE;
 	}
 
@@ -291,158 +454,152 @@ nwi_ifstate_has_changed(nwi_ifstate_t ifstate1, nwi_ifstate_t ifstate2)
 	return FALSE;
 }
 
-static
-inline
-nwi_ifstate_t
-nwi_ifstate_append(nwi_state_t state, nwi_ifstate_t scan)
+static inline nwi_ifstate_t
+nwi_state_diff_append(nwi_state_t state, nwi_ifstate_t scan)
 {
 	nwi_ifstate_t 	new_ifstate = NULL;
-	uint32_t	*last;
+	nwi_ifindex_t *	last;
 
-	new_ifstate = nwi_ifstate_get_last(state, scan->af, &last);
+	new_ifstate = nwi_state_get_last_ifstate(state, scan->af, &last);
 	memcpy(new_ifstate, scan, sizeof(*scan));
 	(*last)++;
 	return new_ifstate;
 }
 
-static
-inline
-void
-nwi_ifstate_set_diff_str(nwi_ifstate_t ifstate, const char *diff_str)
+static inline void
+nwi_ifstate_set_diff(nwi_ifstate_t ifstate, uint8_t diff)
 {
-	ifstate->diff_str = diff_str;
+	ifstate->flags &= ~NWI_IFSTATE_FLAGS_DIFF_MASK;
+	if (diff != NWI_IFSTATE_DIFF_UNCHANGED) {
+		ifstate->flags |= NWI_IFSTATE_FLAGS_FROM_DIFF(diff);
+	}
 }
 
-static
-void
-nwi_ifstate_set_added_or_changed_str(nwi_state_t state, nwi_state_t old_state, nwi_ifstate_t ifstate)
+static void
+nwi_state_diff_add_change(nwi_state_t diff, nwi_state_t old, 
+			  nwi_ifstate_t ifstate)
 {
-	nwi_ifstate_t 	existing_ifstate, new_ifstate;
+	nwi_ifstate_t 	existing;
+	nwi_ifstate_t 	new;
 
-	existing_ifstate = nwi_state_get_ifstate_with_name(old_state,
-							   ifstate->af,
-							   nwi_ifstate_get_ifname(ifstate));
-
-	/* Add the element that is not in the store */
-	new_ifstate = nwi_ifstate_append(state, ifstate);
-
-	/* These are potentially "added" elements unless they are
-	 * in the old list */
-	nwi_ifstate_set_diff_str(new_ifstate, added);
-
-	if (existing_ifstate != NULL) {
-		if (nwi_ifstate_has_changed(existing_ifstate, new_ifstate) == TRUE) {
-			nwi_ifstate_set_diff_str(new_ifstate, changed);
-		} else if (existing_ifstate->rank != new_ifstate->rank) {
-			nwi_ifstate_set_diff_str(new_ifstate, rank_change);
+	existing = nwi_state_get_ifstate_with_name(old,
+						   ifstate->af,
+						   nwi_ifstate_get_ifname(ifstate));
+	new = nwi_state_diff_append(diff, ifstate);
+	if (existing != NULL) {
+		if (nwi_ifstate_has_changed(existing, new)) {
+			nwi_ifstate_set_diff(new,
+					     NWI_IFSTATE_DIFF_CHANGED);
+		} else if (existing->rank < new->rank) {
+			nwi_ifstate_set_diff(new,
+					     NWI_IFSTATE_DIFF_RANK_DOWN);
+		} else if (existing->rank > new->rank) {
+			nwi_ifstate_set_diff(new,
+					     NWI_IFSTATE_DIFF_RANK_UP);
 		} else {
-			nwi_ifstate_set_diff_str(new_ifstate, unchanged);
+			nwi_ifstate_set_diff(new,
+					     NWI_IFSTATE_DIFF_UNCHANGED);
 		}
+	} else {
+		nwi_ifstate_set_diff(new, NWI_IFSTATE_DIFF_ADDED);
 	}
 	return;
 }
 
-static
-void
-nwi_ifstate_set_removed_str(nwi_state_t state, nwi_ifstate_t ifstate)
+static void
+nwi_state_diff_remove(nwi_state_t state, nwi_ifstate_t ifstate)
 {
-	nwi_ifstate_t 	existing_ifstate;
+	nwi_ifstate_t 	removed_ifstate;
 
-	existing_ifstate = nwi_state_get_ifstate_with_name(state,
-							   ifstate->af,
-							   nwi_ifstate_get_ifname(ifstate));
-
-	/* Any elements that has not been added means that they are removed */
-	if (existing_ifstate == NULL) {
-		nwi_ifstate_t new_ifstate = nwi_ifstate_append(state, ifstate);
-		nwi_ifstate_set_diff_str(new_ifstate, deleted);
+	if (nwi_state_get_ifstate_with_name(state,
+					    ifstate->af,
+					    nwi_ifstate_get_ifname(ifstate))
+	    != NULL) {
+		/* there's still an ifstate */
+		return;
 	}
+	removed_ifstate = nwi_state_diff_append(state, ifstate);
+	nwi_ifstate_set_diff(removed_ifstate, NWI_IFSTATE_DIFF_REMOVED);
 	return;
 }
 
-static
-void
-nwi_state_merge_added(nwi_state_t state, nwi_state_t old_state,
-		      nwi_state_t new_state)
+static void
+nwi_state_diff_populate(nwi_state_t diff, nwi_state_t old, nwi_state_t new)
 {
 	int i;
 	nwi_ifstate_t scan;
 
-	if (new_state == NULL) {
-		return;
-	}
-
-	if (new_state->ipv4_count) {
-		for (i = 0, scan = new_state->nwi_ifstates;
-		     i < new_state->ipv4_count; i++, scan++) {
-			nwi_ifstate_set_added_or_changed_str(state, old_state, scan);
+	if (new != NULL) {
+		/* check for adds/changes */
+		if (new->ipv4_count) {
+			for (i = 0, scan = new->ifstate_list;
+			     i < new->ipv4_count; i++, scan++) {
+				nwi_state_diff_add_change(diff, old, scan);
+			}
 		}
-		nwi_state_set_last(state, AF_INET);
-	}
-
-	if (new_state->ipv6_count) {
-		for (i = 0, scan = new_state->nwi_ifstates + new_state->ipv6_start;
-		     i < new_state->ipv6_count; i++, scan++) {
-			nwi_ifstate_set_added_or_changed_str(state, old_state, scan);
+		if (new->ipv6_count) {
+			scan = new->ifstate_list + new->max_if_count;
+			for (i = 0;
+			     i < new->ipv6_count; i++, scan++) {
+				nwi_state_diff_add_change(diff, old, scan);
+			}
 		}
-		nwi_state_set_last(state, AF_INET6);
+	}
+	if (old != NULL) {
+		/* check for removes */
+		if (old->ipv4_count) {
+			for (i = 0, scan = old->ifstate_list;
+			     i < old->ipv4_count; i++, scan++) {
+				nwi_state_diff_remove(diff, scan);
+			}
+		}
+		if (old->ipv6_count) {
+			scan = old->ifstate_list + old->max_if_count;
+			for (i = 0;
+			     i < old->ipv6_count; i++, scan++) {
+				nwi_state_diff_remove(diff, scan);
+			}
+		}
 	}
 	return;
 }
 
-void
-nwi_state_merge_removed(nwi_state_t state, nwi_state_t old_state)
+static int
+nwi_state_max_af_count(nwi_state_t state)
 {
-	int i;
-	nwi_ifstate_t scan;
-
-	if (old_state == NULL) {
-		return;
+	if (state->ipv4_count >= state->ipv6_count) {
+		return (state->ipv4_count);
 	}
-
-	if (old_state->ipv4_count) {
-		for (i = 0, scan = old_state->nwi_ifstates;
-		     i < old_state->ipv4_count; i++, scan++) {
-			nwi_ifstate_set_removed_str(state, scan);
-		}
-		nwi_state_set_last(state, AF_INET);
-	}
-
-	if (old_state->ipv6_count) {
-		for (i = 0, scan = old_state->nwi_ifstates + old_state->ipv6_start;
-		     i < old_state->ipv6_count; i++, scan++) {
-			nwi_ifstate_set_removed_str(state, scan);
-		}
-		nwi_state_set_last(state, AF_INET6);
-	}
-	return;
+	return (state->ipv6_count);
 }
 
-__private_extern__
-nwi_state_t
-nwi_state_diff(nwi_state_t old_state, nwi_state_t new_state)
+__private_extern__ nwi_state_t
+nwi_state_diff(nwi_state_t old, nwi_state_t new)
 {
 	nwi_state_t	diff;
 	int		total_count = 0;
 
-	if (old_state != NULL) {
-		total_count = old_state->ipv4_count + old_state->ipv6_count;
+	/*
+	 * Compute the worst case total number of elements we need:
+	 * 	the max count of (IPv4, IPv6) in the old
+	 *    + the max count of (IPv4, IPv6) in the new
+	 * Worst case assumes that the old and new share none of the
+	 * same interfaces.
+	 */
+	if (old != NULL) {
+		total_count += nwi_state_max_af_count(old);
 	}
-
-	if (new_state != NULL) {
-		total_count += new_state->ipv4_count + new_state->ipv6_count;
+	if (new != NULL) {
+		total_count += nwi_state_max_af_count(new);
 	}
-
 	if (total_count == 0) {
 		return NULL;
 	}
 
 	diff = nwi_state_new(NULL, total_count);
+	nwi_state_diff_populate(diff, old, new);
 
-	nwi_state_merge_added(diff, old_state, new_state);
-	nwi_state_merge_removed(diff, old_state);
-
-	/* Diff consists of a nwi_state_t with annotated diff_str's */
+	/* diff consists of a nwi_state_t with diff flags on each ifstate */
 	return diff;
 }
 
@@ -468,9 +625,7 @@ _nwi_ifstate_has_changed(nwi_state_t state, const char * ifname)
 						  ifname);
 
 	if (ifstate != NULL
-	    && ifstate->diff_str != NULL
-	    && strcmp(ifstate->diff_str, unchanged) != 0
-	    && strcmp(ifstate->diff_str, rank_change) != 0) {
+	    && nwi_ifstate_get_diff(ifstate) != NWI_IFSTATE_DIFF_UNCHANGED) {
 		return (TRUE);
 	}
 
@@ -479,9 +634,7 @@ _nwi_ifstate_has_changed(nwi_state_t state, const char * ifname)
 						  ifname);
 
 	if (ifstate != NULL
-	    && ifstate->diff_str != NULL
-	    && strcmp(ifstate->diff_str, unchanged) != 0
-	    && strcmp(ifstate->diff_str, rank_change) != 0) {
+	    && nwi_ifstate_get_diff(ifstate) != NWI_IFSTATE_DIFF_UNCHANGED) {
 		return (TRUE);
 	}
 	return (FALSE);
@@ -502,51 +655,75 @@ _nwi_state_update_interface_generations(nwi_state_t old_state, nwi_state_t state
 	/* cache the generation count */
 	generation_count = state->generation_count;
 
-	if (state->ipv4_count) {
-		for (i = 0, scan = state->nwi_ifstates;
-		     i < state->ipv4_count; i++, scan++) {
-			if (_nwi_ifstate_has_changed(changes, scan->ifname) == TRUE) {
-				/* Update the interface generation count */
-				_nwi_ifstate_set_generation(scan, generation_count);
-			} else {
-				nwi_ifstate_t old_ifstate;
-
-				old_ifstate = nwi_state_get_ifstate_with_name(old_state,
-									      AF_INET,
-									      scan->ifname);
-
-				/* Set the current generation count */
-				_nwi_ifstate_set_generation(scan,
-							    old_ifstate->if_generation_count);
-			}
+	for (i = 0, scan = nwi_state_ifstate_list(state, AF_INET);
+	     i < state->ipv4_count; i++, scan++) {
+		if (_nwi_ifstate_has_changed(changes, scan->ifname) == TRUE) {
+			/* Update the interface generation count */
+			_nwi_ifstate_set_generation(scan, generation_count);
+		} else {
+			nwi_ifstate_t old_ifstate;
+			
+			old_ifstate = nwi_state_get_ifstate_with_name(old_state,
+								      AF_INET,
+								      scan->ifname);
+			
+			/* Set the current generation count */
+			_nwi_ifstate_set_generation(scan,
+						    old_ifstate->if_generation_count);
 		}
 	}
-
-	if (state->ipv6_count) {
-		for (i = 0, scan = state->nwi_ifstates + state->ipv6_start;
-		     i < state->ipv6_count; i++, scan++) {
-			/* The generation count has been already updated in
-			 * the ipv4 case, just skip it. */
-			if (nwi_ifstate_get_generation(scan) ==
-				generation_count) {
-				continue;
-			}
-			if (_nwi_ifstate_has_changed(changes, scan->ifname) == TRUE) {
-				/* update the interface generation count */
-				_nwi_ifstate_set_generation(scan, generation_count);
-			} else {
-				nwi_ifstate_t old_ifstate;
-
-				old_ifstate = nwi_state_get_ifstate_with_name(old_state,
-									      AF_INET6,
-									      scan->ifname);
-				assert(old_ifstate != NULL);
-
-				/* Set the current generation count */
-				_nwi_ifstate_set_generation(scan,
-							    old_ifstate->if_generation_count);
-			}
+	for (i = 0, scan = nwi_state_ifstate_list(state, AF_INET6);
+	     i < state->ipv6_count; i++, scan++) {
+		/* The generation count has been already updated in
+		 * the ipv4 case, just skip it. */
+		if (nwi_ifstate_get_generation(scan) ==
+		    generation_count) {
+			continue;
+		}
+		if (_nwi_ifstate_has_changed(changes, scan->ifname) == TRUE) {
+			/* update the interface generation count */
+			_nwi_ifstate_set_generation(scan, generation_count);
+		} else {
+			nwi_ifstate_t old_ifstate;
+			
+			old_ifstate = nwi_state_get_ifstate_with_name(old_state,
+								      AF_INET6,
+								      scan->ifname);
+			assert(old_ifstate != NULL);
+			
+			/* Set the current generation count */
+			_nwi_ifstate_set_generation(scan,
+						    old_ifstate->if_generation_count);
 		}
 	}
+	return;
+}
+
+__private_extern__
+void
+_nwi_state_compute_sha1_hash(nwi_state_t state,
+			     unsigned char hash[CC_SHA1_DIGEST_LENGTH])
+{
+	if (state == NULL) {
+		bzero(hash, CC_SHA1_DIGEST_LENGTH);
+	}
+	else {
+		CC_SHA1_CTX	ctx;
+		uint64_t	generation_save;
+
+		generation_save = state->generation_count;
+
+		/* zero out the generation count before computing hash */
+		state->generation_count = 0;
+
+		/* compute hash */
+		CC_SHA1_Init(&ctx);
+		CC_SHA1_Update(&ctx, state, (CC_LONG)nwi_state_size(state));
+		CC_SHA1_Final(hash, &ctx);
+
+		/* restore generation */
+		state->generation_count = generation_save;
+	}
+
 	return;
 }

@@ -31,6 +31,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <security_cdsa_utilities/AuthorizationData.h>
 #include "authority.h"
+#include "agentclient.h"
 
 namespace Authorization
 {

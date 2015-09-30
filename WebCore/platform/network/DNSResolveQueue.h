@@ -39,7 +39,7 @@ class DNSResolveQueue {
     friend NeverDestroyed<DNSResolveQueue>;
 
 public:
-    static DNSResolveQueue& shared();
+    static DNSResolveQueue& singleton();
 
     void add(const String& hostname);
     void decrementRequestCount()
@@ -55,7 +55,7 @@ private:
     bool platformProxyIsEnabledInSystemPreferences();
     void platformResolve(const String&);
 
-    void timerFired(Timer&);
+    void timerFired();
 
     Timer m_timer;
 

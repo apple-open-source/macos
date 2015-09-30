@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -35,6 +35,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/kern_event.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -77,6 +79,7 @@ help(const char *str)
 	printf(" %-20s # %s\n", "-D length", "packet data length");
 	printf(" %-20s # %s\n", "-d string", "packet data as a string");
 	printf(" %-20s # %s\n", "-f", "first comment option");
+	printf(" %-20s # %s\n", "-k len", "kernel event of given len");
 	printf(" %-20s # %s\n", "-i name", "interface name");
 	printf(" %-20s # %s\n", "-n num_data", "number of data blocks");
 	printf(" %-20s # %s\n", "-p name:pid", "process name and pid");
@@ -153,6 +156,39 @@ make_process_information_block(pcapng_block_t block, const char *name, uint32_t 
 	
 	return (block);
 }
+
+pcapng_block_t
+make_kern_event_block(pcapng_block_t block, struct kern_event_msg *event)
+{
+	struct pcapng_os_event_fields *osev_fields;
+	struct timeval ts;
+	
+	gettimeofday(&ts, NULL);
+	
+	pcap_ng_block_reset(block, PCAPNG_BT_OSEV);
+	
+	if (first_comment && comment)
+		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
+	
+	osev_fields = pcap_ng_get_os_event_fields(block);
+	osev_fields->type = PCAPNG_OSEV_KEV;
+	osev_fields->timestamp_high = ts.tv_sec;
+	osev_fields->timestamp_low = ts.tv_usec;
+	osev_fields->len = event->total_size;
+
+	if (copy_data_buffer)
+		pcap_ng_block_packet_copy_data(block, event, event->total_size);
+	else
+		pcap_ng_block_packet_set_data(block, event, event->total_size);
+
+	if (!first_comment && comment)
+		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
+	
+	write_block(block);
+	
+	return (block);
+}
+
 
 pcapng_block_t
 make_data_block(pcapng_block_t block, const void *data, size_t len)
@@ -259,12 +295,13 @@ main(int argc, char * const argv[])
 	int ch;
 	const char *file_name = NULL;
 	pcapng_block_t block;
+	int kevid = 0;
 	
 	/*
 	 * Loop through argument to build PCAP-NG block
 	 * Optionally write to file
 	 */
-	while ((ch = getopt(argc, argv, "4:6:Cc:D:d:efhi:n:o:p:sw:x")) != -1) {
+	while ((ch = getopt(argc, argv, "4:6:Cc:D:d:efk:hi:n:o:p:sw:x")) != -1) {
 		switch (ch) {
 			case 'C':
 				copy_data_buffer = 1;
@@ -286,6 +323,7 @@ main(int argc, char * const argv[])
 				block = pcap_ng_block_alloc(65536);
 				make_data_block(block, packet_data, packet_length);
 				pcap_ng_free_block(block);
+				free(packet_data);
 				break;
 			}
 			case 'd':
@@ -304,6 +342,32 @@ main(int argc, char * const argv[])
 				first_comment = 1;
 				break;
 
+			case 'k': {
+				struct kern_event_msg *kevmsg = NULL;
+				struct net_event_data *net_data;
+				u_long len;
+				
+				len = strtoul(optarg, NULL, 0);
+				if (len < sizeof(struct kern_event_msg)) {
+					fprintf(stderr, "malformed arguments for option 'n'\n");
+					help(argv[0]);
+					return (0);
+				}
+				kevmsg = (struct kern_event_msg *)calloc(1, len);
+				kevmsg->total_size = len;
+				kevmsg->vendor_code = KEV_VENDOR_APPLE;
+				kevmsg->kev_class = KEV_NETWORK_CLASS;
+				kevmsg->kev_subclass = KEV_DL_SUBCLASS;
+				kevmsg->id = kevid++;
+				kevmsg->event_code = KEV_DL_LINK_QUALITY_METRIC_CHANGED;
+				net_data = (struct net_event_data *) &kevmsg->event_data[0];
+
+				block = pcap_ng_block_alloc(65536);
+				make_kern_event_block(block, kevmsg);
+				pcap_ng_free_block(block);
+				free(kevmsg);
+				break;
+			}
 			case 'h':
 				help(argv[0]);
 				return (0);

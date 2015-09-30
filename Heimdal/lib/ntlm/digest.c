@@ -169,7 +169,7 @@ build_A1_hash(heim_digest_t context, int old_broken)
 	    if (hex_decode(userhash, md, sizeof(md)) != CC_MD5_DIGEST_LENGTH) {
 		memset(userhash, 0, strlen(userhash));
 		free(userhash);
-		return ENOMEM;
+		return NULL;
 	    }
 	    CC_MD5_Update(&ctx, md, sizeof(md));
 	    memset(md, 0, sizeof(md));

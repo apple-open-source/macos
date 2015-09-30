@@ -658,7 +658,7 @@ _bsd_match_and_send(asl_msg_t *msg)
 }
 
 void
-bsd_out_message(asl_msg_t *msg)
+bsd_out_message(asl_msg_t *msg, int64_t msize)
 {
 	if (msg == NULL) return;
 
@@ -668,6 +668,10 @@ bsd_out_message(asl_msg_t *msg)
 	dispatch_async(bsd_out_queue, ^{
 		_bsd_match_and_send(msg);
 		asl_msg_release((asl_msg_t *)msg);
+
+		/* end of the output module chain (after asl) - decrement global memory stats */
+		OSAtomicAdd64(-1ll * msize, &global.memory_size);
+
 		OSAtomicDecrement32(&global.bsd_queue_count);
 	});
 }

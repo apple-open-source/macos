@@ -38,6 +38,8 @@
 #define kIOPowerDeviceUsageKey      0x84
 #define kIOBatterySystemUsageKey    0x85
 
+#define kIOPSPrivateBatteryCaseType "Battery Case"
+
 /*!
     @defined kIOUPSPlugInServerName
     @abstract Key for UPS Mig server.

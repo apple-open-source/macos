@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/collation/fa.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/xml/collation/fa.xml
- */
 fa{
     Version{"2.0.97.64"}
     collations{
@@ -24,7 +21,7 @@ fa{
                 "&ۏ<ه<<ە<<ہ<<ة<<ۃ<<ۀ<<ھ"
                 "&ی<<*ىےيېۑۍێ"
             }
-            Version{"25"}
+            Version{"27.0.1"}
         }
     }
 }

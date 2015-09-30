@@ -39,18 +39,18 @@ struct TrackEventInit : public EventInit {
     RefPtr<TrackBase> track;
 };
 
-class TrackEvent : public Event {
+class TrackEvent final : public Event {
 public:
     virtual ~TrackEvent();
 
-    static PassRefPtr<TrackEvent> create()
+    static Ref<TrackEvent> create()
     {
-        return adoptRef(new TrackEvent);
+        return adoptRef(*new TrackEvent);
     }
 
-    static PassRefPtr<TrackEvent> create(const AtomicString& type, const TrackEventInit& initializer)
+    static Ref<TrackEvent> create(const AtomicString& type, const TrackEventInit& initializer)
     {
-        return adoptRef(new TrackEvent(type, initializer));
+        return adoptRef(*new TrackEvent(type, initializer));
     }
 
     virtual EventInterface eventInterface() const override;

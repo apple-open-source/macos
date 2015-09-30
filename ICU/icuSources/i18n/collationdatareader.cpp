@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2013-2014, International Business Machines
+* Copyright (C) 2013-2015, International Business Machines
 * Corporation and others.  All Rights Reserved.
 *******************************************************************************
 * collationdatareader.cpp
@@ -29,8 +29,6 @@
 #include "uassert.h"
 #include "ucmndata.h"
 #include "utrie2.h"
-
-#define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
 
 U_NAMESPACE_BEGIN
 
@@ -104,6 +102,8 @@ CollationDataReader::read(const CollationTailoring *base, const uint8_t *inBytes
     const CollationData *baseData = base == NULL ? NULL : base->data;
     const int32_t *reorderCodes = NULL;
     int32_t reorderCodesLength = 0;
+    const uint32_t *reorderRanges = NULL;
+    int32_t reorderRangesLength = 0;
     index = IX_REORDER_CODES_OFFSET;
     offset = getIndex(inIndexes, indexesLength, index);
     length = getIndex(inIndexes, indexesLength, index + 1) - offset;
@@ -116,6 +116,20 @@ CollationDataReader::read(const CollationTailoring *base, const uint8_t *inBytes
         }
         reorderCodes = reinterpret_cast<const int32_t *>(inBytes + offset);
         reorderCodesLength = length / 4;
+
+        // The reorderRanges (if any) are the trailing reorderCodes entries.
+        // Split the array at the boundary.
+        // Script or reorder codes do not exceed 16-bit values.
+        // Range limits are stored in the upper 16 bits, and are never 0.
+        while(reorderRangesLength < reorderCodesLength &&
+                (reorderCodes[reorderCodesLength - reorderRangesLength - 1] & 0xffff0000) != 0) {
+            ++reorderRangesLength;
+        }
+        U_ASSERT(reorderRangesLength < reorderCodesLength);
+        if(reorderRangesLength != 0) {
+            reorderCodesLength -= reorderRangesLength;
+            reorderRanges = reinterpret_cast<const uint32_t *>(reorderCodes + reorderCodesLength);
+        }
     }
 
     // There should be a reorder table only if there are reorder codes.
@@ -339,13 +353,32 @@ CollationDataReader::read(const CollationTailoring *base, const uint8_t *inBytes
             errorCode = U_INVALID_FORMAT_ERROR;
             return;
         }
-        data->scripts = reinterpret_cast<const uint16_t *>(inBytes + offset);
-        data->scriptsLength = length / 2;
+        const uint16_t *scripts = reinterpret_cast<const uint16_t *>(inBytes + offset);
+        int32_t scriptsLength = length / 2;
+        data->numScripts = scripts[0];
+        // There must be enough entries for both arrays, including more than two range starts.
+        data->scriptStartsLength = scriptsLength - (1 + data->numScripts + 16);
+        if(data->scriptStartsLength <= 2 ||
+                CollationData::MAX_NUM_SCRIPT_RANGES < data->scriptStartsLength) {
+            errorCode = U_INVALID_FORMAT_ERROR;
+            return;
+        }
+        data->scriptsIndex = scripts + 1;
+        data->scriptStarts = scripts + 1 + data->numScripts + 16;
+        if(!(data->scriptStarts[0] == 0 &&
+                data->scriptStarts[1] == ((Collation::MERGE_SEPARATOR_BYTE + 1) << 8) &&
+                data->scriptStarts[data->scriptStartsLength - 1] ==
+                        (Collation::TRAIL_WEIGHT_BYTE << 8))) {
+            errorCode = U_INVALID_FORMAT_ERROR;
+            return;
+        }
     } else if(data == NULL) {
         // Nothing to do.
     } else if(baseData != NULL) {
-        data->scripts = baseData->scripts;
-        data->scriptsLength = baseData->scriptsLength;
+        data->numScripts = baseData->numScripts;
+        data->scriptsIndex = baseData->scriptsIndex;
+        data->scriptStarts = baseData->scriptStarts;
+        data->scriptStartsLength = baseData->scriptStartsLength;
     }
 
     index = IX_COMPRESSIBLE_BYTES_OFFSET;
@@ -370,7 +403,7 @@ CollationDataReader::read(const CollationTailoring *base, const uint8_t *inBytes
     int32_t options = inIndexes[IX_OPTIONS] & 0xffff;
     uint16_t fastLatinPrimaries[CollationFastLatin::LATIN_LIMIT];
     int32_t fastLatinOptions = CollationFastLatin::getOptions(
-            tailoring.data, ts, fastLatinPrimaries, LENGTHOF(fastLatinPrimaries));
+            tailoring.data, ts, fastLatinPrimaries, UPRV_LENGTHOF(fastLatinPrimaries));
     if(options == ts.options && ts.variableTop != 0 &&
             reorderCodesLength == ts.reorderCodesLength &&
             uprv_memcmp(reorderCodes, ts.reorderCodes, reorderCodesLength * 4) == 0 &&
@@ -395,21 +428,15 @@ CollationDataReader::read(const CollationTailoring *base, const uint8_t *inBytes
         return;
     }
 
-    if(reorderCodesLength == 0 || reorderTable != NULL) {
-        settings->aliasReordering(reorderCodes, reorderCodesLength, reorderTable);
-    } else {
-        uint8_t table[256];
-        baseData->makeReorderTable(reorderCodes, reorderCodesLength, table, errorCode);
-        if(U_FAILURE(errorCode)) { return; }
-        if(!settings->setReordering(reorderCodes, reorderCodesLength,table)) {
-            errorCode = U_MEMORY_ALLOCATION_ERROR;
-            return;
-        }
+    if(reorderCodesLength != 0) {
+        settings->aliasReordering(*baseData, reorderCodes, reorderCodesLength,
+                                  reorderRanges, reorderRangesLength,
+                                  reorderTable, errorCode);
     }
 
     settings->fastLatinOptions = CollationFastLatin::getOptions(
         tailoring.data, *settings,
-        settings->fastLatinPrimaries, LENGTHOF(settings->fastLatinPrimaries));
+        settings->fastLatinPrimaries, UPRV_LENGTHOF(settings->fastLatinPrimaries));
 }
 
 UBool U_CALLCONV
@@ -424,7 +451,7 @@ CollationDataReader::isAcceptable(void *context,
         pInfo->dataFormat[1] == 0x43 &&
         pInfo->dataFormat[2] == 0x6f &&
         pInfo->dataFormat[3] == 0x6c &&
-        pInfo->formatVersion[0] == 4
+        pInfo->formatVersion[0] == 5
     ) {
         UVersionInfo *version = static_cast<UVersionInfo *>(context);
         if(version != NULL) {

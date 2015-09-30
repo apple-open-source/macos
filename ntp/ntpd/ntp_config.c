@@ -2695,7 +2695,7 @@ config_phone(
 			sys_phone[i++] = estrdup(*s);
 		else
 			msyslog(LOG_INFO,
-				"phone: Number of phone entries exceeds %d. Ignoring phone %s...",
+				"phone: Number of phone entries exceeds %lu. Ignoring phone %s...",
 				COUNTOF(sys_phone) - 1, *s);
 		s = next_node(s);
 	}
@@ -2853,7 +2853,7 @@ config_ttl(
 			sys_ttl[i++] = (u_char)*curr_ttl;
 		else
 			msyslog(LOG_INFO,
-				"ttl: Number of TTL entries exceeds %d. Ignoring TTL %d...",
+				"ttl: Number of TTL entries exceeds %lu. Ignoring TTL %d...",
 				COUNTOF(sys_ttl), *curr_ttl);
 
 		curr_ttl = next_node(curr_ttl);

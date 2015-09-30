@@ -43,8 +43,8 @@ EwkFaviconDatabase::EwkFaviconDatabase(WKIconDatabaseRef iconDatabase)
     : m_iconDatabase(iconDatabase)
 {
     WKIconDatabaseClientV1 iconDatabaseClient;
-    memset(&iconDatabaseClient, 0, sizeof(WKIconDatabaseClient));
-    iconDatabaseClient.base.version = kWKIconDatabaseClientCurrentVersion;
+    memset(&iconDatabaseClient, 0, sizeof(WKIconDatabaseClientV1));
+    iconDatabaseClient.base.version = 1;
     iconDatabaseClient.base.clientInfo = this;
     iconDatabaseClient.iconDataReadyForPageURL = iconDataReadyForPageURL;
     WKIconDatabaseSetIconDatabaseClient(m_iconDatabase.get(), &iconDatabaseClient.base);
@@ -80,6 +80,11 @@ PassRefPtr<cairo_surface_t> EwkFaviconDatabase::getIconSurfaceSynchronously(cons
         return 0;
 
     return surface.release();
+}
+
+void EwkFaviconDatabase::clearFaviconDatabase()
+{
+    WKIconDatabaseRemoveAllIcons(m_iconDatabase.get());
 }
 
 void EwkFaviconDatabase::iconDataReadyForPageURL(WKIconDatabaseRef, WKURLRef pageURL, const void* clientInfo)
@@ -120,4 +125,11 @@ void ewk_favicon_database_icon_change_callback_del(Ewk_Favicon_Database* ewkIcon
     EINA_SAFETY_ON_NULL_RETURN(callback);
 
     ewkIconDatabase->unwatchChanges(callback);
+}
+
+void ewk_favicon_database_clear(Ewk_Favicon_Database* ewkIconDatabase)
+{
+    EINA_SAFETY_ON_NULL_RETURN(ewkIconDatabase);
+
+    ewkIconDatabase->clearFaviconDatabase();
 }

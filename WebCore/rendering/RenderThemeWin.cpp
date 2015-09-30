@@ -182,18 +182,16 @@ void RenderThemeWin::setWebKitIsBeingUnloaded()
     gWebKitIsBeingUnloaded = true;
 }
 
-PassRefPtr<RenderTheme> RenderThemeWin::create()
+Ref<RenderTheme> RenderThemeWin::create()
 {
-    return adoptRef(new RenderThemeWin);
+    return adoptRef(*new RenderThemeWin);
 }
 
-#if !USE(SAFARI_THEME)
 PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
 {
-    static RenderTheme* winTheme = RenderThemeWin::create().leakRef();
-    return winTheme;
+    static RenderTheme& winTheme = RenderThemeWin::create().leakRef();
+    return &winTheme;
 }
-#endif
 
 RenderThemeWin::RenderThemeWin()
     : m_buttonTheme(0)
@@ -323,29 +321,14 @@ Color RenderThemeWin::platformInactiveSelectionForegroundColor() const
 static void fillFontDescription(FontDescription& fontDescription, LOGFONT& logFont, float fontSize)
 {    
     fontDescription.setIsAbsoluteSize(true);
-    fontDescription.setGenericFamily(FontDescription::NoFamily);
     fontDescription.setOneFamily(String(logFont.lfFaceName));
     fontDescription.setSpecifiedSize(fontSize);
     fontDescription.setWeight(logFont.lfWeight >= 700 ? FontWeightBold : FontWeightNormal); // FIXME: Use real weight.
-    fontDescription.setItalic(logFont.lfItalic);
+    fontDescription.setIsItalic(logFont.lfItalic);
 }
 
-static void fillFontDescription(FontDescription& fontDescription, LOGFONT& logFont)
-{   
-    fillFontDescription(fontDescription, logFont, abs(logFont.lfHeight));
-}
-
-void RenderThemeWin::systemFont(CSSValueID valueID, FontDescription& fontDescription) const
+void RenderThemeWin::updateCachedSystemFontDescription(CSSValueID valueID, FontDescription& fontDescription) const
 {
-    static FontDescription captionFont;
-    static FontDescription controlFont;
-    static FontDescription smallCaptionFont;
-    static FontDescription menuFont;
-    static FontDescription iconFont;
-    static FontDescription messageBoxFont;
-    static FontDescription statusBarFont;
-    static FontDescription systemFont;
-    
     static bool initialized;
     static NONCLIENTMETRICS ncm;
 
@@ -355,66 +338,41 @@ void RenderThemeWin::systemFont(CSSValueID valueID, FontDescription& fontDescrip
         ::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
     }
  
+    LOGFONT logFont;
+    bool shouldUseDefaultControlFontPixelSize = false;
     switch (valueID) {
-    case CSSValueIcon: {
-        if (!iconFont.isAbsoluteSize()) {
-            LOGFONT logFont;
-            ::SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(logFont), &logFont, 0);
-            fillFontDescription(iconFont, logFont);
-        }
-        fontDescription = iconFont;
+    case CSSValueIcon:
+        ::SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(logFont), &logFont, 0);
         break;
-    }
     case CSSValueMenu:
-        if (!menuFont.isAbsoluteSize())
-            fillFontDescription(menuFont, ncm.lfMenuFont);
-        fontDescription = menuFont;
+        logFont = ncm.lfMenuFont;
         break;
     case CSSValueMessageBox:
-        if (!messageBoxFont.isAbsoluteSize())
-            fillFontDescription(messageBoxFont, ncm.lfMessageFont);
-        fontDescription = messageBoxFont;
+        logFont = ncm.lfMessageFont;
         break;
     case CSSValueStatusBar:
-        if (!statusBarFont.isAbsoluteSize())
-            fillFontDescription(statusBarFont, ncm.lfStatusFont);
-        fontDescription = statusBarFont;
+        logFont = ncm.lfStatusFont;
         break;
     case CSSValueCaption:
-        if (!captionFont.isAbsoluteSize())
-            fillFontDescription(captionFont, ncm.lfCaptionFont);
-        fontDescription = captionFont;
+        logFont = ncm.lfCaptionFont;
         break;
     case CSSValueSmallCaption:
-        if (!smallCaptionFont.isAbsoluteSize())
-            fillFontDescription(smallCaptionFont, ncm.lfSmCaptionFont);
-        fontDescription = smallCaptionFont;
+        logFont = ncm.lfSmCaptionFont;
         break;
     case CSSValueWebkitSmallControl:
     case CSSValueWebkitMiniControl: // Just map to small.
     case CSSValueWebkitControl: // Just map to small.
-        if (!controlFont.isAbsoluteSize()) {
-            HGDIOBJ hGDI = ::GetStockObject(DEFAULT_GUI_FONT);
-            if (hGDI) {
-                LOGFONT logFont;
-                if (::GetObject(hGDI, sizeof(logFont), &logFont) > 0)
-                    fillFontDescription(controlFont, logFont, defaultControlFontPixelSize);
-            }
-        }
-        fontDescription = controlFont;
-        break;
+        shouldUseDefaultControlFontPixelSize = true;
+        FALLTHROUGH;
     default: { // Everything else uses the stock GUI font.
-        if (!systemFont.isAbsoluteSize()) {
-            HGDIOBJ hGDI = ::GetStockObject(DEFAULT_GUI_FONT);
-            if (hGDI) {
-                LOGFONT logFont;
-                if (::GetObject(hGDI, sizeof(logFont), &logFont) > 0)
-                    fillFontDescription(systemFont, logFont);
-            }
-        }
-        fontDescription = systemFont;
+        HGDIOBJ hGDI = ::GetStockObject(DEFAULT_GUI_FONT);
+        if (!hGDI)
+            return;
+        if (::GetObject(hGDI, sizeof(logFont), &logFont) <= 0)
+            return;
     }
     }
+    fillFontDescription(fontDescription, logFont, shouldUseDefaultControlFontPixelSize ? defaultControlFontPixelSize : abs(logFont.lfHeight));
 }
 
 bool RenderThemeWin::supportsFocus(ControlPart appearance) const
@@ -618,9 +576,7 @@ ThemeData RenderThemeWin::getThemeData(const RenderObject& o, ControlSubPart sub
         case MenulistButtonPart: {
             const bool isVistaOrLater = (windowsVersion() >= WindowsVista);
             result.m_part = isVistaOrLater ? CP_DROPDOWNBUTTONRIGHT : CP_DROPDOWNBUTTON;
-            if (isVistaOrLater && o.frame().settings().applicationChromeMode()) {
-                // The "readonly" look we use in application chrome mode
-                // only uses a "normal" look for the drop down button.
+            if (isVistaOrLater) {
                 result.m_state = TS_NORMAL;
             } else
                 result.m_state = determineState(o);
@@ -730,7 +686,7 @@ bool RenderThemeWin::paintButton(const RenderObject& o, const PaintInfo& i, cons
     return false;
 }
 
-void RenderThemeWin::adjustInnerSpinButtonStyle(StyleResolver& styleResolver, RenderStyle& style, Element& e) const
+void RenderThemeWin::adjustInnerSpinButtonStyle(StyleResolver& styleResolver, RenderStyle& style, Element*) const
 {
     int width = ::GetSystemMetrics(SM_CXVSCROLL);
     if (width <= 0)
@@ -783,10 +739,7 @@ bool RenderThemeWin::paintMenuList(const RenderObject& renderer, const PaintInfo
     int part;
     if (haveTheme && (windowsVersion() >= WindowsVista)) {
         theme = menuListTheme();
-        if (renderer.frame().settings().applicationChromeMode())
-            part = CP_READONLY;
-        else
-            part = CP_BORDER;
+        part = CP_READONLY;
     } else {
         theme = textFieldTheme();
         part = TFP_TEXTFIELD;
@@ -797,13 +750,13 @@ bool RenderThemeWin::paintMenuList(const RenderObject& renderer, const PaintInfo
     return paintMenuListButtonDecorations(renderer, paintInfo, FloatRect(rect));
 }
 
-void RenderThemeWin::adjustMenuListStyle(StyleResolver& styleResolver, RenderStyle& style, Element& e) const
+void RenderThemeWin::adjustMenuListStyle(StyleResolver& styleResolver, RenderStyle& style, Element* e) const
 {
     style.resetBorder();
     adjustMenuListButtonStyle(styleResolver, style, e);
 }
 
-void RenderThemeWin::adjustMenuListButtonStyle(StyleResolver& styleResolver, RenderStyle& style, Element& e) const
+void RenderThemeWin::adjustMenuListButtonStyle(StyleResolver& styleResolver, RenderStyle& style, Element*) const
 {
     // These are the paddings needed to place the text correctly in the <select> box
     const int dropDownBoxPaddingTop    = 2;
@@ -886,7 +839,7 @@ bool RenderThemeWin::paintSliderThumb(const RenderObject& o, const PaintInfo& i,
 const int sliderThumbWidth = 7;
 const int sliderThumbHeight = 15;
 
-void RenderThemeWin::adjustSliderThumbSize(RenderStyle& style, Element&) const
+void RenderThemeWin::adjustSliderThumbSize(RenderStyle& style, Element*) const
 {
     ControlPart part = style.appearance();
     if (part == SliderThumbVerticalPart) {
@@ -907,7 +860,7 @@ bool RenderThemeWin::paintSearchField(const RenderObject& o, const PaintInfo& i,
     return paintTextField(o, i, r);
 }
 
-void RenderThemeWin::adjustSearchFieldStyle(StyleResolver& styleResolver, RenderStyle& style, Element& e) const
+void RenderThemeWin::adjustSearchFieldStyle(StyleResolver& styleResolver, RenderStyle& style, Element* e) const
 {
     // Override paddingSize to match AppKit text positioning.
     const int padding = 1;
@@ -915,7 +868,7 @@ void RenderThemeWin::adjustSearchFieldStyle(StyleResolver& styleResolver, Render
     style.setPaddingRight(Length(padding, Fixed));
     style.setPaddingTop(Length(padding, Fixed));
     style.setPaddingBottom(Length(padding, Fixed));
-    if (e.focused() && e.document().frame()->selection().isFocusedAndActive())
+    if (e && e->focused() && e->document().frame()->selection().isFocusedAndActive())
         style.setOutlineOffset(-2);
 }
 
@@ -923,12 +876,10 @@ bool RenderThemeWin::paintSearchFieldCancelButton(const RenderObject& o, const P
 {
     IntRect bounds = r;
     ASSERT(o.parent());
-    if (!o.parent() || !o.parent()->isBox())
+    if (!is<RenderBox>(o.parent()))
         return false;
-    
-    RenderBox* parentRenderBox = toRenderBox(o.parent());
 
-    IntRect parentBox = parentRenderBox->absoluteContentBox();
+    IntRect parentBox = downcast<RenderBox>(*o.parent()).absoluteContentBox();
     
     // Make sure the scaled button stays square and will fit in its parent's box
     bounds.setHeight(min(parentBox.width(), min(parentBox.height(), bounds.height())));
@@ -944,7 +895,7 @@ bool RenderThemeWin::paintSearchFieldCancelButton(const RenderObject& o, const P
     return false;
 }
 
-void RenderThemeWin::adjustSearchFieldCancelButtonStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeWin::adjustSearchFieldCancelButtonStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     // Scale the button size based on the font size
     float fontScale = style.fontSize() / defaultControlFontPixelSize;
@@ -953,14 +904,14 @@ void RenderThemeWin::adjustSearchFieldCancelButtonStyle(StyleResolver&, RenderSt
     style.setHeight(Length(cancelButtonSize, Fixed));
 }
 
-void RenderThemeWin::adjustSearchFieldDecorationPartStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeWin::adjustSearchFieldDecorationPartStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     IntSize emptySize(1, 11);
     style.setWidth(Length(emptySize.width(), Fixed));
     style.setHeight(Length(emptySize.height(), Fixed));
 }
 
-void RenderThemeWin::adjustSearchFieldResultsDecorationPartStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeWin::adjustSearchFieldResultsDecorationPartStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     // Scale the decoration size based on the font size
     float fontScale = style.fontSize() / defaultControlFontPixelSize;
@@ -974,11 +925,10 @@ bool RenderThemeWin::paintSearchFieldResultsDecorationPart(const RenderObject& o
 {
     IntRect bounds = r;
     ASSERT(o.parent());
-    if (!o.parent() || !o.parent()->isBox())
+    if (!is<RenderBox>(o.parent()))
         return false;
     
-    RenderBox* parentRenderBox = toRenderBox(o.parent());
-    IntRect parentBox = parentRenderBox->absoluteContentBox();
+    IntRect parentBox = downcast<RenderBox>(*o.parent()).absoluteContentBox();
     
     // Make sure the scaled decoration stays square and will fit in its parent's box
     bounds.setHeight(min(parentBox.width(), min(parentBox.height(), bounds.height())));
@@ -993,7 +943,7 @@ bool RenderThemeWin::paintSearchFieldResultsDecorationPart(const RenderObject& o
     return false;
 }
 
-void RenderThemeWin::adjustSearchFieldResultsButtonStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeWin::adjustSearchFieldResultsButtonStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     // Scale the button size based on the font size
     float fontScale = style.fontSize() / defaultControlFontPixelSize;
@@ -1010,11 +960,10 @@ bool RenderThemeWin::paintSearchFieldResultsButton(const RenderObject& o, const 
     ASSERT(o.parent());
     if (!o.parent())
         return false;
-    if (!o.parent() || !o.parent()->isBox())
+    if (!is<RenderBox>(o.parent()))
         return false;
     
-    RenderBox* parentRenderBox = toRenderBox(o.parent());
-    IntRect parentBox = parentRenderBox->absoluteContentBox();
+    IntRect parentBox = downcast<RenderBox>(*o.parent()).absoluteContentBox();
     
     // Make sure the scaled decoration will fit in its parent's box
     bounds.setHeight(min(parentBox.height(), bounds.height()));
@@ -1117,7 +1066,7 @@ String RenderThemeWin::stringWithContentsOfFile(CFStringRef name, CFStringRef ty
         return String();
 
     long long filesize = -1;
-    if (!getFileSize(requestedFilePath, filesize)) {
+    if (!getFileSize(requestedFileHandle, filesize)) {
         closeFile(requestedFileHandle);
         return String();
     }
@@ -1157,7 +1106,7 @@ String RenderThemeWin::mediaControlsScript()
 #endif
 
 #if ENABLE(METER_ELEMENT)
-void RenderThemeWin::adjustMeterStyle(StyleResolver&, RenderStyle& style, Element&) const
+void RenderThemeWin::adjustMeterStyle(StyleResolver&, RenderStyle& style, Element*) const
 {
     style.setBoxShadow(nullptr);
 }
@@ -1179,10 +1128,10 @@ IntSize RenderThemeWin::meterSizeForBounds(const RenderMeter&, const IntRect& bo
 
 bool RenderThemeWin::paintMeter(const RenderObject& renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    if (!renderObject.isMeter())
+    if (!is<RenderMeter>(renderObject))
         return true;
 
-    HTMLMeterElement* element = toRenderMeter(renderObject).meterElement();
+    HTMLMeterElement* element = downcast<RenderMeter>(renderObject).meterElement();
 
     ThemeData theme = getThemeData(renderObject);
 

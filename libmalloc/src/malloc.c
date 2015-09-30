@@ -101,8 +101,8 @@ static inline void yield(void) {
  * provided that when malloc_destroy_zone is called all prior operations on that
  * zone are complete and no further calls referencing that zone can be made.
  */
-unsigned malloc_num_zones = 0;
-unsigned malloc_num_zones_allocated = 0;
+int32_t malloc_num_zones = 0;
+int32_t malloc_num_zones_allocated = 0;
 malloc_zone_t **malloc_zones = 0;
 malloc_logger_t *malloc_logger = NULL;
 
@@ -239,8 +239,23 @@ find_registered_zone(const void *ptr, size_t *returned_size) {
 	__sync_fetch_and_add(pFRZCounter, 1); // Advance this counter -- our thread is in FRZ
 
 	unsigned		index;
-	unsigned		limit = malloc_num_zones;
-	malloc_zone_t	**zones = &malloc_zones[1];
+	int32_t			limit = *(volatile int32_t *)&malloc_num_zones;
+	malloc_zone_t		**zones = &malloc_zones[1];
+
+	// From this point on, FRZ is accessing the malloc_zones[] array without locking
+	// in order to avoid contention on common operations (such as non-default-zone free()).
+	// In order to ensure that this is actually safe to do, register/unregister take care
+	// to:
+	//
+	//   1. Register ensures that newly inserted pointers in malloc_zones[] are visible
+	//      when malloc_num_zones is incremented. At the moment, we're relying on that store
+	//      ordering to work without taking additional steps here to ensure load memory
+	//      ordering.
+	//
+	//   2. Unregister waits for all readers in FRZ to complete their iteration before it
+	//      returns from the unregister call (during which, even unregistered zone pointers
+	//      are still valid). It also ensures that all the pointers in the zones array are
+	//      valid until it returns, so that a stale value in limit is not dangerous.
 
 	for (index = 1; index < limit; ++index, ++zones) {
 		zone = *zones;
@@ -349,7 +364,17 @@ malloc_zone_register_while_locked(malloc_zone_t *zone) {
 		protect_size = malloc_num_zones_allocated * sizeof(malloc_zone_t *);
 		mprotect(malloc_zones, protect_size, PROT_READ | PROT_WRITE);
 	}
-	malloc_zones[malloc_num_zones++] = zone;
+
+	/* <rdar://problem/12871662> This store-increment needs to be visible in the correct
+	 * order to any threads in find_registered_zone, such that if the incremented value
+	 * in malloc_num_zones is visible then the pointer write before it must also be visible.
+	 *
+	 * While we could be slightly more efficent here with atomic ops the cleanest way to
+	 * ensure the proper store-release operation is performed is to use __sync... to update
+	 * malloc_num_zones.
+	 */
+	malloc_zones[malloc_num_zones] = zone;
+	__sync_fetch_and_add(&malloc_num_zones, 1);
 
 	/* Finally, now that the zone is registered, disallow write access to the
 	 * malloc_zones array */

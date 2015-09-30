@@ -358,26 +358,20 @@ setfile(struct stat *fs, int fd)
 	rval = 0;
 	fdval = fd != -1;
 	islink = !fdval && S_ISLNK(fs->st_mode);
-	fs->st_mode &= S_ISUID | S_ISGID | S_ISVTX |
-		       S_IRWXU | S_IRWXG | S_IRWXO;
+	fs->st_mode &= S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO;
 
 	TIMESPEC_TO_TIMEVAL(&tv[0], &fs->st_atimespec);
 	TIMESPEC_TO_TIMEVAL(&tv[1], &fs->st_mtimespec);
-#ifdef __APPLE__
-	if (islink ? 0 : utimes(to.p_path, tv)) {
-#else
-	if (islink ? lutimes(to.p_path, tv) : utimes(to.p_path, tv)) {
-#endif /* __APPLE__ */
-		warn("%sutimes: %s", islink ? "l" : "", to.p_path);
+	if (fdval ? futimes(fd, tv) : (islink ? lutimes(to.p_path, tv) : utimes(to.p_path, tv))) {
+		warn("%sutimes: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
 		rval = 1;
 	}
-	if (fdval ? fstat(fd, &ts) :
-	    (islink ? lstat(to.p_path, &ts) : stat(to.p_path, &ts)))
+	if (fdval ? fstat(fd, &ts) : (islink ? lstat(to.p_path, &ts) :
+				      stat(to.p_path, &ts))) {
 		gotstat = 0;
-	else {
+	} else {
 		gotstat = 1;
-		ts.st_mode &= S_ISUID | S_ISGID | S_ISVTX |
-			      S_IRWXU | S_IRWXG | S_IRWXO;
+		ts.st_mode &= S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO;
 	}
 	/*
 	 * Changing the ownership probably won't succeed, unless we're root
@@ -385,34 +379,37 @@ setfile(struct stat *fs, int fd)
 	 * the mode; current BSD behavior is to remove all setuid bits on
 	 * chown.  If chown fails, lose setuid/setgid bits.
 	 */
-	if (!gotstat || fs->st_uid != ts.st_uid || fs->st_gid != ts.st_gid)
-		if (fdval ? fchown(fd, fs->st_uid, fs->st_gid) :
-		    (islink ? lchown(to.p_path, fs->st_uid, fs->st_gid) :
-		    chown(to.p_path, fs->st_uid, fs->st_gid))) {
+	if (!gotstat || fs->st_uid != ts.st_uid || fs->st_gid != ts.st_gid) {
+		if (fdval ? fchown(fd, fs->st_uid, fs->st_gid) : (islink ?
+								  lchown(to.p_path, fs->st_uid, fs->st_gid) :
+								  chown(to.p_path, fs->st_uid, fs->st_gid))) {
+			    if (errno != EPERM) {
+				    warn("%schown: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
+				    rval = 1;
+			    }
+			    fs->st_mode &= ~(S_ISUID | S_ISGID);
+		    }
+	}
+
+	if (!gotstat || fs->st_mode != ts.st_mode) {
+		if (fdval ? fchmod(fd, fs->st_mode) : (islink ?
+						       lchmod(to.p_path, fs->st_mode) :
+						       chmod(to.p_path, fs->st_mode))) {
+			warn("%schmod: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
+			rval = 1;
+		}
+	}
+
+	if (!gotstat || fs->st_flags != ts.st_flags) {
+		if (fdval ? fchflags(fd, fs->st_flags) : (islink ?
+							  lchflags(to.p_path, fs->st_flags) :
+							  chflags(to.p_path, fs->st_flags))) {
 			if (errno != EPERM) {
-				warn("%schown: %s", islink ? "l" : "", to.p_path);
+				warn("%schflags: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
 				rval = 1;
 			}
-			fs->st_mode &= ~(S_ISUID | S_ISGID);
 		}
-
-	if (!gotstat || fs->st_mode != ts.st_mode)
-		if (fdval ? fchmod(fd, fs->st_mode) :
-		    (islink ? lchmod(to.p_path, fs->st_mode) :
-		    chmod(to.p_path, fs->st_mode))) {
-			warn("%schmod: %s", islink ? "l" : "", to.p_path);
-			rval = 1;
-		}
-
-	if (!gotstat || fs->st_flags != ts.st_flags)
-		if (fdval ?
-		    fchflags(fd, fs->st_flags) :
-		    (islink ? lchflags(to.p_path, fs->st_flags) :
-		    chflags(to.p_path, fs->st_flags))) {
-			warn("%schflags: %s", islink ? "l" : "", to.p_path);
-			rval = 1;
-		}
-
+	}
 	return (rval);
 }
 

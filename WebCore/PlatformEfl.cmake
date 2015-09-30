@@ -10,10 +10,16 @@ list(APPEND WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/graphics/freetype"
     "${WEBCORE_DIR}/platform/graphics/harfbuzz/"
     "${WEBCORE_DIR}/platform/graphics/harfbuzz/ng"
+    "${WEBCORE_DIR}/platform/graphics/opengl"
     "${WEBCORE_DIR}/platform/graphics/opentype"
+    "${WEBCORE_DIR}/platform/graphics/surfaces"
+    "${WEBCORE_DIR}/platform/graphics/surfaces/efl"
+    "${WEBCORE_DIR}/platform/graphics/surfaces/glx"
+    "${WEBCORE_DIR}/platform/graphics/texmap"
     "${WEBCORE_DIR}/platform/graphics/texmap/coordinated"
+    "${WEBCORE_DIR}/platform/graphics/x11"
     "${WEBCORE_DIR}/platform/linux"
-    "${WEBCORE_DIR}/platform/mediastream/gstreamer"
+    "${WEBCORE_DIR}/platform/mediastream/openwebrtc"
     "${WEBCORE_DIR}/platform/mock/mediasource"
     "${WEBCORE_DIR}/platform/network/soup"
     "${WEBCORE_DIR}/platform/text/efl"
@@ -53,22 +59,22 @@ list(APPEND WebCore_SOURCES
     page/efl/DragControllerEfl.cpp
     page/efl/EventHandlerEfl.cpp
 
+    page/scrolling/AxisScrollSnapOffsets.cpp
+
     page/scrolling/coordinatedgraphics/ScrollingCoordinatorCoordinatedGraphics.cpp
     page/scrolling/coordinatedgraphics/ScrollingStateNodeCoordinatedGraphics.cpp
     page/scrolling/coordinatedgraphics/ScrollingStateScrollingNodeCoordinatedGraphics.cpp
 
     platform/ContextMenuItemNone.cpp
     platform/ContextMenuNone.cpp
-    platform/Cursor.cpp
 
     platform/audio/efl/AudioBusEfl.cpp
 
     platform/audio/gstreamer/AudioDestinationGStreamer.cpp
     platform/audio/gstreamer/AudioFileReaderGStreamer.cpp
+    platform/audio/gstreamer/AudioSourceProviderGStreamer.cpp
     platform/audio/gstreamer/FFTFrameGStreamer.cpp
     platform/audio/gstreamer/WebKitWebAudioSourceGStreamer.cpp
-
-    platform/cairo/WidgetBackingStoreCairo.cpp
 
     platform/efl/BatteryProviderEfl.cpp
     platform/efl/CursorEfl.cpp
@@ -101,8 +107,11 @@ list(APPEND WebCore_SOURCES
     platform/geoclue/GeolocationProviderGeoclue1.cpp
     platform/geoclue/GeolocationProviderGeoclue2.cpp
 
+    platform/graphics/ImageSource.cpp
+    platform/graphics/PlatformDisplay.cpp
     platform/graphics/WOFFFileFormat.cpp
 
+    platform/graphics/cairo/BackingStoreBackendCairoImpl.cpp
     platform/graphics/cairo/BitmapImageCairo.cpp
     platform/graphics/cairo/CairoUtilities.cpp
     platform/graphics/cairo/FontCairo.cpp
@@ -112,7 +121,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/cairo/ImageBufferCairo.cpp
     platform/graphics/cairo/ImageCairo.cpp
     platform/graphics/cairo/IntRectCairo.cpp
-    platform/graphics/cairo/OwnPtrCairo.cpp
     platform/graphics/cairo/PathCairo.cpp
     platform/graphics/cairo/PatternCairo.cpp
     platform/graphics/cairo/PlatformContextCairo.cpp
@@ -121,7 +129,12 @@ list(APPEND WebCore_SOURCES
     platform/graphics/cairo/TransformationMatrixCairo.cpp
 
     platform/graphics/efl/CairoUtilitiesEfl.cpp
+    platform/graphics/efl/EvasGLContext.cpp
+    platform/graphics/efl/EvasGLSurface.cpp
+    platform/graphics/efl/GraphicsContext3DEfl.cpp
+    platform/graphics/efl/GraphicsContext3DPrivate.cpp
     platform/graphics/efl/IconEfl.cpp
+    platform/graphics/efl/ImageBufferEfl.cpp
     platform/graphics/efl/ImageEfl.cpp
     platform/graphics/efl/IntPointEfl.cpp
     platform/graphics/efl/IntRectEfl.cpp
@@ -153,23 +166,65 @@ list(APPEND WebCore_SOURCES
     platform/graphics/harfbuzz/HarfBuzzFaceCairo.cpp
     platform/graphics/harfbuzz/HarfBuzzShaper.cpp
 
+    platform/graphics/opengl/Extensions3DOpenGLCommon.cpp
+    platform/graphics/opengl/GLPlatformContext.cpp
+    platform/graphics/opengl/GLPlatformSurface.cpp
+    platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp
+    platform/graphics/opengl/TemporaryOpenGLSetting.cpp
+
     platform/graphics/opentype/OpenTypeVerticalData.cpp
+
+    platform/graphics/surfaces/GLTransportSurface.cpp
+    platform/graphics/surfaces/GraphicsSurface.cpp
+
+    platform/graphics/surfaces/efl/GraphicsSurfaceCommon.cpp
+
+    platform/graphics/surfaces/glx/X11Helper.cpp
+
+    platform/graphics/texmap/BitmapTexture.cpp
+    platform/graphics/texmap/BitmapTextureGL.cpp
+    platform/graphics/texmap/BitmapTexturePool.cpp
+    platform/graphics/texmap/GraphicsLayerTextureMapper.cpp
+    platform/graphics/texmap/TextureMapperGL.cpp
+    platform/graphics/texmap/TextureMapperShaderProgram.cpp
 
     platform/graphics/texmap/coordinated/AreaAllocator.cpp
     platform/graphics/texmap/coordinated/CompositingCoordinator.cpp
-    platform/graphics/texmap/coordinated/CoordinatedBackingStore.cpp
     platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp
-    platform/graphics/texmap/coordinated/CoordinatedGraphicsScene.cpp
     platform/graphics/texmap/coordinated/CoordinatedImageBacking.cpp
     platform/graphics/texmap/coordinated/CoordinatedSurface.cpp
-    platform/graphics/texmap/coordinated/CoordinatedTile.cpp
+    platform/graphics/texmap/coordinated/Tile.cpp
+    platform/graphics/texmap/coordinated/TiledBackingStore.cpp
     platform/graphics/texmap/coordinated/UpdateAtlas.cpp
+
+    platform/graphics/x11/PlatformDisplayX11.cpp
+    platform/graphics/x11/XUniqueResource.cpp
+
+    platform/image-encoders/JPEGImageEncoder.cpp
+
+    platform/image-decoders/ImageDecoder.cpp
+
+    platform/image-decoders/bmp/BMPImageDecoder.cpp
+    platform/image-decoders/bmp/BMPImageReader.cpp
 
     platform/image-decoders/cairo/ImageDecoderCairo.cpp
 
-    platform/linux/GamepadDeviceLinux.cpp
+    platform/image-decoders/gif/GIFImageDecoder.cpp
+    platform/image-decoders/gif/GIFImageReader.cpp
 
-    platform/mediastream/gstreamer/MediaStreamCenterGStreamer.cpp
+    platform/image-decoders/ico/ICOImageDecoder.cpp
+
+    platform/image-decoders/jpeg/JPEGImageDecoder.cpp
+
+    platform/image-decoders/png/PNGImageDecoder.cpp
+
+    platform/image-decoders/webp/WEBPImageDecoder.cpp
+
+    platform/linux/GamepadDeviceLinux.cpp
+    platform/linux/MemoryPressureHandlerLinux.cpp
+
+    platform/mediastream/openwebrtc/OpenWebRTCUtilities.cpp
+    platform/mediastream/openwebrtc/RealtimeMediaSourceCenterOwr.cpp
 
     platform/network/efl/NetworkStateNotifierEfl.cpp
 
@@ -180,7 +235,6 @@ list(APPEND WebCore_SOURCES
     platform/network/soup/CredentialStorageSoup.cpp
     platform/network/soup/DNSSoup.cpp
     platform/network/soup/NetworkStorageSessionSoup.cpp
-    platform/network/soup/ProxyResolverSoup.cpp
     platform/network/soup/ProxyServerSoup.cpp
     platform/network/soup/ResourceErrorSoup.cpp
     platform/network/soup/ResourceHandleSoup.cpp
@@ -189,10 +243,12 @@ list(APPEND WebCore_SOURCES
     platform/network/soup/SocketStreamHandleSoup.cpp
     platform/network/soup/SoupNetworkSession.cpp
     platform/network/soup/SynchronousLoaderClientSoup.cpp
+    platform/network/soup/WebKitSoupRequestGeneric.cpp
 
     platform/posix/FileSystemPOSIX.cpp
     platform/posix/SharedBufferPOSIX.cpp
 
+    platform/soup/PublicSuffixSoup.cpp
     platform/soup/SharedBufferSoup.cpp
     platform/soup/URLSoup.cpp
 
@@ -202,32 +258,34 @@ list(APPEND WebCore_SOURCES
 
     platform/text/enchant/TextCheckerEnchant.cpp
 
-    plugins/PluginPackageNone.cpp
-    plugins/PluginViewNone.cpp
+    platform/text/hyphen/HyphenationLibHyphen.cpp
 )
 
-if (ENABLE_BATTERY_STATUS OR (EFL_REQUIRED_VERSION VERSION_LESS 1.8))
-    list(APPEND WebCore_INCLUDE_DIRECTORIES ${DBUS_INCLUDE_DIRS})
-    list(APPEND WebCore_INCLUDE_DIRECTORIES ${E_DBUS_INCLUDE_DIRS})
-    list(APPEND WebCore_INCLUDE_DIRECTORIES ${E_DBUS_EUKIT_INCLUDE_DIRS})
-    list(APPEND WebCore_LIBRARIES ${DBUS_LIBRARIES})
-    list(APPEND WebCore_LIBRARIES ${E_DBUS_LIBRARIES})
-    list(APPEND WebCore_LIBRARIES ${E_DBUS_EUKIT_LIBRARIES})
-endif ()
-
-list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
-    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsApple.css
-)
-
-if (WTF_USE_TEXTURE_MAPPER)
+if (USE_GEOCLUE2)
     list(APPEND WebCore_SOURCES
-        platform/graphics/texmap/GraphicsLayerTextureMapper.cpp
+        ${DERIVED_SOURCES_WEBCORE_DIR}/Geoclue2Interface.c
+    )
+    execute_process(COMMAND pkg-config --variable dbus_interface geoclue-2.0 OUTPUT_VARIABLE GEOCLUE_DBUS_INTERFACE)
+    add_custom_command(
+         OUTPUT ${DERIVED_SOURCES_WEBCORE_DIR}/Geoclue2Interface.c ${DERIVED_SOURCES_WEBCORE_DIR}/Geoclue2Interface.h
+         COMMAND gdbus-codegen --interface-prefix org.freedesktop.GeoClue2. --c-namespace Geoclue --generate-c-code ${DERIVED_SOURCES_WEBCORE_DIR}/Geoclue2Interface ${GEOCLUE_DBUS_INTERFACE}
     )
 endif ()
 
+if (ENABLE_GAMEPAD_DEPRECATED)
+    # FIXME: GAMEPAD_DEPRECATED is legacy implementation. Need to be removed.
+    list(REMOVE_ITEM WebCore_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/Modules/gamepad"
+    )
+endif ()
+
+list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
+    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsBase.css
+)
+
 set(WebCore_USER_AGENT_SCRIPTS
     ${WEBCORE_DIR}/English.lproj/mediaControlsLocalizedStrings.js
-    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsApple.js
+    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsBase.js
 )
 
 set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/platform/efl/RenderThemeEfl.cpp)
@@ -241,6 +299,7 @@ list(APPEND WebCore_LIBRARIES
     ${EDJE_LIBRARIES}
     ${EEZE_LIBRARIES}
     ${EINA_LIBRARIES}
+    ${ELDBUS_LIBRARIES}
     ${EO_LIBRARIES}
     ${EVAS_LIBRARIES}
     ${FONTCONFIG_LIBRARIES}
@@ -254,12 +313,15 @@ list(APPEND WebCore_LIBRARIES
     ${LIBSOUP_LIBRARIES}
     ${LIBXML2_LIBRARIES}
     ${LIBXSLT_LIBRARIES}
+    ${HYPHEN_LIBRARIES}
     ${PNG_LIBRARIES}
     ${SQLITE_LIBRARIES}
+    ${WEBP_LIBRARIES}
+    ${X11_X11_LIB}
     ${ZLIB_LIBRARIES}
 )
 
-list(APPEND WebCore_INCLUDE_DIRECTORIES
+list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${CAIRO_INCLUDE_DIRS}
     ${ECORE_INCLUDE_DIRS}
     ${ECORE_EVAS_INCLUDE_DIRS}
@@ -269,22 +331,36 @@ list(APPEND WebCore_INCLUDE_DIRECTORIES
     ${EDJE_INCLUDE_DIRS}
     ${EEZE_INCLUDE_DIRS}
     ${EINA_INCLUDE_DIRS}
+    ${ELDBUS_INCLUDE_DIRS}
     ${EVAS_INCLUDE_DIRS}
     ${FREETYPE2_INCLUDE_DIRS}
     ${GEOCLUE_INCLUDE_DIRS}
+    ${GIO_UNIX_INCLUDE_DIRS}
     ${LIBXML2_INCLUDE_DIR}
     ${LIBXSLT_INCLUDE_DIR}
     ${SQLITE_INCLUDE_DIR}
+    ${WEBP_INCLUDE_DIRS}
     ${GLIB_INCLUDE_DIRS}
     ${LIBSOUP_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIRS}
     ${HARFBUZZ_INCLUDE_DIRS}
 )
 
+if (ENABLE_MEDIA_STREAM)
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
+        ${OPENWEBRTC_INCLUDE_DIRS}
+    )
+    list(APPEND WebCore_LIBRARIES
+        ${OPENWEBRTC_LIBRARIES}
+    )
+endif ()
+
 if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
     list(APPEND WebCore_INCLUDE_DIRECTORIES
         "${WEBCORE_DIR}/platform/graphics/gstreamer"
+    )
 
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
         ${GSTREAMER_INCLUDE_DIRS}
         ${GSTREAMER_BASE_INCLUDE_DIRS}
         ${GSTREAMER_APP_INCLUDE_DIRS}
@@ -296,13 +372,14 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
         ${GSTREAMER_BASE_LIBRARIES}
         ${GSTREAMER_LIBRARIES}
         ${GSTREAMER_PBUTILS_LIBRARIES}
+        ${GSTREAMER_AUDIO_LIBRARIES}
     )
     # Avoiding a GLib deprecation warning due to GStreamer API using deprecated classes.
     set_source_files_properties(platform/audio/gstreamer/WebKitWebAudioSourceGStreamer.cpp PROPERTIES COMPILE_DEFINITIONS "GLIB_DISABLE_DEPRECATION_WARNINGS=1")
 endif ()
 
 if (ENABLE_VIDEO)
-    list(APPEND WebCore_INCLUDE_DIRECTORIES
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
         ${GSTREAMER_TAG_INCLUDE_DIRS}
         ${GSTREAMER_VIDEO_INCLUDE_DIRS}
     )
@@ -310,103 +387,70 @@ if (ENABLE_VIDEO)
         ${GSTREAMER_TAG_LIBRARIES}
         ${GSTREAMER_VIDEO_LIBRARIES}
     )
+
+    if (USE_GSTREAMER_MPEGTS)
+        list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
+            ${GSTREAMER_MPEGTS_INCLUDE_DIRS}
+        )
+
+        list(APPEND WebCore_LIBRARIES
+            ${GSTREAMER_MPEGTS_LIBRARIES}
+        )
+    endif ()
 endif ()
 
-if (WTF_USE_3D_GRAPHICS)
-    list(APPEND WebCore_INCLUDE_DIRECTORIES
-        "${WEBCORE_DIR}/platform/graphics/opengl"
-        "${WEBCORE_DIR}/platform/graphics/surfaces"
-        "${WEBCORE_DIR}/platform/graphics/surfaces/efl"
-        "${WEBCORE_DIR}/platform/graphics/surfaces/glx"
-        "${WEBCORE_DIR}/platform/graphics/texmap"
+if (USE_EGL)
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/platform/graphics/surfaces/egl"
     )
+endif ()
 
-    if (WTF_USE_EGL)
-        list(APPEND WebCore_INCLUDE_DIRECTORIES
-            ${EGL_INCLUDE_DIR}
-            "${WEBCORE_DIR}/platform/graphics/surfaces/egl"
-    )
-    endif ()
-
+if (USE_EGL)
     list(APPEND WebCore_SOURCES
-        platform/graphics/cairo/DrawingBufferCairo.cpp
-
-        platform/graphics/efl/EvasGLContext.cpp
-        platform/graphics/efl/EvasGLSurface.cpp
-        platform/graphics/efl/GraphicsContext3DEfl.cpp
-        platform/graphics/efl/GraphicsContext3DPrivate.cpp
-
-        platform/graphics/opengl/Extensions3DOpenGLCommon.cpp
-        platform/graphics/opengl/GLPlatformContext.cpp
-        platform/graphics/opengl/GLPlatformSurface.cpp
-        platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp
-        platform/graphics/opengl/TemporaryOpenGLSetting.cpp
-
-        platform/graphics/surfaces/GLTransportSurface.cpp
-        platform/graphics/surfaces/GraphicsSurface.cpp
-
-        platform/graphics/surfaces/efl/GraphicsSurfaceCommon.cpp
-
-        platform/graphics/surfaces/glx/X11Helper.cpp
-
-        platform/graphics/texmap/TextureMapperGL.cpp
-        platform/graphics/texmap/TextureMapperShaderProgram.cpp
+        platform/graphics/surfaces/egl/EGLConfigSelector.cpp
+        platform/graphics/surfaces/egl/EGLContext.cpp
+        platform/graphics/surfaces/egl/EGLHelper.cpp
+        platform/graphics/surfaces/egl/EGLSurface.cpp
+        platform/graphics/surfaces/egl/EGLXSurface.cpp
     )
+else ()
+    list(APPEND WebCore_SOURCES
+        platform/graphics/surfaces/glx/GLXContext.cpp
+        platform/graphics/surfaces/glx/GLXSurface.cpp
+    )
+endif ()
 
-    if (WTF_USE_EGL)
-        list(APPEND WebCore_SOURCES
-            platform/graphics/surfaces/egl/EGLConfigSelector.cpp
-            platform/graphics/surfaces/egl/EGLContext.cpp
-            platform/graphics/surfaces/egl/EGLHelper.cpp
-            platform/graphics/surfaces/egl/EGLSurface.cpp
-            platform/graphics/surfaces/egl/EGLXSurface.cpp
-        )
-    else ()
-        list(APPEND WebCore_SOURCES
-            platform/graphics/surfaces/glx/GLXContext.cpp
-            platform/graphics/surfaces/glx/GLXSurface.cpp
-        )
-    endif ()
+if (USE_OPENGL_ES_2)
+    list(APPEND WebCore_SOURCES
+        platform/graphics/opengl/Extensions3DOpenGLES.cpp
+        platform/graphics/opengl/GraphicsContext3DOpenGLES.cpp
+    )
+else ()
+    list(APPEND WebCore_SOURCES
+        platform/graphics/OpenGLShims.cpp
 
-    if (WTF_USE_OPENGL_ES_2)
-        list(APPEND WebCore_SOURCES
-            platform/graphics/opengl/Extensions3DOpenGLES.cpp
-            platform/graphics/opengl/GraphicsContext3DOpenGLES.cpp
-        )
-    else ()
-        list(APPEND WebCore_SOURCES
-            platform/graphics/OpenGLShims.cpp
+        platform/graphics/opengl/Extensions3DOpenGL.cpp
+        platform/graphics/opengl/GraphicsContext3DOpenGL.cpp
+    )
+endif ()
 
-            platform/graphics/opengl/Extensions3DOpenGL.cpp
-            platform/graphics/opengl/GraphicsContext3DOpenGL.cpp
-        )
-    endif ()
-
+if (NOT USE_EGL AND X11_Xcomposite_FOUND AND X11_Xrender_FOUND)
     list(APPEND WebCore_LIBRARIES
-        ${X11_X11_LIB}
+        ${X11_Xcomposite_LIB}
+        ${X11_Xrender_LIB}
     )
-
-    if (WTF_USE_EGL)
-        list(APPEND WebCore_LIBRARIES
-            ${EGL_LIBRARY}
-        )
-    elseif (X11_Xcomposite_FOUND AND X11_Xrender_FOUND)
-        list(APPEND WebCore_LIBRARIES
-            ${X11_Xcomposite_LIB}
-            ${X11_Xrender_LIB}
-        )
-    endif ()
 endif ()
 
 if (ENABLE_WEB_AUDIO)
     list(APPEND WebCore_INCLUDE_DIRECTORIES
         "${WEBCORE_DIR}/platform/audio/gstreamer"
+    )
 
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
         ${GSTREAMER_AUDIO_INCLUDE_DIRS}
         ${GSTREAMER_FFT_INCLUDE_DIRS}
     )
     list(APPEND WebCore_LIBRARIES
-        ${GSTREAMER_AUDIO_LIBRARIES}
         ${GSTREAMER_FFT_LIBRARIES}
     )
     set(WEB_AUDIO_DIR ${CMAKE_INSTALL_PREFIX}/${DATA_INSTALL_DIR}/webaudio/resources)
@@ -416,7 +460,7 @@ if (ENABLE_WEB_AUDIO)
 endif ()
 
 if (ENABLE_SPELLCHECK)
-    list(APPEND WebCore_INCLUDE_DIRECTORIES
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
         ${ENCHANT_INCLUDE_DIRS}
     )
     list(APPEND WebCore_LIBRARIES
@@ -427,6 +471,8 @@ endif ()
 if (ENABLE_ACCESSIBILITY)
     list(APPEND WebCore_INCLUDE_DIRECTORIES
         "${WEBCORE_DIR}/accessibility/atk"
+    )
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
         ${ATK_INCLUDE_DIRS}
     )
     list(APPEND WebCore_LIBRARIES
@@ -435,8 +481,67 @@ if (ENABLE_ACCESSIBILITY)
 endif ()
 
 if (ENABLE_SPEECH_SYNTHESIS)
-    list(APPEND WebCore_SOURCES
-        platform/efl/PlatformSpeechSynthesizerEfl.cpp
-        platform/efl/PlatformSpeechSynthesisProviderEfl.cpp
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
+        ${ESPEAK_INCLUDE_DIRS}
     )
+    list(APPEND WebCore_LIBRARIES
+        ${ESPEAK_LIBRARIES}
+    )
+    list(APPEND WebCore_SOURCES
+        platform/efl/PlatformSpeechSynthesisProviderEfl.cpp
+        platform/efl/PlatformSpeechSynthesizerEfl.cpp
+    )
+endif ()
+
+if (ENABLE_SUBTLE_CRYPTO)
+    list(APPEND WebCore_SOURCES
+        crypto/CryptoAlgorithm.cpp
+        crypto/CryptoAlgorithmDescriptionBuilder.cpp
+        crypto/CryptoAlgorithmRegistry.cpp
+        crypto/CryptoKey.cpp
+        crypto/CryptoKeyPair.cpp
+        crypto/SubtleCrypto.cpp
+
+        crypto/algorithms/CryptoAlgorithmAES_CBC.cpp
+        crypto/algorithms/CryptoAlgorithmAES_KW.cpp
+        crypto/algorithms/CryptoAlgorithmHMAC.cpp
+        crypto/algorithms/CryptoAlgorithmRSAES_PKCS1_v1_5.cpp
+        crypto/algorithms/CryptoAlgorithmRSASSA_PKCS1_v1_5.cpp
+        crypto/algorithms/CryptoAlgorithmRSA_OAEP.cpp
+        crypto/algorithms/CryptoAlgorithmSHA1.cpp
+        crypto/algorithms/CryptoAlgorithmSHA224.cpp
+        crypto/algorithms/CryptoAlgorithmSHA256.cpp
+        crypto/algorithms/CryptoAlgorithmSHA384.cpp
+        crypto/algorithms/CryptoAlgorithmSHA512.cpp
+
+        crypto/gnutls/CryptoAlgorithmAES_CBCGnuTLS.cpp
+        crypto/gnutls/CryptoAlgorithmAES_KWGnuTLS.cpp
+        crypto/gnutls/CryptoAlgorithmHMACGnuTLS.cpp
+        crypto/gnutls/CryptoAlgorithmRSAES_PKCS1_v1_5GnuTLS.cpp
+        crypto/gnutls/CryptoAlgorithmRSASSA_PKCS1_v1_5GnuTLS.cpp
+        crypto/gnutls/CryptoAlgorithmRSA_OAEPGnuTLS.cpp
+        crypto/gnutls/CryptoAlgorithmRegistryGnuTLS.cpp
+        crypto/gnutls/CryptoDigestGnuTLS.cpp
+        crypto/gnutls/CryptoKeyRSAGnuTLS.cpp
+        crypto/gnutls/SerializedCryptoKeyWrapGnuTLS.cpp
+
+        crypto/keys/CryptoKeyAES.cpp
+        crypto/keys/CryptoKeyDataOctetSequence.cpp
+        crypto/keys/CryptoKeyDataRSAComponents.cpp
+        crypto/keys/CryptoKeyHMAC.cpp
+        crypto/keys/CryptoKeySerializationRaw.cpp
+    )
+
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
+        ${GNUTLS_INCLUDE_DIRS}
+    )
+    list(APPEND WebCore_LIBRARIES
+        ${GNUTLS_LIBRARIES}
+    )
+endif ()
+
+if (DEVELOPER_MODE)
+    if (USE_LIBHYPHEN AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/WebKitBuild/DependenciesEFL)
+        add_definitions(-DTEST_HYPHENATAION_PATH=\"${CMAKE_SOURCE_DIR}/WebKitBuild/DependenciesEFL/Root/webkitgtk-test-dicts\")
+    endif ()
 endif ()

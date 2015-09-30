@@ -93,7 +93,7 @@ continuation lines and tt(PS4) for debugging with the tt(XTRACE) option; in
 the latter case it will also work non-interactively.
 )
 xitem(tt(%d))
-item(tt(/))(
+item(tt(%/))(
 Current working directory.  If an integer follows the `tt(%)',
 it specifies a number of trailing components of the current working
 directory to show; zero means the whole path.  A negative integer
@@ -107,6 +107,12 @@ the name of the directory, but only if the result is shorter than
 the full path; 
 ifzman(see em(Dynamic) and em(Static named directories) in zmanref(zshexpn))\
 ifnzman(noderef(Filename Expansion)).
+)
+item(tt(%e))(
+Evaluation depth of the current sourced file, shell function, or tt(eval).
+This is incremented or decremented every time the value of tt(%N) is
+set or reverted to a previous value, respectively.  This is most useful
+for debugging as part of tt($PS4).
 )
 xitem(tt(%h))
 item(tt(%!))(
@@ -185,6 +191,13 @@ sitem(tt(%K))(the hour of the day on the 24-hour clock)
 sitem(tt(%L))(the hour of the day on the 12-hour clock)
 endsitem()
 
+In addition, if the system supports the POSIX tt(gettimeofday) system
+call, tt(%.) provides decimal fractions of a second since the epoch with
+leading zeroes.  By default three decimal places are provided, but a
+number of digits up to 6 may be given following the tt(%); hence tt(%6.)
+outputs microseconds.  A typical example of this is the format
+`tt(%D{%H:%M:%S.%.})'.
+
 The GNU extension that a `tt(-)' between the tt(%) and the
 format character causes a leading zero or space to be stripped
 is handled directly by the shell for the format characters tt(d), tt(f),
@@ -261,7 +274,7 @@ The value of the first element of the tt(psvar) array parameter.  Following
 the `tt(%)' with an integer gives that element of the array.  Negative
 integers count from the end of the array.
 )
-item(tt(%LPAR())var(x.true-text.false-text)tt(RPAR()))(
+item(tt(%LPAR())var(x)tt(.)var(true-text)tt(.)var(false-text)tt(RPAR()))(
 Specifies a ternary expression.  The character following the var(x) is
 arbitrary; the same character is used to separate the text for the
 `true' result from that for the `false' result.
@@ -273,7 +286,8 @@ and var(false-text) may both contain arbitrarily-nested escape
 sequences, including further ternary expressions.
 
 The left parenthesis may be preceded or followed by a positive integer var(n),
-which defaults to zero.  A negative integer will be multiplied by -1.
+which defaults to zero.  A negative integer will be multiplied by -1, except
+as noted below for `tt(l)'.
 The test character var(x) may be any of the following:
 
 startsitem()
@@ -291,11 +305,14 @@ least var(n) elements relative to the root directory, hence tt(/) is
 counted as 0 elements.)
 sitem(tt(D))(True if the month is equal to var(n) (January = 0).)
 sitem(tt(d))(True if the day of the month is equal to var(n).)
+sitem(tt(e))(True if the evaluation depth is at least var(n).)
 sitem(tt(g))(True if the effective gid of the current process is var(n).)
 sitem(tt(j))(True if the number of jobs is at least var(n).)
 sitem(tt(L))(True if the tt(SHLVL) parameter is at least var(n).)
 sitem(tt(l))(True if at least var(n) characters have already been
-printed on the current line.)
+printed on the current line.  When var(n) is negative, true if at least
+tt(abs)tt(LPAR())var(n)tt(RPAR()) characters remain before the opposite
+margin (thus the left margin for tt(RPROMPT)).)
 sitem(tt(S))(True if the tt(SECONDS) parameter is at least var(n).)
 sitem(tt(T))(True if the time in hours is equal to var(n).)
 sitem(tt(t))(True if the time in minutes is equal to var(n).)
@@ -311,12 +328,20 @@ item(tt(%[)var(xstring)tt(]))(
 Specifies truncation behaviour for the remainder of the prompt string.
 The third, deprecated, form is equivalent to `tt(%)var(xstringx)',
 i.e. var(x) may be `tt(<)' or `tt(>)'.
-The numeric argument, which in the third form may appear immediately
-after the `tt([)', specifies the maximum permitted length of
-the various strings that can be displayed in the prompt.
 The var(string) will be displayed in
 place of the truncated portion of any string; note this does not
 undergo prompt expansion.
+
+The numeric argument, which in the third form may appear immediately
+after the `tt([)', specifies the maximum permitted length of
+the various strings that can be displayed in the prompt.
+In the first two forms, this numeric argument may be negative, in which
+case the truncation length is determined by subtracting the absolute
+value of the numeric argument from the number of character positions
+remaining on the current prompt line.  If this results in a zero or
+negative length, a length of 1 is used.  In other words, a negative
+argument arranges that after truncation at least var(n) characters
+remain before the right margin (left margin for tt(RPROMPT)).
 
 The forms with `tt(<)' truncate at the left of the string,
 and the forms with `tt(>)' truncate at the right of the string.
@@ -337,11 +362,20 @@ string, or to the end of the next enclosing group of the `tt(%LPAR())'
 construct, or to the next truncation encountered at the same grouping
 level (i.e. truncations inside a `tt(%LPAR())' are separate), which
 ever comes first.  In particular, a truncation with argument zero
-(e.g. `tt(%<<)') marks the end of the range of the string to be
+(e.g., `tt(%<<)') marks the end of the range of the string to be
 truncated while turning off truncation from there on. For example, the
-prompt '%10<...<%~%<<%# ' will print a truncated representation of the
+prompt `tt(%10<...<%~%<<%# )' will print a truncated representation of the
 current directory, followed by a `tt(%)' or `tt(#)', followed by a
 space.  Without the `tt(%<<)', those two characters would be included
-in the string to be truncated.
+in the string to be truncated.  Note that `tt(%-0<<)' is not equivalent
+to `tt(%<<)' but specifies that the prompt is truncated at the right margin.
+
+Truncation applies only within each individual line of the prompt, as
+delimited by embedded newlines (if any).  If the total length of any line
+of the prompt after truncation is greater than the terminal width, or if
+the part to be truncated contains embedded newlines, truncation behavior
+is undefined and may change in a future version of the shell.  Use
+`tt(%-)var(n)tt(LPAR()l.)var(true-text)tt(.)var(false-text)tt(RPAR())' to remove parts
+of the prompt when the available space is less than var(n).
 )
 enditem()

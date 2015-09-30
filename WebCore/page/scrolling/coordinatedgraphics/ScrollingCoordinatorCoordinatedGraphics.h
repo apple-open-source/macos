@@ -47,11 +47,13 @@ public:
 
     virtual void updateViewportConstrainedNode(ScrollingNodeID, const ViewportConstraints&, GraphicsLayer*) override;
 
-    virtual void scrollableAreaScrollLayerDidChange(ScrollableArea*) override;
-    virtual void willDestroyScrollableArea(ScrollableArea*) override;
+    virtual void scrollableAreaScrollLayerDidChange(ScrollableArea&) override;
+    virtual void willDestroyScrollableArea(ScrollableArea&) override;
+
+    virtual bool requestScrollPositionUpdate(FrameView&, const IntPoint&) override;
 
 private:
-    OwnPtr<ScrollingStateTree> m_scrollingStateTree;
+    std::unique_ptr<ScrollingStateTree> m_scrollingStateTree;
 };
 
 } // namespace WebCore

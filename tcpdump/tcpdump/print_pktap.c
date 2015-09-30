@@ -46,22 +46,22 @@ extern char *svc2str(uint32_t);
 #define DEBUG 1
 #ifdef DEBUG
 void
-print_pktap_header(struct pktap_header *pktp_hdr)
+print_pktap_header(struct netdissect_options *ndo, struct pktap_header *pktp_hdr)
 {
-	printf("pth_length %u (sizeof(struct pktap_header)  %lu)\n",
-		   pktp_hdr->pth_length, sizeof(struct pktap_header));
-	printf("pth_type_next %u\n", pktp_hdr->pth_type_next);
-	printf("pth_dlt %u\n", pktp_hdr->pth_dlt);
-	printf("pth_ifname %s\n", pktp_hdr->pth_ifname);
-	printf("pth_flags 0x%x\n", pktp_hdr->pth_flags);
-	printf("pth_protocol_family %u\n", pktp_hdr->pth_protocol_family);
-	printf("pth_frame_pre_length %u\n", pktp_hdr->pth_frame_pre_length);
-	printf("pth_frame_post_length %u\n", pktp_hdr->pth_frame_post_length);
-	printf("pth_pid %d\n", pktp_hdr->pth_pid);
-	printf("pth_comm %s\n", pktp_hdr->pth_comm);
-	printf("pth_svc %u\n", pktp_hdr->pth_svc);
-	printf("pth_epid %d\n", pktp_hdr->pth_epid);
-	printf("pth_ecomm %s\n", pktp_hdr->pth_ecomm);
+	ND_PRINT((ndo, "pth_length %u (sizeof(struct pktap_header)  %lu)\n",
+		   pktp_hdr->pth_length, sizeof(struct pktap_header)));
+	ND_PRINT((ndo, "pth_type_next %u\n", pktp_hdr->pth_type_next));
+	ND_PRINT((ndo, "pth_dlt %u\n", pktp_hdr->pth_dlt));
+	ND_PRINT((ndo, "pth_ifname %s\n", pktp_hdr->pth_ifname));
+	ND_PRINT((ndo, "pth_flags 0x%x\n", pktp_hdr->pth_flags));
+	ND_PRINT((ndo, "pth_protocol_family %u\n", pktp_hdr->pth_protocol_family));
+	ND_PRINT((ndo, "pth_frame_pre_length %u\n", pktp_hdr->pth_frame_pre_length));
+	ND_PRINT((ndo, "pth_frame_post_length %u\n", pktp_hdr->pth_frame_post_length));
+	ND_PRINT((ndo, "pth_pid %d\n", pktp_hdr->pth_pid));
+	ND_PRINT((ndo, "pth_comm %s\n", pktp_hdr->pth_comm));
+	ND_PRINT((ndo, "pth_svc %u\n", pktp_hdr->pth_svc));
+	ND_PRINT((ndo, "pth_epid %d\n", pktp_hdr->pth_epid));
+	ND_PRINT((ndo, "pth_ecomm %s\n", pktp_hdr->pth_ecomm));
 }
 #endif /* DEBUG */
 
@@ -86,7 +86,7 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 	
 #ifdef DEBUG
 	if (eflag > 1)
-		print_pktap_header(pktp_hdr);
+		print_pktap_header(ndo, pktp_hdr);
 #endif
 	
 	if (kflag != PRMD_NONE) {

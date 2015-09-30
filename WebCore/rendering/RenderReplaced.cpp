@@ -46,21 +46,21 @@ namespace WebCore {
 const int cDefaultWidth = 300;
 const int cDefaultHeight = 150;
 
-RenderReplaced::RenderReplaced(Element& element, PassRef<RenderStyle> style)
+RenderReplaced::RenderReplaced(Element& element, Ref<RenderStyle>&& style)
     : RenderBox(element, WTF::move(style), RenderReplacedFlag)
     , m_intrinsicSize(cDefaultWidth, cDefaultHeight)
 {
     setReplaced(true);
 }
 
-RenderReplaced::RenderReplaced(Element& element, PassRef<RenderStyle> style, const LayoutSize& intrinsicSize)
+RenderReplaced::RenderReplaced(Element& element, Ref<RenderStyle>&& style, const LayoutSize& intrinsicSize)
     : RenderBox(element, WTF::move(style), RenderReplacedFlag)
     , m_intrinsicSize(intrinsicSize)
 {
     setReplaced(true);
 }
 
-RenderReplaced::RenderReplaced(Document& document, PassRef<RenderStyle> style, const LayoutSize& intrinsicSize)
+RenderReplaced::RenderReplaced(Document& document, Ref<RenderStyle>&& style, const LayoutSize& intrinsicSize)
     : RenderBox(document, WTF::move(style), RenderReplacedFlag)
     , m_intrinsicSize(intrinsicSize)
 {
@@ -74,7 +74,7 @@ RenderReplaced::~RenderReplaced()
 void RenderReplaced::willBeDestroyed()
 {
     if (!documentBeingDestroyed() && parent())
-        parent()->dirtyLinesFromChangedChild(this);
+        parent()->dirtyLinesFromChangedChild(*this);
 
     RenderBox::willBeDestroyed();
 }
@@ -130,14 +130,22 @@ void RenderReplaced::intrinsicSizeChanged()
     setNeedsLayoutAndPrefWidthsRecalc();
 }
 
+bool RenderReplaced::shouldDrawSelectionTint() const
+{
+    return selectionState() != SelectionNone && !document().printing();
+}
+
 void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     if (!shouldPaint(paintInfo, paintOffset))
         return;
-    
+
+#ifndef NDEBUG
+    SetLayoutNeededForbiddenScope scope(this);
+#endif
     LayoutPoint adjustedPaintOffset = paintOffset + location();
     
-    if (hasBoxDecorations() && (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection)) 
+    if (hasBoxDecorations() && paintInfo.phase == PaintPhaseForeground)
         paintBoxDecorations(paintInfo, adjustedPaintOffset);
     
     if (paintInfo.phase == PaintPhaseMask) {
@@ -155,7 +163,7 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     if (!paintInfo.shouldPaintWithinRoot(*this))
         return;
     
-    bool drawSelectionTint = selectionState() != SelectionNone && !document().printing();
+    bool drawSelectionTint = shouldDrawSelectionTint();
     if (paintInfo.phase == PaintPhaseSelection) {
         if (selectionState() == SelectionNone)
             return;
@@ -189,7 +197,7 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     if (drawSelectionTint) {
         LayoutRect selectionPaintingRect = localSelectionRect();
         selectionPaintingRect.moveBy(adjustedPaintOffset);
-        paintInfo.context->fillRect(pixelSnappedIntRect(selectionPaintingRect), selectionBackgroundColor(), style().colorSpace());
+        paintInfo.context->fillRect(snappedIntRect(selectionPaintingRect), selectionBackgroundColor(), style().colorSpace());
     }
 }
 
@@ -274,6 +282,9 @@ bool RenderReplaced::hasReplacedLogicalHeight() const
         return true;
     }
 
+    if (style().logicalHeight().isIntrinsic())
+        return true;
+
     return false;
 }
 
@@ -286,8 +297,8 @@ void RenderReplaced::computeAspectRatioInformationForRenderBox(RenderBox* conten
         // Handle zoom & vertical writing modes here, as the embedded document doesn't know about them.
         intrinsicSize.scale(style().effectiveZoom());
 
-        if (isRenderImage())
-            intrinsicSize.scale(toRenderImage(this)->imageDevicePixelRatio());
+        if (is<RenderImage>(*this))
+            intrinsicSize.scale(downcast<RenderImage>(*this).imageDevicePixelRatio());
 
         // Update our intrinsic size to match what the content renderer has computed, so that when we
         // constrain the size below, the correct intrinsic size will be obtained for comparison against
@@ -324,11 +335,11 @@ void RenderReplaced::computeAspectRatioInformationForRenderBox(RenderBox* conten
 LayoutRect RenderReplaced::replacedContentRect(const LayoutSize& intrinsicSize) const
 {
     LayoutRect contentRect = contentBoxRect();
-    ObjectFit objectFit = style().objectFit();
-    if (objectFit == ObjectFitFill)
+    if (intrinsicSize.isEmpty())
         return contentRect;
 
-    if (!intrinsicSize.width() || !intrinsicSize.height())
+    ObjectFit objectFit = style().objectFit();
+    if (objectFit == ObjectFitFill)
         return contentRect;
 
     LayoutRect finalRect = contentRect;
@@ -478,13 +489,13 @@ void RenderReplaced::computePreferredLogicalWidths()
 
     // We cannot resolve any percent logical width here as the available logical
     // width may not be set on our containing block.
-    if (style().logicalWidth().isPercent())
+    if (style().logicalWidth().isPercentOrCalculated())
         computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
     else
         m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = computeReplacedLogicalWidth(ComputePreferred);
 
     const RenderStyle& styleToUse = style();
-    if (styleToUse.logicalWidth().isPercent() || styleToUse.logicalMaxWidth().isPercent())
+    if (styleToUse.logicalWidth().isPercentOrCalculated() || styleToUse.logicalMaxWidth().isPercentOrCalculated())
         m_minPreferredLogicalWidth = 0;
 
     if (styleToUse.logicalMinWidth().isFixed() && styleToUse.logicalMinWidth().value() > 0) {
@@ -585,7 +596,7 @@ bool RenderReplaced::isSelected() const
     if (s == SelectionStart)
         return selectionStart == 0;
         
-    int end = element()->hasChildNodes() ? element()->childNodeCount() : 1;
+    int end = element()->hasChildNodes() ? element()->countChildNodes() : 1;
     if (s == SelectionEnd)
         return selectionEnd == end;
     if (s == SelectionBoth)

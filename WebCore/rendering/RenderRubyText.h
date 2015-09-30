@@ -37,10 +37,10 @@ namespace WebCore {
 
 class RenderRubyText final : public RenderBlockFlow {
 public:
-    RenderRubyText(Element&, PassRef<RenderStyle>);
+    RenderRubyText(Element&, Ref<RenderStyle>&&);
     virtual ~RenderRubyText();
 
-    Element& element() const { return toElement(nodeForNonAnonymous()); }
+    Element& element() const { return downcast<Element>(nodeForNonAnonymous()); }
 
     virtual bool isChildAllowed(const RenderObject&, const RenderStyle&) const override;
     
@@ -58,8 +58,8 @@ private:
     virtual void adjustInlineDirectionLineBounds(int expansionOpportunityCount, float& logicalLeft, float& logicalWidth) const override;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderRubyText, isRubyText())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderRubyText, isRubyText())
 
 #endif // RenderRubyText_h

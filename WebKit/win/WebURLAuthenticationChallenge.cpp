@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebURLAuthenticationChallenge.h"
 
@@ -49,13 +48,13 @@ WebURLAuthenticationChallenge::WebURLAuthenticationChallenge(const Authenticatio
     , m_sender(sender)
 {
     gClassCount++;
-    gClassNameCount.add("WebURLAuthenticationChallenge");
+    gClassNameCount().add("WebURLAuthenticationChallenge");
 }
 
 WebURLAuthenticationChallenge::~WebURLAuthenticationChallenge()
 {
     gClassCount--;
-    gClassNameCount.remove("WebURLAuthenticationChallenge");
+    gClassNameCount().remove("WebURLAuthenticationChallenge");
 }
 
 WebURLAuthenticationChallenge* WebURLAuthenticationChallenge::createInstance(const AuthenticationChallenge& authenticationChallenge)

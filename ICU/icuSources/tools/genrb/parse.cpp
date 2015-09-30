@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1998-2014, International Business Machines
+*   Copyright (C) 1998-2015, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -673,21 +673,22 @@ class GenrbImporter : public icu::CollationRuleParser::Importer {
 public:
     GenrbImporter(const char *in, const char *out) : inputDir(in), outputDir(out) {}
     virtual ~GenrbImporter();
-    virtual const UnicodeString *getRules(
+    virtual void getRules(
             const char *localeID, const char *collationType,
+            UnicodeString &rules,
             const char *&errorReason, UErrorCode &errorCode);
 
 private:
     const char *inputDir;
     const char *outputDir;
-    UnicodeString rules;
 };
 
 GenrbImporter::~GenrbImporter() {}
 
-const UnicodeString *
+void
 GenrbImporter::getRules(
         const char *localeID, const char *collationType,
+        UnicodeString &rules,
         const char *& /*errorReason*/, UErrorCode &errorCode) {
     struct SRBRoot *data         = NULL;
     UCHARBUF       *ucbuf        = NULL;
@@ -718,11 +719,11 @@ GenrbImporter::getRules(
 
 
     if (U_FAILURE(errorCode)) {
-        return NULL;
+        return;
     }
     if(filename==NULL){
         errorCode=U_ILLEGAL_ARGUMENT_ERROR;
-        return NULL;
+        return;
     }else{
         filelen = (int32_t)uprv_strlen(filename);
     }
@@ -810,6 +811,9 @@ GenrbImporter::getRules(
 
     /* Parse the data into an SRBRoot */
     data = parse(ucbuf, inputDir, outputDir, filename, FALSE, FALSE, &errorCode);
+    if (U_FAILURE(errorCode)) {
+        goto finish;
+    }
 
     root = data->fRoot;
     collations = resLookup(root, "collations");
@@ -818,7 +822,8 @@ GenrbImporter::getRules(
       if (collation != NULL) {
         sequence = resLookup(collation, "Sequence");
         if (sequence != NULL) {
-          rules.setTo(FALSE, sequence->u.fString.fChars, sequence->u.fString.fLength);
+          // No string pointer aliasing so that we need not hold onto the resource bundle.
+          rules.setTo(sequence->u.fString.fChars, sequence->u.fString.fLength);
         }
       }
     }
@@ -835,8 +840,6 @@ finish:
     if(ucbuf) {
         ucbuf_close(ucbuf);
     }
-
-    return &rules;
 }
 
 // Quick-and-dirty escaping function.
@@ -980,6 +983,15 @@ addCollation(ParseState* state, struct SResource  *result, const char *collation
     warning(line, "Not building collation elements because of UCONFIG_NO_COLLATION and/or UCONFIG_NO_FILE_IO, see uconfig.h");
     (void)collationType;
 #else
+    // CLDR ticket #3949, ICU ticket #8082:
+    // Do not build collation binary data for for-import-only "private" collation rule strings.
+    if (uprv_strncmp(collationType, "private-", 8) == 0) {
+        if(isVerbose()) {
+            printf("Not building %s~%s collation binary\n", state->filename, collationType);
+        }
+        return result;
+    }
+
     if(!state->makeBinaryCollation) {
         if(isVerbose()) {
             printf("Not building %s~%s collation binary\n", state->filename, collationType);
@@ -1057,6 +1069,11 @@ addCollation(ParseState* state, struct SResource  *result, const char *collation
     if(isVerbose()) {
         printf("%s~%s collation tailoring part sizes:\n", state->filename, collationType);
         icu::CollationInfo::printSizes(totalSize, indexes);
+        if(t->settings->hasReordering()) {
+            printf("%s~%s collation reordering ranges:\n", state->filename, collationType);
+            icu::CollationInfo::printReorderRanges(
+                    *t->data, t->settings->reorderCodes, t->settings->reorderCodesLength);
+        }
     }
     struct SResource *collationBin = bin_open(state->bundle, "%%CollationBin", totalSize, dest, NULL, NULL, status);
     table_add(result, collationBin, line, status);
@@ -1069,8 +1086,8 @@ addCollation(ParseState* state, struct SResource  *result, const char *collation
 }
 
 static UBool
-keepCollationType(const char *type) {
-    return gIncludeUnihanColl || uprv_strcmp(type, "unihan") != 0;
+keepCollationType(const char * /*type*/) {
+    return TRUE;
 }
 
 static struct SResource *

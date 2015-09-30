@@ -17,6 +17,9 @@
     <Filter Include="Generated">
       <UniqueIdentifier>{1a00610c-29e3-4979-a7a2-ef6c92c4bb71}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Sources\Plugins">
+      <UniqueIdentifier>{01204b84-5447-4679-b6af-3b7414bf9b06}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\win\WebCoreSupport\EmbeddedWidget.cpp">
@@ -107,15 +110,6 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="..\..\win\WebCache.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\win\WebCookieManager.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\win\WebCookieManagerCFNet.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\win\WebCookieManagerCurl.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="..\..\win\WebCoreStatistics.cpp">
@@ -226,6 +220,30 @@
     <ClCompile Include="..\..\win\WebSerializedJSValue.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Storage\StorageAreaImpl.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Storage\StorageAreaSync.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Storage\StorageNamespaceImpl.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Storage\StorageSyncManager.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Storage\StorageThread.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Storage\StorageTracker.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Storage\WebDatabaseProvider.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Storage\WebStorageNamespaceProvider.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\win\WebTextRenderer.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -273,6 +291,52 @@
       <Filter>WebCoreSupport</Filter>
     </ClCompile>
     <ClCompile Include="..\..\win\AccessibleTextImpl.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\WebCoreSupport\AcceleratedCompositingContext.cpp">
+      <Filter>WebCoreSupport</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\WebCoreSupport\WebVisitedLinkStore.cpp" />
+    <ClCompile Include="..\..\win\WebApplicationCache.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\PluginDatabase.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\PluginDatabaseWin.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\PluginDebug.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\PluginMainThreadScheduler.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\PluginMessageThrottlerWin.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\PluginPackage.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\PluginPackageWin.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\PluginStream.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\PluginView.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\PluginViewWin.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\Plugins\npapi.cpp">
+      <Filter>Sources\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\win\WebKitMessageLoop.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\WebCoreSupport\WebViewGroup.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -383,9 +447,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\win\WebCachedFramePlatformData.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\win\WebCookieManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\win\WebCoreStatistics.h">
@@ -536,17 +597,80 @@
     <ClInclude Include="..\..\win\AccessibleTextImpl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\win\WebCoreSupport\AcceleratedCompositingContext.h">
+      <Filter>WebCoreSupport</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\Plugins\PluginDatabase.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\Plugins\PluginDebug.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\Plugins\PluginPackage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\Plugins\PluginQuirkSet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\Plugins\PluginStream.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\Plugins\PluginView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\Plugins\PluginMainThreadScheduler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\Plugins\PluginMessageThrottlerWin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Storage\StorageAreaImpl.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Storage\StorageAreaSync.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Storage\StorageNamespaceImpl.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Storage\StorageSyncManager.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Storage\StorageThread.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Storage\StorageTracker.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Storage\StorageTrackerClient.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Storage\WebDatabaseProvider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Storage\WebStorageNamespaceProvider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\WebCoreSupport\WebVisitedLinkStore.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\WebApplicationCache.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\Plugins\PluginStrategy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\win\WebKitMessageLoop.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\WebCoreSupport\WebViewGroup.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="WebKitPostBuild.cmd" />
     <None Include="WebKitPreBuild.cmd" />
     <None Include="WebKitPreLink.cmd" />
-    <None Include="..\..\win\WebKit.resources\deleteButton.png">
-      <Filter>Resources</Filter>
-    </None>
-    <None Include="..\..\win\WebKit.resources\deleteButtonPressed.png">
-      <Filter>Resources</Filter>
-    </None>
     <None Include="..\..\win\WebKit.resources\fsVideoAudioVolumeHigh.png">
       <Filter>Resources</Filter>
     </None>
@@ -619,9 +743,6 @@
     <None Include="..\..\win\WebKit.resources\zoomOutCursor.png">
       <Filter>Resources</Filter>
     </None>
-    <None Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\WebKitExportGenerator\WebKitExports.def">
-      <Filter>Generated</Filter>
-    </None>
     <None Include="WebKitVersion.cmd" />
   </ItemGroup>
   <ItemGroup>
@@ -631,5 +752,10 @@
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\..\mac\Configurations\Version.xcconfig" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="..\..\win\Plugins\PaintHooks.asm">
+      <Filter>Sources\Plugins</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

@@ -48,13 +48,13 @@ namespace WebCore {
     // and synthesized in other cases where platforms generate line-by-line scrolling events.
     // The ScrollByPageWheelEvent indicates that the wheel event should scroll an entire page.  In this case WebCore's built in paging behavior is used to page
     // up and down (you get the same behavior as if the user was clicking in a scrollbar track to page up or page down).
-    enum PlatformWheelEventGranularity : uint64_t {
+    enum PlatformWheelEventGranularity : uint8_t {
         ScrollByPageWheelEvent,
         ScrollByPixelWheelEvent,
     };
 
 #if PLATFORM(COCOA)
-    enum PlatformWheelEventPhase : uint64_t {
+    enum PlatformWheelEventPhase : uint8_t {
         PlatformWheelEventPhaseNone        = 0,
         PlatformWheelEventPhaseBegan       = 1 << 0,
         PlatformWheelEventPhaseStationary  = 1 << 1,
@@ -162,25 +162,10 @@ namespace WebCore {
         unsigned scrollCount() const { return m_scrollCount; }
         float unacceleratedScrollingDeltaX() const { return m_unacceleratedScrollingDeltaX; }
         float unacceleratedScrollingDeltaY() const { return m_unacceleratedScrollingDeltaY; }
-        bool useLatchedEventElement() const
-        {
-            return m_phase == PlatformWheelEventPhaseBegan || m_phase == PlatformWheelEventPhaseChanged
-                || m_momentumPhase == PlatformWheelEventPhaseBegan || m_momentumPhase == PlatformWheelEventPhaseChanged;
-        }
-        bool shouldConsiderLatching() const
-        {
-            return m_phase == PlatformWheelEventPhaseBegan || m_phase == PlatformWheelEventPhaseMayBegin;
-        }
-        bool shouldResetLatching() const
-        {
-            if (m_phase == PlatformWheelEventPhaseCancelled || m_phase == PlatformWheelEventPhaseMayBegin)
-                return true;
-            
-            if (m_phase == PlatformWheelEventPhaseNone && m_momentumPhase == PlatformWheelEventPhaseEnded)
-                return true;
-            
-            return false;
-        }
+        bool useLatchedEventElement() const;
+        bool shouldConsiderLatching() const;
+        bool shouldResetLatching() const;
+        bool isEndGesture() const;
 #else
         bool useLatchedEventElement() const { return false; }
 #endif
@@ -208,6 +193,31 @@ namespace WebCore {
         float m_unacceleratedScrollingDeltaY;
 #endif
     };
+
+#if PLATFORM(COCOA)
+    inline bool PlatformWheelEvent::useLatchedEventElement() const
+    {
+        return m_phase == PlatformWheelEventPhaseBegan || m_phase == PlatformWheelEventPhaseChanged
+        || m_momentumPhase == PlatformWheelEventPhaseBegan || m_momentumPhase == PlatformWheelEventPhaseChanged
+        || (m_phase == PlatformWheelEventPhaseEnded && m_momentumPhase == PlatformWheelEventPhaseNone);
+    }
+    
+    inline bool PlatformWheelEvent::shouldConsiderLatching() const
+    {
+        return m_phase == PlatformWheelEventPhaseBegan || m_phase == PlatformWheelEventPhaseMayBegin;
+    }
+    
+    inline bool PlatformWheelEvent::shouldResetLatching() const
+    {
+        return m_phase == PlatformWheelEventPhaseCancelled || m_phase == PlatformWheelEventPhaseMayBegin || isEndGesture();
+    }
+    
+    inline bool PlatformWheelEvent::isEndGesture() const
+    {
+        return m_phase == PlatformWheelEventPhaseNone && m_momentumPhase == PlatformWheelEventPhaseEnded;
+    }
+
+#endif
 
 } // namespace WebCore
 

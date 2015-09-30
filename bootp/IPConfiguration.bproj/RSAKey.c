@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,7 +97,7 @@ my_CCRSACryptorGeneratePair(int key_size,
     return (status);
 }
 
-PRIVATE_EXTERN CFDataRef
+CF_RETURNS_RETAINED PRIVATE_EXTERN CFDataRef
 RSAKeyPairGenerate(int key_size, CFDataRef * ret_pub)
 {
     CFDataRef		priv;
@@ -105,7 +105,7 @@ RSAKeyPairGenerate(int key_size, CFDataRef * ret_pub)
 
     status = my_CCRSACryptorGeneratePair(key_size, &priv, ret_pub);
     if (status != kCCSuccess) {
-	my_log_fl(LOG_ERR, "my_CCRSACryptorGeneratePair failed, %ld\n",
+	my_log_fl(LOG_NOTICE, "my_CCRSACryptorGeneratePair failed, %ld\n",
 		  (long)status);
     }
     return (priv);

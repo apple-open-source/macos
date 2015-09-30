@@ -50,7 +50,7 @@ EAPOLPacketTypeValid(EAPOLPacketType type)
     return (false);
 }
 
-static const char *
+const char *
 EAPOLPacketTypeStr(EAPOLPacketType type)
 {
     static const char * str[] = { 

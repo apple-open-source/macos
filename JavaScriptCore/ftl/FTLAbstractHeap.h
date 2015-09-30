@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,7 +34,6 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 
@@ -72,6 +71,11 @@ public:
         m_parent = parent;
         m_heapName = heapName;
     }
+    
+    void changeParent(AbstractHeap* parent)
+    {
+        m_parent = parent;
+    }
 
     AbstractHeap* parent() const
     {
@@ -94,6 +98,8 @@ public:
     }
     
     void decorateInstruction(LValue instruction, const AbstractHeapRepository&) const;
+
+    void dump(PrintStream&) const;
 
 private:
     friend class AbstractHeapRepository;
@@ -131,6 +137,8 @@ public:
         return m_offset;
     }
     
+    void dump(PrintStream&) const;
+
 private:
     ptrdiff_t m_offset;
 };
@@ -153,6 +161,8 @@ public:
     
     TypedPointer baseIndex(Output& out, LValue base, LValue index, JSValue indexAsConstant = JSValue(), ptrdiff_t offset = 0);
     
+    void dump(PrintStream&) const;
+
 private:
     const AbstractField& returnInitialized(AbstractField& field, ptrdiff_t index)
     {
@@ -178,7 +188,7 @@ private:
     };
     typedef HashMap<ptrdiff_t, std::unique_ptr<AbstractField>, WTF::IntHash<ptrdiff_t>, WithoutZeroOrOneHashTraits> MapType;
     
-    OwnPtr<MapType> m_largeIndices;
+    std::unique_ptr<MapType> m_largeIndices;
     Vector<CString, 16> m_largeIndexNames;
 };
 
@@ -196,6 +206,8 @@ public:
     
     const AbstractHeap& at(unsigned number) { return m_indexedHeap.at(number); }
     const AbstractHeap& operator[](unsigned number) { return at(number); }
+
+    void dump(PrintStream&) const;
 
 private:
     
@@ -217,6 +229,8 @@ public:
     }
     
     const AbstractHeap& operator[](void* address) { return at(address); }
+
+    void dump(PrintStream&) const;
 
 private:
     // The trick here is that the indexed heap is "indexed" by a pointer-width

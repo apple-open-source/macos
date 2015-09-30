@@ -37,6 +37,7 @@
 #ifndef _S_DNSNAMELIST_H
 #define _S_DNSNAMELIST_H
 
+#include <CoreFoundation/CFArray.h>
 #include <stdint.h>
 
 /* 
@@ -75,5 +76,14 @@ DNSNameListBufferCreate(const char * names[], int names_count,
 const char * *
 DNSNameListCreate(const uint8_t * buffer, int buffer_size,
 		  int * names_count);
+
+/*
+ * Function: DNSNameListCreateArray
+ * Purpose:
+ *   Convert compact domain name list form described in RFC 1035 to an
+ *   array of domain name strings.
+ */
+CFArrayRef /* of CFStringRef */
+DNSNameListCreateArray(const uint8_t * buffer, int buffer_size);
 
 #endif /* _S_DNSNAMELIST_H */

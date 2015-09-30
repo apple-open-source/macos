@@ -112,9 +112,10 @@ IOPCIDevice::maxCapabilityForDomainState ( IOPMPowerFlags domainState )
 unsigned long 
 IOPCIDevice::initialPowerStateForDomainState ( IOPMPowerFlags domainState )
 {
-	if (domainState & kIOPMPowerOn)        return (kIOPCIDeviceOnState);
-	if (domainState & kIOPMSoftSleep)      return (kIOPCIDeviceDozeState);
-	if (domainState & kIOPMConfigRetained) return (kIOPCIDevicePausedState);
+	if (domainState & kIOPMRootDomainState) return (kIOPCIDeviceOffState);
+	if (domainState & kIOPMPowerOn)         return (kIOPCIDeviceOnState);
+	if (domainState & kIOPMSoftSleep)       return (kIOPCIDeviceDozeState);
+	if (domainState & kIOPMConfigRetained)  return (kIOPCIDevicePausedState);
     return (kIOPCIDeviceOffState);
 }
 
@@ -206,6 +207,7 @@ bool IOPCIDevice::attach( IOService * provider )
     if (slotNameProperty != NULL)
         changePowerStateToPriv (1);
 #endif
+
 	return (true);
 }
 
@@ -223,7 +225,7 @@ void IOPCIDevice::detach( IOService * provider )
     PMstop();
 
 	IOLockLock(reserved->lock);
-	while (reserved->pmActive)
+	while (false && reserved->pmActive)
 	{
 		reserved->pmWait = true;
 		IOLockSleep(reserved->lock, &reserved->pmActive, THREAD_UNINT);
@@ -369,8 +371,8 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 					== ((kIOPCIConfigShadowValid | kIOPCIConfigShadowBridgeDriver) & shadow->flags))
 				&& (!(0x00FFFFFF & extendedConfigRead32(kPCI2PCIPrimaryBus))))
 			{
-				DLOG("%s::restore bus(0x%x)\n", getName(), shadow->savedConfig[kPCI2PCIPrimaryBus >> 2]);
-				extendedConfigWrite32(kPCI2PCIPrimaryBus, shadow->savedConfig[kPCI2PCIPrimaryBus >> 2]);
+				DLOG("%s::restore bus(0x%x)\n", getName(), shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
+				extendedConfigWrite32(kPCI2PCIPrimaryBus, shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
 			}
 			device = (IOACPIPlatformDevice *) reserved->configEntry->acpiDevice;
 			DLOG("%s::evaluateObject(%s)\n", getName(), gIOPCIPSMethods[idx]->getCStringNoCopy());
@@ -496,6 +498,12 @@ IOReturn IOPCIDevice::setPowerState( unsigned long newState,
     if (isInactive())
         return (kIOPMAckImplied);
 
+	if ((kIOPCIConfiguratorWakeToOff & gIOPCIFlags) && (kIOPCIDeviceOffState == newState))
+	{
+		changePowerStateTo(kIOPCIDeviceOffState);
+		changePowerStateToPriv(kIOPCIDeviceOffState);
+	}
+
 	prevState = reserved->pmState;
     ret = parent->setDevicePowerState(this, kIOPCIConfigShadowVolatile,
     								  prevState, newState);
@@ -506,8 +514,10 @@ IOReturn IOPCIDevice::setPowerState( unsigned long newState,
 IOReturn IOPCIDevice::saveDeviceState( IOOptionBits options )
 {
 	IOReturn ret;
-    ret = parent->setDevicePowerState(this, 0, 
-                                      kIOPCIDeviceOnState, kIOPCIDeviceDozeState);
+
+	ret = parent->setDevicePowerState(this, kIOPCIConfigShadowPermanent & options, 
+									  kIOPCIDeviceOnState, kIOPCIDeviceDozeState);
+
 	return (ret);
 }
 
@@ -581,7 +591,7 @@ bool IOPCIDevice::configAccess(bool write)
 	bool ok = (!isInactive()
 			&& reserved
 			&& (0 == ((write ? VM_PROT_WRITE : VM_PROT_READ) & reserved->configProt)));
-	if (!ok)
+	if (!ok && !ml_at_interrupt_context())
 	{
 		OSReportWithBacktrace("config protect fail(2) for device %u:%u:%u\n",
 								PCI_ADDRESS_TUPLE(this));
@@ -1171,6 +1181,106 @@ IOReturn IOPCIDevice::newUserClient(task_t owningTask, void * securityID,
                                     IOUserClient ** handler)
 {
     return (kIOReturnUnsupported);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+void IOPCIDevice::copyAERErrorDescriptionForBit(bool uncorrectable, uint32_t bit, char * string, size_t maxLength)
+{
+    const char * desc;
+
+    if (uncorrectable) 
+    {
+        switch (bit)
+        {
+            case kIOPCIUncorrectableErrorBitDataLinkProtocol:
+                desc = "DataLinkProtocol";
+                break;
+            case kIOPCIUncorrectableErrorBitSurpriseDown:
+                desc = "SurpriseDown";
+                break;
+            case kIOPCIUncorrectableErrorBitPoisonedTLP:
+                desc = "PoisonedTLP";
+                break;
+            case kIOPCIUncorrectableErrorBitFlowControlProtocol:
+                desc = "FlowControlProtocol";
+                break;
+            case kIOPCIUncorrectableErrorBitCompletionTimeout:
+                desc = "CompletionTimeout";
+                break;
+            case kIOPCIUncorrectableErrorBitCompleterAbort:
+                desc = "CompleterAbort";
+                break;
+            case kIOPCIUncorrectableErrorBitUnexpectedCompletion:
+                desc = "UnexpectedCompletion";
+                break;
+            case kIOPCIUncorrectableErrorBitReceiverOverflow:
+                desc = "ReceiverOverflow";
+                break;
+            case kIOPCIUncorrectableErrorBitMalformedTLP:
+                desc = "MalformedTLP";
+                break;
+            case kIOPCIUncorrectableErrorBitECRC:
+                desc = "ECRC";
+                break;
+            case kIOPCIUncorrectableErrorBitUnsupportedRequest:
+                desc = "UnsupportedRequest";
+                break;
+            case kIOPCIUncorrectableErrorBitACSViolation:
+                desc = "ACSViolation";
+                break;
+            case kIOPCIUncorrectableErrorBitInternal:
+                desc = "Internal";
+                break;
+            case kIOPCIUncorrectableErrorBitMCBlockedTLP:
+                desc = "MCBlockedTLP";
+                break;
+            case kIOPCIUncorrectableErrorBitAtomicOpEgressBlocked:
+                desc = "AtomicOpEgressBlocked";
+                break;
+            case kIOPCIUncorrectableErrorBitTLPPrefixBlocked:
+                desc = "TLPPrefixBlocked";
+                break;
+            default:
+                desc = NULL;
+                break;
+        }
+        snprintf(string, maxLength, "IOPCIUncorrectableError(%d%s%s)", bit, desc ? ", " : "", desc ? desc : "");
+    }
+    else 
+    {
+        switch (bit)
+        {
+            case kIOPCICorrectableErrorBitReceiver:
+                desc = "Receiver";
+                break;
+            case kIOPCICorrectableErrorBitBadTLP:
+                desc = "BadTLP";
+                break;
+            case kIOPCICorrectableErrorBitBadDLLP:
+                desc = "BadDLLP";
+                break;
+            case kIOPCICorrectableErrorBitReplayNumRollover:
+                desc = "ReplayNumRollover";
+                break;
+            case kIOPCICorrectableErrorBitReplayTimerTimeout:
+                desc = "ReplayTimerTimeout";
+                break;
+            case kIOPCICorrectableErrorBitAdvisoryNonFatal:
+                desc = "AdvisoryNonFatal";
+                break;
+            case kIOPCICorrectableErrorBitCorrectedInternal:
+                desc = "Internal";
+                break;
+            case kIOPCICorrectableErrorBitHeaderLogOverflow:
+                desc = "HeaderLogOverflow";
+                break;
+            default:
+                desc = NULL;
+                break;
+        }
+        snprintf(string, maxLength, "IOPCICorrectableError(%d%s%s)", bit, desc ? ", " : "", desc ? desc : "");
+    }
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2013-2014, International Business Machines
+* Copyright (C) 2013-2015, International Business Machines
 * Corporation and others.  All Rights Reserved.
 *******************************************************************************
 * collationtailoring.cpp
@@ -40,6 +40,7 @@ CollationTailoring::CollationTailoring(const CollationSettings *baseSettings)
     if(baseSettings != NULL) {
         U_ASSERT(baseSettings->reorderCodesLength == 0);
         U_ASSERT(baseSettings->reorderTable == NULL);
+        U_ASSERT(baseSettings->minHighNoReorder == 0);
     } else {
         settings = new CollationSettings();
     }
@@ -99,6 +100,10 @@ CollationTailoring::setVersion(const UVersionInfo baseVersion, const UVersionInf
 int32_t
 CollationTailoring::getUCAVersion() const {
     return ((int32_t)version[1] << 4) | (version[2] >> 6);
+}
+
+CollationCacheEntry::~CollationCacheEntry() {
+    SharedObject::clearPtr(tailoring);
 }
 
 U_NAMESPACE_END

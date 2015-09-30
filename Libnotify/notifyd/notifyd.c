@@ -34,10 +34,11 @@
 #include <sys/syslimits.h>
 #include <sys/param.h>
 #include <sys/resource.h>
+#include <xpc/xpc.h>
+#include <xpc/private.h>
 #include <asl.h>
 #include <assert.h>
 #include <inttypes.h>
-#include <CrashReporterClient.h>
 #include <TargetConditionals.h>
 #include "pathwatch.h"
 #include "notifyd.h"
@@ -47,6 +48,8 @@
 
 #include "notify_ipc.h"
 #include "notify_private.h"
+
+#define CRSetCrashLogMessage(msg) /**/
 
 #define forever for(;;)
 #define IndexNull -1
@@ -617,7 +620,7 @@ fprint_status(FILE *f)
 		}
 
 		fprintf(f, "\n");
-		_nc_list_release_list(l);
+		_nc_list_free_list(l);
 	}
 	fprintf(f, "\n");
 	_nc_table_free(pid_table);
@@ -670,6 +673,49 @@ log_message(int priority, const char *str, ...)
 
 	va_end(ap);
 	fclose(lfp);
+}
+
+bool
+has_root_entitlement(pid_t pid)
+{
+	xpc_object_t edata, entitlements;
+	bool val = false;
+	size_t len;
+	const void *ptr;
+	log_message(ASL_LEVEL_NOTICE, "-> has_root_entitlement (PID %d)\n", pid);
+
+	edata = xpc_copy_entitlements_for_pid(pid);
+	if (edata == NULL)
+	{
+		log_message(ASL_LEVEL_NOTICE, "has_root_entitlement (PID %d): FAIL xpc_copy_entitlements_for_pid -> NULL\n", pid);
+		return false;
+	}
+	
+	ptr = xpc_data_get_bytes_ptr(edata);
+	len = xpc_data_get_length(edata);
+
+	entitlements = xpc_create_from_plist(ptr, len);
+	xpc_release(edata);
+
+	if (entitlements == NULL)
+	{
+		log_message(ASL_LEVEL_NOTICE, "has_root_entitlement (PID %d): FAIL xpc_create_from_plist -> NULL\n", pid);
+		return false;
+	}
+
+	if (xpc_get_type(entitlements) == XPC_TYPE_DICTIONARY)
+	{
+		val = xpc_dictionary_get_bool(entitlements, ROOT_ENTITLEMENT_KEY);
+		log_message(ASL_LEVEL_NOTICE, "has_root_entitlement (PID %d): xpc_dictionary_get_bool %s -> %s\n", pid, ROOT_ENTITLEMENT_KEY, val ? "TRUE" : "FALSE");
+	}
+	else
+	{
+		log_message(ASL_LEVEL_NOTICE, "has_root_entitlement (PID %d): FAIL xpc_get_type != XPC_TYPE_DICTIONARY\n", pid);
+	}
+	
+	xpc_release(entitlements);
+	log_message(ASL_LEVEL_NOTICE, "<- has_root_entitlement (PID %d) = %s\n", pid, val ? "OK" : "FAIL");
+	return val;
 }
 
 uint32_t
@@ -970,16 +1016,18 @@ init_config()
 
 		else if (!strcasecmp(args[0], "set"))
 		{
-			if (argslen < 3)
+			if (argslen == 1 || argslen > 3)
 			{
 				string_list_free(args);
 				continue;
 			}
 
-			val64 = atoll(args[2]);
-
 			_notify_lib_register_plain(global.notify_state, args[1], -1, notifyd_token++, -1, 0, 0, &nid);
-			_notify_lib_set_state(global.notify_state, nid, val64, 0, 0);
+			if (argslen == 3)
+			{
+				val64 = atoll(args[2]);
+				_notify_lib_set_state(global.notify_state, nid, val64, 0, 0);
+			}
 		}
 
 		else if (!strcasecmp(args[0], "reserve"))

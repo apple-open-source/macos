@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -121,7 +121,7 @@ manual_resolve_router_callback(ServiceRef service_p,
 	ServicePublishSuccessIPv4(service_p, NULL);
 	break;
     case router_arp_status_failed_e:
-	my_log(LOG_ERR, "MANUAL %s: router arp resolution failed, %s", 
+	my_log(LOG_NOTICE, "MANUAL %s: router arp resolution failed, %s",
 	       if_name(if_p), arp_client_errmsg(manual->arp));
 	break;
     }
@@ -192,7 +192,7 @@ manual_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  arp_result_t *	result = (arp_result_t *)event_data;
 
 	  if (result->error) {
-	      my_log(LOG_ERR, "MANUAL %s: arp probe failed, %s", 
+	      my_log(LOG_NOTICE, "MANUAL %s: arp probe failed, %s",
 		     if_name(if_p), arp_client_errmsg(manual->arp));
 	      break;
 	  }
@@ -212,7 +212,7 @@ manual_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		      ServiceReportIPv4AddressConflict(service_p,
 						       requested_ip);
 		  }
-		  my_log(LOG_ERR, "MANUAL %s: %s", 
+		  my_log(LOG_NOTICE, "MANUAL %s: %s",
 			 if_name(if_p), msg);
 		  service_remove_address(service_p);
 		  service_publish_failure(service_p, 
@@ -275,17 +275,11 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 
 	  method_data = (ipconfig_method_data_t *)event_data;
 	  if (manual) {
-	      my_log(LOG_DEBUG, "MANUAL %s: re-entering start state", 
+	      my_log(LOG_INFO, "MANUAL %s: re-entering start state", 
 		     if_name(if_p));
 	      return (ipconfig_status_internal_error_e);
 	  }
 	  manual = malloc(sizeof(*manual));
-	  if (manual == NULL) {
-	      my_log(LOG_ERR, "MANUAL %s: malloc failed", 
-		     if_name(if_p));
-	      status = ipconfig_status_allocation_failed_e;
-	      break;
-	  }
 	  ServiceSetPrivate(service_p, manual);
 	  bzero(manual, sizeof(*manual));
 	  manual->ignore_link_status = method_data->manual.ignore_link_status;
@@ -308,24 +302,24 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 	  manual->timer = timer_callout_init();
 	  if (manual->timer == NULL) {
-	      my_log(LOG_ERR, "MANUAL %s: timer_callout_init failed", 
+	      my_log(LOG_NOTICE, "MANUAL %s: timer_callout_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
 	  manual->arp = arp_client_init(G_arp_session, if_p);
 	  if (manual->arp == NULL) {
-	      my_log(LOG_NOTICE, "MANUAL %s: arp_client_init failed", 
+	      my_log(LOG_NOTICE, "MANUAL %s: arp_client_init failed",
 		     if_name(if_p));
 	  }
-	  my_log(LOG_DEBUG, "MANUAL %s: starting", 
+	  my_log(LOG_INFO, "MANUAL %s: starting",
 		 if_name(if_p));
 	  manual_start(service_p, IFEventID_start_e, NULL);
 	  break;
       }
       stop:
       case IFEventID_stop_e: {
-	  my_log(LOG_DEBUG, "MANUAL %s: stop", if_name(if_p));
+	  my_log(LOG_INFO, "MANUAL %s: stop", if_name(if_p));
 	  if (manual == NULL) {
 	      break;
 	  }
@@ -351,7 +345,7 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  ipconfig_method_data_t * 	method_data;
 
 	  if (manual == NULL) {
-	      my_log(LOG_DEBUG, "MANUAL %s: private data is NULL", 
+	      my_log(LOG_INFO, "MANUAL %s: private data is NULL", 
 		     if_name(if_p));
 	      status = ipconfig_status_internal_error_e;
 	      break;
@@ -407,7 +401,7 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      ServiceReportIPv4AddressConflict(service_p,
 					       arpc->ip_addr);
 	  }
-	  my_log(LOG_ERR, "MANUAL %s: %s", 
+	  my_log(LOG_NOTICE, "MANUAL %s: %s",
 		 if_name(if_p), msg);
 	  break;
       }

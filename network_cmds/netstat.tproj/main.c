@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -156,6 +156,17 @@ struct protox systmprotox[] = {
 	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 
+struct protox nstatprotox[] = {
+	{ NULL,		print_nstat_stats,	NULL,	"nstat", 0 },
+	{ NULL,		NULL,		NULL,	NULL,	0 }
+};
+
+struct protox ipcprotox[] = {
+	{ NULL,		print_extbkidle_stats,	NULL,	"xbkidle", 0 },
+	{ NULL,		NULL,		NULL,	NULL,	0 }
+};
+
+
 struct protox *protoprotox[] = {
 	protox,
 #ifdef INET6
@@ -165,6 +176,8 @@ struct protox *protoprotox[] = {
 	pfkeyprotox,
 #endif
 	systmprotox,
+	nstatprotox,
+	ipcprotox,
 	NULL
 };
 
@@ -195,6 +208,7 @@ int	prioflag = -1;	/* show packet priority statistics */
 int	Rflag;		/* show reachability information */
 int	rflag;		/* show routing tables (or routing stats) */
 int	sflag;		/* show protocol statistics */
+int	Sflag;		/* show additional i/f link status */
 int	tflag;		/* show i/f watchdog timers */
 int	vflag;		/* more verbose */
 int	Wflag;		/* wide display */
@@ -220,7 +234,7 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabc:dFf:gI:iLlmnP:p:qQrRstuvWw:x")) != -1)
+	while ((ch = getopt(argc, argv, "Aabc:dFf:gI:ikLlmnP:p:qQrRsStuvWw:x")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -254,10 +268,10 @@ main(argc, argv)
 			else if (strcmp(optarg, "pfkey") == 0)
 				af = PF_KEY;
 #endif /*INET6*/
-                        else if (strcmp(optarg, "unix") == 0)
-                                af = AF_UNIX;
-                        else if (strcmp(optarg, "systm") == 0)
-                                af = AF_SYSTEM;
+			else if (strcmp(optarg, "unix") == 0)
+				af = AF_UNIX;
+			else if (strcmp(optarg, "systm") == 0)
+				af = AF_SYSTEM;
 			else {
 				errx(1, "%s: unknown address family", optarg);
 			}
@@ -317,6 +331,9 @@ main(argc, argv)
 		case 's':
 			++sflag;
 			break;
+		case 'S':
+			Sflag = 1;
+			break;
 		case 't':
 			tflag = 1;
 			break;
@@ -361,7 +378,7 @@ main(argc, argv)
 		mbpr();
 		exit(0);
 	}
-	if (iflag && !sflag && !gflag && !qflag && !Qflag) {
+	if (iflag && !sflag && !Sflag && !gflag && !qflag && !Qflag) {
 		if (Rflag)
 			intpr_ri(NULL);
 		else
@@ -384,6 +401,15 @@ main(argc, argv)
 			aqstatpr();
 		} else {
 			rxpollstatpr();
+		}
+		exit(0);
+	}
+	if (Sflag) {
+		if (interface == NULL) {
+			fprintf(stderr, "additional link status option"
+				" requires interface name\n");
+		} else {
+			print_link_status(interface);
 		}
 		exit(0);
 	}
@@ -418,7 +444,16 @@ main(argc, argv)
 	if ((af == AF_SYSTEM || af == AF_UNSPEC) && !Lflag)
 		for (tp = systmprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
-			
+#if TARGET_OS_IPHONE
+	if (af == AF_UNSPEC && !Lflag)
+		for (tp = nstatprotox; tp->pr_name; tp++)
+			printproto(tp, tp->pr_name);
+#endif /* TARGET_OS_IPHONE */
+
+	if (af == AF_UNSPEC && !Lflag)
+		for (tp = ipcprotox; tp->pr_name; tp++)
+			printproto(tp, tp->pr_name);
+
 #ifdef SRVCACHE
 	_serv_cache_close();
 #endif
@@ -479,19 +514,19 @@ printproto(tp, name)
 char *
 plural(int n)
 {
-	return (n != 1 ? "s" : "");
+	return (n > 1 ? "s" : "");
 }
 
 char *
 plurales(int n)
 {
-	return (n != 1 ? "es" : "");
+	return (n > 1 ? "es" : "");
 }
 
 char *
 pluralies(int n)
 {
-	return (n != 1 ? "ies" : "y");
+	return (n > 1 ? "ies" : "y");
 }
 
 /*
@@ -542,7 +577,7 @@ name2protox(char *name)
 #define	NETSTAT_USAGE "\
 Usage:	netstat [-AaLlnW] [-f address_family | -p protocol]\n\
 	netstat [-gilns] [-f address_family]\n\
-	netstat -i | -I interface [-w wait] [-abdgRt]\n\
+	netstat -i | -I interface [-w wait] [-abdgRtS]\n\
 	netstat -s [-s] [-f address_family | -p protocol] [-w wait]\n\
 	netstat -i | -I interface -s [-f address_family | -p protocol]\n\
 	netstat -m [-m]\n\

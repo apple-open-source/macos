@@ -242,6 +242,7 @@ struct pcap {
 	char *filter_str;
 	
 	int shb_added;
+	pcapng_block_t dump_block;
     
 	int if_info_count;
 	struct pcap_if_info **if_infos;
@@ -343,6 +344,7 @@ int	pcap_offline_read(pcap_t *, int, pcap_handler, u_char *);
 int	pcap_read(pcap_t *, int cnt, pcap_handler, u_char *);
 
 int pcap_ng_offline_read(pcap_t *, int , pcap_handler , u_char *);
+void pcap_ng_cleanup(pcap_t *);
 
 #ifndef HAVE_STRLCPY
 #define strlcpy(x, y, z) \

@@ -11,5 +11,7 @@
 	<true/>
 	<key>com.apple.private.security.sandbox.debug-mode</key>
 	<true/>
+	<key>com.apple.private.gssapi.credential-introspection</key>
+	<true/>
 </dict>
 </plist>

@@ -27,6 +27,7 @@
 #define Download_h
 
 #include "MessageSender.h"
+#include "SandboxExtension.h"
 #include <WebCore/ResourceRequest.h>
 #include <wtf/Noncopyable.h>
 
@@ -63,7 +64,6 @@ namespace WebKit {
 
 class DownloadAuthenticationClient;
 class DownloadManager;
-class SandboxExtension;
 class WebPage;
 
 class Download : public IPC::MessageSender {
@@ -74,6 +74,7 @@ public:
 
     void start();
     void startWithHandle(WebCore::ResourceHandle*, const WebCore::ResourceResponse&);
+    void resume(const IPC::DataReference& resumeData, const String& path, const SandboxExtension::Handle&);
     void cancel();
 
     uint64_t downloadID() const { return m_downloadID; }
@@ -89,10 +90,8 @@ public:
     void platformDidFinish();
     void didFail(const WebCore::ResourceError&, const IPC::DataReference& resumeData);
     void didCancel(const IPC::DataReference& resumeData);
-    void didDecideDestination(const String&, bool allowOverwrite);
 
 #if USE(CFNETWORK)
-    const String& destination() const { return m_destination; }
     DownloadAuthenticationClient* authenticationClient();
 #endif
 
@@ -114,8 +113,6 @@ private:
 
     void platformInvalidate();
 
-    String retrieveDestinationWithSuggestedFilename(const String& filename, bool& allowOverwrite);
-
     DownloadManager& m_downloadManager;
     uint64_t m_downloadID;
     WebCore::ResourceRequest m_request;
@@ -126,9 +123,6 @@ private:
     RetainPtr<NSURLDownload> m_nsURLDownload;
     RetainPtr<WKDownloadAsDelegate> m_delegate;
 #endif
-    bool m_allowOverwrite;
-    String m_destination;
-    String m_bundlePath;
 #if USE(CFNETWORK)
     RetainPtr<CFURLDownloadRef> m_download;
     RefPtr<DownloadAuthenticationClient> m_authenticationClient;

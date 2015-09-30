@@ -44,8 +44,8 @@
  * @ingroup gssapi
  */
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_release_name(OM_uint32 *minor_status,
-    gss_name_t *input_name)
+gss_release_name(OM_uint32 *__nonnull minor_status,
+		 __nonnull gss_name_t *__nullable input_name)
 {
 	struct _gss_name *name;
 

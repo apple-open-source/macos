@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2014, International Business Machines Corporation and    *
+* Copyright (C) 1997-2015, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -57,6 +57,8 @@
 #include "ustrenum.h"
 #include "uassert.h"
 #include "olsontz.h"
+#include "sharedcalendar.h"
+#include "unifiedcache.h"
 
 #if !UCONFIG_NO_SERVICE
 static icu::ICULocaleService* gService = NULL;
@@ -198,6 +200,27 @@ typedef enum ECalType {
 } ECalType;
 
 U_NAMESPACE_BEGIN
+
+SharedCalendar::~SharedCalendar() {
+    delete ptr;
+}
+
+template<> U_I18N_API
+const SharedCalendar *LocaleCacheKey<SharedCalendar>::createObject(
+        const void * /*unusedCreationContext*/, UErrorCode &status) const {
+    Calendar *calendar = Calendar::makeInstance(fLoc, status);
+    if (U_FAILURE(status)) {
+        return NULL; 
+    }
+    SharedCalendar *shared = new SharedCalendar(calendar);
+    if (shared == NULL) {
+        delete calendar;
+        status = U_MEMORY_ALLOCATION_ERROR;
+        return NULL;
+    }
+    shared->addRef();
+    return shared;
+}
 
 static ECalType getCalendarType(const char *s) {
     for (int i = 0; gCalTypes[i] != NULL; i++) {
@@ -612,8 +635,8 @@ static const int32_t kCalendarLimits[UCAL_FIELD_COUNT][4] = {
     {           1,            1,             7,             7  }, // DOW_LOCAL
     {/*N/A*/-1,       /*N/A*/-1,     /*N/A*/-1,       /*N/A*/-1}, // EXTENDED_YEAR
     { -0x7F000000,  -0x7F000000,    0x7F000000,    0x7F000000  }, // JULIAN_DAY
-    {           0,            0, 24*kOneHour-1, 24*kOneHour-1  },  // MILLISECONDS_IN_DAY
-    {           0,            0,             1,             1  },  // IS_LEAP_MONTH
+    {           0,            0, 24*kOneHour-1, 24*kOneHour-1  }, // MILLISECONDS_IN_DAY
+    {           0,            0,             1,             1  }, // IS_LEAP_MONTH
 };
 
 // Resource bundle tags read by this class
@@ -680,11 +703,14 @@ fAreFieldsVirtuallySet(FALSE),
 fNextStamp((int32_t)kMinimumUserStamp),
 fTime(0),
 fLenient(TRUE),
-fZone(0),
+fZone(NULL),
 fRepeatedWallTime(UCAL_WALLTIME_LAST),
 fSkippedWallTime(UCAL_WALLTIME_LAST)
 {
     clear();
+    if (U_FAILURE(success)) {
+        return;
+    }
     fZone = TimeZone::createDefault();
     if (fZone == NULL) {
         success = U_MEMORY_ALLOCATION_ERROR;
@@ -703,10 +729,13 @@ fAreFieldsVirtuallySet(FALSE),
 fNextStamp((int32_t)kMinimumUserStamp),
 fTime(0),
 fLenient(TRUE),
-fZone(0),
+fZone(NULL),
 fRepeatedWallTime(UCAL_WALLTIME_LAST),
 fSkippedWallTime(UCAL_WALLTIME_LAST)
 {
+    if (U_FAILURE(success)) {
+        return;
+    }
     if(zone == 0) {
 #if defined (U_DEBUG_CAL)
         fprintf(stderr, "%s:%d: ILLEGAL ARG because timezone cannot be 0\n",
@@ -718,7 +747,6 @@ fSkippedWallTime(UCAL_WALLTIME_LAST)
 
     clear();    
     fZone = zone;
-
     setWeekData(aLocale, NULL, success);
 }
 
@@ -733,10 +761,13 @@ fAreFieldsVirtuallySet(FALSE),
 fNextStamp((int32_t)kMinimumUserStamp),
 fTime(0),
 fLenient(TRUE),
-fZone(0),
+fZone(NULL),
 fRepeatedWallTime(UCAL_WALLTIME_LAST),
 fSkippedWallTime(UCAL_WALLTIME_LAST)
 {
+    if (U_FAILURE(success)) {
+        return;
+    }
     clear();
     fZone = zone.clone();
     if (fZone == NULL) {
@@ -757,7 +788,7 @@ Calendar::~Calendar()
 Calendar::Calendar(const Calendar &source)
 :   UObject(source)
 {
-    fZone = 0;
+    fZone = NULL;
     *this = source;
 }
 
@@ -778,9 +809,8 @@ Calendar::operator=(const Calendar &right)
         fLenient                 = right.fLenient;
         fRepeatedWallTime        = right.fRepeatedWallTime;
         fSkippedWallTime         = right.fSkippedWallTime;
-        if (fZone != NULL) {
-            delete fZone;
-        }
+        delete fZone;
+        fZone = NULL;
         if (right.fZone != NULL) {
             fZone                = right.fZone->clone();
         }
@@ -826,9 +856,8 @@ Calendar::createInstance(const Locale& aLocale, UErrorCode& success)
 
 // Note: this is the bottleneck that actually calls the service routines.
 
-Calendar* U_EXPORT2
-Calendar::createInstance(TimeZone* zone, const Locale& aLocale, UErrorCode& success)
-{
+Calendar * U_EXPORT2
+Calendar::makeInstance(const Locale& aLocale, UErrorCode& success) {
     if (U_FAILURE(success)) {
         return NULL;
     }
@@ -848,7 +877,6 @@ Calendar::createInstance(TimeZone* zone, const Locale& aLocale, UErrorCode& succ
     Calendar* c = NULL;
 
     if(U_FAILURE(success) || !u) {
-        delete zone;
         if(U_SUCCESS(success)) { // Propagate some kind of err
             success = U_INTERNAL_PROGRAM_ERROR;
         }
@@ -877,7 +905,6 @@ Calendar::createInstance(TimeZone* zone, const Locale& aLocale, UErrorCode& succ
         c = (Calendar*)getCalendarService(success)->get(l, LocaleKey::KIND_ANY, &actualLoc2, success);
 
         if(U_FAILURE(success) || !c) {
-            delete zone;
             if(U_SUCCESS(success)) { 
                 success = U_INTERNAL_PROGRAM_ERROR; // Propagate some err
             }
@@ -903,7 +930,6 @@ Calendar::createInstance(TimeZone* zone, const Locale& aLocale, UErrorCode& succ
 #endif
             success = U_MISSING_RESOURCE_ERROR;  // requested a calendar type which could NOT be found.
             delete c;
-            delete zone;
             return NULL;
         }
 #ifdef U_DEBUG_CALSVC
@@ -926,8 +952,27 @@ Calendar::createInstance(TimeZone* zone, const Locale& aLocale, UErrorCode& succ
         c = (Calendar*)u;
     }
 
+    return c;
+}
+
+Calendar* U_EXPORT2
+Calendar::createInstance(TimeZone* zone, const Locale& aLocale, UErrorCode& success)
+{
+    LocalPointer<TimeZone> zonePtr(zone);
+    const SharedCalendar *shared = NULL;
+    UnifiedCache::getByLocale(aLocale, shared, success);
+    if (U_FAILURE(success)) {
+        return NULL;
+    }
+    Calendar *c = (*shared)->clone();
+    shared->removeRef();
+    if (c == NULL) {
+        success = U_MEMORY_ALLOCATION_ERROR;
+        return NULL;
+    }
+
     // Now, reset calendar to default state:
-    c->adoptTimeZone(zone); //  Set the correct time zone
+    c->adoptTimeZone(zonePtr.orphan()); //  Set the correct time zone
     c->setTimeInMillis(getNow(), success); // let the new calendar have the current time.
 
     return c;
@@ -946,6 +991,24 @@ Calendar::createInstance(const TimeZone& zone, const Locale& aLocale, UErrorCode
 }
 
 // -------------------------------------
+
+void U_EXPORT2
+Calendar::getCalendarTypeFromLocale(
+        const Locale &aLocale,
+        char *typeBuffer,
+        int32_t typeBufferSize,
+        UErrorCode &success) {
+    const SharedCalendar *shared = NULL;
+    UnifiedCache::getByLocale(aLocale, shared, success);
+    if (U_FAILURE(success)) {
+        return;
+    }
+    uprv_strncpy(typeBuffer, (*shared)->getType(), typeBufferSize);
+    shared->removeRef();
+    if (typeBuffer[typeBufferSize - 1]) {
+        success = U_BUFFER_OVERFLOW_ERROR;
+    }
+}
 
 UBool
 Calendar::operator==(const Calendar& that) const
@@ -1297,6 +1360,15 @@ void Calendar::setRelatedYear(int32_t year)
 void
 Calendar::clear()
 {
+    // special behavior for chinese/dangi to set to beginning of current era;
+    // need to do here and not in ChineseCalendar since clear is not virtual.
+    int32_t eraNow = 0;
+    if (dynamic_cast<const ChineseCalendar*>(this)!=NULL) {
+        UErrorCode status = U_ZERO_ERROR;
+        setTimeInMillis(getNow(), status);
+        eraNow = get(UCAL_ERA, status); // sets 0 if error
+    }
+
     for (int32_t i=0; i<UCAL_FIELD_COUNT; ++i) {
         fFields[i]     = 0; // Must do this; other code depends on it
         fStamp[i]     = kUnset;
@@ -1304,6 +1376,9 @@ Calendar::clear()
     }
     fIsTimeSet = fAreFieldsSet = fAreAllFieldsSet = fAreFieldsVirtuallySet = FALSE;
     // fTime is not 'cleared' - may be used if no fields are set.
+    if (eraNow > 0) {
+        set(UCAL_ERA, eraNow);
+    }
 }
 
 // -------------------------------------
@@ -2307,7 +2382,7 @@ Calendar::adoptTimeZone(TimeZone* zone)
     if (zone == NULL) return;
 
     // fZone should always be non-null
-    if (fZone != NULL) delete fZone;
+    delete fZone;
     fZone = zone;
 
     // if the zone changes, we need to recompute the time fields
@@ -2326,6 +2401,7 @@ Calendar::setTimeZone(const TimeZone& zone)
 const TimeZone&
 Calendar::getTimeZone() const
 {
+    U_ASSERT(fZone != NULL);
     return *fZone;
 }
 
@@ -2334,9 +2410,14 @@ Calendar::getTimeZone() const
 TimeZone*
 Calendar::orphanTimeZone()
 {
-    TimeZone *z = fZone;
     // we let go of the time zone; the new time zone is the system default time zone
-    fZone = TimeZone::createDefault();
+    TimeZone *defaultZone = TimeZone::createDefault();
+    if (defaultZone == NULL) {
+        // No error handling available. Must keep fZone non-NULL, there are many unchecked uses.
+        return NULL;
+    }
+    TimeZone *z = fZone;
+    fZone = defaultZone;
     return z;
 }
 
@@ -3428,10 +3509,12 @@ int32_t Calendar::handleGetExtendedYearFromWeekFields(int32_t yearWoy, int32_t w
     if (first < 0) {
         first += 7;
     }
-    int32_t nextFirst = julianDayToDayOfWeek(nextJan1Start + 1) - firstDayOfWeek;
-    if (nextFirst < 0) {
-        nextFirst += 7;
-    }
+
+    //// (nextFirst was not used below)
+    // int32_t nextFirst = julianDayToDayOfWeek(nextJan1Start + 1) - firstDayOfWeek;
+    // if (nextFirst < 0) {
+    //     nextFirst += 7;
+    //}
 
     int32_t minDays = getMinimalDaysInFirstWeek();
     UBool jan1InPrevYear = FALSE;  // January 1st in the year of WOY is the 1st week?  (i.e. first week is < minimal )

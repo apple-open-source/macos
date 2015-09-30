@@ -50,9 +50,18 @@ enum PropertyWhitelistType {
 class CSSSelector;
 class ContainerNode;
 class MediaQueryEvaluator;
+class Node;
 class StyleResolver;
 class StyleRuleRegion;
 class StyleSheetContents;
+
+enum class MatchBasedOnRuleHash : unsigned {
+    None,
+    Universal,
+    ClassA,
+    ClassB,
+    ClassC
+};
 
 class RuleData {
 public:
@@ -66,9 +75,8 @@ public:
     unsigned selectorIndex() const { return m_selectorIndex; }
 
     bool canMatchPseudoElement() const { return m_canMatchPseudoElement; }
-    bool hasRightmostSelectorMatchingHTMLBasedOnRuleHash() const { return m_hasRightmostSelectorMatchingHTMLBasedOnRuleHash; }
+    MatchBasedOnRuleHash matchBasedOnRuleHash() const { return static_cast<MatchBasedOnRuleHash>(m_matchBasedOnRuleHash); }
     bool containsUncommonAttributeSelector() const { return m_containsUncommonAttributeSelector; }
-    unsigned specificity() const { return m_specificity; }
     unsigned linkMatchType() const { return m_linkMatchType; }
     bool hasDocumentSecurityOrigin() const { return m_hasDocumentSecurityOrigin; }
     PropertyWhitelistType propertyWhitelistType(bool isMatchingUARules = false) const { return isMatchingUARules ? PropertyWhitelistNone : static_cast<PropertyWhitelistType>(m_propertyWhitelistType); }
@@ -101,8 +109,7 @@ private:
     // This number was picked fairly arbitrarily. We can probably lower it if we need to.
     // Some simple testing showed <100,000 RuleData's on large sites.
     unsigned m_position : 18;
-    unsigned m_specificity : 24;
-    unsigned m_hasRightmostSelectorMatchingHTMLBasedOnRuleHash : 1;
+    unsigned m_matchBasedOnRuleHash : 3;
     unsigned m_canMatchPseudoElement : 1;
     unsigned m_containsUncommonAttributeSelector : 1;
     unsigned m_linkMatchType : 2; //  SelectorChecker::LinkMatchMask
@@ -149,7 +156,8 @@ public:
 
     RuleSet();
 
-    typedef HashMap<AtomicStringImpl*, std::unique_ptr<Vector<RuleData>>> AtomRuleMap;
+    typedef Vector<RuleData, 1> RuleDataVector;
+    typedef HashMap<AtomicStringImpl*, std::unique_ptr<RuleDataVector>> AtomRuleMap;
 
     void addRulesFromSheet(StyleSheetContents*, const MediaQueryEvaluator&, StyleResolver* = 0);
 
@@ -163,16 +171,17 @@ public:
 
     const RuleFeatureSet& features() const { return m_features; }
 
-    const Vector<RuleData>* idRules(AtomicStringImpl* key) const { return m_idRules.get(key); }
-    const Vector<RuleData>* classRules(AtomicStringImpl* key) const { return m_classRules.get(key); }
-    const Vector<RuleData>* tagRules(AtomicStringImpl* key) const { return m_tagRules.get(key); }
-    const Vector<RuleData>* shadowPseudoElementRules(AtomicStringImpl* key) const { return m_shadowPseudoElementRules.get(key); }
-    const Vector<RuleData>* linkPseudoClassRules() const { return &m_linkPseudoClassRules; }
+    const RuleDataVector* idRules(AtomicStringImpl* key) const { return m_idRules.get(key); }
+    const RuleDataVector* classRules(AtomicStringImpl* key) const { return m_classRules.get(key); }
+    const RuleDataVector* tagRules(AtomicStringImpl* key, bool isHTMLName) const;
+    const RuleDataVector* shadowPseudoElementRules(AtomicStringImpl* key) const { return m_shadowPseudoElementRules.get(key); }
+    const RuleDataVector* linkPseudoClassRules() const { return &m_linkPseudoClassRules; }
 #if ENABLE(VIDEO_TRACK)
-    const Vector<RuleData>* cuePseudoRules() const { return &m_cuePseudoRules; }
+    const RuleDataVector* cuePseudoRules() const { return &m_cuePseudoRules; }
 #endif
-    const Vector<RuleData>* focusPseudoClassRules() const { return &m_focusPseudoClassRules; }
-    const Vector<RuleData>* universalRules() const { return &m_universalRules; }
+    const RuleDataVector* focusPseudoClassRules() const { return &m_focusPseudoClassRules; }
+    const RuleDataVector* universalRules() const { return &m_universalRules; }
+
     const Vector<StyleRulePage*>& pageRules() const { return m_pageRules; }
     const Vector<RuleSetSelectorPair>& regionSelectorsAndRuleSets() const { return m_regionSelectorsAndRuleSets; }
 
@@ -185,14 +194,15 @@ private:
 
     AtomRuleMap m_idRules;
     AtomRuleMap m_classRules;
-    AtomRuleMap m_tagRules;
+    AtomRuleMap m_tagLocalNameRules;
+    AtomRuleMap m_tagLowercaseLocalNameRules;
     AtomRuleMap m_shadowPseudoElementRules;
-    Vector<RuleData> m_linkPseudoClassRules;
+    RuleDataVector m_linkPseudoClassRules;
 #if ENABLE(VIDEO_TRACK)
-    Vector<RuleData> m_cuePseudoRules;
+    RuleDataVector m_cuePseudoRules;
 #endif
-    Vector<RuleData> m_focusPseudoClassRules;
-    Vector<RuleData> m_universalRules;
+    RuleDataVector m_focusPseudoClassRules;
+    RuleDataVector m_universalRules;
     Vector<StyleRulePage*> m_pageRules;
     unsigned m_ruleCount;
     bool m_autoShrinkToFitEnabled;
@@ -204,6 +214,16 @@ inline RuleSet::RuleSet()
     : m_ruleCount(0)
     , m_autoShrinkToFitEnabled(true)
 {
+}
+
+inline const RuleSet::RuleDataVector* RuleSet::tagRules(AtomicStringImpl* key, bool isHTMLName) const
+{
+    const AtomRuleMap* tagRules;
+    if (isHTMLName)
+        tagRules = &m_tagLowercaseLocalNameRules;
+    else
+        tagRules = &m_tagLocalNameRules;
+    return tagRules->get(key);
 }
 
 } // namespace WebCore

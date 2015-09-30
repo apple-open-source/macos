@@ -497,6 +497,8 @@ IOReturn IOPMRevertPMPreferences(CFArrayRef keys_arr)
         
     for (csi=0; csi<customSettingsCount; csi++) {
         CFMutableDictionaryRef      mutablePerPowerSourceCopy = NULL;
+        if (!isA_CFDictionary(customSettingsDicts[csi]))
+            continue;
         mutablePerPowerSourceCopy = CFDictionaryCreateMutableCopy(0, 0, customSettingsDicts[csi]);
         if (!mutablePerPowerSourceCopy) {
             continue;
@@ -1001,6 +1003,7 @@ static void mergeUserDefaultOverriddenSettings(CFMutableDictionaryRef es)
         // will be applied to each power source's settings.
         acOver = battOver = upsOver = userOverrides;
     } else {
+        CFRelease (userOverrides);
         return;
     }
     
@@ -1327,11 +1330,11 @@ static bool checkPowerSourceSupported(CFStringRef str)
     bool hasBatt;
     bool hasUPS;
 
-    IOPSGetSupportedPowerSources(NULL, &hasBatt, &hasUPS);
-
     if (CFEqual(str, CFSTR(kIOPMACPowerKey))) {
         return true;
     }
+
+    IOPSGetSupportedPowerSources(NULL, &hasBatt, &hasUPS);
 
     if (CFEqual(str, CFSTR(kIOPMBatteryPowerKey))) {
         return hasBatt;
@@ -1360,6 +1363,8 @@ static void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
     CFMutableDictionaryRef      this_profile  = NULL;
     CFDictionaryRef                _supportedCached = NULL;
     io_registry_entry_t         _rootDomain   = IO_OBJECT_NULL;
+    bool                        hasBatt       = false;
+    bool                        hasUPS        = false;
     
 
     // Grab a copy of RootDomain's supported energy saver settings
@@ -1381,12 +1386,16 @@ static void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
     if (!profile_keys || !profile_vals) 
         goto exit;
     
+    hasBatt = checkPowerSourceSupported(CFSTR(kIOPMBatteryPowerKey));
+    hasUPS = checkPowerSourceSupported(CFSTR(kIOPMUPSPowerKey));
+
     CFDictionaryGetKeysAndValues(energyPrefs, (const void **)profile_keys, 
                                  (const void **)profile_vals);
     // For each CFDictionary at the top level (battery, AC)
     while(--profile_count >= 0)
     {
-        if(!checkPowerSourceSupported(profile_keys[profile_count]))
+        if ((CFEqual(profile_keys[profile_count], CFSTR(kIOPMBatteryPowerKey)) && !hasBatt) ||
+            (CFEqual(profile_keys[profile_count], CFSTR(kIOPMUPSPowerKey)) && !hasUPS))
         {
             // Remove dictionary if the whole power source isn't supported on this machine.
             CFDictionaryRemoveValue(energyPrefs, profile_keys[profile_count]);        
@@ -1556,8 +1565,13 @@ IOReturn IOPMActivateSystemPowerSettings( void )
                         CFDictionaryGetValue( settings, kIOPMSleepDisabledKey ));
 
     rootdomain = getPMRootDomainRef();
-    ret = IORegistryEntrySetCFProperty( rootdomain, kIOPMSleepDisabledKey, 
+#if !TARGET_OS_IPHONE
+    IORegistryEntrySetCFProperty( rootdomain, kIOPMSleepDisabledKey,
                         (disable_sleep ? kCFBooleanTrue : kCFBooleanFalse));
+#else
+    ret = IORegistryEntrySetCFProperty( rootdomain, kIOPMSleepDisabledKey,
+                                       (disable_sleep ? kCFBooleanTrue : kCFBooleanFalse));
+#endif
 
 #if !TARGET_OS_IPHONE
     bool    avoid_keyStore = false; 
@@ -1645,8 +1659,6 @@ IOReturn IOPMSetSystemPowerSetting( CFStringRef key, CFTypeRef value)
     
     CFDictionarySetValue( systemPowerDictionary, key, value);
 
-    ret = kIOReturnSuccess;
-
     if(!SCPreferencesSetValue( energyPrefs, 
                                 CFSTR("SystemPowerSettings"), 
                                 systemPowerDictionary))
@@ -1665,6 +1677,7 @@ IOReturn IOPMSetSystemPowerSetting( CFStringRef key, CFTypeRef value)
     
     ret = kIOReturnSuccess;
 exit:
+    if(systemPowerDictionary) CFRelease(systemPowerDictionary);
     if(energyPrefs) {
         SCPreferencesUnlock(energyPrefs);
         CFRelease(energyPrefs);
@@ -1863,14 +1876,27 @@ static CFArrayRef      _copySystemProvidedProfiles()
 
         tmp = (CFDictionaryRef)CFDictionaryGetValue(_profile, 
                         CFSTR(kIOPMBatteryPowerKey));
-        if(!tmp) continue;
+        if(!tmp) {
+            if(mSettingsAC) {
+                CFRelease(mSettingsAC); mSettingsAC = NULL;
+            }
+            continue;
+        }
         mSettingsBatt = CFDictionaryCreateMutableCopy(0, 
                         CFDictionaryGetCount(tmp), tmp);
 
         tmp = (CFDictionaryRef)CFDictionaryGetValue(_profile, 
                         CFSTR(kIOPMUPSPowerKey));
-        if(!tmp) continue;
-        mSettingsUPS = CFDictionaryCreateMutableCopy(0, 
+        if(!tmp) {
+            if(mSettingsAC) {
+                CFRelease(mSettingsAC); mSettingsAC = NULL;
+            }
+            if(mSettingsBatt) {
+                CFRelease(mSettingsBatt); mSettingsBatt = NULL;
+            }
+            continue;
+        }
+        mSettingsUPS = CFDictionaryCreateMutableCopy(0,
                         CFDictionaryGetCount(tmp), tmp);
         
         if( !(mSettingsAC && mSettingsBatt && mSettingsUPS) ) {
@@ -2075,7 +2101,10 @@ static CFDictionaryRef _createAllCustomProfileSelections(void)
     custom_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 3, 
         &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &j);
-    if(!custom_dict || !n) return NULL;
+    if(!custom_dict || !n) {
+        if(n) CFRelease(n);
+        return NULL;
+    }
     
     CFDictionarySetValue(custom_dict, CFSTR(kIOPMACPowerKey), n);
     CFDictionarySetValue(custom_dict, CFSTR(kIOPMBatteryPowerKey), n);
@@ -2167,14 +2196,19 @@ static void _purgeUnsupportedPowerSources(CFMutableDictionaryRef p)
     CFStringRef                     *ps_names = NULL;
     int                             count;
     int                             i;
+    bool                            hasBatt = false;
+    bool                            hasUPS = false;
 
     count = CFDictionaryGetCount(p);
     ps_names = (CFStringRef *)malloc(count*sizeof(CFStringRef));
     if(!ps_names) goto exit;
     CFDictionaryGetKeysAndValues(p, (CFTypeRef *)ps_names, NULL);
+    hasBatt = checkPowerSourceSupported(CFSTR(kIOPMBatteryPowerKey));
+    hasUPS = checkPowerSourceSupported(CFSTR(kIOPMUPSPowerKey));
     for(i=0; i<count; i++)
     {
-        if(!checkPowerSourceSupported(ps_names[i]))
+        if ((CFEqual(ps_names[i], CFSTR(kIOPMBatteryPowerKey)) && !hasBatt) ||
+            (CFEqual(ps_names[i], CFSTR(kIOPMUPSPowerKey)) && !hasUPS))
         {
             CFDictionaryRemoveValue(p, ps_names[i]);
         }    
@@ -2418,6 +2452,7 @@ IOReturn readAllPMPlistSettings(
 prefsExit:
 
     if ( !prefsSuccess && customSettings) {
+        if(energyDict) CFRelease(energyDict);
         *customSettings = NULL;
     }
 
@@ -2454,7 +2489,11 @@ prefsExit:
             profileCount = CFDictionaryGetCount(defaultProfiles);
             profileKeys = malloc(sizeof(CFStringRef)*profileCount);
             profileValues = malloc(sizeof(CFNumberRef)*profileCount);
-            if ( !profileKeys || !profileValues ) goto profilesExit;
+            if ( !profileKeys || !profileValues ) {
+                if(profileKeys) free(profileKeys);
+                if(profileValues) free(profileValues);
+                goto profilesExit;
+            }
             CFDictionaryGetKeysAndValues(defaultProfiles, 
                     (const void **)profileKeys, (const void **)profileValues);
 

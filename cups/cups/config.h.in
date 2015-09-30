@@ -1,9 +1,9 @@
 /*
- * "$Id: config.h.in 12142 2014-08-30 02:35:43Z msweet $"
+ * "$Id: config.h.in 12698 2015-06-08 17:47:35Z msweet $"
  *
  * Configuration file for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2015 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -243,6 +243,20 @@
 
 
 /*
+ * Do we have the ASL functions?
+ */
+
+#undef HAVE_ASL_H
+
+
+/*
+ * Do we have the systemd journal functions?
+ */
+
+#undef HAVE_SYSTEMD_SD_JOURNAL_H
+
+
+/*
  * Do we have the (v)snprintf() functions?
  */
 
@@ -306,6 +320,13 @@
 
 
 /*
+ * Do we have the gnutls_priority_set_direct function?
+ */
+
+#undef HAVE_GNUTLS_PRIORITY_SET_DIRECT
+
+
+/*
  * What Security framework headers do we have?
  */
 
@@ -339,6 +360,13 @@
  */
 
 #undef HAVE_SECKEYCHAINOPEN
+
+
+/*
+ * Do we have (a working) SSLSetEnabledCiphers function?
+ */
+
+#undef HAVE_SSLSETENABLEDCIPHERS
 
 
 /*
@@ -624,7 +652,7 @@
 
 #ifdef HAVE_ARC4RANDOM
 #  define CUPS_RAND() arc4random()
-#  define CUPS_SRAND(v) arc4random_stir()
+#  define CUPS_SRAND(v)
 #elif defined(HAVE_RANDOM)
 #  define CUPS_RAND() random()
 #  define CUPS_SRAND(v) srandom(v)
@@ -712,5 +740,5 @@ static __inline int _cups_abs(int i) { return (i < 0 ? -i : i); }
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h.in 12142 2014-08-30 02:35:43Z msweet $".
+ * End of "$Id: config.h.in 12698 2015-06-08 17:47:35Z msweet $".
  */

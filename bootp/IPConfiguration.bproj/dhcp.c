@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,9 +61,11 @@
 #include <arpa/inet.h>
 #include <syslog.h>
 #include <TargetConditionals.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 
 #include "rfc_options.h"
 #include "dhcp_options.h"
@@ -89,6 +91,7 @@ typedef struct {
     absolute_time_t		t1;
     absolute_time_t		t2;
     boolean_t			needs_write;
+    CFStringRef			ssid;
 } lease_info_t;
 
 typedef struct {
@@ -138,6 +141,24 @@ typedef struct {
     int			wait_secs;
 } Service_inform_t;
 
+#define ROUTER_INVALID	-1
+
+INLINE boolean_t
+router_is_valid(struct in_addr router)
+{
+    return (router.s_addr != ROUTER_INVALID && router.s_addr != 0);
+}
+
+INLINE void
+router_set_invalid(struct in_addr * router_p)
+{
+    router_p->s_addr = ROUTER_INVALID;
+    return;
+}
+
+STATIC struct in_addr
+dhcp_get_router_from_options(dhcpol_t * options_p, struct in_addr our_ip);
+
 static void
 dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data);
 
@@ -177,6 +198,9 @@ dhcp_check_lease(ServiceRef service_p, absolute_time_t current_time);
 static void
 dhcp_check_router(ServiceRef service_p, IFEventID_t event_id, void * event_data);
 
+static void
+inform_no_server(ServiceRef service_p, IFEventID_t event_id, void * event_data);
+
 static boolean_t
 get_server_identifier(dhcpol_t * options, struct in_addr * server_ip)
 {
@@ -212,6 +236,7 @@ get_rating_for_ip_address(struct in_addr * iaddr)
 
 static const uint8_t dhcp_static_default_params[] = {
     dhcptag_subnet_mask_e, 
+    dhcptag_classless_static_route_e,
     dhcptag_router_e,
     dhcptag_domain_name_server_e,
     dhcptag_domain_name_e,
@@ -414,7 +439,7 @@ make_dhcp_request(struct dhcp * request, int pkt_size,
     
     /* make the request a dhcp message */
     if (dhcpoa_add_dhcpmsg(options_p, msg) != dhcpoa_success_e) {
-	my_log(LOG_ERR,
+	my_log(LOG_NOTICE,
 	       "make_dhcp_request: couldn't add dhcp message tag %d, %s", msg,
 	       dhcpoa_err(options_p));
 	goto err;
@@ -427,7 +452,7 @@ make_dhcp_request(struct dhcp * request, int pkt_size,
 	if (dhcpoa_add(options_p, dhcptag_parameter_request_list_e,
 			n_dhcp_params, dhcp_params)
 	    != dhcpoa_success_e) {
-	    my_log(LOG_ERR, "make_dhcp_request: "
+	    my_log(LOG_NOTICE, "make_dhcp_request: "
 		   "couldn't add parameter request list, %s",
 		   dhcpoa_err(options_p));
 	    goto err;
@@ -436,7 +461,7 @@ make_dhcp_request(struct dhcp * request, int pkt_size,
 	if (dhcpoa_add(options_p, dhcptag_max_dhcp_message_size_e,
 		       sizeof(max_message_size), &max_message_size)
 	    != dhcpoa_success_e) {
-	    my_log(LOG_ERR, "make_dhcp_request: "
+	    my_log(LOG_NOTICE, "make_dhcp_request: "
 		    "couldn't add max message size, %s",
 		    dhcpoa_err(options_p));
 	    goto err;
@@ -446,7 +471,7 @@ make_dhcp_request(struct dhcp * request, int pkt_size,
     /* add the client identifier to the request packet */
     buf = malloc(cid_len + 1);
     if (buf == NULL) {
-	my_log(LOG_ERR, "make_dhcp_request: malloc failed, %s (%d)",
+	my_log(LOG_NOTICE, "make_dhcp_request: malloc failed, %s (%d)",
 	       strerror(errno), errno);
 	goto err;
     }
@@ -455,7 +480,7 @@ make_dhcp_request(struct dhcp * request, int pkt_size,
     if (dhcpoa_add(options_p, dhcptag_client_identifier_e, cid_len + 1, buf)
 	!= dhcpoa_success_e) {
 	free(buf);
-	my_log(LOG_ERR, "make_dhcp_request: "
+	my_log(LOG_NOTICE, "make_dhcp_request: "
 	       "couldn't add client identifier, %s",
 	       dhcpoa_err(options_p));
 	goto err;
@@ -694,7 +719,7 @@ inform_request(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 					      FALSE,
 					      &options);
 	  if (inform->request == NULL) {
-	      my_log(LOG_ERR, "INFORM %s: make_dhcp_request failed",
+	      my_log(LOG_NOTICE, "INFORM %s: make_dhcp_request failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -703,7 +728,7 @@ inform_request(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  add_computer_name(&options);
 	  if (dhcpoa_add(&options, dhcptag_end_e, 0, 0)
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "INFORM %s: failed to terminate options",
+	      my_log(LOG_NOTICE, "INFORM %s: failed to terminate options",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -742,7 +767,7 @@ inform_request(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      }
 	  }
 	  if (inform->try > (G_max_retries + 1)) {
-	      inform_success(service_p);
+	      inform_no_server(service_p, IFEventID_start_e, NULL);
 	      break;
 	  }
 	  inform->request->dp_xid = htonl(inform->xid);
@@ -755,13 +780,13 @@ inform_request(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 				    G_server_port, G_client_port,
 				    inform->request, 
 				    inform->request_size) < 0) {
-	      my_log(LOG_ERR, 
+	      my_log(LOG_NOTICE,
 		     "INFORM %s: transmit failed", if_name(if_p));
 	  }
 	  /* wait for responses */
 	  tv.tv_sec = inform->wait_secs;
 	  tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
-	  my_log(LOG_DEBUG, "INFORM %s: waiting at %d for %d.%06d", 
+	  my_log(LOG_INFO, "INFORM %s: waiting at %d for %d.%06d", 
 		 if_name(if_p), 
 		 current_time - inform->start_secs,
 		 tv.tv_sec, tv.tv_usec);
@@ -829,7 +854,7 @@ inform_request(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		  if (inform->gathering == FALSE) {
 		      struct timeval t = {0,0};
 		      t.tv_sec = G_gather_secs;
-		      my_log(LOG_DEBUG, "INFORM %s: gathering began at %d", 
+		      my_log(LOG_INFO, "INFORM %s: gathering began at %d", 
 			     if_name(if_p), 
 			     current_time - inform->start_secs);
 		      inform->gathering = TRUE;
@@ -853,6 +878,29 @@ inform_request(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 }
 
 static void
+inform_no_server(ServiceRef service_p, IFEventID_t event_id, void * event_data)
+{
+#define INFORM_RETRY_INTERVAL_SECS      60
+    Service_inform_t *	inform = (Service_inform_t *)ServiceGetPrivate(service_p);
+    struct timeval 	tv = {INFORM_RETRY_INTERVAL_SECS,0};
+    
+    switch (event_id) {
+        case IFEventID_start_e: {
+            inform_success(service_p);
+            timer_set_relative(inform->timer, tv,
+                               (timer_func_t *)inform_request,
+                               service_p, (void *)IFEventID_start_e, NULL);
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+    return;
+}
+
+
+static void
 inform_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 {
     interface_t *	if_p = service_interface(service_p);
@@ -871,10 +919,11 @@ inform_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       }
       case IFEventID_arp_e: {
 	  link_status_t		link_status;
+	  struct in_addr	mask;
 	  arp_result_t *	result = (arp_result_t *)event_data;
 
 	  if (result->error) {
-	      my_log(LOG_DEBUG, "INFORM %s: arp probe failed, %s", 
+	      my_log(LOG_INFO, "INFORM %s: arp probe failed, %s", 
 		     if_name(if_p),
 		     arp_client_errmsg(inform->arp));
 	      inform_failed(service_p, ipconfig_status_internal_error_e);
@@ -896,7 +945,7 @@ inform_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		      ServiceReportIPv4AddressConflict(service_p,
 						       requested_ip);
 		  }
-		  my_log(LOG_ERR, "INFORM %s: %s", if_name(if_p), 
+		  my_log(LOG_NOTICE, "INFORM %s: %s", if_name(if_p),
 			 msg);
 		  (void)service_remove_address(service_p);
 		  inform_failed(service_p, ipconfig_status_address_in_use_e);
@@ -918,10 +967,13 @@ inform_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      break;
 	  }
 
-	  /* set the primary address */
+	  /* assign the address so that we can send/receive DHCP traffic */
+	  mask = (inform->our_mask.s_addr != 0)
+	      ? inform->our_mask
+	      : G_ip_broadcast;
 	  (void)service_set_address(service_p,
 				    service_requested_ip_addr(service_p),
-				    inform->our_mask,
+				    mask,
 				    G_ip_zeroes);
 	  ServiceRemoveAddressConflict(service_p);
 	  inform_request(service_p, IFEventID_start_e, 0);
@@ -952,18 +1004,12 @@ inform_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      break;
 	  }
 	  if (inform != NULL) {
-	      my_log(LOG_ERR, "INFORM %s: re-entering start state", 
+	      my_log(LOG_NOTICE, "INFORM %s: re-entering start state",
 		     if_name(if_p));
 	      status = ipconfig_status_internal_error_e;
 	      break;
 	  }
 	  inform = malloc(sizeof(*inform));
-	  if (inform == NULL) {
-	      my_log(LOG_ERR, "INFORM %s: malloc failed", 
-		     if_name(if_p));
-	      status = ipconfig_status_allocation_failed_e;
-	      break;
-	  }
 	  ServiceSetPrivate(service_p, inform);
 	  bzero(inform, sizeof(*inform));
 	  dhcpol_init(&inform->saved.options);
@@ -972,33 +1018,33 @@ inform_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  inform->our_mask = service_requested_ip_mask(service_p);
 	  inform->timer = timer_callout_init();
 	  if (inform->timer == NULL) {
-	      my_log(LOG_ERR, "INFORM %s: timer_callout_init failed", 
+	      my_log(LOG_NOTICE, "INFORM %s: timer_callout_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
 	  inform->client = bootp_client_init(G_bootp_session, if_p);
 	  if (inform->client == NULL) {
-	      my_log(LOG_ERR, "INFORM %s: bootp_client_init failed",
+	      my_log(LOG_NOTICE, "INFORM %s: bootp_client_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
 	  inform->arp = arp_client_init(G_arp_session, if_p);
 	  if (inform->arp == NULL) {
-	      my_log(LOG_ERR, "INFORM %s: arp_client_init failed", 
+	      my_log(LOG_NOTICE, "INFORM %s: arp_client_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
-	  my_log(LOG_DEBUG, "INFORM %s: start", if_name(if_p));
+	  my_log(LOG_INFO, "INFORM %s: start", if_name(if_p));
 	  inform->xid = arc4random();
 	  inform_start(service_p, IFEventID_start_e, NULL);
 	  break;
       }
       case IFEventID_stop_e: {
       stop:
-	  my_log(LOG_DEBUG, "INFORM %s: stop", if_name(if_p));
+	  my_log(LOG_INFO, "INFORM %s: stop", if_name(if_p));
 	  if (inform == NULL) { /* already stopped */
 	      break;
 	  }
@@ -1026,7 +1072,7 @@ inform_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  ipconfig_method_data_t * 	method_data;
 
 	  if (inform == NULL) {
-	      my_log(LOG_DEBUG, "INFORM %s: private data is NULL", 
+	      my_log(LOG_INFO, "INFORM %s: private data is NULL", 
 		     if_name(if_p));
 	      return (ipconfig_status_internal_error_e);
 	  }
@@ -1074,7 +1120,7 @@ inform_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      ServiceReportIPv4AddressConflict(service_p,
 					       arpc->ip_addr);
 	  }
-	  my_log(LOG_ERR, "INFORM %s: %s", if_name(if_p), 
+	  my_log(LOG_NOTICE, "INFORM %s: %s", if_name(if_p),
 		 msg);
 	  break;
       }
@@ -1257,7 +1303,7 @@ dhcp_set_lease_params(ServiceRef service_p, char * descr, boolean_t is_dhcp,
 	dhcp->lease.t1 = dhcp->lease.start + t1;
 	dhcp->lease.t2 = dhcp->lease.start + t2;
     }
-    my_log(LOG_DEBUG, 
+    my_log(LOG_INFO, 
 	   "DHCP %s: %s "
 	   "lease = { start 0x%lx, t1 0x%lx, t2 0x%lx, expiration 0x%lx }", 
 	   if_name(if_p), descr, dhcp->lease.start, 
@@ -1281,7 +1327,7 @@ dhcp_adjust_lease_info(ServiceRef service_p, absolute_time_t delta)
     info_p->start += delta;
     info_p->t1 += delta;
     info_p->t2 += delta;
-    my_log(LOG_DEBUG, 
+    my_log(LOG_INFO, 
 	   "DHCP %s: adjusted lease by %d seconds", if_name(if_p), delta);
     return;
 }
@@ -1318,6 +1364,19 @@ get_client_id(Service_dhcp_t * dhcp, interface_t * if_p, const void * * cid_p,
 }
 
 static void
+dhcp_lease_set_ssid(Service_dhcp_t * dhcp, CFStringRef ssid)
+{
+    if (ssid != NULL) {
+	CFRetain(ssid);
+    }
+    if (dhcp->lease.ssid != NULL) {
+	CFRelease(dhcp->lease.ssid);
+    }
+    dhcp->lease.ssid = ssid;
+    return;
+}
+
+static void
 _dhcp_lease_save(ServiceRef service_p, absolute_time_t lease_start,
 		 const uint8_t * pkt, int pkt_size, boolean_t write_lease)
 {
@@ -1342,7 +1401,7 @@ _dhcp_lease_save(ServiceRef service_p, absolute_time_t lease_start,
     DHCPLeaseListUpdateLease(&dhcp->lease_list, dhcp->saved.our_ip,
 			     router_ip, router_hwaddr, router_hwaddr_length,
 			     dhcp->lease.start, dhcp->lease.length,
-			     pkt, pkt_size, ServiceGetSSID(service_p));
+			     pkt, pkt_size, dhcp->lease.ssid);
     if (write_lease) {
 	DHCPLeaseListWrite(&dhcp->lease_list,
 			   if_name(if_p), cid_type, cid, cid_length);
@@ -1389,7 +1448,7 @@ _dhcp_lease_clear(ServiceRef service_p, bool nak)
 				       router_ip,
 				       router_hwaddr,
 				       router_hwaddr_length);
-	if (where != -1) {
+	if (where != DHCP_LEASE_NOT_FOUND) {
 	    lease_p = DHCPLeaseListElement(&dhcp->lease_list, where);
 	    DHCPLeaseSetNAK(lease_p, TRUE);
 	}
@@ -1409,10 +1468,9 @@ switch_to_lease(ServiceRef service_p, DHCPLeaseRef lease_p)
     if (lease_p->our_ip.s_addr == dhcp->saved.our_ip.s_addr) {
 	if (ip_is_private(lease_p->our_ip) == FALSE) {
 	    /* same lease */
-	    if (G_IPConfiguration_verbose) {
-		my_log(LOG_DEBUG, "DHCP %s: switch_to_lease returns FALSE, "
-		       "public IP is the same", if_name(if_p));
-	    }
+	    my_log(LOG_INFO,
+		   "DHCP %s: switch_to_lease returns FALSE, "
+		   "public IP is the same", if_name(if_p));
 	    return (FALSE);
 	}
 	if (service_router_is_iaddr_valid(service_p)
@@ -1422,10 +1480,8 @@ switch_to_lease(ServiceRef service_p, DHCPLeaseRef lease_p)
 	    && (bcmp(lease_p->router_hwaddr, 
 		     service_router_hwaddr(service_p),
 		     if_link_length(if_p)) == 0)) {
-	    if (G_IPConfiguration_verbose) {
-		my_log(LOG_DEBUG, "DHCP %s: switch_to_lease returns FALSE, "
-		       "private IP has same router", if_name(if_p));
-	    }
+	    my_log(LOG_INFO, "DHCP %s: switch_to_lease returns FALSE, "
+		   "private IP has same router", if_name(if_p));
 	    return (FALSE);
 	}
     }
@@ -1453,6 +1509,7 @@ switch_to_lease(ServiceRef service_p, DHCPLeaseRef lease_p)
     dhcp->saved.our_ip = lease_p->our_ip;
     get_server_identifier(&dhcp->saved.options, &dhcp->saved.server_ip);
     dhcp->saved.is_dhcp = TRUE;
+    dhcp_lease_set_ssid(dhcp, lease_p->ssid);
     service_router_clear(service_p);
     if (lease_p->router_ip.s_addr != 0) {
 	service_router_set_iaddr(service_p, lease_p->router_ip);
@@ -1469,10 +1526,8 @@ switch_to_lease(ServiceRef service_p, DHCPLeaseRef lease_p)
 	    service_router_set_hwaddr_valid(service_p);
 	}
     }
-    if (G_IPConfiguration_verbose) {
-	my_log(LOG_DEBUG, "DHCP %s: switched to lease for IP " IP_FORMAT,
-	       if_name(if_p), IP_LIST(&lease_p->our_ip));
-    }
+    my_log(LOG_INFO, "DHCP %s: switched to lease for IP " IP_FORMAT,
+	   if_name(if_p), IP_LIST(&lease_p->our_ip));
     return (TRUE);
 }
 
@@ -1499,10 +1554,8 @@ recover_lease(ServiceRef service_p, struct in_addr * our_ip)
     lease_p = DHCPLeaseListElement(&dhcp->lease_list, count - 1);
     (void)switch_to_lease(service_p, lease_p);
     *our_ip = lease_p->our_ip;
-    if (G_IPConfiguration_verbose) {
-	my_log(LOG_DEBUG, "DHCP %s: recovered lease for IP " IP_FORMAT, 
-	       if_name(if_p), IP_LIST(our_ip));
-    }
+    my_log(LOG_INFO, "DHCP %s: recovered lease for IP " IP_FORMAT,
+	   if_name(if_p), IP_LIST(our_ip));
     return (TRUE);
 
  failed:
@@ -1521,7 +1574,7 @@ dhcp_check_lease(ServiceRef service_p, absolute_time_t current_time)
 	    service_router_clear(service_p);
 	    (void)service_remove_address(service_p);
 	    service_publish_failure(service_p,
-				    ipconfig_status_media_inactive_e);
+				    ipconfig_status_lease_expired_e);
 	}
     }
     return (dhcp->lease.valid);
@@ -1532,38 +1585,64 @@ dhcp_check_link(ServiceRef service_p, IFEventID_t event_id)
 {
     absolute_time_t 	current_time = timer_current_secs();
     Service_dhcp_t *	dhcp = (Service_dhcp_t *)ServiceGetPrivate(service_p);
+    interface_t *	if_p = service_interface(service_p);
     link_status_t	link_status = service_link_status(service_p);
 
-    if (link_status.valid == FALSE
-	|| link_status.active == TRUE) {
-	dhcp->conflicting_address.s_addr = 0;
-	dhcp->user_warned = FALSE;
-	if (dhcp_check_lease(service_p, current_time)) {
-	    /* try same address */
-	    if (event_id == IFEventID_renew_e
-		|| dhcp->state != dhcp_cstate_init_reboot_e
-		|| dhcp->try != 1) {
-		struct in_addr	our_ip;
-		
-		our_ip = dhcp->saved.our_ip;
-		dhcp_init_reboot(service_p, IFEventID_start_e, 
-				 &our_ip);
-	    }
-	    /* we're already in the init-reboot state */
-	    return;
-	}
-	if (event_id == IFEventID_renew_e
-	    || dhcp->state != dhcp_cstate_init_e
-	    || dhcp->try != 1) {
-	    dhcp_init(service_p, IFEventID_start_e, NULL);
-	    return;
-	}
-    }
-    else {
+    if (link_status.valid && link_status.active == FALSE) {
 	/* ensure that we'll retry when the link goes back up */
 	dhcp->try = 0;
 	dhcp->state = dhcp_cstate_none_e;
 	dhcp_cancel_pending_events(service_p);
+	return;
+    }
+    dhcp->conflicting_address.s_addr = 0;
+    dhcp->user_warned = FALSE;
+    if (dhcp->lease.valid && dhcp->lease.ssid != NULL) {
+	CFStringRef	ssid = ServiceGetSSID(service_p);
+
+	if (ssid == NULL) {
+	    my_log(LOG_INFO, "%s: dhcp_check_link: no SSID",
+		   if_name(if_p));
+	}
+	else if (!CFEqual(dhcp->lease.ssid, ssid)) {
+	    DHCPLeaseRef 	lease_p;
+	    int			where;
+
+	    /* try to switch to new lease */
+	    my_log(LOG_INFO, "%s: SSID is now %@ (was %@)",
+		   if_name(if_p), ssid, dhcp->lease.ssid);
+	    where = DHCPLeaseListFindLeaseWithSSID(&dhcp->lease_list,
+						   ssid);
+	    if (where != DHCP_LEASE_NOT_FOUND) {
+		lease_p = DHCPLeaseListElement(&dhcp->lease_list, where);
+		(void)switch_to_lease(service_p, lease_p);
+	    }
+	    else {
+		/* go back to INIT state */
+		my_log(LOG_INFO, "%s: No lease for %@", if_name(if_p), ssid);
+		dhcp->lease.valid = FALSE;
+	    }
+	}
+    }
+    if (dhcp_check_lease(service_p, current_time)) {
+	/* try same address */
+	if (event_id == IFEventID_renew_e
+	    || dhcp->state != dhcp_cstate_init_reboot_e
+	    || dhcp->try != 1) {
+	    struct in_addr	our_ip;
+	    
+	    our_ip = dhcp->saved.our_ip;
+	    dhcp_init_reboot(service_p, IFEventID_start_e, 
+			     &our_ip);
+	}
+	/* we're already in the init-reboot state */
+	return;
+    }
+    if (event_id == IFEventID_renew_e
+	|| dhcp->state != dhcp_cstate_init_e
+	|| dhcp->try != 1) {
+	dhcp_init(service_p, IFEventID_start_e, NULL);
+	return;
     }
     return;
 }
@@ -1592,6 +1671,7 @@ dhcp_handle_active_during_sleep(ServiceRef service_p,
 {
     Service_dhcp_t *	dhcp = (Service_dhcp_t *)ServiceGetPrivate(service_p);
     interface_t *	if_p = service_interface(service_p);
+    long 		leeway = 0;
     absolute_time_t	wake_time = 0;
 
     if (active_p->requested
@@ -1605,7 +1685,7 @@ dhcp_handle_active_during_sleep(ServiceRef service_p,
 	current_time = timer_current_secs();
 	if (current_time >= dhcp->lease.expiration) {
 	    /* expired lease, this should not happen */
-	    my_log_fl(LOG_ERR,
+	    my_log_fl(LOG_NOTICE,
 		      "DHCP %s: lease is already expired",
 		      if_name(if_p));
 	    reason = "lease is expired";
@@ -1613,10 +1693,16 @@ dhcp_handle_active_during_sleep(ServiceRef service_p,
 	else if (S_min_wake_ok(current_time, dhcp->renew_rebind_time)) {
 	    wake_time = dhcp->renew_rebind_time;
 	    reason = "wake at renew_rebind_time";
+	    if (dhcp->lease.t2 > wake_time) {
+		leeway = (dhcp->lease.t2 - wake_time)/2;
+	    }
 	}
 	else if (S_min_wake_ok(current_time, dhcp->lease.t2)) {
 	    wake_time = dhcp->lease.t2;
 	    reason = "wake at t2";
+	    if (dhcp->lease.expiration > wake_time) {
+		leeway = (dhcp->lease.expiration - wake_time)/2;
+	    }
 	}
 	else if (dhcp->allow_wake_with_short_lease
 		 && S_short_wake_ok(current_time, dhcp->lease.t2)) {
@@ -1631,7 +1717,7 @@ dhcp_handle_active_during_sleep(ServiceRef service_p,
 	    reason = "expiration is too soon";
 	}
 	if (wake_time == 0) {
-	    my_log(LOG_NOTICE, 
+	    my_log(LOG_NOTICE,
 		   "DHCP %s: can't schedule wake-up, %s",
 		   if_name(if_p), reason);
 	    dhcp_log_lease(LOG_NOTICE, if_name(if_p),
@@ -1640,24 +1726,25 @@ dhcp_handle_active_during_sleep(ServiceRef service_p,
 	    wake_time = 0;
 	}
 	else {
-	    my_log(LOG_DEBUG, 
+	    my_log(LOG_INFO, 
 		   "DHCP %s: next wake-up at 0x%lx, %s",
 		   if_name(if_p), wake_time, reason);
-	    dhcp_log_lease(LOG_DEBUG, if_name(if_p),
+	    dhcp_log_lease(LOG_INFO, if_name(if_p),
 			   current_time, &dhcp->lease);
 	}
     }
     if (wake_time != 0) {
 	if (wake_time == dhcp->wake_time) {
 	    /* wake already scheduled */
-	    my_log(LOG_DEBUG,
+	    my_log(LOG_INFO,
 		   "DHCP %s: wake at 0x%lx already scheduled",
 		   if_name(if_p), wake_time);
 	}
 	else {
-	    CFDateRef		date;
-	    IOReturn		status;
-	    CFStringRef		wake_id;
+	    CFDateRef			date;
+	    CFMutableDictionaryRef 	req_dict = NULL;
+	    IOReturn			status;
+	    CFStringRef			wake_id;
 
 	    wake_id = ServiceCopyWakeID(service_p);
 	    if (dhcp->wake_time != 0) {
@@ -1665,7 +1752,7 @@ dhcp_handle_active_during_sleep(ServiceRef service_p,
 		date = CFDateCreate(NULL, dhcp->wake_time);
 		(void)IOPMCancelScheduledPowerEvent(date, wake_id, 
 						    CFSTR(kIOPMAutoWake));
-		my_log(LOG_DEBUG,
+		my_log(LOG_INFO,
 		       "DHCP %s: unscheduled old wake at %@ (0x%lx)",
 		       if_name(if_p), date, dhcp->wake_time);
 		CFRelease(date);
@@ -1673,18 +1760,30 @@ dhcp_handle_active_during_sleep(ServiceRef service_p,
 
 	    /* schedule new wake up time */
 	    date = CFDateCreate(NULL, wake_time);
-	    status = IOPMSchedulePowerEvent(date, wake_id,
-					    CFSTR(kIOPMAutoWake));
+	    req_dict = CFDictionaryCreateMutable(NULL, 0,
+						 &kCFTypeDictionaryKeyCallBacks,
+						 &kCFTypeDictionaryValueCallBacks);
+	    CFDictionarySetValue(req_dict, CFSTR(kIOPMPowerEventAppNameKey), wake_id);
+	    CFDictionarySetValue(req_dict, CFSTR(kIOPMPowerEventTimeKey), date);
+	    if (leeway > 0) {
+		CFNumberRef	leewayNumber;
+
+		leewayNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &leeway);
+		CFDictionarySetValue(req_dict, CFSTR(kIOPMPowerEventLeewayKey), leewayNumber);
+		CFRelease(leewayNumber);
+	    }
+	    status = IOPMRequestSysWake(req_dict);
+	    CFRelease(req_dict);
 	    CFRelease(wake_id);
 	    if (status != kIOReturnSuccess) {
-		my_log(LOG_ERR,
+		my_log(LOG_NOTICE,
 		       "DHCP %s: failed to schedule wake at %@ (0x%lx)",
 		       if_name(if_p), date, wake_time);
 		dhcp->wake_time = 0;
 		active_p->supported = FALSE;
 	    }
 	    else {
-		my_log(LOG_DEBUG,
+		my_log(LOG_INFO,
 		       "DHCP %s: scheduled wake at %@ (0x%lx)",
 		       if_name(if_p), date, wake_time);
 		dhcp->wake_time = wake_time;
@@ -1702,7 +1801,7 @@ dhcp_handle_active_during_sleep(ServiceRef service_p,
 	(void)IOPMCancelScheduledPowerEvent(date, wake_id, 
 					    CFSTR(kIOPMAutoWake));
 	CFRelease(wake_id);
-	my_log(LOG_DEBUG,
+	my_log(LOG_INFO,
 	       "DHCP %s: unscheduled old wake at %@ (0x%lx)",
 	       if_name(if_p), date, dhcp->wake_time);
 	CFRelease(date);
@@ -1718,28 +1817,23 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
     interface_t *	if_p = service_interface(service_p);
     ipconfig_status_t	status = ipconfig_status_success_e;
 
+
     switch (event_id) {
       case IFEventID_start_e: {
 	  ipconfig_method_data_t *	method_data;
-	  struct in_addr		our_ip = { 0 };
+	  struct in_addr		our_ip;
 
 	  if (if_flags(if_p) & IFF_LOOPBACK) {
 	      status = ipconfig_status_invalid_operation_e;
 	      break;
 	  }
 	  if (dhcp != NULL) {
-	      my_log(LOG_ERR, "DHCP %s: re-entering start state", 
+	      my_log(LOG_NOTICE, "DHCP %s: re-entering start state",
 		     if_name(if_p));
 	      status = ipconfig_status_internal_error_e;
 	      break;
 	  }
 	  dhcp = malloc(sizeof(*dhcp));
-	  if (dhcp == NULL) {
-	      my_log(LOG_ERR, "DHCP %s: malloc failed", 
-		     if_name(if_p));
-	      status = ipconfig_status_allocation_failed_e;
-	      break;
-	  }
 	  bzero(dhcp, sizeof(*dhcp));
 	  dhcp->must_broadcast = (if_link_arptype(if_p) == ARPHRD_IEEE1394);
 	  dhcpol_init(&dhcp->saved.options);
@@ -1750,7 +1844,7 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  dhcp->state = dhcp_cstate_none_e;
 	  dhcp->timer = timer_callout_init();
 	  if (dhcp->timer == NULL) {
-	      my_log(LOG_ERR, "DHCP %s: timer_callout_init failed", 
+	      my_log(LOG_NOTICE, "DHCP %s: timer_callout_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
@@ -1758,14 +1852,14 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  (void)service_enable_autoaddr(service_p);
 	  dhcp->client = bootp_client_init(G_bootp_session, if_p);
 	  if (dhcp->client == NULL) {
-	      my_log(LOG_ERR, "DHCP %s: bootp_client_init failed",
+	      my_log(LOG_NOTICE, "DHCP %s: bootp_client_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
 	  dhcp->arp = arp_client_init(G_arp_session, if_p);
 	  if (dhcp->arp == NULL) {
-	      my_log(LOG_ERR, "DHCP %s: arp_client_init failed", 
+	      my_log(LOG_NOTICE, "DHCP %s: arp_client_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
@@ -1775,7 +1869,7 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      dhcp->client_id_len = method_data->dhcp.client_id_len;
 	      dhcp->client_id = malloc(dhcp->client_id_len);
 	      if (dhcp->client_id == NULL) {
-		  my_log(LOG_ERR, "DHCP %s: malloc client ID failed", 
+		  my_log(LOG_NOTICE, "DHCP %s: malloc client ID failed",
 			 if_name(if_p));
 		  status = ipconfig_status_allocation_failed_e;
 		  goto stop;
@@ -1783,9 +1877,10 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      bcopy(method_data->dhcp.client_id, 
 		    dhcp->client_id, dhcp->client_id_len);
 	  }
-	  my_log(LOG_DEBUG, "DHCP %s: start", if_name(if_p));
+	  my_log(LOG_INFO, "DHCP %s: start", if_name(if_p));
 	  dhcp->xid = arc4random();
 	  DHCPLeaseListInit(&dhcp->lease_list);
+	  our_ip.s_addr = 0;
 	  if (ServiceIsNetBoot(service_p)
 	      || recover_lease(service_p, &our_ip)) {
 	      dhcp_init_reboot(service_p, IFEventID_start_e, &our_ip);
@@ -1797,9 +1892,9 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       }
       case IFEventID_stop_e: {
       stop:
-	  my_log(LOG_DEBUG, "DHCP %s: stop", if_name(if_p));
+	  my_log(LOG_INFO, "DHCP %s: stop", if_name(if_p));
 	  if (dhcp == NULL) {
-	      my_log(LOG_DEBUG, "DHCP %s: already stopped", 
+	      my_log(LOG_INFO, "DHCP %s: already stopped", 
 		     if_name(if_p));
 	      status = ipconfig_status_internal_error_e; /* shouldn't happen */
 	      break;
@@ -1829,8 +1924,10 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  DHCPLeaseListFree(&dhcp->lease_list);
 	  dhcpol_free(&dhcp->saved.options);
-	  if (dhcp)
+	  dhcp_lease_set_ssid(dhcp, NULL);
+	  if (dhcp) {
 	      free(dhcp);
+	  }
 	  ServiceSetPrivate(service_p, NULL);
 	  break;
       }
@@ -1839,7 +1936,7 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  ipconfig_method_data_t *	method_data;
 
 	  if (dhcp == NULL) {
-	      my_log(LOG_DEBUG, "DHCP %s: private data is NULL", 
+	      my_log(LOG_INFO, "DHCP %s: private data is NULL", 
 		     if_name(if_p));
 	      return (ipconfig_status_internal_error_e);
 	  }
@@ -1883,7 +1980,7 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  }
 
 	  /* address conflict, give up the address */
-	  my_log(LOG_ERR, "DHCP %s: " 
+	  my_log(LOG_NOTICE, "DHCP %s: "
 		 IP_FORMAT " in use by " EA_FORMAT ", DHCP Server " 
 		 IP_FORMAT,
 		 if_name(if_p),
@@ -1973,7 +2070,7 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      /* make sure there's no IP address assigned when we wake */
 	      service_remove_address(service_p);
 	      service_publish_failure(service_p,
-				      ipconfig_status_media_inactive_e);
+				      ipconfig_status_network_changed_e);
 	      dhcp_check_link(service_p, event_id);
 	  }
 	  else {
@@ -2085,7 +2182,7 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  dhcpoa_t		options;
 	  dhcp_cstate_t		prev_state = dhcp->state;
 
-	  my_log(LOG_DEBUG, "DHCP %s: INIT", if_name(if_p));
+	  my_log(LOG_INFO, "DHCP %s: INIT", if_name(if_p));
 	  dhcp->state = dhcp_cstate_init_e;
 
 	  dhcp->allow_wake_with_short_lease = TRUE;
@@ -2106,7 +2203,7 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 					    dhcp->must_broadcast,
 					    &options);
 	  if (dhcp->request == NULL) {
-	      my_log(LOG_ERR, "DHCP %s: INIT make_dhcp_request failed",
+	      my_log(LOG_NOTICE, "DHCP %s: INIT make_dhcp_request failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -2114,7 +2211,8 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  if (dhcpoa_add(&options, dhcptag_lease_time_e,
 			 sizeof(lease_option), &lease_option) 
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: INIT dhcpoa_add lease time failed, %s", 
+	      my_log(LOG_NOTICE,
+		     "DHCP %s: INIT dhcpoa_add lease time failed, %s",
 		     if_name(if_p), dhcpoa_err(&options));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -2122,7 +2220,7 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  add_computer_name(&options);
 	  if (dhcpoa_add(&options, dhcptag_end_e, 0, 0)
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: INIT failed to terminate options",
+	      my_log(LOG_NOTICE, "DHCP %s: INIT failed to terminate options",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -2200,13 +2298,13 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 				    G_ip_broadcast, G_ip_zeroes,
 				    G_server_port, G_client_port,
 				    dhcp->request, dhcp->request_size) < 0) {
-	      my_log(LOG_ERR, 
+	      my_log(LOG_NOTICE,
 		     "DHCP %s: INIT transmit failed", if_name(if_p));
 	  }
 	  /* wait for responses */
 	  tv.tv_sec = dhcp->wait_secs;
 	  tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
-	  my_log(LOG_DEBUG, "DHCP %s: INIT waiting at %d for %d.%06d", 
+	  my_log(LOG_INFO, "DHCP %s: INIT waiting at %d for %d.%06d", 
 		 if_name(if_p), 
 		 current_time - dhcp->start_secs,
 		 tv.tv_sec, tv.tv_usec);
@@ -2291,7 +2389,7 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		  if (dhcp->gathering == FALSE) {
 		      struct timeval t = {0,0};
 		      t.tv_sec = G_gather_secs;
-		      my_log(LOG_DEBUG, "DHCP %s: INIT gathering began at %d", 
+		      my_log(LOG_INFO, "DHCP %s: INIT gathering began at %d", 
 			     if_name(if_p), 
 			     current_time - dhcp->start_secs);
 		      dhcp->gathering = TRUE;
@@ -2332,7 +2430,7 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 
     switch (evid) {
       case IFEventID_start_e: {
-	  struct in_addr 	our_ip;
+	  struct in_addr 	our_ip = { 0 };
 	  dhcp_lease_time_t	lease_option = htonl(SUGGESTED_LEASE_LENGTH);
 	  dhcpoa_t	 	options;
 
@@ -2347,10 +2445,8 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  else {
 	      our_ip = source_ip;
 	  }
-	  if (G_IPConfiguration_verbose) {
-	      my_log(LOG_DEBUG, "DHCP %s: INIT-REBOOT (" IP_FORMAT ")",
-		     if_name(if_p), IP_LIST(&our_ip));
-	  }
+	  my_log(LOG_INFO, "DHCP %s: INIT-REBOOT (" IP_FORMAT ")",
+		 if_name(if_p), IP_LIST(&our_ip));
 
 	  /* clean-up anything that might have come before */
 	  dhcp_cancel_pending_events(service_p);
@@ -2374,7 +2470,8 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  if (dhcpoa_add(&options, dhcptag_requested_ip_address_e,
 			 sizeof(our_ip), &our_ip) 
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: INIT-REBOOT add request ip failed, %s", 
+	      my_log(LOG_NOTICE,
+		     "DHCP %s: INIT-REBOOT add request ip failed, %s",
 		     if_name(if_p), dhcpoa_err(&options));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -2382,7 +2479,8 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  if (dhcpoa_add(&options, dhcptag_lease_time_e,
 			 sizeof(lease_option), &lease_option) 
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: INIT-REBOOT add lease time failed, %s", 
+	      my_log(LOG_NOTICE,
+		     "DHCP %s: INIT-REBOOT add lease time failed, %s",
 		     if_name(if_p), dhcpoa_err(&options));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -2390,7 +2488,8 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  add_computer_name(&options);
 	  if (dhcpoa_add(&options, dhcptag_end_e, 0, 0)
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: INIT-REBOOT failed to terminate options",
+	      my_log(LOG_NOTICE,
+		     "DHCP %s: INIT-REBOOT failed to terminate options",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -2439,11 +2538,9 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      }
 	  }
 	  if (dhcp->try > (G_dhcp_init_reboot_retry_count + 1)) {
-	      if (G_IPConfiguration_verbose) {
-		  my_log(LOG_DEBUG, "DHCP %s: INIT-REBOOT (" IP_FORMAT 
-			 ") timed out", if_name(if_p),
-			 IP_LIST(&dhcp->saved.our_ip));
-	      }
+	      my_log(LOG_INFO, "DHCP %s: INIT-REBOOT (" IP_FORMAT 
+		     ") timed out", if_name(if_p),
+		     IP_LIST(&dhcp->saved.our_ip));
 	      (void)service_remove_address(service_p);
 	      service_publish_failure_sync(service_p, 
 					   ipconfig_status_server_not_responding_e, 
@@ -2462,7 +2559,7 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 				    server_ip, source_ip,
 				    G_server_port, G_client_port,
 				    dhcp->request, dhcp->request_size) < 0) {
-	      my_log(LOG_ERR, 
+	      my_log(LOG_NOTICE,
 		     "DHCP %s: INIT-REBOOT transmit failed", 
 		     if_name(if_p));
 	  }
@@ -2470,15 +2567,13 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  tv.tv_sec = dhcp->wait_secs;
 	  tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
 
-	  if (G_IPConfiguration_verbose) {
-	      my_log(LOG_DEBUG, 
-		     "DHCP %s: INIT-REBOOT (" IP_FORMAT 
-		     ") waiting at %d for %d.%06d", 
-		     if_name(if_p), 
-		     IP_LIST(&dhcp->saved.our_ip),
-		     current_time - dhcp->start_secs,
-		     tv.tv_sec, tv.tv_usec);
-	  }
+	  my_log(LOG_INFO, 
+		 "DHCP %s: INIT-REBOOT (" IP_FORMAT 
+		 ") waiting at %d for %d.%06d", 
+		 if_name(if_p), 
+		 IP_LIST(&dhcp->saved.our_ip),
+		 current_time - dhcp->start_secs,
+		 tv.tv_sec, tv.tv_usec);
 	  timer_set_relative(dhcp->timer, tv, 
 			     (timer_func_t *)dhcp_init_reboot,
 			     service_p, (void *)IFEventID_timeout_e, NULL);
@@ -2504,10 +2599,8 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 	  if (ServiceIsNetBoot(service_p) == FALSE
 	      && reply_msgtype == dhcp_msgtype_nak_e) {
-	      if (G_IPConfiguration_verbose) {
-		  my_log(LOG_DEBUG, "DHCP %s: got DHCP NAK",
-			 if_name(if_p));
-	      }
+	      my_log(LOG_INFO, "DHCP %s: got DHCP NAK",
+		     if_name(if_p));
 	      if (arp_client_is_active(dhcp->arp)) {
 		  dhcp->got_nak = TRUE;
 	      }
@@ -2571,14 +2664,13 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		  if (dhcp->gathering == FALSE) {
 		      struct timeval t = {0,0};
 		      t.tv_sec = G_gather_secs;
-		      if (G_IPConfiguration_verbose) {
-			  my_log(LOG_DEBUG, 
-				 "DHCP %s: INIT-REBOOT ("
-				 IP_FORMAT ") gathering began at %d", 
-				 if_name(if_p),
-				 IP_LIST(&dhcp->saved.our_ip),
-				 current_time - dhcp->start_secs);
-		      }
+		      my_log(LOG_INFO,
+			     "DHCP %s: INIT-REBOOT ("
+			     IP_FORMAT ") gathering began at %d", 
+			     if_name(if_p),
+			     IP_LIST(&dhcp->saved.our_ip),
+			     current_time - dhcp->start_secs);
+
                       /* don't bother trying to figure out what lease to use */
                       arp_client_cancel(dhcp->arp);
 
@@ -2616,7 +2708,7 @@ dhcp_select(ServiceRef service_p, IFEventID_t evid, void * event_data)
       case IFEventID_start_e: {
 	  dhcpoa_t	 	options;
 
-	  my_log(LOG_DEBUG, "DHCP %s: SELECT", if_name(if_p));
+	  my_log(LOG_INFO, "DHCP %s: SELECT", if_name(if_p));
 	  /* clean-up anything that might have come before */
 	  dhcp_cancel_pending_events(service_p);
 
@@ -2635,7 +2727,7 @@ dhcp_select(ServiceRef service_p, IFEventID_t evid, void * event_data)
 					    dhcp->must_broadcast,
 					    &options);
 	  if (dhcp->request == NULL) {
-	      my_log(LOG_ERR, "DHCP %s: SELECT make_dhcp_request failed",
+	      my_log(LOG_NOTICE, "DHCP %s: SELECT make_dhcp_request failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -2644,7 +2736,7 @@ dhcp_select(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  if (dhcpoa_add(&options, dhcptag_requested_ip_address_e,
 			 sizeof(dhcp->saved.our_ip), &dhcp->saved.our_ip)
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: SELECT add requested ip failed, %s", 
+	      my_log(LOG_NOTICE, "DHCP %s: SELECT add requested ip failed, %s",
 		     if_name(if_p), dhcpoa_err(&options));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -2652,7 +2744,7 @@ dhcp_select(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  if (dhcpoa_add(&options, dhcptag_server_identifier_e,
 			 sizeof(dhcp->saved.server_ip), &dhcp->saved.server_ip)
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: SELECT add server ip failed, %s", 
+	      my_log(LOG_NOTICE, "DHCP %s: SELECT add server ip failed, %s",
 		     if_name(if_p), dhcpoa_err(&options));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -2660,7 +2752,7 @@ dhcp_select(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  add_computer_name(&options);
 	  if (dhcpoa_add(&options, dhcptag_end_e, 0, 0)
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: SELECT failed to terminate options",
+	      my_log(LOG_NOTICE, "DHCP %s: SELECT failed to terminate options",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -2681,7 +2773,7 @@ dhcp_select(ServiceRef service_p, IFEventID_t evid, void * event_data)
       case IFEventID_timeout_e: {
 	  dhcp->try++;
 	  if (dhcp->try > (G_dhcp_select_retry_count + 1)) {
-	      my_log(LOG_DEBUG, "DHCP %s: SELECT timed out", if_name(if_p));
+	      my_log(LOG_INFO, "DHCP %s: SELECT timed out", if_name(if_p));
 	      /* go back to INIT and try again */
 	      dhcp_init(service_p, IFEventID_start_e, NULL);
 	      break; /* out of switch */
@@ -2695,14 +2787,14 @@ dhcp_select(ServiceRef service_p, IFEventID_t evid, void * event_data)
 				    G_ip_broadcast, G_ip_zeroes,
 				    G_server_port, G_client_port,
 				    dhcp->request, dhcp->request_size) < 0) {
-	      my_log(LOG_ERR, 
+	      my_log(LOG_NOTICE,
 		     "DHCP %s: SELECT transmit failed", 
 		     if_name(if_p));
 	  }
 	  /* wait for responses */
 	  tv.tv_sec = dhcp->wait_secs;
 	  tv.tv_usec = 0;
-	  my_log(LOG_DEBUG, "DHCP %s: SELECT waiting at %d for %d.%06d", 
+	  my_log(LOG_INFO, "DHCP %s: SELECT waiting at %d for %d.%06d", 
 		 if_name(if_p), 
 		 current_time - dhcp->start_secs,
 		 tv.tv_sec, tv.tv_usec);
@@ -2794,10 +2886,15 @@ dhcp_check_router(ServiceRef service_p,
 
     switch (event_id) {
 	case IFEventID_start_e: {
-	    arp_address_info_t* info_p = (arp_address_info_t*) event_data;
+	    arp_address_info_t * info_p = (arp_address_info_t*) event_data;
 
 	    info_p->sender_ip = dhcp->saved.our_ip;
-	    
+	    my_log(LOG_INFO,
+		   "DHCP %s: sending unicast ARP to gateway "
+		   IP_FORMAT " from " IP_FORMAT,
+		   if_name(if_p),
+		   IP_LIST(&info_p->target_ip),
+		   IP_LIST(&info_p->sender_ip));
 	    arp_client_detect(dhcp->arp, 
 			      (arp_result_func_t *)
 			      dhcp_check_router,
@@ -2811,14 +2908,15 @@ dhcp_check_router(ServiceRef service_p,
 	    
 	    if (result->error || result->in_use == FALSE) {
 		if (result->error) {
-		    my_log(LOG_ERR, "DHCP %s: ARP default gateway failed, %s",
+		    my_log(LOG_NOTICE,
+			   "DHCP %s: ARP detect gateway failed, %s",
 			   if_name(if_p),
 			   arp_client_errmsg(dhcp->arp));
                 }
 		else {
-		   my_log(LOG_DEBUG,
-			  "DHCP %s: ARP detect default gateway got " 
-			  "no response", if_name(if_p));
+		   my_log(LOG_INFO,
+			  "DHCP %s: ARP detect gateway got no response",
+			  if_name(if_p));
 		}
 		/* Try DHCP */ 
 	    	dhcp_check_link(service_p, event_id);
@@ -2826,8 +2924,9 @@ dhcp_check_router(ServiceRef service_p,
 	    else {
 		absolute_time_t     current_time = timer_current_secs();
 
-		my_log(LOG_DEBUG,  "DHCP %s: ARP detect default gateway got "
-		       "a response", if_name(if_p));
+		my_log(LOG_INFO,
+		       "DHCP %s: ARP detect gateway got response",
+		       if_name(if_p));
 
 		/* Check the lease time */
 		if (dhcp->lease.length == DHCP_INFINITE_LEASE) {
@@ -2909,18 +3008,18 @@ dhcp_arp_router(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 						   tentative_ok,
 						   &info_count);
 	  if (info_p == NULL) {
-	      my_log(LOG_DEBUG, 
+	      my_log(LOG_INFO, 
 		     "DHCP %s: ARP router: No leases to query for",
 		     if_name(if_p));
 	      break;
 	  }
-	  if (G_IPConfiguration_verbose) {
+	  {
 	      int	i;
 
-	      my_log(LOG_DEBUG, "DHCP %s: ARP detect router starting",
+	      my_log(LOG_INFO, "DHCP %s: ARP detect router starting",
 		     if_name(if_p));
 	      for (i = 0; i < info_count; i++) {
-		  my_log(LOG_DEBUG, "%d. sender "  IP_FORMAT
+		  my_log(LOG_INFO, "%d. sender "  IP_FORMAT
 			 " target " IP_FORMAT "", i + 1,
 			 IP_LIST(&info_p[i].sender_ip),
 			 IP_LIST(&info_p[i].target_ip));
@@ -2945,12 +3044,12 @@ dhcp_arp_router(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 
 	  if (result->error || result->in_use == FALSE) {
 	      if (result->error) {
-		  my_log(LOG_ERR, "DHCP %s: ARP detect ROUTER failed, %s", 
+		  my_log(LOG_NOTICE, "DHCP %s: ARP detect ROUTER failed, %s",
 			 if_name(if_p),
 			 arp_client_errmsg(dhcp->arp));
 	      }
 	      else {
-		  my_log(LOG_DEBUG,
+		  my_log(LOG_INFO,
 			 "DHCP %s: ARP detect router got no response",
 			 if_name(if_p));
 	      }
@@ -2963,23 +3062,19 @@ dhcp_arp_router(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      break;
 	  }
 	  info_p = &result->addr;
-	  if (G_IPConfiguration_verbose) {
-	      my_log(LOG_DEBUG, "DHCP %s: got response for sender "
-		     IP_FORMAT " target " IP_FORMAT,
-		     if_name(if_p), IP_LIST(&info_p->sender_ip),
-		     IP_LIST(&info_p->target_ip));
-	  }
+	  my_log(LOG_INFO, "DHCP %s: got response for sender "
+		 IP_FORMAT " target " IP_FORMAT,
+		 if_name(if_p), IP_LIST(&info_p->sender_ip),
+		 IP_LIST(&info_p->target_ip));
 	  where = DHCPLeaseListFindLease(&dhcp->lease_list, 
 					 info_p->sender_ip,
 					 info_p->target_ip,
 					 info_p->target_hardware,
 					 if_link_length(if_p));
-	  if (where == -1) {
-	      if (G_IPConfiguration_verbose) {
-		  my_log(LOG_DEBUG, "DHCP %s: lease for "
-			 IP_FORMAT " is no longer available",
-			 if_name(if_p), IP_LIST(&info_p->sender_ip));
-	      }
+	  if (where == DHCP_LEASE_NOT_FOUND) {
+	      my_log(LOG_INFO, "DHCP %s: lease for "
+		     IP_FORMAT " is no longer available",
+		     if_name(if_p), IP_LIST(&info_p->sender_ip));
 	      if (dhcp->got_nak) {
 		  service_publish_failure(service_p, 
 					  ipconfig_status_lease_terminated_e);
@@ -2988,10 +3083,8 @@ dhcp_arp_router(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      break; /* out of switch */
 	  }
 	  lease_p = DHCPLeaseListElement(&dhcp->lease_list, where);
-	  if (G_IPConfiguration_verbose) {
-	      my_log(LOG_DEBUG, "DHCP %s: identified lease for " IP_FORMAT,
-		     if_name(if_p), IP_LIST(&lease_p->our_ip));
-	  }
+	  my_log(LOG_INFO, "DHCP %s: identified lease for " IP_FORMAT,
+		 if_name(if_p), IP_LIST(&lease_p->our_ip));
 	  if (dhcp->state == dhcp_cstate_init_e) {
 	      if (dhcp->gathering == TRUE) {
 		  /* we got a response, don't bother with old lease */
@@ -3006,16 +3099,16 @@ dhcp_arp_router(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      break;
 	  }
 	  if (dhcp->gathering == TRUE) {
-	      struct in_addr *	router_p;
+	      struct in_addr	router;
 
 	      if (lease_p->our_ip.s_addr != dhcp->saved.our_ip.s_addr) {
 		  /* not the same lease */
 		  break;
 	      }
-	      router_p = dhcp_get_router_from_options(&dhcp->saved.options,
-						      dhcp->saved.our_ip);
-	      if (router_p == NULL
-		  || router_p->s_addr != lease_p->router_ip.s_addr) {
+	      if (dhcp_get_router_address(&dhcp->saved.options,
+					  dhcp->saved.our_ip,
+					  &router) == FALSE
+		  || router.s_addr != lease_p->router_ip.s_addr) {
 		  /* router changed or different, do full refresh */
 		  break;
 	      }
@@ -3170,7 +3263,7 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       case IFEventID_start_e: {
 	  dhcp_cstate_t		prev_state = dhcp->state;
 
-	  my_log(LOG_DEBUG, "DHCP %s: BOUND", if_name(if_p));
+	  my_log(LOG_INFO, "DHCP %s: BOUND", if_name(if_p));
 	  dhcp->state = dhcp_cstate_bound_e;
 	  dhcp->lease.needs_write = TRUE;
 	  dhcp->disable_arp_collision_detection = TRUE;
@@ -3230,7 +3323,7 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  arp_result_t *	result = (arp_result_t *)event_data;
 
 	  if (result->error) {
-	      my_log(LOG_ERR, "DHCP %s: ARP probe failed, %s", 
+	      my_log(LOG_NOTICE, "DHCP %s: ARP probe failed, %s",
 		     if_name(if_p),
 		     arp_client_errmsg(dhcp->arp));
 	      dhcp_failed(service_p, ipconfig_status_internal_error_e);
@@ -3257,7 +3350,7 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		  dhcp->user_warned = TRUE;
 	      }
 	      dhcp->conflicting_address = dhcp->saved.our_ip;
-	      my_log(LOG_ERR, "DHCP %s: %s", if_name(if_p), msg);
+	      my_log(LOG_NOTICE, "DHCP %s: %s", if_name(if_p), msg);
 	      _dhcp_lease_clear(service_p, FALSE);
 	      dhcp->lease.valid = FALSE;
 	      service_router_clear(service_p);
@@ -3286,6 +3379,7 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 
     /* the lease is valid */
     dhcp->lease.valid = TRUE;
+    dhcp_lease_set_ssid(dhcp, ServiceGetSSID(service_p));
 
     /* allow user warning to appear */
     dhcp->conflicting_address.s_addr = 0;
@@ -3316,7 +3410,7 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 
     if (dhcp->lease.length == DHCP_INFINITE_LEASE) {
 	/* don't need to talk to server anymore */
-	my_log(LOG_DEBUG, "DHCP %s: infinite lease", 
+	my_log(LOG_INFO, "DHCP %s: infinite lease", 
 	       if_name(if_p));
     }
     else {
@@ -3403,7 +3497,7 @@ dhcp_decline(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       case IFEventID_start_e: {
 	  dhcpoa_t	 	options;
 
-	  my_log(LOG_DEBUG, "DHCP %s: DECLINE", if_name(if_p));
+	  my_log(LOG_INFO, "DHCP %s: DECLINE", if_name(if_p));
 
 	  /* clean-up anything that might have come before */
 	  dhcp_cancel_pending_events(service_p);
@@ -3428,7 +3522,7 @@ dhcp_decline(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  if (dhcpoa_add(&options, dhcptag_requested_ip_address_e,
 			 sizeof(dhcp->saved.our_ip), &dhcp->saved.our_ip) 
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: DECLINE couldn't add our ip, %s",
+	      my_log(LOG_NOTICE, "DHCP %s: DECLINE couldn't add our ip, %s",
 		     if_name(if_p), dhcpoa_err(&options));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -3436,14 +3530,14 @@ dhcp_decline(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  if (dhcpoa_add(&options, dhcptag_server_identifier_e,
 			 sizeof(dhcp->saved.server_ip), &dhcp->saved.server_ip)
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: DECLINE couldn't add server ip, %s",
+	      my_log(LOG_NOTICE, "DHCP %s: DECLINE couldn't add server ip, %s",
 		     if_name(if_p), dhcpoa_err(&options));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
 	  }
 	  if (dhcpoa_add(&options, dhcptag_end_e, 0, 0)
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: DECLINE failed to terminate options",
+	      my_log(LOG_NOTICE, "DHCP %s: DECLINE failed to terminate options",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -3452,7 +3546,7 @@ dhcp_decline(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 				    G_ip_broadcast, G_ip_zeroes,
 				    G_server_port, G_client_port,
 				    dhcp->request, dhcp->request_size) < 0) {
-	      my_log(LOG_ERR, 
+	      my_log(LOG_NOTICE,
 		     "DHCP %s: DECLINE transmit failed", 
 		     if_name(if_p));
 	  }
@@ -3488,7 +3582,7 @@ dhcp_unbound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       case IFEventID_start_e: {
 	  int		nak = (int)(intptr_t)event_data;
 
-	  my_log(LOG_DEBUG, "DHCP %s: UNBOUND%s", if_name(if_p),
+	  my_log(LOG_INFO, "DHCP %s: UNBOUND%s", if_name(if_p),
 		 nak ? " (NAK)" : "");
 
 	  /* clean-up anything that might have come before */
@@ -3536,7 +3630,7 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  dhcp->start_secs = current_time;
 
 	  dhcp->state = dhcp_cstate_renew_e;
-	  my_log(LOG_DEBUG, "DHCP %s: RENEW/REBIND", if_name(if_p));
+	  my_log(LOG_INFO, "DHCP %s: RENEW/REBIND", if_name(if_p));
 	  /* ALIGN: txbuf is uint32_t aligned, cast ok */
 	  dhcp->request = make_dhcp_request((struct dhcp *)(void *)dhcp->txbuf, 
 					    sizeof(dhcp->txbuf),
@@ -3557,7 +3651,7 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  lease_option = htonl(SUGGESTED_LEASE_LENGTH);
 	  if (dhcpoa_add(&options, dhcptag_lease_time_e, sizeof(lease_option), 
 			 &lease_option) != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: RENEW/REBIND couldn't add"
+	      my_log(LOG_NOTICE, "DHCP %s: RENEW/REBIND couldn't add"
 		     " lease time: %s", if_name(if_p),
 		     dhcpoa_err(&options));
 	      status = ipconfig_status_allocation_failed_e;
@@ -3566,7 +3660,8 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  add_computer_name(&options);
 	  if (dhcpoa_add(&options, dhcptag_end_e, 0, 0)
 	      != dhcpoa_success_e) {
-	      my_log(LOG_ERR, "DHCP %s: RENEW/REBIND failed to terminate options",
+	      my_log(LOG_NOTICE,
+		     "DHCP %s: RENEW/REBIND failed to terminate options",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
@@ -3579,7 +3674,7 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  /* FALL THROUGH */
       }
       case IFEventID_timeout_e: {
-	  struct in_addr	dest_ip = {0};
+	  struct in_addr	dest_ip;
 	  absolute_time_t	wakeup_time;
 
 	  /* 
@@ -3623,7 +3718,7 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 				    dest_ip, dhcp->saved.our_ip,
 				    G_server_port, G_client_port,
 				    dhcp->request, dhcp->request_size) < 0) {
-	      my_log(LOG_ERR, 
+	      my_log(LOG_NOTICE,
 		     "DHCP %s: RENEW/REBIND transmit failed", 
 		     if_name(if_p));
 	  }
@@ -3638,7 +3733,7 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      dhcp->renew_rebind_time = wakeup_time;
 	  }
 	  tv.tv_usec = 0;
-	  my_log(LOG_DEBUG, "DHCP %s: RENEW/REBIND waiting at %d for %d.%06d", 
+	  my_log(LOG_INFO, "DHCP %s: RENEW/REBIND waiting at %d for %d.%06d", 
 		 if_name(if_p), 
 		 current_time - dhcp->start_secs,
 		 tv.tv_sec, tv.tv_usec);
@@ -3719,7 +3814,7 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 static void
 dhcp_wait_until_arp_completes(ServiceRef service_p)
 {
-    struct in_addr		addr_wait;
+    struct in_addr		addr_wait = { 0 };
     Service_dhcp_t *		dhcp;
     int				i;
     int				if_index;
@@ -3728,7 +3823,7 @@ dhcp_wait_until_arp_completes(ServiceRef service_p)
     struct in_addr		our_mask;
     boolean_t			resolved = FALSE;
     int				s;
-    struct sockaddr_dl *	sdl;
+    struct sockaddr_dl *	sdl = NULL;
     struct sockaddr_inarp *	sin;
     struct in_addr		subnet;
 
@@ -3740,24 +3835,22 @@ dhcp_wait_until_arp_completes(ServiceRef service_p)
 	addr_wait = dhcp->saved.server_ip;
     }
     else {
-	struct in_addr *	router_p;
+	struct in_addr		router;
 	
-	router_p = dhcpol_find_with_length(&dhcp->saved.options,
-					   dhcptag_router_e, 
-					   sizeof(*router_p));
-	if (router_p == NULL
-	    || router_p->s_addr == dhcp->saved.our_ip.s_addr) {
+	router = dhcp_get_router_from_options(&dhcp->saved.options,
+					      dhcp->saved.our_ip);
+	if (!router_is_valid(router)) {
 	    /* all subnet routes are local, so we'll ARP for the DHCP server */
 	    addr_wait = dhcp->saved.server_ip;
 	}
 	else {
 	    /* the router is the gateway to the DHCP server */
-	    addr_wait = *router_p;
+	    addr_wait = router;
 	}
     }
     s = arp_open_routing_socket();
     if (s == -1) {
-	my_log(LOG_ERR, "DHCP %s: arp_open_routing_socket() failed, %s",
+	my_log(LOG_NOTICE, "DHCP %s: arp_open_routing_socket() failed, %s",
 	       if_name(if_p),
 	       strerror(errno));
 	return;
@@ -3788,18 +3881,16 @@ dhcp_wait_until_arp_completes(ServiceRef service_p)
 	/* sleep for 1 millisecond, and try again */
 	usleep(1000);
     }
-    if (G_IPConfiguration_verbose) {
-	if (resolved == FALSE) {
-	    my_log(LOG_DEBUG, "DHCP %s:" IP_FORMAT " was NOT resolved",
-		   if_name(if_p), IP_LIST(&addr_wait));
-	}
-	else  {
-	    my_log(LOG_DEBUG,
-		   "DHCP %s: " IP_FORMAT 
-		   " is resolved, %s after trying %d time(s)",
-		   if_name(if_p), IP_LIST(&addr_wait),
-		   link_ntoa(sdl), i);
-	}
+    if (resolved == FALSE) {
+	my_log(LOG_INFO, "DHCP %s:" IP_FORMAT " was NOT resolved",
+	       if_name(if_p), IP_LIST(&addr_wait));
+    }
+    else  {
+	my_log(LOG_INFO,
+	       "DHCP %s: " IP_FORMAT 
+	       " is resolved, %s after trying %d time(s)",
+	       if_name(if_p), IP_LIST(&addr_wait),
+	       link_ntoa(sdl), i);
     }
  failed:
     close(s);
@@ -3818,7 +3909,7 @@ dhcp_release(ServiceRef service_p)
 	return;
     }
 
-    my_log(LOG_DEBUG, "DHCP %s: RELEASE", if_name(if_p));
+    my_log(LOG_INFO, "DHCP %s: RELEASE", if_name(if_p));
     _dhcp_lease_clear(service_p, FALSE);
     dhcp->lease.valid = FALSE;
     service_router_clear(service_p);
@@ -3852,13 +3943,13 @@ dhcp_release(ServiceRef service_p)
     if (dhcpoa_add(&options, dhcptag_server_identifier_e,
 		   sizeof(dhcp->saved.server_ip), &dhcp->saved.server_ip)
 	!= dhcpoa_success_e) {
-	my_log(LOG_ERR, "DHCP %s: RELEASE couldn't add server ip, %s",
+	my_log(LOG_NOTICE, "DHCP %s: RELEASE couldn't add server ip, %s",
 	       if_name(if_p), dhcpoa_err(&options));
 	return;
     }
     if (dhcpoa_add(&options, dhcptag_end_e, 0, 0)
 	!= dhcpoa_success_e) {
-	my_log(LOG_ERR, "DHCP %s: RELEASE failed to terminate options",
+	my_log(LOG_NOTICE, "DHCP %s: RELEASE failed to terminate options",
 	       if_name(if_p));
 	return;
     }
@@ -3866,7 +3957,7 @@ dhcp_release(ServiceRef service_p)
 			      dhcp->saved.server_ip, dhcp->saved.our_ip,
 			      G_server_port, G_client_port,
 			      dhcp->request, dhcp->request_size) < 0) {
-	my_log(LOG_ERR, 
+	my_log(LOG_NOTICE,
 	       "DHCP %s: RELEASE transmit failed", 
 	       if_name(if_p));
 	return;
@@ -3939,31 +4030,109 @@ dhcp_get_lease_from_options(dhcpol_t * options, dhcp_lease_time_t * lease,
     return;
 }
 
-struct in_addr *
+PRIVATE_EXTERN IPv4ClasslessRouteRef
+dhcp_copy_classless_routes(dhcpol_t * options_p, int * routes_count_p)
+{
+    IPv4ClasslessRouteRef	routes = NULL;
+    void *			routes_buf;
+    int				routes_buf_length;
+
+    routes_buf = dhcpol_option_copy(options_p,
+				    dhcptag_classless_static_route_e,
+				    &routes_buf_length);
+    if (routes_buf != NULL) {
+	routes = IPv4ClasslessRouteListCreate(routes_buf,
+					      routes_buf_length,
+					      routes_count_p);
+	free(routes_buf);
+    }
+    return (routes);
+}
+
+/*
+ * Function: dhcp_get_router_from_options
+ * Purpose:
+ *   Retrieve the router from either the router option or the classless
+ *   static routes option.  Check whether the router value indicates
+ *   proxy ARP, and if so, return IP address 0.0.0.0.
+ */
+STATIC struct in_addr
 dhcp_get_router_from_options(dhcpol_t * options_p, struct in_addr our_ip)
 {
+    struct in_addr	router;
     struct in_addr *	router_p;
     
+    router_set_invalid(&router);
     router_p = dhcpol_find_with_length(options_p, dhcptag_router_e, 
 				       sizeof(*router_p));
-    if (router_p == NULL) {
-	goto failed;
+    if (router_p != NULL) {
+	bcopy(router_p, &router, sizeof(router));
+	if (router.s_addr == our_ip.s_addr) {
+	    router.s_addr = 0;
+	}
     }
-    if (router_p->s_addr == our_ip.s_addr) {
+    else {
+	IPv4ClasslessRouteRef	routes;
+	int			routes_count;
+
+	routes = dhcp_copy_classless_routes(options_p, &routes_count);
+	if (routes != NULL) {
+	    IPv4ClasslessRouteRef def_route;
+
+	    def_route = IPv4ClasslessRouteListGetDefault(routes,
+							 routes_count);
+	    if (def_route != NULL) {
+		router = def_route->gate;
+	    }
+	    free(routes);
+	}
+    }
+    return (router);
+}
+
+/*
+ * Function: dhcp_get_router_address
+ * Purpose:
+ *   Find the router IP address to use to detect/identify the network.
+ *   Note that if the network is using proxy ARP, this will be the IP address
+ *   of the first DNS server.
+ *
+ * Returns:
+ *   TRUE if the router was found and ret_router_p is set,
+ *   FALSE otherwise.
+ */
+PRIVATE_EXTERN boolean_t
+dhcp_get_router_address(dhcpol_t * options_p, struct in_addr our_ip,
+			struct in_addr * ret_router_p)
+{
+    boolean_t		is_valid;
+    struct in_addr	router;
+
+    router = dhcp_get_router_from_options(options_p, our_ip);
+    if (router.s_addr == 0) {
+	struct in_addr *	router_p;
+
 	/* proxy arp, use DNS server instead */
 	router_p = dhcpol_find_with_length(options_p,
 					   dhcptag_domain_name_server_e, 
 					   sizeof(*router_p));
-	if (router_p == NULL) {
-	    goto failed;
+	if (router_p != NULL) {
+	    bcopy(router_p, &router, sizeof(router));
 	}
     }
-    if (router_p->s_addr == 0 || router_p->s_addr == 0xffffffff) {
-	goto failed;
+    else if (router.s_addr == ROUTER_INVALID) {
+	struct in_addr *	server_ip_p;
+
+	server_ip_p = dhcpol_find_with_length(options_p,
+					      dhcptag_server_identifier_e,
+					      sizeof(*server_ip_p));
+	if (server_ip_p != NULL) {
+	    bcopy(server_ip_p, &router, sizeof(router));
+	}
     }
-    return (router_p);
-
- failed:
-    return (NULL);
+    is_valid = router_is_valid(router);
+    if (is_valid) {
+	*ret_router_p = router;
+    }
+    return (is_valid);
 }
-

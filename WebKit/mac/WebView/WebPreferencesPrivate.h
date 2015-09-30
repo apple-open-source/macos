@@ -52,6 +52,12 @@ typedef enum {
     WebBlockAllStorage
 } WebStorageBlockingPolicy;
 
+typedef enum {
+    WebKitJavaScriptRuntimeFlagsSymbolDisabled = 1u << 0,
+    WebKitJavaScriptRuntimeFlagsPromiseDisabled = 1u << 1,
+    WebKitJavaScriptRuntimeFlagsAllEnabled = 0
+} WebKitJavaScriptRuntimeFlags;
+
 extern NSString *WebPreferencesChangedNotification;
 extern NSString *WebPreferencesRemovedNotification;
 extern NSString *WebPreferencesChangedInternalNotification;
@@ -67,8 +73,8 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (BOOL)developerExtrasEnabled;
 - (void)setDeveloperExtrasEnabled:(BOOL)flag;
 
-- (BOOL)javaScriptExperimentsEnabled;
-- (void)setJavaScriptExperimentsEnabled:(BOOL)flag;
+- (WebKitJavaScriptRuntimeFlags)javaScriptRuntimeFlags;
+- (void)setJavaScriptRuntimeFlags:(WebKitJavaScriptRuntimeFlags)flags;
 
 - (BOOL)authorAndUserStylesEnabled;
 - (void)setAuthorAndUserStylesEnabled:(BOOL)flag;
@@ -101,6 +107,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 
 - (BOOL)automaticallyDetectsCacheModel;
 - (void)setAutomaticallyDetectsCacheModel:(BOOL)automaticallyDetectsCacheModel;
+
+- (BOOL)domTimersThrottlingEnabled;
+- (void)setDOMTimersThrottlingEnabled:(BOOL)domTimersThrottlingEnabled;
 
 - (BOOL)webArchiveDebugModeEnabled;
 - (void)setWebArchiveDebugModeEnabled:(BOOL)webArchiveDebugModeEnabled;
@@ -208,6 +217,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (BOOL)showDebugBorders;
 - (void)setShowDebugBorders:(BOOL)show;
 
+- (BOOL)simpleLineLayoutDebugBordersEnabled;
+- (void)setSimpleLineLayoutDebugBordersEnabled:(BOOL)enabled;
+
 - (BOOL)showRepaintCounter;
 - (void)setShowRepaintCounter:(BOOL)show;
 
@@ -219,9 +231,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 
 - (BOOL)webGLEnabled;
 - (void)setWebGLEnabled:(BOOL)enabled;
-
-- (BOOL)multithreadedWebGLEnabled;
-- (void)setMultithreadedWebGLEnabled:(BOOL)enabled;
 
 - (BOOL)forceSoftwareWebGLRendering;
 - (void)setForceSoftwareWebGLRendering:(BOOL)forced;
@@ -240,6 +249,15 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 
 - (void)setMediaPlaybackAllowsInline:(BOOL)flag;
 - (BOOL)mediaPlaybackAllowsInline;
+
+- (void)setMediaControlsScaleWithPageZoom:(BOOL)flag;
+- (BOOL)mediaControlsScaleWithPageZoom;
+
+- (void)setAllowsAlternateFullscreen:(BOOL)flag;
+- (BOOL)allowsAlternateFullscreen;
+
+- (void)setAllowsPictureInPictureMediaPlayback:(BOOL)flag;
+- (BOOL)allowsPictureInPictureMediaPlayback;
 
 - (NSString *)pictographFontFamily;
 - (void)setPictographFontFamily:(NSString *)family;
@@ -271,17 +289,8 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (void)_setMinimumZoomFontSize:(float)size;
 - (float)_minimumZoomFontSize;
 
-- (BOOL)diskImageCacheEnabled;
+// Deprecated. Has no effect.
 - (void)setDiskImageCacheEnabled:(BOOL)enabled;
-
-- (unsigned)diskImageCacheMinimumImageSize;
-- (void)setDiskImageCacheMinimumImageSize:(unsigned)minimumSize;
-
-- (unsigned)diskImageCacheMaximumCacheSize;
-- (void)setDiskImageCacheMaximumCacheSize:(unsigned)maximumSize;
-
-- (NSString *)_diskImageCacheSavedCacheDirectory;
-- (void)_setDiskImageCacheSavedCacheDirectory:(NSString *)path;
 
 - (void)setMediaPlaybackAllowsAirPlay:(BOOL)flag;
 - (BOOL)mediaPlaybackAllowsAirPlay;
@@ -296,8 +305,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (void)_setStandalone:(BOOL)flag;
 - (void)_setTelephoneNumberParsingEnabled:(BOOL)flag;
 - (BOOL)_telephoneNumberParsingEnabled;
-- (void)_setAlwaysUseBaselineOfPrimaryFont:(BOOL)flag;
-- (BOOL)_alwaysUseBaselineOfPrimaryFont;
 - (void)_setAllowMultiElementImplicitFormSubmission:(BOOL)flag;
 - (BOOL)_allowMultiElementImplicitFormSubmission;
 - (void)_setAlwaysRequestGeolocationPermission:(BOOL)flag;
@@ -308,10 +315,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (int)_layoutInterval;
 - (void)_setMaxParseDuration:(float)d;
 - (float)_maxParseDuration;
-- (void)_setPageCacheSize:(int)size;
-- (int)_pageCacheSize;
-- (void)_setObjectCacheSize:(int)size;
-- (int)_objectCacheSize;
 - (void)_setInterpolationQuality:(int)quality;
 - (int)_interpolationQuality;
 - (BOOL)_allowPasswordEcho;
@@ -330,6 +333,7 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 // For DumpRenderTree use only.
 + (void)_switchNetworkLoaderToNewTestingSession;
 + (void)_setCurrentNetworkLoaderSessionCookieAcceptPolicy:(NSHTTPCookieAcceptPolicy)cookieAcceptPolicy;
++ (void)_clearNetworkLoaderSession;
 
 + (void)setWebKitLinkTimeVersion:(int)version;
 
@@ -402,9 +406,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (BOOL)diagnosticLoggingEnabled;
 - (void)setDiagnosticLoggingEnabled:(BOOL)enabled;
 
-- (BOOL)screenFontSubstitutionEnabled;
-- (void)setScreenFontSubstitutionEnabled:(BOOL)enabled;
-
 - (void)setStorageBlockingPolicy:(WebStorageBlockingPolicy)storageBlockingPolicy;
 - (WebStorageBlockingPolicy)storageBlockingPolicy;
 
@@ -441,11 +442,16 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (void)setMediaKeysStorageDirectory:(NSString *)directory;
 - (NSString *)mediaKeysStorageDirectory;
 
+- (void)setAntialiasedFontDilationEnabled:(BOOL)flag;
+- (BOOL)antialiasedFontDilationEnabled;
+
 - (void)setMetaRefreshEnabled:(BOOL)flag;
 - (BOOL)metaRefreshEnabled;
 
 - (void)setHTTPEquivEnabled:(BOOL)flag;
 - (BOOL)httpEquivEnabled;
+
+@property (nonatomic) BOOL javaScriptMarkupEnabled;
 
 #if TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
 - (void)_setAllowCompositingLayerVisualDegradation:(BOOL)flag;

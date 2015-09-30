@@ -1,4 +1,4 @@
-.\" Copyright (c) 2012 Apple Inc. All rights reserved.
+.\" Copyright (c) 2015 Apple Inc. All rights reserved.
 .\"
 .\" @APPLE_OSREFERENCE_LICENSE_HEADER_START@
 .\" 
@@ -77,7 +77,7 @@
 .Fl i | I Ar interface
 .Op Fl w Ar wait
 .Op Fl c Ar queue
-.Op Fl abdgqRt
+.Op Fl abdgqRtS
 .Nm
 .Fl s Op Fl s
 .Op Fl f Ar address_family | Fl p Ar protocol
@@ -259,6 +259,10 @@ to show link-layer reachability information for a given interface.
 .It Fl s
 Show per-protocol statistics.  If this option is repeated, counters with a value of
 zero are suppressed.
+.It Fl S
+Show interface link status and interface state information about the specified interface.  This option requires specifying an interface with
+.Fl I
+option.
 .It Fl v
 Increase verbosity level.
 .It Fl W

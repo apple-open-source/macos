@@ -187,7 +187,7 @@
 		FD9B8AAE104DD4610096D791 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man1";
+			dstPath = "/usr/share/man/man1";
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B8AAD104DD4360096D791 /* bsdtar.1 in Install Man Page */,
@@ -198,7 +198,7 @@
 		FD9B8AB0104DD4A60096D791 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man1";
+			dstPath = "/usr/share/man/man1";
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B8ACC104DD5950096D791 /* bsdcpio.1 in Install Man Page */,

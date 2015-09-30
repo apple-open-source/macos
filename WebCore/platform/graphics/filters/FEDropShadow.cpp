@@ -18,8 +18,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(FILTERS)
 #include "FEDropShadow.h"
 
 #include "ColorSpace.h"
@@ -33,7 +31,7 @@
 
 namespace WebCore {
     
-FEDropShadow::FEDropShadow(Filter* filter, float stdX, float stdY, float dx, float dy, const Color& shadowColor, float shadowOpacity)
+FEDropShadow::FEDropShadow(Filter& filter, float stdX, float stdY, float dx, float dy, const Color& shadowColor, float shadowOpacity)
     : FilterEffect(filter)
     , m_stdX(stdX)
     , m_stdY(stdY)
@@ -44,9 +42,9 @@ FEDropShadow::FEDropShadow(Filter* filter, float stdX, float stdY, float dx, flo
 {
 }
 
-PassRefPtr<FEDropShadow> FEDropShadow::create(Filter* filter, float stdX, float stdY, float dx, float dy, const Color& shadowColor, float shadowOpacity)
+Ref<FEDropShadow> FEDropShadow::create(Filter& filter, float stdX, float stdY, float dx, float dy, const Color& shadowColor, float shadowOpacity)
 {
-    return adoptRef(new FEDropShadow(filter, stdX, stdY, dx, dy, shadowColor, shadowOpacity));
+    return adoptRef(*new FEDropShadow(filter, stdX, stdY, dx, dy, shadowColor, shadowOpacity));
 }
 
 void FEDropShadow::determineAbsolutePaintRect()
@@ -129,5 +127,3 @@ TextStream& FEDropShadow::externalRepresentation(TextStream& ts, int indent) con
 }
     
 } // namespace WebCore
-
-#endif // ENABLE(FILTERS)

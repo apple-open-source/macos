@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,21 +50,37 @@
 
 #include "util.h"
 #include "IPConfigurationLog.h"
+#include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
 
 static boolean_t
-S_get_ifmediareq(const char * name, struct ifmediareq * ifmr_p);
+S_get_ifmediareq(int s, const char * name, struct ifmediareq * ifmr_p);
 
-static boolean_t
-S_get_ifmediareq_s(int s, const char * name, struct ifmediareq * ifmr_p);
-
-static boolean_t
-S_is_awdl(int s, const char * name);
+static uint64_t
+S_get_eflags(int s, const char * name);
 
 static boolean_t
 S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p);
 
 static link_status_t
 S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p);
+
+static boolean_t
+S_interface_is_tethered(const char * ifname)
+{
+    CFStringRef			ifname_cf;
+    boolean_t			is_tethered = FALSE;
+    SCNetworkInterfaceRef	netif;
+
+    ifname_cf = CFStringCreateWithCString(NULL, ifname,
+					  kCFStringEncodingASCII);
+    netif = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname_cf, 0);
+    if (netif != NULL) {
+	is_tethered = _SCNetworkInterfaceIsTethered(netif);
+	CFRelease(netif);
+    }
+    CFRelease(ifname_cf);
+    return (is_tethered);
+}
 
 void *
 inet_addrinfo_copy(void * p)
@@ -161,7 +177,7 @@ S_build_interface_list(interface_list_t * interfaces)
 		  entry = S_next_entry(interfaces, name);
 		  if (entry == NULL) {
 		      /* NOT REACHED */
-		      IPConfigLog(LOG_ERR,
+		      IPConfigLog(LOG_NOTICE,
 				  "interfaces: S_next_entry returns NULL"); 
 		      continue;
 		  }
@@ -204,14 +220,14 @@ S_build_interface_list(interface_list_t * interfaces)
 		  entry = S_next_entry(interfaces, name);
 		  if (entry == NULL) {
 		      /* NOT REACHED */
-		      IPConfigLog(LOG_ERR,
+		      IPConfigLog(LOG_NOTICE,
 				  "interfaces: S_next_entry returns NULL"); 
 		      continue;
 		  }
 		  entry->flags = ifap->ifa_flags;
 	      }
 	      if (dl_p->sdl_alen > sizeof(entry->link_address.addr)) {
-		  IPConfigLog(LOG_ERR,
+		  IPConfigLog(LOG_NOTICE,
 			      "%s: link type %d address length %d > %ld", name,
 			      dl_p->sdl_type, dl_p->sdl_alen,
 			      sizeof(entry->link_address.addr));
@@ -232,14 +248,20 @@ S_build_interface_list(interface_list_t * interfaces)
 	      else {
 		  entry->type = dl_p->sdl_type;
 	      }
-	      if (S_get_ifmediareq_s(s, name, &ifmr)) {
+	      if (S_get_ifmediareq(s, name, &ifmr)) {
 		  if (entry->type == IFT_ETHER) {
+		      uint64_t	eflags;
 
+		      eflags = S_get_eflags(s, name);
 		      if (S_ifmediareq_get_is_wireless(&ifmr)) {
 			  entry->type_flags |= kInterfaceTypeFlagIsWireless;
-			  if (S_is_awdl(s, name)) {
+			  if ((eflags & IFEF_AWDL) != 0) {
 			      entry->type_flags |= kInterfaceTypeFlagIsAWDL;
 			  }
+		      }
+		      else if (ifmr.ifm_count == 1
+			       && S_interface_is_tethered(name)) {
+			  entry->type_flags |= kInterfaceTypeFlagIsTethered;
 		      }
 		  }
 		  entry->link_status
@@ -534,6 +556,7 @@ if_inet_find_ip(interface_t * if_p, struct in_addr iaddr)
 void
 if_link_copy(interface_t * dest, const interface_t * source)
 {
+    dest->type_flags = source->type_flags;
     dest->link_status = source->link_status;
     dest->link_address = source->link_address;
     return;
@@ -645,6 +668,12 @@ if_link_length(interface_t * if_p)
 }
 
 boolean_t
+if_is_ethernet(interface_t * if_p)
+{
+    return (if_ift_type(if_p) == IFT_ETHER && !if_is_wireless(if_p));
+}
+
+boolean_t
 if_is_wireless(interface_t * if_p)
 {
     return ((if_p->type_flags & kInterfaceTypeFlagIsWireless) != 0);
@@ -654,6 +683,12 @@ boolean_t
 if_is_awdl(interface_t * if_p)
 {
     return ((if_p->type_flags & kInterfaceTypeFlagIsAWDL) != 0);
+}
+
+boolean_t
+if_is_tethered(interface_t * if_p)
+{
+    return ((if_p->type_flags & kInterfaceTypeFlagIsTethered) != 0);
 }
 
 int
@@ -678,7 +713,7 @@ siocgifmedia(int sockfd, struct ifmediareq * ifmr_p,
 }
 
 static boolean_t
-S_get_ifmediareq_s(int s, const char * name, struct ifmediareq * ifmr_p)
+S_get_ifmediareq(int s, const char * name, struct ifmediareq * ifmr_p)
 {
     boolean_t	ret;
 
@@ -697,21 +732,6 @@ S_get_ifmediareq_s(int s, const char * name, struct ifmediareq * ifmr_p)
     }
     return (ret);
 }
-
-static boolean_t
-S_get_ifmediareq(const char * name, struct ifmediareq * ifmr_p)
-{
-    int		s;
-    boolean_t	success = FALSE;
-
-    s = socket(AF_INET, SOCK_DGRAM, 0);
-    if (s >= 0) {
-	success = S_get_ifmediareq_s(s, name, ifmr_p);
-	close(s);
-    }
-    return (success);
-}
-
 
 static boolean_t
 S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p)
@@ -744,11 +764,11 @@ siocgifeflags(int sockfd, struct ifreq * ifr, const char * name)
     return (ioctl(sockfd, SIOCGIFEFLAGS, (caddr_t)ifr));
 }
 
-static boolean_t
-S_is_awdl(int sockfd, const char * name)
+static uint64_t
+S_get_eflags(int sockfd, const char * name)
 {
+    uint64_t		eflags = 0;
     struct ifreq	ifr;
-    boolean_t		is_awdl = FALSE;
 
     if (siocgifeflags(sockfd, &ifr, name) == -1) {
 	if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
@@ -757,26 +777,31 @@ S_is_awdl(int sockfd, const char * name)
 			  name, strerror(errno));
 	}
     }
-    else if ((ifr.ifr_eflags & IFEF_AWDL) != 0) {
-	is_awdl = TRUE;
+    else {
+	eflags = ifr.ifr_eflags;
     }
-    return (is_awdl);
+    return (eflags);
 }
 
 link_status_t
 if_link_status_update(interface_t * if_p)
 {
-    struct ifmediareq 		ifmr;
+    struct ifmediareq 	ifmr;
+    int			s;
 
-    if (S_get_ifmediareq(if_name(if_p), &ifmr) == FALSE) {
-	if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
-	    IPConfigLogFL(LOG_NOTICE,
-			  "%s: failed to get media status, %s",
-			  if_name(if_p), strerror(errno));
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s >= 0) {
+	if (S_get_ifmediareq(s, if_name(if_p), &ifmr) == FALSE) {
+	    if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
+		IPConfigLogFL(LOG_NOTICE,
+			      "%s: failed to get media status, %s",
+			      if_name(if_p), strerror(errno));
+	    }
 	}
-    }
-    else {
-	if_p->link_status = S_ifmediareq_get_link_status(&ifmr);
+	else {
+	    if_p->link_status = S_ifmediareq_get_link_status(&ifmr);
+	}
+	close(s);
     }
     return (if_p->link_status);
 }
@@ -843,15 +868,19 @@ ifl_print(interface_list_t * list_p)
 	if (if_p->link_address.type != 0) {
 	    link_addr_print(&if_p->link_address);
 	    if (if_p->link_status.valid) {
-		printf("Link is %s%s\n",
+		printf("Link is %s%s",
 		       if_p->link_status.active ? "active" : "inactive",
 		       if_p->link_status.wake_on_same_network
 		       ? " [wake on same network]" : "");
 	    }
 	    if (if_is_wireless(if_p)) {
-		printf("wireless%s\n",
-		       if_is_awdl(if_p) ? " AWDL" : "");
+		printf(" [wireless]%s",
+		       if_is_awdl(if_p) ? " [awdl]" : "");
 	    }
+	    if (if_is_tethered(if_p)) {
+		printf(" [tethered]");
+	    }
+	    printf("\n");
 	}
 	count++;
     }

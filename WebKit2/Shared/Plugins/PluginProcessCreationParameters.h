@@ -31,12 +31,12 @@
 #include "PluginProcessAttributes.h"
 
 #if PLATFORM(COCOA)
-#include "MachPort.h"
+#include <WebCore/MachSendRight.h>
 #endif
 
 namespace IPC {
-    class ArgumentDecoder;
-    class ArgumentEncoder;
+class ArgumentDecoder;
+class ArgumentEncoder;
 }
 
 namespace WebKit {
@@ -54,7 +54,10 @@ struct PluginProcessCreationParameters {
     double terminationTimeout;
 
 #if PLATFORM(COCOA)
-    IPC::MachPort acceleratedCompositingPort;
+    WebCore::MachSendRight acceleratedCompositingPort;
+#if (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+    RetainPtr<CFDataRef> networkATSContext;
+#endif
 #endif
 };
 

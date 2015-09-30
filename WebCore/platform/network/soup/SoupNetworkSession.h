@@ -28,7 +28,7 @@
 
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 #include <wtf/text/WTFString.h>
 
 typedef struct _SoupCache SoupCache;
@@ -60,12 +60,11 @@ public:
 
     void setCache(SoupCache*);
     SoupCache* cache() const;
+    static void clearCache(const String& cacheDirectory);
 
     void setSSLPolicy(SSLPolicy);
     SSLPolicy sslPolicy() const;
 
-    void setHTTPProxy(const char* httpProxy, const char* httpProxyExceptions);
-    char* httpProxy() const;
     void setupHTTPProxyFromEnvironment();
 
     void setAcceptLanguages(const Vector<String>&);
@@ -73,6 +72,8 @@ public:
 private:
     SoupNetworkSession(SoupCookieJar*);
     SoupNetworkSession(SoupSession*);
+
+    void setHTTPProxy(const char* httpProxy, const char* httpProxyExceptions);
 
     void setupLogger();
 

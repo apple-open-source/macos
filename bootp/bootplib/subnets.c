@@ -62,6 +62,7 @@
 #include "dhcp_options.h"
 #include "cfutil.h"
 #include "DNSNameList.h"
+#include "IPv4ClasslessRoute.h"
 
 #include <SystemConfiguration/SCValidation.h>
 static bool 	S_use_syslog;
@@ -619,6 +620,41 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	    free(encoded);
 	    break;
 	}
+	case dhcptype_classless_route_e: {
+	    IPv4ClasslessRouteRef	list;
+	    int				list_count;
+
+	    list = IPv4ClasslessRouteListCreateWithArray(value, &list_count);
+	    if (list != NULL) {
+		uint8_t *		buf;
+		int			buf_size;
+		buf = IPv4ClasslessRouteListBufferCreate(list, list_count, NULL,
+							 &buf_size);
+		if (buf != NULL) {
+#ifdef TEST_SUBNETS
+		    IPv4ClasslessRouteRef	test_list;
+		    int				test_list_count;
+
+		    test_list
+			= IPv4ClasslessRouteListCreate(buf, buf_size,
+						       &test_list_count);
+		    if (test_list == NULL) {
+			fprintf(stderr,
+				"IPv4ClasslessRouteListCreate failed\n");
+		    }
+		    else {
+			free(test_list);
+		    }
+#endif		    
+		    data = CFDataCreate(NULL, buf, buf_size);
+		    free(buf);
+		}
+	    }
+	    if (list != NULL) {
+		free(list);
+	    }
+	    break;
+	}
 	default:
 	    /* conversion is not possible */
 	    if (err != NULL) {
@@ -1029,6 +1065,11 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err, int err_len)
 
     /* copy the options */
     if (option_list != NULL) {
+	char *		route_list_opt;
+	int		route_list_opt_len;
+	const char *	router_opt;
+	int		router_opt_len;
+
 	subnet->options_count = (int)CFArrayGetCount(option_list);
 	/* ALIGN: offset aligned (from malloc), cast safe. */
 	subnet->options = 
@@ -1036,6 +1077,32 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err, int err_len)
 						option_space);
 	offset += option_space;
 	CFRelease(option_list);
+	router_opt = SubnetGetOptionPtrAndLength(subnet, dhcptag_router_e,
+						 &router_opt_len);
+	route_list_opt = (char *)
+	    SubnetGetOptionPtrAndLength(subnet,
+					dhcptag_classless_static_route_e,
+					&route_list_opt_len);
+	/*
+	 * If both router and classless static route options are defined,
+	 * check whether classless static route starts with a default route.
+	 * If it does and the destination is 0.0.0.0, check if the configured
+	 * router is not zero.  If so, update the static route option
+	 * to contain the configured router.
+	 */
+	 if (router_opt != NULL 
+	    && route_list_opt != NULL
+	    && route_list_opt[0] == 0
+	    && route_list_opt_len >= (sizeof(struct in_addr) + 1)) {
+	    struct in_addr	router;
+	    struct in_addr	dest;
+
+	    bcopy(router_opt, &router, sizeof(router));
+	    bcopy(route_list_opt + 1, &dest, sizeof(dest));
+	    if (dest.s_addr == 0 && router.s_addr != 0) {
+		bcopy(&router, route_list_opt + 1, sizeof(router));
+	    }
+	}
     }
 
     /* copy the name */

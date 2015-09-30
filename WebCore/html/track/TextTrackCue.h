@@ -111,16 +111,13 @@ public:
     void willChange();
     virtual void didChange();
 
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(enter);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(exit);
-
     using RefCounted<TextTrackCue>::ref;
     using RefCounted<TextTrackCue>::deref;
 
 protected:
     TextTrackCue(ScriptExecutionContext&, const MediaTime& start, const MediaTime& end);
 
-    Document& ownerDocument() { return toDocument(m_scriptExecutionContext); }
+    Document& ownerDocument() { return downcast<Document>(m_scriptExecutionContext); }
 
 private:
 

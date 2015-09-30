@@ -416,6 +416,16 @@ krb5_verify_ap_req2(krb5_context context,
 	}
     }
 
+    /*
+     * Check replay
+     */
+    if (ac->rcache) {
+	ret = krb5_rc_store(context, ac->rcache, ac->authenticator);
+	if (ret) {
+	    goto out;
+	}
+    }
+
     if (ac->authenticator->seq_number)
 	krb5_auth_con_setremoteseqnumber(context, ac,
 					 *ac->authenticator->seq_number);
@@ -441,6 +451,7 @@ krb5_verify_ap_req2(krb5_context context,
 	for (i = 0; i < etypes.len; i++) {
 	    if (krb5_enctype_valid(context, etypes.val[i]) == 0) {
 		ac->keytype = etypes.val[i];
+		_krb5_debugx(context, 10, "ap_req2: upgrading to enctype: %d", ac->keytype);
 		break;
 	    }
 	}
@@ -488,6 +499,7 @@ struct krb5_rd_req_in_ctx_data {
     krb5_keytab keytab;
     krb5_keyblock *keyblock;
     krb5_boolean check_pac;
+    krb5_keyblock *as_reply_key;
 };
 
 struct krb5_rd_req_out_ctx_data {
@@ -496,6 +508,7 @@ struct krb5_rd_req_out_ctx_data {
     krb5_flags ap_req_options;
     krb5_ticket *ticket;
     krb5_principal server;
+    krb5_pac pac;
 };
 
 /**
@@ -568,6 +581,15 @@ krb5_rd_req_in_set_pac_check(krb5_context context,
     return 0;
 }
 
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_rd_req_in_set_as_reply_key(krb5_context context,
+				krb5_rd_req_in_ctx in,
+				krb5_keyblock *as_reply_key)
+{
+    in->as_reply_key = as_reply_key;
+    return 0;
+}
+
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_rd_req_in_set_keyblock(krb5_context context,
@@ -603,12 +625,17 @@ krb5_rd_req_out_get_keyblock(krb5_context context,
     return krb5_copy_keyblock(context, out->keyblock, keyblock);
 }
 
-int KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION int KRB5_LIB_CALL
 krb5_rd_req_out_get_flags(krb5_context context, krb5_rd_req_out_ctx ctx)
 {
     return ctx->flags;
 }
 
+KRB5_LIB_FUNCTION krb5_pac KRB5_LIB_CALL
+krb5_rd_req_out_copy_pac(krb5_context context, krb5_rd_req_out_ctx ctx)
+{
+    return heim_retain(ctx->pac);
+}
 
 /**
  * Get the principal that was used in the request from the
@@ -654,6 +681,8 @@ krb5_rd_req_out_ctx_free(krb5_context context, krb5_rd_req_out_ctx ctx)
 	krb5_free_keyblock(context, ctx->keyblock);
     if (ctx->server)
 	krb5_free_principal(context, ctx->server);
+    if (ctx->pac)
+	krb5_pac_free(context, ctx->pac);
     free(ctx);
 }
 
@@ -977,7 +1006,11 @@ krb5_rd_req_ctx(krb5_context context,
 				      &o->ap_req_options,
 				      &o->ticket,
 				      KRB5_KU_AP_REQ_AUTH);
-	    if (ret) {
+	    if (ret == KRB5_RC_REPLAY) {
+		krb5_kt_end_seq_get(context, id, &cursor);
+		krb5_kt_free_entry(context, &entry);
+		goto out;
+	    } else if (ret) {
 		krb5_kt_free_entry(context, &entry);
 		continue;
 	    }
@@ -1013,7 +1046,24 @@ krb5_rd_req_ctx(krb5_context context,
 	krb5_kt_end_seq_get(context, id, &cursor);
     }
 
-    /* If there is a PAC, verify its server signature */
+    /*
+     * Pick up PFS if we have any around
+     */
+
+    ret = _krb5_pfs_rd_req(context, *auth_context);
+    if (ret)
+	goto out;
+
+    /*
+     *
+     */
+
+    _krb5_debugx(context, 15, "krb5_rd_req: used enctype %d from keytab",
+		 o->keyblock->keytype);
+
+    /*
+     * If there is a PAC, verify its server signature
+     */
     if (inctx == NULL || inctx->check_pac) {
 	krb5_pac pac;
 	krb5_data data;
@@ -1034,9 +1084,17 @@ krb5_rd_req_ctx(krb5_context context,
 				  o->ticket->client,
 				  o->keyblock,
 				  NULL);
-	    krb5_pac_free(context, pac);
-	    if (ret == 0)
+	    if (ret == 0) {
 		o->flags |= KRB5_RD_REQ_OUT_PAC_VALID;
+		o->pac = heim_retain(pac);
+	    }
+	    if ((o->flags & KRB5_RD_REQ_OUT_PAC_VALID) && inctx->as_reply_key) {
+		ret = krb5_pac_process_credentials_buffer(context, pac, inctx->as_reply_key);
+		if (ret == 0) {
+		    o->flags |= KRB5_RD_REQ_OUT_PAC_CREDENTIALS;
+		}
+	    }
+	    krb5_pac_free(context, pac);
 	    ret = 0;
 	} else
 	    ret = 0;

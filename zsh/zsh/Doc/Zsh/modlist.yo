@@ -27,6 +27,9 @@ curses windowing commands
 item(tt(zsh/datetime))(
 Some date/time commands and parameters.
 )
+item(tt(zsh/db/gdbm))(
+Builtins for managing associative array parameters tied to GDBM databases.
+)
 item(tt(zsh/deltochar))(
 A ZLE function duplicating EMACS' tt(zap-to-char).
 )
@@ -126,10 +129,13 @@ includefile(Zsh/mod_computil.yo)
 texinode(The zsh/curses Module)(The zsh/datetime Module)(The zsh/computil Module)(Zsh Modules)
 sect(The zsh/curses Module)
 includefile(Zsh/mod_curses.yo)
-texinode(The zsh/datetime Module)(The zsh/deltochar Module)(The zsh/curses Module)(Zsh Modules)
+texinode(The zsh/datetime Module)(The zsh/db/gdbm Module)(The zsh/curses Module)(Zsh Modules)
 sect(The zsh/datetime Module)
 includefile(Zsh/mod_datetime.yo)
-texinode(The zsh/deltochar Module)(The zsh/example Module)(The zsh/datetime Module)(Zsh Modules)
+texinode(The zsh/db/gdbm Module)(The zsh/deltochar Module)(The zsh/datetime Module)(Zsh Modules)
+sect(The zsh/db/gdbm Module)
+includefile(Zsh/mod_db_gdbm.yo)
+texinode(The zsh/deltochar Module)(The zsh/example Module)(The zsh/db/gdbm Module)(Zsh Modules)
 sect(The zsh/deltochar Module)
 includefile(Zsh/mod_deltochar.yo)
 texinode(The zsh/example Module)(The zsh/files Module)(The zsh/deltochar Module)(Zsh Modules)

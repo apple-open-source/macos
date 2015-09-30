@@ -28,7 +28,7 @@
 
 #include "config.h"
 
-#if USE(3D_GRAPHICS)
+#if ENABLE(GRAPHICS_CONTEXT_3D)
 
 #include "GraphicsContext3D.h"
 #if PLATFORM(IOS)
@@ -40,6 +40,7 @@
 #else
 #include "Extensions3DOpenGL.h"
 #endif
+#include "ANGLEWebKitBridge.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "ImageData.h"
@@ -47,6 +48,7 @@
 #include "IntSize.h"
 #include "Logging.h"
 #include "TemporaryOpenGLSetting.h"
+#include "WebGLRenderingContextBase.h"
 #include <cstring>
 #include <runtime/ArrayBuffer.h>
 #include <runtime/ArrayBufferView.h>
@@ -73,6 +75,7 @@
 #include "OpenGLShims.h"
 #endif
 #endif
+
 
 namespace WebCore {
 
@@ -142,7 +145,7 @@ bool GraphicsContext3D::isResourceSafe()
     return false;
 }
 
-void GraphicsContext3D::paintRenderingResultsToCanvas(ImageBuffer* imageBuffer, DrawingBuffer*)
+void GraphicsContext3D::paintRenderingResultsToCanvas(ImageBuffer* imageBuffer)
 {
     int rowBytes = m_currentWidth * 4;
     int totalBytes = rowBytes * m_currentHeight;
@@ -181,7 +184,7 @@ bool GraphicsContext3D::paintCompositedResultsToCanvas(ImageBuffer*)
     return false;
 }
 
-PassRefPtr<ImageData> GraphicsContext3D::paintRenderingResultsToImageData(DrawingBuffer*)
+PassRefPtr<ImageData> GraphicsContext3D::paintRenderingResultsToImageData()
 {
     // Reading premultiplied alpha would involve unpremultiplying, which is
     // lossy.
@@ -222,7 +225,7 @@ void GraphicsContext3D::prepareTexture()
     ::glActiveTexture(m_state.activeTexture);
     if (m_state.boundFBO != m_fbo)
         ::glBindFramebufferEXT(GraphicsContext3D::FRAMEBUFFER, m_state.boundFBO);
-    ::glFinish();
+    ::glFlush();
 }
 
 void GraphicsContext3D::readRenderingResults(unsigned char *pixels, int pixelsSize)
@@ -334,6 +337,58 @@ void GraphicsContext3D::reshape(int width, int height)
     ::glFlush();
 }
 
+bool GraphicsContext3D::checkVaryingsPacking(Platform3DObject vertexShader, Platform3DObject fragmentShader) const
+{
+    ASSERT(m_shaderSourceMap.contains(vertexShader));
+    ASSERT(m_shaderSourceMap.contains(fragmentShader));
+    const auto& vertexEntry = m_shaderSourceMap.find(vertexShader)->value;
+    const auto& fragmentEntry = m_shaderSourceMap.find(fragmentShader)->value;
+
+    HashMap<String, ShVariableInfo> combinedVaryings;
+    for (const auto& vertexSymbol : vertexEntry.varyingMap) {
+        const String& symbolName = vertexSymbol.key;
+        // The varying map includes variables for each index of an array variable.
+        // We only want a single variable to represent the array.
+        if (symbolName.endsWith("]"))
+            continue;
+
+        // Don't count built in varyings.
+        if (symbolName == "gl_FragCoord" || symbolName == "gl_FrontFacing" || symbolName == "gl_PointCoord")
+            continue;
+
+        const auto& fragmentSymbol = fragmentEntry.varyingMap.find(symbolName);
+        if (fragmentSymbol != fragmentEntry.varyingMap.end()) {
+            ShVariableInfo symbolInfo;
+            symbolInfo.type = (fragmentSymbol->value).type;
+            // The arrays are already split up.
+            symbolInfo.size = (fragmentSymbol->value).size;
+            combinedVaryings.add(symbolName, symbolInfo);
+        }
+    }
+
+    size_t numVaryings = combinedVaryings.size();
+    if (!numVaryings)
+        return true;
+
+    ShVariableInfo* variables = new ShVariableInfo[numVaryings];
+    int index = 0;
+    for (const auto& varyingSymbol : combinedVaryings) {
+        variables[index] = varyingSymbol.value;
+        index++;
+    }
+
+    GC3Dint maxVaryingVectors = 0;
+#if !PLATFORM(IOS) && !((PLATFORM(WIN) || PLATFORM(GTK)) && USE(OPENGL_ES_2))
+    GC3Dint maxVaryingFloats = 0;
+    ::glGetIntegerv(GL_MAX_VARYING_FLOATS, &maxVaryingFloats);
+    maxVaryingVectors = maxVaryingFloats / 4;
+#else
+    ::glGetIntegerv(MAX_VARYING_VECTORS, &maxVaryingVectors);
+#endif
+    int result = ShCheckVariablesWithinPackingLimits(maxVaryingVectors, variables, numVaryings);
+    delete[] variables;
+    return result;
+}
 
 bool GraphicsContext3D::precisionsMatch(Platform3DObject vertexShader, Platform3DObject fragmentShader) const
 {
@@ -342,7 +397,7 @@ bool GraphicsContext3D::precisionsMatch(Platform3DObject vertexShader, Platform3
     const auto& vertexEntry = m_shaderSourceMap.find(vertexShader)->value;
     const auto& fragmentEntry = m_shaderSourceMap.find(fragmentShader)->value;
 
-    HashMap<String, ShPrecisionType> vertexSymbolPrecisionMap;
+    HashMap<String, sh::GLenum> vertexSymbolPrecisionMap;
 
     for (const auto& entry : vertexEntry.uniformMap)
         vertexSymbolPrecisionMap.add(entry.value.mappedName, entry.value.precision);
@@ -513,7 +568,7 @@ void GraphicsContext3D::compileShader(Platform3DObject shader)
     ANGLEResources.HashFunction = nameHashForShader;
 
     if (!nameHashMapForShaders)
-        nameHashMapForShaders = adoptPtr(new ShaderNameHash);
+        nameHashMapForShaders = std::make_unique<ShaderNameHash>();
     currentNameHashMapForShader = nameHashMapForShaders.get();
     m_compiler.setResources(ANGLEResources);
 
@@ -630,12 +685,14 @@ void GraphicsContext3D::drawArrays(GC3Denum mode, GC3Dint first, GC3Dsizei count
 {
     makeContextCurrent();
     ::glDrawArrays(mode, first, count);
+    checkGPUStatusIfNecessary();
 }
 
 void GraphicsContext3D::drawElements(GC3Denum mode, GC3Dsizei count, GC3Denum type, GC3Dintptr offset)
 {
     makeContextCurrent();
     ::glDrawElements(mode, count, type, reinterpret_cast<GLvoid*>(static_cast<intptr_t>(offset)));
+    checkGPUStatusIfNecessary();
 }
 
 void GraphicsContext3D::enable(GC3Denum cap)
@@ -794,7 +851,7 @@ static String generateHashedName(const String& name)
         return name;
     uint64_t number = nameHashForShader(name.utf8().data(), name.length());
     StringBuilder builder;
-    builder.append("webgl_");
+    builder.appendLiteral("webgl_");
     appendUnsigned64AsHex(number, builder, Lowercase);
     return builder.toString();
 }
@@ -820,7 +877,7 @@ String GraphicsContext3D::mappedSymbolName(Platform3DObject program, ANGLEShader
         // Attributes are a special case: they may be requested before any shaders have been compiled,
         // and aren't even required to be used in any shader program.
         if (!nameHashMapForShaders)
-            nameHashMapForShaders = adoptPtr(new ShaderNameHash);
+            nameHashMapForShaders = std::make_unique<ShaderNameHash>();
         currentNameHashMapForShader = nameHashMapForShaders.get();
 
         String generatedName = generateHashedName(name);
@@ -1300,6 +1357,57 @@ void GraphicsContext3D::viewport(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsize
     ::glViewport(x, y, width, height);
 }
 
+Platform3DObject GraphicsContext3D::createVertexArray()
+{
+    makeContextCurrent();
+    GLuint array = 0;
+#if !USE(OPENGL_ES_2) && (PLATFORM(GTK) || PLATFORM(EFL) || PLATFORM(WIN) || PLATFORM(IOS))
+    glGenVertexArrays(1, &array);
+#elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
+    glGenVertexArraysAPPLE(1, &array);
+#endif
+    return array;
+}
+
+void GraphicsContext3D::deleteVertexArray(Platform3DObject array)
+{
+    if (!array)
+        return;
+    
+    makeContextCurrent();
+#if !USE(OPENGL_ES_2) && (PLATFORM(GTK) || PLATFORM(EFL) || PLATFORM(WIN) || PLATFORM(IOS))
+    glDeleteVertexArrays(1, &array);
+#elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
+    glDeleteVertexArraysAPPLE(1, &array);
+#endif
+}
+
+GC3Dboolean GraphicsContext3D::isVertexArray(Platform3DObject array)
+{
+    if (!array)
+        return GL_FALSE;
+    
+    makeContextCurrent();
+#if !USE(OPENGL_ES_2) && (PLATFORM(GTK) || PLATFORM(EFL) || PLATFORM(WIN) || PLATFORM(IOS))
+    return glIsVertexArray(array);
+#elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
+    return glIsVertexArrayAPPLE(array);
+#endif
+    return GL_FALSE;
+}
+
+void GraphicsContext3D::bindVertexArray(Platform3DObject array)
+{
+    makeContextCurrent();
+#if !USE(OPENGL_ES_2) && (PLATFORM(GTK) || PLATFORM(EFL) || PLATFORM(WIN) || PLATFORM(IOS))
+    glBindVertexArray(array);
+#elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
+    glBindVertexArrayAPPLE(array);
+#else
+    UNUSED_PARAM(array);
+#endif
+}
+
 void GraphicsContext3D::getBooleanv(GC3Denum pname, GC3Dboolean* value)
 {
     makeContextCurrent();
@@ -1316,6 +1424,15 @@ void GraphicsContext3D::getFloatv(GC3Denum pname, GC3Dfloat* value)
 {
     makeContextCurrent();
     ::glGetFloatv(pname, value);
+}
+    
+void GraphicsContext3D::getInteger64v(GC3Denum pname, GC3Dint64* value)
+{
+    UNUSED_PARAM(pname);
+    makeContextCurrent();
+    *value = 0;
+    // FIXME 141178: Before enabling this we must first switch over to using gl3.h and creating and initialing the WebGL2 context using OpenGL ES 3.0.
+    // ::glGetInteger64v(pname, value);
 }
 
 void GraphicsContext3D::getFramebufferAttachmentParameteriv(GC3Denum target, GC3Denum attachment, GC3Denum pname, GC3Dint* value)
@@ -1701,6 +1818,14 @@ bool GraphicsContext3D::layerComposited() const
     return m_layerComposited;
 }
 
+void GraphicsContext3D::forceContextLost()
+{
+#if ENABLE(WEBGL)
+    if (m_webglContext)
+        m_webglContext->forceLostContext(WebGLRenderingContextBase::RealLostContext);
+#endif
+}
+
 void GraphicsContext3D::texImage2DDirect(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dint border, GC3Denum format, GC3Denum type, const void* pixels)
 {
     makeContextCurrent();
@@ -1724,4 +1849,4 @@ void GraphicsContext3D::vertexAttribDivisor(GC3Duint index, GC3Duint divisor)
 
 }
 
-#endif // USE(3D_GRAPHICS)
+#endif // ENABLE(GRAPHICS_CONTEXT_3D)

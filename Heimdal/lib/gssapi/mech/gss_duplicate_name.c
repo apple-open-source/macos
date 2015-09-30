@@ -29,9 +29,9 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_duplicate_name(OM_uint32 *minor_status,
-    const gss_name_t src_name,
-    gss_name_t *dest_name)
+gss_duplicate_name(OM_uint32 *__nonnull minor_status,
+    __nonnull const gss_name_t src_name,
+    __nonnull gss_name_t * __nullable dest_name)
 {
 	OM_uint32		major_status;
 	struct _gss_name	*name = (struct _gss_name *) src_name;

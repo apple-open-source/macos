@@ -26,10 +26,9 @@
 #ifndef WebKitPlaybackTargetAvailabilityEvent_h
 #define WebKitPlaybackTargetAvailabilityEvent_h
 
-#if ENABLE(IOS_AIRPLAY)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
 
 #include "Event.h"
-#include "EventNames.h"
 
 namespace WebCore {
 
@@ -45,19 +44,19 @@ class WebKitPlaybackTargetAvailabilityEvent : public Event {
 public:
     ~WebKitPlaybackTargetAvailabilityEvent() { }
 
-    static PassRefPtr<WebKitPlaybackTargetAvailabilityEvent> create()
+    static Ref<WebKitPlaybackTargetAvailabilityEvent> create()
     {
-        return adoptRef(new WebKitPlaybackTargetAvailabilityEvent);
+        return adoptRef(*new WebKitPlaybackTargetAvailabilityEvent);
     }
 
-    static PassRefPtr<WebKitPlaybackTargetAvailabilityEvent> create(const AtomicString& eventType, bool available)
+    static Ref<WebKitPlaybackTargetAvailabilityEvent> create(const AtomicString& eventType, bool available)
     {
-        return adoptRef(new WebKitPlaybackTargetAvailabilityEvent(eventType, available));
+        return adoptRef(*new WebKitPlaybackTargetAvailabilityEvent(eventType, available));
     }
 
-    static PassRefPtr<WebKitPlaybackTargetAvailabilityEvent> create(const AtomicString& eventType, const WebKitPlaybackTargetAvailabilityEventInit& initializer)
+    static Ref<WebKitPlaybackTargetAvailabilityEvent> create(const AtomicString& eventType, const WebKitPlaybackTargetAvailabilityEventInit& initializer)
     {
-        return adoptRef(new WebKitPlaybackTargetAvailabilityEvent(eventType, initializer));
+        return adoptRef(*new WebKitPlaybackTargetAvailabilityEvent(eventType, initializer));
     }
 
     String availability() const { return m_availability; }
@@ -74,6 +73,6 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(IOS_AIRPLAY)
+#endif // ENABLE(WIRELESS_PLAYBACK_TARGET)
 
 #endif // WebKitPlaybackTargetAvailabilityEvent_h

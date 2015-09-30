@@ -323,7 +323,6 @@ int kextd_watch_volumes(int sourcePriority)
     sAutoUpdateDelayer = CFRunLoopTimerCreate(kCFAllocatorDefault,
         CFAbsoluteTimeGetCurrent() + kAutoUpdateDelay, 0,
         0, sourcePriority++, checkAutoUpdate, NULL);
-#pragma unused(sourcePriority)
     if (!sAutoUpdateDelayer) {
         goto finish;
     }
@@ -432,13 +431,15 @@ static void destroy_watchedVol(struct watchedVol *watched)
     // assert that ->delayer, and ->lock have already been cleaned up
     if (watched->tokens) {
         ntokens = CFArrayGetCount(watched->tokens);
-        while(ntokens--) { 
+        while(ntokens--) {
             token = (int)(intptr_t)CFArrayGetValueAtIndex(watched->tokens,ntokens);
             // XX should take (hacky) steps to insure token is never zero?
-            if (/* !token || */ (errnum = notify_cancel(token)))
+            if (/* !token || */ (errnum = notify_cancel(token))) {
                 OSKextLog(/* kext */ NULL,
-                    kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-                    "destroy_watchedVol: error %d canceling notification.", errnum);
+                          kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+          "destroy_watchedVol: error %d canceling notification on vol '%s'.",
+                          errnum, watched->caches->root);
+            }
         }
         CFRelease(watched->tokens);
     }    
@@ -632,6 +633,13 @@ static int watch_path(char *path, mach_port_t port, struct watchedVol* watched)
     if (notify_set_state(token, state))  goto finish;
     if (notify_monitor_file(token, path, /* flags; 0 means "all" */ 0)) goto finish;
 
+#if 0
+    OSKextLogCFString(NULL,
+                      kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                      CFSTR("%s - watching '%s' "),
+                      __func__, path);
+#endif
+
     CFArrayAppendValue(watched->tokens, (void*)(intptr_t)token);
 
     rval = 0;
@@ -734,7 +742,13 @@ watch_kernels(
             CFStringHasPrefix(tempCFString, CFSTR("kernel.")) == false) {
             continue;
         }
-        
+
+        // skip "dSYM" suffix - 18098771
+        if (CFStringHasSuffix(tempCFString,
+                              CFSTR("dSYM"))) {
+            continue;
+        }
+
         // skip any kernels with more than 1 '.' character.
         // For example: kernel.foo.bar is not a valid kernel name
         SAFE_RELEASE_NULL(resultArray);
@@ -860,7 +874,6 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
         WATCH(watched, path, bufptr, fsPort);
         bufptr += (strlen(bufptr) + 1);
     }
-
     
     // newer systems kernelpath is /System/Library/Kernels/kernel
     // older systems kernelpath is /mach_kernel
@@ -869,7 +882,7 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
     // look for other kernels and watch them too.
     if (caches->kernelsCount > 0) {
         watch_kernels(watched, caches->kernelpath, fsPort);
-        
+     
         // watch any other kernelcache files (kernelcache.SUFFIX)
         if (watched->caches->extraKernelCachePaths) {
             for (i = 0; i < watched->caches->nekcp; i++) {
@@ -1241,7 +1254,7 @@ static Boolean check_vol_busy(struct watchedVol *watched)
     } else {
         // over limits; log an error
         OSKextLog(/* kext */ NULL, kOSKextLogWarningLevel | kOSKextLogIPCFlag,
-            "%s: giving up; kextcache hit max %s", watched->caches->root,
+            "%s: giving up; volume has hit max %s", watched->caches->root,
             watched->updterrs >= kMaxUpdateFailures ? "failures" : "update attempts");
     }
 
@@ -1419,6 +1432,7 @@ void check_now(CFRunLoopTimerRef timer, void *info)
             "%p's timer fired when it should have been Invalid", watched);
     }
 }
+#include "security.h"
 
 /******************************************************************************
  * check_rebuild uses needUpdates() to stat everything -> rebuilds as necessary
@@ -1433,7 +1447,7 @@ void check_now(CFRunLoopTimerRef timer, void *info)
  *****************************************************************************/
 static Boolean check_rebuild(struct watchedVol *watched)
 {
-    Boolean launched = false;
+    Boolean launched            = false;
     Boolean wantRebuild         = false;
 #if DEV_KERNEL_SUPPORT
     char *  suffixPtr           = NULL; // must free
@@ -1449,8 +1463,8 @@ static Boolean check_rebuild(struct watchedVol *watched)
     // make sure this volume isn't out of control with updates
     if (watched->updtattempts > kMaxUpdateAttempts) {
         OSKextLog(/* kext */ NULL, kOSKextLogWarningLevel | kOSKextLogIPCFlag,
-            "%s: kextcache has had enough tries; not launching any more",
-            watched->caches->root);
+            "%s has failed to update %d times, not trying again",
+            watched->caches->root, watched->updtattempts);
         goto finish;
     }
 
@@ -1459,8 +1473,15 @@ static Boolean check_rebuild(struct watchedVol *watched)
     if (check_kext_boot_cache_file(watched->caches,
                                    watched->caches->kext_boot_cache_file->rpath,
                                    watched->caches->kernelpath)) {
-        wantRebuild = true;
-        goto dorebuild;
+        if (isPrelinkedKernelAutoRebuildDisabled()) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogGeneralFlag | kOSKextLogBasicLevel,
+                      "Skipping prelinked kernel auto rebuild; kext-dev-mode setting.");
+        }
+        else {
+            wantRebuild = true;
+            goto dorebuild;
+        }
     }
 
 #if DEV_KERNEL_SUPPORT
@@ -1487,13 +1508,19 @@ static Boolean check_rebuild(struct watchedVol *watched)
             if (check_kext_boot_cache_file(watched->caches,
                                            cp->rpath,
                                            tmpKernelPath)) {
-                wantRebuild = true;
-                goto dorebuild;
+                if (isPrelinkedKernelAutoRebuildDisabled()) {
+                    OSKextLog(/* kext */ NULL,
+                              kOSKextLogGeneralFlag | kOSKextLogBasicLevel,
+                              "Skipping prelinked kernel auto rebuild; kext-dev-mode setting.");
+                }
+                else {
+                    wantRebuild = true;
+                    goto dorebuild;
+                }
             }
         }
     }
 #endif
-
     
     // updates isBootRoot and modifies NVRAM if needed
     check_boots_set_nvram(watched);
@@ -1893,11 +1920,12 @@ kern_return_t _kextmanager_unlock_volume(mach_port_t p, mach_port_t client,
     // update error accounting
     if (exitstatus == EX_OK) {
         logMTMessage(kMTUpdatedCaches, "success",
+                     /* could be a helper, but this string is reported */
                      "kextcache updated kernel boot caches");
         if (watched->updterrs > 0) {
             // previous error logs -> put a reassuring message in the log
             OSKextLog(NULL, kOSKextLogDebugLevel | kOSKextLogCacheFlag,
-                "kextcache (%d) succeeded with '%s'.",
+                "helper (%d) successfully updated %s",
                 client, watched->caches->root);
             watched->updterrs = 0;
             watched->updtattempts = 0;
@@ -1906,7 +1934,7 @@ kern_return_t _kextmanager_unlock_volume(mach_port_t p, mach_port_t client,
         // not okay
         watched->updterrs++;
         OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogCacheFlag,
-            "kextcache error while updating %s (error count: %d)",
+            "helper error while updating %s (error count: %d)",
             watched->caches->root, watched->updterrs);
     }
 

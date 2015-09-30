@@ -31,7 +31,7 @@ namespace WebCore {
     
 using namespace SVGNames;
 
-RenderSVGGradientStop::RenderSVGGradientStop(SVGStopElement& element, PassRef<RenderStyle> style)
+RenderSVGGradientStop::RenderSVGGradientStop(SVGStopElement& element, Ref<RenderStyle>&& style)
     : RenderElement(element, WTF::move(style), 0)
 {
 }
@@ -52,11 +52,11 @@ void RenderSVGGradientStop::styleDidChange(StyleDifference diff, const RenderSty
     if (!gradient)
         return;
 
-    RenderObject* renderer = gradient->renderer();
+    RenderElement* renderer = gradient->renderer();
     if (!renderer)
         return;
 
-    toRenderSVGResourceContainer(*renderer).removeAllClientsFromCache();
+    downcast<RenderSVGResourceContainer>(*renderer).removeAllClientsFromCache();
 }
 
 void RenderSVGGradientStop::layout()
@@ -67,8 +67,8 @@ void RenderSVGGradientStop::layout()
 
 SVGGradientElement* RenderSVGGradientStop::gradientElement()
 {
-    if (element().parentElement() && isSVGGradientElement(*element().parentElement()))
-        return &toSVGGradientElement(*element().parentElement());
+    if (is<SVGGradientElement>(element().parentElement()))
+        return downcast<SVGGradientElement>(element().parentElement());
     return nullptr;
 }
 

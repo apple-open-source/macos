@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #include <sys/errno.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+#include <mach/vm_param.h>
 #include <bsm/libbsm.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -71,6 +72,8 @@
 #define ASL_ENTITLEMENT_KEY "com.apple.asl.access_as_root"
 #define ASL_ENTITLEMENT_UID_KEY "com.apple.asl.access_as_uid"
 #define ASL_ENTITLEMENT_GID_KEY "com.apple.asl.access_as_gid"
+
+#define PAGE_ROUND_UP(x) ((((x)+PAGE_SIZE-1)/PAGE_SIZE)*PAGE_SIZE)
 
 static dispatch_queue_t asl_server_queue;
 static dispatch_queue_t watch_queue;
@@ -143,7 +146,7 @@ db_asl_open(uint32_t dbtype)
 		else
 		{
 			if (global.db_file_max != 0) asl_store_max_file_size(global.file_db, global.db_file_max);
-			trigger_aslmanager();
+			asl_trigger_aslmanager();
 		}
 	}
 
@@ -916,14 +919,26 @@ syslogd_state_query(asl_msg_t *q, asl_msg_list_t **res, uid_t uid)
 
 	if (all || (0 == asl_msg_lookup(q, "utmp_ttl", NULL, NULL)))
 	{
-		snprintf(val, sizeof(val), "%lu", global.utmp_ttl);
+		snprintf(val, sizeof(val), "%llu", (unsigned long long) global.utmp_ttl);
 		asl_msg_set_key_val(m, "utmp_ttl", val);
 	}
 
-	if (all || (0 == asl_msg_lookup(q, "max_work_queue_size", NULL, NULL)))
+	if (all || (0 == asl_msg_lookup(q, "memory_size", NULL, NULL)))
 	{
-		snprintf(val, sizeof(val), "%lld", global.max_work_queue_size);
-		asl_msg_set_key_val(m, "max_work_queue_size", val);
+		snprintf(val, sizeof(val), "%lld", global.memory_size);
+		asl_msg_set_key_val(m, "memory_size", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "memory_max", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%lld", global.memory_max);
+		asl_msg_set_key_val(m, "memory_max", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "stats_interval", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%lld", (long long) global.stats_interval);
+		asl_msg_set_key_val(m, "stats_interval", val);
 	}
 
 	if (all || (0 == asl_msg_lookup(q, "work_queue_count", NULL, NULL)))
@@ -1010,22 +1025,132 @@ syslogd_state_query(asl_msg_t *q, asl_msg_list_t **res, uid_t uid)
 	return ASL_STATUS_OK;
 }
 
+static kern_return_t
+_server_message_processing(asl_request_msg *request)
+{
+	const uint32_t sbits = MACH_SEND_MSG | MACH_SEND_TIMEOUT;;
+	kern_return_t ks;
+	asl_reply_msg *reply = calloc(1, sizeof(asl_reply_msg) + MAX_TRAILER_SIZE);
+	
+	voucher_mach_msg_state_t voucher = voucher_mach_msg_adopt(&(request->head));
+	
+	/* MIG server routine */
+	asl_ipc_server(&(request->head), &(reply->head));
+	
+	if (!(reply->head.msgh_bits & MACH_MSGH_BITS_COMPLEX))
+	{
+		if (reply->reply.Reply__asl_server_message.RetCode == MIG_NO_REPLY)
+		{
+			reply->head.msgh_remote_port = MACH_PORT_NULL;
+		}
+		else if ((reply->reply.Reply__asl_server_message.RetCode != KERN_SUCCESS) && (request->head.msgh_bits & MACH_MSGH_BITS_COMPLEX))
+		{
+			/* destroy the request - but not the reply port */
+			request->head.msgh_remote_port = MACH_PORT_NULL;
+			mach_msg_destroy(&(request->head));
+		}
+	}
+	
+	if (reply->head.msgh_remote_port != MACH_PORT_NULL)
+	{
+		ks = mach_msg(&(reply->head), sbits, reply->head.msgh_size, 0, MACH_PORT_NULL, 10, MACH_PORT_NULL);
+		if ((ks == MACH_SEND_INVALID_DEST) || (ks == MACH_SEND_TIMED_OUT))
+		{
+			/* clean up */
+			mach_msg_destroy(&(reply->head));
+		}
+		else if (ks == MACH_SEND_INVALID_HEADER)
+		{
+			/*
+			 * This should never happen, but we can continue running.
+			 */
+			char str[256];
+			asldebug("ERROR: mach_msg() send failed with MACH_SEND_INVALID_HEADER 0x%08x\n", ks);
+			snprintf(str, sizeof(str), "[Sender syslogd] [Level 3] [PID %u] [Facility syslog] [Message mach_msg() send failed with status 0x%08x (MACH_SEND_INVALID_HEADER)]", global.pid, ks);
+			internal_log_message(str);
+			mach_msg_destroy(&(reply->head));
+		}
+		else if (ks == MACH_SEND_NO_BUFFER)
+		{
+			/*
+			 * This should never happen, but the kernel can run out of memory.
+			 * We clean up and continue running.
+			 */
+			char str[256];
+			asldebug("ERROR: mach_msg() send failed with MACH_SEND_NO_BUFFER 0x%08x\n", ks);
+			snprintf(str, sizeof(str), "[Sender syslogd] [Level 3] [PID %u] [Facility syslog] [Message mach_msg() send failed with status 0x%08x (MACH_SEND_NO_BUFFER)]", global.pid, ks);
+			internal_log_message(str);
+			mach_msg_destroy(&(reply->head));
+		}
+		else if (ks != KERN_SUCCESS)
+		{
+			/*
+			 * Failed to send a reply message.  This should never happen,
+			 * but the best action is to crash.
+			 */
+			char str[256];
+			asldebug("FATAL ERROR: mach_msg() send failed with status 0x%08x\n", ks);
+			snprintf(str, sizeof(str), "[Sender syslogd] [Level 1] [PID %u] [Facility syslog] [Message FATAL ERROR: mach_msg() send failed with status 0x%08x]", global.pid, ks);
+			internal_log_message(str);
+			sleep(1);
+			abort();
+		}
+	}
+	else if (reply->head.msgh_bits & MACH_MSGH_BITS_COMPLEX)
+	{
+		mach_msg_destroy(&reply->head);
+	}
+	
+	voucher_mach_msg_revert(voucher);
+	free(request);
+	free(reply);
+}
+
 /*
  * Receives messages on the "com.apple.system.logger" mach port.
  * Services database search requests.
  * Runs in it's own thread.
+ *
+ * The logic in this routine got a bit more complex due to (1) increased logging load and (2) 16K page size.
+ * Out-of-line (OOL) memory sent to syslogd from libasl is allocated in pages, so the minimum size of a 
+ * message is one page.  Since this routine can get slammed with messages at a very high rate, and since
+ * the message queue in the kernel is only 5 messages, it is critical that this routine service the port
+ * as fast as possible.  To that end, it needs to do as little processing as possible.
+ * In the version of this code found up to syslog-312, this routine received messages and dispatched them
+ * on the asl_server_queue for further processing.  When pages were only 4K, this was not a problem.  With
+ * 16K pages, it only takes about 650 messages to run syslogd's dirty memoory size up to the point of its
+ * jetsam limit.  Code was added here to track the memory being used in this queue + the work queue that's
+ * used by process_message(), such that messages will get dropped if the queues reach a memory limit.
+ * The actual message data in the VM pages is typically only a few hundred bytes, so holding VM pages in
+ * the queue was a waste, and seriously limited the number of queued messages.
+ *
+ * The solution implemented here is a bit of a hack.  It peeks at the received message header to determine
+ * which MIG routine is being called.  If the call is for _asl_server_message, it calls asl_ipc_server()
+ * on the server thread.  This routes the call through the MIG server code for error checking and so on,
+ * and invokes _asl_server_message() on this thread.  _asl_server_message() has been modified to copy
+ * the message data into malloced memory, vm_deallocate the OOL memory, and then it dispatches the real
+ * work onto the asl_server_queue.
  */
 void
 database_server()
 {
 	asl_request_msg *request;
-	uint32_t rqs;
+	uint32_t rqs, asl_server_message_num = 0;
+	size_t i;
 	struct timeval now, send_time;
 	mach_dead_name_notification_t *deadname;
 	const uint32_t rbits = MACH_RCV_MSG | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) | MACH_RCV_VOUCHER;
-
 	send_time.tv_sec = 0;
 	send_time.tv_usec = 0;
+	struct mig_map_s {
+		const char *routine;
+		int num;
+	} migmap[] = { subsystem_to_name_map_asl_ipc };
+
+	for (i = 0; (i < (sizeof(migmap) / sizeof(struct mig_map_s))) && (asl_server_message_num == 0); i++)
+	{
+		if (!strcmp(migmap[i].routine, "_asl_server_message")) asl_server_message_num = migmap[i].num;
+	}
 
 	rqs = sizeof(asl_request_msg) + MAX_TRAILER_SIZE;
 
@@ -1071,84 +1196,15 @@ database_server()
 			continue;
 		}
 
-		dispatch_async(asl_server_queue, ^{
-			const uint32_t sbits = MACH_SEND_MSG | MACH_SEND_TIMEOUT;;
-			kern_return_t ks;
-			asl_reply_msg *reply = calloc(1, sizeof(asl_reply_msg) + MAX_TRAILER_SIZE);
-
-			voucher_mach_msg_state_t voucher = voucher_mach_msg_adopt(&(request->head));
-
-			/* MIG server routine */
-			asl_ipc_server(&(request->head), &(reply->head));
-
-			if (!(reply->head.msgh_bits & MACH_MSGH_BITS_COMPLEX))
-			{
-				if (reply->reply.Reply__asl_server_message.RetCode == MIG_NO_REPLY)
-				{
-					reply->head.msgh_remote_port = MACH_PORT_NULL;
-				}
-				else if ((reply->reply.Reply__asl_server_message.RetCode != KERN_SUCCESS) && (request->head.msgh_bits & MACH_MSGH_BITS_COMPLEX))
-				{
-					/* destroy the request - but not the reply port */
-					request->head.msgh_remote_port = MACH_PORT_NULL;
-					mach_msg_destroy(&(request->head));
-				}
-			}
-
-			if (reply->head.msgh_remote_port != MACH_PORT_NULL)
-			{
-				ks = mach_msg(&(reply->head), sbits, reply->head.msgh_size, 0, MACH_PORT_NULL, 10, MACH_PORT_NULL);
-				if ((ks == MACH_SEND_INVALID_DEST) || (ks == MACH_SEND_TIMED_OUT))
-				{
-					/* clean up */
-					mach_msg_destroy(&(reply->head));
-				}
-				else if (ks == MACH_SEND_INVALID_HEADER)
-				{
-					/*
-					 * This should never happen, but we can continue running.
-					 */
-					char str[256];
-					asldebug("ERROR: mach_msg() send failed with MACH_SEND_INVALID_HEADER 0x%08x\n", ks);
-					snprintf(str, sizeof(str), "[Sender syslogd] [Level 3] [PID %u] [Facility syslog] [Message mach_msg() send failed with status 0x%08x (MACH_SEND_INVALID_HEADER)]", global.pid, ks);
-					internal_log_message(str);
-					mach_msg_destroy(&(reply->head));
-				}
-				else if (ks == MACH_SEND_NO_BUFFER)
-				{
-					/*
-					 * This should never happen, but the kernel can run out of memory.
-					 * We clean up and continue running.
-					 */
-					char str[256];
-					asldebug("ERROR: mach_msg() send failed with MACH_SEND_NO_BUFFER 0x%08x\n", ks);
-					snprintf(str, sizeof(str), "[Sender syslogd] [Level 3] [PID %u] [Facility syslog] [Message mach_msg() send failed with status 0x%08x (MACH_SEND_NO_BUFFER)]", global.pid, ks);
-					internal_log_message(str);
-					mach_msg_destroy(&(reply->head));
-				}
-				else if (ks != KERN_SUCCESS)
-				{
-					/*
-					 * Failed to send a reply message.  This should never happen,
-					 * but the best action is to crash.
-					 */
-					char str[256];
-					asldebug("FATAL ERROR: mach_msg() send failed with status 0x%08x\n", ks);
-					snprintf(str, sizeof(str), "[Sender syslogd] [Level 1] [PID %u] [Facility syslog] [Message FATAL ERROR: mach_msg() send failed with status 0x%08x]", global.pid, ks);
-					internal_log_message(str);
-					sleep(1);
-					abort();
-				}
-			}
-			else if (reply->head.msgh_bits & MACH_MSGH_BITS_COMPLEX)
-			{
-				mach_msg_destroy(&reply->head);
-			}
-
-			voucher_mach_msg_revert(voucher);
-			free(request);
-			free(reply);
-		});
+		int64_t msize = 0;
+		if (request->head.msgh_id == asl_server_message_num)
+		{
+			_server_message_processing(request);
+		}
+		else
+		{
+			dispatch_async(asl_server_queue, ^{ _server_message_processing(request); });
+		}
 	}
 }
 
@@ -1288,7 +1344,7 @@ __asl_server_query_internal
 
 	if ((out == NULL) || (outlen == 0)) return KERN_SUCCESS;
 
-	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmbuffer, outlen, TRUE);
+	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmbuffer, outlen, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_ASL));
 	if (kstatus != KERN_SUCCESS)
 	{
 		free(out);
@@ -1420,6 +1476,54 @@ __asl_server_prune
 	return KERN_SUCCESS;
 }
 
+/*
+ * Does the actual processing for __asl_server_message.
+ * Dispatched on asl_server_queue.  This lets us avoid 
+ * calling asl_msg_from_string(), task_name_for_pid(),
+ * and register_session() on the database_server() thread.
+ */
+static void
+_asl_message_processing(char *mbuf, uint64_t msize, uid_t uid, gid_t gid, pid_t pid)
+{
+	asl_msg_t *msg;
+	char tmp[64];
+	kern_return_t kstatus;
+	mach_port_name_t client;
+	
+	msg = asl_msg_from_string(mbuf);
+	free(mbuf);
+
+	/*
+	 * process_message() will update global.memory_size with the 
+	 * size of msg, and it increements the work_queue_count.
+	 */
+	OSAtomicAdd64(-1ll * msize, &global.memory_size);
+	OSAtomicDecrement32(&global.work_queue_count);
+
+	if (msg == NULL) return;
+
+	client = MACH_PORT_NULL;
+	kstatus = task_name_for_pid(mach_task_self(), pid, &client);
+	if (kstatus == KERN_SUCCESS) register_session(client, pid);
+
+	snprintf(tmp, sizeof(tmp), "%d", uid);
+	asl_msg_set_key_val(msg, ASL_KEY_UID, tmp);
+	
+	snprintf(tmp, sizeof(tmp), "%d", gid);
+	asl_msg_set_key_val(msg, ASL_KEY_GID, tmp);
+	
+	snprintf(tmp, sizeof(tmp), "%d", pid);
+	asl_msg_set_key_val(msg, ASL_KEY_PID, tmp);
+	
+	process_message(msg, SOURCE_ASL_MESSAGE);
+}
+
+/*
+ * This MIG server routine is something of a special case in database_server() above.
+ * It is called on the server thread that's responsible for servicing syslogd's mach port.
+ * In this routine we copy the actual ASL message raw string out of the message into
+ * malloc memory, deallocate the message, and dispatch the real work onto the asl_server_queue.
+ */
 kern_return_t
 __asl_server_message
 (
@@ -1429,18 +1533,12 @@ __asl_server_message
 	audit_token_t token
 )
 {
-	asl_msg_t *msg;
-	char tmp[64];
 	uid_t uid;
 	gid_t gid;
 	pid_t pid;
-	kern_return_t kstatus;
-	mach_port_name_t client;
+	char *mbuf;
 
-	if (message == NULL)
-	{
-		return KERN_SUCCESS;
-	}
+	if (message == NULL) return KERN_SUCCESS;
 
 	if (message[messageCnt - 1] != '\0')
 	{
@@ -1448,32 +1546,34 @@ __asl_server_message
 		return KERN_SUCCESS;
 	}
 
-	asldebug("__asl_server_message: %s\n", (message == NULL) ? "NULL" : message);
+	asldebug("__asl_server_message: %s\n", message);
 
-	msg = asl_msg_from_string(message);
+	if ((global.memory_size + messageCnt) > global.memory_max)
+	{
+		char str[256];
+		asldebug("Server queue dropped message.  message size %u  queue size %lld  max %lld\n", messageCnt, global.memory_size, global.memory_max);
+		snprintf(str, sizeof(str), "[Sender syslogd] [Level 2] [PID %u] [Message Received message size %u overflows work queue (size %lld limit %lld) - dropping message] [UID 0] [UID 0] [Facility syslog]", global.pid, messageCnt, global.memory_size, global.memory_max);
+		internal_log_message(str);
+		
+		vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
+		return KERN_SUCCESS;
+	}
+
+	mbuf = malloc(messageCnt);
+	if (mbuf != NULL) memcpy(mbuf, message, messageCnt);
 	vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
 
-	if (msg == NULL) return KERN_SUCCESS;
+	if (mbuf == NULL) return KERN_SUCCESS;
 
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
 	pid = (pid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
 
-	client = MACH_PORT_NULL;
-	kstatus = task_name_for_pid(mach_task_self(), pid, &client);
-	if (kstatus == KERN_SUCCESS) register_session(client, pid);
+	OSAtomicIncrement32(&global.work_queue_count);
+	OSAtomicAdd64(messageCnt, &(global.memory_size));
 
-	snprintf(tmp, sizeof(tmp), "%d", uid);
-	asl_msg_set_key_val(msg, ASL_KEY_UID, tmp);
-
-	snprintf(tmp, sizeof(tmp), "%d", gid);
-	asl_msg_set_key_val(msg, ASL_KEY_GID, tmp);
-
-	snprintf(tmp, sizeof(tmp), "%d", pid);
-	asl_msg_set_key_val(msg, ASL_KEY_PID, tmp);
-
-	process_message(msg, SOURCE_ASL_MESSAGE);
+	dispatch_async(asl_server_queue, ^{ _asl_message_processing(mbuf, messageCnt, uid, gid, pid); });
 
 	return KERN_SUCCESS;
 }
@@ -1574,7 +1674,7 @@ __asl_server_create_aux_link
 
 	*newurlCnt = strlen(url) + 1;
 
-	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmbuffer, *newurlCnt, TRUE);
+	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmbuffer, *newurlCnt, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_ASL));
 	if (kstatus != KERN_SUCCESS)
 	{
 		free(url);

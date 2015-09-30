@@ -57,14 +57,14 @@
  */
 #define ZDEF_KEY_LABEL		"testCert"
 #define ZDEF_KEY_ALG		CSSM_ALGID_RSA
-#define ZDEF_KEY_SIZE		512
+#define ZDEF_KEY_SIZE		2048
 #define ZDEF_KEY_USAGE		(kKeyUseSigning | kKeyUseEncrypting)
 #define ZDEF_SIG_ALG		CSSM_ALGID_SHA256WithRSA
 #define ZDEF_SIG_OID		CSSMOID_SHA256WithRSA
 #define ZDEF_COMMON_NAME	"localhost"
-#define ZDEF_ORG_NAME		"Apple Computer - DEBUG ONLY"
+#define ZDEF_ORG_NAME		"Apple Inc. - DEBUG ONLY"
 #define ZDEF_COUNTRY		"US"
-#define ZDEF_STATE			"Washington"
+#define ZDEF_STATE		"California"
 #define ZDEF_CHALLENGE		"someChallenge"
 
 /* 

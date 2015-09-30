@@ -25,7 +25,7 @@
 #include "config.h"
 #include "LineBreaker.h"
 
-#include "BreakingContextInlineHeaders.h"
+#include "BreakingContext.h"
 #include "RenderCombineText.h"
 
 namespace WebCore {
@@ -48,9 +48,9 @@ void LineBreaker::skipTrailingWhitespace(InlineIterator& iterator, const LineInf
     while (!iterator.atEnd() && !requiresLineBox(iterator, lineInfo, TrailingWhitespace)) {
         RenderObject& object = *iterator.renderer();
         if (object.isOutOfFlowPositioned())
-            setStaticPositions(m_block, toRenderBox(object));
+            setStaticPositions(m_block, downcast<RenderBox>(object));
         else if (object.isFloating())
-            m_block.insertFloatingObject(toRenderBox(object));
+            m_block.insertFloatingObject(downcast<RenderBox>(object));
         iterator.increment();
     }
 }
@@ -60,16 +60,16 @@ void LineBreaker::skipLeadingWhitespace(InlineBidiResolver& resolver, LineInfo& 
     while (!resolver.position().atEnd() && !requiresLineBox(resolver.position(), lineInfo, LeadingWhitespace)) {
         RenderObject& object = *resolver.position().renderer();
         if (object.isOutOfFlowPositioned()) {
-            setStaticPositions(m_block, toRenderBox(object));
+            setStaticPositions(m_block, downcast<RenderBox>(object));
             if (object.style().isOriginalDisplayInlineType()) {
                 resolver.runs().addRun(new BidiRun(0, 1, object, resolver.context(), resolver.dir()));
                 lineInfo.incrementRunsFromLeadingWhitespace();
             }
         } else if (object.isFloating())
-            m_block.positionNewFloatOnLine(m_block.insertFloatingObject(toRenderBox(object)), lastFloatFromPreviousLine, lineInfo, width);
-        else if (object.style().hasTextCombine() && object.isCombineText()) {
-            toRenderCombineText(object).combineText();
-            if (toRenderCombineText(object).isCombined())
+            m_block.positionNewFloatOnLine(m_block.insertFloatingObject(downcast<RenderBox>(object)), lastFloatFromPreviousLine, lineInfo, width);
+        else if (object.style().hasTextCombine() && is<RenderCombineText>(object)) {
+            downcast<RenderCombineText>(object).combineText();
+            if (downcast<RenderCombineText>(object).isCombined())
                 continue;
         }
         resolver.increment();
@@ -78,11 +78,6 @@ void LineBreaker::skipLeadingWhitespace(InlineBidiResolver& resolver, LineInfo& 
 }
 
 InlineIterator LineBreaker::nextLineBreak(InlineBidiResolver& resolver, LineInfo& lineInfo, RenderTextInfo& renderTextInfo, FloatingObject* lastFloatFromPreviousLine, unsigned consecutiveHyphenatedLines, WordMeasurements& wordMeasurements)
-{
-    return nextSegmentBreak(resolver, lineInfo, renderTextInfo, lastFloatFromPreviousLine, consecutiveHyphenatedLines, wordMeasurements);
-}
-
-InlineIterator LineBreaker::nextSegmentBreak(InlineBidiResolver& resolver, LineInfo& lineInfo, RenderTextInfo& renderTextInfo, FloatingObject* lastFloatFromPreviousLine, unsigned consecutiveHyphenatedLines, WordMeasurements& wordMeasurements)
 {
     reset();
 
@@ -113,11 +108,11 @@ InlineIterator LineBreaker::nextSegmentBreak(InlineBidiResolver& resolver, LineI
             context.handleReplaced();
         } else if (context.currentObject()->isText()) {
             if (context.handleText(wordMeasurements, m_hyphenated, consecutiveHyphenatedLines)) {
-                // We've hit a hard text line break. Our line break iterator is updated, so go ahead and early return.
+                // We've hit a hard text line break. Our line break iterator is updated, so early return.
                 return context.lineBreak();
             }
         } else if (context.currentObject()->isLineBreakOpportunity())
-            context.commitLineBreakAtCurrentWidth(context.currentObject());
+            context.commitLineBreakAtCurrentWidth(*context.currentObject());
         else
             ASSERT_NOT_REACHED();
 

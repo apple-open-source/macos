@@ -1,7 +1,4 @@
 #include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
-#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig"
-
-INSTALL_PATH[sdk=macosx*] = $(INSTALL_PATH_ACTUAL)
 
 ALWAYS_SEARCH_USER_PATHS = YES
 HEADER_SEARCH_PATHS = $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(PROJECT_DIR)
@@ -27,3 +24,5 @@ VERSIONING_SYSTEM = apple-generic
 PREBINDING = NO
 NOTIFY_CONFIG = notify.conf.MacOSX
 NOTIFY_CONFIG[sdk=iphoneos*] = notify.conf.iPhone
+NOTIFY_CONFIG[sdk=tvos*] = notify.conf.iPhone
+NOTIFY_CONFIG[sdk=*simulator*] = notify.conf.iOSSimulator

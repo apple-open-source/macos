@@ -155,12 +155,10 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     return sLastFlip = !sLastFlip;
 }
 
-+ (BOOL)processNewMatch:(GKTurnBasedMatch *)match variant:(MBCVariant)variant side:(MBCSideCode)side
-    document:(MBCDocument *)doc
++ (BOOL)processNewMatch:(GKTurnBasedMatch *)match variant:(MBCVariant)variant side:(MBCSideCode)side document:(MBCDocument *)doc
 {
     NSPropertyListFormat    format;
-    NSDictionary *          gameData        = !match.matchData ? nil :
-        [NSPropertyListSerialization propertyListWithData:match.matchData options:0 format:&format error:nil];
+    NSMutableDictionary *   gameData        = !match.matchData ? nil : [NSPropertyListSerialization propertyListWithData:match.matchData options:0 format:&format error:nil];
     MBCController *         controller      = (MBCController *)[NSApp delegate];
     NSString *              localPlayerID   = controller.localPlayer.playerID;
     if (!gameData) { 
@@ -179,7 +177,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
             playerIDKey = [self coinFlip] ? @"WhitePlayerID" : @"BlackPlayerID";
             break;
         }
-        gameData = [NSDictionary dictionaryWithObjectsAndKeys:
+        gameData = [NSMutableDictionary dictionaryWithObjectsAndKeys:
                     localPlayerID, playerIDKey,
                     gVariantName[variant], @"Variant",
                     kMBCHumanPlayer, @"WhiteType", kMBCHumanPlayer, @"BlackType",
@@ -219,25 +217,23 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
                              completionHandler:^(NSError *error) {}];
             
         }
-    } else if (![localPlayerID isEqual:[gameData objectForKey:@"WhitePlayerID"]]
-           &&  ![localPlayerID isEqual:[gameData objectForKey:@"BlackPlayerID"]]
-    ) {
+    } else if (![localPlayerID isEqual:[gameData objectForKey:@"WhitePlayerID"]] && ![localPlayerID isEqual:[gameData objectForKey:@"BlackPlayerID"]]) {
         //
         // We're the second participant, pick the side that hasn't been picked yet
         //
-        BOOL       playingWhite = ![gameData objectForKey:@"WhitePlayerID"];
-        NSMutableDictionary * newGameData = [gameData mutableCopy];
-        [newGameData removeObjectForKey:@"PeerID"]; // Legacy key
-        [newGameData setObject:localPlayerID forKey:(playingWhite ? @"WhitePlayerID" : @"BlackPlayerID")];
-        gameData = newGameData;
-    } 
+        BOOL playingWhite = ![gameData objectForKey:@"WhitePlayerID"];
+        
+        // gameData here is not nil, which means we should be in a game already. We need to pick a side to this game.
+        [gameData removeObjectForKey:@"PeerID"];
+        [gameData setObject:localPlayerID forKey:(playingWhite ? @"WhitePlayerID" : @"BlackPlayerID")];
+    }
+    
     BOOL createDoc = !doc;
-    if (createDoc)
-        doc = [[MBCDocument alloc] init];
-    [doc initWithMatch:match game:gameData];
+    
     if (createDoc) {
+        doc = [[MBCDocument alloc] initWithMatch:match game:gameData];
         [doc makeWindowControllers];
-        [doc showWindows]; 
+        [doc showWindows];
         [doc autorelease];
     }
     
@@ -269,7 +265,6 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 
 - (void)dealloc
 {
-    [properties release];
     [super dealloc];
 }
 
@@ -377,7 +372,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 
 - (void)postMatchOutcomeNotification
 {
-    MBCMoveCode cmd;
+    MBCMoveCode cmd = kCmdNull;
     NSString *  localPlayerID = [(MBCController *)[NSApp delegate] localPlayer].playerID;
     for (GKTurnBasedParticipant * p in match.participants)
         if ([p.player.playerID isEqual:localPlayerID]) {
@@ -654,17 +649,17 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 		// lowercase, as in Ludwig van Beethoven
 		//
 		last = nb2;
-		*ne3 = 0;
+		ne3 = 0;
 	} else if (ne2) {
 		//
 		// Name has at least two words. If 3 or more, last but one is 
 		// uppercase as in John Wayne Miller
 		//
 		last = nb1;
-		*ne2 = 0;
+		ne2 = 0;
 	} else {		// Name is single word
 		last = ne1;
-		*ne1 = 0;
+		ne1 = 0;
 	}
 	*firstName	= [NSString stringWithUTF8String:first];
 	*lastName	= [NSString stringWithUTF8String:last];
@@ -804,7 +799,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     //
     NSArray * windowControllers = [self windowControllers];
     if ([windowControllers count])
-        [[windowControllers objectAtIndex:0] achievementViewControllerDidFinish:nil];
+        [[windowControllers objectAtIndex:0] gameCenterViewControllerDidFinish:[windowControllers objectAtIndex:0]];
     [super performActivityWithSynchronousWaiting:waitSynchronously usingBlock:block];
 }
 
@@ -824,7 +819,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     MBCSide     humanSide   = gHumanSide[players];
     NSString *  whiteType   = SideIncludesWhite(humanSide) ? kMBCHumanPlayer : kMBCEnginePlayer;
     NSString *  blackType   = SideIncludesBlack(humanSide) ? kMBCHumanPlayer : kMBCEnginePlayer;
-	NSMutableDictionary * dict = [properties mutableCopy];
+	NSMutableDictionary * dict = [[properties mutableCopy] autorelease];
     [dict addEntriesFromDictionary:
      [NSDictionary dictionaryWithObjectsAndKeys:
       gVariantName[variant], @"Variant",
@@ -835,7 +830,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
       [board moves], @"Moves",
       nil]];
     
-	return [dict autorelease];
+	return dict;
 }
 
 - (NSData *)dataRepresentationOfType:(NSString *)aType
@@ -956,7 +951,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 - (void) resign
 {
     NSString *  localPlayerID = [(MBCController *)[NSApp delegate] localPlayer].playerID;
-    BOOL        wasOurTurn;
+    BOOL        wasOurTurn = NO;
     for (GKTurnBasedParticipant * p in match.participants) 
         if ([p.player.playerID isEqual:localPlayerID]) {
             [p setMatchOutcome:GKTurnBasedMatchOutcomeLost];

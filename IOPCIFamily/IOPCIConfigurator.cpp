@@ -1322,6 +1322,7 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
             copyReg = child->dtEntry;
 #endif /* !ACPI_SUPPORT */
 
+            if (child->dtEntry && (child->dtEntry != nub)) nub->setProperty(kIOPCIDeviceDeviceTreeEntryKey, child->dtEntry);
             if (!initDT)
             {
                 if (copyReg)
@@ -2149,8 +2150,9 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
                     break;
 
                 case 4: /* 64-bit mem */
-                    clean64 = (kIOPCIResourceTypePrefetchMemory == type);
-                    if (clean64)
+                    clean64 = ((kIOPCIResourceTypePrefetchMemory == type) || (0 == device->space.s.busNum));
+                    if (!clean64) configWrite32(device, barOffset + 4, 0);
+                    else
                     {
                         upper = configRead32(device, barOffset + 4);
                         saved |= (upper << 32);
@@ -2775,6 +2777,80 @@ void CLASS::logAllocatorRange(IOPCIConfigEntry * device, IOPCIRange * range, cha
 }
 
 //---------------------------------------------------------------------------
+bool CLASS::treeInState(IOPCIConfigEntry * entry, uint32_t state, uint32_t mask)
+{
+	for (; entry; entry = entry->parent)
+	{
+		if (state == (mask & entry->deviceState)) break;
+	}
+    return (NULL != entry);
+}
+
+bool IOPCIRangeAppendRangeByAlignment(IOPCIRange ** list, IOPCIRange * newRange)
+{
+    IOPCIRange ** prev;
+    IOPCIRange *  range;
+
+    prev = list;
+    do
+    {
+        range = *prev;
+        if (!range)												          break;
+		if (newRange->alignment > range->alignment)  					  break;
+		else if (newRange->alignment < range->alignment)  			      continue;
+    }
+    while (prev = &range->nextToAllocate, true);
+
+    *prev = newRange;
+    newRange->nextToAllocate = range;
+    
+    return (true);
+}
+
+static uint32_t IOPCIRangeStateOrder(IOPCIRange * range)
+{
+	uint32_t order = 0;
+
+	// order 1st allocated, placed, nonresize or shrink, resize, maximise
+
+	if (range->nextSubRange) 											order |= (1 << 31);
+	if (range->start) 													order |= (1 << 30);
+	if (/*range->nextSubRange &&*/ (range->proposedSize <= range->size))    order |= (1 << 29);
+	if (!((kIOPCIRangeFlagMaximizeRoot | kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagSplay) 
+		& range->flags)) 												order |= (1 << 28);
+
+	return (order);
+}
+
+bool IOPCIRangeAppendSubRange(IOPCIRange ** list, IOPCIRange * newRange)
+{
+    IOPCIRange ** prev;
+    IOPCIRange *  range;
+	uint32_t      newOrder, oldOrder;
+
+    newOrder = IOPCIRangeStateOrder(newRange);
+    prev = list;
+    do
+    {
+        range = *prev;
+        if (!range)												          break;
+		oldOrder = IOPCIRangeStateOrder(range);
+		if (newOrder > oldOrder) 									      break;
+		else if (newOrder < oldOrder) 									  continue;
+		if (newRange->alignment > range->alignment)  					  break;
+		else if (newRange->alignment < range->alignment)  			      continue;
+		if (newRange->proposedSize >= range->proposedSize)  			  break;
+		else if (newRange->proposedSize < range->proposedSize)  	      continue;
+    }
+    while (prev = &range->nextToAllocate, true);
+
+    *prev = newRange;
+    newRange->nextToAllocate = range;
+    
+    return (true);
+}
+
+//---------------------------------------------------------------------------
 
 bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 {
@@ -2784,6 +2860,7 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
     uint32_t           type;
 	bool		       ok = true;
 
+	IOPCIRange *       ranges[kIOPCIResourceTypeCount];
     IOPCIScalar		   totalSize[kIOPCIResourceTypeCount];
     IOPCIScalar        maxAlignment[kIOPCIResourceTypeCount];
     IOPCIScalar        minAddress[kIOPCIResourceTypeCount];
@@ -2796,6 +2873,7 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
     DLOG("bridgeTotalResources(bridge "B()", iter 0x%x, state 0x%x, type 0x%x)\n", 
             BRIDGE_IDENT(bridge), bridge->iterator, bridge->deviceState, typeMask);
 
+    bzero(&ranges[0], sizeof(ranges));
     bzero(&totalSize[0], sizeof(totalSize));
     if (bridge != fRoot) totalSize[kIOPCIResourceTypeBusNumber] = 1;
 
@@ -2850,7 +2928,8 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 
             logAllocatorRange(child, childRange, '\n');
 
-			totalSize[type] += childRange->totalSize + childRange->extendSize;
+			IOPCIRangeAppendRangeByAlignment(&ranges[type], childRange);
+
             if (childRange->alignment > maxAlignment[type])
                 maxAlignment[type] = childRange->alignment;
 
@@ -2884,6 +2963,8 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
         range = bridgeGetRange(bridge, type);
         if (range) do
         {
+			totalSize[type] += IOPCIRangeListSize(ranges[type]);
+
 			if (((kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagMaximizeRoot) & range->flags)
 			 && !totalSize[type])            totalSize[type] = minBridgeAlignments[type];
             totalSize[type] = IOPCIScalarAlign(totalSize[type], minBridgeAlignments[type]);
@@ -2920,57 +3001,6 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 	return (ok);
 }
 
-bool CLASS::treeInState(IOPCIConfigEntry * entry, uint32_t state, uint32_t mask)
-{
-	for (; entry; entry = entry->parent)
-	{
-		if (state == (mask & entry->deviceState)) break;
-	}
-    return (NULL != entry);
-}
-
-static uint32_t IOPCIRangeStateOrder(IOPCIRange * range)
-{
-	uint32_t order = 0;
-
-	// order 1st allocated, placed, nonresize or shrink, resize, maximise
-
-	if (range->nextSubRange) 											order |= (1 << 31);
-	if (range->start) 													order |= (1 << 30);
-	if (/*range->nextSubRange &&*/ (range->proposedSize <= range->size))    order |= (1 << 29);
-	if (!((kIOPCIRangeFlagMaximizeRoot | kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagSplay) 
-		& range->flags)) 												order |= (1 << 28);
-
-	return (order);
-}
-
-bool IOPCIRangeAppendSubRange(IOPCIRange ** list, IOPCIRange * newRange)
-{
-    IOPCIRange ** prev;
-    IOPCIRange *  range;
-	uint32_t      newOrder, oldOrder;
-
-    newOrder = IOPCIRangeStateOrder(newRange);
-    prev = list;
-    do
-    {
-        range = *prev;
-        if (!range)												          break;
-		oldOrder = IOPCIRangeStateOrder(range);
-		if (newOrder > oldOrder) 									      break;
-		else if (newOrder < oldOrder) 									  continue;
-		if (newRange->alignment > range->alignment)  					  break;
-		else if (newRange->alignment < range->alignment)  			      continue;
-		if (newRange->proposedSize >= range->proposedSize)  			  break;
-		else if (newRange->proposedSize < range->proposedSize)  	      continue;
-    }
-    while (prev = &range->nextToAllocate, true);
-
-    *prev = newRange;
-    newRange->nextToAllocate = range;
-    
-    return (true);
-}
 
 int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 {
@@ -3667,8 +3697,6 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
 
     if (kPCIHeaderType2 == bridge->headerType)
     {
-        commandReg &= ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace |
-                   kIOPCICommandBusMaster | kIOPCICommandMemWrInvalidate);
     }
     else
     {

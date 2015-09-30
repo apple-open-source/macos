@@ -59,6 +59,7 @@
 struct _pthread_attr_t; /* forward reference */
 typedef struct _pthread_attr_t pthread_attr_t;
 
+#include <_simple.h>
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -176,7 +177,7 @@ typedef struct _pthread {
 	size_t guardsize;	// guard page size in bytes
 
 	// thread specific data
-	void *tsd[_EXTERNAL_POSIX_THREAD_KEYS_MAX + _INTERNAL_POSIX_THREAD_KEYS_MAX];
+	void *tsd[_EXTERNAL_POSIX_THREAD_KEYS_MAX + _INTERNAL_POSIX_THREAD_KEYS_MAX] __attribute__ ((aligned (16)));
 } *pthread_t;
 
 
@@ -347,12 +348,15 @@ _pthread_selfid_direct(void)
 #define _PTHREAD_NO_SIG			0x00000000
 #define _PTHREAD_MUTEX_ATTR_SIG		0x4D545841  /* 'MTXA' */
 #define _PTHREAD_MUTEX_SIG		0x4D555458  /* 'MUTX' */
+#define _PTHREAD_MUTEX_SIG_fast		0x4D55545A  /* 'MUTZ' */
+#define _PTHREAD_MUTEX_SIG_MASK		0xfffffffd
+#define _PTHREAD_MUTEX_SIG_CMP		0x4D555458  /* _PTHREAD_MUTEX_SIG & _PTHREAD_MUTEX_SIG_MASK */
 #define _PTHREAD_MUTEX_SIG_init		0x32AAABA7  /* [almost] ~'MUTX' */
 #define _PTHREAD_ERRORCHECK_MUTEX_SIG_init      0x32AAABA1
 #define _PTHREAD_RECURSIVE_MUTEX_SIG_init       0x32AAABA2
-#define _PTHREAD_FIRSTFIT_MUTEX_SIG_init       0x32AAABA3
+#define _PTHREAD_FIRSTFIT_MUTEX_SIG_init        0x32AAABA3
 #define _PTHREAD_MUTEX_SIG_init_MASK            0xfffffff0
-#define _PTHREAD_MUTEX_SIG_CMP                  0x32AAABA0
+#define _PTHREAD_MUTEX_SIG_init_CMP             0x32AAABA0
 #define _PTHREAD_COND_ATTR_SIG		0x434E4441  /* 'CNDA' */
 #define _PTHREAD_COND_SIG		0x434F4E44  /* 'COND' */
 #define _PTHREAD_COND_SIG_init		0x3CB0B1BB  /* [almost] ~'COND' */
@@ -394,6 +398,8 @@ extern boolean_t swtch_pri(int);
 #define PTHREAD_NORETURN __attribute__((__noreturn__))
 #define PTHREAD_ALWAYS_INLINE __attribute__((always_inline))
 #define PTHREAD_NOINLINE __attribute__((noinline))
+#define PTHREAD_WEAK __attribute__((weak))
+#define PTHREAD_USED __attribute__((used))
 
 #include "kern/kern_internal.h"
 
@@ -450,13 +456,17 @@ PTHREAD_NOEXPORT
 void
 _pthread_set_main_qos(pthread_priority_t qos);
 
+PTHREAD_NOEXPORT
+void
+_pthread_key_global_init(const char *envp[]);
+
 PTHREAD_EXPORT
 void
 _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * funarg, size_t stacksize, unsigned int flags);
 
 PTHREAD_EXPORT
 void
-_pthread_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *unused, int reuse);
+_pthread_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *keventlist, int flags, int nkevents);
 
 PTHREAD_NOEXPORT
 void
@@ -523,6 +533,29 @@ _pthread_globals(void)
 	return os_alloc_once(OS_ALLOC_ONCE_KEY_LIBSYSTEM_PTHREAD,
 			     sizeof(struct pthread_globals_s),
 			     NULL);
+}
+
+#pragma mark _pthread_mutex_check_signature
+
+PTHREAD_ALWAYS_INLINE
+static inline bool
+_pthread_mutex_check_signature_fast(_pthread_mutex *mutex)
+{
+	return os_fastpath(mutex->sig == _PTHREAD_MUTEX_SIG_fast);
+}
+
+PTHREAD_ALWAYS_INLINE
+static inline bool
+_pthread_mutex_check_signature(_pthread_mutex *mutex)
+{
+	return os_fastpath((mutex->sig & _PTHREAD_MUTEX_SIG_MASK) == _PTHREAD_MUTEX_SIG_CMP);
+}
+
+PTHREAD_ALWAYS_INLINE
+static inline bool
+_pthread_mutex_check_signature_init(_pthread_mutex *mutex)
+{
+	return os_fastpath((mutex->sig & _PTHREAD_MUTEX_SIG_init_MASK) == _PTHREAD_MUTEX_SIG_init_CMP);
 }
 
 #endif /* _POSIX_PTHREAD_INTERNALS_H */

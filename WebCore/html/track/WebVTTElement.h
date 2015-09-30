@@ -23,6 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef WebVTTElement_h
+#define WebVTTElement_h
+
 #if ENABLE(VIDEO_TRACK)
 
 #include "HTMLElement.h"
@@ -43,10 +46,10 @@ enum WebVTTNodeType {
 
 class WebVTTElement final : public Element {
 public:
-    static PassRefPtr<WebVTTElement> create(const WebVTTNodeType, Document&);
+    static Ref<WebVTTElement> create(const WebVTTNodeType, Document&);
     PassRefPtr<HTMLElement> createEquivalentHTMLElement(Document&);
 
-    virtual PassRefPtr<Element> cloneElementWithoutAttributesAndChildren() override;
+    virtual RefPtr<Element> cloneElementWithoutAttributesAndChildren(Document&) override;
 
     void setWebVTTNodeType(WebVTTNodeType type) { m_webVTTNodeType = static_cast<unsigned>(type); }
     WebVTTNodeType webVTTNodeType() const { return static_cast<WebVTTNodeType>(m_webVTTNodeType); }
@@ -80,10 +83,12 @@ private:
     AtomicString m_language;
 };
 
-void isWebVTTElement(const WebVTTElement&); // Catch unnecessary runtime check of type known at compile time.
-inline bool isWebVTTElement(const Node& node) { return node.isWebVTTElement(); }
-NODE_TYPE_CASTS(WebVTTElement)
-
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::WebVTTElement)
+    static bool isType(const WebCore::Node& node) { return node.isWebVTTElement(); }
+SPECIALIZE_TYPE_TRAITS_END()
+
 #endif
+
+#endif // WebVTTElement_h

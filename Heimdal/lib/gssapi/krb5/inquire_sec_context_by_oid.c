@@ -240,7 +240,7 @@ static OM_uint32 inquire_sec_context_authz_data
     if (ad_type == KRB5_AUTHDATA_WIN2K_PAC && (context_handle->more_flags & PAC_VALID) == 0){
 	HEIMDAL_MUTEX_unlock(&context_handle->ctx_id_mutex);
 	*minor_status = EINVAL;
-	_gsskrb5_set_status(EINVAL, "pac not valid");
+	_gsskrb5_set_status(HEIM_PAC_NOT_VALID, "pac not valid");
 	return GSS_S_NO_CONTEXT;
     }
 
@@ -464,6 +464,34 @@ get_authtime(OM_uint32 *minor_status,
 				     data_set);
 }
 
+static OM_uint32
+get_pfs_status(OM_uint32 *minor_status,
+	       gsskrb5_ctx ctx,
+	       gss_buffer_set_t *data_set)
+
+{
+    gss_buffer_desc value;
+    unsigned char buf[4];
+    int usingPFS;
+
+    HEIMDAL_MUTEX_lock(&ctx->ctx_id_mutex);
+    usingPFS = (ctx->auth_context != NULL) &&
+	(ctx->auth_context->flags & KRB5_AUTH_CONTEXT_USED_PFS);
+    HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
+
+    if (!usingPFS) {
+	_gsskrb5_set_status(EINVAL, "No auth_context or PFS");
+	*minor_status = EINVAL;
+	return GSS_S_FAILURE;
+    }
+
+    _gss_mg_encode_le_uint32(1, buf);
+    value.length = sizeof(buf);
+    value.value = buf;
+
+    return gss_add_buffer_set_member(minor_status, &value, data_set);
+}
+
 
 static OM_uint32
 get_service_keyblock
@@ -581,6 +609,8 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_sec_context_by_oid
                                                         data_set);
     } else if (gss_oid_equal(desired_object, GSS_KRB5_GET_AUTHTIME_X)) {
 	return get_authtime(minor_status, ctx, data_set);
+    } else if (gss_oid_equal(desired_object, GSS_C_CTX_PFS_X)) {
+	return get_pfs_status(minor_status, ctx, data_set);
     } else if (oid_prefix_equal(desired_object,
 				GSS_KRB5_EXTRACT_AUTHZ_DATA_FROM_SEC_CONTEXT_X,
 				&suffix)) {

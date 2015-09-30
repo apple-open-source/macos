@@ -65,6 +65,7 @@
 
 #include <net/route.h>
 #include <net/if_arp.h>
+#include <net/net_perf.h>
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
@@ -676,17 +677,50 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_sack_ackadv, "\t%u time%s cumulative ack advanced along with SACK\n");
 	p(tcps_pto, "\t%u probe timeout%s\n");
 	p(tcps_rto_after_pto, "\t\t%u time%s retransmit timeout triggered after probe\n");
+	p(tcps_probe_if, "\t\t%u time%s probe packets were sent for an interface\n");
+	p(tcps_probe_if_conflict, "\t\t%u time%s couldn't send probe packets for an interface\n");
 	p(tcps_tlp_recovery, "\t\t%u time%s fast recovery after tail loss\n");
 	p(tcps_tlp_recoverlastpkt, "\t\t%u time%s recovered last packet \n");
-	p(tcps_ecn_setup, "\t%u connection%s negotiated ECN\n");
-	p(tcps_sent_ece, "\t\t%u time%s congestion notification was sent using ECE\n");
-	p(tcps_sent_cwr, "\t\t%u time%s CWR was sent in response to ECE\n");
-
+	p(tcps_pto_in_recovery, "\t\t%u SACK based rescue retransmit%s\n");
+	p(tcps_ecn_client_setup, "\t%u client connection%s attempted to negotiate ECN\n");
+	p(tcps_ecn_client_success, "\t\t%u client connection%s successfully negotiated ECN\n");
+	p(tcps_ecn_not_supported, "\t\t%u time%s graceful fallback to Non-ECN connection\n");
+	p(tcps_ecn_lost_syn, "\t\t%u time%s lost ECN negotiating SYN, followed by retransmission\n");
+	p(tcps_ecn_server_setup, "\t\t%u server connection%s attempted to negotiate ECN\n");
+	p(tcps_ecn_server_success, "\t\t%u server connection%s successfully negotiated ECN\n");
+	p(tcps_ecn_lost_synack, "\t\t%u time%s lost ECN negotiating SYN-ACK, followed by retransmission\n");
+	p(tcps_ecn_recv_ce, "\t\t%u time%s received congestion experienced (CE) notification\n");
+	p(tcps_ecn_recv_ece, "\t\t%u time%s CWR was sent in response to ECE\n");
+	p(tcps_ecn_sent_ece, "\t\t%u time%s sent ECE notification\n");
+	p(tcps_ecn_conn_recv_ce, "\t\t%u connection%s received CE atleast once\n");
+	p(tcps_ecn_conn_recv_ece, "\t\t%u connection%s received ECE atleast once\n");
+	p(tcps_ecn_conn_plnoce, "\t\t%u connection%s using ECN have seen packet loss but no CE\n");
+	p(tcps_ecn_conn_pl_ce, "\t\t%u connection%s using ECN have seen packet loss and CE\n");
+	p(tcps_ecn_conn_nopl_ce, "\t\t%u connection%s using ECN received CE but no packet loss\n");
 	p(tcps_detect_reordering, "\t%u time%s packet reordering was detected on a connection\n");
 	p(tcps_reordered_pkts, "\t\t%u time%s transmitted packets were reordered\n");
 	p(tcps_delay_recovery, "\t\t%u time%s fast recovery was delayed to handle reordering\n");
 	p(tcps_avoid_rxmt, "\t\t%u time%s retransmission was avoided by delaying recovery\n");
 	p(tcps_unnecessary_rxmt, "\t\t%u retransmission%s not needed \n");
+	p(tcps_dsack_sent, "\t%u time%s DSACK option was sent\n");
+	p(tcps_dsack_recvd, "\t\t%u time%s DSACK option was received\n");
+	p(tcps_dsack_disable, "\t\t%u time%s DSACK was disabled on a connection\n");
+	p(tcps_dsack_badrexmt, "\t\t%u time%s recovered from bad retransmission using DSACK\n");
+	p(tcps_dsack_ackloss,"\t\t%u time%s ignored DSACK due to ack loss\n");
+	p(tcps_dsack_recvd_old,"\t\t%u time%s ignored old DSACK options\n");
+	p(tcps_pmtudbh_reverted, "\t%u time%s PMTU Blackhole detection, size reverted\n");
+	p(tcps_drop_after_sleep, "\t%u connection%s were dropped after long sleep\n");
+
+	p(tcps_tfo_cookie_sent,"\t%u time%s a TFO-cookie has been announced\n");
+	p(tcps_tfo_syn_data_rcv,"\t%u SYN%s with data and a valid TFO-cookie have been received\n");
+	p(tcps_tfo_cookie_req_rcv,"\t%u SYN%s with TFO-cookie-request received\n");
+	p(tcps_tfo_cookie_invalid,"\t%u time%s an invalid TFO-cookie has been received\n");
+	p(tcps_tfo_cookie_req,"\t%u time%s we requested a TFO-cookie\n");
+	p(tcps_tfo_cookie_rcv,"\t\t%u time%s the peer announced a TFO-cookie\n");
+	p(tcps_tfo_syn_data_sent,"\t%u time%s we combined SYN with data and a TFO-cookie\n");
+	p(tcps_tfo_syn_data_acked,"\t\t%u time%s our SYN with data has been acknowledged\n");
+	p(tcps_tfo_syn_loss,"\t%u time%s a connection-attempt with TFO fell back to regular TCP\n");
+	p(tcps_tfo_blackhole,"\t%u time%s a TFO-connection blackhole'd\n");
 
 	if (interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
@@ -757,7 +791,12 @@ mptcp_stats(uint32_t off , char *name, int af)
 	p(tcps_mp_badcsum, "\t%u bad DSS checksum%s\n");
 	p(tcps_mp_oodata, "\t%u time%s received out of order data \n");
 	p3(tcps_mp_switches, "\t%u subflow switch%s\n");
-	
+	p3(tcps_mp_sel_symtomsd, "\t%u subflow switche%s due to advisory\n");
+	p3(tcps_mp_sel_rtt, "\t%u subflow switche%s due to rtt\n");
+	p3(tcps_mp_sel_rto, "\t%u subflow switche%s due to rto\n");
+	p3(tcps_mp_sel_peer, "\t%u subflow switche%s due to peer\n");
+	p3(tcps_mp_num_probes, "\t%u number of subflow probe%s\n");
+
 	if (interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
 	}
@@ -868,10 +907,25 @@ ip_stats(uint32_t off , char *name, int af )
 {
 	static struct ipstat pipstat;
 	struct ipstat ipstat;
-	size_t len = sizeof ipstat;
+	size_t ipstat_len = sizeof ipstat;
 
-	if (sysctlbyname("net.inet.ip.stats", &ipstat, &len, 0, 0) < 0) {
+	static net_perf_t pout_net_perf, pin_net_perf;
+	net_perf_t out_net_perf, in_net_perf;
+	size_t out_net_perf_len = sizeof (out_net_perf);
+	size_t in_net_perf_len = sizeof (in_net_perf);
+
+	if (sysctlbyname("net.inet.ip.stats", &ipstat, &ipstat_len, 0, 0) < 0) {
 		warn("sysctl: net.inet.ip.stats");
+		return;
+	}
+
+	if (sysctlbyname("net.inet.ip.output_perf_data", &out_net_perf, &out_net_perf_len, 0, 0) < 0) {
+		warn("sysctl: net.inet.ip.output_perf_data");
+		return;
+	}
+
+	if (sysctlbyname("net.inet.ip.input_perf_data", &in_net_perf, &in_net_perf_len, 0, 0) < 0) {
+		warn("sysctl: net.inet.ip.input_perf_data");
 		return;
 	}
 
@@ -915,6 +969,40 @@ ip_stats(uint32_t off , char *name, int af )
 	p(ips_notmember,
 	  "\t\t%u packet%s received for unknown multicast group\n");
 	p(ips_redirectsent, "\t\t%u redirect%s sent\n");
+	p(ips_rxc_collisions, "\t\t%u input packet%s not chained due to collision\n");
+	p(ips_rxc_chained, "\t\t%u input packet%s processed in a chain\n");
+	p(ips_rxc_notchain, "\t\t%u input packet%s unable to chain\n");
+	p(ips_rxc_chainsz_gt2,
+	  "\t\t%u input packet chain%s processed with length greater than 2\n");
+	p(ips_rxc_chainsz_gt4,
+	  "\t\t%u input packet chain%s processed with length greater than 4\n");
+	p(ips_rxc_notlist,
+	  "\t\t%u input packet%s did not go through list processing path\n");
+
+#define INPERFDIFF(f) (in_net_perf.f - pin_net_perf.f)
+	if (INPERFDIFF(np_total_pkts) > 0 && in_net_perf.np_total_usecs > 0) {
+		printf("\tInput Performance Stats:\n");
+		printf("\t\t%llu total packets measured\n", INPERFDIFF(np_total_pkts));
+		printf("\t\t%llu total usec elapsed\n", INPERFDIFF(np_total_usecs));
+		printf("\t\t%f usec per packet\n",
+		    (double)in_net_perf.np_total_usecs/(double)in_net_perf.np_total_pkts);
+		printf("\t\tHistogram:\n");
+		printf("\t\t\t x <= %u: %llu\n", in_net_perf.np_hist_bars[0],
+		    INPERFDIFF(np_hist1));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    in_net_perf.np_hist_bars[0], in_net_perf.np_hist_bars[1],
+		    INPERFDIFF(np_hist2));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    in_net_perf.np_hist_bars[1], in_net_perf.np_hist_bars[2],
+		    INPERFDIFF(np_hist3));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    in_net_perf.np_hist_bars[2], in_net_perf.np_hist_bars[3],
+		    INPERFDIFF(np_hist4));
+		printf("\t\t\t %u < x: %llu\n",
+		    in_net_perf.np_hist_bars[3], INPERFDIFF(np_hist5));
+	}
+#undef INPERFDIFF
+
 	p(ips_localout, "\t%u packet%s sent from this host\n");
 	p(ips_rawout, "\t\t%u packet%s sent with fabricated ip header\n");
 	p(ips_odropped,
@@ -930,8 +1018,35 @@ ip_stats(uint32_t off , char *name, int af )
 	p2(ips_snd_swcsum, ips_snd_swcsum_bytes,
 	    "\t\t%u header%s (%u byte%s) checksummed in software\n");
 
-	if (interval > 0)
-		bcopy(&ipstat, &pipstat, len);
+#define OUTPERFDIFF(f) (out_net_perf.f - pout_net_perf.f)
+	if (OUTPERFDIFF(np_total_pkts) > 0 && out_net_perf.np_total_usecs > 0) {
+		printf("\tOutput Performance Stats:\n");
+		printf("\t\t%llu total packets measured\n", OUTPERFDIFF(np_total_pkts));
+		printf("\t\t%llu total usec elapsed\n", OUTPERFDIFF(np_total_usecs));
+		printf("\t\t%f usec per packet\n",
+		    (double)out_net_perf.np_total_usecs/(double)out_net_perf.np_total_pkts);
+		printf("\t\tHistogram:\n");
+		printf("\t\t\t x <= %u: %llu\n", out_net_perf.np_hist_bars[0],
+		    OUTPERFDIFF(np_hist1));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    out_net_perf.np_hist_bars[0], out_net_perf.np_hist_bars[1],
+		    OUTPERFDIFF(np_hist2));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    out_net_perf.np_hist_bars[1], out_net_perf.np_hist_bars[2],
+		    OUTPERFDIFF(np_hist3));
+		printf("\t\t\t %u < x <= %u: %llu\n",
+		    out_net_perf.np_hist_bars[2], out_net_perf.np_hist_bars[3],
+		    OUTPERFDIFF(np_hist4));
+		printf("\t\t\t %u < x: %llu\n",
+		    out_net_perf.np_hist_bars[3], OUTPERFDIFF(np_hist5));
+	}
+#undef OUTPERFDIFF
+
+	if (interval > 0) {
+		bcopy(&ipstat, &pipstat, ipstat_len);
+		bcopy(&in_net_perf, &pin_net_perf, in_net_perf_len);
+		bcopy(&out_net_perf, &pout_net_perf, out_net_perf_len);
+	}
 
 #undef IPDIFF
 #undef p

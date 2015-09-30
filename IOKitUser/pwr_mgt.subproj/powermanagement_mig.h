@@ -52,6 +52,7 @@ enum {
     kIOPMAssertionMIGCopyStatus                     = 3,
     kIOPMPowerEventsMIGCopyScheduledEvents          = 4,
     kIOPMPowerEventsMIGCopyRepeatEvents             = 5,
+    kIOPMAssertionMIGCopyByType                     = 6,
 };
 
 /*

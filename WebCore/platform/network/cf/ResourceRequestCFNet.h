@@ -45,37 +45,34 @@ inline ResourceLoadPriority toResourceLoadPriority(int priority)
 {
     switch (priority) {
     case -1:
-        return ResourceLoadPriorityUnresolved;
     case 0:
-        return ResourceLoadPriorityVeryLow;
+        return ResourceLoadPriority::VeryLow;
     case 1:
-        return ResourceLoadPriorityLow;
+        return ResourceLoadPriority::Low;
     case 2:
-        return ResourceLoadPriorityMedium;
+        return ResourceLoadPriority::Medium;
     case 3:
-        return ResourceLoadPriorityHigh;
+        return ResourceLoadPriority::High;
     case 4:
-        return ResourceLoadPriorityVeryHigh;
+        return ResourceLoadPriority::VeryHigh;
     default:
         ASSERT_NOT_REACHED();
-        return ResourceLoadPriorityLowest;
+        return ResourceLoadPriority::Lowest;
     }
 }
 
 inline int toPlatformRequestPriority(ResourceLoadPriority priority)
 {
     switch (priority) {
-    case ResourceLoadPriorityUnresolved:
-        return -1;
-    case ResourceLoadPriorityVeryLow:
+    case ResourceLoadPriority::VeryLow:
         return 0;
-    case ResourceLoadPriorityLow:
+    case ResourceLoadPriority::Low:
         return 1;
-    case ResourceLoadPriorityMedium:
+    case ResourceLoadPriority::Medium:
         return 2;
-    case ResourceLoadPriorityHigh:
+    case ResourceLoadPriority::High:
         return 3;
-    case ResourceLoadPriorityVeryHigh:
+    case ResourceLoadPriority::VeryHigh:
         return 4;
     }
 

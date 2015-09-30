@@ -23,21 +23,23 @@
 
 #include "JSDOMWrapper.h"
 #include "readonly.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
 class JSreadonly : public JSDOMWrapper {
 public:
     typedef JSDOMWrapper Base;
-    static JSreadonly* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<readonly> impl)
+    static JSreadonly* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<readonly>&& impl)
     {
-        JSreadonly* ptr = new (NotNull, JSC::allocateCell<JSreadonly>(globalObject->vm().heap)) JSreadonly(structure, globalObject, impl);
+        JSreadonly* ptr = new (NotNull, JSC::allocateCell<JSreadonly>(globalObject->vm().heap)) JSreadonly(structure, globalObject, WTF::move(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
     static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static readonly* toWrapped(JSC::JSValue);
     static void destroy(JSC::JSCell*);
     ~JSreadonly();
 
@@ -50,20 +52,12 @@ public:
 
     static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
     readonly& impl() const { return *m_impl; }
-    void releaseImpl() { m_impl->deref(); m_impl = 0; }
-
-    void releaseImplIfNotNull()
-    {
-        if (m_impl) {
-            m_impl->deref();
-            m_impl = 0;
-        }
-    }
+    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
 
 private:
     readonly* m_impl;
 protected:
-    JSreadonly(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<readonly>);
+    JSreadonly(JSC::Structure*, JSDOMGlobalObject*, Ref<readonly>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -81,17 +75,12 @@ public:
 
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, readonly*)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(JSreadonlyOwner, jsreadonlyOwner, ());
-    return &jsreadonlyOwner;
-}
-
-inline void* wrapperContext(DOMWrapperWorld& world, readonly*)
-{
-    return &world;
+    static NeverDestroyed<JSreadonlyOwner> owner;
+    return &owner.get();
 }
 
 JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, readonly*);
-readonly* toreadonly(JSC::JSValue);
+inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, readonly& impl) { return toJS(exec, globalObject, &impl); }
 
 
 } // namespace WebCore

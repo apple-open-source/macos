@@ -68,7 +68,7 @@ void PluginInfoStore::loadPluginsIfNecessary()
     if (m_pluginListIsUpToDate)
         return;
 
-    ListHashSet<String, 32> uniquePluginPaths;
+    ListHashSet<String> uniquePluginPaths;
 
     // First, load plug-ins from the additional plug-ins directories specified.
     for (size_t i = 0; i < m_additionalPluginsDirectories.size(); ++i)
@@ -156,8 +156,8 @@ static inline String pathExtension(const URL& url)
     String extension;
     String filename = url.lastPathComponent();
     if (!filename.endsWith('/')) {
-        int extensionPos = filename.reverseFind('.');
-        if (extensionPos != -1)
+        size_t extensionPos = filename.reverseFind('.');
+        if (extensionPos != notFound)
             extension = filename.substring(extensionPos + 1);
     }
     

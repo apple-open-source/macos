@@ -49,10 +49,10 @@ for (@ARGV) {
     s/\"$//;
 }
 
-my $XDSTROOT = $ARGV[0];
+my $XDSTROOT = Cwd::realpath($ARGV[0]);
 $ENV{'XDSTROOT'} = $XDSTROOT;
 
-my $SDKROOT = $ARGV[1];
+my $SDKROOT = Cwd::realpath($ARGV[1]);
 $ENV{'SDKROOT'} = $SDKROOT;
 
 my $BUILD_PRODUCTS_DIR = File::Spec->catdir($XDSTROOT, "obj$ARGV[2]", 'JavaScriptCore');
@@ -65,9 +65,13 @@ unless (-d $DERIVED_SOURCES_DIR) {
 
 chdir $DERIVED_SOURCES_DIR or die "Couldn't change directory to $DERIVED_SOURCES_DIR: $!";
 
+my $featureDefinesCommand = File::Spec->catfile($SDKROOT, 'tools', 'scripts', 'feature-defines.pl');
+my $featureDefines = `$featureDefinesCommand $SDKROOT windows`;
+chomp($featureDefines);
+$ENV{'FEATURE_DEFINES'} = $featureDefines;
+
 $ENV{'JavaScriptCore'} = $XSRCROOT;
 $ENV{'DFTABLES_EXTENSION'} = '.exe';
 
 my $DERIVED_SOURCES_MAKEFILE = File::Spec->catfile($XSRCROOT, 'DerivedSources.make');
-
-system('/usr/bin/make', '-f', $DERIVED_SOURCES_MAKEFILE, '-j', $NUMCPUS) and die "Failed to build $DERIVED_SOURCES_MAKEFILE: $!";
+system('make', '-f', $DERIVED_SOURCES_MAKEFILE, '-j', $NUMCPUS) and die "Failed to build $DERIVED_SOURCES_MAKEFILE: $!";

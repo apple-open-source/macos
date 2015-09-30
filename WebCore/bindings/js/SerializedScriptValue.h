@@ -67,25 +67,25 @@ class SerializedScriptValue :
     public RefCounted<SerializedScriptValue> {
 #endif
 public:
-    static PassRefPtr<SerializedScriptValue> create(JSC::ExecState*, JSC::JSValue, MessagePortArray*, ArrayBufferArray*, SerializationErrorMode = Throwing);
+    WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(JSC::ExecState*, JSC::JSValue, MessagePortArray*, ArrayBufferArray*, SerializationErrorMode = Throwing);
 
-    static PassRefPtr<SerializedScriptValue> create(const String&);
-    static PassRefPtr<SerializedScriptValue> adopt(Vector<uint8_t>& buffer)
+    WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(const String&);
+    static Ref<SerializedScriptValue> adopt(Vector<uint8_t>& buffer)
     {
-        return adoptRef(new SerializedScriptValue(buffer));
+        return adoptRef(*new SerializedScriptValue(buffer));
     }
 
-    static PassRefPtr<SerializedScriptValue> nullValue();
+    static Ref<SerializedScriptValue> nullValue();
 
-    JSC::JSValue deserialize(JSC::ExecState*, JSC::JSGlobalObject*, MessagePortArray*, SerializationErrorMode = Throwing);
+    WEBCORE_EXPORT JSC::JSValue deserialize(JSC::ExecState*, JSC::JSGlobalObject*, MessagePortArray*, SerializationErrorMode = Throwing);
 
     static uint32_t wireFormatVersion();
 
     String toString();
 
     // API implementation helpers. These don't expose special behavior for ArrayBuffers or MessagePorts.
-    static PassRefPtr<SerializedScriptValue> create(JSContextRef, JSValueRef, JSValueRef* exception);
-    JSValueRef deserialize(JSContextRef, JSValueRef* exception);
+    WEBCORE_EXPORT static PassRefPtr<SerializedScriptValue> create(JSContextRef, JSValueRef, JSValueRef* exception);
+    WEBCORE_EXPORT JSValueRef deserialize(JSContextRef, JSValueRef* exception);
 
     const Vector<uint8_t>& data() const { return m_data; }
     bool hasBlobURLs() const { return !m_blobURLs.isEmpty(); }
@@ -93,32 +93,32 @@ public:
 
 #if ENABLE(INDEXED_DATABASE)
     // FIXME: Get rid of these. The only caller immediately deserializes the result, so it's a very roundabout way to create a JSValue.
-    static PassRefPtr<SerializedScriptValue> numberValue(double value);
-    static PassRefPtr<SerializedScriptValue> undefinedValue();
+    static Ref<SerializedScriptValue> numberValue(double value);
+    static Ref<SerializedScriptValue> undefinedValue();
 #endif
 
-    static PassRefPtr<SerializedScriptValue> createFromWireBytes(const Vector<uint8_t>& data)
+    static Ref<SerializedScriptValue> createFromWireBytes(const Vector<uint8_t>& data)
     {
-        return adoptRef(new SerializedScriptValue(data));
+        return adoptRef(*new SerializedScriptValue(data));
     }
     const Vector<uint8_t>& toWireBytes() const { return m_data; }
 
-    ~SerializedScriptValue();
+    WEBCORE_EXPORT ~SerializedScriptValue();
 
 private:
     typedef Vector<JSC::ArrayBufferContents> ArrayBufferContentsArray;
     static void maybeThrowExceptionIfSerializationFailed(JSC::ExecState*, SerializationReturnCode);
     static bool serializationDidCompleteSuccessfully(SerializationReturnCode);
-    static PassOwnPtr<ArrayBufferContentsArray> transferArrayBuffers(JSC::ExecState*, ArrayBufferArray&, SerializationReturnCode&);
+    static std::unique_ptr<ArrayBufferContentsArray> transferArrayBuffers(JSC::ExecState*, ArrayBufferArray&, SerializationReturnCode&);
     void addBlobURL(const String&);
 
     SerializedScriptValue(const Vector<unsigned char>&);
-    SerializedScriptValue(Vector<unsigned char>&);
+    WEBCORE_EXPORT SerializedScriptValue(Vector<unsigned char>&);
     SerializedScriptValue(Vector<unsigned char>&, Vector<String>& blobURLs);
-    SerializedScriptValue(Vector<unsigned char>&, Vector<String>& blobURLs, PassOwnPtr<ArrayBufferContentsArray>);
+    SerializedScriptValue(Vector<unsigned char>&, Vector<String>& blobURLs, std::unique_ptr<ArrayBufferContentsArray>);
 
     Vector<unsigned char> m_data;
-    OwnPtr<ArrayBufferContentsArray> m_arrayBufferContentsArray;
+    std::unique_ptr<ArrayBufferContentsArray> m_arrayBufferContentsArray;
     Vector<Vector<uint16_t>> m_blobURLs;
 };
 

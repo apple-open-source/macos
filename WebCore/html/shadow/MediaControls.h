@@ -97,7 +97,7 @@ class MediaControls : public HTMLDivElement {
     virtual bool willRespondToMouseMoveEvents() override { return true; }
 #endif
 
-    virtual void hideFullscreenControlsTimerFired(Timer&);
+    virtual void hideFullscreenControlsTimerFired();
     virtual void startHideFullscreenControlsTimer();
     virtual void stopHideFullscreenControlsTimer();
 
@@ -142,9 +142,7 @@ protected:
     bool m_isMouseOverControls;
 
 private:
-    virtual bool isMediaControls() const override { return true; }
-
-    virtual const AtomicString& shadowPseudoId() const override;
+    virtual bool isMediaControls() const override final { return true; }
 };
 
 inline MediaControls* toMediaControls(Node* node)

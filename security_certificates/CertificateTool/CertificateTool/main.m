@@ -15,6 +15,7 @@
  printf(" [-r, --roots_dir]     			\tThe full path to the directory with the certificate roots\n");
  printf(" [-k, --revoked_dir]   			\tThe full path to the directory with the revoked certificates\n");
  printf(" [-d, --distrusted_dir] 		\tThe full path to the directory with the distrusted certificates\n");
+ printf(" [-a, --allowlist_dir] 		\tThe full path to the directory with the allowed certificates\n");
  printf(" [-c, --certs_dir] 				\tThe full path to the directory with the cert certificates\n");
  printf(" [-e, --ev_plist_path] 			\tThe full path to the EVRoots.plist file\n");
  printf(" [-t, --top_level_directory]	\tThe full path to the top level security_certificates directory\n");

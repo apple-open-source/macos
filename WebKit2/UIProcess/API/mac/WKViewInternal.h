@@ -24,21 +24,24 @@
  */
 
 #import "WKViewPrivate.h"
+
+#import "APIObject.h"
 #import "PluginComplexTextInputState.h"
 #import "SameDocumentNavigationType.h"
 #import "WebFindOptions.h"
+#import "WebHitTestResult.h"
 #import <wtf/Forward.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/Vector.h>
 
 @class WKWebViewConfiguration;
 
-namespace IPC {
-class DataReference;
-}
-
 namespace API {
 class Object;
+}
+
+namespace IPC {
+class DataReference;
 }
 
 namespace WebCore {
@@ -52,8 +55,7 @@ namespace WebKit {
 class DrawingAreaProxy;
 class LayerTreeContext;
 class ViewSnapshot;
-class WebContext;
-struct ActionMenuHitTestResult;
+class WebProcessPool;
 struct ColorSpaceData;
 struct EditorState;
 struct WebPageConfiguration;
@@ -67,7 +69,7 @@ struct WebPageConfiguration;
 
 @interface WKView ()
 #if WK_API_ENABLED
-- (instancetype)initWithFrame:(CGRect)frame context:(WebKit::WebContext&)context configuration:(WebKit::WebPageConfiguration)webPageConfiguration webView:(WKWebView *)webView;
+- (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(WebKit::WebPageConfiguration)webPageConfiguration webView:(WKWebView *)webView;
 #endif
 
 - (std::unique_ptr<WebKit::DrawingAreaProxy>)_createDrawingAreaProxy;
@@ -83,8 +85,11 @@ struct WebPageConfiguration;
 - (void)_setIntrinsicContentSize:(NSSize)intrinsicContentSize;
 - (NSRect)_convertToDeviceSpace:(NSRect)rect;
 - (NSRect)_convertToUserSpace:(NSRect)rect;
-- (void)_setTextIndicator:(PassRefPtr<WebCore::TextIndicator>)textIndicator fadeOut:(BOOL)fadeOut;
+- (void)_setTextIndicator:(WebCore::TextIndicator&)textIndicator;
+- (void)_setTextIndicator:(WebCore::TextIndicator&)textIndicator withLifetime:(WebCore::TextIndicatorLifetime)lifetime;
+- (void)_clearTextIndicatorWithAnimation:(WebCore::TextIndicatorDismissalAnimation)animation;
 - (void)_setTextIndicatorAnimationProgress:(float)progress;
+- (void)_selectionChanged;
 
 - (void)_setAcceleratedCompositingModeRootLayer:(CALayer *)rootLayer;
 - (CALayer *)_acceleratedCompositingModeRootLayer;
@@ -96,16 +101,16 @@ struct WebPageConfiguration;
 
 - (void)_pluginFocusOrWindowFocusChanged:(BOOL)pluginHasFocusAndWindowHasFocus pluginComplexTextInputIdentifier:(uint64_t)pluginComplexTextInputIdentifier;
 - (void)_setPluginComplexTextInputState:(WebKit::PluginComplexTextInputState)pluginComplexTextInputState pluginComplexTextInputIdentifier:(uint64_t)pluginComplexTextInputIdentifier;
-
-- (void)_setDragImage:(NSImage *)image at:(NSPoint)clientPoint linkDrag:(BOOL)linkDrag;
-- (void)_setPromisedData:(WebCore::Image *)image withFileName:(NSString *)filename withExtension:(NSString *)extension withTitle:(NSString *)title withURL:(NSString *)url withVisibleURL:(NSString *)visibleUrl withArchive:(WebCore::SharedBuffer*) archiveBuffer forPasteboard:(NSString *)pasteboardName;
+- (void)_dragImageForView:(NSView *)view withImage:(NSImage *)image at:(NSPoint)clientPoint linkDrag:(BOOL)linkDrag;
+- (void)_setPromisedDataForImage:(WebCore::Image *)image withFileName:(NSString *)filename withExtension:(NSString *)extension withTitle:(NSString *)title withURL:(NSString *)url withVisibleURL:(NSString *)visibleUrl withArchive:(WebCore::SharedBuffer*) archiveBuffer forPasteboard:(NSString *)pasteboardName;
+#if ENABLE(ATTACHMENT_ELEMENT)
+- (void)_setPromisedDataForAttachment:(NSString *)filename withExtension:(NSString *)extension withTitle:(NSString *)title withURL:(NSString *)url withVisibleURL:(NSString *)visibleUrl forPasteboard:(NSString *)pasteboardName;
+#endif
 - (void)_updateSecureInputState;
 - (void)_resetSecureInputState;
 - (void)_notifyInputContextAboutDiscardedComposition;
 
 - (WebKit::ColorSpaceData)_colorSpace;
-
-- (void)_cacheWindowBottomCornerRect;
 
 - (NSInteger)spellCheckerDocumentTag;
 - (void)handleAcceptedAlternativeText:(NSString*)text;
@@ -114,7 +119,9 @@ struct WebPageConfiguration;
 - (BOOL)_suppressVisibilityUpdates;
 
 - (void)_didFirstVisuallyNonEmptyLayoutForMainFrame;
+- (void)_didCommitLoadForMainFrame;
 - (void)_didFinishLoadForMainFrame;
+- (void)_didFailLoadForMainFrame;
 - (void)_didSameDocumentNavigationForMainFrame:(WebKit::SameDocumentNavigationType)type;
 - (void)_removeNavigationGestureSnapshot;
 
@@ -123,18 +130,33 @@ struct WebPageConfiguration;
 - (void)_reparentLayerTreeInThumbnailView;
 #endif
 
+- (void)_windowDidOrderOnScreen:(NSNotification *)notification;
+- (void)_windowDidOrderOffScreen:(NSNotification *)notification;
+
+- (void)_addFontPanelObserver;
 // FullScreen
 
 @property (readonly) BOOL _hasFullScreenWindowController;
 @property (readonly) WKFullScreenWindowController *_fullScreenWindowController;
 - (void)_closeFullScreenWindowController;
 
+- (void)_prepareForDictionaryLookup;
+
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
-- (void)_didPerformActionMenuHitTest:(const WebKit::ActionMenuHitTestResult&)hitTestResult forImmediateAction:(BOOL)forImmediateAction userData:(API::Object*)userData;
+- (void)_didPerformImmediateActionHitTest:(const WebKit::WebHitTestResult::Data&)hitTestResult contentPreventsDefault:(BOOL)contentPreventsDefault userData:(API::Object*)userData;
+#endif
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+- (void)_startWindowDrag;
 #endif
 
 @property (nonatomic, retain, setter=_setPrimaryTrackingArea:) NSTrackingArea *_primaryTrackingArea;
 
 @property (readonly) NSWindow *_targetWindowForMovePreparation;
+
+// For WKViewLayoutStrategy and subclasses:
+- (void)_setDrawingAreaSize:(NSSize)size;
+- (void)_updateViewExposedRect;
+- (CALayer *)_rootLayer;
 
 @end

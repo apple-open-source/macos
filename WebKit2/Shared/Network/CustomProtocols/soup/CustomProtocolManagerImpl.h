@@ -20,14 +20,10 @@
 #ifndef CustomProtocolManagerImpl_h
 #define CustomProtocolManagerImpl_h
 
-#if ENABLE(CUSTOM_PROTOCOLS)
-
+#include <WebCore/WebKitSoupRequestGenericClient.h>
 #include <wtf/HashMap.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 #include <wtf/text/WTFString.h>
-
-typedef struct _GTask GTask;
-typedef struct _GInputStream GInputStream;
 
 namespace IPC {
 class DataReference;
@@ -43,7 +39,7 @@ namespace WebKit {
 class ChildProcess;
 struct WebSoupRequestAsyncData;
 
-class CustomProtocolManagerImpl {
+class CustomProtocolManagerImpl : public WebCore::WebKitSoupRequestGenericClient {
     WTF_MAKE_NONCOPYABLE(CustomProtocolManagerImpl);
 public:
     explicit CustomProtocolManagerImpl(ChildProcess*);
@@ -57,18 +53,15 @@ public:
     void didReceiveResponse(uint64_t customProtocolID, const WebCore::ResourceResponse&);
     void didFinishLoading(uint64_t customProtocolID);
 
-    // SoupRequest implementation.
-    void send(GTask*);
-    GInputStream* finish(GTask*, GError**);
-
 private:
+    void start(GTask*) final override;
+    GInputStream* finish(GTask*, GError**) final override;
+
     ChildProcess* m_childProcess;
     GRefPtr<GPtrArray> m_schemes;
     HashMap<uint64_t, std::unique_ptr<WebSoupRequestAsyncData>> m_customProtocolMap;
 };
 
 } // namespace WebKit
-
-#endif // ENABLE(CUSTOM_PROTOCOLS)
 
 #endif // CustomProtocolManagerImpl_h

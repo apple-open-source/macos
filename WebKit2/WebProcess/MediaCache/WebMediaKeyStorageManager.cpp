@@ -30,6 +30,7 @@
 #include "WebProcessCreationParameters.h"
 #include <WebCore/FileSystem.h>
 #include <WebCore/SecurityOrigin.h>
+#include <WebCore/URL.h>
 
 using namespace WebCore;
 
@@ -73,7 +74,7 @@ Vector<SecurityOriginData> WebMediaKeyStorageManager::getMediaKeyOrigins()
         if (!securityOrigin)
             continue;
 
-        results.append(SecurityOriginData::fromSecurityOrigin(securityOrigin.get()));
+        results.append(SecurityOriginData::fromSecurityOrigin(*securityOrigin));
     }
 
     return results;

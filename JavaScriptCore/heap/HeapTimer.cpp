@@ -26,6 +26,7 @@
 #include "config.h"
 #include "HeapTimer.h"
 
+#include "GCActivityCallback.h"
 #include "IncrementalSweeper.h"
 #include "JSObject.h"
 #include "JSString.h"
@@ -62,7 +63,7 @@ HeapTimer::HeapTimer(VM* vm, CFRunLoopRef runLoop)
     m_context.info = &vm->apiLock();
     m_context.retain = retainAPILock;
     m_context.release = releaseAPILock;
-    m_timer = adoptCF(CFRunLoopTimerCreate(0, s_decade, s_decade, 0, 0, HeapTimer::timerDidFire, &m_context));
+    m_timer = adoptCF(CFRunLoopTimerCreate(kCFAllocatorDefault, s_decade, s_decade, 0, 0, HeapTimer::timerDidFire, &m_context));
     CFRunLoopAddTimer(m_runLoop.get(), m_timer.get(), kCFRunLoopCommonModes);
 }
 

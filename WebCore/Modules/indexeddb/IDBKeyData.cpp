@@ -201,6 +201,8 @@ bool IDBKeyData::decode(KeyedDecoder& decoder, IDBKeyData& result)
     auto arrayFunction = [](KeyedDecoder& decoder, IDBKeyData& result) {
         return decode(decoder, result);
     };
+    
+    result.arrayValue.clear();
     return decoder.decodeObjects("array", result.arrayValue, arrayFunction);
 }
 
@@ -266,9 +268,9 @@ String IDBKeyData::loggingString() const
             for (size_t i = 0; i < arrayValue.size(); ++i) {
                 result.append(arrayValue[i].loggingString());
                 if (i < arrayValue.size() - 1)
-                    result.append(", ");
+                    result.appendLiteral(", ");
             }
-            result.append(" }");
+            result.appendLiteral(" }");
             return result.toString();
         }
     case IDBKey::StringType:

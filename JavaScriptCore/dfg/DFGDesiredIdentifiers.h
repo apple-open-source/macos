@@ -45,17 +45,17 @@ public:
     ~DesiredIdentifiers();
     
     unsigned numberOfIdentifiers();
-    void addLazily(StringImpl*);
+    void addLazily(UniquedStringImpl*);
     
-    StringImpl* at(unsigned index) const;
+    UniquedStringImpl* at(unsigned index) const;
     
-    StringImpl* operator[](unsigned index) const { return at(index); }
+    UniquedStringImpl* operator[](unsigned index) const { return at(index); }
     
     void reallyAdd(VM&, CommonData*);
     
 private:
     CodeBlock* m_codeBlock;
-    Vector<StringImpl*> m_addedIdentifiers;
+    Vector<UniquedStringImpl*> m_addedIdentifiers;
 };
 
 } } // namespace JSC::DFG

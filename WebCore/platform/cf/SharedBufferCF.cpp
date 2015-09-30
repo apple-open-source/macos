@@ -28,26 +28,14 @@
 #include "config.h"
 #include "SharedBuffer.h"
 
-#include "PurgeableBuffer.h"
-#include <wtf/cf/TypeCasts.h>
-
-#if ENABLE(DISK_IMAGE_CACHE)
-#include "DiskImageCacheIOS.h"
-#endif
+#include <wtf/cf/TypeCastsCF.h>
 
 namespace WebCore {
 
 SharedBuffer::SharedBuffer(CFDataRef cfData)
-    : m_size(0)
-    , m_buffer(adoptRef(new DataBuffer))
-    , m_shouldUsePurgeableMemory(false)
-#if ENABLE(DISK_IMAGE_CACHE)
-    , m_isMemoryMapped(false)
-    , m_diskImageCacheId(DiskImageCache::invalidDiskCacheId)
-    , m_notifyMemoryMappedCallback(nullptr)
-    , m_notifyMemoryMappedCallbackData(nullptr)
-#endif
+    : m_buffer(adoptRef(new DataBuffer))
     , m_cfData(cfData)
+    , m_vnodeToken(VNodeTracker::singleton().token())
 {
 }
 
@@ -104,13 +92,13 @@ void SharedBuffer::clearPlatformData()
     m_cfData = 0;
 }
 
-void SharedBuffer::tryReplaceContentsWithPlatformBuffer(SharedBuffer* newContents)
+void SharedBuffer::tryReplaceContentsWithPlatformBuffer(SharedBuffer& newContents)
 {
-    if (!newContents->m_cfData)
+    if (!newContents.m_cfData)
         return;
 
     clear();
-    m_cfData = newContents->m_cfData;
+    m_cfData = newContents.m_cfData;
 }
 
 bool SharedBuffer::maybeAppendPlatformData(SharedBuffer* newContents)
@@ -128,15 +116,7 @@ PassRefPtr<SharedBuffer> SharedBuffer::wrapCFDataArray(CFArrayRef cfDataArray)
 }
 
 SharedBuffer::SharedBuffer(CFArrayRef cfDataArray)
-    : m_size(0)
-    , m_buffer(adoptRef(new DataBuffer))
-    , m_shouldUsePurgeableMemory(false)
-#if ENABLE(DISK_IMAGE_CACHE)
-    , m_isMemoryMapped(false)
-    , m_diskImageCacheId(DiskImageCache::invalidDiskCacheId)
-    , m_notifyMemoryMappedCallback(nullptr)
-    , m_notifyMemoryMappedCallbackData(nullptr)
-#endif
+    : m_buffer(adoptRef(new DataBuffer))
     , m_cfData(nullptr)
 {
     CFIndex dataArrayCount = CFArrayGetCount(cfDataArray);
@@ -157,11 +137,10 @@ void SharedBuffer::copyBufferAndClear(char* destination, unsigned bytesToCopy) c
         return;
 
     CFIndex bytesLeft = bytesToCopy;
-    Vector<RetainPtr<CFDataRef>>::const_iterator end = m_dataArray.end();
-    for (Vector<RetainPtr<CFDataRef>>::const_iterator it = m_dataArray.begin(); it != end; ++it) {
-        CFIndex dataLen = CFDataGetLength(it->get());
+    for (auto& cfData : m_dataArray) {
+        CFIndex dataLen = CFDataGetLength(cfData.get());
         ASSERT(bytesLeft >= dataLen);
-        memcpy(destination, CFDataGetBytePtr(it->get()), dataLen);
+        memcpy(destination, CFDataGetBytePtr(cfData.get()), dataLen);
         destination += dataLen;
         bytesLeft -= dataLen;
     }
@@ -170,14 +149,13 @@ void SharedBuffer::copyBufferAndClear(char* destination, unsigned bytesToCopy) c
 
 unsigned SharedBuffer::copySomeDataFromDataArray(const char*& someData, unsigned position) const
 {
-    Vector<RetainPtr<CFDataRef>>::const_iterator end = m_dataArray.end();
     unsigned totalOffset = 0;
-    for (Vector<RetainPtr<CFDataRef>>::const_iterator it = m_dataArray.begin(); it != end; ++it) {
-        unsigned dataLen = static_cast<unsigned>(CFDataGetLength(it->get()));
+    for (auto& cfData : m_dataArray) {
+        unsigned dataLen = static_cast<unsigned>(CFDataGetLength(cfData.get()));
         ASSERT(totalOffset <= position);
         unsigned localOffset = position - totalOffset;
         if (localOffset < dataLen) {
-            someData = reinterpret_cast<const char *>(CFDataGetBytePtr(it->get())) + localOffset;
+            someData = reinterpret_cast<const char *>(CFDataGetBytePtr(cfData.get())) + localOffset;
             return dataLen - localOffset;
         }
         totalOffset += dataLen;
@@ -205,7 +183,7 @@ bool SharedBuffer::maybeAppendDataArray(SharedBuffer* data)
 #if !ASSERT_DISABLED
     unsigned originalSize = size();
 #endif
-    for (auto cfData : data->m_dataArray)
+    for (auto& cfData : data->m_dataArray)
         append(cfData.get());
     ASSERT(size() == originalSize + data->size());
     return true;

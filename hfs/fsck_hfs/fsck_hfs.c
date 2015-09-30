@@ -434,16 +434,20 @@ checkfilesys(char * filesys)
 				if (fs_fd < 0) {
 					plog("ERROR: could not open %s to freeze the volume.\n", mntonname);
 					free(mntonname);
-					return 0;
+					return EEXIT;
 				}
 	
 				if (fcntl(fs_fd, F_FREEZE_FS, NULL) != 0) {
 					free(mntonname);
 					plog("ERROR: could not freeze volume (%s)\n", strerror(errno));
-					return 0;
+					return EEXIT;
 				}
 			} else if (stfs_buf.f_flags & MNT_RDONLY) {
 				hotmount = 1;
+			} else {
+				/* MNT_RDONLY is not set and this is not a live verification */
+				plog("ERROR: volume %s is mounted with write access. Re-run with (-l) to freeze volume.\n", mntonname);
+				return EEXIT;
 			}
 		}
 	}

@@ -40,7 +40,7 @@ class StickyPositionViewportConstraints;
 
 class ScrollingTreeStickyNode : public ScrollingTreeNode {
 public:
-    static PassRefPtr<ScrollingTreeStickyNode> create(ScrollingTree&, ScrollingNodeID);
+    WEBCORE_EXPORT static Ref<ScrollingTreeStickyNode> create(ScrollingTree&, ScrollingNodeID);
 
     virtual ~ScrollingTreeStickyNode();
 
@@ -54,9 +54,9 @@ private:
     RetainPtr<CALayer> m_layer;
 };
 
-SCROLLING_NODE_TYPE_CASTS(ScrollingTreeStickyNode, isStickyNode());
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_SCROLLING_NODE(ScrollingTreeStickyNode, isStickyNode())
 
 #endif // ENABLE(ASYNC_SCROLLING)
 

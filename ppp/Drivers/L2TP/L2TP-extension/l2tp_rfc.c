@@ -598,7 +598,6 @@ static void l2tp_rfc_delayed_ack(struct l2tp_rfc *rfc)
 		mbuf_setlen(m, L2TP_CNTL_HDR_SIZE);
 		mbuf_pkthdr_setlen(m, L2TP_CNTL_HDR_SIZE);
 		hdr = &hdr_data;
-		memcpy(hdr, mbuf_data(m), sizeof(hdr_data));
 		bzero(hdr, L2TP_CNTL_HDR_SIZE);
 
 		hdr->flags_vers = htons(L2TP_FLAGS_L | L2TP_FLAGS_T | L2TP_FLAGS_S | L2TP_HDR_VERSION); 
@@ -610,7 +609,7 @@ static void l2tp_rfc_delayed_ack(struct l2tp_rfc *rfc)
 		hdr->session_id = 0;
 		rfc->state &= ~L2TP_STATE_NEW_SEQUENCE;
 
-		memcpy(mbuf_data(m), hdr, sizeof(hdr_data));
+		memcpy(mbuf_data(m), hdr, L2TP_CNTL_HDR_SIZE);
 
 		l2tp_udp_output(rfc->socket, rfc->thread, m, (struct sockaddr *)rfc->peer_address);
 	}
@@ -739,7 +738,14 @@ u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockadd
         len += mbuf_len(m0);
                 
     hdr = &hdr_data;
-    memcpy(hdr, mbuf_data(m), sizeof(hdr_data));
+	if (mbuf_len(m) < L2TP_CNTL_HDR_SIZE) {
+		const errno_t pde = mbuf_pullup(&m, L2TP_CNTL_HDR_SIZE);
+		if (0 != pde) {
+			IOLog("l2tp_rfc_output_control mbuf_pullup len %d failed %d\n", L2TP_CNTL_HDR_SIZE, pde);
+			return EINVAL;
+		}
+    }
+    memcpy(hdr, mbuf_data(m), L2TP_CNTL_HDR_SIZE);
     
     /* flags, version and length should have been filled already by pppd */
     hdr->flags_vers = htons(L2TP_FLAGS_L | L2TP_HDR_VERSION | L2TP_FLAGS_T | L2TP_FLAGS_S);
@@ -753,7 +759,7 @@ u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockadd
     /* we fill the tunnel id and the sequence information */
     hdr->ns = htons(rfc->our_ns);
     hdr->nr = htons(rfc->our_nr);
-    memcpy(mbuf_data(m), hdr, sizeof(hdr_data));
+    memcpy(mbuf_data(m), hdr, L2TP_CNTL_HDR_SIZE);
 
     /* if the address is too large then we have a problem... */
     if (!to || to->sa_len > sizeof(elem->addr)
@@ -825,7 +831,6 @@ u_int16_t l2tp_rfc_output_data(struct l2tp_rfc *rfc, mbuf_t m)
     if (mbuf_prepend(&m, hdr_length, MBUF_WAITOK) != 0)
         return ENOBUFS;
     hdr = &hdr_data;
-    memcpy(hdr, mbuf_data(m), sizeof(hdr_data));
     bzero(hdr, hdr_length);
     
     flags = L2TP_FLAGS_L | L2TP_HDR_VERSION; 
@@ -841,7 +846,7 @@ u_int16_t l2tp_rfc_output_data(struct l2tp_rfc *rfc, mbuf_t m)
     
     hdr->flags_vers = htons(flags);
 
-    memcpy(mbuf_data(m), hdr, sizeof(hdr_data));
+    memcpy(mbuf_data(m), hdr, hdr_length);
     return l2tp_udp_output(rfc->socket, rfc->thread, m, (struct sockaddr *)rfc->peer_address);
 }
 
@@ -857,9 +862,16 @@ int l2tp_rfc_output_queued(struct l2tp_rfc *rfc, struct l2tp_elem *elem)
         return ENOBUFS;
    
     hdr = &hdr_data;
-    memcpy(hdr, mbuf_data(dup), sizeof(hdr_data));
+    if (mbuf_len(dup) < L2TP_CNTL_HDR_SIZE) {
+		const errno_t pde = mbuf_pullup(&dup, L2TP_CNTL_HDR_SIZE);
+		if (0 != pde) {
+			IOLog("l2tp_rfc_output_queued mbuf_pullup len %d failed %d\n", L2TP_CNTL_HDR_SIZE, pde);
+			return EINVAL;
+		}
+    }
+    memcpy(hdr, mbuf_data(dup), L2TP_CNTL_HDR_SIZE);
     hdr->nr = htons(rfc->our_nr); 
-    memcpy(mbuf_data(dup), hdr, sizeof(hdr_data));
+    memcpy(mbuf_data(dup), hdr, L2TP_CNTL_HDR_SIZE);
     
     return l2tp_udp_output(rfc->socket, rfc->thread, dup, (struct sockaddr *)elem->addr);
 }
@@ -873,7 +885,24 @@ u_int16_t l2tp_handle_data(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *from
     u_int16_t 			*p, ns, hdr_length;
 
     hdr = &hdr_data;
-    memcpy(hdr, mbuf_data(m), sizeof(hdr_data));
+    size_t hdr_memcpy_length = L2TP_DATA_HDR_SIZE - sizeof(u_int16_t);
+    if (flags & L2TP_FLAGS_L) {
+        hdr_memcpy_length += sizeof(u_int16_t);
+    }
+    if (flags & L2TP_FLAGS_S) {
+        hdr_memcpy_length += 2 * sizeof(u_int16_t);
+    }
+    if (flags & L2TP_FLAGS_O) {
+        hdr_memcpy_length += sizeof(u_int16_t);
+    }
+	if (mbuf_len(m) < hdr_memcpy_length) {
+		const errno_t pde = mbuf_pullup(&m, hdr_memcpy_length);
+		if (0 != pde) {
+			IOLog("l2tp_handle_data mbuf_pullup len %lu failed %d\n", hdr_memcpy_length, pde);
+			return 1;
+		}
+    }
+    memcpy(hdr, mbuf_data(m), hdr_memcpy_length);
 
     //IOLog("handle_data, rfc = %p, from 0x%x, peer address = 0x%x, our tunnel id = %d, tunnel id = %d, our session id = %d, session id = %d\n", rfc, from, rfc->peer_address, rfc->our_tunnel_id, tunnel_id, rfc->our_session_id, session_id);    
     
@@ -939,7 +968,14 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
     u_int16_t			buf_full;
 
     hdr = &hdr_data;
-    memcpy(hdr, mbuf_data(m), sizeof(hdr_data));
+	if (mbuf_len(m) < L2TP_CNTL_HDR_SIZE) {
+		const errno_t pde = mbuf_pullup(&m, L2TP_CNTL_HDR_SIZE);
+		if (0 != pde) {
+			IOLog("l2tp_handle_control mbuf_pullup len %d failed %d\n", L2TP_CNTL_HDR_SIZE, pde);
+			return 1;
+		}
+    }
+    memcpy(hdr, mbuf_data(m), L2TP_CNTL_HDR_SIZE);
 
     //IOLog("handle_control, rfc = %p, from 0x%x, peer address = 0x%x, our tunnel id = %d, tunnel id = %d, our session id = %d, session id = %d\n", rfc, from, rfc->peer_address, rfc->our_tunnel_id, tunnel_id, rfc->our_session_id, session_id);    
     
@@ -1162,7 +1198,14 @@ int l2tp_rfc_lower_input(socket_t so, mbuf_t m, struct sockaddr *from)
 	
 
     hdr = &hdr_data;
-    memcpy(hdr, mbuf_data(m), sizeof(hdr_data));
+	if (mbuf_len(m) < L2TP_DATA_HDR_SIZE) {
+		const errno_t pde = mbuf_pullup(&m, L2TP_DATA_HDR_SIZE);
+		if (0 != pde) {
+			IOLog("l2tp_rfc_lower_input mbuf_pullup len %d failed %d\n", L2TP_DATA_HDR_SIZE, pde);
+			return 0;
+		}
+    }
+    memcpy(hdr, mbuf_data(m), L2TP_DATA_HDR_SIZE);
 
     lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
@@ -1184,7 +1227,7 @@ int l2tp_rfc_lower_input(socket_t so, mbuf_t m, struct sockaddr *from)
 			return 0;
 	}
 			
-	memcpy(hdr, mbuf_data(m), sizeof(hdr_data));
+	memcpy(hdr, mbuf_data(m), L2TP_DATA_HDR_SIZE);
 
     if (flags & L2TP_FLAGS_L) {		/* len field present ? */
         len = ntohs(hdr->len);

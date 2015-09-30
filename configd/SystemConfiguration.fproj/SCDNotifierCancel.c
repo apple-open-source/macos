@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2011, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,8 +57,10 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 			/* if no notifications have been registered */
 			return TRUE;
 		case Using_NotifierInformViaRunLoop :
-			CFRunLoopSourceInvalidate(storePrivate->rls);
-			storePrivate->rls = NULL;
+			if (storePrivate->rls != NULL) {
+				CFRunLoopSourceInvalidate(storePrivate->rls);
+				storePrivate->rls = NULL;
+			}
 			return TRUE;
 		case Using_NotifierInformViaDispatch :
 			(void) SCDynamicStoreSetDispatchQueue(store, NULL);

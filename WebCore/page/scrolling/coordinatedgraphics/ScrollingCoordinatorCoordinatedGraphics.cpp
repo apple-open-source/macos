@@ -31,6 +31,7 @@
 
 #include "CoordinatedGraphicsLayer.h"
 #include "FrameView.h"
+#include "HostWindow.h"
 #include "Page.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
@@ -45,7 +46,7 @@ namespace WebCore {
 
 ScrollingCoordinatorCoordinatedGraphics::ScrollingCoordinatorCoordinatedGraphics(Page* page)
     : ScrollingCoordinator(page)
-    , m_scrollingStateTree(ScrollingStateTree::create())
+    , m_scrollingStateTree(std::make_unique<ScrollingStateTree>())
 {
 }
 
@@ -83,8 +84,7 @@ void ScrollingCoordinatorCoordinatedGraphics::updateViewportConstrainedNode(Scro
     switch (constraints.constraintType()) {
     case ViewportConstraints::FixedPositionConstraint: {
         toCoordinatedGraphicsLayer(graphicsLayer)->setFixedToViewport(true); // FIXME : Use constraints!
-        ScrollingStateFixedNode* fixedNode = toScrollingStateFixedNode(node);
-        fixedNode->setLayer(graphicsLayer);
+        downcast<ScrollingStateFixedNode>(*node).setLayer(graphicsLayer);
         break;
     }
     case ViewportConstraints::StickyPositionConstraint:
@@ -94,22 +94,32 @@ void ScrollingCoordinatorCoordinatedGraphics::updateViewportConstrainedNode(Scro
     }
 }
 
-void ScrollingCoordinatorCoordinatedGraphics::scrollableAreaScrollLayerDidChange(ScrollableArea* scrollableArea)
+void ScrollingCoordinatorCoordinatedGraphics::scrollableAreaScrollLayerDidChange(ScrollableArea& scrollableArea)
 {
     CoordinatedGraphicsLayer* layer = toCoordinatedGraphicsLayer(scrollLayerForScrollableArea(scrollableArea));
     if (!layer)
         return;
 
-    layer->setScrollableArea(scrollableArea);
+    layer->setScrollableArea(&scrollableArea);
 }
 
-void ScrollingCoordinatorCoordinatedGraphics::willDestroyScrollableArea(ScrollableArea* scrollableArea)
+void ScrollingCoordinatorCoordinatedGraphics::willDestroyScrollableArea(ScrollableArea& scrollableArea)
 {
     CoordinatedGraphicsLayer* layer = toCoordinatedGraphicsLayer(scrollLayerForScrollableArea(scrollableArea));
     if (!layer)
         return;
 
-    layer->setScrollableArea(0);
+    layer->setScrollableArea(nullptr);
+}
+
+bool ScrollingCoordinatorCoordinatedGraphics::requestScrollPositionUpdate(FrameView& frameView, const IntPoint& scrollPosition)
+{
+    if (!frameView.delegatesScrolling())
+        return false;
+
+    frameView.setFixedVisibleContentRect(IntRect(scrollPosition, frameView.visibleContentRect().size()));
+    frameView.hostWindow()->delegatedScrollRequested(scrollPosition);
+    return true;
 }
 
 } // namespace WebCore

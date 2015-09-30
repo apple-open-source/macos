@@ -161,6 +161,9 @@ IOHIKeyboardMapper * IOHIKeyboardMapper::keyboardMapper(
 {
 	IOHIKeyboardMapper * me = new IOHIKeyboardMapper;
 
+	if (!me && mappingShouldBeFreed && mapping)
+		IOFree( (void*)mapping, mappingLength );
+
 	if (me && !me->init(delegate, mapping, mappingLength, mappingShouldBeFreed))
 	{
 		me->release();
@@ -180,15 +183,15 @@ bool IOHIKeyboardMapper::init(	IOHIKeyboard *delegate,
 								UInt32 mappingLen,
 								bool mappingShouldBeFreed )
 {
+	_mappingShouldBeFreed		= mappingShouldBeFreed;
+	_parsedMapping.mapping		= map;
+	_parsedMapping.mappingLen	= mappingLen;
+
 	if (!super::init())	 return false;
 
 	_delegate				  = delegate;
 
 	if (!parseKeyMapping(map, mappingLen, &_parsedMapping))	return false;
-
-	_mappingShouldBeFreed		= mappingShouldBeFreed;
-	_parsedMapping.mapping		= map;
-	_parsedMapping.mappingLen	= mappingLen;
 
 	_hidSystem					= NULL;
 	_stateDirty					= false;

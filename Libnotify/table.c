@@ -64,7 +64,6 @@ typedef struct __list_private
 {
 	struct __list_private *prev;
 	struct __list_private *next;
-	uint32_t refcount;
 	void *data;
 } list_private_t;
 
@@ -447,45 +446,18 @@ _nc_list_new(void *d)
 	n = (list_t *)calloc(1, sizeof(list_t));
 	if (n == NULL) return NULL;
 
-	n->refcount = 1;
 	n->data = d;
 	return n;
 }
 
 /*
- * Release a node
+ * Free a node
  */
 void
-_nc_list_release(list_t *l)
+_nc_list_free(list_t *l)
 {
 	if (l == NULL) return;
-	l->refcount--;
-	if (l->refcount > 0) return;
-
 	free(l);
-}
-
-/*
- * Retain a node
- */
-list_t *
-_nc_list_retain(list_t *l)
-{
-	if (l == NULL) return NULL;
-	l->refcount++;
-	return l;
-}
-
-/*
- * Retain a list
- */
-list_t *
-_nc_list_retain_list(list_t *l)
-{
-	list_t *n;
-
-	for (n = l; n != NULL; n = n->next) n->refcount++;
-	return l;
 }
 
 /*
@@ -662,7 +634,7 @@ _nc_list_find(list_t *l, void *d)
 }
 
 list_t *
-_nc_list_find_release(list_t *l, void *d)
+_nc_list_delete(list_t *l, void *d)
 {
 	list_t *p;
 
@@ -672,7 +644,7 @@ _nc_list_find_release(list_t *l, void *d)
 	{
 		p = l->next;
 		if (p != NULL) p->prev = NULL;
-		_nc_list_release(l);
+		_nc_list_free(l);
 		return p;
 	}
 
@@ -682,7 +654,7 @@ _nc_list_find_release(list_t *l, void *d)
 		{
 			p->prev->next = p->next;
 			if (p->next != NULL) p->next->prev = p->prev;
-			_nc_list_release(p);
+			_nc_list_free(p);
 			return l;
 		}
 	}
@@ -741,12 +713,12 @@ _nc_list_chop(list_t *l)
 	p = l->next;
 	if (p != NULL) p->prev = NULL;
 
-	_nc_list_release(l);
+	_nc_list_free(l);
 	return p;
 }
 
 void
-_nc_list_release_list(list_t *l)
+_nc_list_free_list(list_t *l)
 {
 	list_t *p, *n;
 
@@ -757,7 +729,7 @@ _nc_list_release_list(list_t *l)
 	while (p != NULL)
 	{
 		n = p->next;
-		_nc_list_release(p);
+		_nc_list_free(p);
 		p = n;
 	}
 }

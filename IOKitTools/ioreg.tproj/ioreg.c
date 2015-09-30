@@ -25,6 +25,7 @@
 #include <IOKit/IOCFSerialize.h>                      // (IOCFSerialize, ...)
 #include <IOKit/IOKitLib.h>                           // (IOMasterPort, ...)
 #include <IOKit/IOKitLibPrivate.h>                    // (IOServiceGetState, ...)
+#include <IOKit/IOKitKeysPrivate.h>                   // (kIOClassNameOverrideNone, ...)
 #include <sys/ioctl.h>                                // (TIOCGWINSZ, ...)
 #include <term.h>                                     // (tputs, ...)
 #include <unistd.h>                                   // (getopt, ...)
@@ -399,7 +400,7 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
 
     // Obtain the class of the service.
 
-    status = IOObjectGetClass(service, class);
+    status = _IOObjectGetClass(service, kIOClassNameOverrideNone, class);
     assertion(status == KERN_SUCCESS, "can't obtain class");
 
     object = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
@@ -420,7 +421,7 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
 
     // Obtain the busy state of the service (for IOService objects).
 
-    if (IOObjectConformsTo(service, "IOService"))
+    if (_IOObjectConformsTo(service, "IOService", kIOClassNameOverrideNone))
     {
         status = IOServiceGetBusyStateAndTime(service, &state, &count, &time);
         assertion(status == KERN_SUCCESS, "can't obtain state");
@@ -635,7 +636,7 @@ static Boolean compare( io_registry_entry_t service,
 
     if (options.class)
     {
-        if (IOObjectConformsTo(service, options.class) == FALSE)
+        if (_IOObjectConformsTo(service, options.class, kIOClassNameOverrideNone) == FALSE)
         {
             return FALSE;
         }
@@ -909,7 +910,7 @@ static void show( io_registry_entry_t service,
     }
     else
     {
-        status = IOObjectGetClass(service, class);
+        status = _IOObjectGetClass(service, kIOClassNameOverrideNone, class);
         assertion(status == KERN_SUCCESS, "can't obtain class");
 
         print("%s", class);
@@ -927,7 +928,7 @@ static void show( io_registry_entry_t service,
 
     // Print out the busy state of the service (for IOService objects).
 
-    if (IOObjectConformsTo(service, "IOService"))
+    if (_IOObjectConformsTo(service, "IOService", kIOClassNameOverrideNone))
     {
         status = IOServiceGetBusyStateAndTime(service, &state, &integer, &accumulated_busy_time);
         assertion(status == KERN_SUCCESS, "can't obtain state");

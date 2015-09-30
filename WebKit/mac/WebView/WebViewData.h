@@ -34,7 +34,6 @@
 #import <WebCore/LayerFlushSchedulerClient.h>
 #import <WebCore/WebCoreKeyboardUIMode.h>
 #import <wtf/HashMap.h>
-#import <wtf/PassOwnPtr.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/ThreadingPrimitives.h>
 #import <wtf/text/WTFString.h>
@@ -50,7 +49,6 @@ class Page;
 class TextIndicatorWindow;
 }
 
-@class WebActionMenuController;
 @class WebImmediateActionController;
 @class WebInspector;
 @class WebNodeHighlight;
@@ -80,12 +78,23 @@ class TextIndicatorWindow;
 @class WebFixedPositionContent;
 #endif
 
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+class WebMediaPlaybackTargetPicker;
+#endif
+
+#if PLATFORM(MAC)
+@class WebWindowVisibilityObserver;
+#endif
+
 extern BOOL applicationIsTerminating;
 extern int pluginDatabaseClientCount;
 
 class LayerFlushController;
 class WebViewGroup;
+
+#if ENABLE(SERVICE_CONTROLS)
 class WebSelectionServiceController;
+#endif
 
 class WebViewLayerFlushScheduler : public WebCore::LayerFlushScheduler {
 public:
@@ -121,6 +130,15 @@ private:
     WebViewLayerFlushScheduler m_layerFlushScheduler;
 };
 
+@interface WebWindowVisibilityObserver : NSObject {
+    WebView *_view;
+}
+
+- (instancetype)initWithView:(WebView *)view;
+- (void)startObserving:(NSWindow *)window;
+- (void)stopObserving:(NSWindow *)window;
+@end
+
 // FIXME: This should be renamed to WebViewData.
 @interface WebViewPrivate : NSObject {
 @public
@@ -150,11 +168,12 @@ private:
 
 #if PLATFORM(MAC)
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
-    WebActionMenuController *actionMenuController;
     WebImmediateActionController *immediateActionController;
 #endif // __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
     std::unique_ptr<WebCore::TextIndicatorWindow> textIndicatorWindow;
     BOOL hasInitializedLookupObserver;
+    RetainPtr<WebWindowVisibilityObserver> windowVisibilityObserver;
+    RetainPtr<NSEvent> pressureEvent;
 #endif // PLATFORM(MAC)
 
     BOOL shouldMaintainInactiveSelection;
@@ -274,9 +293,6 @@ private:
 #endif
 #endif
 
-#if USE(GLIB)
-    CFRunLoopObserverRef glibRunLoopObserver;
-#endif
     id<WebGeolocationProvider> _geolocationProvider;
     id<WebDeviceOrientationProvider> m_deviceOrientationProvider;
     id<WebNotificationProvider> _notificationProvider;
@@ -300,11 +316,15 @@ private:
 #endif
 
 #if USE(DICTATION_ALTERNATIVES)
-    OwnPtr<WebCore::AlternativeTextUIController> m_alternativeTextUIController;
+    std::unique_ptr<WebCore::AlternativeTextUIController> m_alternativeTextUIController;
 #endif
 
     RetainPtr<NSData> sourceApplicationAuditData;
 
     BOOL _didPerformFirstNavigation;
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+    std::unique_ptr<WebMediaPlaybackTargetPicker> m_playbackTargetPicker;
+#endif
 }
 @end

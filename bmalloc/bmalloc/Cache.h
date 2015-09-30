@@ -39,57 +39,68 @@ public:
     void* operator new(size_t);
     void operator delete(void*, size_t);
 
+    static void* tryAllocate(size_t);
     static void* allocate(size_t);
+    static void* allocate(size_t alignment, size_t);
     static void deallocate(void*);
+    static void* reallocate(void*, size_t);
+
+    static void scavenge();
 
     Cache();
 
     Allocator& allocator() { return m_allocator; }
     Deallocator& deallocator() { return m_deallocator; }
-    
-    void scavenge();
 
 private:
-    static bool allocateFastCase(size_t, void*&);
-    static void* allocateSlowCase(size_t);
+    static void* tryAllocateSlowCaseNullCache(size_t);
     static void* allocateSlowCaseNullCache(size_t);
-
-    static bool deallocateFastCase(void*);
-    static void deallocateSlowCase(void*);
+    static void* allocateSlowCaseNullCache(size_t alignment, size_t);
     static void deallocateSlowCaseNullCache(void*);
+    static void* reallocateSlowCaseNullCache(void*, size_t);
 
     Deallocator m_deallocator;
     Allocator m_allocator;
 };
 
-inline bool Cache::allocateFastCase(size_t size, void*& object)
+inline void* Cache::tryAllocate(size_t size)
 {
     Cache* cache = PerThread<Cache>::getFastCase();
     if (!cache)
-        return false;
-    return cache->allocator().allocateFastCase(size, object);
-}
-
-inline bool Cache::deallocateFastCase(void* object)
-{
-    Cache* cache = PerThread<Cache>::getFastCase();
-    if (!cache)
-        return false;
-    return cache->deallocator().deallocateFastCase(object);
+        return tryAllocateSlowCaseNullCache(size);
+    return cache->allocator().tryAllocate(size);
 }
 
 inline void* Cache::allocate(size_t size)
 {
-    void* object;
-    if (!allocateFastCase(size, object))
-        return allocateSlowCase(size);
-    return object;
+    Cache* cache = PerThread<Cache>::getFastCase();
+    if (!cache)
+        return allocateSlowCaseNullCache(size);
+    return cache->allocator().allocate(size);
+}
+
+inline void* Cache::allocate(size_t alignment, size_t size)
+{
+    Cache* cache = PerThread<Cache>::getFastCase();
+    if (!cache)
+        return allocateSlowCaseNullCache(alignment, size);
+    return cache->allocator().allocate(alignment, size);
 }
 
 inline void Cache::deallocate(void* object)
 {
-    if (!deallocateFastCase(object))
-        deallocateSlowCase(object);
+    Cache* cache = PerThread<Cache>::getFastCase();
+    if (!cache)
+        return deallocateSlowCaseNullCache(object);
+    return cache->deallocator().deallocate(object);
+}
+
+inline void* Cache::reallocate(void* object, size_t newSize)
+{
+    Cache* cache = PerThread<Cache>::getFastCase();
+    if (!cache)
+        return reallocateSlowCaseNullCache(object, newSize);
+    return cache->allocator().reallocate(object, newSize);
 }
 
 } // namespace bmalloc

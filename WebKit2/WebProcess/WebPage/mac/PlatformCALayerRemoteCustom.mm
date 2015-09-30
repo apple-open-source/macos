@@ -32,7 +32,7 @@
 #import "WebProcess.h"
 #import <AVFoundation/AVFoundation.h>
 #import <WebCore/GraphicsLayerCA.h>
-#import <WebCore/PlatformCALayerMac.h>
+#import <WebCore/PlatformCALayerCocoa.h>
 #import <WebCore/SoftLinking.h>
 #import <WebCore/WebCoreCALayerExtras.h>
 #import <wtf/RetainPtr.h>
@@ -48,7 +48,7 @@ static NSString * const platformCALayerPointer = @"WKPlatformCALayer";
 
 PassRefPtr<PlatformCALayerRemote> PlatformCALayerRemoteCustom::create(PlatformLayer *platformLayer, PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
 {
-    RefPtr<PlatformCALayerRemote> layer = adoptRef(new PlatformCALayerRemoteCustom(PlatformCALayerMac::layerTypeForPlatformLayer(platformLayer), platformLayer, owner, context));
+    RefPtr<PlatformCALayerRemote> layer = adoptRef(new PlatformCALayerRemoteCustom(PlatformCALayerCocoa::layerTypeForPlatformLayer(platformLayer), platformLayer, owner, context));
     context.layerWasCreated(*layer, layer->layerType());
 
     return layer.release();
@@ -59,11 +59,17 @@ PlatformCALayerRemoteCustom::PlatformCALayerRemoteCustom(LayerType layerType, Pl
 {
     switch (context.layerHostingMode()) {
     case LayerHostingMode::InProcess:
-        m_layerHostingContext = LayerHostingContext::createForPort(WebProcess::shared().compositingRenderServerPort());
+        m_layerHostingContext = LayerHostingContext::createForPort(WebProcess::singleton().compositingRenderServerPort());
         break;
 #if HAVE(OUT_OF_PROCESS_LAYER_HOSTING)
     case LayerHostingMode::OutOfProcess:
         m_layerHostingContext = LayerHostingContext::createForExternalHostingProcess();
+#if PLATFORM(IOS)
+        float scaleFactor = context.deviceScaleFactor();
+        // Set a scale factor here to make convertRect:toLayer:nil take scale factor into account. <rdar://problem/18316542>.
+        // This scale factor is inverted in the hosting process.
+        [customLayer setTransform:CATransform3DMakeScale(scaleFactor, scaleFactor, 1)];
+#endif
         break;
 #endif
     }
@@ -98,13 +104,20 @@ PassRefPtr<WebCore::PlatformCALayer> PlatformCALayerRemoteCustom::clone(Platform
     bool copyContents = true;
 
     if (layerType() == LayerTypeAVPlayerLayer) {
-        clonedLayer = adoptNS([[getAVPlayerLayerClass() alloc] init]);
+        
+        if ([platformLayer() isKindOfClass:getAVPlayerLayerClass()]) {
+            clonedLayer = adoptNS([allocAVPlayerLayerInstance() init]);
 
-        AVPlayerLayer* destinationPlayerLayer = static_cast<AVPlayerLayer *>(clonedLayer.get());
-        AVPlayerLayer* sourcePlayerLayer = static_cast<AVPlayerLayer *>(platformLayer());
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [destinationPlayerLayer setPlayer:[sourcePlayerLayer player]];
-        });
+            AVPlayerLayer* destinationPlayerLayer = static_cast<AVPlayerLayer *>(clonedLayer.get());
+            AVPlayerLayer* sourcePlayerLayer = static_cast<AVPlayerLayer *>(platformLayer());
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [destinationPlayerLayer setPlayer:[sourcePlayerLayer player]];
+            });
+        } else {
+            // On iOS, the AVPlayerLayer is inside a WebVideoContainerLayer. This code needs to share logic with MediaPlayerPrivateAVFoundationObjC::createAVPlayerLayer().
+            clonedLayer = adoptNS([[CALayer alloc] init]);
+        }
+
         copyContents = false;
     } else if (layerType() == LayerTypeWebGLLayer) {
         clonedLayer = adoptNS([[CALayer alloc] init]);
@@ -131,15 +144,20 @@ void PlatformCALayerRemoteCustom::setContents(CFTypeRef contents)
     [m_platformLayer setContents:(id)contents];
 }
 
-void PlatformCALayerRemoteCustom::setNeedsDisplay(const FloatRect* rect)
+void PlatformCALayerRemoteCustom::setNeedsDisplayInRect(const FloatRect& rect)
 {
-    if (m_providesContents) {
-        if (rect)
-            [m_platformLayer setNeedsDisplayInRect:*rect];
-        else
-            [m_platformLayer setNeedsDisplay];
-    } else
-        PlatformCALayerRemote::setNeedsDisplay(rect);
+    if (m_providesContents)
+        [m_platformLayer setNeedsDisplayInRect:rect];
+    else
+        PlatformCALayerRemote::setNeedsDisplayInRect(rect);
+}
+
+void PlatformCALayerRemoteCustom::setNeedsDisplay()
+{
+    if (m_providesContents)
+        [m_platformLayer setNeedsDisplay];
+    else
+        PlatformCALayerRemote::setNeedsDisplay();
 }
 
 } // namespace WebKit

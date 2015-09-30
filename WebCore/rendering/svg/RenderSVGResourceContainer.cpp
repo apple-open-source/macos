@@ -31,11 +31,10 @@ namespace WebCore {
 
 static inline SVGDocumentExtensions& svgExtensionsFromElement(SVGElement& element)
 {
-    // FIXME: accessSVGExtensions() should return a reference.
-    return *element.document().accessSVGExtensions();
+    return element.document().accessSVGExtensions();
 }
 
-RenderSVGResourceContainer::RenderSVGResourceContainer(SVGElement& element, PassRef<RenderStyle> style)
+RenderSVGResourceContainer::RenderSVGResourceContainer(SVGElement& element, Ref<RenderStyle>&& style)
     : RenderSVGHiddenContainer(element, WTF::move(style))
     , m_id(element.getIdAttribute())
     , m_registered(false)
@@ -53,7 +52,7 @@ void RenderSVGResourceContainer::layout()
 {
     StackStats::LayoutCheckPoint layoutCheckPoint;
     // Invalidate all resources if our layout changed.
-    if (everHadLayout() && selfNeedsLayout())
+    if (selfNeedsClientInvalidation())
         RenderSVGRoot::addResourceForClientInvalidation(this);
 
     RenderSVGHiddenContainer::layout();
@@ -97,8 +96,8 @@ void RenderSVGResourceContainer::markAllClientsForInvalidation(InvalidationMode 
     bool markForInvalidation = mode != ParentOnlyInvalidation;
 
     for (auto* client : m_clients) {
-        if (client->isSVGResourceContainer()) {
-            toRenderSVGResourceContainer(*client).removeAllClientsFromCache(markForInvalidation);
+        if (is<RenderSVGResourceContainer>(*client)) {
+            downcast<RenderSVGResourceContainer>(*client).removeAllClientsFromCache(markForInvalidation);
             continue;
         }
 
@@ -115,10 +114,8 @@ void RenderSVGResourceContainer::markAllClientsForInvalidation(InvalidationMode 
 
 void RenderSVGResourceContainer::markAllClientLayersForInvalidation()
 {
-#if ENABLE(CSS_FILTERS)
     for (auto* clientLayer : m_clientLayers)
         clientLayer->filterNeedsRepaint();
-#endif
 }
 
 void RenderSVGResourceContainer::markClientForInvalidation(RenderObject& client, InvalidationMode mode)
@@ -214,7 +211,7 @@ AffineTransform RenderSVGResourceContainer::transformOnNonScalingStroke(RenderOb
     if (!object->isSVGShape())
         return resourceTransform;
 
-    SVGGraphicsElement* element = toSVGGraphicsElement(object->node());
+    SVGGraphicsElement* element = downcast<SVGGraphicsElement>(object->node());
     AffineTransform transform = element->getScreenCTM(SVGLocatable::DisallowStyleUpdate);
     transform *= resourceTransform;
     return transform;

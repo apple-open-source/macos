@@ -58,7 +58,6 @@
 
 #define malloc(x)	(xmalloc(x))
 #define calloc(x, y)	(xcalloc((x),(y)))
-#define free(x)		(xfree(x))
 
 int
 getrrsetbyname(const char *hostname, unsigned int rdclass,
@@ -70,7 +69,7 @@ getrrsetbyname(const char *hostname, unsigned int rdclass,
 	struct rrsetinfo *rrset = NULL;
 	struct rdatainfo *rdata;
 	size_t len;
-	ldns_resolver *ldns_res;
+	ldns_resolver *ldns_res = NULL;
 	ldns_rdf *domain = NULL;
 	ldns_pkt *pkt = NULL;
 	ldns_rr_list *rrsigs = NULL, *rrdata = NULL;

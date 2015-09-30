@@ -350,7 +350,7 @@ char *
 expand(name)
 	char *name;
 {
-	const int flags = GLOB_BRACE|GLOB_TILDE|GLOB_NOSORT;
+	const int flags = GLOB_BRACE|GLOB_TILDE|GLOB_NOSORT|GLOB_NOCHECK;
 	char xname[PATHSIZE];
 	char cmdbuf[PATHSIZE];		/* also used for file names */
 	char *match = NULL;

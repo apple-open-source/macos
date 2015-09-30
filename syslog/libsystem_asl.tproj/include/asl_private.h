@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,14 +29,12 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/time.h>
+#include <mach/vm_statistics.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <Availability.h>
 #include <os/object.h>
 #include <os/object_private.h>
-
-#define streq(A, B) (strcmp(A, B) == 0)
-#define strcaseeq(A, B) (strcasecmp(A, B) == 0)
 
 #define ASL_QUERY_OP_NULL          0x00000
 
@@ -54,12 +52,27 @@
 /* File and Store Open Option */
 #define ASL_OPT_OPEN_READ   0x80000000
 
+#define ASL_OPT_SHIM_NO_ASL   0x10000000
+#define ASL_OPT_SHIM_NO_TRACE 0x20000000
+
 #define ASL_STORE_LOCATION_FILE 0
 #define ASL_STORE_LOCATION_MEMORY 1
 
 #define ASL_OPT_SYSLOG_LEGACY  0x00010000
 
 #define ASL_KEY_FREE_NOTE "ASLFreeNotify"
+#define ASL_KEY_MESSAGETRACER "com.apple.message.domain"
+
+/* remote control bits */
+#define EVAL_LEVEL_MASK   0x000000ff
+#define EVAL_ACTION_MASK  0xffff0000
+#define EVAL_ACTIVE       0x00010000
+#define EVAL_SEND_ASL     0x00020000
+#define EVAL_SEND_TRACE   0x00040000
+#define EVAL_TEXT_FILE    0x00080000
+#define EVAL_ASL_FILE     0x00100000
+#define EVAL_TUNNEL       0x00200000
+#define EVAL_QUOTA        0x00400000
 
 /*
  * Private types
@@ -72,6 +85,22 @@
 
 #define NOQUOTA_FILE_PATH "/etc/asl/.noquota"
 
+// TODO: this could move to vm_statistics.h
+#ifndef VM_MEMORY_ASL
+#define VM_MEMORY_ASL (VM_MEMORY_APPLICATION_SPECIFIC_1 + 7)
+#endif
+
+/*
+ * Memory limits: work queue size for syslogd and max message size in libasl
+ */
+#if TARGET_OS_EMBEDDED
+#define SYSLOGD_WORK_QUEUE_MEMORY 3072000
+#define LIBASL_MAX_MSG_SIZE       2048000
+#else
+#define SYSLOGD_WORK_QUEUE_MEMORY 10240000
+#define LIBASL_MAX_MSG_SIZE        8192000
+#endif
+
 __BEGIN_DECLS
 
 int asl_store_location() __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
@@ -80,6 +109,8 @@ int asl_syslog_faciliy_name_to_num(const char *name) __OSX_AVAILABLE_STARTING(__
 const char *asl_syslog_faciliy_num_to_name(int n) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int asl_trigger_aslmanager(void) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 int asl_get_filter(asl_object_t client, int *local, int *master, int *remote, int *active) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+uint32_t asl_set_local_control(asl_object_t client, uint32_t filter) __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+uint32_t asl_get_local_control(asl_object_t client) __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
 /* EXCLUSIVLY FOR USE BY DEV TOOLS */
 /* DO NOT USE THIS INTERFACE OTHERWISE */

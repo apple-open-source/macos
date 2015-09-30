@@ -24,10 +24,8 @@ emulate [ -LR ] [ {zsh|sh|ksh|csh} [ flags ... ] ]
        mode, except for  certain  options  describing  the  interactive
        environment;  otherwise,  only  those  options  likely  to cause
        portability problems in scripts and functions are  altered.   If
-       the  -L  switch  is given, the options LOCAL OPTIONS, LOCAL PAT-
-                                                   -              -
-       TERNS and LOCAL TRAPS will be set as well, causing  the  effects
-                      -
+       the  -L  switch  is given, the options LOCAL_OPTIONS, LOCAL_PAT-
+       TERNS and LOCAL_TRAPS will be set as well, causing  the  effects
        of  the emulate command and any setopt, disable -p or enable -p,
        and trap commands to be local  to  the  immediately  surrounding
        shell function, if any; normally these options are turned off in
@@ -56,8 +54,7 @@ emulate [ -LR ] [ {zsh|sh|ksh|csh} [ flags ... ] ]
        effect, either within an `emulate shell -c' expression or within
        another  function with the same sticky emulation, entry and exit
        from the function do not cause options to be altered (except due
-       to  standard processing such as the LOCAL OPTIONS option).  This
-                                                -
+       to  standard processing such as the LOCAL_OPTIONS option).  This
        also applies to functions marked for autoload within the  sticky
        emulation; the appropriate set of options will be applied at the
        point the function is loaded as well as when it is run.
@@ -70,8 +67,8 @@ emulate [ -LR ] [ {zsh|sh|ksh|csh} [ flags ... ] ]
 
        The two functions fni and fno are defined with sticky sh  emula-
        tion.   fno  is  then  executed, causing options associated with
-       emulations to be set to their values in sh.  fni then calls fno;
-       because  fno  is  also marked for sticky sh emulation, no option
+       emulations to be set to their values in sh.  fno then calls fni;
+       because  fni  is  also marked for sticky sh emulation, no option
        changes take place on entry to  or  exit  from  it.   Hence  the
        option  cshnullglob,  turned off by sh emulation, will be turned
        on within fni and remain on on return to fno.  On exit from fno,

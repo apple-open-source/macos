@@ -26,10 +26,14 @@
 #ifndef BAssert_h
 #define BAssert_h
 
+#define BCRASH() do { \
+    *(int*)0xbbadbeef = 0; \
+} while (0);
+
 #define BASSERT_IMPL(x) do { \
     if (!(x)) \
-        *(int*)0xbbadbeef = 0; \
-} while(0);
+        BCRASH(); \
+} while (0);
 
 #define RELEASE_BASSERT(x) BASSERT_IMPL(x)
 
@@ -41,7 +45,7 @@
 
 #define BASSERT(x)
 
-#define IF_DEBUG(x...)
+#define IF_DEBUG(x)
 
 #endif // defined(NDEBUG)
 
@@ -52,7 +56,7 @@
 
 #define BASSERT(x) BASSERT_IMPL(x)
 
-#define IF_DEBUG(x...) x
+#define IF_DEBUG(x) x
 
 #endif // !defined(NDEBUG)
 

@@ -63,7 +63,7 @@ public:
         PrefixedEnforce
     };
 
-    enum ReportingStatus {
+    enum class ReportingStatus {
         SendReport,
         SuppressReport
     };
@@ -84,23 +84,23 @@ public:
     const String& deprecatedHeader() const;
     HeaderType deprecatedHeaderType() const;
 
-    bool allowJavaScriptURLs(const String& contextURL, const WTF::OrdinalNumber& contextLine, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowInlineEventHandlers(const String& contextURL, const WTF::OrdinalNumber& contextLine, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowInlineScript(const String& contextURL, const WTF::OrdinalNumber& contextLine, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowInlineStyle(const String& contextURL, const WTF::OrdinalNumber& contextLine, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowEval(JSC::ExecState* = 0, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowPluginType(const String& type, const String& typeAttribute, const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
+    bool allowJavaScriptURLs(const String& contextURL, const WTF::OrdinalNumber& contextLine, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowInlineEventHandlers(const String& contextURL, const WTF::OrdinalNumber& contextLine, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowInlineScript(const String& contextURL, const WTF::OrdinalNumber& contextLine, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowInlineStyle(const String& contextURL, const WTF::OrdinalNumber& contextLine, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowEval(JSC::ExecState* = nullptr, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowPluginType(const String& type, const String& typeAttribute, const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
 
-    bool allowScriptFromSource(const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowObjectFromSource(const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowChildFrameFromSource(const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowImageFromSource(const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowStyleFromSource(const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowFontFromSource(const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowMediaFromSource(const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowConnectToSource(const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowFormAction(const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
-    bool allowBaseURI(const URL&, bool overrideContentSecurityPolicy = false, ReportingStatus = SendReport) const;
+    bool allowScriptFromSource(const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowObjectFromSource(const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowChildFrameFromSource(const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowImageFromSource(const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowStyleFromSource(const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowFontFromSource(const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowMediaFromSource(const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowConnectToSource(const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowFormAction(const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
+    bool allowBaseURI(const URL&, bool overrideContentSecurityPolicy = false, ContentSecurityPolicy::ReportingStatus = ContentSecurityPolicy::ReportingStatus::SendReport) const;
 
     ReflectedXSSDisposition reflectedXSSDisposition() const;
 
@@ -119,7 +119,7 @@ public:
     void reportInvalidReflectedXSS(const String&) const;
     void reportMissingReportURI(const String&) const;
     void reportUnsupportedDirective(const String&) const;
-    void reportViolation(const String& directiveText, const String& effectiveDirective, const String& consoleMessage, const URL& blockedURL, const Vector<URL>& reportURIs, const String& header, const String& contextURL = String(), const WTF::OrdinalNumber& contextLine = WTF::OrdinalNumber::beforeFirst(), JSC::ExecState* = 0) const;
+    void reportViolation(const String& directiveText, const String& effectiveDirective, const String& consoleMessage, const URL& blockedURL, const Vector<URL>& reportURIs, const String& header, const String& contextURL = String(), const WTF::OrdinalNumber& contextLine = WTF::OrdinalNumber::beforeFirst(), JSC::ExecState* = nullptr) const;
 
     void reportBlockedScriptExecutionToInspector(const String& directiveText) const;
 
@@ -132,7 +132,7 @@ public:
     bool experimentalFeaturesEnabled() const;
 
 private:
-    void logToConsole(const String& message, const String& contextURL = String(), const WTF::OrdinalNumber& contextLine = WTF::OrdinalNumber::beforeFirst(), JSC::ExecState* = 0) const;
+    void logToConsole(const String& message, const String& contextURL = String(), const WTF::OrdinalNumber& contextLine = WTF::OrdinalNumber::beforeFirst(), JSC::ExecState* = nullptr) const;
 
     ScriptExecutionContext* m_scriptExecutionContext;
     bool m_overrideInlineStyleAllowed;

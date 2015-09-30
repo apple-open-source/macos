@@ -74,20 +74,12 @@ static WKBackForwardListItem *toWKBackForwardListItem(WebBackForwardListItem* it
 
 - (NSArray *)backList
 {
-    RefPtr<API::Array> list = _list->backList();
-    if (!list)
-        return nil;
-
-    return [wrapper(*list.release().leakRef()) autorelease];
+    return [wrapper(_list->backList().leakRef()) autorelease];
 }
 
 - (NSArray *)forwardList
 {
-    RefPtr<API::Array> list = _list->forwardList();
-    if (!list)
-        return nil;
-
-    return [wrapper(*list.release().leakRef()) autorelease];
+    return [wrapper(_list->forwardList().leakRef()) autorelease];
 }
 
 #pragma mark WKObject protocol implementation

@@ -209,7 +209,7 @@ kern_return_t print_task_threads_special_ports(my_per_task_info_t *taskinfo)
     
     for (int i = 0; i < threadcount; i++) {
         if (header_required) {
-            printf("Threads             Thread-ID     DispatchQ     Port Description.");
+            printf("Threads             Thread-ID     Port Description.");
             header_required = FALSE;
         }
         
@@ -223,10 +223,10 @@ kern_return_t print_task_threads_special_ports(my_per_task_info_t *taskinfo)
             mach_msg_type_number_t th_info_count = THREAD_IDENTIFIER_INFO_COUNT;
             printf("0x%08x ", th_kobject);
             if (KERN_SUCCESS == thread_info(threadlist[i], THREAD_IDENTIFIER_INFO, (thread_info_t)&th_info, &th_info_count)) {
-                printf("%16llu  0x%016llx  ", th_info.thread_id, th_info.dispatch_qaddr);
+                printf("0x%llx  ", th_info.thread_id);
             }
             else
-                printf("                                     ");
+                printf("                   ");
             
         }
 
@@ -238,6 +238,7 @@ kern_return_t print_task_threads_special_ports(my_per_task_info_t *taskinfo)
         }
         mach_port_deallocate(mach_task_self(), threadlist[i]);
     }
+    printf("\n");
     return kret;
 }
 

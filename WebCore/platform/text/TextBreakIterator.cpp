@@ -863,7 +863,7 @@ unsigned numGraphemeClusters(const String& s)
     return num;
 }
 
-unsigned numCharactersInGraphemeClusters(const String& s, unsigned numGraphemeClusters)
+unsigned numCharactersInGraphemeClusters(const StringView& s, unsigned numGraphemeClusters)
 {
     unsigned stringLength = s.length();
 

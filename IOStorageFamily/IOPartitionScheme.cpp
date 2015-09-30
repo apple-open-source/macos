@@ -28,10 +28,6 @@
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOPartitionScheme, IOStorage)
 
-#ifndef __LP64__
-extern IOStorageAttributes gIOStorageAttributesUnsupported;
-#endif /* !__LP64__ */
-
 static SInt32 partitionComparison( const OSMetaClassBase * object1,
                                    const OSMetaClassBase * object2,
                                    void *                  context )
@@ -124,7 +120,7 @@ bool IOPartitionScheme::handleOpen(IOService *  client,
     // we make our decision, change our state, and return from this method.
     //
 
-    IOStorageAccess access  = (uintptr_t) argument;
+    IOStorageAccess access  = (IOStorageAccess) (uintptr_t) argument;
     IOStorageAccess level;
 
     assert(client);
@@ -302,22 +298,6 @@ void IOPartitionScheme::read(IOService *           client,
     // as RAID will need to do extra processing here.
     //
 
-#ifndef __LP64__
-    if ( IOStorage::_expansionData )
-    {
-        if ( attributes == &gIOStorageAttributesUnsupported )
-        {
-            attributes = NULL;
-        }
-        else
-        {
-            IOStorage::read( client, byteStart, buffer, attributes, completion );
-
-            return;
-        }
-    }
-#endif /* !__LP64__ */
-
     getProvider( )->read( this, byteStart, buffer, attributes, completion );
 }
 
@@ -339,42 +319,42 @@ void IOPartitionScheme::write(IOService *           client,
     // as RAID will need to do extra processing here.
     //
 
-#ifndef __LP64__
-    if ( IOStorage::_expansionData )
-    {
-        if ( attributes == &gIOStorageAttributesUnsupported )
-        {
-            attributes = NULL;
-        }
-        else
-        {
-            IOStorage::write( client, byteStart, buffer, attributes, completion );
-
-            return;
-        }
-    }
-#endif /* !__LP64__ */
-
     getProvider( )->write( this, byteStart, buffer, attributes, completion );
 }
 
-IOReturn IOPartitionScheme::synchronizeCache(IOService * client)
+IOReturn IOPartitionScheme::synchronize(IOService *                 client,
+                                        UInt64                      byteStart,
+                                        UInt64                      byteCount,
+                                        IOStorageSynchronizeOptions options)
 {
     //
-    // Flush the cached data in the storage object, if any, synchronously.
+    // Flush the cached data in the storage object, if any.
     //
 
-    return getProvider()->synchronizeCache(this);
+#ifdef __x86_64__
+    if ( _respondsTo_synchronizeCache )
+    {
+        if ( options == _kIOStorageSynchronizeOption_super__synchronizeCache )
+        {
+            options = 0;
+        }
+        else
+        {
+            return IOStorage::synchronize( client, byteStart, byteCount, options );
+        }
+    }
+#endif /* __x86_64__ */
+
+    return getProvider( )->synchronize( this, byteStart, byteCount, options );
 }
 
-IOReturn IOPartitionScheme::unmap(IOService *       client,
-                                  IOStorageExtent * extents,
-                                  UInt32            extentsCount,
-                                  UInt32            options)
+IOReturn IOPartitionScheme::unmap(IOService *           client,
+                                  IOStorageExtent *     extents,
+                                  UInt32                extentsCount,
+                                  IOStorageUnmapOptions options)
 {
     //
-    // Delete unused data from the storage object at the specified byte offsets,
-    // synchronously.
+    // Delete unused data from the storage object at the specified byte offsets.
     //
 
     return getProvider( )->unmap( this, extents, extentsCount, options );
@@ -425,12 +405,7 @@ IOReturn IOPartitionScheme::setPriority(IOService *       client,
     return getProvider( )->setPriority( this, extents, extentsCount, priority );
 }
 
-#ifdef __LP64__
 bool IOPartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
-#else /* !__LP64__ */
-bool IOPartitionScheme::attachMediaObjectToDeviceTree(IOMedia *    media,
-                                                      IOOptionBits options)
-#endif /* !__LP64__ */
 {
     //
     // Attach the given media object to the device tree plane.
@@ -469,12 +444,7 @@ bool IOPartitionScheme::attachMediaObjectToDeviceTree(IOMedia *    media,
     return false;
 }
 
-#ifdef __LP64__
 void IOPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
-#else /* !__LP64__ */
-void IOPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia *    media,
-                                                        IOOptionBits options)
-#endif /* !__LP64__ */
 {
     //
     // Detach the given media object from the device tree plane.
@@ -530,7 +500,7 @@ OSSet * IOPartitionScheme::juxtaposeMediaObjects(OSSet * partitionsOld,
 
     while ( ( partition1 = ( IOMedia * ) iterator1->getNextObject( ) ) )
     {
-        partitionID = max( partitionID, strtoul( partition1->getLocation( ), NULL, 10 ) );
+        partitionID = max( partitionID, ( UInt32 ) strtoul( partition1->getLocation( ), NULL, 10 ) );
 
         partitions1->setObject( partition1 );
     }
@@ -548,7 +518,7 @@ OSSet * IOPartitionScheme::juxtaposeMediaObjects(OSSet * partitionsOld,
 
     while ( ( partition2 = ( IOMedia * ) iterator2->getNextObject( ) ) )
     {
-        partitionID = max( partitionID, strtoul( partition2->getLocation( ), NULL, 10 ) );
+        partitionID = max( partitionID, ( UInt32 ) strtoul( partition2->getLocation( ), NULL, 10 ) );
 
         partitions2->setObject( partition2 );
     }
@@ -824,15 +794,9 @@ juxtaposeErr:
     return 0;
 }
 
-#ifdef __LP64__
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  0);
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  1);
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  2);
-#else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOPartitionScheme,  0);
-OSMetaClassDefineReservedUsed(IOPartitionScheme,  1);
-OSMetaClassDefineReservedUsed(IOPartitionScheme,  2);
-#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  3);
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  4);
 OSMetaClassDefineReservedUnused(IOPartitionScheme,  5);
@@ -863,14 +827,9 @@ OSMetaClassDefineReservedUnused(IOPartitionScheme, 29);
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 30);
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 31);
 
-#ifndef __LP64__
-extern "C" void _ZN17IOPartitionScheme4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOPartitionScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+#ifdef __x86_64__
+extern "C" void _ZN17IOPartitionScheme16synchronizeCacheEP9IOService( IOPartitionScheme * scheme, IOService * client )
 {
-    scheme->read( client, byteStart, buffer, NULL, &completion );
+    scheme->synchronize( client, 0, 0 );
 }
-
-extern "C" void _ZN17IOPartitionScheme5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOPartitionScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
-{
-    scheme->write( client, byteStart, buffer, NULL, &completion );
-}
-#endif /* !__LP64__ */
+#endif /* __x86_64__ */

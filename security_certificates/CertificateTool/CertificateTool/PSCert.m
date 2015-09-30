@@ -10,6 +10,7 @@
 #import "PSAssetConstants.h"
 //#import <CommonCrypto/CommonDigest.h>
 #import <corecrypto/ccsha1.h>
+#import <corecrypto/ccsha2.h>
 #import <corecrypto/ccdigest.h>
 #import <Security/Security.h>
 
@@ -32,6 +33,7 @@ typedef struct __SecCertificate *SecCertificateRefP;
 SecCertificateRefP SecCertificateCreateWithDataP(CFAllocatorRef allocator, CFDataRef der_certificate);
 CFDataRef SecCertificateGetNormalizedIssuerContent(SecCertificateRefP certificate);
 CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRefP certificate);
+CFDataRef SecCertificateGetAuthorityKeyID(SecCertificateRef certificate);
 
 
 @interface PSCert (PrivateMethods)
@@ -48,8 +50,10 @@ CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRefP certifica
 @synthesize cert_data = _cert_data;
 @synthesize normalized_subject_hash = _normalized_subject_hash;
 @synthesize certificate_hash = _certificate_hash;
+@synthesize certificate_sha256_hash = _certificate_sha256_hash;
 @synthesize public_key_hash = _public_key_hash;
 @synthesize file_path = _file_path;
+@synthesize auth_key_id = _auth_key_id;
 @synthesize flags = _flags;
 
 
@@ -105,6 +109,20 @@ CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRefP certifica
         else
         {
             _public_key_hash = nil;
+        }
+        if (isAllowListed & assetFlags)
+        {
+            _certificate_sha256_hash = [self getCertificateSHA256Hash];
+            _auth_key_id = nil;
+            if (isAnchor & assetFlags)
+            {
+                _auth_key_id = [self getAuthKeyIDString:certRef];
+            }
+        }
+        else
+        {
+            _certificate_sha256_hash = nil;
+            _auth_key_id = nil;
         }
 		
         if (NULL != certRef)
@@ -180,6 +198,18 @@ CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRefP certifica
     return result;
 }
 
+- (NSData *)getCertificateSHA256Hash
+{
+    NSData* result = nil;
+    unsigned char certificate_digest[CCSHA256_OUTPUT_SIZE];
+    const struct ccdigest_info* digest_info = ccsha256_di();
+
+    ccdigest(digest_info, (unsigned long)[_cert_data length], [_cert_data bytes], certificate_digest);
+
+    result = [NSData dataWithBytes:certificate_digest length:CCSHA256_OUTPUT_SIZE];
+    return result;
+}
+
 extern CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllocatorRef allocator, CFDataRef der_certificate);
 
 - (NSData *)getPublicKeyHash:(SecCertificateRef)cert_ref;
@@ -201,4 +231,42 @@ extern CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllo
 	
 	return result;
 }
+
+- (NSString *)getAuthKeyIDString:(SecCertificateRef)cert_ref
+{
+    NSString *result = nil;
+
+    SecCertificateRefP iosCertRef = NULL;
+    NSData* authKey = NULL;
+    CFDataRef cert_data = SecCertificateCopyData(cert_ref);
+    if (NULL == cert_data)
+    {
+        NSLog(@"SecCertificateCopyData returned NULL");
+        return result;
+    }
+
+    iosCertRef = SecCertificateCreateWithDataP(NULL, cert_data);
+    CFRelease(cert_data);
+
+    if (NULL != iosCertRef)
+    {
+        CFDataRef temp_data = SecCertificateGetAuthorityKeyID(iosCertRef);
+
+        if (NULL == temp_data)
+        {
+            NSLog(@"SecCertificateGetAuthorityKeyID return NULL");
+            CFRelease(iosCertRef);
+            return result;
+        }
+        authKey = [NSData dataWithBytes:CFDataGetBytePtr(temp_data) length:CFDataGetLength(temp_data)];
+        CFRelease(iosCertRef);
+    }
+    
+    if (authKey) {
+        return [[authKey toHexString] uppercaseString];
+    } else {
+        return NULL;
+    }
+}
+
 @end

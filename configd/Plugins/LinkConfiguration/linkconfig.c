@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2007, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -50,8 +50,6 @@ static CFStringRef		interfacesKey	= NULL;
 static SCDynamicStoreRef	store		= NULL;
 static CFRunLoopSourceRef	rls		= NULL;
 static CFMutableDictionaryRef	wantSettings	= NULL;
-
-static Boolean			_verbose	= FALSE;
 
 
 #pragma mark -
@@ -117,14 +115,14 @@ _SCNetworkInterfaceSetCapabilities(SCNetworkInterfaceRef	interface,
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("socket() failed: %s"), strerror(errno));
+		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 		return FALSE;
 	}
 
 	ret = ioctl(sock, SIOCSIFCAP, (caddr_t)&ifr);
 	(void)close(sock);
 	if (ret == -1) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("ioctl(SIOCSIFCAP) failed: %s"), strerror(errno));
+		SC_log(LOG_INFO, "ioctl(SIOCSIFCAP) failed: %s", strerror(errno));
 		return FALSE;
 	}
 #endif	// SIOCSIFCAP
@@ -195,7 +193,7 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 	interfaceName = SCNetworkInterfaceGetBSDName(interface);
 	if (interfaceName == NULL) {
 		/* if no BSD interface name */
-		SCLog(_verbose, LOG_INFO, CFSTR("no BSD interface name for %@"), interface);
+		SC_log(LOG_INFO, "no BSD interface name for %@", interface);
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -203,7 +201,7 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 	/* get current & available options */
 	if (!SCNetworkInterfaceCopyMediaOptions(interface, &current, NULL, &available, FALSE)) {
 		/* could not get current media options */
-		SCLog(_verbose, LOG_INFO, CFSTR("no media options for %@"), interfaceName);
+		SC_log(LOG_INFO, "no media options for %@", interfaceName);
 		return FALSE;
 	}
 
@@ -233,7 +231,7 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 
 	if (!CFArrayContainsValue(available, CFRangeMake(0, CFArrayGetCount(available)), requested)) {
 		/* if requested settings not currently available */
-		SCLog(_verbose, LOG_INFO, CFSTR("requested media settings unavailable for %@"), interfaceName);
+		SC_log(LOG_INFO, "requested media settings unavailable for %@", interfaceName);
 		goto done;
 	}
 
@@ -245,7 +243,7 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("socket() failed: %s"), strerror(errno));
+		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 		goto done;
 	}
 
@@ -253,7 +251,7 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 	(void)_SC_cfstring_to_cstring(interfaceName, ifm.ifm_name, sizeof(ifm.ifm_name), kCFStringEncodingASCII);
 
 	if (ioctl(sock, SIOCGIFMEDIA, (caddr_t)&ifm) == -1) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("ioctl(SIOCGIFMEDIA) failed: %s"), strerror(errno));
+		SC_log(LOG_NOTICE, "ioctl(SIOCGIFMEDIA) failed: %s", strerror(errno));
 		goto done;
 	}
 
@@ -262,11 +260,11 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 	ifr.ifr_media =  ifm.ifm_current & ~(IFM_NMASK|IFM_TMASK|IFM_OMASK|IFM_GMASK);
 	ifr.ifr_media |= newOptions;
 
-	SCLog(_verbose, LOG_INFO, CFSTR("old media settings: 0x%8.8x (0x%8.8x)"), ifm.ifm_current, ifm.ifm_active);
-	SCLog(_verbose, LOG_INFO, CFSTR("new media settings: 0x%8.8x"), ifr.ifr_media);
+	SC_log(LOG_INFO, "old media settings: 0x%8.8x (0x%8.8x)", ifm.ifm_current, ifm.ifm_active);
+	SC_log(LOG_INFO, "new media settings: 0x%8.8x", ifr.ifr_media);
 
 	if (ioctl(sock, SIOCSIFMEDIA, (caddr_t)&ifr) == -1) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("%@: ioctl(SIOCSIFMEDIA) failed: %s"), interfaceName, strerror(errno));
+		SC_log(LOG_NOTICE, "%@: ioctl(SIOCSIFMEDIA) failed: %s", interfaceName, strerror(errno));
 		goto done;
 	}
 
@@ -295,21 +293,18 @@ ifconfig_exit(pid_t pid, int status, struct rusage *rusage, void *context)
 
 	if (WIFEXITED(status)) {
 		if (WEXITSTATUS(status) != 0) {
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("ifconfig %s failed, exit status = %d"),
-			      if_name,
-			      WEXITSTATUS(status));
+			SC_log(LOG_NOTICE, "ifconfig %s failed, exit status = %d",
+			       if_name,
+			       WEXITSTATUS(status));
 		}
 	} else if (WIFSIGNALED(status)) {
-		SCLog(TRUE, LOG_DEBUG,
-		      CFSTR("ifconfig %s: terminated w/signal = %d"),
-		      if_name,
-		      WTERMSIG(status));
+		SC_log(LOG_NOTICE, "ifconfig %s: terminated w/signal = %d",
+		       if_name,
+		       WTERMSIG(status));
 	} else {
-		SCLog(TRUE, LOG_DEBUG,
-		      CFSTR("ifconfig %s: exit status = %d"),
-		      if_name,
-		      status);
+		SC_log(LOG_NOTICE, "ifconfig %s: exit status = %d",
+		       if_name,
+		       status);
 	}
 
 	CFAllocatorDeallocate(NULL, if_name);
@@ -384,14 +379,14 @@ _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("socket() failed: %s"), strerror(errno));
+		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 		return FALSE;
 	}
 
 	ret = ioctl(sock, SIOCSIFMTU, (caddr_t)&ifr);
 	(void)close(sock);
 	if (ret == -1) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("ioctl(SIOCSIFMTU) failed: %s"), strerror(errno));
+		SC_log(LOG_NOTICE, "ioctl(SIOCSIFMTU) failed: %s", strerror(errno));
 		return FALSE;
 	}
 }
@@ -597,10 +592,14 @@ updateLink(CFStringRef interfaceName, CFDictionaryRef options)
 static void
 linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 {
+	os_activity_t		activity_id;
 	CFDictionaryRef		changes;
 	CFIndex			i;
 	CFIndex			n;
 	static CFStringRef	prefix		= NULL;
+
+	activity_id = os_activity_start("processing link configuration changes",
+					OS_ACTIVITY_FLAG_DEFAULT);
 
 	if (prefix == NULL) {
 		prefix = SCDynamicStoreKeyCreate(NULL,
@@ -612,7 +611,7 @@ linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void 
 
 	changes = SCDynamicStoreCopyMultiple(store, changedKeys, NULL);
 
-	n = CFArrayGetCount(changedKeys);
+	n = (changes != NULL) ? CFArrayGetCount(changedKeys) : 0;
 	for (i = 0; i < n; i++) {
 		CFStringRef	key;
 		CFDictionaryRef	info;
@@ -621,11 +620,13 @@ linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void 
 		info = CFDictionaryGetValue(changes, key);
 
 		if (CFEqual(key, interfacesKey)) {
-			CFArrayRef	interfaces;
+			if (isA_CFDictionary(info) != NULL) {
+				CFArrayRef	interfaces;
 
-			interfaces = CFDictionaryGetValue(info, kSCPropNetInterfaces);
-			if (isA_CFArray(interfaces)) {
-				updateInterfaces(interfaces);
+				interfaces = CFDictionaryGetValue(info, kSCPropNetInterfaces);
+				if (isA_CFArray(interfaces)) {
+					updateInterfaces(interfaces);
+				}
 			}
 		} else {
 			CFStringRef	interfaceName;
@@ -638,7 +639,11 @@ linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void 
 		}
 	}
 
-	CFRelease(changes);
+	if (changes != NULL) {
+		CFRelease(changes);
+	}
+
+	os_activity_end(activity_id);
 
 	return;
 }
@@ -653,12 +658,8 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 	Boolean			ok;
 	CFMutableArrayRef	patterns	= NULL;
 
-	if (bundleVerbose) {
-		_verbose = TRUE;
-	}
-
-	SCLog(_verbose, LOG_DEBUG, CFSTR("load() called"));
-	SCLog(_verbose, LOG_DEBUG, CFSTR("  bundle ID = %@"), CFBundleGetIdentifier(bundle));
+	SC_log(LOG_DEBUG, "load() called");
+	SC_log(LOG_DEBUG, "  bundle ID = %@", CFBundleGetIdentifier(bundle));
 
 	/* initialize a few globals */
 
@@ -677,7 +678,7 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 				     linkConfigChangedCallback,
 				     NULL);
 	if (store == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCreate() failed: %s"), SCErrorString(SCError()));
+		SC_log(LOG_ERR, "SCDynamicStoreCreate() failed: %s", SCErrorString(SCError()));
 		goto error;
 	}
 
@@ -719,17 +720,15 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 	CFRelease(keys);
 	CFRelease(patterns);
 	if (!ok) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s"),
-		      SCErrorString(SCError()));
+		SC_log(LOG_NOTICE, "SCDynamicStoreSetNotificationKeys() failed: %s",
+		       SCErrorString(SCError()));
 		goto error;
 	}
 
 	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
 	if (rls == NULL) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCDynamicStoreCreateRunLoopSource() failed: %s"),
-		      SCErrorString(SCError()));
+		SC_log(LOG_NOTICE, "SCDynamicStoreCreateRunLoopSource() failed: %s",
+		       SCErrorString(SCError()));
 		goto error;
 	}
 

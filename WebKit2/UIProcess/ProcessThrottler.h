@@ -28,57 +28,61 @@
 
 #include "ProcessAssertion.h"
 
+#include <wtf/RefCounter.h>
 #include <wtf/RunLoop.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebKit {
     
-class WebProcessProxy;
-    
-class ProcessThrottler {
+enum UserObservablePageTokenType { };
+typedef RefCounter::Token<UserObservablePageTokenType> UserObservablePageToken;
+enum ProcessSuppressionDisabledTokenType { };
+typedef RefCounter::Token<ProcessSuppressionDisabledTokenType> ProcessSuppressionDisabledToken;
+
+class ProcessThrottlerClient;
+
+class ProcessThrottler : private ProcessAssertionClient {
 public:
-    class ForegroundActivityToken {
-    public:
-        ForegroundActivityToken(ProcessThrottler&);
-        ~ForegroundActivityToken();
-        
-    private:
-        WeakPtr<ProcessThrottler> m_throttler;
-    };
+    enum ForegroundActivityTokenType { };
+    typedef RefCounter::Token<ForegroundActivityTokenType> ForegroundActivityToken;
+    enum BackgroundActivityTokenType { };
+    typedef RefCounter::Token<BackgroundActivityTokenType> BackgroundActivityToken;
+
+    ProcessThrottler(ProcessThrottlerClient&);
+
+    inline ForegroundActivityToken foregroundActivityToken() const;
+    inline BackgroundActivityToken backgroundActivityToken() const;
     
-    class BackgroundActivityToken {
-    public:
-        BackgroundActivityToken(ProcessThrottler&);
-        ~BackgroundActivityToken();
-        
-    private:
-        WeakPtr<ProcessThrottler> m_throttler;
-    };
-    
-    ProcessThrottler(WebProcessProxy*);
-    
-    void didConnnectToProcess(pid_t);
+    void didConnectToProcess(pid_t);
     void processReadyToSuspend();
     void didCancelProcessSuspension();
-    
+
 private:
-    friend class ForegroundActivityToken;
-    friend class BackgroundActivityToken;
-    WeakPtr<ProcessThrottler> weakPtr() { return m_weakPtrFactory.createWeakPtr(); }
-    
     AssertionState assertionState();
     void updateAssertion();
     void updateAssertionNow();
     void suspendTimerFired();
-    
-    WebProcessProxy* m_process;
-    WeakPtrFactory<ProcessThrottler> m_weakPtrFactory;
+
+    // ProcessAssertionClient
+    void assertionWillExpireImminently() override;
+
+    ProcessThrottlerClient& m_process;
     std::unique_ptr<ProcessAndUIAssertion> m_assertion;
     RunLoop::Timer<ProcessThrottler> m_suspendTimer;
-    unsigned m_foregroundCount;
-    unsigned m_backgroundCount;
+    RefCounter m_foregroundCounter;
+    RefCounter m_backgroundCounter;
     int m_suspendMessageCount;
 };
+
+inline ProcessThrottler::ForegroundActivityToken ProcessThrottler::foregroundActivityToken() const
+{
+    return ForegroundActivityToken(m_foregroundCounter.token<ForegroundActivityTokenType>());
+}
+
+inline ProcessThrottler::BackgroundActivityToken ProcessThrottler::backgroundActivityToken() const
+{
+    return BackgroundActivityToken(m_backgroundCounter.token<BackgroundActivityTokenType>());
+}
     
 }
 

@@ -1548,7 +1548,7 @@
    foo=
    print ${foo:wq}
    print ${:wq}
-0:Empty parameter shouldn't cause modifiers to crash the shell
+0:Empty parameter should not cause modifiers to crash the shell
 >
 >
 
@@ -1560,3 +1560,154 @@
 0:Intersection and disjunction with empty parameters
 >0
 >0
+
+  foo=(a b c)
+  bar=(1 2 3)
+  print ${foo:^bar}
+  print ${foo:^^bar}
+  foo=(a b c d)
+  bar=(1 2)
+  print ${foo:^bar}
+  print ${foo:^^bar}
+  foo=('a a' b)
+  bar=(1 '2 2')
+  print -l "${foo:^bar}"
+  print -l "${(@)foo:^bar}"
+0:Zipping arrays, correct output
+>a 1 b 2 c 3
+>a 1 b 2 c 3
+>a 1 b 2
+>a 1 b 2 c 1 d 2
+# maybe this should be changed to output "a a b 1"
+>a a b
+>1
+>a a
+>1
+>b
+>2 2
+
+  foo=(a b c)
+  bar=()
+  print ${foo:^bar}
+  print ${foo:^^bar}
+  print ${bar:^foo}
+  print ${bar:^^foo}
+  print ${bar:^bar}
+  print ${bar:^^bar}
+0:Zipping arrays, one or both inputs empty
+>
+>a b c
+>
+>a b c
+>
+>
+
+  foo=text
+  bar=()
+  print ${foo:^bar}
+  print ${bar:^^foo}
+  bar=other
+  print ${foo:^bar}
+  bar=(array elements)
+  print ${foo:^bar}
+  print ${foo:^^bar}
+  print ${bar:^foo}
+  print ${bar:^^foo}
+0:Zipping arrays, scalar input
+>
+>text
+>text other
+>text array
+>text array text elements
+>array text
+>array text elements text
+
+  foo=(a b c)
+  print ${foo:^^^bar}
+1:Zipping arrays, parsing
+?(eval):2: not an identifier: ^bar
+
+  (setopt nounset
+  print ${foo:^noexist})
+1:Zipping arrays, NO_UNSET part 1
+?(eval):2: noexist: parameter not set
+
+  (setopt nounset
+  print ${noexist:^foo})
+1:Zipping arrays, NO_UNSET part 2
+?(eval):2: noexist: parameter not set
+
+  expr="a@b,c@d:e@f,g@h:i@j,k@l"
+  for sep in : , @; do
+    print -l ${(ps.$sep.)expr}
+  done
+0:Use of variable to get separator when splitting parameter
+>a@b,c@d
+>e@f,g@h
+>i@j,k@l
+>a@b
+>c@d:e@f
+>g@h:i@j
+>k@l
+>a
+>b,c
+>d:e
+>f,g
+>h:i
+>j,k
+>l
+
+  SHLVL=1
+  $ZTST_testdir/../Src/zsh -fc 'echo $SHLVL'
+  $ZTST_testdir/../Src/zsh -fc '(echo $SHLVL)'
+0:SHLVL appears sensible when about to exit shell
+>2
+>2
+
+# The following tests the return behaviour of parsestr/parsestrnoerr
+  alias param-test-alias='print $'\''\x45xpanded in substitution'\' 
+  param='$(param-test-alias)'
+  print ${(e)param}
+0:Alias expansion in command substitution in parameter evaluation
+>Expanded in substitution
+
+  a=1 b=2 c=3
+  : One;
+  function {
+      : Two
+      echo $_
+      print -l $argv
+  } $_ Three
+  print -l $_ Four;
+0:$_ with anonymous function
+>Two
+>One
+>Three
+>Three
+>Four
+
+  a=1 b=2 c=3
+  : One
+  function {
+      : Two
+      echo $_
+      print -l $argv
+  }
+  print -l "$_" Four
+0:$_ with anonymous function without arguments
+>Two
+>
+>
+>Four
+
+  funnychars='The qu*nk br!wan f@x j/mps o[]r \(e la~# ^"&;'
+  [[ $funnychars = ${~${(b)funnychars}} ]]
+0:${(b)...} quoting protects from GLOB_SUBST
+
+  set -- foo
+  echo $(( $#*3 ))
+  emulate sh -c 'nolenwithoutbrace() { echo $#-1; }'
+  nolenwithoutbrace
+0:Avoid confusion after overloaded characters in braceless substitution in sh
+>13
+>0-1

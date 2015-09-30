@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -123,7 +123,6 @@ extern SCDynamicStoreBundleLoadFunction		load_LinkConfiguration;
 extern SCDynamicStoreBundleLoadFunction		load_PreferencesMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_PreferencesMonitor;
 #endif	// !TARGET_IPHONE_SIMULATOR
-extern SCDynamicStoreBundleLoadFunction		load_SCNetworkReachability;
 
 
 typedef struct {
@@ -173,13 +172,6 @@ static const builtin builtin_plugins[] = {
 		NULL
 	},
 #endif	// !TARGET_IPHONE_SIMULATOR
-	{
-		CFSTR("com.apple.SystemConfiguration.SCNetworkReachability"),
-		&load_SCNetworkReachability,
-		NULL,
-		NULL,
-		NULL
-	},
 };
 
 
@@ -187,19 +179,53 @@ static const builtin builtin_plugins[] = {
 static void
 traceBundle(const char *op, CFBundleRef bundle)
 {
-	if (_configd_trace != NULL) {
+	if (bundle != NULL) {
+		CFStringRef	bundleID	= CFBundleGetIdentifier(bundle);
+
+		SC_trace(_configd_trace, "bundle  : %s %@\n",
+			 op,
+			 bundleID);
+	} else {
+		SC_trace(_configd_trace, "bundle  : %s\n",
+			 op);
+	}
+
+	const char *path = getenv("LOG_CONFIGD_BUNDLE_USAGE");
+	if (path != NULL) {
+		FILE	*file;
+		int	status;
+		char	*top_command;
+
+		file = fopen(path, "a");
+		if (file == NULL) {
+			return;
+		}
+
+		// let everything settle down before grabbing a snapshot
+		(void)sleep(2);
+
+		SCPrint(TRUE, file, CFSTR("\n--------------------\n\n"), op);
 		if (bundle != NULL) {
 			CFStringRef	bundleID	= CFBundleGetIdentifier(bundle);
 
-			SCTrace(TRUE, _configd_trace,
-				CFSTR("bundle  : %s %@\n"),
-				op,
-				bundleID);
+			SC_trace(file, "%s bundle \"%@\"\n\n", op, bundleID);
 		} else {
-			SCTrace(TRUE, _configd_trace,
-				CFSTR("bundle  : %s\n"),
-				op);
+			SC_trace(file, "%s\n\n", op);
 		}
+		SCPrint(TRUE, file, CFSTR("%@\n\n"), CFRunLoopGetCurrent());
+		fclose(file);
+
+		if (asprintf(&top_command, "/usr/bin/top -o+pid -l 1 >> %s", path) == -1) {
+			return;
+		}
+
+		status = system(top_command);
+		if ((status == -1) ||
+		    !WIFEXITED(status) ||
+		    (WEXITSTATUS(status) != 0)) {
+			SC_log(LOG_NOTICE, "system(\"%s\") failed", top_command);
+		}
+		free(top_command);
 	}
 
 	return;
@@ -358,7 +384,7 @@ loadBundle(const void *value, void *context) {
 	bundleID = CFBundleGetIdentifier(bundleInfo->bundle);
 	if (bundleID == NULL) {
 		// sorry, no bundles without a bundle identifier
-		SCLog(TRUE, LOG_NOTICE, CFSTR("skipped %@ (no bundle ID)"), bundleInfo->bundle);
+		SC_log(LOG_NOTICE, "skipped %@ (no bundle ID)", bundleInfo->bundle);
 		return;
 	}
 
@@ -371,7 +397,7 @@ loadBundle(const void *value, void *context) {
 			 bundleInfo->forced					// if "testing" plugin
 			);
 	if (!bundleAllowed) {
-		SCLog(TRUE, LOG_WARNING, CFSTR("skipped %@ (not allowed)"), bundleID);
+		SC_log(LOG_INFO, "skipped %@ (not allowed)", bundleID);
 		goto done;
 	}
 
@@ -381,13 +407,13 @@ loadBundle(const void *value, void *context) {
 			);
 	if (bundleExclude) {
 		// sorry, this bundle has been excluded
-		SCLog(TRUE, LOG_NOTICE, CFSTR("skipped %@ (excluded)"), bundleID);
+		SC_log(LOG_INFO, "skipped %@ (excluded)", bundleID);
 		goto done;
 	}
 
 	if (!bundleInfo->enabled && !bundleInfo->forced) {
 		// sorry, this bundle has not been enabled
-		SCLog(TRUE, LOG_INFO, CFSTR("skipped %@ (disabled)"), bundleID);
+		SC_log(LOG_INFO, "skipped %@ (disabled)", bundleID);
 		goto done;
 	}
 
@@ -403,7 +429,7 @@ loadBundle(const void *value, void *context) {
 	if (bundleInfo->builtin) {
 		int		i;
 
-		SCLog(TRUE, LOG_DEBUG, CFSTR("adding  %@"), bundleID);
+		SC_log(LOG_INFO, "adding  %@", bundleID);
 
 		for (i = 0; i < sizeof(builtin_plugins)/sizeof(builtin_plugins[0]); i++) {
 			if (CFEqual(bundleID, builtin_plugins[i].bundleID)) {
@@ -419,13 +445,13 @@ loadBundle(const void *value, void *context) {
 		    (bundleInfo->start == NULL) &&
 		    (bundleInfo->prime == NULL) &&
 		    (bundleInfo->stop  == NULL)) {
-			SCLog(TRUE, LOG_NOTICE, CFSTR("%@ add failed"), bundleID);
+			SC_log(LOG_NOTICE, "%@ add failed", bundleID);
 			goto done;
 		}
 	} else {
 		CFErrorRef	error	= NULL;
 
-		SCLog(TRUE, LOG_DEBUG, CFSTR("loading %@"), bundleID);
+		SC_log(LOG_INFO, "loading %@", bundleID);
 
 #ifdef	DEBUG
 		traceBundle("loading", bundleInfo->bundle);
@@ -433,8 +459,8 @@ loadBundle(const void *value, void *context) {
 
 		if (!CFBundleLoadExecutableAndReturnError(bundleInfo->bundle, &error)) {
 			CFDictionaryRef	user_info;
-			
-			SCLog(TRUE, LOG_NOTICE, CFSTR("%@ load failed"), bundleID);
+
+			SC_log(LOG_NOTICE, "%@ load failed", bundleID);
 			user_info = CFErrorCopyUserInfo(error);
 			if (user_info != NULL) {
 				CFStringRef	link_error_string;
@@ -442,7 +468,7 @@ loadBundle(const void *value, void *context) {
 				link_error_string = CFDictionaryGetValue(user_info,
 									 CFSTR("NSDebugDescription"));
 				if (link_error_string != NULL) {
-					SCLog(TRUE, LOG_NOTICE, CFSTR("%@"), link_error_string);
+					SC_log(LOG_NOTICE, "%@", link_error_string);
 				}
 				CFRelease(user_info);
 			}
@@ -577,7 +603,7 @@ stopComplete(void *info)
 	CFStringRef		bundleID	= CFBundleGetIdentifier(bundle);
 	CFRunLoopSourceRef	stopRls;
 
-	SCLog(TRUE, LOG_DEBUG, CFSTR("** %@ complete (%f)"), bundleID, CFAbsoluteTimeGetCurrent());
+	SC_log(LOG_INFO, "** %@ complete (%f)", bundleID, CFAbsoluteTimeGetCurrent());
 
 	stopRls = (CFRunLoopSourceRef)CFDictionaryGetValue(exiting, bundle);
 	if (stopRls == NULL) {
@@ -593,7 +619,7 @@ stopComplete(void *info)
 
 		// if all of the plugins are happy
 		status = server_shutdown();
-		SCLog(TRUE, LOG_DEBUG, CFSTR("server shutdown complete (%f)"), CFAbsoluteTimeGetCurrent());
+		SC_log(LOG_INFO, "server shutdown complete (%f)", CFAbsoluteTimeGetCurrent());
 		exit (status);
 	}
 
@@ -609,7 +635,7 @@ stopDelayed(CFRunLoopTimerRef timer, void *info)
 	CFIndex		n;
 	int		status;
 
-	SCLog(TRUE, LOG_ERR, CFSTR("server shutdown was delayed, unresponsive plugins:"));
+	SC_log(LOG_INFO, "server shutdown was delayed, unresponsive plugins:");
 
 	/*
 	 * we've asked our plugins to shutdown but someone
@@ -624,7 +650,7 @@ stopDelayed(CFRunLoopTimerRef timer, void *info)
 
 		bundle   = (CFBundleRef)keys[i];
 		bundleID = CFBundleGetIdentifier(bundle);
-		SCLog(TRUE, LOG_ERR, CFSTR("** %@"), bundleID);
+		SC_log(LOG_NOTICE, "** %@", bundleID);
 	}
 	CFAllocatorDeallocate(NULL, keys);
 
@@ -690,7 +716,7 @@ stopBundles()
 	 * function should signal the provided run loop source when it is "ready"
 	 * for the shut down to proceeed.
 	 */
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("calling bundle stop() functions"));
+	SC_log(LOG_DEBUG, "calling bundle stop() functions");
 	CFArrayApplyFunction(allBundles,
 			     CFRangeMake(0, CFArrayGetCount(allBundles)),
 			     stopBundle,
@@ -701,7 +727,7 @@ stopBundles()
 
 		// if all of the plugins are happy
 		status = server_shutdown();
-		SCLog(TRUE, LOG_DEBUG, CFSTR("server shutdown complete (%f)"), CFAbsoluteTimeGetCurrent());
+		SC_log(LOG_INFO, "server shutdown complete (%f)", CFAbsoluteTimeGetCurrent());
 		exit (status);
 	} else {
 		CFRunLoopTimerRef	timer;
@@ -766,7 +792,7 @@ plugin_term(int *status)
 		return TRUE;
 	}
 
-	SCLog(TRUE, LOG_DEBUG, CFSTR("starting server shutdown (%f)"), CFAbsoluteTimeGetCurrent());
+	SC_log(LOG_INFO, "starting server shutdown (%f)", CFAbsoluteTimeGetCurrent());
 
 	exiting = CFDictionaryCreateMutable(NULL,
 					    0,
@@ -880,7 +906,7 @@ sortBundles(CFMutableArrayRef orig)
 		}
 
 		if (inserted == FALSE) {
-			SCLog(TRUE, LOG_NOTICE, CFSTR("Bundles have circular dependency!!!"));
+			SC_log(LOG_NOTICE, "Bundles have circular dependency!!!");
 			break;
 		}
 
@@ -965,7 +991,7 @@ plugin_exec(void *arg)
 
 			/* load any available bundle */
 			strlcat(path, BUNDLE_DIRECTORY, sizeof(path));
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("searching for bundles in \"%s\""), path);
+			SC_log(LOG_DEBUG, "searching for bundles in \"%s\"", path);
 			url = CFURLCreateFromFileSystemRepresentation(NULL,
 								      (UInt8 *)path,
 								      strlen(path),
@@ -1059,7 +1085,7 @@ plugin_exec(void *arg)
 	/*
 	 * load each bundle.
 	 */
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("loading bundles"));
+	SC_log(LOG_DEBUG, "loading bundles");
 	CFArrayApplyFunction(allBundles,
 			     CFRangeMake(0, CFArrayGetCount(allBundles)),
 			     loadBundle,
@@ -1076,7 +1102,7 @@ plugin_exec(void *arg)
 	 *       data has changed will have an opportunity to install a
 	 *       notification handler.
 	 */
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("calling bundle load() functions"));
+	SC_log(LOG_DEBUG, "calling bundle load() functions");
 	CFArrayApplyFunction(allBundles,
 			     CFRangeMake(0, CFArrayGetCount(allBundles)),
 			     callLoadFunction,
@@ -1099,7 +1125,7 @@ plugin_exec(void *arg)
 	 *       data has changed will have an opportunity to install a
 	 *       notification handler.
 	 */
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("calling bundle start() functions"));
+	SC_log(LOG_DEBUG, "calling bundle start() functions");
 	CFArrayApplyFunction(allBundles,
 			     CFRangeMake(0, CFArrayGetCount(allBundles)),
 			     callStartFunction,
@@ -1111,7 +1137,7 @@ plugin_exec(void *arg)
 	 * functions have been called.  It should initialize any configuration
 	 * information and/or state in the store.
 	 */
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("calling bundle prime() functions"));
+	SC_log(LOG_DEBUG, "calling bundle prime() functions");
 	CFArrayApplyFunction(allBundles,
 			     CFRangeMake(0, CFArrayGetCount(allBundles)),
 			     callPrimeFunction,
@@ -1145,14 +1171,14 @@ plugin_exec(void *arg)
 	 * needs to wait and/or block at any time it should do so only in its a
 	 * private thread.
 	 */
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("starting plugin CFRunLoop"));
+	SC_log(LOG_DEBUG, "starting plugin CFRunLoop");
 	plugin_runLoop = CFRunLoopGetCurrent();
 	pthread_setname_np("Main plugin thread");
 	CFRunLoopRun();
 
     done :
 
-	SCLog(_configd_verbose, LOG_INFO, CFSTR("No more work for the \"configd\" plugins"));
+	SC_log(LOG_INFO, "No more work for the \"configd\" plugin thread");
 	plugin_runLoop = NULL;
 	return NULL;
 }
@@ -1165,14 +1191,14 @@ plugin_init()
 	pthread_attr_t	tattr;
 	pthread_t	tid;
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Starting thread for plug-ins..."));
+	SC_log(LOG_DEBUG, "Starting \"configd\" plugin thread");
 	pthread_attr_init(&tattr);
 	pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
 	pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
 //      pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
 	pthread_create(&tid, &tattr, plugin_exec, NULL);
 	pthread_attr_destroy(&tattr);
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  thread id=%p"), tid);
+	SC_log(LOG_DEBUG, "  thread id=%p", tid);
 
 	return;
 }

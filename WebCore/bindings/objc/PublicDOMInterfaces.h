@@ -156,7 +156,7 @@
 - (BOOL)queryCommandSupported:(NSString *)command WEBKIT_AVAILABLE_MAC(10_5);
 - (NSString *)queryCommandValue:(NSString *)command WEBKIT_AVAILABLE_MAC(10_5);
 - (DOMElement *)elementFromPoint:(int)x y:(int)y WEBKIT_AVAILABLE_MAC(10_5);
-- (DOMNodeList *)getElementsByClassName:(NSString *)tagname WEBKIT_AVAILABLE_MAC(10_6);
+- (DOMNodeList *)getElementsByClassName:(NSString *)classNames WEBKIT_AVAILABLE_MAC(10_6);
 - (DOMElement *)querySelector:(NSString *)selectors WEBKIT_AVAILABLE_MAC(10_6);
 - (DOMNodeList *)querySelectorAll:(NSString *)selectors WEBKIT_AVAILABLE_MAC(10_6);
 #if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
@@ -195,6 +195,8 @@
 @property (readonly) int clientLeft WEBKIT_AVAILABLE_MAC(10_5);
 @property (readonly) int clientTop WEBKIT_AVAILABLE_MAC(10_5);
 @property (readonly, copy) NSString *innerText WEBKIT_AVAILABLE_MAC(10_5);
+@property (copy) NSString *innerHTML;
+@property (copy) NSString *outerHTML;
 @property (readonly, strong) DOMElement *firstElementChild WEBKIT_AVAILABLE_MAC(10_6);
 @property (readonly, strong) DOMElement *lastElementChild WEBKIT_AVAILABLE_MAC(10_6);
 @property (readonly, strong) DOMElement *previousElementSibling WEBKIT_AVAILABLE_MAC(10_6);
@@ -314,11 +316,6 @@
 @interface DOMNodeList : DOMObject 10_4
 @property (readonly) unsigned length;
 - (DOMNode *)item:(unsigned)index;
-@end
-
-@interface DOMNotation : DOMNode 10_4
-@property (readonly, copy) NSString *publicId;
-@property (readonly, copy) NSString *systemId;
 @end
 
 @interface DOMProcessingInstruction : DOMCharacterData 10_4
@@ -476,9 +473,7 @@
 @property (copy) NSString *idName;
 @property (copy) NSString *lang;
 @property (copy) NSString *dir;
-@property (copy) NSString *innerHTML;
 @property (copy) NSString *innerText;
-@property (copy) NSString *outerHTML;
 @property (copy) NSString *outerText;
 @property (readonly, strong) DOMHTMLCollection *children;
 @property (copy) NSString *contentEditable;
@@ -1233,7 +1228,7 @@
 // Protocols
 
 @protocol DOMEventListener <NSObject> 10_4
-- (void)handleEvent:(DOMEvent *)evt;
+- (void)handleEvent:(DOMEvent *)event;
 @end
 
 @protocol DOMEventTarget <NSObject, NSCopying> 10_4
@@ -1252,6 +1247,8 @@
 - (NSString *)lookupNamespaceURI:(NSString *)prefix;
 @end
 
+#if defined(USE_APPLE_INTERNAL_SDK) && USE_APPLE_INTERNAL_SDK
 #if defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
 #include <WebKitAdditions/PublicDOMInterfacesIOS.h>
+#endif
 #endif

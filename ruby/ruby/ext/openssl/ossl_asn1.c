@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_asn1.c 44659 2014-01-19 16:28:53Z nagachika $
+ * $Id: ossl_asn1.c 46200 2014-05-28 04:22:15Z usa $
  * 'OpenSSL for Ruby' team members
  * Copyright (C) 2003
  * All rights reserved.
@@ -1150,7 +1150,7 @@ ossl_asn1_initialize(int argc, VALUE *argv, VALUE self)
 	}
 	if(!SYMBOL_P(tag_class))
 	    ossl_raise(eASN1Error, "invalid tag class");
-	if(SYM2ID(tagging) == sIMPLICIT && NUM2INT(tag) > 31)
+	if(!NIL_P(tagging) && SYM2ID(tagging) == sIMPLICIT && NUM2INT(tag) > 31)
 	    ossl_raise(eASN1Error, "tag number for Universal too large");
     }
     else{

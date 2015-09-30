@@ -35,13 +35,13 @@ class ContainerNode;
 
 class EmptyNodeList final : public NodeList {
 public:
-    static PassRef<EmptyNodeList> create(Node& owner)
+    static Ref<EmptyNodeList> create(Node& owner)
     {
         return adoptRef(*new EmptyNodeList(owner));
     }
     virtual ~EmptyNodeList();
 
-    Node& ownerNode() { return m_owner.get(); }
+    Node& ownerNode() { return m_owner; }
 
 private:
     explicit EmptyNodeList(Node& owner) : m_owner(owner) { }
@@ -58,14 +58,14 @@ private:
 
 class ChildNodeList final : public NodeList {
 public:
-    static PassRef<ChildNodeList> create(ContainerNode& parent)
+    static Ref<ChildNodeList> create(ContainerNode& parent)
     {
         return adoptRef(*new ChildNodeList(parent));
     }
 
     virtual ~ChildNodeList();
 
-    ContainerNode& ownerNode() { return m_parent.get(); }
+    ContainerNode& ownerNode() { return m_parent; }
 
     void invalidateCache();
 

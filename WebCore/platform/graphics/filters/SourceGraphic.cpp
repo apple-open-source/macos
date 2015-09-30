@@ -18,8 +18,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(FILTERS)
 #include "SourceGraphic.h"
 
 #include "Filter.h"
@@ -30,9 +28,9 @@
 
 namespace WebCore {
 
-PassRefPtr<SourceGraphic> SourceGraphic::create(Filter* filter)
+Ref<SourceGraphic> SourceGraphic::create(Filter& filter)
 {
-    return adoptRef(new SourceGraphic(filter));
+    return adoptRef(*new SourceGraphic(filter));
 }
 
 const AtomicString& SourceGraphic::effectName()
@@ -71,5 +69,3 @@ TextStream& SourceGraphic::externalRepresentation(TextStream& ts, int indent) co
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(FILTERS)

@@ -28,8 +28,6 @@
 #include <net/pfkeyv2.h>
 #include "racoon_types.h"
 #include <sys/socket.h>
-#include <SNIPSecIKEDefinitions.h>
-#include <SNIPSecIKE.h>
 
 typedef uint32_t InternalSessionRef;
 typedef uint32_t InternalItemRef;

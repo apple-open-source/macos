@@ -32,12 +32,12 @@ namespace WebCore {
 
 class WebGLTexture;
 
-class WebGLCompressedTextureATC : public WebGLExtension {
+class WebGLCompressedTextureATC final : public WebGLExtension {
 public:
-    explicit WebGLCompressedTextureATC(WebGLRenderingContext*);
+    explicit WebGLCompressedTextureATC(WebGLRenderingContextBase*);
     virtual ~WebGLCompressedTextureATC();
 
-    static bool supported(WebGLRenderingContext*);
+    static bool supported(WebGLRenderingContextBase*);
 
     virtual ExtensionName getName() const override;
 };

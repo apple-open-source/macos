@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/collation/kn.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/xml/collation/kn.xml
- */
 kn{
     Version{"2.0.96.14"}
     collations{
@@ -17,7 +14,7 @@ kn{
                 "[normalization on][reorder Knda Deva Beng Guru Gujr Orya Taml Telu Mlym Sinh]"
                 "&ಔ<ಂ<ಃ<ೱ<ೲ"
             }
-            Version{"25"}
+            Version{"27.0.1"}
         }
         traditional{
             Sequence{
@@ -658,7 +655,7 @@ kn{
                 "&ಫೋ<<<ಫ಼ೋ"
                 "&ಫೌ<<<ಫ಼ೌ"
             }
-            Version{"25"}
+            Version{"27.0.1"}
         }
     }
 }

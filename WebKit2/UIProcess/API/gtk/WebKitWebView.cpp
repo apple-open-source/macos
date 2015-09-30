@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2011 Igalia S.L.
  * Portions Copyright (c) 2011 Motorola Mobility, Inc.  All rights reserved.
+ * Copyright (C) 2014 Collabora Ltd.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +23,7 @@
 #include "WebKitWebView.h"
 
 #include "APIData.h"
+#include "APISerializedScriptValue.h"
 #include "ImageOptions.h"
 #include "WebCertificateInfo.h"
 #include "WebContextMenuItem.h"
@@ -29,7 +31,6 @@
 #include "WebKitAuthenticationDialog.h"
 #include "WebKitAuthenticationRequestPrivate.h"
 #include "WebKitBackForwardListPrivate.h"
-#include "WebKitCertificateInfoPrivate.h"
 #include "WebKitContextMenuClient.h"
 #include "WebKitContextMenuItemPrivate.h"
 #include "WebKitContextMenuPrivate.h"
@@ -43,11 +44,13 @@
 #include "WebKitJavascriptResultPrivate.h"
 #include "WebKitLoaderClient.h"
 #include "WebKitMarshal.h"
+#include "WebKitNotificationPrivate.h"
 #include "WebKitPolicyClient.h"
 #include "WebKitPrintOperationPrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitResponsePolicyDecision.h"
 #include "WebKitScriptDialogPrivate.h"
+#include "WebKitSettingsPrivate.h"
 #include "WebKitUIClient.h"
 #include "WebKitURIRequestPrivate.h"
 #include "WebKitURIResponsePrivate.h"
@@ -55,19 +58,21 @@
 #include "WebKitWebInspectorPrivate.h"
 #include "WebKitWebResourcePrivate.h"
 #include "WebKitWebViewBasePrivate.h"
-#include "WebKitWebViewGroupPrivate.h"
 #include "WebKitWebViewPrivate.h"
 #include "WebKitWindowPropertiesPrivate.h"
 #include <JavaScriptCore/APICast.h>
 #include <WebCore/CertificateInfo.h>
-#include <WebCore/DragIcon.h>
 #include <WebCore/GUniquePtrGtk.h>
 #include <WebCore/GUniquePtrSoup.h>
 #include <WebCore/GtkUtilities.h>
 #include <WebCore/RefPtrCairo.h>
 #include <glib/gi18n-lib.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 #include <wtf/text/CString.h>
+
+#if USE(LIBNOTIFY)
+#include <libnotify/notify.h>
+#endif
 
 using namespace WebKit;
 using namespace WebCore;
@@ -124,6 +129,10 @@ enum {
 
     AUTHENTICATE,
 
+    SHOW_NOTIFICATION,
+
+    RUN_COLOR_CHOOSER,
+
     LAST_SIGNAL
 };
 
@@ -132,18 +141,22 @@ enum {
 
     PROP_WEB_CONTEXT,
     PROP_RELATED_VIEW,
-    PROP_GROUP,
+    PROP_SETTINGS,
     PROP_USER_CONTENT_MANAGER,
     PROP_TITLE,
     PROP_ESTIMATED_LOAD_PROGRESS,
     PROP_FAVICON,
     PROP_URI,
     PROP_ZOOM_LEVEL,
-    PROP_IS_LOADING
+    PROP_IS_LOADING,
+    PROP_IS_PLAYING_AUDIO,
+    PROP_EDITABLE
 };
 
 typedef HashMap<uint64_t, GRefPtr<WebKitWebResource> > LoadingResourcesMap;
 typedef HashMap<uint64_t, GRefPtr<GTask> > SnapshotResultsMap;
+
+class PageLoadStateObserver;
 
 struct _WebKitWebViewPrivate {
     ~_WebKitWebViewPrivate()
@@ -156,23 +169,21 @@ struct _WebKitWebViewPrivate {
             g_main_loop_quit(modalLoop.get());
     }
 
-    WebKitWebContext* context;
     WebKitWebView* relatedView;
     CString title;
     CString customTextEncoding;
-    double estimatedLoadProgress;
     CString activeURI;
     bool isLoading;
 
+    std::unique_ptr<PageLoadStateObserver> loadObserver;
     bool waitingForMainResource;
     unsigned long mainResourceResponseHandlerID;
     WebKitLoadEvent lastDelayedEvent;
 
     GRefPtr<WebKitBackForwardList> backForwardList;
     GRefPtr<WebKitSettings> settings;
-    unsigned long settingsChangedHandlerID;
-    GRefPtr<WebKitWebViewGroup> group;
     GRefPtr<WebKitUserContentManager> userContentManager;
+    GRefPtr<WebKitWebContext> context;
     GRefPtr<WebKitWindowProperties> windowProperties;
 
     GRefPtr<GMainLoop> modalLoop;
@@ -195,6 +206,7 @@ struct _WebKitWebViewPrivate {
 
     SnapshotResultsMap snapshotResultsMap;
     GRefPtr<WebKitAuthenticationRequest> authenticationRequest;
+
 };
 
 static guint signals[LAST_SIGNAL] = { 0, };
@@ -205,6 +217,90 @@ static inline WebPageProxy* getPage(WebKitWebView* webView)
 {
     return webkitWebViewBaseGetPage(reinterpret_cast<WebKitWebViewBase*>(webView));
 }
+
+static void webkitWebViewSetIsLoading(WebKitWebView* webView, bool isLoading)
+{
+    if (webView->priv->isLoading == isLoading)
+        return;
+
+    webView->priv->isLoading = isLoading;
+    g_object_notify(G_OBJECT(webView), "is-loading");
+}
+
+void webkitWebViewIsPlayingAudioChanged(WebKitWebView* webView)
+{
+    g_object_notify(G_OBJECT(webView), "is-playing-audio");
+}
+
+class PageLoadStateObserver final : public PageLoadState::Observer {
+public:
+    PageLoadStateObserver(WebKitWebView* webView)
+        : m_webView(webView)
+    {
+    }
+
+private:
+    virtual void willChangeIsLoading() override
+    {
+        g_object_freeze_notify(G_OBJECT(m_webView));
+    }
+    virtual void didChangeIsLoading() override
+    {
+        if (m_webView->priv->waitingForMainResource) {
+            // The actual load has finished but we haven't emitted the delayed load events yet, so we are still loading.
+            g_object_thaw_notify(G_OBJECT(m_webView));
+            return;
+        }
+        webkitWebViewSetIsLoading(m_webView, getPage(m_webView)->pageLoadState().isLoading());
+        g_object_thaw_notify(G_OBJECT(m_webView));
+    }
+
+    virtual void willChangeTitle() override
+    {
+        g_object_freeze_notify(G_OBJECT(m_webView));
+    }
+    virtual void didChangeTitle() override
+    {
+        m_webView->priv->title = getPage(m_webView)->pageLoadState().title().utf8();
+        g_object_notify(G_OBJECT(m_webView), "title");
+        g_object_thaw_notify(G_OBJECT(m_webView));
+    }
+
+    virtual void willChangeActiveURL() override
+    {
+        g_object_freeze_notify(G_OBJECT(m_webView));
+    }
+    virtual void didChangeActiveURL() override
+    {
+        m_webView->priv->activeURI = getPage(m_webView)->pageLoadState().activeURL().utf8();
+        g_object_notify(G_OBJECT(m_webView), "uri");
+        g_object_thaw_notify(G_OBJECT(m_webView));
+    }
+
+    virtual void willChangeHasOnlySecureContent() override { }
+    virtual void didChangeHasOnlySecureContent() override { }
+
+    virtual void willChangeEstimatedProgress() override
+    {
+        g_object_freeze_notify(G_OBJECT(m_webView));
+    }
+    virtual void didChangeEstimatedProgress() override
+    {
+        g_object_notify(G_OBJECT(m_webView), "estimated-load-progress");
+        g_object_thaw_notify(G_OBJECT(m_webView));
+    }
+
+    virtual void willChangeCanGoBack() override { }
+    virtual void didChangeCanGoBack() override { }
+    virtual void willChangeCanGoForward() override { }
+    virtual void didChangeCanGoForward() override { }
+    virtual void willChangeNetworkRequestsInProgress() override { }
+    virtual void didChangeNetworkRequestsInProgress() override { }
+    virtual void willChangeCertificateInfo() override { }
+    virtual void didChangeCertificateInfo() override { }
+
+    WebKitWebView* m_webView;
+};
 
 static gboolean webkitWebViewLoadFail(WebKitWebView* webView, WebKitLoadEvent, const char* failingURI, GError* error)
 {
@@ -353,7 +449,7 @@ static void webkitWebViewRequestFavicon(WebKitWebView* webView)
 
     WebKitWebViewPrivate* priv = webView->priv;
     priv->faviconCancellable = adoptGRef(g_cancellable_new());
-    WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context);
+    WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context.get());
     webkit_favicon_database_get_favicon(database, priv->activeURI.data(), priv->faviconCancellable.get(), gotFaviconCallback, webView);
 }
 
@@ -376,15 +472,17 @@ static void faviconChangedCallback(WebKitFaviconDatabase*, const char* pageURI, 
 
 static void webkitWebViewUpdateSettings(WebKitWebView* webView)
 {
-    // We keep a ref of the current settings to disconnect the signals when settings change in the group.
-    webView->priv->settings = webkit_web_view_get_settings(webView);
+    // The "settings" property is set on construction, and in that
+    // case webkit_web_view_set_settings() will be called *before* the
+    // WebPageProxy has been created so we should do an early return.
+    WebPageProxy* page = getPage(webView);
+    if (!page)
+        return;
 
     WebKitSettings* settings = webView->priv->settings.get();
-    WebPageProxy* page = getPage(webView);
+    page->setPreferences(*webkitSettingsGetPreferences(settings));
     page->setCanRunModal(webkit_settings_get_allow_modal_dialogs(settings));
     page->setCustomUserAgent(String::fromUTF8(webkit_settings_get_user_agent(settings)));
-
-    webkitWebViewBaseUpdatePreferences(WEBKIT_WEB_VIEW_BASE(webView));
 
     g_signal_connect(settings, "notify::allow-modal-dialogs", G_CALLBACK(allowModalDialogsChanged), webView);
     g_signal_connect(settings, "notify::zoom-text-only", G_CALLBACK(zoomTextOnlyChanged), webView);
@@ -397,20 +495,6 @@ static void webkitWebViewDisconnectSettingsSignalHandlers(WebKitWebView* webView
     g_signal_handlers_disconnect_by_func(settings, reinterpret_cast<gpointer>(allowModalDialogsChanged), webView);
     g_signal_handlers_disconnect_by_func(settings, reinterpret_cast<gpointer>(zoomTextOnlyChanged), webView);
     g_signal_handlers_disconnect_by_func(settings, reinterpret_cast<gpointer>(userAgentChanged), webView);
-}
-
-static void webkitWebViewSettingsChanged(WebKitWebViewGroup*, GParamSpec*, WebKitWebView* webView)
-{
-    webkitWebViewDisconnectSettingsSignalHandlers(webView);
-    webkitWebViewUpdateSettings(webView);
-}
-
-static void webkitWebViewDisconnectSettingsChangedSignalHandler(WebKitWebView* webView)
-{
-    WebKitWebViewPrivate* priv = webView->priv;
-    if (priv->settingsChangedHandlerID)
-        g_signal_handler_disconnect(webkit_web_view_get_group(webView), priv->settingsChangedHandlerID);
-    priv->settingsChangedHandlerID = 0;
 }
 
 static void webkitWebViewDisconnectMainResourceResponseChangedSignalHandler(WebKitWebView* webView)
@@ -427,7 +511,7 @@ static void webkitWebViewWatchForChangesInFavicon(WebKitWebView* webView)
     if (priv->faviconChangedHandlerID)
         return;
 
-    WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context);
+    WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context.get());
     priv->faviconChangedHandlerID = g_signal_connect(database, "favicon-changed", G_CALLBACK(faviconChangedCallback), webView);
 }
 
@@ -435,7 +519,7 @@ static void webkitWebViewDisconnectFaviconDatabaseSignalHandlers(WebKitWebView* 
 {
     WebKitWebViewPrivate* priv = webView->priv;
     if (priv->faviconChangedHandlerID)
-        g_signal_handler_disconnect(webkit_web_context_get_favicon_database(priv->context), priv->faviconChangedHandlerID);
+        g_signal_handler_disconnect(webkit_web_context_get_favicon_database(priv->context.get()), priv->faviconChangedHandlerID);
     priv->faviconChangedHandlerID = 0;
 }
 
@@ -496,14 +580,71 @@ static void webkitWebViewHandleDownloadRequest(WebKitWebViewBase* webViewBase, D
     webkitDownloadSetWebView(download.get(), WEBKIT_WEB_VIEW(webViewBase));
 }
 
+#if USE(LIBNOTIFY)
+static const char* gNotifyNotificationID = "wk-notify-notification";
+
+static void notifyNotificationClosed(NotifyNotification*, WebKitNotification* webNotification)
+{
+    g_object_set_data(G_OBJECT(webNotification), gNotifyNotificationID, nullptr);
+    webkit_notification_close(webNotification);
+}
+
+static void webNotificationClosed(WebKitNotification* webNotification)
+{
+    NotifyNotification* notification = NOTIFY_NOTIFICATION(g_object_get_data(G_OBJECT(webNotification), gNotifyNotificationID));
+    if (!notification)
+        return;
+
+    notify_notification_close(notification, nullptr);
+    g_object_set_data(G_OBJECT(webNotification), gNotifyNotificationID, nullptr);
+}
+#endif // USE(LIBNOTIFY)
+
+static gboolean webkitWebViewShowNotification(WebKitWebView*, WebKitNotification* webNotification)
+{
+#if USE(LIBNOTIFY)
+    if (!notify_is_initted())
+        notify_init(g_get_prgname());
+
+    NotifyNotification* notification = NOTIFY_NOTIFICATION(g_object_get_data(G_OBJECT(webNotification), gNotifyNotificationID));
+    if (!notification) {
+        notification = notify_notification_new(webkit_notification_get_title(webNotification),
+            webkit_notification_get_body(webNotification), nullptr);
+
+        g_signal_connect_object(notification, "closed", G_CALLBACK(notifyNotificationClosed), webNotification, static_cast<GConnectFlags>(0));
+        g_signal_connect(webNotification, "closed", G_CALLBACK(webNotificationClosed), nullptr);
+        g_object_set_data_full(G_OBJECT(webNotification), gNotifyNotificationID, notification, static_cast<GDestroyNotify>(g_object_unref));
+    } else {
+        notify_notification_update(notification, webkit_notification_get_title(webNotification),
+            webkit_notification_get_body(webNotification), nullptr);
+    }
+
+    notify_notification_show(notification, nullptr);
+    return TRUE;
+#else
+    UNUSED_PARAM(webNotification);
+    return FALSE;
+#endif
+}
+
 static void webkitWebViewConstructed(GObject* object)
 {
-    if (G_OBJECT_CLASS(webkit_web_view_parent_class)->constructed)
-        G_OBJECT_CLASS(webkit_web_view_parent_class)->constructed(object);
+    G_OBJECT_CLASS(webkit_web_view_parent_class)->constructed(object);
 
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
     WebKitWebViewPrivate* priv = webView->priv;
-    webkitWebContextCreatePageForWebView(priv->context, webView, priv->group.get(), priv->userContentManager.get(), priv->relatedView);
+    if (priv->relatedView)
+        priv->context = webkit_web_view_get_context(priv->relatedView);
+    else if (!priv->context)
+        priv->context = webkit_web_context_get_default();
+    if (!priv->settings)
+        priv->settings = adoptGRef(webkit_settings_new());
+
+    webkitWebContextCreatePageForWebView(priv->context.get(), webView, priv->userContentManager.get(), priv->relatedView);
+
+    priv->loadObserver = std::make_unique<PageLoadStateObserver>(webView);
+    getPage(webView)->pageLoadState().addObserver(*priv->loadObserver);
+
     // The related view is only valid during the construction.
     priv->relatedView = nullptr;
 
@@ -516,12 +657,12 @@ static void webkitWebViewConstructed(GObject* object)
     attachContextMenuClientToView(webView);
     attachFormClientToView(webView);
 
+    // This needs to be after attachUIClientToView() because WebPageProxy::setUIClient() calls setCanRunModal() with true.
+    // See https://bugs.webkit.org/show_bug.cgi?id=135412.
+    webkitWebViewUpdateSettings(webView);
+
     priv->backForwardList = adoptGRef(webkitBackForwardListCreate(&getPage(webView)->backForwardList()));
     priv->windowProperties = adoptGRef(webkitWindowPropertiesCreate());
-
-    webkitWebViewUpdateSettings(webView);
-    priv->settingsChangedHandlerID =
-        g_signal_connect(webkit_web_view_get_group(webView), "notify::settings", G_CALLBACK(webkitWebViewSettingsChanged), webView);
 }
 
 static void webkitWebViewSetProperty(GObject* object, guint propId, const GValue* value, GParamSpec* paramSpec)
@@ -531,7 +672,7 @@ static void webkitWebViewSetProperty(GObject* object, guint propId, const GValue
     switch (propId) {
     case PROP_WEB_CONTEXT: {
         gpointer webContext = g_value_get_object(value);
-        webView->priv->context = webContext ? WEBKIT_WEB_CONTEXT(webContext) : webkit_web_context_get_default();
+        webView->priv->context = webContext ? WEBKIT_WEB_CONTEXT(webContext) : nullptr;
         break;
     }
     case PROP_RELATED_VIEW: {
@@ -539,9 +680,9 @@ static void webkitWebViewSetProperty(GObject* object, guint propId, const GValue
         webView->priv->relatedView = relatedView ? WEBKIT_WEB_VIEW(relatedView) : nullptr;
         break;
     }
-    case PROP_GROUP: {
-        gpointer group = g_value_get_object(value);
-        webView->priv->group = group ? WEBKIT_WEB_VIEW_GROUP(group) : 0;
+    case PROP_SETTINGS: {
+        if (gpointer settings = g_value_get_object(value))
+            webkit_web_view_set_settings(webView, WEBKIT_SETTINGS(settings));
         break;
     }
     case PROP_USER_CONTENT_MANAGER: {
@@ -551,6 +692,9 @@ static void webkitWebViewSetProperty(GObject* object, guint propId, const GValue
     }
     case PROP_ZOOM_LEVEL:
         webkit_web_view_set_zoom_level(webView, g_value_get_double(value));
+        break;
+    case PROP_EDITABLE:
+        webkit_web_view_set_editable(webView, g_value_get_boolean(value));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
@@ -563,10 +707,10 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
 
     switch (propId) {
     case PROP_WEB_CONTEXT:
-        g_value_set_object(value, webView->priv->context);
+        g_value_set_object(value, webView->priv->context.get());
         break;
-    case PROP_GROUP:
-        g_value_set_object(value, webkit_web_view_get_group(webView));
+    case PROP_SETTINGS:
+        g_value_set_object(value, webkit_web_view_get_settings(webView));
         break;
     case PROP_USER_CONTENT_MANAGER:
         g_value_set_object(value, webkit_web_view_get_user_content_manager(webView));
@@ -589,6 +733,12 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
     case PROP_IS_LOADING:
         g_value_set_boolean(value, webkit_web_view_is_loading(webView));
         break;
+    case PROP_IS_PLAYING_AUDIO:
+        g_value_set_boolean(value, webkit_web_view_is_playing_audio(webView));
+        break;
+    case PROP_EDITABLE:
+        g_value_set_boolean(value, webkit_web_view_is_editable(webView));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
     }
@@ -599,11 +749,15 @@ static void webkitWebViewDispose(GObject* object)
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
     webkitWebViewCancelFaviconRequest(webView);
     webkitWebViewDisconnectMainResourceResponseChangedSignalHandler(webView);
-    webkitWebViewDisconnectSettingsChangedSignalHandler(webView);
     webkitWebViewDisconnectSettingsSignalHandlers(webView);
     webkitWebViewDisconnectFaviconDatabaseSignalHandlers(webView);
 
-    webkitWebContextWebViewDestroyed(webView->priv->context, webView);
+    if (webView->priv->loadObserver) {
+        getPage(webView)->pageLoadState().removeObserver(*webView->priv->loadObserver);
+        webView->priv->loadObserver.reset();
+    }
+
+    webkitWebContextWebViewDestroyed(webView->priv->context.get(), webView);
 
     G_OBJECT_CLASS(webkit_web_view_parent_class)->dispose(object);
 }
@@ -633,6 +787,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     webViewClass->permission_request = webkitWebViewPermissionRequest;
     webViewClass->run_file_chooser = webkitWebViewRunFileChooser;
     webViewClass->authenticate = webkitWebViewAuthenticate;
+    webViewClass->show_notification = webkitWebViewShowNotification;
 
     /**
      * WebKitWebView:web-context:
@@ -666,19 +821,21 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             static_cast<GParamFlags>(WEBKIT_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY)));
 
     /**
-     * WebKitWebView:group:
+     * WebKitWebView:settings:
      *
-     * The #WebKitWebViewGroup of the view.
+     * The #WebKitSettings of the view.
+     *
+     * Since: 2.6
      */
     g_object_class_install_property(
         gObjectClass,
-        PROP_GROUP,
+        PROP_SETTINGS,
         g_param_spec_object(
-            "group",
-            _("WebView Group"),
-            _("The WebKitWebViewGroup of the view"),
-            WEBKIT_TYPE_WEB_VIEW_GROUP,
-            static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
+            "settings",
+            _("WebView settings"),
+            _("The WebKitSettings of the view"),
+            WEBKIT_TYPE_SETTINGS,
+            static_cast<GParamFlags>(WEBKIT_PARAM_WRITABLE | G_PARAM_CONSTRUCT)));
 
     /**
      * WebKitWebView:user-content-manager:
@@ -761,13 +918,15 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * The zoom level of the #WebKitWebView content.
      * See webkit_web_view_set_zoom_level() for more details.
      */
-    g_object_class_install_property(gObjectClass,
-                                    PROP_ZOOM_LEVEL,
-                                    g_param_spec_double("zoom-level",
-                                                        "Zoom level",
-                                                        _("The zoom level of the view content"),
-                                                        0, G_MAXDOUBLE, 1,
-                                                        WEBKIT_PARAM_READWRITE));
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_ZOOM_LEVEL,
+        g_param_spec_double(
+            "zoom-level",
+            _("Zoom level"),
+            _("The zoom level of the view content"),
+            0, G_MAXDOUBLE, 1,
+            WEBKIT_PARAM_READWRITE));
 
     /**
      * WebKitWebView:is-loading:
@@ -779,13 +938,53 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * When the load operation finishes the property is set to %FALSE before
      * #WebKitWebView::load-changed is emitted with %WEBKIT_LOAD_FINISHED.
      */
-    g_object_class_install_property(gObjectClass,
-                                    PROP_IS_LOADING,
-                                    g_param_spec_boolean("is-loading",
-                                                         "Is Loading",
-                                                         _("Whether the view is loading a page"),
-                                                         FALSE,
-                                                         WEBKIT_PARAM_READABLE));
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_IS_LOADING,
+        g_param_spec_boolean(
+            "is-loading",
+            _("Is Loading"),
+            _("Whether the view is loading a page"),
+            FALSE,
+            WEBKIT_PARAM_READABLE));
+
+    /**
+     * WebKitWebView:is-playing-audio:
+     *
+     * Whether the #WebKitWebView is currently playing audio from a page.
+     * This property becomes %TRUE as soon as web content starts playing any
+     * kind of audio. When a page is no longer playing any kind of sound,
+     * the property is set back to %FALSE.
+     *
+     * Since: 2.8
+     */
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_IS_PLAYING_AUDIO,
+        g_param_spec_boolean(
+            "is-playing-audio",
+            "Is Playing Audio",
+            _("Whether the view is playing audio"),
+            FALSE,
+            WEBKIT_PARAM_READABLE));
+
+    /**
+     * WebKitWebView:editable:
+     *
+     * Whether the pages loaded inside #WebKitWebView are editable. For more
+     * information see webkit_web_view_set_editable().
+     *
+     * Since: 2.8
+     */
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_EDITABLE,
+        g_param_spec_boolean(
+            "editable",
+            _("Editable"),
+            _("Whether the content can be modified by the user."),
+            FALSE,
+            WEBKIT_PARAM_READWRITE));
 
     /**
      * WebKitWebView::load-changed:
@@ -883,16 +1082,16 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     /**
      * WebKitWebView::load-failed-with-tls-errors:
      * @web_view: the #WebKitWebView on which the signal is emitted
-     * @info: a #WebKitCertificateInfo
-     * @host: the host on which the error occurred
+     * @failing_uri: the URI that failed to load
+     * @certificate: a #GTlsCertificate
+     * @errors: a #GTlsCertificateFlags with the verification status of @certificate
      *
-     * Emitted when a TLS error occurs during a load operation. The @info
-     * object contains information about the error such as the #GTlsCertificate
-     * and the #GTlsCertificateFlags. To allow an exception for this certificate
-     * and this host use webkit_web_context_allow_tls_certificate_for_host().
+     * Emitted when a TLS error occurs during a load operation.
+     * To allow an exception for this @certificate
+     * and the host of @failing_uri use webkit_web_context_allow_tls_certificate_for_host().
      *
-     * To handle this signal asynchronously you should copy the #WebKitCertificateInfo
-     * with webkit_certificate_info_copy() and return %TRUE.
+     * To handle this signal asynchronously you should call g_object_ref() on @certificate
+     * and return %TRUE.
      *
      * If %FALSE is returned, #WebKitWebView::load-failed will be emitted. The load
      * will finish regardless of the returned value.
@@ -900,7 +1099,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * Returns: %TRUE to stop other handlers from being invoked for the event.
      *   %FALSE to propagate the event further.
      *
-     * Since: 2.4
+     * Since: 2.6
      */
     signals[LOAD_FAILED_WITH_TLS_ERRORS] =
         g_signal_new("load-failed-with-tls-errors",
@@ -908,10 +1107,11 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             G_SIGNAL_RUN_LAST,
             G_STRUCT_OFFSET(WebKitWebViewClass, load_failed_with_tls_errors),
             g_signal_accumulator_true_handled, 0 /* accumulator data */,
-            webkit_marshal_BOOLEAN__BOXED_STRING,
-            G_TYPE_BOOLEAN, 2, /* number of parameters */
-            WEBKIT_TYPE_CERTIFICATE_INFO  | G_SIGNAL_TYPE_STATIC_SCOPE,
-            G_TYPE_STRING);
+            g_cclosure_marshal_generic,
+            G_TYPE_BOOLEAN, 3,
+            G_TYPE_STRING,
+            G_TYPE_TLS_CERTIFICATE,
+            G_TYPE_TLS_CERTIFICATE_FLAGS);
 
     /**
      * WebKitWebView::create:
@@ -1491,21 +1691,66 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             webkit_marshal_BOOLEAN__OBJECT,
             G_TYPE_BOOLEAN, 1, /* number of parameters */
             WEBKIT_TYPE_AUTHENTICATION_REQUEST);
-}
 
-static void webkitWebViewSetIsLoading(WebKitWebView* webView, bool isLoading)
-{
-    if (webView->priv->isLoading == isLoading)
-        return;
+    /**
+     * WebKitWebView::show-notification:
+     * @web_view: the #WebKitWebView
+     * @notification: a #WebKitNotification
+     *
+     * This signal is emitted when a notification should be presented to the
+     * user. The @notification is kept alive until either: 1) the web page cancels it
+     * or 2) a navigation happens.
+     *
+     * The default handler will emit a notification using libnotify, if built with
+     * support for it.
+     *
+     * Returns: %TRUE to stop other handlers from being invoked. %FALSE otherwise.
+     *
+     * Since: 2.8
+     */
+    signals[SHOW_NOTIFICATION] =
+        g_signal_new("show-notification",
+            G_TYPE_FROM_CLASS(gObjectClass),
+            G_SIGNAL_RUN_LAST,
+            G_STRUCT_OFFSET(WebKitWebViewClass, show_notification),
+            g_signal_accumulator_true_handled, nullptr /* accumulator data */,
+            webkit_marshal_BOOLEAN__OBJECT,
+            G_TYPE_BOOLEAN, 1,
+            WEBKIT_TYPE_NOTIFICATION);
 
-    webView->priv->isLoading = isLoading;
-    g_object_freeze_notify(G_OBJECT(webView));
-    g_object_notify(G_OBJECT(webView), "is-loading");
-
-    // Update the URI if a new load has started.
-    if (webView->priv->isLoading)
-        webkitWebViewUpdateURI(webView);
-    g_object_thaw_notify(G_OBJECT(webView));
+     /**
+      * WebKitWebView::run-color-chooser:
+      * @web_view: the #WebKitWebView on which the signal is emitted
+      * @request: a #WebKitColorChooserRequest
+      *
+      * This signal is emitted when the user interacts with a &lt;input
+      * type='color' /&gt; HTML element, requesting from WebKit to show
+      * a dialog to select a color. To let the application know the details of
+      * the color chooser, as well as to allow the client application to either
+      * cancel the request or perform an actual color selection, the signal will
+      * pass an instance of the #WebKitColorChooserRequest in the @request
+      * argument.
+      *
+      * It is possible to handle this request asynchronously by increasing the
+      * reference count of the request.
+      *
+      * The default signal handler will asynchronously run a regular
+      * #GtkColorChooser for the user to interact with.
+      *
+      * Returns: %TRUE to stop other handlers from being invoked for the event.
+      *   %FALSE to propagate the event further.
+      *
+      * Since: 2.8
+      */
+    signals[RUN_COLOR_CHOOSER] =
+        g_signal_new("run-color-chooser",
+            G_TYPE_FROM_CLASS(webViewClass),
+            G_SIGNAL_RUN_LAST,
+            G_STRUCT_OFFSET(WebKitWebViewClass, run_color_chooser),
+            g_signal_accumulator_true_handled, nullptr,
+            webkit_marshal_BOOLEAN__OBJECT,
+            G_TYPE_BOOLEAN, 1,
+            WEBKIT_TYPE_COLOR_CHOOSER_REQUEST);
 }
 
 static void webkitWebViewCancelAuthenticationRequest(WebKitWebView* webView)
@@ -1517,19 +1762,30 @@ static void webkitWebViewCancelAuthenticationRequest(WebKitWebView* webView)
     webView->priv->authenticationRequest.clear();
 }
 
-static void webkitWebViewEmitLoadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent)
+static void webkitWebViewEmitLoadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent, bool isDelayedEvent)
 {
     if (loadEvent == WEBKIT_LOAD_STARTED) {
-        webkitWebViewSetIsLoading(webView, true);
         webkitWebViewWatchForChangesInFavicon(webView);
         webkitWebViewCancelAuthenticationRequest(webView);
     } else if (loadEvent == WEBKIT_LOAD_FINISHED) {
-        webkitWebViewSetIsLoading(webView, false);
+        if (isDelayedEvent) {
+            // In case of the delayed event, we need to manually set is-loading to false.
+            webkitWebViewSetIsLoading(webView, false);
+        }
         webkitWebViewCancelAuthenticationRequest(webView);
         webkitWebViewDisconnectMainResourceResponseChangedSignalHandler(webView);
-    } else
-        webkitWebViewUpdateURI(webView);
+    }
+
     g_signal_emit(webView, signals[LOAD_CHANGED], 0, loadEvent);
+
+    if (isDelayedEvent) {
+        if (loadEvent == WEBKIT_LOAD_COMMITTED)
+            webView->priv->waitingForMainResource = false;
+        else if (loadEvent == WEBKIT_LOAD_FINISHED) {
+            // Manually set is-loading again in case a new load was started.
+            webkitWebViewSetIsLoading(webView, getPage(webView)->pageLoadState().isLoading());
+        }
+    }
 }
 
 static void webkitWebViewEmitDelayedLoadEvents(WebKitWebView* webView)
@@ -1540,9 +1796,8 @@ static void webkitWebViewEmitDelayedLoadEvents(WebKitWebView* webView)
     ASSERT(priv->lastDelayedEvent == WEBKIT_LOAD_COMMITTED || priv->lastDelayedEvent == WEBKIT_LOAD_FINISHED);
 
     if (priv->lastDelayedEvent == WEBKIT_LOAD_FINISHED)
-        webkitWebViewEmitLoadChanged(webView, WEBKIT_LOAD_COMMITTED);
-    webkitWebViewEmitLoadChanged(webView, priv->lastDelayedEvent);
-    priv->waitingForMainResource = false;
+        webkitWebViewEmitLoadChanged(webView, WEBKIT_LOAD_COMMITTED, true);
+    webkitWebViewEmitLoadChanged(webView, priv->lastDelayedEvent, true);
 }
 
 void webkitWebViewLoadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent)
@@ -1557,7 +1812,7 @@ void webkitWebViewLoadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent)
         priv->mainResource = 0;
         priv->waitingForMainResource = false;
     } else if (loadEvent == WEBKIT_LOAD_COMMITTED) {
-        WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context);
+        WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context.get());
         GUniquePtr<char> faviconURI(webkit_favicon_database_get_favicon_uri(database, priv->activeURI.data()));
         webkitWebViewUpdateFaviconURI(webView, faviconURI.get());
 
@@ -1573,12 +1828,11 @@ void webkitWebViewLoadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent)
     if (priv->waitingForMainResource)
         priv->lastDelayedEvent = loadEvent;
     else
-        webkitWebViewEmitLoadChanged(webView, loadEvent);
+        webkitWebViewEmitLoadChanged(webView, loadEvent, false);
 }
 
 void webkitWebViewLoadFailed(WebKitWebView* webView, WebKitLoadEvent loadEvent, const char* failingURI, GError *error)
 {
-    webkitWebViewSetIsLoading(webView, false);
     webkitWebViewCancelAuthenticationRequest(webView);
 
     gboolean returnValue;
@@ -1588,49 +1842,17 @@ void webkitWebViewLoadFailed(WebKitWebView* webView, WebKitLoadEvent loadEvent, 
 
 void webkitWebViewLoadFailedWithTLSErrors(WebKitWebView* webView, const char* failingURI, GError* error, GTlsCertificateFlags tlsErrors, GTlsCertificate* certificate)
 {
-    webkitWebViewSetIsLoading(webView, false);
     webkitWebViewCancelAuthenticationRequest(webView);
 
-    WebKitTLSErrorsPolicy tlsErrorsPolicy = webkit_web_context_get_tls_errors_policy(webView->priv->context);
+    WebKitTLSErrorsPolicy tlsErrorsPolicy = webkit_web_context_get_tls_errors_policy(webView->priv->context.get());
     if (tlsErrorsPolicy == WEBKIT_TLS_ERRORS_POLICY_FAIL) {
-        GUniquePtr<SoupURI> soupURI(soup_uri_new(failingURI));
-        WebKitCertificateInfo info(certificate, tlsErrors);
         gboolean returnValue;
-        g_signal_emit(webView, signals[LOAD_FAILED_WITH_TLS_ERRORS], 0, &info, soupURI->host, &returnValue);
+        g_signal_emit(webView, signals[LOAD_FAILED_WITH_TLS_ERRORS], 0, failingURI, certificate, tlsErrors, &returnValue);
         if (!returnValue)
             g_signal_emit(webView, signals[LOAD_FAILED], 0, WEBKIT_LOAD_STARTED, failingURI, error, &returnValue);
     }
 
     g_signal_emit(webView, signals[LOAD_CHANGED], 0, WEBKIT_LOAD_FINISHED);
-}
-
-void webkitWebViewSetTitle(WebKitWebView* webView, const CString& title)
-{
-    WebKitWebViewPrivate* priv = webView->priv;
-    if (priv->title == title)
-        return;
-
-    priv->title = title;
-    g_object_notify(G_OBJECT(webView), "title");
-}
-
-void webkitWebViewSetEstimatedLoadProgress(WebKitWebView* webView, double estimatedLoadProgress)
-{
-    if (webView->priv->estimatedLoadProgress == estimatedLoadProgress)
-        return;
-
-    webView->priv->estimatedLoadProgress = estimatedLoadProgress;
-    g_object_notify(G_OBJECT(webView), "estimated-load-progress");
-}
-
-void webkitWebViewUpdateURI(WebKitWebView* webView)
-{
-    CString activeURI = getPage(webView)->pageLoadState().activeURL().utf8();
-    if (webView->priv->activeURI == activeURI)
-        return;
-
-    webView->priv->activeURI = activeURI;
-    g_object_notify(G_OBJECT(webView), "uri");
 }
 
 WebPageProxy* webkitWebViewCreateNewPage(WebKitWebView* webView, const WindowFeatures& windowFeatures, WebKitNavigationAction* navigationAction)
@@ -1850,31 +2072,21 @@ static void contextMenuDismissed(GtkMenuShell*, WebKitWebView* webView)
     g_signal_emit(webView, signals[CONTEXT_MENU_DISMISSED], 0, NULL);
 }
 
-void webkitWebViewPopulateContextMenu(WebKitWebView* webView, API::Array* proposedMenu, WebHitTestResult* webHitTestResult)
+void webkitWebViewPopulateContextMenu(WebKitWebView* webView, const Vector<WebContextMenuItemData>& proposedMenu, const WebHitTestResult::Data& hitTestResultData, GVariant* userData)
 {
     WebKitWebViewBase* webViewBase = WEBKIT_WEB_VIEW_BASE(webView);
     WebContextMenuProxyGtk* contextMenuProxy = webkitWebViewBaseGetActiveContextMenuProxy(webViewBase);
     ASSERT(contextMenuProxy);
 
     GRefPtr<WebKitContextMenu> contextMenu = adoptGRef(webkitContextMenuCreate(proposedMenu));
-    if (webHitTestResult->isContentEditable())
+    if (hitTestResultData.isContentEditable)
         webkitWebViewCreateAndAppendInputMethodsMenuItem(webView, contextMenu.get());
 
-    // FIXME: we should use a custom ContextMenuClient at some point, that will receive a
-    // const WebHitTestResult::Data& that we can use directly here.
-    WebHitTestResult::Data data;
-    data.absoluteImageURL = webHitTestResult->absoluteImageURL();
-    data.absoluteLinkURL = webHitTestResult->absoluteLinkURL();
-    data.absoluteMediaURL = webHitTestResult->absoluteMediaURL();
-    data.linkLabel = webHitTestResult->linkLabel();
-    data.linkTitle = webHitTestResult->linkTitle();
-    data.isContentEditable = webHitTestResult->isContentEditable();
-    data.elementBoundingBox = webHitTestResult->elementBoundingBox();
-    data.isScrollbar = webHitTestResult->isScrollbar();
-    data.isSelected = webHitTestResult->isSelected();
-
-    GRefPtr<WebKitHitTestResult> hitTestResult = adoptGRef(webkitHitTestResultCreate(data));
+    GRefPtr<WebKitHitTestResult> hitTestResult = adoptGRef(webkitHitTestResultCreate(hitTestResultData));
     GUniquePtr<GdkEvent> contextMenuEvent(webkitWebViewBaseTakeContextMenuEvent(webViewBase));
+
+    if (userData)
+        webkit_context_menu_set_user_data(WEBKIT_CONTEXT_MENU(contextMenu.get()), userData);
 
     gboolean returnValue;
     g_signal_emit(webView, signals[CONTEXT_MENU], 0, contextMenu.get(), contextMenuEvent.get(), hitTestResult.get(), &returnValue);
@@ -1898,7 +2110,7 @@ void webkitWebViewSubmitFormRequest(WebKitWebView* webView, WebKitFormSubmission
 
 void webkitWebViewHandleAuthenticationChallenge(WebKitWebView* webView, AuthenticationChallengeProxy* authenticationChallenge)
 {
-    gboolean privateBrowsingEnabled = webkit_settings_get_enable_private_browsing(webkit_web_view_get_settings(webView));
+    gboolean privateBrowsingEnabled = webkit_settings_get_enable_private_browsing(webView->priv->settings.get());
     webView->priv->authenticationRequest = adoptGRef(webkitAuthenticationRequestCreate(authenticationChallenge, privateBrowsingEnabled));
     gboolean returnValue;
     g_signal_emit(webView, signals[AUTHENTICATE], 0, webView->priv->authenticationRequest.get(), &returnValue);
@@ -1909,12 +2121,28 @@ void webkitWebViewInsecureContentDetected(WebKitWebView* webView, WebKitInsecure
     g_signal_emit(webView, signals[INSECURE_CONTENT_DETECTED], 0, type);
 }
 
+bool webkitWebViewEmitShowNotification(WebKitWebView* webView, WebKitNotification* webNotification)
+{
+    gboolean handled;
+    g_signal_emit(webView, signals[SHOW_NOTIFICATION], 0, webNotification, &handled);
+    return handled;
+}
+
+bool webkitWebViewEmitRunColorChooser(WebKitWebView* webView, WebKitColorChooserRequest* request)
+{
+    gboolean handled;
+    g_signal_emit(webView, signals[RUN_COLOR_CHOOSER], 0, request, &handled);
+    return handled;
+}
+
 /**
  * webkit_web_view_new:
  *
- * Creates a new #WebKitWebView with the default #WebKitWebContext and the
- * default #WebKitWebViewGroup.
- * See also webkit_web_view_new_with_context() and webkit_web_view_new_with_group().
+ * Creates a new #WebKitWebView with the default #WebKitWebContext and
+ * no #WebKitUserContentManager associated with it.
+ * See also webkit_web_view_new_with_context(),
+ * webkit_web_view_new_with_user_content_manager(), and
+ * webkit_web_view_new_with_settings().
  *
  * Returns: The newly created #WebKitWebView widget
  */
@@ -1927,9 +2155,10 @@ GtkWidget* webkit_web_view_new()
  * webkit_web_view_new_with_context:
  * @context: the #WebKitWebContext to be used by the #WebKitWebView
  *
- * Creates a new #WebKitWebView with the given #WebKitWebContext and the
- * default #WebKitWebViewGroup.
- * See also webkit_web_view_new_with_group().
+ * Creates a new #WebKitWebView with the given #WebKitWebContext and
+ * no #WebKitUserContentManager associated with it.
+ * See also webkit_web_view_new_with_user_content_manager() and
+ * webkit_web_view_new_with_settings().
  *
  * Returns: The newly created #WebKitWebView widget
  */
@@ -1952,7 +2181,8 @@ GtkWidget* webkit_web_view_new_with_context(WebKitWebContext* context)
  * You can also use this method to implement other process models based on %WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES,
  * like for example, sharing the same web process for all the views in the same security domain.
  *
- * The newly created #WebKitWebView will also have the same #WebKitUserContentManager as @web_view.
+ * The newly created #WebKitWebView will also have the same #WebKitUserContentManager
+ * and #WebKitSettings as @web_view.
  *
  * Returns: (transfer full): The newly created #WebKitWebView widget
  *
@@ -1964,25 +2194,27 @@ GtkWidget* webkit_web_view_new_with_related_view(WebKitWebView* webView)
 
     return GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW,
         "user-content-manager", webView->priv->userContentManager.get(),
+        "settings", webView->priv->settings.get(),
         "related-view", webView,
         nullptr));
 }
 
 /**
- * webkit_web_view_new_with_group:
- * @group: a #WebKitWebViewGroup
+ * webkit_web_view_new_with_settings:
+ * @settings: a #WebKitSettings
  *
- * Creates a new #WebKitWebView with the given #WebKitWebViewGroup.
- * The view will be part of @group and it will be affected by the
- * group properties like the settings.
+ * Creates a new #WebKitWebView with the given #WebKitSettings.
+ * See also webkit_web_view_new_with_context(), and
+ * webkit_web_view_new_with_user_content_manager().
  *
  * Returns: The newly created #WebKitWebView widget
+ *
+ * Since: 2.6
  */
-GtkWidget* webkit_web_view_new_with_group(WebKitWebViewGroup* group)
+GtkWidget* webkit_web_view_new_with_settings(WebKitSettings* settings)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW_GROUP(group), 0);
-
-    return GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW, "group", group, NULL));
+    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), nullptr);
+    return GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW, "settings", settings, nullptr));
 }
 
 /**
@@ -2016,25 +2248,7 @@ WebKitWebContext* webkit_web_view_get_context(WebKitWebView *webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
 
-    return webView->priv->context;
-}
-
-/**
- * webkit_web_view_get_group:
- * @web_view: a #WebKitWebView
- *
- * Gets the group @web_view belongs to.
- *
- * Returns: (transfer none): the #WebKitWebViewGroup to which the view belongs
- */
-WebKitWebViewGroup* webkit_web_view_get_group(WebKitWebView* webView)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
-
-    if (webView->priv->group)
-        return webView->priv->group.get();
-
-    return webkitWebContextGetDefaultWebViewGroup(webView->priv->context);
+    return webView->priv->context.get();
 }
 
 /**
@@ -2134,6 +2348,45 @@ void webkit_web_view_load_plain_text(WebKitWebView* webView, const gchar* plainT
     g_return_if_fail(plainText);
 
     getPage(webView)->loadPlainTextString(String::fromUTF8(plainText));
+}
+
+static void releaseGBytes(unsigned char*, const void* bytes)
+{
+    // Balanced by g_bytes_ref in webkit_web_view_load_bytes().
+    g_bytes_unref(static_cast<GBytes*>(const_cast<void*>(bytes)));
+}
+
+/**
+ * webkit_web_view_load_bytes:
+ * @web_view: a #WebKitWebView
+ * @bytes: input data to load
+ * @mime_type: (allow-none): the MIME type of @bytes, or %NULL
+ * @encoding: (allow-none): the character encoding of @bytes, or %NULL
+ * @base_uri: (allow-none): the base URI for relative locations or %NULL
+ *
+ * Load the specified @bytes into @web_view using the given @mime_type and @encoding.
+ * When @mime_type is %NULL, it defaults to "text/html".
+ * When @encoding is %NULL, it defaults to "UTF-8".
+ * When @base_uri is %NULL, it defaults to "about:blank".
+ * You can monitor the load operation by connecting to #WebKitWebView::load-changed signal.
+ *
+ * Since: 2.6
+ */
+void webkit_web_view_load_bytes(WebKitWebView* webView, GBytes* bytes, const char* mimeType, const char* encoding, const char* baseURI)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(bytes);
+
+    gsize bytesDataSize;
+    gconstpointer bytesData = g_bytes_get_data(bytes, &bytesDataSize);
+    g_return_if_fail(bytesDataSize);
+
+    // Balanced by g_bytes_unref in releaseGBytes.
+    g_bytes_ref(bytes);
+
+    Ref<API::Data> data = API::Data::createWithoutCopying(static_cast<const unsigned char*>(bytesData), bytesDataSize, releaseGBytes, bytes);
+    getPage(webView)->loadData(data.ptr(), mimeType ? String::fromUTF8(mimeType) : String::fromUTF8("text/html"),
+        encoding ? String::fromUTF8(encoding) : String::fromUTF8("UTF-8"), String::fromUTF8(baseURI));
 }
 
 /**
@@ -2251,6 +2504,27 @@ gboolean webkit_web_view_is_loading(WebKitWebView* webView)
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
 
     return webView->priv->isLoading;
+}
+
+/**
+ * webkit_web_view_is_playing_audio:
+ * @web_view: a #WebKitWebView
+ *
+ * Gets the value of the #WebKitWebView:is-playing-audio property.
+ * You can monitor when a page in a #WebKitWebView is playing audio by
+ * connecting to the notify::is-playing-audio signal of @web_view. This
+ * is useful when the application wants to provide visual feedback when a
+ * page is producing sound.
+ *
+ * Returns: %TRUE if a page in @web_view is playing audio or %FALSE otherwise.
+ *
+ * Since: 2.8
+ */
+gboolean webkit_web_view_is_playing_audio(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
+
+    return getPage(webView)->isPlayingAudio();
 }
 
 /**
@@ -2451,7 +2725,7 @@ void webkit_web_view_set_custom_charset(WebKitWebView* webView, const gchar* cha
 gdouble webkit_web_view_get_estimated_load_progress(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
-    return webView->priv->estimatedLoadProgress;
+    return getPage(webView)->pageLoadState().estimatedProgress();
 }
 
 /**
@@ -2492,16 +2766,30 @@ void webkit_web_view_go_to_back_forward_list_item(WebKitWebView* webView, WebKit
  * @web_view: a #WebKitWebView
  * @settings: a #WebKitSettings
  *
- * Sets the #WebKitSettings to be applied to @web_view.
- * This is a convenient method to set new settings to the
- * #WebKitWebViewGroup @web_view belongs to.
- * New settings are applied immediately on all #WebKitWebView<!-- -->s
- * in the @web_view group.
- * See also webkit_web_view_group_set_settings().
+ * Sets the #WebKitSettings to be applied to @web_view. The
+ * existing #WebKitSettings of @web_view will be replaced by
+ * @settings. New settings are applied immediately on @web_view.
+ * The same #WebKitSettings object can be shared
+ * by multiple #WebKitWebView<!-- -->s.
  */
 void webkit_web_view_set_settings(WebKitWebView* webView, WebKitSettings* settings)
 {
-    webkit_web_view_group_set_settings(webkit_web_view_get_group(webView), settings);
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
+
+    if (webView->priv->settings == settings)
+        return;
+
+    // The "settings" property is set on construction, and in that
+    // case webkit_web_view_set_settings() will be called *before*
+    // any settings have been assigned. In that case there are no
+    // signal handlers to disconnect.
+    if (webView->priv->settings)
+        webkitWebViewDisconnectSettingsSignalHandlers(webView);
+
+    webView->priv->settings = settings;
+    webkitWebViewUpdateSettings(webView);
+    g_object_notify(G_OBJECT(webView), "settings");
 }
 
 /**
@@ -2509,19 +2797,25 @@ void webkit_web_view_set_settings(WebKitWebView* webView, WebKitSettings* settin
  * @web_view: a #WebKitWebView
  *
  * Gets the #WebKitSettings currently applied to @web_view.
- * This is a convenient method to get the settings of the
- * #WebKitWebViewGroup @web_view belongs to.
- * #WebKitSettings objects are shared by all the #WebKitWebView<!-- -->s
- * in the same #WebKitWebViewGroup, so modifying
+ * If no other #WebKitSettings have been explicitly applied to
+ * @web_view with webkit_web_view_set_settings(), the default
+ * #WebKitSettings will be returned. This method always returns
+ * a valid #WebKitSettings object.
+ * To modify any of the @web_view settings, you can either create
+ * a new #WebKitSettings object with webkit_settings_new(), setting
+ * the desired preferences, and then replace the existing @web_view
+ * settings with webkit_web_view_set_settings() or get the existing
+ * @web_view settings and update it directly. #WebKitSettings objects
+ * can be shared by multiple #WebKitWebView<!-- -->s, so modifying
  * the settings of a #WebKitWebView would affect other
- * #WebKitWebView<!-- -->s of the same group.
- * See also webkit_web_view_group_get_settings().
+ * #WebKitWebView<!-- -->s using the same #WebKitSettings.
  *
  * Returns: (transfer none): the #WebKitSettings attached to @web_view
  */
 WebKitSettings* webkit_web_view_get_settings(WebKitWebView* webView)
 {
-    return webkit_web_view_group_get_settings(webkit_web_view_get_group(webView));
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), nullptr);
+    return webView->priv->settings.get();
 }
 
 /**
@@ -2556,7 +2850,7 @@ void webkit_web_view_set_zoom_level(WebKitWebView* webView, gdouble zoomLevel)
         return;
 
     WebPageProxy* page = getPage(webView);
-    if (webkit_settings_get_zoom_text_only(webkit_web_view_get_settings(webView)))
+    if (webkit_settings_get_zoom_text_only(webView->priv->settings.get()))
         page->setTextZoomFactor(zoomLevel);
     else
         page->setPageZoomFactor(zoomLevel);
@@ -2577,7 +2871,7 @@ gdouble webkit_web_view_get_zoom_level(WebKitWebView* webView)
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 1);
 
     WebPageProxy* page = getPage(webView);
-    gboolean zoomTextOnly = webkit_settings_get_zoom_text_only(webkit_web_view_get_settings(webView));
+    gboolean zoomTextOnly = webkit_settings_get_zoom_text_only(webView->priv->settings.get());
     return zoomTextOnly ? page->textZoomFactor() : page->pageZoomFactor();
 }
 
@@ -2600,7 +2894,7 @@ void webkit_web_view_can_execute_editing_command(WebKitWebView* webView, const c
     g_return_if_fail(command);
 
     GTask* task = g_task_new(webView, cancellable, callback, userData);
-    getPage(webView)->validateCommand(String::fromUTF8(command), [task](const String&, bool isEnabled, int32_t, CallbackBase::Error) {
+    getPage(webView)->validateCommand(String::fromUTF8(command), [task](const String&, bool isEnabled, int32_t, WebKit::CallbackBase::Error) {
         g_task_return_boolean(adoptGRef(task).get(), isEnabled);        
     });
 }
@@ -2679,7 +2973,7 @@ JSGlobalContextRef webkit_web_view_get_javascript_global_context(WebKitWebView* 
     return webView->priv->javascriptGlobalContext;
 }
 
-static void webkitWebViewRunJavaScriptCallback(WebSerializedScriptValue* wkSerializedScriptValue, GTask* task)
+static void webkitWebViewRunJavaScriptCallback(API::SerializedScriptValue* wkSerializedScriptValue, GTask* task)
 {
     if (g_task_return_error_if_cancelled(task))
         return;
@@ -2691,7 +2985,8 @@ static void webkitWebViewRunJavaScriptCallback(WebSerializedScriptValue* wkSeria
     }
 
     WebKitWebView* webView = WEBKIT_WEB_VIEW(g_task_get_source_object(task));
-    g_task_return_pointer(task, webkitJavascriptResultCreate(webView, wkSerializedScriptValue),
+    g_task_return_pointer(task, webkitJavascriptResultCreate(webView,
+        *wkSerializedScriptValue->internalRepresentation()),
         reinterpret_cast<GDestroyNotify>(webkit_javascript_result_unref));
 }
 
@@ -2715,7 +3010,7 @@ void webkit_web_view_run_javascript(WebKitWebView* webView, const gchar* script,
     g_return_if_fail(script);
 
     GTask* task = g_task_new(webView, cancellable, callback, userData);
-    getPage(webView)->runJavaScriptInMainFrame(String::fromUTF8(script), [task](WebSerializedScriptValue* serializedScriptValue, CallbackBase::Error) {
+    getPage(webView)->runJavaScriptInMainFrame(String::fromUTF8(script), [task](API::SerializedScriptValue* serializedScriptValue, bool, WebKit::CallbackBase::Error) {
         webkitWebViewRunJavaScriptCallback(serializedScriptValue, adoptGRef(task).get());
     });
 }
@@ -2806,7 +3101,7 @@ static void resourcesStreamReadCallback(GObject* object, GAsyncResult* result, g
     WebKitWebView* webView = WEBKIT_WEB_VIEW(g_task_get_source_object(task.get()));
     gpointer outputStreamData = g_memory_output_stream_get_data(G_MEMORY_OUTPUT_STREAM(object));
     getPage(webView)->runJavaScriptInMainFrame(String::fromUTF8(reinterpret_cast<const gchar*>(outputStreamData)),
-        [task](WebSerializedScriptValue* serializedScriptValue, CallbackBase::Error) {
+        [task](API::SerializedScriptValue* serializedScriptValue, bool, WebKit::CallbackBase::Error) {
             webkitWebViewRunJavaScriptCallback(serializedScriptValue, task.get());
         });
 }
@@ -2984,7 +3279,7 @@ void webkit_web_view_save(WebKitWebView* webView, WebKitSaveMode saveMode, GCanc
     GTask* task = g_task_new(webView, cancellable, callback, userData);
     g_task_set_source_tag(task, reinterpret_cast<gpointer>(webkit_web_view_save));
     g_task_set_task_data(task, createViewSaveAsyncData(), reinterpret_cast<GDestroyNotify>(destroyViewSaveAsyncData));
-    getPage(webView)->getContentsAsMHTMLData([task](API::Data* data, CallbackBase::Error) {
+    getPage(webView)->getContentsAsMHTMLData([task](API::Data* data, WebKit::CallbackBase::Error) {
         getContentsAsMHTMLDataCallback(data, task);
     }, false);
 }
@@ -3049,7 +3344,7 @@ void webkit_web_view_save_to_file(WebKitWebView* webView, GFile* file, WebKitSav
     data->file = file;
     g_task_set_task_data(task, data, reinterpret_cast<GDestroyNotify>(destroyViewSaveAsyncData));
 
-    getPage(webView)->getContentsAsMHTMLData([task](API::Data* data, CallbackBase::Error) {
+    getPage(webView)->getContentsAsMHTMLData([task](API::Data* data, WebKit::CallbackBase::Error) {
         getContentsAsMHTMLDataCallback(data, task);
     }, false);
 }
@@ -3087,7 +3382,7 @@ WebKitDownload* webkit_web_view_download_uri(WebKitWebView* webView, const char*
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
     g_return_val_if_fail(uri, 0);
 
-    WebKitDownload* download = webkitWebContextStartDownload(webView->priv->context, uri, getPage(webView));
+    WebKitDownload* download = webkitWebContextStartDownload(webView->priv->context.get(), uri, getPage(webView));
     webkitDownloadSetWebView(download, webView);
 
     return download;
@@ -3099,13 +3394,20 @@ WebKitDownload* webkit_web_view_download_uri(WebKitWebView* webView, const char*
  * @certificate: (out) (transfer none): return location for a #GTlsCertificate
  * @errors: (out): return location for a #GTlsCertificateFlags the verification status of @certificate
  *
- * Retrieves the #GTlsCertificate associated with the @web_view connection,
+ * Retrieves the #GTlsCertificate associated with the main resource of @web_view,
  * and the #GTlsCertificateFlags showing what problems, if any, have been found
  * with that certificate.
  * If the connection is not HTTPS, this function returns %FALSE.
  * This function should be called after a response has been received from the
  * server, so you can connect to #WebKitWebView::load-changed and call this function
  * when it's emitted with %WEBKIT_LOAD_COMMITTED event.
+ *
+ * Note that this function provides no information about the security of the web
+ * page if the current #WebKitTLSErrorsPolicy is @WEBKIT_TLS_ERRORS_POLICY_IGNORE,
+ * as subresources of the page may be controlled by an attacker. This function
+ * may safely be used to determine the security status of the current page only
+ * if the current #WebKitTLSErrorsPolicy is @WEBKIT_TLS_ERRORS_POLICY_FAIL, in
+ * which case subresources that fail certificate verification will be blocked.
  *
  * Returns: %TRUE if the @web_view connection uses HTTPS and a response has been received
  *    from the server, or %FALSE otherwise.
@@ -3194,14 +3496,15 @@ void webkit_web_view_get_snapshot(WebKitWebView* webView, WebKitSnapshotRegion r
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
-    ImmutableDictionary::MapType message;
+    API::Dictionary::MapType message;
     uint64_t callbackID = generateSnapshotCallbackID();
     message.set(String::fromUTF8("SnapshotOptions"), API::UInt64::create(static_cast<uint64_t>(webKitSnapshotOptionsToSnapshotOptions(options))));
     message.set(String::fromUTF8("SnapshotRegion"), API::UInt64::create(static_cast<uint64_t>(toSnapshotRegion(region))));
     message.set(String::fromUTF8("CallbackID"), API::UInt64::create(callbackID));
+    message.set(String::fromUTF8("TransparentBackground"), API::Boolean::create(options & WEBKIT_SNAPSHOT_OPTIONS_TRANSPARENT_BACKGROUND));
 
     webView->priv->snapshotResultsMap.set(callbackID, adoptGRef(g_task_new(webView, cancellable, callback, userData)));
-    getPage(webView)->postMessageToInjectedBundle(String::fromUTF8("GetSnapshot"), ImmutableDictionary::create(WTF::move(message)).get());
+    getPage(webView)->postMessageToInjectedBundle(String::fromUTF8("GetSnapshot"), API::Dictionary::create(WTF::move(message)).ptr());
 }
 
 /**
@@ -3228,3 +3531,121 @@ void webkitWebViewWebProcessCrashed(WebKitWebView* webView)
     g_signal_emit(webView, signals[WEB_PROCESS_CRASHED], 0, &returnValue);
 }
 
+/**
+ * webkit_web_view_set_background_color:
+ * @web_view: a #WebKitWebView
+ * @rgba: a #GdkRGBA
+ *
+ * Sets the color that will be used to draw the @web_view background before
+ * the actual contents are rendered. Note that if the web page loaded in @web_view
+ * specifies a background color, it will take precedence over the @rgba color.
+ * By default the @web_view background color is opaque white.
+ * If the @rgba color is not fully opaque, the parent window must have a RGBA visual and
+ * #GtkWidget:app-paintable property set to %TRUE, for the transparencies to work.
+ *
+ * <informalexample><programlisting>
+ * static void browser_window_set_background_color (BrowserWindow *window,
+ *                                                  const GdkRGBA *rgba)
+ * {
+ *     WebKitWebView *web_view;
+ *
+ *     if (rgba->alpha < 1) {
+ *         GdkScreen *screen = gtk_window_get_screen (GTK_WINDOW (window));
+ *         GdkVisual *rgba_visual = gdk_screen_get_rgba_visual (screen);
+ *
+ *         if (!rgba_visual)
+ *              return;
+ *
+ *         gtk_widget_set_visual (GTK_WIDGET (window), rgba_visual);
+ *         gtk_widget_set_app_paintable (GTK_WIDGET (window), TRUE);
+ *     }
+ *
+ *     web_view = browser_window_get_web_view (window);
+ *     webkit_web_view_set_background_color (web_view, rgba);
+ * }
+ * </programlisting></informalexample>
+ *
+ * Since: 2.8
+ */
+void webkit_web_view_set_background_color(WebKitWebView* webView, const GdkRGBA* rgba)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(rgba);
+
+    Color color(*rgba);
+    WebPageProxy* page = getPage(webView);
+    if (page->backgroundColor() == color)
+        return;
+
+    page->setBackgroundColor(color);
+    page->setDrawsBackground(color == Color::white);
+}
+
+/**
+ * webkit_web_view_get_background_color:
+ * @web_view: a #WebKitWebView
+ * @rgba: (out): a #GdkRGBA to fill in with the background color
+ *
+ * Gets the color that is used to draw the @web_view background before
+ * the actual contents are rendered.
+ * For more information see also webkit_web_view_set_background_color()
+ *
+ * Since: 2.8
+ */
+void webkit_web_view_get_background_color(WebKitWebView* webView, GdkRGBA* rgba)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(rgba);
+
+    *rgba = getPage(webView)->backgroundColor();
+}
+
+/*
+ * webkit_web_view_is_editable:
+ * @web_view: a #WebKitWebView
+ *
+ * Gets whether the user is allowed to edit the HTML document. When @web_view
+ * is not editable an element in the HTML document can only be edited if the
+ * CONTENTEDITABLE attribute has been set on the element or one of its parent
+ * elements. By default a #WebKitWebView is not editable.
+ *
+ * Returns: %TRUE if the user is allowed to edit the HTML document, or %FALSE otherwise.
+ *
+ * Since: 2.8
+ */
+gboolean webkit_web_view_is_editable(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
+
+    return getPage(webView)->isEditable();
+}
+
+/**
+ * webkit_web_view_set_editable:
+ * @web_view: a #WebKitWebView
+ * @editable: a #gboolean indicating the editable state
+ *
+ * Sets whether the user is allowed to edit the HTML document.
+ *
+ * If @editable is %TRUE, @web_view allows the user to edit the HTML document. If
+ * @editable is %FALSE, an element in @web_view's document can only be edited if the
+ * CONTENTEDITABLE attribute has been set on the element or one of its parent
+ * elements. By default a #WebKitWebView is not editable.
+ *
+ * Normally, a HTML document is not editable unless the elements within the
+ * document are editable. This function provides a way to make the contents
+ * of a #WebKitWebView editable without altering the document or DOM structure.
+ *
+ * Since: 2.8
+ */
+void webkit_web_view_set_editable(WebKitWebView* webView, gboolean editable)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+
+    if (editable == getPage(webView)->isEditable())
+        return;
+
+    getPage(webView)->setEditable(editable);
+
+    g_object_notify(G_OBJECT(webView), "editable");
+}

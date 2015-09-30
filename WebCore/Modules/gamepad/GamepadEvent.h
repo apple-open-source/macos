@@ -28,7 +28,6 @@
 #if ENABLE(GAMEPAD)
 
 #include "Event.h"
-#include "EventNames.h"
 #include "Gamepad.h"
 #include <wtf/RefPtr.h>
 
@@ -46,19 +45,19 @@ class GamepadEvent : public Event {
 public:
     ~GamepadEvent() { }
 
-    static PassRefPtr<GamepadEvent> create()
+    static Ref<GamepadEvent> create()
     {
-        return adoptRef(new GamepadEvent);
+        return adoptRef(*new GamepadEvent);
     }
 
-    static PassRefPtr<GamepadEvent> create(const AtomicString& eventType, Gamepad* gamepad)
+    static Ref<GamepadEvent> create(const AtomicString& eventType, Gamepad& gamepad)
     {
-        return adoptRef(new GamepadEvent(eventType, gamepad));
+        return adoptRef(*new GamepadEvent(eventType, gamepad));
     }
 
-    static PassRefPtr<GamepadEvent> create(const AtomicString& eventType, const GamepadEventInit& initializer)
+    static Ref<GamepadEvent> create(const AtomicString& eventType, const GamepadEventInit& initializer)
     {
-        return adoptRef(new GamepadEvent(eventType, initializer));
+        return adoptRef(*new GamepadEvent(eventType, initializer));
     }
 
     Gamepad* gamepad() const { return m_gamepad.get(); }
@@ -67,7 +66,7 @@ public:
 
 private:
     GamepadEvent();
-    explicit GamepadEvent(const AtomicString& eventType, Gamepad*);
+    explicit GamepadEvent(const AtomicString& eventType, Gamepad&);
     GamepadEvent(const AtomicString& eventType, const GamepadEventInit&);
 
     RefPtr<Gamepad> m_gamepad;

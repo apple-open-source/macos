@@ -27,11 +27,11 @@
 #include "WebFrameProxy.h"
 
 #include "WebCertificateInfo.h"
-#include "WebContext.h"
 #include "WebFormSubmissionListenerProxy.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
+#include "WebProcessPool.h"
 #include <WebCore/DOMImplementation.h>
 #include <WebCore/Image.h>
 #include <WebCore/MIMETypeRegistry.h>
@@ -47,21 +47,21 @@ WebFrameProxy::WebFrameProxy(WebPageProxy* page, uint64_t frameID)
     , m_isFrameSet(false)
     , m_frameID(frameID)
 {
-    WebContext::statistics().wkFrameCount++;
+    WebProcessPool::statistics().wkFrameCount++;
 }
 
 WebFrameProxy::~WebFrameProxy()
 {
-    WebContext::statistics().wkFrameCount--;
+    WebProcessPool::statistics().wkFrameCount--;
 }
 
-void WebFrameProxy::disconnect()
+void WebFrameProxy::webProcessWillShutDown()
 {
-    m_page = 0;
+    m_page = nullptr;
 
     if (m_activeListener) {
         m_activeListener->invalidate();
-        m_activeListener = 0;
+        m_activeListener = nullptr;
     }
 }
 
@@ -110,6 +110,11 @@ bool WebFrameProxy::isDisplayingStandaloneImageDocument() const
     return Image::supportsType(m_MIMEType);
 }
 
+bool WebFrameProxy::isDisplayingStandaloneMediaDocument() const
+{
+    return MIMETypeRegistry::isSupportedMediaMIMEType(m_MIMEType);
+}
+
 bool WebFrameProxy::isDisplayingMarkupDocument() const
 {
     // FIXME: This check should be moved to somewhere in WebCore.
@@ -127,9 +132,6 @@ bool WebFrameProxy::isDisplayingPDFDocument() const
 void WebFrameProxy::didStartProvisionalLoad(const String& url)
 {
     m_frameLoadState.didStartProvisionalLoad(url);
-#if USE(CONTENT_FILTERING)
-    m_contentFilterForBlockedLoad = nullptr;
-#endif
 }
 
 void WebFrameProxy::didReceiveServerRedirectForProvisionalLoad(const String& url)
@@ -142,14 +144,15 @@ void WebFrameProxy::didFailProvisionalLoad()
     m_frameLoadState.didFailProvisionalLoad();
 }
 
-void WebFrameProxy::didCommitLoad(const String& contentType, const WebCore::CertificateInfo& certificateInfo)
+void WebFrameProxy::didCommitLoad(const String& contentType, WebCertificateInfo& certificateInfo, bool containsPluginDocument)
 {
     m_frameLoadState.didCommitLoad();
 
     m_title = String();
     m_MIMEType = contentType;
     m_isFrameSet = false;
-    m_certificateInfo = WebCertificateInfo::create(certificateInfo);
+    m_certificateInfo = &certificateInfo;
+    m_containsPluginDocument = containsPluginDocument;
 }
 
 void WebFrameProxy::didFinishLoad()
@@ -172,30 +175,30 @@ void WebFrameProxy::didChangeTitle(const String& title)
     m_title = title;
 }
 
-void WebFrameProxy::receivedPolicyDecision(WebCore::PolicyAction action, uint64_t listenerID, uint64_t navigationID)
+void WebFrameProxy::receivedPolicyDecision(WebCore::PolicyAction action, uint64_t listenerID, API::Navigation* navigation)
 {
     if (!m_page)
         return;
 
     ASSERT(m_activeListener);
     ASSERT(m_activeListener->listenerID() == listenerID);
-    m_page->receivedPolicyDecision(action, this, listenerID, navigationID);
+    m_page->receivedPolicyDecision(action, this, listenerID, navigation);
 }
 
-WebFramePolicyListenerProxy* WebFrameProxy::setUpPolicyListenerProxy(uint64_t listenerID)
+WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(uint64_t listenerID)
 {
     if (m_activeListener)
         m_activeListener->invalidate();
     m_activeListener = WebFramePolicyListenerProxy::create(this, listenerID);
-    return static_cast<WebFramePolicyListenerProxy*>(m_activeListener.get());
+    return *static_cast<WebFramePolicyListenerProxy*>(m_activeListener.get());
 }
 
-WebFormSubmissionListenerProxy* WebFrameProxy::setUpFormSubmissionListenerProxy(uint64_t listenerID)
+WebFormSubmissionListenerProxy& WebFrameProxy::setUpFormSubmissionListenerProxy(uint64_t listenerID)
 {
     if (m_activeListener)
         m_activeListener->invalidate();
     m_activeListener = WebFormSubmissionListenerProxy::create(this, listenerID);
-    return static_cast<WebFormSubmissionListenerProxy*>(m_activeListener.get());
+    return *static_cast<WebFormSubmissionListenerProxy*>(m_activeListener.get());
 }
 
 void WebFrameProxy::getWebArchive(std::function<void (API::Data*, CallbackBase::Error)> callbackFunction)
@@ -233,19 +236,21 @@ void WebFrameProxy::setUnreachableURL(const String& unreachableURL)
     m_frameLoadState.setUnreachableURL(unreachableURL);
 }
 
-#if USE(CONTENT_FILTERING)
-bool WebFrameProxy::contentFilterDidHandleNavigationAction(const WebCore::ResourceRequest& request)
+#if ENABLE(CONTENT_FILTERING)
+bool WebFrameProxy::didHandleContentFilterUnblockNavigation(const WebCore::ResourceRequest& request)
 {
-#if PLATFORM(IOS)
-    if (m_contentFilterForBlockedLoad) {
-        RefPtr<WebPageProxy> retainedPage = m_page;
-        return m_contentFilterForBlockedLoad->handleUnblockRequestAndDispatchIfSuccessful(request, [retainedPage] {
-            retainedPage->reload(false);
-        });
+    if (!m_contentFilterUnblockHandler.canHandleRequest(request)) {
+        m_contentFilterUnblockHandler = { };
+        return false;
     }
-#endif
 
-    return false;
+    RefPtr<WebPageProxy> page { m_page };
+    ASSERT(page);
+    m_contentFilterUnblockHandler.requestUnblockAsync([page](bool unblocked) {
+        if (unblocked)
+            page->reload(false);
+    });
+    return true;
 }
 #endif
 

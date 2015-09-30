@@ -1,0 +1,275 @@
+#!/bin/sh
+
+# only zin or newer
+if expr "$(sw_vers -buildVersion)" : "1[2-9].*[A-Z]" >/dev/null; then
+    :
+# only or SULionDuchess or newer
+elif expr "$(sw_vers -buildVersion)" : "11.*[D-Z]" >/dev/null; then
+    :
+else
+   exit 0
+fi
+
+v=:
+
+fails=0
+t=$(mktemp -d /tmp/csXXXXXX)
+
+runTest () {
+    test=$1
+    shift;
+    echo "[BEGIN] ${test}"
+
+    ${v} echo cmd: "$@"
+    "$@" > $t/outfile.txt 2>&1
+    res=$?
+    [ $res != 0 ] && res=1 #normalize
+
+    if expr "$test" : "fail"  > /dev/null; then
+	exp=1
+    else
+	exp=0
+    fi
+
+
+    if [ $res = $exp ]; then
+	echo "[PASS] ${test}"
+    else
+	cat $t/outfile.txt
+	echo "[FAIL] ${test}"
+	fails=$(expr $fails + 1)
+    fi
+    rm -f $t/outfile.txt
+}
+
+runTest isroot test $UID = 0
+runTest disable-tests spctl --master-disable
+runTest disable-check eval "spctl --status | grep disable > /dev/null"
+runTest enable-tests spctl --master-enable
+runTest enable-check eval "spctl --status | grep enable >/dev/null"
+
+runTest enable-tests spctl --test-devid-enable
+runTest enable-check eval "spctl --test-devid-status | grep enable >/dev/null"
+
+
+runTest exec-ls spctl -a -t exec /bin/ls
+runTest fail-open-txt spctl -a -t open /usr/local/OpenSourceLicenses/xar.txt
+runTest fail-open-pdf spctl -a -t open /usr/share//cups/ipptool/testfile.pdf
+
+app=XXXXX
+
+selfsign () {
+    b=$(basename "$2")
+
+    cp -r "$2" ${t}/"${b}"
+    codesign -s - -f ${t}/"${b}" > /dev/null 2>&1 || exit 1
+
+    eval $1=\${t}/\${b}
+}
+
+selfsign lsbin /bin/ls 
+selfsign sysprefs /Applications/System\ Preferences.app
+
+runTest unpack-caspian-tests tar Cxf $t /AppleInternal/CoreOS/codesign_tests/caspian-tests.tar.gz
+runTest unpack-caspian-test-apple-script tar Cxvf $t /AppleInternal/CoreOS/codesign_tests/broken-AppleScript-app.tgz
+
+ct="$t/caspian-tests/tests"
+
+runTest fail-exec-ls spctl -a -t exec $lsbin
+runTest fail-exec-ls spctl -a -t exec "$sysprefs"
+
+runTest disable-tests2 spctl --master-disable
+runTest disable-check2 eval "spctl --status | grep disable > /dev/null"
+
+runTest exec-ls spctl -a -t exec $lsbin
+runTest exec-ls spctl -a -t exec "$sysprefs"
+
+runTest enable-tests3 spctl --master-enable
+runTest enable-check3 eval "spctl --status | grep enable > /dev/null"
+
+xardir=/AppleInternal/CoreOS/codesign_tests/xar
+
+caspianvalid="OSUpgrade-XBS Nothing-valid Nothing-noocsp Nothing-expired"
+caspianinvalid="Nothing-adhoc Nothing-revoked Nothing-unsigned"
+applescriptbroken="Broken.app"
+
+runTest fail-install-no-existant-file spctl -a -t install ${xardir}/really-i-dont-exists.pkg
+
+for a in Nothing-bnisigned ; do
+    runTest install-${a} spctl -a -t install ${xardir}/${a}.pkg
+done
+for a in old-sig new-sig ; do
+    runTest fail-install-${a} spctl -a -t install ${xardir}/${a}.pkg
+done
+for a in ${caspianvalid}; do
+    runTest install-${a} spctl -a -t install ${ct}/${a}.pkg
+done
+for a in ${caspianinvalid}; do
+    runTest fail-install-${a} spctl -a -t install ${ct}/${a}.pkg
+done
+for a in ${applescriptbroken}; do
+    runTest fail-install-${a} spctl -a -t install ${t}/${a}.pkg
+done
+
+runTest disable-tests3 spctl --master-disable
+runTest disable-check3 eval "spctl --status | grep disable > /dev/null"
+
+for a in Nothing-bnisigned; do
+    runTest install-${a} spctl -a -t install ${xardir}/${a}.pkg
+done
+for a in ${caspianvalid} ${caspianinvalid}; do
+    runTest install-master-disabled-${a} spctl -a -t install ${xardir}/${a}.pkg
+done
+
+#
+# check path based --add/--disable/--remove
+#
+
+runTest enable-tests4 spctl --master-enable
+runTest enable-check4 eval "spctl --status | grep enable > /dev/null"
+
+runTest copyTextEdit cp -R /Applications/TextEdit.app $t/MyTextEdit.app
+runTest codesignMyTextEdit codesign -f -s - $t/MyTextEdit.app
+
+runTest fail-run-MyTextEdit1 spctl -a -t exec $t/MyTextEdit.app
+runTest add-MyTextEdit spctl --add --path $t/MyTextEdit.app
+runTest assess-MyTextEdit2 spctl -a -t exec $t/MyTextEdit.app
+
+runTest disable-MyTextEdit spctl --disable --path $t/MyTextEdit.app
+runTest fail-assess-MyTextEdit3 spctl -a -t exec $t/MyTextEdit.app
+
+runTest enable-MyTextEdit spctl --enable --path $t/MyTextEdit.app
+runTest assess-MyTextEdit4 spctl -a -t exec $t/MyTextEdit.app
+
+runTest remove-MyTextEdit spctl --remove --path $t/MyTextEdit.app
+runTest fail-assess-MyTextEdit5 spctl -a -t exec $t/MyTextEdit.app
+
+runTest disable-tests4 spctl --master-disable
+runTest disable-check4 eval "spctl --status | grep disable > /dev/null"
+
+runTest assess-MyTextEdit6 spctl -a -t exec $t/MyTextEdit.app
+
+#
+# check label based --add/--disable/--remove
+#
+
+runTest enable-tests7 spctl --master-enable
+runTest enable-check7 eval "spctl --status | grep enable > /dev/null"
+
+runTest fail-run-MyTextEdit1 spctl -a -t exec $t/MyTextEdit.app
+runTest add-MyTextEdit spctl --add --label CaspianTest --path $t/MyTextEdit.app
+runTest assess-MyTextEdit2 spctl -a -t exec $t/MyTextEdit.app
+
+runTest disable-MyTextEdit spctl --disable --label CaspianTest
+runTest fail-assess-MyTextEdit3 spctl -a -t exec $t/MyTextEdit.app
+
+runTest enable-MyTextEdit spctl --enable --label CaspianTest
+runTest assess-MyTextEdit4 spctl -a -t exec $t/MyTextEdit.app
+
+runTest remove-MyTextEdit spctl --remove --label CaspianTest
+runTest fail-assess-MyTextEdit5 spctl -a -t exec $t/MyTextEdit.app
+
+runTest disable-tests8 spctl --master-disable
+runTest disable-check8 eval "spctl --status | grep disable > /dev/null"
+
+runTest assess-MyTextEdit6 spctl -a -t exec $t/MyTextEdit.app
+
+#
+# check adding certificate based --add/--disable/--remove
+#
+
+runTest enable-tests9 spctl --master-enable
+runTest enable-check9 eval "spctl --status | grep enable > /dev/null"
+
+# clear out existing rules
+spctl --remove --label CapsianTest-apple-root > /dev/null 2>&1
+
+runTest add-add-anchor-by-label spctl --add --label CapsianTest-apple-root --anchor 611E5B662C593A08FF58D14AE22452D198DF6C60
+runTest add-remove-by-label spctl --remove --label CapsianTest-apple-root
+
+runTest disable-tests10 spctl --master-disable
+runTest disable-check10 eval "spctl --status | grep disable > /dev/null"
+
+#
+# check devid is still revoked while caspian is disabled
+#
+
+runTest fail-0-hello-revoked spctl -a -t exec ${ct}/hello-revoked
+runTest 0-hello-expired spctl -a -t exec ${ct}/hello-expired
+
+#
+# check enabled w/o devid
+#
+
+runTest enable-tests11 spctl --master-enable
+runTest enable-check11 eval "spctl --status | grep enable > /dev/null"
+
+runTest fail-1-hello-revoked spctl -a -t exec ${ct}/hello-revoked
+#runTest fail-1-hello-expired spctl -a -t exec ${ct}/hello-expired #### failes because of broken ocsp
+
+#
+# check with devid
+#
+
+runTest enable-tests11 spctl --test-devid-enable
+runTest enable-check11 eval "spctl --test-devid-status | grep enable > /dev/null"
+
+runTest fail-1id-hello-revoked spctl -a -t exec ${ct}/hello-revoked
+runTest 1id-hello-expired spctl -a -t exec ${ct}/hello-expired
+
+#
+#
+#
+
+runTest disable-tests11 spctl --master-disable
+runTest disable-check11 eval "spctl --status | grep disable > /dev/null"
+
+#
+# Check that Capsian is on/off by default
+#
+
+case $(sw_vers -buildVersion) in
+    11*) status=disable ;;
+    12A154*) status=disable ;; ## was disabled for ZinDP2
+    *) status=enable ;;
+esac
+
+rm -f /var/db/.sp_visible /var/db/SystemPolicy-prefs.plist
+notifyutil -p com.apple.security.assessment.masterswitch
+
+runTest enable-check11 eval "spctl --status | grep $status > /dev/null"
+
+#
+# check that --list works 
+#
+
+case $(sw_vers -buildVersion) in
+    11*)  ;;
+    12A178*) ;; #disable in dp3
+    *) 
+
+	runTest checkSystemRule eval "spctl --list | grep 'P0 allow execute'"
+	runTest addTextEdit spctl --add --path /Applications/TextEdit.app
+	runTest checkTextEditInList eval "spctl --list | grep TextEdit"
+	runTest removeTextEdit spctl --remove --path /Applications/TextEdit.app
+
+	runTest checkListRule2 spctl --list --rule 2
+
+	;;
+
+esac
+
+#
+# cleanup
+#
+
+rm -rf $t
+
+if [ $fails != 0 ] ; then
+    echo "$fails caspian tests failed"
+    exit 1
+else
+    echo "all caspian tests passed"
+fi
+
+exit 0

@@ -9,7 +9,7 @@
 	<key>CFBundleName</key>
 	<string>SystemConfiguration</string>
 	<key>CFBundleShortVersionString</key>
-	<string>14.0.0</string>
+	<string>15.0.0</string>
 	<key>IPConfiguration</key>
 	<dict>
 		<key>ManualConflictRetryIntervalSeconds</key>
@@ -49,6 +49,7 @@
 		<key>DHCPRequestedParameterList</key>
 		<array>
 			<integer>1</integer>
+			<integer>121</integer>
 			<integer>3</integer>
 			<integer>6</integer>
 			<integer>15</integer>
@@ -96,6 +97,8 @@
 			<integer>23</integer>
 			<integer>24</integer>
 		</array>
+		<key>DisableUnneededInterfaces</key>
+		<true/>
 	</dict>
 	<key>MachServices</key>
 	<dict>

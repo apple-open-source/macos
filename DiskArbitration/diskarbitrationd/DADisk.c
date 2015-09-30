@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -779,28 +779,11 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
 
     if ( object == NULL )
     {
-        disk->_options |= kDADiskOptionMountAutomatic;
+        disk->_state |= _kDADiskStateMountAutomatic;
     }
     else if ( object == kCFBooleanTrue )
     {
-        disk->_options |= kDADiskOptionMountAutomatic | kDADiskOptionMountAutomaticNoDefer;
-    }
-
-    if ( object )  CFRelease( object );
-
-    /*
-     * Create the disk state -- eject upon logout?
-     */
-
-    object = IORegistryEntrySearchCFProperty( device,
-                                              kIOServicePlane,
-                                              CFSTR( "eject-upon-logout" ),
-                                              allocator,
-                                              kIORegistryIterateParents | kIORegistryIterateRecursively );
-
-    if ( object == kCFBooleanTrue )
-    {
-        disk->_options |= kDADiskOptionEjectUponLogout;
+        disk->_state |= _kDADiskStateMountAutomatic | _kDADiskStateMountAutomaticNoDefer;
     }
 
     if ( object )  CFRelease( object );
@@ -988,13 +971,11 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct sta
                             CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeNetworkKey, kCFBooleanTrue );
                         }
 
-                        disk->_options |= kDADiskOptionMountAutomatic;
-                        disk->_options |= kDADiskOptionMountAutomaticNoDefer;
+                        disk->_state |= _kDADiskStateMountAutomatic;
+                        disk->_state |= _kDADiskStateMountAutomaticNoDefer;
 
                         disk->_state |= kDADiskStateStagedProbe;
                         disk->_state |= kDADiskStateStagedPeek;
-                        disk->_state |= kDADiskStateStagedApprove;
-                        disk->_state |= kDADiskStateStagedAuthorize;
                         disk->_state |= kDADiskStateStagedMount;
 
                         disk->_userUID = fs->f_owner;

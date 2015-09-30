@@ -36,7 +36,7 @@
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
 #include <wtf/MathExtras.h>
-#include <wtf/gobject/GUniquePtr.h>
+#include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
@@ -659,7 +659,7 @@ String localizedMediaTimeDescription(float time)
     if (!std::isfinite(time))
         return String::fromUTF8(_("indefinite time"));
 
-    int seconds = static_cast<int>(abs(time));
+    int seconds = abs(static_cast<int>(time));
     int days = seconds / (60 * 60 * 24);
     int hours = seconds / (60 * 60);
     int minutes = (seconds / 60) % 60;
@@ -809,6 +809,11 @@ String textTrackAutomaticMenuItemText()
 String textTrackNoLabelText()
 {
     return String::fromUTF8(C_("Menu item label for a closed captions track that has no other name", "No label"));
+}
+
+String audioTrackNoLabelText()
+{
+    return String::fromUTF8(C_("Menu item label for an audio track that has no other name", "No label"));
 }
 #endif
 

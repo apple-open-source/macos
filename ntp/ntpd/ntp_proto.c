@@ -932,6 +932,7 @@ receive(
 				fast_xmit(rbufp, MODE_ACTIVE, 0,
 				    restrict_mask);
 				sys_restricted++;
+				return;
 			}
 		}
 
@@ -2704,7 +2705,7 @@ clock_select(void)
 	 * if there is a prefer peer or there are no survivors and none
 	 * are required.
 	 */
-	if (typepps != NULL && fabs(sys_offset < 0.4) &&
+	if (typepps != NULL && fabs(sys_offset) < 0.4 &&
 	    (typepps->refclktype != REFCLK_ATOM_PPS ||
 	    (typepps->refclktype == REFCLK_ATOM_PPS && (sys_prefer !=
 	    NULL || (typesystem == NULL && sys_minsane == 0))))) {

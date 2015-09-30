@@ -34,6 +34,8 @@
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOKitKeys.h>
 
+#include <vm/vm_kern.h>
+
 // <rdar://8518215>
 enum
 {
@@ -1881,7 +1883,7 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
 	{
         lockBuffers();
         
-        if (isOnline() && (audioEngine->getState() == kIOAudioEngineRunning) && audioEngine->status && ( audioEngine->status->fCurrentLoopCount || audioEngine->status->fLastLoopTime )  )			//	<rdar://12879939>	Wait for first takeTimeStamp call before allowing audio
+        if (isOnline() && (audioEngine->getState() == kIOAudioEngineRunning) && audioEngine->status && ( audioEngine->status->fCurrentLoopCount || audioEngine->status->fLastLoopTime )  )			//	<rdar://14608361>	Wait for first takeTimeStamp call before allowing audio
 		{
             if (firstSampleFrame < audioEngine->numSampleFramesPerBuffer) 
 			{
@@ -2450,7 +2452,10 @@ IOReturn IOAudioEngineUserClient::getConnectionID(UInt32 *connectionID)
 {
     audioDebugIOLog(3, "+-IOAudioEngineUserClient[%p]::getConnectionID(%p)\n", this, connectionID);
 
-    *connectionID = (UInt32) (((UInt64)this >> 8) & 0x00000000FFFFFFFFLLU) ;
+    vm_offset_t add;
+    vm_kernel_unslide_or_perm_external((vm_offset_t)this, &add);
+    *connectionID = (UInt32) (((UInt64) (add >> 8)) & 0x00000000FFFFFFFFLLU) ;
+
     return kIOReturnSuccess;
 }
 

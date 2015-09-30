@@ -29,6 +29,19 @@
 #include <time.h>
 #include <mach/mach.h>
 #include <Availability.h>
+#include <TargetConditionals.h>
+
+#define streq(A, B) (strcmp(A, B) == 0)
+#define strneq(A, B) (strcmp(A, B) != 0)
+
+#define streq_len(A, B, C) (strncmp(A, B, C) == 0)
+#define strneq_len(A, B, C) (strncmp(A, B, C) != 0)
+
+#define strcaseeq(A, B) (strcasecmp(A, B) == 0)
+#define strcaseneq(A, B) (strcasecmp(A, B) != 0)
+
+#define strcaseeq_len(A, B, C) (strncasecmp(A, B, C) == 0)
+#define strcaseneq_len(A, B, C) (strcasecmp(A, B, C) != 0)
 
 typedef uint32_t ASL_STATUS;
 
@@ -84,8 +97,13 @@ typedef uint32_t ASL_STATUS;
 #define ASL_PLACE_DATABASE 0
 #define ASL_PLACE_ARCHIVE 1
 
+#if TARGET_OS_SIMULATOR
+#define ASL_PLACE_DATABASE_DEFAULT asl_filesystem_path(ASL_PLACE_DATABASE)
+#define ASL_PLACE_ARCHIVE_DEFAULT asl_filesystem_path(ASL_PLACE_ARCHIVE)
+#else
 #define ASL_PLACE_DATABASE_DEFAULT "/var/log/asl"
 #define ASL_PLACE_ARCHIVE_DEFAULT "/var/log/asl.archive"
+#endif
 
 mach_port_t asl_core_get_service_port(int reset) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 
@@ -100,6 +118,9 @@ char *asl_core_encode_buffer(const char *in, uint32_t len) __OSX_AVAILABLE_START
 int32_t asl_core_decode_buffer(const char *in, char **buf, uint32_t *len) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 time_t asl_core_parse_time(const char *in, uint32_t *tlen) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+size_t asl_core_str_to_size(char *s) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0); //TODO: 10_11 & 7_1 or 8_0
+time_t asl_core_str_to_time(char *s, uint32_t def_n) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0); //TODO: 10_11 & 7_1 or 8_0
+void asl_core_time_to_str(time_t s, char *str, size_t len) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0); //TODO: 10_11 & 7_1 or 8_0
 
 const char *asl_filesystem_path(uint32_t place) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 

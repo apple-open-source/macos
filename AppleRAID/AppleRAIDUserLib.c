@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -51,7 +51,7 @@
 #define IOLog1(...) { printf(__VA_ARGS__); fflush(stdout); }
 //#define IOLog2(args...) { printf(args...); fflush(stdout); }
 
-#endif DEBUG
+#endif /* DEBUG */
 
 #ifndef IOLog1
 #define IOLog1(args...)
@@ -215,7 +215,7 @@ raidSetDetected(void *refCon, io_iterator_t iterator)
     CFMutableDictionaryRef  	registryEntry;
     CFStringRef			uuidString;
 
-    while (newSet = IOIteratorNext(iterator)) {
+    while ((newSet = IOIteratorNext(iterator))) {
 
 	// fetch a copy of the in kernel registry object
 	kr = IORegistryEntryCreateCFProperties(newSet, &registryEntry, kCFAllocatorDefault, 0);
@@ -295,7 +295,7 @@ logicalVolumeDetected(void *refCon, io_iterator_t iterator)
     CFMutableDictionaryRef  	registryEntry;
     CFStringRef			uuidString;
 
-    while (newVolume = IOIteratorNext(iterator)) {
+    while ((newVolume = IOIteratorNext(iterator))) {
 
 	// fetch a copy of the in kernel registry object
 	kr = IORegistryEntryCreateCFProperties(newVolume, &registryEntry, kCFAllocatorDefault, 0);

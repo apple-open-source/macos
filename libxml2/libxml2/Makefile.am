@@ -1164,7 +1164,7 @@ cleanup:
 
 dist-hook: cleanup libxml2.spec
 	-cp libxml2.spec $(distdir)
-	(cd $(srcdir) ; tar -cf - --exclude CVS --exclude .svn --exclude .git win32 macos vms VxWorks bakefile test result) | (cd $(distdir); tar xf -)
+	(cd $(srcdir) ; tar -cf - --exclude CVS --exclude .svn --exclude .git win32 macos os400 vms VxWorks bakefile test result) | (cd $(distdir); tar xf -)
 
 dist-source: distdir
 	$(AMTAR) -chof - --exclude Tests --exclude test --exclude result $(distdir) | GZIP=$(GZIP_ENV) gzip -c >`echo "$(distdir)" | sed "s+libxml2+libxml2-sources+"`.tar.gz
@@ -1207,6 +1207,7 @@ EXTRA_DIST = xml2-config.in xml2Conf.sh.in libxml.spec.in libxml2.spec \
 	     check-xsddata-test-suite.py check-xinclude-test-suite.py \
              example/Makefile.am example/gjobread.c example/gjobs.xml \
 	     $(man_MANS) libxml-2.0.pc.in libxml-2.0-uninstalled.pc.in \
+	     libxml2-config.cmake.in \
 	     trionan.c trionan.h triostr.c triostr.h trio.c trio.h \
 	     triop.h triodef.h libxml.h elfgcchack.h xzlib.h buf.h \
 	     enc.h save.h testThreadsWin32.c genUnicode.py TODO_SCHEMAS \
@@ -1217,6 +1218,9 @@ EXTRA_DIST = xml2-config.in xml2Conf.sh.in libxml.spec.in libxml2.spec \
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libxml-2.0.pc
+
+cmakedir = $(libdir)/cmake/libxml2
+cmake_DATA = libxml2-config.cmake
 
 #
 # Install the tests program sources as examples 

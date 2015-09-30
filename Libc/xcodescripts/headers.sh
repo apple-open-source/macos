@@ -25,8 +25,8 @@ UNIFDEFARGS=$(${SRCROOT}/xcodescripts/generate_features.pl --unifdef)
 
 INCDIR=${DSTROOT}/${PUBLIC_HEADERS_FOLDER_PATH}
 LOCINCDIR=${DSTROOT}/${PRIVATE_HEADERS_FOLDER_PATH}
-SYSTEMFRAMEWORK=${DSTROOT}/${INSTALL_PATH_PREFIX}/System/Library/Frameworks/System.framework
-KERNELFRAMEWORK=${DSTROOT}/${INSTALL_PATH_PREFIX}/System/Library/Frameworks/Kernel.framework
+SYSTEMFRAMEWORK=${DSTROOT}/System/Library/Frameworks/System.framework
+KERNELFRAMEWORK=${DSTROOT}/System/Library/Frameworks/Kernel.framework
 
 PRIVHDRS=${SYSTEMFRAMEWORK}/Versions/B/PrivateHeaders
 PRIVKERNELHDRS=${KERNELFRAMEWORK}/Versions/A/PrivateHeaders
@@ -91,7 +91,6 @@ INC_INSTHDRS=(
 	signal.h
 	stab.h
 	standards.h
-	stdbool.h
 	stddef.h
 	stdio.h
 	stdint.h

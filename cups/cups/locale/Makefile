@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 11560 2014-02-06 20:10:19Z msweet $"
+# "$Id: Makefile 12234 2014-10-28 21:00:20Z msweet $"
 #
 # Locale file makefile for CUPS.
 #
@@ -159,7 +159,7 @@ pot:	checkpo po2strings
 #
 
 checkpo:	checkpo.o ../cups/$(LIBCUPSSTATIC)
-	echo Linking $<...
+	echo Linking $@...
 	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o checkpo checkpo.o \
 		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
 		$(COMMONLIBS) $(LIBZ)
@@ -178,7 +178,7 @@ checkall:	checkpo
 #
 
 po2strings:	po2strings.o ../cups/$(LIBCUPSSTATIC)
-	echo Linking $<...
+	echo Linking $@...
 	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o po2strings po2strings.o \
 		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
 		$(COMMONLIBS) $(LIBZ)
@@ -192,7 +192,7 @@ po2strings:	po2strings.o ../cups/$(LIBCUPSSTATIC)
 #
 
 strings2po:	strings2po.o
-	echo Linking $<...
+	echo Linking $@...
 	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o strings2po strings2po.o
 
 
@@ -204,5 +204,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 11560 2014-02-06 20:10:19Z msweet $".
+# End of "$Id: Makefile 12234 2014-10-28 21:00:20Z msweet $".
 #

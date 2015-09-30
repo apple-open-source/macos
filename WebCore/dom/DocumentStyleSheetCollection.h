@@ -28,12 +28,18 @@
 #ifndef DocumentStyleSheetCollection_h
 #define DocumentStyleSheetCollection_h
 
+#include "Timer.h"
 #include <memory>
 #include <wtf/FastMalloc.h>
+#include <wtf/HashMap.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
+
+#if ENABLE(CONTENT_EXTENSIONS)
+#include "ContentExtensionStyleSheet.h"
+#endif
 
 namespace WebCore {
 
@@ -67,8 +73,13 @@ public:
     void invalidateInjectedStyleSheetCache();
     void updateInjectedStyleSheetCache() const;
 
-    void addAuthorSheet(PassRef<StyleSheetContents> authorSheet);
-    void addUserSheet(PassRef<StyleSheetContents> userSheet);
+    WEBCORE_EXPORT void addAuthorSheet(Ref<StyleSheetContents>&& authorSheet);
+    WEBCORE_EXPORT void addUserSheet(Ref<StyleSheetContents>&& userSheet);
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    void addDisplayNoneSelector(const String& identifier, const String& selector, uint32_t selectorID);
+    void maybeAddContentExtensionSheet(const String& identifier, StyleSheetContents&);
+#endif
 
     enum UpdateFlag { NoUpdate = 0, OptimizedUpdate, FullUpdate };
 
@@ -101,14 +112,12 @@ public:
 
     bool hasPendingSheets() const { return m_pendingStylesheets > 0; }
 
-    bool usesSiblingRules() const { return m_usesSiblingRules || m_usesSiblingRulesOverride; }
-    void setUsesSiblingRulesOverride(bool b) { m_usesSiblingRulesOverride = b; }
     bool usesFirstLineRules() const { return m_usesFirstLineRules; }
     bool usesFirstLetterRules() const { return m_usesFirstLetterRules; }
-    bool usesBeforeAfterRules() const { return m_usesBeforeAfterRules || m_usesBeforeAfterRulesOverride; }
-    void setUsesBeforeAfterRulesOverride(bool b) { m_usesBeforeAfterRulesOverride = b; }
     bool usesRemUnits() const { return m_usesRemUnits; }
     void setUsesRemUnit(bool b) { m_usesRemUnits = b; }
+    bool usesStyleBasedEditability() { return m_usesStyleBasedEditability; }
+    void setUsesStyleBasedEditability(bool b) { m_usesStyleBasedEditability = b; }
 
     void combineCSSFeatureFlags();
     void resetCSSFeatureFlags();
@@ -125,6 +134,8 @@ private:
         Additive
     };
     void analyzeStyleSheetChange(UpdateFlag, const Vector<RefPtr<CSSStyleSheet>>& newStylesheets, StyleResolverUpdateType&, bool& requiresFullStyleRecalc);
+
+    void styleResolverChangedTimerFired();
 
     Document& m_document;
 
@@ -149,22 +160,26 @@ private:
     Vector<RefPtr<CSSStyleSheet>> m_userStyleSheets;
     Vector<RefPtr<CSSStyleSheet>> m_authorStyleSheets;
 
+#if ENABLE(CONTENT_EXTENSIONS)
+    HashMap<String, RefPtr<CSSStyleSheet>> m_contentExtensionSheets;
+    HashMap<String, RefPtr<ContentExtensions::ContentExtensionStyleSheet>> m_contentExtensionSelectorSheets;
+#endif
+
     bool m_hadActiveLoadingStylesheet;
     UpdateFlag m_pendingUpdateType;
 
-    typedef ListHashSet<Node*, 32> StyleSheetCandidateListHashSet;
+    typedef ListHashSet<Node*> StyleSheetCandidateListHashSet;
     StyleSheetCandidateListHashSet m_styleSheetCandidateNodes;
 
     String m_preferredStylesheetSetName;
     String m_selectedStylesheetSetName;
 
-    bool m_usesSiblingRules;
-    bool m_usesSiblingRulesOverride;
     bool m_usesFirstLineRules;
     bool m_usesFirstLetterRules;
-    bool m_usesBeforeAfterRules;
-    bool m_usesBeforeAfterRulesOverride;
     bool m_usesRemUnits;
+    bool m_usesStyleBasedEditability;
+
+    Timer m_styleResolverChangedTimer;
 };
 
 }

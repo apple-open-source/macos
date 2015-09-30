@@ -57,13 +57,9 @@ class VisibleSelection;
 class Widget;
     
 class AccessibilityRenderObject : public AccessibilityNodeObject {
-protected:
-    explicit AccessibilityRenderObject(RenderObject*);
 public:
-    static PassRefPtr<AccessibilityRenderObject> create(RenderObject*);
+    static Ref<AccessibilityRenderObject> create(RenderObject*);
     virtual ~AccessibilityRenderObject();
-    
-    virtual bool isAccessibilityRenderObject() const override { return true; }
 
     virtual void init() override;
     
@@ -214,8 +210,7 @@ public:
     virtual String passwordFieldValue() const override;
 
 protected:
-    RenderObject* m_renderer;
-    
+    explicit AccessibilityRenderObject(RenderObject*);
     void setRenderObject(RenderObject* renderer) { m_renderer = renderer; }
     void ariaElementsFromAttribute(AccessibilityChildrenVector&, const QualifiedName&) const;
     bool needsToUpdateChildren() const { return m_childrenDirty; }
@@ -227,7 +222,10 @@ protected:
     virtual AccessibilityRole determineAccessibilityRole() override;
     virtual bool computeAccessibilityIsIgnored() const override;
 
+    RenderObject* m_renderer;
+
 private:
+    virtual bool isAccessibilityRenderObject() const override final { return true; }
     void ariaListboxSelectedChildren(AccessibilityChildrenVector&);
     void ariaListboxVisibleChildren(AccessibilityChildrenVector&);
     bool isAllowedChildOfTree() const;
@@ -247,7 +245,7 @@ private:
     AccessibilityObject* accessibilityParentForImageMap(HTMLMapElement*) const;
     virtual AccessibilityObject* elementAccessibilityHitTest(const IntPoint&) const override;
 
-    bool renderObjectIsObservable(RenderObject*) const;
+    bool renderObjectIsObservable(RenderObject&) const;
     RenderObject* renderParentObject() const;
     bool isDescendantOfElementType(const QualifiedName& tagName) const;
     
@@ -267,8 +265,8 @@ private:
 #if PLATFORM(COCOA)
     void updateAttachmentViewParents();
 #endif
-    virtual String expandedTextValue() const;
-    virtual bool supportsExpandedTextValue() const;
+    virtual String expandedTextValue() const override;
+    virtual bool supportsExpandedTextValue() const override;
     void updateRoleAfterChildrenCreation();
     
     void ariaSelectedRows(AccessibilityChildrenVector&);
@@ -305,6 +303,9 @@ private:
     virtual bool isMathTableRow() const override;
     virtual bool isMathTableCell() const override;
     virtual bool isMathMultiscript() const override;
+    virtual bool isMathToken() const override;
+    virtual bool isMathScriptObject(AccessibilityMathScriptObjectType) const override;
+    virtual bool isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType) const override;
     
     // Generic components.
     virtual AccessibilityObject* mathBaseObject() override;
@@ -338,8 +339,8 @@ private:
 #endif
 };
 
-ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityRenderObject, isAccessibilityRenderObject())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_ACCESSIBILITY(AccessibilityRenderObject, isAccessibilityRenderObject())
 
 #endif // AccessibilityRenderObject_h

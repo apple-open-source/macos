@@ -25,28 +25,48 @@
 
 #if PLATFORM(IOS)
 
+#import "DataDetectorsUISPI.h"
+#import "GestureTypes.h"
 #import "WKActionSheet.h"
-
-#import <DataDetectorsUI/DDDetectionController.h>
 #import <UIKit/UIPopoverController.h>
-#import <WebKit/WKDeclarationSpecifiers.h>
 #import <wtf/RetainPtr.h>
-
-@protocol WKActionSheetDelegate;
-@class WKContentView;
 
 namespace WebKit {
 class WebPageProxy;
+struct InteractionInformationAtPosition;
 }
 
-@interface WKActionSheetAssistant : NSObject <WKActionSheetDelegate, DDDetectionControllerInteractionDelegate>
+@class WKActionSheetAssistant;
+@class _WKActivatedElementInfo;
+@protocol WKActionSheetDelegate;
 
-- (id)initWithView:(WKContentView *)view;
+@protocol WKActionSheetAssistantDelegate <NSObject>
+@required
+- (const WebKit::InteractionInformationAtPosition&)positionInformationForActionSheetAssistant:(WKActionSheetAssistant *)assistant;
+- (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant performAction:(WebKit::SheetAction)action;
+- (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant openElementAtLocation:(CGPoint)location;
+#if HAVE(APP_LINKS)
+- (BOOL)actionSheetAssistant:(WKActionSheetAssistant *)assistant shouldIncludeAppLinkActionsForElement:(_WKActivatedElementInfo *)element;
+#endif
+- (RetainPtr<NSArray>)actionSheetAssistant:(WKActionSheetAssistant *)assistant decideActionsForElement:(_WKActivatedElementInfo *)element defaultActions:(RetainPtr<NSArray>)defaultActions;
+
+@optional
+- (void)updatePositionInformationForActionSheetAssistant:(WKActionSheetAssistant *)assistant;
+- (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant willStartInteractionWithElement:(_WKActivatedElementInfo *)element;
+- (void)actionSheetAssistantDidStopInteraction:(WKActionSheetAssistant *)assistant;
+
+@end
+
+@interface WKActionSheetAssistant : NSObject <WKActionSheetDelegate, DDDetectionControllerInteractionDelegate>
+@property (nonatomic, weak) id <WKActionSheetAssistantDelegate> delegate;
+- (id)initWithView:(UIView *)view;
 - (void)showLinkSheet;
 - (void)showImageSheet;
 - (void)showDataDetectorsSheet;
 - (void)cleanupSheet;
 - (void)updateSheetPosition;
+- (RetainPtr<NSArray>)defaultActionsForLinkSheet:(_WKActivatedElementInfo *)elementInfo;
+- (RetainPtr<NSArray>)defaultActionsForImageSheet:(_WKActivatedElementInfo *)elementInfo;
 @end
 
 #endif // PLATFORM(IOS)

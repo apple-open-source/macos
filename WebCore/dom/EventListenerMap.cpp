@@ -37,35 +37,22 @@
 #include "EventException.h"
 #include "EventTarget.h"
 #include <wtf/MainThread.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
-
-#ifndef NDEBUG
-#include <wtf/Threading.h>
-#endif
 
 using namespace WTF;
 
 namespace WebCore {
 
 #ifndef NDEBUG
-static Mutex& activeIteratorCountMutex()
-{
-    DEPRECATED_DEFINE_STATIC_LOCAL(Mutex, mutex, ());
-    return mutex;
-}
-
 void EventListenerMap::assertNoActiveIterators()
 {
-    MutexLocker locker(activeIteratorCountMutex());
     ASSERT(!m_activeIteratorCount);
 }
 #endif
 
 EventListenerMap::EventListenerMap()
-#ifndef NDEBUG
-    : m_activeIteratorCount(0)
-#endif
 {
 }
 
@@ -169,21 +156,14 @@ EventListenerVector* EventListenerMap::find(const AtomicString& eventType)
             return m_entries[i].second.get();
     }
 
-    return 0;
+    return nullptr;
 }
 
-static void removeFirstListenerCreatedFromMarkup(EventListenerVector* listenerVector)
+static void removeFirstListenerCreatedFromMarkup(EventListenerVector& listenerVector)
 {
-    bool foundListener = false;
-
-    for (size_t i = 0; i < listenerVector->size(); ++i) {
-        if (!listenerVector->at(i).listener->wasCreatedFromMarkup())
-            continue;
-        foundListener = true;
-        listenerVector->remove(i);
-        break;
-    }
-
+    bool foundListener = listenerVector.removeFirstMatching([] (const RegisteredEventListener& listener) {
+        return listener.listener->wasCreatedFromMarkup();
+    });
     ASSERT_UNUSED(foundListener, foundListener);
 }
 
@@ -193,7 +173,7 @@ void EventListenerMap::removeFirstEventListenerCreatedFromMarkup(const AtomicStr
 
     for (unsigned i = 0; i < m_entries.size(); ++i) {
         if (m_entries[i].first == eventType) {
-            removeFirstListenerCreatedFromMarkup(m_entries[i].second.get());
+            removeFirstListenerCreatedFromMarkup(*m_entries[i].second);
             if (m_entries[i].second->isEmpty())
                 m_entries.remove(i);
             return;
@@ -240,20 +220,15 @@ EventListenerIterator::EventListenerIterator(EventTarget* target)
     m_map = &data->eventListenerMap;
 
 #ifndef NDEBUG
-    {
-        MutexLocker locker(activeIteratorCountMutex());
-        m_map->m_activeIteratorCount++;
-    }
+    m_map->m_activeIteratorCount++;
 #endif
 }
 
 #ifndef NDEBUG
 EventListenerIterator::~EventListenerIterator()
 {
-    if (m_map) {
-        MutexLocker locker(activeIteratorCountMutex());
+    if (m_map)
         m_map->m_activeIteratorCount--;
-    }
 }
 #endif
 

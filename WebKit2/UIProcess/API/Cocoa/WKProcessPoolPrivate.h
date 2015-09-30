@@ -30,14 +30,16 @@
 @class _WKProcessPoolConfiguration;
 @protocol _WKDownloadDelegate;
 
-@interface WKProcessPool (WKPrivate)
+@interface WKProcessPool ()
+- (instancetype)_initWithConfiguration:(_WKProcessPoolConfiguration *)configuration __attribute__((objc_method_family(init))) WK_DESIGNATED_INITIALIZER;
+@end
 
-- (instancetype)_initWithConfiguration:(_WKProcessPoolConfiguration *)configuration __attribute__((objc_method_family(init)));
+@interface WKProcessPool (WKPrivate)
 
 @property (nonatomic, readonly) _WKProcessPoolConfiguration *_configuration;
 
 - (void)_setAllowsSpecificHTTPSCertificate:(NSArray *)certificateChain forHost:(NSString *)host;
-- (void)_setCanHandleHTTPSServerTrustEvaluation:(BOOL)value;
+- (void)_setCanHandleHTTPSServerTrustEvaluation:(BOOL)value WK_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA);
 - (void)_setCookieAcceptPolicy:(NSHTTPCookieAcceptPolicy)policy;
 
 - (id)_objectForBundleParameter:(NSString *)parameter;

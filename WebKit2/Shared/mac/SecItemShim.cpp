@@ -63,7 +63,7 @@ static BlockingResponseMap<SecItemResponseData>& responseMap()
     static std::once_flag onceFlag;
     static LazyNeverDestroyed<BlockingResponseMap<SecItemResponseData>> responseMap;
 
-    std::call_once(onceFlag, []{
+    std::call_once(onceFlag, [] {
         responseMap.construct();
     });
 
@@ -72,7 +72,7 @@ static BlockingResponseMap<SecItemResponseData>& responseMap()
 
 static ChildProcess* sharedProcess;
 
-SecItemShim& SecItemShim::shared()
+SecItemShim& SecItemShim::singleton()
 {
     static SecItemShim* shim;
     static dispatch_once_t once;
@@ -178,7 +178,7 @@ void SecItemShim::initialize(ChildProcess* process)
 
 void SecItemShim::initializeConnection(IPC::Connection* connection)
 {
-    connection->addWorkQueueMessageReceiver(Messages::SecItemShim::messageReceiverName(), m_queue.get(), this);
+    connection->addWorkQueueMessageReceiver(Messages::SecItemShim::messageReceiverName(), &m_queue.get(), this);
 }
 
 } // namespace WebKit

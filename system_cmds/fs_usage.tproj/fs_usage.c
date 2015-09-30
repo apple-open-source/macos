@@ -89,8 +89,9 @@ typedef struct LibraryRange {
 	uint64_t e_address;
 } LibraryRange;
 
-LibraryRange framework32;
-LibraryRange framework64;
+LibraryRange framework32 = {0,0};
+LibraryRange framework64 = {0,0};
+LibraryRange framework64h = {0,0};
 
 
 #define	TEXT_R		0
@@ -225,6 +226,7 @@ int  need_new_map = 1;
 int  bias_secs = 0;
 long last_time;
 int  wideflag = 0;
+int  include_waited_flag = 0;
 int  columns = 0;
 
 int  one_good_pid = 0;    /* Used to fail gracefully when bad pids given */
@@ -720,6 +722,7 @@ int		quit();
 #define FMT_CHMODAT	44
 #define FMT_OPENAT  45
 #define FMT_RENAMEAT	46
+#define FMT_IOCTL_SYNCCACHE 47
 
 #define MAX_BSD_SYSCALL	526
 
@@ -2162,9 +2165,9 @@ main(argc, argv)
 			myname++;
 	}
 	
-	while ((ch = getopt(argc, argv, "bewf:R:S:E:t:")) != EOF) {
+	while ((ch = getopt(argc, argv, "bewf:R:S:E:t:W")) != EOF) {
 
-               switch(ch) {
+		switch(ch) {
 
                 case 'e':
 		    exclude_pids = 1;
@@ -2176,6 +2179,10 @@ main(argc, argv)
 		    if ((uint)columns < MAX_WIDE_MODE_COLS)
 			    columns = MAX_WIDE_MODE_COLS;
 		    break;
+
+			case 'W':
+				include_waited_flag = 1;
+				break;
 
 	       case 'f':
 		   if (!strcmp(optarg, "network"))
@@ -2280,6 +2287,7 @@ main(argc, argv)
 		/* set up signal handlers */
 		signal(SIGINT, leave);
 		signal(SIGQUIT, leave);
+		signal(SIGPIPE, leave);
 
 		sigaction(SIGHUP, (struct sigaction *)NULL, &osa);
 
@@ -2302,12 +2310,12 @@ main(argc, argv)
 	if ((my_buffer = malloc(num_events * sizeof(kd_buf))) == (char *)0)
 		quit("can't allocate memory for tracing info\n");
 
-	if (ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_i386.map", &framework32, "/var/db/dyld/dyld_shared_cache_i386")) {
-		ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_x86_64.map", &framework64, "/var/db/dyld/dyld_shared_cache_x86_64");
-	} else {
-		ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_ppc.map", &framework32, "/var/db/dyld/dyld_shared_cache_ppc");
-		ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_ppc64.map", &framework64, "/var/db/dyld/dyld_shared_cache_ppc64");
-	}
+    ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_i386.map", &framework32, "/var/db/dyld/dyld_shared_cache_i386");
+
+    if (0 == ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_x86_64h.map", &framework64h, "/var/db/dyld/dyld_shared_cache_x86_64h")){
+        ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_x86_64.map", &framework64, "/var/db/dyld/dyld_shared_cache_x86_64");
+    }
+
 	SortFrameworkAddresses();
 
         cache_disk_names();
@@ -2440,7 +2448,9 @@ set_filter(void)
 
 	setbit(type_filter_bitmap, ENCODE_CSC_LOW(DBG_MACH,DBG_MACH_EXCP_SC)); //0x010c
 	setbit(type_filter_bitmap, ENCODE_CSC_LOW(DBG_MACH,DBG_MACH_VM)); //0x0130
-	setbit(type_filter_bitmap, ENCODE_CSC_LOW(DBG_MACH,DBG_MACH_SCHED)); //0x0140
+
+	if (include_waited_flag)
+		setbit(type_filter_bitmap, ENCODE_CSC_LOW(DBG_MACH,DBG_MACH_SCHED)); //0x0140
 
 	setbit(type_filter_bitmap, ENCODE_CSC_LOW(DBG_FSYSTEM,DBG_FSRW)); //0x0301
 	setbit(type_filter_bitmap, ENCODE_CSC_LOW(DBG_FSYSTEM,DBG_DKRW)); //0x0302
@@ -2944,9 +2954,11 @@ sample_sc()
 
 		case SPEC_ioctl:
 		     if (kd[i].arg2 == DKIOCSYNCHRONIZECACHE)
-			     exit_event("IOCTL", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_IOCTL_SYNC, (double)now);
+			     exit_event("IOCTL", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_IOCTL_SYNCCACHE, (double)now);
 		     else if (kd[i].arg2 == DKIOCUNMAP)
 			     exit_event("IOCTL", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_IOCTL_UNMAP, (double)now);
+		     else if (kd[i].arg2 == DKIOCSYNCHRONIZE && (debugid & DBG_FUNC_ALL) == DBG_FUNC_NONE)
+			     exit_event("IOCTL", thread, type, kd[i].arg1, kd[i].arg2, kd[i].arg3, 0, FMT_IOCTL_SYNC, (double)now);
 		     else {
 			     if ((ti = find_event(thread, type)))
 				     delete_event(ti);
@@ -3326,6 +3338,10 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, uint
 	static int  timestamp_len = 0;
 
 	command_name = "";
+
+	// <rdar://problem/19852325> Filter out WindowServer/xcpm iocts in fs_usage
+	if (format == FMT_IOCTL && ti->arg2 == 0xc030581d)
+		return;
 
 	if (RAW_flag) {
 		l_usecs = (long long)((now - bias_now) / divisor);
@@ -3738,6 +3754,16 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, uint
 		      }
 
 		      case FMT_IOCTL_SYNC:
+		      {
+			/*
+			 * ioctl
+			 */
+			clen += printf(" <DKIOCSYNCHRONIZE>  B=%d /dev/%s", arg3, find_disk_name(arg1));
+
+			break;
+		      }
+
+		      case FMT_IOCTL_SYNCCACHE:
 		      {
 			/*
 			 * ioctl
@@ -4819,7 +4845,8 @@ lookup_name(uint64_t user_addr, char **type, char **name)
 	if (numFrameworks) {
 
 		if ((user_addr >= framework32.b_address && user_addr < framework32.e_address) ||
-		    (user_addr >= framework64.b_address && user_addr < framework64.e_address)) {
+            (user_addr >= framework64.b_address && user_addr < framework64.e_address) ||
+            (user_addr >= framework64h.b_address && user_addr < framework64h.e_address)) {
 			      
 			start = 0;
 			last  = numFrameworks;

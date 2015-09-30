@@ -359,10 +359,14 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 	static const char *edirs[] = {
 		_PATH_SBIN,
 		_PATH_USRSBIN,
-		_PATH_FSBNDL,	/* always last */
 		NULL
 	};
-	const char *argv[100], **edir;
+	static const char *bdirs[] = {
+		_PATH_FSBNDL,
+		_PATH_USRFSBNDL,
+		NULL
+	};
+	const char *argv[100], **edir, **bdir;
 	struct statfs sf;
 	pid_t pid;
 	int argc, i, status;
@@ -420,20 +424,27 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 		/* Go find an executable. */
 		edir = edirs;
 		do {
-			/* Special case file system bundle executable path */
-			if (*(edir+1) == NULL)
-				(void)snprintf(execname, sizeof(execname),
-					"%s/%s.fs/%s/mount_%s", *edir,
-					vfstype, _PATH_FSBNDLBIN, vfstype);
-			else
-				(void)snprintf(execname, sizeof(execname),
-					"%s/mount_%s", *edir, vfstype);
+			(void)snprintf(execname, sizeof(execname),
+				"%s/mount_%s", *edir, vfstype);
 
 			argv[0] = execname;
 			execv(execname, (char * const *)argv);
 			if (errno != ENOENT)
 				warn("exec %s for %s", execname, name);
 		} while (*++edir != NULL);
+
+		bdir = bdirs;
+		do {
+			/* Special case file system bundle executable path */
+			(void)snprintf(execname, sizeof(execname),
+				"%s/%s.fs/%s/mount_%s", *bdir,
+				vfstype, _PATH_FSBNDLBIN, vfstype);
+
+			argv[0] = execname;
+			execv(execname, (char * const *)argv);
+			if (errno != ENOENT)
+				warn("exec %s for %s", execname, name);
+		} while (*++bdir != NULL);
 
 		if (errno == ENOENT)
 			warn("exec %s for %s", execname, name);

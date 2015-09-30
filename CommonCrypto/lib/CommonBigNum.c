@@ -40,7 +40,7 @@ cc_alloc(void *ctx CC_UNUSED, size_t size) {
 
 static void
 cc_free(void *ctx CC_UNUSED, size_t oldsize, void *p) {
-    cc_zero(oldsize, p);
+    cc_clear(oldsize, p);
     free(p);
 }
 
@@ -49,7 +49,7 @@ cc_realloc(void *ctx CC_UNUSED, size_t oldsize,
                  void *p, size_t newsize) {
     void *r = malloc(newsize);
     memcpy(r, p, oldsize);
-    cc_zero(oldsize, p);
+    cc_clear(oldsize, p);
     free(p);
     return r;
 }
@@ -288,7 +288,7 @@ CCBigNumCreateRandom(CCStatus *status, int bits, int top, int bottom)
 
             ccz_read_uint(r, data_size, data);
         } while(ccz_bitlen(r) - ccz_trailing_zeros(r) < bottom);
-        memset(data, 0, data_size);
+        CC_XZEROMEM(data, data_size);
         if (st) {
             if (status)
                 *status = st;
@@ -387,9 +387,10 @@ CCBigNumModI(uint32_t *res, CCBigNumRef dividend, uint32_t modulus)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     CCStatus status = 0;
+    CCBigNumRef mod = NULL;
     CCBigNumRef r = CCCreateBigNum(&status);
     if(!r) goto err;
-    CCBigNumRef mod = CCCreateBigNum(&status);
+    mod = CCCreateBigNum(&status);
     if(!mod) goto err;
     status = CCBigNumSetI(mod, modulus);
     ccz_mod((ccz *)r, (ccz *) dividend, (ccz *)mod);
@@ -397,6 +398,7 @@ CCBigNumModI(uint32_t *res, CCBigNumRef dividend, uint32_t modulus)
     *res = CCBigNumGetI(&status, r);
 err:
     if(r) CCBigNumFree(r);
+    if(mod) CCBigNumFree(mod);
     return status;
 }
 

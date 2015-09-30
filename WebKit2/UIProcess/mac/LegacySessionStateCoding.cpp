@@ -30,7 +30,7 @@
 #include "SessionState.h"
 #include <mutex>
 #include <wtf/MallocPtr.h>
-#include <wtf/cf/TypeCasts.h>
+#include <wtf/cf/TypeCastsCF.h>
 #include <wtf/text/StringView.h>
 
 namespace WebKit {
@@ -40,6 +40,7 @@ static const uint32_t sessionStateDataVersion = 2;
 
 static const CFStringRef sessionHistoryKey = CFSTR("SessionHistory");
 static const CFStringRef provisionalURLKey = CFSTR("ProvisionalURL");
+static const CFStringRef renderTreeSizeKey = CFSTR("RenderTreeSize");
 
 // Session history keys.
 static const uint32_t sessionHistoryVersion = 1;
@@ -50,9 +51,10 @@ static const CFStringRef sessionHistoryEntriesKey = CFSTR("SessionHistoryEntries
 
 // Session history entry keys.
 static const CFStringRef sessionHistoryEntryURLKey = CFSTR("SessionHistoryEntryURL");
-static CFStringRef sessionHistoryEntryTitleKey = CFSTR("SessionHistoryEntryTitle");
-static CFStringRef sessionHistoryEntryOriginalURLKey = CFSTR("SessionHistoryEntryOriginalURL");
-static CFStringRef sessionHistoryEntryDataKey = CFSTR("SessionHistoryEntryData");
+static const CFStringRef sessionHistoryEntryTitleKey = CFSTR("SessionHistoryEntryTitle");
+static const CFStringRef sessionHistoryEntryOriginalURLKey = CFSTR("SessionHistoryEntryOriginalURL");
+static const CFStringRef sessionHistoryEntryDataKey = CFSTR("SessionHistoryEntryData");
+static const CFStringRef sessionHistoryEntryShouldOpenExternalURLsPolicyKey = CFSTR("SessionHistoryEntryShouldOpenExternalURLsPolicyKey");
 
 // Session history entry data.
 const uint32_t sessionHistoryEntryDataVersion = 2;
@@ -425,8 +427,16 @@ static RetainPtr<CFDictionaryRef> encodeSessionHistory(const BackForwardListStat
         auto title = item.pageState.title.createCFString();
         auto originalURL = item.pageState.mainFrameState.originalURLString.createCFString();
         auto data = encodeSessionHistoryEntryData(item.pageState.mainFrameState);
+        auto shouldOpenExternalURLsPolicyValue = static_cast<uint64_t>(item.pageState.shouldOpenExternalURLsPolicy);
+        auto shouldOpenExternalURLsPolicy = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &shouldOpenExternalURLsPolicyValue));
 
-        auto entryDictionary = createDictionary({ { sessionHistoryEntryURLKey, url.get() }, { sessionHistoryEntryTitleKey, title.get() }, { sessionHistoryEntryOriginalURLKey, originalURL.get() }, { sessionHistoryEntryDataKey, data.get() } });
+        auto entryDictionary = createDictionary({
+            { sessionHistoryEntryURLKey, url.get() },
+            { sessionHistoryEntryTitleKey, title.get() },
+            { sessionHistoryEntryOriginalURLKey, originalURL.get() },
+            { sessionHistoryEntryDataKey, data.get() },
+            { sessionHistoryEntryShouldOpenExternalURLsPolicyKey, shouldOpenExternalURLsPolicy.get() },
+        });
 
         CFArrayAppendValue(entries.get(), entryDictionary.get());
     }
@@ -441,12 +451,21 @@ RefPtr<API::Data> encodeLegacySessionState(const SessionState& sessionState)
 {
     auto sessionHistoryDictionary = encodeSessionHistory(sessionState.backForwardListState);
     auto provisionalURLString = sessionState.provisionalURL.isNull() ? nullptr : sessionState.provisionalURL.string().createCFString();
+    RetainPtr<CFNumberRef> renderTreeSizeNumber(adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &sessionState.renderTreeSize)));
 
     RetainPtr<CFDictionaryRef> stateDictionary;
-    if (provisionalURLString)
-        stateDictionary = createDictionary({ { sessionHistoryKey, sessionHistoryDictionary.get() }, { provisionalURLKey, provisionalURLString.get() } });
-    else
-        stateDictionary = createDictionary({ { sessionHistoryKey, sessionHistoryDictionary.get() } });
+    if (provisionalURLString) {
+        stateDictionary = createDictionary({
+            { sessionHistoryKey, sessionHistoryDictionary.get() },
+            { provisionalURLKey, provisionalURLString.get() },
+            { renderTreeSizeKey, renderTreeSizeNumber.get() }
+        });
+    } else {
+        stateDictionary = createDictionary({
+            { sessionHistoryKey, sessionHistoryDictionary.get() },
+            { renderTreeSizeKey, renderTreeSizeNumber.get() }
+        });
+    }
 
     auto writeStream = adoptCF(CFWriteStreamCreateWithAllocatedBuffers(kCFAllocatorDefault, nullptr));
     if (!writeStream)
@@ -902,8 +921,8 @@ static void decodeBackForwardTreeNode(HistoryEntryDataDecoder& decoder, FrameSta
 
     decoder >> frameState.target;
 
-    // FIXME: iOS should not use the legacy session state decoder.
 #if PLATFORM(IOS)
+    // FIXME: iOS should not use the legacy session state decoder.
     decoder >> frameState.exposedContentRect;
     decoder >> frameState.unobscuredContentRect;
     decoder >> frameState.minimumLayoutSizeInScrollViewCoordinates;
@@ -950,10 +969,20 @@ static bool decodeSessionHistoryEntry(CFDictionaryRef entryDictionary, BackForwa
     if (!historyEntryData)
         return false;
 
+    auto rawShouldOpenExternalURLsPolicy = dynamic_cf_cast<CFNumberRef>(CFDictionaryGetValue(entryDictionary, sessionHistoryEntryShouldOpenExternalURLsPolicyKey));
+    WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy;
+    if (rawShouldOpenExternalURLsPolicy) {
+        uint64_t value;
+        CFNumberGetValue(rawShouldOpenExternalURLsPolicy, kCFNumberSInt64Type, &value);
+        shouldOpenExternalURLsPolicy = static_cast<WebCore::ShouldOpenExternalURLsPolicy>(value);
+    } else
+        shouldOpenExternalURLsPolicy = WebCore::ShouldOpenExternalURLsPolicy::ShouldAllowExternalSchemes;
+
     if (!decodeSessionHistoryEntryData(historyEntryData, backForwardListItemState.pageState.mainFrameState))
         return false;
 
     backForwardListItemState.pageState.title = title;
+    backForwardListItemState.pageState.shouldOpenExternalURLsPolicy = shouldOpenExternalURLsPolicy;
     backForwardListItemState.pageState.mainFrameState.urlString = urlString;
     backForwardListItemState.pageState.mainFrameState.originalURLString = originalURLString;
 
@@ -1086,6 +1115,11 @@ bool decodeLegacySessionState(const uint8_t* bytes, size_t size, SessionState& s
         if (!sessionState.provisionalURL.isValid())
             return false;
     }
+
+    if (auto renderTreeSize = dynamic_cf_cast<CFNumberRef>(CFDictionaryGetValue(sessionStateDictionary.get(), renderTreeSizeKey)))
+        CFNumberGetValue(renderTreeSize, kCFNumberSInt64Type, &sessionState.renderTreeSize);
+    else
+        sessionState.renderTreeSize = 0;
 
     return true;
 }

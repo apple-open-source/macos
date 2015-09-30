@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -104,7 +104,7 @@ save_DUID_info(void)
 	 * other errors should be reported.
 	 */
 	if (errno != ENOENT) {
-	    my_log(LOG_ERR,
+	    my_log(LOG_NOTICE,
 		   "DHCPDUID: failed to write %s, %s", DUID_IA_FILE,
 		   strerror(errno));
 	}
@@ -167,7 +167,7 @@ load_DUID_info(void)
     return (S_DUID != NULL);
 }
 
-STATIC CFDataRef
+STATIC CF_RETURNS_RETAINED CFDataRef
 make_DUID_LL_data(interface_t * if_p)
 {
     CFMutableDataRef	data;
@@ -185,7 +185,7 @@ make_DUID_LL_data(interface_t * if_p)
     return (data);
 }
 
-STATIC CFDataRef
+STATIC CF_RETURNS_RETAINED CFDataRef
 make_DUID_LLT_data(interface_t * if_p)
 {
     CFMutableDataRef	data;
@@ -251,16 +251,14 @@ DHCPDUIDGet(interface_list_t * interfaces)
     }
     if (if_p == NULL) {
 	if (G_dhcp_duid_type == kDHCPDUIDTypeLL || if_with_linkaddr_p == NULL) {
-	    my_log(LOG_ERR,
+	    my_log(LOG_NOTICE,
 		   "DHCPv6Client: can't determine interface for DUID");
 	    goto done;
 	}
 	if_p = if_with_linkaddr_p;
     }
-    if (G_IPConfiguration_verbose) {
-	my_log(LOG_DEBUG, "DHCPv6Client: chose %s for DUID",
-	       if_name(if_p));
-    }
+    my_log(LOG_INFO, "DHCPv6Client: chose %s for DUID",
+	   if_name(if_p));
     if (G_dhcp_duid_type == kDHCPDUIDTypeLL || G_is_netboot) {
 	S_DUID = make_DUID_LL_data(if_p);
     }

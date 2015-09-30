@@ -28,12 +28,14 @@
 
 #include "Color.h"
 #include "ControlStates.h"
-#include "Font.h"
+#include "FontCascade.h"
+#include "GraphicsTypes.h"
 #include "IntRect.h"
 #include "LengthBox.h"
 #include "LengthSize.h"
 #include "ThemeTypes.h"
 #include <wtf/Forward.h>
+#include <wtf/Optional.h>
 
 namespace WebCore {
 
@@ -71,7 +73,7 @@ public:
     
     // CSS system colors and fonts
     virtual Color systemColor(ThemeColor) const { return Color(); }
-    virtual Font systemFont(ThemeFont, FontDescription&) const { return Font(); }
+    virtual FontCascade systemFont(ThemeFont, FontDescription&) const { return FontCascade(); }
     
     // How fast the caret blinks in text fields.
     virtual double caretBlinkInterval() const { return 0.5; }
@@ -82,17 +84,17 @@ public:
     // Methods used to adjust the RenderStyles of controls.
     
     // The font description result should have a zoomed font size.
-    virtual FontDescription controlFont(ControlPart, const Font& font, float /*zoomFactor*/) const { return font.fontDescription(); }
+    virtual Optional<FontDescription> controlFont(ControlPart, const FontCascade&, float /*zoomFactor*/) const { return Nullopt; }
     
-    // The size here is in zoomed coordinates already.  If a new size is returned, it also needs to be in zoomed coordinates.
-    virtual LengthSize controlSize(ControlPart, const Font&, const LengthSize& zoomedSize, float /*zoomFactor*/) const { return zoomedSize; }
+    // The size here is in zoomed coordinates already. If a new size is returned, it also needs to be in zoomed coordinates.
+    virtual LengthSize controlSize(ControlPart, const FontCascade&, const LengthSize& zoomedSize, float /*zoomFactor*/) const { return zoomedSize; }
     
     // Returns the minimum size for a control in zoomed coordinates.  
-    virtual LengthSize minimumControlSize(ControlPart, const Font&, float /*zoomFactor*/) const { return LengthSize(Length(0, Fixed), Length(0, Fixed)); }
+    virtual LengthSize minimumControlSize(ControlPart, const FontCascade&, float /*zoomFactor*/) const { return LengthSize(Length(0, Fixed), Length(0, Fixed)); }
     
     // Allows the theme to modify the existing padding/border.
-    virtual LengthBox controlPadding(ControlPart, const Font&, const LengthBox& zoomedBox, float zoomFactor) const;
-    virtual LengthBox controlBorder(ControlPart, const Font&, const LengthBox& zoomedBox, float zoomFactor) const;
+    virtual LengthBox controlPadding(ControlPart, const FontCascade&, const LengthBox& zoomedBox, float zoomFactor) const;
+    virtual LengthBox controlBorder(ControlPart, const FontCascade&, const LengthBox& zoomedBox, float zoomFactor) const;
     
     // Whether or not whitespace: pre should be forced on always.
     virtual bool controlRequiresPreWhiteSpace(ControlPart) const { return false; }
@@ -105,7 +107,9 @@ public:
     // The rect passed in is in zoomed coordinates, so the inflation should take that into account and make sure the inflation
     // amount is also scaled by the zoomFactor.
     virtual void inflateControlPaintRect(ControlPart, const ControlStates*, FloatRect& /*zoomedRect*/, float /*zoomFactor*/) const { }
-    
+
+    virtual void drawNamedImage(const String&, GraphicsContext*, const FloatRect&) const;
+
     // This method is called once, from RenderTheme::adjustDefaultStyleSheet(), to let each platform adjust
     // the default CSS rules in html.css.
     static String defaultStyleSheet();

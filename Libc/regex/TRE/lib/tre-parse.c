@@ -107,7 +107,7 @@ tre_expand_macro(const tre_char_t *regex, const tre_char_t *regex_end,
 }
 
 static reg_errcode_t
-tre_new_item(tre_mem_t mem, int type, int val, int *max_i,
+tre_new_item(tre_mem_t __unused mem, int type, int val, int *max_i,
 	 tre_bracket_match_list_t **items)
 {
   reg_errcode_t status = REG_OK;

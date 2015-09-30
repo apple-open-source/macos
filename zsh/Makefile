@@ -4,7 +4,7 @@
 
 # Project info
 Project		      = zsh
-ProjectVersion	      = 5.0.5
+ProjectVersion	      = 5.0.8
 UserType	      = Administration
 ToolType	      = Commands
 Extra_CC_Flags	      = -no-cpp-precomp
@@ -26,7 +26,8 @@ post-install:
 	rm -f $(DSTROOT)/bin/zsh-$(ProjectVersion)
 	rm $(DSTROOT)/usr/share/zsh/$(ProjectVersion)/scripts/newuser
 	mkdir -p $(DSTROOT)/private/etc
-	install -m 0444 -o root -g wheel zshenv $(DSTROOT)/private/etc
+	install -m 0444 -o root -g wheel zprofile $(DSTROOT)/private/etc
+	install -m 0444 -o root -g wheel zshrc $(DSTROOT)/private/etc
 
 ZSH_MODULE_DIR = /usr/lib/zsh/$(ProjectVersion)/zsh
 

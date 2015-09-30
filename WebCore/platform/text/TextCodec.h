@@ -30,7 +30,6 @@
 #include <memory>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -78,7 +77,7 @@ namespace WebCore {
 
     typedef void (*EncodingNameRegistrar)(const char* alias, const char* name);
 
-    typedef PassOwnPtr<TextCodec> (*NewTextCodecFunction)(const TextEncoding&, const void* additionalData);
+    typedef std::unique_ptr<TextCodec> (*NewTextCodecFunction)(const TextEncoding&, const void* additionalData);
     typedef void (*TextCodecRegistrar)(const char* name, NewTextCodecFunction, const void* additionalData);
 
 } // namespace WebCore

@@ -6,11 +6,9 @@ job ... &!
        exit an interactive shell with them running or stopped.   If  no
        job is specified, disown the current job.
 
-       If  the  jobs are currently stopped and the AUTO CONTINUE option
-                                                       -
+       If  the  jobs are currently stopped and the AUTO_CONTINUE option
        is not set, a warning is printed  containing  information  about
        how  to make them running after they have been disowned.  If one
        of the latter two forms is used, the jobs will automatically  be
-       made  running,  independent  of the setting of the AUTO CONTINUE
-                                                              -
+       made  running,  independent  of the setting of the AUTO_CONTINUE
        option.

@@ -189,7 +189,6 @@
 		4C7183470637153700230DDE /* SecSMIME.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecSMIME.h; sourceTree = "<group>"; };
 		4C7FAB41056AC7A200FE0C44 /* security_smime.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_smime.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C817F8405ED4D7A007975E6 /* security_smime */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = security_smime; sourceTree = BUILT_PRODUCTS_DIR; };
-		4C8629041137DB63009EAB5A /* iPhoneFamily.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = iPhoneFamily.xcconfig; path = AppleInternal/XcodeConfig/iPhoneFamily.xcconfig; sourceTree = DEVELOPER_DIR; };
 		4C8E166C0438EEE700CA2E66 /* secoid.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = secoid.c; sourceTree = "<group>"; };
 		4C8E166D0438EEE700CA2E66 /* secoid.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = secoid.h; sourceTree = "<group>"; };
 		4C8E166E0438EEE700CA2E66 /* secoidt.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = secoidt.h; sourceTree = "<group>"; };
@@ -291,7 +290,6 @@
 			isa = PBXGroup;
 			children = (
 				4C2741F003E9FC2100A80181 /* lib */,
-				4C8629041137DB63009EAB5A /* iPhoneFamily.xcconfig */,
 				4C2741EF03E9FBF700A80181 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -460,7 +458,7 @@
 		4C2741E803E9FBAF00A80181 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0600;
+				LastUpgradeCheck = 0700;
 			};
 			buildConfigurationList = 79DC321B0D49473C0039E4BC /* Build configuration list for PBXProject "libsecurity_smime" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -582,7 +580,6 @@
 /* Begin XCBuildConfiguration section */
 		79BDD2AE0D60CA06000D84D3 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4C8629041137DB63009EAB5A /* iPhoneFamily.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_OPTIMIZATION_LEVEL = 1;
@@ -678,10 +675,10 @@
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)",
 					"$(PROJECT_DIR)/..",
-					"$(PROJECT_DIR)/../Security/utilities",
-					"$(PROJECT_DIR)/../Security/sec",
-					"$(PROJECT_DIR)/../Security/libsecurity_keychain/libDER",
-					"$(PROJECT_DIR)/../Security/libsecurity_asn1",
+					"$(PROJECT_DIR)/../OSX/utilities",
+					"$(PROJECT_DIR)/../OSX/sec",
+					"$(PROJECT_DIR)/../OSX/libsecurity_keychain/libDER",
+					"$(PROJECT_DIR)/../OSX/libsecurity_asn1",
 					"$(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include",
 					"$(DSTROOT)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include",
 				);
@@ -694,7 +691,6 @@
 		};
 		79BDD2BA0D60CA0A000D84D3 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4C8629041137DB63009EAB5A /* iPhoneFamily.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -787,10 +783,10 @@
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)",
 					"$(PROJECT_DIR)/..",
-					"$(PROJECT_DIR)/../Security/utilities",
-					"$(PROJECT_DIR)/../Security/sec",
-					"$(PROJECT_DIR)/../Security/libsecurity_keychain/libDER",
-					"$(PROJECT_DIR)/../Security/libsecurity_asn1",
+					"$(PROJECT_DIR)/../OSX/utilities",
+					"$(PROJECT_DIR)/../OSX/sec",
+					"$(PROJECT_DIR)/../OSX/libsecurity_keychain/libDER",
+					"$(PROJECT_DIR)/../OSX/libsecurity_asn1",
 					"$(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include",
 					"$(DSTROOT)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include",
 				);

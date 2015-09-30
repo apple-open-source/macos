@@ -40,23 +40,23 @@ class RenderMultiColumnSpannerPlaceholder final : public RenderBox {
 public:
     static RenderMultiColumnSpannerPlaceholder* createAnonymous(RenderMultiColumnFlowThread*, RenderBox* spanner, RenderStyle* parentStyle);
 
-    virtual bool isRenderMultiColumnSpannerPlaceholder() const override { return true; }
     RenderBox* spanner() const { return m_spanner; }
     RenderMultiColumnFlowThread* flowThread() const { return m_flowThread; }
 
 private:
-    RenderMultiColumnSpannerPlaceholder(RenderMultiColumnFlowThread*, RenderBox* spanner, PassRef<RenderStyle>);
+    RenderMultiColumnSpannerPlaceholder(RenderMultiColumnFlowThread*, RenderBox* spanner, Ref<RenderStyle>&&);
+    virtual bool isRenderMultiColumnSpannerPlaceholder() const override { return true; }
 
-    virtual bool canHaveChildren() const { return false; }
-    virtual void paint(PaintInfo&, const LayoutPoint&) { }
+    virtual bool canHaveChildren() const override { return false; }
+    virtual void paint(PaintInfo&, const LayoutPoint&) override { }
     virtual const char* renderName() const override;
 
     RenderBox* m_spanner;
     RenderMultiColumnFlowThread* m_flowThread;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderMultiColumnSpannerPlaceholder, isRenderMultiColumnSpannerPlaceholder())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderMultiColumnSpannerPlaceholder, isRenderMultiColumnSpannerPlaceholder())
 
 #endif // RenderMultiColumnSpannerPlaceholder_h

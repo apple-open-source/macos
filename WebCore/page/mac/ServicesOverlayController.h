@@ -34,7 +34,7 @@
 #include "Timer.h"
 #include <wtf/RefCounted.h>
 
-typedef struct __DDHighlight DDHighlight, *DDHighlightRef;
+typedef struct __DDHighlight *DDHighlightRef;
 
 namespace WebCore {
 class LayoutRect;
@@ -45,6 +45,7 @@ struct GapRects;
 namespace WebCore {
 
 class ServicesOverlayController : private PageOverlay::Client {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit ServicesOverlayController(MainFrame&);
     ~ServicesOverlayController();
@@ -56,8 +57,8 @@ private:
     class Highlight : public RefCounted<Highlight>, private GraphicsLayerClient {
         WTF_MAKE_NONCOPYABLE(Highlight);
     public:
-        static PassRefPtr<Highlight> createForSelection(ServicesOverlayController&, RetainPtr<DDHighlightRef>, PassRefPtr<Range>);
-        static PassRefPtr<Highlight> createForTelephoneNumber(ServicesOverlayController&, RetainPtr<DDHighlightRef>, PassRefPtr<Range>);
+        static Ref<Highlight> createForSelection(ServicesOverlayController&, RetainPtr<DDHighlightRef>, PassRefPtr<Range>);
+        static Ref<Highlight> createForTelephoneNumber(ServicesOverlayController&, RetainPtr<DDHighlightRef>, PassRefPtr<Range>);
         ~Highlight();
 
         void invalidate();
@@ -66,10 +67,11 @@ private:
         Range* range() const { return m_range.get(); }
         GraphicsLayer* layer() const { return m_graphicsLayer.get(); }
 
-        enum class Type {
-            TelephoneNumber,
-            Selection
+        enum {
+            TelephoneNumberType = 1 << 0,
+            SelectionType = 1 << 1,
         };
+        typedef uint8_t Type;
         Type type() const { return m_type; }
 
         void fadeIn();
@@ -107,11 +109,13 @@ private:
 
     void drawHighlight(Highlight&, GraphicsContext&);
 
+    void invalidateHighlightsOfType(Highlight::Type);
+    void buildPotentialHighlightsIfNeeded();
+
     void replaceHighlightsOfTypePreservingEquivalentHighlights(HashSet<RefPtr<Highlight>>&, Highlight::Type);
     void removeAllPotentialHighlightsOfType(Highlight::Type);
     void buildPhoneNumberHighlights();
     void buildSelectionHighlight();
-    void didRebuildPotentialHighlights();
 
     void determineActiveHighlight(bool& mouseIsOverButton);
     void clearActiveHighlight();
@@ -123,7 +127,7 @@ private:
 
     bool mouseIsOverHighlight(Highlight&, bool& mouseIsOverButton) const;
     std::chrono::milliseconds remainingTimeUntilHighlightShouldBeShown(Highlight*) const;
-    void determineActiveHighlightTimerFired(Timer&);
+    void determineActiveHighlightTimerFired();
 
     static bool highlightsAreEquivalent(const Highlight* a, const Highlight* b);
 
@@ -136,7 +140,7 @@ private:
     MainFrame& mainFrame() const { return m_mainFrame; }
 
     MainFrame& m_mainFrame;
-    PageOverlay* m_servicesOverlay;
+    PageOverlay* m_servicesOverlay { nullptr };
 
     RefPtr<Highlight> m_activeHighlight;
     RefPtr<Highlight> m_nextActiveHighlight;
@@ -147,7 +151,9 @@ private:
 
     // FIXME: These should move onto Highlight.
     Vector<LayoutRect> m_currentSelectionRects;
-    bool m_isTextOnly;
+    bool m_isTextOnly { false };
+
+    Highlight::Type m_dirtyHighlightTypes { 0 };
 
     std::chrono::steady_clock::time_point m_lastSelectionChangeTime;
     std::chrono::steady_clock::time_point m_nextActiveHighlightChangeTime;
@@ -157,6 +163,7 @@ private:
     IntPoint m_mousePosition;
 
     Timer m_determineActiveHighlightTimer;
+    Timer m_buildHighlightsTimer;
 };
 
 } // namespace WebKit

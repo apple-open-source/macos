@@ -26,7 +26,14 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if !TARGET_OS_IPHONE || (defined USE_APPLE_INTERNAL_SDK && USE_APPLE_INTERNAL_SDK)
 #import <Foundation/NSURLDownload.h>
+#else
+@interface NSURLDownload : NSObject
+@end
+
+@protocol NSURLDownloadDelegate;
+#endif
 
 #if TARGET_OS_IPHONE
 #import <WebKitLegacy/WAKAppKitStubs.h>
@@ -47,7 +54,7 @@
 
 @interface WebDownload : NSURLDownload
 {
-@private
+@package
     WebDownloadInternal *_webInternal;
 }
 
@@ -58,7 +65,9 @@
     @discussion The WebDownloadDelegate delegate has one extra method used to choose
     the right window when automatically prompting with a sheet.
 */
-@interface NSObject (WebDownloadDelegate)
+@protocol WebDownloadDelegate <NSURLDownloadDelegate>
+
+@optional
 
 /*!
     @method downloadWindowForAuthenticationSheet:

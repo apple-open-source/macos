@@ -68,13 +68,13 @@ public:
             return;
         m_eventQueue.m_eventDispatcherMap.remove(m_event.get());
         m_event->target()->dispatchEvent(m_event);
-        m_event.clear();
+        m_event = nullptr;
     }
 
     void cancel()
     {
         m_isCancelled = true;
-        m_event.clear();
+        m_event = nullptr;
     }
 
 private:
@@ -90,7 +90,7 @@ bool WorkerEventQueue::enqueueEvent(PassRefPtr<Event> event)
 
     EventDispatcher* eventDispatcherPtr = new EventDispatcher(event.get(), *this);
     m_eventDispatcherMap.add(event, eventDispatcherPtr);
-    m_scriptExecutionContext.postTask([=] (ScriptExecutionContext&) {
+    m_scriptExecutionContext.postTask([eventDispatcherPtr] (ScriptExecutionContext&) {
         std::unique_ptr<EventDispatcher> eventDispatcher(eventDispatcherPtr);
         eventDispatcher->dispatch();
     });

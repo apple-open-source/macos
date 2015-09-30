@@ -29,6 +29,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <mach-o/dyld_priv.h>
 
 #include "BootCache.h"
 
@@ -368,6 +369,7 @@ do_boot_cache()
 {
 #ifdef DEBUG
 	outstream = fopen("/var/log/BootCacheControl.log", "a");
+	err_set_file(outstream);
 #endif
 	
 	struct BC_playlist *pc;
@@ -469,9 +471,12 @@ do_boot_cache()
 		}
 		
 		// rdar://9021675 Always warm the shared cache
-		// Try subtypes we know about first. <rdar://problem/16093388>
-		if (0 != add_file(pc, BC_DYLD_SHARED_CACHE_H, -1, true, false)) {
-			add_file(pc, BC_DYLD_SHARED_CACHE, -1, true, false);
+		const char* shared_cache_path = dyld_shared_cache_file_path();
+		if (shared_cache_path) {
+			DLOG("Shared cache path is %s\n", shared_cache_path);
+			add_file(pc, shared_cache_path, -1, true, false);
+		} else {
+			warnx("No shared cache path");
 		}
 	}
 
@@ -492,10 +497,10 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 	if (!pc) return 1;
 	
 	// These defines match those in warmd
-#define PREHEATED_USER_PLAYLIST_PATH_FMT     "/var/db/BootCaches/%s/"
+#define PLAYLIST_DIR                         "/var/db/BootCaches/"
 #define MERGED_PLAYLIST                      "Merged.playlist"
 #define LOGIN_PLAYLIST                       "Login.playlist"
-#define DEFAULT_USER                         "PreheatedUser"
+#define DEFAULT_USER_DIR                     PLAYLIST_DIR"PreheatedUser/"
 #define APP_CACHE_PLAYLIST_PREFIX            "app."
 #define PLAYLIST_SUFFIX                      ".playlist"
 #define RUNNING_XATTR_NAME                   "BC_RUNNING"
@@ -509,8 +514,7 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 	
 	int error, i;
 	int playlist_path_end_idx = 0;
-	char playlist_path[MAX_PLAYLIST_PATH_LENGTH];
-	char login_user[128] = DEFAULT_USER;
+	char playlist_path[MAX_PLAYLIST_PATH_LENGTH] = DEFAULT_USER_DIR;
 	struct BC_playlist* user_playlist = NULL;
 	bool already_added_i386_shared_cache = false;
 	
@@ -542,12 +546,23 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 																   kCFAllocatorDefault, kNilOptions);
 		IOObjectRelease(service);
 		if (fde_login_user != NULL) {
-			CFDataGetBytes(fde_login_user, CFRangeMake(0, sizeof(login_user)), (UInt8*)login_user);
+			char fde_login_user_str[128] = {0};
+			
+			CFDataGetBytes(fde_login_user, CFRangeMake(0, sizeof(fde_login_user_str)), (UInt8*)fde_login_user_str);
 			CFRelease(fde_login_user);
+			
+			snprintf(playlist_path, sizeof(playlist_path), "%s%s/", PLAYLIST_DIR, fde_login_user_str);
+			struct stat statbuf;
+			if (0 == stat(playlist_path, &statbuf)) {
+				warnx("Using FDE user %s", fde_login_user_str);
+			} else {
+				warnx("No such FDE user %s, using Preheated User", fde_login_user_str);
+				snprintf(playlist_path, sizeof(playlist_path), "%s", DEFAULT_USER_DIR);
+			}
 		}
 	}
 	
-	playlist_path_end_idx = snprintf(playlist_path, sizeof(playlist_path), PREHEATED_USER_PLAYLIST_PATH_FMT, login_user);
+	playlist_path_end_idx = strlen(playlist_path);
 	
 	// warnx("Reading user playlists from user dir %s", playlist_path);
 	

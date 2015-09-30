@@ -1,10 +1,10 @@
-#compdef vim exim gvim gex gview rvim rview rgvim rgview evim eview vimdiff gvimdiff
+#compdef vim exim gvim gex gview nvim rvim rview rgvim rgview evim eview vimdiff gvimdiff
 
 (( $+functions[_vim_files] )) ||
 _vim_files () {
   case $PREFIX in
     (+*) _files -P './' $* && return 0 ;;
-    (scp|http(|s)|(|s)ftp):*) _urls ;;
+    ((scp|http(|s)|(|s)ftp):*) _urls ;;
     (*) _files $* ;;
   esac
   case $PREFIX in

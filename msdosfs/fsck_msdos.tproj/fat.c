@@ -739,21 +739,24 @@ int fat_free_unused(void)
 	}
 
 	/*
-	 * Check the FSInfo sector.
+	 * Check the FSInfo sector's "free space" value.
 	 *
-	 * NOTE: Since the values there are merely "hints", we don't return a
-	 * non-zero exit status if the values are unexpected.
+	 * NOTE: Since the value there is documented as not reliable, we don't
+	 * return a non-zero exit status if the values are unexpected.
 	 */
 	if (gBoot->FSInfo) {
 		fix = 0;
 		if (gBoot->FSFree != gBoot->NumFree) {
-			pwarn("Free space in FSInfo block (%d) not correct (%d)\n",
-			      gBoot->FSFree, gBoot->NumFree);
+			if (gBoot->FSFree == 0xFFFFFFFFU)
+				pwarn("Free space in FSInfo block is unset (should be %d)\n",
+				      gBoot->NumFree);
+			else
+				pwarn("Free space in FSInfo block (%d) not correct (%d)\n",
+				      gBoot->FSFree, gBoot->NumFree);
 			if (ask(1, "Fix")) {
 				gBoot->FSFree = gBoot->NumFree;
 				fix = 1;
-			} else
-				err |= FSERROR;
+			}
 		}
 		if (fix)
 			err |= writefsinfo(gFS, gBoot);

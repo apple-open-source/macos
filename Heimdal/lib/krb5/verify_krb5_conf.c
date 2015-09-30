@@ -345,6 +345,7 @@ check_log(krb5_context context, const char *path, char *data)
 }
 
 typedef int (*check_func_t)(krb5_context, const char*, char*);
+
 struct entry {
     const char *name;
     int type;

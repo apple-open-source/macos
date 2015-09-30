@@ -28,16 +28,13 @@
 
 #if PLATFORM(IOS)
 
+#import "UIKitSPI.h"
 #import "WKContentView.h"
 #import "WKContentViewInteraction.h"
 #import "WKFormPopover.h"
 #import "WebPageProxy.h"
 #import <UIKit/UIBarButtonItem.h>
-#import <UIKit/UIBarButtonItem_Private.h>
 #import <UIKit/UIDatePicker.h>
-#import <UIKit/UIDatePicker_Private.h>
-#import <UIKit/UIDevice_Private.h>
-#import <UIKit/UIKeyboard_Private.h>
 #import <WebCore/LocalizedStrings.h>
 #import <wtf/RetainPtr.h>
 
@@ -344,7 +341,10 @@ static const NSTimeInterval kMillisecondsPerSecond = 1000;
 #pragma clang diagnostic pop
     [navigationItem setRightBarButtonItem:clearButton];
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     RetainPtr<UIPopoverController> controller = adoptNS([[UIPopoverController alloc] initWithContentViewController:navigationController.get()]);
+#pragma clang diagnostic pop
     [self setPopoverController:controller.get()];
 
     return self;

@@ -1174,13 +1174,29 @@ StatusSession(const void *key, const void *value, void *context)
     CFRelease(sessionID);
 }
 
+static bool
+haveBooleanEntitlement(struct peer *peer, const char *entitlement)
+{
+    bool res = false;
+
+    xpc_object_t ent = xpc_connection_copy_entitlement_value(peer->peer, entitlement);
+    if (ent) {
+	if (xpc_get_type(ent) == XPC_TYPE_BOOL && xpc_bool_get_value(ent))
+	    res = true;
+	xpc_release(ent);
+    }
+
+    return res;
+}
+
 static void
 do_Status(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 {
     uid_t uid = xpc_connection_get_euid(peer->peer);
     struct stat sb;
 
-    if (uid == 0) {
+
+    if (uid == 0 || haveBooleanEntitlement(peer, "com.apple.private.gssapi.credential-introspection")) {
 	xpc_object_t ss = xpc_dictionary_create(NULL, NULL, 0);
 
 	CFDictionaryApplyFunction(HeimCredCTX.sessions, StatusSession, ss);
@@ -1204,6 +1220,27 @@ static void GSSCred_peer_event_handler(struct peer *peer, xpc_object_t event)
     
     assert(type == XPC_TYPE_DICTIONARY);
     
+    /*
+     * Check if we are impersonating a different bundle
+     */
+    const char *bundleString = xpc_dictionary_get_string(event, "impersonate");
+    if (bundleString) {
+	CFStringRef bundle = CFStringCreateWithBytes(NULL, (UInt8 *)bundleString, strlen(bundleString), kCFStringEncodingUTF8, false);
+	if (bundle && !CFEqual(peer->bundleID, bundle)) {
+
+	    if (haveBooleanEntitlement(peer, "com.apple.private.accounts.bundleidspoofing")) {
+		CFRelease(peer->bundleID);
+		peer->bundleID = CFRetain(bundle);
+	    } else {
+		xpc_connection_cancel(peer->peer);
+		CFRelease(bundle);
+		return;
+	    }
+	}
+	CFRelease(bundle);
+    }
+
+
     const char *cmd = xpc_dictionary_get_string(event, "command");
     if (cmd == NULL) {
 	syslog(LOG_ERR, "peer sent invalid no command");
@@ -1249,15 +1286,18 @@ static void GSSCred_peer_event_handler(struct peer *peer, xpc_object_t event)
     }
 
     if (HeimCredCTX.needFlush) {
+	HeimCredCTX.needFlush = false;
+
 	if (!HeimCredCTX.flushPending) {
-	    HeimCredCTX.needFlush = false;
-	} else {
 	    HeimCredCTX.flushPending = true;
-	    
+
+	    xpc_transaction_begin();
+
 	    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5LL * NSEC_PER_SEC), runQueue, ^{
 	        @autoreleasepool {
 		    HeimCredCTX.flushPending = false;
 		    storeCredCache();
+		    xpc_transaction_end();
 		}
 	    });
 	}
@@ -1430,7 +1470,7 @@ static void GSSCred_event_handler(xpc_connection_t peerconn)
     xpc_connection_set_finalizer_f(peerconn, peer_final);
 
     xpc_connection_set_event_handler(peerconn, ^(xpc_object_t event) {
-	GSSCred_peer_event_handler(peer, event);
+        GSSCred_peer_event_handler(peer, event);
     });
     xpc_connection_resume(peerconn);
 }

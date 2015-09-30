@@ -35,7 +35,8 @@
 #include "powermanagement_mig.h"
 #include "powermanagement.h"
 
-__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, CFTypeRef *objectOut);
+__private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID,
+                                                CFTypeRef selectorData, CFTypeRef *objectOut);
 
 /*
  * SCPreferences file format
@@ -99,7 +100,7 @@ CFDictionaryRef IOPMCopyRepeatingPowerEvents(void)
 {
     CFMutableDictionaryRef      return_dict = NULL;
 
-    _copyPMServerObject(kIOPMPowerEventsMIGCopyRepeatEvents, 0, (CFTypeRef *)&return_dict);
+    _copyPMServerObject(kIOPMPowerEventsMIGCopyRepeatEvents, 0, NULL, (CFTypeRef *)&return_dict);
     return return_dict;
 }
 

@@ -7,7 +7,8 @@ cindex(arithmetic evaluation)
 cindex(evaluation, arithmetic)
 findex(let, use of)
 The shell can perform integer and floating point arithmetic, either using
-the builtin tt(let), or via a substitution of the form tt($((...))).  For
+the builtin tt(let), or via a substitution of the form
+tt($LPAR()LPAR())var(...)tt(RPAR()RPAR()).  For
 integers, the shell is usually compiled to use 8-byte precision where this
 is available, otherwise precision is 4 bytes.  This can be tested, for
 example, by giving the command `tt(print - $(( 12345678901 )))'; if the
@@ -39,7 +40,8 @@ zero status.
 cindex(arithmetic base)
 cindex(bases, in arithmetic)
 Integers can be in bases other than 10.
-A leading `tt(0x)' or `tt(0X)' denotes hexadecimal.
+A leading `tt(0x)' or `tt(0X)' denotes hexadecimal and a leading
+`tt(0b)' or `tt(0B)' binary.
 Integers may also be of the form `var(base)tt(#)var(n)',
 where var(base) is a decimal number between two and thirty-six
 representing the arithmetic base and var(n)
@@ -76,10 +78,31 @@ have output base 16, while tt(x) (assuming it does not already exist) is
 implicitly typed by the arithmetic evaluation, where it acquires the output
 base 8.
 
+The var(base) may be replaced or followed by an underscore, which may
+itself be followed by a positive integer (if it is missing the value 3
+is used).  This indicates that underscores should be inserted into the
+output string, grouping the number for visual clarity.  The following
+integer specifies the number of digits to group together.  For example:
+
+example(setopt cbases
+print $(( [#16_4] 65536 ** 2 )))
+
+outputs `tt(0x1_0000_0000)'.
+
+The feature can be used with floating
+point numbers, in which case the base must be omitted; grouping
+is away from the decimal point.  For example,
+
+example(zmodload zsh/mathfunc
+print $(( [#_] sqrt+LPAR()1e7+RPAR() )))
+
+outputs `tt(3_162.277_660_168_379_5)' (the number of decimal places
+shown may vary).
+
 pindex(C_BASES, use of)
 pindex(OCTAL_ZEROES, use of)
-If the tt(C_BASES) option is set, hexadecimal numbers in the standard C
-format, for example tt(0xFF) instead of the usual `tt(16#FF)'.  If the
+If the tt(C_BASES) option is set, hexadecimal numbers are output in the standard C
+format, for example `tt(0xFF)' instead of the usual `tt(16#FF)'.  If the
 option tt(OCTAL_ZEROES) is also set (it is not by default), octal numbers
 will be treated similarly and hence appear as `tt(077)' instead of
 `tt(8#77)'.  This option has no effect on the output of bases other than
@@ -153,7 +176,7 @@ endsitem()
 
 Note the precedence of exponentiation in both cases is below
 that of unary operators, hence `tt(-3**2)' evaluates as `tt(9)', not
-tt(-9).  Use parentheses where necessary: `tt(-(3**2))'.  This is
+`tt(-9)'.  Use parentheses where necessary: `tt(-(3**2))'.  This is
 for compatibility with other shells.
 
 cindex(mathematical functions, use of)
@@ -168,12 +191,12 @@ functions.
 
 An expression of the form `tt(##)var(x)' where var(x) is any character
 sequence such as `tt(a)', `tt(^A)', or `tt(\M-\C-x)' gives the value of
-this character and an expression of the form `tt(#)var(foo)' gives the
-value of the first character of the contents of the parameter var(foo).
+this character and an expression of the form `tt(#)var(name)' gives the
+value of the first character of the contents of the parameter var(name).
 Character values are according to the character set used in the current
 locale; for multibyte character handling the option tt(MULTIBYTE) must be
-set.  Note that this form is different from `tt($#)var(foo)', a standard
-parameter substitution which gives the length of the parameter var(foo).
+set.  Note that this form is different from `tt($#)var(name)', a standard
+parameter substitution which gives the length of the parameter var(name).
 `tt(#\)' is accepted instead of `tt(##)', but its use is deprecated.
 
 Named parameters and subscripted arrays can be referenced by name within an
@@ -210,6 +233,15 @@ necessary.  In addition, if any operator which requires an integer
 (`tt(~)', `tt(&)', `tt(|)', `tt(^)', `tt(%)', `tt(<<)', `tt(>>)' and their
 equivalents with assignment) is given a floating point argument, it will be
 silently rounded down to the next integer.
+
+Users should beware that, in common with many other programming
+languages but not software designed for calculation, the evaluation of
+an expression in zsh is taken a term at a time and promotion of integers
+to floating point does not occur in terms only containing integers.  A
+typical result of this is that a division such as tt(6/8) is truncated,
+in this being rounded down to 0.  The tt(FORCE_FLOAT) shell option can
+be used in scripts or functions where floating point evaluation is
+required throughout.
 
 Scalar variables can hold integer or floating point values at different
 times; there is no memory of the numeric type in this case.

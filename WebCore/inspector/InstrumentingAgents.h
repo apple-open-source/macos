@@ -41,7 +41,6 @@
 namespace Inspector {
 class InspectorAgent;
 class InspectorDebuggerAgent;
-class InspectorProfilerAgent;
 }
 
 namespace WebCore {
@@ -116,10 +115,8 @@ public:
     void setInspectorReplayAgent(InspectorReplayAgent* agent) { m_inspectorReplayAgent = agent; }
 #endif
 
-#if ENABLE(SQL_DATABASE)
     InspectorDatabaseAgent* inspectorDatabaseAgent() const { return m_inspectorDatabaseAgent; }
     void setInspectorDatabaseAgent(InspectorDatabaseAgent* agent) { m_inspectorDatabaseAgent = agent; }
-#endif
 
     InspectorApplicationCacheAgent* inspectorApplicationCacheAgent() const { return m_inspectorApplicationCacheAgent; }
     void setInspectorApplicationCacheAgent(InspectorApplicationCacheAgent* agent) { m_inspectorApplicationCacheAgent = agent; }
@@ -132,9 +129,6 @@ public:
 
     InspectorDOMDebuggerAgent* inspectorDOMDebuggerAgent() const { return m_inspectorDOMDebuggerAgent; }
     void setInspectorDOMDebuggerAgent(InspectorDOMDebuggerAgent* agent) { m_inspectorDOMDebuggerAgent = agent; }
-
-    Inspector::InspectorProfilerAgent* inspectorProfilerAgent() const { return m_inspectorProfilerAgent; }
-    void setInspectorProfilerAgent(Inspector::InspectorProfilerAgent* agent) { m_inspectorProfilerAgent = agent; }
 
     InspectorWorkerAgent* inspectorWorkerAgent() const { return m_inspectorWorkerAgent; }
     void setInspectorWorkerAgent(InspectorWorkerAgent* agent) { m_inspectorWorkerAgent = agent; }
@@ -162,19 +156,13 @@ private:
 #if ENABLE(WEB_REPLAY)
     InspectorReplayAgent* m_inspectorReplayAgent;
 #endif
-#if ENABLE(SQL_DATABASE)
     InspectorDatabaseAgent* m_inspectorDatabaseAgent;
-#endif
     InspectorApplicationCacheAgent* m_inspectorApplicationCacheAgent;
     Inspector::InspectorDebuggerAgent* m_inspectorDebuggerAgent;
     PageDebuggerAgent* m_pageDebuggerAgent;
     InspectorDOMDebuggerAgent* m_inspectorDOMDebuggerAgent;
-    Inspector::InspectorProfilerAgent* m_inspectorProfilerAgent;
     InspectorWorkerAgent* m_inspectorWorkerAgent;
 };
-
-InstrumentingAgents* instrumentationForPage(Page*);
-InstrumentingAgents* instrumentationForWorkerGlobalScope(WorkerGlobalScope*);
 
 }
 

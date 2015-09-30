@@ -32,6 +32,21 @@
 
 namespace IPC {
 
+void ArgumentCoder<std::chrono::system_clock::time_point>::encode(IPC::ArgumentEncoder& encoder, const std::chrono::system_clock::time_point& timePoint)
+{
+    encoder << static_cast<int64_t>(timePoint.time_since_epoch().count());
+}
+
+bool ArgumentCoder<std::chrono::system_clock::time_point>::decode(ArgumentDecoder& decoder, std::chrono::system_clock::time_point& result)
+{
+    int64_t time;
+    if (!decoder.decode(time))
+        return false;
+
+    result = std::chrono::system_clock::time_point(std::chrono::system_clock::duration(static_cast<std::chrono::system_clock::rep>(time)));
+    return true;
+}
+
 void ArgumentCoder<AtomicString>::encode(ArgumentEncoder& encoder, const AtomicString& atomicString)
 {
     encoder << atomicString.string();
@@ -146,5 +161,17 @@ bool ArgumentCoder<String>::decode(ArgumentDecoder& decoder, String& result)
         return decodeStringText<LChar>(decoder, length, result);
     return decodeStringText<UChar>(decoder, length, result);
 }
+
+#if HAVE(DTRACE)
+void ArgumentCoder<uuid_t>::encode(ArgumentEncoder& encoder, const uuid_t& uuid)
+{
+    SimpleArgumentCoder<uuid_t>::encode(encoder, uuid);
+}
+
+bool ArgumentCoder<uuid_t>::decode(ArgumentDecoder& decoder, uuid_t& uuid)
+{
+    return SimpleArgumentCoder<uuid_t>::decode(decoder, uuid);
+}
+#endif
 
 } // namespace IPC

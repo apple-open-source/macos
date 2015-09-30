@@ -22,7 +22,6 @@
 #include "SVGFitToViewBox.h"
 
 #include "AffineTransform.h"
-#include "Attribute.h"
 #include "Document.h"
 #include "FloatRect.h"
 #include "SVGDocumentExtensions.h"
@@ -56,21 +55,21 @@ bool SVGFitToViewBox::parseViewBox(Document* doc, const UChar*& c, const UChar* 
         return true;
     }
     if (!valid) {
-        doc->accessSVGExtensions()->reportWarning("Problem parsing viewBox=\"" + str + "\"");
+        doc->accessSVGExtensions().reportWarning("Problem parsing viewBox=\"" + str + "\"");
         return false;
     }
 
     if (width < 0.0) { // check that width is positive
-        doc->accessSVGExtensions()->reportError("A negative value for ViewBox width is not allowed");
+        doc->accessSVGExtensions().reportError("A negative value for ViewBox width is not allowed");
         return false;
     }
     if (height < 0.0) { // check that height is positive
-        doc->accessSVGExtensions()->reportError("A negative value for ViewBox height is not allowed");
+        doc->accessSVGExtensions().reportError("A negative value for ViewBox height is not allowed");
         return false;
     }
     skipOptionalSVGSpaces(c, end);
     if (c < end) { // nothing should come after the last, fourth number
-        doc->accessSVGExtensions()->reportWarning("Problem parsing viewBox=\"" + str + "\"");
+        doc->accessSVGExtensions().reportWarning("Problem parsing viewBox=\"" + str + "\"");
         return false;
     }
 
@@ -80,7 +79,7 @@ bool SVGFitToViewBox::parseViewBox(Document* doc, const UChar*& c, const UChar* 
 
 AffineTransform SVGFitToViewBox::viewBoxToViewTransform(const FloatRect& viewBoxRect, const SVGPreserveAspectRatio& preserveAspectRatio, float viewWidth, float viewHeight)
 {
-    if (!viewBoxRect.width() || !viewBoxRect.height())
+    if (!viewBoxRect.width() || !viewBoxRect.height() || !viewWidth || !viewHeight)
         return AffineTransform();
 
     return preserveAspectRatio.getCTM(viewBoxRect.x(), viewBoxRect.y(), viewBoxRect.width(), viewBoxRect.height(), viewWidth, viewHeight);

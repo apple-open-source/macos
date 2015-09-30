@@ -1,5 +1,5 @@
 /*
- * "$Id: auth.c 11791 2014-04-02 16:56:54Z msweet $"
+ * "$Id: auth.c 12626 2015-05-07 00:39:18Z msweet $"
  *
  * Authentication functions for CUPS.
  *
@@ -311,7 +311,7 @@ _cupsSetNegotiateAuthString(
   * to use it...
   */
 
-  if (gss_init_sec_context == NULL)
+  if (&gss_init_sec_context == NULL)
   {
     DEBUG_puts("1_cupsSetNegotiateAuthString: Weak-linked GSSAPI/Kerberos "
                "framework is not present");
@@ -761,7 +761,7 @@ cups_local_auth(http_t *http)		/* I - HTTP connection to server */
 
   if (
 #    ifdef HAVE_GSSAPI
-      strncmp(http->fields[HTTP_FIELD_WWW_AUTHENTICATE], "Negotiate", 9) &&
+      _cups_strncasecmp(http->fields[HTTP_FIELD_WWW_AUTHENTICATE], "Negotiate", 9) &&
 #    endif /* HAVE_GSSAPI */
 #    ifdef HAVE_AUTHORIZATION_H
       !httpGetSubField2(http, HTTP_FIELD_WWW_AUTHENTICATE, "authkey",
@@ -808,7 +808,7 @@ cups_local_auth(http_t *http)		/* I - HTTP connection to server */
                   filename, strerror(errno)));
 
 #  ifdef HAVE_GSSAPI
-    if (!strncmp(http->fields[HTTP_FIELD_WWW_AUTHENTICATE], "Negotiate", 9))
+    if (!_cups_strncasecmp(http->fields[HTTP_FIELD_WWW_AUTHENTICATE], "Negotiate", 9))
     {
      /*
       * Kerberos required, don't try the root certificate...
@@ -876,5 +876,5 @@ cups_local_auth(http_t *http)		/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: auth.c 11791 2014-04-02 16:56:54Z msweet $".
+ * End of "$Id: auth.c 12626 2015-05-07 00:39:18Z msweet $".
  */

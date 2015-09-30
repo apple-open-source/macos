@@ -4677,10 +4677,6 @@ static int network_handle_multistatus_reply(CFURLRef urlRef, UInt8 *responseBuff
 	
 	elementPtr = statusList->head;
 	while (elementPtr != NULL) {
-		if (elementPtr->name == NULL) {
-			continue; // skipit
-		}
-		
 		if (elementPtr->seen_href == FALSE)
 			continue;  // skipit
 		

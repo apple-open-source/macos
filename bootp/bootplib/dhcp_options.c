@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,7 @@
 #include "gen_dhcp_parse_table.h"
 #include "util.h"
 #include "DNSNameList.h"
+#include "IPv4ClasslessRoute.h"
 #include "nbo.h"
 #include "cfutil.h"
 #include <SystemConfiguration/SCPrivate.h>
@@ -248,6 +249,33 @@ dhcptype_from_strlist(const char * * strlist, int strlist_count,
 	  }
 	  break;
       }
+      case dhcptype_classless_route_e: {
+	  CFArrayRef		cf_strlist;
+	  IPv4ClasslessRouteRef	route_list = NULL;
+	  int			route_list_count;
+
+	  cf_strlist = my_CFStringArrayCreate(strlist, strlist_count);
+	  if (cf_strlist != NULL) {
+	      route_list
+		  = IPv4ClasslessRouteListCreateWithArray(cf_strlist,
+							  &route_list_count);
+	      CFRelease(cf_strlist);
+	  }
+	  if (route_list != NULL) {
+	      IPv4ClasslessRouteListBufferCreate(route_list, route_list_count,
+						 buf, len_p);
+	      CFRelease(route_list);
+	  }
+	  else {
+	      *len_p = 0;
+	  }
+	  if (*len_p == 0) {
+	      strlcpy(err->str,
+		      "no IPv4 classless routes added", sizeof(err->str));
+	      return (FALSE);
+	  }
+	  break;
+      }
       default:
 	  if (err != NULL) {
 	      snprintf(err->str, sizeof(err->str), "type %d not yet supported",
@@ -364,7 +392,30 @@ dhcptype_print_cfstr_simple(CFMutableStringRef str, dhcptype_t type,
 	  STRING_APPEND(str, "}");
 	  break;
       }
-	
+      case dhcptype_classless_route_e: {
+	  int			i;
+	  IPv4ClasslessRouteRef	route_list;
+	  int			route_list_count;
+
+	  route_list = IPv4ClasslessRouteListCreate(option, option_len,
+						    &route_list_count);
+	  STRING_APPEND(str, "{");
+	  if (route_list != NULL) {
+	      IPv4ClasslessRouteRef	scan;
+
+	      for (i = 0, scan = route_list;
+		   i < route_list_count;
+		   i++, scan++) {
+		  STRING_APPEND(str, "%s" IP_FORMAT "/%d, " IP_FORMAT,
+				i == 0 ? "" : "; ",
+				IP_LIST(&scan->dest), scan->prefix_length,
+				IP_LIST(&scan->gate));
+	      }
+	      free(route_list);
+	  }
+	  STRING_APPEND(str, "}");
+	  break;
+      }
       case dhcptype_none_e:
       default:
 	break;
@@ -604,7 +655,6 @@ dhcptag_from_strlist(const char * * slist, int num,
 		     tag_info->type);
 	return (FALSE);
     }
-
     if (type_info->string_list == FALSE) {
 	return (dhcptype_from_str(slist[0], tag_info->type,
 				  buf, len_p, err));
@@ -1505,10 +1555,11 @@ main()
 		"thisisprettylongdontyouthink.foo.bar.com",
 		"a.foo.bar"
 	    };
+	    int			domain_names_count = sizeof(domain_names) / sizeof(domain_names[0]);
 	    uint8_t		search_buf[DHCP_OPTION_SIZE_MAX];
 	    int			len = sizeof(search_buf);
 
-	    if (dhcptag_from_strlist(domain_names, 7, 
+	    if (dhcptag_from_strlist(domain_names, domain_names_count,
 				     dhcptag_domain_search_e, search_buf,
 				     &len, &err) == FALSE) {
 		printf("couldn't get domain search option: %s", err.str);
@@ -1518,6 +1569,34 @@ main()
 		printf("couldn't add domain search tag, %s\n",
 		       dhcpoa_err(&opts));
 		exit(1);
+	    }
+	}
+
+	{
+	    int			len;
+	    const char * 	route_list[] = {
+		"0.0.0.0/0",
+		"17.193.12.1",
+		"10.123.123.0/24",
+		"17.193.12.192",
+	    };
+	    int			route_list_count = sizeof(route_list) / sizeof(route_list[0]);
+	    uint8_t		routes_buf[DHCP_OPTION_SIZE_MAX];
+
+	    len = sizeof(routes_buf);
+	    if (dhcptag_from_strlist(route_list, route_list_count,
+				     dhcptag_classless_static_route_e,
+				     routes_buf, &len, &err) == FALSE) {
+		fprintf(stderr, 
+			"couldn't get classless route option: %s", err.str);
+	    }
+	    else {
+		if (dhcpoa_add(&opts, dhcptag_classless_static_route_e,
+			       len, routes_buf) != dhcpoa_success_e) {
+		    fprintf(stderr, "couldn't add classless routes tag, %s\n",
+			    dhcpoa_err(&opts));
+		    exit(1);
+		}
 	    }
 	}
 	for (i = 0; i < 253; i++) {

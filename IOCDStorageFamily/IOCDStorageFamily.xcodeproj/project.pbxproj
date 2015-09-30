@@ -208,7 +208,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0630;
 			};
 			buildConfigurationList = 60218FA8095B74720026C3D8 /* Build configuration list for PBXProject "IOCDStorageFamily" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -302,13 +302,68 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		3032E16E1A8DA15900BC0F17 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = DebugCoverage;
+		};
+		3032E16F1A8DA15900BC0F17 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Info.plist;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = IOCDStorageFamily;
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = DebugCoverage;
+		};
+		3032E1701A8DA15900BC0F17 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				PRODUCT_NAME = "IOCDStorageFamily Headers";
+			};
+			name = DebugCoverage;
+		};
+		3032E1711A8DA16000BC0F17 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = ReleaseCoverage;
+		};
+		3032E1721A8DA16000BC0F17 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Info.plist;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = IOCDStorageFamily;
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = ReleaseCoverage;
+		};
+		3032E1731A8DA16000BC0F17 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				PRODUCT_NAME = "IOCDStorageFamily Headers";
+			};
+			name = ReleaseCoverage;
+		};
 		60218FA5095B74720026C3D8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				PRODUCT_NAME = IOCDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -319,7 +374,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				PRODUCT_NAME = IOCDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -361,7 +415,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60218FA5095B74720026C3D8 /* Debug */,
+				3032E16F1A8DA15900BC0F17 /* DebugCoverage */,
 				60218FA6095B74720026C3D8 /* Release */,
+				3032E1721A8DA16000BC0F17 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -370,7 +426,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60218FA9095B74720026C3D8 /* Debug */,
+				3032E16E1A8DA15900BC0F17 /* DebugCoverage */,
 				60218FAA095B74720026C3D8 /* Release */,
+				3032E1711A8DA16000BC0F17 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -379,7 +437,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60FD68270D40299C000D088D /* Debug */,
+				3032E1701A8DA15900BC0F17 /* DebugCoverage */,
 				60FD68280D40299C000D088D /* Release */,
+				3032E1731A8DA16000BC0F17 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -39,6 +39,7 @@ return 0; \
 #define CCSYMREGRESSION 1
 #define CCSYMOFFSET 1
 #define CCSYMZEROLEN 1
+#define CCSYMECB 1
 #define CCSYMCBC 1
 #define CCSYMOFB 1
 #define CCSYMCFB 1

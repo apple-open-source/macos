@@ -40,6 +40,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 @synthesize root_directory = _root_directory;
 @synthesize revoked_directory = _revoked_directory;
 @synthesize distrusted_directory = _distrusted_directory;
+@synthesize allowlist_directory = _allowlist_directory;
 @synthesize certs_directory = _certs_directory;
 @synthesize evroot_config_path = _evroot_config_path;
 @synthesize ev_plist_path = _ev_plist_path;
@@ -60,6 +61,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 		_root_directory = nil;
 		_revoked_directory = nil;
 		_distrusted_directory = nil;
+		_allowlist_directory = nil;
 		_certs_directory = nil;
         _evroot_config_path = nil;
 		_ev_plist_path = nil;
@@ -73,7 +75,8 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 		_certRootsData = nil;
 		_blacked_listed_keys = nil;
         _gray_listed_keys = nil;
-
+ 
+        _allow_list_data = [NSMutableDictionary dictionary];
         _EVRootsData = [NSMutableDictionary dictionary];
 		_derData = nil;
 
@@ -119,6 +122,17 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
                 }
 
                 _distrusted_directory = [[NSString stringWithUTF8String:argv[iCnt + 1]] stringByExpandingTildeInPath];
+                iCnt++;
+            }
+            else if (!strcmp(arg, "-a") || !strcmp(arg, "--allowlist_dir"))
+            {
+                if ((iCnt + 1) == argc)
+                {
+                    [self usage];
+                    return nil;
+                }
+ 
+                _allowlist_directory = [[NSString stringWithUTF8String:argv[iCnt + 1]] stringByExpandingTildeInPath];
                 iCnt++;
             }
 			else if (!strcmp(arg, "-c") || !strcmp(arg, "--certs_dir"))
@@ -226,7 +240,16 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 				return nil;
         	}
 		}
-
+ 
+		if (nil == _allowlist_directory)
+		{
+			_allowlist_directory = [self checkPath:@"certificates/allowlist" basePath:_top_level_directory isDirectory:YES];
+			if (nil == _allowlist_directory)
+			{
+				[self usage];
+				return nil;
+			}
+		}
 		if (nil == _certs_directory)
 		{
 			_certs_directory = [self checkPath:@"certificates/certs" basePath:_top_level_directory isDirectory:YES];
@@ -275,6 +298,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 	printf(" [-r, --roots_dir]     			\tThe full path to the directory with the certificate roots\n");
 	printf(" [-k, --revoked_dir]   			\tThe full path to the directory with the revoked certificates\n");
 	printf(" [-d, --distrusted_dir] 		\tThe full path to the directory with the distrusted certificates\n");
+	printf(" [-a, --allowlist_dir]          \tThe full path to the directory with the allowlist certificates\n");
 	printf(" [-c, --certs_dir] 				\tThe full path to the directory with the cert certificates\n");
 	printf(" [-e, --evroot.config] 			\tThe full path to the evroot.config file\n");
     printf(" [-i, --info_plist_path])       \tThe full path to the Info.plist file\n");
@@ -451,6 +475,78 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
     return result;
 }
 
+/* --------------------------------------------------------------------------
+ * Assemble allowlist from root certificates and associated allowed leaves.
+ * Leaves are stored in a directory named with the auth key ID of the root.
+ * The resulting plist is a dictionary: 
+ *	key: auth Key ID of the root
+ *	value: array of SHA256 hashes of leaf certificates
+ -------------------------------------------------------------------------- */
+- (BOOL)buildAllowListData
+{
+	BOOL result = NO;
+
+	PSAssetFlags certFlags = isAnchor | isAllowListed;
+	NSNumber *rootFlags = [NSNumber numberWithUnsignedLong:certFlags];
+	NSString *rootdir =[self.allowlist_directory stringByAppendingPathComponent: @"roots"];
+
+	PSCerts* pscerts_alroots = [[PSCerts alloc] initWithCertFilePath:rootdir withFlags:rootFlags];
+	if (nil == pscerts_alroots || nil == pscerts_alroots.certs)
+	{
+		return result;
+	}
+
+	certFlags = isAllowListed;
+	NSNumber *leafFlags = [NSNumber numberWithUnsignedLong:certFlags];
+	for (PSCert *alRoot in pscerts_alroots.certs)
+	{
+		// find leaf certificates in directory named after auth key ID
+		if (nil == alRoot.auth_key_id)
+		{
+			return result;
+		}
+
+		NSString *leaf_dir_path = [self.allowlist_directory stringByAppendingPathComponent:alRoot.auth_key_id];
+		PSCerts *leaf_certs = [[PSCerts alloc] initWithCertFilePath:leaf_dir_path withFlags:leafFlags];
+
+		// set allowlist dictionary entry: <auth key id>:<leaf hashes>
+		NSMutableArray *leaf_hashes = [NSMutableArray array];
+		for (PSCert *leaf in leaf_certs.certs)
+		{
+			[leaf_hashes addObject: leaf.certificate_sha256_hash];
+		}
+
+		[leaf_hashes sortUsingComparator: ^(id obj1, id obj2) {
+			NSData *d1 = (NSData *)obj1;
+			NSData *d2 = (NSData *)obj2;
+			int greaterThan = 0;
+
+			if ([d1 length] == [d2 length]) {
+				greaterThan = memcmp([d1 bytes], [d2 bytes], [d1 length]);
+			} else {
+				// shouldn't happen as hashes are all the same length
+				int length = ([d1 length] > [d2 length]) ? [d2 length] : [d1 length]; 
+				greaterThan = memcmp([d1 bytes], [d2 bytes], length);
+				if (!greaterThan) {
+					greaterThan = [d1 length] > [d2 length];
+				}
+			}
+
+			if (greaterThan > 0) {
+				return (NSComparisonResult)NSOrderedDescending;
+			} else if (greaterThan < 0) {
+				return (NSComparisonResult)NSOrderedAscending;
+			} else {
+				return (NSComparisonResult)NSOrderedSame;
+			}
+		}];
+		[_allow_list_data setValue:leaf_hashes forKey:alRoot.auth_key_id];
+	}
+
+	result = YES;
+	return result;
+}
+
 - (BOOL)ensureDirectoryPath:(NSString *)dir_path
 {
     BOOL result = NO;
@@ -539,6 +635,11 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 		NSLog(@"Unable to create the EVPlist data");
 	}
 
+	if (![self buildAllowListData])
+	{
+		NSLog(@"Unable to create the allow list plist data");
+	}
+
     result = YES;
     return result;
 }
@@ -610,6 +711,25 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 		if (![blacklist_roots_data writeToFile:path_str options:0 error:&error])
 		{
 			NSLog(@"Error writing out the BlackListKeys.plist data: error %@", error);
+			return result;
+		}
+	}
+
+	if (nil != _allow_list_data)
+	{
+		NSData* allow_list_plist = [NSPropertyListSerialization dataWithPropertyList:_allow_list_data
+			format:NSPropertyListBinaryFormat_v1_0 /*NSPropertyListXMLFormat_v1_0*/ options:0
+			error:&error];
+		if (nil != error)
+		{
+			NSLog(@"Error converting out the allow list into data: error %@", error);
+			return result;
+		}
+
+		path_str = [self.output_directory stringByAppendingPathComponent:@"Allowed.plist"];
+		if (![allow_list_plist writeToFile:path_str options:0 error:&error])
+		{
+			NSLog(@"Error writing out the Allowed.plist data: error %@", error);
 			return result;
 		}
 	}
@@ -734,6 +854,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
     NSString* evroots_str = @"EVRoots.plist";
     NSString* blocked_str = @"Blocked.plist";
     NSString* graylistedkeys_str = @"GrayListedKeys.plist";
+    NSString* allowed_str = @"Allowed.plist";
     NSString* certsIndex_str = @"certsIndex.data";
     NSString* certsTable_str = @"certsTable.data";
     NSString* assetVersion_str = @"AssetVersion.plist";
@@ -753,7 +874,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
     NSNumber* version_number = [version_number_dict objectForKey:@"VersionNumber"];
 
 
-    NSArray* file_list = [NSArray arrayWithObjects:evroots_str, blocked_str, graylistedkeys_str, certsIndex_str, certsTable_str, assetVersion_str, escrowCertificate_str, nil];
+    NSArray* file_list = [NSArray arrayWithObjects:evroots_str, blocked_str, graylistedkeys_str, allowed_str, certsIndex_str, certsTable_str, assetVersion_str, escrowCertificate_str, nil];
     NSMutableDictionary* manifest_dict = [NSMutableDictionary dictionary];
 
     for (NSString* file_path in file_list)

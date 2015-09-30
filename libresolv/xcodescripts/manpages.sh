@@ -3,7 +3,7 @@ set -e -x
 
 # don't install man pages for installhdrs or iOS builds
 if [ "$ACTION" = installhdrs ]; then exit 0; fi
-if [ "${PLATFORM_NAME/iphone/}" != "${PLATFORM_NAME}" ]; then exit 0; fi
+if [ "${PLATFORM_NAME}" != "macosx" ]; then exit 0; fi
 
 MANDIR="$DSTROOT"/usr/share/man
 

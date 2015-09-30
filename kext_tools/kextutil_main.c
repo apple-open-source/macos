@@ -807,9 +807,9 @@ checkArgs(KextutilArgs * toolArgs)
         }
         
         if (useDevelopmentKernel(kernelPathCString)) {
-            if (strlen(kernelPathCString) + strlen(kDefaultKernelSuffix) + 1 < sizeof(kernelPathCString)) {
+            if (strlen(kernelPathCString) + strlen(kDefaultDevKernelSuffix) + 1 < sizeof(kernelPathCString)) {
                 strlcat(kernelPathCString,
-                        kDefaultKernelSuffix,
+                        kDefaultDevKernelSuffix,
                         sizeof(kernelPathCString));
             }
         }

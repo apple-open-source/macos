@@ -1,3 +1,212 @@
+2015-07-10  Josef Andersson  <josef.andersson@fripost.org>
+
+        Updated Swedish translation for WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=146596
+
+        Reviewed by Carlos Garcia Campos.
+
+        * sv.po:
+
+2015-06-16  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK] Inhibit screen saver when playing full screen video
+        https://bugs.webkit.org/show_bug.cgi?id=145795
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * POTFILES.in: Add WebKitWebViewBase.cpp.
+
+2015-05-22  Jordi Mas  <jmas@softcatala.org>
+
+        [l10n] Add Catalan translation for WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=142928
+
+        Reviewed by Carlos Garcia Campos.
+
+        * ca.po: Added.
+
+2015-03-17  Yosef Or Boczko <yoseforb@gnome.org>
+
+        [l10n] Updated Hebrew translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=142781
+
+        Reviewed by Carlos Garcia Campos.
+
+        * he.po:
+
+2015-03-17  Piotr Drąg  <piotrdrag@gmail.com>
+
+        [l10n] Updated Polish translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=142306
+
+        Reviewed by Carlos Garcia Campos.
+
+        * pl.po:
+
+2014-12-15  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK] build fails with error: xgettext: Non-ASCII string at ../../../WebKit2/UIProcess/API/gtk/WebKitAuthenticationDialog.cpp:131.
+        https://bugs.webkit.org/show_bug.cgi?id=139620
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * CMakeLists.txt: Pass --from-code=UTF-8 to xgettext.
+
+2014-12-12  Shankar Prasad  <svenkate@redhat.com>
+
+        [kn] Kannada Translation for webkit - Updated
+        https://bugs.webkit.org/show_bug.cgi?id=116941
+
+        Reviewed by Carlos Garcia Campos.
+
+        * kn.po:
+
+2014-12-08  Nilamdyuti Goswami  <nilamdyuti@gmail.com>
+
+        [as] Updated Assamese translations of WebKitGtk+
+        https://bugs.webkit.org/show_bug.cgi?id=137487
+
+        Reviewed by Carlos Garcia Campos.
+
+        * as.po:
+
+2014-11-03  Sungmann Cho  <sungmann.cho@navercorp.com>
+
+        AX: Fix some minor typos related to the word "accessibility".
+        https://bugs.webkit.org/show_bug.cgi?id=138299
+
+        Reviewed by Chris Fleizach.
+
+        No new tests, no behavior change.
+
+        * en_CA.po:
+
+2014-09-30  Rajesh Ranjan  <rajeshkajha@yahoo.com>
+
+        Hindi translation updated
+        https://bugs.webkit.org/show_bug.cgi?id=137021
+
+        Reviewed by Philippe Normand.
+
+        * hi.po:
+
+2014-09-30  Krishnababu Krothapalli  <kkrothap@redhat.com>
+
+        Updated Telugu Translation for WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=137027
+
+        Reviewed by Philippe Normand.
+
+        * te.po:
+
+2014-09-22  Shankar Prasad  <svenkate@redhat.com>
+
+        [kn] Kannada Translation for webkit - Updated
+        https://bugs.webkit.org/show_bug.cgi?id=116941
+
+        Reviewed by Philippe Normand.
+
+        * kn.po:
+
+2014-09-22  Sandeep Shedmake  <sandeep.shedmake@gmail.com>
+
+        [l10n] [mr] WebKitGTK+ Marathi Translations
+        https://bugs.webkit.org/show_bug.cgi?id=136979
+
+        Reviewed by Philippe Normand.
+
+        * mr.po:
+
+2014-09-22  Piotr Drąg  <piotrdrag@gmail.com>
+
+        [l10n] Updated Polish translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=136976
+
+        Reviewed by Philippe Normand.
+
+        * pl.po:
+
+2014-09-22  Yosef Or Boczko  <yoseforb@gnome.org>
+
+        [l10n] Updated Hebrew translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=136678
+
+        Reviewed by Philippe Normand.
+
+        * he.po:
+
+2014-09-22  Shantha kumar  <shantha.thamizh@gmail.com>
+
+        Webkit Tamil translations updated
+        https://bugs.webkit.org/show_bug.cgi?id=136816
+
+        Reviewed by Philippe Normand.
+
+        * ta.po:
+
+2014-09-22  Nilamdyuti Goswami  <ngoswami@redhat.com>
+
+        [as] Updated Assamese translations of WebKitGtk+
+        https://bugs.webkit.org/show_bug.cgi?id=136908
+
+        Reviewed by Philippe Normand.
+
+        * as.po:
+
+2014-09-22  Manoj Kumar Giri  <mgiri@redhat.com>
+
+        Odia (or_IN) translation for webkit
+        https://bugs.webkit.org/show_bug.cgi?id=136920
+
+        Reviewed by Philippe Normand.
+
+        * or.po:
+
+2014-09-22  Sweta Kothari  <swkothar@redhat.com>
+
+        Webkit Gujarati Translations
+        https://bugs.webkit.org/show_bug.cgi?id=136525
+
+        Reviewed by Philippe Normand.
+
+        * gu.po:
+
+2014-09-16  Nilamdyuti Goswami  <ngoswami@redhat.com>
+
+        [as] Updated Assamese translations of WebKitGtk+
+        https://bugs.webkit.org/show_bug.cgi?id=136480
+
+        Reviewed by Gustavo Noronha.
+
+        * as.po: updated.
+
+2014-09-11  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK] Merge WebKitAuthenticationWidget into WebKitAuthenticationDialog
+        https://bugs.webkit.org/show_bug.cgi?id=136700
+
+        Reviewed by Sergio Villar Senin.
+
+        * POTFILES.in: Remove WebKitAuthenticationWidget.cpp and add WebKitAuthenticationDialog.cpp.
+
+2014-09-02  Christian Stadelmann  <gnome-de@genodeftest.de>
+
+        [GTK] Updated German translation
+        https://bugs.webkit.org/show_bug.cgi?id=135956
+
+        Reviewed by Gustavo Noronha.
+
+        * de.po: updated.
+
+2014-08-06  Alberto Garcia  <berto@igalia.com>
+
+        [GTK] Rename translation domain to WebKit2GTK-4.0
+        https://bugs.webkit.org/show_bug.cgi?id=135646
+
+        Reviewed by Carlos Garcia Campos.
+
+        * CMakeLists.txt:
+
 2014-05-20  Carlos Garcia Campos  <cgarcia@igalia.com>
 
         [GTK] Rename translation domain as WebKit2GTK-3.0

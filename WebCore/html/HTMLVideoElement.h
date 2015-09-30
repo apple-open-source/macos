@@ -37,10 +37,10 @@ class HTMLImageLoader;
 
 class HTMLVideoElement final : public HTMLMediaElement {
 public:
-    static PassRefPtr<HTMLVideoElement> create(const QualifiedName&, Document&, bool);
+    static Ref<HTMLVideoElement> create(const QualifiedName&, Document&, bool);
 
-    unsigned videoWidth() const;
-    unsigned videoHeight() const;
+    WEBCORE_EXPORT unsigned videoWidth() const;
+    WEBCORE_EXPORT unsigned videoHeight() const;
     
     // Fullscreen
     void webkitEnterFullscreen(ExceptionCode&);
@@ -53,7 +53,7 @@ public:
     void webkitEnterFullScreen(ExceptionCode& ec) { webkitEnterFullscreen(ec); }
     void webkitExitFullScreen() { webkitExitFullscreen(); }
 
-#if ENABLE(IOS_AIRPLAY)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
     bool webkitWirelessVideoPlaybackDisabled() const;
     void setWebkitWirelessVideoPlaybackDisabled(bool);
 #endif
@@ -76,7 +76,14 @@ public:
     bool shouldDisplayPosterImage() const { return displayMode() == Poster || displayMode() == PosterWaitingForVideo; }
 
     URL posterImageURL() const;
-    virtual RenderPtr<RenderElement> createElementRenderer(PassRef<RenderStyle>) override;
+    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
+
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    bool webkitSupportsPresentationMode(const String&) const;
+    void webkitSetPresentationMode(const String&);
+    String webkitPresentationMode() const;
+    virtual void fullscreenModeChanged(VideoFullscreenMode) override;
+#endif
 
 private:
     HTMLVideoElement(const QualifiedName&, Document&, bool);
@@ -92,19 +99,25 @@ private:
     virtual bool isURLAttribute(const Attribute&) const override;
     virtual const AtomicString& imageSourceURL() const override;
 
-    virtual bool hasAvailableVideoFrame() const;
+    bool hasAvailableVideoFrame() const;
     virtual void updateDisplayState() override;
     virtual void didMoveToNewDocument(Document* oldDocument) override;
     virtual void setDisplayMode(DisplayMode) override;
+
+    virtual PlatformMediaSession::MediaType presentationType() const override { return PlatformMediaSession::Video; }
 
     std::unique_ptr<HTMLImageLoader> m_imageLoader;
 
     AtomicString m_defaultPosterURL;
 };
 
-NODE_TYPE_CASTS(HTMLVideoElement)
+} // namespace WebCore
 
-} //namespace
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::HTMLVideoElement)
+    static bool isType(const WebCore::HTMLMediaElement& element) { return element.hasTagName(WebCore::HTMLNames::videoTag); }
+    static bool isType(const WebCore::Element& element) { return is<WebCore::HTMLMediaElement>(element) && isType(downcast<WebCore::HTMLMediaElement>(element)); }
+    static bool isType(const WebCore::Node& node) { return is<WebCore::HTMLMediaElement>(node) && isType(downcast<WebCore::HTMLMediaElement>(node)); }
+SPECIALIZE_TYPE_TRAITS_END()
 
-#endif
-#endif
+#endif // ENABLE(VIDEO)
+#endif // HTMLVideoElement_h

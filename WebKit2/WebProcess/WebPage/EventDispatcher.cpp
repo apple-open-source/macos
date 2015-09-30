@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2014-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
 #include <WebCore/Page.h>
+#include <WebCore/WheelEventTestTrigger.h>
 #include <wtf/MainThread.h>
 #include <wtf/RunLoop.h>
 
@@ -46,17 +47,14 @@ using namespace WebCore;
 
 namespace WebKit {
 
-PassRefPtr<EventDispatcher> EventDispatcher::create()
+Ref<EventDispatcher> EventDispatcher::create()
 {
-    return adoptRef(new EventDispatcher);
+    return adoptRef(*new EventDispatcher);
 }
 
 EventDispatcher::EventDispatcher()
-    : m_queue(WorkQueue::create("com.apple.WebKit.EventDispatcher", WorkQueue::QOS::UserInteractive))
+    : m_queue(WorkQueue::create("com.apple.WebKit.EventDispatcher", WorkQueue::Type::Serial, WorkQueue::QOS::UserInteractive))
     , m_recentWheelEventDeltaTracker(std::make_unique<WheelEventDeltaTracker>())
-#if ENABLE(IOS_TOUCH_EVENTS)
-    , m_touchEventsLock(SPINLOCK_INITIALIZER)
-#endif
 {
 }
 
@@ -72,8 +70,8 @@ void EventDispatcher::addScrollingTreeForPage(WebPage* webPage)
     ASSERT(webPage->corePage()->scrollingCoordinator());
     ASSERT(!m_scrollingTrees.contains(webPage->pageID()));
 
-    AsyncScrollingCoordinator* scrollingCoordinator = toAsyncScrollingCoordinator(webPage->corePage()->scrollingCoordinator());
-    m_scrollingTrees.set(webPage->pageID(), toThreadedScrollingTree(scrollingCoordinator->scrollingTree()));
+    AsyncScrollingCoordinator& scrollingCoordinator = downcast<AsyncScrollingCoordinator>(*webPage->corePage()->scrollingCoordinator());
+    m_scrollingTrees.set(webPage->pageID(), downcast<ThreadedScrollingTree>(scrollingCoordinator.scrollingTree()));
 }
 
 void EventDispatcher::removeScrollingTreeForPage(WebPage* webPage)
@@ -87,8 +85,21 @@ void EventDispatcher::removeScrollingTreeForPage(WebPage* webPage)
 
 void EventDispatcher::initializeConnection(IPC::Connection* connection)
 {
-    connection->addWorkQueueMessageReceiver(Messages::EventDispatcher::messageReceiverName(), m_queue.get(), this);
+    connection->addWorkQueueMessageReceiver(Messages::EventDispatcher::messageReceiverName(), &m_queue.get(), this);
 }
+
+#if ENABLE(CSS_SCROLL_SNAP) || ENABLE(RUBBER_BANDING)
+static void updateWheelEventTestTriggersIfNeeded(uint64_t pageID)
+{
+    WebPage* webPage = WebProcess::singleton().webPage(pageID);
+    Page* page = webPage ? webPage->corePage() : nullptr;
+
+    if (!page || !page->expectsWheelEventTriggers())
+        return;
+
+    page->testTrigger()->deferTestsForReason(reinterpret_cast<WheelEventTestTrigger::ScrollableAreaIdentifier>(page), WheelEventTestTrigger::ScrollingThreadSyncNeeded);
+}
+#endif
 
 void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEvent, bool canRubberBandAtLeft, bool canRubberBandAtRight, bool canRubberBandAtTop, bool canRubberBandAtBottom)
 {
@@ -122,15 +133,24 @@ void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEven
 
 #if ENABLE(ASYNC_SCROLLING)
     MutexLocker locker(m_scrollingTreesMutex);
-    if (ThreadedScrollingTree* scrollingTree = m_scrollingTrees.get(pageID)) {
+    if (RefPtr<ThreadedScrollingTree> scrollingTree = m_scrollingTrees.get(pageID)) {
         // FIXME: It's pretty horrible that we're updating the back/forward state here.
         // WebCore should always know the current state and know when it changes so the
         // scrolling tree can be notified.
         // We only need to do this at the beginning of the gesture.
-        if (platformWheelEvent.phase() == PlatformWheelEventPhaseBegan)
-            ScrollingThread::dispatch(bind(&ThreadedScrollingTree::setCanRubberBandState, scrollingTree, canRubberBandAtLeft, canRubberBandAtRight, canRubberBandAtTop, canRubberBandAtBottom));
+        if (platformWheelEvent.phase() == PlatformWheelEventPhaseBegan) {
+            ScrollingThread::dispatch([scrollingTree, canRubberBandAtLeft, canRubberBandAtRight, canRubberBandAtTop, canRubberBandAtBottom] {
+                scrollingTree->setCanRubberBandState(canRubberBandAtLeft, canRubberBandAtRight, canRubberBandAtTop, canRubberBandAtBottom);
+            });
+        }
 
         ScrollingTree::EventResult result = scrollingTree->tryToHandleWheelEvent(platformWheelEvent);
+
+#if ENABLE(CSS_SCROLL_SNAP) || ENABLE(RUBBER_BANDING)
+        if (result == ScrollingTree::DidHandleEvent)
+            updateWheelEventTestTriggersIfNeeded(pageID);
+#endif
+
         if (result == ScrollingTree::DidHandleEvent || result == ScrollingTree::DidNotHandleEvent) {
             sendDidReceiveEvent(pageID, wheelEvent, result == ScrollingTree::DidHandleEvent);
             return;
@@ -143,7 +163,10 @@ void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEven
     UNUSED_PARAM(canRubberBandAtBottom);
 #endif
 
-    RunLoop::main().dispatch(bind(&EventDispatcher::dispatchWheelEvent, this, pageID, wheelEvent));
+    RefPtr<EventDispatcher> eventDispatcher(this);
+    RunLoop::main().dispatch([eventDispatcher, pageID, wheelEvent] {
+        eventDispatcher->dispatchWheelEvent(pageID, wheelEvent);
+    }); 
 }
 
 #if ENABLE(IOS_TOUCH_EVENTS)
@@ -182,8 +205,12 @@ void EventDispatcher::touchEvent(uint64_t pageID, const WebKit::WebTouchEvent& t
         }
     }
 
-    if (updateListWasEmpty)
-        RunLoop::main().dispatch(bind(&EventDispatcher::dispatchTouchEvents, this));
+    if (updateListWasEmpty) {
+        RefPtr<EventDispatcher> eventDispatcher(this);
+        RunLoop::main().dispatch([eventDispatcher] {
+            eventDispatcher->dispatchTouchEvents();
+        });
+    }
 }
 
 void EventDispatcher::dispatchTouchEvents()
@@ -195,7 +222,7 @@ void EventDispatcher::dispatchTouchEvents()
     }
 
     for (auto& slot : localCopy) {
-        if (WebPage* webPage = WebProcess::shared().webPage(slot.key))
+        if (WebPage* webPage = WebProcess::singleton().webPage(slot.key))
             webPage->dispatchAsynchronousTouchEvents(slot.value);
     }
 }
@@ -205,7 +232,7 @@ void EventDispatcher::dispatchWheelEvent(uint64_t pageID, const WebWheelEvent& w
 {
     ASSERT(RunLoop::isMain());
 
-    WebPage* webPage = WebProcess::shared().webPage(pageID);
+    WebPage* webPage = WebProcess::singleton().webPage(pageID);
     if (!webPage)
         return;
 
@@ -215,7 +242,7 @@ void EventDispatcher::dispatchWheelEvent(uint64_t pageID, const WebWheelEvent& w
 #if ENABLE(ASYNC_SCROLLING)
 void EventDispatcher::sendDidReceiveEvent(uint64_t pageID, const WebEvent& event, bool didHandleEvent)
 {
-    WebProcess::shared().parentProcessConnection()->send(Messages::WebPageProxy::DidReceiveEvent(static_cast<uint32_t>(event.type()), didHandleEvent), pageID);
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebPageProxy::DidReceiveEvent(static_cast<uint32_t>(event.type()), didHandleEvent), pageID);
 }
 #endif
 

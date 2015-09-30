@@ -33,16 +33,12 @@ namespace JSC {
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSProxy);
 
-const ClassInfo JSProxy::s_info = { "JSProxy", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSProxy) };
+const ClassInfo JSProxy::s_info = { "JSProxy", &Base::s_info, 0, CREATE_METHOD_TABLE(JSProxy) };
 
 void JSProxy::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     JSProxy* thisObject = jsCast<JSProxy*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
-
-    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
-    ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
-
     Base::visitChildren(thisObject, visitor);
     visitor.append(&thisObject->m_target);
 }
@@ -115,6 +111,25 @@ bool JSProxy::deletePropertyByIndex(JSCell* cell, ExecState* exec, unsigned prop
 void JSProxy::getPropertyNames(JSObject* object, ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
     JSProxy* thisObject = jsCast<JSProxy*>(object);
+    thisObject->target()->methodTable(exec->vm())->getPropertyNames(thisObject->target(), exec, propertyNames, mode);
+}
+
+uint32_t JSProxy::getEnumerableLength(ExecState* exec, JSObject* object)
+{
+    JSProxy* thisObject = jsCast<JSProxy*>(object);
+    return thisObject->target()->methodTable(exec->vm())->getEnumerableLength(exec, thisObject->target());
+}
+
+void JSProxy::getStructurePropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode)
+{
+    // Skip the structure loop, since it is invalid for proxies.
+}
+
+void JSProxy::getGenericPropertyNames(JSObject* object, ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
+{
+    JSProxy* thisObject = jsCast<JSProxy*>(object);
+    // Get *all* of the property names, not just the generic ones, since we skipped the structure
+    // ones above.
     thisObject->target()->methodTable(exec->vm())->getPropertyNames(thisObject->target(), exec, propertyNames, mode);
 }
 

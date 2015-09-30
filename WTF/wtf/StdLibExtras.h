@@ -297,31 +297,6 @@ WTF_EXPORT_PRIVATE bool isCompilationThread();
 
 } // namespace WTF
 
-#if OS(WINCE)
-// Windows CE CRT has does not implement bsearch().
-inline void* wtf_bsearch(const void* key, const void* base, size_t count, size_t size, int (*compare)(const void *, const void *))
-{
-    const char* first = static_cast<const char*>(base);
-
-    while (count) {
-        size_t pos = (count - 1) >> 1;
-        const char* item = first + pos * size;
-        int compareResult = compare(item, key);
-        if (!compareResult)
-            return const_cast<char*>(item);
-        if (compareResult < 0) {
-            count -= (pos + 1);
-            first += (pos + 1) * size;
-        } else
-            count = pos;
-    }
-
-    return 0;
-}
-
-#define bsearch(key, base, count, size, compare) wtf_bsearch(key, base, count, size, compare)
-#endif
-
 // This version of placement new omits a 0 check.
 enum NotNullTag { NotNull };
 inline void* operator new(size_t, NotNullTag, void* location)
@@ -391,6 +366,16 @@ template<size_t currentIndex, size_t...indexes> struct make_index_sequence_helpe
 };
 
 template<size_t length> struct make_index_sequence : public make_index_sequence_helper<length>::type { };
+
+// std::exchange
+template<class T, class U = T>
+T exchange(T& t, U&& newValue)
+{
+    T oldValue = std::move(t);
+    t = std::forward<U>(newValue);
+
+    return oldValue;
+}
 
 #if COMPILER_SUPPORTS(CXX_USER_LITERALS)
 // These literals are available in C++14, so once we require C++14 compilers we can get rid of them here.

@@ -100,7 +100,7 @@ kcm_send_request(krb5_context context,
     krb5_data_free(&request_data);
 
     if (ret) {
-	krb5_clear_error_message(context);
+	krb5_set_error_message(context, KRB5_CC_NOSUPP, "Failed to contact KCM: %d", ret);
 	ret = KRB5_CC_NOSUPP;
     }
 

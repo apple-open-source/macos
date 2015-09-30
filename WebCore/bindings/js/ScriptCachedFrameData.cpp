@@ -36,11 +36,13 @@
 #include "Frame.h"
 #include "GCController.h"
 #include "Page.h"
-#include "PageConsole.h"
+#include "PageConsoleClient.h"
 #include "PageGroup.h"
-#include <heap/StrongInlines.h>
-#include <runtime/JSLock.h>
 #include "ScriptController.h"
+#include <heap/StrongInlines.h>
+#include <profiler/Profile.h>
+#include <runtime/JSLock.h>
+#include <runtime/WeakGCMapInlines.h>
 
 using namespace JSC;
 
@@ -107,7 +109,7 @@ void ScriptCachedFrameData::clear()
 
     JSLockHolder lock(JSDOMWindowBase::commonVM());
     m_windows.clear();
-    gcController().garbageCollectSoon();
+    GCController::singleton().garbageCollectSoon();
 }
 
 } // namespace WebCore

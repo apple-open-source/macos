@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -63,6 +63,7 @@
 #include <sys/sysctl.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <sys/kern_control.h>
 
 #include <net/if.h>
 #include <net/if_var.h>
@@ -72,6 +73,7 @@
 #include <net/if_llreach.h>
 #include <net/ethernet.h>
 #include <net/route.h>
+#include <net/ntstat.h>
 
 #include <net/pktsched/pktsched.h>
 #include <net/classq/if_classq.h>
@@ -86,8 +88,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <err.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include "netstat.h"
 
@@ -1719,8 +1723,8 @@ print_sfbstats(struct sfb_stats *sfb)
 	    sfb->allocation, sfb->dropthresh);
 	printf("     [ flow controlled: %7llu  adv feedback: %10llu ]\n",
 	    sp->flow_controlled, sp->flow_feedback);
-	printf("     [ min queue delay: %10s   delay_fcthreshold: %12llu]\n "
-	    "     [stalls: %12lu]\n",
+	printf("     [ min queue delay: %10s   delay_fcthreshold: %12u]\n "
+	    "     [stalls: %12llu]\n",
 	    nsec_to_str(sfb->min_estdelay), sfb->delay_fcthreshold,
 	    sp->dequeue_stall);
 
@@ -2129,4 +2133,493 @@ loop:
 		signalled = NO;
 		goto loop;
 	}
+}
+
+static int
+create_control_socket(const char *control_name)
+{
+	struct sockaddr_ctl sc;
+	struct ctl_info	ctl;
+	int fd;
+
+	fd = socket(PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL);
+	if (fd == -1) {
+		perror("socket(PF_SYSTEM)");
+		return fd;
+	}
+
+	/* Get the control ID for statistics */
+	bzero(&ctl, sizeof(ctl));
+	strlcpy(ctl.ctl_name, control_name, sizeof(ctl.ctl_name));
+	if (ioctl(fd, CTLIOCGINFO, &ctl) == -1)
+	{
+		perror("ioctl(CTLIOCGINFO)");
+		close(fd);
+		return -1;
+	}
+
+	/* Connect to the statistics control */
+	bzero(&sc, sizeof(sc));
+	sc.sc_len = sizeof(sc);
+	sc.sc_family = AF_SYSTEM;
+	sc.ss_sysaddr = SYSPROTO_CONTROL;
+	sc.sc_id = ctl.ctl_id;
+	sc.sc_unit = 0;
+	if (connect(fd, (struct sockaddr*)&sc, sc.sc_len) != 0)
+	{
+		perror("connect(SYSPROTO_CONTROL)");
+		close(fd);
+		return -1;
+	}
+
+	/* Set socket to non-blocking operation */
+	if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK) == -1) {
+		perror("fcnt(F_SETFL,O_NONBLOCK)");
+		close(fd);
+		return -1;
+	}
+	return fd;
+}
+
+static int
+add_nstat_src(int fd, const nstat_ifnet_add_param *ifparam,
+		nstat_src_ref_t *outsrc)
+{
+	nstat_msg_add_src_req *addreq;
+	nstat_msg_src_added *addedmsg;
+	nstat_ifnet_add_param *param;
+	char buffer[sizeof(*addreq) + sizeof(*param)];
+	ssize_t result;
+	const u_int32_t	addreqsize =
+		offsetof(struct nstat_msg_add_src, param) + sizeof(*param);
+
+	/* Setup the add source request */
+	addreq = (nstat_msg_add_src_req *)buffer;
+	param = (nstat_ifnet_add_param*)addreq->param;
+	bzero(addreq, addreqsize);
+	addreq->hdr.context = (uintptr_t)&buffer;
+	addreq->hdr.type = NSTAT_MSG_TYPE_ADD_SRC;
+	addreq->provider = NSTAT_PROVIDER_IFNET;
+	bzero(param, sizeof(*param));
+	param->ifindex = ifparam->ifindex;
+	param->threshold = ifparam->threshold;
+
+	/* Send the add source request */
+	result = send(fd, addreq, addreqsize, 0);
+	if (result != addreqsize)
+	{
+		if (result == -1)
+			perror("send(NSTAT_ADD_SRC_REQ)");
+		else
+			fprintf(stderr, "%s: could only sent %ld out of %d\n",
+				__func__, result, addreqsize);
+		return -1;
+	}
+
+	/* Receive the response */
+	addedmsg = (nstat_msg_src_added *)buffer;
+	result = recv(fd, addedmsg, sizeof(buffer), 0);
+	if (result < sizeof(*addedmsg))
+	{
+		if (result == -1)
+			perror("recv(NSTAT_ADD_SRC_RSP)");
+		else
+			fprintf(stderr, "%s: recv too small, received %ld, "
+				"expected %lu\n", __func__, result,
+				sizeof(*addedmsg));
+		return -1;
+	}
+
+	if (addedmsg->hdr.type != NSTAT_MSG_TYPE_SRC_ADDED)
+	{
+		fprintf(stderr, "%s: received wrong message type, received %u "
+			"expected %u\n", __func__, addedmsg->hdr.type,
+			NSTAT_MSG_TYPE_SRC_ADDED);
+		return -1;
+	}
+
+	if (addedmsg->hdr.context != (uintptr_t)&buffer)
+	{
+		fprintf(stderr, "%s: received wrong context, received %llu "
+			"expected %lu\n", __func__, addedmsg->hdr.context,
+			(uintptr_t)&buffer);
+		return -1;
+	}
+	*outsrc = addedmsg->srcref;
+	return 0;
+}
+
+static int
+rem_nstat_src(int fd, nstat_src_ref_t sref)
+{
+	nstat_msg_rem_src_req *remreq;
+	nstat_msg_src_removed *remrsp;
+	char buffer[sizeof(*remreq)];
+	ssize_t result;
+
+	/* Setup the add source request */
+	remreq = (nstat_msg_rem_src_req *)buffer;
+	bzero(remreq, sizeof(*remreq));
+	remreq->hdr.type = NSTAT_MSG_TYPE_REM_SRC;
+	remreq->srcref = sref;
+
+	/* Send the remove source request */
+	result = send(fd, remreq, sizeof(*remreq), 0);
+	if (result != sizeof(*remreq)) {
+		if (result == -1)
+			perror("send(NSTAT_REM_SRC_REQ)");
+		else
+			fprintf(stderr, "%s: could only sent %ld out of %lu\n",
+				__func__, result, sizeof(*remreq));
+		return -1;
+	}
+
+	/* Receive the response */
+	remrsp = (nstat_msg_src_removed *)buffer;
+	result = recv(fd, remrsp, sizeof(buffer), 0);
+	if (result < sizeof(*remrsp)) {
+		if (result == -1)
+			perror("recv(NSTAT_REM_SRC_RSP)");
+		else
+			fprintf(stderr, "%s: recv too small, received %ld, "
+				"expected %lu\n", __func__, result,
+				sizeof(*remrsp));
+		return -1;
+	}
+
+	if (remrsp->hdr.type != NSTAT_MSG_TYPE_SRC_REMOVED) {
+		fprintf(stderr, "%s: received wrong message type, received %u "
+			"expected %u\n", __func__, remrsp->hdr.type,
+			NSTAT_MSG_TYPE_SRC_REMOVED);
+		return -1;
+	}
+
+	if (remrsp->srcref != sref) {
+		fprintf(stderr, "%s: received invalid srcref, received %u "
+			"expected %u\n", __func__, remrsp->srcref, sref);
+	}
+	return 0;
+}
+
+static int
+get_src_decsription(int fd, nstat_src_ref_t srcref,
+			struct nstat_ifnet_descriptor *ifdesc)
+{
+	nstat_msg_get_src_description *dreq;
+	nstat_msg_src_description *drsp;
+	char buffer[sizeof(*drsp) + sizeof(*ifdesc)];
+	ssize_t result;
+	const u_int32_t	descsize =
+		offsetof(struct nstat_msg_src_description, data) +
+		sizeof(nstat_ifnet_descriptor);
+
+	dreq = (nstat_msg_get_src_description *)buffer;
+	bzero(dreq, sizeof(*dreq));
+	dreq->hdr.type = NSTAT_MSG_TYPE_GET_SRC_DESC;
+	dreq->srcref = srcref;
+	result = send(fd, dreq, sizeof(*dreq), 0);
+	if (result != sizeof(*dreq))
+	{
+		if (result == -1)
+			perror("send(NSTAT_GET_SRC_DESC_REQ)");
+		else
+			fprintf(stderr, "%s: sent %ld out of %lu\n",
+				__func__, result, sizeof(*dreq));
+		return -1;
+	}
+
+	/* Receive the source description response */
+	drsp = (nstat_msg_src_description *)buffer;
+	result = recv(fd, drsp, sizeof(buffer), 0);
+	if (result < descsize)
+	{
+		if (result == -1)
+			perror("recv(NSTAT_GET_SRC_DESC_RSP");
+		else
+			fprintf(stderr, "%s: recv too small, received %ld, "
+				"expected %u\n", __func__, result, descsize);
+		return -1;
+	}
+
+	if (drsp->hdr.type != NSTAT_MSG_TYPE_SRC_DESC)
+	{
+		fprintf(stderr, "%s: received wrong message type, received %u "
+			"expected %u\n", __func__, drsp->hdr.type,
+			NSTAT_MSG_TYPE_SRC_DESC);
+		return -1;
+	}
+
+	if (drsp->srcref != srcref)
+	{
+		fprintf(stderr, "%s: received message for wrong source, "
+			"received 0x%x expected 0x%x\n",
+			__func__, drsp->srcref, srcref);
+		return -1;
+	}
+
+	bcopy(drsp->data, ifdesc, sizeof(*ifdesc));
+	return 0;
+}
+
+static void
+print_wifi_status(nstat_ifnet_desc_wifi_status *status)
+{
+	int tmp;
+#define val(x, f)	\
+	((status->valid_bitmask & NSTAT_IFNET_DESC_WIFI_ ## f ## _VALID) ?\
+	 status->x : -1)
+#define parg(n, un) #n, val(n, un)
+#define pretxtl(n, un) \
+	(((tmp = val(n, un)) == -1) ? "(not valid)" : \
+	((tmp == NSTAT_IFNET_DESC_WIFI_UL_RETXT_LEVEL_NONE) ? "(none)" : \
+	((tmp == NSTAT_IFNET_DESC_WIFI_UL_RETXT_LEVEL_LOW) ? "(low)" : \
+	((tmp == NSTAT_IFNET_DESC_WIFI_UL_RETXT_LEVEL_MEDIUM) ? "(medium)" : \
+	((tmp == NSTAT_IFNET_DESC_WIFI_UL_RETXT_LEVEL_HIGH) ? "(high)" : \
+	"(?)")))))
+
+	printf("\nwifi status:\n");
+	printf(
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t\t%d%s\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t\t%d\n",
+	    parg(link_quality_metric, LINK_QUALITY_METRIC),
+	    parg(ul_effective_bandwidth, UL_EFFECTIVE_BANDWIDTH),
+	    parg(ul_max_bandwidth, UL_MAX_BANDWIDTH),
+	    parg(ul_min_latency, UL_MIN_LATENCY),
+	    parg(ul_effective_latency, UL_EFFECTIVE_LATENCY),
+	    parg(ul_max_latency, UL_MAX_LATENCY),
+	    parg(ul_retxt_level, UL_RETXT_LEVEL),
+	    pretxtl(ul_retxt_level, UL_RETXT_LEVEL),
+	    parg(ul_bytes_lost, UL_BYTES_LOST),
+	    parg(ul_error_rate, UL_ERROR_RATE),
+	    parg(dl_effective_bandwidth, DL_EFFECTIVE_BANDWIDTH),
+	    parg(dl_max_bandwidth, DL_MAX_BANDWIDTH),
+	    parg(dl_min_latency, DL_MIN_LATENCY),
+	    parg(dl_effective_latency, DL_EFFECTIVE_LATENCY),
+	    parg(dl_max_latency, DL_MAX_LATENCY),
+	    parg(dl_error_rate, DL_ERROR_RATE),
+	    parg(config_frequency, CONFIG_FREQUENCY),
+	    parg(config_multicast_rate, CONFIG_MULTICAST_RATE),
+	    parg(scan_count, CONFIG_SCAN_COUNT),
+	    parg(scan_duration, CONFIG_SCAN_DURATION)
+	    );
+#undef pretxtl
+#undef parg
+#undef val
+}
+
+static void
+print_cellular_status(nstat_ifnet_desc_cellular_status *status)
+{
+	int tmp;
+#define val(x, f)	\
+	((status->valid_bitmask & NSTAT_IFNET_DESC_CELL_ ## f ## _VALID) ?\
+	 status->x : -1)
+#define parg(n, un) #n, val(n, un)
+#define pretxtl(n, un) \
+	(((tmp = val(n, un)) == -1) ? "(not valid)" : \
+	((tmp == NSTAT_IFNET_DESC_CELL_UL_RETXT_LEVEL_NONE) ? "(none)" : \
+	((tmp == NSTAT_IFNET_DESC_CELL_UL_RETXT_LEVEL_LOW) ? "(low)" : \
+	((tmp == NSTAT_IFNET_DESC_CELL_UL_RETXT_LEVEL_MEDIUM) ? "(medium)" : \
+	((tmp == NSTAT_IFNET_DESC_CELL_UL_RETXT_LEVEL_HIGH) ? "(high)" : \
+	"(?)")))))
+
+	printf("\ncellular status:\n");
+	printf(
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t\t%d%s\n"
+	    "\t%s:\t\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d\n",
+	    parg(link_quality_metric, LINK_QUALITY_METRIC),
+	    parg(ul_effective_bandwidth, UL_EFFECTIVE_BANDWIDTH),
+	    parg(ul_max_bandwidth, UL_MAX_BANDWIDTH),
+	    parg(ul_min_latency, UL_MIN_LATENCY),
+	    parg(ul_effective_latency, UL_EFFECTIVE_LATENCY),
+	    parg(ul_max_latency, UL_MAX_LATENCY),
+	    parg(ul_retxt_level, UL_RETXT_LEVEL),
+	    pretxtl(ul_retxt_level, UL_RETXT_LEVEL),
+	    parg(ul_bytes_lost, UL_BYTES_LOST),
+	    parg(ul_min_queue_size, UL_MIN_QUEUE_SIZE),
+	    parg(ul_avg_queue_size, UL_AVG_QUEUE_SIZE),
+	    parg(ul_max_queue_size, UL_MAX_QUEUE_SIZE),
+	    parg(dl_effective_bandwidth, DL_EFFECTIVE_BANDWIDTH),
+	    parg(dl_max_bandwidth, DL_MAX_BANDWIDTH),
+	    parg(config_inactivity_time, CONFIG_INACTIVITY_TIME),
+	    parg(config_backoff_time, CONFIG_BACKOFF_TIME)
+	    );
+#undef pretxtl
+#undef parg
+#undef val
+}
+
+static int
+get_interface_state(int fd, const char *ifname, struct ifreq *ifr)
+{
+	bzero(ifr, sizeof(*ifr));
+	snprintf(ifr->ifr_name, sizeof(ifr->ifr_name), "%s", ifname);
+
+	if (ioctl(fd, SIOCGIFINTERFACESTATE, ifr) == -1) {
+		perror("ioctl(CTLIOCGINFO)");
+		return -1;
+	}
+	return 0;
+}
+
+static void
+print_interface_state(struct ifreq *ifr)
+{
+	int lqm, rrc, avail;
+
+	printf("\ninterface state:\n");
+
+	if (ifr->ifr_interface_state.valid_bitmask &
+	    IF_INTERFACE_STATE_LQM_STATE_VALID) {
+		printf("\tlqm: ");
+		lqm = ifr->ifr_interface_state.lqm_state;
+		if (lqm == IFNET_LQM_THRESH_GOOD)
+			printf("\"good\"");
+		else if (lqm == IFNET_LQM_THRESH_POOR)
+			printf("\"poor\"");
+		else if (lqm == IFNET_LQM_THRESH_BAD)
+			printf("\"bad\"");
+		else if (lqm == IFNET_LQM_THRESH_UNKNOWN)
+			printf("\"unknown\"");
+		else if (lqm == IFNET_LQM_THRESH_OFF)
+			printf("\"off\"");
+		else
+			printf("invalid(%d)", lqm);
+	}
+
+	if (ifr->ifr_interface_state.valid_bitmask &
+	    IF_INTERFACE_STATE_RRC_STATE_VALID) {
+		printf("\trrc: ");
+		rrc = ifr->ifr_interface_state.rrc_state;
+		if (rrc == IF_INTERFACE_STATE_RRC_STATE_CONNECTED)
+			printf("\"connected\"");
+		else if (rrc == IF_INTERFACE_STATE_RRC_STATE_IDLE)
+			printf("\"idle\"");
+		else
+			printf("\"invalid(%d)\"", rrc);
+	}
+
+	if (ifr->ifr_interface_state.valid_bitmask &
+	    IF_INTERFACE_STATE_INTERFACE_AVAILABILITY_VALID) {
+		printf("\tavailability: ");
+		avail = ifr->ifr_interface_state.interface_availability;
+		if (avail == IF_INTERFACE_STATE_INTERFACE_AVAILABLE)
+			printf("\"true\"");
+		else if (rrc == IF_INTERFACE_STATE_INTERFACE_UNAVAILABLE)
+			printf("\"false\"");
+		else
+			printf("\"invalid(%d)\"", avail);
+	}
+}
+
+void
+print_link_status(const char *ifname)
+{
+	unsigned int ifindex;
+	struct itimerval timer_interval;
+	sigset_t sigset, oldsigset;
+	struct nstat_ifnet_descriptor ifdesc;
+	nstat_ifnet_add_param ifparam;
+	nstat_src_ref_t	sref = 0;
+	struct ifreq ifr;
+	int ctl_fd;
+
+	ifindex = if_nametoindex(ifname);
+	if (ifindex == 0) {
+		fprintf(stderr, "Invalid interface name\n");
+		return;
+	}
+
+	if ((ctl_fd = create_control_socket(NET_STAT_CONTROL_NAME)) < 0)
+		return;
+
+	ifparam.ifindex = ifindex;
+	ifparam.threshold = UINT64_MAX;
+	if (add_nstat_src(ctl_fd, &ifparam, &sref))
+		goto done;
+loop:
+	if (interval > 0) {
+		/* create a timer that fires repeatedly every interval
+		 * seconds */
+		timer_interval.it_value.tv_sec = interval;
+		timer_interval.it_value.tv_usec = 0;
+		timer_interval.it_interval.tv_sec = interval;
+		timer_interval.it_interval.tv_usec = 0;
+		(void) signal(SIGALRM, catchalarm);
+		signalled = NO;
+		(void) setitimer(ITIMER_REAL, &timer_interval, NULL);
+	}
+
+	/* get interface state */
+	if (get_interface_state(ctl_fd, ifname, &ifr))
+		goto done;
+
+	/* get ntstat interface description */
+	if (get_src_decsription(ctl_fd, sref, &ifdesc))
+		goto done;
+
+	/* print time */
+	printf("\n%s: ", ifname);
+	print_time();
+
+	/* print interface state */
+	print_interface_state(&ifr);
+
+	/* print ntsat interface link status */
+	if (ifdesc.link_status.link_status_type ==
+	    NSTAT_IFNET_DESC_LINK_STATUS_TYPE_CELLULAR)
+		print_cellular_status(&ifdesc.link_status.u.cellular);
+	else if (ifdesc.link_status.link_status_type ==
+		 NSTAT_IFNET_DESC_LINK_STATUS_TYPE_WIFI)
+		print_wifi_status(&ifdesc.link_status.u.wifi);
+
+	fflush(stdout);
+
+	if (interval > 0) {
+		sigemptyset(&sigset);
+		sigaddset(&sigset, SIGALRM);
+		(void) sigprocmask(SIG_BLOCK, &sigset, &oldsigset);
+		if (!signalled) {
+			sigemptyset(&sigset);
+			sigsuspend(&sigset);
+		}
+		(void) sigprocmask(SIG_SETMASK, &oldsigset, NULL);
+
+		signalled = NO;
+		goto loop;
+	}
+done:
+	if (sref)
+		rem_nstat_src(ctl_fd, sref);
+	close(ctl_fd);
 }

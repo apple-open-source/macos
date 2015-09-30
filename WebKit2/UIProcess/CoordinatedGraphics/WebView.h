@@ -32,19 +32,16 @@
 #include "APIObject.h"
 #include "DefaultUndoController.h"
 #include "PageClient.h"
-#include "WebContext.h"
 #include "WebFullScreenManagerProxy.h"
 #include "WebPageGroup.h"
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
+#include "WebProcessPool.h"
 #include "WebViewClient.h"
 #include <WebCore/TransformationMatrix.h>
 
-namespace WebCore {
-class CoordinatedGraphicsScene;
-}
-
 namespace WebKit {
+class CoordinatedGraphicsScene;
 
 class WebView : public API::ObjectImpl<API::Object::Type::View>, public PageClient
 #if ENABLE(FULLSCREEN_API)
@@ -54,7 +51,7 @@ class WebView : public API::ObjectImpl<API::Object::Type::View>, public PageClie
 public:
     virtual ~WebView();
 
-    static PassRefPtr<WebView> create(WebContext*, WebPageGroup*);
+    static Ref<WebView> create(WebProcessPool*, WebPageGroup*);
 
     void initialize();
 
@@ -117,8 +114,8 @@ public:
     double opacity() const { return m_opacity; }
 
 protected:
-    WebView(WebContext*, WebPageGroup*);
-    WebCore::CoordinatedGraphicsScene* coordinatedGraphicsScene();
+    WebView(WebProcessPool*, WebPageGroup*);
+    CoordinatedGraphicsScene* coordinatedGraphicsScene();
 
     void updateViewportSize();
     WebCore::FloatSize dipSize() const;
@@ -131,7 +128,7 @@ protected:
 
     virtual bool canScrollView() override { return false; }
     virtual void scrollView(const WebCore::IntRect&, const WebCore::IntSize&) override;
-    virtual void requestScroll(const WebCore::FloatPoint&, bool) override;
+    virtual void requestScroll(const WebCore::FloatPoint&, const WebCore::IntPoint&, bool) override;
 
     virtual WebCore::IntSize viewSize() override;
 
@@ -184,7 +181,9 @@ protected:
     virtual PassRefPtr<WebColorPicker> createColorPicker(WebPageProxy*, const WebCore::Color& initialColor, const WebCore::IntRect&) override;
 #endif
 
-    virtual void setTextIndicator(PassRefPtr<WebCore::TextIndicator>, bool, bool) override;
+    virtual void setTextIndicator(Ref<WebCore::TextIndicator>, WebCore::TextIndicatorLifetime = WebCore::TextIndicatorLifetime::Permanent) override;
+    virtual void clearTextIndicator(WebCore::TextIndicatorDismissalAnimation = WebCore::TextIndicatorDismissalAnimation::FadeOut) override;
+    virtual void setTextIndicatorAnimationProgress(float) override;
 
     virtual void enterAcceleratedCompositingMode(const LayerTreeContext&) override;
     virtual void exitAcceleratedCompositingMode() override;
@@ -204,7 +203,11 @@ protected:
     virtual void navigationGestureDidBegin() override { };
     virtual void navigationGestureWillEnd(bool, WebBackForwardListItem&) override { };
     virtual void navigationGestureDidEnd(bool, WebBackForwardListItem&) override { };
+    virtual void navigationGestureDidEnd() override { };
     virtual void willRecordNavigationSnapshot(WebBackForwardListItem&) override { };
+
+    virtual void didChangeBackgroundColor() override { }
+    virtual void didFailLoadForMainFrame() override { }
 
     WebViewClient m_client;
     RefPtr<WebPageProxy> m_page;

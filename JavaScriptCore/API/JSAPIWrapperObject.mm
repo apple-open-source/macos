@@ -26,7 +26,6 @@
 #include "config.h"
 #include "JSAPIWrapperObject.h"
 
-#include "DelayedReleaseScope.h"
 #include "JSCInlines.h"
 #include "JSCallbackObject.h"
 #include "JSVirtualMachineInternal.h"
@@ -68,7 +67,7 @@ bool JSAPIWrapperObjectHandleOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::
 
 namespace JSC {
     
-template <> const ClassInfo JSCallbackObject<JSAPIWrapperObject>::s_info = { "JSAPIWrapperObject", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSCallbackObject) };
+template <> const ClassInfo JSCallbackObject<JSAPIWrapperObject>::s_info = { "JSAPIWrapperObject", &Base::s_info, 0, CREATE_METHOD_TABLE(JSCallbackObject) };
 
 template<> const bool JSCallbackObject<JSAPIWrapperObject>::needsDestruction = true;
 
@@ -99,7 +98,6 @@ void JSAPIWrapperObject::setWrappedObject(void* wrappedObject)
 void JSAPIWrapperObject::visitChildren(JSCell* cell, JSC::SlotVisitor& visitor)
 {
     JSAPIWrapperObject* thisObject = JSC::jsCast<JSAPIWrapperObject*>(cell);
-    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
     Base::visitChildren(cell, visitor);
 
     if (thisObject->wrappedObject())

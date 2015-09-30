@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@
 
 #include "dhcp_options.h"
 #include "ipconfigd_globals.h"
+#include "IPv4ClasslessRoute.h"
 
 struct saved_pkt {
     dhcpol_t			options;
@@ -64,7 +65,11 @@ void
 dhcp_get_lease_from_options(dhcpol_t * options, dhcp_lease_time_t * lease, 
 			    dhcp_lease_time_t * t1, dhcp_lease_time_t * t2);
 
-struct in_addr *
-dhcp_get_router_from_options(dhcpol_t * options_p, struct in_addr our_ip);
+boolean_t
+dhcp_get_router_address(dhcpol_t * options_p, struct in_addr our_ip,
+			struct in_addr * ret_router_p);
+
+IPv4ClasslessRouteRef
+dhcp_copy_classless_routes(dhcpol_t * options_p, int * routes_count_p);
 
 #endif /* _S_DHCP_THREAD_H */

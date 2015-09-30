@@ -28,16 +28,12 @@
 
 #if PLATFORM(IOS)
 
+#import "UIKitSPI.h"
 #import "WKContentView.h"
 #import "WKContentViewInteraction.h"
 #import "WebPageProxy.h"
-#import <MediaPlayer/MPAVItem.h>
-#import <MediaPlayer/MPAVRoutingController.h>
-#import <MediaPlayer/MPAudioVideoRoutingPopoverController.h>
-#import <MediaPlayer/MPAudioVideoRoutingActionSheet.h>
+#import <WebCore/MediaPlayerSPI.h>
 #import <WebCore/SoftLinking.h>
-#import <UIKit/UIApplication_Private.h>
-#import <UIKit/UIWindow_Private.h>
 #import <wtf/RetainPtr.h>
 
 SOFT_LINK_FRAMEWORK(MediaPlayer)
@@ -97,6 +93,10 @@ using namespace WebKit;
 
 - (void)_dismissAirPlayRoutePickerIPad
 {
+    if (!_routingController)
+        return;
+
+    [_routingController setDiscoveryMode:MPRouteDiscoveryModeDisabled];
     _routingController = nil;
 
     if (!_popoverController)
@@ -116,7 +116,7 @@ using namespace WebKit;
     if (_popoverController)
         return;
 
-    _popoverController = adoptNS([[getMPAudioVideoRoutingPopoverControllerClass() alloc] initWithType:itemType]);
+    _popoverController = adoptNS([allocMPAudioVideoRoutingPopoverControllerInstance() initWithType:itemType]);
     [_popoverController setDelegate:self];
 
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
@@ -131,13 +131,14 @@ using namespace WebKit;
     if (_actionSheet)
         return;
 
-    _actionSheet = adoptNS([[getMPAudioVideoRoutingActionSheetClass() alloc] initWithType:itemType]);
+    _actionSheet = adoptNS([allocMPAudioVideoRoutingActionSheetInstance() initWithType:itemType]);
 
     [_actionSheet
         showWithValidInterfaceOrientationMaskBlock:^UIInterfaceOrientationMask {
             return UIInterfaceOrientationMaskPortrait;
         }
         completionHandler:^{
+            [_routingController setDiscoveryMode:MPRouteDiscoveryModeDisabled];
             _routingController = nil;
             _actionSheet = nil;
         }
@@ -146,7 +147,7 @@ using namespace WebKit;
 
 - (void)show:(BOOL)hasVideo fromRect:(CGRect)elementRect
 {
-    _routingController = adoptNS([[getMPAVRoutingControllerClass() alloc] initWithName:@"WebKit2 - HTML media element showing AirPlay route picker"]);
+    _routingController = adoptNS([allocMPAVRoutingControllerInstance() initWithName:@"WebKit2 - HTML media element showing AirPlay route picker"]);
     [_routingController setDiscoveryMode:MPRouteDiscoveryModeDetailed];
 
     MPAVItemType itemType = hasVideo ? MPAVItemTypeVideo : MPAVItemTypeAudio;

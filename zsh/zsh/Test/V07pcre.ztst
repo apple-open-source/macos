@@ -1,10 +1,12 @@
 %prep
 
-  if ! zmodload zsh/pcre 2>/dev/null
+  if ! zmodload -F zsh/pcre C:pcre-match 2>/dev/null
   then
     ZTST_unimplemented="the zsh/pcre module is not available"
     return 0
   fi
+# Load the rest of the builtins
+  zmodload zsh/pcre
   setopt rematch_pcre
 # Find a UTF-8 locale.
   setopt multibyte
@@ -108,3 +110,12 @@
 >1
 >0 xo→t →t
 >0 Xo→t →t
+
+  string="The following zip codes: 78884 90210 99513"
+  pcre_compile -m "\d{5}"
+  pcre_match -b -- $string && print "$MATCH; ZPCRE_OP: $ZPCRE_OP"
+  pcre_match -b -n $ZPCRE_OP[(w)2] -- $string || print failed
+  print "$MATCH; ZPCRE_OP: $ZPCRE_OP"
+0:pcre_match -b and pcre_match -n
+>78884; ZPCRE_OP: 25 30
+>90210; ZPCRE_OP: 31 36

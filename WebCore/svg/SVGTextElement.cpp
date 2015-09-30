@@ -21,10 +21,8 @@
 #include "config.h"
 #include "SVGTextElement.h"
 
-#include "Attribute.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGText.h"
-#include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include "SVGRenderStyle.h"
 #include "SVGTSpanElement.h"
@@ -37,9 +35,9 @@ inline SVGTextElement::SVGTextElement(const QualifiedName& tagName, Document& do
     ASSERT(hasTagName(SVGNames::textTag));
 }
 
-PassRefPtr<SVGTextElement> SVGTextElement::create(const QualifiedName& tagName, Document& document)
+Ref<SVGTextElement> SVGTextElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new SVGTextElement(tagName, document));
+    return adoptRef(*new SVGTextElement(tagName, document));
 }
 
 // We override SVGGraphics::animatedLocalTransform() so that the transform-origin
@@ -66,7 +64,7 @@ AffineTransform SVGTextElement::animatedLocalTransform() const
     return matrix;
 }
 
-RenderPtr<RenderElement> SVGTextElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> SVGTextElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderSVGText>(*this, WTF::move(style));
 }

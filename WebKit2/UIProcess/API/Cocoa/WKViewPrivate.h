@@ -23,10 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WKActionMenuTypes.h>
 #import <WebKit/WKBase.h>
 #import <WebKit/WKImmediateActionTypes.h>
+#import <WebKit/WKLayoutMode.h>
 #import <WebKit/WKView.h>
+#import <WebKit/_WKOverlayScrollbarStyle.h>
 
 @interface WKView (Private)
 
@@ -40,6 +41,7 @@
 #else
 - (id)initWithFrame:(NSRect)frame contextRef:(WKContextRef)contextRef pageGroupRef:(WKPageGroupRef)pageGroupRef;
 - (id)initWithFrame:(NSRect)frame contextRef:(WKContextRef)contextRef pageGroupRef:(WKPageGroupRef)pageGroupRef relatedToPage:(WKPageRef)relatedPage;
+- (id)initWithFrame:(NSRect)frame configurationRef:(WKPageConfigurationRef)configuration;
 #endif
 
 #if TARGET_OS_IPHONE
@@ -56,6 +58,7 @@
 
 - (void)_beginInteractiveObscuredInsetsChange;
 - (void)_endInteractiveObscuredInsetsChange;
+- (void)_didRelaunchProcess;
 
 #else
 
@@ -74,8 +77,6 @@
 
 + (void)hideWordDefinitionWindow;
 
-@property (readwrite) CGFloat minimumLayoutWidth;
-@property (readwrite) CGFloat minimumWidthForAutoLayout;
 @property (readwrite) NSSize minimumSizeForAutoLayout;
 @property (readwrite) BOOL shouldClipToVisibleRect;
 @property (readwrite) BOOL shouldExpandToViewHeightForAutoLayout;
@@ -86,13 +87,30 @@
 @property (readwrite, setter=_setIgnoresAllEvents:) BOOL _ignoresAllEvents;
 @property (readwrite) BOOL allowsBackForwardNavigationGestures;
 @property (nonatomic, setter=_setTopContentInset:) CGFloat _topContentInset;
+@property (nonatomic, setter=_setTotalHeightOfBanners:) CGFloat _totalHeightOfBanners;
+
+@property (nonatomic, setter=_setOverlayScrollbarStyle:) _WKOverlayScrollbarStyle _overlayScrollbarStyle;
+
+@property (nonatomic, setter=_setLayoutMode:) WKLayoutMode _layoutMode;
+// For use with _layoutMode = kWKLayoutModeFixedSize:
+@property (nonatomic, setter=_setFixedLayoutSize:) CGSize _fixedLayoutSize;
+// For use with _layoutMode = kWKLayoutModeDynamicSizeWithMinimumViewSize:
+@property (nonatomic, setter=_setMinimumViewSize:) CGSize _minimumViewSize;
+
+@property (nonatomic, setter=_setViewScale:) CGFloat _viewScale;
+
+@property (nonatomic, setter=_setOverrideDeviceScaleFactor:) CGFloat _overrideDeviceScaleFactor WK_AVAILABLE(WK_MAC_TBA, NA);
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
 @property (nonatomic, setter=_setAutomaticallyAdjustsContentInsets:) BOOL _automaticallyAdjustsContentInsets;
 #endif
 
 @property (readonly) NSColor *_pageExtendedBackgroundColor;
-@property(copy, nonatomic) NSColor *underlayColor;
+@property (copy, nonatomic) NSColor *underlayColor;
+
+#if WK_API_ENABLED
+@property (strong, nonatomic, setter=_setInspectorAttachmentView:) NSView *_inspectorAttachmentView WK_AVAILABLE(WK_MAC_TBA, NA);
+#endif
 
 - (NSView*)fullScreenPlaceholderView;
 - (NSWindow*)createFullScreenWindow;
@@ -111,6 +129,9 @@
 
 - (void)setMagnification:(double)magnification centeredAtPoint:(NSPoint)point;
 
+- (void)setAllowsLinkPreview:(BOOL)allowsLinkPreview;
+- (BOOL)allowsLinkPreview;
+
 - (void)saveBackForwardSnapshotForCurrentItem;
 - (void)saveBackForwardSnapshotForItem:(WKBackForwardListItemRef)item;
 
@@ -122,15 +143,18 @@
 // The rect returned is always that of the snapshot, and only if it is the view being manipulated by the swipe. This only works for layer-backed windows.
 - (void)_setDidMoveSwipeSnapshotCallback:(void(^)(CGRect swipeSnapshotRectInWindowCoordinates))callback;
 
-- (NSArray *)_actionMenuItemsForHitTestResult:(WKHitTestResultRef)hitTestResult withType:(_WKActionMenuType)type defaultActionMenuItems:(NSArray *)defaultMenuItems;
-- (NSArray *)_actionMenuItemsForHitTestResult:(WKHitTestResultRef)hitTestResult withType:(_WKActionMenuType)type defaultActionMenuItems:(NSArray *)defaultMenuItems userData:(WKTypeRef)userData;
-
 // Clients that want to maintain default behavior can return nil. To disable the immediate action entirely, return NSNull. And to
 // do something custom, return an object that conforms to the NSImmediateActionAnimationController protocol.
 - (id)_immediateActionAnimationControllerForHitTestResult:(WKHitTestResultRef)hitTestResult withType:(_WKImmediateActionType)type userData:(WKTypeRef)userData;
 
-#endif
+- (void)_prepareForImmediateActionAnimation;
+- (void)_cancelImmediateActionAnimation;
+- (void)_completeImmediateActionAnimation;
 
 - (void)_dismissContentRelativeChildWindows;
+- (void)_dismissContentRelativeChildWindowsWithAnimation:(BOOL)withAnimation;
+
+- (void)_didChangeContentSize:(NSSize)newSize;
+#endif
 
 @end

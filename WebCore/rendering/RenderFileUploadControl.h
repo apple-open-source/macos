@@ -33,7 +33,7 @@ class HTMLInputElement;
 
 class RenderFileUploadControl final : public RenderBlockFlow {
 public:
-    RenderFileUploadControl(HTMLInputElement&, PassRef<RenderStyle>);
+    RenderFileUploadControl(HTMLInputElement&, Ref<RenderStyle>&&);
     virtual ~RenderFileUploadControl();
 
     String buttonValue();
@@ -64,8 +64,8 @@ private:
     bool m_canReceiveDroppedFiles;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderFileUploadControl, isFileUploadControl())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderFileUploadControl, isFileUploadControl())
 
 #endif // RenderFileUploadControl_h

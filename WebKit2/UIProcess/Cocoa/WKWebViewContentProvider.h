@@ -29,6 +29,9 @@
 
 #if PLATFORM(IOS)
 
+#import <WebKit/WKPageLoadTypes.h>
+#import <WebKit/_WKFindOptions.h>
+
 @class NSData;
 @class UIScrollView;
 @class UIView;
@@ -47,6 +50,10 @@ struct UIEdgeInsets;
 - (void)web_setOverlaidAccessoryViewsInset:(CGSize)inset;
 - (void)web_computedContentInsetDidChange;
 - (void)web_setFixedOverlayView:(UIView *)fixedOverlayView;
+- (void)web_didSameDocumentNavigation:(WKSameDocumentNavigationType)navigationType;
+- (void)web_countStringMatches:(NSString *)string options:(_WKFindOptions)options maxCount:(NSUInteger)maxCount;
+- (void)web_findString:(NSString *)string options:(_WKFindOptions)options maxCount:(NSUInteger)maxCount;
+- (void)web_hideFindUI;
 
 @end
 

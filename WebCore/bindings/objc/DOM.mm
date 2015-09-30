@@ -37,7 +37,7 @@
 #import "DOMPrivate.h"
 #import "DOMRangeInternal.h"
 #import "DragImage.h"
-#import "Font.h"
+#import "FontCascade.h"
 #import "Frame.h"
 #import "HTMLElement.h"
 #import "HTMLNames.h"
@@ -50,6 +50,7 @@
 #import "Range.h"
 #import "RenderImage.h"
 #import "ScriptController.h"
+#import "TextIndicator.h"
 #import "WebScriptObjectPrivate.h"
 #import <JavaScriptCore/APICast.h>
 #import <wtf/HashMap.h>
@@ -301,8 +302,8 @@ Class kitClass(WebCore::Node* impl)
 {
     switch (impl->nodeType()) {
         case WebCore::Node::ELEMENT_NODE:
-            if (impl->isHTMLElement())
-                return WebCore::elementClass(toHTMLElement(impl)->tagQName(), [DOMHTMLElement class]);
+            if (is<HTMLElement>(*impl))
+                return WebCore::elementClass(downcast<HTMLElement>(*impl).tagQName(), [DOMHTMLElement class]);
             return [DOMElement class];
         case WebCore::Node::ATTRIBUTE_NODE:
             return [DOMAttr class];
@@ -326,8 +327,6 @@ Class kitClass(WebCore::Node* impl)
             return [DOMDocumentType class];
         case WebCore::Node::DOCUMENT_FRAGMENT_NODE:
             return [DOMDocumentFragment class];
-        case WebCore::Node::NOTATION_NODE:
-            return [DOMNotation class];
         case WebCore::Node::XPATH_NAMESPACE_NODE:
             // FIXME: Create an XPath objective C wrapper
             // See http://bugs.webkit.org/show_bug.cgi?id=8755
@@ -584,6 +583,58 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     return kit(&node);
 }
 
+- (void)getPreviewSnapshotImage:(CGImageRef*)cgImage andRects:(NSArray **)rects
+{
+    if (!cgImage || !rects)
+        return;
+
+    *cgImage = nullptr;
+    *rects = nullptr;
+
+    Node* coreNode = core(self);
+
+    Ref<Range> range = rangeOfContents(*coreNode);
+
+    const float margin = 4 / coreNode->document().page()->pageScaleFactor();
+    RefPtr<TextIndicator> textIndicator = TextIndicator::createWithRange(range, TextIndicatorPresentationTransition::None, margin);
+
+    if (textIndicator) {
+        if (Image* image = textIndicator->contentImage())
+            *cgImage = (CGImageRef)CFAutorelease(CGImageRetain(image->getCGImageRef()));
+    }
+
+    RetainPtr<NSMutableArray> rectArray = adoptNS([[NSMutableArray alloc] init]);
+
+    if (!*cgImage) {
+        if (RenderObject* renderer = coreNode->renderer()) {
+            FloatRect boundingBox;
+            if (renderer->isRenderImage())
+                boundingBox = downcast<RenderImage>(*renderer).absoluteContentQuad().enclosingBoundingBox();
+            else
+                boundingBox = renderer->absoluteBoundingBoxRect();
+
+            boundingBox.inflate(margin);
+
+            CGRect cgRect = coreNode->document().frame()->view()->contentsToWindow(enclosingIntRect(boundingBox));
+            [rectArray addObject:[NSValue value:&cgRect withObjCType:@encode(CGRect)]];
+
+            *rects = rectArray.autorelease();
+        }
+        return;
+    }
+
+    FloatPoint origin = textIndicator->textBoundingRectInRootViewCoordinates().location();
+    for (const FloatRect& rect : textIndicator->textRectsInBoundingRectCoordinates()) {
+        CGRect cgRect = rect;
+        cgRect.origin.x += origin.x();
+        cgRect.origin.y += origin.y();
+        cgRect = coreNode->document().frame()->view()->contentsToWindow(enclosingIntRect(cgRect));
+        [rectArray addObject:[NSValue value:&cgRect withObjCType:@encode(CGRect)]];
+    }
+
+    *rects = rectArray.autorelease();
+}
+
 @end
 
 @implementation DOMRange (DOMRangeExtensions)
@@ -610,6 +661,8 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     if (!frame)
         return nil;
 
+    // iOS uses CGImageRef for drag images, which doesn't support separate logical/physical sizes.
+#if PLATFORM(MAC)
     RetainPtr<NSImage> renderedImage = createDragImageForRange(*frame, *range, forceBlackText);
 
     IntSize size([renderedImage size]);
@@ -617,6 +670,9 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     [renderedImage setSize:size];
 
     return renderedImage.autorelease();
+#else
+    return createDragImageForRange(*frame, *range, forceBlackText).autorelease();
+#endif
 }
 
 - (NSArray *)textRects
@@ -646,12 +702,12 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 {
     // FIXME: Could we move this function to WebCore::Node and autogenerate?
     WebCore::RenderObject* renderer = core(self)->renderer();
-    if (!renderer || !renderer->isRenderImage())
+    if (!is<RenderImage>(renderer))
         return nil;
-    WebCore::CachedImage* cachedImage = toRenderImage(renderer)->cachedImage();
+    WebCore::CachedImage* cachedImage = downcast<RenderImage>(*renderer).cachedImage();
     if (!cachedImage || cachedImage->errorOccurred())
         return nil;
-    return cachedImage->imageForRenderer(toRenderImage(renderer))->getNSImage();
+    return cachedImage->imageForRenderer(renderer)->getNSImage();
 }
 #endif
 
@@ -666,7 +722,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     auto renderer = core(self)->renderer();
     if (!renderer)
         return nil;
-    return renderer->style().font().primaryFont()->getNSFont();
+    return renderer->style().fontCascade().primaryFont().getNSFont();
 }
 #else
 - (CTFontRef)_font
@@ -674,7 +730,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     RenderObject* renderer = core(self)->renderer();
     if (!renderer)
         return nil;
-    return renderer->style().font().primaryFont()->getCTFont();
+    return renderer->style().fontCascade().primaryFont().getCTFont();
 }
 #endif
 
@@ -682,10 +738,10 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 - (NSData *)_imageTIFFRepresentation
 {
     // FIXME: Could we move this function to WebCore::Element and autogenerate?
-    auto renderer = core(self)->renderer();
-    if (!renderer || !renderer->isRenderImage())
+    auto* renderer = core(self)->renderer();
+    if (!is<RenderImage>(renderer))
         return nil;
-    WebCore::CachedImage* cachedImage = toRenderImage(renderer)->cachedImage();
+    WebCore::CachedImage* cachedImage = downcast<RenderImage>(*renderer).cachedImage();
     if (!cachedImage || cachedImage->errorOccurred())
         return nil;
     return (NSData *)cachedImage->imageForRenderer(renderer)->getTIFFRepresentation();

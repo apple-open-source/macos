@@ -51,7 +51,7 @@ inline void CopiedBlock::reportLiveBytes(SpinLockHolder&, JSCell* owner, CopyTok
 #endif
     m_liveBytes += bytes;
     checkConsistency();
-    ASSERT(m_liveBytes <= CopiedBlock::blockSize);
+    ASSERT(m_liveBytes <= m_capacity);
 
     if (isPinned())
         return;
@@ -62,7 +62,7 @@ inline void CopiedBlock::reportLiveBytes(SpinLockHolder&, JSCell* owner, CopyTok
     }
 
     if (!m_workList)
-        m_workList = adoptPtr(new CopyWorkList(Heap::heap(owner)->blockAllocator()));
+        m_workList = std::make_unique<CopyWorkList>();
 
     m_workList->append(CopyWorklistItem(owner, token));
 }

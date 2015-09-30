@@ -27,6 +27,7 @@
 #include "WebDiagnosticLoggingClient.h"
 
 #include "WebPage.h"
+#include "WebPageProxyMessages.h"
 #include <WebCore/Settings.h>
 
 namespace WebKit {
@@ -40,28 +41,45 @@ WebDiagnosticLoggingClient::~WebDiagnosticLoggingClient()
 {
 }
 
-void WebDiagnosticLoggingClient::logDiagnosticMessage(const String& message, const String& description)
+void WebDiagnosticLoggingClient::logDiagnosticMessage(const String& message, const String& description, WebCore::ShouldSample shouldSample)
 {
-    if (!m_page.corePage()->settings().diagnosticLoggingEnabled())
+    ASSERT(!m_page.corePage() || m_page.corePage()->settings().diagnosticLoggingEnabled());
+
+    if (!shouldLogAfterSampling(shouldSample))
         return;
 
+    // FIXME: Remove this injected bundle API.
     m_page.injectedBundleDiagnosticLoggingClient().logDiagnosticMessage(&m_page, message, description);
+    m_page.send(Messages::WebPageProxy::LogSampledDiagnosticMessage(message, description));
 }
 
-void WebDiagnosticLoggingClient::logDiagnosticMessageWithResult(const String& message, const String& description, WebCore::DiagnosticLoggingClient::LogResultType result)
+void WebDiagnosticLoggingClient::logDiagnosticMessageWithResult(const String& message, const String& description, WebCore::DiagnosticLoggingResultType result, WebCore::ShouldSample shouldSample)
 {
-    if (!m_page.corePage()->settings().diagnosticLoggingEnabled())
+    ASSERT(!m_page.corePage() || m_page.corePage()->settings().diagnosticLoggingEnabled());
+
+    if (!shouldLogAfterSampling(shouldSample))
         return;
 
+    // FIXME: Remove this injected bundle API.
     m_page.injectedBundleDiagnosticLoggingClient().logDiagnosticMessageWithResult(&m_page, message, description, result);
+    m_page.send(Messages::WebPageProxy::LogSampledDiagnosticMessageWithResult(message, description, result));
 }
 
-void WebDiagnosticLoggingClient::logDiagnosticMessageWithValue(const String& message, const String& description, const String& value)
+void WebDiagnosticLoggingClient::logDiagnosticMessageWithValue(const String& message, const String& description, const String& value, WebCore::ShouldSample shouldSample)
 {
-    if (!m_page.corePage()->settings().diagnosticLoggingEnabled())
+    ASSERT(!m_page.corePage() || m_page.corePage()->settings().diagnosticLoggingEnabled());
+
+    if (!shouldLogAfterSampling(shouldSample))
         return;
 
+    // FIXME: Remove this injected bundle API.
     m_page.injectedBundleDiagnosticLoggingClient().logDiagnosticMessageWithValue(&m_page, message, description, value);
+    m_page.send(Messages::WebPageProxy::LogSampledDiagnosticMessageWithValue(message, description, value));
+}
+
+void WebDiagnosticLoggingClient::mainFrameDestroyed()
+{
+    delete this;
 }
 
 } // namespace WebKit

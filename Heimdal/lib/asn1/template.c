@@ -147,11 +147,11 @@ int
 _asn1_bmember_isset_bit(const void *data, unsigned int bit, size_t size)
 {
 #ifdef WORDS_BIGENDIAN
-    if ((*(unsigned int *)data) & (1 << ((size * 8) - bit - 1)))
+    if ((*(const unsigned int *)data) & (1 << ((size * 8) - bit - 1)))
 	return 1;
     return 0;
 #else
-    if ((*(unsigned int *)data) & (1 << bit))
+    if ((*(const unsigned int *)data) & (1 << bit))
 	return 1;
     return 0;
 #endif
@@ -487,7 +487,7 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 	    const void *el = DPOC(data, t->offset);
 
 	    if (t->tt & A1_FLAG_OPTIONAL) {
-		void **pel = (void **)el;
+		void * const *pel = (void * const *)el;
 		if (*pel == NULL)
 		    break;
 		el = *pel;
@@ -513,7 +513,7 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 	    data = DPOC(data, t->offset);
 
 	    if (t->tt & A1_FLAG_OPTIONAL) {
-		void **el = (void **)data;
+		void * const *el = (void * const *)data;
 		if (*el == NULL) {
 		    data = olddata;
 		    break;
@@ -624,7 +624,7 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 
 	}
 	case A1_OP_SEQOF: {
-	    struct template_of *el = DPO(data, t->offset);
+	    const struct template_of *el = DPOC(data, t->offset);
 	    size_t ellen = _asn1_sizeofType(t->ptr);
 	    size_t newsize;
 	    unsigned int i;
@@ -744,7 +744,7 @@ _asn1_length(const struct asn1_template *t, const void *data)
 	    const void *el = DPOC(data, t->offset);
 
 	    if (t->tt & A1_FLAG_OPTIONAL) {
-		void **pel = (void **)el;
+		void * const * pel = (void * const *)el;
 		if (*pel == NULL)
 		    break;
 		el = *pel;
@@ -762,10 +762,10 @@ _asn1_length(const struct asn1_template *t, const void *data)
 	    size_t datalen;
 	    const void *olddata = data;
 
-	    data = DPO(data, t->offset);
+	    data = DPOC(data, t->offset);
 
 	    if (t->tt & A1_FLAG_OPTIONAL) {
-		void **el = (void **)data;
+		void * const *el = (void * const *)data;
 		if (*el == NULL) {
 		    data = olddata;
 		    break;
@@ -990,7 +990,7 @@ _asn1_copy(const struct asn1_template *t, const void *from, void *to)
 	    }
 
 	    if (t->tt & A1_FLAG_OPTIONAL) {
-		void **pfel = (void **)fel;
+		void * const *pfel = (void *const *)fel;
 		if (*pfel == NULL)
 		    break;
 		fel = *pfel;
@@ -1038,7 +1038,7 @@ _asn1_copy(const struct asn1_template *t, const void *from, void *to)
 	    to = DPO(to, t->offset);
 
 	    if (t->tt & A1_FLAG_OPTIONAL) {
-		void **fel = (void **)from;
+		void * const * fel = (void * const *)from;
 		tel = (void **)to;
 		if (*fel == NULL) {
 		    from = oldfrom;

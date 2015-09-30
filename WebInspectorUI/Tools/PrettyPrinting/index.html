@@ -2,16 +2,18 @@
 <html>
 <head>
     <title>Debug</title>
-    <link rel="stylesheet" href="codemirror.css">
+    <link rel="stylesheet" href="../../UserInterface/External/CodeMirror/codemirror.css">
     <link rel="stylesheet" href="codemirror-additions.css">
-    <script src="codemirror.js"></script>
-    <script src="javascript.js"></script>
-    <script src="css.js"></script>
     <script src="Utilities.js"></script>
-    <script src="Formatter.js"></script>
+    <script src="../../UserInterface/External/CodeMirror/codemirror.js"></script>
+    <script src="../../UserInterface/External/CodeMirror/javascript.js"></script>
+    <script src="../../UserInterface/External/CodeMirror/css.js"></script>
+    <script src="../../UserInterface/Base/WebInspector.js"></script>
+    <script src="../../UserInterface/Views/CodeMirrorAdditions.js"></script>
+    <script src="../../UserInterface/Controllers/Formatter.js"></script>
     <script src="FormatterDebug.js"></script>
-    <script src="FormatterContentBuilder.js"></script>
-    <script src="CodeMirrorFormatters.js"></script>
+    <script src="../../UserInterface/Controllers/FormatterContentBuilder.js"></script>
+    <script src="../../UserInterface/Views/CodeMirrorFormatters.js"></script>
 </head>
 <body>
 
@@ -21,6 +23,7 @@
     <select id="mode">
         <option selected value="text/javascript">JavaScript</option>
         <option value="text/css">CSS</option>
+        <option value="css-rule">CSS-Rule</option>
     </select>
     <button id="populate">Populate</button>
     <button id="run-tests">Run Tests</button>
@@ -46,6 +49,11 @@
     var cm = CodeMirror.fromTextArea(document.getElementById("code"), {
         lineNumbers: true,
     });
+
+    // In the frontend, keywords are added to the css mode to force the parser to recognize them as values.
+    // Here, the "calc" keyword is added to allow the css-rule tests to perform as they would in the frontend.
+    var modeSpec = CodeMirror.resolveMode("text/css");
+    modeSpec.valueKeywords["calc"] = true;
 
     // Initial values from URL.
     var queryParams = {};
@@ -163,13 +171,11 @@
     // Button helpers.
     var buttons = ["mode", "populate", "run-tests", "clear", "select-output", "run-again"];
     function disableButtons() {
-        console.log("disableButtons");
         buttons.forEach(function(id) {
             document.getElementById(id).disabled = true;
         });
     }
     function enableButtons() {
-        console.log("enableButtons");
         buttons.forEach(function(id) {
             document.getElementById(id).disabled = false;
         });
@@ -232,6 +238,8 @@
 
         if (modePicker.value === "text/javascript")
             runJavaScriptTests(completedCallback);
+        else if (modePicker.value === "css-rule")
+            runCssRuleTests(completedCallback);
         else
             runCSSTests(completedCallback);
     }
@@ -242,8 +250,48 @@
             "js-tests/switch-case-default.js",
         ]);
     }
+    function runCssRuleTests(callback) {
+        _runTests(callback, [
+            "css-rule-tests/invalid-property-is-not-removed.css",
+            "css-rule-tests/remove-newline-between-values.css",
+            "css-rule-tests/remove-whitespace-before-colon.css",
+            "css-rule-tests/remove-whitespace-before-semicolon.css",
+            "css-rule-tests/remove-whitespace-before-property.css",
+            "css-rule-tests/remove-whitespace-before-prefixed-property.css",
+            "css-rule-tests/remove-whitespace-before-invalid-property.css",
+            "css-rule-tests/remove-whitespace-before-comment.css",
+            "css-rule-tests/split-comment-followed-by-property.css",
+            "css-rule-tests/split-comment-followed-by-prefixed-property.css",
+            "css-rule-tests/split-comment-followed-by-invalid-property.css",
+            "css-rule-tests/split-comment-followed-by-comment.css",
+            "css-rule-tests/split-property-followed-by-property.css",
+            "css-rule-tests/split-property-followed-by-prefixed-property.css",
+            "css-rule-tests/split-property-followed-by-invalid-property.css",
+            "css-rule-tests/split-property-followed-by-comment.css",
+            "css-rule-tests/split-invalid-property-followed-by-property.css",
+            "css-rule-tests/split-invalid-property-followed-by-prefixed-property.css",
+            "css-rule-tests/split-invalid-property-followed-by-invalid-property.css",
+            "css-rule-tests/split-invalid-property-followed-by-comment.css",
+            "css-rule-tests/split-property-without-semicolon-followed-by-comment-and-property.css",
+            "css-rule-tests/add-whitespace-between-values.css",
+            "css-rule-tests/add-whitespace-between-rules.css",
+            "css-rule-tests/add-whitespace-after-colon.css",
+            "css-rule-tests/add-whitespace-after-comma.css",
+            "css-rule-tests/do-not-append-semicolon.css",
+            "css-rule-tests/do-not-add-whitespace-before-prefixed-property-value.css",
+            "css-rule-tests/keep-prefixed-value.css",
+        ]);
+    }
     function runCSSTests(callback) {
-        _runTests(callback, []);
+        _runTests(callback, [
+            "css-tests/basic.css",
+            "css-tests/calc.css",
+            "css-tests/gradient.css",
+            "css-tests/keyframes.css",
+            "css-tests/media-query.css",
+            "css-tests/selectors.css",
+            "css-tests/wrapping.css",
+        ]);
     }
     function _runTests(callback, manifest) {
         var index = -1;
@@ -264,7 +312,7 @@
 
             // Load test and expected results.
             var test = manifest[index];
-            var expected = test.replace(/\.js$/, "-expected.js");
+            var expected = test.replace(/\.([^\.]+)$/, "-expected.$1");
             var xhr1 = new XMLHttpRequest;
             xhr1.open("GET", test, false);
             xhr1.send();
@@ -291,6 +339,16 @@
             // Compare results.
             var pass = builder.formattedContent === expectedData;
             results.push("/* " + (pass ? "PASS" : "FAIL") + ": " + test + " */");
+
+            // Output failures to console.
+            if (!pass) {
+                console.log("Test", test, "Expected", expected);
+                console.log("Formatted Output", builder.formattedContent.length);
+                console.log(builder.formattedContent);
+                console.log("Expected Output", expectedData.length);
+                console.log(expectedData);
+            }
+
             runNextTest();
         }
 

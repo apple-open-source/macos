@@ -1,0 +1,19 @@
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2015 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Apple addition, not in CLDR
+// *
+// ***************************************************************************
+en_IL{
+    %%Parent{"en_001"}
+    NumberElements{
+        latn{
+            patterns{
+                accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
+                currencyFormat{"¤#,##0.00"}
+            }
+        }
+    }
+    Version{"2.1.12.90"}
+}

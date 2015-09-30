@@ -25,7 +25,6 @@
 #include "config.h"
 #include "HTMLTablePartElement.h"
 
-#include "Attribute.h"
 #include "CSSImageValue.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
@@ -86,9 +85,9 @@ void HTMLTablePartElement::collectStyleForPresentationAttribute(const QualifiedN
 HTMLTableElement* HTMLTablePartElement::findParentTable() const
 {
     ContainerNode* parent = parentNode();
-    while (parent && !isHTMLTableElement(parent))
+    while (parent && !is<HTMLTableElement>(*parent))
         parent = parent->parentNode();
-    return toHTMLTableElement(parent);
+    return downcast<HTMLTableElement>(parent);
 }
 
 }

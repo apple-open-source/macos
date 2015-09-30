@@ -51,3 +51,6 @@ FEATURE_TIMEZONE_CHANGE_NOTIFICATION = 1
 
 # Smaller stdio buffers
 FEATURE_SMALL_STDIOBUF = 1
+
+# Disable registration of specific signals (<rdar://problem/21952708>)
+# FEATURE_SIGNAL_RESTRICTION = 0

@@ -111,9 +111,9 @@ main(int argc, char **argv)
 	}
 
 	for (m = 0; m < ctx.len; m++) {
-	    ctx.array[m].hi = NULL;
-	    ctx.array[m].priority = rk_random_uniform(5);
-	    ctx.array[m].weight = rk_random_uniform(4);
+	    ctx.array[m] = calloc(1, sizeof(ctx.array[m][0]));
+	    ctx.array[m]->priority = rk_random_uniform(5);
+	    ctx.array[m]->weight = rk_random_uniform(4);
 	}
 
 	_krb5_state_srv_sort(&ctx);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005, 2009, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2009, 2011, 2012, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,6 @@ __BEGIN_DECLS
 void
 load_DNSConfiguration			(CFBundleRef		bundle,
 					 SCLoggerRef		logger,
-					 Boolean		*bundleVerbose,
 					 _dns_sync_handler_t	syncHandler);
 
 _Bool

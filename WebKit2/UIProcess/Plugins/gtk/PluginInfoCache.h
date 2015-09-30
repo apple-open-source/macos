@@ -31,8 +31,8 @@
 #include "PluginModuleInfo.h"
 #include <mutex>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/gobject/GMainLoopSource.h>
-#include <wtf/gobject/GUniquePtr.h>
+#include <wtf/glib/GMainLoopSource.h>
+#include <wtf/glib/GUniquePtr.h>
 
 namespace WebKit {
 
@@ -40,7 +40,7 @@ class PluginInfoCache {
     WTF_MAKE_NONCOPYABLE(PluginInfoCache);
     friend class NeverDestroyed<PluginInfoCache>;
 public:
-    static PluginInfoCache& shared();
+    static PluginInfoCache& singleton();
 
     bool getPluginInfo(const String& pluginPath, PluginModuleInfo&);
     void updatePluginInfo(const String& pluginPath, const PluginModuleInfo&);
@@ -54,6 +54,7 @@ private:
     GUniquePtr<GKeyFile> m_cacheFile;
     GUniquePtr<char> m_cachePath;
     GMainLoopSource m_saveToFileIdle;
+    bool m_readOnlyMode;
     std::mutex m_mutex;
 };
 

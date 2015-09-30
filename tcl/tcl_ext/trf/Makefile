@@ -16,7 +16,7 @@ TEApotVersion         = $(Release).2009.05.20.12.34.07
 Extra_Configure_Flags = $(TEA_Configure_Flags) \
 			--with-zlibtcl=$(OBJROOT)/../tkimg/zlib \
 			--with-zlib=$(SDKROOT)$(USRDIR) \
-			--with-ssl-include-dir=$(SDKROOT)$(USRINCLUDEDIR)/openssl \
+			--with-ssl-include-dir=$(SDKROOT)$(USRDIR)/local/include/openssl \
 			--with-ssl-lib-dir=$(SDKROOT)$(USRLIBDIR) \
 			--with-bz2=$(SDKROOT)$(USRDIR)
 

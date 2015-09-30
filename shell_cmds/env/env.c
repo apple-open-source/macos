@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -44,7 +40,7 @@ static char sccsid[] = "@(#)env.c	8.3 (Berkeley) 4/2/94";
 #endif
 
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/env/env.c,v 1.11 2002/09/04 23:28:59 dwmalone Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <err.h>
 #include <errno.h>
@@ -53,31 +49,83 @@ __RCSID("$FreeBSD: src/usr.bin/env/env.c,v 1.11 2002/09/04 23:28:59 dwmalone Exp
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "envopts.h"
+
 extern char **environ;
+
+int	 env_verbosity;
 
 static void usage(void);
 
 int
 main(int argc, char **argv)
 {
-	char **ep, *p;
+	char *altpath, **ep, *p, **parg;
 	char *cleanenv[1];
-	int ch;
+	int ch, want_clear;
+	int rtrn;
 
-	while ((ch = getopt(argc, argv, "-i")) != -1)
+	altpath = NULL;
+	want_clear = 0;
+	while ((ch = getopt(argc, argv, "-iP:S:u:v")) != -1)
 		switch(ch) {
 		case '-':
 		case 'i':
-			environ = cleanenv;
-			cleanenv[0] = NULL;
+			want_clear = 1;
+			break;
+		case 'P':
+			altpath = strdup(optarg);
+			break;
+		case 'S':
+			/*
+			 * The -S option, for "split string on spaces, with
+			 * support for some simple substitutions"...
+			 */
+			split_spaces(optarg, &optind, &argc, &argv);
+			break;
+		case 'u':
+			if (env_verbosity)
+				fprintf(stderr, "#env unset:\t%s\n", optarg);
+			rtrn = unsetenv(optarg);
+			if (rtrn == -1)
+				err(EXIT_FAILURE, "unsetenv %s", optarg);
+			break;
+		case 'v':
+			env_verbosity++;
+			if (env_verbosity > 1)
+				fprintf(stderr, "#env verbosity now at %d\n",
+				    env_verbosity);
 			break;
 		case '?':
 		default:
 			usage();
 		}
-	for (argv += optind; *argv && (p = strchr(*argv, '=')); ++argv)
-		(void)putenv(*argv);
+	if (want_clear) {
+		environ = cleanenv;
+		cleanenv[0] = NULL;
+		if (env_verbosity)
+			fprintf(stderr, "#env clearing environ\n");
+	}
+	for (argv += optind; *argv && (p = strchr(*argv, '=')); ++argv) {
+		if (env_verbosity)
+			fprintf(stderr, "#env setenv:\t%s\n", *argv);
+		*p = '\0';
+		rtrn = setenv(*argv, p + 1, 1);
+		*p = '=';
+		if (rtrn == -1)
+			err(EXIT_FAILURE, "setenv %s", *argv);
+	}
 	if (*argv) {
+		if (altpath)
+			search_paths(altpath, argv);
+		if (env_verbosity) {
+			fprintf(stderr, "#env executing:\t%s\n", *argv);
+			for (parg = argv, argc = 0; *parg; parg++, argc++)
+				fprintf(stderr, "#env    arg[%d]=\t'%s'\n",
+				    argc, *parg);
+			if (env_verbosity > 1)
+				sleep(1);
+		}
 		execvp(*argv, argv);
 		err(errno == ENOENT ? 127 : 126, "%s", *argv);
 	}
@@ -90,6 +138,7 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr,
-	    "usage: env [-i] [name=value ...] [utility [argument ...]]\n");
+	    "usage: env [-iv] [-P utilpath] [-S string] [-u name]\n"
+	    "           [name=value ...] [utility [argument ...]]\n");
 	exit(1);
 }

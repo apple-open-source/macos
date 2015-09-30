@@ -48,3 +48,6 @@ FEATURE_TIMEZONE_CHANGE_NOTIFICATION = 1
 
 # Extensible printf performance enhancement (uses more memory)
 FEATURE_XPRINTF_PERF = 1
+
+# Disable registration of specific signals (<rdar://problem/21952708>)
+# FEATURE_SIGNAL_RESTRICTION = 0

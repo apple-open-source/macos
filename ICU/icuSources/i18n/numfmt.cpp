@@ -52,7 +52,7 @@
 #include "digitlst.h"
 #include <float.h>
 #include "sharednumberformat.h"
-#include "lrucache.h"
+#include "unifiedcache.h"
 
 //#define FMT_DEBUG
 
@@ -118,7 +118,10 @@ static const UChar * const gLastResortNumberPatterns[UNUM_FORMAT_STYLE_COUNT] = 
     NULL,  // UNUM_PATTERN_RULEBASED
     gLastResortIsoCurrencyPat,  // UNUM_CURRENCY_ISO
     gLastResortPluralCurrencyPat,  // UNUM_CURRENCY_PLURAL
-    gLastResortAccountingCurrencyPat // UNUM_CURRENCY_ACCOUNTING
+    gLastResortAccountingCurrencyPat, // UNUM_CURRENCY_ACCOUNTING
+    gLastResortCurrencyPat,  // UNUM_CASH_CURRENCY 
+    NULL,  // UNUM_DECIMAL_COMPACT_SHORT
+    NULL,  // UNUM_DECIMAL_COMPACT_LONG
 };
 
 // Keys used for accessing resource bundles
@@ -143,12 +146,11 @@ static const char *gFormatKeys[UNUM_FORMAT_STYLE_COUNT] = {
     // double currency sign or triple currency sign.
     "currencyFormat",  // UNUM_CURRENCY_ISO
     "currencyFormat",  // UNUM_CURRENCY_PLURAL
-    "accountingFormat"  // UNUM_CURRENCY_ACCOUNTING
+    "accountingFormat",  // UNUM_CURRENCY_ACCOUNTING
+    "currencyFormat",  // UNUM_CASH_CURRENCY
+    NULL,  // UNUM_DECIMAL_COMPACT_SHORT
+    NULL,  // UNUM_DECIMAL_COMPACT_LONG
 };
-
-static icu::LRUCache *gNumberFormatCache = NULL;
-static UMutex gNumberFormatCacheMutex = U_MUTEX_INITIALIZER;
-static icu::UInitOnce gNumberFormatCacheInitOnce = U_INITONCE_INITIALIZER;
 
 // Static hashtable cache of NumberingSystem objects used by NumberFormat
 static UHashtable * NumberingSystem_cache = NULL;
@@ -182,11 +184,6 @@ static UBool U_CALLCONV numfmt_cleanup(void) {
         // delete NumberingSystem_cache;
         uhash_close(NumberingSystem_cache);
         NumberingSystem_cache = NULL;
-    }
-    gNumberFormatCacheInitOnce.reset();
-    if (gNumberFormatCache) {
-        delete gNumberFormatCache;
-        gNumberFormatCache = NULL;
     }
     return TRUE;
 }
@@ -738,7 +735,7 @@ CurrencyAmount* NumberFormat::parseCurrency(const UnicodeString& text,
         UErrorCode ec = U_ZERO_ERROR;
         getEffectiveCurrency(curr, ec);
         if (U_SUCCESS(ec)) {
-            LocalPointer<CurrencyAmount> currAmt(new CurrencyAmount(parseResult, curr, ec));
+            LocalPointer<CurrencyAmount> currAmt(new CurrencyAmount(parseResult, curr, ec), ec);
             if (U_FAILURE(ec)) {
                 pos.setIndex(start); // indicate failure
             } else {
@@ -1027,8 +1024,18 @@ NumberFormat::getAvailableLocales(void)
 #endif /* UCONFIG_NO_SERVICE */
 // -------------------------------------
 
+enum { kKeyValueLenMax = 32 };
+
 NumberFormat*
 NumberFormat::internalCreateInstance(const Locale& loc, UNumberFormatStyle kind, UErrorCode& status) {
+    if (kind == UNUM_CURRENCY) {
+        char cfKeyValue[kKeyValueLenMax] = {0};
+        UErrorCode kvStatus = U_ZERO_ERROR;
+        int32_t kLen = loc.getKeywordValue("cf", cfKeyValue, kKeyValueLenMax, kvStatus);
+        if (U_SUCCESS(kvStatus) && kLen > 0 && uprv_strcmp(cfKeyValue,"account")==0) {
+            kind = UNUM_CURRENCY_ACCOUNTING;
+        }
+    }
 #if !UCONFIG_NO_SERVICE
     if (haveService()) {
         return (NumberFormat*)gService->get(loc, kind, status);
@@ -1241,45 +1248,23 @@ static void U_CALLCONV nscacheInit() {
     uhash_setValueDeleter(NumberingSystem_cache, deleteNumberingSystem);
 }
 
-static SharedObject *U_CALLCONV createSharedNumberFormat(
-        const char *localeId, UErrorCode &status) {
-    if (U_FAILURE(status)) {
-        return NULL;
-    }
+template<> U_I18N_API
+const SharedNumberFormat *LocaleCacheKey<SharedNumberFormat>::createObject(
+        const void * /*unused*/, UErrorCode &status) const {
+    const char *localeId = fLoc.getName();
     NumberFormat *nf = NumberFormat::internalCreateInstance(
             localeId, UNUM_DECIMAL, status);
     if (U_FAILURE(status)) {
         return NULL;
     }
-    SharedObject *result = new SharedNumberFormat(nf);
+    SharedNumberFormat *result = new SharedNumberFormat(nf);
     if (result == NULL) {
         status = U_MEMORY_ALLOCATION_ERROR;
         delete nf;
         return NULL;
     }
+    result->addRef();
     return result;
-}
-
-static void U_CALLCONV numberFormatCacheInit(UErrorCode &status) {
-    U_ASSERT(gNumberFormatCache == NULL);
-    ucln_i18n_registerCleanup(UCLN_I18N_NUMFMT, numfmt_cleanup);
-    gNumberFormatCache = new SimpleLRUCache(100, &createSharedNumberFormat, status);
-    if (U_FAILURE(status)) {
-        delete gNumberFormatCache;
-        gNumberFormatCache = NULL;
-    }
-}
-
-static void getSharedNumberFormatFromCache(
-        const char *locale,
-        const SharedNumberFormat *&ptr,
-        UErrorCode &status) {
-    umtx_initOnce(gNumberFormatCacheInitOnce, &numberFormatCacheInit, status);
-    if (U_FAILURE(status)) {
-        return;
-    }
-    Mutex lock(&gNumberFormatCacheMutex);
-    gNumberFormatCache->get(locale, ptr, status);
 }
 
 const SharedNumberFormat* U_EXPORT2
@@ -1292,7 +1277,7 @@ NumberFormat::createSharedInstance(const Locale& loc, UNumberFormatStyle kind, U
         return NULL;
     }
     const SharedNumberFormat *result = NULL;
-    getSharedNumberFormatFromCache(loc.getName(), result, status);
+    UnifiedCache::getByLocale(loc, result, status);
     return result;
 }
 
@@ -1350,6 +1335,7 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
             case UNUM_CURRENCY_ISO: // do not support plural formatting here
             case UNUM_CURRENCY_PLURAL:
             case UNUM_CURRENCY_ACCOUNTING:
+            case UNUM_CASH_CURRENCY:
                 f = new Win32NumberFormat(desiredLocale, curr, status);
 
                 if (U_SUCCESS(status)) {
@@ -1399,23 +1385,12 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
     UnicodeString pattern;
     LocalUResourceBundlePointer ownedResource(ures_open(NULL, desiredLocale.getName(), &status));
     if (U_FAILURE(status)) {
-        // We don't appear to have resource data available -- use the last-resort data
-        status = U_USING_FALLBACK_WARNING;
-        // When the data is unavailable, and locale isn't passed in, last resort data is used.
-        symbolsToAdopt.adoptInstead(new DecimalFormatSymbols(status));
-        if (symbolsToAdopt.isNull()) {
-            status = U_MEMORY_ALLOCATION_ERROR;
-            return NULL;
-        }
-
-        // Creates a DecimalFormat instance with the last resort number patterns.
-        pattern.setTo(TRUE, gLastResortNumberPatterns[style], -1);
+        return NULL;
     }
     else {
         // Loads the decimal symbols of the desired locale.
-        symbolsToAdopt.adoptInstead(new DecimalFormatSymbols(desiredLocale, status));
-        if (symbolsToAdopt.isNull()) {
-            status = U_MEMORY_ALLOCATION_ERROR;
+        symbolsToAdopt.adoptInsteadAndCheckErrorCode(new DecimalFormatSymbols(desiredLocale, status), status);
+        if (U_FAILURE(status)) {
             return NULL;
         }
 
@@ -1444,7 +1419,8 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
     if (U_FAILURE(status)) {
         return NULL;
     }
-    if(style==UNUM_CURRENCY || style == UNUM_CURRENCY_ISO || style == UNUM_CURRENCY_ACCOUNTING){
+    if(style==UNUM_CURRENCY || style == UNUM_CURRENCY_ISO || style == UNUM_CURRENCY_ACCOUNTING 
+        || style == UNUM_CASH_CURRENCY){
         const UChar* currPattern = symbolsToAdopt->getCurrencyPattern();
         if(currPattern!=NULL){
             pattern.setTo(currPattern, u_strlen(currPattern));
@@ -1498,7 +1474,19 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
 
         // "new DecimalFormat()" does not adopt the symbols if its memory allocation fails.
         DecimalFormatSymbols *syms = symbolsToAdopt.orphan();
-        f = new DecimalFormat(pattern, syms, style, status);
+        DecimalFormat* df = new DecimalFormat(pattern, syms, style, status);
+
+        // if it is cash currency style, setCurrencyUsage with usage
+        if (style == UNUM_CASH_CURRENCY){
+            df->setCurrencyUsage(UCURR_USAGE_CASH, &status);
+        }
+
+        if (U_FAILURE(status)) {
+            delete df;
+            return NULL;
+        }
+
+        f = df;
         if (f == NULL) {
             delete syms;
             status = U_MEMORY_ALLOCATION_ERROR;

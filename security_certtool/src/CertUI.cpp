@@ -96,10 +96,10 @@ static const NameOidInfo nameOidInfo[] =
 {
 	{ &CSSMOID_CommonName,				"Common Name      ", "www.apple.com"},
 	{ &CSSMOID_CountryName,				"Country          ", "US"},
-	{ &CSSMOID_OrganizationName,		"Organization     ", "Apple Computer, Inc."},
-	{ &CSSMOID_OrganizationalUnitName,	"Organization Unit", "Apple Data Security"},
+	{ &CSSMOID_OrganizationName,		"Organization     ", "Apple, Inc."},
+	{ &CSSMOID_OrganizationalUnitName,	"Organization Unit", "Apple Software Engineering"},
 	{ &CSSMOID_StateProvinceName,		"State/Province   ", "California" },
-	{ &CSSMOID_EmailAddress,			"Email Address    ", "johngalt@rand.com" }
+	{ &CSSMOID_EmailAddress,			"Email Address    ", "username@apple.com" }
 };
 
 static const char *oidToDesc(
@@ -197,7 +197,7 @@ void freeNameOids(
 static bool rsaKeySizeVerify(
 	unsigned keySize)
 {
-	if(keySize < 512) {
+	if(keySize < 1024) {
 		return false;
 	}
 	if(keySize > 2048) {
@@ -209,7 +209,7 @@ static bool rsaKeySizeVerify(
 static bool dsaKeySizeVerify(
 	unsigned keySize)
 {
-	return((keySize >= 512) & (keySize <= 2048));
+	return((keySize >= 1024) & (keySize <= 2048));
 }
 
 static bool feeKeySizeVerify(
@@ -260,15 +260,18 @@ typedef struct _AlgInfo {
  */
 static const AlgInfo rsaSigAlgInfo[] = 
 {
-	{ CSSM_ALGID_MD5WithRSA,  	"RSA with MD5", '5', &CSSMOID_MD5WithRSA},
+//	{ CSSM_ALGID_MD5WithRSA,  	"RSA with MD5", '5', &CSSMOID_MD5WithRSA},
 //	{ CSSM_ALGID_MD2WithRSA,  	"RSA with MD2", '2', &CSSMOID_MD2WithRSA},
 	{ CSSM_ALGID_SHA1WithRSA, 	"RSA with SHA1", 's', &CSSMOID_SHA1WithRSA},
+    { CSSM_ALGID_SHA256WithRSA, "RSA with SHA256", '2', &CSSMOID_SHA256WithRSA},
+    { CSSM_ALGID_SHA384WithRSA, "RSA with SHA384", '3', &CSSMOID_SHA384WithRSA},
+    { CSSM_ALGID_SHA512WithRSA, "RSA with SHA512", '5', &CSSMOID_SHA512WithRSA},
 	{ CSSM_ALGID_NONE, 			NULL,   0 }
 };
 
 static const AlgInfo feeSigAlgInfo[] = 
 {
-	{ CSSM_ALGID_FEE_MD5,  		"FEE with MD5", '5', &CSSMOID_APPLE_FEE_MD5  },
+//	{ CSSM_ALGID_FEE_MD5,  		"FEE with MD5", '5', &CSSMOID_APPLE_FEE_MD5  },
 	{ CSSM_ALGID_FEE_SHA1, 		"FEE with SHA1", 's', &CSSMOID_APPLE_FEE_SHA1  },
 	{ CSSM_ALGID_SHA1WithECDSA, "ECDSA/SHA1", 'e', &CSSMOID_APPLE_ECDSA },
 	{ CSSM_ALGID_NONE, 			NULL,   0,  NULL }
@@ -283,14 +286,17 @@ static const AlgInfo dsaSigAlgInfo[] =
 static const AlgInfo ecdsaSigAlgInfo[] = 
 {
 	{ CSSM_ALGID_SHA1WithECDSA, "ECDSA with SHA1", 's', &CSSMOID_ECDSA_WithSHA1  },
+    { CSSM_ALGID_SHA256WithECDSA, "ECDSA with SHA256", '2', &CSSMOID_ECDSA_WithSHA256  },
+    { CSSM_ALGID_SHA384WithECDSA, "ECDSA with SHA384", '3', &CSSMOID_ECDSA_WithSHA384  },
+    { CSSM_ALGID_SHA512WithECDSA, "ECDSA with SHA512", '5', &CSSMOID_ECDSA_WithSHA512  },
 	{ CSSM_ALGID_NONE, 			NULL,   0,  NULL }
 };
 
 static const AlgInfo keyAlgInfo[] = 
 {
-	{ CSSM_ALGID_RSA, 	"RSA", 'r', NULL, 512, "512..2048", 
+	{ CSSM_ALGID_RSA, 	"RSA", 'r', NULL, 2048, "1024..2048",
 		rsaSigAlgInfo, rsaKeySizeVerify},
-	{ CSSM_ALGID_DSA, 	"DSA", 'd', NULL, 512, "512..2048", 
+	{ CSSM_ALGID_DSA, 	"DSA", 'd', NULL, 2048, "1024..2048",
 		dsaSigAlgInfo, dsaKeySizeVerify},
 	{ CSSM_ALGID_FEE, 	"FEE", 'f', NULL, 128, "128, 161, 192", 
 		feeSigAlgInfo, feeKeySizeVerify},

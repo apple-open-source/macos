@@ -1,11 +1,11 @@
 /*
- * "$Id: ippfind.c 12142 2014-08-30 02:35:43Z msweet $"
+ * "$Id: ippfind.c 12669 2015-05-27 19:42:43Z msweet $"
  *
  * Utility to find IPP printers via Bonjour/DNS-SD and optionally run
  * commands such as IPP and Bonjour conformance tests.  This tool is
  * inspired by the UNIX "find" command, thus its name.
  *
- * Copyright 2008-2014 by Apple Inc.
+ * Copyright 2008-2015 by Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -1978,14 +1978,14 @@ exec_program(ippfind_srv_t *service,	/* I - Service */
 	  else if (!strcmp(keyword, "service_path"))
 	    strlcpy(tptr, service->resource, sizeof(temp) - (size_t)(tptr - temp));
 	  else if (!strcmp(keyword, "service_port"))
-	    strlcpy(tptr, port + 20, sizeof(temp) - (size_t)(tptr - temp));
+	    strlcpy(tptr, port + 21, sizeof(temp) - (size_t)(tptr - temp));
 	  else if (!strcmp(keyword, "service_scheme"))
 	    strlcpy(tptr, scheme + 22, sizeof(temp) - (size_t)(tptr - temp));
 	  else if (!strncmp(keyword, "txt_", 4))
 	  {
-	    const char *txt = cupsGetOption(keyword + 4, service->num_txt, service->txt);
-	    if (txt)
-	      strlcpy(tptr, txt, sizeof(temp) - (size_t)(tptr - temp));
+	    const char *val = cupsGetOption(keyword + 4, service->num_txt, service->txt);
+	    if (val)
+	      strlcpy(tptr, val, sizeof(temp) - (size_t)(tptr - temp));
 	    else
 	      *tptr = '\0';
 	  }
@@ -2564,6 +2564,10 @@ resolve_callback(
   service->host        = strdup(hostTarget);
   service->port        = ntohs(port);
 
+  value = service->host + strlen(service->host) - 1;
+  if (value >= service->host && *value == '.')
+    *value = '\0';
+
  /*
   * Loop through the TXT key/value pairs and add them to an array...
   */
@@ -2634,6 +2638,10 @@ resolve_callback(
   service->is_resolved = 1;
   service->host        = strdup(hostTarget);
   service->port        = port;
+
+  value = service->host + strlen(service->host) - 1;
+  if (value >= service->host && *value == '.')
+    *value = '\0';
 
  /*
   * Loop through the TXT key/value pairs and add them to an array...
@@ -2835,5 +2843,5 @@ show_version(void)
 
 
 /*
- * End of "$Id: ippfind.c 12142 2014-08-30 02:35:43Z msweet $".
+ * End of "$Id: ippfind.c 12669 2015-05-27 19:42:43Z msweet $".
  */

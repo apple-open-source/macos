@@ -1,0 +1,11 @@
+--- -	2015-05-07 14:12:28.000000000 -0700
++++ lib/rubygems/defaults.rb	2015-05-07 14:09:43.000000000 -0700
+@@ -96,7 +96,7 @@ module Gem
+ 
+   def self.default_bindir
+     if defined? RUBY_FRAMEWORK_VERSION then # mac framework support
+-      '/usr/bin'
++      '/usr/local/bin'
+     else # generic install
+       ConfigMap[:bindir]
+     end

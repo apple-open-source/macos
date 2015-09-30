@@ -61,10 +61,10 @@ void EventHandler::focusDocumentView()
 bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults& event)
 {
     // Figure out which view to send the event to.
-    RenderObject* target = event.targetNode() ? event.targetNode()->renderer() : 0;
-    if (!target || !target->isWidget())
+    RenderObject* target = event.targetNode() ? event.targetNode()->renderer() : nullptr;
+    if (!is<RenderWidget>(target))
         return false;
-    return passMouseDownEventToWidget(toRenderWidget(target)->widget());
+    return passMouseDownEventToWidget(downcast<RenderWidget>(*target).widget());
 }
 
 bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)
@@ -87,13 +87,12 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent&) const
     return false;
 }
 
-bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& event, Widget* widget)
+bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& event, Widget& widget)
 {
-    ASSERT(widget);
-    if (!widget->isFrameView())
+    if (!is<FrameView>(widget))
         return false;
 
-    return toFrameView(widget)->frame().eventHandler().handleWheelEvent(event);
+    return downcast<FrameView>(widget).frame().eventHandler().handleWheelEvent(event);
 }
 
 #if ENABLE(DRAG_SUPPORT)

@@ -48,10 +48,10 @@ class WebPage;
 
 class WebFullScreenManager : public RefCounted<WebFullScreenManager> {
 public:
-    static PassRefPtr<WebFullScreenManager> create(WebPage*);
+    static Ref<WebFullScreenManager> create(WebPage*);
     virtual ~WebFullScreenManager();
 
-    void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&);
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&);
 
     bool supportsFullScreen(bool withKeyboard);
     void enterFullScreenForElement(WebCore::Element*);
@@ -74,7 +74,7 @@ protected:
     void saveScrollPosition();
     void restoreScrollPosition();
 
-    void didReceiveWebFullScreenManagerMessage(IPC::Connection*, IPC::MessageDecoder&);
+    void didReceiveWebFullScreenManagerMessage(IPC::Connection&, IPC::MessageDecoder&);
 
     WebCore::IntRect m_initialFrame;
     WebCore::IntRect m_finalFrame;

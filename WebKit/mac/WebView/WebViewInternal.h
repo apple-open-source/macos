@@ -37,8 +37,10 @@
 #import <WebCore/AlternativeTextClient.h>
 #import <WebCore/FindOptions.h>
 #import <WebCore/FloatRect.h>
+#import <WebCore/HTMLMediaElementEnums.h>
 #import <WebCore/LayoutMilestones.h>
 #import <WebCore/TextAlternativeWithRange.h>
+#import <WebCore/TextIndicatorWindow.h>
 #import <WebCore/WebCoreKeyboardUIMode.h>
 #import <functional>
 #import <wtf/Forward.h>
@@ -53,16 +55,21 @@ class HistoryItem;
 class KeyboardEvent;
 class Page;
 class RenderBox;
-class Node;
 class TextIndicator;
+class URL;
 struct DictationAlternative;
 }
 
 struct DictionaryPopupInfo;
+class WebMediaPlaybackTargetPicker;
 class WebSelectionServiceController;
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+#import <WebCore/MediaProducer.h>
 #endif
 
-@class WebActionMenuController;
+#endif
+
 @class WebBasePluginPackage;
 @class WebDownload;
 @class WebImmediateActionController;
@@ -111,10 +118,6 @@ OBJC_CLASS NSTextAlternatives;
 - (void)_setNeedsOneShotDrawingSynchronization:(BOOL)needsSynchronization;
 - (void)_scheduleCompositingLayerFlush;
 - (BOOL)_flushCompositingChanges;
-
-#if USE(GLIB)
-- (void)_scheduleGlibContextIterations;
-#endif
 
 #if USE(AUTOCORRECTION_PANEL)
 - (void)handleAcceptedAlternativeText:(NSString*)text;
@@ -245,8 +248,8 @@ OBJC_CLASS NSTextAlternatives;
 - (void)_preferencesChanged:(WebPreferences *)preferences;
 
 #if ENABLE(VIDEO) && defined(__cplusplus)
-- (void)_enterFullscreenForNode:(WebCore::Node*)node;
-- (void)_exitFullscreen;
+- (void)_enterVideoFullscreenForVideoElement:(WebCore::HTMLVideoElement*)videoElement mode:(WebCore::HTMLMediaElementEnums::VideoFullscreenMode)mode;
+- (void)_exitVideoFullscreen;
 #endif
 
 #if ENABLE(FULLSCREEN_API) && !PLATFORM(IOS) && defined(__cplusplus)
@@ -262,15 +265,25 @@ OBJC_CLASS NSTextAlternatives;
 - (void)_setMaintainsInactiveSelection:(BOOL)shouldMaintainInactiveSelection;
 
 #if PLATFORM(MAC) && defined(__cplusplus)
-- (void)_setTextIndicator:(WebCore::TextIndicator*)textIndicator fadeOut:(BOOL)fadeOut;
-- (void)_clearTextIndicator;
+- (void)_setTextIndicator:(WebCore::TextIndicator&)textIndicator;
+- (void)_setTextIndicator:(WebCore::TextIndicator&)textIndicator withLifetime:(WebCore::TextIndicatorLifetime)lifetime;
+- (void)_clearTextIndicatorWithAnimation:(WebCore::TextIndicatorDismissalAnimation)animation;
 - (void)_setTextIndicatorAnimationProgress:(float)progress;
 - (void)_showDictionaryLookupPopup:(const DictionaryPopupInfo&)dictionaryPopupInfo;
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
 - (id)_animationControllerForDictionaryLookupPopupInfo:(const DictionaryPopupInfo&)dictionaryPopupInfo;
-- (WebActionMenuController *)_actionMenuController;
 - (WebImmediateActionController *)_immediateActionController;
 #endif
+- (NSEvent *)_pressureEvent;
+- (void)_setPressureEvent:(NSEvent *)event;
+#endif
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS) && defined(__cplusplus)
+- (WebMediaPlaybackTargetPicker *) _devicePicker;
+- (void)_addPlaybackTargetPickerClient:(uint64_t)clientId;
+- (void)_removePlaybackTargetPickerClient:(uint64_t)contextId;
+- (void)_showPlaybackTargetPicker:(uint64_t)contextId location:(const WebCore::IntPoint&)location hasVideo:(BOOL)hasVideo;
+- (void)_playbackTargetPickerClientStateDidChange:(uint64_t)contextId state:(WebCore::MediaProducer::MediaStateFlags)state;
 #endif
 
 @end

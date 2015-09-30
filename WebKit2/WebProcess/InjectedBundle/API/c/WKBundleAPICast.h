@@ -33,16 +33,14 @@
 #include <WebCore/EditorInsertAction.h>
 #include <WebCore/TextAffinity.h>
 
-namespace WebCore {
-    class CSSStyleDeclaration;
-}
-
 namespace WebKit {
 
 class InjectedBundle;
 class InjectedBundleBackForwardList;
 class InjectedBundleBackForwardListItem;
+class InjectedBundleCSSStyleDeclarationHandle;
 class InjectedBundleDOMWindowExtension;
+class InjectedBundleFileHandle;
 class InjectedBundleHitTestResult;
 class InjectedBundleNavigationAction;
 class InjectedBundleNodeHandle;
@@ -57,8 +55,9 @@ class WebPageOverlay;
 
 WK_ADD_API_MAPPING(WKBundleBackForwardListItemRef, InjectedBundleBackForwardListItem)
 WK_ADD_API_MAPPING(WKBundleBackForwardListRef, InjectedBundleBackForwardList)
-WK_ADD_API_MAPPING(WKBundleCSSStyleDeclarationRef, WebCore::CSSStyleDeclaration)
+WK_ADD_API_MAPPING(WKBundleCSSStyleDeclarationRef, InjectedBundleCSSStyleDeclarationHandle)
 WK_ADD_API_MAPPING(WKBundleDOMWindowExtensionRef, InjectedBundleDOMWindowExtension)
+WK_ADD_API_MAPPING(WKBundleFileHandleRef, InjectedBundleFileHandle)
 WK_ADD_API_MAPPING(WKBundleFrameRef, WebFrame)
 WK_ADD_API_MAPPING(WKBundleHitTestResultRef, InjectedBundleHitTestResult)
 WK_ADD_API_MAPPING(WKBundleInspectorRef, WebInspector)

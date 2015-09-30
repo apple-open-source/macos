@@ -8,11 +8,17 @@ class TestSetTraceFunc < Test::Unit::TestCase
       :trace_instruction => true,
       :specialized_instruction => false
     }
+    @target_thread = Thread.current
   end
 
   def teardown
     set_trace_func(nil)
     RubyVM::InstructionSequence.compile_option = @original_compile_option
+    @target_thread = nil
+  end
+
+  def target_thread?
+    Thread.current == @target_thread
   end
 
   def test_c_call
@@ -1019,5 +1025,223 @@ class TestSetTraceFunc < Test::Unit::TestCase
     }   # 1 time b_return
 
     assert_equal 4, n
+  end
+
+  def test_const_missing
+    bug59398 = '[ruby-core:59398]'
+    events = []
+    assert !defined?(MISSING_CONSTANT_59398)
+    TracePoint.new(:c_call, :c_return, :call, :return){|tp|
+      next unless tp.defined_class == Module
+      # rake/ext/module.rb aliases :const_missing and Ruby uses the aliased name
+      # but this only happens when running the full test suite
+      events << [tp.event,tp.method_id] if tp.method_id == :const_missing || tp.method_id == :rake_original_const_missing
+    }.enable{
+      MISSING_CONSTANT_59398 rescue nil
+    }
+    if events.map{|e|e[1]}.include?(:rake_original_const_missing)
+      assert_equal([
+        [:call, :const_missing],
+        [:c_call, :rake_original_const_missing],
+        [:c_return, :rake_original_const_missing],
+        [:return, :const_missing],
+      ], events, bug59398)
+    else
+      assert_equal([
+        [:c_call, :const_missing],
+        [:c_return, :const_missing]
+      ], events, bug59398)
+    end
+  end
+
+  class AliasedRubyMethod
+    def foo; 1; end;
+    alias bar foo
+  end
+  def test_aliased_ruby_method
+    events = []
+    aliased = AliasedRubyMethod.new
+    TracePoint.new(:call, :return){|tp|
+      events << [tp.event, tp.method_id]
+    }.enable{
+      aliased.bar
+    }
+    assert_equal([
+      [:call, :foo],
+      [:return, :foo]
+    ], events, "should use original method name for tracing ruby methods")
+  end
+  class AliasedCMethod < Hash
+    alias original_size size
+    def size; original_size; end
+  end
+
+  def test_aliased_c_method
+    events = []
+    aliased = AliasedCMethod.new
+    TracePoint.new(:call, :return, :c_call, :c_return){|tp|
+      events << [tp.event, tp.method_id]
+    }.enable{
+      aliased.size
+    }
+    assert_equal([
+      [:call, :size],
+      [:c_call, :original_size],
+      [:c_return, :original_size],
+      [:return, :size]
+    ], events, "should use alias method name for tracing c methods")
+  end
+
+  def test_method_missing
+    bug59398 = '[ruby-core:59398]'
+    events = []
+    assert !respond_to?(:missing_method_59398)
+    TracePoint.new(:c_call, :c_return, :call, :return){|tp|
+      next unless tp.defined_class == BasicObject
+      # rake/ext/module.rb aliases :const_missing and Ruby uses the aliased name
+      # but this only happens when running the full test suite
+      events << [tp.event,tp.method_id] if tp.method_id == :method_missing
+    }.enable{
+      missing_method_59398 rescue nil
+    }
+    assert_equal([
+      [:c_call, :method_missing],
+      [:c_return, :method_missing]
+    ], events, bug59398)
+  end
+
+
+  def method_test_rescue_should_not_cause_b_return
+    begin
+      raise
+    rescue
+      return
+    end
+  end
+
+  def method_test_ensure_should_not_cause_b_return
+    begin
+      raise
+    ensure
+      return
+    end
+  end
+
+  def test_rescue_and_ensure_should_not_cause_b_return
+    curr_thread = Thread.current
+    trace = TracePoint.new(:b_call, :b_return){
+      next if curr_thread != Thread.current
+      flunk("Should not reach here because there is no block.")
+    }
+
+    begin
+      trace.enable
+      method_test_rescue_should_not_cause_b_return
+      begin
+        method_test_ensure_should_not_cause_b_return
+      rescue
+        # ignore
+      end
+    ensure
+      trace.disable
+    end
+  end
+
+  def method_prefix event
+    case event
+    when :call, :return
+      :n
+    when :c_call, :c_return
+      :c
+    when :b_call, :b_return
+      :b
+    end
+  end
+
+  def method_label tp
+    "#{method_prefix(tp.event)}##{tp.method_id}"
+  end
+
+  def assert_consistent_call_return message='', check_events: nil
+    call_events = []
+    return_events = []
+
+    TracePoint.new(*check_events){|tp|
+      next unless target_thread?
+
+      case tp.event.to_s
+      when /call/
+        call_events << method_label(tp)
+      when /return/
+        return_events << method_label(tp)
+      end
+    }.enable do
+      yield
+    end
+
+    assert_equal false, call_events.empty?
+    assert_equal false, return_events.empty?
+    assert_equal call_events, return_events.reverse, message
+  end
+
+  def test_rb_rescue
+    events = []
+    curr_thread = Thread.current
+    TracePoint.new(:b_call, :b_return, :c_call, :c_return){|tp|
+      next if curr_thread != Thread.current
+      events << [tp.event, tp.method_id]
+    }.enable do
+      begin
+        -Numeric.new
+      rescue => e
+        # ignore
+      end
+    end
+
+    assert_equal [
+    [:b_call, :test_rb_rescue],
+      [:c_call, :new],
+        [:c_call, :initialize],
+        [:c_return, :initialize],
+      [:c_return, :new],
+      [:c_call, :-@],
+        [:c_call, :coerce],
+          [:c_call, :to_s],
+          [:c_return, :to_s],
+          [:c_call, :new],
+            [:c_call, :initialize],
+            [:c_return, :initialize],
+          [:c_return, :new],
+          [:c_call, :exception],
+          [:c_return, :exception],
+          [:c_call, :backtrace],
+          [:c_return, :backtrace],
+        [:c_return, :coerce],            # don't miss it!
+        [:c_call, :to_s],
+        [:c_return, :to_s],
+        [:c_call, :to_s],
+        [:c_return, :to_s],
+        [:c_call, :new],
+          [:c_call, :initialize],
+          [:c_return, :initialize],
+        [:c_return, :new],
+        [:c_call, :exception],
+        [:c_return, :exception],
+        [:c_call, :backtrace],
+        [:c_return, :backtrace],
+      [:c_return, :-@],
+      [:c_call, :===],
+      [:c_return, :===],
+    [:b_return, :test_rb_rescue]], events
+  end
+
+  def test_b_call_with_redo
+    assert_consistent_call_return do
+      i = 0
+      1.times{
+        break if (i+=1) > 10
+        redo
+      }
+    end
   end
 end

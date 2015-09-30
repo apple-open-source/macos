@@ -34,7 +34,7 @@ namespace WebKit {
 
 class TiledCoreAnimationDrawingAreaProxy : public DrawingAreaProxy {
 public:
-    explicit TiledCoreAnimationDrawingAreaProxy(WebPageProxy*);
+    explicit TiledCoreAnimationDrawingAreaProxy(WebPageProxy&);
     virtual ~TiledCoreAnimationDrawingAreaProxy();
 
 private:
@@ -54,26 +54,28 @@ private:
 
     virtual void waitForDidUpdateViewState() override;
 
+    virtual void willSendUpdateGeometry() override;
+
     // Message handlers.
     virtual void didUpdateGeometry() override;
-    virtual void intrinsicContentSizeDidChange(const WebCore::IntSize& newIntrinsicContentSize) override;
+    virtual void intrinsicContentSizeDidChange(const WebCore::IntSize&) override;
 
     void sendUpdateGeometry();
+    WebCore::MachSendRight createFenceForGeometryUpdate();
 
     // Whether we're waiting for a DidUpdateGeometry message from the web process.
     bool m_isWaitingForDidUpdateGeometry;
 
     // The last size we sent to the web process.
     WebCore::IntSize m_lastSentSize;
-    WebCore::IntSize m_lastSentLayerPosition;
 
     // The last minimum layout size we sent to the web process.
     WebCore::IntSize m_lastSentMinimumLayoutSize;
 };
 
-DRAWING_AREA_PROXY_TYPE_CASTS(TiledCoreAnimationDrawingAreaProxy, type() == DrawingAreaTypeTiledCoreAnimation);
-
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_DRAWING_AREA_PROXY(TiledCoreAnimationDrawingAreaProxy, DrawingAreaTypeTiledCoreAnimation)
 
 #endif // !PLATFORM(IOS)
 

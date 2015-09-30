@@ -43,11 +43,11 @@ typedef struct conninfo {
 	void				*ci_aux_data;		/* auxiliary data */
 } conninfo_t;
 
-extern int copyassocids(int, associd_t **, uint32_t *);
-extern void freeassocids(associd_t *);
-extern int copyconnids(int, associd_t, connid_t **, uint32_t *);
-extern void freeconnids(connid_t *);
-extern int copyconninfo(int, connid_t, conninfo_t **);
+extern int copyassocids(int, sae_associd_t **, uint32_t *);
+extern void freeassocids(sae_associd_t *);
+extern int copyconnids(int, sae_associd_t, sae_connid_t **, uint32_t *);
+extern void freeconnids(sae_connid_t *);
+extern int copyconninfo(int, sae_connid_t, conninfo_t **);
 extern void freeconninfo(conninfo_t *);
 
 #endif

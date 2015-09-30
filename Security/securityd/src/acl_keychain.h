@@ -30,7 +30,6 @@
 #define _ACL_KEYCHAIN
 
 #include <security_cdsa_utilities/cssmacl.h>
-#include <security_agent_client/agentclient.h>
 #include <string>
 
 

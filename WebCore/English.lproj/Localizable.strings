@@ -49,6 +49,9 @@
 /* Visible name of the web process. The argument is the application name. */
 "%@ Web Content" = "%@ Web Content";
 
+/* Visible name of Web Inspector's web process. The argument is the application name. */
+"%@ Web Inspector" = "%@ Web Inspector";
+
 /* Name of application's single WebCrypto master key in Keychain */
 "%@ WebCrypto Master Key" = "%@ WebCrypto Master Key";
 
@@ -164,7 +167,7 @@
 "Clear Recent Searches" = "Clear Recent Searches";
 
 /* Message to display in browser window when in webkit full screen mode. */
-"Click to exit full screen mode" = "Click to exit full screen mode";
+"Click to Exit Full Screen" = "Click to Exit Full Screen";
 
 /* Subtitle of the label to show on a snapshotted plug-in */
 "Click to restart" = "Click to restart";
@@ -179,7 +182,7 @@
 "Copy" = "Copy";
 
 /* Title for Copy Link or Image action button */
-"Copy ActionSheet Link" = "Copy";
+"Copy (ActionSheet)" = "Copy";
 
 /* Copy Audio Address Location context menu item */
 "Copy Audio Address" = "Copy Audio Address";
@@ -208,13 +211,13 @@
 /* Default writing direction context menu item */
 "Default" = "Default";
 
-/* Undo action name (Used only by PLATFORM(IOS) code) */
+/* Undo action name */
 "Delete (Undo action name)" = "Delete";
 
 /* text to display in <details> tag when it has no <summary> child */
 "Details" = "Details";
 
-/* Undo action name (Used only by PLATFORM(IOS) code) */
+/* Undo action name */
 "Dictation (Undo action name)" = "Dictation";
 
 /* Download Audio To Disk context menu item */
@@ -295,6 +298,9 @@
 /* Title for action sheet for JavaScript link */
 "JavaScript Action Sheet Title" = "JavaScript";
 
+/* WKErrorJavaScriptResultTypeIsUnsupported description */
+"JavaScript execution returned a result of an unsupported type" = "JavaScript execution returned a result of an unsupported type";
+
 /* Undo action name */
 "Justify (Undo action name)" = "Justify";
 
@@ -312,6 +318,9 @@
 
 /* Media controller status message when the media is loading */
 "Loading..." = "Loading...";
+
+/* 'Website' name displayed when local documents have stored local data */
+"Local documents on your computer" = "Local documents on your computer";
 
 /* Look Up in Dictionary context menu item */
 "Look Up in Dictionary" = "Look Up in Dictionary";
@@ -355,11 +364,14 @@
 /* WebKitErrorCannotUseRestrictedPort description */
 "Not allowed to use restricted network port" = "Not allowed to use restricted network port";
 
+/* OK button label in PDF password failure alert */
+"OK (PDF password failure alert)" = "OK";
+
 /* Menu item label for the track that represents disabling closed captions */
 "Off" = "Off";
 
 /* Title for Open Link action button */
-"Open ActionSheet Link" = "Open";
+"Open" = "Open";
 
 /* Open Audio in New Window context menu item */
 "Open Audio in New Window" = "Open Audio in New Window";
@@ -378,6 +390,12 @@
 
 /* Open Video in New Window context menu item */
 "Open Video in New Window" = "Open Video in New Window";
+
+/* Title for Open in Safari Link action button */
+"Open in Safari" = "Open in Safari";
+
+/* Title for Open in External Application Link action button */
+"Open in “%@”" = "Open in “%@”";
 
 /* context menu item for PDF */
 "Open with %@" = "Open with %@";
@@ -583,6 +601,9 @@
 /* WebKitErrorGeolocationLocationUnknown description */
 "The current location cannot be found." = "The current location cannot be found.";
 
+/* PDF password failure alert message */
+"The document could not be opened with that password." = "The document could not be opened with that password.";
+
 /* WebKitErrorCannotFindPlugin description */
 "The plug-in can’t be found" = "The plug-in can’t be found";
 
@@ -622,7 +643,7 @@
 /* Undo action name */
 "Turn Off Ligatures (Undo action name)" = "Turn Off Ligatures";
 
-/* We don't care if we find this string, but searching for it will load the plist and save the results. */
+/* Undo action name */
 "Typing (Undo action name)" = "Typing";
 
 /* Underline context menu item */
@@ -630,6 +651,9 @@
 
 /* Undo action name */
 "Underline (Undo action name)" = "Underline";
+
+/* Menu item label for an audio track that has no other name */
+"Unknown (audio track)" = "Unknown";
 
 /* Unknown filesize FTP directory listing item */
 "Unknown (filesize)" = "Unknown";
@@ -1069,44 +1093,3 @@
 /* accessibility label for video element controller */
 "video playback" = "video playback";
 
-/* "Open Link in Default Browser" action menu item */
-"Open (action menu item)" = "Open";
-
-/* "Preview Link" action menu item */
-"Preview (action menu item)" = "Preview";
-
-/* "Add to Reading List" action menu item */
-"Add to Reading List (action menu item)" = "Add to Reading List";
-
-/* "Copy" action menu item in image menu */
-"Copy (image action menu item)" = "Copy";
-
-/* "Add to Photos" action menu item */
-"Add to Photos (action menu item)" = "Add to Photos";
-
-/* "Save to Downloads" action menu item in image menu */
-"Save to Downloads (image action menu item)" = "Save to Downloads";
-
-/* "Share" action menu item in image menu */
-"Share (image action menu item)" = "Share";
-
-/* "Copy" action menu item in text menu */
-"Copy (text action menu item)" = "Copy";
-
-/* "Look Up" action menu item */
-"Look Up (action menu item)" = "Look Up";
-
-/* "Paste" action menu item */
-"Paste (action menu item)" = "Paste";
-
-/* "Suggestions" action menu item */
-"Suggestions (action menu item)" = "Suggestions";
-
-/* "Copy" action menu item in video menu */
-"Copy (video action menu item)" = "Copy";
-
-/* "Share" action menu item in video menu */
-"Share (video action menu item)" = "Share";
-
-/* "Save to Downloads" action menu item in video menu */
-"Save to Downloads (video action menu item)" = "Save to Downloads";

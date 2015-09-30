@@ -1,8 +1,8 @@
+#!/bin/bash -e -x
 # exit immediately on failure
-set -e -x
 
 function InstallHeaders() {
-	DESTDIR="$DSTROOT/$INSTALL_PATH_PREFIX/$1"
+	DESTDIR="$DSTROOT/$1"
 	shift
 	install -d -o "$INSTALL_OWNER" -g "$INSTALL_GROUP" -m 0755 "$DESTDIR"
 	install -o "$INSTALL_OWNER" -g "$INSTALL_GROUP" -m 0444 "$@" "$DESTDIR"
@@ -51,9 +51,13 @@ InstallHeaders /usr/include/rpcsvc \
 	nis.subproj/ypclnt.h
 
 # Don't install man pages for installhdrs nor simulator builds
-if [ "$ACTION" == "installhdrs" -o \
-     "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
-	exit 0
+if [[ "${ACTION}" == "installhdrs" ]]; then
+    exit 0
+fi
+
+if [[ "${PLATFORM_NAME}" =~ "simulator" ]]; then
+    ln -s libsystem_info.dylib ${DSTROOT}${INSTALL_PATH}/libsystem_sim_info.dylib
+    exit 0
 fi
 
 function InstallManPages() {

@@ -46,7 +46,7 @@ class HIDGamepadProvider : public GamepadProvider {
     WTF_MAKE_NONCOPYABLE(HIDGamepadProvider);
     friend class NeverDestroyed<HIDGamepadProvider>;
 public:
-    static HIDGamepadProvider& shared();
+    WEBCORE_EXPORT static HIDGamepadProvider& singleton();
 
     virtual void startMonitoringGamepads(GamepadProviderClient*);
     virtual void stopMonitoringGamepads(GamepadProviderClient*);
@@ -64,8 +64,8 @@ private:
     void openAndScheduleManager();
     void closeAndUnscheduleManager();
 
-    void connectionDelayTimerFired(Timer&);
-    void inputNotificationTimerFired(Timer&);
+    void connectionDelayTimerFired();
+    void inputNotificationTimerFired();
 
     unsigned indexForNewlyConnectedDevice();
 

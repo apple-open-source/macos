@@ -26,7 +26,7 @@
 
 #include "config.h"
 
-#if USE(3D_GRAPHICS)
+#if ENABLE(GRAPHICS_CONTEXT_3D)
 #include "Extensions3DOpenGLCommon.h"
 
 #include "ANGLEWebKitBridge.h"
@@ -84,17 +84,6 @@ Extensions3DOpenGLCommon::Extensions3DOpenGLCommon(GraphicsContext3D* context)
     // or if the vendor is AMD/ATI and the system is 10.7.2 and above.
 
     bool systemSupportsMultisampling = true;
-#if !PLATFORM(IOS) && __MAC_OS_X_VERSION_MIN_REQUIRED < 1080
-    ASSERT(isMainThread());
-    static SInt32 version;
-    if (!version) {
-        if (Gestalt(gestaltSystemVersion, &version) != noErr)
-            systemSupportsMultisampling = false;
-    }
-    // See https://bugs.webkit.org/show_bug.cgi?id=77922 for more details
-    if (systemSupportsMultisampling)
-        systemSupportsMultisampling = version >= 0x1072;
-#endif // SNOW_LEOPARD and LION
 
     if (m_isAMD && !systemSupportsMultisampling)
         m_maySupportMultisampling = false;
@@ -142,6 +131,14 @@ void Extensions3DOpenGLCommon::ensureEnabled(const String& name)
         ShBuiltInResources ANGLEResources = compiler.getResources();
         if (!ANGLEResources.EXT_shader_texture_lod) {
             ANGLEResources.EXT_shader_texture_lod = 1;
+            compiler.setResources(ANGLEResources);
+        }
+    } else if (name == "GL_EXT_frag_depth") {
+        // Enable support in ANGLE (if not enabled already)
+        ANGLEWebKitBridge& compiler = m_context->m_compiler;
+        ShBuiltInResources ANGLEResources = compiler.getResources();
+        if (!ANGLEResources.EXT_frag_depth) {
+            ANGLEResources.EXT_frag_depth = 1;
             compiler.setResources(ANGLEResources);
         }
     }
@@ -215,7 +212,7 @@ void Extensions3DOpenGLCommon::initializeAvailableExtensions()
 {
     String extensionsString = getExtensions();
     Vector<String> availableExtensions;
-    extensionsString.split(" ", availableExtensions);
+    extensionsString.split(' ', availableExtensions);
     for (size_t i = 0; i < availableExtensions.size(); ++i)
         m_availableExtensions.add(availableExtensions[i]);
     m_initializedAvailableExtensions = true;
@@ -238,4 +235,4 @@ void Extensions3DOpenGLCommon::getnUniformivEXT(GC3Duint, int, GC3Dsizei, int *)
 
 } // namespace WebCore
 
-#endif // USE(3D_GRAPHICS)
+#endif // ENABLE(GRAPHICS_CONTEXT_3D)

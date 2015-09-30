@@ -1,5 +1,5 @@
 /*
- * "$Id: sysman.c 12142 2014-08-30 02:35:43Z msweet $"
+ * "$Id: sysman.c 12238 2014-11-03 20:06:57Z msweet $"
  *
  * System management functions for the CUPS scheduler.
  *
@@ -360,7 +360,8 @@ cupsdStartSystemMonitor(void)
 
   cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdStartSystemMonitor: IOPSGetTimeRemainingEstimate=%f", IOPSGetTimeRemainingEstimate());
   ACPower = IOPSGetTimeRemainingEstimate() == kIOPSTimeRemainingUnlimited;
-  notify_register_dispatch(kIOPSNotifyPowerSource, &PSToken, dispatch_get_main_queue(), ^(int t) { ACPower = IOPSGetTimeRemainingEstimate() == kIOPSTimeRemainingUnlimited; });
+  notify_register_dispatch(kIOPSNotifyPowerSource, &PSToken, dispatch_get_main_queue(), ^(int t) { (void)t;
+      ACPower = IOPSGetTimeRemainingEstimate() == kIOPSTimeRemainingUnlimited; });
 }
 
 
@@ -1071,5 +1072,5 @@ sysUpdateNames(void)
 
 
 /*
- * End of "$Id: sysman.c 12142 2014-08-30 02:35:43Z msweet $".
+ * End of "$Id: sysman.c 12238 2014-11-03 20:06:57Z msweet $".
  */

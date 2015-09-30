@@ -1,6 +1,6 @@
 ##
 # Wrapper makefile for ICU
-# Copyright (C) 2003-2014 Apple Inc. All rights reserved.
+# Copyright (C) 2003-2015 Apple Inc. All rights reserved.
 #
 # See http://www.gnu.org/manual/make/html_chapter/make_toc.html#SEC_Contents
 # for documentation on makefiles. Most of this was culled from the ncurses makefile.
@@ -130,14 +130,44 @@ endif
 CROSSHOST_OBJROOT=$(OBJROOT)/crossbuildhost
 APPLE_INTERNAL_DIR=/AppleInternal
 RC_ARCHS=
-MAC_OS_X_VERSION_MIN_REQUIRED=1070
-OSX_HOST_VERSION_MIN_STRING=10.7
-IOS_VERSION_TARGET_STRING=7.0
-OSX_VERSION_TARGET_STRING=10.9
+MAC_OS_X_VERSION_MIN_REQUIRED=1090
+OSX_HOST_VERSION_MIN_STRING=10.9
+ifndef IPHONEOS_DEPLOYMENT_TARGET
+	IOS_VERSION_TARGET_STRING=9.0
+else ifeq "$(IPHONEOS_DEPLOYMENT_TARGET)" ""
+	IOS_VERSION_TARGET_STRING=9.0
+else
+	IOS_VERSION_TARGET_STRING=$(IPHONEOS_DEPLOYMENT_TARGET)
+endif
+ifndef MACOSX_DEPLOYMENT_TARGET
+	OSX_VERSION_TARGET_STRING=10.11
+else ifeq "$(MACOSX_DEPLOYMENT_TARGET)" ""
+	OSX_VERSION_TARGET_STRING=10.11
+else
+	OSX_VERSION_TARGET_STRING=$(MACOSX_DEPLOYMENT_TARGET)
+endif
+ifndef WATCHOS_DEPLOYMENT_TARGET
+	WATCHOS_VERSION_TARGET_STRING=2.0
+else ifeq "$(WATCHOS_DEPLOYMENT_TARGET)" ""
+	WATCHOS_VERSION_TARGET_STRING=2.0
+else
+	WATCHOS_VERSION_TARGET_STRING=$(WATCHOS_DEPLOYMENT_TARGET)
+endif
+ifndef TVOS_DEPLOYMENT_TARGET
+	TVOS_VERSION_TARGET_STRING=9.0
+else ifeq "$(TVOS_DEPLOYMENT_TARGET)" ""
+	TVOS_VERSION_TARGET_STRING=9.0
+else
+	TVOS_VERSION_TARGET_STRING=$(TVOS_DEPLOYMENT_TARGET)
+endif
 
 $(info # SRCROOT=$(SRCROOT))
 $(info # DSTROOT=$(DSTROOT))
 $(info # OBJROOT=$(OBJROOT))
+$(info # IOS_VERSION_TARGET_STRING=$(IOS_VERSION_TARGET_STRING))
+$(info # OSX_VERSION_TARGET_STRING=$(OSX_VERSION_TARGET_STRING))
+$(info # WATCHOS_VERSION_TARGET_STRING=$(WATCHOS_VERSION_TARGET_STRING))
+$(info # TVOS_VERSION_TARGET_STRING=$(TVOS_VERSION_TARGET_STRING))
 
 # For some reason, under cygwin, bash uname is not found, and
 # sh uname does not produce a result with -p or -m. So we just
@@ -148,15 +178,10 @@ else
 	UNAME_PROCESSOR:=$(shell uname -p)
 endif
 
-ifeq "$(RC_INDIGO)" "YES"
-	-include $(DEVELOPER_DIR)/AppleInternal/Makefiles/Makefile.indigo
-	ifndef SDKROOT
-		SDKROOT=$(INDIGO_PREFIX)
-	endif
-	DEST_ROOT=$(DSTROOT)/$(INDIGO_PREFIX)/
-else
-	DEST_ROOT=$(DSTROOT)/
-endif
+# The following is a holdover from use of Makefile.indigo;
+# should just change to use DSTROOT everywhere instead of DEST_ROOT
+DEST_ROOT=$(DSTROOT)/
+
 ifndef SDKROOT
 	SDKPATH:=/
 else ifeq "$(SDKROOT)" ""
@@ -246,10 +271,16 @@ $(info # TZDATA=$(TZDATA))
 
 ifeq "$(WINDOWS)" "YES"
 	EMBEDDED:=0
+	WATCHOS:=0
+	TVOS:=0
+	SIMULATOROS := 0
 else ifeq "$(LINUX)" "YES"
 	CC := gcc
 	CXX := g++
 	EMBEDDED:=0
+	WATCHOS:=0
+	TVOS:=0
+	SIMULATOROS := 0
 	ISYSROOT =
 else
 	ifeq "$(BUILD_TYPE)" ""
@@ -280,7 +311,10 @@ else
 		STRIPCMD := $(shell xcrun -sdk $(SDKPATH) -find strip)
 	endif
 	HOSTISYSROOT = -isysroot $(HOSTSDKPATH)
-	EMBEDDED:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep TARGET_OS_EMBEDDED | cut -d' ' -f3)
+	EMBEDDED:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_EMBEDDED | cut -d' ' -f3)
+	WATCHOS:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_WATCH | cut -d' ' -f3)
+	TVOS:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_TV | cut -d' ' -f3)
+	SIMULATOROS:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_SIMULATOR | cut -d' ' -f3)
 endif
 DSYMTOOL := /usr/bin/dsymutil
 DSYMSUFFIX := .dSYM
@@ -304,7 +338,21 @@ else
 endif
 
 ifeq "$(APPLE_EMBEDDED)" "YES"
-	ICU_TARGET_VERSION := -miphoneos-version-min=$(IOS_VERSION_TARGET_STRING)
+	ifeq "$(WATCHOS)" "1"
+		ICU_TARGET_VERSION := -mwatchos-version-min=$(WATCHOS_VERSION_TARGET_STRING)
+	else ifeq "$(TVOS)" "1"
+		ICU_TARGET_VERSION := -mtvos-version-min=$(TVOS_VERSION_TARGET_STRING)
+	else
+		ICU_TARGET_VERSION := -miphoneos-version-min=$(IOS_VERSION_TARGET_STRING)
+	endif
+else ifeq "$(SIMULATOROS)" "1"
+	ifeq "$(WATCHOS)" "1"
+		ICU_TARGET_VERSION := -mwatchos-simulator-version-min=$(WATCHOS_VERSION_TARGET_STRING)
+	else ifeq "$(TVOS)" "1"
+		ICU_TARGET_VERSION := -mtvos-simulator-version-min=$(TVOS_VERSION_TARGET_STRING)
+	else
+		ICU_TARGET_VERSION := -mios-simulator-version-min=$(IOS_VERSION_TARGET_STRING)
+	endif
 else
 	ICU_TARGET_VERSION := 
 endif
@@ -442,7 +490,9 @@ endif
 # Note that installsrc is run on the system from which ICU is submitted, which
 # may be a different environment than the one for a which a build is targeted.
 
-INSTALLSRC_VARFILES=./ICU_embedded.order ./minimalapis.txt ./minimalapisTest.c ./minimalpatchconfig.txt ./windowspatchconfig.txt ./patchconfig.txt ./crosshostpatchconfig.txt
+INSTALLSRC_VARFILES=./ICU_embedded.order \
+	./minimalapis.txt ./minimalapisTest.c ./minimalpatchconfig.txt ./windowspatchconfig.txt ./patchconfig.txt ./crosshostpatchconfig.txt \
+	BuildICUForAAS_script.bat EXPORT.APPLE
 
 #################################
 # Cleaning
@@ -506,7 +556,7 @@ endif
 # The ICU version/subversion should reflect the actual ICU version.
 
 LIB_NAME = icucore
-ICU_VERS = 53
+ICU_VERS = 55
 ICU_SUBVERS = 1
 CORE_VERS = A
 

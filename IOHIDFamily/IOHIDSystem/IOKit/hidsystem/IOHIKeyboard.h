@@ -242,20 +242,6 @@ public:
   virtual bool doesKeyLock(unsigned key);  //does key lock physically
   virtual unsigned getLEDStatus();  //check hardware for LED status
 
-    virtual IOReturn newUserClient( task_t          owningTask,
-                                   void *          security_id,
-                                   UInt32          type,
-                                   OSDictionary *  properties,
-                                   IOUserClient ** handler );
-    IOReturn newUserClientGated(task_t          owningTask,
-                                void *          security_id,
-                                OSDictionary *  properties,
-                                IOUserClient ** handler );
-    
-    virtual bool attachToChild( IORegistryEntry * child,
-                               const IORegistryPlane * plane );
-    virtual void detachFromChild( IORegistryEntry * child,
-                                 const IORegistryPlane * plane );
 private:
   static void _keyboardEvent( IOHIKeyboard * self,
 			     unsigned   eventType,
@@ -280,7 +266,6 @@ private:
         
   static void _updateEventFlags( IOHIKeyboard * self,
 				unsigned flags);  /* Does not generate events */
-    bool postSecureKey(UInt8 key, bool down);
 
 };
 

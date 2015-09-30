@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,6 +45,9 @@
 
 int
 interface_set_mtu(const char * ifname, int mtu);
+
+int
+interface_up_down(const char * ifname, boolean_t up);
 
 int
 inet_dgram_socket(void);

@@ -108,7 +108,7 @@ static AccessibilityObject* optionFromSelection(AtkSelection* selection, gint in
         if (!renderer)
             return nullptr;
 
-        HTMLSelectElement* selectNode = toHTMLSelectElement(renderer->node());
+        HTMLSelectElement* selectNode = downcast<HTMLSelectElement>(renderer->node());
         if (!selectNode)
             return nullptr;
 
@@ -150,12 +150,12 @@ static gboolean webkitAccessibleSelectionClearSelection(AtkSelection* selection)
         return FALSE;
 
     AccessibilityObject::AccessibilityChildrenVector selectedItems;
-    if (coreSelection->isListBox() || coreSelection->isMenuList()) {
+    if (is<AccessibilityListBox>(*coreSelection)) {
         // Set the list of selected items to an empty list; then verify that it worked.
-        AccessibilityListBox* listBox = toAccessibilityListBox(coreSelection);
-        listBox->setSelectedChildren(selectedItems);
-        listBox->selectedChildren(selectedItems);
-        return !selectedItems.size();
+        auto& listBox = downcast<AccessibilityListBox>(*coreSelection);
+        listBox.setSelectedChildren(selectedItems);
+        listBox.selectedChildren(selectedItems);
+        return selectedItems.isEmpty();
     }
     return FALSE;
 }
@@ -195,8 +195,8 @@ static gint webkitAccessibleSelectionGetSelectionCount(AtkSelection* selection)
         if (!renderer)
             return 0;
 
-        int selectedIndex = toHTMLSelectElement(renderer->node())->selectedIndex();
-        return selectedIndex >= 0 && selectedIndex < static_cast<int>(toHTMLSelectElement(renderer->node())->listItems().size());
+        int selectedIndex = downcast<HTMLSelectElement>(renderer->node())->selectedIndex();
+        return selectedIndex >= 0 && selectedIndex < static_cast<int>(downcast<HTMLSelectElement>(renderer->node())->listItems().size());
     }
 
     return 0;
@@ -246,12 +246,12 @@ static gboolean webkitAccessibleSelectionSelectAllSelection(AtkSelection* select
     if (!coreSelection || !coreSelection->isMultiSelectable())
         return FALSE;
 
-    if (coreSelection->isListBox()) {
+    if (is<AccessibilityListBox>(*coreSelection)) {
         const AccessibilityObject::AccessibilityChildrenVector& children = coreSelection->children();
-        AccessibilityListBox* listBox = toAccessibilityListBox(coreSelection);
-        listBox->setSelectedChildren(children);
+        AccessibilityListBox& listBox = downcast<AccessibilityListBox>(*coreSelection);
+        listBox.setSelectedChildren(children);
         AccessibilityObject::AccessibilityChildrenVector selectedItems;
-        listBox->selectedChildren(selectedItems);
+        listBox.selectedChildren(selectedItems);
         return selectedItems.size() == children.size();
     }
 

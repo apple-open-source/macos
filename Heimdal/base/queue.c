@@ -48,6 +48,12 @@ heim_async_f(heim_queue_t queue, void *ctx, void (*callback)(void *data))
     abort();
 }
 
+void
+heim_queue_release(heim_queue_t queue)
+{
+    abort();
+}
+
 heim_sema_t
 heim_sema_create(long count)
 {

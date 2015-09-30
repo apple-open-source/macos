@@ -33,13 +33,9 @@
 #include "ScrollingStateFrameScrollingNode.h"
 #include "ScrollingStateOverflowScrollingNode.h"
 #include "ScrollingStateStickyNode.h"
+#include <wtf/text/CString.h>
 
 namespace WebCore {
-
-PassOwnPtr<ScrollingStateTree> ScrollingStateTree::create(AsyncScrollingCoordinator* scrollingCoordinator)
-{
-    return adoptPtr(new ScrollingStateTree(scrollingCoordinator));
-}
 
 ScrollingStateTree::ScrollingStateTree(AsyncScrollingCoordinator* scrollingCoordinator)
     : m_scrollingCoordinator(scrollingCoordinator)
@@ -155,7 +151,7 @@ void ScrollingStateTree::clear()
     m_orphanedSubframeNodes.clear();
 }
 
-PassOwnPtr<ScrollingStateTree> ScrollingStateTree::commit(LayerRepresentation::Type preferredLayerRepresentation)
+std::unique_ptr<ScrollingStateTree> ScrollingStateTree::commit(LayerRepresentation::Type preferredLayerRepresentation)
 {
     if (!m_orphanedSubframeNodes.isEmpty()) {
         // If we still have orphaned subtrees, remove them from m_stateNodeMap since they will be deleted 
@@ -166,7 +162,7 @@ PassOwnPtr<ScrollingStateTree> ScrollingStateTree::commit(LayerRepresentation::T
     }
 
     // This function clones and resets the current state tree, but leaves the tree structure intact.
-    OwnPtr<ScrollingStateTree> treeStateClone = ScrollingStateTree::create();
+    std::unique_ptr<ScrollingStateTree> treeStateClone = std::make_unique<ScrollingStateTree>();
     treeStateClone->setPreferredLayerRepresentation(preferredLayerRepresentation);
 
     if (m_rootStateNode)
@@ -182,7 +178,7 @@ PassOwnPtr<ScrollingStateTree> ScrollingStateTree::commit(LayerRepresentation::T
     treeStateClone->m_hasNewRootStateNode = m_hasNewRootStateNode;
     m_hasNewRootStateNode = false;
 
-    return treeStateClone.release();
+    return treeStateClone;
 }
 
 void ScrollingStateTree::addNode(ScrollingStateNode* node)
@@ -250,5 +246,31 @@ ScrollingStateNode* ScrollingStateTree::stateNodeForID(ScrollingNodeID scrollLay
 }
 
 } // namespace WebCore
+
+#ifndef NDEBUG
+void showScrollingStateTree(const WebCore::ScrollingStateTree* tree)
+{
+    if (!tree)
+        return;
+
+    auto rootNode = tree->rootStateNode();
+    if (!rootNode) {
+        fprintf(stderr, "Scrolling state tree %p with no root node\n", tree);
+        return;
+    }
+
+    String output = rootNode->scrollingStateTreeAsText();
+    fprintf(stderr, "%s\n", output.utf8().data());
+}
+
+void showScrollingStateTree(const WebCore::ScrollingStateNode* node)
+{
+    if (!node)
+        return;
+
+    showScrollingStateTree(&node->scrollingStateTree());
+}
+
+#endif
 
 #endif // ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)

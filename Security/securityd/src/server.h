@@ -47,9 +47,6 @@
 #include "AuthorizationEngine.h"
 #include <map>
 
-#define EQUIVALENCEDBPATH "/var/db/CodeEquivalenceDatabase"
-
-
 //
 // The authority itself. You will usually only have one of these.
 //

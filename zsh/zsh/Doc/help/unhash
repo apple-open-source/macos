@@ -11,8 +11,13 @@ unhash [ -adfms ] name ...
        quoted) and all elements of the corresponding  hash  table  with
        matching names will be removed.
 
-unalias
-       Same as unhash -a.
+unalias [ -ams ] name ...
+       Removes aliases.  This command works  the  same  as  unhash  -a,
+       except that the -a option removes all regular or global aliases,
+       or with -s all suffix aliases: in this case  no  name  arguments
+       may  appear.   The options -m (remove by pattern) and -s without
+       -a (remove listed suffix aliases) behave as for unhash -a.  Note
+       that the meaning of -a is different between unalias and unhash.
 
 unfunction
        Same as unhash -f.

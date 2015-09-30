@@ -23,7 +23,6 @@
 #include "HTMLAreaElement.h"
 
 #include "AffineTransform.h"
-#include "Attribute.h"
 #include "Frame.h"
 #include "HTMLImageElement.h"
 #include "HTMLMapElement.h"
@@ -45,9 +44,9 @@ inline HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document& 
     ASSERT(hasTagName(areaTag));
 }
 
-PassRefPtr<HTMLAreaElement> HTMLAreaElement::create(const QualifiedName& tagName, Document& document)
+Ref<HTMLAreaElement> HTMLAreaElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new HTMLAreaElement(tagName, document));
+    return adoptRef(*new HTMLAreaElement(tagName, document));
 }
 
 void HTMLAreaElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -182,10 +181,10 @@ Path HTMLAreaElement::getRegion(const LayoutSize& size) const
 HTMLImageElement* HTMLAreaElement::imageElement() const
 {
     Node* mapElement = parentNode();
-    if (!mapElement || !isHTMLMapElement(mapElement))
-        return 0;
+    if (!is<HTMLMapElement>(mapElement))
+        return nullptr;
     
-    return toHTMLMapElement(mapElement)->imageElement();
+    return downcast<HTMLMapElement>(*mapElement).imageElement();
 }
 
 bool HTMLAreaElement::isKeyboardFocusable(KeyboardEvent*) const
@@ -218,11 +217,11 @@ void HTMLAreaElement::setFocus(bool shouldBeFocused)
     if (!imageElement)
         return;
 
-    auto renderer = imageElement->renderer();
-    if (!renderer || !renderer->isRenderImage())
+    auto* renderer = imageElement->renderer();
+    if (!is<RenderImage>(renderer))
         return;
 
-    toRenderImage(renderer)->areaElementFocusChanged(this);
+    downcast<RenderImage>(*renderer).areaElementFocusChanged(this);
 }
     
 void HTMLAreaElement::updateFocusAppearance(bool restorePreviousSelection)

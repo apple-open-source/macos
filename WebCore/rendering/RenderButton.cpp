@@ -37,7 +37,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderButton::RenderButton(HTMLFormControlElement& element, PassRef<RenderStyle> style)
+RenderButton::RenderButton(HTMLFormControlElement& element, Ref<RenderStyle>&& style)
     : RenderFlexibleBox(element, WTF::move(style))
     , m_buttonText(0)
     , m_inner(0)
@@ -51,7 +51,7 @@ RenderButton::~RenderButton()
 
 HTMLFormControlElement& RenderButton::formControlElement() const
 {
-    return toHTMLFormControlElement(nodeForNonAnonymous());
+    return downcast<HTMLFormControlElement>(nodeForNonAnonymous());
 }
 
 bool RenderButton::canBeSelectionLeaf() const
@@ -77,18 +77,17 @@ void RenderButton::addChild(RenderObject* newChild, RenderObject* beforeChild)
     m_inner->addChild(newChild, beforeChild);
 }
 
-RenderObject* RenderButton::removeChild(RenderObject& oldChild)
+void RenderButton::removeChild(RenderObject& oldChild)
 {
     // m_inner should be the only child, but checking for direct children who
     // are not m_inner prevents security problems when that assumption is
     // violated.
     if (&oldChild == m_inner || !m_inner || oldChild.parent() == this) {
         ASSERT(&oldChild == m_inner || !m_inner);
-        RenderObject* next = RenderFlexibleBox::removeChild(oldChild);
+        RenderFlexibleBox::removeChild(oldChild);
         m_inner = nullptr;
-        return next;
     } else
-        return m_inner->removeChild(oldChild);
+        m_inner->removeChild(oldChild);
 }
 
 void RenderButton::styleWillChange(StyleDifference diff, const RenderStyle& newStyle)
@@ -114,9 +113,11 @@ void RenderButton::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
         setupInnerStyle(&m_inner->style());
 
     if (!m_default && theme().isDefault(*this)) {
-        if (!m_timer)
-            m_timer = std::make_unique<Timer>(this, &RenderButton::timerFired);
-        m_timer->startRepeating(0.03);
+        if (theme().defaultButtonHasAnimation()) {
+            if (!m_timer)
+                m_timer = std::make_unique<Timer>(*this, &RenderButton::timerFired);
+            m_timer->startRepeating(0.03);
+        }
         m_default = true;
     } else if (m_default && !theme().isDefault(*this)) {
         m_default = false;
@@ -126,7 +127,7 @@ void RenderButton::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
 
 void RenderButton::setupInnerStyle(RenderStyle* innerStyle) 
 {
-    ASSERT(innerStyle->refCount() == 1);
+    ASSERT(style().hasPseudoStyle(FIRST_LETTER) || innerStyle->refCount() == 1);
     // RenderBlock::createAnonymousBlock creates a new RenderStyle, so this is
     // safe to modify.
     // FIXME: I don't see how the comment above is accurate when this is called
@@ -142,8 +143,8 @@ void RenderButton::setupInnerStyle(RenderStyle* innerStyle)
 void RenderButton::updateFromElement()
 {
     // If we're an input element, we may need to change our button text.
-    if (isHTMLInputElement(formControlElement())) {
-        HTMLInputElement& input = toHTMLInputElement(formControlElement());
+    if (is<HTMLInputElement>(formControlElement())) {
+        HTMLInputElement& input = downcast<HTMLInputElement>(formControlElement());
         String value = input.valueWithDefault();
         setText(value);
     }
@@ -176,7 +177,7 @@ bool RenderButton::canHaveGeneratedChildren() const
     // Input elements can't have generated children, but button elements can. We'll
     // write the code assuming any other button types that might emerge in the future
     // can also have children.
-    return !isHTMLInputElement(formControlElement());
+    return !is<HTMLInputElement>(formControlElement());
 }
 
 LayoutRect RenderButton::controlClipRect(const LayoutPoint& additionalOffset) const
@@ -185,7 +186,7 @@ LayoutRect RenderButton::controlClipRect(const LayoutPoint& additionalOffset) co
     return LayoutRect(additionalOffset.x() + borderLeft(), additionalOffset.y() + borderTop(), width() - borderLeft() - borderRight(), height() - borderTop() - borderBottom());
 }
 
-void RenderButton::timerFired(Timer&)
+void RenderButton::timerFired()
 {
     // FIXME Bug 25110: Ideally we would stop our timer when our Document
     // enters the page cache. But we currently have no way of being notified

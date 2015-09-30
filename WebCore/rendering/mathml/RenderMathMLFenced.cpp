@@ -43,7 +43,7 @@ using namespace MathMLNames;
 static const char* gOpeningBraceChar = "(";
 static const char* gClosingBraceChar = ")";
 
-RenderMathMLFenced::RenderMathMLFenced(MathMLInlineContainerElement& element, PassRef<RenderStyle> style)
+RenderMathMLFenced::RenderMathMLFenced(MathMLInlineContainerElement& element, Ref<RenderStyle>&& style)
     : RenderMathMLRow(element, WTF::move(style))
     , m_closeFenceRenderer(nullptr)
 {
@@ -78,7 +78,7 @@ void RenderMathMLFenced::updateFromElement()
         makeFences();
     else {
         // FIXME: The mfenced element fails to update dynamically when its open, close and separators attributes are changed (https://bugs.webkit.org/show_bug.cgi?id=57696).
-        toRenderMathMLOperator(firstChild())->updateTokenContent(m_open);
+        downcast<RenderMathMLOperator>(*firstChild()).updateTokenContent(m_open);
         m_closeFenceRenderer->updateTokenContent(m_close);
     }
 }

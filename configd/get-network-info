@@ -1,0 +1,557 @@
+#!/bin/sh
+
+#
+#  Copyright © 2015 Apple Inc.
+#
+#  get-network-info
+#
+#  Collect network information.
+#
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+
+# __SETUP_ROUTINES_BEGIN__
+
+process_opts () {
+
+	for i in $ARGS
+           do
+		case "$i"
+                   in
+                           -s)
+				   COLLECT_SENSITIVE_INFO="Y"
+                                   shift;;
+                           -c)
+				   COLLECT_CONFIGURATION_FILES="Y"
+                                   shift;;
+			   --)
+				   shift;;
+			   *)
+				   REQUESTED_OUTDIR="${i}"
+                                   shift;;
+                   esac
+           done
+
+}
+
+set_root () {
+
+	PRIV=""
+	if [ ${EUID} -ne 0 ]; then
+		PRIV="sudo"
+	fi
+
+}
+
+#
+# Setup
+#
+setup () {
+
+	set_root
+	umask 077
+	cd "${REQUESTED_OUTDIR}"
+
+}
+
+# __SETUP_ROUTINES_END__
+
+
+# __COMMAND_ROUTINES_BEGIN__
+
+# note: the daemons dump to syslog so you need to wait a bit before
+# capturing the logs.
+collect_state_dump () {
+
+	${PRIV} /usr/bin/killall -INFO networkd							2>/dev/null
+
+	sleep 1											&
+}
+
+collect_state_dump_sensitive () {
+
+	${PRIV} /usr/bin/killall -INFO mDNSResponder						2>/dev/null
+
+	sleep 1											&
+
+}
+
+#
+# network interface configuration
+#
+run_ifconfig () {
+
+	if [ ! -x /sbin/ifconfig ]; then
+		return
+	fi
+
+	/sbin/ifconfig -a -L -b -m -r -v -v				> ifconfig.txt		2>&1
+	if [ $? -ne 0 ]; then
+		/sbin/ifconfig -a					> ifconfig.txt		2>&1
+	fi
+
+}
+
+#
+# network route configuration and statistics
+#
+run_netstat () {
+
+	if [ ! -x /usr/sbin/netstat ]; then
+		return
+	fi
+
+	echo "#"							 > netstat.txt
+	echo "# netstat -n -r -a -l"					>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -n -r -a -l					>> netstat.txt		2>&1
+
+	echo "#"							>> netstat.txt
+	echo "# netstat -A -a -l -n -v"					>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -A -a -l -n -v				>> netstat.txt		2>&1
+
+	echo "#"							>> netstat.txt
+	echo "# netstat -s"						>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -s						>> netstat.txt		2>&1
+
+	echo "#"							>> netstat.txt
+	echo "# netstat -mmm"						>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -mmm						>> netstat.txt		2>&1
+
+	echo "#"							>> netstat.txt
+	echo "# netstat -i -n -d"					>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -i -n -d					>> netstat.txt		2>&1
+
+	echo "#"							>> netstat.txt
+	echo "# netstat -i -x R"					>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -i -x R					>> netstat.txt		2>&1
+
+	echo "#"							>> netstat.txt
+	echo "# netstat -a -n -p mptcp"					>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -anp mptcp					>> netstat.txt		2>&1
+
+	echo "#"							>> netstat.txt
+	echo "# netstat -s -p mptcp"					>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -s -p mptcp					>> netstat.txt		2>&1
+
+	echo "#"							>> netstat.txt
+	echo "# netstat -g -n -s"					>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -g -n -s					>> netstat.txt		2>&1
+
+	if [ -x /sbin/ifconfig ]; then
+		for if in ${IF_LIST}
+		do
+			IF_INFO=`/sbin/ifconfig -v ${if}`
+			`echo $IF_INFO | grep -q TXSTART`
+			if [ $? -eq 0 ]; then
+				echo "#"				>> netstat.txt
+				echo "# netstat -qq -I ${if}"		>> netstat.txt
+				echo "#"				>> netstat.txt
+				/usr/sbin/netstat -qq -I ${if}		>> netstat.txt		2>&1
+			fi
+			`echo $IF_INFO | grep -q RXPOLL`
+			if [ $? -eq 0 ]; then
+				echo "#"				>> netstat.txt
+				echo "# netstat -Q -I ${if}"		>> netstat.txt
+				echo "#"				>> netstat.txt
+				/usr/sbin/netstat -Q -I ${if}		>> netstat.txt		2>&1
+			fi
+		done
+	fi
+
+}
+
+run_ndp () {
+
+	if [ ! -x /usr/sbin/ndp ]; then
+		return
+	fi
+
+	echo "#"							 > ndp-info.txt
+	echo "# ndp -n -a"						>> ndp-info.txt
+	echo "#"							>> ndp-info.txt
+	/usr/sbin/ndp -n -a						>> ndp-info.txt		2>&1
+
+	echo "#"							>> ndp-info.txt
+	echo "# ndp -n -p"						>> ndp-info.txt
+	echo "#"							>> ndp-info.txt
+	/usr/sbin/ndp -n -p						>> ndp-info.txt		2>&1
+
+	echo "#"							>> ndp-info.txt
+	echo "# ndp -n -r"						>> ndp-info.txt
+	echo "#"							>> ndp-info.txt
+	/usr/sbin/ndp -n -r						>> ndp-info.txt		2>&1
+
+	if [ -x /sbin/ifconfig ]; then
+		for if in ${IF_LIST}
+		do
+			echo "#"					>> ndp-info.txt
+			echo "# ndp -i ${if}"				>> ndp-info.txt
+			echo "#"					>> ndp-info.txt
+			/usr/sbin/ndp -i ${if}				>> ndp-info.txt		2>&1
+		done
+	fi
+
+}
+
+run_arp () {
+
+	if   [ ! -x /usr/sbin/arp ]; then
+		return
+	fi
+
+	echo "#"							 > arp-info.txt
+	echo "# arp -n -a"						>> arp-info.txt
+	echo "#"							>> arp-info.txt
+	/usr/sbin/arp -n -a						>> arp-info.txt		2>&1
+
+}
+
+#
+# DHCP configuration
+#
+run_ipconfig () {
+
+	if [ ! -x /usr/sbin/ipconfig ]; then
+		return
+	fi
+
+	for if in ${IF_LIST}
+	do
+		case ${if} in
+		lo* )	;;
+		*)
+			echo "#"					>> ipconfig-info.txt
+			echo "# INTERFACE ${if}"			>> ipconfig-info.txt
+			echo "#"					>> ipconfig-info.txt
+
+			echo "DHCPv4 information:"			>> ipconfig-info.txt
+
+			IPCONFIG_INFO=`/usr/sbin/ipconfig getpacket ${if}`
+			if [ "${IPCONFIG_INFO}" != "" ]; then
+				echo "${IPCONFIG_INFO}"			>> ipconfig-info.txt
+			else
+				echo "not available"			>> ipconfig-info.txt
+			fi
+
+			echo""						>> ipconfig-info.txt
+
+			echo "DHCPv6 information:"			>> ipconfig-info.txt
+
+			IPCONFIG_INFO=`/usr/sbin/ipconfig getv6packet ${if}`
+			if [ "${IPCONFIG_INFO}" != "" ]; then
+				echo "${IPCONFIG_INFO}"			>> ipconfig-info.txt
+			else
+				echo "not available"			>> ipconfig-info.txt
+			fi
+
+			echo""						>> ipconfig-info.txt
+			;;
+		esac
+	done
+
+}
+
+#
+# IPsec configuration
+#
+run_setkey () {
+
+	if [ ! -x /usr/sbin/setkey -o ! -x /usr/bin/perl ]; then
+		return
+	fi
+
+	echo "#"									>  ipsec.txt
+	echo "# setkey -D"								>> ipsec.txt
+	echo "#"									>> ipsec.txt
+	${PRIV} /usr/sbin/setkey -D				\
+	| /usr/bin/perl -l -n -e '
+		if (/^(\s+[AE]:\s+\S+\s+)"?(.*)"?\s*$/) {
+			printf "%s[redacted]%s\n", $1, $3;
+		} else {
+			printf "%s\n", $_;
+		}
+	'										>> ipsec.txt
+
+	echo ""										>> ipsec.txt
+	echo "#"									>> ipsec.txt
+	echo "# setkey -Pp -D"								>> ipsec.txt
+	echo "#"									>> ipsec.txt
+	${PRIV} /usr/sbin/setkey -Pp -D							>> ipsec.txt
+
+	for CF in /var/run/racoon/*.conf
+	do
+		if [ ! -r "${CF}" ]; then
+			continue
+		fi
+
+		echo ""									>> ipsec.txt
+		echo "#"								>> ipsec.txt
+		echo "# ${CF}"								>> ipsec.txt
+		echo "#"								>> ipsec.txt
+		${PRIV} cat ${CF}				\
+		| /usr/bin/perl -l -n -e '
+			if (/^(\s+shared_secret\s+use\s+)"?([^\s;"]+)"?(.*)/) {
+				printf "%s[redacted]%s\n", $1, $3;
+			} else {
+				printf "%s\n", $_;
+			}
+		'									>> ipsec.txt
+	done
+
+}
+
+#
+# Network preferences
+#
+collect_configuration_files () {
+
+	for f in										\
+		/Library/Preferences/com.apple.networkextension.plist				\
+		/Library/Preferences/com.apple.networkextension.control.plist			\
+		/Library/Preferences/com.apple.networkextension.necp.plist			\
+		/Library/Preferences/SystemConfiguration/com.apple.nat.plist			\
+		/Library/Preferences/SystemConfiguration/com.apple.RemoteAccessServers.plist	\
+		/Library/Preferences/SystemConfiguration/com.apple.smb.server.plist		\
+		/Library/Preferences/com.apple.mDNSResponder.plist				\
+		/Library/Preferences/SystemConfiguration/NetworkInterfaces.plist		\
+		/Library/Preferences/SystemConfiguration/preferences.plist			\
+
+	do
+		if [ -e "${f}" ]; then
+			b="`basename ${f}`"
+			cat "${f}"							> "${b}"			2>&1
+		fi
+	done
+
+	if [ -e /etc/resolv.conf ]; then
+		cat /etc/resolv.conf							> etc-resolv-conf.txt		2>&1
+	fi
+	if [ -e /var/run/resolv.conf ]; then
+		cat /var/run/resolv.conf						> var-run-resolv-conf.txt	2>&1
+	fi
+	if [ -e /etc/resolver ]; then
+		tar -c -H /etc/resolver							> etc-resolver.tar		2>/dev/null
+	fi
+}
+
+collect_vpn_logs () {
+
+	for f in										\
+		/var/log/vpnd.log								\
+		/var/log/racoon.log								\
+
+	do
+		if [ -e "${f}" ]; then
+			b="`basename ${f}`"
+			${PRIV} cat "${f}"							> "${b}".txt	2>&1
+		fi
+	done
+}
+
+#
+# Network, DNS, Proxy, Reachability, Cache information
+#
+run_scutil () {
+
+	if [ ! -x /usr/sbin/scutil ]; then
+		return
+	fi
+
+	echo "#"								>  network-information.txt
+	echo "# scutil -d -v --nwi"						>> network-information.txt
+	echo "#"								>> network-information.txt
+	/usr/sbin/scutil -d -v --nwi						>> network-information.txt	2>&1
+	for if in ${IF_LIST}
+	do
+		echo ""								>> network-information.txt
+		echo "#"							>> network-information.txt
+		echo "# scutil --nwi ${if}"					>> network-information.txt
+		echo "#"							>> network-information.txt
+		scutil --nwi ${if}						>> network-information.txt	2>&1
+	done
+
+	echo "#"								>  dns-configuration.txt
+	echo "# scutil -d -v --dns"						>> dns-configuration.txt
+	echo "#"								>> dns-configuration.txt
+	/usr/sbin/scutil -d -v --dns						>> dns-configuration.txt	2>&1
+
+	echo "#"								>  proxy-configuration.txt
+	echo "# scutil -d -v --proxy"						>> proxy-configuration.txt
+	echo "#"								>> proxy-configuration.txt
+	/usr/sbin/scutil -d -v --proxy						>> proxy-configuration.txt	2>&1
+
+	echo "#"								>  reachability-info.txt
+	echo '# scutil -d -v -r www.apple.com'					>> reachability-info.txt
+	echo "#"								>> reachability-info.txt
+	/usr/sbin/scutil -d -v -r www.apple.com					>> reachability-info.txt	2>&1
+
+	echo "#"								>> reachability-info.txt
+	echo '# scutil -d -v -r 0.0.0.0'					>> reachability-info.txt
+	echo "#"								>> reachability-info.txt
+	/usr/sbin/scutil -d -v -r 0.0.0.0					>> reachability-info.txt	2>&1
+
+	${PRIV} /usr/sbin/scutil -p --snapshot
+	if [ -f /var/tmp/configd-store.plist ]; then
+		cat /var/tmp/configd-store.plist				> configd-store.plist		2>&1
+	fi
+	if [ -f /var/tmp/configd-pattern.plist ]; then
+		cat /var/tmp/configd-pattern.plist				> configd-pattern.plist		2>&1
+	fi
+	if [ -f /var/tmp/configd-session.plist ]; then
+		cat /var/tmp/configd-session.plist				> configd-session.plist		2>&1
+	fi
+	if [ -f /var/tmp/configd-state ]; then
+		cat /var/tmp/configd-state					> configd-state			2>&1
+	fi
+
+}
+
+run_route () {
+
+	if [ ! -x /sbin/route ]; then
+		return
+	fi
+
+	echo "#"								>  route-info.txt
+	echo '# route -n -v get www.apple.com'					>> route-info.txt
+	echo "#"								>> route-info.txt
+	/sbin/route -n -v get www.apple.com					>> route-info.txt	2>&1
+
+	echo "#"								>> route-info.txt
+	echo '# route -n -v get 0.0.0.0'					>> route-info.txt
+	echo "#"								>> route-info.txt
+	/sbin/route -n -v get 0.0.0.0						>> route-info.txt	2>&1
+
+}
+
+run_dig () {
+
+	if [ ! -x /usr/bin/dig -o ! -f /etc/resolv.conf ]; then
+		return
+	fi
+
+	echo "#"								>  dig-info.txt
+	echo '# dig -t any -c any www.apple.com'				>> dig-info.txt
+	echo "#"								>> dig-info.txt
+	/usr/bin/dig +time=2 -t any -c any www.apple.com			>> dig-info.txt		2>/dev/null
+
+}
+
+#
+# Host name
+#
+run_hostname () {
+
+	if [ ! -x /bin/hostname ]; then
+		return
+	fi
+
+	/bin/hostname								> hostname.txt		2>&1
+
+}
+
+collect_sensitive_info () {
+	collect_state_dump_sensitive
+	run_ndp
+	run_arp
+}
+
+collect_info () {
+	collect_state_dump
+
+	if [ "${COLLECT_SENSITIVE_INFO}" == "Y" ]; then
+		collect_sensitive_info
+	fi
+
+	run_scutil
+	run_dig
+	run_ifconfig
+	run_netstat
+	run_ipconfig
+	run_setkey
+	collect_vpn_logs
+	run_route
+	run_hostname
+
+	if [ "${COLLECT_CONFIGURATION_FILES}" == "Y" ]; then
+		collect_configuration_files
+	fi
+}
+
+# __COMMAND_ROUTINES_END__
+
+# __HELPER_ROUTINES_BEGIN__
+
+usage () {
+
+	echo "Usage: get-network-info [-s] [-c] <info-directory>"
+	echo "		-s		    collects sensitive information (ARP/NDP/mDNS cache)"
+	echo "		-c		    collects system configuration files"
+	echo "		<info-directory>    path to directory where all the information will be collected"
+
+}
+
+is_outdir_valid () {
+
+	if [ ! -d ${REQUESTED_OUTDIR} ] ||
+	   [ "${REQUESTED_OUTDIR}" = "" ]; then
+		usage
+		exit 1
+	fi
+
+	if [ ! -w ${REQUESTED_OUTDIR} ]; then
+		echo "${REQUESTED_OUTDIR} is write-protected"
+		exit 1
+	fi
+}
+
+#
+# Collect most used command output to be used later
+#
+optimize () {
+
+	if [ ! -x /sbin/ifconfig ]; then
+		return
+	fi
+
+	IF_LIST=`/sbin/ifconfig -l`
+
+}
+
+init_globals () {
+	REQUESTED_OUTDIR=""
+	COLLECT_SENSITIVE_INFO=""
+	COLLECT_CONFIGURATION_FILES=""
+}
+
+# __HELPER_ROUTINES_END__
+
+#
+# __MAIN__
+#
+ARGS=`getopt sc $*`
+if [ $? != 0 ]; then
+	usage
+	exit 1
+fi
+
+init_globals
+process_opts
+is_outdir_valid
+setup
+optimize
+collect_info
+wait
+
+#TO-DO: Add packet trace
+
+exit 0

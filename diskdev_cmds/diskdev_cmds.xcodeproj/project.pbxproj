@@ -81,7 +81,6 @@
 		4D07DD59153CA9DC002B57CB /* dkopen.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D07DD4F153CA9DC002B57CB /* dkopen.c */; };
 		4D07DD5A153CA9DC002B57CB /* dkopen.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D07DD50153CA9DC002B57CB /* dkopen.h */; };
 		4D07DD5B153CA9DC002B57CB /* dksecsize.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D07DD51153CA9DC002B57CB /* dksecsize.c */; };
-		4D07DD5D153CA9DC002B57CB /* mntopts.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D07DD53153CA9DC002B57CB /* mntopts.h */; };
 		4D07DD5E153CA9DC002B57CB /* pathnames.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D07DD54153CA9DC002B57CB /* pathnames.h */; };
 		4D07DD5F153CA9DC002B57CB /* preen.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D07DD55153CA9DC002B57CB /* preen.c */; };
 		4D07DD60153CA9DC002B57CB /* vfslist.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D07DD56153CA9DC002B57CB /* vfslist.c */; };
@@ -582,7 +581,6 @@
 		4D07DD4F153CA9DC002B57CB /* dkopen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dkopen.c; path = disklib/dkopen.c; sourceTree = "<group>"; };
 		4D07DD50153CA9DC002B57CB /* dkopen.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dkopen.h; path = disklib/dkopen.h; sourceTree = "<group>"; };
 		4D07DD51153CA9DC002B57CB /* dksecsize.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dksecsize.c; path = disklib/dksecsize.c; sourceTree = "<group>"; };
-		4D07DD53153CA9DC002B57CB /* mntopts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mntopts.h; path = disklib/mntopts.h; sourceTree = "<group>"; };
 		4D07DD54153CA9DC002B57CB /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pathnames.h; path = disklib/pathnames.h; sourceTree = "<group>"; };
 		4D07DD55153CA9DC002B57CB /* preen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = preen.c; path = disklib/preen.c; sourceTree = "<group>"; };
 		4D07DD56153CA9DC002B57CB /* vfslist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vfslist.c; path = disklib/vfslist.c; sourceTree = "<group>"; };
@@ -889,7 +887,6 @@
 			isa = PBXGroup;
 			children = (
 				4D07DD50153CA9DC002B57CB /* dkopen.h */,
-				4D07DD53153CA9DC002B57CB /* mntopts.h */,
 				4D07DD54153CA9DC002B57CB /* pathnames.h */,
 				4D07DD4D153CA9DC002B57CB /* dkcksum.c */,
 				4D07DD4E153CA9DC002B57CB /* dkdisklabel.c */,
@@ -1120,7 +1117,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D07DD5A153CA9DC002B57CB /* dkopen.h in Headers */,
-				4D07DD5D153CA9DC002B57CB /* mntopts.h in Headers */,
 				4D07DD5E153CA9DC002B57CB /* pathnames.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1910,6 +1906,8 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_MODE_FLAG = "ugo-w,a+rX";
+				OTHER_CFLAGS = "";
+				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos";
 				WARNING_CFLAGS = "-Wall";
 			};
@@ -2033,6 +2031,7 @@
 		4D559442153DC57D009F2584 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

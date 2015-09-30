@@ -72,7 +72,7 @@ extern NSString *WebPreferencesChangedNotification;
 */
 @interface WebPreferences: NSObject <NSCoding>
 {
-@private
+@package
     WebPreferencesPrivate *_private;
 }
 
@@ -266,5 +266,10 @@ extern NSString *WebPreferencesChangedNotification;
     @property suppressesIncrementalRendering
 */
 @property (nonatomic) BOOL suppressesIncrementalRendering;
+
+/*!
+    @property allowsAirPlayForMediaPlayback
+ */
+@property (nonatomic) BOOL allowsAirPlayForMediaPlayback;
 
 @end

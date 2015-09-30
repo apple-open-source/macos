@@ -109,6 +109,10 @@ int CommonEC(int argc, char *const *argv) {
     ok(retval == 0, "EC Shared Secret");
     accum |= retval;
 
+    CCECCryptorRelease(publicKey);
+    CCECCryptorRelease(publicKey2);
+    CCECCryptorRelease(privateKey);
+
     return accum;
 }
 #endif /* CCEC */

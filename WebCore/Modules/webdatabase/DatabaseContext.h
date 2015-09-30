@@ -28,8 +28,6 @@
 #ifndef DatabaseContext_h
 #define DatabaseContext_h
 
-#if ENABLE(SQL_DATABASE)
-
 #include "ActiveDOMObject.h"
 #include <wtf/RefPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -42,15 +40,14 @@ namespace WebCore {
 
 class Database;
 class DatabaseDetails;
-class DatabaseBackendContext;
 class DatabaseTaskSynchronizer;
 class DatabaseThread;
+class SecurityOrigin;
 
-class DatabaseContext : public ThreadSafeRefCounted<DatabaseContext>, private ActiveDOMObject {
+class DatabaseContext final : public ThreadSafeRefCounted<DatabaseContext>, private ActiveDOMObject {
 public:
     virtual ~DatabaseContext();
 
-    PassRefPtr<DatabaseBackendContext> backend();
     DatabaseThread* databaseThread();
 
 #if PLATFORM(IOS)
@@ -58,7 +55,7 @@ public:
 #endif
 
     void setHasOpenDatabases() { m_hasOpenDatabases = true; }
-    bool hasOpenDatabases() { return m_hasOpenDatabases; }
+    bool hasOpenDatabases() const { return m_hasOpenDatabases; }
 
     // When the database cleanup is done, the sychronizer will be signalled.
     bool stopDatabases(DatabaseTaskSynchronizer*);
@@ -66,20 +63,26 @@ public:
     bool allowDatabaseAccess() const;
     void databaseExceededQuota(const String& name, DatabaseDetails);
 
+    ScriptExecutionContext* scriptExecutionContext() const { return m_scriptExecutionContext; }
+    SecurityOrigin* securityOrigin() const;
+
+    bool isContextThread() const;
+
 private:
     explicit DatabaseContext(ScriptExecutionContext*);
 
     void stopDatabases() { stopDatabases(nullptr); }
 
-    virtual void contextDestroyed() override final;
-    virtual void stop() override final;
+    void contextDestroyed() override;
+    void stop() override;
+    bool canSuspendForPageCache() const override;
+    const char* activeDOMObjectName() const override { return "DatabaseContext"; }
 
     RefPtr<DatabaseThread> m_databaseThread;
     bool m_hasOpenDatabases; // This never changes back to false, even after the database thread is closed.
     bool m_isRegistered;
     bool m_hasRequestedTermination;
 
-    friend class DatabaseBackendContext;
     friend class DatabaseManager;
 
 #if PLATFORM(IOS)
@@ -89,7 +92,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(SQL_DATABASE)
 
 #endif // DatabaseContext_h

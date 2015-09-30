@@ -26,16 +26,22 @@
 #define IdentityTransformOperation_h
 
 #include "TransformOperation.h"
+#include <wtf/Ref.h>
 
 namespace WebCore {
 
 class IdentityTransformOperation final : public TransformOperation {
 public:
-    static PassRefPtr<IdentityTransformOperation> create()
+    static Ref<IdentityTransformOperation> create()
     {
-        return adoptRef(new IdentityTransformOperation());
+        return adoptRef(*new IdentityTransformOperation());
     }
-        
+
+    virtual Ref<TransformOperation> clone() const override
+    {
+        return create();
+    }
+
 private:
     virtual bool isIdentity() const override { return true; }
     virtual OperationType type() const override { return IDENTITY; }
@@ -51,9 +57,9 @@ private:
         return false;
     }
 
-    virtual PassRefPtr<TransformOperation> blend(const TransformOperation*, double, bool = false) override
+    virtual Ref<TransformOperation> blend(const TransformOperation*, double, bool = false) override
     {
-        return this;
+        return *this;
     }
 
     IdentityTransformOperation()
@@ -62,8 +68,8 @@ private:
 
 };
 
-TRANSFORMOPERATION_TYPE_CASTS(IdentityTransformOperation, type() == TransformOperation::IDENTITY);
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_TRANSFORMOPERATION(WebCore::IdentityTransformOperation, type() == WebCore::TransformOperation::IDENTITY)
 
 #endif // IdentityTransformOperation_h

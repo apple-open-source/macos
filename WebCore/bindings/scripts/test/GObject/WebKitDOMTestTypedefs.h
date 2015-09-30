@@ -50,12 +50,12 @@ webkit_dom_test_typedefs_get_type(void);
 /**
  * webkit_dom_test_typedefs_func:
  * @self: A #WebKitDOMTestTypedefs
- * @x: A #WebKitDOMlong[]
+ * @x: A #glong
  *
  * Stability: Unstable
 **/
 WEBKIT_API void
-webkit_dom_test_typedefs_func(WebKitDOMTestTypedefs* self, WebKitDOMlong[]* x);
+webkit_dom_test_typedefs_func(WebKitDOMTestTypedefs* self, glong x);
 
 /**
  * webkit_dom_test_typedefs_set_shadow:
@@ -74,12 +74,12 @@ webkit_dom_test_typedefs_set_shadow(WebKitDOMTestTypedefs* self, gfloat width, g
 /**
  * webkit_dom_test_typedefs_nullable_array_arg:
  * @self: A #WebKitDOMTestTypedefs
- * @arrayArg: A #WebKitDOMDOMString[]
+ * @arrayArg: A #gchar
  *
  * Stability: Unstable
 **/
 WEBKIT_API void
-webkit_dom_test_typedefs_nullable_array_arg(WebKitDOMTestTypedefs* self, WebKitDOMDOMString[]* arrayArg);
+webkit_dom_test_typedefs_nullable_array_arg(WebKitDOMTestTypedefs* self, const gchar* arrayArg);
 
 /**
  * webkit_dom_test_typedefs_immutable_point_function:
@@ -127,22 +127,22 @@ webkit_dom_test_typedefs_set_unsigned_long_long_attr(WebKitDOMTestTypedefs* self
  * webkit_dom_test_typedefs_get_immutable_serialized_script_value:
  * @self: A #WebKitDOMTestTypedefs
  *
- * Returns: (transfer none): A #WebKitDOMSerializedScriptValue
+ * Returns: A #gchar
  *
  * Stability: Unstable
 **/
-WEBKIT_API WebKitDOMSerializedScriptValue*
+WEBKIT_API gchar*
 webkit_dom_test_typedefs_get_immutable_serialized_script_value(WebKitDOMTestTypedefs* self);
 
 /**
  * webkit_dom_test_typedefs_set_immutable_serialized_script_value:
  * @self: A #WebKitDOMTestTypedefs
- * @value: A #WebKitDOMSerializedScriptValue
+ * @value: A #gchar
  *
  * Stability: Unstable
 **/
 WEBKIT_API void
-webkit_dom_test_typedefs_set_immutable_serialized_script_value(WebKitDOMTestTypedefs* self, WebKitDOMSerializedScriptValue* value);
+webkit_dom_test_typedefs_set_immutable_serialized_script_value(WebKitDOMTestTypedefs* self, const gchar* value);
 
 /**
  * webkit_dom_test_typedefs_get_attr_with_getter_exception:

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,18 +42,15 @@
 #import "RenderElement.h"
 #import "ScriptController.h"
 #import "ScriptSourceCode.h"
-#import "SoftLinking.h"
 #import "UserAgentScripts.h"
 #import <objc/runtime.h>
 #import <AVFoundation/AVFoundation.h>
-#import <CoreMedia/CoreMedia.h>
 #import <Foundation/NSString.h>
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <JavaScriptCore/APICast.h>
 #import <wtf/text/Base64.h>
 
-SOFT_LINK_FRAMEWORK_OPTIONAL(CoreMedia)
-SOFT_LINK(CoreMedia, CMTimeCopyAsDictionary, CFDictionaryRef, (CMTime time, CFAllocatorRef allocator), (time, allocator))
+#import "CoreMediaSoftLink.h"
 
 typedef AVMetadataItem AVMetadataItemType;
 SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
@@ -133,35 +130,34 @@ QuickTimePluginReplacement::~QuickTimePluginReplacement()
     m_mediaElement = nullptr;
 }
 
-RenderPtr<RenderElement> QuickTimePluginReplacement::createElementRenderer(HTMLPlugInElement& plugin, PassRef<RenderStyle> style)
+RenderPtr<RenderElement> QuickTimePluginReplacement::createElementRenderer(HTMLPlugInElement& plugin, Ref<RenderStyle>&& style, const RenderTreePosition& insertionPosition)
 {
     ASSERT_UNUSED(plugin, m_parentElement == &plugin);
 
     if (m_mediaElement)
-        return m_mediaElement->createElementRenderer(WTF::move(style));
+        return m_mediaElement->createElementRenderer(WTF::move(style), insertionPosition);
 
     return nullptr;
 }
 
 DOMWrapperWorld& QuickTimePluginReplacement::isolatedWorld()
 {
-    static DOMWrapperWorld& isolatedWorld = *DOMWrapperWorld::create(JSDOMWindow::commonVM()).leakRef();
+    static DOMWrapperWorld& isolatedWorld = DOMWrapperWorld::create(JSDOMWindow::commonVM()).leakRef();
     return isolatedWorld;
 }
 
 bool QuickTimePluginReplacement::ensureReplacementScriptInjected()
 {
-    Page* page = m_parentElement->document().page();
-    if (!page)
+    if (!m_parentElement->document().frame())
         return false;
     
     DOMWrapperWorld& world = isolatedWorld();
-    ScriptController& scriptController = page->mainFrame().script();
+    ScriptController& scriptController = m_parentElement->document().frame()->script();
     JSDOMGlobalObject* globalObject = JSC::jsCast<JSDOMGlobalObject*>(scriptController.globalObject(world));
     JSC::ExecState* exec = globalObject->globalExec();
     JSC::JSLockHolder lock(exec);
     
-    JSC::JSValue replacementFunction = globalObject->get(exec, JSC::Identifier(exec, "createPluginReplacement"));
+    JSC::JSValue replacementFunction = globalObject->get(exec, JSC::Identifier::fromString(exec, "createPluginReplacement"));
     if (replacementFunction.isFunction())
         return true;
     
@@ -177,19 +173,20 @@ bool QuickTimePluginReplacement::ensureReplacementScriptInjected()
 
 bool QuickTimePluginReplacement::installReplacement(ShadowRoot* root)
 {
-    Page* page = m_parentElement->document().page();
-
     if (!ensureReplacementScriptInjected())
         return false;
 
+    if (!m_parentElement->document().frame())
+        return false;
+
     DOMWrapperWorld& world = isolatedWorld();
-    ScriptController& scriptController = page->mainFrame().script();
+    ScriptController& scriptController = m_parentElement->document().frame()->script();
     JSDOMGlobalObject* globalObject = JSC::jsCast<JSDOMGlobalObject*>(scriptController.globalObject(world));
     JSC::ExecState* exec = globalObject->globalExec();
     JSC::JSLockHolder lock(exec);
     
     // Lookup the "createPluginReplacement" function.
-    JSC::JSValue replacementFunction = globalObject->get(exec, JSC::Identifier(exec, "createPluginReplacement"));
+    JSC::JSValue replacementFunction = globalObject->get(exec, JSC::Identifier::fromString(exec, "createPluginReplacement"));
     if (replacementFunction.isUndefinedOrNull())
         return false;
     JSC::JSObject* replacementObject = replacementFunction.toObject(exec);
@@ -211,9 +208,9 @@ bool QuickTimePluginReplacement::installReplacement(ShadowRoot* root)
     }
 
     // Get the <video> created to replace the plug-in.
-    JSC::JSValue value = replacement.get(exec, JSC::Identifier(exec, "video"));
+    JSC::JSValue value = replacement.get(exec, JSC::Identifier::fromString(exec, "video"));
     if (!exec->hadException() && !value.isUndefinedOrNull())
-        m_mediaElement = toHTMLVideoElement(value);
+        m_mediaElement = JSHTMLVideoElement::toWrapped(value);
 
     if (!m_mediaElement) {
         LOG(Plugins, "%p - Failed to find <video> element created by QuickTime plugin replacement script.", this);
@@ -222,7 +219,7 @@ bool QuickTimePluginReplacement::installReplacement(ShadowRoot* root)
     }
 
     // Get the scripting interface.
-    value = replacement.get(exec, JSC::Identifier(exec, "scriptObject"));
+    value = replacement.get(exec, JSC::Identifier::fromString(exec, "scriptObject"));
     if (!exec->hadException() && !value.isUndefinedOrNull())
         m_scriptObject = value.toObject(exec);
 

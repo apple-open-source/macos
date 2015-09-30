@@ -401,6 +401,7 @@
 				B41FC06009F6B7C200006FAE /* Products */,
 			);
 			sourceTree = "<group>";
+			usesTabs = 1;
 		};
 		B41FC06009F6B7C200006FAE /* Products */ = {
 			isa = PBXGroup;
@@ -825,26 +826,34 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		B41FC04309F6B74500006FAE /* Development */ = {
+		B41FC04309F6B74500006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 255;
+				CURRENT_PROJECT_VERSION = 1;
+				DYLIB_COMPATIBILITY_VERSION = 1.0;
+				DYLIB_CURRENT_VERSION = 1.3;
+				GCC_GENERATE_TEST_COVERAGE_FILES = YES;
+				GCC_INSTRUMENT_PROGRAM_FLOW_ARCS = YES;
 				STRIP_STYLE = debugging;
 				VALID_ARCHS = "i386 x86_64";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
-			name = Development;
+			name = Debug;
 		};
 		B41FC04409F6B74500006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DYLIB_COMPATIBILITY_VERSION = 1.0;
+				DYLIB_CURRENT_VERSION = 1.3;
 				VALID_ARCHS = "i386 x86_64";
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
-		B41FC05209F6B77E00006FAE /* Development */ = {
+		B41FC05209F6B77E00006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
@@ -853,7 +862,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = configure;
 			};
-			name = Development;
+			name = Debug;
 		};
 		B41FC05309F6B77E00006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -866,7 +875,7 @@
 			};
 			name = Release;
 		};
-		B41FC06209F6B7C300006FAE /* Development */ = {
+		B41FC06209F6B7C300006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
@@ -886,13 +895,12 @@
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
 		B41FC06309F6B7C300006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 255;
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
@@ -909,7 +917,7 @@
 			};
 			name = Release;
 		};
-		B41FC0E709F6BD8C00006FAE /* Development */ = {
+		B41FC0E709F6BD8C00006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
@@ -928,7 +936,7 @@
 				PRODUCT_NAME = xar;
 				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
 		B41FC0E809F6BD8C00006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -949,7 +957,7 @@
 			};
 			name = Release;
 		};
-		B41FC0F609F6BE7F00006FAE /* Development */ = {
+		B41FC0F609F6BE7F00006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
@@ -968,13 +976,12 @@
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
 		B41FC0F709F6BE7F00006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 255;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
@@ -990,7 +997,7 @@
 			};
 			name = Release;
 		};
-		B41FC12809F6BF3300006FAE /* Development */ = {
+		B41FC12809F6BF3300006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
@@ -998,7 +1005,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = OpenSource;
 			};
-			name = Development;
+			name = Debug;
 		};
 		B41FC12909F6BF3300006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1010,7 +1017,7 @@
 			};
 			name = Release;
 		};
-		B41FC13809F6BF7900006FAE /* Development */ = {
+		B41FC13809F6BF7900006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
@@ -1019,7 +1026,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = All;
 			};
-			name = Development;
+			name = Debug;
 		};
 		B41FC13909F6BF7900006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1032,12 +1039,12 @@
 			};
 			name = Release;
 		};
-		E9D659A51486FD650089C4DA /* Development */ = {
+		E9D659A51486FD650089C4DA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Development;
+			name = Debug;
 		};
 		E9D659A61486FD650089C4DA /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1046,12 +1053,12 @@
 			};
 			name = Release;
 		};
-		E9D659AD1486FFD10089C4DA /* Development */ = {
+		E9D659AD1486FFD10089C4DA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Development;
+			name = Debug;
 		};
 		E9D659AE1486FFD10089C4DA /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1060,7 +1067,7 @@
 			};
 			name = Release;
 		};
-		EEEFF3E20EFB6FD600DBC955 /* Development */ = {
+		EEEFF3E20EFB6FD600DBC955 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -1076,7 +1083,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = xarsig;
 			};
-			name = Development;
+			name = Debug;
 		};
 		EEEFF3E30EFB6FD600DBC955 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1101,7 +1108,7 @@
 		B41FC04209F6B74500006FAE /* Build configuration list for PBXProject "xar" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B41FC04309F6B74500006FAE /* Development */,
+				B41FC04309F6B74500006FAE /* Debug */,
 				B41FC04409F6B74500006FAE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1110,7 +1117,7 @@
 		B41FC05109F6B77E00006FAE /* Build configuration list for PBXAggregateTarget "configure" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B41FC05209F6B77E00006FAE /* Development */,
+				B41FC05209F6B77E00006FAE /* Debug */,
 				B41FC05309F6B77E00006FAE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1119,7 +1126,7 @@
 		B41FC06109F6B7C300006FAE /* Build configuration list for PBXNativeTarget "xarLib" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B41FC06209F6B7C300006FAE /* Development */,
+				B41FC06209F6B7C300006FAE /* Debug */,
 				B41FC06309F6B7C300006FAE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1128,7 +1135,7 @@
 		B41FC0E609F6BD8C00006FAE /* Build configuration list for PBXNativeTarget "xarTool" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B41FC0E709F6BD8C00006FAE /* Development */,
+				B41FC0E709F6BD8C00006FAE /* Debug */,
 				B41FC0E809F6BD8C00006FAE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1137,7 +1144,7 @@
 		B41FC0F509F6BE7F00006FAE /* Build configuration list for PBXNativeTarget "xarStatic" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B41FC0F609F6BE7F00006FAE /* Development */,
+				B41FC0F609F6BE7F00006FAE /* Debug */,
 				B41FC0F709F6BE7F00006FAE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1146,7 +1153,7 @@
 		B41FC12709F6BF3300006FAE /* Build configuration list for PBXAggregateTarget "OpenSource" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B41FC12809F6BF3300006FAE /* Development */,
+				B41FC12809F6BF3300006FAE /* Debug */,
 				B41FC12909F6BF3300006FAE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1155,7 +1162,7 @@
 		B41FC13709F6BF7900006FAE /* Build configuration list for PBXAggregateTarget "All libraries" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B41FC13809F6BF7900006FAE /* Development */,
+				B41FC13809F6BF7900006FAE /* Debug */,
 				B41FC13909F6BF7900006FAE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1164,7 +1171,7 @@
 		E9D659A41486FD650089C4DA /* Build configuration list for PBXAggregateTarget "All tools" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E9D659A51486FD650089C4DA /* Development */,
+				E9D659A51486FD650089C4DA /* Debug */,
 				E9D659A61486FD650089C4DA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1173,7 +1180,7 @@
 		E9D659AC1486FFD10089C4DA /* Build configuration list for PBXAggregateTarget "All" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E9D659AD1486FFD10089C4DA /* Development */,
+				E9D659AD1486FFD10089C4DA /* Debug */,
 				E9D659AE1486FFD10089C4DA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1182,7 +1189,7 @@
 		EEEFF3E50EFB6FDA00DBC955 /* Build configuration list for PBXNativeTarget "xarsig" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EEEFF3E20EFB6FD600DBC955 /* Development */,
+				EEEFF3E20EFB6FD600DBC955 /* Debug */,
 				EEEFF3E30EFB6FD600DBC955 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;

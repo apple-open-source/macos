@@ -29,18 +29,17 @@
 #if PLATFORM(IOS)
 
 #import "RemoteLayerTreeTransaction.h"
+#import "UIKitSPI.h"
 #import "ViewGestureController.h"
-#import "WebPageProxy.h"
+#import "WKAPICast.h"
 #import "WKBrowsingContextGroupPrivate.h"
 #import "WKContentView.h"
 #import "WKProcessGroupPrivate.h"
 #import "WKScrollView.h"
-#import "WKAPICast.h"
-#import <UIKit/UIImage_Private.h>
-#import <UIKit/UIPeripheralHost_Private.h>
+#import "WebPageGroup.h"
+#import "WebPageProxy.h"
+#import "WebProcessPool.h"
 #import <UIKit/UIScreen.h>
-#import <UIKit/UIScrollView_Private.h>
-#import <UIKit/UIWindow_Private.h>
 #import <wtf/RetainPtr.h>
 
 using namespace WebKit;
@@ -112,6 +111,11 @@ using namespace WebKit;
     
     if (!CGSizeEqualToSize(oldBounds.size, bounds.size))
         [self _frameOrBoundsChanged];
+}
+
+- (void)didMoveToWindow
+{
+    [_contentView page]->viewStateDidChange(WebCore::ViewState::AllFlags);
 }
 
 - (UIScrollView *)scrollView
@@ -225,7 +229,7 @@ using namespace WebKit;
     webPageConfiguration.pageGroup = toImpl(pageGroupRef);
     webPageConfiguration.relatedPage = toImpl(relatedPage);
 
-    _contentView = adoptNS([[WKContentView alloc] initWithFrame:bounds context:*toImpl(contextRef) configuration:WTF::move(webPageConfiguration) webView:nil]);
+    _contentView = adoptNS([[WKContentView alloc] initWithFrame:bounds processPool:*toImpl(contextRef) configuration:WTF::move(webPageConfiguration) wkView:self]);
 
     [[_contentView layer] setAnchorPoint:CGPointZero];
     [_contentView setFrame:bounds];
@@ -247,7 +251,6 @@ using namespace WebKit;
     WebPageProxy* webPageProxy = [_contentView page];
     WebCore::FloatSize size(bounds.size);
     webPageProxy->setViewportConfigurationMinimumLayoutSize(size);
-    webPageProxy->setViewportConfigurationMinimumLayoutSizeForMinimalUI(size);
     webPageProxy->setMaximumUnobscuredSize(size);
 
     [_scrollView setFrame:bounds];
@@ -338,6 +341,12 @@ using namespace WebKit;
 {
     _hasStaticMinimumLayoutSize = YES;
     _minimumLayoutSizeOverride = minimumLayoutSizeOverride;
+}
+
+- (void)_didRelaunchProcess
+{
+    // Update the WebView to our size rather than the default size it will have after being relaunched.
+    [self _frameOrBoundsChanged];
 }
 
 - (UIEdgeInsets)_obscuredInsets

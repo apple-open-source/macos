@@ -82,4 +82,9 @@
 #include <sys/_types/_wint_t.h>
 #endif /* !_ANSI_SOURCE && (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
+#if (defined (__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) \
+    || (defined(__cplusplus) && __cplusplus >= 201103L)
+typedef long double max_align_t;
+#endif
+
 #endif /* __STDDEF_H__ */

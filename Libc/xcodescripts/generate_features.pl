@@ -227,6 +227,12 @@ for my $arch (split(/ /, $ENV{"ARCHS"}))
 			printf HEADER "/* #undef XPRINTF_PERF */\n";
 		}
 
+		if (defined($features{"FEATURE_SIGNAL_RESTRICTION"})) {
+			printf HEADER "#define FEATURE_SIGNAL_RESTRICTION 1\n";
+		} else {
+			printf HEADER "/* #undef FEATURE_SIGNAL_RESTRICTION */\n";
+		}
+
 		printf HEADER "#endif // _LIBC_FEATURES_H_\n";
 		close HEADER;
 	}

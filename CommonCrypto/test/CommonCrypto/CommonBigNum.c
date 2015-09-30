@@ -23,9 +23,9 @@ static int testCreateFree()
     CCStatus status;
     CCBigNumRef stress[STRESSSIZE];
     for(size_t i=0; i<STRESSSIZE; i++) stress[i] = NULL;
+
     byteBuffer bb = hexStringToBytes("0102030405060708091011121314151617181920");
-    for(int i=0; i<100; i++) {
-        for(int j=0; j<100; j++) {
+    for(int i=0; i<10000; i++) {
             CCBigNumRef r = CCBigNumCreateRandom(&status, 31, 31, 0);
             ok(status == kCCSuccess, "Created Random Number");
             size_t ri = CCBigNumGetI(&status, r);
@@ -34,7 +34,7 @@ static int testCreateFree()
             ri %= STRESSSIZE;
 
             if(stress[ri] == NULL) {
-                int sel = ri % 4;
+                int sel = 4;
                 switch(sel) {
                     case 0: /* printf("(%lu) BigNum\n", ri); */ stress[ri] = CCCreateBigNum(&status); break;
                     case 1: /* printf("(%lu) FromHex\n", ri); */ stress[ri] = CCBigNumFromHexString(&status, "0003"); break;
@@ -48,8 +48,13 @@ static int testCreateFree()
                 stress[ri] = NULL;
             }
             CCBigNumFree(r);
-        }
     }
+    // Free allocated numbers
+    for(size_t i=0; i<STRESSSIZE; i++) {
+        if (stress[i] != NULL) CCBigNumFree(stress[i]);
+    }
+
+    free(bb);
     return 0;
 }
 
@@ -122,6 +127,7 @@ static int testData()
     ok(status == 0, "Value retrieved 2");
     
     ok(bytesAreEqual(bb, outbuf), "input == output");
+
     free(bb);
     free(outbuf);
     CCBigNumFree(num1);

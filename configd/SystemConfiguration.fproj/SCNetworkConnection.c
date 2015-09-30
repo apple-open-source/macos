@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2003-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -380,49 +380,59 @@ __SCNetworkConnectionQueue()
 
 
 static void
-__SCNetworkConnectionCallBackRunLoopPerform(SCNetworkConnectionRef connection,
-					    CFRunLoopRef rl,
-					    CFStringRef rl_mode,
-					    SCNetworkConnectionCallBack rlsFunction,
-					    void (*context_release)(const void *),
-					    void *context_info)
+__SCNetworkConnectionNotify(SCNetworkConnectionRef	connection,
+			    SCNetworkConnectionCallBack	rlsFunction,
+			    SCNetworkConnectionStatus	nc_status,
+			    void			(*context_release)(const void *),
+			    void			*context_info)
 {
-	SCNetworkConnectionStatus	nc_status	= kSCNetworkConnectionInvalid;
+	os_activity_t	activity_id;
+
+	activity_id = os_activity_start("processing SCNetworkConnection notification",
+					OS_ACTIVITY_FLAG_DEFAULT);
+	(*rlsFunction)(connection, nc_status, context_info);
+	if ((context_release != NULL) && (context_info != NULL)) {
+		(*context_release)(context_info);
+	}
+	os_activity_end(activity_id);
+
+	return;
+}
+
+
+static void
+__SCNetworkConnectionCallBackRunLoopPerform(SCNetworkConnectionRef		connection,
+					    CFRunLoopRef			rl,
+					    CFStringRef				rl_mode,
+					    SCNetworkConnectionCallBack		rlsFunction,
+					    void				(*context_release)(const void *),
+					    void				*context_info)
+{
+	SCNetworkConnectionStatus	nc_status;
 
 	nc_status = SCNetworkConnectionGetStatus(connection);
-	CFRunLoopPerformBlock(rl, rl_mode,
-			      ^{
-				      (*rlsFunction)(connection, nc_status, context_info);
-				      if ((context_release != NULL) && (context_info != NULL)) {
-					      (*context_release)(context_info);
-				      }
-				      CFRelease(rl);
-				      CFRelease(rl_mode);
-				      CFRelease(connection);
-			      });
+	CFRunLoopPerformBlock(rl, rl_mode, ^{
+		__SCNetworkConnectionNotify(connection, rlsFunction, nc_status, context_release, context_info);
+		CFRelease(connection);
+	});
 	CFRunLoopWakeUp(rl);
 	return;
 }
 
 static void
-__SCNetworkConnectionCallBackDispatchPerform(SCNetworkConnectionRef connection,
-					     dispatch_queue_t q,
-					     SCNetworkConnectionCallBack rlsFunction,
-					     void (*context_release)(const void *),
-					     void *context_info)
+__SCNetworkConnectionCallBackDispatchPerform(SCNetworkConnectionRef		connection,
+					     dispatch_queue_t			q,
+					     SCNetworkConnectionCallBack	rlsFunction,
+					     void				(*context_release)(const void *),
+					     void				*context_info)
 {
-	SCNetworkConnectionStatus	nc_status	= kSCNetworkConnectionInvalid;
+	SCNetworkConnectionStatus	nc_status;
 
 	nc_status = SCNetworkConnectionGetStatus(connection);
-	dispatch_async(q,
-		       ^{
-			       (*rlsFunction)(connection, nc_status, context_info);
-			       if ((context_release != NULL) && (context_info != NULL)) {
-				       (*context_release)(context_info);
-			       }
-			       dispatch_release(q);
-			       CFRelease(connection);
-		       });
+	dispatch_async(q, ^{
+		__SCNetworkConnectionNotify(connection, rlsFunction, nc_status, context_release, context_info);
+		CFRelease(connection);
+	});
 	return;
 }
 
@@ -467,10 +477,7 @@ __SCNetworkConnectionCallBack(void *connection)
 		pthread_mutex_unlock(&connectionPrivate->lock);
 
 		nc_status = SCNetworkConnectionGetStatus(connection);
-		(*rlsFunction)(connection, nc_status, context_info);
-		if ((context_release != NULL) && (context_info != NULL)) {
-			(*context_release)(context_info);
-		}
+		__SCNetworkConnectionNotify(connection, rlsFunction, nc_status, context_release, context_info);
 		CFRelease(connection); /* This releases the reference that we took in the NESessionEventStatusChanged event handler */
 		return;
 	}
@@ -496,10 +503,7 @@ __SCNetworkConnectionCallBack(void *connection)
 
 	if (!exec_async) {
 		nc_status = SCNetworkConnectionGetStatus(connection);
-		(*rlsFunction)(connection, nc_status, context_info);
-		if ((context_release != NULL) && (context_info != NULL)) {
-			(*context_release)(context_info);
-		}
+		__SCNetworkConnectionNotify(connection, rlsFunction, nc_status, context_release, context_info);
 		CFRelease(connection);
 		return;
 	}
@@ -508,11 +512,12 @@ __SCNetworkConnectionCallBack(void *connection)
 		assert(q != NULL);
 		dispatch_retain(q);
 		dispatch_async(__SCNetworkConnectionQueue(), ^{
-				       __SCNetworkConnectionCallBackDispatchPerform(connection,
-										    q,
-										    rlsFunction,
-										    context_release,
-										    context_info);
+		       __SCNetworkConnectionCallBackDispatchPerform(connection,
+								    q,
+								    rlsFunction,
+								    context_release,
+								    context_info);
+			dispatch_release(q);
 		});
 	} else {
 		assert(rl != NULL);
@@ -525,6 +530,8 @@ __SCNetworkConnectionCallBack(void *connection)
 								    rlsFunction,
 								    context_release,
 								    context_info);
+			CFRelease(rl);
+			CFRelease(rl_mode);
 		});
 	}
 
@@ -541,11 +548,13 @@ __SCNetworkConnectionMachCallBack(CFMachPortRef port, void * msg, CFIndex size, 
 
 	if (msgid == MACH_NOTIFY_NO_SENDERS) {
 		// re-establish notification
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCNetworkConnectionMachCallBack: PPPController server died"));
+		SC_log(LOG_INFO, "PPPController server died");
 		(void)__SCNetworkConnectionReconnectNotifications(connection);
 	}
 
 	__SCNetworkConnectionCallBack(info);
+
+	return;
 }
 
 
@@ -630,7 +639,9 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 		}
 
 		if (connectionPrivate->ne_session == NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnection failed to create an ne_session: service ID %@ is not a valid UUID"), serviceID);
+			SC_log(LOG_NOTICE,
+			       "SCNetworkConnection failed to create an ne_session: service ID %@ is not a valid UUID",
+			       serviceID);
 			goto fail;
 		}
 	}
@@ -678,9 +689,8 @@ __SCNetworkConnectionServerPort(kern_return_t *status)
 			break;
 		default :
 #ifdef	DEBUG
-			SCLog(_sc_verbose, LOG_DEBUG,
-			      CFSTR("SCNetworkConnection bootstrap_look_up() failed: status=%s"),
-			      bootstrap_strerror(*status));
+			SC_log(LOG_DEBUG, "bootstrap_look_up() failed: status=%s",
+			       bootstrap_strerror(*status));
 #endif	// DEBUG
 			break;
 	}
@@ -778,7 +788,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 			// allocate port (for server response)
 			status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &notify_port);
 			if (status != KERN_SUCCESS) {
-				SCLog(TRUE, LOG_ERR, CFSTR("__SCNetworkConnectionSessionPort mach_port_allocate(): %s"), mach_error_string(status));
+				SC_log(LOG_ERR, "mach_port_allocate() failed: %s", mach_error_string(status));
 				sc_status = status;
 				goto done;
 			}
@@ -789,7 +799,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 							notify_port,
 							MACH_MSG_TYPE_MAKE_SEND);
 			if (status != KERN_SUCCESS) {
-				SCLog(TRUE, LOG_ERR, CFSTR("__SCNetworkConnectionSessionPort mach_port_insert_right(): %s"), mach_error_string(status));
+				SC_log(LOG_NOTICE, "mach_port_insert_right() failed: %s", mach_error_string(status));
 				mach_port_mod_refs(mach_task_self(), notify_port, MACH_PORT_RIGHT_RECEIVE, -1);
 				sc_status = status;
 				goto done;
@@ -847,10 +857,9 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 #endif	// HAVE_PPPCONTROLLER_ATTACHWITHPROXY
 			if (status == KERN_SUCCESS) {
 				if (sc_status != kSCStatusOK) {
-					SCLog(TRUE, LOG_DEBUG,
-					      CFSTR("__SCNetworkConnectionSessionPort : attach w/error, sc_status=%s%s"),
-					      SCErrorString(sc_status),
-					      (connectionPrivate->session_port != MACH_PORT_NULL) ? ", w/session_port!=MACH_PORT_NULL" : "");
+					SC_log(LOG_DEBUG, "attach w/error, sc_status=%s%s",
+					       SCErrorString(sc_status),
+					       (connectionPrivate->session_port != MACH_PORT_NULL) ? ", w/session_port!=MACH_PORT_NULL" : "");
 
 					if (connectionPrivate->session_port != MACH_PORT_NULL) {
 						__MACH_PORT_DEBUG(TRUE,
@@ -872,7 +881,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 			}
 
 			// our [cached] server port is not valid
-			SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkConnectionSessionPort : !attach: %s"), SCErrorString(status));
+			SC_log(LOG_INFO, "!attach: %s", SCErrorString(status));
 			if (status == MACH_SEND_INVALID_DEST) {
 				// the server is not yet available
 				__MACH_PORT_DEBUG(TRUE, "*** __SCNetworkConnectionSessionPort notify_port (!dest)", notify_port);
@@ -934,14 +943,14 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 								MACH_MSG_TYPE_MAKE_SEND_ONCE,
 								&oldNotify);
 			if (status != KERN_SUCCESS) {
-				SCLog(TRUE, LOG_ERR, CFSTR("__SCNetworkConnectionSessionPort mach_port_request_notification(): %s"), mach_error_string(status));
+				SC_log(LOG_NOTICE, "mach_port_request_notification() failed: %s", mach_error_string(status));
 				mach_port_mod_refs(mach_task_self(), notify_port, MACH_PORT_RIGHT_RECEIVE, -1);
 				sc_status = status;
 				goto done;
 			}
 
 			if (oldNotify != MACH_PORT_NULL) {
-				SCLog(TRUE, LOG_ERR, CFSTR("__SCNetworkConnectionSessionPort(): oldNotify != MACH_PORT_NULL"));
+				SC_log(LOG_NOTICE, "oldNotify != MACH_PORT_NULL");
 			}
 
 			// create CFMachPort for SCNetworkConnection notification callback
@@ -985,14 +994,10 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 					  notify_port);
 			break;
 		case BOOTSTRAP_UNKNOWN_SERVICE :
-			SCLog(TRUE,
-			      (status == KERN_SUCCESS) ? LOG_DEBUG : LOG_ERR,
-			      CFSTR("PPPController not available"));
+			SC_log((status == KERN_SUCCESS) ? LOG_NOTICE : LOG_ERR, "PPPController not available");
 			break;
 		default :
-			SCLog(TRUE,
-			      (status == KERN_SUCCESS) ? LOG_DEBUG : LOG_ERR,
-			      CFSTR("__SCNetworkConnectionSessionPort pppcontroller_attach(): %s"),
+			SC_log((status == KERN_SUCCESS) ? LOG_NOTICE : LOG_ERR, "pppcontroller_attach() failed: %s",
 			      SCErrorString(sc_status));
 			break;
 	}
@@ -1083,18 +1088,18 @@ __SCNetworkConnectionReconnectNotifications(SCNetworkConnectionRef connection)
 
 			ok = SCNetworkConnectionScheduleWithRunLoop(connection, rl, rlMode);
 			if (!ok) {
-				SCLog((SCError() != BOOTSTRAP_UNKNOWN_SERVICE),
-				      LOG_ERR,
-				      CFSTR("__SCNetworkConnectionReconnectNotifications: SCNetworkConnectionScheduleWithRunLoop() failed"));
+				if (SCError() != BOOTSTRAP_UNKNOWN_SERVICE) {
+					SC_log(LOG_NOTICE, "SCNetworkConnectionScheduleWithRunLoop() failed");
+				}
 				goto done;
 			}
 		}
 	} else if (dispatchQueue != NULL) {
 		ok = SCNetworkConnectionSetDispatchQueue(connection, dispatchQueue);
 		if (!ok) {
-			SCLog((SCError() != BOOTSTRAP_UNKNOWN_SERVICE),
-			      LOG_ERR,
-			      CFSTR("__SCNetworkConnectionReconnectNotifications: SCNetworkConnectionSetDispatchQueue() failed"));
+			if (SCError() != BOOTSTRAP_UNKNOWN_SERVICE) {
+				SC_log(LOG_NOTICE, "SCNetworkConnectionSetDispatchQueue() failed");
+			}
 			goto done;
 		}
 	} else {
@@ -1112,9 +1117,8 @@ __SCNetworkConnectionReconnectNotifications(SCNetworkConnectionRef connection)
 	}
 
 	if (!ok) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCNetworkConnection server %s, notification not restored"),
-		      (SCError() == BOOTSTRAP_UNKNOWN_SERVICE) ? "shutdown" : "failed");
+		SC_log(LOG_NOTICE, "SCNetworkConnection server %s, notification not restored",
+		       (SCError() == BOOTSTRAP_UNKNOWN_SERVICE) ? "shutdown" : "failed");
 	}
 
 	return ok;
@@ -1138,7 +1142,7 @@ __SCNetworkConnectionNeedsRetry(SCNetworkConnectionRef	connection,
 		(void) mach_port_deallocate(mach_task_self(), connectionPrivate->session_port);
 	} else {
 		// we got an unexpected error, leave the [session] port alone
-		SCLog(TRUE, LOG_ERR, CFSTR("%s: %s"), error_label, mach_error_string(status));
+		SC_log(LOG_NOTICE, "%s: %s", error_label, mach_error_string(status));
 	}
 	connectionPrivate->session_port = MACH_PORT_NULL;
 	if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
@@ -1760,7 +1764,7 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 	if (debug > 0) {
 		CFMutableDictionaryRef	mdict = NULL;
 
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionStart (%p)"), connectionPrivate);
+		SC_log(LOG_INFO, "SCNetworkConnectionStart (%p)", connectionPrivate);
 
 		if (userOptions != NULL) {
 			CFDictionaryRef		dict;
@@ -1807,7 +1811,7 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 			}
 		}
 
-		SCLog(TRUE, LOG_DEBUG, CFSTR("User options: %@"), mdict);
+		SC_log(LOG_INFO, "User options: %@", mdict);
 		if (mdict != NULL) CFRelease(mdict);
 	}
 
@@ -1848,6 +1852,9 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 			ne_session_start_with_options(connectionPrivate->ne_session, xuser_options);
 		}
 
+		/* make sure the xpc_message goes through */
+		ne_session_send_barrier(connectionPrivate->ne_session);
+
 		if (xuser_options != NULL) {
 			xpc_release(xuser_options);
 		}
@@ -1884,7 +1891,7 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 	if (dataref)	CFRelease(dataref);
 
 	if (debug > 0) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionStart (%p), return: %d"), connectionPrivate, sc_status);
+		SC_log(LOG_INFO, "SCNetworkConnectionStart (%p), return: %d", connectionPrivate, sc_status);
 	}
 
 	if (sc_status != kSCStatusOK) {
@@ -1917,7 +1924,7 @@ SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
 	}
 
 	if (debug > 0) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionStop (%p)"), connectionPrivate);
+		SC_log(LOG_INFO, "SCNetworkConnectionStop (%p)", connectionPrivate);
 	}
 
 	pthread_mutex_lock(&connectionPrivate->lock);
@@ -1925,6 +1932,8 @@ SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
 #if !TARGET_IPHONE_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		ne_session_stop(connectionPrivate->ne_session);
+		/* make sure the xpc_message goes through */
+		ne_session_send_barrier(connectionPrivate->ne_session);
 		ok = TRUE;
 		goto done;
 	}
@@ -1946,7 +1955,7 @@ SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
 	}
 
 	if (debug > 0) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionStop (%p), return: %d"), connectionPrivate, sc_status);
+		SC_log(LOG_INFO, "SCNetworkConnectionStop (%p), return: %d", connectionPrivate, sc_status);
 	}
 
 	if (sc_status != kSCStatusOK) {
@@ -1979,7 +1988,7 @@ SCNetworkConnectionSuspend(SCNetworkConnectionRef connection)
 	}
 
 	if (debug > 0) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionSuspend (%p)"), connectionPrivate);
+		SC_log(LOG_INFO, "SCNetworkConnectionSuspend (%p)", connectionPrivate);
 	}
 
 	pthread_mutex_lock(&connectionPrivate->lock);
@@ -2008,7 +2017,7 @@ SCNetworkConnectionSuspend(SCNetworkConnectionRef connection)
 	}
 
 	if (debug > 0) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionSuspend (%p), return: %d"), connectionPrivate, sc_status);
+		SC_log(LOG_INFO, "SCNetworkConnectionSuspend (%p), return: %d", connectionPrivate, sc_status);
 	}
 
 	if (sc_status != kSCStatusOK) {
@@ -2041,7 +2050,7 @@ SCNetworkConnectionResume(SCNetworkConnectionRef connection)
 	}
 
 	if (debug > 0) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionResume (%p)"), connectionPrivate);
+		SC_log(LOG_INFO, "SCNetworkConnectionResume (%p)", connectionPrivate);
 	}
 
 	pthread_mutex_lock(&connectionPrivate->lock);
@@ -2070,7 +2079,7 @@ SCNetworkConnectionResume(SCNetworkConnectionRef connection)
 	}
 
 	if (debug > 0) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionResume (%p), return: %d"), connectionPrivate, sc_status);
+		SC_log(LOG_INFO, "SCNetworkConnectionResume (%p), return: %d", connectionPrivate, sc_status);
 	}
 
 	if (sc_status != kSCStatusOK) {
@@ -2105,7 +2114,7 @@ SCNetworkConnectionRefreshOnDemandState(SCNetworkConnectionRef connection)
 	}
 
 	if (debug > 0) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionRefreshOnDemandState (%p)"), connectionPrivate);
+		SC_log(LOG_INFO, "SCNetworkConnectionRefreshOnDemandState (%p)", connectionPrivate);
 	}
 
 	pthread_mutex_lock(&connectionPrivate->lock);
@@ -2133,10 +2142,10 @@ SCNetworkConnectionRefreshOnDemandState(SCNetworkConnectionRef connection)
 
 		if (status == MACH_SEND_INVALID_DEST) {
 			// the server is not yet available
-			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnectionRefreshOnDemandState (!dest) (%p)"), connectionPrivate);
+			SC_log(LOG_NOTICE, "SCNetworkConnectionRefreshOnDemandState (!dest) (%p)", connectionPrivate);
 		} else if (status == MIG_SERVER_DIED) {
 			// the server we were using is gone
-			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnectionRefreshOnDemandState (!mig) (%p)"), connectionPrivate);
+			SC_log(LOG_NOTICE, "SCNetworkConnectionRefreshOnDemandState (!mig) (%p)", connectionPrivate);
 		} else {
 			// if we got an unexpected error, don't retry
 			sc_status = status;
@@ -2145,7 +2154,7 @@ SCNetworkConnectionRefreshOnDemandState(SCNetworkConnectionRef connection)
 	}
 
 	if (debug > 0) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionRefreshOnDemandState (%p), return: %d/%d"), connectionPrivate, status, sc_status);
+		SC_log(LOG_INFO, "SCNetworkConnectionRefreshOnDemandState (%p), return: %d/%d", connectionPrivate, status, sc_status);
 	}
 
 	if (sc_status != kSCStatusOK) {
@@ -2361,7 +2370,7 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 			mp = CFMachPortGetPort(connectionPrivate->notify_port);
 			source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, mp, 0, queue);
 			if (source == NULL) {
-				SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnection dispatch_source_create() failed"));
+				SC_log(LOG_NOTICE, "dispatch_source_create() failed");
 				_SCErrorSet(kSCStatusFailed);
 				goto done;
 			}
@@ -2391,9 +2400,7 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 					      MACH_MSG_TIMEOUT_NONE,	// timeout
 					      MACH_PORT_NULL);		// notify
 				if (kr != KERN_SUCCESS) {
-					SCLog(TRUE, LOG_ERR,
-					      CFSTR("SCDynamicStore notification handler, kr=0x%x"),
-					      kr);
+					SC_log(LOG_NOTICE, "SCDynamicStore notification handler, kr=0x%x", kr);
 					return;
 				}
 
@@ -2441,7 +2448,9 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 					CFRunLoopSourceSignal(connectionPrivate->rls);
 					_SC_signalRunLoop(connection, connectionPrivate->rls, connectionPrivate->rlList);
 				} else if (connectionPrivate->dispatchQueue != NULL) {
-					dispatch_async(connectionPrivate->dispatchQueue, ^{ __SCNetworkConnectionCallBack((void *)connection); });
+					dispatch_async(connectionPrivate->dispatchQueue, ^{
+						__SCNetworkConnectionCallBack((void *)connection);
+					});
 				}
 				pthread_mutex_unlock(&connectionPrivate->lock);
 			} else if (event == NESessionEventCanceled) {
@@ -2675,26 +2684,26 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 	CFIndex hostnameSize = 0;
 	pid_t pid = getpid();
 	uid_t uid = geteuid();
-	
+
 	/* Require hostName, require non-root user */
 	if (hostName == NULL || geteuid() == 0) {
 		goto done;
 	}
-	
+
 	hostnameSize = CFStringGetLength(hostName);
 	if (hostnameSize == 0) {
 		goto done;
 	}
-	
+
 	hostname = malloc(hostnameSize + 1);
 	CFStringGetCString(hostName, hostname, hostnameSize + 1, kCFStringEncodingUTF8);
-	
+
 	if (proc_pidinfo(pid, PROC_PIDUNIQIDENTIFIERINFO, 1, &procu, sizeof(procu)) != sizeof(procu)) {
 		goto done;
 	}
-	
+
 	policy_match = ne_session_copy_policy_match(hostname, NULL, NULL, procu.p_uuid, procu.p_uuid, pid, uid, 0, trafficClass);
-	
+
 	NEPolicyServiceActionType action_type = ne_session_policy_match_get_service_action(policy_match);
 	if (action_type == NESessionPolicyActionTrigger ||
 	    (afterDNSFail && action_type == NESessionPolicyActionTriggerIfNeeded)) {
@@ -2704,7 +2713,7 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 			if (start_options != NULL) {
 				xpc_dictionary_set_bool(start_options, NESessionStartOptionIsOnDemandKey, true);
 				xpc_dictionary_set_string(start_options, NESessionStartOptionMatchHostnameKey, hostname);
-				
+
 				ne_session_t new_session = ne_session_create(config_id, ne_session_policy_match_get_service_type(policy_match));
 				if (new_session != NULL) {
 					dispatch_semaphore_t wait_for_session = dispatch_semaphore_create(0);
@@ -2716,6 +2725,11 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 								dispatch_retain(wait_for_session);
 								ne_session_set_event_handler(new_session, __SCNetworkConnectionQueue(),
 									^(ne_session_event_t event, void *event_data) {
+										os_activity_t	activity_id;
+
+										activity_id = os_activity_start("processing ne_session notification",
+														OS_ACTIVITY_FLAG_DEFAULT);
+
 										if (event == NESessionEventStatusChanged) {
 											dispatch_retain(wait_for_session);
 											ne_session_get_status(new_session, __SCNetworkConnectionQueue(),
@@ -2732,6 +2746,8 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 											dispatch_semaphore_signal(wait_for_session);
 											dispatch_release(wait_for_session);
 										}
+
+										os_activity_end(activity_id);
 									});
 								ne_session_start_with_options(new_session, start_options);
 							} else {
@@ -2744,7 +2760,7 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 					dispatch_release(wait_for_session);
 					ne_session_release(new_session);
 				}
-				
+
 				xpc_release(start_options);
 			}
 		}
@@ -2753,7 +2769,7 @@ done:
 	if (hostname) {
 		free(hostname);
 	}
-	
+
 	if (policy_match) {
 		free(policy_match);
 	}
@@ -2885,128 +2901,13 @@ SCNetworkConnectionGetType(SCNetworkConnectionRef connection)
 }
 
 
-static Boolean
-validate_flow_properties(CFDictionaryRef flowProperties)
-{
-	CFStringRef			host_name_str;
-	CFDataRef			host_address_data;
-	CFNumberRef			host_port_num;
-
-	if (!isA_CFDictionary(flowProperties)) {
-		return FALSE;
-	}
-
-	/* Validate the host name if one was given */
-	host_name_str = CFDictionaryGetValue(flowProperties, kSCNetworkConnectionFlowPropertyHostName);
-	if (host_name_str != NULL && (!isA_CFString(host_name_str) || CFStringGetLength(host_name_str) == 0)) {
-		return FALSE;
-	}
-
-	/* Validate the address if one was given */
-	host_address_data = CFDictionaryGetValue(flowProperties, kSCNetworkConnectionFlowPropertyHostAddress);
-	if (host_address_data != NULL) {
-		struct sockaddr *sock_addr;
-
-		if (!isA_CFData(host_address_data) || CFDataGetLength(host_address_data) < sizeof(struct sockaddr)) {
-			return FALSE;
-		}
-
-		sock_addr = (struct sockaddr *)CFDataGetBytePtr(host_address_data);
-		if (CFDataGetLength(host_address_data) < sock_addr->sa_len) {
-			return FALSE;
-		}
-
-		if (sock_addr->sa_family == AF_INET) {
-			if (sock_addr->sa_len >= sizeof(struct sockaddr_in)) {
-				struct sockaddr_in *sa_in = (struct sockaddr_in *)(void *)sock_addr;
-				in_addr_t any = { INADDR_ANY };
-				if (memcmp(&sa_in->sin_addr, &any, sizeof(any)) == 0) {
-					return FALSE;
-				}
-			} else {
-				return FALSE;
-			}
-		} else if (sock_addr->sa_family == AF_INET6) {
-			if (sock_addr->sa_len >= sizeof(struct sockaddr_in6)) {
-				struct sockaddr_in6 *sa_in6 = (struct sockaddr_in6 *)(void *)sock_addr;
-				struct in6_addr any = IN6ADDR_ANY_INIT;
-				if (memcmp(&sa_in6->sin6_addr, &any, sizeof(any)) == 0) {
-					return FALSE;
-				}
-			}
-		}
-	}
-
-	/* We must have either a host name or an address */
-	if (host_name_str == NULL && host_address_data == NULL) {
-		return FALSE;
-	}
-
-	/* Validate the port */
-	host_port_num = CFDictionaryGetValue(flowProperties, kSCNetworkConnectionFlowPropertyHostPort);
-	if (host_port_num != NULL) {
-		int num;
-		if (!isA_CFNumber(host_port_num) || !CFNumberGetValue(host_port_num, kCFNumberIntType, &num)) {
-			return FALSE;
-		}
-
-		if (num == 0) {
-			return FALSE;
-		}
-	} else {
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-
 CFDataRef
 SCNetworkConnectionCopyFlowDivertToken(SCNetworkConnectionRef	connection,
 				       CFDictionaryRef		flowProperties)
 {
-	CFDictionaryRef			app_properties		= NULL;
-	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
-	CFDataRef			token			= NULL;
-
-	if (!isA_SCNetworkConnection(connection)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		goto done;
-	}
-
-	if (connectionPrivate->service == NULL) {
-		_SCErrorSet(kSCStatusConnectionNoService);
-		goto done;
-	}
-
-	if (connectionPrivate->type != kSCNetworkConnectionTypeAppLayerVPN) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		goto done;
-	}
-
-	if (!validate_flow_properties(flowProperties)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		goto done;
-	}
-
-	app_properties = VPNAppLayerCopyCachedAppProperties(connectionPrivate->client_audit_token,
-							    connectionPrivate->client_pid,
-							    connectionPrivate->client_uuid,
-							    connectionPrivate->client_bundle_id);
-	if (app_properties == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnectionCopyFlowDivertToken: no cached app properties available"));
-		_SCErrorSet(kSCStatusFailed);
-		goto done;
-	}
-
-	token = VPNAppLayerCreateFlowDivertToken(connection, app_properties, flowProperties);
-
-done:
-	if (app_properties != NULL) {
-		CFRelease(app_properties);
-	}
-
-	return token;
+#pragma unused(connection, flowProperties)
+	_SCErrorSet(kSCStatusFailed);
+	return NULL;
 }
 
 
@@ -3255,7 +3156,7 @@ __SCNetworkConnectionCopyOnDemandConfiguration(void)
 	if (onDemand_notify_token == -1) {
 		status = notify_register_check(kSCNETWORKCONNECTION_ONDEMAND_NOTIFY_KEY, &onDemand_notify_token);
 		if (status != NOTIFY_STATUS_OK) {
-			SCLog(TRUE, LOG_ERR, CFSTR("notify_register_check() failed, status=%d"), status);
+			SC_log(LOG_NOTICE, "notify_register_check() failed, status=%d", status);
 			onDemand_notify_token = -1;
 		}
 	}
@@ -3263,7 +3164,7 @@ __SCNetworkConnectionCopyOnDemandConfiguration(void)
 	if (onDemand_notify_token != -1) {
 		status = notify_check(onDemand_notify_token, &changed);
 		if (status != NOTIFY_STATUS_OK) {
-			SCLog(TRUE, LOG_ERR, CFSTR("notify_check() failed, status=%d"), status);
+			SC_log(LOG_NOTICE, "notify_check() failed, status=%d", status);
 			(void)notify_cancel(onDemand_notify_token);
 			onDemand_notify_token = -1;
 		}
@@ -3272,7 +3173,7 @@ __SCNetworkConnectionCopyOnDemandConfiguration(void)
 	if (changed && (onDemand_notify_token != -1)) {
 		status = notify_get_state(onDemand_notify_token, &triggersCount);
 		if (status != NOTIFY_STATUS_OK) {
-			SCLog(TRUE, LOG_ERR, CFSTR("notify_get_state() failed, status=%d"), status);
+			SC_log(LOG_NOTICE, "notify_get_state() failed, status=%d", status);
 			(void)notify_cancel(onDemand_notify_token);
 			onDemand_notify_token = -1;
 		}
@@ -3281,11 +3182,8 @@ __SCNetworkConnectionCopyOnDemandConfiguration(void)
 	if (changed || onDemand_force_refresh) {
 		CFStringRef	key;
 
-		if (_sc_debug || (debug > 0)) {
-			SCLog(TRUE, LOG_INFO,
-			      CFSTR("OnDemand information %s"),
-			      (onDemand_configuration == NULL) ? "fetched" : "updated");
-		}
+		SC_log(LOG_INFO, "OnDemand information %s",
+		       (onDemand_configuration == NULL) ? "fetched" : "updated");
 
 		if (onDemand_configuration != NULL) {
 			CFRelease(onDemand_configuration);
@@ -3343,9 +3241,7 @@ __SCNetworkConnectionShouldNeverMatch(CFDictionaryRef trigger, CFStringRef hostN
 		exception = CFArrayGetValueAtIndex(exceptions, exceptionsIndex);
 		if (isA_CFString(exception) && _SC_domainEndsWithDomain(hostName, exception)) {
 			// found matching exception
-			if (_sc_debug || (debug > 0)) {
-				SCLog(TRUE, LOG_INFO, CFSTR("OnDemand match exception"));
-			}
+			SC_log(LOG_INFO, "OnDemand match exception");
 			return TRUE;
 		}
 	}
@@ -3764,8 +3660,8 @@ __SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
 			if ((*connectionServiceID != NULL) && (CFStringGetLength(*connectionServiceID) > 0)) {
 				CFRetain(*connectionServiceID);
 			} else {
-				SCLog(TRUE, LOG_INFO, CFSTR("OnDemand%s configuration error, no serviceID"),
-				      onDemandRetry ? " (on retry)" : "");
+				SC_log(LOG_INFO, "OnDemand%s configuration error, no serviceID",
+				       onDemandRetry ? " (on retry)" : "");
 				*connectionServiceID = NULL;
 				ok = FALSE;
 			}
@@ -3777,8 +3673,8 @@ __SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
 			if ((*vpnRemoteAddress != NULL) && (CFStringGetLength(*vpnRemoteAddress) > 0)) {
 				CFRetain(*vpnRemoteAddress);
 			} else {
-				SCLog(TRUE, LOG_INFO, CFSTR("OnDemand%s configuration error, no server address"),
-				      onDemandRetry ? " (on retry)" : "");
+				SC_log(LOG_INFO, "OnDemand%s configuration error, no server address",
+				       onDemandRetry ? " (on retry)" : "");
 				*vpnRemoteAddress = NULL;
 				ok = FALSE;
 			}
@@ -3795,11 +3691,9 @@ __SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
 			}
 			sc_status = kSCStatusFailed;
 		} else {
-			if (_sc_debug || (debug > 0)) {
-				SCLog(TRUE, LOG_INFO, CFSTR("OnDemand%s match, connection status = %d"),
-				      onDemandRetry ? " (on retry)" : "",
-				      onDemandStatus);
-			}
+			SC_log(LOG_INFO, "OnDemand%s match, connection status = %d",
+			       onDemandRetry ? " (on retry)" : "",
+			       onDemandStatus);
 		}
 	}
 
@@ -3807,9 +3701,7 @@ __SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
 		CFRelease(trigger);
 	}
 
-//	if (_sc_debug || (debug > 0)) {
-//		SCLog(TRUE, LOG_INFO, CFSTR("OnDemand domain name(s) not matched"));
-//	}
+//	SC_log(LOG_INFO, "OnDemand domain name(s) not matched");
 
 	if (configuration != NULL) CFRelease(configuration);
 	if (!ok) {
@@ -3830,7 +3722,7 @@ __SCNetworkConnectionCopyUserPreferencesInternal(CFDictionaryRef	selectionOption
 	if (notify_userprefs_token == -1) {
 		status = notify_register_check(k_NetworkConnect_Notification, &notify_userprefs_token);
 		if (status != NOTIFY_STATUS_OK) {
-			SCLog(TRUE, LOG_ERR, CFSTR("notify_register_check() failed, status=%d"), status);
+			SC_log(LOG_NOTICE, "notify_register_check() failed, status=%d", status);
 			(void)notify_cancel(notify_userprefs_token);
 			notify_userprefs_token = -1;
 		} else {
@@ -3842,7 +3734,7 @@ __SCNetworkConnectionCopyUserPreferencesInternal(CFDictionaryRef	selectionOption
 	if (notify_userprefs_token != -1) {
 		status = notify_check(notify_userprefs_token, &prefsChanged);
 		if (status != NOTIFY_STATUS_OK) {
-			SCLog(TRUE, LOG_ERR, CFSTR("notify_check() failed, status=%d"), status);
+			SC_log(LOG_NOTICE, "notify_check() failed, status=%d", status);
 			(void)notify_cancel(notify_userprefs_token);
 			notify_userprefs_token = -1;
 		}
@@ -4002,8 +3894,8 @@ __SCNetworkConnectionCopyUserPreferencesInternal(CFDictionaryRef	selectionOption
 		}
 
 		if (debug > 1) {
-			SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionCopyUserPreferences %@"), success ? CFSTR("succeeded") : CFSTR("failed"));
-			SCLog(TRUE, LOG_DEBUG, CFSTR("Selection options: %@"), selectionOptions);
+			SC_log(LOG_INFO, "SCNetworkConnectionCopyUserPreferences %s", success ? "succeeded" : "failed");
+			SC_log(LOG_INFO, "Selection options: %@", selectionOptions);
 		}
 
 		return success;
@@ -4029,7 +3921,7 @@ __SCNetworkConnectionCopyUserPreferencesInternal(CFDictionaryRef	selectionOption
 					addPasswordFromKeychain(*serviceID, userOptions);
 				}
 			} else {
-				SCLog(TRUE, LOG_DEBUG, CFSTR("Error, userServices are not of type CFArray!"));
+				SC_log(LOG_INFO, "Error, userServices are not of type CFArray!");
 			}
 
 			CFRelease(userServices); // this is OK because SCNetworkConnectionPrivateISExpectedCFType() checks for NULL
@@ -4037,7 +3929,8 @@ __SCNetworkConnectionCopyUserPreferencesInternal(CFDictionaryRef	selectionOption
 	}
 
 	if (debug > 1) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionCopyUserPreferences %@, no selection options"), success ? CFSTR("succeeded") : CFSTR("failed"));
+		SC_log(LOG_INFO, "SCNetworkConnectionCopyUserPreferences %@, no selection options",
+		       success ? CFSTR("succeeded") : CFSTR("failed"));
 	}
 
 	return success;
@@ -4076,10 +3969,9 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 										&connectionStatus,
 										NULL);
 			if (debug > 1) {
-				SCLog(TRUE, LOG_DEBUG,
-				      CFSTR("SCNetworkConnectionCopyUserPreferences __SCNetworkConnectionCopyOnDemandInfoWithName returns %d w/status %d"),
-				      success,
-				      connectionStatus);
+				SC_log(LOG_INFO, "__SCNetworkConnectionCopyOnDemandInfoWithName: return %d, status %d",
+				       success,
+				       connectionStatus);
 			}
 
 			if (success) {
@@ -5040,7 +4932,6 @@ __SCNetworkConnectionGetControllerPortName(void)
 		else{
 			scnc_server_name = PPPCONTROLLER_SERVER;
 		}
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkConnectionGetControllerPortName() returns port: %s"), scnc_server_name);
 	}
 #else
 	scnc_server_name = PPPCONTROLLER_SERVER;

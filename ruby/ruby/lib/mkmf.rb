@@ -189,21 +189,21 @@ module MakeMakefile
       ]
     elsif $configure_args.has_key?('--vendor')
       dirs = [
-        ['BINDIR',        '$(DESTDIR)$(bindir)'],
-        ['RUBYCOMMONDIR', '$(DESTDIR)$(vendordir)$(target_prefix)'],
-        ['RUBYLIBDIR',    '$(DESTDIR)$(vendorlibdir)$(target_prefix)'],
-        ['RUBYARCHDIR',   '$(DESTDIR)$(vendorarchdir)$(target_prefix)'],
-        ['HDRDIR',        '$(DESTDIR)$(rubyhdrdir)/ruby$(target_prefix)'],
-        ['ARCHHDRDIR',    '$(DESTDIR)$(rubyhdrdir)/$(arch)/ruby$(target_prefix)'],
+        ['BINDIR',        '$(bindir)'],
+        ['RUBYCOMMONDIR', '$(vendordir)$(target_prefix)'],
+        ['RUBYLIBDIR',    '$(vendorlibdir)$(target_prefix)'],
+        ['RUBYARCHDIR',   '$(vendorarchdir)$(target_prefix)'],
+        ['HDRDIR',        '$(rubyhdrdir)/ruby$(target_prefix)'],
+        ['ARCHHDRDIR',    '$(rubyhdrdir)/$(arch)/ruby$(target_prefix)'],
       ]
     else
       dirs = [
-        ['BINDIR',        '$(DESTDIR)$(bindir)'],
-        ['RUBYCOMMONDIR', '$(DESTDIR)$(sitedir)$(target_prefix)'],
-        ['RUBYLIBDIR',    '$(DESTDIR)$(sitelibdir)$(target_prefix)'],
-        ['RUBYARCHDIR',   '$(DESTDIR)$(sitearchdir)$(target_prefix)'],
-        ['HDRDIR',        '$(DESTDIR)$(rubyhdrdir)/ruby$(target_prefix)'],
-        ['ARCHHDRDIR',    '$(DESTDIR)$(rubyhdrdir)/$(arch)/ruby$(target_prefix)'],
+        ['BINDIR',        '$(bindir)'],
+        ['RUBYCOMMONDIR', '$(sitedir)$(target_prefix)'],
+        ['RUBYLIBDIR',    '$(sitelibdir)$(target_prefix)'],
+        ['RUBYARCHDIR',   '$(sitearchdir)$(target_prefix)'],
+        ['HDRDIR',        '$(rubyhdrdir)/ruby$(target_prefix)'],
+        ['ARCHHDRDIR',    '$(rubyhdrdir)/$(arch)/ruby$(target_prefix)'],
       ]
     end
     dirs << ['target_prefix', (target_prefix ? "/#{target_prefix}" : "")]
@@ -588,9 +588,7 @@ MSG
   end
 
   def try_cppflags(flags)
-    with_cppflags(flags) do
-      try_header("int main() {return 0;}")
-    end
+    try_header(MAIN_DOES_NOTHING, flags)
   end
 
   def with_cflags(flags)
@@ -602,9 +600,7 @@ MSG
   end
 
   def try_cflags(flags)
-    with_cflags(flags) do
-      try_compile("int main() {return 0;}")
-    end
+    try_compile(MAIN_DOES_NOTHING, flags)
   end
 
   def with_ldflags(flags)
@@ -616,9 +612,7 @@ MSG
   end
 
   def try_ldflags(flags)
-    with_ldflags(flags) do
-      try_link("int main() {return 0;}")
-    end
+    try_link(MAIN_DOES_NOTHING, flags)
   end
 
   def try_static_assert(expr, headers = nil, opt = "", &b)
@@ -1727,6 +1721,7 @@ SRC
       libs = get['libs-only-l']
       ldflags = (Shellwords.shellwords(ldflags) - Shellwords.shellwords(libs)).quote.join(" ")
       $CFLAGS += " " << cflags
+      $CXXFLAGS += " " << cflags
       $LDFLAGS = [orig_ldflags, ldflags].join(' ')
       $libs += " " << libs
       Logging::message "package configuration for %s\n", pkg
@@ -1740,7 +1735,6 @@ SRC
   end
 
   def with_destdir(dir)
-    return dir unless $extmk
     dir = dir.sub($dest_prefix_pattern, '')
     /\A\$[\(\{]/ =~ dir ? dir : "$(DESTDIR)"+dir
   end
@@ -1859,7 +1853,7 @@ CFLAGS   = $(CCDLFLAGS) #$CFLAGS $(ARCH_FLAG)
 INCFLAGS = -I. #$INCFLAGS
 DEFS     = #{CONFIG['DEFS']}
 CPPFLAGS = #{extconf_h}#{$CPPFLAGS}
-CXXFLAGS = $(CCDLFLAGS) #{CONFIG['CXXFLAGS']} $(ARCH_FLAG)
+CXXFLAGS = $(CCDLFLAGS) #$CXXFLAGS $(ARCH_FLAG)
 ldflags  = #{$LDFLAGS}
 dldflags = #{$DLDFLAGS} #{CONFIG['EXTDLDFLAGS']}
 ARCH_FLAG = #{$ARCH_FLAG}
@@ -2339,6 +2333,7 @@ site-install-rb: install-rb
       $warnflags = config['warnflags'] unless $extmk
     end
     $CFLAGS = with_config("cflags", arg_config("CFLAGS", config["CFLAGS"])).dup
+    $CXXFLAGS = (with_config("cxxflags", arg_config("CXXFLAGS", config["CXXFLAGS"]))||'').dup
     $ARCH_FLAG = with_config("arch_flag", arg_config("ARCH_FLAG", config["ARCH_FLAG"])).dup
     $CPPFLAGS = with_config("cppflags", arg_config("CPPFLAGS", config["CPPFLAGS"])).dup
     $LDFLAGS = with_config("ldflags", arg_config("LDFLAGS", config["LDFLAGS"])).dup

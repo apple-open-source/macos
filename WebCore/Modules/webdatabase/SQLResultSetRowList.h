@@ -29,8 +29,6 @@
 #ifndef SQLResultSetRowList_h
 #define SQLResultSetRowList_h
 
-#if ENABLE(SQL_DATABASE)
-
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include "SQLValue.h"
@@ -39,7 +37,7 @@ namespace WebCore {
 
 class SQLResultSetRowList : public RefCounted<SQLResultSetRowList> {
 public:
-    static PassRefPtr<SQLResultSetRowList> create() { return adoptRef(new SQLResultSetRowList); }
+    static Ref<SQLResultSetRowList> create() { return adoptRef(*new SQLResultSetRowList); }
 
     const Vector<String>& columnNames() const { return m_columns; }
     const Vector<SQLValue>& values() const { return m_result; }
@@ -57,7 +55,5 @@ private:
 };
 
 }
-
-#endif
 
 #endif

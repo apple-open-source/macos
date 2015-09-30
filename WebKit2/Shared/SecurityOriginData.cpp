@@ -27,9 +27,9 @@
 #include "SecurityOriginData.h"
 
 #include "APIArray.h"
+#include "APISecurityOrigin.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
-#include "WebSecurityOrigin.h"
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
 #include <wtf/text/CString.h>
@@ -40,16 +40,11 @@ namespace WebKit {
 
 SecurityOriginData SecurityOriginData::fromSecurityOrigin(const SecurityOrigin& securityOrigin)
 {
-    return fromSecurityOrigin(&securityOrigin);
-}
-    
-SecurityOriginData SecurityOriginData::fromSecurityOrigin(const SecurityOrigin* securityOrigin)
-{
     SecurityOriginData securityOriginData;
 
-    securityOriginData.protocol = securityOrigin->protocol();
-    securityOriginData.host = securityOrigin->host();
-    securityOriginData.port = securityOrigin->port();
+    securityOriginData.protocol = securityOrigin.protocol();
+    securityOriginData.host = securityOrigin.host();
+    securityOriginData.port = securityOrigin.port();
 
     return securityOriginData;
 }
@@ -78,9 +73,9 @@ SecurityOriginData SecurityOriginData::fromFrame(Frame* frame)
     return SecurityOriginData::fromSecurityOrigin(*origin);
 }
 
-PassRefPtr<SecurityOrigin> SecurityOriginData::securityOrigin() const
+Ref<SecurityOrigin> SecurityOriginData::securityOrigin() const
 {
-    return SecurityOrigin::create(protocol, host, port);
+    return SecurityOrigin::create(protocol.isolatedCopy(), host.isolatedCopy(), port);
 }
 
 void SecurityOriginData::encode(IPC::ArgumentEncoder& encoder) const
@@ -111,26 +106,6 @@ SecurityOriginData SecurityOriginData::isolatedCopy() const
     result.port = port;
 
     return result;
-}
-
-void performAPICallbackWithSecurityOriginDataVector(const Vector<SecurityOriginData>& originDatas, ArrayCallback* callback)
-{
-    if (!callback) {
-        // FIXME: Log error or assert.
-        return;
-    }
-    
-    Vector<RefPtr<API::Object>> securityOrigins;
-    securityOrigins.reserveInitialCapacity(originDatas.size());
-
-    for (const auto& originData : originDatas) {
-        RefPtr<API::Object> origin = WebSecurityOrigin::create(originData.protocol, originData.host, originData.port);
-        if (!origin)
-            continue;
-        securityOrigins.uncheckedAppend(WTF::move(origin));
-    }
-
-    callback->performCallbackWithReturnValue(API::Array::create(WTF::move(securityOrigins)).get());
 }
 
 bool operator==(const SecurityOriginData& a, const SecurityOriginData& b)

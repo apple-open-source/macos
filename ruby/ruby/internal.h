@@ -182,7 +182,9 @@ VALUE rb_int_succ(VALUE num);
 VALUE rb_int_pred(VALUE num);
 
 /* object.c */
+void rb_obj_copy_ivar(VALUE dest, VALUE obj);
 VALUE rb_obj_equal(VALUE obj1, VALUE obj2);
+VALUE rb_class_search_ancestor(VALUE klass, VALUE super);
 
 /* parse.y */
 VALUE rb_parser_get_yydebug(VALUE);
@@ -320,6 +322,7 @@ void rb_vm_inc_const_missing_count(void);
 void rb_thread_mark(void *th);
 const void **rb_vm_get_insns_address_table(void);
 VALUE rb_sourcefilename(void);
+void rb_vm_pop_cfunc_frame(void);
 
 /* vm_dump.c */
 void rb_vm_bugreport(void);

@@ -30,8 +30,6 @@
 #include "IntSize.h"
 #include "LengthFunctions.h"
 
-#if ENABLE(CSS_FILTERS)
-
 namespace WebCore {
 
 static inline IntSize outsetSizeForBlur(float stdDeviation)
@@ -60,13 +58,13 @@ bool FilterOperations::operator==(const FilterOperations& o) const
 {
     if (m_operations.size() != o.m_operations.size())
         return false;
-        
+
     unsigned s = m_operations.size();
     for (unsigned i = 0; i < s; i++) {
         if (*m_operations[i] != *o.m_operations[i])
             return false;
     }
-    
+
     return true;
 }
 
@@ -76,7 +74,7 @@ bool FilterOperations::operationsMatch(const FilterOperations& other) const
     // If the sizes of the function lists don't match, the lists don't match
     if (numOperations != other.operations().size())
         return false;
-    
+
     // If the types of each function are not the same, the lists don't match
     for (size_t i = 0; i < numOperations; ++i) {
         if (!operations()[i]->isSameType(*other.operations()[i]))
@@ -108,24 +106,24 @@ FilterOutsets FilterOperations::outsets() const
 {
     FilterOutsets totalOutsets;
     for (size_t i = 0; i < m_operations.size(); ++i) {
-        const FilterOperation* filterOperation = m_operations.at(i).get();
-        switch (filterOperation->type()) {
+        const FilterOperation& filterOperation = *m_operations.at(i);
+        switch (filterOperation.type()) {
         case FilterOperation::BLUR: {
-            const BlurFilterOperation* blurOperation = toBlurFilterOperation(filterOperation);
-            float stdDeviation = floatValueForLength(blurOperation->stdDeviation(), 0);
+            const BlurFilterOperation& blurOperation = downcast<BlurFilterOperation>(filterOperation);
+            float stdDeviation = floatValueForLength(blurOperation.stdDeviation(), 0);
             IntSize outsetSize = outsetSizeForBlur(stdDeviation);
             FilterOutsets outsets(outsetSize.height(), outsetSize.width(), outsetSize.height(), outsetSize.width());
             totalOutsets += outsets;
             break;
         }
         case FilterOperation::DROP_SHADOW: {
-            const DropShadowFilterOperation* dropShadowOperation = toDropShadowFilterOperation(filterOperation);
-            IntSize outsetSize = outsetSizeForBlur(dropShadowOperation->stdDeviation());
+            const DropShadowFilterOperation& dropShadowOperation = downcast<DropShadowFilterOperation>(filterOperation);
+            IntSize outsetSize = outsetSizeForBlur(dropShadowOperation.stdDeviation());
             FilterOutsets outsets(
-                std::max(0, outsetSize.height() - dropShadowOperation->y()),
-                std::max(0, outsetSize.width() + dropShadowOperation->x()),
-                std::max(0, outsetSize.height() + dropShadowOperation->y()),
-                std::max(0, outsetSize.width() - dropShadowOperation->x())
+                std::max(0, outsetSize.height() - dropShadowOperation.y()),
+                std::max(0, outsetSize.width() + dropShadowOperation.x()),
+                std::max(0, outsetSize.height() + dropShadowOperation.y()),
+                std::max(0, outsetSize.width() - dropShadowOperation.x())
             );
             totalOutsets += outsets;
             break;
@@ -154,5 +152,3 @@ bool FilterOperations::hasFilterThatMovesPixels() const
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(CSS_FILTERS)

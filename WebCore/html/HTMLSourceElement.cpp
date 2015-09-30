@@ -40,33 +40,36 @@ using namespace HTMLNames;
 
 inline HTMLSourceElement::HTMLSourceElement(const QualifiedName& tagName, Document& document)
     : HTMLElement(tagName, document)
-    , m_errorEventTimer(this, &HTMLSourceElement::errorEventTimerFired)
+    , ActiveDOMObject(&document)
+    , m_errorEventTimer(*this, &HTMLSourceElement::errorEventTimerFired)
 {
     LOG(Media, "HTMLSourceElement::HTMLSourceElement - %p", this);
     ASSERT(hasTagName(sourceTag));
 }
 
-PassRefPtr<HTMLSourceElement> HTMLSourceElement::create(const QualifiedName& tagName, Document& document)
+Ref<HTMLSourceElement> HTMLSourceElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new HTMLSourceElement(tagName, document));
+    Ref<HTMLSourceElement> sourceElement = adoptRef(*new HTMLSourceElement(tagName, document));
+    sourceElement->suspendIfNeeded();
+    return sourceElement;
 }
 
 Node::InsertionNotificationRequest HTMLSourceElement::insertedInto(ContainerNode& insertionPoint)
 {
     HTMLElement::insertedInto(insertionPoint);
     Element* parent = parentElement();
-    if (parent && parent->isMediaElement())
-        toHTMLMediaElement(parentNode())->sourceWasAdded(this);
+    if (is<HTMLMediaElement>(parent))
+        downcast<HTMLMediaElement>(*parent).sourceWasAdded(this);
     return InsertionDone;
 }
 
 void HTMLSourceElement::removedFrom(ContainerNode& removalRoot)
 {
     Element* parent = parentElement();
-    if (!parent && removalRoot.isElementNode())
-        parent = &toElement(removalRoot);
-    if (parent && parent->isMediaElement())
-        toHTMLMediaElement(parent)->sourceWasRemoved(this);
+    if (!parent && is<Element>(removalRoot))
+        parent = &downcast<Element>(removalRoot);
+    if (is<HTMLMediaElement>(parent))
+        downcast<HTMLMediaElement>(*parent).sourceWasRemoved(this);
     HTMLElement::removedFrom(removalRoot);
 }
 
@@ -110,7 +113,7 @@ void HTMLSourceElement::cancelPendingErrorEvent()
     m_errorEventTimer.stop();
 }
 
-void HTMLSourceElement::errorEventTimerFired(Timer&)
+void HTMLSourceElement::errorEventTimerFired()
 {
     LOG(Media, "HTMLSourceElement::errorEventTimerFired - %p", this);
     dispatchEvent(Event::create(eventNames().errorEvent, false, true));
@@ -119,6 +122,37 @@ void HTMLSourceElement::errorEventTimerFired(Timer&)
 bool HTMLSourceElement::isURLAttribute(const Attribute& attribute) const
 {
     return attribute.name() == srcAttr || HTMLElement::isURLAttribute(attribute);
+}
+
+const char* HTMLSourceElement::activeDOMObjectName() const
+{
+    return "HTMLSourceElement";
+}
+
+bool HTMLSourceElement::canSuspendForPageCache() const
+{
+    return true;
+}
+
+void HTMLSourceElement::suspend(ReasonForSuspension why)
+{
+    if (why == PageCache) {
+        m_shouldRescheduleErrorEventOnResume = m_errorEventTimer.isActive();
+        m_errorEventTimer.stop();
+    }
+}
+
+void HTMLSourceElement::resume()
+{
+    if (m_shouldRescheduleErrorEventOnResume) {
+        m_errorEventTimer.startOneShot(0);
+        m_shouldRescheduleErrorEventOnResume = false;
+    }
+}
+
+void HTMLSourceElement::stop()
+{
+    cancelPendingErrorEvent();
 }
 
 }

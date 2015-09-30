@@ -40,13 +40,19 @@
  */
 
 static char *realm_string = NULL;
+static char *uuid_string = NULL;
+static char *signing_string = NULL;
 static int use_large_flag = 0;
 static int version_flag = 0;
 static int help_flag	= 0;
 
 static struct getargs args[] = {
     {"realm",		0,	arg_string,	&realm_string,
-     "realm", NULL },
+	"realm", NULL },
+    {"uuid",		0,	arg_string,	&uuid_string,
+	"uuid", NULL },
+    {"signing-identity",0,	arg_string,	&signing_string,
+	"app-name", NULL },
     {"use-large",	0,	arg_flag,	&use_large_flag,
      "use transport suitable for large packets", NULL },
     {"version",		0,	arg_flag,	&version_flag,
@@ -117,6 +123,16 @@ main(int argc, char **argv)
 
     if (use_large_flag)
 	krb5_sendto_ctx_add_flags(ctx, KRB5_KRBHST_FLAGS_LARGE_MSG);
+
+    if (uuid_string || signing_string) {
+	krb5_uuid uuid;
+	if (uuid_string)
+	    if (uuid_parse(uuid_string, uuid) != 0)
+		errx(1, "Failed to parse `%s` as a uuid", uuid_string);
+	ret = krb5_sendto_set_delegated_app(context, ctx, uuid_string ? uuid : NULL, signing_string);
+	if (ret)
+	    krb5_err(context, 1, ret, "krb5_sendto_set_delegated_app");
+    }
 
     ret = krb5_sendto_context(context, ctx, &send, realm_string, &recv);
     if (ret)

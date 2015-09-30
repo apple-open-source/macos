@@ -85,17 +85,15 @@ public:
     static PassRefPtr<ShareableBitmap> create(const WebCore::IntSize&, Flags, PassRefPtr<SharedMemory>);
 
     // Create a shareable bitmap from a handle.
-    static PassRefPtr<ShareableBitmap> create(const Handle&, SharedMemory::Protection = SharedMemory::ReadWrite);
+    static PassRefPtr<ShareableBitmap> create(const Handle&, SharedMemory::Protection = SharedMemory::Protection::ReadWrite);
 
     // Create a handle.
-    bool createHandle(Handle&, SharedMemory::Protection = SharedMemory::ReadWrite);
+    bool createHandle(Handle&, SharedMemory::Protection = SharedMemory::Protection::ReadWrite);
 
     ~ShareableBitmap();
 
     const WebCore::IntSize& size() const { return m_size; }
     WebCore::IntRect bounds() const { return WebCore::IntRect(WebCore::IntPoint(), size()); }
-
-    bool resize(const WebCore::IntSize& size);
 
     // Create a graphics context that can be used to paint into the backing store.
     std::unique_ptr<WebCore::GraphicsContext> createGraphicsContext();

@@ -48,6 +48,7 @@ class Element;
 class Frame;
 class Geolocation;
 class HitTestResult;
+class IntPoint;
 class IntRect;
 class NavigationAction;
 class Page;
@@ -73,7 +74,7 @@ public:
     virtual void invalidateContentsAndRootView(const IntRect&) override;
     virtual void invalidateContentsForSlowScroll(const IntRect&) override;
     virtual void scroll(const IntSize&, const IntRect&, const IntRect&) override;
-#if USE(TILED_BACKING_STORE)
+#if USE(COORDINATED_GRAPHICS)
     virtual void delegatedScrollRequested(const IntPoint& scrollPoint) override;
 #endif
     virtual IntPoint screenToRootView(const IntPoint&) const override;
@@ -101,8 +102,8 @@ public:
 
     void contentsSizeChanged(Frame*, const IntSize&) const;
 
-    void setWindowRect(const FloatRect&) const;
-    FloatRect windowRect() const;
+    WEBCORE_EXPORT void setWindowRect(const FloatRect&) const;
+    WEBCORE_EXPORT FloatRect windowRect() const;
 
     FloatRect pageRect() const;
 
@@ -115,11 +116,10 @@ public:
     void focusedElementChanged(Element*) const;
     void focusedFrameChanged(Frame*) const;
 
-    Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&, const NavigationAction&) const;
-    void show() const;
+    WEBCORE_EXPORT Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&, const NavigationAction&) const;
+    WEBCORE_EXPORT void show() const;
 
     bool canRunModal() const;
-    bool canRunModalNow() const;
     void runModal() const;
 
     void setToolbarsVisible(bool) const;
@@ -144,26 +144,19 @@ public:
     void runJavaScriptAlert(Frame*, const String&);
     bool runJavaScriptConfirm(Frame*, const String&);
     bool runJavaScriptPrompt(Frame*, const String& message, const String& defaultValue, String& result);
-    void setStatusbarText(Frame*, const String&);
-    bool shouldInterruptJavaScript();
-
-    IntRect windowResizerRect() const;
+    WEBCORE_EXPORT void setStatusbarText(Frame*, const String&);
 
     void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
 
     void setToolTip(const HitTestResult&);
 
-    void print(Frame*);
+    WEBCORE_EXPORT void print(Frame*);
 
-    void enableSuddenTermination();
-    void disableSuddenTermination();
+    WEBCORE_EXPORT void enableSuddenTermination();
+    WEBCORE_EXPORT void disableSuddenTermination();
 
 #if ENABLE(INPUT_TYPE_COLOR)
-    PassOwnPtr<ColorChooser> createColorChooser(ColorChooserClient*, const Color& initialColor);
-#endif
-
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES) && !PLATFORM(IOS)
-    PassRefPtr<DateTimeChooser> openDateTimeChooser(DateTimeChooserClient*, const DateTimeChooserParameters&)
+    std::unique_ptr<ColorChooser> createColorChooser(ColorChooserClient*, const Color& initialColor);
 #endif
 
     void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
@@ -174,7 +167,7 @@ public:
     bool requiresFullscreenForVideoPlayback();
 
 #if PLATFORM(COCOA)
-    void focusNSView(NSView*);
+    WEBCORE_EXPORT void focusNSView(NSView*);
 #endif
 
     bool selectItemWritingDirectionIsNatural();
@@ -192,6 +185,10 @@ public:
 
     void registerPopupOpeningObserver(PopupOpeningObserver*);
     void unregisterPopupOpeningObserver(PopupOpeningObserver*);
+
+    void didBeginTrackingPotentialLongMousePress(const IntPoint&, const HitTestResult&);
+    void didRecognizeLongMousePress();
+    void didCancelTrackingPotentialLongMousePress();
 
 private:
     void notifyPopupOpeningObservers() const;

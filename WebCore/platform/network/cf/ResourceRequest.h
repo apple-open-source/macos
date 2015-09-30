@@ -64,7 +64,7 @@ namespace WebCore {
         
 #if USE(CFNETWORK)
 #if PLATFORM(COCOA)
-        ResourceRequest(NSURLRequest *);
+        WEBCORE_EXPORT ResourceRequest(NSURLRequest *);
         void updateNSURLRequest();
         void clearOrUpdateNSURLRequest();
 #endif
@@ -82,7 +82,7 @@ namespace WebCore {
         }
 #endif
 
-        void updateFromDelegatePreservingOldProperties(const ResourceRequest&);
+        WEBCORE_EXPORT void updateFromDelegatePreservingOldProperties(const ResourceRequest&);
 
 #if PLATFORM(MAC)
         void applyWebArchiveHackForMail();
@@ -93,39 +93,31 @@ namespace WebCore {
 #else
         bool encodingRequiresPlatformData() const { return m_httpBody || m_nsRequest; }
 #endif
-        NSURLRequest *nsURLRequest(HTTPBodyUpdatePolicy) const;
+        WEBCORE_EXPORT NSURLRequest *nsURLRequest(HTTPBodyUpdatePolicy) const;
+
+        WEBCORE_EXPORT static CFStringRef isUserInitiatedKey();
 #endif
 
 #if ENABLE(CACHE_PARTITIONING)
-        static String partitionName(const String& domain);
+        WEBCORE_EXPORT static String partitionName(const String& domain);
         const String& cachePartition() const { return m_cachePartition.isNull() ? emptyString() : m_cachePartition; }
-        void setCachePartition(const String& cachePartition) { m_cachePartition = partitionName(cachePartition); }
+        void setCachePartition(const String& cachePartition)
+        {
+            ASSERT(cachePartition == partitionName(cachePartition));
+            m_cachePartition = cachePartition;
+        }
+        void setDomainForCachePartition(const String& domain) { m_cachePartition = partitionName(domain); }
 #endif
 
 #if PLATFORM(COCOA) || USE(CFNETWORK)
-        CFURLRequestRef cfURLRequest(HTTPBodyUpdatePolicy) const;
+        WEBCORE_EXPORT CFURLRequestRef cfURLRequest(HTTPBodyUpdatePolicy) const;
         void setStorageSession(CFURLStorageSessionRef);
 #endif
 
-        static bool httpPipeliningEnabled();
-        static void setHTTPPipeliningEnabled(bool);
+        WEBCORE_EXPORT static bool httpPipeliningEnabled();
+        WEBCORE_EXPORT static void setHTTPPipeliningEnabled(bool);
 
         static bool resourcePrioritiesEnabled();
-
-#if PLATFORM(COCOA)
-        static bool useQuickLookResourceCachingQuirks();
-#endif
-
-#if PLATFORM(IOS)
-        // FIXME: deprecatedIsMainResourceRequest() does not return the correct value if the ResourceRequest has been
-        // deserialized from an IPC message. As a result this function can only be relied on when networking is not in a
-        // separate process.
-        void deprecatedSetMainResourceRequest(bool isMainResourceRequest) const { m_mainResourceRequest = isMainResourceRequest; }
-        bool deprecatedIsMainResourceRequest() const { return m_mainResourceRequest; }
-
-    private:
-        mutable bool m_mainResourceRequest = false;
-#endif
 
     private:
         friend class ResourceRequestBase;
@@ -135,8 +127,8 @@ namespace WebCore {
         void doUpdatePlatformHTTPBody();
         void doUpdateResourceHTTPBody();
 
-        PassOwnPtr<CrossThreadResourceRequestData> doPlatformCopyData(PassOwnPtr<CrossThreadResourceRequestData>) const;
-        void doPlatformAdopt(PassOwnPtr<CrossThreadResourceRequestData>);
+        std::unique_ptr<CrossThreadResourceRequestData> doPlatformCopyData(std::unique_ptr<CrossThreadResourceRequestData>) const;
+        void doPlatformAdopt(std::unique_ptr<CrossThreadResourceRequestData>);
 
 #if USE(CFNETWORK)
         RetainPtr<CFURLRequestRef> m_cfRequest;
@@ -159,9 +151,9 @@ namespace WebCore {
 
     inline bool ResourceRequest::resourcePrioritiesEnabled()
     {
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 10100
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
     return true;
-#elif PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 10100
+#elif PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101000
     // See <rdar://problem/16518595>, <rdar://problem/17168793> for issues we had before OS X 10.10.
     // HTTP Pipelining could be enabled for experiments, but there is no point in doing so on old OS versions,
     // and that can't work well because of the above issues.

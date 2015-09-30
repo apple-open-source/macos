@@ -37,7 +37,7 @@ namespace WebCore {
 
 class ScrollingTreeFrameScrollingNodeIOS : public ScrollingTreeFrameScrollingNode {
 public:
-    static PassRefPtr<ScrollingTreeFrameScrollingNodeIOS> create(ScrollingTree&, ScrollingNodeID);
+    WEBCORE_EXPORT static Ref<ScrollingTreeFrameScrollingNodeIOS> create(ScrollingTree&, ScrollingNodeID);
     virtual ~ScrollingTreeFrameScrollingNodeIOS();
 
 protected:
@@ -51,7 +51,7 @@ protected:
     virtual FloatPoint scrollPosition() const override;
     virtual void setScrollPositionWithoutContentEdgeConstraints(const FloatPoint&) override;
 
-    virtual void updateLayersAfterViewportChange(const FloatRect& fixedPositionRect, double scale);
+    virtual void updateLayersAfterViewportChange(const FloatRect& fixedPositionRect, double scale) override;
     virtual void updateLayersAfterDelegatedScroll(const FloatPoint&) override;
 
     virtual void setScrollLayerPosition(const FloatPoint&) override;

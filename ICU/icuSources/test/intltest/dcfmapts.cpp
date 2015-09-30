@@ -22,8 +22,6 @@
 #include "plurrule_impl.h"
 #include <stdio.h>
 
-#define LENGTHOF(array) ((int32_t)(sizeof(array)/sizeof((array)[0])))
-
 // This is an API test, not a unit test.  It doesn't test very many cases, and doesn't
 // try to test the full functionality.  It just calls each function in the class and
 // verifies that it works on a basic level.
@@ -79,6 +77,12 @@ void IntlTestDecimalFormatAPI::runIndexedTest( int32_t index, UBool exec, const 
             if(exec) {
                logln((UnicodeString)"TestBadFastpath ---");
                TestBadFastpath();
+            }
+            break;
+         case 7: name = "TestRequiredDecimalPoint";
+            if(exec) {
+               logln((UnicodeString)"TestRequiredDecimalPoint ---");
+               TestRequiredDecimalPoint();
             }
             break;
        default: name = ""; break;
@@ -574,7 +578,7 @@ void IntlTestDecimalFormatAPI::TestScale()
     UnicodeString percentPattern("#,##0%");
     pat.setMaximumFractionDigits(4);
 
-    for(int32_t i=0; i < LENGTHOF(testData); i++) {
+    for(int32_t i=0; i < UPRV_LENGTHOF(testData); i++) {
         if ( i > 2 ) {
             pat.applyPattern(percentPattern,status);
         }
@@ -597,14 +601,14 @@ void IntlTestDecimalFormatAPI::TestScale()
 void IntlTestDecimalFormatAPI::TestFixedDecimal() {
     UErrorCode status = U_ZERO_ERROR;
 
-    LocalPointer<DecimalFormat> df(new DecimalFormat("###", status));
+    LocalPointer<DecimalFormat> df(new DecimalFormat("###", status), status);
     TEST_ASSERT_STATUS(status);
     FixedDecimal fd = df->getFixedDecimal(44, status);
     TEST_ASSERT_STATUS(status);
     ASSERT_EQUAL(44, fd.source);
     ASSERT_EQUAL(0, fd.visibleDecimalDigitCount);
 
-    df.adoptInstead(new DecimalFormat("###.00##", status));
+    df.adoptInsteadAndCheckErrorCode(new DecimalFormat("###.00##", status), status);
     TEST_ASSERT_STATUS(status);
     fd = df->getFixedDecimal(123.456, status);
     TEST_ASSERT_STATUS(status);
@@ -615,7 +619,7 @@ void IntlTestDecimalFormatAPI::TestFixedDecimal() {
     ASSERT_EQUAL(FALSE, fd.hasIntegerValue);
     ASSERT_EQUAL(FALSE, fd.isNegative);
 
-    df.adoptInstead(new DecimalFormat("###", status));
+    df.adoptInsteadAndCheckErrorCode(new DecimalFormat("###", status), status);
     TEST_ASSERT_STATUS(status);
     fd = df->getFixedDecimal(123.456, status);
     TEST_ASSERT_STATUS(status);
@@ -626,7 +630,7 @@ void IntlTestDecimalFormatAPI::TestFixedDecimal() {
     ASSERT_EQUAL(TRUE, fd.hasIntegerValue);
     ASSERT_EQUAL(FALSE, fd.isNegative);
 
-    df.adoptInstead(new DecimalFormat("###.0", status));
+    df.adoptInsteadAndCheckErrorCode(new DecimalFormat("###.0", status), status);
     TEST_ASSERT_STATUS(status);
     fd = df->getFixedDecimal(123.01, status);
     TEST_ASSERT_STATUS(status);
@@ -637,7 +641,7 @@ void IntlTestDecimalFormatAPI::TestFixedDecimal() {
     ASSERT_EQUAL(TRUE, fd.hasIntegerValue);
     ASSERT_EQUAL(FALSE, fd.isNegative);
 
-    df.adoptInstead(new DecimalFormat("###.0", status));
+    df.adoptInsteadAndCheckErrorCode(new DecimalFormat("###.0", status), status);
     TEST_ASSERT_STATUS(status);
     fd = df->getFixedDecimal(123.06, status);
     TEST_ASSERT_STATUS(status);
@@ -648,7 +652,7 @@ void IntlTestDecimalFormatAPI::TestFixedDecimal() {
     ASSERT_EQUAL(FALSE, fd.hasIntegerValue);
     ASSERT_EQUAL(FALSE, fd.isNegative);
 
-    df.adoptInstead(new DecimalFormat("@@@@@", status));  // Significant Digits
+    df.adoptInsteadAndCheckErrorCode(new DecimalFormat("@@@@@", status), status);  // Significant Digits
     TEST_ASSERT_STATUS(status);
     fd = df->getFixedDecimal(123, status);
     TEST_ASSERT_STATUS(status);
@@ -659,7 +663,7 @@ void IntlTestDecimalFormatAPI::TestFixedDecimal() {
     ASSERT_EQUAL(TRUE, fd.hasIntegerValue);
     ASSERT_EQUAL(FALSE, fd.isNegative);
 
-    df.adoptInstead(new DecimalFormat("@@@@@", status));  // Significant Digits
+    df.adoptInsteadAndCheckErrorCode(new DecimalFormat("@@@@@", status), status);  // Significant Digits
     TEST_ASSERT_STATUS(status);
     fd = df->getFixedDecimal(1.23, status);
     TEST_ASSERT_STATUS(status);
@@ -682,7 +686,8 @@ void IntlTestDecimalFormatAPI::TestFixedDecimal() {
     // Test Big Decimal input.
     // 22 digits before and after decimal, will exceed the precision of a double
     //    and force DecimalFormat::getFixedDecimal() to work with a digit list.
-    df.adoptInstead(new DecimalFormat("#####################0.00####################", status));
+    df.adoptInsteadAndCheckErrorCode(
+        new DecimalFormat("#####################0.00####################", status), status);
     TEST_ASSERT_STATUS(status);
     Formattable fable("12.34", status);
     TEST_ASSERT_STATUS(status);
@@ -810,7 +815,7 @@ void IntlTestDecimalFormatAPI::TestFixedDecimal() {
 void IntlTestDecimalFormatAPI::TestBadFastpath() {
     UErrorCode status = U_ZERO_ERROR;
 
-    LocalPointer<DecimalFormat> df(new DecimalFormat("###", status));
+    LocalPointer<DecimalFormat> df(new DecimalFormat("###", status), status);
     if (U_FAILURE(status)) {
         dataerrln("Error creating new DecimalFormat - %s", u_errorName(status));
         return;
@@ -825,6 +830,52 @@ void IntlTestDecimalFormatAPI::TestBadFastpath() {
     df->setGroupingUsed(TRUE);
     fmt.remove();
     assertEquals("Format 1234 w/ grouping", "1,234", df->format(1234, fmt));
+}
+
+void IntlTestDecimalFormatAPI::TestRequiredDecimalPoint() {
+    UErrorCode status = U_ZERO_ERROR;
+    UnicodeString text("99");
+    Formattable result1;
+    UnicodeString pat1("##.0000");
+    UnicodeString pat2("00.0");
+
+    LocalPointer<DecimalFormat> df(new DecimalFormat(pat1, status), status);
+    if (U_FAILURE(status)) {
+        dataerrln("Error creating new DecimalFormat - %s", u_errorName(status));
+        return;
+    }
+
+    status = U_ZERO_ERROR;
+    df->applyPattern(pat1, status);
+    if(U_FAILURE(status)) {
+        errln((UnicodeString)"ERROR: applyPattern() failed");
+    }
+    df->parse(text, result1, status);
+    if(U_FAILURE(status)) {
+        errln((UnicodeString)"ERROR: parse() failed");
+    }
+    df->setDecimalPatternMatchRequired(TRUE);
+    df->parse(text, result1, status);
+    if(U_SUCCESS(status)) {
+        errln((UnicodeString)"ERROR: unexpected parse()");
+    }
+
+
+    status = U_ZERO_ERROR;
+    df->applyPattern(pat2, status);
+    df->setDecimalPatternMatchRequired(FALSE);
+    if(U_FAILURE(status)) {
+        errln((UnicodeString)"ERROR: applyPattern(2) failed");
+    }
+    df->parse(text, result1, status);
+    if(U_FAILURE(status)) {
+        errln((UnicodeString)"ERROR: parse(2) failed - " + u_errorName(status));
+    }
+    df->setDecimalPatternMatchRequired(TRUE);
+    df->parse(text, result1, status);
+    if(U_SUCCESS(status)) {
+        errln((UnicodeString)"ERROR: unexpected parse(2)");
+    }
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

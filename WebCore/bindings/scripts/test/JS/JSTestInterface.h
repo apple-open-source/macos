@@ -25,21 +25,23 @@
 
 #include "JSDOMWrapper.h"
 #include "TestInterface.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
-class JSTestInterface : public JSDOMWrapper {
+class WEBCORE_EXPORT JSTestInterface : public JSDOMWrapper {
 public:
     typedef JSDOMWrapper Base;
-    static JSTestInterface* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<TestInterface> impl)
+    static JSTestInterface* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestInterface>&& impl)
     {
-        JSTestInterface* ptr = new (NotNull, JSC::allocateCell<JSTestInterface>(globalObject->vm().heap)) JSTestInterface(structure, globalObject, impl);
+        JSTestInterface* ptr = new (NotNull, JSC::allocateCell<JSTestInterface>(globalObject->vm().heap)) JSTestInterface(structure, globalObject, WTF::move(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
     static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static TestInterface* toWrapped(JSC::JSValue);
     static bool getOwnPropertySlot(JSC::JSObject*, JSC::ExecState*, JSC::PropertyName, JSC::PropertySlot&);
     static void put(JSC::JSCell*, JSC::ExecState*, JSC::PropertyName, JSC::JSValue, JSC::PutPropertySlot&);
     static void putByIndex(JSC::JSCell*, JSC::ExecState*, unsigned propertyName, JSC::JSValue, bool shouldThrow);
@@ -78,20 +80,14 @@ public:
     JSC::JSValue supplementalMethod3(JSC::ExecState*);
 #endif
     TestInterface& impl() const { return *m_impl; }
-    void releaseImpl() { m_impl->deref(); m_impl = 0; }
-
-    void releaseImplIfNotNull()
-    {
-        if (m_impl) {
-            m_impl->deref();
-            m_impl = 0;
-        }
-    }
+    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
 
 private:
     TestInterface* m_impl;
+public:
+    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 protected:
-    JSTestInterface(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<TestInterface>);
+    JSTestInterface(JSC::Structure*, JSDOMGlobalObject*, Ref<TestInterface>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -99,7 +95,6 @@ protected:
         ASSERT(inherits(info()));
     }
 
-    static const unsigned StructureFlags = JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 };
 
 class JSTestInterfaceOwner : public JSC::WeakHandleOwner {
@@ -110,17 +105,12 @@ public:
 
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestInterface*)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(JSTestInterfaceOwner, jsTestInterfaceOwner, ());
-    return &jsTestInterfaceOwner;
+    static NeverDestroyed<JSTestInterfaceOwner> owner;
+    return &owner.get();
 }
 
-inline void* wrapperContext(DOMWrapperWorld& world, TestInterface*)
-{
-    return &world;
-}
-
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestInterface*);
-TestInterface* toTestInterface(JSC::JSValue);
+WEBCORE_EXPORT JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestInterface*);
+inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, TestInterface& impl) { return toJS(exec, globalObject, &impl); }
 
 
 } // namespace WebCore

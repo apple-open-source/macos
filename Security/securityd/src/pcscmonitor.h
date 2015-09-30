@@ -63,6 +63,8 @@ protected:
 	// MachServer::Timer
 	void action();
 
+    void clearReaders(Reader::Type type);
+
 public: //@@@@
 	void startSoftTokens();
 	void loadSoftToken(Bundle *tokendBundle);

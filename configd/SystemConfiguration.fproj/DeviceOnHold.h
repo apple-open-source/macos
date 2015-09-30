@@ -59,7 +59,7 @@ enum
 	@discussion This is the handle to a specific device
 		which is used by the DeviceOnHold APIs.
  */
-typedef const struct __DeviceOnHoldRef * DeviceOnHoldRef;
+typedef const struct CF_BRIDGED_TYPE(id) __DeviceOnHoldRef * DeviceOnHoldRef;
 
 
 __BEGIN_DECLS

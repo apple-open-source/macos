@@ -31,7 +31,6 @@
 #include "server.h"
 #include "session.h"
 #include "notifications.h"
-#include <security_agent_client/agentclient.h>
 #include <securityd_client/dictionary.h>
 #include <security_cdsa_utilities/acl_any.h>	// for default owner ACLs
 #include <security_cdsa_client/wrapkey.h>

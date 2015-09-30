@@ -52,7 +52,7 @@
 
 #include <dtrace.h>
 
-#include <System/sys/kas_info.h>
+#include <sys/kas_info.h>
 
 #include <dt_strtab.h>
 #include <dt_module.h>
@@ -1648,6 +1648,7 @@ dtrace_symbol_type(dtrace_hdl_t *dtp, const GElf_Sym *symp,
 	tip->dtt_object = NULL;
 	tip->dtt_ctfp = NULL;
 	tip->dtt_type = CTF_ERR;
+	tip->dtt_flags = 0;
 
 	if ((dmp = dt_module_lookup_by_name(dtp, sip->dts_object)) == NULL)
 		return (dt_set_errno(dtp, EDT_NOMOD));

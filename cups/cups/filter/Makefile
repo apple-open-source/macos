@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $"
+# "$Id: Makefile 12626 2015-05-07 00:39:18Z msweet $"
 #
 #   Filter makefile for CUPS.
 #
@@ -367,6 +367,12 @@ rastertopwg:	rastertopwg.o ../cups/$(LIBCUPS) $(LIBCUPSIMAGE)
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o $@ rastertopwg.o $(LINKCUPSIMAGE) $(IMGLIBS) $(LIBS)
 
+rastertopwg-static:	rastertopwg.o ../cups/$(LIBCUPSSTATIC) libcupsimage.a
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ rastertopwg.o libcupsimage.a \
+		../cups/$(LIBCUPSSTATIC) $(IMGLIBS) $(DSOLIBS) $(COMMONLIBS) \
+		$(SSLLIBS) $(DNSSDLIBS) $(LIBGSSAPI)
+
 
 #
 # testraster
@@ -398,5 +404,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $".
+# End of "$Id: Makefile 12626 2015-05-07 00:39:18Z msweet $".
 #

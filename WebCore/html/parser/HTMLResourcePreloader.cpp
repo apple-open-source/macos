@@ -35,15 +35,6 @@
 
 namespace WebCore {
 
-bool PreloadRequest::isSafeToSendToAnotherThread() const
-{
-    return m_initiator.isSafeToSendToAnotherThread()
-        && m_charset.isSafeToSendToAnotherThread()
-        && m_resourceURL.isSafeToSendToAnotherThread()
-        && m_mediaAttribute.isSafeToSendToAnotherThread()
-        && m_baseURL.isSafeToSendToAnotherThread();
-}
-
 URL PreloadRequest::completeURL(Document& document)
 {
     return document.completeURL(m_resourceURL, m_baseURL.isEmpty() ? document.url() : m_baseURL);
@@ -82,7 +73,7 @@ void HTMLResourcePreloader::preload(std::unique_ptr<PreloadRequest> preload)
         return;
 
     CachedResourceRequest request = preload->resourceRequest(m_document);
-    m_document.cachedResourceLoader()->preload(preload->resourceType(), request, preload->charset());
+    m_document.cachedResourceLoader().preload(preload->resourceType(), request, preload->charset());
 }
 
 

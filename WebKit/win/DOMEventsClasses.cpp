@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include <initguid.h>
 #include "DOMEventsClasses.h"
@@ -550,7 +549,7 @@ HRESULT STDMETHODCALLTYPE DOMMouseEvent::fromElement(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE DOMMouseEvent::toElement( 
+HRESULT STDMETHODCALLTYPE DOMMouseEvent::toElement(
     /* [retval][out] */ IDOMNode** /*result*/)
 {
     return E_NOTIMPL;

@@ -34,17 +34,17 @@
 
 namespace WebCore {
 
-RefPtr<MediaStreamAudioSource> MediaStreamAudioSource::create()
+Ref<MediaStreamAudioSource> MediaStreamAudioSource::create()
 {
-    return adoptRef(new MediaStreamAudioSource());
+    return adoptRef(*new MediaStreamAudioSource());
 }
 
 MediaStreamAudioSource::MediaStreamAudioSource()
-    : MediaStreamSource(ASCIILiteral("WebAudio-") + createCanonicalUUIDString(), MediaStreamSource::Audio, "MediaStreamAudioDestinationNode")
+    : RealtimeMediaSource(ASCIILiteral("WebAudio-") + createCanonicalUUIDString(), RealtimeMediaSource::Audio, "MediaStreamAudioDestinationNode")
 {
 }
 
-RefPtr<MediaStreamSourceCapabilities> MediaStreamAudioSource::capabilities() const
+RefPtr<RealtimeMediaSourceCapabilities> MediaStreamAudioSource::capabilities() const
 {
     // FIXME: implement this.
     // https://bugs.webkit.org/show_bug.cgi?id=122430
@@ -52,7 +52,7 @@ RefPtr<MediaStreamSourceCapabilities> MediaStreamAudioSource::capabilities() con
     return nullptr;
 }
 
-const MediaStreamSourceStates& MediaStreamAudioSource::states()
+const RealtimeMediaSourceStates& MediaStreamAudioSource::states()
 {
     // FIXME: implement this.
     // https://bugs.webkit.org/show_bug.cgi?id=122430
@@ -81,15 +81,15 @@ bool MediaStreamAudioSource::removeAudioConsumer(AudioDestinationConsumer* consu
 void MediaStreamAudioSource::setAudioFormat(size_t numberOfChannels, float sampleRate)
 {
     MutexLocker locker(m_audioConsumersLock);
-    for (Vector<RefPtr<AudioDestinationConsumer>>::iterator it = m_audioConsumers.begin(); it != m_audioConsumers.end(); ++it)
-        (*it)->setFormat(numberOfChannels, sampleRate);
+    for (auto& consumer : m_audioConsumers)
+        consumer->setFormat(numberOfChannels, sampleRate);
 }
 
 void MediaStreamAudioSource::consumeAudio(AudioBus* bus, size_t numberOfFrames)
 {
     MutexLocker locker(m_audioConsumersLock);
-    for (Vector<RefPtr<AudioDestinationConsumer>>::iterator it = m_audioConsumers.begin(); it != m_audioConsumers.end(); ++it)
-        (*it)->consumeAudio(bus, numberOfFrames);
+    for (auto& consumer : m_audioConsumers)
+        consumer->consumeAudio(bus, numberOfFrames);
 }
 
 } // namespace WebCore

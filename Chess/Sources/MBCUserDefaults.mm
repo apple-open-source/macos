@@ -63,6 +63,7 @@ NSString * const kMBCGameCity           = @"MBCGameCity";
 NSString * const kMBCGameCountry        = @"MBCGameCountry";
 NSString * const kMBCGameEvent          = @"MBCGameEvent";
 NSString * const kMBCHumanName          = @"MBCHumanName";
+NSString * const kMBCHumanName2         = @"MBCHumanName2";
 NSString * const kMBCBattleScars        = @"MBCBattleScars";
 NSString * const kMBCBoardAngle         = @"MBCBoardAngle";
 NSString * const kMBCBoardSpin          = @"MBCBoardSpin";

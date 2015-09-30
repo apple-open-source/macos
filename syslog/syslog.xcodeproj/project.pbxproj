@@ -33,7 +33,6 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 3FFD4402174862D0007DAC1B /* Build configuration list for PBXAggregateTarget "executables_Sim" */;
 			buildPhases = (
-				3F5F5B9C17487ADB00C12281 /* Configuration */,
 			);
 			dependencies = (
 				3FFD440717486325007DAC1B /* PBXTargetDependency */,
@@ -59,6 +58,7 @@
 
 /* Begin PBXBuildFile section */
 		2D30656E150E6EFF00F31A54 /* asl_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D30656C150E6EFF00F31A54 /* asl_common.c */; };
+		2D30D2811AE6C84200673818 /* daemon.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D30D27F1AE6C84200673818 /* daemon.c */; };
 		2D31F3C517E77F3300F2A60C /* asl_client.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D31F3C117E77F3300F2A60C /* asl_client.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		2D31F3C617E77F3300F2A60C /* asl_msg_list.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D31F3C217E77F3300F2A60C /* asl_msg_list.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		2D31F3C717E77F3300F2A60C /* asl_object.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D31F3C317E77F3300F2A60C /* asl_object.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -69,7 +69,11 @@
 		2D31F3D017E77F8800F2A60C /* asl_string.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D31F3CC17E77F8800F2A60C /* asl_string.c */; };
 		2D60F61115657D0F00F2E3F9 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D60F61015657D0F00F2E3F9 /* libz.dylib */; };
 		2D9DEB64150E6FE80059BA61 /* asl_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D30656D150E6EFF00F31A54 /* asl_common.h */; };
+		2DAF75551AE8613000054190 /* com.apple.activity_tracing.CacheDelete.plist in Copy CacheDelete plist */ = {isa = PBXBuildFile; fileRef = 2DAF75541AE8610200054190 /* com.apple.activity_tracing.CacheDelete.plist */; };
 		2DCF701A150E97C0002D5E8F /* libaslcommon.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 505ACB9D108FD16400197086 /* libaslcommon.a */; };
+		2DEE8C411AE575A2007B5CBE /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2DEE8C401AE575A2007B5CBE /* CoreFoundation.framework */; };
+		2DEE8C431AE575AB007B5CBE /* CacheDelete.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2DEE8C421AE575AB007B5CBE /* CacheDelete.framework */; };
+		2DEE8C461AE5798B007B5CBE /* cache_delete.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DEE8C441AE5798B007B5CBE /* cache_delete.c */; };
 		3F6F43F21613A8E300CA9ADB /* asl.h in Headers */ = {isa = PBXBuildFile; fileRef = 3F6F43CF1613A8E300CA9ADB /* asl.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3F6F43F31613A8E300CA9ADB /* asl_core.h in Headers */ = {isa = PBXBuildFile; fileRef = 3F6F43D01613A8E300CA9ADB /* asl_core.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		3F6F43F41613A8E300CA9ADB /* asl_file.h in Headers */ = {isa = PBXBuildFile; fileRef = 3F6F43D11613A8E300CA9ADB /* asl_file.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -181,10 +185,21 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2D30D27D1AE6BBA000673818 /* Copy CacheDelete plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/CacheDelete;
+			dstSubfolderSpec = 0;
+			files = (
+				2DAF75551AE8613000054190 /* com.apple.activity_tracing.CacheDelete.plist in Copy CacheDelete plist */,
+			);
+			name = "Copy CacheDelete plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		3F6F44131613AA9300CA9ADB /* Install man3 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man3";
+			dstPath = /usr/share/man/man3;
 			dstSubfolderSpec = 0;
 			files = (
 				3F6F44141613AAA600CA9ADB /* asl.3 in Install man3 */,
@@ -196,7 +211,7 @@
 		503A82631099037D00B0D08A /* Copy Manpage.8 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man8";
+			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
 				503A82741099045F00B0D08A /* aslmanager.8 in Copy Manpage.8 */,
@@ -207,7 +222,7 @@
 		503A8285109904FD00B0D08A /* Copy Manpage.1 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man1";
+			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
 				503A82761099049900B0D08A /* syslog.1 in Copy Manpage.1 */,
@@ -218,7 +233,7 @@
 		503A8286109904FD00B0D08A /* Copy Manpage.8 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man8";
+			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
 				503A8278109904C000B0D08A /* syslogd.8 in Copy Manpage.8 */,
@@ -229,7 +244,7 @@
 		503A8287109904FD00B0D08A /* Copy Manpages.5 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man5";
+			dstPath = /usr/share/man/man5;
 			dstSubfolderSpec = 0;
 			files = (
 				503A827A109904E400B0D08A /* asl.conf.5 in Copy Manpages.5 */,
@@ -243,6 +258,8 @@
 /* Begin PBXFileReference section */
 		2D30656C150E6EFF00F31A54 /* asl_common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asl_common.c; sourceTree = "<group>"; };
 		2D30656D150E6EFF00F31A54 /* asl_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = asl_common.h; sourceTree = "<group>"; };
+		2D30D27F1AE6C84200673818 /* daemon.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = daemon.c; path = aslmanager.tproj/daemon.c; sourceTree = "<group>"; };
+		2D30D2801AE6C84200673818 /* daemon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = daemon.h; path = aslmanager.tproj/daemon.h; sourceTree = "<group>"; };
 		2D31F3C117E77F3300F2A60C /* asl_client.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = asl_client.h; sourceTree = "<group>"; };
 		2D31F3C217E77F3300F2A60C /* asl_msg_list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = asl_msg_list.h; sourceTree = "<group>"; };
 		2D31F3C317E77F3300F2A60C /* asl_object.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = asl_object.h; sourceTree = "<group>"; };
@@ -252,8 +269,14 @@
 		2D31F3CB17E77F8800F2A60C /* asl_object.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asl_object.c; sourceTree = "<group>"; };
 		2D31F3CC17E77F8800F2A60C /* asl_string.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asl_string.c; sourceTree = "<group>"; };
 		2D60F61015657D0F00F2E3F9 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
+		2D9C4F131B3A29E700219FB3 /* com.apple.system.log */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = com.apple.system.log; path = syslogd.tproj/com.apple.system.log; sourceTree = "<group>"; };
+		2DAF75541AE8610200054190 /* com.apple.activity_tracing.CacheDelete.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.activity_tracing.CacheDelete.plist; path = aslmanager.tproj/com.apple.activity_tracing.CacheDelete.plist; sourceTree = "<group>"; };
 		2DB4DA0A125FC69A001CDC45 /* after_install.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = after_install.sh; path = syslogd.tproj/after_install.sh; sourceTree = "<group>"; };
 		2DB8178915589D0C004D0BDE /* entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = entitlements.plist; path = util.tproj/entitlements.plist; sourceTree = "<group>"; };
+		2DEE8C401AE575A2007B5CBE /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = ../../../../../../../../System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<group>"; };
+		2DEE8C421AE575AB007B5CBE /* CacheDelete.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CacheDelete.framework; path = ../../../../../../../../System/Library/PrivateFrameworks/CacheDelete.framework; sourceTree = "<group>"; };
+		2DEE8C441AE5798B007B5CBE /* cache_delete.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cache_delete.c; path = aslmanager.tproj/cache_delete.c; sourceTree = "<group>"; };
+		2DEE8C451AE5798B007B5CBE /* cache_delete.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cache_delete.h; path = aslmanager.tproj/cache_delete.h; sourceTree = "<group>"; };
 		3F6B6311185AF66C00F692C5 /* aslmanager.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = aslmanager.xcconfig; sourceTree = "<group>"; };
 		3F6B6312185AF66C00F692C5 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		3F6B6313185AF66C00F692C5 /* syslogd.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = syslogd.xcconfig; sourceTree = "<group>"; };
@@ -277,7 +300,10 @@
 		3F6F43E81613A8E300CA9ADB /* asl_store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asl_store.c; sourceTree = "<group>"; };
 		3F6F43E91613A8E300CA9ADB /* asl_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asl_util.c; sourceTree = "<group>"; };
 		3F900DB619383950003CA7E6 /* sim-compat-symlink.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "sim-compat-symlink.sh"; sourceTree = "<group>"; };
-		3FCCB5361749B53D00F8FEBC /* asl_sim.conf */ = {isa = PBXFileReference; lastKnownFileType = text; name = asl_sim.conf; path = syslogd.tproj/asl_sim.conf; sourceTree = "<group>"; };
+		3FCCB5361749B53D00F8FEBC /* asl.conf.ios_sim */ = {isa = PBXFileReference; lastKnownFileType = text; name = asl.conf.ios_sim; path = syslogd.tproj/asl.conf.ios_sim; sourceTree = "<group>"; };
+		3FE6E8391A529FEF0075D75F /* asl.conf.ios */ = {isa = PBXFileReference; lastKnownFileType = text; name = asl.conf.ios; path = syslogd.tproj/asl.conf.ios; sourceTree = "<group>"; };
+		3FE6E83A1A529FEF0075D75F /* asl.conf.osx */ = {isa = PBXFileReference; lastKnownFileType = text; name = asl.conf.osx; path = syslogd.tproj/asl.conf.osx; sourceTree = "<group>"; };
+		3FE6E83B1A529FEF0075D75F /* syslog.conf */ = {isa = PBXFileReference; lastKnownFileType = text; name = syslog.conf; path = syslogd.tproj/syslog.conf; sourceTree = "<group>"; };
 		3FE798E316161F2A00D547B0 /* syslog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = syslog.c; sourceTree = "<group>"; };
 		3FE798E516161F3A00D547B0 /* syslog.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = syslog.3; sourceTree = "<group>"; };
 		3FFD43F817485C5B007DAC1B /* libasl.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libasl.xcconfig; sourceTree = "<group>"; };
@@ -323,6 +349,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2DEE8C431AE575AB007B5CBE /* CacheDelete.framework in Frameworks */,
+				2DEE8C411AE575A2007B5CBE /* CoreFoundation.framework in Frameworks */,
 				2D60F61115657D0F00F2E3F9 /* libz.dylib in Frameworks */,
 				2DCF701A150E97C0002D5E8F /* libaslcommon.a in Frameworks */,
 			);
@@ -358,6 +386,8 @@
 		08FB7794FE84155DC02AAC07 /* syslog */ = {
 			isa = PBXGroup;
 			children = (
+				2DEE8C421AE575AB007B5CBE /* CacheDelete.framework */,
+				2DEE8C401AE575A2007B5CBE /* CoreFoundation.framework */,
 				505ACBA1108FD18400197086 /* aslcommon */,
 				503917691091404D0001165E /* aslmanager */,
 				503917C41091412B0001165E /* util */,
@@ -454,8 +484,13 @@
 		503917691091404D0001165E /* aslmanager */ = {
 			isa = PBXGroup;
 			children = (
+				2DAF75541AE8610200054190 /* com.apple.activity_tracing.CacheDelete.plist */,
+				2DEE8C441AE5798B007B5CBE /* cache_delete.c */,
+				2DEE8C451AE5798B007B5CBE /* cache_delete.h */,
 				5039176B1091408B0001165E /* aslmanager.8 */,
 				5039176C1091408B0001165E /* aslmanager.c */,
+				2D30D27F1AE6C84200673818 /* daemon.c */,
+				2D30D2801AE6C84200673818 /* daemon.h */,
 				5039176D1091408B0001165E /* com.apple.aslmanager.plist */,
 			);
 			name = aslmanager;
@@ -464,7 +499,11 @@
 		503917711091409F0001165E /* syslogd */ = {
 			isa = PBXGroup;
 			children = (
-				3FCCB5361749B53D00F8FEBC /* asl_sim.conf */,
+				3FE6E8391A529FEF0075D75F /* asl.conf.ios */,
+				2D9C4F131B3A29E700219FB3 /* com.apple.system.log */,
+				3FE6E83A1A529FEF0075D75F /* asl.conf.osx */,
+				3FCCB5361749B53D00F8FEBC /* asl.conf.ios_sim */,
+				3FE6E83B1A529FEF0075D75F /* syslog.conf */,
 				503917A61091410E0001165E /* asl_action.c */,
 				2DB4DA0A125FC69A001CDC45 /* after_install.sh */,
 				503917A81091410E0001165E /* asl.conf.5 */,
@@ -580,6 +619,7 @@
 				50391764109140450001165E /* Frameworks */,
 				503A82631099037D00B0D08A /* Copy Manpage.8 */,
 				FCAC6D7410AB34C9008DEAC9 /* ShellScript */,
+				2D30D27D1AE6BBA000673818 /* Copy CacheDelete plist */,
 			);
 			buildRules = (
 			);
@@ -683,20 +723,6 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		3F5F5B9C17487ADB00C12281 /* Configuration */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = Configuration;
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "mkdir -p ${DSTROOT}${INSTALL_PATH_PREFIX}/etc\ncp ${SRCROOT}/syslogd.tproj/asl_sim.conf ${DSTROOT}${INSTALL_PATH_PREFIX}/etc/asl.conf\n";
-		};
 		3F900DB41938393C003CA7E6 /* Sim compat symlink */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -737,7 +763,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\nDESTDIR=\"$DSTROOT$INSTALL_PATH_PREFIX\"/System/Library/LaunchDaemons\ninstall -d -m 0755 -o root -g wheel -d \"$DESTDIR\"\ninstall -m 0644 -o root -g wheel \"$SRCROOT\"/aslmanager.tproj/com.apple.aslmanager.plist \"$DESTDIR\"\nplutil -convert binary1 \"$DESTDIR\"/com.apple.aslmanager.plist";
+			shellScript = "set -e\n\nDESTDIR=\"$DSTROOT\"/System/Library/LaunchDaemons\ninstall -d -m 0755 -o root -g wheel -d \"$DESTDIR\"\ninstall -m 0644 -o root -g wheel \"$SRCROOT\"/aslmanager.tproj/com.apple.aslmanager.plist \"$DESTDIR\"\nplutil -convert binary1 \"$DESTDIR\"/com.apple.aslmanager.plist";
 			showEnvVarsInLog = 0;
 		};
 		FCF3762A10D2F47C00C0EC8D /* ShellScript */ = {
@@ -781,7 +807,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2D30D2811AE6C84200673818 /* daemon.c in Sources */,
 				5039176F1091408B0001165E /* aslmanager.c in Sources */,
+				2DEE8C461AE5798B007B5CBE /* cache_delete.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -950,11 +978,16 @@
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				OTHER_CFLAGS = (
 					"-Wall",
 					"-DINET6",
 				);
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = aslmanager;
 				ZERO_LINK = NO;
 			};

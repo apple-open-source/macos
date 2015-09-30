@@ -148,13 +148,13 @@ auto_nobrowse(vnode_t vp)
 }
 
 static int
-auto_getattr(ap)
-	struct vnop_getattr_args /* {
+auto_getattr(struct vnop_getattr_args *ap)
+	/* struct vnop_getattr_args  {
 		struct vnodeop_desc *a_desc;
 		vnode_t a_vp;
 		struct vnode_attr *a_vap;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t vp = ap->a_vp;
 	struct vnode_attr *vap = ap->a_vap;
@@ -241,13 +241,13 @@ auto_get_attributes(vnode_t vp, struct vnode_attr *vap)
 }
 
 static int
-auto_setattr(ap)
-	struct vnop_setattr_args /* {
+auto_setattr(struct vnop_setattr_args *ap)
+	/* struct vnop_setattr_args {
 		struct vnodeop_desc *a_desc;
 		vnode_t a_vp;
 		struct vnode_attr *a_vap;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t vp = ap->a_vp;
 	struct vnode_attr *vap = ap->a_vap;
@@ -281,16 +281,15 @@ auto_setattr(ap)
 	return (0);
 }
 
-#include <sys/syslog.h>
 static int
-auto_lookup(ap)
-	struct vnop_lookup_args /* {
+auto_lookup(struct vnop_lookup_args *ap)
+	/* struct vnop_lookup_args {
 		struct vnodeop_desc *a_desc;
 		vnode_t a_dvp;
 		vnode_t *a_vpp;
 		struct componentname *a_cnp;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t dvp = ap->a_dvp;
 	vnode_t *vpp = ap->a_vpp;
@@ -406,19 +405,13 @@ top:
 	 * be mounted atop it, and there should be nothing
 	 * in this file system below it.  (We shouldn't
 	 * normally get here, as we should have resolved
-	 * the trigger. It's possible we've hit a retrigger
-	 * window.  Send the system call back to restart.
+	 * the trigger, but some special processes don't
+	 * trigger mounts.)
 	 */
 	if (dfnp->fn_trigger_info != NULL) {
-		auto_fninfo_unlock_shared(dfnip, have_lock);
-		if (dfnp->fn_restart_cnt++ > 3) {
-			dfnp->fn_restart_cnt = 0;
-                        return ENOENT;
-                }
-                log(LOG_ALERT, "auto_lookup called with trigger dir\n");
-		return ERESTART;
+		error = ENOENT;
+		goto fail;
 	}
-	dfnp->fn_restart_cnt = 0;
 
 	/*
 	 * See if we have done something with this name already, so we
@@ -666,15 +659,15 @@ vnop_readdir {
 	 (!vnode_mountedhere(fntovn(fnp)) && (fnp)->fn_direntcnt == 0)
 
 int
-auto_readdir(ap)
-	struct vnop_readdir_args /* {
+auto_readdir(struct vnop_readdir_args *ap)
+	/* struct vnop_readdir_args{
 		vnode_t a_vp;
 		struct uio *a_uio;
 		int a_flags;
 		int *a_eofflag;
 		int *a_numdirent;
 		vfs_context_t a_context;
-	} */ *ap;
+	}*/
 {
 	vnode_t vp = ap->a_vp;
 	struct uio *uiop = ap->a_uio;
@@ -701,6 +694,7 @@ auto_readdir(ap)
 	int myeof = 0;
 	u_int this_reclen;
         boolean_t have_lock = 0;
+	boolean_t needs_put = 0;
 
         AUTOFS_DPRINT((4, "auto_readdir vp=%p offset=%lld\n",
             (void *)vp, uio_offset(uiop)));
@@ -875,7 +869,11 @@ again:
 		this_reclen = DIRENT_RECLEN(1);
 		if (alloc_count < this_reclen) {
 			error = EINVAL;
-			goto done;
+			goto cleanup;
+		}
+		if (fnp->fn_parent == NULL) {
+			error = EINVAL;
+			goto cleanup;
 		}
 		dp->d_ino = (ino_t)fnp->fn_nodeid;
 		dp->d_reclen = (uint16_t)this_reclen;
@@ -898,11 +896,28 @@ again:
 		this_reclen = DIRENT_RECLEN(2);
 		if (alloc_count < outcount + this_reclen) {
 			error = EINVAL;
-			FREE(outbuf, M_AUTOFS);
-			goto done;
+			goto cleanup;
 		}
-		dp->d_reclen = (uint16_t)this_reclen;
+		
+		/* Verify that the parent (..) is still valid */
+		if (fnp->fn_parentvp && fnp->fn_parentvp != vp) {
+			if (vnode_getwithvid(
+				fnp->fn_parentvp,
+				fnp->fn_parentvid)) {
+				/* The parent has been reclaimed. Punt. */
+				fnp->fn_parent = NULL;
+				fnp->fn_parentvp = NULL;
+				error = EINVAL;
+				goto cleanup;
+			}
+			/*hold on to parent until end of this readdir???? */
+			needs_put =1;
+		}
 		dp->d_ino = (ino_t)fnp->fn_parent->fn_nodeid;
+		dp->d_reclen = (uint16_t)this_reclen;
+		if (needs_put) {
+			vnode_put(fnp->fn_parentvp);
+		}
 #if 0
 		dp->d_type = DT_DIR;
 #else
@@ -998,6 +1013,8 @@ again:
 			uio_setoffset(uiop, AUTOFS_DAEMONCOOKIE);
 		}
 	}
+	
+cleanup:
 	FREE(outbuf, M_AUTOFS);
 
 done:
@@ -1009,13 +1026,13 @@ done:
 }
 
 static int
-auto_readlink(ap)
-	struct vnop_readlink_args /* {
+auto_readlink(struct vnop_readlink_args *ap)
+	/* struct vnop_readlink_args {
 		struct vnodeop_desc *a_desc;
 		vnode_t a_vp;
 		struct uio *a_uio;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t vp = ap->a_vp;
 	uio_t uiop = ap->a_uio;
@@ -1039,13 +1056,13 @@ auto_readlink(ap)
 }
 
 static int
-auto_pathconf(ap)
-	struct vnop_pathconf_args /* {
+auto_pathconf(struct vnop_pathconf_args *ap)
+	/* struct vnop_pathconf_args {
 		struct vnode *a_vp;
 		int a_name;
 		int *a_retval;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	switch (ap->a_name) {
 	case _PC_LINK_MAX:
@@ -1078,15 +1095,15 @@ auto_pathconf(ap)
 }
 
 static int
-auto_fsctl(ap)
-	struct vnop_ioctl_args /* {
+auto_fsctl(struct vnop_ioctl_args * ap)
+	/* struct vnop_ioctl_args {
 		struct vnodeop_desc *a_desc;
 		vnode_t a_vp;
 		int32_t a_command;
 		caddr_t a_data;
 		int32_t a_fflag;
 		vfs_context_t a_context;
-	}; */ *ap;
+	}; */
 {
 	vnode_t vp = ap->a_vp;
 
@@ -1107,8 +1124,8 @@ auto_fsctl(ap)
 }      
 
 static int 
-auto_getxattr(ap)
- 	struct vnop_getxattr_args /* {
+auto_getxattr(struct vnop_getxattr_args *ap)
+ 	/* struct vnop_getxattr_args {
 		struct vnodeop_desc *a_desc;
 		vnode_t a_vp;
 		char * a_name;
@@ -1116,7 +1133,7 @@ auto_getxattr(ap)
 		size_t *a_size;
 		int a_options;
 		vfs_context_t a_context;
-	}; */ *ap;
+	}; */
 {
 	struct uio *uio = ap->a_uio;
 
@@ -1133,15 +1150,15 @@ auto_getxattr(ap)
 }
 
 static int 
-auto_listxattr(ap)
-	struct vnop_listxattr_args /* {
+auto_listxattr(struct vnop_listxattr_args *ap)
+	/* struct vnop_listxattr_args {
 		struct vnodeop_desc *a_desc;
 		vnode_t a_vp;
 		uio_t a_uio;
 		size_t *a_size;
 		int a_options;
 		vfs_context_t a_context;
-	}; */ *ap;
+	}; */
 {
 	*ap->a_size = 0;
 	
@@ -1159,28 +1176,28 @@ auto_listxattr(ap)
  * can't disconnect it until it's actually reclaimed.
  */
 static int
-auto_inactive(ap)
-	struct vnop_inactive_args /* {
+auto_inactive(struct vnop_inactive_args *ap)
+	/* struct vnop_inactive_args {
 		struct vnodeop_desc *a_desc;
 		vnode_t a_vp;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
-	AUTOFS_DPRINT((4, "auto_inactive: vp=%p\n", (void *)vp));
+	AUTOFS_DPRINT((4, "auto_inactive: vp=%p\n", (void *)ap->a_vp));
 
 	vnode_recycle(ap->a_vp);
 
-	AUTOFS_DPRINT((5, "auto_inactive: (exit) vp=%p\n", (void *)vp));
+	AUTOFS_DPRINT((5, "auto_inactive: (exit) vp=%p\n", (void *)ap->a_vp));
 	return (0);
 }
 
 static int
-auto_reclaim(ap)
-	struct vnop_reclaim_args /* {
+auto_reclaim(struct vnop_reclaim_args *ap)
+	/* struct vnop_reclaim_args {
 		struct vnodeop_desc *a_desc;
 		vnode_t a_vp;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t vp = ap->a_vp;
 	fnnode_t *fnp = vntofn(vp);

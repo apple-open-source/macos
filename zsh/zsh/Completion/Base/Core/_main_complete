@@ -43,6 +43,8 @@ local -a precommands
 
 typeset -U _lastdescr _comp_ignore _comp_colors
 
+{
+
 [[ -z "$curcontext" ]] && curcontext=:::
 
 zstyle -s ":completion:${curcontext}:" insert-tab tmp || tmp=yes
@@ -64,6 +66,16 @@ if [[ "$compstate[insert]" = tab* ]]; then
   fi
 
   compstate[insert]="${compstate[insert]//tab /}"
+fi
+
+# Second attempt at GLOB_COMPLETE
+
+if [[ "$compstate[pattern_match]" = "*" &&
+      "$_lastcomp[unambiguous]" = "$PREFIX" &&
+      -n "$_lastcomp[unambiguous_cursor]" ]]; then
+  integer upos="$_lastcomp[unambiguous_cursor]"
+  SUFFIX="$PREFIX[upos,-1]$SUFFIX"
+  PREFIX="$PREFIX[1,upos-1]"
 fi
 
 # Special completion contexts after `~' and `='.
@@ -125,6 +137,14 @@ fi
 # And now just call the completer functions defined.
 
 _completer_num=1
+
+# We assume localtraps to be in effect here ...
+integer SECONDS=0
+TRAPINT TRAPQUIT() {
+  zle -M "Killed by signal in ${funcstack[2]} after ${SECONDS}s";
+  zle -R
+  return 130
+}
 
 # Call the pre-functions.
 
@@ -329,21 +349,32 @@ elif [[ nm -eq 0 && -z "$_comp_mesg" &&
   compadd -x "$mesg"
 fi
 
+if zstyle -s ":completion:${curcontext}:" show-ambiguity tmp; then
+  local prefix=${${compstate[unambiguous]}[1,${compstate[unambiguous_cursor]}-1]}
+  local toquote='[=\(\)\|~^?*[\]#<>]'
+  [[ $tmp = (yes|true|on) ]] && tmp=4
+  [[ -n $prefix ]] &&
+    _comp_colors+=( "=(#i)${prefix[1,-2]//?/(}${prefix[1,-2]//(#m)?/${MATCH/$~toquote/\\$MATCH}|)}${prefix[-1]//(#m)$~toquote/\\$MATCH}(#b)(?|)*==$tmp" )
+fi
+
 [[ "$_comp_force_list" = always ||
    ( "$_comp_force_list" = ?*  && nm -ge _comp_force_list ) ]] &&
     compstate[list]="${compstate[list]//messages} force"
 
-if [[ "$compstate[old_list]" = keep ]]; then
-  if [[ $_saved_colors_set = 1 ]]; then
-    ZLS_COLORS="$_saved_colors"
+} always {
+  # Stuff we always do to clean up.
+  if [[ "$compstate[old_list]" = keep ]]; then
+    if [[ $_saved_colors_set = 1 ]]; then
+      ZLS_COLORS="$_saved_colors"
+    else
+      unset ZLS_COLORS
+    fi
+  elif (( $#_comp_colors )); then
+    ZLS_COLORS="${(j.:.)_comp_colors}"
   else
     unset ZLS_COLORS
   fi
-elif (( $#_comp_colors )); then
-  ZLS_COLORS="${(j.:.)_comp_colors}"
-else
-  unset ZLS_COLORS
-fi
+}
 
 # Now call the post-functions.
 

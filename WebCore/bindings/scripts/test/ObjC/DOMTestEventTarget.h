@@ -31,8 +31,8 @@
 @class NSString;
 @protocol DOMEventListener;
 
-WEBKIT_CLASS_AVAILABLE_MAC(TBD)
-@interface DOMTestEventTarget : DOMObject
+WEBKIT_CLASS_AVAILABLE_MAC(9876_5)
+WEBCORE_EXPORT @interface DOMTestEventTarget : DOMObject
 - (DOMNode *)item:(unsigned)index;
 - (void)addEventListener:(NSString *)type listener:(id <DOMEventListener>)listener useCapture:(BOOL)useCapture;
 - (void)removeEventListener:(NSString *)type listener:(id <DOMEventListener>)listener useCapture:(BOOL)useCapture;

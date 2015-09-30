@@ -1500,7 +1500,6 @@
 		72B41EC415ED9F4B00C31217 /* algorithm_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = algorithm_types.h; path = "Drivers/L2TP/L2TP-plugin/algorithm_types.h"; sourceTree = "<group>"; };
 		72B435CE1138BFBA00EBF1B6 /* vpnagent-entitlement.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "vpnagent-entitlement.plist"; path = "vpnagent/vpnagent-entitlement.plist"; sourceTree = "<group>"; };
 		72B9DBEF0F6DEFD3006DFE11 /* SpringBoardServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SpringBoardServices.framework; path = System/Library/PrivateFrameworks/SpringBoardServices.framework; sourceTree = SDKROOT; };
-		72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		72BE352410A0C29900F4849C /* MobileInstallation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileInstallation.framework; path = System/Library/PrivateFrameworks/MobileInstallation.framework; sourceTree = SDKROOT; };
 		72C04DBD1304666B00163BFD /* vpn_configuration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpn_configuration.h; sourceTree = "<group>"; };
 		72C265C70D412932003A6CE8 /* pppd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pppd; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1568,7 +1567,6 @@
 		B0C7805A1685029D00537A2F /* MobileAsset.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileAsset.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/PrivateFrameworks/MobileAsset.framework; sourceTree = DEVELOPER_DIR; };
 		B0C7805D168502C900537A2F /* AppSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppSupport.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/PrivateFrameworks/AppSupport.framework; sourceTree = DEVELOPER_DIR; };
 		B0C780601685043100537A2F /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
-		B0F8AFC816A073E900545847 /* IndigoSDK.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = IndigoSDK.xcconfig; path = AppleInternal/XcodeConfig/IndigoSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		B0F8AFDA16A074D500545847 /* PPP Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "PPP Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA1E33C20F3FFDF200E52690 /* messageTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = messageTracer.h; sourceTree = "<group>"; };
 		BA1E33C30F3FFDF200E52690 /* sessionTracer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sessionTracer.c; path = Controller/sessionTracer.c; sourceTree = "<group>"; };
@@ -2320,8 +2318,6 @@
 				7129A4CBFFF956F311CA2CDC /* External Libraries */,
 				7129A4CEFFF956F311CA2CDC /* Products */,
 				23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */,
-				72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */,
-				B0F8AFC816A073E900545847 /* IndigoSDK.xcconfig */,
 			);
 			name = ppp;
 			sourceTree = "<group>";
@@ -5673,7 +5669,6 @@
 /* Begin XCBuildConfiguration section */
 		7202B3FE114EF02700FD3AA2 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
@@ -5712,7 +5707,6 @@
 		};
 		7202B3FF114EF02700FD3AA2 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
@@ -5788,7 +5782,6 @@
 		};
 		723EC00E164C76FF003D5EB3 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_IDENTITY = "-";
@@ -5814,7 +5807,6 @@
 		};
 		723EC00F164C76FF003D5EB3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_IDENTITY = "-";
@@ -5841,7 +5833,6 @@
 		};
 		723EC010164C76FF003D5EB3 /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_IDENTITY = "-";
@@ -5864,7 +5855,6 @@
 		};
 		728CB6320D404ECD00B1964E /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -5896,7 +5886,6 @@
 		};
 		728CB6330D404ECD00B1964E /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -5924,7 +5913,6 @@
 		};
 		728CB6340D404ECD00B1964E /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
@@ -5947,7 +5935,6 @@
 		};
 		728CB6500D404F6600B1964E /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = NO;
@@ -5994,7 +5981,6 @@
 		};
 		728CB6510D404F6600B1964E /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
@@ -6037,7 +6023,6 @@
 		};
 		728CB6520D404F6600B1964E /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -6076,7 +6061,6 @@
 		};
 		728CB6840D404F8C00B1964E /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = NO;
@@ -6119,7 +6103,6 @@
 		};
 		728CB6850D404F8C00B1964E /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
@@ -6162,7 +6145,6 @@
 		};
 		728CB6860D404F8C00B1964E /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -6201,7 +6183,6 @@
 		};
 		7290FEDA0D3318CC0027CEAD /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
@@ -6255,7 +6236,6 @@
 		};
 		7290FEDB0D3318CC0027CEAD /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
@@ -6304,7 +6284,6 @@
 		};
 		7290FEDC0D3318CC0027CEAD /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -6349,7 +6328,6 @@
 		};
 		72A570000D1B5E2300DFDE1E /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = armv6;
 				COPY_PHASE_STRIP = NO;
@@ -6380,7 +6358,6 @@
 		};
 		72A570010D1B5E2300DFDE1E /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = (
 					arm,
@@ -6410,7 +6387,6 @@
 		};
 		72A570020D1B5E2300DFDE1E /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = armv6;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -6432,7 +6408,6 @@
 		};
 		72A570150D1B5E9400DFDE1E /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -6464,7 +6439,6 @@
 		};
 		72A570160D1B5E9400DFDE1E /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -6492,7 +6466,6 @@
 		};
 		72A570170D1B5E9400DFDE1E /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
@@ -6515,7 +6488,6 @@
 		};
 		72C265C40D412932003A6CE8 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/pppd/pppd-entitlement.plist";
@@ -6582,7 +6554,6 @@
 		};
 		72C265C50D412932003A6CE8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/pppd/pppd-entitlement.plist";
@@ -6644,7 +6615,6 @@
 		};
 		72C265C60D412932003A6CE8 /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/pppd/pppd-entitlement.plist";
@@ -9839,7 +9809,6 @@
 		};
 		72FDE4910D4124C4007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = NO;
@@ -9883,7 +9852,6 @@
 		};
 		72FDE4920D4124C4007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
@@ -9923,7 +9891,6 @@
 		};
 		72FDE4930D4124C4007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -9959,7 +9926,6 @@
 		};
 		72FDE4BF0D41251B007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				BUNDLE_LOADER = "";
@@ -10003,7 +9969,6 @@
 		};
 		72FDE4C00D41251B007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
@@ -10042,7 +10007,6 @@
 		};
 		72FDE4C10D41251B007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -10077,7 +10041,6 @@
 		};
 		72FDE4E10D412522007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = NO;
@@ -10119,7 +10082,6 @@
 		};
 		72FDE4E20D412522007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
@@ -10157,7 +10119,6 @@
 		};
 		72FDE4E30D412522007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -10191,7 +10152,6 @@
 		};
 		72FDE50A0D41256B007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
@@ -10231,7 +10191,6 @@
 		};
 		72FDE50B0D41256B007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
@@ -10265,7 +10224,6 @@
 		};
 		72FDE50C0D41256B007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
@@ -10295,7 +10253,6 @@
 		};
 		81937E9E107EC4A200EEE3F8 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
@@ -10333,7 +10290,6 @@
 		};
 		81937E9F107EC4A200EEE3F8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
@@ -10497,7 +10453,6 @@
 		};
 		83F592E10F6B376E00B1E1AE /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/sbslauncher/sbslauncher-entitlement.plist";
@@ -10523,7 +10478,6 @@
 		};
 		83F592E20F6B376E00B1E1AE /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/sbslauncher/sbslauncher-entitlement.plist";
@@ -10550,7 +10504,6 @@
 		};
 		83F592E30F6B376E00B1E1AE /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/sbslauncher/sbslauncher-entitlement.plist";
@@ -10682,7 +10635,6 @@
 		};
 		B0F8AFD716A074D500545847 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B0F8AFC816A073E900545847 /* IndigoSDK.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -10691,6 +10643,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(INSTALL_PATH_ACTUAL)";
 				INSTALL_PATH_ACTUAL = /usr/local/include/ppp;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_REZFLAGS = "";
@@ -10709,12 +10662,12 @@
 		};
 		B0F8AFD816A074D500545847 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B0F8AFC816A073E900545847 /* IndigoSDK.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(INSTALL_PATH_ACTUAL)";
 				INSTALL_PATH_ACTUAL = /usr/local/include/ppp;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_REZFLAGS = "";
@@ -10732,9 +10685,9 @@
 		};
 		B0F8AFD916A074D500545847 /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B0F8AFC816A073E900545847 /* IndigoSDK.xcconfig */;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(INSTALL_PATH_ACTUAL)";
 				INSTALL_PATH_ACTUAL = /usr/local/include/ppp;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_REZFLAGS = "";

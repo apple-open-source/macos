@@ -52,7 +52,7 @@ public:
     Length(float value, LengthType, bool hasQuirk = false);
     Length(double value, LengthType, bool hasQuirk = false);
 
-    explicit Length(PassRef<CalculationValue>);
+    WEBCORE_EXPORT explicit Length(Ref<CalculationValue>&&);
 
     Length(const Length&);
     Length(Length&&);
@@ -84,9 +84,11 @@ public:
     bool isFixed() const;
     bool isMaxContent() const;
     bool isMinContent() const;
-    bool isPercentNotCalculated() const; // FIXME: Rename to isPercent.
+    bool isPercent() const;
     bool isRelative() const;
     bool isUndefined() const;
+    bool isFillAvailable() const;
+    bool isFitContent() const;
 
     bool hasQuirk() const;
 
@@ -98,7 +100,7 @@ public:
     bool isPositive() const;
     bool isNegative() const;
 
-    bool isPercent() const; // Returns true for both Percent and Calculated. FIXME: Find a better name for this.
+    bool isPercentOrCalculated() const; // Returns true for both Percent and Calculated.
 
     bool isIntrinsic() const;
     bool isIntrinsicOrAuto() const;
@@ -117,8 +119,8 @@ private:
     bool isCalculatedEqual(const Length&) const;
     Length blendMixedTypes(const Length& from, double progress) const;
 
-    void ref() const;
-    void deref() const;
+    WEBCORE_EXPORT void ref() const;
+    WEBCORE_EXPORT void deref() const;
     
     union {
         int m_intValue;
@@ -179,6 +181,9 @@ inline Length::Length(Length&& other)
 
 inline Length& Length::operator=(const Length& other)
 {
+    if (this == &other)
+        return *this;
+
     if (other.isCalculated())
         other.ref();
     if (isCalculated())
@@ -257,7 +262,7 @@ inline int Length::intValue() const
 
 inline float Length::percent() const
 {
-    ASSERT(isPercentNotCalculated());
+    ASSERT(isPercent());
     return value();
 }
 
@@ -330,7 +335,7 @@ inline bool Length::isNegative() const
     return m_isFloat ? (m_floatValue < 0) : (m_intValue < 0);
 }
 
-inline bool Length::isPercentNotCalculated() const
+inline bool Length::isPercent() const
 {
     return type() == Percent;
 }
@@ -345,9 +350,9 @@ inline bool Length::isUndefined() const
     return type() == Undefined;
 }
 
-inline bool Length::isPercent() const
+inline bool Length::isPercentOrCalculated() const
 {
-    return isPercentNotCalculated() || isCalculated();
+    return isPercent() || isCalculated();
 }
 
 inline bool Length::isPositive() const
@@ -389,12 +394,22 @@ inline bool Length::isIntrinsicOrAuto() const
 
 inline bool Length::isSpecified() const
 {
-    return isFixed() || isPercent();
+    return isFixed() || isPercentOrCalculated();
 }
 
 inline bool Length::isSpecifiedOrIntrinsic() const
 {
     return isSpecified() || isIntrinsic();
+}
+
+inline bool Length::isFillAvailable() const
+{
+    return type() == FillAvailable;
+}
+
+inline bool Length::isFitContent() const
+{
+    return type() == FitContent;
 }
 
 // FIXME: Does this need to be in the header? Is it valuable to inline? Does it get inlined?

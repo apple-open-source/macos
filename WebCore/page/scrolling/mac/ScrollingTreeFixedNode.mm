@@ -34,9 +34,9 @@
 
 namespace WebCore {
 
-PassRefPtr<ScrollingTreeFixedNode> ScrollingTreeFixedNode::create(ScrollingTree& scrollingTree, ScrollingNodeID nodeID)
+Ref<ScrollingTreeFixedNode> ScrollingTreeFixedNode::create(ScrollingTree& scrollingTree, ScrollingNodeID nodeID)
 {
-    return adoptRef(new ScrollingTreeFixedNode(scrollingTree, nodeID));
+    return adoptRef(*new ScrollingTreeFixedNode(scrollingTree, nodeID));
 }
 
 ScrollingTreeFixedNode::ScrollingTreeFixedNode(ScrollingTree& scrollingTree, ScrollingNodeID nodeID)
@@ -52,7 +52,7 @@ ScrollingTreeFixedNode::~ScrollingTreeFixedNode()
 
 void ScrollingTreeFixedNode::updateBeforeChildren(const ScrollingStateNode& stateNode)
 {
-    const ScrollingStateFixedNode& fixedStateNode = toScrollingStateFixedNode(stateNode);
+    const ScrollingStateFixedNode& fixedStateNode = downcast<ScrollingStateFixedNode>(stateNode);
 
     if (fixedStateNode.hasChangedProperty(ScrollingStateNode::ScrollLayer))
         m_layer = fixedStateNode.layer();

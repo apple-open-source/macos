@@ -29,11 +29,14 @@
 
 #if PLATFORM(IOS)
 
+@class WKActionSheetAssistant;
 @class WKContentView;
 
 @interface _WKElementAction ()
 
-- (void)_runActionWithElementInfo:(_WKActivatedElementInfo *)info view:(WKContentView *)view;
++ (instancetype)_elementActionWithType:(_WKElementActionType)type assistant:(WKActionSheetAssistant *)assistant;
++ (instancetype)_elementActionWithType:(_WKElementActionType)type title:(NSString *)title actionHandler:(WKElementActionHandler)actionHandler;
+- (void)_runActionWithElementInfo:(_WKActivatedElementInfo *)info forActionSheetAssistant:(WKActionSheetAssistant *)assistant;
 
 @end
 

@@ -21,7 +21,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 messages -> WebPage LegacyReceiver {
-    SetInitialFocus(bool forward, bool isKeyboardEventValid, WebKit::WebKeyboardEvent event)
+    SetInitialFocus(bool forward, bool isKeyboardEventValid, WebKit::WebKeyboardEvent event, uint64_t callbackID)
     SetViewState(unsigned viewState, bool wantsDidUpdateViewState, Vector<uint64_t> callbackIDs)
     SetLayerHostingMode(unsigned layerHostingMode)
 
@@ -44,15 +44,14 @@ messages -> WebPage LegacyReceiver {
     WheelEventSyncForTesting(WebKit::WebWheelEvent event) -> (bool handled)
 #if PLATFORM(IOS)
     SetViewportConfigurationMinimumLayoutSize(WebCore::FloatSize size)
-    SetViewportConfigurationMinimumLayoutSizeForMinimalUI(WebCore::FloatSize size)
     SetMaximumUnobscuredSize(WebCore::FloatSize size)
     SetDeviceOrientation(int32_t deviceOrientation)
-    DynamicViewportSizeUpdate(WebCore::FloatSize minimumLayoutSize, WebCore::FloatSize minimumLayoutSizeForMinimalUI,  WebCore::FloatSize maximumUnobscuredSize, WebCore::FloatRect targetExposedContentRect, WebCore::FloatRect targetUnobscuredRect, WebCore::FloatRect targetUnobscuredRectInScrollViewCoordinates, double scale, int32_t deviceOrientation)
+    DynamicViewportSizeUpdate(WebCore::FloatSize minimumLayoutSize, WebCore::FloatSize maximumUnobscuredSize, WebCore::FloatRect targetExposedContentRect, WebCore::FloatRect targetUnobscuredRect, WebCore::FloatRect targetUnobscuredRectInScrollViewCoordinates, double scale, int32_t deviceOrientation, uint64_t dynamicViewportSizeUpdateID)
     SynchronizeDynamicViewportUpdate() -> (double newTargetScale, WebCore::FloatPoint newScrollPosition, uint64_t nextValidLayerTreeTransactionID)
 
-    HandleTap(WebCore::IntPoint point)
+    HandleTap(WebCore::IntPoint point, uint64_t lastLayerTreeTransactionId)
     PotentialTapAtPosition(uint64_t requestID, WebCore::FloatPoint point)
-    CommitPotentialTap()
+    CommitPotentialTap(uint64_t lastLayerTreeTransactionId)
     CancelPotentialTap()
     TapHighlightAtPosition(uint64_t requestID, WebCore::FloatPoint point)
     InspectorNodeSearchMovedToPosition(WebCore::FloatPoint point)
@@ -65,6 +64,12 @@ messages -> WebPage LegacyReceiver {
     ExtendSelection(uint32_t granularity)
     SelectWordBackward()
     MoveSelectionByOffset(int32_t offset, uint64_t callbackID)
+    SelectTextWithGranularityAtPoint(WebCore::IntPoint point, uint32_t granularity, uint64_t callbackID)
+    SelectPositionAtBoundaryWithDirection(WebCore::IntPoint point, uint32_t granularity, uint32_t direction, uint64_t callbackID)
+    MoveSelectionAtBoundaryWithDirection(uint32_t granularity, uint32_t direction, uint64_t callbackID)
+    SelectPositionAtPoint(WebCore::IntPoint point, uint64_t callbackID)
+    BeginSelectionInDirection(uint32_t direction, uint64_t callbackID)
+    UpdateSelectionWithExtentPoint(WebCore::IntPoint point, uint64_t callbackID)
     RequestDictationContext(uint64_t callbackID)
     ReplaceDictatedText(String oldText, String newText)
     ReplaceSelectedText(String oldText, String newText)
@@ -73,20 +78,23 @@ messages -> WebPage LegacyReceiver {
     SyncApplyAutocorrection(String correction, String originalText) -> (bool autocorrectionApplied)
     RequestAutocorrectionContext(uint64_t callbackID)
     GetAutocorrectionContext() -> (String beforeContext, String markedText, String selectedText, String afterContext, uint64_t location, uint64_t length) 
-    GetPositionInformation(WebCore::IntPoint point) -> (WebKit::InteractionInformationAtPosition information)
+    GetPositionInformation(WebCore::IntPoint point) -> (struct WebKit::InteractionInformationAtPosition information)
     RequestPositionInformation(WebCore::IntPoint point)
     StartInteractionWithElementAtPosition(WebCore::IntPoint point)
     StopInteraction()
     PerformActionOnElement(uint32_t action)
-    FocusNextAssistedNode(bool isForward)
+    FocusNextAssistedNode(bool isForward, uint64_t callbackID)
     SetAssistedNodeValue(String value)
     SetAssistedNodeValueAsNumber(double value)
     SetAssistedNodeSelectedIndex(uint32_t index, bool allowMultipleSelection)
     ApplicationWillResignActive()
+    ApplicationDidEnterBackground(bool isSuspendedUnderLock)
     ApplicationWillEnterForeground()
     ApplicationDidBecomeActive()
     ContentSizeCategoryDidChange(String contentSizeCategory)
     ExecuteEditCommandWithCallback(String name, uint64_t callbackID)
+    GetLookupContextAtPoint(WebCore::IntPoint point, uint64_t callbackID)
+    SetAllowsMediaDocumentInlinePlayback(bool allows)
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -119,12 +127,13 @@ messages -> WebPage LegacyReceiver {
     TryRestoreScrollPosition()
 
     LoadURLInFrame(String url, uint64_t frameID)
-    LoadRequest(uint64_t navigationID, WebCore::ResourceRequest request, WebKit::SandboxExtension::Handle sandboxExtensionHandle, WebKit::WebContextUserMessageEncoder userData) Variadic
-    LoadData(IPC::DataReference data, String MIMEType, String encoding, String baseURL, WebKit::WebContextUserMessageEncoder userData) Variadic
-    LoadHTMLString(uint64_t navigationID, String htmlString, String baseURL, WebKit::WebContextUserMessageEncoder userData) Variadic
-    LoadAlternateHTMLString(String htmlString, String baseURL, String unreachableURL, WebKit::WebContextUserMessageEncoder userData) Variadic
-    LoadPlainTextString(String string, WebKit::WebContextUserMessageEncoder userData) Variadic
-    LoadWebArchiveData(IPC::DataReference webArchiveData, WebKit::WebContextUserMessageEncoder userData) Variadic
+    LoadRequest(uint64_t navigationID, WebCore::ResourceRequest request, WebKit::SandboxExtension::Handle sandboxExtensionHandle, uint64_t shouldOpenExternalURLsPolicy, WebKit::UserData userData)
+    LoadData(uint64_t navigationID, IPC::DataReference data, String MIMEType, String encoding, String baseURL, WebKit::UserData userData)
+    LoadHTMLString(uint64_t navigationID, String htmlString, String baseURL, WebKit::UserData userData)
+    LoadAlternateHTMLString(String htmlString, String baseURL, String unreachableURL, String provisionalLoadErrorURL, WebKit::UserData userData)
+    LoadPlainTextString(String string, WebKit::UserData userData)
+    LoadWebArchiveData(IPC::DataReference webArchiveData, WebKit::UserData userData)
+    NavigateToPDFLinkWithSimulatedClick(String url, WebCore::IntPoint documentPoint, WebCore::IntPoint screenPoint)
 
     Reload(uint64_t navigationID, bool reloadFromOrigin, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
     StopLoading()
@@ -138,6 +147,7 @@ messages -> WebPage LegacyReceiver {
     DidReceivePolicyDecision(uint64_t frameID, uint64_t listenerID, uint32_t policyAction, uint64_t navigationID, uint64_t downloadID)
 
     ClearSelection()
+    RestoreSelectionInFocusedEditableElement()
 
     # Callbacks.
     GetContentsAsString(uint64_t callbackID)
@@ -161,9 +171,10 @@ messages -> WebPage LegacyReceiver {
 
 #if PLATFORM(MAC)
     PerformDictionaryLookupOfCurrentSelection()
+    SetFont(String fontFamily, double fontSize, uint64_t fontTraits)
 #endif
 
-    PreferencesDidChange(WebKit::WebPreferencesStore store)
+    PreferencesDidChange(struct WebKit::WebPreferencesStore store)
 
     SetUserAgent(String userAgent)
     SetCustomTextEncodingName(String encodingName)
@@ -174,6 +185,7 @@ messages -> WebPage LegacyReceiver {
     Close()
     TryClose()
 
+    SetEditable(bool editable)
     ValidateCommand(String name, uint64_t callbackID)
     ExecuteEditCommand(String name)
 
@@ -184,10 +196,14 @@ messages -> WebPage LegacyReceiver {
     SetPageAndTextZoomFactors(double pageZoomFactor, double textZoomFactor)
     SetPageZoomFactor(double zoomFactor)
     SetTextZoomFactor(double zoomFactor)
-    WindowScreenDidChange(uint64_t displayID)
+    WindowScreenDidChange(uint32_t displayID)
 
     ScalePage(double scale, WebCore::IntPoint origin)
     ScalePageInViewCoordinates(double scale, WebCore::IntPoint centerInViewCoordinates)
+    ScaleView(double scale)
+#if PLATFORM(COCOA)
+    ScaleViewAndUpdateGeometryFenced(double scale, WebCore::IntSize viewSize, uint64_t callbackID)
+#endif
 
     SetUseFixedLayout(bool fixed)
     SetFixedLayoutSize(WebCore::IntSize size)
@@ -204,7 +220,7 @@ messages -> WebPage LegacyReceiver {
     SetPageLength(double pageLength)
     SetGapBetweenPages(double gap)
 
-    PostInjectedBundleMessage(String messageName, WebKit::WebContextUserMessageEncoder messageBody) Variadic
+    PostInjectedBundleMessage(String messageName, WebKit::UserData messageBody)
 
     # Find.
     FindString(String string, uint32_t findOptions, unsigned maxMatchCount)
@@ -224,6 +240,7 @@ messages -> WebPage LegacyReceiver {
     PerformDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, String dragStorageName, uint32_t flags, WebKit::SandboxExtension::Handle sandboxExtensionHandle, WebKit::SandboxExtension::HandleArray sandboxExtensionsForUpload)
 #endif
 #if ENABLE(DRAG_SUPPORT)
+    DidStartDrag()
     DragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t operation)
 #endif
 
@@ -268,29 +285,37 @@ messages -> WebPage LegacyReceiver {
     DidReceiveGeolocationPermissionDecision(uint64_t geolocationID, bool allowed)
 #endif
 
+#if ENABLE(MEDIA_STREAM)
+    # MediaSteam
+    DidReceiveUserMediaPermissionDecision(uint64_t userMediaID, bool allowed)
+#endif
+
     # Notification
     DidReceiveNotificationPermissionDecision(uint64_t notificationID, bool allowed)
 
-    SetWindowResizerSize(WebCore::IntSize intersectsView)
-
     # Printing.
-    BeginPrinting(uint64_t frameID, WebKit::PrintInfo printInfo)
+    BeginPrinting(uint64_t frameID, struct WebKit::PrintInfo printInfo)
     EndPrinting()
-    ComputePagesForPrinting(uint64_t frameID, WebKit::PrintInfo printInfo, uint64_t callbackID)
+    ComputePagesForPrinting(uint64_t frameID, struct WebKit::PrintInfo printInfo, uint64_t callbackID)
 #if PLATFORM(COCOA)
-    DrawRectToImage(uint64_t frameID, WebKit::PrintInfo printInfo, WebCore::IntRect rect, WebCore::IntSize imageSize, uint64_t callbackID)
-    DrawPagesToPDF(uint64_t frameID, WebKit::PrintInfo printInfo, uint32_t first, uint32_t count, uint64_t callbackID)
+    DrawRectToImage(uint64_t frameID, struct WebKit::PrintInfo printInfo, WebCore::IntRect rect, WebCore::IntSize imageSize, uint64_t callbackID)
+    DrawPagesToPDF(uint64_t frameID, struct WebKit::PrintInfo printInfo, uint32_t first, uint32_t count, uint64_t callbackID)
 #if PLATFORM(IOS)
-    ComputePagesForPrintingAndStartDrawingToPDF(uint64_t frameID, WebKit::PrintInfo printInfo, uint32_t firstPage) -> (Vector<WebCore::IntRect> pageRects, double totalScaleFactor) Delayed
+    ComputePagesForPrintingAndStartDrawingToPDF(uint64_t frameID, struct WebKit::PrintInfo printInfo, uint32_t firstPage) -> (Vector<WebCore::IntRect> pageRects, double totalScaleFactor) Delayed
 #endif
 #endif
 #if PLATFORM(GTK)
-    DrawPagesForPrinting(uint64_t frameID, WebKit::PrintInfo printInfo, uint64_t callbackID)
+    DrawPagesForPrinting(uint64_t frameID, struct WebKit::PrintInfo printInfo, uint64_t callbackID)
 #endif
 
     # Media
     SetMediaVolume(float volume)
+    SetMuted(bool muted)
     SetMayStartMediaWhenInWindow(bool mayStartMedia)
+
+#if ENABLE(MEDIA_SESSION)
+    HandleMediaEvent(uint32_t eventType)
+#endif
 
     // FIXME: This a dummy message, to avoid breaking the build for platforms that don't require
     // any synchronous messages, and should be removed when <rdar://problem/8775115> is fixed.
@@ -303,7 +328,7 @@ messages -> WebPage LegacyReceiver {
     SetThemePath(String themePath)
 #endif
 
-#if USE(TILED_BACKING_STORE)
+#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
     CommitPageTransitionViewport()
 #endif
 
@@ -311,6 +336,10 @@ messages -> WebPage LegacyReceiver {
     SetComposition(String text, Vector<WebCore::CompositionUnderline> underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeEnd)
     ConfirmComposition(String text, int64_t selectionStart, int64_t selectionLength)
     CancelComposition()
+#endif
+
+#if PLATFORM (GTK) && HAVE(GTK_GESTURES)
+    GetCenterForZoomGesture(WebCore::IntPoint centerInViewCoordinates) -> (WebCore::IntPoint center)
 #endif
 
 #if PLATFORM(COCOA)
@@ -331,30 +360,31 @@ messages -> WebPage LegacyReceiver {
     ShouldDelayWindowOrderingEvent(WebKit::WebMouseEvent event) -> (bool result)
     AcceptsFirstMouse(int eventNumber, WebKit::WebMouseEvent event) -> (bool result)
 
-    InsertTextAsync(String text, WebKit::EditingRange replacementRange, bool registerUndoGroup)
+    InsertTextAsync(String text, struct WebKit::EditingRange replacementRange, bool registerUndoGroup)
     GetMarkedRangeAsync(uint64_t callbackID)
     GetSelectedRangeAsync(uint64_t callbackID)
     CharacterIndexForPointAsync(WebCore::IntPoint point, uint64_t callbackID);
-    FirstRectForCharacterRangeAsync(WebKit::EditingRange range, uint64_t callbackID);
-    SetCompositionAsync(String text, Vector<WebCore::CompositionUnderline> underlines, WebKit::EditingRange selectionRange, WebKit::EditingRange replacementRange)
+    FirstRectForCharacterRangeAsync(struct WebKit::EditingRange range, uint64_t callbackID);
+    SetCompositionAsync(String text, Vector<WebCore::CompositionUnderline> underlines, struct WebKit::EditingRange selectionRange, struct WebKit::EditingRange replacementRange)
     ConfirmCompositionAsync()
 #endif
 #if PLATFORM(MAC)
-    InsertDictatedTextAsync(String text, WebKit::EditingRange replacementRange, Vector<WebCore::DictationAlternative> dictationAlternatives, bool registerUndoGroup)
-    AttributedSubstringForCharacterRangeAsync(WebKit::EditingRange range, uint64_t callbackID);
+    InsertDictatedTextAsync(String text, struct WebKit::EditingRange replacementRange, Vector<WebCore::DictationAlternative> dictationAlternatives, bool registerUndoGroup)
+    AttributedSubstringForCharacterRangeAsync(struct WebKit::EditingRange range, uint64_t callbackID);
+    FontAtSelection(uint64_t callbackID);
 #endif
 #if PLATFORM(MAC) && !USE(ASYNC_NSTEXTINPUTCLIENT)
-    InsertText(String text, WebKit::EditingRange replacementRange) -> (bool handled, WebKit::EditorState newState)
-    SetComposition(String text, Vector<WebCore::CompositionUnderline> underlines, WebKit::EditingRange selectionRange, WebKit::EditingRange replacementRange) -> (WebKit::EditorState newState)
-    ConfirmComposition() -> (WebKit::EditorState newState)
-    InsertDictatedText(String text, WebKit::EditingRange replacementRange, Vector<WebCore::DictationAlternative> dictationAlternatives) -> (bool handled, WebKit::EditorState newState)
-    GetAttributedSubstringFromRange(WebKit::EditingRange range) -> (WebKit::AttributedString result)
-    GetMarkedRange() -> (WebKit::EditingRange range)
-    GetSelectedRange() -> (WebKit::EditingRange range)
+    InsertText(String text, struct WebKit::EditingRange replacementRange) -> (bool handled, struct WebKit::EditorState newState)
+    SetComposition(String text, Vector<WebCore::CompositionUnderline> underlines, struct WebKit::EditingRange selectionRange, struct WebKit::EditingRange replacementRange) -> (struct WebKit::EditorState newState)
+    ConfirmComposition() -> (struct WebKit::EditorState newState)
+    InsertDictatedText(String text, struct WebKit::EditingRange replacementRange, Vector<WebCore::DictationAlternative> dictationAlternatives) -> (bool handled, struct WebKit::EditorState newState)
+    GetAttributedSubstringFromRange(struct WebKit::EditingRange range) -> (struct WebKit::AttributedString result)
+    GetMarkedRange() -> (struct WebKit::EditingRange range)
+    GetSelectedRange() -> (struct WebKit::EditingRange range)
     CharacterIndexForPoint(WebCore::IntPoint point) -> (uint64_t result)
-    FirstRectForCharacterRange(WebKit::EditingRange range) -> (WebCore::IntRect resultRect)
-    ExecuteKeypressCommands(Vector<WebCore::KeypressCommand> savedCommands) -> (bool handled, WebKit::EditorState newState)
-    CancelComposition() -> (WebKit::EditorState newState)
+    FirstRectForCharacterRange(struct WebKit::EditingRange range) -> (WebCore::IntRect resultRect)
+    ExecuteKeypressCommands(Vector<WebCore::KeypressCommand> savedCommands) -> (bool handled, struct WebKit::EditorState newState)
+    CancelComposition() -> (struct WebKit::EditorState newState)
 #endif
 
     SetMinimumLayoutSize(WebCore::IntSize minimumLayoutSize)
@@ -365,7 +395,7 @@ messages -> WebPage LegacyReceiver {
     SetComposition(String compositionString, Vector<WebCore::CompositionUnderline> underlines, uint64_t cursorPosition)
     CancelComposition()
 #endif
-#if USE(COORDINATED_GRAPHICS)
+#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
     FindZoomableAreaForPoint(WebCore::IntPoint point, WebCore::IntSize area)
 #endif
 
@@ -377,24 +407,31 @@ messages -> WebPage LegacyReceiver {
     WillStartUserTriggeredZooming();
 #endif
 
-#if PLATFORM(GTK) && USE(TEXTURE_MAPPER_GL)
-    SetAcceleratedCompositingWindowId(int64_t id)
-#endif
-  
     SetScrollPinningBehavior(uint32_t pinning)
+    SetScrollbarOverlayStyle(Optional<uint32_t> scrollbarStyle)
 
     GetBytecodeProfile(uint64_t callbackID)
     
     TakeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, uint32_t options, uint64_t callbackID)
-
 #if PLATFORM(MAC)
-    PerformActionMenuHitTestAtLocation(WebCore::FloatPoint location, bool forImmediateAction)
-    SelectLastActionMenuRange()
-    FocusAndSelectLastActionMenuHitTestResult()
+    PerformImmediateActionHitTestAtLocation(WebCore::FloatPoint location)
+    ImmediateActionDidUpdate()
+    ImmediateActionDidCancel()
+    ImmediateActionDidComplete()
     DataDetectorsDidPresentUI(WebCore::PageOverlay::PageOverlayID pageOverlay)
     DataDetectorsDidChangeUI(WebCore::PageOverlay::PageOverlayID pageOverlay)
     DataDetectorsDidHideUI(WebCore::PageOverlay::PageOverlayID pageOverlay)
 #endif
 
     SetShouldDispatchFakeMouseMoveEvents(bool shouldDispatchFakeMouseMoveEvents)
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+    PlaybackTargetSelected(uint64_t contextId, struct WebCore::MediaPlaybackTargetContext target)
+    PlaybackTargetAvailabilityDidChange(uint64_t contextId, bool available)
+    SetShouldPlayToPlaybackTarget(uint64_t contextId, bool shouldPlay)
+#endif
+
+    ClearWheelEventTestTrigger()
+    SetShouldScaleViewToFitDocument(bool shouldScaleViewToFitDocument)
+    SetUserContentExtensionsEnabled(bool userContentExtensionsEnabled)
 }

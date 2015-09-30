@@ -69,9 +69,9 @@ static const String cssAlignmentValueForNSTextAlignment(NSTextAlignment alignmen
     return String();
 }
 
-PassRefPtr<PDFPluginTextAnnotation> PDFPluginTextAnnotation::create(PDFAnnotation *annotation, PDFLayerController *pdfLayerController, PDFPlugin* plugin)
+Ref<PDFPluginTextAnnotation> PDFPluginTextAnnotation::create(PDFAnnotation *annotation, PDFLayerController *pdfLayerController, PDFPlugin* plugin)
 {
-    return adoptRef(new PDFPluginTextAnnotation(annotation, pdfLayerController, plugin));
+    return adoptRef(*new PDFPluginTextAnnotation(annotation, pdfLayerController, plugin));
 }
 
 PDFPluginTextAnnotation::~PDFPluginTextAnnotation()
@@ -105,9 +105,9 @@ PassRefPtr<Element> PDFPluginTextAnnotation::createAnnotationElement()
     styledElement->setInlineStyleProperty(CSSPropertyTextAlign, cssAlignmentValueForNSTextAlignment(textAnnotation.alignment));
 
     if (isMultiline)
-        toHTMLTextAreaElement(styledElement)->setValue(textAnnotation.stringValue);
+        downcast<HTMLTextAreaElement>(styledElement)->setValue(textAnnotation.stringValue);
     else
-        toHTMLInputElement(styledElement)->setValue(textAnnotation.stringValue);
+        downcast<HTMLInputElement>(styledElement)->setValue(textAnnotation.stringValue);
 
     return element;
 }
@@ -128,7 +128,7 @@ void PDFPluginTextAnnotation::commit()
 
 String PDFPluginTextAnnotation::value() const
 {
-    return toHTMLTextFormControlElement(element())->value();
+    return downcast<HTMLTextFormControlElement>(element())->value();
 }
 
 bool PDFPluginTextAnnotation::handleEvent(Event* event)

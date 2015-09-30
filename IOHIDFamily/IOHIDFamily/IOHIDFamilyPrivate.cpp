@@ -390,3 +390,12 @@ void IOHIDSystemActivityTickle(SInt32 nxEventType, IOService *sender)
 #endif
 }
 
+extern "C" int  kern_stack_snapshot_with_reason(char *reason);
+extern "C" kern_return_t sysdiagnose_notify_user(uint32_t keycode);
+
+void handle_stackshot_keychord(uint32_t keycode) {
+    kern_stack_snapshot_with_reason("Stackshot triggered using keycombo");
+    sysdiagnose_notify_user(keycode);
+    IOLog("IOHIDSystem posted stackshot event 0x%02x\n", keycode);
+}
+

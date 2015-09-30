@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,11 +61,6 @@ typedef struct {
     memoryBufferRef		read;
     memoryBufferRef		write;
 } memoryIO, * memoryIORef;
-
-SSLContextRef
-EAPSSLContextCreate(SSLProtocol protocol, bool is_server, 
-		    SSLReadFunc func_read, SSLWriteFunc func_write, 
-		    void * handle, char * peername, OSStatus * ret_status);
 
 SSLContextRef
 EAPTLSMemIOContextCreate(bool is_server, memoryIORef mem_io, 

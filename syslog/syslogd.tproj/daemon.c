@@ -42,9 +42,11 @@
 #include <libkern/OSAtomic.h>
 #include <libproc.h>
 #include <uuid/uuid.h>
+#include <asl_private.h>
 #include "daemon.h"
 
 #define LIST_SIZE_DELTA 256
+#define STATS_TABLE_SIZE 256
 
 #define forever for(;;)
 
@@ -70,26 +72,26 @@ static char myname[MAXHOSTNAMELEN + 1] = {0};
 static int name_change_token = -1;
 
 static OSSpinLock count_lock = 0;
-static int aslmanager_triggered = 0;
-
 
 #if !TARGET_OS_EMBEDDED
 static vproc_transaction_t vproc_trans = {0};
-#define DEFAULT_WORK_QUEUE_SIZE_MAX 10240000
-#else
-#define DEFAULT_WORK_QUEUE_SIZE_MAX 4096000
 #endif
+
+#define DEFAULT_MEMORY_MAX SYSLOGD_WORK_QUEUE_MEMORY
 
 #define QUOTA_KERN_EXCEEDED_MESSAGE "*** kernel exceeded %d log message per second limit  -  remaining messages this second discarded ***"
 
 #define DEFAULT_DB_FILE_MAX 25600000
-#define DEFAULT_DB_MEMORY_MAX 512
-#define DEFAULT_DB_MEMORY_STR_MAX 4096000
+#define DEFAULT_DB_MEMORY_MAX 256
+#define DEFAULT_DB_MEMORY_STR_MAX 1024000
 #define DEFAULT_MPS_LIMIT 500
 #define DEFAULT_REMOTE_DELAY 5000
 #define DEFAULT_BSD_MAX_DUP_SEC 30
 #define DEFAULT_MARK_SEC 0
 #define DEFAULT_UTMP_TTL_SEC 31622400
+#define DEFAULT_STATS_INTERVAL 600
+
+#define ASL_STATS_LEVEL 5
 
 static time_t quota_time = 0;
 static int32_t kern_quota;
@@ -107,7 +109,115 @@ static const char *kern_notify_key[] =
 	"com.apple.system.log.kernel.debug"
 };
 
-static int kern_notify_token[8] = {-1, -1, -1, -1, -1, -1, -1, -1 };
+static int kern_notify_token[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+
+static stats_table_t *
+stats_table_new()
+{
+	stats_table_t *t = (stats_table_t *)malloc(sizeof(stats_table_t));
+	if (t == NULL) return NULL;
+
+	t->bucket_count = STATS_TABLE_SIZE;
+	t->bucket = (sender_stats_t **)calloc(t->bucket_count, sizeof(sender_stats_t *));
+	if (t->bucket == NULL)
+	{
+		free(t);
+		return NULL;
+	}
+
+	t->mcount = 0;
+	t->shim_count = 0;
+
+	return t;
+}
+
+static asl_msg_t *
+stats_table_final(stats_table_t *t)
+{
+	uint32_t i;
+	asl_msg_t *msg;
+	char val[64];
+
+	if (t == NULL) return NULL;
+
+	msg = asl_msg_new(ASL_TYPE_MSG);
+	if (msg == NULL) return NULL;
+
+	asl_msg_set_key_val(msg, ASL_KEY_MSG, "ASL Sender Statistics");
+	asl_msg_set_key_val(msg, ASL_KEY_SENDER, "syslogd");
+	asl_msg_set_key_val(msg, ASL_KEY_FACILITY, "com.apple.asl.statistics");
+	snprintf(val, sizeof(val), "%d", global.pid);
+	asl_msg_set_key_val(msg, ASL_KEY_PID, val);
+	snprintf(val, sizeof(val), "%d", ASL_STATS_LEVEL);
+	asl_msg_set_key_val(msg, ASL_KEY_LEVEL, val);
+	snprintf(val, sizeof(val), "%u", t->mcount);
+	asl_msg_set_key_val(msg, "MsgCount", val);
+	snprintf(val, sizeof(val), "%u", t->shim_count);
+	asl_msg_set_key_val(msg, "ShimCount", val);
+
+	for (i = 0; i < t->bucket_count; i++)
+	{
+		sender_stats_t *s;
+		s = t->bucket[i];
+		while (s != NULL)
+		{
+			char val[64], *key = NULL;
+			sender_stats_t *n = s->next;
+
+			snprintf(val, sizeof(val), "%llu %llu", s->count, s->size);
+			asprintf(&key, "*%s", s->sender);
+			if (key != NULL) asl_msg_set_key_val(msg, key, val);
+			free(key);
+			free(s->sender);
+			free(s);
+			s = n;
+		}
+	}
+
+	free(t->bucket);
+	free(t);
+
+	return msg;
+}
+
+static void
+stats_table_update(stats_table_t *t, const char *sender, uint64_t msg_size)
+{
+	uint32_t i;
+	sender_stats_t *s;
+	uint8_t *p;
+
+	if (t == NULL) return;
+	if (sender == NULL) return;
+
+	/* hash */
+	i = 0;
+	for (p = (uint8_t *)sender; *p != '\0'; p++) i = (i << 1) ^ (i ^ *p);
+	i %= STATS_TABLE_SIZE;
+
+	for (s = t->bucket[i]; s != NULL; s = s->next)
+	{
+		if ((s->sender != NULL) && (strcmp(sender, s->sender) == 0))
+		{
+			s->count++;
+			s->size += msg_size;
+			return;
+		}
+	}
+
+	s = (sender_stats_t *)malloc(sizeof(sender_stats_t));
+	s->sender = strdup(sender);
+	if (s->sender == NULL)
+	{
+		free(s);
+		return;
+	}
+
+	s->count = 1;
+	s->size = msg_size;
+	s->next = t->bucket[i];
+	t->bucket[i] = s;
+}
 
 static uint32_t
 kern_quota_check(time_t now, asl_msg_t *msg, uint32_t level)
@@ -146,11 +256,41 @@ kern_quota_check(time_t now, asl_msg_t *msg, uint32_t level)
 	return VERIFY_STATUS_OK;
 }
 
+static void
+stats_msg(const char *sender, time_t now, asl_msg_t *msg)
+{
+	asl_msg_t *x;
+	uint64_t msize = 0;
+
+	/* flush stats after N seconds */
+	if ((global.stats_interval != 0) && ((now - global.stats_last) >= global.stats_interval) && (global.stats != NULL))
+	{
+		asl_msg_t *msg = stats_table_final(global.stats);
+		process_message(msg, SOURCE_INTERNAL);
+		global.stats = NULL;
+		global.stats_last = now;
+	}
+
+	if (global.stats == NULL) global.stats = stats_table_new();
+
+	for (x = msg; x != NULL; x = x->next) msize += x->mem_size;
+
+	const char *shim_vers = asl_msg_get_val_for_key(msg, "ASLSHIM");
+	global.stats->mcount++;
+	if (shim_vers != NULL) global.stats->shim_count++;
+
+	/* update count and total size - total and for this sender */
+	stats_table_update(global.stats, "*", msize);
+	stats_table_update(global.stats, sender, msize);
+}
+
 static const char *
 whatsmyhostname()
 {
 	static dispatch_once_t once;
 	int check, status;
+
+	if (global.hostname != NULL) return global.hostname;
 
 	dispatch_once(&once, ^{
 		snprintf(myname, sizeof(myname), "%s", "localhost");
@@ -219,7 +359,7 @@ asl_client_count_decrement()
 static uint32_t
 aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_out)
 {
-	const char *val, *fac, *ruval, *rgval;
+	const char *val, *fac, *ruval, *rgval, *sval = NULL;
 	char buf[64];
 	time_t tick, now;
 	uid_t uid;
@@ -244,11 +384,13 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 	if (val == NULL) asl_msg_set_key_val(msg, ASL_KEY_PID, "0");
 	else pid = (pid_t)atoi(val);
 
-	/* if PID is 1 (launchd), use the refpid if provided */
+	/* if PID is 1 (launchd), use the RefPID and RefProc provided */
 	if (pid == 1)
 	{
 		val = asl_msg_get_val_for_key(msg, ASL_KEY_REF_PID);
 		if (val != NULL) pid = (pid_t)atoi(val);
+
+		sval = asl_msg_get_val_for_key(msg, ASL_KEY_REF_PROC);
 	}
 
 	/* Level */
@@ -259,6 +401,7 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 	if ((val != NULL) && (val[1] == '\0') && (val[0] >= '0') && (val[0] <= '7')) level = val[0] - '0';
 	snprintf(buf, sizeof(buf), "%d", level);
 	asl_msg_set_key_val(msg, ASL_KEY_LEVEL, buf);
+
 
 	/* check kernel quota if enabled and no processes are watching */
 	if ((pid == 0) && (global.mps_limit > 0) && (global.watchers_active == 0))
@@ -286,7 +429,7 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 	if ((tick == 0) || (tick > now)) tick = now;
 
 	/* Canonical form: seconds since the epoch */
-	snprintf(buf, sizeof(buf) - 1, "%lu", tick);
+	snprintf(buf, sizeof(buf) - 1, "%llu", (unsigned long long) tick);
 	asl_msg_set_key_val(msg, ASL_KEY_TIME, buf);
 
 	/* Host */
@@ -365,19 +508,21 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 	}
 
 	/* Sender */
-	val = asl_msg_get_val_for_key(msg, ASL_KEY_SENDER);
-	if (val == NULL)
+	if (sval == NULL) sval = asl_msg_get_val_for_key(msg, ASL_KEY_SENDER);
+	if (sval == NULL)
 	{
 		switch (source)
 		{
 			case SOURCE_KERN:
 			{
-				asl_msg_set_key_val(msg, ASL_KEY_SENDER, "kernel");
+				sval = "kernel";
+				asl_msg_set_key_val(msg, ASL_KEY_SENDER, sval);
 				break;
 			}
 			case SOURCE_INTERNAL:
 			{
-				asl_msg_set_key_val(msg, ASL_KEY_SENDER, "syslogd");
+				sval = "syslogd";
+				asl_msg_set_key_val(msg, ASL_KEY_SENDER, sval);
 				break;
 			}
 			default:
@@ -386,10 +531,11 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 			}
 		}
 	}
-	else if ((source != SOURCE_KERN) && (uid != 0) && (!strcmp(val, "kernel")))
+	else if ((source != SOURCE_KERN) && (uid != 0) && (!strcmp(sval, "kernel")))
 	{
 		/* allow UID 0 to send messages with "Sender kernel", but nobody else */
 		asl_msg_set_key_val(msg, ASL_KEY_SENDER, "Unknown");
+		sval = NULL;
 	}
 
 	/* Facility */
@@ -442,14 +588,14 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 	/* Set DB Expire Time for com.apple.system.utmpx and lastlog */
 	if ((!strcmp(fac, "com.apple.system.utmpx")) || (!strcmp(fac, "com.apple.system.lastlog")))
 	{
-		snprintf(buf, sizeof(buf), "%lu", tick + global.utmp_ttl);
+		snprintf(buf, sizeof(buf), "%llu", (unsigned long long) tick + global.utmp_ttl);
 		asl_msg_set_key_val(msg, ASL_KEY_EXPIRE_TIME, buf);
 	}
 
 	/* Set DB Expire Time for Filesystem errors */
 	if (!strcmp(fac, FSLOG_VAL_FACILITY))
 	{
-		snprintf(buf, sizeof(buf), "%lu", tick + FS_TTL_SEC);
+		snprintf(buf, sizeof(buf), "%llu", (unsigned long long) tick + FS_TTL_SEC);
 		asl_msg_set_key_val(msg, ASL_KEY_EXPIRE_TIME, buf);
 	}
 
@@ -461,6 +607,11 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 		if (kern_post_level != NULL) *kern_post_level = level;
 		disaster_message(msg);
 	}
+
+	/*
+	 * gather sender stats
+	 */
+	if (source != SOURCE_INTERNAL) stats_msg(sval, now, msg);
 
 	return VERIFY_STATUS_OK;
 }
@@ -526,7 +677,8 @@ init_globals(void)
 	global.bsd_max_dup_time = DEFAULT_BSD_MAX_DUP_SEC;
 	global.mark_time = DEFAULT_MARK_SEC;
 	global.utmp_ttl = DEFAULT_UTMP_TTL_SEC;
-	global.max_work_queue_size = DEFAULT_WORK_QUEUE_SIZE_MAX;
+	global.memory_max = DEFAULT_MEMORY_MAX;
+	global.stats_interval = DEFAULT_STATS_INTERVAL;
 
 	global.asl_out_module = asl_out_module_init();
 	OSSpinLockUnlock(&global.lock);
@@ -603,7 +755,22 @@ control_set_param(const char *s, bool eval)
 		return -1;
 	}
 
-	if (!strcasecmp(l[0], "mark_time"))
+	if (!strcasecmp(l[0], "hostname"))
+	{
+		/* = hostname name */
+		OSSpinLockLock(&global.lock);
+		if (eval)
+		{
+			global.hostname = strdup(l[1]);
+		}
+		else
+		{
+			free(global.hostname);
+			global.hostname = NULL;
+		}
+		OSSpinLockUnlock(&global.lock);
+	}
+	else if (!strcasecmp(l[0], "mark_time"))
 	{
 		/* = mark_time seconds */
 		OSSpinLockLock(&global.lock);
@@ -643,12 +810,20 @@ control_set_param(const char *s, bool eval)
 		else global.mps_limit = DEFAULT_MPS_LIMIT;
 		OSSpinLockUnlock(&global.lock);
 	}
-	else if (!strcasecmp(l[0], "max_work_queue_size"))
+	else if (!strcasecmp(l[0], "memory_max"))
 	{
-		/* = max_work_queue_size number */
+		/* = memory_max number */
 		OSSpinLockLock(&global.lock);
-		if (eval) global.max_work_queue_size = (int64_t)atoll(l[1]);
-		else global.max_work_queue_size = DEFAULT_WORK_QUEUE_SIZE_MAX;
+		if (eval) global.memory_max = (int64_t)atoll(l[1]);
+		else global.memory_max = DEFAULT_MEMORY_MAX;
+		OSSpinLockUnlock(&global.lock);
+	}
+	else if (!strcasecmp(l[0], "stats_interval"))
+	{
+		/* = stats_interval number */
+		OSSpinLockLock(&global.lock);
+		if (eval) global.stats_interval = (time_t)atoll(l[1]);
+		else global.stats_interval = DEFAULT_STATS_INTERVAL;
 		OSSpinLockUnlock(&global.lock);
 	}
 	else if (!strcasecmp(l[0], "max_file_size"))
@@ -752,7 +927,6 @@ void
 process_message(asl_msg_t *msg, uint32_t source)
 {
 	int64_t msize = 0;
-	static bool wq_draining = false;
 	bool is_control = false;
 	asl_msg_t *x;
 
@@ -760,38 +934,24 @@ process_message(asl_msg_t *msg, uint32_t source)
 
 	is_control = asl_check_option(msg, ASL_OPT_CONTROL) != 0;
 
-	if ((!is_control) && wq_draining)
-	{
-		if (global.work_queue_size >= (global.max_work_queue_size / 2))
-		{
-			asldebug("Work queue draining: dropped message.\n");
-			asl_msg_release(msg);
-			return;
-		}
-		else
-		{
-			asldebug("Work queue re-enabled at 1/2 max.  size %llu  max %llu\n", global.work_queue_size, global.max_work_queue_size);
-			wq_draining = false;
-		}
-	}
+	__block vproc_transaction_t vt = vproc_transaction_begin(NULL);
 
 	for (x = msg; x != NULL; x = x->next) msize += x->mem_size;
 
-	if ((global.work_queue_size + msize) >= global.max_work_queue_size)
+	if ((global.memory_size + msize) >= global.memory_max)
 	{
-		char *str = NULL;
-
-		wq_draining = true;
+		char str[256];
 		asl_msg_release(msg);
 
-		asldebug("Work queue disabled.  msize %llu  size %llu  max %llu\n", msize, global.work_queue_size + msize, global.max_work_queue_size);
-		asprintf(&str, "[Sender syslogd] [Level 2] [PID %u] [Message Internal work queue size limit exceeded - dropping messages] [UID 0] [UID 0] [Facility syslog]", global.pid);
+		asldebug("Work queue memory limit - dropped message.  msize %lld  size %lld  max %lld\n", msize, global.memory_size + msize, global.memory_max);
+		snprintf(str, sizeof(str), "[Sender syslogd] [Level 2] [PID %u] [Message Received message size %lld overflows work queue limit %lld - dropping message] [UID 0] [UID 0] [Facility syslog]", global.pid, msize, global.memory_max);
 		msg = asl_msg_from_string(str);
-		free(str);
+		for (x = msg; x != NULL; x = x->next) msize += x->mem_size;
 	}
 
-	OSAtomicAdd64(msize, &global.work_queue_size);
+	OSAtomicAdd64(msize, &global.memory_size);
 	OSAtomicIncrement32(&global.work_queue_count);
+
 	dispatch_async(global.work_queue, ^{
 		int32_t kplevel;
 		uint32_t status;
@@ -817,17 +977,21 @@ process_message(asl_msg_t *msg, uint32_t source)
 
 			if ((uid == 0) && is_control) control_message(msg);
 
-			/* send message to output modules */
-			asl_out_message(msg);
-#if !TARGET_IPHONE_SIMULATOR
-			if (global.bsd_out_enabled) bsd_out_message(msg);
-#endif
+			/*
+			 * Send message to output module chain (asl is first).
+			 * The last module in the chain will decrement global.memory_size.
+			 */
+			asl_out_message(msg, msize);
+		}
+		else
+		{
+			OSAtomicAdd64(-1ll * msize, &global.memory_size);
 		}
 
 		asl_msg_release(msg);
 
-		OSAtomicAdd64(-1ll * msize, &global.work_queue_size);
 		OSAtomicDecrement32(&global.work_queue_count);
+		vproc_transaction_end(NULL, vt);
 	});
 }
 
@@ -846,34 +1010,6 @@ internal_log_message(const char *str)
 	return 0;
 }
 
-void
-trigger_aslmanager()
-{
-	dispatch_async(dispatch_get_main_queue(), ^{
-		if (aslmanager_triggered == 0)
-		{
-			aslmanager_triggered = 1;
-
-			time_t now = time(0);
-			if ((now - global.aslmanager_last_trigger) >= ASLMANAGER_DELAY)
-			{
-				global.aslmanager_last_trigger = now;
-				asl_trigger_aslmanager();
-				aslmanager_triggered = 0;
-			}
-			else
-			{
-				uint64_t delta = ASLMANAGER_DELAY - (now - global.aslmanager_last_trigger);
-				dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delta * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-					global.aslmanager_last_trigger = time(0);
-					asl_trigger_aslmanager();
-					aslmanager_triggered = 0;
-				});
-			}
-		}
-	});
-}
-
 int
 asldebug(const char *str, ...)
 {
@@ -887,6 +1023,9 @@ asldebug(const char *str, ...)
 	if (dfp == NULL) return 0;
 
 	va_start(v, str);
+	fprintf(dfp, "W %d %llu", global.work_queue_count, global.memory_size);
+	if (global.memory_db != NULL) fprintf(dfp, "   M %u %u %lu", global.memory_db->record_count, global.memory_db->string_count, global.memory_db->curr_string_mem);
+	fprintf(dfp, " ; ");
 	vfprintf(dfp, str, v);
 	va_end(v);
 
@@ -1200,7 +1339,7 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 	/* Time */
 	if (when != NULL)
 	{
-		snprintf(str, sizeof(str), "%lu", when->tv_sec);
+		snprintf(str, sizeof(str), "%llu", (unsigned long long) when->tv_sec);
 		asl_msg_set_key_val(m, ASL_KEY_TIME, str);
 
 		snprintf(str, sizeof(str), "%lu", 1000 * (unsigned long int)when->tv_usec);
@@ -1209,7 +1348,7 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 	else
 	{
 		now = time(NULL);
-		snprintf(str, sizeof(str), "%lu", now);
+		snprintf(str, sizeof(str), "%llu", (unsigned long long) now);
 		asl_msg_set_key_val(m, ASL_KEY_TIME, str);
 	}
 

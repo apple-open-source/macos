@@ -69,21 +69,22 @@ ScrollingNodeID RemoteScrollingCoordinatorProxy::rootScrollingNodeID() const
 const RemoteLayerTreeHost* RemoteScrollingCoordinatorProxy::layerTreeHost() const
 {
     DrawingAreaProxy* drawingArea = m_webPageProxy.drawingArea();
-    if (!drawingArea || drawingArea->type() != DrawingAreaTypeRemoteLayerTree) {
+    if (!is<RemoteLayerTreeDrawingAreaProxy>(drawingArea)) {
         ASSERT_NOT_REACHED();
         return nullptr;
     }
 
-    RemoteLayerTreeDrawingAreaProxy* remoteDrawingArea = toRemoteLayerTreeDrawingAreaProxy(drawingArea);
-    return &remoteDrawingArea->remoteLayerTreeHost();
+    RemoteLayerTreeDrawingAreaProxy& remoteDrawingArea = downcast<RemoteLayerTreeDrawingAreaProxy>(*drawingArea);
+    return &remoteDrawingArea.remoteLayerTreeHost();
 }
 
 void RemoteScrollingCoordinatorProxy::updateScrollingTree(const RemoteScrollingCoordinatorTransaction& transaction, RequestedScrollInfo& requestedScrollInfo)
 {
     m_requestedScrollInfo = &requestedScrollInfo;
 
-    OwnPtr<ScrollingStateTree> stateTree = const_cast<RemoteScrollingCoordinatorTransaction&>(transaction).scrollingStateTree().release();
-    
+    // FIXME: There must be a better idiom for this.
+    std::unique_ptr<ScrollingStateTree> stateTree(const_cast<RemoteScrollingCoordinatorTransaction&>(transaction).scrollingStateTree().release());
+
     const RemoteLayerTreeHost* layerTreeHost = this->layerTreeHost();
     if (!layerTreeHost) {
         ASSERT_NOT_REACHED();
@@ -91,7 +92,7 @@ void RemoteScrollingCoordinatorProxy::updateScrollingTree(const RemoteScrollingC
     }
 
     connectStateNodeLayers(*stateTree, *layerTreeHost);
-    m_scrollingTree->commitNewTreeState(stateTree.release());
+    m_scrollingTree->commitNewTreeState(WTF::move(stateTree));
 
     m_requestedScrollInfo = nullptr;
 }
@@ -105,33 +106,33 @@ void RemoteScrollingCoordinatorProxy::connectStateNodeLayers(ScrollingStateTree&
 
         switch (currNode->nodeType()) {
         case FrameScrollingNode: {
-            ScrollingStateFrameScrollingNode* scrollingStateNode = toScrollingStateFrameScrollingNode(currNode);
+            ScrollingStateFrameScrollingNode& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(*currNode);
             
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateFrameScrollingNode::ScrolledContentsLayer))
-                scrollingStateNode->setScrolledContentsLayer(layerTreeHost.getLayer(scrollingStateNode->scrolledContentsLayer()));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::ScrolledContentsLayer))
+                scrollingStateNode.setScrolledContentsLayer(layerTreeHost.getLayer(scrollingStateNode.scrolledContentsLayer()));
 
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateFrameScrollingNode::CounterScrollingLayer))
-                scrollingStateNode->setCounterScrollingLayer(layerTreeHost.getLayer(scrollingStateNode->counterScrollingLayer()));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::CounterScrollingLayer))
+                scrollingStateNode.setCounterScrollingLayer(layerTreeHost.getLayer(scrollingStateNode.counterScrollingLayer()));
 
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateFrameScrollingNode::InsetClipLayer))
-                scrollingStateNode->setInsetClipLayer(layerTreeHost.getLayer(scrollingStateNode->insetClipLayer()));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::InsetClipLayer))
+                scrollingStateNode.setInsetClipLayer(layerTreeHost.getLayer(scrollingStateNode.insetClipLayer()));
 
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateFrameScrollingNode::ContentShadowLayer))
-                scrollingStateNode->setContentShadowLayer(layerTreeHost.getLayer(scrollingStateNode->contentShadowLayer()));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::ContentShadowLayer))
+                scrollingStateNode.setContentShadowLayer(layerTreeHost.getLayer(scrollingStateNode.contentShadowLayer()));
 
             // FIXME: we should never have header and footer layers coming from the WebProcess.
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateFrameScrollingNode::HeaderLayer))
-                scrollingStateNode->setHeaderLayer(layerTreeHost.getLayer(scrollingStateNode->headerLayer()));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::HeaderLayer))
+                scrollingStateNode.setHeaderLayer(layerTreeHost.getLayer(scrollingStateNode.headerLayer()));
 
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateFrameScrollingNode::FooterLayer))
-                scrollingStateNode->setFooterLayer(layerTreeHost.getLayer(scrollingStateNode->footerLayer()));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::FooterLayer))
+                scrollingStateNode.setFooterLayer(layerTreeHost.getLayer(scrollingStateNode.footerLayer()));
             break;
         }
         case OverflowScrollingNode: {
-            ScrollingStateOverflowScrollingNode* scrollingStateNode = toScrollingStateOverflowScrollingNode(currNode);
+            ScrollingStateOverflowScrollingNode& scrollingStateNode = downcast<ScrollingStateOverflowScrollingNode>(*currNode);
 
-            if (scrollingStateNode->hasChangedProperty(ScrollingStateOverflowScrollingNode::ScrolledContentsLayer))
-                scrollingStateNode->setScrolledContentsLayer(layerTreeHost.getLayer(scrollingStateNode->scrolledContentsLayer()));
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateOverflowScrollingNode::ScrolledContentsLayer))
+                scrollingStateNode.setScrolledContentsLayer(layerTreeHost.getLayer(scrollingStateNode.scrolledContentsLayer()));
             break;
         }
         case FixedNode:
@@ -156,6 +157,11 @@ bool RemoteScrollingCoordinatorProxy::isPointInNonFastScrollableRegion(const Int
 void RemoteScrollingCoordinatorProxy::viewportChangedViaDelegatedScrolling(ScrollingNodeID nodeID, const FloatRect& fixedPositionRect, double scale)
 {
     m_scrollingTree->viewportChangedViaDelegatedScrolling(nodeID, fixedPositionRect, scale);
+}
+
+void RemoteScrollingCoordinatorProxy::currentSnapPointIndicesDidChange(WebCore::ScrollingNodeID nodeID, unsigned horizontal, unsigned vertical)
+{
+    m_webPageProxy.send(Messages::RemoteScrollingCoordinator::CurrentSnapPointIndicesChangedForNode(nodeID, horizontal, vertical));
 }
 
 // This comes from the scrolling tree.

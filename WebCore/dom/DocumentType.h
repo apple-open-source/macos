@@ -32,9 +32,9 @@ class NamedNodeMap;
 
 class DocumentType final : public Node {
 public:
-    static PassRefPtr<DocumentType> create(Document& document, const String& name, const String& publicId, const String& systemId)
+    static Ref<DocumentType> create(Document& document, const String& name, const String& publicId, const String& systemId)
     {
-        return adoptRef(new DocumentType(document, name, publicId, systemId));
+        return adoptRef(*new DocumentType(document, name, publicId, systemId));
     }
 
     // FIXME: We return null entities and notations. Current implementation of NamedNodeMap doesn't work without an associated Element yet.
@@ -52,7 +52,7 @@ private:
     virtual URL baseURI() const override;
     virtual String nodeName() const override;
     virtual NodeType nodeType() const override;
-    virtual PassRefPtr<Node> cloneNode(bool deep) override;
+    virtual RefPtr<Node> cloneNodeInternal(Document&, CloningOperation) override;
 
     String m_name;
     String m_publicId;
@@ -60,13 +60,10 @@ private:
     String m_subset;
 };
 
-inline bool isDocumentType(const Node& node)
-{
-    return node.nodeType() == Node::DOCUMENT_TYPE_NODE;
-}
-
-NODE_TYPE_CASTS(DocumentType)
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::DocumentType)
+    static bool isType(const WebCore::Node& node) { return node.nodeType() == WebCore::Node::DOCUMENT_TYPE_NODE; }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif

@@ -1,5 +1,5 @@
 /********************************************************************************
-* Copyright (C) 2008-2013, International Business Machines Corporation and
+* Copyright (C) 2008-2013,2015, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -94,9 +94,11 @@ U_NAMESPACE_BEGIN
  *
  * <P>
  * The calendar fields we support for interval formatting are:
- * year, month, date, day-of-week, am-pm, hour, hour-of-day, and minute.
+ * year, month, date, day-of-week, am-pm, hour, hour-of-day, minute, and second
+ * (though we do not currently have specific intervalFormat date for skeletons
+ * with seconds).
  * Those calendar fields can be defined in the following order:
- * year >  month > date > hour (in day) >  minute
+ * year >  month > date > hour (in day) >  minute > second
  *
  * The largest different calendar fields between 2 calendars is the
  * first different calendar field in above order.
@@ -679,6 +681,21 @@ private:
      *  Below are for generating interval patterns local to the formatter
      */
 
+    /**
+     * @param combiningPattern  xxx
+     * @param pat0              xxx
+     * @param pos0              xxx
+     * @param pat1              xxx
+     * @param pos1              xxx
+     * @param posResult         xxx
+     */
+    static void
+    adjustPosition(UnicodeString& combiningPattern, // has {0} and {1} in it
+                   UnicodeString& pat0, FieldPosition& pos0, // pattern and pos corresponding to {0}
+                   UnicodeString& pat1, FieldPosition& pos1, // pattern and pos corresponding to {1}
+                   FieldPosition& posResult);
+
+
 
     /**
      * Format 2 Calendars using fall-back interval pattern
@@ -690,6 +707,8 @@ private:
      *                          to be formatted into date interval string
      * @param toCalendar        calendar set to the to date in date interval
      *                          to be formatted into date interval string
+     * @param fromToOnSameDay   TRUE iff from and to dates are on the same day
+     *                          (any difference is in ampm/hours or below)
      * @param appendTo          Output parameter to receive result.
      *                          Result is appended to existing contents.
      * @param pos               On input: an alignment field, if desired.
@@ -699,6 +718,7 @@ private:
      */
     UnicodeString& fallbackFormat(Calendar& fromCalendar,
                                   Calendar& toCalendar,
+                                  UBool fromToOnSameDay,
                                   UnicodeString& appendTo,
                                   FieldPosition& pos,
                                   UErrorCode& status) const;
@@ -889,13 +909,11 @@ private:
      * both time and date. Present the date followed by
      * the range expression for the time.
      * @param format         date and time format
-     * @param formatLen      format string length
      * @param datePattern    date pattern
      * @param field          time calendar field: AM_PM, HOUR, MINUTE
      * @param status         output param set to success/failure code on exit
      */
-    void concatSingleDate2TimeInterval(const UChar* format,
-                                       int32_t formatLen,
+    void concatSingleDate2TimeInterval(UnicodeString& format,
                                        const UnicodeString& datePattern,
                                        UCalendarDateFields field,
                                        UErrorCode& status);
@@ -985,6 +1003,13 @@ private:
      */
     UnicodeString fSkeleton;
     PatternInfo fIntervalPatterns[DateIntervalInfo::kIPI_MAX_INDEX];
+
+    /**
+     * Patterns for fallback formatting.
+     */
+    UnicodeString* fDatePattern;
+    UnicodeString* fTimePattern;
+    UnicodeString* fDateTimeFormat;
 
     /**
      * Atttributes

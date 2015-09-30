@@ -29,17 +29,18 @@
 #if TARGET_OS_IPHONE
 
 #import <CoreGraphics/CoreGraphics.h>
-#import <CoreGraphics/CoreGraphicsPrivate.h>
+
+typedef int WKCompositeOperation;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-CGContextRef WKGetCurrentGraphicsContext(void);
-void WKSetCurrentGraphicsContext(CGContextRef context);
+WEBCORE_EXPORT CGContextRef WKGetCurrentGraphicsContext(void);
+WEBCORE_EXPORT void WKSetCurrentGraphicsContext(CGContextRef);
 
-void WKRectFill(CGContextRef context, CGRect aRect);
-void WKRectFillUsingOperation(CGContextRef context, CGRect aRect, CGCompositeOperation op);
+WEBCORE_EXPORT void WKRectFill(CGContextRef, CGRect aRect);
+void WKRectFillUsingOperation(CGContextRef, CGRect, WKCompositeOperation);
 
 CGImageRef WKGraphicsCreateImageFromBundleWithName(const char *image_file);
 CGPatternRef WKCreatePatternFromCGImage(CGImageRef imageRef);
@@ -47,37 +48,6 @@ void WKSetPattern(CGContextRef context, CGPatternRef pattern, bool fill, bool st
 
 #ifdef __cplusplus
 }
-#endif
-
-#ifdef __cplusplus
-class WKFontAntialiasingStateSaver
-{
-public:
-
-    WKFontAntialiasingStateSaver(CGContextRef context, bool useOrientationDependentFontAntialiasing)
-        : m_context(context)
-        , m_useOrientationDependentFontAntialiasing(useOrientationDependentFontAntialiasing)
-    {
-    }
-
-    void setup(bool isLandscapeOrientation);
-    void restore();
-
-private:
-
-#if TARGET_IPHONE_SIMULATOR
-#pragma clang diagnostic push
-#if defined(__has_warning) && __has_warning("-Wunused-private-field")
-#pragma clang diagnostic ignored "-Wunused-private-field"
-#endif
-#endif
-    CGContextRef m_context;
-    bool m_useOrientationDependentFontAntialiasing;
-    CGFontAntialiasingStyle m_oldAntialiasingStyle;
-#if TARGET_IPHONE_SIMULATOR
-#pragma clang diagnostic pop
-#endif
-};
 #endif
 
 #endif // TARGET_OS_IPHONE

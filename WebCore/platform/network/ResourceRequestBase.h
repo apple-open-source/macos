@@ -54,38 +54,38 @@ namespace WebCore {
     class ResourceRequestBase {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        static PassOwnPtr<ResourceRequest> adopt(PassOwnPtr<CrossThreadResourceRequestData>);
+        static std::unique_ptr<ResourceRequest> adopt(std::unique_ptr<CrossThreadResourceRequestData>);
 
         // Gets a copy of the data suitable for passing to another thread.
-        PassOwnPtr<CrossThreadResourceRequestData> copyData() const;
+        std::unique_ptr<CrossThreadResourceRequestData> copyData() const;
 
-        bool isNull() const;
-        bool isEmpty() const;
+        WEBCORE_EXPORT bool isNull() const;
+        WEBCORE_EXPORT bool isEmpty() const;
 
-        const URL& url() const;
-        void setURL(const URL& url);
+        WEBCORE_EXPORT const URL& url() const;
+        WEBCORE_EXPORT void setURL(const URL& url);
 
         void removeCredentials();
 
-        ResourceRequestCachePolicy cachePolicy() const;
-        void setCachePolicy(ResourceRequestCachePolicy cachePolicy);
+        WEBCORE_EXPORT ResourceRequestCachePolicy cachePolicy() const;
+        WEBCORE_EXPORT void setCachePolicy(ResourceRequestCachePolicy cachePolicy);
         
         double timeoutInterval() const; // May return 0 when using platform default.
         void setTimeoutInterval(double timeoutInterval);
         
-        const URL& firstPartyForCookies() const;
+        WEBCORE_EXPORT const URL& firstPartyForCookies() const;
         void setFirstPartyForCookies(const URL& firstPartyForCookies);
         
-        const String& httpMethod() const;
-        void setHTTPMethod(const String& httpMethod);
+        WEBCORE_EXPORT const String& httpMethod() const;
+        WEBCORE_EXPORT void setHTTPMethod(const String& httpMethod);
         
-        const HTTPHeaderMap& httpHeaderFields() const;
-        void setHTTPHeaderFields(HTTPHeaderMap);
+        WEBCORE_EXPORT const HTTPHeaderMap& httpHeaderFields() const;
+        WEBCORE_EXPORT void setHTTPHeaderFields(HTTPHeaderMap);
 
-        String httpHeaderField(const String& name) const;
-        String httpHeaderField(HTTPHeaderName) const;
-        void setHTTPHeaderField(const String& name, const String& value);
-        void setHTTPHeaderField(HTTPHeaderName, const String& value);
+        WEBCORE_EXPORT String httpHeaderField(const String& name) const;
+        WEBCORE_EXPORT String httpHeaderField(HTTPHeaderName) const;
+        WEBCORE_EXPORT void setHTTPHeaderField(const String& name, const String& value);
+        WEBCORE_EXPORT void setHTTPHeaderField(HTTPHeaderName, const String& value);
         void addHTTPHeaderField(const String& name, const String& value);
 
         // Instead of passing a string literal to any of these functions, just use a HTTPHeaderName instead.
@@ -95,12 +95,12 @@ namespace WebCore {
 
         void clearHTTPAuthorization();
 
-        String httpContentType() const;
-        void setHTTPContentType(const String&);
+        WEBCORE_EXPORT String httpContentType() const;
+        WEBCORE_EXPORT void setHTTPContentType(const String&);
         void clearHTTPContentType();
 
         String httpReferrer() const;
-        void setHTTPReferrer(const String&);
+        WEBCORE_EXPORT void setHTTPReferrer(const String&);
         void clearHTTPReferrer();
         
         String httpOrigin() const;
@@ -116,18 +116,18 @@ namespace WebCore {
         void clearHTTPAccept();
 
         const Vector<String>& responseContentDispositionEncodingFallbackArray() const { return m_responseContentDispositionEncodingFallbackArray; }
-        void setResponseContentDispositionEncodingFallbackArray(const String& encoding1, const String& encoding2 = String(), const String& encoding3 = String());
+        WEBCORE_EXPORT void setResponseContentDispositionEncodingFallbackArray(const String& encoding1, const String& encoding2 = String(), const String& encoding3 = String());
 
-        FormData* httpBody() const;
-        void setHTTPBody(PassRefPtr<FormData> httpBody);
+        WEBCORE_EXPORT FormData* httpBody() const;
+        WEBCORE_EXPORT void setHTTPBody(PassRefPtr<FormData> httpBody);
         
         bool allowCookies() const;
         void setAllowCookies(bool allowCookies);
 
-        ResourceLoadPriority priority() const;
-        void setPriority(ResourceLoadPriority);
+        WEBCORE_EXPORT ResourceLoadPriority priority() const;
+        WEBCORE_EXPORT void setPriority(ResourceLoadPriority);
 
-        bool isConditional() const;
+        WEBCORE_EXPORT bool isConditional() const;
         void makeUnconditional();
 
         // Whether the associated ResourceHandleClient needs to be notified of
@@ -143,11 +143,13 @@ namespace WebCore {
         bool reportRawHeaders() const { return m_reportRawHeaders; }
         void setReportRawHeaders(bool reportRawHeaders) { m_reportRawHeaders = reportRawHeaders; }
 
-#if ENABLE(INSPECTOR)
         // Whether this request should be hidden from the Inspector.
         bool hiddenFromInspector() const { return m_hiddenFromInspector; }
         void setHiddenFromInspector(bool hiddenFromInspector) { m_hiddenFromInspector = hiddenFromInspector; }
-#endif
+
+        enum class Requester { Unspecified, Main, XHR };
+        Requester requester() const { return m_requester; }
+        void setRequester(Requester requester) { m_requester = requester; }
 
 #if !PLATFORM(COCOA)
         bool encodingRequiresPlatformData() const { return true; }
@@ -155,12 +157,12 @@ namespace WebCore {
         template<class Encoder> void encodeWithoutPlatformData(Encoder&) const;
         template<class Decoder> bool decodeWithoutPlatformData(Decoder&);
 
-        static double defaultTimeoutInterval(); // May return 0 when using platform default.
-        static void setDefaultTimeoutInterval(double);
+        WEBCORE_EXPORT static double defaultTimeoutInterval(); // May return 0 when using platform default.
+        WEBCORE_EXPORT static void setDefaultTimeoutInterval(double);
 
 #if PLATFORM(IOS)
-        static bool defaultAllowCookies();
-        static void setDefaultAllowCookies(bool);
+        WEBCORE_EXPORT static bool defaultAllowCookies();
+        WEBCORE_EXPORT static void setDefaultAllowCookies(bool);
 #endif
 
         static bool compare(const ResourceRequest&, const ResourceRequest&);
@@ -168,17 +170,8 @@ namespace WebCore {
     protected:
         // Used when ResourceRequest is initialized from a platform representation of the request
         ResourceRequestBase()
-            : m_resourceRequestUpdated(false)
-            , m_platformRequestUpdated(true)
-            , m_resourceRequestBodyUpdated(false)
+            : m_platformRequestUpdated(true)
             , m_platformRequestBodyUpdated(true)
-            , m_reportUploadProgress(false)
-            , m_reportLoadTiming(false)
-            , m_reportRawHeaders(false)
-#if ENABLE(INSPECTOR)
-            , m_hiddenFromInspector(false)
-#endif
-            , m_priority(ResourceLoadPriorityLow)
         {
         }
 
@@ -193,16 +186,7 @@ namespace WebCore {
             , m_allowCookies(ResourceRequestBase::defaultAllowCookies())
 #endif
             , m_resourceRequestUpdated(true)
-            , m_platformRequestUpdated(false)
             , m_resourceRequestBodyUpdated(true)
-            , m_platformRequestBodyUpdated(false)
-            , m_reportUploadProgress(false)
-            , m_reportLoadTiming(false)
-            , m_reportRawHeaders(false)
-#if ENABLE(INSPECTOR)
-            , m_hiddenFromInspector(false)
-#endif
-            , m_priority(ResourceLoadPriorityLow)
         {
         }
 
@@ -219,24 +203,23 @@ namespace WebCore {
         HTTPHeaderMap m_httpHeaderFields;
         Vector<String> m_responseContentDispositionEncodingFallbackArray;
         RefPtr<FormData> m_httpBody;
-        unsigned m_cachePolicy : 3;
-        bool m_allowCookies : 1;
-        mutable bool m_resourceRequestUpdated : 1;
-        mutable bool m_platformRequestUpdated : 1;
-        mutable bool m_resourceRequestBodyUpdated : 1;
-        mutable bool m_platformRequestBodyUpdated : 1;
-        bool m_reportUploadProgress : 1;
-        bool m_reportLoadTiming : 1;
-        bool m_reportRawHeaders : 1;
-#if ENABLE(INSPECTOR)
-        bool m_hiddenFromInspector : 1;
-#endif
-        ResourceLoadPriority m_priority : 4; // not unsigned because ResourceLoadPriority has negative values
+        ResourceRequestCachePolicy m_cachePolicy { UseProtocolCachePolicy };
+        bool m_allowCookies { false };
+        mutable bool m_resourceRequestUpdated { false };
+        mutable bool m_platformRequestUpdated { false };
+        mutable bool m_resourceRequestBodyUpdated { false };
+        mutable bool m_platformRequestBodyUpdated { false };
+        bool m_reportUploadProgress { false };
+        bool m_reportLoadTiming { false };
+        bool m_reportRawHeaders { false };
+        bool m_hiddenFromInspector { false };
+        ResourceLoadPriority m_priority { ResourceLoadPriority::Low };
+        Requester m_requester { Requester::Unspecified };
 
     private:
         const ResourceRequest& asResourceRequest() const;
 
-        static double s_defaultTimeoutInterval;
+        WEBCORE_EXPORT static double s_defaultTimeoutInterval;
 #if PLATFORM(IOS)
         static bool s_defaultAllowCookies;
 #endif
@@ -248,26 +231,22 @@ namespace WebCore {
     inline bool operator!=(ResourceRequest& a, const ResourceRequest& b) { return !(a == b); }
 
     struct CrossThreadResourceRequestDataBase {
-        WTF_MAKE_NONCOPYABLE(CrossThreadResourceRequestDataBase); WTF_MAKE_FAST_ALLOCATED;
-    public:
-        CrossThreadResourceRequestDataBase() { }
-        URL m_url;
-
-        ResourceRequestCachePolicy m_cachePolicy;
-        double m_timeoutInterval;
-        URL m_firstPartyForCookies;
-
-        String m_httpMethod;
-        std::unique_ptr<CrossThreadHTTPHeaderMapData> m_httpHeaders;
-        Vector<String> m_responseContentDispositionEncodingFallbackArray;
-        RefPtr<FormData> m_httpBody;
-        bool m_allowCookies;
-        ResourceLoadPriority m_priority;
+        URL url;
+        ResourceRequestCachePolicy cachePolicy;
+        double timeoutInterval;
+        URL firstPartyForCookies;
+        String httpMethod;
+        std::unique_ptr<CrossThreadHTTPHeaderMapData> httpHeaders;
+        Vector<String> responseContentDispositionEncodingFallbackArray;
+        RefPtr<FormData> httpBody;
+        bool allowCookies;
+        ResourceLoadPriority priority;
+        ResourceRequestBase::Requester requester;
     };
     
     unsigned initializeMaximumHTTPConnectionCountPerHost();
 #if PLATFORM(IOS)
-    void initializeHTTPConnectionSettingsOnStartup();
+    WEBCORE_EXPORT void initializeHTTPConnectionSettingsOnStartup();
 #endif
 
 template<class Encoder>
@@ -284,6 +263,7 @@ void ResourceRequestBase::encodeWithoutPlatformData(Encoder& encoder) const
     encoder.encodeEnum(m_cachePolicy);
     encoder << m_allowCookies;
     encoder.encodeEnum(m_priority);
+    encoder.encodeEnum(m_requester);
 }
 
 template<class Decoder>
@@ -325,6 +305,9 @@ bool ResourceRequestBase::decodeWithoutPlatformData(Decoder& decoder)
     if (!decoder.decodeEnum(priority))
         return false;
     m_priority = priority;
+
+    if (!decoder.decodeEnum(m_requester))
+        return false;
 
     return true;
 }

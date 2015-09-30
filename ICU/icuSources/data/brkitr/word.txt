@@ -18,6 +18,7 @@
 ##############################################################################
 
 !!chain;
+!!RINoChain;
 
 
 #
@@ -28,6 +29,7 @@ $CR                 = [\p{Word_Break = CR}];
 $LF                 = [\p{Word_Break = LF}];
 $Newline            = [\p{Word_Break = Newline}];
 $Extend             = [\p{Word_Break = Extend}];
+$RI                 = [\p{Word_Break = Regional_Indicator}];
 $Format             = [\p{Word_Break = Format}];
 $Katakana           = [\p{Word_Break = Katakana}];
 $Hebrew_Letter      = [\p{Word_Break = Hebrew_Letter}];
@@ -42,48 +44,6 @@ $ExtendNumLet       = [\p{Word_Break = ExtendNumLet}];
 
 $Han                = [:Han:];
 $Hiragana           = [:Hiragana:];
-
-$RI_A        = \U0001F1E6;  # Trail ETU
-$RI_B        = \U0001F1E7;  # Trail ER
-$RI_C        = \U0001F1E8;  # Trail AHLNO
-$RI_D        = \U0001F1E9;  # Trail EK
-$RI_E        = \U0001F1EA;  # Trail S
-$RI_F        = \U0001F1EB;  # Trail IR
-$RI_G        = \U0001F1EC;  # Trail B
-$RI_H        = \U0001F1ED;  # Trail K
-$RI_I        = \U0001F1EE;  # Trail DELNT
-$RI_J        = \U0001F1EF;  # Trail OP
-$RI_K        = \U0001F1F0;  # Trail R
-$RI_M        = \U0001F1F2;  # Trail OXY
-$RI_N        = \U0001F1F3;  # Trail LOZ
-$RI_P        = \U0001F1F5;  # Trail HLRT
-$RI_R        = \U0001F1F7;  # Trail U
-$RI_S        = \U0001F1F8;  # Trail AEG
-$RI_T        = \U0001F1F9;  # Trail R
-$RI_U        = \U0001F1FA;  # Trail S
-$RI_V        = \U0001F1FB;	# Trail N
-$RI_Z        = \U0001F1FF;	# Trail A
-
-$RI_A_End    = [\U0001F1EA \U0001F1F9 \U0001F1FA];  	        # ETU
-$RI_B_End    = [\U0001F1EA \U0001F1F7];                         # ER
-$RI_C_End    = [\U0001F1E6 \U0001F1ED \U0001F1F1 \U0001F1F3 \U0001F1F4]; # AHLNO
-$RI_D_End    = [\U0001F1EA \U0001F1F0];                         # EK
-$RI_E_End    = \U0001F1F8;                                      # S
-$RI_F_End    = [\U0001F1EE \U0001F1F7];                         # IR
-$RI_G_End    = \U0001F1E7;                                      # B
-$RI_H_End    = \U0001F1F0;                                      # K
-$RI_I_End    = [\U0001F1E9 \U0001F1EA \U0001F1F1 \U0001F1F3 \U0001F1F9]; # DELNT
-$RI_J_End    = [\U0001F1F5 \U0001F1F4];                         # OP
-$RI_K_End    = \U0001F1F7;                                      # R
-$RI_M_End    = [\U0001F1F4 \U0001F1FD \U0001F1FE];              # OXY
-$RI_N_End    = [\U0001F1F1 \U0001F1F4 \U0001F1FF];              # LOZ
-$RI_P_End    = [\U0001F1ED \U0001F1F1 \U0001F1F7 \U0001F1F9];   # HLRT
-$RI_R_End    = \U0001F1FA;                                      # U
-$RI_S_End    = [\U0001F1E6 \U0001F1EA \U0001F1EC];              # AEG
-$RI_T_End    = \U0001F1F7;                                      # R
-$RI_U_End    = \U0001F1F8;                                      # S
-$RI_V_End    = \U0001F1F3;                                      # N
-$RI_Z_End    = \U0001F1E6;                                      # A
 
 # Special character classes for people & body part emoji:
 # Subsets of $Extend:
@@ -206,26 +166,8 @@ $ExtendNumLetEx  $KatakanaEx     {400};    #  (13b)
 
 # rule 13c
 
-$RI_A ($Extend|$Format)* $RI_A_End ($Extend|$Format)*;
-$RI_B ($Extend|$Format)* $RI_B_End ($Extend|$Format)*;
-$RI_C ($Extend|$Format)* $RI_C_End ($Extend|$Format)*;
-$RI_D ($Extend|$Format)* $RI_D_End ($Extend|$Format)*;
-$RI_E ($Extend|$Format)* $RI_E_End ($Extend|$Format)*;
-$RI_F ($Extend|$Format)* $RI_F_End ($Extend|$Format)*;
-$RI_G ($Extend|$Format)* $RI_G_End ($Extend|$Format)*;
-$RI_H ($Extend|$Format)* $RI_H_End ($Extend|$Format)*;
-$RI_I ($Extend|$Format)* $RI_I_End ($Extend|$Format)*;
-$RI_J ($Extend|$Format)* $RI_J_End ($Extend|$Format)*;
-$RI_K ($Extend|$Format)* $RI_K_End ($Extend|$Format)*;
-$RI_M ($Extend|$Format)* $RI_M_End ($Extend|$Format)*;
-$RI_N ($Extend|$Format)* $RI_N_End ($Extend|$Format)*;
-$RI_P ($Extend|$Format)* $RI_P_End ($Extend|$Format)*;
-$RI_R ($Extend|$Format)* $RI_R_End ($Extend|$Format)*;
-$RI_S ($Extend|$Format)* $RI_S_End ($Extend|$Format)*;
-$RI_T ($Extend|$Format)* $RI_T_End ($Extend|$Format)*;
-$RI_U ($Extend|$Format)* $RI_U_End ($Extend|$Format)*;
-$RI_V ($Extend|$Format)* $RI_V_End ($Extend|$Format)*;
-$RI_Z ($Extend|$Format)* $RI_Z_End ($Extend|$Format)*;
+$RI $RI $Extend* / $RI;
+$RI $RI $Extend*;
 
 # Special forward rules for people & body part emoji:
 # don't break $ZWJ from subsequent $EmojiForSeqs; don't break between relevant emoji and $EmojiMods
@@ -300,26 +242,8 @@ $BackExtendNumLetEx ($BackALetterEx | $BackHebrew_LetterEx | $BackNumericEx | $B
 
 # rule 13c
 
-($Format|$Extend)* $RI_A_End ($Format|$Extend)* $RI_A;
-($Format|$Extend)* $RI_B_End ($Format|$Extend)* $RI_B;
-($Format|$Extend)* $RI_C_End ($Format|$Extend)* $RI_C;
-($Format|$Extend)* $RI_D_End ($Format|$Extend)* $RI_D;
-($Format|$Extend)* $RI_E_End ($Format|$Extend)* $RI_E;
-($Format|$Extend)* $RI_F_End ($Format|$Extend)* $RI_F;
-($Format|$Extend)* $RI_G_End ($Format|$Extend)* $RI_G;
-($Format|$Extend)* $RI_H_End ($Format|$Extend)* $RI_H;
-($Format|$Extend)* $RI_I_End ($Format|$Extend)* $RI_I;
-($Format|$Extend)* $RI_J_End ($Format|$Extend)* $RI_J;
-($Format|$Extend)* $RI_K_End ($Format|$Extend)* $RI_K;
-($Format|$Extend)* $RI_M_End ($Format|$Extend)* $RI_M;
-($Format|$Extend)* $RI_N_End ($Format|$Extend)* $RI_N;
-($Format|$Extend)* $RI_P_End ($Format|$Extend)* $RI_P;
-($Format|$Extend)* $RI_R_End ($Format|$Extend)* $RI_R;
-($Format|$Extend)* $RI_S_End ($Format|$Extend)* $RI_S;
-($Format|$Extend)* $RI_T_End ($Format|$Extend)* $RI_T;
-($Format|$Extend)* $RI_U_End ($Format|$Extend)* $RI_U;
-($Format|$Extend)* $RI_V_End ($Format|$Extend)* $RI_V;
-($Format|$Extend)* $RI_Z_End ($Format|$Extend)* $RI_Z;
+$Extend* $RI $RI / $Extend* $RI $RI;
+$Extend* $RI $RI;
 
 # Special reverse rules for people & body part emoji:
 # don't break $ZWJ from subsequent $EmojiForSeqs; don't break between relevant emoji and $EmojiMods
@@ -347,6 +271,7 @@ $Double_Quote $BackHebrew_LetterEx;
 # rule 11
 ($MidNum | $MidNumLet | $Single_Quote) $BackNumericEx;
 
+$RI $RI+;
 # For dictionary-based break
 $dictionary $dictionary;
 
@@ -366,5 +291,6 @@ $Double_QuoteEx $Hebrew_LetterEx;
 # rule 11
 ($MidNumEx | $MidNumLetEx | $Single_QuoteEx) $NumericEx;
 
+$RI $RI+;
 # For dictionary-based break
 $dictionary $dictionary;

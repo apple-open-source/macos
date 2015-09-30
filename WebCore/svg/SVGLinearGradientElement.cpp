@@ -24,12 +24,10 @@
 #include "config.h"
 #include "SVGLinearGradientElement.h"
 
-#include "Attribute.h"
 #include "Document.h"
 #include "FloatPoint.h"
 #include "LinearGradientAttributes.h"
 #include "RenderSVGResourceLinearGradient.h"
-#include "SVGElementInstance.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGTransform.h"
@@ -65,9 +63,9 @@ inline SVGLinearGradientElement::SVGLinearGradientElement(const QualifiedName& t
     registerAnimatedPropertiesForSVGLinearGradientElement();
 }
 
-PassRefPtr<SVGLinearGradientElement> SVGLinearGradientElement::create(const QualifiedName& tagName, Document& document)
+Ref<SVGLinearGradientElement> SVGLinearGradientElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new SVGLinearGradientElement(tagName, document));
+    return adoptRef(*new SVGLinearGradientElement(tagName, document));
 }
 
 bool SVGLinearGradientElement::isSupportedAttribute(const QualifiedName& attrName)
@@ -86,9 +84,7 @@ void SVGLinearGradientElement::parseAttribute(const QualifiedName& name, const A
 {
     SVGParsingError parseError = NoError;
 
-    if (!isSupportedAttribute(name))
-        SVGGradientElement::parseAttribute(name, value);
-    else if (name == SVGNames::x1Attr)
+    if (name == SVGNames::x1Attr)
         setX1BaseValue(SVGLength::construct(LengthModeWidth, value, parseError));
     else if (name == SVGNames::y1Attr)
         setY1BaseValue(SVGLength::construct(LengthModeHeight, value, parseError));
@@ -96,10 +92,10 @@ void SVGLinearGradientElement::parseAttribute(const QualifiedName& name, const A
         setX2BaseValue(SVGLength::construct(LengthModeWidth, value, parseError));
     else if (name == SVGNames::y2Attr)
         setY2BaseValue(SVGLength::construct(LengthModeHeight, value, parseError));
-    else
-        ASSERT_NOT_REACHED();
 
     reportAttributeParsingError(parseError, name, value);
+
+    SVGGradientElement::parseAttribute(name, value);
 }
 
 void SVGLinearGradientElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -109,7 +105,7 @@ void SVGLinearGradientElement::svgAttributeChanged(const QualifiedName& attrName
         return;
     }
 
-    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    InstanceInvalidationGuard guard(*this);
     
     updateRelativeLengthsInformation();
 
@@ -117,7 +113,7 @@ void SVGLinearGradientElement::svgAttributeChanged(const QualifiedName& attrName
         object->setNeedsLayout();
 }
 
-RenderPtr<RenderElement> SVGLinearGradientElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> SVGLinearGradientElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderSVGResourceLinearGradient>(*this, WTF::move(style));
 }
@@ -143,19 +139,19 @@ static void setGradientAttributes(SVGGradientElement& element, LinearGradientAtt
     }
 
     if (isLinear) {
-        SVGLinearGradientElement* linear = toSVGLinearGradientElement(&element);
+        SVGLinearGradientElement& linear = downcast<SVGLinearGradientElement>(element);
 
         if (!attributes.hasX1() && element.hasAttribute(SVGNames::x1Attr))
-            attributes.setX1(linear->x1());
+            attributes.setX1(linear.x1());
 
         if (!attributes.hasY1() && element.hasAttribute(SVGNames::y1Attr))
-            attributes.setY1(linear->y1());
+            attributes.setY1(linear.y1());
 
         if (!attributes.hasX2() && element.hasAttribute(SVGNames::x2Attr))
-            attributes.setX2(linear->x2());
+            attributes.setX2(linear.x2());
 
         if (!attributes.hasY2() && element.hasAttribute(SVGNames::y2Attr))
-            attributes.setY2(linear->y2());
+            attributes.setY2(linear.y2());
     }
 }
 
@@ -173,8 +169,8 @@ bool SVGLinearGradientElement::collectGradientAttributes(LinearGradientAttribute
     while (true) {
         // Respect xlink:href, take attributes from referenced element
         Node* refNode = SVGURIReference::targetElementFromIRIString(current->href(), document());
-        if (refNode && isSVGGradientElement(*refNode)) {
-            current = toSVGGradientElement(refNode);
+        if (is<SVGGradientElement>(refNode)) {
+            current = downcast<SVGGradientElement>(refNode);
 
             // Cycle detection
             if (processedGradients.contains(current))

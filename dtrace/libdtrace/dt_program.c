@@ -20,6 +20,10 @@
  */
 
 /*
+ * Portions copyright (c) 2011, Delphix. All rights reserved.
+ */
+
+/*
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
@@ -355,6 +359,7 @@ dtrace_stmt_destroy(dtrace_hdl_t *dtp, dtrace_stmtdesc_t *sdp)
 
 	if (sdp->dtsd_fmtdata != NULL)
 		dt_printf_destroy(sdp->dtsd_fmtdata);
+	dt_free(dtp, sdp->dtsd_strdata);
 
 	dt_ecbdesc_release(dtp, sdp->dtsd_ecbdesc);
 	dt_free(dtp, sdp);

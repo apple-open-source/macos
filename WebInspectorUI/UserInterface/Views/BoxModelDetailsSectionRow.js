@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,38 +23,34 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.BoxModelDetailsSectionRow = function() {
-    WebInspector.DetailsSectionRow.call(this, WebInspector.UIString("No Box Model Information"));
+WebInspector.BoxModelDetailsSectionRow = class BoxModelDetailsSectionRow extends WebInspector.DetailsSectionRow
+{
+    constructor()
+    {
+        super(WebInspector.UIString("No Box Model Information"));
 
-    this.element.classList.add(WebInspector.BoxModelDetailsSectionRow.StyleClassName);
+        this.element.classList.add("box-model");
 
-    this._nodeStyles = null;
-};
-
-WebInspector.BoxModelDetailsSectionRow.StyleClassName = "box-model";
-WebInspector.BoxModelDetailsSectionRow.StyleValueDelimiters = " \xA0\t\n\"':;,/()";
-WebInspector.BoxModelDetailsSectionRow.CSSNumberRegex = /^(-?(?:\d+(?:\.\d+)?|\.\d+))$/;
-
-WebInspector.BoxModelDetailsSectionRow.prototype = {
-    constructor: WebInspector.BoxModelDetailsSectionRow,
+        this._nodeStyles = null;
+    }
 
     // Public
 
     get nodeStyles()
     {
         return this._nodeStyles;
-    },
+    }
 
     set nodeStyles(nodeStyles)
     {
         this._nodeStyles = nodeStyles;
 
         this._refresh();
-    },
+    }
 
     // Private
 
-    _refresh: function()
+    _refresh()
     {
         if (this._ignoreNextRefresh) {
             delete this._ignoreNextRefresh;
@@ -62,24 +58,24 @@ WebInspector.BoxModelDetailsSectionRow.prototype = {
         }
 
         this._updateMetrics();
-    },
+    }
 
-    _getPropertyValueAsPx: function(style, propertyName)
+    _getPropertyValueAsPx(style, propertyName)
     {
         return Number(style.propertyForName(propertyName).value.replace(/px$/, "") || 0);
-    },
+    }
 
-    _getBox: function(computedStyle, componentName)
+    _getBox(computedStyle, componentName)
     {
         var suffix = componentName === "border" ? "-width" : "";
         var left = this._getPropertyValueAsPx(computedStyle, componentName + "-left" + suffix);
         var top = this._getPropertyValueAsPx(computedStyle, componentName + "-top" + suffix);
         var right = this._getPropertyValueAsPx(computedStyle, componentName + "-right" + suffix);
         var bottom = this._getPropertyValueAsPx(computedStyle, componentName + "-bottom" + suffix);
-        return { left: left, top: top, right: right, bottom: bottom };
-    },
+        return {left, top, right, bottom};
+    }
 
-    _highlightDOMNode: function(showHighlight, mode, event)
+    _highlightDOMNode(showHighlight, mode, event)
     {
         event.stopPropagation();
 
@@ -101,9 +97,9 @@ WebInspector.BoxModelDetailsSectionRow.prototype = {
             else
                 element.classList.remove("active");
         }
-    },
+    }
 
-    _updateMetrics: function()
+    _updateMetrics()
     {
         // Updating with computed style.
         var metricsElement = document.createElement("div");
@@ -252,9 +248,9 @@ WebInspector.BoxModelDetailsSectionRow.prototype = {
 
         this.hideEmptyMessage();
         this.element.appendChild(metricsElement);
-    },
+    }
 
-    _startEditing: function(targetElement, box, styleProperty, computedStyle)
+    _startEditing(targetElement, box, styleProperty, computedStyle)
     {
         if (WebInspector.isBeingEdited(targetElement))
             return;
@@ -264,7 +260,7 @@ WebInspector.BoxModelDetailsSectionRow.prototype = {
         if (targetElement.title)
             targetElement.textContent = targetElement.title;
 
-        var context = {box: box, styleProperty: styleProperty};
+        var context = {box, styleProperty};
         var boundKeyDown = this._handleKeyDown.bind(this, context, styleProperty);
         context.keyDownHandler = boundKeyDown;
         targetElement.addEventListener("keydown", boundKeyDown, false);
@@ -275,9 +271,9 @@ WebInspector.BoxModelDetailsSectionRow.prototype = {
         WebInspector.startEditing(targetElement, config);
 
         window.getSelection().setBaseAndExtent(targetElement, 0, targetElement, 1);
-    },
+    }
 
-    _alteredFloatNumber: function(number, event)
+    _alteredFloatNumber(number, event)
     {
         var arrowKeyPressed = (event.keyIdentifier === "Up" || event.keyIdentifier === "Down");
 
@@ -301,9 +297,9 @@ WebInspector.BoxModelDetailsSectionRow.prototype = {
             return null;
 
         return result;
-    },
+    }
 
-    _handleKeyDown: function(context, styleProperty, event)
+    _handleKeyDown(context, styleProperty, event)
     {
         if (!/^(?:Page)?(?:Up|Down)$/.test(event.keyIdentifier))
             return;
@@ -360,26 +356,29 @@ WebInspector.BoxModelDetailsSectionRow.prototype = {
         this._ignoreNextRefresh = true;
 
         this._applyUserInput(element, replacementString, originalValue, context, false);
-    },
+    }
 
-    _editingEnded: function(element, context)
+    _editingEnded(element, context)
     {
         delete this.originalPropertyData;
         delete this.previousPropertyDataCandidate;
         element.removeEventListener("keydown", context.keyDownHandler, false);
         delete this._isEditingMetrics;
-    },
+    }
 
-    _editingCancelled: function(element, context)
+    _editingCancelled(element, context)
     {
         this._editingEnded(element, context);
         this._refresh();
-    },
+    }
 
-    _applyUserInput: function(element, userInput, previousContent, context, commitEditor)
+    _applyUserInput(element, userInput, previousContent, context, commitEditor)
     {
-        if (commitEditor && userInput === previousContent)
-            return this._editingCancelled(element, context); // nothing changed, so cancel
+        if (commitEditor && userInput === previousContent) {
+            // Nothing changed, so cancel.
+            this._editingCancelled(element, context);
+            return;
+        }
 
         if (context.box !== "position" && (!userInput || userInput === "\u2012"))
             userInput = "0px";
@@ -413,16 +412,34 @@ WebInspector.BoxModelDetailsSectionRow.prototype = {
             userInput = userValuePx + "px";
         }
 
-        var property = this._nodeStyles.inlineStyle.propertyForName(context.styleProperty);
-        property.value = userInput;
-        property.add();
-    },
+        function resolvedNode(object)
+        {
+            if (!object)
+                return;
 
-    _editingCommitted: function(element, userInput, previousContent, context)
+            function toggleInlineStyleProperty(property, value)
+            {
+                this.style.setProperty(property, value, "!important");
+            }
+
+            function didToggle()
+            {
+                this._nodeStyles.refresh();
+            }
+
+            object.callFunction(toggleInlineStyleProperty, [styleProperty, userInput], false, didToggle.bind(this));
+            object.release();
+        }
+
+        WebInspector.RemoteObject.resolveNode(this._nodeStyles.node, "", resolvedNode.bind(this));
+    }
+
+    _editingCommitted(element, userInput, previousContent, context)
     {
         this._editingEnded(element, context);
         this._applyUserInput(element, userInput, previousContent, context, true);
     }
 };
 
-WebInspector.BoxModelDetailsSectionRow.prototype.__proto__ = WebInspector.DetailsSectionRow.prototype;
+WebInspector.BoxModelDetailsSectionRow.StyleValueDelimiters = " \xA0\t\n\"':;,/()";
+WebInspector.BoxModelDetailsSectionRow.CSSNumberRegex = /^(-?(?:\d+(?:\.\d+)?|\.\d+))$/;

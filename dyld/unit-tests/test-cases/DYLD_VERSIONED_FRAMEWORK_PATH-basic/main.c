@@ -35,7 +35,6 @@ extern int foo();
 
 int main(int argc, const char* argv[])
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED
 	if ( argc > 2 ) {
 		bool found = false;
 		uint32_t count = _dyld_image_count();
@@ -57,7 +56,6 @@ int main(int argc, const char* argv[])
 	if ( actualResult != expectedResult )
 		FAIL("DYLD_VERSIONED_FRAMEWORK_PATH-basic using wrong dylib. foo() returned %d, expected %d", actualResult, expectedResult);
 	else
-#endif
 		PASS("DYLD_VERSIONED_FRAMEWORK_PATH-basic");
 		
 	return EXIT_SUCCESS;

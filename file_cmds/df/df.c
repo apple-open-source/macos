@@ -121,7 +121,7 @@ unit_t unitp [] = { NONE, KILO, MEGA, GIGA, TERA, PETA };
 int	  bread(off_t, void *, int);
 int	  checkvfsname(const char *, char **);
 char	 *getmntpt(char *);
-int	  longwidth(long long);
+int	  int64width(int64_t);
 char	 *makenetvfslist(void);
 char	**makevfslist(const char *);
 void	  prthuman(struct statfs *, uint64_t);
@@ -500,8 +500,8 @@ prtstat(struct statfs *sfsp, struct maxwidths *mwp)
 	if (iflag) {
 		inodes = sfsp->f_files;
 		used = inodes - sfsp->f_ffree;
-		(void)printf(" %*llu %*lu %4.0f%% ", mwp->iused, used,
-		    mwp->ifree, (unsigned long)sfsp->f_ffree, inodes == 0 ? 100.0 :
+		(void)printf(" %*llu %*llu %4.0f%% ", mwp->iused, used,
+		    mwp->ifree, sfsp->f_ffree, inodes == 0 ? 100.0 :
 		    (double)used / (double)inodes * 100.0);
 	} else
 		(void)printf("  ");
@@ -522,20 +522,20 @@ update_maxwidths(struct maxwidths *mwp, struct statfs *sfsp)
 		getbsize(&dummy, &blocksize);
 
 	mwp->mntfrom = imax(mwp->mntfrom, (int)strlen(sfsp->f_mntfromname));
-	mwp->total = imax(mwp->total, longwidth(fsbtoblk(sfsp->f_blocks,
+	mwp->total = imax(mwp->total, int64width(fsbtoblk(sfsp->f_blocks,
 							 sfsp->f_bsize, blocksize, sfsp->f_mntonname)));
 	if (sfsp->f_blocks >= sfsp->f_bfree)
-		mwp->used = imax(mwp->used, longwidth(fsbtoblk(sfsp->f_blocks -
+		mwp->used = imax(mwp->used, int64width(fsbtoblk(sfsp->f_blocks -
 							       sfsp->f_bfree, sfsp->f_bsize, blocksize, sfsp->f_mntonname)));
-	mwp->avail = imax(mwp->avail, longwidth(fsbtoblk(sfsp->f_bavail,
+	mwp->avail = imax(mwp->avail, int64width(fsbtoblk(sfsp->f_bavail,
 							 sfsp->f_bsize, blocksize, sfsp->f_mntonname)));
-	mwp->iused = imax(mwp->iused, longwidth((unsigned)(sfsp->f_files - sfsp->f_ffree)));
-	mwp->ifree = imax(mwp->ifree, longwidth((unsigned)(sfsp->f_ffree)));
+	mwp->iused = imax(mwp->iused, int64width(sfsp->f_files - sfsp->f_ffree));
+	mwp->ifree = imax(mwp->ifree, int64width(sfsp->f_ffree));
 }
 
 /* Return the width in characters of the specified long. */
 int
-longwidth(long long val)
+int64width(int64_t val)
 {
 	int len;
 

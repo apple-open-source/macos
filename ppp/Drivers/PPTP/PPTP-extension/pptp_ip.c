@@ -97,6 +97,13 @@ mbuf_t pptp_ip_input(mbuf_t m, int len, int other)
     }
 #endif
 
+	if (mbuf_len(m) < sizeof(ip_data)) {
+		const errno_t pde = mbuf_pullup(&m, sizeof(ip_data));
+		if (0 != pde) {
+			IOLog("pptp_ip_input mbuf_pullup len %lu failed %d\n", sizeof(ip_data), pde);
+			return NULL;
+		}
+    }
     ip = &ip_data; 
     memcpy(ip, mbuf_data(m), sizeof(ip_data));
     from = ip->ip_src.s_addr;

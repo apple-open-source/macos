@@ -27,7 +27,6 @@
 #define StructureIDTable_h
 
 #include "UnusedPointer.h"
-#include <wtf/OwnPtr.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
@@ -67,10 +66,10 @@ private:
     
     static const size_t s_initialSize = 256;
 
-    Vector<OwnPtr<StructureOrOffset>> m_oldTables;
+    Vector<std::unique_ptr<StructureOrOffset[]>> m_oldTables;
 
     uint32_t m_firstFreeOffset;
-    OwnPtr<StructureOrOffset> m_table;
+    std::unique_ptr<StructureOrOffset[]> m_table;
 
     size_t m_size;
     size_t m_capacity;
@@ -83,6 +82,7 @@ private:
 inline Structure* StructureIDTable::get(StructureID structureID)
 {
 #if USE(JSVALUE64)
+    ASSERT_WITH_SECURITY_IMPLICATION(structureID && structureID < m_capacity);
     return table()[structureID].structure;
 #else
     return structureID;

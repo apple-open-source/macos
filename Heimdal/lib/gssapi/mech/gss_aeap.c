@@ -44,12 +44,12 @@
 
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_wrap_iov(OM_uint32 * minor_status,
-	     gss_ctx_id_t  context_handle,
+gss_wrap_iov(OM_uint32 * __nonnull minor_status,
+	     __nonnull gss_ctx_id_t  context_handle,
 	     int conf_req_flag,
 	     gss_qop_t qop_req,
-	     int * conf_state,
-	     gss_iov_buffer_desc *iov,
+	     int * __nonnull conf_state,
+	     gss_iov_buffer_desc *__nonnull iov,
 	     int iov_count)
 {
 	struct _gss_context *ctx = (struct _gss_context *) context_handle;
@@ -82,11 +82,11 @@ gss_wrap_iov(OM_uint32 * minor_status,
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_unwrap_iov(OM_uint32 *minor_status,
-	       gss_ctx_id_t context_handle,
-	       int *conf_state,
-	       gss_qop_t *qop_state,
-	       gss_iov_buffer_desc *iov,
+gss_unwrap_iov(OM_uint32 * __nonnull minor_status,
+	       __nonnull gss_ctx_id_t context_handle,
+	       int * __nullable conf_state,
+	       gss_qop_t *__nullable qop_state,
+	       gss_iov_buffer_desc *__nonnull iov,
 	       int iov_count)
 {
 	struct _gss_context *ctx = (struct _gss_context *) context_handle;
@@ -125,12 +125,12 @@ gss_unwrap_iov(OM_uint32 *minor_status,
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_wrap_iov_length(OM_uint32 * minor_status,
-		    gss_ctx_id_t context_handle,
+gss_wrap_iov_length(OM_uint32 * __nonnull minor_status,
+		    __nonnull gss_ctx_id_t context_handle,
 		    int conf_req_flag,
 		    gss_qop_t qop_req,
-		    int *conf_state,
-		    gss_iov_buffer_desc *iov,
+		    int * __nullable conf_state,
+		    gss_iov_buffer_desc *__nonnull iov,
 		    int iov_count)
 {
 	struct _gss_context *ctx = (struct _gss_context *) context_handle;
@@ -163,8 +163,8 @@ gss_wrap_iov_length(OM_uint32 * minor_status,
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_release_iov_buffer(OM_uint32 *minor_status,
-		       gss_iov_buffer_desc *iov,
+gss_release_iov_buffer(OM_uint32 * __nonnull minor_status,
+		       gss_iov_buffer_desc *__nonnull iov,
 		       int iov_count)
 {
     OM_uint32 junk;
@@ -184,8 +184,8 @@ gss_release_iov_buffer(OM_uint32 *minor_status,
     return GSS_S_COMPLETE;
 }
 
-gss_iov_buffer_desc *
-_gss_mg_find_buffer(gss_iov_buffer_desc *iov,
+gss_iov_buffer_desc *__nullable
+_gss_mg_find_buffer(gss_iov_buffer_desc *__nonnull iov,
 		    int iov_count,
 		    OM_uint32 type)
 {
@@ -199,8 +199,8 @@ _gss_mg_find_buffer(gss_iov_buffer_desc *iov,
 }
 
 OM_uint32
-_gss_mg_allocate_buffer(OM_uint32 *minor_status,
-			gss_iov_buffer_desc *buffer,
+_gss_mg_allocate_buffer(OM_uint32 * __nonnull minor_status,
+			gss_iov_buffer_desc * __nonnull buffer,
 			size_t size)
 {
     if (buffer->type & GSS_IOV_BUFFER_TYPE_FLAG_ALLOCATED) {
@@ -235,10 +235,10 @@ gss_OID_desc GSSAPI_LIB_FUNCTION __gss_c_attr_stream_sizes_oid_desc =
     {10, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x03")};
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_context_query_attributes(OM_uint32 *minor_status,
-			     const gss_ctx_id_t context_handle,
-			     const gss_OID attribute,
-			     void *data,
+gss_context_query_attributes(OM_uint32 * __nonnull minor_status,
+			     __nonnull const gss_ctx_id_t context_handle,
+			     __nonnull const gss_OID attribute,
+			     void *__nonnull data,
 			     size_t len)
 {
     if (minor_status)

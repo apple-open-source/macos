@@ -26,34 +26,43 @@
 #ifndef GenericEventQueue_h
 #define GenericEventQueue_h
 
-#include "Timer.h"
+#include <wtf/Deque.h>
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
-#include <wtf/Vector.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
 class Event;
 class EventTarget;
+class Timer;
 
 class GenericEventQueue {
 public:
     explicit GenericEventQueue(EventTarget&);
     ~GenericEventQueue();
 
-    bool enqueueEvent(PassRefPtr<Event>);
+    void enqueueEvent(PassRefPtr<Event>);
     void close();
 
     void cancelAllEvents();
     bool hasPendingEvents() const;
 
+    void suspend();
+    void resume();
+
 private:
-    void timerFired(Timer&);
+    static Timer& sharedTimer();
+    static void sharedTimerFired();
+    static Deque<WeakPtr<GenericEventQueue>>& pendingQueues();
+
+    void dispatchOneEvent();
 
     EventTarget& m_owner;
-    Vector<RefPtr<Event>> m_pendingEvents;
-    Timer m_timer;
+    Deque<RefPtr<Event>> m_pendingEvents;
+    WeakPtrFactory<GenericEventQueue> m_weakPtrFactory;
     bool m_isClosed;
+    bool m_isSuspended { false };
 };
 
 }

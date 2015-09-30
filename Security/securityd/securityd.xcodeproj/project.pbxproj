@@ -50,7 +50,6 @@
 		1865FFE114751C9100FD79DF /* libauto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B967B314731B69005A4D2E /* libauto.dylib */; };
 		1865FFEB1475208B00FD79DF /* libsqlite3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B967B114731B55005A4D2E /* libsqlite3.dylib */; };
 		18B27134148C2C3D0087AE98 /* securityd_dtrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 18B27133148C2C3D0087AE98 /* securityd_dtrace.h */; };
-		18B965CD14731612005A4D2E /* libsecurity_agent_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965BD147314BE005A4D2E /* libsecurity_agent_client.a */; };
 		18B965D314731963005A4D2E /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965D214731963005A4D2E /* libsecurity_utilities.a */; };
 		18B965D51473197B005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965D41473197B005A4D2E /* libsecurity_cdsa_utilities.a */; };
 		18B965D614731996005A4D2E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CDD506B0537666500FEC36D /* IOKit.framework */; };
@@ -147,6 +146,7 @@
 		AAC707750E6F4352003CC2B2 /* csproxy.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BD5FDA0AC47E850057FD3D /* csproxy.cpp */; };
 		AAC707760E6F4352003CC2B2 /* credential.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 407ACD070AE5B57700A9DA90 /* credential.cpp */; };
 		AAC707780E6F4352003CC2B2 /* clientid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C22C34520B278EB60009368E /* clientid.cpp */; };
+		C2407A1D1B30C86C0067E6AE /* libutilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C2407A1C1B30C86C0067E6AE /* libutilities.a */; };
 		C274C51E0F9E8E0F001ABDA3 /* auditevents.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C274C51C0F9E8E0F001ABDA3 /* auditevents.cpp */; };
 		C274C51F0F9E8E0F001ABDA3 /* auditevents.h in Headers */ = {isa = PBXBuildFile; fileRef = C274C51D0F9E8E0F001ABDA3 /* auditevents.h */; };
 		ED5130690E7F1259002A3749 /* securityd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CE1878706FFC5D60079D235 /* securityd.1 */; };
@@ -159,27 +159,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 1843240D1714797D00196B52;
 			remoteInfo = securitydservice_client;
-		};
-		18B965BC147314BE005A4D2E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 4CA1FEBE052A3C8100F22E42;
-			remoteInfo = libsecurity_agent_client;
-		};
-		18B965C0147314BE005A4D2E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 4CA1FED4052A450F00F22E42;
-			remoteInfo = libsecurity_agent_server;
-		};
-		18B967B814731BB1005A4D2E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = 40635B69052E4CBD0009891B;
-			remoteInfo = world;
 		};
 		18CE013D17147A46008C042F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -261,7 +240,6 @@
 		1865FFCE1475169A00FD79DF /* libsecurityd_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurityd_client.a; path = /usr/local/lib/libsecurityd_client.a; sourceTree = "<absolute>"; };
 		1865FFD0147516CF00FD79DF /* libsecurity_codesigning.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_codesigning.a; path = /usr/local/lib/libsecurity_codesigning.a; sourceTree = "<absolute>"; };
 		18B27133148C2C3D0087AE98 /* securityd_dtrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = securityd_dtrace.h; path = derived_src/securityd_dtrace.h; sourceTree = BUILT_PRODUCTS_DIR; };
-		18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_agent.xcodeproj; path = libsecurity_agent/libsecurity_agent.xcodeproj; sourceTree = "<group>"; };
 		18B965D214731963005A4D2E /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = /usr/local/lib/libsecurity_utilities.a; sourceTree = "<absolute>"; };
 		18B965D41473197B005A4D2E /* libsecurity_cdsa_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_utilities.a; path = /usr/local/lib/libsecurity_cdsa_utilities.a; sourceTree = "<absolute>"; };
 		18B965D9147319C8005A4D2E /* libsecurity_cdsa_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_client.a; path = /usr/local/lib/libsecurity_cdsa_client.a; sourceTree = "<absolute>"; };
@@ -275,6 +253,7 @@
 		40689F850725DCE00021A502 /* authhost.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = authhost.cpp; sourceTree = "<group>"; };
 		407ACD060AE5B57700A9DA90 /* credential.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = credential.h; sourceTree = "<group>"; };
 		407ACD070AE5B57700A9DA90 /* credential.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = credential.cpp; sourceTree = "<group>"; };
+		43D720FA1A23F1490091236D /* agentclient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = agentclient.h; sourceTree = "<group>"; };
 		4C9264980534866F004B0E72 /* acl_keychain.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_keychain.cpp; sourceTree = "<group>"; };
 		4C9264990534866F004B0E72 /* acl_keychain.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_keychain.h; sourceTree = "<group>"; };
 		4C92649A0534866F004B0E72 /* acls.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acls.cpp; sourceTree = "<group>"; };
@@ -312,7 +291,6 @@
 		4C9264C20534866F004B0E72 /* transition.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = transition.cpp; sourceTree = "<group>"; };
 		4CB5ACB906680AE000F359A9 /* child.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = child.cpp; sourceTree = "<group>"; };
 		4CB5ACBA06680AE000F359A9 /* child.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = child.h; sourceTree = "<group>"; };
-		4CD8CCBD055884E0006B3584 /* CodeEquivalenceCandidates */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = CodeEquivalenceCandidates; sourceTree = "<group>"; };
 		4CD8CCC0055884E0006B3584 /* startup.mk */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = startup.mk; sourceTree = "<group>"; };
 		4CDD5018053765A900FEC36D /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		4CDD5019053765A900FEC36D /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
@@ -341,6 +319,7 @@
 		C22A7F8D06AF06D9006087B7 /* tokend.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tokend.h; sourceTree = "<group>"; };
 		C22C34520B278EB60009368E /* clientid.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = clientid.cpp; sourceTree = "<group>"; };
 		C22C34530B278EB60009368E /* clientid.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = clientid.h; sourceTree = "<group>"; };
+		C2407A1C1B30C86C0067E6AE /* libutilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libutilities.a; path = ../../../../../d/workspaces/Build/Debug/libutilities.a; sourceTree = "<group>"; };
 		C26CF0230CD933AE0094DD9D /* securityd.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = securityd.d; path = src/securityd.d; sourceTree = "<group>"; };
 		C26CF0880CDFE1180094DD9D /* dtrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dtrace.h; path = src/dtrace.h; sourceTree = "<group>"; };
 		C26D533706C1E70A00062E1E /* tokenkey.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tokenkey.cpp; sourceTree = "<group>"; };
@@ -386,7 +365,6 @@
 				1865FFEB1475208B00FD79DF /* libsqlite3.dylib in Frameworks */,
 				1865FFE114751C9100FD79DF /* libauto.dylib in Frameworks */,
 				1865FFDC14751B0600FD79DF /* libobjc.dylib in Frameworks */,
-				18B965CD14731612005A4D2E /* libsecurity_agent_client.a in Frameworks */,
 				1865FFCF1475169A00FD79DF /* libsecurityd_client.a in Frameworks */,
 				18B965DC147319E5005A4D2E /* libsecurityd_server.a in Frameworks */,
 				1865FFB11474FED300FD79DF /* libsecurity_tokend_client.a in Frameworks */,
@@ -394,6 +372,7 @@
 				18B965DA147319C8005A4D2E /* libsecurity_cdsa_client.a in Frameworks */,
 				18B965D314731963005A4D2E /* libsecurity_utilities.a in Frameworks */,
 				1865FFB3147505C800FD79DF /* libbsm.dylib in Frameworks */,
+				C2407A1D1B30C86C0067E6AE /* libutilities.a in Frameworks */,
 				18B965DD147319F6005A4D2E /* PCSC.framework in Frameworks */,
 				18B965D8147319A6005A4D2E /* Security.framework in Frameworks */,
 				18B965D71473199F005A4D2E /* CoreFoundation.framework in Frameworks */,
@@ -412,15 +391,6 @@
 				1865FFA21474FB1100FD79DF /* release.xcconfig */,
 			);
 			path = config;
-			sourceTree = "<group>";
-		};
-		18B965B1147314BE005A4D2E /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				18B965BD147314BE005A4D2E /* libsecurity_agent_client.a */,
-				18B965C1147314BE005A4D2E /* libsecurity_agent_server.a */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 		4C9264970534866F004B0E72 /* src */ = {
@@ -444,8 +414,8 @@
 		4CA1FEAC052A3C5800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				C2407A1C1B30C86C0067E6AE /* libutilities.a */,
 				80C7A77A167FF4FF001533BE /* securityd_service.xcodeproj */,
-				18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */,
 				1865FF9F1474FB1100FD79DF /* config */,
 				4C9264970534866F004B0E72 /* src */,
 				C209B39106ADBB19007B9E6D /* mig */,
@@ -471,7 +441,6 @@
 			isa = PBXGroup;
 			children = (
 				C26FB2650BC2C3A300D8EFC8 /* com.apple.securityd.plist */,
-				4CD8CCBD055884E0006B3584 /* CodeEquivalenceCandidates */,
 				4CD8CCC0055884E0006B3584 /* startup.mk */,
 			);
 			name = "Other Installs";
@@ -719,6 +688,7 @@
 		C28AE83906CD7EE900BE0061 /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				43D720FA1A23F1490091236D /* agentclient.h */,
 				4C92649D0534866F004B0E72 /* agentquery.h */,
 				4C92649C0534866F004B0E72 /* agentquery.cpp */,
 				C274C51D0F9E8E0F001ABDA3 /* auditevents.h */,
@@ -817,7 +787,6 @@
 			dependencies = (
 				1820DFC81714D3F800CA851F /* PBXTargetDependency */,
 				80C7A791167FF9D3001533BE /* PBXTargetDependency */,
-				18B967B914731BB1005A4D2E /* PBXTargetDependency */,
 				AA1AA00F0E71F2ED003D0309 /* PBXTargetDependency */,
 				AA1AA0110E71F2F7003D0309 /* PBXTargetDependency */,
 				AA1A9FF90E71EF08003D0309 /* PBXTargetDependency */,
@@ -849,10 +818,6 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = 18B965B1147314BE005A4D2E /* Products */;
-					ProjectRef = 18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */;
-				},
-				{
 					ProductGroup = 80C7A788167FF586001533BE /* Products */;
 					ProjectRef = 80C7A77A167FF4FF001533BE /* securityd_service.xcodeproj */;
 				},
@@ -868,20 +833,6 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		18B965BD147314BE005A4D2E /* libsecurity_agent_client.a */ = {
-			isa = PBXReferenceProxy;
-			fileType = archive.ar;
-			path = libsecurity_agent_client.a;
-			remoteRef = 18B965BC147314BE005A4D2E /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		18B965C1147314BE005A4D2E /* libsecurity_agent_server.a */ = {
-			isa = PBXReferenceProxy;
-			fileType = archive.ar;
-			path = libsecurity_agent_server.a;
-			remoteRef = 18B965C0147314BE005A4D2E /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
 		18CE013E17147A46008C042F /* libsecuritydservice_client.a */ = {
 			isa = PBXReferenceProxy;
 			fileType = archive.ar;
@@ -1014,11 +965,6 @@
 			isa = PBXTargetDependency;
 			name = securitydservice_client;
 			targetProxy = 1820DFC71714D3F800CA851F /* PBXContainerItemProxy */;
-		};
-		18B967B914731BB1005A4D2E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = world;
-			targetProxy = 18B967B814731BB1005A4D2E /* PBXContainerItemProxy */;
 		};
 		80C7A791167FF9D3001533BE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

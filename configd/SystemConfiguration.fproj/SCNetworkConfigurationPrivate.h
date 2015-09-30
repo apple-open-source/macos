@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -711,6 +711,14 @@ SCNetworkInterfaceSetPassword				(SCNetworkInterfaceRef		interface,
 							 CFDictionaryRef		options)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 
+Boolean
+SCNetworkInterfaceGetDisableUntilNeeded			(SCNetworkInterfaceRef interface) __OSX_AVAILABLE_STARTING(__MAC_10_11,__IPHONE_9_0);
+
+Boolean
+SCNetworkInterfaceSetDisableUntilNeeded			(SCNetworkInterfaceRef interface,
+							 Boolean disable) __OSX_AVAILABLE_STARTING(__MAC_10_11,__IPHONE_9_0);
+
+
 #pragma mark -
 #pragma mark SCNetworkProtocol configuration (SPI)
 
@@ -1094,6 +1102,21 @@ _SCNetworkConfigurationPerformMigration(CFURLRef sourceDir,
 Boolean
 _SCNetworkConfigurationCheckValidity(CFURLRef configDir,
 				     CFDictionaryRef options)					__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+
+
+/*!
+ @function	_SCNetworkConfigurationCheckValidityWithPreferences
+ @discussion	Validates the specified preferences.plist against NetworkInterfaces.plist
+ @param prefs	the preferences ref pointing to the said preferences.plist
+ @param ni_prefs	the preferences ref pointing to the said NetworkInterfaces.plist
+ @result	TRUE if the configurations are valid against each other
+ 
+ */
+
+Boolean
+_SCNetworkConfigurationCheckValidityWithPreferences (SCPreferencesRef prefs,
+						      SCPreferencesRef ni_prefs,
+						      CFDictionaryRef options)				__OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
 
 /*!

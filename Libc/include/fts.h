@@ -63,6 +63,8 @@
 #include <sys/_types/_ino_t.h>
 #include <sys/_types/_nlink_t.h>
 
+#include <Availability.h>
+
 typedef struct {
 	struct _ftsent *fts_cur;	/* current node */
 	struct _ftsent *fts_child;	/* linked list of children */
@@ -90,11 +92,11 @@ typedef struct {
 #define	FTS_XDEV	0x040		/* don't cross devices */
 #define	FTS_WHITEOUT	0x080		/* return whiteout information */
 #define	FTS_COMFOLLOWDIR 0x400		/* (non-std) follow command line symlinks for directories only */
-#if (defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 1090) || (defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && __ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__ >= 70000)
+#if (defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED < 1090) || (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED < 70000)
+#define	FTS_OPTIONMASK	0x4ff		/* valid user option mask */
+#else
 #define	FTS_NOSTAT_TYPE	0x800		/* (non-std) no stat, but use d_type in struct dirent when available */
 #define	FTS_OPTIONMASK	0xcff		/* valid user option mask */
-#else
-#define	FTS_OPTIONMASK	0x4ff		/* valid user option mask */
 #endif
 
 #define	FTS_NAMEONLY	0x100		/* (private) child names only */

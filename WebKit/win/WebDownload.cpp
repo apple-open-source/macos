@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebDownload.h"
 
@@ -56,7 +55,7 @@ WebDownload::WebDownload()
     : m_refCount(0)
 {
     gClassCount++;
-    gClassNameCount.add("WebDownload");
+    gClassNameCount().add("WebDownload");
 }
 
 WebDownload::~WebDownload()
@@ -64,7 +63,7 @@ WebDownload::~WebDownload()
     LOG(Download, "WebDownload - Destroying download (%p)", this);
     cancel();
     gClassCount--;
-    gClassNameCount.remove("WebDownload");
+    gClassNameCount().remove("WebDownload");
 }
 
 WebDownload* WebDownload::createInstance()

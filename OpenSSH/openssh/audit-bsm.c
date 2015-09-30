@@ -242,7 +242,11 @@ selected(char *username, uid_t uid, au_event_t event, int sf)
 	struct au_mask mask;
 
 	mask.am_success = mask.am_failure = 0;
+#if __APPLE__
+	if (uid == (uid_t)-1) {
+#else
 	if (uid < 0) {
+#endif
 		/* get flags for non-attributable (to a real user) events */
 		rc = getacna(naflags, sizeof(naflags));
 		if (rc == 0)

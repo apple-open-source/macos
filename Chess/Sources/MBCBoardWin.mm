@@ -56,9 +56,11 @@
 #import "MBCUserDefaults.h"
 #import "MBCController.h"
 
+#include <SystemConfiguration/SystemConfiguration.h>
+
 @implementation MBCBoardWin
 
-@synthesize gameView, gameNewSheet, logContainer, logView, board, engine, interactive;
+@synthesize gameView, gameNewSheet, logContainer, logView, board, engine, interactive, playersPopupMenu;
 @synthesize gameInfo, remote, logViewRightEdgeConstraint, dialogController;
 @synthesize primarySynth, alternateSynth, primaryLocalization, alternateLocalization;
 
@@ -353,11 +355,45 @@ typedef void (^MBCAlertCallback)(NSInteger returnCode);
 
 - (void) showNewGameSheet
 {
-    if ([[self document] invitees]) 
+    if (![GKLocalPlayer localPlayer].isAuthenticated || !isInternetConnection()) {
+        [playersPopupMenu removeItemAtIndex:4];
+    }
+
+    if ([[self document] invitees])
         [self runMatchmakerPanel];
     else 
         [NSApp beginSheet:gameNewSheet modalForWindow:[self window] 
             modalDelegate:nil didEndSelector:nil contextInfo:nil];
+}
+
+static BOOL isInternetConnection ()
+{
+    BOOL returnValue = NO;
+        
+    struct sockaddr zeroAddress;
+    memset(&zeroAddress, 0, sizeof(zeroAddress));
+    zeroAddress.sa_len = sizeof(zeroAddress);
+    zeroAddress.sa_family = AF_INET;
+    
+    SCNetworkReachabilityRef reachabilityRef = SCNetworkReachabilityCreateWithAddress(NULL, (const struct sockaddr*)&zeroAddress);
+    
+    
+    if (reachabilityRef != NULL)
+    {
+        SCNetworkReachabilityFlags flags = 0;
+        
+        if(SCNetworkReachabilityGetFlags(reachabilityRef, &flags))
+        {
+            BOOL isReachable = ((flags & kSCNetworkFlagsReachable) != 0);
+            BOOL connectionRequired = ((flags & kSCNetworkFlagsConnectionRequired) != 0);
+            returnValue = (isReachable && !connectionRequired) ? YES : NO;
+        }
+        
+        CFRelease(reachabilityRef);
+    }
+    
+    return returnValue;
+    
 }
 
 uint32_t sAttributesForSides[] = {
@@ -869,17 +905,17 @@ uint32_t sAttributesForSides[] = {
 - (IBAction)showAchievements:(id)sender
 {
     // Create an achievementVC, set the delegate and present the view from GKDiaglogController
-    GKAchievementViewController *vc = [[[GKAchievementViewController alloc] init] autorelease];
-    vc.achievementDelegate = self;
+    GKGameCenterViewController *vc = [[[GKGameCenterViewController alloc] init] autorelease];
+    vc.viewState = GKGameCenterViewControllerStateAchievements;
+    vc.gameCenterDelegate = self;
     
     [[GKDialogController sharedDialogController] presentViewController:vc];
 }
 
-- (void)achievementViewControllerDidFinish:(GKAchievementViewController *)vc
+- (void)gameCenterViewControllerDidFinish:(GKGameCenterViewController *)gameCenterViewController
 {
-    // Check to see if the ViewController exist, if it does, we need to dismiss it if the player has finished with the view
-    if (vc) {
-        [[GKDialogController sharedDialogController] dismiss:vc];
+    if (gameCenterViewController) {
+        [[GKDialogController sharedDialogController] dismiss:gameCenterViewController];
     }
 }
 @end

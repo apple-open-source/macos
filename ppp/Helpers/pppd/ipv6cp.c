@@ -189,6 +189,8 @@
 #include "magic.h"
 #include "pathnames.h"
 
+#define IPV6CP_NOTIFY_STORE_ON_TIMEOUT_COUNT 2
+
 #ifndef lint
 static const char rcsid[] = RCSID;
 #endif
@@ -217,6 +219,7 @@ static int  ipv6cp_reqci __P((fsm *, u_char *, int *, int)); /* Rcv CI */
 static void ipv6cp_up __P((fsm *));		/* We're UP */
 static void ipv6cp_down __P((fsm *));		/* We're DOWN */
 static void ipv6cp_finished __P((fsm *));	/* Don't need lower layer */
+static void ipv6cp_retransmit __P((fsm *));	    /* Our confreq is timed out */
 
 fsm ipv6cp_fsm[NUM_PPP];		/* IPV6CP fsm structure */
 
@@ -233,7 +236,7 @@ static fsm_callbacks ipv6cp_callbacks = { /* IPV6CP callback routines */
     NULL,			/* Called when we want the lower layer up */
     ipv6cp_finished,		/* Called when we want the lower layer down */
     NULL,			/* Called when Protocol-Reject received */
-    NULL,			/* Retransmission is necessary */
+    ipv6cp_retransmit,		/* Retransmission is necessary */
     NULL,			/* Called to handle protocol-specific codes */
     "IPV6CP"			/* String name of protocol */
 };
@@ -1441,6 +1444,18 @@ ipv6cp_finished(f)
     }
 }
 
+
+/*
+ * ipv6cp_retransmit - about to retransmit confreq, notify dynamic store if needed.
+ */
+static void
+ipv6cp_retransmit(f)
+    fsm *f;
+{
+	if ((f->maxconfreqtransmits - f->retransmits) == IPV6CP_NOTIFY_STORE_ON_TIMEOUT_COUNT) {
+		notify(protocolsready_notifier,0);
+	}
+}
 
 /*
  * ipv6cp_script_done - called when the ipv6-up or ipv6-down script

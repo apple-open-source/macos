@@ -12,16 +12,37 @@
 
 #import "AppDelegate.h"
 #import "CredentialTesterView.h"
+#import "FakeXCTest.h"
 
 
 @interface AppDelegate ()
 @property (strong) dispatch_queue_t queue;
-@property (strong) TestHarness *tests;
 @property (assign) bool runMeOnce;
 @property (assign) bool lastStatus;
 @property (strong) NSArray *identities;
 
 @end
+
+
+static AppDelegate *me = NULL;
+
+static int
+callback(const char *fmt, va_list ap)
+{
+    if (me == NULL)
+        return -1;
+
+    char *output = NULL;
+
+    vasprintf(&output, fmt, ap);
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [me appendProgress:[NSString stringWithFormat:@"%s", output] color:NULL];
+        free(output);
+    });
+
+    return 0;
+}
 
 @implementation AppDelegate
 
@@ -31,11 +52,12 @@
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
-    self.tests = [[TestHarness alloc] init];
-    self.tests.delegate = self;
     self.queue = dispatch_queue_create("test-queue", NULL);
     
     self.runMeOnce = (getenv("RUN_ME_ONCE") != NULL);
+
+    me = self;
+    XFakeXCTestCallback = callback;
 
     if (self.runMeOnce) {
         double delayInSeconds = 2.0;
@@ -152,7 +174,8 @@
     [self.progressTextView setString:@""];
     
     dispatch_async(self.queue, ^{
-        [self.tests runTests];
+
+        [XCTest runTests];
         dispatch_async(dispatch_get_main_queue(), ^{
             [self.statusLabel setStringValue:@""];
             [self.runTestsButton setEnabled:YES];
@@ -173,40 +196,6 @@
     [textStorage beginEditing];
     [textStorage appendAttributedString:str];
     [textStorage endEditing];
-}
-
-- (void)THPTestStart:(NSString *)name
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self appendProgress:[NSString stringWithFormat:@"[TEST] %@\n",name] color:[NSColor purpleColor]];
-    });
-}
-
-- (void)THPTestOutput:(NSString *)output
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self appendProgress:[NSString stringWithFormat:@"%@\n", output] color:NULL];
-    });
-    
-}
-
-- (void)THPTestComplete:(NSString *)name status:(bool)status duration:(float)durataion
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSString *grade = status ? @"PASS" : @"FAIL";
-        NSColor *color = status ? [NSColor greenColor] : [NSColor redColor];
-        [self appendProgress:[NSString stringWithFormat:@"duration: %f\n", durataion] color:NULL];
-        [self appendProgress:[NSString stringWithFormat:@"[%@] %@\n", grade, name] color:color];
-    });
-    
-}
-- (void)THPSuiteComplete:(bool)status
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSColor *color = status ? [NSColor greenColor] : [NSColor redColor];
-        [self appendProgress:[NSString stringWithFormat:@"test %s\n", status ? "pass" : "fail"]  color:color];
-	self.lastStatus = status;
-    });
 }
 
 #pragma mark Manual tests

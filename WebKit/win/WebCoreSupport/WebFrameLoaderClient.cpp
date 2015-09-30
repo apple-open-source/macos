@@ -26,7 +26,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
 #include "WebFrameLoaderClient.h"
 
 #include "CFDictionaryPropertyBag.h"
@@ -36,6 +35,9 @@
 #include "EmbeddedWidget.h"
 #include "MarshallingHelpers.h"
 #include "NotImplemented.h"
+#include "PluginDatabase.h"
+#include "PluginPackage.h"
+#include "PluginView.h"
 #include "WebActionPropertyBag.h"
 #include "WebCachedFramePlatformData.h"
 #include "WebChromeClient.h"
@@ -72,15 +74,14 @@
 #include <WebCore/HTMLPlugInElement.h>
 #include <WebCore/HistoryItem.h>
 #include <WebCore/LocalizedStrings.h>
+#include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/Page.h>
-#include <WebCore/PluginPackage.h>
-#include <WebCore/PluginView.h>
 #include <WebCore/PolicyChecker.h>
 #include <WebCore/RenderWidget.h>
 #include <WebCore/ResourceHandle.h>
-#include <WebCore/ResourceLoader.h>
 #include <WebCore/ScriptController.h>
 #include <WebCore/Settings.h>
+#include <WebCore/SubresourceLoader.h>
 
 using namespace WebCore;
 using namespace HTMLNames;
@@ -106,7 +107,7 @@ public:
 WebFrameLoaderClient::WebFrameLoaderClient(WebFrame* webFrame)
     : m_webFrame(webFrame)
     , m_manualLoader(0)
-    , m_policyListenerPrivate(adoptPtr(new WebFramePolicyListenerPrivate))
+    , m_policyListenerPrivate(std::make_unique<WebFramePolicyListenerPrivate>())
     , m_hasSentResponseToPlugin(false) 
 {
 }
@@ -1076,9 +1077,33 @@ PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const URL& URL, const String
     return childFrame.release();
 }
 
-ObjectContentType WebFrameLoaderClient::objectContentType(const URL& url, const String& mimeType, bool shouldPreferPlugInsForImages)
+ObjectContentType WebFrameLoaderClient::objectContentType(const URL& url, const String& mimeTypeIn, bool shouldPreferPlugInsForImages)
 {
-    return WebCore::FrameLoader::defaultObjectContentType(url, mimeType, shouldPreferPlugInsForImages);
+    String mimeType = mimeTypeIn;
+
+    if (mimeType.isEmpty())
+        mimeType = mimeTypeFromURL(url);
+
+    if (mimeType.isEmpty()) {
+        String decodedPath = decodeURLEscapeSequences(url.path());
+        mimeType = PluginDatabase::installedPlugins()->MIMETypeForExtension(decodedPath.substring(decodedPath.reverseFind('.') + 1));
+    }
+
+    if (mimeType.isEmpty())
+        return ObjectContentFrame; // Go ahead and hope that we can display the content.
+
+    bool plugInSupportsMIMEType = PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType);
+
+    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
+        return shouldPreferPlugInsForImages && plugInSupportsMIMEType ? WebCore::ObjectContentNetscapePlugin : WebCore::ObjectContentImage;
+
+    if (plugInSupportsMIMEType)
+        return WebCore::ObjectContentNetscapePlugin;
+
+    if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
+        return WebCore::ObjectContentFrame;
+
+    return WebCore::ObjectContentNone;
 }
 
 void WebFrameLoaderClient::dispatchDidFailToStartPlugin(const PluginView* pluginView) const
@@ -1271,7 +1296,7 @@ void WebFrameLoaderClient::registerForIconNotification(bool listen)
 
 PassRefPtr<FrameNetworkingContext> WebFrameLoaderClient::createNetworkingContext()
 {
-    return WebFrameNetworkingContext::create(core(m_webFrame), userAgent(m_webFrame->url()));
+    return WebFrameNetworkingContext::create(core(m_webFrame));
 }
 
 bool WebFrameLoaderClient::shouldAlwaysUsePluginDocument(const String& mimeType) const

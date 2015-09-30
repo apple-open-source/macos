@@ -27,14 +27,15 @@
 
 #if WK_API_ENABLED
 
+#import "SameDocumentNavigationType.h"
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>
 
 #if PLATFORM(IOS)
+#import "UIKitSPI.h"
 #import "WKContentView.h"
 #import "WKContentViewInteraction.h"
 #import <WebCore/FloatRect.h>
-#import <UIKit/UIScrollView_Private.h>
 #endif
 
 #if PLATFORM(IOS)
@@ -45,9 +46,7 @@
 #define WK_WEB_VIEW_PROTOCOLS
 #endif
 
-namespace WebCore {
-struct Highlight;
-}
+typedef const struct OpaqueWKPage* WKPageRef;
 
 namespace WebKit {
 class ViewSnapshot;
@@ -63,28 +62,31 @@ struct PrintInfo;
     RetainPtr<WKWebViewConfiguration> _configuration;
 
     RefPtr<WebKit::WebPageProxy> _page;
+
+#if PLATFORM(IOS)
+    NSUInteger _activeFocusedStateRetainCount;
+#endif
 }
 
 #if PLATFORM(IOS)
-
-@property (nonatomic, setter=_setUsesMinimalUI:) BOOL _usesMinimalUI;
-
 - (void)_processDidExit;
 
 - (void)_didCommitLoadForMainFrame;
 - (void)_didCommitLayerTree:(const WebKit::RemoteLayerTreeTransaction&)layerTreeTransaction;
 
 - (void)_dynamicViewportUpdateChangedTargetToScale:(double)newScale position:(CGPoint)newScrollPosition nextValidLayerTreeTransactionID:(uint64_t)nextValidLayerTreeTransactionID;
+- (void)_couldNotRestorePageState;
 - (void)_restorePageStateToExposedRect:(WebCore::FloatRect)exposedRect scale:(double)scale;
 - (void)_restorePageStateToUnobscuredCenter:(WebCore::FloatPoint)center scale:(double)scale;
 
 - (PassRefPtr<WebKit::ViewSnapshot>)_takeViewSnapshot;
 
-- (void)_scrollToContentOffset:(WebCore::FloatPoint)contentOffset;
+- (void)_scrollToContentOffset:(WebCore::FloatPoint)contentOffset scrollOrigin:(WebCore::IntPoint)scrollOrigin;
 - (BOOL)_scrollToRect:(WebCore::FloatRect)targetRect origin:(WebCore::FloatPoint)origin minimumScrollDistance:(float)minimumScrollDistance;
+- (void)_scrollByOffset:(WebCore::FloatPoint)offset;
 - (void)_zoomToFocusRect:(WebCore::FloatRect)focusedElementRect selectionRect:(WebCore::FloatRect)selectionRectInDocumentCoordinates fontSize:(float)fontSize minimumScale:(double)minimumScale maximumScale:(double)maximumScale allowScaling:(BOOL)allowScaling forceScroll:(BOOL)forceScroll;
 - (BOOL)_zoomToRect:(WebCore::FloatRect)targetRect withOrigin:(WebCore::FloatPoint)origin fitEntireRect:(BOOL)fitEntireRect minimumScale:(double)minimumScale maximumScale:(double)maximumScale minimumScrollDistance:(float)minimumScrollDistance;
-- (void)_zoomOutWithOrigin:(WebCore::FloatPoint)origin;
+- (void)_zoomOutWithOrigin:(WebCore::FloatPoint)origin animated:(BOOL)animated;
 
 - (void)_setHasCustomContentView:(BOOL)hasCustomContentView loadedMIMEType:(const WTF::String&)mimeType;
 - (void)_didFinishLoadingDataForCustomContentProviderWithSuggestedFilename:(const WTF::String&)suggestedFilename data:(NSData *)data;
@@ -95,9 +97,27 @@ struct PrintInfo;
 
 - (void)_updateVisibleContentRects;
 
+- (void)_didFinishLoadForMainFrame;
+- (void)_didFailLoadForMainFrame;
+- (void)_didSameDocumentNavigationForMainFrame:(WebKit::SameDocumentNavigationType)navigationType;
+
+- (BOOL)_isShowingVideoPictureInPicture;
+- (BOOL)_mayAutomaticallyShowVideoPictureInPicture;
+
+- (void)_updateScrollViewBackground;
+
+- (void)_navigationGestureDidBegin;
+- (void)_navigationGestureDidEnd;
+
 @property (nonatomic, readonly) UIEdgeInsets _computedContentInset;
 #else
 @property (nonatomic, setter=_setIgnoresNonWheelEvents:) BOOL _ignoresNonWheelEvents;
+#endif
+
+- (WKPageRef)_pageForTesting;
+
+#if ENABLE(VIDEO)
+- (void)_mediaDocumentNaturalSizeChanged:(CGSize)newSize;
 #endif
 
 @end

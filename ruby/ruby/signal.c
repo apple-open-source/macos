@@ -2,7 +2,7 @@
 
   signal.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Tue Dec 20 10:13:44 JST 1994
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -521,13 +521,27 @@ ruby_signal(int signum, sighandler_t handler)
 	    rb_bug_errno("sigaction", errno);
 	}
     }
-    return old.sa_handler;
+    if (old.sa_flags & SA_SIGINFO)
+	return (sighandler_t)old.sa_sigaction;
+    else
+	return old.sa_handler;
 }
 
 sighandler_t
 posix_signal(int signum, sighandler_t handler)
 {
     return ruby_signal(signum, handler);
+}
+
+#elif defined _WIN32
+static inline sighandler_t
+ruby_signal(int signum, sighandler_t handler)
+{
+    if (signum == SIGKILL) {
+	errno = EINVAL;
+	return SIG_ERR;
+    }
+    return signal(signum, handler);
 }
 
 #else /* !POSIX_SIGNAL */
@@ -605,18 +619,22 @@ rb_get_next_signal(void)
 }
 
 
-#ifdef USE_SIGALTSTACK
+#if defined(USE_SIGALTSTACK) || defined(_WIN32)
 static void
 check_stack_overflow(const void *addr)
 {
     int ruby_stack_overflowed_p(const rb_thread_t *, const void *);
     NORETURN(void ruby_thread_stack_overflow(rb_thread_t *th));
-    rb_thread_t *th = GET_THREAD();
+    rb_thread_t *th = ruby_current_thread;
     if (ruby_stack_overflowed_p(th, addr)) {
 	ruby_thread_stack_overflow(th);
     }
 }
+#ifdef _WIN32
+#define CHECK_STACK_OVERFLOW() check_stack_overflow(0)
+#else
 #define CHECK_STACK_OVERFLOW() check_stack_overflow(info->si_addr)
+#endif
 #else
 #define CHECK_STACK_OVERFLOW() (void)0
 #endif
@@ -630,7 +648,8 @@ sigbus(int sig SIGINFO_ARG)
  * and it's delivered as SIGBUS instaed of SIGSEGV to userland. It's crazy
  * wrong IMHO. but anyway we have to care it. Sigh.
  */
-#if defined __APPLE__
+    /* Seems Linux also delivers SIGBUS. */
+#if defined __APPLE__ || defined __linux__
     CHECK_STACK_OVERFLOW();
 #endif
     rb_bug("Bus Error");
@@ -679,6 +698,15 @@ signal_exec(VALUE cmd, int safe, int sig)
     rb_thread_t *cur_th = GET_THREAD();
     volatile unsigned long old_interrupt_mask = cur_th->interrupt_mask;
     int state;
+
+    /*
+     * workaround the following race:
+     * 1. signal_enque queues signal for execution
+     * 2. user calls trap(sig, "IGNORE"), setting SIG_IGN
+     * 3. rb_signal_exec runs on queued signal
+     */
+    if (IMMEDIATE_P(cmd))
+	return;
 
     cur_th->interrupt_mask |= TRAP_INTERRUPT_MASK;
     TH_PUSH_TAG(cur_th);
@@ -831,7 +859,7 @@ trap_handler(VALUE *cmd, int sig)
 		if (strncmp(RSTRING_PTR(command), "SIG_IGN", 7) == 0) {
 sig_ign:
                     func = SIG_IGN;
-                    *cmd = 0;
+                    *cmd = Qtrue;
 		}
 		else if (strncmp(RSTRING_PTR(command), "SIG_DFL", 7) == 0) {
 sig_dfl:
@@ -912,9 +940,12 @@ trap(int sig, sighandler_t func, VALUE command)
     oldcmd = vm->trap_list[sig].cmd;
     switch (oldcmd) {
       case 0:
+      case Qtrue:
 	if (oldfunc == SIG_IGN) oldcmd = rb_str_new2("IGNORE");
 	else if (oldfunc == sighandler) oldcmd = rb_str_new2("DEFAULT");
 	else oldcmd = Qnil;
+	break;
+      case Qnil:
 	break;
       case Qundef:
 	oldcmd = rb_str_new2("EXIT");

@@ -379,8 +379,6 @@
 		60DDA51B07382C6A00FAB8B3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		60DDA51C07382C6A00FAB8B3 /* IOStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		60DDA54307382D0000FAB8B3 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
-		81CF6A281875BA8500735B94 /* SimulatorSupport.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SimulatorSupport.xcconfig; path = AppleInternal/XcodeConfig/SimulatorSupport.xcconfig; sourceTree = DEVELOPER_DIR; };
-		C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		C1E55B250D32D158002875AA /* IOStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -388,7 +386,6 @@
 		089C166AFE841209C02AAC07 /* IOStorageFamily */ = {
 			isa = PBXGroup;
 			children = (
-				81CF6A281875BA8500735B94 /* SimulatorSupport.xcconfig */,
 				60DDA54607382D0300FAB8B3 /* Frameworks */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				089C167CFE841241C02AAC07 /* Resources */,
@@ -451,7 +448,6 @@
 		60DDA54607382D0300FAB8B3 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */,
 				60DDA54307382D0000FAB8B3 /* Kernel.framework */,
 			);
 			name = Frameworks;
@@ -550,7 +546,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0430;
+				LastUpgradeCheck = 0630;
 			};
 			buildConfigurationList = 60CD8A3708A7E7F300DC31BD /* Build configuration list for PBXProject "IOStorageFamily" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -701,9 +697,142 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		305CA1DB1AD49B7700E8FE14 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = DebugCoverage;
+		};
+		305CA1DC1AD49B7700E8FE14 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
+				INFOPLIST_PREPROCESS = YES;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = IOStorageFamily;
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = DebugCoverage;
+		};
+		305CA1DD1AD49B7700E8FE14 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
+				INFOPLIST_PREPROCESS = YES;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = IOStorageFamily;
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = DebugCoverage;
+		};
+		305CA1DE1AD49B7700E8FE14 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "IOStorageFamily Headers";
+			};
+			name = DebugCoverage;
+		};
+		305CA1DF1AD49B7700E8FE14 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "IOStorageFamily Headers_Embedded";
+			};
+			name = DebugCoverage;
+		};
+		305CA1E01AD49B7700E8FE14 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = IOStorageFamily_Sim;
+			};
+			name = DebugCoverage;
+		};
+		305CA1E11AD49B7F00E8FE14 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = ReleaseCoverage;
+		};
+		305CA1E21AD49B7F00E8FE14 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
+				INFOPLIST_PREPROCESS = YES;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = IOStorageFamily;
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = ReleaseCoverage;
+		};
+		305CA1E31AD49B7F00E8FE14 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
+				INFOPLIST_PREPROCESS = YES;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = IOStorageFamily;
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = ReleaseCoverage;
+		};
+		305CA1E41AD49B7F00E8FE14 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "IOStorageFamily Headers";
+			};
+			name = ReleaseCoverage;
+		};
+		305CA1E51AD49B7F00E8FE14 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "IOStorageFamily Headers_Embedded";
+			};
+			name = ReleaseCoverage;
+		};
+		305CA1E61AD49B7F00E8FE14 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = IOStorageFamily_Sim;
+			};
+			name = ReleaseCoverage;
+		};
 		3F9C5E811644E23600FC6152 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 81CF6A281875BA8500735B94 /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
@@ -713,7 +842,6 @@
 		};
 		3F9C5E821644E23600FC6152 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 81CF6A281875BA8500735B94 /* SimulatorSupport.xcconfig */;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
@@ -795,7 +923,6 @@
 		};
 		C1E55B220D32D158002875AA /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
@@ -808,7 +935,6 @@
 		};
 		C1E55B230D32D158002875AA /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
@@ -826,7 +952,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3F9C5E811644E23600FC6152 /* Debug */,
+				305CA1E01AD49B7700E8FE14 /* DebugCoverage */,
 				3F9C5E821644E23600FC6152 /* Release */,
+				305CA1E61AD49B7F00E8FE14 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -835,7 +963,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				606B78A00D4A556B00A2EB99 /* Debug */,
+				305CA1DF1AD49B7700E8FE14 /* DebugCoverage */,
 				606B78A10D4A556B00A2EB99 /* Release */,
+				305CA1E51AD49B7F00E8FE14 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -844,7 +974,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60CD8A3408A7E7F300DC31BD /* Debug */,
+				305CA1DC1AD49B7700E8FE14 /* DebugCoverage */,
 				60CD8A3508A7E7F300DC31BD /* Release */,
+				305CA1E21AD49B7F00E8FE14 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -853,7 +985,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60CD8A3808A7E7F300DC31BD /* Debug */,
+				305CA1DB1AD49B7700E8FE14 /* DebugCoverage */,
 				60CD8A3908A7E7F300DC31BD /* Release */,
+				305CA1E11AD49B7F00E8FE14 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -862,7 +996,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60FD685D0D402C4F000D088D /* Debug */,
+				305CA1DE1AD49B7700E8FE14 /* DebugCoverage */,
 				60FD685E0D402C4F000D088D /* Release */,
+				305CA1E41AD49B7F00E8FE14 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -871,7 +1007,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C1E55B220D32D158002875AA /* Debug */,
+				305CA1DD1AD49B7700E8FE14 /* DebugCoverage */,
 				C1E55B230D32D158002875AA /* Release */,
+				305CA1E31AD49B7F00E8FE14 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -7,7 +7,7 @@ Project               = tcsh
 UserType              = Administration
 ToolType              = Commands
 Extra_CC_Flags        = -D_PATH_TCSHELL='\"/bin/tcsh\"' -no-cpp-precomp -mdynamic-no-pic -DDARWIN -fstack-protector-all
-Extra_Configure_Flags = --bindir="/bin"
+Extra_Configure_Flags = --bindir="/bin" ac_cv_func_sbrk=no
 Extra_Install_Flags   = DESTBIN="$(DSTROOT)/bin" MANSECT="1" DESTMAN="$(DSTROOT)/usr/share/man/man1" srcdir="$(SRCROOT)/tcsh"
 GnuAfterInstall       = install-links install-rc install-plist
 
@@ -43,11 +43,11 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 6.17.00
+AEP_Version    = 6.18.01
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = config_f.h.diff host.defs.patch tc.sig.h.patch
+AEP_Patches    = config_f.h.patch host.defs.patch tc.sig.h.patch
 
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
@@ -63,6 +63,6 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 -F0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
+		patch -d $(SRCROOT)/$(Project) -p0 -F0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 endif

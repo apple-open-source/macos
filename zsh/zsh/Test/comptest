@@ -34,8 +34,9 @@ comptestinit () {
 "fpath=( $fpath )" \
 "bindkey -$comptest_keymap" \
 'LISTMAX=10000000
-stty 38400 columns 80 rows 24
+stty 38400 columns 80 rows 24 tabs -icanon -iexten
 TERM=vt100
+KEYTIMEOUT=1
 setopt zle
 autoload -U compinit
 compinit -u
@@ -69,12 +70,15 @@ comp-finish () {
   zle -R
 }
 zle-finish () {
-  print -lr "<WIDGET><finish>" "BUFFER: $BUFFER" "CURSOR: $CURSOR"
-  (( region_active )) && print -lr "MARK: $MARK"
-  zle -K main
-  zle kill-whole-line
+  local buffer="$BUFFER" cursor="$CURSOR" mark="$MARK"
+  (( region_active)) || unset mark
+  BUFFER=""
+  zle -I
   zle clear-screen
-  zle -R
+  zle redisplay
+  print -lr "<WIDGET><finish>" "BUFFER: $buffer" "CURSOR: $cursor"
+  (( $+mark )) && print -lr "MARK: $mark"
+  zle accept-line
 }
 zle -N expand-or-complete-with-report
 zle -N list-choices-with-report
@@ -83,20 +87,41 @@ zle -N zle-finish
 bindkey "^I" expand-or-complete-with-report
 bindkey "^D" list-choices-with-report
 bindkey "^Z" comp-finish
-bindkey "^M" zle-finish
-bindkey -a "^M" zle-finish
+bindkey "^X" zle-finish
+bindkey -a "^X" zle-finish
 '
+}
+
+zpty_flush() {
+  local junk
+  if zpty -r -t zsh junk \*; then
+    (( ZTST_verbose > 2 )) && print -n -u $ZTST_fd "$*: ${(V)junk}"
+    while zpty -r -t zsh junk \* ; do
+      (( ZTST_verbose > 2 )) && print -n -u $ZTST_fd "${(V)junk}"
+    done
+    (( ZTST_verbose > 2 )) && print -u $ZTST_fd ''
+  fi
+}
+
+zpty_run() {
+  zpty -w zsh "$*"
+  zpty -r -m zsh log "*<PROMPT>*" || {
+    print "prompt hasn't appeared."
+    return 1
+  }
 }
 
 comptesteval () {
   local tmp=/tmp/comptest.$$
 
   print -lr - "$@" > $tmp
+  # zpty_flush Before comptesteval
   zpty -w zsh ". $tmp"
   zpty -r -m zsh log_eval "*<PROMPT>*" || {
     print "prompt hasn't appeared."
     return 1
   }
+  zpty_flush After comptesteval
   rm $tmp
 }
 
@@ -135,11 +160,18 @@ comptest () {
 }
 
 zletest () {
-  input="$*"
-  zpty -n -w zsh "$input"$'\C-M'
+  local first=0
+  for input; do
+    # zpty_flush Before zletest
+    # sleep for $KEYTIMEOUT
+    (( first++ )) && { sleep 2 & } | read -t 0.011 -u 0 -k 1
+    zpty -n -w zsh "$input"
+  done
+  zpty -n -w zsh $'\C-X'
   zpty -r -m zsh log "*<WIDGET><finish>*<PROMPT>*" || {
     print "failed to invoke finish widget."
     return 1
   }
-  print -lr "${(@)${(ps:\r\n:)log##*<WIDGET><finish>}[1,-2]}"
+  # zpty_flush After zletest
+  print -lr "${(@)${(@ps:\r\n:)log##*<WIDGET><finish>}[2,-2]}"
 }

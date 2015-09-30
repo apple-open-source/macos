@@ -74,6 +74,11 @@ command = {
 		long = "validate"
 		type = "flag"
 	}
+	option = {
+		long = "server-hostname"
+		type = "string"
+		argument = "server name used for validation"
+	}
 	min_args = "0"
 	max_args = "1"
 	argument = "[user name]"

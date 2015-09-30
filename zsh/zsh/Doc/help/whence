@@ -1,6 +1,11 @@
-whence [ -vcwfpams ] name ...
+whence [ -vcwfpamsS ] name ...
        For each name, indicate how it would be interpreted if used as a
        command name.
+
+       whence  is most useful when name is only the last path component
+       of a command, i.e. does not include a `/'; in  particular,  pat-
+       tern  matching only succeeds if just the non-directory component
+       of the command is passed.
 
        -v     Produce a more verbose report.
 
@@ -26,18 +31,23 @@ whence [ -vcwfpams ] name ...
               command  path.   Normally  only  the  first occurrence is
               printed.
 
-       -m     The arguments are taken as patterns (should  be  quoted),
-              and  the information is displayed for each command match-
-              ing one of these patterns.
+       -m     The arguments are taken as patterns  (pattern  characters
+              should  be  quoted), and the information is displayed for
+              each command matching one of these patterns.
 
        -s     If a pathname contains symlinks, print  the  symlink-free
               pathname as well.
 
-type [ -wfpams ] name ...
+       -S     As  -s, but if the pathname had to be resolved by follow-
+              ing  multiple  symlinks,  the  intermediate   steps   are
+              printed, too.  The symlink resolved at each step might be
+              anywhere in the path.
+
+type [ -wfpamsS ] name ...
        Equivalent to whence -v.
 
-where [ -wpms ] name ...
+where [ -wpmsS ] name ...
        Equivalent to whence -ca.
 
-which [ -wpams ] name ...
+which [ -wpamsS ] name ...
        Equivalent to whence -c.

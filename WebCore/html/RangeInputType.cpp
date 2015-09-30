@@ -268,7 +268,7 @@ HTMLElement* RangeInputType::sliderTrackElement() const
     ASSERT(element().userAgentShadowRoot()->firstChild()->isHTMLElement());
     ASSERT(element().userAgentShadowRoot()->firstChild()->firstChild()); // track
 
-    return &toHTMLElement(*element().userAgentShadowRoot()->firstChild()->firstChild());
+    return downcast<HTMLElement>(element().userAgentShadowRoot()->firstChild()->firstChild());
 }
 
 SliderThumbElement& RangeInputType::typedSliderThumbElement() const
@@ -284,7 +284,7 @@ HTMLElement* RangeInputType::sliderThumbElement() const
     return &typedSliderThumbElement();
 }
 
-RenderPtr<RenderElement> RangeInputType::createInputRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> RangeInputType::createInputRenderer(Ref<RenderStyle>&& style)
 {
     return createRenderer<RenderSlider>(element(), WTF::move(style));
 }
@@ -368,12 +368,12 @@ void RangeInputType::updateTickMarkValues()
     HTMLDataListElement* dataList = element().dataList();
     if (!dataList)
         return;
-    RefPtr<HTMLCollection> options = dataList->options();
+    Ref<HTMLCollection> options = dataList->options();
     m_tickMarkValues.reserveCapacity(options->length());
     for (unsigned i = 0; i < options->length(); ++i) {
         Node* node = options->item(i);
-        HTMLOptionElement* optionElement = toHTMLOptionElement(node);
-        String optionValue = optionElement->value();
+        HTMLOptionElement& optionElement = downcast<HTMLOptionElement>(*node);
+        String optionValue = optionElement.value();
         if (!element().isValidValue(optionValue))
             continue;
         m_tickMarkValues.append(parseToNumber(optionValue, Decimal::nan()));

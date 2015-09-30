@@ -478,8 +478,6 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 #endif
 	}
 
-	if (!fCurrentPowerState) fProviderPower = false;
-
     framebuffer->fbUnlock();
 
     return (ret);
@@ -691,6 +689,7 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 			fProviderPower, fClamshellSlept, fCurrentPowerState);
 
 	if (!fProviderPower) return (false);
+	if (!fCurrentPowerState) fProviderPower = false;
 
     displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
     if (!displayParams) return (false);

@@ -41,6 +41,10 @@
 #include <utility>
 #include <wtf/text/StringBuilder.h>
 
+#if PLATFORM(COCOA)
+#include <WebCore/MachSendRight.h>
+#endif
+
 using namespace WebCore;
 
 namespace WebKit {
@@ -442,6 +446,12 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
             *(NPBool*)value = plugin->isPrivateBrowsingEnabled();
             break;
         }
+
+        case NPNVmuteAudioBool: {
+            RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
+            *(NPBool*)value = plugin->isMuted();
+            break;
+        }
 #if PLATFORM(COCOA)
         case NPNVsupportsCoreGraphicsBool:
             // Always claim to support the Core Graphics drawing model.
@@ -483,7 +493,7 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
         case WKNVCALayerRenderServerPort: {
             RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
 
-            *(mach_port_t*)value = plugin->compositingRenderServerPort();
+            *(mach_port_t*)value = plugin->compositingRenderServerPort().sendRight();
             break;
         }
 
@@ -572,6 +582,12 @@ static NPError NPN_SetValue(NPP npp, NPPVariable variable, void *value)
         case NPPVpluginTransparentBool: {
             RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
             plugin->setIsTransparent(value);
+            return NPERR_NO_ERROR;
+        }
+
+        case NPPVpluginIsPlayingAudio: {
+            RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
+            plugin->setIsPlayingAudio(value);
             return NPERR_NO_ERROR;
         }
 
@@ -967,6 +983,13 @@ static NPBool NPN_ConvertPoint(NPP npp, double sourceX, double sourceY, NPCoordi
 }
 #endif
 
+static void NPN_URLRedirectResponse(NPP npp, void* notifyData, NPBool allow)
+{
+    RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
+
+    plugin->urlRedirectResponse(notifyData, allow);
+}
+
 static void initializeBrowserFuncs(NPNetscapeFuncs &netscapeFuncs)
 {
     netscapeFuncs.size = sizeof(NPNetscapeFuncs);
@@ -1029,6 +1052,11 @@ static void initializeBrowserFuncs(NPNetscapeFuncs &netscapeFuncs)
 #else
     netscapeFuncs.popupcontextmenu = 0;
     netscapeFuncs.convertpoint = 0;
+#endif
+#if ENABLE(NETWORK_PROCESS)
+    netscapeFuncs.urlredirectresponse = NPN_URLRedirectResponse;
+#else
+    netscapeFuncs.urlredirectresponse = 0;
 #endif
 }
     

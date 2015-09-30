@@ -24,18 +24,7 @@
  */
 
 .sidebar > .panel.navigation > .content {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 28px;
-
-    overflow-x: hidden;
-    overflow-y: auto;
-}
-
-body.mac-platform.legacy .sidebar > .panel.navigation > .content {
-    bottom: 22px;
+    bottom: 29px;
 }
 
 .sidebar > .panel.navigation > .filter-bar {
@@ -59,27 +48,13 @@ body.mac-platform.legacy .sidebar > .panel.navigation > .content {
     border-bottom: 1px solid rgb(179, 179, 179);
 }
 
-body.mac-platform.legacy .sidebar > .panel.navigation > .overflow-shadow {
-    border-bottom: none;
-
-    background-image: -webkit-radial-gradient(center, ellipse closest-side, rgba(0, 0, 0, 0.2) 25%, transparent),
-        linear-gradient(to right, rgba(0, 0, 0, 0.0125), rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.0125));
-    background-size: 125% 15px, 100% 1px;
-    background-position: top center, bottom center;
-    background-repeat: no-repeat;
-
-    height: 5px;
-    bottom: 22px;
-}
-
 .sidebar > .panel.navigation > .overflow-shadow.top {
     top: 28px;
     bottom: initial;
 }
 
-body.mac-platform.legacy .sidebar > .panel.navigation > .overflow-shadow.top {
-    top: 21px;
-    background-position: bottom center, top center;
+body.window-inactive .sidebar > .panel.navigation > .overflow-shadow {
+    border-bottom-color: rgb(219, 219, 219);
 }
 
 .sidebar > .panel.navigation > .empty-content-placeholder {
@@ -89,14 +64,10 @@ body.mac-platform.legacy .sidebar > .panel.navigation > .overflow-shadow.top {
     right: 0;
     bottom: 28px;
 
-    display: -webkit-flex;
+    display: flex;
 
-    -webkit-justify-content: center;
-    -webkit-align-items: center;
-}
-
-body.mac-platform.legacy .sidebar > .panel.navigation > .empty-content-placeholder {
-    bottom: 21px;
+    justify-content: center;
+    align-items: center;
 }
 
 .sidebar > .panel.navigation > .empty-content-placeholder > .message {
@@ -189,7 +160,7 @@ body.mac-platform.legacy .sidebar > .panel.navigation > .empty-content-placehold
     display: block;
 }
 
-.navigation-sidebar-panel-content-tree-outline:focus .item.selected .disclosure-button {
+.navigation-sidebar-panel-content-tree-outline:matches(:focus, .force-focus) .item.selected .disclosure-button {
     background-image: -webkit-canvas(navigation-sidebar-panel-disclosure-triangle-closed-selected) !important;
 }
 
@@ -197,7 +168,7 @@ body.mac-platform.legacy .sidebar > .panel.navigation > .empty-content-placehold
     background-image: -webkit-canvas(navigation-sidebar-panel-disclosure-triangle-open-normal);
 }
 
-.navigation-sidebar-panel-content-tree-outline:focus .item.selected.expanded .disclosure-button {
+.navigation-sidebar-panel-content-tree-outline:matches(:focus, .force-focus) .item.selected.expanded .disclosure-button {
     background-image: -webkit-canvas(navigation-sidebar-panel-disclosure-triangle-open-selected) !important;
 }
 
@@ -231,34 +202,13 @@ body.mac-platform.legacy .sidebar > .panel.navigation > .empty-content-placehold
     background-color: rgb(212, 212, 212);
 }
 
-body.mac-platform.legacy .navigation-sidebar-panel-content-tree-outline .item.selected {
-    border-top: 1px solid rgb(162, 177, 201);
-
-    background-color: transparent;
-    background-image: linear-gradient(to bottom, rgb(175, 190, 213), rgb(130, 151, 182));
-    background-origin: padding;
-    background-clip: padding;
-}
-
-.navigation-sidebar-panel-content-tree-outline:focus .item.selected {
+.navigation-sidebar-panel-content-tree-outline:matches(:focus, .force-focus) .item.selected {
     color: white;
     background-color: rgb(0, 128, 252);
 }
 
-body.mac-platform.legacy .navigation-sidebar-panel-content-tree-outline:focus .item.selected {
-    background-color: transparent;
-    border-top: 1px solid rgb(148, 174, 193);
-    background-image: linear-gradient(to bottom, rgb(154, 180, 203), rgb(112, 139, 176));
-}
-
 body.window-inactive .navigation-sidebar-panel-content-tree-outline .item.selected {
     background-color: rgb(212, 212, 212);
-}
-
-body.mac-platform.legacy.window-inactive .navigation-sidebar-panel-content-tree-outline .item.selected {
-    background-color: transparent;
-    border-top: 1px solid rgb(168, 168, 168);
-    background-image: linear-gradient(to bottom, rgb(194, 194, 194), rgb(158, 158, 158));
 }
 
 .navigation-sidebar-panel-content-tree-outline .item .titles {
@@ -293,7 +243,7 @@ body.mac-platform.legacy.window-inactive .navigation-sidebar-panel-content-tree-
     color: rgba(0, 0, 0, 0.7);
 }
 
-.navigation-sidebar-panel-content-tree-outline:focus .item.selected .subtitle {
+.navigation-sidebar-panel-content-tree-outline:matches(:focus, .force-focus) .item.selected .subtitle {
     color: rgba(255, 255, 255, 0.9);
 }
 

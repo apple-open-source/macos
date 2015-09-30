@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -63,91 +63,96 @@
 // from ip_fw2.c
 #define KEV_LOG_SUBCLASS	10
 
-static const char *inetEventName[] = {
-	"",
-	"INET address added",
-	"INET address changed",
-	"INET address deleted",
-	"INET destination address changed",
-	"INET broadcast address changed",
-	"INET netmask changed",
-	"INET ARP collision",
-	"INET port in use",
-};
-
-static const char *dlEventName[] = {
-	"",
-	"KEV_DL_SIFFLAGS",
-	"KEV_DL_SIFMETRICS",
-	"KEV_DL_SIFMTU",
-	"KEV_DL_SIFPHYS",
-	"KEV_DL_SIFMEDIA",
-	"KEV_DL_SIFGENERIC",
-	"KEV_DL_ADDMULTI",
-	"KEV_DL_DELMULTI",
-	"KEV_DL_IF_ATTACHED",
-	"KEV_DL_IF_DETACHING",
-	"KEV_DL_IF_DETACHED",
-	"KEV_DL_LINK_OFF",
-	"KEV_DL_LINK_ON",
-	"KEV_DL_PROTO_ATTACHED",
-	"KEV_DL_PROTO_DETACHED",
-	"KEV_DL_LINK_ADDRESS_CHANGED",
-	"KEV_DL_WAKEFLAGS_CHANGED",
-#ifdef	KEV_DL_IF_IDLE_ROUTE_REFCNT
-	"KEV_DL_IF_IDLE_ROUTE_REFCNT",
-#endif
-#ifdef  KEV_DL_IFCAP_CHANGED
-	"KEV_DL_IFCAP_CHANGED",
-#endif
-#ifdef  KEV_DL_LINK_QUALITY_METRIC_CHANGED
-	"KEV_DL_LINK_QUALITY_METRIC_CHANGED",
-#endif
-#ifdef	KEV_DL_NODE_PRESENCE
-	"KEV_DL_NODE_PRESENCE"
-#endif
-#ifdef	KEV_DL_NODE_ABSENCE
-	"KEV_DL_NODE_ABSENCE"
-#endif
-#ifdef	KEV_DL_MASTER_ELECTED
-	"KEV_DL_MASTER_ELECTED"
-#endif
-#ifdef	KEV_DL_ISSUES
-	"KEV_DL_ISSUES",
-#endif
-#ifdef	KEV_DL_IFDELEGATE_CHANGED
-	"KEV_DL_IFDELEGATE_CHANGED",
-#endif
-};
-
-static const char *inet6EventName[] = {
-	"",
-	"KEV_INET6_NEW_USER_ADDR",
-	"KEV_INET6_CHANGED_ADDR",
-	"KEV_INET6_ADDR_DELETED",
-	"KEV_INET6_NEW_LL_ADDR",
-	"KEV_INET6_NEW_RTADV_ADDR",
-	"KEV_INET6_DEFROUTER"
-};
-
-#ifdef	KEV_ND6_SUBCLASS
-static const char *nd6EventNameString[] = {
-	"",
-	"KEV_ND6_RA"
-};
-#endif	// KEV_ND6_SUBCLASS
-
 static dispatch_queue_t			S_kev_queue;
 static dispatch_source_t		S_kev_source;
 __private_extern__ Boolean		network_changed	= FALSE;
 __private_extern__ SCDynamicStoreRef	store		= NULL;
 __private_extern__ Boolean		_verbose	= FALSE;
 
+
+#define MESSAGES_MAX			100
+static CFMutableArrayRef		S_messages;
+static Boolean				S_messages_modified;
+
+static void
+messages_init(void)
+{
+	S_messages = CFArrayCreateMutable(NULL,
+					  0,
+					  &kCFTypeArrayCallBacks);
+	return;
+}
+
+static void
+messages_free(void)
+{
+	if (S_messages != NULL) {
+		CFRelease(S_messages);
+		S_messages = NULL;
+	}
+	return;
+}
+
+static Boolean
+messages_should_add_message(void)
+{
+	if (S_messages == NULL
+	    || CFArrayGetCount(S_messages) >= MESSAGES_MAX) {
+		return (FALSE);
+	}
+	return (TRUE);
+}
+
+static void
+messages_add_message(CFStringRef message)
+{
+	if (messages_should_add_message()) {
+		CFArrayAppendValue(S_messages, message);
+		S_messages_modified = TRUE;
+	}
+	return;
+}
+
+__private_extern__ void
+messages_add_msg_with_arg(const char * msg, const char * arg)
+{
+	if (messages_should_add_message()) {
+		CFStringRef	str;
+
+		str = CFStringCreateWithFormat(NULL, NULL,
+					       CFSTR("%12.8f: %s %s"),
+					       CFAbsoluteTimeGetCurrent(),
+					       msg, arg);
+		messages_add_message(str);
+		CFRelease(str);
+	}
+	return;
+}
+
+static void
+messages_post(void)
+{
+	if (S_messages != NULL && S_messages_modified) {
+		SCDynamicStoreSetValue(NULL,
+				       CFSTR("Plugin:KernelEventMonitor"),
+				       S_messages);
+		S_messages_modified = FALSE;
+	}
+	return;
+}
+
 __private_extern__
 int
 dgram_socket(int domain)
 {
-    return (socket(domain, SOCK_DGRAM, 0));
+    int	s;
+
+    s = socket(domain, SOCK_DGRAM, 0);
+    if (s == -1) {
+	SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
+    }
+
+    return s;
 }
 
 static int
@@ -210,7 +215,7 @@ post_network_changed(void)
 
 		status = notify_post(_SC_NOTIFY_NETWORK_CHANGE);
 		if (status != NOTIFY_STATUS_OK) {
-			SCLog(TRUE, LOG_ERR, CFSTR("notify_post() failed: error=%u"), status);
+			SC_log(LOG_NOTICE, "notify_post() failed: error=%u", status);
 		}
 
 		network_changed = FALSE;
@@ -229,9 +234,8 @@ logEvent(CFStringRef evStr, struct kern_event_msg *ev_msg)
 		return;
 	}
 
-	SCLog(TRUE, LOG_DEBUG, CFSTR("%@ event:"), evStr);
-	SCLog(TRUE, LOG_DEBUG,
-	      CFSTR("  Event size=%d, id=%d, vendor=%d, class=%d, subclass=%d, code=%d"),
+	SC_log(LOG_DEBUG, "%@ event:", evStr);
+	SC_log(LOG_DEBUG, "  Event size=%d, id=%d, vendor=%d, class=%d, subclass=%d, code=%d",
 	      ev_msg->total_size,
 	      ev_msg->id,
 	      ev_msg->vendor_code,
@@ -239,35 +243,8 @@ logEvent(CFStringRef evStr, struct kern_event_msg *ev_msg)
 	      ev_msg->kev_subclass,
 	      ev_msg->event_code);
 	for (i = 0, j = KEV_MSG_HEADER_SIZE; j < ev_msg->total_size; i++, j+=4) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  Event data[%2d] = %08x"), i, ev_msg->event_data[i]);
+		SC_log(LOG_DEBUG, "  Event data[%2d] = %08x", i, ev_msg->event_data[i]);
 	}
-}
-
-static const char *
-inetEventNameString(uint32_t event_code)
-{
-	if (event_code < sizeof(inetEventName) / sizeof(inetEventName[0])) {
-		return (inetEventName[event_code]);
-	}
-	return ("New Apple network INET subcode");
-}
-
-static const char *
-inet6EventNameString(uint32_t event_code)
-{
-	if (event_code < sizeof(inet6EventName) / sizeof(inet6EventName[0])) {
-		return (inet6EventName[event_code]);
-	}
-	return ("New Apple network INET6 subcode");
-}
-
-static const char *
-dlEventNameString(uint32_t event_code)
-{
-	if (event_code < sizeof(dlEventName) / sizeof(dlEventName[0])) {
-		return (dlEventName[event_code]);
-	}
-	return ("New Apple network DL subcode");
 }
 
 static void
@@ -282,7 +259,6 @@ static uint8_t info_zero[DLIL_MODARGLEN];
 static void
 processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 {
-	const char *			eventName = NULL;
 	int				dataLen = (ev_msg->total_size - KEV_MSG_HEADER_SIZE);
 	void *				event_data = &ev_msg->event_data[0];
 	Boolean				handled = TRUE;
@@ -290,7 +266,6 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 
 	switch (ev_msg->kev_subclass) {
 		case KEV_INET_SUBCLASS : {
-			eventName = inetEventNameString(ev_msg->event_code);
 			switch (ev_msg->event_code) {
 				case KEV_INET_NEW_ADDR :
 				case KEV_INET_CHANGED_ADDR :
@@ -306,6 +281,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process IPv4 address change: %s: %d", (char *)ifr_name, ev_msg->event_code);
 					ipv4_interface_update(NULL, ifr_name);
 					break;
 				}
@@ -319,6 +295,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process ARP collision: %s", (char *)ifr_name);
 					ipv4_arp_collision(ifr_name,
 							   ev->ia_ipaddr,
 							   ev->hw_len,
@@ -333,6 +310,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						handled = FALSE;
 						break;
 					}
+					SC_log(LOG_INFO, "Process port-in-use: %hu, %u", ev->port, ev->req_pid);
 					ipv4_port_in_use(ev->port, ev->req_pid);
 					break;
 				}
@@ -346,6 +324,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process router ARP failure: %s", (char *)ifr_name);
 					ipv4_router_arp_failure(ifr_name);
 					break;
 				}
@@ -358,6 +337,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process router ARP alive: %s", (char *)ifr_name);
 					ipv4_router_arp_alive(ifr_name);
 					break;
 				}
@@ -370,7 +350,6 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 		case KEV_INET6_SUBCLASS : {
 			struct kev_in6_data * ev;
 
-			eventName = inet6EventNameString(ev_msg->event_code);
 			ev = (struct kev_in6_data *)event_data;
 			switch (ev_msg->event_code) {
 				case KEV_INET6_NEW_USER_ADDR :
@@ -384,7 +363,15 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process IPv6 address change: %s: %d", (char *)ifr_name, ev_msg->event_code);
 					interface_update_ipv6(NULL, ifr_name);
+					if (ev_msg->event_code == KEV_INET6_NEW_USER_ADDR
+					    && (ev->ia6_flags & IN6_IFF_DUPLICATED) != 0) {
+						ipv6_duplicated_address(ifr_name,
+									&ev->ia_addr.sin6_addr,
+									ETHER_ADDR_LEN,
+									&ev->ia_mac);
+					}
 					break;
 
 				default :
@@ -396,7 +383,6 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 		case KEV_DL_SUBCLASS : {
 			struct net_event_data * ev;
 
-			eventName = dlEventNameString(ev_msg->event_code);
 			ev = (struct net_event_data *)event_data;
 			switch (ev_msg->event_code) {
 				case KEV_DL_IF_ATTACHED :
@@ -408,6 +394,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process interface attach: %s", (char *)ifr_name);
 					link_add(ifr_name);
 					break;
 
@@ -420,6 +407,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process interface detach: %s", (char *)ifr_name);
 					link_remove(ifr_name);
 					break;
 
@@ -432,6 +420,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process interface detaching: %s", (char *)ifr_name);
 					interface_detaching(ifr_name);
 					break;
 
@@ -446,6 +435,10 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					}
 					copy_if_name(&protoEvent->link_data,
 						     ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process protocol %s: %s (n=%d)",
+						 (ev_msg->event_code == KEV_DL_PROTO_ATTACHED) ? "attach" : "detach",
+						 (char *)ifr_name,
+						 protoEvent->proto_remaining_count);
 					if (protoEvent->proto_remaining_count == 0) {
 						mark_if_down(ifr_name);
 					} else {
@@ -464,6 +457,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process interface idle: %s", (char *)ifr_name);
 					interface_update_idle_state(ifr_name);
 					break;
 				}
@@ -479,6 +473,9 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process interface link %s: %s",
+						 (ev_msg->event_code == KEV_DL_LINK_ON) ? "up" : "down",
+						 (char *)ifr_name);
 					link_update_status(ifr_name, FALSE);
 					break;
 
@@ -492,6 +489,9 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process interface quality: %s (q=%d)",
+						 (char *)ifr_name,
+						 lqm_data->link_quality_metric);
 					interface_update_quality_metric(ifr_name,
 								   lqm_data->link_quality_metric);
 					break;
@@ -508,6 +508,8 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process interface link issues: %s",
+						 (char *)ifr_name);
 					interface_update_link_issues(ifr_name,
 								     issues->timestamp,
 								     issues->modid,
@@ -543,7 +545,6 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 		}
 #ifdef	KEV_ND6_SUBCLASS
 		case KEV_ND6_SUBCLASS : {
-			eventName = nd6EventNameString(ev_msg->event_code);
 			switch (ev_msg->event_code) {
 				case KEV_KEV_ND6_RA :
 					break;
@@ -563,14 +564,8 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 			break;
 	}
 
-	if (handled == FALSE) {
-		CFStringRef	evStr;
-
-		evStr = CFStringCreateWithCString(NULL,
-						  (eventName != NULL) ? eventName : "New Apple network subclass",
-						  kCFStringEncodingASCII);
-		logEvent(evStr, ev_msg);
-		CFRelease(evStr);
+	if (!handled) {
+		logEvent(CFSTR("New Apple network subclass"), ev_msg);
 	}
 	return;
 }
@@ -588,7 +583,7 @@ eventCallback(int so)
 
 	status = recv(so, &buf, sizeof(buf), 0);
 	if (status == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("recv() failed: %s"), strerror(errno));
+		SC_log(LOG_NOTICE, "recv() failed: %s", strerror(errno));
 		return FALSE;
 	}
 
@@ -596,7 +591,7 @@ eventCallback(int so)
 
 	while (offset < status) {
 		if ((offset + ev_msg->total_size) > status) {
-			SCLog(TRUE, LOG_NOTICE, CFSTR("missed SYSPROTO_EVENT event, buffer not big enough"));
+			SC_log(LOG_NOTICE, "missed SYSPROTO_EVENT event, buffer not big enough");
 			break;
 		}
 
@@ -630,72 +625,119 @@ eventCallback(int so)
 	cache_write(store);
 	cache_close();
 	post_network_changed();
+	messages_post();
 
 	return TRUE;
 }
 
 
 static void
-prime(void)
+update_interfaces(const char * msg, Boolean ipv4_ipv6_too)
 {
-	struct ifaddrs	*ifap	= NULL;
-	struct ifaddrs	*scan;
-	int		sock	= -1;
-
-	SCLog(_verbose, LOG_DEBUG, CFSTR("prime() called"));
-
-	cache_open();
-
-	sock = dgram_socket(AF_INET);
-	if (sock == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("could not get interface list, socket() failed: %s"), strerror(errno));
-		goto done;
-	}
+	Boolean			added = FALSE;
+	struct ifaddrs *	ifap = NULL;
+	CFMutableArrayRef	ifList = NULL;
+	struct ifaddrs *	scan;
 
 	if (getifaddrs(&ifap) == -1) {
-		SCLog(TRUE,
-		      LOG_ERR,
-		      CFSTR("could not get interface info, getifaddrs() failed: %s"),
-		      strerror(errno));
+		messages_add_msg_with_arg("getifaddrs", strerror(errno));
+		SC_log(LOG_NOTICE, "getifaddrs() failed: %s", strerror(errno));
 		goto done;
 	}
 
 	/* update list of interfaces & link status */
+	ifList = interfaceListCopy();
 	for (scan = ifap; scan != NULL; scan = scan->ifa_next) {
 		if (scan->ifa_addr == NULL
 		    || scan->ifa_addr->sa_family != AF_LINK) {
 			continue;
 		}
 		/* get the per-interface link/media information */
-		link_add(scan->ifa_name);
+		if (interfaceListAddInterface(ifList, scan->ifa_name)) {
+			messages_add_msg_with_arg(msg, scan->ifa_name);
+			added = TRUE;
+		}
 	}
 
-	/*
-	 * update IPv4 network addresses already assigned to
-	 * the interfaces.
-	 */
-	ipv4_interface_update(ifap, NULL);
+	/* update the global list if an interface was added */
+	if (added) {
+		interfaceListUpdate(ifList);
+	}
+	CFRelease(ifList);
 
-	/*
-	 * update IPv6 network addresses already assigned to
-	 * the interfaces.
-	 */
-	interface_update_ipv6(ifap, NULL);
+	/* update IPv4/IPv6 addresses that are already assigned */
+	if (ipv4_ipv6_too) {
+		ipv4_interface_update(ifap, NULL);
+		interface_update_ipv6(ifap, NULL);
+	}
 
 	freeifaddrs(ifap);
 
  done:
-	if (sock != -1)
-		close(sock);
+	return;
+}
 
+#define TIMER_INTERVAL		(6LL * NSEC_PER_SEC)
+#define MAX_TIMER_COUNT		20
+
+static void
+check_for_new_interfaces(void * context);
+
+static void
+schedule_timer(void)
+{
+	dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW, TIMER_INTERVAL),
+			 S_kev_queue,
+			 NULL,
+			 check_for_new_interfaces);
+	return;
+}
+
+static void
+check_for_new_interfaces(void * context)
+{
+	static int	count;
+	char		msg[32];
+
+	count++;
+	snprintf(msg, sizeof(msg), "timeout %d (of %d)", count, MAX_TIMER_COUNT);
+	cache_open();
+	update_interfaces(msg, FALSE);
+ 	cache_write(store);
+	cache_close();
+	messages_post();
+
+	/* schedule the next timer, if needed */
+	if (count < MAX_TIMER_COUNT) {
+		schedule_timer();
+	}
+	else {
+		messages_free();
+	}
+
+	return;
+}
+
+static void
+prime(void)
+{
+	SC_log(LOG_DEBUG, "prime() called");
+
+	cache_open();
+	messages_init();
+	update_interfaces("prime", TRUE);
 	cache_write(store);
 	cache_close();
 
 	network_changed = TRUE;
 	post_network_changed();
+	messages_post();
 
 	/* start handling kernel events */
 	dispatch_resume(S_kev_source);
+
+	/* schedule polling timer */
+	schedule_timer();
 
 	return;
 }
@@ -709,6 +751,21 @@ prime_KernelEventMonitor()
 	return;
 }
 
+static Boolean
+initialize_store(void)
+{
+	store = SCDynamicStoreCreate(NULL,
+				     CFSTR("Kernel Event Monitor plug-in"),
+				     NULL,
+				     NULL);
+	if (store == NULL) {
+		SC_log(LOG_ERR, "SCDynamicStoreCreate() failed: %s", SCErrorString(SCError()));
+		return (FALSE);
+	}
+	return (TRUE);
+}
+
+
 __private_extern__
 void
 load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
@@ -721,17 +778,11 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 		_verbose = TRUE;
 	}
 
-	SCLog(_verbose, LOG_DEBUG, CFSTR("load() called"));
-	SCLog(_verbose, LOG_DEBUG, CFSTR("  bundle ID = %@"), CFBundleGetIdentifier(bundle));
+	SC_log(LOG_DEBUG, "load() called");
+	SC_log(LOG_DEBUG, "  bundle ID = %@", CFBundleGetIdentifier(bundle));
 
-	/* open a "configd" session to allow cache updates */
-	store = SCDynamicStoreCreate(NULL,
-				     CFSTR("Kernel Event Monitor plug-in"),
-				     NULL,
-				     NULL);
-	if (store == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("SCDnamicStoreCreate() failed: %s"), SCErrorString(SCError()));
-		SCLog(TRUE, LOG_ERR, CFSTR("kernel event monitor disabled."));
+	if (!initialize_store()) {
+		SC_log(LOG_ERR, "kernel event monitor disabled");
 		return;
 	}
 
@@ -743,13 +794,13 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 		kev_req.kev_class    = KEV_NETWORK_CLASS;
 		kev_req.kev_subclass = KEV_ANY_SUBCLASS;
 		status = ioctl(so, SIOCSKEVFILT, &kev_req);
-		if (status) {
-			SCLog(TRUE, LOG_ERR, CFSTR("could not establish event filter, ioctl() failed: %s"), strerror(errno));
+		if (status != 0) {
+			SC_log(LOG_ERR, "could not establish event filter, ioctl() failed: %s", strerror(errno));
 			(void) close(so);
 			so = -1;
 		}
 	} else {
-		SCLog(TRUE, LOG_ERR, CFSTR("could not open event socket, socket() failed: %s"), strerror(errno));
+		SC_log(LOG_ERR, "could not open event socket, socket() failed: %s", strerror(errno));
 	}
 
 	if (so != -1) {
@@ -757,14 +808,14 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 
 		status = ioctl(so, FIONBIO, &yes);
 		if (status) {
-			SCLog(TRUE, LOG_ERR, CFSTR("could not set non-blocking io, ioctl() failed: %s"), strerror(errno));
+			SC_log(LOG_ERR, "could not set non-blocking io, ioctl() failed: %s", strerror(errno));
 			(void) close(so);
 			so = -1;
 		}
 	}
 
 	if (so == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("kernel event monitor disabled."));
+		SC_log(LOG_ERR, "kernel event monitor disabled");
 		CFRelease(store);
 		return;
 	}
@@ -776,14 +827,19 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 		close(so);
 	});
 	dispatch_source_set_event_handler(S_kev_source, ^{
+		os_activity_t		activity_id;
 		Boolean	ok;
+
+		activity_id = os_activity_start("processing network kernel events",
+						OS_ACTIVITY_FLAG_DEFAULT);
 
 		ok = eventCallback(so);
 		if (!ok) {
-			SCLog(TRUE, LOG_ERR, CFSTR("kernel event monitor disabled."));
+			SC_log(LOG_ERR, "kernel event monitor disabled");
 			dispatch_source_cancel(S_kev_source);
 		}
 
+		os_activity_end(activity_id);
 	});
 	// NOTE: dispatch_resume() will be called in prime()
 

@@ -27,19 +27,14 @@
 
 #import <WebKit/WKFrameInfo.h>
 #import <WebKit/WKWebViewPrivate.h>
+#import <WebKit/_WKSameDocumentNavigationType.h>
 
 #if WK_API_ENABLED
 
 static const WKNavigationActionPolicy _WKNavigationActionPolicyDownload = (WKNavigationActionPolicy)(WKNavigationActionPolicyAllow + 1);
+static const WKNavigationActionPolicy WK_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA) _WKNavigationActionPolicyAllowWithoutTryingAppLink = (WKNavigationActionPolicy)(WKNavigationActionPolicyAllow + 2);
 
 static const WKNavigationResponsePolicy _WKNavigationResponsePolicyBecomeDownload = (WKNavigationResponsePolicy)(WKNavigationResponsePolicyAllow + 1);
-
-typedef NS_ENUM(NSInteger, _WKSameDocumentNavigationType) {
-    _WKSameDocumentNavigationTypeAnchorNavigation,
-    _WKSameDocumentNavigationTypeSessionStatePush,
-    _WKSameDocumentNavigationTypeSessionStateReplace,
-    _WKSameDocumentNavigationTypeSessionStatePop,
-} WK_AVAILABLE(10_10, 8_0);
 
 @protocol WKNavigationDelegatePrivate <WKNavigationDelegate>
 

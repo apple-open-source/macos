@@ -182,7 +182,7 @@ static int testHMac(HMacVector *hv) {
     return status;
 }
 
-static size_t testsPerVector = 3;
+static size_t testsPerVector = 61;
 
 int CommonHMac(int argc, char *const *argv) {
 	plan_tests((int) (hmvLen*testsPerVector));

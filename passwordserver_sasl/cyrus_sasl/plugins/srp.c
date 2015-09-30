@@ -60,38 +60,34 @@
  * - We don't implement fast reauth.
  */
 
+//#define SRPDEBUG 1
+
+#include <sasl.h>
+#include <saslplug.h>
+
+#include <stdlib.h>
+#include <corecrypto/cc.h>
+#include <corecrypto/ccz.h>
+#include <corecrypto/ccdigest.h>
+#include <corecrypto/ccsha2.h>
+#include <corecrypto/cczp.h>
+#include <corecrypto/ccsrp.h>
+#include <corecrypto/ccsrp_gp.h>
+#include <corecrypto/ccrng.h>
+#include <CoreUtils/ChaCha20Poly1305.h> // until <rdar://problem/15224018&15224082>
 #include <config.h>
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <limits.h>
 #include <stdarg.h>
-
-#ifndef UINT32_MAX
-#define UINT32_MAX 4294967295U
-#endif
-
-#if UINT_MAX == UINT32_MAX
-typedef unsigned int uint32;
-#elif ULONG_MAX == UINT32_MAX
-typedef unsigned long uint32;
-#elif USHRT_MAX == UINT32_MAX
-typedef unsigned short uint32;
-#else
-#error dont know what to use for uint32
-#endif
-
-/* for big number support */
-#include <openssl/bn.h>
-
-/* for digest and cipher support */
-#include <openssl/evp.h>
-#include <openssl/hmac.h>
-#include <openssl/md5.h>
-
-#include <sasl.h>
-#define MD5_H  /* suppress internal MD5 */
-#include <saslplug.h>
+#include <arpa/inet.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonRandomSPI.h>
+#include <CommonCrypto/CommonKeyDerivation.h>
+#include <CommonCrypto/CommonBigNum.h>
 
 #include "plugin_common.h"
 
@@ -99,374 +95,452 @@ typedef unsigned short uint32;
 #include <sasl_srp_plugin_decl.h>
 #endif 
 
-/*****************************  Common Section  *****************************/
+#if SRPDEBUG
+#define dprintf printf
+#else
+#define dprintf(...)
+#endif
 
-static const char plugin_id[] = "$Id: srp.c,v 1.59 2010/11/30 11:41:47 mel Exp $";
+/*****************************  Common Section  *****************************/
 
 /* Size limit of cipher block size */
 #define SRP_MAXBLOCKSIZE 16
+/* Size limit of message digests, key length (256 bits) */
+#define SRP_MAX_MD_SIZE 64
 /* Size limit of SRP buffer */
 #define SRP_MAXBUFFERSIZE 2147483643
 
-#define DEFAULT_MDA		"SHA-1"
+#define DEFAULT_MDA                "SHA-512"
 
-#define OPTION_MDA		"mda="
-#define OPTION_REPLAY_DETECTION	"replay_detection"
-#define OPTION_INTEGRITY	"integrity="
-#define OPTION_CONFIDENTIALITY	"confidentiality="
-#define OPTION_MANDATORY	"mandatory="
-#define OPTION_MAXBUFFERSIZE	"maxbuffersize="
+#define OPTION_MDA                "mda="
+#define OPTION_REPLAY_DETECTION   "replay_detection"
+#define OPTION_CONFIDENTIALITY_INTEGRITY        "confidentiality+integrity=" /* AEAD ciphers, combines 'confidentiality' and 'integrity' options */
+#define OPTION_CONFIDENTIALITY_INTEGRITY_MANDATORY "confidentiality+integrity"
+#define OPTION_MANDATORY          "mandatory="
+#define OPTION_MAXBUFFERSIZE      "maxbuffersize="
+#define OPTION_KDF                "kdf="
 
-/* Table of recommended Modulus (base 16) and Generator pairs */
+/* Table of recommended Modulus and Generator pairs */
 struct Ng {
-    char *N;
+    size_t Nbits;
+    const char *name;
+    uint8_t *N;
     unsigned long g;
+    ccsrp_const_gp_t gp;
 } Ng_tab[] = {
-    /* [264 bits] */
-    { "115B8B692E0E045692CF280B436735C77A5A9E8A9E7ED56C965F87DB5B2A2ECE3",
-      2
-    },
-    /* [384 bits] */
-    { "8025363296FB943FCE54BE717E0E2958A02A9672EF561953B2BAA3BAACC3ED5754EB764C7AB7184578C57D5949CCB41B",
-      2
-    },
-    /* [512 bits] */
-    { "D4C7F8A2B32C11B8FBA9581EC4BA4F1B04215642EF7355E37C0FC0443EF756EA2C6B8EEB755A1C723027663CAA265EF785B8FF6A9B35227A52D86633DBDFCA43",
-      2
-    },
-    /* [640 bits] */
-    { "C94D67EB5B1A2346E8AB422FC6A0EDAEDA8C7F894C9EEEC42F9ED250FD7F0046E5AF2CF73D6B2FA26BB08033DA4DE322E144E7A8E9B12A0E4637F6371F34A2071C4B3836CBEEAB15034460FAA7ADF483",
-      2
-    },
-    /* [768 bits] */
-    { "B344C7C4F8C495031BB4E04FF8F84EE95008163940B9558276744D91F7CC9F402653BE7147F00F576B93754BCDDF71B636F2099E6FFF90E79575F3D0DE694AFF737D9BE9713CEF8D837ADA6380B1093E94B6A529A8C6C2BE33E0867C60C3262B",
-      2
-    },
     /* [1024 bits] */
-    { "EEAF0AB9ADB38DD69C33F80AFA8FC5E86072618775FF3C0B9EA2314C9C256576D674DF7496EA81D3383B4813D692C6E0E0D5D8E250B98BE48E495C1D6089DAD15DC7D7B46154D6B6CE8EF4AD69B15D4982559B297BCF1885C529F566660E57EC68EDBC3C05726CC02FD4CBF4976EAA9AFD5138FE8376435B9FC61D2FC0EB06E3",
-      2
-    },
-    /* [1280 bits] */
-    { "D77946826E811914B39401D56A0A7843A8E7575D738C672A090AB1187D690DC43872FC06A7B6A43F3B95BEAEC7DF04B9D242EBDC481111283216CE816E004B786C5FCE856780D41837D95AD787A50BBE90BD3A9C98AC0F5FC0DE744B1CDE1891690894BC1F65E00DE15B4B2AA6D87100C9ECC2527E45EB849DEB14BB2049B163EA04187FD27C1BD9C7958CD40CE7067A9C024F9B7C5A0B4F5003686161F0605B",
-      2
-    },
-    /* [1536 bits] */
-    { "9DEF3CAFB939277AB1F12A8617A47BBBDBA51DF499AC4C80BEEEA9614B19CC4D5F4F5F556E27CBDE51C6A94BE4607A291558903BA0D0F84380B655BB9A22E8DCDF028A7CEC67F0D08134B1C8B97989149B609E0BE3BAB63D47548381DBC5B1FC764E3F4B53DD9DA1158BFD3E2B9C8CF56EDF019539349627DB2FD53D24B7C48665772E437D6C7F8CE442734AF7CCB7AE837C264AE3A9BEB87F8A2FE9B8B5292E5A021FFF5E91479E8CE7A28C2442C6F315180F93499A234DCF76E3FED135F9BB",
-      2
+    { 1024, "rfc5054_1024", (uint8_t *)
+    "\xEE\xAF\x0A\xB9\xAD\xB3\x8D\xD6\x9C\x33\xF8\x0A\xFA\x8F\xC5\xE8\x60\x72\x61"
+    "\x87\x75\xFF\x3C\x0B\x9E\xA2\x31\x4C\x9C\x25\x65\x76\xD6\x74\xDF\x74\x96\xEA"
+    "\x81\xD3\x38\x3B\x48\x13\xD6\x92\xC6\xE0\xE0\xD5\xD8\xE2\x50\xB9\x8B\xE4\x8E"
+    "\x49\x5C\x1D\x60\x89\xDA\xD1\x5D\xC7\xD7\xB4\x61\x54\xD6\xB6\xCE\x8E\xF4\xAD"
+    "\x69\xB1\x5D\x49\x82\x55\x9B\x29\x7B\xCF\x18\x85\xC5\x29\xF5\x66\x66\x0E\x57"
+    "\xEC\x68\xED\xBC\x3C\x05\x72\x6C\xC0\x2F\xD4\xCB\xF4\x97\x6E\xAA\x9A\xFD\x51"
+    "\x38\xFE\x83\x76\x43\x5B\x9F\xC6\x1D\x2F\xC0\xEB\x06\xE3",
+      2, {}
     },
     /* [2048 bits] */
-    { "AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50E8083969EDB767B0CF6095179A163AB3661A05FBD5FAAAE82918A9962F0B93B855F97993EC975EEAA80D740ADBF4FF747359D041D5C33EA71D281E446B14773BCA97B43A23FB801676BD207A436C6481F1D2B9078717461A5B9D32E688F87748544523B524B0D57D5EA77A2775D2ECFA032CFBDBF52FB3786160279004E57AE6AF874E7303CE53299CCC041C7BC308D82A5698F3A8D0C38271AE35F8E9DBFBB694B5C803D89F7AE435DE236D525F54759B65E372FCD68EF20FA7111F9E4AFF73",
-      2
-    }
+    { 2048, "rfc5054_2048", (uint8_t *)
+    "\xAC\x6B\xDB\x41\x32\x4A\x9A\x9B\xF1\x66\xDE\x5E\x13\x89\x58\x2F\xAF\x72\xB6"
+    "\x65\x19\x87\xEE\x07\xFC\x31\x92\x94\x3D\xB5\x60\x50\xA3\x73\x29\xCB\xB4\xA0"
+    "\x99\xED\x81\x93\xE0\x75\x77\x67\xA1\x3D\xD5\x23\x12\xAB\x4B\x03\x31\x0D\xCD"
+    "\x7F\x48\xA9\xDA\x04\xFD\x50\xE8\x08\x39\x69\xED\xB7\x67\xB0\xCF\x60\x95\x17"
+    "\x9A\x16\x3A\xB3\x66\x1A\x05\xFB\xD5\xFA\xAA\xE8\x29\x18\xA9\x96\x2F\x0B\x93"
+    "\xB8\x55\xF9\x79\x93\xEC\x97\x5E\xEA\xA8\x0D\x74\x0A\xDB\xF4\xFF\x74\x73\x59"
+    "\xD0\x41\xD5\xC3\x3E\xA7\x1D\x28\x1E\x44\x6B\x14\x77\x3B\xCA\x97\xB4\x3A\x23"
+    "\xFB\x80\x16\x76\xBD\x20\x7A\x43\x6C\x64\x81\xF1\xD2\xB9\x07\x87\x17\x46\x1A"
+    "\x5B\x9D\x32\xE6\x88\xF8\x77\x48\x54\x45\x23\xB5\x24\xB0\xD5\x7D\x5E\xA7\x7A"
+    "\x27\x75\xD2\xEC\xFA\x03\x2C\xFB\xDB\xF5\x2F\xB3\x78\x61\x60\x27\x90\x04\xE5"
+    "\x7A\xE6\xAF\x87\x4E\x73\x03\xCE\x53\x29\x9C\xCC\x04\x1C\x7B\xC3\x08\xD8\x2A"
+    "\x56\x98\xF3\xA8\xD0\xC3\x82\x71\xAE\x35\xF8\xE9\xDB\xFB\xB6\x94\xB5\xC8\x03"
+    "\xD8\x9F\x7A\xE4\x35\xDE\x23\x6D\x52\x5F\x54\x75\x9B\x65\xE3\x72\xFC\xD6\x8E"
+    "\xF2\x0F\xA7\x11\x1F\x9E\x4A\xFF\x73",
+      2, {}
+    },
+    /* [4096 bits] */
+    { 4096, "rfc5054_4096", (uint8_t *)
+    "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xC9\x0F\xDA\xA2\x21\x68\xC2\x34\xC4\xC6\x62"
+    "\x8B\x80\xDC\x1C\xD1\x29\x02\x4E\x08\x8A\x67\xCC\x74\x02\x0B\xBE\xA6\x3B\x13"
+    "\x9B\x22\x51\x4A\x08\x79\x8E\x34\x04\xDD\xEF\x95\x19\xB3\xCD\x3A\x43\x1B\x30"
+    "\x2B\x0A\x6D\xF2\x5F\x14\x37\x4F\xE1\x35\x6D\x6D\x51\xC2\x45\xE4\x85\xB5\x76"
+    "\x62\x5E\x7E\xC6\xF4\x4C\x42\xE9\xA6\x37\xED\x6B\x0B\xFF\x5C\xB6\xF4\x06\xB7"
+    "\xED\xEE\x38\x6B\xFB\x5A\x89\x9F\xA5\xAE\x9F\x24\x11\x7C\x4B\x1F\xE6\x49\x28"
+    "\x66\x51\xEC\xE4\x5B\x3D\xC2\x00\x7C\xB8\xA1\x63\xBF\x05\x98\xDA\x48\x36\x1C"
+    "\x55\xD3\x9A\x69\x16\x3F\xA8\xFD\x24\xCF\x5F\x83\x65\x5D\x23\xDC\xA3\xAD\x96"
+    "\x1C\x62\xF3\x56\x20\x85\x52\xBB\x9E\xD5\x29\x07\x70\x96\x96\x6D\x67\x0C\x35"
+    "\x4E\x4A\xBC\x98\x04\xF1\x74\x6C\x08\xCA\x18\x21\x7C\x32\x90\x5E\x46\x2E\x36"
+    "\xCE\x3B\xE3\x9E\x77\x2C\x18\x0E\x86\x03\x9B\x27\x83\xA2\xEC\x07\xA2\x8F\xB5"
+    "\xC5\x5D\xF0\x6F\x4C\x52\xC9\xDE\x2B\xCB\xF6\x95\x58\x17\x18\x39\x95\x49\x7C"
+    "\xEA\x95\x6A\xE5\x15\xD2\x26\x18\x98\xFA\x05\x10\x15\x72\x8E\x5A\x8A\xAA\xC4"
+    "\x2D\xAD\x33\x17\x0D\x04\x50\x7A\x33\xA8\x55\x21\xAB\xDF\x1C\xBA\x64\xEC\xFB"
+    "\x85\x04\x58\xDB\xEF\x0A\x8A\xEA\x71\x57\x5D\x06\x0C\x7D\xB3\x97\x0F\x85\xA6"
+    "\xE1\xE4\xC7\xAB\xF5\xAE\x8C\xDB\x09\x33\xD7\x1E\x8C\x94\xE0\x4A\x25\x61\x9D"
+    "\xCE\xE3\xD2\x26\x1A\xD2\xEE\x6B\xF1\x2F\xFA\x06\xD9\x8A\x08\x64\xD8\x76\x02"
+    "\x73\x3E\xC8\x6A\x64\x52\x1F\x2B\x18\x17\x7B\x20\x0C\xBB\xE1\x17\x57\x7A\x61"
+    "\x5D\x6C\x77\x09\x88\xC0\xBA\xD9\x46\xE2\x08\xE2\x4F\xA0\x74\xE5\xAB\x31\x43"
+    "\xDB\x5B\xFC\xE0\xFD\x10\x8E\x4B\x82\xD1\x20\xA9\x21\x08\x01\x1A\x72\x3C\x12"
+    "\xA7\x87\xE6\xD7\x88\x71\x9A\x10\xBD\xBA\x5B\x26\x99\xC3\x27\x18\x6A\xF4\xE2"
+    "\x3C\x1A\x94\x68\x34\xB6\x15\x0B\xDA\x25\x83\xE9\xCA\x2A\xD4\x4C\xE8\xDB\xBB"
+    "\xC2\xDB\x04\xDE\x8E\xF9\x2E\x8E\xFC\x14\x1F\xBE\xCA\xA6\x28\x7C\x59\x47\x4E"
+    "\x6B\xC0\x5D\x99\xB2\x96\x4F\xA0\x90\xC3\xA2\x23\x3B\xA1\x86\x51\x5B\xE7\xED"
+    "\x1F\x61\x29\x70\xCE\xE2\xD7\xAF\xB8\x1B\xDD\x76\x21\x70\x48\x1C\xD0\x06\x91"
+    "\x27\xD5\xB0\x5A\xA9\x93\xB4\xEA\x98\x8D\x8F\xDD\xC1\x86\xFF\xB7\xDC\x90\xA6"
+    "\xC0\x8F\x4D\xF4\x35\xC9\x34\x06\x31\x99\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF",
+     5, {}
+    },
+    /* [8192 bits] */
+    { 8192, "rfc5054_8192", (uint8_t *)
+    "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xC9\x0F\xDA\xA2\x21\x68\xC2\x34\xC4\xC6\x62"
+    "\x8B\x80\xDC\x1C\xD1\x29\x02\x4E\x08\x8A\x67\xCC\x74\x02\x0B\xBE\xA6\x3B\x13"
+    "\x9B\x22\x51\x4A\x08\x79\x8E\x34\x04\xDD\xEF\x95\x19\xB3\xCD\x3A\x43\x1B\x30"
+    "\x2B\x0A\x6D\xF2\x5F\x14\x37\x4F\xE1\x35\x6D\x6D\x51\xC2\x45\xE4\x85\xB5\x76"
+    "\x62\x5E\x7E\xC6\xF4\x4C\x42\xE9\xA6\x37\xED\x6B\x0B\xFF\x5C\xB6\xF4\x06\xB7"
+    "\xED\xEE\x38\x6B\xFB\x5A\x89\x9F\xA5\xAE\x9F\x24\x11\x7C\x4B\x1F\xE6\x49\x28"
+    "\x66\x51\xEC\xE4\x5B\x3D\xC2\x00\x7C\xB8\xA1\x63\xBF\x05\x98\xDA\x48\x36\x1C"
+    "\x55\xD3\x9A\x69\x16\x3F\xA8\xFD\x24\xCF\x5F\x83\x65\x5D\x23\xDC\xA3\xAD\x96"
+    "\x1C\x62\xF3\x56\x20\x85\x52\xBB\x9E\xD5\x29\x07\x70\x96\x96\x6D\x67\x0C\x35"
+    "\x4E\x4A\xBC\x98\x04\xF1\x74\x6C\x08\xCA\x18\x21\x7C\x32\x90\x5E\x46\x2E\x36"
+    "\xCE\x3B\xE3\x9E\x77\x2C\x18\x0E\x86\x03\x9B\x27\x83\xA2\xEC\x07\xA2\x8F\xB5"
+    "\xC5\x5D\xF0\x6F\x4C\x52\xC9\xDE\x2B\xCB\xF6\x95\x58\x17\x18\x39\x95\x49\x7C"
+    "\xEA\x95\x6A\xE5\x15\xD2\x26\x18\x98\xFA\x05\x10\x15\x72\x8E\x5A\x8A\xAA\xC4"
+    "\x2D\xAD\x33\x17\x0D\x04\x50\x7A\x33\xA8\x55\x21\xAB\xDF\x1C\xBA\x64\xEC\xFB"
+    "\x85\x04\x58\xDB\xEF\x0A\x8A\xEA\x71\x57\x5D\x06\x0C\x7D\xB3\x97\x0F\x85\xA6"
+    "\xE1\xE4\xC7\xAB\xF5\xAE\x8C\xDB\x09\x33\xD7\x1E\x8C\x94\xE0\x4A\x25\x61\x9D"
+    "\xCE\xE3\xD2\x26\x1A\xD2\xEE\x6B\xF1\x2F\xFA\x06\xD9\x8A\x08\x64\xD8\x76\x02"
+    "\x73\x3E\xC8\x6A\x64\x52\x1F\x2B\x18\x17\x7B\x20\x0C\xBB\xE1\x17\x57\x7A\x61"
+    "\x5D\x6C\x77\x09\x88\xC0\xBA\xD9\x46\xE2\x08\xE2\x4F\xA0\x74\xE5\xAB\x31\x43"
+    "\xDB\x5B\xFC\xE0\xFD\x10\x8E\x4B\x82\xD1\x20\xA9\x21\x08\x01\x1A\x72\x3C\x12"
+    "\xA7\x87\xE6\xD7\x88\x71\x9A\x10\xBD\xBA\x5B\x26\x99\xC3\x27\x18\x6A\xF4\xE2"
+    "\x3C\x1A\x94\x68\x34\xB6\x15\x0B\xDA\x25\x83\xE9\xCA\x2A\xD4\x4C\xE8\xDB\xBB"
+    "\xC2\xDB\x04\xDE\x8E\xF9\x2E\x8E\xFC\x14\x1F\xBE\xCA\xA6\x28\x7C\x59\x47\x4E"
+    "\x6B\xC0\x5D\x99\xB2\x96\x4F\xA0\x90\xC3\xA2\x23\x3B\xA1\x86\x51\x5B\xE7\xED"
+    "\x1F\x61\x29\x70\xCE\xE2\xD7\xAF\xB8\x1B\xDD\x76\x21\x70\x48\x1C\xD0\x06\x91"
+    "\x27\xD5\xB0\x5A\xA9\x93\xB4\xEA\x98\x8D\x8F\xDD\xC1\x86\xFF\xB7\xDC\x90\xA6"
+    "\xC0\x8F\x4D\xF4\x35\xC9\x34\x02\x84\x92\x36\xC3\xFA\xB4\xD2\x7C\x70\x26\xC1"
+    "\xD4\xDC\xB2\x60\x26\x46\xDE\xC9\x75\x1E\x76\x3D\xBA\x37\xBD\xF8\xFF\x94\x06"
+    "\xAD\x9E\x53\x0E\xE5\xDB\x38\x2F\x41\x30\x01\xAE\xB0\x6A\x53\xED\x90\x27\xD8"
+    "\x31\x17\x97\x27\xB0\x86\x5A\x89\x18\xDA\x3E\xDB\xEB\xCF\x9B\x14\xED\x44\xCE"
+    "\x6C\xBA\xCE\xD4\xBB\x1B\xDB\x7F\x14\x47\xE6\xCC\x25\x4B\x33\x20\x51\x51\x2B"
+    "\xD7\xAF\x42\x6F\xB8\xF4\x01\x37\x8C\xD2\xBF\x59\x83\xCA\x01\xC6\x4B\x92\xEC"
+    "\xF0\x32\xEA\x15\xD1\x72\x1D\x03\xF4\x82\xD7\xCE\x6E\x74\xFE\xF6\xD5\x5E\x70"
+    "\x2F\x46\x98\x0C\x82\xB5\xA8\x40\x31\x90\x0B\x1C\x9E\x59\xE7\xC9\x7F\xBE\xC7"
+    "\xE8\xF3\x23\xA9\x7A\x7E\x36\xCC\x88\xBE\x0F\x1D\x45\xB7\xFF\x58\x5A\xC5\x4B"
+    "\xD4\x07\xB2\x2B\x41\x54\xAA\xCC\x8F\x6D\x7E\xBF\x48\xE1\xD8\x14\xCC\x5E\xD2"
+    "\x0F\x80\x37\xE0\xA7\x97\x15\xEE\xF2\x9B\xE3\x28\x06\xA1\xD5\x8B\xB7\xC5\xDA"
+    "\x76\xF5\x50\xAA\x3D\x8A\x1F\xBF\xF0\xEB\x19\xCC\xB1\xA3\x13\xD5\x5C\xDA\x56"
+    "\xC9\xEC\x2E\xF2\x96\x32\x38\x7F\xE8\xD7\x6E\x3C\x04\x68\x04\x3E\x8F\x66\x3F"
+    "\x48\x60\xEE\x12\xBF\x2D\x5B\x0B\x74\x74\xD6\xE6\x94\xF9\x1E\x6D\xBE\x11\x59"
+    "\x74\xA3\x92\x6F\x12\xFE\xE5\xE4\x38\x77\x7C\xB6\xA9\x32\xDF\x8C\xD8\xBE\xC4"
+    "\xD0\x73\xB9\x31\xBA\x3B\xC8\x32\xB6\x8D\x9D\xD3\x00\x74\x1F\xA7\xBF\x8A\xFC"
+    "\x47\xED\x25\x76\xF6\x93\x6B\xA4\x24\x66\x3A\xAB\x63\x9C\x5A\xE4\xF5\x68\x34"
+    "\x23\xB4\x74\x2B\xF1\xC9\x78\x23\x8F\x16\xCB\xE3\x9D\x65\x2D\xE3\xFD\xB8\xBE"
+    "\xFC\x84\x8A\xD9\x22\x22\x2E\x04\xA4\x03\x7C\x07\x13\xEB\x57\xA8\x1A\x23\xF0"
+    "\xC7\x34\x73\xFC\x64\x6C\xEA\x30\x6B\x4B\xCB\xC8\x86\x2F\x83\x85\xDD\xFA\x9D"
+    "\x4B\x7F\xA2\xC0\x87\xE8\x79\x68\x33\x03\xED\x5B\xDD\x3A\x06\x2B\x3C\xF5\xB3"
+    "\xA2\x78\xA6\x6D\x2A\x13\xF8\x3F\x44\xF8\x2D\xDF\x31\x0E\xE0\x74\xAB\x6A\x36"
+    "\x45\x97\xE8\x99\xA0\x25\x5D\xC1\x64\xF3\x1C\xC5\x08\x46\x85\x1D\xF9\xAB\x48"
+    "\x19\x5D\xED\x7E\xA1\xB1\xD5\x10\xBD\x7E\xE7\x4D\x73\xFA\xF3\x6B\xC3\x1E\xCF"
+    "\xA2\x68\x35\x90\x46\xF4\xEB\x87\x9F\x92\x40\x09\x43\x8B\x48\x1C\x6C\xD7\x88"
+    "\x9A\x00\x2E\xD5\xEE\x38\x2B\xC9\x19\x0D\xA6\xFC\x02\x6E\x47\x95\x58\xE4\x47"
+    "\x56\x77\xE9\xAA\x9E\x30\x50\xE2\x76\x56\x94\xDF\xC8\x1F\x56\xE8\x80\xB9\x6E"
+    "\x71\x60\xC9\x80\xDD\x98\xED\xD3\xDF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF",
+    19, {}
+   },
 };
+
+static void set_ccsrp_groups() {
+    /* set to ccsrp, in a function since not compile-time constants */
+    Ng_tab[0].gp = ccsrp_gp_rfc5054_1024();
+    Ng_tab[1].gp = ccsrp_gp_rfc5054_2048();
+    Ng_tab[2].gp = ccsrp_gp_rfc5054_4096();
+    Ng_tab[3].gp = ccsrp_gp_rfc5054_8192();
+}
+
+#define DEFAULT_NG_INDEX 3
+#define DEFAULT_NG Ng_tab[DEFAULT_NG_INDEX]
 
 #define NUM_Ng (sizeof(Ng_tab) / sizeof(struct Ng))
 
 
 typedef struct layer_option_s {
-    const char *name;		/* name used in option strings */
-    unsigned enabled;		/* enabled?  determined at run-time */
-    unsigned bit;		/* unique bit in bitmask */
-    sasl_ssf_t ssf;		/* ssf of layer */
-    const char *evp_name;	/* name used for lookup in EVP table */
+    const char *name;                /* name used in option strings */
+    bool enabled;                /* enabled?  determined at run-time */
+    unsigned bit;                /* unique bit in bitmask */
+    sasl_ssf_t ssf;                /* ssf of layer */
+    const char *evp_name;        /* name used for lookup in EVP table */
 } layer_option_t;
 
 static layer_option_t digest_options[] = {
-    { "SHA-1",		0, (1<<0), 1,	"sha1" },
-    { "RIPEMD-160",	0, (1<<1), 1,	"rmd160" },
-    { "MD5",		0, (1<<2), 1,	"md5" },
-    { NULL,		0,      0, 0,	NULL }
+    { "SHA-512",        0, (1<<0), 1,        "sha512" },
+    { NULL,             0,      0, 0,        NULL }
 };
-static layer_option_t *default_digest = &digest_options[0];
 static layer_option_t *server_mda = NULL;
 
 static layer_option_t cipher_options[] = {
-    { "DES",		0, (1<<0), 56,	"des-ofb" },
-    { "3DES",		0, (1<<1), 112,	"des-ede-ofb" },
-    { "AES",		0, (1<<2), 128,	"aes-128-ofb" },
-    { "Blowfish",	0, (1<<3), 128,	"bf-ofb" },
-    { "CAST-128",	0, (1<<4), 128,	"cast5-ofb" },
-    { "IDEA",		0, (1<<5), 128,	"idea-ofb" },
-    { NULL,		0,      0, 0,	NULL}
+    { "ChaCha20-Poly1305", 0, (1<<0), 256, "ChaCha20-Poly1305" },
+    { NULL,                0,      0,   0, NULL}
 };
-/* XXX Hack until OpenSSL 0.9.7 */
-#if OPENSSL_VERSION_NUMBER < 0x00907000L
 static layer_option_t *default_cipher = &cipher_options[0];
-#else
-static layer_option_t *default_cipher = &cipher_options[2];
-#endif
+#define POLY1305_AUTH_TAG_SIZE 16
 
+static layer_option_t kdf_options[] = {
+    { "SALTED-SHA512-PBKDF2", 0, (1<<0), 0, "SALTED-SHA512-PBKDF2" },
+    { NULL,                   0,      0, 0, NULL}
+};
+static layer_option_t *default_kdf = &kdf_options[0];
 
 enum {
-    BIT_REPLAY_DETECTION=	(1<<0),
-    BIT_INTEGRITY=		(1<<1),
-    BIT_CONFIDENTIALITY=	(1<<2)
+    BIT_REPLAY_DETECTION=        (1<<0),
+    BIT_CONFIDENTIALITY_INTEGRITY=(1<<1)
 };
 
 typedef struct srp_options_s {
-    unsigned mda;		/* bitmask of MDAs */
-    unsigned replay_detection;	/* replay detection on/off flag */
-    unsigned integrity;		/* bitmask of integrity layers */
-    unsigned confidentiality;	/* bitmask of confidentiality layers */
-    unsigned mandatory;		/* bitmask of mandatory layers */
-    unsigned long maxbufsize;	/* max # bytes processed by security layer */
+    unsigned mda;                           /* bitmask of MDAs */
+    bool replay_detection;                  /* replay detection on/off flag */
+    unsigned confidentiality_integrity;     /* bitmask of confidentiality+integrity layers */
+    unsigned mandatory;                     /* bitmask of mandatory layers */
+    unsigned kdf;                           /* bitmask of kdf */
+    unsigned long maxbufsize;               /* max # bytes processed by security layer */
 } srp_options_t;
 
 /* The main SRP context */
 typedef struct context {
     int state;
     
-    BIGNUM N;			/* safe prime modulus */
-    BIGNUM g;			/* generator */
+    ccsrp_ctx *srp;
+    struct ccrng_system_state rng;
     
-    BIGNUM v;			/* password verifier */
+    ccz *N;                             /* safe prime modulus */
+    ccz *g;                             /* generator */
+    ccsrp_const_gp_t gp;                /* group parameters N,g */
     
-    BIGNUM b;			/* server private key */
-    BIGNUM B;			/* server public key */
+    ccz *v;                             /* password verifier */
+    ccz *B;                             /* server public key */
+    ccz *A;                             /* client public key */
     
-    BIGNUM a;			/* client private key */
-    BIGNUM A;			/* client public key */
+    uint8_t K[SRP_MAX_MD_SIZE];         /* shared context key */
+    size_t Klen;
     
-    char K[EVP_MAX_MD_SIZE];	/* shared context key */
-    int Klen;
+    uint8_t M1[SRP_MAX_MD_SIZE];        /* client evidence */
+    size_t M1len;
     
-    char M1[EVP_MAX_MD_SIZE];	/* client evidence */
-    int M1len;
-    
-    char *authid;		/* authentication id (server) */
-    char *userid;		/* authorization id (server) */
-    sasl_secret_t *password;	/* user secret (client) */
-    unsigned int free_password; /* set if we need to free password */
+    char *authid;                       /* authentication id (server) */
+    char *userid;                       /* authorization id (server) */
+    sasl_secret_t *password;            /* user secret (client) */
+    unsigned int free_password;         /* set if we need to free password */
     
     char *client_options;
     char *server_options;
     
-    srp_options_t client_opts;	/* cache between client steps */
-    char cIV[SRP_MAXBLOCKSIZE];	/* cache between client steps */
+    srp_options_t client_opts;          /* cache between client steps */
+    uint8_t cIV[SRP_MAXBLOCKSIZE];      /* cache between client steps */
     
-    char *salt;			/* password salt */
-    int saltlen;
+    uint8_t *salt;                      /* password salt */
+    size_t saltlen;
+
+    uint64_t iterations;                /* APPLE: iteration count for PBKDF2 */
     
-    const EVP_MD *md;		/* underlying MDA */
+    const struct ccdigest_info *md;     /* underlying MDA */
     
     /* copy of utils from the params structures */
     const sasl_utils_t *utils;
     
     /* per-step mem management */
-    char *out_buf;
-    unsigned out_buf_len;
+    uint8_t *out_buf;
+    size_t out_buf_len;
     
     /* Layer foo */
-    unsigned layer;		/* bitmask of enabled layers */
-    const EVP_MD *hmac_md;	/* HMAC for integrity */
-    HMAC_CTX hmac_send_ctx;
-    HMAC_CTX hmac_recv_ctx;
-
-    const EVP_CIPHER *cipher;	/* cipher for confidentiality */
-    EVP_CIPHER_CTX cipher_enc_ctx;
-    EVP_CIPHER_CTX cipher_dec_ctx;
+    unsigned layer;                     /* bitmask of enabled layers */
+    chacha20_poly1305_state crypto_enc_state;
+    chacha20_poly1305_state crypto_dec_state;
     
     /* replay detection sequence numbers */
     int seqnum_out;
     int seqnum_in;
     
     /* for encoding/decoding mem management */
-    char           *encode_buf, *decode_buf, *decode_pkt_buf;
-    unsigned       encode_buf_len, decode_buf_len, decode_pkt_buf_len;
+    uint8_t  *encode_buf, *decode_buf, *decode_pkt_buf;
+    size_t encode_buf_len, decode_buf_len, decode_pkt_buf_len;
     
     /* layers buffering */
     decode_context_t decode_context;
     
 } context_t;
 
+#if SRPDEBUG
+static void dumpBuf(const char *name, uint8_t *data, size_t length)
+{
+    dprintf("%s (%zu): ", name, length);
+    for (size_t i = 0; i < length; i += 1) {
+        dprintf("%.2x ", (unsigned char)data[i]);
+    }
+    dprintf("\n");
+}
+
+static void dumpN(const char *name, ccz *b)
+{
+    uint8_t buf[2048];
+    size_t len = ccz_write_uint_size(b);
+    ccz_write_uint(b, len, buf);
+    dumpBuf(name, buf, len);
+}
+
+static void dumpNSRP(const char *name, ccsrp_ctx_t srp, const cc_unit *a)
+{
+    uint8_t bytes[8192];
+    // ccsrp_export_ccn(ccsrp_ctx_t srp, const cc_unit *a, void *bytes) {
+    ccn_write_uint_padded(ccsrp_ctx_n(srp), a, ccsrp_ctx_sizeof_n(srp), bytes);
+    dumpBuf(name, bytes, ccsrp_ctx_sizeof_n(srp));
+}
+
+#else
+#define dumpBuf(...)
+#define dumpN(...)
+#define dumpNSRP(...)
+#endif
+
 static int srp_encode(void *context,
-		      const struct iovec *invec,
-		      unsigned numiov,
-		      const char **output,
-		      unsigned *outputlen)
+                      const struct iovec *invec,
+                      unsigned numiov,
+                      const char **output,
+                      unsigned *outputlen)
 {
     context_t *text = (context_t *) context;
     unsigned i;
-    char *input;
-    unsigned long inputlen, tmpnum;
+    unsigned char *input;
+    unsigned long inputlen;
     int ret;
     
     if (!context || !invec || !numiov || !output || !outputlen) {
-	PARAMERROR( text->utils );
-	return SASL_BADPARAM;
+        PARAMERROR( text->utils );
+        return SASL_BADPARAM;
     }
 
     /* calculate total size of input */
     for (i = 0, inputlen = 0; i < numiov; i++)
-	inputlen += invec[i].iov_len;
+        inputlen += invec[i].iov_len;
 
     /* allocate a buffer for the output */
-    ret = _plug_buf_alloc(text->utils, &text->encode_buf,
-			  &text->encode_buf_len,
-			  4 +			/* for length */
-			  inputlen +		/* for content */
-			  SRP_MAXBLOCKSIZE +	/* for PKCS padding */
-			  EVP_MAX_MD_SIZE);	/* for HMAC */
+    ret = _plug_buf_alloc(text->utils, (char **)&text->encode_buf,
+                          (unsigned int *)&text->encode_buf_len,
+                          (unsigned int)(
+                          4 +                       /* for length */
+                          inputlen +                /* for content */
+                          SRP_MAXBLOCKSIZE +        /* for PKCS padding */
+                          SRP_MAX_MD_SIZE));         /* for HMAC */
     if (ret != SASL_OK) return ret;
 
     *outputlen = 4; /* length */
 
     /* operate on each iovec */
     for (i = 0; i < numiov; i++) {
-	input = invec[i].iov_base;
-	inputlen = invec[i].iov_len;
+        input = invec[i].iov_base;
+        inputlen = invec[i].iov_len;
     
-	if (text->layer & BIT_CONFIDENTIALITY) {
-	    unsigned enclen;
+        if (text->layer & BIT_CONFIDENTIALITY_INTEGRITY) {
+            size_t enclen;
 
-	    /* encrypt the data into the output buffer */
-	    EVP_EncryptUpdate(&text->cipher_enc_ctx,
-			      text->encode_buf + *outputlen, &enclen,
-			      input, inputlen);
-	    *outputlen += enclen;
+            /* encrypt the data into the output buffer */
+            enclen = chacha20_poly1305_encrypt(&text->crypto_enc_state, input, inputlen, text->encode_buf + *outputlen);
+            *outputlen += (unsigned)enclen;
 
-	    /* switch the input to the encrypted data */
-	    input = text->encode_buf + 4;
-	    inputlen = *outputlen - 4;
-	}
-	else {
-	    /* copy the raw input to the output */
-	    memcpy(text->encode_buf + *outputlen, input, inputlen);
-	    *outputlen += inputlen;
-	}
+            /* switch the input to the encrypted data */
+            input = text->encode_buf + 4;
+            inputlen = *outputlen - 4;
+        } else {
+            /* do not send cleartext -- this layer should always be enabled in server step 2 / client step 3 */
+            SETERROR(text->utils, "confidentiality integrity layer required");
+            return SASL_BADPARAM;
+        }
     }
     
-    if (text->layer & BIT_CONFIDENTIALITY) {
-	unsigned enclen;
+    if (text->layer & BIT_CONFIDENTIALITY_INTEGRITY) {
+        size_t enclen;
 
-	/* encrypt the last block of data into the output buffer */
-	EVP_EncryptFinal(&text->cipher_enc_ctx,
-			 text->encode_buf + *outputlen, &enclen);
-	*outputlen += enclen;
-    }
+        /* encrypt the last block of data into the output buffer */
+        uint8_t tag[POLY1305_AUTH_TAG_SIZE];
+        enclen = chacha20_poly1305_final(&text->crypto_enc_state, text->encode_buf + *outputlen, tag);
+        *outputlen += (unsigned)enclen;
 
-    if (text->layer & BIT_INTEGRITY) {
-	unsigned hashlen;
-
-	/* hash the content */
-	HMAC_Update(&text->hmac_send_ctx, text->encode_buf+4, *outputlen-4);
-	
-	if (text->layer & BIT_REPLAY_DETECTION) {
-	    /* hash the sequence number */
-	    tmpnum = htonl(text->seqnum_out);
-	    HMAC_Update(&text->hmac_send_ctx, (char *) &tmpnum, 4);
-	    
-	    text->seqnum_out++;
-	}
-
-	/* append the HMAC into the output buffer */
-	HMAC_Final(&text->hmac_send_ctx, text->encode_buf + *outputlen,
-		   &hashlen);
-	*outputlen += hashlen;
+        /* append authentication tag */
+        memcpy(text->encode_buf + *outputlen, tag, sizeof(tag));
+        *outputlen += sizeof(tag);
+    } else {
+       SETERROR(text->utils, "confidentiality integrity layer required");
+       return SASL_BADPARAM;
     }
 
     /* prepend the length of the output */
+    uint32_t tmpnum;
     tmpnum = *outputlen - 4;
     tmpnum = htonl(tmpnum);
     memcpy(text->encode_buf, &tmpnum, 4);
 
-    *output = text->encode_buf;
+    *output = (const char *)text->encode_buf;
     
     return SASL_OK;
 }
 
 /* decode a single SRP packet */
 static int srp_decode_packet(void *context,
-			     const char *input,
-			     unsigned inputlen,
-			     char **output,
-			     unsigned *outputlen)
+                             const char *input,
+                             unsigned inputlen,
+                             char **output,
+                             unsigned *outputlen)
 {
     context_t *text = (context_t *) context;
     int ret;
 
-    if (text->layer & BIT_INTEGRITY) {
-	const char *hash;
-	char myhash[EVP_MAX_MD_SIZE];
-	unsigned hashlen, myhashlen, i;
-	unsigned long tmpnum;
+    dumpBuf("srp_decode_packet input", (uint8_t *)input, inputlen);
 
-	hashlen = EVP_MD_size(text->hmac_md);
-
-	if (inputlen < hashlen) {
-	    text->utils->seterror(text->utils->conn, 0,
-				  "SRP input is smaller "
-				  "than hash length: %d vs %d\n",
-				  inputlen, hashlen);
-	    return SASL_BADPROT;
-	}
-
-	inputlen -= hashlen;
-	hash = input + inputlen;
-
-	/* create our own hash from the input */
-	HMAC_Update(&text->hmac_recv_ctx, input, inputlen);
-	    
-	if (text->layer & BIT_REPLAY_DETECTION) {
-	    /* hash the sequence number */
-	    tmpnum = htonl(text->seqnum_in);
-	    HMAC_Update(&text->hmac_recv_ctx, (char *) &tmpnum, 4);
-		
-	    text->seqnum_in++;
-	}
-	    
-	HMAC_Final(&text->hmac_recv_ctx, myhash, &myhashlen);
-
-	/* compare hashes */
-	for (i = 0; i < hashlen; i++) {
-	    if ((myhashlen != hashlen) || (myhash[i] != hash[i])) {
-		SETERROR(text->utils, "Hash is incorrect\n");
-		return SASL_BADMAC;
-	    }
-	}
-    }
-	
-    ret = _plug_buf_alloc(text->utils, &(text->decode_pkt_buf),
-			  &(text->decode_pkt_buf_len),
-			  inputlen);
+    ret = _plug_buf_alloc(text->utils, (char **)&(text->decode_pkt_buf),
+                          (unsigned int *)&(text->decode_pkt_buf_len),
+                          inputlen);
     if (ret != SASL_OK) return ret;
-	
-    if (text->layer & BIT_CONFIDENTIALITY) {
-	unsigned declen;
+        
+    if (text->layer & BIT_CONFIDENTIALITY_INTEGRITY) {
+        size_t declen;
+        
+        /* read appended authentication tag */
+        uint8_t tag[POLY1305_AUTH_TAG_SIZE];
+        memcpy(tag, input + inputlen - sizeof(tag), sizeof(tag));
 
-	/* decrypt the data into the output buffer */
-	EVP_DecryptUpdate(&text->cipher_dec_ctx,
-			  text->decode_pkt_buf, &declen,
-			  (char *) input, inputlen);
-	*outputlen = declen;
-	    
-	EVP_DecryptFinal(&text->cipher_dec_ctx,
-			 text->decode_pkt_buf + declen, &declen);
-	*outputlen += declen;
+        /* decrypt the data into the output buffer */
+        declen = chacha20_poly1305_decrypt(&text->crypto_dec_state, (void *)input, inputlen - sizeof(tag), text->decode_pkt_buf);
+        *outputlen = (unsigned)declen;
+            
+        OSStatus verifyStatus = noErr;
+        declen = chacha20_poly1305_verify(&text->crypto_dec_state, text->decode_pkt_buf + declen, tag, &verifyStatus);
+        if (verifyStatus != noErr) {
+            dprintf("chacha20_poly1305_verify = %d\n", (int)verifyStatus);
+            SETERROR(text->utils, "ChaCha20-Poly1305 verification error");
+            return SASL_BADMAC;
+        }
+        *outputlen += declen;
     } else {
-	/* copy the raw input to the output */
-	memcpy(text->decode_pkt_buf, input, inputlen);
-	*outputlen = inputlen;
+        /* do not send cleartext -- this layer should always be enabled in server step 2 / client step 3 */
+        SETERROR(text->utils, "confidentiality integrity layer required");
+        return SASL_BADPARAM;
     }
 
-    *output = text->decode_pkt_buf;
+    *output = (char *)text->decode_pkt_buf;
     
     return SASL_OK;
 }
 
 /* decode and concatenate multiple SRP packets */
 static int srp_decode(void *context,
-		      const char *input, unsigned inputlen,
-		      const char **output, unsigned *outputlen)
+                      const char *input, unsigned inputlen,
+                      const char **output, unsigned *outputlen)
 {
     context_t *text = (context_t *) context;
     int ret;
     
     ret = _plug_decode(&text->decode_context, input, inputlen,
-		       &text->decode_buf, &text->decode_buf_len, outputlen,
-		       srp_decode_packet, text);
+                       (char **)&text->decode_buf, (unsigned int *)&text->decode_buf_len, outputlen,
+                       srp_decode_packet, text);
     
-    *output = text->decode_buf;
+    *output = (const char *)text->decode_buf;
     
     return ret;
 }
@@ -474,42 +548,21 @@ static int srp_decode(void *context,
 /*
  * Convert a big integer to it's byte representation
  */
-static int BigIntToBytes(BIGNUM *num, char *out, int maxoutlen, int *outlen)
+static int BigIntToBytes(ccz *num, uint8_t *out, size_t maxoutlen, size_t *outlen)
 {
-    int len;
+    size_t len;
+    CCStatus status = kCCSuccess;
     
-    len = BN_num_bytes(num);
+    len = ccz_write_uint_size(num);
     
     if (len > maxoutlen) return SASL_FAIL;
-    
-    *outlen = BN_bn2bin(num, out);
+
+    *outlen = len;
+    ccz_write_uint(num, len, out);
+
+    if (status != kCCSuccess) return SASL_FAIL;
     
     return SASL_OK;    
-}
-
-/*
- * Compare a big integer against a word.
- */
-static int BigIntCmpWord(BIGNUM *a, BN_ULONG w)
-{
-    BIGNUM *b = BN_new();
-    int r;
-    
-    BN_set_word(b, w);
-    r = BN_cmp(a, b);
-    BN_free(b);
-    return r;
-}
-
-/*
- * Generate a random big integer.
- */
-static void GetRandBigInt(BIGNUM *out)
-{
-    BN_init(out);
-    
-    /* xxx likely should use sasl random funcs */
-    BN_rand(out, SRP_MAXBLOCKSIZE*8, 0, 0);
 }
 
 #define MAX_BUFFER_LEN 2147483643
@@ -520,162 +573,180 @@ static void GetRandBigInt(BIGNUM *out)
 /*
  * Make an SRP buffer from the data specified by the fmt string.
  */
-static int MakeBuffer(const sasl_utils_t *utils, char **buf, unsigned *buflen,
-		      unsigned *outlen, const char *fmt, ...)
+static int MakeBuffer(const sasl_utils_t *utils, uint8_t **buf, size_t *buflen,
+                      size_t *outlen, const char *fmt, ...)
 {
     va_list ap;
-    char *p, *out = NULL;
-    int r, alloclen, len;
-    BIGNUM *mpi;
-    char *os, *str, c;
-    uint32 u;
-    short ns;
+    uint8_t *p;
+    uint8_t *out = NULL;
+    int r;
+    size_t alloclen, len;
+    ccz *mpi;
+    char *os, *str;
+    uint8_t c;
+    uint32_t u;
+    uint64_t q;
+    uint16_t ns;
     long totlen;
 
     /* first pass to calculate size of buffer */
     va_start(ap, fmt);
-    for (p = (char *) fmt, alloclen = 0; *p; p++) {
-	if (*p != '%') {
-	    alloclen++;
-	    continue;
-	}
+    for (p = (uint8_t *) fmt, alloclen = 0; *p; p++) {
+        if (*p != '%') {
+            alloclen++;
+            continue;
+        }
 
-	switch (*++p) {
-	case 'm':
-	    /* MPI */
-	    mpi = va_arg(ap, BIGNUM *);
-	    len = BN_num_bytes(mpi);
-	    if (len > MAX_MPI_LEN) {
-		utils->log(NULL, SASL_LOG_ERR,
-			   "String too long to create mpi string\n");
-		r = SASL_FAIL;
-		goto done;
-	    }
-	    alloclen += len + 2;
-	    break;
+        switch (*++p) {
+        case 'm':
+            /* MPI */
+            mpi = va_arg(ap, ccz *);
+            len = ccz_write_uint_size(mpi);
+            if (len > MAX_MPI_LEN) {
+                utils->log(NULL, SASL_LOG_ERR,
+                           "String too long to create mpi string\n");
+                r = SASL_FAIL;
+                goto done;
+            }
+            alloclen += len + 2;
+            break;
 
-	case 'o':
-	    /* octet sequence (len followed by data) */
-	    len = va_arg(ap, int);
-	    if (len > MAX_OS_LEN) {
-		utils->log(NULL, SASL_LOG_ERR,
-			   "String too long to create os string\n");
-		r = SASL_FAIL;
-		goto done;
-	    }
-	    alloclen += len + 1;
-	    os = va_arg(ap, char *);
-	    break;
+        case 'o':
+            /* octet sequence (len followed by data) */
+            len = va_arg(ap, uint32_t);
+            if (len > MAX_OS_LEN) {
+                utils->log(NULL, SASL_LOG_ERR,
+                           "String too long to create os string\n");
+                r = SASL_FAIL;
+                goto done;
+            }
+            alloclen += len + 1;
+            os = va_arg(ap, char *);
+            break;
 
-	case 's':
-	    /* string */
-	    str = va_arg(ap, char *);
-	    len = strlen(str);
-	    if (len > MAX_UTF8_LEN) {
-		utils->log(NULL, SASL_LOG_ERR,
-			   "String too long to create utf8 string\n");
-		r = SASL_FAIL;
-		goto done;
-	    }
-	    alloclen += len + 2;
-	    break;
+        case 's':
+            /* string */
+            str = va_arg(ap, char *);
+            len = strlen(str);
+            if (len > MAX_UTF8_LEN) {
+                utils->log(NULL, SASL_LOG_ERR,
+                           "String too long to create utf8 string\n");
+                r = SASL_FAIL;
+                goto done;
+            }
+            alloclen += len + 2;
+            break;
 
-	case 'u':
-	    /* unsigned int */
-	    u = va_arg(ap, uint32);
-	    alloclen += sizeof(uint32);
-	    break;
+        case 'u':
+            /* unsigned int */
+            u = va_arg(ap, uint32_t);
+            alloclen += sizeof(uint32_t);
+            break;
 
-	case 'c':
-	    /* char */
-	    c = va_arg(ap, int) & 0xFF;
-	    alloclen += 1;
-	    break;
+        case 'q':
+            /* uint64_t */
+            q = va_arg(ap, uint64_t);
+            alloclen += sizeof(uint64_t);
+            break;
 
-	default:
-	    alloclen += 1;
-	    break;
-	}
+        case 'c':
+            /* char */
+            c = (uint8_t)(va_arg(ap, int) & 0xFF);
+            alloclen += 1;
+            break;
+
+        default:
+            alloclen += 1;
+            break;
+        }
     }
     va_end(ap);
 
     if (alloclen > MAX_BUFFER_LEN) {
-	utils->log(NULL, SASL_LOG_ERR,
-		   "String too long to create SRP buffer string\n");
-	return SASL_FAIL;
+        utils->log(NULL, SASL_LOG_ERR,
+                   "String too long to create SRP buffer string\n");
+        return SASL_FAIL;
     }
 
     alloclen += 4;
-    r = _plug_buf_alloc(utils, buf, buflen, alloclen);
+    r = _plug_buf_alloc(utils, (char **)buf, (unsigned int *)buflen, (unsigned int)alloclen);
     if (r != SASL_OK) return r;
 
     out = *buf + 4; /* skip size for now */
 
     /* second pass to fill buffer */
     va_start(ap, fmt);
-    for (p = (char *) fmt; *p; p++) {
-	if (*p != '%') {
-	    *out = *p;
-	    out++;
-	    continue;
-	}
+    for (p = (uint8_t *)fmt; *p; p++) {
+        if (*p != '%') {
+            *out = (uint8_t)*p;
+            out++;
+            continue;
+        }
 
-	switch (*++p) {
-	case 'm':
-	    /* MPI */
-	    mpi = va_arg(ap, BIGNUM *);
-	    r = BigIntToBytes(mpi, out+2, BN_num_bytes(mpi), &len);
-	    if (r) goto done;
-	    ns = htons(len);
-	    memcpy(out, &ns, 2);	/* add 2 byte len (network order) */
-	    out += len + 2;
-	    break;
+        switch (*++p) {
+        case 'm':
+            /* MPI */
+            mpi = va_arg(ap, ccz *);
+            r = BigIntToBytes(mpi, out+2, ccz_write_uint_size(mpi), &len);
+            if (r) goto done;
+            ns = htons((short)len);
+            memcpy(out, &ns, 2);            /* add 2 byte len (network order) */
+            out += len + 2;
+            break;
 
-	case 'o':
-	    /* octet sequence (len followed by data) */
-	    len = va_arg(ap, int);
-	    os = va_arg(ap, char *);
-	    *out = len & 0xFF;		/* add 1 byte len */
-	    memcpy(out+1, os, len);	/* add data */
-	    out += len+1;
-	    break;
+        case 'o':
+            /* octet sequence (len followed by data) */
+            len = (size_t)va_arg(ap, int);
+            os = va_arg(ap, char *);
+            *out = len & 0xFF;              /* add 1 byte len */
+            memcpy(out+1, os, len);         /* add data */
+            out += len+1;
+            break;
 
-	case 's':
-	    /* string */
-	    str = va_arg(ap, char *);
-	    /* xxx do actual utf8 conversion */
-	    len = strlen(str);
-	    ns = htons(len);
-	    memcpy(out, &ns, 2);	/* add 2 byte len (network order) */
-	    memcpy(out+2, str, len);	/* add string */
-	    out += len + 2;
-	    break;
+        case 's':
+            /* string */
+            str = va_arg(ap, char *);
+            /* xxx do actual utf8 conversion */
+            len = strlen(str);
+            ns = htons(len);
+            memcpy(out, &ns, 2);            /* add 2 byte len (network order) */
+            memcpy(out+2, str, len);        /* add string */
+            out += len + 2;
+            break;
 
-	case 'u':
-	    /* unsigned int */
-	    u = va_arg(ap, uint32);
-	    u = htonl(u);
-	    memcpy(out, &u, sizeof(uint32));
-	    out += sizeof(uint32);
-	    break;
+        case 'u':
+            /* unsigned int */
+            u = va_arg(ap, uint32_t);
+            u = htonl(u);
+            memcpy(out, &u, sizeof(uint32_t));
+            out += sizeof(uint32_t);
+            break;
 
-	case 'c':
-	    /* char */
-	    c = va_arg(ap, int) & 0xFF;
-	    *out = c;
-	    out++;
-	    break;
+        case 'q':
+            /* uint64_t */
+            q = va_arg(ap, uint64_t);
+            q = htonll(q);
+            memcpy(out, &q, sizeof(uint64_t));
+            out += sizeof(uint64_t);
+            break;
 
-	default:
-	    *out = *p;
-	    out++;
-	    break;
-	}
+        case 'c':
+            /* char */
+            c = (uint8_t)(va_arg(ap, int) & 0xFF);
+            *out = c;
+            out++;
+            break;
+
+        default:
+            *out = *p;
+            out++;
+            break;
+        }
     }
   done:
     va_end(ap);
 
-    *outlen = out - *buf;
+    *outlen = (size_t)(out - *buf);
 
     /* add 4 byte len (network order) */
     totlen = htonl(*outlen - 4);
@@ -690,22 +761,23 @@ static int MakeBuffer(const sasl_utils_t *utils, char **buf, unsigned *buflen,
  * A '-' flag means don't allocate memory for the data ('o' only).
  */
 static int UnBuffer(const sasl_utils_t *utils, const char *buf,
-		    unsigned buflen, const char *fmt, ...)
+                    unsigned buflen, const char *fmt, ...)
 {
     va_list ap;
     char *p;
     int r = SASL_OK, noalloc;
-    BIGNUM *mpi;
+    ccz **mpi;
     char **os, **str;
-    uint32 *u;
+    uint32_t *u;
+    uint64_t *q;
     unsigned short ns;
     unsigned len;
 
     if (!buf || buflen < 4) {
-	utils->seterror(utils->conn, 0,
-			"Buffer is not big enough to be SRP buffer: %d\n",
-			buflen);
-	return SASL_BADPROT;
+        utils->seterror(utils->conn, 0,
+                        "Buffer is not big enough to be SRP buffer: %d\n",
+                        buflen);
+        return SASL_BADPROT;
     }
     
     /* get the length */
@@ -716,310 +788,203 @@ static int UnBuffer(const sasl_utils_t *utils, const char *buf,
 
     /* make sure it's right */
     if (len != buflen) {
-	SETERROR(utils, "SRP Buffer isn't of the right length\n");
-	return SASL_BADPROT;
+        SETERROR(utils, "SRP Buffer isn't of the right length\n");
+        return SASL_BADPROT;
     }
     
     va_start(ap, fmt);
     for (p = (char *) fmt; *p; p++) {
-	if (*p != '%') {
-	    if (*buf != *p) {
-		r = SASL_BADPROT;
-		goto done;
-	    }
-	    buf++;
-	    buflen--;
-	    continue;
-	}
+        if (*p != '%') {
+            if (*buf != *p) {
+                r = SASL_BADPROT;
+                goto done;
+            }
+            buf++;
+            buflen--;
+            continue;
+        }
 
-	/* check for noalloc flag */
-	if ((noalloc = (*++p == '-'))) ++p;
+        /* check for noalloc flag */
+        if ((noalloc = (*++p == '-'))) ++p;
 
-	switch (*p) {
-	case 'm':
-	    /* MPI */
-	    if (buflen < 2) {
-		SETERROR(utils, "Buffer is not big enough to be SRP MPI\n");
-		r = SASL_BADPROT;
-		goto done;
-	    }
+        switch (*p) {
+        case 'm':
+            /* MPI */
+            if (buflen < 2) {
+                SETERROR(utils, "Buffer is not big enough to be SRP MPI\n");
+                r = SASL_BADPROT;
+                goto done;
+            }
     
-	    /* get the length */
-	    memcpy(&ns, buf, 2);
-	    len = ntohs(ns);
-	    buf += 2;
-	    buflen -= 2;
+            /* get the length */
+            memcpy(&ns, buf, 2);
+            len = ntohs(ns);
+            buf += 2;
+            buflen -= 2;
     
-	    /* make sure it's right */
-	    if (len > buflen) {
-		SETERROR(utils, "Not enough data for this SRP MPI\n");
-		r = SASL_BADPROT;
-		goto done;
-	    }
-	    
-	    mpi = va_arg(ap, BIGNUM *);
-	    BN_init(mpi);
-	    BN_bin2bn(buf, len, mpi);
-	    break;
+            /* make sure it's right */
+            if (len > buflen) {
+                SETERROR(utils, "Not enough data for this SRP MPI\n");
+                r = SASL_BADPROT;
+                goto done;
+            }
+            
+            mpi = va_arg(ap, ccz **);
+            ccz_zero(*mpi);
+        ccz_read_uint(*mpi, len, (const uint8_t *)buf);
+            break;
 
-	case 'o':
-	    /* octet sequence (len followed by data) */
-	    if (buflen < 1) {
-		SETERROR(utils, "Buffer is not big enough to be SRP os\n");
-		r = SASL_BADPROT;
-		goto done;
-	    }
+        case 'o':
+            /* octet sequence (len followed by data) */
+            if (buflen < 1) {
+                SETERROR(utils, "Buffer is not big enough to be SRP os\n");
+                r = SASL_BADPROT;
+                goto done;
+            }
 
-	    /* get the length */
-	    len = (unsigned char) *buf;
-	    buf++;
-	    buflen--;
+            /* get the length */
+            len = (unsigned char) *buf;
+            buf++;
+            buflen--;
 
-	    /* make sure it's right */
-	    if (len > buflen) {
-		SETERROR(utils, "Not enough data for this SRP os\n");
-		r = SASL_BADPROT;
-		goto done;
-	    }
-	    
-	    *(va_arg(ap, int *)) = len;
-	    os = va_arg(ap, char **);
+            /* make sure it's right */
+            if (len > buflen) {
+                SETERROR(utils, "Not enough data for this SRP os\n");
+                r = SASL_BADPROT;
+                goto done;
+            }
+            
+            *(va_arg(ap, unsigned int *)) = len;
+            os = va_arg(ap, char **);
 
-	    if (noalloc)
-		*os = (char *) buf;
-	    else {
-		*os = (char *) utils->malloc(len);
-		if (!*os) {
-		    r = SASL_NOMEM;
-		    goto done;
-		}
+            if (noalloc)
+                *os = (char *) buf;
+            else {
+                *os = (char *) utils->malloc(len);
+                if (!*os) {
+                    r = SASL_NOMEM;
+                    goto done;
+                }
     
-		memcpy(*os, buf, len);
-	    }
-	    break;
+                memcpy(*os, buf, len);
+            }
+            break;
 
-	case 's':
-	    /* string */
-	    if (buflen < 2) {
-		SETERROR(utils, "Buffer is not big enough to be SRP UTF8\n");
-		r = SASL_BADPROT;
-		goto done;
-	    }
+        case 's':
+            /* string */
+            if (buflen < 2) {
+                SETERROR(utils, "Buffer is not big enough to be SRP UTF8\n");
+                r = SASL_BADPROT;
+                goto done;
+            }
     
-	    /* get the length */
-	    memcpy(&ns, buf, 2);
-	    len = ntohs(ns);
-	    buf += 2;
-	    buflen -= 2;
+            /* get the length */
+            memcpy(&ns, buf, 2);
+            len = ntohs(ns);
+            buf += 2;
+            buflen -= 2;
     
-	    /* make sure it's right */
-	    if (len > buflen) {
-		SETERROR(utils, "Not enough data for this SRP UTF8\n");
-		r = SASL_BADPROT;
-		goto done;
-	    }
-	    
-	    str = va_arg(ap, char **);
-	    *str = (char *) utils->malloc(len+1); /* +1 for NUL */
-	    if (!*str) {
-		r = SASL_NOMEM;
-		goto done;
-	    }
+            /* make sure it's right */
+            if (len > buflen) {
+                SETERROR(utils, "Not enough data for this SRP UTF8\n");
+                r = SASL_BADPROT;
+                goto done;
+            }
+            
+            str = va_arg(ap, char **);
+            *str = (char *) utils->malloc(len+1); /* +1 for NUL */
+            if (!*str) {
+                r = SASL_NOMEM;
+                goto done;
+            }
     
-	    memcpy(*str, buf, len);
-	    (*str)[len] = '\0';
-	    break;
+            memcpy(*str, buf, len);
+            (*str)[len] = '\0';
+            break;
 
-	case 'u':
-	    /* unsigned int */
-	    if (buflen < sizeof(uint32)) {
-		SETERROR(utils, "Buffer is not big enough to be SRP uint\n");
-		r = SASL_BADPROT;
-		goto done;
-	    }
+        case 'u':
+            /* unsigned int */
+            if (buflen < sizeof(uint32_t)) {
+                SETERROR(utils, "Buffer is not big enough to be SRP uint\n");
+                r = SASL_BADPROT;
+                goto done;
+            }
 
-	    len = sizeof(uint32);
-	    u = va_arg(ap, uint32*);
-	    memcpy(u, buf, len);
-	    *u = ntohs(*u);
-	    break;
+            len = sizeof(uint32_t);
+            u = va_arg(ap, uint32_t*);
+            memcpy(u, buf, len);
+            *u = ntohs(*u);
+            break;
 
-	case 'c':
-	    /* char */
-	    if (buflen < 1) {
-		SETERROR(utils, "Buffer is not big enough to be SRP char\n");
-		r = SASL_BADPROT;
-		goto done;
-	    }
+        case 'q':
+            /* uint64_t */
+            if (buflen < sizeof(uint64_t)) {
+                SETERROR(utils, "Buffer is not big enough to be SRP uint64_t\n");
+                r = SASL_BADPROT;
+                goto done;
+            }
 
-	    len = 1;
-	    *(va_arg(ap, char *)) = *buf;
-	    break;
+            len = sizeof(uint64_t);
+            q = va_arg(ap, uint64_t*);
+            memcpy(q, buf, len);
+            *q = ntohll(*q);
+            break;
 
-	default:
-	    len = 1;
-	    if (*buf != *p) {
-		r = SASL_BADPROT;
-		goto done;
-	    }
-	    break;
-	}
+        case 'c':
+            /* char */
+            if (buflen < 1) {
+                SETERROR(utils, "Buffer is not big enough to be SRP char\n");
+                r = SASL_BADPROT;
+                goto done;
+            }
 
-	buf += len;
-	buflen -= len;
+            len = 1;
+            *(va_arg(ap, char *)) = *buf;
+            break;
+
+        default:
+            len = 1;
+            if (*buf != *p) {
+                r = SASL_BADPROT;
+                goto done;
+            }
+            break;
+        }
+
+        buf += len;
+        buflen -= len;
     }
 
   done:
     va_end(ap);
 
     if (buflen != 0) {
-	SETERROR(utils, "Extra data in SRP buffer\n");
-	r = SASL_BADPROT;
+        SETERROR(utils, "Extra data in SRP buffer\n");
+        r = SASL_BADPROT;
     }
 
     return r;
 }
 
-/*
- * Apply the hash function to the data specifed by the fmt string.
- */
-static int MakeHash(const EVP_MD *md, unsigned char hash[], int *hashlen,
-		    const char *fmt, ...)
+static int CalculateSALTED_SHA512_PBKDF2(uint8_t *salt, size_t saltlen,
+                      uint8_t *pass, size_t passlen,
+                      uint64_t iterations,
+                      uint8_t *pbkdf)
 {
-    va_list ap;
-    char *p, buf[4096], *in;
-    int inlen;
-    EVP_MD_CTX mdctx;
-    int r = 0, hflag;
+#define PBKDF2_SALT_LEN 32
+#define PBKDF2_MIN_HASH_TIME 100
+#define PBKDF2_HASH_LEN 128
+    /* kdf=SALTED-SHA512-PBKDF2 */
 
-    EVP_DigestInit(&mdctx, md);
+    /* pbkdf = PBKDF2(pass, salt, iterations) */
+    int rc = CCKeyDerivationPBKDF(kCCPBKDF2, (const char *)pass, passlen, (const uint8_t *)salt, saltlen, kCCPRFHmacAlgSHA512,
+        (uint32_t)iterations, pbkdf, PBKDF2_HASH_LEN);
+    if (rc != kCCSuccess)
+        return SASL_FAIL;
 
-    va_start(ap, fmt);
-    for (p = (char *) fmt; *p; p++) {
-	if (*p != '%') {
-	    in = p;
-	    inlen = 1;
-	    hflag = 0;
-	}
-	else {
-	    if ((hflag = (*++p == 'h'))) ++p;
+    dumpBuf("pbkdf", pbkdf, PBKDF2_HASH_LEN);
 
-	    switch (*p) {
-	    case 'm': {
-		/* MPI */
-		BIGNUM *mval = va_arg(ap, BIGNUM *);
-
-		in = buf;
-		r = BigIntToBytes(mval, buf, sizeof(buf)-1, &inlen);
-		if (r) goto done;
-		break;
-	    }
-
-	    case 'o': {
-		/* octet sequence (len followed by data) */
-		inlen = va_arg(ap, int);
-		in = va_arg(ap, char *);
-		break;
-	    }
-
-	    case 's':
-		/* string */
-		in = va_arg(ap, char *);
-		inlen = strlen(in);
-		break;
-
-	    case 'u': {
-		/* unsigned int */
-		uint32 uval = va_arg(ap, uint32);
-
-		in = buf;
-		inlen = sizeof(uint32);
-		*((uint32 *) buf) = htonl(uval);
-		break;
-	    }
-
-	    default:
-		in = p;
-		inlen = 1;
-		break;
-	    }
-	}
-
-	if (hflag) {
-	    /* hash data separately before adding to current hash */
-	    EVP_MD_CTX tmpctx;
-
-	    EVP_DigestInit(&tmpctx, md);
-	    EVP_DigestUpdate(&tmpctx, in, inlen);
-	    EVP_DigestFinal(&tmpctx, buf, &inlen);
-	    in = buf;
-	}
-
-	EVP_DigestUpdate(&mdctx, in, inlen);
-    }
-  done:
-    va_end(ap);
-
-    EVP_DigestFinal(&mdctx, hash, hashlen);
-
-    return r;
-}
-
-static int CalculateX(context_t *text, const char *salt, int saltlen, 
-		      const char *user, const char *pass, int passlen, 
-		      BIGNUM *x)
-{
-    char hash[EVP_MAX_MD_SIZE];
-    int hashlen;
-    
-    /* x = H(salt | H(user | ':' | pass)) */
-    MakeHash(text->md, hash, &hashlen, "%s:%o", user, passlen, pass);
-    MakeHash(text->md, hash, &hashlen, "%o%o", saltlen, salt, hashlen, hash);
-    
-    BN_init(x);
-    BN_bin2bn(hash, hashlen, x);
-    
     return SASL_OK;
-}
-
-static int CalculateM1(context_t *text, BIGNUM *N, BIGNUM *g,
-		       char *U, char *salt, int saltlen,
-		       BIGNUM *A, BIGNUM *B, char *K, int Klen,
-		       char *I, char *L, char *M1, int *M1len)
-{
-    int r, i, len;
-    unsigned char Nhash[EVP_MAX_MD_SIZE];
-    unsigned char ghash[EVP_MAX_MD_SIZE];
-    unsigned char Ng[EVP_MAX_MD_SIZE];
-
-    /* bytes(H( bytes(N) )) ^ bytes( H( bytes(g) ))
-       ^ is the bitwise XOR operator. */
-    r = MakeHash(text->md, Nhash, &len, "%m", N);
-    if (r) return r;
-    r = MakeHash(text->md, ghash, &len, "%m", g);
-    if (r) return r;
-    
-    for (i = 0; i < len; i++) {
-	Ng[i] = (Nhash[i] ^ ghash[i]);
-    }
-
-    r = MakeHash(text->md, M1, M1len, "%o%hs%o%m%m%o%hs%hs",
-		 len, Ng, U, saltlen, salt, A, B, Klen, K, I, L);
-    
-    return r;
-}
-
-static int CalculateM2(context_t *text, BIGNUM *A,
-		       char *M1, int M1len, char *K, int Klen,
-		       char *I, char *o, char *sid, uint32 ttl,
-		       char *M2, int *M2len)
-{
-    int r;
-    
-    r = MakeHash(text->md, M2, M2len, "%m%o%o%hs%hs%s%u",
-		 A, M1len, M1, Klen, K, I, o, sid, ttl);
-
-    return r;
 }
 
 /* Parse an option out of an option string
@@ -1027,48 +992,48 @@ static int CalculateM2(context_t *text, BIGNUM *A,
  * 'nextptr' points to rest of string or NULL if at end
  */
 static int ParseOption(const sasl_utils_t *utils,
-		       char *in, char **option, char **nextptr)
+                       char *in, char **option, char **nextptr)
 {
     char *comma;
-    int len;
+    size_t len;
     int i;
     
     if (strlen(in) == 0) {
-	*option = NULL;
-	return SASL_OK;
+        *option = NULL;
+        return SASL_OK;
     }
     
     comma = strchr(in,',');    
     if (comma == NULL) comma = in + strlen(in);
     
-    len = comma - in;
+    len = (size_t)(comma - in);
     
     *option = utils->malloc(len + 1);
     if (!*option) return SASL_NOMEM;
     
     /* lowercase string */
     for (i = 0; i < len; i++) {
-	(*option)[i] = tolower((int)in[i]);
+        (*option)[i] = (char)tolower((int)in[i]);
     }
     (*option)[len] = '\0';
     
     if (*comma) {
-	*nextptr = comma+1;
+        *nextptr = comma+1;
     } else {
-	*nextptr = NULL;
+        *nextptr = NULL;
     }
     
     return SASL_OK;
 }
 
-static int FindBit(char *name, layer_option_t *opts)
+static unsigned int FindBit(char *name, layer_option_t *opts)
 {
     while (opts->name) {
-	if (!strcasecmp(name, opts->name)) {
-	    return opts->bit;
-	}
-	
-	opts++;
+        if (!strcasecmp(name, opts->name)) {
+            return opts->bit;
+        }
+        
+        opts++;
     }
     
     return 0;
@@ -1077,121 +1042,117 @@ static int FindBit(char *name, layer_option_t *opts)
 static layer_option_t *FindOptionFromBit(unsigned bit, layer_option_t *opts)
 {
     while (opts->name) {
-	if (opts->bit == bit) {
-	    return opts;
-	}
-	
-	opts++;
+        if (opts->bit == bit) {
+            return opts;
+        }
+        
+        opts++;
     }
     
     return NULL;
 }
 
 static int ParseOptionString(const sasl_utils_t *utils,
-			     char *str, srp_options_t *opts, int isserver)
+                             char *str, srp_options_t *opts, bool isserver)
 {
     if (!strncasecmp(str, OPTION_MDA, strlen(OPTION_MDA))) {
-	
-	int bit = FindBit(str+strlen(OPTION_MDA), digest_options);
-	
-	if (isserver && (!bit || opts->mda)) {
-	    opts->mda = -1;
-	    if (!bit)
-		utils->seterror(utils->conn, 0,
-				"SRP MDA %s not supported\n",
-				str+strlen(OPTION_MDA));
-	    else
-		SETERROR(utils, "Multiple SRP MDAs given\n");
-	    return SASL_BADPROT;
-	}
-	
-	opts->mda |= bit;
-	
+        
+        unsigned int bit = FindBit(str+strlen(OPTION_MDA), digest_options);
+        
+        if (isserver && (!bit || opts->mda)) {
+            opts->mda = 0;
+            if (!bit)
+                utils->seterror(utils->conn, 0,
+                                "SRP MDA %s not supported\n",
+                                str+strlen(OPTION_MDA));
+            else
+                SETERROR(utils, "Multiple SRP MDAs given\n");
+            return SASL_BADPROT;
+        }
+        
+        opts->mda |= bit;
+        
     } else if (!strcasecmp(str, OPTION_REPLAY_DETECTION)) {
-	if (opts->replay_detection) {
-	    SETERROR(utils, "SRP Replay Detection option appears twice\n");
-	    return SASL_BADPROT;
-	}
-	opts->replay_detection = 1;
-	
-    } else if (!strncasecmp(str, OPTION_INTEGRITY, strlen(OPTION_INTEGRITY)) &&
-	       !strncasecmp(str+strlen(OPTION_INTEGRITY), "HMAC-", 5)) {
-	
-	int bit = FindBit(str+strlen(OPTION_INTEGRITY)+5, digest_options);
-	
-	if (isserver && (!bit || opts->integrity)) {
-	    opts->integrity = -1;
-	    if (!bit)
-		utils->seterror(utils->conn, 0,
-				"SRP Integrity option %s not supported\n",
-				str+strlen(OPTION_INTEGRITY));
-	    else
-		SETERROR(utils, "Multiple SRP Integrity options given\n");
-	    return SASL_BADPROT;
-	}
-	
-	opts->integrity |= bit;
-	
-    } else if (!strncasecmp(str, OPTION_CONFIDENTIALITY,
-			    strlen(OPTION_CONFIDENTIALITY))) {
-	
-	int bit = FindBit(str+strlen(OPTION_CONFIDENTIALITY),
-			  cipher_options);
-	
-	if (isserver && (!bit || opts->confidentiality)) {
-	    opts->confidentiality = -1;
-	    if (!bit)
-		utils->seterror(utils->conn, 0,
-				"SRP Confidentiality option %s not supported\n",
-				str+strlen(OPTION_CONFIDENTIALITY));
-	    else
-		SETERROR(utils,
-			 "Multiple SRP Confidentiality options given\n");
-	    return SASL_FAIL;
-	}
-	
-	opts->confidentiality |= bit;
-	
+        if (opts->replay_detection) {
+            SETERROR(utils, "SRP Replay Detection option appears twice\n");
+            return SASL_BADPROT;
+        }
+        opts->replay_detection = true;
+        
+    } else if (!strncasecmp(str, OPTION_CONFIDENTIALITY_INTEGRITY,
+                            strlen(OPTION_CONFIDENTIALITY_INTEGRITY))) {
+        
+        unsigned int bit = FindBit(str+strlen(OPTION_CONFIDENTIALITY_INTEGRITY),
+                          cipher_options);
+        
+        if (isserver && (!bit || opts->confidentiality_integrity)) {
+            opts->confidentiality_integrity = 0;
+            if (!bit)
+                utils->seterror(utils->conn, 0,
+                                "SRP Confidentiality+Integrity option %s not supported\n",
+                                str+strlen(OPTION_CONFIDENTIALITY_INTEGRITY));
+            else
+                SETERROR(utils,
+                         "Multiple SRP Confidentiality+Integrity options given\n");
+            return SASL_FAIL;
+        }
+        
+        opts->confidentiality_integrity |= bit;
+        
     } else if (!isserver && !strncasecmp(str, OPTION_MANDATORY,
-					 strlen(OPTION_MANDATORY))) {
-	
-	char *layer = str+strlen(OPTION_MANDATORY);
-	
-	if (!strcasecmp(layer, OPTION_REPLAY_DETECTION))
-	    opts->mandatory |= BIT_REPLAY_DETECTION;
-	else if (!strncasecmp(layer, OPTION_INTEGRITY,
-			      strlen(OPTION_INTEGRITY)-1))
-	    opts->mandatory |= BIT_INTEGRITY;
-	else if (!strncasecmp(layer, OPTION_CONFIDENTIALITY,
-			      strlen(OPTION_CONFIDENTIALITY)-1))
-	    opts->mandatory |= BIT_CONFIDENTIALITY;
-	else {
-	    utils->seterror(utils->conn, 0,
-			    "Mandatory SRP option %s not supported\n", layer);
-	    return SASL_BADPROT;
-	}
-	
+                                         strlen(OPTION_MANDATORY))) {
+        
+        char *layer = str+strlen(OPTION_MANDATORY);
+        
+        if (!strcasecmp(layer, OPTION_REPLAY_DETECTION))
+            opts->mandatory |= BIT_REPLAY_DETECTION;
+        else if (!strncasecmp(layer, OPTION_CONFIDENTIALITY_INTEGRITY_MANDATORY,
+                              strlen(OPTION_CONFIDENTIALITY_INTEGRITY_MANDATORY)))
+            opts->mandatory |= BIT_CONFIDENTIALITY_INTEGRITY;
+        else {
+            utils->seterror(utils->conn, 0,
+                            "Mandatory SRP option %s not supported\n", layer);
+            return SASL_BADPROT;
+        }
+        
     } else if (!strncasecmp(str, OPTION_MAXBUFFERSIZE,
-			    strlen(OPTION_MAXBUFFERSIZE))) {
-	
-	opts->maxbufsize = strtoul(str+strlen(OPTION_MAXBUFFERSIZE), NULL, 10);
-	
-	if (opts->maxbufsize > SRP_MAXBUFFERSIZE) {
-	    utils->seterror(utils->conn, 0,
-			    "SRP Maxbuffersize %lu too big (> %lu)\n",
-			    opts->maxbufsize, SRP_MAXBUFFERSIZE);
-	    return SASL_BADPROT;
-	}
-	
+                            strlen(OPTION_MAXBUFFERSIZE))) {
+        
+        opts->maxbufsize = strtoul(str+strlen(OPTION_MAXBUFFERSIZE), NULL, 10);
+        
+        if (opts->maxbufsize > SRP_MAXBUFFERSIZE) {
+            utils->seterror(utils->conn, 0,
+                            "SRP Maxbuffersize %lu too big (> %lu)\n",
+                            opts->maxbufsize, SRP_MAXBUFFERSIZE);
+            return SASL_BADPROT;
+        }
+     } else if (!strncasecmp(str, OPTION_KDF,
+                            strlen(OPTION_KDF))) {
+        unsigned int bit = FindBit(str+strlen(OPTION_KDF),
+                          kdf_options);
+        
+        if (isserver && (!bit || opts->kdf)) {
+            opts->kdf = 0;
+            if (!bit)
+                utils->seterror(utils->conn, 0,
+                                "SRP KDF option %s not supported\n",
+                                str+strlen(OPTION_KDF));
+            else
+                SETERROR(utils,
+                         "Multiple SRP KDF options given\n");
+            return SASL_FAIL;
+        }
+        
+        opts->kdf |= bit;
     } else {
-	/* Ignore unknown options */
+        /* Ignore unknown options */
     }
     
     return SASL_OK;
 }
 
 static int ParseOptions(const sasl_utils_t *utils,
-			char *in, srp_options_t *out, int isserver)
+                        char *in, srp_options_t *out, bool isserver)
 {
     int r;
     
@@ -1199,50 +1160,50 @@ static int ParseOptions(const sasl_utils_t *utils,
     out->maxbufsize = SRP_MAXBUFFERSIZE;
     
     while (in) {
-	char *opt;
-	
-	r = ParseOption(utils, in, &opt, &in);
-	if (r) return r;
-	
-	if (opt == NULL) return SASL_OK;
-	
-	utils->log(NULL, SASL_LOG_DEBUG, "Got option: [%s]\n",opt);
-	
-	r = ParseOptionString(utils, opt, out, isserver);
-	utils->free(opt);
-	
-	if (r) return r;
+        char *opt;
+        
+        r = ParseOption(utils, in, &opt, &in);
+        if (r) return r;
+        
+        if (opt == NULL) return SASL_OK;
+        
+        utils->log(NULL, SASL_LOG_DEBUG, "Got option: [%s]\n",opt);
+        
+        r = ParseOptionString(utils, opt, out, isserver);
+        utils->free(opt);
+        
+        if (r) return r;
     }
     
     return SASL_OK;
 }
 
-static layer_option_t *FindBest(int available, sasl_ssf_t min_ssf,
-				sasl_ssf_t max_ssf, layer_option_t *opts)
+static layer_option_t *FindBest(unsigned int available, sasl_ssf_t min_ssf,
+                                sasl_ssf_t max_ssf, layer_option_t *opts)
 {
     layer_option_t *best = NULL;
     
     if (!available) return NULL;
     
     while (opts->name) {
-	if (opts->enabled && (available & opts->bit) &&
-	    (opts->ssf >= min_ssf) && (opts->ssf <= max_ssf) &&
-	    (!best || (opts->ssf > best->ssf))) {
-	    best = opts;
-	}
-	
-	opts++;
+        if (opts->enabled && (available & opts->bit) &&
+            (opts->ssf >= min_ssf) && (opts->ssf <= max_ssf) &&
+            (!best || (opts->ssf > best->ssf))) {
+            best = opts;
+        }
+        
+        opts++;
     }
     
     return best;
 }
 
 static int OptionsToString(const sasl_utils_t *utils,
-			   srp_options_t *opts, char **out)
+                           srp_options_t *opts, char **out)
 {
     char *ret = NULL;
-    int alloced = 0;
-    int first = 1;
+    size_t alloced = 0;
+    bool first = true;
     layer_option_t *optlist;
     
     ret = utils->malloc(1);
@@ -1252,116 +1213,122 @@ static int OptionsToString(const sasl_utils_t *utils,
     
     optlist = digest_options;
     while(optlist->name) {
-	if (opts->mda & optlist->bit) {
-	    alloced += strlen(OPTION_MDA)+strlen(optlist->name)+1;
-	    ret = utils->realloc(ret, alloced);
-	    if (!ret) return SASL_NOMEM;
-	    
-	    if (!first) strcat(ret, ",");
-	    strcat(ret, OPTION_MDA);
-	    strcat(ret, optlist->name);
-	    first = 0;
-	}
-	
-	optlist++;
+        if (opts->mda & optlist->bit) {
+            alloced += strlen(OPTION_MDA)+strlen(optlist->name)+1;
+            ret = utils->realloc(ret, alloced);
+            if (!ret) return SASL_NOMEM;
+            
+            if (!first) strlcat(ret, ",", alloced);
+            strlcat(ret, OPTION_MDA, alloced);
+            strlcat(ret, optlist->name, alloced);
+            first = false;
+        }
+        
+        optlist++;
     }
     
     if (opts->replay_detection) {
-	alloced += strlen(OPTION_REPLAY_DETECTION)+1;
-	ret = utils->realloc(ret, alloced);
-	if (!ret) return SASL_NOMEM;
-	
-	if (!first) strcat(ret, ",");
-	strcat(ret, OPTION_REPLAY_DETECTION);
-	first = 0;
-    }
-    
-    optlist = digest_options;
-    while(optlist->name) {
-	if (opts->integrity & optlist->bit) {
-	    alloced += strlen(OPTION_INTEGRITY)+5+strlen(optlist->name)+1;
-	    ret = utils->realloc(ret, alloced);
-	    if (!ret) return SASL_NOMEM;
-	    
-	    if (!first) strcat(ret, ",");
-	    strcat(ret, OPTION_INTEGRITY);
-	    strcat(ret, "HMAC-");
-	    strcat(ret, optlist->name);
-	    first = 0;
-	}
-	
-	optlist++;
+        alloced += strlen(OPTION_REPLAY_DETECTION)+1;
+        ret = utils->realloc(ret, alloced);
+        if (!ret) return SASL_NOMEM;
+        
+        if (!first) strlcat(ret, ",", alloced);
+        strlcat(ret, OPTION_REPLAY_DETECTION, alloced);
+        first = false;
     }
     
     optlist = cipher_options;
     while(optlist->name) {
-	if (opts->confidentiality & optlist->bit) {
-	    alloced += strlen(OPTION_CONFIDENTIALITY)+strlen(optlist->name)+1;
-	    ret = utils->realloc(ret, alloced);
-	    if (!ret) return SASL_NOMEM;
-	    
-	    if (!first) strcat(ret, ",");
-	    strcat(ret, OPTION_CONFIDENTIALITY);
-	    strcat(ret, optlist->name);
-	    first = 0;
-	}
-	
-	optlist++;
+        if (opts->confidentiality_integrity & optlist->bit) {
+            alloced += strlen(OPTION_CONFIDENTIALITY_INTEGRITY)+strlen(optlist->name)+1;
+            ret = utils->realloc(ret, alloced);
+            if (!ret) return SASL_NOMEM;
+            
+            if (!first) strlcat(ret, ",", alloced);
+            strlcat(ret, OPTION_CONFIDENTIALITY_INTEGRITY, alloced);
+            strlcat(ret, optlist->name, alloced);
+            first = false;
+        }
+        
+        optlist++;
     }
-    
-    if ((opts->integrity || opts->confidentiality) &&
-	opts->maxbufsize < SRP_MAXBUFFERSIZE) {
-	alloced += strlen(OPTION_MAXBUFFERSIZE)+10+1;
-	ret = utils->realloc(ret, alloced);
-	if (!ret) return SASL_NOMEM;
-	
-	if (!first) strcat(ret, ",");
-	strcat(ret, OPTION_MAXBUFFERSIZE);
-	sprintf(ret+strlen(ret), "%lu", opts->maxbufsize);
-	first = 0;
+
+    optlist = kdf_options;
+    while(optlist->name) {
+        if (opts->kdf & optlist->bit) {
+            alloced += strlen(OPTION_KDF)+strlen(optlist->name)+1;
+            ret = utils->realloc(ret, alloced);
+            if (!ret) return SASL_NOMEM;
+            
+            if (!first) strlcat(ret, ",", alloced);
+            strlcat(ret, OPTION_KDF, alloced);
+            strlcat(ret, optlist->name, alloced);
+            first = false;
+        }
+        
+        optlist++;
+    }
+ 
+    if ((opts->confidentiality_integrity) &&
+        opts->maxbufsize < SRP_MAXBUFFERSIZE) {
+        alloced += strlen(OPTION_MAXBUFFERSIZE)+10+1;
+        ret = utils->realloc(ret, alloced);
+        if (!ret) return SASL_NOMEM;
+        
+        if (!first) strlcat(ret, ",", alloced);
+        strlcat(ret, OPTION_MAXBUFFERSIZE, alloced);
+        snprintf(ret+strlen(ret), alloced-strlen(ret), "%lu", opts->maxbufsize);
+        first = false;
     }
     
     if (opts->mandatory & BIT_REPLAY_DETECTION) {
-	alloced += strlen(OPTION_MANDATORY)+strlen(OPTION_REPLAY_DETECTION)+1;
-	ret = utils->realloc(ret, alloced);
-	if (!ret) return SASL_NOMEM;
-	
-	if (!first) strcat(ret, ",");
-	strcat(ret, OPTION_MANDATORY);
-	strcat(ret, OPTION_REPLAY_DETECTION);
-	first = 0;
+        alloced += strlen(OPTION_MANDATORY)+strlen(OPTION_REPLAY_DETECTION)+1;
+        ret = utils->realloc(ret, alloced);
+        if (!ret) return SASL_NOMEM;
+        
+        if (!first) strlcat(ret, ",", alloced);
+        strlcat(ret, OPTION_MANDATORY, alloced);
+        strlcat(ret, OPTION_REPLAY_DETECTION, alloced);
+        first = false;
     }
     
-    if (opts->mandatory & BIT_INTEGRITY) {
-	alloced += strlen(OPTION_MANDATORY)+strlen(OPTION_INTEGRITY)-1+1;
-	ret = utils->realloc(ret, alloced);
-	if (!ret) return SASL_NOMEM;
-	
-	if (!first) strcat(ret, ",");
-	strcat(ret, OPTION_MANDATORY);
-	strncat(ret, OPTION_INTEGRITY, strlen(OPTION_INTEGRITY)-1);
-	/* terminate string */
-	ret[alloced-1] = '\0';
-	first = 0;
+    if (opts->mandatory & BIT_CONFIDENTIALITY_INTEGRITY) {
+        alloced += strlen(OPTION_MANDATORY)+strlen(OPTION_CONFIDENTIALITY_INTEGRITY_MANDATORY)+1;
+        ret = utils->realloc(ret, alloced);
+        if (!ret) return SASL_NOMEM;
+        
+        if (!first) strlcat(ret, ",", alloced);
+        strlcat(ret, OPTION_MANDATORY, alloced);
+        strlcat(ret, OPTION_CONFIDENTIALITY_INTEGRITY_MANDATORY, alloced);
+        first = false;
     }
-    
-    if (opts->mandatory & BIT_CONFIDENTIALITY) {
-	alloced += strlen(OPTION_MANDATORY)+strlen(OPTION_CONFIDENTIALITY)-1+1;
-	ret = utils->realloc(ret, alloced);
-	if (!ret) return SASL_NOMEM;
-	
-	if (!first) strcat(ret, ",");
-	strcat(ret, OPTION_MANDATORY);
-	strncat(ret, OPTION_CONFIDENTIALITY, strlen(OPTION_CONFIDENTIALITY)-1);
-	/* terminate string */
-	ret[alloced-1] = '\0';
-	first = 0;
-    }
-    
+
     *out = ret;
     return SASL_OK;
 }
 
+static const struct ccdigest_info *cc_get_digestbyname(const char *name) {
+    if (strcmp(name, "sha512") == 0) {
+        return ccsha512_di();
+    } else if (strcmp(name, "sha384") == 0) {
+        return ccsha384_di();
+    } else if (strcmp(name, "sha256") == 0) {
+        return ccsha256_di();
+    } else if (strcmp(name, "sha224") == 0) {
+        return ccsha224_di();
+    } else {
+        return NULL;
+    }
+}
+
+static int cc_get_gpbyname(const char *name) {
+    for (int i = 0; i < NUM_Ng; ++i) {
+        if (strcasecmp(Ng_tab[i].name, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
 
 /*
  * Set the selected MDA.
@@ -1372,12 +1339,12 @@ static int SetMDA(srp_options_t *opts, context_t *text)
     
     opt = FindOptionFromBit(opts->mda, digest_options);
     if (!opt) {
-	text->utils->log(NULL, SASL_LOG_ERR,
-			 "Unable to find SRP MDA option now\n");
-	return SASL_FAIL;
+        text->utils->log(NULL, SASL_LOG_ERR,
+                         "Unable to find SRP MDA option now\n");
+        return SASL_FAIL;
     }
     
-    text->md = EVP_get_digestbyname(opt->evp_name);
+    text->md = cc_get_digestbyname(opt->evp_name);
     
     return SASL_OK;
 }
@@ -1386,81 +1353,71 @@ static int SetMDA(srp_options_t *opts, context_t *text)
  * Setup the selected security layer.
  */
 static int LayerInit(srp_options_t *opts, context_t *text,
-		     sasl_out_params_t *oparams, char *enc_IV, char *dec_IV,
-		     unsigned maxbufsize)
+                     sasl_out_params_t *oparams, uint8_t *enc_IV, uint8_t *dec_IV,
+                     size_t maxbufsize)
 {
     layer_option_t *opt;
     
-    if ((opts->integrity == 0) && (opts->confidentiality == 0)) {
-	oparams->encode = NULL;
-	oparams->decode = NULL;
-	oparams->mech_ssf = 0;
-	text->utils->log(NULL, SASL_LOG_DEBUG, "Using no protection\n");
-	return SASL_OK;
+    if (opts->confidentiality_integrity == 0) {
+        oparams->encode = NULL;
+        oparams->decode = NULL;
+        oparams->mech_ssf = 0;
+        text->utils->log(NULL, SASL_LOG_DEBUG, "Using no protection\n");
+        return SASL_OK;
     }
     
     oparams->encode = &srp_encode;
     oparams->decode = &srp_decode;
-    oparams->maxoutbuf = opts->maxbufsize - 4; /* account for 4-byte length */
+    oparams->maxoutbuf = (unsigned int)(opts->maxbufsize - 4); /* account for 4-byte length */
 
-    _plug_decode_init(&text->decode_context, text->utils, maxbufsize);
+    _plug_decode_init(&text->decode_context, text->utils, (unsigned int)maxbufsize);
     
     if (opts->replay_detection) {
-	text->utils->log(NULL, SASL_LOG_DEBUG, "Using replay detection\n");
+        text->utils->log(NULL, SASL_LOG_DEBUG, "Using replay detection\n");
 
-	text->layer |= BIT_REPLAY_DETECTION;
-	
-	/* If no integrity layer specified, use default */
-	if (!opts->integrity)
-	    opts->integrity = default_digest->bit;
+        text->layer |= BIT_REPLAY_DETECTION;
+        
+        /* If no integrity layer specified, use default */
+        if (!opts->confidentiality_integrity)
+            opts->confidentiality_integrity = default_cipher->bit;
     }
     
-    if (opts->integrity) {
-	text->utils->log(NULL, SASL_LOG_DEBUG, "Using integrity protection\n");
-	
-	text->layer |= BIT_INTEGRITY;
-	
-	opt = FindOptionFromBit(opts->integrity, digest_options);
-	if (!opt) {
-	    text->utils->log(NULL, SASL_LOG_ERR,
-			     "Unable to find SRP integrity layer option\n");
-	    return SASL_FAIL;
-	}
-	
-	oparams->mech_ssf = opt->ssf;
+  
+    if (opts->confidentiality_integrity) {
+        text->utils->log(NULL, SASL_LOG_DEBUG,
+                         "Using confidentiality+integrity protection\n");
+        
+        text->layer |= BIT_CONFIDENTIALITY_INTEGRITY;
+        
+        opt = FindOptionFromBit(opts->confidentiality_integrity, cipher_options);
+        if (!opt) {
+            text->utils->log(NULL, SASL_LOG_ERR,
+                             "Unable to find SRP confidentiality+integrity layer option\n");
+            return SASL_FAIL;
+        }
+        
+        oparams->mech_ssf = opt->ssf;
 
-	/* Initialize the HMACs */
-	text->hmac_md = EVP_get_digestbyname(opt->evp_name);
-	HMAC_Init(&text->hmac_send_ctx, text->K, text->Klen, text->hmac_md);
-	HMAC_Init(&text->hmac_recv_ctx, text->K, text->Klen, text->hmac_md);
-	
-	/* account for HMAC */
-	oparams->maxoutbuf -= EVP_MD_size(text->hmac_md);
+        /* Initialize the ciphers */
+        if (strcasecmp(opt->evp_name, "ChaCha20-Poly1305") != 0) {
+            text->utils->log(NULL, SASL_LOG_ERR,
+                             "Unsupported SRP confidentiality+integrity layer option, not ChaCha20-Poly1305\n");
+            return SASL_FAIL;
+        }
+
+        /* Account for authentication tag */
+        oparams->maxoutbuf -= POLY1305_AUTH_TAG_SIZE;
+
+        chacha20_poly1305_init_64x64(&text->crypto_enc_state, text->K, enc_IV);
+        chacha20_poly1305_init_64x64(&text->crypto_dec_state, text->K, dec_IV); // TODO: K,IV should never be reused
     }
-    
-    if (opts->confidentiality) {
-	text->utils->log(NULL, SASL_LOG_DEBUG,
-			 "Using confidentiality protection\n");
-	
-	text->layer |= BIT_CONFIDENTIALITY;
-	
-	opt = FindOptionFromBit(opts->confidentiality, cipher_options);
-	if (!opt) {
-	    text->utils->log(NULL, SASL_LOG_ERR,
-			     "Unable to find SRP confidentiality layer option\n");
-	    return SASL_FAIL;
-	}
-	
-	oparams->mech_ssf = opt->ssf;
 
-	/* Initialize the ciphers */
-	text->cipher = EVP_get_cipherbyname(opt->evp_name);
+    if (opts->kdf != default_kdf->bit) {
+        /* only support one, hardcoded SALTED-SHA512-PBKDF2 for now */
+        text->utils->log(NULL, SASL_LOG_ERR,
+                         "Unable to find SRP KDF layer option, kdf=SALTED-SHA512-PBKDF2 option required\n");
+        return SASL_FAIL;
 
-	EVP_CIPHER_CTX_init(&text->cipher_enc_ctx);
-	EVP_EncryptInit(&text->cipher_enc_ctx, text->cipher, text->K, enc_IV);
-
-	EVP_CIPHER_CTX_init(&text->cipher_dec_ctx);
-	EVP_DecryptInit(&text->cipher_dec_ctx, text->cipher, text->K, dec_IV);
     }
     
     return SASL_OK;
@@ -1468,59 +1425,60 @@ static int LayerInit(srp_options_t *opts, context_t *text,
 
 static void LayerCleanup(context_t *text)
 {
-    if (text->layer & BIT_INTEGRITY) {
-	HMAC_cleanup(&text->hmac_send_ctx);
-	HMAC_cleanup(&text->hmac_recv_ctx);
-    }
-
-    if (text->layer & BIT_CONFIDENTIALITY) {
-	EVP_CIPHER_CTX_cleanup(&text->cipher_enc_ctx);
-	EVP_CIPHER_CTX_cleanup(&text->cipher_dec_ctx);
+    if (text->layer & BIT_CONFIDENTIALITY_INTEGRITY) {
+        /* no need to cleanup text->crypto_enc_state, crypto_dec_state */
     }
 }
     
+#define ccsrp_ctx_alloc(_di_, _gp_) \
+    params->utils->malloc(cc_ctx_sizeof(ccsrp_ctx, ccsrp_sizeof_srp(_di_,_gp_)))
+#define ccsrp_ctx_free(__p) free(__p)
 
 /*
  * Dispose of a SRP context (could be server or client)
  */ 
 static void srp_common_mech_dispose(void *conn_context,
-				    const sasl_utils_t *utils)
+                                    const sasl_utils_t *utils)
 {
     context_t *text = (context_t *) conn_context;
     
     if (!text) return;
+
+    if (text->srp) ccsrp_ctx_free(text->srp);
     
-    BN_clear_free(&text->N);
-    BN_clear_free(&text->g);
-    BN_clear_free(&text->v);
-    BN_clear_free(&text->b);
-    BN_clear_free(&text->B);
-    BN_clear_free(&text->a);
-    BN_clear_free(&text->A);
+    CCBigNumFree((CCBigNumRef)(text->N));
+    CCBigNumFree((CCBigNumRef)(text->g));
+    CCBigNumFree((CCBigNumRef)(text->v));
+    CCBigNumFree((CCBigNumRef)(text->B));
+    CCBigNumFree((CCBigNumRef)(text->A));
     
-    if (text->authid)		utils->free(text->authid);
-    if (text->userid)		utils->free(text->userid);
-    if (text->free_password)	_plug_free_secret(utils, &(text->password));
-    if (text->salt)		utils->free(text->salt);
+    if (text->authid)               utils->free(text->authid);
+    if (text->userid)               utils->free(text->userid);
+    if (text->free_password)        _plug_free_secret(utils, &(text->password));
+    if (text->salt)                 utils->free(text->salt);
     
-    if (text->client_options)	utils->free(text->client_options);
-    if (text->server_options)	utils->free(text->server_options);
+    if (text->client_options)       utils->free(text->client_options);
+    if (text->server_options)       utils->free(text->server_options);
  
     LayerCleanup(text);
     _plug_decode_free(&text->decode_context);
 
-    if (text->encode_buf)	utils->free(text->encode_buf);
-    if (text->decode_buf)	utils->free(text->decode_buf);
-    if (text->decode_pkt_buf)	utils->free(text->decode_pkt_buf);
-    if (text->out_buf)		utils->free(text->out_buf);
+    if (text->encode_buf)           utils->free(text->encode_buf);
+    if (text->decode_buf)           utils->free(text->decode_buf);
+    if (text->decode_pkt_buf)       utils->free(text->decode_pkt_buf);
+    if (text->out_buf)              utils->free(text->out_buf);
+
+    ccrng_system_done(&text->rng);
     
     utils->free(text);
 }
 
 static void
-srp_common_mech_free(void *global_context __attribute__((unused)),
-		     const sasl_utils_t *utils __attribute__((unused)))
+srp_common_mech_free(void *global_context,
+                     const sasl_utils_t *utils)
 {
+    (void) global_context;
+    (void) utils;
     /* Don't call EVP_cleanup(); here, as this might confuse the calling
        application if it also uses OpenSSL */
 }
@@ -1530,164 +1488,27 @@ srp_common_mech_free(void *global_context __attribute__((unused)),
 
 /* A large safe prime (N = 2q+1, where q is prime)
  *
- * Use N with the most bits from our table.
+ * Use N,g with gp name
  *
  * All arithmetic is done modulo N
  */
-static int generate_N_and_g(BIGNUM *N, BIGNUM *g)
+static int generate_N_and_g(context_t *text, const char *name)
 {
-    int result;
+    int i = cc_get_gpbyname(name);
+    if (i == -1) {
+        return SASL_FAIL;    
+    }
+
+    set_ccsrp_groups();
+    text->gp = Ng_tab[i].gp;
+
+    ccz_zero(text->N);
+    ccz_read_uint(text->N, Ng_tab[i].Nbits/8, Ng_tab[i].N);
     
-    BN_init(N);
-    result = BN_hex2bn(&N, Ng_tab[NUM_Ng-1].N);
-    if (!result) return SASL_FAIL;
-    
-    BN_init(g);
-    BN_set_word(g, Ng_tab[NUM_Ng-1].g);
-    
+    ccz_zero(text->g);
+    ccz_seti(text->g, Ng_tab[i].g);
+
     return SASL_OK;
-}
-
-static int CalculateV(context_t *text,
-		      BIGNUM *N, BIGNUM *g,
-		      const char *user,
-		      const char *pass, unsigned passlen,
-		      BIGNUM *v, char **salt, int *saltlen)
-{
-    BIGNUM x;
-    BN_CTX *ctx = BN_CTX_new();
-    int r;
-    
-    /* generate <salt> */    
-    *saltlen = SRP_MAXBLOCKSIZE;
-    *salt = (char *)text->utils->malloc(*saltlen);
-    if (!*salt) return SASL_NOMEM;
-    text->utils->rand(text->utils->rpool, *salt, *saltlen);
-    
-    r = CalculateX(text, *salt, *saltlen, user, pass, passlen, &x);
-    if (r) {
-	text->utils->seterror(text->utils->conn, 0, 
-			      "Error calculating 'x'");
-	return r;
-    }
-    
-    /* v = g^x % N */
-    BN_init(v);
-    BN_mod_exp(v, g, &x, N, ctx);
-    
-    BN_CTX_free(ctx);
-    BN_clear_free(&x);
-    
-    return r;   
-}
-
-static int CalculateB(context_t *text  __attribute__((unused)),
-		      BIGNUM *v, BIGNUM *N, BIGNUM *g, BIGNUM *b, BIGNUM *B)
-{
-    BIGNUM v3;
-    BN_CTX *ctx = BN_CTX_new();
-    
-    /* Generate b */
-    GetRandBigInt(b);
-	
-    /* Per [SRP]: make sure b > log[g](N) -- g is always 2 */
-    BN_add_word(b, BN_num_bits(N));
-	
-    /* B = (3v + g^b) % N */
-    BN_init(&v3);
-    BN_set_word(&v3, 3);
-    BN_mod_mul(&v3, &v3, v, N, ctx);
-    BN_init(B);
-    BN_mod_exp(B, g, b, N, ctx);
-#if OPENSSL_VERSION_NUMBER >= 0x00907000L
-    BN_mod_add(B, B, &v3, N, ctx);
-#else
-    BN_add(B, B, &v3);
-    BN_mod(B, B, N, ctx);
-#endif
-
-    BN_CTX_free(ctx);
-    
-    return SASL_OK;
-}
-	
-static int ServerCalculateK(context_t *text, BIGNUM *v,
-			    BIGNUM *N, BIGNUM *A, BIGNUM *b, BIGNUM *B,
-			    char *K, int *Klen)
-{
-    unsigned char hash[EVP_MAX_MD_SIZE];
-    int hashlen;
-    BIGNUM u;
-    BIGNUM base;
-    BIGNUM S;
-    BN_CTX *ctx = BN_CTX_new();
-    int r;
-    
-    /* u = H(A | B) */
-    r = MakeHash(text->md, hash, &hashlen, "%m%m", A, B);
-    if (r) return r;
-	
-    BN_init(&u);
-    BN_bin2bn(hash, hashlen, &u);
-	
-    /* S = (Av^u) ^ b % N */
-    BN_init(&base);
-    BN_mod_exp(&base, v, &u, N, ctx);
-    BN_mod_mul(&base, &base, A, N, ctx);
-    
-    BN_init(&S);
-    BN_mod_exp(&S, &base, b, N, ctx);
-    
-    /* per Tom Wu: make sure Av^u != 1 (mod N) */
-    if (BN_is_one(&base)) {
-	SETERROR(text->utils, "Unsafe SRP value for 'Av^u'\n");
-	r = SASL_BADPROT;
-	goto err;
-    }
-    
-    /* per Tom Wu: make sure Av^u != -1 (mod N) */
-    BN_add_word(&base, 1);
-    if (BN_cmp(&S, N) == 0) {
-	SETERROR(text->utils, "Unsafe SRP value for 'Av^u'\n");
-	r = SASL_BADPROT;
-	goto err;
-    }
-    
-    /* K = H(S) */
-    r = MakeHash(text->md, K, Klen, "%m", &S);
-    if (r) goto err;
-    
-    r = SASL_OK;
-    
-  err:
-    BN_CTX_free(ctx);
-    BN_clear_free(&u);
-    BN_clear_free(&base);
-    BN_clear_free(&S);
-    
-    return r;
-}
-
-static int ParseUserSecret(const sasl_utils_t *utils,
-			   char *secret, size_t seclen,
-			   char **mda, BIGNUM *v, char **salt, int *saltlen)
-{
-    int r;
-    
-    /* The secret data is stored as suggested in RFC 2945:
-     *
-     *  { utf8(mda) mpi(v) os(salt) }  (base64 encoded)
-     */
-    r = utils->decode64(secret, seclen, secret, seclen, &seclen);
-
-    if (!r)
-	r = UnBuffer(utils, secret, seclen, "%s%m%o", mda, v, saltlen, salt);
-    if (r) {
-	utils->seterror(utils->conn, 0, 
-			"Error UnBuffering user secret");
-    }
-
-    return r;
 }
 
 static int CreateServerOptions(sasl_server_params_t *sparams, char **out)
@@ -1703,117 +1524,281 @@ static int CreateServerOptions(sasl_server_params_t *sparams, char **out)
     opts.mda = server_mda->bit;
 
     if(sparams->props.maxbufsize == 0) {
-	limitssf = 0;
-	requiressf = 0;
+        limitssf = 0;
+        requiressf = 0;
     } else {
-	if (sparams->props.max_ssf < sparams->external_ssf) {
-	    limitssf = 0;
-	} else {
-	    limitssf = sparams->props.max_ssf - sparams->external_ssf;
-	}
-	if (sparams->props.min_ssf < sparams->external_ssf) {
-	    requiressf = 0;
-	} else {
-	    requiressf = sparams->props.min_ssf - sparams->external_ssf;
-	}
+        if (sparams->props.max_ssf < sparams->external_ssf) {
+            limitssf = 0;
+        } else {
+            limitssf = sparams->props.max_ssf - sparams->external_ssf;
+        }
+        if (sparams->props.min_ssf < sparams->external_ssf) {
+            requiressf = 0;
+        } else {
+            requiressf = sparams->props.min_ssf - sparams->external_ssf;
+        }
     }
+    
+    opts.replay_detection = true;
     
     /*
-     * Add integrity options
-     * Can't advertise integrity w/o support for default HMAC
-     */
-    if (default_digest->enabled) {
-	optlist = digest_options;
-	while(optlist->name) {
-	    if (optlist->enabled &&
-		/*(requiressf <= 1) &&*/ (limitssf >= 1)) {
-		opts.integrity |= optlist->bit;
-	    }
-	    optlist++;
-	}
-    }
-    
-    /* if we set any integrity options we can advertise replay detection */
-    if (opts.integrity) {
-	opts.replay_detection = 1;
-    }
-    
-    /*
-     * Add confidentiality options
+     * Add confidentiality+integrity options
      * Can't advertise confidentiality w/o support for default cipher
      */
     if (default_cipher->enabled) {
-	optlist = cipher_options;
-	while(optlist->name) {
-	    if (optlist->enabled &&
-		(requiressf <= optlist->ssf) &&
-		(limitssf >= optlist->ssf)) {
-		opts.confidentiality |= optlist->bit;
-	    }
-	    optlist++;
-	}
+        optlist = cipher_options;
+        while(optlist->name) {
+            if (optlist->enabled &&
+                (requiressf <= optlist->ssf) &&
+                (limitssf >= optlist->ssf)) {
+                opts.confidentiality_integrity |= optlist->bit;
+            }
+            optlist++;
+        }
     }
     
-    /* Add mandatory options */
-    if (requiressf >= 1)
-	opts.mandatory = BIT_REPLAY_DETECTION | BIT_INTEGRITY;
-    if (requiressf > 1)
-	opts.mandatory |= BIT_CONFIDENTIALITY;
+    /* Add mandatory options -- we always require encryption */
+    opts.mandatory = BIT_REPLAY_DETECTION | BIT_CONFIDENTIALITY_INTEGRITY;
     
     /* Add maxbuffersize */
     opts.maxbufsize = SRP_MAXBUFFERSIZE;
     if (sparams->props.maxbufsize &&
-	sparams->props.maxbufsize < opts.maxbufsize)
-	opts.maxbufsize = sparams->props.maxbufsize;
+        sparams->props.maxbufsize < opts.maxbufsize)
+        opts.maxbufsize = sparams->props.maxbufsize;
     
+    /* Add CalculateX Key Derivation Function */
+    optlist = kdf_options;
+    while(optlist->name) {
+        if (optlist->enabled &&
+            (requiressf <= optlist->ssf) &&
+            (limitssf >= optlist->ssf)) {
+            opts.kdf |= optlist->bit;
+        }
+        optlist++;
+    }
+
     return OptionsToString(sparams->utils, &opts, out);
 }
 
 static int
-srp_server_mech_new(void *glob_context __attribute__((unused)),
-		    sasl_server_params_t *params,
-		    const char *challenge __attribute__((unused)),
-		    unsigned challen __attribute__((unused)),
-		    void **conn_context)
+srp_common_context_init(context_t *text)
+{
+    memset(text, 0, sizeof(context_t));
+    
+    text->state = 1;
+
+    CCStatus status = kCCSuccess;
+    text->N = (ccz *)CCCreateBigNum(&status);
+    text->g = (ccz *)CCCreateBigNum(&status);
+    text->v = (ccz *)CCCreateBigNum(&status);
+    text->B = (ccz *)CCCreateBigNum(&status);
+    text->A = (ccz *)CCCreateBigNum(&status);
+
+    ccrng_system_init(&text->rng);
+
+    return SASL_OK;
+}
+
+static int
+srp_server_mech_new(void *glob_context,
+                    sasl_server_params_t *params,
+                    const char *challenge,
+                    unsigned challen,
+                    void **conn_context)
 {
     context_t *text;
+    
+    (void) glob_context;
+    (void) challenge;
+    (void) challen;
     
     /* holds state are in */
     text = params->utils->malloc(sizeof(context_t));
     if (text == NULL) {
-	MEMERROR(params->utils);
-	return SASL_NOMEM;
+        MEMERROR(params->utils);
+        return SASL_NOMEM;
     }
-    
-    memset(text, 0, sizeof(context_t));
-    
-    text->state = 1;
+
+    srp_common_context_init(text);
+
     text->utils = params->utils;
-    text->md = EVP_get_digestbyname(server_mda->evp_name);
-    
+    text->md = cc_get_digestbyname(server_mda->evp_name);
+   
     *conn_context = text;
     
     return SASL_OK;
 }
 
+static int srp_load_authdata_dict(context_t *text, sasl_server_params_t *params, CFDictionaryRef
+    dict, const char *md_name, const char *gp_name)
+{
+    int result = SASL_OK;
+
+    if (!dict) {
+        params->utils->seterror(params->utils->conn, 0, "Unable to deserialize plist from secret");
+        result = SASL_TRANS;
+        goto cleanup;
+    }
+
+    if (CFGetTypeID(dict) != CFDictionaryGetTypeID()) {
+        params->utils->seterror(params->utils->conn, 0, "Not a dictionary deserializing plist");
+        CFRelease(dict);
+        dict = NULL;
+        result = SASL_TRANS;
+        goto cleanup;
+    }
+
+    CFDataRef cfSalt = (CFDataRef)CFDictionaryGetValue(dict, CFSTR("salt"));
+    if (!cfSalt || CFGetTypeID(cfSalt) != CFDataGetTypeID()) {
+        params->utils->seterror(params->utils->conn, 0, "Unable to get salt");
+        CFRelease(dict);
+        dict = NULL;
+        result = SASL_TRANS;
+        goto cleanup;
+    }
+
+    CFDataRef cfVerifier = CFDictionaryGetValue(dict, CFSTR("verifier"));
+    if (!cfVerifier || CFGetTypeID(cfVerifier) != CFDataGetTypeID()) {
+        params->utils->seterror(params->utils->conn, 0, "Unable to get verifier");
+        result = SASL_TRANS;
+        goto cleanup;
+    }
+
+    CFNumberRef cfIterations = CFDictionaryGetValue(dict, CFSTR("iterations"));
+    if (!cfIterations || CFGetTypeID(cfIterations) != CFNumberGetTypeID()) {
+        params->utils->seterror(params->utils->conn, 0, "Unable to get iterations");
+        result = SASL_TRANS;
+        goto cleanup;
+    }
+
+    text->md = cc_get_digestbyname(md_name);
+    if (!text->md) {
+        params->utils->seterror(params->utils->conn, 0, "Unable to set message digest algorithm: %s", md_name);
+        result = SASL_TRANS;
+        goto cleanup;
+    }
+
+    /* Set N and g from gp name */
+    result = generate_N_and_g(text, gp_name);
+    if (result) {
+        params->utils->seterror(text->utils->conn, 0, 
+                    "Unable to set group parameters to %s: %d", gp_name, result);
+        return result;
+    }
+
+    /* Initialize ccsrp server context */
+    text->srp = ccsrp_ctx_alloc(text->md, text->gp);
+    ccsrp_ctx_init(text->srp, text->md, text->gp);
+    
+    
+    text->saltlen = (size_t)CFDataGetLength(cfSalt);
+    text->salt = params->utils->malloc(text->saltlen);
+    CFDataGetBytes(cfSalt, CFRangeMake(0, (CFIndex)text->saltlen), text->salt);
+    
+    if (!CFNumberGetValue(cfIterations, kCFNumberSInt64Type, &text->iterations)) {
+        params->utils->seterror(params->utils->conn, 0, "Unable to convert iterations");
+        result = SASL_TRANS;
+        goto cleanup;
+    }
+    
+    dprintf("iterations = %llu\n", text->iterations);
+    dprintf("saltlen = %zu\n", text->saltlen);
+    
+    ccz_read_uint(text->v, (size_t)CFDataGetLength(cfVerifier), (const uint8_t *)CFDataGetBytePtr(cfVerifier));
+    dumpN("v", text->v);
+
+cleanup:
+    return result;
+}
+
+static CFDictionaryRef srp_generate_authdata_dict(char *password, const char *md_name, const char *gp_name)
+{
+    /* <rdar://problem/19994730> SASL/SRP plugin to support SRP verifier generation for auth against users with cleartext recoverable password authdata */
+    /* based on other copies in:
+     opendirectoryd/src/modules/PlistFile/PlistFile.c
+     OpenLDAP/OpenLDAP/servers/slapd/applehelpers.c
+     */
+    // TODO: refactor into setpass
+#define PBKDF2_SALT_LEN 32
+#define PBKDF2_MIN_HASH_TIME 100
+#define PBKDF2_HASH_LEN 128
+    
+    int result = SASL_FAIL;
+    uint8_t salt[PBKDF2_SALT_LEN];
+    uint8_t entropy[PBKDF2_HASH_LEN];
+    size_t passwordLen = strlen(password);
+    uint64_t iterations;
+    
+    iterations = CCCalibratePBKDF(kCCPBKDF2, passwordLen,
+                                  sizeof(salt), kCCPRFHmacAlgSHA512,
+                                  sizeof(entropy), PBKDF2_MIN_HASH_TIME);
+    
+    int rc = CCRandomCopyBytes(kCCRandomDefault, salt, sizeof(salt));
+    if (rc == kCCSuccess) {
+        rc = CCKeyDerivationPBKDF(kCCPBKDF2, password, passwordLen, salt, sizeof(salt), kCCPRFHmacAlgSHA512,
+                                  (uint)iterations, entropy, sizeof(entropy));
+    }
+    
+    CFMutableDictionaryRef record = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    
+    const struct ccdigest_info *md = cc_get_digestbyname(md_name);
+    if (!md) return nil;
+    int gp_index = cc_get_gpbyname(gp_name);
+    if (gp_index == -1) return nil;
+    ccsrp_const_gp_t gp = Ng_tab[gp_index].gp;
+    
+    ccsrp_ctx *srp = malloc(cc_ctx_sizeof(ccsrp_ctx, ccsrp_sizeof_srp(md, gp)));
+    ccsrp_ctx_init(srp, md, gp);
+    
+    size_t v_buf_len = ccsrp_ctx_sizeof_n(srp);
+    uint8_t *v_buf = malloc(v_buf_len);
+    
+    result = ccsrp_generate_verifier(srp, "", sizeof(entropy), (const void *)entropy, sizeof(salt), salt, v_buf);
+    free(srp);
+    
+    if (result) {
+        dprintf("ccsrp_generate_verifier failed\n");
+        free(v_buf);
+        return nil;
+    }
+    
+    CFDataRef cfVerifier = CFDataCreate(kCFAllocatorDefault, v_buf, (CFIndex)v_buf_len);
+    CFNumberRef cfIterations = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &iterations);
+    CFDataRef cfSalt = CFDataCreate(kCFAllocatorDefault, salt, sizeof(salt));
+    
+    CFDictionarySetValue(record, CFSTR("verifier"), cfVerifier);
+    CFDictionarySetValue(record, CFSTR("iterations"), cfIterations);
+    CFDictionarySetValue(record, CFSTR("salt"), cfSalt);
+    
+    if (cfVerifier) CFRelease(cfVerifier);
+    if (cfIterations) CFRelease(cfIterations);
+    if (cfSalt) CFRelease(cfSalt);
+    free(v_buf);
+    
+    return record;
+}
+
 static int srp_server_mech_step1(context_t *text,
-				 sasl_server_params_t *params,
-				 const char *clientin,
-				 unsigned clientinlen,
-				 const char **serverout,
-				 unsigned *serveroutlen,
-				 sasl_out_params_t *oparams)
+                                 sasl_server_params_t *params,
+                                 const char *clientin,
+                                 unsigned clientinlen,
+                                 const char **serverout,
+                                 unsigned *serveroutlen,
+                                 sasl_out_params_t *oparams)
 {
     int result;
     char *sid = NULL;
     char *cn = NULL;
-    int cnlen;
+    size_t cnlen;
     char *realm = NULL;
     char *user = NULL;
-    const char *password_request[] = { "*cmusaslsecretSRP",
-				       SASL_AUX_PASSWORD,
-				       NULL };
+    CFDictionaryRef dict = NULL;
+    const char *password_request[] = { "*SRP-RFC5054-4096-SHA512-PBKDF2",
+                                       SASL_AUX_PASSWORD,
+                                       NULL };
     struct propval auxprop_values[3];
+
+    dprintf("srp_server_mech_step1 enter\n");
     
     /* Expect:
      *
@@ -1826,28 +1811,20 @@ static int srp_server_mech_step1(context_t *text,
      *
      */
     result = UnBuffer(params->utils, clientin, clientinlen,
-		      "%s%s%s%o", &text->authid, &text->userid, &sid,
-		      &cnlen, &cn);
+                      "%s%s%s%o", &text->authid, &text->userid, &sid,
+                      &cnlen, &cn);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error UnBuffering input in step 1");
-	return result;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error UnBuffering input in step 1");
+        return result;
     }
     /* Get the realm */
     result = _plug_parseuser(params->utils, &user, &realm, params->user_realm,
-			     params->serverFQDN, text->authid);
+                             params->serverFQDN, text->authid);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error getting realm");
-	goto cleanup;
-    }
-    
-    /* Generate N and g */
-    result = generate_N_and_g(&text->N, &text->g);
-    if (result) {
-	params->utils->seterror(text->utils->conn, 0, 
-				"Error calculating N and g");
-	return result;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error getting realm");
+        goto cleanup;
     }
     
     /* Get user secret */
@@ -1856,102 +1833,95 @@ static int srp_server_mech_step1(context_t *text,
     
     /* this will trigger the getting of the aux properties */
     result = params->canon_user(params->utils->conn,
-				text->authid, 0, SASL_CU_AUTHID, oparams);
+                                text->authid, 0, SASL_CU_AUTHID, oparams);
     if (result != SASL_OK) goto cleanup;
     
     result = params->canon_user(params->utils->conn,
-				text->userid, 0, SASL_CU_AUTHZID, oparams);
+                                text->userid, 0, SASL_CU_AUTHZID, oparams);
     if (result != SASL_OK) goto cleanup;
     
     result = params->utils->prop_getnames(params->propctx, password_request,
-					  auxprop_values);
-    if (result < 0 ||
-	((!auxprop_values[0].name || !auxprop_values[0].values) &&
-	 (!auxprop_values[1].name || !auxprop_values[1].values))) {
-	/* We didn't find this username */
-	params->utils->seterror(params->utils->conn,0,
-				"no secret in database");
-	result = params->transition ? SASL_TRANS : SASL_NOUSER;
-	goto cleanup;
-    }
-    
-    if (auxprop_values[0].name && auxprop_values[0].values) {
-	char *mda = NULL;
-	
-	/* We have a precomputed verifier */
-	result = ParseUserSecret(params->utils,
-				 (char*) auxprop_values[0].values[0],
-				 auxprop_values[0].valsize,
-				 &mda, &text->v, &text->salt, &text->saltlen);
-	
-	if (result) {
-	    /* ParseUserSecret sets error, if any */
-	    if (mda) params->utils->free(mda);
-	    goto cleanup;
-	}
-	
-	/* find mda */
-	server_mda = digest_options;
-	while (server_mda->name) {
-	    if (!strcasecmp(server_mda->name, mda))
-		break;
-	    
-	    server_mda++;
-	}
-	
-	if (!server_mda->name) {
-	    params->utils->seterror(params->utils->conn, 0,
-				    "unknown SRP mda '%s'", mda);
-	    params->utils->free(mda);
-	    result = SASL_FAIL;
-	    goto cleanup;
-	}
-	params->utils->free(mda);
-	
-    } else if (auxprop_values[1].name && auxprop_values[1].values) {
-	/* We only have the password -- calculate the verifier */
-	int len = strlen(auxprop_values[1].values[0]);
+                                          auxprop_values);
 
-	if (len == 0) {
-	    params->utils->seterror(params->utils->conn,0,
-				    "empty secret");
-	    result = SASL_FAIL;
-	    goto cleanup;
-	}
-	
-	result = CalculateV(text, &text->N, &text->g, text->authid,
-			    auxprop_values[1].values[0], len,
-			    &text->v, &text->salt, &text->saltlen);
-	if (result) {
-	    params->utils->seterror(params->utils->conn, 0, 
-				    "Error calculating v");
-	    goto cleanup;
-	}
+    dprintf("result = %d, auxprop_values[0].name = %s, auxprop_values[0].values = %p\n", result, auxprop_values[0].name, auxprop_values[0].values);
+    dprintf("auxprop_values[1].name = %s, auxprop_values[1].values = %p\n", auxprop_values[1].name, auxprop_values[1].values);
+    if (result < 0 ||
+        ((!auxprop_values[0].name || !auxprop_values[0].values) &&
+         (!auxprop_values[1].name || !auxprop_values[1].values))) {
+        /* We didn't find this username */
+        params->utils->seterror(params->utils->conn,0,
+                                "no secret in database");
+        result = params->transition ? SASL_TRANS : SASL_NOMECH;
+        goto cleanup;
+    }
+
+    /* only supported auxprop *SRP-RFC5054-4096-SHA512-PBKDF2 */
+    char *md_name = "sha512";
+    char *gp_name = "rfc5054_4096";
+
+    if (auxprop_values[0].name && auxprop_values[0].values) {
+        dprintf("have srp verifier\n");
+        CFDataRef cfData = CFDataCreate(kCFAllocatorDefault, (uint8_t *)auxprop_values[0].values[0], (CFIndex)strlen(auxprop_values[0].values[0]));
+        CFErrorRef err = NULL;
+        dict = (CFDictionaryRef)CFPropertyListCreateWithData(kCFAllocatorDefault, cfData, kCFPropertyListImmutable, NULL, &err);
+        CFRelease(cfData);
+        
+        result = srp_load_authdata_dict(text, params, dict, md_name, gp_name);
+        if (result != SASL_OK)
+            goto cleanup;
+    } else if (auxprop_values[1].name && auxprop_values[1].values) {
+        dprintf("have cleartext only\n");
+        char *password = (char *)auxprop_values[1].values[0];
+        /* We only have the password -- calculate the verifier */
+        dict = srp_generate_authdata_dict(password, md_name, gp_name);
+        result = srp_load_authdata_dict(text, params, dict, md_name, gp_name);
+        if (result != SASL_OK)
+            goto cleanup;
     } else {
-	params->utils->seterror(params->utils->conn, 0,
-				"Have neither type of secret");
-	result = SASL_FAIL;
-	goto cleanup;
-    }    
+        params->utils->seterror(params->utils->conn, 0,
+                                "Have neither type of secret");
+        result = SASL_NOMECH;
+        goto cleanup;
+    }
+    dprintf("about to calculate B\n");
     
     /* erase the plaintext password */
     params->utils->prop_erase(params->propctx, password_request[1]);
-    
+  
+    size_t v_buf_len = ccsrp_ctx_sizeof_n(text->srp);
+    uint8_t *v_buf = params->utils->malloc(v_buf_len);
+    memset(v_buf, 0, v_buf_len);
+    ccz_write_uint(text->v, v_buf_len, v_buf);
+
+    dumpBuf("srp_server_mech_step1 v", v_buf, v_buf_len);
+
+    size_t B_buf_len = ccsrp_ctx_sizeof_n(text->srp);
+    dprintf("B_buf_len = %zu\n", B_buf_len);
+    void *B_buf = params->utils->malloc(B_buf_len);
+    memset(B_buf, 0, B_buf_len);
+
     /* Calculate B */
-    result = CalculateB(text, &text->v, &text->N, &text->g,
-			&text->b, &text->B);
+    result = ccsrp_server_generate_public_key(text->srp, (struct ccrng_state *)&text->rng, v_buf, B_buf);
+    dumpBuf("srp_server_mech_step1 B", B_buf, B_buf_len);
+    params->utils->free(v_buf);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error calculating B");
-	return result;
+        params->utils->free(B_buf);
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error in ccsrp_server_generate_public_key: %d", result);
+        return SASL_FAIL;
     }
+    ccz_zero(text->B);
+    ccz_read_uint(text->B, B_buf_len, B_buf);
+    params->utils->free(B_buf);
+    dumpN("ccsrp_server_generate_public_key B", text->B);
+    dumpNSRP("srp_server_mech_step1 ccsrp_ctx_public (B)", text->srp, ccsrp_ctx_public(text->srp));
 
     /* Create L */
     result = CreateServerOptions(params, &text->server_options);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error creating server options");
-	goto cleanup;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error creating server options");
+        goto cleanup;
     }
     
     /* Send out:
@@ -1960,21 +1930,26 @@ static int srp_server_mech_step1(context_t *text,
      * g - generator
      * s - salt
      * B - server's public key
+     * i - iteration count (APPLE)
      * L - server options (available layers etc)
      *
      * { 0x00 mpi(N) mpi(g) os(s) mpi(B) utf8(L) }
      *
      */
+    dprintf("sending text->iterations = %llu\n", text->iterations);
+    size_t outlen = 0;
     result = MakeBuffer(text->utils, &text->out_buf, &text->out_buf_len,
-			serveroutlen, "%c%m%m%o%m%s",
-			0x00, &text->N, &text->g, text->saltlen, text->salt,
-			&text->B, text->server_options);
+                        &outlen, "%c%m%m%o%m%q%s",
+                        0x00, text->N, text->g, text->saltlen, text->salt,
+                        text->B, text->iterations, text->server_options);
+    *serveroutlen = (unsigned int)outlen;
+    dumpBuf("MakeBuffer", text->out_buf, text->out_buf_len);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error creating SRP buffer from data in step 1");
-	goto cleanup;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error creating SRP buffer from data in step 1");
+        goto cleanup;
     }
-    *serverout = text->out_buf;
+    *serverout = (const char *)text->out_buf;
     
     text->state = 2;
     result = SASL_CONTINUE;
@@ -1984,28 +1959,26 @@ static int srp_server_mech_step1(context_t *text,
     if (cn) params->utils->free(cn);
     if (user) params->utils->free(user);
     if (realm) params->utils->free(realm);
-    
+    if (dict) CFRelease(dict);
+        
     return result;
 }
 
 static int srp_server_mech_step2(context_t *text,
-			sasl_server_params_t *params,
-			const char *clientin,
-			unsigned clientinlen,
-			const char **serverout,
-			unsigned *serveroutlen,
-			sasl_out_params_t *oparams)
+                        sasl_server_params_t *params,
+                        const char *clientin,
+                        unsigned clientinlen,
+                        const char **serverout,
+                        unsigned *serveroutlen,
+                        sasl_out_params_t *oparams)
 {
     int result;    
-    char *M1 = NULL, *cIV = NULL; /* don't free */
-    int M1len, cIVlen;
+    uint8_t *M1 = NULL, *cIV = NULL; /* don't free */
+    uint32_t M1len, cIVlen;
     srp_options_t client_opts;
-    char myM1[EVP_MAX_MD_SIZE];
-    int myM1len;
-    int i;
-    char M2[EVP_MAX_MD_SIZE];
-    int M2len;
-    char sIV[SRP_MAXBLOCKSIZE];
+    uint8_t M2[SRP_MAX_MD_SIZE];
+    size_t M2len;
+    uint8_t sIV[SRP_MAXBLOCKSIZE];
     
     /* Expect:
      *
@@ -2018,94 +1991,85 @@ static int srp_server_mech_step2(context_t *text,
      *
      */
     result = UnBuffer(params->utils, clientin, clientinlen,
-		      "%m%-o%s%-o", &text->A, &M1len, &M1,
-		      &text->client_options, &cIVlen, &cIV);
+                      "%m%-o%s%-o", &text->A, &M1len, &M1,
+                      &text->client_options, &cIVlen, &cIV);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error UnBuffering input in step 2");
-	goto cleanup;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error UnBuffering input in step 2");
+        goto cleanup;
     }
+    dumpN("srp_server_mech_step2 A", text->A);
+    dumpBuf("srp_server_mech_step2 M1", M1, M1len);
     
     /* Per [SRP]: reject A <= 0 */
-    if (BigIntCmpWord(&text->A, 0) <= 0) {
-	SETERROR(params->utils, "Illegal value for 'A'\n");
-	result = SASL_BADPROT;
-	goto cleanup;
+    if (ccz_cmpi(text->A, 0) <= 0) {
+        SETERROR(params->utils, "Illegal value for 'A'\n");
+        result = SASL_BADPROT;
+        goto cleanup;
     }
 
     /* parse client options */
-    result = ParseOptions(params->utils, text->client_options, &client_opts, 1);
+    result = ParseOptions(params->utils, text->client_options, &client_opts, true);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error parsing user's options");
-	
-	if (client_opts.confidentiality) {
-	    /* Mark that we attempted confidentiality layer negotiation */
-	    oparams->mech_ssf = 2;
-	}
-	else if (client_opts.integrity || client_opts.replay_detection) {
-	    /* Mark that we attempted integrity layer negotiation */
-	    oparams->mech_ssf = 1;
-	}
-	return result;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error parsing user's options");
+        
+        if (client_opts.confidentiality_integrity) {
+            /* Mark that we attempted confidentiality layer negotiation */
+            oparams->mech_ssf = 2;
+        }
+        else if (client_opts.confidentiality_integrity || client_opts.replay_detection) {
+            /* Mark that we attempted integrity layer negotiation */
+            oparams->mech_ssf = 1;
+        }
+        return result;
     }
 
     result = SetMDA(&client_opts, text);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error setting options");
-	return result;   
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error setting options");
+        return result;   
     }
 
     /* Calculate K */
-    result = ServerCalculateK(text, &text->v, &text->N, &text->A,
-			      &text->b, &text->B, text->K, &text->Klen);
+    size_t A_buf_len = ccsrp_ctx_sizeof_n(text->srp);
+    uint8_t *A_buf = params->utils->malloc(A_buf_len);
+    memset(A_buf, 0, A_buf_len);
+    ccz_write_uint(text->A, A_buf_len, A_buf);
+
+    dumpN("srp_server_mech_step2 A", text->A);
+    dumpBuf("srp_server_mech_step2 A_buf", A_buf, A_buf_len);
+    dumpBuf("srp_server_mech_step2 salt", text->salt, text->saltlen);
+    dumpNSRP("srp_server_mech_step2 ccsrp_ctx_private (b)", text->srp, ccsrp_ctx_private(text->srp));
+    dumpNSRP("srp_server_mech_step2 ccsrp_ctx_public (B)", text->srp, ccsrp_ctx_public(text->srp));
+
+    result = ccsrp_server_compute_session(text->srp, "", text->saltlen, text->salt, A_buf);
+    params->utils->free(A_buf);
+    dumpBuf("srp_server_mech_step2 ccsrp_ctx_K", ccsrp_ctx_K(text->srp), ccsrp_ctx_keysize(text->srp));
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error calculating K");
-	return result;
+        params->utils->seterror(params->utils->conn, 0,
+                                "Error in ccsrp_server_compute_session");
+        return SASL_FAIL;
     }
-    
+
+    memset(M2, 0, sizeof(M2));
+    dumpBuf("user M1", M1, ccsrp_ctx_keysize(text->srp));
+    dumpBuf("ccsrp_ctx_M", ccsrp_ctx_M(text->srp), ccsrp_ctx_keysize(text->srp));
     /* See if M1 is correct */
-    result = CalculateM1(text, &text->N, &text->g, text->authid,
-			 text->salt, text->saltlen, &text->A, &text->B,
-			 text->K, text->Klen, text->userid,
-			 text->server_options, myM1, &myM1len);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error calculating M1");
-	goto cleanup;
+    /* calculate M2 to send, M2 (aka HAMK) = H(A | M1 | K) */
+    bool verified = ccsrp_server_verify_session(text->srp, M1, &M2);
+    if (!verified) {
+        params->utils->seterror(params->utils->conn, 0, 
+                                "client evidence does not match what we "
+                                "calculated. Probably a password error");
+        result = SASL_BADAUTH;
+        goto cleanup;
     }
-    
-    if (myM1len != M1len) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"SRP M1 lengths do not match");
-	result = SASL_BADAUTH;
-	goto cleanup;
-    }
-    
-    for (i = 0; i < myM1len; i++) {
-	if (myM1[i] != M1[i]) {
-	    params->utils->seterror(params->utils->conn, 0, 
-				    "client evidence does not match what we "
-				    "calculated. Probably a password error");
-	    result = SASL_BADAUTH;
-	    goto cleanup;
-	}
-    }
-    
-    /* calculate M2 to send */
-    result = CalculateM2(text, &text->A, M1, M1len, text->K, text->Klen,
-			 text->userid, text->client_options, "", 0,
-			 M2, &M2len);
-    if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error calculating M2 (server evidence)");
-	goto cleanup;
-    }
-    
+    M2len = ccsrp_ctx_keysize(text->srp);
+
     /* Create sIV (server initial vector) */
-    text->utils->rand(text->utils->rpool, sIV, sizeof(sIV));
+    text->utils->rand(text->utils->rpool, (char *)sIV, sizeof(sIV));
     
     /*
      * Send out:
@@ -2116,23 +2080,25 @@ static int srp_server_mech_step2(context_t *text,
      *
      * { os(M2) os(sIV) utf8(sid) uint(ttl) }
      */
+    size_t outlen = 0;
     result = MakeBuffer(text->utils, &text->out_buf, &text->out_buf_len,
-			serveroutlen, "%o%o%s%u", M2len, M2,
-			sizeof(sIV), sIV, "", 0);
+                        &outlen, "%o%o%s%u", M2len, M2,
+                        sizeof(sIV), sIV, "", 0);
+    *serveroutlen = (unsigned int)outlen;
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error making output buffer in SRP step 3");
-	goto cleanup;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error making output buffer in SRP step 3");
+        goto cleanup;
     }
-    *serverout = text->out_buf;
+    *serverout = (const char *)text->out_buf;
 
     /* configure security layer */
     result = LayerInit(&client_opts, text, oparams, cIV, sIV,
-		       params->props.maxbufsize);
+                       params->props.maxbufsize);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error initializing security layer");
-	return result;   
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error initializing security layer");
+        return result;   
     }
 
     /* set oparams */
@@ -2147,213 +2113,62 @@ static int srp_server_mech_step2(context_t *text,
 }
 
 static int srp_server_mech_step(void *conn_context,
-				sasl_server_params_t *sparams,
-				const char *clientin,
-				unsigned clientinlen,
-				const char **serverout,
-				unsigned *serveroutlen,
-				sasl_out_params_t *oparams)
+                                sasl_server_params_t *sparams,
+                                const char *clientin,
+                                unsigned clientinlen,
+                                const char **serverout,
+                                unsigned *serveroutlen,
+                                sasl_out_params_t *oparams)
 {
     context_t *text = (context_t *) conn_context;
     
     if (!sparams
-	|| !serverout
-	|| !serveroutlen
-	|| !oparams)
-	return SASL_BADPARAM;
+        || !serverout
+        || !serveroutlen
+        || !oparams)
+        return SASL_BADPARAM;
     
     *serverout = NULL;
     *serveroutlen = 0;
 
     if (text == NULL) {
-	return SASL_BADPROT;
+        return SASL_BADPROT;
     }
 
     sparams->utils->log(NULL, SASL_LOG_DEBUG,
-			"SRP server step %d\n", text->state);
+                        "SRP server step %d\n", text->state);
 
     switch (text->state) {
 
     case 1:
-	return srp_server_mech_step1(text, sparams, clientin, clientinlen,
-				     serverout, serveroutlen, oparams);
+        return srp_server_mech_step1(text, sparams, clientin, clientinlen,
+                                     serverout, serveroutlen, oparams);
 
     case 2:
-	return srp_server_mech_step2(text, sparams, clientin, clientinlen,
-				     serverout, serveroutlen, oparams);
+        return srp_server_mech_step2(text, sparams, clientin, clientinlen,
+                                     serverout, serveroutlen, oparams);
 
     default:
-	sparams->utils->seterror(sparams->utils->conn, 0,
-				 "Invalid SRP server step %d", text->state);
-	return SASL_FAIL;
+        sparams->utils->seterror(sparams->utils->conn, 0,
+                                 "Invalid SRP server step %d", text->state);
+        return SASL_FAIL;
     }
     
     return SASL_FAIL; /* should never get here */
 }
 
-#ifdef DO_SRP_SETPASS
-static int srp_setpass(void *glob_context __attribute__((unused)),
-		       sasl_server_params_t *sparams,
-		       const char *userstr,
-		       const char *pass,
-		       unsigned passlen __attribute__((unused)),
-		       const char *oldpass __attribute__((unused)),
-		       unsigned oldpasslen __attribute__((unused)),
-		       unsigned flags)
+static int srp_mech_avail(void *glob_context,
+                          sasl_server_params_t *sparams,
+                          void **conn_context)
 {
-    int r;
-    char *user = NULL;
-    char *user_only = NULL;
-    char *realm = NULL;
-    sasl_secret_t *sec = NULL;
-    struct propctx *propctx = NULL;
-    const char *store_request[] = { "cmusaslsecretSRP",
-				     NULL };
+    (void) glob_context;
+    (void) conn_context;
     
-    /* Do we have a backend that can store properties? */
-    if (!sparams->utils->auxprop_store ||
-	sparams->utils->auxprop_store(NULL, NULL, NULL) != SASL_OK) {
-	SETERROR(sparams->utils, "SRP: auxprop backend can't store properties");
-	return SASL_NOMECH;
-    }
-    
-    /* NB: Ideally we need to canonicalize userstr here */
-    r = _plug_parseuser(sparams->utils, &user_only, &realm, sparams->user_realm,
-			sparams->serverFQDN, userstr);
-
-    if (r) {
-	sparams->utils->seterror(sparams->utils->conn, 0, 
-				 "Error parsing user");
-	return r;
-    }
-
-    r = _plug_make_fulluser(sparams->utils, &user, user_only, realm);
-
-    if (r) {
-	goto end;
-    }
-
-    if ((flags & SASL_SET_DISABLE) || pass == NULL) {
-	sec = NULL;
-    } else {
-	context_t *text;
-	BIGNUM N;
-	BIGNUM g;
-	BIGNUM v;
-	char *salt;
-	int saltlen;
-	char *buffer = NULL;
-	int bufferlen, alloclen, encodelen;
-	
-	text = sparams->utils->malloc(sizeof(context_t));
-	if (text == NULL) {
-	    MEMERROR(sparams->utils);
-	    return SASL_NOMEM;
-	}
-	
-	memset(text, 0, sizeof(context_t));
-	
-	text->utils = sparams->utils;
-	text->md = EVP_get_digestbyname(server_mda->evp_name);
-	
-	r = generate_N_and_g(&N, &g);
-	if (r) {
-	    sparams->utils->seterror(sparams->utils->conn, 0, 
-				     "Error calculating N and g");
-	    goto end;
-	}
-
-	/* user is a full username here */
-	r = CalculateV(text, &N, &g, user, pass, passlen, &v, &salt, &saltlen);
-	if (r) {
-	    sparams->utils->seterror(sparams->utils->conn, 0, 
-				     "Error calculating v");
-	    goto end;
-	}
-	
-	/* The secret data is stored as suggested in RFC 2945:
-	 *
-	 *  { utf8(mda) mpi(v) os(salt) }  (base64 encoded)
-	 */
-	
-	r = MakeBuffer(text->utils, &text->out_buf, &text->out_buf_len,
-		       &bufferlen, "%s%m%o",
-		       server_mda->name, &v, saltlen, salt);
-	
-	if (r) {
-	    sparams->utils->seterror(sparams->utils->conn, 0, 
-				     "Error making buffer for secret");
-	    goto end;
-	}
-	buffer = text->out_buf;
-	
-	/* Put 'buffer' into sasl_secret_t.
-	 * This will be base64 encoded, so make sure its big enough.
-	 */
-	alloclen = (bufferlen/3 + 1) * 4 + 1;
-	sec = sparams->utils->malloc(sizeof(sasl_secret_t)+alloclen);
-	if (!sec) {
-	    r = SASL_NOMEM;
-	    goto end;
-	}
-	sparams->utils->encode64(buffer, bufferlen, sec->data, alloclen,
-				 &encodelen);
-	sec->len = encodelen;
-	
-	/* Clean everything up */
-      end:
-	if (buffer) sparams->utils->free((void *) buffer);
-	BN_clear_free(&N);
-	BN_clear_free(&g);
-	BN_clear_free(&v);
-	sparams->utils->free(text);
-	
-	if (r) return r;
-    }
-    
-    /* do the store */
-    propctx = sparams->utils->prop_new(0);
-    if (!propctx)
-	r = SASL_FAIL;
-    if (!r)
-	r = sparams->utils->prop_request(propctx, store_request);
-    if (!r)
-	r = sparams->utils->prop_set(propctx, "cmusaslsecretSRP",
-				     (sec ? sec->data : NULL),
-				     (sec ? sec->len : 0));
-    if (!r)
-	r = sparams->utils->auxprop_store(sparams->utils->conn, propctx, user);
-    if (propctx)
-	sparams->utils->prop_dispose(&propctx);
-    
-    if (r) {
-	sparams->utils->seterror(sparams->utils->conn, 0, 
-				 "Error putting SRP secret");
-	goto cleanup;
-    }
-    
-    sparams->utils->log(NULL, SASL_LOG_DEBUG, "Setpass for SRP successful\n");
-    
-  cleanup:
-    
-    if (user) 	_plug_free_string(sparams->utils, &user);
-    if (user_only) 	_plug_free_string(sparams->utils, &user_only);
-    if (realm) 	_plug_free_string(sparams->utils, &realm);
-    if (sec)    _plug_free_secret(sparams->utils, &sec);
-    
-    return r;
-}
-#endif /* DO_SRP_SETPASS */
-
-static int srp_mech_avail(void *glob_context __attribute__((unused)),
-			  sasl_server_params_t *sparams,
-			  void **conn_context __attribute__((unused))) 
-{
     /* Do we have access to the selected MDA? */
     if (!server_mda || !server_mda->enabled) {
-	SETERROR(sparams->utils,
-		 "SRP unavailable due to selected MDA unavailable");
-	return SASL_NOMECH;
+        SETERROR(sparams->utils,
+                 "SRP unavailable due to selected MDA unavailable");
+        return SASL_NOMECH;
     }
     
     return SASL_OK;
@@ -2362,84 +2177,96 @@ static int srp_mech_avail(void *glob_context __attribute__((unused)),
 static sasl_server_plug_t srp_server_plugins[] = 
 {
     {
-	"SRP",				/* mech_name */
-	0,				/* max_ssf */
-	SASL_SEC_NOPLAINTEXT
-	| SASL_SEC_NOANONYMOUS
-	| SASL_SEC_NOACTIVE
-	| SASL_SEC_NODICTIONARY
-	| SASL_SEC_FORWARD_SECRECY
-	| SASL_SEC_MUTUAL_AUTH,		/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST
-	| SASL_FEAT_ALLOWS_PROXY,	/* features */
-	NULL,				/* glob_context */
-	&srp_server_mech_new,		/* mech_new */
-	&srp_server_mech_step,		/* mech_step */
-	&srp_common_mech_dispose,	/* mech_dispose */
-	&srp_common_mech_free,		/* mech_free */
-#ifdef DO_SRP_SETPASS
-	&srp_setpass,			/* setpass */
-#else
-	NULL,
-#endif
-	NULL,				/* user_query */
-	NULL,				/* idle */
-	&srp_mech_avail,		/* mech avail */
-	NULL				/* spare */
+        "SRP",                              /* mech_name */
+        0,                                  /* max_ssf */
+        SASL_SEC_NOPLAINTEXT
+        | SASL_SEC_NOANONYMOUS
+        | SASL_SEC_NOACTIVE
+        | SASL_SEC_NODICTIONARY
+        | SASL_SEC_FORWARD_SECRECY
+        | SASL_SEC_MUTUAL_AUTH,             /* security_flags */
+        SASL_FEAT_WANT_CLIENT_FIRST
+        | SASL_FEAT_ALLOWS_PROXY,           /* features */
+        NULL,                               /* glob_context */
+        &srp_server_mech_new,               /* mech_new */
+        &srp_server_mech_step,              /* mech_step */
+        &srp_common_mech_dispose,           /* mech_dispose */
+        &srp_common_mech_free,              /* mech_free */
+        NULL,                               /* setpass */
+        NULL,                               /* user_query */
+        NULL,                               /* idle */
+        &srp_mech_avail,                    /* mech avail */
+        NULL                                /* spare */
     }
 };
 
 int srp_server_plug_init(const sasl_utils_t *utils,
-			 int maxversion,
-			 int *out_version,
-			 const sasl_server_plug_t **pluglist,
-			 int *plugcount,
-			 const char *plugname __attribute__((unused)))
+                         int maxversion,
+                         int *out_version,
+                         const sasl_server_plug_t **pluglist,
+                         int *plugcount,
+                         const char *plugname);
+
+int srp_server_plug_init(const sasl_utils_t *utils,
+                         int maxversion,
+                         int *out_version,
+                         const sasl_server_plug_t **pluglist,
+                         int *plugcount,
+                         const char *plugname)
 {
     const char *mda;
     unsigned int len;
     layer_option_t *opts;
     
+    (void) plugname;
+    
     if (maxversion < SASL_SERVER_PLUG_VERSION) {
-	SETERROR(utils, "SRP version mismatch");
-	return SASL_BADVERS;
+        SETERROR(utils, "SRP version mismatch");
+        return SASL_BADVERS;
     }
     
     utils->getopt(utils->getopt_context, "SRP", "srp_mda", &mda, &len);
     if (!mda) mda = DEFAULT_MDA;
     
-    /* Add all digests and ciphers */
-    OpenSSL_add_all_algorithms();
-    
     /* See which digests we have available and set max_ssf accordingly */
     opts = digest_options;
     while (opts->name) {
-	if (EVP_get_digestbyname(opts->evp_name)) {
-	    opts->enabled = 1;
-	    
-	    srp_server_plugins[0].max_ssf = opts->ssf;
-	}
-	
-	/* Locate the server MDA */
-	if (!strcasecmp(opts->name, mda) || !strcasecmp(opts->evp_name, mda)) {
-	    server_mda = opts;
-	}
-	
-	opts++;
+        if (cc_get_digestbyname(opts->evp_name)) {
+            opts->enabled = true;
+            
+            srp_server_plugins[0].max_ssf = opts->ssf;
+        }
+        
+        /* Locate the server MDA */
+        if (!strcasecmp(opts->name, mda) || !strcasecmp(opts->evp_name, mda)) {
+            server_mda = opts;
+        }
+        
+        opts++;
     }
     
-    /* See which ciphers we have available and set max_ssf accordingly */
+    /* Enable all supported ciphers and set max_ssf accordingly */
     opts = cipher_options;
     while (opts->name) {
-	if (EVP_get_cipherbyname(opts->evp_name)) {
-	    opts->enabled = 1;
-	    
-	    if (opts->ssf > srp_server_plugins[0].max_ssf) {
-		srp_server_plugins[0].max_ssf = opts->ssf;
-	    }
-	}
-	
-	opts++;
+        opts->enabled = true;
+        
+        if (opts->ssf > srp_server_plugins[0].max_ssf) {
+            srp_server_plugins[0].max_ssf = opts->ssf;
+        }
+        
+        opts++;
+    }
+
+    /* Enable all supported KDFs */
+    opts = kdf_options;
+    while (opts->name) {
+        opts->enabled = true;
+            
+        if (opts->ssf > srp_server_plugins[0].max_ssf) {
+            srp_server_plugins[0].max_ssf = opts->ssf;
+        }
+        
+        opts++;
     }
     
     *out_version = SASL_SERVER_PLUG_VERSION;
@@ -2451,22 +2278,33 @@ int srp_server_plug_init(const sasl_utils_t *utils,
 
 /*****************************  Client Section  *****************************/
 
-/* Check to see if N,g is in the recommended list */
-static int check_N_and_g(const sasl_utils_t *utils, BIGNUM *N, BIGNUM *g)
+/* Check to see if N,g is in the recommended list; set gp */
+static int check_N_and_g(const sasl_utils_t *utils, context_t *text)
 {
+    ccz *N = text->N;
+    ccz *g = text->g;
     char *N_prime;
+    size_t N_prime_len;
     unsigned long g_prime;
+    char g_prime_byte;
     unsigned i;
     int r = SASL_FAIL;
-    
-    N_prime = BN_bn2hex(N);
-    g_prime = BN_get_word(g);
+
+    N_prime_len = ccz_write_uint_size(N);
+    N_prime = utils->malloc(N_prime_len);
+    ccz_write_uint(N, N_prime_len, N_prime);
+    if (ccz_write_uint_size(g) != 1) return SASL_FAIL;
+    ccz_write_uint(g, 1, &g_prime_byte);
+    g_prime = (unsigned long)g_prime_byte;
+
+    set_ccsrp_groups();
     
     for (i = 0; i < NUM_Ng; i++) {
-	if (!strcasecmp(N_prime, Ng_tab[i].N) && (g_prime == Ng_tab[i].g)) {
-	    r = SASL_OK;
-	    break;
-	}
+        if (N_prime_len == Ng_tab[i].Nbits/8 && !memcmp(N_prime, Ng_tab[i].N, N_prime_len) && (g_prime == Ng_tab[i].g)) {
+            r = SASL_OK;
+            text->gp = Ng_tab[i].gp;
+            break;
+        }
     }
     
     if (N_prime) utils->free(N_prime);
@@ -2474,111 +2312,9 @@ static int check_N_and_g(const sasl_utils_t *utils, BIGNUM *N, BIGNUM *g)
     return r;
 }
 
-static int CalculateA(context_t *text  __attribute__((unused)),
-		      BIGNUM *N, BIGNUM *g, BIGNUM *a, BIGNUM *A)
-{
-    BN_CTX *ctx = BN_CTX_new();
-    
-    /* Generate a */
-    GetRandBigInt(a);
-	
-    /* Per [SRP]: make sure a > log[g](N) -- g is always 2 */
-    BN_add_word(a, BN_num_bits(N));
-	
-    /* A = g^a % N */
-    BN_init(A);
-    BN_mod_exp(A, g, a, N, ctx);
-
-    BN_CTX_free(ctx);
-    
-    return SASL_OK;
-}
-	
-static int ClientCalculateK(context_t *text, char *salt, int saltlen,
-			    char *user, char *pass, int passlen,
-			    BIGNUM *N, BIGNUM *g, BIGNUM *a, BIGNUM *A,
-			    BIGNUM *B, char *K, int *Klen)
-{
-    int r;
-    unsigned char hash[EVP_MAX_MD_SIZE];
-    int hashlen;
-    BIGNUM x;
-    BIGNUM u;
-    BIGNUM aux;
-    BIGNUM gx;
-    BIGNUM gx3;
-    BIGNUM base;
-    BIGNUM S;
-    BN_CTX *ctx = BN_CTX_new();
-    
-    /* u = H(A | B) */
-    r = MakeHash(text->md, hash, &hashlen, "%m%m", A, B);
-    if (r) goto err;
-    BN_init(&u);
-    BN_bin2bn(hash, hashlen, &u);
-    
-    /* per Tom Wu: make sure u != 0 */
-    if (BN_is_zero(&u)) {
-	SETERROR(text->utils, "SRP: Illegal value for 'u'\n");
-	r = SASL_BADPROT;
-	goto err;
-    }
-    
-    /* S = (B - 3(g^x)) ^ (a + ux) % N */
-
-    r = CalculateX(text, salt, saltlen, user, pass, passlen, &x);
-    if (r) return r;
-    
-    /* a + ux */
-    BN_init(&aux);
-    BN_mul(&aux, &u, &x, ctx);
-    BN_add(&aux, &aux, a);
-    
-    /* gx3 = 3(g^x) % N */
-    BN_init(&gx);
-    BN_mod_exp(&gx, g, &x, N, ctx);
-    BN_init(&gx3);
-    BN_set_word(&gx3, 3);
-    BN_mod_mul(&gx3, &gx3, &gx, N, ctx);
-    
-    /* base = (B - 3(g^x)) % N */
-    BN_init(&base);
-#if OPENSSL_VERSION_NUMBER >= 0x00907000L
-    BN_mod_sub(&base, B, &gx3, N, ctx);
-#else
-    BN_sub(&base, B, &gx3);
-    BN_mod(&base, &base, N, ctx);
-    if (BigIntCmpWord(&base, 0) < 0) {
-	BN_add(&base, &base, N);
-    }
-#endif
-    
-    /* S = base^aux % N */
-    BN_init(&S);
-    BN_mod_exp(&S, &base, &aux, N, ctx);
-    
-    /* K = H(S) */
-    r = MakeHash(text->md, K, Klen, "%m", &S);
-    if (r) goto err;
-    
-    r = SASL_OK;
-    
-  err:
-    BN_CTX_free(ctx);
-    BN_clear_free(&x);
-    BN_clear_free(&u);
-    BN_clear_free(&aux);
-    BN_clear_free(&gx);
-    BN_clear_free(&gx3);
-    BN_clear_free(&base);
-    BN_clear_free(&S);
-    
-    return r;
-}
-
 static int CreateClientOpts(sasl_client_params_t *params, 
-			    srp_options_t *available, 
-			    srp_options_t *out)
+                            srp_options_t *available, 
+                            srp_options_t *out)
 {
     layer_option_t *opt;
     sasl_ssf_t external;
@@ -2589,17 +2325,17 @@ static int CreateClientOpts(sasl_client_params_t *params,
     memset(out, 0, sizeof(srp_options_t));
     
     params->utils->log(NULL, SASL_LOG_DEBUG,
-		       "Available MDA = %d\n", available->mda);
+                       "Available MDA = %d\n", available->mda);
     
     /* mda */
     opt = FindBest(available->mda, 0, 256, digest_options);
     
     if (opt) {
-	out->mda = opt->bit;
+        out->mda = opt->bit;
     }
     else {
-	SETERROR(params->utils, "Can't find an acceptable SRP MDA\n");
-	return SASL_BADAUTH;
+        SETERROR(params->utils, "Can't find an acceptable SRP MDA\n");
+        return SASL_BADAUTH;
     }
     
     /* get requested ssf */
@@ -2607,110 +2343,69 @@ static int CreateClientOpts(sasl_client_params_t *params,
     
     /* what do we _need_?  how much is too much? */
     if(params->props.maxbufsize == 0) {
-	musthave = 0;
-	limit = 0;
+        musthave = 0;
+        limit = 0;
     } else {
-	if (params->props.max_ssf > external) {
-	    limit = params->props.max_ssf - external;
-	} else {
-	    limit = 0;
-	}
-	if (params->props.min_ssf > external) {
-	    musthave = params->props.min_ssf - external;
-	} else {
-	    musthave = 0;
-	}
+        if (params->props.max_ssf > external) {
+            limit = params->props.max_ssf - external;
+        } else {
+            limit = 0;
+        }
+        if (params->props.min_ssf > external) {
+            musthave = params->props.min_ssf - external;
+        } else {
+            musthave = 0;
+        }
     }
-        
-    /* we now go searching for an option that gives us at least "musthave"
-       and at most "limit" bits of ssf. */
-    params->utils->log(NULL, SASL_LOG_DEBUG,
-		       "Available confidentiality = %d  "
-		       "musthave = %d  limit = %d",
-		       available->confidentiality, musthave, limit);
-    
-    /* confidentiality */
-    if (limit > 1) {
-	
-	opt = FindBest(available->confidentiality, musthave, limit,
-		       cipher_options);
-	
-	if (opt) {
-	    out->confidentiality = opt->bit;
-	    /* we've already satisfied the SSF with the confidentiality
-	     * layer, but we'll also use an integrity layer if we can
-	     */
-	    musthave = 0;
-	}
-	else if (musthave > 1) {
-	    SETERROR(params->utils,
-		     "Can't find an acceptable SRP confidentiality layer\n");
-	    return SASL_TOOWEAK;
-	}
-    }
-    
-    params->utils->log(NULL, SASL_LOG_DEBUG,
-		       "Available integrity = %d "
-		       "musthave = %d  limit = %d",
-		       available->integrity, musthave, limit);
-    
-    /* integrity */
-    if ((limit >= 1) && (musthave <= 1)) {
-	
-	opt = FindBest(available->integrity, musthave, limit,
-		       digest_options);
-	
-	if (opt) {
-	    out->integrity = opt->bit;
-	    
-	    /* if we set an integrity option we can set replay detection */
-	    out->replay_detection = available->replay_detection;
-	}
-	else if (musthave > 0) {
-	    SETERROR(params->utils,
-		     "Can't find an acceptable SRP integrity layer\n");
-	    return SASL_TOOWEAK;
-	}
-    }
-    
+    /* Always use replay detection, and default cipher */
+    out->replay_detection = true;
+    out->confidentiality_integrity = default_cipher->bit;
+       
     /* Check to see if we've satisfied all of the servers mandatory layers */
     params->utils->log(NULL, SASL_LOG_DEBUG,
-		       "Mandatory layers = %d\n",available->mandatory);
+                       "Mandatory layers = %d\n",available->mandatory);
     
     if ((!out->replay_detection &&
-	 (available->mandatory & BIT_REPLAY_DETECTION)) ||
-	(!out->integrity &&
-	 (available->mandatory & BIT_INTEGRITY)) ||
-	(!out->confidentiality &&
-	 (available->mandatory & BIT_CONFIDENTIALITY))) {
-	SETERROR(params->utils, "Mandatory SRP layer not supported\n");
-	return SASL_BADAUTH;
+         (available->mandatory & BIT_REPLAY_DETECTION)) ||
+        (!out->confidentiality_integrity &&
+         (available->mandatory & BIT_CONFIDENTIALITY_INTEGRITY))) {
+        SETERROR(params->utils, "Mandatory SRP layer not supported\n");
+        return SASL_BADAUTH;
     }
     
     /* Add maxbuffersize */
     out->maxbufsize = SRP_MAXBUFFERSIZE;
     if (params->props.maxbufsize && params->props.maxbufsize < out->maxbufsize)
-	out->maxbufsize = params->props.maxbufsize;
+        out->maxbufsize = params->props.maxbufsize;
+    /* Limit client's maxbufsize to server's maxbufsize */
+    if (available->maxbufsize < out->maxbufsize)
+        out->maxbufsize = available->maxbufsize;
+
+    /* Add KDF */
+    out->kdf = default_kdf->bit;
     
     return SASL_OK;
 }
 
-static int srp_client_mech_new(void *glob_context __attribute__((unused)),
-			       sasl_client_params_t *params,
-			       void **conn_context)
+static int srp_client_mech_new(void *glob_context,
+                               sasl_client_params_t *params,
+                               void **conn_context)
 {
     context_t *text;
+    
+    (void) glob_context;
     
     /* holds state are in */
     text = params->utils->malloc(sizeof(context_t));
     if (text == NULL) {
-	MEMERROR( params->utils );
-	return SASL_NOMEM;
+        MEMERROR( params->utils );
+        return SASL_NOMEM;
     }
     
     memset(text, 0, sizeof(context_t));
+
+    srp_common_context_init(text);
     
-    text->state = 1;
     text->utils = params->utils;
 
     *conn_context = text;
@@ -2720,13 +2415,13 @@ static int srp_client_mech_new(void *glob_context __attribute__((unused)),
 
 static int
 srp_client_mech_step1(context_t *text,
-		      sasl_client_params_t *params,
-		      const char *serverin __attribute__((unused)),
-		      unsigned serverinlen,
-		      sasl_interact_t **prompt_need,
-		      const char **clientout,
-		      unsigned *clientoutlen,
-		      sasl_out_params_t *oparams)
+                      sasl_client_params_t *params,
+                      const char *serverin,
+                      unsigned serverinlen,
+                      sasl_interact_t **prompt_need,
+                      const char **clientout,
+                      unsigned *clientoutlen,
+                      sasl_out_params_t *oparams)
 {
     const char *authid = NULL, *userid = NULL;
     int auth_result = SASL_OK;
@@ -2738,74 +2433,75 @@ srp_client_mech_step1(context_t *text,
      *   absolutely nothing
      * 
      */
+    (void) serverin;
     if (serverinlen > 0) {
-	SETERROR(params->utils, "Invalid input to first step of SRP\n");
-	return SASL_BADPROT;
+        SETERROR(params->utils, "Invalid input to first step of SRP\n");
+        return SASL_BADPROT;
     }
     
     /* try to get the authid */
     if (oparams->authid==NULL) {
-	auth_result = _plug_get_authid(params->utils, &authid, prompt_need);
-	
-	if ((auth_result != SASL_OK) && (auth_result != SASL_INTERACT))
-	    return auth_result;
+        auth_result = _plug_get_authid(params->utils, &authid, prompt_need);
+        
+        if ((auth_result != SASL_OK) && (auth_result != SASL_INTERACT))
+            return auth_result;
     }
     
     /* try to get the userid */
     if (oparams->user == NULL) {
-	user_result = _plug_get_userid(params->utils, &userid, prompt_need);
-	
-	if ((user_result != SASL_OK) && (user_result != SASL_INTERACT))
-	    return user_result;
+        user_result = _plug_get_userid(params->utils, &userid, prompt_need);
+        
+        if ((user_result != SASL_OK) && (user_result != SASL_INTERACT))
+            return user_result;
     }
     
     /* try to get the password */
     if (text->password == NULL) {
-	pass_result=_plug_get_password(params->utils, &text->password,
-				       &text->free_password, prompt_need);
-	    
-	if ((pass_result != SASL_OK) && (pass_result != SASL_INTERACT))
-	    return pass_result;
+        pass_result=_plug_get_password(params->utils, &text->password,
+                                       &text->free_password, prompt_need);
+            
+        if ((pass_result != SASL_OK) && (pass_result != SASL_INTERACT))
+            return pass_result;
     }
     
     /* free prompts we got */
     if (prompt_need && *prompt_need) {
-	params->utils->free(*prompt_need);
-	*prompt_need = NULL;
+        params->utils->free(*prompt_need);
+        *prompt_need = NULL;
     }
     
     /* if there are prompts not filled in */
     if ((auth_result == SASL_INTERACT) || (user_result == SASL_INTERACT) ||
-	(pass_result == SASL_INTERACT)) {
-	/* make the prompt list */
-	result =
-	    _plug_make_prompts(params->utils, prompt_need,
-			       user_result == SASL_INTERACT ?
-			       "Please enter your authorization name" : NULL,
-			       NULL,
-			       auth_result == SASL_INTERACT ?
-			       "Please enter your authentication name" : NULL,
-			       NULL,
-			       pass_result == SASL_INTERACT ?
-			       "Please enter your password" : NULL, NULL,
-			       NULL, NULL, NULL,
-			       NULL, NULL, NULL);
-	if (result != SASL_OK) return result;
-	    
-	return SASL_INTERACT;
+        (pass_result == SASL_INTERACT)) {
+        /* make the prompt list */
+        result =
+            _plug_make_prompts(params->utils, prompt_need,
+                               user_result == SASL_INTERACT ?
+                               "Please enter your authorization name" : NULL,
+                               NULL,
+                               auth_result == SASL_INTERACT ?
+                               "Please enter your authentication name" : NULL,
+                               NULL,
+                               pass_result == SASL_INTERACT ?
+                               "Please enter your password" : NULL, NULL,
+                               NULL, NULL, NULL,
+                               NULL, NULL, NULL);
+        if (result != SASL_OK) return result;
+            
+        return SASL_INTERACT;
     }
     
     if (!userid || !*userid) {
-	result = params->canon_user(params->utils->conn, authid, 0,
-				    SASL_CU_AUTHID | SASL_CU_AUTHZID, oparams);
+        result = params->canon_user(params->utils->conn, authid, 0,
+                                    SASL_CU_AUTHID | SASL_CU_AUTHZID, oparams);
     }
     else {
-	result = params->canon_user(params->utils->conn, authid, 0,
-				    SASL_CU_AUTHID, oparams);
-	if (result != SASL_OK) return result;
+        result = params->canon_user(params->utils->conn, authid, 0,
+                                    SASL_CU_AUTHID, oparams);
+        if (result != SASL_OK) return result;
 
-	result = params->canon_user(params->utils->conn, userid, 0,
-				    SASL_CU_AUTHZID, oparams);
+        result = params->canon_user(params->utils->conn, userid, 0,
+                                    SASL_CU_AUTHZID, oparams);
     }
     if (result != SASL_OK) return result;
     
@@ -2818,15 +2514,17 @@ srp_client_mech_step1(context_t *text,
      *
      * { utf8(U) utf8(I) utf8(sid) os(cn) }
      */
+    size_t outlen = 0;
     result = MakeBuffer(text->utils, &text->out_buf, &text->out_buf_len,
-			clientoutlen, "%s%s%s%o",
-			(char *) oparams->authid, (char *) oparams->user,
-			"", 0, "");
+                        &outlen, "%s%s%s%o",
+                        (char *) oparams->authid, (char *) oparams->user,
+                        "", 0, "");
+    *clientoutlen = (unsigned int)outlen;
     if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR, "Error making output buffer\n");
-	goto cleanup;
+        params->utils->log(NULL, SASL_LOG_ERR, "Error making output buffer\n");
+        goto cleanup;
     }
-    *clientout = text->out_buf;
+    *clientout = (const char *)text->out_buf;
     
     text->state = 2;
 
@@ -2839,112 +2537,149 @@ srp_client_mech_step1(context_t *text,
 
 static int
 srp_client_mech_step2(context_t *text,
-		      sasl_client_params_t *params,
-		      const char *serverin,
-		      unsigned serverinlen,
-		      sasl_interact_t **prompt_need __attribute__((unused)),
-		      const char **clientout,
-		      unsigned *clientoutlen,
-		      sasl_out_params_t *oparams)
+                      sasl_client_params_t *params,
+                      const char *serverin,
+                      unsigned serverinlen,
+                      sasl_interact_t **prompt_need,
+                      const char **clientout,
+                      unsigned *clientoutlen,
+                      sasl_out_params_t *oparams)
 {
     int result;
     char reuse;
     srp_options_t server_opts;
     
+    (void) prompt_need;
+    (void) oparams;
+    
     /* Expect:
      *
-     *  { 0x00 mpi(N) mpi(g) os(s) mpi(B) utf8(L) }
+     *  { 0x00 mpi(N) mpi(g) os(s) mpi(B) i utf8(L) }
      */
     result = UnBuffer(params->utils, serverin, serverinlen,
-		      "%c%m%m%o%m%s", &reuse, &text->N, &text->g,
-		      &text->saltlen, &text->salt, &text->B,
-		      &text->server_options);
+                      "%c%m%m%o%m%q%s", &reuse, &text->N, &text->g,
+                      &text->saltlen, &text->salt, &text->B,
+                      &text->iterations, // APPLE
+                      &text->server_options);
+    dprintf("client iterations = %llu\n", text->iterations);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error UnBuffering input in step 2");
-	goto cleanup;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error UnBuffering input in step 2");
+        goto cleanup;
     }
 
-    /* Check N and g to see if they are one of the recommended pairs */
-    result = check_N_and_g(params->utils, &text->N, &text->g);
+    /* Check text->N and text->g to see if they are one of the recommended pairs, set text->gp */
+    result = check_N_and_g(params->utils, text);
     if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Values of 'N' and 'g' are not recommended\n");
-	goto cleanup;
+        params->utils->log(NULL, SASL_LOG_ERR,
+                           "Values of 'N' and 'g' are not recommended\n");
+        goto cleanup;
     }
     
     /* Per [SRP]: reject B <= 0, B >= N */
-    if (BigIntCmpWord(&text->B, 0) <= 0 || BN_cmp(&text->B, &text->N) >= 0) {
-	SETERROR(params->utils, "Illegal value for 'B'\n");
-	result = SASL_BADPROT;
-	goto cleanup;
+    if (ccz_cmpi(text->B, 0) <= 0 || ccz_cmp(text->B, text->N) >= 0) {
+        SETERROR(params->utils, "Illegal value for 'B'\n");
+        result = SASL_BADPROT;
+        goto cleanup;
     }
 
     /* parse server options */
     memset(&server_opts, 0, sizeof(srp_options_t));
-    result = ParseOptions(params->utils, text->server_options, &server_opts, 0);
+    result = ParseOptions(params->utils, text->server_options, &server_opts, false);
     if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error parsing SRP server options\n");
-	goto cleanup;
+        params->utils->log(NULL, SASL_LOG_ERR,
+                           "Error parsing SRP server options\n");
+        goto cleanup;
     }
     
     /* Create o */
     result = CreateClientOpts(params, &server_opts, &text->client_opts);
     if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error creating client options\n");
-	goto cleanup;
+        params->utils->log(NULL, SASL_LOG_ERR,
+                           "Error creating client options\n");
+        goto cleanup;
     }
     
     result = OptionsToString(params->utils, &text->client_opts,
-			     &text->client_options);
+                             &text->client_options);
     if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error converting client options to an option string\n");
-	goto cleanup;
+        params->utils->log(NULL, SASL_LOG_ERR,
+                           "Error converting client options to an option string\n");
+        goto cleanup;
     }
 
     result = SetMDA(&text->client_opts, text);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error setting MDA");
-	goto cleanup;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error setting MDA");
+        goto cleanup;
     }
+    
+    /* Initialize ccsrp context */
+    text->srp = ccsrp_ctx_alloc(text->md, text->gp);
+    ccsrp_ctx_init(text->srp, text->md, text->gp);
 
     /* Calculate A */
-    result = CalculateA(text, &text->N, &text->g, &text->a, &text->A);
+    size_t A_buf_len = ccsrp_ctx_sizeof_n(text->srp);
+    void *A_buf = params->utils->malloc(A_buf_len);
+    memset(A_buf, 0, A_buf_len);
+
+    result = ccsrp_client_start_authentication(text->srp, (struct ccrng_state *)&text->rng, A_buf);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error calculating A");
-	return result;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "ccsrp_client_start_authentication failed: %d", result);
+        result = SASL_FAIL;
+        goto cleanup;
     }
+
+    ccz_read_uint(text->A, A_buf_len, A_buf);
+    params->utils->free(A_buf);
+    dumpN("srp_client_mech_step2 A", text->A);
+    dumpNSRP("srp_client_mech_step2 ccsrp_ctx_public (A)", text->srp, ccsrp_ctx_public(text->srp));
     
     /* Calculate shared context key K */
-    result = ClientCalculateK(text, text->salt, text->saltlen,
-			      (char *) oparams->authid, 
-			      text->password->data, text->password->len,
-			      &text->N, &text->g, &text->a, &text->A, &text->B,
-			      text->K, &text->Klen);
+    size_t B_buf_len = ccsrp_ctx_sizeof_n(text->srp);
+    uint8_t *B_buf = params->utils->malloc(B_buf_len);
+    memset(B_buf, 0, B_buf_len);
+    ccz_write_uint(text->B, B_buf_len, B_buf);
+
+    dumpBuf("srp_client_mech_step2 B", B_buf, B_buf_len);
+    dumpBuf("srp_client_mech_step2 s", text->salt, text->saltlen);
+
+    uint8_t pbkdf[PBKDF2_HASH_LEN];
+    result = CalculateSALTED_SHA512_PBKDF2(text->salt, text->saltlen,
+        (uint8_t *)text->password->data, text->password->len,
+        (uint64_t)text->iterations,
+        pbkdf);
     if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error creating K\n");
-	goto cleanup;
+        params->utils->log(NULL, SASL_LOG_ERR,
+                                 "Error hashing client password\n");
+        goto cleanup;
     }
-    
+    dumpBuf("srp_client_mech_step2 pbkdf", (uint8_t *)pbkdf, PBKDF2_HASH_LEN);
+
+    text->M1len = ccsrp_ctx_keysize(text->srp);
+
     /* Calculate M1 (client evidence) */
-    result = CalculateM1(text, &text->N, &text->g, (char *) oparams->authid,
-			 text->salt, text->saltlen, &text->A, &text->B,
-			 text->K, text->Klen, (char *) oparams->user,
-			 text->server_options, text->M1, &text->M1len);
+    result = ccsrp_client_process_challenge(text->srp, "", 
+        PBKDF2_HASH_LEN, pbkdf,
+        text->saltlen, text->salt, B_buf,
+        &text->M1);
+    params->utils->free(B_buf);
+
+    dumpBuf("srp_client_mech_step2 M1", text->M1, text->M1len);
+    dumpBuf("srp_client_mech_step2 ccsrp_ctx_K", ccsrp_ctx_K(text->srp), ccsrp_ctx_keysize(text->srp));
+    dumpNSRP("srp_client_mech_step2 ccsrp_ctx_public (A)", text->srp, ccsrp_ctx_public(text->srp));
+    dumpNSRP("srp_client_mech_step2 ccsrp_ctx_private (a)", text->srp, ccsrp_ctx_private(text->srp));
+
     if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error creating M1\n");
-	goto cleanup;
+        params->utils->log(NULL, SASL_LOG_ERR,
+                           "Error creating M1\n");
+        goto cleanup;
     }
 
     /* Create cIV (client initial vector) */
-    text->utils->rand(text->utils->rpool, text->cIV, sizeof(text->cIV));
+    text->utils->rand(text->utils->rpool, (char *)text->cIV, sizeof(text->cIV));
     
     /* Send out:
      *
@@ -2955,15 +2690,17 @@ srp_client_mech_step2(context_t *text,
      *
      * { mpi(A) os(M1) utf8(o) os(cIV) }
      */
+    size_t outlen = 0;
     result = MakeBuffer(text->utils, &text->out_buf, &text->out_buf_len,
-			clientoutlen, "%m%o%s%o",
-			&text->A, text->M1len, text->M1, text->client_options,
-			sizeof(text->cIV), text->cIV);
+                        &outlen, "%m%o%s%o",
+                        text->A, text->M1len, text->M1, text->client_options,
+                        sizeof(text->cIV), text->cIV);
+    *clientoutlen = (unsigned int)outlen;
     if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR, "Error making output buffer\n");
-	goto cleanup;
+        params->utils->log(NULL, SASL_LOG_ERR, "Error making output buffer\n");
+        goto cleanup;
     }
-    *clientout = text->out_buf;
+    *clientout = (const char *)text->out_buf;
     
     text->state = 3;
 
@@ -2976,22 +2713,21 @@ srp_client_mech_step2(context_t *text,
 
 static int
 srp_client_mech_step3(context_t *text,
-		      sasl_client_params_t *params,
-		      const char *serverin,
-		      unsigned serverinlen,
-		      sasl_interact_t **prompt_need __attribute__((unused)),
-		      const char **clientout __attribute__((unused)),
-		      unsigned *clientoutlen __attribute__((unused)),
-		      sasl_out_params_t *oparams)
+                      sasl_client_params_t *params,
+                      const char *serverin,
+                      unsigned serverinlen,
+                      sasl_interact_t **prompt_need,
+                      const char **clientout,
+                      unsigned *clientoutlen,
+                      sasl_out_params_t *oparams)
 {
     int result;    
-    char *M2 = NULL, *sIV = NULL; /* don't free */
+    uint8_t *M2 = NULL, *sIV = NULL; /* don't free */
     char *sid = NULL;
-    int M2len, sIVlen;
-    uint32 ttl;
-    int i;
-    char myM2[EVP_MAX_MD_SIZE];
-    int myM2len;
+    uint32_t M2len, sIVlen;
+    uint32_t ttl;
+    
+    (void) prompt_need;
     
     /* Expect:
      *
@@ -3003,53 +2739,42 @@ srp_client_mech_step3(context_t *text,
      *   { os(M2) os(sIV) utf8(sid) uint(ttl) }
      */
     result = UnBuffer(params->utils, serverin, serverinlen,
-		      "%-o%-o%s%u", &M2len, &M2, &sIVlen, &sIV,
-		      &sid, &ttl);
+                      "%-o%-o%s%u", &M2len, &M2, &sIVlen, &sIV,
+                      &sid, &ttl);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error UnBuffering input in step 3");
-	goto cleanup;
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error UnBuffering input in step 3");
+        goto cleanup;
     }
 
-    /* calculate our own M2 */
-    result = CalculateM2(text, &text->A, text->M1, text->M1len,
-			 text->K, text->Klen, (char *) oparams->user,
-			 text->client_options, "", 0,
-			 myM2, &myM2len);
-    if (result) {
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Error calculating our own M2 (server evidence)\n");
-	goto cleanup;
+    if (M2len != ccsrp_ctx_keysize(text->srp)) {
+        SETERROR(params->utils, "SRP Server M2 length wrong\n");
+        result = SASL_BADSERV;
+        goto cleanup;
     }
-    
-    /* compare to see if is server spoof */
-    if (myM2len != M2len) {
-	SETERROR(params->utils, "SRP Server M2 length wrong\n");
-	result = SASL_BADSERV;
-	goto cleanup;
+
+    /* Calculate our own M2, compare to see if is server spoof */
+    bool verified = ccsrp_client_verify_session(text->srp, M2);
+    if (!verified) {
+        SETERROR(params->utils,
+                 "SRP Server spoof detected. M2 incorrect\n");
+        result = SASL_BADSERV;
+        goto cleanup;
     }
-    
-    
-    for (i = 0; i < myM2len; i++) {
-	if (M2[i] != myM2[i]) {
-	    SETERROR(params->utils,
-		     "SRP Server spoof detected. M2 incorrect\n");
-	    result = SASL_BADSERV;
-	    goto cleanup;
-	}
-    }
-    
+
     /*
      * Send out: nothing
      */
+    (void) clientout;
+    (void) clientoutlen;
 
     /* configure security layer */
     result = LayerInit(&text->client_opts, text, oparams, sIV, text->cIV,
-		       params->props.maxbufsize);
+                       params->props.maxbufsize);
     if (result) {
-	params->utils->seterror(params->utils->conn, 0, 
-				"Error initializing security layer");
-	return result;   
+        params->utils->seterror(params->utils->conn, 0, 
+                                "Error initializing security layer");
+        return result;   
     }
 
     /* set oparams */
@@ -3065,18 +2790,18 @@ srp_client_mech_step3(context_t *text,
 }
 
 static int srp_client_mech_step(void *conn_context,
-				sasl_client_params_t *params,
-				const char *serverin,
-				unsigned serverinlen,
-				sasl_interact_t **prompt_need,
-				const char **clientout,
-				unsigned *clientoutlen,
-				sasl_out_params_t *oparams)
+                                sasl_client_params_t *params,
+                                const char *serverin,
+                                unsigned serverinlen,
+                                sasl_interact_t **prompt_need,
+                                const char **clientout,
+                                unsigned *clientoutlen,
+                                sasl_out_params_t *oparams)
 {
     context_t *text = (context_t *) conn_context;
     
     params->utils->log(NULL, SASL_LOG_DEBUG,
-		       "SRP client step %d\n", text->state);
+                       "SRP client step %d\n", text->state);
     
     *clientout = NULL;
     *clientoutlen = 0;
@@ -3084,24 +2809,24 @@ static int srp_client_mech_step(void *conn_context,
     switch (text->state) {
 
     case 1:
-	return srp_client_mech_step1(text, params, serverin, serverinlen, 
-				     prompt_need, clientout, clientoutlen,
-				     oparams);
+        return srp_client_mech_step1(text, params, serverin, serverinlen, 
+                                     prompt_need, clientout, clientoutlen,
+                                     oparams);
 
     case 2:
-	return srp_client_mech_step2(text, params, serverin, serverinlen, 
-				     prompt_need, clientout, clientoutlen,
-				     oparams);
+        return srp_client_mech_step2(text, params, serverin, serverinlen, 
+                                     prompt_need, clientout, clientoutlen,
+                                     oparams);
 
     case 3:
-	return srp_client_mech_step3(text, params, serverin, serverinlen, 
-				     prompt_need, clientout, clientoutlen,
-				     oparams);
+        return srp_client_mech_step3(text, params, serverin, serverinlen, 
+                                     prompt_need, clientout, clientoutlen,
+                                     oparams);
 
     default:
-	params->utils->log(NULL, SASL_LOG_ERR,
-			   "Invalid SRP client step %d\n", text->state);
-	return SASL_FAIL;
+        params->utils->log(NULL, SASL_LOG_ERR,
+                           "Invalid SRP client step %d\n", text->state);
+        return SASL_FAIL;
     }
     
     return SASL_FAIL; /* should never get here */
@@ -3111,69 +2836,73 @@ static int srp_client_mech_step(void *conn_context,
 static sasl_client_plug_t srp_client_plugins[] = 
 {
     {
-	"SRP",				/* mech_name */
-	0,				/* max_ssf */
-	SASL_SEC_NOPLAINTEXT
-	| SASL_SEC_NOANONYMOUS
-	| SASL_SEC_NOACTIVE
-	| SASL_SEC_NODICTIONARY
-	| SASL_SEC_FORWARD_SECRECY
-	| SASL_SEC_MUTUAL_AUTH,		/* security_flags */
-	SASL_FEAT_WANT_CLIENT_FIRST
-	| SASL_FEAT_ALLOWS_PROXY,	/* features */
-	NULL,				/* required_prompts */
-	NULL,				/* glob_context */
-	&srp_client_mech_new,		/* mech_new */
-	&srp_client_mech_step,		/* mech_step */
-	&srp_common_mech_dispose,	/* mech_dispose */
-	&srp_common_mech_free,		/* mech_free */
-	NULL,				/* idle */
-	NULL,				/* spare */
-	NULL				/* spare */
+        "SRP",                              /* mech_name */
+        0,                                  /* max_ssf */
+        SASL_SEC_NOPLAINTEXT
+        | SASL_SEC_NOANONYMOUS
+        | SASL_SEC_NOACTIVE
+        | SASL_SEC_NODICTIONARY
+        | SASL_SEC_FORWARD_SECRECY
+        | SASL_SEC_MUTUAL_AUTH,             /* security_flags */
+        SASL_FEAT_WANT_CLIENT_FIRST
+        | SASL_FEAT_ALLOWS_PROXY,           /* features */
+        NULL,                               /* required_prompts */
+        NULL,                               /* glob_context */
+        &srp_client_mech_new,               /* mech_new */
+        &srp_client_mech_step,              /* mech_step */
+        &srp_common_mech_dispose,           /* mech_dispose */
+        &srp_common_mech_free,              /* mech_free */
+        NULL,                               /* idle */
+        NULL,                               /* spare */
+        NULL                                /* spare */
     }
 };
 
-int srp_client_plug_init(const sasl_utils_t *utils __attribute__((unused)),
-			 int maxversion,
-			 int *out_version,
-			 const sasl_client_plug_t **pluglist,
-			 int *plugcount,
-			 const char *plugname __attribute__((unused)))
+int srp_client_plug_init(const sasl_utils_t *utils,
+                         int maxversion,
+                         int *out_version,
+                         const sasl_client_plug_t **pluglist,
+                         int *plugcount,
+                         const char *plugname);
+
+int srp_client_plug_init(const sasl_utils_t *utils,
+                         int maxversion,
+                         int *out_version,
+                         const sasl_client_plug_t **pluglist,
+                         int *plugcount,
+                         const char *plugname)
 {
     layer_option_t *opts;
     
-    if (maxversion < SASL_CLIENT_PLUG_VERSION) {
-	SETERROR(utils, "SRP version mismatch");
-	return SASL_BADVERS;
-    }
+    (void) plugname;
     
-    /* Add all digests and ciphers */
-    OpenSSL_add_all_algorithms();
+    if (maxversion < SASL_CLIENT_PLUG_VERSION) {
+        SETERROR(utils, "SRP version mismatch");
+        return SASL_BADVERS;
+    }
     
     /* See which digests we have available and set max_ssf accordingly */
     opts = digest_options;
     while (opts->name) {
-	if (EVP_get_digestbyname(opts->evp_name)) {
-	    opts->enabled = 1;
-	    
-	    srp_client_plugins[0].max_ssf = opts->ssf;
-	}
-	
-	opts++;
+        if (cc_get_digestbyname(opts->evp_name)) {
+            opts->enabled = true;
+            
+            srp_client_plugins[0].max_ssf = opts->ssf;
+        }
+        
+        opts++;
     }
     
-    /* See which ciphers we have available and set max_ssf accordingly */
+    /* Enable all ciphers and set max_ssf accordingly */
     opts = cipher_options;
     while (opts->name) {
-	if (EVP_get_cipherbyname(opts->evp_name)) {
-	    opts->enabled = 1;
-	    
-	    if (opts->ssf > srp_client_plugins[0].max_ssf) {
-		srp_client_plugins[0].max_ssf = opts->ssf;
-	    }
-	}
-	
-	opts++;
+        opts->enabled = true;
+        
+        if (opts->ssf > srp_client_plugins[0].max_ssf) {
+            srp_client_plugins[0].max_ssf = opts->ssf;
+        }
+        
+        opts++;
     }
     
     *out_version = SASL_CLIENT_PLUG_VERSION;

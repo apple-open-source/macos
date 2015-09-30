@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -290,7 +290,7 @@ bootp_arp_probe(ServiceRef service_p,  IFEventID_t evid, void * event_data)
 	  /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
 	  struct bootp *	reply = (struct bootp *)(void *)bootp->saved.pkt;
 
-	  my_log(LOG_DEBUG, "BOOTP %s: ended at %d", if_name(if_p), 
+	  my_log(LOG_INFO, "BOOTP %s: ended at %d", if_name(if_p), 
 		 timer_current_secs() - bootp->start_secs);
 	  (void)service_disable_autoaddr(service_p);
 	  bootp_client_disable_receive(bootp->client);
@@ -306,7 +306,7 @@ bootp_arp_probe(ServiceRef service_p,  IFEventID_t evid, void * event_data)
 	  arp_result_t *	result = (arp_result_t *)event_data;
 
 	  if (result->error) {
-	      my_log(LOG_ERR, "BOOTP %s: arp probe failed, %s", 
+	      my_log(LOG_NOTICE, "BOOTP %s: arp probe failed, %s",
 		     if_name(if_p),
 		     arp_client_errmsg(bootp->arp));
 	      bootp_failed(service_p, ipconfig_status_internal_error_e, NULL);
@@ -330,7 +330,7 @@ bootp_arp_probe(ServiceRef service_p,  IFEventID_t evid, void * event_data)
 						       reply->bp_yiaddr);
 		      bootp->user_warned = TRUE;
 		  }
-		  syslog(LOG_ERR, "BOOTP %s: %s", if_name(if_p), msg);
+		  syslog(LOG_NOTICE, "BOOTP %s: %s", if_name(if_p), msg);
 		  bootp_failed(service_p, ipconfig_status_address_in_use_e,
 			       msg);
 		  break;
@@ -354,7 +354,7 @@ bootp_request(ServiceRef service_p, IFEventID_t evid, void * event_data)
 
     switch (evid) {
       case IFEventID_start_e: 
-	  my_log(LOG_DEBUG, "BOOTP %s: starting", if_name(if_p));
+	  my_log(LOG_INFO, "BOOTP %s: starting", if_name(if_p));
 	  (void)service_enable_autoaddr(service_p);
 	  S_cancel_pending_events(service_p);
 	  bootp->start_secs = timer_current_secs();
@@ -402,13 +402,13 @@ bootp_request(ServiceRef service_p, IFEventID_t evid, void * event_data)
 				    G_server_port, G_client_port,
 				    &bootp->request, 
 				    sizeof(bootp->request)) < 0) {
-	      my_log(LOG_ERR, 
+	      my_log(LOG_NOTICE,
 		     "BOOTP %s: transmit failed", if_name(if_p));
 	  }
 	  /* wait for responses */
 	  tv.tv_sec = bootp->wait_secs;
 	  tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
-	  my_log(LOG_DEBUG, "BOOTP %s: waiting at %d for %d.%06d", 
+	  my_log(LOG_INFO, "BOOTP %s: waiting at %d for %d.%06d", 
 		 if_name(if_p), 
 		 timer_current_secs() - bootp->start_secs,
 		 tv.tv_sec, tv.tv_usec);
@@ -455,7 +455,7 @@ bootp_request(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      if (bootp->gathering == FALSE) {
 		  struct timeval t = {0,0};
 		  t.tv_sec = G_gather_secs;
-		  my_log(LOG_DEBUG, "BOOTP %s: gathering began at %d", 
+		  my_log(LOG_INFO, "BOOTP %s: gathering began at %d", 
 			 if_name(if_p), 
 			 timer_current_secs() - bootp->start_secs);
 		  bootp->gathering = TRUE;
@@ -496,23 +496,18 @@ bootp_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     switch (evid) {
       case IFEventID_start_e: 
 	  if (bootp != NULL) {
-	      my_log(LOG_ERR, "BOOTP %s: re-entering start state", 
+	      my_log(LOG_NOTICE, "BOOTP %s: re-entering start state",
 		     if_name(if_p));
 	      return (ipconfig_status_internal_error_e);
 	  }
 	  bootp = malloc(sizeof(*bootp));
-	  if (bootp == NULL) {
-	      my_log(LOG_ERR, "BOOTP %s: malloc failed", 
-		     if_name(if_p));
-	      return (ipconfig_status_allocation_failed_e);
-	  }
 	  ServiceSetPrivate(service_p, bootp);
 	  bzero(bootp, sizeof(*bootp));
 	  dhcpol_init(&bootp->saved.options);
 	  bootp->xid = arc4random();
 	  bootp->timer = timer_callout_init();
 	  if (bootp->timer == NULL) {
-	      my_log(LOG_ERR, "BOOTP %s: timer_callout_init failed", 
+	      my_log(LOG_NOTICE, "BOOTP %s: timer_callout_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
@@ -520,14 +515,14 @@ bootp_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  (void)service_enable_autoaddr(service_p);
 	  bootp->client = bootp_client_init(G_bootp_session, if_p);
 	  if (bootp->client == NULL) {
-	      my_log(LOG_ERR, "BOOTP %s: bootp_client_init failed",
+	      my_log(LOG_NOTICE, "BOOTP %s: bootp_client_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
 	  bootp->arp = arp_client_init(G_arp_session, if_p);
 	  if (bootp->arp == NULL) {
-	      my_log(LOG_ERR, "BOOTP %s: arp_client_init failed", 
+	      my_log(LOG_NOTICE, "BOOTP %s: arp_client_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
@@ -536,10 +531,10 @@ bootp_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  break;
       case IFEventID_stop_e: {
       stop:
-	  my_log(LOG_DEBUG, "BOOTP %s: stop", if_name(if_p));
+	  my_log(LOG_INFO, "BOOTP %s: stop", if_name(if_p));
 
 	  if (bootp == NULL) { /* already stopped */
-	      my_log(LOG_DEBUG, "BOOTP %s: already stopped", 
+	      my_log(LOG_INFO, "BOOTP %s: already stopped", 
 		     if_name(if_p));
 	      status = ipconfig_status_internal_error_e; /* shouldn't happen */
 	      break;
@@ -602,7 +597,7 @@ bootp_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 					       reply->bp_yiaddr);
 	      bootp->user_warned = TRUE;
 	  }
-	  syslog(LOG_ERR, "BOOTP %s: %s", if_name(if_p), msg);
+	  syslog(LOG_NOTICE, "BOOTP %s: %s", if_name(if_p), msg);
 	  bootp_failed(service_p, ipconfig_status_address_in_use_e,
 		       msg);
 	  break;

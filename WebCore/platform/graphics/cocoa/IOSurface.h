@@ -31,28 +31,30 @@
 #include "GraphicsContext.h"
 #include "IntSize.h"
 #include <wtf/PassRefPtr.h>
-#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
-class IOSurface final : public RefCounted<IOSurface> {
+class MachSendRight;
+
+class IOSurface final {
 public:
-    static PassRefPtr<IOSurface> create(IntSize, ColorSpace);
-    static PassRefPtr<IOSurface> createFromMachPort(mach_port_t, ColorSpace);
-    static PassRefPtr<IOSurface> createFromSurface(IOSurfaceRef, ColorSpace);
-    static PassRefPtr<IOSurface> createFromImage(CGImageRef);
+    WEBCORE_EXPORT static std::unique_ptr<IOSurface> create(IntSize, ColorSpace);
+    WEBCORE_EXPORT static std::unique_ptr<IOSurface> create(IntSize, IntSize contextSize, ColorSpace);
+    WEBCORE_EXPORT static std::unique_ptr<IOSurface> createFromSendRight(const MachSendRight&, ColorSpace);
+    static std::unique_ptr<IOSurface> createFromSurface(IOSurfaceRef, ColorSpace);
+    WEBCORE_EXPORT static std::unique_ptr<IOSurface> createFromImage(CGImageRef);
 
     static IntSize maximumSize();
 
-    mach_port_t createMachPort() const;
+    WEBCORE_EXPORT MachSendRight createSendRight() const;
 
     // Any images created from a surface need to be released before releasing
     // the surface, or an expensive GPU readback can result.
-    RetainPtr<CGImageRef> createImage();
+    WEBCORE_EXPORT RetainPtr<CGImageRef> createImage();
 
     IOSurfaceRef surface() const { return m_surface.get(); }
-    GraphicsContext& ensureGraphicsContext();
-    CGContextRef ensurePlatformContext();
+    WEBCORE_EXPORT GraphicsContext& ensureGraphicsContext();
+    WEBCORE_EXPORT CGContextRef ensurePlatformContext();
 
     enum class SurfaceState {
         Valid,
@@ -66,27 +68,33 @@ public:
     bool isVolatile() const;
 
     // setIsVolatile only has an effect on iOS and OS 10.9 and above.
-    SurfaceState setIsVolatile(bool);
+    WEBCORE_EXPORT SurfaceState setIsVolatile(bool);
 
     IntSize size() const { return m_size; }
     size_t totalBytes() const { return m_totalBytes; }
     ColorSpace colorSpace() const { return m_colorSpace; }
 
-    bool isInUse() const;
+    WEBCORE_EXPORT bool isInUse() const;
 
     // The graphics context cached on the surface counts as a "user", so to get
     // an accurate result from isInUse(), it needs to be released.
-    void releaseGraphicsContext();
+    WEBCORE_EXPORT void releaseGraphicsContext();
 
 private:
     IOSurface(IntSize, ColorSpace);
+    IOSurface(IntSize, IntSize contextSize, ColorSpace);
     IOSurface(IOSurfaceRef, ColorSpace);
+
+    static std::unique_ptr<IOSurface> surfaceFromPool(IntSize, IntSize contextSize, ColorSpace);
+    IntSize contextSize() const { return m_contextSize; }
+    void setContextSize(IntSize);
 
     ColorSpace m_colorSpace;
     IntSize m_size;
+    IntSize m_contextSize;
     size_t m_totalBytes;
 
-    OwnPtr<GraphicsContext> m_graphicsContext;
+    std::unique_ptr<GraphicsContext> m_graphicsContext;
     RetainPtr<CGContextRef> m_cgContext;
 
     RetainPtr<IOSurfaceRef> m_surface;

@@ -30,7 +30,6 @@
 #include "GUniquePtrSoup.h"
 #include "ResourceRequestBase.h"
 #include <libsoup/soup.h>
-#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
@@ -121,8 +120,8 @@ namespace WebCore {
         void doUpdatePlatformHTTPBody() { }
         void doUpdateResourceHTTPBody() { }
 
-        PassOwnPtr<CrossThreadResourceRequestData> doPlatformCopyData(PassOwnPtr<CrossThreadResourceRequestData> data) const { return data; }
-        void doPlatformAdopt(PassOwnPtr<CrossThreadResourceRequestData>) { }
+        std::unique_ptr<CrossThreadResourceRequestData> doPlatformCopyData(std::unique_ptr<CrossThreadResourceRequestData> data) const { return data; }
+        void doPlatformAdopt(std::unique_ptr<CrossThreadResourceRequestData>) { }
     };
 
     struct CrossThreadResourceRequestData : public CrossThreadResourceRequestDataBase {
@@ -132,17 +131,15 @@ namespace WebCore {
 inline SoupMessagePriority toSoupMessagePriority(ResourceLoadPriority priority)
 {
     switch (priority) {
-    case ResourceLoadPriorityUnresolved:
-        return SOUP_MESSAGE_PRIORITY_NORMAL;
-    case ResourceLoadPriorityVeryLow:
+    case ResourceLoadPriority::VeryLow:
         return SOUP_MESSAGE_PRIORITY_VERY_LOW;
-    case ResourceLoadPriorityLow:
+    case ResourceLoadPriority::Low:
         return SOUP_MESSAGE_PRIORITY_LOW;
-    case ResourceLoadPriorityMedium:
+    case ResourceLoadPriority::Medium:
         return SOUP_MESSAGE_PRIORITY_NORMAL;
-    case ResourceLoadPriorityHigh:
+    case ResourceLoadPriority::High:
         return SOUP_MESSAGE_PRIORITY_HIGH;
-    case ResourceLoadPriorityVeryHigh:
+    case ResourceLoadPriority::VeryHigh:
         return SOUP_MESSAGE_PRIORITY_VERY_HIGH;
     }
 

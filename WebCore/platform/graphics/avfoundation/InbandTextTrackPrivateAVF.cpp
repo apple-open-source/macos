@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,127 +33,18 @@
 #include "InbandTextTrackPrivateClient.h"
 #include "Logging.h"
 #include "MediaTimeAVFoundation.h"
-#include "SoftLinking.h"
-#include <CoreMedia/CoreMedia.h>
 #include <runtime/ArrayBuffer.h>
 #include <runtime/DataView.h>
 #include <runtime/Int8Array.h>
 #include <wtf/MediaTime.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 #include <wtf/unicode/CharacterNames.h>
 #include <wtf/StringPrintStream.h>
 
-#if !PLATFORM(WIN)
-#define SOFT_LINK_AVF_FRAMEWORK(Lib) SOFT_LINK_FRAMEWORK_OPTIONAL(Lib)
-#define SOFT_LINK_AVF_POINTER(Lib, Name, Type) SOFT_LINK_POINTER_OPTIONAL(Lib, Name, Type)
-#else
-#ifdef DEBUG_ALL
-#define SOFT_LINK_AVF_FRAMEWORK(Lib) SOFT_LINK_DEBUG_LIBRARY(Lib)
-#else
-#define SOFT_LINK_AVF_FRAMEWORK(Lib) SOFT_LINK_LIBRARY(Lib)
-#endif
-
-#define SOFT_LINK_AVF_POINTER(Lib, Name, Type) SOFT_LINK_VARIABLE_DLL_IMPORT_OPTIONAL(Lib, Name, Type)
-#endif
-
-SOFT_LINK_AVF_FRAMEWORK(CoreMedia)
-
-#if !PLATFORM(WIN)
-SOFT_LINK(CoreMedia, CMSampleBufferGetDataBuffer, CMBlockBufferRef, (CMSampleBufferRef sbuf), (sbuf))
-SOFT_LINK(CoreMedia, CMBlockBufferCopyDataBytes, OSStatus, (CMBlockBufferRef theSourceBuffer, size_t offsetToData, size_t dataLength, void* destination), (theSourceBuffer, offsetToData, dataLength, destination))
-SOFT_LINK(CoreMedia, CMBlockBufferGetDataLength, size_t, (CMBlockBufferRef theBuffer), (theBuffer))
-SOFT_LINK(CoreMedia, CMSampleBufferGetSampleTimingInfo, OSStatus, (CMSampleBufferRef sbuf, CMItemIndex sampleIndex, CMSampleTimingInfo* timingInfoOut), (sbuf, sampleIndex, timingInfoOut))
-SOFT_LINK(CoreMedia, CMFormatDescriptionGetExtensions, CFDictionaryRef, (CMFormatDescriptionRef desc), (desc))
-SOFT_LINK(CoreMedia, CMSampleBufferGetFormatDescription, CMFormatDescriptionRef, (CMSampleBufferRef sbuf), (sbuf))
-#else
-typedef struct OpaqueCMBlockBuffer* CMBlockBufferRef;
-typedef const struct opaqueCMFormatDescription* CMFormatDescriptionRef;
-typedef struct opaqueCMSampleBuffer* CMSampleBufferRef;
-
-#ifndef CMSAMPLEBUFFER_H
-extern "C" {
-#pragma pack(push, 4)
-#ifndef CMTIME_H
-    typedef struct
-    {
-        int64_t value;
-        int32_t timescale;
-        uint32_t flags;
-        int64_t epoch;
-    } CMTime;
-#endif
-
-    typedef struct
-    {
-        CMTime duration;
-        CMTime presentationTimeStamp;
-        CMTime decodeTimeStamp;
-    } CMSampleTimingInfo;
-#pragma pack(pop)
-}
-#endif
-
-SOFT_LINK_DLL_IMPORT(CoreMedia, CMTimeGetSeconds, Float64, __cdecl, (CMTime time), (time))
-#define CMTimeGetSeconds softLink_CMTimeGetSeconds
-SOFT_LINK_DLL_IMPORT(CoreMedia, CMSampleBufferGetDataBuffer, CMBlockBufferRef, __cdecl, (CMSampleBufferRef sbuf), (sbuf))
-#define CMSampleBufferGetDataBuffer softLink_CMSampleBufferGetDataBuffer
-SOFT_LINK_DLL_IMPORT(CoreMedia, CMBlockBufferCopyDataBytes, OSStatus, __cdecl, (CMBlockBufferRef theSourceBuffer, size_t offsetToData, size_t dataLength, void* destination), (theSourceBuffer, offsetToData, dataLength, destination))
-#define CMBlockBufferCopyDataBytes softLink_CMBlockBufferCopyDataBytes
-SOFT_LINK_DLL_IMPORT(CoreMedia, CMBlockBufferGetDataLength, size_t, __cdecl, (CMBlockBufferRef theBuffer), (theBuffer))
-#define CMBlockBufferGetDataLength softLink_CMBlockBufferGetDataLength
-SOFT_LINK_DLL_IMPORT(CoreMedia, CMSampleBufferGetSampleTimingInfo, OSStatus, __cdecl, (CMSampleBufferRef sbuf, CMItemIndex sampleIndex, CMSampleTimingInfo* timingInfoOut), (sbuf, sampleIndex, timingInfoOut))
-#define CMSampleBufferGetSampleTimingInfo softLink_CMSampleBufferGetSampleTimingInfo
-SOFT_LINK_DLL_IMPORT(CoreMedia, CMFormatDescriptionGetExtensions, CFDictionaryRef, __cdecl, (CMFormatDescriptionRef desc), (desc))
-#define CMFormatDescriptionGetExtensions softLink_CMFormatDescriptionGetExtensions
-SOFT_LINK_DLL_IMPORT(CoreMedia, CMSampleBufferGetFormatDescription, CMFormatDescriptionRef, __cdecl, (CMSampleBufferRef sbuf), (sbuf))
-#define CMSampleBufferGetFormatDescription softLink_CMSampleBufferGetFormatDescription
-#endif
-
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_Alignment, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAlignmentType_Start, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAlignmentType_Middle, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAlignmentType_End, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_BoldStyle, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_ItalicStyle, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_UnderlineStyle, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_TextPositionPercentageRelativeToWritingDirection, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_WritingDirectionSizePercentage, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_OrthogonalLinePositionPercentageRelativeToWritingDirection, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_VerticalLayout, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextVerticalLayout_LeftToRight, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextVerticalLayout_RightToLeft, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_BaseFontSizePercentageRelativeToVideoHeight, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_RelativeFontSize, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_FontFamilyName, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_ForegroundColorARGB, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_BackgroundColorARGB, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMTextMarkupAttribute_CharacterBackgroundColorARGB, CFStringRef)
-SOFT_LINK_AVF_POINTER(CoreMedia, kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms, CFStringRef)
-
-#define kCMTextMarkupAttribute_Alignment getkCMTextMarkupAttribute_Alignment()
-#define kCMTextMarkupAlignmentType_Start getkCMTextMarkupAlignmentType_Start()
-#define kCMTextMarkupAlignmentType_Middle getkCMTextMarkupAlignmentType_Middle()
-#define kCMTextMarkupAlignmentType_End getkCMTextMarkupAlignmentType_End()
-#define kCMTextMarkupAttribute_BoldStyle getkCMTextMarkupAttribute_BoldStyle()
-#define kCMTextMarkupAttribute_ItalicStyle getkCMTextMarkupAttribute_ItalicStyle()
-#define kCMTextMarkupAttribute_UnderlineStyle getkCMTextMarkupAttribute_UnderlineStyle()
-#define kCMTextMarkupAttribute_TextPositionPercentageRelativeToWritingDirection getkCMTextMarkupAttribute_TextPositionPercentageRelativeToWritingDirection()
-#define kCMTextMarkupAttribute_WritingDirectionSizePercentage getkCMTextMarkupAttribute_WritingDirectionSizePercentage()
-#define kCMTextMarkupAttribute_OrthogonalLinePositionPercentageRelativeToWritingDirection getkCMTextMarkupAttribute_OrthogonalLinePositionPercentageRelativeToWritingDirection()
-#define kCMTextMarkupAttribute_VerticalLayout getkCMTextMarkupAttribute_VerticalLayout()
-#define kCMTextVerticalLayout_LeftToRight getkCMTextVerticalLayout_LeftToRight()
-#define kCMTextVerticalLayout_RightToLeft getkCMTextVerticalLayout_RightToLeft()
-#define kCMTextMarkupAttribute_BaseFontSizePercentageRelativeToVideoHeight getkCMTextMarkupAttribute_BaseFontSizePercentageRelativeToVideoHeight()
-#define kCMTextMarkupAttribute_RelativeFontSize getkCMTextMarkupAttribute_RelativeFontSize()
-#define kCMTextMarkupAttribute_FontFamilyName getkCMTextMarkupAttribute_FontFamilyName()
-#define kCMTextMarkupAttribute_ForegroundColorARGB getkCMTextMarkupAttribute_ForegroundColorARGB()
-#define kCMTextMarkupAttribute_BackgroundColorARGB getkCMTextMarkupAttribute_BackgroundColorARGB()
-#define kCMTextMarkupAttribute_CharacterBackgroundColorARGB getkCMTextMarkupAttribute_CharacterBackgroundColorARGB()
-#define kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms getkCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms()
+#include "CoreMediaSoftLink.h"
 
 namespace JSC {
 class ArrayBuffer;
@@ -266,7 +157,7 @@ void InbandTextTrackPrivateAVF::processCueAttributes(CFAttributedStringRef attri
                 if (static_cast<CFBooleanRef>(value) != kCFBooleanTrue)
                     continue;
 
-                tagStart.append("<b>");
+                tagStart.appendLiteral("<b>");
                 tagEnd = "</b>" + tagEnd;
                 continue;
             }
@@ -275,7 +166,7 @@ void InbandTextTrackPrivateAVF::processCueAttributes(CFAttributedStringRef attri
                 if (static_cast<CFBooleanRef>(value) != kCFBooleanTrue)
                     continue;
 
-                tagStart.append("<i>");
+                tagStart.appendLiteral("<i>");
                 tagEnd = "</i>" + tagEnd;
                 continue;
             }
@@ -284,7 +175,7 @@ void InbandTextTrackPrivateAVF::processCueAttributes(CFAttributedStringRef attri
                 if (static_cast<CFBooleanRef>(value) != kCFBooleanTrue)
                     continue;
 
-                tagStart.append("<u>");
+                tagStart.appendLiteral("<u>");
                 tagEnd = "</u>" + tagEnd;
                 continue;
             }
@@ -598,29 +489,11 @@ void InbandTextTrackPrivateAVF::processNativeSamples(CFArrayRef nativeSamples, c
     LOG(Media, "InbandTextTrackPrivateAVF::processNativeSamples - %li sample buffers at time %.2f\n", count, presentationTime.toDouble());
 
     for (CFIndex i = 0; i < count; i++) {
-
-        CMSampleBufferRef sampleBuffer = (CMSampleBufferRef)CFArrayGetValueAtIndex(nativeSamples, i);
-        if (!sampleBuffer)
+        RefPtr<ArrayBuffer> buffer;
+        MediaTime duration;
+        CMFormatDescriptionRef formatDescription;
+        if (!readNativeSampleBuffer(nativeSamples, i, buffer, duration, formatDescription))
             continue;
-
-        CMSampleTimingInfo timingInfo;
-        OSStatus status = CMSampleBufferGetSampleTimingInfo(sampleBuffer, i, &timingInfo);
-        if (status) {
-            LOG(Media, "InbandTextTrackPrivateAVF::processNativeSamples(%p) - CMSampleBufferGetSampleTimingInfo returned error %x for sample %li", this, static_cast<int>(status), i);
-            continue;
-        }
-
-        CMBlockBufferRef blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer);
-        size_t bufferLength = CMBlockBufferGetDataLength(blockBuffer);
-        if (bufferLength < ISOBox::boxHeaderSize()) {
-            LOG(Media, "InbandTextTrackPrivateAVF::processNativeSamples(%p) - ERROR: CMSampleBuffer size length unexpectedly small (%zu)!!", this, bufferLength);
-            continue;
-        }
-
-        m_sampleInputBuffer.resize(m_sampleInputBuffer.size() + bufferLength);
-        CMBlockBufferCopyDataBytes(blockBuffer, 0, bufferLength, m_sampleInputBuffer.data() + m_sampleInputBuffer.size() - bufferLength);
-
-        RefPtr<ArrayBuffer> buffer = ArrayBuffer::create(m_sampleInputBuffer.data(), m_sampleInputBuffer.size());
 
         String type = ISOBox::peekType(buffer.get());
         size_t boxLength = ISOBox::peekLength(buffer.get());
@@ -632,7 +505,7 @@ void InbandTextTrackPrivateAVF::processNativeSamples(CFArrayRef nativeSamples, c
         LOG(Media, "InbandTextTrackPrivateAVF::processNativeSamples(%p) - chunk type = '%s', size = %zu", this, type.utf8().data(), boxLength);
 
         if (type == ISOWebVTTCue::boxType()) {
-            ISOWebVTTCue cueData = ISOWebVTTCue(presentationTime, toMediaTime(timingInfo.duration), buffer.get());
+            ISOWebVTTCue cueData = ISOWebVTTCue(presentationTime, duration, buffer.get());
             LOG(Media, "    sample presentation time = %.2f, duration = %.2f", cueData.presentationTime().toDouble(), cueData.duration().toDouble());
             LOG(Media, "    id = \"%s\", settings = \"%s\", cue text = \"%s\"", cueData.id().utf8().data(), cueData.settings().utf8().data(), cueData.cueText().utf8().data());
             LOG(Media, "    sourceID = \"%s\", originalStartTime = \"%s\"", cueData.sourceID().utf8().data(), cueData.originalStartTime().utf8().data());
@@ -644,7 +517,6 @@ void InbandTextTrackPrivateAVF::processNativeSamples(CFArrayRef nativeSamples, c
             if (m_haveReportedVTTHeader)
                 break;
 
-            CMFormatDescriptionRef formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer);
             if (!formatDescription)
                 break;
 
@@ -677,6 +549,42 @@ void InbandTextTrackPrivateAVF::processNativeSamples(CFArrayRef nativeSamples, c
 
         m_sampleInputBuffer.remove(0, boxLength);
     }
+}
+
+bool InbandTextTrackPrivateAVF::readNativeSampleBuffer(CFArrayRef nativeSamples, CFIndex index, RefPtr<ArrayBuffer>& buffer, MediaTime& duration, CMFormatDescriptionRef& formatDescription)
+{
+#if OS(WINDOWS) && HAVE(AVCFPLAYERITEM_CALLBACK_VERSION_2)
+    return false;
+#else
+    CMSampleBufferRef const sampleBuffer = reinterpret_cast<CMSampleBufferRef>(const_cast<void*>(CFArrayGetValueAtIndex(nativeSamples, index)));
+    if (!sampleBuffer)
+        return false;
+
+    CMSampleTimingInfo timingInfo;
+    OSStatus status = CMSampleBufferGetSampleTimingInfo(sampleBuffer, index, &timingInfo);
+    if (status) {
+        LOG(Media, "InbandTextTrackPrivateAVF::readNativeSampleBuffer(%p) - CMSampleBufferGetSampleTimingInfo returned error %x for sample %li", this, static_cast<int>(status), index);
+        return false;
+    }
+
+    duration = toMediaTime(timingInfo.duration);
+
+    CMBlockBufferRef blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer);
+    size_t bufferLength = CMBlockBufferGetDataLength(blockBuffer);
+    if (bufferLength < ISOBox::boxHeaderSize()) {
+        LOG(Media, "InbandTextTrackPrivateAVF::readNativeSampleBuffer(%p) - ERROR: CMSampleBuffer size length unexpectedly small (%zu)!!", this, bufferLength);
+        return false;
+    }
+
+    m_sampleInputBuffer.resize(m_sampleInputBuffer.size() + bufferLength);
+    CMBlockBufferCopyDataBytes(blockBuffer, 0, bufferLength, m_sampleInputBuffer.data() + m_sampleInputBuffer.size() - bufferLength);
+
+    buffer = ArrayBuffer::create(m_sampleInputBuffer.data(), m_sampleInputBuffer.size());
+
+    formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer);
+
+    return true;
+#endif
 }
 
 } // namespace WebCore

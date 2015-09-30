@@ -27,7 +27,7 @@ WebInspector.TextContentView = function(string, mimeType)
 {
     WebInspector.ContentView.call(this, string);
 
-    this.element.classList.add(WebInspector.TextContentView.StyleClassName);
+    this.element.classList.add("text");
 
     this._textEditor = new WebInspector.TextEditor;
     this._textEditor.addEventListener(WebInspector.TextEditor.Event.NumberOfSearchResultsDidChange, this._numberOfSearchResultsDidChange, this);
@@ -39,20 +39,17 @@ WebInspector.TextContentView = function(string, mimeType)
     this._textEditor.mimeType = mimeType;
     this._textEditor.string = string;
 
-    var curleyBracesImage;
-    if (WebInspector.Platform.isLegacyMacOS)
-        curleyBracesImage = {src: "Images/Legacy/NavigationItemCurleyBraces.svg", width: 16, height: 16};
-    else
-        curleyBracesImage = {src: "Images/NavigationItemCurleyBraces.svg", width: 13, height: 13};
-
     var toolTip = WebInspector.UIString("Pretty print");
     var activatedToolTip = WebInspector.UIString("Original formatting");
-    this._prettyPrintButtonNavigationItem = new WebInspector.ActivateButtonNavigationItem("pretty-print", toolTip, activatedToolTip, curleyBracesImage.src, curleyBracesImage.width, curleyBracesImage.height);
+    this._prettyPrintButtonNavigationItem = new WebInspector.ActivateButtonNavigationItem("pretty-print", toolTip, activatedToolTip, "Images/NavigationItemCurleyBraces.svg", 13, 13);
     this._prettyPrintButtonNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._togglePrettyPrint, this);
     this._prettyPrintButtonNavigationItem.enabled = this._textEditor.canBeFormatted();
-};
 
-WebInspector.TextContentView.StyleClassName = "text";
+    var toolTipTypes = WebInspector.UIString("Show type information");
+    var activatedToolTipTypes = WebInspector.UIString("Hide type information");
+    this._showTypesButtonNavigationItem = new WebInspector.ActivateButtonNavigationItem("show-types", toolTipTypes, activatedToolTipTypes, "Images/NavigationItemTypes.svg", 13, 14);
+    this._showTypesButtonNavigationItem.enabled = false;
+};
 
 WebInspector.TextContentView.prototype = {
     constructor: WebInspector.TextContentView,
@@ -66,7 +63,7 @@ WebInspector.TextContentView.prototype = {
 
     get navigationItems()
     {
-        return [this._prettyPrintButtonNavigationItem];
+        return [this._prettyPrintButtonNavigationItem, this._showTypesButtonNavigationItem];
     },
 
     revealPosition: function(position, textRangeToSelect, forceUnformatted)
@@ -83,7 +80,7 @@ WebInspector.TextContentView.prototype = {
 
     hidden: function()
     {
-        WebInspector.ResourceContentView.prototype.hidden.call(this);
+        WebInspector.ContentView.prototype.hidden.call(this);
 
         this._textEditor.hidden();
     },
@@ -103,7 +100,7 @@ WebInspector.TextContentView.prototype = {
     get saveData()
     {
         var url = "web-inspector:///" + encodeURI(WebInspector.UIString("Untitled")) + ".txt";
-        return {url: url, content: this._textEditor.string, forceSaveAs: true};
+        return {url, content: this._textEditor.string, forceSaveAs: true};
     },
 
     get supportsSearch()

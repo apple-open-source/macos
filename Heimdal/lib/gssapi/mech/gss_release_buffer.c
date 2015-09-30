@@ -29,8 +29,8 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_release_buffer(OM_uint32 *minor_status,
-		   gss_buffer_t buffer)
+gss_release_buffer(OM_uint32 *__nonnull minor_status,
+		   __nonnull gss_buffer_t buffer)
 {
 
 	*minor_status = 0;

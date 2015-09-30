@@ -99,8 +99,10 @@ JSValue JSValue::toThisSlowCase(ExecState* exec, ECMAMode ecmaMode) const
 JSObject* JSValue::synthesizePrototype(ExecState* exec) const
 {
     if (isCell()) {
-        ASSERT(isString());
-        return exec->lexicalGlobalObject()->stringPrototype();
+        if (isString())
+            return exec->lexicalGlobalObject()->stringPrototype();
+        ASSERT(isSymbol());
+        return exec->lexicalGlobalObject()->symbolPrototype();
     }
 
     if (isNumber())
@@ -119,9 +121,8 @@ void JSValue::putToPrimitive(ExecState* exec, PropertyName propertyName, JSValue
 {
     VM& vm = exec->vm();
 
-    unsigned index = propertyName.asIndex();
-    if (index != PropertyName::NotAnIndex) {
-        putToPrimitiveByIndex(exec, index, value, slot.isStrictMode());
+    if (Optional<uint32_t> index = parseIndex(propertyName)) {
+        putToPrimitiveByIndex(exec, index.value(), value, slot.isStrictMode());
         return;
     }
 
@@ -141,8 +142,7 @@ void JSValue::putToPrimitive(ExecState* exec, PropertyName propertyName, JSValue
 
     for (; ; obj = asObject(prototype)) {
         unsigned attributes;
-        JSCell* specificValue;
-        PropertyOffset offset = obj->structure()->get(vm, propertyName, attributes, specificValue);
+        PropertyOffset offset = obj->structure()->get(vm, propertyName, attributes);
         if (offset != invalidOffset) {
             if (attributes & ReadOnly) {
                 if (slot.isStrictMode())
@@ -198,6 +198,13 @@ void JSValue::dump(PrintStream& out) const
 
 void JSValue::dumpInContext(PrintStream& out, DumpContext* context) const
 {
+    dumpInContextAssumingStructure(
+        out, context, (!!*this && isCell()) ? asCell()->structure() : nullptr);
+}
+
+void JSValue::dumpInContextAssumingStructure(
+    PrintStream& out, DumpContext* context, Structure* structure) const
+{
     if (!*this)
         out.print("<JSValue()>");
     else if (isInt32())
@@ -214,7 +221,7 @@ void JSValue::dumpInContext(PrintStream& out, DumpContext* context) const
         out.printf("Double: %08x:%08x, %lf", u.asTwoInt32s[1], u.asTwoInt32s[0], asDouble());
 #endif
     } else if (isCell()) {
-        if (asCell()->inherits(JSString::info())) {
+        if (structure->classInfo()->isSubClassOf(JSString::info())) {
             JSString* string = jsCast<JSString*>(asCell());
             out.print("String");
             if (string->isRope())
@@ -225,16 +232,16 @@ void JSValue::dumpInContext(PrintStream& out, DumpContext* context) const
                     out.print(" (atomic)");
                 if (impl->isAtomic())
                     out.print(" (identifier)");
-                if (impl->isEmptyUnique())
-                    out.print(" (unique)");
+                if (impl->isSymbol())
+                    out.print(" (symbol)");
             } else
                 out.print(" (unresolved)");
             out.print(": ", impl);
-        } else if (asCell()->inherits(Structure::info()))
+        } else if (structure->classInfo()->isSubClassOf(Structure::info()))
             out.print("Structure: ", inContext(*jsCast<Structure*>(asCell()), context));
         else {
             out.print("Cell: ", RawPointer(asCell()));
-            out.print(" (", inContext(*asCell()->structure(), context), ")");
+            out.print(" (", inContext(*structure, context), ")");
         }
 #if USE(JSVALUE64)
         out.print(", ID: ", asCell()->structureID());
@@ -346,8 +353,12 @@ JSString* JSValue::toStringSlowCase(ExecState* exec) const
 {
     VM& vm = exec->vm();
     ASSERT(!isString());
-    if (isInt32())
-        return jsString(&vm, vm.numericStrings.add(asInt32()));
+    if (isInt32()) {
+        auto integer = asInt32();
+        if (static_cast<unsigned>(integer) <= 9)
+            return vm.smallStrings.singleCharacterString(integer + '0');
+        return jsNontrivialString(&vm, vm.numericStrings.add(integer));
+    }
     if (isDouble())
         return jsString(&vm, vm.numericStrings.add(asDouble()));
     if (isTrue())
@@ -358,6 +369,10 @@ JSString* JSValue::toStringSlowCase(ExecState* exec) const
         return vm.smallStrings.nullString();
     if (isUndefined())
         return vm.smallStrings.undefinedString();
+    if (isSymbol()) {
+        throwTypeError(exec);
+        return jsEmptyString(exec);
+    }
 
     ASSERT(isCell());
     JSValue value = asCell()->toPrimitive(exec, PreferString);
@@ -369,7 +384,20 @@ JSString* JSValue::toStringSlowCase(ExecState* exec) const
 
 String JSValue::toWTFStringSlowCase(ExecState* exec) const
 {
-    return inlineJSValueNotStringtoString(*this, exec);
+    VM& vm = exec->vm();
+    if (isInt32())
+        return vm.numericStrings.add(asInt32());
+    if (isDouble())
+        return vm.numericStrings.add(asDouble());
+    if (isTrue())
+        return vm.propertyNames->trueKeyword.string();
+    if (isFalse())
+        return vm.propertyNames->falseKeyword.string();
+    if (isNull())
+        return vm.propertyNames->nullKeyword.string();
+    if (isUndefined())
+        return vm.propertyNames->undefinedKeyword.string();
+    return toString(exec)->value(exec);
 }
 
 } // namespace JSC

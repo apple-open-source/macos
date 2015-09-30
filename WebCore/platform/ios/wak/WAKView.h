@@ -28,22 +28,27 @@
 
 #if TARGET_OS_IPHONE
 
+#import "WAKAppKitStubs.h"
 #import "WAKResponder.h"
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CoreGraphics.h>
 
-#ifndef NSRect
-#define NSRect CGRect
-#endif
-#define NSPoint CGPoint
-#define NSSize CGSize
-
 extern NSString *WAKViewFrameSizeDidChangeNotification;
 extern NSString *WAKViewDidScrollNotification;
 
+enum {
+    NSViewNotSizable = 0,
+    NSViewMinXMargin = 1,
+    NSViewWidthSizable = 2,
+    NSViewMaxXMargin = 4,
+    NSViewMinYMargin = 8,
+    NSViewHeightSizable = 16,
+    NSViewMaxYMargin = 32
+};
+
 @class WAKWindow;
 
-@interface WAKView : WAKResponder
+WEBCORE_EXPORT @interface WAKView : WAKResponder
 
 + (WAKView *)focusView;
 

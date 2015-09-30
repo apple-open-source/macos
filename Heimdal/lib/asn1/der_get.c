@@ -80,6 +80,16 @@ der_get_integer (const unsigned char *p, size_t len,
     return 0;
 }
 
+/*
+ * This function is tricky, it return the length in val, but it can
+ * also return ASN1_INDEFINITE in val when we ran into an INDEFINITE
+ * encoded object, so callers of this funcation needs to check for
+ * ASN1_INDEFINITE and make sure to handle that.
+ *
+ * In DER mode the caller should return ASN1_GOT_INDEFINITE if they
+ * get a ASN1_INDEFINITE.
+ */
+
 int
 der_get_length (const unsigned char *p, size_t len,
 		size_t *val, size_t *size)
@@ -342,6 +352,8 @@ der_get_octet_string_ber (const unsigned char *p, size_t len,
 	p += l;
 	len -= l;
 
+	if (datalen == ASN1_INDEFINITE)
+	    return ASN1_GOT_INDEFINITE;
 	if (datalen > len)
 	    return ASN1_OVERRUN;
 

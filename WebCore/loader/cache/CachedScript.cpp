@@ -33,8 +33,8 @@
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
-#include "ResourceBuffer.h"
 #include "RuntimeApplicationChecks.h"
+#include "SharedBuffer.h"
 #include "TextResourceDecoder.h"
 #include <wtf/Vector.h>
 
@@ -71,21 +71,18 @@ String CachedScript::mimeType() const
 
 const String& CachedScript::script()
 {
-    ASSERT(!isPurgeable());
-
     if (!m_script && m_data) {
         m_script = m_decoder->decodeAndFlush(m_data->data(), encodedSize());
         setDecodedSize(m_script.sizeInBytes());
     }
     m_decodedDataDeletionTimer.restart();
-    
     return m_script;
 }
 
-void CachedScript::finishLoading(ResourceBuffer* data)
+void CachedScript::finishLoading(SharedBuffer* data)
 {
     m_data = data;
-    setEncodedSize(m_data.get() ? m_data->size() : 0);
+    setEncodedSize(data ? data->size() : 0);
     CachedResource::finishLoading(data);
 }
 
@@ -93,14 +90,12 @@ void CachedScript::destroyDecodedData()
 {
     m_script = String();
     setDecodedSize(0);
-    if (!MemoryCache::shouldMakeResourcePurgeableOnEviction() && isSafeToMakePurgeable())
-        makePurgeable(true);
 }
 
 #if ENABLE(NOSNIFF)
 bool CachedScript::mimeTypeAllowedByNosniff() const
 {
-    return !parseContentTypeOptionsHeader(m_response.httpHeaderField(HTTPHeaderName::XContentTypeOptions)) == ContentTypeOptionsNosniff || MIMETypeRegistry::isSupportedJavaScriptMIMEType(mimeType());
+    return parseContentTypeOptionsHeader(m_response.httpHeaderField(HTTPHeaderName::XContentTypeOptions)) != ContentTypeOptionsNosniff || MIMETypeRegistry::isSupportedJavaScriptMIMEType(mimeType());
 }
 #endif
 

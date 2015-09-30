@@ -30,16 +30,15 @@
 
 #include "WebGLShader.h"
 
-#include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-class WebGLProgram : public WebGLSharedObject {
+class WebGLProgram final : public WebGLSharedObject {
 public:
     virtual ~WebGLProgram();
 
-    static PassRefPtr<WebGLProgram> create(WebGLRenderingContext*);
+    static Ref<WebGLProgram> create(WebGLRenderingContextBase*);
 
     unsigned numActiveAttribLocations();
     GC3Dint getActiveAttribLocation(GC3Duint index);
@@ -62,7 +61,7 @@ public:
     bool detachShader(WebGLShader*);
 
 protected:
-    WebGLProgram(WebGLRenderingContext*);
+    WebGLProgram(WebGLRenderingContextBase*);
 
     virtual void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override;
 

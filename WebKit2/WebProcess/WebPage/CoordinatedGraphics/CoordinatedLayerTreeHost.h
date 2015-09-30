@@ -40,7 +40,7 @@ class WebPage;
 class CoordinatedLayerTreeHost : public LayerTreeHost, public WebCore::CompositingCoordinator::Client
 {
 public:
-    static PassRefPtr<CoordinatedLayerTreeHost> create(WebPage*);
+    static Ref<CoordinatedLayerTreeHost> create(WebPage*);
     virtual ~CoordinatedLayerTreeHost();
 
     virtual const LayerTreeContext& layerTreeContext() { return m_layerTreeContext; }
@@ -62,14 +62,15 @@ public:
     virtual void deviceOrPageScaleFactorChanged() override;
     virtual void pageBackgroundTransparencyChanged() override;
 
-    virtual void didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection*, IPC::MessageDecoder&);
+    virtual void didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection&, IPC::MessageDecoder&);
     virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
     WebCore::CoordinatedGraphicsLayer* mainContentsLayer();
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
     virtual void scheduleAnimation() override;
 #endif
-    virtual void setBackgroundColor(const WebCore::Color&) override;
+
+    virtual void setViewOverlayRootLayer(WebCore::GraphicsLayer*) override;
 
     static PassRefPtr<WebCore::CoordinatedSurface> createCoordinatedSurface(const WebCore::IntSize&, WebCore::CoordinatedSurface::Flags);
 
@@ -85,7 +86,9 @@ private:
     void purgeBackingStores();
     void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset);
 
-    void layerFlushTimerFired(WebCore::Timer*);
+    void layerFlushTimerFired();
+
+    void updateRootLayers();
 
     // CompositingCoordinator::Client
     virtual void didFlushRootLayer(const WebCore::FloatRect& visibleContentRect) override;
@@ -105,6 +108,9 @@ private:
     WebCore::Timer m_layerFlushTimer;
     bool m_layerFlushSchedulingEnabled;
     uint64_t m_forceRepaintAsyncCallbackID;
+
+    WebCore::GraphicsLayer* m_contentLayer;
+    WebCore::GraphicsLayer* m_viewOverlayRootLayer;
 };
 
 } // namespace WebKit

@@ -27,8 +27,6 @@
 #include "CommonCryptor.h"
 #include "CommonCryptorSPI.h"
 #include "CommonCryptorPriv.h"
-#include <corecrypto/ccmode_factory.h>
-
 
 CCCryptorStatus
 CCCryptorGCMAddIV(CCCryptorRef cryptorRef,
@@ -38,7 +36,7 @@ CCCryptorGCMAddIV(CCCryptorRef cryptorRef,
     CCCryptor   *cryptor = getRealCryptor(cryptorRef, 0);
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     if(!cryptor) return kCCParamError;
-    ccmode_gcm_set_iv(cryptor->ctx[cryptor->op].gcm, ivLen, iv);
+    ccgcm_set_iv(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, ivLen, iv);
  	return kCCSuccess;
 }
 
@@ -51,7 +49,7 @@ CCCryptorGCMAddAAD(CCCryptorRef cryptorRef,
     CCCryptor   *cryptor = getRealCryptor(cryptorRef, 0);
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");    
     if(!cryptor) return kCCParamError;
-    ccmode_gcm_gmac(cryptor->ctx[cryptor->op].gcm, aDataLen, aData);
+    ccgcm_gmac(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, aDataLen, aData);
  	return kCCSuccess;
 }
 
@@ -85,7 +83,7 @@ CCCryptorStatus CCCryptorGCMEncrypt(
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     if(!cryptor) return kCCParamError;
     if(dataIn == NULL || dataOut == NULL) return kCCParamError;
-    ccmode_gcm_encrypt(cryptor->ctx[cryptor->op].gcm, dataInLength, dataIn, dataOut);
+    ccgcm_update(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, dataInLength, dataIn, dataOut);
  	return kCCSuccess;
 }
 
@@ -101,7 +99,7 @@ CCCryptorStatus CCCryptorGCMDecrypt(
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     if(!cryptor) return kCCParamError;
     if(dataIn == NULL || dataOut == NULL) return kCCParamError;
-    ccmode_gcm_decrypt(cryptor->ctx[cryptor->op].gcm, dataInLength, dataIn, dataOut);
+    ccgcm_update(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, dataInLength, dataIn, dataOut);
  	return kCCSuccess;
 }
 
@@ -116,7 +114,7 @@ CCCryptorStatus CCCryptorGCMFinal(
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     if(!cryptor) return kCCParamError;
 	if(tag == NULL || tagLength == NULL)  return kCCParamError;
-    ccmode_gcm_finalize(cryptor->ctx[cryptor->op].gcm, *tagLength, (void *)tag);
+    ccgcm_finalize(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, *tagLength, (void *)tag);
  	return kCCSuccess;
 }
 
@@ -128,7 +126,7 @@ CCCryptorStatus CCCryptorGCMReset(
     CCCryptor   *cryptor = getRealCryptor(cryptorRef, 0);
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     if(!cryptor) return kCCParamError;
-    ccmode_gcm_reset(cryptor->ctx[cryptor->op].gcm);
+    ccgcm_reset(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm);
  	return kCCSuccess;
 }
 

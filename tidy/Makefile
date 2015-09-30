@@ -5,7 +5,7 @@
 
 # Project info
 Project               = tidy
-BuildNumber           = 15.15
+BuildNumber           = 15.17
 UserType              = Administrator
 ToolType              = Libraries
 
@@ -40,18 +40,8 @@ endif
 
 CFLAGS+= -DTIDY_APPLE_CHANGES=1 -DTIDY_APPLE_BUILD_NUMBER=$(BuildNumber) -DTIDY_APPLE_BUILD_NUMBER_STR='"\"$(BuildNumber)\""'
 
-# seriously gross B&I hackery
-# blame molson
-ifeq "$(RC_ProjectName)" "tidy_Sim"
-DEVELOPER_DIR ?= $(shell xcode-select -print-path)
-include  $(DEVELOPER_DIR)/AppleInternal/Makefiles/Makefile.indigo
-ActualDSTROOT = ${DSTROOT}/${INDIGO_PREFIX}
-else
-ActualDSTROOT = ${DSTROOT}
-endif
-
-OSV     = $(ActualDSTROOT)/usr/local/OpenSourceVersions
-OSL     = $(ActualDSTROOT)/usr/local/OpenSourceLicenses
+OSV     = $(DSTROOT)/usr/local/OpenSourceVersions
+OSL     = $(DSTROOT)/usr/local/OpenSourceLicenses
 
 # Ensure that our make subinvocations work with commands from the apppropriate toolchain.
 export AR
@@ -60,18 +50,18 @@ export RANLIB
 export STRIP
 
 install::
-	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActuallDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installhdrs devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr"
-	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActualDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installib devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr"
-	$(CC) $(CFLAGS) -dynamiclib $(SECTORDER_FLAGS) -o "$(ActualDSTROOT)/usr/lib/libtidy.A.dylib" "$(OBJROOT)/tidy/lib/libtidy.a" -install_name "/usr/lib/libtidy.A.dylib" -all_load -compatibility_version 1.0.0 -current_version 1.0.0
-	$(LN) -s "libtidy.A.dylib" "$(ActualDSTROOT)/usr/lib/libtidy.dylib"
-	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActualDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installexes devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr" LIBDIR="$(ActualDSTROOT)/usr/lib"
-	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActualDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installmanpage_apple devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr"
+	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(DSTROOT)/usr" devinst_prefix="$(DSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installhdrs devinst_prefix="$(DSTROOT)/usr" runinst_prefix="$(DSTROOT)/usr"
+	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(DSTROOT)/usr" devinst_prefix="$(DSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installib devinst_prefix="$(DSTROOT)/usr" runinst_prefix="$(DSTROOT)/usr"
+	$(CC) $(CFLAGS) -dynamiclib $(SECTORDER_FLAGS) -o "$(DSTROOT)/usr/lib/libtidy.A.dylib" "$(OBJROOT)/tidy/lib/libtidy.a" -install_name "/usr/lib/libtidy.A.dylib" -all_load -compatibility_version 1.0.0 -current_version 1.0.0
+	$(LN) -s "libtidy.A.dylib" "$(DSTROOT)/usr/lib/libtidy.dylib"
+	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(DSTROOT)/usr" devinst_prefix="$(DSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installexes devinst_prefix="$(DSTROOT)/usr" runinst_prefix="$(DSTROOT)/usr" LIBDIR="$(DSTROOT)/usr/lib"
+	TIDY_APPLE_CHANGES=1 CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(DSTROOT)/usr" devinst_prefix="$(DSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installmanpage_apple devinst_prefix="$(DSTROOT)/usr" runinst_prefix="$(DSTROOT)/usr"
 ifndef TIDY_DEBUG
-	$(STRIP) "$(ActualDSTROOT)/usr/bin/tab2space"
-	$(STRIP) "$(ActualDSTROOT)/usr/bin/tidy"
-	$(STRIP) -x "$(ActualDSTROOT)/usr/lib/libtidy.A.dylib"
+	$(STRIP) "$(DSTROOT)/usr/bin/tab2space"
+	$(STRIP) "$(DSTROOT)/usr/bin/tidy"
+	$(STRIP) -x "$(DSTROOT)/usr/lib/libtidy.A.dylib"
 endif
-	$(RM) "$(ActualDSTROOT)/usr/lib/libtidy.a"
+	$(RM) "$(DSTROOT)/usr/lib/libtidy.a"
 
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist

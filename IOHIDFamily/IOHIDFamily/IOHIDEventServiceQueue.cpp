@@ -126,7 +126,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
         // Do not allow the tail to catch up to the head when the queue is full.
         // That's why the comparison uses a '>' rather than '>='.
 
-        if ( ( (head - tail) > entrySize ) && ( tail + entrySize <= getQueueSize() ) )
+        if ( ( (head - tail) > entrySize ) && (tail + entrySize <= getQueueSize() ) )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 

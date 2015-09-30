@@ -10,6 +10,8 @@ _CSSMOID_SHA1WithRSA
 _CSSMOID_SHA256WithRSA
 _CSSMOID_SHA384WithRSA
 _CSSMOID_ECDSA_WithSHA1
+_CSSMOID_ECDSA_WithSHA256
+_CSSMOID_ECDSA_WithSHA384
 _CSSMOID_PKCS5_HMAC_SHA1
 _DEROidCompare
 _NtlmCreateClientRequest
@@ -19,6 +21,7 @@ _NtlmGeneratorCreate
 _NtlmGeneratorRelease
 _NtlmGetNegotiatedVersion
 _OID_PKIX_OCSP_BASIC
+_OID_GOOGLE_OCSP_SCT
 _SSLAddDistinguishedName
 _SSLClose
 _SSLContextGetTypeID
@@ -66,6 +69,11 @@ _SSLRead
 _SSLSetNPNData
 _SSLSetNPNFunc
 _SSLGetNPNData
+_SSLSetALPNData
+_SSLSetALPNFunc
+_SSLGetALPNData
+_SSLCopyRequestedPeerName
+_SSLCopyRequestedPeerNameLength
 _SSLSetAllowAnonymousCiphers
 _SSLSetCertificate
 _SSLSetClientSideAuthenticate
@@ -88,6 +96,9 @@ _SSLSetPeerDomainName
 _SSLSetPeerID
 _SSLSetSessionCacheTimeout
 _SSLWrite
+_SSLSetSessionStrengthPolicy
+_SSLSetDHEEnabled
+_SSLGetDHEEnabled
 
 /* Those are deprecated */
 __SSLCopyPeerCertificates
@@ -137,6 +148,7 @@ _SecFrameworkCopyResourceURL
 _SecPKCS12Import
 _SecRandomCopyBytes
 _SecSHA1DigestCreate
+_SecSHA256DigestCreateFromData
 _SecTaskCopySigningIdentifier
 _SecTaskCopyValueForEntitlement
 _SecTaskCopyValuesForEntitlements
@@ -151,6 +163,7 @@ _kSecAsn1OCSPResponderIDAsNameTemplate
 _kSecAsn1OCSPResponseDataTemplate
 _kSecAsn1OCSPResponseTemplate
 _kSecAsn1OCSPSignedRequestTemplate
+_kSecAsn1OctetStringTemplate
 _kSecCSRBasicContraintsPathLen
 _kSecCSRChallengePassword
 _kSecOidCommonName

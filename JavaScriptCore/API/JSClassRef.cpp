@@ -62,7 +62,7 @@ OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass*
     initializeThreading();
 
     if (const JSStaticValue* staticValue = definition->staticValues) {
-        m_staticValues = adoptPtr(new OpaqueJSClassStaticValuesTable);
+        m_staticValues = std::make_unique<OpaqueJSClassStaticValuesTable>();
         while (staticValue->name) {
             String valueName = String::fromUTF8(staticValue->name);
             if (!valueName.isNull())
@@ -72,7 +72,7 @@ OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass*
     }
 
     if (const JSStaticFunction* staticFunction = definition->staticFunctions) {
-        m_staticFunctions = adoptPtr(new OpaqueJSClassStaticFunctionsTable);
+        m_staticFunctions = std::make_unique<OpaqueJSClassStaticFunctionsTable>();
         while (staticFunction->name) {
             String functionName = String::fromUTF8(staticFunction->name);
             if (!functionName.isNull())
@@ -108,12 +108,12 @@ OpaqueJSClass::~OpaqueJSClass()
         JSClassRelease(prototypeClass);
 }
 
-PassRefPtr<OpaqueJSClass> OpaqueJSClass::createNoAutomaticPrototype(const JSClassDefinition* definition)
+Ref<OpaqueJSClass> OpaqueJSClass::createNoAutomaticPrototype(const JSClassDefinition* definition)
 {
-    return adoptRef(new OpaqueJSClass(definition, 0));
+    return adoptRef(*new OpaqueJSClass(definition, 0));
 }
 
-PassRefPtr<OpaqueJSClass> OpaqueJSClass::create(const JSClassDefinition* clientDefinition)
+Ref<OpaqueJSClass> OpaqueJSClass::create(const JSClassDefinition* clientDefinition)
 {
     JSClassDefinition definition = *clientDefinition; // Avoid modifying client copy.
 
@@ -124,7 +124,7 @@ PassRefPtr<OpaqueJSClass> OpaqueJSClass::create(const JSClassDefinition* clientD
     // We are supposed to use JSClassRetain/Release but since we know that we currently have
     // the only reference to this class object we cheat and use a RefPtr instead.
     RefPtr<OpaqueJSClass> protoClass = adoptRef(new OpaqueJSClass(&protoDefinition, 0));
-    return adoptRef(new OpaqueJSClass(&definition, protoClass.get()));
+    return adoptRef(*new OpaqueJSClass(&definition, protoClass.get()));
 }
 
 OpaqueJSClassContextData::OpaqueJSClassContextData(JSC::VM&, OpaqueJSClass* jsClass)

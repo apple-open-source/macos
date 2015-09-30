@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -218,6 +218,7 @@ int sweepincr = 1;		/* payload increment in sweep */
 int interval = 1000;		/* interval between packets, ms */
 int waittime = MAXWAIT;		/* timeout for each packet */
 long nrcvtimeout = 0;		/* # of packets we got back after waittime */
+int icmp_len = 0;		/* length of the ICMP header */
 
 /* timing */
 int timing;			/* flag to do timing */
@@ -266,7 +267,7 @@ main(int argc, char *const *argv)
 	struct sockaddr_in *to;
 	double t;
 	u_long alarmtimeout, ultmp;
-	int almost_done, ch, df, hold, i, icmp_len, mib[4], preload, sockerrno,
+	int almost_done, ch, df, hold, i, mib[4], preload, sockerrno,
 	    tos, ttl;
 	char ctrl[CMSG_SPACE(sizeof(struct timeval)) + CMSG_SPACE(sizeof(int))];
 	char hnamebuf[MAXHOSTNAMELEN], snamebuf[MAXHOSTNAMELEN];
@@ -681,7 +682,7 @@ main(int argc, char *const *argv)
 		timing = 1;
 
 	if (!(options & F_PINGFILLED))
-		for (i = TIMEVAL_LEN; i < datalen; ++i)
+		for (i = TIMEVAL_LEN; i < MAX(datalen, sweepmax); ++i)
 			*datap++ = i;
 
 	ident = getpid() & 0xFFFF;
@@ -1005,8 +1006,6 @@ main(int argc, char *const *argv)
 		}
 		if (n == 0 || options & F_FLOOD) {
 			if (sweepmax && sntransmitted == snpackets) {
-				for (i = 0; i < sweepincr ; ++i) 
-					*datap++ = i;
 				datalen += sweepincr;
 				if (datalen > sweepmax)
 					break;
@@ -1034,8 +1033,12 @@ main(int argc, char *const *argv)
 				nmissedmax = ntransmitted - nreceived - 1;
 				if (options & F_MISSED)
 					(void)write(STDOUT_FILENO, &BBELL, 1);
-				if (!(options & F_QUIET))
-					printf("Request timeout for icmp_seq %ld\n", ntransmitted - 2);
+				if (!(options & F_QUIET)) {
+					printf("Request timeout for icmp_seq %u\n",
+					       (uint16_t)(ntransmitted - 2));
+					if (!(options & F_FLOOD))
+						(void)fflush(stdout);
+				}
 			}
 		}
 	}
@@ -1253,6 +1256,17 @@ pr_pack(char *buf, int cc, struct sockaddr_in *from, struct timeval *tv,
 		if (options & F_FLOOD)
 			(void)write(STDOUT_FILENO, &BSPACE, 1);
 		else {
+			int seq_sent_len = send_len;
+			int seq_datalen = datalen;
+			
+			if (sweepmax != 0) {
+				/*
+				 * When sweeping take in account the length of that
+				 * was sent based on the sequence number
+				 */
+				seq_datalen = sweepmin + (seq / snpackets) * sweepincr;
+				seq_sent_len = icmp_len + seq_datalen;
+			}
 			(void)printf("%d bytes from %s: icmp_seq=%u", cc,
 			   inet_ntoa(*(struct in_addr *)&from->sin_addr.s_addr),
 			   seq);
@@ -1277,10 +1291,10 @@ pr_pack(char *buf, int cc, struct sockaddr_in *from, struct timeval *tv,
 				(void)printf(" tsr=%s", pr_ntime(icp->icmp_rtime));
 				(void)printf(" tst=%s", pr_ntime(icp->icmp_ttime));
 			}
-			if (recv_len != send_len) {
+			if (recv_len != seq_sent_len) {
                         	(void)printf(
 				     "\nwrong total length %d instead of %d",
-				     recv_len, send_len);
+				     recv_len, seq_sent_len);
 			}
 			/* check the data */
 			cp = (u_char*)&icp->icmp_data[phdr_len];
@@ -1293,21 +1307,21 @@ pr_pack(char *buf, int cc, struct sockaddr_in *from, struct timeval *tv,
 				cc -= TIMEVAL_LEN;
 				i += TIMEVAL_LEN;
 			}
-			for (; i < datalen && cc > 0; ++i, ++cp, ++dp, --cc) {
+			for (; i < seq_datalen && cc > 0; ++i, ++cp, ++dp, --cc) {
 				if (*cp != *dp) {
 	(void)printf("\nwrong data byte #%d should be 0x%x but was 0x%x",
 	    i, *dp, *cp);
 					(void)printf("\ncp:");
 					cp = (u_char*)&icp->icmp_data[0];
-					for (i = 0; i < datalen; ++i, ++cp) {
-						if ((i % 16) == 8)
+					for (i = 0; i < seq_datalen; ++i, ++cp) {
+						if ((i % 16) == 0)
 							(void)printf("\n\t");
 						(void)printf("%2x ", *cp);
 					}
 					(void)printf("\ndp:");
 					cp = &outpack[ICMP_MINLEN];
-					for (i = 0; i < datalen; ++i, ++cp) {
-						if ((i % 16) == 8)
+					for (i = 0; i < seq_datalen; ++i, ++cp) {
+						if ((i % 16) == 0)
 							(void)printf("\n\t");
 						(void)printf("%2x ", *cp);
 					}

@@ -1,0 +1,21 @@
+--- postgresql-9.2.4/src/bin/pg_ctl/pg_ctl.c	2014-01-30 18:51:59.000000000 -0800
++++ postgresql/src/bin/pg_ctl/pg_ctl.c	2014-01-30 18:59:59.000000000 -0800
+@@ -585,12 +585,15 @@
+ 		 * file there but it appears stale, issue a suitable warning and give
+ 		 * up waiting.
+ 		 */
+-		if (i >= 5)
++        
++         // APPLE: We may perform other actions before the pid file shows up, which could
++         // take a very long time.  Just keep looping until the file shows up.
++		if (i >= 60)
+ 		{
+ 			struct stat statbuf;
+ 
+-			if (stat(pid_file, &statbuf) != 0)
+-				return PQPING_NO_RESPONSE;
++//			if (stat(pid_file, &statbuf) != 0)
++//				return PQPING_NO_RESPONSE;
+ 
+ 			if (found_stale_pidfile)
+ 			{

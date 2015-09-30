@@ -27,9 +27,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(INSPECTOR)
-
 #include "NetworkResourcesData.h"
 
 #include "CachedResource.h"
@@ -40,32 +37,15 @@
 
 namespace {
 // 100MB
-static size_t maximumResourcesContentSize = 100 * 1000 * 1000;
+static const size_t maximumResourcesContentSize = 100 * 1000 * 1000;
 
 // 10MB
-static size_t maximumSingleResourceContentSize = 10 * 1000 * 1000;
+static const size_t maximumSingleResourceContentSize = 10 * 1000 * 1000;
 }
 
 using namespace Inspector;
 
 namespace WebCore {
-
-
-PassRefPtr<XHRReplayData> XHRReplayData::create(const String &method, const URL& url, bool async, PassRefPtr<FormData> formData, const HTTPHeaderMap& headers, bool includeCredentials)
-{
-    return adoptRef(new XHRReplayData(method, url, async, formData, headers, includeCredentials));
-}
-
-
-XHRReplayData::XHRReplayData(const String &method, const URL& url, bool async, PassRefPtr<FormData> formData, const HTTPHeaderMap& headers, bool includeCredentials)
-    : m_method(method)
-    , m_url(url)
-    , m_async(async)
-    , m_formData(formData)
-    , m_headers(headers)
-    , m_includeCredentials(includeCredentials)
-{
-}
 
 // ResourceData
 NetworkResourcesData::ResourceData::ResourceData(const String& requestId, const String& loaderId)
@@ -271,46 +251,6 @@ NetworkResourcesData::ResourceData const* NetworkResourcesData::data(const Strin
     return resourceDataForRequestId(requestId);
 }
 
-XHRReplayData* NetworkResourcesData::xhrReplayData(const String& requestId)
-{
-    if (m_reusedXHRReplayDataRequestIds.contains(requestId))
-        return xhrReplayData(m_reusedXHRReplayDataRequestIds.get(requestId));
-
-    ResourceData* resourceData = resourceDataForRequestId(requestId);
-    if (!resourceData)
-        return nullptr;
-    return resourceData->xhrReplayData();
-}
-
-void NetworkResourcesData::setXHRReplayData(const String& requestId, XHRReplayData* xhrReplayData)
-{
-    ResourceData* resourceData = resourceDataForRequestId(requestId);
-    if (!resourceData) {
-        Vector<String> result;
-        ReusedRequestIds::iterator it;
-        ReusedRequestIds::iterator end = m_reusedXHRReplayDataRequestIds.end();
-        for (it = m_reusedXHRReplayDataRequestIds.begin(); it != end; ++it) {
-            if (it->value == requestId)
-                setXHRReplayData(it->key, xhrReplayData);
-        }
-        return;
-    }
-
-    resourceData->setXHRReplayData(xhrReplayData);
-}
-
-void NetworkResourcesData::reuseXHRReplayData(const String& requestId, const String& reusedRequestId)
-{
-    ResourceData* reusedResourceData = resourceDataForRequestId(reusedRequestId);
-    ResourceData* resourceData = resourceDataForRequestId(requestId);
-    if (!reusedResourceData || !resourceData) {
-        m_reusedXHRReplayDataRequestIds.set(requestId, reusedRequestId);
-        return;
-    }
-
-    resourceData->setXHRReplayData(reusedResourceData->xhrReplayData());
-}
-
 Vector<String> NetworkResourcesData::removeCachedResource(CachedResource* cachedResource)
 {
     Vector<String> result;
@@ -338,14 +278,13 @@ void NetworkResourcesData::clear(const String& preservedLoaderId)
     ResourceDataMap::iterator end = m_requestIdToResourceDataMap.end();
     for (it = m_requestIdToResourceDataMap.begin(); it != end; ++it) {
         ResourceData* resourceData = it->value;
+        ASSERT(resourceData);
         if (!preservedLoaderId.isNull() && resourceData->loaderId() == preservedLoaderId)
             preservedMap.set(it->key, it->value);
         else
             delete resourceData;
     }
     m_requestIdToResourceDataMap.swap(preservedMap);
-
-    m_reusedXHRReplayDataRequestIds.clear();
 }
 
 NetworkResourcesData::ResourceData* NetworkResourcesData::resourceDataForRequestId(const String& requestId)
@@ -381,5 +320,3 @@ bool NetworkResourcesData::ensureFreeSpace(size_t size)
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(INSPECTOR)

@@ -87,6 +87,7 @@
 #include <parse_bytes.h>
 
 #ifdef __APPLE__
+#include <SystemConfiguration/SCPreferences.h>
 #include <dispatch/dispatch.h>
 #include <notify.h>
 #endif

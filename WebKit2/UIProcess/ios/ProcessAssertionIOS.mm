@@ -28,10 +28,14 @@
 
 #if PLATFORM(IOS)
 
-#import <AssertionServices/BKSProcessAssertion.h>
+#import "AssertionServicesSPI.h"
 #import <UIKit/UIApplication.h>
+#import <wtf/HashSet.h>
+#import <wtf/Vector.h>
 
 #if !PLATFORM(IOS_SIMULATOR)
+
+using WebKit::ProcessAssertionClient;
 
 @interface WKProcessAssertionBackgroundTaskManager : NSObject
 
@@ -40,13 +44,16 @@
 - (void)incrementNeedsToRunInBackgroundCount;
 - (void)decrementNeedsToRunInBackgroundCount;
 
+- (void)addClient:(ProcessAssertionClient&)client;
+- (void)removeClient:(ProcessAssertionClient&)client;
+
 @end
 
 @implementation WKProcessAssertionBackgroundTaskManager
 {
     unsigned _needsToRunInBackgroundCount;
-    BOOL _appIsBackground;
     UIBackgroundTaskIdentifier _backgroundTask;
+    HashSet<ProcessAssertionClient*> _clients;
 }
 
 + (WKProcessAssertionBackgroundTaskManager *)shared
@@ -61,56 +68,47 @@
     if (!self)
         return nil;
 
-    _appIsBackground = [UIApplication sharedApplication].applicationState == UIApplicationStateBackground;
     _backgroundTask = UIBackgroundTaskInvalid;
-
-    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-    [center addObserver:self selector:@selector(_applicationWillEnterForeground:) name:UIApplicationWillEnterForegroundNotification object:nil];
-    [center addObserver:self selector:@selector(_applicationDidEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:nil];
 
     return self;
 }
 
 - (void)dealloc
 {
-    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-    [center removeObserver:self name:UIApplicationWillEnterForegroundNotification object:nil];
-    [center removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
-
     if (_backgroundTask != UIBackgroundTaskInvalid)
         [[UIApplication sharedApplication] endBackgroundTask:_backgroundTask];
 
     [super dealloc];
 }
 
+- (void)addClient:(ProcessAssertionClient&)client
+{
+    _clients.add(&client);
+}
+
+- (void)removeClient:(ProcessAssertionClient&)client
+{
+    _clients.remove(&client);
+}
+
 - (void)_updateBackgroundTask
 {
-    bool shouldHoldTask = _needsToRunInBackgroundCount && _appIsBackground;
-
-    if (shouldHoldTask && _backgroundTask == UIBackgroundTaskInvalid) {
+    if (_needsToRunInBackgroundCount && _backgroundTask == UIBackgroundTaskInvalid) {
         _backgroundTask = [[UIApplication sharedApplication] beginBackgroundTaskWithName:@"com.apple.WebKit.ProcessAssertion" expirationHandler:^{
             NSLog(@"Background task expired while holding WebKit ProcessAssertion.");
+            Vector<ProcessAssertionClient*> clientsToNotify;
+            copyToVector(_clients, clientsToNotify);
+            for (auto* client : clientsToNotify)
+                client->assertionWillExpireImminently();
             [[UIApplication sharedApplication] endBackgroundTask:_backgroundTask];
             _backgroundTask = UIBackgroundTaskInvalid;
         }];
     }
 
-    if (!shouldHoldTask && _backgroundTask != UIBackgroundTaskInvalid) {
+    if (!_needsToRunInBackgroundCount && _backgroundTask != UIBackgroundTaskInvalid) {
         [[UIApplication sharedApplication] endBackgroundTask:_backgroundTask];
         _backgroundTask = UIBackgroundTaskInvalid;
     }
-}
-
-- (void)_applicationWillEnterForeground:(NSNotification *)notification
-{
-    _appIsBackground = NO;
-    [self _updateBackgroundTask];
-}
-
-- (void)_applicationDidEnterBackground:(NSNotification *)notification
-{
-    _appIsBackground = YES;
-    [self _updateBackgroundTask];
 }
 
 - (void)incrementNeedsToRunInBackgroundCount
@@ -130,9 +128,9 @@
 namespace WebKit {
 
 const BKSProcessAssertionFlags suspendedTabFlags = (BKSProcessAssertionAllowIdleSleep);
-const BKSProcessAssertionFlags backgroundTabFlags = (BKSProcessAssertionAllowIdleSleep | BKSProcessAssertionPreventTaskSuspend | BKSProcessAssertionAllowSuspendOnSleep);
-const BKSProcessAssertionFlags foregroundTabFlags = (BKSProcessAssertionAllowIdleSleep | BKSProcessAssertionPreventTaskSuspend | BKSProcessAssertionAllowSuspendOnSleep | BKSProcessAssertionWantsForegroundResourcePriority | BKSProcessAssertionPreventTaskThrottleDown);
-    
+const BKSProcessAssertionFlags backgroundTabFlags = (BKSProcessAssertionAllowIdleSleep | BKSProcessAssertionPreventTaskSuspend);
+const BKSProcessAssertionFlags foregroundTabFlags = (BKSProcessAssertionAllowIdleSleep | BKSProcessAssertionPreventTaskSuspend | BKSProcessAssertionWantsForegroundResourcePriority | BKSProcessAssertionPreventTaskThrottleDown);
+
 static BKSProcessAssertionFlags flagsForState(AssertionState assertionState)
 {
     switch (assertionState) {
@@ -156,6 +154,13 @@ ProcessAssertion::ProcessAssertion(pid_t pid, AssertionState assertionState)
         }
     };
     m_assertion = adoptNS([[BKSProcessAssertion alloc] initWithPID:pid flags:flagsForState(assertionState) reason:BKSProcessAssertionReasonExtension name:@"Web content visible" withHandler:handler]);
+}
+
+ProcessAssertion::~ProcessAssertion()
+{
+    if (ProcessAssertionClient* client = this->client())
+        [[WKProcessAssertionBackgroundTaskManager shared] removeClient:*client];
+    [m_assertion invalidate];
 }
 
 void ProcessAssertion::setState(AssertionState assertionState)
@@ -190,6 +195,14 @@ void ProcessAndUIAssertion::setState(AssertionState assertionState)
     ProcessAssertion::setState(assertionState);
 }
 
+void ProcessAndUIAssertion::setClient(ProcessAssertionClient& newClient)
+{
+    [[WKProcessAssertionBackgroundTaskManager shared] addClient:newClient];
+    if (ProcessAssertionClient* oldClient = this->client())
+        [[WKProcessAssertionBackgroundTaskManager shared] removeClient:*oldClient];
+    ProcessAssertion::setClient(newClient);
+}
+
 } // namespace WebKit
 
 #else // PLATFORM(IOS_SIMULATOR)
@@ -198,6 +211,10 @@ namespace WebKit {
 
 ProcessAssertion::ProcessAssertion(pid_t, AssertionState assertionState)
     : m_assertionState(assertionState)
+{
+}
+
+ProcessAssertion::~ProcessAssertion()
 {
 }
 
@@ -218,6 +235,11 @@ ProcessAndUIAssertion::~ProcessAndUIAssertion()
 void ProcessAndUIAssertion::setState(AssertionState assertionState)
 {
     ProcessAssertion::setState(assertionState);
+}
+
+void ProcessAndUIAssertion::setClient(ProcessAssertionClient& newClient)
+{
+    ProcessAssertion::setClient(newClient);
 }
 
 } // namespace WebKit

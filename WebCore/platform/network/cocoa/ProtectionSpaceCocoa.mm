@@ -195,11 +195,14 @@ bool ProtectionSpace::platformCompare(const ProtectionSpace& a, const Protection
     return [a.nsSpace() isEqual:b.nsSpace()];
 }
 
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+bool ProtectionSpace::receivesCredentialSecurely() const
+{
+    return nsSpace().receivesCredentialSecurely;
+}
+
 bool ProtectionSpace::encodingRequiresPlatformData(NSURLProtectionSpace *space)
 {
     return space.distinguishedNames || space.serverTrust;
 }
-#endif
 
 } // namespace WebCore

@@ -266,23 +266,23 @@ io_connect_t IORegisterForSystemPower ( void * refcon,
                                         IOServiceInterestCallback callback,
                                         io_object_t * root_notifier )
 {
-    io_connect_t                fb = MACH_PORT_NULL;
+    io_connect_t                fb = IO_OBJECT_NULL;
     IONotificationPortRef       notify = NULL;
     kern_return_t               kr;
-    io_service_t                obj = MACH_PORT_NULL;
+    io_service_t                obj = IO_OBJECT_NULL;
      
-    *root_notifier = MACH_PORT_NULL;
+    *root_notifier = IO_OBJECT_NULL;
 
     notify = IONotificationPortCreate(MACH_PORT_NULL);
 
-    obj = IORegistryEntryFromPath( MACH_PORT_NULL, 
+    obj = IORegistryEntryFromPath( IO_OBJECT_NULL,
                     kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
 
-    if( obj == MACH_PORT_NULL ) goto failure_exit;
+    if( obj == IO_OBJECT_NULL) goto failure_exit;
     
     kr = IOServiceOpen( obj,mach_task_self(), 0, &fb);
 
-    if ( (kr != kIOReturnSuccess) || (fb == MACH_PORT_NULL) )  {
+    if ( (kr != kIOReturnSuccess) || (fb == IO_OBJECT_NULL) )  {
         goto failure_exit;
     }
 
@@ -298,20 +298,20 @@ io_connect_t IORegisterForSystemPower ( void * refcon,
     }
     
 failure_exit:    
-    if ( obj != MACH_PORT_NULL ) {
+    if ( obj != IO_OBJECT_NULL) {
         IOObjectRelease(obj);
     }
-    if ( notify != MACH_PORT_NULL ) {
+    if ( notify != NULL) {
         IONotificationPortDestroy(notify);
     }
-    if ( fb != MACH_PORT_NULL ) {
+    if ( fb != IO_OBJECT_NULL) {
         IOServiceClose(fb);
     }
-    if ( *root_notifier != MACH_PORT_NULL ) {
+    if ( *root_notifier != IO_OBJECT_NULL) {
         IOObjectRelease(*root_notifier);
     }
     
-    return MACH_PORT_NULL;
+    return IO_OBJECT_NULL;
 }
 
 
@@ -444,7 +444,14 @@ CFDictionaryRef IOCopySystemLoadAdvisoryDetailed(void)
     if (!storage || !gtDetailedKey) {
         goto exit;
     }
-    gtDetailed = isA_CFDictionary(SCDynamicStoreCopyValue(storage, gtDetailedKey));    
+    gtDetailed = SCDynamicStoreCopyValue(storage, gtDetailedKey);
+    if(gtDetailed)
+    {
+        if(!isA_CFDictionary(gtDetailed)) {
+            CFRelease(gtDetailed);
+            gtDetailed = NULL;
+        }
+    }
 exit:    
     if (gtDetailedKey) CFRelease(gtDetailedKey);
     if (storage) CFRelease(storage);    

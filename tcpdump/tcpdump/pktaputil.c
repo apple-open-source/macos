@@ -57,8 +57,6 @@ extern node_t *pkt_meta_data_expression;
 
 extern netdissect_options *gndo;
 
-extern char *filter_src_buf;
-
 extern int pktap_if_count;
 
 extern u_int packets_mtdt_fltr_drop;

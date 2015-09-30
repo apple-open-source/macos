@@ -46,7 +46,8 @@ enum Attribute {
     Builtin           = 1 << 7, // property is a builtin function - only used by static hashtables
     ConstantInteger   = 1 << 8, // property is a constant integer - only used by static hashtables
     BuiltinOrFunction = Builtin | Function, // helper only used by static hashtables
-    BuiltinOrFunctionOrConstant = Builtin | Function | ConstantInteger, // helper only used by static hashtables
+    BuiltinOrFunctionOrAccessor = Builtin | Function | Accessor, // helper only used by static hashtables
+    BuiltinOrFunctionOrAccessorOrConstant = Builtin | Function | Accessor | ConstantInteger, // helper only used by static hashtables
 };
 
 class PropertySlot {
@@ -78,6 +79,7 @@ public:
     JSValue getValue(ExecState*, unsigned propertyName) const;
 
     bool isCacheable() const { return m_cacheability == CachingAllowed && m_offset != invalidOffset; }
+    bool isUnset() const { return m_propertyType == TypeUnset; }
     bool isValue() const { return m_propertyType == TypeValue; }
     bool isAccessor() const { return m_propertyType == TypeGetter; }
     bool isCustom() const { return m_propertyType == TypeCustom; }
@@ -204,6 +206,11 @@ public:
         m_offset = offset;
     }
 
+    void setThisValue(JSValue thisValue)
+    {
+        m_thisValue = thisValue;
+    }
+
     void setUndefined()
     {
         m_data.value = JSValue::encode(jsUndefined());
@@ -235,11 +242,29 @@ private:
 
     PropertyType m_propertyType;
     PropertyOffset m_offset;
-    const JSValue m_thisValue;
+    JSValue m_thisValue;
     JSObject* m_slotBase;
     WatchpointSet* m_watchpointSet;
     CacheabilityType m_cacheability;
 };
+
+ALWAYS_INLINE JSValue PropertySlot::getValue(ExecState* exec, PropertyName propertyName) const
+{
+    if (m_propertyType == TypeValue)
+        return JSValue::decode(m_data.value);
+    if (m_propertyType == TypeGetter)
+        return functionGetter(exec);
+    return JSValue::decode(m_data.custom.getValue(exec, slotBase(), JSValue::encode(m_thisValue), propertyName));
+}
+
+ALWAYS_INLINE JSValue PropertySlot::getValue(ExecState* exec, unsigned propertyName) const
+{
+    if (m_propertyType == TypeValue)
+        return JSValue::decode(m_data.value);
+    if (m_propertyType == TypeGetter)
+        return functionGetter(exec);
+    return JSValue::decode(m_data.custom.getValue(exec, slotBase(), JSValue::encode(m_thisValue), Identifier::from(exec, propertyName)));
+}
 
 } // namespace JSC
 

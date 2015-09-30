@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1784,8 +1784,8 @@ eapfast_start(EAPClientPluginDataRef plugin,
     ssl_context = EAPTLSMemIOContextCreate(FALSE, &context->mem_io, NULL, 
 					   &status);
     if (ssl_context == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	goto failed;
     }
     if (context->cert_is_required) {
@@ -1803,8 +1803,8 @@ eapfast_start(EAPClientPluginDataRef plugin,
 	status = SSLSetCertificate(ssl_context, context->certs);
 	if (status != noErr) {
 	    EAPLOG_FL(LOG_NOTICE, 
-		      "SSLSetCertificate failed, %s",
-		      EAPSSLErrorString(status));
+		      "SSLSetCertificate failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    goto failed;
 	}
     }
@@ -1824,8 +1824,8 @@ eapfast_start(EAPClientPluginDataRef plugin,
 	    if (status != noErr) {
 		my_CFRelease(&pac_dict);
 		EAPLOG_FL(LOG_NOTICE, 
-			  "SSLInternalSetSessionTicket failed, %s",
-			  EAPSSLErrorString(status));
+			  "SSLInternalSetSessionTicket failed, %s (%ld)",
+			  EAPSSLErrorString(status), (long)status);
 		goto failed;
 	    }
 	    status
@@ -1835,8 +1835,8 @@ eapfast_start(EAPClientPluginDataRef plugin,
 	    if (status != noErr) {
 		my_CFRelease(&pac_dict);
 		EAPLOG_FL(LOG_NOTICE,
-			  "SSLInternalSetMasterSecretFunction failed, %s",
-			  EAPSSLErrorString(status));
+			  "SSLInternalSetMasterSecretFunction failed, %s (%ld)",
+			  EAPSSLErrorString(status), (long)status);
 		goto failed;
 	    }
 	    context->pac_dict = pac_dict;
@@ -1847,8 +1847,8 @@ eapfast_start(EAPClientPluginDataRef plugin,
 	    status = SSLSetEnabledCiphers(ssl_context, &cipher, 1);
 	    if (status != noErr) {
 		EAPLOG_FL(LOG_NOTICE,
-			  "SSLSetEnabledCiphers failed, %s",
-			  EAPSSLErrorString(status));
+			  "SSLSetEnabledCiphers failed, %s (%ld)",
+			  EAPSSLErrorString(status), (long)status);
 		goto failed;
 	    }
 	}
@@ -1859,7 +1859,8 @@ eapfast_start(EAPClientPluginDataRef plugin,
 			      context->tls_peer_id_length);
 	if (status != noErr) {
 	    EAPLOG_FL(LOG_NOTICE, 
-		      "SSLSetPeerID failed, %s", EAPSSLErrorString(status));
+		      "SSLSetPeerID failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    goto failed;
 	}
     }
@@ -3208,8 +3209,8 @@ eapfast_request(EAPClientPluginDataRef plugin,
     if (context->ssl_context != NULL) {
 	status = SSLGetSessionState(context->ssl_context, &ssl_state);
 	if (status != noErr) {
-	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s",
-		      EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    context->plugin_state = kEAPClientStateFailure;
 	    context->last_ssl_error = status;
 	    goto done;

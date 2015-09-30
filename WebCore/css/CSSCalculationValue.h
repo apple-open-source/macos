@@ -86,44 +86,51 @@ private:
 
 class CSSCalcValue : public CSSValue {
 public:
-    static PassRefPtr<CSSCalcValue> create(CSSParserString name, CSSParserValueList& arguments, CalculationPermittedValueRange);
-    static PassRefPtr<CSSCalcValue> create(const CalculationValue&, const RenderStyle&);
+    static RefPtr<CSSCalcValue> create(CSSParserString name, CSSParserValueList& arguments, CalculationPermittedValueRange);
+    static RefPtr<CSSCalcValue> create(const CalculationValue&, const RenderStyle&);
 
     CalculationCategory category() const { return m_expression->category(); }
     bool isInt() const { return m_expression->isInteger(); }
     double doubleValue() const;
-    bool isNegative() const { return m_expression->doubleValue() < 0; }
+    bool isPositive() const { return m_expression->doubleValue() > 0; }
     double computeLengthPx(const CSSToLengthConversionData&) const;
+    unsigned short primitiveType() const { return m_expression->primitiveType(); }
 
-    PassRef<CalculationValue> createCalculationValue(const CSSToLengthConversionData&) const;
+    Ref<CalculationValue> createCalculationValue(const CSSToLengthConversionData&) const;
+    void setPermittedValueRange(CalculationPermittedValueRange);
 
     String customCSSText() const;
     bool equals(const CSSCalcValue&) const;
 
 private:
-    CSSCalcValue(PassRef<CSSCalcExpressionNode>, bool shouldClampToNonNegative);
+    CSSCalcValue(Ref<CSSCalcExpressionNode>&&, bool shouldClampToNonNegative);
 
     double clampToPermittedRange(double) const;
 
     const Ref<CSSCalcExpressionNode> m_expression;
-    const bool m_shouldClampToNonNegative;
+    bool m_shouldClampToNonNegative;
 };
 
-inline CSSCalcValue::CSSCalcValue(PassRef<CSSCalcExpressionNode> expression, bool shouldClampToNonNegative)
+inline CSSCalcValue::CSSCalcValue(Ref<CSSCalcExpressionNode>&& expression, bool shouldClampToNonNegative)
     : CSSValue(CalculationClass)
     , m_expression(WTF::move(expression))
     , m_shouldClampToNonNegative(shouldClampToNonNegative)
 {
 }
 
-inline PassRef<CalculationValue> CSSCalcValue::createCalculationValue(const CSSToLengthConversionData& conversionData) const
+inline Ref<CalculationValue> CSSCalcValue::createCalculationValue(const CSSToLengthConversionData& conversionData) const
 {
     return CalculationValue::create(m_expression->createCalcExpression(conversionData),
         m_shouldClampToNonNegative ? CalculationRangeNonNegative : CalculationRangeAll);
 }
 
-CSS_VALUE_TYPE_CASTS(CSSCalcValue, isCalcValue())
+inline void CSSCalcValue::setPermittedValueRange(CalculationPermittedValueRange range)
+{
+    m_shouldClampToNonNegative = range != CalculationRangeAll;
+}
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSCalcValue, isCalcValue())
 
 #endif // CSSCalculationValue_h

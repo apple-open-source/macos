@@ -354,17 +354,6 @@ public:
     using IOStorage::read;
     using IOStorage::write;
 
-#ifndef __LP64__
-    virtual bool init(UInt64         base,
-                      UInt64         size,
-                      UInt64         preferredBlockSize,
-                      bool           isEjectable,
-                      bool           isWhole,
-                      bool           isWritable,
-                      const char *   contentHint = 0,
-                      OSDictionary * properties  = 0) __attribute__ ((deprecated));
-#endif /* !__LP64__ */
-
     /*
      * This method is called for each client interested in the services we
      * provide.  The superclass links us as a parent to this client in the
@@ -460,22 +449,30 @@ public:
                        IOStorageCompletion * completion);
 
     /*!
-     * @function synchronizeCache
+     * @function synchronize
      * @discussion
-     * Flush the cached data in the storage object, if any, synchronously.
+     * Flush the cached data in the storage object, if any.
      * @param client
-     * Client requesting the cache synchronization.
+     * Client requesting the synchronization.
+     * @param byteStart
+     * Starting byte offset for the synchronization.
+     * @param byteCount
+     * Size of the synchronization.  Set to zero to specify the end-of-media.
+     * @param options
+     * Options for the synchronization.  See IOStorageSynchronizeOptions.
      * @result
-     * Returns the status of the cache synchronization.
+     * Returns the status of the synchronization.
      */
 
-    virtual IOReturn synchronizeCache(IOService * client);
+    virtual IOReturn synchronize(IOService *                 client,
+                                 UInt64                      byteStart,
+                                 UInt64                      byteCount,
+                                 IOStorageSynchronizeOptions options = 0);
 
     /*!
      * @function unmap
      * @discussion
-     * Delete unused data from the storage object at the specified byte offsets,
-     * synchronously.
+     * Delete unused data from the storage object at the specified byte offsets.
      * @param client
      * Client requesting the operation.
      * @param extents
@@ -483,14 +480,16 @@ public:
      * overwrite the contents of this buffer in order to satisfy the request.
      * @param extentsCount
      * Number of extents.
+     * @param options
+     * Options for the unmap.  See IOStorageUnmapOptions.
      * @result
      * Returns the status of the operation.
      */
 
-    virtual IOReturn unmap(IOService *       client,
-                           IOStorageExtent * extents,
-                           UInt32            extentsCount,
-                           UInt32            options = 0);
+    virtual IOReturn unmap(IOService *           client,
+                           IOStorageExtent *     extents,
+                           UInt32                extentsCount,
+                           IOStorageUnmapOptions options = 0);
 
     /*!
      * @function lockPhysicalExtents
@@ -698,7 +697,7 @@ public:
                       bool                 isWhole,
                       bool                 isWritable,
                       const char *         contentHint = 0,
-                      OSDictionary *       properties  = 0); /* 10.2.0 */
+                      OSDictionary *       properties  = 0);
 
     /*!
      * @function getAttributes
@@ -709,15 +708,10 @@ public:
      * IOMediaAttributeMask.
      */
 
-    virtual IOMediaAttributeMask getAttributes() const; /* 10.2.0 */
+    virtual IOMediaAttributeMask getAttributes() const;
 
-#ifdef __LP64__
     OSMetaClassDeclareReservedUnused(IOMedia,  0);
     OSMetaClassDeclareReservedUnused(IOMedia,  1);
-#else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOMedia,  0);
-    OSMetaClassDeclareReservedUsed(IOMedia,  1);
-#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOMedia,  2);
     OSMetaClassDeclareReservedUnused(IOMedia,  3);
     OSMetaClassDeclareReservedUnused(IOMedia,  4);

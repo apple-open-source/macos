@@ -70,7 +70,7 @@ void WebCookieManager::getHostnamesWithCookies(uint64_t callbackID)
 
 void WebCookieManager::deleteCookiesForHostname(const String& hostname)
 {
-    WebCore::deleteCookiesForHostname(NetworkStorageSession::defaultStorageSession(), hostname);
+    WebCore::deleteCookiesForHostnames(NetworkStorageSession::defaultStorageSession(), { hostname });
 }
 
 void WebCookieManager::deleteAllCookies()
@@ -78,9 +78,9 @@ void WebCookieManager::deleteAllCookies()
     WebCore::deleteAllCookies(NetworkStorageSession::defaultStorageSession());
 }
 
-void WebCookieManager::deleteAllCookiesModifiedAfterDate(double date)
+void WebCookieManager::deleteAllCookiesModifiedSince(std::chrono::system_clock::time_point time)
 {
-    WebCore::deleteAllCookiesModifiedAfterDate(NetworkStorageSession::defaultStorageSession(), date);
+    WebCore::deleteAllCookiesModifiedSince(NetworkStorageSession::defaultStorageSession(), time);
 }
 
 void WebCookieManager::startObservingCookieChanges()

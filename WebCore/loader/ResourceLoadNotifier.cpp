@@ -139,7 +139,7 @@ void ResourceLoadNotifier::dispatchWillSendRequest(DocumentLoader* loader, unsig
     InspectorInstrumentation::willSendRequest(&m_frame, identifier, loader, request, redirectResponse);
 
     // Report WebTiming for all frames.
-    if (loader && !request.isNull() && request.url() == loader->requestURL())
+    if (loader && !request.isNull() && request.url() == loader->url())
         request.setReportLoadTiming(true);
 
 #if ENABLE(RESOURCE_TIMING)
@@ -149,7 +149,7 @@ void ResourceLoadNotifier::dispatchWillSendRequest(DocumentLoader* loader, unsig
 
 void ResourceLoadNotifier::dispatchDidReceiveResponse(DocumentLoader* loader, unsigned long identifier, const ResourceResponse& r, ResourceLoader* resourceLoader)
 {
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceResponse(&m_frame, identifier, r);
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceResponse(&m_frame);
     m_frame.loader().client().dispatchDidReceiveResponse(loader, identifier, r);
     InspectorInstrumentation::didReceiveResourceResponse(cookie, identifier, loader, r, resourceLoader);
 }

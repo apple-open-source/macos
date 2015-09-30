@@ -88,6 +88,20 @@ typedef enum {
 #define kIOHIDSetButtonPriorityKey          "SetButtonPriority"
 #define kIOHIDSetButtonDelayKey             "SetButtonDelay"
 
+/*!
+ @typedef IOHIDGameControllerType
+ @abstract Describes support game controller types.
+ @constant kIOHIDGameControllerTypeStandard Standard game controller.
+ @constant kIOHIDGameControllerTypeExtended Extended game controller.
+ */
+enum {
+    kIOHIDGameControllerTypeStandard,
+    kIOHIDGameControllerTypeExtended
+};
+typedef uint32_t IOHIDGameControllerType;
+
+#define kIOHIDGameControllerTypeKey "GameControllerType"
+
 __END_DECLS
 
 #endif /* !_IOKIT_HID_IOHIDPRIVATEKEYS_H_ */

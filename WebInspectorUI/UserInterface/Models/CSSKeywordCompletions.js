@@ -45,6 +45,8 @@ WebInspector.CSSKeywordCompletions.forProperty = function(propertyName)
         acceptedKeywords = acceptedKeywords.concat(WebInspector.CSSKeywordCompletions._colors);
     else if (isNotPrefixed && ("-webkit-" + propertyName) in WebInspector.CSSKeywordCompletions._colorAwareProperties)
         acceptedKeywords = acceptedKeywords.concat(WebInspector.CSSKeywordCompletions._colors);
+    else if (propertyName.endsWith("color"))
+        acceptedKeywords = acceptedKeywords.concat(WebInspector.CSSKeywordCompletions._colors);
 
     // Only suggest "inherit" on inheritable properties even though it is valid on all properties.
     if (propertyName in WebInspector.CSSKeywordCompletions.InheritedProperties)
@@ -52,18 +54,42 @@ WebInspector.CSSKeywordCompletions.forProperty = function(propertyName)
     else if (isNotPrefixed && ("-webkit-" + propertyName) in WebInspector.CSSKeywordCompletions.InheritedProperties)
         acceptedKeywords.push("inherit");
 
-    if (acceptedKeywords.contains(WebInspector.CSSKeywordCompletions.AllPropertyNamesPlaceholder)) {
+    if (acceptedKeywords.includes(WebInspector.CSSKeywordCompletions.AllPropertyNamesPlaceholder)) {
         acceptedKeywords.remove(WebInspector.CSSKeywordCompletions.AllPropertyNamesPlaceholder);
         acceptedKeywords = acceptedKeywords.concat(WebInspector.CSSCompletions.cssNameCompletions.values);
     }
 
     return new WebInspector.CSSCompletions(acceptedKeywords, true);
-}
+};
 
-WebInspector.CSSKeywordCompletions.isColorAwareProperty = function(propertyName)
+WebInspector.CSSKeywordCompletions.addCustomCompletions = function(properties)
 {
-    return WebInspector.CSSKeywordCompletions._colorAwareProperties[propertyName] === true;
-}
+    // COMPATIBILITY (iOS 6): This used to be an array of strings. They won't have custom values.
+    if (properties.length && typeof properties[0] === "string")
+        return;
+
+    for (var property of properties) {
+        if (property.values)
+            WebInspector.CSSKeywordCompletions.addPropertyCompletionValues(property.name, property.values);
+    }
+};
+
+WebInspector.CSSKeywordCompletions.addPropertyCompletionValues = function(propertyName, newValues)
+{
+    var existingValues = WebInspector.CSSKeywordCompletions._propertyKeywordMap[propertyName];
+    if (!existingValues) {
+        WebInspector.CSSKeywordCompletions._propertyKeywordMap[propertyName] = newValues;
+        return;
+    }
+
+    var union = new Set;
+    for (var value of existingValues)
+        union.add(value);
+    for (var value of newValues)
+        union.add(value);
+
+    WebInspector.CSSKeywordCompletions._propertyKeywordMap[propertyName] = [...union.values()];
+};
 
 WebInspector.CSSKeywordCompletions.AllPropertyNamesPlaceholder = "__all-properties__";
 
@@ -90,6 +116,7 @@ WebInspector.CSSKeywordCompletions.InheritedProperties = [
     "-webkit-text-stroke", "-webkit-text-stroke-color", "-webkit-text-stroke-width", "-webkit-user-modify",
     "-webkit-user-select", "-webkit-writing-mode", "-webkit-cursor-visibility", "image-orientation", "image-resolution",
     "overflow-wrap", "-webkit-text-align-last", "-webkit-text-justify", "-webkit-ruby-position", "-webkit-text-decoration-line",
+    "font-synthesis",
 
     // iOS Properties
     "-webkit-overflow-scrolling", "-webkit-touch-callout", "-webkit-tap-highlight-color"
@@ -207,9 +234,10 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     ],
     "cursor": [
         "none", "copy", "auto", "crosshair", "default", "pointer", "move", "vertical-text", "cell", "context-menu",
-        "alias", "progress", "no-drop", "not-allowed", "-webkit-zoom-in", "-webkit-zoom-out", "e-resize", "ne-resize",
+        "alias", "progress", "no-drop", "not-allowed", "zoom-in", "zoom-out", "e-resize", "ne-resize",
         "nw-resize", "n-resize", "se-resize", "sw-resize", "s-resize", "w-resize", "ew-resize", "ns-resize",
         "nesw-resize", "nwse-resize", "col-resize", "row-resize", "text", "wait", "help", "all-scroll", "-webkit-grab",
+        "-webkit-zoom-in", "-webkit-zoom-out",
         "-webkit-grabbing", "url()", "-webkit-image-set()"
     ],
     "border-width": [
@@ -295,6 +323,9 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     "font-weight": [
         "normal", "bold", "bolder", "lighter", "100", "200", "300", "400", "500", "600", "700", "800", "900"
     ],
+    "font-synthesis": [
+        "none", "weight", "style"
+    ],
     "margin-before-collapse": [
         "collapse", "separate", "discard"
     ],
@@ -348,11 +379,11 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "-webkit-control", "status-bar", "italic", "oblique", "small-caps", "normal", "bold", "bolder", "lighter",
         "100", "200", "300", "400", "500", "600", "700", "800", "900", "xx-small", "x-small", "small", "medium",
         "large", "x-large", "xx-large", "-webkit-xxx-large", "smaller", "larger", "serif", "sans-serif", "cursive",
-        "fantasy", "monospace", "-webkit-body", "-webkit-pictograph", "-webkit-system-font", "-apple-system-font",
+        "fantasy", "monospace", "-webkit-body", "-webkit-pictograph", "-apple-system",
         "-apple-system-headline", "-apple-system-body", "-apple-system-subheadline", "-apple-system-footnote",
         "-apple-system-caption1", "-apple-system-caption2", "-apple-system-short-headline", "-apple-system-short-body",
         "-apple-system-short-subheadline", "-apple-system-short-footnote", "-apple-system-short-caption1",
-        "-apple-system-tall-body"
+        "-apple-system-tall-body", "-apple-system-title1", "-apple-system-title2", "-apple-system-title3"
     ],
     "dominant-baseline": [
         "middle", "auto", "central", "text-before-edge", "text-after-edge", "ideographic", "alphabetic", "hanging",
@@ -362,7 +393,7 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "none", "inline", "block", "list-item", "compact", "inline-block", "table", "inline-table",
         "table-row-group", "table-header-group", "table-footer-group", "table-row", "table-column-group",
         "table-column", "table-cell", "table-caption", "-webkit-box", "-webkit-inline-box", "-wap-marquee",
-        "-webkit-flex", "-webkit-inline-flex", "-webkit-grid", "-webkit-inline-grid"
+        "flex", "inline-flex", "-webkit-grid", "-webkit-inline-grid"
     ],
     "image-rendering": [
         "auto", "optimizeSpeed", "optimizeQuality", "-webkit-crisp-edges", "-webkit-optimize-contrast"
@@ -448,10 +479,11 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     ],
     "font-family": [
         "serif", "sans-serif", "cursive", "fantasy", "monospace", "-webkit-body", "-webkit-pictograph",
-        "-webkit-system-font", "-apple-system-font", "-apple-system-headline", "-apple-system-body",
+        "-apple-system", "-apple-system-headline", "-apple-system-body",
         "-apple-system-subheadline", "-apple-system-footnote", "-apple-system-caption1", "-apple-system-caption2",
         "-apple-system-short-headline", "-apple-system-short-body", "-apple-system-short-subheadline",
-        "-apple-system-short-footnote", "-apple-system-short-caption1", "-apple-system-tall-body"
+        "-apple-system-short-footnote", "-apple-system-short-caption1", "-apple-system-tall-body",
+        "-apple-system-title1", "-apple-system-title2", "-apple-system-title3"
     ],
     "text-overflow-mode": [
         "clip", "ellipsis"
@@ -579,6 +611,12 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     "page": [
         "auto"
     ],
+    "perspective": [
+        "none"
+    ],
+    "perspective-origin": [
+        "none", "left", "right", "bottom", "top", "center"
+    ],
     "-webkit-marquee-increment": [
         "small", "large", "medium"
     ],
@@ -609,10 +647,13 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     "-webkit-text-emphasis-position": [
         "over", "under", "left", "right"
     ],
-    "-webkit-transform": [
+    "transform": [
         "none",
         "scale()", "scaleX()", "scaleY()", "scale3d()", "rotate()", "rotateX()", "rotateY()", "rotateZ()", "rotate3d()", "skew()", "skewX()", "skewY()",
         "translate()", "translateX()", "translateY()", "translateZ()", "translate3d()", "matrix()", "matrix3d()", "perspective()"
+    ],
+    "transform-style": [
+        "flat", "preserve-3d"
     ],
     "-webkit-cursor-visibility": [
         "auto", "auto-hide"
@@ -639,11 +680,14 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "from-image", "snap"
     ],
     "-webkit-blend-mode": [
-        "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity"
+        "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "plus-darker", "plus-lighter", "hue", "saturation", "color", "luminosity",
+    ],
+    "mix-blend-mode": [
+        "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "plus-darker", "plus-lighter", "hue", "saturation", "color", "luminosity",
     ],
     "mix": [
         "auto",
-        "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity",
+        "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "plus-darker", "plus-lighter", "hue", "saturation", "color", "luminosity",
         "clear", "copy", "destination", "source-over", "destination-over", "source-in", "destination-in", "source-out", "destination-out", "source-atop", "destination-atop", "xor"
     ],
     "geometry": [
@@ -667,32 +711,57 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     "-webkit-box-decoration-break": [
         "slice", "clone"
     ],
-    "-webkit-align-content": [
-        "flex-start", "flex-end", "center", "space-between", "space-around", "stretch"
+    "align-content": [
+        "auto",
+        "baseline", "last-baseline",
+        "space-between", "space-around", "space-evenly", "stretch",
+        "center", "start", "end", "flex-start", "flex-end", "left", "right",
+        "true", "safe"
     ],
-    "-webkit-align-items": [
-        "flex-start", "flex-end", "center", "baseline", "stretch"
+    "justify-content": [
+        "auto",
+        "baseline", "last-baseline", "space-between", "space-around", "space-evenly", "stretch",
+        "center", "start", "end", "flex-start", "flex-end", "left", "right",
+        "true", "safe"
     ],
-    "-webkit-align-self": [
-        "auto", "flex-start", "flex-end", "center", "baseline", "stretch"
+    "align-items": [
+        "auto", "stretch",
+        "baseline", "last-baseline",
+        "center", "start", "end", "self-start", "self-end", "flex-start", "flex-end", "left", "right",
+        "true", "safe"
     ],
-    "-webkit-justify-content": [
-        "flex-start", "flex-end", "center", "space-between", "space-around"
+    "align-self": [
+        "auto", "stretch",
+        "baseline", "last-baseline",
+        "center", "start", "end", "self-start", "self-end", "flex-start", "flex-end", "left", "right",
+        "true", "safe"
     ],
-    "-webkit-flex-direction": [
+    "justify-items": [
+        "auto", "stretch",
+        "baseline", "last-baseline",
+        "center", "start", "end", "self-start", "self-end", "flex-start", "flex-end", "left", "right",
+        "true", "safe"
+    ],
+    "justify-self": [
+        "auto", "stretch",
+        "baseline", "last-baseline",
+        "center", "start", "end", "self-start", "self-end", "flex-start", "flex-end", "left", "right",
+        "true", "safe"
+    ],
+    "flex-direction": [
         "row", "row-reverse", "column", "column-reverse"
     ],
-    "-webkit-flex-wrap": [
+    "flex-wrap": [
         "nowrap", "wrap", "wrap-reverse"
     ],
-    "-webkit-flex-flow": [
+    "flex-flow": [
         "row", "row-reverse", "column", "column-reverse",
         "nowrap", "wrap", "wrap-reverse"
     ],
-    "-webkit-flex": [
+    "flex": [
         "none"
     ],
-    "-webkit-flex-basis": [
+    "flex-basis": [
         "auto"
     ],
     "-webkit-grid-after": [
@@ -708,7 +777,7 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "auto"
     ],
     "-webkit-grid-auto-flow": [
-        "none", "rows", "columns"
+        "row", "column", "dense"
     ],
     "-webkit-grid-column": [
         "auto"
@@ -723,7 +792,7 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "auto", "-webkit-max-content", "-webkit-min-content"
     ],
     "-webkit-ruby-position": [
-        "after", "before"
+        "after", "before", "inter-character"
     ],
     "-webkit-text-align-last": [
         "auto", "start", "end", "left", "right", "center", "justify"
@@ -821,9 +890,6 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     "-webkit-text-security": [
         "disc", "circle", "square", "none"
     ],
-    "-webkit-transform-style": [
-        "flat", "preserve-3d"
-    ],
     "-webkit-user-drag": [
         "auto", "none", "element"
     ],
@@ -851,11 +917,11 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     "-webkit-aspect-ratio": [
         "auto", "from-dimensions", "from-intrinsic", "/"
     ],
-    "-webkit-filter": [
+    "filter": [
         "none", "grayscale()", "sepia()", "saturate()", "hue-rotate()", "invert()", "opacity()", "brightness()", "contrast()", "blur()", "drop-shadow()", "custom()"
     ],
-    "-webkit-perspective": [
-        "none"
+    "-webkit-backdrop-filter": [
+        "none", "grayscale()", "sepia()", "saturate()", "hue-rotate()", "invert()", "opacity()", "brightness()", "contrast()", "blur()", "drop-shadow()", "custom()"
     ],
     "-webkit-column-count": [
         "auto", "calc()", "-webkit-calc()"
@@ -868,6 +934,9 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     ],
     "-webkit-column-width": [
         "auto", "calc()", "-webkit-calc()"
+    ],
+    "-webkit-column-fill": [
+        "auto", "balance"
     ],
     "-webkit-hyphenate-character": [
         "none"
@@ -901,9 +970,27 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     ],
     /*
     "-webkit-appearance": [
-        "none", "checkbox", "radio", "push-button", "square-button", "button", "button-bevel", "default-button", "inner-spin-button", "-webkit-input-speech-button", "listbox", "listitem", "media-enter-fullscreen-button", "media-exit-fullscreen-button", "media-fullscreen-volume-slider", "media-fullscreen-volume-slider-thumb", "media-mute-button", "media-play-button", "media-overlay-play-button", "media-seek-back-button", "media-seek-forward-button", "media-rewind-button", "media-return-to-realtime-button", "media-toggle-closed-captions-button", "media-slider", "media-sliderthumb", "media-volume-slider-container", "media-volume-slider", "media-volume-sliderthumb", "media-volume-slider-mute-button", "media-controls-background", "media-controls-fullscreen-background", "media-current-time-display", "media-time-remaining-display", "menulist", "menulist-button", "menulist-text", "menulist-textfield", "meter", "progress-bar", "progress-bar-value", "slider-horizontal", "slider-vertical", "sliderthumb-horizontal", "sliderthumb-vertical", "caret", "searchfield", "searchfield-decoration", "searchfield-results-decoration", "searchfield-results-button", "searchfield-cancel-button", "snapshotted-plugin-overlay", "textfield", "relevancy-level-indicator", "continuous-capacity-level-indicator", "discrete-capacity-level-indicator", "rating-level-indicator", "textarea"
+        "none", "checkbox", "radio", "push-button", "square-button", "button", "button-bevel", "default-button", "inner-spin-button", "listbox", "listitem", "media-enter-fullscreen-button", "media-exit-fullscreen-button", "media-fullscreen-volume-slider", "media-fullscreen-volume-slider-thumb", "media-mute-button", "media-play-button", "media-overlay-play-button", "media-seek-back-button", "media-seek-forward-button", "media-rewind-button", "media-return-to-realtime-button", "media-toggle-closed-captions-button", "media-slider", "media-sliderthumb", "media-volume-slider-container", "media-volume-slider", "media-volume-sliderthumb", "media-volume-slider-mute-button", "media-controls-background", "media-controls-fullscreen-background", "media-current-time-display", "media-time-remaining-display", "menulist", "menulist-button", "menulist-text", "menulist-textfield", "meter", "progress-bar", "progress-bar-value", "slider-horizontal", "slider-vertical", "sliderthumb-horizontal", "sliderthumb-vertical", "caret", "searchfield", "searchfield-decoration", "searchfield-results-decoration", "searchfield-results-button", "searchfield-cancel-button", "snapshotted-plugin-overlay", "textfield", "relevancy-level-indicator", "continuous-capacity-level-indicator", "discrete-capacity-level-indicator", "rating-level-indicator", "textarea", "attachment", "caps-lock-indicator"
     ],
     */
+    "-webkit-animation-trigger": [
+        "auto", "container-scroll()"
+    ],
+    "-webkit-scroll-snap-type": [
+        "none", "mandatory", "proximity"
+    ],
+    "-webkit-scroll-snap-points-x": [
+        "elements", "repeat()"
+    ],
+    "-webkit-scroll-snap-points-y": [
+        "elements", "repeat()"
+    ],
+    "-webkit-scroll-snap-destination": [
+        "none", "left", "right", "bottom", "top", "center"
+    ],
+    "-webkit-scroll-snap-coordinate": [
+        "none", "left", "right", "bottom", "top", "center"
+    ],
 
     // iOS Properties
     "-webkit-text-size-adjust": [

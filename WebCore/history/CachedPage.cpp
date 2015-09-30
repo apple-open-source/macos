@@ -50,13 +50,8 @@ namespace WebCore {
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, cachedPageCounter, ("CachedPage"));
 
 CachedPage::CachedPage(Page& page)
-    : m_timeStamp(monotonicallyIncreasingTime())
-    , m_expirationTime(m_timeStamp + page.settings().backForwardCacheExpirationInterval())
+    : m_expirationTime(monotonicallyIncreasingTime() + page.settings().backForwardCacheExpirationInterval())
     , m_cachedMainFrame(std::make_unique<CachedFrame>(page.mainFrame()))
-    , m_needStyleRecalcForVisitedLinks(false)
-    , m_needsFullStyleRecalc(false)
-    , m_needsCaptionPreferencesChanged(false)
-    , m_needsDeviceScaleChanged(false)
 {
 #ifndef NDEBUG
     cachedPageCounter.increment();
@@ -69,8 +64,8 @@ CachedPage::~CachedPage()
     cachedPageCounter.decrement();
 #endif
 
-    destroy();
-    ASSERT(!m_cachedMainFrame);
+    if (m_cachedMainFrame)
+        m_cachedMainFrame->destroy();
 }
 
 void CachedPage::restore(Page& page)
@@ -110,9 +105,8 @@ void CachedPage::restore(Page& page)
             frame->document()->visitedLinkState().invalidateStyleForAllLinks();
     }
 
-    if (m_needsDeviceScaleChanged) {
+    if (m_needsDeviceOrPageScaleChanged)
         page.mainFrame().deviceOrPageScaleFactorChanged();
-    }
 
     if (m_needsFullStyleRecalc)
         page.setNeedsRecalcStyleInAllFrames();
@@ -122,6 +116,11 @@ void CachedPage::restore(Page& page)
         page.captionPreferencesChanged();
 #endif
 
+    if (m_needsUpdateContentsSize) {
+        if (FrameView* frameView = page.mainFrame().view())
+            frameView->updateContentsSize();
+    }
+
     clear();
 }
 
@@ -129,17 +128,14 @@ void CachedPage::clear()
 {
     ASSERT(m_cachedMainFrame);
     m_cachedMainFrame->clear();
-    m_cachedMainFrame = 0;
+    m_cachedMainFrame = nullptr;
     m_needStyleRecalcForVisitedLinks = false;
     m_needsFullStyleRecalc = false;
-}
-
-void CachedPage::destroy()
-{
-    if (m_cachedMainFrame)
-        m_cachedMainFrame->destroy();
-
-    m_cachedMainFrame = 0;
+#if ENABLE(VIDEO_TRACK)
+    m_needsCaptionPreferencesChanged = false;
+#endif
+    m_needsDeviceOrPageScaleChanged = false;
+    m_needsUpdateContentsSize = false;
 }
 
 bool CachedPage::hasExpired() const

@@ -43,7 +43,6 @@
 #include "WebProcess.h"
 #include "WebProcessConnectionMessages.h"
 #include <WebCore/GraphicsContext.h>
-#include <WebCore/NotImplemented.h>
 #include <WebCore/SharedBuffer.h>
 
 using namespace WebCore;
@@ -56,13 +55,14 @@ static uint64_t generatePluginInstanceID()
     return ++uniquePluginInstanceID;
 }
 
-PassRefPtr<PluginProxy> PluginProxy::create(uint64_t pluginProcessToken, bool isRestartedProcess)
+Ref<PluginProxy> PluginProxy::create(uint64_t pluginProcessToken, bool isRestartedProcess)
 {
-    return adoptRef(new PluginProxy(pluginProcessToken, isRestartedProcess));
+    return adoptRef(*new PluginProxy(pluginProcessToken, isRestartedProcess));
 }
 
 PluginProxy::PluginProxy(uint64_t pluginProcessToken, bool isRestartedProcess)
-    : m_pluginProcessToken(pluginProcessToken)
+    : Plugin(PluginProxyType)
+    , m_pluginProcessToken(pluginProcessToken)
     , m_pluginInstanceID(generatePluginInstanceID())
     , m_pluginBackingStoreContainsValidData(false)
     , m_isStarted(false)
@@ -86,7 +86,7 @@ void PluginProxy::pluginProcessCrashed()
 bool PluginProxy::initialize(const Parameters& parameters)
 {
     ASSERT(!m_connection);
-    m_connection = WebProcess::shared().pluginProcessConnectionManager().getPluginProcessConnection(m_pluginProcessToken);
+    m_connection = WebProcess::singleton().pluginProcessConnectionManager().getPluginProcessConnection(m_pluginProcessToken);
     
     if (!m_connection)
         return false;
@@ -104,6 +104,7 @@ bool PluginProxy::initialize(const Parameters& parameters)
     m_pendingPluginCreationParameters->userAgent = controller()->userAgent();
     m_pendingPluginCreationParameters->contentsScaleFactor = contentsScaleFactor();
     m_pendingPluginCreationParameters->isPrivateBrowsingEnabled = controller()->isPrivateBrowsingEnabled();
+    m_pendingPluginCreationParameters->isMuted = controller()->isMuted();
     m_pendingPluginCreationParameters->artificialPluginInitializationDelayEnabled = controller()->artificialPluginInitializationDelayEnabled();
     m_pendingPluginCreationParameters->isAcceleratedCompositingEnabled = controller()->isAcceleratedCompositingEnabled();
 
@@ -222,7 +223,6 @@ void PluginProxy::paint(GraphicsContext* graphicsContext, const IntRect& dirtyRe
     if (m_waitingForPaintInResponseToUpdate) {
         m_waitingForPaintInResponseToUpdate = false;
         m_connection->connection()->send(Messages::PluginControllerProxy::DidUpdate(), m_pluginInstanceID);
-        return;
     }
 }
 
@@ -319,6 +319,11 @@ void PluginProxy::frameDidFail(uint64_t requestID, bool wasCancelled)
 void PluginProxy::didEvaluateJavaScript(uint64_t requestID, const WTF::String& result)
 {
     m_connection->connection()->send(Messages::PluginControllerProxy::DidEvaluateJavaScript(requestID, result), m_pluginInstanceID);
+}
+
+void PluginProxy::streamWillSendRequest(uint64_t streamID, const URL& requestURL, const URL& responseURL, int responseStatus)
+{
+    m_connection->connection()->send(Messages::PluginControllerProxy::StreamWillSendRequest(streamID, requestURL.string(), responseURL.string(), responseStatus), m_pluginInstanceID);
 }
 
 void PluginProxy::streamDidReceiveResponse(uint64_t streamID, const URL& responseURL, uint32_t streamLength, uint32_t lastModifiedTime, const WTF::String& mimeType, const WTF::String& headers, const String& /* suggestedFileName */)
@@ -526,6 +531,11 @@ void PluginProxy::privateBrowsingStateChanged(bool isPrivateBrowsingEnabled)
     m_connection->connection()->send(Messages::PluginControllerProxy::PrivateBrowsingStateChanged(isPrivateBrowsingEnabled), m_pluginInstanceID);
 }
 
+void PluginProxy::mutedStateChanged(bool isMuted)
+{
+    m_connection->connection()->send(Messages::PluginControllerProxy::MutedStateChanged(isMuted), m_pluginInstanceID);
+}
+
 bool PluginProxy::getFormValue(String& formValue)
 {
     bool returnValue;
@@ -587,18 +597,15 @@ bool PluginProxy::updateBackingStore()
 
     IntSize backingStoreSize = m_pluginSize;
     backingStoreSize.scale(contentsScaleFactor());
-    
-    if (!m_backingStore) {
-        m_backingStore = ShareableBitmap::create(backingStoreSize, ShareableBitmap::SupportsAlpha);
-        return true;
+
+    if (m_backingStore) {
+        if (m_backingStore->size() == backingStoreSize)
+            return false;
+        m_backingStore = nullptr; // Give malloc a chance to recycle our backing store.
     }
 
-    if (backingStoreSize != m_backingStore->size()) {
-        // The backing store already exists, just resize it.
-        return m_backingStore->resize(backingStoreSize);
-    }
-
-    return false;
+    m_backingStore = ShareableBitmap::create(backingStoreSize, ShareableBitmap::SupportsAlpha);
+    return !!m_backingStore;
 }
 
 uint64_t PluginProxy::windowNPObjectID()
@@ -652,6 +659,16 @@ void PluginProxy::evaluate(const NPVariantData& npObjectAsVariantData, const Str
     releaseNPVariantValue(&result);
 
     releaseNPVariantValue(&npObjectAsVariant);
+}
+
+void PluginProxy::setPluginIsPlayingAudio(bool pluginIsPlayingAudio)
+{
+    controller()->setPluginIsPlayingAudio(pluginIsPlayingAudio);
+}
+
+void PluginProxy::continueStreamLoad(uint64_t streamID)
+{
+    controller()->continueStreamLoad(streamID);
 }
 
 void PluginProxy::cancelStreamLoad(uint64_t streamID)

@@ -588,6 +588,12 @@ bool IONetworkStack::didTerminate(
                 wakeThread = true;
             }
         }
+        else
+        {
+            // Trigger stop() when not holding an interface open.
+            // Termination won the race against InterfaceNamer.
+            super::didTerminate(provider, options, defer);
+        }
     }
     while ( false );
 

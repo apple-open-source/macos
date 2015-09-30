@@ -54,11 +54,8 @@ extern void _nc_table_free(table_t *tin);
 
 extern list_t *_nc_list_new(void *d);
 
-extern list_t *_nc_list_retain(list_t *l);
-extern list_t *_nc_list_retain_list(list_t *l);
-
-extern void _nc_list_release(list_t *l);
-extern void _nc_list_release_list(list_t *l);
+extern void _nc_list_free(list_t *l);
+extern void _nc_list_free_list(list_t *l);
 
 extern list_t *_nc_list_prev(list_t *l);
 extern list_t *_nc_list_next(list_t *l);
@@ -78,7 +75,7 @@ extern void *_nc_list_data(list_t *l);
 extern void _nc_list_set_data(list_t *l, void *d);
 
 extern list_t *_nc_list_find(list_t *l, void *d);
-extern list_t *_nc_list_find_release(list_t *l, void *d);
+extern list_t *_nc_list_delete(list_t *l, void *d);
 
 extern list_t * _nc_list_reverse(list_t *l);
 extern uint32_t _nc_list_count(list_t *l);

@@ -39,7 +39,7 @@
 
 
 void
-_gss_mg_release_cred(struct _gss_cred *cred)
+_gss_mg_release_cred(struct _gss_cred *__nonnull cred)
 {
 	struct _gss_mechanism_cred *mc;
 	OM_uint32 junk;
@@ -53,7 +53,7 @@ _gss_mg_release_cred(struct _gss_cred *cred)
 	free(cred);
 }
 
-struct _gss_cred *
+struct _gss_cred * __nullable
 _gss_mg_alloc_cred(void)
 {
 	struct _gss_cred *cred;
@@ -66,15 +66,15 @@ _gss_mg_alloc_cred(void)
 }
 
 void
-_gss_mg_check_credential(gss_cred_id_t credential)
+_gss_mg_check_credential(gss_cred_id_t __nullable credential)
 {
 	if (credential == NULL) return;
 }
 
-gss_name_t
-_gss_cred_copy_name(OM_uint32 *minor_status,
-		    gss_cred_id_t credential,
-		    gss_const_OID mech)
+__nullable gss_name_t
+_gss_cred_copy_name( OM_uint32 *__nonnull minor_status,
+		    __nonnull gss_cred_id_t credential,
+		    __nullable gss_const_OID mech)
 {
 	struct _gss_cred *cred = (struct _gss_cred *)credential;
 	struct _gss_mechanism_cred *mc;

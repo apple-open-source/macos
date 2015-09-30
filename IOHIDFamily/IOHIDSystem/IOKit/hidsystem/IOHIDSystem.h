@@ -42,10 +42,10 @@
 #include <IOKit/IOService.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOUserClient.h>
-#include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/pwr_mgt/IOPM.h>
+#include "IOHIDWorkLoop.h"
 #if TARGET_OS_EMBEDDED
 class IOGraphicsDevice;
 #else
@@ -86,7 +86,7 @@ class IOHIDSystem : public IOService
 	friend class IOHIDEventSystemUserClient;
 
 private:
-	IOWorkLoop *		workLoop;
+	IOHIDWorkLoop *		workLoop;
 	IOTimerEventSource          *periodicES;
         IOInterruptEventSource * eventConsumerES;
         IOInterruptEventSource * keyboardEQES;
@@ -255,12 +255,15 @@ private:
   static void doProcessKeyboardEQ(IOHIDSystem * self);
   static void processKeyboardEQ(IOHIDSystem * self, AbsoluteTime * deadline = 0);
 
-  void doProcessNotifications(IOTimerEventSource *sender);
+  void doProcessNotifications();
+  
   bool genericNotificationHandler(void * ref, IOService * newService, IONotifier * notifier );
 
   static bool handlePublishNotification( void * target, IOService * newService );
+  static bool handlePublishNotificationGated( void * target, IOService * newService );
 
   static bool handleTerminateNotification( void * target, IOService * service );
+  static bool handleTerminateNotificationGated( void * target, IOService * newService );
 
   static void makeNumberParamProperty( OSDictionary * dict, const char * key,
                             unsigned long long number, unsigned int bits );
@@ -298,6 +301,7 @@ private:
   inline void moveCursor();
   void enableContinuousCursor();
   void disableContinuousCursor();
+  void _onScreenCursorPin();
   // Claim ownership of event sources.
   void attachDefaultEventSources();
   // Give up ownership of event sources.
@@ -542,7 +546,11 @@ public:
   virtual IOReturn extPostEvent(void*,void*,void*,void*,void*,void*);
   virtual IOReturn extSetMouseLocation(void*,void*,void*,void*,void*,void*);
   virtual IOReturn extGetButtonEventNum(void*,void*,void*,void*,void*,void*);
-  IOReturn extSetBounds( IOGBounds * bounds );
+    
+    IOReturn extSetBounds(void*,void*,void*,void*,void*,void*);
+    IOReturn extSetOnScreenBounds(void*,void*,void*,void*,void*,void*);
+    IOReturn setBounds(IOGBounds * bounds, IOGPoint * screenPoint, bool onScreen);
+
     IOReturn extGetStateForSelector(void*,void*,void*,void*,void*,void*);
     IOReturn extSetStateForSelector(void*,void*,void*,void*,void*,void*);
     IOReturn extRegisterVirtualDisplay(void*,void*,void*,void*,void*,void*);
@@ -790,6 +798,8 @@ static	IOReturn	doSetParamPropertiesPre (IOHIDSystem *self, void * arg0, void * 
 
 static	IOReturn	doSetParamPropertiesPost (IOHIDSystem *self, void * arg0);
         IOReturn	setParamPropertiesPostGated (OSDictionary * dict);
+
+        IOReturn  updateParamPropertiesGated(IOService * source);
 
 static	IOReturn	doExtGetStateForSelector (IOHIDSystem *self, void *p1, void *p2);
 static	IOReturn	doExtSetStateForSelector (IOHIDSystem *self, void *p1, void *p2);

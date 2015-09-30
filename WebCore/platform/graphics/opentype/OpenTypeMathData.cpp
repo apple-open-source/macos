@@ -26,11 +26,12 @@
 #include "config.h"
 #include "OpenTypeMathData.h"
 
+#include "Font.h"
 #include "FontPlatformData.h"
 #if ENABLE(OPENTYPE_MATH)
 #include "OpenTypeTypes.h"
 #endif
-#include "SimpleFontData.h"
+#include "SharedBuffer.h"
 
 using namespace std;
 
@@ -234,9 +235,9 @@ struct MATHTable : TableBase {
 #endif // ENABLE(OPENTYPE_MATH)
 
 #if ENABLE(OPENTYPE_MATH)
-OpenTypeMathData::OpenTypeMathData(const FontPlatformData& fontData)
+OpenTypeMathData::OpenTypeMathData(const FontPlatformData& font)
 {
-    m_mathBuffer = fontData.openTypeTable(OpenType::MATHTag);
+    m_mathBuffer = font.openTypeTable(OpenType::MATHTag);
     const OpenType::MATHTable* math = OpenType::validateTable<OpenType::MATHTable>(m_mathBuffer);
     if (!math) {
         m_mathBuffer = nullptr;
@@ -259,8 +260,12 @@ OpenTypeMathData::OpenTypeMathData(const FontPlatformData&)
 #endif
 }
 
+OpenTypeMathData::~OpenTypeMathData()
+{
+}
+
 #if ENABLE(OPENTYPE_MATH)
-float OpenTypeMathData::getMathConstant(const SimpleFontData* font, MathConstant constant) const
+float OpenTypeMathData::getMathConstant(const Font& font, MathConstant constant) const
 {
     int32_t value = 0;
 
@@ -281,9 +286,9 @@ float OpenTypeMathData::getMathConstant(const SimpleFontData* font, MathConstant
     if (constant == ScriptPercentScaleDown || constant == ScriptScriptPercentScaleDown || constant == RadicalDegreeBottomRaisePercent)
         return value / 100.0;
 
-    return value * font->sizePerUnit();
+    return value * font.sizePerUnit();
 #else
-float OpenTypeMathData::getMathConstant(const SimpleFontData*, MathConstant) const
+float OpenTypeMathData::getMathConstant(const Font&, MathConstant) const
 {
     ASSERT_NOT_REACHED();
     return 0;
@@ -291,7 +296,7 @@ float OpenTypeMathData::getMathConstant(const SimpleFontData*, MathConstant) con
 }
 
 #if ENABLE(OPENTYPE_MATH)
-float OpenTypeMathData::getItalicCorrection(const SimpleFontData* font, Glyph glyph) const
+float OpenTypeMathData::getItalicCorrection(const Font& font, Glyph glyph) const
 {
     const OpenType::MATHTable* math = OpenType::validateTable<OpenType::MATHTable>(m_mathBuffer);
     ASSERT(math);
@@ -303,9 +308,9 @@ float OpenTypeMathData::getItalicCorrection(const SimpleFontData* font, Glyph gl
     if (!mathItalicsCorrectionInfo)
         return 0;
 
-    return mathItalicsCorrectionInfo->getItalicCorrection(*m_mathBuffer, glyph) * font->sizePerUnit();
+    return mathItalicsCorrectionInfo->getItalicCorrection(*m_mathBuffer, glyph) * font.sizePerUnit();
 #else
-float OpenTypeMathData::getItalicCorrection(const SimpleFontData*, Glyph) const
+float OpenTypeMathData::getItalicCorrection(const Font&, Glyph) const
 {
     ASSERT_NOT_REACHED();
     return 0;

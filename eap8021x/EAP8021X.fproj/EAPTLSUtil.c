@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -367,8 +367,8 @@ EAPSSLErrorString(OSStatus err)
     return (EAPSecurityErrorString(err));
 }
 
-SSLContextRef
-EAPSSLContextCreate(SSLProtocol protocol, bool is_server, 
+static SSLContextRef
+EAPSSLContextCreate(SSLProtocol protocol_min, SSLProtocol protocol_max, bool is_server,
 		    SSLReadFunc func_read, SSLWriteFunc func_write, 
 		    void * handle, char * peername, OSStatus * ret_status)
 {
@@ -382,11 +382,11 @@ EAPSSLContextCreate(SSLProtocol protocol, bool is_server,
     if (status) {
 	goto cleanup;
     }
-    status = SSLSetProtocolVersionMin(ctx, protocol);
+    status = SSLSetProtocolVersionMin(ctx, protocol_min);
     if (status) {
 	goto cleanup;
     } 
-    status = SSLSetProtocolVersionMax(ctx, protocol);
+    status = SSLSetProtocolVersionMax(ctx, protocol_max);
     if (status) {
 	goto cleanup;
     } 
@@ -400,9 +400,6 @@ EAPSSLContextCreate(SSLProtocol protocol, bool is_server,
 	    goto cleanup;
 	}
     }
-#define EAP_MIN_DH_GROUP_SIZE		512
-    (void)SSLSetMinimumDHGroupSize(ctx, EAP_MIN_DH_GROUP_SIZE);
-
 #if NEED_TO_DISABLE_ONE_BYTE_OPTION
     SSLSetSessionOption(ctx, kSSLSessionOptionSendOneByteRecord, FALSE);
 #endif /* NEED_TO_DISABLE_ONE_BYTE_OPTION */
@@ -429,7 +426,7 @@ SSLContextRef
 EAPTLSMemIOContextCreate(bool is_server, memoryIORef mem_io, 
 			 char * peername, OSStatus * ret_status)
 {
-    return(EAPSSLContextCreate(kTLSProtocol1, is_server,
+    return(EAPSSLContextCreate(kTLSProtocol1, kTLSProtocol1, is_server,
 			       EAPSSLMemoryIORead, EAPSSLMemoryIOWrite, 
 			       mem_io, peername, ret_status));
 }
@@ -1561,6 +1558,11 @@ server_cert_matches_server_names(SecCertificateRef cert,
     if (attrs == NULL) {
 	goto done;
     }
+    name = CFDictionaryGetValue(attrs, kEAPSecCertificateAttributeDNSName);
+    if (name != NULL) {
+        match = server_name_matches_server_names(name, trusted_server_names);
+        return match;
+    }
     name = CFDictionaryGetValue(attrs, kEAPSecCertificateAttributeCommonName);
     if (name == NULL) {
 	goto done;
@@ -1792,7 +1794,8 @@ EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
 }
 
 
-#if defined(TEST_TRUST_EXCEPTIONS) || defined(TEST_EAPTLSVerifyServerCertificateChain)
+#if defined(TEST_TRUST_EXCEPTIONS) || defined(TEST_EAPTLSVerifyServerCertificateChain) \
+    || defined(TEST_VerifyServerName)
 
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -1848,7 +1851,9 @@ file_create_certificate(const char  * filename)
     CFRelease(data);
     return (cert);
 }
-#endif /* defined(TEST_TRUST_EXCEPTIONS) || defined(TEST_EAPTLSVerifyServerCertificateChain) */
+#endif /* defined(TEST_TRUST_EXCEPTIONS) || defined(TEST_EAPTLSVerifyServerCertificateChain) 
+        * || defined(TEST_VerifyServerName)
+        */
 
 #ifdef TEST_TRUST_EXCEPTIONS
 #if TARGET_OS_EMBEDDED
@@ -2234,3 +2239,41 @@ main(int argc, char * argv[])
     exit(0);
 }
 #endif /* TEST_EAPTLSVerifyServerCertificateChain */
+#ifdef TEST_VerifyServerName
+
+int
+main(int argc, char * argv[])
+{
+    CFMutableArrayRef       trusted_server_names;
+    int                     i;
+    OSStatus                sec_status;
+    SecCertificateRef       server_cert;
+    bool                    status;
+    
+    if (argc < 3) {
+        fprintf(stderr, "usage: verify_server_name <DER encoded certificate file> <one or more trusted server names>\n");
+        exit(1);
+    }
+    
+    server_cert = file_create_certificate(argv[1]);
+    if (server_cert == NULL) {
+        fprintf(stderr, "failed to load cert file\n");
+        exit(2);
+    }
+    
+    /* create array of trusted server names */
+    trusted_server_names = CFArrayCreateMutable(NULL,
+                                                argc-2,
+                                                &kCFTypeArrayCallBacks);
+    if (trusted_server_names == NULL) exit(1);
+    for (i = 2; i < argc; i++) {
+        CFStringRef name = CFStringCreateWithCString(kCFAllocatorDefault, argv[i], kCFStringEncodingASCII);
+        CFArrayAppendValue(trusted_server_names, name);
+    }
+    
+    status = server_cert_matches_server_names(server_cert, trusted_server_names);
+    CFRelease(trusted_server_names);
+    CFRelease(server_cert);
+    status == TRUE ? exit(0) : exit(1);
+}
+#endif /* TEST_VerifyServerName */

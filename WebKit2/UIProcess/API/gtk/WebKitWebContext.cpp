@@ -20,40 +20,47 @@
 #include "config.h"
 #include "WebKitWebContext.h"
 
+#include "APIDownloadClient.h"
+#include "APIProcessPoolConfiguration.h"
 #include "APIString.h"
+#include "TextChecker.h"
+#include "TextCheckerState.h"
 #include "WebBatteryManagerProxy.h"
 #include "WebCertificateInfo.h"
 #include "WebCookieManagerProxy.h"
 #include "WebGeolocationManagerProxy.h"
 #include "WebKitBatteryProvider.h"
-#include "WebKitCertificateInfoPrivate.h"
 #include "WebKitCookieManagerPrivate.h"
 #include "WebKitDownloadClient.h"
 #include "WebKitDownloadPrivate.h"
 #include "WebKitFaviconDatabasePrivate.h"
 #include "WebKitGeolocationProvider.h"
 #include "WebKitInjectedBundleClient.h"
+#include "WebKitNotificationProvider.h"
 #include "WebKitPluginPrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitRequestManagerClient.h"
 #include "WebKitSecurityManagerPrivate.h"
-#include "WebKitTextChecker.h"
+#include "WebKitSettingsPrivate.h"
 #include "WebKitURISchemeRequestPrivate.h"
 #include "WebKitUserContentManagerPrivate.h"
 #include "WebKitWebContextPrivate.h"
 #include "WebKitWebViewBasePrivate.h"
-#include "WebKitWebViewGroupPrivate.h"
-#include "WebResourceCacheManagerProxy.h"
+#include "WebKitWebViewPrivate.h"
+#include "WebKitWebsiteDataManagerPrivate.h"
+#include "WebNotificationManagerProxy.h"
 #include <WebCore/FileSystem.h>
 #include <WebCore/IconDatabase.h>
 #include <WebCore/Language.h>
+#include <glib/gi18n-lib.h>
+#include <libintl.h>
 #include <memory>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
-#include <wtf/gobject/GRefPtr.h>
-#include <wtf/gobject/GUniquePtr.h>
+#include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
 
 using namespace WebKit;
@@ -83,7 +90,21 @@ using namespace WebKit;
  * You can use webkit_web_context_register_uri_scheme() to register
  * custom URI schemes, and manage several other settings.
  *
+ * TLS certificate validation failure is now treated as a transport
+ * error by default. To handle TLS failures differently, you can
+ * connect to #WebKitWebView::load-failed-with-tls-errors.
+ * Alternatively, you can use webkit_web_context_set_tls_errors_policy()
+ * to set the policy %WEBKIT_TLS_ERRORS_POLICY_IGNORE; however, this is
+ * not appropriate for Internet applications.
+ *
  */
+
+enum {
+    PROP_0,
+
+    PROP_LOCAL_STORAGE_DIRECTORY,
+    PROP_WEBSITE_DATA_MANAGER
+};
 
 enum {
     DOWNLOAD_STARTED,
@@ -135,7 +156,8 @@ typedef HashMap<String, RefPtr<WebKitURISchemeHandler> > URISchemeHandlerMap;
 typedef HashMap<uint64_t, GRefPtr<WebKitURISchemeRequest> > URISchemeRequestMap;
 
 struct _WebKitWebContextPrivate {
-    RefPtr<WebContext> context;
+    RefPtr<WebProcessPool> context;
+    bool clientsDetached;
 
     GRefPtr<WebKitCookieManager> cookieManager;
     GRefPtr<WebKitFaviconDatabase> faviconDatabase;
@@ -149,17 +171,21 @@ struct _WebKitWebContextPrivate {
 #if ENABLE(BATTERY_STATUS)
     RefPtr<WebKitBatteryProvider> batteryProvider;
 #endif
-#if ENABLE(SPELLCHECK)
-    std::unique_ptr<WebKitTextChecker> textChecker;
+#if ENABLE(NOTIFICATIONS)
+    RefPtr<WebKitNotificationProvider> notificationProvider;
 #endif
+    GRefPtr<WebKitWebsiteDataManager> websiteDataManager;
+
     CString faviconDatabaseDirectory;
     WebKitTLSErrorsPolicy tlsErrorsPolicy;
 
     HashMap<uint64_t, WebKitWebView*> webViews;
-    GRefPtr<WebKitWebViewGroup> defaultWebViewGroup;
 
     CString webExtensionsDirectory;
     GRefPtr<GVariant> webExtensionsInitializationUserData;
+
+    CString localStorageDirectory;
+    CString indexedDBDirectory;
 };
 
 static guint signals[LAST_SIGNAL] = { 0, };
@@ -192,9 +218,170 @@ static inline WebKitProcessModel toWebKitProcessModel(WebKit::ProcessModel proce
     }
 }
 
+static const char* injectedBundleDirectory()
+{
+#if ENABLE(DEVELOPER_MODE)
+    const char* bundleDirectory = g_getenv("WEBKIT_INJECTED_BUNDLE_PATH");
+    if (bundleDirectory && g_file_test(bundleDirectory, G_FILE_TEST_IS_DIR))
+        return bundleDirectory;
+#endif
+
+    static const char* injectedBundlePath = LIBDIR G_DIR_SEPARATOR_S "webkit2gtk-" WEBKITGTK_API_VERSION_STRING
+        G_DIR_SEPARATOR_S "injected-bundle" G_DIR_SEPARATOR_S;
+    return injectedBundlePath;
+}
+
+static void webkitWebContextGetProperty(GObject* object, guint propID, GValue* value, GParamSpec* paramSpec)
+{
+    WebKitWebContext* context = WEBKIT_WEB_CONTEXT(object);
+
+    switch (propID) {
+    case PROP_LOCAL_STORAGE_DIRECTORY:
+        g_value_set_string(value, context->priv->localStorageDirectory.data());
+        break;
+    case PROP_WEBSITE_DATA_MANAGER:
+        g_value_set_object(value, webkit_web_context_get_website_data_manager(context));
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, paramSpec);
+    }
+}
+
+static void webkitWebContextSetProperty(GObject* object, guint propID, const GValue* value, GParamSpec* paramSpec)
+{
+    WebKitWebContext* context = WEBKIT_WEB_CONTEXT(object);
+
+    switch (propID) {
+    case PROP_LOCAL_STORAGE_DIRECTORY:
+        context->priv->localStorageDirectory = g_value_get_string(value);
+        break;
+    case PROP_WEBSITE_DATA_MANAGER: {
+        gpointer manager = g_value_get_object(value);
+        context->priv->websiteDataManager = manager ? WEBKIT_WEBSITE_DATA_MANAGER(manager) : nullptr;
+        break;
+    }
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, paramSpec);
+    }
+}
+
+static inline WebsiteDataStore::Configuration websiteDataStoreConfigurationForWebProcessPoolConfiguration(const API::ProcessPoolConfiguration& processPoolconfigurarion)
+{
+    WebsiteDataStore::Configuration configuration;
+    configuration.applicationCacheDirectory = processPoolconfigurarion.applicationCacheDirectory();
+    configuration.networkCacheDirectory = processPoolconfigurarion.diskCacheDirectory();
+    configuration.webSQLDatabaseDirectory = processPoolconfigurarion.webSQLDatabaseDirectory();
+    configuration.localStorageDirectory = processPoolconfigurarion.localStorageDirectory();
+    configuration.mediaKeysStorageDirectory = processPoolconfigurarion.mediaKeysStorageDirectory();
+    return configuration;
+}
+
+static void webkitWebContextConstructed(GObject* object)
+{
+    G_OBJECT_CLASS(webkit_web_context_parent_class)->constructed(object);
+
+    GUniquePtr<char> bundleFilename(g_build_filename(injectedBundleDirectory(), "libwebkit2gtkinjectedbundle.so", nullptr));
+
+    API::ProcessPoolConfiguration configuration;
+    configuration.setInjectedBundlePath(WebCore::filenameToString(bundleFilename.get()));
+    configuration.setProcessModel(ProcessModelSharedSecondaryProcess);
+    configuration.setUseNetworkProcess(false);
+
+    WebKitWebContext* webContext = WEBKIT_WEB_CONTEXT(object);
+    WebKitWebContextPrivate* priv = webContext->priv;
+    if (priv->websiteDataManager) {
+        configuration.setLocalStorageDirectory(WebCore::filenameToString(webkit_website_data_manager_get_local_storage_directory(priv->websiteDataManager.get())));
+        configuration.setDiskCacheDirectory(WebCore::pathByAppendingComponent(WebCore::filenameToString(webkit_website_data_manager_get_disk_cache_directory(priv->websiteDataManager.get())), networkCacheSubdirectory));
+        configuration.setApplicationCacheDirectory(WebCore::filenameToString(webkit_website_data_manager_get_offline_application_cache_directory(priv->websiteDataManager.get())));
+        configuration.setIndexedDBDatabaseDirectory(WebCore::filenameToString(webkit_website_data_manager_get_indexeddb_directory(priv->websiteDataManager.get())));
+        configuration.setWebSQLDatabaseDirectory(WebCore::filenameToString(webkit_website_data_manager_get_websql_directory(priv->websiteDataManager.get())));
+    } else if (!priv->localStorageDirectory.isNull())
+        configuration.setLocalStorageDirectory(WebCore::filenameToString(priv->localStorageDirectory.data()));
+
+    priv->context = WebProcessPool::create(configuration);
+
+    if (!priv->websiteDataManager)
+        priv->websiteDataManager = webkitWebsiteDataManagerCreate(websiteDataStoreConfigurationForWebProcessPoolConfiguration(configuration));
+
+    priv->requestManager = priv->context->supplement<WebSoupCustomProtocolRequestManager>();
+
+    priv->tlsErrorsPolicy = WEBKIT_TLS_ERRORS_POLICY_FAIL;
+    priv->context->setIgnoreTLSErrors(false);
+
+    attachInjectedBundleClientToContext(webContext);
+    attachDownloadClientToContext(webContext);
+    attachRequestManagerClientToContext(webContext);
+
+#if ENABLE(GEOLOCATION)
+    priv->geolocationProvider = WebKitGeolocationProvider::create(priv->context->supplement<WebGeolocationManagerProxy>());
+#endif
+#if ENABLE(BATTERY_STATUS)
+    priv->batteryProvider = WebKitBatteryProvider::create(priv->context->supplement<WebBatteryManagerProxy>());
+#endif
+#if ENABLE(NOTIFICATIONS)
+    priv->notificationProvider = WebKitNotificationProvider::create(priv->context->supplement<WebNotificationManagerProxy>());
+#endif
+}
+
+static void webkitWebContextDispose(GObject* object)
+{
+    WebKitWebContextPrivate* priv = WEBKIT_WEB_CONTEXT(object)->priv;
+    if (!priv->clientsDetached) {
+        priv->clientsDetached = true;
+        priv->context->initializeInjectedBundleClient(nullptr);
+        priv->context->setDownloadClient(nullptr);
+    }
+
+    G_OBJECT_CLASS(webkit_web_context_parent_class)->dispose(object);
+}
+
 static void webkit_web_context_class_init(WebKitWebContextClass* webContextClass)
 {
     GObjectClass* gObjectClass = G_OBJECT_CLASS(webContextClass);
+
+    bindtextdomain(GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR);
+    bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
+
+    gObjectClass->get_property = webkitWebContextGetProperty;
+    gObjectClass->set_property = webkitWebContextSetProperty;
+    gObjectClass->constructed = webkitWebContextConstructed;
+    gObjectClass->dispose = webkitWebContextDispose;
+
+    /**
+     * WebKitWebContext:local-storage-directory:
+     *
+     * The directory where local storage data will be saved.
+     *
+     * Since: 2.8
+     *
+     * Deprecated: 2.10. Use #WebKitWebsiteDataManager:local-storage-directory instead.
+     */
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_LOCAL_STORAGE_DIRECTORY,
+        g_param_spec_string(
+            "local-storage-directory",
+            _("Local Storage Directory"),
+            _("The directory where local storage data will be saved"),
+            nullptr,
+            static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
+
+    /**
+     * WebKitWebContext:website-data-manager:
+     *
+     * The #WebKitWebsiteDataManager associated with this context.
+     *
+     * Since: 2.10
+     */
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_WEBSITE_DATA_MANAGER,
+        g_param_spec_object(
+            "website-data-manager",
+            _("Website Data Manager"),
+            _("The WebKitWebsiteDataManager associated with this context"),
+            WEBKIT_TYPE_WEBSITE_DATA_MANAGER,
+            static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 
     /**
      * WebKitWebContext::download-started:
@@ -205,12 +392,13 @@ static void webkit_web_context_class_init(WebKitWebContextClass* webContextClass
      */
     signals[DOWNLOAD_STARTED] =
         g_signal_new("download-started",
-                     G_TYPE_FROM_CLASS(gObjectClass),
-                     G_SIGNAL_RUN_LAST,
-                     0, 0, 0,
-                     g_cclosure_marshal_VOID__OBJECT,
-                     G_TYPE_NONE, 1,
-                     WEBKIT_TYPE_DOWNLOAD);
+            G_TYPE_FROM_CLASS(gObjectClass),
+            G_SIGNAL_RUN_LAST,
+            G_STRUCT_OFFSET(WebKitWebContextClass, download_started),
+            nullptr, nullptr,
+            g_cclosure_marshal_VOID__OBJECT,
+            G_TYPE_NONE, 1,
+            WEBKIT_TYPE_DOWNLOAD);
 
     /**
      * WebKitWebContext::initialize-web-extensions:
@@ -227,55 +415,15 @@ static void webkit_web_context_class_init(WebKitWebContextClass* webContextClass
         g_signal_new("initialize-web-extensions",
             G_TYPE_FROM_CLASS(gObjectClass),
             G_SIGNAL_RUN_LAST,
-            0, nullptr, nullptr,
+            G_STRUCT_OFFSET(WebKitWebContextClass, initialize_web_extensions),
+            nullptr, nullptr,
             g_cclosure_marshal_VOID__VOID,
             G_TYPE_NONE, 0);
 }
 
-static CString injectedBundleDirectory()
-{
-    const char* bundleDirectory = g_getenv("WEBKIT_INJECTED_BUNDLE_PATH");
-    if (bundleDirectory && g_file_test(bundleDirectory, G_FILE_TEST_IS_DIR))
-        return bundleDirectory;
-
-    static const char* injectedBundlePath = LIBDIR G_DIR_SEPARATOR_S "webkit2gtk-" WEBKITGTK_API_VERSION_STRING
-        G_DIR_SEPARATOR_S "injected-bundle" G_DIR_SEPARATOR_S;
-    return injectedBundlePath;
-}
-
-static CString injectedBundleFilename()
-{
-    GUniquePtr<char> bundleFilename(g_build_filename(injectedBundleDirectory().data(), "libwebkit2gtkinjectedbundle.so", NULL));
-    return bundleFilename.get();
-}
-
 static gpointer createDefaultWebContext(gpointer)
 {
-    static GRefPtr<WebKitWebContext> webContext = adoptGRef(WEBKIT_WEB_CONTEXT(g_object_new(WEBKIT_TYPE_WEB_CONTEXT, NULL)));
-    WebKitWebContextPrivate* priv = webContext->priv;
-
-    WebContextConfiguration webContextConfiguration;
-    webContextConfiguration.injectedBundlePath = WebCore::filenameToString(injectedBundleFilename().data());
-    WebContext::applyPlatformSpecificConfigurationDefaults(webContextConfiguration);
-    priv->context = WebContext::create(WTF::move(webContextConfiguration));
-
-    priv->requestManager = webContext->priv->context->supplement<WebSoupCustomProtocolRequestManager>();
-    priv->context->setCacheModel(CacheModelPrimaryWebBrowser);
-    priv->tlsErrorsPolicy = WEBKIT_TLS_ERRORS_POLICY_IGNORE;
-
-    attachInjectedBundleClientToContext(webContext.get());
-    attachDownloadClientToContext(webContext.get());
-    attachRequestManagerClientToContext(webContext.get());
-
-#if ENABLE(GEOLOCATION)
-    priv->geolocationProvider = WebKitGeolocationProvider::create(priv->context->supplement<WebGeolocationManagerProxy>());
-#endif
-#if ENABLE(BATTERY_STATUS)
-    priv->batteryProvider = WebKitBatteryProvider::create(priv->context->supplement<WebBatteryManagerProxy>());
-#endif
-#if ENABLE(SPELLCHECK)
-    priv->textChecker = WebKitTextChecker::create();
-#endif
+    static GRefPtr<WebKitWebContext> webContext = adoptGRef(WEBKIT_WEB_CONTEXT(g_object_new(WEBKIT_TYPE_WEB_CONTEXT, nullptr)));
     return webContext.get();
 }
 
@@ -290,6 +438,54 @@ WebKitWebContext* webkit_web_context_get_default(void)
 {
     static GOnce onceInit = G_ONCE_INIT;
     return WEBKIT_WEB_CONTEXT(g_once(&onceInit, createDefaultWebContext, 0));
+}
+
+/**
+ * webkit_web_context_new:
+ *
+ * Create a new #WebKitWebContext
+ *
+ * Returns: (transfer full): a newly created #WebKitWebContext
+ *
+ * Since: 2.8
+ */
+WebKitWebContext* webkit_web_context_new(void)
+{
+    return WEBKIT_WEB_CONTEXT(g_object_new(WEBKIT_TYPE_WEB_CONTEXT, nullptr));
+}
+
+/**
+ * webkit_web_context_new_with_website_data_manager:
+ * @manager: a #WebKitWebsiteDataManager
+ *
+ * Create a new #WebKitWebContext with a #WebKitWebsiteDataManager.
+ *
+ * Returns: (transfer full): a newly created #WebKitWebContext
+ *
+ * Since: 2.10
+ */
+WebKitWebContext* webkit_web_context_new_with_website_data_manager(WebKitWebsiteDataManager* manager)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEBSITE_DATA_MANAGER(manager), nullptr);
+
+    return WEBKIT_WEB_CONTEXT(g_object_new(WEBKIT_TYPE_WEB_CONTEXT, "website-data-manager", manager, nullptr));
+}
+
+/**
+ * webkit_web_context_get_website_data_manager:
+ * @context: the #WebKitWebContext
+ *
+ * Get the #WebKitWebsiteDataManager of @context.
+ *
+ * Returns: (transfer none): a #WebKitWebsiteDataManager
+ *
+ * Since: 2.10
+ */
+WebKitWebsiteDataManager* webkit_web_context_get_website_data_manager(WebKitWebContext* context)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), nullptr);
+
+    return context->priv->websiteDataManager.get();
 }
 
 /**
@@ -379,7 +575,8 @@ void webkit_web_context_clear_cache(WebKitWebContext* context)
 {
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
 
-    context->priv->context->supplement<WebResourceCacheManagerProxy>()->clearCacheForAllOrigins(AllResourceCaches);
+    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=146041
+    // context->priv->context->supplement<WebResourceCacheManagerProxy>()->clearCacheForAllOrigins(AllResourceCaches);
 }
 
 typedef HashMap<DownloadProxy*, GRefPtr<WebKitDownload> > DownloadsMap;
@@ -556,7 +753,9 @@ void webkit_web_context_set_additional_plugins_directory(WebKitWebContext* conte
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
     g_return_if_fail(directory);
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
     context->priv->context->setAdditionalPluginsDirectory(WebCore::filenameToString(directory));
+#endif
 }
 
 static void destroyPluginList(GList* plugins)
@@ -566,10 +765,12 @@ static void destroyPluginList(GList* plugins)
 
 static void webkitWebContextGetPluginThread(GTask* task, gpointer object, gpointer /* taskData */, GCancellable*)
 {
-    Vector<PluginModuleInfo> plugins = WEBKIT_WEB_CONTEXT(object)->priv->context->pluginInfoStore().plugins();
     GList* returnValue = 0;
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    Vector<PluginModuleInfo> plugins = WEBKIT_WEB_CONTEXT(object)->priv->context->pluginInfoStore().plugins();
     for (size_t i = 0; i < plugins.size(); ++i)
         returnValue = g_list_prepend(returnValue, webkitPluginCreate(plugins[i]));
+#endif
     g_task_return_pointer(task, returnValue, reinterpret_cast<GDestroyNotify>(destroyPluginList));
 }
 
@@ -687,7 +888,7 @@ gboolean webkit_web_context_get_spell_checking_enabled(WebKitWebContext* context
     g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), FALSE);
 
 #if ENABLE(SPELLCHECK)
-    return context->priv->textChecker->isSpellCheckingEnabled();
+    return TextChecker::state().isContinuousSpellCheckingEnabled;
 #else
     return false;
 #endif
@@ -705,7 +906,7 @@ void webkit_web_context_set_spell_checking_enabled(WebKitWebContext* context, gb
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
 
 #if ENABLE(SPELLCHECK)
-    context->priv->textChecker->setSpellCheckingEnabled(enabled);
+    TextChecker::setContinuousSpellCheckingEnabled(enabled);
 #endif
 }
 
@@ -724,10 +925,20 @@ void webkit_web_context_set_spell_checking_enabled(WebKitWebContext* context, gb
  */
 const gchar* const* webkit_web_context_get_spell_checking_languages(WebKitWebContext* context)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), 0);
+    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), nullptr);
 
 #if ENABLE(SPELLCHECK)
-    return context->priv->textChecker->getSpellCheckingLanguages();
+    Vector<String> spellCheckingLanguages = TextChecker::loadedSpellCheckingLanguages();
+    if (spellCheckingLanguages.isEmpty())
+        return nullptr;
+
+    static GRefPtr<GPtrArray> languagesToReturn;
+    languagesToReturn = adoptGRef(g_ptr_array_new_with_free_func(g_free));
+    for (const auto& language : spellCheckingLanguages)
+        g_ptr_array_add(languagesToReturn.get(), g_strdup(language.utf8().data()));
+    g_ptr_array_add(languagesToReturn.get(), nullptr);
+
+    return reinterpret_cast<char**>(languagesToReturn->pdata);
 #else
     return 0;
 #endif
@@ -756,7 +967,10 @@ void webkit_web_context_set_spell_checking_languages(WebKitWebContext* context, 
     g_return_if_fail(languages);
 
 #if ENABLE(SPELLCHECK)
-    context->priv->textChecker->setSpellCheckingLanguages(languages);
+    Vector<String> spellCheckingLanguages;
+    for (size_t i = 0; languages[i]; ++i)
+        spellCheckingLanguages.append(String::fromUTF8(languages[i]));
+    TextChecker::setSpellCheckingLanguages(spellCheckingLanguages);
 #endif
 }
 
@@ -870,13 +1084,19 @@ void webkit_web_context_set_web_extensions_initialization_user_data(WebKitWebCon
  * Set the directory where disk cache files will be stored
  * This method must be called before loading anything in this context, otherwise
  * it will not have any effect.
+ *
+ * Note that this method overrides the directory set in the #WebKitWebsiteDataManager,
+ * but it doesn't change the value returned by webkit_website_data_manager_get_disk_cache_directory()
+ * since the #WebKitWebsiteDataManager is immutable.
+ *
+ * Deprecated: 2.10. Use webkit_web_context_new_with_website_data_manager() instead.
  */
 void webkit_web_context_set_disk_cache_directory(WebKitWebContext* context, const char* directory)
 {
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
     g_return_if_fail(directory);
 
-    context->priv->context->setDiskCacheDirectory(WebCore::filenameToString(directory));
+    context->priv->context->configuration().setDiskCacheDirectory(WebCore::pathByAppendingComponent(WebCore::filenameToString(directory), networkCacheSubdirectory));
 }
 
 /**
@@ -892,28 +1112,28 @@ void webkit_web_context_prefetch_dns(WebKitWebContext* context, const char* host
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
     g_return_if_fail(hostname);
 
-    ImmutableDictionary::MapType message;
+    API::Dictionary::MapType message;
     message.set(String::fromUTF8("Hostname"), API::String::create(String::fromUTF8(hostname)));
-    context->priv->context->postMessageToInjectedBundle(String::fromUTF8("PrefetchDNS"), ImmutableDictionary::create(WTF::move(message)).get());
+    context->priv->context->postMessageToInjectedBundle(String::fromUTF8("PrefetchDNS"), API::Dictionary::create(WTF::move(message)).ptr());
 }
 
 /**
  * webkit_web_context_allow_tls_certificate_for_host:
  * @context: a #WebKitWebContext
- * @info: a #WebKitCertificateInfo
+ * @certificate: a #GTlsCertificate
  * @host: the host for which a certificate is to be allowed
  *
  * Ignore further TLS errors on the @host for the certificate present in @info.
  *
- * Since: 2.4
+ * Since: 2.6
  */
-void webkit_web_context_allow_tls_certificate_for_host(WebKitWebContext* context, WebKitCertificateInfo* info, const gchar* host)
+void webkit_web_context_allow_tls_certificate_for_host(WebKitWebContext* context, GTlsCertificate* certificate, const gchar* host)
 {
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
-    g_return_if_fail(info);
+    g_return_if_fail(G_IS_TLS_CERTIFICATE(certificate));
     g_return_if_fail(host);
 
-    RefPtr<WebCertificateInfo> webCertificateInfo = WebCertificateInfo::create(webkitCertificateInfoGetCertificateInfo(info));
+    RefPtr<WebCertificateInfo> webCertificateInfo = WebCertificateInfo::create(WebCore::CertificateInfo(certificate, static_cast<GTlsCertificateFlags>(0)));
     context->priv->context->allowSpecificHTTPSCertificateForHost(webCertificateInfo.get(), String::fromUTF8(host));
 }
 
@@ -1013,7 +1233,7 @@ GVariant* webkitWebContextInitializeWebExtensions(WebKitWebContext* context)
         context->priv->webExtensionsInitializationUserData.get());
 }
 
-WebContext* webkitWebContextGetContext(WebKitWebContext* context)
+WebProcessPool* webkitWebContextGetContext(WebKitWebContext* context)
 {
     g_assert(WEBKIT_IS_WEB_CONTEXT(context));
 
@@ -1051,19 +1271,19 @@ void webkitWebContextDidFinishLoadingCustomProtocol(WebKitWebContext* context, u
     context->priv->uriSchemeRequests.remove(customProtocolID);
 }
 
-void webkitWebContextCreatePageForWebView(WebKitWebContext* context, WebKitWebView* webView, WebKitWebViewGroup* webViewGroup, WebKitUserContentManager* userContentManager, WebKitWebView* relatedView)
+void webkitWebContextCreatePageForWebView(WebKitWebContext* context, WebKitWebView* webView, WebKitUserContentManager* userContentManager, WebKitWebView* relatedView)
 {
     WebKitWebViewBase* webViewBase = WEBKIT_WEB_VIEW_BASE(webView);
-    WebPageGroup* pageGroup = webViewGroup ? webkitWebViewGroupGetPageGroup(webViewGroup) : 0;
-    WebPageProxy* relatedPage = relatedView ? webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(relatedView)) : nullptr;
-    WebUserContentControllerProxy* userContentControllerProxy = userContentManager ? webkitUserContentManagerGetUserContentControllerProxy(userContentManager) : nullptr;
-    webkitWebViewBaseCreateWebPage(webViewBase, context->priv->context.get(), pageGroup, userContentControllerProxy, relatedPage);
+    WebPageConfiguration webPageConfiguration;
+    webPageConfiguration.preferences = webkitSettingsGetPreferences(webkit_web_view_get_settings(webView));
+    webPageConfiguration.relatedPage = relatedView ? webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(relatedView)) : nullptr;
+    webPageConfiguration.userContentController = userContentManager ? webkitUserContentManagerGetUserContentControllerProxy(userContentManager) : nullptr;
+    webPageConfiguration.websiteDataStore = &webkitWebsiteDataManagerGetDataStore(context->priv->websiteDataManager.get());
+    webPageConfiguration.sessionID = webPageConfiguration.websiteDataStore->sessionID();
+    webkitWebViewBaseCreateWebPage(webViewBase, context->priv->context.get(), WTF::move(webPageConfiguration));
 
     WebPageProxy* page = webkitWebViewBaseGetPage(webViewBase);
     context->priv->webViews.set(page->pageID(), webView);
-
-    if (!pageGroup && !context->priv->defaultWebViewGroup)
-        context->priv->defaultWebViewGroup = adoptGRef(webkitWebViewGroupCreate(&page->pageGroup()));
 }
 
 void webkitWebContextWebViewDestroyed(WebKitWebContext* context, WebKitWebView* webView)
@@ -1075,9 +1295,4 @@ void webkitWebContextWebViewDestroyed(WebKitWebContext* context, WebKitWebView* 
 WebKitWebView* webkitWebContextGetWebViewForPage(WebKitWebContext* context, WebPageProxy* page)
 {
     return page ? context->priv->webViews.get(page->pageID()) : 0;
-}
-
-WebKitWebViewGroup* webkitWebContextGetDefaultWebViewGroup(WebKitWebContext* context)
-{
-    return context->priv->defaultWebViewGroup.get();
 }

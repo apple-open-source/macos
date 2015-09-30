@@ -35,7 +35,7 @@ class Document;
 
 class CSSCanvasValue : public CSSImageGeneratorValue {
 public:
-    static PassRef<CSSCanvasValue> create(const String& name) { return adoptRef(*new CSSCanvasValue(name)); }
+    static Ref<CSSCanvasValue> create(const String& name) { return adoptRef(*new CSSCanvasValue(name)); }
     ~CSSCanvasValue();
 
     String customCSSText() const;
@@ -45,7 +45,7 @@ public:
     FloatSize fixedSize(const RenderElement*);
 
     bool isPending() const { return false; }
-    void loadSubimages(CachedResourceLoader*, const ResourceLoaderOptions&) { }
+    void loadSubimages(CachedResourceLoader&, const ResourceLoaderOptions&) { }
 
     bool equals(const CSSCanvasValue&) const;
 
@@ -102,8 +102,8 @@ private:
     HTMLCanvasElement* m_element;
 };
 
-CSS_VALUE_TYPE_CASTS(CSSCanvasValue, isCanvasValue())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSCanvasValue, isCanvasValue())
 
 #endif // CSSCanvasValue_h

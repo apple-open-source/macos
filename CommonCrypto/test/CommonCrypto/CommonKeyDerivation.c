@@ -53,10 +53,11 @@ static int testOriginalKDF(char *password, char *salt, int rounds, CCDigestAlgor
     int status = 0;
     
     int retval = CCKeyDerivationPBKDF(kCCPBKDF2, password, strlen(password), (uint8_t *) salt, strlen(salt), prf, rounds, derivedKey->bytes, derivedKey->len);
-    if(retval == -1 && expected_failure) {
-        return 1;
+    if(expected_failure) {
+        ok(retval == -1, "CCPBKDF2 Expected failure");
+    } else {
+        ok(status = expectedEqualsComputed(testString("Original PBKDF2-HMac-%s", alg), expected, derivedKey), "Derived key is as expected");
     }
-    ok(status = expectedEqualsComputed(testString("Original PBKDF2-HMac-%s", alg), expected, derivedKey), "Derived key is as expected");
     free(derivedKey);
     return 1;
 }
@@ -66,10 +67,11 @@ static int testNewKDF(char *password, char *salt, int rounds, CCDigestAlgorithm 
     int status = 0;
     
     CCStatus retval = CCKeyDerivationHMac(kCCKDFAlgorithmPBKDF2_HMAC, alg, rounds, password, strlen(password), NULL, 0, NULL, 0, NULL, 0, salt, strlen(salt), derivedKey->bytes, derivedKey->len);
-    if(retval != kCCSuccess && expected_failure) {
-        return 1;
+    if(expected_failure) {
+        ok(retval != kCCSuccess, "PBKDF2_HMAC Expected failure");
+    } else {
+        ok(status = expectedEqualsComputed(testString("New PBKDF2-HMac-%s", alg), expected, derivedKey), "Derived key is as expected");
     }
-    ok(status = expectedEqualsComputed(testString("New PBKDF2-HMac-%s", alg), expected, derivedKey), "Derived key is as expected");
     free(derivedKey);
     return 1;
 }
@@ -88,7 +90,7 @@ PBKDF2Test(KDFVector *kdfvec)
     return status;
 }
 
-static int testsPerVector = 2;
+static int testsPerVector = 5;
 
 int CommonKeyDerivation(int argc, char *const *argv) {
 	plan_tests((int) (kdfvLen*testsPerVector));

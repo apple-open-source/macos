@@ -232,7 +232,7 @@ acquire_credential(struct acquire_credential_options *opt, int argc, char **argv
 	CFMutableDataRef data = CFDataCreateMutable(NULL, slen);
 	ssize_t dlen;
 
-	CFDataSetLength(data, strlen);
+	CFDataSetLength(data, slen);
 
 	dlen = hex_decode(opt->certificate_persistant_string,
 			  CFDataGetMutableBytePtr(data),
@@ -262,6 +262,22 @@ acquire_credential(struct acquire_credential_options *opt, int argc, char **argv
 
     if (opt->validate_flag)
 	CFDictionarySetValue(attributes, kGSSICVerifyCredential, kCFBooleanTrue);
+
+    if (opt->server_hostname_string) {
+	CFStringRef hn = CFStringCreateWithCString(NULL, opt->server_hostname_string, kCFStringEncodingUTF8);
+	if (hn == NULL)
+	    errx(1, "CFStringCreateWithCString");
+
+	// GSS_C_NT_HOSTBASED_SERVICE
+	gss_name_t gname = GSSCreateName(hn, GSS_KRB5_NT_PRINCIPAL_NAME, NULL);
+	if (gname == NULL)
+	    errx(1, "GSSCreateName");
+	CFDictionarySetValue(attributes, kGSSICVerifyCredentialAcceptorName, gname);
+
+	CFRelease(hn);
+	CFRelease(gname);
+    }
+
     if (opt->kdc_hostname_string) {
 	CFStringRef hn = CFStringCreateWithCString(NULL, opt->kdc_hostname_string, kCFStringEncodingUTF8);
 	if (hn == NULL)
@@ -419,6 +435,7 @@ list_credentials(struct list_credentials_options *opt, int argc, char **argv)
 {
     struct print_cred pc;
     gss_const_OID mech = NULL;
+    OM_uint32 junk;
 
     if (opt->mech_string) {
 	mech = gss_name_to_oid(opt->mech_string);
@@ -428,7 +445,7 @@ list_credentials(struct list_credentials_options *opt, int argc, char **argv)
 
     if (opt->verbose_flag) {
 
-	gss_iter_creds_f(NULL, 0, mech, NULL, diag_cred);
+	gss_iter_creds_f(&junk, 0, mech, NULL, diag_cred);
 
     } else {
 
@@ -442,7 +459,7 @@ list_credentials(struct list_credentials_options *opt, int argc, char **argv)
 	rtbl_add_column(pc.t, COL_MECH, 0);
 	rtbl_add_column(pc.t, COL_UUID, 0);
 	
-	gss_iter_creds_f(NULL, 0, mech, &pc, print_cred);
+	gss_iter_creds_f(&junk, 0, mech, &pc, print_cred);
 	
 	rtbl_format(pc.t, stdout);
 	rtbl_destroy(pc.t);
@@ -486,13 +503,15 @@ acquire_cred(const char *name_string, gss_const_OID mech, gss_const_OID nametype
 static void
 destroy_cred(void *arg1, gss_const_OID oid, gss_cred_id_t cred)
 {
-    gss_destroy_cred(NULL, &cred);
+    OM_uint32 junk;
+    gss_destroy_cred(&junk, &cred);
 }
 
 int
 destroy(struct destroy_options *opt, int argc, char **argv)
 {
     gss_const_OID mech = NULL;
+    OM_uint32 junk;
 
     if (opt->mech_string) {
 	mech = gss_name_to_oid(opt->mech_string);
@@ -501,7 +520,7 @@ destroy(struct destroy_options *opt, int argc, char **argv)
     }
 
     if (opt->all_flag) {
-	gss_iter_creds_f(NULL, 0, mech, NULL, destroy_cred);
+	gss_iter_creds_f(&junk, 0, mech, NULL, destroy_cred);
     } else {
 	gss_cred_id_t cred;
 
@@ -512,7 +531,7 @@ destroy(struct destroy_options *opt, int argc, char **argv)
 
 	cred = acquire_cred(argv[0], mech, GSS_C_NT_USER_NAME);
 
-	gss_destroy_cred(NULL, &cred);
+	gss_destroy_cred(&junk, &cred);
 
     }
 

@@ -317,7 +317,7 @@ int main(int argc, char * const *argv)
 	struct addrinfo *altres = NULL;
 	int retval = 0;
 	int which_buf = 0;
-	connid_t cid1, cid2;
+	sae_connid_t cid1, cid2;
 	int iter;
 	int bytes_to_rdwr;
 	int peeled_off = 0;
@@ -496,7 +496,7 @@ int main(int argc, char * const *argv)
 	bytes_to_rdwr = reqlen;
 connect_again:
 	
-	cid1 = cid2 = CONNID_ANY;
+	cid1 = cid2 = SAE_CONNID_ANY;
 	int ifscope = 0;
 	int error = 0;
 	
@@ -508,13 +508,17 @@ connect_again:
 		sprint_sockaddr(str, sizeof(str), ares->ai_addr);
 		printf("connectx(%s, %d, %d)\n", str, ifscope, cid1);
 	}
-	
-	error = connectx(sockfd, NULL, 0, ares->ai_addr,
-		       ares->ai_addrlen, ifscope, ASSOCID_ANY, &cid1);
+	sa_endpoints_t sa;
+	bzero(&sa, sizeof(sa));
+	sa.sae_dstaddr = ares->ai_addr;
+	sa.sae_dstaddrlen = ares->ai_addrlen;
+	sa.sae_srcif = ifscope;
+
+	error = connectx(sockfd, &sa, SAE_ASSOCID_ANY, 0, NULL, 0, NULL, &cid1);
 	if ((error != 0) && (errno != EPROTO)) {
 		err(EX_OSERR, "ERROR connecting");
 	} else if ((error != 0) && (errno == EPROTO)) {
-		ps = peeloff(sockfd, ASSOCID_ANY);
+		ps = peeloff(sockfd, SAE_ASSOCID_ANY);
 		
 		if (ps != -1) {
 			close(sockfd);
@@ -524,7 +528,6 @@ connect_again:
 		ts_print();
 		printf("%s: peeled off\n", __func__);
 	}
-	
 	
 	iter = 0;
 	
@@ -549,10 +552,15 @@ connect_again:
 						sprint_sockaddr(str, sizeof(str), altres->ai_addr);
 						printf("connectx(%s, %d, %d)\n", str, ifscope, cid1);
 					}
+					sa_endpoints_t sa;
+					bzero(&sa, sizeof(sa));
+					sa.sae_srcif = ifscope;
+					sa.sae_srcaddr = altres->ai_addr;
+					sa.sae_srcaddrlen = altres->ai_addrlen;
+					sa.sae_dstaddr = ares->ai_addr;
+					sa.sae_dstaddrlen = ares->ai_addrlen;
 					
-					error = connectx(sockfd, altres->ai_addr, altres->ai_addrlen,
-						       ares->ai_addr, ares->ai_addrlen,
-						       ifscope, ASSOCID_ANY, &cid2);
+					error = connectx(sockfd, &sa, SAE_ASSOCID_ANY, 0, NULL, 0, NULL, &cid2);
 					if (error < 0) {
 						err(EX_OSERR, "ERROR setting up alternate path");
 					}
@@ -648,13 +656,13 @@ connect_again:
 			ts_print();
 			printf("disconnectx(%d, %d)\n", sockfd, cid1);
 		}
-		disconnectx(sockfd, ASSOCID_ANY, cid1);
-		if (cid2 != CONNID_ANY) {
+		disconnectx(sockfd, SAE_ASSOCID_ANY, cid1);
+		if (cid2 != SAE_CONNID_ANY) {
 			if (verbose) {
 				ts_print();
 				printf("disconnectx(%d, %d)\n", sockfd, cid2);
 			}
-			disconnectx(sockfd, ASSOCID_ANY, cid2);
+			disconnectx(sockfd, SAE_ASSOCID_ANY, cid2);
 		}
 		if (!nowaitforjoin) {
 			if (verbose) {
@@ -728,7 +736,7 @@ printb(const char *s, unsigned v, const char *bits)
 }
 
 static int
-showconninfo(int s, connid_t cid)
+showconninfo(int s, sae_connid_t cid)
 {
 	char buf[INET6_ADDRSTRLEN];
 	conninfo_t *cfo = NULL;
@@ -788,10 +796,10 @@ out:
 static void
 showmpinfo(int s)
 {
-	uint32_t aid_cnt, cid_cnt;
-	associd_t *aid = NULL;
-	connid_t *cid = NULL;
-	int i, error;
+	uint32_t aid_cnt = 0, cid_cnt = 0;
+	sae_associd_t *aid = NULL;
+	sae_connid_t *cid = NULL;
+	int i, error = 0;
 	
 	error = copyassocids(s, &aid, &aid_cnt);
 	if (error != 0) {
@@ -808,7 +816,7 @@ showmpinfo(int s)
 	}
 	
 	/* just do an association for now */
-	error = copyconnids(s, ASSOCID_ANY, &cid, &cid_cnt);
+	error = copyconnids(s, SAE_ASSOCID_ANY, &cid, &cid_cnt);
 	if (error != 0) {
 		warn("getconnids failed\n");
 		goto done;

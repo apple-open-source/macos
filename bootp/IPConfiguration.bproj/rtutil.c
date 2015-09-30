@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -131,7 +131,7 @@ subnet_route(int cmd, struct in_addr gateway, struct in_addr netaddr,
 	switch (error) {
 	case ESRCH:
 	case EEXIST:
-	    my_log(LOG_DEBUG, "subnet_route: write routing socket failed, %s",
+	    my_log(LOG_INFO, "subnet_route: write routing socket failed, %s",
 		   strerror(error));
 	    break;
 	default:
@@ -206,8 +206,8 @@ flush_dynamic_routes(int s)
 		   IP_LIST(&sin->sin_addr),
 		   strerror(errno));
 	}
-	else if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG,
+	else {
+	    my_log(LOG_INFO,
 		   "IPConfiguration: removed dynamic route for " IP_FORMAT, 
 		   IP_LIST(&sin->sin_addr));
 	}

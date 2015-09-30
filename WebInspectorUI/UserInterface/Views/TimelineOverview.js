@@ -23,24 +23,24 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.TimelineOverview = function(timelineOverviewGraphsMap)
+WebInspector.TimelineOverview = function(identifier, timelineRecording, minimumDurationPerPixel, maximumDurationPerPixel, defaultSettingsValues)
 {
-    WebInspector.Object.call(this);
+    // FIXME: Convert this to a WebInspector.Object subclass, and call super().
+    // WebInspector.Object.call(this);
+
+    this._recording = timelineRecording;
+    this._recording.addEventListener(WebInspector.TimelineRecording.Event.TimelineAdded, this._timelineAdded, this);
+    this._recording.addEventListener(WebInspector.TimelineRecording.Event.TimelineRemoved, this._timelineRemoved, this);
 
     this._element = document.createElement("div");
-    this._element.className = WebInspector.TimelineOverview.StyleClassName;
+    this._element.classList.add("timeline-overview", identifier);
     this._element.addEventListener("wheel", this._handleWheelEvent.bind(this));
 
-    this._graphsContainer = document.createElement("div");
-    this._graphsContainer.className = WebInspector.TimelineOverview.GraphsContainerStyleClassName;
-    this._element.appendChild(this._graphsContainer);
+    this._graphsContainerElement = document.createElement("div");
+    this._graphsContainerElement.className = "graphs-container";
+    this._element.appendChild(this._graphsContainerElement);
 
-    this._timelineOverviewGraphsMap = timelineOverviewGraphsMap;
-
-    for (var timelineOverviewGraph of this._timelineOverviewGraphsMap.values()) {
-        timelineOverviewGraph.timelineOverview = this;
-        this._graphsContainer.appendChild(timelineOverviewGraph.element);
-    }
+    this._timelineOverviewGraphsMap = new Map;
 
     this._timelineRuler = new WebInspector.TimelineRuler;
     this._timelineRuler.allowsClippedLabels = true;
@@ -51,35 +51,42 @@ WebInspector.TimelineOverview = function(timelineOverviewGraphsMap)
     this._currentTimeMarker = new WebInspector.TimelineMarker(0, WebInspector.TimelineMarker.Type.CurrentTime);
     this._timelineRuler.addMarker(this._currentTimeMarker);
 
-    this._scrollContainer = document.createElement("div");
-    this._scrollContainer.className = WebInspector.TimelineOverview.ScrollContainerStyleClassName;
-    this._scrollContainer.addEventListener("scroll", this._handleScrollEvent.bind(this));
-    this._element.appendChild(this._scrollContainer);
+    this._scrollContainerElement = document.createElement("div");
+    this._scrollContainerElement.className = "scroll-container";
+    this._scrollContainerElement.addEventListener("scroll", this._handleScrollEvent.bind(this));
+    this._element.appendChild(this._scrollContainerElement);
 
     this._scrollWidthSizer = document.createElement("div");
-    this._scrollWidthSizer.className = WebInspector.TimelineOverview.ScrollWidthSizerStyleClassName;
-    this._scrollContainer.appendChild(this._scrollWidthSizer);
+    this._scrollWidthSizer.className = "scroll-width-sizer";
+    this._scrollContainerElement.appendChild(this._scrollWidthSizer);
 
-    this._secondsPerPixelSetting = new WebInspector.Setting("timeline-overview-seconds-per-pixel", 0.01);
-    this._selectionStartTimeSetting = new WebInspector.Setting("timeline-overview-selection-start-time", 0);
-    this._selectionDurationSetting = new WebInspector.Setting("timeline-overview-selection-duration", 5);
+    this._defaultSettingsValues = defaultSettingsValues;
+    this._durationPerPixelSetting = new WebInspector.Setting(identifier + "-timeline-overview-duration-per-pixel", this._defaultSettingsValues.durationPerPixel);
+    this._selectionStartValueSetting = new WebInspector.Setting(identifier + "-timeline-overview-selection-start-value", this._defaultSettingsValues.selectionStartValue);
+    this._selectionDurationSetting = new WebInspector.Setting(identifier + "-timeline-overview-selection-duration", this._defaultSettingsValues.selectionDuration);
 
     this._startTime = 0;
     this._currentTime = 0;
+    this._revealCurrentTime = false;
     this._endTime = 0;
-    this._secondsPerPixel = this._secondsPerPixelSetting.value;
+    this._minimumDurationPerPixel = minimumDurationPerPixel;
+    this._maximumDurationPerPixel = maximumDurationPerPixel;
+    this._durationPerPixel = Math.min(this._maximumDurationPerPixel, Math.max(this._minimumDurationPerPixel, this._durationPerPixelSetting.value));
+    this._pixelAlignDuration = false;
+    this._mouseWheelDelta = 0;
     this._scrollStartTime = 0;
     this._cachedScrollContainerWidth = NaN;
 
-    this.selectionStartTime = this._selectionStartTimeSetting.value;
+    this.selectionStartTime = this._selectionStartValueSetting.value;
     this.selectionDuration = this._selectionDurationSetting.value;
+
+    for (var timeline of this._recording.timelines.values())
+        this._timelineAdded(timeline);
+
+    if (!WebInspector.timelineManager.isCapturingPageReload())
+        this._resetSelection();
 };
 
-WebInspector.TimelineOverview.StyleClassName = "timeline-overview";
-WebInspector.TimelineOverview.GraphsContainerStyleClassName = "graphs-container";
-WebInspector.TimelineOverview.ScrollContainerStyleClassName = "scroll-container";
-WebInspector.TimelineOverview.ScrollWidthSizerStyleClassName = "scroll-width-sizer";
-WebInspector.TimelineOverview.MinimumSecondsPerPixel = 0.001;
 WebInspector.TimelineOverview.ScrollDeltaDenominator = 500;
 
 WebInspector.TimelineOverview.Event = {
@@ -130,20 +137,42 @@ WebInspector.TimelineOverview.prototype = {
 
     get secondsPerPixel()
     {
-        return this._secondsPerPixel;
+        return this._durationPerPixel;
     },
 
     set secondsPerPixel(x)
     {
-        x = Math.max(WebInspector.TimelineOverview.MinimumSecondsPerPixel, x);
+        x = Math.min(this._maximumDurationPerPixel, Math.max(this._minimumDurationPerPixel, x));
 
-        if (this._secondsPerPixel === x)
+        if (this._durationPerPixel === x)
             return;
 
-        this._secondsPerPixel = x;
-        this._secondsPerPixelSetting.value = x;
+        if (this._pixelAlignDuration) {
+            x = 1 / Math.round(1 / x);
+            if (this._durationPerPixel === x)
+                return;
+        }
+
+        this._durationPerPixel = x;
+        this._durationPerPixelSetting.value = x;
 
         this._needsLayout();
+    },
+
+    get pixelAlignDuration()
+    {
+        return this._pixelAlignDuration;
+    },
+
+    set pixelAlignDuration(x)
+    {
+        if (this._pixelAlignDuration === x)
+            return;
+
+        this._mouseWheelDelta = 0;
+        this._pixelAlignDuration = x;
+        if (this._pixelAlignDuration)
+            this.secondsPerPixel = 1 / Math.round(1 / this._durationPerPixel);
     },
 
     get endTime()
@@ -179,11 +208,12 @@ WebInspector.TimelineOverview.prototype = {
     get visibleDuration()
     {
         if (isNaN(this._cachedScrollContainerWidth)) {
-            this._cachedScrollContainerWidth = this._scrollContainer.offsetWidth;
-            console.assert(this._cachedScrollContainerWidth > 0);
+            this._cachedScrollContainerWidth = this._scrollContainerElement.offsetWidth;
+            if (!this._cachedScrollContainerWidth)
+                this._cachedScrollContainerWidth = NaN;
         }
 
-        return this._cachedScrollContainerWidth * this._secondsPerPixel;
+        return this._cachedScrollContainerWidth * this._durationPerPixel;
     },
 
     get selectionStartTime()
@@ -208,7 +238,41 @@ WebInspector.TimelineOverview.prototype = {
     set selectionDuration(x)
     {
         x = Math.max(WebInspector.TimelineRuler.MinimumSelectionTimeRange, x);
+
         this._timelineRuler.selectionEndTime = this._timelineRuler.selectionStartTime + x;
+    },
+
+    get visible()
+    {
+        return this._visible;
+    },
+
+    shown: function()
+    {
+        this._visible = true;
+
+        for (var timelineOverviewGraph of this._timelineOverviewGraphsMap.values())
+            timelineOverviewGraph.shown();
+
+        this.updateLayout();
+    },
+
+    hidden: function()
+    {
+        this._visible = false;
+
+        for (var timelineOverviewGraph of this._timelineOverviewGraphsMap.values())
+            timelineOverviewGraph.hidden();
+    },
+
+    reset: function()
+    {
+        for (var timelineOverviewGraph of this._timelineOverviewGraphsMap.values())
+            timelineOverviewGraph.reset();
+
+        this._mouseWheelDelta = 0;
+
+        this._resetSelection();
     },
 
     addMarker: function(marker)
@@ -236,7 +300,7 @@ WebInspector.TimelineOverview.prototype = {
 
         // Calculate the required width based on the duration and seconds per pixel.
         var duration = this._endTime - this._startTime;
-        var newWidth = Math.ceil(duration / this._secondsPerPixel);
+        var newWidth = Math.ceil(duration / this._durationPerPixel);
 
         // Update all relevant elements to the new required width.
         this._updateElementWidth(this._scrollWidthSizer, newWidth);
@@ -245,7 +309,7 @@ WebInspector.TimelineOverview.prototype = {
 
         if (this._revealCurrentTime) {
             this.revealMarker(this._currentTimeMarker);
-            delete this._revealCurrentTime;
+            this._revealCurrentTime = false;
         }
 
         const visibleDuration = this.visibleDuration;
@@ -256,11 +320,11 @@ WebInspector.TimelineOverview.prototype = {
 
         this._timelineRuler.zeroTime = this._startTime;
         this._timelineRuler.startTime = scrollStartTime;
-        this._timelineRuler.secondsPerPixel = this._secondsPerPixel;
+        this._timelineRuler.secondsPerPixel = this._durationPerPixel;
 
         if (!this._dontUpdateScrollLeft) {
             this._ignoreNextScrollEvent = true;
-            this._scrollContainer.scrollLeft = Math.ceil((scrollStartTime - this._startTime) / this._secondsPerPixel);
+            this._scrollContainerElement.scrollLeft = Math.ceil((scrollStartTime - this._startTime) / this._durationPerPixel);
         }
 
         this._timelineRuler.updateLayout();
@@ -287,6 +351,19 @@ WebInspector.TimelineOverview.prototype = {
             timelineOverviewGraph.updateLayoutIfNeeded();
     },
 
+    // Protected
+
+    get timelineRuler()
+    {
+        return this._timelineRuler;
+    },
+
+    canShowTimeline: function(timeline)
+    {
+        // Implemented by subclasses.
+        console.error("Needs to be implemented by a subclass.");
+    },
+
     // Private
 
     _updateElementWidth: function(element, newWidth)
@@ -298,8 +375,12 @@ WebInspector.TimelineOverview.prototype = {
 
     _needsLayout: function()
     {
+        if (!this._visible)
+            return;
+
         if (this._scheduledLayoutUpdateIdentifier)
             return;
+
         this._scheduledLayoutUpdateIdentifier = requestAnimationFrame(this.updateLayout.bind(this));
     },
 
@@ -312,8 +393,8 @@ WebInspector.TimelineOverview.prototype = {
 
         this._dontUpdateScrollLeft = true;
 
-        var scrollOffset = this._scrollContainer.scrollLeft;
-        this.scrollStartTime = this._startTime + (scrollOffset * this._secondsPerPixel);
+        var scrollOffset = this._scrollContainerElement.scrollLeft;
+        this.scrollStartTime = this._startTime + (scrollOffset * this._durationPerPixel);
 
         // Force layout so we can update with the scroll position synchronously.
         this.updateLayoutIfNeeded();
@@ -334,29 +415,79 @@ WebInspector.TimelineOverview.prototype = {
             var newWheelEvent = new event.constructor(event.type, event);
             newWheelEvent.__cloned = true;
 
-            this._scrollContainer.dispatchEvent(newWheelEvent);
+            this._scrollContainerElement.dispatchEvent(newWheelEvent);
             return;
         }
 
         // Remember the mouse position in time.
         var mouseOffset = event.pageX - this._element.totalOffsetLeft;
-        var mousePositionTime = this._scrollStartTime + (mouseOffset * this._secondsPerPixel);
+        var mousePositionTime = this._scrollStartTime + (mouseOffset * this._durationPerPixel);
         var deviceDirection = event.webkitDirectionInvertedFromDevice ? 1 : -1;
+        var delta = event.deltaY * (this._durationPerPixel / WebInspector.TimelineOverview.ScrollDeltaDenominator) * deviceDirection;
 
-        this.secondsPerPixel += event.deltaY * (this._secondsPerPixel / WebInspector.TimelineOverview.ScrollDeltaDenominator) * deviceDirection;
+        // Reset accumulated wheel delta when direction changes.
+        if (this._pixelAlignDuration && (delta < 0 && this._mouseWheelDelta >= 0 || delta >= 0 && this._mouseWheelDelta < 0))
+            this._mouseWheelDelta = 0;
+
+        var previousDurationPerPixel = this._durationPerPixel;
+        this._mouseWheelDelta += delta;
+        this.secondsPerPixel += this._mouseWheelDelta;
+
+        if (this._durationPerPixel === this._minimumDurationPerPixel && delta < 0 || this._durationPerPixel === this._maximumDurationPerPixel && delta >= 0)
+            this._mouseWheelDelta = 0;
+        else
+            this._mouseWheelDelta = previousDurationPerPixel + this._mouseWheelDelta - this._durationPerPixel;
 
         // Center the zoom around the mouse based on the remembered mouse position time.
-        this.scrollStartTime = mousePositionTime - (mouseOffset * this._secondsPerPixel);
+        this.scrollStartTime = mousePositionTime - (mouseOffset * this._durationPerPixel);
 
         event.preventDefault();
         event.stopPropagation();
     },
 
+    _timelineAdded: function(timelineOrEvent)
+    {
+        var timeline = timelineOrEvent;
+        if (!(timeline instanceof WebInspector.Timeline))
+            timeline = timelineOrEvent.data.timeline;
+
+        console.assert(timeline instanceof WebInspector.Timeline, timeline);
+        console.assert(!this._timelineOverviewGraphsMap.has(timeline), timeline);
+        if (!this.canShowTimeline(timeline))
+            return;
+
+        var overviewGraph = new WebInspector.TimelineOverviewGraph(timeline);
+        overviewGraph.timelineOverview = this;
+        this._timelineOverviewGraphsMap.set(timeline, overviewGraph);
+        this._graphsContainerElement.appendChild(overviewGraph.element);
+    },
+
+    _timelineRemoved: function(event)
+    {
+        var timeline = event.data.timeline;
+        console.assert(timeline instanceof WebInspector.Timeline, timeline);
+        if (!this.canShowTimeline(timeline))
+            return;
+
+        console.assert(this._timelineOverviewGraphsMap.has(timeline), timeline);
+
+        var overviewGraph = this._timelineOverviewGraphsMap.take(timeline);
+        overviewGraph.timelineOverview = null;
+        this._graphsContainerElement.removeChild(overviewGraph.element);
+    },
+
     _timeRangeSelectionChanged: function(event)
     {
-        this._selectionStartTimeSetting.value = this.selectionStartTime - this._startTime;
+        this._selectionStartValueSetting.value = this.selectionStartTime - this._startTime;
         this._selectionDurationSetting.value = this.selectionDuration;
 
         this.dispatchEventToListeners(WebInspector.TimelineOverview.Event.TimeRangeSelectionChanged);
-    }
+    },
+
+    _resetSelection: function()
+    {
+        this.secondsPerPixel = this._defaultSettingsValues.durationPerPixel;
+        this.selectionStartTime = this._defaultSettingsValues.selectionStartValue;
+        this.selectionDuration = this._defaultSettingsValues.selectionDuration;
+    },
 };

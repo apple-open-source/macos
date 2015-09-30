@@ -28,7 +28,6 @@
 
 #include "HTTPHeaderNames.h"
 #include "ResourceRequest.h"
-#include <wtf/PassOwnPtr.h>
 
 #if ENABLE(PUBLIC_SUFFIX_LIST)
 #include "PublicSuffix.h"
@@ -38,9 +37,10 @@
 #include "FormDataStreamCFNet.h"
 #include <CFNetwork/CFURLRequestPriv.h>
 #include <wtf/text/CString.h>
-#if PLATFORM(IOS)
-#include <CFNetwork/CFNetworkConnectionCachePriv.h>
 #endif
+
+#if PLATFORM(IOS)
+#include "CFNetworkConnectionCacheSPI.h"
 #endif
 
 #if PLATFORM(COCOA)
@@ -157,7 +157,7 @@ void ResourceRequest::doUpdatePlatformRequest()
         wkHTTPRequestEnablePipelining(cfRequest);
 
     if (resourcePrioritiesEnabled())
-        wkSetHTTPRequestPriority(cfRequest, toPlatformRequestPriority(m_priority));
+        wkSetHTTPRequestPriority(cfRequest, toPlatformRequestPriority(priority()));
 
 #if !PLATFORM(WIN)
     wkCFURLRequestAllowAllPostCaching(cfRequest);
@@ -224,21 +224,6 @@ void ResourceRequest::doUpdatePlatformHTTPBody()
     m_cfRequest = adoptCF(cfRequest);
 #if PLATFORM(COCOA)
     clearOrUpdateNSURLRequest();
-#endif
-}
-
-void ResourceRequest::updateFromDelegatePreservingOldProperties(const ResourceRequest& delegateProvidedRequest)
-{
-    RefPtr<FormData> oldHTTPBody = httpBody();
-#if ENABLE(INSPECTOR)
-    bool isHiddenFromInspector = hiddenFromInspector();
-#endif
-
-    *this = delegateProvidedRequest;
-
-    setHTTPBody(oldHTTPBody.release());
-#if ENABLE(INSPECTOR)
-    setHiddenFromInspector(isHiddenFromInspector);
 #endif
 }
 
@@ -310,7 +295,7 @@ void ResourceRequest::doUpdateResourceRequest()
 void ResourceRequest::doUpdateResourceHTTPBody()
 {
     if (!m_cfRequest) {
-        m_httpBody = 0;
+        m_httpBody = nullptr;
         return;
     }
 
@@ -341,6 +326,22 @@ void ResourceRequest::setStorageSession(CFURLStorageSessionRef storageSession)
 
 #endif // USE(CFNETWORK)
 
+void ResourceRequest::updateFromDelegatePreservingOldProperties(const ResourceRequest& delegateProvidedRequest)
+{
+    // These are things we don't want willSendRequest delegate to mutate or reset.
+    ResourceLoadPriority oldPriority = priority();
+    RefPtr<FormData> oldHTTPBody = httpBody();
+    bool isHiddenFromInspector = hiddenFromInspector();
+    auto oldRequester = requester();
+
+    *this = delegateProvidedRequest;
+
+    setPriority(oldPriority);
+    setHTTPBody(oldHTTPBody.release());
+    setHiddenFromInspector(isHiddenFromInspector);
+    setRequester(oldRequester);
+}
+
 bool ResourceRequest::httpPipeliningEnabled()
 {
     return s_httpPipeliningEnabled;
@@ -367,7 +368,7 @@ String ResourceRequest::partitionName(const String& domain)
 }
 #endif
 
-PassOwnPtr<CrossThreadResourceRequestData> ResourceRequest::doPlatformCopyData(PassOwnPtr<CrossThreadResourceRequestData> data) const
+std::unique_ptr<CrossThreadResourceRequestData> ResourceRequest::doPlatformCopyData(std::unique_ptr<CrossThreadResourceRequestData> data) const
 {
 #if ENABLE(CACHE_PARTITIONING)
     data->m_cachePartition = m_cachePartition;
@@ -375,7 +376,7 @@ PassOwnPtr<CrossThreadResourceRequestData> ResourceRequest::doPlatformCopyData(P
     return data;
 }
 
-void ResourceRequest::doPlatformAdopt(PassOwnPtr<CrossThreadResourceRequestData> data)
+void ResourceRequest::doPlatformAdopt(std::unique_ptr<CrossThreadResourceRequestData> data)
 {
 #if ENABLE(CACHE_PARTITIONING)
     m_cachePartition = data->m_cachePartition;
@@ -401,10 +402,10 @@ unsigned initializeMaximumHTTPConnectionCountPerHost()
     if (!ResourceRequest::resourcePrioritiesEnabled())
         return maximumHTTPConnectionCountPerHost;
 
-    wkSetHTTPRequestMaximumPriority(toPlatformRequestPriority(ResourceLoadPriorityHighest));
+    wkSetHTTPRequestMaximumPriority(toPlatformRequestPriority(ResourceLoadPriority::Highest));
 #if !PLATFORM(WIN)
     // FIXME: <rdar://problem/9375609> Implement minimum fast lane priority setting on Windows
-    wkSetHTTPRequestMinimumFastLanePriority(toPlatformRequestPriority(ResourceLoadPriorityMedium));
+    wkSetHTTPRequestMinimumFastLanePriority(toPlatformRequestPriority(ResourceLoadPriority::Medium));
 #endif
 
     return unlimitedRequestCount;
@@ -420,9 +421,17 @@ void initializeHTTPConnectionSettingsOnStartup()
     static const unsigned preferredConnectionCount = 6;
     static const unsigned fastLaneConnectionCount = 1;
     wkInitializeMaximumHTTPConnectionCountPerHost(preferredConnectionCount);
-    wkSetHTTPRequestMaximumPriority(ResourceLoadPriorityHighest);
-    wkSetHTTPRequestMinimumFastLanePriority(ResourceLoadPriorityMedium);
+    wkSetHTTPRequestMaximumPriority(toPlatformRequestPriority(ResourceLoadPriority::Highest));
+    wkSetHTTPRequestMinimumFastLanePriority(toPlatformRequestPriority(ResourceLoadPriority::Medium));
     _CFNetworkHTTPConnectionCacheSetLimit(kHTTPNumFastLanes, fastLaneConnectionCount);
+}
+#endif
+
+#if PLATFORM(COCOA)
+CFStringRef ResourceRequest::isUserInitiatedKey()
+{
+    static CFStringRef key = CFSTR("ResourceRequestIsUserInitiatedKey");
+    return key;
 }
 #endif
 

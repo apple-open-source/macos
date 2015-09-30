@@ -40,6 +40,7 @@
 #define OFFLINE_ASM_ARM64 0
 #define OFFLINE_ASM_X86_64 0
 #define OFFLINE_ASM_X86_64_WIN 0
+#define OFFLINE_ASM_ARMv7k 0
 #define OFFLINE_ASM_ARMv7s 0
 #define OFFLINE_ASM_MIPS 0
 #define OFFLINE_ASM_SH4 0
@@ -58,6 +59,12 @@
 #define OFFLINE_ASM_X86_WIN 1
 #else
 #define OFFLINE_ASM_X86_WIN 0
+#endif
+
+#ifdef __ARM_ARCH_7K__
+#define OFFLINE_ASM_ARMv7k 1
+#else
+#define OFFLINE_ASM_ARMv7k 0
 #endif
 
 #ifdef __ARM_ARCH_7S__
@@ -152,12 +159,6 @@
 #define OFFLINE_ASM_EXECUTION_TRACING 1
 #else
 #define OFFLINE_ASM_EXECUTION_TRACING 0
-#endif
-
-#if LLINT_ALWAYS_ALLOCATE_SLOW
-#define OFFLINE_ASM_ALWAYS_ALLOCATE_SLOW 1
-#else
-#define OFFLINE_ASM_ALWAYS_ALLOCATE_SLOW 0
 #endif
 
 #if ENABLE(GGC)

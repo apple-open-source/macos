@@ -483,6 +483,8 @@ f_complex_new2(VALUE klass, VALUE x, VALUE y)
  *
  *    Complex(1, 2)    #=> (1+2i)
  *    Complex('1+2i')  #=> (1+2i)
+ *    Complex(nil)     #=> TypeError
+ *    Complex(1, nil)  #=> TypeError
  *
  * Syntax of string form:
  *
@@ -1781,19 +1783,26 @@ parse_comp(const char *s, int strict,
 	   VALUE *num)
 {
     char *buf, *b;
+    VALUE tmp;
+    int ret = 1;
 
-    buf = ALLOCA_N(char, strlen(s) + 1);
+    buf = ALLOCV_N(char, tmp, strlen(s) + 1);
     b = buf;
 
     skip_ws(&s);
-    if (!read_comp(&s, strict, num, &b))
-	return 0;
-    skip_ws(&s);
+    if (!read_comp(&s, strict, num, &b)) {
+	ret = 0;
+    }
+    else {
+	skip_ws(&s);
 
-    if (strict)
-	if (*s != '\0')
-	    return 0;
-    return 1;
+	if (strict)
+	    if (*s != '\0')
+		ret = 0;
+    }
+    ALLOCV_END(tmp);
+
+    return ret;
 }
 
 static VALUE

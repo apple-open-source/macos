@@ -1,0 +1,28 @@
+// Architectures
+ARCHS = $(ARCHS_STANDARD_32_64_BIT)
+
+// Build Options
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+
+// Code Signing
+CODE_SIGN_IDENTITY = -
+
+// Linking
+DEAD_CODE_STRIPPING = YES
+
+// Search Paths
+ALWAYS_SEARCH_USER_PATHS = NO
+HEADER_SEARCH_PATHS = $(SRCROOT)
+
+// Versioning
+CURRENT_PROJECT_VERSION = $(RC_ProjectSourceVersion)
+VERSIONING_SYSTEM = apple-generic
+VERSION_INFO_PREFIX = __
+
+// Apple LLVM 6.0 - Preprocessing
+GCC_PREPROCESSOR_DEFINITIONS = HAVE_CONFIG_H MAGIC=\"/usr/share/file/magic\" BUILTIN_MACHO
+
+// User-Defined
+PREBINDING = NO
+USE_HEADERMAP = NO
+ZERO_LINK = NO

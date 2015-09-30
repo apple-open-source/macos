@@ -20,8 +20,6 @@
 #ifndef WebSoupCustomProtocolRequestManager_h
 #define WebSoupCustomProtocolRequestManager_h
 
-#if ENABLE(CUSTOM_PROTOCOLS)
-
 #include "APIObject.h"
 #include "WebContextSupplement.h"
 #include "WebSoupCustomProtocolRequestManagerClient.h"
@@ -41,13 +39,13 @@ class ResourceResponse;
 
 namespace WebKit {
 
-class WebContext;
+class WebProcessPool;
 
 class WebSoupCustomProtocolRequestManager : public API::ObjectImpl<API::Object::Type::SoupCustomProtocolRequestManager>, public WebContextSupplement {
 public:
     static const char* supplementName();
 
-    static PassRefPtr<WebSoupCustomProtocolRequestManager> create(WebContext*);
+    static Ref<WebSoupCustomProtocolRequestManager> create(WebProcessPool*);
     virtual ~WebSoupCustomProtocolRequestManager();
 
     void initializeClient(const WKSoupCustomProtocolRequestManagerClientBase*);
@@ -69,10 +67,10 @@ public:
     using API::Object::deref;
 
 private:
-    WebSoupCustomProtocolRequestManager(WebContext*);
+    WebSoupCustomProtocolRequestManager(WebProcessPool*);
 
     // WebContextSupplement
-    virtual void contextDestroyed() override;
+    virtual void processPoolDestroyed() override;
     virtual void processDidClose(WebProcessProxy*) override;
     virtual void refWebContextSupplement() override;
     virtual void derefWebContextSupplement() override;
@@ -82,7 +80,5 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // ENABLE(CUSTOM_PROTOCOLS)
 
 #endif // WebSoupCustomProtocolRequestManager_h

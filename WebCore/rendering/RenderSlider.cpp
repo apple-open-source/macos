@@ -47,7 +47,7 @@ namespace WebCore {
 
 const int RenderSlider::defaultTrackLength = 129;
 
-RenderSlider::RenderSlider(HTMLInputElement& element, PassRef<RenderStyle> style)
+RenderSlider::RenderSlider(HTMLInputElement& element, Ref<RenderStyle>&& style)
     : RenderFlexibleBox(element, WTF::move(style))
 {
     // We assume RenderSlider works only with <input type=range>.
@@ -60,7 +60,7 @@ RenderSlider::~RenderSlider()
 
 HTMLInputElement& RenderSlider::element() const
 {
-    return toHTMLInputElement(nodeForNonAnonymous());
+    return downcast<HTMLInputElement>(nodeForNonAnonymous());
 }
 
 int RenderSlider::baselinePosition(FontBaseline, bool /*firstLine*/, LineDirectionMode, LinePositionMode) const
@@ -72,7 +72,7 @@ int RenderSlider::baselinePosition(FontBaseline, bool /*firstLine*/, LineDirecti
 void RenderSlider::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
     maxLogicalWidth = defaultTrackLength * style().effectiveZoom();
-    if (!style().width().isPercent())
+    if (!style().width().isPercentOrCalculated())
         minLogicalWidth = maxLogicalWidth;
 }
 

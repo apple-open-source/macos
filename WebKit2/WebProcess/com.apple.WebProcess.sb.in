@@ -53,6 +53,8 @@
        (subpath "/Library/Speech/Synthesizers")
        (regex #"^/private/etc/(hosts|group|passwd)$")
 
+       (literal "/Library/Application Support/CrashReporter/SubmitDiagInfo.domains")
+
        ;; System and user preferences
        (literal "/Library/Preferences/.GlobalPreferences.plist")
        (home-literal "/Library/Preferences/.GlobalPreferences.plist")
@@ -60,6 +62,7 @@
        (home-regex #"/Library/Preferences/ByHost/com\.apple\.HIToolbox\.")
        (home-regex #"/Library/Preferences/ByHost/com\.apple\.networkConnect\.")
        (home-literal "/Library/Preferences/com.apple.ATS.plist")
+       (home-literal "/Library/Preferences/com.apple.CoreGraphics.plist")
        (home-literal "/Library/Preferences/com.apple.DownloadAssessment.plist")
        (home-literal "/Library/Preferences/com.apple.HIToolbox.plist")
        (home-literal "/Library/Preferences/com.apple.LaunchServices.plist")
@@ -69,6 +72,7 @@
        (home-literal "/Library/Preferences/com.apple.avfoundation.plist")
        (home-literal "/Library/Preferences/com.apple.coremedia.plist")
        (home-literal "/Library/Preferences/com.apple.speech.voice.prefs.plist")
+       (home-literal "/Library/Preferences/com.apple.systemsound.plist")
        (home-literal "/Library/Preferences/com.apple.universalaccess.plist")
        (home-regex #"/Library/Preferences/com\.apple\.driver\.(AppleBluetoothMultitouch\.mouse|AppleBluetoothMultitouch\.trackpad|AppleHIDMouse)\.plist$")
        (home-literal "/.CFUserTextEncoding")
@@ -116,18 +120,11 @@
     (allow mach-register (global-name-regex #"^_oglprof_attach_<[0-9]+>$")))
 
 ;; MediaAccessibility
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 (allow file-read* (home-literal "/Library/Preferences/com.apple.mediaaccessibility.plist"))
 (allow file-read* file-write* (home-literal "/Library/Preferences/com.apple.mediaaccessibility.public.plist"))
-#endif
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
 (if (positive? (string-length (param "DARWIN_USER_CACHE_DIR")))
     (allow file* (subpath (param "DARWIN_USER_CACHE_DIR"))))
-#else
-(if (positive? (string-length (param "DARWIN_USER_CACHE_DIR")))
-    (allow file* (subpath (string-append (param "DARWIN_USER_CACHE_DIR") "/mds"))))
-#endif
 
 (if (positive? (string-length (param "DARWIN_USER_TEMP_DIR")))
     (allow file* (subpath (param "DARWIN_USER_TEMP_DIR"))))
@@ -140,14 +137,12 @@
        (iokit-user-client-class "IOAudioControlUserClient")
        (iokit-user-client-class "IOAudioEngineUserClient"))
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
-
 ;; cookied.
 ;; FIXME: Update for <rdar://problem/13642852>.
 (allow ipc-posix-shm-read-data
     (ipc-posix-name "FNetwork.defaultStorageSession")
     (ipc-posix-name-regex #"\.PrivateBrowsing-")
-    (ipc-posix-name-regex #"^Private WebKit Session-"))
+    (ipc-posix-name-regex #"^WebKit Test-"))
 
 ;; ColorSync
 ;; FIXME: Remove names with underscores when possible (see <rdar://problem/13072721>).
@@ -169,8 +164,6 @@
 (allow ipc-posix-shm-read* ipc-posix-shm-write-data
     (ipc-posix-name-regex #"^AudioIO"))
 
-#endif
-
 ;; Remote Web Inspector
 (allow mach-lookup
        (global-name "com.apple.webinspector"))
@@ -183,9 +176,11 @@
        (global-name "com.apple.FontServer")
        (global-name "com.apple.SystemConfiguration.configd")
        (global-name "com.apple.SystemConfiguration.PPPController")
+       (global-name "com.apple.audio.SystemSoundServer-OSX")
        (global-name "com.apple.audio.VDCAssistant")
        (global-name "com.apple.audio.audiohald")
        (global-name "com.apple.audio.coreaudiod")
+       (global-name "com.apple.awdd")
        (global-name "com.apple.cookied")
        (global-name "com.apple.dock.server")
        (global-name "com.apple.system.opendirectoryd.api")
@@ -197,12 +192,13 @@
        (global-name "com.apple.PowerManagement.control")
        (global-name "com.apple.speech.speechsynthesisd")
        (global-name "com.apple.speech.synthesis.console")
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
        (global-name "com.apple.coreservices.launchservicesd")
-#endif
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 10100
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
        (global-name "com.apple.iconservices")
        (global-name "com.apple.iconservices.store")
+#endif
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+       (global-name "com.apple.nesessionmanager.flow-divert-token")
 #endif
 )
 
@@ -223,10 +219,8 @@
        (home-literal "/Library/Application Support/SyncServices/Local/ClientsWithChanges/com.apple.Keychain")
        (home-literal "/Library/Preferences/com.apple.security.plist")
        (home-literal "/Library/Preferences/com.apple.security.revocation.plist"))
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
 (allow ipc-posix-shm-read* ipc-posix-shm-write-data
        (ipc-posix-name "com.apple.AppleDatabaseChanged"))
-#endif
 
 ;; CoreFoundation. We don't import com.apple.corefoundation.sb, because it allows unnecessary access to pasteboard.
 (allow mach-lookup
@@ -271,7 +265,9 @@
         (literal "/Library/Preferences/edu.mit.Kerberos")
         (literal "/private/etc/krb5.conf")
         (literal "/private/etc/services")
-        (literal "/private/etc/host"))
+        (literal "/private/etc/host")
+        (subpath "/Library/KerberosPlugins/GSSAPI")
+        (subpath "/Library/KerberosPlugins/KerberosFrameworkPlugins"))
 
 (if (defined? 'vnode-type)
         (deny file-write-create (vnode-type SYMLINK)))
@@ -287,13 +283,6 @@
 #endif
 
 (deny file-read* file-write* (with no-log)
-#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 1080
-       (home-literal "/Library/Caches/Cache.db") ;; <rdar://problem/9422957>
-#endif
-#if __MAC_OS_X_VERSION_MIN_REQUIRED == 1080
-       (home-subpath "/Library/Caches/com.apple.WebProcess") ;; <rdar://problem/12656814>
-#endif
-
        ;; FIXME: Should be removed after <rdar://problem/10463881> is fixed.
        (home-literal "/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2")
        (home-literal "/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2-journal"))
@@ -316,3 +305,10 @@
        (home-subpath "/Library/Components")
        (home-subpath "/Library/Keyboard Layouts")
        (home-subpath "/Library/Input Methods"))
+
+;; AirPlay
+(allow mach-lookup
+    (global-name "com.apple.coremedia.endpoint.xpc")
+    (global-name "com.apple.coremedia.endpointstream.xpc")
+    (global-name "com.apple.coremedia.endpointplaybacksession.xpc")
+    (global-name "com.apple.coremedia.endpointpicker.xpc"))

@@ -26,6 +26,6 @@
 
 #import <WebCore/DOMNode.h>
 
-WEBKIT_CLASS_AVAILABLE_MAC(TBD)
-@interface DOMTestNode : DOMNode
+WEBKIT_CLASS_AVAILABLE_MAC(9876_5)
+WEBCORE_EXPORT @interface DOMTestNode : DOMNode
 @end

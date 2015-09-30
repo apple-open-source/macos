@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ee.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/ee.xml
- */
 ee{
     AuxExemplarCharacters{"[ă â å ä ā æ c ç ĕ ê ë ĭ î ï j ñ ŏ ô ö ø œ q ŭ û ü ÿ]"}
     ExemplarCharacters{
@@ -20,9 +17,6 @@ ee{
         "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] \\{ \\} § @ * / \\& "
         "# † ‡ ′ ″]"
     }
-    LocaleScript{
-        "Latn",
-    }
     MoreInformation{"..."}
     NumberElements{
         latn{
@@ -32,6 +26,14 @@ ee{
             }
             patternsShort{
                 decimalFormat{
+                    1000{
+                        one{"0K"}
+                        other{"0K"}
+                    }
+                    10000{
+                        one{"00K"}
+                        other{"00K"}
+                    }
                     100000{
                         one{"000K"}
                         other{"000K"}
@@ -79,7 +81,7 @@ ee{
             }
         }
     }
-    Version{"2.0.98.52"}
+    Version{"2.1.12.94"}
     calendar{
         generic{
             DateTimePatterns{
@@ -177,7 +179,7 @@ ee{
                     h{"a h–h"}
                 }
                 hm{
-                    a{"a 'ga' h:mm - a 'ga' h:mm"}
+                    a{"a 'ga' h:mm – a 'ga' h:mm"}
                     h{"a 'ga' h:mm - 'ga' h:mm"}
                     m{"a 'ga' h:mm – 'ga' h:mm"}
                 }
@@ -411,7 +413,7 @@ ee{
                     h{"a h–h"}
                 }
                 hm{
-                    a{"a 'ga' h:mm - a 'ga' h:mm"}
+                    a{"a 'ga' h:mm – a 'ga' h:mm"}
                     h{"a 'ga' h:mm - 'ga' h:mm"}
                     m{"a 'ga' h:mm – 'ga' h:mm"}
                 }
@@ -701,9 +703,9 @@ ee{
         }
         sun{
             relative{
-                "-1"{"kɔsiɖa si va yi"}
-                "0"{"kɔsiɖa sia"}
-                "1"{"kɔsiɖa si gbɔ na"}
+                "-1"{"kɔsiɖagbe si va yi"}
+                "0"{"kɔsiɖa sia gbe"}
+                "1"{"kɔsiɖagbe si gbɔ na"}
             }
         }
         thu{
@@ -780,85 +782,5 @@ ee{
         UK{"uk"}
         US{"us"}
         metric{"metric"}
-    }
-    units{
-        duration{
-            day{
-                one{"ŋkeke {0} wo"}
-                other{"ŋkeke {0} wo"}
-            }
-            hour{
-                one{"gaƒoƒo {0} wo"}
-                other{"gaƒoƒo {0} wo"}
-            }
-            minute{
-                one{"aɖabaƒoƒo {0} wo"}
-                other{"aɖabaƒoƒo {0} wo"}
-            }
-            month{
-                one{"ɣleti {0} wo"}
-                other{"ɣleti {0} wo"}
-            }
-            second{
-                one{"sekend {0} wo"}
-                other{"sekend {0} wo"}
-            }
-            week{
-                one{"kɔsiɖa {0} wo"}
-                other{"kɔsiɖa {0} wo"}
-            }
-            year{
-                one{"ƒe {0} wo"}
-                other{"ƒe {0} wo"}
-            }
-        }
-    }
-    unitsNarrow{
-        duration{
-            hour{
-                one{"g {0}"}
-                other{"g {0}"}
-            }
-            minute{
-                one{"a {0}"}
-                other{"a {0}"}
-            }
-            second{
-                one{"s {0}"}
-                other{"s {0}"}
-            }
-        }
-    }
-    unitsShort{
-        duration{
-            day{
-                one{"ŋkeke {0}"}
-                other{"ŋkeke {0}"}
-            }
-            hour{
-                one{"gaƒoƒo {0}"}
-                other{"gaƒoƒo {0}"}
-            }
-            minute{
-                one{"aɖabaƒoƒo {0}"}
-                other{"aɖabaƒoƒo {0}"}
-            }
-            month{
-                one{"ɣleti {0}"}
-                other{"ɣleti {0}"}
-            }
-            second{
-                one{"sekend {0}"}
-                other{"sekend {0}"}
-            }
-            week{
-                one{"kɔsiɖa {0}"}
-                other{"kɔsiɖa {0}"}
-            }
-            year{
-                one{"ƒe {0}"}
-                other{"ƒe {0}"}
-            }
-        }
     }
 }

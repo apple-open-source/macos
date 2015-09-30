@@ -387,8 +387,11 @@ main(int argc, char *argv[])
 				    strcmp(d->dir_map, "-static") != 0) {
 					pr_msg("%s: ignoring redundant %s map",
 					    dir->dir_name, dir->dir_map);
-					continue;
+					break;
 				}
+			}
+			if (d != NULL) {
+				continue;
 			}
 		}
 

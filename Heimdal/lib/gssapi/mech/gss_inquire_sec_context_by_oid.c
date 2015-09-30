@@ -33,10 +33,10 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_inquire_sec_context_by_oid (OM_uint32 *minor_status,
-	                        const gss_ctx_id_t context_handle,
-	                        const gss_OID desired_object,
-	                        gss_buffer_set_t *data_set)
+gss_inquire_sec_context_by_oid (OM_uint32 *__nonnull minor_status,
+	                        __nonnull const gss_ctx_id_t context_handle,
+	                        __nonnull const gss_OID desired_object,
+	                        __nonnull gss_buffer_set_t * __nullable data_set)
 {
 	struct _gss_context	*ctx = (struct _gss_context *) context_handle;
 	OM_uint32		major_status;

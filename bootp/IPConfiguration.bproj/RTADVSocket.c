@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -237,16 +237,16 @@ STATIC void
 RTADVSocketDelayedClose(void * arg1, void * arg2, void * arg3)
 {
     if (S_globals->read_fd == NULL) {
-	my_log(LOG_ERR, 
+	my_log(LOG_NOTICE,
 	       "RTADVSocketDelayedClose(): socket is already closed");
 	return;
     }
     if (S_globals->read_fd_refcount > 0) {
-	my_log(LOG_ERR, 
+	my_log(LOG_NOTICE,
 	       "RTADVSocketDelayedClose(): called when socket in use");
 	return;
     }
-    my_log(LOG_DEBUG,
+    my_log(LOG_INFO,
 	   "RTADVSocketDelayedClose(): closing RTADV socket %d",
 	   FDCalloutGetFD(S_globals->read_fd));
 
@@ -482,11 +482,11 @@ RTADVSocketRead(void * arg1, void * arg2)
 	return;
     }
     if (n < sizeof(struct nd_router_advert)) {
-	my_log(LOG_ERR, "RTADVSocketRead: packet size(%d) is too short", n);
+	my_log(LOG_NOTICE, "RTADVSocketRead: packet size(%d) is too short", n);
 	return;
     }
     if (!IN6_IS_ADDR_LINKLOCAL(&from.sin6_addr)) {
-	my_log(LOG_ERR,
+	my_log(LOG_NOTICE,
 	       "RTADVSocketRead: RA has non link-local source address %s",
 	       inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, sizeof(ntopbuf)));
 	return;
@@ -518,30 +518,30 @@ RTADVSocketRead(void * arg1, void * arg2)
 	    break;
 	default:
 	    /* this should never occur */
-	    my_log(LOG_ERR, "RTADVSocketRead: why control message type %d?",
+	    my_log(LOG_NOTICE, "RTADVSocketRead: why control message type %d?",
 		   cm->cmsg_type);
 	    break;
 	}
     }
     if (pktinfo == NULL) {
-	my_log(LOG_ERR, 
+	my_log(LOG_NOTICE,
 	       "RTADVSocketRead: missing IPV6_PKTINFO");
 	return;
     }
     if (hop_limit_p == NULL) {
-	my_log(LOG_ERR, "RTADVSocketRead: missing IPV6_HOPLIMIT");
+	my_log(LOG_NOTICE, "RTADVSocketRead: missing IPV6_HOPLIMIT");
 	return;
     }
     ndra_p = (struct nd_router_advert *)receive_buf;
     icmp_hdr = &ndra_p->nd_ra_hdr;
     if (icmp_hdr->icmp6_type != ND_ROUTER_ADVERT) {
 	/* this should not happen, the kernel filters for us */
-	my_log(LOG_ERR, "RTADVSocket: received unexpected ND packet type %d",
+	my_log(LOG_NOTICE, "RTADVSocket: received unexpected ND packet type %d",
 	       icmp_hdr->icmp6_type);
 	return;
     }
     if (icmp_hdr->icmp6_code != 0) {
-	my_log(LOG_ERR, "RTADVSocket: invalid icmp code %d", 
+	my_log(LOG_NOTICE, "RTADVSocket: invalid icmp code %d",
 	       icmp_hdr->icmp6_code);
 	return;
     }
@@ -550,7 +550,7 @@ RTADVSocketRead(void * arg1, void * arg2)
 	return;
     }
     if (*hop_limit_p != ND_RTADV_HOP_LIMIT) {
-	my_log(LOG_ERR, "RTADVSocket: invalid RA hop limit %d from %s",
+	my_log(LOG_NOTICE, "RTADVSocket: invalid RA hop limit %d from %s",
 	       *hop_limit_p, 
 	       inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, sizeof(ntopbuf)));
 	return;
@@ -602,12 +602,12 @@ RTADVSocketCreate(interface_t * if_p)
 
     globals = RTADVSocketGetGlobals();
     if (globals == NULL) {
-	my_log(LOG_ERR, "RTADVSocketCreate: could not allocate globals");
+	my_log(LOG_NOTICE, "RTADVSocketCreate: could not allocate globals");
 	return (NULL);
     }
     sock = RTADVSocketFind(if_link_index(if_p));
     if (sock != NULL) {
-	my_log(LOG_ERR, "RTADVSocketCreate(%s): socket already allocated",
+	my_log(LOG_NOTICE, "RTADVSocketCreate(%s): socket already allocated",
 	       if_name(if_p));
 	return (NULL);
     }
@@ -648,7 +648,7 @@ RTADVSocketRelease(RTADVSocketRef * sock_p)
 	dynarray_remove(&S_globals->sockets, i, NULL);
     }
     else {
-	my_log(LOG_ERR, "RTADVSocketRelease: %s not in list?",
+	my_log(LOG_NOTICE, "RTADVSocketRelease: %s not in list?",
 	       if_name(sock->if_p));
     }
     RTADVSocketFreeElement(sock);
@@ -666,18 +666,18 @@ RTADVSocketCloseSocket(RTADVSocketRef sock)
 	return;
     }
     if (S_globals->read_fd_refcount <= 0) {
-	my_log(LOG_ERR, "RTADVSocketCloseSocket(%s): refcount %d",
+	my_log(LOG_NOTICE, "RTADVSocketCloseSocket(%s): refcount %d",
 	       if_name(sock->if_p), S_globals->read_fd_refcount);
 	return;
     }
     S_globals->read_fd_refcount--;
-    my_log(LOG_DEBUG, "RTADVSocketCloseSocket(%s): refcount %d",
+    my_log(LOG_INFO, "RTADVSocketCloseSocket(%s): refcount %d",
 	   if_name(sock->if_p), S_globals->read_fd_refcount);
     sock->fd_open = FALSE;
     if (S_globals->read_fd_refcount == 0) {
 	struct timeval tv;
 
-	my_log(LOG_DEBUG, 
+	my_log(LOG_INFO, 
 	       "RTADVSocketCloseSocket(): scheduling delayed close");
 
 	tv.tv_sec = 1; /* close it after 1 second of non-use */
@@ -697,7 +697,7 @@ RTADVSocketOpenSocket(RTADVSocketRef sock)
     }
     timer_cancel(S_globals->timer_callout);
     S_globals->read_fd_refcount++;
-    my_log(LOG_DEBUG, "RTADVSocketOpenSocket (%s): refcount %d", 
+    my_log(LOG_INFO, "RTADVSocketOpenSocket (%s): refcount %d", 
 	   if_name(sock->if_p), S_globals->read_fd_refcount);
     sock->fd_open = TRUE;
     if (S_globals->read_fd_refcount > 1) {
@@ -705,7 +705,7 @@ RTADVSocketOpenSocket(RTADVSocketRef sock)
 	return (TRUE);
     }
     if (S_globals->read_fd != NULL) {
-	my_log(LOG_DEBUG, "RTADVSocketOpenSocket(): socket is still open");
+	my_log(LOG_INFO, "RTADVSocketOpenSocket(): socket is still open");
     }
     else {
 	int	sockfd;
@@ -717,7 +717,7 @@ RTADVSocketOpenSocket(RTADVSocketRef sock)
 		   strerror(errno));
 	    goto failed;
 	}
-	my_log(LOG_DEBUG, 
+	my_log(LOG_INFO, 
 	       "RTADVSocketOpenSocket(): opened RTADV socket %d",
 	       sockfd);
 	/* register as a reader */
@@ -741,7 +741,7 @@ RTADVSocketEnableReceive(RTADVSocketRef sock,
     sock->receive_arg1 = arg1;
     sock->receive_arg2 = arg2;
     if (RTADVSocketOpenSocket(sock) == FALSE) {
-	my_log_fl(LOG_ERR, "%s: failed", if_name(sock->if_p));
+	my_log_fl(LOG_NOTICE, "%s: failed", if_name(sock->if_p));
     }
     return;
 }
@@ -769,7 +769,7 @@ RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok)
     if (sock->fd_open == FALSE) {
 	/* open the RTADV socket in case it's needed */
 	if (RTADVSocketOpenSocket(sock) == FALSE) {
-	    my_log(LOG_ERR, "RTADVSocket: failed to open socket");
+	    my_log(LOG_NOTICE, "RTADVSocket: failed to open socket");
 	    return (FALSE);
 	}
 	needs_close = TRUE;
@@ -819,7 +819,7 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 	if (rtadv->try > MAX_RTR_SOLICITATIONS) {
 	    break;
 	}
-	my_log(LOG_NOTICE, 
+	my_log(LOG_NOTICE,
 	       "RTADV %s: sending Router Solicitation (%d of %d)",
 	       if_name(if_p), rtadv->try, MAX_RTR_SOLICITATIONS);
 	error = RTADVSocketSendSolicitation(rtadv->sock, TRUE);
@@ -830,7 +830,7 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 	case EADDRNOTAVAIL:
 	    break;
 	default:
-	    my_log(LOG_ERR, "RTADV %s: send Router Solicitation: failed, %s",
+	    my_log(LOG_NOTICE, "RTADV %s: send Router Solicitation: failed, %s",
 		   if_name(if_p), strerror(error));
 	    break;
 	}
@@ -845,7 +845,7 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 
     case IFEventID_data_e:
 	data = (RTADVSocketReceiveDataRef)event_data;
-	my_log(LOG_NOTICE, 
+	my_log(LOG_NOTICE,
 	       "RTADV %s: Received RA from %s%s%s",
 	       if_name(if_p),
 	       inet_ntop(AF_INET6, &data->router,
@@ -856,7 +856,7 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 	    int		i;
 
 	    for (i = 0; i < data->dns_servers_count; i++) {
-		my_log(LOG_NOTICE, 
+		my_log(LOG_NOTICE,
 		       "RTADV %s: DNS Server %s",
 		       if_name(if_p),
 		       inet_ntop(AF_INET6, data->dns_servers + i,

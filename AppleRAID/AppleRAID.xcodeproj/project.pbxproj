@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -23,6 +23,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		00A1DD4C1B5638D400A1ADAD /* AppleRAIDSet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59C2E6D90511A2190079E6CF /* AppleRAIDSet.cpp */; };
 		00BDB3A00AC8F6FC00FF22E8 /* AppleLVMStorageRequest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 00BDB39E0AC8F6FC00FF22E8 /* AppleLVMStorageRequest.cpp */; };
 		00BDB3A10AC8F6FC00FF22E8 /* AppleLVMStorageRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = 00BDB39F0AC8F6FC00FF22E8 /* AppleLVMStorageRequest.h */; };
 		5920240C06B61456006D5564 /* MediaKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5920240A06B61456006D5564 /* MediaKit.framework */; };
@@ -52,7 +53,6 @@
 		59CD7BD40634F4FC00F84FF8 /* AppleRAIDMember.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 599026920500562B006EB25F /* AppleRAIDMember.cpp */; };
 		59CD7BD50634F4FC00F84FF8 /* AppleRAIDGlobals.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59CCE30C0505888F0041E990 /* AppleRAIDGlobals.cpp */; };
 		59CD7BD60634F4FC00F84FF8 /* AppleRAID.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59CCE33B05058BF60041E990 /* AppleRAID.cpp */; };
-		59CD7BD70634F4FC00F84FF8 /* AppleRAIDSet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59C2E6D90511A2190079E6CF /* AppleRAIDSet.cpp */; };
 		59CD7BD80634F4FC00F84FF8 /* AppleRAIDEventSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59026179051973BE003678A3 /* AppleRAIDEventSource.cpp */; };
 		59CD7BD90634F4FC00F84FF8 /* AppleRAIDMemoryDescriptor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5902618305197706003678A3 /* AppleRAIDMemoryDescriptor.cpp */; };
 		59CD7BDA0634F4FC00F84FF8 /* AppleRAIDMirrorSet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59A1FE970534BD86003024F9 /* AppleRAIDMirrorSet.cpp */; };
@@ -251,9 +251,9 @@
 		59532E5506826C7A00CA9D0A /* External Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				59532D5506826BE100CA9D0A /* CoreFoundation.framework */,
 				59532D9506826BFE00CA9D0A /* IOKit.framework */,
 				5920240A06B61456006D5564 /* MediaKit.framework */,
-				59532D5506826BE100CA9D0A /* CoreFoundation.framework */,
 			);
 			name = "External Frameworks";
 			sourceTree = "<group>";
@@ -379,9 +379,16 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0700;
+			};
 			buildConfigurationList = 591B6AA508980EDE000BDB04 /* Build configuration list for PBXProject "AppleRAID" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleRAID */;
 			productRefGroup = 59532CD0068261AC00CA9D0A /* Products */;
 			projectDirPath = "";
@@ -440,9 +447,9 @@
 				59CD7BD40634F4FC00F84FF8 /* AppleRAIDMember.cpp in Sources */,
 				59CD7BD50634F4FC00F84FF8 /* AppleRAIDGlobals.cpp in Sources */,
 				59CD7BD60634F4FC00F84FF8 /* AppleRAID.cpp in Sources */,
-				59CD7BD70634F4FC00F84FF8 /* AppleRAIDSet.cpp in Sources */,
 				59CD7BD80634F4FC00F84FF8 /* AppleRAIDEventSource.cpp in Sources */,
 				59CD7BD90634F4FC00F84FF8 /* AppleRAIDMemoryDescriptor.cpp in Sources */,
+				00A1DD4C1B5638D400A1ADAD /* AppleRAIDSet.cpp in Sources */,
 				59CD7BDA0634F4FC00F84FF8 /* AppleRAIDMirrorSet.cpp in Sources */,
 				598562980662D045008C1FA5 /* AppleRAIDUserClient.cpp in Sources */,
 				59DF8563069E3FF000409DEF /* AppleRAIDStripeSet.cpp in Sources */,
@@ -478,10 +485,10 @@
 		591B6A9608980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/Versions/B/PrivateHeaders\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
@@ -493,7 +500,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "AppleRAID-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
@@ -503,6 +509,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleRAID;
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "i386 x86_64";
@@ -515,10 +522,10 @@
 		591B6A9708980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Versions/A/Frameworks\"";
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -528,7 +535,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "AppleRAID-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
@@ -538,6 +544,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleRAID;
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "i386 x86_64";
@@ -550,9 +557,9 @@
 		591B6A9808980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Versions/A/Frameworks\"";
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -561,7 +568,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "AppleRAID-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
@@ -571,6 +577,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleRAID;
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "i386 x86_64";
@@ -582,7 +589,7 @@
 		591B6A9A08980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -609,7 +616,7 @@
 		591B6A9B08980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -633,7 +640,7 @@
 		591B6A9C08980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
@@ -654,10 +661,12 @@
 		591B6A9E08980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS = (
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks\"",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -682,10 +691,12 @@
 		591B6A9F08980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS = (
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks\"",
+				);
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
@@ -707,9 +718,11 @@
 		591B6AA008980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS = (
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks\"",
+				);
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
 				GCC_WARN_UNKNOWN_PRAGMAS = NO;
@@ -786,24 +799,23 @@
 		591B6AA608980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
-				SDKROOT = "";
+				ENABLE_TESTABILITY = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Development;
 		};
 		591B6AA708980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
-				SDKROOT = "";
+				SDKROOT = macosx.internal;
 			};
 			name = Deployment;
 		};
 		591B6AA808980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
-				SDKROOT = "";
+				SDKROOT = macosx.internal;
 			};
 			name = Default;
 		};

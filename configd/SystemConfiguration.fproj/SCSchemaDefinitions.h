@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -416,117 +416,64 @@
  */
 
 
-/*
- * Note: The MACOSX_DEPLOYMENT_TARGET environment variable should be used
- *       when building an application targeted for an earlier version of
- *       Mac OS X.  Please reference Technical Note TN2064 for more details.
- */
-
-/*
- * Note: For Cocoa/Obj-C/Foundation applications accessing these preference
- *       keys you may want to consider the following :
- *
- *       #define SC_SCHEMA_DECLARATION(k,q)	extern NSString * k;
- *       #import <SystemConfiguration/SystemConfiguration.h>
- */
-
-/*
- * Note: For CFM applications using these schema keys you may want to
- *       consider the following :
- *
- *       #define SC_SCHEMA_DECLARATION(k,q)
- *       #define SC_SCHEMA_KV(k,v,t)	lookup_SC_key( CFSTR( #k ) )
- *       #include <SystemConfiguration/SystemConfiguration.h>
- *
- *       CFStringRef lookup_SC_key(CFStringRef key)
- *       {
- *         // this function should [dynamically, on-demand] load the
- *         // SystemConfiguration.framework, look up the provided key,
- *         // and return the associated value.
- *       }
- */
-
-/*
- * Note: Earlier versions of this header file defined a "SCSTR" macro
- *       which helped to facilitate Obj-C development. Use of this macro
- *       has been deprecated (in Mac OS X 10.4) in favor of the newer
- *       "SC_SCHEMA_DECLARATION" and "SC_SCHEMA_KV" macros
- */
-
-
 #ifndef	_SCSCHEMADEFINITIONS_H
 #ifdef	USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS
 #include <SystemConfiguration/_SCSchemaDefinitions.h>
 #else	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #define	_SCSCHEMADEFINITIONS_H
 
-/* -------------------- Macro declarations -------------------- */
-
 #include <Availability.h>
 #include <TargetConditionals.h>
+#include <CoreFoundation/CFString.h>
 
-/*
- * Define a schema key/value/type tuple
- */
-#ifndef SC_SCHEMA_KV
-  #define SC_SCHEMA_KV(k,v,t)	k
-#endif
-
-/*
- * Provide an "extern" for the key/value
- */
-#ifndef SC_SCHEMA_DECLARATION
-  #ifndef SCSTR
-    #include <CoreFoundation/CFString.h>
-    #define SC_SCHEMA_DECLARATION(k,q)	extern const CFStringRef k q;
-  #else
-    #import <Foundation/NSString.h>
-    #define SC_SCHEMA_DECLARATION(k,q)	extern NSString * k q;
-  #endif
-#endif
-/* -------------------- HeaderDoc comments -------------------- */
-
-
-#if	0
 /*!
  *	@header SCSchemaDefinitions
  */
 
+#define	__AVAILABILITY_INTERNAL__IPHONE_2_0_DEP__IPHONE_FUTURE	__AVAILABILITY_INTERNAL__IPHONE_2_0/*SPI*/
+
+CF_ASSUME_NONNULL_BEGIN
+
 /*!
   @const kSCResvLink
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCResvLink;
+extern const CFStringRef kSCResvLink                                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCResvLink kSCResvLink
 
 /*!
   @const kSCResvInactive
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCResvInactive;
+extern const CFStringRef kSCResvInactive                                    __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCResvInactive kSCResvInactive
 
 /*!
   @const kSCPropInterfaceName
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropInterfaceName;
+extern const CFStringRef kSCPropInterfaceName                               __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropInterfaceName kSCPropInterfaceName
 
 /*!
   @const kSCPropMACAddress
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropMACAddress;
+extern const CFStringRef kSCPropMACAddress                                  __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropMACAddress kSCPropMACAddress
 
 /*!
   @const kSCPropUserDefinedName
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropUserDefinedName;
+extern const CFStringRef kSCPropUserDefinedName                             __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropUserDefinedName kSCPropUserDefinedName
 
 /*!
   @const kSCPropVersion
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropVersion;
+extern const CFStringRef kSCPropVersion                                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropVersion kSCPropVersion
 
 /*!
   @group Preference Keys
@@ -534,27 +481,31 @@ extern const CFStringRef kSCPropVersion;
 
 /*!
   @const kSCPrefCurrentSet
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPrefCurrentSet;
+extern const CFStringRef kSCPrefCurrentSet                                  __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPrefCurrentSet kSCPrefCurrentSet
 
 /*!
   @const kSCPrefNetworkServices
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCPrefNetworkServices;
+extern const CFStringRef kSCPrefNetworkServices                             __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPrefNetworkServices kSCPrefNetworkServices
 
 /*!
   @const kSCPrefSets
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCPrefSets;
+extern const CFStringRef kSCPrefSets                                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPrefSets kSCPrefSets
 
 /*!
   @const kSCPrefSystem
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCPrefSystem;
+extern const CFStringRef kSCPrefSystem                                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPrefSystem kSCPrefSystem
 
 /*!
   @group Component Keys
@@ -562,51 +513,51 @@ extern const CFStringRef kSCPrefSystem;
 
 /*!
   @const kSCCompNetwork
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCCompNetwork;
+extern const CFStringRef kSCCompNetwork                                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCCompNetwork kSCCompNetwork
 
 /*!
   @const kSCCompService
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCCompService;
+extern const CFStringRef kSCCompService                                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCCompService kSCCompService
 
 /*!
   @const kSCCompGlobal
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCCompGlobal;
+extern const CFStringRef kSCCompGlobal                                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCCompGlobal kSCCompGlobal
 
 /*!
   @const kSCCompHostNames
-  @availability Introduced in Mac OS X 10.2.
  */
-extern const CFStringRef kSCCompHostNames;
+extern const CFStringRef kSCCompHostNames                                   __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCCompHostNames kSCCompHostNames
 
 /*!
   @const kSCCompInterface
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCCompInterface;
+extern const CFStringRef kSCCompInterface                                   __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCCompInterface kSCCompInterface
 
 /*!
   @const kSCCompSystem
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCCompSystem;
+extern const CFStringRef kSCCompSystem                                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCCompSystem kSCCompSystem
 
 /*!
   @const kSCCompUsers
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCCompUsers;
+extern const CFStringRef kSCCompUsers                                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCCompUsers kSCCompUsers
 
 /*!
   @const kSCCompAnyRegex
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCCompAnyRegex;
+extern const CFStringRef kSCCompAnyRegex                                    __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCCompAnyRegex kSCCompAnyRegex
 
 /*!
   @group Network Entity Keys
@@ -614,129 +565,150 @@ extern const CFStringRef kSCCompAnyRegex;
 
 /*!
   @const kSCEntNetAirPort
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetAirPort;
+extern const CFStringRef kSCEntNetAirPort                                   __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetAirPort kSCEntNetAirPort
 
 /*!
   @const kSCEntNetAppleTalk
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetAppleTalk;
+extern const CFStringRef kSCEntNetAppleTalk                                 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCEntNetAppleTalk kSCEntNetAppleTalk
 
 /*!
   @const kSCEntNetDHCP
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetDHCP;
+extern const CFStringRef kSCEntNetDHCP                                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetDHCP kSCEntNetDHCP
 
 /*!
   @const kSCEntNetDNS
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetDNS;
+extern const CFStringRef kSCEntNetDNS                                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetDNS kSCEntNetDNS
 
 /*!
   @const kSCEntNetEthernet
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetEthernet;
+extern const CFStringRef kSCEntNetEthernet                                  __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetEthernet kSCEntNetEthernet
 
 /*!
   @const kSCEntNetFireWire
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetFireWire;
+extern const CFStringRef kSCEntNetFireWire                                  __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetFireWire kSCEntNetFireWire
 
 /*!
   @const kSCEntNetInterface
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetInterface;
+extern const CFStringRef kSCEntNetInterface                                 __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetInterface kSCEntNetInterface
 
 /*!
   @const kSCEntNetIPSec
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetIPSec;
+extern const CFStringRef kSCEntNetIPSec                                     __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetIPSec kSCEntNetIPSec
 
 /*!
   @const kSCEntNetIPv4
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetIPv4;
+extern const CFStringRef kSCEntNetIPv4                                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetIPv4 kSCEntNetIPv4
 
 /*!
   @const kSCEntNetIPv6
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetIPv6;
+extern const CFStringRef kSCEntNetIPv6                                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetIPv6 kSCEntNetIPv6
 
 /*!
   @const kSCEntNetL2TP
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetL2TP;
+extern const CFStringRef kSCEntNetL2TP                                      __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetL2TP kSCEntNetL2TP
 
 /*!
   @const kSCEntNetLink
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetLink;
+extern const CFStringRef kSCEntNetLink                                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetLink kSCEntNetLink
 
 /*!
   @const kSCEntNetModem
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetModem;
+extern const CFStringRef kSCEntNetModem                                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetModem kSCEntNetModem
 
 /*!
   @const kSCEntNetNetInfo
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetNetInfo;
+extern const CFStringRef kSCEntNetNetInfo                                   __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#define kSCEntNetNetInfo kSCEntNetNetInfo
 
 /*!
   @const kSCEntNetPPP
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetPPP;
+extern const CFStringRef kSCEntNetPPP                                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetPPP kSCEntNetPPP
 
 /*!
   @const kSCEntNetPPPoE
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetPPPoE;
+extern const CFStringRef kSCEntNetPPPoE                                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetPPPoE kSCEntNetPPPoE
 
 /*!
   @const kSCEntNetPPPSerial
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetPPPSerial;
+extern const CFStringRef kSCEntNetPPPSerial                                 __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetPPPSerial kSCEntNetPPPSerial
 
 /*!
   @const kSCEntNetPPTP
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetPPTP;
+extern const CFStringRef kSCEntNetPPTP                                      __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetPPTP kSCEntNetPPTP
 
 /*!
   @const kSCEntNetProxies
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetProxies;
+extern const CFStringRef kSCEntNetProxies                                   __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetProxies kSCEntNetProxies
 
 /*!
   @const kSCEntNetSMB
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetSMB;
+extern const CFStringRef kSCEntNetSMB                                       __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCEntNetSMB kSCEntNetSMB
 
 /*!
   @const kSCEntNet6to4
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNet6to4;
+extern const CFStringRef kSCEntNet6to4                                      __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCEntNet6to4 kSCEntNet6to4
 
 /*!
   @group kSCCompNetwork Properties
@@ -744,21 +716,24 @@ extern const CFStringRef kSCEntNet6to4;
 
 /*!
   @const kSCPropNetOverridePrimary
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetOverridePrimary;
+extern const CFStringRef kSCPropNetOverridePrimary                          __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetOverridePrimary kSCPropNetOverridePrimary
 
 /*!
   @const kSCPropNetServiceOrder
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetServiceOrder;
+extern const CFStringRef kSCPropNetServiceOrder                             __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetServiceOrder kSCPropNetServiceOrder
 
 /*!
   @const kSCPropNetPPPOverridePrimary
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPOverridePrimary;
+extern const CFStringRef kSCPropNetPPPOverridePrimary                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPOverridePrimary kSCPropNetPPPOverridePrimary
 
 /*!
   @group kSCCompNetworkInterface Properties
@@ -766,9 +741,10 @@ extern const CFStringRef kSCPropNetPPPOverridePrimary;
 
 /*!
   @const kSCPropNetInterfaces
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetInterfaces;
+extern const CFStringRef kSCPropNetInterfaces                               __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetInterfaces kSCPropNetInterfaces
 
 /*!
   @group kSCCompNetworkHostNames Properties
@@ -776,9 +752,10 @@ extern const CFStringRef kSCPropNetInterfaces;
 
 /*!
   @const kSCPropNetLocalHostName
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetLocalHostName;
+extern const CFStringRef kSCPropNetLocalHostName                            __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetLocalHostName kSCPropNetLocalHostName
 
 /*!
   @group kSCEntNetAirPort (Hardware) Entity Keys
@@ -786,81 +763,88 @@ extern const CFStringRef kSCPropNetLocalHostName;
 
 /*!
   @const kSCPropNetAirPortAllowNetCreation
-  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetAirPortAllowNetCreation;
+extern const CFStringRef kSCPropNetAirPortAllowNetCreation                  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCPropNetAirPortAllowNetCreation kSCPropNetAirPortAllowNetCreation
 
 /*!
   @const kSCPropNetAirPortAuthPassword
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.9.
+  @discussion Value is a CFData
  */
-extern const CFStringRef kSCPropNetAirPortAuthPassword;
+extern const CFStringRef kSCPropNetAirPortAuthPassword                      __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCPropNetAirPortAuthPassword kSCPropNetAirPortAuthPassword
 
 /*!
   @const kSCPropNetAirPortAuthPasswordEncryption
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.9.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetAirPortAuthPasswordEncryption;
+extern const CFStringRef kSCPropNetAirPortAuthPasswordEncryption            __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCPropNetAirPortAuthPasswordEncryption kSCPropNetAirPortAuthPasswordEncryption
 
 /*!
   @const kSCPropNetAirPortJoinMode
-  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetAirPortJoinMode;
+extern const CFStringRef kSCPropNetAirPortJoinMode                          __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCPropNetAirPortJoinMode kSCPropNetAirPortJoinMode
 
 /*!
   @const kSCPropNetAirPortPowerEnabled
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.9.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetAirPortPowerEnabled;
+extern const CFStringRef kSCPropNetAirPortPowerEnabled                      __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCPropNetAirPortPowerEnabled kSCPropNetAirPortPowerEnabled
 
 /*!
   @const kSCPropNetAirPortPreferredNetwork
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.9.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetAirPortPreferredNetwork;
+extern const CFStringRef kSCPropNetAirPortPreferredNetwork                  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCPropNetAirPortPreferredNetwork kSCPropNetAirPortPreferredNetwork
 
 /*!
   @const kSCPropNetAirPortSavePasswords
-  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetAirPortSavePasswords;
+extern const CFStringRef kSCPropNetAirPortSavePasswords                     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCPropNetAirPortSavePasswords kSCPropNetAirPortSavePasswords
 
 /*!
   @const kSCValNetAirPortJoinModeAutomatic
-  @availability Introduced in Mac OS X 10.3, but later deprecated in Mac OS X 10.9.
  */
-extern const CFStringRef kSCValNetAirPortJoinModeAutomatic;
+extern const CFStringRef kSCValNetAirPortJoinModeAutomatic                  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCValNetAirPortJoinModeAutomatic kSCValNetAirPortJoinModeAutomatic
 
 /*!
   @const kSCValNetAirPortJoinModePreferred
-  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
  */
-extern const CFStringRef kSCValNetAirPortJoinModePreferred;
+extern const CFStringRef kSCValNetAirPortJoinModePreferred                  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCValNetAirPortJoinModePreferred kSCValNetAirPortJoinModePreferred
 
 /*!
   @const kSCValNetAirPortJoinModeRanked
-  @availability Introduced in Mac OS X 10.4, but later deprecated in Mac OS X 10.9.
  */
-extern const CFStringRef kSCValNetAirPortJoinModeRanked;
+extern const CFStringRef kSCValNetAirPortJoinModeRanked                     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCValNetAirPortJoinModeRanked kSCValNetAirPortJoinModeRanked
 
 /*!
   @const kSCValNetAirPortJoinModeRecent
-  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
  */
-extern const CFStringRef kSCValNetAirPortJoinModeRecent;
+extern const CFStringRef kSCValNetAirPortJoinModeRecent                     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCValNetAirPortJoinModeRecent kSCValNetAirPortJoinModeRecent
 
 /*!
   @const kSCValNetAirPortJoinModeStrongest
-  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
  */
-extern const CFStringRef kSCValNetAirPortJoinModeStrongest;
+extern const CFStringRef kSCValNetAirPortJoinModeStrongest                  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCValNetAirPortJoinModeStrongest kSCValNetAirPortJoinModeStrongest
 
 /*!
   @const kSCValNetAirPortAuthPasswordEncryptionKeychain
-  @availability Introduced in Mac OS X 10.3, but later deprecated in Mac OS X 10.9.
  */
-extern const CFStringRef kSCValNetAirPortAuthPasswordEncryptionKeychain;
+extern const CFStringRef kSCValNetAirPortAuthPasswordEncryptionKeychain     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
+#define kSCValNetAirPortAuthPasswordEncryptionKeychain kSCValNetAirPortAuthPasswordEncryptionKeychain
 
 /*!
   @group kSCEntNetAppleTalk Entity Keys
@@ -868,75 +852,84 @@ extern const CFStringRef kSCValNetAirPortAuthPasswordEncryptionKeychain;
 
 /*!
   @const kSCPropNetAppleTalkComputerName
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetAppleTalkComputerName;
+extern const CFStringRef kSCPropNetAppleTalkComputerName                    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetAppleTalkComputerName kSCPropNetAppleTalkComputerName
 
 /*!
   @const kSCPropNetAppleTalkComputerNameEncoding
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetAppleTalkComputerNameEncoding;
+extern const CFStringRef kSCPropNetAppleTalkComputerNameEncoding            __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetAppleTalkComputerNameEncoding kSCPropNetAppleTalkComputerNameEncoding
 
 /*!
   @const kSCPropNetAppleTalkConfigMethod
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetAppleTalkConfigMethod;
+extern const CFStringRef kSCPropNetAppleTalkConfigMethod                    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetAppleTalkConfigMethod kSCPropNetAppleTalkConfigMethod
 
 /*!
   @const kSCPropNetAppleTalkDefaultZone
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetAppleTalkDefaultZone;
+extern const CFStringRef kSCPropNetAppleTalkDefaultZone                     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetAppleTalkDefaultZone kSCPropNetAppleTalkDefaultZone
 
 /*!
   @const kSCPropNetAppleTalkNetworkID
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetAppleTalkNetworkID;
+extern const CFStringRef kSCPropNetAppleTalkNetworkID                       __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetAppleTalkNetworkID kSCPropNetAppleTalkNetworkID
 
 /*!
   @const kSCPropNetAppleTalkNetworkRange
-  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.6.
+  @discussion Value is a CFArray[CFNumber]
  */
-extern const CFStringRef kSCPropNetAppleTalkNetworkRange;
+extern const CFStringRef kSCPropNetAppleTalkNetworkRange                    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetAppleTalkNetworkRange kSCPropNetAppleTalkNetworkRange
 
 /*!
   @const kSCPropNetAppleTalkNodeID
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetAppleTalkNodeID;
+extern const CFStringRef kSCPropNetAppleTalkNodeID                          __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetAppleTalkNodeID kSCPropNetAppleTalkNodeID
 
 /*!
   @const kSCPropNetAppleTalkSeedNetworkRange
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
+  @discussion Value is a CFArray[CFNumber]
  */
-extern const CFStringRef kSCPropNetAppleTalkSeedNetworkRange;
+extern const CFStringRef kSCPropNetAppleTalkSeedNetworkRange                __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetAppleTalkSeedNetworkRange kSCPropNetAppleTalkSeedNetworkRange
 
 /*!
   @const kSCPropNetAppleTalkSeedZones
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetAppleTalkSeedZones;
+extern const CFStringRef kSCPropNetAppleTalkSeedZones                       __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetAppleTalkSeedZones kSCPropNetAppleTalkSeedZones
 
 /*!
   @const kSCValNetAppleTalkConfigMethodNode
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
-extern const CFStringRef kSCValNetAppleTalkConfigMethodNode;
+extern const CFStringRef kSCValNetAppleTalkConfigMethodNode                 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCValNetAppleTalkConfigMethodNode kSCValNetAppleTalkConfigMethodNode
 
 /*!
   @const kSCValNetAppleTalkConfigMethodRouter
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
-extern const CFStringRef kSCValNetAppleTalkConfigMethodRouter;
+extern const CFStringRef kSCValNetAppleTalkConfigMethodRouter               __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCValNetAppleTalkConfigMethodRouter kSCValNetAppleTalkConfigMethodRouter
 
 /*!
   @const kSCValNetAppleTalkConfigMethodSeedRouter
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
-extern const CFStringRef kSCValNetAppleTalkConfigMethodSeedRouter;
+extern const CFStringRef kSCValNetAppleTalkConfigMethodSeedRouter           __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
+#define kSCValNetAppleTalkConfigMethodSeedRouter kSCValNetAppleTalkConfigMethodSeedRouter
 
 /*!
   @group kSCEntNetDNS Entity Keys
@@ -944,63 +937,73 @@ extern const CFStringRef kSCValNetAppleTalkConfigMethodSeedRouter;
 
 /*!
   @const kSCPropNetDNSDomainName
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetDNSDomainName;
+extern const CFStringRef kSCPropNetDNSDomainName                            __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetDNSDomainName kSCPropNetDNSDomainName
 
 /*!
   @const kSCPropNetDNSOptions
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetDNSOptions;
+extern const CFStringRef kSCPropNetDNSOptions                               __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetDNSOptions kSCPropNetDNSOptions
 
 /*!
   @const kSCPropNetDNSSearchDomains
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetDNSSearchDomains;
+extern const CFStringRef kSCPropNetDNSSearchDomains                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetDNSSearchDomains kSCPropNetDNSSearchDomains
 
 /*!
   @const kSCPropNetDNSSearchOrder
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetDNSSearchOrder;
+extern const CFStringRef kSCPropNetDNSSearchOrder                           __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetDNSSearchOrder kSCPropNetDNSSearchOrder
 
 /*!
   @const kSCPropNetDNSServerAddresses
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetDNSServerAddresses;
+extern const CFStringRef kSCPropNetDNSServerAddresses                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetDNSServerAddresses kSCPropNetDNSServerAddresses
 
 /*!
   @const kSCPropNetDNSServerPort
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetDNSServerPort;
+extern const CFStringRef kSCPropNetDNSServerPort                            __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetDNSServerPort kSCPropNetDNSServerPort
 
 /*!
   @const kSCPropNetDNSServerTimeout
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetDNSServerTimeout;
+extern const CFStringRef kSCPropNetDNSServerTimeout                         __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetDNSServerTimeout kSCPropNetDNSServerTimeout
 
 /*!
   @const kSCPropNetDNSSortList
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetDNSSortList;
+extern const CFStringRef kSCPropNetDNSSortList                              __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetDNSSortList kSCPropNetDNSSortList
 
 /*!
   @const kSCPropNetDNSSupplementalMatchDomains
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetDNSSupplementalMatchDomains;
+extern const CFStringRef kSCPropNetDNSSupplementalMatchDomains              __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetDNSSupplementalMatchDomains kSCPropNetDNSSupplementalMatchDomains
 
 /*!
   @const kSCPropNetDNSSupplementalMatchOrders
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFArray[CFNumber]
  */
-extern const CFStringRef kSCPropNetDNSSupplementalMatchOrders;
+extern const CFStringRef kSCPropNetDNSSupplementalMatchOrders               __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetDNSSupplementalMatchOrders kSCPropNetDNSSupplementalMatchOrders
 
 /*!
   @group kSCEntNetEthernet (Hardware) Entity Keys
@@ -1008,21 +1011,24 @@ extern const CFStringRef kSCPropNetDNSSupplementalMatchOrders;
 
 /*!
   @const kSCPropNetEthernetMediaSubType
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetEthernetMediaSubType;
+extern const CFStringRef kSCPropNetEthernetMediaSubType                     __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetEthernetMediaSubType kSCPropNetEthernetMediaSubType
 
 /*!
   @const kSCPropNetEthernetMediaOptions
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetEthernetMediaOptions;
+extern const CFStringRef kSCPropNetEthernetMediaOptions                     __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetEthernetMediaOptions kSCPropNetEthernetMediaOptions
 
 /*!
   @const kSCPropNetEthernetMTU
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetEthernetMTU;
+extern const CFStringRef kSCPropNetEthernetMTU                              __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetEthernetMTU kSCPropNetEthernetMTU
 
 /*!
   @group kSCEntNetFireWire (Hardware) Entity Keys
@@ -1034,87 +1040,92 @@ extern const CFStringRef kSCPropNetEthernetMTU;
 
 /*!
   @const kSCPropNetInterfaceDeviceName
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetInterfaceDeviceName;
+extern const CFStringRef kSCPropNetInterfaceDeviceName                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetInterfaceDeviceName kSCPropNetInterfaceDeviceName
 
 /*!
   @const kSCPropNetInterfaceHardware
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetInterfaceHardware;
+extern const CFStringRef kSCPropNetInterfaceHardware                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetInterfaceHardware kSCPropNetInterfaceHardware
 
 /*!
   @const kSCPropNetInterfaceType
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetInterfaceType;
+extern const CFStringRef kSCPropNetInterfaceType                            __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetInterfaceType kSCPropNetInterfaceType
 
 /*!
   @const kSCPropNetInterfaceSubType
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetInterfaceSubType;
+extern const CFStringRef kSCPropNetInterfaceSubType                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetInterfaceSubType kSCPropNetInterfaceSubType
 
 /*!
   @const kSCPropNetInterfaceSupportsModemOnHold
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetInterfaceSupportsModemOnHold;
+extern const CFStringRef kSCPropNetInterfaceSupportsModemOnHold             __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetInterfaceSupportsModemOnHold kSCPropNetInterfaceSupportsModemOnHold
 
 /*!
   @const kSCValNetInterfaceTypeEthernet
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetInterfaceTypeEthernet;
+extern const CFStringRef kSCValNetInterfaceTypeEthernet                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetInterfaceTypeEthernet kSCValNetInterfaceTypeEthernet
 
 /*!
   @const kSCValNetInterfaceTypeFireWire
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetInterfaceTypeFireWire;
+extern const CFStringRef kSCValNetInterfaceTypeFireWire                     __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetInterfaceTypeFireWire kSCValNetInterfaceTypeFireWire
 
 /*!
   @const kSCValNetInterfaceTypePPP
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetInterfaceTypePPP;
+extern const CFStringRef kSCValNetInterfaceTypePPP                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetInterfaceTypePPP kSCValNetInterfaceTypePPP
 
 /*!
   @const kSCValNetInterfaceType6to4
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetInterfaceType6to4;
+extern const CFStringRef kSCValNetInterfaceType6to4                         __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetInterfaceType6to4 kSCValNetInterfaceType6to4
 
 /*!
   @const kSCValNetInterfaceTypeIPSec
-  @availability Introduced in Mac OS X 10.6.
  */
-extern const CFStringRef kSCValNetInterfaceTypeIPSec;
+extern const CFStringRef kSCValNetInterfaceTypeIPSec                        __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
+#define kSCValNetInterfaceTypeIPSec kSCValNetInterfaceTypeIPSec
 
 /*!
   @const kSCValNetInterfaceSubTypePPPoE
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetInterfaceSubTypePPPoE;
+extern const CFStringRef kSCValNetInterfaceSubTypePPPoE                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetInterfaceSubTypePPPoE kSCValNetInterfaceSubTypePPPoE
 
 /*!
   @const kSCValNetInterfaceSubTypePPPSerial
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetInterfaceSubTypePPPSerial;
+extern const CFStringRef kSCValNetInterfaceSubTypePPPSerial                 __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetInterfaceSubTypePPPSerial kSCValNetInterfaceSubTypePPPSerial
 
 /*!
   @const kSCValNetInterfaceSubTypePPTP
-  @availability Introduced in Mac OS X 10.2.
  */
-extern const CFStringRef kSCValNetInterfaceSubTypePPTP;
+extern const CFStringRef kSCValNetInterfaceSubTypePPTP                      __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCValNetInterfaceSubTypePPTP kSCValNetInterfaceSubTypePPTP
 
 /*!
   @const kSCValNetInterfaceSubTypeL2TP
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetInterfaceSubTypeL2TP;
+extern const CFStringRef kSCValNetInterfaceSubTypeL2TP                      __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetInterfaceSubTypeL2TP kSCValNetInterfaceSubTypeL2TP
 
 /*!
   @group kSCEntNetIPSec Entity Keys
@@ -1122,123 +1133,136 @@ extern const CFStringRef kSCValNetInterfaceSubTypeL2TP;
 
 /*!
   @const kSCPropNetIPSecAuthenticationMethod
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPSecAuthenticationMethod;
+extern const CFStringRef kSCPropNetIPSecAuthenticationMethod                __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecAuthenticationMethod kSCPropNetIPSecAuthenticationMethod
 
 /*!
   @const kSCPropNetIPSecLocalCertificate
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFData
  */
-extern const CFStringRef kSCPropNetIPSecLocalCertificate;
+extern const CFStringRef kSCPropNetIPSecLocalCertificate                    __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecLocalCertificate kSCPropNetIPSecLocalCertificate
 
 /*!
   @const kSCPropNetIPSecLocalIdentifier
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPSecLocalIdentifier;
+extern const CFStringRef kSCPropNetIPSecLocalIdentifier                     __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecLocalIdentifier kSCPropNetIPSecLocalIdentifier
 
 /*!
   @const kSCPropNetIPSecLocalIdentifierType
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPSecLocalIdentifierType;
+extern const CFStringRef kSCPropNetIPSecLocalIdentifierType                 __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecLocalIdentifierType kSCPropNetIPSecLocalIdentifierType
 
 /*!
   @const kSCPropNetIPSecSharedSecret
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPSecSharedSecret;
+extern const CFStringRef kSCPropNetIPSecSharedSecret                        __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecSharedSecret kSCPropNetIPSecSharedSecret
 
 /*!
   @const kSCPropNetIPSecSharedSecretEncryption
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPSecSharedSecretEncryption;
+extern const CFStringRef kSCPropNetIPSecSharedSecretEncryption              __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecSharedSecretEncryption kSCPropNetIPSecSharedSecretEncryption
 
 /*!
   @const kSCPropNetIPSecConnectTime
-  @availability Introduced in Mac OS X 10.6.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetIPSecConnectTime;
+extern const CFStringRef kSCPropNetIPSecConnectTime                         __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecConnectTime kSCPropNetIPSecConnectTime
 
 /*!
   @const kSCPropNetIPSecRemoteAddress
-  @availability Introduced in Mac OS X 10.6.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPSecRemoteAddress;
+extern const CFStringRef kSCPropNetIPSecRemoteAddress                       __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecRemoteAddress kSCPropNetIPSecRemoteAddress
 
 /*!
   @const kSCPropNetIPSecStatus
-  @availability Introduced in Mac OS X 10.6.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetIPSecStatus;
+extern const CFStringRef kSCPropNetIPSecStatus                              __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecStatus kSCPropNetIPSecStatus
 
 /*!
   @const kSCPropNetIPSecXAuthEnabled
-  @availability Introduced in Mac OS X 10.6.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetIPSecXAuthEnabled;
+extern const CFStringRef kSCPropNetIPSecXAuthEnabled                        __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecXAuthEnabled kSCPropNetIPSecXAuthEnabled
 
 /*!
   @const kSCPropNetIPSecXAuthName
-  @availability Introduced in Mac OS X 10.6.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPSecXAuthName;
+extern const CFStringRef kSCPropNetIPSecXAuthName                           __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecXAuthName kSCPropNetIPSecXAuthName
 
 /*!
   @const kSCPropNetIPSecXAuthPassword
-  @availability Introduced in Mac OS X 10.6.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPSecXAuthPassword;
+extern const CFStringRef kSCPropNetIPSecXAuthPassword                       __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecXAuthPassword kSCPropNetIPSecXAuthPassword
 
 /*!
   @const kSCPropNetIPSecXAuthPasswordEncryption
-  @availability Introduced in Mac OS X 10.6.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPSecXAuthPasswordEncryption;
+extern const CFStringRef kSCPropNetIPSecXAuthPasswordEncryption             __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPSecXAuthPasswordEncryption kSCPropNetIPSecXAuthPasswordEncryption
 
 /*!
   @const kSCValNetIPSecAuthenticationMethodSharedSecret
-  @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetIPSecAuthenticationMethodSharedSecret;
+extern const CFStringRef kSCValNetIPSecAuthenticationMethodSharedSecret     __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPSecAuthenticationMethodSharedSecret kSCValNetIPSecAuthenticationMethodSharedSecret
 
 /*!
   @const kSCValNetIPSecAuthenticationMethodCertificate
-  @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetIPSecAuthenticationMethodCertificate;
+extern const CFStringRef kSCValNetIPSecAuthenticationMethodCertificate      __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPSecAuthenticationMethodCertificate kSCValNetIPSecAuthenticationMethodCertificate
 
 /*!
   @const kSCValNetIPSecAuthenticationMethodHybrid
-  @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetIPSecAuthenticationMethodHybrid;
+extern const CFStringRef kSCValNetIPSecAuthenticationMethodHybrid           __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPSecAuthenticationMethodHybrid kSCValNetIPSecAuthenticationMethodHybrid
 
 /*!
   @const kSCValNetIPSecLocalIdentifierTypeKeyID
-  @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetIPSecLocalIdentifierTypeKeyID;
+extern const CFStringRef kSCValNetIPSecLocalIdentifierTypeKeyID             __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPSecLocalIdentifierTypeKeyID kSCValNetIPSecLocalIdentifierTypeKeyID
 
 /*!
   @const kSCValNetIPSecSharedSecretEncryptionKeychain
-  @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetIPSecSharedSecretEncryptionKeychain;
+extern const CFStringRef kSCValNetIPSecSharedSecretEncryptionKeychain       __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPSecSharedSecretEncryptionKeychain kSCValNetIPSecSharedSecretEncryptionKeychain
 
 /*!
   @const kSCValNetIPSecXAuthPasswordEncryptionKeychain
-  @availability Introduced in Mac OS X 10.6.
  */
-extern const CFStringRef kSCValNetIPSecXAuthPasswordEncryptionKeychain;
+extern const CFStringRef kSCValNetIPSecXAuthPasswordEncryptionKeychain      __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPSecXAuthPasswordEncryptionKeychain kSCValNetIPSecXAuthPasswordEncryptionKeychain
 
 /*!
   @const kSCValNetIPSecXAuthPasswordEncryptionPrompt
-  @availability Introduced in Mac OS X 10.6.
  */
-extern const CFStringRef kSCValNetIPSecXAuthPasswordEncryptionPrompt;
+extern const CFStringRef kSCValNetIPSecXAuthPasswordEncryptionPrompt        __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0/*SPI*/);
+#define kSCValNetIPSecXAuthPasswordEncryptionPrompt kSCValNetIPSecXAuthPasswordEncryptionPrompt
 
 /*!
   @group kSCEntNetIPv4 Entity Keys
@@ -1246,87 +1270,94 @@ extern const CFStringRef kSCValNetIPSecXAuthPasswordEncryptionPrompt;
 
 /*!
   @const kSCPropNetIPv4Addresses
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetIPv4Addresses;
+extern const CFStringRef kSCPropNetIPv4Addresses                            __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv4Addresses kSCPropNetIPv4Addresses
 
 /*!
   @const kSCPropNetIPv4ConfigMethod
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPv4ConfigMethod;
+extern const CFStringRef kSCPropNetIPv4ConfigMethod                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv4ConfigMethod kSCPropNetIPv4ConfigMethod
 
 /*!
   @const kSCPropNetIPv4DHCPClientID
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPv4DHCPClientID;
+extern const CFStringRef kSCPropNetIPv4DHCPClientID                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv4DHCPClientID kSCPropNetIPv4DHCPClientID
 
 /*!
   @const kSCPropNetIPv4Router
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPv4Router;
+extern const CFStringRef kSCPropNetIPv4Router                               __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv4Router kSCPropNetIPv4Router
 
 /*!
   @const kSCPropNetIPv4SubnetMasks
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetIPv4SubnetMasks;
+extern const CFStringRef kSCPropNetIPv4SubnetMasks                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv4SubnetMasks kSCPropNetIPv4SubnetMasks
 
 /*!
   @const kSCPropNetIPv4DestAddresses
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetIPv4DestAddresses;
+extern const CFStringRef kSCPropNetIPv4DestAddresses                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv4DestAddresses kSCPropNetIPv4DestAddresses
 
 /*!
   @const kSCPropNetIPv4BroadcastAddresses
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetIPv4BroadcastAddresses;
+extern const CFStringRef kSCPropNetIPv4BroadcastAddresses                   __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv4BroadcastAddresses kSCPropNetIPv4BroadcastAddresses
 
 /*!
   @const kSCValNetIPv4ConfigMethodAutomatic
-  @availability Introduced in Mac OS X 10.6.
  */
-extern const CFStringRef kSCValNetIPv4ConfigMethodAutomatic;
+extern const CFStringRef kSCValNetIPv4ConfigMethodAutomatic                 __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv4ConfigMethodAutomatic kSCValNetIPv4ConfigMethodAutomatic
 
 /*!
   @const kSCValNetIPv4ConfigMethodBOOTP
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetIPv4ConfigMethodBOOTP;
+extern const CFStringRef kSCValNetIPv4ConfigMethodBOOTP                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv4ConfigMethodBOOTP kSCValNetIPv4ConfigMethodBOOTP
 
 /*!
   @const kSCValNetIPv4ConfigMethodDHCP
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetIPv4ConfigMethodDHCP;
+extern const CFStringRef kSCValNetIPv4ConfigMethodDHCP                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv4ConfigMethodDHCP kSCValNetIPv4ConfigMethodDHCP
 
 /*!
   @const kSCValNetIPv4ConfigMethodINFORM
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetIPv4ConfigMethodINFORM;
+extern const CFStringRef kSCValNetIPv4ConfigMethodINFORM                    __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv4ConfigMethodINFORM kSCValNetIPv4ConfigMethodINFORM
 
 /*!
   @const kSCValNetIPv4ConfigMethodLinkLocal
-  @availability Introduced in Mac OS X 10.2.
  */
-extern const CFStringRef kSCValNetIPv4ConfigMethodLinkLocal;
+extern const CFStringRef kSCValNetIPv4ConfigMethodLinkLocal                 __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv4ConfigMethodLinkLocal kSCValNetIPv4ConfigMethodLinkLocal
 
 /*!
   @const kSCValNetIPv4ConfigMethodManual
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetIPv4ConfigMethodManual;
+extern const CFStringRef kSCValNetIPv4ConfigMethodManual                    __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv4ConfigMethodManual kSCValNetIPv4ConfigMethodManual
 
 /*!
   @const kSCValNetIPv4ConfigMethodPPP
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetIPv4ConfigMethodPPP;
+extern const CFStringRef kSCValNetIPv4ConfigMethodPPP                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv4ConfigMethodPPP kSCValNetIPv4ConfigMethodPPP
 
 /*!
   @group kSCEntNetIPv6 Entity Keys
@@ -1334,69 +1365,75 @@ extern const CFStringRef kSCValNetIPv4ConfigMethodPPP;
 
 /*!
   @const kSCPropNetIPv6Addresses
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetIPv6Addresses;
+extern const CFStringRef kSCPropNetIPv6Addresses                            __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv6Addresses kSCPropNetIPv6Addresses
 
 /*!
   @const kSCPropNetIPv6ConfigMethod
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPv6ConfigMethod;
+extern const CFStringRef kSCPropNetIPv6ConfigMethod                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv6ConfigMethod kSCPropNetIPv6ConfigMethod
 
 /*!
   @const kSCPropNetIPv6DestAddresses
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetIPv6DestAddresses;
+extern const CFStringRef kSCPropNetIPv6DestAddresses                        __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv6DestAddresses kSCPropNetIPv6DestAddresses
 
 /*!
   @const kSCPropNetIPv6Flags
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetIPv6Flags;
+extern const CFStringRef kSCPropNetIPv6Flags                                __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv6Flags kSCPropNetIPv6Flags
 
 /*!
   @const kSCPropNetIPv6PrefixLength
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFArray[CFNumber]
  */
-extern const CFStringRef kSCPropNetIPv6PrefixLength;
+extern const CFStringRef kSCPropNetIPv6PrefixLength                         __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv6PrefixLength kSCPropNetIPv6PrefixLength
 
 /*!
   @const kSCPropNetIPv6Router
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetIPv6Router;
+extern const CFStringRef kSCPropNetIPv6Router                               __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetIPv6Router kSCPropNetIPv6Router
 
 /*!
   @const kSCValNetIPv6ConfigMethodAutomatic
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetIPv6ConfigMethodAutomatic;
+extern const CFStringRef kSCValNetIPv6ConfigMethodAutomatic                 __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv6ConfigMethodAutomatic kSCValNetIPv6ConfigMethodAutomatic
 
 /*!
   @const kSCValNetIPv6ConfigMethodLinkLocal
-  @availability Introduced in Mac OS X 10.7.
  */
-extern const CFStringRef kSCValNetIPv6ConfigMethodLinkLocal;
+extern const CFStringRef kSCValNetIPv6ConfigMethodLinkLocal                 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/);
+#define kSCValNetIPv6ConfigMethodLinkLocal kSCValNetIPv6ConfigMethodLinkLocal
 
 /*!
   @const kSCValNetIPv6ConfigMethodManual
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetIPv6ConfigMethodManual;
+extern const CFStringRef kSCValNetIPv6ConfigMethodManual                    __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv6ConfigMethodManual kSCValNetIPv6ConfigMethodManual
 
 /*!
   @const kSCValNetIPv6ConfigMethodRouterAdvertisement
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetIPv6ConfigMethodRouterAdvertisement;
+extern const CFStringRef kSCValNetIPv6ConfigMethodRouterAdvertisement       __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv6ConfigMethodRouterAdvertisement kSCValNetIPv6ConfigMethodRouterAdvertisement
 
 /*!
   @const kSCValNetIPv6ConfigMethod6to4
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetIPv6ConfigMethod6to4;
+extern const CFStringRef kSCValNetIPv6ConfigMethod6to4                      __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetIPv6ConfigMethod6to4 kSCValNetIPv6ConfigMethod6to4
 
 /*!
   @group kSCEntNet6to4 Entity Keys
@@ -1404,9 +1441,10 @@ extern const CFStringRef kSCValNetIPv6ConfigMethod6to4;
 
 /*!
   @const kSCPropNet6to4Relay
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNet6to4Relay;
+extern const CFStringRef kSCPropNet6to4Relay                                __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNet6to4Relay kSCPropNet6to4Relay
 
 /*!
   @group kSCEntNetLink Entity Keys
@@ -1414,15 +1452,17 @@ extern const CFStringRef kSCPropNet6to4Relay;
 
 /*!
   @const kSCPropNetLinkActive
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFBoolean
  */
-extern const CFStringRef kSCPropNetLinkActive;
+extern const CFStringRef kSCPropNetLinkActive                               __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetLinkActive kSCPropNetLinkActive
 
 /*!
   @const kSCPropNetLinkDetaching
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFBoolean
  */
-extern const CFStringRef kSCPropNetLinkDetaching;
+extern const CFStringRef kSCPropNetLinkDetaching                            __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetLinkDetaching kSCPropNetLinkDetaching
 
 /*!
   @group kSCEntNetModem (Hardware) Entity Keys
@@ -1430,135 +1470,154 @@ extern const CFStringRef kSCPropNetLinkDetaching;
 
 /*!
   @const kSCPropNetModemAccessPointName
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetModemAccessPointName;
+extern const CFStringRef kSCPropNetModemAccessPointName                     __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemAccessPointName kSCPropNetModemAccessPointName
 
 /*!
   @const kSCPropNetModemConnectionPersonality
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetModemConnectionPersonality;
+extern const CFStringRef kSCPropNetModemConnectionPersonality               __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemConnectionPersonality kSCPropNetModemConnectionPersonality
 
 /*!
   @const kSCPropNetModemConnectionScript
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetModemConnectionScript;
+extern const CFStringRef kSCPropNetModemConnectionScript                    __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemConnectionScript kSCPropNetModemConnectionScript
 
 /*!
   @const kSCPropNetModemConnectSpeed
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetModemConnectSpeed;
+extern const CFStringRef kSCPropNetModemConnectSpeed                        __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemConnectSpeed kSCPropNetModemConnectSpeed
 
 /*!
   @const kSCPropNetModemDataCompression
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetModemDataCompression;
+extern const CFStringRef kSCPropNetModemDataCompression                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemDataCompression kSCPropNetModemDataCompression
 
 /*!
   @const kSCPropNetModemDeviceContextID
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetModemDeviceContextID;
+extern const CFStringRef kSCPropNetModemDeviceContextID                     __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemDeviceContextID kSCPropNetModemDeviceContextID
 
 /*!
   @const kSCPropNetModemDeviceModel
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetModemDeviceModel;
+extern const CFStringRef kSCPropNetModemDeviceModel                         __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemDeviceModel kSCPropNetModemDeviceModel
 
 /*!
   @const kSCPropNetModemDeviceVendor
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetModemDeviceVendor;
+extern const CFStringRef kSCPropNetModemDeviceVendor                        __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemDeviceVendor kSCPropNetModemDeviceVendor
 
 /*!
   @const kSCPropNetModemDialMode
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetModemDialMode;
+extern const CFStringRef kSCPropNetModemDialMode                            __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemDialMode kSCPropNetModemDialMode
 
 /*!
   @const kSCPropNetModemErrorCorrection
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetModemErrorCorrection;
+extern const CFStringRef kSCPropNetModemErrorCorrection                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemErrorCorrection kSCPropNetModemErrorCorrection
 
 /*!
   @const kSCPropNetModemHoldCallWaitingAudibleAlert
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetModemHoldCallWaitingAudibleAlert;
+extern const CFStringRef kSCPropNetModemHoldCallWaitingAudibleAlert         __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemHoldCallWaitingAudibleAlert kSCPropNetModemHoldCallWaitingAudibleAlert
 
 /*!
   @const kSCPropNetModemHoldDisconnectOnAnswer
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetModemHoldDisconnectOnAnswer;
+extern const CFStringRef kSCPropNetModemHoldDisconnectOnAnswer              __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemHoldDisconnectOnAnswer kSCPropNetModemHoldDisconnectOnAnswer
 
 /*!
   @const kSCPropNetModemHoldEnabled
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetModemHoldEnabled;
+extern const CFStringRef kSCPropNetModemHoldEnabled                         __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemHoldEnabled kSCPropNetModemHoldEnabled
 
 /*!
   @const kSCPropNetModemHoldReminder
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetModemHoldReminder;
+extern const CFStringRef kSCPropNetModemHoldReminder                        __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemHoldReminder kSCPropNetModemHoldReminder
 
 /*!
   @const kSCPropNetModemHoldReminderTime
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetModemHoldReminderTime;
+extern const CFStringRef kSCPropNetModemHoldReminderTime                    __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemHoldReminderTime kSCPropNetModemHoldReminderTime
 
 /*!
   @const kSCPropNetModemNote
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetModemNote;
+extern const CFStringRef kSCPropNetModemNote                                __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemNote kSCPropNetModemNote
 
 /*!
   @const kSCPropNetModemPulseDial
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetModemPulseDial;
+extern const CFStringRef kSCPropNetModemPulseDial                           __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemPulseDial kSCPropNetModemPulseDial
 
 /*!
   @const kSCPropNetModemSpeaker
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetModemSpeaker;
+extern const CFStringRef kSCPropNetModemSpeaker                             __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemSpeaker kSCPropNetModemSpeaker
 
 /*!
   @const kSCPropNetModemSpeed
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetModemSpeed;
+extern const CFStringRef kSCPropNetModemSpeed                               __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetModemSpeed kSCPropNetModemSpeed
 
 /*!
   @const kSCValNetModemDialModeIgnoreDialTone
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetModemDialModeIgnoreDialTone;
+extern const CFStringRef kSCValNetModemDialModeIgnoreDialTone               __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetModemDialModeIgnoreDialTone kSCValNetModemDialModeIgnoreDialTone
 
 /*!
   @const kSCValNetModemDialModeManual
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetModemDialModeManual;
+extern const CFStringRef kSCValNetModemDialModeManual                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetModemDialModeManual kSCValNetModemDialModeManual
 
 /*!
   @const kSCValNetModemDialModeWaitForDialTone
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCValNetModemDialModeWaitForDialTone;
+extern const CFStringRef kSCValNetModemDialModeWaitForDialTone              __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetModemDialModeWaitForDialTone kSCValNetModemDialModeWaitForDialTone
 
 /*!
   @group kSCEntNetNetInfo Entity Keys
@@ -1566,51 +1625,55 @@ extern const CFStringRef kSCValNetModemDialModeWaitForDialTone;
 
 /*!
   @const kSCPropNetNetInfoBindingMethods
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetNetInfoBindingMethods;
+extern const CFStringRef kSCPropNetNetInfoBindingMethods                    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetNetInfoBindingMethods kSCPropNetNetInfoBindingMethods
 
 /*!
   @const kSCPropNetNetInfoServerAddresses
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetNetInfoServerAddresses;
+extern const CFStringRef kSCPropNetNetInfoServerAddresses                   __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetNetInfoServerAddresses kSCPropNetNetInfoServerAddresses
 
 /*!
   @const kSCPropNetNetInfoServerTags
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetNetInfoServerTags;
+extern const CFStringRef kSCPropNetNetInfoServerTags                        __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetNetInfoServerTags kSCPropNetNetInfoServerTags
 
 /*!
   @const kSCPropNetNetInfoBroadcastServerTag
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetNetInfoBroadcastServerTag;
+extern const CFStringRef kSCPropNetNetInfoBroadcastServerTag                __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetNetInfoBroadcastServerTag kSCPropNetNetInfoBroadcastServerTag
 
 /*!
   @const kSCValNetNetInfoBindingMethodsBroadcast
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetNetInfoBindingMethodsBroadcast;
+extern const CFStringRef kSCValNetNetInfoBindingMethodsBroadcast            __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#define kSCValNetNetInfoBindingMethodsBroadcast kSCValNetNetInfoBindingMethodsBroadcast
 
 /*!
   @const kSCValNetNetInfoBindingMethodsDHCP
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetNetInfoBindingMethodsDHCP;
+extern const CFStringRef kSCValNetNetInfoBindingMethodsDHCP                 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#define kSCValNetNetInfoBindingMethodsDHCP kSCValNetNetInfoBindingMethodsDHCP
 
 /*!
   @const kSCValNetNetInfoBindingMethodsManual
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetNetInfoBindingMethodsManual;
+extern const CFStringRef kSCValNetNetInfoBindingMethodsManual               __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#define kSCValNetNetInfoBindingMethodsManual kSCValNetNetInfoBindingMethodsManual
 
 /*!
   @const kSCValNetNetInfoDefaultServerTag
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetNetInfoDefaultServerTag;
+extern const CFStringRef kSCValNetNetInfoDefaultServerTag                   __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#define kSCValNetNetInfoDefaultServerTag kSCValNetNetInfoDefaultServerTag
 
 /*!
   @group kSCEntNetPPP Entity Keys
@@ -1618,351 +1681,407 @@ extern const CFStringRef kSCValNetNetInfoDefaultServerTag;
 
 /*!
   @const kSCPropNetPPPACSPEnabled
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPACSPEnabled;
+extern const CFStringRef kSCPropNetPPPACSPEnabled                           __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPACSPEnabled kSCPropNetPPPACSPEnabled
 
 /*!
   @const kSCPropNetPPPConnectTime
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPConnectTime;
+extern const CFStringRef kSCPropNetPPPConnectTime                           __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPConnectTime kSCPropNetPPPConnectTime
 
 /*!
   @const kSCPropNetPPPDeviceLastCause
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPDeviceLastCause;
+extern const CFStringRef kSCPropNetPPPDeviceLastCause                       __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPDeviceLastCause kSCPropNetPPPDeviceLastCause
 
 /*!
   @const kSCPropNetPPPDialOnDemand
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPDialOnDemand;
+extern const CFStringRef kSCPropNetPPPDialOnDemand                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPDialOnDemand kSCPropNetPPPDialOnDemand
 
 /*!
   @const kSCPropNetPPPDisconnectOnFastUserSwitch
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPDisconnectOnFastUserSwitch;
+extern const CFStringRef kSCPropNetPPPDisconnectOnFastUserSwitch            __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPDisconnectOnFastUserSwitch kSCPropNetPPPDisconnectOnFastUserSwitch
 
 /*!
   @const kSCPropNetPPPDisconnectOnIdle
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPDisconnectOnIdle;
+extern const CFStringRef kSCPropNetPPPDisconnectOnIdle                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPDisconnectOnIdle kSCPropNetPPPDisconnectOnIdle
 
 /*!
   @const kSCPropNetPPPDisconnectOnIdleTimer
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPDisconnectOnIdleTimer;
+extern const CFStringRef kSCPropNetPPPDisconnectOnIdleTimer                 __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPDisconnectOnIdleTimer kSCPropNetPPPDisconnectOnIdleTimer
 
 /*!
   @const kSCPropNetPPPDisconnectOnLogout
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPDisconnectOnLogout;
+extern const CFStringRef kSCPropNetPPPDisconnectOnLogout                    __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPDisconnectOnLogout kSCPropNetPPPDisconnectOnLogout
 
 /*!
   @const kSCPropNetPPPDisconnectOnSleep
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPDisconnectOnSleep;
+extern const CFStringRef kSCPropNetPPPDisconnectOnSleep                     __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPDisconnectOnSleep kSCPropNetPPPDisconnectOnSleep
 
 /*!
   @const kSCPropNetPPPDisconnectTime
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPDisconnectTime;
+extern const CFStringRef kSCPropNetPPPDisconnectTime                        __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPDisconnectTime kSCPropNetPPPDisconnectTime
 
 /*!
   @const kSCPropNetPPPIdleReminderTimer
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPIdleReminderTimer;
+extern const CFStringRef kSCPropNetPPPIdleReminderTimer                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPIdleReminderTimer kSCPropNetPPPIdleReminderTimer
 
 /*!
   @const kSCPropNetPPPIdleReminder
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPIdleReminder;
+extern const CFStringRef kSCPropNetPPPIdleReminder                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPIdleReminder kSCPropNetPPPIdleReminder
 
 /*!
   @const kSCPropNetPPPLastCause
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPLastCause;
+extern const CFStringRef kSCPropNetPPPLastCause                             __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLastCause kSCPropNetPPPLastCause
 
 /*!
   @const kSCPropNetPPPLogfile
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetPPPLogfile;
+extern const CFStringRef kSCPropNetPPPLogfile                               __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLogfile kSCPropNetPPPLogfile
 
 /*!
   @const kSCPropNetPPPPlugins
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetPPPPlugins;
+extern const CFStringRef kSCPropNetPPPPlugins                               __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPPlugins kSCPropNetPPPPlugins
 
 /*!
   @const kSCPropNetPPPRetryConnectTime
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPRetryConnectTime;
+extern const CFStringRef kSCPropNetPPPRetryConnectTime                      __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPRetryConnectTime kSCPropNetPPPRetryConnectTime
 
 /*!
   @const kSCPropNetPPPSessionTimer
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPSessionTimer;
+extern const CFStringRef kSCPropNetPPPSessionTimer                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPSessionTimer kSCPropNetPPPSessionTimer
 
 /*!
   @const kSCPropNetPPPStatus
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPStatus;
+extern const CFStringRef kSCPropNetPPPStatus                                __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPStatus kSCPropNetPPPStatus
 
 /*!
   @const kSCPropNetPPPUseSessionTimer
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPUseSessionTimer;
+extern const CFStringRef kSCPropNetPPPUseSessionTimer                       __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPUseSessionTimer kSCPropNetPPPUseSessionTimer
 
 /*!
   @const kSCPropNetPPPVerboseLogging
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPVerboseLogging;
+extern const CFStringRef kSCPropNetPPPVerboseLogging                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPVerboseLogging kSCPropNetPPPVerboseLogging
 
 /*!
   @const kSCPropNetPPPAuthEAPPlugins
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetPPPAuthEAPPlugins;
+extern const CFStringRef kSCPropNetPPPAuthEAPPlugins                        __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPAuthEAPPlugins kSCPropNetPPPAuthEAPPlugins
 
 /*!
   @const kSCPropNetPPPAuthName
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetPPPAuthName;
+extern const CFStringRef kSCPropNetPPPAuthName                              __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPAuthName kSCPropNetPPPAuthName
 
 /*!
   @const kSCPropNetPPPAuthPassword
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetPPPAuthPassword;
+extern const CFStringRef kSCPropNetPPPAuthPassword                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPAuthPassword kSCPropNetPPPAuthPassword
 
 /*!
   @const kSCPropNetPPPAuthPasswordEncryption
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetPPPAuthPasswordEncryption;
+extern const CFStringRef kSCPropNetPPPAuthPasswordEncryption                __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPAuthPasswordEncryption kSCPropNetPPPAuthPasswordEncryption
 
 /*!
   @const kSCPropNetPPPAuthPrompt
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetPPPAuthPrompt;
+extern const CFStringRef kSCPropNetPPPAuthPrompt                            __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPAuthPrompt kSCPropNetPPPAuthPrompt
 
 /*!
   @const kSCPropNetPPPAuthProtocol
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetPPPAuthProtocol;
+extern const CFStringRef kSCPropNetPPPAuthProtocol                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPAuthProtocol kSCPropNetPPPAuthProtocol
 
 /*!
   @const kSCValNetPPPAuthPasswordEncryptionKeychain
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetPPPAuthPasswordEncryptionKeychain;
+extern const CFStringRef kSCValNetPPPAuthPasswordEncryptionKeychain         __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetPPPAuthPasswordEncryptionKeychain kSCValNetPPPAuthPasswordEncryptionKeychain
 
 /*!
   @const kSCValNetPPPAuthPasswordEncryptionToken
-  @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetPPPAuthPasswordEncryptionToken;
+extern const CFStringRef kSCValNetPPPAuthPasswordEncryptionToken            __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCValNetPPPAuthPasswordEncryptionToken kSCValNetPPPAuthPasswordEncryptionToken
 
 /*!
   @const kSCValNetPPPAuthPromptBefore
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCValNetPPPAuthPromptBefore;
+extern const CFStringRef kSCValNetPPPAuthPromptBefore                       __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetPPPAuthPromptBefore kSCValNetPPPAuthPromptBefore
 
 /*!
   @const kSCValNetPPPAuthPromptAfter
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCValNetPPPAuthPromptAfter;
+extern const CFStringRef kSCValNetPPPAuthPromptAfter                        __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetPPPAuthPromptAfter kSCValNetPPPAuthPromptAfter
 
 /*!
   @const kSCValNetPPPAuthProtocolCHAP
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCValNetPPPAuthProtocolCHAP;
+extern const CFStringRef kSCValNetPPPAuthProtocolCHAP                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetPPPAuthProtocolCHAP kSCValNetPPPAuthProtocolCHAP
 
 /*!
   @const kSCValNetPPPAuthProtocolEAP
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCValNetPPPAuthProtocolEAP;
+extern const CFStringRef kSCValNetPPPAuthProtocolEAP                        __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetPPPAuthProtocolEAP kSCValNetPPPAuthProtocolEAP
 
 /*!
   @const kSCValNetPPPAuthProtocolMSCHAP1
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCValNetPPPAuthProtocolMSCHAP1;
+extern const CFStringRef kSCValNetPPPAuthProtocolMSCHAP1                    __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetPPPAuthProtocolMSCHAP1 kSCValNetPPPAuthProtocolMSCHAP1
 
 /*!
   @const kSCValNetPPPAuthProtocolMSCHAP2
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCValNetPPPAuthProtocolMSCHAP2;
+extern const CFStringRef kSCValNetPPPAuthProtocolMSCHAP2                    __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetPPPAuthProtocolMSCHAP2 kSCValNetPPPAuthProtocolMSCHAP2
 
 /*!
   @const kSCValNetPPPAuthProtocolPAP
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCValNetPPPAuthProtocolPAP;
+extern const CFStringRef kSCValNetPPPAuthProtocolPAP                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCValNetPPPAuthProtocolPAP kSCValNetPPPAuthProtocolPAP
 
 /*!
   @const kSCPropNetPPPCommAlternateRemoteAddress
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetPPPCommAlternateRemoteAddress;
+extern const CFStringRef kSCPropNetPPPCommAlternateRemoteAddress            __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCommAlternateRemoteAddress kSCPropNetPPPCommAlternateRemoteAddress
 
 /*!
   @const kSCPropNetPPPCommConnectDelay
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPCommConnectDelay;
+extern const CFStringRef kSCPropNetPPPCommConnectDelay                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCommConnectDelay kSCPropNetPPPCommConnectDelay
 
 /*!
   @const kSCPropNetPPPCommDisplayTerminalWindow
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPCommDisplayTerminalWindow;
+extern const CFStringRef kSCPropNetPPPCommDisplayTerminalWindow             __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCommDisplayTerminalWindow kSCPropNetPPPCommDisplayTerminalWindow
 
 /*!
   @const kSCPropNetPPPCommRedialCount
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPCommRedialCount;
+extern const CFStringRef kSCPropNetPPPCommRedialCount                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCommRedialCount kSCPropNetPPPCommRedialCount
 
 /*!
   @const kSCPropNetPPPCommRedialEnabled
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPCommRedialEnabled;
+extern const CFStringRef kSCPropNetPPPCommRedialEnabled                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCommRedialEnabled kSCPropNetPPPCommRedialEnabled
 
 /*!
   @const kSCPropNetPPPCommRedialInterval
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPCommRedialInterval;
+extern const CFStringRef kSCPropNetPPPCommRedialInterval                    __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCommRedialInterval kSCPropNetPPPCommRedialInterval
 
 /*!
   @const kSCPropNetPPPCommRemoteAddress
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetPPPCommRemoteAddress;
+extern const CFStringRef kSCPropNetPPPCommRemoteAddress                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCommRemoteAddress kSCPropNetPPPCommRemoteAddress
 
 /*!
   @const kSCPropNetPPPCommTerminalScript
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetPPPCommTerminalScript;
+extern const CFStringRef kSCPropNetPPPCommTerminalScript                    __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCommTerminalScript kSCPropNetPPPCommTerminalScript
 
 /*!
   @const kSCPropNetPPPCommUseTerminalScript
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPCommUseTerminalScript;
+extern const CFStringRef kSCPropNetPPPCommUseTerminalScript                 __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCommUseTerminalScript kSCPropNetPPPCommUseTerminalScript
 
 /*!
   @const kSCPropNetPPPCCPEnabled
-  @availability Introduced in Mac OS X 10.2.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPCCPEnabled;
+extern const CFStringRef kSCPropNetPPPCCPEnabled                            __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCCPEnabled kSCPropNetPPPCCPEnabled
 
 /*!
   @const kSCPropNetPPPCCPMPPE40Enabled
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPCCPMPPE40Enabled;
+extern const CFStringRef kSCPropNetPPPCCPMPPE40Enabled                      __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCCPMPPE40Enabled kSCPropNetPPPCCPMPPE40Enabled
 
 /*!
   @const kSCPropNetPPPCCPMPPE128Enabled
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPCCPMPPE128Enabled;
+extern const CFStringRef kSCPropNetPPPCCPMPPE128Enabled                     __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPCCPMPPE128Enabled kSCPropNetPPPCCPMPPE128Enabled
 
 /*!
   @const kSCPropNetPPPIPCPCompressionVJ
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPIPCPCompressionVJ;
+extern const CFStringRef kSCPropNetPPPIPCPCompressionVJ                     __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPIPCPCompressionVJ kSCPropNetPPPIPCPCompressionVJ
 
 /*!
   @const kSCPropNetPPPIPCPUsePeerDNS
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPIPCPUsePeerDNS;
+extern const CFStringRef kSCPropNetPPPIPCPUsePeerDNS                        __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPIPCPUsePeerDNS kSCPropNetPPPIPCPUsePeerDNS
 
 /*!
   @const kSCPropNetPPPLCPEchoEnabled
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPLCPEchoEnabled;
+extern const CFStringRef kSCPropNetPPPLCPEchoEnabled                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLCPEchoEnabled kSCPropNetPPPLCPEchoEnabled
 
 /*!
   @const kSCPropNetPPPLCPEchoFailure
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPLCPEchoFailure;
+extern const CFStringRef kSCPropNetPPPLCPEchoFailure                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLCPEchoFailure kSCPropNetPPPLCPEchoFailure
 
 /*!
   @const kSCPropNetPPPLCPEchoInterval
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPLCPEchoInterval;
+extern const CFStringRef kSCPropNetPPPLCPEchoInterval                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLCPEchoInterval kSCPropNetPPPLCPEchoInterval
 
 /*!
   @const kSCPropNetPPPLCPCompressionACField
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPLCPCompressionACField;
+extern const CFStringRef kSCPropNetPPPLCPCompressionACField                 __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLCPCompressionACField kSCPropNetPPPLCPCompressionACField
 
 /*!
   @const kSCPropNetPPPLCPCompressionPField
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetPPPLCPCompressionPField;
+extern const CFStringRef kSCPropNetPPPLCPCompressionPField                  __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLCPCompressionPField kSCPropNetPPPLCPCompressionPField
 
 /*!
   @const kSCPropNetPPPLCPMRU
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPLCPMRU;
+extern const CFStringRef kSCPropNetPPPLCPMRU                                __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLCPMRU kSCPropNetPPPLCPMRU
 
 /*!
   @const kSCPropNetPPPLCPMTU
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPLCPMTU;
+extern const CFStringRef kSCPropNetPPPLCPMTU                                __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLCPMTU kSCPropNetPPPLCPMTU
 
 /*!
   @const kSCPropNetPPPLCPReceiveACCM
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPLCPReceiveACCM;
+extern const CFStringRef kSCPropNetPPPLCPReceiveACCM                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLCPReceiveACCM kSCPropNetPPPLCPReceiveACCM
 
 /*!
   @const kSCPropNetPPPLCPTransmitACCM
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetPPPLCPTransmitACCM;
+extern const CFStringRef kSCPropNetPPPLCPTransmitACCM                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetPPPLCPTransmitACCM kSCPropNetPPPLCPTransmitACCM
 
 /*!
   @group kSCEntNetPPPoE Entity Keys
@@ -1982,39 +2101,42 @@ extern const CFStringRef kSCPropNetPPPLCPTransmitACCM;
 
 /*!
   @const kSCPropNetL2TPIPSecSharedSecret
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetL2TPIPSecSharedSecret;
+extern const CFStringRef kSCPropNetL2TPIPSecSharedSecret                    __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetL2TPIPSecSharedSecret kSCPropNetL2TPIPSecSharedSecret
 
 /*!
   @const kSCPropNetL2TPIPSecSharedSecretEncryption
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetL2TPIPSecSharedSecretEncryption;
+extern const CFStringRef kSCPropNetL2TPIPSecSharedSecretEncryption          __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetL2TPIPSecSharedSecretEncryption kSCPropNetL2TPIPSecSharedSecretEncryption
 
 /*!
   @const kSCPropNetL2TPTransport
-  @availability Introduced in Mac OS X 10.3.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetL2TPTransport;
+extern const CFStringRef kSCPropNetL2TPTransport                            __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetL2TPTransport kSCPropNetL2TPTransport
 
 /*!
   @const kSCValNetL2TPIPSecSharedSecretEncryptionKeychain
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetL2TPIPSecSharedSecretEncryptionKeychain;
+extern const CFStringRef kSCValNetL2TPIPSecSharedSecretEncryptionKeychain   __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetL2TPIPSecSharedSecretEncryptionKeychain kSCValNetL2TPIPSecSharedSecretEncryptionKeychain
 
 /*!
   @const kSCValNetL2TPTransportIP
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetL2TPTransportIP;
+extern const CFStringRef kSCValNetL2TPTransportIP                           __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetL2TPTransportIP kSCValNetL2TPTransportIP
 
 /*!
   @const kSCValNetL2TPTransportIPSec
-  @availability Introduced in Mac OS X 10.3.
  */
-extern const CFStringRef kSCValNetL2TPTransportIPSec;
+extern const CFStringRef kSCValNetL2TPTransportIPSec                        __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+#define kSCValNetL2TPTransportIPSec kSCValNetL2TPTransportIPSec
 
 /*!
   @group kSCEntNetProxies Entity Keys
@@ -2022,153 +2144,178 @@ extern const CFStringRef kSCValNetL2TPTransportIPSec;
 
 /*!
   @const kSCPropNetProxiesExceptionsList
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetProxiesExceptionsList;
+extern const CFStringRef kSCPropNetProxiesExceptionsList                    __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesExceptionsList kSCPropNetProxiesExceptionsList
 
 /*!
   @const kSCPropNetProxiesExcludeSimpleHostnames
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetProxiesExcludeSimpleHostnames;
+extern const CFStringRef kSCPropNetProxiesExcludeSimpleHostnames            __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesExcludeSimpleHostnames kSCPropNetProxiesExcludeSimpleHostnames
 
 /*!
   @const kSCPropNetProxiesFTPEnable
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetProxiesFTPEnable;
+extern const CFStringRef kSCPropNetProxiesFTPEnable                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesFTPEnable kSCPropNetProxiesFTPEnable
 
 /*!
   @const kSCPropNetProxiesFTPPassive
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetProxiesFTPPassive;
+extern const CFStringRef kSCPropNetProxiesFTPPassive                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesFTPPassive kSCPropNetProxiesFTPPassive
 
 /*!
   @const kSCPropNetProxiesFTPPort
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetProxiesFTPPort;
+extern const CFStringRef kSCPropNetProxiesFTPPort                           __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesFTPPort kSCPropNetProxiesFTPPort
 
 /*!
   @const kSCPropNetProxiesFTPProxy
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetProxiesFTPProxy;
+extern const CFStringRef kSCPropNetProxiesFTPProxy                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesFTPProxy kSCPropNetProxiesFTPProxy
 
 /*!
   @const kSCPropNetProxiesGopherEnable
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetProxiesGopherEnable;
+extern const CFStringRef kSCPropNetProxiesGopherEnable                      __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesGopherEnable kSCPropNetProxiesGopherEnable
 
 /*!
   @const kSCPropNetProxiesGopherPort
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetProxiesGopherPort;
+extern const CFStringRef kSCPropNetProxiesGopherPort                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesGopherPort kSCPropNetProxiesGopherPort
 
 /*!
   @const kSCPropNetProxiesGopherProxy
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetProxiesGopherProxy;
+extern const CFStringRef kSCPropNetProxiesGopherProxy                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesGopherProxy kSCPropNetProxiesGopherProxy
 
 /*!
   @const kSCPropNetProxiesHTTPEnable
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetProxiesHTTPEnable;
+extern const CFStringRef kSCPropNetProxiesHTTPEnable                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesHTTPEnable kSCPropNetProxiesHTTPEnable
 
 /*!
   @const kSCPropNetProxiesHTTPPort
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetProxiesHTTPPort;
+extern const CFStringRef kSCPropNetProxiesHTTPPort                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesHTTPPort kSCPropNetProxiesHTTPPort
 
 /*!
   @const kSCPropNetProxiesHTTPProxy
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetProxiesHTTPProxy;
+extern const CFStringRef kSCPropNetProxiesHTTPProxy                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesHTTPProxy kSCPropNetProxiesHTTPProxy
 
 /*!
   @const kSCPropNetProxiesHTTPSEnable
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetProxiesHTTPSEnable;
+extern const CFStringRef kSCPropNetProxiesHTTPSEnable                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesHTTPSEnable kSCPropNetProxiesHTTPSEnable
 
 /*!
   @const kSCPropNetProxiesHTTPSPort
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetProxiesHTTPSPort;
+extern const CFStringRef kSCPropNetProxiesHTTPSPort                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesHTTPSPort kSCPropNetProxiesHTTPSPort
 
 /*!
   @const kSCPropNetProxiesHTTPSProxy
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetProxiesHTTPSProxy;
+extern const CFStringRef kSCPropNetProxiesHTTPSProxy                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesHTTPSProxy kSCPropNetProxiesHTTPSProxy
 
 /*!
   @const kSCPropNetProxiesRTSPEnable
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetProxiesRTSPEnable;
+extern const CFStringRef kSCPropNetProxiesRTSPEnable                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesRTSPEnable kSCPropNetProxiesRTSPEnable
 
 /*!
   @const kSCPropNetProxiesRTSPPort
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetProxiesRTSPPort;
+extern const CFStringRef kSCPropNetProxiesRTSPPort                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesRTSPPort kSCPropNetProxiesRTSPPort
 
 /*!
   @const kSCPropNetProxiesRTSPProxy
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetProxiesRTSPProxy;
+extern const CFStringRef kSCPropNetProxiesRTSPProxy                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesRTSPProxy kSCPropNetProxiesRTSPProxy
 
 /*!
   @const kSCPropNetProxiesSOCKSEnable
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetProxiesSOCKSEnable;
+extern const CFStringRef kSCPropNetProxiesSOCKSEnable                       __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesSOCKSEnable kSCPropNetProxiesSOCKSEnable
 
 /*!
   @const kSCPropNetProxiesSOCKSPort
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetProxiesSOCKSPort;
+extern const CFStringRef kSCPropNetProxiesSOCKSPort                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesSOCKSPort kSCPropNetProxiesSOCKSPort
 
 /*!
   @const kSCPropNetProxiesSOCKSProxy
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetProxiesSOCKSProxy;
+extern const CFStringRef kSCPropNetProxiesSOCKSProxy                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesSOCKSProxy kSCPropNetProxiesSOCKSProxy
 
 /*!
   @const kSCPropNetProxiesProxyAutoConfigEnable
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetProxiesProxyAutoConfigEnable;
+extern const CFStringRef kSCPropNetProxiesProxyAutoConfigEnable             __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesProxyAutoConfigEnable kSCPropNetProxiesProxyAutoConfigEnable
 
 /*!
   @const kSCPropNetProxiesProxyAutoConfigJavaScript
-  @availability Introduced in Mac OS X 10.7.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetProxiesProxyAutoConfigJavaScript;
+extern const CFStringRef kSCPropNetProxiesProxyAutoConfigJavaScript         __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/);
+#define kSCPropNetProxiesProxyAutoConfigJavaScript kSCPropNetProxiesProxyAutoConfigJavaScript
 
 /*!
   @const kSCPropNetProxiesProxyAutoConfigURLString
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetProxiesProxyAutoConfigURLString;
+extern const CFStringRef kSCPropNetProxiesProxyAutoConfigURLString          __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesProxyAutoConfigURLString kSCPropNetProxiesProxyAutoConfigURLString
 
 /*!
   @const kSCPropNetProxiesProxyAutoDiscoveryEnable
-  @availability Introduced in Mac OS X 10.4.
+  @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetProxiesProxyAutoDiscoveryEnable;
+extern const CFStringRef kSCPropNetProxiesProxyAutoDiscoveryEnable          __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetProxiesProxyAutoDiscoveryEnable kSCPropNetProxiesProxyAutoDiscoveryEnable
 
 /*!
   @group kSCEntNetSMB Entity Keys
@@ -2176,57 +2323,62 @@ extern const CFStringRef kSCPropNetProxiesProxyAutoDiscoveryEnable;
 
 /*!
   @const kSCPropNetSMBNetBIOSName
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetSMBNetBIOSName;
+extern const CFStringRef kSCPropNetSMBNetBIOSName                           __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetSMBNetBIOSName kSCPropNetSMBNetBIOSName
 
 /*!
   @const kSCPropNetSMBNetBIOSNodeType
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetSMBNetBIOSNodeType;
+extern const CFStringRef kSCPropNetSMBNetBIOSNodeType                       __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetSMBNetBIOSNodeType kSCPropNetSMBNetBIOSNodeType
 
 /*!
   @const kSCPropNetSMBNetBIOSScope
-  @availability Introduced in Mac OS X 10.5, but later deprecated in Mac OS X 10.7.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetSMBNetBIOSScope;
+extern const CFStringRef kSCPropNetSMBNetBIOSScope                          __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_5,__MAC_10_7,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropNetSMBNetBIOSScope kSCPropNetSMBNetBIOSScope
 
 /*!
   @const kSCPropNetSMBWINSAddresses
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetSMBWINSAddresses;
+extern const CFStringRef kSCPropNetSMBWINSAddresses                         __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetSMBWINSAddresses kSCPropNetSMBWINSAddresses
 
 /*!
   @const kSCPropNetSMBWorkgroup
-  @availability Introduced in Mac OS X 10.5.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropNetSMBWorkgroup;
+extern const CFStringRef kSCPropNetSMBWorkgroup                             __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCPropNetSMBWorkgroup kSCPropNetSMBWorkgroup
 
 /*!
   @const kSCValNetSMBNetBIOSNodeTypeBroadcast
-  @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetSMBNetBIOSNodeTypeBroadcast;
+extern const CFStringRef kSCValNetSMBNetBIOSNodeTypeBroadcast               __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCValNetSMBNetBIOSNodeTypeBroadcast kSCValNetSMBNetBIOSNodeTypeBroadcast
 
 /*!
   @const kSCValNetSMBNetBIOSNodeTypePeer
-  @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetSMBNetBIOSNodeTypePeer;
+extern const CFStringRef kSCValNetSMBNetBIOSNodeTypePeer                    __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCValNetSMBNetBIOSNodeTypePeer kSCValNetSMBNetBIOSNodeTypePeer
 
 /*!
   @const kSCValNetSMBNetBIOSNodeTypeMixed
-  @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetSMBNetBIOSNodeTypeMixed;
+extern const CFStringRef kSCValNetSMBNetBIOSNodeTypeMixed                   __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCValNetSMBNetBIOSNodeTypeMixed kSCValNetSMBNetBIOSNodeTypeMixed
 
 /*!
   @const kSCValNetSMBNetBIOSNodeTypeHybrid
-  @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetSMBNetBIOSNodeTypeHybrid;
+extern const CFStringRef kSCValNetSMBNetBIOSNodeTypeHybrid                  __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
+#define kSCValNetSMBNetBIOSNodeTypeHybrid kSCValNetSMBNetBIOSNodeTypeHybrid
 
 /*!
   @group kSCCompUsers Entity Keys
@@ -2234,9 +2386,9 @@ extern const CFStringRef kSCValNetSMBNetBIOSNodeTypeHybrid;
 
 /*!
   @const kSCEntUsersConsoleUser
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCEntUsersConsoleUser;
+extern const CFStringRef kSCEntUsersConsoleUser                             __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCEntUsersConsoleUser kSCEntUsersConsoleUser
 
 /*!
   @group kSCCompSystem Properties
@@ -2244,15 +2396,17 @@ extern const CFStringRef kSCEntUsersConsoleUser;
 
 /*!
   @const kSCPropSystemComputerName
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropSystemComputerName;
+extern const CFStringRef kSCPropSystemComputerName                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropSystemComputerName kSCPropSystemComputerName
 
 /*!
   @const kSCPropSystemComputerNameEncoding
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropSystemComputerNameEncoding;
+extern const CFStringRef kSCPropSystemComputerNameEncoding                  __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCPropSystemComputerNameEncoding kSCPropSystemComputerNameEncoding
 
 /*!
   @group SCDynamicStore "domain" prefixes
@@ -2260,33 +2414,33 @@ extern const CFStringRef kSCPropSystemComputerNameEncoding;
 
 /*!
   @const kSCDynamicStoreDomainFile
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCDynamicStoreDomainFile;
+extern const CFStringRef kSCDynamicStoreDomainFile                          __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStoreDomainFile kSCDynamicStoreDomainFile
 
 /*!
   @const kSCDynamicStoreDomainPlugin
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCDynamicStoreDomainPlugin;
+extern const CFStringRef kSCDynamicStoreDomainPlugin                        __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStoreDomainPlugin kSCDynamicStoreDomainPlugin
 
 /*!
   @const kSCDynamicStoreDomainSetup
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCDynamicStoreDomainSetup;
+extern const CFStringRef kSCDynamicStoreDomainSetup                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStoreDomainSetup kSCDynamicStoreDomainSetup
 
 /*!
   @const kSCDynamicStoreDomainState
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCDynamicStoreDomainState;
+extern const CFStringRef kSCDynamicStoreDomainState                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStoreDomainState kSCDynamicStoreDomainState
 
 /*!
   @const kSCDynamicStoreDomainPrefs
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCDynamicStoreDomainPrefs;
+extern const CFStringRef kSCDynamicStoreDomainPrefs                         __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStoreDomainPrefs kSCDynamicStoreDomainPrefs
 
 /*!
   @group Preference ("location") Keys
@@ -2294,15 +2448,16 @@ extern const CFStringRef kSCDynamicStoreDomainPrefs;
 
 /*!
   @const kSCDynamicStorePropSetupCurrentSet
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCDynamicStorePropSetupCurrentSet;
+extern const CFStringRef kSCDynamicStorePropSetupCurrentSet                 __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStorePropSetupCurrentSet kSCDynamicStorePropSetupCurrentSet
 
 /*!
   @const kSCDynamicStorePropSetupLastUpdated
-  @availability Introduced in Mac OS X 10.1.
  */
-extern const CFStringRef kSCDynamicStorePropSetupLastUpdated;
+extern const CFStringRef kSCDynamicStorePropSetupLastUpdated                __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStorePropSetupLastUpdated kSCDynamicStorePropSetupLastUpdated
 
 /*!
   @group Common/shared Keys
@@ -2310,1818 +2465,54 @@ extern const CFStringRef kSCDynamicStorePropSetupLastUpdated;
 
 /*!
   @const kSCDynamicStorePropNetInterfaces
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCDynamicStorePropNetInterfaces;
+extern const CFStringRef kSCDynamicStorePropNetInterfaces                   __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStorePropNetInterfaces kSCDynamicStorePropNetInterfaces
 
 /*!
   @const kSCDynamicStorePropNetPrimaryInterface
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCDynamicStorePropNetPrimaryInterface;
+extern const CFStringRef kSCDynamicStorePropNetPrimaryInterface             __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStorePropNetPrimaryInterface kSCDynamicStorePropNetPrimaryInterface
 
 /*!
   @const kSCDynamicStorePropNetPrimaryService
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCDynamicStorePropNetPrimaryService;
+extern const CFStringRef kSCDynamicStorePropNetPrimaryService               __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStorePropNetPrimaryService kSCDynamicStorePropNetPrimaryService
 
 /*!
   @const kSCDynamicStorePropNetServiceIDs
-  @availability Introduced in Mac OS X 10.1.
+  @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCDynamicStorePropNetServiceIDs;
+extern const CFStringRef kSCDynamicStorePropNetServiceIDs                   __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+#define kSCDynamicStorePropNetServiceIDs kSCDynamicStorePropNetServiceIDs
 
 /*!
   @const kSCPropUsersConsoleUserName
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.4.
+  @discussion Value is a CFString
  */
-extern const CFStringRef kSCPropUsersConsoleUserName;
+extern const CFStringRef kSCPropUsersConsoleUserName                        __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropUsersConsoleUserName kSCPropUsersConsoleUserName
 
 /*!
   @const kSCPropUsersConsoleUserUID
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.4.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropUsersConsoleUserUID;
+extern const CFStringRef kSCPropUsersConsoleUserUID                         __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropUsersConsoleUserUID kSCPropUsersConsoleUserUID
 
 /*!
   @const kSCPropUsersConsoleUserGID
-  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.4.
+  @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropUsersConsoleUserGID;
+extern const CFStringRef kSCPropUsersConsoleUserGID                         __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA);
+#define kSCPropUsersConsoleUserGID kSCPropUsersConsoleUserGID
 
-#endif	/* 0 */
-
-
-/* -------------------- Schema declarations -------------------- */
-
-#define	__AVAILABILITY_INTERNAL__IPHONE_2_0_DEP__IPHONE_FUTURE	__AVAILABILITY_INTERNAL__IPHONE_2_0/*SPI*/
-
-  SC_SCHEMA_DECLARATION(kSCResvLink, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCResvLink                                                   \
-	  SC_SCHEMA_KV(kSCResvLink                                      \
-		      ,"__LINK__"                                       \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCResvInactive, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCResvInactive                                               \
-	  SC_SCHEMA_KV(kSCResvInactive                                  \
-		      ,"__INACTIVE__"                                   \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCPropInterfaceName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropInterfaceName                                          \
-	  SC_SCHEMA_KV(kSCPropInterfaceName                             \
-		      ,"InterfaceName"                                  \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropMACAddress, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropMACAddress                                             \
-	  SC_SCHEMA_KV(kSCPropMACAddress                                \
-		      ,"MACAddress"                                     \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropUserDefinedName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropUserDefinedName                                        \
-	  SC_SCHEMA_KV(kSCPropUserDefinedName                           \
-		      ,"UserDefinedName"                                \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropVersion, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropVersion                                                \
-	  SC_SCHEMA_KV(kSCPropVersion                                   \
-		      ,"Version"                                        \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPrefCurrentSet, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPrefCurrentSet                                             \
-	  SC_SCHEMA_KV(kSCPrefCurrentSet                                \
-		      ,"CurrentSet"                                     \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPrefNetworkServices, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPrefNetworkServices                                        \
-	  SC_SCHEMA_KV(kSCPrefNetworkServices                           \
-		      ,"NetworkServices"                                \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCPrefSets, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPrefSets                                                   \
-	  SC_SCHEMA_KV(kSCPrefSets                                      \
-		      ,"Sets"                                           \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCPrefSystem, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPrefSystem                                                 \
-	  SC_SCHEMA_KV(kSCPrefSystem                                    \
-		      ,"System"                                         \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCCompNetwork, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCCompNetwork                                                \
-	  SC_SCHEMA_KV(kSCCompNetwork                                   \
-		      ,"Network"                                        \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCCompService, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCCompService                                                \
-	  SC_SCHEMA_KV(kSCCompService                                   \
-		      ,"Service"                                        \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCCompGlobal, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCCompGlobal                                                 \
-	  SC_SCHEMA_KV(kSCCompGlobal                                    \
-		      ,"Global"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCCompHostNames, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCCompHostNames                                              \
-	  SC_SCHEMA_KV(kSCCompHostNames                                 \
-		      ,"HostNames"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCCompInterface, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCCompInterface                                              \
-	  SC_SCHEMA_KV(kSCCompInterface                                 \
-		      ,"Interface"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCCompSystem, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCCompSystem                                                 \
-	  SC_SCHEMA_KV(kSCCompSystem                                    \
-		      ,"System"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCCompUsers, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCCompUsers                                                  \
-	  SC_SCHEMA_KV(kSCCompUsers                                     \
-		      ,"Users"                                          \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCCompAnyRegex, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCCompAnyRegex                                               \
-	  SC_SCHEMA_KV(kSCCompAnyRegex                                  \
-		      ,"[^/]+"                                          \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetAirPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetAirPort                                              \
-	  SC_SCHEMA_KV(kSCEntNetAirPort                                 \
-		      ,"AirPort"                                        \
-		      ,CFDictionary                                     )
-
-#if	!TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCEntNetAppleTalk, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCEntNetAppleTalk                                            \
-	  SC_SCHEMA_KV(kSCEntNetAppleTalk                               \
-		      ,"AppleTalk"                                      \
-		      ,CFDictionary                                     )
-
-#endif	// !TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCEntNetDHCP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetDHCP                                                 \
-	  SC_SCHEMA_KV(kSCEntNetDHCP                                    \
-		      ,"DHCP"                                           \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetDNS, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetDNS                                                  \
-	  SC_SCHEMA_KV(kSCEntNetDNS                                     \
-		      ,"DNS"                                            \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetEthernet, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetEthernet                                             \
-	  SC_SCHEMA_KV(kSCEntNetEthernet                                \
-		      ,"Ethernet"                                       \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetFireWire, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetFireWire                                             \
-	  SC_SCHEMA_KV(kSCEntNetFireWire                                \
-		      ,"FireWire"                                       \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetInterface, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetInterface                                            \
-	  SC_SCHEMA_KV(kSCEntNetInterface                               \
-		      ,"Interface"                                      \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetIPSec, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetIPSec                                                \
-	  SC_SCHEMA_KV(kSCEntNetIPSec                                   \
-		      ,"IPSec"                                          \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetIPv4, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetIPv4                                                 \
-	  SC_SCHEMA_KV(kSCEntNetIPv4                                    \
-		      ,"IPv4"                                           \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetIPv6, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetIPv6                                                 \
-	  SC_SCHEMA_KV(kSCEntNetIPv6                                    \
-		      ,"IPv6"                                           \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetL2TP, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetL2TP                                                 \
-	  SC_SCHEMA_KV(kSCEntNetL2TP                                    \
-		      ,"L2TP"                                           \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetLink, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetLink                                                 \
-	  SC_SCHEMA_KV(kSCEntNetLink                                    \
-		      ,"Link"                                           \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetModem, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetModem                                                \
-	  SC_SCHEMA_KV(kSCEntNetModem                                   \
-		      ,"Modem"                                          \
-		      ,CFDictionary                                     )
-
-#if	!TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCEntNetNetInfo, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
-  #define kSCEntNetNetInfo                                              \
-	  SC_SCHEMA_KV(kSCEntNetNetInfo                                 \
-		      ,"NetInfo"                                        \
-		      ,CFDictionary                                     )
-
-#endif	// !TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCEntNetPPP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetPPP                                                  \
-	  SC_SCHEMA_KV(kSCEntNetPPP                                     \
-		      ,"PPP"                                            \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetPPPoE, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetPPPoE                                                \
-	  SC_SCHEMA_KV(kSCEntNetPPPoE                                   \
-		      ,"PPPoE"                                          \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetPPPSerial, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetPPPSerial                                            \
-	  SC_SCHEMA_KV(kSCEntNetPPPSerial                               \
-		      ,"PPPSerial"                                      \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetPPTP, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetPPTP                                                 \
-	  SC_SCHEMA_KV(kSCEntNetPPTP                                    \
-		      ,"PPTP"                                           \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCEntNetProxies, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetProxies                                              \
-	  SC_SCHEMA_KV(kSCEntNetProxies                                 \
-		      ,"Proxies"                                        \
-		      ,CFDictionary                                     )
-
-#if	!TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCEntNetSMB, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNetSMB                                                  \
-	  SC_SCHEMA_KV(kSCEntNetSMB                                     \
-		      ,"SMB"                                            \
-		      ,CFDictionary                                     )
-
-#endif	// !TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCEntNet6to4, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCEntNet6to4                                                 \
-	  SC_SCHEMA_KV(kSCEntNet6to4                                    \
-		      ,"6to4"                                           \
-		      ,CFDictionary                                     )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetOverridePrimary, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetOverridePrimary                                     \
-	  SC_SCHEMA_KV(kSCPropNetOverridePrimary                        \
-		      ,"OverridePrimary"                                \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetServiceOrder, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetServiceOrder                                        \
-	  SC_SCHEMA_KV(kSCPropNetServiceOrder                           \
-		      ,"ServiceOrder"                                   \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPOverridePrimary, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPOverridePrimary                                  \
-	  SC_SCHEMA_KV(kSCPropNetPPPOverridePrimary                     \
-		      ,"PPPOverridePrimary"                             \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaces, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetInterfaces                                          \
-	  SC_SCHEMA_KV(kSCPropNetInterfaces                             \
-		      ,"Interfaces"                                     \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetLocalHostName, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetLocalHostName                                       \
-	  SC_SCHEMA_KV(kSCPropNetLocalHostName                          \
-		      ,"LocalHostName"                                  \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAllowNetCreation, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCPropNetAirPortAllowNetCreation                             \
-	  SC_SCHEMA_KV(kSCPropNetAirPortAllowNetCreation                \
-		      ,"AllowNetCreation"                               \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPassword, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCPropNetAirPortAuthPassword                                 \
-	  SC_SCHEMA_KV(kSCPropNetAirPortAuthPassword                    \
-		      ,"AuthPassword"                                   \
-		      ,CFData                                           )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPasswordEncryption, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCPropNetAirPortAuthPasswordEncryption                       \
-	  SC_SCHEMA_KV(kSCPropNetAirPortAuthPasswordEncryption          \
-		      ,"AuthPasswordEncryption"                         \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortJoinMode, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCPropNetAirPortJoinMode                                     \
-	  SC_SCHEMA_KV(kSCPropNetAirPortJoinMode                        \
-		      ,"JoinMode"                                       \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPowerEnabled, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCPropNetAirPortPowerEnabled                                 \
-	  SC_SCHEMA_KV(kSCPropNetAirPortPowerEnabled                    \
-		      ,"PowerEnabled"                                   \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPreferredNetwork, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCPropNetAirPortPreferredNetwork                             \
-	  SC_SCHEMA_KV(kSCPropNetAirPortPreferredNetwork                \
-		      ,"PreferredNetwork"                               \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortSavePasswords, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCPropNetAirPortSavePasswords                                \
-	  SC_SCHEMA_KV(kSCPropNetAirPortSavePasswords                   \
-		      ,"SavePasswords"                                  \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeAutomatic, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCValNetAirPortJoinModeAutomatic                             \
-	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeAutomatic                \
-		      ,"Automatic"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModePreferred, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCValNetAirPortJoinModePreferred                             \
-	  SC_SCHEMA_KV(kSCValNetAirPortJoinModePreferred                \
-		      ,"Preferred"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRanked, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCValNetAirPortJoinModeRanked                                \
-	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeRanked                   \
-		      ,"Ranked"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRecent, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCValNetAirPortJoinModeRecent                                \
-	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeRecent                   \
-		      ,"Recent"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeStrongest, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCValNetAirPortJoinModeStrongest                             \
-	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeStrongest                \
-		      ,"Strongest"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortAuthPasswordEncryptionKeychain, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
-  #define kSCValNetAirPortAuthPasswordEncryptionKeychain                \
-	  SC_SCHEMA_KV(kSCValNetAirPortAuthPasswordEncryptionKeychain   \
-		      ,"Keychain"                                       \
-		      ,                                                 )
-
-#if	!TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkComputerName, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetAppleTalkComputerName                               \
-	  SC_SCHEMA_KV(kSCPropNetAppleTalkComputerName                  \
-		      ,"ComputerName"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkComputerNameEncoding, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetAppleTalkComputerNameEncoding                       \
-	  SC_SCHEMA_KV(kSCPropNetAppleTalkComputerNameEncoding          \
-		      ,"ComputerNameEncoding"                           \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkConfigMethod, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetAppleTalkConfigMethod                               \
-	  SC_SCHEMA_KV(kSCPropNetAppleTalkConfigMethod                  \
-		      ,"ConfigMethod"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkDefaultZone, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetAppleTalkDefaultZone                                \
-	  SC_SCHEMA_KV(kSCPropNetAppleTalkDefaultZone                   \
-		      ,"DefaultZone"                                    \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNetworkID, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetAppleTalkNetworkID                                  \
-	  SC_SCHEMA_KV(kSCPropNetAppleTalkNetworkID                     \
-		      ,"NetworkID"                                      \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNetworkRange, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetAppleTalkNetworkRange                               \
-	  SC_SCHEMA_KV(kSCPropNetAppleTalkNetworkRange                  \
-		      ,"NetworkRange"                                   \
-		      ,CFArray[CFNumber]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNodeID, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetAppleTalkNodeID                                     \
-	  SC_SCHEMA_KV(kSCPropNetAppleTalkNodeID                        \
-		      ,"NodeID"                                         \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkSeedNetworkRange, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetAppleTalkSeedNetworkRange                           \
-	  SC_SCHEMA_KV(kSCPropNetAppleTalkSeedNetworkRange              \
-		      ,"SeedNetworkRange"                               \
-		      ,CFArray[CFNumber]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkSeedZones, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetAppleTalkSeedZones                                  \
-	  SC_SCHEMA_KV(kSCPropNetAppleTalkSeedZones                     \
-		      ,"SeedZones"                                      \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodNode, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCValNetAppleTalkConfigMethodNode                            \
-	  SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodNode               \
-		      ,"Node"                                           \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodRouter, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCValNetAppleTalkConfigMethodRouter                          \
-	  SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodRouter             \
-		      ,"Router"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodSeedRouter, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
-  #define kSCValNetAppleTalkConfigMethodSeedRouter                      \
-	  SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodSeedRouter         \
-		      ,"SeedRouter"                                     \
-		      ,                                                 )
-
-#endif	// !TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSDomainName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetDNSDomainName                                       \
-	  SC_SCHEMA_KV(kSCPropNetDNSDomainName                          \
-		      ,"DomainName"                                     \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSOptions, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetDNSOptions                                          \
-	  SC_SCHEMA_KV(kSCPropNetDNSOptions                             \
-		      ,"Options"                                        \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSSearchDomains, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetDNSSearchDomains                                    \
-	  SC_SCHEMA_KV(kSCPropNetDNSSearchDomains                       \
-		      ,"SearchDomains"                                  \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSSearchOrder, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetDNSSearchOrder                                      \
-	  SC_SCHEMA_KV(kSCPropNetDNSSearchOrder                         \
-		      ,"SearchOrder"                                    \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerAddresses, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetDNSServerAddresses                                  \
-	  SC_SCHEMA_KV(kSCPropNetDNSServerAddresses                     \
-		      ,"ServerAddresses"                                \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerPort, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetDNSServerPort                                       \
-	  SC_SCHEMA_KV(kSCPropNetDNSServerPort                          \
-		      ,"ServerPort"                                     \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerTimeout, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetDNSServerTimeout                                    \
-	  SC_SCHEMA_KV(kSCPropNetDNSServerTimeout                       \
-		      ,"ServerTimeout"                                  \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSSortList, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetDNSSortList                                         \
-	  SC_SCHEMA_KV(kSCPropNetDNSSortList                            \
-		      ,"SortList"                                       \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchDomains, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetDNSSupplementalMatchDomains                         \
-	  SC_SCHEMA_KV(kSCPropNetDNSSupplementalMatchDomains            \
-		      ,"SupplementalMatchDomains"                       \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchOrders, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetDNSSupplementalMatchOrders                          \
-	  SC_SCHEMA_KV(kSCPropNetDNSSupplementalMatchOrders             \
-		      ,"SupplementalMatchOrders"                        \
-		      ,CFArray[CFNumber]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMediaSubType, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetEthernetMediaSubType                                \
-	  SC_SCHEMA_KV(kSCPropNetEthernetMediaSubType                   \
-		      ,"MediaSubType"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMediaOptions, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetEthernetMediaOptions                                \
-	  SC_SCHEMA_KV(kSCPropNetEthernetMediaOptions                   \
-		      ,"MediaOptions"                                   \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMTU, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetEthernetMTU                                         \
-	  SC_SCHEMA_KV(kSCPropNetEthernetMTU                            \
-		      ,"MTU"                                            \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceDeviceName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetInterfaceDeviceName                                 \
-	  SC_SCHEMA_KV(kSCPropNetInterfaceDeviceName                    \
-		      ,"DeviceName"                                     \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceHardware, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetInterfaceHardware                                   \
-	  SC_SCHEMA_KV(kSCPropNetInterfaceHardware                      \
-		      ,"Hardware"                                       \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceType, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetInterfaceType                                       \
-	  SC_SCHEMA_KV(kSCPropNetInterfaceType                          \
-		      ,"Type"                                           \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceSubType, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetInterfaceSubType                                    \
-	  SC_SCHEMA_KV(kSCPropNetInterfaceSubType                       \
-		      ,"SubType"                                        \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceSupportsModemOnHold, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetInterfaceSupportsModemOnHold                        \
-	  SC_SCHEMA_KV(kSCPropNetInterfaceSupportsModemOnHold           \
-		      ,"SupportsModemOnHold"                            \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeEthernet, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetInterfaceTypeEthernet                                \
-	  SC_SCHEMA_KV(kSCValNetInterfaceTypeEthernet                   \
-		      ,"Ethernet"                                       \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeFireWire, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetInterfaceTypeFireWire                                \
-	  SC_SCHEMA_KV(kSCValNetInterfaceTypeFireWire                   \
-		      ,"FireWire"                                       \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypePPP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetInterfaceTypePPP                                     \
-	  SC_SCHEMA_KV(kSCValNetInterfaceTypePPP                        \
-		      ,"PPP"                                            \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceType6to4, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetInterfaceType6to4                                    \
-	  SC_SCHEMA_KV(kSCValNetInterfaceType6to4                       \
-		      ,"6to4"                                           \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeIPSec, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetInterfaceTypeIPSec                                   \
-	  SC_SCHEMA_KV(kSCValNetInterfaceTypeIPSec                      \
-		      ,"IPSec"                                          \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPPoE, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetInterfaceSubTypePPPoE                                \
-	  SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPPoE                   \
-		      ,"PPPoE"                                          \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPPSerial, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetInterfaceSubTypePPPSerial                            \
-	  SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPPSerial               \
-		      ,"PPPSerial"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPTP, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetInterfaceSubTypePPTP                                 \
-	  SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPTP                    \
-		      ,"PPTP"                                           \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypeL2TP, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetInterfaceSubTypeL2TP                                 \
-	  SC_SCHEMA_KV(kSCValNetInterfaceSubTypeL2TP                    \
-		      ,"L2TP"                                           \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecAuthenticationMethod, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecAuthenticationMethod                           \
-	  SC_SCHEMA_KV(kSCPropNetIPSecAuthenticationMethod              \
-		      ,"AuthenticationMethod"                           \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecLocalCertificate, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecLocalCertificate                               \
-	  SC_SCHEMA_KV(kSCPropNetIPSecLocalCertificate                  \
-		      ,"LocalCertificate"                               \
-		      ,CFData                                           )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecLocalIdentifier, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecLocalIdentifier                                \
-	  SC_SCHEMA_KV(kSCPropNetIPSecLocalIdentifier                   \
-		      ,"LocalIdentifier"                                \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecLocalIdentifierType, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecLocalIdentifierType                            \
-	  SC_SCHEMA_KV(kSCPropNetIPSecLocalIdentifierType               \
-		      ,"LocalIdentifierType"                            \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecSharedSecret, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecSharedSecret                                   \
-	  SC_SCHEMA_KV(kSCPropNetIPSecSharedSecret                      \
-		      ,"SharedSecret"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecSharedSecretEncryption, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecSharedSecretEncryption                         \
-	  SC_SCHEMA_KV(kSCPropNetIPSecSharedSecretEncryption            \
-		      ,"SharedSecretEncryption"                         \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecConnectTime, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecConnectTime                                    \
-	  SC_SCHEMA_KV(kSCPropNetIPSecConnectTime                       \
-		      ,"ConnectTime"                                    \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecRemoteAddress, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecRemoteAddress                                  \
-	  SC_SCHEMA_KV(kSCPropNetIPSecRemoteAddress                     \
-		      ,"RemoteAddress"                                  \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecStatus, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecStatus                                         \
-	  SC_SCHEMA_KV(kSCPropNetIPSecStatus                            \
-		      ,"Status"                                         \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecXAuthEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecXAuthEnabled                                   \
-	  SC_SCHEMA_KV(kSCPropNetIPSecXAuthEnabled                      \
-		      ,"XAuthEnabled"                                   \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecXAuthName, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecXAuthName                                      \
-	  SC_SCHEMA_KV(kSCPropNetIPSecXAuthName                         \
-		      ,"XAuthName"                                      \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecXAuthPassword, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecXAuthPassword                                  \
-	  SC_SCHEMA_KV(kSCPropNetIPSecXAuthPassword                     \
-		      ,"XAuthPassword"                                  \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecXAuthPasswordEncryption, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPSecXAuthPasswordEncryption                        \
-	  SC_SCHEMA_KV(kSCPropNetIPSecXAuthPasswordEncryption           \
-		      ,"XAuthPasswordEncryption"                        \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecAuthenticationMethodSharedSecret, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPSecAuthenticationMethodSharedSecret                \
-	  SC_SCHEMA_KV(kSCValNetIPSecAuthenticationMethodSharedSecret   \
-		      ,"SharedSecret"                                   \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecAuthenticationMethodCertificate, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPSecAuthenticationMethodCertificate                 \
-	  SC_SCHEMA_KV(kSCValNetIPSecAuthenticationMethodCertificate    \
-		      ,"Certificate"                                    \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecAuthenticationMethodHybrid, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPSecAuthenticationMethodHybrid                      \
-	  SC_SCHEMA_KV(kSCValNetIPSecAuthenticationMethodHybrid         \
-		      ,"Hybrid"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecLocalIdentifierTypeKeyID, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPSecLocalIdentifierTypeKeyID                        \
-	  SC_SCHEMA_KV(kSCValNetIPSecLocalIdentifierTypeKeyID           \
-		      ,"KeyID"                                          \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecSharedSecretEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPSecSharedSecretEncryptionKeychain                  \
-	  SC_SCHEMA_KV(kSCValNetIPSecSharedSecretEncryptionKeychain     \
-		      ,"Keychain"                                       \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecXAuthPasswordEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPSecXAuthPasswordEncryptionKeychain                 \
-	  SC_SCHEMA_KV(kSCValNetIPSecXAuthPasswordEncryptionKeychain    \
-		      ,"Keychain"                                       \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecXAuthPasswordEncryptionPrompt, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0/*SPI*/))
-  #define kSCValNetIPSecXAuthPasswordEncryptionPrompt                   \
-	  SC_SCHEMA_KV(kSCValNetIPSecXAuthPasswordEncryptionPrompt      \
-		      ,"Prompt"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4Addresses, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv4Addresses                                       \
-	  SC_SCHEMA_KV(kSCPropNetIPv4Addresses                          \
-		      ,"Addresses"                                      \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4ConfigMethod, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv4ConfigMethod                                    \
-	  SC_SCHEMA_KV(kSCPropNetIPv4ConfigMethod                       \
-		      ,"ConfigMethod"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4DHCPClientID, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv4DHCPClientID                                    \
-	  SC_SCHEMA_KV(kSCPropNetIPv4DHCPClientID                       \
-		      ,"DHCPClientID"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4Router, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv4Router                                          \
-	  SC_SCHEMA_KV(kSCPropNetIPv4Router                             \
-		      ,"Router"                                         \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4SubnetMasks, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv4SubnetMasks                                     \
-	  SC_SCHEMA_KV(kSCPropNetIPv4SubnetMasks                        \
-		      ,"SubnetMasks"                                    \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4DestAddresses, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv4DestAddresses                                   \
-	  SC_SCHEMA_KV(kSCPropNetIPv4DestAddresses                      \
-		      ,"DestAddresses"                                  \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4BroadcastAddresses, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv4BroadcastAddresses                              \
-	  SC_SCHEMA_KV(kSCPropNetIPv4BroadcastAddresses                 \
-		      ,"BroadcastAddresses"                             \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodAutomatic, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv4ConfigMethodAutomatic                            \
-	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodAutomatic               \
-		      ,"Automatic"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodBOOTP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv4ConfigMethodBOOTP                                \
-	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodBOOTP                   \
-		      ,"BOOTP"                                          \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodDHCP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv4ConfigMethodDHCP                                 \
-	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodDHCP                    \
-		      ,"DHCP"                                           \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodINFORM, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv4ConfigMethodINFORM                               \
-	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodINFORM                  \
-		      ,"INFORM"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodLinkLocal, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv4ConfigMethodLinkLocal                            \
-	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodLinkLocal               \
-		      ,"LinkLocal"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodManual, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv4ConfigMethodManual                               \
-	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodManual                  \
-		      ,"Manual"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodPPP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv4ConfigMethodPPP                                  \
-	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodPPP                     \
-		      ,"PPP"                                            \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Addresses, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv6Addresses                                       \
-	  SC_SCHEMA_KV(kSCPropNetIPv6Addresses                          \
-		      ,"Addresses"                                      \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6ConfigMethod, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv6ConfigMethod                                    \
-	  SC_SCHEMA_KV(kSCPropNetIPv6ConfigMethod                       \
-		      ,"ConfigMethod"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6DestAddresses, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv6DestAddresses                                   \
-	  SC_SCHEMA_KV(kSCPropNetIPv6DestAddresses                      \
-		      ,"DestAddresses"                                  \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Flags, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv6Flags                                           \
-	  SC_SCHEMA_KV(kSCPropNetIPv6Flags                              \
-		      ,"Flags"                                          \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6PrefixLength, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv6PrefixLength                                    \
-	  SC_SCHEMA_KV(kSCPropNetIPv6PrefixLength                       \
-		      ,"PrefixLength"                                   \
-		      ,CFArray[CFNumber]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Router, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetIPv6Router                                          \
-	  SC_SCHEMA_KV(kSCPropNetIPv6Router                             \
-		      ,"Router"                                         \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodAutomatic, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv6ConfigMethodAutomatic                            \
-	  SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodAutomatic               \
-		      ,"Automatic"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodLinkLocal, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/))
-  #define kSCValNetIPv6ConfigMethodLinkLocal                            \
-	  SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodLinkLocal               \
-		      ,"LinkLocal"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodManual, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv6ConfigMethodManual                               \
-	  SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodManual                  \
-		      ,"Manual"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodRouterAdvertisement, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv6ConfigMethodRouterAdvertisement                  \
-	  SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodRouterAdvertisement     \
-		      ,"RouterAdvertisement"                            \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethod6to4, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetIPv6ConfigMethod6to4                                 \
-	  SC_SCHEMA_KV(kSCValNetIPv6ConfigMethod6to4                    \
-		      ,"6to4"                                           \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCPropNet6to4Relay, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNet6to4Relay                                           \
-	  SC_SCHEMA_KV(kSCPropNet6to4Relay                              \
-		      ,"Relay"                                          \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetLinkActive, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetLinkActive                                          \
-	  SC_SCHEMA_KV(kSCPropNetLinkActive                             \
-		      ,"Active"                                         \
-		      ,CFBoolean                                        )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetLinkDetaching, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetLinkDetaching                                       \
-	  SC_SCHEMA_KV(kSCPropNetLinkDetaching                          \
-		      ,"Detaching"                                      \
-		      ,CFBoolean                                        )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemAccessPointName, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemAccessPointName                                \
-	  SC_SCHEMA_KV(kSCPropNetModemAccessPointName                   \
-		      ,"AccessPointName"                                \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectionPersonality, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemConnectionPersonality                          \
-	  SC_SCHEMA_KV(kSCPropNetModemConnectionPersonality             \
-		      ,"ConnectionPersonality"                          \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectionScript, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemConnectionScript                               \
-	  SC_SCHEMA_KV(kSCPropNetModemConnectionScript                  \
-		      ,"ConnectionScript"                               \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectSpeed, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemConnectSpeed                                   \
-	  SC_SCHEMA_KV(kSCPropNetModemConnectSpeed                      \
-		      ,"ConnectSpeed"                                   \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemDataCompression, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemDataCompression                                \
-	  SC_SCHEMA_KV(kSCPropNetModemDataCompression                   \
-		      ,"DataCompression"                                \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemDeviceContextID, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemDeviceContextID                                \
-	  SC_SCHEMA_KV(kSCPropNetModemDeviceContextID                   \
-		      ,"DeviceContextID"                                \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemDeviceModel, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemDeviceModel                                    \
-	  SC_SCHEMA_KV(kSCPropNetModemDeviceModel                       \
-		      ,"DeviceModel"                                    \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemDeviceVendor, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemDeviceVendor                                   \
-	  SC_SCHEMA_KV(kSCPropNetModemDeviceVendor                      \
-		      ,"DeviceVendor"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemDialMode, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemDialMode                                       \
-	  SC_SCHEMA_KV(kSCPropNetModemDialMode                          \
-		      ,"DialMode"                                       \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemErrorCorrection, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemErrorCorrection                                \
-	  SC_SCHEMA_KV(kSCPropNetModemErrorCorrection                   \
-		      ,"ErrorCorrection"                                \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldCallWaitingAudibleAlert, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemHoldCallWaitingAudibleAlert                    \
-	  SC_SCHEMA_KV(kSCPropNetModemHoldCallWaitingAudibleAlert       \
-		      ,"HoldCallWaitingAudibleAlert"                    \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldDisconnectOnAnswer, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemHoldDisconnectOnAnswer                         \
-	  SC_SCHEMA_KV(kSCPropNetModemHoldDisconnectOnAnswer            \
-		      ,"HoldDisconnectOnAnswer"                         \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemHoldEnabled                                    \
-	  SC_SCHEMA_KV(kSCPropNetModemHoldEnabled                       \
-		      ,"HoldEnabled"                                    \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldReminder, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemHoldReminder                                   \
-	  SC_SCHEMA_KV(kSCPropNetModemHoldReminder                      \
-		      ,"HoldReminder"                                   \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldReminderTime, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemHoldReminderTime                               \
-	  SC_SCHEMA_KV(kSCPropNetModemHoldReminderTime                  \
-		      ,"HoldReminderTime"                               \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemNote, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemNote                                           \
-	  SC_SCHEMA_KV(kSCPropNetModemNote                              \
-		      ,"Note"                                           \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemPulseDial, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemPulseDial                                      \
-	  SC_SCHEMA_KV(kSCPropNetModemPulseDial                         \
-		      ,"PulseDial"                                      \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemSpeaker, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemSpeaker                                        \
-	  SC_SCHEMA_KV(kSCPropNetModemSpeaker                           \
-		      ,"Speaker"                                        \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetModemSpeed, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetModemSpeed                                          \
-	  SC_SCHEMA_KV(kSCPropNetModemSpeed                             \
-		      ,"Speed"                                          \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeIgnoreDialTone, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetModemDialModeIgnoreDialTone                          \
-	  SC_SCHEMA_KV(kSCValNetModemDialModeIgnoreDialTone             \
-		      ,"IgnoreDialTone"                                 \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeManual, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetModemDialModeManual                                  \
-	  SC_SCHEMA_KV(kSCValNetModemDialModeManual                     \
-		      ,"Manual"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeWaitForDialTone, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetModemDialModeWaitForDialTone                         \
-	  SC_SCHEMA_KV(kSCValNetModemDialModeWaitForDialTone            \
-		      ,"WaitForDialTone"                                \
-		      ,                                                 )
-
-#if	!TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoBindingMethods, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetNetInfoBindingMethods                               \
-	  SC_SCHEMA_KV(kSCPropNetNetInfoBindingMethods                  \
-		      ,"BindingMethods"                                 \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoServerAddresses, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetNetInfoServerAddresses                              \
-	  SC_SCHEMA_KV(kSCPropNetNetInfoServerAddresses                 \
-		      ,"ServerAddresses"                                \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoServerTags, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetNetInfoServerTags                                   \
-	  SC_SCHEMA_KV(kSCPropNetNetInfoServerTags                      \
-		      ,"ServerTags"                                     \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoBroadcastServerTag, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetNetInfoBroadcastServerTag                           \
-	  SC_SCHEMA_KV(kSCPropNetNetInfoBroadcastServerTag              \
-		      ,"BroadcastServerTag"                             \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsBroadcast, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
-  #define kSCValNetNetInfoBindingMethodsBroadcast                       \
-	  SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsBroadcast          \
-		      ,"Broadcast"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsDHCP, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
-  #define kSCValNetNetInfoBindingMethodsDHCP                            \
-	  SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsDHCP               \
-		      ,"DHCP"                                           \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsManual, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
-  #define kSCValNetNetInfoBindingMethodsManual                          \
-	  SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsManual             \
-		      ,"Manual"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetNetInfoDefaultServerTag, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
-  #define kSCValNetNetInfoDefaultServerTag                              \
-	  SC_SCHEMA_KV(kSCValNetNetInfoDefaultServerTag                 \
-		      ,"network"                                        \
-		      ,                                                 )
-
-#endif	// !TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPACSPEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPACSPEnabled                                      \
-	  SC_SCHEMA_KV(kSCPropNetPPPACSPEnabled                         \
-		      ,"ACSPEnabled"                                    \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPConnectTime, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPConnectTime                                      \
-	  SC_SCHEMA_KV(kSCPropNetPPPConnectTime                         \
-		      ,"ConnectTime"                                    \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDeviceLastCause, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPDeviceLastCause                                  \
-	  SC_SCHEMA_KV(kSCPropNetPPPDeviceLastCause                     \
-		      ,"DeviceLastCause"                                \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDialOnDemand, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPDialOnDemand                                     \
-	  SC_SCHEMA_KV(kSCPropNetPPPDialOnDemand                        \
-		      ,"DialOnDemand"                                   \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnFastUserSwitch, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPDisconnectOnFastUserSwitch                       \
-	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnFastUserSwitch          \
-		      ,"DisconnectOnFastUserSwitch"                     \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnIdle, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPDisconnectOnIdle                                 \
-	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnIdle                    \
-		      ,"DisconnectOnIdle"                               \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnIdleTimer, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPDisconnectOnIdleTimer                            \
-	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnIdleTimer               \
-		      ,"DisconnectOnIdleTimer"                          \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnLogout, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPDisconnectOnLogout                               \
-	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnLogout                  \
-		      ,"DisconnectOnLogout"                             \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnSleep, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPDisconnectOnSleep                                \
-	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnSleep                   \
-		      ,"DisconnectOnSleep"                              \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectTime, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPDisconnectTime                                   \
-	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectTime                      \
-		      ,"DisconnectTime"                                 \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPIdleReminderTimer, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPIdleReminderTimer                                \
-	  SC_SCHEMA_KV(kSCPropNetPPPIdleReminderTimer                   \
-		      ,"IdleReminderTimer"                              \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPIdleReminder, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPIdleReminder                                     \
-	  SC_SCHEMA_KV(kSCPropNetPPPIdleReminder                        \
-		      ,"IdleReminder"                                   \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLastCause, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLastCause                                        \
-	  SC_SCHEMA_KV(kSCPropNetPPPLastCause                           \
-		      ,"LastCause"                                      \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLogfile, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLogfile                                          \
-	  SC_SCHEMA_KV(kSCPropNetPPPLogfile                             \
-		      ,"Logfile"                                        \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPPlugins, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPPlugins                                          \
-	  SC_SCHEMA_KV(kSCPropNetPPPPlugins                             \
-		      ,"Plugins"                                        \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPRetryConnectTime, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPRetryConnectTime                                 \
-	  SC_SCHEMA_KV(kSCPropNetPPPRetryConnectTime                    \
-		      ,"RetryConnectTime"                               \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPSessionTimer, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPSessionTimer                                     \
-	  SC_SCHEMA_KV(kSCPropNetPPPSessionTimer                        \
-		      ,"SessionTimer"                                   \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPStatus, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPStatus                                           \
-	  SC_SCHEMA_KV(kSCPropNetPPPStatus                              \
-		      ,"Status"                                         \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPUseSessionTimer, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPUseSessionTimer                                  \
-	  SC_SCHEMA_KV(kSCPropNetPPPUseSessionTimer                     \
-		      ,"UseSessionTimer"                                \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPVerboseLogging, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPVerboseLogging                                   \
-	  SC_SCHEMA_KV(kSCPropNetPPPVerboseLogging                      \
-		      ,"VerboseLogging"                                 \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthEAPPlugins, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPAuthEAPPlugins                                   \
-	  SC_SCHEMA_KV(kSCPropNetPPPAuthEAPPlugins                      \
-		      ,"AuthEAPPlugins"                                 \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPAuthName                                         \
-	  SC_SCHEMA_KV(kSCPropNetPPPAuthName                            \
-		      ,"AuthName"                                       \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPassword, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPAuthPassword                                     \
-	  SC_SCHEMA_KV(kSCPropNetPPPAuthPassword                        \
-		      ,"AuthPassword"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPasswordEncryption, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPAuthPasswordEncryption                           \
-	  SC_SCHEMA_KV(kSCPropNetPPPAuthPasswordEncryption              \
-		      ,"AuthPasswordEncryption"                         \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPrompt, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPAuthPrompt                                       \
-	  SC_SCHEMA_KV(kSCPropNetPPPAuthPrompt                          \
-		      ,"AuthPrompt"                                     \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthProtocol, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPAuthProtocol                                     \
-	  SC_SCHEMA_KV(kSCPropNetPPPAuthProtocol                        \
-		      ,"AuthProtocol"                                   \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPasswordEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetPPPAuthPasswordEncryptionKeychain                    \
-	  SC_SCHEMA_KV(kSCValNetPPPAuthPasswordEncryptionKeychain       \
-		      ,"Keychain"                                       \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPasswordEncryptionToken, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetPPPAuthPasswordEncryptionToken                       \
-	  SC_SCHEMA_KV(kSCValNetPPPAuthPasswordEncryptionToken          \
-		      ,"Token"                                          \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPromptBefore, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetPPPAuthPromptBefore                                  \
-	  SC_SCHEMA_KV(kSCValNetPPPAuthPromptBefore                     \
-		      ,"Before"                                         \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPromptAfter, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetPPPAuthPromptAfter                                   \
-	  SC_SCHEMA_KV(kSCValNetPPPAuthPromptAfter                      \
-		      ,"After"                                          \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolCHAP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetPPPAuthProtocolCHAP                                  \
-	  SC_SCHEMA_KV(kSCValNetPPPAuthProtocolCHAP                     \
-		      ,"CHAP"                                           \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolEAP, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetPPPAuthProtocolEAP                                   \
-	  SC_SCHEMA_KV(kSCValNetPPPAuthProtocolEAP                      \
-		      ,"EAP"                                            \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolMSCHAP1, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetPPPAuthProtocolMSCHAP1                               \
-	  SC_SCHEMA_KV(kSCValNetPPPAuthProtocolMSCHAP1                  \
-		      ,"MSCHAP1"                                        \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolMSCHAP2, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetPPPAuthProtocolMSCHAP2                               \
-	  SC_SCHEMA_KV(kSCValNetPPPAuthProtocolMSCHAP2                  \
-		      ,"MSCHAP2"                                        \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolPAP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetPPPAuthProtocolPAP                                   \
-	  SC_SCHEMA_KV(kSCValNetPPPAuthProtocolPAP                      \
-		      ,"PAP"                                            \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommAlternateRemoteAddress, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCommAlternateRemoteAddress                       \
-	  SC_SCHEMA_KV(kSCPropNetPPPCommAlternateRemoteAddress          \
-		      ,"CommAlternateRemoteAddress"                     \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommConnectDelay, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCommConnectDelay                                 \
-	  SC_SCHEMA_KV(kSCPropNetPPPCommConnectDelay                    \
-		      ,"CommConnectDelay"                               \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommDisplayTerminalWindow, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCommDisplayTerminalWindow                        \
-	  SC_SCHEMA_KV(kSCPropNetPPPCommDisplayTerminalWindow           \
-		      ,"CommDisplayTerminalWindow"                      \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialCount, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCommRedialCount                                  \
-	  SC_SCHEMA_KV(kSCPropNetPPPCommRedialCount                     \
-		      ,"CommRedialCount"                                \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCommRedialEnabled                                \
-	  SC_SCHEMA_KV(kSCPropNetPPPCommRedialEnabled                   \
-		      ,"CommRedialEnabled"                              \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialInterval, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCommRedialInterval                               \
-	  SC_SCHEMA_KV(kSCPropNetPPPCommRedialInterval                  \
-		      ,"CommRedialInterval"                             \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRemoteAddress, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCommRemoteAddress                                \
-	  SC_SCHEMA_KV(kSCPropNetPPPCommRemoteAddress                   \
-		      ,"CommRemoteAddress"                              \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommTerminalScript, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCommTerminalScript                               \
-	  SC_SCHEMA_KV(kSCPropNetPPPCommTerminalScript                  \
-		      ,"CommTerminalScript"                             \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommUseTerminalScript, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCommUseTerminalScript                            \
-	  SC_SCHEMA_KV(kSCPropNetPPPCommUseTerminalScript               \
-		      ,"CommUseTerminalScript"                          \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCCPEnabled                                       \
-	  SC_SCHEMA_KV(kSCPropNetPPPCCPEnabled                          \
-		      ,"CCPEnabled"                                     \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPMPPE40Enabled, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCCPMPPE40Enabled                                 \
-	  SC_SCHEMA_KV(kSCPropNetPPPCCPMPPE40Enabled                    \
-		      ,"CCPMPPE40Enabled"                               \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPMPPE128Enabled, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPCCPMPPE128Enabled                                \
-	  SC_SCHEMA_KV(kSCPropNetPPPCCPMPPE128Enabled                   \
-		      ,"CCPMPPE128Enabled"                              \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPIPCPCompressionVJ, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPIPCPCompressionVJ                                \
-	  SC_SCHEMA_KV(kSCPropNetPPPIPCPCompressionVJ                   \
-		      ,"IPCPCompressionVJ"                              \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPIPCPUsePeerDNS, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPIPCPUsePeerDNS                                   \
-	  SC_SCHEMA_KV(kSCPropNetPPPIPCPUsePeerDNS                      \
-		      ,"IPCPUsePeerDNS"                                 \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLCPEchoEnabled                                   \
-	  SC_SCHEMA_KV(kSCPropNetPPPLCPEchoEnabled                      \
-		      ,"LCPEchoEnabled"                                 \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoFailure, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLCPEchoFailure                                   \
-	  SC_SCHEMA_KV(kSCPropNetPPPLCPEchoFailure                      \
-		      ,"LCPEchoFailure"                                 \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoInterval, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLCPEchoInterval                                  \
-	  SC_SCHEMA_KV(kSCPropNetPPPLCPEchoInterval                     \
-		      ,"LCPEchoInterval"                                \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPCompressionACField, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLCPCompressionACField                            \
-	  SC_SCHEMA_KV(kSCPropNetPPPLCPCompressionACField               \
-		      ,"LCPCompressionACField"                          \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPCompressionPField, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLCPCompressionPField                             \
-	  SC_SCHEMA_KV(kSCPropNetPPPLCPCompressionPField                \
-		      ,"LCPCompressionPField"                           \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPMRU, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLCPMRU                                           \
-	  SC_SCHEMA_KV(kSCPropNetPPPLCPMRU                              \
-		      ,"LCPMRU"                                         \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPMTU, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLCPMTU                                           \
-	  SC_SCHEMA_KV(kSCPropNetPPPLCPMTU                              \
-		      ,"LCPMTU"                                         \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPReceiveACCM, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLCPReceiveACCM                                   \
-	  SC_SCHEMA_KV(kSCPropNetPPPLCPReceiveACCM                      \
-		      ,"LCPReceiveACCM"                                 \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPTransmitACCM, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetPPPLCPTransmitACCM                                  \
-	  SC_SCHEMA_KV(kSCPropNetPPPLCPTransmitACCM                     \
-		      ,"LCPTransmitACCM"                                \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetL2TPIPSecSharedSecret, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetL2TPIPSecSharedSecret                               \
-	  SC_SCHEMA_KV(kSCPropNetL2TPIPSecSharedSecret                  \
-		      ,"IPSecSharedSecret"                              \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetL2TPIPSecSharedSecretEncryption, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetL2TPIPSecSharedSecretEncryption                     \
-	  SC_SCHEMA_KV(kSCPropNetL2TPIPSecSharedSecretEncryption        \
-		      ,"IPSecSharedSecretEncryption"                    \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetL2TPTransport, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetL2TPTransport                                       \
-	  SC_SCHEMA_KV(kSCPropNetL2TPTransport                          \
-		      ,"Transport"                                      \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetL2TPIPSecSharedSecretEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetL2TPIPSecSharedSecretEncryptionKeychain              \
-	  SC_SCHEMA_KV(kSCValNetL2TPIPSecSharedSecretEncryptionKeychain \
-		      ,"Keychain"                                       \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetL2TPTransportIP, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetL2TPTransportIP                                      \
-	  SC_SCHEMA_KV(kSCValNetL2TPTransportIP                         \
-		      ,"IP"                                             \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetL2TPTransportIPSec, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetL2TPTransportIPSec                                   \
-	  SC_SCHEMA_KV(kSCValNetL2TPTransportIPSec                      \
-		      ,"IPSec"                                          \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesExceptionsList, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesExceptionsList                               \
-	  SC_SCHEMA_KV(kSCPropNetProxiesExceptionsList                  \
-		      ,"ExceptionsList"                                 \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesExcludeSimpleHostnames, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesExcludeSimpleHostnames                       \
-	  SC_SCHEMA_KV(kSCPropNetProxiesExcludeSimpleHostnames          \
-		      ,"ExcludeSimpleHostnames"                         \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesFTPEnable                                    \
-	  SC_SCHEMA_KV(kSCPropNetProxiesFTPEnable                       \
-		      ,"FTPEnable"                                      \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPPassive, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesFTPPassive                                   \
-	  SC_SCHEMA_KV(kSCPropNetProxiesFTPPassive                      \
-		      ,"FTPPassive"                                     \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesFTPPort                                      \
-	  SC_SCHEMA_KV(kSCPropNetProxiesFTPPort                         \
-		      ,"FTPPort"                                        \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesFTPProxy                                     \
-	  SC_SCHEMA_KV(kSCPropNetProxiesFTPProxy                        \
-		      ,"FTPProxy"                                       \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesGopherEnable                                 \
-	  SC_SCHEMA_KV(kSCPropNetProxiesGopherEnable                    \
-		      ,"GopherEnable"                                   \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesGopherPort                                   \
-	  SC_SCHEMA_KV(kSCPropNetProxiesGopherPort                      \
-		      ,"GopherPort"                                     \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesGopherProxy                                  \
-	  SC_SCHEMA_KV(kSCPropNetProxiesGopherProxy                     \
-		      ,"GopherProxy"                                    \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesHTTPEnable                                   \
-	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPEnable                      \
-		      ,"HTTPEnable"                                     \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesHTTPPort                                     \
-	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPPort                        \
-		      ,"HTTPPort"                                       \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesHTTPProxy                                    \
-	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPProxy                       \
-		      ,"HTTPProxy"                                      \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesHTTPSEnable                                  \
-	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPSEnable                     \
-		      ,"HTTPSEnable"                                    \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesHTTPSPort                                    \
-	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPSPort                       \
-		      ,"HTTPSPort"                                      \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesHTTPSProxy                                   \
-	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPSProxy                      \
-		      ,"HTTPSProxy"                                     \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesRTSPEnable                                   \
-	  SC_SCHEMA_KV(kSCPropNetProxiesRTSPEnable                      \
-		      ,"RTSPEnable"                                     \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesRTSPPort                                     \
-	  SC_SCHEMA_KV(kSCPropNetProxiesRTSPPort                        \
-		      ,"RTSPPort"                                       \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesRTSPProxy                                    \
-	  SC_SCHEMA_KV(kSCPropNetProxiesRTSPProxy                       \
-		      ,"RTSPProxy"                                      \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesSOCKSEnable                                  \
-	  SC_SCHEMA_KV(kSCPropNetProxiesSOCKSEnable                     \
-		      ,"SOCKSEnable"                                    \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesSOCKSPort                                    \
-	  SC_SCHEMA_KV(kSCPropNetProxiesSOCKSPort                       \
-		      ,"SOCKSPort"                                      \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesSOCKSProxy                                   \
-	  SC_SCHEMA_KV(kSCPropNetProxiesSOCKSProxy                      \
-		      ,"SOCKSProxy"                                     \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigEnable, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesProxyAutoConfigEnable                        \
-	  SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoConfigEnable           \
-		      ,"ProxyAutoConfigEnable"                          \
-		      ,CFNumber (0 or 1)                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigJavaScript, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/))
-  #define kSCPropNetProxiesProxyAutoConfigJavaScript                    \
-	  SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoConfigJavaScript       \
-		      ,"ProxyAutoConfigJavaScript"                      \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigURLString, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesProxyAutoConfigURLString                     \
-	  SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoConfigURLString        \
-		      ,"ProxyAutoConfigURLString"                       \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoDiscoveryEnable, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetProxiesProxyAutoDiscoveryEnable                     \
-	  SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoDiscoveryEnable        \
-		      ,"ProxyAutoDiscoveryEnable"                       \
-		      ,CFNumber (0 or 1)                                )
-
-#if	!TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCPropNetSMBNetBIOSName, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetSMBNetBIOSName                                      \
-	  SC_SCHEMA_KV(kSCPropNetSMBNetBIOSName                         \
-		      ,"NetBIOSName"                                    \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetSMBNetBIOSNodeType, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetSMBNetBIOSNodeType                                  \
-	  SC_SCHEMA_KV(kSCPropNetSMBNetBIOSNodeType                     \
-		      ,"NetBIOSNodeType"                                \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetSMBNetBIOSScope, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_5,__MAC_10_7,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropNetSMBNetBIOSScope                                     \
-	  SC_SCHEMA_KV(kSCPropNetSMBNetBIOSScope                        \
-		      ,"NetBIOSScope"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetSMBWINSAddresses, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetSMBWINSAddresses                                    \
-	  SC_SCHEMA_KV(kSCPropNetSMBWINSAddresses                       \
-		      ,"WINSAddresses"                                  \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCPropNetSMBWorkgroup, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCPropNetSMBWorkgroup                                        \
-	  SC_SCHEMA_KV(kSCPropNetSMBWorkgroup                           \
-		      ,"Workgroup"                                      \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypeBroadcast, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetSMBNetBIOSNodeTypeBroadcast                          \
-	  SC_SCHEMA_KV(kSCValNetSMBNetBIOSNodeTypeBroadcast             \
-		      ,"Broadcast"                                      \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypePeer, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetSMBNetBIOSNodeTypePeer                               \
-	  SC_SCHEMA_KV(kSCValNetSMBNetBIOSNodeTypePeer                  \
-		      ,"Peer"                                           \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypeMixed, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetSMBNetBIOSNodeTypeMixed                              \
-	  SC_SCHEMA_KV(kSCValNetSMBNetBIOSNodeTypeMixed                 \
-		      ,"Mixed"                                          \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypeHybrid, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
-  #define kSCValNetSMBNetBIOSNodeTypeHybrid                             \
-	  SC_SCHEMA_KV(kSCValNetSMBNetBIOSNodeTypeHybrid                \
-		      ,"Hybrid"                                         \
-		      ,                                                 )
-
-#endif	// !TARGET_OS_IPHONE
-
-#if	!TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCEntUsersConsoleUser, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCEntUsersConsoleUser                                        \
-	  SC_SCHEMA_KV(kSCEntUsersConsoleUser                           \
-		      ,"ConsoleUser"                                    \
-		      ,                                                 )
-
-#endif	// !TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCPropSystemComputerName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropSystemComputerName                                     \
-	  SC_SCHEMA_KV(kSCPropSystemComputerName                        \
-		      ,"ComputerName"                                   \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropSystemComputerNameEncoding, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCPropSystemComputerNameEncoding                             \
-	  SC_SCHEMA_KV(kSCPropSystemComputerNameEncoding                \
-		      ,"ComputerNameEncoding"                           \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainFile, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStoreDomainFile                                     \
-	  SC_SCHEMA_KV(kSCDynamicStoreDomainFile                        \
-		      ,"File:"                                          \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainPlugin, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStoreDomainPlugin                                   \
-	  SC_SCHEMA_KV(kSCDynamicStoreDomainPlugin                      \
-		      ,"Plugin:"                                        \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainSetup, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStoreDomainSetup                                    \
-	  SC_SCHEMA_KV(kSCDynamicStoreDomainSetup                       \
-		      ,"Setup:"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainState, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStoreDomainState                                    \
-	  SC_SCHEMA_KV(kSCDynamicStoreDomainState                       \
-		      ,"State:"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainPrefs, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStoreDomainPrefs                                    \
-	  SC_SCHEMA_KV(kSCDynamicStoreDomainPrefs                       \
-		      ,"Prefs:"                                         \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropSetupCurrentSet, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStorePropSetupCurrentSet                            \
-	  SC_SCHEMA_KV(kSCDynamicStorePropSetupCurrentSet               \
-		      ,"CurrentSet"                                     \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropSetupLastUpdated, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStorePropSetupLastUpdated                           \
-	  SC_SCHEMA_KV(kSCDynamicStorePropSetupLastUpdated              \
-		      ,"LastUpdated"                                    \
-		      ,                                                 )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetInterfaces, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStorePropNetInterfaces                              \
-	  SC_SCHEMA_KV(kSCDynamicStorePropNetInterfaces                 \
-		      ,"Interfaces"                                     \
-		      ,CFArray[CFString]                                )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetPrimaryInterface, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStorePropNetPrimaryInterface                        \
-	  SC_SCHEMA_KV(kSCDynamicStorePropNetPrimaryInterface           \
-		      ,"PrimaryInterface"                               \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetPrimaryService, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStorePropNetPrimaryService                          \
-	  SC_SCHEMA_KV(kSCDynamicStorePropNetPrimaryService             \
-		      ,"PrimaryService"                                 \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetServiceIDs, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
-  #define kSCDynamicStorePropNetServiceIDs                              \
-	  SC_SCHEMA_KV(kSCDynamicStorePropNetServiceIDs                 \
-		      ,"ServiceIDs"                                     \
-		      ,CFArray[CFString]                                )
-
-#if	!TARGET_OS_IPHONE
-
-  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserName, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropUsersConsoleUserName                                   \
-	  SC_SCHEMA_KV(kSCPropUsersConsoleUserName                      \
-		      ,"Name"                                           \
-		      ,CFString                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserUID, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropUsersConsoleUserUID                                    \
-	  SC_SCHEMA_KV(kSCPropUsersConsoleUserUID                       \
-		      ,"UID"                                            \
-		      ,CFNumber                                         )
-
-  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserGID, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA))
-  #define kSCPropUsersConsoleUserGID                                    \
-	  SC_SCHEMA_KV(kSCPropUsersConsoleUserGID                       \
-		      ,"GID"                                            \
-		      ,CFNumber                                         )
-
-#endif	// !TARGET_OS_IPHONE
+CF_ASSUME_NONNULL_END
 
 #endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #endif	/* _SCSCHEMADEFINITIONS_H */

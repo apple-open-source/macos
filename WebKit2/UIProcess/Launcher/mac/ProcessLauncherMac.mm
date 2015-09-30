@@ -28,12 +28,13 @@
 
 #import "DynamicLinkerEnvironmentExtractor.h"
 #import "EnvironmentVariables.h"
-#import "WebKitSystemInterface.h"
+#import <WebCore/CFBundleSPI.h>
+#import <WebCore/ServersSPI.h>
 #import <WebCore/SoftLinking.h>
+#import <WebCore/WebCoreNSStringExtras.h>
 #import <crt_externs.h>
 #import <mach-o/dyld.h>
 #import <mach/machine.h>
-#import <servers/bootstrap.h>
 #import <spawn.h>
 #import <sys/param.h>
 #import <sys/stat.h>
@@ -41,37 +42,18 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/RunLoop.h>
 #import <wtf/Threading.h>
+#import <wtf/spi/darwin/XPCSPI.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
-#import <xpc/xpc.h>
-
-#if __has_include(<xpc/private.h>)
-#import <xpc/private.h>
-#endif
-
-// FIXME: We should be doing this another way.
-extern "C" kern_return_t bootstrap_register2(mach_port_t, name_t, mach_port_t, uint64_t);
-
-extern "C" void xpc_connection_set_instance(xpc_connection_t, uuid_t);
-extern "C" void xpc_dictionary_set_mach_send(xpc_object_t, const char*, mach_port_t);
-
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 10100
-extern "C" void xpc_connection_set_bootstrap(xpc_connection_t connection, xpc_object_t bootstrap);
-
-// FIXME: Soft linking is temporary, make this into a regular function call once this function is available everywhere we need.
-SOFT_LINK_FRAMEWORK(CoreFoundation)
-SOFT_LINK_OPTIONAL(CoreFoundation, _CFBundleSetupXPCBootstrap, void, unused, (xpc_object_t))
-
-#endif
 
 namespace WebKit {
 
 namespace {
 
 struct UUIDHolder : public RefCounted<UUIDHolder> {
-    static PassRefPtr<UUIDHolder> create()
+    static Ref<UUIDHolder> create()
     {
-        return adoptRef(new UUIDHolder);
+        return adoptRef(*new UUIDHolder);
     }
 
     UUIDHolder()
@@ -98,6 +80,51 @@ static void setUpTerminationNotificationHandler(pid_t pid)
     dispatch_resume(processDiedSource);
 }
 
+#if ASAN_ENABLED
+static const char* copyASanDynamicLibraryPath()
+{
+    uint32_t imageCount = _dyld_image_count();
+    for (uint32_t i = 0; i < imageCount; ++i) {
+        if (strstr(_dyld_get_image_name(i), "/libclang_rt.asan_"))
+            return fastStrDup(_dyld_get_image_name(i));
+    }
+
+    return 0;
+}
+#endif
+
+#if PLATFORM(MAC)
+static RetainPtr<NSString> computeProcessShimPath(const ProcessLauncher::LaunchOptions& launchOptions, NSBundle *webKitBundle)
+{
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    if (launchOptions.processType == ProcessLauncher::PluginProcess) {
+        NSString *processPath = [webKitBundle pathForAuxiliaryExecutable:@"PluginProcess.app"];
+        NSString *processAppExecutablePath = [[NSBundle bundleWithPath:processPath] executablePath];
+
+        return [[processAppExecutablePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"PluginProcessShim.dylib"];
+    }
+#endif
+
+#if ENABLE(NETWORK_PROCESS)
+    if (launchOptions.processType == ProcessLauncher::NetworkProcess) {
+        NSString *processPath = [webKitBundle pathForAuxiliaryExecutable:@"NetworkProcess.app"];
+        NSString *processAppExecutablePath = [[NSBundle bundleWithPath:processPath] executablePath];
+
+        return [[processAppExecutablePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"SecItemShim.dylib"];
+    }
+#endif
+
+    if (launchOptions.processType == ProcessLauncher::WebProcess) {
+        NSString *processPath = [webKitBundle pathForAuxiliaryExecutable:@"WebProcess.app"];
+        NSString *processAppExecutablePath = [[NSBundle bundleWithPath:processPath] executablePath];
+
+        return [[processAppExecutablePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"WebProcessShim.dylib"];
+    }
+
+    return nil;
+}
+#endif
+
 static void addDYLDEnvironmentAdditions(const ProcessLauncher::LaunchOptions& launchOptions, bool isWebKitDevelopmentBuild, EnvironmentVariables& environmentVariables)
 {
     DynamicLinkerEnvironmentExtractor environmentExtractor([[NSBundle mainBundle] executablePath], _NSGetMachExecuteHeader()->cputype);
@@ -112,38 +139,23 @@ static void addDYLDEnvironmentAdditions(const ProcessLauncher::LaunchOptions& la
     if (isWebKitDevelopmentBuild)
         environmentVariables.appendValue("DYLD_FRAMEWORK_PATH", [frameworksPath fileSystemRepresentation], ':');
 
-    NSString *processShimPathNSString = nil;
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    if (launchOptions.processType == ProcessLauncher::PluginProcess) {
-        NSString *processPath = [webKitBundle pathForAuxiliaryExecutable:@"PluginProcess.app"];
-        NSString *processAppExecutablePath = [[NSBundle bundleWithPath:processPath] executablePath];
+#if ASAN_ENABLED
+    static const char* asanLibraryPath = copyASanDynamicLibraryPath();
+    ASSERT(asanLibraryPath); // ASan runtime library was not found in the current process. This code may need to be updated if the library name has changed.
+    // ASan doesn't require this library to be inserted, but it otherwise automatically performs a re-exec, making the child process stop in a debugger on launch one extra time.
+    if (asanLibraryPath)
+        environmentVariables.appendValue("DYLD_INSERT_LIBRARIES", asanLibraryPath, ':');
+#endif
 
-        processShimPathNSString = [[processAppExecutablePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"PluginProcessShim.dylib"];
-    } else
-#endif // ENABLE(NETSCAPE_PLUGIN_API)
-#if ENABLE(NETWORK_PROCESS)
-    if (launchOptions.processType == ProcessLauncher::NetworkProcess) {
-        NSString *processPath = [webKitBundle pathForAuxiliaryExecutable:@"NetworkProcess.app"];
-        NSString *processAppExecutablePath = [[NSBundle bundleWithPath:processPath] executablePath];
-
-        processShimPathNSString = [[processAppExecutablePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"SecItemShim.dylib"];
-    } else
-#endif // ENABLE(NETWORK_PROCESS)
-    if (launchOptions.processType == ProcessLauncher::WebProcess) {
-        NSString *processPath = [webKitBundle pathForAuxiliaryExecutable:@"WebProcess.app"];
-        NSString *processAppExecutablePath = [[NSBundle bundleWithPath:processPath] executablePath];
-
-        processShimPathNSString = [[processAppExecutablePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"WebProcessShim.dylib"];
-    }
-
-    // Make sure that the shim library file exists and insert it.
-    if (processShimPathNSString) {
-        const char* processShimPath = [processShimPathNSString fileSystemRepresentation];
+#if PLATFORM(MAC)
+    if (auto shimPath = computeProcessShimPath(launchOptions, webKitBundle)) {
+        // Make sure that the shim library file exists and insert it.
+        const char* processShimPath = [shimPath fileSystemRepresentation];
         struct stat statBuf;
         if (stat(processShimPath, &statBuf) == 0 && (statBuf.st_mode & S_IFMT) == S_IFREG)
             environmentVariables.appendValue("DYLD_INSERT_LIBRARIES", processShimPath, ':');
     }
-
+#endif
 }
 
 typedef void (ProcessLauncher::*DidFinishLaunchingProcessFunction)(PlatformProcessIdentifier, IPC::Connection::Identifier);
@@ -169,14 +181,18 @@ static const char* serviceName(const ProcessLauncher::LaunchOptions& launchOptio
 #endif
 #if ENABLE(NETSCAPE_PLUGIN_API)
     case ProcessLauncher::PluginProcess:
-        if (forDevelopment)
-            return "com.apple.WebKit.Plugin.Development";
-
         // FIXME: Support plugins that require an executable heap.
-        if (launchOptions.architecture == CPU_TYPE_X86)
-            return "com.apple.WebKit.Plugin.32";
-        if (launchOptions.architecture == CPU_TYPE_X86_64)
-            return "com.apple.WebKit.Plugin.64";
+        if (forDevelopment) {
+            if (launchOptions.architecture == CPU_TYPE_X86)
+                return "com.apple.WebKit.Plugin.32.Development";
+            if (launchOptions.architecture == CPU_TYPE_X86_64)
+                return "com.apple.WebKit.Plugin.64.Development";
+        } else {
+            if (launchOptions.architecture == CPU_TYPE_X86)
+                return "com.apple.WebKit.Plugin.32";
+            if (launchOptions.architecture == CPU_TYPE_X86_64)
+                return "com.apple.WebKit.Plugin.64";
+        }
 
         ASSERT_NOT_REACHED();
         return 0;
@@ -202,20 +218,32 @@ static bool shouldLeakBoost(const ProcessLauncher::LaunchOptions& launchOptions)
 static void connectToService(const ProcessLauncher::LaunchOptions& launchOptions, bool forDevelopment, ProcessLauncher* that, DidFinishLaunchingProcessFunction didFinishLaunchingProcessFunction, UUIDHolder* instanceUUID)
 {
     // Create a connection to the WebKit XPC service.
-    auto connection = IPC::adoptXPC(xpc_connection_create(serviceName(launchOptions, forDevelopment), 0));
+    auto connection = adoptOSObject(xpc_connection_create(serviceName(launchOptions, forDevelopment), 0));
+#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    xpc_connection_set_oneshot_instance(connection.get(), instanceUUID->uuid);
+#else
     xpc_connection_set_instance(connection.get(), instanceUUID->uuid);
+#endif
 
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 10100
+#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
     // Inherit UI process localization. It can be different from child process default localization:
     // 1. When the application and system frameworks simply have different localized resources available, we should match the application.
     // 1.1. An important case is WebKitTestRunner, where we should use English localizations for all system frameworks.
     // 2. When AppleLanguages is passed as command line argument for UI process, or set in its preferences, we should respect it in child processes.
-    RetainPtr<CFStringRef> localization = adoptCF(WKCopyCFLocalizationPreferredName(0));
-    if (localization && _CFBundleSetupXPCBootstrapPtr()) {
-        auto initializationMessage = IPC::adoptXPC(xpc_dictionary_create(nullptr, nullptr, 0));
-        _CFBundleSetupXPCBootstrapPtr()(initializationMessage.get());
-        xpc_connection_set_bootstrap(connection.get(), initializationMessage.get());
-    }
+    auto initializationMessage = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
+    _CFBundleSetupXPCBootstrap(initializationMessage.get());
+#if PLATFORM(IOS)
+    // Clients that set these environment variables explicitly do not have the values automatically forwarded by libxpc.
+    auto containerEnvironmentVariables = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
+    if (const char* environmentHOME = getenv("HOME"))
+        xpc_dictionary_set_string(containerEnvironmentVariables.get(), "HOME", environmentHOME);
+    if (const char* environmentCFFIXED_USER_HOME = getenv("CFFIXED_USER_HOME"))
+        xpc_dictionary_set_string(containerEnvironmentVariables.get(), "CFFIXED_USER_HOME", environmentCFFIXED_USER_HOME);
+    if (const char* environmentTMPDIR = getenv("TMPDIR"))
+        xpc_dictionary_set_string(containerEnvironmentVariables.get(), "TMPDIR", environmentTMPDIR);
+    xpc_dictionary_set_value(initializationMessage.get(), "ContainerEnvironmentVariables", containerEnvironmentVariables.get());
+#endif
+    xpc_connection_set_bootstrap(connection.get(), initializationMessage.get());
 #endif
 
     // XPC requires having an event handler, even if it is not used.
@@ -223,7 +251,7 @@ static void connectToService(const ProcessLauncher::LaunchOptions& launchOptions
     xpc_connection_resume(connection.get());
     
     if (shouldLeakBoost(launchOptions)) {
-        auto preBootstrapMessage = IPC::adoptXPC(xpc_dictionary_create(nullptr, nullptr, 0));
+        auto preBootstrapMessage = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
         xpc_dictionary_set_string(preBootstrapMessage.get(), "message-name", "pre-bootstrap");
         xpc_connection_send_message(connection.get(), preBootstrapMessage.get());
     }
@@ -239,10 +267,13 @@ static void connectToService(const ProcessLauncher::LaunchOptions& launchOptions
     CString clientIdentifier = bundleIdentifier ? String([[NSBundle mainBundle] bundleIdentifier]).utf8() : *_NSGetProgname();
 
     // FIXME: Switch to xpc_connection_set_bootstrap once it's available everywhere we need.
-    auto bootstrapMessage = IPC::adoptXPC(xpc_dictionary_create(nullptr, nullptr, 0));
+    auto bootstrapMessage = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
     xpc_dictionary_set_string(bootstrapMessage.get(), "message-name", "bootstrap");
     xpc_dictionary_set_string(bootstrapMessage.get(), "framework-executable-path", [[[NSBundle bundleWithIdentifier:@"com.apple.WebKit"] executablePath] fileSystemRepresentation]);
+
     xpc_dictionary_set_mach_send(bootstrapMessage.get(), "server-port", listeningPort);
+    mach_port_deallocate(mach_task_self(), listeningPort);
+
     xpc_dictionary_set_string(bootstrapMessage.get(), "client-identifier", clientIdentifier.data());
     xpc_dictionary_set_string(bootstrapMessage.get(), "ui-process-name", [[[NSProcessInfo processInfo] processName] UTF8String]);
 
@@ -251,7 +282,7 @@ static void connectToService(const ProcessLauncher::LaunchOptions& launchOptions
         xpc_dictionary_set_fd(bootstrapMessage.get(), "stderr", STDERR_FILENO);
     }
 
-    auto extraInitializationData = IPC::adoptXPC(xpc_dictionary_create(nullptr, nullptr, 0));
+    auto extraInitializationData = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
 
     for (const auto& keyValuePair : launchOptions.extraInitializationData)
         xpc_dictionary_set_string(extraInitializationData.get(), keyValuePair.key.utf8().data(), keyValuePair.value.utf8().data());
@@ -269,7 +300,10 @@ static void connectToService(const ProcessLauncher::LaunchOptions& launchOptions
             // And the receive right.
             mach_port_mod_refs(mach_task_self(), listeningPort, MACH_PORT_RIGHT_RECEIVE, -1);
 
-            RunLoop::main().dispatch(bind(didFinishLaunchingProcessFunction, that, 0, IPC::Connection::Identifier()));
+            RefPtr<ProcessLauncher> protector(that);
+            RunLoop::main().dispatch([protector, didFinishLaunchingProcessFunction] {
+                (*protector.*didFinishLaunchingProcessFunction)(0, IPC::Connection::Identifier());
+            });
         } else {
             ASSERT(type == XPC_TYPE_DICTIONARY);
             ASSERT(!strcmp(xpc_dictionary_get_string(reply, "message-name"), "process-finished-launching"));
@@ -278,7 +312,10 @@ static void connectToService(const ProcessLauncher::LaunchOptions& launchOptions
             pid_t processIdentifier = xpc_connection_get_pid(connection.get());
 
             // We've finished launching the process, message back to the main run loop. This takes ownership of the connection.
-            RunLoop::main().dispatch(bind(didFinishLaunchingProcessFunction, that, processIdentifier, IPC::Connection::Identifier(listeningPort, connection)));
+            RefPtr<ProcessLauncher> protector(that);
+            RunLoop::main().dispatch([protector, didFinishLaunchingProcessFunction, processIdentifier, listeningPort, connection] {
+                (*protector.*didFinishLaunchingProcessFunction)(processIdentifier, IPC::Connection::Identifier(listeningPort, connection));
+            });
         }
 
         that->deref();
@@ -297,14 +334,17 @@ static void connectToReExecService(const ProcessLauncher::LaunchOptions& launchO
     }
 #endif
 
-    // Generate the uuid for the service instance we are about to create.
     // FIXME: This UUID should be stored on the ChildProcessProxy.
     RefPtr<UUIDHolder> instanceUUID = UUIDHolder::create();
 
-    // FIXME: It would be nice if we could use XPCPtr for this connection as well, but we'd have to be careful
+    // FIXME: It would be nice if we could use OSObjectPtr for this connection as well, but we'd have to be careful
     // not to introduce any retain cycles in the call to xpc_connection_set_event_handler below.
     xpc_connection_t reExecConnection = xpc_connection_create(serviceName(launchOptions, true), 0);
+#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+    xpc_connection_set_oneshot_instance(reExecConnection, instanceUUID->uuid);
+#else
     xpc_connection_set_instance(reExecConnection, instanceUUID->uuid);
+#endif
 
     // Keep the ProcessLauncher alive while we do the re-execing (balanced in event handler).
     that->ref();
@@ -328,9 +368,6 @@ static void connectToReExecService(const ProcessLauncher::LaunchOptions& launchO
     xpc_object_t reExecMessage = xpc_dictionary_create(0, 0, 0);
     xpc_dictionary_set_string(reExecMessage, "message-name", "re-exec");
 
-    cpu_type_t architecture = launchOptions.architecture == ProcessLauncher::LaunchOptions::MatchCurrentArchitecture ? _NSGetMachExecuteHeader()->cputype : launchOptions.architecture;
-    xpc_dictionary_set_uint64(reExecMessage, "architecture", (uint64_t)architecture);
-    
     xpc_object_t environment = xpc_array_create(0, 0);
     char** environmentPointer = environmentVariables.environmentPointer();
     Vector<CString> temps;
@@ -404,7 +441,10 @@ static bool tryPreexistingProcess(const ProcessLauncher::LaunchOptions& launchOp
     }
     
     // We've finished launching the process, message back to the main run loop.
-    RunLoop::main().dispatch(bind(didFinishLaunchingProcessFunction, that, processIdentifier, IPC::Connection::Identifier(listeningPort)));
+    RefPtr<ProcessLauncher> protector(that);
+    RunLoop::main().dispatch([protector, didFinishLaunchingProcessFunction, processIdentifier, listeningPort] {
+        (*protector.*didFinishLaunchingProcessFunction)(processIdentifier, IPC::Connection::Identifier(listeningPort));
+    });
     return true;
 }
 
@@ -457,7 +497,7 @@ static void createProcess(const ProcessLauncher::LaunchOptions& launchOptions, b
     // 1. When the application and system frameworks simply have different localized resources available, we should match the application.
     // 1.1. An important case is WebKitTestRunner, where we should use English localizations for all system frameworks.
     // 2. When AppleLanguages is passed as command line argument for UI process, or set in its preferences, we should respect it in child processes.
-    CString appleLanguagesArgument = String("('" + String(adoptCF(WKCopyCFLocalizationPreferredName(0)).get()) + "')").utf8();
+    CString appleLanguagesArgument = String("('" + String(preferredBundleLocalizationName()) + "')").utf8();
 
     Vector<const char*> args;
     args.append([processAppExecutablePath fileSystemRepresentation]);
@@ -489,9 +529,12 @@ static void createProcess(const ProcessLauncher::LaunchOptions& launchOptions, b
 
     args.append(nullptr);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     // Register ourselves.
     kern_return_t kr = bootstrap_register2(bootstrap_port, const_cast<char*>(serviceName.data()), listeningPort, 0);
     ASSERT_UNUSED(kr, kr == KERN_SUCCESS);
+#pragma clang diagnostic pop
 
     posix_spawnattr_t attr;
     posix_spawnattr_init(&attr);
@@ -544,7 +587,10 @@ static void createProcess(const ProcessLauncher::LaunchOptions& launchOptions, b
     }
 
     // We've finished launching the process, message back to the main run loop.
-    RunLoop::main().dispatch(bind(didFinishLaunchingProcessFunction, that, processIdentifier, IPC::Connection::Identifier(listeningPort)));
+    RefPtr<ProcessLauncher> protector(that);
+    RunLoop::main().dispatch([protector, didFinishLaunchingProcessFunction, processIdentifier, listeningPort] {
+        (*protector.*didFinishLaunchingProcessFunction)(processIdentifier, IPC::Connection::Identifier(listeningPort));
+    });
 }
 
 static NSString *systemDirectoryPath()

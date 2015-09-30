@@ -39,10 +39,13 @@ namespace WebCore {
 class InlineTextBox;
 class RenderText;
 class RenderTextFragment;
+namespace SimpleLineLayout {
+class RunResolver;
+}
 
-String plainText(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior, bool isDisplayString = false);
-String plainTextReplacingNoBreakSpace(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior, bool isDisplayString = false);
-PassRefPtr<Range> findPlainText(const Range&, const String&, FindOptions);
+WEBCORE_EXPORT String plainText(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior, bool isDisplayString = false);
+WEBCORE_EXPORT String plainTextReplacingNoBreakSpace(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior, bool isDisplayString = false);
+Ref<Range> findPlainText(const Range&, const String&, FindOptions);
 
 // FIXME: Move this somewhere else in the editing directory. It doesn't belong here.
 bool isRendererReplacedElement(RenderObject*);
@@ -93,23 +96,23 @@ private:
 
 class TextIterator {
 public:
-    explicit TextIterator(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior);
-    ~TextIterator();
+    WEBCORE_EXPORT explicit TextIterator(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior);
+    WEBCORE_EXPORT ~TextIterator();
 
     bool atEnd() const { return !m_positionNode; }
-    void advance();
+    WEBCORE_EXPORT void advance();
 
     StringView text() const { ASSERT(!atEnd()); return m_text; }
-    PassRefPtr<Range> range() const;
-    Node* node() const;
+    WEBCORE_EXPORT Ref<Range> range() const;
+    WEBCORE_EXPORT Node* node() const;
 
     const TextIteratorCopyableText& copyableText() const { ASSERT(!atEnd()); return m_copyableText; }
     void appendTextToStringBuilder(StringBuilder& builder) const { copyableText().appendToStringBuilder(builder); }
 
-    static int rangeLength(const Range*, bool spacesForReplacedElements = false);
-    static PassRefPtr<Range> rangeFromLocationAndLength(ContainerNode* scope, int rangeLocation, int rangeLength, bool spacesForReplacedElements = false);
-    static bool getLocationAndLengthFromRange(Node* scope, const Range*, size_t& location, size_t& length);
-    static PassRefPtr<Range> subrange(Range* entireRange, int characterOffset, int characterCount);
+    WEBCORE_EXPORT static int rangeLength(const Range*, bool spacesForReplacedElements = false);
+    WEBCORE_EXPORT static RefPtr<Range> rangeFromLocationAndLength(ContainerNode* scope, int rangeLocation, int rangeLength, bool spacesForReplacedElements = false);
+    WEBCORE_EXPORT static bool getLocationAndLengthFromRange(Node* scope, const Range*, size_t& location, size_t& length);
+    WEBCORE_EXPORT static Ref<Range> subrange(Range* entireRange, int characterOffset, int characterCount);
 
 private:
     void exitNode();
@@ -163,6 +166,12 @@ private:
     bool m_lastTextNodeEndedWithCollapsedSpace;
     UChar m_lastCharacter;
 
+    // Used to do simple line layout run logic.
+    bool m_nextRunNeedsWhitespace { false };
+    unsigned m_accumulatedSimpleTextLengthInFlow { 0 };
+    Text* m_previousSimpleTextNodeInFlow { nullptr };
+    std::unique_ptr<SimpleLineLayout::RunResolver> m_flowRunResolverCache;
+
     // Used when text boxes are out of order (Hebrew/Arabic with embedded LTR text)
     Vector<InlineTextBox*> m_sortedTextBoxes;
     size_t m_sortedTextBoxesPosition;
@@ -185,7 +194,7 @@ public:
     void advance();
 
     StringView text() const { ASSERT(!atEnd()); return m_text; }
-    PassRefPtr<Range> range() const;
+    WEBCORE_EXPORT Ref<Range> range() const;
     Node* node() const { ASSERT(!atEnd()); return m_node; }
 
 private:
@@ -240,7 +249,7 @@ public:
     void advance(int numCharacters);
     
     StringView text() const { return m_underlyingIterator.text().substring(m_runOffset); }
-    PassRefPtr<Range> range() const;
+    Ref<Range> range() const;
 
     bool atBreak() const { return m_atBreak; }
     int characterOffset() const { return m_offset; }
@@ -260,7 +269,7 @@ public:
     bool atEnd() const { return m_underlyingIterator.atEnd(); }
     void advance(int numCharacters);
 
-    PassRefPtr<Range> range() const;
+    Ref<Range> range() const;
 
 private:
     SimplifiedBackwardsTextIterator m_underlyingIterator;

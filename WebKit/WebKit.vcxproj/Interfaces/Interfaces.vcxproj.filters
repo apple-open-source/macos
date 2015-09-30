@@ -46,9 +46,6 @@
     <Midl Include="..\..\win\Interfaces\IWebCache.idl">
       <Filter>IDL</Filter>
     </Midl>
-    <Midl Include="..\..\win\Interfaces\IWebCookieManager.idl">
-      <Filter>IDL</Filter>
-    </Midl>
     <Midl Include="..\..\win\Interfaces\IWebCoreStatistics.idl">
       <Filter>IDL</Filter>
     </Midl>
@@ -279,6 +276,9 @@
     </Midl>
     <Midl Include="..\..\win\Interfaces\Accessible2\AccessibleEditableText.idl">
       <Filter>IDL\Accessibility2</Filter>
+    </Midl>
+    <Midl Include="..\..\win\Interfaces\IWebApplicationCache.idl">
+      <Filter>IDL</Filter>
     </Midl>
   </ItemGroup>
   <ItemGroup>

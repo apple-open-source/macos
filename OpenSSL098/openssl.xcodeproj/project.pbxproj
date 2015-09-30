@@ -1980,7 +1980,7 @@
 		1CF791EB0F79A16300F27DA5 /* Copy Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/include/openssl;
+			dstPath = /usr/local/include/openssl;
 			dstSubfolderSpec = 0;
 			files = (
 				1CCA91E10F9909F90085FF5E /* x509v3.h in Copy Headers */,
@@ -2055,7 +2055,7 @@
 		1CF791EC0F79A16300F27DA5 /* Copy Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/include/openssl/;
+			dstPath = /usr/local/include/openssl;
 			dstSubfolderSpec = 0;
 			files = (
 				1C6C3BFC0F783AE6005DE0AD /* dtls1.h in Copy Headers */,
@@ -5818,7 +5818,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}\"/bin/deprecate-prototypes.pl \"${DSTROOT}/usr/include\"\n";
+			shellScript = "\"${SRCROOT}\"/bin/deprecate-prototypes.pl \"${DSTROOT}/usr/local/include\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

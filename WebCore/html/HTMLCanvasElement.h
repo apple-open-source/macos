@@ -63,8 +63,8 @@ public:
 
 class HTMLCanvasElement final : public HTMLElement {
 public:
-    static PassRefPtr<HTMLCanvasElement> create(Document&);
-    static PassRefPtr<HTMLCanvasElement> create(const QualifiedName&, Document&);
+    static Ref<HTMLCanvasElement> create(Document&);
+    static Ref<HTMLCanvasElement> create(const QualifiedName&, Document&);
     virtual ~HTMLCanvasElement();
 
     void addObserver(CanvasObserver&);
@@ -81,7 +81,7 @@ public:
 
     void setSize(const IntSize& newSize)
     { 
-        if (newSize == size() && targetDeviceScaleFactor() == m_deviceScaleFactor)
+        if (newSize == size())
             return;
         m_ignoreReset = true; 
         setWidth(newSize.width());
@@ -115,7 +115,7 @@ public:
     ImageBuffer* buffer() const;
     Image* copiedImage() const;
     void clearCopiedImage();
-    PassRefPtr<ImageData> getImageData();
+    RefPtr<ImageData> getImageData();
     void makePresentationCopy();
     void clearPresentationCopy();
 
@@ -135,21 +135,18 @@ public:
 
     bool shouldAccelerate(const IntSize&) const;
 
-    float deviceScaleFactor() const { return m_deviceScaleFactor; }
+    size_t memoryCost() const;
 
 private:
     HTMLCanvasElement(const QualifiedName&, Document&);
 
     virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual RenderPtr<RenderElement> createElementRenderer(PassRef<RenderStyle>) override;
-    virtual void willAttachRenderers() override;
+    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
 
     virtual bool canContainRangeEndPoint() const override;
     virtual bool canStartSelection() const override;
 
     void reset();
-
-    float targetDeviceScaleFactor() const;
 
     void createImageBuffer() const;
     void clearImageBuffer() const;
@@ -173,7 +170,6 @@ private:
     bool m_ignoreReset;
     FloatRect m_dirtyRect;
 
-    float m_deviceScaleFactor;
     bool m_originClean;
 
     // m_createdImageBuffer means we tried to malloc the buffer.  We didn't necessarily get it.
@@ -185,8 +181,6 @@ private:
     mutable RefPtr<Image> m_presentedImage;
     mutable RefPtr<Image> m_copiedImage; // FIXME: This is temporary for platforms that have to copy the image buffer to render (and for CSSCanvasValue).
 };
-
-NODE_TYPE_CASTS(HTMLCanvasElement)
 
 } //namespace
 

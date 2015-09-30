@@ -32,7 +32,7 @@
 
 namespace WebCore {
 
-CSSMediaRule::CSSMediaRule(StyleRuleMedia* mediaRule, CSSStyleSheet* parent)
+CSSMediaRule::CSSMediaRule(StyleRuleMedia& mediaRule, CSSStyleSheet* parent)
     : CSSGroupingRule(mediaRule, parent)
 {
 }
@@ -45,13 +45,13 @@ CSSMediaRule::~CSSMediaRule()
 
 MediaQuerySet* CSSMediaRule::mediaQueries() const
 {
-    return toStyleRuleMedia(m_groupRule.get())->mediaQueries();
+    return downcast<StyleRuleMedia>(m_groupRule.get()).mediaQueries();
 }
 
 String CSSMediaRule::cssText() const
 {
     StringBuilder result;
-    result.append("@media ");
+    result.appendLiteral("@media ");
     if (mediaQueries()) {
         result.append(mediaQueries()->mediaText());
         result.append(' ');
@@ -71,7 +71,7 @@ MediaList* CSSMediaRule::media() const
     return m_mediaCSSOMWrapper.get();
 }
 
-void CSSMediaRule::reattach(StyleRuleBase* rule)
+void CSSMediaRule::reattach(StyleRuleBase& rule)
 {
     CSSGroupingRule::reattach(rule);
     if (m_mediaCSSOMWrapper && mediaQueries())

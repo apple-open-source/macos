@@ -34,10 +34,13 @@
 #import "InteractionInformationAtPosition.h"
 #import "NativeWebKeyboardEvent.h"
 #import "NavigationState.h"
-#import "TextIndicator.h"
+#import "UIKitSPI.h"
 #import "ViewSnapshotStore.h"
 #import "WKContentView.h"
 #import "WKContentViewInteraction.h"
+#import "WKGeolocationProviderIOS.h"
+#import "WKProcessPoolInternal.h"
+#import "WKViewPrivate.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewContentProviderRegistry.h"
 #import "WKWebViewInternal.h"
@@ -45,19 +48,12 @@
 #import "WebEditCommandProxy.h"
 #import "WebProcessProxy.h"
 #import "_WKDownloadInternal.h"
-#import <UIKit/UIImagePickerController_Private.h>
-#import <UIKit/UIWebTouchEventsGestureRecognizer.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/SharedBuffer.h>
+#import <WebCore/TextIndicator.h>
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, m_webView->_page->process().connection())
-
-@interface UIView (IPI)
-- (UIScrollView *)_scroller;
-- (CGPoint)accessibilityConvertPointFromSceneReferenceCoordinates:(CGPoint)point;
-- (CGRect)accessibilityConvertRectToSceneReferenceCoordinates:(CGRect)rect;
-@end
 
 using namespace WebCore;
 using namespace WebKit;
@@ -115,6 +111,15 @@ namespace WebKit {
 PageClientImpl::PageClientImpl(WKContentView *contentView, WKWebView *webView)
     : m_contentView(contentView)
     , m_webView(webView)
+    , m_wkView(nil)
+    , m_undoTarget(adoptNS([[WKEditorUndoTargetObjC alloc] init]))
+{
+}
+
+PageClientImpl::PageClientImpl(WKContentView *contentView, WKView *wkView)
+    : m_contentView(contentView)
+    , m_webView(nil)
+    , m_wkView(wkView)
     , m_undoTarget(adoptNS([[WKEditorUndoTargetObjC alloc] init]))
 {
 }
@@ -149,10 +154,10 @@ void PageClientImpl::scrollView(const IntRect&, const IntSize&)
     ASSERT_NOT_REACHED();
 }
 
-void PageClientImpl::requestScroll(const FloatPoint& scrollPosition, bool isProgrammaticScroll)
+void PageClientImpl::requestScroll(const FloatPoint& scrollPosition, const IntPoint& scrollOrigin, bool isProgrammaticScroll)
 {
     UNUSED_PARAM(isProgrammaticScroll);
-    [m_webView _scrollToContentOffset:scrollPosition];
+    [m_webView _scrollToContentOffset:scrollPosition scrollOrigin:scrollOrigin];
 }
 
 IntSize PageClientImpl::viewSize()
@@ -166,18 +171,27 @@ IntSize PageClientImpl::viewSize()
 bool PageClientImpl::isViewWindowActive()
 {
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=133098
-    return isViewVisible();
+    return isViewVisible() || (m_webView && m_webView->_activeFocusedStateRetainCount);
 }
 
 bool PageClientImpl::isViewFocused()
 {
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=133098
-    return isViewWindowActive();
+    return isViewWindowActive() || (m_webView && m_webView->_activeFocusedStateRetainCount);
 }
 
 bool PageClientImpl::isViewVisible()
 {
-    return isViewInWindow() && !m_contentView.isBackground;
+    if (isViewInWindow() && !m_contentView.isBackground)
+        return true;
+    
+    if ([m_webView _isShowingVideoPictureInPicture])
+        return true;
+    
+    if ([m_webView _mayAutomaticallyShowVideoPictureInPicture])
+        return true;
+    
+    return false;
 }
 
 bool PageClientImpl::isViewInWindow()
@@ -209,6 +223,7 @@ void PageClientImpl::didRelaunchProcess()
 {
     [m_contentView _didRelaunchProcess];
     [m_webView _didRelaunchProcess];
+    [m_wkView _didRelaunchProcess];
 }
 
 void PageClientImpl::pageClosed()
@@ -226,9 +241,9 @@ void PageClientImpl::toolTipChanged(const String&, const String&)
     notImplemented();
 }
 
-bool PageClientImpl::decidePolicyForGeolocationPermissionRequest(WebFrameProxy& frame, WebSecurityOrigin& origin, GeolocationPermissionRequestProxy& request)
+bool PageClientImpl::decidePolicyForGeolocationPermissionRequest(WebFrameProxy& frame, API::SecurityOrigin& origin, GeolocationPermissionRequestProxy& request)
 {
-    [m_contentView _decidePolicyForGeolocationRequestFromOrigin:origin frame:frame request:request];
+    [[wrapper(m_webView->_page->process().processPool()) _geolocationProvider] decidePolicyForGeolocationRequestFromOrigin:origin.securityOrigin() frame:frame request:request view:m_webView];
     return true;
 }
 
@@ -245,14 +260,14 @@ void PageClientImpl::handleDownloadRequest(DownloadProxy* download)
     [static_cast<_WKDownload *>(download->wrapper()) setOriginatingWebView:m_webView];
 }
 
+void PageClientImpl::didChangeContentSize(const WebCore::IntSize&)
+{
+    notImplemented();
+}
+
 void PageClientImpl::didChangeViewportMetaTagWidth(float newWidth)
 {
     [m_webView _setViewportMetaTagWidth:newWidth];
-}
-
-void PageClientImpl::setUsesMinimalUI(bool usesMinimalUI)
-{
-    [m_webView _setUsesMinimalUI:usesMinimalUI];
 }
 
 double PageClientImpl::minimumZoomScale() const
@@ -263,9 +278,9 @@ double PageClientImpl::minimumZoomScale() const
     return 1;
 }
 
-WebCore::FloatSize PageClientImpl::contentsSize() const
+WebCore::FloatRect PageClientImpl::documentRect() const
 {
-    return FloatSize([m_contentView bounds].size);
+    return [m_contentView bounds];
 }
 
 void PageClientImpl::setCursor(const Cursor&)
@@ -438,7 +453,15 @@ PassRefPtr<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPagePr
     return 0;
 }
 
-void PageClientImpl::setTextIndicator(PassRefPtr<TextIndicator> textIndicator, bool fadeOut)
+void PageClientImpl::setTextIndicator(Ref<TextIndicator> textIndicator, TextIndicatorLifetime)
+{
+}
+
+void PageClientImpl::clearTextIndicator(TextIndicatorDismissalAnimation)
+{
+}
+
+void PageClientImpl::setTextIndicatorAnimationProgress(float)
 {
 }
 
@@ -496,6 +519,11 @@ void PageClientImpl::dynamicViewportUpdateChangedTarget(double newScale, const W
     [m_webView _dynamicViewportUpdateChangedTargetToScale:newScale position:newScrollPosition nextValidLayerTreeTransactionID:nextValidLayerTreeTransactionID];
 }
 
+void PageClientImpl::couldNotRestorePageState()
+{
+    [m_webView _couldNotRestorePageState];
+}
+
 void PageClientImpl::restorePageState(const WebCore::FloatRect& exposedRect, double scale)
 {
     [m_webView _restorePageStateToExposedRect:exposedRect scale:scale];
@@ -551,7 +579,6 @@ bool PageClientImpl::handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, WebOpenPa
     return true;
 }
 
-#if ENABLE(INSPECTOR)
 void PageClientImpl::showInspectorHighlight(const WebCore::Highlight& highlight)
 {
     [m_contentView _showInspectorHighlight:highlight];
@@ -581,7 +608,6 @@ void PageClientImpl::disableInspectorNodeSearch()
 {
     [m_contentView _disableInspectorNodeSearch];
 }
-#endif
 
 #if ENABLE(FULLSCREEN_API)
 
@@ -664,6 +690,7 @@ Vector<String> PageClientImpl::mimeTypesWithCustomContentProviders()
 
 void PageClientImpl::navigationGestureDidBegin()
 {
+    [m_webView _navigationGestureDidBegin];
     NavigationState::fromWebPage(*m_webView->_page).navigationGestureDidBegin();
 }
 
@@ -675,6 +702,12 @@ void PageClientImpl::navigationGestureWillEnd(bool willNavigate, WebBackForwardL
 void PageClientImpl::navigationGestureDidEnd(bool willNavigate, WebBackForwardListItem& item)
 {
     NavigationState::fromWebPage(*m_webView->_page).navigationGestureDidEnd(willNavigate, item);
+    [m_webView _navigationGestureDidEnd];
+}
+
+void PageClientImpl::navigationGestureDidEnd()
+{
+    [m_webView _navigationGestureDidEnd];
 }
 
 void PageClientImpl::willRecordNavigationSnapshot(WebBackForwardListItem& item)
@@ -688,14 +721,44 @@ void PageClientImpl::didFirstVisuallyNonEmptyLayoutForMainFrame()
 
 void PageClientImpl::didFinishLoadForMainFrame()
 {
+    [m_webView _didFinishLoadForMainFrame];
 }
 
-void PageClientImpl::didSameDocumentNavigationForMainFrame(SameDocumentNavigationType)
+void PageClientImpl::didFailLoadForMainFrame()
 {
+    [m_webView _didFailLoadForMainFrame];
 }
 
-void PageClientImpl::didPerformActionMenuHitTest(const ActionMenuHitTestResult&)
+void PageClientImpl::didSameDocumentNavigationForMainFrame(SameDocumentNavigationType navigationType)
 {
+    [m_webView _didSameDocumentNavigationForMainFrame:navigationType];
+}
+
+void PageClientImpl::didChangeBackgroundColor()
+{
+    [m_webView _updateScrollViewBackground];
+}
+
+#if ENABLE(VIDEO)
+void PageClientImpl::mediaDocumentNaturalSizeChanged(const IntSize& newSize)
+{
+    [m_webView _mediaDocumentNaturalSizeChanged:newSize];
+}
+#endif
+
+
+void PageClientImpl::refView()
+{
+    [m_contentView retain];
+    [m_webView retain];
+    [m_wkView retain];
+}
+
+void PageClientImpl::derefView()
+{
+    [m_contentView release];
+    [m_webView release];
+    [m_wkView release];
 }
 
 } // namespace WebKit

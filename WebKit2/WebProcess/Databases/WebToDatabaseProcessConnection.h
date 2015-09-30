@@ -40,9 +40,9 @@ class WebProcessIDBDatabaseBackend;
 
 class WebToDatabaseProcessConnection : public RefCounted<WebToDatabaseProcessConnection>, public IPC::Connection::Client, public IPC::MessageSender {
 public:
-    static PassRefPtr<WebToDatabaseProcessConnection> create(IPC::Connection::Identifier connectionIdentifier)
+    static Ref<WebToDatabaseProcessConnection> create(IPC::Connection::Identifier connectionIdentifier)
     {
-        return adoptRef(new WebToDatabaseProcessConnection(connectionIdentifier));
+        return adoptRef(*new WebToDatabaseProcessConnection(connectionIdentifier));
     }
     ~WebToDatabaseProcessConnection();
     
@@ -55,9 +55,11 @@ private:
     WebToDatabaseProcessConnection(IPC::Connection::Identifier);
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
-    virtual void didClose(IPC::Connection*) override;
-    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    virtual void didClose(IPC::Connection&) override;
+    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::Web; }
+    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Database; }
 
     // IPC::MessageSender
     virtual IPC::Connection* messageSenderConnection() override { return m_connection.get(); }

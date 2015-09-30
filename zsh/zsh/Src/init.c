@@ -77,7 +77,7 @@ mod_export int tclen[TC_COUNT];
 /**/
 int tclines, tccolumns;
 /**/
-mod_export int hasam, hasxn, hasye;
+mod_export int hasam, hasbw, hasxn, hasye;
 
 /* Value of the Co (max_colors) entry: may not be set */
 
@@ -107,7 +107,7 @@ loop(int toplevel, int justonce)
 
     pushheap();
     if (!toplevel)
-	lexsave();
+	zcontext_save();
     for (;;) {
 	freeheap();
 	if (stophist == 3)	/* re-entry via preprompt() */
@@ -118,18 +118,32 @@ loop(int toplevel, int justonce)
 	    if (interact && toplevel) {
 	        int hstop = stophist;
 		stophist = 3;
+		/*
+		 * Reset all errors including the interrupt error status
+		 * immediately, so preprompt runs regardless of what
+		 * just happened.  We'll reset again below as a
+		 * precaution to ensure we get back to the command line
+		 * no matter what.
+		 */
+		errflag = 0;
 		preprompt();
 		if (stophist != 3)
 		    hbegin(1);
 		else
 		    stophist = hstop;
+		/*
+		 * Reset all errors, including user interupts.
+		 * This is what allows ^C in an interactive shell
+		 * to return us to the command line.
+		 */
 		errflag = 0;
 	    }
 	}
 	use_exit_printed = 0;
 	intr();			/* interrupts on            */
 	lexinit();              /* initialize lexical state */
-	if (!(prog = parse_event())) {	/* if we couldn't parse a list */
+	if (!(prog = parse_event(ENDINPUT))) {
+	    /* if we couldn't parse a list */
 	    hend(NULL);
 	    if ((tok == ENDINPUT && !errflag) ||
 		(tok == LEXERR && (!isset(SHINSTDIN) || !toplevel)) ||
@@ -178,7 +192,15 @@ loop(int toplevel, int justonce)
 
 		/* The only permanent storage is from getpermtext() */
 		zsfree(cmdstr);
-		errflag = 0;
+		/*
+		 * Note this does *not* remove a user interrupt error
+		 * condition, even though we're at the top level loop:
+		 * that would be inconsistent with the case where
+		 * we didn't execute a preexec function.  This is
+		 * an implementation detail that an interrupting user
+		 * does't care about.
+		 */
+		errflag &= ~ERRFLAG_ERROR;
 	    }
 	    if (stopmsg)	/* unset 'you have stopped jobs' flag */
 		stopmsg--;
@@ -205,7 +227,7 @@ loop(int toplevel, int justonce)
     }
     err = errflag;
     if (!toplevel)
-	lexrestore();
+	zcontext_restore();
     popheap();
 
     if (err)
@@ -226,7 +248,7 @@ parseargs(char **argv, char **runscript)
     char **x;
     LinkList paramlist;
 
-    argzero = *argv++;
+    argzero = posixzero = *argv++;
     SHIN = 0;
 
     /* There's a bit of trickery with opts[INTERACTIVE] here.  It starts *
@@ -243,15 +265,28 @@ parseargs(char **argv, char **runscript)
      */
     opts[MONITOR] = 2;   /* may be unset in init_io() */
     opts[HASHDIRS] = 2;  /* same relationship to INTERACTIVE */
+    opts[USEZLE] = 1;    /* see below, related to SHINSTDIN */
     opts[SHINSTDIN] = 0;
     opts[SINGLECOMMAND] = 0;
 
     if (parseopts(NULL, &argv, opts, &cmd, NULL))
 	exit(1);
 
+    /*
+     * USEZLE remains set if the shell has access to a terminal and
+     * is not reading from some other source as indicated by SHINSTDIN.
+     * SHINSTDIN becomes set below if there is no command argument,
+     * but it is the explicit setting (or not) that matters to USEZLE.
+     * USEZLE may also become unset in init_io() if the shell is not
+     * interactive or the terminal cannot be re-opened read/write.
+     */
+    if (opts[SHINSTDIN])
+	opts[USEZLE] = (opts[USEZLE] && isatty(0));
+
     paramlist = znewlinklist();
     if (*argv) {
 	if (unset(SHINSTDIN)) {
+	    posixzero = *argv;
 	    if (cmd)
 		argzero = *argv;
 	    else
@@ -275,6 +310,7 @@ parseargs(char **argv, char **runscript)
     while ((*x++ = (char *)getlinknode(paramlist)));
     free(paramlist);
     argzero = ztrdup(argzero);
+    posixzero = ztrdup(posixzero);
 }
 
 /* Insert into list in order of pointer value */
@@ -601,7 +637,7 @@ init_shout(void)
 
     if (SHTTY == -1)
     {
-	/* Since we're interative, it's nice to have somewhere to write. */
+	/* Since we're interactive, it's nice to have somewhere to write. */
 	shout = stderr;
 	return;
     }
@@ -614,7 +650,8 @@ init_shout(void)
     /* Associate terminal file descriptor with a FILE pointer */
     shout = fdopen(SHTTY, "w");
 #ifdef _IOFBF
-    setvbuf(shout, shoutbuf, _IOFBF, BUFSIZ);
+    if (shout)
+	setvbuf(shout, shoutbuf, _IOFBF, BUFSIZ);
 #endif
   
     gettyinfo(&shttyinfo);	/* get tty state */
@@ -674,7 +711,7 @@ init_term(void)
     {
 	if (isset(INTERACTIVE))
 	    zerr("can't find terminal definition for %s", term);
-	errflag = 0;
+	errflag &= ~ERRFLAG_ERROR;
 	termflags |= TERM_BAD;
 	return 0;
     } else {
@@ -698,6 +735,7 @@ init_term(void)
 
 	/* check whether terminal has automargin (wraparound) capability */
 	hasam = tgetflag("am");
+	hasbw = tgetflag("bw");
 	hasxn = tgetflag("xn"); /* also check for newline wraparound glitch */
 	hasye = tgetflag("YE"); /* print in last column does carriage return */
 
@@ -749,9 +787,8 @@ init_term(void)
 	    tcstr[TCCLEARSCREEN] = ztrdup("\14");
 	    tclen[TCCLEARSCREEN] = 1;
 	}
-#if 0	/* This might work, but there may be more to it */
-	rprompt_indent = (hasye || !tccan(TCLEFT)) ? 1 : 0;
-#endif
+	/* This might work, but there may be more to it */
+	rprompt_indent = ((hasam && !hasbw) || hasye || !tccan(TCLEFT));
     }
     return 1;
 }
@@ -768,7 +805,8 @@ setupvals(void)
     struct timezone dummy_tz;
     char *ptr;
     int i, j;
-#if defined(SITEFPATH_DIR) || defined(FPATH_DIR) || defined (ADDITIONAL_FPATH)
+#if defined(SITEFPATH_DIR) || defined(FPATH_DIR) || defined (ADDITIONAL_FPATH) || defined(FIXED_FPATH_DIR)
+#define FPATH_NEEDS_INIT 1
     char **fpathptr;
 # if defined(FPATH_DIR) && defined(FPATH_SUBDIRS)
     char *fpath_subdirs[] = FPATH_SUBDIRS;
@@ -777,11 +815,17 @@ setupvals(void)
     char *more_fndirs[] = ADDITIONAL_FPATH;
     int more_fndirs_len;
 # endif
-# ifdef SITEFPATH_DIR
-    int fpathlen = 1;
+# ifdef FIXED_FPATH_DIR
+#  define FIXED_FPATH_LEN 1
 # else
-    int fpathlen = 0;
+#  define FIXED_FPATH_LEN 0
 # endif
+# ifdef SITEFPATH_DIR
+#  define SITE_FPATH_LEN 1
+# else
+#  define SITE_FPATH_LEN 0
+# endif
+    int fpathlen = FIXED_FPATH_LEN + SITE_FPATH_LEN;
 #endif
     int close_fds[10], tmppipe[2];
 
@@ -860,23 +904,27 @@ setupvals(void)
     manpath  = mkarray(NULL);
     fignore  = mkarray(NULL);
 
-#if defined(SITEFPATH_DIR) || defined(FPATH_DIR) || defined(ADDITIONAL_FPATH)
+#ifdef FPATH_NEEDS_INIT
 # ifdef FPATH_DIR
 #  ifdef FPATH_SUBDIRS
     fpathlen += sizeof(fpath_subdirs)/sizeof(char *);
-#  else
+#  else /* FPATH_SUBDIRS */
     fpathlen++;
-#  endif
-# endif
+#  endif /* FPATH_SUBDIRS */
+# endif /* FPATH_DIR */
 # if defined(ADDITIONAL_FPATH)
     more_fndirs_len = sizeof(more_fndirs)/sizeof(char *);
     fpathlen += more_fndirs_len;
-# endif
+# endif /* ADDITONAL_FPATH */
     fpath = fpathptr = (char **)zalloc((fpathlen+1)*sizeof(char *));
+# ifdef FIXED_FPATH_DIR
+    *fpathptr++ = ztrdup(FIXED_FPATH_DIR);
+    fpathlen--;
+# endif
 # ifdef SITEFPATH_DIR
     *fpathptr++ = ztrdup(SITEFPATH_DIR);
     fpathlen--;
-# endif
+# endif /* SITEFPATH_DIR */
 # if defined(ADDITIONAL_FPATH)
     for (j = 0; j < more_fndirs_len; j++)
 	*fpathptr++ = ztrdup(more_fndirs[j]);
@@ -895,9 +943,9 @@ setupvals(void)
 #  endif
 # endif
     *fpathptr = NULL;
-#else
+#else /* FPATH_NEEDS_INIT */
     fpath    = mkarray(NULL);
-#endif
+#endif /* FPATH_NEEDS_INIT */
 
     mailpath = mkarray(NULL);
     watch    = mkarray(NULL);
@@ -1003,15 +1051,6 @@ setupvals(void)
     setiparam("COLUMNS", zterm_columns);
     setiparam("LINES", zterm_lines);
 #endif
-    {
-	/* Import from environment, overrides init_term() */
-	struct value vbuf;
-	char *name = "ZLE_RPROMPT_INDENT";
-	if (getvalue(&vbuf, &name, 1) && !(vbuf.flags & PM_UNSET))
-	    rprompt_indent = getintvalue(&vbuf);
-	else
-	    rprompt_indent = 1;
-    }
 
 #ifdef HAVE_GETRLIMIT
     for (i = 0; i != RLIM_NLIMITS; i++) {
@@ -1032,7 +1071,6 @@ setupvals(void)
     bufstack = znewlinklist();
     hsubl = hsubr = NULL;
     lastpid = 0;
-    lastpid_status = -1L;
 
     get_usage();
 
@@ -1130,6 +1168,7 @@ init_signals(void)
     winch_block();	/* See utils.c:preprompt() */
 #endif
     if (interact) {
+	install_handler(SIGPIPE);
 	install_handler(SIGALRM);
 	signal_ignore(SIGTERM);
     }
@@ -1158,10 +1197,13 @@ run_init_scripts(void)
 	    if (islogin)
 		sourcehome(".profile");
 	    noerrs = 2;
-	    if (s && !parsestr(s)) {
-		singsub(&s);
-		noerrs = 0;
-		source(s);
+	    if (s) {
+		s = dupstring(s);
+		if (!parsestr(&s)) {
+		    singsub(&s);
+		    noerrs = 0;
+		    source(s);
+		}
 	    }
 	    noerrs = 0;
 	} else
@@ -1319,7 +1361,7 @@ source(char *s)
 
     if (prog) {
 	pushheap();
-	errflag = 0;
+	errflag &= ~ERRFLAG_ERROR;
 	execode(prog, 1, 0, "filecode");
 	popheap();
 	if (errflag)
@@ -1362,12 +1404,12 @@ source(char *s)
     lineno = oldlineno;              /* our current lineno                   */
     loops = oloops;                  /* the # of nested loops we are in      */
     dosetopt(SHINSTDIN, oldshst, 1, opts); /* SHINSTDIN option               */
-    errflag = 0;
+    errflag &= ~ERRFLAG_ERROR;
     if (!exit_pending)
 	retflag = 0;
     scriptname = old_scriptname;
     scriptfilename = old_scriptfilename;
-    free(cmdstack);
+    zfree(cmdstack, CMDSTACKSZ);
     cmdstack = ocs;
     cmdsp = ocsp;
 
@@ -1535,7 +1577,7 @@ mod_export CompctlReadFn compctlreadptr = fallback_compctlread;
 mod_export int
 fallback_compctlread(char *name, UNUSED(char **args), UNUSED(Options ops), UNUSED(char *reply))
 {
-    zwarnnam(name, "option valid only in functions called from completion");
+    zwarnnam(name, "no loaded module provides read for completion context");
     return 1;
 }
 
@@ -1609,8 +1651,7 @@ zsh_main(int argc, char **argv)
     emulate(zsh_name, 1, &emulation, opts);   /* initialises most options */
     opts[LOGINSHELL] = (**argv == '-');
     opts[PRIVILEGED] = (getuid() != geteuid() || getgid() != getegid());
-    opts[USEZLE] = 1;   /* may be unset in init_io() */
-    /* sets INTERACTIVE, SHINSTDIN and SINGLECOMMAND */
+    /* sets ZLE, INTERACTIVE, SHINSTDIN and SINGLECOMMAND */
     parseargs(argv, &runscript);
 
     SHTTY = -1;

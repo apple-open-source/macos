@@ -62,7 +62,7 @@
 		BA2BD8FF136D27FE00FF78C0 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/System/Library/Frameworks/System.framework/Versions/B/Resources";
+			dstPath = "$(INSTALL_PATH_PREFIX)/System/Library/Frameworks/System.framework/$(INFOPLIST_INSTALL_PATH)";
 			dstSubfolderSpec = 0;
 			files = (
 				BA2BD900136D282200FF78C0 /* Info.plist in CopyFiles */,

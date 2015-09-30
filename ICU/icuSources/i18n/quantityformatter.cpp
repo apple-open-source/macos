@@ -17,8 +17,6 @@
 #include "unicode/fmtable.h"
 #include "unicode/fieldpos.h"
 
-#define LENGTHOF(array) (int32_t)(sizeof(array) / sizeof((array)[0]))
-
 #if !UCONFIG_NO_FORMATTING
 
 U_NAMESPACE_BEGIN
@@ -28,7 +26,7 @@ static const char * const gPluralForms[] = {
         "other", "zero", "one", "two", "few", "many"};
 
 static int32_t getPluralIndex(const char *pluralForm) {
-    int32_t len = LENGTHOF(gPluralForms);
+    int32_t len = UPRV_LENGTHOF(gPluralForms);
     for (int32_t i = 0; i < len; ++i) {
         if (uprv_strcmp(pluralForm, gPluralForms[i]) == 0) {
             return i;
@@ -38,13 +36,13 @@ static int32_t getPluralIndex(const char *pluralForm) {
 }
 
 QuantityFormatter::QuantityFormatter() {
-    for (int32_t i = 0; i < LENGTHOF(formatters); ++i) {
+    for (int32_t i = 0; i < UPRV_LENGTHOF(formatters); ++i) {
         formatters[i] = NULL;
     }
 }
 
 QuantityFormatter::QuantityFormatter(const QuantityFormatter &other) {
-    for (int32_t i = 0; i < LENGTHOF(formatters); ++i) {
+    for (int32_t i = 0; i < UPRV_LENGTHOF(formatters); ++i) {
         if (other.formatters[i] == NULL) {
             formatters[i] = NULL;
         } else {
@@ -58,7 +56,7 @@ QuantityFormatter &QuantityFormatter::operator=(
     if (this == &other) {
         return *this;
     }
-    for (int32_t i = 0; i < LENGTHOF(formatters); ++i) {
+    for (int32_t i = 0; i < UPRV_LENGTHOF(formatters); ++i) {
         delete formatters[i];
         if (other.formatters[i] == NULL) {
             formatters[i] = NULL;
@@ -70,13 +68,13 @@ QuantityFormatter &QuantityFormatter::operator=(
 }
 
 QuantityFormatter::~QuantityFormatter() {
-    for (int32_t i = 0; i < LENGTHOF(formatters); ++i) {
+    for (int32_t i = 0; i < UPRV_LENGTHOF(formatters); ++i) {
         delete formatters[i];
     }
 }
 
 void QuantityFormatter::reset() {
-    for (int32_t i = 0; i < LENGTHOF(formatters); ++i) {
+    for (int32_t i = 0; i < UPRV_LENGTHOF(formatters); ++i) {
         delete formatters[i];
         formatters[i] = NULL;
     }
@@ -114,6 +112,19 @@ UBool QuantityFormatter::isValid() const {
     return formatters[0] != NULL;
 }
 
+const SimplePatternFormatter *QuantityFormatter::getByVariant(
+        const char *variant) const {
+    int32_t pluralIndex = getPluralIndex(variant);
+    if (pluralIndex == -1) {
+        pluralIndex = 0;
+    }
+    const SimplePatternFormatter *pattern = formatters[pluralIndex];
+    if (pattern == NULL) {
+        pattern = formatters[0];
+    }
+    return pattern;
+}
+
 UnicodeString &QuantityFormatter::format(
             const Formattable& quantity,
             const NumberFormat &fmt,
@@ -149,14 +160,7 @@ UnicodeString &QuantityFormatter::format(
     if (U_FAILURE(status)) {
         return appendTo;
     }
-    int32_t pluralIndex = getPluralIndex(buffer.data());
-    if (pluralIndex == -1) {
-        pluralIndex = 0;
-    }
-    const SimplePatternFormatter *pattern = formatters[pluralIndex];
-    if (pattern == NULL) {
-        pattern = formatters[0];
-    }
+    const SimplePatternFormatter *pattern = getByVariant(buffer.data());
     if (pattern == NULL) {
         status = U_INVALID_STATE_ERROR;
         return appendTo;
@@ -166,7 +170,13 @@ UnicodeString &QuantityFormatter::format(
     fmt.format(quantity, formattedNumber, fpos, status);
     const UnicodeString *params[1] = {&formattedNumber};
     int32_t offsets[1];
-    pattern->format(params, LENGTHOF(params), appendTo, offsets, LENGTHOF(offsets), status);
+    pattern->formatAndAppend(
+            params,
+            UPRV_LENGTHOF(params),
+            appendTo,
+            offsets,
+            UPRV_LENGTHOF(offsets),
+            status);
     if (offsets[0] != -1) {
         if (fpos.getBeginIndex() != 0 || fpos.getEndIndex() != 0) {
             pos.setBeginIndex(fpos.getBeginIndex() + offsets[0]);

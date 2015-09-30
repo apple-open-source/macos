@@ -23,6 +23,7 @@
 #include "config.h"
 #include "Attr.h"
 
+#include "Event.h"
 #include "ExceptionCode.h"
 #include "ScopedEventQueue.h"
 #include "StyleProperties.h"
@@ -53,14 +54,14 @@ Attr::Attr(Document& document, const QualifiedName& name, const AtomicString& st
 {
 }
 
-PassRefPtr<Attr> Attr::create(Element* element, const QualifiedName& name)
+RefPtr<Attr> Attr::create(Element* element, const QualifiedName& name)
 {
     RefPtr<Attr> attr = adoptRef(new Attr(element, name));
     attr->createTextChild();
     return attr.release();
 }
 
-PassRefPtr<Attr> Attr::create(Document& document, const QualifiedName& name, const AtomicString& value)
+RefPtr<Attr> Attr::create(Document& document, const QualifiedName& name, const AtomicString& value)
 {
     RefPtr<Attr> attr = adoptRef(new Attr(document, name, value));
     attr->createTextChild();
@@ -137,9 +138,9 @@ void Attr::setNodeValue(const String& v, ExceptionCode& ec)
     setValue(v, ec);
 }
 
-PassRefPtr<Node> Attr::cloneNode(bool /*deep*/)
+RefPtr<Node> Attr::cloneNodeInternal(Document& targetDocument, CloningOperation)
 {
-    RefPtr<Attr> clone = adoptRef(new Attr(document(), qualifiedName(), value()));
+    RefPtr<Attr> clone = adoptRef(new Attr(targetDocument, qualifiedName(), value()));
     cloneChildNodes(clone.get());
     return clone.release();
 }
@@ -164,7 +165,7 @@ void Attr::childrenChanged(const ChildChange&)
     invalidateNodeListAndCollectionCachesInAncestors(&qualifiedName(), m_element);
 
     StringBuilder valueBuilder;
-    TextNodeTraversal::appendContents(this, valueBuilder);
+    TextNodeTraversal::appendContents(*this, valueBuilder);
 
     AtomicString oldValue = value();
     AtomicString newValue = valueBuilder.toAtomicString();
@@ -188,10 +189,10 @@ bool Attr::isId() const
 CSSStyleDeclaration* Attr::style()
 {
     // This function only exists to support the Obj-C bindings.
-    if (!m_element || !m_element->isStyledElement())
+    if (!is<StyledElement>(m_element))
         return nullptr;
     m_style = MutableStyleProperties::create();
-    toStyledElement(m_element)->collectStyleForPresentationAttribute(qualifiedName(), value(), *m_style);
+    downcast<StyledElement>(*m_element).collectStyleForPresentationAttribute(qualifiedName(), value(), *m_style);
     return m_style->ensureCSSStyleDeclaration();
 }
 

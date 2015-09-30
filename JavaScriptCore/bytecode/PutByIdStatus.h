@@ -26,6 +26,7 @@
 #ifndef PutByIdStatus_h
 #define PutByIdStatus_h
 
+#include "CallLinkStatus.h"
 #include "ExitingJITType.h"
 #include "PutByIdVariant.h"
 #include "StructureStubInfo.h"
@@ -69,10 +70,10 @@ public:
         m_variants.append(variant);
     }
     
-    static PutByIdStatus computeFor(CodeBlock*, StubInfoMap&, unsigned bytecodeIndex, StringImpl* uid);
-    static PutByIdStatus computeFor(VM&, JSGlobalObject*, Structure*, StringImpl* uid, bool isDirect);
+    static PutByIdStatus computeFor(CodeBlock*, StubInfoMap&, unsigned bytecodeIndex, UniquedStringImpl* uid);
+    static PutByIdStatus computeFor(JSGlobalObject*, const StructureSet&, UniquedStringImpl* uid, bool isDirect);
     
-    static PutByIdStatus computeFor(CodeBlock* baselineBlock, CodeBlock* dfgBlock, StubInfoMap& baselineMap, StubInfoMap& dfgMap, CodeOrigin, StringImpl* uid);
+    static PutByIdStatus computeFor(CodeBlock* baselineBlock, CodeBlock* dfgBlock, StubInfoMap& baselineMap, StubInfoMap& dfgMap, CodeOrigin, UniquedStringImpl* uid);
     
     State state() const { return m_state; }
     
@@ -80,7 +81,7 @@ public:
     bool operator!() const { return m_state == NoInformation; }
     bool isSimple() const { return m_state == Simple; }
     bool takesSlowPath() const { return m_state == TakesSlowPath || m_state == MakesCalls; }
-    bool makesCalls() const { return m_state == MakesCalls; }
+    bool makesCalls() const;
     
     size_t numVariants() const { return m_variants.size(); }
     const Vector<PutByIdVariant, 1>& variants() const { return m_variants; }
@@ -91,12 +92,14 @@ public:
     
 private:
 #if ENABLE(DFG_JIT)
-    static bool hasExitSite(const ConcurrentJITLocker&, CodeBlock*, unsigned bytecodeIndex, ExitingJITType = ExitFromAnything);
+    static bool hasExitSite(const ConcurrentJITLocker&, CodeBlock*, unsigned bytecodeIndex);
 #endif
 #if ENABLE(JIT)
-    static PutByIdStatus computeForStubInfo(const ConcurrentJITLocker&, CodeBlock*, StructureStubInfo*, StringImpl* uid);
+    static PutByIdStatus computeForStubInfo(
+        const ConcurrentJITLocker&, CodeBlock*, StructureStubInfo*, UniquedStringImpl* uid,
+        CallLinkStatus::ExitSiteData);
 #endif
-    static PutByIdStatus computeFromLLInt(CodeBlock*, unsigned bytecodeIndex, StringImpl* uid);
+    static PutByIdStatus computeFromLLInt(CodeBlock*, unsigned bytecodeIndex, UniquedStringImpl* uid);
     
     bool appendVariant(const PutByIdVariant&);
     

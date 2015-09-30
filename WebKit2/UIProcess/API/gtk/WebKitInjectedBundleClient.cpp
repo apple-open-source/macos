@@ -27,12 +27,12 @@
 #include "WebKitWebContextPrivate.h"
 #include "WebKitWebResourcePrivate.h"
 #include "WebKitWebViewPrivate.h"
-#include <wtf/gobject/GUniquePtr.h>
+#include <wtf/glib/GUniquePtr.h>
 
 using namespace WebKit;
 using namespace WebCore;
 
-static void didReceiveWebViewMessageFromInjectedBundle(WebKitWebView* webView, const char* messageName, ImmutableDictionary& message)
+static void didReceiveWebViewMessageFromInjectedBundle(WebKitWebView* webView, const char* messageName, API::Dictionary& message)
 {
     if (g_str_equal(messageName, "DidInitiateLoadForResource")) {
         WebFrameProxy* frame = static_cast<WebFrameProxy*>(message.get(String::fromUTF8("Frame")));
@@ -89,8 +89,11 @@ static void didReceiveWebViewMessageFromInjectedBundle(WebKitWebView* webView, c
         const ResourceError& platformError = webError->platformError();
         GUniquePtr<GError> resourceError(g_error_new_literal(g_quark_from_string(platformError.domain().utf8().data()),
             toWebKitError(platformError.errorCode()), platformError.localizedDescription().utf8().data()));
+        if (platformError.tlsErrors())
+            webkitWebResourceFailedWithTLSErrors(resource.get(), static_cast<GTlsCertificateFlags>(platformError.tlsErrors()), platformError.certificate());
+        else
+            webkitWebResourceFailed(resource.get(), resourceError.get());
 
-        webkitWebResourceFailed(resource.get(), resourceError.get());
         webkitWebViewRemoveLoadingWebResource(webView, resourceIdentifier->value());
     } else if (g_str_equal(messageName, "DidGetSnapshot")) {
         API::UInt64* callbackID = static_cast<API::UInt64*>(message.get("CallbackID"));
@@ -103,7 +106,7 @@ static void didReceiveWebViewMessageFromInjectedBundle(WebKitWebView* webView, c
 static void didReceiveMessageFromInjectedBundle(WKContextRef, WKStringRef messageName, WKTypeRef messageBody, const void* clientInfo)
 {
     ASSERT(WKGetTypeID(messageBody) == WKDictionaryGetTypeID());
-    ImmutableDictionary& message = *toImpl(static_cast<WKDictionaryRef>(messageBody));
+    API::Dictionary& message = *toImpl(static_cast<WKDictionaryRef>(messageBody));
 
     CString messageNameCString = toImpl(messageName)->string().utf8();
     const char* messageNameUTF8 = messageNameCString.data();

@@ -7,6 +7,17 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		FDA4990F199D69B800A32E83 /* tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FDA49910199D69B800A32E83 /* Build configuration list for PBXAggregateTarget "tests" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FDA49918199D69C800A32E83 /* PBXTargetDependency */,
+			);
+			name = tests;
+			productName = tests;
+		};
 		FDBC26E41741B09300CA4B2B /* osx */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FDBC26E71741B09300CA4B2B /* Build configuration list for PBXAggregateTarget "osx" */;
@@ -14,6 +25,7 @@
 			);
 			dependencies = (
 				FDBC27001741B1B300CA4B2B /* PBXTargetDependency */,
+				FDA49916199D69C600A32E83 /* PBXTargetDependency */,
 			);
 			name = osx;
 			productName = OSX;
@@ -25,6 +37,7 @@
 			);
 			dependencies = (
 				FDBC27021741B1B500CA4B2B /* PBXTargetDependency */,
+				FDA49914199D69C100A32E83 /* PBXTargetDependency */,
 				FDBC27041741B1B700CA4B2B /* PBXTargetDependency */,
 			);
 			name = ios;
@@ -55,6 +68,8 @@
 		BA79F9E613BB76B0006A292D /* wipefs.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA79F9BC13BB70FF006A292D /* wipefs.3 */; };
 		BA79F9E913BB77FA006A292D /* libutil.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA79F9AB13BB70FF006A292D /* libutil.plist */; };
 		BA79F9EA13BB77FF006A292D /* libutil.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA79F9AC13BB70FF006A292D /* libutil.txt */; };
+		FDA4991B199D6A0400A32E83 /* humanize_number_test.c in Sources */ = {isa = PBXBuildFile; fileRef = FDA4991A199D6A0400A32E83 /* humanize_number_test.c */; };
+		FDA4991C199D6B9300A32E83 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA79F9C513BB718B006A292D /* libutil.dylib */; };
 		FDBC27051741B1C300CA4B2B /* com.apple.tzlinkd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = FDBC26FA1741B19000CA4B2B /* com.apple.tzlinkd.plist */; };
 		FDBC27061741B1CF00CA4B2B /* tzlinkd.c in Sources */ = {isa = PBXBuildFile; fileRef = FDBC26FE1741B19000CA4B2B /* tzlinkd.c */; };
 		FDBC27071741B1D600CA4B2B /* tzlink.c in Sources */ = {isa = PBXBuildFile; fileRef = FDBC26F91741B18500CA4B2B /* tzlink.c */; };
@@ -62,6 +77,27 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		FDA49913199D69C100A32E83 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA79F99713BB70D7006A292D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDA4990F199D69B800A32E83;
+			remoteInfo = tests;
+		};
+		FDA49915199D69C600A32E83 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA79F99713BB70D7006A292D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDA4990F199D69B800A32E83;
+			remoteInfo = tests;
+		};
+		FDA49917199D69C800A32E83 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA79F99713BB70D7006A292D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDA49902199D69B000A32E83;
+			remoteInfo = humanize_number_test;
+		};
 		FDBC26FF1741B1B300CA4B2B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BA79F99713BB70D7006A292D /* Project object */;
@@ -89,7 +125,7 @@
 		BA79F9DB13BB7698006A292D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/share/man/man3";
+			dstPath = "/usr/local/share/man/man3";
 			dstSubfolderSpec = 0;
 			files = (
 				BA79F9DD13BB76B0006A292D /* getmntopts.3 in CopyFiles */,
@@ -106,7 +142,7 @@
 		BA79F9E713BB77BB006A292D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceVersions";
+			dstPath = "/usr/local/OpenSourceVersions";
 			dstSubfolderSpec = 0;
 			files = (
 				BA79F9E913BB77FA006A292D /* libutil.plist in CopyFiles */,
@@ -116,7 +152,7 @@
 		BA79F9E813BB77D6006A292D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceLicenses";
+			dstPath = "/usr/local/OpenSourceLicenses";
 			dstSubfolderSpec = 0;
 			files = (
 				BA79F9EA13BB77FF006A292D /* libutil.txt in CopyFiles */,
@@ -126,7 +162,7 @@
 		FDBC26EE1741B13400CA4B2B /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "$(INSTALL_PATH_PREFIX)/System/Library/LaunchDaemons";
+			dstPath = "/System/Library/LaunchDaemons";
 			dstSubfolderSpec = 0;
 			files = (
 				FDBC27051741B1C300CA4B2B /* com.apple.tzlinkd.plist in CopyFiles */,
@@ -161,6 +197,9 @@
 		BA79F9BD13BB70FF006A292D /* wipefs.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = wipefs.cpp; sourceTree = "<group>"; };
 		BA79F9BE13BB70FF006A292D /* wipefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = wipefs.h; sourceTree = "<group>"; };
 		BA79F9C513BB718B006A292D /* libutil.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libutil.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDA49903199D69B000A32E83 /* humanize_number_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = humanize_number_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDA4991A199D6A0400A32E83 /* humanize_number_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = humanize_number_test.c; sourceTree = "<group>"; };
+		FDA4991D199D6CB800A32E83 /* test.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = test.xcconfig; sourceTree = "<group>"; };
 		FDBC26F01741B13400CA4B2B /* tzlinkd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tzlinkd; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDBC26F91741B18500CA4B2B /* tzlink.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tzlink.c; sourceTree = "<group>"; };
 		FDBC26FA1741B19000CA4B2B /* com.apple.tzlinkd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.tzlinkd.plist; sourceTree = "<group>"; };
@@ -176,6 +215,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDA49900199D69B000A32E83 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDA4991C199D6B9300A32E83 /* libutil.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -211,6 +258,7 @@
 				BA79F9B513BB70FF006A292D /* realhostname.c */,
 				BA79F9B613BB70FF006A292D /* reexec_to_match_kernel.3 */,
 				BA79F9B713BB70FF006A292D /* reexec_to_match_kernel.c */,
+				FDA49919199D6A0400A32E83 /* tests */,
 				BA79F9B813BB70FF006A292D /* trimdomain.3 */,
 				BA79F9B913BB70FF006A292D /* trimdomain.c */,
 				FDBC26F91741B18500CA4B2B /* tzlink.c */,
@@ -230,8 +278,17 @@
 			children = (
 				BA79F9C513BB718B006A292D /* libutil.dylib */,
 				FDBC26F01741B13400CA4B2B /* tzlinkd */,
+				FDA49903199D69B000A32E83 /* humanize_number_test */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		FDA49919199D6A0400A32E83 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				FDA4991A199D6A0400A32E83 /* humanize_number_test.c */,
+			);
+			path = tests;
 			sourceTree = "<group>";
 		};
 		FDBC26F11741B13400CA4B2B /* tzlinkd */ = {
@@ -247,6 +304,7 @@
 		FDBC270C1741B66500CA4B2B /* xcconfigs */ = {
 			isa = PBXGroup;
 			children = (
+				FDA4991D199D6CB800A32E83 /* test.xcconfig */,
 				FDBC270D1741B66500CA4B2B /* tzlinkd.xcconfig */,
 			);
 			path = xcconfigs;
@@ -292,6 +350,22 @@
 			productReference = BA79F9C513BB718B006A292D /* libutil.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		FDA49902199D69B000A32E83 /* humanize_number_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FDA4990E199D69B000A32E83 /* Build configuration list for PBXNativeTarget "humanize_number_test" */;
+			buildPhases = (
+				FDA498FF199D69B000A32E83 /* Sources */,
+				FDA49900199D69B000A32E83 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = humanize_number_test;
+			productName = humanize_number_test;
+			productReference = FDA49903199D69B000A32E83 /* humanize_number_test */;
+			productType = "com.apple.product-type.tool";
+		};
 		FDBC26EF1741B13400CA4B2B /* tzlinkd */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FDBC26F81741B13400CA4B2B /* Build configuration list for PBXNativeTarget "tzlinkd" */;
@@ -333,6 +407,8 @@
 				FDBC26E41741B09300CA4B2B /* osx */,
 				BA79F9C413BB718B006A292D /* util */,
 				FDBC26EF1741B13400CA4B2B /* tzlinkd */,
+				FDA4990F199D69B800A32E83 /* tests */,
+				FDA49902199D69B000A32E83 /* humanize_number_test */,
 			);
 		};
 /* End PBXProject section */
@@ -385,6 +461,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FDA498FF199D69B000A32E83 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDA4991B199D6A0400A32E83 /* humanize_number_test.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FDBC26EC1741B13400CA4B2B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -396,6 +480,21 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		FDA49914199D69C100A32E83 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDA4990F199D69B800A32E83 /* tests */;
+			targetProxy = FDA49913199D69C100A32E83 /* PBXContainerItemProxy */;
+		};
+		FDA49916199D69C600A32E83 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDA4990F199D69B800A32E83 /* tests */;
+			targetProxy = FDA49915199D69C600A32E83 /* PBXContainerItemProxy */;
+		};
+		FDA49918199D69C800A32E83 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDA49902199D69B000A32E83 /* humanize_number_test */;
+			targetProxy = FDA49917199D69C800A32E83 /* PBXContainerItemProxy */;
+		};
 		FDBC27001741B1B300CA4B2B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = BA79F9C413BB718B006A292D /* util */;
@@ -453,7 +552,8 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH_ACTUAL = /usr/lib;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALL_PATH = /usr/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WARNING_CFLAGS = "-Wall";
 			};
@@ -471,9 +571,40 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH_ACTUAL = /usr/lib;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALL_PATH = /usr/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WARNING_CFLAGS = "-Wall";
+			};
+			name = Release;
+		};
+		FDA4990C199D69B000A32E83 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FDA4991D199D6CB800A32E83 /* test.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		FDA4990D199D69B000A32E83 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FDA4991D199D6CB800A32E83 /* test.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FDA49911199D69B800A32E83 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		FDA49912199D69B800A32E83 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -538,6 +669,24 @@
 			buildConfigurations = (
 				BA79F9C813BB718B006A292D /* Debug */,
 				BA79F9C913BB718B006A292D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDA4990E199D69B000A32E83 /* Build configuration list for PBXNativeTarget "humanize_number_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDA4990C199D69B000A32E83 /* Debug */,
+				FDA4990D199D69B000A32E83 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDA49910199D69B800A32E83 /* Build configuration list for PBXAggregateTarget "tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDA49911199D69B800A32E83 /* Debug */,
+				FDA49912199D69B800A32E83 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

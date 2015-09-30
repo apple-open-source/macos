@@ -215,7 +215,7 @@ int schdirparent(int fdvol, const char *path, int *olddir, char child[PATH_MAX])
 finish:
     if (bsderr) {
         if (savedir != -1)  close(savedir);
-	if (olddir)         *olddir = -1;
+        if (olddir)         *olddir = -1;
     }
     if (dirfd != -1)        close(dirfd);
 

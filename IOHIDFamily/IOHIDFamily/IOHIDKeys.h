@@ -27,6 +27,8 @@
 
 #include <sys/cdefs.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
+#include <IOKit/IOReturn.h>
+#include <IOKit/IOMessage.h>
 
 __BEGIN_DECLS
 
@@ -89,6 +91,7 @@ __BEGIN_DECLS
 #define kIOHIDMaxFeatureReportSizeKey       "MaxFeatureReportSize"
 #define kIOHIDReportIntervalKey             "ReportInterval"
 #define kIOHIDSampleIntervalKey             "SampleInterval"
+#define kIOHIDBatchIntervalKey              "BatchInterval"
 #define kIOHIDRequestTimeoutKey             "RequestTimeout"
 #define kIOHIDReportDescriptorKey           "ReportDescriptor"
 #define kIOHIDResetKey                      "Reset"
@@ -101,6 +104,7 @@ __BEGIN_DECLS
 #define kIOHIDPowerOnDelayNSKey             "HIDPowerOnDelayNS"
 #define kIOHIDCategoryKey                   "Category"
 #define kIOHIDMaxResponseLatencyKey         "MaxResponseLatency"
+#define kIOHIDUniqueIDKey                   "UniqueID"
 
 
 #define kIOHIDTransportUSBValue                 "USB"
@@ -396,6 +400,11 @@ enum {
 typedef uint32_t IOHIDValueOptions;
 
 #define kIOHIDDigitizerGestureCharacterStateKey "DigitizerCharacterGestureState"
+
+/* 
+ * kIOHIDSystemButtonPressedDuringDarkBoot - Used to message that a wake button was pressed during dark boot
+ */
+#define kIOHIDSystemButtonPressedDuringDarkBoot     iokit_family_msg(sub_iokit_hidsystem, 7)
 
 
 

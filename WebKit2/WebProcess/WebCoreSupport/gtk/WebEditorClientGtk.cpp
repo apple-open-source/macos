@@ -20,32 +20,20 @@
 #include "config.h"
 #include "WebEditorClient.h"
 
-#include "Frame.h"
-#include "FrameDestructionObserver.h"
 #include "PlatformKeyboardEvent.h"
-#include "WebPage.h"
-#include "WebPageProxyMessages.h"
-#include "WebProcess.h"
 #include <WebCore/DataObjectGtk.h>
 #include <WebCore/Document.h>
+#include <WebCore/Editor.h>
+#include <WebCore/Frame.h>
+#include <WebCore/FrameDestructionObserver.h>
 #include <WebCore/KeyboardEvent.h>
-#include <WebCore/PasteboardHelper.h>
-#include <WebCore/WindowsKeyboardCodes.h>
+#include <WebCore/Pasteboard.h>
+#include <WebCore/markup.h>
+#include <wtf/glib/GRefPtr.h>
 
 using namespace WebCore;
 
 namespace WebKit {
-
-void WebEditorClient::getEditorCommandsForKeyEvent(const KeyboardEvent* event, Vector<WTF::String>& pendingEditorCommands)
-{
-    ASSERT(event->type() == eventNames().keydownEvent || event->type() == eventNames().keypressEvent);
-
-    /* First try to interpret the command in the UI and get the commands.
-       UI needs to receive event type because only knows current NativeWebKeyboardEvent.*/
-    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetEditorCommandsForKeyEvent(event->type()),
-                                                Messages::WebPageProxy::GetEditorCommandsForKeyEvent::Reply(pendingEditorCommands),
-                                                m_page->pageID(), std::chrono::milliseconds::max());
-}
 
 bool WebEditorClient::executePendingEditorCommands(Frame* frame, const Vector<WTF::String>& pendingEditorCommands, bool allowTextInsertion)
 {
@@ -68,21 +56,20 @@ bool WebEditorClient::executePendingEditorCommands(Frame* frame, const Vector<WT
 
 void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
-    Node* node = event->target()->toNode();
-    ASSERT(node);
-    Frame* frame = node->document().frame();
-    ASSERT(frame);
-
     const PlatformKeyboardEvent* platformEvent = event->keyEvent();
     if (!platformEvent)
         return;
 
     // If this was an IME event don't do anything.
-    if (platformEvent->windowsVirtualKeyCode() == VK_PROCESSKEY)
+    if (platformEvent->handledByInputMethod())
         return;
 
-    Vector<WTF::String> pendingEditorCommands;
-    getEditorCommandsForKeyEvent(event, pendingEditorCommands);
+    Node* node = event->target()->toNode();
+    ASSERT(node);
+    Frame* frame = node->document().frame();
+    ASSERT(frame);
+
+    const Vector<String> pendingEditorCommands = platformEvent->commands();
     if (!pendingEditorCommands.isEmpty()) {
 
         // During RawKeyDown events if an editor command will insert text, defer
@@ -127,8 +114,8 @@ void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 void WebEditorClient::handleInputMethodKeydown(KeyboardEvent* event)
 {
     const PlatformKeyboardEvent* platformEvent = event->keyEvent();
-    if (platformEvent && platformEvent->windowsVirtualKeyCode() == VK_PROCESSKEY)
-        event->preventDefault();
+    if (platformEvent && platformEvent->handledByInputMethod())
+        event->setDefaultHandled();
 }
 
 #if PLATFORM(X11)
@@ -175,24 +162,25 @@ static void collapseSelection(GtkClipboard*, Frame* frame)
 void WebEditorClient::updateGlobalSelection(Frame* frame)
 {
 #if PLATFORM(X11)
-    GtkClipboard* clipboard = PasteboardHelper::defaultPasteboardHelper()->getPrimarySelectionClipboard(frame);
-    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
-
     if (!frame->selection().isRange())
         return;
 
-    dataObject->clearAll();
-    dataObject->setRange(frame->selection().toNormalizedRange());
-
     frameSettingClipboard = frame;
-    GClosure* callback = g_cclosure_new(G_CALLBACK(collapseSelection), frame, 0);
+    GRefPtr<GClosure> callback = adoptGRef(g_cclosure_new(G_CALLBACK(collapseSelection), frame, nullptr));
     // This observer will be self-destroyed on closure finalization,
     // that will happen either after closure execution or after
     // closure invalidation.
-    new EditorClientFrameDestructionObserver(frame, callback);
-    g_closure_set_marshal(callback, g_cclosure_marshal_VOID__VOID);
-    PasteboardHelper::defaultPasteboardHelper()->writeClipboardContents(clipboard, PasteboardHelper::DoNotIncludeSmartPaste, callback);
-    frameSettingClipboard = 0;
+    new EditorClientFrameDestructionObserver(frame, callback.get());
+    g_closure_set_marshal(callback.get(), g_cclosure_marshal_VOID__VOID);
+
+    RefPtr<Range> range = frame->selection().toNormalizedRange();
+    PasteboardWebContent pasteboardContent;
+    pasteboardContent.canSmartCopyOrDelete = false;
+    pasteboardContent.text = range->text();
+    pasteboardContent.markup = createMarkup(*range, nullptr, AnnotateForInterchange, false, ResolveNonLocalURLs);
+    pasteboardContent.callback = callback;
+    Pasteboard::createForGlobalSelection()->write(pasteboardContent);
+    frameSettingClipboard = nullptr;
 #endif
 }
 

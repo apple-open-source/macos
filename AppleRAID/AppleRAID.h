@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,7 +37,7 @@
 //#define IOLogRW IOSleep(100); IOLog	// Read Write
 //#define IOLogUC IOLog			// User Client
 
-#endif DEBUG
+#endif /* DEBUG */
 
 
 #ifndef IOLog1

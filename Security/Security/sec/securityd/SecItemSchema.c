@@ -59,7 +59,7 @@
 //                                                                / / / ,----------- S : SHA1 hashed attribute value in database (implies L)
 //                                                               / / / / ,---------- A : Returned to client as attribute in queries
 //                                                              / / / / / ,--------- D : Returned to client as data in queries
-//                                                             / / / / / / ,-------- R : Returned to client as ref/persistant ref in queries
+//                                                             / / / / / / ,-------- R : Returned to client as ref/persistent ref in queries
 //                                                            / / / / / / / ,------- C : Part of encrypted blob
 //                                                           / / / / / / / / ,------ H : Attribute is part of item SHA1 hash (Implied by C)
 //                                                          / / / / / / / / / ,----- B : Attribute is part of iTunes/iCloud backup bag

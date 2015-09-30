@@ -24,9 +24,9 @@
 
 #include "CachedScript.h"
 #include "DOMConstructorWithDocument.h"
-#include "DOMObjectHashTableMap.h"
 #include "DOMStringList.h"
 #include "ExceptionCode.h"
+#include "ExceptionCodeDescription.h"
 #include "ExceptionHeaders.h"
 #include "ExceptionInterfaces.h"
 #include "Frame.h"
@@ -40,6 +40,7 @@
 #include <runtime/DateInstance.h>
 #include <runtime/Error.h>
 #include <runtime/ErrorHandlingScope.h>
+#include <runtime/Exception.h>
 #include <runtime/ExceptionHelpers.h>
 #include <runtime/JSFunction.h>
 #include <stdarg.h>
@@ -56,11 +57,6 @@ STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(DOMConstructorWithDocument);
 void addImpureProperty(const AtomicString& propertyName)
 {
     JSDOMWindow::commonVM().addImpureProperty(propertyName);
-}
-
-const JSC::HashTable& getHashTableForGlobalData(VM& vm, const JSC::HashTable& staticTable)
-{
-    return DOMObjectHashTableMap::mapFor(vm).get(staticTable);
 }
 
 JSValue jsStringOrNull(ExecState* exec, const String& s)
@@ -103,15 +99,6 @@ JSValue jsStringOrUndefined(ExecState* exec, const URL& url)
     return jsStringWithCache(exec, url.string());
 }
 
-AtomicStringImpl* findAtomicString(PropertyName propertyName)
-{
-    StringImpl* impl = propertyName.publicName();
-    if (!impl)
-        return 0;
-    ASSERT(impl->existingHash());
-    return AtomicString::findStringWithHash(*impl);
-}
-
 String valueToStringWithNullCheck(ExecState* exec, JSValue value)
 {
     if (value.isNull())
@@ -124,6 +111,13 @@ String valueToStringWithUndefinedOrNullCheck(ExecState* exec, JSValue value)
     if (value.isUndefinedOrNull())
         return String();
     return value.toString(exec)->value(exec);
+}
+
+JSValue jsDateOrNaN(ExecState* exec, double value)
+{
+    if (std::isnan(value))
+        return jsDoubleNumber(value);
+    return jsDateOrNull(exec, value);
 }
 
 JSValue jsDateOrNull(ExecState* exec, double value)
@@ -152,7 +146,20 @@ JSC::JSValue jsArray(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, Pass
     return JSC::constructArray(exec, 0, globalObject, list);
 }
 
-void reportException(ExecState* exec, JSValue exception, CachedScript* cachedScript)
+void reportException(ExecState* exec, JSValue exceptionValue, CachedScript* cachedScript)
+{
+    RELEASE_ASSERT(exec->vm().currentThreadIsHoldingAPILock());
+    Exception* exception = jsDynamicCast<Exception*>(exceptionValue);
+    if (!exception) {
+        exception = exec->lastException();
+        if (!exception)
+            exception = Exception::create(exec->vm(), exceptionValue, Exception::DoNotCaptureStack);
+    }
+
+    reportException(exec, exception, cachedScript);
+}
+
+void reportException(ExecState* exec, Exception* exception, CachedScript* cachedScript)
 {
     RELEASE_ASSERT(exec->vm().currentThreadIsHoldingAPILock());
     if (isTerminatedExecutionException(exception))
@@ -162,7 +169,7 @@ void reportException(ExecState* exec, JSValue exception, CachedScript* cachedScr
 
     RefPtr<ScriptCallStack> callStack(createScriptCallStackFromException(exec, exception, ScriptCallStack::maxCallStackSizeToCapture));
     exec->clearException();
-    exec->clearSupplementaryExceptionInfo();
+    exec->clearLastException();
 
     JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(exec->lexicalGlobalObject());
     if (JSDOMWindow* window = jsDynamicCast<JSDOMWindow*>(globalObject)) {
@@ -180,14 +187,17 @@ void reportException(ExecState* exec, JSValue exception, CachedScript* cachedScr
     }
 
     String errorMessage;
-    if (ExceptionBase* exceptionBase = toExceptionBase(exception))
+    if (ExceptionBase* exceptionBase = toExceptionBase(exception->value()))
         errorMessage = exceptionBase->message() + ": "  + exceptionBase->description();
     else {
         // FIXME: <http://webkit.org/b/115087> Web Inspector: WebCore::reportException should not evaluate JavaScript handling exceptions
         // If this is a custon exception object, call toString on it to try and get a nice string representation for the exception.
-        errorMessage = exception.toString(exec)->value(exec);
+        errorMessage = exception->value().toString(exec)->value(exec);
+
+        // We need to clear any new exception that may be thrown in the toString() call above.
+        // reportException() is not supposed to be making new exceptions.
         exec->clearException();
-        exec->clearSupplementaryExceptionInfo();
+        exec->clearLastException();
     }
 
     ScriptExecutionContext* scriptExecutionContext = globalObject->scriptExecutionContext();
@@ -196,7 +206,7 @@ void reportException(ExecState* exec, JSValue exception, CachedScript* cachedScr
 
 void reportCurrentException(ExecState* exec)
 {
-    JSValue exception = exec->exception();
+    Exception* exception = exec->exception();
     exec->clearException();
     reportException(exec, exception);
 }
@@ -206,16 +216,17 @@ void reportCurrentException(ExecState* exec)
         errorObject = toJS(exec, globalObject, interfaceName::create(description)); \
         break;
 
-void setDOMException(ExecState* exec, ExceptionCode ec)
+JSValue createDOMException(ExecState* exec, ExceptionCode ec)
 {
-    if (!ec || exec->hadException())
-        return;
+    if (!ec)
+        return jsUndefined();
 
     // FIXME: Handle other WebIDL exception types.
-    if (ec == TypeError) {
-        throwTypeError(exec);
-        return;
-    }
+    if (ec == TypeError)
+        return createTypeError(exec);
+    if (ec == RangeError)
+        return createRangeError(exec, ASCIILiteral("Bad value"));
+
 
     // FIXME: All callers to setDOMException need to pass in the right global object
     // for now, we're going to assume the lexicalGlobalObject.  Which is wrong in cases like this:
@@ -228,9 +239,18 @@ void setDOMException(ExecState* exec, ExceptionCode ec)
     switch (description.type) {
         DOM_EXCEPTION_INTERFACES_FOR_EACH(TRY_TO_CREATE_EXCEPTION)
     }
-
+    
     ASSERT(errorObject);
-    exec->vm().throwException(exec, errorObject);
+    addErrorInfo(exec, asObject(errorObject), true);
+    return errorObject;
+}
+
+void setDOMException(ExecState* exec, ExceptionCode ec)
+{
+    if (!ec || exec->hadException())
+        return;
+
+    exec->vm().throwException(exec, createDOMException(exec, ec));
 }
 
 #undef TRY_TO_CREATE_EXCEPTION

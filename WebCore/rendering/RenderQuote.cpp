@@ -31,7 +31,7 @@ using namespace WTF::Unicode;
 
 namespace WebCore {
 
-RenderQuote::RenderQuote(Document& document, PassRef<RenderStyle> style, QuoteType quote)
+RenderQuote::RenderQuote(Document& document, Ref<RenderStyle>&& style, QuoteType quote)
     : RenderInline(document, WTF::move(style))
     , m_type(quote)
     , m_text(emptyString())
@@ -40,15 +40,11 @@ RenderQuote::RenderQuote(Document& document, PassRef<RenderStyle> style, QuoteTy
 
 RenderQuote::~RenderQuote()
 {
+    detachQuote();
+
     ASSERT(!m_isAttached);
     ASSERT(!m_next);
     ASSERT(!m_previous);
-}
-
-void RenderQuote::willBeDestroyed()
-{
-    detachQuote();
-    RenderInline::willBeDestroyed();
 }
 
 void RenderQuote::willBeRemovedFromTree()
@@ -339,13 +335,10 @@ static RenderTextFragment* fragmentChild(RenderObject* lastChild)
     if (!lastChild)
         return nullptr;
 
-    if (!lastChild->isText())
-        return nullptr;
-    
-    if (!toRenderText(lastChild)->isTextFragment())
+    if (!is<RenderTextFragment>(lastChild))
         return nullptr;
 
-    return toRenderTextFragment(lastChild);
+    return downcast<RenderTextFragment>(lastChild);
 }
 
 void RenderQuote::updateText()
@@ -399,9 +392,9 @@ void RenderQuote::attachQuote()
         for (RenderObject* predecessor = previousInPreOrder(); predecessor; predecessor = predecessor->previousInPreOrder()) {
             // Skip unattached predecessors to avoid having stale m_previous pointers
             // if the previous node is never attached and is then destroyed.
-            if (!predecessor->isQuote() || !toRenderQuote(predecessor)->m_isAttached)
+            if (!is<RenderQuote>(*predecessor) || !downcast<RenderQuote>(*predecessor).m_isAttached)
                 continue;
-            m_previous = toRenderQuote(predecessor);
+            m_previous = downcast<RenderQuote>(predecessor);
             m_next = m_previous->m_next;
             m_previous->m_next = this;
             if (m_next)

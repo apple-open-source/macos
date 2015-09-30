@@ -9,6 +9,8 @@ entryPoint(CommonRSA,"RSA Cryptography")
 
 #include <CommonCrypto/CommonBigNum.h>
 #include <CommonCrypto/CommonRSACryptor.h>
+#include "ccMemory.h"
+
 // static int kTestTestCount = 23;
 #define MAXKEYSPACE 512
 
@@ -21,7 +23,7 @@ static int saneKeySize(CCRSACryptorRef key) {
 static int roundTripCrypt(CCRSACryptorRef pubKey, CCRSACryptorRef privKey) {
     size_t keySizeBytes = (CCRSAGetKeySize(pubKey)+7)/8;
     char clear[keySizeBytes], cipher[keySizeBytes], decrypted[keySizeBytes];
-    bzero(clear, keySizeBytes);
+    CC_XZEROMEM(clear, keySizeBytes);
     size_t moved = keySizeBytes;
     
     ok(CCRSACryptorCrypt(pubKey, clear, keySizeBytes, cipher, &moved) == 0, "RSA Raw Crypt");
@@ -58,6 +60,7 @@ static int wrapUnwrap(CCRSACryptorRef publicKey, CCRSACryptorRef privateKey, CCA
 errout:
     free(keydata);
     free(decryptedKey);
+    free(encryptedKey);
     return status;
 }
 
@@ -93,46 +96,37 @@ errout:
 #define TMPBUFSIZ 4096
 static int export_import(CCRSACryptorRef publicKey, CCRSACryptorRef privateKey)
 {
-	CCCryptorStatus retval;
-    CCRSACryptorRef publicKey2;
-    CCRSACryptorRef privateKey2;
+    CCRSACryptorRef publicKey2=NULL;
+    CCRSACryptorRef privateKey2=NULL;
     int status = 0;
-    //size_t tmplen = 16384;
-    //uint8_t tmp[tmplen];
-    byteBuffer tmp = mallocByteBuffer(TMPBUFSIZ);
-    
-    retval = CCRSACryptorExport(publicKey, tmp->bytes, &tmp->len);
-    ok(retval == 0, "RSA Export Public Key");
-    if(retval == kCCUnimplemented) return 0;
-    if(retval) return 1;
-    retval = CCRSACryptorImport(tmp->bytes, tmp->len, &publicKey2);
-    ok(retval == 0, "RSA Import Public Key");
-    if(retval) return 1;
-    
+
+    byteBuffer tmp=mallocByteBuffer(TMPBUFSIZ);
+
+    ok_status(status|=CCRSACryptorExport(publicKey, tmp->bytes, &tmp->len),"RSA Export Public Key");
+    ok_status(status|=CCRSACryptorImport(tmp->bytes, tmp->len, &publicKey2),"RSA Import Public Key");
+    if(status) {
+        goto errOut;
+    }
+
 	tmp->len = TMPBUFSIZ;
-	retval = CCRSACryptorExport(privateKey, tmp->bytes, &tmp->len);
-    ok(retval == 0, "RSA Export Private Key");
-    if(retval == kCCUnimplemented) return 0;
-    if(retval) return 1;
-    
-    retval = CCRSACryptorImport(tmp->bytes, tmp->len, &privateKey2);
-    ok(retval == 0, "RSA Import Private Key");
-    if(retval) return 1;
-    
-    ok((status = saneKeySize(publicKey2)) == 0, "Keysize is realistic");
+    ok_status(status|=CCRSACryptorExport(privateKey, tmp->bytes, &tmp->len), "RSA Export Private Key");
+    ok_status(status|=CCRSACryptorImport(tmp->bytes, tmp->len, &privateKey2),"RSA Import Private Key");
+    if(status) {
+        goto errOut;
+    }
+
+    ok_status(status|=saneKeySize(publicKey2), "Keysize is realistic");
+    ok_status(status|=saneKeySize(privateKey2), "Keysize is realistic");
     if(status) {
         printf("%d keysize\n", CCRSAGetKeySize(publicKey2));
-        return 1;
     }
-    ok((status = saneKeySize(privateKey2)) == 0, "Keysize is realistic");
-    if(status) {
-        printf("%d keysize\n", CCRSAGetKeySize(publicKey2));
-        return 1;
-    }
-    
-    ok((status = roundTripCrypt(publicKey, privateKey2)) == 0, "import private works with original public");
-    if(status) return 1;
-    ok((status = roundTripCrypt(publicKey2, privateKey)) == 0, "import public works with original private");
+    ok_status(status|=roundTripCrypt(publicKey, privateKey2), "import private works with original public");
+    ok_status(status|=roundTripCrypt(publicKey2, privateKey), "import public works with original private");
+
+errOut:
+    free(tmp);
+    if (publicKey2) CCRSACryptorRelease(publicKey2);
+    if (privateKey2) CCRSACryptorRelease(privateKey2);
     return status;
 
 }
@@ -156,7 +150,7 @@ RSAStdGenTest(size_t keysize, uint32_t exponent)
     ok((status = sign_verify(publicKey, privateKey, ccOAEPPadding, kCCDigestSHA1)) == 0, "Can perform round-trip OAEP sign/verify");
     ok((status = export_import(publicKey, privateKey)) == 0, "Can perform round-trip import/export");
 
-    
+    CCRSACryptorRelease(publicKeyClone);
     CCRSACryptorRelease(publicKey);
     CCRSACryptorRelease(privateKey);
     return status;
@@ -243,6 +237,7 @@ static void *bytesFromDecStr(char *input, size_t *len) {
     ok(retbuf != NULL, "Allocated byte string space");
     *len = CCBigNumToData(&status, bignum, retbuf);
     ok(status == kCCSuccess, "Converted bignum to byte string");
+    CCBigNumFree(bignum);
     return retbuf;
 }
 
@@ -260,11 +255,15 @@ static int RSAKnownImport() {
         status = CCRSACryptorCreateFromData(ccRSAKeyPublic, modulus, modulus_size, exponent, exponent_size,
                                             NULL, 0, NULL, 0, &cryptor);
         ok(status == kCCSuccess, "Imported Public Key");
+        free(exponent);
+        free(modulus);
+        CCRSACryptorRelease(cryptor);
         return 0;
     } else {
         ok(false, "Failed to import Public key");
         return 1;
     }
+
 }
 
 int CommonRSA (int argc, char *const *argv) {
@@ -273,7 +272,7 @@ int CommonRSA (int argc, char *const *argv) {
     int stdgen = 1;
     size_t keystep = 512;
     
-	plan_tests(90);
+	plan_tests(637);
     
     ok(RSAKnownImport() == 0, "Imported known Public key");
     if(stdgen) {
@@ -305,7 +304,7 @@ int CommonRSA (int argc, char *const *argv) {
         m = "f3d4c9ca2dca5d4b893919ae7bee0d174d1e7bd2190287f79a7db6f21366108e8b0aa37cc972989ff3730d629620076555884da0e895d4e426449c60e36fad1d0208dd4ade1c45fc90da5e76c9c89fd95d13ce76a97530ee83ea3cfbe96cf28f85c4756797cd0123683194b7b2fcd185c3ea984cb0ef90580f95d57a44b027b5";
         d = "28a376f707a1ba3741898447bf525783e22fbf4daed5c153ef14f3d3033bad6d172c7094cc3dc41aa8932ce5c3b0013b8e4162457c18f8d0b10b6f657b3d478482626149773760b0688ded3b1ebf16044273b2cd3924b068c2572dd9cceb4d13afb0cc64ae4da9facefbf66d271d11ef0dcc4e1af2a7dd80b2c984f4e3bf7fad";
 
-        if(verbose) diag("Build 9.31 key pair %d\n", i++);
+        if(verbose) diag("Build FIPS 186 key pair %d\n", i++);
         ok(RSAX931BuildTest(e, xp1, xp2, xp, xq1, xq2, xq, p, q, m, d) == 0, "Successfully Built RSA KeyPair");
 
         e = 0x010001;
@@ -319,7 +318,7 @@ int CommonRSA (int argc, char *const *argv) {
         q = "f7c6a68cff2467f300b82591e5123b1d1256546d999a37f4b18fe4896464df6987e7cc80efeeb4c59165f7d1aec9be2b34889dbe221147e7ceefb5c9bd5cb945";
         m = "ce1b6904ec27f4a8f420414860704f4797a202ed16a9a35f63a16511a31675ccb046b02b192ef121b328385922f5faa032113332d42f84c70d4323133e216b0f339ebaf672f6214d0d7c13bea301174485ec44f44fae0e8a7f8d3c81ced5df77723331816158c3added7dc55f1436a7e5f14730be22cf3bebab1b62915c80c85";
         d = "18d16522721b5793169e61ae08eacd291641ac6f8718933313c8a5e66b487393dbb00f5b89334556e4ff5555aa678b2fca07972e2a2db4a3d15d81b639f7852ffe71657918d0280ff1be2f8f5d90b3e68195ab35e5069a3053540958bc6d58489fecf8baab0981f4af7b4db43550bcf01114e5ecdcb18f228db1c617b5d09781";
-        if(verbose) diag("Build 9.31 key pair %d\n", i++);
+        if(verbose) diag("Build FIPS 186 key pair %d\n", i++);
         ok(RSAX931BuildTest(e, xp1, xp2, xp, xq1, xq2, xq, p, q, m, d) == 0, "Successfully Built RSA KeyPair");
 
         e = 3;
@@ -333,7 +332,7 @@ int CommonRSA (int argc, char *const *argv) {
         q = "e4d222daf062a01a3a9ddfc82a229613403b772ff05fa9fab1fc77de51744af98b65d47bdb2e8f5091af66002550b1d3ca446738450f8f670045f8465a952a8942079c1e04937b7eb94b8d322faefd691b6fa2b0ef4a2333ed791afe8ac3ac41";
         m = "ba24d0a5878c01f6ad9140b6271b42309887a6815d5ef1bc3415a381b7b511a42b8d2b8d9df59faa0b69456ff908e24b4ccb835420404ce449c9ce4ca65dc4ae4eb6bb8403b809d530ef4b37e5b211c13a03e2a69afb8c748b90c97d52023ae9a24c1f1f4b3b87685eaa649f54e41b6439e29700543f0747f09658ed392f96ee568a50ad7b5441c88ad37c581526ff296b1c6cc87e352d4f921960b6b630f8f546f1077a7586b839ee07717de84e0a19cd52eceb358ff2c69387b13a83e5335b";
         d = "1f0622c641420053c7983573b12f35b2c4169bc03a3a7d9f5e039b404948d846074231ecefa8eff1ac918b92a9817b0c8ccc95e35ab562260c4c4d0cc664f61d0d1e7496009eac4e32d28c8950f302f589ab507119d49768c1ed76ea3855b47bfcded5a6137e49706fe2f50213aa1313ad67b8adaef390a46bd7ccbdfa0f5042dcd4749d181613a3c9694314626207c7a7c125ca139742296de412449dd1267d6574d30c5e8bb60844e1f21c76ca41cf3bb805c521553218ce71390055029a6b";
-        if(verbose) diag("Build 9.31 key pair %d\n", i++);
+        if(verbose) diag("Build FIPS 186 key pair %d\n", i++);
         ok(RSAX931BuildTest(e, xp1, xp2, xp, xq1, xq2, xq, p, q, m, d) == 0, "Successfully Built RSA KeyPair");
 
         e = 3;
@@ -347,7 +346,7 @@ int CommonRSA (int argc, char *const *argv) {
         q = "c4d3feeb0e561be3727fd83dedaeaaecba01c798e917dd8bb11a03ce07fcf08f6f006ac6137d021912dffffc1aee981c395366fef05718e38aef69f0abf64f8b2cb9750826b8ec854dab1e1280c403169e3497ee9af08bd6d2b53a0d9c49e034220506f771942204f0890fb5e617c580aa98a7482b5457215badc119f23b21c3";
         m = "be1cfc39868d8e9a8239f504482be60c01071cbdab4355b03c10edafe85d9ca10689d86036b6d35829a364a8a2b69f28743e50e5e27ac6b6fe8962809e1c2e0765b2d7508d61bfa538085dfb685595c6965bc5e0855a6dd8807a83e2ee7fc50b5b48f2d232195b672f2c325eb6649dee9758ce76f690107f3b0d10afef427777fb0bac0a41e23717fc54d9194a344d1823bdc18fa364e5373da39a3e41bcc4d88a688a711b56c6387b669d37c4fd7878559b93473869ae8190c46605f03cf25038bf771246fb81a27bc9d44ba67bfce94a3051856511661dbe0803d220809695ad707022c4acd24d40e011eb3752e39568f66cdd2d90369a67295e19dadb0d11";
         d = "1faf7f5eebc2426f15b45380b6b1fbacaad684ca4735e39d5f58279d5164ef702bc1a410091e788eb19b3b717073c53168b50d7ba5bf211e7fc1906ac504b25690f323e2c23af546340164ff3c0e43a1190f4ba56b8f124ec0146b507d154b81e48c28785daee49132875dba73bb6fa7c3e42269291802bfdf2cd81d528b13e90a7de94f042d0ac33102095d0ec64b433c9e43c3a4651e215072c5ba3175aff6085efd3f868589487fd4c2fd72be000f1bcb51c20f6fa3d56b97872d6f0ed21e67a896478336340105e6672bf90bb250ac4f487e0973ca17161781f58763f58ac25ddb77b7297da53dddb02661b18dad920fd4dd7b7233f125336dd79e1ef3c9";
-        if(verbose) diag("Build 9.31 key pair %d\n", i++);
+        if(verbose) diag("Build FIPS 186 key pair %d\n", i++);
         ok(RSAX931BuildTest(e, xp1, xp2, xp, xq1, xq2, xq, p, q, m, d) == 0, "Successfully Built RSA KeyPair");
 
         e = 3;
@@ -361,7 +360,7 @@ int CommonRSA (int argc, char *const *argv) {
         q = "bd7cc6c56616fb5b41f35d8de2a5c61d1894895dfa46aa95c2de4ea5dfe370eb4543d6670898431d29a9efbbb034347cfaeb8a4c55bcb52dca553dd93ae81fa9ad2bc2b5e6a42c3d3b237648a3907d8a11e6db8b008016064f94168f50fddd791c3d72f729c21e811e68db7ae5400a0f02906462241a33e8faa1c20f48aa12253a80ce75f87a81b37a80079a9ecc42d378ee0e19e913769b738628a14b772673b0fcbf777c640b3b2f869336b823710bb296f32aaba903f90af79239c3d97279";
         m = "a25e0fbcc06a40ac879bba988e78b9df8f88b800077d580b615e3f2f663c9ce631eb0229ee7a4d5166122378bd055f686dd382e63c1564c96127ec191c88d1ba02fcf90f1efcfe29bdfab0fd6413dcb4027512d15c2e337f7111e7acc7679cd1b96581461466ca63af5fbfc0579d322ca02413b75a6dce25c529d6475fafbc5d07504a29039c0f567cbb9dff2938687a6e6d4633f9ae46383536060dc7efb90ff99a6e97449e8f8ad24853f70726953b3f1dc82222f8407f98250f2060777cbd05d0b2ed6abb99d86ac30974df41da16bc1e3abd610df6bcff49a2be932baeedf163911eec026dcbd5937734b47ceb48db97c27bd2a35338f90332b75374ae4404913ae82caf14bba7410c638676a544046aed0b6605562186a4ba6b3695ab25f900899bd03a8f3e68d548b4eadbd9a348a142618954b1b9d73245926d6c57e26454db887c6272280c2d0efff1b856762da7c8be77a0006da3ea589b21ee5efec36574c041d8e506af55de52083225242642cafdcdadfa9663e4424a2bb937d3";
         d = "1b0fad4a2011b5721699f46ec269744fed417400013f8eac903a5fdd3bb4c4d10851d5b1a7bf0ce2e6585b3eca2b8fe6bcf895d10a0390cc3adbfcaeda16cd9f007f7ed7da7f7fb19fa9c82a3b58a4c8ab138322e4b25dea92d85147769144cd9ee6403658bbcc65f28ff54ab944ddb21ab0adf3e467a25ba0dc4e613a9d4a0f81380c5c2b44ad3914c9efaa86debc1467bce108a99d0bb408de5657a1529ed7feef126e8b6fc297230c0dfe813118df352fa15b05d40abfeeb0d7dababe94c9e77e9a8ecb3eebe9823aec87d9f8225aef4465f3dfc5db367a60cf517603a7596a1fbf9e8b08f115b73ecf81b684bfad73c093df30ebc07e434caa87c09d55ab0b674b3858afa1939ba249c7265fd747731f2384d75b5fe6b9e06bbd3110787618290fb73cd42aca08f3f2ee855e393a5e6e835aa77cafc7d329c1dde7655abeeb8d74a015f8d2d36a3bc8939864dfd60da40c63435f76ac1b411af42d5145e95d1b0798a8e8b2ee23edb188228061fa60760993399b16b0cb2246c63ec809f3";
-        if(verbose) diag("Build 9.31 key pair %d\n", i++);
+        if(verbose) diag("Build FIPS 186 key pair %d\n", i++);
         ok(RSAX931BuildTest(e, xp1, xp2, xp, xq1, xq2, xq, p, q, m, d) == 0, "Successfully Built RSA KeyPair");
 
 
@@ -376,7 +375,7 @@ int CommonRSA (int argc, char *const *argv) {
         q = "facc7f5f089ed9267363bc23c6c7b8f73208a36f61fa8ea8084ff777bc154107068061c4b9ead9788318eab4c3bf05729a4684f845ce9700aa70811530c50440d4ac19e47a47e5e78047e912996a79bbd9416fa10c3720174ccf8f65d32de16b0dd81187f1bee5b992792105f1d0fa191681cd305f3e113617f58b2d4a54c0cfd88db075c956c137e034fa5573fa71d67a8c076ee5e952a53369db3640438ab55e515e75a81861a99303dcc9c6efc7382cec83234742ccacc7b3e9485b002565c7af8351370aae57d26b2f2b93b7e2885429ab172c516593fb5c1b2b43957b273a2c87cf1d710fc707b5e6d58b6f3cb377b286466c4da41f592c749ebf97fca3";
         m = "d4e0061c2150cdf177232b89266af9153902cbd434a39cab549d997ed6dadcb4e84bbac6d49658428728a01bd7036bab4b0003f7e6ccf69df1effad985185c4ab0756237e4be92b2f42085d4388a29f461af98649c700d6dad5e0fe352513b578b3bff5f19b144e6304defe1b4fb43b37ecb4ed7c0e97377802d9e79c6d742837b3b71fd101fcf5ead4a114d9419af008a421d8a4c5efd4e6da8cc3c967502bd4cc1bda09e87bf7a1d0badaf0783a6dbef5c98359c59d6bda1cc9bacfaa962c841ddfa3670211e38a68998508ea1a2be519718a168d09cc0d2c1d0f8d56ca1d7199b0c4fc78ddb595f6681e5b1b96309251c0714bf134d46f58419a0273bfaab3328b59d75d8ada5e6e2745e816d17ded27b52f0b5632088ee6bf9675793adc52591abc3eacbf3ae4b59871ac9c94e98708801f534ad0a99791827e91cbacf7afbbd72e162698aeba0380f74462b8dd097fb576a99d70ad2117efee8f6ef51d6afd6fb8ce9b6c234ebf00d24d44ad505305e48af1a8037fed9a2a44235980d395bf69489309d37a04b66f236d223b1af759232ecf9d6556a71cd74c4936fc6d3efe6efb3311eea1574e0cebd657a9d36142f0719b95c98900bd32b9cdb6702ff92a7eefc5ec99c6f12709cb3a118cdaf56284dd195e0633dd689889924c42d3e6579e403bb3ecb08310128c673de301c3bea248f3bd0f63cab3f2545da9f8d6b";
         d = "237aabaf5ae2ccfd93db31ec3111d42e342b21f8b3709a1c8e1a443fce79cf737c0c9f21236e640b1686c559f92b3c9c8c8000a95122291a52fd5479962eba0c72be3b0950ca6dc87e056ba35ec1b1a8baf299661a12ace79ce502a5e30d89e3ec89ffe52ef2e0d1080cfd5048d48b489521e2794ad1933e955cefbef67935c09489e854d8054d3a723702e243599d2ac1b5af970cba7f8d1246ccb4c3be2b1f8ccaf4f01a6bf53f04d7479d2beb4679fd3a195e44b9a3ca45a219f229c6e5cc0afa545e680585097116eeb817c59b1fb843d9703c22c4cacdcaf82978e7704e8444820d4becf9e43a9115a648499081862f5683752de2367e40aef00689ff1c3a83010a2a02fd60bde977c71b5066fea69851107da6b3c26fc24ca84a0b8df91491bb3fda29e49ff7af5dd0adfbe3454739a4dac131bf48163de6a5af29c957017aac4e66c493f81440beaa685ff96c323c0f334dbb057055a96a8e7dd8297d229c9e915f2b3b7a4cb33cb5279df74b710e5b178eb456f56c07d64afb55f513df7dec96c388184208da0db6088d410e9aae8ffb46fdcc7b813d5c6a28c49a65ed1956711fb321b89ec38172747c0e09aee2ce756f84bc2f00703e8c35f9d2448a1b24dfea1c45c50d75ba01fb8eb4ae1cabcf8cc9ee5974fe9c14958958fbddc93c5d40daaa1c22e3ffcd00d9eca5d29d030c3491aacc2bb50d30fb4667bab3";
-        if(verbose) diag("Build 9.31 key pair %d\n", i++);
+        if(verbose) diag("Build FIPS 186 key pair %d\n", i++);
         ok(RSAX931BuildTest(e, xp1, xp2, xp, xq1, xq2, xq, p, q, m, d) == 0, "Successfully Built RSA KeyPair");
     } /* build931 */
     
@@ -404,7 +403,7 @@ int CommonRSA (int argc, char *const *argv) {
     CCRSACryptorRef		key;
     
     ok(CCRSACryptorImport( kAirTunesRSAPublicKey, sizeof( kAirTunesRSAPublicKey ), &key ) == kCCSuccess, "Imported Airport Key");
-        
+    if (key) CCRSACryptorRelease(key);
     return 0;
 }
 #endif /* CCRSA */

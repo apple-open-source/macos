@@ -91,13 +91,13 @@ protected:
 
 EncodedJSValue JSC_HOST_CALL JSTestEventConstructorConstructor::constructJSTestEventConstructor(ExecState* exec)
 {
-    JSTestEventConstructorConstructor* jsConstructor = jsCast<JSTestEventConstructorConstructor*>(exec->callee());
+    auto* jsConstructor = jsCast<JSTestEventConstructorConstructor*>(exec->callee());
 
     ScriptExecutionContext* executionContext = jsConstructor->scriptExecutionContext();
     if (!executionContext)
         return throwVMError(exec, createReferenceError(exec, "Constructor associated execution context is unavailable"));
 
-    AtomicString eventType = exec->argument(0).toString(exec)->value(exec);
+    AtomicString eventType = exec->argument(0).toString(exec)->toAtomicString(exec);
     if (UNLIKELY(exec->hadException()))
         return JSValue::encode(jsUndefined());
 
@@ -127,7 +127,7 @@ bool fillTestEventConstructorInit(TestEventConstructorInit& eventInit, JSDiction
     return true;
 }
 
-const ClassInfo JSTestEventConstructorConstructor::s_info = { "TestEventConstructorConstructor", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSTestEventConstructorConstructor) };
+const ClassInfo JSTestEventConstructorConstructor::s_info = { "TestEventConstructorConstructor", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestEventConstructorConstructor) };
 
 JSTestEventConstructorConstructor::JSTestEventConstructorConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
     : DOMConstructorObject(structure, globalObject)
@@ -157,7 +157,7 @@ static const HashTableValue JSTestEventConstructorPrototypeTableValues[] =
     { "attr2", DontDelete | ReadOnly | CustomAccessor, NoIntrinsic, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestEventConstructorAttr2), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) },
 };
 
-const ClassInfo JSTestEventConstructorPrototype::s_info = { "TestEventConstructorPrototype", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSTestEventConstructorPrototype) };
+const ClassInfo JSTestEventConstructorPrototype::s_info = { "TestEventConstructorPrototype", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestEventConstructorPrototype) };
 
 void JSTestEventConstructorPrototype::finishCreation(VM& vm)
 {
@@ -165,11 +165,11 @@ void JSTestEventConstructorPrototype::finishCreation(VM& vm)
     reifyStaticProperties(vm, JSTestEventConstructorPrototypeTableValues, *this);
 }
 
-const ClassInfo JSTestEventConstructor::s_info = { "TestEventConstructor", &Base::s_info, 0, 0 , CREATE_METHOD_TABLE(JSTestEventConstructor) };
+const ClassInfo JSTestEventConstructor::s_info = { "TestEventConstructor", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestEventConstructor) };
 
-JSTestEventConstructor::JSTestEventConstructor(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<TestEventConstructor> impl)
+JSTestEventConstructor::JSTestEventConstructor(Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestEventConstructor>&& impl)
     : JSDOMWrapper(structure, globalObject)
-    , m_impl(impl.leakRef())
+    , m_impl(&impl.leakRef())
 {
 }
 
@@ -191,7 +191,7 @@ void JSTestEventConstructor::destroy(JSC::JSCell* cell)
 
 JSTestEventConstructor::~JSTestEventConstructor()
 {
-    releaseImplIfNotNull();
+    releaseImpl();
 }
 
 EncodedJSValue jsTestEventConstructorAttr1(ExecState* exec, JSObject* slotBase, EncodedJSValue thisValue, PropertyName)
@@ -205,7 +205,7 @@ EncodedJSValue jsTestEventConstructorAttr1(ExecState* exec, JSObject* slotBase, 
             return reportDeprecatedGetterError(*exec, "TestEventConstructor", "attr1");
         return throwGetterTypeError(*exec, "TestEventConstructor", "attr1");
     }
-    TestEventConstructor& impl = castedThis->impl();
+    auto& impl = castedThis->impl();
     JSValue result = jsStringWithCache(exec, impl.attr1());
     return JSValue::encode(result);
 }
@@ -222,7 +222,7 @@ EncodedJSValue jsTestEventConstructorAttr2(ExecState* exec, JSObject* slotBase, 
             return reportDeprecatedGetterError(*exec, "TestEventConstructor", "attr2");
         return throwGetterTypeError(*exec, "TestEventConstructor", "attr2");
     }
-    TestEventConstructor& impl = castedThis->impl();
+    auto& impl = castedThis->impl();
     JSValue result = jsStringWithCache(exec, impl.attr2());
     return JSValue::encode(result);
 }
@@ -250,10 +250,9 @@ bool JSTestEventConstructorOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Un
 
 void JSTestEventConstructorOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    JSTestEventConstructor* jsTestEventConstructor = jsCast<JSTestEventConstructor*>(handle.slot()->asCell());
-    DOMWrapperWorld& world = *static_cast<DOMWrapperWorld*>(context);
+    auto* jsTestEventConstructor = jsCast<JSTestEventConstructor*>(handle.slot()->asCell());
+    auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, &jsTestEventConstructor->impl(), jsTestEventConstructor);
-    jsTestEventConstructor->releaseImpl();
 }
 
 #if ENABLE(BINDING_INTEGRITY)
@@ -292,7 +291,7 @@ JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject* globalObject, TestEventCon
     return createNewWrapper<JSTestEventConstructor>(globalObject, impl);
 }
 
-TestEventConstructor* toTestEventConstructor(JSC::JSValue value)
+TestEventConstructor* JSTestEventConstructor::toWrapped(JSC::JSValue value)
 {
     if (auto* wrapper = jsDynamicCast<JSTestEventConstructor*>(value))
         return &wrapper->impl();

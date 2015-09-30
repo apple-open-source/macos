@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2007, 2009, 2010, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009, 2010-2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -190,12 +190,20 @@ __setPrefsEnabled(SCPreferencesRef      prefs,
 	return ok;
 }
 
+#if !TARGET_OS_EMBEDDED
+#define SYSTEMCONFIGURATION_RESOURCES_PATH	SYSTEMCONFIGURATION_FRAMEWORK_PATH "/Resources"
+#else
+#define SYSTEMCONFIGURATION_RESOURCES_PATH	SYSTEMCONFIGURATION_FRAMEWORK_PATH
+#endif	// !TARGET_OS_EMBEDDED
+
+#define NETWORKCONFIGURATION_RESOURCE_FILE	"NetworkConfiguration.plist"
 
 static CFDictionaryRef
 __copyTemplates()
 {
 	CFBundleRef     bundle;
 	CFErrorRef	error		= NULL;
+	SInt32		errorCode;
 	Boolean		ok;
 	CFDictionaryRef templates;
 	CFURLRef	url;
@@ -208,15 +216,29 @@ __copyTemplates()
 
 	url = CFBundleCopyResourceURL(bundle, CFSTR("NetworkConfiguration"), CFSTR("plist"), NULL);
 	if (url == NULL) {
-		return NULL;
+		SC_log(LOG_ERR, "failed to GET resource URL to \"%s\". Trying harder...", NETWORKCONFIGURATION_RESOURCE_FILE);
+		url = CFURLCreateWithFileSystemPath(NULL,
+						    CFSTR(SYSTEMCONFIGURATION_RESOURCES_PATH
+							  "/"
+							  NETWORKCONFIGURATION_RESOURCE_FILE),
+						    kCFURLPOSIXPathStyle,
+						    TRUE);
+		
+		if (url == NULL) {
+			SC_log(LOG_ERR, "failed to CREATE resource URL to \"%s\"", SYSTEMCONFIGURATION_RESOURCES_PATH
+										   "/"
+										   NETWORKCONFIGURATION_RESOURCE_FILE);
+			return NULL;
+		}
 	}
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated"
-	ok = CFURLCreateDataAndPropertiesFromResource(NULL, url, &xmlTemplates, NULL, NULL, NULL);
+	ok = CFURLCreateDataAndPropertiesFromResource(NULL, url, &xmlTemplates, NULL, NULL, &errorCode);
 #pragma GCC diagnostic pop
 	CFRelease(url);
 	if (!ok || (xmlTemplates == NULL)) {
+		SC_log(LOG_NOTICE, "%s: failed to create data properties from resource (error=%ld)", __FUNCTION__ , (long)errorCode);
 		return NULL;
 	}
 
@@ -225,7 +247,7 @@ __copyTemplates()
 	CFRelease(xmlTemplates);
 	if (templates == NULL) {
 		if (error != NULL) {
-			SCLog(TRUE, LOG_DEBUG, CFSTR("could not load SCNetworkConfiguration templates: %@"), error);
+			SC_log(LOG_NOTICE, "could not load SCNetworkConfiguration templates: %@", error);
 			CFRelease(error);
 		}
 		return NULL;
@@ -357,11 +379,9 @@ __createInterface(int s, CFStringRef interface)
 				       kCFStringEncodingASCII);
 
 	if (ioctl(s, SIOCIFCREATE, &ifr) == -1) {
-		SCLog(TRUE,
-		      LOG_ERR,
-		      CFSTR("could not create interface \"%@\": %s"),
-		      interface,
-		      strerror(errno));
+		SC_log(LOG_NOTICE, "could not create interface \"%@\": %s",
+		       interface,
+		       strerror(errno));
 		return FALSE;
 	}
 
@@ -381,11 +401,9 @@ __destroyInterface(int s, CFStringRef interface)
 				       kCFStringEncodingASCII);
 
 	if (ioctl(s, SIOCIFDESTROY, &ifr) == -1) {
-		SCLog(TRUE,
-		      LOG_ERR,
-		      CFSTR("could not destroy interface \"%@\": %s"),
-		      interface,
-		      strerror(errno));
+		SC_log(LOG_NOTICE, "could not destroy interface \"%@\": %s",
+		       interface,
+		       strerror(errno));
 		return FALSE;
 	}
 

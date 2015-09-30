@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -82,6 +82,7 @@ typedef struct {
 
 #define kInterfaceTypeFlagIsWireless	0x01
 #define kInterfaceTypeFlagIsAWDL	0x02
+#define kInterfaceTypeFlagIsTethered	0x04
 
 typedef struct {
     char 		name[IFNAMSIZ]; /* eg. en0 */
@@ -153,10 +154,12 @@ boolean_t		if_link_update(interface_t * if_p);
 void			if_link_copy(interface_t * dest, 
 				     const interface_t * source);
 boolean_t		if_is_wireless(interface_t * if_p);
+boolean_t		if_is_ethernet(interface_t * if_p);
 int			if_link_index(interface_t * if_p);
 link_status_t		if_link_status_update(interface_t * if_p);
 link_status_t		if_get_link_status(interface_t * if_p);
 boolean_t		if_is_awdl(interface_t * if_p);
+boolean_t		if_is_tethered(interface_t * if_p);
 
 static __inline__ int
 dl_to_arp_hwtype(int dltype)

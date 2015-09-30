@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -198,7 +198,7 @@ cga_parameters_set(CFDataRef priv, CFDataRef pub,
 
     if (sysctlbyname(knet_inet6_send_cga_parameters,
 		     NULL, NULL, buf, (offset - buf)) != 0) {
-	my_log_fl(LOG_ERR, "sysctl(%s) failed, %s",
+	my_log_fl(LOG_NOTICE, "sysctl(%s) failed, %s",
 		  knet_inet6_send_cga_parameters,
 		  strerror(errno));
 	return (FALSE);
@@ -214,7 +214,7 @@ cga_is_enabled(void)
 
     if (sysctlbyname(knet_inet6_send_opmode,
 		     &enabled, &enabled_size, NULL, 0) != 0) {
-	my_log_fl(LOG_ERR, "sysctl(%s) failed, %s",
+	my_log_fl(LOG_NOTICE, "sysctl(%s) failed, %s",
 		  knet_inet6_send_opmode,
 		  strerror(errno));
 	enabled = 0;
@@ -321,9 +321,9 @@ CGAWrite(CFDataRef host_uuid, CFDictionaryRef global_modifier,
     if (my_CFPropertyListWriteFile(dict, CGA_FILE, 0644) < 0) {
 	/*
 	 * An ENOENT error is expected on a read-only filesystem.  All 
-	 * other errors should be reported as LOG_ERR.
+	 * other errors should be reported as LOG_NOTICE.
 	 */
-	my_log((errno == ENOENT) ? LOG_DEBUG : LOG_ERR,
+	my_log((errno == ENOENT) ? LOG_INFO : LOG_NOTICE,
 	       "CGAParameters: failed to write %s, %s",
 	       CGA_FILE, strerror(errno));
 	success = FALSE;
@@ -359,9 +359,9 @@ CGAKeysWrite(CFDataRef priv, CFDataRef pub)
     if (my_CFPropertyListWriteFile(dict, CGA_KEYS_FILE, 0600) < 0) {
 	/*
 	 * An ENOENT error is expected on a read-only filesystem.  All 
-	 * other errors should be reported as LOG_ERR.
+	 * other errors should be reported as LOG_NOTICE.
 	 */
-	my_log((errno == ENOENT) ? LOG_DEBUG : LOG_ERR,
+	my_log((errno == ENOENT) ? LOG_INFO : LOG_NOTICE,
 	       "CGAParameters: failed to write %s, %s",
 	       CGA_KEYS_FILE, strerror(errno));
 	success = FALSE;
@@ -425,7 +425,7 @@ CGAParametersLoad(CFDataRef host_uuid)
     parameters = my_CFPropertyListCreateFromFile(CGA_FILE);
     if (isA_CFDictionary(parameters) == NULL) {
 	if (parameters != NULL) {
-	    my_log_fl(LOG_ERR, "%s is not a dictionary", CGA_FILE);
+	    my_log_fl(LOG_NOTICE, "%s is not a dictionary", CGA_FILE);
 	}
 	goto done;
     }
@@ -434,7 +434,7 @@ CGAParametersLoad(CFDataRef host_uuid)
     plist_host_uuid = CFDictionaryGetValue(parameters, kHostUUID);
     if (isA_CFData(plist_host_uuid) == NULL
 	|| !CFEqual(plist_host_uuid, host_uuid)) {
-	my_log_fl(LOG_ERR, "%@ missing/invalid", kHostUUID);
+	my_log_fl(LOG_NOTICE, "%@ missing/invalid", kHostUUID);
 	goto done;
     }
 
@@ -446,7 +446,7 @@ CGAParametersLoad(CFDataRef host_uuid)
     }
     if (modifier == NULL) {
 	global_modifier = NULL;
-	my_log_fl(LOG_ERR, "%@ missing/invalid", kGlobalModifier);
+	my_log_fl(LOG_NOTICE, "%@ missing/invalid", kGlobalModifier);
 	goto done;
     }
 
@@ -454,7 +454,7 @@ CGAParametersLoad(CFDataRef host_uuid)
     keys_info = my_CFPropertyListCreateFromFile(CGA_KEYS_FILE);
     if (isA_CFDictionary(keys_info) == NULL) {
 	if (keys_info != NULL) {
-	    my_log_fl(LOG_ERR, "%s is not a dictionary", CGA_KEYS_FILE);
+	    my_log_fl(LOG_NOTICE, "%s is not a dictionary", CGA_KEYS_FILE);
 	}
 	goto done;
     }
@@ -462,20 +462,20 @@ CGAParametersLoad(CFDataRef host_uuid)
     /* private key */
     priv = CFDictionaryGetValue(keys_info, kPrivateKey);
     if (isA_CFData(priv) == NULL) {
-	my_log_fl(LOG_ERR, "%@ missing/invalid", kPrivateKey);
+	my_log_fl(LOG_NOTICE, "%@ missing/invalid", kPrivateKey);
 	goto done;
     }
 
     /* public key */
     pub = CFDictionaryGetValue(keys_info, kPublicKey);
     if (isA_CFData(pub) == NULL) {
-	my_log_fl(LOG_ERR, "%@ missing/invalid", kPublicKey);
+	my_log_fl(LOG_NOTICE, "%@ missing/invalid", kPublicKey);
 	goto done;
     }
 
     /* set CGA parameters in the kernel */
     if (cga_parameters_set(priv, pub, modifier, security_level) == FALSE) {
-	my_log_fl(LOG_ERR, "cga_parameters_set failed");
+	my_log_fl(LOG_NOTICE, "cga_parameters_set failed");
 	goto failed;
     }
 
@@ -484,7 +484,7 @@ CGAParametersLoad(CFDataRef host_uuid)
 	= CFDictionaryGetValue(parameters, kLinkLocalModifiers);
     if (linklocal_modifiers != NULL
 	&& isA_CFDictionary(linklocal_modifiers) == NULL) {
-	my_log_fl(LOG_ERR, "%s is not a dictionary", kLinkLocalModifiers);
+	my_log_fl(LOG_NOTICE, "%s is not a dictionary", kLinkLocalModifiers);
 	linklocal_modifiers = NULL;
     }
 
@@ -529,7 +529,7 @@ CGAPrepareSetForInterface(const char * ifname,
     uint8_t		security_level;
 
     if (S_LinkLocalModifiers == NULL) {
-	my_log_fl(LOG_ERR, "S_LinkLocalModifiers is NULL");
+	my_log_fl(LOG_NOTICE, "S_LinkLocalModifiers is NULL");
 	return;
     }
     ifname_cf = CFStringCreateWithCString(NULL, ifname, kCFStringEncodingASCII);
@@ -566,7 +566,7 @@ CGAInit(void)
     }
     host_uuid = HostUUIDGet();
     if (host_uuid == NULL) {
-	my_log_fl(LOG_ERR, "Failed to get HostUUID");
+	my_log_fl(LOG_NOTICE, "Failed to get HostUUID");
 	return;
     }
     if (CGAParametersLoad(host_uuid) == FALSE) {

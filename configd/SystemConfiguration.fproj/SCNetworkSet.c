@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -361,8 +361,7 @@ ensure_unique_service_name(SCNetworkServiceRef service)
 		}
 
 		if (SCError() != kSCStatusKeyExists) {
-			SCLog(TRUE, LOG_DEBUG,
-			      CFSTR("could not update service name for \"%@\": %s"),
+			SC_log(LOG_INFO, "could not update service name for \"%@\": %s",
 			      SCNetworkInterfaceGetLocalizedDisplayName(interface),
 			      SCErrorString(SCError()));
 			break;
@@ -370,8 +369,7 @@ ensure_unique_service_name(SCNetworkServiceRef service)
 
 		newName = copy_next_name(name);
 		if (newName == NULL) {
-			SCLog(TRUE, LOG_DEBUG,
-			      CFSTR("could not create unique name for \"%@\": %s"),
+			SC_log(LOG_INFO, "could not create unique name for \"%@\": %s",
 			      SCNetworkInterfaceGetLocalizedDisplayName(interface),
 			      SCErrorString(SCError()));
 			break;
@@ -587,10 +585,7 @@ SCNetworkSetCopyAll(SCPreferencesRef prefs)
 			SCNetworkSetPrivateRef	setPrivate;
 
 			if (!isA_CFDictionary(vals[i])) {
-				SCLog(TRUE,
-				      LOG_INFO,
-				      CFSTR("SCNetworkSetCopyAll(): error w/set \"%@\"\n"),
-				      keys[i]);
+				SC_log(LOG_INFO, "error w/set \"%@\"", keys[i]);
 				continue;
 			}
 
@@ -713,7 +708,7 @@ SCNetworkSetCopyCurrent(SCPreferencesRef prefs)
 			// mark set as "old" (already established)
 			setPrivate->established = TRUE;
 		} else {
-			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkSetCopyCurrent(): preferences are non-conformant"));
+			SC_log(LOG_NOTICE, "SCNetworkSetCopyCurrent(): preferences are non-conformant");
 		}
 		CFRelease(path);
 	}
@@ -767,11 +762,9 @@ SCNetworkSetCopyServices(SCNetworkSetRef set)
 			link = SCPreferencesPathGetLink(setPrivate->prefs, path);
 			CFRelease(path);
 			if (link == NULL) {
-				SCLog(TRUE,
-				      LOG_INFO,
-				      CFSTR("SCNetworkSetCopyServices(): service \"%@\" for set \"%@\" is not a link\n"),
-				      keys[i],
-				      setPrivate->setID);
+				SC_log(LOG_INFO, "service \"%@\" for set \"%@\" is not a link",
+				       keys[i],
+				       setPrivate->setID);
 				continue;	 // if the service is not a link
 			}
 
@@ -1560,10 +1553,9 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 			ok = SCBridgeInterfaceSetMemberInterfaces(bridge, newMembers);
 			CFRelease(newMembers);
 			if (!ok) {
-				SCLog(TRUE, LOG_DEBUG,
-				      CFSTR("could not update bridge with \"%@\": %s\n"),
-				      SCNetworkInterfaceGetLocalizedDisplayName(interface),
-				      SCErrorString(SCError()));
+				SC_log(LOG_INFO, "could not update bridge with \"%@\": %s",
+				       SCNetworkInterfaceGetLocalizedDisplayName(interface),
+				       SCErrorString(SCError()));
 				CFRelease(bridge);
 				continue;
 			}
@@ -1636,20 +1628,18 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 
 				service = SCNetworkServiceCreate(setPrivate->prefs, interface);
 				if (service == NULL) {
-					SCLog(TRUE, LOG_DEBUG,
-					      CFSTR("could not create service for \"%@\": %s\n"),
-					      SCNetworkInterfaceGetLocalizedDisplayName(interface),
-					      SCErrorString(SCError()));
+					SC_log(LOG_INFO, "could not create service for \"%@\": %s",
+					       SCNetworkInterfaceGetLocalizedDisplayName(interface),
+					       SCErrorString(SCError()));
 					ok = FALSE;
 					goto nextInterface;
 				}
 
 				ok = SCNetworkServiceEstablishDefaultConfiguration(service);
 				if (!ok) {
-					SCLog(TRUE, LOG_DEBUG,
-					      CFSTR("could not estabish default configuration for \"%@\": %s\n"),
-					      SCNetworkInterfaceGetLocalizedDisplayName(interface),
-					      SCErrorString(SCError()));
+					SC_log(LOG_INFO, "could not estabish default configuration for \"%@\": %s",
+					       SCNetworkInterfaceGetLocalizedDisplayName(interface),
+					       SCErrorString(SCError()));
 					SCNetworkServiceRemove(service);
 					CFRelease(service);
 					goto nextInterface;
@@ -1657,10 +1647,9 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 
 				ok = SCNetworkSetAddService(set, service);
 				if (!ok) {
-					SCLog(TRUE, LOG_DEBUG,
-					      CFSTR("could not add service for \"%@\": %s\n"),
-					      SCNetworkInterfaceGetLocalizedDisplayName(interface),
-					      SCErrorString(SCError()));
+					SC_log(LOG_INFO, "could not add service for \"%@\": %s",
+					       SCNetworkInterfaceGetLocalizedDisplayName(interface),
+					       SCErrorString(SCError()));
 					SCNetworkServiceRemove(service);
 					CFRelease(service);
 					goto nextInterface;

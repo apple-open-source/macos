@@ -61,7 +61,7 @@ class VideoTrackList;
 
 class SourceBuffer final : public RefCounted<SourceBuffer>, public ActiveDOMObject, public EventTargetWithInlineData, public ScriptWrappable, public SourceBufferPrivateClient, public AudioTrackClient, public VideoTrackClient, public TextTrackClient {
 public:
-    static PassRef<SourceBuffer> create(PassRef<SourceBufferPrivate>, MediaSource*);
+    static Ref<SourceBuffer> create(Ref<SourceBufferPrivate>&&, MediaSource*);
 
     static const AtomicString& segmentsKeyword();
     static const AtomicString& sequenceKeyword();
@@ -74,21 +74,28 @@ public:
     const RefPtr<TimeRanges>& buffered() const;
     double timestampOffset() const;
     void setTimestampOffset(double, ExceptionCode&);
-    void appendBuffer(PassRefPtr<ArrayBuffer> data, ExceptionCode&);
-    void appendBuffer(PassRefPtr<ArrayBufferView> data, ExceptionCode&);
-    void abort(ExceptionCode&);
-    void remove(double start, double end, ExceptionCode&);
-    void remove(const MediaTime&, const MediaTime&, ExceptionCode&);
-
-    void abortIfUpdating();
-    void removedFromMediaSource();
-    void seekToTime(const MediaTime&);
 
 #if ENABLE(VIDEO_TRACK)
     VideoTrackList* videoTracks();
     AudioTrackList* audioTracks();
     TextTrackList* textTracks();
 #endif
+
+    double appendWindowStart() const;
+    void setAppendWindowStart(double, ExceptionCode&);
+    double appendWindowEnd() const;
+    void setAppendWindowEnd(double, ExceptionCode&);
+
+    void appendBuffer(PassRefPtr<ArrayBuffer> data, ExceptionCode&);
+    void appendBuffer(PassRefPtr<ArrayBufferView> data, ExceptionCode&);
+    void abort(ExceptionCode&);
+    void remove(double start, double end, ExceptionCode&);
+    void remove(const MediaTime&, const MediaTime&, ExceptionCode&);
+
+    void appendError(bool);
+    void abortIfUpdating();
+    void removedFromMediaSource();
+    void seekToTime(const MediaTime&);
 
     bool hasCurrentTime() const;
     bool hasFutureTime() const;
@@ -98,10 +105,6 @@ public:
     bool hasAudio() const;
 
     bool active() const { return m_active; }
-
-    // ActiveDOMObject interface
-    virtual bool hasPendingActivity() const override;
-    virtual void stop() override;
 
     // EventTarget interface
     virtual ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
@@ -120,13 +123,23 @@ public:
     bool shouldGenerateTimestamps() const { return m_shouldGenerateTimestamps; }
     void setShouldGenerateTimestamps(bool flag) { m_shouldGenerateTimestamps = flag; }
 
+    void rangeRemoval(const MediaTime&, const MediaTime&);
+
+    // ActiveDOMObject API.
+    bool hasPendingActivity() const override;
+
 protected:
     // EventTarget interface
     virtual void refEventTarget() override { ref(); }
     virtual void derefEventTarget() override { deref(); }
 
 private:
-    SourceBuffer(PassRef<SourceBufferPrivate>, MediaSource*);
+    SourceBuffer(Ref<SourceBufferPrivate>&&, MediaSource*);
+
+    // ActiveDOMObject API.
+    void stop() override;
+    const char* activeDOMObjectName() const override;
+    bool canSuspendForPageCache() const override;
 
     // SourceBufferPrivateClient
     virtual void sourceBufferPrivateDidEndStream(SourceBufferPrivate*, const WTF::AtomicString&) override;
@@ -135,7 +148,7 @@ private:
     virtual bool sourceBufferPrivateHasAudio(const SourceBufferPrivate*) const override;
     virtual bool sourceBufferPrivateHasVideo(const SourceBufferPrivate*) const override;
     virtual void sourceBufferPrivateDidBecomeReadyForMoreSamples(SourceBufferPrivate*, AtomicString trackID) override;
-    virtual MediaTime sourceBufferPrivateFastSeekTimeForMediaTime(SourceBufferPrivate*, const MediaTime&, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold);
+    virtual MediaTime sourceBufferPrivateFastSeekTimeForMediaTime(SourceBufferPrivate*, const MediaTime&, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold) override;
     virtual void sourceBufferPrivateAppendComplete(SourceBufferPrivate*, AppendResult) override;
     virtual void sourceBufferPrivateDidReceiveRenderingError(SourceBufferPrivate*, int errorCode) override;
 
@@ -160,7 +173,8 @@ private:
     void scheduleEvent(const AtomicString& eventName);
 
     void appendBufferInternal(unsigned char*, unsigned, ExceptionCode&);
-    void appendBufferTimerFired(Timer&);
+    void appendBufferTimerFired();
+    void resetParserState();
 
     void setActive(bool);
 
@@ -174,17 +188,17 @@ private:
 
     void monitorBufferingRate();
 
-    void removeTimerFired(Timer*);
+    void removeTimerFired();
     void removeCodedFrames(const MediaTime& start, const MediaTime& end);
 
     size_t extraMemoryCost() const;
-    void reportExtraMemoryCost();
+    void reportExtraMemoryAllocated();
 
     std::unique_ptr<PlatformTimeRanges> bufferedAccountingForEndOfStream() const;
 
     // Internals
     friend class Internals;
-    Vector<String> bufferedSamplesForTrackID(const AtomicString&);
+    WEBCORE_EXPORT Vector<String> bufferedSamplesForTrackID(const AtomicString&);
 
     Ref<SourceBufferPrivate> m_private;
     MediaSource* m_source;
@@ -203,6 +217,9 @@ private:
     Vector<AtomicString> m_textCodecs;
 
     MediaTime m_timestampOffset;
+    MediaTime m_appendWindowStart;
+    MediaTime m_appendWindowEnd;
+
     MediaTime m_groupStartTimestamp;
     MediaTime m_groupEndTimestamp;
 

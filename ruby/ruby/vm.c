@@ -2,7 +2,7 @@
 
   vm.c -
 
-  $Author: nagachika $
+  $Author: usa $
 
   Copyright (C) 2004-2007 Koichi Sasada
 
@@ -229,6 +229,41 @@ vm_get_ruby_level_caller_cfp(rb_thread_t *th, rb_control_frame_t *cfp)
 	cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp);
     }
     return 0;
+}
+
+void
+rb_vm_pop_cfunc_frame(void)
+{
+    rb_thread_t *th = GET_THREAD();
+    const rb_method_entry_t *me = th->cfp->me;
+    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, th->cfp->self, me->called_id, me->klass, Qnil);
+    RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, me->klass, me->called_id);
+    vm_pop_frame(th);
+}
+
+void
+rb_vm_rewind_cfp(rb_thread_t *th, rb_control_frame_t *cfp)
+{
+    /* check skipped frame */
+    while (th->cfp != cfp) {
+#if VMDEBUG
+	printf("skipped frame: %s\n", vm_frametype_name(th->cfp));
+#endif
+	if (VM_FRAME_TYPE(th->cfp) != VM_FRAME_MAGIC_CFUNC) {
+	    vm_pop_frame(th);
+	}
+	else { /* unlikely path */
+	    rb_vm_pop_cfunc_frame();
+	}
+    }
+}
+
+/* obsolete */
+void
+rb_frame_pop(void)
+{
+    rb_thread_t *th = GET_THREAD();
+    vm_pop_frame(th);
 }
 
 /* at exit */
@@ -604,6 +639,39 @@ rb_vm_make_proc(rb_thread_t *th, const rb_block_t *block, VALUE klass)
     }
 
     return procval;
+}
+
+/* Binding */
+
+VALUE
+rb_vm_make_binding(rb_thread_t *th, const rb_control_frame_t *src_cfp)
+{
+    rb_control_frame_t *cfp = rb_vm_get_binding_creatable_next_cfp(th, src_cfp);
+    rb_control_frame_t *ruby_level_cfp = rb_vm_get_ruby_level_next_cfp(th, src_cfp);
+    VALUE bindval, envval;
+    rb_binding_t *bind;
+    VALUE blockprocval = 0;
+
+    if (cfp == 0 || ruby_level_cfp == 0) {
+	rb_raise(rb_eRuntimeError, "Can't create Binding Object on top of Fiber.");
+    }
+
+    while (1) {
+	envval = vm_make_env_object(th, cfp, &blockprocval);
+	if (cfp == ruby_level_cfp) {
+	    break;
+	}
+	cfp = rb_vm_get_binding_creatable_next_cfp(th, RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp));
+    }
+
+    bindval = rb_binding_alloc(rb_cBinding);
+    GetBindingPtr(bindval, bind);
+    bind->env = envval;
+    bind->path = ruby_level_cfp->iseq->location.path;
+    bind->blockprocval = blockprocval;
+    bind->first_lineno = rb_vm_get_sourceline(ruby_level_cfp);
+
+    return bindval;
 }
 
 /* C -> Ruby: block */
@@ -1081,6 +1149,7 @@ vm_frametype_name(const rb_control_frame_t *cfp)
       case VM_FRAME_MAGIC_IFUNC:  return "ifunc";
       case VM_FRAME_MAGIC_EVAL:   return "eval";
       case VM_FRAME_MAGIC_LAMBDA: return "lambda";
+      case VM_FRAME_MAGIC_RESCUE: return "rescue";
       default:
 	rb_bug("unknown frame");
     }
@@ -1377,7 +1446,7 @@ vm_exec(rb_thread_t *th)
 
 	    /* push block frame */
 	    cfp->sp[0] = err;
-	    vm_push_frame(th, catch_iseq, VM_FRAME_MAGIC_BLOCK,
+	    vm_push_frame(th, catch_iseq, VM_FRAME_MAGIC_RESCUE,
 			  cfp->self, cfp->klass,
 			  VM_ENVVAL_PREV_EP_PTR(cfp->ep),
 			  catch_iseq->iseq_encoded,
@@ -2119,46 +2188,44 @@ m_core_set_postexe(VALUE self, VALUE iseqval)
     return Qnil;
 }
 
+static VALUE m_core_hash_merge_ary(VALUE self, VALUE hash, VALUE ary);
+
+static VALUE
+core_hash_merge(VALUE hash, long argc, const VALUE *argv)
+{
+    long i;
+    assert(argc % 2 == 0);
+    for (i=0; i<argc; i+=2) {
+	rb_hash_aset(hash, argv[i], argv[i+1]);
+    }
+    return hash;
+}
+
 static VALUE
 m_core_hash_from_ary(VALUE self, VALUE ary)
 {
     VALUE hash = rb_hash_new();
-    int i;
 
     if (RUBY_DTRACE_HASH_CREATE_ENABLED()) {
 	RUBY_DTRACE_HASH_CREATE(RARRAY_LEN(ary), rb_sourcefile(), rb_sourceline());
     }
 
-    assert(RARRAY_LEN(ary) % 2 == 0);
-    for (i=0; i<RARRAY_LEN(ary); i+=2) {
-	rb_hash_aset(hash, RARRAY_PTR(ary)[i], RARRAY_PTR(ary)[i+1]);
-    }
-
-    return hash;
+    return m_core_hash_merge_ary(self, hash, ary);
 }
 
 static VALUE
 m_core_hash_merge_ary(VALUE self, VALUE hash, VALUE ary)
 {
-    int i;
-
-    assert(RARRAY_LEN(ary) % 2 == 0);
-    for (i=0; i<RARRAY_LEN(ary); i+=2) {
-	rb_hash_aset(hash, RARRAY_PTR(ary)[i], RARRAY_PTR(ary)[i+1]);
-    }
-
+    core_hash_merge(hash, RARRAY_LEN(ary), RARRAY_PTR(ary));
     return hash;
 }
 
 static VALUE
 m_core_hash_merge_ptr(int argc, VALUE *argv, VALUE recv)
 {
-    int i;
     VALUE hash = argv[0];
 
-    for (i=1; i<argc; i+=2) {
-	rb_hash_aset(hash, argv[i], argv[i+1]);
-    }
+    core_hash_merge(hash, argc-1, argv+1);
 
     return hash;
 }

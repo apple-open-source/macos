@@ -31,8 +31,6 @@
 #ifndef PageDebuggerAgent_h
 #define PageDebuggerAgent_h
 
-#if ENABLE(INSPECTOR)
-
 #include "PageScriptDebugServer.h"
 #include "WebDebuggerAgent.h"
 
@@ -69,8 +67,8 @@ private:
 
     virtual void breakpointActionLog(JSC::ExecState*, const String&) override;
 
-    virtual Inspector::InjectedScript injectedScriptForEval(ErrorString*, const int* executionContextId) override;
-    virtual void setOverlayMessage(ErrorString*, const String*) override;
+    virtual Inspector::InjectedScript injectedScriptForEval(ErrorString&, const int* executionContextId) override;
+    virtual void setOverlayMessage(ErrorString&, const String*) override;
 
     InspectorPageAgent* m_pageAgent;
     InspectorOverlay* m_overlay;
@@ -78,7 +76,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(INSPECTOR)
 
 #endif // !defined(PageDebuggerAgent_h)

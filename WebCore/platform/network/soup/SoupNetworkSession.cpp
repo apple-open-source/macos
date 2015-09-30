@@ -31,16 +31,14 @@
 
 #include "AuthenticationChallenge.h"
 #include "CookieJarSoup.h"
+#include "FileSystem.h"
 #include "GUniquePtrSoup.h"
 #include "Logging.h"
 #include "ResourceHandle.h"
+#include <glib/gstdio.h>
 #include <libsoup/soup.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
-
-#if PLATFORM(EFL)
-#include "ProxyResolverSoup.h"
-#endif
 
 namespace WebCore {
 
@@ -81,7 +79,7 @@ static void authenticateCallback(SoupSession* session, SoupMessage* soupMessage,
     handle->didReceiveAuthenticationChallenge(AuthenticationChallenge(session, soupMessage, soupAuth, retrying, handle.get()));
 }
 
-#if ENABLE(WEB_TIMING)
+#if ENABLE(WEB_TIMING) && !SOUP_CHECK_VERSION(2, 49, 91)
 static void requestStartedCallback(SoupSession*, SoupMessage* soupMessage, SoupSocket*, gpointer)
 {
     RefPtr<ResourceHandle> handle = static_cast<ResourceHandle*>(g_object_get_data(G_OBJECT(soupMessage), "handle"));
@@ -114,7 +112,7 @@ SoupNetworkSession::SoupNetworkSession(SoupCookieJar* cookieJar)
     setupLogger();
 
     g_signal_connect(m_soupSession.get(), "authenticate", G_CALLBACK(authenticateCallback), nullptr);
-#if ENABLE(WEB_TIMING)
+#if ENABLE(WEB_TIMING) && !SOUP_CHECK_VERSION(2, 49, 91)
     g_signal_connect(m_soupSession.get(), "request-started", G_CALLBACK(requestStartedCallback), nullptr);
 #endif
 }
@@ -165,6 +163,37 @@ SoupCache* SoupNetworkSession::cache() const
     return soupCache ? SOUP_CACHE(soupCache) : nullptr;
 }
 
+static inline bool stringIsNumeric(const char* str)
+{
+    while (*str) {
+        if (!g_ascii_isdigit(*str))
+            return false;
+        str++;
+    }
+    return true;
+}
+
+void SoupNetworkSession::clearCache(const String& cacheDirectory)
+{
+    CString cachePath = fileSystemRepresentation(cacheDirectory);
+    GUniquePtr<char> cacheFile(g_build_filename(cachePath.data(), "soup.cache2", nullptr));
+    if (!g_file_test(cacheFile.get(), G_FILE_TEST_IS_REGULAR))
+        return;
+
+    GUniquePtr<GDir> dir(g_dir_open(cachePath.data(), 0, nullptr));
+    if (!dir)
+        return;
+
+    while (const char* name = g_dir_read_name(dir.get())) {
+        if (!g_str_has_prefix(name, "soup.cache") && !stringIsNumeric(name))
+            continue;
+
+        GUniquePtr<gchar> filename(g_build_filename(cachePath.data(), name, nullptr));
+        if (g_file_test(filename.get(), G_FILE_TEST_IS_REGULAR))
+            g_unlink(filename.get());
+    }
+}
+
 void SoupNetworkSession::setSSLPolicy(SSLPolicy flags)
 {
     g_object_set(m_soupSession.get(),
@@ -193,32 +222,21 @@ void SoupNetworkSession::setHTTPProxy(const char* httpProxy, const char* httpPro
 {
 #if PLATFORM(EFL)
     // Only for EFL because GTK port uses the default resolver, which uses GIO's proxy resolver.
-    if (!httpProxy) {
-        soup_session_remove_feature_by_type(m_soupSession.get(), SOUP_TYPE_PROXY_URI_RESOLVER);
-        return;
+    GProxyResolver* resolver = nullptr;
+    if (httpProxy) {
+        gchar** ignoreLists = nullptr;
+        if (httpProxyExceptions)
+            ignoreLists =  g_strsplit(httpProxyExceptions, ",", -1);
+
+        resolver = g_simple_proxy_resolver_new(httpProxy, ignoreLists);
+
+        g_strfreev(ignoreLists);
     }
 
-    GRefPtr<SoupProxyURIResolver> resolver = adoptGRef(soupProxyResolverWkNew(httpProxy, httpProxyExceptions));
-    soup_session_add_feature(m_soupSession.get(), SOUP_SESSION_FEATURE(resolver.get()));
+    g_object_set(m_soupSession.get(), SOUP_SESSION_PROXY_RESOLVER, resolver, nullptr);
 #else
     UNUSED_PARAM(httpProxy);
     UNUSED_PARAM(httpProxyExceptions);
-#endif
-}
-
-char* SoupNetworkSession::httpProxy() const
-{
-#if PLATFORM(EFL)
-    SoupSessionFeature* soupResolver = soup_session_get_feature(m_soupSession.get(), SOUP_TYPE_PROXY_URI_RESOLVER);
-    if (!soupResolver)
-        return nullptr;
-
-    GUniqueOutPtr<SoupURI> uri;
-    g_object_get(soupResolver, SOUP_PROXY_RESOLVER_WK_PROXY_URI, &uri.outPtr(), nullptr);
-
-    return uri ? soup_uri_to_string(uri.get(), FALSE) : nullptr;
-#else
-    return nullptr;
 #endif
 }
 

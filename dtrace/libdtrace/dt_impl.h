@@ -286,6 +286,8 @@ struct dtrace_hdl {
 	dtrace_aggdesc_t **dt_aggdesc; /* aggregation descriptions */
 	int dt_maxformat;	/* max format ID */
 	void **dt_formats;	/* pointer to format array */
+	int dt_maxstrdata;	/* max strdata ID */
+	char **dt_strdata;	/* pointer to strdata array */
 	dt_aggregate_t dt_aggregate; /* aggregate */
 	dt_pq_t *dt_bufq;	/* CPU-specific data queue */
 	struct dt_pfdict *dt_pfdict; /* dictionary of printf conversions */
@@ -297,6 +299,7 @@ struct dtrace_hdl {
 	int dt_cpp_args;	/* size of dt_cpp_argv[] array */
 	char *dt_ld_path;	/* pathname of ld(1) to invoke if needed */
 	dt_list_t dt_lib_path;	/* linked-list forming library search path */
+	uint_t dt_nojtanalysis;	/* boolean:  set via -xnojtanalysis */
 	uint_t dt_lazyload;	/* boolean:  set via -xlazyload */
 	uint_t dt_droptags;	/* boolean:  set via -xdroptags */
 	uint_t dt_active;	/* boolean:  set once tracing is active */
@@ -476,6 +479,7 @@ struct dtrace_hdl {
 #define	DT_ACT_UMOD		DT_ACT(26)	/* umod() action */
 #define	DT_ACT_UADDR		DT_ACT(27)	/* uaddr() action */
 #define	DT_ACT_SETOPT		DT_ACT(28)	/* setopt() action */
+#define	DT_ACT_PRINT		DT_ACT(29)	/* print() action */
 #define DT_ACT_APPLEDEFINE  DT_ACT(101)  /* apple_define() action */
 #define DT_ACT_APPLELOG     DT_ACT(102)  /* apple_log() action */
 #define DT_ACT_APPLESTACK   DT_ACT(103)  /* apple_stack() action */
@@ -675,6 +679,9 @@ extern void dt_aggid_destroy(dtrace_hdl_t *);
 
 extern void *dt_format_lookup(dtrace_hdl_t *, int);
 extern void dt_format_destroy(dtrace_hdl_t *);
+
+extern const char *dt_strdata_lookup(dtrace_hdl_t *, int);
+extern void dt_strdata_destroy(dtrace_hdl_t *);
 
 extern int dt_print_quantize(dtrace_hdl_t *, FILE *,
     const void *, size_t, uint64_t);

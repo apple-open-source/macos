@@ -43,7 +43,7 @@ static const SVGRenderStyle& defaultSVGStyle()
     return *style.get().get();
 }
 
-PassRef<SVGRenderStyle> SVGRenderStyle::createDefaultStyle()
+Ref<SVGRenderStyle> SVGRenderStyle::createDefaultStyle()
 {
     return adoptRef(*new SVGRenderStyle(CreateDefault));
 }
@@ -56,6 +56,7 @@ SVGRenderStyle::SVGRenderStyle()
     , stops(defaultSVGStyle().stops)
     , misc(defaultSVGStyle().misc)
     , shadowSVG(defaultSVGStyle().shadowSVG)
+    , layout(defaultSVGStyle().layout)
     , resources(defaultSVGStyle().resources)
 {
     setBitDefaults();
@@ -69,6 +70,7 @@ SVGRenderStyle::SVGRenderStyle(CreateDefaultType)
     , stops(StyleStopData::create())
     , misc(StyleMiscData::create())
     , shadowSVG(StyleShadowSVGData::create())
+    , layout(StyleLayoutData::create())
     , resources(StyleResourceData::create())
 {
     setBitDefaults();
@@ -85,11 +87,12 @@ inline SVGRenderStyle::SVGRenderStyle(const SVGRenderStyle& other)
     , stops(other.stops)
     , misc(other.misc)
     , shadowSVG(other.shadowSVG)
+    , layout(other.layout)
     , resources(other.resources)
 {
 }
 
-PassRef<SVGRenderStyle> SVGRenderStyle::copy() const
+Ref<SVGRenderStyle> SVGRenderStyle::copy() const
 {
     return adoptRef(*new SVGRenderStyle(*this));
 }
@@ -106,6 +109,7 @@ bool SVGRenderStyle::operator==(const SVGRenderStyle& other) const
         && stops == other.stops
         && misc == other.misc
         && shadowSVG == other.shadowSVG
+        && layout == other.layout
         && inheritedResources == other.inheritedResources
         && resources == other.resources
         && svg_inherited_flags == other.svg_inherited_flags
@@ -140,10 +144,11 @@ void SVGRenderStyle::copyNonInheritedFrom(const SVGRenderStyle* other)
     stops = other->stops;
     misc = other->misc;
     shadowSVG = other->shadowSVG;
+    layout = other->layout;
     resources = other->resources;
 }
 
-Vector<PaintType> SVGRenderStyle::paintTypesForPaintOrder() const
+Vector<PaintType, 3> SVGRenderStyle::paintTypesForPaintOrder() const
 {
     Vector<PaintType, 3> paintOrder;
     switch (this->paintOrder()) {
@@ -222,6 +227,10 @@ StyleDifference SVGRenderStyle::diff(const SVGRenderStyle* other) const
     // Shadow changes require relayouts, as they affect the repaint rects.
     if (shadowSVG != other->shadowSVG)
         return StyleDifferenceLayout;
+
+    // The x or y properties require relayout.
+    if (layout != other->layout)
+        return StyleDifferenceLayout; 
 
     // Some stroke properties, requires relayouts, as the cached stroke boundaries need to be recalculated.
     if (stroke != other->stroke) {

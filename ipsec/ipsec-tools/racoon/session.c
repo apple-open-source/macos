@@ -72,6 +72,7 @@
 #include <TargetConditionals.h>
 #include <vproc_priv.h>
 #include <dispatch/dispatch.h>
+#include <xpc/xpc.h>
 
 #include "libpfkey.h"
 
@@ -314,6 +315,9 @@ session(void)
 				"cannot open %s", pid_file);
 		}
 	}
+	
+	xpc_transaction_begin();
+	
 #if !TARGET_OS_EMBEDDED
 	// enable keepalive for recovery (from crashes and bad exits... after init)
 	(void)launchd_update_racoon_keepalive(true);
@@ -339,6 +343,8 @@ close_session(int error)
 	ike_session_flush_all_phase1(false);
 	close_sockets();
 
+	xpc_transaction_end();
+	
 #if !TARGET_OS_EMBEDDED
 	// a clean exit, so disable launchd keepalive
 	(void)launchd_update_racoon_keepalive(false);

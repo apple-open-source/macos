@@ -159,6 +159,8 @@ public:
         append(U16_TRAIL(c));
     }
 
+    WTF_EXPORT_PRIVATE void appendQuotedJSONString(const String&);
+
     template<unsigned charactersCount>
     ALWAYS_INLINE void appendLiteral(const char (&characters)[charactersCount]) { append(characters, charactersCount - 1); }
 
@@ -262,7 +264,7 @@ public:
     {
         m_length = 0;
         m_string = String();
-        m_buffer = 0;
+        m_buffer = nullptr;
         m_bufferCharacters8 = 0;
         m_is8Bit = true;
     }

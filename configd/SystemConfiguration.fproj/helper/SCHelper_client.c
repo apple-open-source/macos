@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2005-2008, 2010, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2008, 2010, 2011, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -90,9 +90,8 @@ __SCHelperServerPort(kern_return_t *status)
 			break;
 		default :
 #ifdef	DEBUG
-			SCLog(_sc_verbose, LOG_DEBUG,
-			      CFSTR("__SCHelperServerPort bootstrap_look_up() failed: status=%s"),
-			      bootstrap_strerror(*status));
+			SC_log(LOG_INFO, "bootstrap_look_up() failed: status=%s",
+			       bootstrap_strerror(*status));
 #endif	/* DEBUG */
 			break;
 	}
@@ -160,21 +159,20 @@ _SCHelperOpen(CFDataRef authorizationData, mach_port_t *helper_port)
 	__MACH_PORT_DEBUG(TRUE, "*** _SCHelperOpen", *helper_port);
 
 	if (*helper_port == MACH_PORT_NULL) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("_SCHelperOpen: could not contact server: %s"),
+		SC_log(LOG_NOTICE, "could not contact \"" HELPER "\": %s",
 		      SCErrorString(status));
 		return FALSE;
 	}
 
 	ok = _SCHelperExec(*helper_port, SCHELPER_MSG_AUTH, authorizationData, &status, NULL);
 	if (!ok) {
-		SCLog(TRUE, LOG_INFO, CFSTR("_SCHelperOpen: could not send authorization"));
+		SC_log(LOG_NOTICE, "could not send authorization");
 		goto error;
 	}
 
 	ok = (status == 0);
 	if (!ok) {
-		SCLog(TRUE, LOG_INFO, CFSTR("could not start \"" HELPER "\", status = %u"), status);
+		SC_log(LOG_NOTICE, "could not start \"" HELPER "\", status = %u", status);
 		goto error;
 	}
 
@@ -197,7 +195,7 @@ void
 _SCHelperClose(mach_port_t *helper_port)
 {
 	if (!_SCHelperExec(*helper_port, SCHELPER_MSG_EXIT, NULL, NULL, NULL)) {
-		SCLog(TRUE, LOG_INFO, CFSTR("_SCHelperOpen: could not send exit request"));
+		SC_log(LOG_INFO, "could not send exit request");
 	}
 
 	if (*helper_port != MACH_PORT_NULL) {
@@ -269,7 +267,7 @@ _SCHelperExec(mach_port_t port, uint32_t msgID, CFDataRef data, uint32_t *status
 
 		if (kr != MACH_SEND_INVALID_DEST) {
 			// if we got an unexpected error
-			SCLog(TRUE, LOG_ERR, CFSTR("_SCHelperExec() failed: %s"), mach_error_string(kr));
+			SC_log(LOG_NOTICE, "_SCHelperExec() failed: %s", mach_error_string(kr));
 		}
 		_SCErrorSet(kr);
 
@@ -290,7 +288,7 @@ _SCHelperExec(mach_port_t port, uint32_t msgID, CFDataRef data, uint32_t *status
 	if (reply != NULL) {
 		*reply = myData;
 	} else if (myData != NULL) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_SCHelperExec() data available with no place to go"));
+		SC_log(LOG_INFO, "data available with no place to go");
 		CFRelease(myData);
 	}
 

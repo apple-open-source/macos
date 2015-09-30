@@ -43,10 +43,6 @@
 #import <unicode/uchar.h>
 #import <unicode/uscript.h>
 
-#if PLATFORM(IOS)
-#import <Foundation/NSString_NSURLExtras.h>
-#endif
-
 using namespace WebCore;
 using namespace WTF;
 
@@ -132,19 +128,9 @@ using namespace WTF;
     return URLByCanonicalizingURL(self);
 }
 
-- (NSURL *)_web_URLByTruncatingOneCharacterBeforeComponent:(CFURLComponentType)component
-{
-    return URLByTruncatingOneCharacterBeforeComponent(self, component);
-}
-
-- (NSURL *)_webkit_URLByRemovingFragment
+- (NSURL *)_webkit_URLByRemovingFragment 
 {
     return URLByTruncatingOneCharacterBeforeComponent(self, kCFURLComponentFragment);
-}
-
-- (NSURL *)_webkit_URLByRemovingResourceSpecifier
-{
-    return URLByTruncatingOneCharacterBeforeComponent(self, kCFURLComponentResourceSpecifier);
 }
 
 - (NSURL *)_web_URLByRemovingUserInfo
@@ -166,57 +152,6 @@ using namespace WTF;
 {    
     return [[self _web_originalDataAsString] _webkit_isFileURL];
 }
-
-- (BOOL)_webkit_isFTPDirectoryURL
-{
-    return [[self _web_originalDataAsString] _webkit_isFTPDirectoryURL];
-}
-
-- (BOOL)_webkit_shouldLoadAsEmptyDocument
-{
-    return [[self _web_originalDataAsString] _webkit_hasCaseInsensitivePrefix:@"about:"] || [self _web_isEmpty];
-}
-
-- (NSURL *)_web_URLWithLowercasedScheme
-{
-    CFRange range;
-    CFURLGetByteRangeForComponent((CFURLRef)self, kCFURLComponentScheme, &range);
-    if (range.location == kCFNotFound) {
-        return self;
-    }
-    
-    UInt8 static_buffer[URL_BYTES_BUFFER_LENGTH];
-    UInt8 *buffer = static_buffer;
-    CFIndex bytesFilled = CFURLGetBytes((CFURLRef)self, buffer, URL_BYTES_BUFFER_LENGTH);
-    if (bytesFilled == -1) {
-        CFIndex bytesToAllocate = CFURLGetBytes((CFURLRef)self, NULL, 0);
-        buffer = static_cast<UInt8 *>(malloc(bytesToAllocate));
-        bytesFilled = CFURLGetBytes((CFURLRef)self, buffer, bytesToAllocate);
-        ASSERT(bytesFilled == bytesToAllocate);
-    }
-    
-    int i;
-    BOOL changed = NO;
-    for (i = 0; i < range.length; ++i) {
-        char c = buffer[range.location + i];
-        char lower = toASCIILower(c);
-        if (c != lower) {
-            buffer[range.location + i] = lower;
-            changed = YES;
-        }
-    }
-    
-    NSURL *result = changed
-        ? CFBridgingRelease(CFURLCreateAbsoluteURLWithBytes(NULL, buffer, bytesFilled, kCFStringEncodingUTF8, nil, YES))
-        : self;
-
-    if (buffer != static_buffer) {
-        free(buffer);
-    }
-    
-    return result;
-}
-
 
 -(NSData *)_web_schemeSeparatorWithoutColon
 {
@@ -318,36 +253,6 @@ using namespace WTF;
     return [[self substringFromIndex:11] _webkit_stringByReplacingValidPercentEscapes];
 }
 
-- (BOOL)_webkit_isFTPDirectoryURL
-{
-    int length = [self length];
-    if (length < 5) {  // 5 is length of "ftp:/"
-        return NO;
-    }
-    unichar lastChar = [self characterAtIndex:length - 1];
-    return lastChar == '/' && [self _webkit_hasCaseInsensitivePrefix:@"ftp:"];
-}
-
-- (BOOL)_web_hostNameNeedsDecodingWithRange:(NSRange)range
-{
-    return hostNameNeedsDecodingWithRange(self, range);
-}
-
-- (BOOL)_web_hostNameNeedsEncodingWithRange:(NSRange)range
-{
-    return hostNameNeedsEncodingWithRange(self, range);
-}
-
-- (NSString *)_web_decodeHostNameWithRange:(NSRange)range
-{
-    return decodeHostNameWithRange(self, range);
-}
-
-- (NSString *)_web_encodeHostNameWithRange:(NSRange)range
-{
-    return encodeHostNameWithRange(self, range);
-}
-
 - (NSString *)_web_decodeHostName
 {
     return decodeHostName(self);
@@ -386,23 +291,16 @@ using namespace WTF;
     return [[self _webkit_stringByTrimmingWhitespace] _webkit_rangeOfURLScheme].location != NSNotFound;
 }
 
-- (NSString *)_webkit_URLFragment
-{
-    NSRange fragmentRange;
-    
-    fragmentRange = [self rangeOfString:@"#" options:NSLiteralSearch];
-    if (fragmentRange.location == NSNotFound)
-        return nil;
-    return [self substringFromIndex:fragmentRange.location + 1];
-}
-
 #if PLATFORM(IOS)
 
 - (NSString *)_webkit_unescapedQueryValue
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSMutableString *string = [[[self stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding] mutableCopy] autorelease];
     if (!string) // If we failed to decode the URL as UTF8, fall back to Latin1
         string = [[[self stringByReplacingPercentEscapesUsingEncoding:NSISOLatin1StringEncoding] mutableCopy] autorelease];
+#pragma clang diagnostic pop
     [string replaceOccurrencesOfString:@"+" withString:@" " options:NSLiteralSearch range:NSMakeRange(0, [string length])];
     return string;
 }

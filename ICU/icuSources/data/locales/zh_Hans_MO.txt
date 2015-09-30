@@ -1,27 +1,25 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/zh_Hans_MO.xml
 // *
 // ***************************************************************************
 zh_Hans_MO{
-    ExemplarCharactersPunctuation{"[＿ ﹏ \\- — ， 、 ； ： ！ ？ … 。 · ‘ ’ “ ” （ ） ［ ］ 〈 〉 《 》 ﹁ ﹂ ﹃ ﹄ 【 】 〔 〕 / ～]"}
     NumberElements{
         latn{
             patterns{
-                accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
             }
         }
     }
-    Version{"2.0.92.87"}
+    Version{"2.1.13.23"}
     calendar{
         generic{
             DateTimePatterns{
-                "zzzzah:mm:ss",
-                "zah:mm:ss",
+                "zzzz ah:mm:ss",
+                "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
                 "Gy年M月d日EEEE",
@@ -82,8 +80,8 @@ zh_Hans_MO{
         }
         gregorian{
             DateTimePatterns{
-                "zzzzah:mm:ss",
-                "zah:mm:ss",
+                "zzzz ah:mm:ss",
+                "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
                 "y年M月d日EEEE",
@@ -97,11 +95,10 @@ zh_Hans_MO{
                 "{1} {0}",
             }
             availableFormats{
-                MEd{"M-dE"}
+                MEd{"E, d/M"}
                 MMMMdd{"M月d日"}
-                MMdd{"MM-dd"}
-                Md{"M-d"}
-                yM{"y年M月"}
+                MMdd{"dd/MM"}
+                Md{"d/M"}
                 yMEd{"y年M月d日，E"}
                 yMd{"y年M月d日"}
             }
@@ -148,8 +145,8 @@ zh_Hans_MO{
         }
         islamic{
             DateTimePatterns{
-                "zzzzah:mm:ss",
-                "zah:mm:ss",
+                "zzzz ah:mm:ss",
+                "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
                 "Gy年M月d日EEEE",
@@ -165,8 +162,8 @@ zh_Hans_MO{
         }
         roc{
             DateTimePatterns{
-                "zzzzah:mm:ss",
-                "zah:mm:ss",
+                "zzzz ah:mm:ss",
+                "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
                 "Gy年M月d日EEEE",
@@ -187,9 +184,6 @@ zh_Hans_MO{
         }
     }
     fields{
-        day{
-            dn{"天"}
-        }
         second{
             relativeTime{
                 future{
@@ -198,84 +192,6 @@ zh_Hans_MO{
                 past{
                     other{"{0}秒前"}
                 }
-            }
-        }
-    }
-    units{
-        compound{
-            per{"{0}/{1}"}
-        }
-        duration{
-            second{
-                other{"{0}秒"}
-            }
-        }
-    }
-    unitsNarrow{
-        length{
-            centimeter{
-                other{"{0}厘米"}
-            }
-            foot{
-                other{"{0}英尺"}
-            }
-            inch{
-                other{"{0}英寸"}
-            }
-            kilometer{
-                other{"{0}公里"}
-            }
-            light-year{
-                other{"{0}光年"}
-            }
-            meter{
-                other{"{0}米"}
-            }
-            mile{
-                other{"{0}英里"}
-            }
-            millimeter{
-                other{"{0}毫米"}
-            }
-            picometer{
-                other{"{0}皮米"}
-            }
-            yard{
-                other{"{0}码"}
-            }
-        }
-    }
-    unitsShort{
-        length{
-            centimeter{
-                other{"{0}厘米"}
-            }
-            foot{
-                other{"{0}英尺"}
-            }
-            inch{
-                other{"{0}英寸"}
-            }
-            kilometer{
-                other{"{0}公里"}
-            }
-            light-year{
-                other{"{0}光年"}
-            }
-            meter{
-                other{"{0}米"}
-            }
-            mile{
-                other{"{0}英里"}
-            }
-            millimeter{
-                other{"{0}毫米"}
-            }
-            picometer{
-                other{"{0}皮米"}
-            }
-            yard{
-                other{"{0}码"}
             }
         }
     }

@@ -107,10 +107,10 @@ rawname(char *name)
 	if ((dp = strrchr(name, '/')) == 0)
 		return (0);
 	*dp = 0;
-	(void) strcpy(rawbuf, name);
+	(void) strlcpy(rawbuf, name, sizeof(rawbuf));
 	*dp = '/';
-	(void) strcat(rawbuf, "/r");
-	(void) strcat(rawbuf, &dp[1]);
+	(void) strlcat(rawbuf, "/r", sizeof(rawbuf));
+	(void) strlcat(rawbuf, &dp[1], sizeof(rawbuf));
 
 	return (rawbuf);
 }
@@ -121,6 +121,7 @@ unrawname(char *name)
 {
 	char           *dp;
 	struct stat     stb;
+	size_t          dp_len;
 
 	if ((dp = strrchr(name, '/')) == 0)
 		return (name);
@@ -130,7 +131,8 @@ unrawname(char *name)
 		return (name);
 	if (dp[1] != 'r')
 		return (name);
-	(void) strcpy(&dp[1], &dp[2]);
+	dp_len = strlen(&dp[2]) + 1;
+	(void)memmove(&dp[1], &dp[2], dp_len);
 
 	return (name);
 }

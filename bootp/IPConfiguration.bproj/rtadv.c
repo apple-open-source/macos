@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -155,7 +155,7 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
     rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
     switch (event_id) {
     case IFEventID_start_e:
-	my_log(LOG_DEBUG, "RTADV: start %s", if_name(if_p));
+	my_log(LOG_INFO, "RTADV: start %s", if_name(if_p));
 	rtadv_cancel_pending_events(service_p);
 	RTADVSocketEnableReceive(rtadv->sock,
 				 (RTADVSocketReceiveFuncPtr)rtadv_start,
@@ -187,7 +187,7 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	    /* now we just wait to see if something comes in */
 	    return;
 	}
-	my_log(LOG_DEBUG, 
+	my_log(LOG_INFO, 
 	       "RTADV %s: sending Router Solicitation (%d of %d)",
 	       if_name(if_p), rtadv->try, MAX_RTR_SOLICITATIONS);
 	error = RTADVSocketSendSolicitation(rtadv->sock,
@@ -215,7 +215,7 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
     case IFEventID_data_e:
 	data = (RTADVSocketReceiveDataRef)event_data;
 	/* save the router and flags, and start DHCPv6 if necessary */
-	if (G_IPConfiguration_verbose) {
+	{
 	    char		link_addr_buf[MAX_LINK_ADDR_LEN * 3 + 1];
 
 	    link_addr_buf[0] = '\0';
@@ -232,7 +232,7 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		}
 	    }
 
-	    my_log(LOG_DEBUG, 
+	    my_log(LOG_INFO, 
 		   "RTADV %s: Received RA from %s%s%s%s",
 		   if_name(if_p),
 		   inet_ntop(AF_INET6, &data->router,
@@ -244,7 +244,7 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		int		i;
 		
 		for (i = 0; i < data->dns_servers_count; i++) {
-		    my_log(LOG_DEBUG, 
+		    my_log(LOG_INFO, 
 			   "RTADV %s: DNS Server %s",
 			   if_name(if_p),
 			   inet_ntop(AF_INET6, data->dns_servers + i,
@@ -343,8 +343,8 @@ rtadv_trigger_dad(ServiceRef service_p, inet6_addrinfo_t * list, int count)
 		   inet_ntop(AF_INET6, &scan->addr, ntopbuf, sizeof(ntopbuf)),
 		   scan->prefix_length, strerror(errno));
 	}
-	else if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG,
+	else {
+	    my_log(LOG_INFO,
 		   "RTADV %s: Re-assigned %s/%d",
 		   if_name(if_p),
 		   inet_ntop(AF_INET6, &scan->addr, ntopbuf, sizeof(ntopbuf)),
@@ -367,7 +367,7 @@ rtadv_address_changed(ServiceRef service_p,
     linklocal = inet6_addrlist_get_linklocal(addr_list_p);
     if (linklocal == NULL) {
 	/* no linklocal address assigned, nothing to do */
-	my_log(LOG_DEBUG,
+	my_log(LOG_INFO,
 	       "RTADV %s: link-local address not present",
 	       if_name(if_p));
 	return;
@@ -379,13 +379,13 @@ rtadv_address_changed(ServiceRef service_p,
 	    return;
 	}
 	/* linklocal address isn't ready */
-	my_log(LOG_DEBUG,
+	my_log(LOG_INFO,
 	       "RTADV %s: link-local address is not ready",
 	       if_name(if_p));
 	return;
     }
     rtadv->lladdr_ok = (linklocal->addr_flags & IN6_IFF_DADPROGRESS) == 0;
-    my_log(LOG_DEBUG,
+    my_log(LOG_INFO,
 	   "RTADV %s: link-layer option in Router Solicitation is %sOK",
 	   if_name(if_p), rtadv->lladdr_ok ? "" : "not ");
     if (rtadv->try == 0) {
@@ -394,7 +394,7 @@ rtadv_address_changed(ServiceRef service_p,
 	try_was_zero = TRUE;
 	if (link_status.valid == FALSE
 	    || link_status.active == TRUE) {
-	    my_log(LOG_DEBUG,
+	    my_log(LOG_INFO,
 		   "RTADV %s: link-local address is ready, starting",
 		   if_name(if_p));
 	    rtadv_start(service_p, IFEventID_start_e, NULL);
@@ -498,14 +498,14 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	    break;
 	}
 	if (rtadv != NULL) {
-	    my_log(LOG_DEBUG, "RTADV %s: re-entering start state",
+	    my_log(LOG_INFO, "RTADV %s: re-entering start state",
 		   if_name(if_p));
 	    status = ipconfig_status_internal_error_e;
 	    break;
 	}
 	rtadv = malloc(sizeof(*rtadv));
 	if (rtadv == NULL) {
-	    my_log(LOG_ERR, "RTADV %s: malloc failed", if_name(if_p));
+	    my_log(LOG_NOTICE, "RTADV %s: malloc failed", if_name(if_p));
 	    status = ipconfig_status_allocation_failed_e;
 	    break;
 	}
@@ -513,26 +513,20 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	ServiceSetPrivate(service_p, rtadv);
 	rtadv->timer = timer_callout_init();
 	if (rtadv->timer == NULL) {
-	    my_log(LOG_ERR, "RTADV %s: timer_callout_init failed",
+	    my_log(LOG_NOTICE, "RTADV %s: timer_callout_init failed",
 		   if_name(if_p));
 	    status = ipconfig_status_allocation_failed_e;
 	    goto stop;
 	}
 	rtadv->sock = RTADVSocketCreate(if_p);
 	if (rtadv->sock == NULL) {
-	    my_log(LOG_ERR, "RTADV %s: RTADVSocketCreate failed",
+	    my_log(LOG_NOTICE, "RTADV %s: RTADVSocketCreate failed",
 		   if_name(if_p));
 	    status = ipconfig_status_allocation_failed_e;
 	    goto stop;
 	}
 	if (G_dhcpv6_enabled) {
 	    rtadv->dhcp_client = DHCPv6ClientCreate(if_p);
-	    if (rtadv->dhcp_client == NULL) {
-		my_log(LOG_ERR, "RTADV %s: DHCPv6ClientCreate failed",
-		       if_name(if_p));
-		status = ipconfig_status_allocation_failed_e;
-		goto stop;
-	    }
 	    DHCPv6ClientSetNotificationCallBack(rtadv->dhcp_client,
 						rtadv_dhcp_callback,
 						service_p);
@@ -543,12 +537,12 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     stop:
     case IFEventID_stop_e:
 	if (rtadv == NULL) {
-	    my_log(LOG_DEBUG, "RTADV %s: already stopped",
+	    my_log(LOG_INFO, "RTADV %s: already stopped",
 		   if_name(if_p));
 	    status = ipconfig_status_internal_error_e;
 	    break;
 	}
-	my_log(LOG_DEBUG, "RTADV %s: stop", if_name(if_p));
+	my_log(LOG_INFO, "RTADV %s: stop", if_name(if_p));
 
 	/* close/release the RTADV socket */
 	RTADVSocketRelease(&rtadv->sock);
@@ -572,7 +566,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 
     case IFEventID_ipv6_address_changed_e:
 	if (rtadv == NULL) {
-	    my_log(LOG_DEBUG, "RTADV %s: private data is NULL",
+	    my_log(LOG_INFO, "RTADV %s: private data is NULL",
 		   if_name(if_p));
 	    status = ipconfig_status_internal_error_e;
 	    break;

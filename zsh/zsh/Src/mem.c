@@ -79,6 +79,10 @@
 
 #include <sys/mman.h>
 
+#if defined(MAP_ANON) && !defined(MAP_ANONYMOUS)
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
 #if defined(MAP_ANONYMOUS) && defined(MAP_PRIVATE)
 
 #define USE_MMAP 1
@@ -226,6 +230,9 @@ old_heaps(Heap old)
 #else
 	zfree(h, HEAPSIZE);
 #endif
+#ifdef ZSH_VALGRIND
+	VALGRIND_DESTROY_MEMPOOL((char *)h);
+#endif
     }
     heaps = old;
 #ifdef ZSH_HEAP_DEBUG
@@ -319,23 +326,26 @@ freeheap(void)
     h_free++;
 #endif
 
-    /* At this point we used to do:
-    fheap = NULL;
-     *
+    /*
      * When pushheap() is called, it sweeps over the entire heaps list of
      * arenas and marks every one of them with the amount of free space in
      * that arena at that moment.  zhalloc() is then allowed to grab bits
      * out of any of those arenas that have free space.
      *
-     * With the above reset of fheap, the loop below sweeps back over the
+     * Whenever fheap is NULL here, the loop below sweeps back over the
      * entire heap list again, resetting the free space in every arena to
      * the amount stashed by pushheap() and finding the first arena with
      * free space to optimize zhalloc()'s next search.  When there's a lot
      * of stuff already on the heap, this is an enormous amount of work,
      * and performance goes to hell.
      *
-     * However, there doesn't seem to be any reason to reset fheap before
-     * beginning this loop.  Either it's already correct, or it has never
+     * However, if the arena to which fheap points is unused, we want to
+     * free it, so we have no choice but to do the sweep for a new fheap.
+     */
+    if (fheap && !fheap->sp)
+	fheap = NULL;	/* We used to do this unconditionally */
+    /*
+     * In other cases, either fheap is already correct, or it has never
      * been set and this loop will do it, or it'll be reset from scratch
      * on the next popheap().  So all that's needed here is to pick up
      * the scan wherever the last pass [or the last popheap()] left off.
@@ -344,6 +354,10 @@ freeheap(void)
 	hn = h->next;
 	if (h->sp) {
 #ifdef ZSH_MEM_DEBUG
+#ifdef ZSH_VALGRIND
+	    VALGRIND_MAKE_MEM_UNDEFINED((char *)arena(h) + h->sp->used,
+					h->used - h->sp->used);
+#endif
 	    memset(arena(h) + h->sp->used, 0xff, h->used - h->sp->used);
 #endif
 	    h->used = h->sp->used;
@@ -366,11 +380,17 @@ freeheap(void)
 		h->heap_id = new_id;
 	    }
 #endif
+#ifdef ZSH_VALGRIND
+	    VALGRIND_MEMPOOL_TRIM((char *)h, (char *)arena(h), h->used);
+#endif
 	} else {
 #ifdef USE_MMAP
 	    munmap((void *) h, h->size);
 #else
 	    zfree(h, HEAPSIZE);
+#endif
+#ifdef ZSH_VALGRIND
+	    VALGRIND_DESTROY_MEMPOOL((char *)h);
 #endif
 	}
     }
@@ -403,6 +423,10 @@ popheap(void)
 	if ((hs = h->sp)) {
 	    h->sp = hs->next;
 #ifdef ZSH_MEM_DEBUG
+#ifdef ZSH_VALGRIND
+	    VALGRIND_MAKE_MEM_UNDEFINED((char *)arena(h) + hs->used,
+					h->used - hs->used);
+#endif
 	    memset(arena(h) + hs->used, 0xff, h->used - hs->used);
 #endif
 	    h->used = hs->used;
@@ -414,6 +438,9 @@ popheap(void)
 	    }
 	    h->heap_id = hs->heap_id;
 #endif
+#ifdef ZSH_VALGRIND
+	    VALGRIND_MEMPOOL_TRIM((char *)h, (char *)arena(h), h->used);
+#endif
 	    if (!fheap && h->used < ARENA_SIZEOF(h))
 		fheap = h;
 	    zfree(hs, sizeof(*hs));
@@ -424,6 +451,9 @@ popheap(void)
 	    munmap((void *) h, h->size);
 #else
 	    zfree(h, HEAPSIZE);
+#endif
+#ifdef ZSH_VALGRIND
+	    VALGRIND_DESTROY_MEMPOOL((char *)h);
 #endif
 	}
     }
@@ -496,6 +526,12 @@ zhalloc(size_t size)
 {
     Heap h;
     size_t n;
+#ifdef ZSH_VALGRIND
+    size_t req_size = size;
+
+    if (size == 0)
+	return NULL;
+#endif
 
     size = (size + H_ISIZE - 1) & ~(H_ISIZE - 1);
 
@@ -522,6 +558,9 @@ zhalloc(size_t size)
 		fprintf(stderr, "HEAP DEBUG: allocated memory from heap "
 			HEAPID_FMT ".\n", h->heap_id);
 	    }
+#endif
+#ifdef ZSH_VALGRIND
+	    VALGRIND_MEMPOOL_ALLOC((char *)h, (char *)ret, req_size);
 #endif
 	    return ret;
 	}
@@ -561,6 +600,12 @@ zhalloc(size_t size)
 		    h->heap_id);
 	}
 #endif
+#ifdef ZSH_VALGRIND
+	VALGRIND_CREATE_MEMPOOL((char *)h, 0, 0);
+	VALGRIND_MAKE_MEM_NOACCESS((char *)arena(h),
+				   n - ((char *)arena(h)-(char *)h));
+	VALGRIND_MEMPOOL_ALLOC((char *)h, (char *)arena(h), req_size);
+#endif
 
 	if (hp)
 	    hp->next = h;
@@ -586,13 +631,21 @@ hrealloc(char *p, size_t old, size_t new)
 {
     Heap h, ph;
 
+#ifdef ZSH_VALGRIND
+    size_t new_req = new;
+#endif
+
     old = (old + H_ISIZE - 1) & ~(H_ISIZE - 1);
     new = (new + H_ISIZE - 1) & ~(H_ISIZE - 1);
 
     if (old == new)
 	return p;
     if (!old && !p)
+#ifdef ZSH_VALGRIND
+	return zhalloc(new_req);
+#else
 	return zhalloc(new);
+#endif
 
     /* find the heap with p */
 
@@ -615,14 +668,33 @@ hrealloc(char *p, size_t old, size_t new)
      */
     if (p + old < arena(h) + h->used) {
 	if (new > old) {
+#ifdef ZSH_VALGRIND
+	    char *ptr = (char *) zhalloc(new_req);
+#else
 	    char *ptr = (char *) zhalloc(new);
+#endif
 	    memcpy(ptr, p, old);
 #ifdef ZSH_MEM_DEBUG
 	    memset(p, 0xff, old);
 #endif
+#ifdef ZSH_VALGRIND
+	    VALGRIND_MEMPOOL_FREE((char *)h, (char *)p);
+	    /*
+	     * zhalloc() marked h,ptr,new as an allocation so we don't
+	     * need to do that here.
+	     */
+#endif
 	    unqueue_signals();
 	    return ptr;
 	} else {
+#ifdef ZSH_VALGRIND
+	    VALGRIND_MEMPOOL_FREE((char *)h, (char *)p);
+	    if (p) {
+		VALGRIND_MEMPOOL_ALLOC((char *)h, (char *)p,
+				       new_req);
+		VALGRIND_MAKE_MEM_DEFINED((char *)h, (char *)p);
+	    }
+#endif
 	    unqueue_signals();
 	    return new ? p : NULL;
 	}
@@ -657,10 +729,14 @@ hrealloc(char *p, size_t old, size_t new)
 #else
 	    zfree(h, HEAPSIZE);
 #endif
+#ifdef ZSH_VALGRIND
+	    VALGRIND_DESTROY_MEMPOOL((char *)h);
+#endif
 	    unqueue_signals();
 	    return NULL;
 	}
 	if (new > ARENA_SIZEOF(h)) {
+	    Heap hnew;
 	    /*
 	     * Not enough memory in this heap.  Allocate a new
 	     * one of sufficient size.
@@ -682,17 +758,23 @@ hrealloc(char *p, size_t old, size_t new)
 		 * a mmap'd segment be extended, so simply allocate
 		 * a new one and copy.
 		 */
-		Heap hnew;
-
 		hnew = mmap_heap_alloc(&n);
 		/* Copy the entire heap, header (with next pointer) included */
 		memcpy(hnew, h, h->size);
 		munmap((void *)h, h->size);
-		h = hnew;
 	    }
 #else
-	    h = (Heap) realloc(h, n);
+	    hnew = (Heap) realloc(h, n);
 #endif
+#ifdef ZSH_VALGRIND
+	    VALGRIND_MEMPOOL_FREE((char *)h, p);
+	    VALGRIND_DESTROY_MEMPOOL((char *)h);
+	    VALGRIND_CREATE_MEMPOOL((char *)hnew, 0, 0);
+	    VALGRIND_MEMPOOL_ALLOC((char *)hnew, (char *)arena(hnew),
+				   new_req);
+	    VALGRIND_MAKE_MEM_DEFINED((char *)hnew, (char *)arena(hnew));
+#endif
+	    h = hnew;
 
 	    h->size = n;
 	    if (ph)
@@ -700,6 +782,13 @@ hrealloc(char *p, size_t old, size_t new)
 	    else
 		heaps = h;
 	}
+#ifdef ZSH_VALGRIND
+	else {
+	    VALGRIND_MEMPOOL_FREE((char *)h, (char *)p);
+	    VALGRIND_MEMPOOL_ALLOC((char *)h, (char *)p, new_req);
+	    VALGRIND_MAKE_MEM_DEFINED((char *)h, (char *)p);
+	}
+#endif
 	h->used = new;
 #ifdef ZSH_HEAP_DEBUG
 	h->heap_id = heap_id;
@@ -713,6 +802,11 @@ hrealloc(char *p, size_t old, size_t new)
     if (h->used + (new - old) <= ARENA_SIZEOF(h)) {
 	h->used += new - old;
 	unqueue_signals();
+#ifdef ZSH_VALGRIND
+	VALGRIND_MEMPOOL_FREE((char *)h, (char *)p);
+	VALGRIND_MEMPOOL_ALLOC((char *)h, (char *)p, new_req);
+	VALGRIND_MAKE_MEM_DEFINED((char *)h, (char *)p);
+#endif
 	return p;
     } else {
 	char *t = zhalloc(new);
@@ -720,6 +814,10 @@ hrealloc(char *p, size_t old, size_t new)
 	h->used -= old;
 #ifdef ZSH_MEM_DEBUG
 	memset(p, 0xff, old);
+#endif
+#ifdef ZSH_VALGRIND
+	VALGRIND_MEMPOOL_FREE((char *)h, (char *)p);
+	/* t already marked as allocated by zhalloc() */
 #endif
 	unqueue_signals();
 	return t;
@@ -856,7 +954,10 @@ zrealloc(void *ptr, size_t size)
 	ptr = NULL;
     } else {
 	/* If ptr is NULL, then behave like malloc */
-	ptr = malloc(size);
+        if (!(ptr = (void *) malloc(size))) {
+            zerr("fatal error: out of memory");
+            exit(1);
+        }
     }
     unqueue_signals();
 
@@ -1505,7 +1606,7 @@ zsfree(char *p)
 MALLOC_RET_T
 realloc(MALLOC_RET_T p, MALLOC_ARG_T size)
 {
-    struct m_hdr *m = (struct m_hdr *)(((char *)p) - M_ISIZE), *mp, *mt;
+    struct m_hdr *m = (struct m_hdr *)(((char *)p) - M_ISIZE), *mt;
     char *r;
     int i, l = 0;
 
@@ -1521,10 +1622,10 @@ realloc(MALLOC_RET_T p, MALLOC_ARG_T size)
     /* check if we are reallocating a small block, if we do, we have
        to compute the size of the block from the sort of block it is in */
     for (i = 0; i < M_NSMALL; i++) {
-	for (mp = NULL, mt = m_small[i];
+	for (mt = m_small[i];
 	     mt && (((char *)mt) > ((char *)p) ||
 		    (((char *)mt) + mt->len) < ((char *)p));
-	     mp = mt, mt = mt->next);
+	     mt = mt->next);
 
 	if (mt) {
 	    l = M_BSLEN(mt->len);

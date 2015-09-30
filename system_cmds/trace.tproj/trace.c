@@ -28,6 +28,10 @@
 #include <err.h>
 #include <stdarg.h>
 #include <inttypes.h>
+#include <spawn.h>
+#include <assert.h>
+#include <signal.h>
+#include <sysexits.h>
 
 #include <libutil.h>
 
@@ -93,6 +97,7 @@ extern char **environ;
 
 uint8_t* type_filter_bitmap;
 
+#define SIZE_4KB (4 * (1 << 10))
 
 #define DBG_FUNC_ALL		(DBG_FUNC_START | DBG_FUNC_END)
 #define DBG_FUNC_MASK	0xfffffffc
@@ -183,7 +188,6 @@ struct threadmap {
 	char		tm_command[MAXCOMLEN + 1];
 };
 	
-
 #define HASH_SIZE	1024
 #define HASH_MASK	1023
 
@@ -242,6 +246,7 @@ static void delete_thread_entry(uintptr_t);
 static void find_and_insert_tmp_map_entry(uintptr_t, char *);
 static void create_tmp_map_entry(uintptr_t, uintptr_t);
 static void find_thread_name(uintptr_t, char **, boolean_t);
+static void execute_process(char * const argv[]);
 
 static int  writetrace(int);
 static int  write_command_map(int);
@@ -315,8 +320,12 @@ void set_enable(int val)
 #endif
 	mib[4] = 0;
 	mib[5] = 0;
-	if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0)
+	if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0) {
+		if (errno == EINVAL) {
+			quit_args("trace facility failure, KERN_KDENABLE: trace buffer is uninitialized\n");
+		}
 		quit_args("trace facility failure, KERN_KDENABLE: %s\n", strerror(errno));
+	}
 }
 
 void set_remove()
@@ -390,11 +399,20 @@ void set_pidcheck(int pid, int on_off_flag)
 	mib[5] = 0;
 	if (sysctl(mib, 3, &kr, &needed, NULL, 0) < 0)
 	{
-		if (on_off_flag == 1)
+		if (errno == EACCES)
 		{
-			printf("trace facility failure, KERN_KDPIDTR,\n\tpid %d does not exist\n", pid);
+			quit_args("trace facility failure, setting pid filter: %s\n",
+			          strerror(errno));
+		}
+		else if (on_off_flag == 1 && errno == ESRCH)
+		{
 			set_remove();
-			exit(2);
+			quit_args("trace facility failure, setting pid filter: "
+			          "pid %d does not exist\n", pid);
+		}
+		else
+		{
+			quit_args("trace facility failure, KERN_KDPIDTR: %s\n", strerror(errno));
 		}
 	}
 }
@@ -703,15 +721,13 @@ uint64_t consume_start_event(uintptr_t thread, int debugid, uint64_t now)
 void
 log_trace()
 {
-        char		*buffer;
-	uint32_t	buffer_size;
-	int  		fd;
-	int		size;
-	int		pad_size;
-	char		pad_buf[4096];
+	int fd = -1;
+	int ret = 0;
+	char *buffer;
+	uint32_t buffer_size = 1000000 * sizeof(kd_buf);
 
-
-	if ((fd = open(logfile, O_TRUNC|O_WRONLY|O_CREAT, 0777)) == -1) {
+	fd = open(logfile, O_TRUNC | O_WRONLY | O_CREAT, 0777);
+	if (fd == -1) {
 		perror("Can't open logfile");
 		exit(1);
 	}
@@ -729,47 +745,33 @@ log_trace()
 		else
 			printf("Buffer has not wrapped\n");
 	}
-	buffer_size = 1000000 * sizeof(kd_buf);
-	buffer = malloc(buffer_size);
 
-	if (buffer == (char *) 0)
-		quit("can't allocate memory for tracing info\n");
-
-	read_command_map(0, 0);
-	read_cpu_map(0);
-
-	raw_header.version_no = RAW_VERSION1;
-	raw_header.thread_count = total_threads;
-	raw_header.TOD_secs = time((long *)0);
-	raw_header.TOD_usecs = 0;
-
-	write(fd, &raw_header, sizeof(RAW_header));
-
-	size = total_threads * sizeof(kd_threadmap);
-	write(fd, (char *)mapptr, size);
-
-	pad_size = 4096 - ((sizeof(RAW_header) + size) & 4095);
-
-	if (cpumap_header) {
-		size_t cpumap_size = sizeof(kd_cpumap_header) + cpumap_header->cpu_count * sizeof(kd_cpumap);
-		if (pad_size >= cpumap_size) {
-			write(fd, (char *)cpumap_header, cpumap_size);
-			pad_size -= cpumap_size;
-		}
+	ret = write_command_map(fd);
+	if (ret) {
+		close(fd);
+		perror("failed to write logfile");
+		exit(1);
 	}
 
-	memset(pad_buf, 0, pad_size);
-	write(fd, pad_buf, pad_size);
+	buffer = malloc(buffer_size);
+	if (buffer == NULL) {
+		quit("can't allocate memory for events\n");
+	}
 
 	for (;;) {
 		needed = buffer_size;
 
 		readtrace(buffer);
 
-		if (needed == 0)
+		if (needed == 0) {
 			break;
+		}
+
 		write(fd, buffer, needed * sizeof(kd_buf));
 	}
+
+	free(buffer);
+
 	close(fd);
 }
 
@@ -836,35 +838,9 @@ Log_trace()
 		set_enable(1);
 
 	if (write_command_map(fd)) {
-		int  pad_size;
-		char pad_buf[4096];
-
-		read_command_map(0, 0);
-		read_cpu_map(0);
-
-		raw_header.version_no = RAW_VERSION1;
-		raw_header.thread_count = total_threads;
-		raw_header.TOD_secs = time((long *)0);
-		raw_header.TOD_usecs = 0;
-
-		write(fd, &raw_header, sizeof(RAW_header));
-
-		size = total_threads * sizeof(kd_threadmap);
-		write(fd, (char *)mapptr, size);
-
-		pad_size = 4096 - ((sizeof(RAW_header) + size) & 4095);
-
-		if (cpumap_header) {
-			size_t cpumap_size = sizeof(kd_cpumap_header) + cpumap_header->cpu_count * sizeof(kd_cpumap);
-			if (pad_size >= cpumap_size) {
-				write(fd, (char *)cpumap_header, cpumap_size);
-				pad_size -= cpumap_size;
-			}
-		}
-
-		memset(pad_buf, 0, pad_size);			
-		write(fd, pad_buf, pad_size);
+		quit("can't write tracefile header\n");
 	}
+
 	sample_window_abs = (uint64_t)((double)US_TO_SLEEP * divisor);
 
 	next_window_begins = mach_absolute_time() + sample_window_abs;
@@ -1301,7 +1277,6 @@ char **env;
 {
 	extern char *optarg;
 	extern int optind;
-	int status;
 	int ch;
 	int i;
 	char *output_filename = NULL;
@@ -1520,21 +1495,21 @@ char **env;
 		if (pid_flag)
 		{
 			set_pidcheck(pid, 0);   /* disable pid check for given pid */
-			exit(1);
+			exit(0);
 		}
 		else if (pid_exflag)
 		{
 			set_pidexclude(pid, 0);  /* disable pid exclusion for given pid */
-			exit(1);
+			exit(0);
 		}
 		set_enable(0);
-		exit(1);
+		exit(0);
 	}
 
 	if (remove_flag)
 	{
 		set_remove();
-		exit(1);
+		exit(0);
 	}
     
 	if (bufset_flag )
@@ -1634,26 +1609,8 @@ char **env;
 		fflush(stdout);
 		fflush(stderr);
 
-		switch ((pid = vfork()))
-		{
-		case -1:
-			perror("vfork: ");
-			exit(1);
-		case 0: /* child */
-			setsid();
-			ptrace(PT_TRACE_ME, 0, (caddr_t)0, 0);
-			execve(argv[optind], &argv[optind], environ);
-			perror("execve:");
-			exit(1);
-		}
-		sleep(1);
+		execute_process(&(argv[optind]));
 
-		signal(SIGINT, signal_handler);
-		set_pidcheck(pid, 1);
-		set_enable(1);
-		ptrace(PT_CONTINUE, pid, (caddr_t)1, 0);
-		waitpid(pid, &status, 0);
-		/* child is gone; no need to disable the pid */
 		exit(0);
 	}
 	else if (enable_flag)
@@ -1694,6 +1651,49 @@ char **env;
 	exit(0);
 
 } /* end main */
+
+static void
+execute_process(char * const argv[])
+{
+	int status = 0;
+	int rc = 0;
+	posix_spawnattr_t spawn_attrs;
+
+	assert(argv);
+
+	/* ensure that the process being spawned starts suspended */
+	rc = posix_spawnattr_init(&spawn_attrs);
+	if (rc != 0) {
+		quit_args("Failed to initialize spawn attrs: %s\n", strerror(rc));
+	}
+	rc = posix_spawnattr_setflags(&spawn_attrs,
+	                              POSIX_SPAWN_START_SUSPENDED);
+	if (rc != 0) {
+		quit_args("Unable to start process suspended: %s\n", strerror(rc));
+	}
+
+	/* spawn the process with the rest of the arguments */
+	rc = posix_spawnp(&pid, argv[0], NULL, &spawn_attrs, argv, environ);
+	if (rc != 0) {
+		quit_args("Unabled to start process: %s\n", strerror(rc));
+	}
+
+	signal(SIGINT, signal_handler);
+	set_pidcheck(pid, 1);
+	set_enable(1);
+
+	/* start the child process */
+	rc = kill(pid, SIGCONT);
+	if (rc != 0) {
+		perror("Failed to continue child process:");
+		exit(EX_OSERR);
+	}
+
+	rc = waitpid(pid, &status, 0);
+	if (rc == -1) {
+		perror("Failed to wait for process: ");
+	}
+}
 
 static void
 quit_args(const char *fmt, ...) 
@@ -2512,11 +2512,10 @@ read_cpu_map(int fd)
 		 * cpu maps exist in a RAW_VERSION1+ header only
 		 */
 		if (raw_header.version_no == RAW_VERSION1) {
-			off_t base_offset = lseek(fd, (off_t)0, SEEK_CUR);
-			off_t aligned_offset = (base_offset + (4095)) & ~4095; /* <rdar://problem/13500105> */
-			
-			size_t padding_bytes = (size_t)(aligned_offset - base_offset);
-			
+			off_t cpumap_position = lseek(fd, 0, SEEK_CUR);
+            /* cpumap is part of the last 4KB of padding in the preamble */
+			size_t padding_bytes = SIZE_4KB - (cpumap_position & (SIZE_4KB - 1));
+
 			if (read(fd, cpumap_header, padding_bytes) == padding_bytes) {
 				if (cpumap_header->version_no == RAW_VERSION1) {
 					cpumap = (kd_cpumap*)&cpumap_header[1];
@@ -2630,6 +2629,7 @@ read_command_map(int fd, uint32_t count)
 				mapptr[i].command);
 		}
 	}
+
 	return (int)size;
 }
 

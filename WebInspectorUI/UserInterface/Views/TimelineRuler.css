@@ -44,7 +44,11 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 22px;
+    height: 29px;
+}
+
+body.window-inactive .timeline-ruler > .header {
+    border-bottom-color: rgb(219, 219, 219);
 }
 
 .timeline-ruler > .header > .divider {
@@ -56,9 +60,13 @@
     background-image: linear-gradient(to bottom, rgba(179, 179, 179, 0), rgba(179, 179, 179, 1) 85%);
 }
 
+body.window-inactive .timeline-ruler > .header > .divider {
+    background-image: linear-gradient(to bottom, rgba(219, 219, 219, 0), rgba(219, 219, 219, 1) 85%);
+}
+
 .timeline-ruler > .header > .divider > .label {
     position: absolute;
-    top: 5px;
+    top: 8px;
     right: 5px;
     font-size: 9px;
     color: rgb(128, 128, 128);
@@ -129,7 +137,7 @@
 .timeline-ruler > .selection-drag {
     position: absolute;
     top: 0;
-    height: 22px;
+    height: 29px;
     cursor: -webkit-grab;
     pointer-events: all;
 }
@@ -142,7 +150,7 @@
     position: absolute;
     top: 0;
     width: 8px;
-    height: 21px;
+    height: 28px;
     border-radius: 5px;
     background-color: rgb(164, 164, 164);
     border: 1px solid white;

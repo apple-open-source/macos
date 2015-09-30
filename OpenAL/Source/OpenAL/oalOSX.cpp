@@ -697,7 +697,7 @@ ALUTAPI ALvoid ALUTAPIENTRY alutLoadWAVFile(ALbyte *file,ALenum *format,ALvoid *
 	
 	if (err == noErr)
 	{
-		err = AudioFileOpen(&fsRef, fsRdPerm, 0, &audioFile);
+		err = AudioFileOpen(&fsRef, kAudioFileReadPermission, 0, &audioFile);
 		if (err == noErr)
 		{
 			UInt32							dataSize;

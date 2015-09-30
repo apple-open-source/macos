@@ -21,15 +21,12 @@
 #ifndef Filter_h
 #define Filter_h
 
-#if ENABLE(FILTERS)
 #include "FloatRect.h"
 #include "FloatSize.h"
 #include "ImageBuffer.h"
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
-
-class FilterEffect;
 
 class Filter : public RefCounted<Filter> {
 public:
@@ -71,11 +68,6 @@ private:
     float m_filterScale;
 };
 
-#define FILTER_TYPE_CASTS(ToValueTypeName, predicate) \
-    TYPE_CASTS_BASE(ToValueTypeName, Filter, filter, filter->predicate, filter.predicate)
-
 } // namespace WebCore
-
-#endif // ENABLE(FILTERS)
 
 #endif // Filter_h

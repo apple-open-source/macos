@@ -33,7 +33,6 @@
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/ThreadingPrimitives.h>
 
 namespace JSC {
@@ -49,7 +48,7 @@ public:
 
     ~Worklist();
     
-    static PassRefPtr<Worklist> create(CString worklistName, unsigned numberOfThreads, int relativePriority = 0);
+    static Ref<Worklist> create(CString worklistName, unsigned numberOfThreads, int relativePriority = 0);
     
     void enqueue(PassRefPtr<Plan>);
     

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -48,9 +48,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#define my_log(__level, fmt, ...)	SCPrint(TRUE, stdout, CFSTR(fmt "\n"), ## __VA_ARGS__)
+
 #include <dnsinfo.h>
 #include "dnsinfo_internal.h"
 #include <network_information.h>
+#include "network_information_priv.h"
 #include "SCNetworkReachabilityInternal.h"
 #include <CommonCrypto/CommonDigest.h>
 
@@ -93,7 +96,6 @@ _setupReachabilityOptions(int argc, char **argv, const char *interface)
 					     kCFBooleanTrue);
 			continue;
 		}
-
 
 		if (strcasecmp(argv[i], "no-connection-on-demand") == 0) {
 			CFDictionarySetValue(options,
@@ -424,6 +426,7 @@ _printReachability(SCNetworkReachabilityRef target)
 {
 	SCNetworkReachabilityFlags	flags;
 	Boolean				ok;
+	CFStringRef			str;
 
 	ok = SCNetworkReachabilityGetFlags(target, &flags);
 	if (!ok) {
@@ -431,16 +434,15 @@ _printReachability(SCNetworkReachabilityRef target)
 		return;
 	}
 
-	SCPrint(_sc_debug, stdout, CFSTR("flags = 0x%08x ("), flags);
-	__SCNetworkReachabilityPrintFlags(flags);
-	SCPrint(_sc_debug, stdout, CFSTR(")"));
-	SCPrint(TRUE, stdout, CFSTR("\n"));
+	str = __SCNetworkReachabilityCopyFlags(flags, CFSTR("flags = "), _sc_debug);
+	SCPrint(TRUE, stdout, CFSTR("%@\n"), str);
+	CFRelease(str);
 
-	if (resolver_bypass) {
+	if (resolver_bypass && _sc_debug) {
 		int	if_index;
 
 		if_index = SCNetworkReachabilityGetInterfaceIndex(target);
-		SCPrint(_sc_debug, stdout, CFSTR("interface index = %d\n"), if_index);
+		SCPrint(TRUE, stdout, CFSTR("interface index = %d\n"), if_index);
 	}
 
 	return;
@@ -468,6 +470,7 @@ do_checkReachability(int argc, char **argv)
 static void
 _printNWIFlags(nwi_ifstate_flags flags)
 {
+	flags &= NWI_IFSTATE_FLAGS_MASK;
 	if (flags == 0) {
 		return;
 	}
@@ -488,6 +491,21 @@ _printNWIFlags(nwi_ifstate_flags flags)
 		flags &= ~NWI_IFSTATE_FLAGS_HAS_DNS;
 		SCPrint(flags != 0, stdout, CFSTR(","));
 	}
+	if (flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST) {
+		SCPrint(TRUE, stdout, CFSTR("NOT-IN-LIST"));
+		flags &= ~NWI_IFSTATE_FLAGS_NOT_IN_LIST;
+		SCPrint(flags != 0, stdout, CFSTR(","));
+	}
+	if (flags & NWI_IFSTATE_FLAGS_HAS_SIGNATURE) {
+		SCPrint(TRUE, stdout, CFSTR("SIGNATURE"));
+		flags &= ~NWI_IFSTATE_FLAGS_HAS_SIGNATURE;
+		SCPrint(flags != 0, stdout, CFSTR(","));
+	}
+	if (flags & NWI_IFSTATE_FLAGS_NOT_IN_IFLIST) {
+		SCPrint(TRUE, stdout, CFSTR("NOT-IN-IFLIST"));
+		flags &= ~NWI_IFSTATE_FLAGS_NOT_IN_IFLIST;
+		SCPrint(flags != 0, stdout, CFSTR(","));
+	}
 	if (flags != 0) {
 		SCPrint(TRUE, stdout, CFSTR("%p"), (void *)flags);
 	}
@@ -500,11 +518,17 @@ _printNWIFlags(nwi_ifstate_flags flags)
 static void
 _printNWIInfo(nwi_ifstate_t ifstate)
 {
-	nwi_ifstate_flags		ifstate_flags = nwi_ifstate_get_flags(ifstate);
+	nwi_ifstate_flags		ifstate_flags;
 	SCNetworkReachabilityFlags	reach_flags = nwi_ifstate_get_reachability_flags(ifstate);
 	const uint8_t			*signature;
 	int				signature_length;
+	CFStringRef			str;
 	const struct sockaddr		*vpn_addr = nwi_ifstate_get_vpn_server(ifstate);
+
+	ifstate_flags = nwi_ifstate_get_flags(ifstate);
+	if (_sc_debug) {
+		ifstate_flags |= ifstate->flags;
+	}
 
 	SCPrint(TRUE, stdout,
 		CFSTR(" %7s : flags %p"),
@@ -512,9 +536,9 @@ _printNWIInfo(nwi_ifstate_t ifstate)
 		(void *)ifstate_flags);
 	_printNWIFlags(ifstate_flags);
 
-	SCPrint(TRUE, stdout, CFSTR("\n           reach 0x%08x ("), reach_flags);
-	__SCNetworkReachabilityPrintFlags(reach_flags);
-	SCPrint(TRUE, stdout, CFSTR(")"));
+	str = __SCNetworkReachabilityCopyFlags(reach_flags, CFSTR("           reach "), TRUE);
+	SCPrint(TRUE, stdout, CFSTR("\n%@"), str);
+	CFRelease(str);
 
 	if (vpn_addr != NULL) {
 		char vpn_ntopbuf[INET6_ADDRSTRLEN];
@@ -545,11 +569,13 @@ static void
 _printNWIReachInfo(nwi_state_t state, int af)
 {
 	uint32_t	reach_flags;
+	CFStringRef	str;
 
 	reach_flags = nwi_state_get_reachability_flags(state, af);
-	SCPrint(TRUE, stdout, CFSTR("\n   REACH : flags 0x%08x ("), reach_flags);
-	__SCNetworkReachabilityPrintFlags(reach_flags);
-	SCPrint(TRUE, stdout, CFSTR(")\n"));
+
+	str = __SCNetworkReachabilityCopyFlags(reach_flags, CFSTR("   REACH : flags "), TRUE);
+	SCPrint(TRUE, stdout, CFSTR("\n%@\n"), str);
+	CFRelease(str);
 
 	return;
 }
@@ -558,6 +584,7 @@ _printNWIReachInfo(nwi_state_t state, int af)
 static void
 do_printNWI(int argc, char **argv, nwi_state_t state)
 {
+	unsigned int	count;
 	nwi_ifstate_t	ifstate;
 
 	if (state == NULL) {
@@ -568,7 +595,16 @@ do_printNWI(int argc, char **argv, nwi_state_t state)
 	if (argc > 0) {
 		ifstate = nwi_state_get_ifstate(state, argv[0]);
 		if (ifstate != NULL) {
+			nwi_ifstate_t	alias;
+
 			_printNWIInfo(ifstate);
+
+			alias = nwi_ifstate_get_alias(ifstate,
+						      ifstate->af == AF_INET ? AF_INET6 : AF_INET);
+			if (alias != NULL) {
+				SCPrint(TRUE, stdout, CFSTR("\n"));
+				_printNWIInfo(alias);
+			}
 		} else {
 			SCPrint(TRUE, stdout, CFSTR("No network information (for %s)\n"), argv[0]);
 		}
@@ -604,6 +640,21 @@ do_printNWI(int argc, char **argv, nwi_state_t state)
 	}
 	_printNWIReachInfo(state, AF_INET6);
 
+	count = nwi_state_get_interface_names(state, NULL, 0);
+	if (count > 0) {
+		const char *	names[count];
+
+		count = nwi_state_get_interface_names(state, names, count);
+		if (count > 0) {
+			int i;
+
+			printf("\nNetwork interfaces:");
+			for (i = 0; i < count; i++) {
+				printf(" %s", names[i]);
+			}
+			printf("\n");
+		}
+	}
 	return;
 }
 
@@ -663,7 +714,7 @@ do_watchNWI(int argc, char **argv)
 						  }
 					  });
 	if (status != NOTIFY_STATUS_OK) {
-		SCLog(TRUE, LOG_INFO, CFSTR("notify_register_dispatch() failed for nwi changes, status=%u"), status);
+		SC_log(LOG_INFO, "notify_register_dispatch() failed for nwi changes, status=%u", status);
 		exit(1);
 	}
 
@@ -771,55 +822,17 @@ do_watchReachability(int argc, char **argv)
 static void
 do_printDNSConfiguration(int argc, char **argv, dns_config_t *dns_config)
 {
-	SCNetworkReachabilityRef	target;
+	int	_sc_log_save;
 
 	if (dns_config == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("No DNS configuration available\n"));
 		return;
 	}
 
-	if (argc > 1) {
-		int				dns_config_index = -1;
-		SCNetworkReachabilityFlags	flags = 0;
-		Boolean				haveDNS = FALSE;
-		Boolean				ok = FALSE;
-		dns_resolver_t			*resolver;
-		uint32_t			resolver_if_index;
-		SCNetworkReachabilityPrivateRef targetPrivate;
-
-		target = _setupReachability(argc, argv, NULL);
-
-		targetPrivate = (SCNetworkReachabilityPrivateRef)target;
-
-		if (targetPrivate->type != reachabilityTypeName) {
-			SCPrint(TRUE, stdout, CFSTR("\"%s\" is not a hostname.\n"), argv[0]);
-			exit(1);
-		}
-
-		ok = __SC_checkResolverReachabilityInternal(&store, &flags,
-							    &haveDNS, targetPrivate->name,
-							    &resolver_if_index, &dns_config_index);
-
-		if (!ok) {
-			SCPrint(TRUE, stdout, CFSTR("No DNS configuration available.\n" ));
-			return;
-		}
-
-		SCPrint(TRUE, stdout, CFSTR("DNS configuration for %s\n"),
-			targetPrivate->name);
-
-		if (targetPrivate->if_index == 0) {
-			resolver = dns_config->resolver[dns_config_index];
-		} else {
-			resolver = dns_config->scoped_resolver[dns_config_index];
-		}
-
-		_dns_resolver_print(resolver, dns_config_index + 1);
-
-		if (target != NULL) CFRelease(target);
-	} else {
-		_dns_configuration_print(dns_config);
-	}
+	_sc_log_save = _sc_log;
+	_sc_log = FALSE;
+	_dns_configuration_log(dns_config, _sc_debug);
+	_sc_log = _sc_log_save;
 
 	if (_sc_debug) {
 		SCPrint(TRUE, stdout, CFSTR("\ngeneration = %llu\n"), dns_config->generation);
@@ -884,7 +897,7 @@ do_watchDNSConfiguration(int argc, char **argv)
 						  }
 					  });
 	if (status != NOTIFY_STATUS_OK) {
-		SCLog(TRUE, LOG_INFO, CFSTR("notify_register_dispatch() failed for DNS configuration changes, status=%u"), status);
+		SC_log(LOG_INFO, "notify_register_dispatch() failed for DNS configuration changes, status=%u", status);
 		exit(1);
 	}
 
@@ -1025,8 +1038,6 @@ do_snapshot(int argc, char **argv)
 	if (!SCDynamicStoreSnapshot(store)) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
-
-	(void) _SCNetworkReachabilityServer_snapshot();
 
 	return;
 }
@@ -1243,7 +1254,7 @@ sleep(120);
 		dns_configuration_free(dns_config);
 	}
 
-	  do_showDNSConfiguration(argc, argv);
+	do_showDNSConfiguration(argc, argv);
 	exit(0);
 }
 

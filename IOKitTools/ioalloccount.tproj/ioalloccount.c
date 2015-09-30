@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
-cc alloccount.c -o alloccount -Wall -framework IOKit
+cc ioalloccount.c -o /tmp/ioalloccount -Wall -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk  -framework IOKit -framework CoreFoundation -framework CoreSymbolication -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/PrivateFrameworks -g
  */
 
 #include <sysexits.h>
@@ -41,7 +41,7 @@ static Boolean printNumber(
     CFIndex       nameLength = 0;
     static char * nameBuffer = NULL;  // free if nameCString is NULL
     CFNumberRef   num        = NULL;  // do not release
-    SInt32	      num32      = 0;
+    SInt64	  num64      = 0;
     Boolean       gotName    = FALSE;
     Boolean       gotNum     = FALSE;
 
@@ -68,12 +68,10 @@ static Boolean printNumber(
         printf("%22s = ", gotName ? nameBuffer : "??");
 
         if (CFNumberGetTypeID() == CFGetTypeID(num)) {
-            gotNum = CFNumberGetValue(num, kCFNumberSInt32Type, &num32);
+            gotNum = CFNumberGetValue(num, kCFNumberSInt64Type, &num64);
         }
         if (gotNum) {
-            printf("0x%08lx = %4lu K\n",
-                   (unsigned long)num32,
-                   (unsigned long)(num32 / 1024));
+            printf("0x%08llx = %4llu K\n", num64, num64 / 1024);
         } else {
             printf("?? (error reading/converting value)\n");
         }

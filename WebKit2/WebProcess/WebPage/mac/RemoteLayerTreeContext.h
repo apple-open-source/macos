@@ -51,9 +51,11 @@ public:
 
     void backingStoreWasCreated(RemoteLayerBackingStore&);
     void backingStoreWillBeDestroyed(RemoteLayerBackingStore&);
-    void backingStoreWillBeDisplayed(RemoteLayerBackingStore&);
+    bool backingStoreWillBeDisplayed(RemoteLayerBackingStore&);
 
     WebCore::LayerPool& layerPool() { return m_layerPool; }
+
+    float deviceScaleFactor() const { return m_webPage.deviceScaleFactor(); }
 
     LayerHostingMode layerHostingMode() const { return m_webPage.layerHostingMode(); }
 
@@ -63,6 +65,7 @@ public:
 
     // From the UI process
     void animationDidStart(WebCore::GraphicsLayer::PlatformLayerID, const String& key, double startTime);
+    void animationDidEnd(WebCore::GraphicsLayer::PlatformLayerID, const String& key);
 
     void willStartAnimationOnLayer(PlatformCALayerRemote&);
 
@@ -70,15 +73,15 @@ public:
 
 private:
     // WebCore::GraphicsLayerFactory
-    virtual std::unique_ptr<WebCore::GraphicsLayer> createGraphicsLayer(WebCore::GraphicsLayerClient&) override;
+    virtual std::unique_ptr<WebCore::GraphicsLayer> createGraphicsLayer(WebCore::GraphicsLayer::Type, WebCore::GraphicsLayerClient&) override;
 
     WebPage& m_webPage;
 
-    Vector<RemoteLayerTreeTransaction::LayerCreationProperties> m_createdLayers;
+    HashMap<WebCore::GraphicsLayer::PlatformLayerID, RemoteLayerTreeTransaction::LayerCreationProperties> m_createdLayers;
     Vector<WebCore::GraphicsLayer::PlatformLayerID> m_destroyedLayers;
 
     HashMap<WebCore::GraphicsLayer::PlatformLayerID, PlatformCALayerRemote*> m_liveLayers;
-    HashMap<WebCore::GraphicsLayer::PlatformLayerID, PlatformCALayerRemote*> m_layersAwaitingAnimationStart;
+    HashMap<WebCore::GraphicsLayer::PlatformLayerID, PlatformCALayerRemote*> m_layersWithAnimations;
 
     RemoteLayerBackingStoreCollection m_backingStoreCollection;
     

@@ -14,7 +14,7 @@
 #include "CCCryptorTestFuncs.h"
 #include "testbyteBuffer.h"
 #include "testmore.h"
-
+#include "ccMemory.h"
 
 
 
@@ -40,7 +40,7 @@ int CommonCryptoReset(int argc, char *const *argv)
     
 	plan_tests(kTestTestCount);
 
-    bzero(nulliv, 16);
+    CC_XZEROMEM(nulliv, 16);
     
    	retval = CCCryptorCreateWithMode(kCCEncrypt, kCCModeCBC, kCCAlgorithmAES128, 
                                      ccNoPadding, NULL, key, 16, NULL, 0, 0, 0, &cref);

@@ -113,8 +113,7 @@ public:
     
     T** slot() { return reinterpret_cast<T**>(&m_cell); }
     
-    typedef T* (WriteBarrierBase::*UnspecifiedBoolType);
-    operator UnspecifiedBoolType*() const { return m_cell ? reinterpret_cast<UnspecifiedBoolType*>(1) : 0; }
+    explicit operator bool() const { return m_cell; }
     
     bool operator!() const { return !m_cell; }
 
@@ -126,9 +125,7 @@ public:
         this->m_cell = reinterpret_cast<JSCell*>(value);
     }
 
-#if ENABLE(GC_VALIDATION)
     T* unvalidatedGet() const { return reinterpret_cast<T*>(static_cast<void*>(m_cell)); }
-#endif
 
 private:
     JSCell* m_cell;
@@ -167,8 +164,7 @@ public:
     int32_t* tagPointer() { return &bitwise_cast<EncodedValueDescriptor*>(&m_value)->asBits.tag; }
     int32_t* payloadPointer() { return &bitwise_cast<EncodedValueDescriptor*>(&m_value)->asBits.payload; }
     
-    typedef JSValue (WriteBarrierBase::*UnspecifiedBoolType);
-    operator UnspecifiedBoolType*() const { return get() ? reinterpret_cast<UnspecifiedBoolType*>(1) : 0; }
+    explicit operator bool() const { return !!get(); }
     bool operator!() const { return !get(); } 
     
 private:
@@ -201,12 +197,17 @@ public:
     }
 };
 
+enum UndefinedWriteBarrierTagType { UndefinedWriteBarrierTag };
 template <> class WriteBarrier<Unknown> : public WriteBarrierBase<Unknown> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     WriteBarrier()
     {
         this->setWithoutWriteBarrier(JSValue());
+    }
+    WriteBarrier(UndefinedWriteBarrierTagType)
+    {
+        this->setWithoutWriteBarrier(jsUndefined());
     }
 
     WriteBarrier(VM& vm, const JSCell* owner, JSValue value)

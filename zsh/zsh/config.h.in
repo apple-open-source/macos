@@ -35,6 +35,9 @@
 /* Define to 1 if you want to use dynamically loaded modules on AIX. */
 #undef AIXDYNAMIC
 
+/* Define to 1 if the isprint() function is broken under UTF-8 locale. */
+#undef BROKEN_ISPRINT
+
 /* Define to 1 if kill(pid, 0) doesn't return ESRCH, ie BeOS R4.51. */
 #undef BROKEN_KILL_ESRCH
 
@@ -397,6 +400,9 @@
 /* Define to 1 if you have the `munmap' function. */
 #undef HAVE_MUNMAP
 
+/* Define to 1 if you have the `nanosleep' function. */
+#undef HAVE_NANOSLEEP
+
 /* Define to 1 if you have the <ncursesw/ncurses.h> header file. */
 #undef HAVE_NCURSESW_NCURSES_H
 
@@ -468,6 +474,9 @@
 
 /* Define to 1 if you have the <poll.h> header file. */
 #undef HAVE_POLL_H
+
+/* Define to 1 if you have the `posix_openpt' function. */
+#undef HAVE_POSIX_OPENPT
 
 /* Define to 1 if you have the `ptsname' function. */
 #undef HAVE_PTSNAME
@@ -1033,6 +1042,9 @@
 /* Define to 1 if ANSI function prototypes are usable. */
 #undef PROTOTYPES
 
+/* Define if realpath() accepts NULL as its second argument. */
+#undef REALPATH_ACCEPTS_NULL
+
 /* Undefine this if you don't want to get a restricted shell when zsh is
    exec'd with basename that starts with r. By default this is defined. */
 #undef RESTRICTED_R
@@ -1106,6 +1118,9 @@
 /* Define to 1 if h_errno is not defined by the system. */
 #undef USE_LOCAL_H_ERRNO
 
+/* Define to 1 if you want to allocate stack memory e.g. with `alloca'. */
+#undef USE_STACK_ALLOCATION
+
 /* Define to be a string corresponding the vendor of the machine. */
 #undef VENDOR
 
@@ -1152,8 +1167,16 @@
 /* Define to 1 if you want to turn on memory checking for free(). */
 #undef ZSH_SECURE_FREE
 
+/* Define to 1 if you want to add code for valgrind to debug heap memory. */
+#undef ZSH_VALGRIND
+
 /* Define to the base type of the third argument of accept */
 #undef ZSOCKLEN_T
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS

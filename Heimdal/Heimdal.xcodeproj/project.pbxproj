@@ -120,6 +120,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				EB1ADF3C19A44A240054E692 /* PBXTargetDependency */,
 				EB23C4EB176A49C20079B83B /* PBXTargetDependency */,
 			);
 			name = HeimdalEmbeddedExecutables;
@@ -131,6 +132,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				EB1ADF4119A44A2E0054E692 /* PBXTargetDependency */,
 				EB2C2DBC14DCB7EC00FAB8D7 /* PBXTargetDependency */,
 				EB2C2DB814DCB7DE00FAB8D7 /* PBXTargetDependency */,
 				EB2C2DBA14DCB7DE00FAB8D7 /* PBXTargetDependency */,
@@ -141,6 +143,7 @@
 				EB2C2D8D14DCB3A600FAB8D7 /* PBXTargetDependency */,
 				EB312E5317B2EC2D00BD74D9 /* PBXTargetDependency */,
 				EB2C2D9314DCB3CA00FAB8D7 /* PBXTargetDependency */,
+				EB1DE49419A188A2009641E6 /* PBXTargetDependency */,
 				EB0B5A391B4E277400B6C385 /* PBXTargetDependency */,
 				EB2C2D8514DCB33D00FAB8D7 /* PBXTargetDependency */,
 				EB3CC91914DE1993008E9787 /* PBXTargetDependency */,
@@ -427,6 +430,8 @@
 		72F65EDD1208DF990064E53C /* krb_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB49AB890F2589FC0076E27F /* krb_err.h */; };
 		74071AF811CC35910036D06D /* roken-common.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB576C0F21822D0009D37C /* roken-common.h */; };
 		74071AF911CC35910036D06D /* roken.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2980F22B6CD006BD106 /* roken.h */; };
+		EB00129F1A2D07D6005B4B09 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB82E91F0F8A680100EE4F4A /* SystemConfiguration.framework */; };
+		EB0012A11A2D0A50005B4B09 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB6B1FB013AC1992001CB8AD /* CoreFoundation.framework */; };
 		EB00F0E2103CC6CA00399574 /* ct.c in Sources */ = {isa = PBXBuildFile; fileRef = EB00F0E1103CC6CA00399574 /* ct.c */; };
 		EB00F1C9103D6AFE00399574 /* bn.c in Sources */ = {isa = PBXBuildFile; fileRef = EB00F13A103D6A0500399574 /* bn.c */; };
 		EB00F1CA103D6AFE00399574 /* bn.h in Headers */ = {isa = PBXBuildFile; fileRef = EB00F13B103D6A0500399574 /* bn.h */; };
@@ -714,7 +719,6 @@
 		EB131684181F21400060DB0B /* krb5.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EB6A7B990F3045BE0034AFBE /* krb5.h */; };
 		EB131685181F21580060DB0B /* hx509-protos.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EBCD58F21141D94A00B964AB /* hx509-protos.h */; };
 		EB131686181F21580060DB0B /* hx509.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EBBFAF1F100D26E200BF3DAE /* hx509.h */; };
-		EB131688181F21C60060DB0B /* heimbase.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EB18A9C811779F68001985AB /* heimbase.h */; };
 		EB13168B181F23C80060DB0B /* config_plugin.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EB3CCA1614DE3002008E9787 /* config_plugin.h */; };
 		EB1316971820218A0060DB0B /* gssapi_rewrite.h in Copy private generated header files */ = {isa = PBXBuildFile; fileRef = EBAE7AC012B045D9002DA026 /* gssapi_rewrite.h */; };
 		EB13F5911280B26200E610D1 /* check-apple-ad in Install Apple tests */ = {isa = PBXBuildFile; fileRef = EB13F5901280B24300E610D1 /* check-apple-ad */; };
@@ -905,6 +909,7 @@
 		EB1C8FB117F24B01002F9FF7 /* libheimdal-asn1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EBE0A34217BA1D9600D0D805 /* libheimdal-asn1.dylib */; };
 		EB1C8FB817F24B16002F9FF7 /* test_fx.c in Sources */ = {isa = PBXBuildFile; fileRef = EB7B41FF114F115800D6EA17 /* test_fx.c */; };
 		EB1CD7A810B516120079E08A /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDA3358105990230042FFAE /* GSS.framework */; };
+		EB1FC35819D0619800857C44 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
 		EB202353136E0BA7005E1B1A /* heimdal-win-mount.py in Install bin */ = {isa = PBXBuildFile; fileRef = EB202352136E0B13005E1B1A /* heimdal-win-mount.py */; };
 		EB202357136E0C23005E1B1A /* coswin7-ads-specific.plist in Install Apple tests */ = {isa = PBXBuildFile; fileRef = EB202354136E0BD7005E1B1A /* coswin7-ads-specific.plist */; };
 		EB202358136E0C23005E1B1A /* coswin7-ads.plist in Install Apple tests */ = {isa = PBXBuildFile; fileRef = EB202355136E0BD7005E1B1A /* coswin7-ads.plist */; };
@@ -1227,6 +1232,7 @@
 		EB2C3E2116CC438D00D75FA0 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = EB2C3E0816CC1A4400D75FA0 /* common.c */; };
 		EB2EB1D9111CD57D004C6570 /* heimdal_debug.5 in Install man5 */ = {isa = PBXBuildFile; fileRef = EB2EB1C8111CD4BE004C6570 /* heimdal_debug.5 */; };
 		EB2F0FD116D8020200CB0933 /* tkt.c in Sources */ = {isa = PBXBuildFile; fileRef = EB2F0FD016D8020200CB0933 /* tkt.c */; };
+		EB2F34001B43BD990018C2AD /* heim_asn1.h in install headers */ = {isa = PBXBuildFile; fileRef = EBFB56A30F2181960009D37C /* heim_asn1.h */; };
 		EB2F670F143B9A6E00540359 /* kswitch.1 in man1 */ = {isa = PBXBuildFile; fileRef = EBBB6C171059A98200B84263 /* kswitch.1 */; };
 		EB312C5E10B499B800B0732B /* oncrpc.c in Sources */ = {isa = PBXBuildFile; fileRef = EB312C5D10B499B800B0732B /* oncrpc.c */; };
 		EB312C7210B49D1600B0732B /* gssapi.h in Headers */ = {isa = PBXBuildFile; fileRef = EB91CFDB0F28477300CCDEA3 /* gssapi.h */; };
@@ -1383,6 +1389,7 @@
 		EB3E0D40130785C8001AC411 /* hex.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB573D0F21822D0009D37C /* hex.h */; };
 		EB3E39561044F17F00257DA9 /* kadmin.8 in man8 manpages */ = {isa = PBXBuildFile; fileRef = EB24F4260F3178F500B2533C /* kadmin.8 */; };
 		EB3E395D1044F1EE00257DA9 /* ktutil.8 in man8 manpages */ = {isa = PBXBuildFile; fileRef = EB24F7060F31924800B2533C /* ktutil.8 */; };
+		EB3FFAAF19B7F6AB003D7DD2 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBB6E4D91332998B00630DF5 /* Heimdal.framework */; };
 		EB400BCF0F34814800F55B31 /* hx509-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBF569A90F32D8FF00501CE8 /* hx509-protos.h */; };
 		EB400BD00F34814800F55B31 /* hx509.h in Headers */ = {isa = PBXBuildFile; fileRef = EBF569AA0F32D8FF00501CE8 /* hx509.h */; };
 		EB400BD10F34814B00F55B31 /* hx509-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBF569A90F32D8FF00501CE8 /* hx509-protos.h */; };
@@ -1589,6 +1596,8 @@
 		EB49AB8B0F2589FC0076E27F /* heim_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB49AB870F2589FC0076E27F /* heim_err.h */; };
 		EB49AB8C0F2589FC0076E27F /* k524_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB49AB880F2589FC0076E27F /* k524_err.h */; };
 		EB49AB8E0F2589FC0076E27F /* krb5_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB49AB8A0F2589FC0076E27F /* krb5_err.h */; };
+		EB4A373E1B570691008C97DF /* stat-kerberos.m in Sources */ = {isa = PBXBuildFile; fileRef = EB4A373D1B570691008C97DF /* stat-kerberos.m */; };
+		EB4A37401B5713F8008C97DF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBD090AE1330353B001D0938 /* Foundation.framework */; };
 		EB4C0AA8182B289500122104 /* gssapi_plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6B1FD113AC218B001CB8AD /* gssapi_plugin.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EB4C0AA9182B2A4100122104 /* gssapi_rewrite.h in Headers */ = {isa = PBXBuildFile; fileRef = EBAE7AC012B045D9002DA026 /* gssapi_rewrite.h */; };
 		EB4C0AAA182B2AAA00122104 /* gssapi_spi.h in Copy private generated header files */ = {isa = PBXBuildFile; fileRef = EBBB6BAA10599A1700B84263 /* gssapi_spi.h */; };
@@ -1915,7 +1924,6 @@
 		EB6FCC6010A75C7800D80A61 /* libroken-application.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBABC9310F2C292500166EA0 /* libroken-application.a */; };
 		EB6FCC6110A75C7800D80A61 /* libvers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBFB58C60F2253FA0009D37C /* libvers.a */; };
 		EB706423177263F700F71BF4 /* krb5-types.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B38E0F22BF54006BD106 /* krb5-types.h */; };
-		EB7064241772648900F71BF4 /* libheimbase.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB42F4F0116BCE2500FCDD8F /* libheimbase.a */; };
 		EB70DC0E16D6A76700C2DD9D /* heimbase_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = EB70DC0D16D6A75C00C2DD9D /* heimbase_impl.h */; };
 		EB70DC0F16D6A76F00C2DD9D /* heimbase_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = EB70DC0D16D6A75C00C2DD9D /* heimbase_impl.h */; };
 		EB70DC1016D6A76F00C2DD9D /* heimbase.h in Headers */ = {isa = PBXBuildFile; fileRef = EB42F4FE116BCE9400FCDD8F /* heimbase.h */; };
@@ -2221,6 +2229,7 @@
 		EB7A404F0F283EA600FA18F7 /* getarg.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB57260F21822D0009D37C /* getarg.h */; };
 		EB7A40640F283EF700FA18F7 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
 		EB7A40650F283EF700FA18F7 /* libvers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBFB58C60F2253FA0009D37C /* libvers.a */; };
+		EB7AF10319CB803A00056325 /* pfs.c in Sources */ = {isa = PBXBuildFile; fileRef = EB7AF10219CB803A00056325 /* pfs.c */; };
 		EB7B4076114EA18A00D6EA17 /* ca.crt in Install PKINIT certs */ = {isa = PBXBuildFile; fileRef = EB7B4014114EA14500D6EA17 /* ca.crt */; };
 		EB7B4077114EA18A00D6EA17 /* kdc.crt in Install PKINIT certs */ = {isa = PBXBuildFile; fileRef = EB7B401D114EA14500D6EA17 /* kdc.crt */; };
 		EB7B4078114EA18A00D6EA17 /* kdc.key in Install PKINIT certs */ = {isa = PBXBuildFile; fileRef = EB7B401E114EA14500D6EA17 /* kdc.key */; };
@@ -2287,8 +2296,6 @@
 		EB8066B0170DF0D7000016CB /* kkdcp.c in Sources */ = {isa = PBXBuildFile; fileRef = EB8066AF170DF0D7000016CB /* kkdcp.c */; };
 		EB8066B2170DF789000016CB /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB8066B1170DF789000016CB /* CFNetwork.framework */; };
 		EB824D7D17B4F7C800F0EC96 /* dump.c in Sources */ = {isa = PBXBuildFile; fileRef = EB824D7A17B4F7C700F0EC96 /* dump.c */; };
-		EB824D8017B4F8C900F0EC96 /* heimcred-const.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE5864C16CC4F18000D7E07 /* heimcred-const.h */; };
-		EB824D8117B4F8C900F0EC96 /* heimcred.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0516CC08E400D75FA0 /* heimcred.h */; };
 		EB824D8217B4F8CE00F0EC96 /* heimcred-const.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE5864C16CC4F18000D7E07 /* heimcred-const.h */; };
 		EB824D8317B4F8CE00F0EC96 /* heimcred.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0516CC08E400D75FA0 /* heimcred.h */; };
 		EB824D8417B4F8CE00F0EC96 /* heimcred-const.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE5864C16CC4F18000D7E07 /* heimcred-const.h */; };
@@ -3352,7 +3359,6 @@
 		EBC7F5AA145F500E00FD16BA /* credential.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC7F5A9145F4E9200FD16BA /* credential.c */; };
 		EBC8FD8C18A423F100FC2E0A /* heimcred-const.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE5864C16CC4F18000D7E07 /* heimcred-const.h */; };
 		EBC8FD8D18A423F100FC2E0A /* heimcred.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0516CC08E400D75FA0 /* heimcred.h */; };
-		EBC8FD8F18A4242D00FC2E0A /* libheimcred.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB2C3DFE16CC087900D75FA0 /* libheimcred.a */; };
 		EBC8FD9118A4283700FC2E0A /* libroken.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBB6B3DF0F22C493006BD106 /* libroken.a */; };
 		EBC8FD9318A428FB00FC2E0A /* roken-common.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB576C0F21822D0009D37C /* roken-common.h */; };
 		EBC8FD9418A4291B00FC2E0A /* config-apple.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6927301079287A00ACB444 /* config-apple.h */; };
@@ -3403,6 +3409,7 @@
 		EBD26EA611EB8AE100FD93AC /* heim_threads.h in Headers */ = {isa = PBXBuildFile; fileRef = EB7B4152114F09C100D6EA17 /* heim_threads.h */; };
 		EBD26EB211EB8E6100FD93AC /* krb5-types.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B38E0F22BF54006BD106 /* krb5-types.h */; };
 		EBD26EB611EBA1ED00FD93AC /* krb5-types.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B38E0F22BF54006BD106 /* krb5-types.h */; };
+		EBD308241B56F3AA00C86898 /* stat.m in Sources */ = {isa = PBXBuildFile; fileRef = EBD308231B56F39B00C86898 /* stat.m */; };
 		EBD5DF7F142B5AC9009CD655 /* gssapi_oid.h in Headers */ = {isa = PBXBuildFile; fileRef = EB085EC11429F37400AD2AA2 /* gssapi_oid.h */; };
 		EBD7E80512AC97B50026DB89 /* rkcf.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD7E80412AC97B50026DB89 /* rkcf.c */; };
 		EBD9A21F0FCCB44100054C5F /* template.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD9A21E0FCCB41800054C5F /* template.c */; };
@@ -3636,6 +3643,11 @@
 		EBEBB51E1000763D00CD647B /* roken.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2980F22B6CD006BD106 /* roken.h */; };
 		EBEBB5221000765D00CD647B /* headers.h in Headers */ = {isa = PBXBuildFile; fileRef = EBEBB4E11000757E00CD647B /* headers.h */; };
 		EBEBB5231000765D00CD647B /* kcm_locl.h in Headers */ = {isa = PBXBuildFile; fileRef = EBEBB4E21000757E00CD647B /* kcm_locl.h */; };
+		EBEBC56119B7E7FF003ECECF /* heimcred-const.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EBEBC55C19B7E579003ECECF /* heimcred-const.h */; };
+		EBEBC56219B7E849003ECECF /* heimcred.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EBEBC55B19B7E579003ECECF /* heimcred.h */; };
+		EBEBC56319B7E867003ECECF /* heimbase.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EB18A9C811779F68001985AB /* heimbase.h */; };
+		EBEBC56419B7EB8B003ECECF /* heimcred-const.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE5864C16CC4F18000D7E07 /* heimcred-const.h */; };
+		EBEBC56519B7EB8B003ECECF /* heimcred.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0516CC08E400D75FA0 /* heimcred.h */; };
 		EBECDD2A1302117100E709C4 /* check-apple-server in Install Apple tests */ = {isa = PBXBuildFile; fileRef = EBECDD291302115400E709C4 /* check-apple-server */; };
 		EBED187D1171A6760097433E /* libheimbase.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB42F4F0116BCE2500FCDD8F /* libheimbase.a */; };
 		EBED187E1171A6760097433E /* libvers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBFB58C60F2253FA0009D37C /* libvers.a */; };
@@ -4139,6 +4151,27 @@
 			remoteGlobalIDString = EB0F9BD0111E3A6300744852;
 			remoteInfo = "build-export-data";
 		};
+		EB1ADF3B19A44A240054E692 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EB9204CF1762C6A7005BE5B6 /* GSSTestApp.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = EB1ADF2A19A448460054E692;
+			remoteInfo = gsstest;
+		};
+		EB1ADF3E19A44A240054E692 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EB9204CF1762C6A7005BE5B6 /* GSSTestApp.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = EB1ADF2B19A448460054E692;
+			remoteInfo = gsstest;
+		};
+		EB1ADF4019A44A2E0054E692 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EB9204CF1762C6A7005BE5B6 /* GSSTestApp.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = EB1ADF2A19A448460054E692;
+			remoteInfo = gsstest;
+		};
 		EB1BF8E7115040F600D6B8D2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -4180,6 +4213,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = EB1C8F8C17F24B01002F9FF7;
 			remoteInfo = test_fx;
+		};
+		EB1DE49319A188A2009641E6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EB9204CF1762C6A7005BE5B6 /* GSSTestApp.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = EB5BB81A1764084D0024E174;
+			remoteInfo = GSSTestAppOSX;
 		};
 		EB20B7CB114DDECF00EDEDBF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -7066,7 +7106,6 @@
 				EB9BEE3C1821FE49001433A0 /* com_right.h in Copy public generated files */,
 				EB9BEE3B1821FE42001433A0 /* com_err.h in Copy public generated files */,
 				EB13168B181F23C80060DB0B /* config_plugin.h in Copy public generated files */,
-				EB131688181F21C60060DB0B /* heimbase.h in Copy public generated files */,
 				EB131685181F21580060DB0B /* hx509-protos.h in Copy public generated files */,
 				EB131686181F21580060DB0B /* hx509.h in Copy public generated files */,
 				EB131684181F21400060DB0B /* krb5.h in Copy public generated files */,
@@ -7078,6 +7117,9 @@
 				EB13167F181F20BE0060DB0B /* krb5_err.h in Copy public generated files */,
 				EB131680181F20BE0060DB0B /* asn1_err.h in Copy public generated files */,
 				EB131681181F20BE0060DB0B /* hx509_err.h in Copy public generated files */,
+				EBEBC56319B7E867003ECECF /* heimbase.h in Copy public generated files */,
+				EBEBC56219B7E849003ECECF /* heimcred.h in Copy public generated files */,
+				EBEBC56119B7E7FF003ECECF /* heimcred-const.h in Copy public generated files */,
 			);
 			name = "Copy public generated files";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -7462,6 +7504,7 @@
 				EBBEA99E160AA2D700C95447 /* asn1-template.h in install headers */,
 				EBBEA99D160AA2B300C95447 /* der-protos.h in install headers */,
 				EBBEA99C160AA2A600C95447 /* der.h in install headers */,
+				EB2F34001B43BD990018C2AD /* heim_asn1.h in install headers */,
 			);
 			name = "install headers";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -7571,7 +7614,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		3A3930B11114DA52000CF68D /* netlogon.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = netlogon.c; path = lib/gssapi/ntlm/netlogon.c; sourceTree = "<group>"; };
 		7205BADE1209E50700078DF5 /* Heimdal-ify.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; name = "Heimdal-ify.pl"; path = "packages/mac/Heimdal-ify.pl"; sourceTree = "<group>"; };
 		7205BADF1209E50700078DF5 /* make-export.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "make-export.sh"; path = "packages/mac/make-export.sh"; sourceTree = "<group>"; };
 		727E2636120B6D75002CBF58 /* Reachability.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Reachability.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -7784,6 +7826,8 @@
 		EB1BF7C71150101E00D6B8D2 /* heimdal-tests.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "heimdal-tests.sh"; path = "packages/mac/heimdal-tests.sh"; sourceTree = "<group>"; };
 		EB1BF82B1150391C00D6B8D2 /* test_kcred */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_kcred; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB1C8FB717F24B01002F9FF7 /* test_fx */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_fx; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB1FF0E81A7E86090058B847 /* GSS-iPhoneOS.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; name = "GSS-iPhoneOS.modulemap"; path = "Modules/GSS-iPhoneOS.modulemap"; sourceTree = "<group>"; };
+		EB1FF0E91A7E86090058B847 /* GSS.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; name = GSS.modulemap; path = Modules/GSS.modulemap; sourceTree = "<group>"; };
 		EB202352136E0B13005E1B1A /* heimdal-win-mount.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = "heimdal-win-mount.py"; path = "tests/bin/heimdal-win-mount.py"; sourceTree = "<group>"; };
 		EB202354136E0BD7005E1B1A /* coswin7-ads-specific.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "coswin7-ads-specific.plist"; path = "tests/apple/coswin7-ads-specific.plist"; sourceTree = "<group>"; };
 		EB202355136E0BD7005E1B1A /* coswin7-ads.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "coswin7-ads.plist"; path = "tests/apple/coswin7-ads.plist"; sourceTree = "<group>"; };
@@ -8089,6 +8133,9 @@
 		EB49AB880F2589FC0076E27F /* k524_err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = k524_err.h; path = Derived/k524_err.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB49AB890F2589FC0076E27F /* krb_err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = krb_err.h; path = Derived/krb_err.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB49AB8A0F2589FC0076E27F /* krb5_err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = krb5_err.h; path = Derived/krb5_err.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB4A373D1B570691008C97DF /* stat-kerberos.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "stat-kerberos.m"; path = "lib/krb5/stat-kerberos.m"; sourceTree = "<group>"; };
+		EB4A373F1B570D0C008C97DF /* lib/krb5/krb5-stat.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "lib/krb5/krb5-stat.h"; sourceTree = "<group>"; };
+		EB4A37411B572863008C97DF /* libDiagnosticMessagesClient.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libDiagnosticMessagesClient.dylib; path = usr/lib/libDiagnosticMessagesClient.dylib; sourceTree = SDKROOT; };
 		EB50EC1515F9393B0059FEA3 /* DirectoryServer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryServer.framework; path = /System/Library/PrivateFrameworks/DirectoryServer.framework; sourceTree = "<absolute>"; };
 		EB513C4A142B352D003062B7 /* authorize_localname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = authorize_localname.c; path = lib/gssapi/krb5/authorize_localname.c; sourceTree = "<group>"; };
 		EB513C4B142B352D003062B7 /* pname_to_uid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pname_to_uid.c; path = lib/gssapi/krb5/pname_to_uid.c; sourceTree = "<group>"; };
@@ -8257,6 +8304,9 @@
 		EB7A406F0F283F6400FA18F7 /* libgss-mechglue.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libgss-mechglue.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB7A40770F283F7700FA18F7 /* libgss-krb5.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libgss-krb5.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB7A40810F283F8F00FA18F7 /* libgss-spnego.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libgss-spnego.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB7AF0EF19C997E600056325 /* mspac.idl */ = {isa = PBXFileReference; lastKnownFileType = text; name = mspac.idl; path = lib/krb5/mspac.idl; sourceTree = "<group>"; };
+		EB7AF0F419C9989B00056325 /* PACParser.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PACParser.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB7AF10219CB803A00056325 /* pfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pfs.c; path = lib/krb5/pfs.c; sourceTree = "<group>"; };
 		EB7B4011114EA14500D6EA17 /* bleichenbacher-bad.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "bleichenbacher-bad.pem"; path = "lib/hx509/data/bleichenbacher-bad.pem"; sourceTree = "<group>"; };
 		EB7B4012114EA14500D6EA17 /* bleichenbacher-good.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "bleichenbacher-good.pem"; path = "lib/hx509/data/bleichenbacher-good.pem"; sourceTree = "<group>"; };
 		EB7B4013114EA14500D6EA17 /* bleichenbacher-sf-pad-correct.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "bleichenbacher-sf-pad-correct.pem"; path = "lib/hx509/data/bleichenbacher-sf-pad-correct.pem"; sourceTree = "<group>"; };
@@ -9116,6 +9166,7 @@
 		EBD16B411171956C00F13DFA /* heimbasepriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = heimbasepriv.h; path = base/heimbasepriv.h; sourceTree = "<group>"; };
 		EBD16B421171956C00F13DFA /* test_base.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_base.c; path = base/test_base.c; sourceTree = "<group>"; };
 		EBD26EAC11EB8E4900FD93AC /* heimqueue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = heimqueue.h; path = base/heimqueue.h; sourceTree = "<group>"; };
+		EBD308231B56F39B00C86898 /* stat.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = stat.m; path = lib/krb5/stat.m; sourceTree = "<group>"; };
 		EBD7E74712AC77160026DB89 /* kcache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; name = kcache.c; path = lib/krb5/kcache.c; sourceTree = "<group>"; };
 		EBD7E80412AC97B50026DB89 /* rkcf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = rkcf.c; path = lib/roken/rkcf.c; sourceTree = "<group>"; };
 		EBD9A2160FCCB41800054C5F /* asn1-template.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "asn1-template.h"; path = "lib/asn1/asn1-template.h"; sourceTree = "<group>"; };
@@ -9204,6 +9255,8 @@
 		EBEBB4E51000757E00CD647B /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = main.c; path = kcm/main.c; sourceTree = "<group>"; };
 		EBEBB4E61000757E00CD647B /* protocol.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = protocol.c; path = kcm/protocol.c; sourceTree = "<group>"; };
 		EBEBB4E71000757E00CD647B /* renew.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = renew.c; path = kcm/renew.c; sourceTree = "<group>"; };
+		EBEBC55B19B7E579003ECECF /* heimcred.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = heimcred.h; path = Heimdal/heimcred.h; sourceTree = "<group>"; };
+		EBEBC55C19B7E579003ECECF /* heimcred-const.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "heimcred-const.h"; path = "Heimdal/heimcred-const.h"; sourceTree = "<group>"; };
 		EBECDD25130201A800E709C4 /* check-apple-server.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "check-apple-server.in"; path = "tests/apple/check-apple-server.in"; sourceTree = "<group>"; };
 		EBECDD291302115400E709C4 /* check-apple-server */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "check-apple-server"; path = "tests/apple/check-apple-server"; sourceTree = "<group>"; };
 		EBED185F1171A6570097433E /* test_base */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_base; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -9537,8 +9590,6 @@
 		EBFD83801013C8770037D4DD /* ts */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ts; sourceTree = BUILT_PRODUCTS_DIR; };
 		EBFD83921013C8E10037D4DD /* heim_ipc_async.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = heim_ipc_async.defs; path = lib/ipc/heim_ipc_async.defs; sourceTree = "<group>"; };
 		EBFD83931013C8E10037D4DD /* ts.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ts.c; path = lib/ipc/ts.c; sourceTree = "<group>"; };
-		EBFF594D1181B0B60010B1A9 /* netlogon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = netlogon.h; path = lib/gssapi/ntlm/netlogon.h; sourceTree = "<group>"; };
-		EBFF594E1181B0B60010B1A9 /* od.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = od.c; path = lib/gssapi/ntlm/od.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -9710,7 +9761,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EBC8FD9118A4283700FC2E0A /* libroken.a in Frameworks */,
-				EB7064241772648900F71BF4 /* libheimbase.a in Frameworks */,
+				EB1FC35819D0619800857C44 /* Heimdal.framework in Frameworks */,
 				EB07D56018A43A85009D77F5 /* libbsm.dylib in Frameworks */,
 				EB9F65B81767AB030097F396 /* IOKit.framework in Frameworks */,
 				EB01FDD716D585430037FD51 /* Security.framework in Frameworks */,
@@ -9813,6 +9864,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB4A37401B5713F8008C97DF /* Foundation.framework in Frameworks */,
 				EBE5865A16CCA4DC000D7E07 /* libheimcred.a in Frameworks */,
 				EBC379370F25A28D00D7DD3F /* libkrb5.a in Frameworks */,
 				EBC379390F25A28D00D7DD3F /* libwind.a in Frameworks */,
@@ -10010,6 +10062,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		EB7A407F0F283F8F00FA18F7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB7AF0F119C9989B00056325 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -10388,6 +10447,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB0012A11A2D0A50005B4B09 /* CoreFoundation.framework in Frameworks */,
+				EB00129F1A2D07D6005B4B09 /* SystemConfiguration.framework in Frameworks */,
 				EB3CC8EB14DE1540008E9787 /* Heimdal.framework in Frameworks */,
 				EBF5DA811372254C00AC16F9 /* IOKit.framework in Frameworks */,
 				EBEBB50C100075AD00CD647B /* libipc-server.a in Frameworks */,
@@ -10462,8 +10523,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB3FFAAF19B7F6AB003D7DD2 /* Heimdal.framework in Frameworks */,
 				EBC8FD9A18A42FAB00FC2E0A /* libheimbase.a in Frameworks */,
-				EBC8FD8F18A4242D00FC2E0A /* libheimcred.a in Frameworks */,
 				EBF8BABF101A9163000BA085 /* libsl.a in Frameworks */,
 				EBF8BAF5101A9481000BA085 /* libroken-application.a in Frameworks */,
 				EBF8BAC0101A9163000BA085 /* libvers.a in Frameworks */,
@@ -10525,6 +10586,7 @@
 				EB5F3C880F25674E0056E301 /* Derived */,
 				EB9204CE1762C580005BE5B6 /* Projects */,
 				EB7F14181768EF4700492225 /* xcconfig */,
+				EB1FF0E71A7E85C00058B847 /* Modules */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
 				EBD090AB1330353B001D0938 /* Frameworks */,
 				EB5F3C6511A38EAD0061142C /* CommonAuth.framework */,
@@ -10657,6 +10719,7 @@
 				EB663F5717A0186100801830 /* test_srv */,
 				EBC057F817D7ED670004EE78 /* test_gss_fuzzer */,
 				EB1C8FB717F24B01002F9FF7 /* test_fx */,
+				EB7AF0F419C9989B00056325 /* PACParser.bundle */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -10700,6 +10763,15 @@
 				EB197610114F3C9B003F56B5 /* krb5.conf */,
 			);
 			name = gss;
+			sourceTree = "<group>";
+		};
+		EB1FF0E71A7E85C00058B847 /* Modules */ = {
+			isa = PBXGroup;
+			children = (
+				EB1FF0E81A7E86090058B847 /* GSS-iPhoneOS.modulemap */,
+				EB1FF0E91A7E86090058B847 /* GSS.modulemap */,
+			);
+			name = Modules;
 			sourceTree = "<group>";
 		};
 		EB20B783114DDD5800EDEDBF /* tests */ = {
@@ -11345,26 +11417,28 @@
 				EBBFAF1E100D26E200BF3DAE /* com_right.h */,
 				EB3CCA1614DE3002008E9787 /* config_plugin.h */,
 				EBCD590F1141DAD600B964AB /* digest_asn1.h */,
-				EB18A9C711779F68001985AB /* gssapi.h */,
 				EBCD59101141DAD600B964AB /* gssapi_asn1.h */,
 				EB18A9C511779F68001985AB /* gssapi_krb5.h */,
 				EBF8B8BA10178612000BA085 /* gssapi_ntlm.h */,
 				EB5E224C1434698B00485BCE /* gssapi_oid.h */,
 				EBF8B8BB10178612000BA085 /* gssapi_spi.h */,
 				EB18A9C611779F68001985AB /* gssapi_spnego.h */,
+				EB18A9C711779F68001985AB /* gssapi.h */,
+				EBCD59111141DAD600B964AB /* hdb_asn1.h */,
 				EB45A43618ABE22600E32D8B /* hdb-protos.h */,
 				EB45A43718ABE22600E32D8B /* hdb.h */,
-				EBCD59111141DAD600B964AB /* hdb_asn1.h */,
 				EB18A9C811779F68001985AB /* heimbase.h */,
+				EBEBC55C19B7E579003ECECF /* heimcred-const.h */,
+				EBEBC55B19B7E579003ECECF /* heimcred.h */,
 				EBCD58F21141D94A00B964AB /* hx509-protos.h */,
 				EBBFAF1F100D26E200BF3DAE /* hx509.h */,
-				EB6A7B990F3045BE0034AFBE /* krb5.h */,
 				EBCD59121141DAD600B964AB /* krb5_asn1.h */,
+				EB6A7B990F3045BE0034AFBE /* krb5.h */,
 				EBCD59131141DAD600B964AB /* ocsp_asn1.h */,
-				EBCD59161141DAD600B964AB /* pkcs10_asn1.h */,
-				EBCD59171141DAD600B964AB /* pkcs12_asn1.h */,
 				EBCD59141141DAD600B964AB /* pkcs8_asn1.h */,
 				EBCD59151141DAD600B964AB /* pkcs9_asn1.h */,
+				EBCD59161141DAD600B964AB /* pkcs10_asn1.h */,
+				EBCD59171141DAD600B964AB /* pkcs12_asn1.h */,
 				EBCD59181141DAD600B964AB /* pkinit_asn1.h */,
 				EBCD59191141DAD600B964AB /* pku2u_asn1.h */,
 				EBCD591A1141DAD600B964AB /* rfc2459_asn1.h */,
@@ -11812,6 +11886,7 @@
 			children = (
 				EB9204D51762C6A7005BE5B6 /* GSSTestApp.app */,
 				EB9204D71762C6A7005BE5B6 /* GSSTestApp.app */,
+				EB1ADF3F19A44A240054E692 /* gsstest */,
 				EB0B5A3C1B4E277400B6C385 /* GSSCFHTTPServerTests */,
 			);
 			name = Products;
@@ -12380,8 +12455,8 @@
 				EB0A7C4511DA678C0007AF6B /* expand_path.c */,
 				EBE9A2371451661700C9DFF2 /* fast.c */,
 				EBC6F2180F22CD3500D1AB35 /* fcache.c */,
-				EBC6F21A0F22CD3500D1AB35 /* free.c */,
 				EBC6F2190F22CD3500D1AB35 /* free_host_realm.c */,
+				EBC6F21A0F22CD3500D1AB35 /* free.c */,
 				EBC6F21B0F22CD3500D1AB35 /* generate_seq_number.c */,
 				EBC6F21C0F22CD3500D1AB35 /* generate_subkey.c */,
 				EBC6F21D0F22CD3500D1AB35 /* get_addrs.c */,
@@ -12394,27 +12469,21 @@
 				EBC6F2240F22CD3500D1AB35 /* get_port.c */,
 				EBC6F2250F22CD3500D1AB35 /* heim_err.et */,
 				EBDD7A1712E446E70047E909 /* HeimdalSystemConfiguration.h */,
-				EBC6F2290F22CD3500D1AB35 /* init_creds.c */,
 				EBC6F2270F22CD3500D1AB35 /* init_creds_pw.c */,
+				EBC6F2290F22CD3500D1AB35 /* init_creds.c */,
 				EBC6F22A0F22CD3500D1AB35 /* k524_err.et */,
 				EBD7E74712AC77160026DB89 /* kcache.c */,
 				EBC6F22B0F22CD3500D1AB35 /* kcm.c */,
 				EBC6F22C0F22CD3500D1AB35 /* kcm.h */,
 				EBC6F22D0F22CD3500D1AB35 /* kerberos.8 */,
 				EBC6F22E0F22CD3500D1AB35 /* keyblock.c */,
-				EBC6F2330F22CD3500D1AB35 /* keytab.c */,
 				EBC6F22F0F22CD3500D1AB35 /* keytab_any.c */,
 				EBC6F2300F22CD3500D1AB35 /* keytab_file.c */,
 				EBC6F2310F22CD3500D1AB35 /* keytab_keyfile.c */,
 				EBC6F2320F22CD3500D1AB35 /* keytab_memory.c */,
+				EBC6F2330F22CD3500D1AB35 /* keytab.c */,
 				EB8066AF170DF0D7000016CB /* kkdcp.c */,
-				EBC6F26C0F22CD3500D1AB35 /* krb5-private.h */,
-				EBC6F26D0F22CD3500D1AB35 /* krb5-protos.h */,
-				EBC6F26E0F22CD3500D1AB35 /* krb5-v4compat.h */,
-				EBC6F2700F22CD3500D1AB35 /* krb5.conf.5 */,
-				EBC6F2710F22CD3500D1AB35 /* krb5.h */,
-				EBC6F2720F22CD3500D1AB35 /* krb5.moduli */,
-				EBC6F2730F22CD3500D1AB35 /* krb524_convert_creds_kdc.3 */,
+				EBC6F2340F22CD3500D1AB35 /* krb_err.et */,
 				EBC6F2350F22CD3500D1AB35 /* krb5_425_conv_principal.3 */,
 				EBC6F2360F22CD3500D1AB35 /* krb5_acl_match_file.3 */,
 				EBC6F2380F22CD3500D1AB35 /* krb5_aname_to_localname.3 */,
@@ -12457,7 +12526,13 @@
 				EBC6F2670F22CD3500D1AB35 /* krb5_timeofday.3 */,
 				EBC6F2690F22CD3500D1AB35 /* krb5_verify_init_creds.3 */,
 				EBC6F26A0F22CD3500D1AB35 /* krb5_verify_user.3 */,
-				EBC6F2340F22CD3500D1AB35 /* krb_err.et */,
+				EBC6F26C0F22CD3500D1AB35 /* krb5-private.h */,
+				EBC6F26D0F22CD3500D1AB35 /* krb5-protos.h */,
+				EBC6F26E0F22CD3500D1AB35 /* krb5-v4compat.h */,
+				EBC6F2700F22CD3500D1AB35 /* krb5.conf.5 */,
+				EBC6F2710F22CD3500D1AB35 /* krb5.h */,
+				EBC6F2720F22CD3500D1AB35 /* krb5.moduli */,
+				EBC6F2730F22CD3500D1AB35 /* krb524_convert_creds_kdc.3 */,
 				EBC6F2740F22CD3500D1AB35 /* krbhst-test.c */,
 				EBC6F2750F22CD3500D1AB35 /* krbhst.c */,
 				EBC6F2760F22CD3500D1AB35 /* kuserok.c */,
@@ -12470,9 +12545,10 @@
 				EBC6F27E0F22CD3500D1AB35 /* mk_error.c */,
 				EBC6F27F0F22CD3500D1AB35 /* mk_priv.c */,
 				EBC6F2800F22CD3500D1AB35 /* mk_rep.c */,
-				EBC6F2820F22CD3500D1AB35 /* mk_req.c */,
 				EBC6F2810F22CD3500D1AB35 /* mk_req_ext.c */,
+				EBC6F2820F22CD3500D1AB35 /* mk_req.c */,
 				EBC6F2830F22CD3500D1AB35 /* mk_safe.c */,
+				EB7AF0EF19C997E600056325 /* mspac.idl */,
 				EBC6F2840F22CD3500D1AB35 /* n-fold-test.c */,
 				EBC6F2850F22CD3500D1AB35 /* n-fold.c */,
 				EBC6F2870F22CD3500D1AB35 /* net_read.c */,
@@ -12482,6 +12558,7 @@
 				EBC6F28B0F22CD3500D1AB35 /* parse-name-test.c */,
 				EB085EE1142A13B000AD2AA2 /* pcache.c */,
 				EBC6F28C0F22CD3500D1AB35 /* pkinit.c */,
+				EB7AF10219CB803A00056325 /* pfs.c */,
 				EBC6F28D0F22CD3500D1AB35 /* plugin.c */,
 				EBC6F28E0F22CD3500D1AB35 /* principal.c */,
 				EBC6F28F0F22CD3500D1AB35 /* prog_setup.c */,
@@ -12501,18 +12578,21 @@
 				EB224E5A1288D9F90093D709 /* salt-des3.c */,
 				EB224E5B1288D9F90093D709 /* salt.c */,
 				EBC6F29A0F22CD3500D1AB35 /* scache.c */,
-				EBC6F29C0F22CD3500D1AB35 /* send_to_kdc.c */,
 				EBC6F29B0F22CD3500D1AB35 /* send_to_kdc_plugin.h */,
+				EBC6F29C0F22CD3500D1AB35 /* send_to_kdc.c */,
 				EBC6F29D0F22CD3500D1AB35 /* sendauth.c */,
 				EBC6F29E0F22CD3500D1AB35 /* set_default_realm.c */,
 				EBC6F29F0F22CD3500D1AB35 /* sock_principal.c */,
+				EBD308231B56F39B00C86898 /* stat.m */,
+				EB4A373F1B570D0C008C97DF /* lib/krb5/krb5-stat.h */,
+				EB4A373D1B570691008C97DF /* stat-kerberos.m */,
+				EBC6F2A00F22CD3500D1AB35 /* store_emem.c */,
+				EBC6F2A10F22CD3500D1AB35 /* store_fd.c */,
+				EBC6F2A20F22CD3500D1AB35 /* store_mem.c */,
 				EB224E5C1288D9F90093D709 /* store-int.c */,
 				EBC6F2A30F22CD3500D1AB35 /* store-int.h */,
 				EBC6F2A40F22CD3500D1AB35 /* store-test.c */,
 				EBC6F2A50F22CD3500D1AB35 /* store.c */,
-				EBC6F2A00F22CD3500D1AB35 /* store_emem.c */,
-				EBC6F2A10F22CD3500D1AB35 /* store_fd.c */,
-				EBC6F2A20F22CD3500D1AB35 /* store_mem.c */,
 				EBC6F2A60F22CD3500D1AB35 /* string-to-key-test.c */,
 				EBC6F2A70F22CD3500D1AB35 /* test_acl.c */,
 				EBC6F2A80F22CD3500D1AB35 /* test_addr.c */,
@@ -12520,8 +12600,8 @@
 				EB321F5F0F31D962003852AC /* test_ap-req.c */,
 				EBC6F2AA0F22CD3500D1AB35 /* test_cc.c */,
 				EBC6F2AB0F22CD3500D1AB35 /* test_config.c */,
-				EBC6F2AD0F22CD3500D1AB35 /* test_crypto.c */,
 				EBC6F2AC0F22CD3500D1AB35 /* test_crypto_wrapping.c */,
+				EBC6F2AD0F22CD3500D1AB35 /* test_crypto.c */,
 				EB224FE8128A1FBD0093D709 /* test_enctypes.c */,
 				EBC6F2AE0F22CD3500D1AB35 /* test_forward.c */,
 				EB7B41FF114F115800D6EA17 /* test_fx.c */,
@@ -12564,6 +12644,7 @@
 		EBD090AB1330353B001D0938 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				EB4A37411B572863008C97DF /* libDiagnosticMessagesClient.dylib */,
 				EBE0A34217BA1D9600D0D805 /* libheimdal-asn1.dylib */,
 				EB9F65B61767A8E70097F396 /* libaks.a */,
 				EB8066B1170DF789000016CB /* CFNetwork.framework */,
@@ -12664,9 +12745,6 @@
 		EBE9B1380F2C3D5C006561DA /* ntlm */ = {
 			isa = PBXGroup;
 			children = (
-				EBFF594D1181B0B60010B1A9 /* netlogon.h */,
-				EBFF594E1181B0B60010B1A9 /* od.c */,
-				3A3930B11114DA52000CF68D /* netlogon.c */,
 				EBCB715710CDFE4F00D267D3 /* inquire_sec_context_by_oid.c */,
 				EBF8BB07101A9C38000BA085 /* iter_cred.c */,
 				EBF8BB08101A9C38000BA085 /* kdc.c */,
@@ -13963,6 +14041,8 @@
 				EB49AA940F25855E0076E27F /* heim_asn1.h in Headers */,
 				EB49AAA60F2585700076E27F /* krb5-protos.h in Headers */,
 				EBDD7A1812E446E70047E909 /* HeimdalSystemConfiguration.h in Headers */,
+				EBEBC56419B7EB8B003ECECF /* heimcred-const.h in Headers */,
+				EBEBC56519B7EB8B003ECECF /* heimcred.h in Headers */,
 				EBB1EA2916C4608400DC776D /* send_to_kdc_plugin.h in Headers */,
 				EB3CCA2514DE306F008E9787 /* config_plugin.h in Headers */,
 				EB49AA930F25855E0076E27F /* com_right.h in Headers */,
@@ -13985,7 +14065,6 @@
 				72F65ECF1208DF640064E53C /* gkrb5_err.h in Headers */,
 				EB400C770F34863400F55B31 /* hx509_err.h in Headers */,
 				72F65EDD1208DF990064E53C /* krb_err.h in Headers */,
-				EB824D8017B4F8C900F0EC96 /* heimcred-const.h in Headers */,
 				EBC379280F25A06000D7DD3F /* krb5-private.h in Headers */,
 				EBC17E08143F1267007C9072 /* GSSItem.h in Headers */,
 				EBC379C40F264A1100D7DD3F /* getarg.h in Headers */,
@@ -13994,7 +14073,6 @@
 				EB3CCA2614DE30A1008E9787 /* config_plugin.h in Headers */,
 				EB8FB5590F50C97100CF29B4 /* asn1-common.h in Headers */,
 				EB49AB8B0F2589FC0076E27F /* heim_err.h in Headers */,
-				EB824D8117B4F8C900F0EC96 /* heimcred.h in Headers */,
 				EBD9A3EC0FCCF78300054C5F /* krb5.h in Headers */,
 				EBD9A3ED0FCCF79D00054C5F /* krb5_ccapi.h in Headers */,
 				EBCD591F1141DB6400B964AB /* rfc2459_asn1.h in Headers */,
@@ -16422,7 +16500,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = EB49AA700F25847A0076E27F /* Build configuration list for PBXNativeTarget "Heimdal" */;
 			buildPhases = (
-				EB6A7B690F303FF20034AFBE /* Heimdalify headers */,
+				EB6A7B690F303FF20034AFBE /* Rewrite header files for Heimdal/ project */,
 				EB49AA670F2584790076E27F /* Headers */,
 				EB49AA690F2584790076E27F /* Sources */,
 				EB49AA6A0F2584790076E27F /* Frameworks */,
@@ -16816,6 +16894,23 @@
 			productName = "gss-spnego";
 			productReference = EB7A40810F283F8F00FA18F7 /* libgss-spnego.a */;
 			productType = "com.apple.product-type.library.static";
+		};
+		EB7AF0F319C9989B00056325 /* PACParser */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB7AF0F819C9989B00056325 /* Build configuration list for PBXNativeTarget "PACParser" */;
+			buildPhases = (
+				EB7AF0F019C9989B00056325 /* Sources */,
+				EB7AF0F119C9989B00056325 /* Frameworks */,
+				EB7AF0F219C9989B00056325 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PACParser;
+			productName = PACParser;
+			productReference = EB7AF0F419C9989B00056325 /* PACParser.bundle */;
+			productType = "com.apple.product-type.bundle";
 		};
 		EB7B40A2114F056900D6EA17 /* test_renew */ = {
 			isa = PBXNativeTarget;
@@ -17880,7 +17975,12 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0700;
+				TargetAttributes = {
+					EB7AF0F319C9989B00056325 = {
+						CreatedOnToolsVersion = 6.0;
+					};
+				};
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "Heimdal" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -17980,6 +18080,7 @@
 				EB0DA26012727C7F002ECA30 /* SCKerberosConfig */,
 				EB6B1FAE13AC1992001CB8AD /* GSSCredentialSelector */,
 				EBB1EA1516C45A2C00DC776D /* KDCProxy */,
+				EB7AF0F319C9989B00056325 /* PACParser */,
 				EBDB59C110A361DE003FD0F9 /* kpasswd */,
 				EB9536020FFC27450013822C /* digest-service */,
 				EB9662E40F285CAB00E3B9E0 /* kdc */,
@@ -18036,6 +18137,13 @@
 			remoteRef = EB0B5A3B1B4E277400B6C385 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
+		EB1ADF3F19A44A240054E692 /* gsstest */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = gsstest;
+			remoteRef = EB1ADF3E19A44A240054E692 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 		EB9204D51762C6A7005BE5B6 /* GSSTestApp.app */ = {
 			isa = PBXReferenceProxy;
 			fileType = wrapper.application;
@@ -18061,6 +18169,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		EB5F3C6111A38EAD0061142C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB7AF0F219C9989B00056325 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -18292,7 +18407,7 @@
 			shellPath = /bin/sh;
 			shellScript = "INPUT_FILE_BASE=sel-gram\nINPUT_FILE_DIR=${SRCROOT}/lib/hx509\nINPUT_FILE_PATH=${INPUT_FILE_DIR}/${INPUT_FILE_BASE}.y\n\nmkdir -p ${DERIVED_FILES_DIR}\n\ncfile=\"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}-${CURRENT_ARCH}.c-new\"\n\n${SRCROOT}/ylwrap ${INPUT_FILE_PATH} y.tab.c \"${cfile}\" y.tab.h ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.h y.output  -- yacc -d || exit 1\n\nmkdir -p \"${HEIMDAL_TMPDIR}/hx509\"\nsh ${SRCROOT}/packages/mac/update-header.sh build ${INPUT_FILE_BASE}.h \"${DERIVED_SOURCES_DIR}\" \"${HEIMDAL_TMPDIR}/hx509\" || exit 1\n\n\nif test -f \"${cfile}\"  && cmp -s \"${cfile}\" \"${HEIMDAL_TMPDIR}/hx509/${INPUT_FILE_BASE}.c\"  ; then\n\techo \"${INPUT_FILE_PATH} not changed\"\n\trm \"${cfile}\"\nelse\n\techo \"${INPUT_FILE_PATH} modified\"\n\ttest -f \"${HEIMDAL_TMPDIR}/hx509/${INPUT_FILE_BASE}.c\" && diff -uw \"${cfile}\" \"${HEIMDAL_TMPDIR}/hx509/${INPUT_FILE_BASE}.c\" \n\tmv \"${cfile}\" \"${HEIMDAL_TMPDIR}/hx509/${INPUT_FILE_BASE}.c\"\nfi\n";
 		};
-		EB6A7B690F303FF20034AFBE /* Heimdalify headers */ = {
+		EB6A7B690F303FF20034AFBE /* Rewrite header files for Heimdal/ project */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -18300,7 +18415,7 @@
 			inputPaths = (
 				"",
 			);
-			name = "Heimdalify headers";
+			name = "Rewrite header files for Heimdal/ project";
 			outputPaths = (
 				"$(HEIMDAL_TMPDIR)/Heimdal/com_err.h",
 				"$(HEIMDAL_TMPDIR)/Heimdal/com_right.h",
@@ -18313,6 +18428,8 @@
 				"$(HEIMDAL_TMPDIR)/Heimdal/windc_plugin.h",
 				"$(HEIMDAL_TMPDIR)/Heimdal/hdb.h",
 				"$(HEIMDAL_TMPDIR)/Heimdal/hdb-protos.h",
+				"$(HEIMDAL_TMPDIR)/Heimdal/heimcred.h",
+				"$(HEIMDAL_TMPDIR)/Heimdal/heimcred-const.h",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -19149,6 +19266,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB7AF0F019C9989B00056325 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EB7B40A0114F056900D6EA17 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -19561,6 +19685,7 @@
 				EBC6F2F00F22CD3600D1AB35 /* get_default_realm.c in Sources */,
 				EBC6F2F10F22CD3600D1AB35 /* get_for_creds.c in Sources */,
 				EBC6F2F20F22CD3600D1AB35 /* get_host_realm.c in Sources */,
+				EB4A373E1B570691008C97DF /* stat-kerberos.m in Sources */,
 				EBC6F2F30F22CD3600D1AB35 /* get_in_tkt.c in Sources */,
 				EBC6F2F40F22CD3600D1AB35 /* get_port.c in Sources */,
 				EBC6F2F60F22CD3600D1AB35 /* init_creds_pw.c in Sources */,
@@ -19577,6 +19702,7 @@
 				EB2F0FD116D8020200CB0933 /* tkt.c in Sources */,
 				EBC6F3080F22CD3600D1AB35 /* kuserok.c in Sources */,
 				EBC6F30A0F22CD3600D1AB35 /* log.c in Sources */,
+				EBD308241B56F3AA00C86898 /* stat.m in Sources */,
 				EBC6F30B0F22CD3600D1AB35 /* mcache.c in Sources */,
 				EBC6F30C0F22CD3600D1AB35 /* misc.c in Sources */,
 				EBC6F30D0F22CD3600D1AB35 /* mit_glue.c in Sources */,
@@ -19610,6 +19736,7 @@
 				EBC6F32E0F22CD3600D1AB35 /* set_default_realm.c in Sources */,
 				EBC6F32F0F22CD3600D1AB35 /* sock_principal.c in Sources */,
 				EBC6F3300F22CD3600D1AB35 /* store_emem.c in Sources */,
+				EB7AF10319CB803A00056325 /* pfs.c in Sources */,
 				EBC6F3310F22CD3600D1AB35 /* store_fd.c in Sources */,
 				EBC6F3320F22CD3600D1AB35 /* store_mem.c in Sources */,
 				EBC6F3350F22CD3600D1AB35 /* store.c in Sources */,
@@ -19973,6 +20100,16 @@
 			target = EB0F9BD0111E3A6300744852 /* build-export-data */;
 			targetProxy = EB0F9BE1111E3A8600744852 /* PBXContainerItemProxy */;
 		};
+		EB1ADF3C19A44A240054E692 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = gsstest;
+			targetProxy = EB1ADF3B19A44A240054E692 /* PBXContainerItemProxy */;
+		};
+		EB1ADF4119A44A2E0054E692 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = gsstest;
+			targetProxy = EB1ADF4019A44A2E0054E692 /* PBXContainerItemProxy */;
+		};
 		EB1BF8E8115040F600D6B8D2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EB1BF82A1150391C00D6B8D2 /* test_kcred */;
@@ -20002,6 +20139,11 @@
 			isa = PBXTargetDependency;
 			target = EB1C8F8C17F24B01002F9FF7 /* test_fx */;
 			targetProxy = EB1C8FB917F24B2D002F9FF7 /* PBXContainerItemProxy */;
+		};
+		EB1DE49419A188A2009641E6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = GSSTestAppOSX;
+			targetProxy = EB1DE49319A188A2009641E6 /* PBXContainerItemProxy */;
 		};
 		EB20B7CC114DDECF00EDEDBF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -22042,16 +22184,20 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EB7F141A1768EF6800492225 /* Heimdal.xcconfig */;
 			buildSettings = {
-				ARCHS = (
-					armv7,
-					x86_64,
-					i386,
-				);
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
@@ -22059,6 +22205,7 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_SHADOW = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
@@ -22086,22 +22233,26 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EB7F141A1768EF6800492225 /* Heimdal.xcconfig */;
 			buildSettings = {
-				ARCHS = (
-					armv7,
-					x86_64,
-					i386,
-				);
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_SHADOW = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
@@ -22133,6 +22284,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -22143,6 +22295,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "plugins/Reachability-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/KerberosFrameworkPlugins/;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.reachability;
 				PRODUCT_NAME = Reachability;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -22153,6 +22306,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SDKROOT)/System/Library/PrivateFrameworks",
@@ -22161,6 +22315,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "Reachability-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/KerberosFrameworkPlugins/;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.reachability;
 				PRODUCT_NAME = Reachability;
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -22170,6 +22325,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -22181,6 +22337,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "plugins/Reachability-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/KerberosFrameworkPlugins/;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.reachability;
 				PRODUCT_NAME = Reachability;
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -22190,6 +22347,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -22207,6 +22365,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -22363,6 +22522,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
@@ -22370,6 +22530,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "plugins/SCKerberosConfig/SCKerberosConfig-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/KerberosFrameworkPlugins/;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.sckerberosconfig;
 				PRODUCT_NAME = SCKerberosConfig;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -22380,11 +22541,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "plugins/SCKerberosConfig/SCKerberosConfig-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/KerberosFrameworkPlugins/;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.sckerberosconfig;
 				PRODUCT_NAME = SCKerberosConfig;
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -22394,6 +22557,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -22402,6 +22566,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "plugins/SCKerberosConfig/SCKerberosConfig-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/KerberosFrameworkPlugins/;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.sckerberosconfig;
 				PRODUCT_NAME = SCKerberosConfig;
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -22698,6 +22863,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -22714,6 +22880,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -22730,6 +22897,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -22746,6 +22914,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -22958,6 +23127,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				EXECUTABLE_PREFIX = lib;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -22983,6 +23153,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				EXECUTABLE_PREFIX = lib;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -23008,6 +23179,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				EXECUTABLE_PREFIX = lib;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -23042,6 +23214,10 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				ENABLE_NS_ASSERTIONS = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -23078,6 +23254,10 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				ENABLE_NS_ASSERTIONS = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -23113,6 +23293,10 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -23227,6 +23411,7 @@
 		EB341C3011D066F000877F5E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -23239,6 +23424,7 @@
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "packages/mac/HeimODAdmin-Info.plist";
 				INSTALL_PATH = /System/Library/PrivateFrameworks;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = HeimODAdmin;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 			};
@@ -23247,6 +23433,7 @@
 		EB341C3111D066F000877F5E /* Release-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/heimodadmin.exp";
@@ -23258,6 +23445,7 @@
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "packages/mac/HeimODAdmin-Info.plist";
 				INSTALL_PATH = /System/Library/PrivateFrameworks;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = HeimODAdmin;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 			};
@@ -23266,6 +23454,7 @@
 		EB341C3211D066F000877F5E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/heimodadmin.exp";
@@ -23277,6 +23466,7 @@
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "packages/mac/HeimODAdmin-Info.plist";
 				INSTALL_PATH = /System/Library/PrivateFrameworks;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = HeimODAdmin;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 			};
@@ -23367,17 +23557,26 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EB7F14191768EF6800492225 /* Heimdal-embedded.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_SHADOW = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
@@ -23444,6 +23643,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23458,6 +23658,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23474,6 +23675,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -23524,6 +23726,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -23537,6 +23740,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -23550,6 +23754,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = a;
 				EXECUTABLE_PREFIX = lib;
@@ -23638,6 +23843,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -23661,6 +23867,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = dylib;
 				EXECUTABLE_PREFIX = lib;
@@ -23681,6 +23888,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23696,6 +23904,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_PREFIX = lib;
@@ -23714,6 +23923,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23741,6 +23951,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23757,6 +23968,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23773,6 +23985,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23789,6 +24002,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_MODEL_TUNING = G5;
@@ -23815,6 +24029,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
@@ -23834,6 +24049,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23862,6 +24078,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -23882,7 +24099,9 @@
 					"-Wl,-search_paths_first",
 					"$(HEIMDAL_TRUSTEDEVALUATIONAGENT_FRAMEWORK)",
 					"$(inherited)",
+					"$(HEIMDAL_STATISTICS_FRAMEWORK)",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = Heimdal;
 				STRIP_STYLE = "non-global";
 				ZERO_LINK = NO;
@@ -23893,10 +24112,16 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
+				OTHER_CFLAGS = (
+					"-isystem",
+					"$(HEIMDAL_XNU_SYS_HEADERS)",
+					"$(inherited)",
+				);
 				PRODUCT_NAME = "gss-krb5";
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
@@ -23909,6 +24134,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23925,6 +24151,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23941,6 +24168,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23957,6 +24185,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -23971,6 +24200,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -23987,7 +24217,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/gss.exp";
@@ -23996,10 +24228,12 @@
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				MODULEMAP_FILE = "$(HEIMDAL_GSS_MODULEMAP_FILE)";
 				OTHER_LDFLAGS = (
 					"$(HEIMDAL_OPENDIRECTORY_FRAMEWORK)",
 					"$(inherited)",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = GSS;
 			};
 			name = "Release-Embedded";
@@ -24086,6 +24320,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -24102,6 +24337,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -24287,7 +24523,10 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
 				PRODUCT_NAME = gsstool;
@@ -24541,6 +24780,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -24556,6 +24796,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = heimbase;
@@ -24569,6 +24810,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -24633,6 +24875,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				EXECUTABLE_PREFIX = lib;
@@ -24659,6 +24902,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				EXECUTABLE_PREFIX = lib;
@@ -24685,6 +24929,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				EXECUTABLE_PREFIX = lib;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -24784,6 +25029,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -24805,7 +25051,9 @@
 					"-Wl,-search_paths_first",
 					"$(HEIMDAL_TRUSTEDEVALUATIONAGENT_FRAMEWORK)",
 					"$(inherited)",
+					"$(HEIMDAL_STATISTICS_FRAMEWORK)",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = Heimdal;
 				STRIP_STYLE = "non-global";
 			};
@@ -24815,6 +25063,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -24835,7 +25084,9 @@
 					"-Wl,-search_paths_first",
 					"$(HEIMDAL_TRUSTEDEVALUATIONAGENT_FRAMEWORK)",
 					"$(inherited)",
+					"$(HEIMDAL_STATISTICS_FRAMEWORK)",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = Heimdal;
 				STRIP_STYLE = "non-global";
 				ZERO_LINK = NO;
@@ -24923,6 +25174,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = a;
@@ -24942,6 +25194,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = a;
@@ -24961,6 +25214,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				EXECUTABLE_EXTENSION = a;
 				EXECUTABLE_PREFIX = lib;
@@ -24980,6 +25234,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -24990,6 +25245,7 @@
 				INFOPLIST_FILE = "packages/mac/CommonAuth-Info.plist";
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = CommonAuth;
 				ZERO_LINK = NO;
 			};
@@ -24999,6 +25255,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/commonauth.exp";
@@ -25008,6 +25265,7 @@
 				INFOPLIST_FILE = "packages/mac/CommonAuth-Info.plist";
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = CommonAuth;
 			};
 			name = "Release-Embedded";
@@ -25016,6 +25274,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/commonauth.exp";
@@ -25026,6 +25285,7 @@
 				INFOPLIST_FILE = "packages/mac/CommonAuth-Info.plist";
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = CommonAuth;
 			};
 			name = Debug;
@@ -25034,6 +25294,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -25048,6 +25309,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -25112,6 +25374,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -25120,6 +25383,7 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INFOPLIST_FILE = "plugins/GSSCredentialSelector/GSSCredentialSelector-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/GSSAPI;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.gsscredentialselector;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
@@ -25129,6 +25393,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -25137,6 +25402,7 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INFOPLIST_FILE = "plugins/GSSCredentialSelector/GSSCredentialSelector-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/GSSAPI;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.gsscredentialselector;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
@@ -25146,6 +25412,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -25160,6 +25427,7 @@
 				INFOPLIST_FILE = "plugins/GSSCredentialSelector/GSSCredentialSelector-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/GSSAPI;
 				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.gsscredentialselector;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
@@ -25364,6 +25632,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -25380,6 +25649,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -25394,6 +25664,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -25533,6 +25804,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -25549,6 +25821,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -25565,11 +25838,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/lib;
+				OTHER_CFLAGS = (
+					"-isystem",
+					"$(HEIMDAL_XNU_SYS_HEADERS)",
+					"$(inherited)",
+				);
 				PRODUCT_NAME = "gss-krb5";
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
@@ -25581,10 +25860,16 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
+				OTHER_CFLAGS = (
+					"-isystem",
+					"$(HEIMDAL_XNU_SYS_HEADERS)",
+					"$(inherited)",
+				);
 				PRODUCT_NAME = "gss-krb5";
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
@@ -25597,6 +25882,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -25613,6 +25899,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -25624,6 +25911,150 @@
 				ZERO_LINK = NO;
 			};
 			name = Release;
+		};
+		EB7AF0F919C9989B00056325 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = PACParser/Info.plist;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Release;
+		};
+		EB7AF0FA19C9989B00056325 /* Release-asan */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = PACParser/Info.plist;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = "Release-asan";
+		};
+		EB7AF0FB19C9989B00056325 /* Release-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = PACParser/Info.plist;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = "Release-Embedded";
+		};
+		EB7AF0FC19C9989B00056325 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = PACParser/Info.plist;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Debug;
 		};
 		EB7B40B5114F056D00D6EA17 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -25685,6 +26116,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -25698,6 +26130,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -25804,6 +26237,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -25817,6 +26251,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -25830,6 +26265,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -25846,6 +26282,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -25948,6 +26385,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -25964,6 +26402,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -25980,6 +26419,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -25996,6 +26436,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_MODEL_TUNING = G5;
@@ -26012,6 +26453,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -26027,6 +26469,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -26213,6 +26656,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -26228,6 +26672,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -26337,6 +26782,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -26351,6 +26797,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -26364,12 +26811,14 @@
 		EBB1EA2016C45A3700DC776D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "plugins/KDCProxy/KDCProxy-Prefix.pch";
 				INFOPLIST_FILE = "plugins/KDCProxy/KDCProxy-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/krb5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -26378,12 +26827,14 @@
 		EBB1EA2116C45A3700DC776D /* Release-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "plugins/KDCProxy/KDCProxy-Prefix.pch";
 				INFOPLIST_FILE = "plugins/KDCProxy/KDCProxy-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/krb5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -26392,6 +26843,7 @@
 		EBB1EA2216C45A3700DC776D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "plugins/KDCProxy/KDCProxy-Prefix.pch";
@@ -26401,6 +26853,7 @@
 				);
 				INFOPLIST_FILE = "KDCProxy/KDCProxy-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/krb5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -26461,22 +26914,26 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EBB2F51517BA288C0048CAA2 /* Address Sanitizer.xcconfig */;
 			buildSettings = {
-				ARCHS = (
-					armv7,
-					x86_64,
-					i386,
-				);
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_SHADOW = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
@@ -26610,6 +27067,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -26624,6 +27082,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -26639,6 +27098,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -26655,6 +27115,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -26705,6 +27166,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -26718,6 +27180,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -26731,6 +27194,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = a;
 				EXECUTABLE_PREFIX = lib;
@@ -26819,6 +27283,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -26842,6 +27307,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = dylib;
 				EXECUTABLE_PREFIX = lib;
@@ -26875,6 +27341,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = a;
@@ -26894,6 +27361,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -26909,6 +27377,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_PREFIX = lib;
@@ -26927,6 +27396,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -26953,6 +27423,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				EXECUTABLE_PREFIX = lib;
@@ -26976,6 +27447,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27003,6 +27475,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27019,6 +27492,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27035,6 +27509,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27058,6 +27533,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				EXECUTABLE_PREFIX = lib;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -27076,6 +27552,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_MODEL_TUNING = G5;
@@ -27102,6 +27579,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
@@ -27121,6 +27599,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27169,6 +27648,10 @@
 				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks/GSS.framework/XPCServices";
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				MACH_O_TYPE = mh_execute;
+				OTHER_CFLAGS = (
+					"$(HEIMDAL_PLATFORM_CFLAGS)",
+					"-DHEIMCRED_SERVER=1",
+				);
 				OTHER_LDFLAGS = "$(HEIMDAL_GSSCRED_AKS_LIBS)";
 				PRODUCT_NAME = "com.apple.$(TARGET_NAME:rfc1034identifier)";
 				SKIP_INSTALL = NO;
@@ -27181,6 +27664,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -27201,7 +27685,9 @@
 					"-Wl,-search_paths_first",
 					"$(HEIMDAL_TRUSTEDEVALUATIONAGENT_FRAMEWORK)",
 					"$(inherited)",
+					"$(HEIMDAL_STATISTICS_FRAMEWORK)",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = Heimdal;
 				STRIP_STYLE = "non-global";
 				ZERO_LINK = NO;
@@ -27212,6 +27698,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -27222,6 +27709,7 @@
 				INFOPLIST_FILE = "packages/mac/CommonAuth-Info.plist";
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = CommonAuth;
 				ZERO_LINK = NO;
 			};
@@ -27231,10 +27719,16 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
+				OTHER_CFLAGS = (
+					"-isystem",
+					"$(HEIMDAL_XNU_SYS_HEADERS)",
+					"$(inherited)",
+				);
 				PRODUCT_NAME = "gss-krb5";
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
@@ -27247,6 +27741,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27263,6 +27758,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27279,6 +27775,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27295,6 +27792,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -27309,6 +27807,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27325,7 +27824,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/gss.exp";
@@ -27334,10 +27835,12 @@
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				MODULEMAP_FILE = "$(HEIMDAL_GSS_MODULEMAP_FILE)";
 				OTHER_LDFLAGS = (
 					"$(HEIMDAL_OPENDIRECTORY_FRAMEWORK)",
 					"$(inherited)",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = GSS;
 			};
 			name = "Release-asan";
@@ -27422,6 +27925,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27438,6 +27942,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -27517,7 +28022,10 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
 				PRODUCT_NAME = gsstool;
@@ -27529,6 +28037,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -27539,6 +28048,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "plugins/Reachability-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/KerberosFrameworkPlugins/;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.reachability;
 				PRODUCT_NAME = Reachability;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -27549,11 +28059,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "plugins/GSSNotificationForwarder/GSSNotificationForwarder-Info.plist";
 				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.Kerberos.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = GSSNotificationForwarder;
 				WRAPPER_EXTENSION = plugin;
 				ZERO_LINK = NO;
@@ -27564,6 +28076,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
@@ -27571,6 +28084,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "plugins/SCKerberosConfig/SCKerberosConfig-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/KerberosFrameworkPlugins/;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.sckerberosconfig;
 				PRODUCT_NAME = SCKerberosConfig;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -27581,6 +28095,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -27589,6 +28104,7 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INFOPLIST_FILE = "plugins/GSSCredentialSelector/GSSCredentialSelector-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/GSSAPI;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.gsscredentialselector;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
@@ -27597,12 +28113,14 @@
 		EBB2F4E917BA28580048CAA2 /* Release-asan */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "plugins/KDCProxy/KDCProxy-Prefix.pch";
 				INFOPLIST_FILE = "plugins/KDCProxy/KDCProxy-Info.plist";
 				INSTALL_PATH = /System/Library/KerberosPlugins/krb5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -27736,6 +28254,7 @@
 		EBB2F4F017BA28580048CAA2 /* Release-asan */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -27748,6 +28267,7 @@
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "packages/mac/HeimODAdmin-Info.plist";
 				INSTALL_PATH = /System/Library/PrivateFrameworks;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = HeimODAdmin;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 			};
@@ -28288,6 +28808,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				EXECUTABLE_EXTENSION = a;
 				EXECUTABLE_PREFIX = lib;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -28305,6 +28826,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = a;
 				EXECUTABLE_PREFIX = lib;
@@ -28322,6 +28844,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -28338,6 +28861,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -28536,6 +29060,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -28552,6 +29077,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -28608,6 +29134,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -28621,6 +29148,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
@@ -28634,6 +29162,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -28652,6 +29181,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -28669,6 +29199,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/gss.exp";
@@ -28677,10 +29209,12 @@
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				MODULEMAP_FILE = "$(HEIMDAL_GSS_MODULEMAP_FILE)";
 				OTHER_LDFLAGS = (
 					"$(HEIMDAL_OPENDIRECTORY_FRAMEWORK)",
 					"$(inherited)",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = GSS;
 			};
 			name = Debug;
@@ -28689,7 +29223,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/gss.exp";
@@ -28698,10 +29234,12 @@
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				MODULEMAP_FILE = "$(HEIMDAL_GSS_MODULEMAP_FILE)";
 				OTHER_LDFLAGS = (
 					"$(HEIMDAL_OPENDIRECTORY_FRAMEWORK)",
 					"$(inherited)",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = GSS;
 			};
 			name = Release;
@@ -28794,6 +29332,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -28810,6 +29349,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -28895,6 +29435,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -28914,6 +29455,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
@@ -28961,6 +29503,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				EXECUTABLE_PREFIX = lib;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -28979,6 +29522,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_PREFIX = lib;
@@ -28997,11 +29541,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "plugins/GSSNotificationForwarder/GSSNotificationForwarder-Info.plist";
 				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.Kerberos.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = GSSNotificationForwarder;
 				WRAPPER_EXTENSION = plugin;
 				ZERO_LINK = NO;
@@ -29012,9 +29558,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "plugins/GSSNotificationForwarder/GSSNotificationForwarder-Info.plist";
 				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.Kerberos.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = GSSNotificationForwarder;
 				WRAPPER_EXTENSION = plugin;
 			};
@@ -29024,12 +29572,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = "plugins/GSSNotificationForwarder/GSSNotificationForwarder-Info.plist";
 				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.Kerberos.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = GSSNotificationForwarder;
 				WRAPPER_EXTENSION = plugin;
 			};
@@ -29068,7 +29618,10 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -29083,7 +29636,10 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
 				PRODUCT_NAME = gsstool;
@@ -29126,6 +29682,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -29140,6 +29697,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -29236,6 +29794,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				EXECUTABLE_EXTENSION = dylib;
 				EXECUTABLE_PREFIX = lib;
 				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/heimdal-asn1.exp";
@@ -29254,6 +29813,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = dylib;
 				EXECUTABLE_PREFIX = lib;
@@ -30021,6 +30581,17 @@
 				EBB2F4D317BA28580048CAA2 /* Release-asan */,
 				EB42F45E1169203600FCDD8F /* Release-Embedded */,
 				EB7A40820F283F9000FA18F7 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB7AF0F819C9989B00056325 /* Build configuration list for PBXNativeTarget "PACParser" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB7AF0F919C9989B00056325 /* Release */,
+				EB7AF0FA19C9989B00056325 /* Release-asan */,
+				EB7AF0FB19C9989B00056325 /* Release-Embedded */,
+				EB7AF0FC19C9989B00056325 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

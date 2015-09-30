@@ -483,16 +483,6 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
         }
 
         newLevel = fDimCaptured ? 0 : fMinutesToDim;
-        if (newLevel == 0)
-        {
-            // pm turned off while idle?
-            if (getPowerState() < kIODisplayWranglerMaxPowerState)
-            {
-                // yes, bring displays up again
-//                activityTickle(0,0);
-                changePowerStateToPriv( kIODisplayWranglerMaxPowerState );
-            }
-        }
         setIdleTimerPeriod(newLevel * 30);
         break;
 

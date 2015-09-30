@@ -35,7 +35,7 @@ extern "C" {
     @typedef SecTaskRef
     @abstract CFType used for representing a task
 */
-typedef struct __SecTask *SecTaskRef;
+typedef struct CF_BRIDGED_TYPE(id) __SecTask *SecTaskRef;
 
 /*!
     @function SecTaskGetTypeID

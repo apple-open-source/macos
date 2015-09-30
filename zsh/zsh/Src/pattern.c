@@ -1405,7 +1405,16 @@ patcomppiece(int *flagp, int paren)
 		starter = patnode(P_ANYBUT);
 	    } else
 		starter = patnode(P_ANYOF);
-	    if (*patparse == Outbrack) {
+	    /*
+	     * []...] means match a "]" or other included characters.
+	     * However, to be a bit helpful and for compatibility
+	     * with other shells, don't take in that sense if
+	     * there's no further "]".  That's still imperfect,
+	     * but it's all we can do --- we're required to
+	     * treat [$var]*[$var]with empty var as [ ... ]
+	     * containing "]*[".
+	     */
+	    if (*patparse == Outbrack && strchr(patparse+1, Outbrack)) {
 		patparse++;
 		patadd(NULL, ']', 1, PA_NOALIGN);
 	    }
@@ -2223,6 +2232,8 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 
 	return ret;
     } else {
+	int q = queue_signal_level();
+
 	/*
 	 * Test for a `must match' string, unless we're scanning for a match
 	 * in which case we don't need to do this each time.
@@ -2269,6 +2280,8 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 	parsfound = 0;
 
 	patinput = patinstart;
+
+	dont_queue_signals();
 
 	if (patmatch((Upat)progstr)) {
 	    /*
@@ -2406,6 +2419,8 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 	} else
 	    ret = 0;
 
+	restore_queue_signals(q);
+
 	if (tryalloced)
 	    zfree(tryalloced, unmetalen + unmetalenp);
 
@@ -2485,7 +2500,7 @@ patmatch(Upat prog)
     zrange_t from, to, comp;
     patint_t nextch;
 
-    while  (scan) {
+    while  (scan && !errflag) {
 	next = PATNEXT(scan);
 
 	if (!globdots && P_NOTDOT(scan) && patinput == patinstart &&
@@ -3006,6 +3021,16 @@ patmatch(Upat prog)
 	    break;
 	case P_STAR:
 	    /* Handle specially for speed, although really P_ONEHASH+P_ANY */
+	    while (P_OP(next) == P_STAR) {
+		/*
+		 * If there's another * following we can optimise it
+		 * out.  Chains of *'s can give pathologically bad
+		 * performance.
+		 */
+		scan = next;
+		next = PATNEXT(scan);
+	    }
+	    /*FALLTHROUGH*/
 	case P_ONEHASH:
 	case P_TWOHASH:
 	    /*
@@ -3606,7 +3631,7 @@ patmatchrange(char *range, int ch, int *indptr, int *mtp)
 		    return 1;
 		break;
 	    case PP_PRINT:
-		if (isprint(ch))
+		if (ZISPRINT(ch))
 		    return 1;
 		break;
 	    case PP_PUNCT:

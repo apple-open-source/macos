@@ -38,9 +38,9 @@ AccessibilityProgressIndicator::AccessibilityProgressIndicator(RenderProgress* r
 {
 }
 
-PassRefPtr<AccessibilityProgressIndicator> AccessibilityProgressIndicator::create(RenderProgress* renderer)
+Ref<AccessibilityProgressIndicator> AccessibilityProgressIndicator::create(RenderProgress* renderer)
 {
-    return adoptRef(new AccessibilityProgressIndicator(renderer));
+    return adoptRef(*new AccessibilityProgressIndicator(renderer));
 }
     
 #if ENABLE(METER_ELEMENT)
@@ -49,9 +49,9 @@ AccessibilityProgressIndicator::AccessibilityProgressIndicator(RenderMeter* rend
 {
 }
 
-PassRefPtr<AccessibilityProgressIndicator> AccessibilityProgressIndicator::create(RenderMeter* renderer)
+Ref<AccessibilityProgressIndicator> AccessibilityProgressIndicator::create(RenderMeter* renderer)
 {
-    return adoptRef(new AccessibilityProgressIndicator(renderer));
+    return adoptRef(*new AccessibilityProgressIndicator(renderer));
 }
 #endif
 
@@ -122,21 +122,34 @@ float AccessibilityProgressIndicator::minValueForRange() const
 
 HTMLProgressElement* AccessibilityProgressIndicator::progressElement() const
 {
-    if (!m_renderer->isProgress())
-        return 0;
+    if (!is<RenderProgress>(*m_renderer))
+        return nullptr;
     
-    return toRenderProgress(m_renderer)->progressElement();
+    return downcast<RenderProgress>(*m_renderer).progressElement();
 }
 
 #if ENABLE(METER_ELEMENT)
 HTMLMeterElement* AccessibilityProgressIndicator::meterElement() const
 {
-    if (!m_renderer->isMeter())
-        return 0;
+    if (!is<RenderMeter>(*m_renderer))
+        return nullptr;
 
-    return toRenderMeter(m_renderer)->meterElement();
+    return downcast<RenderMeter>(*m_renderer).meterElement();
 }
 #endif
+
+Element* AccessibilityProgressIndicator::element() const
+{
+    if (m_renderer->isProgress())
+        return progressElement();
+
+#if ENABLE(METER_ELEMENT)
+    if (m_renderer->isMeter())
+        return meterElement();
+#endif
+
+    return AccessibilityObject::element();
+}
 
 } // namespace WebCore
 

@@ -24,9 +24,9 @@
  */
 
 .navigation-bar {
-    display: -webkit-flex;
-    -webkit-justify-content: center;
-    -webkit-flex-wrap: wrap;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
 
     box-shadow: inset rgba(255, 255, 255, 0.2) 0 1px 0;
     border-bottom: 1px solid rgb(179, 179, 179);
@@ -39,19 +39,15 @@
     outline: none;
 }
 
-body.mac-platform.legacy .navigation-bar {
-    height: 22px;
+body.window-inactive .navigation-bar {
+    border-bottom-color: rgb(219, 219, 219);
 }
 
 .navigation-bar .item {
-    display: -webkit-flex;
-    -webkit-align-items: center;
-    -webkit-flex-wrap: wrap;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
 
     height: 28px;
     outline: none;
-}
-
-body.mac-platform.legacy .navigation-bar .item {
-    height: 21px;
 }

@@ -83,7 +83,7 @@ public:
     }
 };
 
-const ClassInfo JSattributeConstructor::s_info = { "attributeConstructor", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSattributeConstructor) };
+const ClassInfo JSattributeConstructor::s_info = { "attributeConstructor", &Base::s_info, 0, CREATE_METHOD_TABLE(JSattributeConstructor) };
 
 JSattributeConstructor::JSattributeConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
     : DOMConstructorObject(structure, globalObject)
@@ -106,7 +106,7 @@ static const HashTableValue JSattributePrototypeTableValues[] =
     { "readonly", DontDelete | ReadOnly | CustomAccessor, NoIntrinsic, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsattributeReadonly), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) },
 };
 
-const ClassInfo JSattributePrototype::s_info = { "attributePrototype", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSattributePrototype) };
+const ClassInfo JSattributePrototype::s_info = { "attributePrototype", &Base::s_info, 0, CREATE_METHOD_TABLE(JSattributePrototype) };
 
 void JSattributePrototype::finishCreation(VM& vm)
 {
@@ -114,11 +114,11 @@ void JSattributePrototype::finishCreation(VM& vm)
     reifyStaticProperties(vm, JSattributePrototypeTableValues, *this);
 }
 
-const ClassInfo JSattribute::s_info = { "attribute", &Base::s_info, 0, 0 , CREATE_METHOD_TABLE(JSattribute) };
+const ClassInfo JSattribute::s_info = { "attribute", &Base::s_info, 0, CREATE_METHOD_TABLE(JSattribute) };
 
-JSattribute::JSattribute(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<attribute> impl)
+JSattribute::JSattribute(Structure* structure, JSDOMGlobalObject* globalObject, Ref<attribute>&& impl)
     : JSDOMWrapper(structure, globalObject)
-    , m_impl(impl.leakRef())
+    , m_impl(&impl.leakRef())
 {
 }
 
@@ -140,7 +140,7 @@ void JSattribute::destroy(JSC::JSCell* cell)
 
 JSattribute::~JSattribute()
 {
-    releaseImplIfNotNull();
+    releaseImpl();
 }
 
 EncodedJSValue jsattributeReadonly(ExecState* exec, JSObject* slotBase, EncodedJSValue thisValue, PropertyName)
@@ -154,7 +154,7 @@ EncodedJSValue jsattributeReadonly(ExecState* exec, JSObject* slotBase, EncodedJ
             return reportDeprecatedGetterError(*exec, "attribute", "readonly");
         return throwGetterTypeError(*exec, "attribute", "readonly");
     }
-    attribute& impl = castedThis->impl();
+    auto& impl = castedThis->impl();
     JSValue result = jsStringWithCache(exec, impl.readonly());
     return JSValue::encode(result);
 }
@@ -182,10 +182,9 @@ bool JSattributeOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> hand
 
 void JSattributeOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    JSattribute* jsattribute = jsCast<JSattribute*>(handle.slot()->asCell());
-    DOMWrapperWorld& world = *static_cast<DOMWrapperWorld*>(context);
+    auto* jsattribute = jsCast<JSattribute*>(handle.slot()->asCell());
+    auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, &jsattribute->impl(), jsattribute);
-    jsattribute->releaseImpl();
 }
 
 #if ENABLE(BINDING_INTEGRITY)
@@ -224,7 +223,7 @@ JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject* globalObject, attribute* i
     return createNewWrapper<JSattribute>(globalObject, impl);
 }
 
-attribute* toattribute(JSC::JSValue value)
+attribute* JSattribute::toWrapped(JSC::JSValue value)
 {
     if (auto* wrapper = jsDynamicCast<JSattribute*>(value))
         return &wrapper->impl();

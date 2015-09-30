@@ -33,7 +33,7 @@
 
 namespace JSC {
     
-const ClassInfo JSString::s_info = { "string", 0, 0, 0, CREATE_METHOD_TABLE(JSString) };
+const ClassInfo JSString::s_info = { "string", 0, 0, CREATE_METHOD_TABLE(JSString) };
 
 void JSRopeString::RopeBuilder::expand()
 {
@@ -77,30 +77,45 @@ void JSString::visitChildren(JSCell* cell, SlotVisitor& visitor)
     else {
         StringImpl* impl = thisObject->m_value.impl();
         ASSERT(impl);
-        visitor.reportExtraMemoryUsage(thisObject, impl->costDuringGC());
+        visitor.reportExtraMemoryVisited(thisObject, impl->costDuringGC());
     }
 }
 
 void JSRopeString::visitFibers(SlotVisitor& visitor)
 {
-    for (size_t i = 0; i < s_maxInternalRopeLength && m_fibers[i]; ++i)
-        visitor.append(&m_fibers[i]);
+    if (isSubstring()) {
+        visitor.append(&substringBase());
+        return;
+    }
+    for (size_t i = 0; i < s_maxInternalRopeLength && fiber(i); ++i)
+        visitor.append(&fiber(i));
 }
 
 static const unsigned maxLengthForOnStackResolve = 2048;
 
 void JSRopeString::resolveRopeInternal8(LChar* buffer) const
 {
-    for (size_t i = 0; i < s_maxInternalRopeLength && m_fibers[i]; ++i) {
-        if (m_fibers[i]->isRope()) {
+    if (isSubstring()) {
+        StringImpl::copyChars(
+            buffer, substringBase()->m_value.characters8() + substringOffset(), m_length);
+        return;
+    }
+    
+    resolveRopeInternal8NoSubstring(buffer);
+}
+
+void JSRopeString::resolveRopeInternal8NoSubstring(LChar* buffer) const
+{
+    for (size_t i = 0; i < s_maxInternalRopeLength && fiber(i); ++i) {
+        if (fiber(i)->isRope()) {
             resolveRopeSlowCase8(buffer);
             return;
         }
     }
 
     LChar* position = buffer;
-    for (size_t i = 0; i < s_maxInternalRopeLength && m_fibers[i]; ++i) {
-        const StringImpl& fiberString = *m_fibers[i]->m_value.impl();
+    for (size_t i = 0; i < s_maxInternalRopeLength && fiber(i); ++i) {
+        const StringImpl& fiberString = *fiber(i)->m_value.impl();
         unsigned length = fiberString.length();
         StringImpl::copyChars(position, fiberString.characters8(), length);
         position += length;
@@ -110,16 +125,27 @@ void JSRopeString::resolveRopeInternal8(LChar* buffer) const
 
 void JSRopeString::resolveRopeInternal16(UChar* buffer) const
 {
-    for (size_t i = 0; i < s_maxInternalRopeLength && m_fibers[i]; ++i) {
-        if (m_fibers[i]->isRope()) {
+    if (isSubstring()) {
+        StringImpl::copyChars(
+            buffer, substringBase()->m_value.characters16() + substringOffset(), m_length);
+        return;
+    }
+    
+    resolveRopeInternal16NoSubstring(buffer);
+}
+
+void JSRopeString::resolveRopeInternal16NoSubstring(UChar* buffer) const
+{
+    for (size_t i = 0; i < s_maxInternalRopeLength && fiber(i); ++i) {
+        if (fiber(i)->isRope()) {
             resolveRopeSlowCase(buffer);
             return;
         }
     }
 
     UChar* position = buffer;
-    for (size_t i = 0; i < s_maxInternalRopeLength && m_fibers[i]; ++i) {
-        const StringImpl& fiberString = *m_fibers[i]->m_value.impl();
+    for (size_t i = 0; i < s_maxInternalRopeLength && fiber(i); ++i) {
+        const StringImpl& fiberString = *fiber(i)->m_value.impl();
         unsigned length = fiberString.length();
         if (fiberString.is8Bit())
             StringImpl::copyChars(position, fiberString.characters8(), length);
@@ -155,20 +181,20 @@ void JSRopeString::resolveRopeToAtomicString(ExecState* exec) const
 
     // If we resolved a string that didn't previously exist, notify the heap that we've grown.
     if (m_value.impl()->hasOneRef())
-        Heap::heap(this)->reportExtraMemoryCost(m_value.impl()->cost());
+        Heap::heap(this)->reportExtraMemoryAllocated(m_value.impl()->cost());
 }
 
 void JSRopeString::clearFibers() const
 {
-    for (size_t i = 0; i < s_maxInternalRopeLength && m_fibers[i]; ++i)
-        m_fibers[i].clear();
+    for (size_t i = 0; i < s_maxInternalRopeLength; ++i)
+        u[i].number = 0;
 }
 
-AtomicStringImpl* JSRopeString::resolveRopeToExistingAtomicString(ExecState* exec) const
+RefPtr<AtomicStringImpl> JSRopeString::resolveRopeToExistingAtomicString(ExecState* exec) const
 {
     if (m_length > maxLengthForOnStackResolve) {
         resolveRope(exec);
-        if (AtomicStringImpl* existingAtomicString = AtomicString::find(m_value.impl())) {
+        if (RefPtr<AtomicStringImpl> existingAtomicString = AtomicStringImpl::lookUp(m_value.impl())) {
             m_value = *existingAtomicString;
             setIs8Bit(m_value.impl()->is8Bit());
             clearFibers();
@@ -176,11 +202,11 @@ AtomicStringImpl* JSRopeString::resolveRopeToExistingAtomicString(ExecState* exe
         }
         return nullptr;
     }
-
+    
     if (is8Bit()) {
         LChar buffer[maxLengthForOnStackResolve];
         resolveRopeInternal8(buffer);
-        if (AtomicStringImpl* existingAtomicString = AtomicString::find(buffer, m_length)) {
+        if (RefPtr<AtomicStringImpl> existingAtomicString = AtomicStringImpl::lookUp(buffer, m_length)) {
             m_value = *existingAtomicString;
             setIs8Bit(m_value.impl()->is8Bit());
             clearFibers();
@@ -189,7 +215,7 @@ AtomicStringImpl* JSRopeString::resolveRopeToExistingAtomicString(ExecState* exe
     } else {
         UChar buffer[maxLengthForOnStackResolve];
         resolveRopeInternal16(buffer);
-        if (AtomicStringImpl* existingAtomicString = AtomicString::find(buffer, m_length)) {
+        if (RefPtr<AtomicStringImpl> existingAtomicString = AtomicStringImpl::lookUp(buffer, m_length)) {
             m_value = *existingAtomicString;
             setIs8Bit(m_value.impl()->is8Bit());
             clearFibers();
@@ -203,17 +229,24 @@ AtomicStringImpl* JSRopeString::resolveRopeToExistingAtomicString(ExecState* exe
 void JSRopeString::resolveRope(ExecState* exec) const
 {
     ASSERT(isRope());
-
+    
+    if (isSubstring()) {
+        ASSERT(!substringBase()->isRope());
+        m_value = substringBase()->m_value.substring(substringOffset(), m_length);
+        substringBase().clear();
+        return;
+    }
+    
     if (is8Bit()) {
         LChar* buffer;
         if (RefPtr<StringImpl> newImpl = StringImpl::tryCreateUninitialized(m_length, buffer)) {
-            Heap::heap(this)->reportExtraMemoryCost(newImpl->cost());
+            Heap::heap(this)->reportExtraMemoryAllocated(newImpl->cost());
             m_value = newImpl.release();
         } else {
             outOfMemory(exec);
             return;
         }
-        resolveRopeInternal8(buffer);
+        resolveRopeInternal8NoSubstring(buffer);
         clearFibers();
         ASSERT(!isRope());
         return;
@@ -221,14 +254,14 @@ void JSRopeString::resolveRope(ExecState* exec) const
 
     UChar* buffer;
     if (RefPtr<StringImpl> newImpl = StringImpl::tryCreateUninitialized(m_length, buffer)) {
-        Heap::heap(this)->reportExtraMemoryCost(newImpl->cost());
+        Heap::heap(this)->reportExtraMemoryAllocated(newImpl->cost());
         m_value = newImpl.release();
     } else {
         outOfMemory(exec);
         return;
     }
 
-    resolveRopeInternal16(buffer);
+    resolveRopeInternal16NoSubstring(buffer);
     clearFibers();
     ASSERT(!isRope());
 }
@@ -248,24 +281,32 @@ void JSRopeString::resolveRopeSlowCase8(LChar* buffer) const
     LChar* position = buffer + m_length; // We will be working backwards over the rope.
     Vector<JSString*, 32, UnsafeVectorOverflow> workQueue; // Putting strings into a Vector is only OK because there are no GC points in this method.
     
-    for (size_t i = 0; i < s_maxInternalRopeLength && m_fibers[i]; ++i)
-        workQueue.append(m_fibers[i].get());
+    for (size_t i = 0; i < s_maxInternalRopeLength && fiber(i); ++i)
+        workQueue.append(fiber(i).get());
 
     while (!workQueue.isEmpty()) {
         JSString* currentFiber = workQueue.last();
         workQueue.removeLast();
 
+        const LChar* characters;
+        
         if (currentFiber->isRope()) {
             JSRopeString* currentFiberAsRope = static_cast<JSRopeString*>(currentFiber);
-            for (size_t i = 0; i < s_maxInternalRopeLength && currentFiberAsRope->m_fibers[i]; ++i)
-                workQueue.append(currentFiberAsRope->m_fibers[i].get());
-            continue;
-        }
-
-        StringImpl* string = static_cast<StringImpl*>(currentFiber->m_value.impl());
-        unsigned length = string->length();
+            if (!currentFiberAsRope->isSubstring()) {
+                for (size_t i = 0; i < s_maxInternalRopeLength && currentFiberAsRope->fiber(i); ++i)
+                    workQueue.append(currentFiberAsRope->fiber(i).get());
+                continue;
+            }
+            ASSERT(!currentFiberAsRope->substringBase()->isRope());
+            characters =
+                currentFiberAsRope->substringBase()->m_value.characters8() +
+                currentFiberAsRope->substringOffset();
+        } else
+            characters = currentFiber->m_value.characters8();
+        
+        unsigned length = currentFiber->length();
         position -= length;
-        StringImpl::copyChars(position, string->characters8(), length);
+        StringImpl::copyChars(position, characters, length);
     }
 
     ASSERT(buffer == position);
@@ -276,8 +317,8 @@ void JSRopeString::resolveRopeSlowCase(UChar* buffer) const
     UChar* position = buffer + m_length; // We will be working backwards over the rope.
     Vector<JSString*, 32, UnsafeVectorOverflow> workQueue; // These strings are kept alive by the parent rope, so using a Vector is OK.
 
-    for (size_t i = 0; i < s_maxInternalRopeLength && m_fibers[i]; ++i)
-        workQueue.append(m_fibers[i].get());
+    for (size_t i = 0; i < s_maxInternalRopeLength && fiber(i); ++i)
+        workQueue.append(fiber(i).get());
 
     while (!workQueue.isEmpty()) {
         JSString* currentFiber = workQueue.last();
@@ -285,8 +326,21 @@ void JSRopeString::resolveRopeSlowCase(UChar* buffer) const
 
         if (currentFiber->isRope()) {
             JSRopeString* currentFiberAsRope = static_cast<JSRopeString*>(currentFiber);
-            for (size_t i = 0; i < s_maxInternalRopeLength && currentFiberAsRope->m_fibers[i]; ++i)
-                workQueue.append(currentFiberAsRope->m_fibers[i].get());
+            if (currentFiberAsRope->isSubstring()) {
+                ASSERT(!currentFiberAsRope->substringBase()->isRope());
+                StringImpl* string = static_cast<StringImpl*>(
+                    currentFiberAsRope->substringBase()->m_value.impl());
+                unsigned offset = currentFiberAsRope->substringOffset();
+                unsigned length = currentFiberAsRope->length();
+                position -= length;
+                if (string->is8Bit())
+                    StringImpl::copyChars(position, string->characters8() + offset, length);
+                else
+                    StringImpl::copyChars(position, string->characters16() + offset, length);
+                continue;
+            }
+            for (size_t i = 0; i < s_maxInternalRopeLength && currentFiberAsRope->fiber(i); ++i)
+                workQueue.append(currentFiberAsRope->fiber(i).get());
             continue;
         }
 
@@ -311,18 +365,6 @@ void JSRopeString::outOfMemory(ExecState* exec) const
         throwOutOfMemoryError(exec);
 }
 
-JSString* JSRopeString::getIndexSlowCase(ExecState* exec, unsigned i)
-{
-    ASSERT(isRope());
-    resolveRope(exec);
-    // Return a safe no-value result, this should never be used, since the excetion will be thrown.
-    if (exec->exception())
-        return jsEmptyString(exec);
-    ASSERT(!isRope());
-    RELEASE_ASSERT(i < m_value.length());
-    return jsSingleCharacterSubstring(exec, m_value, i);
-}
-
 JSValue JSString::toPrimitive(ExecState*, PreferredPrimitiveType) const
 {
     return const_cast<JSString*>(this);
@@ -331,18 +373,13 @@ JSValue JSString::toPrimitive(ExecState*, PreferredPrimitiveType) const
 bool JSString::getPrimitiveNumber(ExecState* exec, double& number, JSValue& result) const
 {
     result = this;
-    number = jsToNumber(value(exec));
+    number = jsToNumber(view(exec));
     return false;
-}
-
-bool JSString::toBoolean() const
-{
-    return m_length;
 }
 
 double JSString::toNumber(ExecState* exec) const
 {
-    return jsToNumber(value(exec));
+    return jsToNumber(view(exec));
 }
 
 inline StringObject* StringObject::create(VM& vm, JSGlobalObject* globalObject, JSString* string)
@@ -371,10 +408,9 @@ bool JSString::getStringPropertyDescriptor(ExecState* exec, PropertyName propert
         return true;
     }
     
-    unsigned i = propertyName.asIndex();
-    if (i < m_length) {
-        ASSERT(i != PropertyName::NotAnIndex); // No need for an explicit check, the above test would always fail!
-        descriptor.setDescriptor(getIndex(exec, i), DontDelete | ReadOnly);
+    Optional<uint32_t> index = parseIndex(propertyName);
+    if (index && index.value() < m_length) {
+        descriptor.setDescriptor(getIndex(exec, index.value()), DontDelete | ReadOnly);
         return true;
     }
     
@@ -383,11 +419,12 @@ bool JSString::getStringPropertyDescriptor(ExecState* exec, PropertyName propert
 
 JSString* jsStringWithCacheSlowCase(VM& vm, StringImpl& stringImpl)
 {
-    auto addResult = vm.stringCache.add(&stringImpl, nullptr);
-    if (addResult.isNewEntry)
-        addResult.iterator->value = jsString(&vm, String(stringImpl));
-    vm.lastCachedString.set(vm, addResult.iterator->value.get());
-    return addResult.iterator->value.get();
+    if (JSString* string = vm.stringCache.get(&stringImpl))
+        return string;
+
+    JSString* string = jsString(&vm, String(stringImpl));
+    vm.lastCachedString.set(vm, string);
+    return string;
 }
 
 } // namespace JSC

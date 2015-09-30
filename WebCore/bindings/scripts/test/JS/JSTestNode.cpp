@@ -86,12 +86,12 @@ protected:
 
 EncodedJSValue JSC_HOST_CALL JSTestNodeConstructor::constructJSTestNode(ExecState* exec)
 {
-    JSTestNodeConstructor* castedThis = jsCast<JSTestNodeConstructor*>(exec->callee());
+    auto* castedThis = jsCast<JSTestNodeConstructor*>(exec->callee());
     RefPtr<TestNode> object = TestNode::create();
     return JSValue::encode(asObject(toJS(exec, castedThis->globalObject(), object.get())));
 }
 
-const ClassInfo JSTestNodeConstructor::s_info = { "TestNodeConstructor", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSTestNodeConstructor) };
+const ClassInfo JSTestNodeConstructor::s_info = { "TestNodeConstructor", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestNodeConstructor) };
 
 JSTestNodeConstructor::JSTestNodeConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
     : DOMConstructorObject(structure, globalObject)
@@ -119,7 +119,7 @@ static const HashTableValue JSTestNodePrototypeTableValues[] =
     { "constructor", DontEnum | ReadOnly, NoIntrinsic, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNodeConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) },
 };
 
-const ClassInfo JSTestNodePrototype::s_info = { "TestNodePrototype", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSTestNodePrototype) };
+const ClassInfo JSTestNodePrototype::s_info = { "TestNodePrototype", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestNodePrototype) };
 
 void JSTestNodePrototype::finishCreation(VM& vm)
 {
@@ -127,10 +127,10 @@ void JSTestNodePrototype::finishCreation(VM& vm)
     reifyStaticProperties(vm, JSTestNodePrototypeTableValues, *this);
 }
 
-const ClassInfo JSTestNode::s_info = { "TestNode", &Base::s_info, 0, 0 , CREATE_METHOD_TABLE(JSTestNode) };
+const ClassInfo JSTestNode::s_info = { "TestNode", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestNode) };
 
-JSTestNode::JSTestNode(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<TestNode> impl)
-    : JSNode(structure, globalObject, impl)
+JSTestNode::JSTestNode(Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestNode>&& impl)
+    : JSNode(structure, globalObject, WTF::move(impl))
 {
 }
 
@@ -159,10 +159,8 @@ JSValue JSTestNode::getConstructor(VM& vm, JSGlobalObject* globalObject)
 
 void JSTestNode::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
-    JSTestNode* thisObject = jsCast<JSTestNode*>(cell);
+    auto* thisObject = jsCast<JSTestNode*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
-    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
-    ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
     Base::visitChildren(thisObject, visitor);
     thisObject->impl().visitJSEventListeners(visitor);
 }

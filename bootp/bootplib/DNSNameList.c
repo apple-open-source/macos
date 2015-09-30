@@ -42,6 +42,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <mach/boolean.h>
+#include <CoreFoundation/CFString.h>
+#include "symbol_scope.h"
 #include "DNSNameList.h"
 #include "nbo.h"
 
@@ -94,7 +96,7 @@ typedef struct {
  ** DNSBuf
  **/
 
-static void
+STATIC void
 DNSBufInit(DNSBufRef db, uint8_t * buf, int buf_size)
 {
     bzero(db, sizeof(*db));
@@ -110,7 +112,7 @@ DNSBufInit(DNSBufRef db, uint8_t * buf, int buf_size)
     return;
 }
 
-static void
+STATIC void
 DNSBufFreeElements(DNSBufRef db)
 {
     if (db->db_buf_user_supplied == FALSE) {
@@ -122,7 +124,7 @@ DNSBufFreeElements(DNSBufRef db)
     return;
 }
 
-static __inline__ void
+STATIC __inline__ void
 DNSBufSetUsed(DNSBufRef db, int used)
 {
     if (db->db_buf_used < 0 || db->db_buf_used > db->db_buf_size) {
@@ -133,19 +135,19 @@ DNSBufSetUsed(DNSBufRef db, int used)
     return;
 }
 
-static __inline__ int
+STATIC __inline__ int
 DNSBufUsed(DNSBufRef db)
 {
     return (db->db_buf_used);
 }
 
-static __inline__ uint8_t *
+STATIC __inline__ uint8_t *
 DNSBufBuffer(DNSBufRef db)
 {
     return (db->db_buf);
 }
 
-static bool
+STATIC bool
 DNSBufAddData(DNSBufRef db, const void * data, int data_len)
 {
 #ifdef DEBUG
@@ -184,7 +186,7 @@ DNSBufAddData(DNSBufRef db, const void * data, int data_len)
 /**
  ** DNSNameOffsets
  **/
-static void
+STATIC void
 DNSNameOffsetsInit(DNSNameOffsetsRef list)
 {
     bzero(list, sizeof(*list));
@@ -193,7 +195,7 @@ DNSNameOffsetsInit(DNSNameOffsetsRef list)
     return;
 }
 
-static DNSNameOffsetsRef
+STATIC DNSNameOffsetsRef
 DNSNameOffsetsCreate(void)
 {
     DNSNameOffsetsRef	list;
@@ -205,7 +207,7 @@ DNSNameOffsetsCreate(void)
     return (list);
 }
 
-static bool
+STATIC bool
 DNSNameOffsetsContainsOffset(DNSNameOffsetsRef list, uint32_t off)
 {
     int		i;
@@ -218,7 +220,7 @@ DNSNameOffsetsContainsOffset(DNSNameOffsetsRef list, uint32_t off)
     return (FALSE);
 }
 
-static void
+STATIC void
 DNSNameOffsetsFreeElements(DNSNameOffsetsRef list)
 {
     if (list->dno_list != NULL && list->dno_list != list->dno_list_s) {
@@ -228,7 +230,7 @@ DNSNameOffsetsFreeElements(DNSNameOffsetsRef list)
     return;
 }
 
-static void
+STATIC void
 DNSNameOffsetsFree(DNSNameOffsetsRef * list_p)
 {
     DNSNameOffsetsRef list;
@@ -247,7 +249,7 @@ DNSNameOffsetsFree(DNSNameOffsetsRef * list_p)
     return;
 }
 
-static void
+STATIC void
 DNSNameOffsetsAdd(DNSNameOffsetsRef list, uint32_t this_offset)
 {
     if (list->dno_size == list->dno_count) {
@@ -269,7 +271,7 @@ DNSNameOffsetsAdd(DNSNameOffsetsRef list, uint32_t this_offset)
     return;
 }
 
-static void
+STATIC void
 DNSNameOffsetsSet(DNSNameOffsetsRef list, int i, uint32_t this_offset)
 {
     if (i > list->dno_count) {
@@ -280,13 +282,13 @@ DNSNameOffsetsSet(DNSNameOffsetsRef list, int i, uint32_t this_offset)
     return;
 }
 
-static __inline__ uint32_t
+STATIC __inline__ uint32_t
 DNSNameOffsetsElement(const DNSNameOffsetsRef list, int i)
 {
     return (list->dno_list[i]);
 }
 
-static __inline__ uint32_t
+STATIC __inline__ uint32_t
 DNSNameOffsetsCount(const DNSNameOffsetsRef list)
 {
     return (list->dno_count);
@@ -295,14 +297,14 @@ DNSNameOffsetsCount(const DNSNameOffsetsRef list)
 /**
  ** DNSNameOffsetsList
  **/
-static void
+STATIC void
 DNSNameOffsetsListInit(DNSNameOffsetsListRef nlist)
 {
     bzero(nlist, sizeof(*nlist));
     return;
 }
 
-static void
+STATIC void
 DNSNameOffsetsListFreeElements(DNSNameOffsetsListRef nlist)
 {
     if (nlist->dnl_list != NULL) {
@@ -316,7 +318,7 @@ DNSNameOffsetsListFreeElements(DNSNameOffsetsListRef nlist)
     return;
 }
 
-static void
+STATIC void
 DNSNameOffsetsListAdd(DNSNameOffsetsListRef nlist, DNSNameOffsetsRef this_list)
 {
     if (nlist->dnl_size == nlist->dnl_count) {
@@ -344,13 +346,13 @@ DNSNameOffsetsListAdd(DNSNameOffsetsListRef nlist, DNSNameOffsetsRef this_list)
     return;
 }
 
-static __inline__ DNSNameOffsetsRef
+STATIC __inline__ DNSNameOffsetsRef
 DNSNameOffsetsListElement(DNSNameOffsetsListRef nlist, int i)
 {
     return (nlist->dnl_list[i]);
 }
 
-static __inline__ int
+STATIC __inline__ int
 DNSNameOffsetsListCount(DNSNameOffsetsListRef nlist)
 {
     return (nlist->dnl_count);
@@ -359,7 +361,7 @@ DNSNameOffsetsListCount(DNSNameOffsetsListRef nlist)
 /**
  ** DNSName
  **/
-static void
+STATIC void
 DNSNameFree(DNSNameRef * name_p)
 {
     DNSNameRef	name;
@@ -376,7 +378,7 @@ DNSNameFree(DNSNameRef * name_p)
     *name_p = NULL;
 }
 
-static DNSNameRef
+STATIC DNSNameRef
 DNSNameCreate(const char * dns_name)
 {
     int			digits = 0;
@@ -421,7 +423,7 @@ DNSNameCreate(const char * dns_name)
     return (NULL);
 }
 
-static int
+STATIC int
 DNSNameMatch(DNSNameRef name1, DNSNameRef name2)
 {
     int		count1 = DNSNameOffsetsCount(name1->dn_offsets);
@@ -459,7 +461,7 @@ DNSNameMatch(DNSNameRef name1, DNSNameRef name2)
  ** DNSNamesBuf
  **/
 
-static void
+STATIC void
 DNSNamesBufFreeElements(DNSNamesBufRef nb)
 {
     DNSBufFreeElements(&nb->dnb_buf);
@@ -467,7 +469,7 @@ DNSNamesBufFreeElements(DNSNamesBufRef nb)
     return;
 }
 
-static void
+STATIC void
 DNSNamesBufInit(DNSNamesBufRef nb, void * buf, int buf_size)
 {
     DNSBufInit(&nb->dnb_buf, buf, buf_size);
@@ -475,31 +477,31 @@ DNSNamesBufInit(DNSNamesBufRef nb, void * buf, int buf_size)
     return;
 }
 
-static __inline__ int
+STATIC __inline__ int
 DNSNamesBufUsed(DNSNamesBufRef nb)
 {
     return (DNSBufUsed(&nb->dnb_buf));
 }
 
-static __inline__ void
+STATIC __inline__ void
 DNSNamesBufSetUsed(DNSNamesBufRef nb, int used)
 {
     return (DNSBufSetUsed(&nb->dnb_buf, used));
 }
 
-static __inline__ uint8_t *
+STATIC __inline__ uint8_t *
 DNSNamesBufBuffer(DNSNamesBufRef nb)
 {
     return (DNSBufBuffer(&nb->dnb_buf));
 }
 
-static bool
+STATIC bool
 DNSNamesBufAddData(DNSNamesBufRef nb, const void * data, int data_len)
 {
     return (DNSBufAddData(&nb->dnb_buf, data, data_len));
 }
 
-static bool
+STATIC bool
 DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name)
 {
     int			best_matched = 0;
@@ -619,7 +621,7 @@ DNSNamesBufAddName(DNSNamesBufRef nb, const char * dns_name)
  *   all of the supplied names could be added, NULL otherwise.  In either
  *   case returns how much of "buffer" was used in "buffer_size".
  */
-uint8_t *
+PRIVATE_EXTERN uint8_t *
 DNSNameListBufferCreate(const char * names[], int names_count,
 			uint8_t * buffer, int * buffer_size)
 {
@@ -661,18 +663,19 @@ DNSNameListBufferCreate(const char * names[], int names_count,
 
 }
 
-/* 
- * Function: DNSNameListCreate
+/*
+ * Function: DNSNameListCreateCommon
  *
  * Purpose:
  *   Convert the compact domain name list form described in RFC 1035 to a list
  *   of domain names.
  * 
  * Returns:
- *   A non-NULL malloc'd list of DNS domain names, and the non-zero count of
- *   elements in the list if the conversion was successful.
- *   NULL if an error occurred i.e. the supplied buffer contained an invalid
- *   encoding.
+ *   The number of names, and DNSBuf is filled with name strings if successful,
+ *   0 otherwise.
+ *
+ *   If a non-zero return value is returned, the caller is responsible for
+ *   calling DNSBufFreeElements() on the DNSBuf.
  *
  * Notes:
  *   This routine processes the encoded buffer, keeping track of the
@@ -688,31 +691,23 @@ DNSNameListBufferCreate(const char * names[], int names_count,
  *   The label is checked to ensure that it is not truncated, and that it
  *   is not too long (<= 63 bytes).  When an end label is encountered, the
  *   domain name is complete, and the "read_head" advances to the "scan" point.
- *
- *   When processing is complete, the pointer array and name buffer are
- *   allocated in one contiguous chunk of memory.  The name buffer is copied
- *   to the newly allocated area, and the pointer array is populated by
- *   walking the name buffer looking for complete strings.
  */
-const char * *
-DNSNameListCreate(const uint8_t * buffer, int buffer_size,
-		  int * names_count)
+STATIC int
+DNSNameListCreateCommon(const uint8_t * buffer, int buffer_size,
+			DNSBufRef name_buf_p)
 {
     DNSNameOffsets	buffer_offsets;
     bool		first;
     uint32_t		last_completed_name = 0;
     uint32_t		left;
-    char * *		list = NULL;
     int			list_count = 0;
-    DNSBuf		name_buf;
     uint32_t		read_head;
     uint32_t		scan;
+    bool		success = FALSE;
 
-    if (buffer_size == 0) {
-	return (NULL);
+    if (buffer == NULL || buffer_size == 0) {
+	return (0);
     }
-
-    DNSBufInit(&name_buf, NULL, 0);
     DNSNameOffsetsInit(&buffer_offsets);
     left = buffer_size;
     first = TRUE;
@@ -771,7 +766,7 @@ DNSNameListCreate(const uint8_t * buffer, int buffer_size,
 		/* end label */
 		char	ch = '\0';
 
-		(void)DNSBufAddData(&name_buf, &ch, 1);
+		(void)DNSBufAddData(name_buf_p, &ch, 1);
 		last_completed_name = scan;
 		read_head = scan;
 		list_count++;
@@ -791,25 +786,69 @@ DNSNameListCreate(const uint8_t * buffer, int buffer_size,
 		    first = FALSE;
 		}
 		else {
-		    (void)DNSBufAddData(&name_buf, &dot, 1);
+		    (void)DNSBufAddData(name_buf_p, &dot, 1);
 		}
 		/* add this label to the buffer */
-		DNSBufAddData(&name_buf, buffer + read_head + 1, len);
+		DNSBufAddData(name_buf_p, buffer + read_head + 1, len);
 		read_head += len + 1;
 	    }
 	}
     }
 
     if (list_count == 0) {
-	if (DNSBufUsed(&name_buf) == 0) {
+	if (DNSBufUsed(name_buf_p) == 0) {
 	    fprintf(stderr, "empty list\n");
 	}
 	else {
 	    fprintf(stderr, "name missing end label\n");
 	}
-	goto failed;
+    }
+    else {
+	success = TRUE;
     }
 
+ failed:
+    if (!success) {
+	list_count = 0;
+	DNSBufFreeElements(name_buf_p);
+    }
+    DNSNameOffsetsFreeElements(&buffer_offsets);
+    return (list_count);
+}
+
+/*
+ * Function: DNSNameListCreate
+ *
+ * Purpose:
+ *   Convert the compact domain name list form described in RFC 1035 to a list
+ *   of domain names.
+ *
+ * Returns:
+ *   A non-NULL malloc'd list of DNS domain names, and the non-zero count of
+ *   elements in the list if the conversion was successful.
+ *   NULL if an error occurred i.e. the supplied buffer contained an invalid
+ *   encoding.
+ *
+ * Notes:
+ *   When processing is complete, the pointer array and name buffer are
+ *   allocated in one contiguous chunk of memory.  The name buffer is copied
+ *   to the newly allocated area, and the pointer array is populated by
+ *   walking the name buffer looking for complete strings.
+ */
+PRIVATE_EXTERN const char * *
+DNSNameListCreate(const uint8_t * buffer, int buffer_size,
+		  int * names_count)
+{
+    char * *		list = NULL;
+    int			list_count;
+    DNSBuf		name_buf;
+
+    DNSBufInit(&name_buf, NULL, 0);
+    list_count = DNSNameListCreateCommon(buffer, buffer_size,
+					 &name_buf);
+    if (list_count == 0) {
+	goto failed;
+    }
     /* create single returned allocation: name pointers + name strings */
     list = (char * *)
 	malloc(DNSBufUsed(&name_buf) + sizeof(*list) * list_count);
@@ -833,8 +872,56 @@ DNSNameListCreate(const uint8_t * buffer, int buffer_size,
 	*names_count = 0;
     }
     DNSBufFreeElements(&name_buf);
-    DNSNameOffsetsFreeElements(&buffer_offsets);
     return ((const char * *)list);
+}
+
+/*
+ * Function: DNSNameListCreateArray
+ * Purpose:
+ *   Convert the compact domain name list form described in RFC 1035 to an
+ *   CFArray of UTF8-encoded CFStrings corresponding to the domain search list.
+ */
+PRIVATE_EXTERN CFArrayRef
+DNSNameListCreateArray(const uint8_t * buffer, int buffer_size)
+{
+    CFMutableArrayRef	array;
+    int			list_count;
+    int 		i;
+    DNSBuf		name_buf;
+    const char *	name_start;
+
+    DNSBufInit(&name_buf, NULL, 0);
+    list_count = DNSNameListCreateCommon(buffer, buffer_size,
+					 &name_buf);
+    if (list_count == 0) {
+	return (NULL);
+    }
+    array = CFArrayCreateMutable(NULL, list_count,
+				 &kCFTypeArrayCallBacks);
+    name_start = (const char *)DNSBufBuffer(&name_buf);
+    for (i = 0; i < list_count; i++) {
+	CFStringRef str;
+
+	str = CFStringCreateWithCString(NULL, name_start,
+					kCFStringEncodingUTF8);
+	if (str == NULL) {
+#ifdef TEST_DNSNAMELIST
+	    fprintf(stderr, "failed to convert '%s' to UTF8\n",
+		    name_start);
+#endif /* TEST_DNSNAMELIST */
+	}
+	else {
+	    CFArrayAppendValue(array, str);
+	    CFRelease(str);
+	}
+	name_start += strlen(name_start) + 1;
+    }
+    if (CFArrayGetCount(array) == 0) {
+	CFRelease(array);
+	array = NULL;
+    }
+    DNSBufFreeElements(&name_buf);
+    return (array);
 }
 
 #ifdef TEST_DNSNAMELIST
@@ -865,6 +952,12 @@ const uint8_t	bad_buf7[] = {
     5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm'
 };
 
+const uint8_t	bad_buf8[] = {
+    0x07, 0x07, 0x97, 0x10, 0x16, 0x01, 0x03, 0x97, 0x02, 0x10, 0x11, 0x00, 0x07, 0x07,
+    0x97, 0x10, 0x16, 0x01, 0x03, 0x97, 0x03, 0x08, 0x97, 0x10, 0x00, 0x06, 0x97, 0x07, 0x15, 0x01,
+    0x15, 0x15, 0x02, 0x10, 0x11, 0x00
+};
+
 const uint8_t good_buf1[] = {
 	4, 'e', 'u', 'r', 'o', 5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0, 
 	9, 'm', 'a', 'r', 'k', 'e', 't', 'i', 'n', 'g', 0xc0, 0x0b,
@@ -889,7 +982,7 @@ struct test {
     bool		expect_success;
 };
 
-static const struct test all_tests[] = {
+STATIC const struct test all_tests[] = {
     { "infinite loop", bad_buf1, sizeof(bad_buf1), FALSE },
     { "infinite loop", bad_buf2, sizeof(bad_buf2), FALSE },
     { "forward pointer", bad_buf3, sizeof(bad_buf3), FALSE },
@@ -897,6 +990,7 @@ static const struct test all_tests[] = {
     { "truncated pointer", bad_buf5, sizeof(bad_buf5), FALSE },
     { "truncated label", bad_buf6, sizeof(bad_buf6), FALSE },
     { "no end label", bad_buf7, sizeof(bad_buf7), FALSE },
+    { "bad chars", bad_buf8, sizeof(bad_buf8), FALSE },
     { "apple.com", good_buf1, sizeof(good_buf1), TRUE },
     { "w.x", good_buf2, sizeof(good_buf2), TRUE },
     { NULL, NULL, 0}
@@ -904,7 +998,7 @@ static const struct test all_tests[] = {
 
 #include <ctype.h>
 
-static void
+STATIC void
 DNSNameListBufferDumpCharArray(const uint8_t * buf, int buf_size)
 {
     int			i;
@@ -996,15 +1090,37 @@ main(int argc, const char * * argv)
 	}
     }
     for (i = 0, test = all_tests; test->name != NULL; i++, test++) {
+	CFArrayRef	array;
+
 	list = DNSNameListCreate(test->buf, test->buf_size,
 				 &list_count);
+	array = DNSNameListCreateArray(test->buf, test->buf_size);
 	printf("Test %d '%s' ", i + 1, test->name);
-	if (test->expect_success == (list != NULL)) {
+	if (test->expect_success
+	    == (array != NULL && list != NULL)) {
 	    printf("PASSED\n");
 	}
 	else {
 	    printf("FAILED\n");
+	    printf("Halting tests\n");
+	    exit(2);
 	}
+	if (list != NULL) {
+	    int j;
+
+	    printf("Domains:%s ",
+		   !test->expect_success ? "[BAD STRINGS]" : "");
+	    for (j = 0; j < list_count; j++) {
+		printf("%s%s", (j > 0) ? ", " : "", list[j]);
+	    }
+	    printf("\n");
+	    free(list);
+	}
+	if (array != NULL) {
+	    CFShow(array);
+	    CFRelease(array);
+	}
+
     }
     exit(0);
 }

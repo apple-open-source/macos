@@ -18,7 +18,7 @@ if test $# != 1; then
 fi
 
 #buildit -project cups -arch i386 -arch x86_64 -offline -archive -archiveName cups-$1 -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify . || exit 1
-buildit -project cups -arch i386 -arch x86_64 -archive -archiveName cups-$1 -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify . || exit 1
+buildit -project cups -release Gala -arch i386 -arch x86_64 -offline -archive -archiveName cups-$1 -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify . || exit 1
 rm -f ~/Desktop/Shared_cups-$1_HDRDSTROOT_osx.tar.gz
 mv -f ~/Desktop/Shared_cups-$1_DSTROOT_osx.tar.gz ~/Desktop/cups-$1.tar.gz
 

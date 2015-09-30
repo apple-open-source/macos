@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,8 @@ static const CFRuntimeClass __DADiskClass =
 };
 
 static CFTypeID __kDADiskTypeID = _kCFRuntimeNotATypeID;
+
+__private_extern__ void _DAInitialize( void );
 
 __private_extern__ mach_port_t _DASessionGetID( DASessionRef session );
 
@@ -443,5 +445,7 @@ const char * DADiskGetBSDName( DADiskRef disk )
 
 CFTypeID DADiskGetTypeID( void )
 {
+    _DAInitialize( );
+
     return __kDADiskTypeID;
 }

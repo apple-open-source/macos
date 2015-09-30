@@ -92,7 +92,7 @@ ExitStatus main(int argc, char * const * argv)
         if (toolArgs.flagShowArchitecture) {
             printf("Architecture       ");
         }
-        printf("Name (Version) <Linked Against>\n");
+        printf("Name (Version) UUID <Linked Against>\n");
     }
 
     count = CFDictionaryGetCount(toolArgs.loadedKextInfo);
@@ -109,7 +109,12 @@ ExitStatus main(int argc, char * const * argv)
 
     CFDictionaryGetKeysAndValues(toolArgs.loadedKextInfo, /* keys */ NULL,
         (const void **)kextInfoList);
-    qsort(kextInfoList, count, sizeof(CFDictionaryRef), &compareKextInfo);
+    if (toolArgs.flagSortByLoadAddress) {
+        qsort(kextInfoList, count, sizeof(CFDictionaryRef), &compareKextInfoLoadAddress);
+    }
+    else {
+        qsort(kextInfoList, count, sizeof(CFDictionaryRef), &compareKextInfo);
+    }
     for (i = 0; i < count; i++) {
         printKextInfo(kextInfoList[i], &toolArgs);
     }
@@ -175,12 +180,15 @@ ExitStatus readArgs(int argc, char * const * argv, KextstatArgs * toolArgs)
                 }
                 CFArrayAppendValue(toolArgs->bundleIDs, scratchString);
                 break;
-            
+                
             case kOptArchitecture:
                 toolArgs->flagShowArchitecture = true;
                 break;
                 
-            }
+            case kOptSort:
+                toolArgs->flagSortByLoadAddress = true;
+                break;
+        }
     }
 
     argc -= optind;
@@ -222,6 +230,8 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
     CFStringRef       bundleVersion          = NULL;  // do not release
     CFArrayRef        dependencyLoadTags     = NULL;  // do not release
     CFMutableArrayRef sortedLoadTags         = NULL;  // must release
+    CFDataRef         kextUUID               = NULL;  // do not release
+    uuid_string_t     kextUUIDCString        = "";
 
     uint32_t          loadTagValue           = kOSKextInvalidLoadTag;
     uint32_t          retainCountValue       = (uint32_t)-1;
@@ -250,7 +260,9 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
     bundleVersion = (CFStringRef)CFDictionaryGetValue(kextInfo,
         kCFBundleVersionKey);
     dependencyLoadTags = (CFArrayRef)CFDictionaryGetValue(kextInfo,
-        CFSTR(kOSBundleDependenciesKey));
+                                                          CFSTR(kOSBundleDependenciesKey));
+    kextUUID = (CFDataRef)CFDictionaryGetValue(kextInfo,
+                                               CFSTR(kOSBundleUUIDKey));
 
    /* If the -k flag was given, skip any kernel components unless
     * they are explicitly requested.
@@ -364,6 +376,14 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
         
     fprintf(stdout, " (%s)",
         bundleVersionCString ? bundleVersionCString : kStringInvalidLong);
+    
+    if (kextUUID && (CFDataGetTypeID() == CFGetTypeID(kextUUID))) {
+        uuid_unparse(CFDataGetBytePtr(kextUUID), kextUUIDCString);
+        fprintf(stdout, " %s", kextUUIDCString);
+    }
+    else {
+        fprintf(stdout, " no UUID");
+    }
 
     if (dependencyLoadTags && CFArrayGetCount(dependencyLoadTags)) {
         sortedLoadTags = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0,
@@ -393,7 +413,6 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
         }
 
         fprintf(stdout, ">");
-
     }
     
     fprintf(stdout, "\n");
@@ -417,7 +436,7 @@ Boolean getNumValue(CFNumberRef aNumber, CFNumberType type, void * valueOut)
 }
 
 /*******************************************************************************
-*******************************************************************************/
+ *******************************************************************************/
 int compareKextInfo(const void * vKextInfo1, const void * vKextInfo2)
 {
     int             result = 0;
@@ -430,17 +449,58 @@ int compareKextInfo(const void * vKextInfo1, const void * vKextInfo2)
     
     getNumValue(loadTag1, kCFNumberSInt32Type, &tag1Value);
     getNumValue(loadTag2, kCFNumberSInt32Type, &tag2Value);
-
+    
     if (tag1Value == tag2Value) {
-       /* Whether invalid or valid, same is same. */
+        /* Whether invalid or valid, same is same. */
         result = 0;
     } else if (tag1Value == kOSKextInvalidLoadTag) {
         result = -1;
     } else if (tag2Value == kOSKextInvalidLoadTag) {
         result = 1;
-    } else if (tag1Value < tag2Value) {  
+    } else if (tag1Value < tag2Value) {
         result = -1;
-    } else if (tag2Value < tag1Value) {  
+    } else if (tag2Value < tag1Value) {
+        result = 1;
+    }
+    
+    return result;
+}
+
+/*******************************************************************************
+ *******************************************************************************/
+int compareKextInfoLoadAddress(const void * vKextInfo1, const void * vKextInfo2)
+{
+    int             result = 0;
+    CFDictionaryRef kextInfo1 = *(CFDictionaryRef *)vKextInfo1;
+    CFDictionaryRef kextInfo2 = *(CFDictionaryRef *)vKextInfo2;
+    
+    CFNumberRef       loadAddress1            = NULL;  // do not release
+    uint64_t          loadAddressValue1       = (uint64_t)-1;
+    CFNumberRef       loadAddress2            = NULL;  // do not release
+    uint64_t          loadAddressValue2       = (uint64_t)-1;
+
+    loadAddress1 = (CFNumberRef) CFDictionaryGetValue(kextInfo1,
+                                                      CFSTR(kOSBundleLoadAddressKey));
+    loadAddress2 = (CFNumberRef) CFDictionaryGetValue(kextInfo2,
+                                                      CFSTR(kOSBundleLoadAddressKey));
+
+    if (!getNumValue(loadAddress1, kCFNumberSInt64Type, &loadAddressValue1)) {
+        loadAddressValue1 = (uint64_t)-1;
+    }
+    if (!getNumValue(loadAddress2, kCFNumberSInt64Type, &loadAddressValue2)) {
+        loadAddressValue2 = (uint64_t)-1;
+    }
+    
+    if (loadAddressValue1 == loadAddressValue2) {
+        /* Whether invalid or valid, same is same. */
+        result = 0;
+    } else if (loadAddressValue1 == (uint64_t)-1) {
+        result = -1;
+    } else if (loadAddressValue2 == (uint64_t)-1) {
+        result = 1;
+    } else if (loadAddressValue1 < loadAddressValue2) {
+        result = -1;
+    } else if (loadAddressValue2 < loadAddressValue1) {
         result = 1;
     }
     
@@ -483,8 +543,10 @@ static void usage(UsageLevel usageLevel)
     fprintf(stderr, "-%s (-%c) <bundle_id>: print info for kexts named by identifier.\n",
         kOptNameBundleIdentifier, kOptBundleIdentifier);
     fprintf(stderr, "-%s (-%c): Include architecture info in output.\n",
-        kOptNameArchitecture, kOptArchitecture);
-
+            kOptNameArchitecture, kOptArchitecture);
+    fprintf(stderr, "-%s (-%c): Sort by load address.\n",
+            kOptNameSort, kOptSort);
+    
     return;
 }
 

@@ -97,5 +97,6 @@ extern uint32_t daemon_post_nid(uint64_t nid, uint32_t u, uint32_t g);
 extern void daemon_post_client(uint64_t cid);
 extern void daemon_set_state(const char *name, uint64_t val);
 extern void dump_status(uint32_t level);
+extern bool has_root_entitlement(pid_t pid);
 
 #endif /* _NOTIFY_DAEMON_H_ */

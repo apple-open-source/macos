@@ -27,12 +27,12 @@
  */
 
 #include "config.h"
-#include "SimpleFontData.h"
+#include "Font.h"
 
 #include "FloatRect.h"
-#include "Font.h"
 #include "FontCache.h"
 #include "FontDescription.h"
+#include "GlyphPage.h"
 #include "HWndDC.h"
 #include <ApplicationServices/ApplicationServices.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
@@ -48,7 +48,7 @@ namespace WebCore {
 
 using namespace std;
 
-void SimpleFontData::platformInit()
+void Font::platformInit()
 {
     m_syntheticBoldOffset = m_platformData.syntheticBold() ? 1.0f : 0.f;
     m_scriptCache = 0;
@@ -62,10 +62,12 @@ void SimpleFontData::platformInit()
     int iAscent = CGFontGetAscent(font);
     int iDescent = CGFontGetDescent(font);
     int iLineGap = CGFontGetLeading(font);
+    int iCapHeight = CGFontGetCapHeight(font);
     unsigned unitsPerEm = CGFontGetUnitsPerEm(font);
     float pointSize = m_platformData.size();
     float fAscent = scaleEmToUnits(iAscent, unitsPerEm) * pointSize;
     float fDescent = -scaleEmToUnits(iDescent, unitsPerEm) * pointSize;
+    float fCapHeight = scaleEmToUnits(iCapHeight, unitsPerEm) * pointSize;
     float fLineGap = scaleEmToUnits(iLineGap, unitsPerEm) * pointSize;
 
     if (!isCustomFont()) {
@@ -82,11 +84,11 @@ void SimpleFontData::platformInit()
 
     m_fontMetrics.setAscent(fAscent);
     m_fontMetrics.setDescent(fDescent);
+    m_fontMetrics.setCapHeight(fCapHeight);
     m_fontMetrics.setLineGap(fLineGap);
     m_fontMetrics.setLineSpacing(lroundf(fAscent) + lroundf(fDescent) + lroundf(fLineGap));
 
-    GlyphPage* glyphPageZero = GlyphPageTreeNode::getRootChild(this, 0)->page();
-    Glyph xGlyph = glyphPageZero ? glyphPageZero->glyphDataForCharacter('x').glyph : 0;
+    Glyph xGlyph = glyphDataForCharacter('x').glyph;
     if (xGlyph) {
         // Measure the actual character "x", since it's possible for it to extend below the baseline, and we need the
         // reported x-height to only include the portion of the glyph that is above the baseline.
@@ -101,7 +103,7 @@ void SimpleFontData::platformInit()
     m_fontMetrics.setUnitsPerEm(unitsPerEm);
 }
 
-FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
+FloatRect Font::platformBoundsForGlyph(Glyph glyph) const
 {
     if (!platformData().size())
         return FloatRect();
@@ -120,7 +122,7 @@ FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
     return boundingBox;
 }
 
-float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
+float Font::platformWidthForGlyph(Glyph glyph) const
 {
     if (!platformData().size())
         return 0;

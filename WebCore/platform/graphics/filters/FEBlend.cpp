@@ -23,11 +23,9 @@
  */
 
 #include "config.h"
-
-#if ENABLE(FILTERS)
 #include "FEBlend.h"
-#include "FEBlendNEON.h"
 
+#include "FEBlendNEON.h"
 #include "Filter.h"
 #include "FloatPoint.h"
 #include "GraphicsContext.h"
@@ -37,15 +35,15 @@
 
 namespace WebCore {
 
-FEBlend::FEBlend(Filter* filter, BlendMode mode)
+FEBlend::FEBlend(Filter& filter, BlendMode mode)
     : FilterEffect(filter)
     , m_mode(mode)
 {
 }
 
-PassRefPtr<FEBlend> FEBlend::create(Filter* filter, BlendMode mode)
+Ref<FEBlend> FEBlend::create(Filter& filter, BlendMode mode)
 {
-    return adoptRef(new FEBlend(filter, mode));
+    return adoptRef(*new FEBlend(filter, mode));
 }
 
 BlendMode FEBlend::blendMode() const
@@ -98,5 +96,3 @@ TextStream& FEBlend::externalRepresentation(TextStream& ts, int indent) const
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(FILTERS)

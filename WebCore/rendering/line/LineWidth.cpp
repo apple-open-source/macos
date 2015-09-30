@@ -83,10 +83,10 @@ void LineWidth::shrinkAvailableWidthForNewFloatIfNeeded(FloatingObject* newFloat
         return;
 
 #if ENABLE(CSS_SHAPES)
-    ShapeOutsideInfo* shapeOutsideInfo = newFloat->renderer().shapeOutsideInfo();
-    if (shapeOutsideInfo) {
+    ShapeOutsideDeltas shapeDeltas;
+    if (ShapeOutsideInfo* shapeOutsideInfo = newFloat->renderer().shapeOutsideInfo()) {
         LayoutUnit lineHeight = m_block.lineHeight(m_isFirstLine, m_block.isHorizontalWritingMode() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes);
-        shapeOutsideInfo->updateDeltasForContainingBlockLine(m_block, *newFloat, m_block.logicalHeight(), lineHeight);
+        shapeDeltas = shapeOutsideInfo->computeDeltasForContainingBlockLine(m_block, *newFloat, m_block.logicalHeight(), lineHeight);
     }
 #endif
 
@@ -95,9 +95,9 @@ void LineWidth::shrinkAvailableWidthForNewFloatIfNeeded(FloatingObject* newFloat
         if (shouldIndentText() && m_block.style().isLeftToRightDirection())
             newLeft += floorToInt(m_block.textIndentOffset());
 #if ENABLE(CSS_SHAPES)
-        if (shapeOutsideInfo) {
-            if (shapeOutsideInfo->lineOverlapsShape())
-                newLeft += shapeOutsideInfo->rightMarginBoxDelta();
+        if (shapeDeltas.isValid()) {
+            if (shapeDeltas.lineOverlapsShape())
+                newLeft += shapeDeltas.rightMarginBoxDelta();
             else // If the line doesn't overlap the shape, then we need to act as if this float didn't exist.
                 newLeft = m_left;
         }
@@ -108,9 +108,9 @@ void LineWidth::shrinkAvailableWidthForNewFloatIfNeeded(FloatingObject* newFloat
         if (shouldIndentText() && !m_block.style().isLeftToRightDirection())
             newRight -= floorToInt(m_block.textIndentOffset());
 #if ENABLE(CSS_SHAPES)
-        if (shapeOutsideInfo) {
-            if (shapeOutsideInfo->lineOverlapsShape())
-                newRight += shapeOutsideInfo->leftMarginBoxDelta();
+        if (shapeDeltas.isValid()) {
+            if (shapeDeltas.lineOverlapsShape())
+                newRight += shapeDeltas.leftMarginBoxDelta();
             else // If the line doesn't overlap the shape, then we need to act as if this float didn't exist.
                 newRight = m_right;
         }
@@ -129,30 +129,23 @@ void LineWidth::commit()
 
 void LineWidth::applyOverhang(RenderRubyRun* rubyRun, RenderObject* startRenderer, RenderObject* endRenderer)
 {
-    int startOverhang;
-    int endOverhang;
+    float startOverhang;
+    float endOverhang;
     rubyRun->getOverhang(m_isFirstLine, startRenderer, endRenderer, startOverhang, endOverhang);
 
-    startOverhang = std::min<int>(startOverhang, m_committedWidth);
+    startOverhang = std::min(startOverhang, m_committedWidth);
     m_availableWidth += startOverhang;
 
-    endOverhang = std::max(std::min<int>(endOverhang, m_availableWidth - currentWidth()), 0);
+    endOverhang = std::max(std::min(endOverhang, m_availableWidth - currentWidth()), 0.0f);
     m_availableWidth += endOverhang;
     m_overhangWidth += startOverhang + endOverhang;
 }
 
-inline static float availableWidthAtOffset(const RenderBlockFlow& block, const LayoutUnit& offset, bool shouldIndentText, float& newLineLeft, float& newLineRight)
+inline static float availableWidthAtOffset(const RenderBlockFlow& block, const LayoutUnit& offset, bool shouldIndentText, float& newLineLeft, float& newLineRight, const LayoutUnit& lineHeight = 0)
 {
-    newLineLeft = block.logicalLeftOffsetForLine(offset, shouldIndentText);
-    newLineRight = block.logicalRightOffsetForLine(offset, shouldIndentText);
+    newLineLeft = block.logicalLeftOffsetForLine(offset, shouldIndentText, lineHeight);
+    newLineRight = block.logicalRightOffsetForLine(offset, shouldIndentText, lineHeight);
     return std::max(0.0f, newLineRight - newLineLeft);
-}
-
-inline static float availableWidthAtOffset(const RenderBlockFlow& block, const LayoutUnit& offset, bool shouldIndentText)
-{
-    float newLineLeft = 0;
-    float newLineRight = 0;
-    return availableWidthAtOffset(block, offset, shouldIndentText, newLineLeft, newLineRight);
 }
 
 void LineWidth::updateLineDimension(LayoutUnit newLineTop, LayoutUnit newLineWidth, float newLineLeft, float newLineRight)
@@ -167,16 +160,6 @@ void LineWidth::updateLineDimension(LayoutUnit newLineTop, LayoutUnit newLineWid
 }
 
 #if ENABLE(CSS_SHAPES)
-inline static bool isWholeLineFit(const RenderBlockFlow& block, const LayoutUnit& lineTop, LayoutUnit lineHeight, float uncommittedWidth, bool shouldIndentText)
-{
-    for (LayoutUnit lineBottom = lineTop; lineBottom <= lineTop + lineHeight; ++lineBottom) {
-        LayoutUnit availableWidthAtBottom = availableWidthAtOffset(block, lineBottom, shouldIndentText);
-        if (availableWidthAtBottom < uncommittedWidth)
-            return false;
-    }
-    return true;
-}
-
 void LineWidth::wrapNextToShapeOutside(bool isFirstLine)
 {
     LayoutUnit lineHeight = m_block.lineHeight(isFirstLine, m_block.isHorizontalWritingMode() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes);
@@ -188,8 +171,8 @@ void LineWidth::wrapNextToShapeOutside(bool isFirstLine)
     float newLineLeft = m_left;
     float newLineRight = m_right;
     while (true) {
-        newLineWidth = availableWidthAtOffset(m_block, newLineTop, shouldIndentText(), newLineLeft, newLineRight);
-        if (newLineWidth >= m_uncommittedWidth && isWholeLineFit(m_block, newLineTop, lineHeight, m_uncommittedWidth, shouldIndentText()))
+        newLineWidth = availableWidthAtOffset(m_block, newLineTop, shouldIndentText(), newLineLeft, newLineRight, lineHeight);
+        if (newLineWidth >= m_uncommittedWidth)
             break;
 
         if (newLineTop >= floatLogicalBottom)

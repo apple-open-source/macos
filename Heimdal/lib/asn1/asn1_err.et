@@ -27,4 +27,5 @@ error_code INDEF_UNDERRUN,   	"ASN.1 BER indefinte encoding underun"
 error_code GOT_BER,		"ASN.1 got BER encoded when expected DER"
 error_code INDEF_EXTRA_DATA,	"ASN.1 EoC tag contained data"
 error_code INVALID_CHOICE,	"ASN.1 input contains invalid CHOICE"
+error_code GOT_INDEFINITE,	"ASN.1 input is BER and BER is not supported for for this module"
 end

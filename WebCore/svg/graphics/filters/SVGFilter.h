@@ -21,22 +21,21 @@
 #ifndef SVGFilter_h
 #define SVGFilter_h
 
-#if ENABLE(FILTERS)
 #include "AffineTransform.h"
 #include "Filter.h"
 #include "FilterEffect.h"
 #include "FloatRect.h"
 #include "FloatSize.h"
 
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TypeCasts.h>
 
 namespace WebCore {
 
 class SVGFilter : public Filter {
 public:
-    static PassRefPtr<SVGFilter> create(const AffineTransform&, const FloatRect&, const FloatRect&, const FloatRect&, bool);
+    static Ref<SVGFilter> create(const AffineTransform&, const FloatRect&, const FloatRect&, const FloatRect&, bool);
 
     FloatRect filterRegionInUserSpace() const { return m_filterRegion; }
     virtual FloatRect filterRegion() const override { return m_absoluteFilterRegion; }
@@ -59,10 +58,10 @@ private:
     bool m_effectBBoxMode;
 };
 
-FILTER_TYPE_CASTS(SVGFilter, isSVGFilter())
-
 } // namespace WebCore
 
-#endif // ENABLE(FILTERS)
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::SVGFilter)
+    static bool isType(const WebCore::Filter& filter) { return filter.isSVGFilter(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // SVGFilter_h

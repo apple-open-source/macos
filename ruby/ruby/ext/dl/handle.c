@@ -1,5 +1,5 @@
 /* -*- C -*-
- * $Id: handle.c 35321 2012-04-13 23:45:37Z drbrain $
+ * $Id: handle.c 46508 2014-06-23 07:52:37Z usa $
  */
 
 #include <ruby.h>
@@ -38,6 +38,7 @@ dlhandle_free(void *ptr)
     if( dlhandle->ptr && dlhandle->open && dlhandle->enable_close ){
 	dlclose(dlhandle->ptr);
     }
+    xfree(ptr);
 }
 
 static size_t

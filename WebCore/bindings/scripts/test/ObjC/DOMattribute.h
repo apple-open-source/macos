@@ -28,7 +28,7 @@
 
 @class NSString;
 
-WEBKIT_CLASS_AVAILABLE_MAC(TBD)
-@interface DOMattribute : DOMObject
+WEBKIT_CLASS_AVAILABLE_MAC(9876_5)
+WEBCORE_EXPORT @interface DOMattribute : DOMObject
 @property (readonly, copy) NSString *readonly;
 @end

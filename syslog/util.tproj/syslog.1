@@ -62,7 +62,7 @@ key val
 .Fl x Ar file Ar expression
 .D1 ""
 .Nm
-.Fl c Ar process Op filter
+.Fl c Ar process Op mask
 .D1 ""
 .Nm 
 .Fl config Op options
@@ -717,15 +717,15 @@ time sending messages that are in most cases unnecessary.
 The
 .Fl c
 option may be used to control filtering.
-In addition to the internal filter value that processes may set as described above,
+In addition to the internal filter mask value that processes may set as described above,
 the system maintains a global 
 .Dq master
-filter.
+filter mask.
 This filter is normally 
 .Dq off , 
 meaning that it has no effect.
-If a value is set for the master filter, it overrides the local filter for all processes. 
-Root user access is required to set the master filter value.
+If a value is set for the master filter mask, it overrides the local filter mask for all processes.
+Root user access is required to set the master filter mask value.
 .Pp
 The current setting of the master filter mask may be inspected using:
 .Pp
@@ -739,11 +739,11 @@ These correspond to the priority levels Emergency (Panic), Alert, Critical, Erro
 The character 
 .Dq x
 may be used for Error, as it is used for sending messages.
-The master filter may be unset with:
+The master filter mask may be deactivated with:
 .Pp
 .Dl syslog -c 0 off
 .Pp
-Since it is common to use the filter as a 
+Since it is common to use the filter mask as a
 .Dq cutoff
 mechanism, for example to cut off messages with Debug and Info priority,
 a single character from the list above may be specified, preceded by a minus sign.
@@ -752,11 +752,11 @@ In this case,
 uses a filter mask starting at level 0 (Emergency)
 .Dq up to
 the given level.
-For example, to set the master filter level to cause all processes to log messages from Emergency up to Debug:
+For example, to set the master filter mask to cause all processes to log messages from Emergency up to Debug:
 .Pp
 .Dl syslog -c 0 -d
 .Pp
-While the master filter level may be set to control the messages produced by all processes,
+While the master filter mask may be set to control the messages produced by all processes,
 another filter mask may be specified for an individual process. 
 If a per-process filter mask is set, it overrides both the local filter mask and the master filter mask.
 The current setting for a per-process filter mask may be inspected using

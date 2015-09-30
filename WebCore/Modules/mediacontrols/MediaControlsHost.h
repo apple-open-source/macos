@@ -36,6 +36,8 @@
 
 namespace WebCore {
 
+class AudioTrack;
+class AudioTrackList;
 class Element;
 class HTMLMediaElement;
 class MediaControlTextTrackContainerElement;
@@ -44,7 +46,7 @@ class TextTrackList;
 
 class MediaControlsHost : public RefCounted<MediaControlsHost> {
 public:
-    static PassRefPtr<MediaControlsHost> create(HTMLMediaElement*);
+    static Ref<MediaControlsHost> create(HTMLMediaElement*);
     ~MediaControlsHost();
 
     static const AtomicString& automaticKeyword();
@@ -52,14 +54,16 @@ public:
     static const AtomicString& alwaysOnKeyword();
 
     Vector<RefPtr<TextTrack>> sortedTrackListForMenu(TextTrackList*);
+    Vector<RefPtr<AudioTrack>> sortedTrackListForMenu(AudioTrackList*);
     String displayNameForTrack(TextTrack*);
+    String displayNameForTrack(AudioTrack*);
     TextTrack* captionMenuOffItem();
     TextTrack* captionMenuAutomaticItem();
     AtomicString captionDisplayMode();
     void setSelectedTextTrack(TextTrack*);
     Element* textTrackContainer();
     void updateTextTrackContainer();
-    bool mediaPlaybackAllowsInline() const;
+    bool allowsInlineMediaPlayback() const;
     bool supportsFullscreen();
     bool userGestureRequired() const;
 
@@ -72,6 +76,8 @@ public:
 
     bool controlsDependOnPageScaleFactor() const;
     void setControlsDependOnPageScaleFactor(bool v);
+
+    String generateUUID() const;
 
 private:
     MediaControlsHost(HTMLMediaElement*);

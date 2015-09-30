@@ -1,4 +1,4 @@
-#	$OpenBSD: sshd_config,v 1.89 2013/02/06 00:20:42 dtucker Exp $
+#	$OpenBSD: sshd_config,v 1.95 2015/04/27 21:42:48 djm Exp $
 
 # This is the sshd server system-wide configuration file.  See
 # sshd_config(5) for more information.
@@ -25,10 +25,14 @@
 #HostKey /etc/ssh/ssh_host_rsa_key
 #HostKey /etc/ssh/ssh_host_dsa_key
 #HostKey /etc/ssh/ssh_host_ecdsa_key
+#HostKey /etc/ssh/ssh_host_ed25519_key
 
 # Lifetime and size of ephemeral version 1 server key
 #KeyRegenerationInterval 1h
 #ServerKeyBits 1024
+
+# Ciphers and keying
+#RekeyLimit default none
 
 # Logging
 # obsoletes QuietMode and FascistLogging
@@ -38,7 +42,7 @@ SyslogFacility AUTHPRIV
 # Authentication:
 
 #LoginGraceTime 2m
-#PermitRootLogin yes
+#PermitRootLogin no
 #StrictModes yes
 #MaxAuthTries 6
 #MaxSessions 10
@@ -77,6 +81,7 @@ AuthorizedKeysFile	.ssh/authorized_keys
 #KerberosAuthentication no
 #KerberosOrLocalPasswd yes
 #KerberosTicketCleanup yes
+#KerberosGetAFSToken no
 
 # GSSAPI options
 #GSSAPIAuthentication no
@@ -84,8 +89,8 @@ AuthorizedKeysFile	.ssh/authorized_keys
 #GSSAPIStrictAcceptorCheck yes
 #GSSAPIKeyExchange no
 
-# Set this to 'yes' to enable PAM authentication, account processing, 
-# and session processing. If this is enabled, PAM authentication will 
+# Set this to 'yes' to enable PAM authentication, account processing,
+# and session processing. If this is enabled, PAM authentication will
 # be allowed through the ChallengeResponseAuthentication and
 # PasswordAuthentication.  Depending on your PAM configuration,
 # PAM authentication via ChallengeResponseAuthentication may bypass
@@ -105,6 +110,7 @@ AuthorizedKeysFile	.ssh/authorized_keys
 #XauthLocation xauth # Default is to search $PATH (set by launchd(8)).  It is recommended that a full path be provided.
 #X11DisplayOffset 10
 #X11UseLocalhost yes
+#PermitTTY yes
 #PrintMotd yes
 #PrintLastLog yes
 #TCPKeepAlive yes
@@ -114,7 +120,7 @@ UsePrivilegeSeparation sandbox		# Default for new installations.
 #Compression delayed
 #ClientAliveInterval 0
 #ClientAliveCountMax 3
-#UseDNS yes
+#UseDNS no
 #PidFile /var/run/sshd.pid
 #MaxStartups 10:30:100
 #PermitTunnel no
@@ -134,4 +140,5 @@ Subsystem	sftp	/usr/libexec/sftp-server
 #Match User anoncvs
 #	X11Forwarding no
 #	AllowTcpForwarding no
+#	PermitTTY no
 #	ForceCommand cvs server

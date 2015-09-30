@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/root.xml
@@ -11,63 +11,6 @@
  */
 root{
     AuxExemplarCharacters{"[]"}
-    CurrenciesNarrow{
-        ARS{"$"}
-        AUD{"$"}
-        BBD{"$"}
-        BDT{"৳"}
-        BMD{"$"}
-        BND{"$"}
-        BRL{"R$"}
-        BSD{"$"}
-        BYR{"р."}
-        BZD{"$"}
-        CAD{"$"}
-        CLP{"$"}
-        CNY{"¥"}
-        COP{"$"}
-        CRC{"₡"}
-        CUP{"$"}
-        DOP{"$"}
-        ESP{"₧"}
-        EUR{"€"}
-        FJD{"$"}
-        GBP{"£"}
-        GHS{"₵"}
-        GIP{"£"}
-        GYD{"$"}
-        HKD{"$"}
-        ILS{"₪"}
-        INR{"₹"}
-        JMD{"$"}
-        JPY{"¥"}
-        KHR{"៛"}
-        KRW{"₩"}
-        KYD{"$"}
-        KZT{"₸"}
-        LAK{"₭"}
-        LRD{"$"}
-        MNT{"₮"}
-        MXN{"$"}
-        NAD{"$"}
-        NGN{"₦"}
-        NZD{"$"}
-        PHP{"₱"}
-        PYG{"₲"}
-        RUR{"р."}
-        SBD{"$"}
-        SGD{"$"}
-        SRD{"$"}
-        SSP{"£"}
-        THB{"฿"}
-        TRY{"₺"}
-        TTD{"$"}
-        TWD{"NT$"}
-        UAH{"₴"}
-        USD{"$"}
-        UYU{"$"}
-        VND{"₫"}
-    }
     Ellipsis{
         final{"{0}…"}
         initial{"…{0}"}
@@ -78,9 +21,6 @@ root{
     }
     ExemplarCharacters{"[]"}
     ExemplarCharactersPunctuation{"[\\- , ; \\: ! ? . ( ) \\[ \\] \\{ \\}]"}
-    LocaleScript{
-        "Zyyy",
-    }
     MoreInformation{"?"}
     NumberElements{
         arab{
@@ -96,6 +36,7 @@ root{
                 percentSign{"٪‏"}
                 plusSign{"‏+"}
                 superscriptingExponent{"×"}
+                timeSeparator{"٫"}
             }
         }
         arabext{
@@ -111,9 +52,95 @@ root{
                 percentSign{"٪"}
                 plusSign{"‎+‎"}
                 superscriptingExponent{"×"}
+                timeSeparator{"٫"}
+            }
+        }
+        bali{
+            symbols{
+                alias{""}
+            }
+        }
+        beng{
+            symbols{
+                alias{""}
+            }
+        }
+        brah{
+            symbols{
+                alias{""}
+            }
+        }
+        cakm{
+            symbols{
+                alias{""}
+            }
+        }
+        cham{
+            symbols{
+                alias{""}
             }
         }
         default{"latn"}
+        deva{
+            symbols{
+                alias{""}
+            }
+        }
+        fullwide{
+            symbols{
+                alias{""}
+            }
+        }
+        gujr{
+            symbols{
+                alias{""}
+            }
+        }
+        guru{
+            symbols{
+                alias{""}
+            }
+        }
+        hanidec{
+            symbols{
+                alias{""}
+            }
+        }
+        java{
+            symbols{
+                alias{""}
+            }
+        }
+        kali{
+            symbols{
+                alias{""}
+            }
+        }
+        khmr{
+            symbols{
+                alias{""}
+            }
+        }
+        knda{
+            symbols{
+                alias{""}
+            }
+        }
+        lana{
+            symbols{
+                alias{""}
+            }
+        }
+        lanatham{
+            symbols{
+                alias{""}
+            }
+        }
+        laoo{
+            symbols{
+                alias{""}
+            }
+        }
         latn{
             miscPatterns{
                 atLeast{"⩾{0}"}
@@ -178,11 +205,123 @@ root{
                 percentSign{"%"}
                 plusSign{"+"}
                 superscriptingExponent{"×"}
+                timeSeparator{":"}
+            }
+        }
+        lepc{
+            symbols{
+                alias{""}
+            }
+        }
+        limb{
+            symbols{
+                alias{""}
+            }
+        }
+        minimumGroupingDigits{"1"}
+        mlym{
+            symbols{
+                alias{""}
+            }
+        }
+        mong{
+            symbols{
+                alias{""}
+            }
+        }
+        mtei{
+            symbols{
+                alias{""}
+            }
+        }
+        mymr{
+            symbols{
+                alias{""}
+            }
+        }
+        mymrshan{
+            symbols{
+                alias{""}
             }
         }
         native{"latn"}
+        nkoo{
+            symbols{
+                alias{""}
+            }
+        }
+        olck{
+            symbols{
+                alias{""}
+            }
+        }
+        orya{
+            symbols{
+                alias{""}
+            }
+        }
+        osma{
+            symbols{
+                alias{""}
+            }
+        }
+        saur{
+            symbols{
+                alias{""}
+            }
+        }
+        shrd{
+            symbols{
+                alias{""}
+            }
+        }
+        sora{
+            symbols{
+                alias{""}
+            }
+        }
+        sund{
+            symbols{
+                alias{""}
+            }
+        }
+        takr{
+            symbols{
+                alias{""}
+            }
+        }
+        talu{
+            symbols{
+                alias{""}
+            }
+        }
+        tamldec{
+            symbols{
+                alias{""}
+            }
+        }
+        telu{
+            symbols{
+                alias{""}
+            }
+        }
+        thai{
+            symbols{
+                alias{""}
+            }
+        }
+        tibt{
+            symbols{
+                alias{""}
+            }
+        }
+        vaii{
+            symbols{
+                alias{""}
+            }
+        }
     }
-    Version{"2.0.97.37"}
+    Version{"2.1.12.90"}
     calendar{
         buddhist{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
@@ -238,6 +377,7 @@ root{
                 Year{"{1} {0}"}
             }
             availableFormats{
+                E{"ccc"}
                 Ed{"d, E"}
                 Gy{"r U"}
                 GyMMM{"r(U) MMM"}
@@ -254,8 +394,8 @@ root{
                 Md{"MM-dd"}
                 UM{"U MM"}
                 UMMM{"U MMM"}
-                UMd{"U MM-d"}
                 UMMMd{"U MMM d"}
+                UMd{"U MM-d"}
                 d{"d"}
                 h{"h a"}
                 hm{"h:mm a"}
@@ -296,6 +436,44 @@ root{
                 }
                 days:alias{"/LOCALE/calendar/chinese/cyclicNameSets/years"}
                 months:alias{"/LOCALE/calendar/chinese/cyclicNameSets/years"}
+                solarTerms{
+                    format{
+                        abbreviated{
+                            "spring begins",
+                            "rain water",
+                            "insects awaken",
+                            "spring equinox",
+                            "bright and clear",
+                            "grain rain",
+                            "summer begins",
+                            "grain full",
+                            "grain in ear",
+                            "summer solstice",
+                            "minor heat",
+                            "major heat",
+                            "autumn begins",
+                            "end of heat",
+                            "white dew",
+                            "autumn equinox",
+                            "cold dew",
+                            "frost descends",
+                            "winter begins",
+                            "minor snow",
+                            "major snow",
+                            "winter solstice",
+                            "minor cold",
+                            "major cold",
+                        }
+                        narrow:alias{
+                            "/LOCALE/calendar/chinese/cyclicNameSets/solarTerms/format/abbreviate"
+                            "d"
+                        }
+                        wide:alias{
+                            "/LOCALE/calendar/chinese/cyclicNameSets/solarTerms/format/abbreviate"
+                            "d"
+                        }
+                    }
+                }
                 years{
                     format{
                         abbreviated{
@@ -719,6 +897,7 @@ root{
                 Year{"{1} {0}"}
             }
             availableFormats{
+                E{"ccc"}
                 EHm{"E HH:mm"}
                 EHms{"E HH:mm:ss"}
                 Ed{"d, E"}
@@ -937,6 +1116,7 @@ root{
                 Year{"{1} {0}"}
             }
             availableFormats{
+                E{"ccc"}
                 EHm{"E HH:mm"}
                 EHms{"E HH:mm:ss"}
                 Ed{"d, E"}
@@ -949,6 +1129,8 @@ root{
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
                 M{"L"}
                 MEd{"MM-dd, E"}
                 MMM{"LLL"}
@@ -959,6 +1141,8 @@ root{
                 h{"h a"}
                 hm{"h:mm a"}
                 hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"y-MM"}
@@ -1985,11 +2169,6 @@ root{
         quotationEnd{"”"}
         quotationStart{"“"}
     }
-    durationUnits{
-        hm{"h:mm"}
-        hms{"h:mm:ss"}
-        ms{"m:ss"}
-    }
     fields{
         day{
             dn{"Day"}
@@ -2007,6 +2186,8 @@ root{
                 }
             }
         }
+        day-narrow:alias{"/LOCALE/fields/day-short"}
+        day-short:alias{"/LOCALE/fields/day"}
         dayperiod{
             dn{"Dayperiod"}
         }
@@ -2020,6 +2201,8 @@ root{
                 "1"{"next Friday"}
             }
         }
+        fri-narrow:alias{"/LOCALE/fields/fri-short"}
+        fri-short:alias{"/LOCALE/fields/fri"}
         hour{
             dn{"Hour"}
             relativeTime{
@@ -2031,6 +2214,8 @@ root{
                 }
             }
         }
+        hour-narrow:alias{"/LOCALE/fields/hour-short"}
+        hour-short:alias{"/LOCALE/fields/hour"}
         minute{
             dn{"Minute"}
             relativeTime{
@@ -2042,6 +2227,8 @@ root{
                 }
             }
         }
+        minute-narrow:alias{"/LOCALE/fields/minute-short"}
+        minute-short:alias{"/LOCALE/fields/minute"}
         mon{
             relative{
                 "-1"{"last Monday"}
@@ -2049,6 +2236,8 @@ root{
                 "1"{"next Monday"}
             }
         }
+        mon-narrow:alias{"/LOCALE/fields/mon-short"}
+        mon-short:alias{"/LOCALE/fields/mon"}
         month{
             dn{"Month"}
             relative{
@@ -2065,6 +2254,26 @@ root{
                 }
             }
         }
+        month-narrow:alias{"/LOCALE/fields/month-short"}
+        month-short:alias{"/LOCALE/fields/month"}
+        quarter{
+            dn{"Quarter"}
+            relative{
+                "-1"{"last quarter"}
+                "0"{"this quarter"}
+                "1"{"next quarter"}
+            }
+            relativeTime{
+                future{
+                    other{"+{0} Q"}
+                }
+                past{
+                    other{"-{0} Q"}
+                }
+            }
+        }
+        quarter-narrow:alias{"/LOCALE/fields/quarter-short"}
+        quarter-short:alias{"/LOCALE/fields/quarter"}
         sat{
             relative{
                 "-1"{"last Saturday"}
@@ -2072,6 +2281,8 @@ root{
                 "1"{"next Saturday"}
             }
         }
+        sat-narrow:alias{"/LOCALE/fields/sat-short"}
+        sat-short:alias{"/LOCALE/fields/sat"}
         second{
             dn{"Second"}
             relative{
@@ -2086,6 +2297,8 @@ root{
                 }
             }
         }
+        second-narrow:alias{"/LOCALE/fields/second-short"}
+        second-short:alias{"/LOCALE/fields/second"}
         sun{
             relative{
                 "-1"{"last Sunday"}
@@ -2093,6 +2306,8 @@ root{
                 "1"{"next Sunday"}
             }
         }
+        sun-narrow:alias{"/LOCALE/fields/sun-short"}
+        sun-short:alias{"/LOCALE/fields/sun"}
         thu{
             relative{
                 "-1"{"last Thursday"}
@@ -2100,6 +2315,8 @@ root{
                 "1"{"next Thursday"}
             }
         }
+        thu-narrow:alias{"/LOCALE/fields/thu-short"}
+        thu-short:alias{"/LOCALE/fields/thu"}
         tue{
             relative{
                 "-1"{"last Tuesday"}
@@ -2107,6 +2324,8 @@ root{
                 "1"{"next Tuesday"}
             }
         }
+        tue-narrow:alias{"/LOCALE/fields/tue-short"}
+        tue-short:alias{"/LOCALE/fields/tue"}
         wed{
             relative{
                 "-1"{"last Wednesday"}
@@ -2114,6 +2333,8 @@ root{
                 "1"{"next Wednesday"}
             }
         }
+        wed-narrow:alias{"/LOCALE/fields/wed-short"}
+        wed-short:alias{"/LOCALE/fields/wed"}
         week{
             dn{"Week"}
             relative{
@@ -2130,6 +2351,8 @@ root{
                 }
             }
         }
+        week-narrow:alias{"/LOCALE/fields/week-short"}
+        week-short:alias{"/LOCALE/fields/week"}
         weekday{
             dn{"Day of the Week"}
         }
@@ -2149,6 +2372,8 @@ root{
                 }
             }
         }
+        year-narrow:alias{"/LOCALE/fields/year-short"}
+        year-short:alias{"/LOCALE/fields/year"}
         zone{
             dn{"Zone"}
         }
@@ -2187,191 +2412,5 @@ root{
         UK{"UK"}
         US{"US"}
         metric{"Metric"}
-    }
-    units:alias{"/LOCALE/unitsShort"}
-    unitsShort{
-        acceleration{
-            g-force{
-                other{"{0} G"}
-            }
-        }
-        angle{
-            arc-minute{
-                other{"{0}′"}
-            }
-            arc-second{
-                other{"{0}″"}
-            }
-            degree{
-                other{"{0}°"}
-            }
-        }
-        area{
-            acre{
-                other{"{0} ac"}
-            }
-            hectare{
-                other{"{0} ha"}
-            }
-            square-foot{
-                other{"{0} ft²"}
-            }
-            square-kilometer{
-                other{"{0} km²"}
-            }
-            square-meter{
-                other{"{0} m²"}
-            }
-            square-mile{
-                other{"{0} mi²"}
-            }
-        }
-        compound{
-            per{"{0}/{1}"}
-        }
-        duration{
-            day{
-                other{"{0} d"}
-            }
-            hour{
-                other{"{0} h"}
-            }
-            millisecond{
-                other{"{0} ms"}
-            }
-            minute{
-                other{"{0} min"}
-            }
-            month{
-                other{"{0} m"}
-            }
-            second{
-                other{"{0} s"}
-            }
-            week{
-                other{"{0} w"}
-            }
-            year{
-                other{"{0} y"}
-            }
-        }
-        energy{
-            calorie{
-                other{"{0} cal"}
-            }
-            foodcalorie{
-                other{"{0} kcal"}
-            }
-            joule{
-                other{"{0} J"}
-            }
-            kilocalorie{
-                other{"{0} kcal"}
-            }
-            kilojoule{
-                other{"{0} kJ"}
-            }
-        }
-        length{
-            centimeter{
-                other{"{0} cm"}
-            }
-            foot{
-                other{"{0} ft"}
-            }
-            inch{
-                other{"{0} in"}
-            }
-            kilometer{
-                other{"{0} km"}
-            }
-            light-year{
-                other{"{0} ly"}
-            }
-            meter{
-                other{"{0} m"}
-            }
-            mile{
-                other{"{0} mi"}
-            }
-            millimeter{
-                other{"{0} mm"}
-            }
-            picometer{
-                other{"{0} pm"}
-            }
-            yard{
-                other{"{0} yd"}
-            }
-        }
-        mass{
-            gram{
-                other{"{0} g"}
-            }
-            kilogram{
-                other{"{0} kg"}
-            }
-            ounce{
-                other{"{0} oz"}
-            }
-            pound{
-                other{"{0} lb"}
-            }
-            stone{
-                other{"{0} st"}
-            }
-        }
-        power{
-            horsepower{
-                other{"{0} hp"}
-            }
-            kilowatt{
-                other{"{0} kW"}
-            }
-            watt{
-                other{"{0} W"}
-            }
-        }
-        pressure{
-            hectopascal{
-                other{"{0} hPa"}
-            }
-            inch-hg{
-                other{"{0} inHg"}
-            }
-            millibar{
-                other{"{0} mbar"}
-            }
-        }
-        speed{
-            kilometer-per-hour{
-                other{"{0} km/h"}
-            }
-            meter-per-second{
-                other{"{0} m/s"}
-            }
-            mile-per-hour{
-                other{"{0} mi/h"}
-            }
-        }
-        temperature{
-            celsius{
-                other{"{0}°C"}
-            }
-            fahrenheit{
-                other{"{0}°F"}
-            }
-        }
-        volume{
-            cubic-kilometer{
-                other{"{0} km³"}
-            }
-            cubic-mile{
-                other{"{0} mi³"}
-            }
-            liter{
-                other{"{0} l"}
-            }
-        }
     }
 }

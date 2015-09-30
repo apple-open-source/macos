@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,6 +41,8 @@ BasicBlock::BasicBlock(
     , cfaShouldRevisit(false)
     , cfaFoundConstants(false)
     , cfaDidFinish(true)
+    , cfaStructureClobberStateAtHead(StructuresAreWatched)
+    , cfaStructureClobberStateAtTail(StructuresAreWatched)
     , cfaBranchDirection(InvalidBranchDirection)
 #if !ASSERT_DISABLED
     , isLinked(false)
@@ -50,11 +52,15 @@ BasicBlock::BasicBlock(
     , variablesAtTail(numArguments, numLocals)
     , valuesAtHead(numArguments, numLocals)
     , valuesAtTail(numArguments, numLocals)
+    , intersectionOfPastValuesAtHead(numArguments, numLocals, AbstractValue::fullTop())
+    , intersectionOfCFAHasVisited(true)
     , executionCount(executionCount)
 {
 }
 
-BasicBlock::~BasicBlock() { }
+BasicBlock::~BasicBlock()
+{
+}
 
 void BasicBlock::ensureLocals(unsigned newNumLocals)
 {
@@ -62,6 +68,20 @@ void BasicBlock::ensureLocals(unsigned newNumLocals)
     variablesAtTail.ensureLocals(newNumLocals);
     valuesAtHead.ensureLocals(newNumLocals);
     valuesAtTail.ensureLocals(newNumLocals);
+    intersectionOfPastValuesAtHead.ensureLocals(newNumLocals, AbstractValue::fullTop());
+}
+
+void BasicBlock::replaceTerminal(Node* node)
+{
+    NodeAndIndex result = findTerminal();
+    if (!result)
+        append(node);
+    else {
+        m_nodes.insert(result.index + 1, node);
+        result.node->remove();
+    }
+    
+    ASSERT(terminal());
 }
 
 bool BasicBlock::isInPhis(Node* node) const
@@ -80,6 +100,21 @@ bool BasicBlock::isInBlock(Node* myNode) const
             return true;
     }
     return false;
+}
+
+Node* BasicBlock::firstOriginNode()
+{
+    for (Node* node : *this) {
+        if (node->origin.isSet())
+            return node;
+    }
+    RELEASE_ASSERT_NOT_REACHED();
+    return nullptr;
+}
+
+NodeOrigin BasicBlock::firstOrigin()
+{
+    return firstOriginNode()->origin;
 }
 
 void BasicBlock::removePredecessor(BasicBlock* block)
@@ -111,9 +146,9 @@ void BasicBlock::dump(PrintStream& out) const
 }
 
 BasicBlock::SSAData::SSAData(BasicBlock* block)
-    : availabilityAtHead(OperandsLike, block->variablesAtHead)
-    , availabilityAtTail(OperandsLike, block->variablesAtHead)
 {
+    availabilityAtHead.m_locals = Operands<Availability>(OperandsLike, block->variablesAtHead);
+    availabilityAtTail.m_locals = Operands<Availability>(OperandsLike, block->variablesAtHead);
 }
 
 BasicBlock::SSAData::~SSAData() { }

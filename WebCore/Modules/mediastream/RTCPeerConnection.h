@@ -60,7 +60,7 @@ class VoidCallback;
 
 class RTCPeerConnection final : public RefCounted<RTCPeerConnection>, public ScriptWrappable, public RTCPeerConnectionHandlerClient, public EventTargetWithInlineData, public ActiveDOMObject, public MediaStream::Observer {
 public:
-    static PassRefPtr<RTCPeerConnection> create(ScriptExecutionContext&, const Dictionary& rtcConfiguration, ExceptionCode&);
+    static RefPtr<RTCPeerConnection> create(ScriptExecutionContext&, const Dictionary& rtcConfiguration, ExceptionCode&);
     ~RTCPeerConnection();
 
     void createOffer(PassRefPtr<RTCSessionDescriptionCallback>, PassRefPtr<RTCPeerConnectionErrorCallback>, const Dictionary& offerOptions, ExceptionCode&);
@@ -103,14 +103,6 @@ public:
 
     void close(ExceptionCode&);
 
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(negotiationneeded);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(icecandidate);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(signalingstatechange);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(addstream);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(removestream);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(iceconnectionstatechange);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(datachannel);
-
     // RTCPeerConnectionHandlerClient
     virtual void negotiationNeeded() override;
     virtual void didGenerateIceCandidate(PassRefPtr<RTCIceCandidateDescriptor>) override;
@@ -125,9 +117,6 @@ public:
     virtual EventTargetInterface eventTargetInterface() const override { return RTCPeerConnectionEventTargetInterfaceType; }
     virtual ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
 
-    // ActiveDOMObject
-    virtual void stop() override;
-
     // MediaStream::Observer
     virtual void didAddOrRemoveTrack() override;
 
@@ -137,14 +126,19 @@ public:
 private:
     RTCPeerConnection(ScriptExecutionContext&, PassRefPtr<RTCConfiguration>, ExceptionCode&);
 
-    static PassRefPtr<RTCConfiguration> parseConfiguration(const Dictionary& configuration, ExceptionCode&);
+    static RefPtr<RTCConfiguration> parseConfiguration(const Dictionary& configuration, ExceptionCode&);
     void scheduleDispatchEvent(PassRefPtr<Event>);
-    void scheduledEventTimerFired(Timer*);
+    void scheduledEventTimerFired();
     bool hasLocalStreamWithTrackId(const String& trackId);
 
     // EventTarget implementation.
     virtual void refEventTarget() override { ref(); }
     virtual void derefEventTarget() override { deref(); }
+
+    // ActiveDOMObject
+    void stop() override;
+    const char* activeDOMObjectName() const override;
+    bool canSuspendForPageCache() const override;
 
     void changeSignalingState(SignalingState);
     void changeIceGatheringState(IceGatheringState);

@@ -46,7 +46,7 @@ class StorageNamespaceImpl;
 
 class StorageAreaMap : public RefCounted<StorageAreaMap>, private IPC::MessageReceiver {
 public:
-    static PassRefPtr<StorageAreaMap> create(StorageNamespaceImpl*, PassRefPtr<WebCore::SecurityOrigin>);
+    static Ref<StorageAreaMap> create(StorageNamespaceImpl*, Ref<WebCore::SecurityOrigin>&&);
     ~StorageAreaMap();
 
     WebCore::StorageType storageType() const { return m_storageType; }
@@ -59,11 +59,13 @@ public:
     void clear(WebCore::Frame* sourceFrame, StorageAreaImpl* sourceArea);
     bool contains(const String& key);
 
+    WebCore::SecurityOrigin& securityOrigin() { return m_securityOrigin.get(); }
+
 private:
-    StorageAreaMap(StorageNamespaceImpl*, PassRefPtr<WebCore::SecurityOrigin>);
+    StorageAreaMap(StorageNamespaceImpl*, Ref<WebCore::SecurityOrigin>&&);
 
     // IPC::MessageReceiver
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
     void didGetValues(uint64_t storageMapSeed);
     void didSetItem(uint64_t storageMapSeed, const String& key, bool quotaError);
@@ -82,12 +84,14 @@ private:
     void dispatchSessionStorageEvent(uint64_t sourceStorageAreaID, const String& key, const String& oldValue, const String& newValue, const String& urlString);
     void dispatchLocalStorageEvent(uint64_t sourceStorageAreaID, const String& key, const String& oldValue, const String& newValue, const String& urlString);
 
+    Ref<StorageNamespaceImpl> m_storageNamespace;
+
     uint64_t m_storageMapID;
 
     WebCore::StorageType m_storageType;
     uint64_t m_storageNamespaceID;
     unsigned m_quotaInBytes;
-    RefPtr<WebCore::SecurityOrigin> m_securityOrigin;
+    Ref<WebCore::SecurityOrigin> m_securityOrigin;
 
     RefPtr<WebCore::StorageMap> m_storageMap;
 

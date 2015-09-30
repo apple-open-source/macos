@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -133,12 +133,20 @@ public:
     LValue bitOr(LValue left, LValue right) { return buildOr(m_builder, left, right); }
     LValue bitXor(LValue left, LValue right) { return buildXor(m_builder, left, right); }
     LValue shl(LValue left, LValue right) { return buildShl(m_builder, left, right); }
-    LValue aShr(LValue left, LValue right) { return buildAShr(m_builder, left, right); }
-    LValue lShr(LValue left, LValue right) { return buildLShr(m_builder, left, right); }
+    LValue aShr(LValue left, LValue right) { return buildAShr(m_builder, left, right); } // arithmetic = signed
+    LValue lShr(LValue left, LValue right) { return buildLShr(m_builder, left, right); } // logical = unsigned
     LValue bitNot(LValue value) { return buildNot(m_builder, value); }
     
     LValue insertElement(LValue vector, LValue element, LValue index) { return buildInsertElement(m_builder, vector, element, index); }
-    
+
+    LValue ceil64(LValue operand)
+    {
+        return call(ceil64Intrinsic(), operand);
+    }
+    LValue ctlz32(LValue xOperand, LValue yOperand)
+    {
+        return call(ctlz32Intrinsic(), xOperand, yOperand);
+    }
     LValue addWithOverflow32(LValue left, LValue right)
     {
         return call(addWithOverflow32Intrinsic(), left, right);
@@ -177,9 +185,24 @@ public:
         return call(doubleCosIntrinsic(), value);
     }
 
+    LValue doublePow(LValue xOperand, LValue yOperand)
+    {
+        return call(doublePowIntrinsic(), xOperand, yOperand);
+    }
+
+    LValue doublePowi(LValue xOperand, LValue yOperand)
+    {
+        return call(doublePowiIntrinsic(), xOperand, yOperand);
+    }
+
     LValue doubleSqrt(LValue value)
     {
         return call(doubleSqrtIntrinsic(), value);
+    }
+
+    LValue doubleLog(LValue value)
+    {
+        return call(doubleLogIntrinsic(), value);
     }
 
     static bool hasSensibleDoubleToInt() { return isX86(); }
@@ -187,6 +210,7 @@ public:
     
     LValue signExt(LValue value, LType type) { return buildSExt(m_builder, value, type); }
     LValue zeroExt(LValue value, LType type) { return buildZExt(m_builder, value, type); }
+    LValue zeroExtPtr(LValue value) { return zeroExt(value, intPtr); }
     LValue fpToInt(LValue value, LType type) { return buildFPToSI(m_builder, value, type); }
     LValue fpToUInt(LValue value, LType type) { return buildFPToUI(m_builder, value, type); }
     LValue fpToInt32(LValue value) { return fpToInt(value, int32); }
@@ -202,6 +226,8 @@ public:
     LValue ptrToInt(LValue value, LType type) { return buildPtrToInt(m_builder, value, type); }
     LValue bitCast(LValue value, LType type) { return buildBitCast(m_builder, value, type); }
     
+    // Hilariously, the #define machinery in the stdlib means that this method is actually called
+    // __builtin_alloca. So far this appears benign. :-|
     LValue alloca(LType type) { return buildAlloca(m_builder, type); }
     
     // Access the value of an alloca. Also used as a low-level implementation primitive for
@@ -347,13 +373,8 @@ public:
     LValue call(LValue function, const VectorType& vector) { return buildCall(m_builder, function, vector); }
     LValue call(LValue function) { return buildCall(m_builder, function); }
     LValue call(LValue function, LValue arg1) { return buildCall(m_builder, function, arg1); }
-    LValue call(LValue function, LValue arg1, LValue arg2) { return buildCall(m_builder, function, arg1, arg2); }
-    LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3) { return buildCall(m_builder, function, arg1, arg2, arg3); }
-    LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4) { return buildCall(m_builder, function, arg1, arg2, arg3, arg4); }
-    LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4, LValue arg5) { return buildCall(m_builder, function, arg1, arg2, arg3, arg4, arg5); }
-    LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4, LValue arg5, LValue arg6) { return buildCall(m_builder, function, arg1, arg2, arg3, arg4, arg5, arg6); }
-    LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4, LValue arg5, LValue arg6, LValue arg7) { return buildCall(m_builder, function, arg1, arg2, arg3, arg4, arg5, arg6, arg7); }
-    LValue call(LValue function, LValue arg1, LValue arg2, LValue arg3, LValue arg4, LValue arg5, LValue arg6, LValue arg7, LValue arg8) { return buildCall(m_builder, function, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8); }
+    template<typename... Args>
+    LValue call(LValue function, LValue arg1, Args... args) { return buildCall(m_builder, function, arg1, args...); }
     
     template<typename FunctionType>
     LValue operation(FunctionType function)
@@ -367,6 +388,13 @@ public:
     {
         branch(condition, taken.target(), taken.weight(), notTaken.target(), notTaken.weight());
     }
+
+    // Branches to an already-created handler if true, "falls through" if false. Fall-through is
+    // simulated by creating a continuation for you.
+    void check(LValue condition, WeightedTarget taken, Weight notTakenWeight);
+    
+    // Same as check(), but uses Weight::inverse() to compute the notTakenWeight.
+    void check(LValue condition, WeightedTarget taken);
     
     template<typename VectorType>
     void switchInstruction(LValue value, const VectorType& cases, LBasicBlock fallThrough, Weight fallThroughWeight)
@@ -399,14 +427,6 @@ public:
     void trap()
     {
         call(trapIntrinsic());
-    }
-    
-    void crashNonTerminal();
-
-    void crash()
-    {
-        crashNonTerminal();
-        unreachable();
     }
     
     ValueFromBlock anchor(LValue value)

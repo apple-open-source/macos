@@ -35,8 +35,8 @@ namespace WebCore {
 struct CoordinatedGraphicsLayerState;
 struct CoordinatedGraphicsState;
 class FloatPoint3D;
-class GraphicsLayerAnimation;
-class GraphicsLayerAnimations;
+class TextureMapperAnimation;
+class TextureMapperAnimations;
 class SurfaceUpdateInfo;
 struct TileCreationInfo;
 struct TileUpdateInfo;
@@ -44,9 +44,7 @@ class TransformationMatrix;
 class TransformOperations;
 struct Length;
 
-#if ENABLE(CSS_FILTERS)
 class FilterOperations;
-#endif
 
 #if USE(GRAPHICS_SURFACE)
 struct GraphicsSurfaceToken;
@@ -55,26 +53,24 @@ struct GraphicsSurfaceToken;
 
 namespace IPC {
 
-#if ENABLE(CSS_FILTERS)
 template<> struct ArgumentCoder<WebCore::FilterOperations> {
     static void encode(ArgumentEncoder&, const WebCore::FilterOperations&);
     static bool decode(ArgumentDecoder&, WebCore::FilterOperations&);
 };
-#endif
 
 template<> struct ArgumentCoder<WebCore::TransformOperations> {
     static void encode(ArgumentEncoder&, const WebCore::TransformOperations&);
     static bool decode(ArgumentDecoder&, WebCore::TransformOperations&);
 };
 
-template<> struct ArgumentCoder<WebCore::GraphicsLayerAnimations> {
-    static void encode(ArgumentEncoder&, const WebCore::GraphicsLayerAnimations&);
-    static bool decode(ArgumentDecoder&, WebCore::GraphicsLayerAnimations&);
+template<> struct ArgumentCoder<WebCore::TextureMapperAnimations> {
+    static void encode(ArgumentEncoder&, const WebCore::TextureMapperAnimations&);
+    static bool decode(ArgumentDecoder&, WebCore::TextureMapperAnimations&);
 };
 
-template<> struct ArgumentCoder<WebCore::GraphicsLayerAnimation> {
-    static void encode(ArgumentEncoder&, const WebCore::GraphicsLayerAnimation&);
-    static bool decode(ArgumentDecoder&, WebCore::GraphicsLayerAnimation&);
+template<> struct ArgumentCoder<WebCore::TextureMapperAnimation> {
+    static void encode(ArgumentEncoder&, const WebCore::TextureMapperAnimation&);
+    static bool decode(ArgumentDecoder&, WebCore::TextureMapperAnimation&);
 };
 
 #if USE(GRAPHICS_SURFACE)

@@ -37,7 +37,7 @@
 char *
 strstr(const char *s, const char *t)
 {
-    char *p1, *p2;
+    const char *p1, *p2;
 
     for (; *s; s++) {
         for (p1 = s, p2 = t; *p2; p1++, p2++)
@@ -443,7 +443,7 @@ zgetcwd(void)
 	ret = getcwd(cwdbuf, PATH_MAX);
 	if (ret)
 	    ret = dupstring(ret);
-	free(cwdbuf);
+	zfree(cwdbuf, PATH_MAX);
 #endif /* GETCWD_CALLS_MALLOC */
     }
 #endif /* HAVE_GETCWD */
@@ -951,3 +951,18 @@ int mk_wcswidth_cjk(const wchar_t *pwcs, size_t n)
 /**/
 #endif /* BROKEN_WCWIDTH && (__STDC_ISO_10646__ || __APPLE__) */
 
+/**/
+#if defined(__APPLE__) && defined(BROKEN_ISPRINT)
+
+/**/
+int
+isprint_ascii(int c)
+{
+    if (!strcmp(nl_langinfo(CODESET), "UTF-8"))
+	return (c >= 0x20 && c <= 0x7e);
+    else
+	return isprint(c);
+}
+
+/**/
+#endif /* __APPLE__ && BROKEN_ISPRINT */

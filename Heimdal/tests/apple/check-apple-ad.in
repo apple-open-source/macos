@@ -36,6 +36,11 @@
 env_setup="@env_setup@"
 testdir="@testdir@"
 
+if [ "$UID" != 0 ] ; then
+    echo "must run script as root since it create users"
+    exit 1
+fi
+
 R=ADS.APPLE.COM
 
 . ${env_setup}
@@ -60,6 +65,9 @@ else
     dsconfigad -add $R -force -user bind -password apple || { echo "join failed" ; exit 1; }
     killall -9 digest-service
     needed_unjoin=yes
+
+    echo "sleep some"
+    sleep 30
 fi
 
 echo "AD"
@@ -72,6 +80,33 @@ echo "hostname is: $hostname"
 defaults delete /Library/Preferences/com.apple.Kerberos kcm
 defaults write /Library/Preferences/com.apple.Kerberos kcm -dict-add disable-ntlm-reflection-detection true
 
+
+echo "getting credential for PAC test"
+echo foobar > ${testdir}/foopassword
+${kinit} --password-file=${testdir}/foopassword ktestuser@ADS.APPLE.COM || exit 1
+
+echo "testing PAC"
+env KRB5CCNAME="$cache" ${test_context} \
+    --mech=krb5 \
+    --verify-pac \
+    --name-type=krb5-principal-name \
+    "host/${hostname}.ads.apple.com@${R}" || { echo "failed to verify PAC"; exit 1; }
+
+
+echo "Running NTLM in PKINIT reply test"
+cat > ${testdir}/acquire.tmp <<EOF
+expect Password:
+send foobar\n
+EOF
+
+echo "	acquire kerberos gss creds with validation"
+${rkpty} ${testdir}/acquire.tmp \
+	${gsstool} acquire-cred \
+             --mech=krb5 --validate \
+             --server-hostname=host/${hostname}.ads.apple.com@ADS.APPLE.COM \
+             ktestuser@ADS.APPLE.COM >/dev/null || exit 1
+
+
 echo "running http tests"
 echo "	destroy all cred"
 ${gsstool} destroy --all
@@ -80,9 +115,6 @@ cat > ${testdir}/acquire.tmp <<EOF
 expect Password:
 send foobar\n
 EOF
-
-echo "	removing all creds"
-${gsstool} destroy --all || exit 1
 
 echo "	acquire ntlm creds"
 ${rkpty} ${testdir}/acquire.tmp \
@@ -126,8 +158,7 @@ ${http_client} --mech=spnego --cred-mech=krb5 --policy --client=ktestuser@ADS.AP
 echo "	check delegation (spnego w/ kerberos credentials, no delegate)"
 ${http_client} --mech=spnego --cred-mech=krb5 --client=ktestuser@ADS.APPLE.COM \
     dc03.ads.apple.com /authpage/ | grep 'ImpersonationLevel: Impersonation' > /dev/null || \
-    { echo "spnego/kerberos delgate (not) failed" ; exit 1;
-}
+    { echo "spnego/kerberos delgate (not) failed" ; exit 1; }
 
 echo "	destroy all cred"
 ${gsstool} destroy --all

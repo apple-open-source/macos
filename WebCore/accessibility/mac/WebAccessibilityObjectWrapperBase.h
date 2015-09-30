@@ -48,15 +48,17 @@ class VisiblePosition;
 - (WebCore::AccessibilityObject*)accessibilityObject;
 - (BOOL)updateObjectBackingStore;
 
-- (NSString *)accessibilityTitle;
-- (NSString *)accessibilityDescription;
-- (NSString *)accessibilityHelpText;
+// These are pre-fixed with base so that AppKit does not end up calling into these directly (bypassing safety checks).
+- (NSString *)baseAccessibilityTitle;
+- (NSString *)baseAccessibilityDescription;
+- (NSString *)baseAccessibilityHelpText;
 
 - (NSString *)ariaLandmarkRoleDescription;
 
 - (id)attachmentView;
-// Used to inform an element when a notification is posted for it. Used by DRT.
+// Used to inform an element when a notification is posted for it. Used by tests.
 - (void)accessibilityPostedNotification:(NSString *)notificationName;
+- (void)accessibilityPostedNotification:(NSString *)notificationName userInfo:(NSDictionary *)userInfo;
 
 - (CGPathRef)convertPathToScreenSpace:(WebCore::Path &)path;
 - (CGPoint)convertPointToScreenSpace:(WebCore::FloatPoint &)point;

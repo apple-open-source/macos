@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2006, 2008, 2011, 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011, 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -41,13 +41,10 @@ __SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef *v
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	CFDictionaryRef			dict;
 
-	if (_configd_trace) {
-		SCTrace(TRUE, _configd_trace,
-			CFSTR("%s : %5d : %@\n"),
-			internal ? "*copy  " : "copy   ",
-			storePrivate->server,
-			key);
-	}
+	SC_trace(_configd_trace, "%s : %5d : %@\n",
+		 internal ? "*copy  " : "copy   ",
+		 storePrivate->server,
+		 key);
 
 	dict = CFDictionaryGetValue(storeData, key);
 	if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDData) == FALSE)) {
@@ -187,13 +184,10 @@ __SCDynamicStoreCopyMultiple(SCDynamicStoreRef store, CFArrayRef keys, CFArrayRe
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	addSpecific			myContext;
 
-	if (_configd_trace) {
-		SCTrace(TRUE, _configd_trace,
-			CFSTR("copy m  : %5d : %ld keys, %ld patterns\n"),
-			storePrivate->server,
-			keys     ? CFArrayGetCount(keys)     : 0,
-			patterns ? CFArrayGetCount(patterns) : 0);
-	}
+	SC_trace(_configd_trace, "copy m  : %5d : %ld keys, %ld patterns\n",
+		 storePrivate->server,
+		 keys     ? CFArrayGetCount(keys)     : 0,
+		 patterns ? CFArrayGetCount(patterns) : 0);
 
 	myContext.store = store;
 	myContext.dict  = CFDictionaryCreateMutable(NULL,

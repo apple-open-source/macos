@@ -2,7 +2,7 @@
 
   hash.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Mon Nov 22 18:51:18 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -2416,9 +2416,12 @@ ruby_setenv(const char *name, const char *value)
 	rb_sys_fail("ruby_setenv");
     }
     if (value) {
-	const char* p = GetEnvironmentStringsA();
+	char* p = GetEnvironmentStringsA();
+	size_t n;
 	if (!p) goto fail; /* never happen */
-	if (strlen(name) + 2 + strlen(value) + getenvsize(p) >= getenvblocksize()) {
+	n = strlen(name) + 2 + strlen(value) + getenvsize(p);
+	FreeEnvironmentStringsA(p);
+	if (n >= getenvblocksize()) {
 	    goto fail;  /* 2 for '=' & '\0' */
 	}
 	buf = rb_sprintf("%s=%s", name, value);
@@ -2544,8 +2547,8 @@ env_aset(VALUE obj, VALUE nm, VALUE val)
 	env_delete(obj, nm);
 	return Qnil;
     }
-    StringValue(nm);
-    StringValue(val);
+    SafeStringValue(nm);
+    SafeStringValue(val);
     name = RSTRING_PTR(nm);
     value = RSTRING_PTR(val);
     if (memchr(name, '\0', RSTRING_LEN(nm)))
@@ -2806,24 +2809,22 @@ static VALUE
 env_select(VALUE ehash)
 {
     VALUE result;
-    char **env;
+    VALUE keys;
+    long i;
 
     RETURN_SIZED_ENUMERATOR(ehash, 0, 0, rb_env_size);
     rb_secure(4);
     result = rb_hash_new();
-    env = GET_ENVIRON(environ);
-    while (*env) {
-	char *s = strchr(*env, '=');
-	if (s) {
-	    VALUE k = env_str_new(*env, s-*env);
-	    VALUE v = env_str_new2(s+1);
-	    if (RTEST(rb_yield_values(2, k, v))) {
-		rb_hash_aset(result, k, v);
+    keys = env_keys();
+    for (i = 0; i < RARRAY_LEN(keys); ++i) {
+	VALUE key = RARRAY_PTR(keys)[i];
+	VALUE val = rb_f_getenv(Qnil, key);
+	if (!NIL_P(val)) {
+	    if (RTEST(rb_yield_values(2, key, val))) {
+		rb_hash_aset(result, key, val);
 	    }
 	}
-	env++;
     }
-    FREE_ENVIRON(environ);
 
     return result;
 }
@@ -3047,7 +3048,8 @@ env_has_key(VALUE env, VALUE key)
     char *s;
 
     rb_secure(4);
-    s = StringValuePtr(key);
+    SafeStringValue(key);
+    s = RSTRING_PTR(key);
     if (memchr(s, '\0', RSTRING_LEN(key)))
 	rb_raise(rb_eArgError, "bad environment variable name");
     if (getenv(s)) return Qtrue;
@@ -3067,7 +3069,8 @@ env_assoc(VALUE env, VALUE key)
     char *s, *e;
 
     rb_secure(4);
-    s = StringValuePtr(key);
+    SafeStringValue(key);
+    s = RSTRING_PTR(key);
     if (memchr(s, '\0', RSTRING_LEN(key)))
 	rb_raise(rb_eArgError, "bad environment variable name");
     e = getenv(s);
@@ -3090,6 +3093,7 @@ env_has_value(VALUE dmy, VALUE obj)
     rb_secure(4);
     obj = rb_check_string_type(obj);
     if (NIL_P(obj)) return Qnil;
+    rb_check_safe_obj(obj);
     env = GET_ENVIRON(environ);
     while (*env) {
 	char *s = strchr(*env, '=');
@@ -3121,6 +3125,7 @@ env_rassoc(VALUE dmy, VALUE obj)
     rb_secure(4);
     obj = rb_check_string_type(obj);
     if (NIL_P(obj)) return Qnil;
+    rb_check_safe_obj(obj);
     env = GET_ENVIRON(environ);
     while (*env) {
 	char *s = strchr(*env, '=');
@@ -3152,7 +3157,7 @@ env_key(VALUE dmy, VALUE value)
     VALUE str;
 
     rb_secure(4);
-    StringValue(value);
+    SafeStringValue(value);
     env = GET_ENVIRON(environ);
     while (*env) {
 	char *s = strchr(*env, '=');
@@ -3237,6 +3242,7 @@ static VALUE
 env_shift(void)
 {
     char **env;
+    VALUE result = Qnil;
 
     rb_secure(4);
     env = GET_ENVIRON(environ);
@@ -3246,11 +3252,11 @@ env_shift(void)
 	    VALUE key = env_str_new(*env, s-*env);
 	    VALUE val = env_str_new2(getenv(RSTRING_PTR(key)));
 	    env_delete(Qnil, key);
-	    return rb_assoc_new(key, val);
+	    result = rb_assoc_new(key, val);
 	}
     }
     FREE_ENVIRON(environ);
-    return Qnil;
+    return result;
 }
 
 /*

@@ -54,4 +54,7 @@ g,.*\(HAVE_POLL[_A-Z]*\).*,s,,/* #undef \1 */,
 /VA_LIST_IS_ARRAY/c
 /* #undef VA_LIST_IS_ARRAY */
 .
+/HAVE_GETENTROPY/c
+/* #undef HAVE_GETENTROPY */
+.
 w

@@ -28,6 +28,7 @@
 #import "APICast.h"
 #import "DateInstance.h"
 #import "Error.h"
+#import "Exception.h"
 #import "JavaScriptCore.h"
 #import "JSContextInternal.h"
 #import "JSVirtualMachineInternal.h"
@@ -41,8 +42,8 @@
 #import <wtf/HashMap.h>
 #import <wtf/HashSet.h>
 #import <wtf/ObjcRuntimeExtras.h>
+#import <wtf/SpinLock.h>
 #import <wtf/Vector.h>
-#import <wtf/TCSpinLock.h>
 #import <wtf/text/WTFString.h>
 #import <wtf/text/StringHash.h>
 
@@ -356,6 +357,16 @@ NSString * const JSPropertyDescriptorSetKey = @"set";
     return JSValueIsObject([_context JSGlobalContextRef], m_value);
 }
 
+- (BOOL)isArray
+{
+    return JSValueIsArray([_context JSGlobalContextRef], m_value);
+}
+
+- (BOOL)isDate
+{
+    return JSValueIsDate([_context JSGlobalContextRef], m_value);
+}
+
 - (BOOL)isEqualToObject:(id)value
 {
     return JSValueIsStrictEqual([_context JSGlobalContextRef], m_value, objectToValue(_context, value));
@@ -635,9 +646,10 @@ JSContainerConvertor::Task JSContainerConvertor::take()
 }
 
 #if ENABLE(REMOTE_INSPECTOR)
-static void reportExceptionToInspector(JSGlobalContextRef context, JSC::JSValue exception)
+static void reportExceptionToInspector(JSGlobalContextRef context, JSC::JSValue exceptionValue)
 {
     JSC::ExecState* exec = toJS(context);
+    JSC::Exception* exception = JSC::Exception::create(exec->vm(), exceptionValue);
     exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exception);
 }
 #endif
@@ -767,9 +779,9 @@ id valueToString(JSGlobalContextRef context, JSValueRef value, JSValueRef* excep
         return nil;
     }
 
-    NSString *stringNS = CFBridgingRelease(JSStringCopyCFString(kCFAllocatorDefault, jsstring));
+    RetainPtr<CFStringRef> stringCF = adoptCF(JSStringCopyCFString(kCFAllocatorDefault, jsstring));
     JSStringRelease(jsstring);
-    return stringNS;
+    return (NSString *)stringCF.autorelease();
 }
 
 id valueToDate(JSGlobalContextRef context, JSValueRef value, JSValueRef* exception)
@@ -1102,7 +1114,7 @@ static StructHandlers* createStructHandlerMap()
 
 static StructTagHandler* handerForStructTag(const char* encodedType)
 {
-    static SpinLock handerForStructTagLock = SPINLOCK_INITIALIZER;
+    static StaticSpinLock handerForStructTagLock;
     SpinLockHolder lockHolder(&handerForStructTagLock);
 
     static StructHandlers* structHandlers = createStructHandlerMap();

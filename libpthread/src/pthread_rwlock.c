@@ -308,25 +308,39 @@ pthread_rwlock_init(pthread_rwlock_t *orwlock, const pthread_rwlockattr_t *attr)
 	return res;
 }
 
+PTHREAD_NOINLINE
+static int
+_pthread_rwlock_check_init_slow(pthread_rwlock_t *orwlock)
+{
+	int res = EINVAL;
+	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
+
+	if (rwlock->sig == _PTHREAD_RWLOCK_SIG_init) {
+		LOCK(rwlock->lock);
+		if (rwlock->sig == _PTHREAD_RWLOCK_SIG_init) {
+			res = __pthread_rwlock_init(rwlock, NULL);
+		} else if (rwlock->sig == _PTHREAD_RWLOCK_SIG){
+			res = 0;
+		}
+		UNLOCK(rwlock->lock);
+	} else if (rwlock->sig == _PTHREAD_RWLOCK_SIG){
+		res = 0;
+	}
+	if (res != 0) {
+		PLOCKSTAT_RW_ERROR(orwlock, READ_LOCK_PLOCKSTAT, res);
+	}
+	return res;
+}
+
+PTHREAD_ALWAYS_INLINE
 static int
 _pthread_rwlock_check_init(pthread_rwlock_t *orwlock)
 {
 	int res = 0;
 	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
+
 	if (rwlock->sig != _PTHREAD_RWLOCK_SIG) {
-		res = EINVAL;
-		if (rwlock->sig == _PTHREAD_RWLOCK_SIG_init) {
-			LOCK(rwlock->lock);
-			if (rwlock->sig == _PTHREAD_RWLOCK_SIG_init) {
-				res = __pthread_rwlock_init(rwlock, NULL);
-			} else if (rwlock->sig == _PTHREAD_RWLOCK_SIG){
-				res = 0;
-			}
-			UNLOCK(rwlock->lock);
-		}
-		if (res != 0) {
-			PLOCKSTAT_RW_ERROR(orwlock, READ_LOCK_PLOCKSTAT, res);
-		}
+		return _pthread_rwlock_check_init_slow(orwlock);
 	}
 	return res;
 }

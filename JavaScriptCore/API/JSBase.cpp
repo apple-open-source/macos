@@ -30,6 +30,8 @@
 #include "APICast.h"
 #include "CallFrame.h"
 #include "Completion.h"
+#include "Exception.h"
+#include "GCActivityCallback.h"
 #include "InitializeThreading.h"
 #include "JSGlobalObject.h"
 #include "JSLock.h"
@@ -60,14 +62,14 @@ JSValueRef JSEvaluateScript(JSContextRef ctx, JSStringRef script, JSObjectRef th
 
     // evaluate sets "this" to the global object if it is NULL
     JSGlobalObject* globalObject = exec->vmEntryGlobalObject();
-    SourceCode source = makeSource(script->string(), sourceURL->string(), TextPosition(OrdinalNumber::fromOneBasedInt(startingLineNumber), OrdinalNumber::first()));
+    SourceCode source = makeSource(script->string(), sourceURL ? sourceURL->string() : String(), TextPosition(OrdinalNumber::fromOneBasedInt(startingLineNumber), OrdinalNumber::first()));
 
-    JSValue evaluationException;
-    JSValue returnValue = evaluate(globalObject->globalExec(), source, jsThisObject, &evaluationException);
+    NakedPtr<Exception> evaluationException;
+    JSValue returnValue = evaluate(globalObject->globalExec(), source, jsThisObject, evaluationException);
 
     if (evaluationException) {
         if (exception)
-            *exception = toRef(exec, evaluationException);
+            *exception = toRef(exec, evaluationException->value());
 #if ENABLE(REMOTE_INSPECTOR)
         // FIXME: If we have a debugger attached we could learn about ParseError exceptions through
         // ScriptDebugServer::sourceParsed and this path could produce a duplicate warning. The
@@ -97,7 +99,7 @@ bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourc
 
     startingLineNumber = std::max(1, startingLineNumber);
 
-    SourceCode source = makeSource(script->string(), sourceURL->string(), TextPosition(OrdinalNumber::fromOneBasedInt(startingLineNumber), OrdinalNumber::first()));
+    SourceCode source = makeSource(script->string(), sourceURL ? sourceURL->string() : String(), TextPosition(OrdinalNumber::fromOneBasedInt(startingLineNumber), OrdinalNumber::first()));
     
     JSValue syntaxException;
     bool isValidSyntax = checkSyntax(exec->vmEntryGlobalObject()->globalExec(), source, &syntaxException);
@@ -106,7 +108,8 @@ bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourc
         if (exception)
             *exception = toRef(exec, syntaxException);
 #if ENABLE(REMOTE_INSPECTOR)
-        exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, syntaxException);
+        Exception* exception = Exception::create(exec->vm(), syntaxException);
+        exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exception);
 #endif
         return false;
     }
@@ -138,7 +141,8 @@ void JSReportExtraMemoryCost(JSContextRef ctx, size_t size)
     }
     ExecState* exec = toJS(ctx);
     JSLockHolder locker(exec);
-    exec->vm().heap.reportExtraMemoryCost(size);
+
+    exec->vm().heap.deprecatedReportExtraMemory(size);
 }
 
 extern "C" JS_EXPORT void JSSynchronousGarbageCollectForDebugging(JSContextRef);

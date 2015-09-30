@@ -27,6 +27,8 @@ WebInspector.TimelineDataGridNode = function(graphOnly, graphDataSource, hasChil
 {
     WebInspector.DataGridNode.call(this, {}, hasChildren);
 
+    this.copyable = false;
+
     this._graphOnly = graphOnly || false;
     this._graphDataSource = graphDataSource || null;
 
@@ -36,7 +38,8 @@ WebInspector.TimelineDataGridNode = function(graphOnly, graphDataSource, hasChil
     }
 };
 
-WebInspector.Object.addConstructorFunctions(WebInspector.TimelineDataGridNode);
+// FIXME: Move to a WebInspector.Object subclass and we can remove this.
+WebInspector.Object.deprecatedAddConstructorFunctions(WebInspector.TimelineDataGridNode);
 
 WebInspector.TimelineDataGridNode.prototype = {
     constructor: WebInspector.TimelineDataGridNode,
@@ -147,7 +150,7 @@ WebInspector.TimelineDataGridNode.prototype = {
                 isAnonymousFunction = true;
             }
 
-            cell.classList.add(WebInspector.CallFrameTreeElement.FunctionIconStyleClassName);
+            cell.classList.add(WebInspector.CallFrameView.FunctionIconStyleClassName);
 
             var fragment = document.createDocumentFragment();
 
@@ -182,7 +185,7 @@ WebInspector.TimelineDataGridNode.prototype = {
                     fragment.appendChild(titleElement);
                 } else {
                     // Show the function name and icon.
-                    cell.classList.add(WebInspector.CallFrameTreeElement.FunctionIconStyleClassName);
+                    cell.classList.add(WebInspector.CallFrameView.FunctionIconStyleClassName);
 
                     fragment.appendChild(document.createTextNode(functionName));
 
@@ -225,7 +228,7 @@ WebInspector.TimelineDataGridNode.prototype = {
 
         if (this._scheduledGraphRefreshIdentifier) {
             cancelAnimationFrame(this._scheduledGraphRefreshIdentifier);
-            delete this._scheduledGraphRefreshIdentifier;
+            this._scheduledGraphRefreshIdentifier = undefined;
         }
 
         // We are not visible, but an ancestor will draw our graph.

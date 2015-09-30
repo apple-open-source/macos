@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,7 @@
 #include <notify.h>
 #endif /* ! TARGET_OS_EMBEDDED */
 #include <EAP8021X/EAPCertificateUtil.h>
+#include <EAP8021X/EAPSecurity.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFArray.h>
@@ -88,8 +89,6 @@
 #define HELD_PERIOD_SECS		60
 #define LINK_ACTIVE_PERIOD_SECS		5
 #define LINK_INACTIVE_PERIOD_SECS	1
-
-#define BAD_IDENTIFIER		(-1)
 
 #define kSupplicant		CFSTR("Supplicant")
 #define kStartPeriodSeconds	CFSTR("StartPeriodSeconds")
@@ -184,6 +183,7 @@ struct Supplicant_s {
     bool			pmk_set;
 
     bool			no_ui;
+    bool			sent_identity;
 };
 
 typedef enum {
@@ -257,9 +257,29 @@ log_eap_notification(SupplicantState state, EAPRequestPacketRef req_p)
     return;
 }
 
+static void
+LogNakEapTypesList(EAPType type, EAPAcceptTypesRef types)
+{
+    CFMutableStringRef str = CFStringCreateMutable(NULL, 0);
+    int i;
+    
+    for (i = 0; i < types->count; i++) {
+	STRING_APPEND(str, "%s(%d) ",
+		      EAPTypeStr(types->types[i]), types->types[i]);
+    }
+    if (CFStringGetLength(str) > 0) {
+	eapolclient_log(kLogFlagBasic, 
+			"EAP Request: NAK'ing EAP type %d with %@",
+			type, str);
+    }
+    CFRelease(str);
+    return;
+}
+
 /**
  ** Utility routines
  **/
+
 static bool
 S_array_contains_int(CFArrayRef array, int val)
 {
@@ -298,8 +318,8 @@ S_identity_copy_name(SecIdentityRef sec_identity)
     status = SecIdentityCopyCertificate(sec_identity, &cert);
     if (status != noErr) {
 	EAPLOG_FL(LOG_NOTICE,
-		  "EAPSecIdentityHandleCreateSecIdentity failed, %d",
-		  status);
+		  "EAPSecIdentityHandleCreateSecIdentity failed, %ld",
+		  (long)status);
     }
     else {
 	CFStringRef		name_cf;
@@ -312,6 +332,110 @@ S_identity_copy_name(SecIdentityRef sec_identity)
 	}
     }
     return (name);
+}
+
+static const char *
+EAPOLControlModeGetString(EAPOLControlMode mode)
+{
+    const char *	str;
+
+    switch (mode) {
+    default:
+	str = "<unknown>";
+	break;
+    case kEAPOLControlModeNone:
+	str = "None";
+	break;
+    case kEAPOLControlModeUser:
+	str = "User";
+	break;
+    case kEAPOLControlModeLoginWindow:
+	str = "LoginWindow";
+	break;
+    case kEAPOLControlModeSystem:
+	str = "System";
+	break;
+    }
+    return (str);
+}
+
+static const char *
+EAPClientStatusGetString(EAPClientStatus status)
+{
+    const char *	str;
+
+    switch (status) {
+    case kEAPClientStatusOK:
+	str = "OK";
+	break;
+    case kEAPClientStatusFailed:
+	str = "Failed";
+	break;
+    case kEAPClientStatusAllocationFailed:
+	str = "AllocationFailed";
+	break;
+    case kEAPClientStatusUserInputRequired:
+	str = "UserInputRequired";
+	break;
+    case kEAPClientStatusConfigurationInvalid:
+	str = "ConfigurationInvalid";
+	break;
+    case kEAPClientStatusProtocolNotSupported:
+	str = "ProtocolNotSupported";
+	break;
+    case kEAPClientStatusServerCertificateNotTrusted:
+	str = "ServerCertificateNotTrusted";
+	break;
+    case kEAPClientStatusInnerProtocolNotSupported:
+	str = "InnerProtocolNotSupported";
+	break;
+    case kEAPClientStatusInternalError:
+	str = "InternalError";
+	break;
+    case kEAPClientStatusUserCancelledAuthentication:
+	str = "UserCancelledAuthentication";
+	break;
+    case kEAPClientStatusUnknownRootCertificate:
+	str = "UnknownRootCertificate";
+	break;
+    case kEAPClientStatusNoRootCertificate:
+	str = "NoRootCertificate";
+	break;
+    case kEAPClientStatusCertificateExpired:
+	str = "CertificateExpired";
+	break;
+    case kEAPClientStatusCertificateNotYetValid:
+	str = "CertificateNotYetValid";
+	break;
+    case kEAPClientStatusCertificateRequiresConfirmation:
+	str = "CertificateRequiresConfirmation";
+	break;
+    case kEAPClientStatusUserInputNotPossible:
+	str = "UserInputNotPossible";
+	break;
+    case kEAPClientStatusResourceUnavailable:
+	str = "ResourceUnavailable";
+	break;
+    case kEAPClientStatusProtocolError:
+	str = "ProtocolError";
+	break;
+    case kEAPClientStatusAuthenticationStalled:
+	str = "AuthenticationStalled";
+	break;
+    case kEAPClientStatusErrnoError:
+	str = "ErrnoError";
+	break;
+    case kEAPClientStatusSecurityError:
+	str = "SecurityError";
+	break;
+    case kEAPClientStatusPluginSpecificError:
+	str = "PluginSpecificError";
+	break;
+    default:
+	str = "<unknown>";
+	break;
+    }
+    return (str);
 }
 
 /**
@@ -957,7 +1081,7 @@ process_key(SupplicantRef supp, EAPOLPacketRef eapol_p)
 					  server_key, server_key_length,
 					  debug_str);
     if (debug_str != NULL) {
-	EAPLOG(-LOG_NOTICE, "%@", debug_str);
+	EAPLOG(-LOG_DEBUG, "%@", debug_str);
 	CFRelease(debug_str);
     }
     if (is_valid == FALSE) {
@@ -1097,8 +1221,12 @@ Supplicant_authenticated(SupplicantRef supp, SupplicantEvent event,
 		    = CFDataCreate(NULL, (const UInt8 *)supp->username,
 				   supp->username_length);
 	    }
-	    if (supp->eap.last_type == kEAPTypeTLS
-		&& supp->sec_identity != NULL) {
+	    
+	    if (supp->sec_identity != NULL
+		&& (supp->eap.last_type == kEAPTypeTLS
+		    || myCFDictionaryGetBooleanValue(supp->config_dict,
+						     kEAPClientPropTLSCertificateIsRequired,
+						     FALSE))) {
 		if (EAPOLClientItemIDSetIdentity(supp->itemID,
 						 kEAPOLClientDomainUser,
 						 supp->sec_identity)
@@ -1118,7 +1246,9 @@ Supplicant_authenticated(SupplicantRef supp, SupplicantEvent event,
 		    }
 		}
 	    }
-	    else if (supp->password != NULL) {
+
+	    if (supp->eap.last_type != kEAPTypeTLS
+		&& supp->password != NULL) {
 		password_data 
 		    = CFDataCreate(NULL, (const UInt8 *)supp->password,
 				   supp->password_length);
@@ -1221,7 +1351,29 @@ Supplicant_disconnected(SupplicantRef supp, SupplicantEvent event,
 	supp->state = kSupplicantStateDisconnected;
 	Supplicant_report_status(supp);
 	Supplicant_cleanup(supp);
-	Supplicant_connecting(supp, kSupplicantEventStart, NULL);
+
+	/* create EAP Request Identity packet if an identifier was provided */
+	if (evdata != NULL) {
+#define FAKE_PKT_SIZE		(sizeof(EAPOLPacket) + sizeof(EAPRequestPacket))
+	    char			pkt_buf[FAKE_PKT_SIZE];
+	    EAPRequestPacketRef		req;
+	    EAPOLSocketReceiveData 	rx;
+
+	    bzero(pkt_buf, sizeof(pkt_buf));
+	    rx.length = FAKE_PKT_SIZE;
+	    rx.eapol_p = (EAPOLPacketRef)pkt_buf;
+	    EAPOLPacketSetLength(rx.eapol_p, sizeof(EAPRequestPacket));
+	    req = (EAPRequestPacketRef)rx.eapol_p->body;
+	    req->identifier = *((int *)evdata);
+	    req->code = kEAPCodeRequest;
+	    req->type = kEAPTypeIdentity;
+	    EAPPacketSetLength((EAPPacketRef)req, sizeof(EAPRequestPacket));
+	    EAPLOG(LOG_INFO, "Re-created EAP Request Identity");
+	    Supplicant_connecting(supp, kSupplicantEventStart, &rx);
+	}
+	else {
+	    Supplicant_connecting(supp, kSupplicantEventStart, NULL);
+	}
 	break;
     default:
 	break;
@@ -1415,6 +1567,7 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 	EAPAcceptTypesReset(&supp->eap_accept);
 	Supplicant_cancel_pending_events(supp);
 	supp->state = kSupplicantStateAcquired;
+	supp->sent_identity = FALSE;
 	EAPOLSocketEnableReceive(supp->sock, 
 				 (void *)Supplicant_acquired,
 				 (void *)supp,
@@ -1453,6 +1606,7 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 
 	    if (respond_with_identity(supp, req_p->identifier)) {
 		supp->last_status = kEAPClientStatusOK;
+		supp->sent_identity = TRUE;
 		Supplicant_report_status(supp);
 		
 		/* set a timeout */
@@ -1537,27 +1691,44 @@ respond_to_notification(SupplicantRef supp, int identifier)
     if (EAPOLSocketTransmit(supp->sock,
 			    kEAPOLPacketTypeEAPPacket,
 			    &notif, sizeof(notif)) < 0) {
-	EAPLOG_FL(LOG_NOTICE, "EAPOLSocketTransmit failed");
+	EAPLOG_FL(LOG_NOTICE, "EAPOLSocketTransmit notification failed");
     }
     return;
 }
 
 static void
-respond_with_nak(SupplicantRef supp, int identifier, uint8_t desired_type)
+respond_with_nak(SupplicantRef supp, int identifier, EAPType eapType)
 {
-    EAPNakPacket		nak;
-    int				size;
+    int			len;
+    EAPNakPacketRef	nak;
+#define NAK_TYPE_COUNT 	10
+#define NAK_BUFSIZE 	(sizeof(EAPNakPacket) + NAK_TYPE_COUNT)
+    uint8_t		nak_buf[NAK_BUFSIZE];
+    int			size;
 
     /* transmit a response/Nak */
-    (void)EAPPacketCreate(&nak, sizeof(nak),
-			  kEAPCodeResponse, identifier,
-			  kEAPTypeNak, NULL, 
-			  sizeof(nak) - sizeof(EAPRequestPacket), &size);
-    nak.desired_type = desired_type;
+    len = ((eapType == kEAPTypeInvalid) ? 1 : supp->eap_accept.count);
+    nak = (EAPNakPacketRef)
+	EAPPacketCreate(nak_buf, sizeof(nak_buf),
+			kEAPCodeResponse, identifier,
+			kEAPTypeNak, NULL, len, &size);
+    if (eapType == kEAPTypeInvalid) {
+	nak->type_data[0] = kEAPTypeInvalid;
+    }
+    else {
+	int i;
+
+	for (i = 0; i < supp->eap_accept.count; i++) {
+	    nak->type_data[i] = supp->eap_accept.types[i];
+	}
+    }
     if (EAPOLSocketTransmit(supp->sock,
 			    kEAPOLPacketTypeEAPPacket,
-			    &nak, sizeof(nak)) < 0) {
-	EAPLOG_FL(LOG_NOTICE, "EAPOLSocketTransmit failed");
+			    nak, size) < 0) {
+	EAPLOG_FL(LOG_NOTICE, "EAPOLSocketTransmit nak failed");
+    }
+    if ((void *)nak != (void *)nak_buf) {
+	free(nak);
     }
     return;
 }
@@ -1586,23 +1757,25 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
 		EAPType eap_type = EAPAcceptTypesNextType(&supp->eap_accept);
 		if (eap_type == kEAPTypeInvalid) {
 		    eapolclient_log(kLogFlagBasic,
-				    "EAP Request: EAP type %d not enabled",
-				    req_p->type);
+				    "EAP Request: %s (%d) not enabled",
+				    EAPTypeStr(req_p->type), req_p->type);
+		}
+		else {
+		    LogNakEapTypesList(req_p->type, &supp->eap_accept);
+		}
+		respond_with_nak(supp, in_pkt_p->identifier, eap_type);
+		if (eap_type == kEAPTypeInvalid) {
 		    supp->last_status = kEAPClientStatusProtocolNotSupported;
 		    Supplicant_held(supp, kSupplicantEventStart, NULL);
-		    return;
 		}
-		eapolclient_log(kLogFlagBasic,
-				"EAP Request: NAK'ing EAP type %d with %d",
-				req_p->type, eap_type);
-		respond_with_nak(supp, in_pkt_p->identifier,
-				 eap_type);
-		/* set a timeout */
-		Timer_set_relative(supp->timer, t,
-				   (void *)Supplicant_authenticating,
-				   (void *)supp, 
-				   (void *)kSupplicantEventTimeout,
-				   NULL);
+		else {
+		    /* set a timeout */
+		    Timer_set_relative(supp->timer, t,
+				       (void *)Supplicant_authenticating,
+				       (void *)supp, 
+				       (void *)kSupplicantEventTimeout,
+				       NULL);
+		}
 		return;
 	    }
 	    Timer_cancel(supp->timer);
@@ -1611,9 +1784,9 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
 		if (supp->last_status 
 		    != kEAPClientStatusUserInputRequired) {
 		    EAPLOG(LOG_NOTICE,
-			   "EAP Request: EAP type %d"
-			   " init failed, %d",
-			   req_p->type, supp->last_status);
+			   "EAP Request: %s (%d) init failed, %d",
+			   EAPTypeStr(req_p->type), req_p->type,
+			   supp->last_status);
 		    Supplicant_held(supp, kSupplicantEventStart, NULL);
 		    return;
 		}
@@ -1622,14 +1795,9 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
 		return;
 	    }
 	    eapolclient_log(kLogFlagBasic,
-			    "EAP Request: EAP type %d accepted",
-			    req_p->type);
+			    "EAP Request: %s (%d) accepted",
+			    EAPTypeStr(req_p->type), req_p->type);
 	    Supplicant_report_status(supp);
-	}
-	else {
-	    eapolclient_log(kLogFlagBasic,
-			    "EAP Request: EAP type %d",
-			    req_p->type);
 	}
 	break;
     case kEAPCodeResponse:
@@ -1637,11 +1805,8 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
 	    /* this should not happen, but if it does, ignore the packet */
 	    return;
 	}
-	eapolclient_log(kLogFlagBasic,
-			"EAP Response: EAP type %d", req_p->type);
 	break;
     case kEAPCodeFailure:
-	eapolclient_log(kLogFlagBasic, "EAP Failure");
 	if (supp->eap.module == NULL) {
 	    supp->last_status = kEAPClientStatusFailed;
 	    Supplicant_held(supp, kSupplicantEventStart, NULL);
@@ -1649,7 +1814,6 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
 	}
 	break;
     case kEAPCodeSuccess:
-	eapolclient_log(kLogFlagBasic, "EAP Success");
 	if (supp->eap.module == NULL) {
 	    Supplicant_authenticated(supp, kSupplicantEventStart, NULL);
 	    return;
@@ -1680,7 +1844,6 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
     }
 
     supp->eap.published_props = eap_client_publish_properties(supp);
-
     switch (state) {
     case kEAPClientStateAuthenticating:
 	if (supp->last_status == kEAPClientStatusUserInputRequired) {
@@ -1694,7 +1857,7 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
 		Supplicant_held(supp, kSupplicantEventStart, NULL);
 		return;
 	    }
-	    EAPLOG(LOG_DEBUG, 
+	    EAPLOG(LOG_INFO, 
 		   "Authenticating: user input required for properties %@",
 		   supp->eap.required_props);
 	}
@@ -2126,6 +2289,7 @@ present_alert_dialogue(SupplicantRef supp)
     case kEAPClientStatusSecurityError:
 	switch (supp->last_error) {
 	case errSSLCrypto:
+	case errSecParam:
 	    break;
 	default:
 	    message = CFSTR("EAPOLCLIENT_FAILURE_MESSAGE_DEFAULT");
@@ -2378,16 +2542,54 @@ Supplicant_report_status(SupplicantRef supp)
     timestamp = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
     CFDictionarySetValue(dict, kEAPOLControlTimestamp, timestamp);
     my_CFRelease(&timestamp);
-    if (eapolclient_should_log(kLogFlagBasic)) {
+    if (eapolclient_should_log(kLogFlagStatusDetails | kLogFlagBasic)) {
+	int		level;
+	boolean_t	logged = FALSE;
 	CFStringRef	str = NULL;
 
-	if (dict != NULL) {
+	level = eapolclient_should_log(kLogFlagStatusDetails) ? LOG_DEBUG : LOG_INFO;
+	if (dict != NULL
+	    && (supp->state == kSupplicantStateHeld
+		|| eapolclient_should_log(kLogFlagStatusDetails))) {
 	    str = my_CFPropertyListCopyAsXMLString(dict);
 	}
-	EAPLOG(-LOG_DEBUG, "Supplicant %s status: state=%s\n%@",
-	       EAPOLSocketName(supp->sock),
-	       SupplicantStateString(supp->state),
-	       str == NULL ? CFSTR("") : str);
+	if (str != NULL) {
+	    level = -level;
+	}
+	switch (supp->last_status) {
+	case kEAPClientStatusSecurityError:
+	    EAPLOG(level,
+		   "State=%s Status=%s (%d): %s (%d)%s%@",
+		   SupplicantStateString(supp->state),
+		   EAPClientStatusGetString(supp->last_status),
+		   supp->last_status,
+		   EAPSecurityErrorString((OSStatus)supp->last_error),
+		   supp->last_error,
+		   (str != NULL) ? ":\n" : "",
+		   (str != NULL) ? str : CFSTR(""));
+	    logged = TRUE;
+	    break;
+	case kEAPClientStatusPluginSpecificError:
+	    EAPLOG(level,
+		   "State=%s Status=%s (%d): %d%s%@",
+		   SupplicantStateString(supp->state),
+		   EAPClientStatusGetString(supp->last_status),
+		   supp->last_status,
+		   supp->last_error,
+		   (str != NULL) ? ":\n" : "",
+		   (str != NULL) ? str : CFSTR(""));
+	    logged = TRUE;
+	    break;
+	default:
+	    EAPLOG(level,
+		   "State=%s Status=%s (%d)%s%@",
+		   SupplicantStateString(supp->state),
+		   EAPClientStatusGetString(supp->last_status),
+		   supp->last_status,
+		   (str != NULL) ? ":\n" : "",
+		   (str != NULL) ? str : CFSTR(""));
+	    break;
+	}
 	my_CFRelease(&str);
     }
     EAPOLSocketReportStatus(supp->sock, dict);
@@ -2539,10 +2741,12 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
 	CredentialsDialogue_free(&supp->cred_prompt);
 	TrustDialogue_free(&supp->trust_prompt);
 #endif /* ! TARGET_OS_EMBEDDED */
-	if (supp->eap.module != NULL 
-	    && (supp->last_status == kEAPClientStatusFailed
-		|| (supp->last_status == kEAPClientStatusSecurityError
-		    && supp->last_error == errSSLCrypto))) {
+	if ((supp->last_status == kEAPClientStatusFailed
+	     || (supp->last_status == kEAPClientStatusSecurityError
+		 && (supp->last_error == errSSLCrypto
+		     || supp->last_error == errSecParam)))
+	    && (supp->eap.module != NULL
+		|| (supp->eap.module == NULL && supp->sent_identity))) {
 	    if (supp->no_ui == FALSE) {
 		clear_sec_identity(supp);
 		clear_username(supp);
@@ -2610,10 +2814,19 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
 }
 
 PRIVATE_EXTERN void
-Supplicant_start(SupplicantRef supp)
+Supplicant_start(SupplicantRef supp, int packet_identifier)
 {
+    EAPLOG(LOG_NOTICE, "%s: 802.1X %s Mode",
+	   EAPOLSocketIfName(supp->sock, NULL),
+	   EAPOLControlModeGetString(EAPOLSocketGetMode(supp->sock)));
     if (EAPOLSocketIsLinkActive(supp->sock)) {
-	Supplicant_disconnected(supp, kSupplicantEventStart, NULL);
+	int *	packet_identifier_p;
+
+	packet_identifier_p = (packet_identifier == BAD_IDENTIFIER)
+	    ? NULL
+	    : &packet_identifier;
+	Supplicant_disconnected(supp, kSupplicantEventStart,
+				packet_identifier_p);
     }
     else {
 	Supplicant_inactive(supp, kSupplicantEventStart, NULL);
@@ -2752,8 +2965,8 @@ S_copy_password_from_keychain(bool use_system_keychain,
     status = EAPSecKeychainPasswordItemCopy(keychain, unique_id_str,
 					    &password_data);
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "SecKeychainFindGenericPassword failed, %d",
-		  status);
+	EAPLOG_FL(LOG_NOTICE, "SecKeychainFindGenericPassword failed, %ld",
+		  (long)status);
 	goto done;
     }
     password = S_string_from_data(password_data);
@@ -2973,7 +3186,7 @@ S_set_credentials(SupplicantRef supp)
 				   kEAPClientPropUserPasswordKeychainItemID);
 	if (isA_CFString(password_cf) != NULL) {
 	    password = my_CFStringToCString(password_cf, 
-					    kCFStringEncodingMacRoman);
+					    kCFStringEncodingUTF8);
 	    if (remember_information) {
 		supp->remember_information = TRUE;
 	    }
@@ -3029,8 +3242,8 @@ S_set_credentials(SupplicantRef supp)
 							   &sec_identity);
 	    if (status != noErr) {
 		EAPLOG_FL(LOG_NOTICE,
-			  "EAPSecIdentityHandleCreateSecIdentity failed, %d",
-			  status);
+			  "EAPSecIdentityHandleCreateSecIdentity failed, %ld",
+			  (long)status);
 	    }
 	    else if (remember_information) {
 		supp->remember_information = TRUE;
@@ -3189,6 +3402,13 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	my_CFRelease(&supp->itemID);
 	my_CFRelease(&supp->eapolcfg);
 	cfg = EAPOLClientConfigurationCreate(NULL);
+	if (cfg == NULL) {
+	    EAPLOG_FL(LOG_NOTICE, "couldn't create configuration");
+	    if (should_stop != NULL) {
+                *should_stop = TRUE;
+	    }
+	    goto done;
+	}
 	itemID = EAPOLClientItemIDCreateWithDictionary(cfg, item_dict);
 	supp->itemID = itemID;
 	supp->eapolcfg = cfg;
@@ -3274,10 +3494,6 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	if (empty_password) {
 	    CFDictionaryRemoveValue(new_eap_config, kEAPClientPropUserPassword);
 	}
-	if (supp->ui_config_dict != NULL) {
-	    CFDictionaryApplyFunction(supp->ui_config_dict, dict_set_key_value, 
-				      new_eap_config);
-	}
 	CFDictionaryRemoveValue(new_eap_config,
 				kEAPClientPropProfileID);
 #if ! TARGET_OS_EMBEDDED
@@ -3291,17 +3507,24 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 				 EAPOLClientProfileGetID(profile));
 	}
 #endif /* TARGET_OS_EMBEDDED */
+	if (supp->ui_config_dict != NULL) {
+	    CFDictionaryApplyFunction(supp->ui_config_dict, dict_set_key_value,
+				      new_eap_config);
+	}
 	supp->config_dict = new_eap_config;
     }
     else {
 	supp->config_dict = CFRetain(eap_config);
     }
-    if (eapolclient_should_log(kLogFlagBasic)) {
+    if (eapolclient_should_log(kLogFlagConfig)) {
 	CFStringRef	str;
 
 	str = copy_cleaned_config_dict(supp->config_dict);
 	EAPLOG(-LOG_DEBUG, "update_configuration\n%@", str);
 	CFRelease(str);
+    }
+    else {
+	EAPLOG(LOG_INFO, "update_configuration");
     }
 
     /* bump the configuration generation */

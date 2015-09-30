@@ -31,7 +31,7 @@ my (@patchesToApply) = (
     './PatchFiles/Krb5-1.9/Makefile.PL.diff',
 
     # Fix for https://github.com/mschilli/log4perl/issues/27
-    './PatchFiles/Log-Log4perl-1.40/lib/Log/Log4perl/Appender/File.pm.diff',
+    './PatchFiles/Log-Log4perl-1.44/lib/Log/Log4perl/Appender/File.pm.diff',
 
     # The First Rule of Sys::Syslog is: You do not call "setlogsock". 
     # The Second Rule of Sys::Syslog is: You do not call "setlogsock". 

@@ -48,7 +48,7 @@ public:
     void terminate();
 
     template<typename T> bool send(T&& message, uint64_t destinationID, unsigned messageSendFlags = 0);
-    template<typename T> bool sendSync(T&& message, typename T::Reply&&, uint64_t destinationID, std::chrono::milliseconds timeout = std::chrono::seconds(1));
+    template<typename T> bool sendSync(T&& message, typename T::Reply&&, uint64_t destinationID, std::chrono::milliseconds timeout = std::chrono::seconds(1), unsigned sendSyncFlags = 0);
     
     IPC::Connection* connection() const
     {
@@ -59,6 +59,7 @@ public:
     void addMessageReceiver(IPC::StringReference messageReceiverName, IPC::MessageReceiver&);
     void addMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID, IPC::MessageReceiver&);
     void removeMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID);
+    void removeMessageReceiver(IPC::StringReference messageReceiverName);
 
     enum class State {
         Launching,
@@ -72,20 +73,19 @@ public:
     bool canSendMessage() const { return state() != State::Terminated;}
     bool sendMessage(std::unique_ptr<IPC::MessageEncoder>, unsigned messageSendFlags);
 
-protected:
-    void clearConnection();
-    void abortProcessLaunchIfNeeded();
+    void shutDownProcess();
 
+protected:
     // ProcessLauncher::Client
     virtual void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
 
-    bool dispatchMessage(IPC::Connection*, IPC::MessageDecoder&);
-    bool dispatchSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
+    bool dispatchMessage(IPC::Connection&, IPC::MessageDecoder&);
+    bool dispatchSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
     
 private:
     virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&) = 0;
-    virtual void connectionWillOpen(IPC::Connection*);
-    virtual void connectionWillClose(IPC::Connection*);
+    virtual void connectionWillOpen(IPC::Connection&);
+    virtual void processWillShutDown(IPC::Connection&) = 0;
 
     Vector<std::pair<std::unique_ptr<IPC::MessageEncoder>, unsigned>> m_pendingMessages;
     RefPtr<ProcessLauncher> m_processLauncher;
@@ -105,14 +105,14 @@ bool ChildProcessProxy::send(T&& message, uint64_t destinationID, unsigned messa
 }
 
 template<typename U> 
-bool ChildProcessProxy::sendSync(U&& message, typename U::Reply&& reply, uint64_t destinationID, std::chrono::milliseconds timeout)
+bool ChildProcessProxy::sendSync(U&& message, typename U::Reply&& reply, uint64_t destinationID, std::chrono::milliseconds timeout, unsigned sendSyncFlags)
 {
     COMPILE_ASSERT(U::isSync, SyncMessageExpected);
 
     if (!m_connection)
         return false;
 
-    return connection()->sendSync(std::forward<U>(message), WTF::move(reply), destinationID, timeout);
+    return connection()->sendSync(std::forward<U>(message), WTF::move(reply), destinationID, timeout, sendSyncFlags);
 }
 
 } // namespace WebKit

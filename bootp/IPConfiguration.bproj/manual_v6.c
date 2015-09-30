@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -163,7 +163,7 @@ manual_v6_address_changed(ServiceRef service_p,
 	if ((scan->addr_flags & IN6_IFF_DUPLICATED) != 0) {
 	    char	ntopbuf[INET6_ADDRSTRLEN];
 	    /* DaD found a conflict, report it */
-	    my_log(LOG_ERR,
+	    my_log(LOG_NOTICE,
 		   "%s %s: IPv6 address %s is in use by another host",
 		   ServiceGetMethodString(service_p),
 		   if_name(if_p), 
@@ -203,7 +203,7 @@ manual_v6_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     case IFEventID_start_e: {
 	ipconfig_method_data_t *	method_data;
 
-	my_log(LOG_DEBUG, "%s %s: starting", ServiceGetMethodString(service_p),
+	my_log(LOG_INFO, "%s %s: starting", ServiceGetMethodString(service_p),
 	       if_name(if_p));
 	method_data = (ipconfig_method_data_t *)event_data;
 	ServiceSetRequestedIPv6Address(service_p,
@@ -218,7 +218,7 @@ manual_v6_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	int			prefix_length;
 
 	ServiceGetRequestedIPv6Address(service_p, &addr, &prefix_length);
-	my_log(LOG_DEBUG, "%s %s: stop", ServiceGetMethodString(service_p),
+	my_log(LOG_INFO, "%s %s: stop", ServiceGetMethodString(service_p),
 	       if_name(if_p));
 	ServiceRemoveIPv6Address(service_p, &addr, prefix_length);
 	break;

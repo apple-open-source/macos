@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebScriptObject.h"
 
 #include "WebKitDLL.h"
@@ -33,16 +32,16 @@
 // WebScriptObject ------------------------------------------------------------
 
 WebScriptObject::WebScriptObject()
-: m_refCount(0)
+    : m_refCount(0)
 {
     gClassCount++;
-    gClassNameCount.add("WebScriptObject");
+    gClassNameCount().add("WebScriptObject");
 }
 
 WebScriptObject::~WebScriptObject()
 {
     gClassCount--;
-    gClassNameCount.remove("WebScriptObject");
+    gClassNameCount().remove("WebScriptObject");
 }
 
 // IUnknown -------------------------------------------------------------------

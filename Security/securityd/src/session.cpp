@@ -151,7 +151,8 @@ void Session::destroy(SessionId id)
 
     if (session.get()) {
         if (!unlocked) {
-            service_context_t context = session->get_current_service_context();
+            // sessions are destroy outside of a process request session->get_current_service_context()
+            service_context_t context = { session->sessionId(), session->originatorUid(), {} };
             service_client_kb_lock(&context);
         }
         session->kill();
@@ -232,9 +233,7 @@ void Session::resetKeyStorePassphrase(const CssmData &passphrase)
 
 service_context_t Session::get_current_service_context()
 {
-    // if this gets called from a timer there is no connection() object.
-    // need to check for valid connection object and pass the audit token along
-    service_context_t context = { sessionId(), originatorUid(), {} }; //*Server::connection().auditToken()
+    service_context_t context = { sessionId(), originatorUid(), *Server::connection().auditToken() };
     return context;
 }
 

@@ -124,16 +124,13 @@ extern int __mb_cur_max;
 #define	MB_CUR_MAX_L(x)	(___mb_cur_max_l(x))
 #endif
 //Begin-Libc
+#include "libc_private.h"
 /* f must be a literal string */
 #define LIBC_ABORT(f,...)	abort_report_np("%s:%s:%u: " f, __FILE__, __func__, __LINE__, ## __VA_ARGS__)
 //End-Libc
 
 __BEGIN_DECLS
 void	 abort(void) __dead2;
-//Begin-Libc
-__attribute__((visibility("hidden")))
-void	 abort_report_np(const char *, ...) __dead2 __printflike(1, 2);
-//End-Libc
 int	 abs(int) __pure2;
 int	 atexit(void (*)(void));
 double	 atof(const char *);
@@ -185,7 +182,7 @@ unsigned long long
 //Begin-Libc
 #ifndef LIBC_ALIAS_SYSTEM
 //End-Libc
-int	 system(const char *) __DARWIN_ALIAS_C(system) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0,__MAC_NA,__IPHONE_2_0,__IPHONE_8_0, "Use posix_spawn APIs instead.");
+int	 system(const char *) __DARWIN_ALIAS_C(system) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0,__MAC_NA,__IPHONE_2_0,__IPHONE_8_0, "Use posix_spawn APIs instead.") __WATCHOS_PROHIBITED __TVOS_PROHIBITED;
 //Begin-Libc
 #else /* LIBC_ALIAS_SYSTEM */
 int	 system(const char *) LIBC_ALIAS_C(system);
@@ -328,7 +325,7 @@ int	 cgetset(const char *);
 int	 cgetstr(char *, const char *, char **);
 int	 cgetustr(char *, const char *, char **);
 
-int	 daemon(int, int) __DARWIN_1050(daemon) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_5, __IPHONE_2_0, __IPHONE_2_0);
+int	 daemon(int, int) __DARWIN_1050(daemon) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_5, __IPHONE_2_0, __IPHONE_2_0, "Use posix_spawn APIs instead.") __WATCHOS_PROHIBITED __TVOS_PROHIBITED;
 char	*devname(dev_t, mode_t);
 char	*devname_r(dev_t, mode_t, char *buf, int len);
 char	*getbsize(int *, long *);

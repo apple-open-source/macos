@@ -28,13 +28,14 @@
 #define Settings_h
 
 #include "EditingBehaviorTypes.h"
-#include "FontRenderingMode.h"
 #include "IntSize.h"
 #include "URL.h"
 #include "SecurityOrigin.h"
 #include "SettingsMacros.h"
+#include "TextFlags.h"
 #include "Timer.h"
 #include <chrono>
+#include <runtime/RuntimeFlags.h>
 #include <unicode/uscript.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
@@ -60,34 +61,41 @@ enum TextDirectionSubmenuInclusionBehavior {
     TextDirectionSubmenuAlwaysIncluded
 };
 
+enum DebugOverlayRegionFlags {
+    NonFastScrollableRegion = 1 << 0,
+    WheelEventHandlerRegion = 1 << 1,
+};
+
+typedef unsigned DebugOverlayRegions;
+
 class Settings : public RefCounted<Settings> {
     WTF_MAKE_NONCOPYABLE(Settings); WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassRefPtr<Settings> create(Page*);
+    static Ref<Settings> create(Page*);
     ~Settings();
 
     void pageDestroyed() { m_page = nullptr; }
 
-    void setStandardFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
-    const AtomicString& standardFontFamily(UScriptCode = USCRIPT_COMMON) const;
+    WEBCORE_EXPORT void setStandardFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
+    WEBCORE_EXPORT const AtomicString& standardFontFamily(UScriptCode = USCRIPT_COMMON) const;
 
-    void setFixedFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
-    const AtomicString& fixedFontFamily(UScriptCode = USCRIPT_COMMON) const;
+    WEBCORE_EXPORT void setFixedFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
+    WEBCORE_EXPORT const AtomicString& fixedFontFamily(UScriptCode = USCRIPT_COMMON) const;
 
-    void setSerifFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
-    const AtomicString& serifFontFamily(UScriptCode = USCRIPT_COMMON) const;
+    WEBCORE_EXPORT void setSerifFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
+    WEBCORE_EXPORT const AtomicString& serifFontFamily(UScriptCode = USCRIPT_COMMON) const;
 
-    void setSansSerifFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
-    const AtomicString& sansSerifFontFamily(UScriptCode = USCRIPT_COMMON) const;
+    WEBCORE_EXPORT void setSansSerifFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
+    WEBCORE_EXPORT const AtomicString& sansSerifFontFamily(UScriptCode = USCRIPT_COMMON) const;
 
-    void setCursiveFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
-    const AtomicString& cursiveFontFamily(UScriptCode = USCRIPT_COMMON) const;
+    WEBCORE_EXPORT void setCursiveFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
+    WEBCORE_EXPORT const AtomicString& cursiveFontFamily(UScriptCode = USCRIPT_COMMON) const;
 
-    void setFantasyFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
-    const AtomicString& fantasyFontFamily(UScriptCode = USCRIPT_COMMON) const;
+    WEBCORE_EXPORT void setFantasyFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
+    WEBCORE_EXPORT const AtomicString& fantasyFontFamily(UScriptCode = USCRIPT_COMMON) const;
 
-    void setPictographFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
-    const AtomicString& pictographFontFamily(UScriptCode = USCRIPT_COMMON) const;
+    WEBCORE_EXPORT void setPictographFontFamily(const AtomicString&, UScriptCode = USCRIPT_COMMON);
+    WEBCORE_EXPORT const AtomicString& pictographFontFamily(UScriptCode = USCRIPT_COMMON) const;
 
 #if ENABLE(TEXT_AUTOSIZING)
     void setTextAutosizingEnabled(bool);
@@ -101,37 +109,37 @@ public:
     const IntSize& textAutosizingWindowSizeOverride() const { return m_textAutosizingWindowSizeOverride; }
 #endif
 
+    WEBCORE_EXPORT void setAntialiasedFontDilationEnabled(bool);
+    bool antialiasedFontDilationEnabled() const { return m_antialiasedFontDilationEnabled; }
+
     // Only set by Layout Tests.
-    void setMediaTypeOverride(const String&);
+    WEBCORE_EXPORT void setMediaTypeOverride(const String&);
     const String& mediaTypeOverride() const { return m_mediaTypeOverride; }
 
     // Unlike areImagesEnabled, this only suppresses the network load of
     // the image URL.  A cached image will still be rendered if requested.
-    void setLoadsImagesAutomatically(bool);
+    WEBCORE_EXPORT void setLoadsImagesAutomatically(bool);
     bool loadsImagesAutomatically() const { return m_loadsImagesAutomatically; }
 
     // Clients that execute script should call ScriptController::canExecuteScripts()
     // instead of this function. ScriptController::canExecuteScripts() checks the
     // HTML sandbox, plug-in sandboxing, and other important details.
     bool isScriptEnabled() const { return m_isScriptEnabled; }
-    void setScriptEnabled(bool);
+    WEBCORE_EXPORT void setScriptEnabled(bool);
 
     SETTINGS_GETTERS_AND_SETTERS
 
-    void setScreenFontSubstitutionEnabled(bool);
-    bool screenFontSubstitutionEnabled() const { return m_screenFontSubstitutionEnabled; }
-
-    void setJavaEnabled(bool);
+    WEBCORE_EXPORT void setJavaEnabled(bool);
     bool isJavaEnabled() const { return m_isJavaEnabled; }
 
     // This settings is only consulted if isJavaEnabled() returns true;
-    void setJavaEnabledForLocalFiles(bool);
+    WEBCORE_EXPORT void setJavaEnabledForLocalFiles(bool);
     bool isJavaEnabledForLocalFiles() const { return m_isJavaEnabledForLocalFiles; }
 
-    void setImagesEnabled(bool);
+    WEBCORE_EXPORT void setImagesEnabled(bool);
     bool areImagesEnabled() const { return m_areImagesEnabled; }
 
-    void setPluginsEnabled(bool);
+    WEBCORE_EXPORT void setPluginsEnabled(bool);
     bool arePluginsEnabled() const { return m_arePluginsEnabled; }
 
     // When this option is set, WebCore will avoid storing any record of browsing activity
@@ -149,44 +157,36 @@ public:
     //  - Plug-ins (that support NPNVprivateModeBool)
     void setPrivateBrowsingEnabled(bool);
 
-    void setDNSPrefetchingEnabled(bool);
+    WEBCORE_EXPORT void setDNSPrefetchingEnabled(bool);
     bool dnsPrefetchingEnabled() const { return m_dnsPrefetchingEnabled; }
 
-    void setUserStyleSheetLocation(const URL&);
+    WEBCORE_EXPORT void setUserStyleSheetLocation(const URL&);
     const URL& userStyleSheetLocation() const { return m_userStyleSheetLocation; }
 
-    void setNeedsAdobeFrameReloadingQuirk(bool);
+    WEBCORE_EXPORT void setNeedsAdobeFrameReloadingQuirk(bool);
     bool needsAcrobatFrameReloadingQuirk() const { return m_needsAdobeFrameReloadingQuirk; }
 
-    static void setDefaultMinDOMTimerInterval(double); // Interval specified in seconds.
-    static double defaultMinDOMTimerInterval();
-        
-    static void setHiddenPageDOMTimerAlignmentInterval(double); // Interval specified in seconds.
-    static double hiddenPageDOMTimerAlignmentInterval();
+    WEBCORE_EXPORT void setMinimumDOMTimerInterval(double); // Initialized to DOMTimer::defaultMinimumInterval().
+    double minimumDOMTimerInterval() const { return m_minimumDOMTimerInterval; }
 
-    void setMinDOMTimerInterval(double); // Per-page; initialized to default value.
-    double minDOMTimerInterval();
+    void setDOMTimerAlignmentInterval(double);
+    double domTimerAlignmentInterval() const { return m_domTimerAlignmentInterval; }
 
-    static void setDefaultDOMTimerAlignmentInterval(double);
-    static double defaultDOMTimerAlignmentInterval();
-
-    double domTimerAlignmentInterval() const;
-
-    void setLayoutInterval(std::chrono::milliseconds);
+    WEBCORE_EXPORT void setLayoutInterval(std::chrono::milliseconds);
     std::chrono::milliseconds layoutInterval() const { return m_layoutInterval; }
 
 #if ENABLE(HIDDEN_PAGE_DOM_TIMER_THROTTLING)
     bool hiddenPageDOMTimerThrottlingEnabled() const { return m_hiddenPageDOMTimerThrottlingEnabled; }
-    void setHiddenPageDOMTimerThrottlingEnabled(bool);
+    WEBCORE_EXPORT void setHiddenPageDOMTimerThrottlingEnabled(bool);
 #endif
 
-    void setUsesPageCache(bool);
+    WEBCORE_EXPORT void setUsesPageCache(bool);
     bool usesPageCache() const { return m_usesPageCache; }
         
     void setFontRenderingMode(FontRenderingMode mode);
     FontRenderingMode fontRenderingMode() const;
 
-    void setShowTiledScrollingIndicator(bool);
+    WEBCORE_EXPORT void setShowTiledScrollingIndicator(bool);
     bool showTiledScrollingIndicator() const { return m_showTiledScrollingIndicator; }
 
 #if PLATFORM(WIN)
@@ -194,31 +194,27 @@ public:
     static bool shouldUseHighResolutionTimers() { return gShouldUseHighResolutionTimers; }
 #endif
 
-    void setBackgroundShouldExtendBeyondPage(bool);
+    WEBCORE_EXPORT void setBackgroundShouldExtendBeyondPage(bool);
     bool backgroundShouldExtendBeyondPage() const { return m_backgroundShouldExtendBeyondPage; }
 
 #if USE(AVFOUNDATION)
-    static void setAVFoundationEnabled(bool flag);
+    WEBCORE_EXPORT static void setAVFoundationEnabled(bool flag);
     static bool isAVFoundationEnabled() { return gAVFoundationEnabled; }
 #endif
 
 #if PLATFORM(COCOA)
-    static void setQTKitEnabled(bool flag);
+    WEBCORE_EXPORT static void setQTKitEnabled(bool flag);
     static bool isQTKitEnabled() { return gQTKitEnabled; }
+#else
+    static bool isQTKitEnabled() { return false; }
 #endif
 
     static const unsigned defaultMaximumHTMLParserDOMTreeDepth = 512;
 
-#if USE(SAFARI_THEME)
-    // Windows debugging pref (global) for switching between the Aqua look and a native windows look.
-    static void setShouldPaintNativeControls(bool);
-    static bool shouldPaintNativeControls() { return gShouldPaintNativeControls; }
-#endif
+    WEBCORE_EXPORT static void setMockScrollbarsEnabled(bool flag);
+    WEBCORE_EXPORT static bool mockScrollbarsEnabled();
 
-    static void setMockScrollbarsEnabled(bool flag);
-    static bool mockScrollbarsEnabled();
-
-    static void setUsesOverlayScrollbars(bool flag);
+    WEBCORE_EXPORT static void setUsesOverlayScrollbars(bool flag);
     static bool usesOverlayScrollbars();
 
 #if ENABLE(TOUCH_EVENTS)
@@ -226,38 +222,40 @@ public:
     bool isTouchEventEmulationEnabled() const { return m_touchEventEmulationEnabled; }
 #endif
 
-    void setStorageBlockingPolicy(SecurityOrigin::StorageBlockingPolicy);
+    WEBCORE_EXPORT void setStorageBlockingPolicy(SecurityOrigin::StorageBlockingPolicy);
     SecurityOrigin::StorageBlockingPolicy storageBlockingPolicy() const { return m_storageBlockingPolicy; }
 
-    void setScrollingPerformanceLoggingEnabled(bool);
+    WEBCORE_EXPORT void setScrollingPerformanceLoggingEnabled(bool);
     bool scrollingPerformanceLoggingEnabled() { return m_scrollingPerformanceLoggingEnabled; }
 
-    static void setShouldRespectPriorityInCSSAttributeSetters(bool);
+    WEBCORE_EXPORT static void setShouldRespectPriorityInCSSAttributeSetters(bool);
     static bool shouldRespectPriorityInCSSAttributeSetters();
 
     void setTimeWithoutMouseMovementBeforeHidingControls(double time) { m_timeWithoutMouseMovementBeforeHidingControls = time; }
     double timeWithoutMouseMovementBeforeHidingControls() const { return m_timeWithoutMouseMovementBeforeHidingControls; }
 
     bool hiddenPageCSSAnimationSuspensionEnabled() const { return m_hiddenPageCSSAnimationSuspensionEnabled; }
-    void setHiddenPageCSSAnimationSuspensionEnabled(bool);
+    WEBCORE_EXPORT void setHiddenPageCSSAnimationSuspensionEnabled(bool);
 
-    void setFontFallbackPrefersPictographs(bool);
+    WEBCORE_EXPORT void setFontFallbackPrefersPictographs(bool);
     bool fontFallbackPrefersPictographs() const { return m_fontFallbackPrefersPictographs; }
 
     static bool lowPowerVideoAudioBufferSizeEnabled() { return gLowPowerVideoAudioBufferSizeEnabled; }
-    static void setLowPowerVideoAudioBufferSizeEnabled(bool);
+    WEBCORE_EXPORT static void setLowPowerVideoAudioBufferSizeEnabled(bool);
 
 #if PLATFORM(IOS)
-    static void setAudioSessionCategoryOverride(unsigned);
+    WEBCORE_EXPORT static void setAudioSessionCategoryOverride(unsigned);
     static unsigned audioSessionCategoryOverride();
 
-    static void setNetworkDataUsageTrackingEnabled(bool);
+    WEBCORE_EXPORT static void setNetworkDataUsageTrackingEnabled(bool);
     static bool networkDataUsageTrackingEnabled();
 
-    static void setNetworkInterfaceName(const String&);
+    WEBCORE_EXPORT static void setNetworkInterfaceName(const String&);
     static const String& networkInterfaceName();
 
+#if HAVE(AVKIT)
     static void setAVKitEnabled(bool flag) { gAVKitEnabled = flag; }
+#endif
     static bool avKitEnabled() { return gAVKitEnabled; }
 
     static void setShouldOptOutOfNetworkStateObservation(bool flag) { gShouldOptOutOfNetworkStateObservation = flag; }
@@ -272,11 +270,13 @@ public:
     const String& mediaKeysStorageDirectory() const { return m_mediaKeysStorageDirectory; }
 #endif
 
+    WEBCORE_EXPORT void setForcePendingWebGLPolicy(bool);
+    bool isForcePendingWebGLPolicy() const { return m_forcePendingWebGLPolicy; }
+
 private:
     explicit Settings(Page*);
 
     void initializeDefaultFontFamilies();
-    static bool shouldEnableScreenFontSubstitutionByDefault();
 
     Page* m_page;
 
@@ -285,6 +285,9 @@ private:
     const std::unique_ptr<FontGenericFamilies> m_fontGenericFamilies;
     SecurityOrigin::StorageBlockingPolicy m_storageBlockingPolicy;
     std::chrono::milliseconds m_layoutInterval;
+    double m_minimumDOMTimerInterval;
+    double m_domTimerAlignmentInterval;
+
 #if ENABLE(TEXT_AUTOSIZING)
     float m_textAutosizingFontScaleFactor;
     IntSize m_textAutosizingWindowSizeOverride;
@@ -293,7 +296,6 @@ private:
 
     SETTINGS_MEMBER_VARIABLES
 
-    bool m_screenFontSubstitutionEnabled : 1;
     bool m_isJavaEnabled : 1;
     bool m_isJavaEnabledForLocalFiles : 1;
     bool m_loadsImagesAutomatically : 1;
@@ -303,6 +305,7 @@ private:
     bool m_needsAdobeFrameReloadingQuirk : 1;
     bool m_usesPageCache : 1;
     unsigned m_fontRenderingMode : 1;
+    bool m_antialiasedFontDilationEnabled : 1;
     bool m_showTiledScrollingIndicator : 1;
     bool m_backgroundShouldExtendBeyondPage : 1;
     bool m_dnsPrefetchingEnabled : 1;
@@ -315,7 +318,7 @@ private:
     double m_timeWithoutMouseMovementBeforeHidingControls;
 
     Timer m_setImageLoadingSettingsTimer;
-    void imageLoadingSettingsTimerFired(Timer*);
+    void imageLoadingSettingsTimerFired();
 
 #if ENABLE(HIDDEN_PAGE_DOM_TIMER_THROTTLING)
     bool m_hiddenPageDOMTimerThrottlingEnabled : 1;
@@ -323,39 +326,33 @@ private:
     bool m_hiddenPageCSSAnimationSuspensionEnabled : 1;
     bool m_fontFallbackPrefersPictographs : 1;
 
-    static double gDefaultMinDOMTimerInterval;
-    static double gDefaultDOMTimerAlignmentInterval;
+    bool m_forcePendingWebGLPolicy : 1;
 
 #if USE(AVFOUNDATION)
-    static bool gAVFoundationEnabled;
+    WEBCORE_EXPORT static bool gAVFoundationEnabled;
 #endif
 
 #if PLATFORM(COCOA)
-    static bool gQTKitEnabled;
+    WEBCORE_EXPORT static bool gQTKitEnabled;
 #endif
         
     static bool gMockScrollbarsEnabled;
     static bool gUsesOverlayScrollbars;
 
-#if USE(SAFARI_THEME)
-    static bool gShouldPaintNativeControls;
-#endif
 #if PLATFORM(WIN)
     static bool gShouldUseHighResolutionTimers;
 #endif
     static bool gShouldRespectPriorityInCSSAttributeSetters;
 #if PLATFORM(IOS)
     static bool gNetworkDataUsageTrackingEnabled;
-    static bool gAVKitEnabled;
-    static bool gShouldOptOutOfNetworkStateObservation;
-    static bool gManageAudioSession;
+    WEBCORE_EXPORT static bool gAVKitEnabled;
+    WEBCORE_EXPORT static bool gShouldOptOutOfNetworkStateObservation;
+    WEBCORE_EXPORT static bool gManageAudioSession;
 #endif
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
     String m_mediaKeysStorageDirectory;
 #endif
-
-    static double gHiddenPageDOMTimerAlignmentInterval;
 
     static bool gLowPowerVideoAudioBufferSizeEnabled;
 };

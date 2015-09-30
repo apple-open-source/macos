@@ -1590,7 +1590,7 @@ cleanup:
     return ret;
 }
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_store_uuid(krb5_storage *sp, krb5_uuid uuid)
 {
     ssize_t sret;
@@ -1601,7 +1601,7 @@ krb5_store_uuid(krb5_storage *sp, krb5_uuid uuid)
     return 0;
 }
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ret_uuid(krb5_storage *sp, krb5_uuid uuid)
 {
     ssize_t sret;
@@ -1610,4 +1610,140 @@ krb5_ret_uuid(krb5_storage *sp, krb5_uuid uuid)
     if (sret != sizeof(krb5_uuid))
 	return HEIM_ERR_STORAGE_UUID;
     return 0;
+}
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_ret_ndr_header(krb5_storage *sp)
+{
+    krb5_error_code ret;
+    uint8_t Version;
+    uint8_t Endian;
+    uint16_t HeaderLength;
+    
+    krb5_storage_set_byteorder(sp, KRB5_STORAGE_BYTEORDER_LE);
+
+    ret = krb5_ret_uint8(sp, &Version);
+    if (ret) return ret;
+    ret = krb5_ret_uint8(sp, &Endian);
+    if (ret) return ret;
+    ret = krb5_ret_uint16(sp, &HeaderLength);
+    if (ret) return ret;
+
+    if (Endian == 0x10)
+	krb5_storage_set_byteorder(sp, KRB5_STORAGE_BYTEORDER_LE);
+    else
+	krb5_storage_set_byteorder(sp, KRB5_STORAGE_BYTEORDER_BE);
+    
+    if (Version == 1) {
+	uint32_t ObjectBufferLength;
+	uint32_t Filler;
+
+	if (HeaderLength != 8)
+	    return HEIM_NDR_INVALID_LENGTH;
+
+	ret = krb5_ret_uint32(sp, &Filler);
+	if (ret) return ret;
+
+	/* Private Header for Constructed Type */
+	ret = krb5_ret_uint32(sp, &ObjectBufferLength);
+	if (ret) return ret;
+
+	if ((ObjectBufferLength % 8) != 0)
+	    return HEIM_NDR_INVALID_LENGTH;
+
+	ret = krb5_ret_uint32(sp, &Filler);
+	if (ret) return ret;
+
+    } else {
+	return HEIM_NDR_UNSUPPORTED_VERSION;
+    }
+    return 0;
+}
+
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_ret_rpc_unicode_string(krb5_storage *sp, char **str)
+{
+    krb5_error_code ret;
+    uint16_t len, maxlen;
+    uint16_t *data = NULL;
+    uint32_t offset;
+    char *s = NULL;
+    size_t size;
+
+    ret = krb5_ret_uint16(sp, &len);
+    if (ret)
+	return ret;
+    ret = krb5_ret_uint16(sp, &maxlen);
+    if (ret)
+	return ret;
+    ret = krb5_ret_uint32(sp, &offset);
+    if (ret)
+	return ret;
+
+    if (offset != 0)
+	return HEIM_ERR_UNICODE_STRING;
+
+    if (maxlen < len)
+	return HEIM_ERR_UNICODE_STRING;
+
+    s = malloc(len + 1);
+    if (s == NULL)
+	return ENOMEM;
+
+    size = krb5_storage_read(sp, s, len);
+    if (size != len) {
+	free(s);
+	return HEIM_ERR_UNICODE_STRING;
+    }
+
+    s[len] = '\0';
+
+    {
+	unsigned int flags = BYTEORDER_IS_LE(sp) ? WIND_RW_LE : 0;
+	size_t utf16len = len / 2;
+	size_t utf8len;
+
+	data = malloc(utf16len * sizeof(data[0])); 
+	if (data == NULL) {
+	    ret = ENOMEM;
+	    goto out;
+	}
+
+	ret = wind_ucs2read(s, len, &flags, data, &utf16len);
+	if (ret) {
+	    goto out;
+	}
+
+	if (!wind_ucs2utf8_length(data, utf16len, &utf8len)) {
+	    ret = HEIM_ERR_UNICODE_STRING;
+	    goto out;
+	}
+
+	utf8len += 1;
+	
+	free(s);
+	s = malloc(utf8len);
+	if (s == NULL) {
+	    ret = ENOMEM;
+	    goto out;
+	}
+
+	if (!wind_ucs2utf8(data, utf16len, s, &utf8len)) {
+	    ret = HEIM_ERR_UNICODE_STRING;
+	    goto out;
+	}
+    }
+    *str = s;
+    s = NULL;
+
+    ret = 0;
+ out:
+    if (data)
+	free(data);
+
+    if (s)
+	free(s);
+
+    return ret;
 }

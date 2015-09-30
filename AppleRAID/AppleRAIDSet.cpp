@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -765,7 +765,7 @@ bool AppleRAIDSet::unpublishSet(void)
     IOLog1("AppleRAIDSet::unpublishSet(%p) entered, arMedia = %p\n", this, arMedia);
 
     if (arMedia) {
-	success = arMedia->terminate(kIOServiceRequired | kIOServiceSynchronous);
+	success = arMedia->terminate(kIOServiceRequired);
 	arMedia = 0;
     }
 
@@ -1827,7 +1827,7 @@ void AppleRAIDSet::activeReadMembers(AppleRAIDMember ** activeMembers, UInt64 by
 	if (member && member->getMemberState() >= kAppleRAIDMemberStateClosing) {
 	    activeMembers[index] = arMembers[index];
 	} else {
-	    activeMembers[index] = (AppleRAIDMember *)index;
+	    activeMembers[index] = (AppleRAIDMember *)(uintptr_t)index;
 	}
     }
 }
@@ -1841,7 +1841,7 @@ void AppleRAIDSet::activeWriteMembers(AppleRAIDMember ** activeMembers, UInt64 b
 	if (member && member->getMemberState() >= kAppleRAIDMemberStateClosing) {
 	    activeMembers[index] = arMembers[index];
 	} else {
-	    activeMembers[index] = (AppleRAIDMember *)index;
+	    activeMembers[index] = (AppleRAIDMember *)(uintptr_t)index;
 	}
     }
 }

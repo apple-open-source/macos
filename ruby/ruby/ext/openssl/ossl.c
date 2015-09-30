@@ -1,5 +1,5 @@
 /*
- * $Id: ossl.c 45472 2014-03-30 14:50:41Z nagachika $
+ * $Id: ossl.c 47627 2014-09-18 15:26:17Z usa $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -992,6 +992,11 @@ Init_openssl()
      * Version of OpenSSL the ruby OpenSSL extension was built with
      */
     rb_define_const(mOSSL, "OPENSSL_VERSION", rb_str_new2(OPENSSL_VERSION_TEXT));
+
+    /*
+     * Version of OpenSSL the ruby OpenSSL extension is running with
+     */
+    rb_define_const(mOSSL, "OPENSSL_LIBRARY_VERSION", rb_str_new2(SSLeay_version(SSLEAY_VERSION)));
 
     /*
      * Version number of OpenSSL the ruby OpenSSL extension was built with

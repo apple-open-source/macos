@@ -50,13 +50,12 @@ class MediaSourcePrivateAVFObjC;
 
 class MediaPlayerPrivateMediaSourceAVFObjC : public MediaPlayerPrivateInterface {
 public:
-    MediaPlayerPrivateMediaSourceAVFObjC(MediaPlayer*);
+    explicit MediaPlayerPrivateMediaSourceAVFObjC(MediaPlayer*);
     virtual ~MediaPlayerPrivateMediaSourceAVFObjC();
 
     static void registerMediaEngine(MediaEngineRegistrar);
 
     // MediaPlayer Factory Methods
-    static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
     static bool isAvailable();
     static void getSupportedTypes(HashSet<String>& types);
     static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
@@ -96,11 +95,16 @@ private:
     // MediaPlayerPrivateInterface
     virtual void load(const String& url) override;
     virtual void load(const String& url, MediaSourcePrivateClient*) override;
+#if ENABLE(MEDIA_STREAM)
+    void load(MediaStreamPrivate*) override;
+#endif
     virtual void cancelLoad() override;
 
     virtual void prepareToPlay() override;
     virtual PlatformMedia platformMedia() const override;
     virtual PlatformLayer* platformLayer() const override;
+
+    virtual bool supportsFullscreen() const override { return true; }
 
     virtual void play() override;
     void playInternal();
@@ -131,6 +135,8 @@ private:
     virtual void seekWithTolerance(const MediaTime&, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold) override;
     virtual bool seeking() const override;
     virtual void setRateDouble(double) override;
+
+    void setPreservesPitch(bool) override;
 
     virtual std::unique_ptr<PlatformTimeRanges> seekable() const override;
     virtual MediaTime maxMediaTimeSeekable() const override;
@@ -165,10 +171,17 @@ private:
     virtual unsigned long corruptedVideoFrames() override;
     virtual MediaTime totalFrameDelay() override;
 
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+    virtual bool isCurrentPlaybackTargetWireless() const override;
+    virtual void setWirelessPlaybackTarget(Ref<MediaPlaybackTarget>&&) override;
+    virtual void setShouldPlayToPlaybackTarget(bool) override;
+    bool wirelessVideoPlaybackDisabled() const override { return false; }
+#endif
+
     void ensureLayer();
     void destroyLayer();
     bool shouldBePlaying() const;
-    void seekTimerFired(Timer&);
+    void seekTimerFired();
 
     friend class MediaSourcePrivateAVFObjC;
 
@@ -206,6 +219,10 @@ private:
     bool m_seekCompleted;
     mutable bool m_loadingProgressed;
     bool m_hasAvailableVideoFrame;
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+    RefPtr<MediaPlaybackTarget> m_playbackTarget;
+    bool m_shouldPlayToTarget { false };
+#endif
 };
 
 }

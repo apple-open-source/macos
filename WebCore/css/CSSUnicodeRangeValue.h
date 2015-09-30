@@ -33,7 +33,7 @@ namespace WebCore {
 
 class CSSUnicodeRangeValue : public CSSValue {
 public:
-    static PassRef<CSSUnicodeRangeValue> create(UChar32 from, UChar32 to)
+    static Ref<CSSUnicodeRangeValue> create(UChar32 from, UChar32 to)
     {
         return adoptRef(*new CSSUnicodeRangeValue(from, to));
     }
@@ -57,8 +57,8 @@ private:
     UChar32 m_to;
 };
 
-CSS_VALUE_TYPE_CASTS(CSSUnicodeRangeValue, isUnicodeRangeValue())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSUnicodeRangeValue, isUnicodeRangeValue())
 
 #endif // CSSUnicodeRangeValue_h

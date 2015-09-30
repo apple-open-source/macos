@@ -53,16 +53,16 @@ PageUIClientEfl::PageUIClientEfl(EwkView* view)
     ASSERT(pageRef);
 
     WKPageUIClientV2 uiClient;
-    memset(&uiClient, 0, sizeof(WKPageUIClient));
+    memset(&uiClient, 0, sizeof(WKPageUIClientV2));
     uiClient.base.version = 2;
     uiClient.base.clientInfo = this;
     uiClient.close = close;
     uiClient.takeFocus = takeFocus;
     uiClient.focus = focus;
     uiClient.unfocus = unfocus;
-    uiClient.runJavaScriptAlert_deprecatedForUseWithV0 = runJavaScriptAlert;
-    uiClient.runJavaScriptConfirm_deprecatedForUseWithV0 = runJavaScriptConfirm;
-    uiClient.runJavaScriptPrompt_deprecatedForUseWithV0 = runJavaScriptPrompt;
+    uiClient.runJavaScriptAlert = runJavaScriptAlert;
+    uiClient.runJavaScriptConfirm = runJavaScriptConfirm;
+    uiClient.runJavaScriptPrompt = runJavaScriptPrompt;
     uiClient.toolbarsAreVisible = toolbarsAreVisible;
     uiClient.setToolbarsAreVisible = setToolbarsAreVisible;
     uiClient.menuBarIsVisible = menuBarIsVisible;
@@ -74,9 +74,7 @@ PageUIClientEfl::PageUIClientEfl(EwkView* view)
     uiClient.getWindowFrame = getWindowFrame;
     uiClient.setWindowFrame = setWindowFrame;
     uiClient.runBeforeUnloadConfirmPanel = runBeforeUnloadConfirmPanel;
-#if ENABLE(SQL_DATABASE)
     uiClient.exceededDatabaseQuota = exceededDatabaseQuota;
-#endif
     uiClient.runOpenPanel = runOpenPanel;
     uiClient.createNewPage = createNewPage;
 
@@ -98,10 +96,9 @@ void PageUIClientEfl::close(WKPageRef, const void* clientInfo)
     toPageUIClientEfl(clientInfo)->m_view->close();
 }
 
-void PageUIClientEfl::takeFocus(WKPageRef, WKFocusDirection, const void* clientInfo)
+void PageUIClientEfl::takeFocus(WKPageRef, WKFocusDirection direction, const void* clientInfo)
 {
-    // FIXME: this is only a partial implementation.
-    evas_object_focus_set(toPageUIClientEfl(clientInfo)->m_view->evasObject(), false);
+    toPageUIClientEfl(clientInfo)->m_view->smartCallback<FocusNotFound>().call(direction);
 }
 
 void PageUIClientEfl::focus(WKPageRef, const void* clientInfo)
@@ -201,13 +198,11 @@ bool PageUIClientEfl::runBeforeUnloadConfirmPanel(WKPageRef, WKStringRef message
     return toPageUIClientEfl(clientInfo)->m_view->requestJSConfirmPopup(WKEinaSharedString(message));
 }
 
-#if ENABLE(SQL_DATABASE)
 unsigned long long PageUIClientEfl::exceededDatabaseQuota(WKPageRef, WKFrameRef, WKSecurityOriginRef, WKStringRef databaseName, WKStringRef displayName, unsigned long long currentQuota, unsigned long long currentOriginUsage, unsigned long long currentDatabaseUsage, unsigned long long expectedUsage, const void* clientInfo)
 {
     EwkView* view = toPageUIClientEfl(clientInfo)->m_view;
     return view->informDatabaseQuotaReached(toImpl(databaseName)->string(), toImpl(displayName)->string(), currentQuota, currentOriginUsage, currentDatabaseUsage, expectedUsage);
 }
-#endif
 
 void PageUIClientEfl::runOpenPanel(WKPageRef, WKFrameRef, WKOpenPanelParametersRef parameters, WKOpenPanelResultListenerRef listener, const void* clientInfo)
 {

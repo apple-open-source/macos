@@ -27,12 +27,16 @@ Extra_Configure_Flags  = \
 	--with-sitedir=$(SITEDIR) \
 	--enable-shared \
 	--with-arch=$(subst $(space),$(comma),$(RC_ARCHS)) \
+	--with-out-ext=tk \
 	ac_cv_func_getcontext=no \
 	ac_cv_func_setcontext=no \
 	ac_cv_c_compiler_gnu=no \
 	ac_cv_header_net_if_h=yes \
 	av_cv_header_ifaddrs_h=yes \
-	rb_cv_pri_prefix_long_long=ll
+	rb_cv_pri_prefix_long_long=ll \
+	ac_cv_sizeof_struct_stat_st_size=SIZEOF_OFF_T \
+	ac_cv_sizeof_struct_stat_st_blocks=SIZEOF_INT64_T \
+	ac_cv_sizeof_struct_stat_st_ino=SIZEOF_UINT64_T
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -44,9 +48,10 @@ EXTRAS_DIR = $(SRCROOT)/extras
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 2.0.0-p481
+AEP_Version    = $(shell /usr/libexec/PlistBuddy -c 'Print :OpenSourceVersion' $(AEP_Project).plist)
+AEP_URL        = $(shell /usr/libexec/PlistBuddy -c 'Print :OpenSourceURL' $(AEP_Project).plist)
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.bz2
+AEP_Filename   = $(shell basename $(AEP_URL))
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = ext_digest_md5_commoncrypto.diff \
 	ext_digest_sha1_commoncrypto.diff \
@@ -56,7 +61,9 @@ AEP_Patches    = ext_digest_md5_commoncrypto.diff \
 	tool_mkconfig.rb.diff \
 	ext_etc_etc.c.diff \
 	common.mk.diff \
-	message_tracing_main.c.diff
+	message_tracing_main.c.diff \
+	ext_psych_yaml_scanner.c.diff \
+	lib_rubygems_defaults.rb.diff
 
 MAJOR     = $(shell echo $(AEP_Version) | cut -d. -f1)
 MINOR     = $(shell echo $(AEP_Version) | cut -d. -f2)
@@ -70,10 +77,7 @@ configure:: $(ConfigStamp2)
 
 $(ConfigStamp2): $(ConfigStamp)
 	cat $(SRCROOT)/patches/Makefile.append >> ${BuildDirectory}/Makefile
-	@set -x && \
-	cd ${BuildDirectory} && \
-	arch_hdrdir=`$(MAKE) print_arch_hdrdir` && \
-	ed - $$arch_hdrdir/ruby/config.h < $(SRCROOT)/patches/config.h.ed
+	@set -x && cd ${BuildDirectory} && arch_hdrdir=`$(MAKE) print_arch_hdrdir`
 	$(_v) $(TOUCH) $(ConfigStamp2)
 
 build:: configure
@@ -171,6 +175,5 @@ install_source::
 		patch --verbose -d $(SRCROOT)/$(Project) -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 	$(TOUCH) $(SRCROOT)/$(Project)/ext/win32ole/.document
-	awk '/EPERM/, /ELAST/ { if ($$1 == "#define" ) {if ($$2 !="ELAST") { print $$2;} else nextfile } else next}' < /usr/include/sys/errno.h >> $(SRCROOT)/$(Project)/defs/known_errors.def
-	$(SORT) -o $(SRCROOT)/$(Project)/defs/known_errors.def -u $(SRCROOT)/$(Project)/defs/known_errors.def
 	$(RM) $(SRCROOT)/$(Project)/known_errors.inc
+	$(CP) $(SRCROOT)/known_errors.def $(SRCROOT)/$(Project)/defs/known_errors.def

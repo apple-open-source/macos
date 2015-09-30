@@ -1,5 +1,5 @@
 /*
- * "$Id: testhttp.c 12078 2014-07-31 11:45:57Z msweet $"
+ * "$Id: testhttp.c 12698 2015-06-08 17:47:35Z msweet $"
  *
  * HTTP test program for CUPS.
  *
@@ -645,7 +645,6 @@ main(int  argc,				/* I - Number of command-line arguments */
 
         if (lcreds && cupsArrayCount(creds) == cupsArrayCount(lcreds))
         {
-          int			i;
           http_credential_t	*cred, *lcred;
 
           for (i = 1, cred = (http_credential_t *)cupsArrayFirst(creds), lcred = (http_credential_t *)cupsArrayFirst(lcreds);
@@ -890,5 +889,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: testhttp.c 12078 2014-07-31 11:45:57Z msweet $".
+ * End of "$Id: testhttp.c 12698 2015-06-08 17:47:35Z msweet $".
  */

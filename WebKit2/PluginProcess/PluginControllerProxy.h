@@ -62,8 +62,8 @@ public:
     bool initialize(const PluginCreationParameters&);
     void destroy();
 
-    void didReceivePluginControllerProxyMessage(IPC::Connection*, IPC::MessageDecoder&);
-    void didReceiveSyncPluginControllerProxyMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
+    void didReceivePluginControllerProxyMessage(IPC::Connection&, IPC::MessageDecoder&);
+    void didReceiveSyncPluginControllerProxyMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
 
     bool wantsWheelEvents() const;
 
@@ -83,26 +83,26 @@ private:
     void paint();
 
     // PluginController
-    virtual bool isPluginVisible() override;
     virtual void invalidate(const WebCore::IntRect&) override;
     virtual String userAgent() override;
     virtual void loadURL(uint64_t requestID, const String& method, const String& urlString, const String& target, const WebCore::HTTPHeaderMap& headerFields, const Vector<uint8_t>& httpBody, bool allowPopups) override;
+    virtual void continueStreamLoad(uint64_t streamID) override;
     virtual void cancelStreamLoad(uint64_t streamID) override;
     virtual void cancelManualStreamLoad() override;
     virtual NPObject* windowScriptNPObject() override;
     virtual NPObject* pluginElementNPObject() override;
     virtual bool evaluate(NPObject*, const String& scriptString, NPVariant* result, bool allowPopups) override;
+    virtual void setPluginIsPlayingAudio(bool) override;
     virtual void setStatusbarText(const String&) override;
     virtual bool isAcceleratedCompositingEnabled() override;
     virtual void pluginProcessCrashed() override;
-    virtual void willSendEventToPlugin() override;
     virtual void didInitializePlugin() override;
     virtual void didFailToInitializePlugin() override;
 
 #if PLATFORM(COCOA)
     virtual void pluginFocusOrWindowFocusChanged(bool) override;
     virtual void setComplexTextInputState(PluginComplexTextInputState) override;
-    virtual mach_port_t compositingRenderServerPort() override;
+    virtual const WebCore::MachSendRight& compositingRenderServerPort() override;
     virtual void openPluginPreferencePane() override;
 #endif
 
@@ -111,6 +111,7 @@ private:
     virtual String cookiesForURL(const String&) override;
     virtual void setCookiesForURL(const String& urlString, const String& cookieString) override;
     virtual bool isPrivateBrowsingEnabled() override;
+    virtual bool isMuted() const override { return m_isMuted; }
     virtual bool getAuthenticationInfo(const WebCore::ProtectionSpace&, String& username, String& password) override;
     virtual void protectPluginFromDestruction() override;
     virtual void unprotectPluginFromDestruction() override;
@@ -126,6 +127,7 @@ private:
     void geometryDidChange(const WebCore::IntSize& pluginSize, const WebCore::IntRect& clipRect, const WebCore::AffineTransform& pluginToRootViewTransform, float contentsScaleFactor, const ShareableBitmap::Handle& backingStoreHandle);
     void visibilityDidChange(bool isVisible);
     void didEvaluateJavaScript(uint64_t requestID, const String& result);
+    void streamWillSendRequest(uint64_t streamID, const String& requestURLString, const String& redirectResponseURLString, uint32_t redirectResponseStatusCode);
     void streamDidReceiveResponse(uint64_t streamID, const String& responseURLString, uint32_t streamLength, uint32_t lastModifiedTime, const String& mimeType, const String& headers);
     void streamDidReceiveData(uint64_t streamID, const IPC::DataReference& data);
     void streamDidFinishLoading(uint64_t streamID);
@@ -163,6 +165,7 @@ private:
 
     void storageBlockingStateChanged(bool);
     void privateBrowsingStateChanged(bool);
+    void mutedStateChanged(bool);
     void getFormValue(bool& returnValue, String& formValue);
 
     void platformInitialize(const PluginCreationParameters&);
@@ -175,6 +178,7 @@ private:
     String m_userAgent;
     bool m_storageBlockingEnabled;
     bool m_isPrivateBrowsingEnabled;
+    bool m_isMuted;
     bool m_isAcceleratedCompositingEnabled;
     bool m_isInitializing;
     bool m_isVisible;

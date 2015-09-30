@@ -41,9 +41,9 @@ static uint64_t generateNPObjectID()
     return ++generateNPObjectID;
 }
 
-PassRefPtr<NPRemoteObjectMap> NPRemoteObjectMap::create(IPC::Connection* connection)
+Ref<NPRemoteObjectMap> NPRemoteObjectMap::create(IPC::Connection* connection)
 {
-    return adoptRef(new NPRemoteObjectMap(connection));
+    return adoptRef(*new NPRemoteObjectMap(connection));
 }
 
 NPRemoteObjectMap::NPRemoteObjectMap(IPC::Connection* connection)
@@ -217,7 +217,7 @@ void NPRemoteObjectMap::pluginDestroyed(Plugin* plugin)
     }
 }
 
-void NPRemoteObjectMap::didReceiveSyncMessage(IPC::Connection* connection, IPC::MessageDecoder& decoder, std::unique_ptr<IPC::MessageEncoder>& replyEncoder)
+void NPRemoteObjectMap::didReceiveSyncMessage(IPC::Connection& connection, IPC::MessageDecoder& decoder, std::unique_ptr<IPC::MessageEncoder>& replyEncoder)
 {
     NPObjectMessageReceiver* messageReceiver = m_registeredNPObjects.get(decoder.destinationID());
     if (!messageReceiver)

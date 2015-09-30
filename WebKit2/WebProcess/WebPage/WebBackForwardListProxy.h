@@ -36,7 +36,7 @@ class WebPage;
 
 class WebBackForwardListProxy : public WebCore::BackForwardClient {
 public: 
-    static PassRefPtr<WebBackForwardListProxy> create(WebPage* page) { return adoptRef(new WebBackForwardListProxy(page)); }
+    static Ref<WebBackForwardListProxy> create(WebPage* page) { return adoptRef(*new WebBackForwardListProxy(page)); }
 
     static WebCore::HistoryItem* itemForID(uint64_t);
     static uint64_t idForItem(WebCore::HistoryItem*);
@@ -50,17 +50,17 @@ public:
 private:
     WebBackForwardListProxy(WebPage*);
 
-    virtual void addItem(PassRefPtr<WebCore::HistoryItem>);
+    virtual void addItem(Ref<WebCore::HistoryItem>&&) override;
 
-    virtual void goToItem(WebCore::HistoryItem*);
+    virtual void goToItem(WebCore::HistoryItem*) override;
         
-    virtual WebCore::HistoryItem* itemAtIndex(int);
-    virtual int backListCount();
-    virtual int forwardListCount();
+    virtual WebCore::HistoryItem* itemAtIndex(int) override;
+    virtual int backListCount() override;
+    virtual int forwardListCount() override;
 
     virtual bool isActive();
 
-    virtual void close();
+    virtual void close() override;
 
 #if PLATFORM(IOS)
     virtual unsigned current() override;

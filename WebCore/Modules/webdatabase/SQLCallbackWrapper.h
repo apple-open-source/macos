@@ -28,8 +28,6 @@
 #ifndef SQLCallbackWrapper_h
 #define SQLCallbackWrapper_h
 
-#if ENABLE(SQL_DATABASE)
-
 #include "ScriptExecutionContext.h"
 #include <wtf/ThreadingPrimitives.h>
 
@@ -66,25 +64,28 @@ public:
                 return;
             }
             if (m_scriptExecutionContext->isContextThread()) {
-                m_callback = 0;
-                m_scriptExecutionContext = 0;
+                m_callback = nullptr;
+                m_scriptExecutionContext = nullptr;
                 return;
             }
             scriptExecutionContextPtr = m_scriptExecutionContext.release().leakRef();
             callback = m_callback.release().leakRef();
         }
-        scriptExecutionContextPtr->postTask({ ScriptExecutionContext::Task::CleanupTask, [=] (ScriptExecutionContext& context) {
-            ASSERT_UNUSED(context, &context == scriptExecutionContextPtr && context.isContextThread());
-            callback->deref();
-            scriptExecutionContextPtr->deref();
-        } });
+        scriptExecutionContextPtr->postTask({
+            ScriptExecutionContext::Task::CleanupTask,
+            [callback, scriptExecutionContextPtr] (ScriptExecutionContext& context) {
+                ASSERT_UNUSED(context, &context == scriptExecutionContextPtr && context.isContextThread());
+                callback->deref();
+                scriptExecutionContextPtr->deref();
+            }
+        });
     }
 
     PassRefPtr<T> unwrap()
     {
         MutexLocker locker(m_mutex);
         ASSERT(!m_callback || m_scriptExecutionContext->isContextThread());
-        m_scriptExecutionContext = 0;
+        m_scriptExecutionContext = nullptr;
         return m_callback.release();
     }
 
@@ -98,7 +99,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(SQL_DATABASE)
 
 #endif // SQLCallbackWrapper_h

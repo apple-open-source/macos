@@ -39,12 +39,7 @@ bool isNotHTMLSpace(UChar);
 bool isHTMLSpaceButNotLineBreak(UChar character);
 
 // Strip leading and trailing whitespace as defined by the HTML specification. 
-String stripLeadingAndTrailingHTMLSpaces(const String&);
-template<size_t inlineCapacity>
-String stripLeadingAndTrailingHTMLSpaces(const Vector<UChar, inlineCapacity>& vector)
-{
-    return stripLeadingAndTrailingHTMLSpaces(StringImpl::create8BitIfPossible(vector));
-}
+WEBCORE_EXPORT String stripLeadingAndTrailingHTMLSpaces(const String&);
 
 // An implementation of the HTML specification's algorithm to convert a number to a string for number and range types.
 String serializeForNumberType(const Decimal&);

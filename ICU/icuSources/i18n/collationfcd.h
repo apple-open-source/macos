@@ -125,8 +125,8 @@ private:
 
     static const uint8_t lcccIndex[2048];
     static const uint8_t tcccIndex[2048];
-    static const uint32_t lcccBits[66]; // add one for Apple PUA data
-    static const uint32_t tcccBits[115]; // add one for Apple PUA data
+    static const uint32_t lcccBits[];
+    static const uint32_t tcccBits[];
 };
 
 U_NAMESPACE_END

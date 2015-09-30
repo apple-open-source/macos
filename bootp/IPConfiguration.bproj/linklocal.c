@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -180,7 +180,7 @@ S_find_linklocal_address(ServiceRef service_p)
 	inet_addrinfo_t * 	info = if_inet_addr_at(if_p, i);
 
 	if (ip_is_linklocal(info->addr)) {
-	    my_log(LOG_DEBUG, "LINKLOCAL %s: found address " IP_FORMAT,
+	    my_log(LOG_INFO, "LINKLOCAL %s: found address " IP_FORMAT,
 		   if_name(if_p), IP_LIST(&info->addr));
 	    return (info->addr);
 	}
@@ -240,7 +240,7 @@ linklocal_detect_proxy_arp(ServiceRef service_p, IFEventID_t event_id,
     linklocal = (Service_linklocal_t *)ServiceGetPrivate(service_p);
     switch (event_id) {
       case IFEventID_start_e: {
-	  struct in_addr	iaddr;
+	  struct in_addr	iaddr = { 0 };
 	  struct in_addr	llbroadcast;
 
 	  arp_linklocal_disable(if_name(if_p));
@@ -252,10 +252,10 @@ linklocal_detect_proxy_arp(ServiceRef service_p, IFEventID_t event_id,
 		     if_name(if_p));
 	      break;
 	  }
-	  my_log(LOG_DEBUG, 
+	  my_log(LOG_INFO,
 		 "LINKLOCAL %s: ARP Request: Source " IP_FORMAT 
 		 " Target 169.254.255.255", if_name(if_p), IP_LIST(&iaddr));
-	  arp_client_probe(linklocal->arp, 
+	  arp_client_probe(linklocal->arp,
 			   (arp_result_func_t *)linklocal_detect_proxy_arp, 
 			   service_p, (void *)IFEventID_arp_e, iaddr,
 			   llbroadcast);
@@ -267,14 +267,14 @@ linklocal_detect_proxy_arp(ServiceRef service_p, IFEventID_t event_id,
 	  arp_result_t *	result = (arp_result_t *)event_data;
 
 	  if (result->error) {
-	      my_log(LOG_DEBUG, "LINKLOCAL %s: ARP probe failed, %s", 
+	      my_log(LOG_INFO, "LINKLOCAL %s: ARP probe failed, %s", 
 		     if_name(if_p),
 		     arp_client_errmsg(linklocal->arp));
 	      break;
 	  }
 	  linklocal_set_needs_attention();
 	  if (result->in_use) {
-	      my_log(LOG_DEBUG, 
+	      my_log(LOG_INFO, 
 		     "LINKLOCAL %s: ARP response received for 169.254.255.255" 
 		     " from " EA_FORMAT, 
 		     if_name(if_p), 
@@ -329,7 +329,7 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 		  = htonl(LINKLOCAL_FIRST_USEABLE 
 	            + random_range(0, LINKLOCAL_RANGE));
 	  }
-	  my_log(LOG_DEBUG, "LINKLOCAL %s: probing " IP_FORMAT, 
+	  my_log(LOG_INFO, "LINKLOCAL %s: probing " IP_FORMAT, 
 		 if_name(if_p), IP_LIST(&linklocal->probe));
 	  arp_client_probe(linklocal->arp, 
 			   (arp_result_func_t *)linklocal_allocate, service_p,
@@ -342,7 +342,7 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 	  arp_result_t *	result = (arp_result_t *)event_data;
 
 	  if (result->error) {
-	      my_log(LOG_DEBUG, "LINKLOCAL %s: ARP probe failed, %s", 
+	      my_log(LOG_INFO, "LINKLOCAL %s: ARP probe failed, %s", 
 		     if_name(if_p),
 		     arp_client_errmsg(linklocal->arp));
 	      break;
@@ -350,14 +350,14 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 	  if (result->in_use 
 	      || service_is_using_ip(service_p, linklocal->probe)) {
 	      if (result->in_use) {
-	          my_log(LOG_DEBUG, "LINKLOCAL %s: IP address " 
+	          my_log(LOG_INFO, "LINKLOCAL %s: IP address " 
 		         IP_FORMAT " is in use by " EA_FORMAT, 
 		         if_name(if_p), 
 		         IP_LIST(&linklocal->probe),
 		         EA_LIST(result->addr.target_hardware));
 	      }
 	      else {
-		  my_log(LOG_DEBUG, "LINKLOCAL %s: IP address "
+		  my_log(LOG_INFO, "LINKLOCAL %s: IP address "
 			 IP_FORMAT " is no longer unique", 
 			 if_name(if_p));
 	      }
@@ -413,7 +413,7 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 			   (arp_result_func_t *)linklocal_allocate, service_p,
 			   (void *)IFEventID_arp_e, G_ip_zeroes,
 			   linklocal->probe);
-	  my_log(LOG_DEBUG, "LINKLOCAL %s probing " IP_FORMAT, 
+	  my_log(LOG_INFO, "LINKLOCAL %s probing " IP_FORMAT, 
 		 if_name(if_p), IP_LIST(&linklocal->probe));
 	  /* wait for the results */
 	  break;
@@ -458,32 +458,26 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      break;
 	  }
 	  if (linklocal != NULL) {
-	      my_log(LOG_ERR, "LINKLOCAL %s: re-entering start state", 
+	      my_log(LOG_NOTICE, "LINKLOCAL %s: re-entering start state",
 		     if_name(if_p));
 	      status = ipconfig_status_internal_error_e;
 	      break;
 	  }
-	  my_log(LOG_DEBUG, "LINKLOCAL %s: start", if_name(if_p));
+	  my_log(LOG_INFO, "LINKLOCAL %s: start", if_name(if_p));
 	  linklocal = malloc(sizeof(*linklocal));
-	  if (linklocal == NULL) {
-	      my_log(LOG_ERR, "LINKLOCAL %s: malloc failed", 
-		     if_name(if_p));
-	      status = ipconfig_status_allocation_failed_e;
-	      break;
-	  }
 	  bzero(linklocal, sizeof(*linklocal));
 	  ServiceSetPrivate(service_p, linklocal);
 
 	  linklocal->timer = timer_callout_init();
 	  if (linklocal->timer == NULL) {
-	      my_log(LOG_ERR, "LINKLOCAL %s: timer_callout_init failed", 
+	      my_log(LOG_NOTICE, "LINKLOCAL %s: timer_callout_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
 	  linklocal->arp = arp_client_init(G_arp_session, if_p);
 	  if (linklocal->arp == NULL) {
-	      my_log(LOG_ERR, "LINKLOCAL %s: arp_client_init failed", 
+	      my_log(LOG_NOTICE, "LINKLOCAL %s: arp_client_init failed",
 		     if_name(if_p));
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
@@ -506,9 +500,9 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       }
       case IFEventID_stop_e: {
       stop:
-	  my_log(LOG_DEBUG, "LINKLOCAL %s: stop", if_name(if_p));
+	  my_log(LOG_INFO, "LINKLOCAL %s: stop", if_name(if_p));
 	  if (linklocal == NULL) {
-	      my_log(LOG_DEBUG, "LINKLOCAL %s: already stopped", 
+	      my_log(LOG_INFO, "LINKLOCAL %s: already stopped", 
 		     if_name(if_p));
 	      status = ipconfig_status_internal_error_e; /* shouldn't happen */
 	      break;

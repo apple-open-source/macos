@@ -40,7 +40,7 @@ namespace WebCore {
     typedef HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::Structure>> JSDOMStructureMap;
     typedef HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::JSObject>> JSDOMConstructorMap;
 
-    class JSDOMGlobalObject : public JSC::JSGlobalObject {
+    class WEBCORE_EXPORT JSDOMGlobalObject : public JSC::JSGlobalObject {
         typedef JSC::JSGlobalObject Base;
     protected:
         struct JSDOMGlobalObjectData;
@@ -68,7 +68,7 @@ namespace WebCore {
         bool worldIsNormal() const { return m_worldIsNormal; }
 
     protected:
-        static WEBKIT_EXPORTDATA const JSC::ClassInfo s_info;
+        static const JSC::ClassInfo s_info;
 
     public:
         static const JSC::ClassInfo* info() { return &s_info; }

@@ -299,7 +299,12 @@ whois(const char *query, const char *hostname, int flags)
 	if (sfi == NULL || sfo == NULL)
 		err(EX_OSERR, "fdopen()");
 	if (strcmp(hostname, GERMNICHOST) == 0) {
+#ifdef __APPLE__
+		/* radar:18958875 radar:21503897 */
+		fprintf(sfo, "-T dn -C UTF-8 %s\r\n", query);
+#else
 		fprintf(sfo, "-T dn,ace -C US-ASCII %s\r\n", query);
+#endif
 	} else {
 		fprintf(sfo, "%s\r\n", query);
 	}

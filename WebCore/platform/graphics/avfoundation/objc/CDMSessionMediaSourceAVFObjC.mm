@@ -39,6 +39,7 @@
 #import "UUID.h"
 #import <AVFoundation/AVError.h>
 #import <CoreMedia/CMBase.h>
+#import <cstdlib>
 #import <objc/objc-runtime.h>
 #import <wtf/NeverDestroyed.h>
 #import <runtime/TypedArrayInlines.h>
@@ -269,7 +270,7 @@ bool CDMSessionMediaSourceAVFObjC::update(Uint8Array* key, RefPtr<Uint8Array>& n
         if (error) {
             LOG(Media, "CDMSessionMediaSourceAVFObjC::update(%p) - error:%@", this, [error description]);
             errorCode = MediaPlayer::InvalidPlayerState;
-            systemCode = abs(systemCodeForError(error));
+            systemCode = std::abs(systemCodeForError(error));
             return false;
         }
 
@@ -293,7 +294,7 @@ void CDMSessionMediaSourceAVFObjC::layerDidReceiveError(AVSampleBufferDisplayLay
     if (!m_client)
         return;
 
-    unsigned long code = abs(systemCodeForError(error));
+    unsigned long code = std::abs(systemCodeForError(error));
 
     // FIXME(142246): Remove the following once <rdar://problem/20027434> is resolved.
     shouldIgnore = m_stopped && code == 12785;
@@ -306,7 +307,7 @@ void CDMSessionMediaSourceAVFObjC::rendererDidReceiveError(AVSampleBufferAudioRe
     if (!m_client)
         return;
 
-    unsigned long code = abs(systemCodeForError(error));
+    unsigned long code = std::abs(systemCodeForError(error));
 
     // FIXME(142246): Remove the following once <rdar://problem/20027434> is resolved.
     shouldIgnore = m_stopped && code == 12785;

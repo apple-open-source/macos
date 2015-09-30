@@ -26,6 +26,8 @@
 #ifndef RenderStyleConstants_h
 #define RenderStyleConstants_h
 
+#include <initializer_list>
+
 namespace WebCore {
 
 static const size_t PrintColorAdjustBits = 1;
@@ -53,7 +55,8 @@ enum StyleDifference {
     StyleDifferenceLayoutPositionedMovementOnly,
     StyleDifferenceSimplifiedLayout,
     StyleDifferenceSimplifiedLayoutAndPositionedMovement,
-    StyleDifferenceLayout
+    StyleDifferenceLayout,
+    StyleDifferenceNewStyle
 };
 
 // When some style properties change, different amounts of work have to be done depending on
@@ -61,15 +64,16 @@ enum StyleDifference {
 // A simple StyleDifference does not provide enough information so we return a bit mask of
 // StyleDifferenceContextSensitiveProperties from RenderStyle::diff() too.
 enum StyleDifferenceContextSensitiveProperty {
-    ContextSensitivePropertyNone = 0,
-    ContextSensitivePropertyTransform = (1 << 0),
-    ContextSensitivePropertyOpacity = (1 << 1),
-    ContextSensitivePropertyFilter = (1 << 2),
-    ContextSensitivePropertyClipRect = (1 << 3)
+    ContextSensitivePropertyNone        = 0,
+    ContextSensitivePropertyTransform   = 1 << 0,
+    ContextSensitivePropertyOpacity     = 1 << 1,
+    ContextSensitivePropertyFilter      = 1 << 2,
+    ContextSensitivePropertyClipRect    = 1 << 3,
+    ContextSensitivePropertyClipPath    = 1 << 4
 };
 
 // Static pseudo styles. Dynamic ones are produced on the fly.
-enum PseudoId {
+enum PseudoId : unsigned char {
     // The order must be NOP ID, public IDs, and then internal IDs.
     NOPSEUDO, FIRST_LINE, FIRST_LETTER, BEFORE, AFTER, SELECTION, FIRST_LINE_INHERITED, SCROLLBAR,
     // Internal IDs follow:
@@ -78,6 +82,67 @@ enum PseudoId {
     FIRST_PUBLIC_PSEUDOID = FIRST_LINE,
     FIRST_INTERNAL_PSEUDOID = SCROLLBAR_THUMB,
     PUBLIC_PSEUDOID_MASK = ((1 << FIRST_INTERNAL_PSEUDOID) - 1) & ~((1 << FIRST_PUBLIC_PSEUDOID) - 1)
+};
+
+class PseudoIdSet {
+public:
+    PseudoIdSet()
+        : m_data(0)
+    {
+    }
+
+    PseudoIdSet(std::initializer_list<PseudoId> initializerList)
+        : m_data(0)
+    {
+        for (PseudoId pseudoId : initializerList)
+            add(pseudoId);
+    }
+
+    static PseudoIdSet fromMask(unsigned rawPseudoIdSet)
+    {
+        return PseudoIdSet(rawPseudoIdSet);
+    }
+
+    bool has(PseudoId pseudoId) const
+    {
+        ASSERT((sizeof(m_data) * 8) > pseudoId);
+        return m_data & (1U << pseudoId);
+    }
+
+    void add(PseudoId pseudoId)
+    {
+        ASSERT((sizeof(m_data) * 8) > pseudoId);
+        m_data |= (1U << pseudoId);
+    }
+
+    void merge(PseudoIdSet source)
+    {
+        m_data |= source.m_data;
+    }
+
+    PseudoIdSet operator &(const PseudoIdSet& pseudoIdSet) const
+    {
+        return PseudoIdSet(m_data & pseudoIdSet.m_data);
+    }
+
+    PseudoIdSet operator |(const PseudoIdSet& pseudoIdSet) const
+    {
+        return PseudoIdSet(m_data | pseudoIdSet.m_data);
+    }
+
+    explicit operator bool() const
+    {
+        return m_data;
+    }
+
+    unsigned data() const { return m_data; }
+private:
+    explicit PseudoIdSet(unsigned rawPseudoIdSet)
+        : m_data(rawPseudoIdSet)
+    {
+    }
+
+    unsigned m_data;
 };
 
 enum ColumnFill { ColumnFillBalance, ColumnFillAuto };
@@ -181,13 +246,13 @@ enum EBoxDirection { BNORMAL, BREVERSE };
 // CSS3 Flexbox Properties
 
 enum EAlignContent { AlignContentFlexStart, AlignContentFlexEnd, AlignContentCenter, AlignContentSpaceBetween, AlignContentSpaceAround, AlignContentStretch };
-enum EAlignItems { AlignAuto, AlignFlexStart, AlignFlexEnd, AlignCenter, AlignStretch, AlignBaseline };
 enum EFlexDirection { FlowRow, FlowRowReverse, FlowColumn, FlowColumnReverse };
 enum EFlexWrap { FlexNoWrap, FlexWrap, FlexWrapReverse };
-enum EJustifyContent { JustifyFlexStart, JustifyFlexEnd, JustifyCenter, JustifySpaceBetween, JustifySpaceAround };
-enum EJustifySelf {JustifySelfAuto, JustifySelfStretch, JustifySelfBaseline, JustifySelfCenter, JustifySelfStart, JustifySelfEnd, JustifySelfSelfStart, JustifySelfSelfEnd, JustifySelfFlexStart, JustifySelfFlexEnd, JustifySelfLeft, JustifySelfRight};
-enum EJustifySelfOverflowAlignment {JustifySelfOverflowAlignmentDefault, JustifySelfOverflowAlignmentTrue, JustifySelfOverflowAlignmentSafe};
-
+enum ItemPosition {ItemPositionAuto, ItemPositionStretch, ItemPositionBaseline, ItemPositionLastBaseline, ItemPositionCenter, ItemPositionStart, ItemPositionEnd, ItemPositionSelfStart, ItemPositionSelfEnd, ItemPositionFlexStart, ItemPositionFlexEnd, ItemPositionLeft, ItemPositionRight};
+enum OverflowAlignment {OverflowAlignmentDefault, OverflowAlignmentTrue, OverflowAlignmentSafe};
+enum ItemPositionType {NonLegacyPosition, LegacyPosition};
+enum ContentPosition {ContentPositionAuto, ContentPositionBaseline, ContentPositionLastBaseline, ContentPositionCenter, ContentPositionStart, ContentPositionEnd, ContentPositionFlexStart, ContentPositionFlexEnd, ContentPositionLeft, ContentPositionRight};
+enum ContentDistributionType {ContentDistributionDefault, ContentDistributionSpaceBetween, ContentDistributionSpaceAround, ContentDistributionSpaceEvenly, ContentDistributionStretch};
 
 enum ETextSecurity {
     TSNONE, TSDISC, TSCIRCLE, TSSQUARE
@@ -220,10 +285,8 @@ enum AspectRatioType {
     AspectRatioAuto, AspectRatioFromIntrinsic, AspectRatioFromDimensions, AspectRatioSpecified
 };
 
-// Word Break Values. Matches WinIE, rather than CSS3
-
 enum EWordBreak {
-    NormalWordBreak, BreakAllWordBreak, BreakWordBreak
+    NormalWordBreak, BreakAllWordBreak, KeepAllWordBreak, BreakWordBreak
 };
 
 enum EOverflowWrap {
@@ -385,7 +448,7 @@ enum TextAlignLast {
 };
 
 enum TextJustify {
-    TextJustifyAuto, TextJustifyNone, TextJustifyInterWord, TextJustifyInterIdeograph, TextJustifyInterCluster, TextJustifyDistribute, TextJustifyKashida
+    TextJustifyAuto, TextJustifyNone, TextJustifyInterWord, TextJustifyDistribute
 };
 #endif // CSS3_TEXT
 
@@ -420,44 +483,44 @@ enum EVisibility { VISIBLE, HIDDEN, COLLAPSE };
 
 enum ECursor {
     // The following must match the order in CSSValueKeywords.in.
-    CURSOR_AUTO,
-    CURSOR_CROSS,
-    CURSOR_DEFAULT,
-    CURSOR_POINTER,
-    CURSOR_MOVE,
-    CURSOR_VERTICAL_TEXT,
-    CURSOR_CELL,
-    CURSOR_CONTEXT_MENU,
-    CURSOR_ALIAS,
-    CURSOR_PROGRESS,
-    CURSOR_NO_DROP,
-    CURSOR_NOT_ALLOWED,
-    CURSOR_WEBKIT_ZOOM_IN,
-    CURSOR_WEBKIT_ZOOM_OUT,
-    CURSOR_E_RESIZE,
-    CURSOR_NE_RESIZE,
-    CURSOR_NW_RESIZE,
-    CURSOR_N_RESIZE,
-    CURSOR_SE_RESIZE,
-    CURSOR_SW_RESIZE,
-    CURSOR_S_RESIZE,
-    CURSOR_W_RESIZE,
-    CURSOR_EW_RESIZE,
-    CURSOR_NS_RESIZE,
-    CURSOR_NESW_RESIZE,
-    CURSOR_NWSE_RESIZE,
-    CURSOR_COL_RESIZE,
-    CURSOR_ROW_RESIZE,
-    CURSOR_TEXT,
-    CURSOR_WAIT,
-    CURSOR_HELP,
-    CURSOR_ALL_SCROLL,
-    CURSOR_WEBKIT_GRAB,
-    CURSOR_WEBKIT_GRABBING,
+    CursorAuto,
+    CursorCross,
+    CursorDefault,
+    CursorPointer,
+    CursorMove,
+    CursorVerticalText,
+    CursorCell,
+    CursorContextMenu,
+    CursorAlias,
+    CursorProgress,
+    CursorNoDrop,
+    CursorNotAllowed,
+    CursorZoomIn,
+    CursorZoomOut,
+    CursorEResize,
+    CursorNeResize,
+    CursorNwResize,
+    CursorNResize,
+    CursorSeResize,
+    CursorSwResize,
+    CursorSResize,
+    CursorWResize,
+    CursorEwResize,
+    CursorNsResize,
+    CursorNeswResize,
+    CursorNwseResize,
+    CursorColResize,
+    CursorRowResize,
+    CursorText,
+    CursorWait,
+    CursorHelp,
+    CursorAllScroll,
+    CursorWebkitGrab,
+    CursorWebkitGrabbing,
 
     // The following are handled as exceptions so don't need to match.
-    CURSOR_COPY,
-    CURSOR_NONE
+    CursorCopy,
+    CursorNone
 };
 
 #if ENABLE(CURSOR_VISIBILITY)
@@ -474,7 +537,7 @@ enum EDisplay {
     TABLE_HEADER_GROUP, TABLE_FOOTER_GROUP, TABLE_ROW,
     TABLE_COLUMN_GROUP, TABLE_COLUMN, TABLE_CELL,
     TABLE_CAPTION, BOX, INLINE_BOX,
-    FLEX, INLINE_FLEX,
+    FLEX, WEBKIT_FLEX, INLINE_FLEX, WEBKIT_INLINE_FLEX,
 #if ENABLE(CSS_GRID_LAYOUT)
     GRID, INLINE_GRID,
 #endif
@@ -538,28 +601,25 @@ enum LineSnap { LineSnapNone, LineSnapBaseline, LineSnapContain };
 
 enum LineAlign { LineAlignNone, LineAlignEdges };
 
-enum RubyPosition { RubyPositionBefore, RubyPositionAfter };
+enum RubyPosition { RubyPositionBefore, RubyPositionAfter, RubyPositionInterCharacter };
 
 #if ENABLE(CSS_GRID_LAYOUT)
-static const size_t GridAutoFlowBits = 5;
+static const size_t GridAutoFlowBits = 4;
 enum InternalGridAutoFlowAlgorithm {
     InternalAutoFlowAlgorithmSparse = 0x1,
     InternalAutoFlowAlgorithmDense = 0x2,
-    InternalAutoFlowAlgorithmStack = 0x4
 };
 
 enum InternalGridAutoFlowDirection {
-    InternalAutoFlowDirectionRow = 0x8,
-    InternalAutoFlowDirectionColumn = 0x10
+    InternalAutoFlowDirectionRow = 0x4,
+    InternalAutoFlowDirectionColumn = 0x8
 };
 
 enum GridAutoFlow {
     AutoFlowRow = InternalAutoFlowAlgorithmSparse | InternalAutoFlowDirectionRow,
     AutoFlowColumn = InternalAutoFlowAlgorithmSparse | InternalAutoFlowDirectionColumn,
     AutoFlowRowDense = InternalAutoFlowAlgorithmDense | InternalAutoFlowDirectionRow,
-    AutoFlowColumnDense = InternalAutoFlowAlgorithmDense | InternalAutoFlowDirectionColumn,
-    AutoFlowStackRow = InternalAutoFlowAlgorithmStack | InternalAutoFlowDirectionRow,
-    AutoFlowStackColumn = InternalAutoFlowAlgorithmStack | InternalAutoFlowDirectionColumn
+    AutoFlowColumnDense = InternalAutoFlowAlgorithmDense | InternalAutoFlowDirectionColumn
 };
 #endif
 
@@ -575,6 +635,21 @@ enum Isolation { IsolationAuto, IsolationIsolate };
 
 // Fill, Stroke, ViewBox are just used for SVG.
 enum CSSBoxType { BoxMissing = 0, MarginBox, BorderBox, PaddingBox, ContentBox, Fill, Stroke, ViewBox };
+
+#if ENABLE(CSS_SCROLL_SNAP)
+enum class ScrollSnapType {
+    None,
+    Proximity,
+    Mandatory
+};
+#endif
+
+#if ENABLE(CSS_TRAILING_WORD)
+enum class TrailingWord {
+    Auto,
+    PartiallyBalanced
+};
+#endif
 
 } // namespace WebCore
 

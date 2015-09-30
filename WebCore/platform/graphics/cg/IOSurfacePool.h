@@ -47,14 +47,14 @@ class IOSurfacePool {
     friend class NeverDestroyed<IOSurfacePool>;
 
 public:
-    static IOSurfacePool& sharedPool();
+    WEBCORE_EXPORT static IOSurfacePool& sharedPool();
 
-    PassRefPtr<IOSurface> takeSurface(IntSize size, ColorSpace colorSpace);
-    void addSurface(IOSurface*);
+    std::unique_ptr<IOSurface> takeSurface(IntSize, ColorSpace);
+    WEBCORE_EXPORT void addSurface(std::unique_ptr<IOSurface>);
 
     void discardAllSurfaces();
 
-    void setPoolSize(size_t);
+    WEBCORE_EXPORT void setPoolSize(size_t);
 
     void showPoolStatistics();
 
@@ -72,22 +72,22 @@ private:
         bool hasMarkedPurgeable;
     };
 
-    typedef Deque<RefPtr<IOSurface>> CachedSurfaceQueue;
+    typedef Deque<std::unique_ptr<IOSurface>> CachedSurfaceQueue;
     typedef HashMap<IntSize, CachedSurfaceQueue> CachedSurfaceMap;
     typedef HashMap<IOSurface*, CachedSurfaceDetails> CachedSurfaceDetailsMap;
 
-    void willAddSurface(IOSurface*, bool inUse);
-    void didRemoveSurface(IOSurface*, bool inUse);
+    void willAddSurface(IOSurface&, bool inUse);
+    void didRemoveSurface(IOSurface&, bool inUse);
     void didUseSurfaceOfSize(IntSize);
 
-    void insertSurfaceIntoPool(IOSurface*);
+    void insertSurfaceIntoPool(std::unique_ptr<IOSurface>);
 
     void evict(size_t additionalSize);
     void tryEvictInUseSurface();
     void tryEvictOldestCachedSurface();
 
     void scheduleCollectionTimer();
-    void collectionTimerFired(Timer&);
+    void collectionTimerFired();
     void collectInUseSurfaces();
     bool markOlderSurfacesPurgeable();
 

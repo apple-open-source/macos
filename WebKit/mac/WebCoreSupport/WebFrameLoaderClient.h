@@ -119,7 +119,7 @@ private:
     virtual WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&) override;
     virtual void dispatchShow() override;
 
-    virtual void dispatchDecidePolicyForResponse(const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, WebCore::FramePolicyFunction);
+    virtual void dispatchDecidePolicyForResponse(const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, WebCore::FramePolicyFunction) override;
     virtual void dispatchDecidePolicyForNewWindowAction(const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, const WTF::String& frameName, WebCore::FramePolicyFunction) override;
     virtual void dispatchDecidePolicyForNavigationAction(const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, WebCore::FramePolicyFunction) override;
     virtual void cancelPolicyCheck() override;
@@ -139,6 +139,9 @@ private:
 
     virtual void willChangeTitle(WebCore::DocumentLoader*) override;
     virtual void didChangeTitle(WebCore::DocumentLoader*) override;
+
+    virtual void willReplaceMultipartContent() override { }
+    virtual void didReplaceMultipartContent() override;
 
     virtual void committedLoad(WebCore::DocumentLoader*, const char*, int) override;
     virtual void finishedLoading(WebCore::DocumentLoader*) override;
@@ -190,6 +193,7 @@ private:
     virtual void didFinishLoad() override;
     virtual void prepareForDataSourceReplacement() override;
     virtual PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&) override;
+    virtual void updateCachedDocumentLoader(WebCore::DocumentLoader&) override { }
 
     virtual void setTitle(const WebCore::StringWithDirection&, const WebCore::URL&) override;
 
@@ -221,21 +225,27 @@ private:
 
     virtual RemoteAXObjectRef accessibilityRemoteObject() override { return 0; }
     
-    RetainPtr<WebFramePolicyListener> setUpPolicyListener(WebCore::FramePolicyFunction);
+    RetainPtr<WebFramePolicyListener> setUpPolicyListener(WebCore::FramePolicyFunction, NSURL *appLinkURL = nil);
 
     NSDictionary *actionDictionary(const WebCore::NavigationAction&, PassRefPtr<WebCore::FormState>) const;
     
-    virtual bool canCachePage() const;
+    virtual bool canCachePage() const override;
 
-    virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext();
+    virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext() override;
 
-    virtual bool shouldPaintBrokenImage(const WebCore::URL&) const;
+#if ENABLE(REQUEST_AUTOCOMPLETE)
+    virtual void didRequestAutocomplete(PassRefPtr<WebCore::FormState>) override { }
+#endif
+
+    virtual bool shouldPaintBrokenImage(const WebCore::URL&) const override;
 
 #if USE(QUICK_LOOK)
     virtual void didCreateQuickLookHandle(WebCore::QuickLookHandle&) override;
 #endif
 
-    virtual void contentFilterDidBlockLoad(std::unique_ptr<WebCore::ContentFilter>) override;
+#if ENABLE(CONTENT_FILTERING)
+    void contentFilterDidBlockLoad(WebCore::ContentFilterUnblockHandler) override;
+#endif
 
     RetainPtr<WebFrame> m_webFrame;
 

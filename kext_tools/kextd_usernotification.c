@@ -132,6 +132,7 @@ static void kextd_raise_excludedkext_notification(
                                                   CFArrayRef  alertMessageArray );
 static int validateKextsAlertDict( CFDictionaryRef theDict );
 
+
 /*******************************************************************************
 *******************************************************************************/
 ExitStatus startMonitoringConsoleUser(
@@ -1522,11 +1523,11 @@ void writeKextAlertPlist( CFDictionaryRef theDict, int theAlertType )
     Boolean                 fileExists;
     Boolean                 closeReadStream     = false;
     Boolean                 closeWriteStream    = false;
-    
+  
     if (validateKextsAlertDict(theDict) != 0) {
         goto finish;
     }
-
+    
     myKextArray = (CFArrayRef) CFDictionaryGetValue(theDict, CFSTR("KextInfoArrayKey"));
     myPath = createPathFromAlertType(NULL, theAlertType);
     if (myPath == NULL) {
@@ -1543,7 +1544,7 @@ void writeKextAlertPlist( CFDictionaryRef theDict, int theAlertType )
         goto finish;
     }
     fileExists = CFURLResourceIsReachable(myURL, NULL);
-    
+   
     /* grab existing data and append to it */
     if (fileExists) {
         readStream = CFReadStreamCreateWithFile(kCFAllocatorDefault, myURL);
@@ -1669,6 +1670,7 @@ finish:
     return;
 }
 
+
 /*******************************************************************************
  * sendRevokedCertAlert() - build an array of kexts with revoked certs then
  * send to put up an alert.
@@ -1682,6 +1684,7 @@ void sendRevokedCertAlert( CFDictionaryRef theDict )
     if (validateKextsAlertDict(theDict) != 0) {
         goto finish;
     }
+    
     myKextArray = (CFArrayRef)
     CFDictionaryGetValue(theDict, CFSTR("KextInfoArrayKey"));
     if (myKextArray == NULL ||
@@ -1739,13 +1742,10 @@ static Boolean sendKextAlertNotifications(CFMutableArrayRef *theSentAlertsArrayP
         CFStringRef             myBundleID;             // do NOT release
         CFStringRef             myMappingKey = NULL;    // must release
         
-        myDict = (CFDictionaryRef)
-        CFArrayGetValueAtIndex(theKextsArray, i);
+        myDict = (CFDictionaryRef) CFArrayGetValueAtIndex(theKextsArray, i);
         if (myDict == NULL)   continue;
         
-        myBundleID = (CFStringRef)
-        CFDictionaryGetValue(myDict, kCFBundleIdentifierKey);
-        
+        myBundleID = (CFStringRef) CFDictionaryGetValue(myDict, kCFBundleIdentifierKey);
         myMappingKey = createBundleMappingKey(myBundleID);
         
         if (theSentAlertsArrayPtr) {
@@ -2086,7 +2086,6 @@ finish:
     return(myMatchKey);
 }
 
-
 /* This is the routine that controls our "alert only once" policy.  
  * theSentArray is an array of kext info dictionaries for kexts we have 
  * displayed an alert for.  We use kext bundle ID and version to determine
@@ -2358,7 +2357,7 @@ static int validateKextsAlertDict( CFDictionaryRef theDict )
                               __func__);
             goto finish;
         }
-        
+     
         if (CFDictionaryGetCount(myDict) > 3) {
             OSKextLogCFString(/* kext */ NULL,
                               kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -2406,7 +2405,6 @@ static int validateKextsAlertDict( CFDictionaryRef theDict )
 finish:
     return result;
 }
-
 
 /*******************************************************************************
  * Installer folks tell us the best way to determine if we are doing a system

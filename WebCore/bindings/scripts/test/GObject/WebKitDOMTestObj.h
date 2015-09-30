@@ -262,12 +262,12 @@ webkit_dom_test_obj_method_that_requires_all_args_and_throws(WebKitDOMTestObj* s
 /**
  * webkit_dom_test_obj_serialized_value:
  * @self: A #WebKitDOMTestObj
- * @serializedArg: A #WebKitDOMSerializedScriptValue
+ * @serializedArg: A #gchar
  *
  * Stability: Unstable
 **/
 WEBKIT_API void
-webkit_dom_test_obj_serialized_value(WebKitDOMTestObj* self, WebKitDOMSerializedScriptValue* serializedArg);
+webkit_dom_test_obj_serialized_value(WebKitDOMTestObj* self, const gchar* serializedArg);
 
 /**
  * webkit_dom_test_obj_options_object:
@@ -466,47 +466,6 @@ WEBKIT_API void
 webkit_dom_test_obj_conditional_method3(WebKitDOMTestObj* self);
 
 /**
- * webkit_dom_test_obj_class_method:
- * @self: A #WebKitDOMTestObj
- *
- * Stability: Unstable
-**/
-WEBKIT_API void
-webkit_dom_test_obj_class_method(WebKitDOMTestObj* self);
-
-/**
- * webkit_dom_test_obj_class_method_with_optional:
- * @self: A #WebKitDOMTestObj
- * @arg: A #glong
- *
- * Returns: A #glong
- *
- * Stability: Unstable
-**/
-WEBKIT_API glong
-webkit_dom_test_obj_class_method_with_optional(WebKitDOMTestObj* self, glong arg);
-
-/**
- * webkit_dom_test_obj_overloaded_method1:
- * @self: A #WebKitDOMTestObj
- * @arg: A #glong
- *
- * Stability: Unstable
-**/
-WEBKIT_API void
-webkit_dom_test_obj_overloaded_method1(WebKitDOMTestObj* self, glong arg);
-
-/**
- * webkit_dom_test_obj_overloaded_method1:
- * @self: A #WebKitDOMTestObj
- * @type: A #gchar
- *
- * Stability: Unstable
-**/
-WEBKIT_API void
-webkit_dom_test_obj_overloaded_method1(WebKitDOMTestObj* self, const gchar* type);
-
-/**
  * webkit_dom_test_obj_convert1:
  * @self: A #WebKitDOMTestObj
  * @value: A #WebKitDOMTestNode
@@ -591,6 +550,20 @@ webkit_dom_test_obj_orange(WebKitDOMTestObj* self);
 **/
 WEBKIT_API WebKitDOMbool*
 webkit_dom_test_obj_strict_function(WebKitDOMTestObj* self, const gchar* str, gfloat a, glong b, GError** error);
+
+/**
+ * webkit_dom_test_obj_strict_function_with_array:
+ * @self: A #WebKitDOMTestObj
+ * @objArg: A #WebKitDOMTestObj
+ * @array: A #glong
+ * @error: #GError
+ *
+ * Returns: (transfer none): A #WebKitDOMbool
+ *
+ * Stability: Unstable
+**/
+WEBKIT_API WebKitDOMbool*
+webkit_dom_test_obj_strict_function_with_array(WebKitDOMTestObj* self, WebKitDOMTestObj* objArg, glong array, GError** error);
 
 /**
  * webkit_dom_test_obj_variadic_string_method:

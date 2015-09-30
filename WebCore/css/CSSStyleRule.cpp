@@ -42,7 +42,7 @@ static SelectorTextCache& selectorTextCache()
     return cache;
 }
 
-CSSStyleRule::CSSStyleRule(StyleRule* styleRule, CSSStyleSheet* parent)
+CSSStyleRule::CSSStyleRule(StyleRule& styleRule, CSSStyleSheet* parent)
     : CSSRule(parent)
     , m_styleRule(styleRule)
 {
@@ -59,23 +59,16 @@ CSSStyleRule::~CSSStyleRule()
     }
 }
 
-CSSStyleDeclaration* CSSStyleRule::style()
+CSSStyleDeclaration& CSSStyleRule::style()
 {
-    if (!m_propertiesCSSOMWrapper) {
+    if (!m_propertiesCSSOMWrapper)
         m_propertiesCSSOMWrapper = StyleRuleCSSStyleDeclaration::create(m_styleRule->mutableProperties(), *this);
-    }
-    return m_propertiesCSSOMWrapper.get();
+    return *m_propertiesCSSOMWrapper;
 }
 
 String CSSStyleRule::generateSelectorText() const
 {
-    StringBuilder builder;
-    for (const CSSSelector* selector = m_styleRule->selectorList().first(); selector; selector = CSSSelectorList::next(selector)) {
-        if (selector != m_styleRule->selectorList().first())
-            builder.appendLiteral(", ");
-        builder.append(selector->selectorText());
-    }
-    return builder.toString();
+    return m_styleRule->selectorList().selectorsText();
 }
 
 String CSSStyleRule::selectorText() const
@@ -132,11 +125,9 @@ String CSSStyleRule::cssText() const
     return result.toString();
 }
 
-void CSSStyleRule::reattach(StyleRuleBase* rule)
+void CSSStyleRule::reattach(StyleRuleBase& rule)
 {
-    ASSERT(rule);
-    ASSERT_WITH_SECURITY_IMPLICATION(rule->isStyleRule());
-    m_styleRule = static_cast<StyleRule*>(rule);
+    m_styleRule = downcast<StyleRule>(rule);
     if (m_propertiesCSSOMWrapper)
         m_propertiesCSSOMWrapper->reattach(m_styleRule->mutableProperties());
 }

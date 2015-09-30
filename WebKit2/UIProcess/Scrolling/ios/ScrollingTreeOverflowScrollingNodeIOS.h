@@ -37,13 +37,14 @@ namespace WebKit {
 
 class ScrollingTreeOverflowScrollingNodeIOS : public WebCore::ScrollingTreeOverflowScrollingNode {
 public:
-    static PassRefPtr<ScrollingTreeOverflowScrollingNodeIOS> create(WebCore::ScrollingTree&, WebCore::ScrollingNodeID);
+    static Ref<ScrollingTreeOverflowScrollingNodeIOS> create(WebCore::ScrollingTree&, WebCore::ScrollingNodeID);
     virtual ~ScrollingTreeOverflowScrollingNodeIOS();
 
     void overflowScrollWillStart();
     void overflowScrollDidEnd();
     void overflowScrollViewWillStartPanGesture();
     void scrollViewDidScroll(const WebCore::FloatPoint&, bool inUserInteration);
+    void currentSnapPointIndicesDidChange(unsigned horizontal, unsigned vertical);
 
     CALayer *scrollLayer() const { return m_scrollLayer.get(); }
 
@@ -57,7 +58,7 @@ private:
 
     virtual void setScrollLayerPosition(const WebCore::FloatPoint&) override;
 
-    virtual void updateLayersAfterViewportChange(const WebCore::FloatRect& fixedPositionRect, double scale) { }
+    virtual void updateLayersAfterViewportChange(const WebCore::FloatRect& fixedPositionRect, double scale) override { }
     virtual void updateLayersAfterDelegatedScroll(const WebCore::FloatPoint& scrollPosition) override;
 
     virtual void updateLayersAfterAncestorChange(const WebCore::ScrollingTreeNode& changedNode, const WebCore::FloatRect& fixedPositionRect, const WebCore::FloatSize& cumulativeDelta) override;

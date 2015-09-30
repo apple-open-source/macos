@@ -28,6 +28,8 @@
 
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
+#include "WebFrame.h"
+#include "WebPage.h"
 
 using namespace WebCore;
 

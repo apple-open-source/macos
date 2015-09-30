@@ -1,7 +1,5 @@
 set -x
 
-DSTROOT="${DSTROOT}${INSTALL_PATH_PREFIX}"
-
 if [[ ${UID} -eq 0 ]]; then
 	chown -hR root:wheel ${DSTROOT}/usr
 fi

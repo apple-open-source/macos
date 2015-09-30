@@ -51,11 +51,12 @@ static void stopUpdatingCallback(WKGeolocationManagerRef, const void* clientInfo
 WebKitGeolocationProvider::~WebKitGeolocationProvider()
 {
     m_provider.stopUpdating();
+    WKGeolocationManagerSetProvider(toAPI(m_geolocationManager.get()), nullptr);
 }
 
-PassRefPtr<WebKitGeolocationProvider> WebKitGeolocationProvider::create(WebGeolocationManagerProxy* geolocationManager)
+Ref<WebKitGeolocationProvider> WebKitGeolocationProvider::create(WebGeolocationManagerProxy* geolocationManager)
 {
-    return adoptRef(new WebKitGeolocationProvider(geolocationManager));
+    return adoptRef(*new WebKitGeolocationProvider(geolocationManager));
 }
 
 WebKitGeolocationProvider::WebKitGeolocationProvider(WebGeolocationManagerProxy* geolocationManager)

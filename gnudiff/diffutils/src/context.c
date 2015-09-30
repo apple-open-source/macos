@@ -61,9 +61,9 @@ print_context_label (char const *mark,
       int nsec = TIMESPEC_NS (inf->stat.st_mtim);
       if (! (tm && nstrftime (buf, sizeof buf, time_format, tm, 0, nsec)))
 	{
-	  long sec = inf->stat.st_mtime;
+	  time_t sec = inf->stat.st_mtime;
 	  verify (info_preserved, sizeof inf->stat.st_mtime <= sizeof sec);
-	  sprintf (buf, "%ld.%.9d", sec, nsec);
+	  sprintf (buf, "%"PRIdMAX".%.9d", (intmax_t) sec, nsec);
 	}
       fprintf (outfile, "%s %s\t%s\n", mark, inf->name, buf);
     }

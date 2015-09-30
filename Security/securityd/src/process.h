@@ -30,7 +30,6 @@
 
 #include "structure.h"
 #include "session.h"
-#include <security_agent_client/agentclient.h>
 #include <security_utilities/refcount.h>
 #include <security_utilities/ccaudit.h>
 #include <security_utilities/vproc++.h>

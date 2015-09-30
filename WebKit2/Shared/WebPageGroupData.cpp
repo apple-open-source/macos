@@ -32,17 +32,20 @@ namespace WebKit {
 
 void WebPageGroupData::encode(IPC::ArgumentEncoder& encoder) const
 {
-    encoder << identifer;
+    encoder << identifier;
     encoder << pageGroupID;
     encoder << visibleToInjectedBundle;
     encoder << visibleToHistoryClient;
     encoder << userStyleSheets;
     encoder << userScripts;
+#if ENABLE(CONTENT_EXTENSIONS)
+    encoder << userContentExtensions;
+#endif
 }
 
 bool WebPageGroupData::decode(IPC::ArgumentDecoder& decoder, WebPageGroupData& data)
 {
-    if (!decoder.decode(data.identifer))
+    if (!decoder.decode(data.identifier))
         return false;
     if (!decoder.decode(data.pageGroupID))
         return false;
@@ -54,6 +57,10 @@ bool WebPageGroupData::decode(IPC::ArgumentDecoder& decoder, WebPageGroupData& d
         return false;
     if (!decoder.decode(data.userScripts))
         return false;
+#if ENABLE(CONTENT_EXTENSIONS)
+    if (!decoder.decode(data.userContentExtensions))
+        return false;
+#endif
     return true;
 }
 

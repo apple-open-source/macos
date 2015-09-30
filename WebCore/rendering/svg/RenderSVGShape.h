@@ -45,11 +45,10 @@ class SVGGraphicsElement;
 
 class RenderSVGShape : public RenderSVGModelObject {
 public:
-    RenderSVGShape(SVGGraphicsElement&, PassRef<RenderStyle>);
-    RenderSVGShape(SVGGraphicsElement&, PassRef<RenderStyle>, Path*, bool);
+    RenderSVGShape(SVGGraphicsElement&, Ref<RenderStyle>&&);
     virtual ~RenderSVGShape();
 
-    SVGGraphicsElement& graphicsElement() const { return toSVGGraphicsElement(RenderSVGModelObject::element()); }
+    SVGGraphicsElement& graphicsElement() const { return downcast<SVGGraphicsElement>(RenderSVGModelObject::element()); }
 
     void setNeedsShapeUpdate() { m_needsShapeUpdate = true; }
     virtual void setNeedsBoundariesUpdate() override final { m_needsBoundariesUpdate = true; }
@@ -133,8 +132,8 @@ private:
     bool m_needsTransformUpdate : 1;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderSVGShape, isSVGShape())
+} // namespace WebCore
 
-}
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGShape, isSVGShape())
 
-#endif
+#endif // RenderSVGShape_h

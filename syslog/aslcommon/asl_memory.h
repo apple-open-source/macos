@@ -25,30 +25,20 @@
 #define __ASL_MEMORY_H__
 #include <stdint.h>
 #include <asl.h>
+#include <dispatch/dispatch.h>
 
 typedef struct
 {
 	uint32_t hash;
 	uint32_t refcount;
-	char str[];
+	char *str;
 } mem_string_t;
 
 typedef struct
 {
 	uint64_t mid;
 	uint64_t time;
-	uint32_t nano;
-	uint8_t unused_0;
-	uint8_t level;
-	uint16_t flags;
-	uint32_t pid;
-	uint32_t uid;
-	uint32_t gid;
-	uint32_t ruid;
-	uint32_t rgid;
-	uint32_t refpid;
 	uint64_t os_activity_id;
-	uint32_t kvcount;
 	mem_string_t *host;
 	mem_string_t *sender;
 	mem_string_t *sender_mach_uuid;
@@ -57,18 +47,30 @@ typedef struct
 	mem_string_t *refproc;
 	mem_string_t *session;
 	mem_string_t **kvlist;
+	uint32_t nano;
+	uint32_t pid;
+	uint32_t uid;
+	uint32_t gid;
+	uint32_t ruid;
+	uint32_t rgid;
+	uint32_t refpid;
+	uint32_t kvcount;
+	uint16_t flags;
+	uint8_t level;
+	uint8_t unused_0;
 } mem_record_t;
 
 typedef struct
 {
-	uint32_t string_count;
-	void **string_cache;
-	uint32_t record_count;
-	uint32_t record_first;
+	mem_string_t **string_cache;
 	mem_record_t **record;
 	mem_record_t *buffer_record;
-	uint32_t max_string_mem;
-	uint32_t curr_string_mem;
+	uint32_t string_count;
+	uint32_t record_count;
+	uint32_t record_first;
+	size_t max_string_mem;
+	size_t curr_string_mem;
+	dispatch_queue_t queue;
 } asl_memory_t;
 
 uint32_t asl_memory_open(uint32_t max_records, size_t max_str_mem, asl_memory_t **s);

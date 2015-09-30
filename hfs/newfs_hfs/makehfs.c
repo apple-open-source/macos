@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -517,7 +517,7 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 	
 
 	/*--- WRITE FILE ATTRIBUTES B-TREE TO DISK:  */
-	if (defaults->attributesClumpSize) {
+	if (defaults->attributesInitialSize) {
 
 		btNodeSize = defaults->attributesNodeSize;
 		sectorsPerNode = btNodeSize/kBytesPerSector;
@@ -739,8 +739,8 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 
 	/* set up extents b-tree file */
 	hp->extentsFile.clumpSize = defaults->extentsClumpSize;
-	hp->extentsFile.logicalSize = defaults->extentsClumpSize;
-	hp->extentsFile.totalBlocks = defaults->extentsClumpSize / blockSize;
+	hp->extentsFile.logicalSize = defaults->extentsInitialSize;
+	hp->extentsFile.totalBlocks = defaults->extentsInitialSize / blockSize;
 	if (NEWFS_HFS_DEBUG && defaults->extentsStartBlock)
 		allocateBlock = defaults->extentsStartBlock;
 	else {
@@ -755,10 +755,10 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 		printf ("extentsFile   : (%10u, %10u)\n", hp->extentsFile.extents[0].startBlock, hp->extentsFile.totalBlocks);
 
 	/* set up attributes b-tree file */
-	if (defaults->attributesClumpSize) {
+	if (defaults->attributesInitialSize) {
 		hp->attributesFile.clumpSize = defaults->attributesClumpSize;
-		hp->attributesFile.logicalSize = defaults->attributesClumpSize;
-		hp->attributesFile.totalBlocks = defaults->attributesClumpSize / blockSize;
+		hp->attributesFile.logicalSize = defaults->attributesInitialSize;
+		hp->attributesFile.totalBlocks = defaults->attributesInitialSize / blockSize;
 		if (NEWFS_HFS_DEBUG && defaults->attributesStartBlock)
 			allocateBlock = defaults->attributesStartBlock;
 		else {
@@ -781,8 +781,8 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 
 	/* set up catalog b-tree file */
 	hp->catalogFile.clumpSize = defaults->catalogClumpSize;
-	hp->catalogFile.logicalSize = defaults->catalogClumpSize;
-	hp->catalogFile.totalBlocks = defaults->catalogClumpSize / blockSize;
+	hp->catalogFile.logicalSize = defaults->catalogInitialSize;
+	hp->catalogFile.totalBlocks = defaults->catalogInitialSize / blockSize;
 	if (NEWFS_HFS_DEBUG && defaults->catalogStartBlock)
 		allocateBlock = defaults->catalogStartBlock;
 	else {
@@ -935,10 +935,15 @@ MarkExtentUsed(const DriveInfo *driveInfo,
 	       UInt32 blockCount)
 {
 	size_t bufSize = driveInfo->physSectorSize;
-	uint8_t buf[bufSize];
+	void *buf;
 	uint32_t blocksLeft = blockCount;
 	uint32_t curBlock = startBlock;
 	static const int kBitsPerByte = 8;
+	int status = -1;
+
+	buf = valloc(bufSize);
+	if (buf == NULL)
+		err(1, NULL);
 
 	/*
 	 * We loop through physSectorSize blocks.
@@ -982,12 +987,12 @@ MarkExtentUsed(const DriveInfo *driveInfo,
 		if (nbytes < (ssize_t)bufSize) {
 			if (nbytes == -1)
 				err(1, "%s::pread(%d, %p, %zu, %lld)", __FUNCTION__, driveInfo->fd, buf, bufSize, offset);
-			return -1;
+			goto exit;
 		}
 
 		if (AllocateExtent(buf, blockOffset, numBlocks) == -1) {
 			warnx("In-use allocation block in <%u, %u>", blockOffset, numBlocks);
-			return -1;
+			goto exit;
 		}
 		nwritten = pwrite(driveInfo->fd, buf, bufSize, offset);
 		/*
@@ -996,14 +1001,19 @@ MarkExtentUsed(const DriveInfo *driveInfo,
 		 * means a return value of 0 or -1, neither of which I could do anything about.
 		 */
 		if (nwritten != (ssize_t)bufSize)
-			return -1;
+			goto exit;
 
 		// And go get the next set, if needed
 		blocksLeft -= numBlocks;
 		curBlock += numBlocks;
 	}
 
-	return 0;
+	status = 0;
+
+exit:
+	free(buf);
+
+	return status;
 }
 /*
  * WriteExtentsFile
@@ -1028,7 +1038,7 @@ WriteExtentsFile(const DriveInfo *driveInfo, UInt64 startingSector,
 	SInt16			offset;
 
 	*mapNodes = 0;
-	fileSize = dp->extentsClumpSize;
+	fileSize = dp->extentsInitialSize;
 	nodeSize = dp->extentsNodeSize;
 
 	bzero(buffer, nodeSize);
@@ -1062,7 +1072,7 @@ WriteExtentsFile(const DriveInfo *driveInfo, UInt64 startingSector,
 	bthp->nodeSize		= SWAP_BE16 (nodeSize);
 	bthp->totalNodes	= SWAP_BE32 (fileSize / nodeSize);
 	bthp->freeNodes		= SWAP_BE32 (SWAP_BE32 (bthp->totalNodes) - (numOverflowExtents ? 2 : 1));  /* header */
-	bthp->clumpSize		= SWAP_BE32 (fileSize);
+	bthp->clumpSize		= SWAP_BE32 (dp->extentsClumpSize);
 
 	bthp->attributes |= SWAP_BE32 (kBTBigKeysMask);
 	bthp->maxKeyLength = SWAP_BE16 (kHFSPlusExtentKeyMaximumLength);
@@ -1174,7 +1184,7 @@ WriteAttributesFile(const DriveInfo *driveInfo, UInt64 startingSector,
 	int	set_cp_level = 0;
 
 	*mapNodes = 0;
-	fileSize = dp->attributesClumpSize;
+	fileSize = dp->attributesInitialSize;
 	nodeSize = dp->attributesNodeSize;
 
 #ifdef DEBUG_BUILD
@@ -1229,7 +1239,7 @@ WriteAttributesFile(const DriveInfo *driveInfo, UInt64 startingSector,
 		/* Take the header into account */
 		bthp->freeNodes		= SWAP_BE32 (SWAP_BE32 (bthp->totalNodes) - 1);
 	}
-	bthp->clumpSize		= SWAP_BE32 (fileSize);
+	bthp->clumpSize		= SWAP_BE32 (dp->attributesClumpSize);
 
 	bthp->attributes |= SWAP_BE32 (kBTBigKeysMask | kBTVariableIndexKeysMask);
 	bthp->maxKeyLength = SWAP_BE16 (kHFSPlusAttrKeyMaximumLength);
@@ -1481,7 +1491,7 @@ WriteCatalogFile(const DriveInfo *driveInfo, UInt64 startingSector,
 	SInt16			offset;
 
 	*mapNodes = 0;
-	fileSize = dp->catalogClumpSize;
+	fileSize = dp->catalogInitialSize;
 	nodeSize = dp->catalogNodeSize;
 
 	bzero(buffer, nodeSize);
@@ -1506,7 +1516,7 @@ WriteCatalogFile(const DriveInfo *driveInfo, UInt64 startingSector,
 	bthp->nodeSize		= SWAP_BE16 (nodeSize);
 	bthp->totalNodes	= SWAP_BE32 (fileSize / nodeSize);
 	bthp->freeNodes		= SWAP_BE32 (SWAP_BE32 (bthp->totalNodes) - 2);  /* header and root */
-	bthp->clumpSize		= SWAP_BE32 (fileSize);
+	bthp->clumpSize		= SWAP_BE32 (dp->catalogClumpSize);
 
 
 	bthp->attributes	|= SWAP_BE32 (kBTVariableIndexKeysMask + kBTBigKeysMask);

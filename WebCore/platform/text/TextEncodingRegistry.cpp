@@ -292,7 +292,7 @@ static void extendTextCodecMaps()
     buildQuirksSets();
 }
 
-PassOwnPtr<TextCodec> newTextCodec(const TextEncoding& encoding)
+std::unique_ptr<TextCodec> newTextCodec(const TextEncoding& encoding)
 {
     std::lock_guard<std::mutex> lock(encodingRegistryMutex());
 
@@ -354,9 +354,9 @@ bool noExtendedTextEncodingNameUsed()
     return !didExtendTextCodecMaps;
 }
 
-#if PLATFORM(COCOA)
 String defaultTextEncodingNameForSystemLanguage()
 {
+#if PLATFORM(COCOA)
     String systemEncodingName = CFStringConvertEncodingToIANACharSetName(wkGetWebDefaultCFStringEncoding());
 
     // CFStringConvertEncodingToIANACharSetName() returns cp949 for kTextEncodingDOSKorean AKA "extended EUC-KR" AKA windows-949.
@@ -366,8 +366,10 @@ String defaultTextEncodingNameForSystemLanguage()
     if (equalIgnoringCase(systemEncodingName, "cp949"))
         systemEncodingName = "ks_c_5601-1987";
     return systemEncodingName;
-}
+#else
+    return String("ISO-8859-1");
 #endif
+}
 
 #ifndef NDEBUG
 void dumpTextEncodingNameMap()

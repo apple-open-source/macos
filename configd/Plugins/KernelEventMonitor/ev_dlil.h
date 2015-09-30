@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2004, 2005, 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,6 +52,15 @@ void	link_add			(const char *if_name);
 void	link_remove			(const char *if_name);
 
 void	link_update_status		(const char *if_name, boolean_t attach);
+
+CFMutableArrayRef
+interfaceListCopy(void);
+
+void
+interfaceListUpdate(CFArrayRef ifList);
+
+Boolean
+interfaceListAddInterface(CFMutableArrayRef ifList, const char * if_name);
 
 __END_DECLS
 

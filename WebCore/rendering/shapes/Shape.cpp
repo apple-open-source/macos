@@ -69,7 +69,7 @@ static inline FloatRect physicalRectToLogical(const FloatRect& rect, float logic
 {
     if (isHorizontalWritingMode(writingMode))
         return rect;
-    if (isFlippedBlocksWritingMode(writingMode))
+    if (isFlippedWritingMode(writingMode))
         return FloatRect(rect.y(), logicalBoxHeight - rect.maxX(), rect.height(), rect.width());
     return rect.transposedRect();
 }
@@ -78,7 +78,7 @@ static inline FloatPoint physicalPointToLogical(const FloatPoint& point, float l
 {
     if (isHorizontalWritingMode(writingMode))
         return point;
-    if (isFlippedBlocksWritingMode(writingMode))
+    if (isFlippedWritingMode(writingMode))
         return FloatPoint(point.y(), logicalBoxHeight - point.x());
     return point.transposedPoint();
 }
@@ -90,22 +90,20 @@ static inline FloatSize physicalSizeToLogical(const FloatSize& size, WritingMode
     return size.transposedSize();
 }
 
-std::unique_ptr<Shape> Shape::createShape(const BasicShape* basicShape, const LayoutSize& logicalBoxSize, WritingMode writingMode, float margin)
+std::unique_ptr<Shape> Shape::createShape(const BasicShape& basicShape, const LayoutSize& logicalBoxSize, WritingMode writingMode, float margin)
 {
-    ASSERT(basicShape);
-
     bool horizontalWritingMode = isHorizontalWritingMode(writingMode);
     float boxWidth = horizontalWritingMode ? logicalBoxSize.width() : logicalBoxSize.height();
     float boxHeight = horizontalWritingMode ? logicalBoxSize.height() : logicalBoxSize.width();
     std::unique_ptr<Shape> shape;
 
-    switch (basicShape->type()) {
+    switch (basicShape.type()) {
 
     case BasicShape::BasicShapeCircleType: {
-        const BasicShapeCircle* circle = static_cast<const BasicShapeCircle*>(basicShape);
-        float centerX = floatValueForCenterCoordinate(circle->centerX(), boxWidth);
-        float centerY = floatValueForCenterCoordinate(circle->centerY(), boxHeight);
-        float radius = circle->floatValueForRadiusInBox(boxWidth, boxHeight);
+        const auto& circle = downcast<BasicShapeCircle>(basicShape);
+        float centerX = floatValueForCenterCoordinate(circle.centerX(), boxWidth);
+        float centerY = floatValueForCenterCoordinate(circle.centerY(), boxHeight);
+        float radius = circle.floatValueForRadiusInBox(boxWidth, boxHeight);
         FloatPoint logicalCenter = physicalPointToLogical(FloatPoint(centerX, centerY), logicalBoxSize.height(), writingMode);
 
         shape = createCircleShape(logicalCenter, radius);
@@ -113,11 +111,11 @@ std::unique_ptr<Shape> Shape::createShape(const BasicShape* basicShape, const La
     }
 
     case BasicShape::BasicShapeEllipseType: {
-        const BasicShapeEllipse* ellipse = static_cast<const BasicShapeEllipse*>(basicShape);
-        float centerX = floatValueForCenterCoordinate(ellipse->centerX(), boxWidth);
-        float centerY = floatValueForCenterCoordinate(ellipse->centerY(), boxHeight);
-        float radiusX = ellipse->floatValueForRadiusInBox(ellipse->radiusX(), centerX, boxWidth);
-        float radiusY = ellipse->floatValueForRadiusInBox(ellipse->radiusY(), centerY, boxHeight);
+        const auto& ellipse = downcast<BasicShapeEllipse>(basicShape);
+        float centerX = floatValueForCenterCoordinate(ellipse.centerX(), boxWidth);
+        float centerY = floatValueForCenterCoordinate(ellipse.centerY(), boxHeight);
+        float radiusX = ellipse.floatValueForRadiusInBox(ellipse.radiusX(), centerX, boxWidth);
+        float radiusY = ellipse.floatValueForRadiusInBox(ellipse.radiusY(), centerY, boxHeight);
         FloatPoint logicalCenter = physicalPointToLogical(FloatPoint(centerX, centerY), logicalBoxSize.height(), writingMode);
 
         shape = createEllipseShape(logicalCenter, FloatSize(radiusX, radiusY));
@@ -125,7 +123,7 @@ std::unique_ptr<Shape> Shape::createShape(const BasicShape* basicShape, const La
     }
 
     case BasicShape::BasicShapePolygonType: {
-        const BasicShapePolygon& polygon = *static_cast<const BasicShapePolygon*>(basicShape);
+        const auto& polygon = downcast<BasicShapePolygon>(basicShape);
         const Vector<Length>& values = polygon.values();
         size_t valuesSize = values.size();
         ASSERT(!(valuesSize % 2));
@@ -142,7 +140,7 @@ std::unique_ptr<Shape> Shape::createShape(const BasicShape* basicShape, const La
     }
 
     case BasicShape::BasicShapeInsetType: {
-        const BasicShapeInset& inset = *static_cast<const BasicShapeInset*>(basicShape);
+        const auto& inset = downcast<BasicShapeInset>(basicShape);
         float left = floatValueForLength(inset.left(), boxWidth);
         float top = floatValueForLength(inset.top(), boxHeight);
         FloatRect rect(left,
@@ -176,8 +174,10 @@ std::unique_ptr<Shape> Shape::createShape(const BasicShape* basicShape, const La
 
 std::unique_ptr<Shape> Shape::createRasterShape(Image* image, float threshold, const LayoutRect& imageR, const LayoutRect& marginR, WritingMode writingMode, float margin)
 {
-    IntRect imageRect = pixelSnappedIntRect(imageR);
-    IntRect marginRect = pixelSnappedIntRect(marginR);
+    ASSERT(marginR.height() >= 0);
+
+    IntRect imageRect = snappedIntRect(imageR);
+    IntRect marginRect = snappedIntRect(marginR);
     auto intervals = std::make_unique<RasterShapeIntervals>(marginRect.height(), -marginRect.y());
     std::unique_ptr<ImageBuffer> imageBuffer = ImageBuffer::create(imageRect.size());
 

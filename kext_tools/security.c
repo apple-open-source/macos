@@ -26,12 +26,12 @@
 #include <IOKit/IOKitLib.h>
 #include <Security/Security.h>
 #include <sys/sysctl.h>
+#include <sys/csr.h>
 #include <servers/bootstrap.h>
 #include <IOKit/kext/kextmanager_types.h>
 
 #include "security.h"
 #include "kext_tools_util.h"
-
 
 #define USE_OLD_EXCEPTION_LIST 1
 
@@ -52,6 +52,7 @@ static CFStringRef  createArchitectureList(OSKextRef aKext, CFBooleanRef *isFat)
 static void         getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer);
 static void         filterKextLoadForMT(OSKextRef aKext, CFMutableArrayRef *kextList);
 static Boolean hashIsInExceptionList(CFURLRef theKextURL, CFDictionaryRef theDict);
+static uint64_t     getKextDevModeFlags(void);
 #if USE_OLD_EXCEPTION_LIST
 static Boolean bundleIdIsInExceptionList(OSKextRef theKext, CFDictionaryRef theDict);
 #endif
@@ -1342,8 +1343,11 @@ Boolean isInExceptionList(OSKextRef theKext,
             goto finish;
         }
         
-        /* can we trust AppleKextExcludeList.kext */
-        if (isDevMode() == false) {
+        /* can we trust AppleKextExcludeList.kext? 
+         * If we are NOT allowing untrusted kexts then make sure
+         * AppleKextExcludeList.kext is valid!
+         */
+        if (csr_check(CSR_ALLOW_UNTRUSTED_KEXTS) != 0) {
             if (checkKextSignature(excludelistKext, false, false) != 0) {
                 char kextPath[PATH_MAX];
                 
@@ -1402,12 +1406,15 @@ Boolean isInExceptionList(OSKextRef theKext,
             }
         }
         
-        /* can we trust AppleKextExcludeList.kext */
-        if (isDevMode() == false) {
+        /* can we trust AppleKextExcludeList.kext?
+         * If we are NOT allowing untrusted kexts then make sure
+         * AppleKextExcludeList.kext is valid!
+         */
+        if (csr_check(CSR_ALLOW_UNTRUSTED_KEXTS) != 0) {
             if (checkKextSignature(excludelistKext, false, false) != 0) {
                 char kextPath[PATH_MAX];
                 
-                if (!CFURLGetFileSystemRepresentation(OSKextGetURL(excludelistKext),
+               if (!CFURLGetFileSystemRepresentation(OSKextGetURL(excludelistKext),
                                                       false,
                                                       (UInt8 *)kextPath,
                                                       sizeof(kextPath))) {
@@ -1421,7 +1428,7 @@ Boolean isInExceptionList(OSKextRef theKext,
                 goto finish;
             }
         }
-        
+
         tempDict = OSKextGetValueForInfoDictionaryKey(
                                             excludelistKext,
                                             CFSTR("OSKextSigExceptionList"));
@@ -1615,40 +1622,62 @@ finish:
     return result;
 }
 
+#define KEXT_DEV_MODE_STRING "kext-dev-mode="
+
+enum {
+    // ignore kext signature check failures
+    kKextDevModeFlagsIgnoreKextSigFailures  =   0x00000001ULL,
+    // disable auto rebuilding of prelinked kernel, NOTE if this is set
+    // the prelinked kernel must be explicitly rebuilt via the kextcache
+    // command line tool.  touch /S/L/E or any other "automatic triggers" will
+    // not rebuild prelinked kernel
+    kKextDevModeFlagsDisableAutoRebuild     =   0x00000002ULL,
+};
+
+#if 0 // obsolete with 19635687
 /*******************************************************************************
  * isDevMode() - check to see if this machine is in "kext developer mode"
  *******************************************************************************/
-#define KEXT_DEV_MODE_STRING "kext-dev-mode="
-
 Boolean isDevMode(void)
 {
-    Boolean     result          = false;
-    uint64_t    kext_dev_mode;
+    uint64_t    kextDevModeFlags;
+    
+    kextDevModeFlags = getKextDevModeFlags();
+    
+    return(kextDevModeFlags & kKextDevModeFlagsIgnoreKextSigFailures);
+}
+#endif
+
+Boolean isPrelinkedKernelAutoRebuildDisabled(void)
+{
+    uint64_t    kextDevModeFlags = 0x00;
+    
+    /* only skip auto rebuild if kernel debugging allowed */
+    if (csr_check(CSR_ALLOW_UNTRUSTED_KEXTS) == 0) {
+        kextDevModeFlags = getKextDevModeFlags();
+    }
+    return(kextDevModeFlags & kKextDevModeFlagsDisableAutoRebuild);
+}
+
+static uint64_t getKextDevModeFlags(void)
+{
+    uint64_t    kext_dev_mode = 0;
     size_t      bufsize;
     char        bootargs_buffer[1024], *dev_mode_ptr;
     
-    
     bufsize = sizeof(bootargs_buffer);
-    if (sysctlbyname("kern.bootargs", bootargs_buffer, &bufsize, NULL, 0) < 0) {
-        return(false);
-    }
-    
-    /* looking for "kext-dev-mode=1", no prefix allowed and we currently only
-     * support a value of '1' all else are ignored.
-     */
-    dev_mode_ptr = strnstr(bootargs_buffer,
-                           KEXT_DEV_MODE_STRING,
-                           sizeof(bootargs_buffer));
-    if (dev_mode_ptr &&
-        (dev_mode_ptr == &bootargs_buffer[0] || *(dev_mode_ptr - 1) == ' ')) {
-        kext_dev_mode = strtoul(dev_mode_ptr + strlen(KEXT_DEV_MODE_STRING),
-                                NULL, 10);
-        if (kext_dev_mode == 1) {
-            result = true;
+    if (sysctlbyname("kern.bootargs", bootargs_buffer, &bufsize, NULL, 0) >= 0) {
+        dev_mode_ptr = strnstr(bootargs_buffer,
+                               KEXT_DEV_MODE_STRING,
+                               sizeof(bootargs_buffer));
+        if (dev_mode_ptr &&
+            (dev_mode_ptr == &bootargs_buffer[0] || *(dev_mode_ptr - 1) == ' ')) {
+            
+            kext_dev_mode = strtoul(dev_mode_ptr + strlen(KEXT_DEV_MODE_STRING),
+                                    NULL, 16);
         }
     }
-    
-    return(result);
+    return(kext_dev_mode);
 }
 
 /*********************************************************************
@@ -1696,9 +1725,16 @@ Boolean isInSystemLibraryExtensionsFolder(OSKextRef theKext)
 Boolean isInvalidSignatureAllowed(void)
 {
     Boolean      result = false;      // default to not allowed
-    
-    if (isDevMode()) {
+ 
+    if (csr_check(CSR_ALLOW_UNTRUSTED_KEXTS) == 0 || csr_check(CSR_ALLOW_APPLE_INTERNAL) == 0) {
+        // Allow kext signature check errors
         result = true;
+    }
+    else {
+        // Do not allow kext signature check errors
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Untrusted kexts are not allowed");
     }
     
     return(result);

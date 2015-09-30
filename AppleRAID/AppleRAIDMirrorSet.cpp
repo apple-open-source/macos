@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -300,7 +300,7 @@ void AppleRAIDMirrorSet::activeReadMembers(AppleRAIDMember ** activeMembers, UIn
 		continue;
 	    } 
 	}
-	activeMembers[index] = (AppleRAIDMember *)index;
+	activeMembers[index] = (AppleRAIDMember *)(uintptr_t)index;
 	distances[index] = 0xffffffffffffffffULL;
     }
 

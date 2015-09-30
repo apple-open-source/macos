@@ -511,7 +511,7 @@ CCCryptorStatus CCCryptorRelease(
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     if(cryptor) {
         ccClearCryptor(cryptor);
-        CC_XMEMSET(cryptor, 0, CCCRYPTOR_SIZE);
+        cc_clear(CCCRYPTOR_SIZE, cryptor);
         CC_XFREE(cryptor, DEFAULT_CRYPTOR_MALLOC);
     }
 	return kCCSuccess;
@@ -868,8 +868,6 @@ CCCryptorStatus CCCryptorDecryptDataBlock(
     return ccDoDeCryptTweaked(cryptor, dataIn, dataInLength, dataOut, iv);    
 }
 
-#include <corecrypto/ccmode_factory.h>
-
 static bool ccm_ready(modeCtx ctx) {
 // FIX THESE NOW XXX
     if(ctx.ccm->mac_size == (size_t) 0xffffffffffffffff ||
@@ -892,7 +890,7 @@ CCCryptorStatus CCCryptorAddParameter(
     case kCCParameterIV:
         // GCM version
         if(cryptor->mode == kCCModeGCM) {
-            ccmode_gcm_set_iv(cryptor->ctx[cryptor->op].gcm, dataSize, data);
+            ccgcm_set_iv(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, dataSize, data);
         } else if(cryptor->mode == kCCModeCCM) {
             ccm_nonce_ctx *ccm = cryptor->ctx[cryptor->op].ccm;
             ccm->nonce_size = dataSize;
@@ -903,15 +901,15 @@ CCCryptorStatus CCCryptorAddParameter(
     case kCCParameterAuthData:
         // GCM version
         if(cryptor->mode == kCCModeGCM) {
-            ccmode_gcm_gmac(cryptor->ctx[cryptor->op].gcm, dataSize, data);
+            ccgcm_gmac(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, dataSize, data);
         } else if(cryptor->mode == kCCModeCCM) {
             if(!ccm_ready(cryptor->ctx[cryptor->op])) return kCCParamError;
             ccm_nonce_ctx *ccm = cryptor->ctx[cryptor->op].ccm;
             const struct ccmode_ccm *mode = cryptor->symMode[cryptor->op].ccm;
             ccm->ad_len = dataSize;
-            mode->set_iv(&ccm->ccm, (ccccm_nonce *) &ccm->nonce,
+            ccccm_set_iv(mode,&ccm->ccm, (ccccm_nonce *) &ccm->nonce,
                     ccm->nonce_size, ccm->nonce_buf, ccm->mac_size, ccm->ad_len, ccm->total_len);
-            mode->cbcmac(&ccm->ccm, (ccccm_nonce *) &ccm->nonce,
+            ccccm_cbcmac(mode,&ccm->ccm, (ccccm_nonce *) &ccm->nonce,
                     ccm->ad_len, data);
         } else return kCCUnimplemented;
         break;

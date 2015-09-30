@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ckb.xml
@@ -24,7 +24,6 @@ ckb{
         az{"ئازه‌ربایجانی"}
         be{"بێلاڕووسی"}
         bg{"بۆلگاری"}
-        bh{"بیهاری"}
         bn{"به‌نگلادێشی"}
         br{"برێتونی"}
         bs{"بۆسنی"}
@@ -186,13 +185,10 @@ ckb{
             mymr{"ژمارە میانمارییەکان"}
         }
     }
-    Version{"2.0.92.90"}
+    Version{"2.1.6.69"}
     codePatterns{
         language{"زمان: {0}"}
         script{"خەت: {0}"}
         territory{"ناوچە: {0}"}
-    }
-    localeDisplayPattern{
-        separator{"،"}
     }
 }

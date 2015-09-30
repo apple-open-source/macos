@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,21 +28,15 @@
 #define super IOService
 OSDefineMetaClassAndAbstractStructors(IOStorage, IOService)
 
-#ifndef __LP64__
-#define kIOStorageAttributesUnsupported ( ( IOStorage::ExpansionData * ) 1 )
+#ifdef __x86_64__
+#define kIOStorageSynchronizeOptionsUnsupported ( ( IOStorage::ExpansionData * ) 1 )
 
-IOStorageAttributes gIOStorageAttributesUnsupported = { kIOStorageOptionReserved };
+extern "C" void _ZN9IOStorage16synchronizeCacheEP9IOService( IOStorage *, IOService * );
+extern "C" void _ZN9IOStorage11synchronizeEP9IOServiceyyj( IOStorage *, IOService *, UInt64, UInt64, IOStorageSynchronizeOptions );
 
-extern "C" void _ZN9IOStorage4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOStorage *, IOService *, UInt64, IOMemoryDescriptor *, IOStorageCompletion );
-extern "C" void _ZN9IOStorage5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOStorage *, IOService *, UInt64, IOMemoryDescriptor *, IOStorageCompletion );
-extern "C" void _ZN9IOStorage4readEP9IOServiceyP18IOMemoryDescriptorP19IOStorageAttributesP19IOStorageCompletion( IOStorage *, IOService *, UInt64, IOMemoryDescriptor *, IOStorageAttributes *, IOStorageCompletion * );
-extern "C" void _ZN9IOStorage5writeEP9IOServiceyP18IOMemoryDescriptorP19IOStorageAttributesP19IOStorageCompletion( IOStorage *, IOService *, UInt64, IOMemoryDescriptor *, IOStorageAttributes *, IOStorageCompletion * );
-
-#define storageAttributes( storage ) ( ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageCompletion                          ) ) &IOStorage::read  ) == _ZN9IOStorage4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion                         ) && \
-                                       ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageCompletion                          ) ) &IOStorage::write ) == _ZN9IOStorage5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion                        ) && \
-                                       ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageAttributes *, IOStorageCompletion * ) ) &IOStorage::read  ) != _ZN9IOStorage4readEP9IOServiceyP18IOMemoryDescriptorP19IOStorageAttributesP19IOStorageCompletion  ) && \
-                                       ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, IOMemoryDescriptor *, IOStorageAttributes *, IOStorageCompletion * ) ) &IOStorage::write ) != _ZN9IOStorage5writeEP9IOServiceyP18IOMemoryDescriptorP19IOStorageAttributesP19IOStorageCompletion ) )
-#endif /* !__LP64__ */
+#define storageSynchronizeOptions( storage ) ( ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *                                              ) ) &IOStorage::synchronizeCache ) == _ZN9IOStorage16synchronizeCacheEP9IOService ) && \
+                                               ( OSMemberFunctionCast( void *, storage, ( void ( IOStorage::* )( IOService *, UInt64, UInt64, IOStorageSynchronizeOptions ) ) &IOStorage::synchronize      ) != _ZN9IOStorage11synchronizeEP9IOServiceyyj   ) )
+#endif /* __x86_64__ */
 
 class IOStorageSyncerLock
 {
@@ -140,53 +134,43 @@ static void storageCompletion(void *   target,
     ((IOStorageSyncer *)target)->signal(status);
 }
 
-#ifndef __LP64__
-bool IOStorage::init(OSDictionary * properties)
+#ifdef __x86_64__
+bool IOStorage::attach(IOService * provider)
 {
-    //
-    // Initialize this object's minimal state.
-    //
-
-    if ( super::init( properties ) == false )
+    if ( super::attach( provider ) == false )
     {
         return false;
     }
 
-    if ( storageAttributes( this ) == false )
+    if ( storageSynchronizeOptions( this ) == false )
     {
-        IOStorage::_expansionData = kIOStorageAttributesUnsupported;
+        _respondsTo_synchronizeCache = kIOStorageSynchronizeOptionsUnsupported;
     }
 
-    if ( IOStorage::_expansionData )
+    if ( _respondsTo_synchronizeCache )
     {
         OSDictionary * features;
 
-        features = OSDictionary::withCapacity( 1 );
+        features = OSDynamicCast( OSDictionary, getProperty( kIOStorageFeaturesKey, gIOServicePlane ) );
 
         if ( features )
         {
-            setProperty( kIOStorageFeaturesKey, features );
+            features = OSDictionary::withDictionary( features );
 
-            features->release( );
+            if ( features )
+            {
+                features->removeObject( kIOStorageFeatureBarrier );
+
+                setProperty( kIOStorageFeaturesKey, features );
+
+                features->release( );
+            }
         }
     }
 
     return true;
 }
-
-void IOStorage::complete(IOStorageCompletion completion,
-                         IOReturn            status,
-                         UInt64              actualByteCount)
-{
-    //
-    // Invokes the specified completion action of the read/write request.  If
-    // the completion action is unspecified, no action is taken.  This method
-    // serves simply as a convenience to storage subclass developers.
-    //
-
-    complete( &completion, status, actualByteCount );
-}
-#endif /* !__LP64__ */
+#endif /* __x86_64__ */
 
 void IOStorage::complete(IOStorageCompletion * completion,
                          IOReturn              status,
@@ -276,126 +260,30 @@ IOReturn IOStorage::write(IOService *           client,
     return syncer.wait();
 }
 
-#ifndef __LP64__
-void IOStorage::read(IOService *          client,
-                     UInt64               byteStart,
-                     IOMemoryDescriptor * buffer,
-                     IOStorageCompletion  completion)
-{
-    //
-    // Read data from the storage object at the specified byte offset into the
-    // specified buffer, asynchronously.   When the read completes, the caller
-    // will be notified via the specified completion action.
-    //
-    // The buffer will be retained for the duration of the read.
-    //
-
-    if ( IOStorage::_expansionData == kIOStorageAttributesUnsupported )
-    {
-        read( client, byteStart, buffer, &gIOStorageAttributesUnsupported, &completion );
-    }
-    else
-    {
-        read( client, byteStart, buffer, NULL, &completion );
-    }
-}
-
-void IOStorage::write(IOService *          client,
-                      UInt64               byteStart,
-                      IOMemoryDescriptor * buffer,
-                      IOStorageCompletion  completion)
-{
-    //
-    // Write data into the storage object at the specified byte offset from the
-    // specified buffer, asynchronously.   When the write completes, the caller
-    // will be notified via the specified completion action.
-    //
-    // The buffer will be retained for the duration of the write.
-    //
-
-    if ( IOStorage::_expansionData == kIOStorageAttributesUnsupported )
-    {
-        write( client, byteStart, buffer, &gIOStorageAttributesUnsupported, &completion );
-    }
-    else
-    {
-        write( client, byteStart, buffer, NULL, &completion );
-    }
-}
-
-void IOStorage::read(IOService *           client,
-                     UInt64                byteStart,
-                     IOMemoryDescriptor *  buffer,
-                     IOStorageAttributes * attributes,
-                     IOStorageCompletion * completion)
-{
-    //
-    // Read data from the storage object at the specified byte offset into the
-    // specified buffer, asynchronously.   When the read completes, the caller
-    // will be notified via the specified completion action.
-    //
-    // The buffer will be retained for the duration of the read.
-    //
-
-    if ( attributes && attributes->options )
-    {
-        complete( completion, kIOReturnUnsupported );
-    }
-    else
-    {
-        read( client, byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
-    }
-}
-
-void IOStorage::write(IOService *           client,
-                      UInt64                byteStart,
-                      IOMemoryDescriptor *  buffer,
-                      IOStorageAttributes * attributes,
-                      IOStorageCompletion * completion)
-{
-    //
-    // Write data into the storage object at the specified byte offset from the
-    // specified buffer, asynchronously.   When the write completes, the caller
-    // will be notified via the specified completion action.
-    //
-    // The buffer will be retained for the duration of the write.
-    //
-
-    if ( attributes && attributes->options )
-    {
-        complete( completion, kIOReturnUnsupported );
-    }
-    else
-    {
-        write( client, byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
-    }
-}
-#endif /* !__LP64__ */
-
+#ifdef __x86_64__
 IOReturn IOStorage::discard(IOService * client,
                             UInt64      byteStart,
                             UInt64      byteCount)
 {
     //
-    // Delete unused data from the storage object at the specified byte offset,
-    // synchronously.
+    // Delete unused data from the storage object at the specified byte offset.
     //
 
     return kIOReturnUnsupported;
 }
 
-IOReturn IOStorage::unmap(IOService *       client,
-                          IOStorageExtent * extents,
-                          UInt32            extentsCount,
-                          UInt32            options)
+IOReturn IOStorage::unmap(IOService *           client,
+                          IOStorageExtent *     extents,
+                          UInt32                extentsCount,
+                          IOStorageUnmapOptions options)
 {
     //
-    // Delete unused data from the storage object at the specified byte offsets,
-    // synchronously.
+    // Delete unused data from the storage object at the specified byte offsets.
     //
 
     return kIOReturnUnsupported;
 }
+#endif /* __x86_64__ */
 
 bool IOStorage::lockPhysicalExtents(IOService * client)
 {
@@ -443,20 +331,45 @@ IOReturn IOStorage::setPriority(IOService *       client,
     return kIOReturnUnsupported;
 }
 
+#ifdef __x86_64__
+IOReturn IOStorage::synchronizeCache(IOService * client)
+{
+    //
+    // Flush the cached data in the storage object, if any.
+    //
+
+    if ( _respondsTo_synchronizeCache )
+    {
+        return synchronize( client, 0, 0, _kIOStorageSynchronizeOption_super__synchronizeCache );
+    }
+    else
+    {
+        return synchronize( client, 0, 0 );
+    }
+}
+
+IOReturn IOStorage::synchronize(IOService *                 client,
+                                UInt64                      byteStart,
+                                UInt64                      byteCount,
+                                IOStorageSynchronizeOptions options)
+{
+    //
+    // Flush the cached data in the storage object, if any.
+    //
+
+    /* default the barrier synchronize to full flush */
+    return synchronizeCache( client );
+}
+#endif /* __x86_64__ */
+
 OSMetaClassDefineReservedUsed(IOStorage,  0);
 OSMetaClassDefineReservedUsed(IOStorage,  1);
 OSMetaClassDefineReservedUsed(IOStorage,  2);
 OSMetaClassDefineReservedUsed(IOStorage,  3);
 OSMetaClassDefineReservedUsed(IOStorage,  4);
-#ifdef __LP64__
-OSMetaClassDefineReservedUnused(IOStorage,  5);
+OSMetaClassDefineReservedUsed(IOStorage,  5);
 OSMetaClassDefineReservedUnused(IOStorage,  6);
 OSMetaClassDefineReservedUnused(IOStorage,  7);
-#else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOStorage,  5);
-OSMetaClassDefineReservedUsed(IOStorage,  6);
-OSMetaClassDefineReservedUsed(IOStorage,  7);
-#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IOStorage,  8);
 OSMetaClassDefineReservedUnused(IOStorage,  9);
 OSMetaClassDefineReservedUnused(IOStorage, 10);

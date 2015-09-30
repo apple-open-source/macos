@@ -31,16 +31,12 @@
 
 #include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
-#include "MainThreadTask.h"
 #include "ResourceHandleManager.h"
 #include "ResourceRequest.h"
 #include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
 using namespace WebCore;
-
-template<> struct CrossThreadCopierBase<false, false, CurlDownload*> : public CrossThreadCopierPassThrough<CurlDownload*> {
-};
 
 namespace WebCore {
 
@@ -214,9 +210,15 @@ void CurlDownloadManager::downloadThread(void* data)
 
         if (msg->msg == CURLMSG_DONE) {
             if (msg->data.result == CURLE_OK)
-                callOnMainThread(MainThreadTask(CurlDownload::downloadFinishedCallback, download));
+                callOnMainThread([download] {
+                    if (download)
+                        download->didFinish();
+                });
             else
-                callOnMainThread(MainThreadTask(CurlDownload::downloadFailedCallback, download));
+                callOnMainThread([download] {
+                    if (download)
+                        download->didFail();
+                });
 
             downloadManager->removeFromCurl(msg->easy_handle);
         }
@@ -399,9 +401,10 @@ void CurlDownload::didReceiveHeader(const String& header)
 
             m_response.setMimeType(extractMIMETypeFromMediaType(m_response.httpHeaderField(HTTPHeaderName::ContentType)));
             m_response.setTextEncodingName(extractCharsetFromMediaType(m_response.httpHeaderField(HTTPHeaderName::ContentType)));
-            m_response.setSuggestedFilename(filenameFromHTTPContentDisposition(m_response.httpHeaderField(HTTPHeaderName::ContentDisposition)));
 
-            callOnMainThread(MainThreadTask(receivedResponseCallback, this));
+            callOnMainThread([this] {
+                didReceiveResponse();
+            });
         }
     } else {
         int splitPos = header.find(":");
@@ -414,7 +417,9 @@ void CurlDownload::didReceiveData(void* data, int size)
 {
     MutexLocker locker(m_mutex);
 
-    callOnMainThread(MainThreadTask(receivedDataCallback, this, size));
+    callOnMainThread([this, size] {
+        didReceiveDataOfLength(size);
+    });
 
     writeDataToFile(static_cast<const char*>(data), size);
 }
@@ -469,7 +474,7 @@ size_t CurlDownload::headerCallback(char* ptr, size_t size, size_t nmemb, void* 
     size_t totalSize = size * nmemb;
     CurlDownload* download = reinterpret_cast<CurlDownload*>(data);
 
-    String header = String::fromUTF8WithLatin1Fallback(static_cast<const char*>(ptr), totalSize);
+    String header(static_cast<const char*>(ptr), totalSize);
 
     if (download)
         download->didReceiveHeader(header);

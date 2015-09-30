@@ -28,8 +28,7 @@
 #include "config.h"
 #include "SharedTimer.h"
 
-#include <gdk/gdk.h>
-#include <wtf/gobject/GMainLoopSource.h>
+#include <wtf/glib/GMainLoopSource.h>
 
 namespace WebCore {
 
@@ -47,13 +46,19 @@ void setSharedTimerFireInterval(double interval)
 {
     ASSERT(sharedTimerFiredFunction);
 
+    // This is GDK_PRIORITY_REDRAW, but we don't want to depend on GDK here just to use a constant.
+    static const int priority = G_PRIORITY_HIGH_IDLE + 20;
     gSharedTimer.scheduleAfterDelay("[WebKit] sharedTimerTimeoutCallback", std::function<void()>(sharedTimerFiredFunction),
-        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::duration<double>(interval)), G_PRIORITY_DEFAULT);
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<double>(interval)), priority);
 }
 
 void stopSharedTimer()
 {
     gSharedTimer.cancel();
+}
+
+void invalidateSharedTimer()
+{
 }
 
 }

@@ -46,6 +46,8 @@ includes
 #include <SystemConfiguration/SCDPlugin.h>
 #include <SystemConfiguration/SCPrivate.h>      // for SCLog() and VPN private keys
 #include <SystemConfiguration/SCValidation.h>
+#include <IOKit/serial/IOSerialKeys.h>
+#include <IOKit/IOBSD.h>
 #include <pwd.h>
 
 #include "ppp_msg.h"
@@ -102,6 +104,8 @@ static int change_pppd_params(struct service *serv, CFDictionaryRef service, CFD
 
 static void setup_PPPoE(struct service *serv);
 static void dispose_PPPoE(struct service *serv);
+static void MT_checkForProxies(const void *, const void *, PPPSession_t *);
+static void MT_getModemInformation(struct service *, SCPreferencesRef, PPPSession_t *);
 
 /* -----------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -1519,6 +1523,433 @@ int ppp_uninstall(struct service *serv)
 	
 	writeparam(optfd, "[UNINSTALL]");
 	return 0;
+}
+
+static void MT_checkForProxies (const void *key, const void *value, PPPSession_t *pppSession)
+{
+	if (CFStringHasSuffix(key, CFSTR("Enable"))) {
+		int val = 0;
+		if ((CFGetTypeID(value) == CFNumberGetTypeID()) && CFNumberGetValue(value, kCFNumberIntType, &val) && val != 0) {
+			snprintf(pppSession->proxiesEnabled, OPT_LEN, "1");
+		}
+	}
+}
+
+void MT_pppGetTracerOptions(struct service *serv, PPPSession_t *pppSession)
+{
+	CFDictionaryRef dict = NULL;
+	CFDictionaryRef service = NULL;
+	char buffer[MT_STR_LEN] = {0};
+	char vendor[MT_STR_LEN], model[MT_STR_LEN];
+	u_int32_t val = 0;
+	
+	memset(pppSession, '\0', sizeof(PPPSession_t));
+	
+	service = copyService(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID);
+	
+	if (service == NULL) {
+		return;
+	}
+
+	/* Get Modem vendor */
+	dict = CFDictionaryGetValue(service, kSCEntNetModem);
+	if (dict != NULL) {
+		if (getString(dict, kSCPropNetModemDeviceVendor, buffer, MT_STR_LEN)) {
+			memset(vendor, 0, MT_STR_LEN);
+			strlcpy(vendor, buffer, MT_STR_LEN);
+			memset(buffer, 0, MT_STR_LEN);
+		}
+		
+		/* Get modem model */
+		if (getString(dict, kSCPropNetModemDeviceModel, buffer, MT_STR_LEN)) {
+			memset(model, 0, MT_STR_LEN);
+			strlcpy(model, buffer, MT_STR_LEN);
+			memset(buffer, 0, MT_STR_LEN);
+		}
+		
+		if (vendor != NULL && model != NULL) {
+			memset(pppSession->modem, 0, MT_STR_LEN);
+			strlcat(pppSession->modem, vendor, MT_STR_LEN);
+			strlcat(pppSession->modem, "/", MT_STR_LEN);
+			strlcat(pppSession->modem, model, MT_STR_LEN);
+		}
+	}
+	
+	dict = CFDictionaryGetValue(service, kSCEntNetPPP);
+	
+	if (dict != NULL) {
+		/* Get DialOnDemand status		- "Connect automatically when needed" */
+		getNumber(dict, kSCPropNetPPPDialOnDemand, &val);
+		
+		snprintf(pppSession->dialOnDemand, OPT_LEN ,"%u", val);
+		val = 0;
+		
+		/* Get Prompt status			- "Prompt every X minutes to maintain connection" */
+		getNumber(dict, kSCPropNetPPPIdleReminder, &val);
+		
+		snprintf(pppSession->idleReminder, OPT_LEN, "%u", val);
+		val = 0;
+		
+		/* Get disconnect status		- "Disconnect when user logs out */
+		getNumber(dict, kSCPropNetPPPDisconnectOnLogout, &val);
+		
+		snprintf(pppSession->disconnectOnLogout, OPT_LEN, "%u", val);
+		val = 0;
+		
+		/* Get disconnect status		- "Disconnect when switching user account */
+		getNumber(dict, kSCPropNetPPPDisconnectOnFastUserSwitch, &val);
+		
+		snprintf(pppSession->disconnectOnUserSwitch, OPT_LEN, "%u", val);
+		val = 0;
+		
+		/* Get password prompt status	- "Prompt for password after dialling" */
+		if (getString(dict, kSCPropNetPPPAuthPrompt, buffer, MT_STR_LEN)) {
+			memset(pppSession->authPrompt, 0, MT_STR_LEN);
+			strlcpy(pppSession->authPrompt, buffer, MT_STR_LEN);
+			memset(buffer, 0, MT_STR_LEN);
+		}
+		
+		/* Get Redial status			- "Redial X times if busy, ..." */
+		getNumber(dict, kSCPropNetPPPCommRedialEnabled, &val);
+		
+		snprintf(pppSession->redialEnabled, OPT_LEN, "%u", val);
+		val = 0;
+		
+		/* Get EchoEnabled status		- "Send PPP Echo Packet" */
+		getNumber(dict, kSCPropNetPPPLCPEchoEnabled, &val);
+		
+		snprintf(pppSession->echoEnabled, OPT_LEN, "%u", val);
+		val = 0;
+		
+		/* Get verbose logging status	- "Use verbose logging" */
+		getNumber(dict, kSCPropNetPPPVerboseLogging, &val);
+		
+		snprintf(pppSession->verboseLogging, OPT_LEN, "%u", val);
+		val = 0;
+
+		/* Get VJ Compression status	- "Use TCP header compression" */
+		getNumber(dict, kSCPropNetPPPIPCPCompressionVJ, &val);
+		
+		snprintf(pppSession->vjCompression, OPT_LEN, "%u", val);
+		val = 0;
+		
+		/* Get Terminal window status	- "Connect using a terminal window (command line)" */
+		getNumber(dict, kSCPropNetPPPCommDisplayTerminalWindow, &val);
+		
+		snprintf(pppSession->useTerminal, OPT_LEN, "%u", val);
+		val = 0;
+	}
+	
+	//Check if the connection uses manual DNS
+	dict = CFDictionaryGetValue(service, kSCEntNetDNS);
+
+	/* Check if any Search Domains/Server Addresses are specified */
+	if (dict != NULL) {
+		CFArrayRef serverAddresses	= CFDictionaryGetValue(dict, kSCPropNetDNSServerAddresses);
+		if (serverAddresses != NULL) {
+			CFIndex count = CFArrayGetCount(serverAddresses);
+			if (count > 0) {
+				val = 1;
+			}
+		}
+	}
+	
+	snprintf(pppSession->manualDNS, OPT_LEN, "%u", val);
+	val = 0;
+	
+	//Check if the connection uses manual IPv4
+	dict = CFDictionaryGetValue(service, kSCEntNetIPv4);
+	
+	if (dict != NULL &&
+		getString(dict, kSCPropNetIPv4ConfigMethod, buffer, MT_STR_LEN)) {
+		CFStringRef temp_buffer;
+		temp_buffer = CFStringCreateWithCString(NULL, buffer, kCFStringEncodingUTF8);
+		
+		if (temp_buffer != NULL) {
+			if (CFEqual(temp_buffer, kSCValNetIPv4ConfigMethodManual)) {
+				val = 1;
+			}
+			CFRelease(temp_buffer);
+		}
+		memset(buffer, 0, MT_STR_LEN);
+	}
+	
+	snprintf(pppSession->manualIPv4, OPT_LEN, "%u", val);
+	val = 0;
+	
+	//Check if the connection uses manual IPv6
+	dict = CFDictionaryGetValue(service, kSCEntNetIPv6);
+	
+	if (dict != NULL &&
+		getString(dict, kSCPropNetIPv6ConfigMethod, buffer, MT_STR_LEN)) {
+		CFStringRef temp_buffer;
+		temp_buffer = CFStringCreateWithCString(NULL, buffer, kCFStringEncodingUTF8);
+		
+		if (temp_buffer != NULL) {
+			if (CFEqual(temp_buffer, kSCValNetIPv6ConfigMethodManual)) {
+				val = 1;
+			}
+			CFRelease(temp_buffer);
+		}
+		memset(buffer, 0, MT_STR_LEN);
+	}
+	
+	snprintf(pppSession->manualIPv6, OPT_LEN, "%u", val);
+	val = 0;
+
+#if !TARGET_OS_EMBEDDED
+	//Check if the connection uses WINS
+	dict = CFDictionaryGetValue(service, kSCEntNetSMB);
+	
+	if (dict != NULL) {
+		CFArrayRef winsAddresses = CFDictionaryGetValue(dict, kSCPropNetSMBWINSAddresses);
+		if (winsAddresses != NULL) {
+			CFIndex count = CFArrayGetCount(winsAddresses);
+			if (count > 0) {
+				val = 1;
+			}
+		}
+	}
+#endif /* !TARGET_OS_EMBEDDED */
+
+	snprintf(pppSession->winsEnabled, OPT_LEN, "%u", val);
+	val = 0;
+
+
+	//Check if the connection uses Proxies
+	//Take this dictionary fron SCPreferences, as it is not a part of the service dict.
+	SCPreferencesRef prefsRef = SCPreferencesCreate(NULL, CFSTR("Plugin:PPPController"), CFSTR("preferences.plist"));
+	CFDictionaryRef networkServices = NULL;
+	CFDictionaryRef myService = NULL;
+	dict = NULL;
+	
+	if (prefsRef != NULL) {
+		networkServices = SCPreferencesGetValue(prefsRef, kSCPrefNetworkServices);
+	}
+	
+	if (networkServices != NULL) {
+		myService = CFDictionaryGetValue(networkServices, serv->serviceID);
+	}
+
+	if (myService != NULL) {
+		dict = CFDictionaryGetValue(myService, kSCEntNetProxies);
+	}
+	
+	snprintf(pppSession->proxiesEnabled, OPT_LEN, "%u", val);
+	
+	if (dict != NULL) {
+		CFDictionaryApplyFunction(dict, MT_checkForProxies, pppSession);
+	}
+
+	/* Get Modem Hardware information from IOKit */
+	if (serv->subtype != PPP_TYPE_PPPoE) {
+		MT_getModemInformation(serv, prefsRef , pppSession);
+	}
+	
+	if (prefsRef != NULL) {
+		CFRelease(prefsRef);
+	}
+	
+	CFRelease(service);
+	
+	return;
+}
+
+static void MT_getModemInformation(struct service *serv, SCPreferencesRef prefs, PPPSession_t *pppSess)
+{
+	if (serv == NULL || prefs == NULL || pppSess == NULL) {
+		return;
+	}
+	
+	SCNetworkServiceRef networkServ = SCNetworkServiceCopy(prefs, serv->serviceID);
+	if (networkServ == NULL) {
+		return;
+	}
+	
+	SCNetworkInterfaceRef intf = SCNetworkServiceGetInterface(networkServ);
+	if (intf == NULL) {
+		return;
+	}
+	
+	kern_return_t kr;
+	
+	/* Get the leaf interface */
+	SCNetworkInterfaceRef temp_intf;
+	while (1) {
+		temp_intf = SCNetworkInterfaceGetInterface(intf);
+		if (temp_intf == NULL) {
+			break;
+		}
+		intf = temp_intf;
+	}
+	
+	/* Get the BSD Name of the interface */
+	CFStringRef bsdName = SCNetworkInterfaceGetBSDName(intf);
+	if (bsdName == NULL) {
+		return;
+	}
+	
+	/* Query IOKit for the Hardware information about the modem */
+	CFMutableDictionaryRef matchingDictionary = IOServiceMatching(kIOSerialBSDServiceValue);
+	CFDictionarySetValue(matchingDictionary, CFSTR(kIOSerialBSDTypeKey), CFSTR(kIOSerialBSDAllTypes));
+	
+	io_iterator_t myIterator;
+	io_service_t service;
+	char hardwareStr[MT_STR_LEN] = {0};
+	
+	kr = IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDictionary, &myIterator);
+	if (kr != KERN_SUCCESS) {
+		return;
+	}
+	
+	for ( ; (service = IOIteratorNext(myIterator)) ; IOObjectRelease(service)) {
+		CFMutableDictionaryRef properties;
+		kr = IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, kNilOptions);
+		if (kr != KERN_SUCCESS || properties == NULL) {
+			continue;
+		}
+		
+		CFStringRef deviceKey = CFDictionaryGetValue(properties, CFSTR(kIOTTYDeviceKey));
+		
+		if (deviceKey == NULL || !CFEqual(deviceKey, bsdName)) {
+			CFRelease(properties);
+			continue;
+		}
+		
+		/* If we are here, then we have found the modem being used */
+		CFStringRef key;
+		CFTypeRef val;
+		char vid[MT_STR_LEN] = {0};
+		char pid[MT_STR_LEN] = {0};
+		
+		/* Check if the transport bus is USB/PCI/Bluetooth */
+		CFStringRef baseName = CFDictionaryGetValue(properties, CFSTR(kIOTTYBaseNameKey));
+		
+		if (CFEqual(baseName, CFSTR("usbmodem"))) {
+			/* We have a USB modem */
+			
+			strlcat(hardwareStr, "usbmodem", MT_STR_LEN);
+			
+			/* Get VID */
+			key = CFStringCreateWithFormat(NULL, NULL, CFSTR("idVendor"));
+			val = IORegistryEntrySearchCFProperty(service,
+												  kIOServicePlane,
+												  key,
+												  NULL,
+												  kIORegistryIterateRecursively | kIORegistryIterateParents);
+			
+			if (val != NULL && isA_CFNumber(val)) {
+				int num;
+				CFNumberGetValue(val, kCFNumberIntType, &num);
+				sprintf(vid, "%0.4x", num);
+				strlcat(hardwareStr, ".", MT_STR_LEN);
+				strlcat(hardwareStr, vid, MT_STR_LEN);
+				CFRelease(val);
+			}
+			else {
+				strlcat(hardwareStr, ".", MT_STR_LEN);
+				strlcat(hardwareStr, "X", MT_STR_LEN);
+			}
+			
+			CFRelease(key);
+			
+			/* Get PID */
+			key = CFStringCreateWithFormat(NULL, NULL, CFSTR("idProduct"));
+			val = IORegistryEntrySearchCFProperty(service,
+												  kIOServicePlane,
+												  key,
+												  NULL,
+												  kIORegistryIterateRecursively | kIORegistryIterateParents);
+			
+			if (val != NULL && isA_CFNumber(val)) {
+				int num;
+				CFNumberGetValue(val, kCFNumberIntType, &num);
+				sprintf(pid, "%0.4x", num);
+				strlcat(hardwareStr, ".", MT_STR_LEN);
+				strlcat(hardwareStr, pid, MT_STR_LEN);
+				CFRelease(val);
+			}
+			else {
+				strlcat(hardwareStr, ".", MT_STR_LEN);
+				strlcat(hardwareStr, "X", MT_STR_LEN);
+			}
+			
+			CFRelease(key);
+		}
+		else if (CFEqual(baseName, CFSTR("pci-serial"))) {
+			/* We have a pci-serial modem */
+			
+			strlcat(hardwareStr, "pci-serial", MT_STR_LEN);
+			
+			/* Get VID */
+			key = CFStringCreateWithFormat(NULL, NULL, CFSTR("vendor-id"));
+			val = IORegistryEntrySearchCFProperty(service,
+												  kIOServicePlane,
+												  key,
+												  NULL,
+												  kIORegistryIterateRecursively | kIORegistryIterateParents);
+			
+			if (val != NULL && isA_CFData(val)) {
+				UInt8 num[4] = {0};
+				CFDataGetBytes(val, CFRangeMake(0, CFDataGetLength(val)), num);
+				sprintf(vid, "%0.2x%0.2x", num[1], num[0]);
+				strlcat(hardwareStr, ".", MT_STR_LEN);
+				strlcat(hardwareStr, vid, MT_STR_LEN);
+				CFRelease(val);
+			}
+			else {
+				strlcat(hardwareStr, ".", MT_STR_LEN);
+				strlcat(hardwareStr, "X", MT_STR_LEN);
+			}
+			
+			CFRelease(key);
+			
+			/* Get PID */
+			key = CFStringCreateWithFormat(NULL, NULL, CFSTR("device-id"));
+			val = IORegistryEntrySearchCFProperty(service,
+												  kIOServicePlane,
+												  key,
+												  NULL,
+												  kIORegistryIterateRecursively | kIORegistryIterateParents);
+			
+			if (val != NULL && isA_CFData(val)) {
+				UInt8 num[4] = {0};
+				CFDataGetBytes(val, CFRangeMake(0, CFDataGetLength(val)), num);
+				sprintf(pid, "%0.2x%0.2x", num[1], num[0]);
+				strlcat(hardwareStr, ".", MT_STR_LEN);
+				strlcat(hardwareStr, pid, MT_STR_LEN);
+				CFRelease(val);
+			}
+			else {
+				strlcat(hardwareStr, ".", MT_STR_LEN);
+				strlcat(hardwareStr, "X", MT_STR_LEN);
+			}
+			
+			CFRelease(key);
+		}
+		else if (CFEqual(baseName, CFSTR("Bluetooth-Modem"))) {
+			/* We have a bluetooth modem */
+			strlcat(hardwareStr, "Bluetooth-Modem", MT_STR_LEN);
+		}
+		
+		if (properties != NULL) {
+			CFRelease(properties);
+		}
+		break;
+	}
+	
+	if (*hardwareStr != 0) {
+		memset(pppSess->hardwareInfo, 0, MT_STR_LEN);
+		strlcpy(pppSess->hardwareInfo, hardwareStr, MT_STR_LEN);
+	}
+	else {
+		memset(pppSess->hardwareInfo, 0, MT_STR_LEN);
+		strlcpy(pppSess->hardwareInfo, "No modem information", MT_STR_LEN);
+	}
+		
+	if (networkServ != NULL) {
+		CFRelease(networkServ);
+	}
 }
 
 /* -----------------------------------------------------------------------------

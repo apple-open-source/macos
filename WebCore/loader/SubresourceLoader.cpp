@@ -30,38 +30,45 @@
 #include "SubresourceLoader.h"
 
 #include "CachedResourceLoader.h"
+#include "DiagnosticLoggingClient.h"
+#include "DiagnosticLoggingKeys.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "Logging.h"
+#include "MainFrame.h"
 #include "MemoryCache.h"
 #include "Page.h"
-#include "PageActivityAssertionToken.h"
-#include "ResourceBuffer.h"
+#include "Settings.h"
 #include <wtf/Ref.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TemporaryChange.h>
 #include <wtf/text/CString.h>
 
 #if PLATFORM(IOS)
 #include <RuntimeApplicationChecksIOS.h>
 #endif
 
+#if ENABLE(CONTENT_EXTENSIONS)
+#include "ResourceLoadInfo.h"
+#endif
+
 namespace WebCore {
 
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, subresourceLoaderCounter, ("SubresourceLoader"));
 
-SubresourceLoader::RequestCountTracker::RequestCountTracker(CachedResourceLoader* cachedResourceLoader, CachedResource* resource)
+SubresourceLoader::RequestCountTracker::RequestCountTracker(CachedResourceLoader& cachedResourceLoader, CachedResource* resource)
     : m_cachedResourceLoader(cachedResourceLoader)
     , m_resource(resource)
 {
-    m_cachedResourceLoader->incrementRequestCount(m_resource);
+    m_cachedResourceLoader.incrementRequestCount(m_resource);
 }
 
 SubresourceLoader::RequestCountTracker::~RequestCountTracker()
 {
-    m_cachedResourceLoader->decrementRequestCount(m_resource);
+    m_cachedResourceLoader.decrementRequestCount(m_resource);
 }
 
 SubresourceLoader::SubresourceLoader(Frame* frame, CachedResource* resource, const ResourceLoaderOptions& options)
@@ -69,10 +76,13 @@ SubresourceLoader::SubresourceLoader(Frame* frame, CachedResource* resource, con
     , m_resource(resource)
     , m_loadingMultipartContent(false)
     , m_state(Uninitialized)
-    , m_requestCountTracker(adoptPtr(new RequestCountTracker(frame->document()->cachedResourceLoader(), resource)))
+    , m_requestCountTracker(std::make_unique<RequestCountTracker>(frame->document()->cachedResourceLoader(), resource))
 {
 #ifndef NDEBUG
     subresourceLoaderCounter.increment();
+#endif
+#if ENABLE(CONTENT_EXTENSIONS)
+    m_resourceType = toResourceType(resource->type());
 #endif
 }
 
@@ -143,7 +153,7 @@ bool SubresourceLoader::isSubresourceLoader()
     return true;
 }
 
-void SubresourceLoader::willSendRequest(ResourceRequest& newRequest, const ResourceResponse& redirectResponse)
+void SubresourceLoader::willSendRequestInternal(ResourceRequest& newRequest, const ResourceResponse& redirectResponse)
 {
     // Store the previous URL because the call to ResourceLoader::willSendRequest will modify it.
     URL previousURL = request().url();
@@ -157,7 +167,9 @@ void SubresourceLoader::willSendRequest(ResourceRequest& newRequest, const Resou
         // Doing so would have us reusing the resource from the first request if the second request's revalidation succeeds.
         if (newRequest.isConditional() && m_resource->resourceToRevalidate() && newRequest.url() != m_resource->resourceToRevalidate()->response().url()) {
             newRequest.makeUnconditional();
-            memoryCache()->revalidationFailed(m_resource);
+            MemoryCache::singleton().revalidationFailed(*m_resource);
+            if (m_frame)
+                m_frame->mainFrame().diagnosticLoggingClient().logDiagnosticMessageWithResult(DiagnosticLoggingKeys::cachedResourceRevalidationKey(), emptyString(), DiagnosticLoggingResultFail, ShouldSample::Yes);
         }
         
         if (!m_documentLoader->cachedResourceLoader().canRequest(m_resource->type(), newRequest.url(), options())) {
@@ -168,13 +180,13 @@ void SubresourceLoader::willSendRequest(ResourceRequest& newRequest, const Resou
             cancel();
             return;
         }
-        m_resource->willSendRequest(newRequest, redirectResponse);
+        m_resource->redirectReceived(newRequest, redirectResponse);
     }
 
     if (newRequest.isNull() || reachedTerminalState())
         return;
 
-    ResourceLoader::willSendRequest(newRequest, redirectResponse);
+    ResourceLoader::willSendRequestInternal(newRequest, redirectResponse);
     if (newRequest.isNull())
         cancel();
 }
@@ -195,18 +207,27 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response)
     // anything including removing the last reference to this object; one example of this is 3266216.
     Ref<SubresourceLoader> protect(*this);
 
+    TemporaryChange<bool> callingDidReceiveResponse(m_callingDidReceiveResponse, true);
+
+    if (shouldIncludeCertificateInfo())
+        response.includeCertificateInfo();
+
     if (m_resource->resourceToRevalidate()) {
         if (response.httpStatusCode() == 304) {
             // 304 Not modified / Use local copy
             // Existing resource is ok, just use it updating the expiration time.
             m_resource->setResponse(response);
-            memoryCache()->revalidationSucceeded(m_resource, response);
+            MemoryCache::singleton().revalidationSucceeded(*m_resource, response);
+            if (m_frame)
+                m_frame->mainFrame().diagnosticLoggingClient().logDiagnosticMessageWithResult(DiagnosticLoggingKeys::cachedResourceRevalidationKey(), emptyString(), DiagnosticLoggingResultPass, ShouldSample::Yes);
             if (!reachedTerminalState())
                 ResourceLoader::didReceiveResponse(response);
             return;
         }
         // Did not get 304 response, continue as a regular resource load.
-        memoryCache()->revalidationFailed(m_resource);
+        MemoryCache::singleton().revalidationFailed(*m_resource);
+        if (m_frame)
+            m_frame->mainFrame().diagnosticLoggingClient().logDiagnosticMessageWithResult(DiagnosticLoggingKeys::cachedResourceRevalidationKey(), emptyString(), DiagnosticLoggingResultFail, ShouldSample::Yes);
     }
 
     m_resource->responseReceived(response);
@@ -223,18 +244,17 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response)
         m_loadingMultipartContent = true;
 
         // We don't count multiParts in a CachedResourceLoader's request count
-        m_requestCountTracker.clear();
+        m_requestCountTracker = nullptr;
         if (!m_resource->isImage()) {
             cancel();
             return;
         }
     }
 
-    RefPtr<ResourceBuffer> buffer = resourceData();
+    auto* buffer = resourceData();
     if (m_loadingMultipartContent && buffer && buffer->size()) {
         // The resource data will change as the next part is loaded, so we need to make a copy.
-        RefPtr<ResourceBuffer> copiedData = ResourceBuffer::create(buffer->data(), buffer->size());
-        m_resource->finishLoading(copiedData.get());
+        m_resource->finishLoading(buffer->copy().ptr());
         clearResourceData();
         // Since a subresource loader does not load multipart sections progressively, data was delivered to the loader all at once.        
         // After the first multipart section is complete, signal to delegates that this load is "finished" 
@@ -270,8 +290,8 @@ void SubresourceLoader::didReceiveDataOrBuffer(const char* data, int length, Pas
     ResourceLoader::didReceiveDataOrBuffer(data, length, buffer, encodedDataLength, dataPayloadType);
 
     if (!m_loadingMultipartContent) {
-        if (ResourceBuffer* resourceData = this->resourceData())
-            m_resource->addDataBuffer(resourceData);
+        if (auto* resourceData = this->resourceData())
+            m_resource->addDataBuffer(*resourceData);
         else
             m_resource->addData(buffer ? buffer->data() : data, buffer ? buffer->size() : length);
     }
@@ -288,6 +308,53 @@ bool SubresourceLoader::checkForHTTPStatusCodeError()
     return true;
 }
 
+static void logResourceLoaded(Frame* frame, CachedResource::Type type)
+{
+    if (!frame)
+        return;
+
+    String resourceType;
+    switch (type) {
+    case CachedResource::MainResource:
+        resourceType = DiagnosticLoggingKeys::mainResourceKey();
+        break;
+    case CachedResource::ImageResource:
+        resourceType = DiagnosticLoggingKeys::imageKey();
+        break;
+#if ENABLE(XSLT)
+    case CachedResource::XSLStyleSheet:
+#endif
+    case CachedResource::CSSStyleSheet:
+        resourceType = DiagnosticLoggingKeys::styleSheetKey();
+        break;
+    case CachedResource::Script:
+        resourceType = DiagnosticLoggingKeys::scriptKey();
+        break;
+    case CachedResource::FontResource:
+#if ENABLE(SVG_FONTS)
+    case CachedResource::SVGFontResource:
+#endif
+        resourceType = DiagnosticLoggingKeys::fontKey();
+        break;
+    case CachedResource::RawResource:
+        resourceType = DiagnosticLoggingKeys::rawKey();
+        break;
+    case CachedResource::SVGDocumentResource:
+        resourceType = DiagnosticLoggingKeys::svgDocumentKey();
+        break;
+#if ENABLE(LINK_PREFETCH)
+    case CachedResource::LinkPrefetch:
+    case CachedResource::LinkSubresource:
+#endif
+#if ENABLE(VIDEO_TRACK)
+    case CachedResource::TextTrackResource:
+#endif
+        resourceType = DiagnosticLoggingKeys::otherKey();
+        break;
+    }
+    frame->mainFrame().diagnosticLoggingClient().logDiagnosticMessageWithValue(DiagnosticLoggingKeys::resourceKey(), DiagnosticLoggingKeys::loadedKey(), resourceType, ShouldSample::Yes);
+}
+
 void SubresourceLoader::didFinishLoading(double finishTime)
 {
     if (m_state != Initialized)
@@ -297,14 +364,11 @@ void SubresourceLoader::didFinishLoading(double finishTime)
     // FIXME (129394): We should cancel the load when a decode error occurs instead of continuing the load to completion.
     ASSERT(!m_resource->errorOccurred() || m_resource->status() == CachedResource::DecodeError);
     LOG(ResourceLoading, "Received '%s'.", m_resource->url().string().latin1().data());
+    logResourceLoaded(m_frame.get(), m_resource->type());
 
     Ref<SubresourceLoader> protect(*this);
-
-#if PLATFORM(IOS)
-    if (resourceData())
-        resourceData()->setShouldUsePurgeableMemory(true);
-#endif
     CachedResourceHandle<CachedResource> protectResource(m_resource);
+
     m_state = Finishing;
     m_resource->setLoadFinishTime(finishTime);
     m_resource->finishLoading(resourceData());
@@ -331,10 +395,10 @@ void SubresourceLoader::didFail(const ResourceError& error)
     CachedResourceHandle<CachedResource> protectResource(m_resource);
     m_state = Finishing;
     if (m_resource->resourceToRevalidate())
-        memoryCache()->revalidationFailed(m_resource);
+        MemoryCache::singleton().revalidationFailed(*m_resource);
     m_resource->setResourceError(error);
     if (!m_resource->isPreloaded())
-        memoryCache()->remove(m_resource);
+        MemoryCache::singleton().remove(*m_resource);
     m_resource->error(CachedResource::LoadError);
     cleanupForError(error);
     notifyDone();
@@ -363,10 +427,11 @@ void SubresourceLoader::willCancel(const ResourceError& error)
 #else
     m_state = Finishing;
 #endif
+    auto& memoryCache = MemoryCache::singleton();
     if (m_resource->resourceToRevalidate())
-        memoryCache()->revalidationFailed(m_resource);
+        memoryCache.revalidationFailed(*m_resource);
     m_resource->setResourceError(error);
-    memoryCache()->remove(m_resource);
+    memoryCache.remove(*m_resource);
 }
 
 void SubresourceLoader::didCancel(const ResourceError&)
@@ -383,7 +448,7 @@ void SubresourceLoader::notifyDone()
     if (reachedTerminalState())
         return;
 
-    m_requestCountTracker.clear();
+    m_requestCountTracker = nullptr;
 #if PLATFORM(IOS)
     m_documentLoader->cachedResourceLoader().loadDone(m_resource, m_state != CancelledWhileInitializing);
 #else

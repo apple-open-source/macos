@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebHTMLRepresentation.h"
 
@@ -45,7 +44,7 @@ WebHTMLRepresentation::WebHTMLRepresentation()
 {
     WebHTMLRepresentationCount++;
     gClassCount++;
-    gClassNameCount.add("WebHTMLRepresentation");
+    gClassNameCount().add("WebHTMLRepresentation");
 }
 
 WebHTMLRepresentation::~WebHTMLRepresentation()
@@ -57,7 +56,7 @@ WebHTMLRepresentation::~WebHTMLRepresentation()
 
     WebHTMLRepresentationCount--;
     gClassCount--;
-    gClassNameCount.remove("WebHTMLRepresentation");
+    gClassNameCount().remove("WebHTMLRepresentation");
 }
 
 WebHTMLRepresentation* WebHTMLRepresentation::createInstance(WebFrame* frame)

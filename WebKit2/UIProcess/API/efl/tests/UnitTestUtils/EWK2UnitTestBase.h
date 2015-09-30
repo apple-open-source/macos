@@ -21,7 +21,7 @@
 #define EWK2UnitTestBase_h
 
 #include "EWK2UnitTestEnvironment.h"
-#include <EWebKit2.h>
+#include "EWebKit2.h"
 #include <Ecore.h>
 #include <Ecore_Evas.h>
 #include <Eina.h>
@@ -46,12 +46,14 @@ protected:
 
     static constexpr double defaultTimeoutSeconds = 10.0;
     bool m_multipleProcesses;
+    bool m_withExtension;
 
     bool loadUrlSync(const char* url, double timeoutSeconds = defaultTimeoutSeconds);
     bool waitUntilLoadFinished(double timeoutSeconds = defaultTimeoutSeconds);
     bool waitUntilTitleChangedTo(const char* expectedTitle, double timeoutSeconds = defaultTimeoutSeconds);
     bool waitUntilURLChangedTo(const char* expectedURL, double timeoutSeconds = defaultTimeoutSeconds);
     bool waitUntilTrue(bool &flag, double timeoutSeconds = defaultTimeoutSeconds);
+    bool waitUntilDirectionChanged(Ewk_Focus_Direction &direction, double timeoutSeconds = defaultTimeoutSeconds);
     Eina_List* waitUntilSpellingLanguagesLoaded(unsigned expectedLanguageCount, double timeoutValue = defaultTimeoutSeconds);
 
     void mouseClick(int x, int y, int button = 1 /*Left*/);
@@ -62,6 +64,8 @@ protected:
     void multiDown(int id, int x, int y);
     void multiUp(int id, int x, int y);
     void multiMove(int id, int x, int y);
+    void keyDown(const char* keyname, const char* key, const char* string, const char* modifier);
+    void keyUp(const char* keyname, const char* key, const char* string);
 
 private:
     Evas_Object* m_webView;

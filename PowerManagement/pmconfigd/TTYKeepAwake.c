@@ -351,38 +351,10 @@ finish:
 
 static void create_assertion()
 {
-    dispatch_async(s_tty_queue, ^{
-        CFMutableDictionaryRef      assertionProperties = NULL;
-        CFStringRef                 activeTTYList = NULL;
-        int                         i = kIOPMAssertionLevelOn;
-        CFNumberRef                 n1 = NULL;
-
-
-        assertionProperties = CFDictionaryCreateMutable(0, 6, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        if (!assertionProperties)
-            return;
-        
-        CFDictionarySetValue(assertionProperties, kIOPMAssertionTypeKey, kIOPMAssertNetworkClientActive);
-        CFDictionarySetValue(assertionProperties, kIOPMAssertionNameKey, kTTYAssertion);
-        CFDictionarySetValue(assertionProperties, kIOPMAssertionHumanReadableReasonKey, kAssertionHumanReadableReasonTTY);
-        CFDictionarySetValue(assertionProperties, kIOPMAssertionLocalizationBundlePathKey, kPowerManagementBundlePathString);
-
-        n1 = CFNumberCreate(0, kCFNumberIntType, &i);
-        if (n1) {
-            CFDictionarySetValue(assertionProperties, kIOPMAssertionLevelKey, n1);
-            CFRelease(n1);
+    dispatch_sync(s_tty_queue, ^{
+        if (s_assertion == kIOPMNullAssertionID) {
+            InternalCreateAssertionWithTimeout(kIOPMAssertNetworkClientActive, kTTYAssertion, 0, &s_assertion);
         }
-        
-        activeTTYList = CFStringCreateWithFormat(0, NULL, CFSTR("%s"), s_activetty_names);        
-        if (activeTTYList) {
-            CFDictionarySetValue(assertionProperties, kIOPMAssertionDetailsKey, activeTTYList);
-            CFRelease(activeTTYList);
-        }            
-            
-        InternalCreateAssertion(assertionProperties, &s_assertion);
-
-        CFRelease(assertionProperties);
-        
     });
 }
 
@@ -391,9 +363,11 @@ static void release_assertion(void)
     if (!s_tty_queue)
         return;
 
-    dispatch_async(s_tty_queue, ^{
-
-        InternalReleaseAssertion(&s_assertion);
+    dispatch_sync(s_tty_queue, ^{
+        if (s_assertion != kIOPMNullAssertionID) {
+            InternalReleaseAssertionSync(s_assertion);
+            s_assertion = kIOPMNullAssertionID;
+        }
     });
 }
 

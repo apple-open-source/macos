@@ -1,3 +1,4 @@
 g/'CGDisplayBaseAddress': ([^)]*), /s///
 g/'CGDisplayAddressForPosition': ([^)]*), /s///
+g/\^c/s//*/g
 w

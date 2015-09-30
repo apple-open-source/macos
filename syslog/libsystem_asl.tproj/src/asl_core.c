@@ -53,9 +53,6 @@ const char *ASL_LEVEL_TO_STRING[] =
 	ASL_STRING_DEBUG
 };
 
-static char *asl_filesystem_path_database = NULL;
-static char *asl_filesystem_path_archive = NULL;
-
 /*
  * Message ID generation
  */
@@ -86,7 +83,7 @@ asl_core_get_service_port(int reset)
 	static mach_port_t server_port = MACH_PORT_NULL;
 	mach_port_t tmp;
 	kern_return_t kstatus;
-	
+
 	if ((reset != 0) && (server_port != MACH_PORT_NULL))
 	{
 		mach_port_t tmp = server_port;
@@ -327,12 +324,14 @@ const char *
 asl_filesystem_path(uint32_t place)
 {
 	static dispatch_once_t once;
+	static char *asl_filesystem_path_database = NULL;
+	static char *asl_filesystem_path_archive = NULL;
 
 	dispatch_once(&once, ^{
 		char *asl_var_log = NULL;
 		const char *const_asl_var_log = "/var/log";
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 		asl_var_log = getenv("SIMULATOR_LOG_ROOT");
 #endif
 
@@ -346,12 +345,10 @@ asl_filesystem_path(uint32_t place)
 	{
 		case ASL_PLACE_DATABASE:
 		{
-			if (asl_filesystem_path_database == NULL) return ASL_PLACE_DATABASE_DEFAULT;
 			return asl_filesystem_path_database;
 		}
 		case ASL_PLACE_ARCHIVE:
 		{
-			if (asl_filesystem_path_archive == NULL) return ASL_PLACE_ARCHIVE_DEFAULT;
 			return asl_filesystem_path_archive;
 		}
 		default:
@@ -583,25 +580,25 @@ asl_core_str_match(const char *target, const char *mset, uint32_t mincount, uint
 {
 	const char *x;
 	uint32_t n;
-	
+
 	if (length == NULL) length = &n;
-	
+
 	if (target == NULL) return (mincount == 0);
-	
+
 	for (x = target, *length = 0; *x != '\0'; x++, *length = *length + 1)
 	{
 		char *s;
-		
+
 		if ((*length == maxcount) && (maxcount > 0)) return true;
 		if (mset == NULL) continue;
-		
+
 		s = strchr(mset, *x);
 		if ((s == NULL) && (flags & MFLAG_EXCLUDE)) continue;
 		if ((s != NULL) && (flags & MFLAG_INCLUDE)) continue;
-		
+
 		break;
 	}
-	
+
 	return (*length >= mincount);
 }
 
@@ -609,15 +606,15 @@ bool
 asl_core_str_match_char(const char *target, const char c, uint32_t mincount, uint32_t flags, uint32_t *length)
 {
 	uint32_t n;
-	
+
 	if (length == NULL) length = &n;
 	*length = 0;
-	
+
 	if (target == NULL) return (mincount == 0);
-	
+
 	if ((*target == c) && (flags & MFLAG_INCLUDE)) *length = 1;
 	if ((*target != c) && (flags & MFLAG_EXCLUDE)) *length = 1;
-	
+
 	return (*length >= mincount);
 }
 
@@ -625,14 +622,94 @@ uint32_t
 asl_core_str_to_uint32(const char *target, uint32_t length)
 {
 	uint32_t i, d, out = 0;
-	
+
 	for (i = 0; i < length; i++)
 	{
 		d = target[i] - '0';
 		out = (out * 10) + d;
 	}
-	
+
 	return out;
+}
+
+size_t
+asl_core_str_to_size(char *s)
+{
+	size_t len, n, max;
+	char x;
+
+	if (s == NULL) return 0;
+
+	len = strlen(s);
+	if (len == 0) return 0;
+
+	n = 1;
+	x = s[len - 1];
+	if (x > 90) x -= 32;
+	if (x == 'K') n = 1ll << 10;
+	else if (x == 'M') n = 1ll << 20;
+	else if (x == 'G') n = 1ll << 30;
+
+	max = atoll(s) * n;
+	return max;
+}
+
+time_t
+asl_core_str_to_time(char *s, uint32_t def_n)
+{
+	size_t len;
+	time_t n, out;
+	char x;
+
+	if (s == NULL) return 0;
+
+	len = strlen(s);
+	if (len == 0) return 0;
+
+	n = def_n;
+
+	x = s[len - 1];
+	if (x > 90) x -= 32;
+
+	if (x == 'S') n = 1;
+	else if (x == 'M') n = SECONDS_PER_MINUTE;
+	else if (x == 'H') n = SECONDS_PER_HOUR;
+	else if (x == 'D') n = SECONDS_PER_DAY;
+
+	out = atoll(s) * n;
+	return out;
+}
+
+void
+asl_core_time_to_str(time_t s, char *str, size_t len)
+{
+	char days[32], hms[32];
+	uint32_t d, h, m;
+
+	d = s / SECONDS_PER_DAY;
+	s %= SECONDS_PER_DAY;
+
+	h = s / SECONDS_PER_HOUR;
+	s %= SECONDS_PER_HOUR;
+
+	m = s / SECONDS_PER_MINUTE;
+	s %= SECONDS_PER_MINUTE;
+
+	memset(days, 0, sizeof(days));
+	if (d > 0) snprintf(days, sizeof(days), "%u day%s", d, (d == 1) ? "" : "s");
+
+	memset(hms, 0, sizeof(hms));
+	snprintf(hms, sizeof(hms), "%02u:%02u:%02lld", h, m, (long long) s);
+
+	if ((h + m + s) == 0)
+	{
+		if (d == 0) snprintf(str, len, "0");
+		else snprintf(str, len, "%s", days);
+		return;
+	}
+
+	if (d == 0) snprintf(str, len, "%s", hms);
+	else snprintf(str, len, "%s %s", days, hms);
 }
 
 static bool
@@ -643,37 +720,37 @@ asl_core_str_match_absolute_or_relative_time(const char *target, time_t *tval, u
 	bool test;
 	const char *p;
 	time_t start = 0;
-	
+
 	if (target == NULL) return false;
-	
+
 	/* [+-] */
 	p = target;
 	test = asl_core_str_match(p, "+-", 0, 1, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	if (len == 1)
 	{
 		/* relative time */
 		start = time(NULL);
 		if (*p == '-') sign = -1;
 	}
-	
+
 	/* [0-9]+ */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 1, 0, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	val = asl_core_str_to_uint32(p, len);
-	
+
 	/* [shmdw] */
 	p += len;
 	test = asl_core_str_match(p, "SsMmHhDdWw", 0, 1, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	if ((*p == 'M') || (*p == 'm')) val *= SECONDS_PER_MINUTE;
 	else if ((*p == 'H') || (*p == 'h')) val *= SECONDS_PER_HOUR;
 	else if ((*p == 'D') || (*p == 'd')) val *= SECONDS_PER_DAY;
 	else if ((*p == 'W') || (*p == 'w')) val *= SECONDS_PER_WEEK;
-	
+
 	/* matched string must be followed by space, tab, newline (not counted in length) */
 	p += len;
 	if (*p != '\0')
@@ -681,10 +758,10 @@ asl_core_str_match_absolute_or_relative_time(const char *target, time_t *tval, u
 		test = asl_core_str_match(p, " \t\n", 1, 1, MFLAG_INCLUDE, &len);
 		if (!test) return false;
 	}
-	
+
 	if (tlen != NULL) *tlen = p - target;
 	if (tval != NULL) *tval = start + (sign * val);
-	
+
 	return true;
 }
 
@@ -704,7 +781,7 @@ _month_num(const char *s)
 	if (!strncasecmp(s, "nov", 3)) return 10;
 	if (!strncasecmp(s, "dec", 3)) return 11;
 	return -1;
-	
+
 }
 
 /*
@@ -718,71 +795,71 @@ asl_core_str_match_c_time(const char *target, time_t *tval, uint32_t *tlen)
 	const char *p;
 	struct tm t;
 	time_t now;
-	
+
 	if (target == NULL) return false;
 	memset(&t, 0, sizeof(t));
-	
+
 	/* determine current date */
 	now = time(NULL);
 	localtime_r(&now, &t);
 	y = t.tm_year;
 	memset(&t, 0, sizeof(t));
 	t.tm_year = y;
-	
+
 	/* Mth */
 	p = target;
 	t.tm_mon = _month_num(p);
 	len = 3;
 	if (t.tm_mon == -1) return false;
-	
+
 	/* whitespace */
 	p += len;
 	test = asl_core_str_match(p, WHITESPACE, 1, 0, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	/* [D]D */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_mday = asl_core_str_to_uint32(p, len);
 	if (t.tm_mday > 31) return false;
-	
+
 	/* whitespace */
 	p += len;
 	test = asl_core_str_match(p, WHITESPACE, 1, 0, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	/* [h]h */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_hour = asl_core_str_to_uint32(p, len);
 	if (t.tm_hour > 23) return false;
-	
+
 	/* : */
 	p += len;
 	if (*p != ':') return false;
 	len = 1;
-	
+
 	/* mm */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_min = asl_core_str_to_uint32(p, len);
 	if (t.tm_min > 59) return false;
-	
+
 	/* : */
 	p += len;
 	if (*p != ':') return false;
 	len = 1;
-	
+
 	/* ss */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_sec = asl_core_str_to_uint32(p, len);
 	if (t.tm_sec > 59) return false;
-	
+
 	/* matched string must be followed by space, tab, newline (not counted in length) */
 	p += len;
 	if (*p != '\0')
@@ -790,12 +867,12 @@ asl_core_str_match_c_time(const char *target, time_t *tval, uint32_t *tlen)
 		test = asl_core_str_match(p, " \t\n", 1, 1, MFLAG_INCLUDE, &len);
 		if (!test) return false;
 	}
-	
+
 	t.tm_isdst = -1;
-	
+
 	if (tlen != NULL) *tlen = p - target;
 	if (tval != NULL) *tval = mktime(&t);
-	
+
 	return true;
 }
 
@@ -809,21 +886,21 @@ asl_core_str_match_dotted_time(const char *target, time_t *tval, uint32_t *tlen)
 	bool test;
 	const char *p;
 	struct tm t;
-	
+
 	if (target == NULL) return false;
 	memset(&t, 0, sizeof(t));
-	
+
 	/* YYYY */
 	p = target;
 	test = asl_core_str_match(p, DIGITS, 4, 4, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_year = asl_core_str_to_uint32(p, len) - 1900;
-	
+
 	/* . */
 	p += len;
 	if (*p != '.') return false;
 	len = 1;
-	
+
 	/* [M]M */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
@@ -832,65 +909,65 @@ asl_core_str_match_dotted_time(const char *target, time_t *tval, uint32_t *tlen)
 	if (t.tm_mon < 1) return false;
 	if (t.tm_mon > 12) return false;
 	t.tm_mon -= 1;
-	
+
 	/* . */
 	p += len;
 	if (*p != '.') return false;
 	len = 1;
-	
+
 	/* [D]D */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_mday = asl_core_str_to_uint32(p, len);
 	if (t.tm_mday > 31) return false;
-	
+
 	/* whitespace */
 	p += len;
 	test = asl_core_str_match(p, WHITESPACE, 1, 0, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	/* [h]h */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_hour = asl_core_str_to_uint32(p, len);
 	if (t.tm_hour > 23) return false;
-	
+
 	/* : */
 	p += len;
 	if (*p != ':') return false;
 	len = 1;
-	
+
 	/* mm */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_min = asl_core_str_to_uint32(p, len);
 	if (t.tm_min > 59) return false;
-	
+
 	/* : */
 	p += len;
 	if (*p != ':') return false;
 	len = 1;
-	
+
 	/* ss */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_sec = asl_core_str_to_uint32(p, len);
 	if (t.tm_sec > 59) return false;
-	
+
 	/* whitespace */
 	p += len;
 	test = asl_core_str_match(p, WHITESPACE, 1, 0, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	/* UTC */
 	p += len;
 	if (strncmp(p, "UTC", 3)) return false;
 	len = 3;
-	
+
 	/* matched string must be followed by space, tab, newline (not counted in length) */
 	p += len;
 	if (*p != '\0')
@@ -898,10 +975,10 @@ asl_core_str_match_dotted_time(const char *target, time_t *tval, uint32_t *tlen)
 		test = asl_core_str_match(p, " \t\n", 1, 1, MFLAG_INCLUDE, &len);
 		if (!test) return false;
 	}
-	
+
 	if (tlen != NULL) *tlen = p - target;
 	if (tval != NULL) *tval = timegm(&t);
-	
+
 	return true;
 }
 
@@ -916,21 +993,21 @@ asl_core_str_match_iso_8601_time(const char *target, time_t *tval, uint32_t *tle
 	const char *p;
 	struct tm t;
 	int32_t tzh, tzs, sign = -1;
-	
+
 	if (target == NULL) return false;
 	memset(&t, 0, sizeof(t));
-	
+
 	/* YYYY */
 	p = target;
 	test = asl_core_str_match(p, DIGITS, 4, 4, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_year = asl_core_str_to_uint32(p, len) - 1900;
-	
+
 	/* [-] */
 	p += len;
 	test = asl_core_str_match_char(p, '-', 0, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	/* MM */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
@@ -939,72 +1016,72 @@ asl_core_str_match_iso_8601_time(const char *target, time_t *tval, uint32_t *tle
 	if (t.tm_mon < 1) return false;
 	if (t.tm_mon > 12) return false;
 	t.tm_mon -= 1;
-	
+
 	/* [-] */
 	p += len;
 	test = asl_core_str_match_char(p, '-', 0, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	/* DD */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_mday = asl_core_str_to_uint32(p, len);
 	if (t.tm_mday > 31) return false;
-	
+
 	/* T or t */
 	p += len;
 	test = asl_core_str_match(p, "Tt", 1, 1, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	/* hh */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_hour = asl_core_str_to_uint32(p, len);
 	if (t.tm_hour > 23) return false;
-	
+
 	/* [:] */
 	p += len;
 	test = asl_core_str_match_char(p, ':', 0, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	/* mm */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_min = asl_core_str_to_uint32(p, len);
 	if (t.tm_min > 59) return false;
-	
+
 	/* [:] */
 	p += len;
 	test = asl_core_str_match_char(p, ':', 0, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	/* ss */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 2, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	t.tm_sec = asl_core_str_to_uint32(p, len);
 	if (t.tm_sec > 59) return false;
-	
+
 	p += len;
-	
+
 	/* default to local time if we hit the end of the string */
 	if ((*p == '\0') || (*p == ' ') || (*p == '\t') || (*p == '\n'))
 	{
 		t.tm_isdst = -1;
-		
+
 		if (tlen != NULL) *tlen = p - target;
 		if (tval != NULL) *tval = mktime(&t);
-		
+
 		return true;
 	}
-	
+
 	/* Z, z, +, or - */
 	test = asl_core_str_match(p, "Zz+-", 1, 1, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	if ((*p == 'Z') || (*p == 'z'))
 	{
 		/* matched string must be followed by space, tab, newline (not counted in length) */
@@ -1014,36 +1091,36 @@ asl_core_str_match_iso_8601_time(const char *target, time_t *tval, uint32_t *tle
 			test = asl_core_str_match(p, " \t\n", 1, 1, MFLAG_INCLUDE, &len);
 			if (!test) return false;
 		}
-		
+
 		if (tlen != NULL) *tlen = p - target;
 		if (tval != NULL) *tval = timegm(&t);
-		
+
 		return true;
 	}
-	
+
 	if (*p == '-') sign = 1;
-	
+
 	/* [h]h */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 1, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	tzh = asl_core_str_to_uint32(p, len);
 	if (tzh > 23) return false;
-	
+
 	/* [:] */
 	p += len;
 	test = asl_core_str_match_char(p, ':', 0, MFLAG_INCLUDE, &len);
 	if (!test) return false;
-	
+
 	/* mm */
 	p += len;
 	test = asl_core_str_match(p, DIGITS, 0, 2, MFLAG_INCLUDE, &len);
 	if (!test) return false;
 	tzs = asl_core_str_to_uint32(p, len);
 	if (tzs > 59) return false;
-	
+
 	t.tm_sec += (sign * (tzh * SECONDS_PER_HOUR) + (tzs * SECONDS_PER_MINUTE));
-	
+
 	/* matched string must be followed by space, tab, newline (not counted in length) */
 	p += len;
 	if (*p != '\0')
@@ -1051,10 +1128,10 @@ asl_core_str_match_iso_8601_time(const char *target, time_t *tval, uint32_t *tle
 		test = asl_core_str_match(p, " \t\n", 1, 1, MFLAG_INCLUDE, &len);
 		if (!test) return false;
 	}
-	
+
 	if (tlen != NULL) *tlen = p - target;
 	if (tval != NULL) *tval = timegm(&t);
-	
+
 	return true;
 }
 
@@ -1063,55 +1140,55 @@ asl_core_parse_time(const char *in, uint32_t *tlen)
 {
 	time_t tval = 0;
 	uint32_t inlen;
-	
+
 	if (tlen != NULL) *tlen = 0;
 
 	if (in == NULL) return -1;
-	
+
 	/*
 	 * Heuristics to determine the string format.
 	 * Warning: this code must be checked and may need to be adjusted if new formats are added.
 	 */
 	inlen = strlen(in);
 	if (inlen == 0) return -1;
-	
+
 	/* leading plus or minus means it must be a relative time */
 	if ((in[0] == '+') || (in[0] == '-'))
 	{
 		if (asl_core_str_match_absolute_or_relative_time(in, &tval, tlen)) return tval;
 		return -1;
 	}
-	
+
 	/* leading alphabetic char means it must be ctime() format */
 	if (((in[0] >= 'a') && (in[0] <= 'z')) || ((in[0] >= 'A') && (in[0] <= 'Z')))
 	{
 		if (asl_core_str_match_c_time(in, &tval, tlen)) return tval;
 		return -1;
 	}
-	
+
 	/* only absolute, dotted, or iso8601 formats at this point */
-	
+
 	/* one to for chars means it must be absolute */
 	if (inlen < 5)
 	{
 		if (asl_core_str_match_absolute_or_relative_time(in, &tval, tlen)) return tval;
 		return -1;
 	}
-	
+
 	/* check for dot */
 	if (in[4] == '.')
 	{
 		if (asl_core_str_match_dotted_time(in, &tval, tlen)) return tval;
 		return -1;
 	}
-	
+
 	/* only absolute or iso8601 at this point */
-	
+
 	/* check for absolute first, since that's quicker */
 	if (asl_core_str_match_absolute_or_relative_time(in, &tval, tlen)) return tval;
-	
+
 	if (asl_core_str_match_iso_8601_time(in, &tval, tlen)) return tval;
-	
+
 	return -1;
 }
 

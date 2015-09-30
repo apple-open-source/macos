@@ -36,42 +36,42 @@ namespace WebCore {
 
 class Page;
 
-typedef Vector<RefPtr<HistoryItem>> HistoryItemVector;
+typedef Vector<Ref<HistoryItem>> HistoryItemVector;
 typedef HashSet<RefPtr<HistoryItem>> HistoryItemHashSet;
 
 class BackForwardList : public BackForwardClient {
 public: 
-    static PassRefPtr<BackForwardList> create(Page* page) { return adoptRef(new BackForwardList(page)); }
+    static Ref<BackForwardList> create(Page* page) { return adoptRef(*new BackForwardList(page)); }
     virtual ~BackForwardList();
 
     Page* page() { return m_page; }
 
-    virtual void addItem(PassRefPtr<HistoryItem>) override;
-    void goBack();
-    void goForward();
+    virtual void addItem(Ref<HistoryItem>&&) override;
+    WEBCORE_EXPORT void goBack();
+    WEBCORE_EXPORT void goForward();
     virtual void goToItem(HistoryItem*) override;
         
-    HistoryItem* backItem();
-    HistoryItem* currentItem();
-    HistoryItem* forwardItem();
+    WEBCORE_EXPORT HistoryItem* backItem();
+    WEBCORE_EXPORT HistoryItem* currentItem();
+    WEBCORE_EXPORT HistoryItem* forwardItem();
     virtual HistoryItem* itemAtIndex(int) override;
 
-    void backListWithLimit(int, HistoryItemVector&);
-    void forwardListWithLimit(int, HistoryItemVector&);
+    WEBCORE_EXPORT void backListWithLimit(int, HistoryItemVector&);
+    WEBCORE_EXPORT void forwardListWithLimit(int, HistoryItemVector&);
 
-    int capacity();
-    void setCapacity(int);
-    bool enabled();
-    void setEnabled(bool);
+    WEBCORE_EXPORT int capacity();
+    WEBCORE_EXPORT void setCapacity(int);
+    WEBCORE_EXPORT bool enabled();
+    WEBCORE_EXPORT void setEnabled(bool);
     virtual int backListCount() override;
     virtual int forwardListCount() override;
-    bool containsItem(HistoryItem*);
+    WEBCORE_EXPORT bool containsItem(HistoryItem*);
 
     virtual void close() override;
-    bool closed();
+    WEBCORE_EXPORT bool closed();
 
-    void removeItem(HistoryItem*);
-    HistoryItemVector& entries();
+    WEBCORE_EXPORT void removeItem(HistoryItem*);
+    WEBCORE_EXPORT HistoryItemVector& entries();
 
 #if PLATFORM(IOS)
     virtual unsigned current() override;
@@ -81,7 +81,7 @@ public:
 #endif
 
 private:
-    explicit BackForwardList(Page*);
+    WEBCORE_EXPORT explicit BackForwardList(Page*);
 
     Page* m_page;
     HistoryItemVector m_entries;

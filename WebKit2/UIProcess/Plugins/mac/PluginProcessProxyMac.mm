@@ -35,6 +35,7 @@
 #import "SandboxUtilities.h"
 #import "WebKitSystemInterface.h"
 #import <QuartzCore/CARemoteLayerServer.h>
+#import <WebCore/CFNetworkSPI.h>
 #import <WebCore/FileSystem.h>
 #import <WebCore/URL.h>
 #import <crt_externs.h>
@@ -62,7 +63,7 @@ namespace WebKit {
     
 bool PluginProcessProxy::pluginNeedsExecutableHeap(const PluginModuleInfo& pluginInfo)
 {
-    static bool forceNonexecutableHeapForPlugins = [[NSUserDefaults standardUserDefaults] boolForKey:@"ForceNonexecutableHeapForPlugins"];
+    static const bool forceNonexecutableHeapForPlugins = [[NSUserDefaults standardUserDefaults] boolForKey:@"ForceNonexecutableHeapForPlugins"];
     if (forceNonexecutableHeapForPlugins)
         return false;
     
@@ -76,6 +77,7 @@ bool PluginProcessProxy::pluginNeedsExecutableHeap(const PluginModuleInfo& plugi
     return false;
 }
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
 bool PluginProcessProxy::createPropertyListFile(const PluginModuleInfo& plugin)
 {
     NSBundle *webKit2Bundle = [NSBundle bundleWithIdentifier:@"com.apple.WebKit"];
@@ -125,6 +127,7 @@ bool PluginProcessProxy::createPropertyListFile(const PluginModuleInfo& plugin)
 
     return true;
 }
+#endif
 
 static bool shouldUseXPC(ProcessLauncher::LaunchOptions& launchOptions, const PluginProcessAttributes& pluginProcessAttributes)
 {
@@ -139,11 +142,7 @@ static bool shouldUseXPC(ProcessLauncher::LaunchOptions& launchOptions, const Pl
     if (launchOptions.executableHeap)
         return false;
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     return true;
-#else
-    return false;
-#endif
 }
 
 void PluginProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions, const PluginProcessAttributes& pluginProcessAttributes)
@@ -168,9 +167,10 @@ void PluginProcessProxy::platformInitializePluginProcess(PluginProcessCreationPa
     parameters.supportsAsynchronousPluginInitialization = m_pluginProcessAttributes.moduleInfo.bundleIdentifier == "com.macromedia.Flash Player.plugin";
 
 #if HAVE(HOSTED_CORE_ANIMATION)
-    mach_port_t renderServerPort = [[CARemoteLayerServer sharedServer] serverPort];
-    if (renderServerPort != MACH_PORT_NULL)
-        parameters.acceleratedCompositingPort = IPC::MachPort(renderServerPort, MACH_MSG_TYPE_COPY_SEND);
+    parameters.acceleratedCompositingPort = MachSendRight::create([CARemoteLayerServer sharedServer].serverPort);
+#endif
+#if (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+    parameters.networkATSContext = adoptCF(_CFNetworkCopyATSContext());
 #endif
 }
 
@@ -391,8 +391,15 @@ static bool isJavaUpdaterURL(const PluginProcessAttributes& pluginProcessAttribu
     if (![url isFileURL])
         return false;
 
-    NSString *javaUpdaterPath = [NSString pathWithComponents:[NSArray arrayWithObjects:(NSString *)pluginProcessAttributes.moduleInfo.path, @"Contents/Resources/Java Updater.app", nil]];
-    return [url.path isEqualToString:javaUpdaterPath];
+    NSArray *javaUpdaterAppNames = [NSArray arrayWithObjects:@"Java Updater.app", @"JavaUpdater.app", nil];
+
+    for (NSString *javaUpdaterAppName in javaUpdaterAppNames) {
+        NSString *javaUpdaterPath = [NSString pathWithComponents:[NSArray arrayWithObjects:(NSString *)pluginProcessAttributes.moduleInfo.path, @"Contents/Resources", javaUpdaterAppName, nil]];
+        if ([url.path isEqualToString:javaUpdaterPath])
+            return YES;
+    }
+
+    return NO;
 }
 
 static bool shouldLaunchApplicationAtURL(const PluginProcessAttributes& pluginProcessAttributes, const String& urlString)
@@ -475,13 +482,13 @@ void PluginProcessProxy::openFile(const String& fullPath, bool& result)
 
 int pluginProcessLatencyQOS()
 {
-    static int qos = [[NSUserDefaults standardUserDefaults] integerForKey:@"WebKitPluginProcessLatencyQOS"];
+    static const int qos = [[NSUserDefaults standardUserDefaults] integerForKey:@"WebKitPluginProcessLatencyQOS"];
     return qos;
 }
 
 int pluginProcessThroughputQOS()
 {
-    static int qos = [[NSUserDefaults standardUserDefaults] integerForKey:@"WebKitPluginProcessThroughputQOS"];
+    static const int qos = [[NSUserDefaults standardUserDefaults] integerForKey:@"WebKitPluginProcessThroughputQOS"];
     return qos;
 }
 

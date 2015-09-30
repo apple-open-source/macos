@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2013, International Business Machines Corporation and
+ * Copyright (c) 1997-2013,2015, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -47,6 +47,7 @@ static void TestBreakIteratorStatusVec(void);
 static void TestBreakIteratorUText(void);
 static void TestBreakIteratorTailoring(void);
 static void TestBreakIteratorRefresh(void);
+static void TestBreakIteratorSuppressions(void); /* Apple-specific for now */
 
 void addBrkIterAPITest(TestNode** root);
 
@@ -62,6 +63,7 @@ void addBrkIterAPITest(TestNode** root)
     addTest(root, &TestBreakIteratorStatusVec, "tstxtbd/cbiapts/TestBreakIteratorStatusVec");
     addTest(root, &TestBreakIteratorTailoring, "tstxtbd/cbiapts/TestBreakIteratorTailoring");
     addTest(root, &TestBreakIteratorRefresh, "tstxtbd/cbiapts/TestBreakIteratorRefresh");
+    addTest(root, &TestBreakIteratorSuppressions, "tstxtbd/cbiapts/TestBreakIteratorSuppressions");
 }
 
 #define CLONETEST_ITERATOR_COUNT 2
@@ -802,7 +804,7 @@ static void TestBreakIteratorTailoring(void) {
             }
             if (!foundError && offsindx < testPtr->numOffsets) {
                 log_err("FAIL: locale %s, break type %d, ubrk_next expected %d, got UBRK_DONE\n",
-                    	testPtr->locale, testPtr->type, testPtr->offsFwd[offsindx]);
+                        testPtr->locale, testPtr->type, testPtr->offsFwd[offsindx]);
             }
 
             foundError = FALSE;
@@ -819,7 +821,7 @@ static void TestBreakIteratorTailoring(void) {
             }
             if (!foundError && offsindx < testPtr->numOffsets) {
                 log_err("FAIL: locale %s, break type %d, ubrk_previous expected %d, got UBRK_DONE\n",
-                    	testPtr->locale, testPtr->type, testPtr->offsRev[offsindx]);
+                        testPtr->locale, testPtr->type, testPtr->offsRev[offsindx]);
             }
 
             ubrk_close(ubrkiter);
@@ -877,6 +879,115 @@ static void TestBreakIteratorRefresh(void) {
         utext_close(&ut2);
     }
     ubrk_close(bi);
+}
+
+static const char testSentenceSuppressionsEn[]  = "Mr. Jones comes home. Dr. Smith Ph.D. is out. In the U.S.A. it is hot.";
+static const int32_t testSentSuppFwdOffsetsEn[] = { 22, 46, 70, -1 };             /* With suppressions */
+static const int32_t testSentFwdOffsetsEn[]     = {  4, 22, 26, 35, 46, 70, -1 }; /* Without suppressions */
+static const int32_t testSentSuppRevOffsetsEn[] = { 46, 22,  0, -1 };             /* With suppressions */
+static const int32_t testSentRevOffsetsEn[]     = { 46, 35, 26, 22,  4,  0, -1 }; /* Without suppressions */
+
+static const char testSentenceSuppressionsDe[]  = "Wenn ich schon h\\u00F6re zu Guttenberg kommt evtl. zur\\u00FCck.";
+//                                                "Wenn ich schon höre zu Guttenberg kommt evtl. zurück."
+static const int32_t testSentSuppFwdOffsetsDe[] = { 53, -1 };       /* With suppressions */
+static const int32_t testSentFwdOffsetsDe[]     = { 53, -1 };       /* Without suppressions; no break in evtl. zur due to casing */
+static const int32_t testSentSuppRevOffsetsDe[] = {  0, -1 };       /* With suppressions */
+static const int32_t testSentRevOffsetsDe[]     = {  0, -1 };       /* Without suppressions */
+
+static const char testSentenceSuppressionsEs[]  = "Te esperamos todos los miercoles en Bravo 416, Col. El Pueblo a las 7 PM.";
+static const int32_t testSentSuppFwdOffsetsEs[] = { 73, -1 };       /* With suppressions */
+static const int32_t testSentFwdOffsetsEs[]     = { 52, 73, -1 };   /* Without suppressions */
+static const int32_t testSentSuppRevOffsetsEs[] = {  0, -1 };       /* With suppressions */
+static const int32_t testSentRevOffsetsEs[]     = { 52,  0, -1 };   /* Without suppressions */
+
+enum { kTextULenMax = 128 };
+
+typedef struct {
+    const char * locale;
+    const char * text;
+    const int32_t * expFwdOffsets;
+    const int32_t * expRevOffsets;
+} TestBISuppressionsItem;
+
+static const TestBISuppressionsItem testBISuppressionsItems[] = {
+    { "en@ss=standard", testSentenceSuppressionsEn, testSentSuppFwdOffsetsEn, testSentSuppRevOffsetsEn },
+    { "en",             testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     },
+    { "fr@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     },
+    { "af@ss=standard", testSentenceSuppressionsEn, testSentSuppFwdOffsetsEn, testSentSuppRevOffsetsEn }, /* no brkiter data => en suppressions? */
+    { "zh@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     }, /* brkiter data, no suppressions data => no suppressions */
+    { "zh_Hant@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn, testSentRevOffsetsEn    }, /* brkiter data, no suppressions data => no suppressions */
+    { "fi@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     }, /* brkiter data, no suppressions data => no suppressions */
+    { "ja@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     }, /* brkiter data, no suppressions data => no suppressions */
+    { "de@ss=standard", testSentenceSuppressionsDe, testSentSuppFwdOffsetsDe, testSentSuppRevOffsetsDe },
+    { "de",             testSentenceSuppressionsDe, testSentFwdOffsetsDe,     testSentRevOffsetsDe     },
+    { "es@ss=standard", testSentenceSuppressionsEs, testSentSuppFwdOffsetsEs, testSentSuppRevOffsetsEs },
+    { "es",             testSentenceSuppressionsEs, testSentFwdOffsetsEs,     testSentRevOffsetsEs     },
+    { NULL, NULL, NULL }
+};
+
+static void TestBreakIteratorSuppressions(void) {
+    const TestBISuppressionsItem * itemPtr;
+    
+    for (itemPtr = testBISuppressionsItems; itemPtr->locale != NULL; itemPtr++) {
+        UChar textU[kTextULenMax];
+        int32_t textULen = u_unescape(itemPtr->text, textU, kTextULenMax);
+        UErrorCode status = U_ZERO_ERROR;
+        UBreakIterator *bi = ubrk_open(UBRK_SENTENCE, itemPtr->locale, textU, textULen, &status);
+        if (U_SUCCESS(status)) {
+            int32_t offset, start;
+            const int32_t * expOffsetPtr;
+
+            expOffsetPtr = itemPtr->expFwdOffsets;
+            ubrk_first(bi);
+            for (; (offset = ubrk_next(bi)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
+                if (offset != *expOffsetPtr) {
+                    log_err("FAIL: ubrk_next loc \"%s\", expected %d, got %d\n", itemPtr->locale, *expOffsetPtr, offset);
+                }
+            }
+            if (offset != UBRK_DONE || *expOffsetPtr >= 0) {
+                log_err("FAIL: ubrk_next loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", itemPtr->locale, offset, *expOffsetPtr);
+            }
+
+            expOffsetPtr = itemPtr->expFwdOffsets;
+            start = ubrk_first(bi) + 1;
+            for (; (offset = ubrk_following(bi, start)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
+                if (offset != *expOffsetPtr) {
+                    log_err("FAIL: ubrk_following(%d) loc \"%s\", expected %d, got %d\n", start, itemPtr->locale, *expOffsetPtr, offset);
+                }
+                start = *expOffsetPtr + 1;
+            }
+            if (offset != UBRK_DONE || *expOffsetPtr >= 0) {
+                log_err("FAIL: ubrk_following(%d) loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", start, itemPtr->locale, offset, *expOffsetPtr);
+            }
+
+            expOffsetPtr = itemPtr->expRevOffsets;
+            ubrk_last(bi);
+            for (; (offset = ubrk_previous(bi)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
+                if (offset != *expOffsetPtr) {
+                    log_err("FAIL: ubrk_previous loc \"%s\", expected %d, got %d\n", itemPtr->locale, *expOffsetPtr, offset);
+                }
+            }
+            if (offset != UBRK_DONE || *expOffsetPtr >= 0) {
+                log_err("FAIL: ubrk_previous loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", itemPtr->locale, offset, *expOffsetPtr);
+            }
+
+            expOffsetPtr = itemPtr->expRevOffsets;
+            start = ubrk_last(bi) - 1;
+            for (; (offset = ubrk_preceding(bi, start)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
+                if (offset != *expOffsetPtr) {
+                    log_err("FAIL: ubrk_preceding(%d) loc \"%s\", expected %d, got %d\n", start, itemPtr->locale, *expOffsetPtr, offset);
+                }
+                start = *expOffsetPtr - 1;
+            }
+            if (start >=0 && (offset != UBRK_DONE || *expOffsetPtr >= 0)) {
+                log_err("FAIL: ubrk_preceding loc(%d) \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", start, itemPtr->locale, offset, *expOffsetPtr);
+            }
+
+            ubrk_close(bi);
+        } else {
+            log_data_err("FAIL: ubrk_open(UBRK_SENTENCE, \"%s\", ...) status %s (Are you missing data?)\n", itemPtr->locale, u_errorName(status));
+        }
+    }
 }
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */

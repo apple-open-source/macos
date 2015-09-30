@@ -43,7 +43,8 @@ AEP_Patches	= manpages.patch \
 		gss.patch \
 		PR-10519551.patch \
 		PR-10452181.conf.c.patch \
-		PR-10804931.patch
+		PR-10804931.patch \
+		glob.patch
 AEP_ConfigDir	= $(ETCDIR)
 AEP_ConfigFiles	= ftpd.conf
 AEP_LaunchdConfigs	= ftp.plist

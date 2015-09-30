@@ -34,9 +34,10 @@
 #import <WebCore/MainFrame.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/Page.h>
+#import <WebCore/WAKAppKitStubs.h>
 
 /* 
- The implementation of this class will be augmented by an accesibility bundle that is loaded only when accessibility is requested to be enabled.
+ The implementation of this class will be augmented by an accessibility bundle that is loaded only when accessibility is requested to be enabled.
  */
 
 @implementation WKAccessibilityWebPageObject

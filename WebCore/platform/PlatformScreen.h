@@ -53,14 +53,16 @@ namespace WebCore {
     int screenDepthPerComponent(Widget*);
     bool screenIsMonochrome(Widget*);
 
+    bool screenHasInvertedColors();
+
     FloatRect screenRect(Widget*);
     FloatRect screenAvailableRect(Widget*);
 
 #if PLATFORM(MAC)
     NSScreen *screenForWindow(NSWindow *);
 
-    FloatRect toUserSpace(const NSRect&, NSWindow *destination);
-    NSRect toDeviceSpace(const FloatRect&, NSWindow *source);
+    WEBCORE_EXPORT FloatRect toUserSpace(const NSRect&, NSWindow *destination);
+    WEBCORE_EXPORT NSRect toDeviceSpace(const FloatRect&, NSWindow *source);
 
     NSPoint flipScreenPoint(const NSPoint&, NSScreen *);
 #endif

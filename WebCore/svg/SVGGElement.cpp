@@ -24,7 +24,6 @@
 #include "RenderSVGHiddenContainer.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGTransformableContainer.h"
-#include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include <wtf/NeverDestroyed.h>
 
@@ -45,9 +44,14 @@ SVGGElement::SVGGElement(const QualifiedName& tagName, Document& document)
     registerAnimatedPropertiesForSVGGElement();
 }
 
-PassRefPtr<SVGGElement> SVGGElement::create(const QualifiedName& tagName, Document& document)
+Ref<SVGGElement> SVGGElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new SVGGElement(tagName, document));
+    return adoptRef(*new SVGGElement(tagName, document));
+}
+
+Ref<SVGGElement> SVGGElement::create(Document& document)
+{
+    return create(SVGNames::gTag, document);
 }
 
 bool SVGGElement::isSupportedAttribute(const QualifiedName& attrName)
@@ -62,17 +66,8 @@ bool SVGGElement::isSupportedAttribute(const QualifiedName& attrName)
 
 void SVGGElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(name)) {
-        SVGGraphicsElement::parseAttribute(name, value);
-        return;
-    }
-
-    if (SVGLangSpace::parseAttribute(name, value))
-        return;
-    if (SVGExternalResourcesRequired::parseAttribute(name, value))
-        return;
-
-    ASSERT_NOT_REACHED();
+    SVGGraphicsElement::parseAttribute(name, value);
+    SVGExternalResourcesRequired::parseAttribute(name, value);
 }
 
 void SVGGElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -82,13 +77,13 @@ void SVGGElement::svgAttributeChanged(const QualifiedName& attrName)
         return;
     }
 
-    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    InstanceInvalidationGuard guard(*this);
 
     if (auto renderer = this->renderer())
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);
 }
 
-RenderPtr<RenderElement> SVGGElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> SVGGElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     // SVG 1.1 testsuite explicitely uses constructs like <g display="none"><linearGradient>
     // We still have to create renderers for the <g> & <linearGradient> element, though the

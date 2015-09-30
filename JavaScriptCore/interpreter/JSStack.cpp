@@ -97,8 +97,7 @@ bool JSStack::growSlowCase(Register* newTopOfStack)
     if (newCommitTop < reservationTop())
         return false;
 
-    // Otherwise, the growth is still within our budget. Go ahead and commit
-    // it and return true.
+    // Otherwise, the growth is still within our budget. Commit it and return true.
     m_reservation.commit(newCommitTop, delta);
     addToCommittedByteCount(delta);
     m_commitTop = newCommitTop;
@@ -118,7 +117,7 @@ void JSStack::gatherConservativeRoots(ConservativeRoots& conservativeRoots, JITS
 
 void JSStack::sanitizeStack()
 {
-#if !defined(ADDRESS_SANITIZER)
+#if !ASAN_ENABLED
     ASSERT(topOfStack() <= baseOfStack());
     
     if (m_lastStackTop < topOfStack()) {

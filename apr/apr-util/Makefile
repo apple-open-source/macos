@@ -21,7 +21,8 @@ AEP_Version    = 1.5.2
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = LT_VERSION.diff
+AEP_Patches    = LT_VERSION.diff ldap-deprecation.diff \
+                 apu-config.in.diff
 
 # Extract the source.
 install_source::

@@ -127,6 +127,9 @@ public:
     virtual void willChangeTitle(WebCore::DocumentLoader*) override;
     virtual void didChangeTitle(WebCore::DocumentLoader*) override;
 
+    virtual void willReplaceMultipartContent() override { }
+    virtual void didReplaceMultipartContent() override { }
+
     virtual void updateGlobalHistory() override;
     virtual void updateGlobalHistoryRedirectLinks() override;
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const override;
@@ -149,6 +152,8 @@ public:
     virtual WTF::String userAgent(const WebCore::URL&) override;
 
     virtual PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
+    virtual void updateCachedDocumentLoader(WebCore::DocumentLoader&) override { }
+
     virtual void setTitle(const WebCore::StringWithDirection&, const WebCore::URL&);
 
     virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*) override;
@@ -199,7 +204,7 @@ public:
 
 protected:
     class WebFramePolicyListenerPrivate;
-    OwnPtr<WebFramePolicyListenerPrivate> m_policyListenerPrivate;
+    std::unique_ptr<WebFramePolicyListenerPrivate> m_policyListenerPrivate;
 
 private:
     PassRefPtr<WebCore::Frame> createFrame(const WebCore::URL&, const WTF::String& name, WebCore::HTMLFrameOwnerElement*, const WTF::String& referrer);

@@ -78,8 +78,8 @@
  * up using this condition and will then call the client handler as necessary.
  */
 
-#include <System/sys/time.h>
-#include <System/sys/proc.h>
+#include <sys/time.h>
+#include <sys/proc.h>
 #include <sys/wait.h>
 #include <strings.h>
 #include <signal.h>
@@ -735,12 +735,14 @@ dtrace_proc_waitfor(dtrace_hdl_t *dtp, char const *pname)
 	assert(pname);
 	assert(*pname != '\0');
 
-	size_t max_len = sizeof(pdesc.p_comm);
-	if (strlcpy(pdesc.p_comm, pname, max_len) >= max_len) {
+	size_t max_len = sizeof(pdesc.p_name);
+	if (strlcpy(pdesc.p_name, pname, max_len) >= max_len) {
 		fprintf(stderr, "Error, the process name (%s) exceeded the %lu characters limit\n",
-		       pname, sizeof(pdesc.p_comm) - 1);
+		       pname, sizeof(pdesc.p_name) - 1);
 		return NULL;
 	}
+
+	fprintf(stdout, "Waiting for %s, hit Ctrl-C to stop waiting...\n", pdesc.p_name);
 
 	if ((err = dt_ioctl(dtp, DTRACEIOC_PROCWAITFOR, &pdesc)) != 0) {
 		fprintf(stderr, "Error, dt_ioctl() failed (%s)\n", strerror(errno));

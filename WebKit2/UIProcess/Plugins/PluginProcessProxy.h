@@ -43,15 +43,9 @@ OBJC_CLASS NSObject;
 OBJC_CLASS WKPlaceholderModalWindow;
 #endif
 
-// FIXME: This is platform specific.
-namespace IPC {
-    class MachPort;
-}
-
 namespace WebKit {
 
 class PluginProcessManager;
-class WebPluginSiteDataManager;
 class WebProcessProxy;
 struct PluginProcessCreationParameters;
 
@@ -74,7 +68,7 @@ int pluginProcessThroughputQOS();
 
 class PluginProcessProxy : public ChildProcessProxy {
 public:
-    static PassRefPtr<PluginProcessProxy> create(PluginProcessManager*, const PluginProcessAttributes&, uint64_t pluginProcessToken);
+    static Ref<PluginProcessProxy> create(PluginProcessManager*, const PluginProcessAttributes&, uint64_t pluginProcessToken);
     ~PluginProcessProxy();
 
     const PluginProcessAttributes& pluginProcessAttributes() const { return m_pluginProcessAttributes; }
@@ -83,12 +77,10 @@ public:
     // Asks the plug-in process to create a new connection to a web process. The connection identifier will be
     // encoded in the given argument encoder and sent back to the connection of the given web process.
     void getPluginProcessConnection(PassRefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply>);
-    
-    // Asks the plug-in process to get a list of domains for which the plug-in has data stored.
-    void getSitesWithData(WebPluginSiteDataManager*, uint64_t callbackID);
 
-    // Asks the plug-in process to clear the data for the given sites.
-    void clearSiteData(WebPluginSiteDataManager*, const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID);
+    void fetchWebsiteData(std::function<void (Vector<String>)> completionHandler);
+    void deleteWebsiteData(std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
+    void deleteWebsiteDataForHostNames(const Vector<String>& hostNames, std::function<void ()> completionHandler);
 
     bool isValid() const { return m_connection; }
 
@@ -98,8 +90,11 @@ public:
     // Returns whether the plug-in needs the heap to be marked executable.
     static bool pluginNeedsExecutableHeap(const PluginModuleInfo&);
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
     // Creates a property list in ~/Library/Preferences that contains all the MIME types supported by the plug-in.
     static bool createPropertyListFile(const PluginModuleInfo&);
+#endif
+
 #endif
 
 #if PLUGIN_ARCHITECTURE(X11)
@@ -111,23 +106,27 @@ private:
 
     virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&, const PluginProcessAttributes&);
+    virtual void processWillShutDown(IPC::Connection&) override;
 
     void pluginProcessCrashedOrFailedToLaunch();
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
-    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
 
-    virtual void didClose(IPC::Connection*) override;
-    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual void didClose(IPC::Connection&) override;
+    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::UI; }
+    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Plugin; }
 
     // ProcessLauncher::Client
-    virtual void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier);
+    virtual void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
 
     // Message handlers
     void didCreateWebProcessConnection(const IPC::Attachment&, bool supportsAsynchronousPluginInitialization);
     void didGetSitesWithData(const Vector<String>& sites, uint64_t callbackID);
-    void didClearSiteData(uint64_t callbackID);
+    void didDeleteWebsiteData(uint64_t callbackID);
+    void didDeleteWebsiteDataForHostNames(uint64_t callbackID);
 
 #if PLATFORM(COCOA)
     bool getPluginProcessSerialNumber(ProcessSerialNumber&);
@@ -163,17 +162,22 @@ private:
 
     Deque<RefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply>> m_pendingConnectionReplies;
 
-    Vector<uint64_t> m_pendingGetSitesRequests;
-    HashMap<uint64_t, RefPtr<WebPluginSiteDataManager>> m_pendingGetSitesReplies;
+    Vector<uint64_t> m_pendingFetchWebsiteDataRequests;
+    HashMap<uint64_t, std::function<void (Vector<String>)>> m_pendingFetchWebsiteDataCallbacks;
 
-    struct ClearSiteDataRequest {
-        Vector<String> sites;
-        uint64_t flags;
-        uint64_t maxAgeInSeconds;
+    struct DeleteWebsiteDataRequest {
+        std::chrono::system_clock::time_point modifiedSince;
         uint64_t callbackID;
     };
-    Vector<ClearSiteDataRequest> m_pendingClearSiteDataRequests;
-    HashMap<uint64_t, RefPtr<WebPluginSiteDataManager>> m_pendingClearSiteDataReplies;
+    Vector<DeleteWebsiteDataRequest> m_pendingDeleteWebsiteDataRequests;
+    HashMap<uint64_t, std::function<void ()>> m_pendingDeleteWebsiteDataCallbacks;
+
+    struct DeleteWebsiteDataForHostNamesRequest {
+        Vector<String> hostNames;
+        uint64_t callbackID;
+    };
+    Vector<DeleteWebsiteDataForHostNamesRequest> m_pendingDeleteWebsiteDataForHostNamesRequests;
+    HashMap<uint64_t, std::function<void ()>> m_pendingDeleteWebsiteDataForHostNamesCallbacks;
 
     // If createPluginConnection is called while the process is still launching we'll keep count of it and send a bunch of requests
     // when the process finishes launching.

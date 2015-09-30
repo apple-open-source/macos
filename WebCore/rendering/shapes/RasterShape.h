@@ -12,7 +12,7 @@
  *    copyright notice, this list of conditions and the following
  *    disclaimer in the documentation and/or other materials
  *    provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -61,7 +61,7 @@ public:
         ASSERT(y + m_offset >= 0 && static_cast<unsigned>(y + m_offset) < m_intervals.size());
         return m_intervals[y + m_offset];
     }
-    
+
     std::unique_ptr<RasterShapeIntervals> computeShapeMarginIntervals(int shapeMargin) const;
     void buildBoundsPath(Path&) const;
 
@@ -76,7 +76,7 @@ private:
     int m_offset;
 };
 
-class RasterShape : public Shape {
+class RasterShape final : public Shape {
     WTF_MAKE_NONCOPYABLE(RasterShape);
 public:
     RasterShape(std::unique_ptr<RasterShapeIntervals> intervals, const IntSize& marginRectSize)
@@ -88,7 +88,7 @@ public:
 
     virtual LayoutRect shapeMarginLogicalBoundingBox() const override { return static_cast<LayoutRect>(marginIntervals().bounds()); }
     virtual bool isEmpty() const override { return m_intervals->isEmpty(); }
-    virtual void getExcludedIntervals(LayoutUnit logicalTop, LayoutUnit logicalHeight, SegmentList&) const override;
+    virtual LineSegment getExcludedInterval(LayoutUnit logicalTop, LayoutUnit logicalHeight) const override;
 
     virtual void buildDisplayPaths(DisplayPaths& paths) const override
     {

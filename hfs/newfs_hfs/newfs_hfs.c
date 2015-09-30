@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,6 +73,7 @@
 #define ROUNDUP(x,y) (((x)+(y)-1)/(y)*(y))
 
 static void getnodeopts __P((char* optlist));
+static void getinitialopts __P((char* optlist));
 static void getclumpopts __P((char* optlist));
 #ifdef DEBUG_BUILD
 static void getstartopts __P((char *optlist));
@@ -84,6 +85,7 @@ static mode_t a_mask __P((char *));
 static int hfs_newfs __P((char *device));
 static void validate_hfsplus_block_size __P((UInt64 sectorCount, UInt32 sectorSize));
 static void hfsplus_params __P((const DriveInfo* dip, hfsparams_t *defaults));
+static UInt32 initialsizecalc __P((UInt32 initialblocks));
 static UInt32 clumpsizecalc __P((UInt32 clumpblocks));
 static UInt32 CalcHFSPlusBTreeClumpSize __P((UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int fileID));
 static void usage __P((void));
@@ -105,6 +107,9 @@ int	gNoCreate = FALSE;
 int	gUserCatNodeSize = FALSE;
 int	gCaseSensitive = FALSE;
 int	gUserAttrSize = FALSE;
+int	gUserAttrInitialSize = FALSE;
+int	gUserCatInitialSize = FALSE;
+int	gUserExtInitialSize = FALSE;
 int gContentProtect = FALSE;
 
 static UInt32	attrExtCount = 1, blkallocExtCount = 1, catExtCount = 1, extExtCount = 1;
@@ -135,6 +140,10 @@ UInt64	gPartitionSize = 0;
 UInt32	catnodesiz = 8192;
 UInt32	extnodesiz = 4096;
 UInt32	atrnodesiz = 8192;
+
+UInt32	catinitialblks = 0;
+UInt32	extinitialblks = 0;
+UInt32	atrinitialblks = 0;
 
 UInt32	catclumpblks = 0;
 UInt32	extclumpblks = 0;
@@ -204,7 +213,7 @@ main(argc, argv)
 
 // No semicolon at end of line deliberately!
 
-	static const char *options = "G:J:D:M:N:PU:hsb:c:i:n:v:"
+	static const char *options = "G:J:D:M:N:PU:hsb:c:i:I:n:v:"
 #ifdef DEBUG_BUILD
 		"p:a:E:"
 #endif
@@ -305,6 +314,10 @@ main(argc, argv)
 			 */
 			if (gNextCNID < kHFSFirstUserCatalogNodeID)
 				fatal("%s: starting catalog node id too small (must be > 15)", optarg);
+			break;
+
+		case 'I':
+			getinitialopts(optarg);
 			break;
 
 		case 'n':
@@ -422,6 +435,43 @@ static void getnodeopts(char* optlist)
 }
 
 
+static void getinitialopts(char* optlist)
+{
+	char *strp = optlist;
+	char *ndarg;
+	char *p;
+	UInt32 inblocks;
+	
+	while((ndarg = strsep(&strp, ",")) != NULL && *ndarg != '\0') {
+
+		p = strchr(ndarg, '=');
+		if (p == NULL)
+			usage();
+			
+		inblocks = atoi(p+1);
+		
+		switch (*ndarg) {
+		case 'a':
+			atrinitialblks = inblocks;
+			gUserAttrInitialSize = TRUE;
+			gUserAttrSize = TRUE;
+			break;
+		case 'c':
+			catinitialblks = inblocks;
+			gUserCatInitialSize = TRUE;
+			break;
+		case 'e':
+			extinitialblks = inblocks;
+			gUserExtInitialSize = TRUE;
+			break;
+
+		default:
+			usage();
+		}
+	}
+}
+
+
 static void getclumpopts(char* optlist)
 {
 	char *strp = optlist;
@@ -440,6 +490,9 @@ static void getclumpopts(char* optlist)
 		switch (*ndarg) {
 		case 'a':
 			atrclumpblks = clpblocks;
+			if (!gUserAttrInitialSize) {
+				atrinitialblks = atrclumpblks;
+			}
 			gUserAttrSize = TRUE;
 			break;
 		case 'b':
@@ -447,12 +500,18 @@ static void getclumpopts(char* optlist)
 			break;
 		case 'c':
 			catclumpblks = clpblocks;
+			if (!gUserCatInitialSize) {
+				catinitialblks = catclumpblks;
+			}
 			break;
 		case 'd':
 			datclumpblks = clpblocks;
 			break;
 		case 'e':
 			extclumpblks = clpblocks;
+			if (!gUserExtInitialSize) {
+				extinitialblks = extclumpblks;
+			}
 			break;
 		case 'r':
 			rsrclumpblks = clpblocks;
@@ -947,6 +1006,7 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 	uint32_t totalBlocks;
 	UInt32	minClumpSize;
 	UInt32	clumpSize;
+	UInt32	initialSize;
 	UInt32	oddBitmapBytes;
 	
 	defaults->flags = 0;
@@ -1094,9 +1154,9 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 
 	if (datclumpblks == 0) {
 		if (gBlockSize > DFL_BLKSIZE)
-			defaults->dataClumpSize = ROUNDUP(kHFSPlusRsrcClumpFactor * DFL_BLKSIZE, gBlockSize);
+			defaults->dataClumpSize = ROUNDUP(kHFSPlusDataClumpFactor * DFL_BLKSIZE, gBlockSize);
 		else
-			defaults->dataClumpSize = kHFSPlusRsrcClumpFactor * gBlockSize;
+			defaults->dataClumpSize = kHFSPlusDataClumpFactor * gBlockSize;
 	} else
 		defaults->dataClumpSize = clumpsizecalc(datclumpblks);
 
@@ -1115,11 +1175,22 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 	}
 	else {
 		clumpSize = clumpsizecalc(catclumpblks);
-		
 		if (clumpSize % catnodesiz != 0)
 			fatal("c=%ld: clump size is not a multiple of node size\n", clumpSize/gBlockSize);
 	}
+	if (catinitialblks == 0) {
+		initialSize = CalcHFSPlusBTreeClumpSize(gBlockSize, catnodesiz, sectorCount, kHFSCatalogFileID);
+	}
+	else {
+		initialSize = initialsizecalc(catinitialblks);
+		if (initialSize % catnodesiz != 0)
+			fatal("c=%ld: initial size is not a multiple of node size\n", initialSize/gBlockSize);
+	}
+	if (initialSize < clumpSize) {
+		fatal("c=%ld: initial size is less than clump size\n", initialSize/gBlockSize);
+	}
 	defaults->catalogClumpSize = clumpSize;
+	defaults->catalogInitialSize = initialSize;
 	defaults->catalogNodeSize = catnodesiz;
 	defaults->catalogExtsCount = catExtCount;
 	defaults->catalogStartBlock = catExtStart;
@@ -1135,7 +1206,19 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 		if (clumpSize % extnodesiz != 0)
 			fatal("e=%ld: clump size is not a multiple of node size\n", clumpSize/gBlockSize);
 	}
+	if (extinitialblks == 0) {
+		initialSize = CalcHFSPlusBTreeClumpSize(gBlockSize, extnodesiz, sectorCount, kHFSExtentsFileID);
+	}
+	else {
+		initialSize = initialsizecalc(extinitialblks);
+		if (initialSize % extnodesiz != 0)
+			fatal("e=%ld: initial size is not a multiple of node size\n", initialSize/gBlockSize);
+	}
+	if (initialSize < clumpSize) {
+		fatal("e=%ld: initial size is less than clump size\n", initialSize/gBlockSize);
+	}
 	defaults->extentsClumpSize = clumpSize;
+	defaults->extentsInitialSize = initialSize;
 	defaults->extentsNodeSize = extnodesiz;
 	defaults->extentsExtsCount = extExtCount;
 	defaults->extentsStartBlock = extExtStart;
@@ -1146,20 +1229,35 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 		warnx("Warning:  extents overflow extent requested count %u exceeds maximum 8, capping at 8\n", defaults->extentsExtsCount);
 		defaults->extentsExtsCount = 8;
 	}
+
 	if (atrclumpblks == 0) {
-		if (gUserAttrSize) {
-			clumpSize = 0;
-		}
-		else {
-			clumpSize = CalcHFSPlusBTreeClumpSize(gBlockSize, atrnodesiz, sectorCount, kHFSAttributesFileID);
-		}
+		clumpSize = CalcHFSPlusBTreeClumpSize(gBlockSize, atrnodesiz, sectorCount, kHFSAttributesFileID);
 	}
 	else {
 		clumpSize = clumpsizecalc(atrclumpblks);
 		if (clumpSize % atrnodesiz != 0)
 			fatal("a=%ld: clump size is not a multiple of node size\n", clumpSize/gBlockSize);
 	}
+	if (atrinitialblks == 0) {
+		if (gUserAttrSize) {
+			initialSize = 0;
+		}
+		else {
+			initialSize = CalcHFSPlusBTreeClumpSize(gBlockSize, atrnodesiz, sectorCount, kHFSAttributesFileID);
+		}
+	}
+	else {
+		initialSize = initialsizecalc(atrinitialblks);
+		if (initialSize % atrnodesiz != 0)
+			fatal("a=%ld: initial size is not a multiple of node size\n", initialSize/gBlockSize);
+	}
+	if (initialSize) {
+		if (initialSize < clumpSize) {
+			fatal("a=%ld: initial size is less than clump size\n", initialSize/gBlockSize);
+		}
+	}
 	defaults->attributesClumpSize = clumpSize;
+	defaults->attributesInitialSize = initialSize;
 	defaults->attributesNodeSize = atrnodesiz;
 	defaults->attributesExtsCount = attrExtCount;
 	defaults->attributesStartBlock = attrExtStart;
@@ -1222,11 +1320,14 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 			printf("\tjournal-size: %uk\n", defaults->journalSize/1024);
 		printf("\tfirst free catalog node id: %u\n", defaults->nextFreeFileID);
 		printf("\tcatalog b-tree node size: %u\n", defaults->catalogNodeSize);
-		printf("\tinitial catalog file size: %u\n", defaults->catalogClumpSize);
+		printf("\tcatalog clump size: %u\n", defaults->catalogClumpSize);
+		printf("\tinitial catalog file size: %u\n", defaults->catalogInitialSize);
 		printf("\textents b-tree node size: %u\n", defaults->extentsNodeSize);
-		printf("\tinitial extents file size: %u\n", defaults->extentsClumpSize);
+		printf("\textents clump size: %u\n", defaults->extentsClumpSize);
+		printf("\tinitial extents file size: %u\n", defaults->extentsInitialSize);
 		printf("\tattributes b-tree node size: %u\n", defaults->attributesNodeSize);
-		printf("\tinitial attributes file size: %u\n", defaults->attributesClumpSize);
+		printf("\tattributes clump size: %u\n", defaults->attributesClumpSize);
+		printf("\tinitial attributes file size: %u\n", defaults->attributesInitialSize);
 		printf("\tinitial allocation file size: %u (%u blocks)\n",
 			defaults->allocationClumpSize, defaults->allocationClumpSize / gBlockSize);
 		printf("\tdata fork clump size: %u\n", defaults->dataClumpSize);
@@ -1238,6 +1339,20 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 		}
 		printf("\tfile system start block: %u\n", defaults->fsStartBlock);
 	}
+}
+
+
+static UInt32
+initialsizecalc(UInt32 initialblocks)
+{
+	UInt64 initialsize;
+
+	initialsize = (UInt64)initialblocks * (UInt64)gBlockSize;
+		
+	if (initialsize & (UInt64)(0xFFFFFFFF00000000ULL))
+		fatal("=%ld: too many blocks for initial size!", initialblocks);
+
+	return ((UInt32)initialsize);
 }
 
 
@@ -1425,10 +1540,14 @@ void usage()
 	fprintf(stderr, "\t\te=blocks (extents file)\n");
 	fprintf(stderr, "\t\tr=blocks (user resource fork)\n");
 	fprintf(stderr, "\t-i starting catalog node id\n");
-	fprintf(stderr, "\t-n b-tree node size list (comma separated)\n");
-	fprintf(stderr, "\t\te=size (extents b-tree)\n");
-	fprintf(stderr, "\t\tc=size (catalog b-tree)\n");
+	fprintf(stderr, "\t-I initial size list (comma separated)\n");
 	fprintf(stderr, "\t\ta=size (attributes b-tree)\n");
+	fprintf(stderr, "\t\tc=size (catalog b-tree)\n");
+	fprintf(stderr, "\t\te=size (extents b-tree)\n");
+	fprintf(stderr, "\t-n b-tree node size list (comma separated)\n");
+	fprintf(stderr, "\t\ta=size (attributes b-tree)\n");
+	fprintf(stderr, "\t\tc=size (catalog b-tree)\n");
+	fprintf(stderr, "\t\te=size (extents b-tree)\n");
 	fprintf(stderr, "\t-v volume name (in ascii or UTF-8)\n");
 #ifdef DEBUG_BUILD
 	fprintf(stderr, "\t-E extent count list (comma separated)\n");

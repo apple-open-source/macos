@@ -24,7 +24,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
 #include "WebChromeClient.h"
 
 #include "COMPropertyBag.h"
@@ -72,7 +71,7 @@ static const size_t maxFilePathsListSize = USHRT_MAX;
 WebChromeClient::WebChromeClient(WebView* webView)
     : m_webView(webView)
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
-    , m_notificationsDelegate(new WebDesktopNotificationsDelegate(webView))
+    , m_notificationsDelegate(std::make_unique<WebDesktopNotificationsDelegate>(webView))
 #endif
 {
 }
@@ -335,6 +334,11 @@ void WebChromeClient::setResizable(bool resizable)
     }
 }
 
+static BOOL messageIsError(MessageLevel level)
+{
+    return level == MessageLevel::Error;
+}
+
 void WebChromeClient::addMessageToConsole(MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, unsigned columnNumber, const String& url)
 {
     UNUSED_PARAM(columnNumber);
@@ -343,7 +347,7 @@ void WebChromeClient::addMessageToConsole(MessageSource source, MessageLevel lev
     if (SUCCEEDED(m_webView->uiDelegate(&uiDelegate))) {
         COMPtr<IWebUIDelegatePrivate> uiPrivate;
         if (SUCCEEDED(uiDelegate->QueryInterface(IID_IWebUIDelegatePrivate, (void**)&uiPrivate)))
-            uiPrivate->webViewAddMessageToConsole(m_webView, BString(message), lineNumber, BString(url), true);
+            uiPrivate->webViewAddMessageToConsole(m_webView, BString(message), lineNumber, BString(url), messageIsError(level));
     }
 }
 
@@ -432,20 +436,6 @@ void WebChromeClient::setStatusbarText(const String& statusText)
     }
 }
 
-bool WebChromeClient::shouldInterruptJavaScript()
-{
-    COMPtr<IWebUIDelegate> uiDelegate;
-    if (SUCCEEDED(m_webView->uiDelegate(&uiDelegate))) {
-        COMPtr<IWebUIDelegatePrivate> uiPrivate;
-        if (SUCCEEDED(uiDelegate->QueryInterface(IID_IWebUIDelegatePrivate, (void**)&uiPrivate))) {
-            BOOL result;
-            if (SUCCEEDED(uiPrivate->webViewShouldInterruptJavaScript(m_webView, &result)))
-                return !!result;
-        }
-    }
-    return false;
-}
-
 KeyboardUIMode WebChromeClient::keyboardUIMode()
 {
     BOOL enabled = FALSE;
@@ -456,27 +446,22 @@ KeyboardUIMode WebChromeClient::keyboardUIMode()
     return enabled ? KeyboardAccessTabsToLinks : KeyboardAccessDefault;
 }
 
-IntRect WebChromeClient::windowResizerRect() const
-{
-    return IntRect();
-}
-
 void WebChromeClient::invalidateRootView(const IntRect& windowRect)
 {
     ASSERT(core(m_webView->topLevelFrame()));
-    m_webView->repaint(windowRect, false /*contentChanged*/, false /*repaintContentOnly*/);
+    m_webView->repaint(windowRect, false /*contentChanged*/, false /*immediate*/, false /*repaintContentOnly*/);
 }
 
 void WebChromeClient::invalidateContentsAndRootView(const IntRect& windowRect)
 {
     ASSERT(core(m_webView->topLevelFrame()));
-    m_webView->repaint(windowRect, true /*contentChanged*/, false /*repaintContentOnly*/);
+    m_webView->repaint(windowRect, true /*contentChanged*/, false /*immediate*/, false /*repaintContentOnly*/);
 }
 
 void WebChromeClient::invalidateContentsForSlowScroll(const IntRect& windowRect)
 {
     ASSERT(core(m_webView->topLevelFrame()));
-    m_webView->repaint(windowRect, true /*contentChanged*/, true /*repaintContentOnly*/);
+    m_webView->repaint(windowRect, true /*contentChanged*/, false /*immediate*/, true /*repaintContentOnly*/);
 }
 
 void WebChromeClient::scroll(const IntSize& delta, const IntRect& scrollViewRect, const IntRect& clipRect)
@@ -583,7 +568,6 @@ void WebChromeClient::print(Frame* frame)
         uiDelegate->printFrame(m_webView, kit(frame));
 }
 
-#if ENABLE(SQL_DATABASE)
 void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& databaseIdentifier, DatabaseDetails)
 {
     COMPtr<WebSecurityOrigin> origin(AdoptCOM, WebSecurityOrigin::createInstance(frame->document()->securityOrigin()));
@@ -598,8 +582,9 @@ void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& database
             HMODULE safariHandle = GetModuleHandleW(L"Safari.exe");
             if (!safariHandle)
                 return;
-            GetModuleFileName(safariHandle, path, WTF_ARRAY_LENGTH(path));
-            DWORD handle;
+            if (!::GetModuleFileName(safariHandle, path, WTF_ARRAY_LENGTH(path)))
+                return;
+            DWORD handle = 0;
             DWORD versionSize = GetFileVersionInfoSize(path, &handle);
             if (!versionSize)
                 return;
@@ -618,7 +603,6 @@ void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& database
         }
     }
 }
-#endif
 
 // FIXME: Move this include to the top of the file with the other includes.
 #include "ApplicationCacheStorage.h"
@@ -632,21 +616,6 @@ void WebChromeClient::reachedMaxAppCacheSize(int64_t spaceNeeded)
 void WebChromeClient::reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t)
 {
     notImplemented();
-}
-
-void WebChromeClient::populateVisitedLinks()
-{
-    COMPtr<IWebHistoryDelegate> historyDelegate;
-    m_webView->historyDelegate(&historyDelegate);
-    if (historyDelegate) {
-        historyDelegate->populateVisitedLinksForWebView(m_webView);
-        return;
-    }
-
-    WebHistory* history = WebHistory::sharedHistory();
-    if (!history)
-        return;
-    history->addVisitedLinksToPageGroup(m_webView->page()->group());
 }
 
 void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChooser)
@@ -778,19 +747,19 @@ COMPtr<IWebUIDelegate> WebChromeClient::uiDelegate()
 
 #if ENABLE(VIDEO)
 
-bool WebChromeClient::supportsFullscreenForNode(const Node* node)
+bool WebChromeClient::supportsVideoFullscreen()
 {
-    return isHTMLVideoElement(node);
+    return true;
 }
 
-void WebChromeClient::enterFullscreenForNode(Node* node)
+void WebChromeClient::enterVideoFullscreenForVideoElement(HTMLVideoElement& videoElement)
 {
-    m_webView->enterFullscreenForNode(node);
+    m_webView->enterVideoFullscreenForVideoElement(videoElement);
 }
 
-void WebChromeClient::exitFullscreenForNode(Node*)
+void WebChromeClient::exitVideoFullscreenForVideoElement(HTMLVideoElement& videoElement)
 {
-    m_webView->exitFullscreen();
+    m_webView->exitVideoFullscreenForVideoElement(videoElement);
 }
 
 #endif

@@ -35,10 +35,10 @@ namespace WebCore {
 
 void ElementData::destroy()
 {
-    if (isUnique())
-        delete static_cast<UniqueElementData*>(this);
+    if (is<UniqueElementData>(*this))
+        delete downcast<UniqueElementData>(this);
     else
-        delete static_cast<ShareableElementData*>(this);
+        delete downcast<ShareableElementData>(this);
 }
 
 ElementData::ElementData()
@@ -63,13 +63,13 @@ static size_t sizeForShareableElementDataWithAttributeCount(unsigned count)
     return sizeof(ShareableElementData) + sizeof(Attribute) * count;
 }
 
-PassRef<ShareableElementData> ShareableElementData::createWithAttributes(const Vector<Attribute>& attributes)
+Ref<ShareableElementData> ShareableElementData::createWithAttributes(const Vector<Attribute>& attributes)
 {
     void* slot = WTF::fastMalloc(sizeForShareableElementDataWithAttributeCount(attributes.size()));
     return adoptRef(*new (NotNull, slot) ShareableElementData(attributes));
 }
 
-PassRef<UniqueElementData> UniqueElementData::create()
+Ref<UniqueElementData> UniqueElementData::create()
 {
     return adoptRef(*new UniqueElementData);
 }
@@ -148,14 +148,14 @@ UniqueElementData::UniqueElementData(const ShareableElementData& other)
         m_attributeVector.uncheckedAppend(other.m_attributeArray[i]);
 }
 
-PassRef<UniqueElementData> ElementData::makeUniqueCopy() const
+Ref<UniqueElementData> ElementData::makeUniqueCopy() const
 {
     if (isUnique())
         return adoptRef(*new UniqueElementData(static_cast<const UniqueElementData&>(*this)));
     return adoptRef(*new UniqueElementData(static_cast<const ShareableElementData&>(*this)));
 }
 
-PassRef<ShareableElementData> UniqueElementData::makeShareableCopy() const
+Ref<ShareableElementData> UniqueElementData::makeShareableCopy() const
 {
     void* slot = WTF::fastMalloc(sizeForShareableElementDataWithAttributeCount(m_attributeVector.size()));
     return adoptRef(*new (NotNull, slot) ShareableElementData(*this));
@@ -176,39 +176,6 @@ bool ElementData::isEquivalent(const ElementData* other) const
     }
 
     return true;
-}
-
-unsigned ElementData::findAttributeIndexByNameSlowCase(const AtomicString& name, bool shouldIgnoreAttributeCase) const
-{
-    // Continue to checking case-insensitively and/or full namespaced names if necessary:
-    const Attribute* attributes = attributeBase();
-    unsigned length = this->length();
-    for (unsigned i = 0; i < length; ++i) {
-        const Attribute& attribute = attributes[i];
-        if (!attribute.name().hasPrefix()) {
-            if (shouldIgnoreAttributeCase && equalIgnoringCase(name, attribute.localName()))
-                return i;
-        } else {
-            // FIXME: Would be faster to do this comparison without calling toString, which
-            // generates a temporary string by concatenation. But this branch is only reached
-            // if the attribute name has a prefix, which is rare in HTML.
-            if (equalPossiblyIgnoringCase(name, attribute.name().toString(), shouldIgnoreAttributeCase))
-                return i;
-        }
-    }
-    return attributeNotFound;
-}
-
-unsigned ElementData::findAttributeIndexByNameForAttributeNode(const Attr* attr, bool shouldIgnoreAttributeCase) const
-{
-    ASSERT(attr);
-    const Attribute* attributes = attributeBase();
-    unsigned count = length();
-    for (unsigned i = 0; i < count; ++i) {
-        if (attributes[i].name().matchesIgnoringCaseForLocalName(attr->qualifiedName(), shouldIgnoreAttributeCase))
-            return i;
-    }
-    return attributeNotFound;
 }
 
 Attribute* UniqueElementData::findAttributeByName(const QualifiedName& name)

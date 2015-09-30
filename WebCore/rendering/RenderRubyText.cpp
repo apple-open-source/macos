@@ -36,7 +36,7 @@
 
 namespace WebCore {
 
-RenderRubyText::RenderRubyText(Element& element, PassRef<RenderStyle> style)
+RenderRubyText::RenderRubyText(Element& element, Ref<RenderStyle>&& style)
     : RenderBlockFlow(element, WTF::move(style))
 {
 }
@@ -48,7 +48,7 @@ RenderRubyText::~RenderRubyText()
 RenderRubyRun* RenderRubyText::rubyRun() const
 {
     ASSERT(parent());
-    return toRenderRubyRun(parent());
+    return downcast<RenderRubyRun>(parent());
 }
 
 bool RenderRubyText::isChildAllowed(const RenderObject& child, const RenderStyle&) const

@@ -190,7 +190,6 @@ typedef struct fnnode {
 	struct timeval	fn_ctime;
 	struct autofs_globals *fn_globals;	/* global variables */
 	lck_mtx_t	*fn_mnt_lock;		/* protects race between autofs and homedirmounter */
-	uint32_t        fn_restart_cnt;        	/* count of auto_lookup() ERESTART(s)- 17454528*/
 } fnnode_t;
 
 #define vntofn(vp)	((struct fnnode *)(vnode_fsnode(vp)))

@@ -27,7 +27,6 @@
 #define CDMPrivateMediaPlayer_h
 
 #include "CDMPrivate.h"
-#include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 
 #if ENABLE(ENCRYPTED_MEDIA_V2)
@@ -42,7 +41,6 @@ public:
         : m_cdm(cdm)
     { }
 
-    static std::unique_ptr<CDMPrivateInterface> create(CDM* cdm) { return std::make_unique<CDMPrivateMediaPlayer>(cdm); }
     static bool supportsKeySystem(const String&);
     static bool supportsKeySystemAndMimeType(const String& keySystem, const String& mimeType);
 

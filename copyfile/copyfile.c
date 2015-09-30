@@ -46,6 +46,8 @@
 #include <fts.h>
 #include <libgen.h>
 
+#include <System/sys/content_protection.h>
+
 #ifdef VOL_CAP_FMT_DECMPFS_COMPRESSION
 # include <Kernel/sys/decmpfs.h>
 #endif
@@ -75,10 +77,16 @@ static void *qtn_file_clone(void *x) { return NULL; }
 #include "xattr_flags.h"
 
 enum cfInternalFlags {
-	cfDelayAce = 1 << 0,
-	cfMakeFileInvisible = 1 << 1,
-	cfSawDecmpEA = 1 << 2,
+	cfDelayAce                = 1 << 0, /* set if ACE shouldn't be set until post-order traversal */
+	cfMakeFileInvisible       = 1 << 1, /* set if kFinderInvisibleMask is on src */
+	cfSawDecmpEA              = 1 << 2, /* set if we've seen a com.apple.decmpfs xattr */
+	cfSrcProtSupportValid     = 1 << 3, /* set if cfSrcSupportsCProtect is valid */
+	cfSrcSupportsCProtect     = 1 << 4, /* set if src supports MNT_CPROTECT */
+	cfDstProtSupportValid     = 1 << 5, /* set if cfDstSupportsCProtect is valid */
+	cfDstSupportsCProtect     = 1 << 6, /* set if dst supports MNT_CPROTECT */
 };
+
+#define COPYFILE_MNT_CPROTECT_MASK (cfSrcProtSupportValid | cfSrcSupportsCProtect | cfDstProtSupportValid | cfDstSupportsCProtect)
 
 /*
  * The state structure keeps track of
@@ -111,6 +119,9 @@ struct _copyfile_state
     char *xattr_name;
     xattr_operation_intent_t copyIntent;
 };
+
+#define GET_PROT_CLASS(fd) fcntl((fd), F_GETPROTECTIONCLASS)
+#define SET_PROT_CLASS(fd, prot_class) fcntl((fd), F_SETPROTECTIONCLASS, (prot_class))
 
 struct acl_entry {
         u_int32_t       ae_magic;
@@ -173,6 +184,16 @@ doesdecmpfs(int fd) {
 	return 0;
 }
 
+static int
+does_copy_protection(int fd)
+{
+    struct statfs sfs;
+
+    if (fstatfs(fd, &sfs) == -1)
+        return -1;
+
+    return ((sfs.f_flags & MNT_CPROTECT) == MNT_CPROTECT);
+}
 
 static void
 sort_xattrname_list(void *start, size_t length)
@@ -592,6 +613,7 @@ copytree(copyfile_state_t s)
 	const char *paths[2] =  { 0 };
 	unsigned int flags = 0;
 	int fts_flags = FTS_NOCHDIR;
+	dev_t last_dev = s->sb.st_dev;
 
 	if (s == NULL) {
 		errno = EINVAL;
@@ -604,7 +626,7 @@ copytree(copyfile_state_t s)
 		goto done;
 	}
 
-	flags = s->flags & (COPYFILE_ALL | COPYFILE_NOFOLLOW | COPYFILE_VERBOSE);
+	flags = s->flags & (COPYFILE_ALL | COPYFILE_NOFOLLOW | COPYFILE_VERBOSE | COPYFILE_EXCL);
 
 	paths[0] = src = s->src;
 	dst = s->dst;
@@ -674,7 +696,7 @@ copytree(copyfile_state_t s)
 	 * 6)  src is a directory, dst does not exist
 	 *
 	 * (1) copies src to dst/basename(src).
-	 * (2) fails if COPYFILE_EXCLUSIVE is set, otherwise copies src to dst.
+	 * (2) fails if COPYFILE_EXCL is set, otherwise copies src to dst.
 	 * (3) and (6) copy src to the name dst.
 	 * (4) copies the contents of src to the contents of dst.
 	 * (5) is an error.
@@ -716,6 +738,11 @@ copytree(copyfile_state_t s)
 		}
 		tstate->statuscb = s->statuscb;
 		tstate->ctx = s->ctx;
+		if (last_dev == ftsent->fts_dev) {
+			tstate->internal_flags |= (s->internal_flags & COPYFILE_MNT_CPROTECT_MASK);
+		} else {
+			last_dev = ftsent->fts_dev;
+		}
 		asprintf(&dstfile, "%s%s%s", dst, dstpathsep, ftsent->fts_path + offset);
 		if (dstfile == NULL) {
 			copyfile_state_free(tstate);
@@ -846,6 +873,9 @@ copytree(copyfile_state_t s)
 		}
 skipit:
 stopit:
+		s->internal_flags &= ~COPYFILE_MNT_CPROTECT_MASK;
+		s->internal_flags |= (tstate->internal_flags & COPYFILE_MNT_CPROTECT_MASK);
+
 		copyfile_state_free(tstate);
 		free(dstfile);
 		if (retval == -1)
@@ -1492,8 +1522,11 @@ static int copyfile_unset_acl(copyfile_state_t s)
 static int copyfile_open(copyfile_state_t s)
 {
     int oflags = O_EXCL | O_CREAT | O_WRONLY;
-    int islnk = 0, isdir = 0;
+    int islnk = 0, isdir = 0, isreg = 0;
     int osrc = 0, dsrc = 0;
+    int prot_class = PROTECTION_CLASS_DEFAULT;
+    int set_cprot_explicit = 0;
+    int error = 0;
 
     if (s->src && s->src_fd == -2)
     {
@@ -1519,6 +1552,7 @@ static int copyfile_open(copyfile_state_t s)
 		isdir = 1;
 		break;
 	    case S_IFREG:
+		isreg = 1;
 		break;
 	    default:
 		if (!(strcmp(s->src, "/dev/null") == 0 && (s->flags & COPYFILE_METADATA))) {
@@ -1550,8 +1584,8 @@ static int copyfile_open(copyfile_state_t s)
 	{
 		copyfile_warn("open on %s", s->src);
 		return -1;
-	} else
-	    copyfile_debug(2, "open successful on source (%s)", s->src);
+	}
+	copyfile_debug(2, "open successful on source (%s)", s->src);
 
 	(void)copyfile_quarantine(s);
     }
@@ -1579,6 +1613,31 @@ static int copyfile_open(copyfile_state_t s)
 		if (lstat(s->dst, &st) != -1) {
 			if ((st.st_mode & S_IFMT) == S_IFLNK)
 				dsrc = O_SYMLINK;
+		}
+	}
+
+	if (!(s->internal_flags & cfSrcProtSupportValid))
+	{
+		if ((error = does_copy_protection(s->src_fd)) > 0)
+		{
+			s->internal_flags |= cfSrcSupportsCProtect;
+		}
+		else if (error < 0)
+		{
+			copyfile_warn("does_copy_protection failed on (%s) with error <%d>", s->src, errno);
+			return -1;
+		}
+		s->internal_flags |= cfSrcProtSupportValid;
+	}
+
+	/* copy protection is only valid for regular files and directories. */
+	if ((isreg || isdir) && (s->internal_flags & cfSrcSupportsCProtect))
+	{
+		prot_class = GET_PROT_CLASS(s->src_fd);
+		if (prot_class < 0)
+		{
+			copyfile_warn("GET_PROT_CLASS failed on (%s) with error <%d>", s->src, errno);
+			return -1;
 		}
 	}
 
@@ -1624,7 +1683,8 @@ static int copyfile_open(copyfile_state_t s)
 			copyfile_warn("Cannot open directory %s for reading", s->dst);
 			return -1;
 		}
-	} else while((s->dst_fd = open(s->dst, oflags | dsrc, s->sb.st_mode | S_IWUSR)) < 0)
+		set_cprot_explicit = 1;
+	} else while((s->dst_fd = open_dprotected_np(s->dst, oflags | dsrc, prot_class, 0, s->sb.st_mode | S_IWUSR)) < 0)
 	{
 	    /*
 	     * We set S_IWUSR because fsetxattr does not -- at the time this comment
@@ -1639,10 +1699,14 @@ static int copyfile_open(copyfile_state_t s)
 		    if (s->flags & COPYFILE_EXCL)
 			break;
 		    oflags = oflags & ~O_CREAT;
+		    /* if O_CREAT isn't set in open_dprotected_np, it won't set protection class.
+		     * Set the flag here so we know to do it later.
+		     */
+		    set_cprot_explicit = 1;
 		    if (s->flags & (COPYFILE_PACK | COPYFILE_DATA))
 		    {
-			copyfile_debug(4, "truncating existing file (%s)", s->dst);
-			oflags |= O_TRUNC;
+		    	copyfile_debug(4, "truncating existing file (%s)", s->dst);
+		    	oflags |= O_TRUNC;
 		    }
 		    continue;
 		case EACCES:
@@ -1674,6 +1738,37 @@ static int copyfile_open(copyfile_state_t s)
 	    return -1;
 	}
 	copyfile_debug(2, "open successful on destination (%s)", s->dst);
+
+	if (s->internal_flags & cfSrcSupportsCProtect)
+	{
+		if (!(s->internal_flags & cfDstProtSupportValid))
+		{
+			if ((error = does_copy_protection(s->dst_fd)) > 0)
+			{
+				s->internal_flags |= cfDstSupportsCProtect;
+			}
+			else if (error < 0)
+			{
+				copyfile_warn("does_copy_protection failed on (%s) with error <%d>", s->dst, errno);
+				return -1;
+			}
+			s->internal_flags |= cfDstProtSupportValid;
+		}
+
+		if ((isreg || isdir)
+		    && set_cprot_explicit
+		    && (s->internal_flags & cfDstSupportsCProtect))
+		{
+			/* Protection class is set in open_dprotected_np for regular files that aren't truncated.
+			 * We set the protection class here for truncated files and directories.
+			 */
+			if (SET_PROT_CLASS(s->dst_fd, prot_class) != 0)
+			{
+				copyfile_warn("SET_PROT_CLASS failed on (%s) with error <%d>", s->dst, errno);
+				return -1;
+			}
+		}
+	}
     }
 
     if (s->dst_fd < 0 || s->src_fd < 0)
@@ -2312,7 +2407,8 @@ static int copyfile_xattr(copyfile_state_t s)
 	     * Unfortunately, they don't provide a way to dynamically
 	     * determine what possible compression_type values exist,
 	     * so we have to update this every time a new compression_type
-	     * is added (Types 7->10 were added in Yosemite)
+	     * is added. Types 7->10 were added in 10.10, Types 11 & 12
+	     * were added in 10.11.
 	     *
 	     * Ubiquity faulting file compression type 0x80000001 are
 	     * deprecated as of Yosemite, per rdar://17714998 don't copy the
@@ -2320,14 +2416,17 @@ static int copyfile_xattr(copyfile_state_t s)
 	     * than a fault nobody knows how to handle.
 	     */
 	    switch (OSSwapLittleToHostInt32(hdr->compression_type)) {
-		case 3: /* zlib-compressed data in xattr */
-		case 4: /* 64k chunked zlib-compressed data in resource fork */
+		case 3:  /* zlib-compressed data in xattr */
+		case 4:  /* 64k chunked zlib-compressed data in resource fork */
 
-		case 7: /* LZVN-compressed data in xattr */
-		case 8: /* 64k chunked LZVN-compressed data in resource fork */
+		case 7:  /* LZVN-compressed data in xattr */
+		case 8:  /* 64k chunked LZVN-compressed data in resource fork */
 
-		case 9: /* uncompressed data in xattr (similar to but not identical to CMP_Type1) */
+		case 9:  /* uncompressed data in xattr (similar to but not identical to CMP_Type1) */
 		case 10: /* 64k chunked uncompressed data in resource fork */
+
+		case 11: /* LZFSE-compressed data in xattr */
+		case 12: /* 64k chunked LZFSE-compressed data in resource fork */
 
 			/* valid compression type, we want to copy. */
 			break;

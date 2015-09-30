@@ -24,10 +24,13 @@
  */
 
 .hierarchical-path-component {
-    display: -webkit-flex;
+    display: flex;
     position: relative;
     height: 20px;
     min-width: 32px;
+
+    font-family: -webkit-system-font, sans-serif;
+    font-size: 11px;
 }
 
 .hierarchical-path-component.show-selector-arrows {
@@ -66,13 +69,9 @@
     content: url(../Images/UpDownArrows.svg);
 }
 
-body.mac-platform.legacy .hierarchical-path-component > .selector-arrows {
-    content: url(../Images/Legacy/UpDownArrows.svg);
-}
-
 .hierarchical-path-component > .title {
-    display: -webkit-flex;
-    -webkit-flex: 1;
+    display: flex;
+    flex: 1;
 
     vertical-align: top;
 

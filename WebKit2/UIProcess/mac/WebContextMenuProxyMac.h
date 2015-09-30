@@ -38,17 +38,18 @@ OBJC_CLASS WKView;
 namespace WebKit {
 
 class ShareableBitmap;
+class WebContextMenuItemData;
 class WebPageProxy;
 
 class WebContextMenuProxyMac : public WebContextMenuProxy {
 public:
-    static PassRefPtr<WebContextMenuProxyMac> create(WKView* webView, WebPageProxy* page)
+    static Ref<WebContextMenuProxyMac> create(WKView* webView, WebPageProxy* page)
     {
-        return adoptRef(new WebContextMenuProxyMac(webView, page));
+        return adoptRef(*new WebContextMenuProxyMac(webView, page));
     }
     ~WebContextMenuProxyMac();
 
-    virtual void showContextMenu(const WebCore::IntPoint&, const Vector<WebContextMenuItemData>&, const ContextMenuContextData&) override;
+    virtual void showContextMenu(const WebCore::IntPoint&, const Vector<RefPtr<WebContextMenuItem>>&, const ContextMenuContextData&) override;
 
     virtual void hideContextMenu() override;
     virtual void cancelTracking() override;
@@ -65,7 +66,7 @@ public:
 private:
     WebContextMenuProxyMac(WKView*, WebPageProxy*);
 
-    void populate(const Vector<WebContextMenuItemData>&, const ContextMenuContextData&);
+    void populate(const Vector<RefPtr<WebContextMenuItem>>&, const ContextMenuContextData&);
 
 #if ENABLE(SERVICE_CONTROLS)
     void setupServicesMenu(const ContextMenuContextData&);

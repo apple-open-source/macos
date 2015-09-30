@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2011, 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -197,7 +197,6 @@ init_fds()
 		}
 	}
 
-	SCTrace(TRUE, stdout, CFSTR("start\n"));
 	return;
 }
 
@@ -211,7 +210,7 @@ set_trace()
 	fd = open("/var/log/configd.trace", O_WRONLY|O_APPEND, 0);
 	if (fd != -1) {
 		_configd_trace = fdopen(fd, "a");
-		SCTrace(TRUE, _configd_trace, CFSTR("start\n"));
+		SC_trace(_configd_trace, "start\n");
 	}
 
 	return;
@@ -390,7 +389,7 @@ main(int argc, char * const argv[])
 		 * daemonize ourself.
 		 */
 		if (fork_child() == -1) {
-			fprintf(stderr, "configd: fork() failed, %s\n", strerror(errno));
+			fprintf(stderr, "configd: fork() failed: %s\n", strerror(errno));
 			exit (1);
 		}
 
@@ -407,7 +406,6 @@ main(int argc, char * const argv[])
 	if (!forceForeground || forcePlugin) {
 		int		facility	= LOG_DAEMON;
 		int		logopt		= LOG_CONS|LOG_NDELAY|LOG_PID;
-		struct stat	statbuf;
 
 		if (!is_launchd_job && !forcePlugin) {
 			init_fds();
@@ -417,7 +415,7 @@ main(int argc, char * const argv[])
 			logopt |= LOG_CONS;
 		}
 
-		if (stat("/etc/rc.cdrom", &statbuf) == 0) {
+		if (_SC_isInstallEnvironment()) {
 			facility = LOG_INSTALL;
 		}
 
@@ -434,30 +432,22 @@ main(int argc, char * const argv[])
 	sigemptyset(&nact.sa_mask);
 	nact.sa_flags = SA_RESTART;
 	if (sigaction(SIGHUP, &nact, NULL) == -1) {
-		SCLog(_configd_verbose, LOG_ERR,
-		       CFSTR("sigaction(SIGHUP, ...) failed: %s"),
-		       strerror(errno));
+		SC_log(LOG_ERR, "sigaction(SIGHUP, ...) failed: %s", strerror(errno));
 	}
 
 	/* add signal handler to catch a SIGPIPE */
 	if (sigaction(SIGPIPE, &nact, NULL) == -1) {
-		SCLog(_configd_verbose, LOG_ERR,
-		       CFSTR("sigaction(SIGPIPE, ...) failed: %s"),
-		       strerror(errno));
+		SC_log(LOG_ERR, "sigaction(SIGPIPE, ...) failed: %s", strerror(errno));
 	}
 
 	/* add signal handler to catch a SIGTERM */
 	if (sigaction(SIGTERM, &nact, NULL) == -1) {
-		SCLog(_configd_verbose, LOG_ERR,
-		      CFSTR("sigaction(SIGTERM, ...) failed: %s"),
-		      strerror(errno));
+		SC_log(LOG_ERR, "sigaction(SIGTERM, ...) failed: %s", strerror(errno));
 	}
 
 	/* add signal handler to catch a SIGINT */
 	if (sigaction(SIGINT, &nact, NULL) == -1) {
-		SCLog(_configd_verbose, LOG_ERR,
-		      CFSTR("sigaction(SIGINT, ...) failed: %s"),
-		      strerror(errno));
+		SC_log(LOG_ERR, "sigaction(SIGINT, ...) failed: %s", strerror(errno));
 	}
 
 	/* create the "shutdown requested" notification port */

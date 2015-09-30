@@ -72,7 +72,7 @@ void CryptoKeyHMAC::buildAlgorithmDescription(CryptoAlgorithmDescriptionBuilder&
     CryptoKey::buildAlgorithmDescription(builder);
 
     auto hashDescriptionBuilder = builder.createEmptyClone();
-    hashDescriptionBuilder->add("name", CryptoAlgorithmRegistry::shared().nameForIdentifier(m_hash));
+    hashDescriptionBuilder->add("name", CryptoAlgorithmRegistry::singleton().nameForIdentifier(m_hash));
     builder.add("hash", *hashDescriptionBuilder);
 
     builder.add("length", m_key.size());
@@ -80,8 +80,7 @@ void CryptoKeyHMAC::buildAlgorithmDescription(CryptoAlgorithmDescriptionBuilder&
 
 std::unique_ptr<CryptoKeyData> CryptoKeyHMAC::exportData() const
 {
-    ASSERT(extractable());
-    return CryptoKeyDataOctetSequence::create(m_key);
+    return std::make_unique<CryptoKeyDataOctetSequence>(m_key);
 }
 
 } // namespace WebCore

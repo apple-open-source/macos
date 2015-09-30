@@ -3,6 +3,10 @@
  * Use is subject to license terms.
  */
 
+/*
+ * Portions copyright (c) 2011, Delphix. All rights reserved.
+ */
+
 #pragma ident	"@(#)mkerrtags.sh	1.2	05/06/08 SMI"
 #include <dt_errtags.h>
 
@@ -153,6 +157,8 @@ static const char *const _dt_errtags[] = {
 	"D_PRINTA_AGGPROTO",		/* printa() aggregation mismatch */
 	"D_TRACE_VOID",			/* trace() argument has void type */
 	"D_TRACE_DYN",			/* trace() argument has dynamic type */
+	"D_PRINT_VOID",			/* print() argument has void type */
+	"D_PRINT_DYN",			/* print() argument has dynamic type */
 	"D_TRACEMEM_ADDR",		/* tracemem() address bad type */
 	"D_TRACEMEM_SIZE",		/* tracemem() size bad type */
 	"D_TRACEMEM_ARGS",		/* tracemem() illegal number of args */

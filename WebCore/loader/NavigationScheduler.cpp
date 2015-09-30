@@ -87,6 +87,8 @@ public:
 protected:
     void clearUserGesture() { m_wasUserGesture = false; }
 
+    ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy { ShouldOpenExternalURLsPolicy::ShouldNotAllow };
+
 private:
     double m_delay;
     LockHistory m_lockHistory;
@@ -98,19 +100,25 @@ private:
 
 class ScheduledURLNavigation : public ScheduledNavigation {
 protected:
-    ScheduledURLNavigation(double delay, SecurityOrigin* securityOrigin, const URL& url, const String& referrer, LockHistory lockHistory, LockBackForwardList lockBackForwardList, bool duringLoad, bool isLocationChange)
+    ScheduledURLNavigation(Document* initiatingDocument, double delay, SecurityOrigin* securityOrigin, const URL& url, const String& referrer, LockHistory lockHistory, LockBackForwardList lockBackForwardList, bool duringLoad, bool isLocationChange)
         : ScheduledNavigation(delay, lockHistory, lockBackForwardList, duringLoad, isLocationChange)
         , m_securityOrigin(securityOrigin)
         , m_url(url)
         , m_referrer(referrer)
         , m_haveToldClient(false)
     {
+        if (initiatingDocument)
+            m_shouldOpenExternalURLsPolicy = initiatingDocument->shouldOpenExternalURLsPolicyToPropagate();
     }
 
     virtual void fire(Frame& frame) override
     {
         UserGestureIndicator gestureIndicator(wasUserGesture() ? DefinitelyProcessingUserGesture : DefinitelyNotProcessingUserGesture);
-        frame.loader().changeLocation(m_securityOrigin.get(), m_url, m_referrer, lockHistory(), lockBackForwardList(), false);
+
+        ResourceRequest resourceRequest(m_url, m_referrer, UseProtocolCachePolicy);
+        FrameLoadRequest frameRequest(m_securityOrigin.get(), resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, m_shouldOpenExternalURLsPolicy);
+
+        frame.loader().changeLocation(frameRequest);
     }
 
     virtual void didStartTimer(Frame& frame, Timer& timer) override
@@ -150,8 +158,8 @@ private:
 
 class ScheduledRedirect : public ScheduledURLNavigation {
 public:
-    ScheduledRedirect(double delay, SecurityOrigin* securityOrigin, const URL& url, LockHistory lockHistory, LockBackForwardList lockBackForwardList)
-        : ScheduledURLNavigation(delay, securityOrigin, url, String(), lockHistory, lockBackForwardList, false, false)
+    ScheduledRedirect(Document* initiatingDocument, double delay, SecurityOrigin* securityOrigin, const URL& url, LockHistory lockHistory, LockBackForwardList lockBackForwardList)
+        : ScheduledURLNavigation(initiatingDocument, delay, securityOrigin, url, String(), lockHistory, lockBackForwardList, false, false)
     {
         clearUserGesture();
     }
@@ -165,33 +173,42 @@ public:
     {
         UserGestureIndicator gestureIndicator(wasUserGesture() ? DefinitelyProcessingUserGesture : DefinitelyNotProcessingUserGesture);
         bool refresh = equalIgnoringFragmentIdentifier(frame.document()->url(), url());
-        frame.loader().changeLocation(securityOrigin(), url(), referrer(), lockHistory(), lockBackForwardList(), refresh, AllowNavigationToInvalidURL::No);
+        ResourceRequest resourceRequest(url(), referrer(), refresh ? ReloadIgnoringCacheData : UseProtocolCachePolicy);
+        FrameLoadRequest frameRequest(securityOrigin(), resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::No, NewFrameOpenerPolicy::Allow, m_shouldOpenExternalURLsPolicy);
+
+        frame.loader().changeLocation(frameRequest);
     }
 };
 
 class ScheduledLocationChange : public ScheduledURLNavigation {
 public:
-    ScheduledLocationChange(SecurityOrigin* securityOrigin, const URL& url, const String& referrer, LockHistory lockHistory, LockBackForwardList lockBackForwardList, bool duringLoad)
-        : ScheduledURLNavigation(0.0, securityOrigin, url, referrer, lockHistory, lockBackForwardList, duringLoad, true) { }
+    ScheduledLocationChange(Document* initiatingDocument, SecurityOrigin* securityOrigin, const URL& url, const String& referrer, LockHistory lockHistory, LockBackForwardList lockBackForwardList, bool duringLoad)
+        : ScheduledURLNavigation(initiatingDocument, 0.0, securityOrigin, url, referrer, lockHistory, lockBackForwardList, duringLoad, true) { }
 
     virtual void fire(Frame& frame) override
     {
         UserGestureIndicator gestureIndicator(wasUserGesture() ? DefinitelyProcessingUserGesture : DefinitelyNotProcessingUserGesture);
-        frame.loader().changeLocation(securityOrigin(), url(), referrer(), lockHistory(), lockBackForwardList(), false, AllowNavigationToInvalidURL::No);
+
+        ResourceRequest resourceRequest(url(), referrer(), UseProtocolCachePolicy);
+        FrameLoadRequest frameRequest(securityOrigin(), resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::No, NewFrameOpenerPolicy::Allow, m_shouldOpenExternalURLsPolicy);
+        frame.loader().changeLocation(frameRequest);
     }
 };
 
 class ScheduledRefresh : public ScheduledURLNavigation {
 public:
-    ScheduledRefresh(SecurityOrigin* securityOrigin, const URL& url, const String& referrer)
-        : ScheduledURLNavigation(0.0, securityOrigin, url, referrer, LockHistory::Yes, LockBackForwardList::Yes, false, true)
+    ScheduledRefresh(Document* initiatingDocument, SecurityOrigin* securityOrigin, const URL& url, const String& referrer)
+        : ScheduledURLNavigation(initiatingDocument, 0.0, securityOrigin, url, referrer, LockHistory::Yes, LockBackForwardList::Yes, false, true)
     {
     }
 
     virtual void fire(Frame& frame) override
     {
         UserGestureIndicator gestureIndicator(wasUserGesture() ? DefinitelyProcessingUserGesture : DefinitelyNotProcessingUserGesture);
-        frame.loader().changeLocation(securityOrigin(), url(), referrer(), lockHistory(), lockBackForwardList(), true);
+
+        ResourceRequest resourceRequest(url(), referrer(), ReloadIgnoringCacheData);
+        FrameLoadRequest frameRequest(securityOrigin(), resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, m_shouldOpenExternalURLsPolicy);
+        frame.loader().changeLocation(frameRequest);
     }
 };
 
@@ -210,7 +227,7 @@ public:
         if (!m_historySteps) {
             // Special case for go(0) from a frame -> reload only the frame
             // To follow Firefox and IE's behavior, history reload can only navigate the self frame.
-            frame.loader().urlSelected(frame.document()->url(), "_self", 0, lockHistory(), lockBackForwardList(), MaybeSendReferrer);
+            frame.loader().urlSelected(frame.document()->url(), "_self", 0, lockHistory(), lockBackForwardList(), MaybeSendReferrer, m_shouldOpenExternalURLsPolicy);
             return;
         }
         
@@ -231,6 +248,9 @@ public:
         , m_haveToldClient(false)
     {
         ASSERT(m_submission->state());
+
+        if (Document* document = m_submission->state()->sourceDocument())
+            m_shouldOpenExternalURLsPolicy = document->shouldOpenExternalURLsPolicyToPropagate();
     }
 
     virtual void fire(Frame& frame) override
@@ -244,9 +264,9 @@ public:
         Document* requestingDocument = m_submission->state()->sourceDocument();
         if (!requestingDocument->canNavigate(&frame))
             return;
-        FrameLoadRequest frameRequest(requestingDocument->securityOrigin());
+        FrameLoadRequest frameRequest(requestingDocument->securityOrigin(), lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, m_shouldOpenExternalURLsPolicy);
         m_submission->populateFrameLoadRequest(frameRequest);
-        frame.loader().loadFrameRequest(frameRequest, lockHistory(), lockBackForwardList(), m_submission->event(), m_submission->state(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow);
+        frame.loader().loadFrameRequest(frameRequest, m_submission->event(), m_submission->state());
     }
     
     virtual void didStartTimer(Frame& frame, Timer& timer) override
@@ -278,9 +298,29 @@ private:
     bool m_haveToldClient;
 };
 
+class ScheduledSubstituteDataLoad : public ScheduledNavigation {
+public:
+    ScheduledSubstituteDataLoad(const URL& baseURL, const SubstituteData& substituteData)
+        : ScheduledNavigation { 0, LockHistory::No, LockBackForwardList::No, false, false }
+        , m_baseURL { baseURL }
+        , m_substituteData { substituteData }
+    {
+    }
+
+    void fire(Frame& frame) override
+    {
+        UserGestureIndicator gestureIndicator { wasUserGesture() ? DefinitelyProcessingUserGesture : DefinitelyNotProcessingUserGesture };
+        frame.loader().load(FrameLoadRequest { &frame, m_baseURL, m_shouldOpenExternalURLsPolicy, m_substituteData });
+    }
+
+private:
+    URL m_baseURL;
+    SubstituteData m_substituteData;
+};
+
 NavigationScheduler::NavigationScheduler(Frame& frame)
     : m_frame(frame)
-    , m_timer(this, &NavigationScheduler::timerFired)
+    , m_timer(*this, &NavigationScheduler::timerFired)
 {
 }
 
@@ -320,7 +360,7 @@ inline bool NavigationScheduler::shouldScheduleNavigation(const URL& url) const
     return NavigationDisablerForBeforeUnload::isNavigationAllowed();
 }
 
-void NavigationScheduler::scheduleRedirect(double delay, const URL& url)
+void NavigationScheduler::scheduleRedirect(Document* initiatingDocument, double delay, const URL& url)
 {
     if (!shouldScheduleNavigation(url))
         return;
@@ -332,7 +372,7 @@ void NavigationScheduler::scheduleRedirect(double delay, const URL& url)
     // We want a new back/forward list item if the refresh timeout is > 1 second.
     if (!m_redirect || delay <= m_redirect->delay()) {
         LockBackForwardList lockBackForwardList = delay <= 1 ? LockBackForwardList::Yes : LockBackForwardList::No;
-        schedule(std::make_unique<ScheduledRedirect>(delay, m_frame.document()->securityOrigin(), url, LockHistory::Yes, lockBackForwardList));
+        schedule(std::make_unique<ScheduledRedirect>(initiatingDocument, delay, m_frame.document()->securityOrigin(), url, LockHistory::Yes, lockBackForwardList));
     }
 }
 
@@ -354,7 +394,7 @@ LockBackForwardList NavigationScheduler::mustLockBackForwardList(Frame& targetFr
     return LockBackForwardList::No;
 }
 
-void NavigationScheduler::scheduleLocationChange(SecurityOrigin* securityOrigin, const URL& url, const String& referrer, LockHistory lockHistory, LockBackForwardList lockBackForwardList)
+void NavigationScheduler::scheduleLocationChange(Document* initiatingDocument, SecurityOrigin* securityOrigin, const URL& url, const String& referrer, LockHistory lockHistory, LockBackForwardList lockBackForwardList)
 {
     if (!shouldScheduleNavigation(url))
         return;
@@ -366,9 +406,13 @@ void NavigationScheduler::scheduleLocationChange(SecurityOrigin* securityOrigin,
 
     // If the URL we're going to navigate to is the same as the current one, except for the
     // fragment part, we don't need to schedule the location change.
-    URL parsedURL(ParsedURLString, url);
-    if (parsedURL.hasFragmentIdentifier() && equalIgnoringFragmentIdentifier(m_frame.document()->url(), parsedURL)) {
-        loader.changeLocation(securityOrigin, m_frame.document()->completeURL(url), referrer, lockHistory, lockBackForwardList, false, AllowNavigationToInvalidURL::No);
+    if (url.hasFragmentIdentifier() && equalIgnoringFragmentIdentifier(m_frame.document()->url(), url)) {
+        ResourceRequest resourceRequest(m_frame.document()->completeURL(url), referrer, UseProtocolCachePolicy);
+        ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy = ShouldOpenExternalURLsPolicy::ShouldNotAllow;
+        if (initiatingDocument)
+            shouldOpenExternalURLsPolicy = initiatingDocument->shouldOpenExternalURLsPolicyToPropagate();
+        FrameLoadRequest frameRequest(securityOrigin, resourceRequest, "_self", lockHistory, lockBackForwardList, MaybeSendReferrer, AllowNavigationToInvalidURL::No, NewFrameOpenerPolicy::Allow, ReplaceDocumentIfJavaScriptURL, shouldOpenExternalURLsPolicy);
+        loader.changeLocation(frameRequest);
         return;
     }
 
@@ -376,7 +420,7 @@ void NavigationScheduler::scheduleLocationChange(SecurityOrigin* securityOrigin,
     // This may happen when a frame changes the location of another frame.
     bool duringLoad = !loader.stateMachine().committedFirstRealDocumentLoad();
 
-    schedule(std::make_unique<ScheduledLocationChange>(securityOrigin, url, referrer, lockHistory, lockBackForwardList, duringLoad));
+    schedule(std::make_unique<ScheduledLocationChange>(initiatingDocument, securityOrigin, url, referrer, lockHistory, lockBackForwardList, duringLoad));
 }
 
 void NavigationScheduler::scheduleFormSubmission(PassRefPtr<FormSubmission> submission)
@@ -402,7 +446,7 @@ void NavigationScheduler::scheduleFormSubmission(PassRefPtr<FormSubmission> subm
     schedule(std::make_unique<ScheduledFormSubmission>(submission, lockBackForwardList, duringLoad));
 }
 
-void NavigationScheduler::scheduleRefresh()
+void NavigationScheduler::scheduleRefresh(Document* initiatingDocument)
 {
     if (!shouldScheduleNavigation())
         return;
@@ -410,7 +454,7 @@ void NavigationScheduler::scheduleRefresh()
     if (url.isEmpty())
         return;
 
-    schedule(std::make_unique<ScheduledRefresh>(m_frame.document()->securityOrigin(), url, m_frame.loader().outgoingReferrer()));
+    schedule(std::make_unique<ScheduledRefresh>(initiatingDocument, m_frame.document()->securityOrigin(), url, m_frame.loader().outgoingReferrer()));
 }
 
 void NavigationScheduler::scheduleHistoryNavigation(int steps)
@@ -430,7 +474,13 @@ void NavigationScheduler::scheduleHistoryNavigation(int steps)
     schedule(std::make_unique<ScheduledHistoryNavigation>(steps));
 }
 
-void NavigationScheduler::timerFired(Timer&)
+void NavigationScheduler::scheduleSubstituteDataLoad(const URL& baseURL, const SubstituteData& substituteData)
+{
+    if (shouldScheduleNavigation())
+        schedule(std::make_unique<ScheduledSubstituteDataLoad>(baseURL, substituteData));
+}
+
+void NavigationScheduler::timerFired()
 {
     if (!m_frame.page())
         return;

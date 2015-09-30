@@ -41,7 +41,7 @@ class Download;
 
 class DownloadAuthenticationClient : public RefCounted<DownloadAuthenticationClient>, public WebCore::AuthenticationClient {
 public:
-    static PassRefPtr<DownloadAuthenticationClient> create(Download* download) { return adoptRef(new DownloadAuthenticationClient(download)); }
+    static Ref<DownloadAuthenticationClient> create(Download* download) { return adoptRef(*new DownloadAuthenticationClient(download)); }
 
     void detach() { m_download = 0; }
 
@@ -51,14 +51,14 @@ public:
 private:
     DownloadAuthenticationClient(Download*);
 
-    virtual void receivedCredential(const WebCore::AuthenticationChallenge&, const WebCore::Credential&);
-    virtual void receivedRequestToContinueWithoutCredential(const WebCore::AuthenticationChallenge&);
-    virtual void receivedCancellation(const WebCore::AuthenticationChallenge&);
+    virtual void receivedCredential(const WebCore::AuthenticationChallenge&, const WebCore::Credential&) override;
+    virtual void receivedRequestToContinueWithoutCredential(const WebCore::AuthenticationChallenge&) override;
+    virtual void receivedCancellation(const WebCore::AuthenticationChallenge&) override;
     virtual void receivedRequestToPerformDefaultHandling(const WebCore::AuthenticationChallenge&) override;
     virtual void receivedChallengeRejection(const WebCore::AuthenticationChallenge&) override;
 
-    virtual void refAuthenticationClient() { ref(); }
-    virtual void derefAuthenticationClient() { deref(); }
+    virtual void refAuthenticationClient() override { ref(); }
+    virtual void derefAuthenticationClient() override { deref(); }
 
     Download* m_download;
 };

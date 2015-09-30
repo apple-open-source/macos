@@ -28,8 +28,9 @@
 
 #if PLATFORM(IOS)
 
+#import "CoreGraphicsSPI.h"
+#import "FontCascade.h"
 #import "WebCoreSystemInterface.h"
-#import "Font.h"
 #import "WebCoreThread.h"
 #import <ImageIO/ImageIO.h>
 #import <wtf/StdLibExtras.h>
@@ -70,11 +71,12 @@ void WKRectFill(CGContextRef context, CGRect aRect)
     }
 }
 
-void WKRectFillUsingOperation(CGContextRef context, CGRect aRect, CGCompositeOperation op)
+void WKRectFillUsingOperation(CGContextRef context, CGRect aRect, WKCompositeOperation compositeOperation)
 {
+    COMPILE_ASSERT(sizeof(WKCompositeOperation) == sizeof(CGCompositeOperation), "WKCompositeOperation must be the same size as CGCompositeOperation.");
     if (aRect.size.width > 0 && aRect.size.height > 0.0) {
         CGContextSaveGState(context);
-        _FillRectUsingOperation(context, aRect, op);
+        _FillRectUsingOperation(context, aRect, static_cast<CGCompositeOperation>(compositeOperation));
         CGContextRestoreGState(context);
     }
 }
@@ -91,9 +93,9 @@ CGContextRef WKGetCurrentGraphicsContext(void)
     return threadContext->currentCGContext;
 }
 
-static NSString *imageResourcePath(const char* imageFile, bool is2x)
+static NSString *imageResourcePath(const char* imageFile, unsigned scaleFactor)
 {
-    NSString *fileName = is2x ? [NSString stringWithFormat:@"%s@2x", imageFile] : [NSString stringWithUTF8String:imageFile];
+    NSString *fileName = scaleFactor == 1 ? [NSString stringWithUTF8String:imageFile] : [NSString stringWithFormat:@"%s@%dx", imageFile, scaleFactor];
 #if PLATFORM(IOS_SIMULATOR)
     NSBundle *bundle = [NSBundle bundleWithIdentifier:@"com.apple.WebCore"];
     return [bundle pathForResource:fileName ofType:@"png"];
@@ -104,22 +106,18 @@ static NSString *imageResourcePath(const char* imageFile, bool is2x)
 #endif
 }
 
-CGImageRef WKGraphicsCreateImageFromBundleWithName (const char *image_file)
+CGImageRef WKGraphicsCreateImageFromBundleWithName(const char *image_file)
 {
     if (!image_file)
         return NULL;
 
     CGImageRef image = nullptr;
-    NSData *imageData = nil;
-
-    if (wkGetScreenScaleFactor() == 2) {
-        NSString* full2xPath = imageResourcePath(image_file, true);
-        imageData = [NSData dataWithContentsOfFile:full2xPath];
-    }
-    if (!imageData) {
-        // We got here either because we didn't request hi-dpi or the @2x file doesn't exist.
-        NSString* full1xPath = imageResourcePath(image_file, false);
-        imageData = [NSData dataWithContentsOfFile:full1xPath];
+    NSData *imageData = nullptr;
+    for (unsigned scaleFactor = wkGetScreenScaleFactor(); scaleFactor > 0; --scaleFactor) {
+        imageData = [NSData dataWithContentsOfFile:imageResourcePath(image_file, scaleFactor)];
+        ASSERT(scaleFactor != wkGetScreenScaleFactor() || imageData);
+        if (imageData)
+            break;
     }
     
     if (imageData) {
@@ -172,26 +170,6 @@ void WKSetPattern(CGContextRef context, CGPatternRef pattern, bool fill, bool st
         CGContextSetStrokePattern(context, pattern, &patternAlpha);
     }
     CGColorSpaceRelease(colorspace);
-}
-
-void WKFontAntialiasingStateSaver::setup(bool isLandscapeOrientation)
-{
-#if !PLATFORM(IOS_SIMULATOR)
-    m_oldAntialiasingStyle = CGContextGetFontAntialiasingStyle(m_context);
-
-    if (m_useOrientationDependentFontAntialiasing)
-        CGContextSetFontAntialiasingStyle(m_context, isLandscapeOrientation ? kCGFontAntialiasingStyleFilterLight : kCGFontAntialiasingStyleUnfiltered);
-#else
-    UNUSED_PARAM(isLandscapeOrientation);
-#endif
-}
-
-void WKFontAntialiasingStateSaver::restore()
-{
-#if !PLATFORM(IOS_SIMULATOR)
-    if (m_useOrientationDependentFontAntialiasing)
-        CGContextSetFontAntialiasingStyle(m_context, m_oldAntialiasingStyle);
-#endif
 }
 
 #endif // PLATFORM(IOS)

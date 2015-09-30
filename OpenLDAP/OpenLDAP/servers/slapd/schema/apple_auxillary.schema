@@ -8,7 +8,7 @@
 ##############################################
 attributetype ( 1.2.840.113556.1.4.867
 	NAME 'altSecurityIdentities'
-	EQUALITY caseIgnoreMatch
+	EQUALITY caseExactMatch
 	SUBSTR caseIgnoreSubstringsMatch
 	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
 	

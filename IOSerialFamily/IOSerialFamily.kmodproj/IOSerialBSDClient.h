@@ -69,7 +69,8 @@ public:
     virtual bool matchPropertyTable(OSDictionary *table);
     virtual bool requestTerminate(IOService *provider, IOOptionBits options);
     virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
-
+    virtual bool willTerminate(IOService *provider, IOOptionBits options);
+    
     virtual IOReturn setProperties(OSObject *properties);
 
     // BSD TTY linediscipline stuff
@@ -97,10 +98,12 @@ private:
     IOLock * fThreadLock;
     IOLock * fIoctlLock;
     IOLock * fOpenCloseLock;
+    IOLock * fTerminationLock; // protects the termination
 	dev_t fBaseDev;
 
-    int fThreadState; /* fThreadLock protects access to fThreadState */
+    int fThreadState;       /* fThreadLock protects access to fThreadState */
     int fInOpensPending;	/* Count of opens waiting for carrier */
+    int fIsOpening;         /* Count of iossopen requests */
     thread_call_t fDCDThreadCall;	/* used for DCD debouncing */
 
     /* state determined at time of open */
@@ -110,7 +113,7 @@ private:
 	bool fisCallout;
 	bool fwantCallout;
 	bool fisBlueTooth;
-
+    
     boolean_t   fAcquired:1;		/* provider has been acquired */
     boolean_t   fIsClosing:1;		/* Session is actively closing */
     boolean_t   fDeferTerminate:1;	/* A terminate has been defered */
@@ -120,7 +123,8 @@ private:
     boolean_t   fIsrxEnabled:1;		/* TP_CREAD dependent */
     boolean_t   frxBlocked:1;		/* the rx_thread suspended */
     boolean_t   fDCDTimerDue:1;		/* DCD debounce flag */
-
+    boolean_t   fIsTerminating;     /* willTerminate got called */
+    
     IOSerialStreamSync *fProvider;
 
     /*
@@ -200,7 +204,6 @@ private:
     static char *state2StringPD(UInt32 state);
     static char *state2StringTTY(UInt32 state);
 #endif
-
 };
 
 #endif /* ! _IOSERIALSERVER_H */

@@ -42,9 +42,9 @@ class InbandTextTrackPrivate;
 class SerializedPlatformRepresentation;
 #endif
 
-class InbandDataTextTrack : public InbandTextTrack {
+class InbandDataTextTrack final : public InbandTextTrack {
 public:
-    static PassRefPtr<InbandDataTextTrack> create(ScriptExecutionContext*, TextTrackClient*, PassRefPtr<InbandTextTrackPrivate>);
+    static Ref<InbandDataTextTrack> create(ScriptExecutionContext*, TextTrackClient*, PassRefPtr<InbandTextTrackPrivate>);
     virtual ~InbandDataTextTrack();
 
 private:

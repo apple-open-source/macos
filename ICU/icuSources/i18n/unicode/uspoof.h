@@ -1,6 +1,6 @@
 /*
 ***************************************************************************
-* Copyright (C) 2008-2014, International Business Machines Corporation
+* Copyright (C) 2008-2015, International Business Machines Corporation
 * and others. All Rights Reserved.
 ***************************************************************************
 *   file name:  uspoof.h
@@ -139,6 +139,14 @@
  *  identifying new pairs or sequences of characters that are visually
  *  confusable, and thus must be mapped to the same skeleton character(s).
  *
+ *  Skeletons are computed using the algorithm and data describe in Unicode UAX 39.
+ *  The latest proposed update, UAX 39 Version 8 draft 1, says "the tables SL, SA, and ML
+ *  were still problematic, and discouraged from use in [Uniocde] 7.0.
+ *  They were thus removed from version 8.0"
+ *
+ *  In light of this, the default mapping data included with ICU 55 uses the
+ *  Unicode 7 MA (Multi script Any case) table data for the other type options
+ *  (Single Script, Any Case), (Single Script, Lower Case) and (Multi Script, Lower Case).
  */
 
 struct USpoofChecker;
@@ -270,14 +278,12 @@ typedef enum USpoofChecks {
          * @stable ICU 51
          */
         USPOOF_ASCII = 0x10000000,
-#ifndef U_HIDE_DRAFT_API
         /**
           * All characters in each identifier must be from a single script.
           *
-          * @draft ICU 53
+          * @stable ICU 53
           */
         USPOOF_SINGLE_SCRIPT_RESTRICTIVE = 0x20000000,
-#endif /* U_HIDE_DRAFT_API */
         /**
          * All characters in each identifier must be from a single script, or from the combinations: Latin + Han +
          * Hiragana + Katakana; Latin + Han + Bopomofo; or Latin + Han + Hangul. Note that this level will satisfy the
@@ -304,14 +310,12 @@ typedef enum USpoofChecks {
          * @stable ICU 51
          */
         USPOOF_UNRESTRICTIVE = 0x60000000,
-#ifndef U_HIDE_DRAFT_API
         /**
           * Mask for selecting the Restriction Level bits from the return value of uspoof_check().
           * 
-          * @draft ICU 53
+          * @stable ICU 53
           */
          USPOOF_RESTRICTION_LEVEL_MASK = 0x7F000000 
-#endif /* U_HIDE_DRAFT_API */
     } URestrictionLevel;
 
 /**
@@ -329,7 +333,7 @@ uspoof_open(UErrorCode *status);
 
 
 /**
- * Open a Spoof checker from its serialized from, stored in 32-bit-aligned memory.
+ * Open a Spoof checker from its serialized form, stored in 32-bit-aligned memory.
  * Inverse of uspoof_serialize().
  * The memory containing the serialized data must remain valid and unchanged
  * as long as the spoof checker, or any cloned copies of the spoof checker,
@@ -355,9 +359,9 @@ uspoof_openFromSerialized(const void *data, int32_t length, int32_t *pActualLeng
 
 /**
   * Open a Spoof Checker from the source form of the spoof data.
-  * The Three inputs correspond to the Unicode data files confusables.txt
-  * confusablesWholeScript.txt and xidmdifications.txt as described in
-  * Unicode UAX #39.  The syntax of the source data is as described in UAX #39 for
+  * The two inputs correspond to the Unicode data files confusables.txt
+  * and confusablesWholeScript.txt as described in Unicode UAX #39.
+  * The syntax of the source data is as described in UAX #39 for
   * these files, and the content of these files is acceptable input.
   *
   * The character encoding of the (char *) input text is UTF-8.
@@ -872,7 +876,7 @@ uspoof_areConfusableUnicodeString(const USpoofChecker *sc,
   *                of the Unicode confusable data tables to use.
   *                The default is Mixed-Script, Lowercase.
   *                Allowed options are USPOOF_SINGLE_SCRIPT_CONFUSABLE and
-  *                USPOOF_ANY_CASE_CONFUSABLE.  The two flags may be ORed.
+  *                USPOOF_ANY_CASE.  The two flags may be ORed.
   * @param id      The input identifier whose skeleton will be computed.
   * @param length  The length of the input identifier, expressed in 16 bit
   *                UTF-16 code units, or -1 if the string is zero terminated.
@@ -954,7 +958,7 @@ uspoof_getSkeletonUTF8(const USpoofChecker *sc,
   *                of the Unicode confusable data tables to use.
   *                The default is Mixed-Script, Lowercase.
   *                Allowed options are USPOOF_SINGLE_SCRIPT_CONFUSABLE and
-  *                USPOOF_ANY_CASE_CONFUSABLE.  The two flags may be ORed.
+  *                USPOOF_ANY_CASE.  The two flags may be ORed.
   * @param id      The input identifier whose skeleton will be computed.
   * @param dest    The output identifier, to receive the skeleton string.
   * @param status  The error code, set if an error occurred while attempting to
@@ -971,7 +975,6 @@ uspoof_getSkeletonUnicodeString(const USpoofChecker *sc,
                                 UErrorCode *status);
 #endif   /* U_SHOW_CPLUSPLUS_API */
 
-#ifndef U_HIDE_DRAFT_API
 /**
   * Get the set of Candidate Characters for Inclusion in Identifiers, as defined
   * in Unicode UAX #31, http://www.unicode.org/reports/tr31/#Table_Candidate_Characters_for_Inclusion_in_Identifiers
@@ -981,9 +984,9 @@ uspoof_getSkeletonUnicodeString(const USpoofChecker *sc,
   *
   * @param status The error code, set if a problem occurs while creating the set.
   *
-  * @draft ICU 51
+  * @stable ICU 51
   */
-U_DRAFT const USet * U_EXPORT2
+U_STABLE const USet * U_EXPORT2
 uspoof_getInclusionSet(UErrorCode *status);
 
 /**
@@ -995,9 +998,9 @@ uspoof_getInclusionSet(UErrorCode *status);
   *
   * @param status The error code, set if a problem occurs while creating the set.
   *
-  * @draft ICU 51
+  * @stable ICU 51
   */
-U_DRAFT const USet * U_EXPORT2
+U_STABLE const USet * U_EXPORT2
 uspoof_getRecommendedSet(UErrorCode *status);
 
 #if U_SHOW_CPLUSPLUS_API
@@ -1011,9 +1014,9 @@ uspoof_getRecommendedSet(UErrorCode *status);
   *
   * @param status The error code, set if a problem occurs while creating the set.
   *
-  * @draft ICU 51
+  * @stable ICU 51
   */
-U_DRAFT const icu::UnicodeSet * U_EXPORT2
+U_STABLE const icu::UnicodeSet * U_EXPORT2
 uspoof_getInclusionUnicodeSet(UErrorCode *status);
 
 /**
@@ -1025,13 +1028,12 @@ uspoof_getInclusionUnicodeSet(UErrorCode *status);
   *
   * @param status The error code, set if a problem occurs while creating the set.
   *
-  * @draft ICU 51
+  * @stable ICU 51
   */
-U_DRAFT const icu::UnicodeSet * U_EXPORT2
+U_STABLE const icu::UnicodeSet * U_EXPORT2
 uspoof_getRecommendedUnicodeSet(UErrorCode *status);
 
 #endif /* U_SHOW_CPLUSPLUS_API */
-#endif /* U_HIDE_DRAFT_API */
 
 /**
  * Serialize the data for a spoof detector into a chunk of memory.

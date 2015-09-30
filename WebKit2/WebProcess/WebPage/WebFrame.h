@@ -54,6 +54,7 @@ class URL;
 
 namespace WebKit {
 
+class InjectedBundleFileHandle;
 class InjectedBundleHitTestResult;
 class InjectedBundleNodeHandle;
 class InjectedBundleRangeHandle;
@@ -97,7 +98,7 @@ public:
     String innerText() const;
     bool isFrameSet() const;
     WebFrame* parentFrame() const;
-    PassRefPtr<API::Array> childFrames();
+    Ref<API::Array> childFrames();
     JSGlobalContextRef jsContext();
     JSGlobalContextRef jsContextForWorld(InjectedBundleScriptWorld*);
     WebCore::IntRect contentBounds() const;
@@ -112,11 +113,13 @@ public:
     bool containsAnyFormControls() const;
     void stopLoading();
     bool handlesPageScaleGesture() const;
+    void setAccessibleName(const String&);
 
     static WebFrame* frameForContext(JSContextRef);
 
     JSValueRef jsWrapperForWorld(InjectedBundleNodeHandle*, InjectedBundleScriptWorld*);
     JSValueRef jsWrapperForWorld(InjectedBundleRangeHandle*, InjectedBundleScriptWorld*);
+    JSValueRef jsWrapperForWorld(InjectedBundleFileHandle*, InjectedBundleScriptWorld*);
 
     static String counterValue(JSObjectRef element);
 
@@ -152,6 +155,11 @@ public:
 
     PassRefPtr<ShareableBitmap> createSelectionSnapshot() const;
 
+#if PLATFORM(IOS)
+    uint64_t firstLayerTreeTransactionIDAfterDidCommitLoad() const { return m_firstLayerTreeTransactionIDAfterDidCommitLoad; }
+    void setFirstLayerTreeTransactionIDAfterDidCommitLoad(uint64_t transactionID) { m_firstLayerTreeTransactionIDAfterDidCommitLoad = transactionID; }
+#endif
+
 private:
     static PassRefPtr<WebFrame> create(std::unique_ptr<WebFrameLoaderClient>);
     WebFrame(std::unique_ptr<WebFrameLoaderClient>);
@@ -166,6 +174,10 @@ private:
     LoadListener* m_loadListener;
     
     uint64_t m_frameID;
+
+#if PLATFORM(IOS)
+    uint64_t m_firstLayerTreeTransactionIDAfterDidCommitLoad;
+#endif
 };
 
 } // namespace WebKit

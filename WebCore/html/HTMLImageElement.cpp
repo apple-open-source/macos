@@ -23,7 +23,6 @@
 #include "config.h"
 #include "HTMLImageElement.h"
 
-#include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "CachedImage.h"
@@ -65,14 +64,14 @@ HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document& docum
         form->registerImgElement(this);
 }
 
-PassRefPtr<HTMLImageElement> HTMLImageElement::create(Document& document)
+Ref<HTMLImageElement> HTMLImageElement::create(Document& document)
 {
-    return adoptRef(new HTMLImageElement(imgTag, document));
+    return adoptRef(*new HTMLImageElement(imgTag, document));
 }
 
-PassRefPtr<HTMLImageElement> HTMLImageElement::create(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
+Ref<HTMLImageElement> HTMLImageElement::create(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
 {
-    return adoptRef(new HTMLImageElement(tagName, document, form));
+    return adoptRef(*new HTMLImageElement(tagName, document, form));
 }
 
 HTMLImageElement::~HTMLImageElement()
@@ -81,14 +80,14 @@ HTMLImageElement::~HTMLImageElement()
         m_form->removeImgElement(this);
 }
 
-PassRefPtr<HTMLImageElement> HTMLImageElement::createForJSConstructor(Document& document, const int* optionalWidth, const int* optionalHeight)
+Ref<HTMLImageElement> HTMLImageElement::createForJSConstructor(Document& document, const int* optionalWidth, const int* optionalHeight)
 {
-    RefPtr<HTMLImageElement> image = adoptRef(new HTMLImageElement(imgTag, document));
+    Ref<HTMLImageElement> image = adoptRef(*new HTMLImageElement(imgTag, document));
     if (optionalWidth)
         image->setWidth(*optionalWidth);
     if (optionalHeight)
         image->setHeight(*optionalHeight);
-    return image.release();
+    return image;
 }
 
 bool HTMLImageElement::isPresentationAttribute(const QualifiedName& name) const
@@ -133,26 +132,21 @@ void HTMLImageElement::setBestFitURLAndDPRFromImageCandidate(const ImageCandidat
 #endif
     if (candidate.density >= 0)
         m_imageDevicePixelRatio = 1 / candidate.density;
-    if (renderer() && renderer()->isImage())
-        toRenderImage(renderer())->setImageDevicePixelRatio(m_imageDevicePixelRatio);
+    if (is<RenderImage>(renderer()))
+        downcast<RenderImage>(*renderer()).setImageDevicePixelRatio(m_imageDevicePixelRatio);
 }
 
 void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == altAttr) {
-        if (renderer() && renderer()->isRenderImage())
-            toRenderImage(renderer())->updateAltText();
+        if (is<RenderImage>(renderer()))
+            downcast<RenderImage>(*renderer()).updateAltText();
     } else if (name == srcAttr || name == srcsetAttr) {
-        ImageCandidate candidate = bestFitSourceForImageAttributes(document().deviceScaleFactor(), fastGetAttribute(srcAttr), fastGetAttribute(srcsetAttr)
-#if ENABLE(PICTURE_SIZES)
-            , SourceSizeList::parseSizesAttribute(fastGetAttribute(sizesAttr), document().renderView(), document().frame())
-#endif
-        );
+        float sourceSize = parseSizesAttribute(fastGetAttribute(sizesAttr).string(), document().renderView(), document().frame());
+        ImageCandidate candidate = bestFitSourceForImageAttributes(document().deviceScaleFactor(), fastGetAttribute(srcAttr), fastGetAttribute(srcsetAttr), sourceSize);
         setBestFitURLAndDPRFromImageCandidate(candidate);
         m_imageLoader.updateFromElementIgnoringPreviousError();
     } else if (name == usemapAttr) {
-        setIsLink(!value.isNull() && !shouldProhibitLinks(this));
-
         if (inDocument() && !m_lowercasedUsemap.isNull())
             document().removeImageElementByLowercasedUsemap(*m_lowercasedUsemap.impl(), *this);
 
@@ -167,9 +161,7 @@ void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomicStr
 
         if (inDocument() && !m_lowercasedUsemap.isNull())
             document().addImageElementByLowercasedUsemap(*m_lowercasedUsemap.impl(), *this);
-    } else if (name == onbeforeloadAttr)
-        setAttributeEventListener(eventNames().beforeloadEvent, name, value);
-    else if (name == compositeAttr) {
+    } else if (name == compositeAttr) {
         // FIXME: images don't support blend modes in their compositing attribute.
         BlendMode blendOp = BlendModeNormal;
         if (!parseCompositeAndBlendOperator(value, m_compositeOperator, blendOp))
@@ -182,34 +174,35 @@ void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomicStr
     } else {
         if (name == nameAttr) {
             bool willHaveName = !value.isNull();
-            if (hasName() != willHaveName && inDocument() && document().isHTMLDocument()) {
-                HTMLDocument* document = toHTMLDocument(&this->document());
+            if (m_hadNameBeforeAttributeChanged != willHaveName && inDocument() && is<HTMLDocument>(document())) {
+                HTMLDocument& document = downcast<HTMLDocument>(this->document());
                 const AtomicString& id = getIdAttribute();
                 if (!id.isEmpty() && id != getNameAttribute()) {
                     if (willHaveName)
-                        document->addDocumentNamedItem(*id.impl(), *this);
+                        document.addDocumentNamedItem(*id.impl(), *this);
                     else
-                        document->removeDocumentNamedItem(*id.impl(), *this);
+                        document.removeDocumentNamedItem(*id.impl(), *this);
                 }
             }
+            m_hadNameBeforeAttributeChanged = willHaveName;
         }
         HTMLElement::parseAttribute(name, value);
     }
 }
 
-String HTMLImageElement::altText() const
+const AtomicString& HTMLImageElement::altText() const
 {
     // lets figure out the alt text.. magic stuff
     // http://www.w3.org/TR/1998/REC-html40-19980424/appendix/notes.html#altgen
     // also heavily discussed by Hixie on bugzilla
-    String alt = getAttribute(altAttr);
+    const AtomicString& alt = fastGetAttribute(altAttr);
+    if (!alt.isNull())
+        return alt;
     // fall back to title attribute
-    if (alt.isNull())
-        alt = getAttribute(titleAttr);
-    return alt;
+    return fastGetAttribute(titleAttr);
 }
 
-RenderPtr<RenderElement> HTMLImageElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> HTMLImageElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     if (style.get().hasContent())
         return RenderElement::createFor(*this, WTF::move(style));
@@ -227,7 +220,7 @@ bool HTMLImageElement::canStartSelection() const
 
 void HTMLImageElement::didAttachRenderers()
 {
-    if (!renderer() || !renderer()->isRenderImage())
+    if (!is<RenderImage>(renderer()))
         return;
     if (m_imageLoader.hasPendingBeforeLoadEvent())
         return;
@@ -236,8 +229,8 @@ void HTMLImageElement::didAttachRenderers()
     updateImageControls();
 #endif
 
-    RenderImage* renderImage = toRenderImage(renderer());
-    RenderImageResource& renderImageResource = renderImage->imageResource();
+    auto& renderImage = downcast<RenderImage>(*renderer());
+    RenderImageResource& renderImageResource = renderImage.imageResource();
     if (renderImageResource.hasImage())
         return;
     renderImageResource.setCachedImage(m_imageLoader.image());
@@ -245,7 +238,7 @@ void HTMLImageElement::didAttachRenderers()
     // If we have no image at all because we have no src attribute, set
     // image height and width for the alt text instead.
     if (!m_imageLoader.image() && !renderImageResource.cachedImage())
-        renderImage->setImageSizeForAltText();
+        renderImage.setImageSizeForAltText();
 }
 
 Node::InsertionNotificationRequest HTMLImageElement::insertedInto(ContainerNode& insertionPoint)
@@ -303,7 +296,7 @@ int HTMLImageElement::width(bool ignorePendingStylesheets)
         document().updateLayout();
 
     RenderBox* box = renderBox();
-    return box ? adjustForAbsoluteZoom(box->contentBoxRect().pixelSnappedWidth(), *box) : 0;
+    return box ? adjustForAbsoluteZoom(box->contentBoxRect().pixelSnappedSize().width(), *box) : 0;
 }
 
 int HTMLImageElement::height(bool ignorePendingStylesheets)
@@ -326,7 +319,7 @@ int HTMLImageElement::height(bool ignorePendingStylesheets)
         document().updateLayout();
 
     RenderBox* box = renderBox();
-    return box ? adjustForAbsoluteZoom(box->contentBoxRect().pixelSnappedHeight(), *box) : 0;
+    return box ? adjustForAbsoluteZoom(box->contentBoxRect().pixelSnappedSize().height(), *box) : 0;
 }
 
 int HTMLImageElement::naturalWidth() const
@@ -393,13 +386,13 @@ bool HTMLImageElement::matchesLowercasedUsemap(const AtomicStringImpl& name) con
 
 const AtomicString& HTMLImageElement::alt() const
 {
-    return getAttribute(altAttr);
+    return fastGetAttribute(altAttr);
 }
 
 bool HTMLImageElement::draggable() const
 {
     // Image elements are draggable by default.
-    return !equalIgnoringCase(getAttribute(draggableAttr), "false");
+    return !equalIgnoringCase(fastGetAttribute(draggableAttr), "false");
 }
 
 void HTMLImageElement::setHeight(int value)
@@ -409,7 +402,7 @@ void HTMLImageElement::setHeight(int value)
 
 URL HTMLImageElement::src() const
 {
-    return document().completeURL(getAttribute(srcAttr));
+    return document().completeURL(fastGetAttribute(srcAttr));
 }
 
 void HTMLImageElement::setSrc(const String& value)
@@ -455,7 +448,7 @@ void HTMLImageElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const
 
     addSubresourceURL(urls, src());
     // FIXME: What about when the usemap attribute begins with "#"?
-    addSubresourceURL(urls, document().completeURL(getAttribute(usemapAttr)));
+    addSubresourceURL(urls, document().completeURL(fastGetAttribute(usemapAttr)));
 }
 
 void HTMLImageElement::didMoveToNewDocument(Document* oldDocument)
@@ -507,11 +500,11 @@ void HTMLImageElement::createImageControls()
 
     ensureUserAgentShadowRoot().appendChild(imageControls);
 
-    RenderObject* renderObject = renderer();
+    auto* renderObject = renderer();
     if (!renderObject)
         return;
 
-    toRenderImage(renderObject)->setHasShadowControls(true);
+    downcast<RenderImage>(*renderObject).setHasShadowControls(true);
 }
 
 void HTMLImageElement::destroyImageControls()
@@ -525,11 +518,11 @@ void HTMLImageElement::destroyImageControls()
         shadowRoot->removeChild(node);
     }
 
-    RenderObject* renderObject = renderer();
+    auto* renderObject = renderer();
     if (!renderObject)
         return;
 
-    toRenderImage(renderObject)->setHasShadowControls(false);
+    downcast<RenderImage>(*renderObject).setHasShadowControls(false);
 }
 
 bool HTMLImageElement::hasImageControls() const

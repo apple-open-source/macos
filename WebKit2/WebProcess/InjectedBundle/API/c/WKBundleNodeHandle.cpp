@@ -28,6 +28,7 @@
 #include "WKBundleNodeHandlePrivate.h"
 
 #include "InjectedBundleNodeHandle.h"
+#include "InjectedBundleRangeHandle.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
 #include "WebFrame.h"
@@ -63,6 +64,12 @@ WKImageRef WKBundleNodeHandleCopySnapshotWithOptions(WKBundleNodeHandleRef nodeH
     return toAPI(image.release().leakRef());
 }
 
+WKBundleRangeHandleRef WKBundleNodeHandleCopyVisibleRange(WKBundleNodeHandleRef nodeHandleRef)
+{
+    RefPtr<InjectedBundleRangeHandle> rangeHandle = toImpl(nodeHandleRef)->visibleRange();
+    return toAPI(rangeHandle.release().leakRef());
+}
+
 WKRect WKBundleNodeHandleGetElementBounds(WKBundleNodeHandleRef elementHandleRef)
 {
     return toAPI(toImpl(elementHandleRef)->elementBounds());
@@ -73,14 +80,29 @@ void WKBundleNodeHandleSetHTMLInputElementValueForUser(WKBundleNodeHandleRef htm
     toImpl(htmlInputElementHandleRef)->setHTMLInputElementValueForUser(toWTFString(valueRef));
 }
 
-bool WKBundleNodeHandleGetHTMLInputElementAutofilled(WKBundleNodeHandleRef htmlInputElementHandleRef)
+bool WKBundleNodeHandleGetHTMLInputElementAutoFilled(WKBundleNodeHandleRef htmlInputElementHandleRef)
 {
-    return toImpl(htmlInputElementHandleRef)->isHTMLInputElementAutofilled();
+    return toImpl(htmlInputElementHandleRef)->isHTMLInputElementAutoFilled();
 }
 
-void WKBundleNodeHandleSetHTMLInputElementAutofilled(WKBundleNodeHandleRef htmlInputElementHandleRef, bool filled)
+void WKBundleNodeHandleSetHTMLInputElementAutoFilled(WKBundleNodeHandleRef htmlInputElementHandleRef, bool filled)
 {
-    toImpl(htmlInputElementHandleRef)->setHTMLInputElementAutofilled(filled);
+    toImpl(htmlInputElementHandleRef)->setHTMLInputElementAutoFilled(filled);
+}
+
+bool WKBundleNodeHandleGetHTMLInputElementAutoFillButtonEnabled(WKBundleNodeHandleRef htmlInputElementHandleRef)
+{
+    return toImpl(htmlInputElementHandleRef)->isHTMLInputElementAutoFillButtonEnabled();
+}
+
+void WKBundleNodeHandleSetHTMLInputElementAutoFillButtonEnabled(WKBundleNodeHandleRef htmlInputElementHandleRef, bool enabled)
+{
+    toImpl(htmlInputElementHandleRef)->setHTMLInputElementAutoFillButtonEnabled(enabled);
+}
+
+WKRect WKBundleNodeHandleGetHTMLInputElementAutoFillButtonBounds(WKBundleNodeHandleRef htmlInputElementHandleRef)
+{
+    return toAPI(toImpl(htmlInputElementHandleRef)->htmlInputElementAutoFillButtonBounds());
 }
 
 bool WKBundleNodeHandleGetHTMLInputElementLastChangeWasUserEdit(WKBundleNodeHandleRef htmlInputElementHandleRef)
@@ -115,4 +137,16 @@ WKBundleFrameRef WKBundleNodeHandleCopyHTMLIFrameElementContentFrame(WKBundleNod
 {
     RefPtr<WebFrame> frame = toImpl(htmlIFrameElementHandleRef)->htmlIFrameElementContentFrame();
     return toAPI(frame.release().leakRef());
+}
+
+// Deprecated - use WKBundleNodeHandleGetHTMLInputElementAutoFilled(WKBundleNodeHandleRef).
+bool WKBundleNodeHandleGetHTMLInputElementAutofilled(WKBundleNodeHandleRef htmlInputElementHandleRef)
+{
+    return toImpl(htmlInputElementHandleRef)->isHTMLInputElementAutoFilled();
+}
+
+// Deprecated - use WKBundleNodeHandleSetHTMLInputElementAutoFilled(WKBundleNodeHandleRef, bool).
+void WKBundleNodeHandleSetHTMLInputElementAutofilled(WKBundleNodeHandleRef htmlInputElementHandleRef, bool filled)
+{
+    toImpl(htmlInputElementHandleRef)->setHTMLInputElementAutoFilled(filled);
 }

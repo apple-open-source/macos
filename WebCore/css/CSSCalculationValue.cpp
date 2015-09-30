@@ -109,6 +109,7 @@ static bool hasDoubleValue(CSSPrimitiveValue::UnitTypes type)
     case CSSPrimitiveValue::CSS_DEG:
     case CSSPrimitiveValue::CSS_RAD:
     case CSSPrimitiveValue::CSS_GRAD:
+    case CSSPrimitiveValue::CSS_TURN:
     case CSSPrimitiveValue::CSS_MS:
     case CSSPrimitiveValue::CSS_S:
     case CSSPrimitiveValue::CSS_HZ:
@@ -124,6 +125,7 @@ static bool hasDoubleValue(CSSPrimitiveValue::UnitTypes type)
         return true;
     case CSSPrimitiveValue::CSS_UNKNOWN:
     case CSSPrimitiveValue::CSS_STRING:
+    case CSSPrimitiveValue::CSS_FONT_FAMILY:
     case CSSPrimitiveValue::CSS_URI:
     case CSSPrimitiveValue::CSS_IDENT:
     case CSSPrimitiveValue::CSS_ATTR:
@@ -135,10 +137,12 @@ static bool hasDoubleValue(CSSPrimitiveValue::UnitTypes type)
     case CSSPrimitiveValue::CSS_PARSER_OPERATOR:
     case CSSPrimitiveValue::CSS_PARSER_HEXCOLOR:
     case CSSPrimitiveValue::CSS_PARSER_IDENTIFIER:
-    case CSSPrimitiveValue::CSS_TURN:
     case CSSPrimitiveValue::CSS_COUNTER_NAME:
     case CSSPrimitiveValue::CSS_SHAPE:
     case CSSPrimitiveValue::CSS_QUAD:
+#if ENABLE(CSS_SCROLL_SNAP)
+    case CSSPrimitiveValue::CSS_LENGTH_REPEAT:
+#endif
     case CSSPrimitiveValue::CSS_CALC:
     case CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_NUMBER:
     case CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_LENGTH:
@@ -156,7 +160,7 @@ static bool hasDoubleValue(CSSPrimitiveValue::UnitTypes type)
 static String buildCssText(const String& expression)
 {
     StringBuilder result;
-    result.append("calc");
+    result.appendLiteral("calc");
     bool expressionHasSingleTerm = expression[0] != '(';
     if (expressionHasSingleTerm)
         result.append('(');
@@ -194,7 +198,7 @@ double CSSCalcValue::computeLengthPx(const CSSToLengthConversionData& conversion
 class CSSCalcPrimitiveValue final : public CSSCalcExpressionNode {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassRef<CSSCalcPrimitiveValue> create(PassRefPtr<CSSPrimitiveValue> value, bool isInteger)
+    static Ref<CSSCalcPrimitiveValue> create(PassRefPtr<CSSPrimitiveValue> value, bool isInteger)
     {
         return adoptRef(*new CSSCalcPrimitiveValue(value, isInteger));
     }
@@ -228,7 +232,7 @@ private:
         case CalcPercentLength: {
             CSSPrimitiveValue* primitiveValue = m_value.get();
             return std::make_unique<CalcExpressionLength>(primitiveValue
-                ? primitiveValue->convertToLength<FixedFloatConversion | PercentConversion | FractionConversion>(conversionData) : Length(Undefined));
+                ? primitiveValue->convertToLength<FixedFloatConversion | PercentConversion>(conversionData) : Length(Undefined));
         }
         // Only types that could be part of a Length expression can be converted
         // to a CalcExpressionNode. CalcPercentNumber makes no sense as a Length.
@@ -601,11 +605,11 @@ private:
             return false;
 
         RefPtr<CSSValue> value = parserValue->createCSSValue();
-        if (!value || !value->isPrimitiveValue())
+        if (!is<CSSPrimitiveValue>(value.get()))
             return false;
 
-        CSSPrimitiveValue* primitiveValue = toCSSPrimitiveValue(value.get());
-        result->value = CSSCalcPrimitiveValue::create(primitiveValue, parserValue->isInt);
+        CSSPrimitiveValue& primitiveValue = downcast<CSSPrimitiveValue>(*value);
+        result->value = CSSCalcPrimitiveValue::create(&primitiveValue, parserValue->isInt);
 
         ++*index;
         return true;
@@ -728,7 +732,7 @@ static PassRefPtr<CSSCalcExpressionNode> createCSS(const Length& length, const R
     switch (length.type()) {
     case Percent:
     case Fixed:
-        return CSSCalcPrimitiveValue::create(CSSPrimitiveValue::create(length, &style), length.value() == trunc(length.value()));
+        return CSSCalcPrimitiveValue::create(CSSPrimitiveValue::create(length, style), length.value() == trunc(length.value()));
     case Calculated:
         return createCSS(length.calculationValue().expression(), style);
     case Auto:
@@ -747,19 +751,18 @@ static PassRefPtr<CSSCalcExpressionNode> createCSS(const Length& length, const R
     return nullptr;
 }
 
-PassRefPtr<CSSCalcValue> CSSCalcValue::create(CSSParserString name, CSSParserValueList& parserValueList, CalculationPermittedValueRange range)
+RefPtr<CSSCalcValue> CSSCalcValue::create(CSSParserString name, CSSParserValueList& parserValueList, CalculationPermittedValueRange range)
 {
     CSSCalcExpressionNodeParser parser;
     RefPtr<CSSCalcExpressionNode> expression;
 
     if (equalIgnoringCase(name, "calc(") || equalIgnoringCase(name, "-webkit-calc("))
         expression = parser.parseCalc(&parserValueList);
-    // FIXME: calc (http://webkit.org/b/16662) Add parsing for min and max here
 
     return expression ? adoptRef(new CSSCalcValue(expression.releaseNonNull(), range != CalculationRangeAll)) : nullptr;
 }
 
-PassRefPtr<CSSCalcValue> CSSCalcValue::create(const CalculationValue& value, const RenderStyle& style)
+RefPtr<CSSCalcValue> CSSCalcValue::create(const CalculationValue& value, const RenderStyle& style)
 {
     RefPtr<CSSCalcExpressionNode> expression = createCSS(value.expression(), style);
     if (!expression)

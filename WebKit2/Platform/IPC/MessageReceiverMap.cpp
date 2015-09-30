@@ -42,6 +42,8 @@ MessageReceiverMap::~MessageReceiverMap()
 void MessageReceiverMap::addMessageReceiver(StringReference messageReceiverName, MessageReceiver& messageReceiver)
 {
     ASSERT(!m_globalMessageReceivers.contains(messageReceiverName));
+
+    messageReceiver.willBeAddedToMessageReceiverMap();
     m_globalMessageReceivers.set(messageReceiverName, &messageReceiver);
 }
 
@@ -51,6 +53,7 @@ void MessageReceiverMap::addMessageReceiver(StringReference messageReceiverName,
     ASSERT(!m_messageReceivers.contains(std::make_pair(messageReceiverName, destinationID)));
     ASSERT(!m_globalMessageReceivers.contains(messageReceiverName));
 
+    messageReceiver.willBeAddedToMessageReceiverMap();
     m_messageReceivers.set(std::make_pair(messageReceiverName, destinationID), &messageReceiver);
 }
 
@@ -58,23 +61,35 @@ void MessageReceiverMap::removeMessageReceiver(StringReference messageReceiverNa
 {
     ASSERT(m_globalMessageReceivers.contains(messageReceiverName));
 
-    m_globalMessageReceivers.remove(messageReceiverName);
+    auto it = m_globalMessageReceivers.find(messageReceiverName);
+    it->value->willBeRemovedFromMessageReceiverMap();
+
+    m_globalMessageReceivers.remove(it);
 }
 
 void MessageReceiverMap::removeMessageReceiver(StringReference messageReceiverName, uint64_t destinationID)
 {
     ASSERT(m_messageReceivers.contains(std::make_pair(messageReceiverName, destinationID)));
 
-    m_messageReceivers.remove(std::make_pair(messageReceiverName, destinationID));
+    auto it = m_messageReceivers.find(std::make_pair(messageReceiverName, destinationID));
+    it->value->willBeRemovedFromMessageReceiverMap();
+
+    m_messageReceivers.remove(it);
 }
 
 void MessageReceiverMap::invalidate()
 {
+    for (auto& messageReceiver : m_globalMessageReceivers.values())
+        messageReceiver->willBeRemovedFromMessageReceiverMap();
     m_globalMessageReceivers.clear();
+
+
+    for (auto& messageReceiver : m_messageReceivers.values())
+        messageReceiver->willBeRemovedFromMessageReceiverMap();
     m_messageReceivers.clear();
 }
 
-bool MessageReceiverMap::dispatchMessage(Connection* connection, MessageDecoder& decoder)
+bool MessageReceiverMap::dispatchMessage(Connection& connection, MessageDecoder& decoder)
 {
     if (MessageReceiver* messageReceiver = m_globalMessageReceivers.get(decoder.messageReceiverName())) {
         ASSERT(!decoder.destinationID());
@@ -91,7 +106,7 @@ bool MessageReceiverMap::dispatchMessage(Connection* connection, MessageDecoder&
     return false;
 }
 
-bool MessageReceiverMap::dispatchSyncMessage(Connection* connection, MessageDecoder& decoder, std::unique_ptr<MessageEncoder>& replyEncoder)
+bool MessageReceiverMap::dispatchSyncMessage(Connection& connection, MessageDecoder& decoder, std::unique_ptr<MessageEncoder>& replyEncoder)
 {
     if (MessageReceiver* messageReceiver = m_globalMessageReceivers.get(decoder.messageReceiverName())) {
         ASSERT(!decoder.destinationID());

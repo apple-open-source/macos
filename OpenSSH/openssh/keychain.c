@@ -71,11 +71,13 @@ static int get_boolean_preference(const char *key, int default_value,
 	if (keyRef != NULL)
 		valueRef = CFPreferencesCopyAppValue(keyRef,
 		    CFSTR("org.openbsd.openssh"));
-	if (valueRef != NULL)
+	if (valueRef != NULL) {
 		if (CFGetTypeID(valueRef) == CFBooleanGetTypeID())
 			value = CFBooleanGetValue(valueRef);
-		else if (foreground)
-			fprintf(stderr, "Ignoring nonboolean %s preference.\n", key);
+		else if (foreground) {
+				fprintf(stderr, "Ignoring nonboolean %s preference.\n", key);
+			}
+	}
 
 	if (keyRef)
 		CFRelease(keyRef);
@@ -217,7 +219,7 @@ err:	/* Clean up. */
 	if (cfdata_filename)
 		CFRelease(cfdata_filename);
 	if (label)
-		xfree(label);
+		free(label);
 	if (itemRef)
 		CFRelease(itemRef);
 	if (apps[0])
@@ -421,9 +423,9 @@ err:		/* Clean up. */
 		if (cfstr_filename)
 			CFRelease(cfstr_filename);
 		if (filename)
-			xfree(filename);
+			free(filename);
 		if (passphrase)
-			xfree(passphrase);
+			free(passphrase);
 		if (itemAttrList)
 			SecKeychainItemFreeAttributesAndData(itemAttrList,
 			    data);
@@ -449,7 +451,7 @@ err:		/* Clean up. */
 /*
  * Prompt the user for a key's passphrase.  The user will be offered the option
  * of storing the passphrase in their keychain.  Returns the passphrase
- * (which the caller is responsible for xfreeing), or NULL if this function
+ * (which the caller is responsible for freeing), or NULL if this function
  * fails or is not implemented.  If this function is not implemented, ssh will
  * fall back on the standard read_passphrase function, and the user will need
  * to use ssh-add -K to add their keys to the keychain.
@@ -483,7 +485,7 @@ keychain_read_passphrase(const char *filename, int oAskPassGUI)
 	CFStringRef promptTemplate = NULL, prompt = NULL;
 	UInt32 length;
 	const void *data;
-	AuthenticationConnection *ac = NULL;
+	int authSocket = -1;
 	char *result = NULL;
 
 	/* Bail out if KeychainIntegration preference is -bool NO */
@@ -495,7 +497,7 @@ keychain_read_passphrase(const char *filename, int oAskPassGUI)
 		goto err;
 
 	/* Bail out if we can't communicate with ssh-agent */
-	if ((ac = ssh_get_authentication_connection()) == NULL)
+	if (ssh_get_authentication_socket(&authSocket) != 0)
 		goto err;
 
 	/* Interpret filename with the correct encoding. */
@@ -619,14 +621,15 @@ keychain_read_passphrase(const char *filename, int oAskPassGUI)
 
 		/* Add password to agent. */
 		char *comment = NULL;
+		int r;
 		Key *private = key_load_private(filename, result, &comment);
 		if (NULL == private)
 			break;
-		if (ssh_add_identity_constrained(ac, private, comment, 0, 0))
+		if ((r = ssh_add_identity_constrained(authSocket, private, comment, 0, 0)) == 0)
 			fprintf(stderr, "Identity added: %s (%s)\n", filename, comment);
 		else
-			fprintf(stderr, "Could not add identity: %s\n", filename);
-		xfree(comment);
+			fprintf(stderr, "Could not add identity: %s (%d)\n", filename, r);
+		free(comment);
 		key_free(private);
 		break;
 	case errAuthorizationCanceled:
@@ -649,7 +652,7 @@ err:	/* Clean up. */
 	if (cfdata_filename)
 		CFRelease(cfdata_filename);
 	if (label)
-		xfree(label);
+		free(label);
 	if (passRef)
 		CFRelease(passRef);
 	if (apps[0])
@@ -674,8 +677,8 @@ err:	/* Clean up. */
 		CFRelease(promptTemplate);
 	if (prompt)
 		CFRelease(prompt);
-	if (ac)
-		ssh_close_authentication_connection(ac);
+	if (authSocket != -1)
+		ssh_close_authentication_socket(authSocket);
 
 	return result;
 
@@ -711,21 +714,22 @@ keychain_lock_callback(SecKeychainEvent event, SecKeychainCallbackInfo *info, vo
 		goto cleanup;
 	}
 
-	AuthenticationConnection *ac = ssh_get_authentication_connection();
-	if (NULL == ac) {
-		error("keychain_lock_callback: Unable to get authentication connection.");
+	int agentSocket = -1;
+	if (ssh_get_authentication_socket(&agentSocket) != 0) {
+		error("keychain_lock_callback: Unable to get authentication connection socket.");
 		goto cleanup;
 	}
 
 	/* Silently remove all identitites */
 	debug("keychain_lock_callback: Removing all identities.");
-	if (0 != ssh_remove_all_identities(ac, 1))
-		debug("keychain_lock_callback: Failed to remove all v1 identities.");
-
-	if (0 != ssh_remove_all_identities(ac, 2))
+	
+	if (0 != ssh_remove_all_identities(agentSocket, 2))
 		debug("keychain_lock_callback: Failed to remove all v2 identities.");
 
-	ssh_close_authentication_connection(ac);
+	/* ssh-add.c delete_all() ignores the return value for V1 identities */
+	(void)ssh_remove_all_identities(agentSocket, 1);
+
+	ssh_close_authentication_socket(agentSocket);
 
 cleanup:
 	if (login_keychain)
@@ -765,13 +769,13 @@ keychain_unlock_callback(SecKeychainEvent event, SecKeychainCallbackInfo *info, 
 
 	/* Silently add all identities from keychain */
 	debug("keychain_unlock_callback: Adding all identities from keychain, no user interaction.");
-	AuthenticationConnection *ac = ssh_get_authentication_connection();
-	if (NULL == ac) {
-		error("keychain_unlock_callback: Unable to get authentication connection.");
+	int agentSocket = -1;
+	if (ssh_get_authentication_socket(&agentSocket) != 0) {
+		error("keychain_unlock_callback: Unable to get authentication connection socket.");
 		goto cleanup;
 	}
-	ssh_add_from_keychain(ac);
-	ssh_close_authentication_connection(ac);
+	ssh_add_from_keychain(agentSocket);
+	ssh_close_authentication_socket(agentSocket);
 
 	/* Set user interaction state back */
 	if (state) {

@@ -189,7 +189,11 @@ get_pty(int master, int *retfd)
 #endif
 
     if (master) {
+#ifdef HAVE_POSIX_OPENPT
+	if ((mfd = posix_openpt(O_RDWR|O_NOCTTY)) < 0)
+#else
 	if ((mfd = open("/dev/ptmx", O_RDWR|O_NOCTTY)) < 0)
+#endif
 	    return 1;
 
 	if (grantpt(mfd) || unlockpt(mfd) || !(name = ptsname(mfd))) {
@@ -304,7 +308,7 @@ newptycmd(char *nam, char *pname, char **args, int echo, int nblock)
 
     prog = parse_string(zjoin(args, ' ', 1), 0);
     if (!prog) {
-	errflag = 0;
+	errflag &= ~ERRFLAG_ERROR;
 	scriptname = oscriptname;
 	ineval = oineval;
 	return 1;

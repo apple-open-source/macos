@@ -1,11 +1,13 @@
-#compdef apt-get apt-cache apt-cdrom apt-config
+#compdef apt apt-get apt-cache apt-cdrom apt-config apt-mark
 
 _apt () {
   case "$service" in
+    apt) _apt-cmd "$@";;
     apt-get) _apt-get "$@";;
     apt-cache) _apt-cache "$@";;
     apt-cdrom) _apt-cdrom "$@";;
     apt-config) _apt-config "$@";;
+    apt-mark) _apt-mark "$@";;
     *) _message "unknown command $service";;
   esac
 }
@@ -389,6 +391,38 @@ _apt_consume_long () {
   return 0
 }
 
+_apt-cmd () {
+  _apt_arguments _apt-cmd_sm \
+    -h,--help:bool \
+    -v,--version:bool \
+    -c,--config-file:configfile \
+    -o,--option:arbitem \
+    -t,--target-release:release \
+    -- \
+    /$'list\0'/ \| \
+    /$'search\0'/ /$'[^\0]#\0'/ ':strings:pattern:' \| \
+    /$'show\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \
+    /$'update\0'/ \| \
+    \( \
+    /$'install\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \
+    /$'[^\0/]#/'/ /$'[^\0/]#\0'/ ':release name::_apt_releases' \) \| \
+    /$'remove\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
+    /$'upgrade\0'/ \| \
+    /$'full-upgrade\0'/ \| \
+    /$'edit-sources\0'/ \| \
+    /"[]"/	':argument-1::compadd "$expl_action[@]" list search show update install remove upgrade full-upgrade edit-sources'
+
+  _apt-cmd () {
+    local expl_action expl_packages
+    _description actions expl_action 'action'
+    _description packages expl_packages 'package'
+
+    _apt-cmd_sm
+  }
+
+  _apt-cmd "$@"
+}
+
 _apt-get () {
   _apt_arguments _apt-get_sm \
     -h,--help:bool \
@@ -421,6 +455,7 @@ _apt-get () {
     --tar-only:bool \
     --arch-only:bool \
     --allow-unauthenticated:bool \
+    --auto-remove:bool \
     -- \
     /$'update\0'/ \| \
     /$'upgrade\0'/ \| \
@@ -584,6 +619,36 @@ _apt_caching_policy () {
 
   [[ /var/cache/apt/pkgcache.bin -nt "$1" ||
      /var/lib/dpkg/available -nt "$1" ]]
+}
+
+_apt-mark () {
+  _apt_arguments _apt-mark_sm \
+    -h,--help:bool \
+    -v,--version:bool \
+    -f,--file:configfile \
+    -c,--config-file:configfile \
+    -o,--option:arbitem \
+    -qq:bool \
+    -s:bool \
+    -- \
+    /$'auto\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
+    /$'manual\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
+    /$'hold\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
+    /$'unhold\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
+    /$'showauto\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
+    /$'showmanual\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
+    /$'showhold\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
+    /"[]"/	':argument-1::compadd "$expl_action[@]" auto manual hold unhold showauto showmanual showhold'
+
+  _apt-mark () {
+    local expl_action expl_packages
+    _description actions expl_action 'action'
+    _description packages expl_packages 'package'
+
+    _apt-mark_sm
+  }
+
+  _apt-mark "$@"
 }
 
 _apt "$@"

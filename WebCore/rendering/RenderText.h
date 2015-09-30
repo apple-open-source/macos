@@ -49,6 +49,11 @@ public:
 
     RenderStyle& style() const;
     RenderStyle& firstLineStyle() const;
+    RenderStyle* getCachedPseudoStyle(PseudoId, RenderStyle* parentStyle = nullptr) const;
+
+    Color selectionBackgroundColor() const;
+    Color selectionForegroundColor() const;
+    Color selectionEmphasisMarkColor() const;
 
     virtual String originalText() const;
 
@@ -84,8 +89,8 @@ public:
     unsigned textLength() const { return m_text.impl()->length(); } // non virtual implementation of length()
     void positionLineBox(InlineTextBox&);
 
-    virtual float width(unsigned from, unsigned len, const Font&, float xPos, HashSet<const SimpleFontData*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
-    virtual float width(unsigned from, unsigned len, float xPos, bool firstLine = false, HashSet<const SimpleFontData*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
+    virtual float width(unsigned from, unsigned len, const FontCascade&, float xPos, HashSet<const Font*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
+    virtual float width(unsigned from, unsigned len, float xPos, bool firstLine = false, HashSet<const Font*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
 
     float minLogicalWidth() const;
     float maxLogicalWidth() const;
@@ -97,10 +102,10 @@ public:
                            float& beginMaxW, float& endMaxW,
                            float& minW, float& maxW, bool& stripFrontSpaces);
 
-    virtual IntRect linesBoundingBox() const;
+    WEBCORE_EXPORT virtual IntRect linesBoundingBox() const;
     LayoutRect linesVisualOverflowBoundingBox() const;
 
-    IntPoint firstRunLocation() const;
+    WEBCORE_EXPORT IntPoint firstRunLocation() const;
 
     virtual void setText(const String&, bool force = false);
     void setTextWithOffset(const String&, unsigned offset, unsigned len, bool force = false);
@@ -133,8 +138,7 @@ public:
 
     bool containsReversedText() const { return m_containsReversedText; }
 
-    bool isSecure() const { return style().textSecurity() != TSNONE; }
-    void momentarilyRevealLastTypedCharacter(unsigned lastTypedCharacterOffset);
+    void momentarilyRevealLastTypedCharacter(unsigned offsetAfterLastTypedCharacter);
 
     InlineTextBox* findNextInlineTextBox(int offset, int& pos) const { return m_lineBoxes.findNext(offset, pos); }
 
@@ -157,8 +161,9 @@ public:
     void deleteLineBoxesBeforeSimpleLineLayout();
     const SimpleLineLayout::Layout* simpleLineLayout() const;
 
-    bool contentIsKnownToFollow() { return m_contentIsKnownToFollow; }
-    void setContentIsKnownToFollow(bool contentIsKnownToFollow) { m_contentIsKnownToFollow = contentIsKnownToFollow; }
+    StringView stringView(int start = 0, int stop = -1) const;
+
+    LayoutUnit topOfFirstText() const;
 
 protected:
     virtual void computePreferredLogicalWidths(float leadWidth);
@@ -172,7 +177,7 @@ private:
 
     virtual bool canHaveChildren() const override final { return false; }
 
-    void computePreferredLogicalWidths(float leadWidth, HashSet<const SimpleFontData*>& fallbackFonts, GlyphOverflow&);
+    void computePreferredLogicalWidths(float leadWidth, HashSet<const Font*>& fallbackFonts, GlyphOverflow&);
 
     bool computeCanUseSimpleFontCodePath() const;
     
@@ -184,7 +189,7 @@ private:
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint&, HitTestAction) override final { ASSERT_NOT_REACHED(); return false; }
 
     bool containsOnlyWhitespace(unsigned from, unsigned len) const;
-    float widthFromCache(const Font&, int start, int len, float xPos, HashSet<const SimpleFontData*>* fallbackFonts, GlyphOverflow*, const RenderStyle&) const;
+    float widthFromCache(const FontCascade&, int start, int len, float xPos, HashSet<const Font*>* fallbackFonts, GlyphOverflow*, const RenderStyle&) const;
     bool isAllASCII() const { return m_isAllASCII; }
     bool computeUseBackslashAsYenSymbol() const;
 
@@ -210,7 +215,6 @@ private:
     mutable unsigned m_knownToHaveNoOverflowAndNoFallbackFonts : 1;
     unsigned m_useBackslashAsYenSymbol : 1;
     unsigned m_originalTextDiffersFromRendered : 1;
-    unsigned m_contentIsKnownToFollow : 1;
 
 #if ENABLE(IOS_TEXT_AUTOSIZING)
     // FIXME: This should probably be part of the text sizing structures in Document instead. That would save some memory.
@@ -225,8 +229,6 @@ private:
 
     RenderTextLineBoxes m_lineBoxes;
 };
-
-RENDER_OBJECT_TYPE_CASTS(RenderText, isText())
 
 inline UChar RenderText::uncheckedCharacterAt(unsigned i) const
 {
@@ -252,15 +254,37 @@ inline RenderStyle& RenderText::firstLineStyle() const
     return parent()->firstLineStyle();
 }
 
+inline RenderStyle* RenderText::getCachedPseudoStyle(PseudoId pseudoId, RenderStyle* parentStyle) const
+{
+    return parent()->getCachedPseudoStyle(pseudoId, parentStyle);
+}
+
+inline Color RenderText::selectionBackgroundColor() const
+{
+    return parent()->selectionBackgroundColor();
+}
+
+inline Color RenderText::selectionForegroundColor() const
+{
+    return parent()->selectionForegroundColor();
+}
+
+inline Color RenderText::selectionEmphasisMarkColor() const
+{
+    return parent()->selectionEmphasisMarkColor();
+}
+
 void applyTextTransform(const RenderStyle&, String&, UChar);
 void makeCapitalized(String*, UChar previous);
 LineBreakIteratorMode mapLineBreakToIteratorMode(LineBreak);
     
 inline RenderText* Text::renderer() const
 {
-    return toRenderText(Node::renderer());
+    return downcast<RenderText>(Node::renderer());
 }
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderText, isText())
 
 #endif // RenderText_h

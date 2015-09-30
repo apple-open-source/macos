@@ -48,7 +48,11 @@ extern "C" {
  *
  * @see Ewk_Object
  */
+#ifdef __cplusplus
+typedef class EwkObject Ewk_Download_Job;
+#else
 typedef struct EwkObject Ewk_Download_Job;
+#endif
 
 /// Defines the possible states of a download.
 enum Ewk_Download_Job_State {
@@ -151,8 +155,8 @@ EAPI const char *ewk_download_job_suggested_filename_get(const Ewk_Download_Job 
 /**
  * Cancels the download asynchronously.
  *
- * When the ongoing download operation is effectively cancelled a "download,cancelled"
- * signal will be emitted on the view.
+ * When the ongoing download operation is effectively cancelled, a "Ewk_Download_Cancelled_Cb"
+ * will be called in DownloadManager.
  *
  * @param download a #Ewk_Download_Job to cancel.
  *

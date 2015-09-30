@@ -2344,7 +2344,7 @@ class YarrGenerator : private MacroAssembler {
         m_ops.append(alternativeBeginOpCode);
         m_ops.last().m_previousOp = notFound;
         m_ops.last().m_term = term;
-        Vector<OwnPtr<PatternAlternative>>& alternatives =  term->parentheses.disjunction->m_alternatives;
+        Vector<std::unique_ptr<PatternAlternative>>& alternatives = term->parentheses.disjunction->m_alternatives;
         for (unsigned i = 0; i < alternatives.size(); ++i) {
             size_t lastOpIndex = m_ops.size() - 1;
 
@@ -2395,7 +2395,7 @@ class YarrGenerator : private MacroAssembler {
         m_ops.append(OpSimpleNestedAlternativeBegin);
         m_ops.last().m_previousOp = notFound;
         m_ops.last().m_term = term;
-        Vector<OwnPtr<PatternAlternative>>& alternatives =  term->parentheses.disjunction->m_alternatives;
+        Vector<std::unique_ptr<PatternAlternative>>& alternatives =  term->parentheses.disjunction->m_alternatives;
         for (unsigned i = 0; i < alternatives.size(); ++i) {
             size_t lastOpIndex = m_ops.size() - 1;
 
@@ -2469,7 +2469,7 @@ class YarrGenerator : private MacroAssembler {
     // to return the failing result.
     void opCompileBody(PatternDisjunction* disjunction)
     {
-        Vector<OwnPtr<PatternAlternative>>& alternatives = disjunction->m_alternatives;
+        Vector<std::unique_ptr<PatternAlternative>>& alternatives = disjunction->m_alternatives;
         size_t currentAlternativeIndex = 0;
 
         // Emit the 'once through' alternatives.
@@ -2643,11 +2643,8 @@ public:
 
         initCallFrame();
 
-        // Compile the pattern to the internal 'YarrOp' representation.
         opCompileBody(m_pattern.m_body);
 
-        // If we encountered anything we can't handle in the JIT code
-        // (e.g. backreferences) then return early.
         if (m_shouldFallBack) {
             jitObject.setFallBack(true);
             return;
@@ -2656,8 +2653,12 @@ public:
         generate();
         backtrack();
 
-        // Link & finalize the code.
-        LinkBuffer linkBuffer(*vm, *this, REGEXP_CODE_ID);
+        LinkBuffer linkBuffer(*vm, *this, REGEXP_CODE_ID, JITCompilationCanFail);
+        if (linkBuffer.didFailToAllocate()) {
+            jitObject.setFallBack(true);
+            return;
+        }
+
         m_backtrackingState.linkDataLabels(linkBuffer);
 
         if (compileMode == MatchOnly) {

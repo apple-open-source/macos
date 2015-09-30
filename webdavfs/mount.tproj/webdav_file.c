@@ -454,7 +454,7 @@ int filesystem_lookup(struct webdav_request_lookup *request_lookup, struct webda
 	node = NULL;
 
 	// First make sure the name being looked up is valid UTF-8
-	if ( request_lookup->name != NULL && request_lookup->name_length != 0)
+	if ( request_lookup->name_length != 0)
 	{
 		name_string = CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8 *)request_lookup->name,
 												request_lookup->name_length,

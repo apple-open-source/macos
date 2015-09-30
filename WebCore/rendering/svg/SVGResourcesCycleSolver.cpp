@@ -50,7 +50,7 @@ bool SVGResourcesCycleSolver::resourceContainsCycles(RenderElement& renderer) co
     // First operate on the resources of the given renderer.
     // <marker id="a"> <path marker-start="url(#b)"/> ...
     // <marker id="b" marker-start="url(#a)"/>
-    if (SVGResources* resources = SVGResourcesCache::cachedResourcesForRenderObject(renderer)) {
+    if (auto* resources = SVGResourcesCache::cachedResourcesForRenderer(renderer)) {
         HashSet<RenderSVGResourceContainer*> resourceSet;
         resources->buildSetOfResources(resourceSet);
 
@@ -65,7 +65,7 @@ bool SVGResourcesCycleSolver::resourceContainsCycles(RenderElement& renderer) co
     // <marker id="a"> <path marker-start="url(#b)"/> ...
     // <marker id="b"> <path marker-start="url(#a)"/> ...
     for (auto& child : childrenOfType<RenderElement>(renderer)) {
-        SVGResources* childResources = SVGResourcesCache::cachedResourcesForRenderObject(child);
+        auto* childResources = SVGResourcesCache::cachedResourcesForRenderer(child);
         if (!childResources)
             continue;
         
@@ -125,8 +125,8 @@ void SVGResourcesCycleSolver::resolveCycles()
         m_allResources.add(resource);
 
     // If we're a resource, add ourselves to the HashSet.
-    if (m_renderer.isSVGResourceContainer())
-        m_allResources.add(&toRenderSVGResourceContainer(m_renderer));
+    if (is<RenderSVGResourceContainer>(m_renderer))
+        m_allResources.add(&downcast<RenderSVGResourceContainer>(m_renderer));
 
     ASSERT(!m_allResources.isEmpty());
 
@@ -176,10 +176,8 @@ void SVGResourcesCycleSolver::breakCycle(RenderSVGResourceContainer& resourceLea
             m_resources.resetStroke();
         break;
     case FilterResourceType:
-#if ENABLE(FILTERS)
         ASSERT(&resourceLeadingToCycle == m_resources.filter());
         m_resources.resetFilter();
-#endif
         break;
     case ClipperResourceType:
         ASSERT(&resourceLeadingToCycle == m_resources.clipper());

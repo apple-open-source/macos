@@ -1,2 +1,2 @@
 PRODUCT_NAME = $(TARGET_NAME);
-INSTALL_PATH_ACTUAL = /usr/bin;
+INSTALL_PATH = /usr/bin;

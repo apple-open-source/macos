@@ -278,11 +278,11 @@ check_od(krb5_context context,
 	goto out;
 
     ret = mbr_identifier_to_uuid(ID_TYPE_USERNAME, luser, strlen(luser), un_uuid);
-    if (!ret)
+    if (ret != 0)
 	goto out;
 
     ret = mbr_identifier_to_uuid(ID_TYPE_KERBEROS, kprinc, strlen(kprinc), krb_uuid);
-    if (!ret)
+    if (ret != 0)
 	goto out;
 
     ret = uuid_compare(krb_uuid, un_uuid);

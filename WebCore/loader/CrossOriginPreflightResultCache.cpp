@@ -127,7 +127,9 @@ bool CrossOriginPreflightResultCacheItem::allowsCrossOriginMethod(const String& 
 bool CrossOriginPreflightResultCacheItem::allowsCrossOriginHeaders(const HTTPHeaderMap& requestHeaders, String& errorDescription) const
 {
     for (const auto& header : requestHeaders) {
-        if (!m_headers.contains(header.key) && !isOnAccessControlSimpleRequestHeaderWhitelist(header.key, header.value)) {
+        if (header.keyAsHTTPHeaderName && isOnAccessControlSimpleRequestHeaderWhitelist(header.keyAsHTTPHeaderName.value(), header.value))
+            continue;
+        if (!m_headers.contains(header.key)) {
             errorDescription = "Request header field " + header.key + " is not allowed by Access-Control-Allow-Headers.";
             return false;
         }
@@ -149,7 +151,7 @@ bool CrossOriginPreflightResultCacheItem::allowsRequest(StoredCredentials includ
     return true;
 }
 
-CrossOriginPreflightResultCache& CrossOriginPreflightResultCache::shared()
+CrossOriginPreflightResultCache& CrossOriginPreflightResultCache::singleton()
 {
     ASSERT(isMainThread());
 

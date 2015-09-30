@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,7 @@ si_list_add(si_list_t *l, si_item_t *e)
 	if (l == NULL)
 	{
 		l = (si_list_t *)calloc(1, sizeof(si_list_t));
-		l->refcount = 1;
+		if (l != NULL) l->refcount = 1;
 	}
 
 	if (l != NULL)
@@ -46,10 +46,7 @@ si_list_add(si_list_t *l, si_item_t *e)
 		size = (l->count + 1) * sizeof(si_item_t *);
 
 		l->entry = (si_item_t **)reallocf(l->entry, size);
-		if (l->entry != NULL)
-		{
-			l->entry[l->count++] = si_item_retain(e);
-		}
+		if (l->entry != NULL) l->entry[l->count++] = si_item_retain(e);
 	}
 
 	if ((l == NULL) || (l->entry == NULL))

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,6 +61,8 @@ public:
     // Called externally when native views move around.
     void viewportChangedViaDelegatedScrolling(WebCore::ScrollingNodeID, const WebCore::FloatRect& fixedPositionRect, double scale);
 
+    void currentSnapPointIndicesDidChange(WebCore::ScrollingNodeID, unsigned horizontal, unsigned vertical);
+
     // FIXME: expose the tree and pass this to that?
     bool handleWheelEvent(const WebCore::PlatformWheelEvent&);
     
@@ -84,14 +86,28 @@ public:
     void scrollingTreeNodeWillStartPanGesture();
     void scrollingTreeNodeWillStartScroll();
     void scrollingTreeNodeDidEndScroll();
+#if ENABLE(CSS_SCROLL_SNAP)
+    void adjustTargetContentOffsetForSnapping(CGSize maxScrollDimensions, CGPoint velocity, CGFloat topInset, CGPoint* targetContentOffset);
+    bool hasActiveSnapPoint() const;
+    CGPoint nearestActiveContentInsetAdjustedSnapPoint(CGFloat topInset, const CGPoint&) const;
+    bool shouldSetScrollViewDecelerationRateFast() const;
+#endif
 #endif
 
 private:
     void connectStateNodeLayers(WebCore::ScrollingStateTree&, const RemoteLayerTreeHost&);
+#if ENABLE(CSS_SCROLL_SNAP)
+    bool shouldSnapForMainFrameScrolling(WebCore::ScrollEventAxis) const;
+    float closestSnapOffsetForMainFrameScrolling(WebCore::ScrollEventAxis, float scrollDestination, float velocity, unsigned& closestIndex) const;
+#endif
 
     WebPageProxy& m_webPageProxy;
     RefPtr<RemoteScrollingTree> m_scrollingTree;
     RequestedScrollInfo* m_requestedScrollInfo;
+#if ENABLE(CSS_SCROLL_SNAP)
+    unsigned m_currentHorizontalSnapPointIndex { 0 };
+    unsigned m_currentVerticalSnapPointIndex { 0 };
+#endif
     bool m_propagatesMainFrameScrolls;
 };
 

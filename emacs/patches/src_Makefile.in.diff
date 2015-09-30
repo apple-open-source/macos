@@ -22,13 +22,13 @@
 +	mv temacs emacs-undumped
 +ifeq (i386,$(filter i386,$(RC_ARCHS)))
 +	lipo -thin i386 -output temacs emacs-undumped
-+	LC_ALL=C $(RUN_TEMACS) $(NL) -batch -l loadup dump
++	MallocASLRForce=0 LC_ALL=C $(RUN_TEMACS) $(NL) -batch -l loadup dump
 +	mv emacs arch/emacs-i386
 +	rm -f emacs-[0-9]* # avoid DOC-xx incrementing
 +endif
 +ifeq (x86_64,$(filter x86_64,$(RC_ARCHS)))
 +	lipo -thin x86_64 -output temacs emacs-undumped
-+	LC_ALL=C $(RUN_TEMACS) $(NL) -batch -l loadup dump
++	MallocASLRForce=0 LC_ALL=C $(RUN_TEMACS) $(NL) -batch -l loadup dump
 +	mv emacs arch/emacs-x86_64
 +	rm -f emacs-[0-9]* # avoid DOC-xx incrementing
 +endif
@@ -36,7 +36,7 @@
 +	cp emacs-undumped temacs
 +else
 +	cp temacs emacs-undumped
-+	LC_ALL=C $(RUN_TEMACS) $(NL) -batch -l loadup dump
++	MallocASLRForce=0 LC_ALL=C $(RUN_TEMACS) $(NL) -batch -l loadup dump
 +endif
  #endif /* ! defined (CANNOT_DUMP) */
  	-./emacs -q -batch -f list-load-path-shadows

@@ -1,3 +1,9 @@
+set(WebKit2_OUTPUT_NAME webkit2gtk-${WEBKITGTK_API_VERSION})
+set(WebKit2_WebProcess_OUTPUT_NAME WebKitWebProcess)
+set(WebKit2_NetworkProcess_OUTPUT_NAME WebKitNetworkProcess)
+set(WebKit2_PluginProcess_OUTPUT_NAME WebKitPluginProcess)
+set(WebKit2_DatabaseProcess_OUTPUT_NAME WebKitDatabaseProcess)
+
 file(MAKE_DIRECTORY ${DERIVED_SOURCES_WEBKIT2_DIR})
 file(MAKE_DIRECTORY ${DERIVED_SOURCES_WEBKIT2GTK_API_DIR})
 file(MAKE_DIRECTORY ${FORWARDING_HEADERS_WEBKIT2GTK_DIR})
@@ -7,6 +13,7 @@ configure_file(UIProcess/API/gtk/WebKitVersion.h.in ${DERIVED_SOURCES_WEBKIT2GTK
 configure_file(webkit2gtk.pc.in ${WebKit2_PKGCONFIG_FILE} @ONLY)
 configure_file(webkit2gtk-web-extension.pc.in ${WebKit2WebExtension_PKGCONFIG_FILE} @ONLY)
 
+add_definitions(-DBUILDING_WEBKIT)
 add_definitions(-DWEBKIT2_COMPILATION)
 add_definitions(-DLIBEXECDIR="${LIBEXEC_INSTALL_DIR}")
 add_definitions(-DPACKAGE_LOCALE_DIR="${CMAKE_INSTALL_FULL_LOCALEDIR}")
@@ -15,17 +22,14 @@ add_definitions(-DLIBDIR="${LIB_INSTALL_DIR}")
 set(WebKit2_USE_PREFIX_HEADER ON)
 
 list(APPEND WebKit2_SOURCES
-    ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/InspectorGResourceBundle.c
-    ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKit2InspectorGResourceBundle.c
-    ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKit2ResourcesGResourceBundle.c
+    DatabaseProcess/gtk/DatabaseProcessMainGtk.cpp
 
-    ${DERIVED_SOURCES_WEBKIT2GTK_API_DIR}/WebKitEnumTypes.cpp
-    ${DERIVED_SOURCES_WEBKIT2GTK_API_DIR}/WebKitMarshal.cpp
+    NetworkProcess/cache/NetworkCacheDataSoup.cpp
+    NetworkProcess/cache/NetworkCacheIOChannelSoup.cpp
 
     NetworkProcess/gtk/NetworkProcessMainGtk.cpp
 
     NetworkProcess/soup/NetworkProcessSoup.cpp
-    NetworkProcess/soup/NetworkResourceLoadSchedulerSoup.cpp
     NetworkProcess/soup/RemoteNetworkingContextSoup.cpp
 
     Platform/IPC/unix/AttachmentUnix.cpp
@@ -33,7 +37,6 @@ list(APPEND WebKit2_SOURCES
 
     Platform/gtk/LoggingGtk.cpp
     Platform/gtk/ModuleGtk.cpp
-    Platform/gtk/WorkQueueGtk.cpp
 
     Platform/unix/SharedMemoryUnix.cpp
 
@@ -55,6 +58,9 @@ list(APPEND WebKit2_SOURCES
     Shared/cairo/ShareableBitmapCairo.cpp
 
     Shared/gtk/ArgumentCodersGtk.cpp
+    Shared/gtk/KeyedDecoder.cpp
+    Shared/gtk/KeyedEncoder.cpp
+    Shared/gtk/NativeContextMenuItemGtk.cpp
     Shared/gtk/NativeWebKeyboardEventGtk.cpp
     Shared/gtk/NativeWebMouseEventGtk.cpp
     Shared/gtk/NativeWebTouchEventGtk.cpp
@@ -77,6 +83,7 @@ list(APPEND WebKit2_SOURCES
 
     Shared/unix/ChildProcessMain.cpp
 
+    UIProcess/BackingStore.cpp
     UIProcess/DefaultUndoController.cpp
     UIProcess/DrawingAreaProxyImpl.cpp
 
@@ -84,11 +91,13 @@ list(APPEND WebKit2_SOURCES
 
     UIProcess/API/C/gtk/WKFullScreenClientGtk.cpp
     UIProcess/API/C/gtk/WKInspectorClientGtk.cpp
+    UIProcess/API/C/gtk/WKTextCheckerGtk.cpp
     UIProcess/API/C/gtk/WKView.cpp
 
     UIProcess/API/C/soup/WKCookieManagerSoup.cpp
     UIProcess/API/C/soup/WKSoupCustomProtocolRequestManager.cpp
 
+    UIProcess/API/gtk/APIWebsiteDataStoreGtk.cpp
     UIProcess/API/gtk/PageClientImpl.cpp
     UIProcess/API/gtk/PageClientImpl.h
     UIProcess/API/gtk/WebKitAuthenticationDialog.cpp
@@ -100,9 +109,8 @@ list(APPEND WebKit2_SOURCES
     UIProcess/API/gtk/WebKitBackForwardListItem.cpp
     UIProcess/API/gtk/WebKitBackForwardListItem.h
     UIProcess/API/gtk/WebKitBackForwardListPrivate.h
-    UIProcess/API/gtk/WebKitCertificateInfo.cpp
-    UIProcess/API/gtk/WebKitCertificateInfo.h
-    UIProcess/API/gtk/WebKitCertificateInfoPrivate.h
+    UIProcess/API/gtk/WebKitColorChooser.cpp
+    UIProcess/API/gtk/WebKitColorChooserRequest.cpp
     UIProcess/API/gtk/WebKitContextMenu.cpp
     UIProcess/API/gtk/WebKitContextMenu.h
     UIProcess/API/gtk/WebKitContextMenuActions.cpp
@@ -168,6 +176,14 @@ list(APPEND WebKit2_SOURCES
     UIProcess/API/gtk/WebKitNavigationPolicyDecision.cpp
     UIProcess/API/gtk/WebKitNavigationPolicyDecision.h
     UIProcess/API/gtk/WebKitNavigationPolicyDecisionPrivate.h
+    UIProcess/API/gtk/WebKitNotification.cpp
+    UIProcess/API/gtk/WebKitNotification.h
+    UIProcess/API/gtk/WebKitNotificationPermissionRequest.cpp
+    UIProcess/API/gtk/WebKitNotificationPermissionRequest.h
+    UIProcess/API/gtk/WebKitNotificationPermissionRequestPrivate.h
+    UIProcess/API/gtk/WebKitNotificationPrivate.h
+    UIProcess/API/gtk/WebKitNotificationProvider.cpp
+    UIProcess/API/gtk/WebKitNotificationProvider.h
     UIProcess/API/gtk/WebKitPermissionRequest.cpp
     UIProcess/API/gtk/WebKitPermissionRequest.h
     UIProcess/API/gtk/WebKitPlugin.cpp
@@ -197,8 +213,6 @@ list(APPEND WebKit2_SOURCES
     UIProcess/API/gtk/WebKitSettings.cpp
     UIProcess/API/gtk/WebKitSettings.h
     UIProcess/API/gtk/WebKitSettingsPrivate.h
-    UIProcess/API/gtk/WebKitTextChecker.cpp
-    UIProcess/API/gtk/WebKitTextChecker.h
     UIProcess/API/gtk/WebKitUIClient.cpp
     UIProcess/API/gtk/WebKitUIClient.h
     UIProcess/API/gtk/WebKitURIRequest.cpp
@@ -210,12 +224,15 @@ list(APPEND WebKit2_SOURCES
     UIProcess/API/gtk/WebKitURISchemeRequest.cpp
     UIProcess/API/gtk/WebKitURISchemeRequest.h
     UIProcess/API/gtk/WebKitURISchemeRequestPrivate.h
-    UIProcess/API/gtk/WebKitUserContent.h
     UIProcess/API/gtk/WebKitUserContent.cpp
-    UIProcess/API/gtk/WebKitUserContentPrivate.h
+    UIProcess/API/gtk/WebKitUserContent.h
+    UIProcess/API/gtk/WebKitUserContentManager.cpp
     UIProcess/API/gtk/WebKitUserContentManager.h
     UIProcess/API/gtk/WebKitUserContentManagerPrivate.h
-    UIProcess/API/gtk/WebKitUserContentManager.cpp
+    UIProcess/API/gtk/WebKitUserContentPrivate.h
+    UIProcess/API/gtk/WebKitUserMediaPermissionRequest.cpp
+    UIProcess/API/gtk/WebKitUserMediaPermissionRequest.h
+    UIProcess/API/gtk/WebKitUserMediaPermissionRequestPrivate.h
     UIProcess/API/gtk/WebKitVersion.cpp
     UIProcess/API/gtk/WebKitVersion.h.in
     UIProcess/API/gtk/WebKitWebContext.cpp
@@ -234,16 +251,16 @@ list(APPEND WebKit2_SOURCES
     UIProcess/API/gtk/WebKitWebViewBaseAccessible.cpp
     UIProcess/API/gtk/WebKitWebViewBaseAccessible.h
     UIProcess/API/gtk/WebKitWebViewBasePrivate.h
-    UIProcess/API/gtk/WebKitWebViewGroup.cpp
-    UIProcess/API/gtk/WebKitWebViewGroup.h
-    UIProcess/API/gtk/WebKitWebViewGroupPrivate.h
     UIProcess/API/gtk/WebKitWebViewPrivate.h
+    UIProcess/API/gtk/WebKitWebsiteDataManager.cpp
+    UIProcess/API/gtk/WebKitWebsiteDataManager.h
+    UIProcess/API/gtk/WebKitWebsiteDataManagerPrivate.h
     UIProcess/API/gtk/WebKitWindowProperties.cpp
     UIProcess/API/gtk/WebKitWindowProperties.h
     UIProcess/API/gtk/WebKitWindowPropertiesPrivate.h
-    UIProcess/API/gtk/WebViewBaseInputMethodFilter.cpp
-    UIProcess/API/gtk/WebViewBaseInputMethodFilter.h
     UIProcess/API/gtk/webkit2.h
+
+    UIProcess/Databases/gtk/DatabaseProcessProxyGtk.cpp
 
     UIProcess/InspectorServer/gtk/WebInspectorServerGtk.cpp
 
@@ -252,8 +269,10 @@ list(APPEND WebKit2_SOURCES
     UIProcess/Launcher/gtk/ProcessLauncherGtk.cpp
 
     UIProcess/Network/CustomProtocols/soup/CustomProtocolManagerProxySoup.cpp
-    UIProcess/Network/CustomProtocols/soup/WebSoupCustomProtocolRequestManagerClient.cpp
     UIProcess/Network/CustomProtocols/soup/WebSoupCustomProtocolRequestManager.cpp
+    UIProcess/Network/CustomProtocols/soup/WebSoupCustomProtocolRequestManagerClient.cpp
+
+    UIProcess/Network/soup/NetworkProcessProxySoup.cpp
 
     UIProcess/Plugins/gtk/PluginInfoCache.cpp
 
@@ -264,9 +283,14 @@ list(APPEND WebKit2_SOURCES
 
     UIProcess/cairo/BackingStoreCairo.cpp
 
+    UIProcess/gtk/DragAndDropHandler.cpp
     UIProcess/gtk/ExperimentalFeatures.cpp
+    UIProcess/gtk/GestureController.cpp
+    UIProcess/gtk/InputMethodFilter.cpp
+    UIProcess/gtk/KeyBindingTranslator.cpp
+    UIProcess/gtk/RedirectedXCompositeWindow.cpp
     UIProcess/gtk/TextCheckerGtk.cpp
-    UIProcess/gtk/WebContextGtk.cpp
+    UIProcess/gtk/WebColorPickerGtk.cpp
     UIProcess/gtk/WebContextMenuProxyGtk.cpp
     UIProcess/gtk/WebFullScreenClientGtk.cpp
     UIProcess/gtk/WebInspectorClientGtk.cpp
@@ -274,11 +298,11 @@ list(APPEND WebKit2_SOURCES
     UIProcess/gtk/WebPageProxyGtk.cpp
     UIProcess/gtk/WebPopupMenuProxyGtk.cpp
     UIProcess/gtk/WebPreferencesGtk.cpp
+    UIProcess/gtk/WebProcessPoolGtk.cpp
     UIProcess/gtk/WebProcessProxyGtk.cpp
 
-    UIProcess/Network/soup/NetworkProcessProxySoup.cpp
-    UIProcess/soup/WebContextSoup.cpp
     UIProcess/soup/WebCookieManagerProxySoup.cpp
+    UIProcess/soup/WebProcessPoolSoup.cpp
 
     WebProcess/Cookies/soup/WebCookieManagerSoup.cpp
     WebProcess/Cookies/soup/WebKitSoupCookieJarSqlite.cpp
@@ -286,6 +310,7 @@ list(APPEND WebKit2_SOURCES
     WebProcess/InjectedBundle/API/gtk/WebKitFrame.cpp
     WebProcess/InjectedBundle/API/gtk/WebKitScriptWorld.cpp
     WebProcess/InjectedBundle/API/gtk/WebKitWebExtension.cpp
+    WebProcess/InjectedBundle/API/gtk/WebKitWebHitTestResult.cpp
     WebProcess/InjectedBundle/API/gtk/WebKitWebPage.cpp
 
     WebProcess/InjectedBundle/gtk/InjectedBundleGtk.cpp
@@ -308,9 +333,8 @@ list(APPEND WebKit2_SOURCES
 
     WebProcess/WebPage/atk/WebPageAccessibilityObjectAtk.cpp
 
-    WebProcess/WebPage/gtk/LayerTreeHostGtk.cpp
     WebProcess/WebPage/gtk/PrinterListGtk.cpp
-    WebProcess/WebPage/gtk/WebInspectorGtk.cpp
+    WebProcess/WebPage/gtk/WebInspectorUIGtk.cpp
     WebProcess/WebPage/gtk/WebPageGtk.cpp
     WebProcess/WebPage/gtk/WebPrintOperationGtk.cpp
 
@@ -318,9 +342,17 @@ list(APPEND WebKit2_SOURCES
     WebProcess/gtk/WebGtkInjectedBundleMain.cpp
     WebProcess/gtk/WebProcessMainGtk.cpp
 
-    WebProcess/soup/WebKitSoupRequestGeneric.cpp
     WebProcess/soup/WebKitSoupRequestInputStream.cpp
     WebProcess/soup/WebProcessSoup.cpp
+)
+
+list(APPEND WebKit2_DERIVED_SOURCES
+    ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/InspectorGResourceBundle.c
+    ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKit2InspectorGResourceBundle.c
+    ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKit2ResourcesGResourceBundle.c
+
+    ${DERIVED_SOURCES_WEBKIT2GTK_API_DIR}/WebKitEnumTypes.cpp
+    ${DERIVED_SOURCES_WEBKIT2GTK_API_DIR}/WebKitMarshal.cpp
 )
 
 set(WebKit2GTK_INSTALLED_HEADERS
@@ -329,7 +361,7 @@ set(WebKit2GTK_INSTALLED_HEADERS
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitAuthenticationRequest.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitBackForwardList.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitBackForwardListItem.h
-    ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitCertificateInfo.h
+    ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitColorChooserRequest.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitCredential.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitContextMenu.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitContextMenuActions.h
@@ -350,6 +382,8 @@ set(WebKit2GTK_INSTALLED_HEADERS
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitMimeInfo.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitNavigationAction.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitNavigationPolicyDecision.h
+    ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitNotificationPermissionRequest.h
+    ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitNotification.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitPermissionRequest.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitPlugin.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitPolicyDecision.h
@@ -363,12 +397,13 @@ set(WebKit2GTK_INSTALLED_HEADERS
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitURISchemeRequest.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitUserContent.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitUserContentManager.h
+    ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitUserMediaPermissionRequest.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebContext.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebInspector.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebResource.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebView.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebViewBase.h
-    ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebViewGroup.h
+    ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebsiteDataManager.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWindowProperties.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/webkit2.h
 )
@@ -377,25 +412,39 @@ set(WebKit2WebExtension_INSTALLED_HEADERS
     ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk/WebKitFrame.h
     ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk/WebKitScriptWorld.h
     ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk/WebKitWebExtension.h
+    ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk/WebKitWebHitTestResult.h
     ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk/WebKitWebPage.h
     ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk/webkit-web-extension.h
 )
 
-file(GLOB InspectorFiles
-    ${CMAKE_SOURCE_DIR}/Source/Localizations/en.lproj/localizedStrings.js
+set(InspectorFiles
     ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/*.html
     ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Base/*.js
     ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Controllers/*.css
     ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Controllers/*.js
-    ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/External/CodeMirror/*
+    ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/External/CodeMirror/*.css
+    ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/External/CodeMirror/*.js
+    ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/External/ESLint/*.js
+    ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/External/Esprima/*.js
     ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Models/*.js
     ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Protocol/*.js
     ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Views/*.css
     ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Views/*.js
-    ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Images/*.png
-    ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Images/*.svg
-    ${DERIVED_SOURCES_WEBINSPECTORUI_DIR}/UserInterface/Protocol/InspectorJSBackendCommands.js
-    ${DERIVED_SOURCES_WEBINSPECTORUI_DIR}/UserInterface/Protocol/InspectorWebBackendCommands.js
+    ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Images/gtk/*.png
+    ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/UserInterface/Images/gtk/*.svg
+    ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI/Localizations/en.lproj/localizedStrings.js
+)
+
+file(GLOB InspectorFilesDependencies
+    ${InspectorFiles}
+)
+
+# DerivedSources/JavaScriptCore/inspector/InspectorBackendCommands.js is
+# expected in DerivedSources/WebInspectorUI/UserInterface/Protocol/.
+add_custom_command(
+    OUTPUT ${DERIVED_SOURCES_WEBINSPECTORUI_DIR}/UserInterface/Protocol/InspectorBackendCommands.js
+    DEPENDS ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/inspector/InspectorBackendCommands.js
+    COMMAND cp ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/inspector/InspectorBackendCommands.js ${DERIVED_SOURCES_WEBINSPECTORUI_DIR}/UserInterface/Protocol/InspectorBackendCommands.js
 )
 
 # This is necessary because of a conflict between the GTK+ API WebKitVersion.h and one generated by WebCore.
@@ -407,12 +456,15 @@ list(INSERT WebKit2_INCLUDE_DIRECTORIES 0
 )
 
 list(APPEND WebKit2_INCLUDE_DIRECTORIES
+    "${WEBKIT2_DIR}/PluginProcess/unix"
     "${WEBCORE_DIR}/platform/cairo"
     "${WEBCORE_DIR}/platform/gtk"
     "${WEBCORE_DIR}/platform/graphics/cairo"
     "${WEBCORE_DIR}/platform/graphics/opentype"
+    "${WEBCORE_DIR}/platform/graphics/x11"
     "${WEBCORE_DIR}/platform/network/soup"
     "${WEBCORE_DIR}/platform/text/enchant"
+    "${WEBKIT2_DIR}/DatabaseProcess/unix"
     "${WEBKIT2_DIR}/NetworkProcess/gtk"
     "${WEBKIT2_DIR}/NetworkProcess/unix"
     "${WEBKIT2_DIR}/Shared/API/c/gtk"
@@ -438,9 +490,12 @@ list(APPEND WebKit2_INCLUDE_DIRECTORIES
     "${WEBKIT2_DIR}/WebProcess/WebCoreSupport/soup"
     "${WEBKIT2_DIR}/WebProcess/WebPage/atk"
     "${WEBKIT2_DIR}/WebProcess/WebPage/gtk"
-    "${WTF_DIR}/wtf/gtk/"
-    "${WTF_DIR}/wtf/gobject"
-    ${WTF_DIR}
+    "${WTF_DIR}/wtf/gtk"
+    "${WTF_DIR}/wtf/glib"
+    "${WTF_DIR}"
+)
+
+list(APPEND WebKit2_SYSTEM_INCLUDE_DIRECTORIES
     ${CAIRO_INCLUDE_DIRS}
     ${ENCHANT_INCLUDE_DIRS}
     ${GEOCLUE_INCLUDE_DIRS}
@@ -448,9 +503,16 @@ list(APPEND WebKit2_INCLUDE_DIRECTORIES
     ${LIBSOUP_INCLUDE_DIRS}
 )
 
-set(WebKit2CommonIncludeDirectories ${WebKit2_INCLUDE_DIRECTORIES})
+if (USE_LIBNOTIFY)
+list(APPEND WebKit2_SYSTEM_INCLUDE_DIRECTORIES
+    ${LIBNOTIFY_INCLUDE_DIRS}
+)
+endif ()
 
-list(APPEND WebKit2_INCLUDE_DIRECTORIES
+set(WebKit2CommonIncludeDirectories ${WebKit2_INCLUDE_DIRECTORIES})
+set(WebKit2CommonSystemIncludeDirectories ${WebKit2_SYSTEM_INCLUDE_DIRECTORIES})
+
+list(APPEND WebKit2_SYSTEM_INCLUDE_DIRECTORIES
     ${GLIB_INCLUDE_DIRS}
     ${GTK_INCLUDE_DIRS}
     ${GTK_UNIX_PRINT_INCLUDE_DIRS}
@@ -464,6 +526,19 @@ list(APPEND NetworkProcess_SOURCES
     NetworkProcess/EntryPoint/unix/NetworkProcessMain.cpp
 )
 
+list(APPEND DatabaseProcess_SOURCES
+    DatabaseProcess/EntryPoint/unix/DatabaseProcessMain.cpp
+)
+
+file(WRITE ${CMAKE_BINARY_DIR}/test_atomic.cpp
+     "#include <atomic>\n"
+     "int main() { std::atomic<int64_t> i(0); i++; return 0; }\n")
+try_compile(ATOMIC_BUILD_SUCCEEDED ${CMAKE_BINARY_DIR} ${CMAKE_BINARY_DIR}/test_atomic.cpp)
+if (NOT ATOMIC_BUILD_SUCCEEDED)
+    list(APPEND WebKit2_LIBRARIES atomic)
+endif ()
+file(REMOVE ${CMAKE_BINARY_DIR}/test_atomic.cpp)
+
 set(SharedWebKit2Libraries
     ${WebKit2_LIBRARIES}
 )
@@ -473,6 +548,13 @@ list(APPEND WebKit2_LIBRARIES
     WebCorePlatformGTK
     ${GTK_UNIX_PRINT_LIBRARIES}
 )
+
+if (LIBNOTIFY_FOUND)
+list(APPEND WebKit2_LIBRARIES
+    ${LIBNOTIFY_LIBRARIES}
+)
+endif ()
+
 ADD_WHOLE_ARCHIVE_TO_LIBRARIES(WebKit2_LIBRARIES)
 
 set(WebKit2_MARSHAL_LIST ${WEBKIT2_DIR}/UIProcess/API/gtk/webkit2marshal.list)
@@ -503,9 +585,10 @@ add_custom_command(
 
 add_custom_command(
     OUTPUT ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/InspectorGResourceBundle.xml
-    DEPENDS ${InspectorFiles}
+    DEPENDS ${InspectorFilesDependencies}
+            ${DERIVED_SOURCES_WEBINSPECTORUI_DIR}/UserInterface/Protocol/InspectorBackendCommands.js
             ${TOOLS_DIR}/gtk/generate-inspector-gresource-manifest.py
-    COMMAND ${TOOLS_DIR}/gtk/generate-inspector-gresource-manifest.py --output=${DERIVED_SOURCES_WEBKIT2GTK_DIR}/InspectorGResourceBundle.xml ${CMAKE_SOURCE_DIR}/Source/WebInspectorUI ${DERIVED_SOURCES_WEBINSPECTORUI_DIR}
+    COMMAND ${TOOLS_DIR}/gtk/generate-inspector-gresource-manifest.py --output=${DERIVED_SOURCES_WEBKIT2GTK_DIR}/InspectorGResourceBundle.xml ${InspectorFiles} ${DERIVED_SOURCES_WEBINSPECTORUI_DIR}/UserInterface/Protocol/InspectorBackendCommands.js
     VERBATIM
 )
 
@@ -525,8 +608,6 @@ add_custom_command(
 )
 
 set(WebKit2Resources
-    "        <file alias=\"images/deleteButton\">deleteButton.png</file>\n"
-    "        <file alias=\"images/deleteButton@2x\">deleteButton@2x.png</file>\n"
     "        <file alias=\"images/missingImage\">missingImage.png</file>\n"
     "        <file alias=\"images/missingImage@2x\">missingImage@2x.png</file>\n"
     "        <file alias=\"images/panIcon\">panIcon.png</file>\n"
@@ -537,12 +618,6 @@ set(WebKit2Resources
 if (ENABLE_ICONDATABASE)
     list(APPEND WebKit2Resources
         "        <file alias=\"images/urlIcon\">urlIcon.png</file>\n"
-    )
-endif ()
-
-if (ENABLE_INPUT_SPEECH)
-    list(APPEND WebKit2Resources
-        "        <file alias=\"images/inputSpeech\">inputSpeech.png</file>\n"
     )
 endif ()
 
@@ -568,33 +643,14 @@ add_custom_command(
     VERBATIM
 )
 
-add_custom_target(webkit2gtk-forwarding-headers
-    COMMAND ${PERL_EXECUTABLE} ${WEBKIT2_DIR}/Scripts/generate-forwarding-headers.pl ${WEBKIT2_DIR} ${FORWARDING_HEADERS_DIR} gtk
-    COMMAND ${PERL_EXECUTABLE} ${WEBKIT2_DIR}/Scripts/generate-forwarding-headers.pl ${WEBKIT2_DIR} ${FORWARDING_HEADERS_DIR} soup
-
-    # These symbolic link allows includes like #include <webkit2/WebkitWebView.h> which simulates installed headers.
-    COMMAND ln -n -s -f ${WEBKIT2_DIR}/UIProcess/API/gtk ${FORWARDING_HEADERS_WEBKIT2GTK_DIR}/webkit2
-    COMMAND ln -n -s -f ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk ${FORWARDING_HEADERS_WEBKIT2GTK_EXTENSION_DIR}/webkit2
-)
-
-set(WEBKIT2_EXTRA_DEPENDENCIES
-     webkit2gtk-forwarding-headers
-)
-
-if (ENABLE_PLUGIN_PROCESS)
+if (ENABLE_PLUGIN_PROCESS_GTK2)
     set(PluginProcessGTK2_EXECUTABLE_NAME WebKitPluginProcess2)
-    list(APPEND PluginProcessGTK2_INCLUDE_DIRECTORIES
-        "${WEBKIT2_DIR}/PluginProcess/unix"
-    )
-
-    include_directories(${PluginProcessGTK2_INCLUDE_DIRECTORIES})
 
     # FIXME: We should figure out a way to avoid compiling files that are common between the plugin
     # process and WebKit2 only once instead of recompiling them for the plugin process.
     list(APPEND PluginProcessGTK2_SOURCES
         Platform/Logging.cpp
         Platform/Module.cpp
-        Platform/WorkQueue.cpp
 
         Platform/IPC/ArgumentCoders.cpp
         Platform/IPC/ArgumentDecoder.cpp
@@ -613,16 +669,15 @@ if (ENABLE_PLUGIN_PROCESS)
 
         Platform/gtk/LoggingGtk.cpp
         Platform/gtk/ModuleGtk.cpp
-        Platform/gtk/WorkQueueGtk.cpp
 
         Platform/unix/SharedMemoryUnix.cpp
-
-        PluginProcess/EntryPoint/unix/PluginProcessMain.cpp
 
         PluginProcess/PluginControllerProxy.cpp
         PluginProcess/PluginCreationParameters.cpp
         PluginProcess/PluginProcess.cpp
         PluginProcess/WebProcessConnection.cpp
+
+        PluginProcess/EntryPoint/unix/PluginProcessMain.cpp
 
         PluginProcess/unix/PluginControllerProxyUnix.cpp
         PluginProcess/unix/PluginProcessMainUnix.cpp
@@ -632,7 +687,6 @@ if (ENABLE_PLUGIN_PROCESS)
         Shared/BlobDataFileReferenceWithSandboxExtension.cpp
         Shared/ChildProcess.cpp
         Shared/ChildProcessProxy.cpp
-        Shared/ConnectionStack.cpp
         Shared/ShareableBitmap.cpp
         Shared/WebCoreArgumentCoders.cpp
         Shared/WebEvent.cpp
@@ -687,8 +741,8 @@ if (ENABLE_PLUGIN_PROCESS)
         ${DERIVED_SOURCES_WEBKIT2_DIR}/PluginControllerProxyMessageReceiver.cpp
         ${DERIVED_SOURCES_WEBKIT2_DIR}/PluginProcessMessageReceiver.cpp
         ${DERIVED_SOURCES_WEBKIT2_DIR}/WebProcessConnectionMessageReceiver.cpp
-
         ${DERIVED_SOURCES_WEBKIT2_DIR}/NPObjectMessageReceiverMessageReceiver.cpp
+        ${DERIVED_SOURCES_WEBKIT2_DIR}/ChildProcessMessageReceiver.cpp
     )
 
     add_executable(WebKitPluginProcess2 ${PluginProcessGTK2_SOURCES})
@@ -701,13 +755,13 @@ if (ENABLE_PLUGIN_PROCESS)
         APPEND
         PROPERTY COMPILE_DEFINITIONS GTK_API_VERSION_2=1
     )
-    set_property(
-        TARGET WebKitPluginProcess2
-        APPEND
-        PROPERTY INCLUDE_DIRECTORIES
-            ${WebKit2CommonIncludeDirectories}
-            ${GTK2_INCLUDE_DIRS}
-            ${GDK2_INCLUDE_DIRS}
+    target_include_directories(WebKitPluginProcess2 PRIVATE
+        ${WebKit2CommonIncludeDirectories}
+    )
+    target_include_directories(WebKitPluginProcess2 SYSTEM PRIVATE
+         ${WebKit2CommonSystemIncludeDirectories}
+         ${GTK2_INCLUDE_DIRS}
+         ${GDK2_INCLUDE_DIRS}
     )
 
     set(WebKitPluginProcess2_LIBRARIES
@@ -720,13 +774,35 @@ if (ENABLE_PLUGIN_PROCESS)
     add_dependencies(WebKitPluginProcess2 WebKit2)
 
     install(TARGETS WebKitPluginProcess2 DESTINATION "${LIBEXEC_INSTALL_DIR}")
+endif () # ENABLE_PLUGIN_PROCESS_GTK2
 
-    # GTK3 PluginProcess
-    list(APPEND PluginProcess_SOURCES
-        PluginProcess/EntryPoint/unix/PluginProcessMain.cpp
+# GTK3 PluginProcess
+list(APPEND PluginProcess_SOURCES
+    PluginProcess/EntryPoint/unix/PluginProcessMain.cpp
+)
+
+if (ENABLE_THREADED_COMPOSITOR)
+    list(APPEND WebKit2_SOURCES
+        Shared/CoordinatedGraphics/CoordinatedBackingStore.cpp
+        Shared/CoordinatedGraphics/CoordinatedGraphicsScene.cpp
+        Shared/CoordinatedGraphics/SimpleViewportController.cpp
+
+        Shared/CoordinatedGraphics/threadedcompositor/ThreadSafeCoordinatedSurface.cpp
+        Shared/CoordinatedGraphics/threadedcompositor/ThreadedCompositor.cpp
+
+        WebProcess/WebPage/CoordinatedGraphics/ThreadedCoordinatedLayerTreeHost.cpp
     )
-
-endif () # ENABLE_PLUGIN_PROCESS
+    list(APPEND WebKit2_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/platform/graphics/texmap/coordinated"
+        "${WEBKIT2_DIR}/Shared/CoordinatedGraphics"
+        "${WEBKIT2_DIR}/Shared/CoordinatedGraphics/threadedcompositor"
+        "${WEBKIT2_DIR}/WebProcess/WebPage/CoordinatedGraphics"
+    )
+else (ENABLE_THREADED_COMPOSITOR)
+    list(APPEND WebKit2_SOURCES
+        WebProcess/WebPage/gtk/LayerTreeHostGtk.cpp
+    )
+endif ()
 
 # Commands for building the built-in injected bundle.
 include_directories(
@@ -747,11 +823,28 @@ add_library(webkit2gtkinjectedbundle MODULE "${WEBKIT2_DIR}/WebProcess/gtk/WebGt
 add_dependencies(webkit2gtkinjectedbundle GObjectDOMBindings)
 add_webkit2_prefix_header(webkit2gtkinjectedbundle)
 
+# Add ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} to LD_LIBRARY_PATH
+string(COMPARE EQUAL "$ENV{LD_LIBRARY_PATH}" "" ld_library_path_not_exist)
+if (ld_library_path_does_not_exist)
+    set(INTROSPECTION_ADDITIONAL_LIBRARY_PATH
+        "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
+    )
+else ()
+    set(INTROSPECTION_ADDITIONAL_LIBRARY_PATH
+        "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}:$ENV{LD_LIBRARY_PATH}"
+    )
+endif ()
+
+# Add required -L flags from ${CMAKE_SHARED_LINKER_FLAGS} for g-ir-scanner
+string(REGEX MATCHALL "-L[^ ]*"
+    INTROSPECTION_ADDITIONAL_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS})
+
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.gir
     DEPENDS WebKit2
-    DEPENDS JavaScriptCore-3-gir
+    DEPENDS ${CMAKE_BINARY_DIR}/JavaScriptCore-${WEBKITGTK_API_VERSION}.gir
     COMMAND CC=${CMAKE_C_COMPILER} CFLAGS=-Wno-deprecated-declarations LDFLAGS=
+        LD_LIBRARY_PATH="${INTROSPECTION_ADDITIONAL_LIBRARY_PATH}"
         ${INTROSPECTION_SCANNER}
         --quiet
         --warn-all
@@ -760,15 +853,16 @@ add_custom_command(
         --namespace=WebKit2
         --nsversion=${WEBKITGTK_API_VERSION}
         --include=GObject-2.0
-        --include=Gtk-${WEBKITGTK_API_VERSION}
+        --include=Gtk-3.0
         --include=Soup-2.4
         --include-uninstalled=${CMAKE_BINARY_DIR}/JavaScriptCore-${WEBKITGTK_API_VERSION}.gir
         --library=webkit2gtk-${WEBKITGTK_API_VERSION}
         --library=javascriptcoregtk-${WEBKITGTK_API_VERSION}
         -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+        ${INTROSPECTION_ADDITIONAL_LINKER_FLAGS}
         --no-libtool
         --pkg=gobject-2.0
-        --pkg=gtk+-${WEBKITGTK_API_VERSION}
+        --pkg=gtk+-3.0
         --pkg=libsoup-2.4
         --pkg-export=webkit2gtk-${WEBKITGTK_API_VERSION}
         --output=${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.gir
@@ -787,9 +881,10 @@ add_custom_command(
 
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/WebKit2WebExtension-${WEBKITGTK_API_VERSION}.gir
-    DEPENDS JavaScriptCore-3-gir
+    DEPENDS ${CMAKE_BINARY_DIR}/JavaScriptCore-${WEBKITGTK_API_VERSION}.gir
     DEPENDS ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.gir
     COMMAND CC=${CMAKE_C_COMPILER} CFLAGS=-Wno-deprecated-declarations LDFLAGS=
+        LD_LIBRARY_PATH="${INTROSPECTION_ADDITIONAL_LIBRARY_PATH}"
         ${INTROSPECTION_SCANNER}
         --quiet
         --warn-all
@@ -798,15 +893,16 @@ add_custom_command(
         --namespace=WebKit2WebExtension
         --nsversion=${WEBKITGTK_API_VERSION}
         --include=GObject-2.0
-        --include=Gtk-${WEBKITGTK_API_VERSION}
+        --include=Gtk-3.0
         --include=Soup-2.4
         --include-uninstalled=${CMAKE_BINARY_DIR}/JavaScriptCore-${WEBKITGTK_API_VERSION}.gir
         --library=webkit2gtk-${WEBKITGTK_API_VERSION}
         --library=javascriptcoregtk-${WEBKITGTK_API_VERSION}
         -L${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+        ${INTROSPECTION_ADDITIONAL_LINKER_FLAGS}
         --no-libtool
         --pkg=gobject-2.0
-        --pkg=gtk+-${WEBKITGTK_API_VERSION}
+        --pkg=gtk+-3.0
         --pkg=libsoup-2.4
         --pkg-export=webkit2gtk-web-extension-${WEBKITGTK_API_VERSION}
         --output=${CMAKE_BINARY_DIR}/WebKit2WebExtension-${WEBKITGTK_API_VERSION}.gir
@@ -824,6 +920,10 @@ add_custom_command(
         -I${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk
         ${GObjectDOMBindings_GIR_HEADERS}
         ${WebKit2WebExtension_INSTALLED_HEADERS}
+        ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitContextMenu.h
+        ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitContextMenuActions.h
+        ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitContextMenuItem.h
+        ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitHitTestResult.h
         ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitURIRequest.h
         ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitURIResponse.h
         ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk/*.cpp
@@ -855,17 +955,20 @@ install(FILES ${WebKit2GTK_INSTALLED_HEADERS}
               ${WebKit2WebExtension_INSTALLED_HEADERS}
         DESTINATION "${WEBKITGTK_HEADER_INSTALL_DIR}/webkit2"
 )
-install(FILES ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.gir
-              ${CMAKE_BINARY_DIR}/WebKit2WebExtension-${WEBKITGTK_API_VERSION}.gir
-        DESTINATION ${INTROSPECTION_INSTALL_GIRDIR}
-)
-install(FILES ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.typelib
-              ${CMAKE_BINARY_DIR}/WebKit2WebExtension-${WEBKITGTK_API_VERSION}.typelib
-        DESTINATION ${INTROSPECTION_INSTALL_TYPELIBDIR}
-)
+
+if (ENABLE_INTROSPECTION)
+    install(FILES ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.gir
+                  ${CMAKE_BINARY_DIR}/WebKit2WebExtension-${WEBKITGTK_API_VERSION}.gir
+            DESTINATION ${INTROSPECTION_INSTALL_GIRDIR}
+    )
+    install(FILES ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.typelib
+                  ${CMAKE_BINARY_DIR}/WebKit2WebExtension-${WEBKITGTK_API_VERSION}.typelib
+            DESTINATION ${INTROSPECTION_INSTALL_TYPELIBDIR}
+    )
+endif ()
 
 file(WRITE ${CMAKE_BINARY_DIR}/gtkdoc-webkit2gtk.cfg
-    "[webkit2gtk]\n"
+    "[webkit2gtk-${WEBKITGTK_API_VERSION}]\n"
     "pkgconfig_file=${WebKit2_PKGCONFIG_FILE}\n"
     "namespace=webkit\n"
     "cflags=-I${CMAKE_SOURCE_DIR}/Source\n"
@@ -877,4 +980,30 @@ file(WRITE ${CMAKE_BINARY_DIR}/gtkdoc-webkit2gtk.cfg
     "            ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk\n"
     "            ${DERIVED_SOURCES_WEBKIT2GTK_API_DIR}\n"
     "headers=${WebKit2GTK_ENUM_GENERATION_HEADERS} ${WebKit2WebExtension_INSTALLED_HEADERS}\n"
+    "main_sgml_file=webkit2gtk-docs.sgml\n"
+)
+
+add_custom_target(WebKit2-forwarding-headers
+    COMMAND ${PERL_EXECUTABLE} ${WEBKIT2_DIR}/Scripts/generate-forwarding-headers.pl --include-path ${WEBKIT2_DIR} --output ${FORWARDING_HEADERS_DIR} --platform gtk --platform soup
+)
+
+# These symbolic link allows includes like #include <webkit2/WebkitWebView.h> which simulates installed headers.
+add_custom_command(
+    OUTPUT ${FORWARDING_HEADERS_WEBKIT2GTK_DIR}/webkit2
+    DEPENDS ${WEBKIT2_DIR}/UIProcess/API/gtk
+    COMMAND ln -n -s -f ${WEBKIT2_DIR}/UIProcess/API/gtk ${FORWARDING_HEADERS_WEBKIT2GTK_DIR}/webkit2
+)
+add_custom_command(
+    OUTPUT ${FORWARDING_HEADERS_WEBKIT2GTK_EXTENSION_DIR}/webkit2
+    DEPENDS ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk
+    COMMAND ln -n -s -f ${WEBKIT2_DIR}/WebProcess/InjectedBundle/API/gtk ${FORWARDING_HEADERS_WEBKIT2GTK_EXTENSION_DIR}/webkit2
+)
+add_custom_target(WebKit2-fake-api-headers
+    DEPENDS ${FORWARDING_HEADERS_WEBKIT2GTK_DIR}/webkit2
+            ${FORWARDING_HEADERS_WEBKIT2GTK_EXTENSION_DIR}/webkit2
+)
+
+set(WEBKIT2_EXTRA_DEPENDENCIES
+     WebKit2-fake-api-headers
+     WebKit2-forwarding-headers
 )

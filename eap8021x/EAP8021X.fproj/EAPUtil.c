@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,11 +81,11 @@ EAPTypeStr(EAPType type)
     case kEAPTypeNak:
 	return ("Nak");
     case kEAPTypeMD5Challenge:
-	return ("MD5");
+	return ("EAP-MD5");
     case kEAPTypeOneTimePassword:
-	return ("One Time Password");
+	return ("EAP-OTP");
     case kEAPTypeGenericTokenCard:
-	return ("Generic Token Card");
+	return ("EAP-GTC");
     case kEAPTypeTLS:
 	return ("EAP-TLS");
     case kEAPTypeCiscoLEAP:
@@ -99,17 +99,31 @@ EAPTypeStr(EAPType type)
     case kEAPTypeEAPAKA:
 	return ("EAP-AKA");
     case kEAPTypePEAP:
-	return ("PEAP");
+	return ("EAP-PEAP");
     case kEAPTypeMSCHAPv2:
-	return ("MSCHAPv2");
+	return ("EAP-MSCHAPv2");
     case kEAPTypeExtensions:
 	return ("PEAP-Extensions");
     case kEAPTypeEAPFAST:
 	return ("EAP-FAST");
+    case kEAPTypeEAPAKAPrime:
+	return ("EAP-AKA'");
     default:
 	break;
     }
     return ("<unknown>");
+}
+
+static void
+EAPTypeListStrAppend(const uint8_t *type_data, uint32_t length, CFMutableStringRef str)
+{
+	int i;
+
+	STRING_APPEND(str, "Desired authentication types: ");
+	for (i = 0; i < length; i++) {
+		STRING_APPEND(str, "%s(%d) ", EAPTypeStr(type_data[i]), type_data[i]);
+	}
+	STRING_APPEND(str, "\n");
 }
 
 static void
@@ -159,9 +173,7 @@ EAPRequestResponseValid(EAPPacketRef eap_p, uint32_t length,
 	    EAPPacketHeaderAppendDescription(eap_p, length, str);
 	    STRING_APPEND(str, "%s (%d)\n", EAPTypeStr(rd_p->type),
 			  rd_p->type);
-	    STRING_APPEND(str, "Desired authentication type: %s (%d)\n", 
-			  EAPTypeStr(nak_p->desired_type),
-			  nak_p->desired_type);
+	    EAPTypeListStrAppend(nak_p->type_data, length - sizeof(*nak_p), str);
 	}
 	break;
 

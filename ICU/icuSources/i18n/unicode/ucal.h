@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2014, International Business Machines Corporation and
+ * Copyright (C) 1996-2015, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -422,7 +422,7 @@ enum UCalendarDateFields {
    * an example of this.
    */
   UCAL_IS_LEAP_MONTH,
-  
+
   /**
    * Field count
    * @stable ICU 2.6
@@ -755,7 +755,7 @@ ucal_setTimeZone(UCalendar*    cal,
  * @return              The total buffer size needed; if greater than resultLength, the output was truncated. 
  * @stable ICU 51 
  */ 
-U_DRAFT int32_t U_EXPORT2 
+U_STABLE int32_t U_EXPORT2 
 ucal_getTimeZoneID(const UCalendar *cal,
                    UChar *result,
                    int32_t resultLength,
@@ -1491,11 +1491,10 @@ typedef enum UTimeZoneTransitionType UTimeZoneTransitionType; /**< @stable ICU 5
 *         otherwise.
 * @stable ICU 50
 */
-U_DRAFT UBool U_EXPORT2 
+U_STABLE UBool U_EXPORT2 
 ucal_getTimeZoneTransitionDate(const UCalendar* cal, UTimeZoneTransitionType type,
                                UDate* transition, UErrorCode* status);
 
-#ifndef U_HIDE_DRAFT_API
 /**
 * Converts a system time zone ID to an equivalent Windows time zone ID. For example,
 * Windows time zone ID "Pacific Standard Time" is returned for input "America/Los_Angeles".
@@ -1518,9 +1517,9 @@ ucal_getTimeZoneTransitionDate(const UCalendar* cal, UTimeZoneTransitionType typ
 * @return              The result string length, not including the terminating null.
 * @see ucal_getTimeZoneIDForWindowsID
 *
-* @draft ICU 52
+* @stable ICU 52
 */
-U_DRAFT int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 ucal_getWindowsTimeZoneID(const UChar* id, int32_t len,
                             UChar* winid, int32_t winidCapacity, UErrorCode* status);
 
@@ -1550,13 +1549,63 @@ ucal_getWindowsTimeZoneID(const UChar* id, int32_t len,
 * @return              The result string length, not including the terminating null.
 * @see ucal_getWindowsTimeZoneID
 *
-* @draft ICU 52
+* @stable ICU 52
 */
-U_DRAFT int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 ucal_getTimeZoneIDForWindowsID(const UChar* winid, int32_t len, const char* region,
                                 UChar* id, int32_t idCapacity, UErrorCode* status);
 
-#endif  /* U_HIDE_DRAFT_API */
+#ifndef U_HIDE_DRAFT_API
+/**
+ * Day periods
+ * @draft Apple
+ */
+typedef enum UADayPeriod {
+    UADAYPERIOD_MORNING1,
+    UADAYPERIOD_MORNING2,
+    UADAYPERIOD_AFTERNOON1,
+    UADAYPERIOD_AFTERNOON2,
+    UADAYPERIOD_EVENING1,
+    UADAYPERIOD_EVENING2,
+    UADAYPERIOD_NIGHT1,
+    UADAYPERIOD_NIGHT2,
+    UADAYPERIOD_MIDNIGHT,   /* Should only get this for formatStyle TRUE */
+    UADAYPERIOD_NOON,       /* Should only get this for formatStyle TRUE */
+    UADAYPERIOD_UNKNOWN
+} UADayPeriod;
+
+/**
+ * Get the locale-specific day period for a particular time of day.
+ * This comes from the dayPeriod CLDR data in ICU.
+ *
+ * @param locale
+ *            The locale
+ * @param hour
+ *            Hour of day, in range 0..23.
+ * @param minute
+ *            Minute of the hour, in range 0..59. Currently does not affect dayPeriod
+ *            selection if formatStyle is FALSE.
+ * @param formatStyle
+ *            FALSE to get dayPeriods for selecting strings to be used "stand-alone"
+ *            without a particular time of day, e.g. "Good morning", "Good afternoon",
+ *            "Good evening".
+ *            TRUE to get dayPeriods for selecting strings to be used when formatting
+ *            a particular time of day, e.g. "12:00 noon", "3:00 PM".
+ * @param status
+ *            A pointer to a UErrorCode to receive any errors. In-out parameter; if
+ *            this indicates an error on input, the function will return immediately.
+ * @return
+ *            The UADayPeriod (possibly UADAYPERIOD_UNKNOWN).
+ * @draft Apple
+ */
+U_DRAFT UADayPeriod U_EXPORT2
+uacal_getDayPeriod( const char* locale,
+                    int32_t     hour,
+                    int32_t     minute,
+                    UBool       formatStyle,
+                    UErrorCode* status );
+
+#endif /* U_HIDE_DRAFT_API */
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

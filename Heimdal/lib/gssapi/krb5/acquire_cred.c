@@ -34,6 +34,10 @@
  */
 
 #include "gsskrb5_locl.h"
+#ifdef __APPLE__
+#include <sys/proc_info.h>
+#include <libproc.h>
+#endif
 #include <heim_threads.h>
 #include <gssapi_spi.h>
 #include <pkinit_asn1.h>
@@ -544,10 +548,14 @@ _gssiakerb_acquire_cred(OM_uint32 * minor_status,
     HEIMDAL_MUTEX_init(&handle->cred_id_mutex);
 
     major_status = _acquire_uuid_name(minor_status, context, princ, &iakerb, handle);
-    if (major_status)
+    if (major_status) {
+	_gsskrb5_release_cred(&junk, (gss_cred_id_t *)&handle);
 	return major_status;
-    if (!iakerb)
+    }
+    if (!iakerb) {
+	_gsskrb5_release_cred(&junk, (gss_cred_id_t *)&handle);
 	return GSS_S_BAD_NAME;
+    }
 
     if ((ret = krb5_cc_get_config(context, handle->ccache, NULL, "password", &data)) == 0) {
 
@@ -786,6 +794,142 @@ _gss_iakerb_acquire_cred_ext(OM_uint32 * minor_status,
  *
  */
 
+static krb5_error_code
+check_credential(krb5_context context,
+		 krb5_init_creds_context ctx,
+		 krb5_principal client,
+		 krb5_ccache ccache,
+		 heim_object_t verify_credential)
+{
+    krb5_rd_req_out_ctx out = NULL;
+    krb5_rd_req_in_ctx in = NULL;
+    krb5_keyblock keyblock;
+    krb5_error_code ret;
+    krb5_creds kcred, *cred = NULL;
+    gss_name_t name = NULL;
+    krb5_auth_context auth_context = NULL;
+    krb5_principal server = NULL, local_server = NULL;
+    krb5_pac pac = NULL;
+    krb5_data req;
+
+    memset(&kcred, 0, sizeof(kcred));
+    memset(&keyblock, 0, sizeof(keyblock));
+    krb5_data_zero (&req);
+
+    if (heim_dict_get_type_id() == heim_get_tid(verify_credential)) {
+	name = heim_dict_copy_value(verify_credential, _gsskrb5_kGSSICVerifyCredentialAcceptorName);
+    }
+
+    if (name) {
+	OM_uint32 min_stat, maj_stat;
+	gss_name_t gname;
+
+	gname = _gss_mg_get_underlaying_mech_name(name, GSS_KRB5_MECHANISM);
+	if (gname == NULL) {
+	    ret = EINVAL;
+	    goto out;
+	}
+
+	maj_stat = _gsskrb5_canon_name(&min_stat, context, 0, NULL, gname, &server);
+	if (maj_stat) {
+	    ret = min_stat;
+	    if (ret == 0)
+		ret = EINVAL;
+	    goto out;
+	}
+    }
+
+    if (server == NULL) {
+	ret = krb5_sname_to_principal(context,
+				      NULL,
+				      "host",
+				      KRB5_NT_SRV_HST,
+				      &local_server);
+	if (ret)
+	    goto out;
+	server = local_server;
+    }
+
+    kcred.client = client;
+    kcred.server = server;
+
+    ret = krb5_get_credentials (context, 0, ccache, &kcred, &cred);
+    if (ret)
+	goto out;
+
+    ret = krb5_mk_req_extended(context,
+			       &auth_context,
+			       0,
+			       NULL,
+			       cred,
+			       &req);
+
+    krb5_auth_con_free(context, auth_context);
+    auth_context = NULL;
+
+    if (ret)
+	goto out;
+
+	
+    /*
+     * Validate the AP-REQ now
+     */
+
+    ret = krb5_rd_req_in_ctx_alloc(context, &in);
+    if (ret)
+	return ret;
+    
+    ret = krb5_rd_req_in_set_pac_check(context, in, TRUE);
+    if (ret)
+	goto out;
+
+    ret = krb5_init_creds_get_as_reply_key(context, ctx, &keyblock);
+    if (ret == 0) {
+	ret = krb5_rd_req_in_set_as_reply_key(context, in, &keyblock);
+	if (ret)
+	    goto out;
+    }
+    
+    ret = krb5_rd_req_ctx(context, &auth_context, &req, server, in, &out);
+    if (ret)
+	goto out;
+
+    pac = krb5_rd_req_out_copy_pac(context, out);
+    if (pac) {
+	krb5_error_code ret2;
+	krb5_data out2;
+	/* Copy out NTLM credentials if there is any */
+
+	ret2 = krb5_pac_copy_credential_package(context, pac, "NTLM", &out2);
+	if (ret2 == 0) {
+	    krb5_data_free(&out2);
+	    /* XXX store NTLM credentials if we have any */
+	}
+    }
+
+ out:
+    if (cred)
+	krb5_free_creds(context, cred);
+    if (local_server)
+	krb5_free_principal(context, local_server);
+
+    if (in)
+	krb5_rd_req_in_ctx_free(context, in);
+    if (out)
+	krb5_rd_req_out_ctx_free(context, out);
+
+    if (pac)
+	krb5_pac_free(context, pac);
+    krb5_free_keyblock_contents(context, &keyblock);
+    krb5_auth_con_free(context, auth_context);
+
+    return ret;
+}
+
+/*
+ *
+ */
+
 OM_uint32 GSSAPI_CALLCONV
 _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 			   const gss_name_t desired_name,
@@ -806,9 +950,16 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
     char *passwordstr = NULL;
     char *cache_name = NULL;
     char *lkdc_hostname = NULL;
+    char *sitename = NULL;
     hx509_cert hxcert = NULL;
     heim_array_t bundleacl = NULL;
+    heim_dict_t source_app = NULL;
     krb5_principal new_name = NULL;
+    heim_object_t verify_credential = NULL;
+    heim_object_t create_credential = NULL;
+    heim_data_t auditToken = NULL;
+    heim_data_t appUUID = NULL;
+    heim_string_t signingIdentity = NULL;
 
     GSSAPI_KRB5_INIT(&context);
 
@@ -823,7 +974,7 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	return GSS_S_FAILURE;
 
     if (gss_oid_equal(credential_type, GSS_C_CRED_HEIMBASE)) {
-	heim_object_t pw, cname, cert, lkdc;
+	heim_object_t pw, cname, cert, lkdc, site;
 	heim_dict_t dict = (heim_dict_t)credential_data;
 
 	pw = heim_dict_copy_value(dict, _gsskrb5_kGSSICPassword);
@@ -851,8 +1002,15 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	    cache_name = heim_string_copy_utf8(cname);
 	    heim_release(cname);
 	}
+
+	site = heim_dict_copy_value(dict, _gsskrb5_kGSSICSiteName);
+	if (site) {
+	    sitename = heim_string_copy_utf8(site);
+	    heim_release(site);
+	}
 	
 	bundleacl = heim_dict_copy_value(dict, _gsskrb5_kGSSICAppIdentifierACL);
+	source_app = heim_dict_copy_value(dict, _gsskrb5_kGSSICAppleSourceApp);
 
 #ifdef PKINIT
 	cert = heim_dict_copy_value(dict, _gsskrb5_kGSSICCertificate);
@@ -869,6 +1027,9 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	    lkdc_hostname = heim_string_copy_utf8(lkdc);
 	    heim_release(lkdc);
 	}
+
+	verify_credential = heim_dict_copy_value(dict, _gsskrb5_kGSSICVerifyCredential);
+	create_credential = heim_dict_copy_value(dict, _gsskrb5_kGSSICCreateNewCredential);
 
     } else if (gss_oid_equal(credential_type, GSS_C_CRED_PASSWORD)) {
 	gss_buffer_t password = (gss_buffer_t)credential_data;
@@ -934,7 +1095,7 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	    goto out;
     }
 
-    kret = krb5_init_creds_init(context, handle->principal, NULL, NULL, NULL, opt, &ctx);
+    kret = krb5_init_creds_init(context, handle->principal, NULL, NULL, 0, opt, &ctx);
     if (kret)
 	goto out;
 
@@ -963,6 +1124,69 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	    goto out;
     }
 
+    if (sitename) {
+	kret = krb5_init_creds_set_sitename(context, ctx, sitename);
+	if (kret)
+	    goto out;
+    }
+
+#ifdef __APPLE__
+
+    if (source_app && heim_get_tid(source_app) == heim_dict_get_type_id()) {
+	krb5_uuid uuid;
+	char *sid = NULL;
+
+	appUUID = heim_dict_copy_value(source_app, _gsskrb5_kGSSICAppleSourceAppUUID);
+	auditToken = heim_dict_copy_value(source_app, _gsskrb5_kGSSICAppleSourceAppAuditToken);
+	signingIdentity = heim_dict_copy_value(source_app, _gsskrb5_kGSSICAppleSourceAppSigningIdentity);
+
+	if (appUUID) {
+
+	    if (heim_get_tid(appUUID) != heim_data_get_type_id() || heim_data_get_length(appUUID) != sizeof(krb5_uuid)) {
+		krb5_set_error_message(context, EINVAL, "Failed getting app uuid");
+		kret = EINVAL;
+		goto out;
+	    }
+
+	    memcpy(uuid, heim_data_get_bytes(appUUID), sizeof(krb5_uuid));
+
+	} else if (auditToken) {
+	    audit_token_t token;
+	    struct proc_uniqidentifierinfo procu;
+
+	    if (heim_get_tid(auditToken) != heim_data_get_type_id() || heim_data_get_length(auditToken) != sizeof(token)) {
+		krb5_set_error_message(context, EINVAL, "Failed getting audittoken");
+		kret = EINVAL;
+		goto out;
+	    }
+
+	    memcpy(&token, heim_data_get_bytes(auditToken), sizeof(token));
+
+	    if (proc_pidinfo(token.val[5], PROC_PIDUNIQIDENTIFIERINFO, 1, &procu, sizeof(procu)) != sizeof(procu)) {
+		krb5_set_error_message(context, EINVAL, "Failed getting PROC_PIDUNIQIDENTIFIERINFO");
+		kret = EINVAL;
+		goto out;
+	    }
+
+	    memcpy(uuid, procu.p_uuid, sizeof(krb5_uuid));
+
+	} else {
+	    krb5_set_error_message(context, EINVAL, "No useful app source identity");
+	    kret = EINVAL;
+	    goto out;
+	}
+
+	if (signingIdentity)
+	    sid = heim_string_copy_utf8(signingIdentity);
+
+	kret = krb5_init_creds_set_source_app(context, ctx, uuid, sid);
+	if (sid)
+	    free(sid);
+	if (kret)
+	    goto out;
+	}
+#endif
+
     kret = krb5_init_creds_get(context, ctx);
     if (kret)
 	goto out;
@@ -990,7 +1214,7 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	if (kret)
 	    goto out;
 
-    } else {
+    } else if (create_credential == NULL) {
 	/*
 	 * check if there an existing cache to overwrite before we lay
 	 * down the new cache
@@ -1002,20 +1226,36 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
     kret = krb5_init_creds_store(context, ctx, ccache);
     if (kret == 0)
 	kret = krb5_init_creds_store_config(context, ctx, ccache);
+    if (kret)
+	goto out;
 
     if (bundleacl)
 	krb5_cc_set_acl(context, ccache, "kHEIMAttrBundleIdentifierACL", bundleacl);
 
+    /*
+     * Validate
+     * ... if validated and have we have PAC, lets check if we had NTLM credentils too
+     */
+
+    if (verify_credential) {
+
+	kret = check_credential(context, ctx, handle->principal, ccache, (heim_dict_t)credential_data);
+	if (kret)
+	    goto out;
+    }
+
+    /*
+     *
+     */
+
     krb5_init_creds_free(context, ctx);
     ctx = NULL;
-    if (kret)
-	goto out;
 
     krb5_get_init_creds_opt_free(context, opt);
     opt = NULL;
 
     /*
-     * If we have a credential with the same naame, lets overwrite it
+     * If we have a credential with the same name, lets overwrite it
      */
     
     if (ccachereplace) {
@@ -1023,7 +1263,7 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	if (kret)
 	    goto out;
 	handle->ccache = ccachereplace;
-	ccachereplace = NULL;
+	ccache = ccachereplace = NULL;
     } else {
 	handle->ccache = ccache;
     }
@@ -1034,14 +1274,35 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 
     if (cache_name)
 	free(cache_name);
+    if (sitename)
+	free(sitename);
+    if (source_app)
+	heim_release(source_app);
+    if (appUUID)
+	heim_release(appUUID);
+    if (auditToken)
+	heim_release(auditToken);
+    if (signingIdentity)
+	heim_release(signingIdentity);
 
     heim_release(bundleacl);
+
 
     return GSS_S_COMPLETE;
 
  out:
+    if (appUUID)
+	heim_release(appUUID);
+    if (auditToken)
+	heim_release(auditToken);
+    if (signingIdentity)
+	heim_release(signingIdentity);
+    if (sitename)
+	free(sitename);
     if (bundleacl)
 	heim_release(bundleacl);
+    if (source_app)
+	heim_release(source_app);
     if (opt)
 	krb5_get_init_creds_opt_free(context, opt);
     if (ctx)

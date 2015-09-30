@@ -3,7 +3,7 @@
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
  *
- * Portions Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2013 - 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,73 +26,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-/*
-
-attributes:
-
-	type: { generic, ntlm, scram, krb5 }
-	name: [ { generic = val , krb5 = val, ntlm = val, scram = val } ] 
-
-	uuid: [cfdata]
-
-	persistant + temporary:
-		name
-		password / x509 credential
-
-	allowed domains:
-		{ mech - domains }
-
-	status: { mech -> { invalid, can refersh, valid-for } , ... }
-
-	retain-status: { false, integer }
-
-    ADD_CRED
-	{ generic, krb5, ntlm, scram } name
-	type: persistant + temporary
-    	password
-    	x509-credential
-	acl: [ application, bundle ids, developer id prefix ]
-
-    DO_AUTH_NTLM,
-	do
-
-    DO_SCRAM_AUTH,
-	do
-
-    DO_KRB5_AUTH,
-	mk-req
-	rd-rep
-
-	as-req-init
-	as-req-step
-
-    SEARCH_CREDS,
-
-	by uuid
-	by name
-	by variable
-	
-	prefix matching
-	subfixfix matching
-	type matching
-
-	return subuuids
-	return labeluuids
-	return attributes and their content
-
-    SET_ATTRIBUTE,
-	cache name
-	cred name
-	default-status
-	label-name + label-value
-
-    REMOVE_CRED
-
-    RETAIN_CRED
-    RELEASE_CRED
-
-*/
 
 #ifndef HEIMDAL_HEIMCRED_H
 #define HEIMDAL_HEIMCRED_H 1
@@ -161,9 +94,18 @@ HeimCredCopyStatus(CFStringRef mech);
 CFDictionaryRef
 HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef input);
 
+/*
+ * Only valid client side
+ */
+
+void
+HeimCredSetImpersonateBundle(CFStringRef bundle);
+
+const char *
+HeimCredGetImpersonateBundle(void);
 
 /*
- * Only valid XPCService side
+ * Only valid server side side
  */
 typedef CFDictionaryRef (*HeimCredAuthCallback)(HeimCredRef, CFDictionaryRef);
 typedef CFTypeRef (*HeimCredStatusCallback)(HeimCredRef);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2009, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2009, 2011, 2013-2015 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,7 +24,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebFrame.h"
 
@@ -33,6 +32,8 @@
 #include "DOMCoreClasses.h"
 #include "HTMLFrameOwnerElement.h"
 #include "MarshallingHelpers.h"
+#include "PluginDatabase.h"
+#include "PluginView.h"
 #include "WebActionPropertyBag.h"
 #include "WebChromeClient.h"
 #include "WebDataSource.h"
@@ -86,8 +87,6 @@
 #include <WebCore/Page.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/PluginData.h>
-#include <WebCore/PluginDatabase.h>
-#include <WebCore/PluginView.h>
 #include <WebCore/PolicyChecker.h>
 #include <WebCore/PrintContext.h>
 #include <WebCore/ResourceHandle.h>
@@ -194,7 +193,7 @@ static Element *elementFromDOMElement(IDOMElement *element)
 static HTMLFormElement *formElementFromDOMElement(IDOMElement *element)
 {
     if (!element)
-        return 0;
+        return nullptr;
 
     IDOMElementPrivate* elePriv;
     HRESULT hr = element->QueryInterface(IID_IDOMElementPrivate, (void**) &elePriv);
@@ -202,16 +201,16 @@ static HTMLFormElement *formElementFromDOMElement(IDOMElement *element)
         Element* ele;
         hr = elePriv->coreElement((void**)&ele);
         elePriv->Release();
-        if (SUCCEEDED(hr) && ele && isHTMLFormElement(ele))
-            return toHTMLFormElement(ele);
+        if (SUCCEEDED(hr) && is<HTMLFormElement>(ele))
+            return downcast<HTMLFormElement>(ele);
     }
-    return 0;
+    return nullptr;
 }
 
 static HTMLInputElement* inputElementFromDOMElement(IDOMElement* element)
 {
     if (!element)
-        return 0;
+        return nullptr;
 
     IDOMElementPrivate* elePriv;
     HRESULT hr = element->QueryInterface(IID_IDOMElementPrivate, (void**) &elePriv);
@@ -219,10 +218,10 @@ static HTMLInputElement* inputElementFromDOMElement(IDOMElement* element)
         Element* ele;
         hr = elePriv->coreElement((void**)&ele);
         elePriv->Release();
-        if (SUCCEEDED(hr) && ele && isHTMLInputElement(ele))
-            return toHTMLInputElement(ele);
+        if (SUCCEEDED(hr) && is<HTMLInputElement>(ele))
+            return downcast<HTMLInputElement>(ele);
     }
-    return 0;
+    return nullptr;
 }
 
 // WebFramePrivate ------------------------------------------------------------
@@ -253,7 +252,7 @@ WebFrame::WebFrame()
 {
     WebFrameCount++;
     gClassCount++;
-    gClassNameCount.add("WebFrame");
+    gClassNameCount().add("WebFrame");
 }
 
 WebFrame::~WebFrame()
@@ -261,7 +260,7 @@ WebFrame::~WebFrame()
     delete d;
     WebFrameCount--;
     gClassCount--;
-    gClassNameCount.remove("WebFrame");
+    gClassNameCount().remove("WebFrame");
 }
 
 WebFrame* WebFrame::createInstance()
@@ -547,7 +546,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::loadRequest(
     if (!coreFrame)
         return E_FAIL;
 
-    coreFrame->loader().load(FrameLoadRequest(coreFrame, requestImpl->resourceRequest()));
+    coreFrame->loader().load(FrameLoadRequest(coreFrame, requestImpl->resourceRequest(), ShouldOpenExternalURLsPolicy::ShouldNotAllow));
     return S_OK;
 }
 
@@ -562,16 +561,17 @@ void WebFrame::loadData(PassRefPtr<WebCore::SharedBuffer> data, BSTR mimeType, B
     // FIXME: We should really be using MarshallingHelpers::BSTRToKURL here,
     // but that would turn a null BSTR into a null URL, and we crash inside of
     // WebCore if we use a null URL in constructing the ResourceRequest.
-    URL baseKURL = URL(URL(), String(baseURL ? baseURL : L"", SysStringLen(baseURL)));
+    URL baseCoreURL = URL(URL(), String(baseURL ? baseURL : L"", SysStringLen(baseURL)));
 
-    URL failingKURL = MarshallingHelpers::BSTRToKURL(failingURL);
+    URL failingCoreURL = MarshallingHelpers::BSTRToKURL(failingURL);
 
-    ResourceRequest request(baseKURL);
-    SubstituteData substituteData(data, mimeTypeString, encodingString, failingKURL);
+    ResourceRequest request(baseCoreURL);
+    ResourceResponse response(URL(), mimeTypeString, data->size(), encodingString);
+    SubstituteData substituteData(data, failingCoreURL, response, SubstituteData::SessionHistoryVisibility::Hidden);
 
     // This method is only called from IWebFrame methods, so don't ASSERT that the Frame pointer isn't null.
     if (Frame* coreFrame = core(this))
-        coreFrame->loader().load(FrameLoadRequest(coreFrame, request, substituteData));
+        coreFrame->loader().load(FrameLoadRequest(coreFrame, request, ShouldOpenExternalURLsPolicy::ShouldNotAllow, substituteData));
 }
 
 
@@ -794,7 +794,7 @@ public:
             *pCeltFetched = 0;
         if (!rgVar)
             return E_POINTER;
-        VariantInit(rgVar);
+        ::VariantInit(rgVar);
         if (!celt || celt > 1)
             return S_FALSE;
         if (!m_frame || !m_curChild)
@@ -1101,12 +1101,12 @@ HRESULT WebFrame::elementWithName(BSTR name, IDOMElement* form, IDOMElement** el
         const Vector<FormAssociatedElement*>& elements = formElement->associatedElements();
         AtomicString targetName((UChar*)name, SysStringLen(name));
         for (unsigned int i = 0; i < elements.size(); i++) {
-            if (!elements[i]->isFormControlElement())
+            if (!is<HTMLFormControlElement>(*elements[i]))
                 continue;
-            HTMLFormControlElement* elt = toHTMLFormControlElement(elements[i]);
+            HTMLFormControlElement& elt = downcast<HTMLFormControlElement>(*elements[i]);
             // Skip option elements, other duds
-            if (elt->name() == targetName) {
-                *element = DOMElement::createInstance(elt);
+            if (elt.name() == targetName) {
+                *element = DOMElement::createInstance(&elt);
                 return S_OK;
             }
         }
@@ -1181,7 +1181,7 @@ HRESULT WebFrame::pauseAnimation(BSTR animationName, IDOMNode* node, double seco
     if (!domNode)
         return E_FAIL;
 
-    *animationWasRunning = frame->animation().pauseAnimationAtTime(toRenderElement(domNode->node()->renderer()), String(animationName, SysStringLen(animationName)), secondsFromNow);
+    *animationWasRunning = frame->animation().pauseAnimationAtTime(downcast<RenderElement>(domNode->node()->renderer()), String(animationName, SysStringLen(animationName)), secondsFromNow);
     return S_OK;
 }
 
@@ -1200,7 +1200,7 @@ HRESULT WebFrame::pauseTransition(BSTR propertyName, IDOMNode* node, double seco
     if (!domNode)
         return E_FAIL;
 
-    *transitionWasRunning = frame->animation().pauseTransitionAtTime(toRenderElement(domNode->node()->renderer()), String(propertyName, SysStringLen(propertyName)), secondsFromNow);
+    *transitionWasRunning = frame->animation().pauseTransitionAtTime(downcast<RenderElement>(domNode->node()->renderer()), String(propertyName, SysStringLen(propertyName)), secondsFromNow);
     return S_OK;
 }
 
@@ -2097,3 +2097,14 @@ void WebFrame::updateBackground()
     coreFrame->view()->updateBackgroundRecursively(backgroundColor, webView()->transparent());
 }
 
+// IWebFrame2
+HRESULT WebFrame::isMainFrame(BOOL* value)
+{
+    if (!value)
+        return E_POINTER;
+
+    Frame* coreFrame = core(this);
+    *value = coreFrame->isMainFrame();
+
+    return S_OK;
+}

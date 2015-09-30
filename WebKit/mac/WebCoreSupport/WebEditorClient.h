@@ -34,6 +34,10 @@
 #import <wtf/Vector.h>
 #import <wtf/text/StringView.h>
 
+#if PLATFORM(IOS)
+#import <WebCore/WAKAppKitStubs.h>
+#endif
+
 @class WebView;
 @class WebEditorUndoTarget;
 
@@ -65,7 +69,8 @@ private:
     virtual bool shouldChangeSelectedRange(WebCore::Range* fromRange, WebCore::Range* toRange, WebCore::EAffinity, bool stillSelecting) override;
 
     virtual bool shouldApplyStyle(WebCore::StyleProperties*, WebCore::Range*) override;
-    
+    virtual void didApplyStyle() override;
+
     virtual bool shouldMoveRangeAfterDelete(WebCore::Range*, WebCore::Range* rangeToBeReplaced) override;
 
     virtual void didBeginEditing() override;
@@ -102,14 +107,11 @@ private:
     virtual void toggleAutomaticSpellingCorrection() override;
 #endif
 
-#if ENABLE(DELETION_UI)
-    virtual bool shouldShowDeleteInterface(WebCore::HTMLElement*) override;
-#endif
-
     virtual TextCheckerClient* textChecker() override { return this; }
 
     virtual void respondToChangedContents() override;
     virtual void respondToChangedSelection(WebCore::Frame*) override;
+    virtual void didChangeSelectionAndUpdateLayout() override { }
     virtual void discardedComposition(WebCore::Frame*) override;
 
     virtual void registerUndoStep(PassRefPtr<WebCore::UndoStep>) override;
@@ -176,6 +178,32 @@ private:
     bool m_hasDelayedContentChangeNotification;
 #endif
 };
+
+#if PLATFORM(COCOA)
+inline NSSelectionAffinity kit(WebCore::EAffinity affinity)
+{
+    switch (affinity) {
+        case WebCore::EAffinity::UPSTREAM:
+            return NSSelectionAffinityUpstream;
+        case WebCore::EAffinity::DOWNSTREAM:
+            return NSSelectionAffinityDownstream;
+    }
+    ASSERT_NOT_REACHED();
+    return NSSelectionAffinityUpstream;
+}
+
+inline WebCore::EAffinity core(NSSelectionAffinity affinity)
+{
+    switch (affinity) {
+    case NSSelectionAffinityUpstream:
+        return WebCore::EAffinity::UPSTREAM;
+    case NSSelectionAffinityDownstream:
+        return WebCore::EAffinity::DOWNSTREAM;
+    }
+    ASSERT_NOT_REACHED();
+    return WebCore::EAffinity::UPSTREAM;
+}
+#endif
 
 #if PLATFORM(IOS)
 

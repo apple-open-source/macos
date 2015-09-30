@@ -29,17 +29,17 @@
 #if PLATFORM(IOS)
 
 #import "LegacyTileCache.h"
-#import "WAKViewPrivate.h"
+#import "WAKViewInternal.h"
 #import "WebCoreSystemInterface.h"
 #import "WebCoreThreadRun.h"
 #import "WebEvent.h"
 #import "WKContentObservation.h"
 #import "WKViewPrivate.h"
 #import <QuartzCore/QuartzCore.h>
-#import <wtf/TCSpinLock.h>
+#import <wtf/SpinLock.h>
 
-NSString * const WAKWindowScreenScaleDidChangeNotification = @"WAKWindowScreenScaleDidChangeNotification";
-NSString * const WAKWindowVisibilityDidChangeNotification = @"WAKWindowVisibilityDidChangeNotification";
+WEBCORE_EXPORT NSString * const WAKWindowScreenScaleDidChangeNotification = @"WAKWindowScreenScaleDidChangeNotification";
+WEBCORE_EXPORT NSString * const WAKWindowVisibilityDidChangeNotification = @"WAKWindowVisibilityDidChangeNotification";
 
 using namespace WebCore;
 
@@ -77,7 +77,6 @@ static id<OrientationProvider> gOrientationProvider;
 
     _frozenVisibleRect = CGRectNull;
 
-    _exposedScrollViewRectLock = SPINLOCK_INITIALIZER;
     _exposedScrollViewRect = CGRectNull;
 
     return self;
@@ -93,7 +92,6 @@ static id<OrientationProvider> gOrientationProvider;
     _frame = frame;
     _screenScale = wkGetScreenScaleFactor();
 
-    _exposedScrollViewRectLock = SPINLOCK_INITIALIZER;
     _exposedScrollViewRect = CGRectNull;
 
     return self;
@@ -425,6 +423,11 @@ static id<OrientationProvider> gOrientationProvider;
     _tileCache->setTilesOpaque(opaque);
 }
 
+- (void)setEntireWindowVisibleForTesting:(BOOL)entireWindowVisible
+{
+    _entireWindowVisibleForTesting = entireWindowVisible;
+}
+
 - (CGRect)_visibleRectRespectingMasksToBounds:(BOOL)respectsMasksToBounds
 {
     if (!CGRectIsNull(_frozenVisibleRect))
@@ -432,10 +435,14 @@ static id<OrientationProvider> gOrientationProvider;
 
     CALayer* layer = _hostLayer;
     CGRect bounds = [layer bounds];
+    if (_entireWindowVisibleForTesting)
+        return bounds;
     CGRect rect = bounds;
     CALayer* superlayer = [layer superlayer];
 
-    while (superlayer && layer != _rootLayer) {
+    static Class windowClass = NSClassFromString(@"UIWindow");
+
+    while (superlayer && layer != _rootLayer && (!layer.delegate || ![layer.delegate isKindOfClass:windowClass])) {
         CGRect rectInSuper = [superlayer convertRect:rect fromLayer:layer];
         if ([superlayer masksToBounds] || !respectsMasksToBounds)
             rect = CGRectIntersection([superlayer bounds], rectInSuper);

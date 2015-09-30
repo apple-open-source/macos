@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 1984-2007  Mark Nudelman
+ * Copyright (C) 1984-2012  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
  *
- * For more information about less, or for information on how to 
- * contact the author, see the README file.
+ * For more information, see the README file.
  */
 
 
@@ -39,13 +38,12 @@ public char *	progname;
 public int	quitting;
 public int	secure;
 public int	dohelp;
-public int	less_is_more;
+
 public int	file_errors = 0;
 public int	unix2003_compat = 0;
 public int	add_newline = 0;
 public char *	active_dashp_command = NULL;
 public char *	dashp_commands = NULL;
-
 #if LOGFILE
 public int	logfile = -1;
 public int	force_logfile = FALSE;
@@ -67,6 +65,7 @@ extern int	jump_sline;
 static char consoleTitle[256];
 #endif
 
+extern int	less_is_more;
 extern int	missing_cap;
 extern int	know_dumb;
 extern int	quit_if_one_screen;
@@ -129,6 +128,7 @@ main(argc, argv)
 	init_line();
 	init_cmdhist();
 	init_option();
+	init_search();
 
 	/*
 	 * If the name of the executable program is "more",
@@ -151,6 +151,7 @@ main(argc, argv)
 		scan_option("-m");
 		scan_option("-G");
 		scan_option("-X"); /* avoid alternate screen */
+		scan_option("-A"); /* search avoids current screen */
 	}
 	s = lgetenv(less_is_more ? "MORE" : "LESS");
 	if (s != NULL)
@@ -241,6 +242,7 @@ main(argc, argv)
 		argv++;
 		(void) get_ifile(filename, ifile);
 		ifile = prev_ifile(NULL_IFILE);
+		free(filename);
 #endif
 	}
 	/*
@@ -459,7 +461,7 @@ quit(status)
 	 */
 	close(2);
 #endif
-#if WIN32
+#ifdef WIN32
 	SetConsoleTitle(consoleTitle);
 #endif
 	close_getchr();

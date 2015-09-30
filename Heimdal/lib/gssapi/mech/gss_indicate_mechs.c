@@ -29,8 +29,8 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_indicate_mechs(OM_uint32 *minor_status,
-    gss_OID_set *mech_set)
+gss_indicate_mechs(OM_uint32 *__nonnull minor_status,
+    __nonnull gss_OID_set *__nullable mech_set)
 {
 	struct _gss_mech_switch *m;
 	OM_uint32 major_status, junk;

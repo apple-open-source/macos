@@ -27,18 +27,28 @@
 #define EwkViewCallbacks_h
 
 #include "WKEinaSharedString.h"
+#include "WKPageUIClient.h"
 #include "ewk_view.h"
 #include <Evas.h>
 #include <WebKit/WKGeometry.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
+#ifdef __cplusplus
+typedef class EwkObject Ewk_Auth_Request;
+typedef class EwkObject Ewk_Download_Job;
+typedef class EwkObject Ewk_File_Chooser_Request;
+typedef class EwkObject Ewk_Form_Submission_Request;
+typedef class EwkObject Ewk_Navigation_Policy_Decision;
+typedef class EwkError Ewk_Error;
+#else
 typedef struct EwkObject Ewk_Auth_Request;
 typedef struct EwkObject Ewk_Download_Job;
 typedef struct EwkObject Ewk_File_Chooser_Request;
 typedef struct EwkObject Ewk_Form_Submission_Request;
 typedef struct EwkObject Ewk_Navigation_Policy_Decision;
 typedef struct EwkError Ewk_Error;
+#endif
 
 namespace EwkViewCallbacks {
 
@@ -47,11 +57,8 @@ enum CallbackType {
     BackForwardListChange,
     CancelVibration,
     ContentsSizeChanged,
-    DownloadJobCancelled,
-    DownloadJobFailed,
-    DownloadJobFinished,
-    DownloadJobRequested,
     FileChooserRequest,
+    FocusNotFound,
     NewFormSubmissionRequest,
     LoadError,
     LoadFinished,
@@ -144,6 +151,24 @@ struct CallBack <callbackType, Ewk_CSS_Size*> : public EvasObjectHolder {
     }
 };
 
+template <CallbackType callbackType>
+struct CallBack <callbackType, Ewk_Focus_Direction> : public EvasObjectHolder {
+    explicit CallBack(Evas_Object* view)
+        : EvasObjectHolder(view)
+    { }
+
+    void call(Ewk_Focus_Direction direction)
+    {
+        evas_object_smart_callback_call(m_object, CallBackInfo<callbackType>::name(), &direction);
+    }
+
+    void call(const WKFocusDirection arg)
+    {
+        Ewk_Focus_Direction direction = (arg == kWKFocusDirectionForward) ? EWK_FOCUS_DIRECTION_FORWARD : EWK_FOCUS_DIRECTION_BACKWARD;
+        call(direction);
+    }
+};
+
 #define DECLARE_EWK_VIEW_CALLBACK(callbackType, string, type) \
 template <>                                                   \
 struct CallBackInfo<callbackType> {                           \
@@ -156,11 +181,8 @@ DECLARE_EWK_VIEW_CALLBACK(AuthenticationRequest, "authentication,request", Ewk_A
 DECLARE_EWK_VIEW_CALLBACK(BackForwardListChange, "back,forward,list,changed", void);
 DECLARE_EWK_VIEW_CALLBACK(CancelVibration, "cancel,vibration", void);
 DECLARE_EWK_VIEW_CALLBACK(ContentsSizeChanged, "contents,size,changed", Ewk_CSS_Size*);
-DECLARE_EWK_VIEW_CALLBACK(DownloadJobCancelled, "download,cancelled", Ewk_Download_Job*);
-DECLARE_EWK_VIEW_CALLBACK(DownloadJobFailed, "download,failed", Ewk_Download_Job_Error*);
-DECLARE_EWK_VIEW_CALLBACK(DownloadJobFinished, "download,finished", Ewk_Download_Job*);
-DECLARE_EWK_VIEW_CALLBACK(DownloadJobRequested, "download,request", Ewk_Download_Job*);
 DECLARE_EWK_VIEW_CALLBACK(FileChooserRequest, "file,chooser,request", Ewk_File_Chooser_Request*);
+DECLARE_EWK_VIEW_CALLBACK(FocusNotFound, "focus,notfound", Ewk_Focus_Direction);
 DECLARE_EWK_VIEW_CALLBACK(NewFormSubmissionRequest, "form,submission,request", Ewk_Form_Submission_Request*);
 DECLARE_EWK_VIEW_CALLBACK(LoadError, "load,error", Ewk_Error*);
 DECLARE_EWK_VIEW_CALLBACK(LoadFinished, "load,finished", void);

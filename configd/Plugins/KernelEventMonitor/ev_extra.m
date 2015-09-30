@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -125,7 +125,14 @@ interface_update_expensive(const char *if_name)
 int
 dgram_socket(int domain)
 {
-	return (socket(domain, SOCK_DGRAM, 0));
+	int	s;
+
+	s = socket(domain, SOCK_DGRAM, 0);
+	if (s == -1) {
+		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
+	}
+
+	return s;
 }
 
 int

@@ -131,10 +131,10 @@ attr_pname_to_uid(OM_uint32 *minor_status,
 }
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_pname_to_uid(OM_uint32 *minor_status,
-                 const gss_name_t pname,
-                 const gss_OID mech_type,
-                 uid_t *uidp)
+gss_pname_to_uid(OM_uint32 *__nonnull minor_status,
+                 __nonnull const gss_name_t pname,
+                 __nonnull const gss_OID mech_type,
+                 uid_t *__nonnull uidp)
 {
     OM_uint32 major_status = GSS_S_UNAVAILABLE;
     struct _gss_name *name = (struct _gss_name *) pname;

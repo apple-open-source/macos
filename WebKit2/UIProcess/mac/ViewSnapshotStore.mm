@@ -32,7 +32,7 @@
 #import <WebCore/IOSurface.h>
 
 #if PLATFORM(IOS)
-#import <QuartzCore/QuartzCorePrivate.h>
+#import <WebCore/QuartzCoreSPI.h>
 #endif
 
 using namespace WebCore;
@@ -56,7 +56,7 @@ ViewSnapshotStore::~ViewSnapshotStore()
     discardSnapshotImages();
 }
 
-ViewSnapshotStore& ViewSnapshotStore::shared()
+ViewSnapshotStore& ViewSnapshotStore::singleton()
 {
     static ViewSnapshotStore& store = *new ViewSnapshotStore;
     return store;
@@ -134,29 +134,31 @@ void ViewSnapshotStore::discardSnapshotImages()
 
 
 #if USE_IOSURFACE_VIEW_SNAPSHOTS
-PassRefPtr<ViewSnapshot> ViewSnapshot::create(IOSurface* surface, IntSize size, size_t imageSizeInBytes)
+Ref<ViewSnapshot> ViewSnapshot::create(std::unique_ptr<IOSurface> surface)
 {
-    return adoptRef(new ViewSnapshot(surface, size, imageSizeInBytes));
+    return adoptRef(*new ViewSnapshot(WTF::move(surface)));
 }
 #elif USE_RENDER_SERVER_VIEW_SNAPSHOTS
-PassRefPtr<ViewSnapshot> ViewSnapshot::create(uint32_t slotID, IntSize size, size_t imageSizeInBytes)
+Ref<ViewSnapshot> ViewSnapshot::create(uint32_t slotID, IntSize size, size_t imageSizeInBytes)
 {
-    return adoptRef(new ViewSnapshot(slotID, size, imageSizeInBytes));
+    return adoptRef(*new ViewSnapshot(slotID, size, imageSizeInBytes));
 }
 #endif
 
 #if USE_IOSURFACE_VIEW_SNAPSHOTS
-ViewSnapshot::ViewSnapshot(IOSurface* surface, IntSize size, size_t imageSizeInBytes)
-    : m_surface(surface)
+ViewSnapshot::ViewSnapshot(std::unique_ptr<IOSurface> surface)
+    : m_surface(WTF::move(surface))
+    , m_imageSizeInBytes(m_surface->totalBytes())
+    , m_size(m_surface->size())
 #elif USE_RENDER_SERVER_VIEW_SNAPSHOTS
 ViewSnapshot::ViewSnapshot(uint32_t slotID, IntSize size, size_t imageSizeInBytes)
     : m_slotID(slotID)
-#endif
     , m_imageSizeInBytes(imageSizeInBytes)
     , m_size(size)
+#endif
 {
     if (hasImage())
-        ViewSnapshotStore::shared().didAddImageToSnapshot(*this);
+        ViewSnapshotStore::singleton().didAddImageToSnapshot(*this);
 }
 
 ViewSnapshot::~ViewSnapshot()
@@ -167,7 +169,7 @@ ViewSnapshot::~ViewSnapshot()
 bool ViewSnapshot::hasImage() const
 {
 #if USE_IOSURFACE_VIEW_SNAPSHOTS
-    return m_surface;
+    return !!m_surface;
 #elif USE_RENDER_SERVER_VIEW_SNAPSHOTS
     return m_slotID;
 #endif
@@ -178,7 +180,7 @@ void ViewSnapshot::clearImage()
     if (!hasImage())
         return;
 
-    ViewSnapshotStore::shared().willRemoveImageFromSnapshot(*this);
+    ViewSnapshotStore::singleton().willRemoveImageFromSnapshot(*this);
 
 #if USE_IOSURFACE_VIEW_SNAPSHOTS
     m_surface = nullptr;

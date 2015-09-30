@@ -101,18 +101,15 @@ private:
     virtual bool runJavaScriptConfirm(WebCore::Frame*, const String&) override;
     virtual bool runJavaScriptPrompt(WebCore::Frame*, const String& message, const String& defaultValue, String& result) override;
     virtual void setStatusbarText(const String&) override;
-    virtual bool shouldInterruptJavaScript() override;
 
     virtual WebCore::KeyboardUIMode keyboardUIMode() override;
 
-    virtual WebCore::IntRect windowResizerRect() const override;
-    
     // HostWindow member function overrides.
     virtual void invalidateRootView(const WebCore::IntRect&) override;
     virtual void invalidateContentsAndRootView(const WebCore::IntRect&) override;
     virtual void invalidateContentsForSlowScroll(const WebCore::IntRect&) override;
     virtual void scroll(const WebCore::IntSize& scrollDelta, const WebCore::IntRect& scrollRect, const WebCore::IntRect& clipRect) override;
-#if USE(TILED_BACKING_STORE)
+#if USE(COORDINATED_GRAPHICS)
     virtual void delegatedScrollRequested(const WebCore::IntPoint& scrollOffset) override;
 #endif
     virtual WebCore::IntPoint screenToRootView(const WebCore::IntPoint&) const override;
@@ -130,14 +127,16 @@ private:
 
     virtual void scrollbarsModeDidChange() const override;
     virtual void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags) override;
-    
+
+    virtual void didBeginTrackingPotentialLongMousePress(const WebCore::IntPoint& mouseDownPosition, const WebCore::HitTestResult&) override;
+    virtual void didRecognizeLongMousePress() override;
+    virtual void didCancelTrackingPotentialLongMousePress() override;
+
     virtual void setToolTip(const String&, WebCore::TextDirection) override;
     
     virtual void print(WebCore::Frame*) override;
-    
-#if ENABLE(SQL_DATABASE)
+
     virtual void exceededDatabaseQuota(WebCore::Frame*, const String& databaseName, WebCore::DatabaseDetails) override;
-#endif
 
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded) override;
     virtual void reachedApplicationCacheOriginQuota(WebCore::SecurityOrigin*, int64_t spaceNeeded) override;
@@ -146,13 +145,11 @@ private:
     virtual void annotatedRegionsChanged() override;
 #endif
 
-    virtual void populateVisitedLinks() override;
-    
     virtual bool shouldReplaceWithGeneratedFileForUpload(const String& path, String& generatedFilename) override;
     virtual String generateReplacementFile(const String& path) override;
     
 #if ENABLE(INPUT_TYPE_COLOR)
-    virtual PassOwnPtr<WebCore::ColorChooser> createColorChooser(WebCore::ColorChooserClient*, const WebCore::Color&) override;
+    virtual std::unique_ptr<WebCore::ColorChooser> createColorChooser(WebCore::ColorChooserClient*, const WebCore::Color&) override;
 #endif
 
 #if ENABLE(IOS_TOUCH_EVENTS)
@@ -220,12 +217,12 @@ private:
     virtual RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID) const override;
 #endif
 
-    virtual CompositingTriggerFlags allowedCompositingTriggers() const
+    virtual CompositingTriggerFlags allowedCompositingTriggers() const override
     {
         return static_cast<CompositingTriggerFlags>(
             ThreeDTransformTrigger |
             VideoTrigger |
-            PluginTrigger| 
+            PluginTrigger|
             CanvasTrigger |
 #if PLATFORM(IOS)
             AnimatedOpacityTrigger | // Allow opacity animations to trigger compositing mode for iPhone: <rdar://problem/7830677>
@@ -249,9 +246,9 @@ private:
 #endif
 
 #if PLATFORM(IOS)
-    virtual bool supportsFullscreenForNode(const WebCore::Node*);
-    virtual void enterFullscreenForNode(WebCore::Node*);
-    virtual void exitFullscreenForNode(WebCore::Node*);
+    virtual bool supportsVideoFullscreen() override;
+    virtual void enterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode) override;
+    virtual void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&) override;
 #endif
 
 #if ENABLE(FULLSCREEN_API)
@@ -274,13 +271,15 @@ private:
     virtual void dispatchViewportPropertiesDidChange(const WebCore::ViewportArguments&) const override;
 
     virtual void notifyScrollerThumbIsVisibleInRect(const WebCore::IntRect&) override;
-    virtual void recommendedScrollbarStyleDidChange(int32_t newStyle) override;
+    virtual void recommendedScrollbarStyleDidChange(WebCore::ScrollbarStyle newStyle) override;
+
+    virtual WTF::Optional<WebCore::ScrollbarOverlayStyle> preferredScrollbarOverlayStyle() override;
 
     virtual WebCore::Color underlayColor() const override;
 
     virtual void pageExtendedBackgroundColorDidChange(WebCore::Color) const override;
     
-    virtual void numWheelEventHandlersChanged(unsigned) override;
+    virtual void wheelEventHandlersChanged(bool) override;
 
     virtual String plugInStartLabelTitle(const String& mimeType) const override;
     virtual String plugInStartLabelSubtitle(const String& mimeType) const override;
@@ -291,6 +290,14 @@ private:
     virtual void didAddFooterLayer(WebCore::GraphicsLayer*) override;
 
     virtual bool shouldUseTiledBackingForFrameView(const WebCore::FrameView*) const override;
+
+    virtual void isPlayingMediaDidChange(WebCore::MediaProducer::MediaStateFlags) override;
+    virtual void setPageActivityState(WebCore::PageActivityState::Flags) override;
+
+#if ENABLE(MEDIA_SESSION)
+    virtual void hasMediaSessionWithActiveMediaElementsDidChange(bool) override;
+    virtual void mediaSessionMetadataDidChange(const WebCore::MediaSessionMetadata&) override;
+#endif
 
 #if ENABLE(SUBTLE_CRYPTO)
     virtual bool wrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const override;
@@ -306,6 +313,19 @@ private:
 #endif
 
     virtual bool shouldDispatchFakeMouseMoveEvents() const override;
+
+    virtual void handleAutoFillButtonClick(WebCore::HTMLInputElement&) override;
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+    virtual void addPlaybackTargetPickerClient(uint64_t /*contextId*/) override;
+    virtual void removePlaybackTargetPickerClient(uint64_t /*contextId*/) override;
+    virtual void showPlaybackTargetPicker(uint64_t contextId, const WebCore::IntPoint&, bool) override;
+    virtual void playbackTargetPickerClientStateDidChange(uint64_t, WebCore::MediaProducer::MediaStateFlags) override;
+#endif
+
+#if ENABLE(VIDEO)
+    virtual void mediaDocumentNaturalSizeChanged(const WebCore::IntSize&) override;
+#endif
 
     String m_cachedToolTip;
     mutable RefPtr<WebFrame> m_cachedFrameSetLargestFrame;

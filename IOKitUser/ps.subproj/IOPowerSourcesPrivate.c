@@ -28,6 +28,8 @@
 #include <mach/vm_map.h>
 #include <servers/bootstrap.h>
 #include <bootstrap_priv.h>
+#include <notify.h>
+#include <asl.h>
 
 #include "IOSystemConfiguration.h"
 #include "IOPowerSources.h"
@@ -73,14 +75,19 @@ IOReturn IOPSRequestBatteryUpdate(int type)
 CFArrayRef
 IOPSCopyInternalBatteriesArray(CFTypeRef power_sources)
 {
-    CFArrayRef			array = isA_CFArray(IOPSCopyPowerSourcesList(power_sources));
+    CFArrayRef			array = IOPSCopyPowerSourcesList(power_sources);
     CFMutableArrayRef   ret_arr;
     CFTypeRef			name = NULL;
     CFDictionaryRef		ps;
     CFStringRef			transport_type;
     int				    i, count;
 
-    if(!array) return NULL;
+    if(array) {
+        if(!isA_CFArray(array)) {
+            CFRelease(array);
+            return NULL;
+        }
+    }
     count = CFArrayGetCount(array);
     name = NULL;
 
@@ -105,7 +112,7 @@ IOPSCopyInternalBatteriesArray(CFTypeRef power_sources)
     }
 
 exit:
-    CFRelease(array);
+    if(array) CFRelease(array);
     return ret_arr;
 }
 
@@ -121,14 +128,19 @@ exit:
  CFArrayRef
 IOPSCopyUPSArray(CFTypeRef power_sources)
 {
-    CFArrayRef			array = isA_CFArray(IOPSCopyPowerSourcesList(power_sources));
+    CFArrayRef			array = IOPSCopyPowerSourcesList(power_sources);
     CFMutableArrayRef   ret_arr;
     CFTypeRef			name = NULL;
     CFDictionaryRef		ps;
     CFStringRef			transport_type;
     int				    i, count;
 
-    if(!array) return NULL;
+    if(array) {
+        if(!isA_CFArray(array)) {
+            CFRelease(array);
+            return NULL;
+        }
+    }
     count = CFArrayGetCount(array);
     name = NULL;
 
@@ -156,7 +168,7 @@ IOPSCopyUPSArray(CFTypeRef power_sources)
     }
 
 exit:
-    CFRelease(array);
+    if(array) CFRelease(array);
     return ret_arr;
 }
 
@@ -302,32 +314,19 @@ IOReturn _pm_disconnect(mach_port_t connection);
  * typedef struct OpaqueIOPSPowerSourceID *IOPSPowerSourceID;
  */
 struct OpaqueIOPSPowerSourceID {
-    CFMachPortRef   configdConnection;
-    int     psid;
+    CFDictionaryRef resyncCopy;
+    int             psid;
+    int             resyncToken;
 };
 
 #define kMaxPSTypeLength        25
 #define kMaxSCDSKeyLength       1024
 
-IOReturn IOPSCreatePowerSource(
-    IOPSPowerSourceID *outPS)
+static IOReturn createPowerSource(struct OpaqueIOPSPowerSourceID *newPS)
 {
-    IOPSPowerSourceID           newPS = NULL;
     mach_port_t                 pm_server = MACH_PORT_NULL;
-
-    int                         return_code = kIOReturnSuccess;
+    IOReturn                    return_code = kIOReturnSuccess;
     kern_return_t               kr = KERN_SUCCESS;
-    
-    if (!outPS) {
-        return kIOReturnBadArgument;
-    }
-
-    // newPS - This tracking structure must be freed by IOPSReleasePowerSource()
-    newPS = calloc(1, sizeof(struct OpaqueIOPSPowerSourceID));
-
-    if (!newPS) {
-        return kIOReturnVMError;
-    }
 
     return_code = _pm_connect(&pm_server);
     if(kIOReturnSuccess != return_code) {
@@ -344,14 +343,50 @@ IOReturn IOPSCreatePowerSource(
         return_code = kIOReturnNotResponding;
     }
 
-
 fail:
     if (IO_OBJECT_NULL != pm_server) {
         _pm_disconnect(pm_server);
     }
 
+    return return_code;
+
+}
+
+IOReturn IOPSCreatePowerSource(
+    IOPSPowerSourceID *outPS)
+{
+    IOPSPowerSourceID           newPS = NULL;
+
+    int                         return_code = kIOReturnSuccess;
+    
+    if (!outPS) {
+        return kIOReturnBadArgument;
+    }
+
+    // newPS - This tracking structure must be freed by IOPSReleasePowerSource()
+    newPS = calloc(1, sizeof(struct OpaqueIOPSPowerSourceID));
+
+    if (!newPS) {
+        return kIOReturnVMError;
+    }
+
+    return_code = createPowerSource(newPS);
+
+
     if (kIOReturnSuccess == return_code) {
         *outPS = newPS;
+        notify_register_dispatch( kIOUserAssertionReSync, 
+                                  &newPS->resyncToken, dispatch_get_main_queue(),
+                                  ^(int t __unused) {
+                                    IOReturn ret;
+                                    if ((ret = createPowerSource(newPS)) != kIOReturnSuccess) {
+                                        asl_log(0,0,ASL_LEVEL_ERR, "createPowerSource returned 0x%x\n",ret);
+                                    }
+                                    if ((ret = IOPSSetPowerSourceDetails(newPS, newPS->resyncCopy)) != kIOReturnSuccess) {
+                                        asl_log(0,0,ASL_LEVEL_ERR, "IOPSSetPowerSourceDetails returned 0x%x\n",ret);
+                                    }
+                                  }
+                                );
     } else {
         *outPS = NULL;
         if (newPS) {
@@ -369,7 +404,7 @@ IOReturn IOPSSetPowerSourceDetails(
     CFDataRef               flatDetails;
     mach_port_t             pm_server = MACH_PORT_NULL;
 
-    if (!whichPS || !isA_CFDictionary(details))
+    if (!whichPS || !isA_CFDictionary(details) || whichPS->psid == 0)
         return kIOReturnBadArgument;
 
     flatDetails = IOCFSerialize(details, 0);
@@ -391,6 +426,13 @@ IOReturn IOPSSetPowerSourceDetails(
                                CFDataGetLength(flatDetails),
                                (int *)&ret);
 
+    if (ret == kIOReturnSuccess) {
+        CFMutableDictionaryRef  resyncCopy = NULL;
+        resyncCopy = CFDictionaryCreateMutableCopy(NULL, 0, details);
+        if (isA_CFDictionary(whichPS->resyncCopy))
+            CFRelease(whichPS->resyncCopy);
+        whichPS->resyncCopy = resyncCopy;
+    }
     _pm_disconnect(pm_server);
 
 exit:
@@ -415,7 +457,11 @@ IOReturn IOPSReleasePowerSource(
         _pm_disconnect(pm_server);
     }
 
+    notify_cancel(whichPS->resyncToken);
+    if (isA_CFDictionary(whichPS->resyncCopy))
+        CFRelease(whichPS->resyncCopy);
 
+    whichPS->psid = 0;
     free(whichPS);
     return kIOReturnSuccess;
 }

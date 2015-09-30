@@ -21,6 +21,7 @@
 
 #ifndef PROP_H
 #define PROP_H 1
+#include <Availability.h>
 
 /* The following ifdef block is the standard way of creating macros
  * which make exporting from a DLL simpler. All files within this DLL
@@ -80,13 +81,13 @@ extern "C" {
  *              0 will use module default
  * returns a new property context on success and NULL on any error
  */
-LIBSASL_API struct propctx *prop_new(unsigned estimate);
+LIBSASL_API struct propctx *prop_new(unsigned estimate) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* create new propctx which duplicates the contents of an existing propctx
  * returns SASL_OK on success
  * possible other return values include: SASL_NOMEM, SASL_BADPARAM
  */
-LIBSASL_API int prop_dup(struct propctx *src_ctx, struct propctx **dst_ctx);
+LIBSASL_API int prop_dup(struct propctx *src_ctx, struct propctx **dst_ctx) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* Add property names to request
  *  ctx       -- context from prop_new()
@@ -98,7 +99,7 @@ LIBSASL_API int prop_dup(struct propctx *src_ctx, struct propctx **dst_ctx);
  * returns SASL_OK on success
  * possible other return values include: SASL_NOMEM, SASL_BADPARAM
  */
-LIBSASL_API int prop_request(struct propctx *ctx, const char **names);
+LIBSASL_API int prop_request(struct propctx *ctx, const char **names) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* return array of struct propval from the context
  *  return value persists until next call to
@@ -106,7 +107,7 @@ LIBSASL_API int prop_request(struct propctx *ctx, const char **names);
  *
  *  returns NULL on error
  */
-LIBSASL_API const struct propval *prop_get(struct propctx *ctx);
+LIBSASL_API const struct propval *prop_get(struct propctx *ctx) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* Fill in an array of struct propval based on a list of property names
  *  return value persists until next call to
@@ -121,22 +122,22 @@ LIBSASL_API const struct propval *prop_get(struct propctx *ctx);
  * possible other return values include: SASL_BADPARAM
  */
 LIBSASL_API int prop_getnames(struct propctx *ctx, const char **names,
-		  struct propval *vals);
+		  struct propval *vals) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* clear values and optionally requests from property context
  *  ctx      -- property context
  *  requests -- 0 = don't clear requests, 1 = clear requests
  */
-LIBSASL_API void prop_clear(struct propctx *ctx, int requests);
+LIBSASL_API void prop_clear(struct propctx *ctx, int requests) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* erase the value of a property
  */
-LIBSASL_API void prop_erase(struct propctx *ctx, const char *name);
+LIBSASL_API void prop_erase(struct propctx *ctx, const char *name) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* dispose of property context
  *  ctx      -- is disposed and set to NULL; noop if ctx or *ctx is NULL
  */
-LIBSASL_API void prop_dispose(struct propctx **ctx);
+LIBSASL_API void prop_dispose(struct propctx **ctx) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 
 /****fetcher interfaces****/
@@ -152,7 +153,7 @@ LIBSASL_API void prop_dispose(struct propctx **ctx);
  * returns SASL_BADPARAM or amount of additional space needed on failure
  */
 LIBSASL_API int prop_format(struct propctx *ctx, const char *sep, int seplen,
-		char *outbuf, unsigned outmax, unsigned *outlen);
+		char *outbuf, unsigned outmax, unsigned *outlen) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* add a property value to the context
  *  ctx    -- context from prop_new()/prop_request()
@@ -165,7 +166,7 @@ LIBSASL_API int prop_format(struct propctx *ctx, const char *sep, int seplen,
  * possible error return values include: SASL_BADPARAM, SASL_NOMEM
  */
 LIBSASL_API int prop_set(struct propctx *ctx, const char *name,
-	     const char *value, int vallen);
+	     const char *value, int vallen) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* set the values for a property
  *  ctx    -- context from prop_new()/prop_request()
@@ -177,7 +178,7 @@ LIBSASL_API int prop_set(struct propctx *ctx, const char *name,
  * possible error return values include: SASL_BADPARAM, SASL_NOMEM
  */
 LIBSASL_API int prop_setvals(struct propctx *ctx, const char *name,
-		 const char **values);
+		 const char **values) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 #ifdef __cplusplus
 }

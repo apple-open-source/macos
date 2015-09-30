@@ -36,7 +36,7 @@ class Rect;
 
 class CSSBorderImageSliceValue : public CSSValue {
 public:
-    static PassRef<CSSBorderImageSliceValue> create(PassRefPtr<CSSPrimitiveValue> slices, bool fill)
+    static Ref<CSSBorderImageSliceValue> create(PassRefPtr<CSSPrimitiveValue> slices, bool fill)
     {
         return adoptRef(*new CSSBorderImageSliceValue(slices, fill));
     }
@@ -56,8 +56,8 @@ private:
     CSSBorderImageSliceValue(PassRefPtr<CSSPrimitiveValue> slices, bool fill);
 };
 
-CSS_VALUE_TYPE_CASTS(CSSBorderImageSliceValue, isBorderImageSliceValue())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSBorderImageSliceValue, isBorderImageSliceValue())
 
 #endif // CSSBorderImageSliceValue_h

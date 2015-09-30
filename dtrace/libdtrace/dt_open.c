@@ -21,6 +21,7 @@
 
 /*
  * Portions copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Portions copyright (c) 2011, Delphix. All rights reserved.
  */
 
 /*
@@ -213,6 +214,10 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "void(char *, user_addr_t, size_t)" },
 { "count", DT_IDENT_AGGFUNC, 0, DTRACEAGG_COUNT, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void()" },
+{ "cpu", DT_IDENT_SCALAR, 0, DIF_VAR_CPU,
+	{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE,
+	DTRACE_CLASS_COMMON }, DT_VERS_1_0,
+	&dt_idops_type, "processorid_t" },
 { "curthread", DT_IDENT_SCALAR, 0, DIF_VAR_CURTHREAD,
 	{ DTRACE_STABILITY_STABLE, DTRACE_STABILITY_PRIVATE,
 	DTRACE_CLASS_COMMON }, DT_VERS_1_0,
@@ -295,6 +300,8 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "void(pid_t)" },
 { "ppid", DT_IDENT_SCALAR, 0, DIF_VAR_PPID, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "pid_t" },
+{ "print", DT_IDENT_ACTFUNC, 0, DT_ACT_PRINT, DT_ATTR_STABCMN, DT_VERS_1_9,
+	&dt_idops_func, "void(@)" },
 { "printa", DT_IDENT_ACTFUNC, 0, DT_ACT_PRINTA, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(@, ...)" },
 { "printf", DT_IDENT_ACTFUNC, 0, DT_ACT_PRINTF, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -420,6 +427,9 @@ static const dt_ident_t _dtrace_globals[] = {
 	DT_ATTR_STABCMN, DT_VERS_1_7, &dt_idops_type, "uint64_t" },
 { "core_profile", DT_IDENT_FUNC, 0, DIF_SUBR_COREPROFILE, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
 	&dt_idops_func, "uint32_t(uint64_t, [uint64_t], [uint64_t], [uint64_t], [uint64_t], [uint64_t], [uint64_t])"},
+{ "vm_kernel_addrperm", DT_IDENT_FUNC, 0, DIF_SUBR_VM_KERNEL_ADDRPERM,
+	DT_ATTR_STABCMN, DT_VERS_1_8,
+	&dt_idops_func, "void* (void*)" },
 { "apple_define", DT_IDENT_ACTFUNC, 0, DT_ACT_APPLEDEFINE, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
     &dt_idops_func, "void(uint8_t, string)"},
 { "apple_flag", DT_IDENT_ACTFUNC, 0, DT_ACT_APPLEFLAG, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
@@ -1354,6 +1364,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	dt_epid_destroy(dtp);
 	dt_aggid_destroy(dtp);
 	dt_format_destroy(dtp);
+	dt_strdata_destroy(dtp);
 	dt_buffered_destroy(dtp);
 	dt_aggregate_destroy(dtp);
 	dt_pfdict_destroy(dtp);

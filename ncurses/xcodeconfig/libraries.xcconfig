@@ -1,6 +1,6 @@
 #include "base.xcconfig"
 
-INSTALL_PATH_ACTUAL = /usr/lib
+INSTALL_PATH = /usr/lib
 STRIP_STYLE = non-global
 EXECUTABLE_PREFIX = lib
 CURRENT_PROJECT_VERSION = $(RC_ProjectSourceVersion)

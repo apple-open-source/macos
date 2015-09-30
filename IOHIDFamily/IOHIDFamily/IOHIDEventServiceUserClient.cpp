@@ -29,7 +29,7 @@
 
 #define kQueueSizeMin   0
 #define kQueueSizeFake  128
-#define kQueueSizeMax   4096
+#define kQueueSizeMax   16384
 
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

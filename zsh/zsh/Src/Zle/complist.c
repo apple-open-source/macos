@@ -383,12 +383,25 @@ getcoldef(char *s)
     } else if (*s == '=') {
 	char *p = ++s, *t, *cols[MAX_POS];
 	int ncols = 0;
+	int nesting = 0;
 	Patprog prog;
 
 	/* This is for a pattern. */
 
-	while (*s && *s != '=')
-	    s++;
+	while (*s && (nesting || *s != '=')) {
+	    switch (*s++) {
+		case '\\':
+		    if (*s)
+			s++;
+		    break;
+		case '(':
+		    nesting++;
+		    break;
+		case ')':
+		    nesting--;
+		    break;
+	    }
+	}
 	if (!*s)
 	    return s;
 	*s++ = '\0';
@@ -767,6 +780,7 @@ clnicezputs(int do_colors, char *s, int ml)
 	    /* Is the screen full? */
 	    if (ml == mlend - 1 && col == zterm_columns - 1) {
 		mlprinted = ml - oml;
+		free(ums);
 		return 0;
 	    }
 	    if (t < wptr) {
@@ -791,6 +805,7 @@ clnicezputs(int do_colors, char *s, int ml)
 		ml++;
 		if (mscroll && !--mrestlines && (ask = asklistscroll(ml))) {
 		    mlprinted = ml - oml;
+		    free(ums);
 		    return ask;
 		}
 		col -= zterm_columns;
@@ -1362,7 +1377,7 @@ compprintlist(int showall)
 	tcout(TCCLEAREOD);
 
     g = ((lasttype && lastg) ? lastg : amatches);
-    while (g) {
+    while (g && !errflag) {
 	char **pp = g->ylist;
 
 #ifdef ZSH_HEAP_DEBUG
@@ -1376,7 +1391,7 @@ compprintlist(int showall)
 		ml = lastml;
 		lastused = 1;
 	    }
-	    while (*e) {
+	    while (*e && !errflag) {
 		if (((*e)->count || (*e)->always) &&
 		    (!listdat.onlyexpl ||
 		     (listdat.onlyexpl & ((*e)->always > 0 ? 2 : 1)))) {
@@ -1456,11 +1471,11 @@ compprintlist(int showall)
 
 		nl = nc = g->lins;
 
-		while (n && nl--) {
+		while (n && nl-- && !errflag) {
 		    i = g->cols;
 		    mc = 0;
 		    pq = pp;
-		    while (n && i--) {
+		    while (n && i-- && !errflag) {
 			if (pq - g->ylist >= g->lcount)
 			    break;
 			if (compzputs(*pq, mscroll))
@@ -1569,7 +1584,7 @@ compprintlist(int showall)
 	    } else
 		p = skipnolist(g->matches, showall);
 
-	    while (n && nl--) {
+	    while (n && nl-- && !errflag) {
 		if (!lasttype && ml >= mlbeg) {
 		    lasttype = 3;
 		    lastg = g;
@@ -1583,7 +1598,7 @@ compprintlist(int showall)
 		i = g->cols;
 		mc = 0;
 		q = p;
-		while (n && i--) {
+		while (n && i-- && !errflag) {
 		    wid = (g->widths ? g->widths[mc] : g->width);
 		    if (!(m = *q)) {
 			if (clprintm(g, NULL, mc, ml, (!i), wid))
@@ -2046,8 +2061,8 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
 
 	i = zterm_columns * listdat.nlines;
 	free(mtab);
-	mtab = (Cmatch **) zalloc(i * sizeof(Cmatch **));
-	memset(mtab, 0, i * sizeof(Cmatch **));
+	mtab = (Cmatch **) zalloc(i * sizeof(Cmatch *));
+	memset(mtab, 0, i * sizeof(Cmatch *));
 	free(mgtab);
 	mgtab = (Cmgroup *) zalloc(i * sizeof(Cmgroup));
 #ifdef DEBUG
@@ -2500,7 +2515,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 		mlbeg--;
 	    }
 	}
-	if ((space = zterm_lines - pl - mhasstat))
+	if ((space = zterm_lines - pl - mhasstat) > 0)
 	    while (mline >= mlbeg + space)
 		if ((mlbeg += step) + space > mlines)
 		    mlbeg = mlines - space;
@@ -2777,7 +2792,9 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    Menustack s = (Menustack) zhalloc(sizeof(*s));
 	    int ol;
 
-            mode = 0;
+	    if (mode == MM_INTER)
+		do_single(*minfo.cur);
+	    mode = 0;
 	    s->prev = u;
 	    u = s;
 	    s->line = dupstring(zlemetaline);
@@ -2867,7 +2884,8 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    brend = dupbrinfo(u->brend, &lastbrend, 0);
 	    nbrbeg = u->nbrbeg;
 	    nbrend = u->nbrend;
-	    origline = u->origline;
+	    zsfree(origline);
+	    origline = ztrdup(u->origline);
 	    origcs = u->origcs;
 	    origll = u->origll;
             strcpy(status, u->status);
@@ -3221,7 +3239,8 @@ domenuselect(Hookdef dummy, Chdata dat)
 		 * don't want that, just what the user typed,
 		 * so restore the information.
 		 */
-                origline = modeline;
+		zsfree(origline);
+		origline = ztrdup(modeline);
                 origcs = modecs;
                 origll = modell;
                 zlemetacs = 0;

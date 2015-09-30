@@ -44,7 +44,17 @@ public:
         No,
     };
     
-    PingHandle(NetworkingContext*, const ResourceRequest&, bool shouldUseCredentialStorage, UsesAsyncCallbacks);
+    PingHandle(NetworkingContext* networkingContext, const ResourceRequest& request, bool shouldUseCredentialStorage, UsesAsyncCallbacks useAsyncCallbacks)
+        : m_timeoutTimer(*this, &PingHandle::timeoutTimerFired)
+        , m_shouldUseCredentialStorage(shouldUseCredentialStorage)
+        , m_usesAsyncCallbacks(useAsyncCallbacks)
+    {
+        m_handle = ResourceHandle::create(networkingContext, request, this, false, false);
+
+        // If the server never responds, this object will hang around forever.
+        // Set a very generous timeout, just in case.
+        m_timeoutTimer.startOneShot(60000);
+    }
 
 private:
     virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&) override { delete this; }
@@ -53,7 +63,7 @@ private:
     virtual void didFail(ResourceHandle*, const ResourceError&) override { delete this; }
     virtual bool shouldUseCredentialStorage(ResourceHandle*)  override { return m_shouldUseCredentialStorage; }
     virtual bool usesAsyncCallbacks() override { return m_usesAsyncCallbacks == UsesAsyncCallbacks::Yes; }
-    void timeoutTimerFired(Timer&) { delete this; }
+    void timeoutTimerFired() { delete this; }
 
     virtual ~PingHandle()
     {
@@ -66,18 +76,6 @@ private:
     bool m_shouldUseCredentialStorage;
     UsesAsyncCallbacks m_usesAsyncCallbacks;
 };
-
-PingHandle::PingHandle(NetworkingContext* networkingContext, const ResourceRequest& request, bool shouldUseCredentialStorage, UsesAsyncCallbacks useAsyncCallbacks)
-    : m_timeoutTimer(this, &PingHandle::timeoutTimerFired)
-    , m_shouldUseCredentialStorage(shouldUseCredentialStorage)
-    , m_usesAsyncCallbacks(useAsyncCallbacks)
-{
-    m_handle = ResourceHandle::create(networkingContext, request, this, false, false);
-
-    // If the server never responds, this object will hang around forever.
-    // Set a very generous timeout, just in case.
-    m_timeoutTimer.startOneShot(60000);
-}
 
 } // namespace WebCore
 

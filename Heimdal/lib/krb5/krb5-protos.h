@@ -56,7 +56,6 @@ extern "C" {
 #endif
 #endif
 #endif
-
 /**
  * Convert the v5 credentials in in_cred to v4-dito in v4creds.  This
  * is done by sending them to the 524 function in the KDC.  If
@@ -2928,7 +2927,7 @@ krb5_decrypt (
 	krb5_context context,
 	krb5_crypto crypto,
 	unsigned usage,
-	void *data,
+	const void *data,
 	size_t len,
 	krb5_data *result);
 
@@ -2975,7 +2974,7 @@ krb5_decrypt_ivec (
 	krb5_context context,
 	krb5_crypto crypto,
 	unsigned usage,
-	void *data,
+	const void *data,
 	size_t len,
 	krb5_data *result,
 	void *ivec);
@@ -4882,6 +4881,25 @@ krb5_init_creds_get (
 	krb5_init_creds_context ctx);
 
 /**
+ * Extract the as-reply key from the context.
+ *
+ * Only allowed when the as-reply-key is not directly derived from the
+ * password like PK-INIT, SRP, FAST hardened key, etc.
+ *
+ * @param context A Kerberos 5 context.
+ * @param ctx ctx krb5_init_creds_context context.
+ * @param as_reply_key keyblock, free with krb5_free_keyblock_contents().
+ *
+ * @return 0 for sucess or An Kerberos error code, see krb5_get_error_message().
+ */
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_init_creds_get_as_reply_key (
+	krb5_context context,
+	krb5_init_creds_context ctx,
+	krb5_keyblock *as_reply_key);
+
+/**
  * Extract the newly acquired credentials from krb5_init_creds_context
  * context.
  *
@@ -4953,7 +4971,7 @@ krb5_init_creds_set_fast_ccache (
 	krb5_ccache fast_ccache);
 
 /**
- * The set KDC hostname for the initial request, it will not be
+ * Set the KDC hostname for the initial request, it will not be
  * considered in referrals to another KDC.
  *
  * @param context a Kerberos 5 context.
@@ -5046,6 +5064,35 @@ krb5_init_creds_set_service (
 	krb5_context context,
 	krb5_init_creds_context ctx,
 	const char *service);
+
+/**
+ * Set the sitename for the request
+ *
+ */
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_init_creds_set_sitename (
+	krb5_context context,
+	krb5_init_creds_context ctx,
+	const char *sitename);
+
+/**
+ * Set source app information to be used for this context
+ *
+ * @param context a Kerberos 5 context.
+ * @param ctx a krb5_init_creds_context context.
+ * @param uuid uuid of delegated app
+ *
+ * @return 0 for success, or an Kerberos 5 error code, see krb5_get_error_message().
+ * @ingroup krb5_credential
+ */
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_init_creds_set_source_app (
+	krb5_context context,
+	krb5_init_creds_context ctx,
+	krb5_uuid uuid,
+	const char *signingIdentity);
 
 /**
  * The core loop if krb5_get_init_creds() function family. Create the
@@ -5186,6 +5233,17 @@ krb5_kcm_call (
 	krb5_storage *request,
 	krb5_storage **response_p,
 	krb5_data *response_data_p);
+
+krb5_error_code
+krb5_kcm_check_ntlm_challenge (
+	krb5_context context,
+	uint8_t chal[8],
+	krb5_boolean *detectedReflection);
+
+krb5_error_code
+krb5_kcm_ntlm_challenge (
+	krb5_context context,
+	uint8_t chal[8]);
 
 /**
  * Variable containing the KEYCHAIN based credential cache implemention.
@@ -5385,10 +5443,22 @@ krb5_krbhst_reset (
 	krb5_krbhst_handle handle);
 
 krb5_error_code KRB5_LIB_FUNCTION
+krb5_krbhst_set_delgated_uuid (
+	krb5_context context,
+	krb5_krbhst_handle handle,
+	krb5_uuid uuid);
+
+krb5_error_code KRB5_LIB_FUNCTION
 krb5_krbhst_set_hostname (
 	krb5_context context,
 	krb5_krbhst_handle handle,
 	const char *hostname);
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_krbhst_set_sitename (
+	krb5_context context,
+	krb5_krbhst_handle handle,
+	const char *sitename);
 
 /**
  * Add the entry in `entry' to the keytab `id'.
@@ -6120,6 +6190,13 @@ krb5_pac_add_buffer (
 	uint32_t type,
 	const krb5_data *data);
 
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_pac_copy_credential_package (
+	krb5_context context,
+	krb5_pac pac,
+	const char *package,
+	krb5_data *data);
+
 /**
  * Free the windows PAC
  *
@@ -6173,6 +6250,12 @@ krb5_pac_parse (
 	const void *ptr,
 	size_t len,
 	krb5_pac *pac);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_pac_process_credentials_buffer (
+	krb5_context context,
+	krb5_pac pac,
+	krb5_keyblock *as_rep_key);
 
 /**
  * Verify the PAC.
@@ -6870,6 +6953,12 @@ krb5_rd_req_in_ctx_free (
 	krb5_rd_req_in_ctx ctx);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_rd_req_in_set_as_reply_key (
+	krb5_context context,
+	krb5_rd_req_in_ctx in,
+	krb5_keyblock *as_reply_key);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_rd_req_in_set_keyblock (
 	krb5_context context,
 	krb5_rd_req_in_ctx in,
@@ -6913,6 +7002,11 @@ krb5_rd_req_in_set_pac_check (
 	krb5_rd_req_in_ctx in,
 	krb5_boolean flag);
 
+KRB5_LIB_FUNCTION krb5_pac KRB5_LIB_CALL
+krb5_rd_req_out_copy_pac (
+	krb5_context context,
+	krb5_rd_req_out_ctx ctx);
+
 /**
  * Free the krb5_rd_req_out_ctx.
  *
@@ -6933,7 +7027,7 @@ krb5_rd_req_out_get_ap_req_options (
 	krb5_rd_req_out_ctx out,
 	krb5_flags *ap_req_options);
 
-int KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION int KRB5_LIB_CALL
 krb5_rd_req_out_get_flags (
 	krb5_context context,
 	krb5_rd_req_out_ctx ctx);
@@ -7241,6 +7335,9 @@ krb5_ret_keyblock (
 	krb5_storage *sp,
 	krb5_keyblock *p);
 
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_ret_ndr_header (krb5_storage *sp);
+
 /**
  * Parse principal from the storage.
  *
@@ -7256,6 +7353,11 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ret_principal (
 	krb5_storage *sp,
 	krb5_principal *princ);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_ret_rpc_unicode_string (
+	krb5_storage *sp,
+	char **str);
 
 /**
  * Parse a string from the storage.
@@ -7360,7 +7462,7 @@ krb5_ret_uint8 (
 	krb5_storage *sp,
 	uint8_t *value);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ret_uuid (
 	krb5_storage *sp,
 	krb5_uuid uuid);
@@ -7465,10 +7567,23 @@ krb5_sendto_kdc_flags (
 	int flags);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_sendto_set_delegated_app (
+	krb5_context context,
+	krb5_sendto_ctx ctx,
+	krb5_uuid uuid,
+	const char *signingIdentity);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_sendto_set_hostname (
 	krb5_context context,
 	krb5_sendto_ctx ctx,
 	const char *hostname);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_sendto_set_sitename (
+	krb5_context context,
+	krb5_sendto_ctx ctx,
+	const char *sitename);
 
 /**
  * Reinit the context from a new set of filenames.
@@ -8529,7 +8644,7 @@ krb5_store_uint8 (
 	krb5_storage *sp,
 	uint8_t value);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_store_uuid (
 	krb5_storage *sp,
 	krb5_uuid uuid);
@@ -9310,14 +9425,6 @@ krb5_write_safe_message (
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_xfree (void *ptr);
-
-krb5_error_code
-krb5_kcm_ntlm_challenge (
-	krb5_context context,
-	uint8_t chal[8]);
-
-krb5_error_code
-krb5_kcm_check_ntlm_challenge(krb5_context context, uint8_t chal[8], krb5_boolean *detectedReflection);
 
 #ifdef __cplusplus
 }

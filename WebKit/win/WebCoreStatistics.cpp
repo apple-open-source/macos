@@ -23,20 +23,20 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebCoreStatistics.h"
 
 #include "COMPropertyBag.h"
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/MemoryStatistics.h>
+#include <JavaScriptCore/Profile.h>
 #include <WebCore/FontCache.h>
 #include <WebCore/GCController.h>
-#include <WebCore/GlyphPageTreeNode.h>
+#include <WebCore/GlyphPage.h>
 #include <WebCore/IconDatabase.h>
 #include <WebCore/JSDOMWindow.h>
 #include <WebCore/PageCache.h>
-#include <WebCore/PageConsole.h>
+#include <WebCore/PageConsoleClient.h>
 #include <WebCore/RenderView.h>
 #include <WebCore/SharedBuffer.h>
 
@@ -49,13 +49,13 @@ WebCoreStatistics::WebCoreStatistics()
 : m_refCount(0)
 {
     gClassCount++;
-    gClassNameCount.add("WebCoreStatistics");
+    gClassNameCount().add("WebCoreStatistics");
 }
 
 WebCoreStatistics::~WebCoreStatistics()
 {
     gClassCount--;
-    gClassNameCount.remove("WebCoreStatistics");
+    gClassNameCount().remove("WebCoreStatistics");
 }
 
 WebCoreStatistics* WebCoreStatistics::createInstance()
@@ -145,7 +145,7 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::javaScriptProtectedObjectTypeCounts
     /* [retval][out] */ IPropertyBag2** typeNamesAndCounts)
 {
     JSLockHolder lock(JSDOMWindow::commonVM());
-    OwnPtr<TypeCountSet> jsObjectTypeNames(JSDOMWindow::commonVM().heap.protectedObjectTypeCounts());
+    std::unique_ptr<TypeCountSet> jsObjectTypeNames(JSDOMWindow::commonVM().heap.protectedObjectTypeCounts());
     typedef TypeCountSet::const_iterator Iterator;
     Iterator end = jsObjectTypeNames->end();
     HashMap<String, int> typeCountMap;
@@ -163,7 +163,7 @@ HRESULT WebCoreStatistics::javaScriptObjectTypeCounts(IPropertyBag2** typeNamesA
         return E_POINTER;
 
     JSLockHolder lock(JSDOMWindow::commonVM());
-    OwnPtr<TypeCountSet> jsObjectTypeNames(JSDOMWindow::commonVM().heap.objectTypeCounts());
+    std::unique_ptr<TypeCountSet> jsObjectTypeNames(JSDOMWindow::commonVM().heap.objectTypeCounts());
     typedef TypeCountSet::const_iterator Iterator;
     Iterator end = jsObjectTypeNames->end();
     HashMap<String, int> typeCountMap;
@@ -216,7 +216,7 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::cachedFontDataCount(
 {
     if (!count)
         return E_POINTER;
-    *count = (UINT) fontCache().fontDataCount();
+    *count = (UINT) FontCache::singleton().fontCount();
     return S_OK;
 }
 
@@ -225,13 +225,13 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::cachedFontDataInactiveCount(
 {
     if (!count)
         return E_POINTER;
-    *count = (UINT) fontCache().inactiveFontDataCount();
+    *count = (UINT) FontCache::singleton().inactiveFontCount();
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebCoreStatistics::purgeInactiveFontData(void)
 {
-    fontCache().purgeInactiveFontData();
+    FontCache::singleton().purgeInactiveFontData();
     return S_OK;
 }
 
@@ -240,25 +240,25 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::glyphPageCount(
 {
     if (!count)
         return E_POINTER;
-    *count = (UINT) GlyphPageTreeNode::treeGlyphPageCount();
+    *count = (UINT) GlyphPage::count();
     return S_OK;
 }
 
 HRESULT WebCoreStatistics::garbageCollectJavaScriptObjects()
 {
-    gcController().garbageCollectNow();
+    GCController::singleton().garbageCollectNow();
     return S_OK;
 }
 
 HRESULT WebCoreStatistics::garbageCollectJavaScriptObjectsOnAlternateThreadForDebugging(BOOL waitUntilDone)
 {
-    gcController().garbageCollectOnAlternateThreadForDebugging(waitUntilDone);
+    GCController::singleton().garbageCollectOnAlternateThreadForDebugging(waitUntilDone);
     return S_OK;
 }
 
 HRESULT WebCoreStatistics::setJavaScriptGarbageCollectorTimerEnabled(BOOL enable)
 {
-    gcController().setJavaScriptGarbageCollectorTimerEnabled(enable);
+    GCController::singleton().setJavaScriptGarbageCollectorTimerEnabled(enable);
     return S_OK;
 }
 
@@ -268,14 +268,14 @@ HRESULT WebCoreStatistics::shouldPrintExceptions(BOOL* shouldPrint)
         return E_POINTER;
 
     JSLockHolder lock(JSDOMWindow::commonVM());
-    *shouldPrint = PageConsole::shouldPrintExceptions();
+    *shouldPrint = PageConsoleClient::shouldPrintExceptions();
     return S_OK;
 }
 
 HRESULT WebCoreStatistics::setShouldPrintExceptions(BOOL print)
 {
     JSLockHolder lock(JSDOMWindow::commonVM());
-    PageConsole::setShouldPrintExceptions(print);
+    PageConsoleClient::setShouldPrintExceptions(print);
     return S_OK;
 }
 
@@ -328,7 +328,7 @@ HRESULT WebCoreStatistics::cachedPageCount(INT* count)
     if (!count)
         return E_POINTER;
 
-    *count = pageCache()->pageCount();
+    *count = PageCache::singleton().pageCount();
     return S_OK;
 }
 
@@ -337,6 +337,6 @@ HRESULT WebCoreStatistics::cachedFrameCount(INT* count)
     if (!count)
         return E_POINTER;
 
-    *count = pageCache()->frameCount();
+    *count = PageCache::singleton().frameCount();
     return S_OK;
 }

@@ -32,7 +32,6 @@
 #import <JavaScriptCore/JSContextRef.h>
 #import <JavaScriptCore/JSStringRef.h>
 #import <JavaScriptCore/JSStringRefCF.h>
-#import <UIKit/UIKit.h>
 #import <WebCore/DataTransfer.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/EventNames.h>
@@ -52,9 +51,6 @@
 #import <WebKitLegacy/WebViewPrivate.h>
 #import <wtf/CurrentTime.h>
 #import <wtf/Vector.h>
-
-SOFT_LINK_FRAMEWORK(UIKit)
-SOFT_LINK_CLASS(UIKit, UIColor)
 
 using namespace WebCore;
 
@@ -220,7 +216,7 @@ static const float PAGE_HEIGHT_INSET = 4.0f * 2.0f;
 
 - (void)layout
 {
-    if (!_didFinishLoadAndMemoryMap)
+    if (!_didFinishLoad)
         return;
 
     if (self.pageRects)
@@ -229,13 +225,6 @@ static const float PAGE_HEIGHT_INSET = 4.0f * 2.0f;
     CGSize boundingSize = [self _computePageRects:_document];
 
     [self setBoundsSize:boundingSize];
-
-    if ([self.delegate respondsToSelector:@selector(setBackgroundColor:)]) {
-        if (CGSizeEqualToSize(boundingSize, CGSizeZero))
-            [self.delegate setBackgroundColor:[getUIColorClass() whiteColor]];
-        else
-            [self.delegate setBackgroundColor:[getUIColorClass() blackColor]];
-    }
 
     _didCompleteLayout = YES;
     [self _notifyDidCompleteLayout];
@@ -248,32 +237,6 @@ static const float PAGE_HEIGHT_INSET = 4.0f * 2.0f;
 - (void)viewDidMoveToHostWindow
 {
 }
-
-#pragma mark WebDataSourcePrivateDelegate protocol
-
-#if ENABLE(DISK_IMAGE_CACHE)
-- (void)dataSourceMemoryMapped
-{
-    _didFinishLoadAndMemoryMap = YES;
-
-    CGDataProviderRef provider = CGDataProviderCreateWithCFData((CFDataRef)[_dataSource data]);
-    if (!provider)
-        return;
-
-    _document = CGPDFDocumentCreateWithProvider(provider);
-
-    // Dump the data provider as soon as possible since the CGPDFDocument will not hold onto it.
-    CGDataProviderRelease(provider);
-
-    [self _doPostLoadOrUnlockTasks];
-}
-
-- (void)dataSourceMemoryMapFailed
-{
-    // Nothing we can do about this, just do what we would normally do in memory.
-    [self dataSourceMemoryMapped];
-}
-#endif
 
 #pragma mark WebDocumentRepresentation protocol
 
@@ -303,12 +266,16 @@ static const float PAGE_HEIGHT_INSET = 4.0f * 2.0f;
 {
     [self dataSourceUpdated:dataSource];
 
-#if ENABLE(DISK_IMAGE_CACHE)
-    [dataSource setDataSourceDelegate:(NSObject<WebDataSourcePrivateDelegate> *)self];
-    [dataSource _setAllowToBeMemoryMapped];
-#else
-    [self dataSourceMemoryMapped];
-#endif
+    _didFinishLoad = YES;
+    CGDataProviderRef provider = CGDataProviderCreateWithCFData((CFDataRef)[dataSource data]);
+    if (!provider)
+        return;
+
+    _document = CGPDFDocumentCreateWithProvider(provider);
+
+    CGDataProviderRelease(provider);
+
+    [self _doPostLoadOrUnlockTasks];
 }
 
 - (BOOL)canProvideDocumentSource
@@ -504,11 +471,11 @@ static const float PAGE_HEIGHT_INSET = 4.0f * 2.0f;
 #if ENABLE(POINTER_LOCK)
         0, 0,
 #endif
-        false, false, false, false, 0, 0, 0, true);
+        false, false, false, false, 0, 0, 0, 0, true);
 
     // Call to the frame loader because this is where our security checks are made.
     Frame* frame = core([_dataSource webFrame]);
-    frame->loader().loadFrameRequest(FrameLoadRequest(frame->document()->securityOrigin(), ResourceRequest(URL)), LockHistory::No, LockBackForwardList::No, event.get(), 0, MaybeSendReferrer, NewFrameOpenerPolicy::Allow);
+    frame->loader().loadFrameRequest(FrameLoadRequest(frame->document()->securityOrigin(), ResourceRequest(URL), LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, ShouldOpenExternalURLsPolicy::ShouldNotAllow), event.get(), nullptr);
 }
 
 @end

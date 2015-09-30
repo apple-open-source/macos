@@ -28,7 +28,9 @@
 
 #if PLATFORM(IOS) && ENABLE(NETWORK_PROCESS)
 
+#import "NetworkCache.h"
 #import "NetworkProcessCreationParameters.h"
+#import "ResourceCachesToClear.h"
 #import "SandboxInitializationParameters.h"
 #import "SecItemShim.h"
 #import <WebCore/CertificateInfo.h>
@@ -74,14 +76,20 @@ void NetworkProcess::allowSpecificHTTPSCertificateForHost(const CertificateInfo&
     [NSURLRequest setAllowsSpecificHTTPSCertificate:(NSArray *)certificateInfo.certificateChain() forHost:host];
 }
 
-void NetworkProcess::clearCacheForAllOrigins(uint32_t)
+void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
 {
+    ResourceCachesToClear resourceCachesToClear = static_cast<ResourceCachesToClear>(cachesToClear);
+    if (resourceCachesToClear == InMemoryResourceCachesOnly)
+        return;
+#if ENABLE(NETWORK_CACHE)
+    NetworkCache::singleton().clear();
+#endif
 }
 
 void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreationParameters& parameters)
 {
 #if ENABLE(SEC_ITEM_SHIM)
-    SecItemShim::shared().initialize(this);
+    SecItemShim::singleton().initialize(this);
 #endif
     platformInitializeNetworkProcessCocoa(parameters);
 }

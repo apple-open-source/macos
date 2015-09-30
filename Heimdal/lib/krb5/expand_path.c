@@ -306,6 +306,30 @@ _expand_userid(krb5_context context, PTYPE param, const char *postfix, char **st
     return 0;
 }
 
+#ifdef __APPLE__
+#include <bsm/audit_session.h>
+#endif
+
+static int
+_expand_asid(krb5_context context, PTYPE param, const char *postfix, char **str)
+{
+    unsigned long asid = 0;
+#ifdef __APPLE__
+    auditinfo_addr_t aia = { .ai_asid = 0 };
+    int ret;
+
+    if (!getaudit_addr(&aia, sizeof(aia))) {
+	ret = errno;
+	krb5_set_error_message(context, ret, "cant get audit information for the session");
+	return ret;
+    }
+    asid = aia.ai_asid;
+#endif
+    ret = asprintf(str, "%ld", asid);
+    if (ret < 0 || *str == NULL)
+	return krb5_enomem(context);
+    return 0;
+}
 
 #endif /* _WIN32 */
 
@@ -426,6 +450,7 @@ static const struct token {
     {"TEMP", SPECIAL(_expand_temp_folder)},
     {"USERID", SPECIAL(_expand_userid)},
     {"uid", SPECIAL(_expand_userid)},
+    {"asid", SPECIAL(_expand_asid)},
     {"null", SPECIAL(_expand_null)}
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,8 +67,11 @@ inet_dgram_socket()
 }
 
 STATIC int
-siocsifflags(int s, const char * name, short flags)
+interface_set_flags(int s, const char * name, 
+		    uint16_t flags_to_set, uint16_t flags_to_clear)
 {
+    uint16_t		flags_after;
+    uint16_t		flags_before;
     struct ifreq	ifr;
     int 		ret;
 
@@ -78,8 +81,22 @@ siocsifflags(int s, const char * name, short flags)
     if (ret < 0) {
 	return (ret);
     }
-    ifr.ifr_flags |= flags;
-    return (ioctl(s, SIOCSIFFLAGS, &ifr));
+    flags_before = ifr.ifr_flags;
+    ifr.ifr_flags |= flags_to_set;
+    ifr.ifr_flags &= ~(flags_to_clear);
+    flags_after = ifr.ifr_flags;
+    if (flags_before == flags_after) {
+	/* nothing to do */
+	ret = 0;
+    }
+    else {
+	/* issue the ioctl */
+	ret = ioctl(s, SIOCSIFFLAGS, &ifr);
+	my_log(LOG_INFO,
+	       "interface_set_flags(%s, set 0x%x, clear 0x%x) 0x%x => 0x%x",
+	       name, flags_to_set, flags_to_clear, flags_before, flags_after);
+    }
+    return (ret);
 }
 
 STATIC int
@@ -115,13 +132,34 @@ interface_set_mtu(const char * ifname, int mtu)
     else {
 	if (siocsifmtu(s, ifname, mtu) < 0) {
 	    ret = errno;
-	    my_log(LOG_NOTICE, "siocsifmtu(%s, %d) failed, %s (%d)",
+	    my_log(LOG_ERR, "siocsifmtu(%s, %d) failed, %s (%d)",
 		   ifname, mtu, strerror(ret), ret);
 	}
 	close(s);
     }
     return (ret);
 
+}
+
+PRIVATE_EXTERN int
+interface_up_down(const char * ifname, boolean_t up)
+{
+    int 	ret = 0;
+    int 	s = inet_dgram_socket();
+
+    if (s < 0) {
+	ret = errno;
+    }
+    else {
+	my_log(LOG_INFO,
+	       "interface_up_down(%s, %s)", ifname,
+	       up ? "UP" : "DOWN");
+	ret = interface_set_flags(s, ifname,
+				  up ? IFF_UP : 0,
+				  !up ? IFF_UP : 0);
+	close(s);
+    }
+    return (ret);
 }
 
 PRIVATE_EXTERN int
@@ -138,11 +176,13 @@ inet_attach_interface(const char * ifname)
     if (siocprotoattach(s, ifname) < 0) {
 	ret = errno;
 	if (ret != EEXIST && ret != ENXIO) {
-	    my_log(LOG_DEBUG, "siocprotoattach(%s) failed, %s (%d)", 
+	    my_log(LOG_INFO, "siocprotoattach(%s) failed, %s (%d)", 
 		   ifname, strerror(errno), errno);
 	}
     }
-    (void)siocsifflags(s, ifname, IFF_UP);
+    my_log(LOG_INFO,
+	   "inet_attach_interface(%s)", ifname);
+    (void)interface_set_flags(s, ifname, IFF_UP, 0);
     close(s);
 
  done:
@@ -427,11 +467,13 @@ inet6_attach_interface(const char * ifname)
     if (siocprotoattach_in6(s, ifname) < 0) {
 	ret = errno;
 	if (ret != EEXIST && ret != ENXIO) {
-	    my_log(LOG_DEBUG, "siocprotoattach_in6(%s) failed, %s (%d)",
+	    my_log(LOG_INFO, "siocprotoattach_in6(%s) failed, %s (%d)",
 		   ifname, strerror(errno), errno);
 	}
     }
-    (void)siocsifflags(s, ifname, IFF_UP);
+    my_log(LOG_INFO,
+	   "inet6_attach_interface(%s)", ifname);
+    (void)interface_set_flags(s, ifname, IFF_UP, 0);
     close(s);
 
  done:
@@ -454,7 +496,7 @@ inet6_detach_interface(const char * ifname)
     if (siocprotodetach_in6(s, ifname) < 0) {
 	ret = errno;
 	if (ret != ENXIO) {
-	    my_log(LOG_DEBUG, "siocprotodetach_in6(%s) failed, %s (%d)",
+	    my_log(LOG_INFO, "siocprotodetach_in6(%s) failed, %s (%d)",
 		   ifname, strerror(errno), errno);
 	}
     }

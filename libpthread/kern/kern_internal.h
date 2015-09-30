@@ -50,6 +50,7 @@
 #define PTHREAD_FEATURE_BSDTHREADCTL	0x04		/* is the bsdthread_ctl syscall available */
 #define PTHREAD_FEATURE_SETSELF			0x08		/* is the BSDTHREAD_CTL_SET_SELF command of bsdthread_ctl available */
 #define PTHREAD_FEATURE_QOS_MAINTENANCE	0x10		/* is QOS_CLASS_MAINTENANCE available */
+#define PTHREAD_FEATURE_KEVENT          0x20		/* supports direct kevent delivery */
 #define PTHREAD_FEATURE_QOS_DEFAULT		0x40000000	/* the kernel supports QOS_CLASS_DEFAULT */
 
 /* pthread bsdthread_ctl sysctl commands */
@@ -222,7 +223,8 @@ struct _pthread_registration_data {
 	PTHREAD_FEATURE_BSDTHREADCTL | \
 	PTHREAD_FEATURE_SETSELF | \
 	PTHREAD_FEATURE_QOS_MAINTENANCE | \
-	PTHREAD_FEATURE_QOS_DEFAULT)
+	PTHREAD_FEATURE_QOS_DEFAULT | \
+	PTHREAD_FEATURE_KEVENT )
 
 extern pthread_callbacks_t pthread_kern;
 
@@ -238,10 +240,11 @@ struct ksyn_waitq_element {
 };
 typedef struct ksyn_waitq_element * ksyn_waitq_element_t;
 
-pthread_priority_t pthread_qos_class_get_priority(int qos);
-int pthread_priority_get_qos_class(pthread_priority_t priority);
-int pthread_priority_get_class_index(pthread_priority_t priority);
-pthread_priority_t pthread_priority_from_class_index(int index);
+pthread_priority_t pthread_qos_class_get_priority(int qos) __attribute__((const));
+int pthread_priority_get_qos_class(pthread_priority_t priority) __attribute__((const));
+int pthread_priority_get_class_index(pthread_priority_t priority) __attribute__((const));
+int qos_get_class_index(int qos) __attribute__((const));
+pthread_priority_t pthread_priority_from_class_index(int index) __attribute__((const));
 
 #define PTH_DEFAULT_STACKSIZE 512*1024
 #define MAX_PTHREAD_SIZE 64*1024
@@ -301,6 +304,16 @@ extern lck_mtx_t *pthread_list_mlock;
 extern thread_call_t psynch_thcall;
 
 struct uthread* current_uthread(void);
+
+// Call for the kernel's kevent system to request threads.  A list of QoS/event
+// counts should be provided, sorted by flags and then QoS class.  If the
+// identity of the thread to handle the request is known, it will be returned.
+// If a new thread must be created, NULL will be returned.
+thread_t _workq_reqthreads(struct proc *p, int requests_count,
+						   workq_reqthreads_req_t requests);
+
+// Resolve a pthread_priority_t to a QoS/relative pri
+integer_t _thread_qos_from_pthread_priority(unsigned long pri, unsigned long *flags);
 
 #endif // KERNEL
 

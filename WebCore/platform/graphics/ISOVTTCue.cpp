@@ -30,6 +30,8 @@
 #include <runtime/ArrayBuffer.h>
 #include <runtime/DataView.h>
 #include <runtime/Int8Array.h>
+#include <runtime/JSCInlines.h>
+#include <runtime/TypedArrayInlines.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
@@ -134,7 +136,7 @@ ISOWebVTTCue::ISOWebVTTCue(const MediaTime& presentationTime, const MediaTime& d
         if (boxType == vttCueSourceIDBoxType())
             m_sourceID = peekString(subBuffer.get(), ISOBox::boxHeaderSize(), boxDataSize);
         else if (boxType == vttIdBoxType())
-            m_identifer = peekString(subBuffer.get(), ISOBox::boxHeaderSize(), boxDataSize);
+            m_identifier = peekString(subBuffer.get(), ISOBox::boxHeaderSize(), boxDataSize);
         else if (boxType == vttCurrentTimeBoxType())
             m_originalStartTime = peekString(subBuffer.get(), ISOBox::boxHeaderSize(), boxDataSize);
         else if (boxType == vttSettingsBoxType())

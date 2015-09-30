@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,6 +69,20 @@
  */
 
 #define kIOStorageFeaturesKey "IOStorageFeatures"
+
+/*!
+ * @defined kIOStorageFeatureBarrier
+ * @abstract
+ * Describes the presence of the Barrier feature.
+ * @discussion
+ * This property describes the ability of the storage stack to honor a write
+ * barrier, guaranteeing that on power loss, writes after the barrier will not
+ * be visible until all writes before the barrier are visible.  It is one of the
+ * feature entries listed under the top-level kIOStorageFeaturesKey property
+ * table.  It has an OSBoolean value.
+ */
+
+#define kIOStorageFeatureBarrier "Barrier"
 
 /*!
  * @defined kIOStorageFeatureForceUnitAccess
@@ -197,6 +211,36 @@ enum
 typedef UInt8 IOStoragePriority;
 
 /*!
+ * @enum IOStorageSynchronizeOptions
+ * @discussion
+ * Options for synchronize storage requests.
+ * @constant kIOStorageSynchronizeOptionBarrier
+ * Issue a write barrier only.
+ */
+
+enum
+{
+    kIOStorageSynchronizeOptionNone     = 0x00000000,
+    kIOStorageSynchronizeOptionBarrier  = 0x00000002,
+    kIOStorageSynchronizeOptionReserved = 0xFFFFFFFD
+};
+
+typedef UInt32 IOStorageSynchronizeOptions;
+
+/*!
+ * @enum IOStorageUnmapOptions
+ * @discussion
+ * Options for unmap storage requests.
+ */
+
+enum
+{
+    kIOStorageUnmapOptionReserved = 0xFFFFFFFF
+};
+
+typedef UInt32 IOStorageUnmapOptions;
+
+/*!
  * @struct IOStorageAttributes
  * @discussion
  * Attributes of read and write storage requests.
@@ -213,7 +257,6 @@ struct IOStorageAttributes
     IOStorageOptions  options;
     IOStoragePriority priority;
     UInt8             reserved0024;
-#ifdef __LP64__
     UInt32            reserved0032;
     UInt64            reserved0064;
     UInt64            reserved0128;
@@ -221,14 +264,6 @@ struct IOStorageAttributes
 #if TARGET_OS_EMBEDDED
     UInt64            adjustedOffset;
 #endif /* TARGET_OS_EMBEDDED */
-#else /* !__LP64__ */
-    bufattr_t         bufattr;
-#if TARGET_OS_EMBEDDED
-    UInt64            adjustedOffset;
-#else /* !TARGET_OS_EMBEDDED */
-    UInt64            reserved0064;
-#endif /* !TARGET_OS_EMBEDDED */
-#endif /* !__LP64__ */
 };
 
 /*!
@@ -366,13 +401,9 @@ protected:
 
 public:
 
-#ifndef __LP64__
-    /*
-     * Initialize this object's minimal state.
-     */
-
-    virtual bool init(OSDictionary * properties = 0);
-#endif /* !__LP64__ */
+#ifdef __x86_64__
+    virtual bool attach(IOService * provider);
+#endif /* __x86_64__ */
 
     /*!
      * @function complete
@@ -391,12 +422,6 @@ public:
     static void complete(IOStorageCompletion * completion,
                          IOReturn              status,
                          UInt64                actualByteCount = 0);
-
-#ifndef __LP64__
-    static void complete(IOStorageCompletion completion,
-                         IOReturn            status,
-                         UInt64              actualByteCount = 0); /* DEPRECATED */
-#endif /* !__LP64__ */
 
     /*!
      * @function open
@@ -420,18 +445,6 @@ public:
     virtual bool open(IOService *     client,
                       IOOptionBits    options,
                       IOStorageAccess access);
-
-#ifndef __LP64__
-    virtual void read(IOService *          client,
-                      UInt64               byteStart,
-                      IOMemoryDescriptor * buffer,
-                      IOStorageCompletion  completion) __attribute__ ((deprecated));
-
-    virtual void write(IOService *          client,
-                       UInt64               byteStart,
-                       IOMemoryDescriptor * buffer,
-                       IOStorageCompletion  completion) __attribute__ ((deprecated));
-#endif /* !__LP64__ */
 
     /*!
      * @function read
@@ -487,17 +500,9 @@ public:
                            IOStorageAttributes * attributes      = 0,
                            UInt64 *              actualByteCount = 0);
 
-    /*!
-     * @function synchronizeCache
-     * @discussion
-     * Flush the cached data in the storage object, if any, synchronously.
-     * @param client
-     * Client requesting the cache synchronization.
-     * @result
-     * Returns the status of the cache synchronization.
-     */
-
-    virtual IOReturn synchronizeCache(IOService * client) = 0;
+#ifdef __x86_64__
+    virtual IOReturn synchronizeCache(IOService * client) __attribute__ ((deprecated));
+#endif /* __x86_64__ */
 
     /*!
      * @function read
@@ -524,19 +529,11 @@ public:
      * of the data transfer, as necessary.
      */
 
-#ifdef __LP64__
     virtual void read(IOService *           client,
                       UInt64                byteStart,
                       IOMemoryDescriptor *  buffer,
                       IOStorageAttributes * attributes,
                       IOStorageCompletion * completion) = 0;
-#else /* !__LP64__ */
-    virtual void read(IOService *           client,
-                      UInt64                byteStart,
-                      IOMemoryDescriptor *  buffer,
-                      IOStorageAttributes * attributes,
-                      IOStorageCompletion * completion); /* 10.5.0 */
-#endif /* !__LP64__ */
 
     /*!
      * @function write
@@ -563,29 +560,22 @@ public:
      * of the data transfer, as necessary.
      */
 
-#ifdef __LP64__
     virtual void write(IOService *           client,
                        UInt64                byteStart,
                        IOMemoryDescriptor *  buffer,
                        IOStorageAttributes * attributes,
                        IOStorageCompletion * completion) = 0;
-#else /* !__LP64__ */
-    virtual void write(IOService *           client,
-                       UInt64                byteStart,
-                       IOMemoryDescriptor *  buffer,
-                       IOStorageAttributes * attributes,
-                       IOStorageCompletion * completion); /* 10.5.0 */
-#endif /* !__LP64__ */
 
+#ifdef __x86_64__
     virtual IOReturn discard(IOService * client,
                              UInt64      byteStart,
                              UInt64      byteCount) __attribute__ ((deprecated));
+#endif /* __x86_64__ */
 
     /*!
      * @function unmap
      * @discussion
-     * Delete unused data from the storage object at the specified byte offsets,
-     * synchronously.
+     * Delete unused data from the storage object at the specified byte offsets.
      * @param client
      * Client requesting the operation.
      * @param extents
@@ -593,14 +583,23 @@ public:
      * overwrite the contents of this buffer in order to satisfy the request.
      * @param extentsCount
      * Number of extents.
+     * @param options
+     * Options for the unmap.  See IOStorageUnmapOptions.
      * @result
      * Returns the status of the operation.
      */
 
-    virtual IOReturn unmap(IOService *       client,
-                           IOStorageExtent * extents,
-                           UInt32            extentsCount,
-                           UInt32            options = 0); /* 10.6.6 */
+#ifdef __x86_64__
+    virtual IOReturn unmap(IOService *           client,
+                           IOStorageExtent *     extents,
+                           UInt32                extentsCount,
+                           IOStorageUnmapOptions options = 0); /* 10.6.6 */
+#else /* !__x86_64__ */
+    virtual IOReturn unmap(IOService *           client,
+                           IOStorageExtent *     extents,
+                           UInt32                extentsCount,
+                           IOStorageUnmapOptions options = 0) = 0;
+#endif /* !__x86_64__ */
 
     /*!
      * @function lockPhysicalExtents
@@ -671,20 +670,42 @@ public:
                                  UInt32            extentsCount,
                                  IOStoragePriority priority); /* 10.10.0 */
 
+    /*!
+     * @function synchronize
+     * @discussion
+     * Flush the cached data in the storage object, if any.
+     * @param client
+     * Client requesting the synchronization.
+     * @param byteStart
+     * Starting byte offset for the synchronization.
+     * @param byteCount
+     * Size of the synchronization.  Set to zero to specify the end-of-media.
+     * @param options
+     * Options for the synchronization.  See IOStorageSynchronizeOptions.
+     * @result
+     * Returns the status of the synchronization.
+     */
+
+#ifdef __x86_64__
+    virtual IOReturn synchronize(IOService *                 client,
+                                 UInt64                      byteStart,
+                                 UInt64                      byteCount,
+                                 IOStorageSynchronizeOptions options = 0); /* 10.11.0 */
+#else /* !__x86_64__ */
+    virtual IOReturn synchronize(IOService *                 client,
+                                 UInt64                      byteStart,
+                                 UInt64                      byteCount,
+                                 IOStorageSynchronizeOptions options = 0) = 0;
+#endif /* !__x86_64__ */
+
     OSMetaClassDeclareReservedUsed(IOStorage,  0);
     OSMetaClassDeclareReservedUsed(IOStorage,  1);
     OSMetaClassDeclareReservedUsed(IOStorage,  2);
     OSMetaClassDeclareReservedUsed(IOStorage,  3);
     OSMetaClassDeclareReservedUsed(IOStorage,  4);
-#ifdef __LP64__
-    OSMetaClassDeclareReservedUnused(IOStorage,  5);
+    OSMetaClassDeclareReservedUsed(IOStorage,  5);
     OSMetaClassDeclareReservedUnused(IOStorage,  6);
     OSMetaClassDeclareReservedUnused(IOStorage,  7);
-#else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOStorage,  5);
-    OSMetaClassDeclareReservedUsed(IOStorage,  6);
-    OSMetaClassDeclareReservedUsed(IOStorage,  7);
-#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOStorage,  8);
     OSMetaClassDeclareReservedUnused(IOStorage,  9);
     OSMetaClassDeclareReservedUnused(IOStorage, 10);
@@ -694,6 +715,13 @@ public:
     OSMetaClassDeclareReservedUnused(IOStorage, 14);
     OSMetaClassDeclareReservedUnused(IOStorage, 15);
 };
+
+#ifdef __x86_64__
+#ifdef KERNEL_PRIVATE
+#define _kIOStorageSynchronizeOption_super__synchronizeCache 0xFFFFFFFF
+#define _respondsTo_synchronizeCache ( IOStorage::_expansionData )
+#endif /* KERNEL_PRIVATE */
+#endif /* __x86_64__ */
 
 #endif /* __cplusplus */
 #endif /* KERNEL */

@@ -216,7 +216,8 @@ IOPCIScalar IOPCIRangeCollapse(IOPCIRange * headRange, IOPCIScalar alignment)
         }
 	}
 	if (saving < headRange->proposedSize) panic("IOPCIRangeCollapse");
-    saving -= headRange->proposedSize;
+    else if (headRange->proposedSize <= headRange->totalSize) saving = 0;
+    else                                                      saving -= headRange->proposedSize;
 
     return (saving);
 }
@@ -511,6 +512,57 @@ bool IOPCIRangeListDeallocateSubRange(IOPCIRange * headRange,
     return (range != 0);
 }
 
+IOPCIScalar IOPCIRangeListSize(IOPCIRange * first)
+{
+    IOPCIRange * allocs;
+    IOPCIRange * range;
+    IOPCIRange * prev;
+    IOPCIRange * newAlloc;
+    IOPCIRange * newAllocNext;
+    IOPCIScalar  size, prevAddr, nextAddr;
+
+    allocs = NULL;
+    for (newAlloc = first; newAlloc; newAlloc = newAllocNext)
+    {
+		newAllocNext = newAlloc->nextToAllocate;
+		if (!allocs)
+		{
+			allocs = newAlloc;
+			newAlloc->nextToAllocate = NULL;
+			continue;
+		}
+		size     = (newAlloc->totalSize + newAlloc->extendSize);
+	    prev     = NULL;
+	    prevAddr = nextAddr = 0;
+		for (range = allocs; ; range = range->nextToAllocate)
+		{
+			if (range)
+			{
+				nextAddr = IOPCIScalarAlign(prevAddr, range->alignment);
+				assert(nextAddr >= prevAddr);
+			}
+			if (!range || (size <= (nextAddr - prevAddr)))
+			{
+				newAlloc->nextToAllocate = prev->nextToAllocate;
+				prev->nextToAllocate = newAlloc;
+				break;
+			}
+			prevAddr = nextAddr + range->totalSize + range->extendSize;
+			prev = range;
+		}
+    }
+
+	prevAddr = 0;
+	for (range = allocs; range; range = range->nextToAllocate)
+	{
+		nextAddr = IOPCIScalarAlign(prevAddr, range->alignment);
+		size = range->totalSize + range->extendSize;
+		prevAddr = nextAddr + size;
+	}
+
+	return (prevAddr);
+}
+
 void IOPCIRangeDump(IOPCIRange * head)
 {
     IOPCIRange * range;
@@ -566,6 +618,29 @@ int main(int argc, char **argv)
     }
 
 #if 1
+    idx = 0;
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0, 0x11000000, 0x08000000);
+	range->nextToAllocate = elems[idx];
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0, 0x11000000, 0x08000000);
+	range->nextToAllocate = elems[idx];
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0, 0x08000000, 0x01000000);
+	range->nextToAllocate = elems[idx];
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0, 0x2000, 0x2000);
+	range->nextToAllocate = NULL;
+
+
+	shrink = IOPCIRangeListSize(elems[0]);
+	printf("size 0x%08qx\n", shrink);
+    exit(0);
+
+#elif 0
 
     IOPCIRangeListAddRange(&head, 0, 0x00000000b5f00000, 0x0000000001100000, 0x0000000000400000);
 

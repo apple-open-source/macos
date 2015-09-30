@@ -116,7 +116,7 @@
 		111BA4DC1315D47800CF610F /* libopts.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A3F1F711B055F000B951F0 /* libopts.c */; };
 		590D166611B5915300C94698 /* ntptrace in CopyFiles */ = {isa = PBXBuildFile; fileRef = 590D166511B5915300C94698 /* ntptrace */; };
 		590D171611B5B52000C94698 /* sntp.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72A3F22311B055F100B951F0 /* sntp.1 */; };
-		590D171811B5B54000C94698 /* ntpd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7278F08611AF5F0B00E31601 /* ntpd.1 */; };
+		590D171811B5B54000C94698 /* ntpd.1 in man1 */ = {isa = PBXBuildFile; fileRef = 7278F08611AF5F0B00E31601 /* ntpd.1 */; };
 		590D172011B5B63500C94698 /* ntpdate.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 590D171E11B5B60800C94698 /* ntpdate.8 */; };
 		590D173311B5B6CF00C94698 /* ntptrace.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 590D171D11B5B60800C94698 /* ntptrace.8 */; };
 		590D174A11B5BB1500C94698 /* ntpdc.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 590D171911B5B55D00C94698 /* ntpdc.1 */; };
@@ -133,6 +133,7 @@
 		638D02471900D0BD00FB7C6E /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 638D02451900D09000FB7C6E /* libCrashReporterClient.a */; };
 		638D02481900D10B00FB7C6E /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 638D02451900D09000FB7C6E /* libCrashReporterClient.a */; };
 		638D02491900D15700FB7C6E /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 638D02451900D09000FB7C6E /* libCrashReporterClient.a */; };
+		72392F9A1AC6790800E794A2 /* ntpd.8 in man8 */ = {isa = PBXBuildFile; fileRef = 724E70BB1AC669EB00BABA5E /* ntpd.8 */; };
 		7278F0B811AF5F0B00E31601 /* ntp_config.c in Sources */ = {isa = PBXBuildFile; fileRef = 7278F06711AF5F0B00E31601 /* ntp_config.c */; };
 		7278F0B911AF5F0B00E31601 /* ntp_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 7278F06811AF5F0B00E31601 /* ntp_control.c */; };
 		7278F0BA11AF5F0B00E31601 /* ntp_crypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 7278F06911AF5F0B00E31601 /* ntp_crypto.c */; };
@@ -536,14 +537,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		590D171B11B5B55D00C94698 /* CopyFiles */ = {
+		590D171B11B5B55D00C94698 /* man1 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
-				590D171811B5B54000C94698 /* ntpd.1 in CopyFiles */,
+				590D171811B5B54000C94698 /* ntpd.1 in man1 */,
 			);
+			name = man1;
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		590D173111B5B69D00C94698 /* CopyFiles */ = {
@@ -677,6 +679,17 @@
 			dstSubfolderSpec = 0;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		72392F991AC678F700E794A2 /* man8 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				72392F9A1AC6790800E794A2 /* ntpd.8 in man8 */,
+			);
+			name = man8;
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		72A3F2AD11B0619F00B951F0 /* CopyFiles */ = {
@@ -1049,6 +1062,13 @@
 		5948920819019B7300D4DD6E /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		635C26D111C037C500D7E740 /* BSD.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = BSD.xcconfig; sourceTree = "<group>"; };
 		638D02451900D09000FB7C6E /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = ../../../../usr/local/lib/libCrashReporterClient.a; sourceTree = "<group>"; };
+		724E70B81AC669EB00BABA5E /* ntp-genkeys.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "ntp-genkeys.8"; path = "man/ntp-genkeys.8"; sourceTree = "<group>"; };
+		724E70B91AC669EB00BABA5E /* ntp-keygen.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "ntp-keygen.8"; path = "man/ntp-keygen.8"; sourceTree = "<group>"; };
+		724E70BA1AC669EB00BABA5E /* ntp.conf.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ntp.conf.5; path = man/ntp.conf.5; sourceTree = "<group>"; };
+		724E70BB1AC669EB00BABA5E /* ntpd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ntpd.8; path = man/ntpd.8; sourceTree = "<group>"; };
+		724E70BC1AC669EB00BABA5E /* ntpdc.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ntpdc.8; path = man/ntpdc.8; sourceTree = "<group>"; };
+		724E70BD1AC669EB00BABA5E /* ntpq.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ntpq.8; path = man/ntpq.8; sourceTree = "<group>"; };
+		724E70BE1AC669EB00BABA5E /* ntptime.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ntptime.8; path = man/ntptime.8; sourceTree = "<group>"; };
 		7278F05711AF5E9F00E31601 /* ntpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ntpd; sourceTree = BUILT_PRODUCTS_DIR; };
 		7278F06111AF5F0B00E31601 /* cmd_args.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd_args.c; sourceTree = "<group>"; };
 		7278F06711AF5F0B00E31601 /* ntp_config.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntp_config.c; sourceTree = "<group>"; };
@@ -2797,6 +2817,13 @@
 		C6A0FF2B0290797F04C91782 /* Documentation */ = {
 			isa = PBXGroup;
 			children = (
+				724E70B81AC669EB00BABA5E /* ntp-genkeys.8 */,
+				724E70B91AC669EB00BABA5E /* ntp-keygen.8 */,
+				724E70BA1AC669EB00BABA5E /* ntp.conf.5 */,
+				724E70BB1AC669EB00BABA5E /* ntpd.8 */,
+				724E70BC1AC669EB00BABA5E /* ntpdc.8 */,
+				724E70BD1AC669EB00BABA5E /* ntpq.8 */,
+				724E70BE1AC669EB00BABA5E /* ntptime.8 */,
 				5946B65911BEDF7E00B8FDFD /* ntpd-wrapper.8 */,
 				590D175411B5BBA600C94698 /* ntp-keygen.1 */,
 				590D171D11B5B60800C94698 /* ntptrace.8 */,
@@ -2861,8 +2888,9 @@
 			buildPhases = (
 				7278F05411AF5E9F00E31601 /* Sources */,
 				7278F05511AF5E9F00E31601 /* Frameworks */,
-				590D171B11B5B55D00C94698 /* CopyFiles */,
+				590D171B11B5B55D00C94698 /* man1 */,
 				5946B5EF11BDC0C500B8FDFD /* ntpd.sb */,
+				72392F991AC678F700E794A2 /* man8 */,
 			);
 			buildRules = (
 			);
@@ -3025,7 +3053,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0600;
+				LastUpgradeCheck = 0700;
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "ntp" */;
 			compatibilityVersion = "Xcode 3.2";

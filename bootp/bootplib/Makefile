@@ -47,6 +47,9 @@ gen: genoptionfiles
 	./genoptionfiles -dhcptype > gen_dhcp_types.h
 	chmod 444 gen_dhcp*.h
 
+IPv4ClasslessRoute: IPv4ClasslessRoute.c util.c cfutil.c IPConfigurationLog.c
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_IPV4ROUTE $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
+
 inetroute: inetroute.c
 	cc -Wall -g -o inetroute -DTEST_INETROUTE inetroute.c dynarray.c ptrlist.c util.c
 
@@ -71,8 +74,8 @@ nihosts:
 interfaces: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
 
-dhcpopt: dhcp_options.c
-	cc -Wall -g -DTEST_DHCP_OPTIONS -o dhcpopt dhcp_options.c ptrlist.c util.c DNSNameList.c -framework CoreFoundation -framework SystemConfiguration -framework CoreFoundation
+dhcpopt: dhcp_options.c cfutil.c util.c DNSNameList.c IPv4ClasslessRoute.c ptrlist.c IPConfigurationLog.c
+	$(CC) -Wall -g -DTEST_DHCP_OPTIONS -o $@ $^ -framework CoreFoundation -framework SystemConfiguration -framework CoreFoundation
 
 macncopt: macnc_options.c
 	cc -Wall -g -DTEST_MACNC_OPTIONS -o macncopt macnc_options.c dhcp_options.c ptrlist.c util.c DNSNameList.c
@@ -84,17 +87,17 @@ hfsvols: hfsvols.c hfsvols.h
 	cc -Wall -g -DTEST_HFSVOLS -o hfsvols hfsvols.c ptrlist.c dynarray.c
 
 nbimages: nbimages.c nbimages.h cfutil.c
-	cc -Wall -g -DTEST_NBIMAGES -o nbimages nbimages.c util.c nbsp.c ptrlist.c dynarray.c cfutil.c -framework CoreFoundation -I$(NET_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders -framework SystemConfiguration
+	$(CC) -Wall -g -DTEST_NBIMAGES -o nbimages nbimages.c util.c nbsp.c ptrlist.c dynarray.c cfutil.c -framework CoreFoundation -I$(NET_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders -framework SystemConfiguration
 
 dnsnamelist: DNSNameList.c DNSNameList.h
-	cc -Wall -g -DTEST_DNSNAMELIST -o dnsnamelist DNSNameList.c util.c -framework CoreFoundation -framework SystemConfiguration
+	$(CC) -Wall -g -DTEST_DNSNAMELIST -o dnsnamelist DNSNameList.c util.c -framework CoreFoundation -framework SystemConfiguration
 
-subnets: subnets.c cfutil.c DNSNameList.c util.c ptrlist.c dynarray.c dhcp_options.c
-	cc -g -Wall -DTEST_SUBNETS -o subnets subnets.c cfutil.c util.c ptrlist.c dynarray.c DNSNameList.c dhcp_options.c -framework CoreFoundation
+subnets: IPv4ClasslessRoute.c subnets.c cfutil.c DNSNameList.c util.c ptrlist.c dynarray.c dhcp_options.c IPConfigurationLog.c
+	$(CC) -DTEST_SUBNETS -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
 
 test-dhcpv6-options: DHCPv6Options.c DHCPv6.c DHCPDUID.c
 	cc -g -Wall DHCPv6Options.c DHCPDUID.c DHCPv6.c -o test-dhcpv6-options -DTEST_DHCPV6_OPTIONS ptrlist.c util.c DNSNameList.c cfutil.c -framework CoreFoundation -framework SystemConfiguration
 
 clean:
-	rm -f afpusers arp dhcpopt dnsnamelist genoptionfiles hfsvols interfaces nbimages nbsp nihosts nilist readtest sharepoints subnets test-dhcpv6-options
+	rm -f afpusers arp dhcpopt dnsnamelist genoptionfiles hfsvols interfaces nbimages nbsp nihosts nilist readtest sharepoints subnets test-dhcpv6-options IPv4ClasslessRoute
 	rm -rf *.dSYM/

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,32 +28,32 @@
 #include "DADialog.h"
 #include "DADisk.h"
 #include "DAFileSystem.h"
-#include "DALog.h"
 #include "DAMain.h"
 #include "DAMount.h"
 #include "DAPrivate.h"
+#include "DAProbe.h"
 #include "DAQueue.h"
 #include "DASupport.h"
 
-#include <fsproperties.h>
 #include <unistd.h>
-#include <sys/loadable_fs.h>
 #include <sys/mount.h>
 
 static CFRunLoopSourceRef __gDAStageRunLoopSource = NULL;
 
 static void               __DAStageAppeared( DADiskRef disk );
 static void               __DAStageMount( DADiskRef disk );
-static void               __DAStageMountCallback( int status, CFURLRef mountpoint, void * context );
-static void               __DAStageMountApproval( DADiskRef disk );
-static void               __DAStageMountApprovalCallback( CFTypeRef response, void * context );
-static void               __DAStageMountAuthorization( DADiskRef disk );
-static void               __DAStageMountAuthorizationCallback( DAReturn status, void * context );
 static void               __DAStagePeek( DADiskRef disk );
 static void               __DAStagePeekCallback( CFTypeRef response, void * context );
 static CFComparisonResult __DAStagePeekCompare( const void * value1, const void * value2, void * context );
 static void               __DAStageProbe( DADiskRef disk );
-static void               __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef name, CFUUIDRef uuid, void * context );
+
+static void __DAStageProbeCallback( int             status,
+                                    DAFileSystemRef filesystem,
+                                    CFBooleanRef    clean,
+                                    CFStringRef     name,
+                                    CFStringRef     type,
+                                    CFUUIDRef       uuid,
+                                    void *          context );
 
 static void __DAStageAppeared( DADiskRef disk )
 {
@@ -105,62 +105,15 @@ static void __DAStageDispatch( void * info )
             {
                 __DAStagePeek( disk );
             }
-///w:start
-            else if ( DADiskGetState( disk, kDADiskStateRequireRepair ) == FALSE )
+            else if ( DADiskGetState( disk, kDADiskStateStagedMount ) == FALSE )
             {
-                if ( DADiskGetState( disk, kDADiskStateStagedApprove ) == FALSE )
+                if ( gDAExit )
                 {
-                    __DAStageMountApproval( disk );
-                }
-                else if ( DADiskGetState( disk, kDADiskStateStagedAuthorize ) == FALSE )
-                {
-                    __DAStageMountAuthorization( disk );
-                }
-                else if ( DADiskGetState( disk, kDADiskStateStagedMount ) == FALSE )
-                {
-                    __DAStageMount( disk );
-                }
-                else if ( DADiskGetState( disk, kDADiskStateStagedAppear ) == FALSE )
-                {
-                    __DAStageAppeared( disk );
-                }
-                else
-                {
-///w:start
-                    if ( gDAConsoleUserList == NULL )
-                    {
-                        if ( DADiskGetDescription( disk, kDADiskDescriptionMediaTypeKey ) )
-                        {
-                            CFNumberRef size;
-
-                            size = DADiskGetDescription( disk, kDADiskDescriptionMediaSizeKey );
-
-                            if ( size )
-                            {
-                                if ( ___CFNumberGetIntegerValue( size ) == 0 )
-                                {
-                                    if ( DAUnitGetState( disk, kDAUnitStateStagedUnreadable ) == FALSE )
-                                    {
-                                        if ( _DAUnitIsUnreadable( disk ) )
-                                        {
-                                            DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
-                                        }
-
-                                        DAUnitSetState( disk, kDAUnitStateStagedUnreadable, TRUE );
-                                    }
-                                }
-                            }
-                        }
-                    }
-///w:stop
                     continue;
                 }
-            }
-///w:stop
-            else if ( DADiskGetState( disk, kDADiskStateStagedAppear ) == FALSE )
-            {
+
                 /*
-                 * We stall the "appeared" stage if the conditions are not right.
+                 * We stall the "mount" stage if the conditions are not right.
                  */
 
                 if ( DADiskGetState( disk, kDADiskStateRequireRepair ) )
@@ -183,7 +136,7 @@ static void __DAStageDispatch( void * info )
                                 break;
                             }
 
-                            if ( DADiskGetState( subdisk, kDADiskStateStagedAppear ) == FALSE )
+                            if ( DADiskGetState( subdisk, kDADiskStateStagedMount ) == FALSE )
                             {
                                 if ( DADiskGetState( subdisk, kDADiskStateRequireRepair ) == FALSE )
                                 {
@@ -195,33 +148,47 @@ static void __DAStageDispatch( void * info )
 
                     if ( subindex == subcount )
                     {
-                        __DAStageAppeared( disk );
+                        __DAStageMount( disk );
                     }
                 }
                 else
                 {
-                    __DAStageAppeared( disk );
+                    __DAStageMount( disk );
                 }
             }
-            else if ( DADiskGetState( disk, kDADiskStateStagedApprove ) == FALSE )
+            else if ( DADiskGetState( disk, kDADiskStateStagedAppear ) == FALSE )
             {
-                __DAStageMountApproval( disk );
-            }
-            else if ( DADiskGetState( disk, kDADiskStateStagedAuthorize ) == FALSE )
-            {
-                __DAStageMountAuthorization( disk );
-            }
-            else if ( DADiskGetState( disk, kDADiskStateStagedMount ) == FALSE )
-            {
-                if ( gDAExit )
-                {
-                    continue;
-                }
-
-                __DAStageMount( disk );
+                __DAStageAppeared( disk );
             }
             else
             {
+///w:start
+                if ( gDAConsoleUserList == NULL )
+                {
+                    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaTypeKey ) )
+                    {
+                        CFNumberRef size;
+
+                        size = DADiskGetDescription( disk, kDADiskDescriptionMediaSizeKey );
+
+                        if ( size )
+                        {
+                            if ( ___CFNumberGetIntegerValue( size ) == 0 )
+                            {
+                                if ( DAUnitGetState( disk, kDAUnitStateStagedUnreadable ) == FALSE )
+                                {
+                                    if ( _DAUnitIsUnreadable( disk ) )
+                                    {
+                                        DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
+                                    }
+
+                                    DAUnitSetState( disk, kDAUnitStateStagedUnreadable, TRUE );
+                                }
+                            }
+                        }
+                    }
+                }
+///w:stop
                 continue;
             }
         }
@@ -426,7 +393,7 @@ static void __DAStageDispatch( void * info )
                     {
                         if ( DADiskGetState( disk, kDADiskStateRequireRepair ) )
                         {
-                            if ( DADiskGetOption( disk, kDADiskOptionMountAutomatic ) )
+                            if ( DADiskGetState( disk, _kDADiskStateMountAutomatic ) )
                             {
                                 if ( DADiskGetClaim( disk ) == NULL )
                                 {
@@ -449,217 +416,11 @@ static void __DAStageMount( DADiskRef disk )
      * We commence the "mount" stage if the conditions are right.
      */
 
-    if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
-    {
-        /*
-         * Commence the mount.
-         */
+    DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
 
-        CFRetain( disk );
-
-        DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
-
-        DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
-
-        DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
-
-        DAMountWithArguments( disk, NULL, __DAStageMountCallback, disk, CFSTR( "automatic" ), NULL );
-    }
-}
-
-static void __DAStageMountCallback( int status, CFURLRef mountpoint, void * context )
-{
-    DADiskRef disk = context;
-
-    if ( status == 0 )
-    {
-        /*
-         * We were able to mount the volume.
-         */
-
-        DADiskSetBypath( disk, mountpoint );
-
-        DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
-
-        if ( DADiskGetState( disk, kDADiskStateStagedAppear ) )
-        {
-            DADiskDescriptionChangedCallback( disk, kDADiskDescriptionVolumePathKey );
-        }
-    }
-
-    DAUnitSetState( disk, kDAUnitStateCommandActive, FALSE );
-
-    DADiskSetState( disk, kDADiskStateCommandActive, FALSE );
+    DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL, CFSTR( "automatic" ) );
 
     DAStageSignal( );
-
-    CFRelease( disk );
-}
-
-static void __DAStageMountApproval( DADiskRef disk )
-{
-    /*
-     * We commence the "mount approval" stage if the conditions are right.
-     */
-
-    Boolean mount = TRUE;
-
-    /*
-     * Determine whether the disk is mountable.
-     */
-
-    if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanFalse )
-    {
-        mount = FALSE;
-    }
-
-    /*
-     * Determine whether the disk is mounted.
-     */
-
-    if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
-    {
-        mount = FALSE;
-    }
-
-    /*
-     * Commence the mount approval.
-     */
-
-    DADiskSetState( disk, kDADiskStateStagedApprove, TRUE );
-
-    if ( mount )
-    {
-        CFRetain( disk );
-
-        DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
-
-        DADiskMountApprovalCallback( disk, __DAStageMountApprovalCallback, disk );
-    }
-    else
-    {
-        DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
-
-        DAStageSignal( );
-    }
-}
-
-static void __DAStageMountApprovalCallback( CFTypeRef response, void * context )
-{
-    DADiskRef      disk      = context;
-    DADissenterRef dissenter = response;
-
-    if ( dissenter )
-    {
-        /*
-         * The mount was disapproved.
-         */
-
-///w:start
-        if ( DADissenterGetStatus( dissenter ) == 0xF8DAFF01 )
-        {
-            DADiskSetState( disk, _kDADiskStateRequireAuthorize, TRUE );
-        }
-        else if ( DADissenterGetStatus( dissenter ) == 0xF8DAFF02 )
-        {
-            DADiskSetState( disk, _kDADiskStateMountPreferenceNoWrite, TRUE );
-        }
-        else if ( DADissenterGetStatus( dissenter ) == 0xF8DAFF03 )
-        {
-            DADiskSetState( disk, _kDADiskStateRequireAuthorize, TRUE );
-
-            DADiskSetState( disk, _kDADiskStateMountPreferenceNoWrite, TRUE );
-        }
-        else
-///w:stop
-        DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
-    }
-
-    DADiskSetState( disk, kDADiskStateCommandActive, FALSE );
-
-    DAStageSignal( );
-
-    CFRelease( disk );
-}
-
-static void __DAStageMountAuthorization( DADiskRef disk )
-{
-    /*
-     * We commence the "mount authorization" stage if the conditions are right.
-     */
-
-    /*
-     * Commence the mount authorization.
-     */
-
-    DADiskSetState( disk, kDADiskStateStagedAuthorize, TRUE );
-
-///w:start
-    if ( DADiskGetState( disk, _kDADiskStateRequireAuthorize ) )
-///w:stop
-    {
-        DASessionRef session;
-        CFArrayRef   sessionList;
-        CFIndex      sessionListCount;
-        CFIndex      sessionListIndex;
-
-        CFRetain( disk );
-
-        DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
-
-        sessionList      = gDASessionList;
-        sessionListCount = CFArrayGetCount( sessionList );
-
-        for ( sessionListIndex = 0; sessionListIndex < sessionListCount; sessionListIndex++ )
-        {
-            session = ( void * ) CFArrayGetValueAtIndex( sessionList, sessionListIndex );
-
-            if ( strcmp( _DASessionGetName( session ), "SystemUIServer" ) == 0 )
-            {
-                break;
-            }
-        }
-
-        if ( sessionListIndex < sessionListCount )
-        {
-            DAAuthorizeWithCallback( session,
-                                     _kDAAuthorizeOptionAuthenticateAdministrator,
-                                     disk,
-                                     ___UID_ROOT,
-                                     ___GID_WHEEL,
-                                     __DAStageMountAuthorizationCallback,
-                                     disk,
-                                     _kDAAuthorizeRightMount );
-        }
-        else
-        {
-            __DAStageMountAuthorizationCallback( kDAReturnNotPrivileged, disk );
-        }
-    }
-    else
-    {
-        DAStageSignal( );
-    }
-}
-
-static void __DAStageMountAuthorizationCallback( DAReturn status, void * context )
-{
-    DADiskRef disk = context;
-
-    if ( status )
-    {
-        /*
-         * The mount was unauthorized.
-         */
-
-        DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
-    }
-
-    DADiskSetState( disk, kDADiskStateCommandActive, FALSE );
-
-    DAStageSignal( );
-
-    CFRelease( disk );
 }
 
 static void __DAStagePeek( DADiskRef disk )
@@ -777,136 +538,35 @@ static void __DAStageProbe( DADiskRef disk )
 
     if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
     {
-        CFMutableArrayRef candidates;
+        /*
+         * Commence the probe.
+         */
 
-        candidates = CFArrayCreateMutableCopy( kCFAllocatorDefault, 0, gDAFileSystemProbeList );
+        CFRetain( disk );
 
-        if ( candidates )
-        {
-            CFNumberRef size;
+        DADiskSetState( disk, kDADiskStateStagedProbe, TRUE );
 
-            /*
-             * Determine whether the disk is formatted.
-             */
+        DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
 
-            size = DADiskGetDescription( disk, kDADiskDescriptionMediaSizeKey );
+        DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
 
-            if ( size )
-            {
-                if ( ___CFNumberGetIntegerValue( size ) == 0 )
-                {
-                    CFArrayRemoveAllValues( candidates );
-                }
-            }
-
-            /*
-             * Commence the probe.
-             */
-
-            CFRetain( disk );
-
-            DADiskSetFileSystem( disk, NULL );
-
-            DADiskSetContext( disk, candidates );
-
-            DADiskSetState( disk, kDADiskStateStagedProbe, TRUE );
-
-            DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
-
-            DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
-
-            __DAStageProbeCallback( -1, NULL, NULL, NULL, disk );
-
-            CFRelease( candidates );
-        }
+        DAProbe( disk, __DAStageProbeCallback, disk );
     }
 }
 
-static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef name, CFUUIDRef uuid, void * context )
+static void __DAStageProbeCallback( int             status,
+                                    DAFileSystemRef filesystem,
+                                    CFBooleanRef    clean,
+                                    CFStringRef     name,
+                                    CFStringRef     type,
+                                    CFUUIDRef       uuid,
+                                    void *          context )
 {
     DADiskRef         disk = context;
-    CFMutableArrayRef keys = NULL;
-    CFStringRef       kind = NULL;
+    CFMutableArrayRef keys;
+    CFStringRef       kind;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
-    if ( status )
-    {
-        CFMutableArrayRef candidates;
-
-        candidates = ( void * ) DADiskGetContext( disk );
-
-        if ( DADiskGetFileSystem( disk ) )
-        {
-            kind = DAFileSystemGetKind( DADiskGetFileSystem( disk ) );
-
-            DALogDebug( "  probed disk, id = %@, with %@, failure.", disk, kind );
-
-            if ( status != FSUR_UNRECOGNIZED )
-            {
-                DALogError( "unable to probe %@ (status code 0x%08X).", disk, status );
-            }
-        }
-
-        /*
-         * Find a probe candidate for this media object.
-         */
-
-        while ( CFArrayGetCount( candidates ) )
-        {
-            CFDictionaryRef candidate;
-
-            candidate = CFArrayGetValueAtIndex( candidates, 0 );
-
-            if ( candidate )
-            {
-                DAFileSystemRef filesystem;
-
-                filesystem = ( void * ) CFDictionaryGetValue( candidate, kDAFileSystemKey );
-
-                if ( filesystem )
-                {
-                    CFDictionaryRef properties;
-
-                    properties = CFDictionaryGetValue( candidate, CFSTR( kFSMediaPropertiesKey ) );
-
-                    if ( properties )
-                    {
-                        boolean_t match = FALSE;
-
-                        IOServiceMatchPropertyTable( DADiskGetIOMedia( disk ), properties, &match );
-
-                        if ( match )
-                        {
-                            /*
-                             * We have found a probe candidate for this media object.
-                             */
-
-                            kind = DAFileSystemGetKind( filesystem );
-
-                            DADiskSetFileSystem( disk, filesystem );
-
-                            if ( CFDictionaryGetValue( candidate, CFSTR( "autodiskmount" ) ) == kCFBooleanFalse )
-                            {
-                                DADiskSetOption( disk, kDADiskOptionMountAutomatic,        FALSE );
-                                DADiskSetOption( disk, kDADiskOptionMountAutomaticNoDefer, FALSE );
-                            }
-
-                            CFArrayRemoveValueAtIndex( candidates, 0 );
-
-                            DALogDebug( "  probed disk, id = %@, with %@, ongoing.", disk, kind );
-
-                            DAFileSystemProbe( filesystem, DADiskGetDevice( disk ), __DAStageProbeCallback, context );
-
-                            return;
-                        }
-                    }
-                }
-            }
-
-            CFArrayRemoveValueAtIndex( candidates, 0 );
-        }
-    }
+    DADiskSetFileSystem( disk, filesystem );
 
     DADiskSetState( disk, kDADiskStateRequireRepair,       FALSE );
     DADiskSetState( disk, kDADiskStateRequireRepairQuotas, FALSE );
@@ -918,13 +578,6 @@ static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef 
          */
 
         kind = NULL;
-
-        if ( DADiskGetFileSystem( disk ) )
-        {
-            DADiskSetFileSystem( disk, NULL );
-
-            DALogDebug( "  probed disk, id = %@, no match.", disk );
-        }
     }
     else
     {
@@ -932,7 +585,7 @@ static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef 
          * We have found a probe match for this media object.
          */
 
-        kind = DAFileSystemGetKind( DADiskGetFileSystem( disk ) );
+        kind = DAFileSystemGetKind( filesystem );
 
 ///w:start
         if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
@@ -945,8 +598,6 @@ static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef 
             DADiskSetState( disk, kDADiskStateRequireRepair,       TRUE );
             DADiskSetState( disk, kDADiskStateRequireRepairQuotas, TRUE );
         }
-
-        DALogDebug( "  probed disk, id = %@, with %@, success.", disk, kind );
     }
 
     keys = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
@@ -976,6 +627,13 @@ static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef 
             DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
 
             CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
+        }
+
+        if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeTypeKey, type ) )
+        {
+            DADiskSetDescription( disk, kDADiskDescriptionVolumeTypeKey, type );
+
+            CFArrayAppendValue( keys, kDADiskDescriptionVolumeTypeKey );
         }
 
         if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeUUIDKey, uuid ) )
@@ -1045,8 +703,8 @@ static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef 
                         CFRelease( path );
                     }
 
-                    DADiskSetOption( disk, kDADiskOptionMountAutomatic,        TRUE );
-                    DADiskSetOption( disk, kDADiskOptionMountAutomaticNoDefer, TRUE );
+                    DADiskSetState( disk, _kDADiskStateMountAutomatic,        TRUE );
+                    DADiskSetState( disk, _kDADiskStateMountAutomaticNoDefer, TRUE );
                 }
 
                 DADiskSetState( disk, kDADiskStateRequireRepair,       FALSE );
@@ -1060,8 +718,6 @@ static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef 
     DAUnitSetState( disk, kDAUnitStateCommandActive, FALSE );
 
     DADiskSetState( disk, kDADiskStateCommandActive, FALSE );
-
-    DADiskSetContext( disk, NULL );
 
     DAStageSignal( );
 

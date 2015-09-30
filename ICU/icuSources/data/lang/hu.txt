@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/hu.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/hu.xml
- */
 hu{
     Keys{
         calendar{"Naptár"}
@@ -182,6 +179,7 @@ hu{
         fy{"fríz"}
         ga{"ír"}
         gaa{"ga"}
+        gag{"gagauz"}
         gay{"gajo"}
         gba{"gbaja"}
         gd{"skót gael"}
@@ -199,7 +197,7 @@ hu{
         gsw{"svájci német"}
         gu{"gudzsarati"}
         guz{"guszii"}
-        gv{"Man-szigeti"}
+        gv{"man-szigeti"}
         gwi{"gvicsin"}
         ha{"hausza"}
         hai{"haida"}
@@ -265,6 +263,7 @@ hu{
         kmb{"kimbundu"}
         kn{"kannada"}
         ko{"koreai"}
+        koi{"komi-permják"}
         kok{"konkani"}
         kos{"kosrei"}
         kpe{"kpelle"}
@@ -321,7 +320,7 @@ hu{
         mg{"málgas"}
         mga{"közép ír"}
         mgh{"makua-metó"}
-        mgo{"meta'"}
+        mgo{"meta’"}
         mh{"marshalli"}
         mi{"maori"}
         mic{"mikmak"}
@@ -363,7 +362,7 @@ hu{
         no{"norvég"}
         nog{"nogaj"}
         non{"óskandináv"}
-        nqo{"n'kó"}
+        nqo{"n’kó"}
         nr{"déli ndebele"}
         nso{"északi szotó"}
         nus{"nuer"}
@@ -398,6 +397,7 @@ hu{
         pt_BR{"brazíliai portugál"}
         pt_PT{"európai portugál"}
         qu{"kecsua"}
+        quc{"kicse"}
         raj{"radzsasztáni"}
         rap{"rapanui"}
         rar{"rarotongai"}
@@ -542,8 +542,9 @@ hu{
         zxx{"nincs nyelvészeti tartalom"}
         zza{"zaza"}
     }
-    LanguagesShort{
+    Languages%short{
         az{"azeri"}
+        en_GB{"angol (UK)"}
         en_US{"angol (USA)"}
     }
     Scripts{
@@ -623,7 +624,7 @@ hu{
         Moon{"Moon"}
         Mtei{"Meitei mayek"}
         Mymr{"Burmai"}
-        Nkoo{"N'ko"}
+        Nkoo{"N’ko"}
         Ogam{"Ogham"}
         Olck{"Ol chiki"}
         Orkh{"Orhon"}
@@ -681,11 +682,15 @@ hu{
         Hans{"Egyszerűsített Han"}
         Hant{"Hagyományos kínai"}
     }
+    Scripts%variant{
+        Arab{"Perzsa-arab"}
+    }
     Types{
         calendar{
             buddhist{"Buddhista naptár"}
             chinese{"Kínai naptár"}
             coptic{"Kopt naptár"}
+            dangi{"Dangi naptár"}
             ethiopic{"Etióp naptár"}
             ethiopic-amete-alem{"Etióp amete alem naptár"}
             gregorian{"Gergely-naptár"}
@@ -693,6 +698,7 @@ hu{
             indian{"Indiai nemzeti naptár"}
             islamic{"Iszlám naptár"}
             islamic-civil{"Iszlám civil naptár"}
+            iso8601{"ISO-8601 naptár"}
             japanese{"Japán naptár"}
             persian{"Perzsa naptár"}
             roc{"Kínai köztársasági naptár"}
@@ -850,7 +856,7 @@ hu{
         VALLADER{"Vallader"}
         WADEGILE{"Wade-Giles átírás"}
     }
-    Version{"2.0.98.52"}
+    Version{"2.1.12.94"}
     codePatterns{
         language{"Nyelv: {0}"}
         script{"Írásrendszer: {0}"}

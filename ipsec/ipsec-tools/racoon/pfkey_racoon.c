@@ -157,10 +157,11 @@ NULL,	/* SADB_X_SPDSETIDX */
 pk_recvspdexpire,
 NULL,	/* SADB_X_SPDDELETE2 */
 pk_recvgetsastat, /* SADB_GETSASTAT */
-NULL,	/* SADB_X_NAT_T_NEW_MAPPING */
-NULL, /* SADB_X_MIGRATE */
-#if (SADB_MAX > 25)
-#error "SADB extra message?"
+NULL,	/* SADB_X_SPDENABLE */
+NULL, /* SADB_X_SPDDISNABLE */
+NULL, /* SADB_MIGRATE */
+#if (SADB_MAX > 26)
+#warning "SADB extra message?"
 #endif
 };
 

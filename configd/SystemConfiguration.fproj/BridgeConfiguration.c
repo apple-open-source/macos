@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -67,7 +67,7 @@ inet_dgram_socket()
 
 	s = socket(AF_INET, SOCK_DGRAM, 0);
 	if (s == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("socket() failed: %s"), strerror(errno));
+		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 	}
 
 	return s;
@@ -259,7 +259,7 @@ SCBridgeInterfaceCopyAll(SCPreferencesRef prefs)
 	context.bridges = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	context.prefs = prefs;
 	context.ni_prefs = ni_prefs;
-	
+
 	path = CFStringCreateWithFormat(NULL,
 					NULL,
 					CFSTR("/%@/%@"),
@@ -399,7 +399,7 @@ _SCBridgeInterfaceCopyActive(void)
 
 	if (getifaddrs(&ifap) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_ERR, CFSTR("getifaddrs() failed: %s"), strerror(errno));
+		SC_log(LOG_NOTICE, "getifaddrs() failed: %s", strerror(errno));
 		return NULL;
 	}
 
@@ -444,10 +444,9 @@ _SCBridgeInterfaceCopyActive(void)
 				continue;
 			}
 			_SCErrorSet(errno);
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("ifbifconf_copy(%s) failed: %s"),
-			      ifp->ifa_name,
-			      strerror(errno));
+			SC_log(LOG_NOTICE, "ifbifconf_copy(%s) failed: %s",
+			       ifp->ifa_name,
+			       strerror(errno));
 			CFRelease(bridges);
 			bridges = NULL;
 			goto done;
@@ -955,11 +954,10 @@ __bridge_add_interface(int s, CFStringRef bridge_if, CFStringRef interface_if)
 	// add new bridge member
 	if (ioctl(s, SIOCSDRVSPEC, (caddr_t)&ifd) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("could not add interface \"%@\" to bridge \"%@\": %s"),
-		      interface_if,
-		      bridge_if,
-		      strerror(errno));
+		SC_log(LOG_ERR, "could not add interface \"%@\" to bridge \"%@\": %s",
+		       interface_if,
+		       bridge_if,
+		       strerror(errno));
 		return FALSE;
 	}
 
@@ -993,11 +991,10 @@ __bridge_remove_interface(int s, CFStringRef bridge_if, CFStringRef interface_if
 	// remove bridge member
 	if (ioctl(s, SIOCSDRVSPEC, (caddr_t)&ifd) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("could not add interface \"%@\" to bridge \"%@\": %s"),
-		      interface_if,
-		      bridge_if,
-		      strerror(errno));
+		SC_log(LOG_ERR, "could not remove interface \"%@\" from bridge \"%@\": %s",
+		       interface_if,
+		       bridge_if,
+		       strerror(errno));
 		return FALSE;
 	}
 

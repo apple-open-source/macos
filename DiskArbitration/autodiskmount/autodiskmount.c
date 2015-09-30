@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -250,6 +250,10 @@ cacheFileSystemMatchingArray()
 
 				for (i = 0; i < j; i++) {
 					CFStringRef     zaz;
+
+					if (!CFDictionaryGetValue(dicts[i], CFSTR(kFSProbeOrderKey))) {
+						continue;
+					}
 
 					CFMutableDictionaryRef newDict = CFDictionaryCreateMutableCopy(NULL, 0, dicts[i]);
 					zaz = CFStringCreateWithCString(NULL, &fsdirs[n]->d_name[0], kCFStringEncodingUTF8);

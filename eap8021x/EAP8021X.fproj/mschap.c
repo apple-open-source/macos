@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonCryptor.h>
+#include <CoreFoundation/CFString.h>
 #include <libkern/OSByteOrder.h>
 #include <stdbool.h>
 #include "mschap.h"
@@ -39,20 +40,23 @@ ChallengeResponse(const uint8_t challenge[MSCHAP_NT_CHALLENGE_SIZE],
 		  const uint8_t password_hash[NT_PASSWORD_HASH_SIZE], 
 		  uint8_t response[MSCHAP_NT_RESPONSE_SIZE]);
 
-static void
+static uint32_t
 password_to_unicode(const uint8_t * password, uint32_t password_len, 
 		    uint8_t * unicode_password)
 {
-    int i;
+    CFIndex num_bytes = 0;
+    CFStringRef utf8_password = NULL;
 
     if (password_len > NT_MAXPWLEN) {
 	password_len = NT_MAXPWLEN;
     }
-    bzero(unicode_password, password_len * 2);
-    for (i = 0; i < password_len; i++) {
-	unicode_password[i * 2] = password[i];
+    utf8_password = CFStringCreateWithBytes(NULL, (UInt8 *)password, password_len, kCFStringEncodingUTF8, false);
+    if (utf8_password != NULL) {
+    CFStringGetBytes(utf8_password, CFRangeMake( 0, CFStringGetLength(utf8_password)),
+                     kCFStringEncodingUnicode, 0, false, unicode_password, NT_MAXPWLEN * 2, &num_bytes);
+    CFRelease(utf8_password);
     }
-    return;
+    return (uint32_t)num_bytes;
 }
 
 static void
@@ -228,8 +232,8 @@ NTSessionKey16(const uint8_t * password, uint32_t password_len,
 
     /* add hash of the hash of the unicode password */
     offset = 0;
-    password_to_unicode(password, password_len, unicode_password);
-    NTPasswordHashHash(unicode_password, password_len * 2, input);
+    password_len = password_to_unicode(password, password_len, unicode_password);
+    NTPasswordHashHash(unicode_password, password_len, input);
     offset += NT_PASSWORD_HASH_SIZE;
 
     /* add the client challenge */
@@ -246,7 +250,7 @@ NTSessionKey16(const uint8_t * password, uint32_t password_len,
 
     /* compute the client response */
     NTChallengeResponse(server_challenge, unicode_password,
-			password_len * 2, input + offset);
+			password_len, input + offset);
 
     CC_MD5(input, HASH_INPUT_SIZE, key);
     return;
@@ -259,8 +263,8 @@ MSChap(const uint8_t challenge[MSCHAP_NT_CHALLENGE_SIZE],
 {
     uint8_t	unicode_password[NT_MAXPWLEN * 2];
 
-    password_to_unicode(password, password_len, unicode_password);
-    NTChallengeResponse(challenge, unicode_password, password_len * 2,
+    password_len = password_to_unicode(password, password_len, unicode_password);
+    NTChallengeResponse(challenge, unicode_password, password_len,
 			response);
     return;
 }    
@@ -272,9 +276,9 @@ MSChap_MPPE(const uint8_t challenge[MSCHAP_NT_CHALLENGE_SIZE],
 {
     uint8_t	unicode_password[NT_MAXPWLEN * 2];
 
-    password_to_unicode(password, password_len, unicode_password);
+    password_len = password_to_unicode(password, password_len, unicode_password);
     NTMPPEChallengeResponse(challenge, unicode_password, 
-			    password_len * 2, response);
+			    password_len, response);
     return;
 }
 
@@ -290,8 +294,8 @@ MSChap2(const uint8_t auth_challenge[MSCHAP2_CHALLENGE_SIZE],
 
     ChallengeHash(peer_challenge, auth_challenge, username,
 		  challenge);
-    password_to_unicode(password, password_len, unicode_password);
-    NTChallengeResponse(challenge, unicode_password, password_len * 2,
+    password_len = password_to_unicode(password, password_len, unicode_password);
+    NTChallengeResponse(challenge, unicode_password, password_len,
 			response);
     return;
 }    
@@ -307,9 +311,9 @@ MSChap2AuthResponseValid(const uint8_t * password, uint32_t password_len,
     uint8_t	my_response[MSCHAP2_AUTH_RESPONSE_SIZE];
     uint8_t	unicode_password[NT_MAXPWLEN * 2];
 
-    password_to_unicode(password, password_len, unicode_password);
+    password_len = password_to_unicode(password, password_len, unicode_password);
 
-    GenerateAuthResponse(unicode_password, password_len * 2, 
+    GenerateAuthResponse(unicode_password, password_len, 
 			 nt_response,
 			 peer_challenge,
 			 auth_challenge, 
@@ -380,12 +384,12 @@ NTPasswordBlockEncryptNewPasswordWithOldHash(const uint8_t * new_password,
     uint8_t	new_password_unicode[NT_MAXPWLEN * 2];
     uint8_t	old_password_unicode[NT_MAXPWLEN * 2];
 
-    password_to_unicode(new_password, new_password_len, new_password_unicode);
-    password_to_unicode(old_password, old_password_len, old_password_unicode);
+    new_password_len = password_to_unicode(new_password, new_password_len, new_password_unicode);
+    old_password_len = password_to_unicode(old_password, old_password_len, old_password_unicode);
     
-    NTPasswordHash(old_password_unicode, old_password_len * 2, hash);
+    NTPasswordHash(old_password_unicode, old_password_len, hash);
     EncryptPwBlockWithPasswordHash(new_password_unicode,
-				   new_password_len * 2,
+				   new_password_len,
 				   hash, pwblock);
     return;
 }
@@ -420,11 +424,11 @@ NTPasswordHashEncryptOldWithNew(const uint8_t * new_password,
     uint8_t	old_password_unicode[NT_MAXPWLEN * 2];
     uint8_t	old_pw_hash[NT_PASSWORD_HASH_SIZE];
 
-    password_to_unicode(new_password, new_password_len, new_password_unicode);
-    NTPasswordHash(new_password_unicode, new_password_len * 2, new_pw_hash);
+    new_password_len = password_to_unicode(new_password, new_password_len, new_password_unicode);
+    NTPasswordHash(new_password_unicode, new_password_len, new_pw_hash);
 
-    password_to_unicode(old_password, old_password_len, old_password_unicode);
-    NTPasswordHash(old_password_unicode, old_password_len * 2, old_pw_hash);
+    old_password_len = password_to_unicode(old_password, old_password_len, old_password_unicode);
+    NTPasswordHash(old_password_unicode, old_password_len, old_pw_hash);
 
     NTPasswordHashEncryptedWithBlock(old_pw_hash, new_pw_hash,
 				     encrypted_hash);
@@ -528,9 +532,9 @@ MSChap2_MPPEGetMasterKey(const uint8_t * password, uint32_t password_len,
     uint8_t 	password_hash[NT_PASSWORD_HASH_SIZE];
     uint8_t	unicode_password[NT_MAXPWLEN * 2];
 
-    password_to_unicode(password, password_len, unicode_password);
+    password_len = password_to_unicode(password, password_len, unicode_password);
 
-    NTPasswordHashHash(unicode_password, password_len * 2, password_hash);
+    NTPasswordHashHash(unicode_password, password_len, password_hash);
     GetMasterKey(password_hash, NTResponse, MasterKey);
 }
 
@@ -613,10 +617,53 @@ const uint8_t SendStartKey128[NT_SESSION_KEY_SIZE] ={
     0xA1, 0x18, 0xCB, 0x15, 0x3F, 0x56, 0xDC, 0xCB
 };
 
+/* MSCHAPv2 Test Data */
+const char * username = "User";
+
+const uint8_t mschapv2_test1_auth_challenge[MSCHAP2_CHALLENGE_SIZE] = {
+    0x5B, 0x5D, 0x7C, 0x7D, 0x7B, 0x3F, 0x2F, 0x3E,
+    0x3C, 0x2C, 0x60, 0x21, 0x32, 0x26, 0x26, 0x28
+};
+
+const uint8_t mschapv2_test1_peer_challenge[MSCHAP2_CHALLENGE_SIZE] = {
+    0x21, 0x40, 0x23, 0x24, 0x25, 0x5E, 0x26, 0x2A,
+    0x28, 0x29, 0x5F, 0x2B, 0x3A, 0x33, 0x7C, 0x7E
+};
+
+const uint8_t mschapv2_test1_expected_NT_response[MSCHAP_NT_RESPONSE_SIZE] = {
+    0x82, 0x30, 0x9E, 0xCD, 0x8D, 0x70, 0x8B, 0x5E,
+    0xA0, 0x8F, 0xAA, 0x39, 0x81, 0xCD, 0x83, 0x54,
+    0x42, 0x33, 0x11, 0x4A, 0x3D, 0x85, 0xD6, 0xDF
+};
+
+const uint8_t mschapv2_test2_auth_challenge[MSCHAP2_CHALLENGE_SIZE] = {
+    0x31, 0xFB, 0x57, 0x53, 0x96, 0xEE, 0x96, 0x9E,
+    0x0A, 0x5F, 0xE2, 0x4F, 0xF2, 0x87, 0xC9, 0x78
+};
+
+const uint8_t mschapv2_test2_peer_challenge[MSCHAP2_CHALLENGE_SIZE] = {
+    0xE0, 0x79, 0x3F, 0xBC, 0xC3, 0xF3, 0xF9, 0x1E,
+    0xD7, 0x85, 0xCD, 0x8C, 0xFF, 0x9B, 0x55, 0xD4
+};
+
+const uint8_t mschapv2_test2_password[] = { /* UTF8 Encoded "test®Àß" */
+    0x74, 0x65, 0x73, 0x74, 0xC2, 0xAE, 0xC3,
+    0x80, 0xC3, 0x9F
+};
+
+const uint8_t mschapv2_test2_expected_NT_response[MSCHAP_NT_RESPONSE_SIZE] = {
+    0x56, 0x06, 0x92, 0xB1, 0x04, 0x4D, 0x9E, 0x80,
+    0xEC, 0x59, 0x18, 0x8E, 0xB0, 0x8E, 0xCD, 0x5A,
+    0x7E, 0x04, 0xD1, 0xE6, 0x96, 0xAF, 0xFB, 0xA9
+};
+
+const char * test2_username = "MSCHAPv2_User";
+const uint32_t test2_password_len = 10;
 
 int
 main()
 {
+    {
     uint8_t master[NT_MASTER_KEY_SIZE];
     uint8_t send_start[NT_SESSION_KEY_SIZE];
 
@@ -636,6 +683,30 @@ main()
 	exit(1);
     }
     printf("SendStartKey128 generation successful\n");
+    }
+
+    { /* MSCHAPv2 Test START */
+    uint8_t response[MSCHAP_NT_RESPONSE_SIZE] = {0};
+
+    MSChap2(mschapv2_test1_auth_challenge, mschapv2_test1_peer_challenge,
+            (const uint8_t *)username, (const uint8_t *)password,
+            strlen(password), response);
+    if (bcmp(response, mschapv2_test1_expected_NT_response, MSCHAP_NT_RESPONSE_SIZE) != 0) {
+    printf("MSCHAPv2 NT Response generation TEST 1 failed\n");
+    exit(1);
+    }
+    printf("MSCHAPv2 NT Response generation TEST 1 Passed\n");
+    bzero(response, MSCHAP_NT_RESPONSE_SIZE);
+    MSChap2(mschapv2_test2_auth_challenge, mschapv2_test2_peer_challenge,
+            (const uint8_t *)test2_username, mschapv2_test2_password,
+            test2_password_len, response);
+    if (bcmp(response, mschapv2_test2_expected_NT_response, MSCHAP_NT_RESPONSE_SIZE) != 0) {
+        printf("MSCHAPv2 NT Response generation TEST 2 failed\n");
+        exit(1);
+    }
+    printf("MSCHAPv2 NT Response generation TEST 2 Passed\n");
+    } /* MSCHAPv2 Test END */
+
     exit(0);
     return (0);
 }

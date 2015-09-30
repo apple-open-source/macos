@@ -97,7 +97,6 @@ int main(int argc, char *argv[])
 	const char *authorizationConfig = "/etc/authorization";
 	const char *tokenCacheDir = "/var/db/TokenCache";
     const char *entropyFile = "/var/db/SystemEntropyCache";
-	const char *equivDbFile = EQUIVALENCEDBPATH;
 	const char *smartCardOptions = getenv("SMARTCARDS");
 	uint32_t keychainAclDefault = CSSM_ACL_KEYCHAIN_PROMPT_INVALID | CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED;
 	unsigned int verbose = 0;
@@ -112,7 +111,7 @@ int main(int argc, char *argv[])
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	while ((arg = getopt(argc, argv, "a:c:de:E:imN:s:t:T:uvWX")) != -1) {
+	while ((arg = getopt(argc, argv, "a:c:dE:imN:s:t:T:uvWX")) != -1) {
 		switch (arg) {
 		case 'a':
 			authorizationConfig = optarg;
@@ -122,9 +121,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'd':
 			debugMode = true;
-			break;
-		case 'e':
-			equivDbFile = optarg;
 			break;
         case 'E':
             entropyFile = optarg;
@@ -245,10 +241,10 @@ int main(int argc, char *argv[])
     new KeychainPromptAclSubject::Maker(keychainAclDefault);
     new PreAuthorizationAcls::OriginMaker();
     new PreAuthorizationAcls::SourceMaker();
-	
-	// establish the code equivalents database
-	CodeSignatures codeSignatures(equivDbFile);
-	
+
+    // establish the code equivalents database
+    CodeSignatures codeSignatures;
+
     // create the main server object and register it
  	Server server(authority, codeSignatures, bootstrapName);
 

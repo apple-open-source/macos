@@ -64,7 +64,8 @@ OSStatus checkKextSignature(OSKextRef aKext,
 Boolean isInExceptionList(OSKextRef theKext, CFURLRef theKextURL, Boolean useCache);
 Boolean isInLibraryExtensionsFolder(OSKextRef theKext);
 Boolean isInSystemLibraryExtensionsFolder(OSKextRef theKext);
-Boolean isDevMode(void);
+//Boolean isDevMode(void);
+Boolean isPrelinkedKernelAutoRebuildDisabled(void);
 Boolean isInvalidSignatureAllowed(void);
 Boolean isKextdRunning(void);
 int callSecKeychainMDSInstall( void );

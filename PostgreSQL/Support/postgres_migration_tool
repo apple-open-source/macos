@@ -1,0 +1,436 @@
+#!/usr/bin/ruby
+#
+# postgres_migration_tool
+#
+# Migration script for PostgreSQL
+# Supports migration from 10.7.x to the latest Server release
+#
+# Author:: Apple Inc.
+# Documentation:: Apple Inc.
+# Copyright (c) 2011-2015 Apple Inc. All Rights Reserved.
+#
+# IMPORTANT NOTE: This file is licensed only for use on Apple-branded
+# computers and is subject to the terms and conditions of the Apple Software
+# License Agreement accompanying the package this file is a part of.
+# You may not port this file to another platform without Apple's written consent.
+# License:: All rights reserved.
+#
+# This script prepares 10.7.x (PostgreSQL 9.0) server data for upgrade as individual
+# service-specific clusters.  Any user data remaining from the unified database will
+# remain in /Library/Server/PostgreSQL/Data on the target volume.
+#
+
+Encoding.default_external=Encoding::UTF_8
+Encoding.default_internal=Encoding::UTF_8
+
+require 'fileutils'
+require 'logger'
+require 'socket'
+require 'shellwords'
+
+LOG_FILE = "/Library/Logs/ServerSetup.log"
+$logger = Logger.new(LOG_FILE)
+$logger.level = Logger::INFO
+$logger.info("*** PostgreSQL migration start ***")
+
+#binaries
+POSTGRES_BINARIES_DIR_9_0 = "/Applications/Server.app/Contents/ServerRoot/usr/libexec/postgresql9.0"
+PSQL_9_0 = "#{POSTGRES_BINARIES_DIR_9_0}/psql"
+PG_CTL_9_0 = "#{POSTGRES_BINARIES_DIR_9_0}/pg_ctl"
+INITDB_9_0 = "#{POSTGRES_BINARIES_DIR_9_0}/initdb"
+CREATEDB_9_0 = "#{POSTGRES_BINARIES_DIR_9_0}/createdb"
+DROPUSER_9_0 = "#{POSTGRES_BINARIES_DIR_9_0}/dropuser"
+DROPDB_9_0 = "#{POSTGRES_BINARIES_DIR_9_0}/dropdb"
+PG_DUMP_9_0 = "#{POSTGRES_BINARIES_DIR_9_0}/pg_dump"
+
+#constants
+PG_FORKED_CLUSTERS_DIR_DEFAULT = "/Library/Server/postgres_service_clusters"
+PG_DATA_DIR_CUSTOMER_DEFAULT = "/private/var/pgsql"  # where to leave the stripped database cluster
+PG_LOG_DIR = "/Library/Logs/PostgreSQL"
+WIKI_USER = "_teamsserver"
+WIKI_GROUP = "_teamsserver"
+CALENDAR_USER = "_calendar"
+CALENDAR_GROUP = "_calendar"
+PROFILE_MANAGER_USER = "_devicemgr"
+PROFILE_MANAGER_GROUP = "_devicemgr"
+WIKI_DATABASE = "collab";
+WIKI_ROLES = ["collab", "webauth"]
+WIKI_ROLES_SQL = "CREATE ROLE collab; ALTER ROLE collab WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN; CREATE ROLE webauth; ALTER ROLE webauth WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN;"
+PROFILE_MANAGER_DATABASE = "device_management"
+PROFILE_MANAGER_ROLES = ["_devicemgr"]
+# Note: Profile manager role "_devicemgr" will already exist in new database since it matches the owner's account name.
+PROFILE_MANAGER_ROLES_SQL = "ALTER ROLE _devicemgr WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN;"
+CALENDAR_DATABASE = "caldav"
+CALENDAR_ROLES = ["caldav"]
+CALENDAR_ROLES_SQL = "CREATE ROLE caldav; ALTER ROLE caldav WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN;"
+DEFAULT_SOCKET_DIR = "/private/var/pgsql_socket"
+
+#globals
+$pgForkedClustersDir = PG_FORKED_CLUSTERS_DIR_DEFAULT.dup
+$purge = "0"
+$sourceRoot = "/Previous System"
+$targetRoot = "/"
+$sourceType = "System"
+$sourceVersion = "10.7"
+$language = "en"
+
+#errors
+ERR_VERSION_NOT_SUPPORTED           = 2
+ERR_MISSING_SOURCE_ROOT             = 3
+ERR_NO_SPACE                        = 4
+ERR_CANNOT_START_SOURCE_CLUSTER     = 5
+ERR_CALENDAR_INITDB                 = 6
+ERR_CALENDAR_START_CLUSTER          = 7
+ERR_CALENDAR_ROLE_CREATION          = 8
+ERR_CALENDAR_CREATEDB               = 9
+ERR_CALENDAR_IMPORT                 = 10
+ERR_CALENDAR_STOP_CLUSTER           = 11
+ERR_WIKI_INITDB                     = 12
+ERR_WIKI_START_CLUSTER              = 13
+ERR_WIKI_ROLE_CREATION              = 14
+ERR_WIKI_CREATEDB                   = 15
+ERR_WIKI_IMPORT                     = 16
+ERR_WIKI_STOP_CLUSTER               = 17
+ERR_PROFILE_MANAGER_INITDB          = 18
+ERR_PROFILE_MANAGER_START_CLUSTER   = 19
+ERR_PROFILE_MANAGER_ROLE_CREATION   = 20
+ERR_PROFILE_MANAGER_CREATEDB        = 21
+ERR_PROFILE_MANAGER_IMPORT          = 22
+ERR_PROFILE_MANAGER_STOP_CLUSTER    = 23
+ERR_STOP_CLUSTER                    = 24
+
+
+def usage
+	usage_str =<<EOS
+usage: for example:\n
+#{File.basename($0)} --sourceRoot "/Previous System" --targetRoot / --purge 0 --language en --sourceVersion 10.7 --sourceType System
+
+In this implementation, --language and --sourceType are ignored
+EOS
+	$stderr.print(usage_str)
+end
+
+def exitWithError(message, err)
+	$logger.error(message)
+	$logger.info("*** PostgreSQL migration end ***")
+	$logger.close
+	exit(err)
+end
+
+def exitWithMessage(message)
+	$logger.info(message)
+	 $logger.info("*** PostgreSQL migration end ***")
+	$logger.close
+	exit(0)
+end
+
+def runCommandOrExit(command, err)
+	ret = `#{command}`
+	if $? != 0
+		exitWithError("command returned non-zero exit code: #$?\nCommand: #{command}\nOutput: #{ret}", err)
+	end
+end
+
+def runCommand(command)
+	ret = `#{command}`
+	if $? != 0
+		$logger.info("command returned non-zero exit code: #$?\nCommand: #{command}\nOutput: #{ret}")
+		return 1
+	end
+	return 0
+end
+
+
+
+######################################  MAIN
+while arg = ARGV.shift
+	case arg
+		when /--purge/
+		$purge = ARGV.shift
+		when /--sourceRoot/
+		$sourceRoot = ARGV.shift
+		when /--targetRoot/
+		$targetRoot = ARGV.shift
+		when /--sourceType/
+		$sourceType = ARGV.shift
+		when /--sourceVersion/
+		$sourceVersion = ARGV.shift
+		when /--language/
+		$language = ARGV.shift
+		else
+		$stderr.print "Invalid arg: " + arg + "\n"
+		usage()
+		Process.exit(1)
+	end
+end
+
+$logger.info("#{$0} --purge " + $purge + " --sourceRoot " + $sourceRoot + " --targetRoot " + $targetRoot + " --sourceType " + $sourceType + " --sourceVersion " + $sourceVersion + " --language " + $language)
+exitWithMessage("PostgreSQL migration from #{$sourceVersion} is not supported.", ERR_VERSION_NOT_SUPPORTED) if ($sourceVersion !~ /10.7/ && $sourceVersion !~ /10.6/)
+exitWithError("sourceRoot #{$sourceRoot} is not an existing directory", ERR_MISSING_SOURCE_ROOT) if !File.directory?($sourceRoot)
+oldServerPlistFile = $sourceRoot + "/System/Library/CoreServices/ServerVersion.plist"
+exitWithError("sourceRoot #{oldServerPlistFile} does not exist; this is an invalid attempt to upgrade/migrate from a non-server system", SERVER_VERSION_NOT_FOUND) if !File.exists?(oldServerPlistFile)
+
+if File.identical?($sourceRoot, $targetRoot)
+	exitWithError("sourceRoot #{$sourceRoot} and targetRoot #{$targetRoot} are identical", SOURCE_AND_TARGET_IDENTICAL)
+end
+
+if !File.exists?(DEFAULT_SOCKET_DIR)
+	puts "Creating default socket directory"
+	FileUtils.mkdir(DEFAULT_SOCKET_DIR)
+end
+FileUtils.chmod(0775, DEFAULT_SOCKET_DIR)
+FileUtils.chown_R("_postgres", "_postgres", DEFAULT_SOCKET_DIR)
+
+if ($sourceVersion =~ /10.6/)
+	# nothing to do.
+	exitWithMessage("Nothing to do, tool finished")
+end
+
+if !File.exists?(PG_LOG_DIR)
+	puts "Creating Log Directory"
+	FileUtils.mkdir(PG_LOG_DIR)
+end
+FileUtils.chmod(0775, PG_LOG_DIR)
+FileUtils.chown("_postgres", "_postgres", PG_LOG_DIR)
+
+oldDataDir = ""
+content = File.open("#{$sourceRoot}/System/Library/LaunchDaemons/org.postgresql.postgres.plist", :encoding => "UTF-8") do |file|
+	catch :lastline do
+		use_next = false
+		file.each_line {|line|
+			if line =~ /<string>-D<\/string>/
+				use_next = true
+			elsif use_next && line =~ /<string>(.*)<\/string>/
+				oldDataDir = $1
+				$logger.info("Upgrade: Found dataDir value: #{oldDataDir}")
+				throw :lastline
+			end
+		}
+	end
+end
+
+if oldDataDir =~ /^\/Volumes\/.*/
+	pathComponents = oldDataDir.split(File::SEPARATOR)
+	$pgForkedClustersDir.insert(0, "/#{pathComponents[1]}/#{pathComponents[2]}")
+else
+	oldDataDir = $sourceRoot + oldDataDir
+end
+
+# Migration from PostgreSQL 9.0 to 9.3
+$logger.info("Migrating data from an earlier PostgreSQL version")
+
+pgForkedClustersDirCalendar = "#{$pgForkedClustersDir}/calendar"
+pgForkedClustersDirWiki = "#{$pgForkedClustersDir}/wiki"
+pgForkedClustersDirProfileManager = "#{$pgForkedClustersDir}/profile_manager"
+
+# If the old data directory contains a .pid file due to Postgres not shutting down properly, get rid of the file so that we can attempt upgrade.
+# There should be no chance that a postmaster is actually using the old data directory at this point.
+if File.exists?(oldDataDir +  "/postmaster.pid")
+	$logger.info("There is a .pid file in the source data dir.  Removing it to attempt upgrade.")
+	FileUtils.rm_f(oldDataDir + "/postmaster.pid")
+end
+
+# Confirm that we'll have enough room to make a copy of the databases
+dbVolume = '/'
+if oldDataDir =~ /^\/Volumes\/.*/
+	pathComponents = oldDataDir.split(File::SEPARATOR)
+	dbVolume =  "/#{pathComponents[1]}/#{pathComponents[2]}"
+end
+
+megsAvailable = 0
+command = "df -m " + dbVolume.shellescape
+ret = `#{command}`
+use_next = false
+ret.each_line {|line|
+	if line =~ /^Filesystem\s+\S+\s+\S+\s+Available/
+		use_next = true
+	elsif use_next && line =~ /^\S+\s+\S+\s+\S+\s+(\d+)/
+		megsAvailable = $1.to_i
+		break
+	end
+}
+if (megsAvailable == 0)
+	exitWithError("megsAvailable is 0 for volume #{dbVolume}", ERR_NO_SPACE)
+end
+
+command = "du -m -s " + oldDataDir.shellescape
+dbSizeMegs = `#{command} | awk '{print $1}'`.to_i
+if ((dbSizeMegs * 2 + 1024) > megsAvailable)  # enough space for a copy of the database onto the same source volume, plus a bit extra.
+	exitWithError("Not enough space free on data volume to upgrade PostgreSQL database.", ERR_NO_SPACE)
+end
+
+# Ensure that the source data directory and its contents are owned by _postgres (14071596)
+FileUtils.chmod(0700, oldDataDir)
+FileUtils.chown_R("_postgres", "_postgres", oldDataDir)
+
+# remove any existing forked clusters and replace them
+FileUtils.rm_rf($pgForkedClustersDir)
+if ($pgForkedClustersDir != PG_FORKED_CLUSTERS_DIR_DEFAULT)
+	FileUtils.rm_rf(PG_FORKED_CLUSTERS_DIR_DEFAULT)
+end
+FileUtils.mkdir($pgForkedClustersDir)
+FileUtils.chmod(0770, $pgForkedClustersDir)
+FileUtils.chown("_postgres", "_postgres", $pgForkedClustersDir)
+
+# Create a symlink from the boot drive so that services can always find their data there
+if ($pgForkedClustersDir != PG_FORKED_CLUSTERS_DIR_DEFAULT)
+	$logger.info("Creating a symlink for #{$pgForkedClustersDir} in #{PG_FORKED_CLUSTERS_DIR_DEFAULT}")
+	File.symlink($pgForkedClustersDir, PG_FORKED_CLUSTERS_DIR_DEFAULT)
+	FileUtils.chmod(0770, PG_FORKED_CLUSTERS_DIR_DEFAULT)
+	FileUtils.chown("_postgres", "_postgres", PG_FORKED_CLUSTERS_DIR_DEFAULT)
+end
+
+$logger.info("Getting first available port...")
+firstServer = TCPServer.new('127.0.0.1', 0)
+firstPort = firstServer.addr[1]
+firstServer.close
+
+$logger.info("Getting second available port...")
+secondServer = TCPServer.new('127.0.0.1', 0)
+secondPort = secondServer.addr[1]
+secondServer.close
+
+$logger.info("Starting the source cluster")
+# Note: 9.0 pg_ctl will pay attention to "-p" but not "-c port=X".
+ret = system("sudo -u _postgres #{PG_CTL_9_0} start -w -t 60 -D " + oldDataDir.shellescape + " -l #{PG_LOG_DIR}/PostgreSQL_migration_original.log -o \"-p #{firstPort} -c unix_socket_directory=#{DEFAULT_SOCKET_DIR} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+
+if $? != 0
+	exitWithError("command failed: #$?", ERR_CANNOT_START_SOURCE_CLUSTER)
+end
+
+# Fork each services' databases into individual clusters as long as they exist in the source cluster
+command = "sudo -u _postgres #{PSQL_9_0} #{CALENDAR_DATABASE} -p #{firstPort} -h #{DEFAULT_SOCKET_DIR} --command \"select version();\""
+if (runCommand(command) == 0)
+	FileUtils.mkdir(pgForkedClustersDirCalendar)
+	FileUtils.chmod(0700, pgForkedClustersDirCalendar)
+	FileUtils.chown("#{CALENDAR_USER}", "#{CALENDAR_GROUP}", pgForkedClustersDirCalendar)
+
+	ret = system("sudo -u #{CALENDAR_USER} #{INITDB_9_0} --encoding UTF8 -D " + pgForkedClustersDirCalendar.shellescape)
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_CALENDAR_INITDB)
+	end
+	$logger.info("Starting new db cluster for calendar")
+	ret = system("sudo -u #{CALENDAR_USER} #{PG_CTL_9_0} start -w -t 60 -D " + pgForkedClustersDirCalendar.shellescape	+ " -l #{PG_LOG_DIR}/PostgreSQL_migration_calendar.log -o \"-p #{secondPort} -c unix_socket_directory=#{DEFAULT_SOCKET_DIR} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_CALENDAR_START_CLUSTER)
+	end
+	$logger.info("Creating roles for calendar")
+	ret = system("sudo -u #{CALENDAR_USER} #{PSQL_9_0} postgres -p #{secondPort} -h #{DEFAULT_SOCKET_DIR} -c \"#{CALENDAR_ROLES_SQL}\"")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_CALENDAR_ROLE_CREATION)
+	end
+	$logger.info("Creating db for calendar")
+	ret = system("sudo -u #{CALENDAR_USER} #{CREATEDB_9_0} #{CALENDAR_DATABASE} -O caldav -p #{secondPort} -h #{DEFAULT_SOCKET_DIR}")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_CALENDAR_CREATEDB)
+	end
+	$logger.info("Importing calendar data into new database cluster")
+	runCommandOrExit("sudo -u _postgres #{PG_DUMP_9_0} #{CALENDAR_DATABASE} -p #{firstPort} -h #{DEFAULT_SOCKET_DIR} --no-privileges | sudo -u #{CALENDAR_USER} #{PSQL_9_0} -p #{secondPort} -h #{DEFAULT_SOCKET_DIR} -d #{CALENDAR_DATABASE}", ERR_CALENDAR_IMPORT)
+	$logger.info("Stopping calendar database cluster")
+	ret = system("sudo -u #{CALENDAR_USER} #{PG_CTL_9_0} stop -D " + pgForkedClustersDirCalendar.shellescape)
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_CALENDAR_STOP_CLUSTER)
+	end
+end
+
+command = "sudo -u _postgres #{PSQL_9_0} #{WIKI_DATABASE} -p #{firstPort} -h #{DEFAULT_SOCKET_DIR } --command \"select version();\""
+if (runCommand(command) == 0)
+	FileUtils.mkdir(pgForkedClustersDirWiki)
+	FileUtils.chmod(0700, pgForkedClustersDirWiki)
+	FileUtils.chown("#{WIKI_USER}", "#{WIKI_GROUP}", pgForkedClustersDirWiki)
+	
+	$logger.info("Calling initdb for forked wiki database cluster")
+	ret = system("sudo -u #{WIKI_USER} #{INITDB_9_0} --encoding UTF8 -D " + pgForkedClustersDirWiki.shellescape)
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_WIKI_INITDB)
+	end
+	$logger.info("Starting new db cluster for wiki")
+	ret = system("sudo -u #{WIKI_USER} #{PG_CTL_9_0} start -w -t 60 -D " + pgForkedClustersDirWiki.shellescape	+ " -l #{PG_LOG_DIR}/PostgreSQL_migration_wiki.log -o \"-p #{secondPort} -c unix_socket_directory=#{DEFAULT_SOCKET_DIR} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_WIKI_START_CLUSTER)
+	end
+	$logger.info("Creating roles for wiki")
+	ret = system("sudo -u #{WIKI_USER} #{PSQL_9_0} postgres -p #{secondPort} -h #{DEFAULT_SOCKET_DIR} -c \"#{WIKI_ROLES_SQL}\"")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_WIKI_ROLE_CREATION)
+	end
+	$logger.info("Creating db for wiki")
+	ret = system("sudo -u #{WIKI_USER} #{CREATEDB_9_0} #{WIKI_DATABASE} -O collab -p #{secondPort} -h #{DEFAULT_SOCKET_DIR}")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_WIKI_CREATEDB)
+	end
+	$logger.info("Importing wiki data into new database cluster")
+	runCommandOrExit("sudo -u _postgres #{PG_DUMP_9_0} #{WIKI_DATABASE} -p #{firstPort} -h #{DEFAULT_SOCKET_DIR} --no-privileges | sudo -u #{WIKI_USER} #{PSQL_9_0} -p #{secondPort} -h #{DEFAULT_SOCKET_DIR} -d #{WIKI_DATABASE}", ERR_WIKI_IMPORT)
+	$logger.info("Stopping wiki database cluster")
+	ret = system("sudo -u #{WIKI_USER} #{PG_CTL_9_0} stop -D " + pgForkedClustersDirWiki.shellescape)
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_WIKI_STOP_CLUSTER)
+	end
+end
+
+command = "sudo -u _postgres #{PSQL_9_0} #{PROFILE_MANAGER_DATABASE} -p #{firstPort} -h #{DEFAULT_SOCKET_DIR} --command \"select version();\""
+if (runCommand(command) == 0)
+	FileUtils.mkdir(pgForkedClustersDirProfileManager)
+	FileUtils.chmod(0700, pgForkedClustersDirProfileManager)
+	FileUtils.chown("#{PROFILE_MANAGER_USER}", "#{PROFILE_MANAGER_GROUP}", pgForkedClustersDirProfileManager)
+
+	$logger.info("Calling initdb for forked profile manager database cluster")
+	ret = system("sudo -u #{PROFILE_MANAGER_USER} #{INITDB_9_0} --encoding UTF8 -D " + pgForkedClustersDirProfileManager.shellescape)
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_INITDB)
+	end
+	$logger.info("Starting new db cluster for profile manager")
+	ret = system("sudo -u #{PROFILE_MANAGER_USER} #{PG_CTL_9_0} start -w -t 60 -D " + pgForkedClustersDirProfileManager.shellescape	+ " -l #{PG_LOG_DIR}/PostgreSQL_migration_profile_manager.log -o \"-p #{secondPort} -c unix_socket_directory=#{DEFAULT_SOCKET_DIR} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_START_CLUSTER)
+	end
+	$logger.info("Creating roles for profile manager")
+	ret = system("sudo -u #{PROFILE_MANAGER_USER} #{PSQL_9_0} postgres -p #{secondPort} -h #{DEFAULT_SOCKET_DIR} -c \"#{PROFILE_MANAGER_ROLES_SQL}\"")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_ROLE_CREATION)
+	end
+	$logger.info("Creating db for profile manager")
+	ret = system("sudo -u #{PROFILE_MANAGER_USER} #{CREATEDB_9_0} #{PROFILE_MANAGER_DATABASE} -O _devicemgr -p #{secondPort} -h #{DEFAULT_SOCKET_DIR}")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_CREATEDB)
+	end
+	$logger.info("Importing profile manager data into new database cluster")
+	runCommandOrExit("sudo -u _postgres #{PG_DUMP_9_0} #{PROFILE_MANAGER_DATABASE} -p #{firstPort} -h #{DEFAULT_SOCKET_DIR} --no-privileges | sudo -u #{PROFILE_MANAGER_USER} #{PSQL_9_0} -p #{secondPort} -h #{DEFAULT_SOCKET_DIR} -d #{PROFILE_MANAGER_DATABASE}", ERR_PROFILE_MANAGER_IMPORT)
+	$logger.info("Stopping profile manager database cluster")
+	ret = system("sudo -u #{PROFILE_MANAGER_USER} #{PG_CTL_9_0} stop -D " + pgForkedClustersDirProfileManager.shellescape)
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_STOP_CLUSTER)
+	end
+end
+
+
+# Wipe out the server-services data from the original cluster
+# 'webauth' db is not migrated to the new database, but we need to drop it if it exists
+runCommand("sudo -u _postgres #{DROPDB_9_0} -p #{firstPort} -h #{DEFAULT_SOCKET_DIR} webauth")
+
+$logger.info("Dropping Server databases from customer database cluster")
+for database in [WIKI_DATABASE, PROFILE_MANAGER_DATABASE, CALENDAR_DATABASE]
+	runCommand("sudo -u _postgres #{DROPDB_9_0} -p #{firstPort} -h #{DEFAULT_SOCKET_DIR} #{database}")
+end
+
+$logger.info("Dropping Server roles from customer database cluster")
+for role in WIKI_ROLES+PROFILE_MANAGER_ROLES+CALENDAR_ROLES
+	runCommand("sudo -u _postgres #{DROPUSER_9_0} -p #{firstPort} -h #{DEFAULT_SOCKET_DIR} #{role}")
+end
+
+$logger.info("Stopping the source cluster")
+ret = system("sudo -u _postgres #{PG_CTL_9_0} stop -D " + oldDataDir.shellescape)
+if $? != 0
+	exitWithError("command failed: #$?", ERR_STOP_CLUSTER)
+end
+
+# If the source will be purged, preserve a copy.  It may have webmail, etc. content.
+if oldDataDir =~ /^\/Library\/Server\/Previous/
+	if File.exists?(PG_DATA_DIR_CUSTOMER_DEFAULT)
+		exitWithMessage("A database already exists at the default location.")
+	else
+		FileUtils.mv(oldDataDir, PG_DATA_DIR_CUSTOMER_DEFAULT)
+	end
+end
+
+exitWithMessage("Finished.")

@@ -36,7 +36,7 @@
 
 namespace WebCore {
 
-RenderVTTCue::RenderVTTCue(VTTCueBox& element, PassRef<RenderStyle> style)
+RenderVTTCue::RenderVTTCue(VTTCueBox& element, Ref<RenderStyle>&& style)
     : RenderBlockFlow(element, WTF::move(style))
     , m_cue(element.getCue())
 {
@@ -77,10 +77,10 @@ bool RenderVTTCue::initializeLayoutParameters(InlineFlowBox*& firstLineBox, Layo
 
     // firstChild() returns the wrapping (backdrop) <div>. The cue object is
     // the <div>'s first child.
-    RenderObject* firstChild = this->firstChild();
-    RenderElement* backdropElement = toRenderElement(firstChild);
+    RenderObject& firstChild = *this->firstChild();
+    RenderElement& backdropElement = downcast<RenderElement>(firstChild);
     
-    firstLineBox = toRenderInline(backdropElement->firstChild())->firstLineBox();
+    firstLineBox = downcast<RenderInline>(*backdropElement.firstChild()).firstLineBox();
     if (!firstLineBox)
         firstLineBox = this->firstRootBox();
 
@@ -343,10 +343,10 @@ void RenderVTTCue::repositionGenericCue()
 
     // firstChild() returns the wrapping (backdrop) <div>. The cue object is
     // the <div>'s first child.
-    RenderObject* firstChild = this->firstChild();
-    RenderElement* backdropElement = toRenderElement(firstChild);
+    RenderObject& firstChild = *this->firstChild();
+    RenderElement& backdropElement = downcast<RenderElement>(firstChild);
     
-    InlineFlowBox* firstLineBox = toRenderInline(backdropElement->firstChild())->firstLineBox();
+    InlineFlowBox* firstLineBox = downcast<RenderInline>(*backdropElement.firstChild()).firstLineBox();
     if (static_cast<TextTrackCueGeneric*>(m_cue)->useDefaultPosition() && firstLineBox) {
         LayoutUnit parentWidth = containingBlock()->logicalWidth();
         LayoutUnit width = firstLineBox->width();

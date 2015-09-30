@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, 2012, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2011, 2012, 2014, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -587,7 +587,7 @@ main(int argc, char **argv)
 	buf = malloc(n_config + n_padding);
 	bcopy((void *)config_buf, buf, n_config);
 	bzero(&buf[n_config], n_padding);
-	config = expand_config((_dns_config_buf_t *)buf);
+	config = _dns_configuration_expand_config((_dns_config_buf_t *)buf);
 
 	return 0;
 }

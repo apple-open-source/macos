@@ -58,6 +58,9 @@ public:
         MouseDown,
         MouseUp,
         MouseMove,
+        MouseForceChanged,
+        MouseForceDown,
+        MouseForceUp,
 
         // WebWheelEvent
         Wheel,
@@ -123,7 +126,11 @@ public:
 
     WebMouseEvent();
 
-    WebMouseEvent(Type, Button, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, float deltaX, float deltaY, float deltaZ, int clickCount, Modifiers, double timestamp);
+#if PLATFORM(MAC)
+    WebMouseEvent(Type, Button, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, float deltaX, float deltaY, float deltaZ, int clickCount, Modifiers, double timestamp, double force, int eventNumber = -1, int menuType = 0);
+#else
+    WebMouseEvent(Type, Button, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, float deltaX, float deltaY, float deltaZ, int clickCount, Modifiers, double timestamp, double force = 0);
+#endif
 
     Button button() const { return static_cast<Button>(m_button); }
     const WebCore::IntPoint& position() const { return m_position; }
@@ -132,6 +139,11 @@ public:
     float deltaY() const { return m_deltaY; }
     float deltaZ() const { return m_deltaZ; }
     int32_t clickCount() const { return m_clickCount; }
+#if PLATFORM(MAC)
+    int32_t eventNumber() const { return m_eventNumber; }
+    int32_t menuTypeForEvent() const { return m_menuTypeForEvent; }
+#endif
+    double force() const { return m_force; }
 
     void encode(IPC::ArgumentEncoder&) const;
     static bool decode(IPC::ArgumentDecoder&, WebMouseEvent&);
@@ -146,6 +158,11 @@ private:
     float m_deltaY;
     float m_deltaZ;
     int32_t m_clickCount;
+#if PLATFORM(MAC)
+    int32_t m_eventNumber;
+    int32_t m_menuTypeForEvent;
+#endif
+    double m_force { 0 };
 };
 
 // FIXME: Move this class to its own header file.
@@ -218,6 +235,8 @@ public:
 
 #if USE(APPKIT)
     WebKeyboardEvent(Type, const String& text, const String& unmodifiedText, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, int macCharCode, bool handledByInputMethod, const Vector<WebCore::KeypressCommand>&, bool isAutoRepeat, bool isKeypad, bool isSystemKey, Modifiers, double timestamp);
+#elif PLATFORM(GTK)
+    WebKeyboardEvent(Type, const String& text, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool handledByInputMethod, Vector<String>&& commands, bool isKeypad, Modifiers, double timestamp);
 #else
     WebKeyboardEvent(Type, const String& text, const String& unmodifiedText, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, int macCharCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, Modifiers, double timestamp);
 #endif
@@ -228,9 +247,13 @@ public:
     int32_t windowsVirtualKeyCode() const { return m_windowsVirtualKeyCode; }
     int32_t nativeVirtualKeyCode() const { return m_nativeVirtualKeyCode; }
     int32_t macCharCode() const { return m_macCharCode; }
-#if USE(APPKIT)
+#if USE(APPKIT) || PLATFORM(GTK)
     bool handledByInputMethod() const { return m_handledByInputMethod; }
+#endif
+#if USE(APPKIT)
     const Vector<WebCore::KeypressCommand>& commands() const { return m_commands; }
+#elif PLATFORM(GTK)
+    const Vector<String>& commands() const { return m_commands; }
 #endif
     bool isAutoRepeat() const { return m_isAutoRepeat; }
     bool isKeypad() const { return m_isKeypad; }
@@ -248,9 +271,13 @@ private:
     int32_t m_windowsVirtualKeyCode;
     int32_t m_nativeVirtualKeyCode;
     int32_t m_macCharCode;
-#if USE(APPKIT)
+#if USE(APPKIT) || PLATFORM(GTK)
     bool m_handledByInputMethod;
+#endif
+#if USE(APPKIT)
     Vector<WebCore::KeypressCommand> m_commands;
+#elif PLATFORM(GTK)
+    Vector<String> m_commands;
 #endif
     bool m_isAutoRepeat;
     bool m_isKeypad;
@@ -282,6 +309,10 @@ public:
     TouchPointState phase() const { return static_cast<TouchPointState>(m_phase); }
     TouchPointState state() const { return phase(); }
 
+#if ENABLE(IOS_TOUCH_EVENTS)
+#include <WebKitAdditions/WebEventIOS.h>
+#endif
+
     void encode(IPC::ArgumentEncoder&) const;
     static bool decode(IPC::ArgumentDecoder&, WebPlatformTouchPoint&);
 
@@ -294,11 +325,12 @@ private:
 class WebTouchEvent : public WebEvent {
 public:
     WebTouchEvent() { }
-    WebTouchEvent(WebEvent::Type type, Modifiers modifiers, double timestamp, const Vector<WebPlatformTouchPoint>& touchPoints, WebCore::IntPoint position, bool isGesture, float gestureScale, float gestureRotation)
+    WebTouchEvent(WebEvent::Type type, Modifiers modifiers, double timestamp, const Vector<WebPlatformTouchPoint>& touchPoints, WebCore::IntPoint position, bool isPotentialTap, bool isGesture, float gestureScale, float gestureRotation)
         : WebEvent(type, modifiers, timestamp)
         , m_touchPoints(touchPoints)
         , m_position(position)
         , m_canPreventNativeGestures(true)
+        , m_isPotentialTap(isPotentialTap)
         , m_isGesture(isGesture)
         , m_gestureScale(gestureScale)
         , m_gestureRotation(gestureRotation)
@@ -309,6 +341,8 @@ public:
     const Vector<WebPlatformTouchPoint>& touchPoints() const { return m_touchPoints; }
 
     WebCore::IntPoint position() const { return m_position; }
+
+    bool isPotentialTap() const { return m_isPotentialTap; }
 
     bool isGesture() const { return m_isGesture; }
     float gestureScale() const { return m_gestureScale; }
@@ -327,6 +361,7 @@ private:
     
     WebCore::IntPoint m_position;
     bool m_canPreventNativeGestures;
+    bool m_isPotentialTap;
     bool m_isGesture;
     float m_gestureScale;
     float m_gestureRotation;
@@ -379,9 +414,7 @@ private:
 class WebTouchEvent : public WebEvent {
 public:
     WebTouchEvent() { }
- 
-    // FIXME: It would be nice not to have to copy the Vector here.
-    WebTouchEvent(Type, Vector<WebPlatformTouchPoint>, Modifiers, double timestamp);
+    WebTouchEvent(Type, Vector<WebPlatformTouchPoint>&&, Modifiers, double timestamp);
 
     const Vector<WebPlatformTouchPoint>& touchPoints() const { return m_touchPoints; }
 

@@ -19,6 +19,7 @@ entryPoint(CommonCryptoSymRegression,"CommonCrypto Base Behavior Regression Test
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include "ccMemory.h"
 
 // #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
@@ -191,11 +192,11 @@ static CCCryptorStatus doCCCrypt(
 	}
 	
 	outBuf = (uint8_t *)malloc(outLen + MARKER_LENGTH);
-	memset(outBuf, 0xEE, outLen + MARKER_LENGTH);
+	CC_XMEMSET(outBuf, 0xEE, outLen + MARKER_LENGTH);
 	
 	/* library should not touch this memory */
 	textMarker = outBuf + outLen;
-	memset(textMarker, MARKER_BYTE, MARKER_LENGTH);
+	CC_XMEMSET(textMarker, MARKER_BYTE, MARKER_LENGTH);
 	
 	/* subsequent errors to errOut: */
 
@@ -263,7 +264,7 @@ static CCCryptorStatus doCCCrypt(
 			return crtn;
 		}
 		ctxMarker = ctx + ctxSizeCreated;
-		memset(ctxMarker, MARKER_BYTE, MARKER_LENGTH);
+		CC_XMEMSET(ctxMarker, MARKER_BYTE, MARKER_LENGTH);
 	}
 	else {
 		crtn = CCCryptorCreate(op, encrAlg, options,
@@ -388,7 +389,7 @@ static int doTest(const uint8_t *ptext,
 	/* random IV if needed */
 	if(doCbc) {
 		if(nullIV) {
-			memset(iv, 0, MAX_BLOCK_SIZE);
+			CC_XZEROMEM(iv, MAX_BLOCK_SIZE);
 			
 			/* flip a coin, give one side NULL, the other size zeroes */
 			if(genRand(1,2) == 1) {

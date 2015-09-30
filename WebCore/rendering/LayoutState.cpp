@@ -35,8 +35,7 @@
 namespace WebCore {
 
 LayoutState::LayoutState(std::unique_ptr<LayoutState> next, RenderBox* renderer, const LayoutSize& offset, LayoutUnit pageLogicalHeight, bool pageLogicalHeightChanged)
-    : m_lineGrid(0)
-    , m_next(WTF::move(next))
+    : m_next(WTF::move(next))
 #ifndef NDEBUG
     , m_renderer(renderer)
 #endif
@@ -53,8 +52,8 @@ LayoutState::LayoutState(std::unique_ptr<LayoutState> next, RenderBox* renderer,
 
     if (renderer->isOutOfFlowPositioned() && !fixed) {
         if (RenderElement* container = renderer->container()) {
-            if (container->isInFlowPositioned() && container->isRenderInline())
-                m_paintOffset += toRenderInline(container)->offsetForInFlowPositionedInline(renderer);
+            if (container->isInFlowPositioned() && is<RenderInline>(*container))
+                m_paintOffset += downcast<RenderInline>(*container).offsetForInFlowPositionedInline(renderer);
         }
     }
 
@@ -112,12 +111,12 @@ LayoutState::LayoutState(std::unique_ptr<LayoutState> next, RenderBox* renderer,
     m_layoutDeltaYSaturated = m_next->m_layoutDeltaYSaturated;
 #endif
 
-    if (lineGrid() && (lineGrid()->style().writingMode() == renderer->style().writingMode()) && renderer->isRenderMultiColumnFlowThread())
-        toRenderMultiColumnFlowThread(renderer)->computeLineGridPaginationOrigin(*this);
+    if (lineGrid() && (lineGrid()->style().writingMode() == renderer->style().writingMode()) && is<RenderMultiColumnFlowThread>(*renderer))
+        downcast<RenderMultiColumnFlowThread>(*renderer).computeLineGridPaginationOrigin(*this);
 
     // If we have a new grid to track, then add it to our set.
-    if (renderer->style().lineGrid() != RenderStyle::initialLineGrid() && renderer->isRenderBlockFlow())
-        establishLineGrid(toRenderBlockFlow(renderer));
+    if (renderer->style().lineGrid() != RenderStyle::initialLineGrid() && is<RenderBlockFlow>(*renderer))
+        establishLineGrid(downcast<RenderBlockFlow>(renderer));
 
     // FIXME: <http://bugs.webkit.org/show_bug.cgi?id=13443> Apply control clip if present.
 }
@@ -130,23 +129,23 @@ LayoutState::LayoutState(RenderObject& root)
     , m_layoutDeltaXSaturated(false)
     , m_layoutDeltaYSaturated(false)
 #endif    
-    , m_lineGrid(0)
-    , m_pageLogicalHeight(0)
 #ifndef NDEBUG
     , m_renderer(&root)
 #endif
 {
-    RenderElement* container = root.container();
-    FloatPoint absContentPoint = container->localToAbsolute(FloatPoint(), UseTransforms);
-    m_paintOffset = LayoutSize(absContentPoint.x(), absContentPoint.y());
+    if (RenderElement* container = root.container()) {
+        FloatPoint absContentPoint = container->localToAbsolute(FloatPoint(), UseTransforms);
+        m_paintOffset = LayoutSize(absContentPoint.x(), absContentPoint.y());
 
-    if (container->hasOverflowClip()) {
-        m_clipped = true;
-        RenderBox* containerBox = toRenderBox(container);
-        m_clipRect = LayoutRect(toLayoutPoint(m_paintOffset), containerBox->cachedSizeForOverflowClip());
-        m_paintOffset -= containerBox->scrolledContentOffset();
+        if (container->hasOverflowClip()) {
+            m_clipped = true;
+            auto& containerBox = downcast<RenderBox>(*container);
+            m_clipRect = LayoutRect(toLayoutPoint(m_paintOffset), containerBox.cachedSizeForOverflowClip());
+            m_paintOffset -= containerBox.scrolledContentOffset();
+        }
     }
 }
+
 void LayoutState::clearPaginationInformation()
 {
     m_pageLogicalHeight = m_next->m_pageLogicalHeight;

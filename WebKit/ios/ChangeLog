@@ -1,17 +1,496 @@
-2015-04-17  Lucas Forschler  <lforschler@apple.com>
+2015-07-23  Lucas Forschler  <lforschler@apple.com>
 
-        Merge r180110
+        Merge r187113
 
-    2015-02-14  Alexey Proskuryakov  <ap@apple.com>
+    2015-07-21  Tim Horton  <timothy_horton@apple.com>
 
-            rel="noreferrer" should make window.opener null
-            https://bugs.webkit.org/show_bug.cgi?id=141579
+            Expose shrink-wrapping as UIKit support SPI
+            https://bugs.webkit.org/show_bug.cgi?id=147148
+            <rdar://problem/21920008>
 
-            Reviewed by Darin Adler.
+            * WebKit.iOS.exp:
+            Also export.
 
-            * WebView/WebPDFViewPlaceholder.mm:
-            (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]): Updated for a new WebCore
-            function signature. There is no rel="noreferrer" in PDF, so we can just always allow.
+2015-07-23  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r187107
+
+    2015-07-21  Tim Horton  <timothy_horton@apple.com>
+
+            Expose shrink-wrapping as UIKit support SPI
+            https://bugs.webkit.org/show_bug.cgi?id=147148
+            <rdar://problem/21920008>
+
+            Reviewed by Simon Fraser.
+
+            * Misc/WebUIKitSupport.h:
+            * Misc/WebUIKitSupport.mm:
+            (WebKitCreatePathWithShrinkWrappedRects):
+
+2015-07-02  Timothy Horton  <timothy_horton@apple.com>
+
+        iOS WebKitLegacy should match WebKit2's viewport behavior
+        https://bugs.webkit.org/show_bug.cgi?id=146564
+        <rdar://problem/20574017>
+
+        Reviewed by Brent Fulgham.
+
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (dictionaryForViewportArguments):
+
+2015-07-02  Timothy Horton  <timothy_horton@apple.com>
+
+        iOS WebKitLegacy should match WebKit2's viewport behavior
+        https://bugs.webkit.org/show_bug.cgi?id=146540
+        <rdar://problem/20574017>
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.iOS.exp:
+
+2015-06-25  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Unreviewed, attempt to fix the iOS build after r185968.
+
+        * WebCoreSupport/WebInspectorClientIOS.mm:
+        (WebInspectorFrontendClient::startWindowDrag):
+
+2015-06-02  Brady Eidson  <beidson@apple.com>
+
+        WebKit policy delegate should suggest if a navigation should be allowed to open URLs externally.
+        rdar://problem/21025301 and https://bugs.webkit.org/show_bug.cgi?id=145280
+
+        Reviewed by Alex Christensen.
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
+
+2015-05-25  Dan Bernstein  <mitz@apple.com>
+
+        ASSERT_MAIN_THREAD and DOM_ASSERT_MAIN_THREAD are unnecessary no-ops
+        https://bugs.webkit.org/show_bug.cgi?id=145372
+
+        Reviewed by Sam Weinig.
+
+        * Misc/WebGeolocationCoreLocationProvider.mm:
+        (-[WebGeolocationCoreLocationProvider initWithListener:]): Removed use of ASSERT_MAIN_THREAD.
+        (-[WebGeolocationCoreLocationProvider dealloc]): Ditto.
+        (-[WebGeolocationCoreLocationProvider requestGeolocationAuthorization]): Ditto.
+        (-[WebGeolocationCoreLocationProvider start]): Ditto.
+        (-[WebGeolocationCoreLocationProvider stop]): Ditto.
+        (-[WebGeolocationCoreLocationProvider setEnableHighAccuracy:]): Ditto.
+
+2015-04-28  Brady Eidson  <beidson@apple.com>
+
+        Consolidate most "frame load" arguments into FrameLoadRequest.
+        https://bugs.webkit.org/show_bug.cgi?id=144276
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
+
+2015-04-13  Beth Dakin  <bdakin@apple.com>
+
+        Add force property to MouseEvents
+        https://bugs.webkit.org/show_bug.cgi?id=143569
+        -and corresponding-
+        rdar://problem/20472954
+
+        Reviewed by Darin Adler.
+
+        Send the appropriate force with this simulated click event.
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
+
+2015-03-31  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Move ExpansionBehaviorFlags and TextDirection to their own file
+        https://bugs.webkit.org/show_bug.cgi?id=143273
+
+        Reviewed by Simon Fraser.
+
+        This is a mechanical change. It just moves code around.
+
+        This is getting ready for https://bugs.webkit.org/show_bug.cgi?id=142608
+
+        * WebCoreSupport/WebFrameIOS.mm:
+        * WebCoreSupport/WebVisiblePosition.mm:
+
+2015-03-09  David Kilzer  <ddkilzer@apple.com>
+
+        [iOS] Fix build when compiling with dead code stripping disabled
+        <http://webkit.org/b/142467>
+
+        Reviewed by Simon Fraser.
+
+        * WebCoreSupport/WebInspectorClientIOS.mm:
+        (WebInspectorFrontendClient::save): Add missing method.
+
+2015-02-14  Alexey Proskuryakov  <ap@apple.com>
+
+        rel="noreferrer" should make window.opener null
+        https://bugs.webkit.org/show_bug.cgi?id=141579
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]): Updated for a new WebCore
+        function signature. There is no rel="noreferrer" in PDF, so we can just always allow.
+
+2015-02-03  Enrica Casucci  <enrica@apple.com>
+
+        [iOS] Add support for deleteFromInputWithFlags.
+        https://bugs.webkit.org/show_bug.cgi?id=141216
+        rdar://problem/19130081
+
+        Reviewed by Benjamin Poulain.
+
+        Adopts the new method as soon as it is available.
+        The patch also removes some obsolete code used for staging.
+
+        * DefaultDelegates/WebDefaultUIKitDelegate.m:
+        (-[WebDefaultUIKitDelegate addInputString:withFlags:]):
+        (-[WebDefaultUIKitDelegate deleteFromInput]):
+        (-[WebDefaultUIKitDelegate deleteFromInputwithFlags:]):
+        (-[WebDefaultUIKitDelegate addInputString:fromVariantKey:]): Deleted.
+        * WebView/WebUIKitDelegate.h:
+
+2015-01-22  Andreas Kling  <akling@apple.com>
+
+        Remove unused class EmojiFallbackFontSelector.
+        <https://webkit.org/b/140809>
+
+        Reviewed by Antti Koivisto.
+
+        This class no longer has any clients.
+
+        * Misc/EmojiFallbackFontSelector.cpp: Removed.
+        * Misc/EmojiFallbackFontSelector.h: Removed.
+
+2015-01-13  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed iOS build fix after r178375
+
+        Match FontSelector API changes.
+
+        * Misc/EmojiFallbackFontSelector.cpp:
+        (EmojiFallbackFontSelector::fallbackFontDataAt):
+        (EmojiFallbackFontSelector::getFallbackFontData): Deleted.
+        * Misc/EmojiFallbackFontSelector.h:
+
+2014-12-07  Dan Bernstein  <mitz@apple.com>
+
+        Introduce and deploy a function that allocates and returns an instance of a soft-linked class
+        https://bugs.webkit.org/show_bug.cgi?id=139348
+
+        Reviewed by Anders Carlsson.
+
+        In [[getFooClass() alloc] init*], the type of the result of +alloc is id, so the compiler
+        picks an arbitrary declaration of init*, not necessarily the Foo one. This can then lead
+        to warnings or errors if the types or attributes don’t match, or to runtime errors if Foo
+        doesn’t even have the expected initializer. The new allocFooInstance() returns a Foo *, thus
+        avoiding the ambiguity.
+
+        * Misc/WebGeolocationCoreLocationProvider.mm:
+        (-[WebGeolocationCoreLocationProvider createLocationManager]):
+
+2014-12-06  Anders Carlsson  <andersca@apple.com>
+
+        Fix build with newer versions of clang.
+        rdar://problem/18978687
+
+        Cast the result of +alloc to the right type.
+
+        * Misc/WebGeolocationCoreLocationProvider.mm:
+        (-[WebGeolocationCoreLocationProvider createLocationManager]):
+        * WebCoreSupport/WebSelectionRect.m:
+        (+[WebSelectionRect selectionRect]):
+
+2014-11-20  Benjamin Poulain  <bpoulain@apple.com>
+
+        Remove the remaining vestiges of minimal-ui
+        https://bugs.webkit.org/show_bug.cgi?id=138890
+
+        Reviewed by Sam Weinig.
+
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (dictionaryForViewportArguments):
+        * WebKit.iOS.exp:
+
+2014-11-19  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Make WebKit build with public iOS SDK
+        https://bugs.webkit.org/show_bug.cgi?id=136863
+
+        Reviewed by David Kilzer.
+
+        * Misc/WebGeolocationCoreLocationProvider.mm:  Remove unnecessary include of header <CoreLocation/CoreLocationPriv.h>.
+        * Misc/WebNSStringExtrasIOS.m: Substitute header <WebCore/NSStringSPI.h> for <Foundation/NSString_NSURLExtras.h>.
+        * Misc/WebUIKitSupport.mm: Remove unnecessary include of header CoreFoundation/CFPriv.h.
+
+2014-11-14  Daniel Bates  <dabates@apple.com>
+
+        [iOS] CoreGraphics SPI not available in public SDK
+        https://bugs.webkit.org/show_bug.cgi?id=138709
+
+        Reviewed by David Kilzer.
+
+        Include header CoreGraphicsSPI.h instead of the private header CGFloat.h.
+
+        * WebCoreSupport/WebFixedPositionContent.mm:
+
+2014-10-20  Andy Estes  <aestes@apple.com>
+
+        Fix the iOS build.
+
+        * WebCoreSupport/WebFrameIOS.mm:
+        (-[WebFrame previousUnperturbedDictationResultBoundaryFromPosition:]):
+        (-[WebFrame nextUnperturbedDictationResultBoundaryFromPosition:]):
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[WebVisiblePosition enclosingRangeWithDictationPhraseAlternatives:]):
+        (-[WebVisiblePosition enclosingRangeWithCorrectionIndicator]):
+
+2014-10-15  Chris Dumez  <cdumez@apple.com>
+
+        Use is<>() / downcast<>() for RenderTextControl / RenderTextControlSingleLine
+        https://bugs.webkit.org/show_bug.cgi?id=137727
+
+        Reviewed by Darin Adler.
+
+        Use is<>() / downcast<>() for RenderTextControl / RenderTextControlSingleLine.
+
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[DOMHTMLInputElement startPosition]):
+        (-[DOMHTMLInputElement endPosition]):
+        (-[DOMHTMLTextAreaElement startPosition]):
+        (-[DOMHTMLTextAreaElement endPosition]):
+
+2014-10-03  Tim Horton  <timothy_horton@apple.com>
+
+        REGRESSION (r165896): UIWebView PDFs have a forced black background
+        https://bugs.webkit.org/show_bug.cgi?id=137387
+        <rdar://problem/17948411>
+
+        Reviewed by David Kilzer.
+
+        * WebView/WebPDFViewPlaceholder.h:
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder layout]):
+        Remove an ill-advised attempt to force the PDF background color from WebKit.
+        The idea was that we would maintain Safari's black background except if there
+        were no pages in the PDF, in which case we would use white instead to avoid
+        having an all-black view. However, this broke clients who didn't want a black
+        background, because we were now forcing it to black. Also, we don't need to
+        maintain the black color in Safari because it doesn't use WebPDFViewPlaceholder anymore.
+        This wasn't an important part of the patch, in any case.
+
+2014-10-03  Tim Horton  <timothy_horton@apple.com>
+
+        REGRESSION (r173265): UIWebView PDF loading is completely broken
+        https://bugs.webkit.org/show_bug.cgi?id=137386
+        <rdar://problem/18524717>
+
+        Reviewed by David Kilzer.
+
+        * WebView/WebPDFViewPlaceholder.h:
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder layout]):
+        (-[WebPDFViewPlaceholder finishedLoadingWithDataSource:]):
+        Restore important code that creates the CGDataProvider and sets _didFinishLoad
+        and calls _doPostLoadOrUnlockTasks after finishing a load, which was haphazardly
+        removed in the aforementioned revision.
+
+2014-10-01  Christophe Dumez  <cdumez@apple.com>
+
+        Have is<>(T*) function do a null check on the pointer argument
+        https://bugs.webkit.org/show_bug.cgi?id=137333
+
+        Reviewed by Gavin Barraclough.
+
+        Have is<>(T*) function do a null check on the argument instead of a
+        simple assertion. This makes sense for 2 reasons:
+        1. It is more consistent with downcast<>(T*), which will succeed even
+           if the argument is a nullptr.
+        2. It simplifies the code a bit as it gets rid of a lot of explicit
+           null checks.
+
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::focusedElementChanged):
+
+2014-09-29  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Remove CoreLocation workaround
+        https://bugs.webkit.org/show_bug.cgi?id=137198
+
+        Reviewed by Dan Bernstein.
+
+        Following the fix for <rdar://problem/18448331>, we can revert the CoreLocation workaround
+        committed in <http://trac.webkit.org/changeset/173946> and <http://trac.webkit.org/changeset/173940> (in order).
+
+        * Misc/WebGeolocationCoreLocationProvider.mm:
+        (-[WebGeolocationCoreLocationProvider requestGeolocationAuthorization]):
+        (-[WebGeolocationCoreLocationProvider locationManager:didChangeAuthorizationStatus:]):
+
+2014-09-24  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Another iOS build fix; workaround for CoreLocation
+        https://bugs.webkit.org/show_bug.cgi?id=137104
+        <rdar://problem/18450785>
+
+        Rubber-stamped by Benjamin Poulain.
+
+        Workaround CoreLocation issue by adding a default statement in -[WebGeolocationCoreLocationProvider requestGeolocationAuthorization]
+        and -[WebGeolocationCoreLocationProvider locationManager:didChangeAuthorizationStatus:].
+        We'll remove these default statements once we have the fix for <rdar://problem/18448331>.
+
+        * Misc/WebGeolocationCoreLocationProvider.mm:
+        (-[WebGeolocationCoreLocationProvider requestGeolocationAuthorization]):
+        (-[WebGeolocationCoreLocationProvider locationManager:didChangeAuthorizationStatus:]):
+
+2014-09-24  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Fix the iOS build; add case statements for kCLAuthorizationStatusAuthorized
+        https://bugs.webkit.org/show_bug.cgi?id=137101
+        <rdar://problem/18449815>
+
+        Reviewed by Mark Lam.
+
+        * Misc/WebGeolocationCoreLocationProvider.mm:
+        (-[WebGeolocationCoreLocationProvider requestGeolocationAuthorization]):
+        (-[WebGeolocationCoreLocationProvider locationManager:didChangeAuthorizationStatus:]):
+
+2014-09-24  Christophe Dumez  <cdumez@apple.com>
+
+        Use is<HTML*Element>() instead of isHTML*Element() - Part 1
+        https://bugs.webkit.org/show_bug.cgi?id=137068
+
+        Reviewed by Ryosuke Niwa.
+
+        Start using is<HTML*Element>() instead of isHTML*Element().
+        Remaining usages will be updated in a follow-up patch to
+        reduce the size of the change.
+
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::focusedElementChanged):
+
+2014-09-21  Timothy Hatcher  <timothy@apple.com>
+
+        Make the Web Inspector use a separate web process.
+
+        https://bugs.webkit.org/show_bug.cgi?id=135120
+
+        Reviewed by Anders Carlsson.
+
+        * WebCoreSupport/WebInspectorClientIOS.mm:
+        (WebInspectorClient::WebInspectorClient):
+        Removed m_frontendClient initialization since it is
+        now a std::unique_ptr that defaults to nullptr.
+
+2014-09-23  Chris Dumez  <cdumez@apple.com>
+
+        Use downcast<HTML*Element>() instead of toHTML*Element()
+        https://bugs.webkit.org/show_bug.cgi?id=137007
+
+        Reviewed by Benjamin Poulain.
+
+        Use downcast<HTML*Element>() instead of toHTML*Element().
+
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::focusedElementChanged):
+
+2014-09-17  Daniel Bates  <dabates@apple.com>
+
+        Unreviewed, rolling out r173695.
+
+        Broke building third-party Legacy WebKit apps; will
+        investigate offline
+
+        Reverted changeset:
+
+        "[iOS] Make WebCore build with public iOS SDK"
+        https://bugs.webkit.org/show_bug.cgi?id=136487
+        http://trac.webkit.org/changeset/173695
+
+2014-09-17  Daniel Bates  <dabates@apple.com>
+
+        [iOS] Make WebCore build with public iOS SDK
+        https://bugs.webkit.org/show_bug.cgi?id=136487
+
+        Reviewed by David Kilzer.
+
+        Substitute <WebCore/CGFloatSPI.h> for <CoreGraphics/CGFloat.h>.
+
+        * WebCoreSupport/WebFixedPositionContent.mm:
+
+2014-09-05  Simon Fraser  <simon.fraser@apple.com>
+
+        Remove some PLATFORM(IOS) code in Color.h/cpp
+        https://bugs.webkit.org/show_bug.cgi?id=136582
+
+        Reviewed by Dan Bates.
+        
+        createCGColorWithDeviceWhite() is only used here so make it a local static function.
+
+        * WebView/WebPDFViewIOS.mm:
+        (createCGColorWithDeviceWhite):
+
+2014-09-04  Pratik Solanki  <psolanki@apple.com>
+
+        Remove iOS specific disk image cache
+        https://bugs.webkit.org/show_bug.cgi?id=136517
+
+        Reviewed by Antti Koivisto.
+
+        Disk image cache code unnecessarily complicates SharedBuffer implementation. We can remove
+        this now since we don't enable it in WebKit2 on iOS.
+
+        * WebCoreSupport/WebDiskImageCacheClientIOS.h: Removed.
+        * WebCoreSupport/WebDiskImageCacheClientIOS.mm: Removed.
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder finishedLoadingWithDataSource:]):
+        (-[WebPDFViewPlaceholder dataSourceMemoryMapped]): Deleted.
+        (-[WebPDFViewPlaceholder dataSourceMemoryMapFailed]): Deleted.
+
+2014-08-31  Tim Horton  <timothy_horton@apple.com>
+
+        Remove unnecessary (and unnecessarily iOS-specific) setStrokeAndFillColor
+        https://bugs.webkit.org/show_bug.cgi?id=136416
+
+        Reviewed by Dan Bernstein.
+
+        * WebView/WebPDFViewIOS.mm:
+        (-[WebPDFView drawPage:]):
+        (-[WebPDFView drawRect:]):
+        * WebView/WebPlainWhiteView.mm:
+        We only end up filling, so only set the fill color.
+
+2014-08-22  Simon Fraser  <simon.fraser@apple.com>
+
+        Implement paint flashing in the WK1 InspectorOverlay page
+        https://bugs.webkit.org/show_bug.cgi?id=136138
+
+        Reviewed by Sam Weinig, Joseph Pecoraro.
+
+        Implement paint flashing for the WebKit1 InspectorOverlay via a second canvas in the overlay page.
+        We avoid allocating backing store for this canvas until we have paint rects.
+        
+        Because this overlay page is weird and doesn't know how to paint itself, InspectorOverlay manages
+        an array of rects, and pushes them to the page when they change, before forcing a paint.
+        
+        Because iOS doesn't use the InspectorOverlay page, stub out setShowPaintRects on its
+        WebKit WebInspectorClient, but don't yet implement paint flashing there.
+
+        * WebCoreSupport/WebInspectorClientIOS.mm:
+        (WebInspectorClient::setShowPaintRects):
+        (WebInspectorClient::showPaintRect):
+
+2014-08-18  Andy Estes  <aestes@apple.com>
+
+        Fix the iOS build after  r172709.
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
 
 2014-07-03  Daniel Bates  <dabates@apple.com>
 

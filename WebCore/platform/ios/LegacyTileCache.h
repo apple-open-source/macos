@@ -34,8 +34,7 @@
 #include "IntSize.h"
 #include "Timer.h"
 #include <wtf/Noncopyable.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
+#include <wtf/Optional.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Threading.h>
@@ -126,8 +125,8 @@ public:
 
     void hostLayerSizeChanged();
 
-    static void setLayerPoolCapacity(unsigned);
-    static void drainLayerPool();
+    WEBCORE_EXPORT static void setLayerPoolCapacity(unsigned);
+    WEBCORE_EXPORT static void drainLayerPool();
 
     // Logging
     void dumpTiles();
@@ -141,6 +140,7 @@ public:
     CALayer* hostLayer() const;
     unsigned tileCapacityForGrid(LegacyTileGrid*);
     Color colorForGridTileBorder(LegacyTileGrid*) const;
+    void setOverrideVisibleRect(Optional<FloatRect>);
 
     void doPendingRepaints();
 
@@ -169,7 +169,7 @@ private:
     void createTilesInActiveGrid(SynchronousTileCreationMode);
     void scheduleLayerFlushForPendingRepaint();
 
-    void tileCreationTimerFired(Timer*);
+    void tileCreationTimerFired();
 
     void drawReplacementImage(LegacyTileLayer*, CGContextRef, CGImageRef);
     void drawWindowContent(LegacyTileLayer*, CGContextRef, CGRect dirtyRect);
@@ -185,6 +185,8 @@ private:
     // Ensure there are no async calls on a dead tile cache.
     RetainPtr<LegacyTileCacheTombstone> m_tombstone;
 
+    Optional<FloatRect> m_overrideVisibleRect;
+
     TilingMode m_tilingMode;
     TilingDirection m_tilingDirection;
 
@@ -197,8 +199,8 @@ private:
     bool m_isSpeculativeTileCreationEnabled;
 
     bool m_didCallWillStartScrollingOrZooming;
-    OwnPtr<LegacyTileGrid> m_zoomedOutTileGrid;
-    OwnPtr<LegacyTileGrid> m_zoomedInTileGrid;
+    std::unique_ptr<LegacyTileGrid> m_zoomedOutTileGrid;
+    std::unique_ptr<LegacyTileGrid> m_zoomedInTileGrid;
 
     Timer m_tileCreationTimer;
 

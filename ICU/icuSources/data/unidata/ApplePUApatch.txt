@@ -1,5 +1,5 @@
---- base_unidata/DerivedCoreProperties.txt	2014-03-16 23:30:07.000000000 -0700
-+++ DerivedCoreProperties.txt	2014-10-31 21:56:40.000000000 -0700
+--- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2014-12-04 15:17:47.000000000 -0800
++++ icuSources/data/unidata/DerivedCoreProperties.txt	2014-12-04 16:42:12.000000000 -0800
 @@ -162,6 +162,9 @@
  29FE..2AFF    ; Math
  2B30..2B44    ; Math
@@ -19,7 +19,7 @@
  
  # ================================================
  
-@@ -891,6 +894,11 @@
+@@ -902,6 +905,11 @@
  AC00..D7A3    ; Alphabetic
  D7B0..D7C6    ; Alphabetic
  D7CB..D7FB    ; Alphabetic
@@ -31,16 +31,16 @@
  F900..FA6D    ; Alphabetic
  FA70..FAD9    ; Alphabetic
  FB00..FB06    ; Alphabetic
-@@ -1070,7 +1078,7 @@
+@@ -1168,7 +1176,7 @@
  2B740..2B81D  ; Alphabetic
  2F800..2FA1D  ; Alphabetic
  
--# Total code points: 102159
-+# Total code points: 102159+ApplePUA
+-# Total code points: 104077
++# Total code points: 104077+ApplePUA
  
  # ================================================
  
-@@ -2762,6 +2770,10 @@
+@@ -2913,6 +2921,10 @@
  ABE5          ; Case_Ignorable
  ABE8          ; Case_Ignorable
  ABED          ; Case_Ignorable
@@ -51,16 +51,16 @@
  FB1E          ; Case_Ignorable
  FBB2..FBC1    ; Case_Ignorable
  FE00..FE0F    ; Case_Ignorable
-@@ -2812,7 +2824,7 @@
+@@ -2993,7 +3005,7 @@
  E0020..E007F  ; Case_Ignorable
  E0100..E01EF  ; Case_Ignorable
  
--# Total code points: 1806
-+# Total code points: 1806+ApplePUA
+-# Total code points: 1961
++# Total code points: 1961+ApplePUA
  
  # ================================================
  
-@@ -8607,6 +8619,9 @@
+@@ -9195,6 +9207,9 @@
  ABE5          ; Grapheme_Extend
  ABE8          ; Grapheme_Extend
  ABED          ; Grapheme_Extend
@@ -69,17 +69,17 @@
 +F89F          ; Grapheme_Extend
  FB1E          ; Grapheme_Extend
  FE00..FE0F    ; Grapheme_Extend
- FE20..FE26    ; Grapheme_Extend
-@@ -8641,7 +8656,7 @@
- 1D242..1D244  ; Grapheme_Extend
+ FE20..FE2D    ; Grapheme_Extend
+@@ -9262,7 +9277,7 @@
+ 1E8D0..1E8D6  ; Grapheme_Extend
  E0100..E01EF  ; Grapheme_Extend
  
--# Total code points: 1318
-+# Total code points: 1318+ApplePUA
+-# Total code points: 1461
++# Total code points: 1461+ApplePUA
  
  # ================================================
  
-@@ -9648,6 +9663,10 @@
+@@ -10287,6 +10302,10 @@
  AC00..D7A3    ; Grapheme_Base
  D7B0..D7C6    ; Grapheme_Base
  D7CB..D7FB    ; Grapheme_Base
@@ -90,27 +90,18 @@
  F900..FA6D    ; Grapheme_Base
  FA70..FAD9    ; Grapheme_Base
  FB00..FB06    ; Grapheme_Base
-@@ -9979,7 +9998,7 @@
- 1F3A0..1F3C4  ; Grapheme_Base
- 1F3C6..1F3CA  ; Grapheme_Base
- 1F3E0..1F3F0  ; Grapheme_Base
--1F400..1F43E  ; Grapheme_Base
-+1F3FB..1F43E  ; Grapheme_Base
- 1F440         ; Grapheme_Base
- 1F442..1F4F7  ; Grapheme_Base
- 1F4F9..1F4FC  ; Grapheme_Base
-@@ -9995,7 +10014,7 @@
+@@ -10739,7 +10758,7 @@
  2B740..2B81D  ; Grapheme_Base
  2F800..2FA1D  ; Grapheme_Base
  
--# Total code points: 108659
-+# Total code points: 108659+ApplePUA
+-# Total code points: 111345
++# Total code points: 111345+ApplePUA
  
  # ================================================
  
---- base_unidata/ppucd.txt	2014-03-16 23:30:07.000000000 -0700
-+++ ppucd.txt	2014-10-31 22:12:22.000000000 -0700
-@@ -17833,8 +17833,47 @@
+--- icuSources/data/unidata/base_unidata/ppucd.txt	2014-12-04 15:19:03.000000000 -0800
++++ icuSources/data/unidata/ppucd.txt	2014-12-04 16:44:47.000000000 -0800
+@@ -18297,8 +18297,47 @@
  block;DC00..DFFF;age=2.0;blk=Low_Surrogates;gc=Cs;GCB=CN;lb=SG
  # DC00..DFFF Low Surrogates
  
@@ -160,24 +151,9 @@
  
  block;F900..FAFF;age=1.1;Alpha;blk=CJK_Compat_Ideographs;Comp_Ex;CWKCF;dt=Can;ea=W;gc=Lo;Gr_Base;IDC;Ideo;IDS;lb=ID;NFC_QC=N;NFD_QC=N;NFKC_QC=N;NFKD_QC=N;SB=LE;sc=Hani;XIDC;XIDS
  # F900..FAFF CJK Compatibility Ideographs
-@@ -27053,7 +27092,13 @@
- cp;1F3EE;na=IZAKAYA LANTERN
- cp;1F3EF;na=JAPANESE CASTLE
- cp;1F3F0;na=EUROPEAN CASTLE
--cp;1F3F1..1F3FF;age=NA;bc=L;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
-+cp;1F3F1..1F3FA;age=NA;bc=L;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
-+# Early add of emoji modifiers for Fizpatrick types, slated for Unicode 8.0
-+cp;1F3FB;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-1-2
-+cp;1F3FC;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-3
-+cp;1F3FD;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-4
-+cp;1F3FE;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-5
-+cp;1F3FF;age=8.0;gc=Sk;na=EMOJI MODIFIER FITZPATRICK TYPE-6
- # Animal symbols
- cp;1F400;na=RAT
- cp;1F401;na=MOUSE
---- base_unidata/UnicodeData.txt	2014-03-16 23:30:07.000000000 -0700
-+++ UnicodeData.txt	2014-10-31 21:51:42.000000000 -0700
-@@ -14443,7 +14443,65 @@
+--- icuSources/data/unidata/base_unidata/UnicodeData.txt	2014-12-04 15:17:16.000000000 -0800
++++ icuSources/data/unidata/UnicodeData.txt	2014-12-04 16:47:15.000000000 -0800
+@@ -14762,7 +14762,65 @@
  DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
  DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;
  E000;<Private Use, First>;Co;0;L;;;;;N;;;;;
@@ -244,21 +220,9 @@
  F900;CJK COMPATIBILITY IDEOGRAPH-F900;Lo;0;L;8C48;;;;N;;;;;
  F901;CJK COMPATIBILITY IDEOGRAPH-F901;Lo;0;L;66F4;;;;N;;;;;
  F902;CJK COMPATIBILITY IDEOGRAPH-F902;Lo;0;L;8ECA;;;;N;;;;;
-@@ -22937,6 +22995,11 @@
- 1F3EE;IZAKAYA LANTERN;So;0;ON;;;;;N;;;;;
- 1F3EF;JAPANESE CASTLE;So;0;ON;;;;;N;;;;;
- 1F3F0;EUROPEAN CASTLE;So;0;ON;;;;;N;;;;;
-+1F3FB;EMOJI MODIFIER FITZPATRICK TYPE-1-2;Sk;0;ON;;;;;N;;;;;
-+1F3FC;EMOJI MODIFIER FITZPATRICK TYPE-3;Sk;0;ON;;;;;N;;;;;
-+1F3FD;EMOJI MODIFIER FITZPATRICK TYPE-4;Sk;0;ON;;;;;N;;;;;
-+1F3FE;EMOJI MODIFIER FITZPATRICK TYPE-5;Sk;0;ON;;;;;N;;;;;
-+1F3FF;EMOJI MODIFIER FITZPATRICK TYPE-6;Sk;0;ON;;;;;N;;;;;
- 1F400;RAT;So;0;ON;;;;;N;;;;;
- 1F401;MOUSE;So;0;ON;;;;;N;;;;;
- 1F402;OX;So;0;ON;;;;;N;;;;;
---- norm2/base_norm2/nfc.txt	2014-03-16 23:30:07.000000000 -0700
-+++ norm2/nfc.txt	2014-03-16 23:30:07.000000000 -0700
-@@ -272,6 +272,8 @@
+--- icuSources/data/unidata/norm2/base_norm2/nfc.txt	2014-11-21 17:04:09.000000000 -0800
++++ icuSources/data/unidata/norm2/nfc.txt	2014-12-04 16:48:53.000000000 -0800
+@@ -277,6 +277,8 @@
  AAC1:230
  AAF6:9
  ABED:9
@@ -266,4 +230,4 @@
 +F89F:18
  FB1E:26
  FE20..FE26:230
- 101FD:220
+ FE27..FE2D:220

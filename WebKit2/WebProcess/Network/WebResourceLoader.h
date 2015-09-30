@@ -46,7 +46,6 @@ class DataReference;
 namespace WebCore {
 class CertificateInfo;
 class ProtectionSpace;
-class ResourceBuffer;
 class ResourceError;
 class ResourceLoader;
 class ResourceRequest;
@@ -59,11 +58,11 @@ typedef uint64_t ResourceLoadIdentifier;
 
 class WebResourceLoader : public RefCounted<WebResourceLoader>, public IPC::MessageSender {
 public:
-    static PassRefPtr<WebResourceLoader> create(PassRefPtr<WebCore::ResourceLoader>);
+    static Ref<WebResourceLoader> create(PassRefPtr<WebCore::ResourceLoader>);
 
     ~WebResourceLoader();
 
-    void didReceiveWebResourceLoaderMessage(IPC::Connection*, IPC::MessageDecoder&);
+    void didReceiveWebResourceLoaderMessage(IPC::Connection&, IPC::MessageDecoder&);
 
     WebCore::ResourceLoader* resourceLoader() const { return m_coreLoader.get(); }
 
@@ -80,7 +79,7 @@ private:
 
     void willSendRequest(const WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse);
     void didSendData(uint64_t bytesSent, uint64_t totalBytesToBeSent);
-    void didReceiveResponseWithCertificateInfo(const WebCore::ResourceResponse&, const WebCore::CertificateInfo&, bool needsContinueDidReceiveResponseMessage);
+    void didReceiveResponse(const WebCore::ResourceResponse&, bool needsContinueDidReceiveResponseMessage);
     void didReceiveData(const IPC::DataReference&, int64_t encodedDataLength);
     void didFinishResourceLoad(double finishTime);
     void didFailResourceLoad(const WebCore::ResourceError&);

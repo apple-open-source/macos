@@ -23,16 +23,7 @@
 .Op Fl v Ar variable
 .Op Fl V Ar variable
 .Sh "Note on OS X operation"
-The version of
-.Nm
-on OS X does not adjust the system clock.
-That task is performed by the
-.Nm pacemaker
-daemon, which utilizes OS X specific features to reduce power consumption
-and improve battery life.
-See the
-.Xr pacemaker 8
-manual page for details.
+ntpd on OS X starts when /private/etc/ntp.conf exists
 .Sh DESCRIPTION
 The
 .Nm ntpd
@@ -539,12 +530,12 @@ The filter is activated by the
 keyword, as described in
 .Xr ntp.conf 5 .
 .Sh FILES
-.Bl -tag -width /etc/ntp.drift -compact
-.It Pa /etc/ntp.conf
+.Bl -tag -width /private/var/db/ntp.drift -compact
+.It Pa /private/etc/ntp.conf
 the default name of the configuration file
-.It Pa /etc/ntp.drift
+.It Pa /private/var/db/ntp.drift
 the default name of the drift file
-.It Pa /etc/ntp.keys
+.It Pa /private/etc/ntp.keys
 the default name of the key file
 .El
 .Sh SEE ALSO

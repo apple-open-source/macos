@@ -27,7 +27,6 @@
 #import "Pasteboard.h"
 
 #import "CachedImage.h"
-#import "DOMRangeInternal.h"
 #import "Document.h"
 #import "DocumentFragment.h"
 #import "DocumentLoader.h"
@@ -51,7 +50,6 @@
 #import "PasteboardStrategy.h"
 #import "PlatformStrategies.h"
 #import "RenderImage.h"
-#import "ResourceBuffer.h"
 #import "Text.h"
 #import "WebCoreNSStringExtras.h"
 #import "WebNSAttributedStringExtras.h"
@@ -124,30 +122,27 @@ Pasteboard::Pasteboard(const String& pasteboardName)
     ASSERT(pasteboardName);
 }
 
-PassOwnPtr<Pasteboard> Pasteboard::create(const String& pasteboardName)
+std::unique_ptr<Pasteboard> Pasteboard::createForCopyAndPaste()
 {
-    return adoptPtr(new Pasteboard(pasteboardName));
+    return std::make_unique<Pasteboard>(NSGeneralPboard);
 }
 
-PassOwnPtr<Pasteboard> Pasteboard::createForCopyAndPaste()
+std::unique_ptr<Pasteboard> Pasteboard::createPrivate()
 {
-    return create(NSGeneralPboard);
+    return std::make_unique<Pasteboard>(platformStrategies()->pasteboardStrategy()->uniqueName());
 }
 
-PassOwnPtr<Pasteboard> Pasteboard::createPrivate()
+#if ENABLE(DRAG_SUPPORT)
+std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop()
 {
-    return create(platformStrategies()->pasteboardStrategy()->uniqueName());
+    return std::make_unique<Pasteboard>(NSDragPboard);
 }
 
-PassOwnPtr<Pasteboard> Pasteboard::createForDragAndDrop()
+std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop(const DragData& dragData)
 {
-    return create(NSDragPboard);
+    return std::make_unique<Pasteboard>(dragData.pasteboardName());
 }
-
-PassOwnPtr<Pasteboard> Pasteboard::createForDragAndDrop(const DragData& dragData)
-{
-    return create(dragData.pasteboardName());
-}
+#endif
 
 void Pasteboard::clear()
 {
@@ -251,7 +246,7 @@ static void writeFileWrapperAsRTFDAttachment(NSFileWrapper *wrapper, const Strin
     NSAttributedString *string = [NSAttributedString attributedStringWithAttachment:attachment];
     [attachment release];
 
-    NSData *RTFDData = [string RTFDFromRange:NSMakeRange(0, [string length]) documentAttributes:nil];
+    NSData *RTFDData = [string RTFDFromRange:NSMakeRange(0, [string length]) documentAttributes:@{ }];
     if (!RTFDData)
         return;
 
@@ -635,6 +630,7 @@ Vector<String> Pasteboard::readFilenames()
     return paths;
 }
 
+#if ENABLE(DRAG_SUPPORT)
 void Pasteboard::setDragImage(DragImageRef image, const IntPoint& location)
 {
     // Don't allow setting the drag image if someone kept a pasteboard and is trying to set the image too late.
@@ -652,5 +648,6 @@ void Pasteboard::setDragImage(DragImageRef image, const IntPoint& location)
         modifierFlags:0 timestamp:0 windowNumber:0 context:nil eventNumber:0 clickCount:0 pressure:0];
     [NSApp postEvent:event atStart:YES];
 }
+#endif
 
 }

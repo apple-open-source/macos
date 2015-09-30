@@ -1,4 +1,4 @@
-/* $OpenBSD: gss-serv.c,v 1.23 2011/08/01 19:18:15 markus Exp $ */
+/* $OpenBSD: gss-serv.c,v 1.29 2015/05/22 03:50:02 djm Exp $ */
 
 /*
  * Copyright (c) 2001-2009 Simon Wilkinson. All rights reserved.
@@ -27,9 +27,10 @@
 #include "includes.h"
 
 #ifdef GSSAPI
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 #include <sys/types.h>
-#include <sys/param.h>
 
 #include <stdarg.h>
 #include <string.h>
@@ -46,6 +47,7 @@
 #include "session.h"
 #include "misc.h"
 #include "servconf.h"
+
 #include "uidswap.h"
 
 #include "ssh-gss.h"
@@ -71,6 +73,25 @@ ssh_gssapi_mech* supported_mechs[]= {
 	&gssapi_null_mech,
 };
 
+/*
+ * ssh_gssapi_supported_oids() can cause sandbox violations, so prepare the
+ * list of supported mechanisms before privsep is set up.
+ */
+static gss_OID_set supported_oids;
+
+void
+ssh_gssapi_prepare_supported_oids(void)
+{
+	ssh_gssapi_supported_oids(&supported_oids);
+}
+
+OM_uint32
+ssh_gssapi_test_oid_supported(OM_uint32 *ms, gss_OID member, int *present)
+{
+	if (supported_oids == NULL)
+		ssh_gssapi_prepare_supported_oids();
+	return gss_test_oid_set_member(ms, member, supported_oids, present);
+}
 
 /*
  * Acquire credentials for a server running on the current host.
@@ -83,7 +104,7 @@ static OM_uint32
 ssh_gssapi_acquire_cred(Gssctxt *ctx)
 {
 	OM_uint32 status;
-	char lname[MAXHOSTNAMELEN];
+	char lname[NI_MAXHOST];
 	gss_OID_set oidset;
 
 	if (options.gss_strict_acceptor) {
@@ -101,7 +122,7 @@ ssh_gssapi_acquire_cred(Gssctxt *ctx)
 		}
 
 		if ((ctx->major = gss_acquire_cred(&ctx->minor,
-		    ctx->name, 0, oidset, GSS_C_ACCEPT, &ctx->creds, 
+		    ctx->name, 0, oidset, GSS_C_ACCEPT, &ctx->creds,
 		    NULL, NULL)))
 			ssh_gssapi_error(ctx);
 
@@ -434,13 +455,15 @@ ssh_gssapi_userok(char *user, struct passwd *pw)
 			gss_release_buffer(&lmin, &gssapi_client.displayname);
 			gss_release_buffer(&lmin, &gssapi_client.exportedname);
 			gss_release_cred(&lmin, &gssapi_client.creds);
-			memset(&gssapi_client, 0, sizeof(ssh_gssapi_client));
+			explicit_bzero(&gssapi_client,
+			    sizeof(ssh_gssapi_client));
 			return 0;
 		}
 	else
 		debug("ssh_gssapi_userok: Unknown GSSAPI mechanism");
 	return (0);
 }
+
 
 /* These bits are only used for rekeying. The unpriviledged child is running 
  * as the user, the monitor is root.

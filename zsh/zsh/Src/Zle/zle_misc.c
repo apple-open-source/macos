@@ -47,13 +47,13 @@ doinsert(ZLE_STRING_T zstr, int len)
     iremovesuffix(c1, 0);
     invalidatelist();
 
-    if (insmode)
+    /* In overwrite mode, don't replace newlines. */
+    if (insmode || zleline[zlecs] == ZWC('\n'))
 	spaceinline(m * len);
     else
-#ifdef MULTIBYTE_SUPPORT
     {
 	int pos = zlecs, diff, i;
-
+#ifdef MULTIBYTE_SUPPORT
 	/*
 	 * Calculate the number of character positions we are
 	 * going to be using.  The algorithm is that
@@ -68,15 +68,18 @@ doinsert(ZLE_STRING_T zstr, int len)
 	 * useful there anyway and this doesn't cause any
 	 * particular harm.
 	 */
-	for (i = 0, count = 0; i < len; i++) {
+	for (i = 0, count = 0; i < len * m; i++) {
 	    if (!IS_COMBINING(zstr[i]))
 		count++;
 	}
+#else
+	count = len * m;
+#endif
 	/*
-	 * Ensure we replace a complete combining character
-	 * for each character we overwrite.
+	 * Ensure we replace a complete combining characterfor each
+	 * character we overwrite. Switch to inserting at first newline.
 	 */
-	for (i = count; pos < zlell && i--; ) {
+	for (i = count; pos < zlell && zleline[pos] != ZWC('\n') && i--; ) {
 	    INCPOS(pos);
 	}
 	/*
@@ -96,10 +99,6 @@ doinsert(ZLE_STRING_T zstr, int len)
 	    shiftchars(zlecs, diff);
 	}
     }
-#else
-    if (zlecs + m * len > zlell)
-	spaceinline(zlecs + m * len - zlell);
-#endif
     while (m--)
 	for (s = zstr, count = len; count; s++, count--)
 	    zleline[zlecs++] = *s;
@@ -440,15 +439,52 @@ killline(char **args)
 }
 
 /**/
+void
+regionlines(int *start, int *end)
+{
+    int origcs = zlecs;
+
+    UNMETACHECK();
+    if (zlecs < mark) {
+	*start = findbol();
+        zlecs = (mark > zlell) ? zlell : mark;
+	*end = findeol();
+    } else {
+	*end = findeol();
+        zlecs = mark;
+	*start = findbol();
+    }
+    zlecs = origcs;
+}
+
+/**/
 int
 killregion(UNUSED(char **args))
 {
     if (mark > zlell)
 	mark = zlell;
-    if (mark > zlecs)
+    if (region_active == 2) {
+	int a, b;
+	regionlines(&a, &b);
+	zlecs = a;
+	region_active = 0;
+	cut(zlecs, b - zlecs, CUT_RAW);
+	shiftchars(zlecs, b - zlecs);
+	if (zlell) {
+	    if (zlecs == zlell)
+		DECCS();
+	    foredel(1, 0);
+	    vifirstnonblank(zlenoargs);
+	}
+    } else if (mark > zlecs) {
+	if (invicmdmode())
+	    INCPOS(mark);
 	forekill(mark - zlecs, CUT_RAW);
-    else
+    } else {
+	if (invicmdmode())
+	    INCCS();
 	backkill(zlecs - mark, CUT_FRONT|CUT_RAW);
+    }
     return 0;
 }
 
@@ -456,6 +492,7 @@ killregion(UNUSED(char **args))
 int
 copyregionaskill(char **args)
 {
+    int start, end;
     if (*args) {
         int len;
         ZLE_STRING_T line = stringaszleline(*args, 0, &len, NULL, NULL);
@@ -464,10 +501,16 @@ copyregionaskill(char **args)
     } else {
 	if (mark > zlell)
 	    mark = zlell;
-	if (mark > zlecs)
-	    cut(zlecs, mark - zlecs, 0);
-	else
-	    cut(mark, zlecs - mark, CUT_FRONT);
+	if (mark > zlecs) {
+	    start = zlecs;
+	    end = mark;
+	} else {
+	    start = mark;
+	    end = zlecs;
+	}
+	if (invicmdmode())
+	    INCPOS(end);
+	cut(start, end - start, mark > zlecs ? 0 : CUT_FRONT);
     }
     return 0;
 }
@@ -475,8 +518,10 @@ copyregionaskill(char **args)
 /*
  * kct: index into kill ring, or -1 for original cutbuffer of yank.
  * yankb, yanke: mark the start and end of last yank in editing buffer.
+ * yankcs marks the cursor position preceding the last yank
  */
-static int kct, yankb, yanke;
+static int kct, yankb, yanke, yankcs;
+
 /* The original cutbuffer, either cutbuf or one of the vi buffers. */
 static Cutbuffer kctbuf;
 
@@ -494,8 +539,7 @@ yank(UNUSED(char **args))
 	kctbuf = &cutbuf;
     if (!kctbuf->buf)
 	return 1;
-    mark = zlecs;
-    yankb = zlecs;
+    yankb = yankcs = mark = zlecs;
     while (n--) {
 	kct = -1;
 	spaceinline(kctbuf->len);
@@ -506,11 +550,140 @@ yank(UNUSED(char **args))
     return 0;
 }
 
+/* position: 0 is before, 1 after, 2 split the line */
+static void pastebuf(Cutbuffer buf, int mult, int position)
+{
+    int cc;
+    if (buf->flags & CUTBUFFER_LINE) {
+	if (position == 2) {
+	    if (!zlecs)
+		position = 0;
+	    else if (zlecs == zlell)
+		position = 1;
+	}
+	if (position == 2) {
+	    yankb = zlecs;
+	    spaceinline(buf->len + 2);
+	    zleline[zlecs++] = ZWC('\n');
+	    ZS_memcpy(zleline + zlecs, buf->buf, buf->len);
+	    zlecs += buf->len;
+	    zleline[zlecs] = ZWC('\n');
+	    yanke = zlecs + 1;
+	} else if (position != 0) {
+	    yankb = zlecs = findeol();
+	    spaceinline(buf->len + 1);
+	    zleline[zlecs++] = ZWC('\n');
+	    yanke = zlecs + buf->len;
+	    ZS_memcpy(zleline + zlecs, buf->buf, buf->len);
+	} else {
+	    yankb = zlecs = findbol();
+	    spaceinline(buf->len + 1);
+	    ZS_memcpy(zleline + zlecs, buf->buf, buf->len);
+	    yanke = zlecs + buf->len + 1;
+	    zleline[zlecs + buf->len] = ZWC('\n');
+	}
+	vifirstnonblank(zlenoargs);
+    } else {
+	if (position == 1 && zlecs != findeol())
+	    INCCS();
+	yankb = zlecs;
+	cc = buf->len;
+	while (mult--) {
+	    spaceinline(cc);
+	    ZS_memcpy(zleline + zlecs, buf->buf, cc);
+	    zlecs += cc;
+	}
+	yanke = zlecs;
+	if (zlecs)
+	    DECCS();
+    }
+}
+
+/**/
+int
+viputbefore(UNUSED(char **args))
+{
+    int n = zmult;
+
+    startvichange(-1);
+    if (n < 0 || zmod.flags & MOD_NULL)
+	return 1;
+    if (zmod.flags & MOD_VIBUF)
+	kctbuf = &vibuf[zmod.vibuf];
+    else
+	kctbuf = &cutbuf;
+    if (!kctbuf->buf)
+	return 1;
+    kct = -1;
+    yankcs = zlecs;
+    pastebuf(kctbuf, n, 0);
+    return 0;
+}
+
+/**/
+int
+viputafter(UNUSED(char **args))
+{
+    int n = zmult;
+
+    startvichange(-1);
+    if (n < 0 || zmod.flags & MOD_NULL)
+	return 1;
+    if (zmod.flags & MOD_VIBUF)
+	kctbuf = &vibuf[zmod.vibuf];
+    else
+	kctbuf = &cutbuf;
+    if (!kctbuf->buf)
+	return 1;
+    kct = -1;
+    yankcs = zlecs;
+    pastebuf(kctbuf, n, 1);
+    return 0;
+}
+
+/**/
+int
+putreplaceselection(UNUSED(char **args))
+{
+    int n = zmult;
+    struct cutbuffer prevbuf;
+    Cutbuffer putbuf;
+    int clear = 0;
+    int pos = 2;
+
+    startvichange(-1);
+    if (n < 0 || zmod.flags & MOD_NULL)
+	return 1;
+    putbuf = (zmod.flags & MOD_VIBUF) ? &vibuf[zmod.vibuf] : &cutbuf;
+    if (!putbuf->buf)
+	return 1;
+    memcpy(&prevbuf, putbuf, sizeof(prevbuf));
+
+    /* if "9 was specified, prevent killregion from freeing it */
+    if (zmod.vibuf == 35) {
+	putbuf->buf = 0;
+	clear = 1;
+    }
+
+    zmod.flags = 0; /* flags apply to paste not kill */
+    if (region_active == 2 && prevbuf.flags & CUTBUFFER_LINE) {
+	int a, b;
+	regionlines(&a, &b);
+	pos = (b == zlell);
+    }
+    killregion(zlenoargs);
+
+    pastebuf(&prevbuf, n, pos);
+    if (clear)
+	free(prevbuf.buf);
+    return 0;
+}
+
 /**/
 int
 yankpop(UNUSED(char **args))
 {
-    int cc, kctstart = kct;
+    int kctstart = kct;
     Cutbuffer buf;
 
     if (!(lastcmd & ZLE_YANK) || !kring || !kctbuf) {
@@ -557,11 +730,8 @@ yankpop(UNUSED(char **args))
 
     zlecs = yankb;
     foredel(yanke - yankb, CUT_RAW);
-    cc = buf->len;
-    spaceinline(cc);
-    ZS_memcpy(zleline + zlecs, buf->buf, cc);
-    zlecs += cc;
-    yanke = zlecs;
+    zlecs = yankcs;
+    pastebuf(buf, 1, !!(lastcmd & ZLE_YANKAFTER));
     return 0;
 }
 
@@ -871,7 +1041,7 @@ copyprevshellword(UNUSED(char **args))
 int
 sendbreak(UNUSED(char **args))
 {
-    errflag = 1;
+    errflag |= ERRFLAG_ERROR|ERRFLAG_INT;
     return 1;
 }
 
@@ -881,15 +1051,25 @@ quoteregion(UNUSED(char **args))
 {
     ZLE_STRING_T str;
     size_t len;
+    int extra = invicmdmode();
 
     if (mark > zlell)
 	mark = zlell;
-    if (mark < zlecs) {
+    if (region_active == 2) {
+	int a, b;
+	regionlines(&a, &b);
+	zlecs = a;
+	mark = b;
+	extra = 0;
+    } else if (mark < zlecs) {
 	int tmp = mark;
 	mark = zlecs;
 	zlecs = tmp;
     }
-    str = (ZLE_STRING_T)hcalloc((len = mark - zlecs) * ZLE_CHAR_SIZE);
+    if (extra)
+	INCPOS(mark);
+    str = (ZLE_STRING_T)hcalloc((len = mark - zlecs) *
+	ZLE_CHAR_SIZE);
     ZS_memcpy(str, zleline + zlecs, len);
     foredel(len, CUT_RAW);
     str = makequote(str, &len);
@@ -1249,10 +1429,14 @@ static char *suffixfunc;
 /* Length associated with the suffix function */
 static int suffixfunclen;
 
-/* Length associated with uninsertable characters */
+/* Whether to remove suffix on uninsertable characters */
+/**/
+int suffixnoinsrem;
+
+/* Length of the currently active, auto-removable suffix. */
 /**/
 mod_export int
-suffixnoinslen;
+suffixlen;
 
 /**/
 mod_export void
@@ -1309,7 +1493,8 @@ makesuffix(int n)
     if ((suffixchars = getsparam("ZLE_SPACE_SUFFIX_CHARS")) && *suffixchars)
 	addsuffixstring(SUFTYP_POSSTR, SUFFLAGS_SPACE, suffixchars, n);
 
-    suffixnoinslen = n;
+    suffixlen = n;
+    suffixnoinsrem = 1;
 }
 
 /* Set up suffix for parameter names: the last n characters are a suffix *
@@ -1358,15 +1543,10 @@ makesuffixstr(char *f, char *s, int n)
 	s = metafy(s, i, META_USEHEAP);
 	ws = stringaszleline(s, 0, &i, NULL, NULL);
 
-	if (z)
-	    suffixnoinslen = inv ? 0 : n;
-	else if (inv) {
-	    /*
-	     * negative match, \- wasn't present, so it *should*
-	     * have this suffix length
-	     */
-	    suffixnoinslen = n;
-	}
+	/* Remove suffix on uninsertable characters if  \- was given *
+	 * and the character class wasn't negated -- or vice versa.  */
+	suffixnoinsrem = z ^ inv;
+	suffixlen = n;
 
 	lasts = wptr = ws;
 	while (i) {
@@ -1444,7 +1624,7 @@ iremovesuffix(ZLE_INT_T c, int keep)
 	struct suffixset *ss;
 
 	if (c == NO_INSERT_CHAR) {
-	    sl = suffixnoinslen;
+	    sl = suffixnoinsrem ? suffixlen : 0;
 	} else {
 	    ZLE_CHAR_T ch = c;
 	    /*
@@ -1538,5 +1718,5 @@ fixsuffix(void)
 	suffixlist = next;
     }
 
-    suffixfunclen = suffixnoinslen = 0;
+    suffixfunclen = suffixnoinsrem = suffixlen = 0;
 }

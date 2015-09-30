@@ -18,13 +18,16 @@
 
 #include "config.h"
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE /* activate extra prototypes for glibc */
+#endif
 
 #include <sys/types.h>
+#include <sys/param.h>
 #include <sys/socket.h> /* For CMSG_* */
 
 #ifdef HAVE_LIMITS_H
-# include <limits.h> /* For PATH_MAX */
+# include <limits.h> /* For PATH_MAX, _POSIX_HOST_NAME_MAX */
 #endif
 #ifdef HAVE_BSTRING_H
 # include <bstring.h>
@@ -164,9 +167,7 @@
 # endif
 #endif
 
-#ifdef __APPLE_CRYPTO__
-#include "ossl-crypto.h"
-#else
+#ifdef WITH_OPENSSL
 #include <openssl/opensslv.h> /* For OPENSSL_VERSION_NUMBER */
 #endif
 

@@ -60,7 +60,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -80,7 +80,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Production|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Production|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -90,7 +90,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -110,7 +110,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -119,6 +119,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -182,6 +183,8 @@
     <Link />
     <ClCompile />
     <Link />
+    <Link />
+    <Link />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile />
@@ -191,6 +194,9 @@
     <Link />
     <ClCompile />
     <Link />
+    <Link>
+      <OptimizeReferences>false</OptimizeReferences>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">
     <ClCompile />
@@ -227,6 +233,9 @@
     <Link />
     <ClCompile />
     <Link />
+    <Link>
+      <OptimizeReferences>false</OptimizeReferences>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Link />
@@ -276,8 +285,38 @@
     <Link />
     <Link />
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Link>
+      <EnableCOMDATFolding>false</EnableCOMDATFolding>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|x64'">
+    <Link>
+      <EnableCOMDATFolding>false</EnableCOMDATFolding>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Storage\StorageAreaImpl.cpp" />
+    <ClCompile Include="..\..\Storage\StorageAreaSync.cpp" />
+    <ClCompile Include="..\..\Storage\StorageNamespaceImpl.cpp" />
+    <ClCompile Include="..\..\Storage\StorageSyncManager.cpp" />
+    <ClCompile Include="..\..\Storage\StorageThread.cpp" />
+    <ClCompile Include="..\..\Storage\StorageTracker.cpp" />
+    <ClCompile Include="..\..\Storage\WebDatabaseProvider.cpp" />
+    <ClCompile Include="..\..\Storage\WebStorageNamespaceProvider.cpp" />
     <ClCompile Include="..\..\cf\WebCoreSupport\WebInspectorClientCF.cpp" />
+    <ClCompile Include="..\..\WebCoreSupport\WebViewGroup.cpp" />
+    <ClCompile Include="..\..\win\Plugins\npapi.cpp" />
+    <ClCompile Include="..\..\win\Plugins\PluginDatabase.cpp" />
+    <ClCompile Include="..\..\win\Plugins\PluginDebug.cpp" />
+    <ClCompile Include="..\..\win\Plugins\PluginPackage.cpp" />
+    <ClCompile Include="..\..\win\Plugins\PluginStream.cpp" />
+    <ClCompile Include="..\..\win\Plugins\PluginView.cpp" />
+    <ClCompile Include="..\..\win\Plugins\PluginDatabaseWin.cpp" />
+    <ClCompile Include="..\..\win\Plugins\PluginMainThreadScheduler.cpp" />
+    <ClCompile Include="..\..\win\Plugins\PluginMessageThrottlerWin.cpp" />
+    <ClCompile Include="..\..\win\Plugins\PluginPackageWin.cpp" />
+    <ClCompile Include="..\..\win\Plugins\PluginViewWin.cpp" />
     <ClCompile Include="..\..\win\AccessibleBase.cpp" />
     <ClCompile Include="..\..\win\AccessibleDocument.cpp" />
     <ClCompile Include="..\..\win\AccessibleImage.cpp" />
@@ -294,27 +333,12 @@
     <ClCompile Include="..\..\win\MarshallingHelpers.cpp" />
     <ClCompile Include="..\..\win\MemoryStream.cpp" />
     <ClCompile Include="..\..\win\WebActionPropertyBag.cpp" />
+    <ClCompile Include="..\..\win\WebApplicationCache.cpp" />
     <ClCompile Include="..\..\win\WebArchive.cpp" />
     <ClCompile Include="..\..\win\WebBackForwardList.cpp" />
     <ClCompile Include="..\..\win\WebCache.cpp" />
-    <ClCompile Include="..\..\win\WebCookieManager.cpp" />
-    <ClCompile Include="..\..\win\WebCookieManagerCFNet.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|x64'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="..\..\win\WebCookieManagerCurl.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="..\..\win\WebCoreStatistics.cpp" />
+    <ClCompile Include="..\..\win\WebCoreSupport\AcceleratedCompositingContext.cpp" />
     <ClCompile Include="..\..\win\WebCoreSupport\EmbeddedWidget.cpp" />
     <ClCompile Include="..\..\win\WebCoreSupport\WebChromeClient.cpp" />
     <ClCompile Include="..\..\win\WebCoreSupport\WebContextMenuClient.cpp" />
@@ -327,6 +351,7 @@
     <ClCompile Include="..\..\win\WebCoreSupport\WebInspectorClient.cpp" />
     <ClCompile Include="..\..\win\WebCoreSupport\WebInspectorDelegate.cpp" />
     <ClCompile Include="..\..\win\WebCoreSupport\WebPlatformStrategies.cpp" />
+    <ClCompile Include="..\..\win\WebCoreSupport\WebVisitedLinkStore.cpp" />
     <ClCompile Include="..\..\win\WebDatabaseManager.cpp" />
     <ClCompile Include="..\..\win\WebDataSource.cpp" />
     <ClCompile Include="..\..\win\WebDocumentLoader.cpp" />
@@ -370,6 +395,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\..\win\WebKitLogging.cpp" />
+    <ClCompile Include="..\..\win\WebKitMessageLoop.cpp" />
     <ClCompile Include="..\..\win\WebKitPrefix.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -425,6 +451,25 @@
     <ClCompile Include="..\..\win\WebWorkersPrivate.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Storage\StorageAreaImpl.h" />
+    <ClInclude Include="..\..\Storage\StorageAreaSync.h" />
+    <ClInclude Include="..\..\Storage\StorageNamespaceImpl.h" />
+    <ClInclude Include="..\..\Storage\StorageSyncManager.h" />
+    <ClInclude Include="..\..\Storage\StorageThread.h" />
+    <ClInclude Include="..\..\Storage\StorageTracker.h" />
+    <ClInclude Include="..\..\Storage\StorageTrackerClient.h" />
+    <ClInclude Include="..\..\Storage\WebDatabaseProvider.h" />
+    <ClInclude Include="..\..\Storage\WebStorageNamespaceProvider.h" />
+    <ClInclude Include="..\..\WebCoreSupport\WebViewGroup.h" />
+    <ClInclude Include="..\..\win\Plugins\PluginDatabase.h" />
+    <ClInclude Include="..\..\win\Plugins\PluginDebug.h" />
+    <ClInclude Include="..\..\win\Plugins\PluginPackage.h" />
+    <ClInclude Include="..\..\win\Plugins\PluginQuirkSet.h" />
+    <ClInclude Include="..\..\win\Plugins\PluginStrategy.h" />
+    <ClInclude Include="..\..\win\Plugins\PluginStream.h" />
+    <ClInclude Include="..\..\win\Plugins\PluginView.h" />
+    <ClInclude Include="..\..\win\Plugins\PluginMainThreadScheduler.h" />
+    <ClInclude Include="..\..\win\Plugins\PluginMessageThrottlerWin.h" />
     <ClInclude Include="..\..\win\AccessibleBase.h" />
     <ClInclude Include="..\..\win\AccessibleDocument.h" />
     <ClInclude Include="..\..\win\AccessibleImage.h" />
@@ -446,12 +491,13 @@
     <ClInclude Include="..\..\win\MemoryStream.h" />
     <ClInclude Include="..\..\win\ProgIDMacros.h" />
     <ClInclude Include="..\..\win\WebActionPropertyBag.h" />
+    <ClInclude Include="..\..\win\WebApplicationCache.h" />
     <ClInclude Include="..\..\win\WebArchive.h" />
     <ClInclude Include="..\..\win\WebBackForwardList.h" />
     <ClInclude Include="..\..\win\WebCache.h" />
     <ClInclude Include="..\..\win\WebCachedFramePlatformData.h" />
-    <ClInclude Include="..\..\win\WebCookieManager.h" />
     <ClInclude Include="..\..\win\WebCoreStatistics.h" />
+    <ClInclude Include="..\..\win\WebCoreSupport\AcceleratedCompositingContext.h" />
     <ClInclude Include="..\..\win\WebCoreSupport\EmbeddedWidget.h" />
     <ClInclude Include="..\..\win\WebCoreSupport\WebChromeClient.h" />
     <ClInclude Include="..\..\win\WebCoreSupport\WebContextMenuClient.h" />
@@ -464,6 +510,7 @@
     <ClInclude Include="..\..\win\WebCoreSupport\WebInspectorClient.h" />
     <ClInclude Include="..\..\win\WebCoreSupport\WebInspectorDelegate.h" />
     <ClInclude Include="..\..\win\WebCoreSupport\WebPlatformStrategies.h" />
+    <ClInclude Include="..\..\win\WebCoreSupport\WebVisitedLinkStore.h" />
     <ClInclude Include="..\..\win\WebDatabaseManager.h" />
     <ClInclude Include="..\..\win\WebDataSource.h" />
     <ClInclude Include="..\..\win\WebDocumentLoader.h" />
@@ -486,6 +533,7 @@
     <ClInclude Include="..\..\win\WebKitDLL.h" />
     <ClInclude Include="..\..\win\WebKitGraphics.h" />
     <ClInclude Include="..\..\win\WebKitLogging.h" />
+    <ClInclude Include="..\..\win\WebKitMessageLoop.h" />
     <ClInclude Include="..\..\win\WebKitPrefix.h" />
     <ClInclude Include="..\..\win\WebKitStatistics.h" />
     <ClInclude Include="..\..\win\WebKitStatisticsPrivate.h" />
@@ -516,7 +564,6 @@
     <CustomBuildStep Include="..\WebLocalizableStrings.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\WebKitExportGenerator\WebKitExports.def" />
     <CustomBuild Include="..\..\mac\Configurations\Version.xcconfig">
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|Win32'">WebKitVersion.cmd</Command>
@@ -544,8 +591,6 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|x64'">WebKitVersion.cmd</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Production|x64'">WebKitVersion.cmd</Command>
     </CustomBuild>
-    <None Include="..\..\win\WebKit.resources\deleteButton.png" />
-    <None Include="..\..\win\WebKit.resources\deleteButtonPressed.png" />
     <None Include="..\..\win\WebKit.resources\fsVideoAudioVolumeHigh.png" />
     <None Include="..\..\win\WebKit.resources\fsVideoAudioVolumeLow.png" />
     <None Include="..\..\win\WebKit.resources\fsVideoExitFullscreen.png" />
@@ -578,7 +623,18 @@
   <ItemGroup>
     <ResourceCompile Include="..\..\win\WebKit.resources\WebKit.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <MASM Include="..\..\win\Plugins\PaintHooks.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
+    </MASM>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
 </Project>

@@ -36,7 +36,6 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <wtf/Assertions.h>
-#include <wtf/Functional.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/UniStdExtras.h>
 
@@ -95,6 +94,7 @@ private:
 };
 
 class AttachmentInfo {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     AttachmentInfo()
         : m_type(Attachment::Uninitialized)
@@ -155,23 +155,6 @@ void Connection::platformInvalidate()
     m_isConnected = false;
 }
 
-template<class T, class iterator>
-class AttachmentResourceGuard {
-public:
-    AttachmentResourceGuard(T& attachments)
-        : m_attachments(attachments)
-    {
-    }
-    ~AttachmentResourceGuard()
-    {
-        iterator end = m_attachments.end();
-        for (iterator i = m_attachments.begin(); i != end; ++i)
-            i->dispose();
-    }
-private:
-    T& m_attachments;
-};
-
 bool Connection::processMessage()
 {
     if (m_readBufferSize < sizeof(MessageInfo))
@@ -204,7 +187,6 @@ bool Connection::processMessage()
                 break;
             case Attachment::Uninitialized:
             default:
-                ASSERT_NOT_REACHED();
                 break;
             }
         }
@@ -214,7 +196,6 @@ bool Connection::processMessage()
     }
 
     Vector<Attachment> attachments(attachmentCount);
-    AttachmentResourceGuard<Vector<Attachment>, Vector<Attachment>::iterator> attachementDisposer(attachments);
     RefPtr<WebKit::SharedMemory> oolMessageBody;
 
     size_t fdIndex = 0;
@@ -247,9 +228,9 @@ bool Connection::processMessage()
         }
 
         WebKit::SharedMemory::Handle handle;
-        handle.adoptFromAttachment(m_fileDescriptors[attachmentFileDescriptorCount - 1], attachmentInfo[attachmentCount].getSize());
+        handle.adoptAttachment(IPC::Attachment(m_fileDescriptors[attachmentFileDescriptorCount - 1], attachmentInfo[attachmentCount].getSize()));
 
-        oolMessageBody = WebKit::SharedMemory::create(handle, WebKit::SharedMemory::ReadOnly);
+        oolMessageBody = WebKit::SharedMemory::map(handle, WebKit::SharedMemory::Protection::ReadOnly);
         if (!oolMessageBody) {
             ASSERT_NOT_REACHED();
             return false;
@@ -294,8 +275,8 @@ static ssize_t readBytesFromSocket(int socketDescriptor, uint8_t* buffer, int co
     memset(&iov, 0, sizeof(iov));
 
     message.msg_controllen = CMSG_SPACE(sizeof(int) * attachmentMaxAmount);
-    auto attachmentDescriptorBuffer = std::make_unique<char[]>(message.msg_controllen);
-    memset(attachmentDescriptorBuffer.get(), 0, message.msg_controllen);
+    MallocPtr<char> attachmentDescriptorBuffer = MallocPtr<char>::malloc(sizeof(char) * message.msg_controllen);
+    memset(attachmentDescriptorBuffer.get(), 0, sizeof(char) * message.msg_controllen);
     message.msg_control = attachmentDescriptorBuffer.get();
 
     iov[0].iov_base = buffer;
@@ -388,27 +369,27 @@ bool Connection::open()
         }
     }
 
+    RefPtr<Connection> protectedThis(this);
     m_isConnected = true;
 #if PLATFORM(GTK)
-    RefPtr<Connection> protector(this);
     m_connectionQueue->registerSocketEventHandler(m_socketDescriptor,
-        [=] {
-            protector->readyReadHandler();
+        [protectedThis] {
+            protectedThis->readyReadHandler();
         },
-        [=] {
-            protector->connectionDidClose();
+        [protectedThis] {
+            protectedThis->connectionDidClose();
         });
 #elif PLATFORM(EFL)
-    RefPtr<Connection> protector(this);
     m_connectionQueue->registerSocketEventHandler(m_socketDescriptor,
-        [protector] {
-            protector->readyReadHandler();
+        [protectedThis] {
+            protectedThis->readyReadHandler();
         });
 #endif
 
-    // Schedule a call to readyReadHandler. Data may have arrived before installation of the signal
-    // handler.
-    m_connectionQueue->dispatch(WTF::bind(&Connection::readyReadHandler, this));
+    // Schedule a call to readyReadHandler. Data may have arrived before installation of the signal handler.
+    m_connectionQueue->dispatch([protectedThis] {
+        protectedThis->readyReadHandler();
+    });
 
     return true;
 }
@@ -423,8 +404,6 @@ bool Connection::sendOutgoingMessage(std::unique_ptr<MessageEncoder> encoder)
     COMPILE_ASSERT(sizeof(MessageInfo) + attachmentMaxAmount * sizeof(size_t) <= messageMaxSize, AttachmentsFitToMessageInline);
 
     Vector<Attachment> attachments = encoder->releaseAttachments();
-    AttachmentResourceGuard<Vector<Attachment>, Vector<Attachment>::iterator> attachementDisposer(attachments);
-
     if (attachments.size() > (attachmentMaxAmount - 1)) {
         ASSERT_NOT_REACHED();
         return false;
@@ -433,19 +412,19 @@ bool Connection::sendOutgoingMessage(std::unique_ptr<MessageEncoder> encoder)
     MessageInfo messageInfo(encoder->bufferSize(), attachments.size());
     size_t messageSizeWithBodyInline = sizeof(messageInfo) + (attachments.size() * sizeof(AttachmentInfo)) + encoder->bufferSize();
     if (messageSizeWithBodyInline > messageMaxSize && encoder->bufferSize()) {
-        RefPtr<WebKit::SharedMemory> oolMessageBody = WebKit::SharedMemory::create(encoder->bufferSize());
+        RefPtr<WebKit::SharedMemory> oolMessageBody = WebKit::SharedMemory::allocate(encoder->bufferSize());
         if (!oolMessageBody)
             return false;
 
         WebKit::SharedMemory::Handle handle;
-        if (!oolMessageBody->createHandle(handle, WebKit::SharedMemory::ReadOnly))
+        if (!oolMessageBody->createHandle(handle, WebKit::SharedMemory::Protection::ReadOnly))
             return false;
 
         messageInfo.setMessageBodyIsOutOfLine();
 
         memcpy(oolMessageBody->data(), encoder->buffer(), encoder->bufferSize());
 
-        attachments.append(handle.releaseToAttachment());
+        attachments.append(handle.releaseAttachment());
     }
 
     struct msghdr message;
@@ -460,21 +439,20 @@ bool Connection::sendOutgoingMessage(std::unique_ptr<MessageEncoder> encoder)
     iov[0].iov_base = reinterpret_cast<void*>(&messageInfo);
     iov[0].iov_len = sizeof(messageInfo);
 
-    auto attachmentInfo = std::make_unique<AttachmentInfo[]>(attachments.size());
-
-    size_t attachmentFDBufferLength = 0;
-    if (!attachments.isEmpty()) {
-        for (size_t i = 0; i < attachments.size(); ++i) {
-            if (attachments[i].fileDescriptor() != -1)
-                attachmentFDBufferLength++;
-        }
-    }
-    auto attachmentFDBuffer = std::make_unique<char[]>(CMSG_SPACE(sizeof(int) * attachmentFDBufferLength));
+    std::unique_ptr<AttachmentInfo[]> attachmentInfo;
+    MallocPtr<char> attachmentFDBuffer;
 
     if (!attachments.isEmpty()) {
         int* fdPtr = 0;
 
+        size_t attachmentFDBufferLength = std::count_if(attachments.begin(), attachments.end(),
+            [](const Attachment& attachment) {
+                return attachment.fileDescriptor() != -1;
+            });
+
         if (attachmentFDBufferLength) {
+            attachmentFDBuffer = MallocPtr<char>::malloc(sizeof(char) * CMSG_SPACE(sizeof(int) * attachmentFDBufferLength));
+
             message.msg_control = attachmentFDBuffer.get();
             message.msg_controllen = CMSG_SPACE(sizeof(int) * attachmentFDBufferLength);
             memset(message.msg_control, 0, message.msg_controllen);
@@ -487,6 +465,7 @@ bool Connection::sendOutgoingMessage(std::unique_ptr<MessageEncoder> encoder)
             fdPtr = reinterpret_cast<int*>(CMSG_DATA(cmsg));
         }
 
+        attachmentInfo = std::make_unique<AttachmentInfo[]>(attachments.size());
         int fdIndex = 0;
         for (size_t i = 0; i < attachments.size(); ++i) {
             attachmentInfo[i].setType(attachments[i].type());
@@ -521,8 +500,7 @@ bool Connection::sendOutgoingMessage(std::unique_ptr<MessageEncoder> encoder)
 
     message.msg_iovlen = iovLength;
 
-    int bytesSent = 0;
-    while ((bytesSent = sendmsg(m_socketDescriptor, &message, 0)) == -1) {
+    while (sendmsg(m_socketDescriptor, &message, 0) == -1) {
         if (errno == EINTR)
             continue;
         if (errno == EAGAIN || errno == EWOULDBLOCK) {

@@ -32,7 +32,7 @@ class HTMLFormElement;
 
 class HTMLObjectElement final : public HTMLPlugInImageElement, public FormAssociatedElement {
 public:
-    static PassRefPtr<HTMLObjectElement> create(const QualifiedName&, Document&, HTMLFormElement*, bool createdByParser);
+    static Ref<HTMLObjectElement> create(const QualifiedName&, Document&, HTMLFormElement*, bool createdByParser);
     virtual ~HTMLObjectElement();
 
     bool isDocNamedItem() const { return m_docNamedItem; }
@@ -41,6 +41,8 @@ public:
     bool hasFallbackContent() const;
     virtual bool useFallbackContent() const override { return m_useFallbackContent; }
     void renderFallbackContent();
+
+    virtual bool willValidate() const override { return false; }
 
     // Implementation of constraint validation API.
     // Note that the object elements are always barred from constraint validation.
@@ -83,14 +85,15 @@ private:
     
     bool shouldAllowQuickTimeClassIdQuirk();
     bool hasValidClassId();
+    void clearUseFallbackContent() { m_useFallbackContent = false; }
 
     virtual void refFormAssociatedElement() override { ref(); }
     virtual void derefFormAssociatedElement() override { deref(); }
     virtual HTMLFormElement* virtualForm() const override;
 
-    virtual FormNamedItem* asFormNamedItem() override final { return this; }
-    virtual HTMLObjectElement& asHTMLElement() override final { return *this; }
-    virtual const HTMLObjectElement& asHTMLElement() const override final { return *this; }
+    virtual FormNamedItem* asFormNamedItem() override { return this; }
+    virtual HTMLObjectElement& asHTMLElement() override { return *this; }
+    virtual const HTMLObjectElement& asHTMLElement() const override { return *this; }
 
     virtual bool isFormControlElement() const override { return false; }
 
@@ -102,8 +105,6 @@ private:
     bool m_docNamedItem : 1;
     bool m_useFallbackContent : 1;
 };
-
-NODE_TYPE_CASTS(HTMLObjectElement)
 
 }
 

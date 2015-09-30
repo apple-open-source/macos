@@ -122,14 +122,18 @@ void CSSSelectorList::deleteSelectors()
 String CSSSelectorList::selectorsText() const
 {
     StringBuilder result;
-
-    for (const CSSSelector* s = first(); s; s = next(s)) {
-        if (s != first())
-            result.append(", ");
-        result.append(s->selectorText());
-    }
-
+    buildSelectorsText(result);
     return result.toString();
+}
+
+void CSSSelectorList::buildSelectorsText(StringBuilder& stringBuilder) const
+{
+    const CSSSelector* firstSubSelector = first();
+    for (const CSSSelector* subSelector = firstSubSelector; subSelector; subSelector = CSSSelectorList::next(subSelector)) {
+        if (subSelector != firstSubSelector)
+            stringBuilder.appendLiteral(", ");
+        stringBuilder.append(subSelector->selectorText());
+    }
 }
 
 template <typename Functor>
@@ -166,7 +170,7 @@ class SelectorNeedsNamespaceResolutionFunctor {
 public:
     bool operator()(const CSSSelector* selector)
     {
-        if (selector->m_match == CSSSelector::Tag && selector->tagQName().prefix() != nullAtom && selector->tagQName().prefix() != starAtom)
+        if (selector->match() == CSSSelector::Tag && selector->tagQName().prefix() != nullAtom && selector->tagQName().prefix() != starAtom)
             return true;
         if (selector->isAttributeSelector() && selector->attribute().prefix() != nullAtom && selector->attribute().prefix() != starAtom)
             return true;

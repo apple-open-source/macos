@@ -94,7 +94,7 @@ reverse_strftime(char *nam, char **argv, char *scalar, int quiet)
 }
 
 static int
-bin_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
+output_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
 {
     int bufsize, x;
     char *endptr = NULL, *scalar = NULL, *buffer;
@@ -130,7 +130,7 @@ bin_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
     buffer = zalloc(bufsize);
 
     for (x=0; x < 4; x++) {
-        if (ztrftime(buffer, bufsize, argv[0], t) >= 0)
+        if (ztrftime(buffer, bufsize, argv[0], t, 0L) >= 0)
 	    break;
 	buffer = zrealloc(buffer, bufsize *= 2);
     }
@@ -143,6 +143,25 @@ bin_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
     zfree(buffer, bufsize);
 
     return 0;
+}
+
+static int
+bin_strftime(char *nam, char **argv, Options ops, int func)
+{
+    int result = 1;
+    char *tz = getsparam("TZ");
+
+    startparamscope();
+    if (tz && *tz) {
+	Param pm = createparam("TZ", PM_LOCAL|PM_SCALAR|PM_EXPORTED);
+	if (pm)
+	    pm->level = locallevel; /* because createparam() doesn't */
+	setsparam("TZ", ztrdup(tz));
+    }
+    result = output_strftime(nam, argv, ops, func);
+    endparamscope();
+
+    return result;
 }
 
 static zlong

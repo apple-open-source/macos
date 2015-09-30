@@ -431,8 +431,10 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
         if (msiCapability)
         {
 			IOPCIConfigShadow * shadow;
+			IOPCIConfigSave   * saved;
 
 			shadow = configShadow(device);
+			saved  = &shadow->configSave;
 			if ((kMSIX & device->reserved->msiMode)
 			  && (numVectors < msiPhysVectors))
 			{
@@ -468,9 +470,9 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 				}
 			}
 
-			shadow->savedMSIAddress0 = message[0];
-			shadow->savedMSIAddress1 = message[1];
-			shadow->savedMSIData     = message[2];
+			saved->savedMSIAddress0 = message[0];
+			saved->savedMSIAddress1 = message[1];
+			saved->savedMSIData     = message[2];
 			device->reserved->msiPhysVectorCount = msiPhysVectors;
 			device->reserved->msiVectorCount     = numVectors;
 
@@ -499,14 +501,14 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 			}
 			control &= ~((1 << 15) | 1); 			// disabled
 			device->reserved->msiControl = control;
-			initDevice(device, shadow);
+			initDevice(device, saved);
         }
     }
 
     return (ret);
 }
 
-void IOPCIMessagedInterruptController::initDevice(IOPCIDevice * device, IOPCIConfigShadow * shadow)
+void IOPCIMessagedInterruptController::initDevice(IOPCIDevice * device, IOPCIConfigSave * saved)
 {
     IOInterruptVector * vectors;
 	uint32_t            numVectors, msiPhysVectors, vector, data; 
@@ -526,10 +528,10 @@ void IOPCIMessagedInterruptController::initDevice(IOPCIDevice * device, IOPCICon
 			device->configWrite16(kIOPCIConfigCommand, cmd | kIOPCICommandMemorySpace);
 			for (vector = 0; vector < msiPhysVectors; vector++)
 			{
-				data = shadow->savedMSIData;
+				data = saved->savedMSIData;
 				if (vector < numVectors) data += vector;
-				((uint32_t *) device->reserved->msiTable)[vector*4 + 0] = shadow->savedMSIAddress0;
-				((uint32_t *) device->reserved->msiTable)[vector*4 + 1] = shadow->savedMSIAddress1;
+				((uint32_t *) device->reserved->msiTable)[vector*4 + 0] = saved->savedMSIAddress0;
+				((uint32_t *) device->reserved->msiTable)[vector*4 + 1] = saved->savedMSIAddress1;
 				((uint32_t *) device->reserved->msiTable)[vector*4 + 2] = data;
 				((uint32_t *) device->reserved->msiTable)[vector*4 + 3] = vectors[vector].interruptDisabledHard;
 			}
@@ -538,16 +540,16 @@ void IOPCIMessagedInterruptController::initDevice(IOPCIDevice * device, IOPCICon
 	}
 	else
 	{
-		device->configWrite32(msiCapability + 4, shadow->savedMSIAddress0);
+		device->configWrite32(msiCapability + 4, saved->savedMSIAddress0);
 		if (0x0080 & control)
 		{
 			// 64b
-			device->configWrite32(msiCapability + 8,  shadow->savedMSIAddress1);
-			device->configWrite16(msiCapability + 12, shadow->savedMSIData);
+			device->configWrite32(msiCapability + 8,  saved->savedMSIAddress1);
+			device->configWrite16(msiCapability + 12, saved->savedMSIData);
 		}
 		else
 		{
-			device->configWrite16(msiCapability + 8,  shadow->savedMSIData);
+			device->configWrite16(msiCapability + 8,  saved->savedMSIData);
 		}
 //		if (0x0100 & control) msiBlockSize += 2;
 	}
@@ -607,15 +609,15 @@ void IOPCIMessagedInterruptController::disableDeviceMSI(IOPCIDevice *device)
     }
 }
 
-void IOPCIMessagedInterruptController::saveDeviceState(IOPCIDevice * device, IOPCIConfigShadow * shadow)
+void IOPCIMessagedInterruptController::saveDeviceState(IOPCIDevice * device, IOPCIConfigSave * save)
 {
     if (!device->reserved->msiCapability) return;
 }
 
-void IOPCIMessagedInterruptController::restoreDeviceState(IOPCIDevice * device, IOPCIConfigShadow * shadow)
+void IOPCIMessagedInterruptController::restoreDeviceState(IOPCIDevice * device, IOPCIConfigSave * save)
 {
     if (!device->reserved->msiCapability) return;
-    initDevice(device, shadow);
+    initDevice(device, save);
 }
 
 bool IOPCIMessagedInterruptController::reserveVectors(UInt32 vector, UInt32 count)

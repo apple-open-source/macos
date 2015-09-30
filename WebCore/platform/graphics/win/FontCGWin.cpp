@@ -24,14 +24,14 @@
  */
 
 #include "config.h"
-#include "Font.h"
+#include "FontCascade.h"
 
 #include "AffineTransform.h"
 #include "FloatConversion.h"
+#include "Font.h"
 #include "GlyphBuffer.h"
 #include "GraphicsContext.h"
 #include "IntRect.h"
-#include "SimpleFontData.h"
 #include "UniscribeController.h"
 #include "WebCoreTextRenderer.h"
 #include <ApplicationServices/ApplicationServices.h>
@@ -127,7 +127,7 @@ static CGPathRef createPathForGlyph(HDC hdc, Glyph glyph)
     return path;
 }
 
-void Font::drawGlyphs(GraphicsContext* graphicsContext, const SimpleFontData* font, const GlyphBuffer& glyphBuffer, 
+void FontCascade::drawGlyphs(GraphicsContext* graphicsContext, const Font* font, const GlyphBuffer& glyphBuffer,
     int from, int numGlyphs, const FloatPoint& point) const
 {
     CGContextRef cgContext = graphicsContext->platformContext();

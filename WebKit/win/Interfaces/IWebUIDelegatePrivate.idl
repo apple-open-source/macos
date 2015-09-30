@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,6 +54,8 @@ interface IWebUIDelegatePrivate : IUnknown
     HRESULT unused2();
     HRESULT webViewScrolled([in] IWebView* sender);
     HRESULT webViewAddMessageToConsole([in] IWebView* sender, [in] BSTR message, [in] int lineNumber, [in] BSTR url, [in] BOOL isError);
+    // The following method is a no-op and is only here to maintain
+    // Interface compatibility. DO NOT USE.
     HRESULT webViewShouldInterruptJavaScript([in] IWebView* sender, [out, retval] BOOL* result);
     HRESULT webViewReceivedFocus([in] IWebView* sender);
     HRESULT webViewLostFocus([in] IWebView* sender, [in] HWND loseFocusToHWnd);

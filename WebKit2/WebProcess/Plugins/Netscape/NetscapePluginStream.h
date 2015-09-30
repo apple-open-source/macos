@@ -48,15 +48,16 @@ class NetscapePlugin;
 
 class NetscapePluginStream : public RefCounted<NetscapePluginStream> {
 public:
-    static PassRefPtr<NetscapePluginStream> create(PassRefPtr<NetscapePlugin> plugin, uint64_t streamID, const String& requestURLString, bool sendNotification, void* notificationData)
+    static Ref<NetscapePluginStream> create(PassRefPtr<NetscapePlugin> plugin, uint64_t streamID, const String& requestURLString, bool sendNotification, void* notificationData)
     {
-        return adoptRef(new NetscapePluginStream(plugin, streamID, requestURLString, sendNotification, notificationData));
+        return adoptRef(*new NetscapePluginStream(plugin, streamID, requestURLString, sendNotification, notificationData));
     }
     ~NetscapePluginStream();
 
     uint64_t streamID() const { return m_streamID; }
     const NPStream* npStream() const { return &m_npStream; }
 
+    void willSendRequest(const WebCore::URL& requestURL, const WebCore::URL& redirectResponseURL, int redirectResponseStatus);
     void didReceiveResponse(const WebCore::URL& responseURL, uint32_t streamLength,
                             uint32_t lastModifiedTime, const String& mimeType, const String& headers);
     void didReceiveData(const char* bytes, int length);
@@ -67,6 +68,7 @@ public:
 
     void stop(NPReason);
     NPError destroy(NPReason);
+    void setURL(const String& newURLString);
 
 private:
     NetscapePluginStream(PassRefPtr<NetscapePlugin>, uint64_t streamID, const String& requestURLString, bool sendNotification, void* notificationData);

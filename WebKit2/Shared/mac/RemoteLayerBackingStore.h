@@ -96,6 +96,8 @@ private:
     void drawInContext(WebCore::GraphicsContext&, CGImageRef backImage);
     void clearBackingStore();
     void swapToValidFrontBuffer();
+    
+    WebCore::IntSize backingStoreSize() const;
 
     PlatformCALayerRemote* m_layer;
 
@@ -108,7 +110,7 @@ private:
     struct Buffer {
         RefPtr<ShareableBitmap> bitmap;
 #if USE(IOSURFACE)
-        RefPtr<WebCore::IOSurface> surface;
+        std::unique_ptr<WebCore::IOSurface> surface;
         bool isVolatile = false;
 #endif
 

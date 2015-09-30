@@ -30,7 +30,6 @@
 #include "localkey.h"
 #include "server.h"
 #include "session.h"
-#include <security_agent_client/agentclient.h>
 #include <security_cdsa_utilities/acl_any.h>	// for default owner ACLs
 #include <security_cdsa_client/wrapkey.h>
 #include <security_cdsa_client/genkey.h>

@@ -702,6 +702,7 @@ callcompfunc(char *s, char *fn)
 	}
 	zsfree(compprefix);
 	zsfree(compsuffix);
+	makebangspecial(0);
 	if (unset(COMPLETEINWORD)) {
 	    tmp = (linwhat == IN_MATH ? dupstring(s) : multiquote(s, 0));
 	    untokenize(tmp);
@@ -722,6 +723,7 @@ callcompfunc(char *s, char *fn)
 	    untokenize(ss);
 	    compsuffix = ztrdup(ss);
 	}
+	makebangspecial(1);
         zsfree(complastprefix);
         zsfree(complastsuffix);
         complastprefix = ztrdup(compprefix);
@@ -1260,6 +1262,20 @@ check_param(char *s, int set, int test)
 	    ispar = (br >= 2 ? 2 : 1);
 	    b[we-wb] = '\0';
 	    return b;
+	} else if (offs > e - s && *e == ':') {
+	    /*
+	     * Guess whether we are in modifiers.
+	     * If the name is followed by a : and the stuff after
+	     * that is either colons or alphanumerics we probably are.
+	     * This is a very rough guess.
+	     */
+	    char *offsptr = s + offs;
+	    for (; e < offsptr; e++) {
+		if (*e != ':' && !ialnum(*e))
+		    break;
+	    }
+	    ispar = (br >= 2 ? 2 : 1);
+	    return NULL;
 	}
     }
     return NULL;
@@ -1508,7 +1524,7 @@ set_comp_sep(void)
     ol = zlemetaline;
     addedx = 1;
     noerrs = 1;
-    lexsave();
+    zcontext_save();
     lexflags = LEXFLAGS_ZLE;
     /*
      * tl is the length of the temporary string including
@@ -1655,9 +1671,9 @@ set_comp_sep(void)
     noaliases = ona;
     strinend();
     inpop();
-    errflag = 0;
+    errflag &= ~ERRFLAG_ERROR;
     noerrs = ne;
-    lexrestore();
+    zcontext_restore();
     wb = owb;
     we = owe;
     zlemetaline = ol;
@@ -2980,9 +2996,9 @@ mod_export void
 begcmgroup(char *n, int flags)
 {
     if (n) {
-	Cmgroup p = amatches;
-
-	while (p) {
+	/* If a group named <n> already exists, reuse it. */
+	Cmgroup p;
+	for (p = amatches; p; p = p->next) {
 #ifdef ZSH_HEAP_DEBUG
 	    if (memory_validate(p->heap_id)) {
 		HEAP_ERROR(p->heap_id);
@@ -3000,9 +3016,10 @@ begcmgroup(char *n, int flags)
 
 		return;
 	    }
-	    p = p->next;
 	}
     }
+
+    /* Create a new group. */
     mgroup = (Cmgroup) zhalloc(sizeof(struct cmgroup));
 #ifdef ZSH_HEAP_DEBUG
     mgroup->heap_id = last_heap_id;
@@ -3476,7 +3493,7 @@ freematch(Cmatch m, int nbeg, int nend)
     if (m->brsl)
 	zfree(m->brsl, nend * sizeof(int));
 
-    zfree(m, sizeof(m));
+    zfree(m, sizeof(*m));
 }
 
 /* This frees the groups of matches. */

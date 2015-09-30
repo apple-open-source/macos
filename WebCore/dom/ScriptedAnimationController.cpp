@@ -34,6 +34,8 @@
 #include "DocumentLoader.h"
 #include "FrameView.h"
 #include "InspectorInstrumentation.h"
+#include "Logging.h"
+#include "MainFrame.h"
 #include "RequestAnimationFrameCallback.h"
 #include "Settings.h"
 #include <wtf/Ref.h>
@@ -52,7 +54,7 @@ namespace WebCore {
 ScriptedAnimationController::ScriptedAnimationController(Document* document, PlatformDisplayID displayID)
     : m_document(document)
 #if USE(REQUEST_ANIMATION_FRAME_TIMER)
-    , m_animationTimer(this, &ScriptedAnimationController::animationTimerFired)
+    , m_animationTimer(*this, &ScriptedAnimationController::animationTimerFired)
 #endif
 {
     windowScreenDidChange(displayID);
@@ -84,6 +86,8 @@ void ScriptedAnimationController::setThrottled(bool isThrottled)
     if (m_isThrottled == isThrottled)
         return;
 
+    LOG(Animations, "%p - Setting RequestAnimationFrame throttling state to %d in frame %p (isMainFrame: %d)", this, isThrottled, m_document->frame(), m_document->frame() ? m_document->frame()->isMainFrame() : 0);
+
     m_isThrottled = isThrottled;
     if (m_animationTimer.isActive()) {
         m_animationTimer.stop();
@@ -91,6 +95,15 @@ void ScriptedAnimationController::setThrottled(bool isThrottled)
     }
 #else
     UNUSED_PARAM(isThrottled);
+#endif
+}
+
+bool ScriptedAnimationController::isThrottled() const
+{
+#if USE(REQUEST_ANIMATION_FRAME_TIMER) && USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    return m_isThrottled;
+#else
+    return false;
 #endif
 }
 
@@ -125,8 +138,8 @@ void ScriptedAnimationController::serviceScriptedAnimations(double monotonicTime
     if (!m_callbacks.size() || m_suspendCount || (m_document->settings() && !m_document->settings()->requestAnimationFrameEnabled()))
         return;
 
-    double highResNowMs = 1000.0 * m_document->loader()->timing()->monotonicTimeToZeroBasedDocumentTime(monotonicTimeNow);
-    double legacyHighResNowMs = 1000.0 * m_document->loader()->timing()->monotonicTimeToPseudoWallTime(monotonicTimeNow);
+    double highResNowMs = 1000.0 * m_document->loader()->timing().monotonicTimeToZeroBasedDocumentTime(monotonicTimeNow);
+    double legacyHighResNowMs = 1000.0 * m_document->loader()->timing().monotonicTimeToPseudoWallTime(monotonicTimeNow);
 
     // First, generate a list of callbacks to consider.  Callbacks registered from this point
     // on are considered only for the "next" frame, not this one.
@@ -204,7 +217,7 @@ void ScriptedAnimationController::scheduleAnimation()
 }
 
 #if USE(REQUEST_ANIMATION_FRAME_TIMER)
-void ScriptedAnimationController::animationTimerFired(Timer&)
+void ScriptedAnimationController::animationTimerFired()
 {
     m_lastAnimationFrameTimeMonotonic = monotonicallyIncreasingTime();
     serviceScriptedAnimations(m_lastAnimationFrameTimeMonotonic);

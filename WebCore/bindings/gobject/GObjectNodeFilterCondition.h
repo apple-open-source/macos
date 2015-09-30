@@ -24,7 +24,7 @@
 #include "WebKitDOMNodeFilter.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RetainPtr.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 
 namespace WebCore {
 class Node;
@@ -32,9 +32,9 @@ class Node;
 class GObjectNodeFilterCondition : public NodeFilterCondition {
 public:
 
-    static PassRefPtr<GObjectNodeFilterCondition> create(WebKitDOMNodeFilter* filter)
+    static Ref<GObjectNodeFilterCondition> create(WebKitDOMNodeFilter* filter)
     {
-        return adoptRef(new GObjectNodeFilterCondition(filter));
+        return adoptRef(*new GObjectNodeFilterCondition(filter));
     }
 
     virtual short acceptNode(JSC::ExecState*, Node*) const;

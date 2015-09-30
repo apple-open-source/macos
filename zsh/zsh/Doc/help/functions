@@ -1,7 +1,7 @@
-functions [ {+|-}UXkmtTuz ] [ name ... ]
+functions [ {+|-}UkmtTuz ] [ name ... ]
 functions -M mathfn [ min [ max [ shellfn ] ] ]
 functions -M [ -m pattern ... ]
-functions +M [ -m ] mathfn
+functions +M [ -m ] mathfn ...
        Equivalent to typeset -f, with the exception of the  -M  option.
        Use of the -M option may not be combined with any of the options
        handled by typeset -f.
@@ -19,8 +19,7 @@ functions +M [ -m ] mathfn
        corresponding shell function while mathfn remains the name  used
        in  arithmetical expressions.  The name of the function in $0 is
        mathfn (not shellfn as would usually be the case), provided  the
-       option FUNCTION ARGZERO is in effect.  The positional parameters
-                      -
+       option FUNCTION_ARGZERO is in effect.  The positional parameters
        in the shell function correspond to the arguments of the  mathe-
        matical  function  call.   The  result  of the last arithmetical
        expression evaluated inside the shell function (even if it is  a
@@ -40,13 +39,11 @@ functions +M [ -m ] mathfn
 
        For example, the following prints the cube of 3:
 
-              zmath cube() { (( $1 * $1 * $1 )) }
-                   -
-              functions -M cube 1 1 zmath cube
-                                         -
+              zmath_cube() { (( $1 * $1 * $1 )) }
+              functions -M cube 1 1 zmath_cube
               print $(( cube(3) ))
 
-autoload [ {+|-}UXkmtz ] [ -w ] [ name ... ]
+autoload [ {+|-}TUXkmtz ] [ -w ] [ name ... ]
        Equivalent to functions -u, with the exception of -X/+X and -w.
 
        The flag -X may be used only inside a shell  function,  and  may
@@ -77,8 +74,7 @@ autoload [ {+|-}UXkmtz ] [ -w ] [ name ... ]
        marked for autoloading.
 
        The flags -z and -k mark the function to be autoloaded using the
-       zsh or ksh style, as if the option KSH AUTOLOAD  were  unset  or
-                                             -
+       zsh or ksh style, as if the option KSH_AUTOLOAD  were  unset  or
        were  set,  respectively.  The flags override the setting of the
        option at the time the function is loaded.
 

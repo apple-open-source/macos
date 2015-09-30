@@ -26,12 +26,10 @@
 #ifndef CustomProtocolManager_h
 #define CustomProtocolManager_h
 
-#if ENABLE(CUSTOM_PROTOCOLS)
-
 #include "Connection.h"
 #include "NetworkProcessSupplement.h"
 #include "WebProcessSupplement.h"
-#include "WorkQueue.h"
+#include <wtf/WorkQueue.h>
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(COCOA)
@@ -90,7 +88,7 @@ private:
 #endif
 
     // IPC::MessageReceiver
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
     void didFailWithError(uint64_t customProtocolID, const WebCore::ResourceError&);
     void didLoadData(uint64_t customProtocolID, const IPC::DataReference&);
@@ -118,7 +116,5 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // ENABLE(CUSTOM_PROTOCOLS)
 
 #endif // CustomProtocolManager_h

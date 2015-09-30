@@ -72,11 +72,15 @@
 
 .CodeMirror .CodeMirror-linenumber {
     padding: 0 2px;
-    min-width: 21px;
+    min-width: 22px;
 
     color: rgb(146, 146, 146);
 
     font-size: 9px;
     line-height: 13px;
     text-align: right;
+}
+
+.CodeMirror-linewidget {
+    -webkit-user-select: text;
 }

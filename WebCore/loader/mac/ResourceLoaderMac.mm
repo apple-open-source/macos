@@ -29,19 +29,13 @@
 #include "config.h"
 #include "ResourceLoader.h"
 
+#include "CFNetworkSPI.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include "SharedBuffer.h"
 
 #if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
 #include "InspectorInstrumentation.h"
-#include "ResourceBuffer.h"
-#endif
-
-#if USE(CFNETWORK)
-@interface NSCachedURLResponse (Details)
--(id)_initWithCFCachedURLResponse:(CFCachedURLResponseRef)cachedResponse;
--(CFCachedURLResponseRef)_CFCachedURLResponse;
-@end
 #endif
 
 namespace WebCore {
@@ -83,7 +77,7 @@ void ResourceLoader::didReceiveDataArray(CFArrayRef dataArray)
 
         if (m_options.dataBufferingPolicy() == BufferData) {
             if (!m_resourceData)
-                m_resourceData = ResourceBuffer::create();
+                m_resourceData = SharedBuffer::create();
             m_resourceData->append(data);
         }
 
@@ -104,11 +98,7 @@ void ResourceLoader::didReceiveDataArray(ResourceHandle*, CFArrayRef dataArray)
         dataLength += CFDataGetLength(data);
     }
 
-    // FIXME: didReceiveData() passes encoded data length to InspectorInstrumentation, but it is not available here.
-    // This probably results in incorrect size being displayed in Web Inspector.
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceData(m_frame.get(), identifier(), dataLength);
     didReceiveDataArray(dataArray);
-    InspectorInstrumentation::didReceiveResourceData(cookie);
 }
 
 #endif

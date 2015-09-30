@@ -47,7 +47,7 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_names_for_mech (
             gss_OID_set * name_types
            )
 {
-    OM_uint32 ret;
+    OM_uint32 ret, junk;
     int i;
 
     *minor_status = 0;
@@ -71,7 +71,7 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_names_for_mech (
     }
 
     if (ret != GSS_S_COMPLETE)
-	gss_release_oid_set(NULL, name_types);
+	gss_release_oid_set(&junk, name_types);
 
     return GSS_S_COMPLETE;
 }

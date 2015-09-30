@@ -40,9 +40,9 @@
 
 namespace WebCore {
 
-PassRefPtr<MediaKeySession> MediaKeySession::create(ScriptExecutionContext* context, MediaKeys* keys, const String& keySystem)
+Ref<MediaKeySession> MediaKeySession::create(ScriptExecutionContext* context, MediaKeys* keys, const String& keySystem)
 {
-    auto session = adoptRef(new MediaKeySession(context, keys, keySystem));
+    auto session = adoptRef(*new MediaKeySession(context, keys, keySystem));
     session->suspendIfNeeded();
     return session;
 }
@@ -53,8 +53,8 @@ MediaKeySession::MediaKeySession(ScriptExecutionContext* context, MediaKeys* key
     , m_keySystem(keySystem)
     , m_asyncEventQueue(*this)
     , m_session(keys->cdm()->createSession())
-    , m_keyRequestTimer(this, &MediaKeySession::keyRequestTimerFired)
-    , m_addKeyTimer(this, &MediaKeySession::addKeyTimerFired)
+    , m_keyRequestTimer(*this, &MediaKeySession::keyRequestTimerFired)
+    , m_addKeyTimer(*this, &MediaKeySession::addKeyTimerFired)
 {
     m_session->setClient(this);
 }
@@ -80,6 +80,11 @@ void MediaKeySession::close()
         m_session->releaseKeys();
 }
 
+RefPtr<ArrayBuffer> MediaKeySession::cachedKeyForKeyId(const String& keyId) const
+{
+    return m_session ? m_session->cachedKeyForKeyID(keyId) : nullptr;
+}
+
 const String& MediaKeySession::sessionId() const
 {
     return m_session->sessionId();
@@ -91,7 +96,7 @@ void MediaKeySession::generateKeyRequest(const String& mimeType, Uint8Array* ini
     m_keyRequestTimer.startOneShot(0);
 }
 
-void MediaKeySession::keyRequestTimerFired(Timer&)
+void MediaKeySession::keyRequestTimerFired()
 {
     ASSERT(m_pendingKeyRequests.size());
     if (!m_session)
@@ -149,7 +154,7 @@ void MediaKeySession::update(Uint8Array* key, ExceptionCode& ec)
     m_addKeyTimer.startOneShot(0);
 }
 
-void MediaKeySession::addKeyTimerFired(Timer&)
+void MediaKeySession::addKeyTimerFired()
 {
     ASSERT(m_pendingKeys.size());
     if (!m_session)
@@ -184,6 +189,8 @@ void MediaKeySession::addKeyTimerFired(Timer&)
             RefPtr<Event> keyaddedEvent = Event::create(eventNames().webkitkeyaddedEvent, false, false);
             keyaddedEvent->setTarget(this);
             m_asyncEventQueue.enqueueEvent(keyaddedEvent.release());
+
+            keys()->keyAdded();
         }
 
         // 2.8. If any of the preceding steps in the task failed
@@ -214,8 +221,8 @@ void MediaKeySession::sendMessage(Uint8Array* message, String destinationURL)
 
 void MediaKeySession::sendError(CDMSessionClient::MediaKeyErrorCode errorCode, unsigned long systemCode)
 {
-    RefPtr<MediaKeyError> error = MediaKeyError::create(errorCode, systemCode).get();
-    setError(error.get());
+    Ref<MediaKeyError> error = MediaKeyError::create(errorCode, systemCode).get();
+    setError(error.ptr());
 
     RefPtr<Event> keyerrorEvent = Event::create(eventNames().webkitkeyerrorEvent, false, false);
     keyerrorEvent->setTarget(this);
@@ -224,7 +231,7 @@ void MediaKeySession::sendError(CDMSessionClient::MediaKeyErrorCode errorCode, u
 
 String MediaKeySession::mediaKeysStorageDirectory() const
 {
-    Document* document = toDocument(scriptExecutionContext());
+    Document* document = downcast<Document>(scriptExecutionContext());
     if (!document)
         return emptyString();
 
@@ -241,6 +248,27 @@ String MediaKeySession::mediaKeysStorageDirectory() const
         return emptyString();
 
     return pathByAppendingComponent(storageDirectory, origin->databaseIdentifier());
+}
+
+bool MediaKeySession::hasPendingActivity() const
+{
+    return (m_keys && !isClosed()) || m_asyncEventQueue.hasPendingEvents();
+}
+
+void MediaKeySession::stop()
+{
+    close();
+}
+
+const char* MediaKeySession::activeDOMObjectName() const
+{
+    return "MediaKeySession";
+}
+
+bool MediaKeySession::canSuspendForPageCache() const
+{
+    // FIXME: We should try and do better here.
+    return false;
 }
 
 }

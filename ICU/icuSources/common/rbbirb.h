@@ -145,6 +145,9 @@ public:
                                                      // immediate break, no continuing for the
                                                      // longest match.
 
+    UBool                         fRINoChain;        // True:  suppress chaining of rules on chars
+                                                     //   with (grapheme/word/line)break property == RI.
+
     RBBISetBuilder                *fSetBuilder;      // Set and Character Category builder.
     UVector                       *fUSetNodes;       // Vector of all uset nodes.
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2011, 2012, 2013, 2014 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2015 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -138,7 +138,7 @@ macro cCall4(function, arg1, arg2, arg3, arg4)
     end
 end
 
-macro doCallToJavaScript(makeCall)
+macro doVMEntry(makeCall)
     if X86_64
         const entry = t4
         const vm = t5
@@ -171,46 +171,28 @@ macro doCallToJavaScript(makeCall)
         const temp3 = t6
     end
 
-    callToJavaScriptPrologue()
+    functionPrologue()
+    pushCalleeSaves()
 
-    if X86_64
-        loadp 7*8[sp], previousPC
-        move 6*8[sp], previousCFR
-    elsif X86_64_WIN
-        # Win64 pushes two more registers
-        loadp 9*8[sp], previousPC
-        move 8*8[sp], previousCFR
-    elsif ARM64
-        move cfr, previousCFR
-    end
+    vmEntryRecord(cfr, sp)
 
     checkStackPointerAlignment(temp2, 0xbad0dc01)
 
-    # The stack reserved zone ensures that we have adequate space for the
-    # VMEntrySentinelFrame. Proceed with allocating and initializing the
-    # sentinel frame.
-    move sp, cfr
-    subp CallFrameHeaderSlots * 8, cfr
-    storep 0, ArgumentCount[cfr]
-    storep vm, Callee[cfr]
+    storep vm, VMEntryRecord::m_vm[sp]
     loadp VM::topCallFrame[vm], temp2
-    storep temp2, ScopeChain[cfr]
-    storep 1, CodeBlock[cfr]
-
-    storep previousPC, ReturnPC[cfr]
-    storep previousCFR, CallerFrame[cfr]
+    storep temp2, VMEntryRecord::m_prevTopCallFrame[sp]
+    loadp VM::topVMEntryFrame[vm], temp2
+    storep temp2, VMEntryRecord::m_prevTopVMEntryFrame[sp]
 
     loadi ProtoCallFrame::paddedArgCount[protoCallFrame], temp2
     addp CallFrameHeaderSlots, temp2, temp2
     lshiftp 3, temp2
-    subp cfr, temp2, temp1
+    subp sp, temp2, temp1
 
     # Ensure that we have enough additional stack capacity for the incoming args,
     # and the frame for the JS code we're executing. We need to do this check
     # before we start copying the args from the protoCallFrame below.
     bpaeq temp1, VM::m_jsStackLimit[vm], .stackHeightOK
-
-    move cfr, sp
 
     if C_LOOP
         move entry, temp2
@@ -227,12 +209,24 @@ macro doCallToJavaScript(makeCall)
     end
 
     cCall2(_llint_throw_stack_overflow_error, vm, protoCallFrame)
-    callToJavaScriptEpilogue()
+
+    vmEntryRecord(cfr, temp2)
+
+    loadp VMEntryRecord::m_vm[temp2], vm
+    loadp VMEntryRecord::m_prevTopCallFrame[temp2], temp3
+    storep temp3, VM::topCallFrame[vm]
+    loadp VMEntryRecord::m_prevTopVMEntryFrame[temp2], temp3
+    storep temp3, VM::topVMEntryFrame[vm]
+
+    subp cfr, CalleeRegisterSaveSize, sp
+
+    popCalleeSaves()
+    functionEpilogue()
     ret
 
 .stackHeightOK:
     move temp1, sp
-    move 5, temp1
+    move 4, temp1
 
 .copyHeaderLoop:
     subi 1, temp1
@@ -269,6 +263,7 @@ macro doCallToJavaScript(makeCall)
     else
         storep sp, VM::topCallFrame[vm]
     end
+    storep cfr, VM::topVMEntryFrame[vm]
 
     move 0xffff000000000000, csr1
     addp 2, csr1, csr2
@@ -279,20 +274,18 @@ macro doCallToJavaScript(makeCall)
 
     checkStackPointerAlignment(temp3, 0xbad0dc03)
 
-    bpeq CodeBlock[cfr], 1, .calleeFramePopped
-    loadp CallerFrame[cfr], cfr
+    vmEntryRecord(cfr, temp2)
 
-.calleeFramePopped:
-    loadp Callee[cfr], temp2 # VM
-    loadp ScopeChain[cfr], temp3 # previous topCallFrame
-    storep temp3, VM::topCallFrame[temp2]
+    loadp VMEntryRecord::m_vm[temp2], vm
+    loadp VMEntryRecord::m_prevTopCallFrame[temp2], temp3
+    storep temp3, VM::topCallFrame[vm]
+    loadp VMEntryRecord::m_prevTopVMEntryFrame[temp2], temp3
+    storep temp3, VM::topVMEntryFrame[vm]
 
-    checkStackPointerAlignment(temp3, 0xbad0dc04)
+    subp cfr, CalleeRegisterSaveSize, sp
 
-    if X86_64 or X86_64_WIN
-        pop t5
-    end
-    callToJavaScriptEpilogue()
+    popCalleeSaves()
+    functionEpilogue()
 
     ret
 end
@@ -311,6 +304,7 @@ end
 
 macro makeHostFunctionCall(entry, temp)
     move entry, temp
+    storep cfr, [sp]
     if X86_64
         move sp, t4
     elsif X86_64_WIN
@@ -319,46 +313,38 @@ macro makeHostFunctionCall(entry, temp)
         move sp, a0
     end
     if C_LOOP
-        storep cfr, [sp]
         storep lr, 8[sp]
         cloopCallNative temp
     elsif X86_64_WIN
-        # For a host function call, JIT relies on that the CallerFrame (frame pointer) is put on the stack,
-        # On Win64 we need to manually copy the frame pointer to the stack, since MSVC may not maintain a frame pointer on 64-bit.
-        # See http://msdn.microsoft.com/en-us/library/9z1stfyw.aspx where it's stated that rbp MAY be used as a frame pointer.
-        storep cfr, [sp]
-
         # We need to allocate 32 bytes on the stack for the shadow space.
         subp 32, sp
         call temp
         addp 32, sp
     else
-        addp 16, sp
         call temp
-        subp 16, sp
     end
 end
 
 
 _handleUncaughtException:
-    loadp ScopeChain[cfr], t3
+    loadp Callee[cfr], t3
     andp MarkedBlockMask, t3
     loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t3], t3
     loadp VM::callFrameForThrow[t3], cfr
 
-    # So far, we've unwound the stack to the frame just below the sentinel frame, except
-    # in the case of stack overflow in the first function called from callToJavaScript.
-    # Check if we need to pop to the sentinel frame and do the necessary clean up for
-    # returning to the caller C frame.
-    bpeq CodeBlock[cfr], 1, .handleUncaughtExceptionAlreadyIsSentinel
     loadp CallerFrame[cfr], cfr
-.handleUncaughtExceptionAlreadyIsSentinel:
+    vmEntryRecord(cfr, t2)
 
-    loadp Callee[cfr], t3 # VM
-    loadp ScopeChain[cfr], t5 # previous topCallFrame
+    loadp VMEntryRecord::m_vm[t2], t3
+    loadp VMEntryRecord::m_prevTopCallFrame[t2], t5
     storep t5, VM::topCallFrame[t3]
+    loadp VMEntryRecord::m_prevTopVMEntryFrame[t2], t5
+    storep t5, VM::topVMEntryFrame[t3]
 
-    callToJavaScriptEpilogue()
+    subp cfr, CalleeRegisterSaveSize, sp
+
+    popCalleeSaves()
+    functionEpilogue()
     ret
 
 
@@ -592,7 +578,7 @@ macro functionArityCheck(doneLabel, slowPath)
 end
 
 macro branchIfException(label)
-    loadp ScopeChain[cfr], t3
+    loadp Callee[cfr], t3
     andp MarkedBlockMask, t3
     loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t3], t3
     btqz VM::m_exception[t3], .noException
@@ -621,28 +607,18 @@ _llint_op_enter:
     dispatch(1)
 
 
-_llint_op_create_activation:
+_llint_op_create_lexical_environment:
     traceExecution()
-    loadisFromInstruction(1, t0)
-    bqneq [cfr, t0, 8], ValueEmpty, .opCreateActivationDone
-    callSlowPath(_llint_slow_path_create_activation)
-.opCreateActivationDone:
-    dispatch(2)
+    callSlowPath(_llint_slow_path_create_lexical_environment)
+    dispatch(3)
 
 
-_llint_op_init_lazy_reg:
+_llint_op_get_scope:
     traceExecution()
-    loadisFromInstruction(1, t0)
-    storeq ValueEmpty, [cfr, t0, 8]
-    dispatch(2)
-
-
-_llint_op_create_arguments:
-    traceExecution()
-    loadisFromInstruction(1, t0)
-    bqneq [cfr, t0, 8], ValueEmpty, .opCreateArgumentsDone
-    callSlowPath(_slow_path_create_arguments)
-.opCreateArgumentsDone:
+    loadp Callee[cfr], t0
+    loadp JSCallee::m_scope[t0], t0
+    loadisFromInstruction(1, t1)
+    storeq t0, [cfr, t1, 8]
     dispatch(2)
 
 
@@ -650,31 +626,24 @@ _llint_op_create_this:
     traceExecution()
     loadisFromInstruction(2, t0)
     loadp [cfr, t0, 8], t0
-    loadp JSFunction::m_allocationProfile + ObjectAllocationProfile::m_allocator[t0], t1
-    loadp JSFunction::m_allocationProfile + ObjectAllocationProfile::m_structure[t0], t2
+    loadp JSFunction::m_rareData[t0], t4
+    btpz t4, .opCreateThisSlow
+    loadp FunctionRareData::m_allocationProfile + ObjectAllocationProfile::m_allocator[t4], t1
+    loadp FunctionRareData::m_allocationProfile + ObjectAllocationProfile::m_structure[t4], t2
     btpz t1, .opCreateThisSlow
+    loadpFromInstruction(4, t4)
+    bpeq t4, 1, .hasSeenMultipleCallee
+    bpneq t4, t0, .opCreateThisSlow
+.hasSeenMultipleCallee:
     allocateJSObject(t1, t2, t0, t3, .opCreateThisSlow)
     loadisFromInstruction(1, t1)
     storeq t0, [cfr, t1, 8]
-    dispatch(4)
+    dispatch(5)
 
 .opCreateThisSlow:
     callSlowPath(_slow_path_create_this)
-    dispatch(4)
+    dispatch(5)
 
-
-_llint_op_get_callee:
-    traceExecution()
-    loadisFromInstruction(1, t0)
-    loadp Callee[cfr], t1
-    loadpFromInstruction(2, t2)
-    bpneq t1, t2, .opGetCalleeSlow
-    storep t1, [cfr, t0, 8]
-    dispatch(3)
-
-.opGetCalleeSlow:
-    callSlowPath(_slow_path_get_callee)
-    dispatch(3)
 
 _llint_op_to_this:
     traceExecution()
@@ -685,11 +654,11 @@ _llint_op_to_this:
     loadStructureWithScratch(t0, t1, t2)
     loadpFromInstruction(2, t2)
     bpneq t1, t2, .opToThisSlow
-    dispatch(3)
+    dispatch(4)
 
 .opToThisSlow:
     callSlowPath(_slow_path_to_this)
-    dispatch(3)
+    dispatch(4)
 
 
 _llint_op_new_object:
@@ -707,6 +676,17 @@ _llint_op_new_object:
     dispatch(4)
 
 
+_llint_op_check_tdz:
+    traceExecution()
+    loadpFromInstruction(1, t0)
+    loadq [cfr, t0, 8], t0
+    bqneq t0, ValueEmpty, .opNotTDZ
+    callSlowPath(_slow_path_throw_tdz_error)
+
+.opNotTDZ:
+    dispatch(2)
+
+
 _llint_op_mov:
     traceExecution()
     loadisFromInstruction(2, t1)
@@ -714,30 +694,6 @@ _llint_op_mov:
     loadConstantOrVariable(t1, t2)
     storeq t2, [cfr, t0, 8]
     dispatch(3)
-
-
-macro notifyWrite(set, value, scratch, slow)
-    loadb VariableWatchpointSet::m_state[set], scratch
-    bieq scratch, IsInvalidated, .done
-    bqneq value, VariableWatchpointSet::m_inferredValue[set], slow
-.done:
-end
-
-_llint_op_captured_mov:
-    traceExecution()
-    loadisFromInstruction(2, t1)
-    loadConstantOrVariable(t1, t2)
-    loadpFromInstruction(3, t0)
-    btpz t0, .opCapturedMovReady
-    notifyWrite(t0, t2, t1, .opCapturedMovSlow)
-.opCapturedMovReady:
-    loadisFromInstruction(1, t0)
-    storeq t2, [cfr, t0, 8]
-    dispatch(4)
-
-.opCapturedMovSlow:
-    callSlowPath(_slow_path_captured_mov)
-    dispatch(4)
 
 
 _llint_op_not:
@@ -900,6 +856,22 @@ _llint_op_to_number:
 
 .opToNumberSlow:
     callSlowPath(_slow_path_to_number)
+    dispatch(3)
+
+
+_llint_op_to_string:
+    traceExecution()
+    loadisFromInstruction(2, t1)
+    loadisFromInstruction(1, t2)
+    loadConstantOrVariable(t1, t0)
+    btqnz t0, tagMask, .opToStringSlow
+    bbneq JSCell::m_type[t0], StringType, .opToStringSlow
+.opToStringIsString:
+    storeq t0, [cfr, t2, 8]
+    dispatch(3)
+
+.opToStringSlow:
+    callSlowPath(_slow_path_to_string)
     dispatch(3)
 
 
@@ -1230,6 +1202,21 @@ _llint_op_is_string:
     dispatch(3)
 
 
+_llint_op_is_object:
+    traceExecution()
+    loadisFromInstruction(2, t1)
+    loadisFromInstruction(1, t2)
+    loadConstantOrVariable(t1, t0)
+    btqnz t0, tagMask, .opIsObjectNotCell
+    cbaeq JSCell::m_type[t0], ObjectType, t1
+    orq ValueFalse, t1
+    storeq t1, [cfr, t2, 8]
+    dispatch(3)
+.opIsObjectNotCell:
+    storeq ValueFalse, [cfr, t2, 8]
+    dispatch(3)
+
+
 macro loadPropertyAtVariableOffset(propertyOffsetAsInt, objectAndStorage, value)
     bilt propertyOffsetAsInt, firstOutOfLineOffset, .isInline
     loadp JSObject::m_butterfly[objectAndStorage], objectAndStorage
@@ -1323,22 +1310,6 @@ _llint_op_get_array_length:
 .opGetArrayLengthSlow:
     callSlowPath(_llint_slow_path_get_by_id)
     dispatch(9)
-
-
-_llint_op_get_arguments_length:
-    traceExecution()
-    loadisFromInstruction(2, t0)
-    loadisFromInstruction(1, t1)
-    btqnz [cfr, t0, 8], .opGetArgumentsLengthSlow
-    loadi ArgumentCount + PayloadOffset[cfr], t2
-    subi 1, t2
-    orq tagTypeNumber, t2
-    storeq t2, [cfr, t1, 8]
-    dispatch(4)
-
-.opGetArgumentsLengthSlow:
-    callSlowPath(_llint_slow_path_get_arguments_length)
-    dispatch(4)
 
 
 macro putById(getPropertyStorage)
@@ -1485,61 +1456,6 @@ _llint_op_get_by_val:
 .opGetByValSlow:
     callSlowPath(_llint_slow_path_get_by_val)
     dispatch(6)
-
-
-_llint_op_get_argument_by_val:
-    # FIXME: At some point we should array profile this. Right now it isn't necessary
-    # since the DFG will never turn a get_argument_by_val into a GetByVal.
-    traceExecution()
-    loadisFromInstruction(2, t0)
-    loadisFromInstruction(3, t1)
-    btqnz [cfr, t0, 8], .opGetArgumentByValSlow
-    loadConstantOrVariableInt32(t1, t2, .opGetArgumentByValSlow)
-    addi 1, t2
-    loadi ArgumentCount + PayloadOffset[cfr], t1
-    biaeq t2, t1, .opGetArgumentByValSlow
-    loadisFromInstruction(1, t3)
-    loadpFromInstruction(5, t1)
-    loadq ThisArgumentOffset[cfr, t2, 8], t0
-    storeq t0, [cfr, t3, 8]
-    valueProfile(t0, 5, t1)
-    dispatch(6)
-
-.opGetArgumentByValSlow:
-    callSlowPath(_llint_slow_path_get_argument_by_val)
-    dispatch(6)
-
-
-_llint_op_get_by_pname:
-    traceExecution()
-    loadisFromInstruction(3, t1)
-    loadConstantOrVariable(t1, t0)
-    loadisFromInstruction(4, t1)
-    assertNotConstant(t1)
-    bqneq t0, [cfr, t1, 8], .opGetByPnameSlow
-    loadisFromInstruction(2, t2)
-    loadisFromInstruction(5, t3)
-    loadConstantOrVariableCell(t2, t0, .opGetByPnameSlow)
-    assertNotConstant(t3)
-    loadq [cfr, t3, 8], t1
-    loadStructureWithScratch(t0, t2, t3)
-    bpneq t2, JSPropertyNameIterator::m_cachedStructure[t1], .opGetByPnameSlow
-    loadisFromInstruction(6, t3)
-    loadi PayloadOffset[cfr, t3, 8], t3
-    subi 1, t3
-    biaeq t3, JSPropertyNameIterator::m_numCacheableSlots[t1], .opGetByPnameSlow
-    bilt t3, JSPropertyNameIterator::m_cachedStructureInlineCapacity[t1], .opGetByPnameInlineProperty
-    addi firstOutOfLineOffset, t3
-    subi JSPropertyNameIterator::m_cachedStructureInlineCapacity[t1], t3
-.opGetByPnameInlineProperty:
-    loadPropertyAtVariableOffset(t3, t0, t0)
-    loadisFromInstruction(1, t1)
-    storeq t0, [cfr, t1, 8]
-    dispatch(7)
-
-.opGetByPnameSlow:
-    callSlowPath(_llint_slow_path_get_by_pname)
-    dispatch(7)
 
 
 macro contiguousPutByVal(storeCallback)
@@ -1823,24 +1739,6 @@ _llint_op_switch_char:
     dispatch(0)
 
 
-_llint_op_new_func:
-    traceExecution()
-    loadisFromInstruction(3, t2)
-    btiz t2, .opNewFuncUnchecked
-    loadisFromInstruction(1, t1)
-    btqnz [cfr, t1, 8], .opNewFuncDone
-.opNewFuncUnchecked:
-    callSlowPath(_llint_slow_path_new_func)
-.opNewFuncDone:
-    dispatch(4)
-
-
-_llint_op_new_captured_func:
-    traceExecution()
-    callSlowPath(_slow_path_new_captured_func)
-    dispatch(4)
-
-
 macro arrayProfileForCall()
     loadisFromInstruction(4, t3)
     negp t3
@@ -1862,9 +1760,7 @@ macro doCall(slowPath)
     lshifti 3, t3
     negp t3
     addp cfr, t3
-    loadp JSFunction::m_scope[t2], t0
     storeq t2, Callee[t3]
-    storeq t0, ScopeChain[t3]
     loadisFromInstruction(3, t2)
     storei PC, ArgumentCount + TagOffset[cfr]
     storei t2, ArgumentCount + PayloadOffset[t3]
@@ -1876,44 +1772,10 @@ macro doCall(slowPath)
 end
 
 
-_llint_op_tear_off_activation:
-    traceExecution()
-    loadisFromInstruction(1, t0)
-    btqz [cfr, t0, 8], .opTearOffActivationNotCreated
-    callSlowPath(_llint_slow_path_tear_off_activation)
-.opTearOffActivationNotCreated:
-    dispatch(2)
-
-
-_llint_op_tear_off_arguments:
-    traceExecution()
-    loadisFromInstruction(1, t0)
-    addq 1, t0   # Get the unmodifiedArgumentsRegister
-    btqz [cfr, t0, 8], .opTearOffArgumentsNotCreated
-    callSlowPath(_llint_slow_path_tear_off_arguments)
-.opTearOffArgumentsNotCreated:
-    dispatch(3)
-
-
 _llint_op_ret:
     traceExecution()
     checkSwitchToJITForEpilogue()
     loadisFromInstruction(1, t2)
-    loadConstantOrVariable(t2, t0)
-    doReturn()
-
-
-_llint_op_ret_object_or_this:
-    traceExecution()
-    checkSwitchToJITForEpilogue()
-    loadisFromInstruction(1, t2)
-    loadConstantOrVariable(t2, t0)
-    btqnz t0, tagMask, .opRetObjectOrThisNotObject
-    bbb JSCell::m_type[t0], ObjectType, .opRetObjectOrThisNotObject
-    doReturn()
-
-.opRetObjectOrThisNotObject:
-    loadisFromInstruction(2, t2)
     loadConstantOrVariable(t2, t0)
     doReturn()
 
@@ -1924,7 +1786,7 @@ _llint_op_to_primitive:
     loadisFromInstruction(1, t3)
     loadConstantOrVariable(t2, t0)
     btqnz t0, tagMask, .opToPrimitiveIsImm
-    bbneq JSCell::m_type[t0], StringType, .opToPrimitiveSlowCase
+    bbaeq JSCell::m_type[t0], ObjectType, .opToPrimitiveSlowCase
 .opToPrimitiveIsImm:
     storeq t0, [cfr, t3, 8]
     dispatch(3)
@@ -1932,49 +1794,6 @@ _llint_op_to_primitive:
 .opToPrimitiveSlowCase:
     callSlowPath(_slow_path_to_primitive)
     dispatch(3)
-
-
-_llint_op_next_pname:
-    traceExecution()
-    loadisFromInstruction(3, t1)
-    loadisFromInstruction(4, t2)
-    assertNotConstant(t1)
-    assertNotConstant(t2)
-    loadi PayloadOffset[cfr, t1, 8], t0
-    bieq t0, PayloadOffset[cfr, t2, 8], .opNextPnameEnd
-    loadisFromInstruction(5, t2)
-    assertNotConstant(t2)
-    loadp [cfr, t2, 8], t2
-    loadp JSPropertyNameIterator::m_jsStrings[t2], t3
-    loadq [t3, t0, 8], t3
-    addi 1, t0
-    storei t0, PayloadOffset[cfr, t1, 8]
-    loadisFromInstruction(1, t1)
-    storeq t3, [cfr, t1, 8]
-    loadisFromInstruction(2, t3)
-    assertNotConstant(t3)
-    loadq [cfr, t3, 8], t3
-    loadStructureWithScratch(t3, t1, t0)
-    bpneq t1, JSPropertyNameIterator::m_cachedStructure[t2], .opNextPnameSlow
-    loadp JSPropertyNameIterator::m_cachedPrototypeChain[t2], t0
-    loadp StructureChain::m_vector[t0], t0
-    btpz [t0], .opNextPnameTarget
-.opNextPnameCheckPrototypeLoop:
-    bqeq Structure::m_prototype[t1], ValueNull, .opNextPnameSlow
-    loadq Structure::m_prototype[t1], t2
-    loadStructureWithScratch(t2, t1, t3)
-    bpneq t1, [t0], .opNextPnameSlow
-    addp 8, t0
-    btpnz [t0], .opNextPnameCheckPrototypeLoop
-.opNextPnameTarget:
-    dispatchIntIndirect(6)
-
-.opNextPnameEnd:
-    dispatch(7)
-
-.opNextPnameSlow:
-    callSlowPath(_llint_slow_path_next_pname) # This either keeps the PC where it was (causing us to loop) or sets it to target.
-    dispatch(0)
 
 
 _llint_op_catch:
@@ -1988,10 +1807,12 @@ _llint_op_catch:
     # the interpreter's throw trampoline (see _llint_throw_trampoline).
     # The throwing code must have known that we were throwing to the interpreter,
     # and have set VM::targetInterpreterPCForThrow.
-    loadp ScopeChain[cfr], t3
+    loadp Callee[cfr], t3
     andp MarkedBlockMask, t3
     loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t3], t3
     loadp VM::callFrameForThrow[t3], cfr
+    loadp VM::vmEntryFrameForThrow[t3], t0
+    storep t0, VM::topVMEntryFrame[t3]
     restoreStackPointerAfterCall()
 
     loadp CodeBlock[cfr], PB
@@ -1999,12 +1820,18 @@ _llint_op_catch:
     loadp VM::targetInterpreterPCForThrow[t3], PC
     subp PB, PC
     rshiftp 3, PC
+
     loadq VM::m_exception[t3], t0
     storeq 0, VM::m_exception[t3]
     loadisFromInstruction(1, t2)
     storeq t0, [cfr, t2, 8]
+
+    loadq Exception::m_value[t0], t3
+    loadisFromInstruction(2, t2)
+    storeq t3, [cfr, t2, 8]
+
     traceExecution()
-    dispatch(2)
+    dispatch(3)
 
 
 _llint_op_end:
@@ -2022,8 +1849,9 @@ _llint_throw_from_slow_path_trampoline:
     # When throwing from the interpreter (i.e. throwing from LLIntSlowPaths), so
     # the throw target is not necessarily interpreted code, we come to here.
     # This essentially emulates the JIT's throwing protocol.
-    loadp CodeBlock[cfr], t1
-    loadp CodeBlock::m_vm[t1], t1
+    loadp Callee[cfr], t1
+    andp MarkedBlockMask, t1
+    loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t1], t1
     jmp VM::targetMachinePCForThrow[t1]
 
 
@@ -2046,13 +1874,10 @@ macro nativeCallTrampoline(executableOffsetToFunction)
             const arg2 = t1  # t1 = rdx
             const temp = t0
         end
-        loadp ScopeChain[cfr], t0
-        andp MarkedBlockMask, t0
-        loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t0], t0
-        storep cfr, VM::topCallFrame[t0]
-        loadp CallerFrame[cfr], t0
-        loadq ScopeChain[t0], t1
-        storeq t1, ScopeChain[cfr]
+        loadp Callee[cfr], t0
+        andp MarkedBlockMask, t0, t1
+        loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t1], t1
+        storep cfr, VM::topCallFrame[t1]
         move cfr, arg1
         loadp Callee[cfr], arg2
         loadp JSFunction::m_executable[arg2], temp
@@ -2064,30 +1889,26 @@ macro nativeCallTrampoline(executableOffsetToFunction)
         if X86_64_WIN
             addp 32, sp
         end
-        loadp ScopeChain[cfr], t3
+        loadp Callee[cfr], t3
         andp MarkedBlockMask, t3
         loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t3], t3
     elsif ARM64 or C_LOOP
-        loadp ScopeChain[cfr], t0
-        andp MarkedBlockMask, t0
-        loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t0], t0
-        storep cfr, VM::topCallFrame[t0]
-        loadp CallerFrame[cfr], t2
-        loadp ScopeChain[t2], t1
-        storep t1, ScopeChain[cfr]
+        loadp Callee[cfr], t0
+        andp MarkedBlockMask, t0, t1
+        loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t1], t1
+        storep cfr, VM::topCallFrame[t1]
         preserveReturnAddressAfterCall(t3)
         storep t3, ReturnPC[cfr]
         move cfr, t0
         loadp Callee[cfr], t1
         loadp JSFunction::m_executable[t1], t1
-        move t2, cfr # Restore cfr to avoid loading from stack
         if C_LOOP
             cloopCallNative executableOffsetToFunction[t1]
         else
             call executableOffsetToFunction[t1]
         end
         restoreReturnAddressBeforeReturn(t3)
-        loadp ScopeChain[cfr], t3
+        loadp Callee[cfr], t3
         andp MarkedBlockMask, t3
         loadp MarkedBlock::m_weakSet + WeakSet::m_vm[t3], t3
     else
@@ -2121,15 +1942,9 @@ macro varInjectionCheck(slowPath)
 end
 
 macro resolveScope()
-    loadp CodeBlock[cfr], t0
-    loadisFromInstruction(4, t2)
-    btbz CodeBlock::m_needsActivation[t0], .resolveScopeAfterActivationCheck
-    loadis CodeBlock::m_activationRegister[t0], t1
-    btpz [cfr, t1, 8], .resolveScopeAfterActivationCheck
-    addi 1, t2
-
-.resolveScopeAfterActivationCheck:
-    loadp ScopeChain[cfr], t0
+    loadisFromInstruction(5, t2)
+    loadisFromInstruction(2, t0)
+    loadp [cfr, t0, 8], t0
     btiz t2, .resolveScopeLoopEnd
 
 .resolveScopeLoop:
@@ -2145,44 +1960,44 @@ end
 
 _llint_op_resolve_scope:
     traceExecution()
-    loadisFromInstruction(3, t0)
+    loadisFromInstruction(4, t0)
 
 #rGlobalProperty:
     bineq t0, GlobalProperty, .rGlobalVar
     getGlobalObject(1)
-    dispatch(6)
+    dispatch(7)
 
 .rGlobalVar:
     bineq t0, GlobalVar, .rClosureVar
     getGlobalObject(1)
-    dispatch(6)
+    dispatch(7)
 
 .rClosureVar:
     bineq t0, ClosureVar, .rGlobalPropertyWithVarInjectionChecks
     resolveScope()
-    dispatch(6)
+    dispatch(7)
 
 .rGlobalPropertyWithVarInjectionChecks:
     bineq t0, GlobalPropertyWithVarInjectionChecks, .rGlobalVarWithVarInjectionChecks
     varInjectionCheck(.rDynamic)
     getGlobalObject(1)
-    dispatch(6)
+    dispatch(7)
 
 .rGlobalVarWithVarInjectionChecks:
     bineq t0, GlobalVarWithVarInjectionChecks, .rClosureVarWithVarInjectionChecks
     varInjectionCheck(.rDynamic)
     getGlobalObject(1)
-    dispatch(6)
+    dispatch(7)
 
 .rClosureVarWithVarInjectionChecks:
     bineq t0, ClosureVarWithVarInjectionChecks, .rDynamic
     varInjectionCheck(.rDynamic)
     resolveScope()
-    dispatch(6)
+    dispatch(7)
 
 .rDynamic:
     callSlowPath(_llint_slow_path_resolve_scope)
-    dispatch(6)
+    dispatch(7)
 
 
 macro loadWithStructureCheck(operand, slowPath)
@@ -2210,9 +2025,8 @@ macro getGlobalVar()
 end
 
 macro getClosureVar()
-    loadp JSVariableObject::m_registers[t0], t0
     loadisFromInstruction(6, t1)
-    loadq [t0, t1, 8], t0
+    loadq JSEnvironmentRecord_variables[t0, t1, 8], t0
     valueProfile(t0, 7, t1)
     loadisFromInstruction(1, t1)
     storeq t0, [cfr, t1, 8]
@@ -2249,7 +2063,6 @@ _llint_op_get_from_scope:
 .gGlobalVarWithVarInjectionChecks:
     bineq t0, GlobalVarWithVarInjectionChecks, .gClosureVarWithVarInjectionChecks
     varInjectionCheck(.gDynamic)
-    loadVariable(2, t0)
     getGlobalVar()
     dispatch(8)
 
@@ -2276,17 +2089,27 @@ macro putGlobalVar()
     loadisFromInstruction(3, t0)
     loadConstantOrVariable(t0, t1)
     loadpFromInstruction(5, t2)
-    notifyWrite(t2, t1, t0, .pDynamic)
     loadpFromInstruction(6, t0)
+    notifyWrite(t2, .pDynamic)
     storeq t1, [t0]
 end
 
 macro putClosureVar()
     loadisFromInstruction(3, t1)
     loadConstantOrVariable(t1, t2)
-    loadp JSVariableObject::m_registers[t0], t0
     loadisFromInstruction(6, t1)
-    storeq t2, [t0, t1, 8]
+    storeq t2, JSEnvironmentRecord_variables[t0, t1, 8]
+end
+
+macro putLocalClosureVar()
+    loadisFromInstruction(3, t1)
+    loadConstantOrVariable(t1, t2)
+    loadpFromInstruction(5, t3)
+    btpz t3, .noVariableWatchpointSet
+    notifyWrite(t3, .pDynamic)
+.noVariableWatchpointSet:
+    loadisFromInstruction(6, t1)
+    storeq t2, JSEnvironmentRecord_variables[t0, t1, 8]
 end
 
 
@@ -2295,7 +2118,14 @@ _llint_op_put_to_scope:
     loadisFromInstruction(4, t0)
     andi ResolveModeMask, t0
 
-#pGlobalProperty:
+#pLocalClosureVar:
+    bineq t0, LocalClosureVar, .pGlobalProperty
+    writeBarrierOnOperands(1, 3)
+    loadVariable(1, t0)
+    putLocalClosureVar()
+    dispatch(7)
+
+.pGlobalProperty:
     bineq t0, GlobalProperty, .pGlobalVar
     writeBarrierOnOperands(1, 3)
     loadWithStructureCheck(1, .pDynamic)
@@ -2340,3 +2170,65 @@ _llint_op_put_to_scope:
 .pDynamic:
     callSlowPath(_llint_slow_path_put_to_scope)
     dispatch(7)
+
+
+_llint_op_get_from_arguments:
+    traceExecution()
+    loadVariable(2, t0)
+    loadi 24[PB, PC, 8], t1
+    loadq DirectArguments_storage[t0, t1, 8], t0
+    valueProfile(t0, 4, t1)
+    loadisFromInstruction(1, t1)
+    storeq t0, [cfr, t1, 8]
+    dispatch(5)
+
+
+_llint_op_put_to_arguments:
+    traceExecution()
+    writeBarrierOnOperands(1, 3)
+    loadVariable(1, t0)
+    loadi 16[PB, PC, 8], t1
+    loadisFromInstruction(3, t3)
+    loadConstantOrVariable(t3, t2)
+    storeq t2, DirectArguments_storage[t0, t1, 8]
+    dispatch(4)
+
+
+_llint_op_profile_type:
+    traceExecution()
+    loadp CodeBlock[cfr], t1
+    loadp CodeBlock::m_vm[t1], t1
+    # t1 is holding the pointer to the typeProfilerLog.
+    loadp VM::m_typeProfilerLog[t1], t1
+    # t2 is holding the pointer to the current log entry.
+    loadp TypeProfilerLog::m_currentLogEntryPtr[t1], t2
+
+    # t0 is holding the JSValue argument.
+    loadisFromInstruction(1, t3)
+    loadConstantOrVariable(t3, t0)
+
+    # Store the JSValue onto the log entry.
+    storeq t0, TypeProfilerLog::LogEntry::value[t2]
+    
+    # Store the TypeLocation onto the log entry.
+    loadpFromInstruction(2, t3)
+    storep t3, TypeProfilerLog::LogEntry::location[t2]
+
+    btqz t0, tagMask, .opProfileTypeIsCell
+    storei 0, TypeProfilerLog::LogEntry::structureID[t2]
+    jmp .opProfileTypeSkipIsCell
+.opProfileTypeIsCell:
+    loadi JSCell::m_structureID[t0], t3
+    storei t3, TypeProfilerLog::LogEntry::structureID[t2]
+.opProfileTypeSkipIsCell:
+    
+    # Increment the current log entry.
+    addp sizeof TypeProfilerLog::LogEntry, t2
+    storep t2, TypeProfilerLog::m_currentLogEntryPtr[t1]
+
+    loadp TypeProfilerLog::m_logEndPtr[t1], t1
+    bpneq t2, t1, .opProfileTypeDone
+    callSlowPath(_slow_path_profile_type_clear_log)
+
+.opProfileTypeDone:
+    dispatch(6)

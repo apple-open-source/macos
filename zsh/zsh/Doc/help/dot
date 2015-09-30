@@ -2,8 +2,7 @@
        Read commands from file and execute them in  the  current  shell
        environment.
 
-       If  file  does  not contain a slash, or if PATH DIRS is set, the
-                                                      -
+       If  file  does  not contain a slash, or if PATH_DIRS is set, the
        shell looks in the components of $path  to  find  the  directory
        containing  file.   Files  in the current directory are not read
        unless  `.'  appears  somewhere  in  $path.   If  a  file  named

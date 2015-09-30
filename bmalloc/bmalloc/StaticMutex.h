@@ -28,29 +28,52 @@
 
 #include "BAssert.h"
 #include <atomic>
+#include <mutex>
+#include <thread>
 
-// A fast replacement for std::mutex for use in static storage, where global
-// constructors and exit-time destructors are prohibited.
+// A fast replacement for std::mutex, for use in static storage.
+
+// Use StaticMutex in static storage, where global constructors and exit-time
+// destructors are prohibited, but all memory is zero-initialized automatically.
 
 namespace bmalloc {
 
 class StaticMutex {
+protected:
+    // Subclasses that support non-static storage must use explicit initialization.
+    void init();
+
 public:
     void lock();
     bool try_lock();
     void unlock();
 
 private:
-    friend class Mutex;
-
-    // Static storage will zero-initialize us automatically, but Mutex needs an
-    // API for explicit initialization.
-    void init();
-
     void lockSlowCase();
 
     std::atomic_flag m_flag;
 };
+
+static inline void sleep(
+    std::unique_lock<StaticMutex>& lock, std::chrono::milliseconds duration)
+{
+    if (duration == std::chrono::milliseconds(0))
+        return;
+    
+    lock.unlock();
+    std::this_thread::sleep_for(duration);
+    lock.lock();
+}
+
+static inline void waitUntilFalse(
+    std::unique_lock<StaticMutex>& lock, std::chrono::milliseconds sleepDuration,
+    bool& condition)
+{
+    while (condition) {
+        condition = false;
+        sleep(lock, sleepDuration);
+    }
+}
 
 inline void StaticMutex::init()
 {

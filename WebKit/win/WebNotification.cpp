@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 
 #include "WebNotification.h"
@@ -46,7 +45,7 @@ WebNotification::WebNotification(BSTR name, IUnknown* anObject, IPropertyBag* us
         m_userInfo->AddRef();
 
     gClassCount++;
-    gClassNameCount.add("WebNotification");
+    gClassNameCount().add("WebNotification");
 }
 
 WebNotification::~WebNotification()
@@ -59,7 +58,7 @@ WebNotification::~WebNotification()
         m_userInfo->Release();
 
     gClassCount--;
-    gClassNameCount.remove("WebNotification");
+    gClassNameCount().remove("WebNotification");
 }
 
 WebNotification* WebNotification::createInstance(BSTR name /*=0*/, IUnknown* anObject /*=0*/, IPropertyBag* userInfo /*=0*/)

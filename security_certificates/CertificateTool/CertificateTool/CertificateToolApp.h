@@ -17,6 +17,7 @@
 	NSString*	   		_root_directory;
 	NSString*	   		_revoked_directory;
 	NSString*	   		_distrusted_directory;
+	NSString*	   		_allowlist_directory;
 	NSString*	   		_certs_directory;
     NSString*      		_evroot_config_path;
 	NSString*	   		_ev_plist_path;
@@ -29,6 +30,7 @@
     PSCertData*         _certRootsData;
 
     NSMutableDictionary* _EVRootsData;
+    NSMutableDictionary* _allow_list_data;
 	NSMutableArray*		_blacked_listed_keys;
     NSMutableArray*     _gray_listed_keys;
 	NSData*				_derData;
@@ -38,6 +40,7 @@
 @property (readonly) NSString* root_directory;
 @property (readonly) NSString* revoked_directory;
 @property (readonly) NSString* distrusted_directory;
+@property (readonly) NSString* allowlist_directory;
 @property (readonly) NSString* certs_directory;
 @property (readonly) NSString* evroot_config_path;
 @property (readonly) NSString* ev_plist_path;

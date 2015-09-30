@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013, 2014 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012-2015 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,8 @@
 #include "config.h"
 #include "JSScope.h"
 
-#include "JSActivation.h"
 #include "JSGlobalObject.h"
+#include "JSLexicalEnvironment.h"
 #include "JSNameScope.h"
 #include "JSWithScope.h"
 #include "JSCInlines.h"
@@ -40,9 +40,6 @@ void JSScope::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     JSScope* thisObject = jsCast<JSScope*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
-    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
-    ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
-
     Base::visitChildren(thisObject, visitor);
     visitor.append(&thisObject->m_next);
 }
@@ -50,26 +47,26 @@ void JSScope::visitChildren(JSCell* cell, SlotVisitor& visitor)
 // Returns true if we found enough information to terminate optimization.
 static inline bool abstractAccess(ExecState* exec, JSScope* scope, const Identifier& ident, GetOrPut getOrPut, size_t depth, bool& needsVarInjectionChecks, ResolveOp& op)
 {
-    if (JSActivation* activation = jsDynamicCast<JSActivation*>(scope)) {
+    if (JSLexicalEnvironment* lexicalEnvironment = jsDynamicCast<JSLexicalEnvironment*>(scope)) {
         if (ident == exec->propertyNames().arguments) {
-            // We know the property will be at this activation scope, but we don't know how to cache it.
+            // We know the property will be at this lexical environment scope, but we don't know how to cache it.
             op = ResolveOp(Dynamic, 0, 0, 0, 0, 0);
             return true;
         }
 
-        SymbolTableEntry entry = activation->symbolTable()->get(ident.impl());
+        SymbolTableEntry entry = lexicalEnvironment->symbolTable()->get(ident.impl());
         if (entry.isReadOnly() && getOrPut == Put) {
-            // We know the property will be at this activation scope, but we don't know how to cache it.
+            // We know the property will be at this lexical environment scope, but we don't know how to cache it.
             op = ResolveOp(Dynamic, 0, 0, 0, 0, 0);
             return true;
         }
 
         if (!entry.isNull()) {
-            op = ResolveOp(makeType(ClosureVar, needsVarInjectionChecks), depth, 0, activation, entry.watchpointSet(), entry.getIndex());
+            op = ResolveOp(makeType(ClosureVar, needsVarInjectionChecks), depth, 0, lexicalEnvironment, entry.watchpointSet(), entry.scopeOffset().offset());
             return true;
         }
 
-        if (activation->symbolTable()->usesNonStrictEval())
+        if (lexicalEnvironment->symbolTable()->usesNonStrictEval())
             needsVarInjectionChecks = true;
         return false;
     }
@@ -85,7 +82,7 @@ static inline bool abstractAccess(ExecState* exec, JSScope* scope, const Identif
 
             op = ResolveOp(
                 makeType(GlobalVar, needsVarInjectionChecks), depth, 0, 0, entry.watchpointSet(),
-                reinterpret_cast<uintptr_t>(globalObject->registerAt(entry.getIndex()).slot()));
+                reinterpret_cast<uintptr_t>(globalObject->variableAt(entry.scopeOffset()).slot()));
             return true;
         }
 
@@ -99,8 +96,19 @@ static inline bool abstractAccess(ExecState* exec, JSScope* scope, const Identif
             op = ResolveOp(makeType(GlobalProperty, needsVarInjectionChecks), depth, 0, 0, 0, 0);
             return true;
         }
-
-        op = ResolveOp(makeType(GlobalProperty, needsVarInjectionChecks), depth, globalObject->structure(), 0, 0, slot.cachedOffset());
+        
+        WatchpointState state = globalObject->structure()->ensurePropertyReplacementWatchpointSet(exec->vm(), slot.cachedOffset())->state();
+        if (state == IsWatched && getOrPut == Put) {
+            // The field exists, but because the replacement watchpoint is still intact. This is
+            // kind of dangerous. We have two options:
+            // 1) Invalidate the watchpoint set. That would work, but it's possible that this code
+            //    path never executes - in which case this would be unwise.
+            // 2) Have the invalidation happen at run-time. All we have to do is leave the code
+            //    uncached. The only downside is slightly more work when this does execute.
+            // We go with option (2) here because it seems less evil.
+            op = ResolveOp(makeType(GlobalProperty, needsVarInjectionChecks), depth, 0, 0, 0, 0);
+        } else
+            op = ResolveOp(makeType(GlobalProperty, needsVarInjectionChecks), depth, globalObject->structure(), 0, 0, slot.cachedOffset());
         return true;
     }
 
@@ -125,28 +133,50 @@ int JSScope::depth()
     return depth;
 }
 
+// When an exception occurs, the result of isUnscopable becomes false.
+static inline bool isUnscopable(ExecState* exec, JSScope* scope, JSObject* object, const Identifier& ident)
+{
+    if (scope->type() != WithScopeType)
+        return false;
+
+    JSValue unscopables = object->get(exec, exec->propertyNames().unscopablesSymbol);
+    if (exec->hadException())
+        return false;
+    if (!unscopables.isObject())
+        return false;
+    JSValue blocked = jsCast<JSObject*>(unscopables)->get(exec, ident);
+    if (exec->hadException())
+        return false;
+
+    return blocked.toBoolean(exec);
+}
+
 JSValue JSScope::resolve(ExecState* exec, JSScope* scope, const Identifier& ident)
 {
     ScopeChainIterator end = scope->end();
     ScopeChainIterator it = scope->begin();
     while (1) {
+        JSScope* scope = it.scope();
         JSObject* object = it.get();
 
         if (++it == end) // Global scope.
             return object;
 
-        if (object->hasProperty(exec, ident))
-            return object;
+        if (object->hasProperty(exec, ident)) {
+            if (!isUnscopable(exec, scope, object, ident))
+                return object;
+            ASSERT_WITH_MESSAGE(!exec->hadException(), "When an exception occurs, the result of isUnscopable becomes false");
+        }
     }
 }
 
-ResolveOp JSScope::abstractResolve(ExecState* exec, JSScope* scope, const Identifier& ident, GetOrPut getOrPut, ResolveType unlinkedType)
+ResolveOp JSScope::abstractResolve(ExecState* exec, bool hasTopActivation, JSScope* scope, const Identifier& ident, GetOrPut getOrPut, ResolveType unlinkedType)
 {
     ResolveOp op(Dynamic, 0, 0, 0, 0, 0);
     if (unlinkedType == Dynamic)
         return op;
 
-    size_t depth = 0;
+    size_t depth = hasTopActivation ? 1 : 0;
     bool needsVarInjectionChecks = JSC::needsVarInjectionChecks(unlinkedType);
     for (; scope; scope = scope->next()) {
         if (abstractAccess(exec, scope, ident, getOrPut, depth, needsVarInjectionChecks, op))
@@ -172,12 +202,12 @@ const char* resolveTypeName(ResolveType type)
         "GlobalProperty",
         "GlobalVar",
         "ClosureVar",
+        "LocalClosureVar",
         "GlobalPropertyWithVarInjectionChecks",
         "GlobalVarWithVarInjectionChecks",
         "ClosureVarWithVarInjectionChecks",
         "Dynamic"
     };
-    ASSERT(type < sizeof(names) / sizeof(names[0]));
     return names[type];
 }
 

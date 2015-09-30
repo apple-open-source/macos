@@ -34,9 +34,9 @@ namespace WebKit {
 
 class RemoteNetworkingContext final : public WebCore::NetworkingContext {
 public:
-    static PassRefPtr<RemoteNetworkingContext> create(WebCore::SessionID sessionID, bool shouldClearReferrerOnHTTPSToHTTPRedirect)
+    static Ref<RemoteNetworkingContext> create(WebCore::SessionID sessionID, bool shouldClearReferrerOnHTTPSToHTTPRedirect)
     {
-        return adoptRef(new RemoteNetworkingContext(sessionID, shouldClearReferrerOnHTTPSToHTTPRedirect));
+        return adoptRef(*new RemoteNetworkingContext(sessionID, shouldClearReferrerOnHTTPSToHTTPRedirect));
     }
     virtual ~RemoteNetworkingContext();
 
@@ -49,18 +49,13 @@ private:
     RemoteNetworkingContext(WebCore::SessionID sessionID, bool shouldClearReferrerOnHTTPSToHTTPRedirect)
         : m_sessionID(sessionID)
         , m_shouldClearReferrerOnHTTPSToHTTPRedirect(shouldClearReferrerOnHTTPSToHTTPRedirect)
-#if PLATFORM(COCOA)
-        , m_needsSiteSpecificQuirks(false)
-        , m_localFileContentSniffingEnabled(false)
-#endif
-    { }
+    {
+    }
 
     virtual bool isValid() const override;
     virtual WebCore::NetworkStorageSession& storageSession() const override;
 
 #if PLATFORM(COCOA)
-    void setNeedsSiteSpecificQuirks(bool value) { m_needsSiteSpecificQuirks = value; }
-    virtual bool needsSiteSpecificQuirks() const override;
     void setLocalFileContentSniffingEnabled(bool value) { m_localFileContentSniffingEnabled = value; }
     virtual bool localFileContentSniffingEnabled() const override;
     virtual RetainPtr<CFDataRef> sourceApplicationAuditData() const override;
@@ -72,8 +67,7 @@ private:
     bool m_shouldClearReferrerOnHTTPSToHTTPRedirect;
 
 #if PLATFORM(COCOA)
-    bool m_needsSiteSpecificQuirks;
-    bool m_localFileContentSniffingEnabled;
+    bool m_localFileContentSniffingEnabled = false;
 #endif
 };
 

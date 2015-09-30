@@ -111,10 +111,10 @@ int	sigaddset(sigset_t *, int);
 //Begin-Libc
 #ifndef LIBC_ALIAS_SIGALTSTACK
 //End-Libc
-int	sigaltstack(const stack_t * __restrict, stack_t * __restrict)  __DARWIN_ALIAS(sigaltstack);
+int	sigaltstack(const stack_t * __restrict, stack_t * __restrict)  __DARWIN_ALIAS(sigaltstack) __WATCHOS_PROHIBITED __TVOS_PROHIBITED;
 //Begin-Libc
 #else /* LIBC_ALIAS_SIGALTSTACK */
-int	sigaltstack(const stack_t * __restrict, stack_t * __restrict)  LIBC_ALIAS(sigaltstack);
+int	sigaltstack(const stack_t * __restrict, stack_t * __restrict)  LIBC_ALIAS(sigaltstack) __WATCHOS_PROHIBITED __TVOS_PROHIBITED;
 #endif /* !LIBC_ALIAS_SIGALTSTACK */
 //End-Libc
 int	sigdelset(sigset_t *, int);
@@ -136,7 +136,7 @@ int	sigpause(int) LIBC_ALIAS_C(sigpause);
 int	sigpending(sigset_t *);
 int	sigprocmask(int, const sigset_t * __restrict, sigset_t * __restrict);
 int	sigrelse(int);
-void    (*sigset(int, void (*)(int)))(int); 
+void    (*sigset(int, void (*)(int)))(int);
 //Begin-Libc
 #ifndef LIBC_ALIAS_SIGSUSPEND
 //End-Libc

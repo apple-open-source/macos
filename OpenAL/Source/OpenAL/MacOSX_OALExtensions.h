@@ -88,7 +88,7 @@ typedef ALint (*alSourceGetRenderingQualityProcPtr) (ALuint sid);
 	AL_EXT_STATIC_BUFFER
    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-typedef ALvoid	AL_APIENTRY	(*alBufferDataStaticProcPtr) (ALint bid, ALenum format, const ALvoid* data, ALsizei size, ALsizei freq);
+typedef ALvoid	AL_APIENTRY	(*alBufferDataStaticProcPtr) (ALint bid, ALenum format, const ALvoid* __nonnull data, ALsizei size, ALsizei freq);
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	AL_EXT_SOURCE_NOTIFICATIONS
@@ -112,7 +112,7 @@ typedef ALvoid	AL_APIENTRY	(*alBufferDataStaticProcPtr) (ALint bid, ALenum forma
 		userData	- user data provided to alSourceAddNotification()
 */
 	
-typedef ALvoid (*alSourceNotificationProc)(ALuint sid, ALuint	notificationID, ALvoid*	userData);
+typedef ALvoid (*alSourceNotificationProc)(ALuint sid, ALuint	notificationID, ALvoid*	__nullable userData);
 
 /*
 	API: alSourceAddNotification
@@ -129,7 +129,7 @@ typedef ALvoid (*alSourceNotificationProc)(ALuint sid, ALuint	notificationID, AL
 			AL_BUFFERS_PROCESSED
 			AL_QUEUE_HAS_LOOPED	- notification sent when a looping source has looped to it's start point
 */
-typedef ALenum (*alSourceAddNotificationProcPtr) (ALuint sid, ALuint notificationID, alSourceNotificationProc notifyProc, ALvoid* userData);
+typedef ALenum (*alSourceAddNotificationProcPtr) (ALuint sid, ALuint notificationID, alSourceNotificationProc __nonnull notifyProc, ALvoid* __nullable userData);
 
 /*
 	API: alSourceRemoveStateNotification
@@ -139,7 +139,7 @@ typedef ALenum (*alSourceAddNotificationProcPtr) (ALuint sid, ALuint notificatio
 		notifyProc	- notification proc
 		userData	- ptr to applications user data, will be returned in the notification proc
 */
-typedef ALvoid (*alSourceRemoveNotificationProcPtr) (ALuint	sid, ALuint notificationID, alSourceNotificationProc notifyProc, ALvoid* userData);
+typedef ALvoid (*alSourceRemoveNotificationProcPtr) (ALuint	sid, ALuint notificationID, alSourceNotificationProc __nonnull notifyProc, ALvoid* __nullable userData);
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	ALC_EXT_ASA : Apple Spatial Audio Extension
@@ -148,10 +148,10 @@ typedef ALvoid (*alSourceRemoveNotificationProcPtr) (ALuint	sid, ALuint notifica
 	Used with the ASA API calls: alcASAGetSource(), alcASASetSource(), alcASAGetListener(), alcASASetListener()
 */
 
-typedef ALenum  (*alcASAGetSourceProcPtr) (ALuint property, ALuint source, ALvoid *data, ALuint* dataSize);
-typedef ALenum  (*alcASASetSourceProcPtr) (ALuint property, ALuint source, ALvoid *data, ALuint dataSize);
-typedef ALenum  (*alcASAGetListenerProcPtr) (ALuint property, ALvoid *data, ALuint* dataSize);
-typedef ALenum  (*alcASASetListenerProcPtr) (ALuint property, ALvoid *data, ALuint dataSize);
+typedef ALenum  (*alcASAGetSourceProcPtr) (ALuint property, ALuint source, ALvoid* __nonnull data, ALuint* __nonnull dataSize);
+typedef ALenum  (*alcASASetSourceProcPtr) (ALuint property, ALuint source, ALvoid* __nonnull data, ALuint dataSize);
+typedef ALenum  (*alcASAGetListenerProcPtr) (ALuint property, ALvoid* __nonnull data, ALuint* __nonnull dataSize);
+typedef ALenum  (*alcASASetListenerProcPtr) (ALuint property, ALvoid* __nonnull data, ALuint dataSize);
 
 	/* listener properties */
 	#define ALC_ASA_REVERB_ON							'rvon'	// type ALuint
@@ -329,7 +329,7 @@ typedef ALint  AL_APIENTRY (*alcOutputCapturerAvailableSamplesProcPtr) ();
  samplecount    -   Number of samples to be copied to the provided buffer.
  Requesting more samples than currently available is an error.
  */
-typedef ALvoid AL_APIENTRY (*alcOutputCapturerSamplesProcPtr)   (ALCvoid *buffer, ALCsizei samplecount);
+typedef ALvoid AL_APIENTRY (*alcOutputCapturerSamplesProcPtr)   (ALCvoid * __nonnull buffer, ALCsizei samplecount);
 
 
 #endif // __MAC_OSX_OAL_EXTENSIONS_H__

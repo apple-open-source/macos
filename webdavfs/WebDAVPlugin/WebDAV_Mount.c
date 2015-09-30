@@ -141,33 +141,6 @@ void percent_decode_in_place(char *uri)
 	*s = '\0';
 }
 
-static char* createUTF8CStringFromCFString(CFStringRef in_string)
-{
-	char* out_cstring = NULL;
-	
-	CFIndex bufSize;
-	
-	/* make sure we're not passed garbage */
-	if ( in_string == NULL )
-		return NULL;
-	
-	/* Add one to account for NULL termination. */
-	bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(in_string) + 1, kCFStringEncodingUTF8);
-	
-	out_cstring = (char *)calloc(1, bufSize);
-	
-	/* Make sure malloc succeeded then convert cstring */
-	if ( out_cstring == NULL )
-		return NULL;
-	
-	if ( CFStringGetCString(in_string, out_cstring, bufSize, kCFStringEncodingUTF8) == FALSE ) {
-		free(out_cstring);
-		out_cstring = NULL;
-	}
-	
-	return out_cstring;
-}
-
 static char *
 SkipSeparators(char *bytes)
 {

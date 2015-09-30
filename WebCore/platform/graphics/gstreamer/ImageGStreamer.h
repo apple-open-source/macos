@@ -27,7 +27,7 @@
 #include "GRefPtrGStreamer.h"
 
 #include <gst/gst.h>
-#include <gst/video/video.h>
+#include <gst/video/video-frame.h>
 
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -38,9 +38,9 @@ class IntSize;
 
 class ImageGStreamer : public RefCounted<ImageGStreamer> {
     public:
-        static PassRefPtr<ImageGStreamer> createImage(GstBuffer* buffer, GstCaps* caps)
+        static PassRefPtr<ImageGStreamer> createImage(GstSample* sample)
         {
-            return adoptRef(new ImageGStreamer(buffer, caps));
+            return adoptRef(new ImageGStreamer(sample));
         }
         ~ImageGStreamer();
 
@@ -60,7 +60,7 @@ class ImageGStreamer : public RefCounted<ImageGStreamer> {
         }
 
     private:
-        ImageGStreamer(GstBuffer*, GstCaps*);
+        ImageGStreamer(GstSample*);
         RefPtr<BitmapImage> m_image;
         FloatRect m_cropRect;
 

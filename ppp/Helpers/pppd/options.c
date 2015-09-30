@@ -1649,9 +1649,9 @@ setdomain(argv)
     gethostname(hostname, MAXNAMELEN);
     if (**argv != 0) {
 	if (**argv != '.')
-	    strncat(hostname, ".", MAXNAMELEN - strlen(hostname));
+	    strncat(hostname, ".", MAXNAMELEN - strlen(hostname) - 1);
 	domain = hostname + strlen(hostname);
-	strncat(hostname, *argv, MAXNAMELEN - strlen(hostname));
+	strncat(hostname, *argv, MAXNAMELEN - strlen(hostname) - 1);
     }
     hostname[MAXNAMELEN-1] = 0;
     return (1);

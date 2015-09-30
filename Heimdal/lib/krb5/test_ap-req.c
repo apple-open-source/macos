@@ -73,10 +73,15 @@ test_ap(krb5_context context,
 {
     krb5_error_code ret;
     krb5_auth_context client_ac = NULL, server_ac = NULL;
+    krb5_data client_request;
     krb5_data data;
     krb5_flags server_flags;
     krb5_ticket *ticket = NULL;
     int32_t server_seq, client_seq;
+    krb5_rcache rcache = NULL;
+
+    krb5_data_zero(&data);
+    krb5_data_zero(&client_request);
 
     ret = krb5_mk_req_exact(context,
 			    &client_ac,
@@ -84,13 +89,13 @@ test_ap(krb5_context context,
 			    target,
 			    NULL,
 			    ccache,
-			    &data);
+			    &client_request);
     if (ret)
 	krb5_err(context, 1, ret, "krb5_mk_req_exact");
 
     ret = krb5_rd_req(context,
 		      &server_ac,
-		      &data,
+		      &client_request,
 		      server,
 		      keytab,
 		      &server_flags,
@@ -101,8 +106,6 @@ test_ap(krb5_context context,
 
     if (server_flags & AP_OPTS_MUTUAL_REQUIRED) {
 	krb5_ap_rep_enc_part *repl;
-
-	krb5_data_free(&data);
 
 	if ((client_flags & AP_OPTS_MUTUAL_REQUIRED) == 0)
 	    krb5_errx(context, 1, "client flag missing mutual req");
@@ -118,6 +121,7 @@ test_ap(krb5_context context,
 	if (ret)
 	    krb5_err(context, 1, ret, "krb5_rd_rep");
 
+	krb5_data_free(&data);
 	krb5_free_ap_rep_enc_part (context, repl);
     } else {
 	if (client_flags & AP_OPTS_MUTUAL_REQUIRED)
@@ -134,9 +138,11 @@ test_ap(krb5_context context,
     if (server_seq != client_seq)
 	krb5_errx(context, 1, "seq num differ");
 
-    krb5_data_free(&data);
     krb5_auth_con_free(context, client_ac);
+    client_ac = NULL;
+
     krb5_auth_con_free(context, server_ac);
+    server_ac = NULL;
 
     if (verify_pac) {
 	krb5_pac pac;
@@ -153,9 +159,52 @@ test_ap(krb5_context context,
 	    krb5_err(context, 1, ret, "pac parse");
 
 	krb5_pac_free(context, pac);
+	krb5_data_free(&data);
     }
 
     krb5_free_ticket(context, ticket);
+
+    /*
+     * Check replays
+     */
+
+    ret = krb5_get_server_rcache(context, NULL, &rcache);
+    if (ret)
+	krb5_err(context, 1, ret, "krb5_get_server_rcache");
+
+    krb5_auth_con_init(context, &server_ac);
+    krb5_auth_con_setrcache(context, server_ac, rcache);
+
+    ret = krb5_rd_req(context,
+		      &server_ac,
+		      &client_request,
+		      server,
+		      keytab,
+		      &server_flags,
+		      &ticket);
+    if (ret)
+	krb5_err(context, 1, ret, "krb5_rd_req");
+
+    krb5_auth_con_free(context, server_ac);
+    server_ac = NULL;
+
+    krb5_auth_con_init(context, &server_ac);
+    krb5_auth_con_setrcache(context, server_ac, rcache);
+
+    ret = krb5_rd_req(context,
+		      &server_ac,
+		      &client_request,
+		      server,
+		      keytab,
+		      &server_flags,
+		      &ticket);
+    if (ret != KRB5_RC_REPLAY)
+	krb5_err(context, 1, ret, "krb5_rd_req not detecting replays");
+
+    krb5_auth_con_free(context, server_ac);
+    server_ac = NULL;
+
+    krb5_data_free(&client_request);
 }
 
 

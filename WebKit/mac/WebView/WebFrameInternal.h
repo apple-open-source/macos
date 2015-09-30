@@ -30,7 +30,6 @@
 
 #import "WebFramePrivate.h"
 #import "WebPreferencesPrivate.h"
-#import <WebCore/ContentFilter.h>
 #import <WebCore/EditAction.h>
 #import <WebCore/FrameLoaderTypes.h>
 #import <WebCore/FrameSelection.h>
@@ -74,7 +73,7 @@ WebCore::EditableLinkBehavior core(WebKitEditableLinkBehavior);
 WebCore::TextDirectionSubmenuInclusionBehavior core(WebTextDirectionSubmenuInclusionBehavior);
 
 #if defined(__cplusplus) && PLATFORM(IOS)
-PassOwnPtr<Vector<Vector<String>>> vectorForDictationPhrasesArray(NSArray *);
+Vector<Vector<String>> vectorForDictationPhrasesArray(NSArray *);
 #endif
 
 WebView *getWebView(WebFrame *webFrame);
@@ -92,7 +91,6 @@ WebView *getWebView(WebFrame *webFrame);
 #if PLATFORM(IOS)
     BOOL isCommitting;
 #endif
-    std::unique_ptr<WebCore::ContentFilter> contentFilterForBlockedLoad;
 }
 @end
 
@@ -103,7 +101,7 @@ WebView *getWebView(WebFrame *webFrame);
 @interface WebFrame (WebInternal)
 
 + (void)_createMainFrameWithPage:(WebCore::Page*)page frameName:(const WTF::String&)name frameView:(WebFrameView *)frameView;
-+ (PassRefPtr<WebCore::Frame>)_createSubframeWithOwnerElement:(WebCore::HTMLFrameOwnerElement*)ownerElement frameName:(const WTF::String&)name frameView:(WebFrameView *)frameView;
++ (Ref<WebCore::Frame>)_createSubframeWithOwnerElement:(WebCore::HTMLFrameOwnerElement*)ownerElement frameName:(const WTF::String&)name frameView:(WebFrameView *)frameView;
 - (id)_initWithWebFrameView:(WebFrameView *)webFrameView webView:(WebView *)webView;
 
 - (void)_clearCoreFrame;
@@ -183,8 +181,6 @@ WebView *getWebView(WebFrame *webFrame);
 - (BOOL)_canSaveAsWebArchive;
 
 - (void)_commitData:(NSData *)data;
-
-- (BOOL)_contentFilterDidHandleNavigationAction:(const WebCore::ResourceRequest&)request;
 
 @end
 

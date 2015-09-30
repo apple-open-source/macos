@@ -45,6 +45,7 @@
 #include <securityd_client/xdr_auth.h>
 #include <securityd_client/xdr_dldb.h>
 #include <security_utilities/logging.h>
+#include <Security/AuthorizationTagsPriv.h>
 #include <AssertMacros.h>
 
 #include <CoreFoundation/CFNumber.h>
@@ -1486,37 +1487,6 @@ kern_return_t ucsp_server_authorizationdbRemove(UCSP_ARGS, AuthorizationBlob aut
 {
 	BEGIN_IPC(authorizationdbRemove)
 	*rcode = connection.process().session().authorizationdbRemove(authorization, rightname);
-	END_IPC(CSSM)
-}
-
-
-//
-// Miscellaneous administrative functions
-//
-kern_return_t ucsp_server_addCodeEquivalence(UCSP_ARGS, DATA_IN(oldHash), DATA_IN(newHash),
-	const char *name, boolean_t forSystem)
-{
-	BEGIN_IPC(addCodeEquivalence)
-	Server::codeSignatures().addLink(DATA(oldHash), DATA(newHash), name, forSystem);
-	END_IPC(CSSM)
-}
-
-kern_return_t ucsp_server_removeCodeEquivalence(UCSP_ARGS, DATA_IN(hash),
-	const char *name, boolean_t forSystem)
-{
-	BEGIN_IPC(removeCodeEquivalence)
-	Server::codeSignatures().removeLink(DATA(hash), name, forSystem);
-	END_IPC(CSSM)
-}
-
-kern_return_t ucsp_server_setAlternateSystemRoot(UCSP_ARGS, const char *root)
-{
-	BEGIN_IPC(setAlternateSystemRoot)
-#if defined(NDEBUG)
-	if (connection.process().uid() != 0)
-		CssmError::throwMe(CSSM_ERRCODE_OS_ACCESS_DENIED);
-#endif //NDEBUG
-	Server::codeSignatures().open((string(root) + EQUIVALENCEDBPATH).c_str());
 	END_IPC(CSSM)
 }
 

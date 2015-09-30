@@ -78,11 +78,17 @@ typedef struct __attribute__((packed)) _IOHIDVendorDefinedEventData {
 } IOHIDVendorDefinedEventData;
 
 enum {
-    kIOHIDKeyboardIsRepeat      = kIOHIDEventOptionIsRepeat // DEPRECATED
+    kIOHIDKeyboardIsRepeat          = kIOHIDEventOptionIsRepeat, // DEPRECATED
+    kIOHIDKeyboardStickyKeyDown     = 0x00020000,
+    kIOHIDKeyboardStickyKeyLocked   = 0x00040000,
+    kIOHIDKeyboardStickyKeyUp       = 0x00080000,
+    kIOHIDKeyboardSlowKey           = 0x00100000,
+    kIOHIDKeyboardStickyKeysOn      = 0x00200000,
+    kIOHIDKeyboardStickyKeysOff     = 0x00400000,
 };
 
 typedef struct _IOHIDKeyboardEventData {
-    IOHIDEVENT_BASE;                            // options = kHIDKeyboardRepeat
+    IOHIDEVENT_BASE;                            // options = kHIDKeyboardRepeat, kIOHIDKeyboardStickyKeyDown, kIOHIDKeyboardStickyKeyLocked, kIOHIDKeyboardStickyKeyUp, kIOHIDKeyboardSlowKey
     uint16_t        usagePage;
     uint16_t        usage;
     boolean_t       down;
@@ -227,6 +233,10 @@ typedef struct _IOHIDDigitizerEventData {
         struct {                                // X Tilt and Y Tilt are used together to specify the tilt away from normal of a digitizer transducer. In its normal position, the values of X Tilt and Y Tilt for a transducer are both zero.
             IOFixed  altitude;                  //The angle with the X-Y plane though a signed, semicicular range.  Positive values specify an angle downward and toward the positive Z axis. 
             IOFixed  azimuth;                   // Specifies the counter clockwise rotation of the cursor around the Z axis though a full circular range.
+            IOFixed  quality;                   // If set, indicates that the transducer is sensed to be in a relatively noise-free region of digitizing.
+            IOFixed  density;
+            IOFixed  majorRadius;                // units in mm
+            IOFixed  minorRadius;                // units in mm
         } polar;
         struct {
             IOFixed  quality;                    // If set, indicates that the transducer is sensed to be in a relatively noise-free region of digitizing.
@@ -237,6 +247,9 @@ typedef struct _IOHIDDigitizerEventData {
             IOFixed  accuracy;                   // The accuracy of the major/minor radius measurement, in mm. 0 indicates no data.
         } quality;
     }orientation;
+    uint32_t        generationCount;             // Unique identfier/sequence number for this event
+    uint32_t        willUpdateMask;              // Mask of fields in this event that will be updated in future
+    uint32_t        didUpdateMask;               // Mask of fields that was updated in this event
 } IOHIDDigitizerEventData;
 
 typedef struct _IOHIDSwipeEventData {
@@ -283,6 +296,51 @@ typedef struct _IOHIDForceEventData {
     IOFixed         stageProgress;
 } IOHIDForceEventData;
 #endif // } IRONSIDE_AVAILABLE
+
+typedef struct _IOHIDMotionActivityEventData {
+    IOHIDEVENT_BASE;
+    uint32_t        activityType;
+    IOFixed         confidence;
+} IOHIDMotionActivityEventData;
+
+typedef struct _IOHIDMotionGestureEventData {
+    IOHIDEVENT_BASE;
+    uint32_t        gestureType;
+    IOFixed         progress;
+} IOHIDMotionGestureEventData;
+
+typedef struct _IOHIDGameControllerEventData {
+    IOHIDEVENT_BASE;
+    uint32_t    controllerType;
+    
+    struct {
+        IOFixed up;
+        IOFixed down;
+        IOFixed left;
+        IOFixed right;
+    } dpad;
+    
+    struct {
+        IOFixed x;
+        IOFixed y;
+        IOFixed a;
+        IOFixed b;
+    }face;
+    
+    struct {
+        IOFixed x;
+        IOFixed y;
+        IOFixed z;
+        IOFixed rz;
+    } joystick;
+    
+    struct {
+        IOFixed l1;
+        IOFixed l2;
+        IOFixed r1;
+        IOFixed r2;
+    } shoulder;
+} IOHIDGameControllerEventData;
 
 /*!
     @typedef    IOHIDSystemQueueElement
@@ -394,6 +452,15 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
             break;                      \
         case kIOHIDEventTypeAtmosphericPressure:\
             size = sizeof(IOHIDAtmosphericPressureEventData);\
+            break;                      \
+        case kIOHIDEventTypeMotionActivity:\
+            size = sizeof(IOHIDMotionActivityEventData);\
+            break;                      \
+        case kIOHIDEventTypeMotionGesture:\
+            size = sizeof(IOHIDMotionGestureEventData);\
+            break;                      \
+        case kIOHIDEventTypeGameController:\
+            size = sizeof(IOHIDGameControllerEventData);\
             break;                      \
         default:                        \
             size = 0;                   \
@@ -908,6 +975,18 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerAzimuth): \
                                         value = IOHIDEventValueFloat(digEvent->orientation.polar.azimuth, isFixed); \
                                         break;          \
+                                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerQuality): \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.polar.quality, isFixed); \
+                                        break;          \
+                                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerDensity): \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.polar.density, isFixed); \
+                                        break;          \
+                                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMajorRadius): \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.polar.majorRadius, isFixed); \
+                                        break;          \
+                                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMinorRadius): \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.polar.minorRadius, isFixed); \
+                                        break;          \
                                 };                      \
                                 break;                  \
                             case kIOHIDDigitizerOrientationTypeQuality:\
@@ -933,6 +1012,15 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                                 };                      \
                                 break;                  \
                         };                              \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerGenerationCount): \
+                        value = digEvent->generationCount; \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerWillUpdateMask): \
+                        value = digEvent->willUpdateMask; \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerDidUpdateMask): \
+                        value = digEvent->didUpdateMask;\
                         break;                          \
                 };                                      \
             }                                           \
@@ -984,6 +1072,90 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                         value = apEvent->sequence;      \
                         break;                          \
                 };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeMotionActivity:             \
+            {                                           \
+                IOHIDMotionActivityEventData * maEvent = (IOHIDMotionActivityEventData *)eventData; \
+                switch ( fieldOffset ) {\
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMotionActivityConfidence): \
+                        value = IOHIDEventValueFloat(maEvent->confidence, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMotionActivityActivityType): \
+                        value = maEvent->activityType;  \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeMotionGesture:              \
+            {                                           \
+                IOHIDMotionGestureEventData * mgEvent = (IOHIDMotionGestureEventData *)eventData; \
+                switch ( fieldOffset ) {\
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMotionGestureProgress): \
+                        value = IOHIDEventValueFloat(mgEvent->progress, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMotionGestureGestureType): \
+                        value = mgEvent->gestureType;   \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeGameController:             \
+            {                                           \
+                IOHIDGameControllerEventData * gcEvent = (IOHIDGameControllerEventData *)eventData; \
+                    switch ( fieldOffset ) {\
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerType): \
+                            value = gcEvent->controllerType;   \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerDirectionPadUp): \
+                            value = IOHIDEventValueFloat(gcEvent->dpad.up, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerDirectionPadDown): \
+                            value = IOHIDEventValueFloat(gcEvent->dpad.down, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerDirectionPadLeft): \
+                            value = IOHIDEventValueFloat(gcEvent->dpad.left, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerDirectionPadRight): \
+                            value = IOHIDEventValueFloat(gcEvent->dpad.right, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerFaceButtonX): \
+                            value = IOHIDEventValueFloat(gcEvent->face.x, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerFaceButtonY): \
+                            value = IOHIDEventValueFloat(gcEvent->face.y, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerFaceButtonA): \
+                            value = IOHIDEventValueFloat(gcEvent->face.a, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerFaceButtonB): \
+                            value = IOHIDEventValueFloat(gcEvent->face.b, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerShoulderButtonL1): \
+                            value = IOHIDEventValueFloat(gcEvent->shoulder.l1, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerShoulderButtonR1): \
+                            value = IOHIDEventValueFloat(gcEvent->shoulder.r1, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerShoulderButtonL2): \
+                            value = IOHIDEventValueFloat(gcEvent->shoulder.l2, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerShoulderButtonR2): \
+                            value = IOHIDEventValueFloat(gcEvent->shoulder.r2, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerJoyStickAxisX): \
+                            value = IOHIDEventValueFloat(gcEvent->joystick.x, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerJoyStickAxisY): \
+                            value = IOHIDEventValueFloat(gcEvent->joystick.y, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerJoyStickAxisZ): \
+                            value = IOHIDEventValueFloat(gcEvent->joystick.z, isFixed); \
+                            break;                          \
+                        case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerJoyStickAxisRz): \
+                            value = IOHIDEventValueFloat(gcEvent->joystick.rz, isFixed); \
+                            break;                          \
+               };                                      \
             }                                           \
             break;                                      \
         IOHIDEventGetEventDataForce(eventData, fieldEvType, fieldOffset, value, isFixed)\
@@ -1569,6 +1741,18 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerAzimuth): \
                                         digEvent->orientation.polar.azimuth = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
+                                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerQuality): \
+                                        digEvent->orientation.polar.quality = IOHIDEventValueFixed(value, isFixed); \
+                                        break;          \
+                                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerDensity): \
+                                        digEvent->orientation.polar.density = IOHIDEventValueFixed(value, isFixed); \
+                                        break;          \
+                                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMajorRadius): \
+                                        digEvent->orientation.polar.majorRadius = IOHIDEventValueFixed(value, isFixed); \
+                                        break;          \
+                                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMinorRadius): \
+                                        digEvent->orientation.polar.minorRadius = IOHIDEventValueFixed(value, isFixed); \
+                                        break;          \
                                 };                      \
                                 break;                  \
                             case kIOHIDDigitizerOrientationTypeQuality:\
@@ -1594,6 +1778,15 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                                 };                      \
                                 break;                  \
                         };                              \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerGenerationCount): \
+                        digEvent->generationCount = value; \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerWillUpdateMask): \
+                        digEvent->willUpdateMask = value; \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerDidUpdateMask): \
+                        digEvent->didUpdateMask = value;\
                         break;                          \
                 };                                      \
             }                                           \
@@ -1646,6 +1839,90 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAtmosphericSequence): \
                         apEvent->sequence = value;      \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeMotionActivity:             \
+            {                                           \
+                IOHIDMotionActivityEventData * maEvent = (IOHIDMotionActivityEventData *)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMotionActivityConfidence): \
+                        maEvent->confidence = IOHIDEventValueFixed(value, isFixed);  \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMotionActivityActivityType): \
+                        maEvent->activityType = value;  \
+                        break;                          \
+                    };                                  \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeMotionGesture:              \
+            {                                           \
+                IOHIDMotionGestureEventData * mgEvent = (IOHIDMotionGestureEventData *)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMotionGestureProgress): \
+                        mgEvent->progress = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMotionGestureGestureType): \
+                        mgEvent->gestureType = value;   \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeGameController:             \
+            {                                           \
+                IOHIDGameControllerEventData * gcEvent = (IOHIDGameControllerEventData *)eventData; \
+                switch ( fieldOffset ) {\
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerType): \
+                        gcEvent->controllerType = value;   \
+                    break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerDirectionPadUp): \
+                        gcEvent->dpad.up = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerDirectionPadDown): \
+                        gcEvent->dpad.down = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerDirectionPadLeft): \
+                        gcEvent->dpad.left = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerDirectionPadRight): \
+                        gcEvent->dpad.right = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerFaceButtonX): \
+                        gcEvent->face.x = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerFaceButtonY): \
+                        gcEvent->face.y = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerFaceButtonA): \
+                        gcEvent->face.a = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerFaceButtonB): \
+                        gcEvent->face.b = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerShoulderButtonL1): \
+                        gcEvent->shoulder.l1 = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerShoulderButtonR1): \
+                        gcEvent->shoulder.r1 = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerShoulderButtonL2): \
+                        gcEvent->shoulder.l2 = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerShoulderButtonR2): \
+                        gcEvent->shoulder.r2 = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerJoyStickAxisX): \
+                        gcEvent->joystick.x = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerJoyStickAxisY): \
+                        gcEvent->joystick.y = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerJoyStickAxisZ): \
+                        gcEvent->joystick.z = IOHIDEventValueFloat(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldGameControllerJoyStickAxisRz): \
+                        gcEvent->joystick.rz = IOHIDEventValueFloat(value, isFixed); \
                         break;                          \
                 };                                      \
             }                                           \

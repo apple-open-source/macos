@@ -40,6 +40,11 @@
 
 
 void
+_HeimGatherStatistics (
+	CFStringRef prefix,
+	CFDictionaryRef logEntries);
+
+void
 _heim_krb5_ipc_client_clear_target (void);
 
 void
@@ -76,10 +81,16 @@ _krb5_array_to_realms (
 	heim_array_t array,
 	krb5_realm **realms);
 
+void
+_krb5_auth_con_free_pfs (
+	krb5_context context,
+	krb5_auth_context auth_context);
+
 krb5_error_code
 _krb5_auth_con_setup_pfs (
 	krb5_context context,
-	krb5_auth_context auth_context);
+	krb5_auth_context auth_context,
+	krb5_enctype enctype);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 _krb5_build_authenticator (
@@ -544,7 +555,6 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 _krb5_krbhst_async (
 	krb5_context context,
 	krb5_krbhst_handle handle,
-	heim_queue_t queue,
 	void *userctx,
 	void (*callback)(void *userctx, krb5_krbhst_info *host));
 
@@ -627,23 +637,35 @@ _krb5_parse_moduli_line (
 	struct krb5_dh_moduli **m);
 
 krb5_error_code
-_krb5_pfs_proccess_md (
+_krb5_pfs_ap_req (
 	krb5_context context,
 	krb5_auth_context auth_context,
-	AuthorizationData *inad,
-	AuthorizationData **outad);
+	krb5_const_principal client,
+	AuthorizationData *output);
 
 krb5_error_code
-_krb5_pfs_updates_keys (
+_krb5_pfs_mk_rep (
 	krb5_context context,
 	krb5_auth_context auth_context,
-	krb5_enctype enctype,
-	const void *session_key,
-	size_t session_key_length,
-	krb5_const_principal client,
-	krb5_const_principal server,
-	Ticket *ticket,
-	krb5_keyblock *reply_key);
+	AP_REP *rep);
+
+krb5_error_code
+_krb5_pfs_rd_rep (
+	krb5_context context,
+	krb5_auth_context auth_context,
+	AP_REP *ap_rep);
+
+krb5_error_code
+_krb5_pfs_rd_req (
+	krb5_context context,
+	krb5_auth_context auth_context);
+
+krb5_error_code
+_krb5_pfs_update_key (
+	krb5_context context,
+	krb5_auth_context auth_context,
+	const char *direction,
+	krb5_keyblock *subkey);
 
 void
 _krb5_pk_copy_error (
@@ -851,6 +873,14 @@ _krb5_srp_reply_key (
 
 const struct _krb5_srp_group *
 _krb5_srp_validate_group (KRB5_SRP_GROUP group);
+
+void
+_krb5_stat_ASREQ (
+	krb5_context context,
+	krb5_enctype userEnctype,
+	krb5_enctype asEnctype,
+	const char *type,
+	int fast);
 
 void
 _krb5_state_srv_sort (struct _krb5_srv_query_ctx *query);

@@ -23,13 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 
 #include "ForEachCoClass.h"
 #include "resource.h"
 #include "WebKit.h"
 #include "WebKitClassFactory.h"
+#include "WebStorageNamespaceProvider.h"
 #include <WebCore/COMPtr.h>
 #include <WebCore/IconDatabase.h>
 #include <WebCore/Page.h>
@@ -40,13 +40,13 @@
 #include <WebCore/Widget.h>
 #include <olectl.h>
 #include <wchar.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Vector.h>
 
 using namespace WebCore;
 
 ULONG gLockCount;
 ULONG gClassCount;
-HashCountedSet<String> gClassNameCount;
 HINSTANCE gInstance;
 
 #define CLSID_FOR_CLASS(cls) CLSID_##cls,
@@ -54,6 +54,13 @@ CLSID gRegCLSIDs[] = {
     FOR_EACH_COCLASS(CLSID_FOR_CLASS)
 };
 #undef CLSID_FOR_CLASS
+
+HashCountedSet<String>& gClassNameCount()
+{
+    static NeverDestroyed<HashCountedSet<String>> gClassNameCount;
+    return gClassNameCount.get();
+}
+
 
 STDAPI_(BOOL) DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID /*lpReserved*/)
 {
@@ -142,7 +149,7 @@ STDAPI LocalServerDidDie()
 void shutDownWebKit()
 {
     WebCore::iconDatabase().close();
-    WebCore::PageGroup::closeLocalStorage();
+    WebStorageNamespaceProvider::closeLocalStorage();
 }
 
 //FIXME: We should consider moving this to a new file for cross-project functionality

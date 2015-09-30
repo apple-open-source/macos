@@ -173,7 +173,7 @@ io_connect_t IORegisterApp( void * refcon,
                         <code>@link IONotificationPortGetMachPort @/link</code>, or <code>@link IONotificationPortSetDispatchQueue @/link</code>.
     @param callback     A c-function which is called during the notification.
     @param notifier     On success, returns a pointer to a unique notifier which caller must keep and pass to a subsequent call to IODeregisterForSystemPower.
-    @result             Returns a io_connect_t session for the IOPMrootDomain or MACH_PORT_NULL if request failed. 
+    @result             Returns a io_connect_t session for the IOPMrootDomain or IO_OBJECT_NULL if request failed.
                         Caller must close return value via IOServiceClose() after calling IODeregisterForSystemPower on the notifier argument.
  */
 io_connect_t IORegisterForSystemPower ( void * refcon,
@@ -708,7 +708,7 @@ IOReturn IOPMAssertionSetProperty(IOPMAssertionID theAssertion, CFStringRef theP
  */
 IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *AssertionsByPID)
                             AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
-
+    
 /*!
  * @function            IOPMCopyAssertionsStatus
  *

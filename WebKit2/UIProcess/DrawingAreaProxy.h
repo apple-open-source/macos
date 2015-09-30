@@ -37,6 +37,7 @@
 #include <stdint.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TypeCasts.h>
 
 namespace WebKit {
 
@@ -88,20 +89,28 @@ public:
     
     virtual void dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)>) { ASSERT_NOT_REACHED(); }
 
-    virtual void hideContentUntilNextUpdate() { ASSERT_NOT_REACHED(); }
+    // Hide the content until the currently pending update arrives.
+    virtual void hideContentUntilPendingUpdate() { ASSERT_NOT_REACHED(); }
+
+    // Hide the content until any update arrives.
+    virtual void hideContentUntilAnyUpdate() { ASSERT_NOT_REACHED(); }
+
+    virtual bool hasVisibleContent() const { return true; }
+
+    virtual void willSendUpdateGeometry() { }
 
 protected:
-    explicit DrawingAreaProxy(DrawingAreaType, WebPageProxy*);
+    explicit DrawingAreaProxy(DrawingAreaType, WebPageProxy&);
 
     DrawingAreaType m_type;
-    WebPageProxy* m_webPageProxy;
+    WebPageProxy& m_webPageProxy;
 
     WebCore::IntSize m_size;
     WebCore::IntSize m_layerPosition;
     WebCore::IntSize m_scrollOffset;
 
     // IPC::MessageReceiver
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
 private:
     virtual void sizeDidChange() = 0;
@@ -115,7 +124,7 @@ private:
     virtual void updateAcceleratedCompositingMode(uint64_t /* backingStoreStateID */, const LayerTreeContext&) { }
 #if PLATFORM(COCOA)
     virtual void didUpdateGeometry() { }
-    virtual void intrinsicContentSizeDidChange(const WebCore::IntSize& newIntrinsicContentSize) { }
+    virtual void intrinsicContentSizeDidChange(const WebCore::IntSize&) { }
 
 #if PLATFORM(MAC)
     RunLoop::Timer<DrawingAreaProxy> m_exposedRectChangedTimer;
@@ -125,9 +134,11 @@ private:
 #endif
 };
 
-#define DRAWING_AREA_PROXY_TYPE_CASTS(ToValueTypeName, predicate) \
-    TYPE_CASTS_BASE(ToValueTypeName, DrawingAreaProxy, value, value->predicate, value.predicate)
-
 } // namespace WebKit
+
+#define SPECIALIZE_TYPE_TRAITS_DRAWING_AREA_PROXY(ToValueTypeName, ProxyType) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::ToValueTypeName) \
+    static bool isType(const WebKit::DrawingAreaProxy& proxy) { return proxy.type() == WebKit::ProxyType; } \
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // DrawingAreaProxy_h

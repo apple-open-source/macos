@@ -25,14 +25,21 @@
 #define __ASL_MSG_H__
 
 #include <stdint.h>
+#include <xpc/xpc.h>
+#include <asl.h>
 #include <asl_string.h>
 #include <asl_core.h>
 #include <asl_object.h>
 
 #define IndexNull ((uint32_t)-1)
 
-#define ASL_MSG_PAGE_DATA_SIZE 830
-#define ASL_MSG_PAGE_SLOTS 25
+#define ASL_MSG_PAGE_DATA_SIZE 220
+
+#define ASL_MSG_KVO_COUNT 30
+// ASL_MSG_KVO_QUERY_SLOTS = ASL_MSG_KVO_COUNT / 3;
+#define ASL_MSG_KVO_QUERY_SLOTS 10
+// ASL_MSG_KVO_MSG_SLOTS = ASL_MSG_KVO_COUNT / 2;
+#define ASL_MSG_KVO_MSG_SLOTS 15
 
 #define ASL_MSG_OFFSET_MASK   0x3fff
 #define ASL_MSG_KV_MASK       0xc000
@@ -90,9 +97,10 @@ typedef struct asl_msg_s
 	uint32_t data_size;
 	uint64_t mem_size;
 	struct asl_msg_s *next;
-	uint16_t key[ASL_MSG_PAGE_SLOTS];
-	uint16_t val[ASL_MSG_PAGE_SLOTS];
-	uint16_t op[ASL_MSG_PAGE_SLOTS];
+#ifndef __LP64__
+	uint32_t pad;
+#endif
+	uint16_t kvo[ASL_MSG_KVO_COUNT];
 	char data[ASL_MSG_PAGE_DATA_SIZE];
 } asl_msg_t;
 
@@ -129,6 +137,8 @@ asl_string_t *asl_msg_to_string_raw(uint32_t encoding, asl_msg_t *msg, const cha
 asl_string_t * asl_string_append_asl_msg(asl_string_t *str, asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 
 int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+
+void _asl_log_args_to_xpc(asl_object_t client, asl_object_t msg, xpc_object_t dict); //TODO: ADD AVAILABLITY INFO
 
 __END_DECLS
 

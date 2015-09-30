@@ -33,7 +33,7 @@ ARCH_FLAGS=$(foreach a,$(ARCHS),-arch $(a))
 
 SCPRIV += -DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS=1
 
-certattrs: EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c EAPUtil.c EAPClientModule.c
+certattrs: EAPLog.c EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c EAPUtil.c EAPClientModule.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_EAPSecCertificateCopyAttributesDictionary $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
 identity: EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPLog.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c
@@ -47,8 +47,8 @@ identity_trust_chain: EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c
 mschap: mschap.c printdata.c DESSupport.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_MSCHAP -framework CoreFoundation -framework SystemConfiguration -lcrypto -g -o $@ $^
 
-keychain: EAPKeychainUtil.c myCFUtil.c EAPSecurity.c
-	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_EAPKEYCHAINUTIL $(PF_INC) -framework Security -framework CoreFoundation -g -o $@ $^
+keychain: EAPKeychainUtil.c myCFUtil.c EAPSecurity.c EAPLog.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_EAPKEYCHAINUTIL $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
 item: EAPKeychainUtil.c EAPSecurity.c myCFUtil.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_EAPKEYCHAINUTIL $(PF_INC) -framework Security -framework CoreFoundation -g -o $@ $^
@@ -59,7 +59,7 @@ trustx: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c
 eapsectrust: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -I. -DTEST_SEC_TRUST $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
-test_server_names: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c EAPUtil.c EAPClientModule.c
+test_server_names: EAPLog.c EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c EAPUtil.c EAPClientModule.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -I. -DTEST_SERVER_NAMES $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
 simtlv: EAPSIMAKAUtil.c EAPUtil.c EAPClientModule.c printdata.c EAPLog.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPSecurity.c myCFUtil.c fips186prf.c fr_sha1.c
@@ -86,8 +86,11 @@ SIMAccess: SIMAccess.c printdata.c myCFUtil.c EAPSIMAKAUtil.c EAPUtil.c EAPClien
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) $(SCPRIV) -Wall -I. -DTARGET_OS_EMBEDDED -DTEST_SIMACCESS $(PF_INC) -framework CoreFoundation $(CORETELEPHONY) -framework SystemConfiguration -framework Security -g -o $@ $^
 	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
 
-verify_server: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c
-	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_EAPTLSVerifyServerCertificateChain $(PF_INC) -framework CoreFoundation -framework Security -g -o $@ $^
+verify_server: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPLog.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_EAPTLSVerifyServerCertificateChain $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -framework Security -g -o $@ $^
+
+verify_server_name: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPLog.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_VerifyServerName $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -framework Security -g -o $@ $^
 
 eapol_socket: eapol_socket.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -I../EAP8021X.fproj -DTEST_EAPOL_SOCKET -g -o $@ $^
@@ -100,7 +103,10 @@ simaka_persist: EAPSIMAKAPersistentState.c EAPKeychainUtil.c myCFUtil.c EAPSecur
 test_eapaka: eapaka_plugin.c EAPSIMAKAUtil.c SIMAccess.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c fips186prf.c printdata.c myCFUtil.c EAPKeychainUtil.c EAPSecurity.c fr_sha1.c EAPLog.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DEAPSIMAKA_PACKET_DUMP -DTEST_EAPAKA_PLUGIN $(PF_INC) -framework CoreFoundation -framework Security -framework SystemConfiguration -g -o $@ $^
 
+test_gsm_milenage: sim_simulator.c EAPLog.c 
+	$(CC) $(ARCH_FLAGS) -DTEST_GSM_MILENAGE_TEST_VECTOR $(PF_INC) -framework CoreFoundation -framework Security -framework SystemConfiguration -g -o $@ $^
+
 clean:
 	rm -rf *.dSYM/
 	rm -f *~
-	rm -f certattrs identity identity_trust_chain mschap keychain item trustx eapsectrust test_server_names simtlv rand_dups sim_crypto sim_set_version fips186prf siminfo SIMAccess verify_server eapol_socket simaka_persist test_eapaka
+	rm -f certattrs identity identity_trust_chain mschap keychain item trustx eapsectrust test_server_names simtlv rand_dups sim_crypto sim_set_version fips186prf siminfo SIMAccess verify_server eapol_socket simaka_persist test_eapaka verify_server_name

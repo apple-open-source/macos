@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IsHidden</key>
+	<array>
+		<string>YES</string>
+	</array>
+	<key>generateduid</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA000000F8</string>
+	</array>
+	<key>gid</key>
+	<array>
+		<string>248</string>
+	</array>
+	<key>home</key>
+	<array>
+		<string>/var/setup</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>_mbsetupuser</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>Setup User</string>
+	</array>
+	<key>shell</key>
+	<array>
+		<string>/bin/bash</string>
+	</array>
+	<key>uid</key>
+	<array>
+		<string>248</string>
+	</array>
+</dict>
+</plist>

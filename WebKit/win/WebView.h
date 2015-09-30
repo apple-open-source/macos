@@ -55,6 +55,7 @@ namespace WebCore {
 #if PLATFORM(WIN) && USE(AVFOUNDATION)
     struct GraphicsDeviceAdapter;
 #endif
+    class HTMLVideoElement;
 }
 
 namespace WebCore {
@@ -66,6 +67,10 @@ class WebBackForwardList;
 class WebFrame;
 class WebInspector;
 class WebInspectorClient;
+#if USE(TEXTURE_MAPPER_GL)
+class AcceleratedCompositingContext;
+#endif
+class WebViewGroup;
 
 WebView* kit(WebCore::Page*);
 WebCore::Page* core(IWebView*);
@@ -74,7 +79,7 @@ interface IDropTargetHelper;
 
 class WebView 
     : public IWebView
-    , public IWebViewPrivate
+    , public IWebViewPrivate2
     , public IWebIBActions
     , public IWebViewCSS
     , public IWebViewEditing
@@ -604,7 +609,6 @@ public:
         /* [in] */ IWebNotification *notification);
 
     // IWebViewPrivate
-
     virtual HRESULT STDMETHODCALLTYPE MIMETypeForExtension(
         /* [in] */ BSTR extension,
         /* [retval][out] */ BSTR *mimeType);
@@ -836,6 +840,13 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setUsesLayeredWindow(BOOL);
     virtual HRESULT STDMETHODCALLTYPE usesLayeredWindow(BOOL*);
 
+    // IWebViewPrivate2
+    HRESULT STDMETHODCALLTYPE setLoadResourcesSerially(BOOL);
+    HRESULT STDMETHODCALLTYPE scaleWebView(double scale, POINT origin);
+    HRESULT STDMETHODCALLTYPE dispatchPendingLoadRequests();
+    virtual HRESULT STDMETHODCALLTYPE setCustomBackingScaleFactor(double);
+    virtual HRESULT STDMETHODCALLTYPE backingScaleFactor(double*);
+
     // WebView
     bool shouldUseEmbeddedView(const WTF::String& mimeType) const;
 
@@ -940,8 +951,8 @@ public:
     WebCore::GraphicsDeviceAdapter* graphicsDeviceAdapter() const;
 #endif
 
-    void enterFullscreenForNode(WebCore::Node*);
-    void exitFullscreen();
+    void enterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&);
+    void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&);
 
     void setLastCursor(HCURSOR cursor) { m_lastSetCursor = cursor; }
 
@@ -1015,9 +1026,13 @@ private:
     bool m_shouldInvertColors;
     void setShouldInvertColors(bool);
 
+    float deviceScaleFactor() const;
+
 protected:
     static bool registerWebViewWindowClass();
     static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+    void updateWindowIfNeeded(HWND hWnd, UINT message);
 
     HIMC getIMMContext();
     void releaseIMMContext(HIMC);
@@ -1060,10 +1075,8 @@ protected:
     HWND m_viewWindow;
     WebFrame* m_mainFrame;
     WebCore::Page* m_page;
-#if ENABLE(INSPECTOR)
     WebInspectorClient* m_inspectorClient;
-#endif // ENABLE(INSPECTOR)
-    
+
     RefPtr<WebCore::SharedGDIObject<HBITMAP>> m_backingStoreBitmap;
     SIZE m_backingStoreSize;
     RefPtr<WebCore::SharedGDIObject<HRGN>> m_backingStoreDirtyRegion;
@@ -1080,9 +1093,7 @@ protected:
     COMPtr<IWebDownloadDelegate> m_downloadDelegate;
     COMPtr<IWebHistoryDelegate> m_historyDelegate;
     COMPtr<WebPreferences> m_preferences;
-#if ENABLE(INSPECTOR)
     COMPtr<WebInspector> m_webInspector;
-#endif // ENABLE(INSPECTOR)
     COMPtr<IWebGeolocationProvider> m_geolocationProvider;
 
     bool m_userAgentOverridden;
@@ -1090,6 +1101,7 @@ protected:
     WTF::String m_userAgentCustom;
     WTF::String m_userAgentStandard;
     float m_zoomMultiplier;
+    float m_customDeviceScaleFactor { 0 };
     bool m_zoomsTextOnly;
     WTF::String m_overrideEncoding;
     WTF::String m_applicationName;
@@ -1135,8 +1147,10 @@ protected:
     void setAcceleratedCompositing(bool);
 #if USE(CA)
     RefPtr<WebCore::CACFLayerTreeHost> m_layerTreeHost;
-#endif
     std::unique_ptr<WebCore::GraphicsLayer> m_backingLayer;
+#elif USE(TEXTURE_MAPPER_GL)
+    std::unique_ptr<AcceleratedCompositingContext> m_acceleratedCompositingContext;
+#endif
     bool m_isAcceleratedCompositing;
 
     bool m_nextDisplayIsSynchronous;
@@ -1152,6 +1166,8 @@ protected:
     std::unique_ptr<WebCore::FullScreenController> m_fullscreenController;
     WebCore::IntPoint m_scrollPosition;
 #endif
+
+    RefPtr<WebViewGroup> m_webViewGroup;
 };
 
 #endif

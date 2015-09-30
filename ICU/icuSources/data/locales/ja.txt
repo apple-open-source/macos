@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ja.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/ja.xml
- */
 ja{
     AuxExemplarCharacters{"[兌 拼 楔 錄 鳯]"}
     Ellipsis{
@@ -80,11 +77,6 @@ ja{
         "[‾ _＿ \\-－ ‐ — ― 〜 ・ ･ ,， 、､ ;； \\:： !！ ?？ .． ‥ … 。｡ ＇ ‘ ’ \u0022＂ “ ” (（ )）"
         " \\[［ \\]］ \\{｛ \\}｝ 〈 〉 《 》 「｢ 」｣ 『 』 【 】 〔 〕 ‖ § ¶ @＠ *＊ /／ \\\\ ＼ \\&＆ #＃"
         " %％ ‰ † ‡ ′ ″ 〃 ※]"
-    }
-    LocaleScript{
-        "Kana",
-        "Hira",
-        "Hani",
     }
     MoreInformation{"?"}
     NumberElements{
@@ -194,12 +186,14 @@ ja{
                 percentSign{"%"}
                 plusSign{"+"}
                 superscriptingExponent{"×"}
+                timeSeparator{":"}
             }
         }
+        minimumGroupingDigits{"1"}
         native{"latn"}
         traditional{"jpan"}
     }
-    Version{"2.0.98.62"}
+    Version{"2.1.12.94"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -352,6 +346,36 @@ ja{
                             "酉",
                             "戌",
                             "亥",
+                        }
+                    }
+                }
+                solarTerms{
+                    format{
+                        abbreviated{
+                            "立春",
+                            "雨水",
+                            "啓蟄",
+                            "春分",
+                            "清明",
+                            "穀雨",
+                            "立夏",
+                            "小満",
+                            "芒種",
+                            "夏至",
+                            "小暑",
+                            "大暑",
+                            "立秋",
+                            "処暑",
+                            "白露",
+                            "秋分",
+                            "寒露",
+                            "霜降",
+                            "立冬",
+                            "小雪",
+                            "大雪",
+                            "冬至",
+                            "小寒",
+                            "大寒",
                         }
                     }
                 }
@@ -1239,6 +1263,7 @@ ja{
                 Timezone{"{0} {1}"}
             }
             availableFormats{
+                E{"ccc"}
                 EEEEd{"d日EEEE"}
                 EHm{"E H:mm"}
                 EHms{"E H:mm:ss"}
@@ -1253,6 +1278,8 @@ ja{
                 H{"H時"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
+                Hmsv{"H:mm:ss v"}
+                Hmv{"H:mm v"}
                 M{"M月"}
                 MEEEEd{"M/dEEEE"}
                 MEd{"M/d(E)"}
@@ -1265,6 +1292,8 @@ ja{
                 h{"aK時"}
                 hm{"aK:mm"}
                 hms{"aK:mm:ss"}
+                hmsv{"aK:mm:ss v"}
+                hmv{"aK:mm v"}
                 ms{"mm:ss"}
                 y{"y年"}
                 yM{"y/M"}
@@ -1362,13 +1391,25 @@ ja{
                     "紀元前",
                     "西暦",
                 }
+                abbreviated%variant{
+                    "西暦紀元前",
+                    "西暦紀元",
+                }
                 narrow{
                     "BC",
                     "AD",
                 }
+                narrow%variant{
+                    "BCE",
+                    "CE",
+                }
                 wide{
                     "紀元前",
                     "西暦",
+                }
+                wide%variant{
+                    "西暦紀元前",
+                    "西暦紀元",
                 }
             }
             intervalFormats{
@@ -1991,6 +2032,7 @@ ja{
                 ms{"mm:ss"}
                 y{"Gy年"}
                 yyyy{"Gy年"}
+                yyyyM{"GGGGGyy/M"}
                 yyyyMEEEEd{"GGGGGyy/M/dEEEE"}
                 yyyyMEd{"GGGGGyy/M/d(E)"}
                 yyyyMM{"GGGGGyy/MM"}
@@ -2618,11 +2660,6 @@ ja{
         quotationEnd{"」"}
         quotationStart{"「"}
     }
-    durationUnits{
-        hm{"h:mm"}
-        hms{"h:mm:ss"}
-        ms{"m:ss"}
-    }
     fields{
         day{
             dn{"日"}
@@ -2633,6 +2670,28 @@ ja{
                 "1"{"明日"}
                 "2"{"明後日"}
             }
+            relativeTime{
+                future{
+                    other{"{0} 日後"}
+                }
+                past{
+                    other{"{0} 日前"}
+                }
+            }
+        }
+        day-narrow{
+            dn{"日"}
+            relativeTime{
+                future{
+                    other{"{0} 日後"}
+                }
+                past{
+                    other{"{0} 日前"}
+                }
+            }
+        }
+        day-short{
+            dn{"日"}
             relativeTime{
                 future{
                     other{"{0} 日後"}
@@ -2655,7 +2714,43 @@ ja{
                 "1"{"来週の金曜日"}
             }
         }
+        fri-narrow{
+            relative{
+                "-1"{"先週の金曜"}
+                "0"{"今週の金曜"}
+                "1"{"来週の金曜"}
+            }
+        }
+        fri-short{
+            relative{
+                "-1"{"先週の金曜"}
+                "0"{"今週の金曜"}
+                "1"{"来週の金曜"}
+            }
+        }
         hour{
+            dn{"時"}
+            relativeTime{
+                future{
+                    other{"{0} 時間後"}
+                }
+                past{
+                    other{"{0} 時間前"}
+                }
+            }
+        }
+        hour-narrow{
+            dn{"時"}
+            relativeTime{
+                future{
+                    other{"{0} 時間後"}
+                }
+                past{
+                    other{"{0} 時間前"}
+                }
+            }
+        }
+        hour-short{
             dn{"時"}
             relativeTime{
                 future{
@@ -2677,11 +2772,47 @@ ja{
                 }
             }
         }
+        minute-narrow{
+            dn{"分"}
+            relativeTime{
+                future{
+                    other{"{0} 分後"}
+                }
+                past{
+                    other{"{0} 分前"}
+                }
+            }
+        }
+        minute-short{
+            dn{"分"}
+            relativeTime{
+                future{
+                    other{"{0} 分後"}
+                }
+                past{
+                    other{"{0} 分前"}
+                }
+            }
+        }
         mon{
             relative{
                 "-1"{"先週の月曜日"}
                 "0"{"今週の月曜日"}
                 "1"{"来週の月曜日"}
+            }
+        }
+        mon-narrow{
+            relative{
+                "-1"{"先週の月曜"}
+                "0"{"今週の月曜"}
+                "1"{"来週の月曜"}
+            }
+        }
+        mon-short{
+            relative{
+                "-1"{"先週の月曜"}
+                "0"{"今週の月曜"}
+                "1"{"来週の月曜"}
             }
         }
         month{
@@ -2700,11 +2831,80 @@ ja{
                 }
             }
         }
+        month-narrow{
+            dn{"月"}
+            relativeTime{
+                future{
+                    other{"{0} か月後"}
+                }
+                past{
+                    other{"{0} か月前"}
+                }
+            }
+        }
+        month-short{
+            dn{"月"}
+            relativeTime{
+                future{
+                    other{"{0} か月後"}
+                }
+                past{
+                    other{"{0} か月前"}
+                }
+            }
+        }
+        quarter{
+            dn{"四半期"}
+            relativeTime{
+                future{
+                    other{"{0} 四半期後"}
+                }
+                past{
+                    other{"{0} 四半期前"}
+                }
+            }
+        }
+        quarter-narrow{
+            dn{"四半期"}
+            relativeTime{
+                future{
+                    other{"{0} 四半期後"}
+                }
+                past{
+                    other{"{0} 四半期前"}
+                }
+            }
+        }
+        quarter-short{
+            dn{"四半期"}
+            relativeTime{
+                future{
+                    other{"{0} 四半期後"}
+                }
+                past{
+                    other{"{0} 四半期前"}
+                }
+            }
+        }
         sat{
             relative{
                 "-1"{"先週の土曜日"}
                 "0"{"今週の土曜日"}
                 "1"{"来週の土曜日"}
+            }
+        }
+        sat-narrow{
+            relative{
+                "-1"{"先週の土曜"}
+                "0"{"今週の土曜"}
+                "1"{"来週の土曜"}
+            }
+        }
+        sat-short{
+            relative{
+                "-1"{"先週の土曜"}
+                "0"{"今週の土曜"}
+                "1"{"来週の土曜"}
             }
         }
         second{
@@ -2721,11 +2921,47 @@ ja{
                 }
             }
         }
+        second-narrow{
+            dn{"秒"}
+            relativeTime{
+                future{
+                    other{"{0} 秒後"}
+                }
+                past{
+                    other{"{0} 秒前"}
+                }
+            }
+        }
+        second-short{
+            dn{"秒"}
+            relativeTime{
+                future{
+                    other{"{0} 秒後"}
+                }
+                past{
+                    other{"{0} 秒前"}
+                }
+            }
+        }
         sun{
             relative{
                 "-1"{"先週の日曜日"}
                 "0"{"今週の日曜日"}
                 "1"{"来週の日曜日"}
+            }
+        }
+        sun-narrow{
+            relative{
+                "-1"{"先週の日曜"}
+                "0"{"今週の日曜"}
+                "1"{"来週の日曜"}
+            }
+        }
+        sun-short{
+            relative{
+                "-1"{"先週の日曜"}
+                "0"{"今週の日曜"}
+                "1"{"来週の日曜"}
             }
         }
         thu{
@@ -2735,11 +2971,39 @@ ja{
                 "1"{"来週の木曜日"}
             }
         }
+        thu-narrow{
+            relative{
+                "-1"{"先週の木曜"}
+                "0"{"今週の木曜"}
+                "1"{"来週の木曜"}
+            }
+        }
+        thu-short{
+            relative{
+                "-1"{"先週の木曜"}
+                "0"{"今週の木曜"}
+                "1"{"来週の木曜"}
+            }
+        }
         tue{
             relative{
                 "-1"{"先週の火曜日"}
                 "0"{"今週の火曜日"}
                 "1"{"来週の火曜日"}
+            }
+        }
+        tue-narrow{
+            relative{
+                "-1"{"先週の火曜"}
+                "0"{"今週の火曜"}
+                "1"{"来週の火曜"}
+            }
+        }
+        tue-short{
+            relative{
+                "-1"{"先週の火曜"}
+                "0"{"今週の火曜"}
+                "1"{"来週の火曜"}
             }
         }
         wed{
@@ -2749,6 +3013,20 @@ ja{
                 "1"{"来週の水曜日"}
             }
         }
+        wed-narrow{
+            relative{
+                "-1"{"先週の水曜"}
+                "0"{"今週の水曜"}
+                "1"{"来週の水曜"}
+            }
+        }
+        wed-short{
+            relative{
+                "-1"{"先週の水曜"}
+                "0"{"今週の水曜"}
+                "1"{"来週の水曜"}
+            }
+        }
         week{
             dn{"週"}
             relative{
@@ -2756,6 +3034,28 @@ ja{
                 "0"{"今週"}
                 "1"{"翌週"}
             }
+            relativeTime{
+                future{
+                    other{"{0} 週間後"}
+                }
+                past{
+                    other{"{0} 週間前"}
+                }
+            }
+        }
+        week-narrow{
+            dn{"週"}
+            relativeTime{
+                future{
+                    other{"{0} 週間後"}
+                }
+                past{
+                    other{"{0} 週間前"}
+                }
+            }
+        }
+        week-short{
+            dn{"週"}
             relativeTime{
                 future{
                     other{"{0} 週間後"}
@@ -2784,6 +3084,28 @@ ja{
                 }
             }
         }
+        year-narrow{
+            dn{"年"}
+            relativeTime{
+                future{
+                    other{"{0} 年後"}
+                }
+                past{
+                    other{"{0} 年前"}
+                }
+            }
+        }
+        year-short{
+            dn{"年"}
+            relativeTime{
+                future{
+                    other{"{0} 年後"}
+                }
+                past{
+                    other{"{0} 年前"}
+                }
+            }
+        }
         zone{
             dn{"タイムゾーン"}
         }
@@ -2800,6 +3122,12 @@ ja{
             end{"{0} {1}"}
             middle{"{0} {1}"}
             start{"{0} {1}"}
+        }
+        unit-narrow{
+            2{"{0}{1}"}
+            end{"{0}{1}"}
+            middle{"{0}{1}"}
+            start{"{0}{1}"}
         }
         unit-short{
             2{"{0} {1}"}
@@ -2824,560 +3152,5 @@ ja{
         x-Jamo{"字母"}
         x-Pinyin{"ピンイン"}
         x-Publishing{"出版"}
-    }
-    units{
-        acceleration{
-            g-force{
-                other{"{0} G フォース"}
-            }
-        }
-        angle{
-            arc-minute{
-                other{"{0} 分"}
-            }
-            arc-second{
-                other{"{0} 秒"}
-            }
-            degree{
-                other{"{0} 度"}
-            }
-        }
-        area{
-            acre{
-                other{"{0} エーカー"}
-            }
-            hectare{
-                other{"{0} ヘクタール"}
-            }
-            square-foot{
-                other{"{0} 平方フィート"}
-            }
-            square-kilometer{
-                other{"{0} 平方キロメートル"}
-            }
-            square-meter{
-                other{"{0} 平方メートル"}
-            }
-            square-mile{
-                other{"{0} 平方マイル"}
-            }
-        }
-        compound{
-            per{"毎{1} {0}"}
-        }
-        duration{
-            day{
-                other{"{0} 日"}
-            }
-            hour{
-                other{"{0} 時間"}
-            }
-            millisecond{
-                other{"{0} ミリ秒"}
-            }
-            minute{
-                other{"{0} 分"}
-            }
-            month{
-                other{"{0} か月"}
-            }
-            second{
-                other{"{0} 秒"}
-            }
-            week{
-                other{"{0} 週間"}
-            }
-            year{
-                other{"{0} 年"}
-            }
-        }
-        energy{
-            calorie{
-                other{"{0}カロリー"}
-            }
-            foodcalorie{
-                other{"{0}カロリー"}
-            }
-            joule{
-                other{"{0}ジュール"}
-            }
-            kilocalorie{
-                other{"{0}キロカロリー"}
-            }
-            kilojoule{
-                other{"{0}キロジュール"}
-            }
-        }
-        length{
-            centimeter{
-                other{"{0} センチメートル"}
-            }
-            foot{
-                other{"{0} フィート"}
-            }
-            inch{
-                other{"{0} インチ"}
-            }
-            kilometer{
-                other{"{0} キロメートル"}
-            }
-            light-year{
-                other{"{0} 光年"}
-            }
-            meter{
-                other{"{0} メートル"}
-            }
-            mile{
-                other{"{0} マイル"}
-            }
-            millimeter{
-                other{"{0} ミリメートル"}
-            }
-            picometer{
-                other{"{0} ピコメートル"}
-            }
-            yard{
-                other{"{0} ヤード"}
-            }
-        }
-        mass{
-            gram{
-                other{"{0} グラム"}
-            }
-            kilogram{
-                other{"{0} キログラム"}
-            }
-            ounce{
-                other{"{0} オンス"}
-            }
-            pound{
-                other{"{0} ポンド"}
-            }
-            stone{
-                other{"{0}ストーン"}
-            }
-        }
-        power{
-            horsepower{
-                other{"{0} 馬力"}
-            }
-            kilowatt{
-                other{"{0} キロワット"}
-            }
-            watt{
-                other{"{0} ワット"}
-            }
-        }
-        pressure{
-            hectopascal{
-                other{"{0} ヘクトパスカル"}
-            }
-            inch-hg{
-                other{"{0} 水銀柱インチ"}
-            }
-            millibar{
-                other{"{0} ミリバール"}
-            }
-        }
-        speed{
-            kilometer-per-hour{
-                other{"時速 {0} キロメートル"}
-            }
-            meter-per-second{
-                other{"秒速 {0} メートル"}
-            }
-            mile-per-hour{
-                other{"時速 {0} マイル"}
-            }
-        }
-        temperature{
-            celsius{
-                other{"摂氏 {0} 度"}
-            }
-            fahrenheit{
-                other{"華氏 {0} 度"}
-            }
-        }
-        volume{
-            cubic-kilometer{
-                other{"{0} 立方キロメートル"}
-            }
-            cubic-mile{
-                other{"{0} 立法マイル"}
-            }
-            liter{
-                other{"{0} リットル"}
-            }
-        }
-    }
-    unitsNarrow{
-        acceleration{
-            g-force{
-                other{"{0}G"}
-            }
-        }
-        angle{
-            arc-minute{
-                other{"{0}′"}
-            }
-            arc-second{
-                other{"{0}″"}
-            }
-            degree{
-                other{"{0}°"}
-            }
-        }
-        area{
-            acre{
-                other{"{0}ac"}
-            }
-            hectare{
-                other{"{0}ha"}
-            }
-            square-foot{
-                other{"{0}ft²"}
-            }
-            square-kilometer{
-                other{"{0}km²"}
-            }
-            square-meter{
-                other{"{0}m²"}
-            }
-            square-mile{
-                other{"{0}mi²"}
-            }
-        }
-        compound{
-            per{"{0}/{1}"}
-        }
-        duration{
-            day{
-                other{"{0}日"}
-            }
-            hour{
-                other{"{0}時間"}
-            }
-            millisecond{
-                other{"{0}ms"}
-            }
-            minute{
-                other{"{0}分"}
-            }
-            month{
-                other{"{0}か月"}
-            }
-            second{
-                other{"{0}秒"}
-            }
-            week{
-                other{"{0}週間"}
-            }
-            year{
-                other{"{0}年"}
-            }
-        }
-        energy{
-            calorie{
-                other{"{0}cal"}
-            }
-            foodcalorie{
-                other{"{0}cal"}
-            }
-            joule{
-                other{"{0}J"}
-            }
-            kilocalorie{
-                other{"{0}kcal"}
-            }
-            kilojoule{
-                other{"{0}kJ"}
-            }
-        }
-        length{
-            centimeter{
-                other{"{0}cm"}
-            }
-            foot{
-                other{"{0}′"}
-            }
-            inch{
-                other{"{0}″"}
-            }
-            kilometer{
-                other{"{0}km"}
-            }
-            light-year{
-                other{"{0}光年"}
-            }
-            meter{
-                other{"{0}m"}
-            }
-            mile{
-                other{"{0}マイル"}
-            }
-            millimeter{
-                other{"{0}mm"}
-            }
-            picometer{
-                other{"{0}pm"}
-            }
-            yard{
-                other{"{0}ヤード"}
-            }
-        }
-        mass{
-            gram{
-                other{"{0}g"}
-            }
-            kilogram{
-                other{"{0}kg"}
-            }
-            ounce{
-                other{"{0}oz"}
-            }
-            pound{
-                other{"{0}lb"}
-            }
-            stone{
-                other{"{0}st"}
-            }
-        }
-        power{
-            horsepower{
-                other{"{0}hp"}
-            }
-            kilowatt{
-                other{"{0}kW"}
-            }
-            watt{
-                other{"{0}W"}
-            }
-        }
-        pressure{
-            hectopascal{
-                other{"{0}hPa"}
-            }
-            inch-hg{
-                other{"{0}\u0022 Hg"}
-            }
-            millibar{
-                other{"{0}mb"}
-            }
-        }
-        speed{
-            kilometer-per-hour{
-                other{"{0}km/h"}
-            }
-            meter-per-second{
-                other{"{0}m/s"}
-            }
-            mile-per-hour{
-                other{"{0}mi/h"}
-            }
-        }
-        temperature{
-            celsius{
-                other{"{0}°"}
-            }
-            fahrenheit{
-                other{"{0}°F"}
-            }
-        }
-        volume{
-            cubic-kilometer{
-                other{"{0}km³"}
-            }
-            cubic-mile{
-                other{"{0}mi³"}
-            }
-            liter{
-                other{"{0}l"}
-            }
-        }
-    }
-    unitsShort{
-        acceleration{
-            g-force{
-                other{"{0} G"}
-            }
-        }
-        angle{
-            arc-minute{
-                other{"{0} 分"}
-            }
-            arc-second{
-                other{"{0} 秒"}
-            }
-            degree{
-                other{"{0} 度"}
-            }
-        }
-        area{
-            acre{
-                other{"{0} エーカー"}
-            }
-            hectare{
-                other{"{0} ヘクタール"}
-            }
-            square-foot{
-                other{"{0} 平方フィート"}
-            }
-            square-kilometer{
-                other{"{0} km²"}
-            }
-            square-meter{
-                other{"{0} m²"}
-            }
-            square-mile{
-                other{"{0} 平方マイル"}
-            }
-        }
-        compound{
-            per{"{0}/{1}"}
-        }
-        duration{
-            day{
-                other{"{0} 日"}
-            }
-            hour{
-                other{"{0} 時間"}
-            }
-            millisecond{
-                other{"{0} ms"}
-            }
-            minute{
-                other{"{0} 分"}
-            }
-            month{
-                other{"{0} か月"}
-            }
-            second{
-                other{"{0} 秒"}
-            }
-            week{
-                other{"{0} 週間"}
-            }
-            year{
-                other{"{0} 年"}
-            }
-        }
-        energy{
-            calorie{
-                other{"{0}cal"}
-            }
-            foodcalorie{
-                other{"{0}cal"}
-            }
-            joule{
-                other{"{0}J"}
-            }
-            kilocalorie{
-                other{"{0}kcal"}
-            }
-            kilojoule{
-                other{"{0}kJ"}
-            }
-        }
-        length{
-            centimeter{
-                other{"{0} cm"}
-            }
-            foot{
-                other{"{0} フィート"}
-            }
-            inch{
-                other{"{0} インチ"}
-            }
-            kilometer{
-                other{"{0} km"}
-            }
-            light-year{
-                other{"{0} 光年"}
-            }
-            meter{
-                other{"{0} m"}
-            }
-            mile{
-                other{"{0} マイル"}
-            }
-            millimeter{
-                other{"{0} mm"}
-            }
-            picometer{
-                other{"{0} pm"}
-            }
-            yard{
-                other{"{0} ヤード"}
-            }
-        }
-        mass{
-            gram{
-                other{"{0} g"}
-            }
-            kilogram{
-                other{"{0} kg"}
-            }
-            ounce{
-                other{"{0} オンス"}
-            }
-            pound{
-                other{"{0} ポンド"}
-            }
-            stone{
-                other{"{0}st"}
-            }
-        }
-        power{
-            horsepower{
-                other{"{0} 馬力"}
-            }
-            kilowatt{
-                other{"{0} kW"}
-            }
-            watt{
-                other{"{0} W"}
-            }
-        }
-        pressure{
-            hectopascal{
-                other{"{0} hPa"}
-            }
-            inch-hg{
-                other{"{0} inHg"}
-            }
-            millibar{
-                other{"{0} mb"}
-            }
-        }
-        speed{
-            kilometer-per-hour{
-                other{"{0} km/h"}
-            }
-            meter-per-second{
-                other{"{0} m/s"}
-            }
-            mile-per-hour{
-                other{"{0} mi/h"}
-            }
-        }
-        temperature{
-            celsius{
-                other{"{0}°C"}
-            }
-            fahrenheit{
-                other{"{0}°F"}
-            }
-        }
-        volume{
-            cubic-kilometer{
-                other{"{0} km³"}
-            }
-            cubic-mile{
-                other{"{0} mi³"}
-            }
-            liter{
-                other{"{0} l"}
-            }
-        }
     }
 }

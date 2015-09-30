@@ -52,6 +52,11 @@
 
 #include <TargetConditionals.h>
 
+#if TARGET_OS_EMBEDDED
+#include <dirent.h>
+#include <fts.h>
+#endif /* TARGET_OS_EMBEDDED */
+
 /* Sensible wrappers over the byte-swapping routines */
 #include "hfs_endian.h"
 #if !TARGET_OS_EMBEDDED
@@ -132,7 +137,7 @@ typedef struct CreateDateAttrBuf {
 
 #define KEXT_LOAD_COMMAND	"/sbin/kextload"
 
-#define ENCODING_MODULE_PATH	"/System/Library/Filesystems/hfs.fs/Encodings/"
+#define ENCODING_MODULE_PATH	"/System/Library/Filesystems/hfs.fs/Contents/Resources/Encodings/"
 
 #define MXENCDNAMELEN	16	/* Maximun length of encoding name string */
 
@@ -441,6 +446,7 @@ load_encoding(struct hfs_mnt_encoding *encp)
 	return (0);
 }
 
+
 int
 main(argc, argv)
 	int argc;
@@ -634,6 +640,8 @@ main(argc, argv)
 		if (args.hfs_mask == (mode_t)VNOVAL)
 			args.hfs_mask = sb.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
 	}
+
+
 #if DEBUG
     printf("mount_hfs: calling mount: \n" );
     printf("\tdevice = %s\n", dev);
@@ -674,9 +682,7 @@ main(argc, argv)
     }
     
     if ((mountStatus = mount(HFS_MOUNT_TYPE, dir, mntflags, &args)) < 0) {
-#if DEBUG
 	    printf("mount_hfs: error on mount(): error = %d.\n", mountStatus);
-#endif
 	    err(1, NULL);
     };
     
@@ -893,7 +899,6 @@ usage()
 {
 	(void)fprintf(stderr,
                "usage: mount_hfs [-xw] [-u user] [-g group] [-m mask] [-e encoding] [-t tbuffer-size] [-j] [-c] [-o options] special-device filesystem-node\n");
-	(void)fprintf(stderr, "   -j disables journaling; -c disables group-commit for journaling\n");
 	
 	exit(1);
 }

@@ -45,7 +45,7 @@ public:
     CFURLConnectionClient_V6 makeConnectionClient() const;
     virtual void setupRequest(CFMutableURLRequestRef) = 0;
     virtual void setupConnectionScheduling(CFURLConnectionRef) = 0;
-    void releaseHandle();
+    virtual void releaseHandle();
 
     virtual void continueWillSendRequest(CFURLRequestRef) = 0;
     virtual void continueDidReceiveResponse() = 0;
@@ -59,6 +59,8 @@ protected:
     ResourceRequest createResourceRequest(CFURLRequestRef, CFURLResponseRef);
 
 private:
+    static const void* retain(const void*);
+    static void release(const void*);
     static CFURLRequestRef willSendRequestCallback(CFURLConnectionRef, CFURLRequestRef, CFURLResponseRef, const void* clientInfo);
     static void didReceiveResponseCallback(CFURLConnectionRef, CFURLResponseRef, const void* clientInfo);
     static void didReceiveDataCallback(CFURLConnectionRef, CFDataRef, CFIndex originalLength, const void* clientInfo);

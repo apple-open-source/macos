@@ -39,11 +39,11 @@ class SVGFontFaceElement;
 
 class CSSFontFaceSrcValue : public CSSValue {
 public:
-    static PassRef<CSSFontFaceSrcValue> create(const String& resource)
+    static Ref<CSSFontFaceSrcValue> create(const String& resource)
     {
         return adoptRef(*new CSSFontFaceSrcValue(resource, false));
     }
-    static PassRef<CSSFontFaceSrcValue> createLocal(const String& resource)
+    static Ref<CSSFontFaceSrcValue> createLocal(const String& resource)
     {
         return adoptRef(*new CSSFontFaceSrcValue(resource, true));
     }
@@ -58,6 +58,7 @@ public:
 
 #if ENABLE(SVG_FONTS)
     bool isSVGFontFaceSrc() const;
+    bool isSVGFontTarget() const;
 
     SVGFontFaceElement* svgFontFaceElement() const { return m_svgFontFaceElement; }
     void setSVGFontFaceElement(SVGFontFaceElement* element) { m_svgFontFaceElement = element; }
@@ -67,9 +68,9 @@ public:
 
     void addSubresourceStyleURLs(ListHashSet<URL>&, const StyleSheetContents*) const;
 
-    bool hasFailedOrCanceledSubresources() const;
+    bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
-    CachedFont* cachedFont(Document*, bool isInitiatingElementInUserAgentShadowTree);
+    CachedFont* cachedFont(Document*, bool isSVG, bool isInitiatingElementInUserAgentShadowTree);
 
     bool equals(const CSSFontFaceSrcValue&) const;
 
@@ -95,8 +96,8 @@ private:
 #endif
 };
 
-CSS_VALUE_TYPE_CASTS(CSSFontFaceSrcValue, isFontFaceSrcValue())
+} // namespace WebCore
 
-}
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSFontFaceSrcValue, isFontFaceSrcValue())
 
 #endif

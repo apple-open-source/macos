@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2014 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,17 +33,27 @@
 
 namespace WebCore {
 
+    class DOMTimerFireState;
+    class Document;
+    class Element;
     class HTMLPlugInElement;
+    class IntRect;
     class ScheduledAction;
 
     class DOMTimer final : public RefCounted<DOMTimer>, public SuspendableTimer {
         WTF_MAKE_NONCOPYABLE(DOMTimer);
         WTF_MAKE_FAST_ALLOCATED;
     public:
+        virtual ~DOMTimer();
+
+        static double defaultMinimumInterval() { return 0.004; } // 4 milliseconds.
+        static double defaultAlignmentInterval() { return 0; }
+        static double hiddenPageAlignmentInterval() { return 1.0; } // 1 second.
+
         // Creates a new timer owned by specified ScriptExecutionContext, starts it
         // and returns its Id.
-        static int install(ScriptExecutionContext*, std::unique_ptr<ScheduledAction>, int timeout, bool singleShot);
-        static void removeById(ScriptExecutionContext*, int timeoutId);
+        static int install(ScriptExecutionContext&, std::unique_ptr<ScheduledAction>, int timeout, bool singleShot);
+        static void removeById(ScriptExecutionContext&, int timeoutId);
 
         // Notify that the interval may need updating (e.g. because the minimum interval
         // setting for the context has changed).
@@ -52,13 +62,21 @@ namespace WebCore {
         static void scriptDidInteractWithPlugin(HTMLPlugInElement&);
 
     private:
-        DOMTimer(ScriptExecutionContext*, std::unique_ptr<ScheduledAction>, int interval, bool singleShot);
+        DOMTimer(ScriptExecutionContext&, std::unique_ptr<ScheduledAction>, int interval, bool singleShot);
+        friend class Internals;
+
         double intervalClampedToMinimum() const;
+
+        bool isDOMTimersThrottlingEnabled(Document&) const;
+        void updateThrottlingStateIfNecessary(const DOMTimerFireState&);
 
         // SuspendableTimer
         virtual void fired() override;
         virtual void didStop() override;
         virtual double alignedFireTime(double) const override;
+
+        // ActiveDOMObject API.
+        const char* activeDOMObjectName() const override;
 
         enum TimerThrottleState {
             Undetermined,

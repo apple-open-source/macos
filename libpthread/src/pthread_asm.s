@@ -84,6 +84,7 @@ _start_wqthread:
 	push   %ebp
 	mov    %esp,%ebp
 	sub    $28,%esp		// align the stack
+	mov    %esi,20(%esp)    //arg5
 	mov    %edi,16(%esp)    //arg5
 	mov    %edx,12(%esp)    //arg4
 	mov    %ecx,8(%esp)             //arg3
@@ -138,6 +139,10 @@ ___pthread_set_self:
 	.align 2
 	.globl _start_wqthread
 _start_wqthread:
+#if __ARM_ARCH_7K__
+	/* align stack to 16 bytes before calling C */
+	sub sp, sp, #8
+#endif
 	stmfd sp!, {r4, r5}
 	bl __pthread_wqthread
 // Stackshots will show the routine that happens to link immediately following
@@ -149,6 +154,10 @@ _start_wqthread:
 	.align 2
 	.globl _thread_start
 _thread_start:
+#if __ARM_ARCH_7K__
+	/* align stack to 16 bytes before calling C */
+	sub sp, sp, #8
+#endif
 	stmfd sp!, {r4, r5}
 	bl __pthread_start
 // See above

@@ -16,6 +16,9 @@
 #include <xpc/xpc.h>
 #include <sys/ioctl.h>
 #include <sys/disk.h>
+#include <sys/time.h>
+#include <sys/uio.h>
+#include <pthread.h>
 #include <UserFS/../PrivateHeaders/UserFS_Plugin.h>
 #include <UserFS/../PrivateHeaders/UserFS_XPC.h>
 #include "bpb.h"
@@ -59,9 +62,13 @@ struct _userfs_stream_s {
     uint32_t cachedPhysicalCluster;
     uint32_t cachedClusterCount;
     uint32_t cachedNextCluster;
+    uint64_t next_offset_to_cache;
+    uint64_t last_offset_in_cache;
+    int thread_count;
     bool directory;
     bool locked;
     bool fixedRoot;                 // True for FAT12 or FAT16 root directory
+    bool close_lazily;
 };
 
 /*
@@ -73,6 +80,8 @@ struct _userfs_stream_s {
  */
 const char * (*device_name)(userfs_device_t device);
 int (*device_fd)(userfs_device_t device);
+pthread_mutex_t* (*device_mutex)(userfs_device_t device);
+pthread_cond_t* (*device_cond)(userfs_device_t device);
 int (*cache_get_buffer)(userfs_device_t device, uint64_t offset, size_t length, userfs_buffer_t *buffer);
 void (*cache_release_buffer)(userfs_device_t device, userfs_buffer_t buffer);     // TODO: Should this take a "dirty" flag?
 int (*cache_flush_buffer)(userfs_device_t device, userfs_buffer_t buffer);
@@ -81,8 +90,13 @@ int (*cache_invalidate)(userfs_device_t device);
 void * (*buffer_bytes)(userfs_buffer_t buffer);
 off_t (*buffer_offset)(userfs_buffer_t buffer);
 size_t (*buffer_size)(userfs_buffer_t buffer);
-int (*buffer_resize)(userfs_buffer_t buffer, size_t new_size);     // Need device to read/write?
 void (*buffer_mark_dirty)(userfs_buffer_t buffer);
+
+bool (*cache_get_content_buffer)(userfs_device_t device, userfs_contentbuffer_t *buffer, uint64_t offset, bool empty);
+void * (*content_buffer_bytes)(userfs_contentbuffer_t buffer);
+void (*content_buffer_set_complete)(userfs_contentbuffer_t buffer);
+bool (*content_buffer_is_complete)(userfs_contentbuffer_t buffer);
+
 
 struct unistr255 {
     uint16_t length;
@@ -123,12 +137,19 @@ static errno_t msdosfs_volume_open(userfs_device_t device, bool locked, userfs_v
 static bool msdosfs_volume_is_locked(userfs_volume_t volume);
 static errno_t msdosfs_volume_flush(userfs_volume_t volume);
 static errno_t msdosfs_volume_close(userfs_volume_t volume);
+
+/* Files and directories */
 static errno_t msdosfs_item_get_info(userfs_volume_t volume, const char *path, xpc_object_t info);
 static errno_t msdosfs_dir_enumerate(userfs_volume_t volume, const char *path, __strong xpc_object_t *state, xpc_object_t children);
 static errno_t msdosfs_item_delete(userfs_volume_t volume, const char *path);
+
+/* Streams */
 static errno_t msdosfs_stream_open(userfs_volume_t volume, const char *path, userfs_stream_t *stream);
 static uint64_t msdosfs_stream_length(userfs_stream_t stream);
-static errno_t msdosfs_stream_read(userfs_stream_t stream, void *buffer, uint64_t offset, size_t length);
+static uint64_t stream_get_next_offset_to_cache(userfs_stream_t stream);
+static uint64_t stream_get_last_offset_in_cache(userfs_stream_t stream);
+void (*stream_increment_threadCount)(userfs_stream_t stream);
+static errno_t msdosfs_stream_read(userfs_stream_t stream, void *buffer, uint64_t offset, size_t length, bool readAheadOperation);
 static errno_t msdosfs_stream_close(userfs_stream_t stream);
 static const char * msdosfs_stream_name(userfs_stream_t stream);    // For debugging
 
@@ -763,6 +784,10 @@ static userfs_stream_t volume_create_stream(userfs_volume_t v, const char *name,
     stream->cachedPhysicalCluster = 0;
     stream->cachedClusterCount = 0;
     stream->cachedNextCluster = cluster;
+    stream->next_offset_to_cache = 0;
+    stream->last_offset_in_cache = 0;
+    stream->thread_count = 0;
+    stream->close_lazily = 0;
     return stream;
 }
 
@@ -1555,6 +1580,248 @@ static errno_t stream_get_buffer(userfs_stream_t stream, uint64_t offset, size_t
     return cache_get_buffer(volume->device, physical_offset, physical_length, buffer);
 }
 
+static errno_t stream_get_read_data(userfs_stream_t stream, uint64_t offset, size_t length, void *buffer)
+{
+    errno_t error = 0;
+    size_t physical_length = 0;
+    off_t physical_offset = 0;
+    off_t cache_offset = 0;
+    size_t block_offset = 0;
+    bool found_cache_data = false;
+    void* temp_buf = NULL;
+    userfs_contentbuffer_t buf = NULL;
+    size_t tail_length = 0;
+
+    pthread_mutex_t* readahead_mutex = device_mutex(stream->volume->device);
+    pthread_cond_t* readahead_cond = device_cond(stream->volume->device);
+
+    assert(readahead_mutex != NULL);
+    assert(readahead_cond != NULL);
+
+    while (length > 0)
+    {
+        pthread_mutex_lock(readahead_mutex);
+
+        error = stream_get_physical_extent(stream, length, offset, &physical_length, &physical_offset);
+        if (error)
+        {
+            goto done;
+        }
+
+        block_offset = physical_offset & UNALIGNED_BLOCK_MASK;
+        cache_offset = physical_offset - block_offset;
+        tail_length = UNALIGNED_BLOCK_SIZE - block_offset;
+
+        if (tail_length > length)
+            tail_length = length;
+
+        /* Check if the data is in cache. */
+        found_cache_data = cache_get_content_buffer(stream->volume->device, &buf, cache_offset, false);
+
+        while(found_cache_data && (content_buffer_is_complete(buf) == false))
+        {
+            asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "Waiting for io to be complete");
+            pthread_cond_wait(readahead_cond, readahead_mutex);
+        }
+
+        if (found_cache_data)
+        {
+            /* Its a cache hit, copy the data from the cache buffer. */
+            if(buf == NULL)
+            {
+                asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: buffer is null",__PRETTY_FUNCTION__);
+                error = EIO;
+                goto done;
+            }
+
+            temp_buf = content_buffer_bytes(buf);
+
+            if (temp_buf == NULL)
+            {
+                asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: temp_buf is null",__PRETTY_FUNCTION__);
+                error = EIO;
+                goto done;
+            }
+
+            memcpy(buffer,&temp_buf[block_offset],tail_length);
+
+            offset += tail_length;
+            length -= tail_length;
+            buffer = (char *)buffer + tail_length;
+
+            pthread_mutex_unlock(readahead_mutex);
+        }
+        else
+        {
+            /* Its a cache miss, perform the actual io. */
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "cache-miss: offset <%llu> length %llu",offset, length);
+			pthread_mutex_unlock(readahead_mutex);
+
+            error = volume_read(stream->volume, buffer, physical_length, physical_offset);
+            if (error)
+            {
+                return error;
+            }
+
+            offset += physical_length;
+            length -= physical_length;
+            buffer = (char *)buffer + physical_length;
+        }
+    }
+
+done:
+    if(error)
+    {
+        pthread_mutex_unlock(readahead_mutex);
+    }
+    return error;
+
+}
+
+static errno_t stream_get_read_ahead_data(userfs_stream_t stream, uint64_t offset, size_t length)
+{
+    errno_t error = 0;
+	off_t block_offset = 0;
+    off_t physical_offset = 0;
+    off_t cache_offset = 0;
+	off_t tail_length = 0;
+    size_t physical_length = 0;
+    size_t extent_size = 0;
+    struct iovec *iov = NULL;
+    userfs_contentbuffer_t *buffer_list = NULL;
+    int iter = 0;
+    int i = 0;
+    int num_blocks = 0;
+    uint64_t read_physical_offset = 0;
+    userfs_contentbuffer_t buf = NULL;
+    void* temp = NULL;
+
+    int fd = device_fd(stream->volume->device);
+
+    pthread_mutex_t* readahead_mutex = device_mutex(stream->volume->device);
+    pthread_cond_t* readahead_cond = device_cond(stream->volume->device);
+
+    assert(readahead_mutex != NULL);
+    assert(readahead_cond != NULL);
+
+    pthread_mutex_lock(readahead_mutex);
+
+    /* If a close has been issued by the client on the stream
+     * do not bother to read-ahead instead close the stream
+     * when the thread count is zero.
+     */
+    if(stream->close_lazily)
+    {
+        error = EIO;
+        asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "close lazily, thread count is %d",stream->thread_count);
+        if(!stream->thread_count)
+        {
+            pthread_mutex_unlock(readahead_mutex);
+            msdosfs_stream_close(stream);
+            return error;
+        }
+        goto done;
+    }
+
+	/* Length passed in by the daemon is cache block aligned. */
+	assert((length % (CONTENT_BUFFER_SIZE)) == 0);
+
+	/* Loop over the extents. */
+    while (length > 0)
+    {
+		error = stream_get_physical_extent(stream, length, offset, &physical_length, &physical_offset);
+
+        if (error)
+        {
+            goto done;
+        }
+
+        num_blocks = ((int)physical_length/(CONTENT_BUFFER_SIZE))+1;
+
+        iov = (struct iovec *) malloc(num_blocks * (sizeof (struct iovec)));
+        buffer_list = (userfs_contentbuffer_t *) malloc(num_blocks * (sizeof (userfs_contentbuffer_t)));
+
+        extent_size = physical_length;
+        iter = 0;
+        i = 0;
+
+        while ((extent_size > 0) && (length > 0))
+        {
+            /* Round off the physical offset so that i/os are always cache block aligned */
+			block_offset = physical_offset & (CONTENT_BUFFER_SIZE - 1);
+            cache_offset = physical_offset - block_offset;
+			tail_length = CONTENT_BUFFER_SIZE - block_offset;
+
+            if (iter == 0)
+            {
+                /* Save the starting offset to pass it to lseek. */
+                read_physical_offset = cache_offset;
+            }
+
+			if (!cache_get_content_buffer(stream->volume->device, &buf, cache_offset, true))
+			{
+				asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: could not get buffer from buffer pool",__PRETTY_FUNCTION__);
+				error = EIO;
+				goto done;
+			}
+
+			/* Set up the iov for readv. */
+            assert (iter < num_blocks);
+			assert (buf != NULL);
+			buffer_list[iter] = buf;
+			temp = content_buffer_bytes(buf);
+            assert(temp != NULL);
+            iov[iter].iov_base = temp;
+            iov[iter++].iov_len = CONTENT_BUFFER_SIZE;
+
+            offset += MIN(tail_length, extent_size);
+            physical_offset += tail_length;
+			length -= CONTENT_BUFFER_SIZE;
+			extent_size = (extent_size > tail_length ? extent_size - tail_length : 0);
+
+        }
+
+		lseek(fd, read_physical_offset, SEEK_SET);
+        if ((readv(fd, iov, iter)) == -1)
+        {
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: readv failed with errno: %d", __FUNCTION__, errno);
+        }
+        else
+        {
+            /* readv successfully completed, now mark the buffers as io_complete
+             * and signal any thread who is waiting for io to complete.
+             */
+			while(i < iter)
+            {
+                content_buffer_set_complete(buffer_list[i]);
+                i++;
+            }
+            pthread_cond_signal(readahead_cond);
+        }
+
+        free(iov);
+        free(buffer_list);
+        iov = NULL;
+        buffer_list = NULL;
+
+    }
+
+done:
+    if (offset > stream->last_offset_in_cache)
+    {
+        stream->last_offset_in_cache = offset;
+    }
+
+    if(iov != NULL)
+        free(iov);
+    if(buffer_list != NULL)
+        free(buffer_list);
+
+    stream->thread_count--;
+    pthread_mutex_unlock(readahead_mutex);
+
+    return error;
+}
 
 static errno_t msdosfs_volume_open(userfs_device_t device, bool locked, userfs_volume_t *volume)
 {
@@ -2285,52 +2552,81 @@ static uint64_t msdosfs_stream_length(userfs_stream_t stream)
     return stream->length;
 }
 
-static errno_t msdosfs_stream_read(userfs_stream_t stream, void *buffer, uint64_t offset, size_t length)
+static uint64_t msdosfs_stream_get_next_offset_to_cache(userfs_stream_t stream)
+{
+    return stream->next_offset_to_cache;
+}
+
+static uint64_t msdosfs_stream_get_last_offset_in_cache(userfs_stream_t stream)
+{
+    return stream->last_offset_in_cache;
+}
+
+static void msdosfs_stream_increment_threadCount(userfs_stream_t stream)
+{
+    stream->thread_count++;
+}
+
+static errno_t msdosfs_stream_read(userfs_stream_t stream, void *buffer, uint64_t offset, size_t length, bool readAheadOperation)
 {
     errno_t error = 0;
-    
+
+    if (length <= 0)
+        return 0;
+
     if (offset > stream->length)
     {
         asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s: Attempt to read offset beyond EOF (offset=%llu, EOF=%llu)\n", device_name(stream->volume->device), stream->name, offset, stream->length);
         return EINVAL;
     }
+
     if (length > (stream->length - offset))
     {
         asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s: Attempt to read beyond EOF (offset=%llu, length=%lu, EOF=%llu)\n", device_name(stream->volume->device), stream->name, offset, (unsigned long)length, stream->length);
         return EINVAL;
     }
-    
-    while (length > 0)
+
+    /* If it is not a read-ahead operation save the offset. */
+    if(!readAheadOperation)
     {
-        size_t physical_length;
-        off_t physical_offset;
-        
-        error = stream_get_physical_extent(stream, length, offset, &physical_length, &physical_offset);
-        if (error)
+        stream->next_offset_to_cache = offset + length;
+        error = stream_get_read_data(stream, offset, length, buffer);
+        if(error)
         {
-            goto done;
+            return error;
         }
-        
-        error = volume_read(stream->volume, buffer, physical_length, physical_offset);
-        if (error)
-        {
-            goto done;
-        }
-        
-        offset += physical_length;
-        length -= physical_length;
-        buffer = (char *)buffer + physical_length;
     }
-    
-done:
+    else
+    {
+        error = stream_get_read_ahead_data(stream, offset, length);
+        if(error)
+        {
+            return error;
+        }
+    }
+
     return error;
 }
 
 static errno_t msdosfs_stream_close(userfs_stream_t stream)
 {
-    if (stream->name)
-        free((void*)stream->name);
-    free(stream);
+    pthread_mutex_t* readahead_mutex = device_mutex(stream->volume->device);
+
+    assert(readahead_mutex != NULL);
+
+    pthread_mutex_lock(readahead_mutex);
+    if(!stream->thread_count)
+    {
+        if (stream->name)
+            free((void*)stream->name);
+        free(stream);
+        pthread_mutex_unlock(readahead_mutex);
+    }
+    else
+    {
+        stream->close_lazily = true;
+        pthread_mutex_unlock(readahead_mutex);
+    }
     return 0;
 }
 
@@ -2353,6 +2649,9 @@ void userfs_plugin_init(struct userfs_plugin_operations *ops, const struct userf
     ops->item_delete      = msdosfs_item_delete;
     ops->stream_open      = msdosfs_stream_open;
     ops->stream_length    = msdosfs_stream_length;
+    ops->stream_get_next_offset_to_cache = msdosfs_stream_get_next_offset_to_cache;
+    ops->stream_get_last_offset_in_cache = msdosfs_stream_get_last_offset_in_cache;
+    ops->stream_increment_threadCount = msdosfs_stream_increment_threadCount;
     ops->stream_read      = msdosfs_stream_read;
     ops->stream_close     = msdosfs_stream_close;
     ops->stream_name      = msdosfs_stream_name;
@@ -2360,6 +2659,8 @@ void userfs_plugin_init(struct userfs_plugin_operations *ops, const struct userf
     /* Set up the callback function pointers. */
     device_name           = callbacks->device_name;
     device_fd             = callbacks->device_fd;
+    device_mutex          = callbacks->device_mutex;
+    device_cond           = callbacks->device_cond;
     cache_get_buffer      = callbacks->cache_get_buffer;
     cache_release_buffer  = callbacks->cache_release_buffer;
     cache_flush_buffer    = callbacks->cache_flush_buffer;
@@ -2368,6 +2669,11 @@ void userfs_plugin_init(struct userfs_plugin_operations *ops, const struct userf
     buffer_bytes          = callbacks->buffer_bytes;
     buffer_offset         = callbacks->buffer_offset;
     buffer_size           = callbacks->buffer_size;
-    buffer_resize         = callbacks->buffer_resize;
     buffer_mark_dirty     = callbacks->buffer_mark_dirty;
+
+	/* Content caching */
+    cache_get_content_buffer  = callbacks->cache_get_content_buffer;
+    content_buffer_bytes   = callbacks->content_buffer_bytes;
+    content_buffer_set_complete = callbacks->content_buffer_set_complete;
+	content_buffer_is_complete = callbacks->content_buffer_is_complete;
 }

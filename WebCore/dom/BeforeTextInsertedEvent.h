@@ -30,29 +30,29 @@
 
 namespace WebCore {
 
-class BeforeTextInsertedEvent : public Event {
+class BeforeTextInsertedEvent final : public Event {
 public:
     virtual ~BeforeTextInsertedEvent();
 
-    static PassRefPtr<BeforeTextInsertedEvent> create(const String& text)
+    static Ref<BeforeTextInsertedEvent> create(const String& text)
     {
-        return adoptRef(new BeforeTextInsertedEvent(text));
+        return adoptRef(*new BeforeTextInsertedEvent(text));
     }
 
     virtual EventInterface eventInterface() const override;
-    virtual bool isBeforeTextInsertedEvent() const override { return true; }
 
     const String& text() const { return m_text; }
     void setText(const String& s) { m_text = s; }
 
 private:
     explicit BeforeTextInsertedEvent(const String&);
+    virtual bool isBeforeTextInsertedEvent() const override { return true; }
 
     String m_text;
 };
 
-EVENT_TYPE_CASTS(BeforeTextInsertedEvent)
+} // namespace WebCore
 
-} // namespace
+SPECIALIZE_TYPE_TRAITS_EVENT(BeforeTextInsertedEvent)
 
 #endif

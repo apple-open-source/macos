@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,9 +38,6 @@
 #include <IOKit/scsi/IOSCSIPeripheralDeviceNub.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOKitKeys.h>
-#include <IOKit/pwr_mgt/RootDomain.h>
-#include <IOKit/pwr_mgt/IOPMPrivate.h>
-#include <IOKit/IOHibernatePrivate.h>
 
 //--------------------------------------------------------------------------------------------------
 //	Defines
@@ -224,18 +221,20 @@ bool
 IOUSBMassStorageClass::start ( IOService * provider )
 {
     IOUSBFindEndpointRequest 	request;
+    IOUSBInterface *            interface       = 0;
 	OSDictionary * 				characterDict 	= NULL;
 	OSObject *					obj				= NULL;
     IOReturn                    result          = kIOReturnError;
-	bool						retVal			= false;
 	OSNumber *					number			= NULL;
 	bool						success			= false;
 	
 	
-    if ( super::start( provider ) == false )
+    if ( super::start ( provider ) == false )
     {
-    	STATUS_LOG(( 1, "%s[%p]: superclass start failure.", getName(), this));
-        return false;
+        
+    	STATUS_LOG ( ( 1, "%s[%p]: superclass start failure.", getName ( ), this ) );
+        goto Exit;
+        
     }
 
 	RecordUSBTimeStamp (	UMC_TRACE ( kIOUSBMassStorageClassStart ),
@@ -250,41 +249,30 @@ IOUSBMassStorageClass::start ( IOService * provider )
 
     // Save the reference to the interface on the device that will be
     // the provider for this object.
-    SetInterfaceReference ( OSDynamicCast ( IOUSBInterface, provider ) );
-    if ( GetInterfaceReference ( ) == NULL )
-    {
-	
-    	STATUS_LOG ( ( 1, "%s[%p]: the provider is not an IOUSBInterface object",
-    				getName(), this ) );
-    	// If our provider is not a IOUSBInterface object, return false
-    	// to indicate that the object could not be correctly 
-		// instantiated.
-    	// The USB Mass Storage Class specification requires that all 
-		// devices be a composite device with a Mass Storage interface
-		// so this object will always be an interface driver.
- 		goto Exit;
-		
-    }
+    interface = OSDynamicCast ( IOUSBInterface, provider );
+    require_nonzero ( interface, AbortStart );
+    
+    SetInterfaceReference ( interface );
 	
 	// Check if a subclass has marked this device as not to be operated at all.
 	if ( provider->getProperty ( kIOUSBMassStorageDoNotMatch ) != NULL )
 	{
-		goto abortStart;
+		goto AbortStart;
 	}
 	
 	RecordUSBTimeStamp (	UMC_TRACE ( kAtUSBAddress ),
-							( uintptr_t ) this, ( unsigned int ) GetInterfaceReference()->GetDevice()->GetAddress(),
+							( uintptr_t ) this, ( unsigned int ) GetInterfaceReference ( )->GetDevice ( )->GetAddress ( ),
 							NULL, NULL );
 
     STATUS_LOG ( ( 6, "%s[%p]: USB Mass Storage @ %d", 
 				getName(), this,
-                GetInterfaceReference()->GetDevice()->GetAddress() ) );
+                GetInterfaceReference ( )->GetDevice ( )->GetAddress ( ) ) );
 
-    if ( GetInterfaceReference()->open( this ) == false) 
+    if ( GetInterfaceReference()->open ( this ) == false )
     {
 	
-    	STATUS_LOG ( ( 1, "%s[%p]: could not open the interface", getName(), this ) );
-		goto Exit;
+    	STATUS_LOG ( ( 1, "%s[%p]: could not open the interface", getName ( ), this ) );
+		goto AbortStart;
 		
     }
 
@@ -341,13 +329,13 @@ IOUSBMassStorageClass::start ( IOService * provider )
 #endif // EMBEDDED
     
 	// Check if the personality for this device specifies a preferred protocol
-    characterDict = OSDynamicCast ( OSDictionary, getProperty( kIOUSBMassStorageCharacteristics ) );
+    characterDict = OSDynamicCast ( OSDictionary, getProperty ( kIOUSBMassStorageCharacteristics ) );
 	if ( characterDict == NULL )
 	{
 		// This device does not specify a preferred protocol, use the protocol
 		// defined in the descriptor.
-		fPreferredProtocol = GetInterfaceReference()->GetInterfaceProtocol();
-		fPreferredSubclass = GetInterfaceReference()->GetInterfaceSubClass();
+		fPreferredProtocol = GetInterfaceReference ( )->GetInterfaceProtocol ( );
+		fPreferredSubclass = GetInterfaceReference ( )->GetInterfaceSubClass ( );
 		
 	}
 	else
@@ -361,25 +349,25 @@ IOUSBMassStorageClass::start ( IOService * provider )
 							 ( uintptr_t ) this, NULL, NULL, NULL );
 		
 		// Check if we have a USB storage personality for this particular device.
-        preferredProtocol = OSDynamicCast ( OSNumber, characterDict->getObject( kIOUSBMassStoragePreferredProtocol ) );
+        preferredProtocol = OSDynamicCast ( OSNumber, characterDict->getObject ( kIOUSBMassStoragePreferredProtocol ) );
 		if ( preferredProtocol == NULL )
 		{
 			// This device does not specify a preferred protocol, use the
 			// protocol defined in the interface descriptor.
-			fPreferredProtocol = GetInterfaceReference()->GetInterfaceProtocol();
+			fPreferredProtocol = GetInterfaceReference()->GetInterfaceProtocol ( );
 					
 		}
 		else
 		{
             // This device has a preferred protocol, use that.
-            fPreferredProtocol = preferredProtocol->unsigned32BitValue();
+            fPreferredProtocol = preferredProtocol->unsigned32BitValue ( );
 			
 		}
 		
 		// Check if this device is not to be operated at all.
         if ( characterDict->getObject( kIOUSBMassStorageDoNotOperate ) != NULL )
         {
-            goto abortStart;
+            goto AbortStart;
         }
         
         // Check if this device is known not to support the bulk-only USB reset.
@@ -401,16 +389,16 @@ IOUSBMassStorageClass::start ( IOService * provider )
        		
 #ifndef EMBEDDED
        	// Check if this device is known to have problems when waking from sleep
-		if ( characterDict->getObject( kIOUSBMassStorageResetOnResume ) != NULL )
+		if ( characterDict->getObject ( kIOUSBMassStorageResetOnResume ) != NULL )
 		{
 		
-			STATUS_LOG ( ( 4, "%s[%p]: knownResetOnResumeDevice", getName(), this ) );
+			STATUS_LOG ( ( 4, "%s[%p]: knownResetOnResumeDevice", getName ( ), this ) );
 			fRequiresResetOnResume = true;
 			
 		}
         
 		// Check to see if this device requires some time after USB reset to collect itself.
-		if ( characterDict->getObject( kIOUSBMassStoragePostResetCoolDown ) != NULL )
+		if ( characterDict->getObject ( kIOUSBMassStoragePostResetCoolDown ) != NULL )
 		{
 			
 			OSNumber * coolDownPeriod = NULL; 
@@ -430,18 +418,18 @@ IOUSBMassStorageClass::start ( IOService * provider )
 #endif // EMBEDDED
            
 		// Check if the personality for this device specifies a preferred subclass
-        preferredSubclass = OSDynamicCast ( OSNumber, characterDict->getObject( kIOUSBMassStoragePreferredSubclass ));
+        preferredSubclass = OSDynamicCast ( OSNumber, characterDict->getObject ( kIOUSBMassStoragePreferredSubclass ) );
 		if ( preferredSubclass == NULL )
 		{
 			// This device does not specify a preferred subclass, use the 
 			// subclass defined in the interface descriptor.
-			fPreferredSubclass = GetInterfaceReference()->GetInterfaceSubClass();
+			fPreferredSubclass = GetInterfaceReference ( )->GetInterfaceSubClass ( );
 					
 		}
 		else
 		{
 			// This device has a preferred protocol, use that.
-			fPreferredSubclass = preferredSubclass->unsigned32BitValue();
+			fPreferredSubclass = preferredSubclass->unsigned32BitValue ( );
 			
 		}
         
@@ -449,25 +437,24 @@ IOUSBMassStorageClass::start ( IOService * provider )
 		// Check if the device needs to be suspended on reboot
 		if ( characterDict->getObject ( kIOUSBMassStorageSuspendOnReboot ) != NULL )
 		{
-			
 			fSuspendOnReboot = true;
-			
 		}
 #endif // EMBEDDED
  
 	}
 		
-	STATUS_LOG ( ( 6, "%s[%p]: Preferred Protocol is: %d", getName(), this, fPreferredProtocol ) );
-    STATUS_LOG ( ( 6, "%s[%p]: Preferred Subclass is: %d", getName(), this, fPreferredSubclass ) );
+	STATUS_LOG ( ( 6, "%s[%p]: Preferred Protocol is: %d", getName ( ), this, fPreferredProtocol ) );
+    STATUS_LOG ( ( 6, "%s[%p]: Preferred Subclass is: %d", getName ( ), this, fPreferredSubclass ) );
 
 	// Verify that the device has a supported interface type and configure that
 	// Interrupt pipe if the protocol requires one.
-    STATUS_LOG ( ( 7, "%s[%p]: Configure the Storage interface", getName(), this ) );
-    switch ( GetInterfaceProtocol() )
+    STATUS_LOG ( ( 7, "%s[%p]: Configure the Storage interface", getName ( ), this ) );
+    switch ( GetInterfaceProtocol ( ) )
     {
     
     	case kProtocolControlBulkInterrupt:
     	{
+            
 			RecordUSBTimeStamp ( UMC_TRACE ( kCBIProtocolDeviceDetected ),
 								 ( uintptr_t ) this, NULL,
 								 NULL, NULL );
@@ -476,19 +463,20 @@ IOUSBMassStorageClass::start ( IOService * provider )
 			// Note that the pipe will already be retained on our behalf.
 	        request.type = kUSBInterrupt;
 	        request.direction = kUSBIn;
- 			fInterruptPipe = GetInterfaceReference()->FindNextPipe ( NULL, &request, true );
+ 			fInterruptPipe = GetInterfaceReference ( )->FindNextPipe ( NULL, &request, true );
 
-	        STATUS_LOG ( ( 7, "%s[%p]: find interrupt pipe", getName(), this ) );
-	        require_nonzero ( fInterruptPipe, abortStart );
+	        STATUS_LOG ( ( 7, "%s[%p]: find interrupt pipe", getName ( ), this ) );
+	        require_nonzero ( fInterruptPipe, AbortStart );
 			
 			fCBIMemoryDescriptor = IOMemoryDescriptor::withAddress (
 											&fCBICommandRequestBlock.cbiGetStatusBuffer, 
 											kUSBStorageAutoStatusSize, 
 											kIODirectionIn );
-            require_nonzero ( fCBIMemoryDescriptor, abortStart );
+            require_nonzero ( fCBIMemoryDescriptor, AbortStart );
 
-            result = fCBIMemoryDescriptor->prepare();
-            require_success ( result, abortStart );
+            result = fCBIMemoryDescriptor->prepare ( );
+            require_success ( result, AbortStart );
+            
 	    }
     	break;
     	
@@ -498,7 +486,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
     	case kProtocolBulkOnly:
     	{
         
-	        STATUS_LOG ( ( 7, "%s[%p]: Bulk Only - skip interrupt pipe", getName(), this ) );
+	        STATUS_LOG ( ( 7, "%s[%p]: Bulk Only - skip interrupt pipe", getName ( ), this ) );
 			
 			RecordUSBTimeStamp ( UMC_TRACE ( kBODeviceDetected ),
 								 ( uintptr_t ) this, NULL, NULL, NULL );
@@ -508,50 +496,52 @@ IOUSBMassStorageClass::start ( IOService * provider )
                                                 &fBulkOnlyCommandRequestBlock.boCBW, 
                                                 kByteCountOfCBW, 
                                                 kIODirectionOut );
-            require_nonzero ( fBulkOnlyCBWMemoryDescriptor, abortStart );
+            require_nonzero ( fBulkOnlyCBWMemoryDescriptor, AbortStart );
             
-            result = fBulkOnlyCBWMemoryDescriptor->prepare();
-            require_success ( result, abortStart );
+            result = fBulkOnlyCBWMemoryDescriptor->prepare ( );
+            require_success ( result, AbortStart );
             
             // Allocate the memory descriptor needed to retrieve the CSW.
             fBulkOnlyCSWMemoryDescriptor = IOMemoryDescriptor::withAddress ( 
                                                 &fBulkOnlyCommandRequestBlock.boCSW, 
                                                 kByteCountOfCSW, 
                                                 kIODirectionIn );
-            require_nonzero ( fBulkOnlyCSWMemoryDescriptor, abortStart );
+            require_nonzero ( fBulkOnlyCSWMemoryDescriptor, AbortStart );
 
-            result = fBulkOnlyCSWMemoryDescriptor->prepare();
-            require_success ( result, abortStart );
+            result = fBulkOnlyCSWMemoryDescriptor->prepare ( );
+            require_success ( result, AbortStart );
             
 	    }
 	    break;
 	    
 	    default:
 	    {
+            
 			RecordUSBTimeStamp ( UMC_TRACE ( kNoProtocolForDevice ),
 								 ( uintptr_t ) this, NULL, NULL, NULL );
 								 
 	    	// The device has a protocol that the driver does not
 	    	// support. Return false to indicate that instantiation was
 	    	// not successful.
-    		goto abortStart;
+    		goto AbortStart;
+            
 	    }
 	    break;
     }
 
 	// Find the Bulk In pipe for the device
-    STATUS_LOG ( ( 7, "%s[%p]: find bulk in pipe", getName(), this ) );
+    STATUS_LOG ( ( 7, "%s[%p]: find bulk in pipe", getName ( ), this ) );
 	request.type = kUSBBulk;
 	request.direction = kUSBIn;
-	fBulkInPipe = GetInterfaceReference()->FindNextPipe ( NULL, &request, true );
-	require_nonzero ( fBulkInPipe, abortStart );
+	fBulkInPipe = GetInterfaceReference ( )->FindNextPipe ( NULL, &request, true );
+	require_nonzero ( fBulkInPipe, AbortStart );
 	
 	// Find the Bulk Out pipe for the device
     STATUS_LOG ( ( 7, "%s[%p]: find bulk out pipe", getName(), this ) );
 	request.type = kUSBBulk;
 	request.direction = kUSBOut;
-	fBulkOutPipe = GetInterfaceReference()->FindNextPipe ( NULL, &request, true );
-	require_nonzero ( fBulkOutPipe, abortStart );
+	fBulkOutPipe = GetInterfaceReference ( )->FindNextPipe ( NULL, &request, true );
+	require_nonzero ( fBulkOutPipe, AbortStart );
 	
 	// Build the Protocol Characteristics dictionary since not all devices will have a 
 	// SCSI Peripheral Device Nub to guarantee its existance.
@@ -566,7 +556,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
 		characterDict->retain ( );
 	}
 	
-	require_nonzero ( characterDict, abortStart );
+	require_nonzero ( characterDict, AbortStart );
 	
 	obj = getProperty ( kIOPropertyPhysicalInterconnectTypeKey );
 	if ( obj != NULL )
@@ -645,17 +635,18 @@ IOUSBMassStorageClass::start ( IOService * provider )
 	characterDict->release ( );
 	characterDict = NULL;
     
-   	STATUS_LOG ( ( 6, "%s[%p]: successfully configured", getName(), this ) );
+   	STATUS_LOG ( ( 6, "%s[%p]: successfully configured", getName ( ), this ) );
 
 #if defined (__i386__) || defined (__x86_64__)
 	{
+        
 		// As USB booting is only supporting on i386 based, do not compile for PPC. 
 		char				usbDeviceAddress [ kUSBDAddressLength ];
 		OSNumber *			usbDeviceID;
 		
-		snprintf ( usbDeviceAddress, kUSBDAddressLength, "%x", ( int ) GetInterfaceReference()->GetDevice()->GetAddress() );
+		snprintf ( usbDeviceAddress, kUSBDAddressLength, "%x", ( int ) GetInterfaceReference ( )->GetDevice ( )->GetAddress ( ) );
 		
-		usbDeviceID = OSNumber::withNumber ( ( int ) GetInterfaceReference()->GetDevice()->GetAddress(), 64 );
+		usbDeviceID = OSNumber::withNumber ( ( int ) GetInterfaceReference ( )->GetDevice ( )->GetAddress ( ), 64 );
 		if ( usbDeviceID != NULL )
 		{
 		
@@ -665,6 +656,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
 			usbDeviceID->release ( );
 			
 		}
+        
 	}
 #endif
 
@@ -672,68 +664,94 @@ IOUSBMassStorageClass::start ( IOService * provider )
 	// Device configured. We're attached.
 	fDeviceAttached = true;
 
-	InitializePowerManagement ( GetInterfaceReference() );
+	InitializePowerManagement ( GetInterfaceReference ( ) );
 	
-	success = BeginProvidedServices();
-	require ( success, abortStart );
+	success = BeginProvidedServices ( );
+	require ( success, AbortStart );
    
-    retVal = true;
-	goto Exit;
+    return true;
 
-abortStart:
-
-    STATUS_LOG ( ( 1, "%s[%p]: aborting startup.  Stop the provider.", getName(), this ) );
-	
-	if ( IsPowerManagementIntialized() )
-	{
-	
-		PMstop();
-		
-	}
-
-	// Close and nullify our USB Interface.
-	{
-        IOUSBInterface * currentInterface;
-        
-        currentInterface = GetInterfaceReference();
     
-		if ( currentInterface != NULL ) 
-		{
+AbortStart:
+    
 
-			SetInterfaceReference( NULL );
-			currentInterface->close( this );
+    STATUS_LOG ( ( 1, "%s[%p]: aborting start.", getName ( ), this ) );
+	
+    // Stop PM.
+	if ( IsPowerManagementIntialized ( ) )
+	{
+		PMstop ( );
+	}
 
-		}
+    // Close and release our USB pipe references.
+    if ( fBulkInPipe != NULL )
+    {
+        
+        fBulkInPipe->release ( );
+        fBulkInPipe = NULL;
+        
+    }
+    
+    if ( fBulkOutPipe != NULL )
+    {
+        
+        fBulkOutPipe->release ( );
+        fBulkOutPipe = NULL;
+        
+    }
+    
+    if ( fInterruptPipe != NULL )
+    {
+        
+        fInterruptPipe->release ( );
+        fInterruptPipe = NULL;
+        
+    }
+    
+	// Close and nullify our USB Interface.
+    if ( interface != NULL )
+	{
+        
+        SetInterfaceReference ( NULL );
+        interface->close ( this );
 	
 	}
 
+    // Clean up our protocol packet related IOMDs.
 	if ( fCBIMemoryDescriptor != NULL )
 	{
-		fCBIMemoryDescriptor->complete();
-		fCBIMemoryDescriptor->release();
+        
+		fCBIMemoryDescriptor->complete ( );
+		fCBIMemoryDescriptor->release ( );
         fCBIMemoryDescriptor = NULL;
+        
 	}
 	
 	if ( fBulkOnlyCBWMemoryDescriptor != NULL )
 	{
-		fBulkOnlyCBWMemoryDescriptor->complete();
-		fBulkOnlyCBWMemoryDescriptor->release();
+        
+		fBulkOnlyCBWMemoryDescriptor->complete ( );
+		fBulkOnlyCBWMemoryDescriptor->release ( );
         fBulkOnlyCBWMemoryDescriptor = NULL;
+        
 	}
 	
 	if ( fBulkOnlyCSWMemoryDescriptor != NULL )
 	{
-		fBulkOnlyCSWMemoryDescriptor->complete();
-		fBulkOnlyCSWMemoryDescriptor->release();
+        
+		fBulkOnlyCSWMemoryDescriptor->complete ( );
+		fBulkOnlyCSWMemoryDescriptor->release ( );
         fBulkOnlyCSWMemoryDescriptor = NULL;
+        
 	}
 
-	// Call the stop method to clean up any allocated resources.
-    stop ( provider );
-
+    super::stop ( provider );
+    
+    
 Exit:
     
-    return retVal;
+    
+    return false;
 	
 }
 
@@ -744,6 +762,7 @@ Exit:
 void 
 IOUSBMassStorageClass::stop ( IOService * provider )
 {
+    
 	// I am logging this as a 1 because if anything is logging after this we want to know about it.
 	// This should be the last message we see. Bye bye!
     STATUS_LOG ( ( 1, "%s[%p]: stop: Called", getName(), this ) );
@@ -753,85 +772,10 @@ IOUSBMassStorageClass::stop ( IOService * provider )
 	
 	EndProvidedServices ( );
 	
-    // Release and NULL our pipe pointers so we don't try to access our provider.
-	
-	if ( fBulkInPipe != NULL )
-	{
-		
-		fBulkInPipe->release ( );
-		fBulkInPipe = NULL;
-		
-	}
-	
-	if ( fBulkOutPipe != NULL )
-	{
-		
-		fBulkOutPipe->release ( );
-		fBulkOutPipe = NULL;
-		
-	}
-	
-	if ( fInterruptPipe != NULL )
-	{
-		
-		fInterruptPipe->release ( );
-		fInterruptPipe = NULL;
-		
-	}
-	
-	DidWakeFromHibernationOrStandby	( );
-	
-	//	Release our retain on the provider's workLoop.
-	
     super::stop ( provider );
+    
 }
 
-//--------------------------------------------------------------------------------------------------
-//	DidWakeFromHibernationOrStandby - leave a breadcrumb if termination was caused by a wake from
-//									  hibernation or standby							 [PROTECTED]
-//--------------------------------------------------------------------------------------------------
-
-bool
-IOUSBMassStorageClass::DidWakeFromHibernationOrStandby ( void )
-{
-	
-	bool		returnValue		= false;
-	OSData *	data			= NULL;
-	
-	data = OSDynamicCast ( OSData, ( IOService::getPMRootDomain ( ) )->getProperty ( kIOHibernateStateKey ) );
-	require ( data, ErrorExit );
-	
-	if ( * ( UInt32 * ) data->getBytesNoCopy ( ) == kIOHibernateStateWakingFromHibernate )
-	{
-		
-		OSNumber *	number		= NULL;
-		UInt32		sleepType	= 0;
-		
-		// Get the sleep type.
-		number = OSDynamicCast ( OSNumber, ( IOService::getPMRootDomain ( ) )->getProperty ( kIOPMSystemSleepTypeKey ) );
-		require ( number, ErrorExit );
-		
-		sleepType = number->unsigned32BitValue ( );
-		
-		// Since we have a valid hibernation state we know we can trust standby and hibernate sleep types.
-		if ( ( sleepType == kIOPMSleepTypeStandby ) || ( sleepType == kIOPMSleepTypeHibernate ) )
-		{
-			
-			IOLog ( "%s[%p] - Device termination caused by a wake from hibernation or standby!\n", getName(), this );
-			
-			returnValue = true;
-			
-		}
-		
-	}
-	
-	
-ErrorExit:
-	
-	
-	return returnValue;
-	
-}
 
 //--------------------------------------------------------------------------------------------------
 //	free - Called by IOKit to free any resources.					   						[PUBLIC]
@@ -855,6 +799,30 @@ require_nonzero ( reserved, Exit );
 		fClients->release ( );
         fClients = NULL;
 		
+    }
+
+    if ( fBulkInPipe != NULL )
+    {
+        
+        fBulkInPipe->release ( );
+        fBulkInPipe = NULL;
+        
+    }
+    
+    if ( fBulkOutPipe != NULL )
+    {
+        
+        fBulkOutPipe->release ( );
+        fBulkOutPipe = NULL;
+        
+    }
+    
+    if ( fInterruptPipe != NULL )
+    {
+        
+        fInterruptPipe->release ( );
+        fInterruptPipe = NULL;
+        
     }
     
     if ( fCBIMemoryDescriptor != NULL )
@@ -1127,18 +1095,18 @@ IOUSBMassStorageClass::BeginProvidedServices ( void )
             {
             
                 RecordUSBTimeStamp (	UMC_TRACE ( kBOPreferredMaxLUN ),
-                                        ( uintptr_t ) this, maxLUN->unsigned8BitValue(), NULL, NULL );	
+                                        ( uintptr_t ) this, maxLUN->unsigned8BitValue ( ), NULL, NULL );
                 
                 STATUS_LOG ( ( 4, "%s[%p]: Number of LUNs %u.", getName(), this, maxLUN->unsigned8BitValue() ) );
 
-                SetMaxLogicalUnitNumber ( maxLUN->unsigned8BitValue() );
+                SetMaxLogicalUnitNumber ( maxLUN->unsigned8BitValue ( ) );
                 maxLUNDetermined = true;
                 
             }
                                                 
         }
 		
-		if( maxLUNDetermined == false )
+		if ( maxLUNDetermined == false )
 		{
 			// The device is a Bulk Only transport device, issue the
 			// GetMaxLUN call to determine what the maximum value is.
@@ -1153,7 +1121,7 @@ IOUSBMassStorageClass::BeginProvidedServices ( void )
 				fUSBDeviceRequest.bmRequestType 	= USBmakebmRequestType( kUSBIn, kUSBClass, kUSBInterface );
 				fUSBDeviceRequest.bRequest 			= 0xFE;
 				fUSBDeviceRequest.wValue			= 0;
-				fUSBDeviceRequest.wIndex			= GetInterfaceReference()->GetInterfaceNumber();
+				fUSBDeviceRequest.wIndex			= GetInterfaceReference ( )->GetInterfaceNumber ( );
 				fUSBDeviceRequest.wLength			= 1;
 				fUSBDeviceRequest.pData				= &fMaxLogicalUnitNumber;
 				
@@ -1165,18 +1133,18 @@ IOUSBMassStorageClass::BeginProvidedServices ( void )
 				RecordUSBTimeStamp (	UMC_TRACE ( kBOGetMaxLUNReturned ),
 										( uintptr_t ) this, status, fMaxLogicalUnitNumber, ( unsigned int ) triedReset );	
 											
-				STATUS_LOG ( ( 4, "%s[%p]: DeviceRequest GetMaxLUN returned status = %x", getName(), this, status ) );
+				STATUS_LOG ( ( 4, "%s[%p]: DeviceRequest GetMaxLUN returned status = %x", getName ( ), this, status ) );
 				
 				if ( status != kIOReturnSuccess )
 				{
 
-					SetMaxLogicalUnitNumber( 0 );
+					SetMaxLogicalUnitNumber ( 0 );
 					if( ( status == kIOUSBPipeStalled ) && ( clearPipeAttempts < 3 ) )
 					{
 					
 						UInt8		eStatus[2];
 						
-						STATUS_LOG ( ( 4, "%s[%p]: calling GetStatusEndpointStatus to clear stall", getName(), this ) );
+						STATUS_LOG ( ( 4, "%s[%p]: calling GetStatusEndpointStatus to clear stall", getName ( ), this ) );
 						
 						// Throw in an extra Get Status to clear up devices that stall the
 						// control pipe like the early Iomega devices.
@@ -1190,7 +1158,7 @@ IOUSBMassStorageClass::BeginProvidedServices ( void )
 					
 						// The device isn't responding. Let us reset the device, and try again.
 						
-						STATUS_LOG ( ( 4, "%s[%p]: BeginProvidedServices: device not responding, reseting.", getName(), this ) );
+						STATUS_LOG ( ( 4, "%s[%p]: BeginProvidedServices: device not responding, reseting.", getName ( ), this ) );
 						
 						// Reset the device on its own thread so we don't deadlock.
 						status = ResetDeviceNow ( true );
@@ -1212,21 +1180,23 @@ IOUSBMassStorageClass::BeginProvidedServices ( void )
     }
     else
     {
+        
     	// CBI and CB protocols do not support LUNs so for these the 
     	// maximum LUN will always be zero.
-        SetMaxLogicalUnitNumber( 0 );
+        SetMaxLogicalUnitNumber ( 0 );
+        
     }
     
 	RecordUSBTimeStamp (	UMC_TRACE ( kLUNConfigurationComplete ),
 							( uintptr_t ) this, GetMaxLogicalUnitNumber ( ), NULL, NULL );	
 
-    STATUS_LOG ( ( 5, "%s[%p]: Configured, Max LUN = %d", getName(), this, GetMaxLogicalUnitNumber() ) );
+    STATUS_LOG ( ( 5, "%s[%p]: Configured, Max LUN = %d", getName ( ), this, GetMaxLogicalUnitNumber ( ) ) );
 
  	// If this is a BO device that supports multiple LUNs, we will need 
 	// to spawn off a nub for each valid LUN.  If this is a CBI/CB
 	// device or a BO device that only supports LUN 0, this object can
 	// register itself as the nub.  
- 	if ( GetMaxLogicalUnitNumber() > 0 )
+ 	if ( GetMaxLogicalUnitNumber ( ) > 0 )
     {
 		// Allocate space for our set that will keep track of the LUNs.
 		fClients = OSSet::withCapacity ( GetMaxLogicalUnitNumber() + 1 );
@@ -1243,7 +1213,7 @@ IOUSBMassStorageClass::BeginProvidedServices ( void )
 				return false;
 			}
 			
-			if ( nub->init( 0 ) == false )
+			if ( nub->init ( 0 ) == false )
             {
                 // Release our nub before we return so we don't leak...
                 nub->release();
@@ -1251,9 +1221,9 @@ IOUSBMassStorageClass::BeginProvidedServices ( void )
                 return false;
             }
             
-            if ( nub->attach( this ) == false )
+            if ( nub->attach ( this ) == false )
             {
-                if( isInactive() == false )
+                if( isInactive ( ) == false )
                 {
                     // panic since the nub can't attach and we are active
                     PANIC_NOW ( ( "IOUSBMassStorageClass::CreatePeripheralDeviceNubForLUN unable to attach nub" ) );
@@ -2333,14 +2303,9 @@ IOUSBMassStorageClass::HandlePowerOn ( void )
 		 ( fRequiresResetOnResume == true ) )
 	{   
 		
-        if ( fResetInProgress == false )
-        {
-            
-            RecordUSBTimeStamp ( UMC_TRACE ( kHandlePowerOnUSBReset ), ( uintptr_t ) this, NULL, NULL, NULL );
-            
-            status = ResetDeviceNow ( true );
-            
-        }
+		RecordUSBTimeStamp ( UMC_TRACE ( kHandlePowerOnUSBReset ), ( uintptr_t ) this, NULL, NULL, NULL );
+							 
+        status = ResetDeviceNow ( true );
         
 	}
 #else // EMBEDDED
@@ -2687,7 +2652,7 @@ ErrorExit:
     // begins while this reset thread is running.
     
 	// If the maximum number of unsuccessful resets has been exceeded, then terminate ourself.
-	if ( driver->fDeviceAttached == false && ( driver->isInactive() == false ) )
+	if ( driver->fDeviceAttached == false && ( driver->isInactive ( ) == false ) )
 	{
 		
         // Leave some evidence in the system log indicating how many errors we saw before we had a reset that failed
@@ -2706,13 +2671,16 @@ ErrorExit:
 			driver->fCommandGate->commandWakeup ( &driver->fResetInProgress, false );
 		
 		}
-        // Terminate.
- 		driver->terminate();
+        
+        // If we've already registered for service call terminate.
+        if ( driver->getState ( ) & kIOServiceRegisteredState )
+        {
+            driver->terminate ( );
+        }
 		
 	} 
 
 	else
-	
 	{
 	
 		driver->fResetInProgress = false;
@@ -2724,6 +2692,7 @@ ErrorExit:
 			driver->fCommandGate->commandWakeup ( &driver->fResetInProgress, false );
         
 		}
+        
 	}
 	
 	STATUS_LOG ( ( 6, "%s[%p]: sResetDevice exiting.", driver->getName ( ), driver ) );

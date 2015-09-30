@@ -26,10 +26,6 @@
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOFilterScheme, IOStorage)
 
-#ifndef __LP64__
-extern IOStorageAttributes gIOStorageAttributesUnsupported;
-#endif /* !__LP64__ */
-
 IOMedia * IOFilterScheme::getProvider() const
 {
     //
@@ -63,7 +59,7 @@ bool IOFilterScheme::handleOpen(IOService *  client,
     // we make our decision, change our state, and return from this method.
     //
 
-    return getProvider()->open(this, options, (uintptr_t) argument);
+    return getProvider()->open(this, options, (IOStorageAccess) (uintptr_t) argument);
 }
 
 bool IOFilterScheme::handleIsOpen(const IOService * client) const
@@ -113,22 +109,6 @@ void IOFilterScheme::read(IOService *           client,
     // as RAID will need to do extra processing here.
     //
 
-#ifndef __LP64__
-    if ( IOStorage::_expansionData )
-    {
-        if ( attributes == &gIOStorageAttributesUnsupported )
-        {
-            attributes = NULL;
-        }
-        else
-        {
-            IOStorage::read( client, byteStart, buffer, attributes, completion );
-
-            return;
-        }
-    }
-#endif /* !__LP64__ */
-
     getProvider( )->read( this, byteStart, buffer, attributes, completion );
 }
 
@@ -150,42 +130,42 @@ void IOFilterScheme::write(IOService *           client,
     // as RAID will need to do extra processing here.
     //
 
-#ifndef __LP64__
-    if ( IOStorage::_expansionData )
-    {
-        if ( attributes == &gIOStorageAttributesUnsupported )
-        {
-            attributes = NULL;
-        }
-        else
-        {
-            IOStorage::write( client, byteStart, buffer, attributes, completion );
-
-            return;
-        }
-    }
-#endif /* !__LP64__ */
-
     getProvider( )->write( this, byteStart, buffer, attributes, completion );
 }
 
-IOReturn IOFilterScheme::synchronizeCache(IOService * client)
+IOReturn IOFilterScheme::synchronize(IOService *                 client,
+                                     UInt64                      byteStart,
+                                     UInt64                      byteCount,
+                                     IOStorageSynchronizeOptions options)
 {
     //
-    // Flush the cached data in the storage object, if any, synchronously.
+    // Flush the cached data in the storage object, if any.
     //
 
-    return getProvider()->synchronizeCache(this);
+#ifdef __x86_64__
+    if ( _respondsTo_synchronizeCache )
+    {
+        if ( options == _kIOStorageSynchronizeOption_super__synchronizeCache )
+        {
+            options = 0;
+        }
+        else
+        {
+            return IOStorage::synchronize( client, byteStart, byteCount, options );
+        }
+    }
+#endif /* __x86_64__ */
+
+    return getProvider( )->synchronize( this, byteStart, byteCount, options );
 }
 
-IOReturn IOFilterScheme::unmap(IOService *       client,
-                               IOStorageExtent * extents,
-                               UInt32            extentsCount,
-                               UInt32            options)
+IOReturn IOFilterScheme::unmap(IOService *           client,
+                               IOStorageExtent *     extents,
+                               UInt32                extentsCount,
+                               IOStorageUnmapOptions options)
 {
     //
-    // Delete unused data from the storage object at the specified byte offsets,
-    // synchronously.
+    // Delete unused data from the storage object at the specified byte offsets.
     //
 
     return getProvider( )->unmap( this, extents, extentsCount, options );
@@ -269,14 +249,9 @@ OSMetaClassDefineReservedUnused(IOFilterScheme, 29);
 OSMetaClassDefineReservedUnused(IOFilterScheme, 30);
 OSMetaClassDefineReservedUnused(IOFilterScheme, 31);
 
-#ifndef __LP64__
-extern "C" void _ZN14IOFilterScheme4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOFilterScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+#ifdef __x86_64__
+extern "C" void _ZN14IOFilterScheme16synchronizeCacheEP9IOService( IOFilterScheme * scheme, IOService * client )
 {
-    scheme->read( client, byteStart, buffer, NULL, &completion );
+    scheme->synchronize( client, 0, 0 );
 }
-
-extern "C" void _ZN14IOFilterScheme5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOFilterScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
-{
-    scheme->write( client, byteStart, buffer, NULL, &completion );
-}
-#endif /* !__LP64__ */
+#endif /* __x86_64__ */

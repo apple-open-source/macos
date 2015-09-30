@@ -1,14 +1,8 @@
 /* Title for shut-down alert warning that we're updating Boot Caches */
 "Updating Boot Caches" = "Updating Boot Caches";
 
-/* Text of shut-down alert explaining why we aren't shutting down right away */
-"Caches necessary for booting are being updated.  System shutdown will proceed once the caches are up to date." = "Caches necessary for booting are being updated.  System shutdown will proceed once the caches are up to date.";
-
 /* Title for alert warning in boot≠root that kernel or mkext in memory doesn't match that found on root volume. */
 "Inconsistent system files" = "Inconsistent system files";
-
-/* Text of alert warning in boot≠root that kernel or mkext in memory doesn't match that found on root volume. */
-"Important system files in memory do not match those on disk. Kernel extensions can not be loaded, and some devices may not work. Resetting your startup disk in System Preferences may help." = "Important system files in memory do not match those on disk. Kernel extensions can not be loaded, and some devices may not work. Resetting your startup disk in System Preferences may help.";
 
 /* Title for alert warning the user of a kernel extension whose contents could be replaced with malicious code. */
 "System extension cannot be used" = "System extension cannot be used";

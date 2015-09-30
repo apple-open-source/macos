@@ -79,10 +79,6 @@ def default_toc_checksum_validity(filename):
 	with util.archive_created(filename, "/bin") as path:
 		_verify_header_checksum(path, "sha1")
 
-def md5_toc_checksum_validity(filename):
-	with util.archive_created(filename, "/bin", "--toc-cksum", "md5") as path:
-		_verify_header_checksum(path, "md5")
-
 def sha1_toc_checksum_validity(filename):
 	with util.archive_created(filename, "/bin", "--toc-cksum", "sha1") as path:
 		_verify_header_checksum(path, "sha1")
@@ -104,15 +100,6 @@ def broken_toc_default_checksum(filename):
 		# Try to extract it
 		_verify_extraction_failed(filename)
 		
-def broken_toc_md5_checksum(filename):
-	with util.archive_created(filename, "/bin", "--toc-cksum", "md5") as path:
-		# Mess up the archive
-		toc_start = _get_header_size(path)
-		_clobber_bytes_at(range(toc_start + 4, toc_start + 4 + 100), path) # Why did the original test specify 4? No idea.
-		
-		# Try to extract it
-		_verify_extraction_failed(filename)
-
 def broken_toc_sha1_checksum(filename):
 	with util.archive_created(filename, "/bin", "--toc-cksum", "sha1") as path:
 		# Mess up the archive
@@ -174,6 +161,23 @@ def default_checksum_algorithm(filename):
 # 	except subprocess.CalledProcessError:
 # 		pass
 
+# It does fail for md5 explicitly, however
+def md5_toc_checksum_failure(filename):
+	try:
+		with open("/dev/null", "a") as devnull:
+			with util.archive_created(filename, "/bin", "--toc-cksum", "md5", stderr=devnull) as path:
+				raise AssertionError("xar succeeded when it should have failed")
+	except subprocess.CalledProcessError:
+		pass
+
+def md5_file_checksum_failure(filename):
+	try:
+		with open("/dev/null", "a") as devnull:
+			with util.archive_created(filename, "/bin", "--file-cksum", "md5", stderr=devnull) as path:
+				raise AssertionError("xar succeeded when it should have failed")
+	except subprocess.CalledProcessError:
+		pass
+
 def _verify_checksum_algorithm(filename, algorithm):
 	additional_args = []
 	if algorithm:
@@ -193,9 +197,6 @@ def _verify_checksum_algorithm(filename, algorithm):
 def default_file_checksum_algorithm(filename):
 	_verify_checksum_algorithm(filename, None)
 
-def md5_file_checksum_algorithm(filename):
-	_verify_checksum_algorithm(filename, "md5")
-
 def sha1_file_checksum_algorithm(filename):
 	_verify_checksum_algorithm(filename, "sha1")
 
@@ -206,10 +207,11 @@ def sha512_file_checksum_algorithm(filename):
 	_verify_checksum_algorithm(filename, "sha512")
 
 
-TEST_CASES = (default_toc_checksum_validity, md5_toc_checksum_validity, sha1_toc_checksum_validity, sha256_toc_checksum_validity, sha512_toc_checksum_validity,
-              broken_toc_default_checksum, broken_toc_md5_checksum, broken_toc_sha1_checksum, broken_toc_sha256_checksum, broken_toc_sha512_checksum,
+TEST_CASES = (default_toc_checksum_validity, sha1_toc_checksum_validity, sha256_toc_checksum_validity, sha512_toc_checksum_validity,
+              broken_toc_default_checksum, broken_toc_sha1_checksum, broken_toc_sha256_checksum, broken_toc_sha512_checksum,
               broken_heap_default_checksum, default_checksum_algorithm,
-              default_file_checksum_algorithm, md5_file_checksum_algorithm, sha1_file_checksum_algorithm, sha256_file_checksum_algorithm, sha512_file_checksum_algorithm,)
+              default_file_checksum_algorithm, sha1_file_checksum_algorithm, sha256_file_checksum_algorithm, sha512_file_checksum_algorithm,
+              md5_toc_checksum_failure, md5_file_checksum_failure,)
 
 if __name__ == "__main__":
 	for case in TEST_CASES:

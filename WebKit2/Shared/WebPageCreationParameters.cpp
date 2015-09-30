@@ -39,6 +39,7 @@ void WebPageCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder.encodeEnum(drawingAreaType);
     encoder << pageGroupData;
     encoder << drawsBackground;
+    encoder << isEditable;
     encoder << drawsTransparentBackground;
     encoder << underlayColor;
     encoder << useFixedLayout;
@@ -53,15 +54,19 @@ void WebPageCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder << highestUsedBackForwardItemID;
     encoder << userContentControllerID;
     encoder << visitedLinkTableID;
+    encoder << websiteDataStoreID;
     encoder << canRunBeforeUnloadConfirmPanel;
     encoder << canRunModal;
     encoder << deviceScaleFactor;
+    encoder << viewScaleFactor;
     encoder << topContentInset;
     encoder << mediaVolume;
+    encoder << muted;
     encoder << mayStartMediaWhenInWindow;
     encoder << minimumLayoutSize;
     encoder << autoSizingShouldExpandToViewHeight;
     encoder.encodeEnum(scrollPinningBehavior);
+    encoder << scrollbarOverlayStyle;
     encoder << backgroundExtendsBeyondPage;
     encoder.encodeEnum(layerHostingMode);
     encoder << mimeTypesWithCustomContentProviders;
@@ -78,6 +83,8 @@ void WebPageCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder << textAutosizingWidth;
 #endif
     encoder << appleMailPaginationQuirkEnabled;
+    encoder << shouldScaleViewToFitDocument;
+    encoder << userContentExtensionsEnabled;
 }
 
 bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCreationParameters& parameters)
@@ -93,6 +100,8 @@ bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCre
     if (!decoder.decode(parameters.pageGroupData))
         return false;
     if (!decoder.decode(parameters.drawsBackground))
+        return false;
+    if (!decoder.decode(parameters.isEditable))
         return false;
     if (!decoder.decode(parameters.drawsTransparentBackground))
         return false;
@@ -122,15 +131,21 @@ bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCre
         return false;
     if (!decoder.decode(parameters.visitedLinkTableID))
         return false;
+    if (!decoder.decode(parameters.websiteDataStoreID))
+        return false;
     if (!decoder.decode(parameters.canRunBeforeUnloadConfirmPanel))
         return false;
     if (!decoder.decode(parameters.canRunModal))
         return false;
     if (!decoder.decode(parameters.deviceScaleFactor))
         return false;
+    if (!decoder.decode(parameters.viewScaleFactor))
+        return false;
     if (!decoder.decode(parameters.topContentInset))
         return false;
     if (!decoder.decode(parameters.mediaVolume))
+        return false;
+    if (!decoder.decode(parameters.muted))
         return false;
     if (!decoder.decode(parameters.mayStartMediaWhenInWindow))
         return false;
@@ -139,6 +154,8 @@ bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCre
     if (!decoder.decode(parameters.autoSizingShouldExpandToViewHeight))
         return false;
     if (!decoder.decodeEnum(parameters.scrollPinningBehavior))
+        return false;
+    if (!decoder.decode(parameters.scrollbarOverlayStyle))
         return false;
     if (!decoder.decode(parameters.backgroundExtendsBeyondPage))
         return false;
@@ -167,6 +184,12 @@ bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCre
 #endif
 
     if (!decoder.decode(parameters.appleMailPaginationQuirkEnabled))
+        return false;
+
+    if (!decoder.decode(parameters.shouldScaleViewToFitDocument))
+        return false;
+
+    if (!decoder.decode(parameters.userContentExtensionsEnabled))
         return false;
 
     return true;

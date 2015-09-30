@@ -35,9 +35,9 @@ class AccessibilityMenuListPopup;
 class HTMLOptionElement;
 class RenderMenuList;
 
-class AccessibilityMenuList : public AccessibilityRenderObject {
+class AccessibilityMenuList final : public AccessibilityRenderObject {
 public:
-    static PassRefPtr<AccessibilityMenuList> create(RenderMenuList* renderer);
+    static Ref<AccessibilityMenuList> create(RenderMenuList* renderer);
 
     virtual bool isCollapsed() const override;
     virtual bool press() override;
@@ -55,8 +55,8 @@ private:
     virtual void childrenChanged() override;
 };
 
-ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityMenuList, isMenuList())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_ACCESSIBILITY(AccessibilityMenuList, isMenuList())
 
 #endif // AccessibilityMenuList_h

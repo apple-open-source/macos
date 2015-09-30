@@ -213,8 +213,8 @@ public:
     };
 
     /**
-     * Set the iterator position to the index of the first character in the text being scanned.
-     * @return The index of the first character in the text being scanned.
+     * Sets the current iteration position to the beginning of the text, position zero.
+     * @return The offset of the beginning of the text, zero.
      * @stable ICU 2.0
      */
     virtual int32_t first(void) = 0;
@@ -302,7 +302,7 @@ public:
      *         returned break position.
      * @see RuleBaseBreakIterator::getRuleStatus()
      * @see UWordBreak
-     * @draft ICU 52
+     * @stable ICU 52
      */
     virtual int32_t getRuleStatus() const;
 
@@ -332,7 +332,7 @@ public:
     *                  is the total number of status values that were available,
     *                  not the reduced number that were actually returned.
     * @see getRuleStatus
-    * @draft ICU 52
+    * @stable ICU 52
     */
     virtual int32_t getRuleStatusVec(int32_t *fillInVec, int32_t capacity, UErrorCode &status);
 

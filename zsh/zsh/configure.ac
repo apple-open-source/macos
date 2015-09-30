@@ -117,6 +117,17 @@ AC_HELP_STRING([--enable-zsh-heap-debug],
   AC_DEFINE(ZSH_HEAP_DEBUG)
 fi])
 
+dnl Do you want to allow Valgrind to debug heap allocation?
+ifdef([zsh-valgrind],[undefine([zsh-valgrind])])dnl
+AH_TEMPLATE([ZSH_VALGRIND],
+[Define to 1 if you want to add code for valgrind to debug heap memory.])
+AC_ARG_ENABLE(zsh-valgrind,
+AC_HELP_STRING([--enable-zsh-valgrind],
+[turn on support for valgrind debugging of heap memory]),
+[if test x$enableval = xyes;  then
+  AC_DEFINE(ZSH_VALGRIND)
+fi])
+
 dnl Do you want debugging information on internal hash tables.
 dnl This turns on the `hashinfo' builtin command.
 ifdef([zsh-hash-debug],[undefine([zsh-hash-debug])])dnl
@@ -127,6 +138,16 @@ AC_ARG_ENABLE(zsh-hash-debug,
 AC_HELP_STRING([--enable-zsh-hash-debug], [turn on debugging of internal hash tables]),
 [if test x$enableval = xyes; then
   AC_DEFINE(ZSH_HASH_DEBUG)
+fi])
+
+dnl Do you want to dynamically allocate memory on the stack where possible?
+ifdef([stack-allocation],[undefine([stack-allocation])])dnl
+AH_TEMPLATE([USE_STACK_ALLOCATION],
+[Define to 1 if you want to allocate stack memory e.g. with `alloca'.])
+AC_ARG_ENABLE(stack-allocation,
+AC_HELP_STRING([--enable-stack-allocation], [allocate stack memory e.g. with `alloca']),
+[if test x$enableval = xyes; then
+  AC_DEFINE(USE_STACK_ALLOCATION)
 fi])
 
 dnl Pathnames for global zsh scripts
@@ -294,6 +315,25 @@ else
   sitefndir="$enableval"
 fi], [sitefndir=${datadir}/${tzsh_name}/site-functions])
 
+dnl Add /usr/local/share/zsh/site-functions if not yet present
+dnl owing to $sitefndir, whether or not explicitly given.
+dnl If not explicitly given, it hasn't been expanded yet.
+if test X$sitefndir = X/usr/local/share/zsh/site-functions || \
+   test X$sitefndir = Xno
+then fixed_sitefndir=''
+elif test X$prefix != X/usr/local; then
+  if test X$prefix = XNONE && test X$ac_default_prefix = X/usr/local; then
+    if test X$tzsh_name != Xzsh
+    then fixed_sitefndir=/usr/local/share/zsh/site-functions
+    else fixed_sitefndir=''
+    fi
+  else fixed_sitefndir=/usr/local/share/zsh/site-functions
+  fi
+elif test X$tzsh_name != Xzsh
+then fixed_sitefndir=/usr/local/share/zsh/site-functions
+else fixed_sitefndir=''
+fi
+
 ifdef([function_subdirs],[undefine([function_subdirs])])
 AC_ARG_ENABLE(function-subdirs,
 AC_HELP_STRING([--enable-function-subdirs], [install functions in subdirectories]))
@@ -319,6 +359,7 @@ AC_SUBST(runhelp)dnl
 AC_SUBST(additionalfpath)dnl
 AC_SUBST(fndir)dnl
 AC_SUBST(sitefndir)dnl
+AC_SUBST(fixed_sitefndir)dnl
 AC_SUBST(FUNCTIONS_SUBDIRS)dnl
 
 dnl Directories for scripts such as newuser.
@@ -593,7 +634,12 @@ AC_SUBST(YODL_OPTIONS)
 
 AC_CHECK_PROGS([PDFETEX], [pdfetex], [: pdfetex])
 AC_CHECK_PROGS([TEXI2PDF], [texi2pdf], [])
-AC_CHECK_PROGS([TEXI2HTML], [texi2html], [])
+AC_CHECK_PROGS([TEXI2HTML], [texi2any texi2html], [: texi2html])
+
+if test x"$TEXI2HTML" = xtexi2any; then
+  TEXI2HTML='texi2any -c TEXI2HTML=1'
+fi
+
 AC_CHECK_PROGS([ANSI2KNR], [ansi2knr], [: ansi2knr])
 
 if test x"$ansi2knr" = xyes && test x"$ANSI2KNR" = x": ansi2knr"; then
@@ -756,7 +802,7 @@ AH_TEMPLATE([ZSH_NO_XOPEN],
 AC_CACHE_CHECK(if _XOPEN_SOURCE_EXTENDED should not be defined,
 zsh_cv_no_xopen,
 [[case "$host_os" in
-  *openbsd*|*freebsd5*|*freebsd6.[012]*|*aix*)
+  *freebsd5*|*freebsd6.[012]*|*aix*)
   zsh_cv_no_xopen=yes
   ;;
   *)
@@ -1251,6 +1297,7 @@ AC_CHECK_FUNCS(strftime strptime mktime timelocal \
 	       pcre_compile pcre_study pcre_exec \
 	       nl_langinfo \
 	       erand48 open_memstream \
+	       posix_openpt \
 	       wctomb iconv \
 	       grantpt unlockpt ptsname \
 	       htons ntohs \
@@ -1258,8 +1305,26 @@ AC_CHECK_FUNCS(strftime strptime mktime timelocal \
 	       gdbm_open getxattr \
 	       realpath canonicalize_file_name \
 	       symlink getcwd \
-	       cygwin_conv_path)
+	       cygwin_conv_path \
+	       nanosleep)
 AC_FUNC_STRCOLL
+
+AH_TEMPLATE([REALPATH_ACCEPTS_NULL],
+[Define if realpath() accepts NULL as its second argument.])
+AC_CACHE_CHECK([if realpath accepts NULL],
+zsh_cv_func_realpath_accepts_null,
+[AC_RUN_IFELSE([AC_LANG_PROGRAM([
+#include <stdlib.h>
+#include <limits.h>
+],[
+exit(!realpath("/", (char*)0));
+])],
+[zsh_cv_func_realpath_accepts_null=yes],
+[zsh_cv_func_realpath_accepts_null=no],
+[zsh_cv_func_realpath_accepts_null=$ac_cv_func_canonicalize_file_name])])
+if test x$zsh_cv_func_realpath_accepts_null = xyes; then
+  AC_DEFINE(REALPATH_ACCEPTS_NULL)
+fi
 
 if test x$enable_cap = xyes; then
   AC_CHECK_FUNCS(cap_get_proc)
@@ -2508,6 +2573,8 @@ AH_TEMPLATE([MULTIBYTE_SUPPORT],
 [Define to 1 if you want support for multibyte character sets.])
 AH_TEMPLATE([BROKEN_WCWIDTH],
 [Define to 1 if the wcwidth() function is present but broken.])
+AH_TEMPLATE([BROKEN_ISPRINT],
+[Define to 1 if the isprint() function is broken under UTF-8 locale.])
 if test x$zsh_cv_c_unicode_support = xyes; then
   AC_DEFINE(MULTIBYTE_SUPPORT)
 
@@ -2562,6 +2629,38 @@ if test x$zsh_cv_c_unicode_support = xyes; then
   zsh_cv_c_broken_wcwidth=no)])
   if test x$zsh_cv_c_broken_wcwidth = xyes; then
     AC_DEFINE(BROKEN_WCWIDTH)
+  fi
+
+  dnl Check if isprint() behaves correctly under UTF-8 locale.
+  dnl On some platform (maybe only on Mac OS X), isprint() returns
+  dnl true for all characters in the range from 0xa0 to 0xff if
+  dnl called under UTF-8 locale.
+  [locale_prog='char *my_locales[] = {
+  "en_US.UTF-8", "en_GB.UTF-8", "en.UTF-8", '
+  locale_prog="$locale_prog"`locale -a 2>/dev/null | \
+    sed -e 's/utf8/UTF-8/' | grep UTF-8 | \
+    while read line; do echo " \"$line\","; done;`
+  locale_prog="$locale_prog 0 };
+  #include <locale.h>
+  #include <ctype.h>
+
+  int main() {
+    char **localep;
+    for (localep = my_locales; *localep; localep++)
+      if (setlocale(LC_ALL, *localep) && isprint(0xa0))
+	return 0;
+    return 1;
+  }
+  "]
+
+  AC_CACHE_CHECK(if the isprint() function is broken,
+  zsh_cv_c_broken_isprint,
+  [AC_TRY_RUN([$locale_prog],
+  zsh_cv_c_broken_isprint=yes,
+  zsh_cv_c_broken_isprint=no,
+  zsh_cv_c_broken_isprint=no)])
+  if test x$zsh_cv_c_broken_isprint = xyes; then
+    AC_DEFINE(BROKEN_ISPRINT)
   fi
 fi
 
@@ -3160,9 +3259,12 @@ AC_OUTPUT
 
 eval "zshbin1=${bindir}"
 eval "zshbin2=${zshbin1}"
-eval "zshman=${mandir}"
-eval "zshinfo=${infodir}"
-eval "zshfndir=${fndir}"
+eval "zshman1=${mandir}"
+eval "zshman2=${zshman1}"
+eval "zshinfo1=${infodir}"
+eval "zshinfo2=${zshinfo1}"
+eval "zshfndir1=${fndir}"
+eval "zshfndir2=${zshfndir1}"
 
 echo "
 zsh configuration
@@ -3187,10 +3289,10 @@ echo "\
 library flags             : ${LIBS}
 installation basename     : ${tzsh_name}
 binary install path       : ${zshbin2}
-man page install path     : ${zshman}
-info install path         : ${zshinfo}"
-if test "$zshfndir" != no; then
-  echo "functions install path    : ${zshfndir}"
+man page install path     : ${zshman2}
+info install path         : ${zshinfo2}"
+if test "$zshfndir2" != no; then
+  echo "functions install path    : ${zshfndir2}"
 fi
 if test "x$additionalfpath" != x; then
   echo "additional fpath entries  : ${additionalfpath}"

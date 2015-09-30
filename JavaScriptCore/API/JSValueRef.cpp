@@ -27,21 +27,21 @@
 #include "JSValueRef.h"
 
 #include "APICast.h"
+#include "DateInstance.h"
+#include "Exception.h"
 #include "JSAPIWrapperObject.h"
+#include "JSCInlines.h"
 #include "JSCJSValue.h"
 #include "JSCallbackObject.h"
 #include "JSGlobalObject.h"
 #include "JSONObject.h"
 #include "JSString.h"
 #include "LiteralParser.h"
-#include "JSCInlines.h"
 #include "Protect.h"
-
+#include <algorithm>
 #include <wtf/Assertions.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
-
-#include <algorithm> // for std::min
 
 #if PLATFORM(MAC)
 #include <mach-o/dyld.h>
@@ -52,6 +52,26 @@
 #endif
 
 using namespace JSC;
+
+enum class ExceptionStatus {
+    DidThrow,
+    DidNotThrow
+};
+
+static ExceptionStatus handleExceptionIfNeeded(ExecState* exec, JSValueRef* returnedExceptionRef)
+{
+    if (exec->hadException()) {
+        Exception* exception = exec->exception();
+        if (returnedExceptionRef)
+            *returnedExceptionRef = toRef(exec, exception->value());
+        exec->clearException();
+#if ENABLE(REMOTE_INSPECTOR)
+        exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exception);
+#endif
+        return ExceptionStatus::DidThrow;
+    }
+    return ExceptionStatus::DidNotThrow;
+}
 
 #if PLATFORM(MAC)
 static bool evernoteHackNeeded()
@@ -98,8 +118,7 @@ bool JSValueIsUndefined(JSContextRef ctx, JSValueRef value)
     ExecState* exec = toJS(ctx);
     JSLockHolder locker(exec);
 
-    JSValue jsValue = toJS(exec, value);
-    return jsValue.isUndefined();
+    return toJS(exec, value).isUndefined();
 }
 
 bool JSValueIsNull(JSContextRef ctx, JSValueRef value)
@@ -111,8 +130,7 @@ bool JSValueIsNull(JSContextRef ctx, JSValueRef value)
     ExecState* exec = toJS(ctx);
     JSLockHolder locker(exec);
 
-    JSValue jsValue = toJS(exec, value);
-    return jsValue.isNull();
+    return toJS(exec, value).isNull();
 }
 
 bool JSValueIsBoolean(JSContextRef ctx, JSValueRef value)
@@ -124,8 +142,7 @@ bool JSValueIsBoolean(JSContextRef ctx, JSValueRef value)
     ExecState* exec = toJS(ctx);
     JSLockHolder locker(exec);
 
-    JSValue jsValue = toJS(exec, value);
-    return jsValue.isBoolean();
+    return toJS(exec, value).isBoolean();
 }
 
 bool JSValueIsNumber(JSContextRef ctx, JSValueRef value)
@@ -137,8 +154,7 @@ bool JSValueIsNumber(JSContextRef ctx, JSValueRef value)
     ExecState* exec = toJS(ctx);
     JSLockHolder locker(exec);
 
-    JSValue jsValue = toJS(exec, value);
-    return jsValue.isNumber();
+    return toJS(exec, value).isNumber();
 }
 
 bool JSValueIsString(JSContextRef ctx, JSValueRef value)
@@ -150,8 +166,7 @@ bool JSValueIsString(JSContextRef ctx, JSValueRef value)
     ExecState* exec = toJS(ctx);
     JSLockHolder locker(exec);
 
-    JSValue jsValue = toJS(exec, value);
-    return jsValue.isString();
+    return toJS(exec, value).isString();
 }
 
 bool JSValueIsObject(JSContextRef ctx, JSValueRef value)
@@ -163,8 +178,31 @@ bool JSValueIsObject(JSContextRef ctx, JSValueRef value)
     ExecState* exec = toJS(ctx);
     JSLockHolder locker(exec);
 
-    JSValue jsValue = toJS(exec, value);
-    return jsValue.isObject();
+    return toJS(exec, value).isObject();
+}
+
+bool JSValueIsArray(JSContextRef ctx, JSValueRef value)
+{
+    if (!ctx) {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+    ExecState* exec = toJS(ctx);
+    JSLockHolder locker(exec);
+
+    return toJS(exec, value).inherits(JSArray::info());
+}
+
+bool JSValueIsDate(JSContextRef ctx, JSValueRef value)
+{
+    if (!ctx) {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+    ExecState* exec = toJS(ctx);
+    JSLockHolder locker(exec);
+
+    return toJS(exec, value).inherits(DateInstance::info());
 }
 
 bool JSValueIsObjectOfClass(JSContextRef ctx, JSValueRef value, JSClassRef jsClass)
@@ -207,15 +245,8 @@ bool JSValueIsEqual(JSContextRef ctx, JSValueRef a, JSValueRef b, JSValueRef* ex
     JSValue jsB = toJS(exec, b);
 
     bool result = JSValue::equal(exec, jsA, jsB); // false if an exception is thrown
-    if (exec->hadException()) {
-        JSValue exceptionValue = exec->exception();
-        if (exception)
-            *exception = toRef(exec, exceptionValue);
-        exec->clearException();
-#if ENABLE(REMOTE_INSPECTOR)
-        exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exceptionValue);
-#endif
-    }
+    handleExceptionIfNeeded(exec, exception);
+    
     return result;
 }
 
@@ -249,15 +280,7 @@ bool JSValueIsInstanceOfConstructor(JSContextRef ctx, JSValueRef value, JSObject
     if (!jsConstructor->structure()->typeInfo().implementsHasInstance())
         return false;
     bool result = jsConstructor->hasInstance(exec, jsValue); // false if an exception is thrown
-    if (exec->hadException()) {
-        JSValue exceptionValue = exec->exception();
-        if (exception)
-            *exception = toRef(exec, exceptionValue);
-        exec->clearException();
-#if ENABLE(REMOTE_INSPECTOR)
-        exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exceptionValue);
-#endif
-    }
+    handleExceptionIfNeeded(exec, exception);
     return result;
 }
 
@@ -318,7 +341,7 @@ JSValueRef JSValueMakeString(JSContextRef ctx, JSStringRef string)
     ExecState* exec = toJS(ctx);
     JSLockHolder locker(exec);
 
-    return toRef(exec, jsString(exec, string->string()));
+    return toRef(exec, jsString(exec, string ? string->string() : String()));
 }
 
 JSValueRef JSValueMakeFromJSONString(JSContextRef ctx, JSStringRef string)
@@ -351,16 +374,8 @@ JSStringRef JSValueCreateJSONString(JSContextRef ctx, JSValueRef apiValue, unsig
     String result = JSONStringify(exec, value, indent);
     if (exception)
         *exception = 0;
-    if (exec->hadException()) {
-        JSValue exceptionValue = exec->exception();
-        if (exception)
-            *exception = toRef(exec, exceptionValue);
-        exec->clearException();
-#if ENABLE(REMOTE_INSPECTOR)
-        exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exceptionValue);
-#endif
+    if (handleExceptionIfNeeded(exec, exception) == ExceptionStatus::DidThrow)
         return 0;
-    }
     return OpaqueJSString::create(result).leakRef();
 }
 
@@ -389,16 +404,8 @@ double JSValueToNumber(JSContextRef ctx, JSValueRef value, JSValueRef* exception
     JSValue jsValue = toJS(exec, value);
 
     double number = jsValue.toNumber(exec);
-    if (exec->hadException()) {
-        JSValue exceptionValue = exec->exception();
-        if (exception)
-            *exception = toRef(exec, exceptionValue);
-        exec->clearException();
-#if ENABLE(REMOTE_INSPECTOR)
-        exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exceptionValue);
-#endif
+    if (handleExceptionIfNeeded(exec, exception) == ExceptionStatus::DidThrow)
         number = PNaN;
-    }
     return number;
 }
 
@@ -414,16 +421,8 @@ JSStringRef JSValueToStringCopy(JSContextRef ctx, JSValueRef value, JSValueRef* 
     JSValue jsValue = toJS(exec, value);
     
     RefPtr<OpaqueJSString> stringRef(OpaqueJSString::create(jsValue.toString(exec)->value(exec)));
-    if (exec->hadException()) {
-        JSValue exceptionValue = exec->exception();
-        if (exception)
-            *exception = toRef(exec, exceptionValue);
-        exec->clearException();
-#if ENABLE(REMOTE_INSPECTOR)
-        exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exceptionValue);
-#endif
-        stringRef.clear();
-    }
+    if (handleExceptionIfNeeded(exec, exception) == ExceptionStatus::DidThrow)
+        stringRef = nullptr;
     return stringRef.release().leakRef();
 }
 
@@ -439,16 +438,8 @@ JSObjectRef JSValueToObject(JSContextRef ctx, JSValueRef value, JSValueRef* exce
     JSValue jsValue = toJS(exec, value);
     
     JSObjectRef objectRef = toRef(jsValue.toObject(exec));
-    if (exec->hadException()) {
-        JSValue exceptionValue = exec->exception();
-        if (exception)
-            *exception = toRef(exec, exceptionValue);
-        exec->clearException();
-#if ENABLE(REMOTE_INSPECTOR)
-        exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exceptionValue);
-#endif
+    if (handleExceptionIfNeeded(exec, exception) == ExceptionStatus::DidThrow)
         objectRef = 0;
-    }
     return objectRef;
 }
 

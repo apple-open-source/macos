@@ -25,6 +25,7 @@
 #include "EflScreenUtilities.h"
 #include "EvasGLContext.h"
 #include "EvasGLSurface.h"
+#include "EwkDebug.h"
 #include "FindClientEfl.h"
 #include "FormClientEfl.h"
 #include "InputMethodContextEfl.h"
@@ -46,11 +47,11 @@
 #include "WKString.h"
 #include "WKView.h"
 #include "WKViewEfl.h"
-#include "WebContext.h"
 #include "WebImage.h"
 #include "WebPageGroup.h"
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
+#include "WebProcessPool.h"
 #include "ewk_back_forward_list_private.h"
 #include "ewk_color_picker_private.h"
 #include "ewk_context_menu_item_private.h"
@@ -59,12 +60,10 @@
 #include "ewk_page_group_private.h"
 #include "ewk_popup_menu_item_private.h"
 #include "ewk_popup_menu_private.h"
-#include "ewk_private.h"
 #include "ewk_security_origin_private.h"
 #include "ewk_settings_private.h"
 #include "ewk_window_features_private.h"
 #include <Ecore_Evas.h>
-#include <Ecore_X.h>
 #include <Edje.h>
 #include <Evas_GL.h>
 #include <WebCore/CairoUtilitiesEfl.h>
@@ -83,11 +82,13 @@
 #include "WebFullScreenManagerProxy.h"
 #endif
 
+#if HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)
+#include "WebAccessibility.h"
+#endif
+
 using namespace EwkViewCallbacks;
 using namespace WebCore;
 using namespace WebKit;
-
-static const int defaultCursorSize = 16;
 
 // Auxiliary functions.
 
@@ -217,11 +218,17 @@ void EwkViewEventHandler<EVAS_CALLBACK_MOUSE_WHEEL>::handleEvent(void* data, Eva
 }
 
 template <>
-void EwkViewEventHandler<EVAS_CALLBACK_MOUSE_IN>::handleEvent(void* data, Evas*, Evas_Object*, void*)
+void EwkViewEventHandler<EVAS_CALLBACK_MOUSE_IN>::handleEvent(void* data, Evas* evas, Evas_Object*, void*)
 {
-    // FIXME: self->updateCursor(); was removed in order to fix crash caused by invalid cursor image.
-    // new cursor implementation should be added for curso image restoration previously used for.
-    notImplemented();
+#ifdef HAVE_ECORE_X
+    Ewk_View_Smart_Data* smartData = static_cast<Ewk_View_Smart_Data*>(data);
+    EwkView* self = toEwkView(smartData);
+
+    Ecore_Evas* ecoreEvas = ecore_evas_ecore_evas_get(evas);
+    Ecore_X_Window window = getEcoreXWindow(ecoreEvas);
+
+    self->updateCursor(window);
+#endif
 }
 
 template <>
@@ -271,7 +278,6 @@ EwkView::EwkView(WKViewRef view, Evas_Object* evasObject)
     , m_pageGroup(EwkPageGroup::findOrCreateWrapper(WKPageGetPageGroup(wkPage())))
     , m_pageLoadClient(std::make_unique<PageLoadClientEfl>(this))
     , m_pagePolicyClient(std::make_unique<PagePolicyClientEfl>(this))
-    , m_pageUIClient(std::make_unique<PageUIClientEfl>(this))
     , m_contextMenuClient(std::make_unique<ContextMenuClientEfl>(this))
     , m_findClient(std::make_unique<FindClientEfl>(this))
     , m_formClient(std::make_unique<FormClientEfl>(this))
@@ -280,17 +286,23 @@ EwkView::EwkView(WKViewRef view, Evas_Object* evasObject)
     , m_vibrationClient(std::make_unique<VibrationClientEfl>(this))
 #endif
     , m_backForwardList(std::make_unique<EwkBackForwardList>(WKPageGetBackForwardList(wkPage())))
-    , m_useCustomCursor(false)
+#ifdef HAVE_ECORE_X
+    , m_customCursor(ECORE_X_CURSOR_X)
+#endif
     , m_userAgent(WKEinaSharedString(AdoptWK, WKPageCopyUserAgent(wkPage())))
+    , m_applicationNameForUserAgent(WKEinaSharedString(AdoptWK, WKPageCopyApplicationNameForUserAgent(wkPage())))
     , m_mouseEventsEnabled(false)
 #if ENABLE(TOUCH_EVENTS)
     , m_touchEventsEnabled(false)
     , m_gestureRecognizer(std::make_unique<GestureRecognizer>(this))
 #endif
-    , m_displayTimer(this, &EwkView::displayTimerFired)
+    , m_displayTimer(*this, &EwkView::displayTimerFired)
     , m_inputMethodContext(InputMethodContextEfl::create(this, smartData()->base.evas))
+#if HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)
+    , m_webAccessibility(std::make_unique<WebAccessibility>(this))
+#endif
     , m_pageViewportControllerClient(this)
-    , m_pageViewportController(page(), &m_pageViewportControllerClient)
+    , m_pageViewportController(page(), m_pageViewportControllerClient)
     , m_isAccelerated(true)
     , m_isWaitingForNewPage(false)
 {
@@ -299,9 +311,11 @@ EwkView::EwkView(WKViewRef view, Evas_Object* evasObject)
 
     // FIXME: Remove when possible.
     static_cast<WebViewEfl*>(webView())->setEwkView(this);
-    m_evasGL = EflUniquePtr<Evas_GL>(evas_gl_new(evas_object_evas_get(m_evasObject)));
+
+    // FIXME: Consider it to move into EvasGLContext.
+    m_evasGL = evas_gl_new(evas_object_evas_get(m_evasObject));
     if (m_evasGL)
-        m_evasGLContext = EvasGLContext::create(m_evasGL.get());
+        m_evasGLContext = EvasGLContext::create(m_evasGL);
 
     if (!m_evasGLContext) {
         WARN("Failed to create Evas_GL, falling back to software mode.");
@@ -310,6 +324,8 @@ EwkView::EwkView(WKViewRef view, Evas_Object* evasObject)
 
     m_pendingSurfaceResize = m_isAccelerated;
     WKViewInitialize(wkView());
+
+    m_pageUIClient = std::make_unique<PageUIClientEfl>(this);
 
     WKPageGroupRef wkPageGroup = WKPageGetPageGroup(wkPage());
     WKPreferencesRef wkPreferences = WKPageGroupGetPreferences(wkPageGroup);
@@ -322,6 +338,8 @@ EwkView::EwkView(WKViewRef view, Evas_Object* evasObject)
 #endif
     WKPreferencesSetInteractiveFormValidationEnabled(wkPreferences, true);
 
+    WKPageSetBackgroundExtendsBeyondPage(wkPage(), true);
+
     // Enable mouse events by default
     setMouseEventsEnabled(true);
 
@@ -333,6 +351,12 @@ EwkView::~EwkView()
 {
     ASSERT(wkPageToEvasObjectMap().get(wkPage()) == m_evasObject);
     wkPageToEvasObjectMap().remove(wkPage());
+
+    m_evasGLSurface = nullptr;
+    m_evasGLContext = nullptr;
+
+    if (m_evasGL)
+        evas_gl_free(m_evasGL);
 }
 
 EwkView* EwkView::create(WKViewRef webView, Evas* canvas, Evas_Smart* smart)
@@ -403,36 +427,11 @@ WKPageRef EwkView::wkPage() const
     return WKViewGetPage(wkView());
 }
 
-void EwkView::updateCursor()
-{
-    Ewk_View_Smart_Data* sd = smartData();
-    Ecore_Evas* ecoreEvas = ecore_evas_ecore_evas_get(sd->base.evas);
-    // FIXME : ecore_evas_object_cursor_set doesn't guarantee deletion of cursor image previously set.
-    // Therefore, this patch deletes old cursor image before setting new image explicitly.
-    ecore_evas_object_cursor_set(ecoreEvas, 0, 0, 0, 0);
-
-    if (m_useCustomCursor) {
-        Image* cursorImage = static_cast<Image*>(m_cursorIdentifier.image);
-        if (!cursorImage)
-            return;
-
-        EflUniquePtr<Evas_Object> cursorObject = EflUniquePtr<Evas_Object>(cursorImage->getEvasObject(sd->base.evas));
-        if (!cursorObject)
-            return;
-
-        IntSize cursorSize = IntSize(cursorImage->size());
-        // Resize cursor.
-        evas_object_resize(cursorObject.get(), cursorSize.width(), cursorSize.height());
-
-        // Get cursor hot spot.
-        IntPoint hotSpot;
-        cursorImage->getHotSpot(hotSpot);
-
 #ifdef HAVE_ECORE_X
-        ecore_x_window_cursor_set(getEcoreXWindow(ecoreEvas), 0);
-#endif
-        // ecore_evas takes care of freeing the cursor object.
-        ecore_evas_object_cursor_set(ecoreEvas, cursorObject.release(), EVAS_LAYER_MAX, hotSpot.x(), hotSpot.y());
+void EwkView::updateCursor(Ecore_X_Window window)
+{
+    if (m_customCursor) {
+        ecore_x_window_cursor_set(window, m_customCursor);
         return;
     }
 
@@ -440,66 +439,50 @@ void EwkView::updateCursor()
     if (!group)
         return;
 
-    EflUniquePtr<Evas_Object> cursorObject = EflUniquePtr<Evas_Object>(edje_object_add(sd->base.evas));
-
-    if (!m_theme || !edje_object_file_set(cursorObject.get(), m_theme, group)) {
-#ifdef HAVE_ECORE_X
-        WebCore::applyFallbackCursor(ecoreEvas, group);
-#endif
-        return;
-    }
-
-    // Set cursor size.
-    Evas_Coord width, height;
-    edje_object_size_min_get(cursorObject.get(), &width, &height);
-    if (width <= 0 || height <= 0)
-        edje_object_size_min_calc(cursorObject.get(), &width, &height);
-    if (width <= 0 || height <= 0) {
-        width = defaultCursorSize;
-        height = defaultCursorSize;
-    }
-    evas_object_resize(cursorObject.get(), width, height);
-
-    // Get cursor hot spot.
-    const char* data;
-    int hotspotX = 0;
-    data = edje_object_data_get(cursorObject.get(), "hot.x");
-    if (data)
-        hotspotX = atoi(data);
-
-    int hotspotY = 0;
-    data = edje_object_data_get(cursorObject.get(), "hot.y");
-    if (data)
-        hotspotY = atoi(data);
-
-#ifdef HAVE_ECORE_X
-    ecore_x_window_cursor_set(getEcoreXWindow(ecoreEvas), 0);
-#endif
-
-    // ecore_evas takes care of freeing the cursor object.
-    ecore_evas_object_cursor_set(ecoreEvas, cursorObject.release(), EVAS_LAYER_MAX, hotspotX, hotspotY);
+    applyCursorFromEcoreX(window, group);
 }
+#endif
 
 void EwkView::setCursor(const Cursor& cursor)
 {
-    if (cursor.image()) {
+#ifdef HAVE_ECORE_X
+    Ecore_Evas* ecoreEvas = ecore_evas_ecore_evas_get(smartData()->base.evas);
+    Ecore_X_Window window = getEcoreXWindow(ecoreEvas);
+
+    if (Image* cursorImage = cursor.image()) {
         // Custom cursor.
-        if (cursor.image() == m_cursorIdentifier.image)
+        if (cursorImage == m_cursorIdentifier.image)
             return;
 
-        m_cursorIdentifier.image = cursor.image();
-        m_useCustomCursor = true;
+        IntPoint hotSpot;
+        cursorImage->getHotSpot(hotSpot);
+
+        Ecore_X_Cursor customCursor = createCustomCursor(window, cursorImage, IntSize(cursorImage->size()), hotSpot);
+        if (!customCursor)
+            return;
+
+        if (m_customCursor)
+            ecore_x_cursor_free(m_customCursor);
+
+        m_cursorIdentifier.image = cursorImage;
+        m_customCursor = customCursor;
+
     } else {
+        if (m_customCursor) {
+            ecore_x_cursor_free(m_customCursor);
+            m_customCursor = ECORE_X_CURSOR_X;
+        }
+
         // Standard cursor.
         const char* group = cursor.platformCursor();
         if (!group || group == m_cursorIdentifier.group)
             return;
 
         m_cursorIdentifier.group = group;
-        m_useCustomCursor = false;
     }
 
-    updateCursor();
+    updateCursor(window);
+#endif
 }
 
 void EwkView::setDeviceScaleFactor(float scale)
@@ -563,7 +546,7 @@ inline IntSize EwkView::deviceSize() const
     return toIntSize(WKViewGetSize(wkView()));
 }
 
-void EwkView::displayTimerFired(Timer*)
+void EwkView::displayTimerFired()
 {
     Ewk_View_Smart_Data* sd = smartData();
 
@@ -587,12 +570,12 @@ void EwkView::displayTimerFired(Timer*)
         return;
     }
 
-    evas_gl_make_current(m_evasGL.get(), m_evasGLSurface->surface(), m_evasGLContext->context());
+    evas_gl_make_current(m_evasGL, m_evasGLSurface->surface(), m_evasGLContext->context());
 
     WKViewPaintToCurrentGLContext(wkView());
 
-    // sd->image is tied to a native surface, which is in the parent's coordinates.
-    evas_object_image_data_update_add(sd->image, sd->view.x, sd->view.y, sd->view.w, sd->view.h);
+    // sd->image should be updated from (0,0) when using the evasGL for graphics backend.
+    evas_object_image_data_update_add(sd->image, 0, 0, sd->view.w, sd->view.h);
 }
 
 void EwkView::scheduleUpdateDisplay()
@@ -602,6 +585,12 @@ void EwkView::scheduleUpdateDisplay()
 
     if (!m_displayTimer.isActive())
         m_displayTimer.startOneShot(0);
+}
+
+void EwkView::setViewportPosition(const FloatPoint& contentsPosition)
+{
+    WKViewSetContentPosition(wkView(), WKPointMake(contentsPosition.x(), contentsPosition.y()));
+    m_pageViewportController.didChangeContentsVisibility(contentsPosition, m_pageViewportController.currentScale());
 }
 
 #if ENABLE(FULLSCREEN_API)
@@ -709,6 +698,20 @@ void EwkView::setUserAgent(const char* userAgent)
 
     // When 'userAgent' is 0, user agent is set as a standard user agent by WKPageSetCustomUserAgent()
     // so m_userAgent needs to be updated using WKPageCopyUserAgent().
+    m_userAgent = WKEinaSharedString(AdoptWK, WKPageCopyUserAgent(wkPage()));
+}
+
+void EwkView::setApplicationNameForUserAgent(const char* applicationNameForUserAgent)
+{
+    if (m_applicationNameForUserAgent == applicationNameForUserAgent)
+        return;
+
+    m_applicationNameForUserAgent = applicationNameForUserAgent;
+
+    WKRetainPtr<WKStringRef> wkApplicationName = adoptWK(WKStringCreateWithUTF8CString(applicationNameForUserAgent));
+    WKPageSetApplicationNameForUserAgent(wkPage(), wkApplicationName.get());
+
+    // WKPageSetApplicationNameForUserAgent also changes user agent.
     m_userAgent = WKEinaSharedString(AdoptWK, WKPageCopyUserAgent(wkPage()));
 }
 
@@ -828,21 +831,24 @@ bool EwkView::createGLSurface()
         EVAS_GL_DEPTH_BIT_8,
         EVAS_GL_STENCIL_NONE,
         EVAS_GL_OPTIONS_NONE,
-        EVAS_GL_MULTISAMPLE_NONE
+        EVAS_GL_MULTISAMPLE_NONE,
+#if defined(EVAS_GL_API_VERSION) && EVAS_GL_API_VERSION >= 2
+        EVAS_GL_GLES_2_X
+#endif
     };
 
     // Recreate to current size: Replaces if non-null, and frees existing surface after (OwnPtr).
-    m_evasGLSurface = EvasGLSurface::create(m_evasGL.get(), &evasGLConfig, deviceSize());
+    m_evasGLSurface = EvasGLSurface::create(m_evasGL, &evasGLConfig, deviceSize());
     if (!m_evasGLSurface)
         return false;
 
     Evas_Native_Surface nativeSurface;
-    evas_gl_native_surface_get(m_evasGL.get(), m_evasGLSurface->surface(), &nativeSurface);
+    evas_gl_native_surface_get(m_evasGL, m_evasGLSurface->surface(), &nativeSurface);
     evas_object_image_native_surface_set(smartData()->image, &nativeSurface);
 
-    evas_gl_make_current(m_evasGL.get(), m_evasGLSurface->surface(), m_evasGLContext->context());
+    evas_gl_make_current(m_evasGL, m_evasGLSurface->surface(), m_evasGLContext->context());
 
-    Evas_GL_API* gl = evas_gl_api_get(m_evasGL.get());
+    Evas_GL_API* gl = evas_gl_api_get(m_evasGL);
 
     WKPoint boundsEnd = WKViewUserViewportToScene(wkView(), WKPointMake(deviceSize().width(), deviceSize().height()));
     gl->glViewport(0, 0, boundsEnd.x, boundsEnd.y);
@@ -934,7 +940,7 @@ void EwkView::hideContextMenu()
     if (sd->api->context_menu_hide)
         sd->api->context_menu_hide(sd);
 
-    m_contextMenu.clear();
+    m_contextMenu = nullptr;
 }
 
 void EwkView::requestPopupMenu(WKPopupMenuListenerRef popupMenuListener, const WKRect& rect, WKPopupItemTextDirection textDirection, double pageScaleFactor, WKArrayRef items, int32_t selectedIndex)
@@ -1026,7 +1032,6 @@ WKEinaSharedString EwkView::requestJSPromptPopup(const WKEinaSharedString& messa
     return WKEinaSharedString::adopt(sd->api->run_javascript_prompt(sd, message, defaultValue));
 }
 
-#if ENABLE(SQL_DATABASE)
 /**
  * @internal
  * Calls exceeded_database_quota callback or falls back to default behavior returns default database quota.
@@ -1042,7 +1047,6 @@ unsigned long long EwkView::informDatabaseQuotaReached(const String& databaseNam
 
     return defaultQuota;
 }
-#endif
 
 WebView* EwkView::webView()
 {
@@ -1065,6 +1069,20 @@ void EwkView::informURLChange()
 
     m_url = WKEinaSharedString(wkURLString.get());
     smartCallback<URLChanged>().call(m_url);
+}
+
+/**
+ * @internal
+ * Update new scale factor to PageViewportController.
+ *
+ * ewk_view_scale_set() had only updated a scale factor of WebPageProxy. It had caused unsynchronized scale factor
+ * between WebPageProxy and PageViewportController. To be sync between WebPageProxy and PageViewportController,
+ * ewk_view_scale_set() needs to update the scale factor in PageViewportController as well.
+ */
+void EwkView::updateScaleToPageViewportController(double scaleFactor, int x, int y)
+{
+    m_pageViewportController.setInitiallyFitToViewport(false);
+    m_pageViewportController.didChangeContentsVisibility(WebCore::FloatPoint(x, y), scaleFactor);
 }
 
 EwkWindowFeatures* EwkView::windowFeatures()
@@ -1236,7 +1254,9 @@ void EwkView::handleEvasObjectColorSet(Evas_Object* evasObject, int red, int gre
     Ewk_View_Smart_Data* smartData = toSmartData(evasObject);
     ASSERT(smartData);
 
-    evas_object_image_alpha_set(smartData->image, alpha < 255);
+    int backgroundAlpha;
+    WKViewGetBackgroundColor(toEwkView(smartData)->wkView(), nullptr, nullptr, nullptr, &backgroundAlpha);
+    evas_object_image_alpha_set(smartData->image, alpha < 255 || backgroundAlpha < 255);
     parentSmartClass.color_set(evasObject, red, green, blue, alpha);
 }
 
@@ -1413,6 +1433,24 @@ bool EwkView::scrollBy(const IntSize& offset)
 
     // If the page position has not changed, notify the caller using the return value.
     return !(oldPosition == position);
+}
+
+void EwkView::setBackgroundColor(int red, int green, int blue, int alpha)
+{
+    if (red == 255 && green == 255 && blue == 255 && alpha == 255) {
+        WKViewSetDrawsBackground(wkView(), true);
+        WKPageSetBackgroundExtendsBeyondPage(wkPage(), true);
+    } else {
+        WKViewSetDrawsBackground(wkView(), false);
+        WKPageSetBackgroundExtendsBeyondPage(wkPage(), false);
+    }
+
+    int objectAlpha;
+    Evas_Object* image = smartData()->image;
+    evas_object_color_get(image, nullptr, nullptr, nullptr, &objectAlpha);
+    evas_object_image_alpha_set(image, alpha < 255 || objectAlpha < 255);
+
+    WKViewSetBackgroundColor(wkView(), red, green, blue, alpha);
 }
 
 Evas_Smart_Class EwkView::parentSmartClass = EVAS_SMART_CLASS_INIT_NULL;

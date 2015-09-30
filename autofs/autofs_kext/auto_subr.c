@@ -244,7 +244,7 @@ auto_lookup_request(fninfo_t *fnip, char *name, int namelen, char *subdir,
 	isdirect = fnip->fi_flags & MF_DIRECT ? TRUE : FALSE;
 
 	AUTOFS_DPRINT((4, "auto_lookup_request: using key=%.*s, subdir=%s\n",
-	    keylen, key, subdir));
+	    namelen, name, subdir));
 
 	error = auto_get_automountd_port(&automount_port);
 	if (error)

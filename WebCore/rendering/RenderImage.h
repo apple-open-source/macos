@@ -33,17 +33,22 @@ namespace WebCore {
 class HTMLAreaElement;
 class HTMLMapElement;
 
+enum ImageSizeChangeType {
+    ImageSizeChangeNone,
+    ImageSizeChangeForAltText
+};
+
 class RenderImage : public RenderReplaced {
 public:
-    RenderImage(Element&, PassRef<RenderStyle>, StyleImage* = nullptr, const float = 1.0f);
-    RenderImage(Document&, PassRef<RenderStyle>, StyleImage* = nullptr);
+    RenderImage(Element&, Ref<RenderStyle>&&, StyleImage* = nullptr, const float = 1.0f);
+    RenderImage(Document&, Ref<RenderStyle>&&, StyleImage* = nullptr);
     virtual ~RenderImage();
 
     RenderImageResource& imageResource() { return *m_imageResource; }
     const RenderImageResource& imageResource() const { return *m_imageResource; }
     CachedImage* cachedImage() const { return imageResource().cachedImage(); }
 
-    bool setImageSizeForAltText(CachedImage* newImage = 0);
+    ImageSizeChangeType setImageSizeForAltText(CachedImage* newImage = nullptr);
 
     void updateAltText();
 
@@ -74,7 +79,7 @@ protected:
 
     virtual void styleDidChange(StyleDifference, const RenderStyle*) override final;
 
-    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0) override;
+    virtual void imageChanged(WrappedImagePtr, const IntRect* = nullptr) override;
 
     void paintIntoRect(GraphicsContext*, const FloatRect&);
     virtual void paint(PaintInfo&, const LayoutPoint&) override final;
@@ -95,20 +100,20 @@ private:
 
     virtual void paintReplaced(PaintInfo&, const LayoutPoint&) override;
 
-    virtual bool computeBackgroundIsKnownToBeObscured() override final;
+    virtual bool computeBackgroundIsKnownToBeObscured(const LayoutPoint& paintOffset) override final;
 
     virtual LayoutUnit minimumReplacedHeight() const override;
 
     virtual void notifyFinished(CachedResource*) override final;
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) override final;
 
-    virtual bool boxShadowShouldBeAppliedToBackground(BackgroundBleedAvoidance, InlineFlowBox*) const override final;
+    virtual bool boxShadowShouldBeAppliedToBackground(const LayoutPoint& paintOffset, BackgroundBleedAvoidance, InlineFlowBox*) const override final;
 
     virtual bool shadowControlsNeedCustomLayoutMetrics() const { return false; }
 
     IntSize imageSizeForError(CachedImage*) const;
-    void imageDimensionsChanged(bool imageSizeChanged, const IntRect* = 0);
-    bool updateIntrinsicSizeIfNeeded(const LayoutSize&, bool imageSizeChanged);
+    void repaintOrMarkForLayout(ImageSizeChangeType, const IntRect* = nullptr);
+    void updateIntrinsicSizeIfNeeded(const LayoutSize&);
     // Update the size of the image to be rendered. Object-fit may cause this to be different from the CSS box's content rect.
     void updateInnerContentRect();
 
@@ -128,8 +133,8 @@ private:
     friend class RenderImageScaleObserver;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderImage, isRenderImage())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderImage, isRenderImage())
 
 #endif // RenderImage_h

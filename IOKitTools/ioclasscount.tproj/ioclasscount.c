@@ -21,14 +21,19 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
-cc ioclasscount.c -o /tmp/ioclasscount -Wall -framework IOKit -framework CoreFoundation
+cc ioclasscount.c -o /tmp/ioclasscount -Wall -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk  -framework IOKit -framework CoreFoundation -framework CoreSymbolication -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/PrivateFrameworks -g
  */
 
 #include <sysexits.h>
- #include <malloc/malloc.h>
+#include <getopt.h>
+#include <malloc/malloc.h>
+#include <mach/mach_vm.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <Kernel/IOKit/IOKitDebug.h>
+#include <Kernel/libkern/OSKextLibPrivate.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitKeys.h>
+#include <CoreSymbolication/CoreSymbolication.h>
 
 /*********************************************************************
 *********************************************************************/
@@ -124,6 +129,72 @@ finish:
 
 /*********************************************************************
 *********************************************************************/
+static void
+ProcessBacktraces(void * output, size_t outputSize)
+{
+    struct IOTrackingCallSiteInfo * sites;
+    struct IOTrackingCallSiteInfo * site;
+    uint32_t                        num, idx, btIdx;
+    const char                    * fileName;
+    CSSymbolicatorRef               sym;
+    CSSymbolRef                     symbol;
+    const char                    * symbolName;
+    CSSymbolOwnerRef                owner;
+    CSSourceInfoRef                 sourceInfo;
+    CSRange                         range;
+
+    sym = CSSymbolicatorCreateWithMachKernel();
+
+    sites = (typeof(sites)) output;
+    num   = (uint32_t)(outputSize / sizeof(sites[0]));
+
+    for (idx = 0; idx < num; idx++)
+    {
+	site = &sites[idx];
+	printf("\n0x%lx bytes (0x%lx + 0x%lx), %d call%s, [%d]\n",
+	    site->size[0] + site->size[1], 
+	    site->size[0], site->size[1], 
+	    site->count, (site->count != 1) ? "s" : "", idx);
+	uintptr_t * bt = &site->bt[0];
+	for (btIdx = 0; btIdx < kIOTrackingCallSiteBTs; btIdx++)
+	{
+	    mach_vm_address_t addr = bt[btIdx];
+
+	    if (!addr) break;
+	
+	    symbol = CSSymbolicatorGetSymbolWithAddressAtTime(sym, addr, kCSNow);
+	    owner  = CSSymbolGetSymbolOwner(symbol);
+
+	    printf("%2d %-24s      0x%llx ", btIdx, CSSymbolOwnerGetName(owner), addr);
+
+	    symbolName = CSSymbolGetName(symbol);
+	    if (symbolName)
+	    {
+		range = CSSymbolGetRange(symbol);
+		printf("%s + 0x%llx", symbolName, addr - range.location);
+	    }
+	    else {}
+
+	    sourceInfo = CSSymbolicatorGetSourceInfoWithAddressAtTime(sym, addr, kCSNow);
+	    fileName = CSSourceInfoGetPath(sourceInfo);
+	    if (fileName) printf(" (%s:%d)", fileName, CSSourceInfoGetLineNumber(sourceInfo));
+
+	    printf("\n");
+	}
+    }
+}
+
+/*********************************************************************
+*********************************************************************/
+void usage(void)
+{
+    printf("usage: ioclasscount [--track] [--leaks] [--reset] [--start] [--stop]\n");
+    printf("                    [--exclude] [--print] [--size=BYTES] [--capsize=BYTES]\n");
+    printf("                    [classname] [...] \n");
+}
+
+/*********************************************************************
+*********************************************************************/
 int main(int argc, char ** argv)
 {
     int                    result      = EX_OSERR;
@@ -135,9 +206,120 @@ int main(int argc, char ** argv)
     CFStringRef          * classNames  = NULL;            // must free
     CFStringRef            className   = NULL;            // must release
     char                 * nameCString = NULL;            // must free
+
+    int                    c;
+    int                    command;
+    int                    exclude;
+    size_t                 size;
+    size_t                 len;
+
+    command = kIOTrackingInvalid;
+    exclude = false;
+    size    = 0;
     
+    /*static*/ struct option longopts[] = {
+	{ "track",   no_argument,       &command,  kIOTrackingGetTracking },
+	{ "reset",   no_argument,       &command,  kIOTrackingResetTracking },
+	{ "start",   no_argument,       &command,  kIOTrackingStartCapture },
+	{ "stop",    no_argument,       &command,  kIOTrackingStopCapture },
+        { "print",   no_argument,       &command,  kIOTrackingPrintTracking },
+        { "leaks",   no_argument,       &command,  kIOTrackingLeaks },
+	{ "exclude", no_argument,       &exclude,  true },
+	{ "size",    required_argument, NULL,      's' },
+	{ "capsize", required_argument, NULL,      'c' },
+	{ NULL,      0,                 NULL,      0 }
+    };
+
+    while (-1 != (c = getopt_long(argc, argv, "", longopts, NULL)))
+    {
+	if (!c) continue;
+	switch (c)
+	{
+	    case 's': size = strtol(optarg, NULL, 0); break;
+	    case 'c': size = strtol(optarg, NULL, 0); command = kIOTrackingSetMinCaptureSize; break;
+	    default:
+		usage();
+		exit(1);
+	}
+    }
+
+    if (kIOTrackingInvalid != command)
+    {
+	IOKitDiagnosticsParameters * params;
+	io_connect_t connect;
+	IOReturn     err;
+	uint32_t     idx;
+        const char * name;    
+	char       * next;
+	void       * output;
+	size_t       outputSize;
+
+	len = 1 + sizeof(IOKitDiagnosticsParameters);
+	for (idx = optind; idx < argc; idx++) len += 1 + strlen(argv[idx]);
+
+	params = (typeof(params)) malloc(len);
+	bzero(params, len);
+	next = (typeof(next))(params + 1);
+	if (optind < argc)
+	{
+	    for (idx = optind; idx < argc; idx++)
+	    {
+		name = argv[idx];
+		len = strlen(name);
+		next[0] = len;
+		next++;
+		strncpy(next, name, len);
+		next += len;
+	    }
+	    next[0] = 0;
+	    next++;
+	}
+
+	root = IORegistryEntryFromPath(kIOMasterPortDefault, kIOServicePlane ":/");
+	err = IOServiceOpen(root, mach_task_self(), kIOKitDiagnosticsClientType, &connect);
+	IOObjectRelease(root);
+
+	if (kIOReturnSuccess != err)
+	{
+	    fprintf(stderr, "open %s (0x%x), need DEVELOPMENT kernel\n", mach_error_string(err), err);
+	    exit(1);
+	}
+
+	output = NULL;
+	outputSize = 0;
+	if ((kIOTrackingGetTracking == command) || (kIOTrackingLeaks == command)) outputSize = kIOConnectMethodVarOutputSize;
+
+	params->size = size;
+	if (exclude) params->options |= kIOTrackingExcludeNames;
+
+	err = IOConnectCallMethod(connect, command,
+				  NULL, 0,
+				  params, (next - (char * )params),
+				  NULL, 0,
+				  &output,
+				  &outputSize);
+	if (kIOReturnSuccess != err)
+	{
+	    fprintf(stderr, "method 0x%x %s (0x%x), check boot-arg io=0x00400000\n", command, mach_error_string(err), err);
+	    exit(1);
+	}
+
+	if ((kIOTrackingGetTracking == command) || (kIOTrackingLeaks == command))
+        {
+            ProcessBacktraces(output, outputSize);
+        }
+
+	free(params);
+	err = mach_vm_deallocate(mach_task_self(), (mach_vm_address_t) output, outputSize);
+	if (KERN_SUCCESS != err)
+	{
+	    fprintf(stderr, "mach_vm_deallocate %s (0x%x)\n", mach_error_string(err), err);
+	    exit(1);
+	}
+	exit(0);
+    }
+
     // Obtain the registry root entry.
-    
     root = IORegistryGetRootEntry(kIOMasterPortDefault);
     if (!root) {
         fprintf(stderr, "Error: Can't get registry root.\n");
@@ -165,7 +347,7 @@ int main(int argc, char ** argv)
         fprintf(stderr, "Error: Allocation information not a dictionary.\n");
         goto finish;
     }
-    
+
     classes = (CFDictionaryRef)CFDictionaryGetValue(diagnostics, CFSTR("Classes"));
     if (!classes) {
         fprintf(stderr, "Error: Class information missing.\n");
@@ -176,7 +358,7 @@ int main(int argc, char ** argv)
         goto finish;
     }
     
-    if (argc < 2) {
+    if (optind >= argc) {
         CFIndex       index, count;
         
         count = CFDictionaryGetCount(classes);
@@ -195,7 +377,7 @@ int main(int argc, char ** argv)
         
     } else {
         uint32_t index = 0;
-        for (index = 1; index < argc; index++ ) {
+        for (index = optind; index < argc; index++ ) {
 
             if (className) CFRelease(className);
             className = NULL;

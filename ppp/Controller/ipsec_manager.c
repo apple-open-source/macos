@@ -113,6 +113,7 @@ enum {
 #define MAX_PHASE2_PING			15 /* give up after 15 pings */
 
 #define TIMEOUT_INTERFACE_CHANGE	20 /* give 20 second to address to come back */
+#define TIMEOUT_INTERFACE_CHANGE_FOR_ONDEMAND	5 /* give 5 seconds for address to come back */
 
 #define XAUTH_FIRST_TIME		0x8000
 #define XAUTH_NEED_USERNAME		0x0001
@@ -685,42 +686,45 @@ static CFStringRef copy_decrypted_password(struct service *serv)
 	
 	passwdencryption = CFDictionaryGetValue(serv->u.ipsec.config, kSCPropNetIPSecXAuthPasswordEncryption);
 	passwdencryption = isA_CFString(passwdencryption);
-	if (passwdencryption) {
-		if (CFStringCompare(passwdencryption, kSCValNetIPSecXAuthPasswordEncryptionKeychain, 0) == kCFCompareEqualTo) {
+	if (passwdencryption
+		&& CFStringCompare(passwdencryption, kSCValNetIPSecXAuthPasswordEncryptionKeychain, 0) == kCFCompareEqualTo) {
 #if TARGET_OS_EMBEDDED
 			// TO DO:
 			// currently, password is given inline in SCNetworkConnectionStart
 			// needs t implement keychain support later
 #else
-			prefs = SCPreferencesCreate(NULL, CFSTR("CopyPassword"), NULL);
-			if (prefs == NULL) {
-				ipsec_log(LOG_ERR, CFSTR("IPSec Controller: SCPreferencesCreate fails"));
-				goto done;
+			if (serv->ne_sm_bridge == NULL) {
+				prefs = SCPreferencesCreate(NULL, CFSTR("CopyPassword"), NULL);
+				if (prefs == NULL) {
+					ipsec_log(LOG_ERR, CFSTR("IPSec Controller: SCPreferencesCreate fails"));
+					goto done;
+				}
+				// get the service
+				service = SCNetworkServiceCopy(prefs, serv->serviceID);
+				if (service == NULL) {
+					ipsec_log(LOG_ERR, CFSTR("IPSec Controller: SCNetworkServiceCopy fails"));
+					goto done;
+				}
+				// get the interface associated with the service
+				interface = SCNetworkServiceGetInterface(service);
+				if ((interface == NULL) || !CFEqual(SCNetworkInterfaceGetInterfaceType(interface), kSCNetworkInterfaceTypeIPSec)) {
+					ipsec_log(LOG_ERR, CFSTR("IPSec Controller: interface not IPSec"));
+					goto done;
+				}
+				CFDataRef passworddata = SCNetworkInterfaceCopyPassword( interface, kSCNetworkInterfacePasswordTypeIPSecXAuth);
+				if (passworddata) {
+					CFIndex passworddatalen = CFDataGetLength(passworddata);
+					if ((decryptedpasswd = CFStringCreateWithBytes(NULL, CFDataGetBytePtr(passworddata), passworddatalen, kCFStringEncodingUTF8, FALSE)))
+						ipsec_log(LOG_INFO, CFSTR("IPSec Controller: decrypted password %s"),  decryptedpasswd ? (CFStringGetCStringPtr(decryptedpasswd,kCFStringEncodingMacRoman)) : "NULL");
+					else
+						ipsec_log(LOG_ERR, CFSTR("IPSec Controller: cannot decrypt password"));
+					CFRelease(passworddata);
+				}
 			}
-			// get the service
-			service = SCNetworkServiceCopy(prefs, serv->serviceID);
-			if (service == NULL) {
-				ipsec_log(LOG_ERR, CFSTR("IPSec Controller: SCNetworkServiceCopy fails"));
-				goto done;
-			}
-			// get the interface associated with the service
-			interface = SCNetworkServiceGetInterface(service);
-			if ((interface == NULL) || !CFEqual(SCNetworkInterfaceGetInterfaceType(interface), kSCNetworkInterfaceTypeIPSec)) {
-				ipsec_log(LOG_ERR, CFSTR("IPSec Controller: interface not IPSec"));
-				goto done;
-			}
-			CFDataRef passworddata = SCNetworkInterfaceCopyPassword( interface, kSCNetworkInterfacePasswordTypeIPSecXAuth);
-			if (passworddata) {
-				CFIndex passworddatalen = CFDataGetLength(passworddata);
-				if ((decryptedpasswd = CFStringCreateWithBytes(NULL, CFDataGetBytePtr(passworddata), passworddatalen, kCFStringEncodingUTF8, FALSE)))
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller: decrypted password %s"),  decryptedpasswd ? (CFStringGetCStringPtr(decryptedpasswd,kCFStringEncodingMacRoman)) : "NULL");
-				else
-					ipsec_log(LOG_ERR, CFSTR("IPSec Controller: cannot decrypt password"));
-				CFRelease(passworddata);
-			}
+			else
+				decryptedpasswd = ne_sm_bridge_copy_password_from_keychain(serv->ne_sm_bridge, kSCPropNetIPSecXAuthPassword);
 #endif
 		}
-	}
 	else {
 		decryptedpasswd = CFDictionaryGetValue(serv->u.ipsec.config, kSCPropNetIPSecXAuthPassword);
 		decryptedpasswd = isA_CFString(decryptedpasswd);
@@ -1010,11 +1014,7 @@ static int process_xauth_need_info(struct service *serv)
 			
 			if (has_info || !(serv->u.ipsec.xauth_flags & XAUTH_NEED_USERNAME)) {
 				if (serv->u.ipsec.xauth_flags & (XAUTH_NEED_PASSWORD | XAUTH_NEED_PASSCODE)) {
-					if (serv->ne_sm_bridge == NULL) {
-						password = copy_decrypted_password(serv);
-					} else {
-						password = ne_sm_bridge_copy_password_from_keychain(serv->ne_sm_bridge, kSCPropNetIPSecXAuthPassword);
-					}
+					password = copy_decrypted_password(serv);
 					has_info = isString(password) && CFStringGetLength(password);
 				}
 			}
@@ -1443,7 +1443,6 @@ static void process_racoon_msg(struct service *serv)
 						display_notification(serv, serv->u.ipsec.banner, 0, dialog_has_disconnect_type);
 						my_CFRelease(&serv->u.ipsec.banner);
 					}
-					SESSIONTRACERESTABLISHED(serv);
 				} else if (IPSEC_IS_ASSERTED_PHASE2(serv->u.ipsec)) {
 					IPSEC_UNASSERT(serv->u.ipsec);
 				}
@@ -2039,7 +2038,6 @@ static void install_mode_config(struct service *serv, Boolean installConfig, Boo
 			
 		if ((error = IPSecInstallPolicies(policies, -1, &errorstr)) < 0) {
 			ipsec_log(LOG_ERR, CFSTR("IPSec Controller: IPSecInstallPolicies failed '%s'"), errorstr);
-			CFRelease(policies);
 			goto fail;
 		}
 		serv->u.ipsec.modecfg_policies = (CFMutableDictionaryRef)my_CFRetain(policies);
@@ -2321,15 +2319,21 @@ void racoon_timer(CFRunLoopTimerRef timer, void *info)
 
 }
 
-static u_int32_t get_interface_timeout (u_int32_t interface_media)
+static u_int32_t get_interface_timeout (u_int32_t interface_media, uint32_t flags)
 {
-    u_int32_t scaled_interface_timeout = TIMEOUT_INTERFACE_CHANGE;
+	u_int32_t scaled_interface_timeout;
+
+	if ((flags & FLAG_ONDEMAND) == FLAG_ONDEMAND) {
+		scaled_interface_timeout = TIMEOUT_INTERFACE_CHANGE_FOR_ONDEMAND;
+	} else {
+		scaled_interface_timeout = TIMEOUT_INTERFACE_CHANGE;
 #if !TARGET_OS_EMBEDDED
-    // increase the timeout if we're waiting for a wireless interface
-    if (IFM_TYPE(interface_media) == IFM_IEEE80211) {
-        scaled_interface_timeout = (TIMEOUT_INTERFACE_CHANGE << 2);
-    }
+		// increase the timeout if we're waiting for a wireless interface
+		if (IFM_TYPE(interface_media) == IFM_IEEE80211) {
+		    scaled_interface_timeout = (TIMEOUT_INTERFACE_CHANGE << 2);
+		}
 #endif /* !iPhone */
+	}
     ipsec_log(LOG_INFO, CFSTR("getting interface (media %x) timeout for ipsec: %d secs"), interface_media, scaled_interface_timeout);
     return scaled_interface_timeout;
 }
@@ -3540,10 +3544,10 @@ int racoon_restart(struct service *serv, struct sockaddr_in *address)
 	
 #if !TARGET_OS_EMBEDDED
     serv->u.ipsec.lower_interface_media = get_if_media(serv->u.ipsec.lower_interface);
-    serv->u.ipsec.timeout_lower_interface_change = get_interface_timeout(serv->u.ipsec.lower_interface_media);
+    serv->u.ipsec.timeout_lower_interface_change = get_interface_timeout(serv->u.ipsec.lower_interface_media, serv->flags);
 #else
 	serv->u.ipsec.lower_interface_media = 0;
-    serv->u.ipsec.timeout_lower_interface_change = get_interface_timeout(0);
+    serv->u.ipsec.timeout_lower_interface_change = get_interface_timeout(0, serv->flags);
 #endif /* !iPhone */
 
 	// check to see if interface is captive: if so, bail if the interface is not ready.
@@ -3657,8 +3661,21 @@ int racoon_restart(struct service *serv, struct sockaddr_in *address)
 			if (isString(secret_string)) {
 				/* secret or secret keychain is in the prefs, leave it alone */
 				found = 1;
+				/* Ensure that the keychain item is indeed present */
+				CFStringRef secret_encryption_string = CFDictionaryGetValue(serv->u.ipsec.config, kRASPropIPSecSharedSecretEncryption);
+				if (my_CFEqual(secret_encryption_string, kRASValIPSecSharedSecretEncryptionKeychain)) {
+					CFStringRef ss = ne_sm_bridge_copy_password_from_keychain(serv->ne_sm_bridge, kRASValIPSecAuthenticationMethodSharedSecret);
+
+					if (ss == NULL) {
+						found = 0;
+					}
+					else {
+						CFRelease(ss);
+					}
+				}
 			}
-			else {
+			
+			if (found == 0) {
 				/* encryption is not specified, and secret was missing. check connect options */
 				if (serv->connectopts && userdict != NULL) {
 					CFStringRef secret_string = CFDictionaryGetValue(userdict, kRASPropIPSecSharedSecret);
@@ -4130,7 +4147,6 @@ int ipsec_stop(struct service *serv, int signal)
 
 	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: ipsec_stop"));
 
-    SESSIONTRACERSTOP(serv);
     STOP_TRACKING_VPN_LOCATION(serv);
 
 	if (serv->u.ipsec.phase == IPSEC_PHASE1AUTH) {

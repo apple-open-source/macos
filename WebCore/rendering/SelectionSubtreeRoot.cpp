@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Igalia S.L.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,24 +39,25 @@
 namespace WebCore {
 
 SelectionSubtreeRoot::SelectionSubtreeRoot()
-    : m_selectionStart(nullptr)
-    , m_selectionStartPos(-1)
-    , m_selectionEnd(nullptr)
-    , m_selectionEndPos(-1)
+{
+}
+
+SelectionSubtreeRoot::SelectionSubtreeRoot(RenderObject* selectionStart, int selectionStartPos, RenderObject* selectionEnd, int selectionEndPos)
+    : m_selectionSubtreeData(selectionStart, selectionStartPos, selectionEnd, selectionEndPos)
 {
 }
 
 void SelectionSubtreeRoot::adjustForVisibleSelection(Document& document)
 {
-    if (selectionClear())
+    if (m_selectionSubtreeData.selectionClear())
         return;
 
     // Create a range based on the cached end points
-    Position startPosition = createLegacyEditingPosition(m_selectionStart->node(), m_selectionStartPos);
-    Position endPosition = createLegacyEditingPosition(m_selectionEnd->node(), m_selectionEndPos);
+    Position startPosition = createLegacyEditingPosition(m_selectionSubtreeData.selectionStart()->node(), m_selectionSubtreeData.selectionStartPos());
+    Position endPosition = createLegacyEditingPosition(m_selectionSubtreeData.selectionEnd()->node(), m_selectionSubtreeData.selectionEndPos());
 
     RefPtr<Range> range = Range::create(document, startPosition.parentAnchoredEquivalent(), endPosition.parentAnchoredEquivalent());
-    VisibleSelection selection(range.get());
+    VisibleSelection selection(*range);
     Position startPos = selection.start();
     Position candidate = startPos.downstream();
     if (candidate.isCandidate())
@@ -66,20 +68,24 @@ void SelectionSubtreeRoot::adjustForVisibleSelection(Document& document)
     if (candidate.isCandidate())
         endPos = candidate;
 
-    m_selectionStart = nullptr;
-    m_selectionStartPos = -1;
-    m_selectionEnd = nullptr;
-    m_selectionEndPos = -1;
+    m_selectionSubtreeData.clearSelection();
 
-    if (startPos.isNotNull()
-        && endPos.isNotNull()
-        && selection.visibleStart() != selection.visibleEnd()
-        && startPos.deprecatedNode()->renderer()->flowThreadContainingBlock() == endPos.deprecatedNode()->renderer()->flowThreadContainingBlock()) {
-        m_selectionStart = startPos.deprecatedNode()->renderer();
-        m_selectionStartPos = startPos.deprecatedEditingOffset();
-        m_selectionEnd = endPos.deprecatedNode()->renderer();
-        m_selectionEndPos = endPos.deprecatedEditingOffset();
-    }
+    if (startPos.isNull() || endPos.isNull())
+        return;
+
+    if (selection.visibleStart() == selection.visibleEnd())
+        return;
+
+    if (startPos.deprecatedNode()->renderer()->flowThreadContainingBlock() != endPos.deprecatedNode()->renderer()->flowThreadContainingBlock())
+        return;
+
+    if (&startPos.deprecatedNode()->renderer()->selectionRoot() != this)
+        return;
+
+    m_selectionSubtreeData.setSelectionStart(startPos.deprecatedNode()->renderer());
+    m_selectionSubtreeData.setSelectionStartPos(startPos.deprecatedEditingOffset());
+    m_selectionSubtreeData.setSelectionEnd(endPos.deprecatedNode()->renderer());
+    m_selectionSubtreeData.setSelectionEndPos(endPos.deprecatedEditingOffset());
 }
 
 } // namespace WebCore

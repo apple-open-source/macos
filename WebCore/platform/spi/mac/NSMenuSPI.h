@@ -23,10 +23,20 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "QuickLookMacSPI.h"
-
 // FIXME: We should just include the appropriate internal headers.
+
+typedef NS_ENUM(NSInteger, NSMenuType) {
+    NSMenuTypeNone = 0,
+    NSMenuTypeContextMenu,
+};
+
+@interface NSMenu (Private)
++ (NSMenuType)menuTypeForEvent:(NSEvent *)event;
+@end
+
+@class QLPreviewMenuItem;
 
 @interface NSMenuItem (Private)
 + (QLPreviewMenuItem *)standardQuickLookMenuItem;
++ (NSMenuItem *)standardShareMenuItemWithItems:(NSArray *)items;
 @end

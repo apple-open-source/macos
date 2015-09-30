@@ -28,6 +28,8 @@
 #include <Availability.h>
 #include <stddef.h>
 
+__BEGIN_DECLS
+
 struct _libc_functions {
 	unsigned long version;
 	void (*atfork_prepare)(void); // version 1
@@ -58,5 +60,11 @@ _libc_fork_child(void);
 
 extern int
 _atexit_receipt(void);
+
+__IOS_AVAILABLE(9.0) __OSX_AVAILABLE(10.11)
+extern void
+abort_report_np(const char *, ...) __dead2 __printflike(1, 2);
+
+__END_DECLS
 
 #endif // __LIBC_PRIVATE_H__

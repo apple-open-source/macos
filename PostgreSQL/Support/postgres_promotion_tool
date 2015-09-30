@@ -1,0 +1,849 @@
+#!/usr/bin/ruby
+#
+# postgres_promotion_tool
+#
+# Author:: Apple Inc.
+# Documentation:: Apple Inc.
+# Copyright (c) 2012-2015 Apple Inc. All Rights Reserved.
+#
+# IMPORTANT NOTE: This file is licensed only for use on Apple-branded
+# computers and is subject to the terms and conditions of the Apple Software
+# License Agreement accompanying the package this file is a part of.
+# You may not port this file to another platform without Apple's written consent.
+# License:: All rights reserved.
+#
+# PromotionExtra for PostgreSQL.
+# This handles all promotion cases for the both the customer and server-services instances of postgres.
+#
+# This script should execute before any scripts for dependent services.
+#
+
+Encoding.default_external=Encoding::UTF_8
+Encoding.default_internal=Encoding::UTF_8
+
+require 'fileutils'
+require 'logger'
+require 'socket'
+require 'shellwords'
+
+LOG_FILE = "/Library/Logs/ServerSetup.log"
+$logger = Logger.new(LOG_FILE)
+$logger.level = Logger::INFO
+
+#binaries
+NEW_POSTGRES_BINARIES_DIR = "/Applications/Server.app/Contents/ServerRoot/usr/bin"
+POSTGRES_BINARIES_DIR_9_1 = "/Applications/Server.app/Contents/ServerRoot/usr/libexec/postgresql9.1"
+POSTGRES_BINARIES_DIR_9_2 = "/Applications/Server.app/Contents/ServerRoot/usr/libexec/postgresql9.2"
+PSQL = "#{NEW_POSTGRES_BINARIES_DIR}/psql"
+PG_CTL = "#{NEW_POSTGRES_BINARIES_DIR}/pg_ctl"
+INITDB = "#{NEW_POSTGRES_BINARIES_DIR}/initdb"
+PG_UPGRADE = "#{NEW_POSTGRES_BINARIES_DIR}/pg_upgrade"
+CREATEDB = "#{NEW_POSTGRES_BINARIES_DIR}/createdb"
+DROPUSER = "#{NEW_POSTGRES_BINARIES_DIR}/dropuser"
+DROPDB = "#{NEW_POSTGRES_BINARIES_DIR}/dropdb"
+PG_DUMP = "#{NEW_POSTGRES_BINARIES_DIR}/pg_dump"
+GZCAT = "/usr/bin/gzcat"
+LAUNCHCTL = "/bin/launchctl"
+
+#constants
+PG_SERVICE_DIR_OLD = "/Library/Server/PostgreSQL For Server Services"
+PG_SERVICE_DIR_CUSTOMER = "/Library/Server/PostgreSQL"
+PG_DATA_DIR_DEFAULT = "#{PG_SERVICE_DIR_OLD}/Data"
+PG_FORKED_CLUSTERS_DIR_DEFAULT = "/Library/Server/postgres_service_clusters"
+PG_DATA_DIR_CUSTOMER_DEFAULT = "#{PG_SERVICE_DIR_CUSTOMER}/Data"
+PG_LOG_DIR = "/Library/Logs/PostgreSQL"
+PG_SOCKET_DIR_2_2 = "#{PG_SERVICE_DIR_OLD}/Socket"
+DEFAULT_SOCKET_DIR = "/private/var/pgsql_socket"
+PG_CONFIG_DIR = "#{PG_SERVICE_DIR_OLD}/Config"
+PG_CONFIG_DIR_CUSTOMER = "#{PG_SERVICE_DIR_CUSTOMER}/Config"
+PG_CONFIG_FILE_2_2 = "#{PG_SERVICE_DIR_OLD}/Config/com.apple.postgres.plist"
+PG_CONFIG_FILE_CUSTOMER = "#{PG_CONFIG_DIR_CUSTOMER}/org.postgresql.postgres.plist"
+PG_OBSOLETE_LAUNCHD_PLIST = "/Applications/Server.app/Contents/ServerRoot/System/Library/LaunchDaemons/com.apple.postgres.plist"
+PG_OBSOLETE_CUSTOMER_LAUNCHD_PLIST = "/System/Library/LaunchDaemons/org.postgresql.postgres.plist"
+PG_OBSOLETE_CUSTOMER_LAUNCHD_PLIST_SERVER_ROOT = "/Applications/Server.app/Contents/ServerRoot/System/Library/LaunchDaemons/org.postgresql.postgres.plist"
+PG_OBSOLETE_CUSTOMER_LAUNCHD_PLIST_ALT = "/System/Library/LaunchDaemons/org.postgresql.postgres_alt.plist"
+MIGRATION_DIR = "/Library/Server/PostgreSQL/Migration"
+WIKI_USER = "_teamsserver"
+WIKI_GROUP = "_teamsserver"
+CALENDAR_USER = "_calendar"
+CALENDAR_GROUP = "_calendar"
+PROFILE_MANAGER_USER = "_devicemgr"
+PROFILE_MANAGER_GROUP = "_devicemgr"
+WIKI_DATABASE = "collab";
+WIKI_ROLES = ["collab", "webauth"]
+WIKI_ROLES_SQL = "CREATE ROLE collab; ALTER ROLE collab WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN NOREPLICATION; CREATE ROLE webauth; ALTER ROLE webauth WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN NOREPLICATION;"
+PROFILE_MANAGER_DATABASE = "device_management"
+PROFILE_MANAGER_ROLES = ["_devicemgr"]
+# Note: Profile manager role "_devicemgr" will already exist in new database since it matches the owner's account name.
+PROFILE_MANAGER_ROLES_SQL = "ALTER ROLE _devicemgr WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN NOREPLICATION;"
+CALENDAR_DATABASE = "caldav"
+CALENDAR_ROLES = ["caldav"]
+CALENDAR_ROLES_SQL = "CREATE ROLE caldav; ALTER ROLE caldav WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN NOREPLICATION;"
+SQL_DUMP_BACKUP_2_2 = "/Library/Server/PostgreSQL For Server Services/Backup/dumpall.psql.gz"
+SQL_DUMP_BACKUP_2_1 = "/Library/Server/PostgreSQL/Backup/dumpall.psql.gz"
+
+#globals
+$pgDataDir = PG_DATA_DIR_DEFAULT.dup
+$pgDataDirCustomer = PG_DATA_DIR_CUSTOMER_DEFAULT.dup
+$pgForkedClustersDir = PG_FORKED_CLUSTERS_DIR_DEFAULT.dup
+
+#errors
+ERR_NO_SPACE                            = 2
+ERR_INITDB_2_1                          = 3
+ERR_INITDB_CUSTOMER_2_1                 = 4
+ERR_START_CLUSTER_2_1                   = 5
+ERR_NO_CONNECTION_2_1                   = 6
+ERR_RESTORE_FAILED_2_1                  = 7
+ERR_CANNOT_STOP_CLUSTER_2_1             = 8
+ERR_PG_UPGRADE_2_1                      = 9
+ERR_CANNOT_START_UPGRADED_CLUSTER_2_1   = 10
+ERR_CALENDAR_INITDB_2_1                 = 11
+ERR_CALENDAR_START_CLUSTER_2_1          = 12
+ERR_CALENDAR_ROLE_CREATION_2_1          = 13
+ERR_CALENDAR_CREATEDB_2_1               = 14
+ERR_CALENDAR_IMPORT_2_1                 = 15
+ERR_CALENDAR_STOP_CLUSTER_2_1           = 16
+ERR_WIKI_INITDB_2_1                     = 17
+ERR_WIKI_START_CLUSTER_2_1              = 18
+ERR_WIKI_ROLE_CREATION_2_1              = 19
+ERR_WIKI_CREATEDB_2_1                   = 20
+ERR_WIKI_IMPORT_2_1                     = 21
+ERR_WIKI_STOP_CLUSTER_2_1               = 22
+ERR_PROFILE_MANAGER_INITDB_2_1          = 23
+ERR_PROFILE_MANAGER_START_CLUSTER_2_1   = 24
+ERR_PROFILE_MANAGER_ROLE_CREATION_2_1   = 25
+ERR_PROFILE_MANAGER_CREATEDB_2_1        = 26
+ERR_PROFILE_MANAGER_IMPORT_2_1          = 27
+ERR_PROFILE_MANAGER_STOP_CLUSTER_2_1    = 28
+ERR_CANNOT_STOP_UPGRADED_CLUSTER_2_1    = 29
+ERR_INITDB_TEMP_2_2                     = 30
+ERR_INITDB_CUSTOMER_2_2                 = 31
+ERR_START_CLUSTER_2_2                   = 32
+ERR_NO_CONNECTION_2_2                   = 33
+ERR_RESTORE_FAILED_2_2                  = 34
+ERR_CANNOT_STOP_CLUSTER_2_2             = 35
+ERR_PG_UPGRADE_2_2                      = 36
+ERR_CANNOT_START_UPGRADED_CLUSTER_2_2   = 37
+ERR_CALENDAR_INITDB_2_2                 = 38
+ERR_CALENDAR_START_CLUSTER_2_2          = 39
+ERR_CALENDAR_ROLE_CREATION_2_2          = 40
+ERR_CALENDAR_CREATEDB_2_2               = 41
+ERR_CALENDAR_IMPORT_2_2                 = 42
+ERR_CALENDAR_STOP_CLUSTER_2_2           = 43
+ERR_WIKI_INITDB_2_2                     = 44
+ERR_WIKI_START_CLUSTER_2_2              = 45
+ERR_WIKI_ROLE_CREATION_2_2              = 46
+ERR_WIKI_CREATEDB_2_2                   = 47
+ERR_WIKI_IMPORT_2_2                     = 48
+ERR_WIKI_STOP_CLUSTER_2_2               = 49
+ERR_PROFILE_MANAGER_INITDB_2_2          = 50
+ERR_PROFILE_MANAGER_START_CLUSTER_2_2   = 51
+ERR_PROFILE_MANAGER_ROLE_CREATION_2_2   = 52
+ERR_PROFILE_MANAGER_CREATEDB_2_2        = 53
+ERR_PROFILE_MANAGER_IMPORT_2_2          = 54
+ERR_PROFILE_MANAGER_STOP_CLUSTER_2_2    = 55
+ERR_CANNOT_STOP_CLUSTER_FINAL_2_2       = 56
+ERR_UNKNOWN_STATE                       = 57
+
+
+def exitWithError(message, err)
+	$logger.error(message)
+	$logger.info("*** PostgreSQL Promotion end ***")
+	$logger.close
+	exit(err)
+end
+
+def exitWithMessage(message)
+	if File.exists?(PG_OBSOLETE_LAUNCHD_PLIST)
+		$logger.info("Deleting obsolete launchd plist file")
+		FileUtils.rm(PG_OBSOLETE_LAUNCHD_PLIST)
+	end
+	$logger.info(message)
+	$logger.info("*** PostgreSQL Promotion end ***")
+	$logger.close
+	exit(0)
+end
+
+def runCommand(command)
+	ret = `#{command}`
+	if $? != 0
+		$logger.info("command returned non-zero exit code: #$?\nCommand: #{command}\nOutput: #{ret}")
+		return 1
+	end
+	return 0
+end
+
+def runCommandOrExit(command, err)
+	ret = `#{command}`
+	if $? != 0
+		exitWithError("command returned non-zero exit code: #$?\nCommand: #{command}\nOutput: #{ret}", err)
+	end
+end
+
+def forkDatabasesFrom2_1
+	pgForkedClustersDirCalendar = "#{$pgForkedClustersDir}/calendar"
+	pgForkedClustersDirWiki = "#{$pgForkedClustersDir}/wiki"
+	pgForkedClustersDirProfileManager = "#{$pgForkedClustersDir}/profile_manager"
+
+	# If the old data directory contains a .pid file due to Postgres not shutting down properly, get rid of the file so that we can attempt upgrade.
+	# There should be no chance that a postmaster is actually using the old data directory at this point.
+	if File.exists?($pgDataDirCustomer +  "/postmaster.pid")
+		$logger.info("There is a .pid file in the source data dir.  Removing it to attempt upgrade.")
+		FileUtils.rm_f($pgDataDirCustomer + "/postmaster.pid")
+	end
+
+	# Confirm that we'll have enough room to make a copy of the databases
+	dbVolume = '/'
+	if $pgDataDirCustomer =~ /^\/Volumes\/.*/
+		pathComponents = $pgDataDirCustomer.split(File::SEPARATOR)
+		dbVolume =  "/#{pathComponents[1]}/#{pathComponents[2]}"
+	end
+	megsAvailable = 0
+	command = "df -m " + dbVolume.shellescape
+	ret = `#{command}`
+	use_next = false
+	ret.each_line {|line|
+		if line =~ /^Filesystem\s+\S+\s+\S+\s+Available/
+			use_next = true
+		elsif use_next && line =~ /^\S+\s+\S+\s+\S+\s+(\d+)/
+			megsAvailable = $1.to_i
+			break
+		end
+	}
+	if (megsAvailable == 0)
+		exitWithError("megsAvailable is 0 for volume #{dbVolume}", ERR_NO_SPACE)
+	end
+	command = "du -m -s " + $pgDataDirCustomer.shellescape
+	dbSizeMegs = `#{command} | awk '{print $1}'`.to_i
+	if ((dbSizeMegs * 2 + 1024) > megsAvailable)  # enough space for a copy of the database onto the same source volume, plus a bit extra.
+		exitWithError("Not enough space free on data volume to upgrade PostgreSQL database.", ERR_NO_SPACE)
+	end
+
+	unless File.exists?(MIGRATION_DIR)
+		FileUtils.mkdir_p(MIGRATION_DIR)
+	end
+    FileUtils.chmod(0700, MIGRATION_DIR)
+    FileUtils.chown_R("_postgres", "_postgres", MIGRATION_DIR)
+
+	tempCustomerDataDir = "#{$pgDataDirCustomer}.customerTemp"
+	FileUtils.mkdir_p(tempCustomerDataDir)
+	FileUtils.chmod(0700, tempCustomerDataDir)
+	FileUtils.chown("_postgres", "_postgres", tempCustomerDataDir)
+	$logger.info("Initializing new database cluster for migration target")
+	
+	runCommandOrExit("sudo -u _postgres #{INITDB} --encoding UTF8 --locale=C -D " + tempCustomerDataDir.shellescape, ERR_INITDB_2_1)
+
+	# Ensure that the service directories and their contents are owned by _postgres (14055794, 14071596)
+	FileUtils.chmod(0755, File.dirname($pgDataDirCustomer))
+	FileUtils.chown_R("_postgres", "_postgres", File.dirname($pgDataDirCustomer))
+	if ($pgDataDirCustomer != PG_DATA_DIR_CUSTOMER_DEFAULT)
+		FileUtils.chmod(0755, File.dirname(PG_DATA_DIR_CUSTOMER_DEFAULT))
+		FileUtils.chown_R("_postgres", "_postgres", File.dirname(PG_DATA_DIR_CUSTOMER_DEFAULT))
+	end
+
+	$logger.info("Running pg_upgrade...")
+	firstServer = TCPServer.new('127.0.0.1', 0)
+	firstPort = firstServer.addr[1]
+	secondServer = TCPServer.new('127.0.0.1', 0)
+	secondPort = secondServer.addr[1]
+	firstServer.close
+	secondServer.close
+	origWorkingDirectory = Dir.getwd
+	Dir.chdir(MIGRATION_DIR)
+	ret = runCommand("sudo -u _postgres #{PG_UPGRADE} -b #{POSTGRES_BINARIES_DIR_9_1} -B #{NEW_POSTGRES_BINARIES_DIR} -d " +
+					 $pgDataDirCustomer.shellescape + " -D " + tempCustomerDataDir.shellescape + " -p #{firstPort} -P #{secondPort}")
+	if (ret != 0)
+		# pg_upgrade failed.  There is a possibility that the database files have been restored from a Time Machine backup and are not coherent.
+		# If we have a SQL dump backup file available, try restoring from that and retry pg_upgrade.
+		if File.exists?(SQL_DUMP_BACKUP_2_1)
+			$logger.info("Failed to start the existing postgres cluster.  Attempting to restore from SQL dump...")
+			FileUtils.mv(tempCustomerDataDir, "#{tempCustomerDataDir}.moved_aside_failed_to_start")
+			FileUtils.mkdir(tempCustomerDataDir)
+			FileUtils.chmod(0700, tempCustomerDataDir)
+			FileUtils.chown("_postgres", "_postgres", tempCustomerDataDir)
+			ret = system("sudo -u _postgres #{INITDB} --encoding UTF8 -D " + tempCustomerDataDir.shellescape)
+			if $? != 0
+				exitWithError("command failed: #$?", ERR_INITDB_CUSTOMER_2_1)
+			end
+			ret = system("sudo -u _postgres #{PG_CTL} start -w -t 60 -D " + tempCustomerDataDir.shellescape + " -l #{PG_LOG_DIR}/PostgreSQL.log -o \"-c unix_socket_directories=#{DEFAULT_SOCKET_DIR} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+			if $? != 0
+				exitWithError("command failed: #$?", ERR_START_CLUSTER_2_1)
+			end
+			isRunning = false
+			30.times do
+				if (Dir.entries(DEFAULT_SOCKET_DIR).count > 2)
+					command = "sudo -u _postgres #{PSQL} postgres -h \"#{DEFAULT_SOCKET_DIR}\" --command \"select version();\""
+					if (runCommand(command) == 0)
+						$logger.info("Confirmed that postgres is responding, socket file is ready")
+						isRunning = true
+						break
+					end
+				else
+					$logger.info("Found socket file but unable to connect to postgres.")
+				end
+				sleep 1
+			end
+			if (! isRunning)
+				exitWithError("Postgres is not responding after creating new cluster", ERR_NO_CONNECTION_2_1)
+			end
+			command = "#{GZCAT} \"#{SQL_DUMP_BACKUP_2_1}\" | #{PSQL} -h \"#{DEFAULT_SOCKET_DIR}\" -U _postgres postgres"
+			if (runCommand(command) == 0)
+				$logger.info("Successfully restored from SQL dump backup file, using this cluster to generate new clusters")
+			else
+				exitWithError("Unable to restore from SQL dump file, command failed: #$?", ERR_RESTORE_FAILED_2_1)
+			end
+			ret = system("sudo -u _postgres #{PG_CTL} stop -w -t 60 -D " + tempCustomerDataDir.shellescape)
+			if $? != 0
+				exitWithError("Unable to stop postgres.  command failed: #$?", ERR_CANNOT_STOP_CLUSTER_2_1)
+			end
+		else
+			exitWithError("pg_upgrade returned error status", ERR_PG_UPGRADE_2_1)
+		end
+	end
+	Dir.chdir(origWorkingDirectory)
+
+	# Get rid of the old cluster and replace it with the new one
+	FileUtils.rm_rf($pgDataDirCustomer)
+	FileUtils.mv(tempCustomerDataDir, $pgDataDirCustomer)
+
+	# remove any existing forked clusters and replace them
+	FileUtils.rm_rf($pgForkedClustersDir)
+	if ($pgForkedClustersDir != PG_FORKED_CLUSTERS_DIR_DEFAULT)
+		FileUtils.rm_rf(PG_FORKED_CLUSTERS_DIR_DEFAULT)
+	end
+	FileUtils.mkdir($pgForkedClustersDir)
+	FileUtils.chmod(0770, $pgForkedClustersDir)
+	FileUtils.chown("_postgres", "_postgres", $pgForkedClustersDir)
+
+	# Create a symlink from the boot drive so that services can always find their data there
+	if ($pgForkedClustersDir != PG_FORKED_CLUSTERS_DIR_DEFAULT)
+		File.symlink($pgForkedClustersDir, PG_FORKED_CLUSTERS_DIR_DEFAULT)
+		FileUtils.chmod(0770, PG_FORKED_CLUSTERS_DIR_DEFAULT)
+		FileUtils.chown("_postgres", "_postgres", PG_FORKED_CLUSTERS_DIR_DEFAULT)
+	end
+
+	pgTempSocketDirDest = `mktemp -d /tmp/postgres_init_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`.chomp
+	FileUtils.chmod(0770, pgTempSocketDirDest)
+	FileUtils.chown("_postgres", "_postgres", pgTempSocketDirDest)
+
+	$logger.info("Starting the upgraded or restored cluster")
+	ret = system("sudo -u _postgres #{PG_CTL} start -w -t 60 -D " + $pgDataDirCustomer.shellescape + " -l #{PG_LOG_DIR}/PostgreSQL_promotion_original.log -o \"-c unix_socket_directories=#{DEFAULT_SOCKET_DIR} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_CANNOT_START_UPGRADED_CLUSTER_2_1)
+	end
+
+	# Fork each services' databases into individual clusters as long as they exist in the source cluster
+	command = "sudo -u _postgres #{PSQL} #{CALENDAR_DATABASE} -h #{DEFAULT_SOCKET_DIR} --command \"select version();\""
+	if (runCommand(command) == 0)
+		FileUtils.mkdir(pgForkedClustersDirCalendar)
+		FileUtils.chmod(0700, pgForkedClustersDirCalendar)
+		FileUtils.chown("#{CALENDAR_USER}", "#{CALENDAR_GROUP}", pgForkedClustersDirCalendar)
+
+		$logger.info("Calling initdb for forked calendar database cluster")
+		ret = system("sudo -u #{CALENDAR_USER} #{INITDB} --encoding UTF8 -D " + pgForkedClustersDirCalendar.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_CALENDAR_INITDB_2_1)
+		end
+		$logger.info("Starting new db cluster for calendar")
+		ret = system("sudo -u #{CALENDAR_USER} #{PG_CTL} start -w -t 60 -D " + pgForkedClustersDirCalendar.shellescape	+ " -l #{PG_LOG_DIR}/PostgreSQL_promotion_calendar.log -o \"-c unix_socket_directories=#{pgTempSocketDirDest} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_CALENDAR_START_CLUSTER_2_1)
+		end
+		$logger.info("Creating roles for calendar")
+		ret = system("sudo -u #{CALENDAR_USER} #{PSQL} postgres -h #{pgTempSocketDirDest} -c \"#{CALENDAR_ROLES_SQL}\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_CALENDAR_ROLE_CREATION_2_1)
+		end
+		$logger.info("Creating db for calendar")
+		ret = system("sudo -u #{CALENDAR_USER} #{CREATEDB} #{CALENDAR_DATABASE} -O caldav -h #{pgTempSocketDirDest}")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_CALENDAR_CREATEDB_2_1)
+		end
+		$logger.info("Importing calendar data into new database cluster")
+		runCommandOrExit("sudo -u _postgres #{PG_DUMP} #{CALENDAR_DATABASE} -h #{DEFAULT_SOCKET_DIR} --no-privileges | sudo -u  #{CALENDAR_USER} #{PSQL} -h #{pgTempSocketDirDest} -d #{CALENDAR_DATABASE}", ERR_CALENDAR_IMPORT_2_1)
+		$logger.info("Stopping calendar database cluster")
+		ret = system("sudo -u #{CALENDAR_USER} #{PG_CTL} stop -D " + pgForkedClustersDirCalendar.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_CALENDAR_STOP_CLUSTER_2_1)
+		end
+	end
+
+	command = "sudo -u _postgres #{PSQL} #{WIKI_DATABASE} -h #{DEFAULT_SOCKET_DIR} --command \"select version();\""
+	if (runCommand(command) == 0)
+		FileUtils.mkdir(pgForkedClustersDirWiki)
+		FileUtils.chmod(0700, pgForkedClustersDirWiki)
+		FileUtils.chown("#{WIKI_USER}", "#{WIKI_GROUP}", pgForkedClustersDirWiki)
+
+		$logger.info("Calling initdb for forked wiki database cluster")
+		ret = system("sudo -u #{WIKI_USER} #{INITDB} --encoding UTF8 -D " + pgForkedClustersDirWiki.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_WIKI_INITDB_2_1)
+		end
+		$logger.info("Starting new db cluster for wiki")
+		ret = system("sudo -u #{WIKI_USER} #{PG_CTL} start -w -t 60 -D " + pgForkedClustersDirWiki.shellescape	+ " -l #{PG_LOG_DIR}/PostgreSQL_promotion_wiki.log -o \"-c unix_socket_directories=#{pgTempSocketDirDest} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_WIKI_START_CLUSTER_2_1)
+		end
+		$logger.info("Creating roles for wiki")
+		ret = system("sudo -u #{WIKI_USER} #{PSQL} postgres -h #{pgTempSocketDirDest} -c \"#{WIKI_ROLES_SQL}\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_WIKI_ROLE_CREATION_2_1)
+		end
+		$logger.info("Creating db for wiki")
+		ret = system("sudo -u #{WIKI_USER} #{CREATEDB} #{WIKI_DATABASE} -O collab -h #{pgTempSocketDirDest}")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_WIKI_CREATEDB_2_1)
+		end
+		$logger.info("Importing wiki data into new database cluster")
+		runCommandOrExit("sudo -u _postgres #{PG_DUMP} #{WIKI_DATABASE} -h #{DEFAULT_SOCKET_DIR} --no-privileges | sudo -u #{WIKI_USER} #{PSQL} -h #{pgTempSocketDirDest} -d #{WIKI_DATABASE}", ERR_WIKI_IMPORT_2_1)
+		$logger.info("Stopping wiki database cluster")
+		ret = system("sudo -u #{WIKI_USER} #{PG_CTL} stop -D " + pgForkedClustersDirWiki.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_WIKI_STOP_CLUSTER_2_1)
+		end
+	end
+
+	command = "sudo -u _postgres #{PSQL} #{PROFILE_MANAGER_DATABASE} -h #{DEFAULT_SOCKET_DIR} --command \"select version();\""
+	if (runCommand(command) == 0)
+		FileUtils.mkdir(pgForkedClustersDirProfileManager)
+		FileUtils.chmod(0700, pgForkedClustersDirProfileManager)
+		FileUtils.chown("#{PROFILE_MANAGER_USER}", "#{PROFILE_MANAGER_GROUP}", pgForkedClustersDirProfileManager)
+
+		$logger.info("Calling initdb for forked profile manager database cluster")
+		ret = system("sudo -u #{PROFILE_MANAGER_USER} #{INITDB} --encoding UTF8 -D " + pgForkedClustersDirProfileManager.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_INITDB_2_1)
+		end
+		$logger.info("Starting new db cluster for profile manager")
+		ret = system("sudo -u #{PROFILE_MANAGER_USER} #{PG_CTL} start -w -t 60 -D " + pgForkedClustersDirProfileManager.shellescape	+ " -l #{PG_LOG_DIR}/PostgreSQL_promotion_profile_manager.log -o \"-c unix_socket_directories=#{pgTempSocketDirDest} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_START_CLUSTER_2_1)
+		end
+		$logger.info("Creating roles for profile manager")
+		ret = system("sudo -u #{PROFILE_MANAGER_USER} #{PSQL} postgres -h #{pgTempSocketDirDest} -c \"#{PROFILE_MANAGER_ROLES_SQL}\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_ROLE_CREATION_2_1)
+		end
+		$logger.info("Creating db for profile manager")
+		ret = system("sudo -u #{PROFILE_MANAGER_USER} #{CREATEDB} #{PROFILE_MANAGER_DATABASE} -O _devicemgr -h #{pgTempSocketDirDest}")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_CREATEDB_2_1)
+		end
+		$logger.info("Importing profile manager data into new database cluster")
+		runCommandOrExit("sudo -u _postgres #{PG_DUMP} #{PROFILE_MANAGER_DATABASE} -h #{DEFAULT_SOCKET_DIR} --no-privileges | sudo -u #{PROFILE_MANAGER_USER} #{PSQL} -h #{pgTempSocketDirDest} -d #{PROFILE_MANAGER_DATABASE}", ERR_PROFILE_MANAGER_IMPORT_2_1)
+		$logger.info("Stopping profile manager database cluster")
+		ret = system("sudo -u #{PROFILE_MANAGER_USER} #{PG_CTL} stop -D " + pgForkedClustersDirProfileManager.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_STOP_CLUSTER_2_1)
+		end
+	end
+
+	# Wipe out the server-services data from the original cluster
+	# 'webauth' db is not migrated to the new database, but we need to drop it if it exists
+	runCommand("sudo -u _postgres #{DROPDB} -h #{DEFAULT_SOCKET_DIR} webauth")
+
+	$logger.info("Dropping Server databases from customer database cluster")
+	for database in [WIKI_DATABASE, PROFILE_MANAGER_DATABASE, CALENDAR_DATABASE]
+		runCommand("sudo -u _postgres #{DROPDB} -h #{DEFAULT_SOCKET_DIR} #{database}")
+	end
+
+	$logger.info("Dropping Server roles from customer database cluster")
+	for role in WIKI_ROLES+PROFILE_MANAGER_ROLES+CALENDAR_ROLES
+		runCommand("sudo -u _postgres #{DROPUSER} -h #{DEFAULT_SOCKET_DIR} #{role}")
+	end
+
+	$logger.info("Stopping the original database cluster")
+	ret = system("sudo -u _postgres #{PG_CTL} stop -w -t 60 -D " + $pgDataDirCustomer.shellescape)
+	if $? != 0
+		exitWithError("Unable to stop postgres.  command failed: #$?", ERR_CANNOT_STOP_UPGRADED_CLUSTER_2_1)
+	end
+end
+
+def forkDatabasesFrom2_2plus
+	pgForkedClustersDirCalendar = "#{$pgForkedClustersDir}/calendar"
+	pgForkedClustersDirWiki = "#{$pgForkedClustersDir}/wiki"
+	pgForkedClustersDirProfileManager = "#{$pgForkedClustersDir}/profile_manager"
+
+	# remove any existing forked clusters and replace them
+	FileUtils.rm_rf($pgForkedClustersDir)
+	if ($pgForkedClustersDir != PG_FORKED_CLUSTERS_DIR_DEFAULT)
+		FileUtils.rm_rf(PG_FORKED_CLUSTERS_DIR_DEFAULT)
+	end
+	FileUtils.mkdir($pgForkedClustersDir)
+	FileUtils.chmod(0770, $pgForkedClustersDir)
+	FileUtils.chown("_postgres", "_postgres", $pgForkedClustersDir)
+
+	# Confirm that we'll have enough room to make a copy of the databases
+	dbVolume = '/'
+	if $pgDataDir =~ /^\/Volumes\/.*/
+		pathComponents = $pgDataDir.split(File::SEPARATOR)
+		dbVolume =  "/#{pathComponents[1]}/#{pathComponents[2]}"
+	end
+	megsAvailable = 0
+	command = "df -m " + dbVolume.shellescape
+	ret = `#{command}`
+	use_next = false
+	ret.each_line {|line|
+		if line =~ /^Filesystem\s+\S+\s+\S+\s+Available/
+			use_next = true
+		elsif use_next && line =~ /^\S+\s+\S+\s+\S+\s+(\d+)/
+			megsAvailable = $1.to_i
+			break
+		end
+	}
+	if (megsAvailable == 0)
+		exitWithError("megsAvailable is 0 for volume #{dbVolume}", ERR_NO_SPACE)
+	end
+
+	command = "du -m -s " + $pgDataDir.shellescape
+	dbSizeMegs = `#{command} | awk '{print $1}'`.to_i
+	if ((dbSizeMegs * 2 + 1024) > megsAvailable)  # enough space for a copy of the database onto the same source volume, plus a bit extra.
+		exitWithError("Not enough space free on data volume to upgrade PostgreSQL database.", ERR_NO_SPACE)
+	end
+
+	# Ensure that the service directories and their contents are owned by _postgres (14055794, 14071596)
+	FileUtils.chmod(0755, File.dirname($pgDataDir))
+	FileUtils.chown_R("_postgres", "_postgres", File.dirname($pgDataDir))
+	if ($pgDataDir != PG_DATA_DIR_DEFAULT)
+		FileUtils.chmod(0755, File.dirname(PG_DATA_DIR_DEFAULT))
+		FileUtils.chown_R("_postgres", "_postgres", File.dirname(PG_DATA_DIR_DEFAULT))
+	end
+
+	# Create a symlink from the boot drive so that services can always find their data here
+	if ($pgForkedClustersDir != PG_FORKED_CLUSTERS_DIR_DEFAULT)
+		File.symlink($pgForkedClustersDir, PG_FORKED_CLUSTERS_DIR_DEFAULT)
+		FileUtils.chmod(0770, PG_FORKED_CLUSTERS_DIR_DEFAULT)
+		FileUtils.chown("_postgres", "_postgres", PG_FORKED_CLUSTERS_DIR_DEFAULT)
+	end
+
+	pgTempSocketDirDest = `mktemp -d /tmp/postgres_init_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`.chomp
+	FileUtils.chmod(0770, pgTempSocketDirDest)
+	FileUtils.chown("_postgres", "_postgres", pgTempSocketDirDest)
+
+	unless File.exists?(MIGRATION_DIR)
+		FileUtils.mkdir_p(MIGRATION_DIR)
+	end
+    FileUtils.chmod(0700, MIGRATION_DIR)
+    FileUtils.chown_R("_postgres", "_postgres", MIGRATION_DIR)
+
+	$logger.info("Running pg_upgrade...")
+	firstServer = TCPServer.new('127.0.0.1', 0)
+	firstPort = firstServer.addr[1]
+	secondServer = TCPServer.new('127.0.0.1', 0)
+	secondPort = secondServer.addr[1]
+	firstServer.close
+	secondServer.close
+	origWorkingDirectory = Dir.getwd
+	Dir.chdir(MIGRATION_DIR)
+	tempDataDir = "#{$pgDataDir}.Temp"
+	FileUtils.mkdir_p(tempDataDir)
+	FileUtils.chmod(0700, tempDataDir)
+	FileUtils.chown("_postgres", "_postgres", tempDataDir)
+	$logger.info("Initializing new database cluster for migration target")
+
+	runCommandOrExit("sudo -u _postgres #{INITDB} --encoding UTF8 --locale=C -D " + tempDataDir.shellescape, ERR_INITDB_TEMP_2_2)
+
+	ret = runCommand("sudo -u _postgres #{PG_UPGRADE} -b #{POSTGRES_BINARIES_DIR_9_2} -B #{NEW_POSTGRES_BINARIES_DIR} -d " +
+					 $pgDataDir.shellescape + " -D " + tempDataDir.shellescape + " -p #{firstPort} -P #{secondPort}")
+	if (ret != 0)
+		# pg_upgrade failed.  There is a possibility that the database files have been restored from a Time Machine backup and are not coherent.
+		# If we have a SQL dump backup file available, try restoring from that and retry pg_upgrade.
+		if File.exists?(SQL_DUMP_BACKUP_2_2)
+			$logger.info("Failed to start the existing postgres cluster.  Attempting to restore from SQL dump...")
+			FileUtils.mv(tempDataDir, "#{tempDataDir}.moved_aside_failed_to_start")
+			FileUtils.mkdir(tempDataDir)
+			FileUtils.chmod(0700, tempDataDir)
+			FileUtils.chown("_postgres", "_postgres", tempDataDir)
+			ret = system("sudo -u _postgres #{INITDB} --encoding UTF8 -D " + tempDataDir.shellescape)
+			if $? != 0
+				exitWithError("command failed: #$?", ERR_INITDB_CUSTOMER_2_2)
+			end
+			ret = system("sudo -u _postgres #{PG_CTL} start -w -t 60 -D " + tempDataDir.shellescape + " -l #{PG_LOG_DIR}/PostgreSQL.log -o \"-c unix_socket_directories=#{DEFAULT_SOCKET_DIR} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+			if $? != 0
+				exitWithError("command failed: #$?", ERR_START_CLUSTER_2_2)
+			end
+			isRunning = false
+			30.times do
+				if (Dir.entries(DEFAULT_SOCKET_DIR).count > 2)
+					command = "sudo -u _postgres #{PSQL} postgres -h \"#{DEFAULT_SOCKET_DIR}\" --command \"select version();\""
+					if (runCommand(command) == 0)
+						$logger.info("Confirmed that postgres is responding, socket file is ready")
+						isRunning = true
+						break
+					end
+				else
+					$logger.info("Found socket file but unable to connect to postgres.")
+				end
+				sleep 1
+			end
+			if (! isRunning)
+				exitWithError("Postgres is not responding after creating new cluster", ERR_NO_CONNECTION_2_2)
+			end
+			command = "#{GZCAT} \"#{SQL_DUMP_BACKUP_2_2}\" | #{PSQL} -h \"#{DEFAULT_SOCKET_DIR}\" -U _postgres postgres"
+			if (runCommand(command) == 0)
+				$logger.info("Successfully restored from SQL dump backup file, using this cluster to generate new clusters")
+			else
+				exitWithError("Unable to restore from SQL dump file, command failed: #$?", ERR_RESTORE_FAILED_2_2)
+			end
+			ret = system("sudo -u _postgres #{PG_CTL} stop -w -t 60 -D " + tempDataDir.shellescape)
+			if $? != 0
+				exitWithError("Unable to stop postgres.  command failed: #$?", ERR_CANNOT_STOP_CLUSTER_2_2)
+			end
+		else
+			exitWithError("pg_upgrade returned error status", ERR_PG_UPGRADE_2_2)
+		end
+	end
+	Dir.chdir(origWorkingDirectory)
+
+	$logger.info("Starting the upgraded or restored cluster")
+	ret = system("sudo -u _postgres #{PG_CTL} start -w -t 60 -D " + tempDataDir.shellescape + " -l #{PG_LOG_DIR}/PostgreSQL_Server_Services.log -o \"-c unix_socket_directories=#{DEFAULT_SOCKET_DIR}"  + " -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+	if $? != 0
+		exitWithError("command failed: #$?", ERR_CANNOT_START_UPGRADED_CLUSTER_2_2)
+	end
+
+	# Fork each services' databases into individual clusters as long as they exist in the source cluster
+	command = "sudo -u _postgres #{PSQL} #{CALENDAR_DATABASE} -h \"#{DEFAULT_SOCKET_DIR}\" --command \"select version();\""
+	if (runCommand(command) == 0)
+		FileUtils.mkdir(pgForkedClustersDirCalendar)
+		FileUtils.chmod(0700, pgForkedClustersDirCalendar)
+		FileUtils.chown("#{CALENDAR_USER}", "#{CALENDAR_GROUP}", pgForkedClustersDirCalendar)
+		$logger.info("Calling initdb for forked calendar database cluster")
+		ret = system("sudo -u #{CALENDAR_USER} #{INITDB} --encoding UTF8 -D " + pgForkedClustersDirCalendar.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_CALENDAR_INITDB_2_2)
+		end
+		$logger.info("Starting new db cluster for calendar")
+		ret = system("sudo -u #{CALENDAR_USER} #{PG_CTL} start -w -t 60 -D " + pgForkedClustersDirCalendar.shellescape	+ " -l #{PG_LOG_DIR}/PostgreSQL_promotion_calendar.log -o \"-c unix_socket_directories=#{pgTempSocketDirDest} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_CALENDAR_START_CLUSTER_2_2)
+		end
+		$logger.info("Creating roles for calendar")
+		ret = system("sudo -u #{CALENDAR_USER} #{PSQL} postgres -h #{pgTempSocketDirDest} -c \"#{CALENDAR_ROLES_SQL}\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_CALENDAR_ROLE_CREATION_2_2)
+		end
+		$logger.info("Creating db for calendar")
+		ret = system("sudo -u #{CALENDAR_USER} #{CREATEDB} #{CALENDAR_DATABASE} -O caldav -h #{pgTempSocketDirDest}")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_CALENDAR_CREATEDB_2_2)
+		end
+		$logger.info("Importing calendar data into new database cluster")
+		runCommandOrExit("sudo -u _postgres #{PG_DUMP} #{CALENDAR_DATABASE} -h \"#{DEFAULT_SOCKET_DIR}\" --no-privileges | sudo -u #{CALENDAR_USER} #{PSQL} -h #{pgTempSocketDirDest} -d #{CALENDAR_DATABASE}", ERR_CALENDAR_IMPORT_2_2)
+		$logger.info("Stopping calendar database cluster")
+		ret = system("sudo -u #{CALENDAR_USER} #{PG_CTL} stop -D " + pgForkedClustersDirCalendar.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_CALENDAR_STOP_CLUSTER_2_2)
+		end
+	end
+
+	command = "sudo -u _postgres #{PSQL} #{WIKI_DATABASE} -h \"#{DEFAULT_SOCKET_DIR}\" --command \"select version();\""
+	if (runCommand(command) == 0)
+		FileUtils.mkdir(pgForkedClustersDirWiki)
+		FileUtils.chmod(0700, pgForkedClustersDirWiki)
+		FileUtils.chown("#{WIKI_USER}", "#{WIKI_GROUP}", pgForkedClustersDirWiki)
+		
+		$logger.info("Calling initdb for forked wiki database cluster")
+		ret = system("sudo -u #{WIKI_USER} #{INITDB} --encoding UTF8 -D " + pgForkedClustersDirWiki.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_WIKI_INITDB_2_2)
+		end
+		$logger.info("Starting new db cluster for wiki")
+		ret = system("sudo -u #{WIKI_USER} #{PG_CTL} start -w -t 60 -D " + pgForkedClustersDirWiki.shellescape	+ " -l #{PG_LOG_DIR}/PostgreSQL_promotion_wiki.log -o \"-c unix_socket_directories=#{pgTempSocketDirDest} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_WIKI_START_CLUSTER_2_2)
+		end
+		$logger.info("Creating roles for wiki")
+		ret = system("sudo -u #{WIKI_USER} #{PSQL} postgres -h #{pgTempSocketDirDest} -c \"#{WIKI_ROLES_SQL}\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_WIKI_ROLE_CREATION_2_2)
+		end
+		$logger.info("Creating db for wiki")
+		ret = system("sudo -u #{WIKI_USER} #{CREATEDB} #{WIKI_DATABASE} -O collab -h #{pgTempSocketDirDest}")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_WIKI_CREATEDB_2_2)
+		end
+		$logger.info("Importing wiki data into new database cluster")
+		runCommandOrExit("sudo -u _postgres #{PG_DUMP} #{WIKI_DATABASE} -h \"#{DEFAULT_SOCKET_DIR}\" --no-privileges | sudo -u #{WIKI_USER} #{PSQL} -h #{pgTempSocketDirDest} -d #{WIKI_DATABASE}", ERR_WIKI_IMPORT_2_2)
+		$logger.info("Stopping wiki database cluster")
+		ret = system("sudo -u #{WIKI_USER} #{PG_CTL} stop -D " + pgForkedClustersDirWiki.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_WIKI_STOP_CLUSTER_2_2)
+		end
+	end
+
+	command = "sudo -u _postgres #{PSQL} #{PROFILE_MANAGER_DATABASE} -h \"#{DEFAULT_SOCKET_DIR}\" --command \"select version();\""
+	if (runCommand(command) == 0)
+		FileUtils.mkdir(pgForkedClustersDirProfileManager)
+		FileUtils.chmod(0700, pgForkedClustersDirProfileManager)
+		FileUtils.chown("#{PROFILE_MANAGER_USER}", "#{PROFILE_MANAGER_GROUP}", pgForkedClustersDirProfileManager)
+		
+		$logger.info("Calling initdb for forked profile manager database cluster")
+		ret = system("sudo -u #{PROFILE_MANAGER_USER} #{INITDB} --encoding UTF8 -D " + pgForkedClustersDirProfileManager.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_INITDB_2_2)
+		end
+		$logger.info("Starting new db cluster for profile manager")
+		ret = system("sudo -u #{PROFILE_MANAGER_USER} #{PG_CTL} start -w -t 60 -D " + pgForkedClustersDirProfileManager.shellescape	+ " -l #{PG_LOG_DIR}/PostgreSQL_promotion_profile_manager.log -o \"-c unix_socket_directories=#{pgTempSocketDirDest} -c listen_addresses= -c logging_collector=on -c log_connections=on -c log_lock_waits=on -c log_statement=ddl -c log_line_prefix=%t\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_START_CLUSTER_2_2)
+		end
+		$logger.info("Creating roles for profile manager")
+		ret = system("sudo -u #{PROFILE_MANAGER_USER} #{PSQL} postgres -h #{pgTempSocketDirDest} -c \"#{PROFILE_MANAGER_ROLES_SQL}\"")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_ROLE_CREATION_2_2)
+		end
+		$logger.info("Creating db for profile manager")
+		ret = system("sudo -u #{PROFILE_MANAGER_USER} #{CREATEDB} #{PROFILE_MANAGER_DATABASE} -O _devicemgr -h #{pgTempSocketDirDest}")
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_CREATEDB_2_2)
+		end
+		$logger.info("Importing profile manager data into new database cluster")
+		runCommandOrExit("sudo -u _postgres #{PG_DUMP} #{PROFILE_MANAGER_DATABASE} -h \"#{DEFAULT_SOCKET_DIR}\" --no-privileges | sudo -u #{PROFILE_MANAGER_USER} #{PSQL} -h #{pgTempSocketDirDest} -d #{PROFILE_MANAGER_DATABASE}", ERR_PROFILE_MANAGER_IMPORT_2_2)
+		$logger.info("Stopping profile manager database cluster")
+		ret = system("sudo -u #{PROFILE_MANAGER_USER} #{PG_CTL} stop -D " + pgForkedClustersDirProfileManager.shellescape)
+		if $? != 0
+			exitWithError("command failed: #$?", ERR_PROFILE_MANAGER_STOP_CLUSTER_2_2)
+		end
+	end
+
+	$logger.info("Stopping the original database cluster")
+	ret = system("sudo -u _postgres #{PG_CTL} stop -w -t 60 -D " + tempDataDir.shellescape)
+	if $? != 0
+		exitWithError("Unable to stop postgres.  command failed: #$?", ERR_CANNOT_STOP_CLUSTER_FINAL_2_2)
+	end
+
+	# Get rid of the old cluster and replace it with the new one
+	FileUtils.rm_rf($pgDataDir)
+	FileUtils.mv(tempDataDir, $pgDataDir)
+end
+
+########################### MAIN #########################
+
+$logger.info("*** PostgreSQL Promotion start ***")
+
+# Make sure that the requirements for postgres are met
+if !File.exists?(DEFAULT_SOCKET_DIR)
+	$logger.info("Creating default socket directory")
+	FileUtils.mkdir(DEFAULT_SOCKET_DIR)
+end
+FileUtils.chmod(0775, DEFAULT_SOCKET_DIR)
+FileUtils.chown_R("_postgres", "_postgres", DEFAULT_SOCKET_DIR)
+
+if !File.exists?(PG_LOG_DIR)
+	$logger.info("Creating Log Directory")
+	FileUtils.mkdir(PG_LOG_DIR)
+end
+FileUtils.chmod(0775, PG_LOG_DIR)
+FileUtils.chown("_postgres", "_postgres", PG_LOG_DIR)
+
+if File.exists?(PG_CONFIG_FILE_CUSTOMER)
+	content = File.open(PG_CONFIG_FILE_CUSTOMER, :encoding => "UTF-8") do |file|
+		catch :lastline do
+			use_next = false
+			file.each_line {|line|
+				if line =~ /<string>-D<\/string>/
+					use_next = true
+				elsif use_next && line =~ /<string>(.*)<\/string>/
+					$pgDataDirCustomer = $1
+					throw :lastline
+				end
+			}
+		end
+	end
+end
+
+if File.exists?(PG_CONFIG_FILE_2_2)
+	content = File.open(PG_CONFIG_FILE_2_2, :encoding => "UTF-8") do |file|
+        catch :lastline do
+			use_next = false
+			file.each_line {|line|
+                if line =~ /<string>-D<\/string>/
+					use_next = true
+				elsif use_next && line =~ /<string>(.*)<\/string>/
+					$pgDataDir = $1
+					throw :lastline
+                end
+			}
+		end
+	end
+end
+
+# Disable any existing "customer" database cluster since we don't upgrade it here. 17932793
+# The cluster may be upgraded manually if it is actually being used.
+if File.exists?(PG_OBSOLETE_CUSTOMER_LAUNCHD_PLIST)
+	$logger.info("Disabling customer database cluster since it is not being upgraded by this tool.")
+	runCommand("#{LAUNCHCTL} unload -w #{PG_OBSOLETE_CUSTOMER_LAUNCHD_PLIST}")
+end
+if File.exists?(PG_OBSOLETE_CUSTOMER_LAUNCHD_PLIST_ALT)
+	$logger.info("Disabling customer database cluster since it is not being upgraded by this tool.")
+	runCommand("#{LAUNCHCTL} unload -w #{PG_OBSOLETE_CUSTOMER_LAUNCHD_PLIST_ALT}")
+end
+if File.exists?(PG_OBSOLETE_CUSTOMER_LAUNCHD_PLIST_SERVER_ROOT)
+	$logger.info("Disabling customer database cluster since it is not being upgraded by this tool.")
+	runCommand("#{LAUNCHCTL} unload -w #{PG_OBSOLETE_CUSTOMER_LAUNCHD_PLIST_SERVER_ROOT}")
+end
+
+pgVersionCustomer = ""
+if File.exists?("#{$pgDataDirCustomer}/PG_VERSION")
+	pgVersionCustomer = File.open("#{$pgDataDirCustomer}/PG_VERSION", "rb"){ |f| f.read }.chomp
+end
+
+if !File.exists?($pgDataDir) &&
+        (pgVersionCustomer == "9.3" || File.exists?($pgDataDirCustomer) && pgVersionCustomer == "")
+	exitWithMessage("There appears to be no further action required.")
+end
+
+# If the source had clusters managed by xpostgres, then xpostgres should perform the upgrade.
+# We can key off the config file for the shared server cluster which should exist
+# only if the previous Server had a shared server cluster and had no xpostgres.
+if !File.exists?(PG_CONFIG_FILE_2_2) && pgVersionCustomer == "9.2"
+	exitWithMessage("There appears to be no further action required. Data upgrade will be done later.")
+end
+
+if $pgDataDir =~ /^\/Volumes\/.*/
+	pathComponents = $pgDataDir.split(File::SEPARATOR)
+	$pgForkedClustersDir.insert(0, "/#{pathComponents[1]}/#{pathComponents[2]}")
+elsif !File.exists?($pgDataDir) && $pgDataDirCustomer =~ /^\/Volumes\/.*/
+	pathComponents = $pgDataDirCustomer.split(File::SEPARATOR)
+	$pgForkedClustersDir.insert(0, "/#{pathComponents[1]}/#{pathComponents[2]}")
+end
+
+
+## Data initialization / migration
+if !File.exists?($pgForkedClustersDir) && !File.exists?($pgDataDir) && !File.exists?($pgDataDirCustomer)
+	$logger.info("Found no existing postgres data, handling as clean install.")
+elsif File.exists?($pgForkedClustersDir)
+	if !File.exists?($pgDataDir)
+		exitWithMessage("Found existing forked cluster dir but no source data dir.  Leaving existing files alone.")
+	end
+	$logger.info("Found existing forked clusters directory, treating as a re-promotion")
+	# TODO: These two functions should be merged at this point
+	if pgVersionCustomer == "9.2"
+		forkDatabasesFrom2_2plus()
+	elsif pgVersionCustomer == "9.1"
+		forkDatabasesFrom2_1()
+	elsif pgVersionCustomer	== ""
+		# Not found - should be a re-promotion where no customer cluster was ever initialized.
+		forkDatabasesFrom2_2plus()
+	else
+		exitWithError("Could not determine path for promotion based on database cluster versions and state", ERR_UNKNOWN_STATE)
+	end
+elsif File.exists?($pgDataDir)
+	$logger.info("Handling as a promotion from Server 2.2")
+	forkDatabasesFrom2_2plus()
+elsif File.exists?($pgDataDirCustomer)
+	$logger.info("Handling as a promotion from Server 2.1")
+	forkDatabasesFrom2_1()
+end
+
+if File.exists?(PG_SERVICE_DIR_OLD)
+	FileUtils.rm_rf(PG_SERVICE_DIR_OLD)
+end
+if File.exists?($pgDataDir)
+	FileUtils.rm_rf($pgDataDir)
+end
+if File.exists?(PG_DATA_DIR_DEFAULT)
+	FileUtils.rm_rf(PG_DATA_DIR_DEFAULT)
+end
+
+exitWithMessage("Finished.")

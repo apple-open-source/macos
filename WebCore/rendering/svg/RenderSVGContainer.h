@@ -40,9 +40,8 @@ public:
     bool isObjectBoundingBoxValid() const { return m_objectBoundingBoxValid; }
 
 protected:
-    RenderSVGContainer(SVGElement&, PassRef<RenderStyle>);
+    RenderSVGContainer(SVGElement&, Ref<RenderStyle>&&);
 
-    virtual bool isSVGContainer() const override final { return true; }
     virtual const char* renderName() const override { return "RenderSVGContainer"; }
 
     virtual bool canHaveChildren() const override final { return true; }
@@ -50,7 +49,7 @@ protected:
     virtual void layout() override;
 
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0) override final;
-    virtual RenderObject* removeChild(RenderObject&) override final;
+    virtual void removeChild(RenderObject&) override final;
     virtual void addFocusRingRects(Vector<IntRect>&, const LayoutPoint& additionalOffset, const RenderLayerModelObject* paintContainer = 0) override final;
 
     virtual FloatRect objectBoundingBox() const override final { return m_objectBoundingBox; }
@@ -73,6 +72,8 @@ protected:
     void updateCachedBoundaries();
 
 private:
+    virtual bool isSVGContainer() const override final { return true; }
+
     FloatRect m_objectBoundingBox;
     bool m_objectBoundingBoxValid;
     FloatRect m_strokeBoundingBox;
@@ -80,8 +81,8 @@ private:
     bool m_needsBoundariesUpdate : 1;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderSVGContainer, isSVGContainer())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGContainer, isSVGContainer())
 
 #endif // RenderSVGContainer_h

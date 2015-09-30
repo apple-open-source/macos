@@ -528,6 +528,14 @@ heim_queue_create(const char *name, heim_queue_attr_t attr)
 }
 
 void
+heim_queue_release(heim_queue_t queue)
+{
+    if (queue) {
+	dispatch_release((dispatch_queue_t)queue);
+    }
+}
+
+void
 heim_async_f(heim_queue_t queue, void *ctx, void (*callback)(void *data))
 {
     dispatch_async_f((dispatch_queue_t)queue, ctx, callback);

@@ -37,9 +37,9 @@ struct ImageCandidate;
 class HTMLImageElement : public HTMLElement, public FormNamedItem {
     friend class HTMLFormElement;
 public:
-    static PassRefPtr<HTMLImageElement> create(Document&);
-    static PassRefPtr<HTMLImageElement> create(const QualifiedName&, Document&, HTMLFormElement*);
-    static PassRefPtr<HTMLImageElement> createForJSConstructor(Document&, const int* optionalWidth, const int* optionalHeight);
+    static Ref<HTMLImageElement> create(Document&);
+    static Ref<HTMLImageElement> create(const QualifiedName&, Document&, HTMLFormElement*);
+    static Ref<HTMLImageElement> createForJSConstructor(Document&, const int* optionalWidth, const int* optionalHeight);
 
     virtual ~HTMLImageElement();
 
@@ -48,18 +48,17 @@ public:
 
     int naturalWidth() const;
     int naturalHeight() const;
-#if ENABLE_PICTURE_SIZES
+#if ENABLE(PICTURE_SIZES)
     const AtomicString& currentSrc() const { return m_currentSrc; }
 #endif
 
     bool isServerMap() const;
 
-    String altText() const;
+    const AtomicString& altText() const;
 
     CompositeOperator compositeOperator() const { return m_compositeOperator; }
 
     CachedImage* cachedImage() const { return m_imageLoader.image(); }
-    void setCachedImage(CachedImage* i) { m_imageLoader.setImage(i); };
 
     void setLoadManually(bool loadManually) { m_imageLoader.setLoadManually(loadManually); }
 
@@ -102,7 +101,7 @@ private:
     virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
 
     virtual void didAttachRenderers() override;
-    virtual RenderPtr<RenderElement> createElementRenderer(PassRef<RenderStyle>) override;
+    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
     void setBestFitURLAndDPRFromImageCandidate(const ImageCandidate&);
 
     virtual bool canStartSelection() const override;
@@ -127,12 +126,13 @@ private:
     HTMLFormElement* m_form;
     CompositeOperator m_compositeOperator;
     AtomicString m_bestFitImageURL;
-#if ENABLE_PICTURE_SIZES
+#if ENABLE(PICTURE_SIZES)
     AtomicString m_currentSrc;
 #endif
     AtomicString m_lowercasedUsemap;
     float m_imageDevicePixelRatio;
     bool m_experimentalImageMenuEnabled;
+    bool m_hadNameBeforeAttributeChanged { false }; // FIXME: We only need this because parseAttribute() can't see the old value.
 
 #if ENABLE(SERVICE_CONTROLS)
     void updateImageControls();
@@ -142,8 +142,6 @@ private:
     virtual bool childShouldCreateRenderer(const Node&) const override;
 #endif
 };
-
-NODE_TYPE_CASTS(HTMLImageElement)
 
 } //namespace
 

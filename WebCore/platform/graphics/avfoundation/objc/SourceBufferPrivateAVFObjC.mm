@@ -45,7 +45,6 @@
 #import "VideoTrackPrivateMediaSourceAVFObjC.h"
 #import "InbandTextTrackPrivateAVFObjC.h"
 #import <AVFoundation/AVAssetTrack.h>
-#import <CoreMedia/CMSampleBuffer.h>
 #import <QuartzCore/CALayer.h>
 #import <objc/runtime.h>
 #import <wtf/text/AtomicString.h>
@@ -54,11 +53,11 @@
 #import <wtf/WeakPtr.h>
 #import <map>
 
-#pragma mark -
-#pragma mark Soft Linking
+#pragma mark - Soft Linking
+
+#import "CoreMediaSoftLink.h"
 
 SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
-SOFT_LINK_FRAMEWORK_OPTIONAL(CoreMedia)
 
 SOFT_LINK_CLASS(AVFoundation, AVAssetTrack)
 SOFT_LINK_CLASS(AVFoundation, AVStreamDataParser)
@@ -70,48 +69,17 @@ SOFT_LINK_POINTER_OPTIONAL(AVFoundation, AVMediaTypeVideo, NSString *)
 SOFT_LINK_POINTER_OPTIONAL(AVFoundation, AVMediaTypeAudio, NSString *)
 SOFT_LINK_POINTER_OPTIONAL(AVFoundation, AVMediaTypeText, NSString *)
 
-SOFT_LINK_CONSTANT(CoreMedia, kCMTimeZero, CMTime);
-SOFT_LINK_CONSTANT(CoreMedia, kCMTimeInvalid, CMTime);
-SOFT_LINK_CONSTANT(CoreMedia, kCMSampleAttachmentKey_DoNotDisplay, CFStringRef)
-SOFT_LINK_CONSTANT(CoreMedia, kCMSampleAttachmentKey_NotSync, CFStringRef)
-SOFT_LINK_CONSTANT(CoreMedia, kCMSampleBufferAttachmentKey_DrainAfterDecoding, CFStringRef)
-SOFT_LINK_CONSTANT(CoreMedia, kCMSampleBufferAttachmentKey_ResetDecoderBeforeDecoding, CFStringRef)
-SOFT_LINK_CONSTANT(CoreMedia, kCMSampleBufferAttachmentKey_EmptyMedia, CFStringRef)
-SOFT_LINK_CONSTANT(CoreMedia, kCMSampleBufferAttachmentKey_DisplayEmptyMediaImmediately, CFStringRef)
-
 SOFT_LINK_CONSTANT(AVFoundation, AVMediaCharacteristicVisual, NSString*)
 SOFT_LINK_CONSTANT(AVFoundation, AVMediaCharacteristicAudible, NSString*)
 SOFT_LINK_CONSTANT(AVFoundation, AVMediaCharacteristicLegible, NSString*)
 SOFT_LINK_CONSTANT(AVFoundation, AVSampleBufferDisplayLayerFailedToDecodeNotification, NSString*)
 SOFT_LINK_CONSTANT(AVFoundation, AVSampleBufferDisplayLayerFailedToDecodeNotificationErrorKey, NSString*)
 
-SOFT_LINK(CoreMedia, CMFormatDescriptionGetMediaType, CMMediaType, (CMFormatDescriptionRef desc), (desc))
-SOFT_LINK(CoreMedia, CMSampleBufferCreate, OSStatus, (CFAllocatorRef allocator, CMBlockBufferRef dataBuffer, Boolean dataReady, CMSampleBufferMakeDataReadyCallback makeDataReadyCallback, void *makeDataReadyRefcon, CMFormatDescriptionRef formatDescription, CMItemCount numSamples, CMItemCount numSampleTimingEntries, const CMSampleTimingInfo *sampleTimingArray, CMItemCount numSampleSizeEntries, const size_t *sampleSizeArray, CMSampleBufferRef *sBufOut), (allocator, dataBuffer, dataReady, makeDataReadyCallback, makeDataReadyRefcon, formatDescription, numSamples, numSampleTimingEntries, sampleTimingArray, numSampleSizeEntries, sampleSizeArray, sBufOut))
-SOFT_LINK(CoreMedia, CMSampleBufferCreateCopy, OSStatus, (CFAllocatorRef allocator, CMSampleBufferRef sbuf, CMSampleBufferRef *sbufCopyOut), (allocator, sbuf, sbufCopyOut))
-SOFT_LINK(CoreMedia, CMSampleBufferCallForEachSample, OSStatus, (CMSampleBufferRef sbuf, OSStatus (*callback)( CMSampleBufferRef sampleBuffer, CMItemCount index, void *refcon), void *refcon), (sbuf, callback, refcon))
-SOFT_LINK(CoreMedia, CMSampleBufferGetDecodeTimeStamp, CMTime, (CMSampleBufferRef sbuf), (sbuf))
-SOFT_LINK(CoreMedia, CMSampleBufferGetDuration, CMTime, (CMSampleBufferRef sbuf), (sbuf))
-SOFT_LINK(CoreMedia, CMSampleBufferGetFormatDescription, CMFormatDescriptionRef, (CMSampleBufferRef sbuf), (sbuf))
-SOFT_LINK(CoreMedia, CMSampleBufferGetPresentationTimeStamp, CMTime, (CMSampleBufferRef sbuf), (sbuf))
-SOFT_LINK(CoreMedia, CMSampleBufferGetSampleAttachmentsArray, CFArrayRef, (CMSampleBufferRef sbuf, Boolean createIfNecessary), (sbuf, createIfNecessary))
-SOFT_LINK(CoreMedia, CMSampleBufferGetTotalSampleSize, size_t, (CMSampleBufferRef sbuf), (sbuf))
-SOFT_LINK(CoreMedia, CMFormatDescriptionGetMediaSubType, FourCharCode, (CMFormatDescriptionRef desc), (desc))
-SOFT_LINK(CoreMedia, CMSetAttachment, void, (CMAttachmentBearerRef target, CFStringRef key, CFTypeRef value, CMAttachmentMode attachmentMode), (target, key, value, attachmentMode))
-SOFT_LINK(CoreMedia, CMVideoFormatDescriptionGetPresentationDimensions, CGSize, (CMVideoFormatDescriptionRef videoDesc, Boolean usePixelAspectRatio, Boolean useCleanAperture), (videoDesc, usePixelAspectRatio, useCleanAperture))
-
 #define AVMediaTypeVideo getAVMediaTypeVideo()
 #define AVMediaTypeAudio getAVMediaTypeAudio()
 #define AVMediaTypeText getAVMediaTypeText()
 #define AVSampleBufferDisplayLayerFailedToDecodeNotification getAVSampleBufferDisplayLayerFailedToDecodeNotification()
 #define AVSampleBufferDisplayLayerFailedToDecodeNotificationErrorKey getAVSampleBufferDisplayLayerFailedToDecodeNotificationErrorKey()
-#define kCMTimeZero getkCMTimeZero()
-#define kCMTimeInvalid getkCMTimeInvalid()
-#define kCMSampleAttachmentKey_NotSync getkCMSampleAttachmentKey_NotSync()
-#define kCMSampleAttachmentKey_DoNotDisplay getkCMSampleAttachmentKey_DoNotDisplay()
-#define kCMSampleBufferAttachmentKey_ResetDecoderBeforeDecoding getkCMSampleBufferAttachmentKey_ResetDecoderBeforeDecoding()
-#define kCMSampleBufferAttachmentKey_DrainAfterDecoding getkCMSampleBufferAttachmentKey_DrainAfterDecoding()
-#define kCMSampleBufferAttachmentKey_EmptyMedia getkCMSampleBufferAttachmentKey_EmptyMedia()
-#define kCMSampleBufferAttachmentKey_DisplayEmptyMediaImmediately getkCMSampleBufferAttachmentKey_DisplayEmptyMediaImmediately()
 
 #define AVMediaCharacteristicVisual getAVMediaCharacteristicVisual()
 #define AVMediaCharacteristicAudible getAVMediaCharacteristicAudible()
@@ -490,6 +458,7 @@ private:
     virtual SampleFlags flags() const override;
     virtual PlatformSample platformSample() override;
     virtual void dump(PrintStream&) const override;
+    virtual void offsetTimestampsBy(const MediaTime&) override;
 
     RetainPtr<CMSampleBufferRef> m_sample;
     AtomicString m_id;
@@ -539,6 +508,29 @@ void MediaSampleAVFObjC::dump(PrintStream& out) const
     out.print("{PTS(", presentationTime(), "), DTS(", decodeTime(), "), duration(", duration(), "), flags(", (int)flags(), "), presentationSize(", presentationSize(), ")}");
 }
 
+void MediaSampleAVFObjC::offsetTimestampsBy(const MediaTime& offset)
+{
+    CMItemCount itemCount = 0;
+    if (noErr != CMSampleBufferGetSampleTimingInfoArray(m_sample.get(), 0, nullptr, &itemCount))
+        return;
+
+    Vector<CMSampleTimingInfo> timingInfoArray;
+    timingInfoArray.grow(itemCount);
+    if (noErr != CMSampleBufferGetSampleTimingInfoArray(m_sample.get(), itemCount, timingInfoArray.data(), nullptr))
+        return;
+
+    for (auto& timing : timingInfoArray) {
+        timing.presentationTimeStamp = toCMTime(toMediaTime(timing.presentationTimeStamp) + offset);
+        timing.decodeTimeStamp = toCMTime(toMediaTime(timing.decodeTimeStamp) + offset);
+    }
+
+    CMSampleBufferRef newSample;
+    if (noErr != CMSampleBufferCreateCopyWithNewTiming(kCFAllocatorDefault, m_sample.get(), itemCount, timingInfoArray.data(), &newSample))
+        return;
+
+    m_sample = adoptCF(newSample);
+}
+
 #pragma mark -
 #pragma mark MediaDescriptionAVFObjC
 
@@ -582,7 +574,7 @@ RefPtr<SourceBufferPrivateAVFObjC> SourceBufferPrivateAVFObjC::create(MediaSourc
 
 SourceBufferPrivateAVFObjC::SourceBufferPrivateAVFObjC(MediaSourcePrivateAVFObjC* parent)
     : m_weakFactory(this)
-    , m_parser(adoptNS([[getAVStreamDataParserClass() alloc] init]))
+    , m_parser(adoptNS([allocAVStreamDataParserInstance() init]))
     , m_delegate(adoptNS([[WebAVStreamDataParserListener alloc] initWithParser:m_parser.get() parent:createWeakPtr()]))
     , m_errorListener(adoptNS([[WebAVSampleBufferErrorListener alloc] initWithParent:this]))
     , m_mediaSource(parent)
@@ -780,7 +772,7 @@ void SourceBufferPrivateAVFObjC::abort()
     // FIXME(135164): Support resetting parser to the last appended initialization segment.
     destroyParser();
 
-    m_parser = adoptNS([[getAVStreamDataParserClass() alloc] init]);
+    m_parser = adoptNS([allocAVStreamDataParserInstance() init]);
     m_delegate = adoptNS([[WebAVStreamDataParserListener alloc] initWithParser:m_parser.get() parent:createWeakPtr()]);
 }
 
@@ -864,7 +856,7 @@ void SourceBufferPrivateAVFObjC::trackDidChangeEnabled(VideoTrackPrivateMediaSou
         m_enabledVideoTrackID = trackID;
         [m_parser setShouldProvideMediaData:YES forTrackID:trackID];
         if (!m_displayLayer) {
-            m_displayLayer = adoptNS([[getAVSampleBufferDisplayLayerClass() alloc] init]);
+            m_displayLayer = adoptNS([allocAVSampleBufferDisplayLayerInstance() init]);
 #ifndef NDEBUG
             [m_displayLayer setName:@"SourceBufferPrivateAVFObjC AVSampleBufferDisplayLayer"];
 #endif
@@ -891,7 +883,7 @@ void SourceBufferPrivateAVFObjC::trackDidChangeEnabled(AudioTrackPrivateMediaSou
         [m_parser setShouldProvideMediaData:YES forTrackID:trackID];
         RetainPtr<AVSampleBufferAudioRenderer> renderer;
         if (!m_audioRenderers.contains(trackID)) {
-            renderer = adoptNS([[getAVSampleBufferAudioRendererClass() alloc] init]);
+            renderer = adoptNS([allocAVSampleBufferAudioRendererInstance() init]);
             [renderer requestMediaDataWhenReadyOnQueue:dispatch_get_main_queue() usingBlock:^{
                 didBecomeReadyForMoreSamples(trackID);
             }];

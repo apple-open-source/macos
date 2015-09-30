@@ -81,6 +81,7 @@ __unused static const char copyright[] =
 #include <net/if_mib.h>
 #include <net/route.h>
 #include <net/pktsched/pktsched.h>
+#include <net/network_agent.h>
 
 /* IP */
 #include <netinet/in.h>
@@ -270,7 +271,6 @@ main(int argc, char *argv[])
 			usage();
 
 		ifname = NULL;
-		ifindex = 0;
 		if (argc == 1) {
 			afp = af_getbyname(*argv);
 			if (afp == NULL)
@@ -971,6 +971,17 @@ setcl2k(const char *vname, int value, int s, const struct afswtch *afp)
 		Perror(vname);
 }
 
+void
+setexpensive(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_ifru.ifru_expensive = value;
+	
+	if (ioctl(s, SIOCSIFEXPENSIVE, (caddr_t)&ifr) < 0)
+		Perror(vname);
+}
+
+
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
@@ -1107,16 +1118,49 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			printf("\ttype: %s\n", c);
 	}
 
+	if (verbose > 0) {
+		struct if_agentidsreq ifar;
+		memset(&ifar, 0, sizeof(ifar));
+
+		strlcpy(ifar.ifar_name, name, sizeof(ifar.ifar_name));
+
+		if (ioctl(s, SIOCGIFAGENTIDS, &ifar) != -1) {
+			if (ifar.ifar_count != 0) {
+				ifar.ifar_uuids = calloc(ifar.ifar_count, sizeof(uuid_t));
+				if (ifar.ifar_uuids != NULL) {
+					if (ioctl(s, SIOCGIFAGENTIDS, &ifar) != 1) {
+						for (int agent_i = 0; agent_i < ifar.ifar_count; agent_i++) {
+							struct netagent_req nar;
+							memset(&nar, 0, sizeof(nar));
+
+							uuid_copy(nar.netagent_uuid, ifar.ifar_uuids[agent_i]);
+
+							if (ioctl(s, SIOCGIFAGENTDATA, &nar) != 1) {
+								printf("\tagent domain:%s type:%s flags:0x%x desc:\"%s\"\n",
+									   nar.netagent_domain, nar.netagent_type,
+									   nar.netagent_flags, nar.netagent_desc);
+							}
+						}
+					}
+					free(ifar.ifar_uuids);
+				}
+			}
+		}
+	}
+
 	if (ioctl(s, SIOCGIFLINKQUALITYMETRIC, &ifr) != -1) {
 		int lqm = ifr.ifr_link_quality_metric;
 		if (verbose > 1) {
 			printf("\tlink quality: %d ", lqm);
-			if (lqm == IFNET_LQM_THRESH_OFF) {
+			if (lqm == IFNET_LQM_THRESH_OFF)
 				printf("(off)");
-			} else if (lqm == IFNET_LQM_THRESH_UNKNOWN) {
+			else if (lqm == IFNET_LQM_THRESH_UNKNOWN)
 				printf("(unknown)");
-			} else if (lqm > IFNET_LQM_THRESH_UNKNOWN &&
-			    lqm <= IFNET_LQM_THRESH_POOR)
+			else if (lqm > IFNET_LQM_THRESH_UNKNOWN &&
+				 lqm <= IFNET_LQM_THRESH_BAD)
+				printf("(bad)");
+			else if (lqm > IFNET_LQM_THRESH_UNKNOWN &&
+				 lqm <= IFNET_LQM_THRESH_POOR)
 				printf("(poor)");
 			else if (lqm > IFNET_LQM_THRESH_POOR &&
 			    lqm <= IFNET_LQM_THRESH_GOOD)
@@ -1126,10 +1170,11 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			printf("\n");
 		} else if (lqm > IFNET_LQM_THRESH_UNKNOWN) {
 			printf("\tlink quality: %d ", lqm);
-			if (lqm <= IFNET_LQM_THRESH_POOR)
+			if (lqm <= IFNET_LQM_THRESH_BAD)
+				printf("(bad)");
+			else if (lqm <= IFNET_LQM_THRESH_POOR)
 				printf("(poor)");
-			else if (lqm > IFNET_LQM_THRESH_POOR &&
-			    lqm <= IFNET_LQM_THRESH_GOOD)
+			else if (lqm <= IFNET_LQM_THRESH_GOOD)
 				printf("(good)");
 			else
 				printf("(?)");
@@ -1137,6 +1182,59 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		}
 	}
 
+	if (verbose > 0) {
+		if (ioctl(s, SIOCGIFINTERFACESTATE, &ifr) != -1) {
+			printf("\tstate");
+			if (ifr.ifr_interface_state.valid_bitmask &
+			    IF_INTERFACE_STATE_RRC_STATE_VALID) {
+				uint8_t rrc_state = ifr.ifr_interface_state.rrc_state;
+				
+				printf(" rrc: %u ", rrc_state);
+				if (rrc_state == IF_INTERFACE_STATE_RRC_STATE_CONNECTED)
+					printf("(connected)");
+				else if (rrc_state == IF_INTERFACE_STATE_RRC_STATE_IDLE)
+					printf("(idle)");
+				else
+					printf("(?)");
+			}
+			if (ifr.ifr_interface_state.valid_bitmask &
+			    IF_INTERFACE_STATE_INTERFACE_AVAILABILITY_VALID) {
+				uint8_t ifavail = ifr.ifr_interface_state.interface_availability;
+				
+				printf(" availability: %u ", ifavail);
+				if (ifavail == IF_INTERFACE_STATE_INTERFACE_AVAILABLE)
+					printf("(true)");
+				else if (ifavail == IF_INTERFACE_STATE_INTERFACE_UNAVAILABLE)
+					printf("(false)");
+				else
+					printf("(?)");
+			} else {
+				printf(" availability: (not valid)");
+			}
+			if (verbose > 1 &&
+			    ifr.ifr_interface_state.valid_bitmask &
+			    IF_INTERFACE_STATE_LQM_STATE_VALID) {
+				int8_t lqm = ifr.ifr_interface_state.lqm_state;
+				
+				printf(" lqm: %d", lqm);
+				
+				if (lqm == IFNET_LQM_THRESH_OFF)
+					printf("(off)");
+				else if (lqm == IFNET_LQM_THRESH_UNKNOWN)
+					printf("(unknown)");
+				else if (lqm == IFNET_LQM_THRESH_BAD)
+					printf("(bad)");
+				else if (lqm == IFNET_LQM_THRESH_POOR)
+					printf("(poor)");
+				else if (lqm == IFNET_LQM_THRESH_GOOD)
+					printf("(good)");
+				else
+					printf("(?)");
+			}
+		}
+		printf("\n");
+	}
+	
 	bzero(&iflpr, sizeof (iflpr));
 	strncpy(iflpr.iflpr_name, name, sizeof (iflpr.iflpr_name));
 	if (ioctl(s, SIOCGIFLINKPARAMS, &iflpr) != -1) {
@@ -1275,6 +1373,16 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		char delegatedif[IFNAMSIZ+1];
 		if (if_indextoname(ifr.ifr_delegated, delegatedif) != NULL)
 			printf("\teffective interface: %s\n", delegatedif);
+	}
+
+	if(ioctl(s, SIOCGSTARTDELAY, &ifr) != -1) {
+		if (ifr.ifr_start_delay_qlen > 0 &&
+		    ifr.ifr_start_delay_timeout > 0) {
+			printf("\ttxstart qlen: %u packets "
+			    "timeout: %u microseconds\n",
+			    ifr.ifr_start_delay_qlen,
+			    ifr.ifr_start_delay_timeout/1000);
+		}
 	}
 
 done:
@@ -1578,6 +1686,8 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD_ARG("log",			setlog),
 	DEF_CMD("cl2k",	1,			setcl2k),
 	DEF_CMD("-cl2k",	0,		setcl2k),
+	DEF_CMD("expensive",	1,		setexpensive),
+	DEF_CMD("-expensive",	0,		setexpensive),
 };
 
 static __constructor void

@@ -166,7 +166,7 @@ USER_modify(disk, tt, offset, reloff)
 	if (mbr->signature != MBR_SIGNATURE) {
 	    int yn = ask_yn("The signature for this MBR is invalid.\nWould you like to initialize the partition table?", 1);
 	    if (yn) {
-	      strcpy(cmd.cmd, "erase");
+	      strlcpy(cmd.cmd, "erase", sizeof(cmd.cmd));
 	      cmd.args[0] = '\0';
 	      st = Xerase(&cmd, disk, mbr, tt, offset);
 	      modified = 1;
@@ -197,7 +197,7 @@ again:
 			printf("Invalid command '%s'.  Try 'help'.\n", cmd.cmd);
 			continue;
 		} else
-			strcpy(cmd.cmd, cmd_table[i].cmd);
+			strlcpy(cmd.cmd, cmd_table[i].cmd, sizeof(cmd.cmd));
 
 		/* Call function */
 		st = cmd_table[i].fcn(&cmd, disk, mbr, tt, offset);

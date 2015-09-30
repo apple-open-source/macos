@@ -62,6 +62,10 @@ private:
         
         struct {
             OSArray *           elements;
+        } led;
+        
+        struct {
+            OSArray *           elements;
         } scroll;
         
         struct {
@@ -71,7 +75,6 @@ private:
         
         struct {
             OSArray *           elements;
-            IOHIDElement *      ledElements[2];
             UInt8               bootMouseData[4];
         } keyboard;
         
@@ -98,15 +101,53 @@ private:
             OSArray *           gesturesCandidates;
         } unicode;
         
+        struct {
+            bool                extended;
+            OSArray *           elements;
+            UInt32              capable;
+            UInt32              sendingReportID;
+            
+            struct {
+                IOFixed up;
+                IOFixed down;
+                IOFixed left;
+                IOFixed right;
+            } dpad;
+            
+            struct {
+                IOFixed x;
+                IOFixed y;
+                IOFixed a;
+                IOFixed b;
+            }face;
+            
+            struct {
+                IOFixed x;
+                IOFixed y;
+                IOFixed z;
+                IOFixed rz;
+            } joystick;
+            
+            struct {
+                IOFixed l1;
+                IOFixed l2;
+                IOFixed r1;
+                IOFixed r2;
+            } shoulder;
+
+        } gameController;
+        
     };
     ExpansionData *             _reserved;
     
     bool                    parseElements(OSArray * elementArray, UInt32 bootProtocol);
     bool                    parseRelativeElement(IOHIDElement * element);
     bool                    parseMultiAxisElement(IOHIDElement * element);
+    bool                    parseGameControllerElement(IOHIDElement * element);
     bool                    parseDigitizerElement(IOHIDElement * element);
     bool                    parseDigitizerTransducerElement(IOHIDElement * element, IOHIDElement * parent=NULL);
     bool                    parseScrollElement(IOHIDElement * element);
+    bool                    parseLEDElement(IOHIDElement * element);
     bool                    parseKeyboardElement(IOHIDElement * element);
     bool                    parseUnicodeElement(IOHIDElement * element);
     bool                    parseLegacyUnicodeElement(IOHIDElement * element);
@@ -114,22 +155,27 @@ private:
     
     void                    processDigitizerElements();
     void                    processMultiAxisElements();
+    void                    processGameControllerElements();
     void                    processUnicodeElements();
     
     void                    setRelativeProperties();
     void                    setDigitizerProperties();
+    void                    setGameControllerProperties();
     void                    setMultiAxisProperties();
     void                    setScrollProperties();
+    void                    setLEDProperties();
     void                    setKeyboardProperties();
     void                    setUnicodeProperties();
 
-    static UInt32           checkMultiAxisElement(IOHIDElement * element);
+    UInt32                  checkGameControllerElement(IOHIDElement * element);
+    UInt32                  checkMultiAxisElement(IOHIDElement * element);
     
-    static void             calibrateDigitizerElement(IOHIDElement * element, SInt32 removalPercentage);
-    static void             calibratePreferredStateElement(IOHIDElement * element, SInt32 removalPercentage);
+    static void             calibrateJustifiedPreferredStateElement(IOHIDElement * element, SInt32 removalPercentage);
+    static void             calibrateCenteredPreferredStateElement(IOHIDElement * element, SInt32 removalPercentage);
 
     void                    handleBootPointingReport(AbsoluteTime timeStamp, IOMemoryDescriptor * report, UInt32 reportID);
     void                    handleRelativeReport(AbsoluteTime timeStamp, UInt32 reportID);
+    void                    handleGameControllerReport(AbsoluteTime timeStamp, UInt32 reportID);
     void                    handleMultiAxisPointerReport(AbsoluteTime timeStamp, UInt32 reportID);
     void                    handleDigitizerReport(AbsoluteTime timeStamp, UInt32 reportID);
     void                    handleDigitizerTransducerReport(DigitizerTransducer * transducer, AbsoluteTime timeStamp, UInt32 reportID);

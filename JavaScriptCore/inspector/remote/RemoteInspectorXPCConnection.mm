@@ -31,12 +31,16 @@
 #import <Foundation/Foundation.h>
 #import <wtf/Assertions.h>
 #import <wtf/Ref.h>
+#import <wtf/RetainPtr.h>
+#import <wtf/spi/darwin/XPCSPI.h>
 
 #if __has_include(<CoreFoundation/CFXPCBridge.h>)
 #import <CoreFoundation/CFXPCBridge.h>
 #else
-extern "C" xpc_object_t _CFXPCCreateXPCMessageWithCFObject(CFTypeRef);
-extern "C" CFTypeRef _CFXPCCreateCFObjectFromXPCMessage(xpc_object_t);
+extern "C" {
+    xpc_object_t _CFXPCCreateXPCMessageWithCFObject(CFTypeRef);
+    CFTypeRef _CFXPCCreateCFObjectFromXPCMessage(xpc_object_t);
+}
 #endif
 
 namespace Inspector {
@@ -96,12 +100,12 @@ void RemoteInspectorXPCConnection::closeOnQueue()
     if (m_connection) {
         xpc_connection_cancel(m_connection);
         xpc_release(m_connection);
-        m_connection = NULL;
+        m_connection = nullptr;
     }
 
     if (m_queue) {
         dispatch_release(m_queue);
-        m_queue = NULL;
+        m_queue = nullptr;
     }
 }
 
@@ -118,9 +122,9 @@ NSDictionary *RemoteInspectorXPCConnection::deserializeMessage(xpc_object_t obje
         return nil;
     }
 
-    NSDictionary *dictionary = static_cast<NSDictionary *>(_CFXPCCreateCFObjectFromXPCMessage(xpcDictionary));
+    RetainPtr<CFDictionaryRef> dictionary = adoptCF((CFDictionaryRef)_CFXPCCreateCFObjectFromXPCMessage(xpcDictionary));
     ASSERT_WITH_MESSAGE(dictionary, "Unable to deserialize xpc message");
-    return [dictionary autorelease];
+    return (NSDictionary *)dictionary.autorelease();
 }
 
 void RemoteInspectorXPCConnection::handleEvent(xpc_object_t object)
@@ -170,7 +174,7 @@ void RemoteInspectorXPCConnection::sendMessage(NSString *messageName, NSDictiona
     if (!xpcDictionary)
         return;
 
-    xpc_object_t msg = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_object_t msg = xpc_dictionary_create(nullptr, nullptr, 0);
     xpc_dictionary_set_value(msg, RemoteInspectorXPCConnectionSerializedMessageKey, xpcDictionary);
     xpc_release(xpcDictionary);
 

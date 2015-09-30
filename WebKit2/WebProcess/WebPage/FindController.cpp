@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -238,7 +238,10 @@ void FindController::findString(const String& string, FindOptions options, unsig
             m_foundStringMatchIndex++;
     }
 
-    m_webPage->drawingArea()->dispatchAfterEnsuringUpdatedScrollPosition(WTF::bind(&FindController::updateFindUIAfterPageScroll, this, found, string, options, maxMatchCount));
+    RefPtr<WebPage> protectedWebPage = m_webPage;
+    m_webPage->drawingArea()->dispatchAfterEnsuringUpdatedScrollPosition([protectedWebPage, found, string, options, maxMatchCount] () {
+        protectedWebPage->findController().updateFindUIAfterPageScroll(found, string, options, maxMatchCount);
+    });
 }
 
 void FindController::findStringMatches(const String& string, FindOptions options, unsigned maxMatchCount)
@@ -267,7 +270,7 @@ void FindController::getImageForFindMatch(uint32_t matchIndex)
         return;
 
     VisibleSelection oldSelection = frame->selection().selection();
-    frame->selection().setSelection(VisibleSelection(m_findMatches[matchIndex].get()));
+    frame->selection().setSelection(VisibleSelection(*m_findMatches[matchIndex]));
 
     RefPtr<ShareableBitmap> selectionSnapshot = WebFrame::fromCoreFrame(*frame)->createSelectionSnapshot();
 
@@ -292,7 +295,7 @@ void FindController::selectFindMatch(uint32_t matchIndex)
     Frame* frame = m_findMatches[matchIndex]->startContainer()->document().frame();
     if (!frame)
         return;
-    frame->selection().setSelection(VisibleSelection(m_findMatches[matchIndex].get()));
+    frame->selection().setSelection(VisibleSelection(*m_findMatches[matchIndex]));
 }
 
 void FindController::hideFindUI()
@@ -319,7 +322,7 @@ bool FindController::updateFindIndicator(Frame& selectedFrame, bool isShowingOve
         return false;
 
     m_findIndicatorRect = enclosingIntRect(indicator->selectionRectInRootViewCoordinates());
-    m_webPage->send(Messages::WebPageProxy::SetTextIndicator(indicator->data(), !isShowingOverlay));
+    m_webPage->send(Messages::WebPageProxy::SetTextIndicator(indicator->data(), static_cast<uint64_t>(isShowingOverlay ? TextIndicatorLifetime::Permanent : TextIndicatorLifetime::Temporary)));
     m_isShowingFindIndicator = true;
 
     return true;
@@ -364,6 +367,18 @@ void FindController::deviceScaleFactorDidChange()
         return;
 
     updateFindIndicator(*selectedFrame, true, false);
+}
+
+void FindController::redraw()
+{
+    if (!m_isShowingFindIndicator)
+        return;
+
+    Frame* selectedFrame = frameWithSelection(m_webPage->corePage());
+    if (!selectedFrame)
+        return;
+
+    updateFindIndicator(*selectedFrame, isShowingOverlay(), false);
 }
 
 Vector<IntRect> FindController::rectsForTextMatches()

@@ -40,7 +40,7 @@ namespace WebCore {
 void AXObjectCache::detachWrapper(AccessibilityObject* obj, AccessibilityDetachmentType)
 {
     [obj->wrapper() detach];
-    obj->setWrapper(0);
+    obj->setWrapper(nullptr);
 }
 
 void AXObjectCache::attachWrapper(AccessibilityObject* obj)
@@ -85,6 +85,9 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
         case AXValueChanged:
             [obj->wrapper() postValueChangedNotification];
             break;
+        case AXExpandedChanged:
+            [obj->wrapper() postExpandedChangedNotification];
+            break;
         case AXSelectedChildrenChanged:
         case AXCheckedStateChanged:
         default:
@@ -92,11 +95,23 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
     }
     
     // Used by DRT to know when notifications are posted.
-    [obj->wrapper() accessibilityPostedNotification:notificationString];
+    if (notificationString)
+        [obj->wrapper() accessibilityPostedNotification:notificationString];
 }
 
-void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, const String&)
+void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject* object, const AXTextStateChangeIntent&, const VisibleSelection&)
 {
+    postPlatformNotification(object, AXSelectedTextChanged);
+}
+
+void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject* object, AXTextEditType, const String&, const VisiblePosition&)
+{
+    postPlatformNotification(object, AXValueChanged);
+}
+
+void AXObjectCache::postTextReplacementPlatformNotification(AccessibilityObject* object, AXTextEditType, const String&, AXTextEditType, const String&, const VisiblePosition&)
+{
+    postPlatformNotification(object, AXValueChanged);
 }
 
 void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject* axFrameObject, AXLoadingEvent loadingEvent)

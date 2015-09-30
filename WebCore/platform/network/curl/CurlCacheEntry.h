@@ -32,6 +32,8 @@
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include <wtf/HashMap.h>
+#include <wtf/ListHashSet.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
@@ -45,7 +47,7 @@ public:
     ~CurlCacheEntry();
 
     bool isCached();
-    bool isLoading();
+    bool isLoading() const;
     size_t entrySize();
     HTTPHeaderMap& requestHeaders() { return m_requestHeaders; }
 
@@ -61,6 +63,12 @@ public:
 
     bool parseResponseHeaders(const ResourceResponse&);
 
+    void setIsLoading(bool);
+
+    void addClient(ResourceHandle* job) { m_clients.add(job); }
+    void removeClient(ResourceHandle* job) { m_clients.remove(job); }
+    int hasClients() const { return m_clients.size() > 0; }
+
     const ResourceHandle* getJob() const { return m_job; }
 
 private:
@@ -73,6 +81,8 @@ private:
     size_t m_entrySize;
     double m_expireDate;
     bool m_headerParsed;
+    bool m_isLoading;
+    ListHashSet<ResourceHandle*> m_clients;
 
     ResourceResponse m_cachedResponse;
     HTTPHeaderMap m_requestHeaders;

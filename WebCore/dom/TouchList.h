@@ -26,7 +26,7 @@
 #ifndef TouchList_h
 #define TouchList_h
 
-#if PLATFORM(IOS)
+#if ENABLE(IOS_TOUCH_EVENTS)
 #include <WebKitAdditions/TouchListIOS.h>
 #elif ENABLE(TOUCH_EVENTS)
 
@@ -38,9 +38,9 @@ namespace WebCore {
 
 class TouchList : public RefCounted<TouchList> {
 public:
-    static PassRefPtr<TouchList> create()
+    static Ref<TouchList> create()
     {
-        return adoptRef(new TouchList);
+        return adoptRef(*new TouchList);
     }
 
     unsigned length() const { return m_values.size(); }

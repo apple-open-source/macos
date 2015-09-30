@@ -36,7 +36,6 @@
 
 #define DEFAULT_MAX_RECORDS 2000
 #define DEFAULT_MAX_STRING_MEMORY 4096000
-#define MEM_STRING_HEADER_SIZE 8
 
 #define forever for(;;)
 
@@ -59,8 +58,8 @@ asl_memory_statistics(asl_memory_t *s, asl_msg_t **msg)
 
 	for (i = 0; i < s->string_count; i++)
 	{
-		size += MEM_STRING_HEADER_SIZE;
-		if (((mem_string_t *)s->string_cache[i])->str != NULL) size += (strlen(((mem_string_t *)s->string_cache[i])->str) + 1);
+		size += sizeof(mem_string_t);
+		if (s->string_cache[i]->str != NULL) size += (strlen(s->string_cache[i]->str) + 1);
 	}
 
 	snprintf(str, sizeof(str), "%llu", size);
@@ -78,10 +77,10 @@ asl_memory_statistics(asl_memory_t *s, asl_msg_t **msg)
 	snprintf(str, sizeof(str), "%u", s->string_count);
 	asl_msg_set_key_val(out, "StringCount", str);
 
-	snprintf(str, sizeof(str), "%u", s->curr_string_mem);
+	snprintf(str, sizeof(str), "%lu", s->curr_string_mem);
 	asl_msg_set_key_val(out, "StringMemory", str);
 
-	snprintf(str, sizeof(str), "%u", s->max_string_mem);
+	snprintf(str, sizeof(str), "%lu", s->max_string_mem);
 	asl_msg_set_key_val(out, "MaxStringMemory", str);
 
 	*msg = out;
@@ -91,35 +90,45 @@ asl_memory_statistics(asl_memory_t *s, asl_msg_t **msg)
 uint32_t
 asl_memory_close(asl_memory_t *s)
 {
-	uint32_t i;
-
 	if (s == NULL) return ASL_STATUS_OK;
+	
+	dispatch_sync(s->queue, ^{
+		uint32_t i;
 
-	if (s->record != NULL)
-	{
-		for (i = 0; i < s->record_count; i++)
+		if (s->record != NULL)
 		{
-			if (s->record[i] != NULL) free(s->record[i]);
-			s->record[i] = NULL;
+			for (i = 0; i < s->record_count; i++)
+			{
+				free(s->record[i]);
+				s->record[i] = NULL;
+			}
+
+			free(s->record);
+			s->record = NULL;
 		}
 
-		free(s->record);
-		s->record = NULL;
-	}
+		free(s->buffer_record);
+		s->buffer_record = NULL;
 
-	if (s->buffer_record != NULL) free(s->buffer_record);
-
-	if (s->string_cache != NULL)
-	{
-		for (i = 0; i < s->string_count; i++)
+		if (s->string_cache != NULL)
 		{
-			if (s->string_cache[i] != NULL) free(s->string_cache[i]);
-			s->string_cache[i] = NULL;
-		}
+			for (i = 0; i < s->string_count; i++)
+			{
+				if (s->string_cache[i] != NULL)
+				{
+					free(s->string_cache[i]->str);
+					free(s->string_cache[i]);
+				}
 
-		free(s->string_cache);
-		s->string_cache = NULL;
-	}
+				s->string_cache[i] = NULL;
+			}
+
+			free(s->string_cache);
+			s->string_cache = NULL;
+		}
+	});
+
+	dispatch_release(s->queue);
 
 	free(s);
 
@@ -140,12 +149,20 @@ asl_memory_open(uint32_t max_records, size_t max_str_mem, asl_memory_t **s)
 	out = calloc(1, sizeof(asl_memory_t));
 	if (out == NULL) return ASL_STATUS_NO_MEMORY;
 
+	out->queue = dispatch_queue_create("ASL Memory Queue", NULL);
+	if (out->queue == NULL)
+	{
+		free(out);
+		return ASL_STATUS_NO_MEMORY;
+	}
+
 	out->max_string_mem = max_str_mem;
 
 	out->record_count = max_records;
 	out->record = (mem_record_t **)calloc(max_records, sizeof(mem_record_t *));
 	if (out->record == NULL)
 	{
+		dispatch_release(out->queue);
 		free(out);
 		return ASL_STATUS_NO_MEMORY;
 	}
@@ -171,28 +188,67 @@ asl_memory_open(uint32_t max_records, size_t max_str_mem, asl_memory_t **s)
 	return ASL_STATUS_OK;
 }
 
+static void
+asl_memory_reset(asl_memory_t *s)
+{
+	uint32_t i;
+	if (s == NULL) return;
+
+	/* clear all message records */
+	for (i = 0; i < s->record_count; i++)
+	{
+		memset(s->record[i], 0, sizeof(mem_record_t));
+	}
+
+	/* reset the string cache */
+	if (s->string_cache != NULL)
+	{
+		for (i = 0; i < s->string_count; i++)
+		{
+			if (s->string_cache[i] != NULL)
+			{
+				free(s->string_cache[i]->str);
+				free(s->string_cache[i]);
+			}
+			
+			s->string_cache[i] = NULL;
+		}
+		
+		free(s->string_cache);
+		s->string_cache = NULL;
+	}
+	
+	s->string_count = 0;
+}
+
 static mem_string_t *
-mem_string_new(const char *str, uint32_t len, uint32_t hash)
+asl_memory_string_new(const char *str, uint32_t len, uint32_t hash)
 {
 	mem_string_t *out;
-	size_t ss;
 
 	if (str == NULL) return NULL;
 
-	ss = MEM_STRING_HEADER_SIZE + len + 1;
-	out = (mem_string_t *)calloc(1, ss);
+	out = (mem_string_t *)calloc(1, sizeof(mem_string_t));
 	if (out == NULL) return NULL;
 
 	out->hash = hash;
 	out->refcount = 1;
+	out->str = malloc(len + 1);
+	if (out->str == NULL)
+	{
+		free(out);
+		return NULL;
+	}
+	
 	memcpy(out->str, str, len);
+	out->str[len] = 0;
 
 	return out;
 }
 
 /*
  * Find the first hash greater than or equal to a given hash in the string cache.
- * Return s->string_count if hash is greater that or equal to last hash in the string cache.
+ * Return s->string_count if hash is greater than last hash in the string cache.
  * Caller must check if the hashes match or not.
  *
  * This routine is used both to find strings in the cache and to determine where to insert
@@ -207,7 +263,7 @@ asl_memory_string_cache_search_hash(asl_memory_t *s, uint32_t hash)
 	if (s->string_count == 0) return 0;
 	if (s->string_count == 1)
 	{
-		ms = (mem_string_t *)s->string_cache[0];
+		ms = s->string_cache[0];
 		if (hash < ms->hash) return 0;
 		return 1;
 	}
@@ -218,13 +274,13 @@ asl_memory_string_cache_search_hash(asl_memory_t *s, uint32_t hash)
 
 	while (range > 1)
 	{
-		ms = (mem_string_t *)s->string_cache[mid];
+		ms = s->string_cache[mid];
 
 		if (hash == ms->hash)
 		{
 			while (mid > 0)
 			{
-				ms = (mem_string_t *)s->string_cache[mid - 1];
+				ms = s->string_cache[mid - 1];
 				if (hash != ms->hash) break;
 				mid--;
 			}
@@ -233,7 +289,7 @@ asl_memory_string_cache_search_hash(asl_memory_t *s, uint32_t hash)
 		}
 		else
 		{
-			ms = (mem_string_t *)s->string_cache[mid];
+			ms = s->string_cache[mid];
 			if (hash < ms->hash) top = mid;
 			else bot = mid;
 		}
@@ -242,10 +298,10 @@ asl_memory_string_cache_search_hash(asl_memory_t *s, uint32_t hash)
 		mid = bot + (range / 2);
 	}
 
-	ms = (mem_string_t *)s->string_cache[bot];
+	ms = s->string_cache[bot];
 	if (hash <= ms->hash) return bot;
 
-	ms = (mem_string_t *)s->string_cache[top];
+	ms = s->string_cache[top];
 	if (hash <= ms->hash) return top;
 
 	return s->string_count;
@@ -274,11 +330,11 @@ asl_memory_string_retain(asl_memory_t *s, const char *str, int create)
 	/* asl_memory_string_cache_search_hash just tells us where to look */
 	if (where < s->string_count)
 	{
-		while (((mem_string_t *)(s->string_cache[where]))->hash == hash)
+		while (s->string_cache[where]->hash == hash)
 		{
-			if (!strcmp(str, ((mem_string_t *)(s->string_cache[where]))->str))
+			if (!strcmp(str, s->string_cache[where]->str))
 			{
-				((mem_string_t *)(s->string_cache[where]))->refcount++;
+				s->string_cache[where]->refcount++;
 				return s->string_cache[where];
 			}
 
@@ -290,26 +346,20 @@ asl_memory_string_retain(asl_memory_t *s, const char *str, int create)
 	if (create == 0) return NULL;
 
 	/* create a new mem_string_t and insert into the cache at index 'where' */
-	if (s->string_count == 0)
-	{
-		s->string_cache = (void **)calloc(1, sizeof(void *));
-	}
-	else
-	{
-		s->string_cache = (void **)reallocf(s->string_cache, (s->string_count + 1) * sizeof(void *));
-		for (i = s->string_count; i > where; i--) s->string_cache[i] = s->string_cache[i - 1];
-	}
-
+	new = asl_memory_string_new(str, len, hash);
+	if (new == NULL) return NULL;
+	
+	s->string_cache = (mem_string_t **)reallocf(s->string_cache, (s->string_count + 1) * sizeof(void *));
 	if (s->string_cache == NULL)
 	{
 		s->string_count = 0;
+		free(new);
 		return NULL;
 	}
 
-	new = mem_string_new(str, len, hash);
-	if (new == NULL) return NULL;
+	for (i = s->string_count; i > where; i--) s->string_cache[i] = s->string_cache[i - 1];
 
-	s->curr_string_mem += (MEM_STRING_HEADER_SIZE + len + 1);
+	s->curr_string_mem += (sizeof(mem_string_t) + len + 1);
 	s->string_cache[where] = new;
 	s->string_count++;
 
@@ -328,11 +378,11 @@ asl_memory_string_release(asl_memory_t *s, mem_string_t *m)
 	if (m->refcount > 0) return ASL_STATUS_OK;
 
 	where = asl_memory_string_cache_search_hash(s, m->hash);
-	if (((mem_string_t *)(s->string_cache[where]))->hash != m->hash) return ASL_STATUS_OK;
+	if (s->string_cache[where]->hash != m->hash) return ASL_STATUS_OK;
 
 	while (s->string_cache[where] != m)
 	{
-		if (((mem_string_t *)(s->string_cache[where]))->hash != m->hash) return ASL_STATUS_OK;
+		if (s->string_cache[where]->hash != m->hash) return ASL_STATUS_OK;
 
 		where++;
 		if (where >= s->string_count) return ASL_STATUS_OK;
@@ -340,9 +390,12 @@ asl_memory_string_release(asl_memory_t *s, mem_string_t *m)
 
 	for (i = where + 1; i < s->string_count; i++) s->string_cache[i - 1] = s->string_cache[i];
 
-	s->curr_string_mem -= (MEM_STRING_HEADER_SIZE + strlen(m->str) + 1);
+	if (m->str == NULL) s->curr_string_mem -= sizeof(mem_string_t);
+	else s->curr_string_mem -= (sizeof(mem_string_t) + strlen(m->str) + 1);
 
+	free(m->str);
 	free(m);
+
 	s->string_count--;
 
 	if (s->string_count == 0)
@@ -352,7 +405,7 @@ asl_memory_string_release(asl_memory_t *s, mem_string_t *m)
 		return ASL_STATUS_OK;
 	}
 
-	s->string_cache = (void **)reallocf(s->string_cache, s->string_count * sizeof(void *));
+	s->string_cache = (mem_string_t **)reallocf(s->string_cache, s->string_count * sizeof(void *));
 	if (s->string_cache == NULL)
 	{
 		s->string_count = 0;
@@ -520,15 +573,7 @@ asl_memory_message_encode(asl_memory_t *s, asl_msg_t *msg)
 			v = NULL;
 			if (val != NULL) v = asl_memory_string_retain(s, val, 1);
 
-			if (r->kvcount == 0)
-			{
-				r->kvlist = (mem_string_t **)calloc(2, sizeof(mem_string_t *));
-			}
-			else
-			{
-				r->kvlist = (mem_string_t **)reallocf(r->kvlist, (r->kvcount + 2) * sizeof(mem_string_t *));
-			}
-
+			r->kvlist = (mem_string_t **)reallocf(r->kvlist, (r->kvcount + 2) * sizeof(mem_string_t *));
 			if (r->kvlist == NULL)
 			{
 				asl_memory_record_clear(s, r);
@@ -546,45 +591,58 @@ asl_memory_message_encode(asl_memory_t *s, asl_msg_t *msg)
 uint32_t
 asl_memory_save(asl_memory_t *s, asl_msg_t *msg, uint64_t *mid)
 {
-	uint32_t status;
-	mem_record_t *t;
+	__block uint32_t status;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (s->buffer_record == NULL) return ASL_STATUS_INVALID_STORE;
 
-	/* asl_memory_message_encode creates and caches strings */
-	status = asl_memory_message_encode(s, msg);
-	if (status != ASL_STATUS_OK) return status;
+	dispatch_sync(s->queue, ^{
+		mem_record_t *t;
 
-	if (*mid != 0)
-	{
-		s->buffer_record->mid = *mid;
-	}
-	else
-	{
-		s->buffer_record->mid = asl_core_new_msg_id(0);
-		*mid = s->buffer_record->mid;
-	}
-
-	/* clear the first record */
-	t = s->record[s->record_first];
-	asl_memory_record_clear(s, t);
-
-	/* add the new record to the record list (swap in the buffer record) */
-	s->record[s->record_first] = s->buffer_record;
-	s->buffer_record = t;
-
-	/* record list is a circular queue */
-	s->record_first++;
-	if (s->record_first >= s->record_count) s->record_first = 0;
-
-	/* delete records if too much memory is in use */
-	while (s->curr_string_mem > s->max_string_mem)
-	{
-		asl_memory_record_clear(s, s->record[s->record_first]);
-		s->record_first++;
-		if (s->record_first >= s->record_count) s->record_first = 0;
-	}
+		/* asl_memory_message_encode creates and caches strings */
+		status = asl_memory_message_encode(s, msg);
+		if (status == ASL_STATUS_OK)
+		{
+			uint32_t loop_start_index = s->record_first;
+	
+			if (*mid != 0)
+			{
+				s->buffer_record->mid = *mid;
+			}
+			else
+			{
+				s->buffer_record->mid = asl_core_new_msg_id(0);
+				*mid = s->buffer_record->mid;
+			}
+			
+			/* clear the first record */
+			t = s->record[s->record_first];
+			asl_memory_record_clear(s, t);
+			
+			/* add the new record to the record list (swap in the buffer record) */
+			s->record[s->record_first] = s->buffer_record;
+			s->buffer_record = t;
+			
+			/* record list is a circular queue */
+			s->record_first++;
+			if (s->record_first >= s->record_count) s->record_first = 0;
+			
+			/* delete records if too much memory is in use */
+			while (s->curr_string_mem > s->max_string_mem)
+			{
+				asl_memory_record_clear(s, s->record[s->record_first]);
+				s->record_first++;
+				if (s->record_first >= s->record_count) s->record_first = 0;
+				if (s->record_first == loop_start_index)
+				{
+					/* The entire ring has been cleared.  This should never happen. */
+					asl_memory_reset(s);
+					status = ASL_STATUS_FAILED;
+					break;
+				}
+			}
+		}
+	});
 
 	return status;
 }
@@ -728,9 +786,9 @@ asl_memory_message_decode(asl_memory_t *s, mem_record_t *r, asl_msg_t **out)
 		key = NULL;
 		val = NULL;
 
-		if ((r->kvlist[i] != NULL) && (r->kvlist[i]->str != NULL)) key = r->kvlist[i]->str;
+		if (r->kvlist[i] != NULL) key = r->kvlist[i]->str;
 		i++;
-		if ((r->kvlist[i] != NULL) && (r->kvlist[i]->str != NULL)) val = r->kvlist[i]->str;
+		if (r->kvlist[i] != NULL) val = r->kvlist[i]->str;
 
 		if (key != NULL) asl_msg_set_key_val(msg, key, val);
 	}
@@ -742,24 +800,32 @@ asl_memory_message_decode(asl_memory_t *s, mem_record_t *r, asl_msg_t **out)
 uint32_t
 asl_memory_fetch(asl_memory_t *s, uint64_t mid, asl_msg_t **msg, int32_t ruid, int32_t rgid)
 {
-	uint32_t i, status;
+	__block uint32_t status;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (msg == NULL) return ASL_STATUS_INVALID_ARG;
 
-	for (i = 0; i < s->record_count; i++)
-	{
-		if (s->record[i]->mid == 0) break;
+	status = ASL_STATUS_INVALID_ID;
 
-		if (s->record[i]->mid == mid)
+	dispatch_sync(s->queue, ^{
+		uint32_t i;
+
+		for (i = 0; i < s->record_count; i++)
 		{
-			status = asl_core_check_access(s->record[i]->ruid, s->record[i]->rgid, ruid, rgid, s->record[i]->flags);
-			if (status != ASL_STATUS_OK) return status;
-			return asl_memory_message_decode(s, s->record[i], msg);
-		}
-	}
+			if (s->record[i]->mid == 0) break;
 
-	return ASL_STATUS_INVALID_ID;
+			if (s->record[i]->mid == mid)
+			{
+				status = asl_core_check_access(s->record[i]->ruid, s->record[i]->rgid, ruid, rgid, s->record[i]->flags);
+				if (status != ASL_STATUS_OK) break;
+
+				status = asl_memory_message_decode(s, s->record[i], msg);
+				break;
+			}
+		}
+	});
+
+	return status;
 }
 
 static mem_record_t *
@@ -1190,17 +1256,14 @@ asl_memory_slow_match(asl_memory_t *s, mem_record_t *r, asl_msg_t *rawq)
 	return status;
 }
 
-uint32_t
-asl_memory_match_restricted_uuid(asl_memory_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint64_t *last_id, uint64_t start_id, uint32_t count, uint32_t duration, int32_t direction, int32_t ruid, int32_t rgid, const char *uuid_str)
+static uint32_t
+asl_memory_match_restricted_uuid_internal(asl_memory_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint64_t *last_id, uint64_t start_id, uint32_t count, uint32_t duration, int32_t direction, int32_t ruid, int32_t rgid, const char *uuid_str)
 {
 	uint32_t status, i, where, start, j, do_match, did_match, rescount, *qtype;
 	mem_record_t **qp;
 	asl_msg_t *m;
 	size_t qcount;
 	struct timeval now, finish;
-
-	if (s == NULL) return ASL_STATUS_INVALID_STORE;
-	if (res == NULL) return ASL_STATUS_INVALID_ARG;
 
 	qp = NULL;
 	qtype = NULL;
@@ -1431,7 +1494,31 @@ asl_memory_match_restricted_uuid(asl_memory_t *s, asl_msg_list_t *query, asl_msg
 }
 
 uint32_t
+asl_memory_match_restricted_uuid(asl_memory_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint64_t *last_id, uint64_t start_id, uint32_t count, uint32_t duration, int32_t direction, int32_t ruid, int32_t rgid, const char *uuid_str)
+{
+	__block uint32_t status;
+ 
+	if (s == NULL) return ASL_STATUS_INVALID_STORE;
+	if (res == NULL) return ASL_STATUS_INVALID_ARG;
+	
+	dispatch_sync(s->queue, ^{
+		status = asl_memory_match_restricted_uuid_internal(s, query, res, last_id, start_id, count, duration, direction, ruid, rgid, uuid_str);
+	});
+	
+	return status;
+}
+
+uint32_t
 asl_memory_match(asl_memory_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, int32_t ruid, int32_t rgid)
 {
-	return asl_memory_match_restricted_uuid(s, query, res, last_id, start_id, count, 0, direction, ruid, rgid, NULL);
+	__block uint32_t status;
+ 
+	if (s == NULL) return ASL_STATUS_INVALID_STORE;
+	if (res == NULL) return ASL_STATUS_INVALID_ARG;
+	
+	dispatch_sync(s->queue, ^{
+		status = asl_memory_match_restricted_uuid_internal(s, query, res, last_id, start_id, count, 0, direction, ruid, rgid, NULL);
+	});
+
+	return status;
 }

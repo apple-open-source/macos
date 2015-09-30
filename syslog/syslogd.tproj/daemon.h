@@ -91,8 +91,21 @@ extern const char *_path_syslogd_log;
 
 #define SEC_PER_DAY 86400
 
-/* trigger aslmanager no more often than 300 seconds */
-#define ASLMANAGER_DELAY 300
+typedef struct sender_stats_s
+{
+	char *sender;
+	uint64_t count;
+	uint64_t size;
+	struct sender_stats_s *next;
+} sender_stats_t;
+
+typedef struct
+{
+	uint32_t mcount;
+	uint32_t shim_count;
+	uint32_t bucket_count;
+	sender_stats_t **bucket;
+} stats_table_t;
 
 typedef struct
 {
@@ -118,7 +131,8 @@ struct global_s
 	int reset;
 	pid_t pid;
 	int32_t work_queue_count;
-	int64_t work_queue_size;
+	/* memory_size must be aligned for OSAtomicAdd64 */
+	__attribute__((aligned(8))) int64_t memory_size;
 	int32_t asl_queue_count;
 	int32_t bsd_queue_count;
 	pthread_mutex_t *db_lock;
@@ -134,11 +148,13 @@ struct global_s
 	int launchd_enabled;
 	module_t **module;
 	asl_out_module_t *asl_out_module;
-	time_t aslmanager_last_trigger;
+	time_t stats_last;
+	stats_table_t *stats;
 
 	/* parameters below are configurable as command-line args or in /etc/asl.conf */
 	int debug;
 	char *debug_file;
+	char *hostname;
 	int dbtype;
 	uint32_t db_file_max;
 	uint32_t db_memory_max;
@@ -148,7 +164,8 @@ struct global_s
 	uint64_t bsd_max_dup_time;
 	uint64_t mark_time;
 	time_t utmp_ttl;
-	int64_t max_work_queue_size;
+	time_t stats_interval;
+	int64_t memory_max;
 };
 
 extern struct global_s global;
@@ -178,12 +195,10 @@ const char *asl_syslog_faciliy_num_to_name(int num);
 asl_msg_t *asl_input_parse(const char *in, int len, char *rhost, uint32_t source);
 
 void process_message(asl_msg_t *msg, uint32_t source);
-void asl_out_message(asl_msg_t *msg);
-void bsd_out_message(asl_msg_t *msg);
+void asl_out_message(asl_msg_t *msg, int64_t msize);
+void bsd_out_message(asl_msg_t *msg, int64_t msize);
 int control_set_param(const char *s, bool eval);
 int asl_action_control_set_param(const char *s);
-
-void trigger_aslmanager();
 
 /* notify SPI */
 uint32_t notify_register_plain(const char *name, int *out_token);

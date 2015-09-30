@@ -39,7 +39,7 @@ class ResourceLoadScheduler;
 class ResourceRequest;
 class ResourceResponse;
 
-class LoaderStrategy {
+class WEBCORE_EXPORT LoaderStrategy {
 public:
     virtual ResourceLoadScheduler* resourceLoadScheduler();
 

@@ -166,10 +166,22 @@ typedef struct {
 #define kBL_PATH_I386_BOOT_EFI "/usr/standalone/i386/boot.efi"
 
 /*!
+ * @define kBL_PATH_I386_BOOTDEV_EFI
+ * @discussion Dev booter for Darwin x86 on EFI-based systems
+ */
+#define kBL_PATH_I386_BOOTDEV_EFI "/usr/standalone/i386/bootdev.efi"
+
+/*!
  * @define kBL_PATH_I386_BOOT2_CONFIG_PLIST
  * @discussion Second stage loader config file for Darwin x86
  */
 #define kBL_PATH_I386_BOOT2_CONFIG_PLIST "/Library/Preferences/SystemConfiguration/com.apple.Boot.plist"
+
+/*!
+ * @define kBL_PATH_SYSTEM_VERSION_PLIST
+ * @discussion OS version information
+ */
+#define kBL_PATH_SYSTEM_VERSION_PLIST "/System/Library/CoreServices/SystemVersion.plist"
 
 
 /*!
@@ -254,6 +266,13 @@ enum {
 	kBitmapScale_1x		=	1,
 	kBitmapScale_2x		=	2
 };
+
+
+typedef struct {
+	int major;
+	int minor;
+	int patch;
+} BLVersionRec;
 
 /***** FinderInfo *****/
 
@@ -616,12 +635,12 @@ int BLLoadFile(BLContextPtr context,
                CFDataRef* data);
 
 /*!
-    @function 
-    @abstract   Determine pre-boot environment
-    @discussion Determine the pre-boot environment type in
-		order to set the active boot partition, which requires
-		communicating information to the pre-boot environment, either
-		directly via nvram, or indirectly via on-disk files/locations.
+ * @function
+ * @abstract   Determine pre-boot environment
+ * @discussion Determine the pre-boot environment type in
+ *		order to set the active boot partition, which requires
+ *		communicating information to the pre-boot environment, either
+ *		directly via nvram, or indirectly via on-disk files/locations.
  * @param context Bless Library context
  * @param pbType	type of environment
  * @result     0 on success
@@ -630,6 +649,21 @@ int BLLoadFile(BLContextPtr context,
 int BLGetPreBootEnvironmentType(BLContextPtr context,
 								BLPreBootEnvType *pbType);
 
+
+
+/*!
+ * @function
+ * @abstract	Get the version information for the given mount
+ * @discussion	If the given mount contains an installed OS, get
+ *				its version information and write it to the structure
+ *				pointed to by the passed-in version argument.
+ * @param context Bless Library context
+ * @param mount	  Mount point of volume in question
+ * @param version Pointer to valid BLVersionRec structure, filled in by this call.
+ * @result     0 on success
+ */
+
+int BLGetOSVersion(BLContextPtr context, const char *mount, BLVersionRec *version);
 
 /***** OpenFirmware *****/
 

@@ -26,7 +26,6 @@
 #include "config.h"
 #include "IncrementalSweeper.h"
 
-#include "DelayedReleaseScope.h"
 #include "Heap.h"
 #include "JSObject.h"
 #include "JSString.h"
@@ -46,14 +45,8 @@ static const double sweepTimeMultiplier = 1.0 / sweepTimeTotal;
 
 IncrementalSweeper::IncrementalSweeper(Heap* heap, CFRunLoopRef runLoop)
     : HeapTimer(heap->vm(), runLoop)
-    , m_currentBlockToSweepIndex(0)
     , m_blocksToSweep(heap->m_blockSnapshot)
 {
-}
-
-PassOwnPtr<IncrementalSweeper> IncrementalSweeper::create(Heap* heap)
-{
-    return adoptPtr(new IncrementalSweeper(heap, CFRunLoopGetCurrent()));
 }
 
 void IncrementalSweeper::scheduleTimer()
@@ -73,10 +66,7 @@ void IncrementalSweeper::doWork()
 
 void IncrementalSweeper::doSweep(double sweepBeginTime)
 {
-    DelayedReleaseScope scope(m_vm->heap.m_objectSpace);
-    while (m_currentBlockToSweepIndex < m_blocksToSweep.size()) {
-        sweepNextBlock();
-
+    while (sweepNextBlock()) {
         double elapsedTime = WTF::monotonicallyIncreasingTime() - sweepBeginTime;
         if (elapsedTime < sweepTimeSlice)
             continue;
@@ -89,30 +79,30 @@ void IncrementalSweeper::doSweep(double sweepBeginTime)
     cancelTimer();
 }
 
-void IncrementalSweeper::sweepNextBlock()
+bool IncrementalSweeper::sweepNextBlock()
 {
-    while (m_currentBlockToSweepIndex < m_blocksToSweep.size()) {
-        MarkedBlock* block = m_blocksToSweep[m_currentBlockToSweepIndex++];
+    while (!m_blocksToSweep.isEmpty()) {
+        MarkedBlock* block = m_blocksToSweep.takeLast();
 
         if (!block->needsSweeping())
             continue;
 
+        DeferGCForAWhile deferGC(m_vm->heap);
         block->sweep();
         m_vm->heap.objectSpace().freeOrShrinkBlock(block);
-        return;
+        return true;
     }
+
+    return m_vm->heap.sweepNextLogicallyEmptyWeakBlock();
 }
 
-void IncrementalSweeper::startSweeping(Vector<MarkedBlock*>& blockSnapshot)
+void IncrementalSweeper::startSweeping()
 {
-    m_blocksToSweep = blockSnapshot;
-    m_currentBlockToSweepIndex = 0;
     scheduleTimer();
 }
 
 void IncrementalSweeper::willFinishSweeping()
 {
-    m_currentBlockToSweepIndex = 0;
     m_blocksToSweep.clear();
     if (m_vm)
         cancelTimer();
@@ -129,12 +119,7 @@ void IncrementalSweeper::doWork()
 {
 }
 
-PassOwnPtr<IncrementalSweeper> IncrementalSweeper::create(Heap* heap)
-{
-    return adoptPtr(new IncrementalSweeper(heap->vm()));
-}
-
-void IncrementalSweeper::startSweeping(Vector<MarkedBlock*>&)
+void IncrementalSweeper::startSweeping()
 {
 }
 
@@ -142,8 +127,9 @@ void IncrementalSweeper::willFinishSweeping()
 {
 }
 
-void IncrementalSweeper::sweepNextBlock()
+bool IncrementalSweeper::sweepNextBlock()
 {
+    return false;
 }
 
 #endif

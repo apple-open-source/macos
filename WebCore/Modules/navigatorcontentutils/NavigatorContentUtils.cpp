@@ -35,6 +35,7 @@
 #include "Navigator.h"
 #include "Page.h"
 #include <wtf/HashSet.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -43,29 +44,8 @@ static HashSet<String>* protocolWhitelist;
 static void initProtocolHandlerWhitelist()
 {
     protocolWhitelist = new HashSet<String>;
-    static const char* protocols[] = {
-        "bitcoin",
-        "geo",
-        "im",
-        "irc",
-        "ircs",
-        "magnet",
-        "mailto",
-        "mms",
-        "news",
-        "nntp",
-        "sip",
-        "sms",
-        "smsto",
-        "ssh",
-        "tel",
-        "urn",
-        "webcal",
-        "wtai",
-        "xmpp",
-    };
-    for (size_t i = 0; i < WTF_ARRAY_LENGTH(protocols); ++i)
-        protocolWhitelist->add(protocols[i]);
+    for (auto* protocol : { "bitcoin", "geo", "im", "irc", "ircs", "magnet", "mailto", "mms", "news", "nntp", "sip", "sms", "smsto", "ssh", "tel", "urn", "webcal", "wtai", "xmpp" })
+        protocolWhitelist->add(protocol);
 }
 
 static bool verifyCustomHandlerURL(const URL& baseURL, const String& url, ExceptionCode& ec)
@@ -144,9 +124,9 @@ void NavigatorContentUtils::registerProtocolHandler(Navigator* navigator, const 
 #if ENABLE(CUSTOM_SCHEME_HANDLER)
 static String customHandlersStateString(const NavigatorContentUtilsClient::CustomHandlersState state)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, newHandler, (ASCIILiteral("new")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, registeredHandler, (ASCIILiteral("registered")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, declinedHandler, (ASCIILiteral("declined")));
+    static NeverDestroyed<String> newHandler(ASCIILiteral("new"));
+    static NeverDestroyed<String> registeredHandler(ASCIILiteral("registered"));
+    static NeverDestroyed<String> declinedHandler(ASCIILiteral("declined"));
 
     switch (state) {
     case NavigatorContentUtilsClient::CustomHandlersNew:
@@ -163,7 +143,7 @@ static String customHandlersStateString(const NavigatorContentUtilsClient::Custo
 
 String NavigatorContentUtils::isProtocolHandlerRegistered(Navigator* navigator, const String& scheme, const String& url, ExceptionCode& ec)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, declined, ("declined"));
+    static NeverDestroyed<String> declined(ASCIILiteral("declined"));
 
     if (!navigator->frame())
         return declined;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -518,6 +518,20 @@ read_callback(u_char *user, const struct pcap_pkthdr *hdr, const u_char *bytes)
 			}
 			case PCAPNG_BT_NRB: {
 				printf("# Name Record Block\n");
+				break;
+			}
+			case PCAPNG_BT_OSEV: {
+				struct pcapng_os_event_fields *osev_fields;
+
+				printf("# OS Event Block\n");
+				
+				osev_fields = pcap_ng_get_os_event_fields(block);
+
+				printf("  type %u timestamp_high %u timestamp_low %u caplen %u len %u\n",
+				       osev_fields->type,
+				       osev_fields->timestamp_high,
+				       osev_fields->timestamp_low,
+				       osev_fields->len);				
 				break;
 			}
 			default:

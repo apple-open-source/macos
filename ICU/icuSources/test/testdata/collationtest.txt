@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2012-2014 International Business Machines
+﻿# Copyright (c) 2012-2015 International Business Machines
 # Corporation and others. All Rights Reserved.
 #
 # This file should be in UTF-8 with a signature byte sequence ("BOM").
@@ -12,6 +12,7 @@
 
 # A collator can be set with "@ root" or "@ locale language-tag",
 # for example "@ locale de-u-co-phonebk".
+# An old-style locale ID can also be used, for example "@ locale de@collation=phonebook".
 
 # A collator can be built with "@ rules".
 # An "@ rules" line is followed by one or more lines with the tailoring rules.
@@ -1513,8 +1514,8 @@
 < zy
 < ž
 < v
-< w
 < va
+< w
 < õ
 < õy
 < ä
@@ -2366,3 +2367,174 @@
 <2 \u0027
 <2 c
 <1 r
+
+# ICU ticket #8260 "Support all collation-related keywords in Collator.getInstance()"
+** test: locale -u- with collation keywords, ICU ticket 8260
+@ locale de-u-kv-sPace-ka-shifTed-kn-kk-falsE-kf-Upper-kc-tRue-ks-leVel4
+* compare
+<4 \u0020  # space is shifted, strength=quaternary
+<1 !  # punctuation is regular
+<1 2
+<1 12  # numeric sorting
+<1 B
+<c b  # uppercase first on case level
+<1 x\u0301\u0308
+<2 x\u0308\u0301  # normalization off
+
+** test: locale @ with collation keywords, ICU ticket 8260
+@ locale fr@colbAckwards=yes;ColStrength=Quaternary;kv=currencY;colalternate=shifted
+* compare
+<4 $  # currency symbols are shifted, strength=quaternary
+<1 àla
+<2 alà  # backwards secondary level
+
+** test: locale -u- with script reordering, ICU ticket 8260
+@ locale el-u-kr-kana-SYMBOL-Grek-hani-cyrl-latn-digit-armn-deva-ethi-thai
+* compare
+<1 \u0020
+<1 あ
+<1 ☂
+<1 Ω
+<1 丂
+<1 ж
+<1 L
+<1 4
+<1 Ձ
+<1 अ
+<1 ሄ
+<1 ฉ
+
+** test: locale @collation=type should be case-insensitive
+@ locale de@coLLation=PhoneBook
+* compare
+<1 ae
+<2 ä
+<3 Ä
+
+** test: import root search rules plus German phonebook rules, ICU ticket 8962
+@ locale de-u-co-search
+* compare
+<1 =
+<1 ≠
+<1 a
+<1 ae
+<2 ä
+
+# Once more, but with runtime builder.
+@ rules
+[import und-u-co-search][import de-u-co-phonebk]
+* compare
+<1 =
+<1 ≠
+<1 a
+<1 ae
+<2 ä
+
+# Once again, with import from "root" not "und" (as in a proper language tag).
+@ rules
+[import root-u-co-search][import de-u-co-phonebk]
+* compare
+<1 =
+<1 ≠
+<1 a
+<1 ae
+<2 ä
+
+** test: import rules from a language with non-Latin native script, and reset the reordering, ICU ticket 10998
+# Greek should sort Greek first.
+@ rules
+[import el]
+* compare
+<1 4
+<1 Ω
+<1 L
+
+# Import Greek, and then reset the reordering.
+@ rules
+[import el][reorder Zzzz]
+* compare
+<1 4
+<1 L
+<1 Ω
+
+# "others" is a synonym for Zzzz.
+@ rules
+[import el][reorder others]
+* compare
+<1 4
+<1 L
+<1 Ω
+
+** test: regression test for CollationFastLatinBuilder, ICU ticket 11388
+@ rules
+&x<<aa<<<Aa<<<AA
+% strength=secondary
+* compare
+<1 AA
+<2 Aẩ
+<2 aą
+* compare
+<1 AA
+<2 aą
+
+** test: tailor tertiary-after a common tertiary where there is a lower one
+# Assume that Hiragana small A has a below-common tertiary, and Hiragana A has a common one.
+# See ICU ticket 11448 & CLDR ticket 7222.
+@ rules
+&あ<<<x<<<y<<<z
+* compare
+<1 ぁ
+<3 あ
+<3 x
+<3 y
+<3 z
+<3 ァ
+<1 い
+
+** test: tailor tertiary-after a below-common tertiary
+@ rules
+&ぁ<<<x<<<y<<<z
+* compare
+<1 ぁ
+<3 x
+<3 y
+<3 z
+<3 あ
+<3 ァ
+<1 い
+
+** test: tailor tertiary-before a common tertiary where there is a lower one
+@ rules
+&[before 3]あ<<<x<<<y<<<z
+* compare
+<1 ぁ
+<3 x
+<3 y
+<3 z
+<3 あ
+<3 ァ
+<1 い
+
+** test: tailor tertiary-before a below-common tertiary
+@ rules
+&[before 3]ぁ<<<x<<<y<<<z
+* compare
+<1 x
+<3 y
+<3 z
+<3 ぁ
+<3 あ
+<3 ァ
+<1 い
+
+** test: reorder single scripts not groups, ICU ticket 11449
+@ root
+% reorder Goth Latn
+* compare
+<1 4
+<1 𐌰  # Gothic
+<1 L
+<1 Ω
+# Before ICU 55, the following reordered together with Gothic.
+<1 𐌈  # Old Italic
+<1 𐑐  # Shavian

@@ -43,6 +43,12 @@ enum WKStorageBlockingPolicy {
 };
 typedef enum WKStorageBlockingPolicy WKStorageBlockingPolicy;
 
+enum WKDebugOverlayRegionFlags {
+    kWKNonFastScrollableRegion = 1 << 0,
+    kWKWheelEventHandlerRegion = 1 << 1
+};
+typedef unsigned WKDebugOverlayRegions;
+
 WK_EXPORT WKTypeID WKPreferencesGetTypeID();
 
 WK_EXPORT WKPreferencesRef WKPreferencesCreate();
@@ -144,10 +150,6 @@ WK_EXPORT bool WKPreferencesGetPrivateBrowsingEnabled(WKPreferencesRef preferenc
 WK_EXPORT void WKPreferencesSetDeveloperExtrasEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetDeveloperExtrasEnabled(WKPreferencesRef preferencesRef);
 
-// Defaults to false.
-WK_EXPORT void WKPreferencesSetJavaScriptExperimentsEnabled(WKPreferencesRef preferencesRef, bool enabled);
-WK_EXPORT bool WKPreferencesGetJavaScriptExperimentsEnabled(WKPreferencesRef preferencesRef);
-
 // Defaults to true.
 WK_EXPORT void WKPreferencesSetTextAreasAreResizable(WKPreferencesRef preferencesRef, bool resizable);
 WK_EXPORT bool WKPreferencesGetTextAreasAreResizable(WKPreferencesRef preferencesRef);
@@ -247,6 +249,18 @@ WK_EXPORT bool WKPreferencesGetMediaStreamEnabled(WKPreferencesRef preferencesRe
 // Defaults to false.
 WK_EXPORT void WKPreferencesSetSpatialNavigationEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetSpatialNavigationEnabled(WKPreferencesRef preferencesRef);
+
+// Defaults to 0.
+WK_EXPORT void WKPreferencesSetVisibleDebugOverlayRegions(WKPreferencesRef preferencesRef, WKDebugOverlayRegions enabled);
+WK_EXPORT WKDebugOverlayRegions WKPreferencesGetVisibleDebugOverlayRegions(WKPreferencesRef preferencesRef);
+
+// Defaults to false.
+WK_EXPORT void WKPreferencesSetIgnoreViewportScalingConstraints(WKPreferencesRef preferencesRef, bool enabled);
+WK_EXPORT bool WKPreferencesGetIgnoreViewportScalingConstraints(WKPreferencesRef preferencesRef);
+
+// Defaults to true.
+WK_EXPORT void WKPreferencesSetAllowsAirPlayForMediaPlayback(WKPreferencesRef preferencesRef, bool enabled);
+WK_EXPORT bool WKPreferencesGetAllowsAirPlayForMediaPlayback(WKPreferencesRef preferencesRef);
 
 #ifdef __cplusplus
 }

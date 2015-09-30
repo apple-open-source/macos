@@ -26,8 +26,6 @@
 #ifndef StyleFilterData_h
 #define StyleFilterData_h
 
-#if ENABLE(CSS_FILTERS)
-
 #include "FilterOperations.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -36,8 +34,8 @@ namespace WebCore {
 
 class StyleFilterData : public RefCounted<StyleFilterData> {
 public:
-    static PassRef<StyleFilterData> create() { return adoptRef(*new StyleFilterData); }
-    PassRef<StyleFilterData> copy() const;
+    static Ref<StyleFilterData> create() { return adoptRef(*new StyleFilterData); }
+    Ref<StyleFilterData> copy() const;
 
     bool operator==(const StyleFilterData&) const;
     bool operator!=(const StyleFilterData& o) const
@@ -53,7 +51,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(CSS_FILTERS)
 
 #endif // StyleFilterData_h

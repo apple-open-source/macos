@@ -5,8 +5,10 @@ _ldap_set_option
 _ldap_set_rebind_proc
 _ldap_create_control
 _ldap_find_control
+_ldap_control_create
 _ldap_control_free
 _ldap_controls_free
+_ldap_control_find
 _ldap_domain2dn
 _ldap_dn2domain
 _ldap_domain2hostlist

@@ -47,6 +47,8 @@ public:
     void TestCollators(void);
     void TestString();
     void TestAnyTranslit();
+    void TestConditionVariables();
+    void TestUnifiedCache();
 
 };
 

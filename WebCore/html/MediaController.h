@@ -45,7 +45,7 @@ class ScriptExecutionContext;
 
 class MediaController final : public RefCounted<MediaController>, public MediaControllerInterface, public EventTargetWithInlineData {
 public:
-    static PassRefPtr<MediaController> create(ScriptExecutionContext&);
+    static Ref<MediaController> create(ScriptExecutionContext&);
     virtual ~MediaController();
 
     void addMediaElement(HTMLMediaElement*);
@@ -123,11 +123,11 @@ private:
     void updateMediaElements();
     void bringElementUpToSpeed(HTMLMediaElement*);
     void scheduleEvent(const AtomicString& eventName);
-    void asyncEventTimerFired(Timer&);
-    void clearPositionTimerFired(Timer&);
+    void asyncEventTimerFired();
+    void clearPositionTimerFired();
     bool hasEnded() const;
     void scheduleTimeupdateEvent();
-    void timeupdateTimerFired(Timer&);
+    void timeupdateTimerFired();
     void startTimeupdateTimer();
 
     // EventTarget

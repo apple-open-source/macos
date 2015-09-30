@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -231,14 +231,12 @@ pcap_ng_block_reset(pcapng_block_t block, bpf_u_int32 type)
 			block->pcapng_block_type = type;
 			
 			block->pcapng_fields_len = sizeof(struct pcapng_packet_fields);
-			
 			break;
 		
 		case PCAPNG_BT_SPB:
 			block->pcapng_block_type = type;
 			
 			block->pcapng_fields_len = sizeof(struct pcapng_simple_packet_fields);
-			
 			break;
 		
 		case PCAPNG_BT_NRB:
@@ -265,6 +263,12 @@ pcap_ng_block_reset(pcapng_block_t block, bpf_u_int32 type)
 			block->pcapng_fields_len = sizeof(struct pcapng_process_information_fields);
 			break;
 		
+		case PCAPNG_BT_OSEV:
+			block->pcapng_block_type = type;
+			
+			block->pcapng_fields_len = sizeof(struct pcapng_os_event_fields);
+			break;
+			
 		default:
 			return (PCAP_ERROR);
 	}
@@ -346,6 +350,15 @@ pcap_ng_get_process_information_fields(pcapng_block_t block)
 		return NULL;
 }
 
+struct pcapng_os_event_fields *
+pcap_ng_get_os_event_fields(pcapng_block_t block)
+{
+	if (block != NULL && block->pcapng_block_type == PCAPNG_BT_OSEV)
+		return &block->pcap_ng_osev_fields;
+	else
+		return NULL;
+}
+
 int
 pcap_ng_block_does_support_data(pcapng_block_t block)
 {
@@ -353,6 +366,7 @@ pcap_ng_block_does_support_data(pcapng_block_t block)
 		case PCAPNG_BT_PB:
 		case PCAPNG_BT_SPB:
 		case PCAPNG_BT_EPB:
+		case PCAPNG_BT_OSEV:
 			return (1);
 			/* NOT REACHED */
 			
@@ -819,6 +833,7 @@ pcap_ng_externalize_block(void *buffer, size_t buflen, pcapng_block_t block)
 		case PCAPNG_BT_ISB:
 		case PCAPNG_BT_EPB:
 		case PCAPNG_BT_PIB:
+		case PCAPNG_BT_OSEV:
 			if (block->pcapng_block_type == PCAPNG_BT_PB) {
 				if(block->pcap_ng_opb_fields.caplen == 0)
 					block->pcap_ng_opb_fields.caplen = block->pcapng_cap_len;
@@ -834,6 +849,10 @@ pcap_ng_externalize_block(void *buffer, size_t buflen, pcapng_block_t block)
 					block->pcap_ng_epb_fields.caplen = block->pcapng_cap_len;
 				if(block->pcap_ng_epb_fields.len == 0)
 					block->pcap_ng_epb_fields.len = block->pcapng_cap_len;
+			}
+			if (block->pcapng_block_type == PCAPNG_BT_OSEV) {
+				if(block->pcap_ng_osev_fields.len == 0)
+					block->pcap_ng_osev_fields.len = block->pcapng_cap_len;
 			}
 			
 			if (block->pcapng_fields_len > 0) {
@@ -899,6 +918,7 @@ pcap_ng_dump_block(pcap_dumper_t *p, pcapng_block_t block)
 		case PCAPNG_BT_ISB:
 		case PCAPNG_BT_EPB:
 		case PCAPNG_BT_PIB:
+		case PCAPNG_BT_OSEV:
 			if (block->pcapng_block_type == PCAPNG_BT_PB) {
 				if(block->pcap_ng_opb_fields.caplen == 0)
 					block->pcap_ng_opb_fields.caplen = block->pcapng_cap_len;
@@ -996,6 +1016,7 @@ pcap_ng_block_internalize_common(pcapng_block_t *pblock, pcap_t *p, u_char *raw_
 		case PCAPNG_BT_ISB:
 		case PCAPNG_BT_EPB:
 		case PCAPNG_BT_PIB:
+		case PCAPNG_BT_OSEV:
 			break;
 		default:
 			(void) snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
@@ -1071,13 +1092,13 @@ pcap_ng_block_internalize_common(pcapng_block_t *pblock, pcap_t *p, u_char *raw_
 			if (rawidb == NULL)
 				goto fail;
 			
-			idbp->linktype = rawidb->linktype;
-			idbp->reserved = rawidb->reserved;
-			idbp->snaplen = rawidb->snaplen;
+			idbp->idb_linktype = rawidb->idb_linktype;
+			idbp->idb_reserved = rawidb->idb_reserved;
+			idbp->idb_snaplen = rawidb->idb_snaplen;
 			if (swapped) {
-				idbp->linktype = SWAPSHORT(idbp->linktype);
-				idbp->reserved = SWAPSHORT(idbp->reserved);
-				idbp->snaplen = SWAPLONG(idbp->snaplen);
+				idbp->idb_linktype = SWAPSHORT(idbp->idb_linktype);
+				idbp->idb_reserved = SWAPSHORT(idbp->idb_reserved);
+				idbp->idb_snaplen = SWAPLONG(idbp->idb_snaplen);
 			}
 			
 			break;
@@ -1147,7 +1168,7 @@ pcap_ng_block_internalize_common(pcapng_block_t *pblock, pcap_t *p, u_char *raw_
 				spbp->len = SWAPLONG(spbp->len);
 			}
 			caplen = bh.total_length - sizeof(struct pcapng_simple_packet_fields) -
-			sizeof(struct pcapng_block_header) - sizeof(struct pcapng_block_trailer);
+				sizeof(struct pcapng_block_header) - sizeof(struct pcapng_block_trailer);
 			if (caplen > spbp->len)
 				caplen = spbp->len;
 			data = get_from_block_data(&cursor, PAD_32BIT(caplen), p->errbuf);
@@ -1233,6 +1254,39 @@ pcap_ng_block_internalize_common(pcapng_block_t *pblock, pcap_t *p, u_char *raw_
 				if (rh->record_type == PCAPNG_NRES_ENDOFRECORD)
 					break;
 			}			
+			break;
+		}
+		case PCAPNG_BT_OSEV: {
+			struct pcapng_os_event_fields *osevp = pcap_ng_get_os_event_fields(block);
+			struct pcapng_os_event_fields *rawosevp;
+			void *data;
+			uint32_t caplen;
+			
+			rawosevp = get_from_block_data(&cursor, sizeof(struct pcapng_os_event_fields), p->errbuf);
+			if (rawosevp == NULL)
+				goto fail;
+			
+			osevp->type = rawosevp->type;
+			osevp->timestamp_high = rawosevp->timestamp_high;
+			osevp->timestamp_low = rawosevp->timestamp_low;
+			osevp->len = rawosevp->len;
+			if (swapped) {
+				osevp->type = SWAPLONG(osevp->type);
+				osevp->timestamp_high = SWAPLONG(osevp->timestamp_high);
+				osevp->timestamp_low = SWAPLONG(osevp->timestamp_low);
+				osevp->len = SWAPLONG(osevp->len);
+			}
+			caplen = bh.total_length - sizeof(struct pcapng_os_event_fields) -
+				sizeof(struct pcapng_block_header) - sizeof(struct pcapng_block_trailer);
+			if (caplen > osevp->len)
+				caplen = osevp->len;
+			data = get_from_block_data(&cursor, PAD_32BIT(caplen), p->errbuf);
+			if (data == NULL)
+				goto fail;
+			block->pcapng_data_is_external = 0;
+			block->pcapng_data_ptr = (u_char *)data;
+			block->pcapng_cap_len = caplen;
+			block->pcapng_data_len = PAD_32BIT(caplen);
 			break;
 		}
 		default:

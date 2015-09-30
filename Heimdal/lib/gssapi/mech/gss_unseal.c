@@ -29,12 +29,12 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_unseal(OM_uint32 *minor_status,
-    gss_ctx_id_t context_handle,
-    gss_buffer_t input_message_buffer,
-    gss_buffer_t output_message_buffer,
-    int *conf_state,
-    int *qop_state)
+gss_unseal(OM_uint32 *__nonnull minor_status,
+    __nonnull gss_ctx_id_t context_handle,
+    __nonnull gss_buffer_t input_message_buffer,
+    __nonnull gss_buffer_t output_message_buffer,
+    int *__nonnull conf_state,
+    int *__nonnull qop_state)
 {
 
 	return (gss_unwrap(minor_status,

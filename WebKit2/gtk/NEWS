@@ -1,4 +1,180 @@
 =================
+WebKitGTK+  2.9.3
+=================
+
+What's new in WebKitGTK+ 2.9.3?
+
+  - Inhibit screen saver when playing full screen video.
+  - Fix DOCUMENT_VIEWER cache model to actually disable the memory cache.
+  - Fix a regression that prevented the WebKitWebView::context-menu signal
+    from being emitted.
+  - Update web inspector icon so Rendering Frames timeline distinguish between
+    layout and painting.
+  - Ensure fragment identifier part of URI is not removed for custom URI scheme
+    requests.
+  - Improve performance of keyboard events handling.
+  - Expose element tag name as an object attribute to accessibility.
+  - Fix the build with Wayland target enabled.
+
+=================
+WebKitGTK+  2.9.2
+=================
+
+What's new in WebKitGTK+ 2.9.2?
+
+  - Add IndexedDB support using a dedicated database process.
+  - Add construct property to WebKitWebContext to set the IndexedDB database directory.
+  - Add allow-file-access-from-file-urls to WebKitSettings.
+  - Improve network process disk cache performance by mapping cached resources in the
+    web process instead of sending the resources data via IPC.
+  - Prevent WorkQueue objects from being leaked and ensure its worker thread always exits.
+  - webkit_dom_html_element_get_children() has been deprecated in favor of
+    webkit_dom_element_get_children() to match the DOM spec.
+  - ARIA menu items no longer have anonymous block children.
+  - Map pre element to ATK_ROLE_SECTION instead of ATK_ROLE_PANEL.
+  - Always include rows in the tree of accessible tables.
+  - Fix the build with Netscape plugins disabled.
+  - Fix XPixmaps leaked by GLContext when using EGL on X11.
+  - Translation updates: Catalan.
+
+=================
+WebKitGTK+  2.9.1
+=================
+
+What's new in WebKitGTK+ 2.9.1?
+
+  - New disk cache implementation when using the network process.
+  - Web inspector UI has been redesigned.
+  - Add support for automatic hyphenation using libhyphen when it's available.
+  - Fix network redirection to a non HTTP destination.
+
+=================
+WebKitGTK+  2.7.4
+=================
+
+What's new in WebKitGTK+ 2.7.4?
+
+  - Add API to change the WebKitWebView background color.
+  - Add an option to create WebKitWebView snapshots with transparent background.
+  - Add API to make the WebKitWebView editable.
+  - Add is-playing-audio property to WebKitWebView.
+  - Do not resize the accelerating compositing window to the web size until accelerated
+    compositing mode is activated.
+
+=================
+WebKitGTK+  2.7.3
+=================
+
+What's new in WebKitGTK+ 2.7.3?
+
+  - Add API to support HTML5 notifications.
+  - Add UserMedia Permission Request API.
+  - GObject DOM bindings API now correctly returns NULL intead of empty strings to be
+    able to differentiate between not present and present but empty.
+  - Add support for text-decoration-skip.
+  - Improve the HTTP authentication dialog.
+  - Expose the ID attribute of Meter and Option elements to accessibility.
+  - Use latin1 instead of UTF-8 for HTTP header values.
+  - Update NavigationItemProbes inspector icon.
+  - Add video/mp2t as alternative mimetype for MPEG TS.
+  - Add application/x-mpegurl and video/flv to the list of supported mimetypes.
+  - Add SCHEDULING query support to HTTP media source element.
+  - Fix deadlock when shutting down AudioDestination.
+  - Translation updates: Kannada, Assamese
+
+=================
+WebKitGTK+  2.7.2
+=================
+
+What's new in WebKitGTK+ 2.7.2?
+
+  - Fix SSL connection issues with some websites after the POODLE vulnerability fix.
+  - Add API to handle user script messages.
+  - Add context menu API to Web Process Extensions.
+  - Add API to create a WebKitWebContext.
+  - Add API to override the default local storage directory.
+  - Add WebKitWebResource::failed-with-tls-errors signal to notify about load failures
+    due to TLS errors also in sub-resources.
+  - Fix several crashes in accessibility implementation.
+  - Fix XMLHttpRequest with a timeout when using the network process.
+  - Fix XMLHttpRequest with cookies disabled when using the network process.
+  - Fix a crash in the network process when a synchronous load redirects to a new url
+    in a different security origin.
+  - Fix a crash in TextureMapper when video resolution changes.
+  - Correctly report the memory used by the media player to the garbage collector to
+    make sure it’s freed when the video element is removed from the DOM.
+  - Fix documentation of webkit_print_operation_get_page_setup().
+
+=================
+WebKitGTK+  2.7.1
+=================
+
+What's new in WebKitGTK+ 2.7.1?
+
+  - Add initial gestures support. For now only drag, zoom and tap
+    gestures are supported, but it's enough ot make WebKitGTK+ usable
+    in touch screens. It requires GTK+ 3.14.
+  - Add webkit_hit_test_result_context_is_selection().
+  - The Web Inspector now uses a separate Web Process.
+  - Add implementation of subtle crypto HMAC and digest algorithms.
+
+=================
+WebKitGTK+  2.5.3
+=================
+
+What's new in WebKitGTK+ 2.5.3?
+
+  - Fix a crash when drag and drop to a WebKitWebView.
+  - Fix slow motion rendering problem in GStreamer media backend due to integer rounding.
+  - Make sure the plugins cache is always used even if the cache directory doesn't exist.
+  - Fix the build on FreeBSD.
+  - Install the HTML API docs for WebKit2 and WebKitDOM in a versioned directory.
+  - Intall the GObject instrospection files to the correct path.
+
+=================
+WebKitGTK+  2.5.2
+=================
+
+What's new in WebKitGTK+ 2.5.2?
+
+  - Make GTK+2 dependency optional.
+  - Use the ld version script for non developer builds.
+  - Add webkit_navigation_policy_decision_get_navigation_action() API
+    and deprecated the methods and properties in WebKitNavigationPolicyDecision
+    that are now redundant.
+  - Add support for user scripts to WebKitUserContentManager.
+  - Do not use GtkWindow:resize-grip-visible with recent GTK+ versions.
+  - Fix caps negotiation failure in playback pipeline in GSTreamer media backend.
+  - Rename translation domain to WebKit2GTK-4.0.
+  - Install the processes in a versioned directory.
+
+=================
+WebKitGTK+  2.5.1
+=================
+
+What's new in WebKitGTK+ 2.5.1?
+
+  - WebKit1 API has been removed.
+  - Binary version bump to make WebKit1 and WebKit2 parallel installable.
+  - Switch to CMake build system.
+  - The WebKitWebView::create signal now receives a WebKitNavigationAction
+    with information about the navigation action that triggered the signal.
+  - WebKitWebViewGroup has been removed from the API and WebKitUserContentManager
+    has been added to handle user stylesheets.
+  - WebKitCertificateInfo has also been removed. WebKitWebView::load-failed-with-tls-errors
+    signal now receives a GTlsCertificate and GTlsCertificateFlags, and
+    webkit_web_context_allow_tls_certificate_for_host() receives a GTlsCertificate.
+  - The view mode API (webkit_web_view_set_view_mode() and webkit_web_view_get_view_mode())
+    has been removed, since WebCore doesn't support view source mode anymore.
+  - The DOM bindings API has been split into stable and unstable parts,
+    and all deprecated methods have been removed. The stable part will
+    keep API/ABI backwards compatibility, while the unstable part might change.
+  - Add API to load arbitrary data optionally giving the encoding and MIME Type.
+  - Add support for plugins using GTK+ 3.
+  - Add HighDPI support for non-accelerated compositing contents.
+  - Use a different user agent string depending on the site.
+
+=================
 WebKitGTK+  2.3.4
 =================
 

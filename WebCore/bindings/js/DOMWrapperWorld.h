@@ -35,14 +35,14 @@ typedef HashMap<void*, JSC::Weak<JSC::JSObject>> DOMObjectWrapperMap;
 
 class DOMWrapperWorld : public RefCounted<DOMWrapperWorld> {
 public:
-    static PassRefPtr<DOMWrapperWorld> create(JSC::VM& vm, bool isNormal = false)
+    static Ref<DOMWrapperWorld> create(JSC::VM& vm, bool isNormal = false)
     {
-        return adoptRef(new DOMWrapperWorld(vm, isNormal));
+        return adoptRef(*new DOMWrapperWorld(vm, isNormal));
     }
-    ~DOMWrapperWorld();
+    WEBCORE_EXPORT ~DOMWrapperWorld();
 
     // Free as much memory held onto by this world as possible.
-    void clearWrappers();
+    WEBCORE_EXPORT void clearWrappers();
 
     void didCreateWindowShell(ScriptController* scriptController) { m_scriptControllersWithWindowShells.add(scriptController); }
     void didDestroyWindowShell(ScriptController* scriptController) { m_scriptControllersWithWindowShells.remove(scriptController); }
@@ -65,7 +65,7 @@ private:
 };
 
 DOMWrapperWorld& normalWorld(JSC::VM&);
-DOMWrapperWorld& mainThreadNormalWorld();
+WEBCORE_EXPORT DOMWrapperWorld& mainThreadNormalWorld();
 inline DOMWrapperWorld& debuggerWorld() { return mainThreadNormalWorld(); }
 inline DOMWrapperWorld& pluginWorld() { return mainThreadNormalWorld(); }
 
@@ -74,6 +74,11 @@ inline DOMWrapperWorld& currentWorld(JSC::ExecState* exec)
     return JSC::jsCast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->world();
 }
 
+inline DOMWrapperWorld& worldForDOMObject(JSC::JSObject* object)
+{
+    return JSC::jsCast<JSDOMGlobalObject*>(object->globalObject())->world();
+}
+    
 } // namespace WebCore
 
 #endif // DOMWrapperWorld_h

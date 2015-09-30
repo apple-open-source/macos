@@ -48,7 +48,7 @@ using namespace WebKit;
 
 + (instancetype)lookUpFrameFromHandle:(_WKFrameHandle *)handle
 {
-    WebFrame* webFrame = WebProcess::shared().webFrame(handle._frameID);
+    WebFrame* webFrame = WebProcess::singleton().webFrame(handle._frameID);
     if (!webFrame)
         return nil;
 
@@ -90,7 +90,7 @@ using namespace WebKit;
 
 - (NSArray *)childFrames
 {
-    return [wrapper(*_frame->childFrames().leakRef()) autorelease];
+    return [wrapper(_frame->childFrames().leakRef()) autorelease];
 }
 
 - (BOOL)containsAnyFormElements
@@ -100,7 +100,13 @@ using namespace WebKit;
 
 - (_WKFrameHandle *)handle
 {
-    return [wrapper(*API::FrameHandle::create(_frame->frameID()).leakRef()) autorelease];
+    return [wrapper(API::FrameHandle::create(_frame->frameID()).leakRef()) autorelease];
+}
+
+- (WKWebProcessPlugInFrame *)_parentFrame
+{
+    WebFrame *parentFrame = _frame->parentFrame();
+    return parentFrame ? wrapper(*parentFrame) : nil;
 }
 
 - (BOOL)_hasCustomContentProvider

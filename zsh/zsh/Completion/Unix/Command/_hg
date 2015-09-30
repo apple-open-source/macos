@@ -162,15 +162,24 @@ _hg_revrange() {
   _hg_tags "$@"
 }
 
-_hg_tags() {
-  typeset -a tags
-  local tag rev
+_hg_tags_internal() {
+  local expl
+  typeset -a hgtags
+  hgtags=( ${(f)"$(_hg_cmd tags -q 2>/dev/null)"} )
+  _wanted tags expl 'tags' compadd -a - hgtags
+}
 
-  _hg_cmd tags 2> /dev/null | while read tag
-  do
-    tags+=(${tag/ #    [0-9]#:*})
-  done
-  (( $#tags )) && _describe -t tags 'tags' tags
+_hg_bookmarks_internal() {
+  local expl
+  typeset -a hgbookmarks
+  hgbookmarks=( ${(f)"$(_hg_cmd bookmarks -q 2>/dev/null)"} )
+  _wanted bookmarks expl 'bookmarks' compadd -a - hgbookmarks
+}
+
+_hg_tags() {
+  _alternative \
+    'bookmarks:bookmark:_hg_bookmarks_internal' \
+    'tags:tag:_hg_tags_internal'
 }
 
 # likely merge candidates
@@ -224,6 +233,16 @@ _hg_modified() {
   typeset -a status_files
   _hg_status m
   _wanted files expl 'modified files' _multi_parts / status_files
+}
+
+_hg_committable() {
+  typeset -a status_files
+  # A file is a candidate for `hg commit` if it is:
+  # - modified (m), or
+  # - added (a), or
+  # - removed (r)
+  _hg_status mar
+  _wanted files expl 'committable files' _multi_parts / status_files
 }
 
 _hg_resolve() {
@@ -476,7 +495,7 @@ _hg_cmd_commit() {
   '(--logfile -l)'{-l+,--logfile}'[read commit message from specified file]:log file:_files' \
   '(--date -d)'{-d+,--date}'[record datecode as commit date]:date code:' \
   '(--user -u)'{-u+,--user}'[record user as commiter]:user:' \
-  '*:file:_hg_files'
+  '*:file:_hg_committable'
 }
 
 _hg_cmd_copy() {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -236,7 +236,8 @@ void DAAuthorizeWithCallback( DASessionRef        session,
     }
 }
 
-static struct timespec __gDAFileSystemListTime = { 0, 0 };
+static struct timespec __gDAFileSystemListTime1 = { 0, 0 };
+static struct timespec __gDAFileSystemListTime2 = { 0, 0 };
 
 const CFStringRef kDAFileSystemKey = CFSTR( "DAFileSystem" );
 
@@ -265,27 +266,121 @@ static CFComparisonResult __DAFileSystemProbeListCompare( const void * value1, c
     return CFNumberCompare( order1, order2, NULL );
 }
 
+static void __DAFileSystemListRefresh( const char * directory )
+{
+    CFURLRef base;
+
+    base = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) directory, strlen( directory ), TRUE );
+
+    if ( base )
+    {
+        DIR * folder;
+
+        /*
+         * Scan the filesystems in the file system folder.
+         */
+
+        folder = opendir( directory );
+
+        if ( folder )
+        {
+            struct dirent * item;
+
+            DALogDebugHeader( "filesystems have been refreshed." );
+
+            while ( ( item = readdir( folder ) ) )
+            {
+                char * suffix;
+
+                suffix = item->d_name + strlen( item->d_name ) - strlen( FS_DIR_SUFFIX );
+
+                if ( suffix > item->d_name )
+                {
+                    if ( strcmp( suffix, FS_DIR_SUFFIX ) == 0 )
+                    {
+                        CFURLRef path;
+
+                        path = CFURLCreateFromFileSystemRepresentationRelativeToBase( kCFAllocatorDefault,
+                                                                                      ( void * ) item->d_name,
+                                                                                      strlen( item->d_name ),
+                                                                                      TRUE,
+                                                                                      base );
+
+                        if ( path )
+                        {
+                            DAFileSystemRef filesystem;
+
+                            /*
+                             * Create a file system object for this file system.
+                             */
+
+                            filesystem = DAFileSystemCreate( kCFAllocatorDefault, path );
+
+                            if ( filesystem )
+                            {
+                                CFDictionaryRef probe;
+
+                                /*
+                                 * Add this file system object to our list.
+                                 */
+
+                                DALogDebug( "  created filesystem, id = %@.", filesystem );
+
+                                CFArrayAppendValue( gDAFileSystemList, filesystem );
+
+                                probe = DAFileSystemGetProbeList( filesystem );
+
+                                if ( probe )
+                                {
+                                    CFDictionaryApplyFunction( probe, __DAFileSystemProbeListAppendValue, filesystem );
+                                }
+
+                                CFRelease( filesystem );
+                            }
+
+                            CFRelease( path );
+                        }
+                    }
+                }
+            }
+
+            closedir( folder );
+        }
+
+        CFRelease( base );
+    }
+}
+
 void DAFileSystemListRefresh( void )
 {
-    struct stat status;
+    struct stat status1;
+    struct stat status2;
 
     /*
      * Determine whether the file system list is up-to-date.
      */
 
-    if ( stat( FS_DIR_LOCATION, &status ) )
+    if ( stat( FS_DIR_LOCATION, &status1 ) )
     {
-        __gDAFileSystemListTime.tv_sec  = 0;
-        __gDAFileSystemListTime.tv_nsec = 0;
+        __gDAFileSystemListTime1.tv_sec  = 0;
+        __gDAFileSystemListTime1.tv_nsec = 0;
     }
 
-    if ( __gDAFileSystemListTime.tv_sec  != status.st_mtimespec.tv_sec  ||
-         __gDAFileSystemListTime.tv_nsec != status.st_mtimespec.tv_nsec )
+    if ( stat( ___FS_DEFAULT_DIR, &status2 ) )
     {
-        CFURLRef base;
+        __gDAFileSystemListTime2.tv_sec  = 0;
+        __gDAFileSystemListTime2.tv_nsec = 0;
+    }
 
-        __gDAFileSystemListTime.tv_sec  = status.st_mtimespec.tv_sec;
-        __gDAFileSystemListTime.tv_nsec = status.st_mtimespec.tv_nsec;
+    if ( __gDAFileSystemListTime1.tv_sec  != status1.st_mtimespec.tv_sec  ||
+         __gDAFileSystemListTime1.tv_nsec != status1.st_mtimespec.tv_nsec ||
+         __gDAFileSystemListTime2.tv_sec  != status2.st_mtimespec.tv_sec  ||
+         __gDAFileSystemListTime2.tv_nsec != status2.st_mtimespec.tv_nsec )
+    {
+        __gDAFileSystemListTime1.tv_sec  = status1.st_mtimespec.tv_sec;
+        __gDAFileSystemListTime1.tv_nsec = status1.st_mtimespec.tv_nsec;
+        __gDAFileSystemListTime2.tv_sec  = status2.st_mtimespec.tv_sec;
+        __gDAFileSystemListTime2.tv_nsec = status2.st_mtimespec.tv_nsec;
 
         /*
          * Clear the file system list.
@@ -298,85 +393,8 @@ void DAFileSystemListRefresh( void )
          * Build the file system list.
          */
 
-        base = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, CFSTR( FS_DIR_LOCATION ), kCFURLPOSIXPathStyle, TRUE );
-
-        if ( base )
-        {
-            DIR * folder;
-
-            /*
-             * Scan the filesystems in the file system folder.
-             */
-
-            folder = opendir( FS_DIR_LOCATION );
-
-            if ( folder )
-            {
-                struct dirent * item;
-
-                DALogDebugHeader( "filesystems have been refreshed." );
-
-                while ( ( item = readdir( folder ) ) )
-                {
-                    char * suffix;
-
-                    suffix = item->d_name + strlen( item->d_name ) - strlen( FS_DIR_SUFFIX );
-
-                    if ( suffix > item->d_name )
-                    {
-                        if ( strcmp( suffix, FS_DIR_SUFFIX ) == 0 )
-                        {
-                            CFURLRef path;
-
-                            path = CFURLCreateFromFileSystemRepresentationRelativeToBase( kCFAllocatorDefault,
-                                                                                          ( void * ) item->d_name,
-                                                                                          strlen( item->d_name ),
-                                                                                          TRUE,
-                                                                                          base );
-
-                            if ( path )
-                            {
-                                DAFileSystemRef filesystem;
-
-                                /*
-                                 * Create a file system object for this file system.
-                                 */
-
-                                filesystem = DAFileSystemCreate( kCFAllocatorDefault, path );
-
-                                if ( filesystem )
-                                {
-                                    CFDictionaryRef probe;
-
-                                    /*
-                                     * Add this file system object to our list.
-                                     */
-
-                                    DALogDebug( "  created filesystem, id = %@.", filesystem );
-
-                                    CFArrayAppendValue( gDAFileSystemList, filesystem );
-
-                                    probe = DAFileSystemGetProbeList( filesystem );
-
-                                    if ( probe )
-                                    {
-                                        CFDictionaryApplyFunction( probe, __DAFileSystemProbeListAppendValue, filesystem );
-                                    }
-
-                                    CFRelease( filesystem );
-                                }
-
-                                CFRelease( path );
-                            }
-                        }
-                    }
-                }
-
-                closedir( folder );
-            }
-
-            CFRelease( base );
-        }
+        __DAFileSystemListRefresh( FS_DIR_LOCATION );
+        __DAFileSystemListRefresh( ___FS_DEFAULT_DIR );
 
         /*
          * Order the probe list.

@@ -42,9 +42,10 @@
 
 
 OM_uint32
-gss_mg_gen_cb(OM_uint32 *minor_status,
-	      const gss_channel_bindings_t b,
-	      uint8_t p[16], gss_buffer_t buffer)
+gss_mg_gen_cb(OM_uint32 *__nonnull minor_status,
+	      __nonnull const gss_channel_bindings_t b,
+	      uint8_t p[16],
+	      __nullable gss_buffer_t buffer)
 {
     krb5_error_code ret;
     krb5_ssize_t sret;
@@ -131,10 +132,10 @@ gss_mg_gen_cb(OM_uint32 *minor_status,
 }
 
 OM_uint32
-gss_mg_validate_cb(OM_uint32 *minor_status,
-		   const gss_channel_bindings_t b,
+gss_mg_validate_cb(OM_uint32 *__nonnull minor_status,
+		   __nonnull const gss_channel_bindings_t b,
 		   const uint8_t p[16],
-		   gss_buffer_t buffer)
+		   __nonnull gss_buffer_t buffer)
 {
     static uint8_t zeros[16] = { 0 };
     OM_uint32 major_status, junk;

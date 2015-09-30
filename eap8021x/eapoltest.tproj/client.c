@@ -169,7 +169,6 @@ static int
 cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
 {
     CFIndex		l;
-    CFIndex		n;
     CFRange		range;
 
     range = CFRangeMake(0, CFStringGetLength(cfstr));
@@ -402,7 +401,6 @@ S_set_user_autoconnect(int argc, char * argv[])
 {
     Boolean		enable = FALSE;
     const char * 	enable_str = argv[0];
-    int 		result;
 
     if (strcasecmp(enable_str, "on") == 0) {
 	enable = TRUE;

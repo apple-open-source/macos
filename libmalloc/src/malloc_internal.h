@@ -31,30 +31,32 @@
 #define MALLOC_USE_OS_LOCK_HANDOFF 1 // <rdar://problem/13807682>
 #endif
 
-#if !TARGET_IPHONE_SIMULATOR || MALLOC_USE_OS_LOCK_HANDOFF
-#define MALLOC_USE_OS_LOCK 1 // <rdar://problem/16104834> <rdar://problem/16230083>
-#endif
-
 #if MALLOC_USE_OS_LOCK_HANDOFF
 typedef os_lock_handoff_s _malloc_lock_s;
 #define _MALLOC_LOCK_INIT OS_LOCK_HANDOFF_INIT
-#elif MALLOC_USE_OS_LOCK
-typedef os_lock_spin_s _malloc_lock_s;
-#define _MALLOC_LOCK_INIT OS_LOCK_SPIN_INIT
-#else
-#include <libkern/OSAtomic.h>
-typedef OSSpinLock _malloc_lock_s;
-#define _MALLOC_LOCK_INIT OS_SPINLOCK_INIT
-#endif
 
 __attribute__((always_inline))
 static inline void
 _malloc_lock_init(_malloc_lock_s *lock) {
-	const _malloc_lock_s _malloc_lock_init = _MALLOC_LOCK_INIT;
-	*lock = _malloc_lock_init;
+	const os_lock_handoff_s _os_lock_handoff_init = OS_LOCK_HANDOFF_INIT;
+	*lock = _os_lock_handoff_init;
 }
 
-#if MALLOC_USE_OS_LOCK
+#else /* !MALLOC_USE_OS_LOCK_HANDOFF */
+
+typedef os_lock_spin_s _malloc_lock_s;
+
+#define _MALLOC_LOCK_INIT OS_LOCK_SPIN_INIT
+
+__attribute__((always_inline))
+static inline void
+_malloc_lock_init(_malloc_lock_s *lock) {
+	const os_lock_spin_s _os_lock_spin_init = OS_LOCK_SPIN_INIT;
+	*lock = _os_lock_spin_init;
+}
+
+#endif /* !MALLOC_USE_OS_LOCK_HANDOFF */
+
 __attribute__((always_inline))
 static inline void
 _malloc_lock_lock(_malloc_lock_s *lock) {
@@ -72,28 +74,5 @@ static inline void
 _malloc_lock_unlock(_malloc_lock_s *lock) {
 	return os_lock_unlock(lock);
 }
-
-#else // MALLOC_USE_OS_LOCK
-
-__attribute__((always_inline))
-static inline void
-_malloc_lock_lock(_malloc_lock_s *lock) {
-	return OSSpinLockLock(lock);
-}
-
-__attribute__((always_inline))
-static inline bool
-_malloc_lock_trylock(_malloc_lock_s *lock) {
-	return OSSpinLockTry(lock);
-}
-
-__attribute__((always_inline))
-static inline void
-_malloc_lock_unlock(_malloc_lock_s *lock) {
-	return OSSpinLockUnlock(lock);
-}
-
-#endif // MALLOC_USE_OS_LOCK
-
 
 #endif // __MALLOC_INTERNAL_H

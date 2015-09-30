@@ -1,9 +1,9 @@
 /*
- * "$Id: dnssd.c 11983 2014-07-02 12:17:11Z msweet $"
+ * "$Id: dnssd.c 12827 2015-07-31 15:21:37Z msweet $"
  *
  * DNS-SD discovery backend for CUPS.
  *
- * Copyright 2008-2014 by Apple Inc.
+ * Copyright 2008-2015 by Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -318,7 +318,7 @@ main(int  argc,				/* I - Number of command-line args */
   if ((simple_poll = avahi_simple_poll_new()) == NULL)
   {
     fputs("DEBUG: Unable to create Avahi simple poll object.\n", stderr);
-    return (1);
+    return (0);
   }
 
   avahi_simple_poll_set_func(simple_poll, poll_callback, NULL);
@@ -328,7 +328,7 @@ main(int  argc,				/* I - Number of command-line args */
   if (!client)
   {
     fputs("DEBUG: Unable to create Avahi client.\n", stderr);
-    return (1);
+    return (0);
   }
 
   browsers = 6;
@@ -1289,7 +1289,7 @@ sigterm_handler(int sig)		/* I - Signal number (unused) */
   (void)sig;
 
   if (job_canceled)
-    exit(CUPS_BACKEND_OK);
+    _exit(CUPS_BACKEND_OK);
   else
     job_canceled = 1;
 }
@@ -1330,5 +1330,5 @@ unquote(char       *dst,		/* I - Destination buffer */
 
 
 /*
- * End of "$Id: dnssd.c 11983 2014-07-02 12:17:11Z msweet $".
+ * End of "$Id: dnssd.c 12827 2015-07-31 15:21:37Z msweet $".
  */

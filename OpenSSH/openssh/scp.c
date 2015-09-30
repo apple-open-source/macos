@@ -1,4 +1,4 @@
-/* $OpenBSD: scp.c,v 1.171 2011/09/09 22:37:01 djm Exp $ */
+/* $OpenBSD: scp.c,v 1.182 2015/04/24 01:36:00 deraadt Exp $ */
 /*
  * scp - secure remote copy.  This is basically patched BSD rcp which
  * uses ssh to do the data transfer (instead of using rcmd).
@@ -98,6 +98,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -578,6 +579,24 @@ scpio(void *_cnt, size_t s)
 	return 0;
 }
 
+static int
+do_times(int fd, int verb, const struct stat *sb)
+{
+	/* strlen(2^64) == 20; strlen(10^6) == 7 */
+	char buf[(20 + 7 + 2) * 2 + 2];
+
+	(void)snprintf(buf, sizeof(buf), "T%llu 0 %llu 0\n",
+	    (unsigned long long) (sb->st_mtime < 0 ? 0 : sb->st_mtime),
+	    (unsigned long long) (sb->st_atime < 0 ? 0 : sb->st_atime));
+	if (verb) {
+		fprintf(stderr, "File mtime %lld atime %lld\n",
+		    (long long)sb->st_mtime, (long long)sb->st_atime);
+		fprintf(stderr, "Sending file timestamps: %s", buf);
+	}
+	(void) atomicio(vwrite, fd, buf, strlen(buf));
+	return (response());
+}
+
 void
 toremote(char *targ, int argc, char **argv)
 {
@@ -606,7 +625,7 @@ toremote(char *targ, int argc, char **argv)
 	}
 
 	if (tuser != NULL && !okname(tuser)) {
-		xfree(arg);
+		free(arg);
 		return;
 	}
 
@@ -633,13 +652,13 @@ toremote(char *targ, int argc, char **argv)
 			    *src == '-' ? "-- " : "", src);
 			if (do_cmd(host, suser, bp, &remin, &remout) < 0)
 				exit(1);
-			(void) xfree(bp);
+			free(bp);
 			host = cleanhostname(thost);
 			xasprintf(&bp, "%s -t %s%s", cmd,
 			    *targ == '-' ? "-- " : "", targ);
 			if (do_cmd2(host, tuser, bp, remin, remout) < 0)
 				exit(1);
-			(void) xfree(bp);
+			free(bp);
 			(void) close(remin);
 			(void) close(remout);
 			remin = remout = -1;
@@ -690,12 +709,12 @@ toremote(char *targ, int argc, char **argv)
 					exit(1);
 				if (response() < 0)
 					exit(1);
-				(void) xfree(bp);
+				free(bp);
 			}
 			source(1, argv + i);
 		}
 	}
-	xfree(arg);
+	free(arg);
 }
 
 void
@@ -739,11 +758,11 @@ tolocal(int argc, char **argv)
 		xasprintf(&bp, "%s -f %s%s",
 		    cmd, *src == '-' ? "-- " : "", src);
 		if (do_cmd(host, suser, bp, &remin, &remout) < 0) {
-			(void) xfree(bp);
+			free(bp);
 			++errs;
 			continue;
 		}
-		xfree(bp);
+		free(bp);
 		sink(1, argv + argc - 1);
 		(void) close(remin);
 		remin = remout = -1;
@@ -757,9 +776,9 @@ source(int argc, char **argv)
 	static BUF buffer;
 	BUF *bp;
 	off_t i, statbytes;
-	size_t amt;
+	size_t amt, nr;
 	int fd = -1, haderr, indx;
-	char *last, *name, buf[2048], encname[MAXPATHLEN];
+	char *last, *name, buf[2048], encname[PATH_MAX];
 	int len;
 #if HAVE_COPYFILE
 	char md_name[MAXPATHLEN];
@@ -820,21 +839,7 @@ syserr:			run_err("%s: %s", name, strerror(errno));
 			++last;
 		curfile = last;
 		if (pflag) {
-			/*
-			 * Make it compatible with possible future
-			 * versions expecting microseconds.
-			 */
-			(void) snprintf(buf, sizeof buf, "T%lu 0 %lu 0\n",
-			    (u_long) (stb.st_mtime < 0 ? 0 : stb.st_mtime),
-			    (u_long) (stb.st_atime < 0 ? 0 : stb.st_atime));
-			if (verbose_mode) {
-				fprintf(stderr, "File mtime %ld atime %ld\n",
-				    (long)stb.st_mtime, (long)stb.st_atime);
-				fprintf(stderr, "Sending file timestamps: %s",
-				    buf);
-			}
-			(void) atomicio(vwrite, remout, buf, strlen(buf));
-			if (response() < 0)
+			if (do_times(remout, verbose_mode, &stb) < 0)
 				goto next;
 		}
 #define	FILEMODEMASK	(S_ISUID|S_ISGID|S_IRWXU|S_IRWXG|S_IRWXO)
@@ -862,12 +867,16 @@ next:			if (fd != -1) {
 			if (i + (off_t)amt > stb.st_size)
 				amt = stb.st_size - i;
 			if (!haderr) {
-				if (atomicio(read, fd, bp->buf, amt) != amt)
+				if ((nr = atomicio(read, fd,
+				    bp->buf, amt)) != amt) {
 					haderr = errno;
+					memset(bp->buf + nr, 0, amt - nr);
+				}
 			}
 			/* Keep writing after error to retain sync */
 			if (haderr) {
 				(void)atomicio(vwrite, remout, bp->buf, amt);
+				memset(bp->buf, 0, amt);
 				continue;
 			}
 			if (atomicio6(vwrite, remout, bp->buf, amt, scpio,
@@ -926,7 +935,7 @@ rsource(char *name, struct stat *statp)
 {
 	DIR *dirp;
 	struct dirent *dp;
-	char *last, *vect[1], path[1100];
+	char *last, *vect[1], path[PATH_MAX];
 
 	if (!(dirp = opendir(name))) {
 		run_err("%s: %s", name, strerror(errno));
@@ -938,11 +947,7 @@ rsource(char *name, struct stat *statp)
 	else
 		last++;
 	if (pflag) {
-		(void) snprintf(path, sizeof(path), "T%lu 0 %lu 0\n",
-		    (u_long) statp->st_mtime,
-		    (u_long) statp->st_atime);
-		(void) atomicio(vwrite, remout, path, strlen(path));
-		if (response() < 0) {
+		if (do_times(remout, verbose_mode, statp) < 0) {
 			closedir(dirp);
 			return;
 		}
@@ -988,6 +993,7 @@ sink(int argc, char **argv)
 	int amt, exists, first, ofd;
 	mode_t mode, omode, mask;
 	off_t size, statbytes;
+	unsigned long long ull;
 	int setimes, targisdir, wrerrno = 0;
 	char ch, *cp, *np, *targ, *why, *vect[1], buf[2048];
 	struct timeval tv[2];
@@ -1050,17 +1056,31 @@ sink(int argc, char **argv)
 		if (*cp == 'T') {
 			setimes++;
 			cp++;
-			mtime.tv_sec = strtol(cp, &cp, 10);
+			if (!isdigit((unsigned char)*cp))
+				SCREWUP("mtime.sec not present");
+			ull = strtoull(cp, &cp, 10);
 			if (!cp || *cp++ != ' ')
 				SCREWUP("mtime.sec not delimited");
+			if ((time_t)ull < 0 ||
+			    (unsigned long long)(time_t)ull != ull)
+				setimes = 0;	/* out of range */
+			mtime.tv_sec = ull;
 			mtime.tv_usec = strtol(cp, &cp, 10);
-			if (!cp || *cp++ != ' ')
+			if (!cp || *cp++ != ' ' || mtime.tv_usec < 0 ||
+			    mtime.tv_usec > 999999)
 				SCREWUP("mtime.usec not delimited");
-			atime.tv_sec = strtol(cp, &cp, 10);
+			if (!isdigit((unsigned char)*cp))
+				SCREWUP("atime.sec not present");
+			ull = strtoull(cp, &cp, 10);
 			if (!cp || *cp++ != ' ')
 				SCREWUP("atime.sec not delimited");
+			if ((time_t)ull < 0 ||
+			    (unsigned long long)(time_t)ull != ull)
+				setimes = 0;	/* out of range */
+			atime.tv_sec = ull;
 			atime.tv_usec = strtol(cp, &cp, 10);
-			if (!cp || *cp++ != '\0')
+			if (!cp || *cp++ != '\0' || atime.tv_usec < 0 ||
+			    atime.tv_usec > 999999)
 				SCREWUP("atime.usec not delimited");
 			(void) atomicio(vwrite, remout, "", 1);
 			continue;
@@ -1088,7 +1108,7 @@ sink(int argc, char **argv)
 		if (*cp++ != ' ')
 			SCREWUP("mode not delimited");
 
-		for (size = 0; isdigit(*cp);)
+		for (size = 0; isdigit((unsigned char)*cp);)
 			size = size * 10 + (*cp++ - '0');
 		if (*cp++ != ' ')
 			SCREWUP("size not delimited");
@@ -1103,8 +1123,7 @@ sink(int argc, char **argv)
 
 			need = strlen(targ) + strlen(cp) + 250;
 			if (need > cursize) {
-				if (namebuf)
-					xfree(namebuf);
+				free(namebuf);
 				namebuf = xmalloc(need);
 				cursize = need;
 			}
@@ -1143,13 +1162,11 @@ sink(int argc, char **argv)
 			}
 			if (mod_flag)
 				(void) chmod(vect[0], mode);
-			if (vect[0])
-				xfree(vect[0]);
+			free(vect[0]);
 			continue;
 		}
 		omode = mode;
-		mode |= S_IWRITE;
-
+		mode |= S_IWUSR;
 #if HAVE_COPYFILE
 		if (copy_xattr && !strncmp(basename(curfile), "._", 2))
 		{
@@ -1283,8 +1300,7 @@ bad:			run_err("%s: %s", np, strerror(errno));
 		{
 			if (verbose_mode)
 			    fprintf(stderr, "copyfile(%s, %s, UNPACK)\n", md_src, md_dst);
-			if(!copyfile(md_src, md_dst, 0,
-			    COPYFILE_ACL | COPYFILE_XATTR | COPYFILE_UNPACK) < 0)
+			if(copyfile(md_src, md_dst, 0, COPYFILE_ACL | COPYFILE_XATTR | COPYFILE_UNPACK) == 0)
 			{
 			    snprintf(md_dst, sizeof md_dst, "%s/._%s",
 				    dirname(md_dst), basename(md_dst));
@@ -1422,7 +1438,7 @@ okname(char *cp0)
 		c = (int)*cp;
 		if (c & 0200)
 			goto bad;
-		if (!isalpha(c) && !isdigit(c)) {
+		if (!isalpha(c) && !isdigit((unsigned char)c)) {
 			switch (c) {
 			case '\'':
 			case '"':
@@ -1463,7 +1479,7 @@ allocbuf(BUF *bp, int fd, int blksize)
 	if (bp->buf == NULL)
 		bp->buf = xmalloc(size);
 	else
-		bp->buf = xrealloc(bp->buf, 1, size);
+		bp->buf = xreallocarray(bp->buf, 1, size);
 	memset(bp->buf, 0, size);
 	bp->cnt = size;
 	return (bp);
@@ -1473,7 +1489,7 @@ void
 lostconn(int signo)
 {
 	if (!iamremote)
-		write(STDERR_FILENO, "lost connection\n", 16);
+		(void)write(STDERR_FILENO, "lost connection\n", 16);
 	if (signo)
 		_exit(1);
 	else

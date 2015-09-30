@@ -1,0 +1,7 @@
+#include "common.xcconfig"
+
+// Deployment
+INSTALL_PATH = /usr/local/lib
+
+// Packaging
+PRODUCT_NAME = magic

@@ -33,6 +33,7 @@
 #include "CryptoAlgorithmRegistry.h"
 #include "CryptoKeyDataRSAComponents.h"
 #include "CryptoKeyPair.h"
+#include <wtf/MainThread.h>
 
 namespace WebCore {
 
@@ -181,15 +182,13 @@ void CryptoKeyRSA::buildAlgorithmDescription(CryptoAlgorithmDescriptionBuilder& 
 
     if (m_restrictedToSpecificHash) {
         auto hashDescriptionBuilder = builder.createEmptyClone();
-        hashDescriptionBuilder->add("name", CryptoAlgorithmRegistry::shared().nameForIdentifier(m_hash));
+        hashDescriptionBuilder->add("name", CryptoAlgorithmRegistry::singleton().nameForIdentifier(m_hash));
         builder.add("hash", *hashDescriptionBuilder);
     }
 }
 
 std::unique_ptr<CryptoKeyData> CryptoKeyRSA::exportData() const
 {
-    ASSERT(extractable());
-
     switch (CCRSAGetKeyType(m_platformKey)) {
     case ccRSAKeyPublic: {
         Vector<uint8_t> modulus;
@@ -260,17 +259,19 @@ void CryptoKeyRSA::generatePair(CryptoAlgorithmIdentifier algorithm, unsigned mo
         CCCryptorStatus status = CCRSACryptorGeneratePair(modulusLength, e, &ccPublicKey, &ccPrivateKey);
         if (status) {
             WTFLogAlways("Could not generate a key pair, status %d", status);
-            dispatch_async(dispatch_get_main_queue(), ^{
+            callOnWebThreadOrDispatchAsyncOnMainThread(^{
                 (*localFailureCallback)();
+                delete localCallback;
                 delete localFailureCallback;
             });
             return;
         }
-        dispatch_async(dispatch_get_main_queue(), ^{
+        callOnWebThreadOrDispatchAsyncOnMainThread(^{
             RefPtr<CryptoKeyRSA> publicKey = CryptoKeyRSA::create(algorithm, CryptoKeyType::Public, ccPublicKey, true, usage);
             RefPtr<CryptoKeyRSA> privateKey = CryptoKeyRSA::create(algorithm, CryptoKeyType::Private, ccPrivateKey, extractable, usage);
-            (*localCallback)(*CryptoKeyPair::create(publicKey.release(), privateKey.release()));
+            (*localCallback)(CryptoKeyPair::create(publicKey.release(), privateKey.release()));
             delete localCallback;
+            delete localFailureCallback;
         });
     });
 }

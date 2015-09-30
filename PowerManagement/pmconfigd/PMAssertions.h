@@ -202,6 +202,7 @@ typedef struct {
     uint32_t            timeoutchange:1;    // Interested in assertion timeout notification
     uint32_t            disableAS_pend:1;   // Disable AppSleep notification need to be sent
     uint32_t            enableAS_pend:1;    // Enable AppSleep notification need to be sent
+    uint32_t            proc_exited:1;      // True if PROC_EXIT notification is received
 } ProcessInfo;
 
 typedef struct assertion {
@@ -217,6 +218,8 @@ typedef struct assertion {
     uint32_t        mods;               // Modifcation bits for most recent SetProperties call
 
     uint32_t        retainCnt;          // Number of retain calls
+
+    int             enTrIntensity;      // Intensity parameter for energy tracing of the assertion
 
     ProcessInfo     *pinfo;             // Pointer to ProcessInfo structure
 
@@ -286,6 +289,8 @@ struct assertionType {
     // Not all fields are valid for all assertion types 
     uint32_t   validOnBattCount;        /* Count of assertions requesting to be active on Battery power */
     uint32_t   lidSleepCount;           /* Count of assertions changing clamshellSleep state(For kDeclareUserActivityType only) */
+
+    uint32_t   enTrQuality;             /* Quality or intensity for energy tracing */
 } ;
 
 /* Flag bits for assertionType_t structure */
@@ -340,6 +345,9 @@ __private_extern__ IOReturn InternalCreateAssertion(
 
 __private_extern__ void InternalReleaseAssertion(
                                 IOPMAssertionID *outID);
+__private_extern__ IOReturn InternalReleaseAssertionSync(IOPMAssertionID outID);
+__private_extern__ IOReturn 
+InternalCreateAssertionWithTimeout(CFStringRef type, CFStringRef name, int timerSecs, IOPMAssertionID *outID);
 
 __private_extern__ void InternalEvaluateAssertions(void);
 
@@ -361,6 +369,7 @@ __private_extern__ void setSleepServicesTimeCap(uint32_t  timeoutInMS);
 __private_extern__ bool systemBlockedInS0Dark( );
 __private_extern__ bool checkForActivesByType(kerAssertionType type);
 __private_extern__ bool checkForEntriesByType(kerAssertionType type);
+__private_extern__ bool checkForActivesByEffect(kerAssertionEffect effectIdx);
 __private_extern__ void disableAssertionType(kerAssertionType type);
 __private_extern__ void enableAssertionType(kerAssertionType type);
 __private_extern__ void applyToAllAssertionsSync(assertionType_t *assertType, 

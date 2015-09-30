@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2014, International Business Machines
+*   Copyright (C) 1997-2015, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -807,7 +807,7 @@ public:
      * Set whether or not grouping will be used in this format.
      * @param newValue    True, grouping will be used in this format.
      * @see getGroupingUsed
-     * @draft ICU 53
+     * @stable ICU 53
      */
     virtual void setGroupingUsed(UBool newValue);
 
@@ -816,11 +816,10 @@ public:
      * @param value    set True, this format will parse numbers as integers
      *                 only.
      * @see isParseIntegerOnly
-     * @draft ICU 53
+     * @stable ICU 53
      */
     virtual void setParseIntegerOnly(UBool value);
 
-    /* Cannot use #ifndef U_HIDE_DRAFT_API for the following draft method since it is virtual */
     /**
      * Set a particular UDisplayContext value in the formatter, such as
      * UDISPCTX_CAPITALIZATION_FOR_STANDALONE.
@@ -828,7 +827,7 @@ public:
      * @param status Input/output status. If at entry this indicates a failure
      *               status, the function will do nothing; otherwise this will be
      *               updated with any new status from the function. 
-     * @draft ICU 53
+     * @stable ICU 53
      */
     virtual void setContext(UDisplayContext value, UErrorCode& status);
 
@@ -1630,6 +1629,28 @@ public:
      */
     virtual void setDecimalSeparatorAlwaysShown(UBool newValue);
 
+#ifndef U_HIDE_DRAFT_API
+    /**
+     * Allows you to get the parse behavior of the pattern decimal mark.
+     *
+     * @return    TRUE if input must contain a match to decimal mark in pattern
+     * @draft ICU 54
+     */
+    UBool isDecimalPatternMatchRequired(void) const;
+#endif  /* U_HIDE_DRAFT_API */
+
+    /**
+     * Allows you to set the behavior of the pattern decimal mark.
+     * 
+     * if TRUE, the input must have a decimal mark if one was specified in the pattern. When
+     * FALSE the decimal mark may be omitted from the input.
+     *
+     * @param newValue    set TRUE if input must contain a match to decimal mark in pattern
+     * @draft ICU 54
+     */
+    virtual void setDecimalPatternMatchRequired(UBool newValue);
+
+
     /**
      * Synthesizes a pattern string that represents the current state
      * of this Format object.
@@ -1871,12 +1892,32 @@ public:
      */
     virtual void setCurrency(const UChar* theCurrency);
 
+#ifndef U_HIDE_DRAFT_API
+    /**
+     * Sets the <tt>Currency Context</tt> object used to display currency.
+     * This takes effect immediately, if this format is a
+     * currency format.  
+     * @param currencyContext new currency context object to use.  
+     * @draft ICU 54
+     */
+    void setCurrencyUsage(UCurrencyUsage newUsage, UErrorCode* ec);
+
+    /**
+     * Returns the <tt>Currency Context</tt> object used to display currency
+     * @draft ICU 54
+     */
+    UCurrencyUsage getCurrencyUsage() const;
+#endif  /* U_HIDE_DRAFT_API */
+
+
+#ifndef U_HIDE_DEPRECATED_API
     /**
      * The resource tags we use to retrieve decimal format data from
      * locale resource bundles.
      * @deprecated ICU 3.4. This string has no public purpose. Please don't use it.
      */
     static const char fgNumberPatterns[];
+#endif  /* U_HIDE_DEPRECATED_API */
 
 #ifndef U_HIDE_INTERNAL_API
     /**
@@ -2164,6 +2205,14 @@ private:
                               UBool setupForCurrentPattern,
                               UBool setupForPluralPattern,
                               UErrorCode& status);
+	
+    // get the currency rounding with respect to currency usage
+    double getCurrencyRounding(const UChar* currency,
+                               UErrorCode* ec) const;
+	
+    // get the currency fraction with respect to currency usage
+    int getCurrencyFractionDigits(const UChar* currency,
+                                  UErrorCode* ec) const;
 
     // hashtable operations
     Hashtable* initHashForAffixPattern(UErrorCode& status);
@@ -2354,7 +2403,9 @@ private:
 
     // Decimal Format Static Sets singleton.
     const DecimalFormatStaticSets *fStaticSets;
-
+	
+    // Currency Usage(STANDARD vs CASH)
+    UCurrencyUsage fCurrencyUsage;
 
 protected:
 

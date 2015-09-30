@@ -27,25 +27,32 @@
 
 #include "TransformOperation.h"
 #include "TransformationMatrix.h"
+#include <wtf/Ref.h>
 
 namespace WebCore {
 
 class MatrixTransformOperation final : public TransformOperation {
 public:
-    static PassRefPtr<MatrixTransformOperation> create(double a, double b, double c, double d, double e, double f)
+    static Ref<MatrixTransformOperation> create(double a, double b, double c, double d, double e, double f)
     {
-        return adoptRef(new MatrixTransformOperation(a, b, c, d, e, f));
+        return adoptRef(*new MatrixTransformOperation(a, b, c, d, e, f));
     }
 
-    static PassRefPtr<MatrixTransformOperation> create(const TransformationMatrix& t)
+    static Ref<MatrixTransformOperation> create(const TransformationMatrix& t)
     {
-        return adoptRef(new MatrixTransformOperation(t));
+        return adoptRef(*new MatrixTransformOperation(t));
+    }
+
+    virtual Ref<TransformOperation> clone() const override
+    {
+        return adoptRef(*new MatrixTransformOperation(matrix()));
     }
 
     TransformationMatrix matrix() const { return TransformationMatrix(m_a, m_b, m_c, m_d, m_e, m_f); }
 
 private:
     virtual bool isIdentity() const override { return m_a == 1 && m_b == 0 && m_c == 0 && m_d == 1 && m_e == 0 && m_f == 0; }
+    virtual bool isAffectedByTransformOrigin() const override { return !isIdentity(); }
 
     virtual OperationType type() const override { return MATRIX; }
     virtual bool isSameType(const TransformOperation& o) const override { return o.type() == MATRIX; }
@@ -59,7 +66,7 @@ private:
         return false;
     }
 
-    virtual PassRefPtr<TransformOperation> blend(const TransformOperation* from, double progress, bool blendToIdentity = false) override;
+    virtual Ref<TransformOperation> blend(const TransformOperation* from, double progress, bool blendToIdentity = false) override;
     
     MatrixTransformOperation(double a, double b, double c, double d, double e, double f)
         : m_a(a)
@@ -89,8 +96,8 @@ private:
     double m_f;
 };
 
-TRANSFORMOPERATION_TYPE_CASTS(MatrixTransformOperation, type() == TransformOperation::MATRIX);
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_TRANSFORMOPERATION(WebCore::MatrixTransformOperation, type() == WebCore::TransformOperation::MATRIX)
 
 #endif // MatrixTransformOperation_h

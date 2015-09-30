@@ -1,4 +1,4 @@
-# Copyright (C) 2006, 2007, 2008, 2009, 2011, 2013 Apple Inc. All rights reserved.
+# Copyright (C) 2006, 2007, 2008, 2009, 2011, 2013, 2015 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@ VPATH = \
 .PHONY : all
 all : \
     ArrayConstructor.lut.h \
-    ArrayPrototype.lut.h \
+    ArrayIteratorPrototype.lut.h \
     BooleanPrototype.lut.h \
     DateConstructor.lut.h \
     DatePrototype.lut.h \
@@ -48,15 +48,16 @@ all : \
     JSPromiseConstructor.lut.h \
     KeywordLookup.h \
     Lexer.lut.h \
-    NamePrototype.lut.h \
     NumberConstructor.lut.h \
     NumberPrototype.lut.h \
     ObjectConstructor.lut.h \
     RegExpConstructor.lut.h \
     RegExpPrototype.lut.h \
     RegExpJitTables.h \
-    RegExpObject.lut.h \
     StringConstructor.lut.h \
+    StringIteratorPrototype.lut.h \
+    SymbolConstructor.lut.h \
+    SymbolPrototype.lut.h \
     udis86_itab.h \
     Bytecodes.h \
     InitBytecodes.asm \
@@ -66,28 +67,28 @@ all : \
 # builtin functions
 .PHONY: JSCBuiltins
 
-# Windows has specific needs for specifying the path to its interpreters
+PYTHON = python
+PERL = perl
+
 ifeq ($(OS),Windows_NT)
-    PYTHON = /usr/bin/python
-    PERL = /usr/bin/perl
+    DELETE = cmd //C del
 else
-    PYTHON = python
-    PERL = perl
+    DELETE = rm -f
 endif
 # --------
 
 JSCBuiltins: $(JavaScriptCore)/generate-js-builtins JSCBuiltins.h JSCBuiltins.cpp
-JSCBuiltins.h: $(JavaScriptCore)/generate-js-builtins $(JavaScriptCore)/builtins/*.js
-	$(PYTHON) $^ $@
+JSCBuiltins.h: $(JavaScriptCore)/generate-js-builtins $(JavaScriptCore)/builtins
+	$(PYTHON) $(JavaScriptCore)/generate-js-builtins --input-directory $(JavaScriptCore)/builtins --output $@
 																				 
 JSCBuiltins.cpp: JSCBuiltins.h
 
 # lookup tables for classes
 
 %.lut.h: create_hash_table %.cpp
-	$^ -i > $@
+	$(PERL) $^ -i > $@
 Lexer.lut.h: create_hash_table Keywords.table
-	$^ > $@
+	$(PERL) $^ > $@
 
 # character tables for Yarr
 
@@ -100,7 +101,7 @@ KeywordLookup.h: KeywordLookupGenerator.py Keywords.table
 # udis86 instruction tables
 
 udis86_itab.h: $(JavaScriptCore)/disassembler/udis86/itab.py $(JavaScriptCore)/disassembler/udis86/optable.xml
-	(PYTHONPATH=$(JavaScriptCore)/disassembler/udis86 $(PYTHON) $(JavaScriptCore)/disassembler/udis86/itab.py $(JavaScriptCore)/disassembler/udis86/optable.xml || exit 1)
+	$(PYTHON) $(JavaScriptCore)/disassembler/udis86/itab.py $(JavaScriptCore)/disassembler/udis86/optable.xml
 
 # Bytecode files
 
@@ -113,22 +114,54 @@ InitBytecodes.asm: $(JavaScriptCore)/generate-bytecode-files $(JavaScriptCore)/b
 # Inspector interfaces
 
 INSPECTOR_DOMAINS = \
+    $(JavaScriptCore)/inspector/protocol/ApplicationCache.json \
+    $(JavaScriptCore)/inspector/protocol/CSS.json \
     $(JavaScriptCore)/inspector/protocol/Console.json \
+    $(JavaScriptCore)/inspector/protocol/DOM.json \
+    $(JavaScriptCore)/inspector/protocol/DOMDebugger.json \
+    $(JavaScriptCore)/inspector/protocol/DOMStorage.json \
+    $(JavaScriptCore)/inspector/protocol/Database.json \
     $(JavaScriptCore)/inspector/protocol/Debugger.json \
     $(JavaScriptCore)/inspector/protocol/GenericTypes.json \
-    $(JavaScriptCore)/inspector/protocol/InspectorDomain.json \
-    $(JavaScriptCore)/inspector/protocol/Profiler.json \
+    $(JavaScriptCore)/inspector/protocol/Inspector.json \
+    $(JavaScriptCore)/inspector/protocol/LayerTree.json \
+    $(JavaScriptCore)/inspector/protocol/Network.json \
+    $(JavaScriptCore)/inspector/protocol/OverlayTypes.json \
+    $(JavaScriptCore)/inspector/protocol/Page.json \
     $(JavaScriptCore)/inspector/protocol/Runtime.json \
+    $(JavaScriptCore)/inspector/protocol/Timeline.json \
+    $(JavaScriptCore)/inspector/protocol/Worker.json \
 #
 
+ifeq ($(findstring ENABLE_INDEXED_DATABASE,$(FEATURE_DEFINES)), ENABLE_INDEXED_DATABASE)
+    INSPECTOR_DOMAINS := $(INSPECTOR_DOMAINS) $(JavaScriptCore)/inspector/protocol/IndexedDB.json
+endif
+
+ifeq ($(findstring ENABLE_WEB_REPLAY,$(FEATURE_DEFINES)), ENABLE_WEB_REPLAY)
+    INSPECTOR_DOMAINS := $(INSPECTOR_DOMAINS) $(JavaScriptCore)/inspector/protocol/Replay.json
+endif
+
 INSPECTOR_GENERATOR_SCRIPTS = \
-	$(JavaScriptCore)/inspector/scripts/CodeGeneratorInspector.py \
-	$(JavaScriptCore)/inspector/scripts/CodeGeneratorInspectorStrings.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/__init__.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/cpp_generator_templates.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/cpp_generator.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/generate_cpp_backend_dispatcher_header.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/generate_cpp_backend_dispatcher_implementation.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/generate_cpp_frontend_dispatcher_header.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/generate_cpp_frontend_dispatcher_implementation.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/generate_cpp_protocol_types_header.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/generate_cpp_protocol_types_implementation.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/generate_js_backend_commands.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/generator_templates.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/generator.py \
+	$(JavaScriptCore)/inspector/scripts/codegen/models.py \
+	$(JavaScriptCore)/inspector/scripts/generate-combined-inspector-json.py \
+	$(JavaScriptCore)/inspector/scripts/generate-inspector-protocol-bindings.py \
 #
 
 all : \
-    InspectorJS.json \
-    InspectorJSFrontendDispatchers.h \
+    CombinedDomains.json \
+    InspectorFrontendDispatchers.h \
     InjectedScriptSource.h \
 #
 
@@ -136,21 +169,21 @@ all : \
 # adding, modifying, or removing domains will trigger regeneration of inspector files.
 
 .PHONY: force
-EnabledInspectorDomains : force
-	echo '$(INSPECTOR_DOMAINS)' | cmp -s - $@ || echo '$(INSPECTOR_DOMAINS)' > $@
+EnabledInspectorDomains : $(JavaScriptCore)/UpdateContents.py force
+	$(PYTHON) $(JavaScriptCore)/UpdateContents.py '$(INSPECTOR_DOMAINS)' $@
 
-InspectorJS.json : inspector/scripts/generate-combined-inspector-json.py $(INSPECTOR_DOMAINS) EnabledInspectorDomains
-	$(PYTHON) $(JavaScriptCore)/inspector/scripts/generate-combined-inspector-json.py $(INSPECTOR_DOMAINS) > ./InspectorJS.json
+CombinedDomains.json : inspector/scripts/generate-combined-inspector-json.py $(INSPECTOR_DOMAINS) EnabledInspectorDomains
+	$(PYTHON) $(JavaScriptCore)/inspector/scripts/generate-combined-inspector-json.py $(INSPECTOR_DOMAINS) > ./CombinedDomains.json
 
 # Inspector Backend Dispatchers, Frontend Dispatchers, Type Builders
-InspectorJSFrontendDispatchers.h : InspectorJS.json $(INSPECTOR_GENERATOR_SCRIPTS)
-	$(PYTHON) $(JavaScriptCore)/inspector/scripts/CodeGeneratorInspector.py ./InspectorJS.json --output_h_dir . --output_cpp_dir . --output_js_dir . --output_type JavaScript
+InspectorFrontendDispatchers.h : CombinedDomains.json $(INSPECTOR_GENERATOR_SCRIPTS)
+	$(PYTHON) $(JavaScriptCore)/inspector/scripts/generate-inspector-protocol-bindings.py --framework JavaScriptCore --outputDir . ./CombinedDomains.json
 
 InjectedScriptSource.h : inspector/InjectedScriptSource.js $(JavaScriptCore)/inspector/scripts/jsmin.py $(JavaScriptCore)/inspector/scripts/xxd.pl
 	echo "//# sourceURL=__WebInspectorInjectedScript__" > ./InjectedScriptSource.min.js
 	$(PYTHON) $(JavaScriptCore)/inspector/scripts/jsmin.py < $(JavaScriptCore)/inspector/InjectedScriptSource.js >> ./InjectedScriptSource.min.js
 	$(PERL) $(JavaScriptCore)/inspector/scripts/xxd.pl InjectedScriptSource_js ./InjectedScriptSource.min.js InjectedScriptSource.h
-	rm -f ./InjectedScriptSource.min.js
+	$(DELETE) InjectedScriptSource.min.js
 
 # Web Replay inputs generator
 

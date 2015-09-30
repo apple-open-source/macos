@@ -30,10 +30,8 @@
 #if USE(CG)
 
 #if PLATFORM(IOS)
-#import <CoreGraphics/CGContextPrivate.h>
-#import <CoreGraphics/CGContextGState.h>
-#import <CoreGraphics/CoreGraphics.h>
-#import <ImageIO/ImageIO.h>
+#include <CoreGraphics/CoreGraphics.h>
+#include <ImageIO/ImageIO.h>
 #endif
 
 #include "GraphicsContext.h"
@@ -144,12 +142,21 @@ static void transformContextForPainting(GraphicsContext* context, const FloatRec
 
 void PDFDocumentImage::updateCachedImageIfNeeded(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect)
 {
+#if PLATFORM(IOS)
+    // On iOS, some clients use low-quality image interpolation always, which throws off this optimization,
+    // as we never get the subsequent high-quality paint. Since live resize is rare on iOS, disable the optimization.
+    // FIXME (136593): It's also possible to do the wrong thing here if CSS specifies low-quality interpolation via the "image-rendering"
+    // property, on all platforms. We should only do this optimization if we're actually in a ImageQualityController live resize,
+    // and are guaranteed to do a high-quality paint later.
+    bool repaintIfNecessary = true;
+#else
     // If we have an existing image, reuse it if we're doing a low-quality paint, even if cache parameters don't match;
     // we'll rerender when we do the subsequent high-quality paint.
     InterpolationQuality interpolationQuality = context->imageInterpolationQuality();
-    bool useLowQualityInterpolation = interpolationQuality == InterpolationNone || interpolationQuality == InterpolationLow;
+    bool repaintIfNecessary = interpolationQuality != InterpolationNone && interpolationQuality != InterpolationLow;
+#endif
 
-    if (!m_cachedImageBuffer || (!cacheParametersMatch(context, dstRect, srcRect) && !useLowQualityInterpolation)) {
+    if (!m_cachedImageBuffer || (!cacheParametersMatch(context, dstRect, srcRect) && repaintIfNecessary)) {
         m_cachedImageBuffer = context->createCompatibleBuffer(FloatRect(enclosingIntRect(dstRect)).size());
         if (!m_cachedImageBuffer)
             return;
@@ -218,6 +225,7 @@ void PDFDocumentImage::createPDFDocument()
 
 void PDFDocumentImage::computeBoundsForCurrentPage()
 {
+    ASSERT(pageCount() > 0);
     CGPDFPageRef cgPage = CGPDFDocumentGetPage(m_document.get(), 1);
     CGRect mediaBox = CGPDFPageGetBoxRect(cgPage, kCGPDFMediaBox);
 

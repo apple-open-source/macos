@@ -31,15 +31,15 @@
 #include "mech_locl.h"
 
 OM_uint32
-_gss_acquire_mech_cred(OM_uint32 *minor_status,
-		       struct gssapi_mech_interface_desc *m,
-		       const struct _gss_mechanism_name *mn,
-		       gss_const_OID credential_type,
-		       const void *credential_data,
+_gss_acquire_mech_cred(OM_uint32 *__nonnull minor_status,
+		       struct gssapi_mech_interface_desc *__nonnull m,
+		       const struct _gss_mechanism_name *__nullable mn,
+		       __nullable gss_const_OID credential_type,
+		       const void *__nullable credential_data,
 		       OM_uint32 time_req,
-		       gss_const_OID desired_mech,
+		       gss_const_OID __nullable desired_mech,
 		       gss_cred_usage_t cred_usage,
-		       struct _gss_mechanism_cred **output_cred_handle)
+		       struct _gss_mechanism_cred *__nonnull* __nullable output_cred_handle)
 {
     OM_uint32 major_status;
     struct _gss_mechanism_cred *mc;
@@ -114,14 +114,14 @@ _gss_acquire_mech_cred(OM_uint32 *minor_status,
 }
 
 OM_uint32
-gss_acquire_cred_ext(OM_uint32 *minor_status,
-    const gss_name_t desired_name,
-    gss_const_OID credential_type,
-    const void *credential_data,
+gss_acquire_cred_ext(OM_uint32 *__nonnull minor_status,
+    __nonnull const gss_name_t desired_name,
+    __nonnull gss_const_OID credential_type,
+    const void *__nonnull credential_data,
     OM_uint32 time_req,
-    gss_const_OID desired_mech,
+    __nullable gss_const_OID desired_mech,
     gss_cred_usage_t cred_usage,
-    gss_cred_id_t *output_cred_handle)
+    __nonnull gss_cred_id_t *__nullable output_cred_handle)
 {
     OM_uint32 major_status;
     struct _gss_name *name = (struct _gss_name *) desired_name;

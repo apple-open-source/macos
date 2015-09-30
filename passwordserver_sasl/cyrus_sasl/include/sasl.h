@@ -226,15 +226,15 @@ extern "C" {
 
 /* memory allocation functions which may optionally be replaced:
  */
-typedef void *sasl_malloc_t(size_t);
-typedef void *sasl_calloc_t(size_t, size_t);
-typedef void *sasl_realloc_t(void *, size_t);
-typedef void sasl_free_t(void *);
+typedef void *sasl_malloc_t(size_t) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
+typedef void *sasl_calloc_t(size_t, size_t) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
+typedef void *sasl_realloc_t(void *, size_t) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
+typedef void sasl_free_t(void *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 LIBSASL_API void sasl_set_alloc(sasl_malloc_t *,
 				sasl_calloc_t *,
 				sasl_realloc_t *,
-				sasl_free_t *);
+				sasl_free_t *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* mutex functions which may optionally be replaced:
  *  sasl_mutex_alloc allocates a mutex structure
@@ -246,12 +246,12 @@ LIBSASL_API void sasl_set_alloc(sasl_malloc_t *,
  *   returns 0 on success
  *  sasl_mutex_free frees a mutex structure
  */
-typedef void *sasl_mutex_alloc_t(void);
-typedef int sasl_mutex_lock_t(void *mutex);
-typedef int sasl_mutex_unlock_t(void *mutex);
-typedef void sasl_mutex_free_t(void *mutex);
+typedef void *sasl_mutex_alloc_t(void) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
+typedef int sasl_mutex_lock_t(void *mutex) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
+typedef int sasl_mutex_unlock_t(void *mutex) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
+typedef void sasl_mutex_free_t(void *mutex) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 LIBSASL_API void sasl_set_mutex(sasl_mutex_alloc_t *, sasl_mutex_lock_t *,
-				sasl_mutex_unlock_t *, sasl_mutex_free_t *);
+				sasl_mutex_unlock_t *, sasl_mutex_free_t *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /*****************************
  * Security preference types *
@@ -691,7 +691,7 @@ typedef int sasl_canon_user_t(sasl_conn_t *conn,
  *
  * This function can be called before sasl_server_init/sasl_client_init.
  */  
-LIBSASL_API int sasl_set_path (int path_type, char * path);
+LIBSASL_API int sasl_set_path (int path_type, char * path) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* get sasl library version information
  * implementation is a vendor-defined string
@@ -699,7 +699,7 @@ LIBSASL_API int sasl_set_path (int path_type, char * path);
  *
  * This function is being deprecated in favor of sasl_version_info. */
 LIBSASL_API void sasl_version(const char **implementation,
-			      int *version);
+			      int *version) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* Extended version of sasl_version().
  *
@@ -716,7 +716,7 @@ LIBSASL_API void sasl_version_info (const char **implementation,
 				int *version_major,
 				int *version_minor,
 				int *version_step,
-				int *version_patch);
+				int *version_patch) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* dispose of all SASL plugins.  Connection
  * states have to be disposed of before calling this.
@@ -724,26 +724,26 @@ LIBSASL_API void sasl_version_info (const char **implementation,
  * This function is DEPRECATED in favour of sasl_server_done/
  * sasl_client_done.
  */
-LIBSASL_API void sasl_done(void);
+LIBSASL_API void sasl_done(void) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* dispose of all SASL plugins.  Connection
  * states have to be disposed of before calling this.
  * This function should be called instead of sasl_done(),
    whenever possible.
  */
-LIBSASL_API int sasl_server_done(void);
+LIBSASL_API int sasl_server_done(void) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* dispose of all SASL plugins.  Connection
  * states have to be disposed of before calling this.
  * This function should be called instead of sasl_done(),
    whenever possible.
  */
-LIBSASL_API int sasl_client_done(void);
+LIBSASL_API int sasl_client_done(void) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* dispose connection state, sets it to NULL
  *  checks for pointer to NULL
  */
-LIBSASL_API void sasl_dispose(sasl_conn_t **pconn);
+LIBSASL_API void sasl_dispose(sasl_conn_t **pconn) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* translate an error number into a string
  * input:
@@ -756,7 +756,7 @@ LIBSASL_API void sasl_dispose(sasl_conn_t **pconn);
  */
 LIBSASL_API const char *sasl_errstring(int saslerr,
 				       const char *langlist,
-				       const char **outlang);
+				       const char **outlang) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* get detail about the last error that occurred on a connection
  * text is sanitized so it's suitable to send over the wire
@@ -767,7 +767,7 @@ LIBSASL_API const char *sasl_errstring(int saslerr,
  *  the error message in UTF-8 (only the US-ASCII subset permitted if no
  *  SASL_CB_LANGUAGE callback is present)
  */
-LIBSASL_API const char *sasl_errdetail(sasl_conn_t *conn);
+LIBSASL_API const char *sasl_errdetail(sasl_conn_t *conn) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* set the error string which will be returned by sasl_errdetail() using
  *  syslog()-style formatting (e.g. printf-style with %m as most recent
@@ -786,7 +786,7 @@ LIBSASL_API const char *sasl_errdetail(sasl_conn_t *conn);
  * if conn is NULL, function does nothing
  */
 LIBSASL_API void sasl_seterror(sasl_conn_t *conn, unsigned flags,
-			       const char *fmt, ...);
+			       const char *fmt, ...) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 #define SASL_NOLOG       0x01
 			   
 /* get property from SASL connection state
@@ -798,7 +798,7 @@ LIBSASL_API void sasl_seterror(sasl_conn_t *conn, unsigned flags,
  *  SASL_BADPARAM -- bad property number
  */
 LIBSASL_API int sasl_getprop(sasl_conn_t *conn, int propnum,
-			     const void **pvalue);
+			     const void **pvalue) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 #define SASL_USERNAME     0	/* pointer to NUL terminated user name */
 #define SASL_SSF          1	/* security layer security strength factor,
                                  * if 0, call to sasl_encode, sasl_decode
@@ -878,7 +878,7 @@ typedef struct sasl_http_request {
  */
 LIBSASL_API int sasl_setprop(sasl_conn_t *conn,
 			     int propnum,
-			     const void *value);
+			     const void *value) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 #define SASL_SSF_EXTERNAL  100	/* external SSF active (sasl_ssf_t *) */
 #define SASL_SEC_PROPS     101	/* sasl_security_properties_t */
 #define SASL_AUTH_EXTERNAL 102	/* external authentication ID (const char *) */
@@ -893,7 +893,7 @@ LIBSASL_API int sasl_setprop(sasl_conn_t *conn,
  *  may pass NULL to precompute for some mechanisms prior to connect
  *  returns 1 if action taken, 0 if no action taken
  */
-LIBSASL_API int sasl_idle(sasl_conn_t *conn);
+LIBSASL_API int sasl_idle(sasl_conn_t *conn) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /**************
  * Client API *
@@ -921,7 +921,7 @@ typedef struct sasl_interact {
  *  SASL_NOMECH    -- No mechanisms available
  *  ...
  */
-LIBSASL_API int sasl_client_init(const sasl_callback_t *callbacks);
+LIBSASL_API int sasl_client_init(const sasl_callback_t *callbacks) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* initialize a client exchange based on the specified mechanism
  *  service       -- registered name of the service using SASL (e.g. "imap")
@@ -950,7 +950,7 @@ LIBSASL_API int sasl_client_new(const char *service,
 				const char *ipremoteport,
 				const sasl_callback_t *prompt_supp,
 				unsigned flags,
-				sasl_conn_t **pconn);
+				sasl_conn_t **pconn) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* select a mechanism for a connection
  *  mechlist      -- mechanisms server has available (punctuation ignored)
@@ -974,7 +974,7 @@ LIBSASL_API int sasl_client_start(sasl_conn_t *conn,
 				  sasl_interact_t **prompt_need,
 				  const char **clientout,
 				  unsigned *clientoutlen,
-				  const char **mech);
+				  const char **mech) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* do a single authentication step.
  *  serverin    -- the server message received by the client, MUST have a NUL
@@ -995,7 +995,7 @@ LIBSASL_API int sasl_client_step(sasl_conn_t *conn,
 				 unsigned serverinlen,
 				 sasl_interact_t **prompt_need,
 				 const char **clientout,
-				 unsigned *clientoutlen);
+				 unsigned *clientoutlen) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /**************
  * Server API *
@@ -1014,7 +1014,7 @@ LIBSASL_API int sasl_client_step(sasl_conn_t *conn,
  *  SASL_BADVERS   -- Mechanism version mismatch
  */
 LIBSASL_API int sasl_server_init(const sasl_callback_t *callbacks,
-				 const char *appname);
+				 const char *appname) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* APPLE: alternate call to return an error code instead of logging to syslog
  * (used by postfix) 
@@ -1032,7 +1032,7 @@ LIBSASL_API int sasl_server_init(const sasl_callback_t *callbacks,
  *  SASL_NOMECH    -- No auxprop plug-ins available; advisory only, not fatal.
  */
 LIBSASL_API int sasl_server_init_alt(const sasl_callback_t *callbacks,
-				 const char *appname);
+				 const char *appname) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* IP/port syntax:
  *  a.b.c.d;p              where a-d are 0-255 and p is 0-65535 port number.
@@ -1072,13 +1072,13 @@ LIBSASL_API int sasl_server_new(const char *service,
 				const char *ipremoteport,
 				const sasl_callback_t *callbacks,
 				unsigned flags,
-				sasl_conn_t **pconn);
+				sasl_conn_t **pconn) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* Return an array of NUL-terminated strings, terminated by a NULL pointer,
  * which lists all possible mechanisms that the library can supply
  *
  * Returns NULL on failure. */
-LIBSASL_API const char ** sasl_global_listmech(void);
+LIBSASL_API const char ** sasl_global_listmech(void) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* This returns a list of mechanisms in a NUL-terminated string
  *  conn          -- the connection to list mechanisms for (either client
@@ -1106,7 +1106,7 @@ LIBSASL_API int sasl_listmech(sasl_conn_t *conn,
 			      const char *suffix,
 			      const char **result,
 			      unsigned *plen,
-			      int *pcount);
+			      int *pcount) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* start a mechanism exchange within a connection context
  *  mech           -- the mechanism name client requested
@@ -1126,7 +1126,7 @@ LIBSASL_API int sasl_server_start(sasl_conn_t *conn,
 				  const char *clientin,
 				  unsigned clientinlen,
 				  const char **serverout,
-				  unsigned *serveroutlen);
+				  unsigned *serveroutlen) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* perform one step of the SASL exchange
  *  inputlen & input -- client data
@@ -1148,7 +1148,7 @@ LIBSASL_API int sasl_server_step(sasl_conn_t *conn,
 				 const char *clientin,
 				 unsigned clientinlen,
 				 const char **serverout,
-				 unsigned *serveroutlen);
+				 unsigned *serveroutlen) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* check if an apop exchange is valid
  *  (note this is an optional part of the SASL API)
@@ -1169,7 +1169,7 @@ LIBSASL_API int sasl_server_step(sasl_conn_t *conn,
  */
 LIBSASL_API int sasl_checkapop(sasl_conn_t *conn,
 			       const char *challenge, unsigned challen,
-			       const char *response, unsigned resplen);
+			       const char *response, unsigned resplen) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* check if a plaintext password is valid
  *   if user is NULL, check if plaintext passwords are enabled
@@ -1186,7 +1186,7 @@ LIBSASL_API int sasl_checkapop(sasl_conn_t *conn,
  */
 LIBSASL_API int sasl_checkpass(sasl_conn_t *conn,
 			       const char *user, unsigned userlen,
-			       const char *pass, unsigned passlen);
+			       const char *pass, unsigned passlen) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* check if a user exists on server
  *  conn          -- connection context
@@ -1205,7 +1205,7 @@ LIBSASL_API int sasl_checkpass(sasl_conn_t *conn,
 LIBSASL_API int sasl_user_exists(sasl_conn_t *conn,
 				 const char *service,
 				 const char *user_realm,
-				 const char *user);
+				 const char *user) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* set the password for a user
  *  conn        -- SASL connection
@@ -1232,7 +1232,7 @@ LIBSASL_API int sasl_setpass(sasl_conn_t *conn,
 			     const char *user,
 			     const char *pass, unsigned passlen,
 			     const char *oldpass, unsigned oldpasslen,
-			     unsigned flags);
+			     unsigned flags) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 #define SASL_SET_CREATE  0x01   /* create a new entry for user */
 #define SASL_SET_DISABLE 0x02	/* disable user account */
 #define SASL_SET_NOPLAIN 0x04	/* do not store secret in plain text */
@@ -1279,7 +1279,7 @@ LIBSASL_API int sasl_setpass(sasl_conn_t *conn,
  *  SASL_NOMEM    -- out of memory
  */
 LIBSASL_API int sasl_auxprop_request(sasl_conn_t *conn,
-				     const char **propnames);
+				     const char **propnames) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* Returns current auxiliary property context.
  * Use functions in prop.h to access content
@@ -1290,7 +1290,7 @@ LIBSASL_API int sasl_auxprop_request(sasl_conn_t *conn,
  *
  *  returns NULL if conn is invalid.
  */
-LIBSASL_API struct propctx *sasl_auxprop_getctx(sasl_conn_t *conn);
+LIBSASL_API struct propctx *sasl_auxprop_getctx(sasl_conn_t *conn) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* Store the set of auxiliary properties for the given user.
  * Use functions in prop.h to set the content.
@@ -1309,7 +1309,7 @@ LIBSASL_API struct propctx *sasl_auxprop_getctx(sasl_conn_t *conn);
  *  SASL_FAIL     -- failed to store
  */
 LIBSASL_API int sasl_auxprop_store(sasl_conn_t *conn,
-				   struct propctx *ctx, const char *user);
+				   struct propctx *ctx, const char *user) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /**********************
  * security layer API *
@@ -1325,7 +1325,7 @@ LIBSASL_API int sasl_auxprop_store(sasl_conn_t *conn,
  */
 LIBSASL_API int sasl_encode(sasl_conn_t *conn,
 			    const char *input, unsigned inputlen,
-			    const char **output, unsigned *outputlen);
+			    const char **output, unsigned *outputlen) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* encode a block of data for transmission using security layer
  *  output is only valid until next call to sasl_encode or sasl_encodev
@@ -1337,7 +1337,7 @@ LIBSASL_API int sasl_encode(sasl_conn_t *conn,
  */
 LIBSASL_API int sasl_encodev(sasl_conn_t *conn,
 			     const struct iovec *invec, unsigned numiov,
-			     const char **output, unsigned *outputlen);
+			     const char **output, unsigned *outputlen) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /* decode a block of data received using security layer
  *  returning the input buffer if there is no security layer.
@@ -1352,7 +1352,7 @@ LIBSASL_API int sasl_encodev(sasl_conn_t *conn,
  */
 LIBSASL_API int sasl_decode(sasl_conn_t *conn,
 			    const char *input, unsigned inputlen,
-			    const char **output, unsigned *outputlen);
+			    const char **output, unsigned *outputlen) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 #ifdef __cplusplus
 }

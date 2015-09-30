@@ -37,6 +37,7 @@ namespace WebCore {
 class NotificationClient;
 
 class NotificationController : public Supplement<Page> {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(NotificationController);
 public:
     explicit NotificationController(NotificationClient*);
@@ -44,7 +45,7 @@ public:
 
     static const char* supplementName();
     static NotificationController* from(Page* page) { return static_cast<NotificationController*>(Supplement<Page>::from(page, supplementName())); }
-    static NotificationClient* clientFrom(Page*);
+    WEBCORE_EXPORT static NotificationClient* clientFrom(Page*);
 
     NotificationClient* client() { return m_client; }
     

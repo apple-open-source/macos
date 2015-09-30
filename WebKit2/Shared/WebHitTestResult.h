@@ -21,11 +21,17 @@
 #define WebHitTestResult_h
 
 #include "APIObject.h"
+#include "DictionaryPopupInfo.h"
+#include "SharedMemory.h"
+#include <WebCore/FloatPoint.h>
 #include <WebCore/IntRect.h>
+#include <WebCore/PageOverlay.h>
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
+
+OBJC_CLASS DDActionContext;
 
 namespace IPC {
 class ArgumentDecoder;
@@ -58,12 +64,30 @@ public:
         bool allowsCopy;
         bool isDownloadableMedia;
 
+        String lookupText;
+        RefPtr<SharedMemory> imageSharedMemory;
+        uint64_t imageSize;
+
+#if PLATFORM(MAC)
+        RetainPtr<DDActionContext> detectedDataActionContext;
+#endif
+        WebCore::FloatRect detectedDataBoundingBox;
+        RefPtr<WebCore::TextIndicator> detectedDataTextIndicator;
+        WebCore::PageOverlay::PageOverlayID detectedDataOriginatingPageOverlay;
+
+        DictionaryPopupInfo dictionaryPopupInfo;
+
+        RefPtr<WebCore::TextIndicator> linkTextIndicator;
+
         Data();
         explicit Data(const WebCore::HitTestResult&);
+        Data(const WebCore::HitTestResult&, bool includeImage);
         ~Data();
 
         void encode(IPC::ArgumentEncoder&) const;
+        void platformEncode(IPC::ArgumentEncoder&) const;
         static bool decode(IPC::ArgumentDecoder&, WebHitTestResult::Data&);
+        static bool platformDecode(IPC::ArgumentDecoder&, WebHitTestResult::Data&);
 
         WebCore::IntRect elementBoundingBoxInWindowCoordinates(const WebCore::HitTestResult&);
     };
@@ -77,6 +101,7 @@ public:
 
     String linkLabel() const { return m_data.linkLabel; }
     String linkTitle() const { return m_data.linkTitle; }
+    String lookupText() const { return m_data.lookupText; }
 
     bool isContentEditable() const { return m_data.isContentEditable; }
 

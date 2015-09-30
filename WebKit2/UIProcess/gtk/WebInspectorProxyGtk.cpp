@@ -29,16 +29,15 @@
 #include "config.h"
 #include "WebInspectorProxy.h"
 
-#if ENABLE(INSPECTOR)
-
 #include "WebKitWebViewBasePrivate.h"
+#include "WebPageGroup.h"
 #include "WebProcessProxy.h"
 #include <WebCore/FileSystem.h>
 #include <WebCore/GtkUtilities.h>
 #include <WebCore/NotImplemented.h>
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
-#include <wtf/gobject/GUniquePtr.h>
+#include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
@@ -53,6 +52,11 @@ static void inspectorViewDestroyed(GtkWidget*, gpointer userData)
     inspectorProxy->close();
 }
 
+static unsigned long long exceededDatabaseQuota(WKPageRef, WKFrameRef, WKSecurityOriginRef, WKStringRef, WKStringRef, unsigned long long, unsigned long long, unsigned long long currentDatabaseUsage, unsigned long long expectedUsage, const void*)
+{
+    return std::max<unsigned long long>(expectedUsage, currentDatabaseUsage * 1.25);
+}
+
 void WebInspectorProxy::initializeInspectorClientGtk(const WKInspectorClientGtkBase* inspectorClient)
 {
     m_client.initialize(inspectorClient);
@@ -60,11 +64,77 @@ void WebInspectorProxy::initializeInspectorClientGtk(const WKInspectorClientGtkB
 
 WebPageProxy* WebInspectorProxy::platformCreateInspectorPage()
 {
-    ASSERT(m_page);
+    ASSERT(inspectedPage());
     ASSERT(!m_inspectorView);
-    m_inspectorView = GTK_WIDGET(webkitWebViewBaseCreate(&page()->process().context(), inspectorPageGroup(), nullptr, m_page));
+
+    RefPtr<WebPreferences> preferences = WebPreferences::create(String(), "WebKit2.", "WebKit2.");
+#ifndef NDEBUG
+    // Allow developers to inspect the Web Inspector in debug builds without changing settings.
+    preferences->setDeveloperExtrasEnabled(true);
+    preferences->setLogsPageMessagesToSystemConsoleEnabled(true);
+#endif
+    preferences->setAllowFileAccessFromFileURLs(true);
+    preferences->setJavaScriptRuntimeFlags({
+    });
+    RefPtr<WebPageGroup> pageGroup = WebPageGroup::create(inspectorPageGroupIdentifier(), false, false);
+    m_inspectorView = GTK_WIDGET(webkitWebViewBaseCreate(&inspectorProcessPool(), preferences.get(), pageGroup.get(), nullptr, nullptr));
     g_object_add_weak_pointer(G_OBJECT(m_inspectorView), reinterpret_cast<void**>(&m_inspectorView));
-    return webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(m_inspectorView));
+
+    WKPageUIClientV2 uiClient = {
+        { 2, this },
+        nullptr, // createNewPage_deprecatedForUseWithV0
+        nullptr, // showPage
+        nullptr, // closePage
+        nullptr, // takeFocus
+        nullptr, // focus
+        nullptr, // unfocus
+        nullptr, // runJavaScriptAlert
+        nullptr, // runJavaScriptConfirm
+        nullptr, // runJavaScriptPrompt
+        nullptr, // setStatusText
+        nullptr, // mouseDidMoveOverElement_deprecatedForUseWithV0
+        nullptr, // missingPluginButtonClicked_deprecatedForUseWithV0
+        nullptr, // didNotHandleKeyEvent
+        nullptr, // didNotHandleWheelEvent
+        nullptr, // areToolbarsVisible
+        nullptr, // setToolbarsVisible
+        nullptr, // isMenuBarVisible
+        nullptr, // setMenuBarVisible
+        nullptr, // isStatusBarVisible
+        nullptr, // setStatusBarVisible
+        nullptr, // isResizable
+        nullptr, // setResizable
+        nullptr, // getWindowFrame,
+        nullptr, // setWindowFrame,
+        nullptr, // runBeforeUnloadConfirmPanel
+        nullptr, // didDraw
+        nullptr, // pageDidScroll
+        exceededDatabaseQuota,
+        nullptr, // runOpenPanel,
+        nullptr, // decidePolicyForGeolocationPermissionRequest
+        nullptr, // headerHeight
+        nullptr, // footerHeight
+        nullptr, // drawHeader
+        nullptr, // drawFooter
+        nullptr, // printFrame
+        nullptr, // runModal
+        nullptr, // unused
+        nullptr, // saveDataToFileInDownloadsFolder
+        nullptr, // shouldInterruptJavaScript
+        nullptr, // createPage
+        nullptr, // mouseDidMoveOverElement
+        nullptr, // decidePolicyForNotificationPermissionRequest
+        nullptr, // unavailablePluginButtonClicked_deprecatedForUseWithV1
+        nullptr, // showColorPicker
+        nullptr, // hideColorPicker
+        nullptr, // unavailablePluginButtonClicked
+    };
+
+    WebPageProxy* inspectorPage = webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(m_inspectorView));
+    ASSERT(inspectorPage);
+    WKPageSetPageUIClient(toAPI(inspectorPage), &uiClient.base);
+
+    return inspectorPage;
 }
 
 void WebInspectorProxy::createInspectorWindow()
@@ -75,11 +145,18 @@ void WebInspectorProxy::createInspectorWindow()
     ASSERT(!m_inspectorWindow);
     m_inspectorWindow = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
-    GtkWidget* inspectedViewParent = gtk_widget_get_toplevel(m_page->viewWidget());
+    GtkWidget* inspectedViewParent = gtk_widget_get_toplevel(inspectedPage()->viewWidget());
     if (WebCore::widgetIsOnscreenToplevelWindow(inspectedViewParent))
         gtk_window_set_transient_for(GTK_WINDOW(m_inspectorWindow), GTK_WINDOW(inspectedViewParent));
 
-    gtk_window_set_title(GTK_WINDOW(m_inspectorWindow), _("Web Inspector"));
+#if GTK_CHECK_VERSION(3, 10, 0)
+    m_headerBar = gtk_header_bar_new();
+    gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(m_headerBar), TRUE);
+    gtk_window_set_titlebar(GTK_WINDOW(m_inspectorWindow), m_headerBar);
+    gtk_widget_show(m_headerBar);
+#endif
+
+    updateInspectorWindowTitle();
     gtk_window_set_default_size(GTK_WINDOW(m_inspectorWindow), initialWindowWidth, initialWindowHeight);
 
     gtk_container_add(GTK_CONTAINER(m_inspectorWindow), m_inspectorView);
@@ -87,6 +164,23 @@ void WebInspectorProxy::createInspectorWindow()
 
     g_object_add_weak_pointer(G_OBJECT(m_inspectorWindow), reinterpret_cast<void**>(&m_inspectorWindow));
     gtk_window_present(GTK_WINDOW(m_inspectorWindow));
+}
+
+void WebInspectorProxy::updateInspectorWindowTitle() const
+{
+    ASSERT(m_inspectorWindow);
+    if (m_inspectedURLString.isEmpty()) {
+        gtk_window_set_title(GTK_WINDOW(m_inspectorWindow), _("Web Inspector"));
+        return;
+    }
+
+#if GTK_CHECK_VERSION(3, 10, 0)
+    gtk_header_bar_set_title(GTK_HEADER_BAR(m_headerBar), _("Web Inspector"));
+    gtk_header_bar_set_subtitle(GTK_HEADER_BAR(m_headerBar), m_inspectedURLString.utf8().data());
+#else
+    GUniquePtr<gchar> title(g_strdup_printf("%s - %s", _("Web Inspector"), m_inspectedURLString.utf8().data()));
+    gtk_window_set_title(GTK_WINDOW(m_inspectorWindow), title.get());
+#endif
 }
 
 void WebInspectorProxy::platformOpen()
@@ -115,6 +209,10 @@ void WebInspectorProxy::platformDidClose()
     m_inspectorView = 0;
 }
 
+void WebInspectorProxy::platformInvalidate()
+{
+}
+
 void WebInspectorProxy::platformHide()
 {
     notImplemented();
@@ -140,12 +238,11 @@ bool WebInspectorProxy::platformIsFront()
 
 void WebInspectorProxy::platformInspectedURLChanged(const String& url)
 {
+    m_inspectedURLString = url;
     m_client.inspectedURLChanged(this, url);
 
-    if (!m_inspectorWindow)
-        return;
-    GUniquePtr<gchar> title(g_strdup_printf("%s - %s", _("Web Inspector"), url.utf8().data()));
-    gtk_window_set_title(GTK_WINDOW(m_inspectorWindow), title.get());
+    if (m_inspectorWindow)
+        updateInspectorWindowTitle();
 }
 
 String WebInspectorProxy::inspectorPageURL() const
@@ -165,12 +262,12 @@ String WebInspectorProxy::inspectorBaseURL() const
 
 unsigned WebInspectorProxy::platformInspectedWindowHeight()
 {
-    return gtk_widget_get_allocated_height(m_page->viewWidget());
+    return gtk_widget_get_allocated_height(inspectedPage()->viewWidget());
 }
 
 unsigned WebInspectorProxy::platformInspectedWindowWidth()
 {
-    return gtk_widget_get_allocated_width(m_page->viewWidget());
+    return gtk_widget_get_allocated_width(inspectedPage()->viewWidget());
 }
 
 void WebInspectorProxy::platformAttach()
@@ -182,9 +279,12 @@ void WebInspectorProxy::platformAttach()
         m_inspectorWindow = 0;
     }
 
-    // Set a default attached size based on InspectorFrontendClientLocal.
+    // Set a default sizes based on InspectorFrontendClientLocal.
     static const unsigned defaultAttachedSize = 300;
-    if (m_attachmentSide == AttachmentSideBottom) {
+    static const unsigned minimumAttachedWidth = 750;
+    static const unsigned minimumAttachedHeight = 250;
+
+    if (m_attachmentSide == AttachmentSide::Bottom) {
         unsigned maximumAttachedHeight = platformInspectedWindowHeight() * 3 / 4;
         platformSetAttachedWindowHeight(std::max(minimumAttachedHeight, std::min(defaultAttachedSize, maximumAttachedHeight)));
     } else {
@@ -195,13 +295,13 @@ void WebInspectorProxy::platformAttach()
     if (m_client.attach(this))
         return;
 
-    webkitWebViewBaseAddWebInspector(WEBKIT_WEB_VIEW_BASE(m_page->viewWidget()), m_inspectorView, m_attachmentSide);
+    webkitWebViewBaseAddWebInspector(WEBKIT_WEB_VIEW_BASE(inspectedPage()->viewWidget()), m_inspectorView, m_attachmentSide);
     gtk_widget_show(m_inspectorView);
 }
 
 void WebInspectorProxy::platformDetach()
 {
-    if (!m_page->isValid())
+    if (!inspectedPage()->isValid())
         return;
 
     GRefPtr<GtkWidget> inspectorView = m_inspectorView;
@@ -223,7 +323,7 @@ void WebInspectorProxy::platformSetAttachedWindowHeight(unsigned height)
         return;
 
     m_client.didChangeAttachedHeight(this, height);
-    webkitWebViewBaseSetInspectorViewSize(WEBKIT_WEB_VIEW_BASE(m_page->viewWidget()), height);
+    webkitWebViewBaseSetInspectorViewSize(WEBKIT_WEB_VIEW_BASE(inspectedPage()->viewWidget()), height);
 }
 
 void WebInspectorProxy::platformSetAttachedWindowWidth(unsigned width)
@@ -232,10 +332,15 @@ void WebInspectorProxy::platformSetAttachedWindowWidth(unsigned width)
         return;
 
     m_client.didChangeAttachedWidth(this, width);
-    webkitWebViewBaseSetInspectorViewSize(WEBKIT_WEB_VIEW_BASE(m_page->viewWidget()), width);
+    webkitWebViewBaseSetInspectorViewSize(WEBKIT_WEB_VIEW_BASE(inspectedPage()->viewWidget()), width);
 }
 
 void WebInspectorProxy::platformSetToolbarHeight(unsigned)
+{
+    notImplemented();
+}
+
+void WebInspectorProxy::platformStartWindowDrag()
 {
     notImplemented();
 }
@@ -250,11 +355,9 @@ void WebInspectorProxy::platformAppend(const String&, const String&)
     notImplemented();
 }
 
-void WebInspectorProxy::platformAttachAvailabilityChanged(bool)
+void WebInspectorProxy::platformAttachAvailabilityChanged(bool available)
 {
-    notImplemented();
+    m_client.didChangeAttachAvailability(this, available);
 }
 
 } // namespace WebKit
-
-#endif // ENABLE(INSPECTOR)

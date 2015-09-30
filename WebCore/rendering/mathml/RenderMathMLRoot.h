@@ -42,8 +42,8 @@ class RenderMathMLRoot : public RenderMathMLBlock {
 friend class RenderMathMLRootWrapper;
 
 public:
-    RenderMathMLRoot(Element&, PassRef<RenderStyle>);
-    RenderMathMLRoot(Document&, PassRef<RenderStyle>);
+    RenderMathMLRoot(Element&, Ref<RenderStyle>&&);
+    RenderMathMLRoot(Document&, Ref<RenderStyle>&&);
 
     virtual void addChild(RenderObject* newChild, RenderObject* beforeChild = 0) override;
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
@@ -60,7 +60,7 @@ protected:
 private:
     virtual bool isRenderMathMLRoot() const override final { return true; }
     virtual const char* renderName() const override { return "RenderMathMLRoot"; }
-    virtual int firstLineBaseline() const override;
+    virtual Optional<int> firstLineBaseline() const override;
     void updateStyle();
     void restructureWrappers();
 
@@ -72,29 +72,28 @@ private:
     LayoutUnit m_extraAscender;
     float m_degreeBottomRaisePercent;
 };
-    
-RENDER_OBJECT_TYPE_CASTS(RenderMathMLRoot, isRenderMathMLRoot())
 
 // These are specific wrappers for the index and base, that ask the parent to restructure the renderers after child removal.
-class RenderMathMLRootWrapper : public RenderMathMLRow {
+class RenderMathMLRootWrapper final : public RenderMathMLRow {
 
 friend class RenderMathMLRoot;
 
 public:
-    RenderMathMLRootWrapper(Document& document, PassRef<RenderStyle> style)
+    RenderMathMLRootWrapper(Document& document, Ref<RenderStyle>&& style)
         : RenderMathMLRow(document, WTF::move(style)) { }
 
 private:
-    RenderObject* removeChildWithoutRestructuring(RenderObject&);
-    RenderObject* removeChild(RenderObject&) override;
+    void removeChildWithoutRestructuring(RenderObject&);
+    virtual void removeChild(RenderObject&) override;
     static RenderPtr<RenderMathMLRootWrapper> createAnonymousWrapper(RenderMathMLRoot* renderObject);
-    virtual bool isRenderMathMLRootWrapper() const override final { return true; }
+    virtual bool isRenderMathMLRootWrapper() const override { return true; }
     virtual const char* renderName() const override { return "RenderMathMLRootWrapper"; }
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderMathMLRootWrapper, isRenderMathMLRootWrapper())
+} // namespace WebCore
 
-}
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderMathMLRoot, isRenderMathMLRoot())
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderMathMLRootWrapper, isRenderMathMLRootWrapper())
 
 #endif // ENABLE(MATHML)
 

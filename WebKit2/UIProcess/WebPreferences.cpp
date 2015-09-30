@@ -26,9 +26,9 @@
 #include "config.h"
 #include "WebPreferences.h"
 
-#include "WebContext.h"
 #include "WebPageGroup.h"
 #include "WebPreferencesKeys.h"
+#include "WebProcessPool.h"
 #include <wtf/ThreadingPrimitives.h>
 
 namespace WebKit {
@@ -37,9 +37,9 @@ namespace WebKit {
 // Instead of tracking private browsing state as a boolean preference, we should let the client provide storage sessions explicitly.
 static unsigned privateBrowsingPageCount;
 
-PassRefPtr<WebPreferences> WebPreferences::create(const String& identifier, const String& keyPrefix, const String& globalDebugKeyPrefix)
+Ref<WebPreferences> WebPreferences::create(const String& identifier, const String& keyPrefix, const String& globalDebugKeyPrefix)
 {
-    return adoptRef(new WebPreferences(identifier, keyPrefix, globalDebugKeyPrefix));
+    return adoptRef(*new WebPreferences(identifier, keyPrefix, globalDebugKeyPrefix));
 }
 
 PassRefPtr<WebPreferences> WebPreferences::createWithLegacyDefaults(const String& identifier, const String& keyPrefix, const String& globalDebugKeyPrefix)
@@ -87,7 +87,7 @@ void WebPreferences::addPage(WebPageProxy& webPageProxy)
 
     if (privateBrowsingEnabled()) {
         if (!privateBrowsingPageCount)
-            WebContext::willStartUsingPrivateBrowsing();
+            WebProcessPool::willStartUsingPrivateBrowsing();
 
         ++privateBrowsingPageCount;
     }
@@ -101,7 +101,7 @@ void WebPreferences::removePage(WebPageProxy& webPageProxy)
     if (privateBrowsingEnabled()) {
         --privateBrowsingPageCount;
         if (!privateBrowsingPageCount)
-            WebContext::willStopUsingPrivateBrowsing();
+            WebProcessPool::willStopUsingPrivateBrowsing();
     }
 }
 
@@ -156,7 +156,7 @@ void WebPreferences::updatePrivateBrowsingValue(bool value)
 
     if (value) {
         if (!privateBrowsingPageCount)
-            WebContext::willStartUsingPrivateBrowsing();
+            WebProcessPool::willStartUsingPrivateBrowsing();
         privateBrowsingPageCount += pagesChanged;
     }
 
@@ -166,7 +166,7 @@ void WebPreferences::updatePrivateBrowsingValue(bool value)
         ASSERT(privateBrowsingPageCount >= pagesChanged);
         privateBrowsingPageCount -= pagesChanged;
         if (!privateBrowsingPageCount)
-            WebContext::willStopUsingPrivateBrowsing();
+            WebProcessPool::willStopUsingPrivateBrowsing();
     }
 }
 

@@ -258,7 +258,6 @@ static const REFRESH_ELEMENT zr_cr = { ZWC('\r'), 0 };
 static const REFRESH_ELEMENT zr_dt = { ZWC('.'), 0 };
 static const REFRESH_ELEMENT zr_nl = { ZWC('\n'), 0 };
 static const REFRESH_ELEMENT zr_sp = { ZWC(' '), 0 };
-static const REFRESH_ELEMENT zr_ht = { ZWC('\t'), 0 };
 static const REFRESH_ELEMENT zr_zr = { ZWC('\0'), 0 };
 
 /*
@@ -397,8 +396,10 @@ get_region_highlight(UNUSED(Param pm))
     struct region_highlight *rhp;
 
     /* region_highlights may not have been set yet */
-    if (arrsize)
-	arrsize -= N_SPECIAL_HIGHLIGHTS;
+    if (!arrsize)
+	return hmkarray(NULL);
+    arrsize -= N_SPECIAL_HIGHLIGHTS;
+    DPUTS(arrsize < 0, "arrsize is negative from n_region_highlights");
     arrp = retarr = (char **)zhalloc((arrsize+1)*sizeof(char *));
 
     /* ignore special highlighting */
@@ -429,7 +430,7 @@ get_region_highlight(UNUSED(Param pm))
 		digbuf1, digbuf2);
 	(void)output_highlight(rhp->atr, *arrp + strlen(*arrp));
     }
-    *arrp = '\0';
+    *arrp = NULL;
     return retarr;
 }
 
@@ -444,15 +445,21 @@ void
 set_region_highlight(UNUSED(Param pm), char **aval)
 {
     int len;
+    char **av = aval;
     struct region_highlight *rhp;
 
     len = aval ? arrlen(aval) : 0;
     if (n_region_highlights != len + N_SPECIAL_HIGHLIGHTS) {
 	/* no null termination, but include special highlighting at start */
-	n_region_highlights = len + N_SPECIAL_HIGHLIGHTS;
+	int newsize = len + N_SPECIAL_HIGHLIGHTS;
+	int diffsize = newsize - n_region_highlights;
 	region_highlights = (struct region_highlight *)
 	    zrealloc(region_highlights,
-		     sizeof(struct region_highlight) * n_region_highlights);
+		     sizeof(struct region_highlight) * newsize);
+	if (diffsize > 0)
+	    memset(region_highlights + newsize - diffsize, 0,
+		   sizeof(struct region_highlight) * diffsize);
+	n_region_highlights = newsize;
     }
 
     if (!aval)
@@ -490,6 +497,8 @@ set_region_highlight(UNUSED(Param pm), char **aval)
 
 	match_highlight(strp, &rhp->atr);
     }
+
+    freearray(av);
 }
 
 
@@ -977,7 +986,7 @@ zrefresh(void)
     int tmpalloced;		/* flag to free tmpline when finished	     */
     int remetafy;		/* flag that zle line is metafied	     */
     int txtchange;		/* attributes set after prompts              */
-    int rprompt_off;		/* Offset of rprompt from right of screen    */
+    int rprompt_off = 1;	/* Offset of rprompt from right of screen    */
     struct rparams rpms;
 #ifdef MULTIBYTE_SUPPORT
     int width;			/* width of wide character		     */
@@ -1026,6 +1035,8 @@ zrefresh(void)
     /* this will create region_highlights if it's still NULL */
     zle_set_highlight();
 
+    DPUTS(!region_highlights, "region_highlights not created");
+
     /* check for region between point ($CURSOR) and mark ($MARK) */
     if (region_active) {
 	if (zlecs <= mark) {
@@ -1035,6 +1046,15 @@ zrefresh(void)
 	    region_highlights[0].start = mark;
 	    region_highlights[0].end = zlecs;
 	}
+	if (region_active == 2) {
+	    int origcs = zlecs;
+	    zlecs = region_highlights[0].end;
+	    region_highlights[0].end = findeol();
+	    zlecs = region_highlights[0].start;
+	    region_highlights[0].start = findbol();
+	    zlecs = origcs;
+	} else if (invicmdmode())
+	    INCPOS(region_highlights[0].end);
     } else {
 	region_highlights[0].start = region_highlights[0].end = -1;
     }
@@ -1046,8 +1066,8 @@ zrefresh(void)
 	region_highlights[1].start = region_highlights[1].end = -1;
     }
     /* check for an active completion suffix */
-    if (suffixnoinslen) {
-	region_highlights[2].start = zlecs - suffixnoinslen;
+    if (suffixlen) {
+	region_highlights[2].start = zlecs - suffixlen;
 	region_highlights[2].end = zlecs;
     } else {
 	region_highlights[2].start = region_highlights[2].end = -1;

@@ -31,6 +31,7 @@
 #include "PlatformCALayer.h"
 #include "TileController.h"
 #include <wtf/MainThread.h>
+#include <wtf/text/CString.h>
 
 #if PLATFORM(IOS)
 #include "TileControllerMemoryHandlerIOS.h"
@@ -42,11 +43,9 @@ TileGrid::TileGrid(TileController& controller)
     : m_controller(controller)
     , m_containerLayer(*controller.rootLayer().createCompatibleLayer(PlatformCALayer::LayerTypeLayer, nullptr))
     , m_scale(1)
-    , m_cohortRemovalTimer(this, &TileGrid::cohortRemovalTimerFired)
+    , m_cohortRemovalTimer(*this, &TileGrid::cohortRemovalTimerFired)
 {
-#ifndef NDEBUG
-    m_containerLayer.get().setName("TileGrid Container Layer");
-#endif
+    m_containerLayer.get().setName(TileController::tileGridContainerLayerName());
 }
 
 TileGrid::~TileGrid()
@@ -55,6 +54,14 @@ TileGrid::~TileGrid()
 
     for (auto& tile : m_tiles.values())
         tile.layer->setOwner(nullptr);
+}
+
+void TileGrid::setIsZoomedOutTileGrid(bool isZoomedOutGrid)
+{
+    if (isZoomedOutGrid)
+        m_containerLayer.get().setName(TileController::zoomedOutTileGridContainerLayerName());
+    else
+        m_containerLayer.get().setName(TileController::tileGridContainerLayerName());
 }
 
 void TileGrid::setScale(float scale)
@@ -152,11 +159,11 @@ void TileGrid::setTileNeedsDisplayInRect(const TileIndex& tileIndex, TileInfo& t
     // We could test for intersection with the visible rect. This would reduce painting yet more,
     // but may make scrolling stale tiles into view more frequent.
     if (tileRect.intersects(coverageRectInTileCoords) && tileLayer->superlayer()) {
-        tileLayer->setNeedsDisplay(&tileRepaintRect);
+        tileLayer->setNeedsDisplayInRect(tileRepaintRect);
 
         if (m_controller.rootLayer().owner()->platformCALayerShowRepaintCounter(0)) {
             FloatRect indicatorRect(0, 0, 52, 27);
-            tileLayer->setNeedsDisplay(&indicatorRect);
+            tileLayer->setNeedsDisplayInRect(indicatorRect);
         }
     } else
         tileInfo.hasStaleContent = true;
@@ -178,15 +185,12 @@ void TileGrid::updateTileLayerProperties()
     }
 }
 
-bool TileGrid::tilesWouldChangeForVisibleRect(const FloatRect& newVisibleRect, const FloatRect& oldVisibleRect) const
+bool TileGrid::tilesWouldChangeForCoverageRect(const FloatRect& coverageRect) const
 {
-    FloatRect visibleRect = newVisibleRect;
-
-    if (visibleRect.isEmpty())
+    if (coverageRect.isEmpty())
         return false;
-        
-    FloatRect currentTileCoverageRect = m_controller.computeTileCoverageRect(oldVisibleRect, newVisibleRect);
-    FloatRect scaledRect(currentTileCoverageRect);
+
+    FloatRect scaledRect(coverageRect);
     scaledRect.scale(m_scale);
     IntRect currentCoverageRectInTileCoords(enclosingIntRect(scaledRect));
 
@@ -194,9 +198,9 @@ bool TileGrid::tilesWouldChangeForVisibleRect(const FloatRect& newVisibleRect, c
     TileIndex bottomRight;
     getTileIndexRangeForRect(currentCoverageRectInTileCoords, topLeft, bottomRight);
 
-    IntRect coverageRect = rectForTileIndex(topLeft);
-    coverageRect.unite(rectForTileIndex(bottomRight));
-    return coverageRect != m_primaryTileCoverageRect;
+    IntRect tileCoverageRect = rectForTileIndex(topLeft);
+    tileCoverageRect.unite(rectForTileIndex(bottomRight));
+    return tileCoverageRect != m_primaryTileCoverageRect;
 }
 
 bool TileGrid::prepopulateRect(const FloatRect& rect)
@@ -297,16 +301,15 @@ void TileGrid::removeTilesInCohort(TileCohort cohort)
     removeTiles(tilesToRemove);
 }
 
-void TileGrid::revalidateTiles(unsigned validationPolicy)
+void TileGrid::revalidateTiles(TileValidationPolicy validationPolicy)
 {
-    FloatRect visibleRect = m_controller.visibleRect();
+    FloatRect coverageRect = m_controller.coverageRect();
     IntRect bounds = m_controller.bounds();
 
-    if (visibleRect.isEmpty() || bounds.isEmpty())
+    if (coverageRect.isEmpty() || bounds.isEmpty())
         return;
 
-    FloatRect tileCoverageRect = m_controller.computeTileCoverageRect(m_controller.visibleRectAtLastRevalidate(), visibleRect);
-    FloatRect scaledRect(tileCoverageRect);
+    FloatRect scaledRect(coverageRect);
     scaledRect.scale(m_scale);
     IntRect coverageRectInTileCoords(enclosingIntRect(scaledRect));
 
@@ -371,7 +374,7 @@ void TileGrid::revalidateTiles(unsigned validationPolicy)
     }
 
     // Ensure primary tile coverage tiles.
-    m_primaryTileCoverageRect = ensureTilesForRect(tileCoverageRect, CoverageType::PrimaryTiles);
+    m_primaryTileCoverageRect = ensureTilesForRect(coverageRect, CoverageType::PrimaryTiles);
 
     if (validationPolicy & PruneSecondaryTiles) {
         removeAllSecondaryTiles();
@@ -475,7 +478,7 @@ double TileGrid::TileCohortInfo::timeUntilExpiration()
     return creationTime - timeThreshold;
 }
 
-void TileGrid::cohortRemovalTimerFired(Timer*)
+void TileGrid::cohortRemovalTimerFired()
 {
     if (m_cohortList.isEmpty()) {
         m_cohortRemovalTimer.stop();
@@ -542,7 +545,7 @@ IntRect TileGrid::ensureTilesForRect(const FloatRect& rect, CoverageType newTile
             bool shouldParentTileLayer = (!m_controller.unparentsOffscreenTiles() || m_controller.isInWindow()) && !tileInfo.layer->superlayer();
 
             if (shouldParentTileLayer)
-                m_containerLayer.get().appendSublayer(tileInfo.layer.get());
+                m_containerLayer.get().appendSublayer(*tileInfo.layer);
         }
     }
     
@@ -633,6 +636,21 @@ void TileGrid::drawTileMapContents(CGContextRef context, CGRect layerBounds) con
         CGRect frame = CGRectMake(tileLayer->position().x(), tileLayer->position().y(), tileLayer->bounds().size().width(), tileLayer->bounds().size().height());
         CGContextFillRect(context, frame);
         CGContextStrokeRect(context, frame);
+
+        CGContextSetRGBFillColor(context, 0, 0, 0, 0.5);
+
+        String repaintCount = String::number(m_tileRepaintCounts.get(tileLayer));
+
+        CGContextSaveGState(context);
+        CGContextSetTextMatrix(context, CGAffineTransformMakeScale(3, -3));
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        CGContextSelectFont(context, "Helvetica", 58, kCGEncodingMacRoman);
+        CGContextShowTextAtPoint(context, frame.origin.x + 64, frame.origin.y + 192, repaintCount.ascii().data(), repaintCount.length());
+#pragma clang diagnostic pop
+
+        CGContextRestoreGState(context);
     }
 }
 

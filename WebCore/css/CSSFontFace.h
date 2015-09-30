@@ -28,7 +28,7 @@
 
 #include "CSSFontFaceRule.h"
 #include "CSSFontFaceSource.h"
-#include "FontTraitsMask.h"
+#include "TextFlags.h"
 #include <memory>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
@@ -40,11 +40,11 @@ namespace WebCore {
 
 class CSSSegmentedFontFace;
 class FontDescription;
-class SimpleFontData;
+class Font;
 
 class CSSFontFace : public RefCounted<CSSFontFace> {
 public:
-    static PassRefPtr<CSSFontFace> create(FontTraitsMask traitsMask, PassRefPtr<CSSFontFaceRule> rule, bool isLocalFallback = false) { return adoptRef(new CSSFontFace(traitsMask, rule, isLocalFallback)); }
+    static Ref<CSSFontFace> create(FontTraitsMask traitsMask, PassRefPtr<CSSFontFaceRule> rule, bool isLocalFallback = false) { return adoptRef(*new CSSFontFace(traitsMask, rule, isLocalFallback)); }
 
     FontTraitsMask traitsMask() const { return m_traitsMask; }
 
@@ -65,7 +65,7 @@ public:
 
     void fontLoaded(CSSFontFaceSource*);
 
-    PassRefPtr<SimpleFontData> getFontData(const FontDescription&, bool syntheticBold, bool syntheticItalic);
+    RefPtr<Font> font(const FontDescription&, bool syntheticBold, bool syntheticItalic);
 
     struct UnicodeRange {
         UnicodeRange(UChar32 from, UChar32 to)

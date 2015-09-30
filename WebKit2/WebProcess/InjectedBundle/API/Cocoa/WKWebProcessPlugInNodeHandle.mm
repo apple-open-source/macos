@@ -28,6 +28,7 @@
 
 #import "WKWebProcessPlugInFrameInternal.h"
 #import <WebCore/IntRect.h>
+#import <WebKit/WebImage.h>
 
 #if WK_API_ENABLED
 
@@ -63,6 +64,28 @@ using namespace WebKit;
     return [wrapper(*frame.release().leakRef()) autorelease];
 }
 
+#if PLATFORM(IOS)
+- (UIImage *)renderedImageWithOptions:(WKSnapshotOptions)options
+{
+    RefPtr<WebImage> image = _nodeHandle->renderedImage(options);
+    if (!image || !image->bitmap())
+        return nil;
+
+    return [[[UIImage alloc] initWithCGImage:image->bitmap()->makeCGImage().get()] autorelease];
+}
+#endif
+
+#if PLATFORM(MAC)
+- (NSImage *)renderedImageWithOptions:(WKSnapshotOptions)options
+{
+    RefPtr<WebImage> image = _nodeHandle->renderedImage(options);
+    if (!image || !image->bitmap())
+        return nil;
+
+    return [[[NSImage alloc] initWithCGImage:image->bitmap()->makeCGImage().get() size:NSZeroSize] autorelease];
+}
+#endif
+
 - (CGRect)elementBounds
 {
     return _nodeHandle->elementBounds();
@@ -70,12 +93,12 @@ using namespace WebKit;
 
 - (BOOL)HTMLInputElementIsAutoFilled
 {
-    return _nodeHandle->isHTMLInputElementAutofilled();
+    return _nodeHandle->isHTMLInputElementAutoFilled();
 }
 
 - (void)setHTMLInputElementIsAutoFilled:(BOOL)isAutoFilled
 {
-    _nodeHandle->setHTMLInputElementAutofilled(isAutoFilled);
+    _nodeHandle->setHTMLInputElementAutoFilled(isAutoFilled);
 }
 
 - (BOOL)HTMLInputElementIsUserEdited
@@ -100,6 +123,11 @@ using namespace WebKit;
         return nil;
 
     return [wrapper(*nodeHandle.leakRef()) autorelease];
+}
+
+- (WKWebProcessPlugInFrame *)frame
+{
+    return [wrapper(*_nodeHandle->document()->documentFrame().leakRef()) autorelease];
 }
 
 - (InjectedBundleNodeHandle&)_nodeHandle

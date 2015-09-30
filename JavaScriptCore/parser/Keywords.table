@@ -10,8 +10,10 @@ false		FALSETOKEN
 break		BREAK
 case		CASE
 catch		CATCH
+class		CLASSTOKEN
 const		CONSTTOKEN
 default		DEFAULT
+extends	EXTENDS
 finally		FINALLY
 for		FOR
 instanceof	INSTANCEOF
@@ -28,6 +30,7 @@ do		DO
 while		WHILE
 else		ELSE
 in		INTOKEN
+super		SUPER
 switch		SWITCH
 throw		THROW
 try		TRY
@@ -36,12 +39,9 @@ with		WITH
 debugger	DEBUGGER
 
 # Reserved for future use.
-class           RESERVED
 enum            RESERVED
 export          RESERVED
-extends         RESERVED
 import          RESERVED
-super           RESERVED
 
 # Reserved for future use in strict code.
 implements      RESERVED_IF_STRICT

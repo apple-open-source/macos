@@ -59,8 +59,6 @@
 
 #define REPLYOFFSET         0x1000
 
-#define kSNIPSecDBInvalidSPI        0
-
 enum {
 	IPSECIKE_CREATE         = 0x0001,
 	IPSECIKE_START,

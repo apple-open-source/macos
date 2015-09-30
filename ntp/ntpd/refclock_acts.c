@@ -362,7 +362,7 @@ acts_message(
 	up = (struct actsunit *)pp->unitptr;
 #ifdef DEBUG
 	ioctl(pp->io.fd, TIOCMGET, (char *)&modem);
-	snprintf(tbuf, sizeof(tbuf), "acts: %04x (%d %d) %d %s", modem,
+	snprintf(tbuf, sizeof(tbuf), "acts: %04x (%d %d) %lu %s", modem,
 	    up->state, up->timer, strlen(pp->a_lastcode),
 	    pp->a_lastcode);
 	if (debug)

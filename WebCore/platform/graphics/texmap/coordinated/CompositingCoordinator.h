@@ -89,7 +89,7 @@ public:
 
 private:
     // GraphicsLayerClient
-    virtual void notifyAnimationStarted(const GraphicsLayer*, double time) override;
+    virtual void notifyAnimationStarted(const GraphicsLayer*, const String&, double time) override;
     virtual void notifyFlushRequired(const GraphicsLayer*) override;
     virtual void paintContents(const GraphicsLayer*, GraphicsContext&, GraphicsLayerPaintingPhase, const FloatRect& clipRect) override;
     virtual float deviceScaleFactor() const override;
@@ -114,7 +114,7 @@ private:
     virtual void removeUpdateAtlas(uint32_t atlasID) override;
 
     // GraphicsLayerFactory
-    virtual std::unique_ptr<GraphicsLayer> createGraphicsLayer(GraphicsLayerClient&) override;
+    virtual std::unique_ptr<GraphicsLayer> createGraphicsLayer(GraphicsLayer::Type, GraphicsLayerClient&) override;
 
     void initializeRootCompositingLayerIfNeeded();
     void flushPendingImageBackingChanges();
@@ -122,7 +122,7 @@ private:
 
     void scheduleReleaseInactiveAtlases();
 
-    void releaseInactiveAtlasesTimerFired(Timer*);
+    void releaseInactiveAtlasesTimerFired();
 
     Page* m_page;
     CompositingCoordinator::Client* m_client;

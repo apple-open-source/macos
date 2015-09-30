@@ -35,6 +35,7 @@
 #include "JSGlobalObject.h"
 #include "JSObject.h"
 #include "JSCInlines.h"
+#include "RuntimeFlags.h"
 #include "SourceProvider.h"
 #include "StackVisitor.h"
 #include <wtf/text/StringBuilder.h>
@@ -43,6 +44,11 @@
 #if ENABLE(REMOTE_INSPECTOR)
 #include "JSGlobalObjectDebuggable.h"
 #include "JSGlobalObjectInspectorController.h"
+#include "JSRemoteInspector.h"
+#endif
+
+#if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
+#include "JSContextRefInspectorSupport.h"
 #endif
 
 #if OS(DARWIN)
@@ -53,6 +59,15 @@ static const int32_t webkitFirstVersionWithConcurrentGlobalContexts = 0x2100500;
 
 using namespace JSC;
 
+static RuntimeFlags javaScriptRuntimeFlags(const JSGlobalObject* globalObject)
+{
+    RuntimeFlags runtimeFlags = JSGlobalObject::javaScriptRuntimeFlags(globalObject);
+    runtimeFlags.setPromiseDisabled(true);
+    return runtimeFlags;
+}
+
+const GlobalObjectMethodTable JSC::javaScriptCoreAPIGlobalObjectMethodTable = { &JSGlobalObject::allowsAccessFrom, &JSGlobalObject::supportsProfiling, &JSGlobalObject::supportsRichSourceInfo, &JSGlobalObject::shouldInterruptScript, &javaScriptRuntimeFlags, nullptr, &JSGlobalObject::shouldInterruptScriptBeforeTimeout };
+
 // From the API's perspective, a context group remains alive iff
 //     (a) it has been JSContextGroupRetained
 //     OR
@@ -61,7 +76,7 @@ using namespace JSC;
 JSContextGroupRef JSContextGroupCreate()
 {
     initializeThreading();
-    return toRef(VM::createContextGroup().leakRef());
+    return toRef(&VM::createContextGroup().leakRef());
 }
 
 JSContextGroupRef JSContextGroupRetain(JSContextGroupRef group)
@@ -86,28 +101,38 @@ static bool internalScriptTimeoutCallback(ExecState* exec, void* callbackPtr, vo
     return callback(contextRef, callbackData);
 }
 
+static void createWatchdogIfNeeded(VM& vm)
+{
+    if (!vm.watchdog) {
+        vm.watchdog = std::make_unique<Watchdog>();
+
+        // The LLINT peeks into the Watchdog object directly. In order to do that,
+        // the LLINT assumes that the internal shape of a std::unique_ptr is the
+        // same as a plain C++ pointer, and loads the address of Watchdog from it.
+        RELEASE_ASSERT(*reinterpret_cast<Watchdog**>(&vm.watchdog) == vm.watchdog.get());
+    }
+}
+
 void JSContextGroupSetExecutionTimeLimit(JSContextGroupRef group, double limit, JSShouldTerminateCallback callback, void* callbackData)
 {
     VM& vm = *toJS(group);
     JSLockHolder locker(&vm);
-    if (!vm.watchdog)
-        vm.watchdog = std::make_unique<Watchdog>();
+    createWatchdogIfNeeded(vm);
     Watchdog& watchdog = *vm.watchdog;
     if (callback) {
         void* callbackPtr = reinterpret_cast<void*>(callback);
-        watchdog.setTimeLimit(vm, limit, internalScriptTimeoutCallback, callbackPtr, callbackData);
+        watchdog.setTimeLimit(vm, std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<double>(limit)), internalScriptTimeoutCallback, callbackPtr, callbackData);
     } else
-        watchdog.setTimeLimit(vm, limit);
+        watchdog.setTimeLimit(vm, std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<double>(limit)));
 }
 
 void JSContextGroupClearExecutionTimeLimit(JSContextGroupRef group)
 {
     VM& vm = *toJS(group);
     JSLockHolder locker(&vm);
-    if (!vm.watchdog)
-        vm.watchdog = std::make_unique<Watchdog>();
+    createWatchdogIfNeeded(vm);
     Watchdog& watchdog = *vm.watchdog;
-    watchdog.setTimeLimit(vm, std::numeric_limits<double>::infinity());
+    watchdog.setTimeLimit(vm, std::chrono::microseconds::max());
 }
 
 // From the API's perspective, a global context remains alive iff it has been JSGlobalContextRetained.
@@ -134,10 +159,13 @@ JSGlobalContextRef JSGlobalContextCreateInGroup(JSContextGroupRef group, JSClass
     RefPtr<VM> vm = group ? PassRefPtr<VM>(toJS(group)) : VM::createContextGroup();
 
     JSLockHolder locker(vm.get());
-    vm->makeUsableFromMultipleThreads();
 
     if (!globalObjectClass) {
-        JSGlobalObject* globalObject = JSGlobalObject::create(*vm, JSGlobalObject::createStructure(*vm, jsNull()));
+        JSGlobalObject* globalObject = JSGlobalObject::create(*vm, JSGlobalObject::createStructure(*vm, jsNull()), &javaScriptCoreAPIGlobalObjectMethodTable);
+#if ENABLE(REMOTE_INSPECTOR)
+        if (JSRemoteInspectorGetInspectionEnabledByDefault())
+            globalObject->setRemoteDebuggingEnabled(true);
+#endif
         return JSGlobalContextRetain(toGlobalRef(globalObject->globalExec()));
     }
 
@@ -147,6 +175,10 @@ JSGlobalContextRef JSGlobalContextCreateInGroup(JSContextGroupRef group, JSClass
     if (!prototype)
         prototype = jsNull();
     globalObject->resetPrototype(*vm, prototype);
+#if ENABLE(REMOTE_INSPECTOR)
+    if (JSRemoteInspectorGetInspectionEnabledByDefault())
+        globalObject->setRemoteDebuggingEnabled(true);
+#endif
     return JSGlobalContextRetain(toGlobalRef(exec));
 }
 
@@ -403,5 +435,20 @@ void JSGlobalContextSetDebuggerRunLoop(JSGlobalContextRef ctx, CFRunLoopRef runL
     UNUSED_PARAM(ctx);
     UNUSED_PARAM(runLoop);
 #endif
+}
+#endif // USE(CF)
+
+#if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
+Inspector::AugmentableInspectorController* JSGlobalContextGetAugmentableInspectorController(JSGlobalContextRef ctx)
+{
+    if (!ctx) {
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
+
+    ExecState* exec = toJS(ctx);
+    JSLockHolder lock(exec);
+
+    return &exec->vmEntryGlobalObject()->inspectorController();
 }
 #endif

@@ -124,7 +124,9 @@ typedef struct _pthread_reap_msg_t {
 
 #define pthreadsize ((size_t)mach_vm_round_page(sizeof(struct _pthread)))
 static pthread_attr_t _pthread_attr_default = {0};
-static struct _pthread _thread = {0};
+
+// The main thread's pthread_t
+static struct _pthread _thread __attribute__((aligned(4096))) = {0};
 
 static int default_priority;
 static int max_priority;
@@ -133,6 +135,7 @@ static int pthread_concurrency;
 
 // work queue support data
 static void (*__libdispatch_workerfunction)(pthread_priority_t) = NULL;
+static void (*__libdispatch_keventfunction)(void **events, int *nevents) = NULL;
 static int __libdispatch_offset;
 
 // supported feature set
@@ -171,8 +174,8 @@ static inline void _pthread_introspection_thread_start(pthread_t t);
 static inline void _pthread_introspection_thread_terminate(pthread_t t, void *freeaddr, size_t freesize, bool destroy);
 static inline void _pthread_introspection_thread_destroy(pthread_t t);
 
-extern void start_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *unused, int reuse);
-extern void thread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * funarg, size_t stacksize, unsigned int flags);
+extern void start_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *unused, int reuse); // trampoline into _pthread_wqthread
+extern void thread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * funarg, size_t stacksize, unsigned int flags); // trampoline into _pthread_start
 
 void pthread_workqueue_atfork_child(void);
 
@@ -218,9 +221,9 @@ static const mach_vm_address_t PTHREAD_STACK_HINT = 0xB0000000;
 #error no PTHREAD_STACK_HINT for this architecture
 #endif
 
-#ifdef __i386__
+#if defined(__i386__) && defined(static_assert)
 // Check for regression of <rdar://problem/13249323>
-struct rdar_13249323_regression_static_assert { unsigned a[offsetof(struct _pthread, err_no) == 68 ? 1 : -1]; };
+static_assert(offsetof(struct _pthread, err_no) == 68);
 #endif
 
 // Allocate a thread structure, stack and guard page.
@@ -300,7 +303,7 @@ _pthread_allocate(pthread_t *thread, const pthread_attr_t *attrs, void **stack)
 	}
 	
 	if (t != NULL) {
-		_pthread_struct_init(t, attrs, *stack, 0, 0);
+		_pthread_struct_init(t, attrs, *stack, attrs->stacksize, 0);
 		t->freeaddr = (void *)allocaddr;
 		t->freesize = allocsize;
 		*thread = t;
@@ -316,7 +319,9 @@ _pthread_deallocate(pthread_t t)
 {
 	// Don't free the main thread.
 	if (t != &_thread) {
-		(void)mach_vm_deallocate(mach_task_self(), t->freeaddr, t->freesize);
+		kern_return_t ret;
+		ret = mach_vm_deallocate(mach_task_self(), t->freeaddr, t->freesize);
+		PTHREAD_ASSERT(ret == KERN_SUCCESS);
 	}
 	return 0;
 }
@@ -329,17 +334,15 @@ _pthread_terminate(pthread_t t)
 	PTHREAD_ASSERT(t == pthread_self());
 	
 	uintptr_t freeaddr = (uintptr_t)t->freeaddr;
-	size_t freesize = t->freesize - pthreadsize;
+	size_t freesize = t->freesize;
 
 	mach_port_t kport = _pthread_kernel_thread(t);
 	semaphore_t joinsem = t->joiner_notify;
 
 	_pthread_dealloc_reply_port(t);
 
-	// Shrink the pthread_t so that it does not include the stack
-	// so that we're always responsible for deallocating the stack.
-	t->freeaddr += freesize;
-	t->freesize = pthreadsize;
+	// If the pthread_t sticks around after the __bsdthread_terminate, we'll 
+	// need to free it later
 
 	// After the call to __pthread_remove_thread, it is only safe to
 	// dereference the pthread_t structure if EBUSY has been returned.
@@ -350,11 +353,20 @@ _pthread_terminate(pthread_t t)
 	if (t == &_thread) {
 		// Don't free the main thread.
 		freesize = 0;
-	} else if (destroy) {
-		// We were told not to keep the pthread_t structure around, so
-		// instead of just deallocating the stack, we should deallocate
-		// the entire structure.
-		freesize += pthreadsize;
+	} else if (!destroy) {
+		// We were told to keep the pthread_t structure around.  In the common
+		// case, the pthread structure itself is part of the allocation
+		// described by freeaddr/freesize, in which case we need to split and
+		// only deallocate the area below the pthread structure.  In the event
+		// of a custom stack, the freeaddr/size will be the pthread structure
+		// itself, in which case we shouldn't free anything.
+		if ((void*)t > t->freeaddr && (void*)t < t->freeaddr + t->freesize){
+			freesize = trunc_page((uintptr_t)t - (uintptr_t)freeaddr);
+			t->freeaddr += freesize;
+			t->freesize -= freesize;
+		} else {
+			freesize = 0;
+		}
 	}
 	if (freesize == 0) {
 		freeaddr = 0;
@@ -646,7 +658,7 @@ void
 _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void *arg, size_t stacksize, unsigned int pflags)
 {
 	if ((pflags & PTHREAD_START_CUSTOM) == 0) {
-		void *stackaddr = self;
+		uintptr_t stackaddr = self;
 		_pthread_struct_init(self, &_pthread_attr_default, stackaddr, stacksize, 1);
 
 		if (pflags & PTHREAD_START_SETSCHED) {
@@ -681,25 +693,30 @@ _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void *ar
 static void
 _pthread_struct_init(pthread_t t,
 		     const pthread_attr_t *attrs,
-		     void *stack,
+		     void *stackaddr,
 		     size_t stacksize,
-		     int kernalloc)
+			 int kernalloc)
 {
 	t->sig = _PTHREAD_SIG;
 	t->tsd[_PTHREAD_TSD_SLOT_PTHREAD_SELF] = t;
 	t->tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS] = _pthread_priority_make_newest(QOS_CLASS_UNSPECIFIED, 0, 0);
 	LOCK_INIT(t->lock);
+
+	t->stacksize = stacksize;
+	t->stackaddr = stackaddr;
+
 	t->kernalloc = kernalloc;
-	if (kernalloc != 0) {
-		uintptr_t stackaddr = (uintptr_t)t;
-		t->stacksize = stacksize;
-		t->stackaddr = (void *)stackaddr;
-		t->freeaddr = (void *)(uintptr_t)(stackaddr - stacksize - vm_page_size);
-		t->freesize = pthreadsize + stacksize + vm_page_size;
-	} else {
-		t->stacksize = attrs->stacksize;
-		t->stackaddr = (void *)stack;
+	if (kernalloc){
+		/* 
+		 * The pthread may be offset into a page.  In that event, by contract
+		 * with the kernel, the allocation will extend pthreadsize from the
+		 * start of the next page.  There's also one page worth of allocation
+		 * below stacksize for the guard page. <rdar://problem/19941744> 
+		 */
+		t->freeaddr = (stackaddr - stacksize) - vm_page_size;
+		t->freesize = (round_page((uintptr_t)stackaddr) + pthreadsize) - (uintptr_t)t->freeaddr;
 	}
+
 	t->guardsize = attrs->guardsize;
 	t->detached = attrs->detached;
 	t->inherit = attrs->inherit;
@@ -1590,10 +1607,10 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs, const char *en
 
 	void *stackaddr;
 	size_t stacksize = DFLSSIZ;
-    	size_t len = sizeof(stackaddr);
-    	int mib[] = { CTL_KERN, KERN_USRSTACK };
-    	if (__sysctl(mib, 2, &stackaddr, &len, NULL, 0) != 0) {
-       		stackaddr = (void *)USRSTACK;
+	size_t len = sizeof(stackaddr);
+	int mib[] = { CTL_KERN, KERN_USRSTACK };
+	if (__sysctl(mib, 2, &stackaddr, &len, NULL, 0) != 0) {
+		stackaddr = (void *)USRSTACK;
 	}
 
 	pthread_t thread = &_thread;
@@ -1611,6 +1628,9 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs, const char *en
 	
 	// Set up kernel entry points with __bsdthread_register.
 	pthread_workqueue_atfork_child();
+
+	// Have pthread_key do its init envvar checks.
+	_pthread_key_global_init(envp);
 
 	return 0;
 }
@@ -1788,12 +1808,7 @@ _pthread_clear_qos_tsd(mach_port_t thread_port)
 		LOCK(_pthread_list_lock);
 
 		TAILQ_FOREACH(p, &__pthread_head, plist) {
-			mach_port_t kp;
-			while ((kp = _pthread_kernel_thread(p)) == MACH_PORT_NULL) {
-				UNLOCK(_pthread_list_lock);
-				sched_yield();
-				LOCK(_pthread_list_lock);
-			}
+			mach_port_t kp = _pthread_kernel_thread(p);
 			if (thread_port == kp) {
 				p->tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS] = _pthread_priority_make_newest(QOS_CLASS_UNSPECIFIED, 0, 0);
 				break;
@@ -1835,26 +1850,37 @@ pthread_workqueue_atfork_child(void)
 	}
 }
 
+// workqueue entry point from kernel
 void
-_pthread_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *unused, int flags)
+_pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr, void *keventlist, int flags, int nkevents)
 {
 	PTHREAD_ASSERT(flags & WQ_FLAG_THREAD_NEWSPI);
 
 	int thread_reuse = flags & WQ_FLAG_THREAD_REUSE;
 	int thread_class = flags & WQ_FLAG_THREAD_PRIOMASK;
 	int overcommit = (flags & WQ_FLAG_THREAD_OVERCOMMIT) != 0;
+	int kevent = flags & WQ_FLAG_THREAD_KEVENT;
+	PTHREAD_ASSERT((!kevent) || (__libdispatch_keventfunction != NULL));
 
-	pthread_priority_t priority;
+	pthread_priority_t priority = 0;
+	unsigned long priority_flags = 0;
+
+	if (overcommit)
+		priority_flags |= _PTHREAD_PRIORITY_OVERCOMMIT_FLAG;
+	if (flags & WQ_FLAG_THREAD_EVENT_MANAGER)
+		priority_flags |= _PTHREAD_PRIORITY_EVENT_MANAGER_FLAG;
 
 	if ((__pthread_supported_features & PTHREAD_FEATURE_QOS_MAINTENANCE) == 0) {
-		priority = _pthread_priority_make_version2(thread_class, 0, (overcommit ? _PTHREAD_PRIORITY_OVERCOMMIT_FLAG : 0));
+		priority = _pthread_priority_make_version2(thread_class, 0, priority_flags);
 	} else {
-		priority = _pthread_priority_make_newest(thread_class, 0, (overcommit ? _PTHREAD_PRIORITY_OVERCOMMIT_FLAG : 0));
+		priority = _pthread_priority_make_newest(thread_class, 0, priority_flags);
 	}
 
 	if (thread_reuse == 0) {
 		// New thread created by kernel, needs initialization.
-		_pthread_struct_init(self, &_pthread_attr_default, stackaddr, DEFAULT_STACK_SIZE, 1);
+		size_t stacksize = (uintptr_t)self - (uintptr_t)stacklowaddr;
+		_pthread_struct_init(self, &_pthread_attr_default, (void*)self, stacksize, 1);
+
 		_pthread_set_kernel_thread(self, kport);
 		self->wqthread = 1;
 		self->wqkillset = 0;
@@ -1868,12 +1894,12 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *unus
 		_pthread_set_self(self);
 		_pthread_introspection_thread_create(self, false);
 		__pthread_add_thread(self, false);
+	}
 
-		// If we're running with fine-grained priority, we also need to
-		// set this thread to have the QoS class provided to use by the kernel
-		if (__pthread_supported_features & PTHREAD_FEATURE_FINEPRIO) {
-			_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS, _pthread_priority_make_newest(thread_class, 0, 0));
-		}
+	// If we're running with fine-grained priority, we also need to
+	// set this thread to have the QoS class provided to use by the kernel
+	if (__pthread_supported_features & PTHREAD_FEATURE_FINEPRIO) {
+		_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS, _pthread_priority_make_newest(thread_class, 0, priority_flags));
 	}
 
 #if WQ_DEBUG
@@ -1881,8 +1907,31 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *unus
 	PTHREAD_ASSERT(self == pthread_self());
 #endif // WQ_DEBUG
 
-	self->fun = (void *(*)(void *))__libdispatch_workerfunction;
+	if (kevent){
+		self->fun = (void *(*)(void*))__libdispatch_keventfunction;
+	} else {
+		self->fun = (void *(*)(void *))__libdispatch_workerfunction;
+	}
 	self->arg = (void *)(uintptr_t)thread_class;
+
+	if (kevent && keventlist){
+	kevent_errors_retry:
+		(*__libdispatch_keventfunction)(&keventlist, &nkevents);
+
+		int errors_out = __workq_kernreturn(WQOPS_THREAD_KEVENT_RETURN, keventlist, nkevents, 0);
+		if (errors_out > 0){
+			nkevents = errors_out;
+			goto kevent_errors_retry;
+		} else if (errors_out < 0){
+			PTHREAD_ABORT("kevent return produced an error: %d", errno);
+		}
+		_pthread_exit(self, NULL);
+    } else if (kevent){
+		(*__libdispatch_keventfunction)(NULL, NULL);
+
+		__workq_kernreturn(WQOPS_THREAD_RETURN, NULL, 0, 0);
+		_pthread_exit(self, NULL);
+    }
 
 	if (__pthread_supported_features & PTHREAD_FEATURE_FINEPRIO) {
 		if (!__workq_newapi) {
@@ -1951,20 +2000,6 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *unus
 
 /***** pthread workqueue API for libdispatch *****/
 
-int
-_pthread_workqueue_init(pthread_workqueue_function2_t func, int offset, int flags)
-{
-	if (flags != 0) {
-		return ENOTSUP;
-	}
-
-	__workq_newapi = true;
-	__libdispatch_offset = offset;
-
-	int rv = pthread_workqueue_setdispatch_np((pthread_workqueue_function_t)func);
-	return rv;
-}
-
 void
 pthread_workqueue_setdispatchoffset_np(int offset)
 {
@@ -1972,16 +2007,17 @@ pthread_workqueue_setdispatchoffset_np(int offset)
 }
 
 int
-pthread_workqueue_setdispatch_np(pthread_workqueue_function_t worker_func)
+pthread_workqueue_setdispatch_with_kevent_np(pthread_workqueue_function2_t queue_func, pthread_workqueue_function_kevent_t kevent_func)
 {
 	int res = EBUSY;
 	if (__libdispatch_workerfunction == NULL) {
 		// Check whether the kernel supports new SPIs
-		res = __workq_kernreturn(WQOPS_QUEUE_NEWSPISUPP, NULL, __libdispatch_offset, 0);
+		res = __workq_kernreturn(WQOPS_QUEUE_NEWSPISUPP, NULL, __libdispatch_offset, kevent_func != NULL ? 0x01 : 0x00);
 		if (res == -1){
 			res = ENOTSUP;
 		} else {
-			__libdispatch_workerfunction = (pthread_workqueue_function2_t)worker_func;
+			__libdispatch_workerfunction = queue_func;
+			__libdispatch_keventfunction = kevent_func;
 
 			// Prepare the kernel for workq action
 			(void)__workq_open();
@@ -1991,6 +2027,32 @@ pthread_workqueue_setdispatch_np(pthread_workqueue_function_t worker_func)
 		}
 	}
 	return res;
+}
+
+int
+_pthread_workqueue_init_with_kevent(pthread_workqueue_function2_t queue_func, pthread_workqueue_function_kevent_t kevent_func, int offset, int flags)
+{
+	if (flags != 0) {
+		return ENOTSUP;
+	}
+	
+	__workq_newapi = true;
+	__libdispatch_offset = offset;
+	
+	int rv = pthread_workqueue_setdispatch_with_kevent_np(queue_func, kevent_func);
+	return rv;
+}
+
+int
+_pthread_workqueue_init(pthread_workqueue_function2_t func, int offset, int flags)
+{
+	return _pthread_workqueue_init_with_kevent(func, NULL, offset, flags);
+}
+
+int
+pthread_workqueue_setdispatch_np(pthread_workqueue_function_t worker_func)
+{
+	return pthread_workqueue_setdispatch_with_kevent_np((pthread_workqueue_function2_t)worker_func, NULL);
 }
 
 int
@@ -2064,6 +2126,16 @@ _pthread_workqueue_addthreads(int numthreads, pthread_priority_t priority)
 	}
 
 	res = __workq_kernreturn(WQOPS_QUEUE_REQTHREADS, NULL, numthreads, (int)priority);
+	if (res == -1) {
+		res = errno;
+	}
+	return res;
+}
+
+int
+_pthread_workqueue_set_event_manager_priority(pthread_priority_t priority)
+{
+	int res = __workq_kernreturn(WQOPS_SET_EVENT_MANAGER_PRIORITY, NULL, (int)priority, 0);
 	if (res == -1) {
 		res = errno;
 	}

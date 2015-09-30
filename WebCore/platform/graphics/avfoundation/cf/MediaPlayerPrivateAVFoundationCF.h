@@ -41,6 +41,8 @@ class WebCoreAVCFResourceLoader;
 
 class MediaPlayerPrivateAVFoundationCF : public MediaPlayerPrivateAVFoundation {
 public:
+    // Engine support
+    explicit MediaPlayerPrivateAVFoundationCF(MediaPlayer*);
     virtual ~MediaPlayerPrivateAVFoundationCF();
 
     virtual void tracksChanged() override;
@@ -58,10 +60,6 @@ public:
     static void registerMediaEngine(MediaEngineRegistrar);
 
 private:
-    MediaPlayerPrivateAVFoundationCF(MediaPlayer*);
-
-    // Engine support
-    static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
     static void getSupportedTypes(HashSet<String>& types);
     static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
@@ -90,8 +88,8 @@ private:
     virtual MediaPlayerPrivateAVFoundation::AssetStatus assetStatus() const;
 
     virtual void checkPlayability();
-    virtual void updateRate();
-    virtual float rate() const;
+    virtual void setRate(float) override;
+    virtual double rate() const override;
     virtual void seekToTime(const MediaTime&, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance);
     virtual unsigned long long totalBytes() const;
     virtual std::unique_ptr<PlatformTimeRanges> platformBufferedTimeRanges() const;
@@ -130,6 +128,8 @@ private:
 
     virtual void setCurrentTextTrack(InbandTextTrackPrivateAVF*) override;
     virtual InbandTextTrackPrivateAVF* currentTextTrack() const override;
+
+    virtual long assetErrorCode() const override final;
 
 #if !HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
     void processLegacyClosedCaptionsTracks();

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ *  Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2015 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -29,11 +29,12 @@ enum JSType : uint8_t {
     BooleanType,
     NumberType,
     NullType,
-    StringType,
-    LeafType,
 
-    // The CompoundType value must come before any JSType that may have children.
-    CompoundType,
+    // The CellType value must come before any JSType that is a JSCell.
+    CellType,
+    StringType,
+    SymbolType,
+
     GetterSetterType,
     CustomGetterSetterType,
     APIValueWrapperType,
@@ -50,14 +51,15 @@ enum JSType : uint8_t {
     // The ObjectType value must come before any JSType that is a subclass of JSObject.
     ObjectType,
     FinalObjectType,
+    JSCalleeType,
     JSFunctionType,
-    NameInstanceType,
     NumberObjectType,
     ErrorInstanceType,
     PureForwardingProxyType,
     ImpureProxyType,
     WithScopeType,
-    ArgumentsType,
+    DirectArgumentsType,
+    ScopedArgumentsType,
 
     Int8ArrayType,
     Int16ArrayType,

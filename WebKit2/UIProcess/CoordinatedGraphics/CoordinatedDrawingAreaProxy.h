@@ -32,7 +32,6 @@
 #include "BackingStore.h"
 #include "DrawingAreaProxy.h"
 #include "LayerTreeContext.h"
-#include <wtf/OwnPtr.h>
 #include <wtf/RunLoop.h>
 
 namespace WebCore {
@@ -45,7 +44,7 @@ class CoordinatedLayerTreeHostProxy;
 
 class CoordinatedDrawingAreaProxy : public DrawingAreaProxy {
 public:
-    explicit CoordinatedDrawingAreaProxy(WebPageProxy*);
+    explicit CoordinatedDrawingAreaProxy(WebPageProxy&);
     virtual ~CoordinatedDrawingAreaProxy();
 
     void paint(BackingStore::PlatformGraphicsContext, const WebCore::IntRect&, WebCore::Region& unpaintedRegion);
@@ -63,7 +62,7 @@ public:
     WebCore::IntRect contentsRect() const;
     void updateViewport();
 
-    WebPageProxy* page() { return m_webPageProxy; }
+    WebPageProxy& page() { return m_webPageProxy; }
 private:
     // DrawingAreaProxy
     virtual void sizeDidChange();
@@ -93,7 +92,7 @@ private:
     void discardBackingStoreSoon();
     void discardBackingStore();
 
-    OwnPtr<CoordinatedLayerTreeHostProxy> m_coordinatedLayerTreeHostProxy;
+    std::unique_ptr<CoordinatedLayerTreeHostProxy> m_coordinatedLayerTreeHostProxy;
 
     // The state ID corresponding to our current backing store. Updated whenever we allocate
     // a new backing store. Any messages received that correspond to an earlier state are ignored,

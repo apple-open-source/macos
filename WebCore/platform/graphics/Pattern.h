@@ -49,10 +49,10 @@ namespace WebCore {
 class AffineTransform;
 class Image;
 
-class Pattern : public RefCounted<Pattern> {
+class Pattern final : public RefCounted<Pattern> {
 public:
-    static PassRefPtr<Pattern> create(PassRefPtr<Image> tileImage, bool repeatX, bool repeatY);
-    virtual ~Pattern();
+    static Ref<Pattern> create(PassRefPtr<Image> tileImage, bool repeatX, bool repeatY);
+    ~Pattern();
 
     Image* tileImage() const { return m_tileImage.get(); }
 

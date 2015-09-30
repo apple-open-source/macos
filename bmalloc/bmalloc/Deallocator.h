@@ -27,42 +27,31 @@
 #define Deallocator_h
 
 #include "FixedVector.h"
-#include "MediumLine.h"
-#include "Sizes.h"
-#include "SmallLine.h"
 
 namespace bmalloc {
+
+class Heap;
 
 // Per-cache object deallocator.
 
 class Deallocator {
 public:
-    Deallocator();
+    Deallocator(Heap*);
     ~Deallocator();
 
     void deallocate(void*);
-    bool deallocateFastCase(void*);
-    void deallocateSlowCase(void*);
-
-    void deallocateSmallLine(std::lock_guard<StaticMutex>&, SmallLine*);
-    SmallLine* allocateSmallLine(size_t smallSizeClass);
-
-    void deallocateMediumLine(std::lock_guard<StaticMutex>&, MediumLine*);
-    MediumLine* allocateMediumLine();
-    
     void scavenge();
     
 private:
-    typedef FixedVector<SmallLine*, smallLineCacheCapacity> SmallLineCache;
-    typedef FixedVector<MediumLine*, mediumLineCacheCapacity> MediumLineCache;
+    bool deallocateFastCase(void*);
+    void deallocateSlowCase(void*);
 
     void deallocateLarge(void*);
     void deallocateXLarge(void*);
     void processObjectLog();
 
     FixedVector<void*, deallocatorLogCapacity> m_objectLog;
-    std::array<SmallLineCache, smallMax / alignment> m_smallLineCaches;
-    MediumLineCache m_mediumLineCache;
+    bool m_isBmallocEnabled;
 };
 
 inline bool Deallocator::deallocateFastCase(void* object)

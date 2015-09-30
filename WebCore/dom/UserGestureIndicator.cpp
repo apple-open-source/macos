@@ -26,18 +26,19 @@
 #include "config.h"
 #include "UserGestureIndicator.h"
 
+#include "Document.h"
 #include <wtf/MainThread.h>
 
 namespace WebCore {
 
 static bool isDefinite(ProcessingUserGestureState state)
 {
-    return state == DefinitelyProcessingUserGesture || state == DefinitelyNotProcessingUserGesture;
+    return state == DefinitelyProcessingUserGesture || state == DefinitelyNotProcessingUserGesture || state == DefinitelyProcessingPotentialUserGesture;
 }
 
 ProcessingUserGestureState UserGestureIndicator::s_state = DefinitelyNotProcessingUserGesture;
 
-UserGestureIndicator::UserGestureIndicator(ProcessingUserGestureState state)
+UserGestureIndicator::UserGestureIndicator(ProcessingUserGestureState state, Document* document)
     : m_previousState(s_state)
 {
     // Silently ignore UserGestureIndicators on non main threads.
@@ -47,6 +48,9 @@ UserGestureIndicator::UserGestureIndicator(ProcessingUserGestureState state)
     if (isDefinite(state))
         s_state = state;
     ASSERT(isDefinite(s_state));
+
+    if (document && s_state == DefinitelyProcessingUserGesture)
+        document->topDocument().updateLastHandledUserGestureTimestamp();
 }
 
 UserGestureIndicator::~UserGestureIndicator()
@@ -60,6 +64,14 @@ UserGestureIndicator::~UserGestureIndicator()
 bool UserGestureIndicator::processingUserGesture()
 {
     return isMainThread() ? s_state == DefinitelyProcessingUserGesture : false;
+}
+
+bool UserGestureIndicator::processingUserGestureForMedia()
+{
+    if (!isMainThread())
+        return false;
+
+    return s_state == DefinitelyProcessingUserGesture || s_state == DefinitelyProcessingPotentialUserGesture;
 }
 
 }

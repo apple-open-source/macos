@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,8 +45,7 @@ typedef UInt32 DAMountPointAction;
 enum
 {
     kDAMountPreferenceDefer,
-    kDAMountPreferenceTrust,
-    kDAMountPreferenceWrite
+    kDAMountPreferenceTrust
 };
 
 typedef UInt32 DAMountPreference;

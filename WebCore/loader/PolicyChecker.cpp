@@ -65,7 +65,7 @@ void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, Docume
 {
     NavigationAction action = loader->triggeringAction();
     if (action.isEmpty()) {
-        action = NavigationAction(request, NavigationTypeOther);
+        action = NavigationAction(request, NavigationType::Other, loader->shouldOpenExternalURLsPolicyToPropagate());
         loader->setTriggeringAction(action);
     }
 
@@ -101,6 +101,19 @@ void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, Docume
         continueAfterNavigationPolicy(PolicyUse);
         return;
     }
+#endif
+
+#if ENABLE(CONTENT_FILTERING)
+    if (m_contentFilterUnblockHandler.canHandleRequest(request)) {
+        RefPtr<Frame> frame { &m_frame };
+        m_contentFilterUnblockHandler.requestUnblockAsync([frame](bool unblocked) {
+            if (unblocked)
+                frame->loader().reload();
+        });
+        continueAfterNavigationPolicy(PolicyIgnore);
+        return;
+    }
+    m_contentFilterUnblockHandler = { };
 #endif
 
     m_delegateIsDecidingNavigationPolicy = true;

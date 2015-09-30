@@ -27,10 +27,9 @@
 #define CDMSessionAVFoundationObjC_h
 
 #include "CDMSession.h"
-#include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 
-#if ENABLE(ENCRYPTED_MEDIA_V2) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if ENABLE(ENCRYPTED_MEDIA_V2)
 
 OBJC_CLASS AVAssetResourceLoadingRequest;
 
@@ -43,7 +42,7 @@ public:
     CDMSessionAVFoundationObjC(MediaPlayerPrivateAVFoundationObjC* parent);
     virtual ~CDMSessionAVFoundationObjC() { }
 
-    virtual CDMSessionType type() { return CDMSessionTypeAVFoundationObjC; }
+    virtual CDMSessionType type() override { return CDMSessionTypeAVFoundationObjC; }
     virtual void setClient(CDMSessionClient* client) override { m_client = client; }
     virtual const String& sessionId() const override { return m_sessionId; }
     virtual PassRefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, unsigned long& systemCode) override;

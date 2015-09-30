@@ -35,7 +35,7 @@ namespace WebCore {
     public:
         TextEncoding() : m_name(0) { }
         TextEncoding(const char* name);
-        TextEncoding(const String& name);
+        WEBCORE_EXPORT TextEncoding(const String& name);
 
         bool isValid() const { return m_name; }
         const char* name() const { return m_name; }
@@ -68,7 +68,7 @@ namespace WebCore {
             bool ignored;
             return decode(str, length, false, ignored);
         }
-        String decode(const char*, size_t length, bool stopOnError, bool& sawError) const;
+        WEBCORE_EXPORT String decode(const char*, size_t length, bool stopOnError, bool& sawError) const;
         CString encode(StringView, UnencodableHandling) const;
 
         UChar backslashAsCurrencySymbol() const;
@@ -90,8 +90,8 @@ namespace WebCore {
     const TextEncoding& UTF16LittleEndianEncoding();
     const TextEncoding& UTF32BigEndianEncoding();
     const TextEncoding& UTF32LittleEndianEncoding();
-    const TextEncoding& UTF8Encoding();
-    const TextEncoding& WindowsLatin1Encoding();
+    WEBCORE_EXPORT const TextEncoding& UTF8Encoding();
+    WEBCORE_EXPORT const TextEncoding& WindowsLatin1Encoding();
 
 } // namespace WebCore
 

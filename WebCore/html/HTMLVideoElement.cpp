@@ -27,7 +27,6 @@
 #if ENABLE(VIDEO)
 #include "HTMLVideoElement.h"
 
-#include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
@@ -36,11 +35,13 @@
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
+#include "Logging.h"
 #include "Page.h"
 #include "RenderImage.h"
 #include "RenderVideo.h"
 #include "ScriptController.h"
 #include "Settings.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -55,11 +56,11 @@ inline HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document
         m_defaultPosterURL = document.settings()->defaultVideoPosterURL();
 }
 
-PassRefPtr<HTMLVideoElement> HTMLVideoElement::create(const QualifiedName& tagName, Document& document, bool createdByParser)
+Ref<HTMLVideoElement> HTMLVideoElement::create(const QualifiedName& tagName, Document& document, bool createdByParser)
 {
-    RefPtr<HTMLVideoElement> videoElement(adoptRef(new HTMLVideoElement(tagName, document, createdByParser)));
+    Ref<HTMLVideoElement> videoElement = adoptRef(*new HTMLVideoElement(tagName, document, createdByParser));
     videoElement->suspendIfNeeded();
-    return videoElement.release();
+    return videoElement;
 }
 
 bool HTMLVideoElement::rendererIsNeeded(const RenderStyle& style) 
@@ -67,7 +68,7 @@ bool HTMLVideoElement::rendererIsNeeded(const RenderStyle& style)
     return HTMLElement::rendererIsNeeded(style); 
 }
 
-RenderPtr<RenderElement> HTMLVideoElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> HTMLVideoElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderVideo>(*this, WTF::move(style));
 }
@@ -82,7 +83,7 @@ void HTMLVideoElement::didAttachRenderers()
             m_imageLoader = std::make_unique<HTMLImageLoader>(*this);
         m_imageLoader->updateFromElement();
         if (renderer())
-            toRenderImage(renderer())->imageResource().setCachedImage(m_imageLoader->image());
+            downcast<RenderImage>(*renderer()).imageResource().setCachedImage(m_imageLoader->image());
     }
 }
 
@@ -116,19 +117,23 @@ void HTMLVideoElement::parseAttribute(const QualifiedName& name, const AtomicStr
             m_imageLoader->updateFromElementIgnoringPreviousError();
         } else {
             if (renderer())
-                toRenderImage(renderer())->imageResource().setCachedImage(0);
+                downcast<RenderImage>(*renderer()).imageResource().setCachedImage(nullptr);
         }
     }
-#if ENABLE(IOS_AIRPLAY)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
     else if (name == webkitwirelessvideoplaybackdisabledAttr)
-        mediaSession().setWirelessVideoPlaybackDisabled(*this, webkitWirelessVideoPlaybackDisabled());
+        mediaSession().setWirelessVideoPlaybackDisabled(*this, true);
 #endif
     else {
         HTMLMediaElement::parseAttribute(name, value);    
 
-#if PLATFORM(IOS) && ENABLE(IOS_AIRPLAY)
-        if (name == webkitairplayAttr)
-            mediaSession().setWirelessVideoPlaybackDisabled(*this, webkitWirelessVideoPlaybackDisabled());
+#if PLATFORM(IOS) && ENABLE(WIRELESS_PLAYBACK_TARGET)
+        if (name == webkitairplayAttr) {
+            bool disabled = false;
+            if (equalIgnoringCase(fastGetAttribute(HTMLNames::webkitairplayAttr), "deny"))
+                disabled = true;
+            mediaSession().setWirelessVideoPlaybackDisabled(*this, disabled);
+        }
 #endif
     }
 
@@ -157,7 +162,7 @@ bool HTMLVideoElement::supportsFullscreen() const
     if (!player()->hasVideo())
         return false;
 
-    return page->chrome().client().supportsFullscreenForNode(this);
+    return page->chrome().client().supportsVideoFullscreen();
 #endif // PLATFORM(IOS)
 }
 
@@ -293,7 +298,7 @@ bool HTMLVideoElement::webkitDisplayingFullscreen()
     return isFullscreen();
 }
 
-#if ENABLE(IOS_AIRPLAY)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
 bool HTMLVideoElement::webkitWirelessVideoPlaybackDisabled() const
 {
     return mediaSession().wirelessVideoPlaybackDisabled(*this);
@@ -337,6 +342,90 @@ URL HTMLVideoElement::posterImageURL() const
         return URL();
     return document().completeURL(url);
 }
+
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+
+static const AtomicString& presentationModeFullscreen()
+{
+    static NeverDestroyed<AtomicString> fullscreen("fullscreen", AtomicString::ConstructFromLiteral);
+    return fullscreen;
+}
+
+static const AtomicString& presentationModePictureInPicture()
+{
+    static NeverDestroyed<AtomicString> pictureInPicture("picture-in-picture", AtomicString::ConstructFromLiteral);
+    return pictureInPicture;
+}
+
+static const AtomicString& presentationModeInline()
+{
+    static NeverDestroyed<AtomicString> inlineMode("inline", AtomicString::ConstructFromLiteral);
+    return inlineMode;
+}
+
+bool HTMLVideoElement::webkitSupportsPresentationMode(const String& mode) const
+{
+    if (mode == presentationModeFullscreen())
+        return mediaSession().fullscreenPermitted(*this) && supportsFullscreen();
+
+    if (mode == presentationModePictureInPicture())
+        return wkIsOptimizedFullscreenSupported() && mediaSession().allowsPictureInPicture(*this) && supportsFullscreen();
+
+    if (mode == presentationModeInline())
+        return !mediaSession().requiresFullscreenForVideoPlayback(*this);
+
+    return false;
+}
+
+void HTMLVideoElement::webkitSetPresentationMode(const String& mode)
+{
+    if (mode == presentationModeInline() && isFullscreen()) {
+        exitFullscreen();
+        return;
+    }
+
+    if (!mediaSession().fullscreenPermitted(*this) || !supportsFullscreen())
+        return;
+
+    LOG(Media, "HTMLVideoElement::webkitSetPresentationMode(%p) - setting to \"%s\"", this, mode.utf8().data());
+
+    if (mode == presentationModeFullscreen())
+        enterFullscreen(VideoFullscreenModeStandard);
+    else if (mode == presentationModePictureInPicture())
+        enterFullscreen(VideoFullscreenModePictureInPicture);
+}
+
+String HTMLVideoElement::webkitPresentationMode() const
+{
+    HTMLMediaElement::VideoFullscreenMode mode = fullscreenMode();
+
+    if (mode == VideoFullscreenModeStandard)
+        return presentationModeFullscreen();
+
+    if (mode & VideoFullscreenModePictureInPicture)
+        return presentationModePictureInPicture();
+
+    if (mode == VideoFullscreenModeNone)
+        return presentationModeInline();
+
+    ASSERT_NOT_REACHED();
+    return presentationModeInline();
+}
+
+void HTMLVideoElement::fullscreenModeChanged(VideoFullscreenMode mode)
+{
+    if (mode != fullscreenMode()) {
+        LOG(Media, "HTMLVideoElement::fullscreenModeChanged(%p) - mode changed from %i to %i", this, fullscreenMode(), mode);
+        scheduleEvent(eventNames().webkitpresentationmodechangedEvent);
+    }
+
+    if (player())
+        player()->setVideoFullscreenMode(mode);
+
+    HTMLMediaElement::fullscreenModeChanged(mode);
+}
+
+#endif
 
 }
 

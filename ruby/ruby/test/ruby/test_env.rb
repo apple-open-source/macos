@@ -1,4 +1,5 @@
 require 'test/unit'
+require_relative 'envutil'
 
 class TestEnv < Test::Unit::TestCase
   IGNORE_CASE = /bccwin|mswin|mingw/ =~ RUBY_PLATFORM
@@ -403,6 +404,129 @@ class TestEnv < Test::Unit::TestCase
         ENV[key] = val while (len -= val.size + (key="foo#{len}").size + 2) > 0
         assert_raise(Errno::EINVAL) { ENV[key] = val }
       }
+    end
+  end
+
+  if RUBY_PLATFORM =~ /bccwin|mswin|mingw/
+    def test_memory_leak_aset
+      bug9977 = '[ruby-dev:48323] [Bug #9977]'
+      assert_no_memory_leak([], <<-'end;', "5_000.times(&doit)", bug9977, limit: 2.0)
+        ENV.clear
+        k = 'FOO'
+        v = (ENV[k] = 'bar'*5000 rescue 'bar'*1500)
+        doit = proc {ENV[k] = v}
+        500.times(&doit)
+      end;
+    end
+
+    def test_memory_leak_select
+      bug9978 = '[ruby-dev:48325] [Bug #9978]'
+      assert_no_memory_leak([], <<-'end;', "5_000.times(&doit)", bug9978, limit: 2.0)
+        ENV.clear
+        k = 'FOO'
+        (ENV[k] = 'bar'*5000 rescue 'bar'*1500)
+        doit = proc {ENV.select {break}}
+        500.times(&doit)
+      end;
+    end
+
+    def test_memory_crash_select
+      assert_normal_exit(<<-'end;')
+        1000.times {ENV["FOO#{i}"] = 'bar'}
+        ENV.select {ENV.clear}
+      end;
+    end
+
+    def test_memory_leak_shift
+      bug9983 = '[ruby-dev:48332] [Bug #9983]'
+      assert_no_memory_leak([], <<-'end;', "5_000.times(&doit)", bug9983, limit: 2.0)
+        ENV.clear
+        k = 'FOO'
+        v = (ENV[k] = 'bar'*5000 rescue 'bar'*1500)
+        doit = proc {ENV[k] = v; ENV.shift}
+        500.times(&doit)
+      end;
+    end
+  end
+
+  def test_taint_aref
+    assert_raise(SecurityError) do
+      proc do
+        $SAFE = 2
+        ENV["FOO".taint]
+      end.call
+    end
+  end
+
+  def test_taint_fetch
+    assert_raise(SecurityError) do
+      proc do
+        $SAFE = 2
+        ENV.fetch("FOO".taint)
+      end.call
+    end
+  end
+
+  def test_taint_assoc
+    assert_raise(SecurityError) do
+      proc do
+        $SAFE = 2
+        ENV.assoc("FOO".taint)
+      end.call
+    end
+  end
+
+  def test_taint_rassoc
+    assert_raise(SecurityError) do
+      proc do
+        $SAFE = 2
+        ENV.rassoc("FOO".taint)
+      end.call
+    end
+  end
+
+  def test_taint_key
+    assert_raise(SecurityError) do
+      proc do
+        $SAFE = 2
+        ENV.key("FOO".taint)
+      end.call
+    end
+  end
+
+  def test_taint_key_p
+    assert_raise(SecurityError) do
+      proc do
+        $SAFE = 2
+        ENV.key?("FOO".taint)
+      end.call
+    end
+  end
+
+  def test_taint_value_p
+    assert_raise(SecurityError) do
+      proc do
+        $SAFE = 2
+        ENV.value?("FOO".taint)
+      end.call
+    end
+  end
+
+  def test_taint_aset_value
+    assert_raise(SecurityError) do
+      proc do
+        $SAFE = 2
+        ENV["FOO"] = "BAR".taint
+      end.call
+    end
+  end
+
+  def test_taint_aset_key
+    assert_raise(SecurityError) do
+      proc do
+        $SAFE = 2
+        ENV["FOO".taint] = "BAR"
+      end.call
     end
   end
 end

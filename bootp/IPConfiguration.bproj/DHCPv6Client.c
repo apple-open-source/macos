@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -335,7 +335,7 @@ get_ia_na_addr(DHCPv6ClientRef client, int msg_type,
     option_len -= DHCPv6OptionIA_NA_MIN_LENGTH;
     ia_na_options = DHCPv6OptionListCreate(ia_na->options, option_len, &err);
     if (ia_na_options == NULL) {
-	my_log(LOG_DEBUG,
+	my_log(LOG_INFO,
 	       "DHCPv6 %s: %s IA_NA contains no options",
 	       if_name(if_p), DHCPv6MessageName(msg_type));
 	/* no options */
@@ -352,7 +352,7 @@ get_ia_na_addr(DHCPv6ClientRef client, int msg_type,
 						   &option_len, &start_index);
 	if (ia_addr == NULL
 	    || option_len < DHCPv6OptionIAADDR_MIN_LENGTH) {
-	    my_log(LOG_DEBUG,
+	    my_log(LOG_INFO,
 		   "DHCPv6 %s: %s IA_NA contains no valid IAADDR option",
 		   if_name(if_p), DHCPv6MessageName(msg_type));
 	    /* missing/invalid IAADDR option */
@@ -362,14 +362,14 @@ get_ia_na_addr(DHCPv6ClientRef client, int msg_type,
 	preferred_lifetime 
 	    = DHCPv6OptionIAADDRGetPreferredLifetime(ia_addr);
 	if (valid_lifetime == 0) {
-	    my_log(LOG_DEBUG,
+	    my_log(LOG_INFO,
 		   "DHCP %s: %s IA_ADDR has valid/preferred lifetime is 0,"
 		   " skipping",
 		   if_name(if_p), DHCPv6MessageName(msg_type));
 	}
 	else if (preferred_lifetime > valid_lifetime) {
 	    /* server is confused */
-	    my_log(LOG_DEBUG,
+	    my_log(LOG_INFO,
 		   "DHCP %s: %s IA_ADDR preferred %d > valid lifetime",
 		   if_name(if_p), DHCPv6MessageName(msg_type),
 		   preferred_lifetime, valid_lifetime);
@@ -510,7 +510,7 @@ DHCPv6ClientSetState(DHCPv6ClientRef client, DHCPv6ClientState cstate)
     interface_t *	if_p = DHCPv6ClientGetInterface(client);
 
     client->cstate = cstate;
-    my_log(LOG_DEBUG, "DHCPv6 %s: %s", if_name(if_p),
+    my_log(LOG_INFO, "DHCPv6 %s: %s", if_name(if_p),
 	   DHCPv6ClientStateGetName(cstate));
 }
 
@@ -524,21 +524,19 @@ DHCPv6ClientRemoveAddress(DHCPv6ClientRef client, const char * label)
     if (IN6_IS_ADDR_UNSPECIFIED(&client->our_ip)) {
 	return;
     }
-    if (G_IPConfiguration_verbose) {
-	my_log(LOG_DEBUG, "DHCPv6 %s: %s: removing %s",
-	       if_name(if_p), label,
-	       inet_ntop(AF_INET6, &client->our_ip,
-			 ntopbuf, sizeof(ntopbuf)));
-    }
+    my_log(LOG_INFO, "DHCPv6 %s: %s: removing %s",
+	   if_name(if_p), label,
+	   inet_ntop(AF_INET6, &client->our_ip,
+		     ntopbuf, sizeof(ntopbuf)));
     s = inet6_dgram_socket();
     if (s < 0) {
-	my_log(LOG_ERR,
+	my_log(LOG_NOTICE,
 	       "DHCPv6ClientRemoveAddress(%s):socket() failed, %s (%d)",
 	       if_name(if_p), strerror(errno), errno);
     }
     else {
 	if (inet6_difaddr(s, if_name(if_p), &client->our_ip) < 0) {
-	    my_log(LOG_DEBUG,
+	    my_log(LOG_INFO,
 		   "DHCPv6ClientRemoveAddress(%s): remove %s failed, %s (%d)",
 		   if_name(if_p),
 		   inet_ntop(AF_INET6, &client->our_ip,
@@ -944,7 +942,7 @@ DHCPv6Client_Inform(DHCPv6ClientRef client, IFEventID_t event_id,
 						     DHCPv6_INF_MAX_RT),
 			  (timer_func_t *)DHCPv6Client_Inform, 
 			  client, (void *)IFEventID_timeout_e, NULL);
-	my_log(LOG_DEBUG, "DHCPv6 %s: Inform Transmit (try=%d)",
+	my_log(LOG_INFO, "DHCPv6 %s: Inform Transmit (try=%d)",
 	       if_name(if_p), client->try);
 	DHCPv6ClientSendInform(client);
 	break;
@@ -959,7 +957,7 @@ DHCPv6Client_Inform(DHCPv6ClientRef client, IFEventID_t event_id,
 	    /* not a match */
 	    break;
 	}
-	my_log(LOG_DEBUG, "DHCPv6 %s: Reply Received (try=%d)",
+	my_log(LOG_INFO, "DHCPv6 %s: Reply Received (try=%d)",
 	       if_name(if_p), client->try);
 	DHCPv6ClientSavePacket(client, data);
 	DHCPv6ClientPostNotification(client);
@@ -986,7 +984,7 @@ DHCPv6Client_Release(DHCPv6ClientRef client, IFEventID_t event_id,
 	DHCPv6ClientCancelPendingEvents(client);
 	DHCPv6ClientClearRetransmit(client);
 	client->transaction_id = get_new_transaction_id();
-	my_log(LOG_DEBUG, "DHCPv6 %s: Release Transmit",
+	my_log(LOG_INFO, "DHCPv6 %s: Release Transmit",
 	       if_name(if_p));
 	DHCPv6ClientSendPacket(client);
 	/*
@@ -1033,7 +1031,7 @@ DHCPv6Client_Decline(DHCPv6ClientRef client, IFEventID_t event_id,
 						     0),
 			  (timer_func_t *)DHCPv6Client_Decline, 
 			  client, (void *)IFEventID_timeout_e, NULL);
-	my_log(LOG_DEBUG, "DHCPv6 %s: Decline Transmit (try=%d)",
+	my_log(LOG_INFO, "DHCPv6 %s: Decline Transmit (try=%d)",
 	       if_name(if_p), client->try);
 	DHCPv6ClientSendPacket(client);
 	break;
@@ -1060,10 +1058,9 @@ DHCPv6Client_Decline(DHCPv6ClientRef client, IFEventID_t event_id,
 	    /* missing/invalid DUID */
 	    break;
 	}
-	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG, "DHCPv6 %s: Reply Received (try=%d)",
-		   if_name(if_p), client->try);
-	}
+	my_log(LOG_INFO, "DHCPv6 %s: Reply Received (try=%d)",
+	       if_name(if_p), client->try);
+
 	/* back to Solicit */
 	DHCPv6Client_Solicit(client, IFEventID_start_e, NULL);
 	break;
@@ -1142,7 +1139,7 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 			  wait_time,
 			  (timer_func_t *)DHCPv6Client_RenewRebind, 
 			  client, (void *)IFEventID_timeout_e, NULL);
-	my_log(LOG_DEBUG, "DHCPv6 %s: %s Transmit (try=%d)",
+	my_log(LOG_INFO, "DHCPv6 %s: %s Transmit (try=%d)",
 	       if_name(if_p), DHCPv6ClientStateGetName(client->cstate),
 	       client->try);
 	DHCPv6ClientSendPacket(client);
@@ -1199,18 +1196,16 @@ DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id,
 	    DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
 	    break;
 	}
-	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG, "DHCPv6 %s: %s Received Reply (try=%d) "
-		   "IAADDR %s Preferred %d Valid=%d",
-		   if_name(if_p),
-		   DHCPv6ClientStateGetName(client->cstate),
-		   client->try,
-		   inet_ntop(AF_INET6,
-			     DHCPv6OptionIAADDRGetAddress(ia_addr),
-			     ntopbuf, sizeof(ntopbuf)),
-		   DHCPv6OptionIAADDRGetPreferredLifetime(ia_addr),
-		   DHCPv6OptionIAADDRGetValidLifetime(ia_addr));
-	}
+	my_log(LOG_INFO, "DHCPv6 %s: %s Received Reply (try=%d) "
+	       "IAADDR %s Preferred %d Valid=%d",
+	       if_name(if_p),
+	       DHCPv6ClientStateGetName(client->cstate),
+	       client->try,
+	       inet_ntop(AF_INET6,
+			 DHCPv6OptionIAADDRGetAddress(ia_addr),
+			 ntopbuf, sizeof(ntopbuf)),
+	       DHCPv6OptionIAADDRGetPreferredLifetime(ia_addr),
+	       DHCPv6OptionIAADDRGetValidLifetime(ia_addr));
 	DHCPv6ClientSavePacket(client, data);
 	DHCPv6Client_Bound(client, IFEventID_start_e, NULL);
 	break;
@@ -1278,7 +1273,7 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 						     DHCPv6_CNF_MAX_RT),
 			  (timer_func_t *)DHCPv6Client_Confirm,
 			  client, (void *)IFEventID_timeout_e, NULL);
-	my_log(LOG_DEBUG, "DHCPv6 %s: Confirm Transmit (try=%d)",
+	my_log(LOG_INFO, "DHCPv6 %s: Confirm Transmit (try=%d)",
 	       if_name(if_p), client->try);
 	DHCPv6ClientSendPacket(client);
 	break;
@@ -1309,19 +1304,19 @@ DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id,
 	    DHCPv6OptionListGetOptionDataAndLength(data->options,
 						   kDHCPv6OPTION_STATUS_CODE,
 						   &option_len, NULL);
-	if (status_code == NULL
-	    || option_len < DHCPv6OptionSTATUS_CODE_MIN_LENGTH) {
-	    break;
+	if (status_code != NULL) {
+	    if (option_len < DHCPv6OptionSTATUS_CODE_MIN_LENGTH) {
+		/* too short */
+		break;
+	    }
+	    if (DHCPv6OptionSTATUS_CODEGetCode(status_code)
+		!= kDHCPv6StatusCodeSuccess) {
+		DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
+		return;
+	    }
 	}
-	if (DHCPv6OptionSTATUS_CODEGetCode(status_code)
-	    != kDHCPv6StatusCodeSuccess) {
-	    DHCPv6Client_Unbound(client, IFEventID_start_e, NULL);
-	    return;
-	}
-	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG, "DHCPv6 %s: Reply Received (try=%d)",
-		   if_name(if_p), client->try);
-	}
+	my_log(LOG_INFO, "DHCPv6 %s: Reply Received (try=%d)",
+	       if_name(if_p), client->try);
 	DHCPv6Client_Bound(client, IFEventID_start_e, NULL);
 	break;
     }
@@ -1350,7 +1345,7 @@ DHCPv6ClientHandleAddressChanged(DHCPv6ClientRef client,
 		return;
 	    }
 	    if ((scan->addr_flags & IN6_IFF_TENTATIVE) != 0) {
-		my_log(LOG_DEBUG, "address is still tentative");
+		my_log(LOG_INFO, "address is still tentative");
 		/* address is still tentative */
 		break;
 	    }
@@ -1453,7 +1448,7 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	}
 	s = inet6_dgram_socket();
 	if (s < 0) {
-	    my_log(LOG_ERR,
+	    my_log(LOG_NOTICE,
 		   "DHCPv6ClientBound(%s):"
 		   " socket() failed, %s (%d)",
 		   if_name(if_p), strerror(errno), errno);
@@ -1465,14 +1460,12 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 		same_address = TRUE;
 	    }
 	    else {
-		if (G_IPConfiguration_verbose) {
-		    my_log(LOG_DEBUG, "DHCPv6 %s: Bound: removing %s",
-			   if_name(if_p),
-			   inet_ntop(AF_INET6, &client->our_ip,
-				     ntopbuf, sizeof(ntopbuf)));
-		}
+		my_log(LOG_INFO, "DHCPv6 %s: Bound: removing %s",
+		       if_name(if_p),
+		       inet_ntop(AF_INET6, &client->our_ip,
+				 ntopbuf, sizeof(ntopbuf)));
 		if (inet6_difaddr(s, if_name(if_p), &client->our_ip) < 0) {
-		    my_log(LOG_DEBUG,
+		    my_log(LOG_INFO,
 			   "DHCPv6ClientBound(%s): remove %s failed, %s (%d)",
 			   if_name(if_p),
 			   inet_ntop(AF_INET6, &client->our_ip,
@@ -1482,17 +1475,15 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	    }
 	}
 	prefix_length = S_get_prefix_length(our_ip, if_link_index(if_p));
-	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG,
-		   "DHCPv6 %s: setting %s/%d valid %d preferred %d",
-		   if_name(if_p),
-		   inet_ntop(AF_INET6, our_ip, ntopbuf, sizeof(ntopbuf)),
-		   prefix_length, valid_lifetime, preferred_lifetime);
-	}
+	my_log(LOG_INFO,
+	       "DHCPv6 %s: setting %s/%d valid %d preferred %d",
+	       if_name(if_p),
+	       inet_ntop(AF_INET6, our_ip, ntopbuf, sizeof(ntopbuf)),
+	       prefix_length, valid_lifetime, preferred_lifetime);
 	if (inet6_aifaddr(s, if_name(if_p), our_ip, NULL, 
 			  prefix_length, IN6_IFF_DYNAMIC,
 			  valid_lifetime, preferred_lifetime) < 0) {
-	    my_log(LOG_DEBUG,
+	    my_log(LOG_INFO,
 		   "DHCPv6ClientBound(%s): adding %s failed, %s (%d)",
 		   if_name(if_p),
 		   inet_ntop(AF_INET6, our_ip,
@@ -1585,7 +1576,7 @@ DHCPv6Client_Request(DHCPv6ClientRef client, IFEventID_t event_id,
 						     DHCPv6_REQ_MAX_RT),
 			  (timer_func_t *)DHCPv6Client_Request, 
 			  client, (void *)IFEventID_timeout_e, NULL);
-	my_log(LOG_DEBUG, "DHCPv6 %s: Request Transmit (try=%d)",
+	my_log(LOG_INFO, "DHCPv6 %s: Request Transmit (try=%d)",
 	       if_name(if_p), client->try);
 	DHCPv6ClientSendPacket(client);
 	break;
@@ -1641,17 +1632,15 @@ DHCPv6Client_Request(DHCPv6ClientRef client, IFEventID_t event_id,
 	if (ia_na == NULL) {
 	    break;
 	}
-	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG, "DHCPv6 %s: Reply Received (try=%d) "
-		   "IAADDR %s Preferred %d Valid=%d",
-		   if_name(if_p),
-		   client->try,
-		   inet_ntop(AF_INET6,
-			     DHCPv6OptionIAADDRGetAddress(ia_addr),
-			     ntopbuf, sizeof(ntopbuf)),
-		   DHCPv6OptionIAADDRGetPreferredLifetime(ia_addr),
-		   DHCPv6OptionIAADDRGetValidLifetime(ia_addr));
-	}
+	my_log(LOG_INFO, "DHCPv6 %s: Reply Received (try=%d) "
+	       "IAADDR %s Preferred %d Valid=%d",
+	       if_name(if_p),
+	       client->try,
+	       inet_ntop(AF_INET6,
+			 DHCPv6OptionIAADDRGetAddress(ia_addr),
+			 ntopbuf, sizeof(ntopbuf)),
+	       DHCPv6OptionIAADDRGetPreferredLifetime(ia_addr),
+	       DHCPv6OptionIAADDRGetValidLifetime(ia_addr));
 	DHCPv6ClientSavePacket(client, data);
 	DHCPv6Client_Bound(client, IFEventID_start_e, NULL);
 	break;
@@ -1706,7 +1695,7 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 						     DHCPv6_SOL_MAX_RT),
 			  (timer_func_t *)DHCPv6Client_Solicit, 
 			  client, (void *)IFEventID_timeout_e, NULL);
-	my_log(LOG_DEBUG, "DHCPv6 %s: Solicit Transmit (try=%d)",
+	my_log(LOG_INFO, "DHCPv6 %s: Solicit Transmit (try=%d)",
 	       if_name(if_p), client->try);
 	DHCPv6ClientSendSolicit(client);
 	break;
@@ -1763,17 +1752,15 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 	if (ia_na == NULL) {
 	    break;
 	}
-	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG, "DHCPv6 %s: Advertise Received (try=%d) "
-		   "IAADDR %s Preferred %d Valid=%d",
-		   if_name(if_p),
-		   client->try,
-		   inet_ntop(AF_INET6,
-			     DHCPv6OptionIAADDRGetAddress(ia_addr),
-			     ntopbuf, sizeof(ntopbuf)),
-		   DHCPv6OptionIAADDRGetPreferredLifetime(ia_addr),
-		   DHCPv6OptionIAADDRGetValidLifetime(ia_addr));
-	}
+	my_log(LOG_INFO, "DHCPv6 %s: Advertise Received (try=%d) "
+	       "IAADDR %s Preferred %d Valid=%d",
+	       if_name(if_p),
+	       client->try,
+	       inet_ntop(AF_INET6,
+			 DHCPv6OptionIAADDRGetAddress(ia_addr),
+			 ntopbuf, sizeof(ntopbuf)),
+	       DHCPv6OptionIAADDRGetPreferredLifetime(ia_addr),
+	       DHCPv6OptionIAADDRGetValidLifetime(ia_addr));
 
 	/* check for a server preference value */
 	pref = get_preference_value_from_options(data->options);
@@ -1789,13 +1776,13 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 		break;
 	    }
 	}
-	if (G_IPConfiguration_verbose) {
+	{
 	    CFMutableStringRef	str;
 
 	    str = CFStringCreateMutable(NULL, 0);
 	    DHCPDUIDPrintToString(str, server_id, 
 				  option_data_get_length(server_id));
-	    my_log(LOG_DEBUG, "DHCPv6 %s: Saving Advertise from %@",
+	    my_log(LOG_INFO, "DHCPv6 %s: Saving Advertise from %@",
 		   if_name(if_p), str);
 	    CFRelease(str);
 	}
@@ -2078,12 +2065,12 @@ notification_init(DHCPv6ClientRef client)
     store = SCDynamicStoreCreate(NULL, CFSTR("DHCPv6Client"),
 				 handle_change, &context);
     if (store == NULL) {
-	my_log(LOG_ERR, "SCDynamicStoreCreate failed: %s", 
+	my_log(LOG_NOTICE, "SCDynamicStoreCreate failed: %s",
 	       SCErrorString(SCError()));
 	return;
     }
     ifname_cf
-	= CFStringCreateWithCString(NULL, 
+	= CFStringCreateWithCString(NULL,
 				    if_name(DHCPv6ClientGetInterface(client)),
 				    kCFStringEncodingASCII);
     keys[0] = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,

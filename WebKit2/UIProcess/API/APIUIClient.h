@@ -46,31 +46,39 @@ struct WindowFeatures;
 
 namespace WebKit {
 class GeolocationPermissionRequestProxy;
-class ImmutableDictionary;
 class NativeWebKeyboardEvent;
 class NativeWebWheelEvent;
 class NotificationPermissionRequest;
+class UserMediaPermissionRequestProxy;
 class WebColorPickerResultListenerProxy;
 class WebFrameProxy;
 class WebOpenPanelParameters;
 class WebOpenPanelResultListenerProxy;
 class WebPageProxy;
-class WebSecurityOrigin;
 struct NavigationActionData;
 struct SecurityOriginData;
+
+#if ENABLE(MEDIA_SESSION)
+class WebMediaSessionMetadata;
+#endif
 }
 
 namespace API {
 
 class Data;
+class Dictionary;
 class Object;
+class SecurityOrigin;
 
 class UIClient {
 public:
     virtual ~UIClient() { }
 
-    virtual PassRefPtr<WebKit::WebPageProxy> createNewPage(WebKit::WebPageProxy*, WebKit::WebFrameProxy*, const WebCore::ResourceRequest&, const WebCore::WindowFeatures&, const WebKit::NavigationActionData&) { return nullptr; }
+    virtual PassRefPtr<WebKit::WebPageProxy> createNewPage(WebKit::WebPageProxy*, WebKit::WebFrameProxy*, const WebKit::SecurityOriginData&, const WebCore::ResourceRequest&, const WebCore::WindowFeatures&, const WebKit::NavigationActionData&) { return nullptr; }
     virtual void showPage(WebKit::WebPageProxy*) { }
+    virtual void fullscreenMayReturnToInline(WebKit::WebPageProxy*) { }
+    virtual void didEnterFullscreen(WebKit::WebPageProxy*) { }
+    virtual void didExitFullscreen(WebKit::WebPageProxy*) { }
     virtual void close(WebKit::WebPageProxy*) { }
 
     virtual void takeFocus(WebKit::WebPageProxy*, WKFocusDirection) { }
@@ -84,7 +92,7 @@ public:
     virtual void setStatusText(WebKit::WebPageProxy*, const WTF::String&) { }
     virtual void mouseDidMoveOverElement(WebKit::WebPageProxy*, const WebKit::WebHitTestResult::Data&, WebKit::WebEvent::Modifiers, API::Object*) { }
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    virtual void unavailablePluginButtonClicked(WebKit::WebPageProxy*, WKPluginUnavailabilityReason, WebKit::ImmutableDictionary*) { }
+    virtual void unavailablePluginButtonClicked(WebKit::WebPageProxy*, WKPluginUnavailabilityReason, API::Dictionary*) { }
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 
     virtual bool implementsDidNotHandleKeyEvent() const { return false; }
@@ -111,7 +119,7 @@ public:
     virtual void didDraw(WebKit::WebPageProxy*) { }
     virtual void pageDidScroll(WebKit::WebPageProxy*) { }
 
-    virtual void exceededDatabaseQuota(WebKit::WebPageProxy*, WebKit::WebFrameProxy*, WebKit::WebSecurityOrigin*, const WTF::String&, const WTF::String&, unsigned long long currentQuota, unsigned long long, unsigned long long, unsigned long long, std::function<void (unsigned long long)> completionHandler)
+    virtual void exceededDatabaseQuota(WebKit::WebPageProxy*, WebKit::WebFrameProxy*, SecurityOrigin*, const WTF::String&, const WTF::String&, unsigned long long currentQuota, unsigned long long, unsigned long long, unsigned long long, std::function<void (unsigned long long)> completionHandler)
     {
         completionHandler(currentQuota);
     }
@@ -122,8 +130,9 @@ public:
     }
 
     virtual bool runOpenPanel(WebKit::WebPageProxy*, WebKit::WebFrameProxy*, WebKit::WebOpenPanelParameters*, WebKit::WebOpenPanelResultListenerProxy*) { return false; }
-    virtual bool decidePolicyForGeolocationPermissionRequest(WebKit::WebPageProxy*, WebKit::WebFrameProxy*, WebKit::WebSecurityOrigin*, WebKit::GeolocationPermissionRequestProxy*) { return false; }
-    virtual bool decidePolicyForNotificationPermissionRequest(WebKit::WebPageProxy*, WebKit::WebSecurityOrigin*, WebKit::NotificationPermissionRequest*) { return false; }
+    virtual bool decidePolicyForGeolocationPermissionRequest(WebKit::WebPageProxy*, WebKit::WebFrameProxy*, SecurityOrigin*, WebKit::GeolocationPermissionRequestProxy*) { return false; }
+    virtual bool decidePolicyForUserMediaPermissionRequest(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, SecurityOrigin&, WebKit::UserMediaPermissionRequestProxy&) { return false; }
+    virtual bool decidePolicyForNotificationPermissionRequest(WebKit::WebPageProxy*, SecurityOrigin*, WebKit::NotificationPermissionRequest*) { return false; }
 
     // Printing.
     virtual float headerHeight(WebKit::WebPageProxy*, WebKit::WebFrameProxy*) { return 0; }
@@ -137,13 +146,30 @@ public:
 
     virtual void saveDataToFileInDownloadsFolder(WebKit::WebPageProxy*, const WTF::String&, const WTF::String&, const WTF::String&, API::Data*) { }
 
-    virtual bool shouldInterruptJavaScript(WebKit::WebPageProxy*) { return false; }
-
     virtual void pinnedStateDidChange(WebKit::WebPageProxy&) { }
 
+    virtual void didBeginTrackingPotentialLongMousePress(WebKit::WebPageProxy*, const WebCore::IntPoint&, const WebKit::WebHitTestResult::Data&, API::Object*) { }
+    virtual void didRecognizeLongMousePress(WebKit::WebPageProxy*, API::Object*) { }
+    virtual void didCancelTrackingPotentialLongMousePress(WebKit::WebPageProxy*, API::Object*) { }
+
+    virtual void isPlayingAudioDidChange(WebKit::WebPageProxy&) { }
+
+#if ENABLE(MEDIA_SESSION)
+    virtual void mediaSessionMetadataDidChange(WebKit::WebPageProxy&, WebKit::WebMediaSessionMetadata*) { }
+#endif
+
 #if PLATFORM(IOS)
+#if HAVE(APP_LINKS)
+    virtual bool shouldIncludeAppLinkActionsForElement(_WKActivatedElementInfo *) { return true; }
+#endif
     virtual RetainPtr<NSArray> actionsForElement(_WKActivatedElementInfo *, RetainPtr<NSArray> defaultActions) { return WTF::move(defaultActions); }
     virtual void didNotHandleTapAsClick(const WebCore::IntPoint&) { }
+#endif
+
+    virtual void didClickAutoFillButton(WebKit::WebPageProxy&, API::Object*) { }
+
+#if ENABLE(VIDEO)
+    virtual void mediaDocumentNaturalSizeChanged(const WebCore::IntSize&) { }
 #endif
 };
 

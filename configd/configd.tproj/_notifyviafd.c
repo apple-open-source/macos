@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2006, 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2006, 2008-2011, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -59,7 +59,7 @@ __SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 	}
 
 	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-		SCLog(TRUE, LOG_NOTICE, CFSTR("__SCDynamicStoreNotifyFileDescriptor socket() failed: %s"), strerror(errno));
+		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 		return kSCStatusFailed;
 	}
 
@@ -107,7 +107,7 @@ _notifyviafd(mach_port_t		server,
 	 */
 	/* validate the UNIX domain socket path */
 	if (pathLen > (sizeof(un.sun_path) - 1)) {
-		SCLog(TRUE, LOG_NOTICE, CFSTR("_notifyviafd(): domain socket path length too long!"));
+		SC_log(LOG_INFO, "domain socket path length too long!");
 		(void) vm_deallocate(mach_task_self(), (vm_address_t)pathRef, pathLen);
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
@@ -132,19 +132,19 @@ _notifyviafd(mach_port_t		server,
 		bzero(&statbuf, sizeof(statbuf));
 		if (stat(un.sun_path, &statbuf) == -1) {
 			*sc_status = errno;
-			SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd stat() failed: %s"), strerror(errno));
+			SC_log(LOG_INFO, "stat() failed: %s", strerror(errno));
 			return KERN_SUCCESS;
 		}
 		if (mySession->callerEUID != statbuf.st_uid) {
 			*sc_status = kSCStatusAccessError;
-			SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd permissions error"));
+			SC_log(LOG_INFO, "permissions error [eUID]");
 			return KERN_SUCCESS;
 		}
 	}
 
 	if (!hasPathAccess(mySession, un.sun_path)) {
 		*sc_status = kSCStatusAccessError;
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd permissions error"));
+		SC_log(LOG_INFO, "permissions error [path]");
 		return KERN_SUCCESS;
 	}
 
@@ -159,7 +159,7 @@ _notifyviafd(mach_port_t		server,
 	/* establish the connection, get ready for a read() */
 	if (connect(sock, (struct sockaddr *)&un, sizeof(un)) == -1) {
 		*sc_status = errno;
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd connect() failed: %s"), strerror(errno));
+		SC_log(LOG_INFO, "connect() failed: %s", strerror(errno));
 		(void) close(sock);
 		return KERN_SUCCESS;
 	}
@@ -167,7 +167,7 @@ _notifyviafd(mach_port_t		server,
 	bufSiz = sizeof(storePrivate->notifyFileIdentifier);
 	if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &bufSiz, sizeof(bufSiz)) == -1) {
 		*sc_status = errno;
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd setsockopt() failed: %s"), strerror(errno));
+		SC_log(LOG_INFO, "setsockopt() failed: %s", strerror(errno));
 		(void) close(sock);
 		return KERN_SUCCESS;
 	}
@@ -175,7 +175,7 @@ _notifyviafd(mach_port_t		server,
 	nbioYes = 1;
 	if (ioctl(sock, FIONBIO, &nbioYes) == -1) {
 		*sc_status = errno;
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd ioctl(,FIONBIO,) failed: %s"), strerror(errno));
+		SC_log(LOG_INFO, "ioctl(,FIONBIO,) failed: %s", strerror(errno));
 		(void) close(sock);
 		return KERN_SUCCESS;
 	}

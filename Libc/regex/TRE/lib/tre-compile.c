@@ -1379,7 +1379,7 @@ do_addtags_recurse:
 #endif /* TRE_DEBUG */
 
       DPRINT(("Reordering submatch_data\n"));
-      for (i = 0; i < tnfa->num_submatches; i++)
+      for (i = 0; i < (int)tnfa->num_submatches; i++)
 	{
 #if TRE_DEBUG
 	  int so = tnfa->submatch_data[i].so_tag;
@@ -1810,7 +1810,7 @@ typedef enum {
 static reg_errcode_t
 tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 	       int *position, tre_tag_direction_t *tag_directions,
-	       int *max_depth)
+	       int __unused *max_depth)
 {
   reg_errcode_t status = REG_OK;
   int bottom = tre_stack_num_objects(stack);
@@ -3050,7 +3050,7 @@ tre_compile(regex_t *preg, const tre_char_t *regex, size_t n, int cflags,
 		 sizeof(*tag_directions) * (tnfa->num_tags + 1));
 	}
       tnfa->minimal_tags = xcalloc((unsigned)tnfa->num_tags * 2 + 3,
-				   sizeof(tnfa->minimal_tags));
+				   sizeof(*tnfa->minimal_tags));
       if (tnfa->minimal_tags == NULL)
 	ERROR_EXIT(REG_ESPACE);
 

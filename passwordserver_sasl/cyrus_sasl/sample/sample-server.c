@@ -45,6 +45,7 @@
 #include "../../cyrus_sasl/config.h"
 #include <limits.h>
 #include <stdio.h>
+#include <readline/readline.h>
 
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
@@ -82,8 +83,8 @@ build_ident[] = "$Build: sample-server " PACKAGE "-" VERSION " $";
 static const char *progname = NULL;
 static int verbose;
 
-/* Note: if this is changed, change it in samp_read(), too. */
-#define SAMPLE_SEC_BUF_SIZE (2048)
+/* Note: if this is changed, change it in sample-client.c, too. */
+#define SAMPLE_SEC_BUF_SIZE (4096)
 
 static const char
 message[] = "Come here Watson, I want you.";
@@ -136,7 +137,9 @@ char *mech = NULL,
   *searchpath = NULL,
   *service = "rcmd",
   *localdomain = NULL,
-  *userdomain = NULL;
+  *userdomain = NULL,
+  *auxprop_name_exclude = NULL,
+  *auxprop_data = NULL;
 sasl_conn_t *conn = NULL;
 
 static void
@@ -261,10 +264,15 @@ samp_recv()
 {
   unsigned len;
   int result;
-  
-  if (! fgets(buf, SAMPLE_SEC_BUF_SIZE, stdin)) {
+ 
+  char *line = readline(NULL); 
+
+  if (! line) {
     fail("Unable to parse input");
   }
+
+  strlcpy(buf, line, SAMPLE_SEC_BUF_SIZE);
+  free(line);
 
   if (strncmp(buf, "C: ", 3) != 0) {
     fail("Line must start with 'C: '");
@@ -282,6 +290,71 @@ samp_recv()
   buf[len] = '\0';
   printf("got '%s'\n", buf);
   return len;
+}
+
+static void shadow_auxprop_free(void *glob_context, const sasl_utils_t *utils)
+{
+}
+
+static int shadow_auxprop_lookup(void *glob_context __attribute__((unused)),
+                  sasl_server_params_t *sparams,
+                  unsigned flags,
+                  const char *user,
+                  unsigned ulen)
+{
+  const struct propval *to_fetch, *cur;
+  int ret = SASL_OK;
+
+  to_fetch = sparams->utils->prop_get(sparams->propctx);
+  if( !to_fetch ) {
+    ret = SASL_BADPROT;
+    goto done;
+  }
+
+  for(cur = to_fetch; cur->name; cur++)
+  {
+    if (auxprop_name_exclude && strcmp(cur->name, auxprop_name_exclude) == 0) {
+        fprintf(stderr, "auxprop: excluding %s\n", cur->name);
+        continue;
+    }
+        
+    // set all properties to given value 
+    // TODO: binary data (vs strlen, any length, base64?); different values for each property
+    sparams->utils->prop_set(sparams->propctx, cur->name, auxprop_data, strlen(auxprop_data));
+    fprintf(stderr, "auxprop: %s = %s\n", cur->name, auxprop_data);
+  }
+
+done:
+  return ret;
+}
+
+static sasl_auxprop_plug_t auxprop_sample_plugin = {
+  0,                          /* Features */
+  0,                          /* spare */
+  NULL,                         /* glob_context */
+  shadow_auxprop_free,        /* auxprop_free */
+  shadow_auxprop_lookup,        /* auxprop_lookup */
+  NULL,                         /* spares */
+  NULL
+};
+
+int auxprop_sample_plug_init(const sasl_utils_t *utils,
+               int max_version,
+               int *out_version,
+               sasl_auxprop_plug_t **plug,
+               const char *plugname __attribute__((unused)))
+{
+  if (!out_version || !plug)
+    return SASL_BADPARAM;
+
+  if (max_version < SASL_AUXPROP_PLUG_VERSION)
+    return SASL_BADVERS;
+
+  *out_version = SASL_AUXPROP_PLUG_VERSION;
+
+  *plug = &auxprop_sample_plugin;
+
+  return SASL_OK;
 }
 
 
@@ -322,7 +395,7 @@ main(int argc, char *argv[])
   secprops.max_ssf = UINT_MAX;
 
   verbose = 0;
-  while ((c = getopt(argc, argv, "vlhb:e:m:f:i:p:s:d:u:?")) != EOF)
+  while ((c = getopt(argc, argv, "vlhb:e:m:f:i:p:s:d:u:A:E:?")) != EOF)
     switch (c) {
     case 'v':
 	verbose = 1;
@@ -447,6 +520,14 @@ main(int argc, char *argv[])
       userdomain = optarg;
       break;
 
+    case 'A':
+      auxprop_data = optarg;
+      break;
+            
+    case 'E':
+      auxprop_name_exclude = optarg;
+      break;
+
     default:		
       errflag = 1;
       break;
@@ -458,7 +539,7 @@ main(int argc, char *argv[])
   }
 
   if (errflag) {
-    fprintf(stderr, "%s: Usage: %s [-b min=N,max=N] [-e ssf=N,id=ID] [-m MECH] [-f FLAGS] [-i local=IP,remote=IP] [-p PATH] [-d DOM] [-u DOM] [-s NAME]\n"
+    fprintf(stderr, "%s: Usage: %s [-b min=N,max=N] [-e ssf=N,id=ID] [-m MECH] [-f FLAGS] [-i local=IP,remote=IP] [-p PATH] [-d DOM] [-u DOM] [-s NAME] [-A DATA]\n"
 	    "\t-b ...\t#bits to use for encryption\n"
 	    "\t\tmin=N\tminumum #bits to use (1 => integrity)\n"
 	    "\t\tmax=N\tmaximum #bits to use\n"
@@ -480,9 +561,19 @@ main(int argc, char *argv[])
 	    "\t-s NAME\tservice name to pass to mechanisms\n"
 	    "\t-d DOM\tlocal server domain\n"
 	    "\t-u DOM\tuser domain\n"
+	    "\t-A DATA\toverride value for all auxprop lookups\n"
+	    "\t-E NAME\texclude data from auxprop name\n"
 	    "\t-l\tenable server-send-last\n",
 	    progname, progname);
     exit(EXIT_FAILURE);
+  }
+
+  if (auxprop_data) {
+    result = sasl_auxprop_add_plugin("auxprop_sample", &auxprop_sample_plug_init);
+    if (result != SASL_OK) {
+      saslfail(result, "Initializing auxprop_sample", NULL);    
+      fprintf(stderr, "%s\n", sasl_errdetail(conn));
+    }
   }
 
   result = sasl_server_init(callbacks, "sample");

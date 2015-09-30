@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -478,32 +478,62 @@ static Boolean __DARequestMount( DARequestRef request )
 
     if ( DARequestGetState( request, kDARequestStateStagedProbe ) == FALSE )
     {
+        DAReturn status;
+
+        status = kDAReturnSuccess;
+
         /*
          * Determine whether the disk is probeable.
          */
 
         if ( DADiskGetDescription( disk, kDADiskDescriptionMediaPathKey ) == NULL )
         {
-            DARequestDispatchCallback( request, kDAReturnUnsupported );
-
-            DAStageSignal( );
-
-            return TRUE;
+            status = kDAReturnUnsupported;
         }
 
         /*
          * Determine whether the disk is mounted.
          */
 
-         if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
-         {
-            DARequestSetState( request, kDARequestStateStagedProbe, TRUE );
+        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
+        {
+            CFStringRef arguments;
 
-            DADiskSetState( disk, kDADiskStateStagedProbe, FALSE );
+            arguments = DARequestGetArgument3( request );
+
+            if ( arguments == NULL || DAMountContainsArgument( arguments, kDAFileSystemMountArgumentUpdate ) == FALSE )
+            {
+                status = kDAReturnBusy;
+            }
+        }
+
+        if ( status )
+        {
+            DARequestDispatchCallback( request, status );
 
             DAStageSignal( );
 
-            return FALSE;
+            return TRUE;
+        }
+        else
+        {
+            DARequestSetState( request, kDARequestStateStagedProbe, TRUE );
+
+///w:start
+            CFStringRef arguments;
+
+            arguments = DARequestGetArgument3( request );
+
+            if ( arguments == NULL || CFEqual( arguments, CFSTR( "automatic" ) ) == FALSE )
+///w:stop
+            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
+            {
+                DADiskSetState( disk, kDADiskStateStagedProbe, FALSE );
+
+                DAStageSignal( );
+
+                return FALSE;
+            }
         }
     }
     else
@@ -531,22 +561,6 @@ static Boolean __DARequestMount( DARequestRef request )
         if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanFalse )
         {
             status = kDAReturnUnsupported;
-        }
-
-        /*
-         * Determine whether the disk is mounted.
-         */
-
-        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
-        {
-            CFStringRef arguments;
-
-            arguments = DARequestGetArgument3( request );
-
-            if ( arguments == NULL || DAMountContainsArgument( arguments, kDAFileSystemMountArgumentUpdate ) == FALSE )
-            {
-                status = kDAReturnBusy;
-            }
         }
 
         if ( status )
@@ -593,8 +607,18 @@ static Boolean __DARequestMount( DARequestRef request )
 
                 status = kDAReturnNotPrivileged;
             }
+            else if ( DADissenterGetStatus( dissenter ) == 0xF8DAFF02 )
+            {
+                DARequestSetDissenter( request, NULL );
+
+                DARequestSetState( request, _kDARequestStateMountArgumentNoWrite, TRUE );
+            }
             else if ( DADissenterGetStatus( dissenter ) == 0xF8DAFF03 )
             {
+                DARequestSetDissenter( request, NULL );
+
+                DARequestSetState( request, _kDARequestStateMountArgumentNoWrite, TRUE );
+
                 status = kDAReturnNotPrivileged;
             }
         }
@@ -618,27 +642,6 @@ static Boolean __DARequestMount( DARequestRef request )
     }
 ///w:stop
 
-///w:start
-    if ( DARequestGetDissenter( request ) )
-    {
-        DADissenterRef dissenter;
-
-        dissenter = DARequestGetDissenter( request );
-
-        if ( DADissenterGetStatus( dissenter ) == 0xF8DAFF02 )
-        {
-            DADiskSetState( disk, _kDADiskStateMountPreferenceNoWrite, TRUE );
-
-            DARequestSetDissenter( request, NULL );
-        }
-        else if ( DADissenterGetStatus( dissenter ) == 0xF8DAFF03 )
-        {
-            DADiskSetState( disk, _kDADiskStateMountPreferenceNoWrite, TRUE );
-
-            DARequestSetDissenter( request, NULL );
-        }
-    }
-///w:stop
     if ( DARequestGetDissenter( request ) )
     {
         DADissenterRef dissenter;
@@ -673,6 +676,13 @@ static Boolean __DARequestMount( DARequestRef request )
 
         DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
 
+///w:start
+        if ( DARequestGetState( request, _kDARequestStateMountArgumentNoWrite ) )
+        {
+            DAMountWithArguments( disk, path, __DARequestMountCallback, request, kDAFileSystemMountArgumentNoWrite, DARequestGetArgument3( request ), NULL );
+        }
+        else
+///w:stop
         DAMountWithArguments( disk, path, __DARequestMountCallback, request, DARequestGetArgument3( request ), NULL );
 
         if ( path )
@@ -1503,7 +1513,7 @@ Boolean DARequestDispatch( DARequestRef request )
         {
             if ( DADiskGetState( disk, kDADiskStateCommandActive ) == FALSE )
             {
-                if ( DADiskGetState( disk, kDADiskStateStagedMount ) )
+                if ( DADiskGetState( disk, kDADiskStateStagedAppear ) )
                 {
                     switch ( DARequestGetKind( request ) )
                     {

@@ -76,14 +76,6 @@ bool WebEditorClient::shouldDeleteRange(Range* range)
     return result;
 }
 
-#if ENABLE(DELETION_UI)
-bool WebEditorClient::shouldShowDeleteInterface(HTMLElement*)
-{
-    notImplemented();
-    return false;
-}
-#endif
-
 bool WebEditorClient::smartInsertDeleteEnabled()
 {
     return m_page->isSmartInsertDeleteEnabled();
@@ -96,7 +88,7 @@ bool WebEditorClient::isSelectTrailingWhitespaceEnabled()
 
 bool WebEditorClient::isContinuousSpellCheckingEnabled()
 {
-    return WebProcess::shared().textCheckerState().isContinuousSpellCheckingEnabled;
+    return WebProcess::singleton().textCheckerState().isContinuousSpellCheckingEnabled;
 }
 
 void WebEditorClient::toggleContinuousSpellChecking()
@@ -106,7 +98,7 @@ void WebEditorClient::toggleContinuousSpellChecking()
 
 bool WebEditorClient::isGrammarCheckingEnabled()
 {
-    return WebProcess::shared().textCheckerState().isGrammarCheckingEnabled;
+    return WebProcess::singleton().textCheckerState().isGrammarCheckingEnabled;
 }
 
 void WebEditorClient::toggleGrammarChecking()
@@ -157,10 +149,15 @@ bool WebEditorClient::shouldChangeSelectedRange(Range* fromRange, Range* toRange
     
 bool WebEditorClient::shouldApplyStyle(StyleProperties* style, Range* range)
 {
-    Ref<MutableStyleProperties> mutableStyle(style->isMutable() ? static_cast<MutableStyleProperties&>(*style) : style->mutableCopy());
+    Ref<MutableStyleProperties> mutableStyle(style->isMutable() ? Ref<MutableStyleProperties>(static_cast<MutableStyleProperties&>(*style)) : style->mutableCopy());
     bool result = m_page->injectedBundleEditorClient().shouldApplyStyle(m_page, mutableStyle->ensureCSSStyleDeclaration(), range);
     notImplemented();
     return result;
+}
+
+void WebEditorClient::didApplyStyle()
+{
+    notImplemented();
 }
 
 bool WebEditorClient::shouldMoveRangeAfterDelete(Range*, Range*)
@@ -196,6 +193,11 @@ void WebEditorClient::respondToChangedSelection(Frame* frame)
 #if PLATFORM(GTK)
     updateGlobalSelection(frame);
 #endif
+}
+
+void WebEditorClient::didChangeSelectionAndUpdateLayout()
+{
+    m_page->sendPostLayoutEditorStateIfNeeded();
 }
 
 void WebEditorClient::discardedComposition(Frame*)
@@ -299,29 +301,29 @@ void WebEditorClient::handleInputMethodKeydown(KeyboardEvent*)
 
 void WebEditorClient::textFieldDidBeginEditing(Element* element)
 {
-    if (!isHTMLInputElement(element))
+    if (!is<HTMLInputElement>(*element))
         return;
 
     WebFrame* webFrame = WebFrame::fromCoreFrame(*element->document().frame());
     ASSERT(webFrame);
 
-    m_page->injectedBundleFormClient().textFieldDidBeginEditing(m_page, toHTMLInputElement(element), webFrame);
+    m_page->injectedBundleFormClient().textFieldDidBeginEditing(m_page, downcast<HTMLInputElement>(element), webFrame);
 }
 
 void WebEditorClient::textFieldDidEndEditing(Element* element)
 {
-    if (!isHTMLInputElement(element))
+    if (!is<HTMLInputElement>(*element))
         return;
 
     WebFrame* webFrame = WebFrame::fromCoreFrame(*element->document().frame());
     ASSERT(webFrame);
 
-    m_page->injectedBundleFormClient().textFieldDidEndEditing(m_page, toHTMLInputElement(element), webFrame);
+    m_page->injectedBundleFormClient().textFieldDidEndEditing(m_page, downcast<HTMLInputElement>(element), webFrame);
 }
 
 void WebEditorClient::textDidChangeInTextField(Element* element)
 {
-    if (!isHTMLInputElement(element))
+    if (!is<HTMLInputElement>(*element))
         return;
 
     bool initiatedByUserTyping = UserTypingGestureIndicator::processingUserTypingGesture() && UserTypingGestureIndicator::focusedElementAtGestureStart() == element;
@@ -329,18 +331,18 @@ void WebEditorClient::textDidChangeInTextField(Element* element)
     WebFrame* webFrame = WebFrame::fromCoreFrame(*element->document().frame());
     ASSERT(webFrame);
 
-    m_page->injectedBundleFormClient().textDidChangeInTextField(m_page, toHTMLInputElement(element), webFrame, initiatedByUserTyping);
+    m_page->injectedBundleFormClient().textDidChangeInTextField(m_page, downcast<HTMLInputElement>(element), webFrame, initiatedByUserTyping);
 }
 
 void WebEditorClient::textDidChangeInTextArea(Element* element)
 {
-    if (!isHTMLTextAreaElement(element))
+    if (!is<HTMLTextAreaElement>(*element))
         return;
 
     WebFrame* webFrame = WebFrame::fromCoreFrame(*element->document().frame());
     ASSERT(webFrame);
 
-    m_page->injectedBundleFormClient().textDidChangeInTextArea(m_page, toHTMLTextAreaElement(element), webFrame);
+    m_page->injectedBundleFormClient().textDidChangeInTextArea(m_page, downcast<HTMLTextAreaElement>(element), webFrame);
 }
 
 #if !PLATFORM(IOS)
@@ -397,7 +399,7 @@ static API::InjectedBundle::FormClient::InputFieldAction toInputFieldAction(WKIn
 
 bool WebEditorClient::doTextFieldCommandFromEvent(Element* element, KeyboardEvent* event)
 {
-    if (!isHTMLInputElement(element))
+    if (!is<HTMLInputElement>(*element))
         return false;
 
     WKInputFieldActionType actionType = static_cast<WKInputFieldActionType>(0);
@@ -407,18 +409,18 @@ bool WebEditorClient::doTextFieldCommandFromEvent(Element* element, KeyboardEven
     WebFrame* webFrame = WebFrame::fromCoreFrame(*element->document().frame());
     ASSERT(webFrame);
 
-    return m_page->injectedBundleFormClient().shouldPerformActionInTextField(m_page, toHTMLInputElement(element), toInputFieldAction(actionType), webFrame);
+    return m_page->injectedBundleFormClient().shouldPerformActionInTextField(m_page, downcast<HTMLInputElement>(element), toInputFieldAction(actionType), webFrame);
 }
 
 void WebEditorClient::textWillBeDeletedInTextField(Element* element)
 {
-    if (!isHTMLInputElement(element))
+    if (!is<HTMLInputElement>(*element))
         return;
 
     WebFrame* webFrame = WebFrame::fromCoreFrame(*element->document().frame());
     ASSERT(webFrame);
 
-    m_page->injectedBundleFormClient().shouldPerformActionInTextField(m_page, toHTMLInputElement(element), toInputFieldAction(WKInputFieldActionTypeInsertDelete), webFrame);
+    m_page->injectedBundleFormClient().shouldPerformActionInTextField(m_page, downcast<HTMLInputElement>(element), toInputFieldAction(WKInputFieldActionTypeInsertDelete), webFrame);
 }
 
 bool WebEditorClient::shouldEraseMarkersAfterChangeSelection(WebCore::TextCheckingType type) const

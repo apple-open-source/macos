@@ -24,18 +24,16 @@
 
 #include "config.h"
 
-#if USE(3D_GRAPHICS)
+#if ENABLE(GRAPHICS_CONTEXT_3D)
 
 #include "GraphicsContext3D.h"
 #include "GraphicsContext3DPrivate.h"
 #include <WebCore/PlatformCALayerWin.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 
 #if PLATFORM(WIN)
-#include "GLSLANG/ShaderLang.h"
+#include <GLSLANG/ShaderLang.h>
 #else
-#include "ShaderLang.h"
+#include <ANGLE/ShaderLang.h>
 #endif
 
 #if USE(OPENGL_ES_2)
@@ -178,6 +176,10 @@ bool GraphicsContext3D::makeContextCurrent()
     return m_private->makeContextCurrent();
 }
 
+void GraphicsContext3D::checkGPUStatusIfNecessary()
+{
+}
+
 PlatformGraphicsContext3D GraphicsContext3D::platformGraphicsContext3D()
 {
     return m_private->platformContext();
@@ -204,4 +206,4 @@ PlatformLayer* GraphicsContext3D::platformLayer() const
 
 } // namespace WebCore
 
-#endif // USE(3D_GRAPHICS)
+#endif // ENABLE(GRAPHICS_CONTEXT_3D)

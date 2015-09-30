@@ -25,8 +25,11 @@
 #include <CoreFoundation/CFMachPort.h>
 
 #include <IOKit/ps/IOPSKeys.h>
+#include <IOKit/ps/IOPSKeysPrivate.h>
+#include <IOKit/pwr_mgt/IOPM.h>
 #include "IOHIDUPSClass.h"
 #include "IOHIDUsageTables.h"
+#include "AppleHIDUsageTables.h"
 
 __BEGIN_DECLS
 #include <mach/mach.h>
@@ -37,15 +40,7 @@ __END_DECLS
 
 #define UPSLog(fmt, args...)
 
-#define kDefaultUPSName			"UPS" 
-
-#ifndef kIOPSCommandEnableAudibleAlarmKey
-    #define kIOPSCommandEnableAudibleAlarmKey "Enable Audible Alarm"
-#endif
-
-#ifndef kIOPSCommandStartupDelayKey
-    #define kIOPSCommandStartupDelayKey "Startup Delay"
-#endif
+#define kDefaultUPSName			"UPS"
 
 #define IS_INPUT_ELEMENT(type) \
 ((type >= kIOHIDElementTypeInput_Misc) && (type <= kIOHIDElementTypeInput_ScanCodes))
@@ -521,6 +516,8 @@ IOReturn IOHIDUPSClass::getProperties(CFDictionaryRef * properties)
         CFStringRef		transport 	= NULL;
         CFStringRef		name		= NULL;
         CFMutableStringRef	genName		= NULL;
+        CFNumberRef     vid         = NULL;
+        CFNumberRef     pid         = NULL;
         
         transport = (CFStringRef) CFDictionaryGetValue( _hidProperties, CFSTR( kIOHIDTransportKey ) );
         
@@ -559,6 +556,20 @@ IOReturn IOHIDUPSClass::getProperties(CFDictionaryRef * properties)
         
         if (name)
             CFDictionarySetValue(_upsProperties, CFSTR(kIOPSNameKey), name);
+        
+        vid = (CFNumberRef) CFDictionaryGetValue( _hidProperties, CFSTR( kIOHIDVendorIDKey ) );
+        
+        if (vid)
+        {
+            CFDictionarySetValue(_upsProperties, CFSTR(kIOPSVendorIDKey), vid);
+        }
+        
+        pid = (CFNumberRef) CFDictionaryGetValue( _hidProperties, CFSTR( kIOHIDProductIDKey ) );
+        
+        if (pid)
+        {
+            CFDictionarySetValue(_upsProperties, CFSTR(kIOPSProductIDKey), pid);
+        }
     }
     
     if (properties)
@@ -613,9 +624,12 @@ void IOHIDUPSClass::getEventProcess(UPSHIDElement       *elementRef,
     if ( !elementRef )
         return;
     
-    ret = updateElementValue(elementRef, &err);
-    if (kIOReturnSuccess == err)
-        processEvent(elementRef);
+    if ( elementRef->type != kIOHIDElementTypeOutput ) {
+        ret = updateElementValue(elementRef, &err);
+    
+        if ( kIOReturnSuccess == err )
+            processEvent(elementRef);
+    }
     
     if ( ret && changed ) 
         *changed = ret;
@@ -773,7 +787,13 @@ IOReturn IOHIDUPSClass::sendCommand(CFDictionaryRef command)
         {
             value = (((CFBooleanRef)values[i]) == kCFBooleanTrue) ? 2 : 1;
         }
-            
+        else if (CFEqual(CFSTR(kIOPSCommandSetCurrentLimitKey), keys[i]) ||
+                 CFEqual(CFSTR(kIOPSCommandSetRequiredVoltageKey), keys[i]) ||
+                 CFEqual(CFSTR(kIOPSCommandSendCurrentStateOfCharge), keys[i]))
+        {
+            CFNumberGetValue((CFNumberRef)values[i], kCFNumberSInt32Type, &value);
+        }
+        
         if ( CFGetTypeID(type) == CFDataGetTypeID() )
         {
             data = (CFMutableDataRef)type;
@@ -965,6 +985,16 @@ bool IOHIDUPSClass::findElements()
                         newElement.isCommand 		= true;
                     }
                     break;
+                case kHIDUsage_PD_ConfigVoltage:
+                    newElement.isDesiredType =
+                        (( newElement.type == kIOHIDElementTypeFeature) || ( newElement.type == kIOHIDElementTypeOutput));
+                    if ( newElement.isDesiredType )
+                    {
+                        psKey                          = CFSTR(kIOPSCommandSetRequiredVoltageKey);
+                        newElement.shouldPoll          = false;
+                        newElement.isCommand           = true;
+                    }
+                    break;
                 case kHIDUsage_PD_Voltage:
                     // Normalize to mV (accounting for HID's units being 10^-7 V)
                     if ( newElement.unit == kIOHIDUnitVolt )
@@ -993,14 +1023,40 @@ bool IOHIDUPSClass::findElements()
                         newElement.isCommand	= true;
                     }
                     break;
+                case kHIDUsage_PD_ConfigCurrent:
+                    // If the element is an input report, it represents
+                    // available outgoing current of the UPS
+                    if ( newElement.isDesiredType )
+                    {
+                        // Normalize to mA
+                        if ( newElement.unit == kIOHIDUnitAmp )
+                            newElement.multiplier = pow(10, 3 + newElement.unitExponent);
+                        else
+                            newElement.multiplier = 1000.0;
+                        psKey = CFSTR(kIOPSAppleBatteryCaseAvailableCurrentKey);
+                        
+                    }
+                    // If the element is an output report, it represents the
+                    // incoming current limit of the UPS
+                    else if ( newElement.type == kIOHIDElementTypeOutput )
+                    {
+                        newElement.isDesiredType = true;
+                        psKey                   = CFSTR(kIOPSCommandSetCurrentLimitKey);
+                        newElement.shouldPoll   = false;
+                        newElement.isCommand    = true;
+                    }
+                    break;
                 case kHIDUsage_PD_Temperature:
-                    // Normalize to deciKelvin (for precision)
+                    // Normalize to Kelvin
                     if ( newElement.unit == kIOHIDUnitKelvin )
-                        newElement.multiplier = pow(10, 1 + newElement.unitExponent);
+                        newElement.multiplier = pow(10, newElement.unitExponent);
                     else
                         newElement.multiplier = 1.0;
                     
                     psKey = CFSTR(kIOPSTemperatureKey);
+                    break;
+                case kHIDUsage_PD_InternalFailure:
+                    psKey = CFSTR(kIOPSInternalFailureKey);
                     break;
             }
         }
@@ -1015,14 +1071,28 @@ bool IOHIDUPSClass::findElements()
                 case kHIDUsage_BS_Discharging:
                     psKey = CFSTR(kIOPSIsChargingKey);
                     break;
+                case kHIDUsage_BS_AbsoluteStateOfCharge:
                 case kHIDUsage_BS_RemainingCapacity:
-                    // Capacity can be given in Amp-Seconds or %
-                    if (newElement.unit == kIOHIDUnitAmpSec )
-                        newElement.multiplier = 1.0 / 3.6;
+                    // If the element is an output report, it represents
+                    // OUR current capacity
+                    if ( newElement.type == kIOHIDElementTypeOutput )
+                    {
+                        newElement.isDesiredType = true;
+                        psKey                   = CFSTR(kIOPSCommandSendCurrentStateOfCharge);
+                        newElement.shouldPoll   = false;
+                        newElement.isCommand    = true;
+                    }
+                    // otherwise, it represents the current capacity of the UPS
                     else
-                        newElement.multiplier = 1.0;
-                    
-                    psKey = CFSTR(kIOPSCurrentCapacityKey);
+                    {
+                        // Capacity can be given in Amp-Seconds or %
+                        if (newElement.unit == kIOHIDUnitAmpSec )
+                            newElement.multiplier = 1.0 / 3.6;
+                        else
+                            newElement.multiplier = 1.0;
+                        
+                        psKey = CFSTR(kIOPSCurrentCapacityKey);
+                    }
                     break;
                 case kHIDUsage_BS_FullChargeCapacity:
                     // Capacity can be given in Amp-Seconds or %
@@ -1042,9 +1112,40 @@ bool IOHIDUPSClass::findElements()
                 case kHIDUsage_BS_ACPresent:
                     psKey = CFSTR(kIOPSPowerSourceStateKey);
                     break;
+                case kHIDUsage_BS_CycleCount:
+                    psKey = CFSTR(kIOPMPSCycleCountKey);
+                    break;
             }
         }
-              
+        else if ( newElement.usagePage == kHIDPage_AppleVendorBattery )
+        {
+            switch ( newElement.usage ) {
+                case kHIDUsage_AppleVendorBattery_RawCapacity:
+                    // Capacity can be given in Amp-Seconds or %
+                    if (newElement.unit == kIOHIDUnitAmpSec )
+                        newElement.multiplier = 1.0 / 3.6;
+                    else
+                        newElement.multiplier = 1.0;
+                    
+                    psKey = CFSTR(kAppleRawCurrentCapacityKey);
+                    break;
+                case kHIDUsage_AppleVendorBattery_NominalChargeCapacity:
+                    // Capacity can be given in Amp-Seconds or %
+                    if (newElement.unit == kIOHIDUnitAmpSec )
+                        newElement.multiplier = 1.0 / 3.6;
+                    else
+                        newElement.multiplier = 1.0;
+                    
+                    psKey = CFSTR(kIOPSNominalCapacityKey);
+                    break;
+                case kHIDUsage_AppleVendorBattery_CumulativeCurrent:
+                    // Cumulative current is given in Amp-seconds, but should
+                    // NOT be converted to mAh like the other values above.
+                    psKey = CFSTR(kIOPSAppleBatteryCaseCumulativeCurrentKey);
+                    break;
+            }
+        }
+            
         if (psKey) 
             storeUPSElement(psKey, &newElement);
         
@@ -1256,6 +1357,8 @@ bool IOHIDUPSClass::processEvent(UPSHIDElement *	hidElement)
     bool		isCharging	= false;
     SInt32		value		= 0;
     
+    const double kKelvinToCelsisusOffset = -273.15;
+    
     if ( hidElement->usagePage == kHIDPage_PowerDevice )
     {
         switch ( hidElement->usage )
@@ -1270,12 +1373,19 @@ bool IOHIDUPSClass::processEvent(UPSHIDElement *	hidElement)
                 value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
                 update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSCurrentKey), value);
                 break;
+            case kHIDUsage_PD_ConfigCurrent:
+                // PS expects mA but HID units are A
+                value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSAppleBatteryCaseAvailableCurrentKey), value);
+                break;
             case kHIDUsage_PD_Temperature:
-                const double kDeciKelvinToDeciCelsisusOffset = -2731.5;
                 // PS expects degrees Celsius but HID units are degrees Kelvin
                 value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier
-                                 + kDeciKelvinToDeciCelsisusOffset);
+                                 + kKelvinToCelsisusOffset);
                 update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSTemperatureKey), value);
+                break;
+            case kHIDUsage_PD_InternalFailure:
+                CFDictionarySetValue(_upsEvent, CFSTR(kIOPSInternalFailureKey), ( hidElement->currentValue ? kCFBooleanTrue : kCFBooleanFalse));
                 break;
         }
     }
@@ -1302,6 +1412,7 @@ bool IOHIDUPSClass::processEvent(UPSHIDElement *	hidElement)
 
                 break;
             case kHIDUsage_BS_RemainingCapacity:
+            case kHIDUsage_BS_AbsoluteStateOfCharge:
                 // PS expects mAh but HID units are A-s. If units are %, multiplier is 1
                 value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
                 update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSCurrentCapacityKey), value);
@@ -1360,6 +1471,27 @@ PROCESS_EVENT_UPDATE_AC:
                 else
                     CFDictionarySetValue(_upsEvent, CFSTR(kIOPSPowerSourceStateKey), 
                                         CFSTR(kIOPSBatteryPowerValue));
+                break;
+            case kHIDUsage_BS_CycleCount:
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPMPSCycleCountKey), hidElement->currentValue);
+                break;
+        }
+    }
+    else if (hidElement->usagePage == kHIDPage_AppleVendorBattery)
+    {
+        switch ( hidElement->usage )
+        {
+            case kHIDUsage_AppleVendorBattery_RawCapacity:
+                value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kAppleRawCurrentCapacityKey), value);
+                break;
+            case kHIDUsage_AppleVendorBattery_NominalChargeCapacity:
+                value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSNominalCapacityKey), value);
+                break;
+            case kHIDUsage_AppleVendorBattery_CumulativeCurrent:
+                value = (SInt32)((double)hidElement->currentValue * hidElement->multiplier);
+                update = FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSAppleBatteryCaseCumulativeCurrentKey), value);
                 break;
         }
     }

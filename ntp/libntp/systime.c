@@ -135,8 +135,8 @@ adj_systime(
 	double	dtemp;
 	long	ticks;
 	int	isneg = 0;
-	
-	os_trace("Adjust: %f", now);
+    static double last_now;
+
 	/*
 	 * Most Unix adjtime() implementations adjust the system clock
 	 * in microsecond quanta, but some adjust in 10-ms quanta. We
@@ -170,6 +170,10 @@ adj_systime(
 			msyslog(LOG_ERR, "adj_systime: %m");
 			return (0);
 		}
+        if (now != last_now) { /* reduce duplicates */
+            os_trace_debug("adjust: %f", now);
+        }
+        last_now = now;
 	}
 	return (1);
 }
@@ -191,7 +195,7 @@ step_systime(
 	struct timespec ts;
 #endif
     
-    os_trace("step: %f", now);
+    os_trace_debug("step: %f", now);
 	dtemp = sys_residual + now;
 	if (dtemp < 0) {
 		isneg = 1;

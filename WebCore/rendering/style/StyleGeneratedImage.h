@@ -33,15 +33,15 @@ class CSSImageGeneratorValue;
 
 class StyleGeneratedImage final : public StyleImage {
 public:
-    static PassRefPtr<StyleGeneratedImage> create(PassRef<CSSImageGeneratorValue> value)
+    static Ref<StyleGeneratedImage> create(Ref<CSSImageGeneratorValue>&& value)
     {
-        return adoptRef(new StyleGeneratedImage(WTF::move(value)));
+        return adoptRef(*new StyleGeneratedImage(WTF::move(value)));
     }
 
-    CSSImageGeneratorValue& imageValue() { return m_imageGeneratorValue.get(); }
+    CSSImageGeneratorValue& imageValue() { return m_imageGeneratorValue; }
 
 private:
-    virtual WrappedImagePtr data() const override { return &m_imageGeneratorValue.get(); }
+    virtual WrappedImagePtr data() const override { return m_imageGeneratorValue.ptr(); }
 
     virtual PassRefPtr<CSSValue> cssValue() const override;
 
@@ -56,14 +56,15 @@ private:
     virtual PassRefPtr<Image> image(RenderElement*, const FloatSize&) const override;
     virtual bool knownToBeOpaque(const RenderElement*) const override;
 
-    StyleGeneratedImage(PassRef<CSSImageGeneratorValue>);
+    explicit StyleGeneratedImage(Ref<CSSImageGeneratorValue>&&);
     
     Ref<CSSImageGeneratorValue> m_imageGeneratorValue;
     FloatSize m_containerSize;
     bool m_fixedSize;
 };
 
-STYLE_IMAGE_TYPE_CASTS(StyleGeneratedImage, StyleImage, isGeneratedImage)
+} // namespace WebCore
 
-}
-#endif
+SPECIALIZE_TYPE_TRAITS_STYLE_IMAGE(StyleGeneratedImage, isGeneratedImage)
+
+#endif // StyleGeneratedImage_h

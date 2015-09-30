@@ -56,7 +56,7 @@
 #include "StyleResolver.h"
 #include <wtf/HashMap.h>
 
-#if ENABLE(3D_RENDERING)
+#if ENABLE(3D_TRANSFORMS)
 #include "RenderLayerCompositor.h"
 #endif
 
@@ -186,9 +186,9 @@ bool compareValue(T a, T b, MediaFeaturePrefix op)
 
 static bool compareAspectRatioValue(CSSValue* value, int width, int height, MediaFeaturePrefix op)
 {
-    if (value->isAspectRatioValue()) {
-        CSSAspectRatioValue* aspectRatio = toCSSAspectRatioValue(value);
-        return compareValue(width * static_cast<int>(aspectRatio->denominatorValue()), height * static_cast<int>(aspectRatio->numeratorValue()), op);
+    if (is<CSSAspectRatioValue>(*value)) {
+        CSSAspectRatioValue& aspectRatio = downcast<CSSAspectRatioValue>(*value);
+        return compareValue(width * static_cast<int>(aspectRatio.denominatorValue()), height * static_cast<int>(aspectRatio.numeratorValue()), op);
     }
 
     return false;
@@ -196,9 +196,8 @@ static bool compareAspectRatioValue(CSSValue* value, int width, int height, Medi
 
 static bool numberValue(CSSValue* value, float& result)
 {
-    if (value->isPrimitiveValue()
-        && toCSSPrimitiveValue(value)->isNumber()) {
-        result = toCSSPrimitiveValue(value)->getFloatValue(CSSPrimitiveValue::CSS_NUMBER);
+    if (is<CSSPrimitiveValue>(*value) && downcast<CSSPrimitiveValue>(*value).isNumber()) {
+        result = downcast<CSSPrimitiveValue>(*value).getFloatValue(CSSPrimitiveValue::CSS_NUMBER);
         return true;
     }
     return false;
@@ -238,6 +237,17 @@ static bool monochromeMediaFeatureEval(CSSValue* value, const CSSToLengthConvers
     return colorMediaFeatureEval(value, conversionData, frame, op);
 }
 
+static bool inverted_colorsMediaFeatureEval(CSSValue* value, const CSSToLengthConversionData&, Frame*, MediaFeaturePrefix)
+{
+    bool isInverted = screenHasInvertedColors();
+
+    if (!value)
+        return isInverted;
+
+    const CSSValueID id = downcast<CSSPrimitiveValue>(*value).getValueID();
+    return (isInverted && id == CSSValueInverted) || (!isInverted && id == CSSValueNone);
+}
+
 static bool orientationMediaFeatureEval(CSSValue* value, const CSSToLengthConversionData&, Frame* frame, MediaFeaturePrefix)
 {
     FrameView* view = frame->view();
@@ -246,8 +256,8 @@ static bool orientationMediaFeatureEval(CSSValue* value, const CSSToLengthConver
 
     int width = view->layoutWidth();
     int height = view->layoutHeight();
-    if (value && value->isPrimitiveValue()) {
-        const CSSValueID id = toCSSPrimitiveValue(value)->getValueID();
+    if (is<CSSPrimitiveValue>(value)) {
+        const CSSValueID id = downcast<CSSPrimitiveValue>(*value).getValueID();
         if (width > height) // Square viewport is portrait.
             return CSSValueLandscape == id;
         return CSSValuePortrait == id;
@@ -308,22 +318,22 @@ static bool evalResolution(CSSValue* value, Frame* frame, MediaFeaturePrefix op)
     if (!value)
         return !!deviceScaleFactor;
 
-    if (!value->isPrimitiveValue())
+    if (!is<CSSPrimitiveValue>(*value))
         return false;
 
-    CSSPrimitiveValue* resolution = toCSSPrimitiveValue(value);
-    return compareValue(deviceScaleFactor, resolution->isNumber() ? resolution->getFloatValue() : resolution->getFloatValue(CSSPrimitiveValue::CSS_DPPX), op);
+    CSSPrimitiveValue& resolution = downcast<CSSPrimitiveValue>(*value);
+    return compareValue(deviceScaleFactor, resolution.isNumber() ? resolution.getFloatValue() : resolution.getFloatValue(CSSPrimitiveValue::CSS_DPPX), op);
 }
 
 static bool device_pixel_ratioMediaFeatureEval(CSSValue *value, const CSSToLengthConversionData&, Frame* frame, MediaFeaturePrefix op)
 {
-    return (!value || toCSSPrimitiveValue(value)->isNumber()) && evalResolution(value, frame, op);
+    return (!value || downcast<CSSPrimitiveValue>(*value).isNumber()) && evalResolution(value, frame, op);
 }
 
 static bool resolutionMediaFeatureEval(CSSValue* value, const CSSToLengthConversionData&, Frame* frame, MediaFeaturePrefix op)
 {
 #if ENABLE(RESOLUTION_MEDIA_QUERY)
-    return (!value || toCSSPrimitiveValue(value)->isResolution()) && evalResolution(value, frame, op);
+    return (!value || downcast<CSSPrimitiveValue>(*value).isResolution()) && evalResolution(value, frame, op);
 #else
     UNUSED_PARAM(value);
     UNUSED_PARAM(frame);
@@ -344,18 +354,18 @@ static bool gridMediaFeatureEval(CSSValue* value, const CSSToLengthConversionDat
 
 static bool computeLength(CSSValue* value, bool strict, const CSSToLengthConversionData& conversionData, int& result)
 {
-    if (!value->isPrimitiveValue())
+    if (!is<CSSPrimitiveValue>(*value))
         return false;
 
-    CSSPrimitiveValue* primitiveValue = toCSSPrimitiveValue(value);
+    CSSPrimitiveValue& primitiveValue = downcast<CSSPrimitiveValue>(*value);
 
-    if (primitiveValue->isNumber()) {
-        result = primitiveValue->getIntValue();
+    if (primitiveValue.isNumber()) {
+        result = primitiveValue.getIntValue();
         return !strict || !result;
     }
 
-    if (primitiveValue->isLength()) {
-        result = primitiveValue->computeLength<int>(conversionData);
+    if (primitiveValue.isLength()) {
+        result = primitiveValue.computeLength<int>(conversionData);
         return true;
     }
 
@@ -566,7 +576,7 @@ static bool transform_3dMediaFeatureEval(CSSValue* value, const CSSToLengthConve
     bool returnValueIfNoParameter;
     int have3dRendering;
 
-#if ENABLE(3D_RENDERING)
+#if ENABLE(3D_TRANSFORMS)
     bool threeDEnabled = false;
     if (RenderView* view = frame->contentRenderer())
         threeDEnabled = view->compositor().canRender3DTransforms();
@@ -593,7 +603,7 @@ static bool view_modeMediaFeatureEval(CSSValue* value, const CSSToLengthConversi
     if (!value)
         return true;
 
-    const int viewModeCSSKeywordID = toCSSPrimitiveValue(value)->getValueID();
+    const int viewModeCSSKeywordID = downcast<CSSPrimitiveValue>(*value).getValueID();
     const Page::ViewMode viewMode = frame->page()->viewMode();
     bool result = false;
     switch (viewMode) {
@@ -634,67 +644,48 @@ static inline bool isRunningOnIPhoneOrIPod()
 
 static bool video_playable_inlineMediaFeatureEval(CSSValue*, const CSSToLengthConversionData&, Frame* frame, MediaFeaturePrefix)
 {
-    return !isRunningOnIPhoneOrIPod() || frame->settings().mediaPlaybackAllowsInline();
+    return !isRunningOnIPhoneOrIPod() || frame->settings().allowsInlineMediaPlayback();
 }
 
-enum PointerDeviceType { TouchPointer, MousePointer, NoPointer, UnknownPointer };
-
-static PointerDeviceType leastCapablePrimaryPointerDeviceType(Frame* frame)
+static bool hoverMediaFeatureEval(CSSValue* value, const CSSToLengthConversionData&, Frame*, MediaFeaturePrefix)
 {
-    if (frame->settings().deviceSupportsTouch())
-        return TouchPointer;
-
-    // FIXME: We should also try to determine if we know we have a mouse.
-    // When we do this, we'll also need to differentiate between known not to
-    // have mouse or touch screen (NoPointer) and unknown (UnknownPointer).
-    // We could also take into account other preferences like accessibility
-    // settings to decide which of the available pointers should be considered
-    // "primary".
-
-    return UnknownPointer;
-}
-
-static bool hoverMediaFeatureEval(CSSValue* value, const CSSToLengthConversionData&, Frame* frame, MediaFeaturePrefix)
-{
-    PointerDeviceType pointer = leastCapablePrimaryPointerDeviceType(frame);
-
-    // If we're on a port that hasn't explicitly opted into providing pointer device information
-    // (or otherwise can't be confident in the pointer hardware available), then behave exactly
-    // as if this feature feature isn't supported.
-    if (pointer == UnknownPointer)
+    if (!is<CSSPrimitiveValue>(value)) {
+#if ENABLE(TOUCH_EVENTS)
         return false;
-
-    float number = 1;
-    if (value) {
-        if (!numberValue(value, number))
-            return false;
+#else
+        return true;
+#endif
     }
 
-    return (pointer == NoPointer && !number)
-        || (pointer == TouchPointer && !number)
-        || (pointer == MousePointer && number == 1);
+    int hoverCSSKeywordID = downcast<CSSPrimitiveValue>(*value).getValueID();
+#if ENABLE(TOUCH_EVENTS)
+    return hoverCSSKeywordID == CSSValueNone;
+#else
+    return hoverCSSKeywordID == CSSValueHover;
+#endif
 }
 
-static bool pointerMediaFeatureEval(CSSValue* value, const CSSToLengthConversionData&, Frame* frame, MediaFeaturePrefix)
+static bool any_hoverMediaFeatureEval(CSSValue* value, const CSSToLengthConversionData& cssToLengthConversionData, Frame* frame, MediaFeaturePrefix prefix)
 {
-    PointerDeviceType pointer = leastCapablePrimaryPointerDeviceType(frame);
+    return hoverMediaFeatureEval(value, cssToLengthConversionData, frame, prefix);
+}
 
-    // If we're on a port that hasn't explicitly opted into providing pointer device information
-    // (or otherwise can't be confident in the pointer hardware available), then behave exactly
-    // as if this feature feature isn't supported.
-    if (pointer == UnknownPointer)
-        return false;
+static bool pointerMediaFeatureEval(CSSValue* value, const CSSToLengthConversionData&, Frame*, MediaFeaturePrefix)
+{
+    if (!is<CSSPrimitiveValue>(value))
+        return true;
 
-    if (!value)
-        return pointer != NoPointer;
+    int pointerCSSKeywordID = downcast<CSSPrimitiveValue>(*value).getValueID();
+#if ENABLE(TOUCH_EVENTS)
+    return pointerCSSKeywordID == CSSValueCoarse;
+#else
+    return pointerCSSKeywordID == CSSValueFine;
+#endif
+}
 
-    if (!value->isPrimitiveValue())
-        return false;
-
-    const CSSValueID id = toCSSPrimitiveValue(value)->getValueID();
-    return (pointer == NoPointer && id == CSSValueNone)
-        || (pointer == TouchPointer && id == CSSValueCoarse)
-        || (pointer == MousePointer && id == CSSValueFine);
+static bool any_pointerMediaFeatureEval(CSSValue* value, const CSSToLengthConversionData& cssToLengthConversionData, Frame* frame, MediaFeaturePrefix prefix)
+{
+    return pointerMediaFeatureEval(value, cssToLengthConversionData, frame, prefix);
 }
 
 // FIXME: Remove unnecessary '&' from the following 'ADD_TO_FUNCTIONMAP' definition

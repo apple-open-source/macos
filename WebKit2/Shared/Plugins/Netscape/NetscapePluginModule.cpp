@@ -197,11 +197,27 @@ bool NetscapePluginModule::load()
     return true;
 }
 
+#if PLATFORM(GTK)
+static bool moduleMixesGtkSymbols(Module* module)
+{
+#ifdef GTK_API_VERSION_2
+    return module->functionPointer<gpointer>("gtk_application_get_type");
+#else
+    return module->functionPointer<gpointer>("gtk_object_get_type");
+#endif
+}
+#endif
+
 bool NetscapePluginModule::tryLoad()
 {
     m_module = std::make_unique<Module>(m_pluginPath);
     if (!m_module->load())
         return false;
+
+#if PLATFORM(GTK)
+    if (moduleMixesGtkSymbols(m_module.get()))
+        return false;
+#endif
 
     NP_InitializeFuncPtr initializeFuncPtr = m_module->functionPointer<NP_InitializeFuncPtr>("NP_Initialize");
     if (!initializeFuncPtr)
@@ -247,9 +263,6 @@ bool NetscapePluginModule::tryLoad()
 #endif
 
     return result;
-#elif PLUGIN_ARCHITECTURE(WIN)
-    if (getEntryPointsFuncPtr(&m_pluginFuncs) != NPERR_NO_ERROR || initializeFuncPtr(netscapeBrowserFuncs()) != NPERR_NO_ERROR)
-        return false;
 #elif PLUGIN_ARCHITECTURE(X11)
     if (initializeFuncPtr(netscapeBrowserFuncs(), &m_pluginFuncs) != NPERR_NO_ERROR)
         return false;

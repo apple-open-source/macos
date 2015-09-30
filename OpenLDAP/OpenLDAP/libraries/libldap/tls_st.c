@@ -564,11 +564,9 @@ tlsst_get_cert_chain(CFMutableArrayRef certificateChain,   SecCertificateRef cer
 		if(status != noErr) {
 			Debug(LDAP_DEBUG_ANY,"%s: SecTrustCreateWithCertificates() status: %d", __PRETTY_FUNCTION__, status, 0);
 		} else {
-			CSSM_APPLE_TP_ACTION_DATA tpActionData = { CSSM_APPLE_TP_ACTION_VERSION, (0 | CSSM_TP_ACTION_LEAF_IS_CA) };
-			CFDataRef actionData = CFDataCreate(kCFAllocatorDefault, (UInt8*)&tpActionData, sizeof(tpActionData));
-			status = SecTrustSetParameters(trustRef, CSSM_TP_ACTION_DEFAULT, (CFDataRef)actionData);
+			status = SecTrustSetOptions (trustRef, kSecTrustOptionLeafIsCA );
 			if(status != noErr) {
-				Debug(LDAP_DEBUG_ANY,"%s: SecTrustSetParameters() status: %d", __PRETTY_FUNCTION__, status, 0);
+				Debug(LDAP_DEBUG_ANY,"%s: SecTrustSetOptions() status: %d", __PRETTY_FUNCTION__, status, 0);
 			}			
 			else {
 				SecTrustResultType result;
@@ -587,8 +585,6 @@ tlsst_get_cert_chain(CFMutableArrayRef certificateChain,   SecCertificateRef cer
 					}
 				}
 			}
-			CFRelease_and_null(actionData);
-
 			CFRelease_and_null(trustRef);
 		}
 	
@@ -957,37 +953,6 @@ tlsst_copy_peer_cert(tlsst_session *sess)
 	return result;	// caller must release
 }
 
-static CFDataRef
-tlsst_builtin_dhparams(void)
-{
-	Debug(LDAP_DEBUG_TRACE, "tlsst_builtin_dhparams()\n", 0, 0, 0);
-
-	// output of command "openssl dhparam 1024"
-	static const char dhparams_pem[] =
-		// -----BEGIN DH PARAMETERS-----
-		"MIGHAoGBAOi2AYTgWEzB4TI07BKz4Z6H3oFKvCz77YAaPizFwUW5Jy7JDV6vXO8n"
-		"RrjSCuZ8V4TyfewkDW/iju5Rkgsy44UO9fGDLWjNG8fom92fuXBdNcbO8zAvG97B"
-		"mojNok6fpxvsFoUWWLmrlVPr/gtWANZAmSDr78ovtstQcdf5+6a7AgEC";
-		// -----END DH PARAMETERS-----
-
-	CFDataRef result = NULL;
-
-	CFDataRef pemData = CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *) dhparams_pem, strlen(dhparams_pem), kCFAllocatorNull);
-	if (pemData != NULL) {
-		SecTransformRef decoder = SecDecodeTransformCreate(kSecBase64Encoding, NULL);
-		if (decoder != NULL) {
-			SecTransformSetAttribute(decoder, kSecTransformInputAttributeName, pemData, NULL);
-			result = SecTransformExecute(decoder, NULL);
-
-			CFRelease(decoder);
-		}
-
-		CFRelease_and_null(pemData);
-	}
-
-	return result;		// caller must release
-}
-
 static int
 tlsst_init(void)
 {
@@ -1136,7 +1101,7 @@ tlsst_ctx_init(struct ldapoptions *lo, struct ldaptls *lt, int is_server)
 		} else
 			syslog(LOG_ERR, "TLS: CFStringCreateWithCString(%s) failed (check TLSDHParamFile setting)", lo->ldo_tls_dhfile);
 	} else {
-		ctx->dhparams = tlsst_builtin_dhparams();
+		ctx->dhparams = NULL;
 		result = 0;
 	}
 

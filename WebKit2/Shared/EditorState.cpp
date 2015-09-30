@@ -29,10 +29,6 @@
 #include "Arguments.h"
 #include "WebCoreArgumentCoders.h"
 
-#if PLATFORM(IOS)
-#include <WebCore/SelectionRect.h>
-#endif
-
 namespace WebKit {
 
 void EditorState::encode(IPC::ArgumentEncoder& encoder) const
@@ -45,22 +41,15 @@ void EditorState::encode(IPC::ArgumentEncoder& encoder) const
     encoder << isInPasswordField;
     encoder << isInPlugin;
     encoder << hasComposition;
+    encoder << isMissingPostLayoutData;
 
 #if PLATFORM(IOS)
-    encoder << isReplaceAllowed;
-    encoder << hasContent;
-    encoder << characterAfterSelection;
-    encoder << characterBeforeSelection;
-    encoder << twoCharacterBeforeSelection;
-    encoder << caretRectAtStart;
-    encoder << caretRectAtEnd;
-    encoder << selectionRects;
-    encoder << selectedTextLength;
-    encoder << wordAtSelection;
+    if (!isMissingPostLayoutData)
+        m_postLayoutData.encode(encoder);
+
     encoder << firstMarkedRect;
     encoder << lastMarkedRect;
     encoder << markedText;
-    encoder << typingAttributes;
 #endif
 
 #if PLATFORM(GTK)
@@ -94,34 +83,20 @@ bool EditorState::decode(IPC::ArgumentDecoder& decoder, EditorState& result)
     if (!decoder.decode(result.hasComposition))
         return false;
 
+    if (!decoder.decode(result.isMissingPostLayoutData))
+        return false;
+
 #if PLATFORM(IOS)
-    if (!decoder.decode(result.isReplaceAllowed))
-        return false;
-    if (!decoder.decode(result.hasContent))
-        return false;
-    if (!decoder.decode(result.characterAfterSelection))
-        return false;
-    if (!decoder.decode(result.characterBeforeSelection))
-        return false;
-    if (!decoder.decode(result.twoCharacterBeforeSelection))
-        return false;
-    if (!decoder.decode(result.caretRectAtStart))
-        return false;
-    if (!decoder.decode(result.caretRectAtEnd))
-        return false;
-    if (!decoder.decode(result.selectionRects))
-        return false;
-    if (!decoder.decode(result.selectedTextLength))
-        return false;
-    if (!decoder.decode(result.wordAtSelection))
-        return false;
+    if (!result.isMissingPostLayoutData) {
+        if (!PostLayoutData::decode(decoder, result.postLayoutData()))
+            return false;
+    }
+
     if (!decoder.decode(result.firstMarkedRect))
         return false;
     if (!decoder.decode(result.lastMarkedRect))
         return false;
     if (!decoder.decode(result.markedText))
-        return false;
-    if (!decoder.decode(result.typingAttributes))
         return false;
 #endif
 
@@ -132,5 +107,53 @@ bool EditorState::decode(IPC::ArgumentDecoder& decoder, EditorState& result)
 
     return true;
 }
+
+#if PLATFORM(IOS)
+void EditorState::PostLayoutData::encode(IPC::ArgumentEncoder& encoder) const
+{
+    encoder << selectionClipRect;
+    encoder << selectionRects;
+    encoder << caretRectAtStart;
+    encoder << caretRectAtEnd;
+    encoder << wordAtSelection;
+    encoder << selectedTextLength;
+    encoder << characterAfterSelection;
+    encoder << characterBeforeSelection;
+    encoder << twoCharacterBeforeSelection;
+    encoder << typingAttributes;
+    encoder << isReplaceAllowed;
+    encoder << hasContent;
+}
+
+bool EditorState::PostLayoutData::decode(IPC::ArgumentDecoder& decoder, PostLayoutData& result)
+{
+    if (!decoder.decode(result.selectionClipRect))
+        return false;
+    if (!decoder.decode(result.selectionRects))
+        return false;
+    if (!decoder.decode(result.caretRectAtStart))
+        return false;
+    if (!decoder.decode(result.caretRectAtEnd))
+        return false;
+    if (!decoder.decode(result.wordAtSelection))
+        return false;
+    if (!decoder.decode(result.selectedTextLength))
+        return false;
+    if (!decoder.decode(result.characterAfterSelection))
+        return false;
+    if (!decoder.decode(result.characterBeforeSelection))
+        return false;
+    if (!decoder.decode(result.twoCharacterBeforeSelection))
+        return false;
+    if (!decoder.decode(result.typingAttributes))
+        return false;
+    if (!decoder.decode(result.isReplaceAllowed))
+        return false;
+    if (!decoder.decode(result.hasContent))
+        return false;
+
+    return true;
+}
+#endif
 
 }

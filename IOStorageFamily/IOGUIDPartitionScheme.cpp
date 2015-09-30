@@ -236,7 +236,7 @@ OSSet * IOGUIDPartitionScheme::scan(SInt32 * score)
     //
 
     IOBufferMemoryDescriptor * buffer         = 0;
-    UInt32                     bufferSize     = 0;
+    IOByteCount                bufferSize     = 0;
     UInt32                     fdiskID        = 0;
     disk_blk0 *                fdiskMap       = 0;
     UInt64                     gptBlock       = 0;
@@ -605,26 +605,6 @@ IOMedia * IOGUIDPartitionScheme::instantiateDesiredMediaObject(
 
     return new IOMedia;
 }
-
-#ifndef __LP64__
-bool IOGUIDPartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
-{
-    //
-    // Attach the given media object to the device tree plane.
-    //
-
-    return super::attachMediaObjectToDeviceTree(media);
-}
-
-void IOGUIDPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
-{
-    //
-    // Detach the given media object from the device tree plane.
-    //
-
-    super::detachMediaObjectFromDeviceTree(media);
-}
-#endif /* !__LP64__ */
 
 OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  0);
 OSMetaClassDefineReservedUnused(IOGUIDPartitionScheme,  1);

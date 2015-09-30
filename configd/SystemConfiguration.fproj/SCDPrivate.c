@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -320,7 +320,7 @@ _SC_hw_model(Boolean trim)
 		bzero(&hwModel, sizeof(hwModel));
 		ret = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &hwModel, &n, NULL, 0);
 		if (ret != 0) {
-			SCLog(TRUE, LOG_ERR, CFSTR("sysctl() CTL_HW/HW_MODEL failed: %s"), strerror(errno));
+			SC_log(LOG_NOTICE, "sysctl() CTL_HW/HW_MODEL failed: %s", strerror(errno));
 			return;
 		}
 		hwModel[sizeof(hwModel) - 1] = '\0';
@@ -367,7 +367,7 @@ _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dat
 					 0,
 					 NULL);
 	if (myXml == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_SCSerialize() failed"));
+		SC_log(LOG_NOTICE, "CFPropertyListCreateData() failed");
 		if (xml != NULL) {
 			*xml = NULL;
 		}
@@ -394,7 +394,7 @@ _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dat
 				 (void *)dataRef,
 				 &len);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_ERR, CFSTR("_SCSerialize(): %s"), mach_error_string(status));
+			SC_log(LOG_NOTICE, "vm_read() failed: %s", mach_error_string(status));
 			CFRelease(myXml);
 			*dataRef = NULL;
 			*dataLen = 0;
@@ -423,7 +423,7 @@ _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dat
 
 		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
 		if (status != KERN_SUCCESS) {
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("_SCUnserialize(): %s"), mach_error_string(status));
+			SC_log(LOG_NOTICE, "vm_deallocate() failed: %s", mach_error_string(status));
 			/* non-fatal???, proceed */
 		}
 	} else {
@@ -432,7 +432,7 @@ _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dat
 
 	if (*obj == NULL) {
 		if (error != NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("_SCUnserialize(): %@"), error);
+			SC_log(LOG_NOTICE, "CFPropertyListCreateWithData() faled: %@", error);
 			CFRelease(error);
 		}
 		_SCErrorSet(kSCStatusFailed);
@@ -460,7 +460,7 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 
 	myData = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
 	if (myData == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_SCSerializeString() failed"));
+		SC_log(LOG_NOTICE, "CFStringCreateExternalRepresentation() failed");
 		if (data != NULL) {
 			*data = NULL;
 		}
@@ -488,7 +488,7 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 				 (void *)dataRef,
 				 &len);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_ERR, CFSTR("_SCSerializeString(): %s"), mach_error_string(status));
+			SC_log(LOG_NOTICE, "vm_read() failed: %s", mach_error_string(status));
 			CFRelease(myData);
 			*dataRef = NULL;
 			*dataLen = 0;
@@ -515,7 +515,7 @@ _SCUnserializeString(CFStringRef *str, CFDataRef utf8, void *dataRef, CFIndex da
 
 		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
 		if (status != KERN_SUCCESS) {
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("_SCUnserializeString(): %s"), mach_error_string(status));
+			SC_log(LOG_NOTICE, "vm_deallocate() failed: %s", mach_error_string(status));
 			/* non-fatal???, proceed */
 		}
 	} else {
@@ -523,7 +523,7 @@ _SCUnserializeString(CFStringRef *str, CFDataRef utf8, void *dataRef, CFIndex da
 	}
 
 	if (*str == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_SCUnserializeString() failed"));
+		SC_log(LOG_NOTICE, "CFStringCreateFromExternalRepresentation() failed");
 		return FALSE;
 	}
 
@@ -549,7 +549,7 @@ _SCSerializeData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 			 (void *)dataRef,
 			 &len);
 	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_SCSerializeData(): %s"), mach_error_string(status));
+		SC_log(LOG_NOTICE, "vm_read() failed: %s", mach_error_string(status));
 		*dataRef = NULL;
 		*dataLen = 0;
 		return FALSE;
@@ -569,7 +569,7 @@ _SCUnserializeData(CFDataRef *data, void *dataRef, CFIndex dataLen)
 	*data = CFDataCreate(NULL, dataRef, dataLen);
 	status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("_SCUnserializeData(): %s"), mach_error_string(status));
+		SC_log(LOG_NOTICE, "vm_deallocate() failed: %s", mach_error_string(status));
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}
@@ -853,7 +853,6 @@ _SC_unschedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFM
 
 
 #define SYSTEMCONFIGURATION_BUNDLE_ID		CFSTR("com.apple.SystemConfiguration")
-#define	SYSTEMCONFIGURATION_FRAMEWORK_PATH	"/System/Library/Frameworks/SystemConfiguration.framework"
 #define	SYSTEMCONFIGURATION_FRAMEWORK_PATH_LEN	(sizeof(SYSTEMCONFIGURATION_FRAMEWORK_PATH) - 1)
 
 #define	SUFFIX_SYM				"~sym"
@@ -868,58 +867,71 @@ _SC_CFBundleGet(void)
 	static CFBundleRef	bundle	= NULL;
 	char			*env;
 	size_t			len;
+	CFURLRef		url;
 
 	if (bundle != NULL) {
-		return bundle;
+		goto done;
 	}
 
 	bundle = CFBundleGetBundleWithIdentifier(SYSTEMCONFIGURATION_BUNDLE_ID);
 	if (bundle != NULL) {
 		CFRetain(bundle);	// we want to hold a reference to the bundle
-		return bundle;
+		goto done;
+	} else {
+		SC_log(LOG_NOTICE, "could not get CFBundle for \"%@\". Trying harder...",
+		       SYSTEMCONFIGURATION_BUNDLE_ID);
 	}
 
 	// if appropriate (e.g. when debugging), try a bit harder
 
 	env = getenv("DYLD_FRAMEWORK_PATH");
 	len = (env != NULL) ? strlen(env) : 0;
-
-	// trim any trailing slashes
-	while (len > 1) {
-		if (env[len - 1] != '/') {
-			break;
+	
+	if (len > 0) {	/* We are debugging */
+		
+		// trim any trailing slashes
+		while (len > 1) {
+			if (env[len - 1] != '/') {
+				break;
+			}
+			len--;
 		}
-		len--;
+		
+		// if DYLD_FRAMEWORK_PATH is ".../xxx~sym" than try ".../xxx~dst"
+		if ((len > SUFFIX_SYM_LEN) &&
+		    (strncmp(&env[len - SUFFIX_SYM_LEN], SUFFIX_SYM, SUFFIX_SYM_LEN) == 0) &&
+		    ((len + SYSTEMCONFIGURATION_FRAMEWORK_PATH_LEN) < MAXPATHLEN)) {
+			char		path[MAXPATHLEN];
+			
+			strlcpy(path, env, sizeof(path));
+			strlcpy(&path[len - SUFFIX_SYM_LEN], SUFFIX_DST, sizeof(path) - (len - SUFFIX_SYM_LEN));
+			strlcat(&path[len], SYSTEMCONFIGURATION_FRAMEWORK_PATH, sizeof(path) - len);
+			
+			url = CFURLCreateFromFileSystemRepresentation(NULL,
+								      (UInt8 *)path,
+								      len + SYSTEMCONFIGURATION_FRAMEWORK_PATH_LEN,
+								      TRUE);
+			bundle = CFBundleCreate(NULL, url);
+			CFRelease(url);
+		}
 	}
-
-	// if DYLD_FRAMEWORK_PATH is ".../xxx~sym" than try ".../xxx~dst"
-	if ((len > SUFFIX_SYM_LEN) &&
-	    (strncmp(&env[len - SUFFIX_SYM_LEN], SUFFIX_SYM, SUFFIX_SYM_LEN) == 0) &&
-	    ((len + SYSTEMCONFIGURATION_FRAMEWORK_PATH_LEN) < MAXPATHLEN)) {
-		char		path[MAXPATHLEN];
-		CFURLRef	url;
-
-		strlcpy(path, env, sizeof(path));
-		strlcpy(&path[len - SUFFIX_SYM_LEN], SUFFIX_DST, sizeof(path) - (len - SUFFIX_SYM_LEN));
-		strlcat(&path[len], SYSTEMCONFIGURATION_FRAMEWORK_PATH, sizeof(path) - len);
-
-		url = CFURLCreateFromFileSystemRepresentation(NULL,
-							      (UInt8 *)path,
-							      len + SYSTEMCONFIGURATION_FRAMEWORK_PATH_LEN,
-							      TRUE);
+ 
+	if (bundle == NULL) { /* Try a more "direct" route to get the bundle */
+		
+		url = CFURLCreateWithFileSystemPath(NULL,
+						    CFSTR(SYSTEMCONFIGURATION_FRAMEWORK_PATH),
+						    kCFURLPOSIXPathStyle,
+						    TRUE);
+		
 		bundle = CFBundleCreate(NULL, url);
 		CFRelease(url);
 	}
-
+	
 	if (bundle == NULL) {
-		static	Boolean	warned	= FALSE;
-
-		SCLog(!warned, LOG_WARNING,
-		      CFSTR("_SC_CFBundleGet(), could not get CFBundle for \"%@\""),
-		      SYSTEMCONFIGURATION_BUNDLE_ID);
-		warned = TRUE;
+		SC_log(LOG_ERR, "could not get CFBundle for \"%@\"", SYSTEMCONFIGURATION_BUNDLE_ID);
 	}
 
+done:
 	return bundle;
 }
 
@@ -974,6 +986,7 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 			 * for the given strings table. Fall back to using
 			 * CFBundleCopyResourceURLForLocalization() below.
 			 */
+			SC_log(LOG_NOTICE, "%s: failed to create data properties from resource (error=%ld)", __FUNCTION__ , (long)errCode);
 			data = NULL;
 		}
 		CFRelease(url);
@@ -996,9 +1009,12 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 								      &errCode);
 #pragma GCC diagnostic pop
 			if (!ok) {
+				SC_log(LOG_NOTICE, "%s: failed to create data properties from resource (error=%ld)", __FUNCTION__ , (long)errCode);
 				data = NULL;
 			}
 			CFRelease(url);
+		} else {
+			SC_log(LOG_ERR, "%s: failed to get resource url: {bundle:%@, table: %@}", __FUNCTION__,bundle, tableName);
 		}
 	}
 
@@ -1050,10 +1066,9 @@ _SC_CFMachPortCreateWithPort(const char		*portDescription,
 		CFStringRef	err;
 		char		*crash_info	= NULL;
 
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("%s: CFMachPortCreateWithPort() failed , port = %p"),
-		      portDescription,
-		      (void *)(uintptr_t)portNum);
+		SC_log(LOG_NOTICE, "%s: CFMachPortCreateWithPort() failed , port = %p",
+		       portDescription,
+		       (void *)(uintptr_t)portNum);
 		if (port != NULL) {
 			err = CFStringCreateWithFormat(NULL, NULL,
 						       CFSTR("%s: CFMachPortCreateWithPort recycled, [old] port = %@"),
@@ -1190,7 +1205,7 @@ _SC_logMachPortStatus(void)
 	mach_msg_type_number_t	pi, pn, tn;
 	CFMutableStringRef	str;
 
-	SCLog(TRUE, LOG_NOTICE, CFSTR("----------"));
+	SC_log(LOG_DEBUG, "----------");
 
 	/* report on ALL mach ports associated with this task */
 	status = mach_port_names(mach_task_self(), &ports, &pn, &types, &tn);
@@ -1217,7 +1232,7 @@ _SC_logMachPortStatus(void)
 			*rp = '\0';
 			CFStringAppendFormat(str, NULL, CFSTR(" %d%s"), ports[pi], rights);
 		}
-		SCLog(TRUE, LOG_NOTICE, CFSTR("Task ports (n=%d):%@"), pn, str);
+		SC_log(LOG_DEBUG, "Task ports (n=%d):%@", pn, str);
 		CFRelease(str);
 	}
 
@@ -1265,22 +1280,20 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 
 	status = mach_port_type(mach_task_self(), port, &pt);
 	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_NOTICE,
-		      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND): %s"),
-		      buf,
-		      port,
-		      mach_error_string(status));
+		SC_log(LOG_DEBUG, "%smach_port_type(..., 0x%x): %s",
+		       buf,
+		       port,
+		       mach_error_string(status));
 		return;
 	}
 
 	if ((pt & MACH_PORT_TYPE_SEND) != 0) {
-		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND,      &refs_send);
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND, &refs_send);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND): %s"),
-			      buf,
-			      port,
-			      mach_error_string(status));
+			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND): %s",
+			       buf,
+			       port,
+			       mach_error_string(status));
 			return;
 		}
 	}
@@ -1288,28 +1301,26 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 	if ((pt & MACH_PORT_TYPE_RECEIVE) != 0) {
 		mach_msg_type_number_t	count;
 
-		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE,   &refs_recv);
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, &refs_recv);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_RECEIVE): %s"),
-			      buf,
-			      port,
-			      mach_error_string(status));
+			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_RECEIVE): %s",
+			       buf,
+			       port,
+			       mach_error_string(status));
 			return;
 		}
 
 		count = MACH_PORT_RECEIVE_STATUS_COUNT;
 		status = mach_port_get_attributes(mach_task_self(),
-					       port,
-					       MACH_PORT_RECEIVE_STATUS,
-					       (mach_port_info_t)&recv_status,
-					       &count);
+						  port,
+						  MACH_PORT_RECEIVE_STATUS,
+						  (mach_port_info_t)&recv_status,
+						  &count);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_attributes(..., 0x%x, MACH_PORT_RECEIVE_STATUS): %s"),
-			      buf,
-			      port,
-			      mach_error_string(status));
+			SC_log(LOG_DEBUG, "%smach_port_get_attributes(..., 0x%x, MACH_PORT_RECEIVE_STATUS): %s",
+			       buf,
+			       port,
+			       mach_error_string(status));
 			return;
 		}
 	}
@@ -1317,23 +1328,21 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 	if ((pt & MACH_PORT_TYPE_SEND_ONCE) != 0) {
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND_ONCE, &refs_once);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND_ONCE): %s"),
-			      buf,
-			      port,
-			      mach_error_string(status));
+			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND_ONCE): %s",
+			       buf,
+			       port,
+			       mach_error_string(status));
 			return;
 		}
 	}
 
 	if ((pt & MACH_PORT_TYPE_PORT_SET) != 0) {
-		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_PORT_SET,  &refs_pset);
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_PORT_SET, &refs_pset);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_PORT_SET): %s"),
-			      buf,
-			      port,
-			      mach_error_string(status));
+			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_PORT_SET): %s",
+			       buf,
+			       port,
+			       mach_error_string(status));
 			return;
 		}
 	}
@@ -1341,27 +1350,25 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 	if ((pt & MACH_PORT_TYPE_DEAD_NAME) != 0) {
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_DEAD_NAME, &refs_dead);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_DEAD_NAME): %s"),
-			      buf,
-			      port,
-			      mach_error_string(status));
+			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_DEAD_NAME): %s",
+			       buf,
+			       port,
+			       mach_error_string(status));
 			return;
 		}
 	}
 
-	SCLog(TRUE, LOG_NOTICE,
-	      CFSTR("%smach port 0x%x (%d): send=%d, receive=%d, send once=%d, port set=%d, dead name=%d%s%s"),
-	      buf,
-	      port,
-	      port,
-	      refs_send,
-	      refs_recv,
-	      refs_once,
-	      refs_pset,
-	      refs_dead,
-	      recv_status.mps_nsrequest ? ", no more senders"   : "",
-	      ((pt & MACH_PORT_TYPE_DEAD_NAME) != 0) ? ", dead name request" : "");
+	SC_log(LOG_DEBUG, "%smach port 0x%x (%d): send=%d, receive=%d, send once=%d, port set=%d, dead name=%d%s%s",
+	       buf,
+	       port,
+	       port,
+	       refs_send,
+	       refs_recv,
+	       refs_once,
+	       refs_pset,
+	       refs_dead,
+	       recv_status.mps_nsrequest ? ", no more senders"   : "",
+	       ((pt & MACH_PORT_TYPE_DEAD_NAME) != 0) ? ", dead name request" : "");
 
 	return;
 }
@@ -1377,7 +1384,7 @@ _SC_copyBacktrace()
 
 	n = backtrace(stack, sizeof(stack)/sizeof(stack[0]));
 	if (n == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("backtrace() failed: %s"), strerror(errno));
+		SC_log(LOG_NOTICE, "backtrace() failed: %s", strerror(errno));
 		return NULL;
 	}
 
@@ -1487,7 +1494,7 @@ _SC_crash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMe
 		__crashreporter_info__ = crash_info;
 #endif	// !TARGET_OS_IPHONE
 
-		SCLog(TRUE, LOG_ERR, CFSTR("%s"), crash_info);
+		SC_log(LOG_NOTICE, "%s", crash_info);
 	}
 
 	if (_SC_isAppleInternal()) {
@@ -1530,7 +1537,7 @@ _SC_getconninfo(int socket, struct sockaddr_storage *src_addr, struct sockaddr_s
 	}
 
 	if (ioctl(socket, SIOCGCONNINFO, &request) != 0) {
-		SCLog(TRUE, LOG_WARNING, CFSTR("SIOCGCONNINFO failed: %s"), strerror(errno));
+		SC_log(LOG_NOTICE, "SIOCGCONNINFO failed: %s", strerror(errno));
 		return FALSE;
 	}
 

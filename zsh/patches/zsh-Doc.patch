@@ -17,7 +17,7 @@
  Zsh/compat.yo Zsh/compctl.yo Zsh/compsys.yo Zsh/compwid.yo Zsh/cond.yo \
  Zsh/contrib.yo Zsh/exec.yo Zsh/expn.yo \
  Zsh/filelist.yo Zsh/files.yo Zsh/ftp_sites.yo \
-@@ -201,8 +200,6 @@
+@@ -205,8 +204,6 @@
  
  zshbuiltins.1: Zsh/builtins.yo
  

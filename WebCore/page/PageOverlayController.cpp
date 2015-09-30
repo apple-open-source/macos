@@ -151,9 +151,8 @@ void PageOverlayController::uninstallPageOverlay(PageOverlay* overlay, PageOverl
 
     m_overlayGraphicsLayers.take(overlay)->removeFromParent();
 
-    size_t overlayIndex = m_pageOverlays.find(overlay);
-    ASSERT(overlayIndex != notFound);
-    m_pageOverlays.remove(overlayIndex);
+    bool removed = m_pageOverlays.removeFirst(overlay);
+    ASSERT_UNUSED(removed, removed);
 
     updateForceSynchronousScrollLayerPositionUpdates();
 }
@@ -169,7 +168,7 @@ void PageOverlayController::updateForceSynchronousScrollLayerPositionUpdates()
     }
 
     if (ScrollingCoordinator* scrollingCoordinator = m_mainFrame.page()->scrollingCoordinator())
-            scrollingCoordinator->setForceSynchronousScrollLayerPositionUpdates(forceSynchronousScrollLayerPositionUpdates);
+        scrollingCoordinator->setForceSynchronousScrollLayerPositionUpdates(forceSynchronousScrollLayerPositionUpdates);
 #endif
 }
 
@@ -301,7 +300,7 @@ bool PageOverlayController::copyAccessibilityAttributeBoolValueForPoint(String a
         if ((*it)->copyAccessibilityAttributeBoolValueForPoint(attribute, parameter, value))
             return true;
     }
-
+    
     return false;
 }
 
@@ -356,6 +355,11 @@ void PageOverlayController::didChangeOverlayBackgroundColor(PageOverlay& overlay
 {
     ASSERT(m_pageOverlays.contains(&overlay));
     m_overlayGraphicsLayers.get(&overlay)->setBackgroundColor(overlay.backgroundColor());
+}
+
+bool PageOverlayController::shouldSkipLayerInDump(const GraphicsLayer*, LayerTreeAsTextBehavior behavior) const
+{
+    return !(behavior & LayerTreeAsTextIncludePageOverlayLayers);
 }
 
 } // namespace WebKit

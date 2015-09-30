@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>description</key>
+	<string>PostgreSQL</string>
+	<key>promotion</key>
+	<dict>
+		<key>scripts</key>
+		<array>
+			<string>${serverRoot}/usr/libexec/postgres_promotion_tool</string>
+		</array>
+	</dict>
+    <key>migration</key>
+    <dict>
+        <key>scripts</key>
+        <array>
+            <dict>
+                <key>arguments</key>
+                <array>
+                    <string>--sourceRoot</string>
+                    <string>/Library/Server/Previous</string>
+                    <string>--targetRoot</string>
+                    <string>/</string>
+                    <string>--purge</string>
+                    <string>0</string>
+                    <string>--language</string>
+                    <string>en</string>
+                    <string>--sourceType</string>
+                    <string>System</string>
+                    <string>--sourceVersion</string>
+                    <string>${previousSystemVersion}</string>
+                </array>
+                <key>path</key>
+                <string>${serverRoot}/usr/libexec/postgres_migration_tool</string>
+            </dict>
+        </array>
+    </dict>
+    <key>postSetup</key>
+	<dict>
+		<key>scripts</key>
+		<array>
+			<string>${serverRoot}/usr/libexec/postgres_postSetup_tool</string>
+		</array>
+	</dict>
+    <key>restore</key>
+    <dict>
+        <key>scripts</key>
+        <array>
+            <string>${serverRoot}/usr/libexec/postgres_restore_tool</string>
+        </array>
+    </dict>
+</dict>
+</plist>

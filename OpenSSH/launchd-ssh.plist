@@ -30,6 +30,8 @@
 	<dict>
 		<key>Wait</key>
 		<false/>
+		<key>Instances</key>
+		<integer>42</integer>
 	</dict>
 	<key>StandardErrorPath</key>
 	<string>/dev/null</string>

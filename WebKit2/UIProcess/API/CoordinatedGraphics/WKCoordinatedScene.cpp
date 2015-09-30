@@ -26,14 +26,15 @@
  */
 
 #include "config.h"
-#if USE(COORDINATED_GRAPHICS)
 
+#if USE(COORDINATED_GRAPHICS)
 #include "WKCoordinatedScene.h"
 
+#include "CoordinatedGraphicsScene.h"
 #include "WKCoordinatedSceneAPICast.h"
-
-#include <WebCore/CoordinatedGraphicsScene.h>
 #include <WebCore/TextureMapperLayer.h>
+
+using namespace WebKit;
 
 WK_EXPORT WKCoordinatedSceneLayer WKCoordinatedSceneFindScrollableContentsLayerAt(WKCoordinatedScene scene, WKPoint point)
 {

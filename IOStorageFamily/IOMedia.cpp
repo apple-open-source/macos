@@ -28,10 +28,6 @@
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOMedia, IOStorage)
 
-#ifndef __LP64__
-extern IOStorageAttributes gIOStorageAttributesUnsupported;
-#endif /* !__LP64__ */
-
 enum
 {
     kIOStorageAccessWriter   = 0x00000002,
@@ -134,36 +130,6 @@ bool IOMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
            compareProperty(table, kIOMediaWholeKey             ) &&
            compareProperty(table, kIOMediaWritableKey          );
 }
-
-#ifndef __LP64__
-bool IOMedia::init(UInt64         base,
-                   UInt64         size,
-                   UInt64         preferredBlockSize,
-                   bool           isEjectable,
-                   bool           isWhole,
-                   bool           isWritable,
-                   const char *   contentHint,
-                   OSDictionary * properties)
-{
-    //
-    // Initialize this object's minimal state.
-    //
-
-    IOMediaAttributeMask attributes = 0;
-
-    attributes |= isEjectable ? kIOMediaAttributeEjectableMask : 0;
-    attributes |= isEjectable ? kIOMediaAttributeRemovableMask : 0;
-
-    return init( /* base               */ base,
-                 /* size               */ size,
-                 /* preferredBlockSize */ preferredBlockSize,
-                 /* attributes         */ attributes,
-                 /* isWhole            */ isWhole,
-                 /* isWritable         */ isWritable,
-                 /* contentHint        */ contentHint,
-                 /* properties         */ properties );
-}
-#endif /* !__LP64__ */
 
 void IOMedia::free(void)
 {
@@ -303,7 +269,7 @@ bool IOMedia::handleOpen(IOService *  client,
     //
 
     access   = _openClients->getObject( ( OSSymbol * ) client );
-    accessIn = ( uintptr_t ) argument;
+    accessIn = ( IOStorageAccess ) ( uintptr_t ) argument;
     driver   = 0;
 
     rebuild  = false;
@@ -699,21 +665,6 @@ void IOMedia::read(IOService *           client,
     // This method will work even when the media is in the terminated state.
     //
 
-#ifndef __LP64__
-    if (IOStorage::_expansionData)
-    {
-        if (attributes == &gIOStorageAttributesUnsupported)
-        {
-            attributes = NULL;
-        }
-        else
-        {
-            IOStorage::read(client, byteStart, buffer, attributes, completion);
-            return;
-        }
-    }
-#endif /* !__LP64__ */
-
     if (isInactive())
     {
         complete(completion, kIOReturnNoMedia);
@@ -738,7 +689,19 @@ void IOMedia::read(IOService *           client,
         return;
     }
 
-    if (_mediaSize < byteStart + buffer->getLength())
+    if (buffer->getDirection() != kIODirectionIn)
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
+
+    if (_mediaSize < byteStart)
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
+
+    if (_mediaSize - byteStart < buffer->getLength())
     {
         complete(completion, kIOReturnBadArgument);
         return;
@@ -764,21 +727,6 @@ void IOMedia::write(IOService *           client,
     // This method will work even when the media is in the terminated state.
     //
 
-#ifndef __LP64__
-    if (IOStorage::_expansionData)
-    {
-        if (attributes == &gIOStorageAttributesUnsupported)
-        {
-            attributes = NULL;
-        }
-        else
-        {
-            IOStorage::write(client, byteStart, buffer, attributes, completion);
-            return;
-        }
-    }
-#endif /* !__LP64__ */
-
     if (isInactive())
     {
         complete(completion, kIOReturnNoMedia);
@@ -793,11 +741,9 @@ void IOMedia::write(IOService *           client,
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
-#if !TARGET_OS_EMBEDDED		
-#ifdef __LP64__
+#if !TARGET_OS_EMBEDDED
         complete(completion, kIOReturnNotPrivileged);
         return;
-#endif /* __LP64__ */
 #endif /* !TARGET_OS_EMBEDDED */
     }
 
@@ -819,7 +765,19 @@ void IOMedia::write(IOService *           client,
         return;
     }
 
-    if (_mediaSize < byteStart + buffer->getLength())
+    if (buffer->getDirection() != kIODirectionOut)
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
+
+    if (_mediaSize < byteStart)
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
+
+    if (_mediaSize - byteStart < buffer->getLength())
     {
         complete(completion, kIOReturnBadArgument);
         return;
@@ -829,11 +787,28 @@ void IOMedia::write(IOService *           client,
     getProvider()->write(this, byteStart, buffer, attributes, completion);
 }
 
-IOReturn IOMedia::synchronizeCache(IOService * client)
+IOReturn IOMedia::synchronize(IOService *                 client,
+                              UInt64                      byteStart,
+                              UInt64                      byteCount,
+                              IOStorageSynchronizeOptions options)
 {
     //
-    // Flush the cached data in the storage object, if any, synchronously.
+    // Flush the cached data in the storage object, if any.
     //
+
+#ifdef __x86_64__
+    if (_respondsTo_synchronizeCache)
+    {
+        if (options == _kIOStorageSynchronizeOption_super__synchronizeCache)
+        {
+            options = 0;
+        }
+        else
+        {
+            return IOStorage::synchronize(client, byteStart, byteCount, options);
+        }
+    }
+#endif /* __x86_64__ */
 
     if (isInactive())
     {
@@ -847,10 +822,8 @@ IOReturn IOMedia::synchronizeCache(IOService * client)
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
-#if !TARGET_OS_EMBEDDED				
-#ifdef __LP64__
+#if !TARGET_OS_EMBEDDED
         return kIOReturnNotPrivileged;
-#endif /* __LP64__ */
 #endif /* !TARGET_OS_EMBEDDED */
     }
 
@@ -864,17 +837,22 @@ IOReturn IOMedia::synchronizeCache(IOService * client)
         return kIOReturnUnformattedMedia;
     }
 
-    return getProvider()->synchronizeCache(this);
+    if (_mediaSize < byteStart + byteCount)
+    {
+        return kIOReturnBadArgument;
+    }
+
+    byteStart += _mediaBase;
+    return getProvider()->synchronize(this, byteStart, byteCount, options);
 }
 
-IOReturn IOMedia::unmap(IOService *       client,
-                        IOStorageExtent * extents,
-                        UInt32            extentsCount,
-                        UInt32            options)
+IOReturn IOMedia::unmap(IOService *           client,
+                        IOStorageExtent *     extents,
+                        UInt32                extentsCount,
+                        IOStorageUnmapOptions options)
 {
     //
-    // Delete unused data from the storage object at the specified byte offsets,
-    // synchronously.
+    // Delete unused data from the storage object at the specified byte offsets.
     //
 
     UInt32 extentsIndex;
@@ -891,11 +869,9 @@ IOReturn IOMedia::unmap(IOService *       client,
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
-#if !TARGET_OS_EMBEDDED				
-#ifdef __LP64__
+#if !TARGET_OS_EMBEDDED
         return kIOReturnNotPrivileged;
-#endif /* __LP64__ */
-#endif /* !TARGET_OS_EMBEDDED */		
+#endif /* !TARGET_OS_EMBEDDED */
     }
 
     if (_isWritable == 0)
@@ -1246,13 +1222,8 @@ IOMediaAttributeMask IOMedia::getAttributes() const
     return _attributes;
 }
 
-#ifdef __LP64__
 OSMetaClassDefineReservedUnused(IOMedia,  0);
 OSMetaClassDefineReservedUnused(IOMedia,  1);
-#else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOMedia,  0);
-OSMetaClassDefineReservedUsed(IOMedia,  1);
-#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IOMedia,  2);
 OSMetaClassDefineReservedUnused(IOMedia,  3);
 OSMetaClassDefineReservedUnused(IOMedia,  4);
@@ -1268,14 +1239,9 @@ OSMetaClassDefineReservedUnused(IOMedia, 13);
 OSMetaClassDefineReservedUnused(IOMedia, 14);
 OSMetaClassDefineReservedUnused(IOMedia, 15);
 
-#ifndef __LP64__
-extern "C" void _ZN7IOMedia4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOMedia * media, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+#ifdef __x86_64__
+extern "C" void _ZN7IOMedia16synchronizeCacheEP9IOService( IOMedia * media, IOService * client )
 {
-    media->read( client, byteStart, buffer, NULL, &completion );
+    media->synchronize( client, 0, 0 );
 }
-
-extern "C" void _ZN7IOMedia5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOMedia * media, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
-{
-    media->write( client, byteStart, buffer, NULL, &completion );
-}
-#endif /* !__LP64__ */
+#endif /* __x86_64__ */

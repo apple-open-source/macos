@@ -76,7 +76,7 @@ public:
 private:
     ResourceHandleManager();
     ~ResourceHandleManager();
-    void downloadTimerCallback(Timer*);
+    void downloadTimerCallback();
     void removeFromCurl(ResourceHandle*);
     bool removeScheduledJob(ResourceHandle*);
     void startJob(ResourceHandle*);
@@ -98,6 +98,10 @@ private:
     
     String m_proxy;
     ProxyType m_proxyType;
+
+#ifndef NDEBUG
+    FILE* m_logFile;
+#endif
 };
 
 }

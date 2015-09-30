@@ -33,10 +33,12 @@ extern table_t *_nc_table_new(uint32_t n);
 
 extern void _nc_table_insert(table_t *t, const char *key, void *datum);
 extern void _nc_table_insert_no_copy(table_t *t, const char *key, void *datum);
+extern void _nc_table_insert_pass(table_t *t, char *key, void *datum);
 extern void _nc_table_insert_n(table_t *t, uint32_t key, void *datum);
 extern void _nc_table_insert_64(table_t *t, uint64_t key, void *datum);
 
 extern void *_nc_table_find(table_t *t, const char *key);
+extern void *_nc_table_find_get_key(table_t *tin, const char *key, const char **shared_key);
 extern void *_nc_table_find_n(table_t *t, uint32_t key);
 extern void *_nc_table_find_64(table_t *t, uint64_t key);
 
@@ -52,11 +54,8 @@ extern void _nc_table_free(table_t *tin);
 
 extern list_t *_nc_list_new(void *d);
 
-extern list_t *_nc_list_retain(list_t *l);
-extern list_t *_nc_list_retain_list(list_t *l);
-
-extern void _nc_list_release(list_t *l);
-extern void _nc_list_release_list(list_t *l);
+extern void _nc_list_free(list_t *l);
+extern void _nc_list_free_list(list_t *l);
 
 extern list_t *_nc_list_prev(list_t *l);
 extern list_t *_nc_list_next(list_t *l);
@@ -76,7 +75,7 @@ extern void *_nc_list_data(list_t *l);
 extern void _nc_list_set_data(list_t *l, void *d);
 
 extern list_t *_nc_list_find(list_t *l, void *d);
-extern list_t *_nc_list_find_release(list_t *l, void *d);
+extern list_t *_nc_list_delete(list_t *l, void *d);
 
 extern list_t * _nc_list_reverse(list_t *l);
 extern uint32_t _nc_list_count(list_t *l);

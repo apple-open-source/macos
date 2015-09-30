@@ -36,12 +36,15 @@
 #include "mech_locl.h"
 
 OM_uint32
-gss_cred_hold(OM_uint32 *min_stat, gss_cred_id_t cred_handle)
+gss_cred_hold(OM_uint32 * __nonnull min_stat, __nonnull gss_cred_id_t cred_handle)
 {
     struct _gss_cred *cred = (struct _gss_cred *)cred_handle;
     struct _gss_mechanism_cred *mc;
 
     *min_stat = 0;
+
+    if (cred == NULL)
+	return GSS_S_NO_CRED;
 
     HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
 
@@ -56,12 +59,15 @@ gss_cred_hold(OM_uint32 *min_stat, gss_cred_id_t cred_handle)
 
 
 OM_uint32
-gss_cred_unhold(OM_uint32 *min_stat, gss_cred_id_t cred_handle)
+gss_cred_unhold(OM_uint32 * __nonnull min_stat, __nonnull gss_cred_id_t cred_handle)
 {
     struct _gss_cred *cred = (struct _gss_cred *)cred_handle;
     struct _gss_mechanism_cred *mc;
 
     *min_stat = 0;
+
+    if (cred == NULL)
+	return GSS_S_NO_CRED;
 
     HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
 

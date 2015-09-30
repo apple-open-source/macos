@@ -474,7 +474,7 @@ u_int16_t pptp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
 
         case PPTP_CMD_GETBAUDRATE:
             if (rfc->flags & PPTP_FLAG_DEBUG)
-                IOLog("PPTP command (%p): get baudrate of the tunnel = %d\\n", rfc, rfc->baudrate);
+                IOLog("PPTP command (%p): get baudrate of the tunnel = %d\n", rfc, rfc->baudrate);
             *(u_int32_t *)cmddata = rfc->baudrate;
             break;
 
@@ -551,8 +551,33 @@ u_int16_t handle_data(struct pptp_rfc *rfc, mbuf_t m, u_int32_t from)
 	int				qlen;
 	struct pptp_elem 	*elem, *new_elem;
 
-    p = &p_data;
-    memcpy(p, mbuf_data(m), sizeof(p_data));
+	size_t hdr_memcpy_length = sizeof(p_data) - (sizeof(p_data.seq_num) + sizeof(p_data.ack_num));
+	if (mbuf_len(m) < hdr_memcpy_length) {
+		const errno_t pue = mbuf_pullup(&m, hdr_memcpy_length);
+		if (0 != pue) {
+			IOLog("PPTP (%p) handle_data mbuf_pullup1 len %lu failed %d\n", rfc, hdr_memcpy_length, pue);
+			return 1;
+		}
+	}
+
+	p = &p_data;
+	memcpy(p, mbuf_data(m), hdr_memcpy_length);
+
+	if (0 != (p->flags & PPTP_GRE_FLAGS_S)) {
+		hdr_memcpy_length += sizeof(p_data.seq_num);
+	}
+	if (0 != (p->flags_vers & PPTP_GRE_FLAGS_A)) {
+		hdr_memcpy_length += sizeof(p_data.ack_num);
+	}
+
+	if (mbuf_len(m) < hdr_memcpy_length) {
+		const errno_t pue = mbuf_pullup(&m, hdr_memcpy_length);
+		if (0 != pue) {
+			IOLog("PPTP (%p) handle_data mbuf_pullup2 len %lu failed %d\n", rfc, hdr_memcpy_length, pue);
+			return 1;
+		}
+    }
+    memcpy(p, mbuf_data(m), hdr_memcpy_length);
 
     //IOLog("handle_data, rfc = %p, from 0x%x, known peer address = 0x%x, our callid = 0x%x, target callid = 0x%x\n", rfc, from, rfc->peer_address, rfc->call_id, ntohs(p->call_id));    
     

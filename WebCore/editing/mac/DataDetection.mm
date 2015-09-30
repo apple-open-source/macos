@@ -29,7 +29,6 @@
 #if PLATFORM(MAC)
 
 #import "DataDetectorsSPI.h"
-#import "DictionaryLookup.h"
 #import "FrameView.h"
 #import "HitTestResult.h"
 #import "Node.h"
@@ -37,13 +36,14 @@
 #import "RenderObject.h"
 #import "TextIterator.h"
 #import "VisiblePosition.h"
+#import "VisibleUnits.h"
 #import "htmlediting.h"
 
 namespace WebCore {
 
 RetainPtr<DDActionContext> DataDetection::detectItemAroundHitTestResult(const HitTestResult& hitTestResult, FloatRect& detectedDataBoundingBox, RefPtr<Range>& detectedDataRange)
 {
-    if (!DataDetectorsLibrary() || !DataDetectorsCoreLibrary())
+    if (!DataDetectorsLibrary())
         return nullptr;
 
     Node* node = hitTestResult.innerNonSharedNode();
@@ -88,7 +88,7 @@ RetainPtr<DDActionContext> DataDetection::detectItemAroundHitTestResult(const Hi
     if (!mainResult)
         return nullptr;
 
-    RetainPtr<DDActionContext> actionContext = adoptNS([[getDDActionContextClass() alloc] init]);
+    RetainPtr<DDActionContext> actionContext = adoptNS([allocDDActionContextInstance() init]);
     [actionContext setAllResults:@[ (id)mainResult ]];
     [actionContext setMainResult:mainResult];
 

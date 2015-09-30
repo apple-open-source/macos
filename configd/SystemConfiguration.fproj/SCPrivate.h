@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -30,6 +30,8 @@
 #include <asl.h>
 #include <sys/syslog.h>
 #include <mach/message.h>
+#include <os/activity.h>
+#include <os/log.h>
 #include <sys/sysctl.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -68,8 +70,6 @@
 #define _SC_SERVER_PROG			"configd_sim"
 #endif	// !TARGET_IPHONE_SIMULATOR
 
-#define INSTALL_ENVIRONMENT	"__OSINSTALL_ENVIRONMENT"
-#define INSTALL_FACILITY	"install"
 
 /* atomic operations */
 #define _SC_ATOMIC_CMPXCHG(p, o, n)	__sync_bool_compare_and_swap((p), (o), (n))
@@ -78,6 +78,13 @@
 #define _SC_ATOMIC_ZERO(p)		__sync_fetch_and_and((p), 0)		// old_n = n; n = 0; return(old_n);
 
 
+/* framework path */
+#if !TARGET_OS_WATCH
+#define	SYSTEMCONFIGURATION_FRAMEWORK_PATH	"/System/Library/Frameworks/SystemConfiguration.framework"
+#else
+#define	SYSTEMCONFIGURATION_FRAMEWORK_PATH	"/System/Library/PrivateFrameworks/SystemConfiguration.framework"
+#endif
+
 /* framework variables */
 extern int	_sc_debug;	/* non-zero if debugging enabled */
 extern int	_sc_verbose;	/* non-zero if verbose logging enabled */
@@ -85,14 +92,10 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 				   1 if SC messages should be logged w/asl(3),
 				   2 if SC messages should be written to stdout/stderr AND logged */
 
+
 /* notify(3) keys */
 
-#if	!TARGET_IPHONE_SIMULATOR
-#define _SC_NOTIFY_PREFIX	"com.apple.system.config"
-#else	// !TARGET_IPHONE_SIMULATOR
-#define _SC_NOTIFY_PREFIX	"com.apple.iOS_Simulator.config"
-#endif	// !TARGET_IPHONE_SIMULATOR
-
+#define _SC_NOTIFY_PREFIX		"com.apple.system.config"
 #define _SC_NOTIFY_NETWORK_CHANGE	_SC_NOTIFY_PREFIX ".network_change"
 #define _SC_NOTIFY_NETWORK_CHANGE_DNS	_SC_NOTIFY_NETWORK_CHANGE ".dns"
 #define _SC_NOTIFY_NETWORK_CHANGE_NWI	_SC_NOTIFY_NETWORK_CHANGE ".nwi"
@@ -164,7 +167,6 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 		SCNetworkReachability "server" for this target.
  */
 #define kSCNetworkReachabilityOptionServerBypass		CFSTR("ServerBypass")
-
 
 
 
@@ -414,12 +416,12 @@ void		SCLog				(Boolean		condition,
 						 CFStringRef		formatString,
 						 ...)	CF_FORMAT_FUNCTION(3, 4);
 
-enum {
-	kSCLoggerFlagsNone		= 0x0,
+
+typedef CF_ENUM(uint32_t, SCLoggerFlags) {
+	kSCLoggerFlagsNone	= 0x0,
 	kSCLoggerFlagsDefault	= 0x1,
-	kSCLoggerFlagsFile		= 0x2
+	kSCLoggerFlagsFile	= 0x2
 };
-typedef uint32_t	SCLoggerFlags;
 
 typedef struct SCLogger * SCLoggerRef;
 
@@ -463,9 +465,6 @@ void		SCLoggerVLog			(SCLoggerRef	logger,
 						 va_list	args)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0);
 
 
-#ifdef	USE_NEW_SCLOG
-#define SCLOG(sclogger, level, __string, ...)	SCLoggerLog(sclogger, level, CFSTR(__string), ## __VA_ARGS__)	// temporary, remove once all "old" clients have migrated
-#else
 /*!
 	@function SCLOG
 	@discussion Issue a log message.
@@ -487,7 +486,18 @@ void		SCLOG				(asl_object_t		asl,
 						 ...)	CF_FORMAT_FUNCTION(4, 5);
 
 
-#endif
+/*!
+	@function SC_log
+	@discussion Issue a log message.
+	@param level The asl(3) logging priority. Passing the complement of a logging
+		priority (e.g. ~ASL_LEVEL_NOTICE) will result in log message lines
+		NOT being split by a "\n".
+	@param __string The format string
+	@result The specified message will be written to the unified logging system.
+ */
+#define SC_log(__level, __string, ...)	\
+	SCLog(TRUE, __level, CFSTR( __string ), ## __VA_ARGS__)
+
 
 /*!
 	@function SCPrint
@@ -507,17 +517,27 @@ void		SCPrint				(Boolean		condition,
 
 /*!
 	@function SCTrace
-	@discussion Conditionally issue a debug message with a time stamp.
-	@param condition A boolean value indicating if the message should be written
+	@discussion Write a debug message with a time stamp.
 	@param stream The output stream for the log message.
 	@param formatString The format string
 	@result The message will be written to the specified stream
 		stream.
  */
-void		SCTrace				(Boolean		condition,
-						 FILE			*stream,
+void		SCTrace				(FILE			*stream,
 						 CFStringRef		formatString,
-						 ...)	CF_FORMAT_FUNCTION(3, 4);
+						 ...)	CF_FORMAT_FUNCTION(2, 3);
+
+/*!
+	@function SC_trace
+	@discussion Issue a debug message / write with a time stamp
+	@param stream The output stream for the log message.
+	@param formatString The format string
+	@result The message will be written to the specified stream
+		stream.
+ */
+#define SC_trace(__stream, __string, ...)	\
+	SCTrace(__stream, CFSTR( __string ), ## __VA_ARGS__)
+
 
 /*!
 	@function SCLoggerCreate
@@ -595,10 +615,10 @@ SCNetworkProxiesCopyMatching			(CFDictionaryRef	globalConfiguration,
 		kSCProxiesMatchExecutableUUID	CFUUID		If present, specifies the Mach-O UUID of the executable
 								on whose behalf the match operation is being performed.
 								If kSCProxiesMatchInterface is present then this option
-							   	is ignored. If not present, then the Mach-O UUID of
-							   	the current process is used. The Mach-O UUID is used
-							   	to match application-specific proxy configurations
-							   	(i.e., if per-app VPN rules are in effect).
+								is ignored. If not present, then the Mach-O UUID of
+								the current process is used. The Mach-O UUID is used
+								to match application-specific proxy configurations
+								(i.e., if per-app VPN rules are in effect).
 	@result A CFArray containing the proxy configurations associated with the given options.
  */
 CFArrayRef
@@ -628,21 +648,10 @@ extern const CFStringRef	kSCProxiesNoGlobal;
 CFDictionaryRef
 SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef options)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
 
+
 #pragma mark -
 #pragma mark Reachability
 
-
-/*!
-	@function SCNetworkReachabilityCopyOnDemandService
-	@discussion For target hosts that require an OnDemand connection, returns
-		the SCNetworkService associated with the connection and user
-		options to use with SCNetworkConnectionStart.
-	@result The SCNetworkService for the target; NULL if there is
-		no associated OnDemand service.
- */
-SCNetworkServiceRef
-SCNetworkReachabilityCopyOnDemandService	(SCNetworkReachabilityRef	target,
-						 CFDictionaryRef		*userOptions);
 
 /*!
 	@function SCNetworkReachabilityCopyResolvedAddress
@@ -842,6 +851,9 @@ _SC_isAppleInternal()
 
 	return (isInternal == 1);
 }
+
+Boolean
+_SC_isInstallEnvironment			(void);
 
 #define	MODEL			CFSTR("Model")
 

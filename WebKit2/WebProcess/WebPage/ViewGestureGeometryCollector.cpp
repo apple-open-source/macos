@@ -57,12 +57,12 @@ ViewGestureGeometryCollector::ViewGestureGeometryCollector(WebPage& webPage)
     , m_renderTreeSizeNotificationTimer(RunLoop::main(), this, &ViewGestureGeometryCollector::renderTreeSizeNotificationTimerFired)
 #endif
 {
-    WebProcess::shared().addMessageReceiver(Messages::ViewGestureGeometryCollector::messageReceiverName(), m_webPage.pageID(), *this);
+    WebProcess::singleton().addMessageReceiver(Messages::ViewGestureGeometryCollector::messageReceiverName(), m_webPage.pageID(), *this);
 }
 
 ViewGestureGeometryCollector::~ViewGestureGeometryCollector()
 {
-    WebProcess::shared().removeMessageReceiver(Messages::ViewGestureGeometryCollector::messageReceiverName(), m_webPage.pageID());
+    WebProcess::singleton().removeMessageReceiver(Messages::ViewGestureGeometryCollector::messageReceiverName(), m_webPage.pageID());
 }
 
 void ViewGestureGeometryCollector::dispatchDidCollectGeometryForSmartMagnificationGesture(FloatPoint origin, FloatRect targetRect, FloatRect visibleContentRect, bool isReplacedElement, double viewportMinimumScale, double viewportMaximumScale)
@@ -82,11 +82,10 @@ void ViewGestureGeometryCollector::collectGeometryForSmartMagnificationGesture(F
     if (m_webPage.mainWebFrame()->handlesPageScaleGesture())
         return;
 
-    HitTestRequest request(HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::DisallowShadowContent);
     IntPoint originInContentsSpace = m_webPage.mainFrameView()->windowToContents(roundedIntPoint(origin));
     HitTestResult hitTestResult = HitTestResult(originInContentsSpace);
 
-    m_webPage.mainFrameView()->renderView()->hitTest(request, hitTestResult);
+    m_webPage.mainFrameView()->renderView()->hitTest(HitTestRequest(), hitTestResult);
 
     if (Node* node = hitTestResult.innerNode()) {
         bool isReplaced;

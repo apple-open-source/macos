@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2013-2014, International Business Machines
+* Copyright (C) 2013-2015, International Business Machines
 * Corporation and others.  All Rights Reserved.
 *******************************************************************************
 * collationruleparser.cpp
@@ -33,8 +33,6 @@
 #include "patternprops.h"
 #include "uassert.h"
 #include "uvectr32.h"
-
-#define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
 
 U_NAMESPACE_BEGIN
 
@@ -463,7 +461,7 @@ CollationRuleParser::parseSpecialPosition(int32_t i, UnicodeString &str, UErrorC
     int32_t j = readWords(i + 1, raw);
     if(j > i && rules->charAt(j) == 0x5d && !raw.isEmpty()) {  // words end with ]
         ++j;
-        for(int32_t pos = 0; pos < LENGTHOF(positions); ++pos) {
+        for(int32_t pos = 0; pos < UPRV_LENGTHOF(positions); ++pos) {
             if(raw == UnicodeString(positions[pos], -1, US_INV)) {
                 str.setTo((UChar)POS_LEAD).append((UChar)(POS_BASE + pos));
                 return j;
@@ -622,6 +620,9 @@ CollationRuleParser::parseSetting(UErrorCode &errorCode) {
                 setParseError("expected language tag in [import langTag]", errorCode);
                 return;
             }
+            if(length == 3 && uprv_memcmp(baseID, "und", 3) == 0) {
+                uprv_strcpy(baseID, "root");
+            }
             // @collation=type, or length=0 if not specified
             char collationType[ULOC_KEYWORDS_CAPACITY];
             length = uloc_getKeywordValue(localeID, "collation",
@@ -635,10 +636,9 @@ CollationRuleParser::parseSetting(UErrorCode &errorCode) {
             if(importer == NULL) {
                 setParseError("[import langTag] is not supported", errorCode);
             } else {
-                const UnicodeString *importedRules =
-                    importer->getRules(baseID,
-                                       length > 0 ? collationType : "standard",
-                                       errorReason, errorCode);
+                UnicodeString importedRules;
+                importer->getRules(baseID, length > 0 ? collationType : "standard",
+                                   importedRules, errorReason, errorCode);
                 if(U_FAILURE(errorCode)) {
                     if(errorReason == NULL) {
                         errorReason = "[import langTag] failed";
@@ -648,7 +648,7 @@ CollationRuleParser::parseSetting(UErrorCode &errorCode) {
                 }
                 const UnicodeString *outerRules = rules;
                 int32_t outerRuleIndex = ruleIndex;
-                parse(*importedRules, errorCode);
+                parse(importedRules, errorCode);
                 if(U_FAILURE(errorCode)) {
                     if(parseError != NULL) {
                         parseError->offset = outerRuleIndex;
@@ -706,18 +706,7 @@ CollationRuleParser::parseReordering(const UnicodeString &raw, UErrorCode &error
         if(U_FAILURE(errorCode)) { return; }
         i = limit;
     }
-    int32_t length = reorderCodes.size();
-    if(length == 1 && reorderCodes.elementAti(0) == UCOL_REORDER_CODE_DEFAULT) {
-        // The root collator does not have a reordering, by definition.
-        settings->resetReordering();
-        return;
-    }
-    uint8_t table[256];
-    baseData->makeReorderTable(reorderCodes.getBuffer(), length, table, errorCode);
-    if(U_FAILURE(errorCode)) { return; }
-    if(!settings->setReordering(reorderCodes.getBuffer(), length, table)) {
-        errorCode = U_MEMORY_ALLOCATION_ERROR;
-    }
+    settings->setReordering(*baseData, reorderCodes.getBuffer(), reorderCodes.size(), errorCode);
 }
 
 static const char *const gSpecialReorderCodes[] = {
@@ -726,7 +715,7 @@ static const char *const gSpecialReorderCodes[] = {
 
 int32_t
 CollationRuleParser::getReorderCode(const char *word) {
-    for(int32_t i = 0; i < LENGTHOF(gSpecialReorderCodes); ++i) {
+    for(int32_t i = 0; i < UPRV_LENGTHOF(gSpecialReorderCodes); ++i) {
         if(uprv_stricmp(word, gSpecialReorderCodes[i]) == 0) {
             return UCOL_REORDER_CODE_FIRST + i;
         }
@@ -735,10 +724,10 @@ CollationRuleParser::getReorderCode(const char *word) {
     if(script >= 0) {
         return script;
     }
-    if(uprv_stricmp(word, "default") == 0) {
-        return UCOL_REORDER_CODE_DEFAULT;
+    if(uprv_stricmp(word, "others") == 0) {
+        return UCOL_REORDER_CODE_OTHERS;  // same as Zzzz = USCRIPT_UNKNOWN
     }
-    return -2;
+    return -1;
 }
 
 UColAttributeValue

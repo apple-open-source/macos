@@ -123,7 +123,7 @@ FloatPoint RenderGeometryMap::mapToContainer(const FloatPoint& p, const RenderLa
 
 FloatQuad RenderGeometryMap::mapToContainer(const FloatRect& rect, const RenderLayerModelObject* container) const
 {
-    FloatRect result;
+    FloatQuad result;
     
     if (!hasFixedPositionStep() && !hasTransformStep() && !hasNonUniformStep() && (!container || (m_mapping.size() && container == m_mapping[0].m_renderer))) {
         result = rect;
@@ -131,15 +131,8 @@ FloatQuad RenderGeometryMap::mapToContainer(const FloatRect& rect, const RenderL
     } else {
         TransformState transformState(TransformState::ApplyTransformDirection, rect.center(), rect);
         mapToContainer(transformState, container);
-        result = transformState.lastPlanarQuad().boundingBox();
+        result = transformState.lastPlanarQuad();
     }
-
-#if !ASSERT_DISABLED
-    FloatRect rendererMappedResult = m_mapping.last().m_renderer->localToContainerQuad(rect, container, m_mapCoordinatesFlags).boundingBox();
-    // Inspector creates renderers with negative width <https://bugs.webkit.org/show_bug.cgi?id=87194>.
-    // Taking FloatQuad bounds avoids spurious assertions because of that.
-    ASSERT(enclosingIntRect(rendererMappedResult) == enclosingIntRect(FloatQuad(result).boundingBox()));
-#endif
 
     return result;
 }
@@ -155,14 +148,17 @@ void RenderGeometryMap::pushMappingsToAncestor(const RenderObject* renderer, con
     ASSERT(m_mapping.isEmpty() || m_mapping[0].m_renderer->isRenderView());
 }
 
-static bool canMapBetweenRenderers(const RenderObject& renderer, const RenderObject& ancestor)
+static bool canMapBetweenRenderersViaLayers(const RenderLayerModelObject& renderer, const RenderLayerModelObject& ancestor)
 {
-    for (const RenderObject* current = &renderer; ; current = current->parent()) {
+    for (const RenderElement* current = &renderer; ; current = current->parent()) {
         const RenderStyle& style = current->style();
         if (style.position() == FixedPosition || style.isFlippedBlocksWritingMode())
             return false;
 
-        if (current->hasTransform() || current->isRenderFlowThread())
+        if (current->hasTransformRelatedProperty() && (current->style().hasTransform() || current->style().hasPerspective()))
+            return false;
+        
+        if (current->isRenderFlowThread())
             return false;
 
         if (current->isSVGRoot())
@@ -175,13 +171,16 @@ static bool canMapBetweenRenderers(const RenderObject& renderer, const RenderObj
     return true;
 }
 
-void RenderGeometryMap::pushMappingsToAncestor(const RenderLayer* layer, const RenderLayer* ancestorLayer)
+void RenderGeometryMap::pushMappingsToAncestor(const RenderLayer* layer, const RenderLayer* ancestorLayer, bool respectTransforms)
 {
-    const RenderObject& renderer = layer->renderer();
+    MapCoordinatesFlags newFlags = respectTransforms ? m_mapCoordinatesFlags : m_mapCoordinatesFlags & ~UseTransforms;
+    TemporaryChange<MapCoordinatesFlags> flagsChange(m_mapCoordinatesFlags, newFlags);
+
+    const RenderLayerModelObject& renderer = layer->renderer();
 
     // We have to visit all the renderers to detect flipped blocks. This might defeat the gains
     // from mapping via layers.
-    bool canConvertInLayerTree = ancestorLayer ? canMapBetweenRenderers(layer->renderer(), ancestorLayer->renderer()) : false;
+    bool canConvertInLayerTree = ancestorLayer ? canMapBetweenRenderersViaLayers(layer->renderer(), ancestorLayer->renderer()) : false;
 
     if (canConvertInLayerTree) {
         LayoutSize layerOffset = layer->offsetFromAncestor(ancestorLayer);
@@ -189,14 +188,14 @@ void RenderGeometryMap::pushMappingsToAncestor(const RenderLayer* layer, const R
         // The RenderView must be pushed first.
         if (!m_mapping.size()) {
             ASSERT(ancestorLayer->renderer().isRenderView());
-            pushMappingsToAncestor(&ancestorLayer->renderer(), 0);
+            pushMappingsToAncestor(&ancestorLayer->renderer(), nullptr);
         }
 
         TemporaryChange<size_t> positionChange(m_insertionPosition, m_mapping.size());
         push(&renderer, layerOffset, /*accumulatingTransform*/ true, /*isNonUniform*/ false, /*isFixedPosition*/ false, /*hasTransform*/ false);
         return;
     }
-    const RenderLayerModelObject* ancestorRenderer = ancestorLayer ? &ancestorLayer->renderer() : 0;
+    const RenderLayerModelObject* ancestorRenderer = ancestorLayer ? &ancestorLayer->renderer() : nullptr;
     pushMappingsToAncestor(&renderer, ancestorRenderer);
 }
 

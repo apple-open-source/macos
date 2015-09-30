@@ -70,13 +70,13 @@ public:
     void userDidClickSnapshot(PassRefPtr<MouseEvent>, bool forwardEvent);
     void checkSnapshotStatus();
     Image* snapshotImage() const { return m_snapshotImage.get(); }
-    void restartSnapshottedPlugIn();
+    WEBCORE_EXPORT void restartSnapshottedPlugIn();
 
     // Plug-in URL might not be the same as url() with overriding parameters.
     void subframeLoaderWillCreatePlugIn(const URL& plugInURL);
-    void subframeLoaderDidCreatePlugIn(const Widget*);
+    void subframeLoaderDidCreatePlugIn(const Widget&);
 
-    void setIsPrimarySnapshottedPlugIn(bool);
+    WEBCORE_EXPORT void setIsPrimarySnapshottedPlugIn(bool);
     bool partOfSnapshotOverlay(const Node*) const;
 
     bool needsCheckForSizeChange() const { return m_needsCheckForSizeChange; }
@@ -117,7 +117,7 @@ private:
     virtual void finishParsingChildren() override final;
     virtual void didAddUserAgentShadowRoot(ShadowRoot*) override final;
 
-    virtual RenderPtr<RenderElement> createElementRenderer(PassRef<RenderStyle>) override;
+    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
     virtual bool childShouldCreateRenderer(const Node&) const override;
     virtual bool willRecalcStyle(Style::Change) override final;
     virtual void didAttachRenderers() override final;
@@ -137,7 +137,7 @@ private:
     void simulatedMouseClickTimerFired();
 
     void restartSimilarPlugIns();
-    void removeSnapshotTimerFired(Timer&);
+    void removeSnapshotTimerFired();
     bool isTopLevelFullPagePlugin(const RenderEmbeddedObject&) const;
 
     URL m_loadedUrl;
@@ -158,12 +158,11 @@ private:
     bool m_plugInDimensionsSpecified;
 };
 
-void isHTMLPlugInImageElement(const HTMLPlugInImageElement&); // Catch unnecessary runtime check of type known at compile time.
-inline bool isHTMLPlugInImageElement(const HTMLPlugInElement& element) { return element.isPlugInImageElement(); }
-inline bool isHTMLPlugInImageElement(const Node& node) { return node.isPluginElement() && toHTMLPlugInElement(node).isPlugInImageElement(); }
-template <> inline bool isElementOfType<const HTMLPlugInImageElement>(const Element& element) { return isHTMLPlugInImageElement(element); }
-NODE_TYPE_CASTS(HTMLPlugInImageElement)
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::HTMLPlugInImageElement)
+    static bool isType(const WebCore::HTMLPlugInElement& element) { return element.isPlugInImageElement(); }
+    static bool isType(const WebCore::Node& node) { return is<WebCore::HTMLPlugInElement>(node) && isType(downcast<WebCore::HTMLPlugInElement>(node)); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // HTMLPlugInImageElement_h

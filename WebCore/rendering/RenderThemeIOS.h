@@ -35,33 +35,33 @@ namespace WebCore {
 class RenderStyle;
 class GraphicsContext;
     
-class RenderThemeIOS : public RenderTheme {
+class RenderThemeIOS final : public RenderTheme {
 public:
-    static PassRefPtr<RenderTheme> create();
+    static Ref<RenderTheme> create();
 
     virtual int popupInternalPaddingRight(RenderStyle&) const override;
 
     static void adjustRoundBorderRadius(RenderStyle&, RenderBox&);
 
-    virtual void systemFont(CSSValueID, FontDescription&) const override;
-
     static CFStringRef contentSizeCategory();
 
-    static void setContentSizeCategory(const String&);
+    WEBCORE_EXPORT static void setContentSizeCategory(const String&);
 
 protected:
+    virtual FontDescription& cachedSystemFontDescription(CSSValueID systemFontID) const override;
+    virtual void updateCachedSystemFontDescription(CSSValueID, FontDescription&) const override;
     virtual int baselinePosition(const RenderObject&) const override;
 
     virtual bool isControlStyled(const RenderStyle&, const BorderData&, const FillLayer& background, const Color& backgroundColor) const override;
 
     // Methods for each appearance value.
-    virtual void adjustCheckboxStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustCheckboxStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintCheckboxDecorations(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustRadioStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustRadioStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintRadioDecorations(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustButtonStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintButtonDecorations(const RenderObject&, const PaintInfo&, const IntRect&) override;
     virtual bool paintPushButtonDecorations(const RenderObject&, const PaintInfo&, const IntRect&) override;
     virtual void setButtonSize(RenderStyle&) const override;
@@ -71,13 +71,13 @@ protected:
     virtual bool paintTextFieldDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) override;
     virtual bool paintTextAreaDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
-    virtual void adjustMenuListButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustMenuListButtonStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintMenuListButtonDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
-    virtual void adjustSliderTrackStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustSliderTrackStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintSliderTrack(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustSliderThumbSize(RenderStyle&, Element&) const override;
+    virtual void adjustSliderThumbSize(RenderStyle&, Element*) const override;
     virtual bool paintSliderThumbDecorations(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
     // Returns the repeat interval of the animation for the progress bar.
@@ -92,7 +92,7 @@ protected:
     virtual int sliderTickOffsetFromTrackCenter() const override;
 #endif
 
-    virtual void adjustSearchFieldStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustSearchFieldStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintSearchFieldDecorations(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
     virtual Color platformActiveSelectionBackgroundColor() const override;
@@ -104,6 +104,7 @@ protected:
 
     virtual bool shouldShowPlaceholderWhenFocused() const override;
     virtual bool shouldHaveSpinButton(HTMLInputElement&) const override;
+    virtual bool shouldHaveCapsLockIndicator(HTMLInputElement&) const override;
 
 #if ENABLE(VIDEO)
     virtual String mediaControlsStyleSheet() override;
@@ -117,8 +118,12 @@ private:
     const Color& shadowColor() const;
     FloatRect addRoundedBorderClip(const RenderObject& box, GraphicsContext*, const IntRect&);
 
+    virtual Color systemColor(CSSValueID) const override;
+
     String m_mediaControlsScript;
     String m_mediaControlsStyleSheet;
+
+    mutable HashMap<int, Color> m_systemColorCache;
 };
 
 }

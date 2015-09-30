@@ -37,7 +37,7 @@ class CSSPrimitiveValue;
 
 class CSSReflectValue : public CSSValue {
 public:
-    static PassRef<CSSReflectValue> create(PassRefPtr<CSSPrimitiveValue> direction,
+    static Ref<CSSReflectValue> create(PassRefPtr<CSSPrimitiveValue> direction,
         PassRefPtr<CSSPrimitiveValue> offset, PassRefPtr<CSSValue> mask)
     {
         return adoptRef(*new CSSReflectValue(direction, offset, mask));
@@ -67,8 +67,8 @@ private:
     RefPtr<CSSValue> m_mask;
 };
 
-CSS_VALUE_TYPE_CASTS(CSSReflectValue, isReflectValue())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSReflectValue, isReflectValue())
 
 #endif // CSSReflectValue_h

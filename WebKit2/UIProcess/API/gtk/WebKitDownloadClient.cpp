@@ -21,12 +21,12 @@
 #include "WebKitDownloadClient.h"
 
 #include "APIURLResponse.h"
-#include "WebContext.h"
 #include "WebKitDownloadPrivate.h"
 #include "WebKitURIResponsePrivate.h"
 #include "WebKitWebContextPrivate.h"
+#include "WebProcessPool.h"
 #include <WebKit/WKString.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 #include <wtf/text/CString.h>
 
 using namespace WebCore;
@@ -54,11 +54,10 @@ static void didReceiveData(WKContextRef, WKDownloadRef wkDownload, uint64_t leng
     webkitDownloadNotifyProgress(download.get(), length);
 }
 
-static WKStringRef decideDestinationWithSuggestedFilename(WKContextRef, WKDownloadRef wkDownload, WKStringRef filename, bool* /* allowOverwrite */, const void* /* clientInfo */)
+static WKStringRef decideDestinationWithSuggestedFilename(WKContextRef, WKDownloadRef wkDownload, WKStringRef filename, bool* allowOverwrite, const void* /* clientInfo */)
 {
     GRefPtr<WebKitDownload> download = webkitWebContextGetOrCreateDownload(toImpl(wkDownload));
-    CString destinationURI = webkitDownloadDecideDestinationWithSuggestedFilename(download.get(),
-                                                                                  toImpl(filename)->string().utf8());
+    CString destinationURI = webkitDownloadDecideDestinationWithSuggestedFilename(download.get(), toImpl(filename)->string().utf8(), *allowOverwrite);
     return WKStringCreateWithUTF8CString(destinationURI.data());
 }
 

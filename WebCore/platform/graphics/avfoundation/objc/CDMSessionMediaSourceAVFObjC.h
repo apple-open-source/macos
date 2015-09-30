@@ -28,7 +28,6 @@
 
 #include "CDMSession.h"
 #include "SourceBufferPrivateAVFObjC.h"
-#include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 
 #if ENABLE(ENCRYPTED_MEDIA_V2) && ENABLE(MEDIA_SOURCE)
@@ -43,15 +42,15 @@ public:
     CDMSessionMediaSourceAVFObjC(const Vector<int>& protocolVersions);
     virtual ~CDMSessionMediaSourceAVFObjC();
 
-    virtual CDMSessionType type() { return CDMSessionTypeMediaSourceAVFObjC; }
+    virtual CDMSessionType type() override { return CDMSessionTypeMediaSourceAVFObjC; }
     virtual void setClient(CDMSessionClient* client) override { m_client = client; }
     virtual const String& sessionId() const override { return m_sessionId; }
     virtual PassRefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, unsigned long& systemCode) override;
     virtual void releaseKeys() override;
     virtual bool update(Uint8Array*, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, unsigned long& systemCode) override;
 
-    virtual void layerDidReceiveError(AVSampleBufferDisplayLayer *, NSError *, bool& shouldIgnore);
-    virtual void rendererDidReceiveError(AVSampleBufferAudioRenderer *, NSError *, bool& shouldIgnore);
+    virtual void layerDidReceiveError(AVSampleBufferDisplayLayer *, NSError *, bool& shouldIgnore) override;
+    virtual void rendererDidReceiveError(AVSampleBufferAudioRenderer *, NSError *, bool& shouldIgnore) override;
 
     void setStreamSession(AVStreamSession *);
 

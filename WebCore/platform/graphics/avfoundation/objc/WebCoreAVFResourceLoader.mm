@@ -32,7 +32,6 @@
 #import "CachedResourceLoader.h"
 #import "CachedResourceRequest.h"
 #import "MediaPlayerPrivateAVFoundationObjC.h"
-#import "ResourceBuffer.h"
 #import "ResourceLoaderOptions.h"
 #import "SharedBuffer.h"
 #import "SoftLinking.h"
@@ -69,9 +68,9 @@ void WebCoreAVFResourceLoader::startLoading()
     URL requestURL = [[m_avRequest.get() request] URL];
 
     // ContentSecurityPolicyImposition::DoPolicyCheck is a placeholder value. It does not affect the request since Content Security Policy does not apply to raw resources.
-    CachedResourceRequest request(ResourceRequest(requestURL), ResourceLoaderOptions(SendCallbacks, DoNotSniffContent, BufferData, DoNotAllowStoredCredentials, DoNotAskClientForCrossOriginCredentials, DoSecurityCheck, UseDefaultOriginRestrictionsForType, ContentSecurityPolicyImposition::DoPolicyCheck));
+    CachedResourceRequest request(ResourceRequest(requestURL), ResourceLoaderOptions(SendCallbacks, DoNotSniffContent, BufferData, DoNotAllowStoredCredentials, DoNotAskClientForCrossOriginCredentials, DoSecurityCheck, UseDefaultOriginRestrictionsForType, DoNotIncludeCertificateInfo, ContentSecurityPolicyImposition::DoPolicyCheck));
 
-    request.mutableResourceRequest().setPriority(ResourceLoadPriorityLow);
+    request.mutableResourceRequest().setPriority(ResourceLoadPriority::Low);
     CachedResourceLoader* loader = m_parent->player()->cachedResourceLoader();
     m_resource = loader ? loader->requestRawResource(request) : 0;
     if (m_resource)
@@ -90,7 +89,7 @@ void WebCoreAVFResourceLoader::stopLoading()
     m_resource->removeClient(this);
     m_resource = 0;
 
-    if (m_parent)
+    if (m_parent && m_avRequest)
         m_parent->didStopLoadingRequest(m_avRequest.get());
 }
 
@@ -153,7 +152,7 @@ void WebCoreAVFResourceLoader::fulfillRequestWithResource(CachedResource* resour
     if (!dataRequest)
         return;
 
-    SharedBuffer* data = resource->resourceBuffer() ? resource->resourceBuffer()->sharedBuffer() : 0;
+    SharedBuffer* data = resource->resourceBuffer();
     if (!data)
         return;
 

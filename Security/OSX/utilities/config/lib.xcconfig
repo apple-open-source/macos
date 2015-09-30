@@ -1,0 +1,4 @@
+COPY_PHASE_STRIP = NO
+SKIP_INSTALL = YES
+
+WARNING_CFLAGS = -Wno-deprecated-declarations $(inherited)

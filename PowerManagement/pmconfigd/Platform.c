@@ -50,29 +50,35 @@ static void lazyAllocTCPKeepAlive(void)
     }
     
     platformFeatures = _copyRootDomainProperty(CFSTR("IOPlatformFeatureDefaults"));
-    if (platformFeatures)
-    {
-        gTCPKeepAlive = calloc(1, sizeof(TCPKeepAliveStruct));
-        if (!gTCPKeepAlive) return;
+    if (!platformFeatures) {
+        goto exit;
+    }
 
-        if (kCFBooleanTrue == CFDictionaryGetValue(platformFeatures,
-                                                   kIOPlatformTCPKeepAliveDuringSleep))
+    gTCPKeepAlive = calloc(1, sizeof(TCPKeepAliveStruct));
+    if (!gTCPKeepAlive) goto exit;
+
+    if (kCFBooleanTrue == CFDictionaryGetValue(platformFeatures,
+                                               kIOPlatformTCPKeepAliveDuringSleep))
+    {
+        if ((expirationTimeout = CFDictionaryGetValue(platformFeatures,
+                                                      CFSTR("TCPKeepAliveExpirationTimeout"))))
         {
-            if ((expirationTimeout = CFDictionaryGetValue(platformFeatures,
-                                                          CFSTR("TCPKeepAliveExpirationTimeout"))))
-            {
-                CFNumberGetValue(expirationTimeout, kCFNumberLongType, &gTCPKeepAlive->overrideSec);
-            }
-            else {
-                gTCPKeepAlive->overrideSec = kTCPKeepAliveExpireSecs; // set to a default value
-            }
-            gTCPKeepAlive->state = kActive;
+            CFNumberGetValue(expirationTimeout, kCFNumberLongType, &gTCPKeepAlive->overrideSec);
         }
         else {
-            gTCPKeepAlive->state = kNotSupported;
+            gTCPKeepAlive->overrideSec = kTCPKeepAliveExpireSecs; // set to a default value
         }
+        gTCPKeepAlive->state = kActive;
+    }
+    else {
+        gTCPKeepAlive->state = kNotSupported;
+    }
+
+exit:
+    if (platformFeatures) {
         CFRelease(platformFeatures);
     }
+
 
     return;
 }

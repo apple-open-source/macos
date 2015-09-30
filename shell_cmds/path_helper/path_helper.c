@@ -80,7 +80,7 @@ char* read_segment(const char* line, size_t len) {
 
 	size_t size = len + escapes + 1;
 
-	char* segment = malloc(size);
+	char* segment = calloc(1, size);
 	if (segment == NULL) return NULL;
 	
 	for (i = 0, j = 0; i < len; ++i, ++j) {

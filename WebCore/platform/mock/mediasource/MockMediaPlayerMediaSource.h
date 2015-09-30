@@ -38,9 +38,10 @@ class MockMediaSourcePrivate;
 
 class MockMediaPlayerMediaSource : public MediaPlayerPrivateInterface {
 public:
+    explicit MockMediaPlayerMediaSource(MediaPlayer*);
+
     // MediaPlayer Engine Support
-    static void registerMediaEngine(MediaEngineRegistrar);
-    static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
+    WEBCORE_EXPORT static void registerMediaEngine(MediaEngineRegistrar);
     static void getSupportedTypes(HashSet<String>& types);
     static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
 
@@ -56,11 +57,12 @@ public:
     void seekCompleted();
 
 private:
-    MockMediaPlayerMediaSource(MediaPlayer*);
-
     // MediaPlayerPrivate Overrides
     virtual void load(const String& url) override;
     virtual void load(const String& url, MediaSourcePrivateClient*) override;
+#if ENABLE(MEDIA_STREAM)
+    virtual void load(MediaStreamPrivate*) override { };
+#endif
     virtual void cancelLoad() override;
     virtual void play() override;
     virtual void pause() override;

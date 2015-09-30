@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -517,6 +517,13 @@ main(int argc, char **argv)
 	int sump = 0;
 	int sockerrno = 0;
 
+	if (argv[0] == NULL)
+		prog = "traceroute";
+	else if ((cp = strrchr(argv[0], '/')) != NULL)
+		prog = cp + 1;
+	else
+		prog = argv[0];
+	
 	/* Insure the socket fds won't be 0, 1 or 2 */
 	if (open(devnull, O_RDONLY) < 0 ||
 	    open(devnull, O_RDONLY) < 0 ||
@@ -554,13 +561,6 @@ main(int argc, char **argv)
 #else
 	max_ttl = 30;
 #endif
-
-	if (argv[0] == NULL)
-		prog = "traceroute";
-	else if ((cp = strrchr(argv[0], '/')) != NULL)
-		prog = cp + 1;
-	else
-		prog = argv[0];
 
 	opterr = 0;
 	while ((op = getopt(argc, argv, "aA:edDFInrSvxf:g:i:M:m:P:p:q:s:t:w:z:")) != EOF)
@@ -1184,9 +1184,9 @@ wait_for_reply(register int sock, register struct sockaddr_in *fromp,
 	socklen_t fromlen = sizeof(*fromp);
 
 	nfds = howmany(sock + 1, NFDBITS);
-	if ((fdsp = malloc(nfds * sizeof(fd_mask))) == NULL)
+	if ((fdsp = malloc(nfds * sizeof(fd_set))) == NULL)
 		err(1, "malloc");
-	memset(fdsp, 0, nfds * sizeof(fd_mask));
+	memset(fdsp, 0, nfds * sizeof(fd_set));
 	FD_SET(sock, fdsp);
 
 	wait.tv_sec = tp->tv_sec + waittime;

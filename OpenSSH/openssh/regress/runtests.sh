@@ -43,15 +43,19 @@ export TEST_SSH_SSHKEYSCAN=/usr/bin/ssh-keyscan
 export TEST_SSH_SFTP=/usr/bin/sftp
 export TEST_SSH_SFTPSERVER=/usr/libexec/sftp-server
 export SUDO=/usr/bin/sudo
+export SKIP_UNIT=YES
 
 if [ ${use_current_dir} -eq 0 ] ; then
-		template="/usr/local/libexec/openssh/regression-tests"
-		workingdir="/private/tmp/ssh_regression_tests_$$"
-		mkdir "${workingdir}"
-
-		ditto "${template}" "${workingdir}"
-		cd "${workingdir}"
+	template="/usr/local/libexec/openssh/regression-tests"
+else
+	template="."
 fi
+
+workingdir="/private/tmp/ssh_regression_tests_$$"
+mkdir "${workingdir}"
+
+ditto "${template}" "${workingdir}"
+cd "${workingdir}"
 
 export TEST_SHELL=/bin/sh
 export OBJ=`pwd`
@@ -63,7 +67,8 @@ if [ "x${test_file}" == "x" ] ; then
 else
 		export TEST_SSH_TRACE=yes
 		export TEST_SSH_QUIET=no
-		export TEST_SSH_LOGFILE=/tmp/ssh-single-test-log.txt
+		export TEST_SSH_LOGFILE=/tmp/ssh-single-ssh-log.txt
+		export TEST_REGRESS_LOGFILE=/tmp/ssh-single-regess-log.txt
 		make tests LTESTS=${test_file}
 fi
 

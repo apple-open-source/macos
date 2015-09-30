@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ms_Arab.xml
@@ -87,7 +87,7 @@ ms_Arab{
             }
         }
     }
-    Version{"2.0.92.90"}
+    Version{"2.1.6.69"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -648,97 +648,5 @@ ms_Arab{
     }
     measurementSystemNames{
         metric{"ميتريک"}
-    }
-    units{
-        duration{
-            day{
-                other{"{0} هاري"}
-            }
-            day-future{
-                other{"دالم {0} هاري"}
-            }
-            day-past{
-                other{"{0} هاري لالو"}
-            }
-            hour{
-                other{"{0} جم"}
-            }
-            hour-future{
-                other{"دالم {0} جم"}
-            }
-            hour-past{
-                other{"{0} جم لالو"}
-            }
-            minute{
-                other{"{0} مينيت"}
-            }
-            minute-future{
-                other{"دالم {0} مينيت"}
-            }
-            minute-past{
-                other{"{0} مينيت لالو"}
-            }
-            month{
-                other{"{0} بولن"}
-            }
-            month-future{
-                other{"دالم {0} بولن"}
-            }
-            month-past{
-                other{"{0} بولن لالو"}
-            }
-            second{
-                other{"{0} ساعت"}
-            }
-            second-future{
-                other{"دالم {0} ساعت"}
-            }
-            second-past{
-                other{"{0} ساعت لالو"}
-            }
-            week{
-                other{"{0} ميڠݢو"}
-            }
-            week-future{
-                other{"دالم {0} ميڠݢو"}
-            }
-            week-past{
-                other{"{0} ميڠݢو لالو"}
-            }
-            year{
-                other{"{0} تاهون"}
-            }
-            year-future{
-                other{"دالم {0} تاهون"}
-            }
-            year-past{
-                other{"{0} تاهون لالو"}
-            }
-        }
-    }
-    unitsShort{
-        duration{
-            day{
-                other{"{0} هاري"}
-            }
-            hour{
-                other{"{0} جم"}
-            }
-            minute{
-                other{"{0} min"}
-            }
-            month{
-                other{"{0} بولن"}
-            }
-            second{
-                other{"{0} ساعت"}
-            }
-            week{
-                other{"{0} ميڠݢو"}
-            }
-            year{
-                other{"{0} thn"}
-            }
-        }
     }
 }

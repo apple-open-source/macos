@@ -739,7 +739,7 @@ typedef uint32_t CCModeOptions;
     
 
 CCCryptorStatus CCCryptorCreateWithMode(
-    CCOperation 	op,				/* kCCEncrypt, kCCEncrypt */
+    CCOperation 	op,				/* kCCEncrypt, kCCDecrypt */
     CCMode			mode,
     CCAlgorithm		alg,
     CCPadding		padding,		

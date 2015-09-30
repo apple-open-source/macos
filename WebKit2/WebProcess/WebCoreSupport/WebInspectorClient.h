@@ -26,14 +26,14 @@
 #ifndef WebInspectorClient_h
 #define WebInspectorClient_h
 
-#if ENABLE(INSPECTOR)
-
 #include <WebCore/InspectorClient.h>
 #include <WebCore/InspectorForwarding.h>
 #include <WebCore/PageOverlay.h>
+#include <wtf/HashSet.h>
 
 namespace WebCore {
 class GraphicsContext;
+class GraphicsLayer;
 class IntRect;
 class PageOverlay;
 }
@@ -41,25 +41,25 @@ class PageOverlay;
 namespace WebKit {
 
 class WebPage;
+class RepaintIndicatorLayerClient;
 
-class WebInspectorClient : public WebCore::InspectorClient, public WebCore::InspectorFrontendChannel, private WebCore::PageOverlay::Client {
+class WebInspectorClient : public WebCore::InspectorClient, private WebCore::PageOverlay::Client {
+friend class RepaintIndicatorLayerClient;
 public:
-    WebInspectorClient(WebPage* page)
-        : m_page(page)
-        , m_highlightOverlay(0)
-    {
-    }
+    WebInspectorClient(WebPage*);
+    virtual ~WebInspectorClient();
 
 private:
-    virtual void inspectorDestroyed() override;
+    // WebCore::InspectorClient
+    void inspectorDestroyed() override;
 
-    virtual InspectorFrontendChannel* openInspectorFrontend(WebCore::InspectorController*) override;
-    virtual void closeInspectorFrontend() override;
-    virtual void bringFrontendToFront() override;
-    virtual void didResizeMainFrame(WebCore::Frame*) override;
+    WebCore::InspectorFrontendChannel* openInspectorFrontend(WebCore::InspectorController*) override;
+    void closeInspectorFrontend() override;
+    void bringFrontendToFront() override;
+    void didResizeMainFrame(WebCore::Frame*) override;
 
-    virtual void highlight() override;
-    virtual void hideHighlight() override;
+    void highlight() override;
+    void hideHighlight() override;
 
 #if PLATFORM(IOS)
     virtual void showInspectorIndication() override;
@@ -68,9 +68,8 @@ private:
     virtual void didSetSearchingForNode(bool) override;
 #endif
 
-    virtual bool sendMessageToFrontend(const String&) override;
-
-    virtual bool supportsFrameInstrumentation();
+    virtual bool overridesShowPaintRects() const override { return true; }
+    virtual void showPaintRect(const WebCore::FloatRect&) override;
 
     // PageOverlay::Client
     virtual void pageOverlayDestroyed(WebCore::PageOverlay&) override;
@@ -79,12 +78,16 @@ private:
     virtual void drawRect(WebCore::PageOverlay&, WebCore::GraphicsContext&, const WebCore::IntRect&) override;
     virtual bool mouseEvent(WebCore::PageOverlay&, const WebCore::PlatformMouseEvent&) override;
 
+    void animationEndedForLayer(const WebCore::GraphicsLayer*);
+
     WebPage* m_page;
     WebCore::PageOverlay* m_highlightOverlay;
+    
+    RefPtr<WebCore::PageOverlay> m_paintRectOverlay;
+    std::unique_ptr<RepaintIndicatorLayerClient> m_paintIndicatorLayerClient;
+    HashSet<WebCore::GraphicsLayer*> m_paintRectLayers; // Ideally this would be HashSet<std::unique_ptr<GraphicsLayer>> but that doesn't work yet. webkit.org/b/136166
 };
 
 } // namespace WebKit
-
-#endif // ENABLE(INSPECTOR)
 
 #endif // WebInspectorClient_h

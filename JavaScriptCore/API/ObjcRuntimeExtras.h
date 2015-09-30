@@ -23,6 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#import <objc/Protocol.h>
 #import <objc/runtime.h>
 #import <wtf/HashSet.h>
 #import <wtf/Vector.h>
@@ -163,7 +164,7 @@ typename DelegateType::ResultType parseObjCType(const char*& position)
     case 'l':
         return DelegateType::template typeInteger<long>();
     case 'q':
-        return DelegateType::template typeDouble<unsigned long long>();
+        return DelegateType::template typeDouble<long long>();
     case 'C':
         return DelegateType::template typeInteger<unsigned char>();
     case 'I':

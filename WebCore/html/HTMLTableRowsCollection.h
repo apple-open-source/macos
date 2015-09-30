@@ -38,13 +38,13 @@ class HTMLTableRowElement;
 
 class HTMLTableRowsCollection final : public HTMLCollection {
 public:
-    static PassRef<HTMLTableRowsCollection> create(HTMLTableElement&, CollectionType);
+    static Ref<HTMLTableRowsCollection> create(HTMLTableElement&, CollectionType);
 
-    HTMLTableElement& tableElement() { return toHTMLTableElement(ownerNode()); }
-    const HTMLTableElement& tableElement() const { return toHTMLTableElement(ownerNode()); }
+    HTMLTableElement& tableElement() { return downcast<HTMLTableElement>(ownerNode()); }
+    const HTMLTableElement& tableElement() const { return downcast<HTMLTableElement>(ownerNode()); }
 
-    static HTMLTableRowElement* rowAfter(HTMLTableElement*, HTMLTableRowElement*);
-    static HTMLTableRowElement* lastRow(HTMLTableElement*);
+    static HTMLTableRowElement* rowAfter(HTMLTableElement&, HTMLTableRowElement*);
+    static HTMLTableRowElement* lastRow(HTMLTableElement&);
 
 private:
     explicit HTMLTableRowsCollection(HTMLTableElement&);
@@ -52,6 +52,8 @@ private:
     virtual Element* customElementAfter(Element*) const override;
 };
 
-} // namespace
+} // namespace WebCore
 
-#endif
+SPECIALIZE_TYPE_TRAITS_HTMLCOLLECTION(HTMLTableRowsCollection, TableRows)
+
+#endif // HTMLTableRowsCollection_h

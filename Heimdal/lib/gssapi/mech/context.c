@@ -116,7 +116,9 @@ _gss_mechglue_thread(void)
 }
 
 OM_uint32
-_gss_mg_get_error(const gss_OID mech, OM_uint32 value, gss_buffer_t string)
+_gss_mg_get_error(__nonnull const gss_OID mech,
+		  OM_uint32 value,
+		  __nonnull gss_buffer_t string)
 {
     struct mg_thread_ctx *mg;
 
@@ -139,7 +141,7 @@ _gss_mg_get_error(const gss_OID mech, OM_uint32 value, gss_buffer_t string)
 }
 
 void
-_gss_mg_error(struct gssapi_mech_interface_desc *m, OM_uint32 min)
+_gss_mg_error(struct gssapi_mech_interface_desc *__nonnull m, OM_uint32 min)
 {
     OM_uint32 major_status, minor_status;
     OM_uint32 message_content = 0;
@@ -177,7 +179,9 @@ _gss_mg_error(struct gssapi_mech_interface_desc *m, OM_uint32 min)
 }
 
 void
-gss_mg_collect_error(gss_OID mech, OM_uint32 maj, OM_uint32 min)
+gss_mg_collect_error(__nonnull gss_OID mech,
+		     OM_uint32 maj,
+		     OM_uint32 min)
 {
     gssapi_mech_interface m = __gss_get_mechanism(mech);
     if (m == NULL)
@@ -186,9 +190,9 @@ gss_mg_collect_error(gss_OID mech, OM_uint32 maj, OM_uint32 min)
 }
 
 OM_uint32
-gss_mg_set_error_string(gss_OID mech,
+gss_mg_set_error_string(__nullable gss_OID mech,
 			OM_uint32 maj, OM_uint32 min,
-			const char *fmt, ...)
+			const char *__nonnull fmt, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
 {
     struct mg_thread_ctx *mg;
@@ -224,10 +228,10 @@ gss_mg_set_error_string(gss_OID mech,
 
 #include <CoreFoundation/CoreFoundation.h>
 
-CFErrorRef
+__nullable CFErrorRef
 _gss_mg_create_cferror(OM_uint32 major_status,
 		       OM_uint32 minor_status,
-		       gss_const_OID mech)
+		       __nullable gss_const_OID mech)
 {
     struct mg_thread_ctx *mg;
     CFErrorRef e;
@@ -351,8 +355,9 @@ CopyMangedPreference(CFStringRef key)
     return CopyKeyFromFile(GLOBAL_PREFERENCE_FILE, key);
 }
 
-CFTypeRef
-_gss_mg_copy_key(CFStringRef domain, CFStringRef key)
+__nullable CFTypeRef
+_gss_mg_copy_key(__nonnull CFStringRef domain,
+		 __nonnull CFStringRef key)
 {
     CFTypeRef val;
 
@@ -381,7 +386,7 @@ static int config_token = -1;
 static void (*log_func)(void *ctx, int level, const char *fmt, va_list) = NULL;
 
 void
-gss_set_log_function(void *ctx, void (*func)(void *ctx, int level, const char *fmt, va_list))
+gss_set_log_function(void *__nullable ctx, void (*__nullable func)(void * __nullable ctx, int level, const char *__nonnull fmt, va_list))
 {
     if (log_func == NULL) {
 	log_func = func;
@@ -453,7 +458,7 @@ _gss_mg_log_level(int level)
 }
 
 void
-_gss_mg_log(int level, const char *fmt, ...)
+_gss_mg_log(int level, const char *__nonnull fmt, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3))
 {
     struct mg_thread_ctx *mg;
@@ -478,7 +483,10 @@ _gss_mg_log(int level, const char *fmt, ...)
 }
 
 void
-_gss_mg_log_name(int level, struct _gss_name *name, gss_OID mech_type, const char *fmt, ...)
+_gss_mg_log_name(int level,
+		 struct _gss_name *__nonnull name,
+		 __nonnull gss_OID mech_type,
+		 const char *__nonnull fmt, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
 {
     struct _gss_mechanism_name *mn = NULL;
@@ -523,7 +531,9 @@ _gss_mg_log_name(int level, struct _gss_name *name, gss_OID mech_type, const cha
 }
 
 void
-_gss_mg_log_cred(int level, struct _gss_cred *cred, const char *fmt, ...)
+_gss_mg_log_cred(int level,
+		 struct _gss_cred *__nullable cred,
+		 const char *__nonnull fmt, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4))
 {
     struct _gss_mechanism_cred *mc;

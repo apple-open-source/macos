@@ -40,12 +40,7 @@ const char* EWK2UnitTestEnvironment::defaultTestPageUrl() const
 
 const char* EWK2UnitTestEnvironment::defaultTheme() const
 {
-    return TEST_THEME_DIR "/default.edj";
-}
-
-const char* EWK2UnitTestEnvironment::injectedBundleSample() const
-{
-    return TEST_LIB_DIR "/libewk2UnitTestInjectedBundleSample.so";
+    return DEFAULT_THEME_DIR "/default.edj";
 }
 
 CString EWK2UnitTestEnvironment::urlForResource(const char* resource)
@@ -64,7 +59,7 @@ CString EWK2UnitTestEnvironment::pathForResource(const char* resource)
 CString EWK2UnitTestEnvironment::pathForTheme(const char* theme)
 {
     StringBuilder builder;
-    builder.appendLiteral(TEST_THEME_DIR "/");
+    builder.appendLiteral(DEFAULT_THEME_DIR "/");
     builder.append(theme);
     return builder.toString().utf8();
 }

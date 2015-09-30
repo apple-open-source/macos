@@ -38,23 +38,42 @@
 #import <WebCore/FrameSelection.h>
 #import <WebCore/Page.h>
 
-#if __has_include(<AppKit/NSItemProvider.h>)
-#import <AppKit/NSItemProvider.h>
-#else
-// FIXME: We should properly disable code that interacts with NSItemProvider/NSSharingServicePicker in 32-bit.
-@interface NSItemProvider : NSObject
-@property (copy, readonly) NSArray *registeredTypeIdentifiers;
-- (instancetype)initWithItem:(id <NSSecureCoding>)item typeIdentifier:(NSString *)typeIdentifier;
-- (void)loadItemForTypeIdentifier:(NSString *)typeIdentifier options:(NSDictionary *)options completionHandler:(void (^)(id <NSSecureCoding> item, NSError *error))completionHandler;
-@end
-#endif
-
 static NSString *serviceControlsPasteboardName = @"WebKitServiceControlsPasteboard";
 
 using namespace WebCore;
 
+WebSharingServicePickerClient::WebSharingServicePickerClient(WebView *webView)
+    : m_webView(webView)
+{
+}
+
+void WebSharingServicePickerClient::sharingServicePickerWillBeDestroyed(WebSharingServicePickerController &)
+{
+}
+
+Page* WebSharingServicePickerClient::pageForSharingServicePicker(WebSharingServicePickerController &)
+{
+    return [m_webView page];
+}
+
+RetainPtr<NSWindow> WebSharingServicePickerClient::windowForSharingServicePicker(WebSharingServicePickerController &)
+{
+    return [m_webView window];
+}
+
+FloatRect WebSharingServicePickerClient::screenRectForCurrentSharingServicePickerItem(WebSharingServicePickerController &)
+{
+    return FloatRect();
+}
+
+RetainPtr<NSImage> WebSharingServicePickerClient::imageForCurrentSharingServicePickerItem(WebSharingServicePickerController &)
+{
+    return nil;
+}
+
 @implementation WebSharingServicePickerController
 
+#if ENABLE(SERVICE_CONTROLS)
 - (instancetype)initWithItems:(NSArray *)items includeEditorServices:(BOOL)includeEditorServices client:(WebSharingServicePickerClient*)pickerClient style:(NSSharingServicePickerStyle)style
 {
 #ifndef __LP64__
@@ -68,11 +87,32 @@ using namespace WebCore;
     [_picker setDelegate:self];
 
     _includeEditorServices = includeEditorServices;
+    _handleEditingReplacement = includeEditorServices;
     _pickerClient = pickerClient;
 
     return self;
 #endif
 }
+
+- (instancetype)initWithSharingServicePicker:(NSSharingServicePicker *)sharingServicePicker client:(WebSharingServicePickerClient&)pickerClient
+{
+#ifndef __LP64__
+    return nil;
+#else
+    if (!(self = [super init]))
+        return nil;
+
+    _picker = sharingServicePicker;
+    [_picker setDelegate:self];
+
+    _includeEditorServices = YES;
+    _pickerClient = &pickerClient;
+
+    return self;
+#endif
+}
+#endif // ENABLE(SERVICE_CONTROLS)
+
 
 - (void)clear
 {
@@ -151,9 +191,7 @@ using namespace WebCore;
 
 - (void)sharingService:(NSSharingService *)sharingService didShareItems:(NSArray *)items
 {
-    // We only care about what item was shared if we were interested in editor services
-    // (i.e., if we plan on replacing the selection with the returned item)
-    if (!_includeEditorServices)
+    if (!_handleEditingReplacement)
         return;
 
     // We only send one item, so we should only get one item back.

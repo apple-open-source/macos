@@ -30,6 +30,7 @@
 
 #import "SandboxInitializationParameters.h"
 #import "WebKitSystemInterface.h"
+#import <WebCore/CFNetworkSPI.h>
 #import <WebCore/FileSystem.h>
 #import <WebCore/SystemVersion.h>
 #import <mach/mach.h>
@@ -51,11 +52,9 @@ extern "C" int sandbox_init_with_parameters(const char *profile, uint64_t flags,
 #endif
 #endif
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 typedef bool (^LSServerConnectionAllowedBlock) ( CFDictionaryRef optionsRef );
 extern "C" void _LSSetApplicationLaunchServicesServerConnectionStatus(uint64_t flags, LSServerConnectionAllowedBlock block);
 extern "C" CFDictionaryRef _LSApplicationCheckIn(int sessionID, CFDictionaryRef applicationInfo);
-#endif
 
 extern "C" OSStatus SetApplicationIsDaemon(Boolean isDaemon);
 
@@ -63,7 +62,6 @@ using namespace WebCore;
 
 namespace WebKit {
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 static void initializeTimerCoalescingPolicy()
 {
     // Set task_latency and task_throughput QOS tiers as appropriate for a visible application.
@@ -71,25 +69,19 @@ static void initializeTimerCoalescingPolicy()
     kern_return_t kr = task_policy_set(mach_task_self(), TASK_BASE_QOS_POLICY, (task_policy_t)&qosinfo, TASK_QOS_POLICY_COUNT);
     ASSERT_UNUSED(kr, kr == KERN_SUCCESS);
 }
-#endif
 
 void ChildProcess::setApplicationIsDaemon()
 {
     OSStatus error = SetApplicationIsDaemon(true);
     ASSERT_UNUSED(error, error == noErr);
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     _LSSetApplicationLaunchServicesServerConnectionStatus(0, 0);
     RetainPtr<CFDictionaryRef> unused = _LSApplicationCheckIn(-2, CFBundleGetInfoDictionary(CFBundleGetMainBundle()));
-#endif
 }
 
 void ChildProcess::platformInitialize()
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     initializeTimerCoalescingPolicy();
-#endif
-
     [[NSFileManager defaultManager] changeCurrentDirectoryPath:[[NSBundle mainBundle] bundlePath]];
 }
 
@@ -113,7 +105,6 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
     String osVersion = osVersionParts[0] + '.' + osVersionParts[1];
     sandboxParameters.addParameter("_OS_VERSION", osVersion.utf8().data());
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
     // Use private temporary and cache directories.
     setenv("DIRHELPER_USER_DIR_SUFFIX", fileSystemRepresentation(sandboxParameters.systemDirectorySuffix()).data(), 0);
     char temporaryDirectory[PATH_MAX];
@@ -122,7 +113,6 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
         exit(EX_NOPERM);
     }
     setenv("TMPDIR", temporaryDirectory, 1);
-#endif
 
     sandboxParameters.addPathParameter("WEBKIT2_FRAMEWORK_DIR", [[webkit2Bundle bundlePath] stringByDeletingLastPathComponent]);
     sandboxParameters.addConfDirectoryParameter("DARWIN_USER_TEMP_DIR", _CS_DARWIN_USER_TEMP_DIR);
@@ -186,6 +176,20 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
     }
 }
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+void ChildProcess::setSharedHTTPCookieStorage(const Vector<uint8_t>& identifier)
+{
+    // FIXME: Remove the runtime check when it's not needed (soon).
+    if (![NSHTTPCookieStorage respondsToSelector:@selector(_setSharedHTTPCookieStorage:)])
+        return;
+
+    RetainPtr<CFDataRef> cookieStorageData = adoptCF(CFDataCreate(kCFAllocatorDefault, identifier.data(), identifier.size()));
+    RetainPtr<CFHTTPCookieStorageRef> uiProcessCookieStorage = adoptCF(CFHTTPCookieStorageCreateFromIdentifyingData(kCFAllocatorDefault, cookieStorageData.get()));
+    [NSHTTPCookieStorage _setSharedHTTPCookieStorage:adoptNS([[NSHTTPCookieStorage alloc] _initWithCFHTTPCookieStorage:uiProcessCookieStorage.get()]).get()];
+}
+#endif
+
+
 #if USE(APPKIT)
 void ChildProcess::stopNSAppRunLoop()
 {
@@ -199,7 +203,6 @@ void ChildProcess::stopNSAppRunLoop()
 
 void ChildProcess::setQOS(int latencyQOS, int throughputQOS)
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     if (!latencyQOS && !throughputQOS)
         return;
 
@@ -209,10 +212,6 @@ void ChildProcess::setQOS(int latencyQOS, int throughputQOS)
     };
 
     task_policy_set(mach_task_self(), TASK_OVERRIDE_QOS_POLICY, (task_policy_t)&qosinfo, TASK_QOS_POLICY_COUNT);
-#else
-    UNUSED_PARAM(latencyQOS);
-    UNUSED_PARAM(throughputQOS);
-#endif
 }
 
 } // namespace WebKit

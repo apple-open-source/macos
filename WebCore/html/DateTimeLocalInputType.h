@@ -36,7 +36,7 @@
 
 namespace WebCore {
 
-class DateTimeLocalInputType : public BaseChooserOnlyDateAndTimeInputType {
+class DateTimeLocalInputType final : public BaseChooserOnlyDateAndTimeInputType {
 public:
     explicit DateTimeLocalInputType(HTMLInputElement& element) : BaseChooserOnlyDateAndTimeInputType(element) { }
 
@@ -45,7 +45,7 @@ private:
     virtual DateComponents::Type dateType() const override;
     virtual double valueAsDate() const override;
     virtual void setValueAsDate(double, ExceptionCode&) const override;
-    virtual StepRange createStepRange(AnyStepHandling) const;
+    virtual StepRange createStepRange(AnyStepHandling) const override;
     virtual bool parseToDateComponentsInternal(const UChar*, unsigned length, DateComponents*) const override;
     virtual bool setMillisecondToDateComponents(double, DateComponents*) const override;
     virtual bool isDateTimeLocalField() const override;

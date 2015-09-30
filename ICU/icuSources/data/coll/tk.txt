@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/collation/tk.xml
@@ -10,11 +10,20 @@
  * ICU <specials> source: <path>/xml/collation/tk.xml
  */
 tk{
-    Version{"2.0.82.68"}
+    Version{"2.0.97.41"}
     collations{
         standard{
-            Sequence{"&C<ç<<<Ç&E<ä<<<Ä&J<ž<<<Ž&N<ň<<<Ň&O<ö<<<Ö&S<ş<<<Ş&U<ü<<<Ü&Y<ý<<<Ý"}
-            Version{"24"}
+            Sequence{
+                "&C<ç<<<Ç"
+                "&E<ä<<<Ä"
+                "&J<ž<<<Ž"
+                "&N<ň<<<Ň"
+                "&O<ö<<<Ö"
+                "&S<ş<<<Ş"
+                "&U<ü<<<Ü"
+                "&Y<ý<<<Ý"
+            }
+            Version{"26"}
         }
     }
 }

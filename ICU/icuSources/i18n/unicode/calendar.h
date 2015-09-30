@@ -127,9 +127,9 @@ class BasicTimeZone;
  *
  * <p>
  * <strong>Ambiguous Wall Clock Time.</strong> When time offset from UTC has
- * changed, it produces ambiguous time slot around the transition. For example,
+ * changed, it produces an ambiguous time slot around the transition. For example,
  * many US locations observe daylight saving time. On the date switching to daylight
- * saving time in US, wall clock time jumps from 1:00 AM (standard) to 2:00 AM
+ * saving time in US, wall clock time jumps from 12:59 AM (standard) to 2:00 AM
  * (daylight). Therefore, wall clock time from 1:00 AM to 1:59 AM do not exist on
  * the date. When the input wall time fall into this missing time slot, the ICU
  * Calendar resolves the time using the UTC offset before the transition by default.
@@ -1294,8 +1294,17 @@ public:
 
     /**
      * Clears the values of all the time fields, making them both unset and assigning
-     * them a value of zero. The field values will be determined during the next
-     * resolving of time into time fields.
+     * them a value of zero (except for era in some cases, see below). The field values
+     * will be determined during the next resolving of time into time fields.
+     *
+     * This effectively results in the following:
+     * 1. Gregorian-like calendars (gregorian, iso8601, japanese, buddhist, roc) are set
+     *    to a UDate value of 0, corresponding to the epoch date of gregorian
+     *    January 1, 1970 CE at UTC 00:00:00.
+     * 2. Other calendars are set to the beginning of the first day of the first month of
+     *    the current era.  Note that for the chinese and dangi calendars, the era
+     *    corresponds to the current 60-year stem-branch cycle, so there is a new era
+     *    every 60 years. The current era began on gregorian February 2, 1984.
      * @stable ICU 2.0
      */
     void clear(void);
@@ -2164,7 +2173,7 @@ private:
 
     /**
      * Time zone affects the time calculation done by Calendar. Calendar subclasses use
-     * the time zone data to produce the local time.
+     * the time zone data to produce the local time. Always set; never NULL.
      */
     TimeZone*   fZone;
 
@@ -2461,6 +2470,36 @@ private:
      * @return TRUE if a transition is found.
      */
     UBool getImmediatePreviousZoneTransition(UDate base, UDate *transitionTime, UErrorCode& status) const;
+
+public:
+#ifndef U_HIDE_INTERNAL_API
+    /**
+     * Creates a new Calendar from a Locale for the cache.
+     * This method does not set the time or timezone in returned calendar.
+     * @param locale the locale.
+     * @param status any error returned here.
+     * @return the new Calendar object with no time or timezone set.
+     * @internal For ICU use only.
+     */
+    static Calendar * U_EXPORT2 makeInstance(
+            const Locale &locale, UErrorCode &status);
+
+    /**
+     * Get the calendar type for given locale.
+     * @param locale the locale
+     * @param typeBuffer calendar type returned here
+     * @param typeBufferSize The size of typeBuffer in bytes. If the type
+     *   can't fit in the buffer, this method sets status to
+     *   U_BUFFER_OVERFLOW_ERROR
+     * @param status error, if any, returned here.
+     * @internal For ICU use only.
+     */
+    static void U_EXPORT2 getCalendarTypeFromLocale(
+            const Locale &locale,
+            char *typeBuffer,
+            int32_t typeBufferSize,
+            UErrorCode &status);
+#endif  /* U_HIDE_INTERNAL_API */
 };
 
 // -------------------------------------
@@ -2486,7 +2525,7 @@ Calendar::roll(EDateFields field, UBool up, UErrorCode& status)
 {
     roll((UCalendarDateFields) field, up, status);
 }
-#endif
+#endif  /* U_HIDE_DEPRECATED_API */
 
 
 // -------------------------------------
@@ -2510,7 +2549,7 @@ inline int32_t  Calendar::weekNumber(int32_t dayOfPeriod, int32_t dayOfWeek)
 {
   return weekNumber(dayOfPeriod, dayOfPeriod, dayOfWeek);
 }
-#endif
+#endif  /* U_HIDE_INTERNAL_API */
 
 U_NAMESPACE_END
 

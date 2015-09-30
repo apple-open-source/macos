@@ -29,6 +29,7 @@
 .Op Fl m Ar mask
 .Op Fl o Ar options
 .Op Fl j
+.Op Fl c
 .Op Fl w
 .Op Fl x
 .Ar special 
@@ -88,6 +89,8 @@ See the
 man page for possible options and their meanings.
 .It Fl j
 Ignore the journal for this mount.
+.It Fl c
+Disable group commit for journaling.
 .It Fl w
 Mount the HFS wrapper volume.
 .It Fl x

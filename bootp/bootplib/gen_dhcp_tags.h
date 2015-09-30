@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -132,6 +132,9 @@ enum {
     /* DNS domain search option (RFC 3397) */
     dhcptag_domain_search_e            	= 119,
 
+    /* classless static route option (RFC 3442) */
+    dhcptag_classless_static_route_e   	= 121,
+
     /* proxy auto discovery */
     dhcptag_proxy_auto_discovery_url_e 	= 252,
 
@@ -173,7 +176,6 @@ enum {
     dhcptag_117_e                      	= 117,
     dhcptag_118_e                      	= 118,
     dhcptag_120_e                      	= 120,
-    dhcptag_121_e                      	= 121,
     dhcptag_122_e                      	= 122,
     dhcptag_123_e                      	= 123,
     dhcptag_124_e                      	= 124,
@@ -397,6 +399,7 @@ enum {
 #define DHCPTAG_NETINFO_SERVER_TAG         	"netinfo_server_tag"
 #define DHCPTAG_AUTO_CONFIGURE             	"auto_configure"
 #define DHCPTAG_DOMAIN_SEARCH              	"domain_search"
+#define DHCPTAG_CLASSLESS_STATIC_ROUTE     	"classless_static_route"
 #define DHCPTAG_PROXY_AUTO_DISCOVERY_URL   	"proxy_auto_discovery_url"
 
 /* undefined */
@@ -437,7 +440,6 @@ enum {
 #define DHCPTAG_117                        	"117"
 #define DHCPTAG_118                        	"118"
 #define DHCPTAG_120                        	"120"
-#define DHCPTAG_121                        	"121"
 #define DHCPTAG_122                        	"122"
 #define DHCPTAG_123                        	"123"
 #define DHCPTAG_124                        	"124"

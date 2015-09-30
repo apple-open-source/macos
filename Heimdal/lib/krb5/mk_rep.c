@@ -38,18 +38,19 @@ krb5_mk_rep(krb5_context context,
 	    krb5_auth_context auth_context,
 	    krb5_data *outbuf)
 {
+    krb5_crypto crypto = NULL;
     krb5_error_code ret;
-    AP_REP ap;
+    uint8_t *buf = NULL;
     EncAPRepPart body;
-    u_char *buf = NULL;
     size_t buf_size;
     size_t len = 0;
-    krb5_crypto crypto;
+    AP_REP ap;
+
+    memset (&ap, 0, sizeof(ap));
+    memset (&body, 0, sizeof(body));
 
     ap.pvno = 5;
     ap.msg_type = krb_ap_rep;
-
-    memset (&body, 0, sizeof(body));
 
     body.ctime = auth_context->authenticator->ctime;
     body.cusec = auth_context->authenticator->cusec;
@@ -58,18 +59,14 @@ krb5_mk_rep(krb5_context context,
 	    ret = krb5_auth_con_generatelocalsubkey(context,
 						    auth_context,
 						    auth_context->keyblock);
-	    if(ret) {
-		free_EncAPRepPart(&body);
-		return ret;
-	    }
+	    if(ret)
+		goto out;
 	}
 	ret = krb5_copy_keyblock(context, auth_context->local_subkey,
 				 &body.subkey);
 	if (ret) {
-	    free_EncAPRepPart(&body);
-	    krb5_set_error_message(context, ENOMEM,
-				   N_("malloc: out of memory", ""));
-	    return ENOMEM;
+	    ret = krb5_enomem(context);
+	    goto out;
 	}
     } else
 	body.subkey = NULL;
@@ -80,9 +77,8 @@ krb5_mk_rep(krb5_context context,
 				      &auth_context->local_seqnumber);
 	ALLOC(body.seq_number, 1);
 	if (body.seq_number == NULL) {
-	    krb5_set_error_message(context, ENOMEM, "malloc: out of memory");
-	    free_EncAPRepPart(&body);
-	    return ENOMEM;
+	    ret = krb5_enomem(context);
+	    goto out;
 	}
 	*(body.seq_number) = auth_context->local_seqnumber;
     } else
@@ -91,32 +87,50 @@ krb5_mk_rep(krb5_context context,
     ap.enc_part.etype = auth_context->keyblock->keytype;
     ap.enc_part.kvno  = NULL;
 
+    /*
+     * Use CF2 to merge DH key all 3 keys, session and both subkeys keys.
+     */
+
+    if (auth_context->pfs) {
+	ret = _krb5_pfs_mk_rep(context, auth_context, &ap);
+	if (ret)
+	    goto out;
+    }
+
+    /*
+     *
+     */
+
     ASN1_MALLOC_ENCODE(EncAPRepPart, buf, buf_size, &body, &len, ret);
-    free_EncAPRepPart (&body);
     if(ret)
-	return ret;
+	goto out;
     if (buf_size != len)
 	krb5_abortx(context, "internal error in ASN.1 encoder");
+
     ret = krb5_crypto_init(context, auth_context->keyblock,
 			   0 /* ap.enc_part.etype */, &crypto);
-    if (ret) {
-	free (buf);
-	return ret;
-    }
+    if (ret)
+	goto out;
+
     ret = krb5_encrypt (context,
 			crypto,
 			KRB5_KU_AP_REQ_ENC_PART,
 			buf + buf_size - len,
 			len,
 			&ap.enc_part.cipher);
-    krb5_crypto_destroy(context, crypto);
-    free(buf);
     if (ret)
-	return ret;
+	goto out;
 
     ASN1_MALLOC_ENCODE(AP_REP, outbuf->data, outbuf->length, &ap, &len, ret);
     if (ret == 0 && outbuf->length != len)
 	krb5_abortx(context, "internal error in ASN.1 encoder");
+ out:
+    if (buf)
+	free(buf);
+    if (crypto)
+	krb5_crypto_destroy(context, crypto);
+    free_EncAPRepPart (&body);
     free_AP_REP (&ap);
+
     return ret;
 }

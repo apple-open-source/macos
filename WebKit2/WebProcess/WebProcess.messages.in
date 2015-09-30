@@ -21,16 +21,16 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 messages -> WebProcess LegacyReceiver {
-    # Initialize the WebProcess. 
-    InitializeWebProcess(WebKit::WebProcessCreationParameters processCreationParameters, WebKit::WebContextUserMessageEncoder initializationUserData) Variadic
+    InitializeWebProcess(struct WebKit::WebProcessCreationParameters processCreationParameters)
 
     # Create a new page.
-    CreateWebPage(uint64_t newPageID, WebKit::WebPageCreationParameters pageCreationParameters)
+    CreateWebPage(uint64_t newPageID, struct WebKit::WebPageCreationParameters pageCreationParameters)
 
     # Global preferences.
     SetCacheModel(uint32_t cacheModel)
     RegisterURLSchemeAsEmptyDocument(String scheme)
     RegisterURLSchemeAsSecure(String scheme)
+    RegisterURLSchemeAsBypassingContentSecurityPolicy(String scheme)
     SetDomainRelaxationForbiddenForURLScheme(String scheme)
     RegisterURLSchemeAsLocal(String scheme)
     RegisterURLSchemeAsNoAccess(String scheme)
@@ -56,16 +56,19 @@ messages -> WebProcess LegacyReceiver {
     DidAddPlugInAutoStartOriginHash(uint32_t hash, double expirationTime, WebCore::SessionID sessionID)
     ResetPlugInAutoStartOriginDefaultHashes(HashMap<uint32_t,double> hashes)
     ResetPlugInAutoStartOriginHashes(HashMap<WebCore::SessionID, HashMap<uint32_t,double>> hashes)
+    SetPluginLoadClientPolicy(uint8_t policy, String host, String bundleIdentifier, String versionString)
+    ClearPluginClientPolicies()
 
     void StartMemorySampler(WebKit::SandboxExtension::Handle sampleLogFileHandle, String sampleLogFilePath, double interval);
     void StopMemorySampler();
 
     # Downloads. This should really be in a Download.messages.in, but it seemed unnecessary to create a new file just for
-    # two messages.
+    # three messages.
     DownloadRequest(uint64_t downloadID, uint64_t initiatingPageID, WebCore::ResourceRequest request)
+    ResumeDownload(uint64_t downloadID, IPC::DataReference resumeData, String path, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
     CancelDownload(uint64_t downloadID)
 
-    SetTextCheckerState(WebKit::TextCheckerState textCheckerState)
+    SetTextCheckerState(struct WebKit::TextCheckerState textCheckerState)
 
     SetEnhancedAccessibility(bool flag)
 
@@ -74,9 +77,13 @@ messages -> WebProcess LegacyReceiver {
     SetJavaScriptGarbageCollectorTimerEnabled(bool enable)
 
     SetInjectedBundleParameter(String parameter, IPC::DataReference value);
-    PostInjectedBundleMessage(IPC::DataReference messageData);
+    HandleInjectedBundleMessage(String messageName, WebKit::UserData messageBody);
 
     ReleasePageCache()
+
+    FetchWebsiteData(WebCore::SessionID sessionID, uint64_t websiteDataTypes, uint64_t callbackID)
+    DeleteWebsiteData(WebCore::SessionID sessionID, uint64_t websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID)
+    DeleteWebsiteDataForOrigins(WebCore::SessionID sessionID, uint64_t websiteDataTypes, Vector<WebKit::SecurityOriginData> origins, uint64_t callbackID)
 
     SetProcessSuppressionEnabled(bool flag)
 #if PLATFORM(COCOA)
@@ -93,6 +100,8 @@ messages -> WebProcess LegacyReceiver {
     SetEnabledServices(bool hasImageServices, bool hasSelectionServices, bool hasRichContentServices)
 #endif
 
-    ProcessWillSuspend()
-    CancelProcessWillSuspend()
+    ProcessWillSuspendImminently() -> (bool handled)
+    PrepareToSuspend()
+    CancelPrepareToSuspend()
+    ProcessDidResume()
 }

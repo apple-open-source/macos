@@ -1,0 +1,27 @@
+---
+abstract: 'Log4j implementation for Perl'
+author:
+  - 'Mike Schilli <m@perlmeister.com>'
+build_requires:
+  ExtUtils::MakeMaker: 0
+configure_requires:
+  ExtUtils::MakeMaker: 0
+dynamic_config: 1
+generated_by: 'ExtUtils::MakeMaker version 6.98, CPAN::Meta::Converter version 2.131560'
+license: unknown
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Log-Log4perl
+no_index:
+  directory:
+    - t
+    - inc
+requires:
+  File::Path: 2.0606
+  File::Spec: 0.82
+  Test::More: 0.45
+resources:
+  MailingList: mailto:log4perl-devel@lists.sourceforge.net
+  repository: http://github.com/mschilli/log4perl
+version: 1.44

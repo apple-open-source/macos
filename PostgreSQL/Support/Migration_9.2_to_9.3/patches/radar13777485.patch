@@ -1,0 +1,12 @@
+--- postgresql-9.2.4/src/bin/pg_ctl/pg_ctl.c	2013-05-16 16:04:09.000000000 -0700
++++ postgresql/src/bin/pg_ctl/pg_ctl.c	2013-05-16 16:04:51.000000000 -0700
+@@ -616,7 +616,8 @@
+ 		 * file there but it appears stale, issue a suitable warning and give
+ 		 * up waiting.
+ 		 */
+-		if (i >= 5)
++		// APPLE: Increasing the window to tolerate potential startup delays.
++		if (i >= 60)
+ 		{
+ 			struct stat statbuf;
+ 

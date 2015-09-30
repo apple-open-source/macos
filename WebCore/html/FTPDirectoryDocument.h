@@ -31,16 +31,16 @@ namespace WebCore {
     
 class DOMImplementation;
     
-class FTPDirectoryDocument : public HTMLDocument {
+class FTPDirectoryDocument final : public HTMLDocument {
 public:
-    static PassRefPtr<FTPDirectoryDocument> create(Frame* frame, const URL& url)
+    static Ref<FTPDirectoryDocument> create(Frame* frame, const URL& url)
     {
-        return adoptRef(new FTPDirectoryDocument(frame, url));
+        return adoptRef(*new FTPDirectoryDocument(frame, url));
     }
 
 private:
     FTPDirectoryDocument(Frame*, const URL&);
-    virtual PassRefPtr<DocumentParser> createParser() override;
+    virtual Ref<DocumentParser> createParser() override;
 };
     
 } // namespace WebCore

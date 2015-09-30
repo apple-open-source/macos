@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,19 +35,23 @@
 namespace JSC { namespace DFG {
 
 enum UseKind {
-    UntypedUse,
+    // The DFG has 3 representations of values used:
+
+    // 1. The JSValue representation for a JSValue that must be stored in a GP
+    //    register (or a GP register pair), and follows rules for boxing and unboxing
+    //    that allow the JSValue to be stored as either fully boxed JSValues, or
+    //    unboxed Int32, Booleans, Cells, etc. in 32-bit as appropriate.
+    UntypedUse, // UntypedUse must come first (value 0).
     Int32Use,
     KnownInt32Use,
-    Int52RepUse,
     MachineIntUse,
     NumberUse,
-    DoubleRepUse,
-    DoubleRepRealUse,
-    DoubleRepMachineIntUse,
+    RealNumberUse,
     BooleanUse,
     CellUse,
     KnownCellUse,
     ObjectUse,
+    FunctionUse,
     FinalObjectUse,
     ObjectOrOtherUse,
     StringIdentUse,
@@ -59,6 +63,17 @@ enum UseKind {
     NotCellUse,
     OtherUse,
     MiscUse,
+
+    // 2. The Double representation for an unboxed double value that must be stored
+    //    in an FP register.
+    DoubleRepUse,
+    DoubleRepRealUse,
+    DoubleRepMachineIntUse,
+
+    // 3. The Int52 representation for an unboxed integer value that must be stored
+    //    in a GP register.
+    Int52RepUse,
+
     LastUseKind // Must always be the last entry in the enum, as it is used to denote the number of enum elements.
 };
 
@@ -76,6 +91,8 @@ inline SpeculatedType typeFilterFor(UseKind useKind)
         return SpecInt32 | SpecInt52AsDouble;
     case NumberUse:
         return SpecBytecodeNumber;
+    case RealNumberUse:
+        return SpecBytecodeRealNumber;
     case DoubleRepUse:
         return SpecFullDouble;
     case DoubleRepRealUse:
@@ -89,6 +106,8 @@ inline SpeculatedType typeFilterFor(UseKind useKind)
         return SpecCell;
     case ObjectUse:
         return SpecObject;
+    case FunctionUse:
+        return SpecFunction;
     case FinalObjectUse:
         return SpecFinalObject;
     case ObjectOrOtherUse:
@@ -142,6 +161,7 @@ inline bool isNumerical(UseKind kind)
     case Int32Use:
     case KnownInt32Use:
     case NumberUse:
+    case RealNumberUse:
     case Int52RepUse:
     case DoubleRepUse:
     case DoubleRepRealUse:
@@ -171,6 +191,7 @@ inline bool isCell(UseKind kind)
     case CellUse:
     case KnownCellUse:
     case ObjectUse:
+    case FunctionUse:
     case FinalObjectUse:
     case StringIdentUse:
     case StringUse:
@@ -194,6 +215,17 @@ inline bool usesStructure(UseKind kind)
     default:
         return false;
     }
+}
+
+// Returns true if we've already guaranteed the type 
+inline bool alreadyChecked(UseKind kind, SpeculatedType type)
+{
+    // If the check involves the structure then we need to know more than just the type to be sure
+    // that the check is done.
+    if (usesStructure(kind))
+        return false;
+    
+    return !(type & ~typeFilterFor(kind));
 }
 
 inline UseKind useKindForResult(NodeFlags result)

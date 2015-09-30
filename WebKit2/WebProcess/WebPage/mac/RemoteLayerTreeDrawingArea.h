@@ -34,6 +34,7 @@
 #include <atomic>
 #include <dispatch/dispatch.h>
 #include <wtf/HashMap.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 class PlatformCALayer;
@@ -56,12 +57,14 @@ public:
 
     uint64_t nextTransactionID() const { return m_currentTransactionID + 1; }
 
+    WeakPtr<RemoteLayerTreeDrawingArea> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
+    
 private:
     // DrawingArea
     virtual void setNeedsDisplay() override;
     virtual void setNeedsDisplayInRect(const WebCore::IntRect&) override;
     virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) override;
-    virtual void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition) override;
+    virtual void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition, bool flushSynchronously, const WebCore::MachSendRight& fencePort) override;
 
     virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) override;
@@ -89,8 +92,10 @@ private:
     virtual WebCore::FloatRect exposedRect() const override { return m_scrolledExposedRect; }
 
     virtual void acceleratedAnimationDidStart(uint64_t layerID, const String& key, double startTime) override;
+    virtual void acceleratedAnimationDidEnd(uint64_t layerID, const String& key) override;
 
 #if PLATFORM(IOS)
+    virtual WebCore::FloatRect exposedContentRect() const override;
     virtual void setExposedContentRect(const WebCore::FloatRect&) override;
 #endif
 
@@ -106,15 +111,10 @@ private:
 
     virtual bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) override;
 
-    // GraphicsLayerClient
-    virtual void notifyAnimationStarted(const WebCore::GraphicsLayer*, double time) override { }
-    virtual void notifyFlushRequired(const WebCore::GraphicsLayer*) override { }
-    virtual void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, WebCore::GraphicsLayerPaintingPhase, const WebCore::FloatRect& inClip) override { }
-
     void updateScrolledExposedRect();
     void updateRootLayers();
 
-    void layerFlushTimerFired(WebCore::Timer*);
+    void layerFlushTimerFired();
     void flushLayers();
 
     WebCore::TiledBacking* mainFrameTiledBacking() const;
@@ -125,7 +125,7 @@ private:
 
     class BackingStoreFlusher : public ThreadSafeRefCounted<BackingStoreFlusher> {
     public:
-        static PassRefPtr<BackingStoreFlusher> create(IPC::Connection*, std::unique_ptr<IPC::MessageEncoder>, Vector<RetainPtr<CGContextRef>>);
+        static Ref<BackingStoreFlusher> create(IPC::Connection*, std::unique_ptr<IPC::MessageEncoder>, Vector<RetainPtr<CGContextRef>>);
 
         void flush();
         bool hasFlushed() const { return m_hasFlushed; }
@@ -169,10 +169,12 @@ private:
 
     WebCore::GraphicsLayer* m_contentLayer;
     WebCore::GraphicsLayer* m_viewOverlayRootLayer;
+    
+    WeakPtrFactory<RemoteLayerTreeDrawingArea> m_weakPtrFactory;
 };
 
-DRAWING_AREA_TYPE_CASTS(RemoteLayerTreeDrawingArea, type() == DrawingAreaTypeRemoteLayerTree);
-
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_DRAWING_AREA(RemoteLayerTreeDrawingArea, DrawingAreaTypeRemoteLayerTree)
 
 #endif // RemoteLayerTreeDrawingArea_h

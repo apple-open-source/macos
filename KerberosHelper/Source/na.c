@@ -1094,6 +1094,7 @@ guess_kerberos(NAHRef na)
 static void
 guess_ntlm(NAHRef na)
 {
+    OM_uint32 junk;
     CFStringRef s;
     unsigned long flags = USE_SPNEGO;
 
@@ -1160,7 +1161,7 @@ guess_ntlm(NAHRef na)
     if (sema == NULL)
 	goto out;
 
-    (void)gss_iter_creds(NULL, 0, GSS_NTLM_MECHANISM, ^(gss_OID oid, gss_cred_id_t cred) {
+    (void)gss_iter_creds(&junk, 0, GSS_NTLM_MECHANISM, ^(gss_OID oid, gss_cred_id_t cred) {
 	    OM_uint32 min_stat;
 	    gss_name_t name = GSS_C_NO_NAME;
 	    gss_buffer_desc buffer = { 0, NULL };
@@ -2239,6 +2240,7 @@ NAHCopyReferenceKey(NAHSelectionRef selection)
 void
 NAHFindByLabelAndRelease(CFStringRef identifier)
 {
+    OM_uint32 junk;
     char *str;
 
     nalog(ASL_LEVEL_DEBUG, CFSTR("NAHFindByLabelAndRelease: looking for label %@"), identifier);
@@ -2247,7 +2249,7 @@ NAHFindByLabelAndRelease(CFStringRef identifier)
     if (str == NULL)
 	return;
 
-    gss_iter_creds(NULL, 0, GSS_C_NO_OID, ^(gss_OID mech, gss_cred_id_t cred) {
+    (void)gss_iter_creds(&junk, 0, GSS_C_NO_OID, ^(gss_OID mech, gss_cred_id_t cred) {
 	    OM_uint32 min_stat, maj_stat;
 	    gss_buffer_desc buffer;
 

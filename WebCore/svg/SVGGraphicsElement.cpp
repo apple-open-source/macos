@@ -22,10 +22,8 @@
 #include "SVGGraphicsElement.h"
 
 #include "AffineTransform.h"
-#include "Attribute.h"
 #include "RenderSVGPath.h"
 #include "RenderSVGResource.h"
-#include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include "SVGPathData.h"
 #include <wtf/NeverDestroyed.h>
@@ -111,11 +109,6 @@ bool SVGGraphicsElement::isSupportedAttribute(const QualifiedName& attrName)
 
 void SVGGraphicsElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(name)) {
-        SVGElement::parseAttribute(name, value);
-        return;
-    }
-
     if (name == SVGNames::transformAttr) {
         SVGTransformList newList;
         newList.parse(value);
@@ -124,10 +117,8 @@ void SVGGraphicsElement::parseAttribute(const QualifiedName& name, const AtomicS
         return;
     }
 
-    if (SVGTests::parseAttribute(name, value))
-        return;
-
-    ASSERT_NOT_REACHED();
+    SVGElement::parseAttribute(name, value);
+    SVGTests::parseAttribute(name, value);
 }
 
 void SVGGraphicsElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -137,7 +128,7 @@ void SVGGraphicsElement::svgAttributeChanged(const QualifiedName& attrName)
         return;
     }
 
-    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    InstanceInvalidationGuard guard(*this);
 
     if (SVGTests::handleAttributeChange(this, attrName))
         return;
@@ -170,7 +161,7 @@ FloatRect SVGGraphicsElement::getBBox(StyleUpdateStrategy styleUpdateStrategy)
     return SVGTransformable::getBBox(this, styleUpdateStrategy);
 }
 
-RenderPtr<RenderElement> SVGGraphicsElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> SVGGraphicsElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     // By default, any subclass is expected to do path-based drawing
     return createRenderer<RenderSVGPath>(*this, WTF::move(style));

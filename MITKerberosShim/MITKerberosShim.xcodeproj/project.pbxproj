@@ -603,6 +603,7 @@
 		EBBC53141083F7AA00F580FB /* locate_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = locate_plugin.h; path = Kerberos/locate_plugin.h; sourceTree = "<group>"; };
 		EBBC53151083F7AA00F580FB /* preauth_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = preauth_plugin.h; path = Kerberos/preauth_plugin.h; sourceTree = "<group>"; };
 		EBBC53161083F7AA00F580FB /* profile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = profile.h; path = Kerberos/profile.h; sourceTree = "<group>"; };
+		EBBD59FD1AA6F3C000A5EFAD /* Kerberos.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; name = Kerberos.modulemap; path = Modules/Kerberos.modulemap; sourceTree = "<group>"; };
 		EBBFB0CE100D5E9500BF3DAE /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		EBC0CF2E1083B84A00B5BAAD /* test_cc_ccache_clear_kdc_time_offset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_clear_kdc_time_offset.c; path = mittestcc/test_cc_ccache_clear_kdc_time_offset.c; sourceTree = "<group>"; };
 		EBC0CF2F1083B84A00B5BAAD /* test_cc_ccache_compare.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_compare.c; path = mittestcc/test_cc_ccache_compare.c; sourceTree = "<group>"; };
@@ -802,6 +803,7 @@
 			isa = PBXGroup;
 			children = (
 				08FB77AFFE84173DC02AAC07 /* Source */,
+				EBBD59FC1AA6F39600A5EFAD /* Modules */,
 				089C167CFE841241C02AAC07 /* Resources */,
 				089C1671FE841209C02AAC07 /* External Frameworks and Libraries */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
@@ -1055,6 +1057,14 @@
 				EBBC53161083F7AA00F580FB /* profile.h */,
 			);
 			name = Kerberos;
+			sourceTree = "<group>";
+		};
+		EBBD59FC1AA6F39600A5EFAD /* Modules */ = {
+			isa = PBXGroup;
+			children = (
+				EBBD59FD1AA6F3C000A5EFAD /* Kerberos.modulemap */,
+			);
+			name = Modules;
 			sourceTree = "<group>";
 		};
 		EBC0CF2D1083B82400B5BAAD /* mittestcc */ = {
@@ -1984,12 +1994,13 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 5.0.0;
 				DYLIB_CURRENT_VERSION = 6.0.0;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exported-symbols";
 				FRAMEWORK_SEARCH_PATHS = (
-					"/System/Library/Frameworks/**",
-					"/System/Library/PrivateFrameworks/**",
+					/System/Library/Frameworks,
+					/System/Library/PrivateFrameworks,
 				);
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1997,6 +2008,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "Kerberos-Info.plist";
 				INSTALL_PATH = "$(HEIMDAL_ROOT)/System/Library/Frameworks";
+				MODULEMAP_FILE = Modules/Kerberos.modulemap;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = Kerberos;
 				SDKROOT = "";
@@ -2009,18 +2021,20 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 5.0.0;
 				DYLIB_CURRENT_VERSION = 6.0.0;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exported-symbols";
 				FRAMEWORK_SEARCH_PATHS = (
-					"/System/Library/Frameworks/**",
-					"/System/Library/PrivateFrameworks/**",
+					/System/Library/Frameworks,
+					/System/Library/PrivateFrameworks,
 				);
 				FRAMEWORK_VERSION = A;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INFOPLIST_FILE = "Kerberos-Info.plist";
 				INSTALL_PATH = "$(HEIMDAL_ROOT)/System/Library/Frameworks";
+				MODULEMAP_FILE = Modules/Kerberos.modulemap;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = Kerberos;
 				SDKROOT = "";

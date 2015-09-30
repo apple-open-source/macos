@@ -442,8 +442,8 @@ _gss_load_mech(void)
 	HEIMDAL_MUTEX_unlock(&_gss_mech_mutex);
 }
 
-struct gssapi_mech_interface_desc *
-__gss_get_mechanism(gss_const_OID mech)
+struct gssapi_mech_interface_desc *__nullable
+__gss_get_mechanism(__nonnull gss_const_OID mech)
 {
         struct _gss_mech_switch	*m;
 
@@ -455,8 +455,8 @@ __gss_get_mechanism(gss_const_OID mech)
 	return NULL;
 }
 
-gss_OID
-_gss_mg_support_mechanism(gss_const_OID mech)
+__nullable gss_OID
+_gss_mg_support_mechanism(__nonnull gss_const_OID mech)
 {
         struct _gss_mech_switch	*m;
 

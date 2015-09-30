@@ -35,16 +35,10 @@
 
 namespace WebCore {
 
-bool ResourceRequest::useQuickLookResourceCachingQuirks()
-{
-    return false;
-}
-
 #if USE(CFNETWORK)
 
 ResourceRequest::ResourceRequest(NSURLRequest *nsRequest)
     : ResourceRequestBase()
-    , m_mainResourceRequest(false)
     , m_cfRequest([nsRequest _CFURLRequest])
     , m_nsRequest(nsRequest)
 {

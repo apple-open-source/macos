@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -458,21 +458,16 @@ SCNetworkServiceCopyAll(SCPreferencesRef prefs)
 			SCNetworkServicePrivateRef	servicePrivate;
 
 			if (!isA_CFDictionary(vals[i])) {
-				SCLog(TRUE,
-				      LOG_INFO,
-				      CFSTR("SCNetworkServiceCopyAll(): error w/service \"%@\"\n"),
-				      keys[i]);
+				SC_log(LOG_INFO, "error w/service \"%@\"", keys[i]);
 				continue;
 			}
 
 			entity = CFDictionaryGetValue(vals[i], kSCEntNetInterface);
 			if (!isA_CFDictionary(entity)) {
 				// if no "interface"
-				SCLog(TRUE,
-				      LOG_INFO,
-				      CFSTR("SCNetworkServiceCopyAll(): no \"%@\" entity for service \"%@\"\n"),
-				      kSCEntNetInterface,
-				      keys[i]);
+				SC_log(LOG_INFO, "no \"%@\" entity for service \"%@\"",
+				       kSCEntNetInterface,
+				       keys[i]);
 				continue;
 			}
 
@@ -903,9 +898,8 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 			}
 
 			if (!__SCNetworkInterfaceSetConfiguration(interface, NULL, config, TRUE)) {
-				SCLog(TRUE, LOG_DEBUG,
-				      CFSTR("SCNetworkService __SCNetworkInterfaceSetConfiguration failed(), interface=%@, type=NULL"),
-				      interface);
+				SC_log(LOG_INFO, "__SCNetworkInterfaceSetConfiguration failed(), interface=%@, type=NULL",
+				       interface);
 			}
 			CFRelease(config);
 		}
@@ -1084,7 +1078,7 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 
 	useSystemInterfaces = ((__SCPreferencesUsingDefaultPrefs(servicePrivate->prefs)) &&
 			       (__SCPreferencesGetLimitSCNetworkConfiguration(servicePrivate->prefs) == FALSE));
-	
+
 	if (isA_CFDictionary(entity)) {
 		name = CFDictionaryGetValue(entity, kSCPropUserDefinedName);
 		if (isA_CFString(name)) {
@@ -2058,7 +2052,7 @@ copyInterfaceConfiguration(SCNetworkServiceRef oldService, SCNetworkServiceRef n
 		if ((configuration != NULL) ||
 		    (SCError() == kSCStatusOK)) {
 			if (SCNetworkInterfaceSetConfiguration(newInterface, configuration) == FALSE) {
-				SCLog(_sc_debug, LOG_DEBUG, CFSTR("problem setting interface configuration"));
+				SC_log(LOG_INFO, "problem setting interface configuration");
 			}
 
 		}
@@ -2079,7 +2073,7 @@ copyInterfaceConfiguration(SCNetworkServiceRef oldService, SCNetworkServiceRef n
 					if ((configuration != NULL) ||
 					    (SCError() == kSCStatusOK)) {
 						if (SCNetworkInterfaceSetExtendedConfiguration(newInterface, kSCEntNetIPSec, configuration) == FALSE) {
-							SCLog(_sc_debug, LOG_DEBUG, CFSTR("problem setting child interface configuration"));
+							SC_log(LOG_INFO, "problem setting child interface configuration");
 						}
 					}
 				}
@@ -2128,8 +2122,9 @@ copyInterfaceConfiguration(SCNetworkServiceRef oldService, SCNetworkServiceRef n
 	return;
 }
 
-static void
-addProtocolToService(SCNetworkServiceRef service, CFStringRef protocolType, CFDictionaryRef configuration, Boolean enabled)
+__private_extern__
+void
+__SCNetworkServiceAddProtocolToService(SCNetworkServiceRef service, CFStringRef protocolType, CFDictionaryRef configuration, Boolean enabled)
 {
 	Boolean ok;
 	SCNetworkProtocolRef protocol;
@@ -2193,18 +2188,17 @@ __SCNetworkServiceMigrateNew(SCPreferencesRef		prefs,
 	newService = SCNetworkServiceCopy(prefs, serviceID);
 	if (newService != NULL) {
 		// Cannot add service if it already exists
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceMigrateNew: Cannot add service if it already exists."));
+		SC_log(LOG_INFO, "Service already exists");
 		goto done;
 	}
 
 	oldInterface = SCNetworkServiceGetInterface(service);
 	interfaceEntity = __SCNetworkInterfaceCopyInterfaceEntity(oldInterface);
 	if (interfaceEntity == NULL) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceMigrateNew: interfaceEntity does not exist"));
+		SC_log(LOG_INFO, "No interface entity");
 		goto done;
 	}
 	interfaceEntityMutable = CFDictionaryCreateMutableCopy(NULL, 0, interfaceEntity);
-	CFRelease(interfaceEntity);
 
 	if (isA_CFDictionary(bsdMapping) != NULL) {
 		deviceName = CFDictionaryGetValue(interfaceEntityMutable, kSCPropNetInterfaceDeviceName);
@@ -2238,28 +2232,27 @@ __SCNetworkServiceMigrateNew(SCPreferencesRef		prefs,
 		}
 	}
 	newService = SCNetworkServiceCreate(prefs, interface);
-
 	if (newService == NULL) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceMigrateNew: Could not create new service"));
+		SC_log(LOG_INFO, "SCNetworkServiceCreate() failed");
 		goto done;
 	}
 
 	enabled = SCNetworkServiceGetEnabled(service);
 	SCNetworkServiceSetEnabled(newService, enabled);
-	
+
 	if (SCNetworkServiceEstablishDefaultConfiguration(newService) == FALSE) {
 		SCNetworkServiceRemove(newService);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceMigrateNew: SCNetworkServiceEstablishDefaultConfiguration failed"));
+		SC_log(LOG_INFO, "SCNetworkServiceEstablishDefaultConfiguration() failed");
 		goto done;
 	}
-	
+
 	// Set service ID
 	_SCNetworkServiceSetServiceID(newService, serviceID);
 
 	userDefinedName = SCNetworkServiceGetName(service);
 	if (userDefinedName != NULL &&
 	    SCNetworkServiceSetName(newService, userDefinedName) == FALSE) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceMigrateNew: Could not set service name to %@"), userDefinedName);
+		SC_log(LOG_INFO, "SCNetworkServiceSetName(, %@) failed", userDefinedName);
 	}
 
 	// Determine which sets to add service
@@ -2270,18 +2263,18 @@ __SCNetworkServiceMigrateNew(SCPreferencesRef		prefs,
 			for (CFIndex idx = 0; idx < CFArrayGetCount(setList); idx++) {
 				oldSet = CFArrayGetValueAtIndex(setList, idx);
 				newSet = CFDictionaryGetValue(setMapping, oldSet);
-				
+
 				if (newSet == NULL) {
 					continue;
 				}
 				if (SCNetworkSetAddService(newSet, newService) == FALSE) {
-					SCLog(_sc_debug, LOG_DEBUG, CFSTR("__SCNetworkServiceMigrateNew: Could not add service to set: %@"), newSet);
+					SC_log(LOG_INFO, "SCNetworkSetAddService() failed");
 					continue;
 				}
 			}
 		}
 	}
-	
+
 	protocols = SCNetworkServiceCopyProtocols(service);
 	if (protocols != NULL) {
 
@@ -2290,7 +2283,7 @@ __SCNetworkServiceMigrateNew(SCPreferencesRef		prefs,
 			CFDictionaryRef configuration = SCNetworkProtocolGetConfiguration(protocol);
 			CFStringRef protocolType = SCNetworkProtocolGetProtocolType(protocol);
 			enabled = SCNetworkProtocolGetEnabled(protocol);
-			addProtocolToService(newService, protocolType, configuration, enabled);
+			__SCNetworkServiceAddProtocolToService(newService, protocolType, configuration, enabled);
 		}
 		CFRelease(protocols);
 	}
@@ -2301,6 +2294,9 @@ __SCNetworkServiceMigrateNew(SCPreferencesRef		prefs,
 done:
 	if (interface != NULL) {
 		CFRelease(interface);
+	}
+	if (interfaceEntity != NULL) {
+		CFRelease(interfaceEntity);
 	}
 	if (interfaceEntityMutable != NULL) {
 		CFRelease(interfaceEntityMutable);
@@ -2338,31 +2334,31 @@ __SCNetworkServiceCreate(SCPreferencesRef	prefs,
 	if (userDefinedName == NULL) {
 		userDefinedName = __SCNetworkInterfaceGetUserDefinedName(interface);
 		if (userDefinedName == NULL) {
-			SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceCreate: userDefinedName is NULL"));
+			SC_log(LOG_INFO, "No userDefinedName");
 			goto done;
 		}
 	}
 	service = SCNetworkServiceCreate(prefs, interface);
 	if (service == NULL) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceCreate: Failed to create service: %s"), SCErrorString(SCError()));
+		SC_log(LOG_INFO, "SCNetworkServiceCreate() failed: %s", SCErrorString(SCError()));
 	} else {
 		ok = SCNetworkServiceSetName(service, userDefinedName);
 		if (ok == FALSE) {
-			SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceCreate: Failed to set name: %s"), SCErrorString(SCError()));
+			SC_log(LOG_INFO, "SCNetworkServiceSetName() failed: %s", SCErrorString(SCError()));
 			SCNetworkServiceRemove(service);
 			goto done;
 		}
 
 		ok = SCNetworkServiceEstablishDefaultConfiguration(service);
 		if (ok == FALSE) {
-			SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceCreate: Failed to establish default configuration: %s"), SCErrorString(SCError()));
+			SC_log(LOG_INFO, "SCNetworkServiceEstablishDefaultConfiguration() failed: %s", SCErrorString(SCError()));
 			SCNetworkServiceRemove(service);
 			goto done;
 		}
 	}
 	currentSet = SCNetworkSetCopyCurrent(prefs);
 	if (currentSet == NULL) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceCreate: Could not copy current set"));
+		SC_log(LOG_INFO, "No current set");
 		if (service != NULL) {
 			SCNetworkServiceRemove(service);
 		}
@@ -2371,7 +2367,7 @@ __SCNetworkServiceCreate(SCPreferencesRef	prefs,
 	if (service != NULL) {
 		ok = SCNetworkSetAddService(currentSet, service);
 		if (ok == FALSE) {
-			SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkServiceCreate: Could not add service to the current set"));
+			SC_log(LOG_INFO, "Could not add service to the current set");
 			SCNetworkServiceRemove(service);
 			goto done;
 		}

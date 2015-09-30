@@ -52,7 +52,7 @@
                 <string>/Library/Extensions</string>
             </array>
             <key>Path</key>
-            <string>/System/Library/Caches/com.apple.kext.caches/Startup/kernelcache</string>
+            <string>/System/Library/PrelinkedKernels/prelinkedkernel</string>
             <key>KernelPath</key>
             <string>/System/Library/Kernels/kernel</string>
             <key>KernelsDir</key>

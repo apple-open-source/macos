@@ -67,6 +67,7 @@ ifeq ($(AEP),YES)
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa-*/Lib/PyObjCTools/Conversion.py < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_Lib_PyObjCTools_Conversion.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa-*/PyObjCTest/test_cfmachport.py < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_PyObjCTest_test_cfmachport.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-LaunchServices-*/PyObjCTest/test_lsinfo.py < '$(SRCROOT)/patches/pyobjc-framework-LaunchServices_PyObjCTest_test_lsinfo.py.ed'
+	(cd $(SRCROOT)/$(Project)/pyobjc-framework-LaunchServices-* && patch -F0 -p0 < $(SRCROOT)/patches/LaunchServices-metadata.py.diff)
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Quartz-*/Lib/Quartz/CoreGraphics/_metadata.py < '$(SRCROOT)/patches/pyobjc-framework-Quartz_Lib_Quartz_CoreGraphics__metadata.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Quartz-*/PyObjCTest/test_camediatiming.py < '$(SRCROOT)/patches/pyobjc-framework-Quartz_PyObjCTest_test_camediatiming.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Quartz-*/PyObjCTest/test_cgdisplayconfiguration.py < '$(SRCROOT)/patches/pyobjc-framework-Quartz_PyObjCTest_test_cgdisplayconfiguration.py.ed'

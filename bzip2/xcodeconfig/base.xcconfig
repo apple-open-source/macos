@@ -1,9 +1,7 @@
 #include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
-#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig"
 
 DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
 CODE_SIGN_IDENTITY = -
-INSTALL_PATH[sdk=macosx*] = $(INSTALL_PATH_ACTUAL)
 DEAD_CODE_STRIPPING = YES
 COPY_PHASE_STRIP = YES
 STRIP_INSTALLED_PRODUCT = YES

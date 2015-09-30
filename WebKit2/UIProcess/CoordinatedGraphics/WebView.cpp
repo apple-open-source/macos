@@ -30,12 +30,14 @@
 #include "WebView.h"
 
 #include "CoordinatedDrawingAreaProxy.h"
+#include "CoordinatedGraphicsScene.h"
 #include "CoordinatedLayerTreeHostProxy.h"
 #include "NotImplemented.h"
 #include "ViewState.h"
+#include "WebBackForwardList.h"
+#include "WebBackForwardListItem.h"
 #include "WebContextMenuProxy.h"
 #include "WebPageProxy.h"
-#include <WebCore/CoordinatedGraphicsScene.h>
 
 #if ENABLE(FULLSCREEN_API)
 #include "WebFullScreenManagerProxy.h"
@@ -45,7 +47,7 @@ using namespace WebCore;
 
 namespace WebKit {
 
-WebView::WebView(WebContext* context, WebPageGroup* pageGroup)
+WebView::WebView(WebProcessPool* context, WebPageGroup* pageGroup)
     : m_focused(false)
     , m_visible(false)
     , m_opacity(1.0)
@@ -152,11 +154,9 @@ void WebView::paintToCurrentGLContext()
     if (!scene)
         return;
 
-    // FIXME: We need to clean up this code as it is split over CoordGfx and Page.
-    scene->setDrawsBackground(m_page->drawsBackground());
     const FloatRect& viewport = m_userViewportTransform.mapRect(IntRect(IntPoint(), m_size));
 
-    scene->paintToCurrentGLContext(transformToScene().toTransformationMatrix(), m_opacity, viewport);
+    scene->paintToCurrentGLContext(transformToScene().toTransformationMatrix(), m_opacity, viewport, m_page->pageExtendedBackgroundColor(), m_page->drawsBackground(), m_contentPosition);
 }
 
 void WebView::setDrawsBackground(bool drawsBackground)
@@ -286,7 +286,7 @@ WebCore::FloatSize WebView::visibleContentsSize() const
 
 std::unique_ptr<DrawingAreaProxy> WebView::createDrawingAreaProxy()
 {
-    return std::make_unique<CoordinatedDrawingAreaProxy>(page());
+    return std::make_unique<CoordinatedDrawingAreaProxy>(*m_page);
 }
 
 void WebView::setViewNeedsDisplay(const WebCore::IntRect& area)
@@ -304,7 +304,7 @@ void WebView::scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntS
     setViewNeedsDisplay(scrollRect);
 }
 
-void WebView::requestScroll(const WebCore::FloatPoint&, bool)
+void WebView::requestScroll(const WebCore::FloatPoint&, const WebCore::IntPoint&, bool)
 {
     notImplemented();
 }
@@ -347,7 +347,7 @@ bool WebView::isViewInWindow()
 
 void WebView::processDidExit()
 {
-    m_client.webProcessCrashed(this, m_page->urlAtProcessExit());
+    m_client.webProcessCrashed(this, m_page->backForwardList().currentItem()->url());
 }
 
 void WebView::didRelaunchProcess()
@@ -450,7 +450,17 @@ PassRefPtr<WebColorPicker> WebView::createColorPicker(WebPageProxy*, const WebCo
 }
 #endif
 
-void WebView::setTextIndicator(PassRefPtr<WebCore::TextIndicator>, bool, bool)
+void WebView::setTextIndicator(Ref<WebCore::TextIndicator>, WebCore::TextIndicatorLifetime)
+{
+    notImplemented();
+}
+
+void WebView::clearTextIndicator(WebCore::TextIndicatorDismissalAnimation)
+{
+    notImplemented();
+}
+
+void WebView::setTextIndicatorAnimationProgress(float)
 {
     notImplemented();
 }

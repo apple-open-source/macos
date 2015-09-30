@@ -28,6 +28,7 @@
 
 #include "DrawingAreaInfo.h"
 #include "LayerTreeContext.h"
+#include "MessageReceiver.h"
 #include <WebCore/FloatRect.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/LayerFlushThrottleState.h>
@@ -36,6 +37,7 @@
 #include <functional>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/TypeCasts.h>
 
 namespace IPC {
 class Connection;
@@ -48,6 +50,7 @@ class Frame;
 class FrameView;
 class GraphicsLayer;
 class GraphicsLayerFactory;
+class MachSendRight;
 }
 
 namespace WebKit {
@@ -58,7 +61,7 @@ class WebPage;
 struct WebPageCreationParameters;
 struct WebPreferencesStore;
 
-class DrawingArea {
+class DrawingArea : public IPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(DrawingArea);
 
 public:
@@ -66,8 +69,6 @@ public:
     virtual ~DrawingArea();
     
     DrawingAreaType type() const { return m_type; }
-    
-    void didReceiveDrawingAreaMessage(IPC::Connection*, IPC::MessageDecoder&);
 
     virtual void setNeedsDisplay() = 0;
     virtual void setNeedsDisplayInRect(const WebCore::IntRect&) = 0;
@@ -89,8 +90,11 @@ public:
     virtual void setExposedRect(const WebCore::FloatRect&) = 0;
     virtual WebCore::FloatRect exposedRect() const = 0;
     virtual void acceleratedAnimationDidStart(uint64_t /*layerID*/, const String& /*key*/, double /*startTime*/) { }
+    virtual void acceleratedAnimationDidEnd(uint64_t /*layerID*/, const String& /*key*/) { }
+    virtual void addFence(const WebCore::MachSendRight&) { }
 #endif
 #if PLATFORM(IOS)
+    virtual WebCore::FloatRect exposedContentRect() const = 0;
     virtual void setExposedContentRect(const WebCore::FloatRect&) = 0;
 #endif
     virtual void mainFrameScrollabilityChanged(bool) { }
@@ -108,8 +112,8 @@ public:
     virtual RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID);
 #endif
 
-#if USE(COORDINATED_GRAPHICS)
-    virtual void didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection*, IPC::MessageDecoder&) = 0;
+#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
+    virtual void didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection&, IPC::MessageDecoder&) = 0;
 #endif
 
     virtual void dispatchAfterEnsuringUpdatedScrollPosition(std::function<void ()>);
@@ -123,13 +127,29 @@ public:
 
     virtual void attachViewOverlayGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) { }
 
+    virtual void setShouldScaleViewToFitDocument(bool) { }
+
+#if PLATFORM(COCOA)
+    // Used by TiledCoreAnimationDrawingArea.
+    virtual void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition, bool flushSynchronously, const WebCore::MachSendRight& fencePort) { }
+
+    virtual void replyWithFenceAfterNextFlush(uint64_t callbackID) { ASSERT_NOT_REACHED(); }
+#endif
+
 protected:
     DrawingArea(DrawingAreaType, WebPage&);
 
     DrawingAreaType m_type;
     WebPage& m_webPage;
 
+#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
+    uint64_t m_nativeSurfaceHandleForCompositing;
+#endif
+
 private:
+    // IPC::MessageReceiver.
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+
     // Message handlers.
     // FIXME: These should be pure virtual.
     virtual void updateBackingStoreState(uint64_t /*backingStoreStateID*/, bool /*respondImmediately*/, float /*deviceScaleFactor*/, const WebCore::IntSize& /*size*/, 
@@ -138,7 +158,6 @@ private:
 
 #if PLATFORM(COCOA)
     // Used by TiledCoreAnimationDrawingArea.
-    virtual void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition) { }
     virtual void setDeviceScaleFactor(float) { }
     virtual void setColorSpace(const ColorSpaceData&) { }
 
@@ -147,11 +166,17 @@ private:
 
     virtual void addTransactionCallbackID(uint64_t callbackID) { ASSERT_NOT_REACHED(); }
 #endif
+
+#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
+    virtual void setNativeSurfaceHandleForCompositing(uint64_t) = 0;
+#endif
 };
 
-#define DRAWING_AREA_TYPE_CASTS(ToValueTypeName, predicate) \
-    TYPE_CASTS_BASE(ToValueTypeName, DrawingArea, value, value->predicate, value.predicate)
-
 } // namespace WebKit
+
+#define SPECIALIZE_TYPE_TRAITS_DRAWING_AREA(ToValueTypeName, AreaType) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::ToValueTypeName) \
+    static bool isType(const WebKit::DrawingArea& area) { return area.type() == WebKit::AreaType; } \
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // DrawingArea_h

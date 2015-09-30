@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebElementPropertyBag.h"
 
@@ -44,17 +43,17 @@ using namespace WebCore;
 
 // WebElementPropertyBag -----------------------------------------------
 WebElementPropertyBag::WebElementPropertyBag(const HitTestResult& result)
-    : m_result(adoptPtr(new HitTestResult(result)))
+    : m_result(std::make_unique<HitTestResult>(result))
     , m_refCount(0)
 {
     gClassCount++;
-    gClassNameCount.add("WebElementPropertyBag");
+    gClassNameCount().add("WebElementPropertyBag");
 }
 
 WebElementPropertyBag::~WebElementPropertyBag()
 {
     gClassCount--;
-    gClassNameCount.remove("WebElementPropertyBag");
+    gClassNameCount().remove("WebElementPropertyBag");
 }
 
 WebElementPropertyBag* WebElementPropertyBag::createInstance(const HitTestResult& result)
@@ -120,7 +119,7 @@ HRESULT WebElementPropertyBag::Read(LPCOLESTR pszPropName, VARIANT *pVar, IError
         return E_FAIL;
 
     BSTR key = (BSTR)pszPropName;
-    VariantClear(pVar);
+    ::VariantClear(pVar);
     if (isEqual(WebElementDOMNodeKey, key)) {
         IDOMNode* node = DOMNode::createInstance(m_result->innerNonSharedNode());
         V_VT(pVar) = VT_UNKNOWN;

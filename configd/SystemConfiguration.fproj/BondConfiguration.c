@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -67,7 +67,7 @@ inet_dgram_socket()
 
 	s = socket(AF_INET, SOCK_DGRAM, 0);
 	if (s == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("socket() failed: %s"), strerror(errno));
+		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 	}
 
 	return s;
@@ -153,7 +153,7 @@ add_interface(CFMutableArrayRef *interfaces, CFStringRef if_name, SCPreferencesR
 		interface = _SCNetworkInterfaceCreateWithBSDName(NULL, if_name,
 								 kIncludeNoVirtualInterfaces);
 	}
-	
+
 	if (interface != NULL) {
 		CFArrayAppendValue(*interfaces, interface);
 		CFRelease(interface);
@@ -262,7 +262,7 @@ SCBondInterfaceCopyAll(SCPreferencesRef prefs)
 	CFDictionaryRef		dict;
 	SCPreferencesRef	ni_prefs;
 	CFStringRef		path;
-	
+
 	if ((prefs == NULL) ||
 	    (__SCPreferencesUsingDefaultPrefs(prefs) == TRUE)) {
 		ni_prefs = NULL;
@@ -270,11 +270,11 @@ SCBondInterfaceCopyAll(SCPreferencesRef prefs)
 	else {
 		ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
 	}
-	
+
 	context.bonds = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	context.prefs = prefs;
 	context.ni_prefs = ni_prefs;
-	
+
 	path = CFStringCreateWithFormat(NULL,
 					NULL,
 					CFSTR("/%@/%@"),
@@ -413,7 +413,7 @@ _SCBondInterfaceCopyActive(void)
 
 	if (getifaddrs(&ifap) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_ERR, CFSTR("getifaddrs() failed: %s"), strerror(errno));
+		SC_log(LOG_NOTICE, "getifaddrs() failed: %s", strerror(errno));
 		return NULL;
 	}
 
@@ -447,10 +447,9 @@ _SCBondInterfaceCopyActive(void)
 				continue;
 			}
 			_SCErrorSet(errno);
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("if_bond_status_req_copy(%s) failed: %s"),
-			      ifp->ifa_name,
-			      strerror(errno));
+			SC_log(LOG_NOTICE, "if_bond_status_req_copy(%s) failed: %s",
+			       ifp->ifa_name,
+			       strerror(errno));
 			CFRelease(bonds);
 			bonds = NULL;
 			goto done;
@@ -1269,10 +1268,9 @@ SCBondInterfaceCopyStatus(SCBondInterfaceRef bond)
 			case ENXIO :
 				break;
 			default :
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("siocgifmedia(%s) failed: %s"),
-				      if_name,
-				      strerror(errno));
+				SC_log(LOG_NOTICE, "siocgifmedia(%s) failed: %s",
+				       if_name,
+				       strerror(errno));
 		}
 		goto done;
 	}
@@ -1330,10 +1328,9 @@ SCBondInterfaceCopyStatus(SCBondInterfaceRef bond)
 					case ENXIO :
 						break;
 					default :
-						SCLog(TRUE, LOG_ERR,
-						      CFSTR("siocgifmedia(%s) failed: %s"),
-						      if_name,
-						      strerror(errno));
+						SC_log(LOG_NOTICE, "siocgifmedia(%s) failed: %s",
+						       if_name,
+						       strerror(errno));
 						break;
 				}
 			}
@@ -1426,11 +1423,10 @@ __bond_set_mode(int s, CFStringRef bond_if, CFNumberRef mode)
 	breq.ibr_ibru.ibru_int_val = mode_num;
 	if (ioctl(s, SIOCSIFBOND, (caddr_t)&ifr) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("could not set mode to %@ on bond \"%@\": %s"),
-		      mode,
-		      bond_if,
-		      strerror(errno));
+		SC_log(LOG_ERR, "could not set mode to %@ on bond \"%@\": %s",
+		       mode,
+		       bond_if,
+		       strerror(errno));
 		return FALSE;
 	}
 
@@ -1462,11 +1458,10 @@ __bond_add_interface(int s, CFStringRef bond_if, CFStringRef interface_if)
 	// add new bond member
 	if (ioctl(s, SIOCSIFBOND, (caddr_t)&ifr) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("could not add interface \"%@\" to bond \"%@\": %s"),
-		      interface_if,
-		      bond_if,
-		      strerror(errno));
+		SC_log(LOG_ERR, "could not add interface \"%@\" to bond \"%@\": %s",
+		       interface_if,
+		       bond_if,
+		       strerror(errno));
 		return FALSE;
 	}
 
@@ -1499,11 +1494,10 @@ __bond_remove_interface(int s, CFStringRef bond_if, CFStringRef interface_if)
 	// remove bond member
 	if (ioctl(s, SIOCSIFBOND, (caddr_t)&ifr) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("could not remove interface \"%@\" from bond \"%@\": %s"),
-		      interface_if,
-		      bond_if,
-		      strerror(errno));
+		SC_log(LOG_ERR, "could not remove interface \"%@\" from bond \"%@\": %s",
+		       interface_if,
+		       bond_if,
+		       strerror(errno));
 		return FALSE;
 	}
 

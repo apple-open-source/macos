@@ -46,7 +46,7 @@ typedef ListHashSet<Element*> NamedFlowContentElements;
 
 class RenderNamedFlowThread final : public RenderFlowThread, public SelectionSubtreeRoot {
 public:
-    RenderNamedFlowThread(Document&, PassRef<RenderStyle>, PassRef<WebKitNamedFlow>);
+    RenderNamedFlowThread(Document&, Ref<RenderStyle>&&, Ref<WebKitNamedFlow>&&);
     virtual ~RenderNamedFlowThread();
 
     const AtomicString& flowThreadName() const;
@@ -61,6 +61,8 @@ public:
 #ifndef NDEBUG
     bool hasChild(RenderElement& child) const { return m_flowThreadChildList.contains(&child); }
 #endif
+
+    static RenderBlock* fragmentFromRenderBoxAsRenderBlock(RenderBox*, const IntPoint& absolutePoint, const RenderBox& flowedBox);
 
     void pushDependencies(RenderNamedFlowThreadList&);
 
@@ -81,7 +83,7 @@ public:
     bool isMarkedForDestruction() const;
     void getRanges(Vector<RefPtr<Range>>&, const RenderNamedFlowFragment*) const;
 
-    virtual void applyBreakAfterContent(LayoutUnit) override final;
+    virtual void applyBreakAfterContent(LayoutUnit) override;
 
     virtual bool collectsGraphicsLayersUnderRegions() const override;
 
@@ -91,7 +93,7 @@ public:
 
     void clearRenderObjectCustomStyle(const RenderObject*);
 
-    virtual void removeFlowChildInfo(RenderObject*) override final;
+    virtual void removeFlowChildInfo(RenderObject*) override;
 
     LayoutUnit flowContentBottom() const { return m_flowContentBottom; }
     void dispatchNamedFlowEvents();
@@ -109,7 +111,7 @@ private:
     virtual bool isRenderNamedFlowThread() const override { return true; }
     virtual bool isChildAllowed(const RenderObject&, const RenderStyle&) const override;
     virtual void computeOverflow(LayoutUnit, bool = false) override;
-    virtual void layout() override final;
+    virtual void layout() override;
 
     void dispatchRegionOversetChangeEventIfNeeded();
 
@@ -122,12 +124,12 @@ private:
     void checkInvalidRegions();
 
     bool canBeDestroyed() const { return m_invalidRegionList.isEmpty() && m_regionList.isEmpty() && m_contentElements.isEmpty(); }
-    void regionOversetChangeEventTimerFired(Timer&);
+    void regionOversetChangeEventTimerFired();
     void clearContentElements();
     void updateWritingMode();
 
-    WebKitNamedFlow& namedFlow() { return m_namedFlow.get(); }
-    const WebKitNamedFlow& namedFlow() const { return m_namedFlow.get(); }
+    WebKitNamedFlow& namedFlow() { return m_namedFlow; }
+    const WebKitNamedFlow& namedFlow() const { return m_namedFlow; }
 
     // Observer flow threads have invalid regions that depend on the state of this thread
     // to re-validate their regions. Keeping a set of observer threads make it easy
@@ -157,8 +159,8 @@ private:
     LayoutUnit m_flowContentBottom;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderNamedFlowThread, isRenderNamedFlowThread())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderNamedFlowThread, isRenderNamedFlowThread())
 
 #endif // RenderNamedFlowThread_h

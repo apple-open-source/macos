@@ -857,13 +857,11 @@ static void
 IOCFSerializeBinaryCFDictionaryFunction(const void *key, const void *value, void *context)
 {
     ApplierState * ctx = (typeof(ctx)) context;
-    Boolean ok;
 
     ctx->index++;
-	ok = DoCFSerializeBinary(ctx->state, key, true);
-	assert(ok);
+	ctx->ok &= DoCFSerializeBinary(ctx->state, key, true);
 	ctx->state->endCollection = (ctx->index == ctx->count);
-	ok = DoCFSerializeBinary(ctx->state, value, false);
+	ctx->ok &= DoCFSerializeBinary(ctx->state, value, false);
 }
 
 static void 
@@ -926,6 +924,7 @@ DoCFSerializeBinary(IOCFSerializeBinaryState * state, CFTypeRef o, Boolean isKey
 		ok = IOCFSerializeBinaryAddObject(state, o, key, NULL, 0, 0);
 		if (ok)
 		{
+			applierState.ok    = true;
 			applierState.index = 0;
 			applierState.count = count;
 			CFArrayApplyFunction(o, CFRangeMake(0, count), &IOCFSerializeBinaryCFArraySetFunction, &applierState);
@@ -939,6 +938,7 @@ DoCFSerializeBinary(IOCFSerializeBinaryState * state, CFTypeRef o, Boolean isKey
 		ok = IOCFSerializeBinaryAddObject(state, o, key, NULL, 0, 0);
 		if (ok)
 		{
+			applierState.ok    = true;
 			applierState.index = 0;
 			applierState.count = count;
 			CFSetApplyFunction(o, &IOCFSerializeBinaryCFArraySetFunction, &applierState);

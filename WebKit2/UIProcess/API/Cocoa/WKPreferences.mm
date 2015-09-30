@@ -39,8 +39,15 @@
     if (!(self = [super init]))
         return nil;
 
-    _preferences = WebKit::WebPreferences::create(String(), "WebKit", "WebKit");
+    API::Object::constructInWrapper<WebKit::WebPreferences>(self, String(), "WebKit", "WebKit");
     return self;
+}
+
+- (void)dealloc
+{
+    _preferences->~WebPreferences();
+
+    [super dealloc];
 }
 
 - (CGFloat)minimumFontSize
@@ -98,6 +105,13 @@
 }
 
 #endif
+
+#pragma mark WKObject protocol implementation
+
+- (API::Object&)_apiObject
+{
+    return *_preferences;
+}
 
 @end
 
@@ -163,6 +177,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
     _preferences->setOfflineWebApplicationCacheEnabled(offlineApplicationCacheIsEnabled);
 }
 
+- (BOOL)_fullScreenEnabled
+{
+    return _preferences->fullScreenEnabled();
+}
+
+- (void)_setFullScreenEnabled:(BOOL)fullScreenEnabled
+{
+    _preferences->setFullScreenEnabled(fullScreenEnabled);
+}
+
 - (BOOL)_compositingBordersVisible
 {
     return _preferences->compositingBordersVisible();
@@ -193,6 +217,26 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
     _preferences->setTiledScrollingIndicatorVisible(tiledScrollingIndicatorVisible);
 }
 
+- (_WKDebugOverlayRegions)_visibleDebugOverlayRegions
+{
+    return _preferences->visibleDebugOverlayRegions();
+}
+
+- (void)_setVisibleDebugOverlayRegions:(_WKDebugOverlayRegions)regionFlags
+{
+    _preferences->setVisibleDebugOverlayRegions(regionFlags);
+}
+
+- (BOOL)_simpleLineLayoutDebugBordersEnabled
+{
+    return _preferences->simpleLineLayoutDebugBordersEnabled();
+}
+
+- (void)_setSimpleLineLayoutDebugBordersEnabled:(BOOL)simpleLineLayoutDebugBordersEnabled
+{
+    _preferences->setSimpleLineLayoutDebugBordersEnabled(simpleLineLayoutDebugBordersEnabled);
+}
+
 - (BOOL)_developerExtrasEnabled
 {
     return _preferences->developerExtrasEnabled();
@@ -201,6 +245,66 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (void)_setDeveloperExtrasEnabled:(BOOL)developerExtrasEnabled
 {
     _preferences->setDeveloperExtrasEnabled(developerExtrasEnabled);
+}
+
+- (BOOL)_logsPageMessagesToSystemConsoleEnabled
+{
+    return _preferences->logsPageMessagesToSystemConsoleEnabled();
+}
+
+- (void)_setLogsPageMessagesToSystemConsoleEnabled:(BOOL)logsPageMessagesToSystemConsoleEnabled
+{
+    _preferences->setLogsPageMessagesToSystemConsoleEnabled(logsPageMessagesToSystemConsoleEnabled);
+}
+
+- (BOOL)_allowFileAccessFromFileURLs
+{
+    return _preferences->allowFileAccessFromFileURLs();
+}
+
+- (void)_setAllowFileAccessFromFileURLs:(BOOL)allowFileAccessFromFileURLs
+{
+    _preferences->setAllowFileAccessFromFileURLs(allowFileAccessFromFileURLs);
+}
+
+- (_WKJavaScriptRuntimeFlags)_javaScriptRuntimeFlags
+{
+    return _preferences->javaScriptRuntimeFlags();
+}
+
+- (void)_setJavaScriptRuntimeFlags:(_WKJavaScriptRuntimeFlags)javaScriptRuntimeFlags
+{
+    _preferences->setJavaScriptRuntimeFlags(javaScriptRuntimeFlags);
+}
+
+- (BOOL)_isStandalone
+{
+    return _preferences->standalone();
+}
+
+- (void)_setStandalone:(BOOL)standalone
+{
+    _preferences->setStandalone(standalone);
+}
+
+- (BOOL)_diagnosticLoggingEnabled
+{
+    return _preferences->diagnosticLoggingEnabled();
+}
+
+- (void)_setDiagnosticLoggingEnabled:(BOOL)diagnosticLoggingEnabled
+{
+    _preferences->setDiagnosticLoggingEnabled(diagnosticLoggingEnabled);
+}
+
+- (BOOL)_antialiasedFontDilationEnabled
+{
+    return _preferences->antialiasedFontDilationEnabled();
+}
+
+- (void)_setAntialiasedFontDilationEnabled:(BOOL)antialiasedFontDilationEnabled
+{
+    _preferences->setAntialiasedFontDilationEnabled(antialiasedFontDilationEnabled);
 }
 
 @end

@@ -169,20 +169,6 @@ protected:
     virtual IOMedia * instantiateDesiredMediaObject( gpt_ent * partition,
                                                      UInt32    partitionID );
 
-#ifndef __LP64__
-    /*
-     * Attach the given media object to the device tree plane.
-     */
-
-    virtual bool attachMediaObjectToDeviceTree(IOMedia * media) __attribute__ ((deprecated));
-
-    /*
-     * Detach the given media object from the device tree plane.
-     */
-
-    virtual void detachMediaObjectFromDeviceTree(IOMedia * media) __attribute__ ((deprecated));
-#endif /* !__LP64__ */
-
 public:
 
     /*

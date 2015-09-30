@@ -112,24 +112,7 @@ enum {
     WebMenuItemTagBaseApplication = 10000
 };
 
-enum {
-    WebActionMenuItemTagNoAction = 0,
-    WebActionMenuItemTagOpenLinkInDefaultBrowser,
-    WebActionMenuItemTagPreviewLink,
-    WebActionMenuItemTagAddLinkToSafariReadingList,
-    WebActionMenuItemTagCopyText,
-    WebActionMenuItemTagLookupText,
-    WebActionMenuItemTagPaste,
-    WebActionMenuItemTagTextSuggestions,
-    WebActionMenuItemTagCopyImage,
-    WebActionMenuItemTagAddImageToPhotos,
-    WebActionMenuItemTagSaveImageToDownloads,
-    WebActionMenuItemTagShareImage,
-    WebActionMenuItemTagCopyVideoURL,
-    WebActionMenuItemTagSaveVideoToDownloads,
-    WebActionMenuItemTagShareVideo
-};
-
+// Deprecated; remove when there are no more clients.
 typedef enum {
     WebActionMenuNone = 0,
     WebActionMenuLink,
@@ -148,7 +131,9 @@ typedef enum {
     WebImmediateActionNone = 0,
     WebImmediateActionLinkPreview,
     WebImmediateActionDataDetectedItem,
-    WebImmediateActionText
+    WebImmediateActionText,
+    WebImmediateActionMailtoLink,
+    WebImmediateActionTelLink
 } WebImmediateActionType;
 
 // Message Sources.
@@ -166,6 +151,7 @@ extern NSString *WebConsoleMessageOtherMessageSource;
 // Message Levels.
 extern NSString *WebConsoleMessageDebugMessageLevel;
 extern NSString *WebConsoleMessageLogMessageLevel;
+extern NSString *WebConsoleMessageInfoMessageLevel;
 extern NSString *WebConsoleMessageWarningMessageLevel;
 extern NSString *WebConsoleMessageErrorMessageLevel;
 
@@ -228,13 +214,12 @@ extern NSString *WebConsoleMessageErrorMessageLevel;
 #endif
 - (void)webView:(WebView *)sender didDrawRect:(NSRect)rect;
 - (void)webView:(WebView *)sender didScrollDocumentInFrameView:(WebFrameView *)frameView;
-// FIXME: If we ever make this method public, it should include a WebFrame parameter.
-- (BOOL)webViewShouldInterruptJavaScript:(WebView *)sender;
 #if !TARGET_OS_IPHONE
 - (void)webView:(WebView *)sender willPopupMenu:(NSMenu *)menu;
 - (void)webView:(WebView *)sender contextMenuItemSelected:(NSMenuItem *)item forElement:(NSDictionary *)element;
 - (void)webView:(WebView *)sender saveFrameView:(WebFrameView *)frameView showingPanel:(BOOL)showingPanel;
-- (NSArray *)_webView:(WebView *)sender actionMenuItemsForHitTestResult:(NSDictionary *)hitTestResult withType:(WebActionMenuType)type defaultActionMenuItems:(NSArray *)defaultMenuItems;
+
+// FIXME: Rename this because it's only used by immediate action code.
 - (DDActionContext *)_webView:(WebView *)sender actionContextForHitTestResult:(NSDictionary *)hitTestResult range:(DOMRange **)range;
 
 // Clients that want to maintain default behavior can return nil. To disable the immediate action entirely, return NSNull. And to

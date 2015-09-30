@@ -8,8 +8,11 @@
 		<string>com.apple.certificates</string>
 		<string>com.apple.identities</string>
 	</array>
-	<key>com.apple.coretelephony.Identity.get</key>
-	<true/>
+	<key>com.apple.CommCenter.fine-grained</key>
+	<array>
+		<string>spi</string>
+		<string>identity</string>
+	</array>
 	<key>com.apple.multitasking.unlimitedassertions</key>
 	<true/>
 	<key>com.apple.private.SCNetworkConnection-proxy-user</key>
@@ -22,6 +25,10 @@
 	<key>com.apple.private.necp.match</key>
 	<true/>
 	<key>com.apple.private.snhelper</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
 	<true/>
 	<key>com.apple.springboard.launchapplications</key>
 	<true/>

@@ -25,23 +25,25 @@
 
 #include "config.h"
 #include "DrawingArea.h"
+
+#include "DrawingAreaMessages.h"
+#include "WebPage.h"
+#include "WebPageCreationParameters.h"
+#include "WebProcess.h"
 #include <WebCore/DisplayRefreshMonitor.h>
 #include <WebCore/TransformationMatrix.h>
-#include <wtf/Functional.h>
 
 // Subclasses
 #if PLATFORM(COCOA)
 #include "RemoteLayerTreeDrawingArea.h"
 #include "TiledCoreAnimationDrawingArea.h"
 #else
-#if USE(COORDINATED_GRAPHICS)
+#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
 #include "CoordinatedDrawingArea.h"
 #else
 #include "DrawingAreaImpl.h"
 #endif
 #endif
-
-#include "WebPageCreationParameters.h"
 
 using namespace WebCore;
 
@@ -58,7 +60,7 @@ std::unique_ptr<DrawingArea> DrawingArea::create(WebPage& webPage, const WebPage
     case DrawingAreaTypeRemoteLayerTree:
         return std::make_unique<RemoteLayerTreeDrawingArea>(webPage, parameters);
 #else
-#if USE(COORDINATED_GRAPHICS)
+#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
     case DrawingAreaTypeCoordinated:
         return std::make_unique<CoordinatedDrawingArea>(webPage, parameters);
 #else
@@ -74,11 +76,16 @@ std::unique_ptr<DrawingArea> DrawingArea::create(WebPage& webPage, const WebPage
 DrawingArea::DrawingArea(DrawingAreaType type, WebPage& webPage)
     : m_type(type)
     , m_webPage(webPage)
+#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
+    , m_nativeSurfaceHandleForCompositing(0)
+#endif
 {
+    WebProcess::singleton().addMessageReceiver(Messages::DrawingArea::messageReceiverName(), m_webPage.pageID(), *this);
 }
 
 DrawingArea::~DrawingArea()
 {
+    WebProcess::singleton().removeMessageReceiver(Messages::DrawingArea::messageReceiverName(), m_webPage.pageID());
 }
 
 void DrawingArea::dispatchAfterEnsuringUpdatedScrollPosition(std::function<void ()> function)

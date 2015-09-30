@@ -56,6 +56,9 @@ int main(int argc, char * const argv[])
     const char         * prelinkTextBytes = NULL;
     uint64_t             prelinkTextSourceAddress = 0;
     uint64_t             prelinkTextSourceSize = 0;
+    const NXArchInfo *   nextArchInfo       = NULL;
+    CFMutableArrayRef    archInfoArray      = NULL;
+    Boolean              userProvidedArch   = false;
     
     bzero(&toolArgs, sizeof(toolArgs));
 
@@ -109,91 +112,132 @@ int main(int argc, char * const argv[])
         goto finish;
     }
 
-    fat_arch = getFirstFatArch(fat_header);
-    if (fat_arch && !toolArgs.archInfo) {
-        toolArgs.archInfo = NXGetArchInfoFromCpuType(fat_arch->cputype, fat_arch->cpusubtype);
+    // If arch passed in we will use that else we will print out info for all
+    // archs (which is typically thinned to one anyway)
+    if (toolArgs.archInfo) {
+        nextArchInfo = toolArgs.archInfo;
+        userProvidedArch = true;
+    }
+    else {
+        fat_arch = getFirstFatArch(fat_header);
+        if (fat_arch) {
+            nextArchInfo = NXGetArchInfoFromCpuType(fat_arch->cputype,
+                                                    fat_arch->cpusubtype);
+        }
     }
     
-    rawKernelcache = readMachOSliceForArch(toolArgs.kernelcachePath, toolArgs.archInfo,
-        /* checkArch */ FALSE);
-    if (!rawKernelcache) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Can't read arch %s from %s.", toolArgs.archInfo->name, toolArgs.kernelcachePath);
-        goto finish;
-    }
-
-    if (MAGIC32(CFDataGetBytePtr(rawKernelcache)) == OSSwapHostToBigInt32('comp')) {
-        kernelcacheImage = uncompressPrelinkedSlice(rawKernelcache);
-        if (!kernelcacheImage) {
+    while (true) {
+        // may not be any arch info, so pass through at least once
+        SAFE_RELEASE_NULL(prelinkInfoPlist);
+        SAFE_RELEASE_NULL(kernelcacheImage);
+        SAFE_RELEASE_NULL(rawKernelcache);
+        
+        rawKernelcache = readMachOSliceForArch(toolArgs.kernelcachePath,
+                                               nextArchInfo,
+                                               /* checkArch */ FALSE);
+        if (!rawKernelcache) {
             OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                "Can't uncompress kernelcache slice.");
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Can't read arch %s from %s.",
+                      nextArchInfo ? nextArchInfo->name : "NONE",
+                      toolArgs.kernelcachePath);
             goto finish;
         }
-    } else {
-        kernelcacheImage = CFRetain(rawKernelcache);
-    }
-
-    kernelcacheStart = CFDataGetBytePtr(kernelcacheImage);
-    
-    if (ISMACHO64(MAGIC32(kernelcacheStart))) {
-        prelinkInfoSect = (void *)macho_get_section_by_name_64(
-            (struct mach_header_64 *)kernelcacheStart,
-            kPrelinkInfoSegment, kPrelinkInfoSection);
-        prelinkTextSect = (void *)macho_get_section_by_name_64(
-            (struct mach_header_64 *)kernelcacheStart,
-            kPrelinkTextSegment, kPrelinkTextSection);
-    } else {
-        prelinkInfoSect = (void *)macho_get_section_by_name(
-            (struct mach_header *)kernelcacheStart,
-            kPrelinkInfoSegment, kPrelinkInfoSection);
-        prelinkTextSect = (void *)macho_get_section_by_name(
-            (struct mach_header *)kernelcacheStart,
-            kPrelinkTextSegment, kPrelinkTextSection);
-    }
-
-    if (!prelinkInfoSect) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Can't find prelink info section.");
-        goto finish;
-    }
-
-    if (!prelinkTextSect) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Can't find prelink text section.");
-        goto finish;
-    }
-
-    if (ISMACHO64(MAGIC32(kernelcacheStart))) {
-        prelinkInfoBytes = ((char *)kernelcacheStart) +
+        
+        if (MAGIC32(CFDataGetBytePtr(rawKernelcache)) == OSSwapHostToBigInt32('comp')) {
+            kernelcacheImage = uncompressPrelinkedSlice(rawKernelcache);
+            if (!kernelcacheImage) {
+                OSKextLog(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          "Can't uncompress kernelcache slice.");
+                goto finish;
+            }
+        } else {
+            kernelcacheImage = CFRetain(rawKernelcache);
+        }
+        
+        kernelcacheStart = CFDataGetBytePtr(kernelcacheImage);
+        
+        if (ISMACHO64(MAGIC32(kernelcacheStart))) {
+            prelinkInfoSect = (void *)
+            macho_get_section_by_name_64((struct mach_header_64 *)kernelcacheStart,
+                                         kPrelinkInfoSegment,
+                                         kPrelinkInfoSection);
+            prelinkTextSect = (void *)
+            macho_get_section_by_name_64((struct mach_header_64 *)kernelcacheStart,
+                                         kPrelinkTextSegment,
+                                         kPrelinkTextSection);
+        } else {
+            prelinkInfoSect = (void *)
+            macho_get_section_by_name((struct mach_header *)kernelcacheStart,
+                                      kPrelinkInfoSegment,
+                                      kPrelinkInfoSection);
+            prelinkTextSect = (void *)
+            macho_get_section_by_name((struct mach_header *)kernelcacheStart,
+                                      kPrelinkTextSegment,
+                                      kPrelinkTextSection);
+        }
+        
+        if (!prelinkInfoSect) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Can't find prelink info section.");
+            goto finish;
+        }
+        
+        if (!prelinkTextSect) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Can't find prelink text section.");
+            goto finish;
+        }
+        
+        if (ISMACHO64(MAGIC32(kernelcacheStart))) {
+            prelinkInfoBytes = ((char *)kernelcacheStart) +
             ((struct section_64 *)prelinkInfoSect)->offset;
-        prelinkTextBytes = ((char *)kernelcacheStart) +
+            prelinkTextBytes = ((char *)kernelcacheStart) +
             ((struct section_64 *)prelinkTextSect)->offset;
-        prelinkTextSourceAddress = ((struct section_64 *)prelinkTextSect)->addr;
-        prelinkTextSourceSize = ((struct section_64 *)prelinkTextSect)->size;
-    } else {
-        prelinkInfoBytes = ((char *)kernelcacheStart) +
+            prelinkTextSourceAddress = ((struct section_64 *)prelinkTextSect)->addr;
+            prelinkTextSourceSize = ((struct section_64 *)prelinkTextSect)->size;
+        } else {
+            prelinkInfoBytes = ((char *)kernelcacheStart) +
             ((struct section *)prelinkInfoSect)->offset;
-        prelinkTextBytes = ((char *)kernelcacheStart) +
+            prelinkTextBytes = ((char *)kernelcacheStart) +
             ((struct section *)prelinkTextSect)->offset;
-        prelinkTextSourceAddress = ((struct section *)prelinkTextSect)->addr;
-        prelinkTextSourceSize = ((struct section *)prelinkTextSect)->size;
-    }
-
-    prelinkInfoPlist = (CFPropertyListRef)IOCFUnserialize(prelinkInfoBytes,
-        kCFAllocatorDefault, /* options */ 0, /* errorString */ NULL);
-    if (!prelinkInfoPlist) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Can't unserialize prelink info.");
-        goto finish;
-    }
-
-    listPrelinkedKexts(&toolArgs, prelinkInfoPlist, prelinkTextBytes, prelinkTextSourceAddress, prelinkTextSourceSize);
-
+            prelinkTextSourceAddress = ((struct section *)prelinkTextSect)->addr;
+            prelinkTextSourceSize = ((struct section *)prelinkTextSect)->size;
+        }
+        
+        prelinkInfoPlist = (CFPropertyListRef)
+        IOCFUnserialize(prelinkInfoBytes,
+                        kCFAllocatorDefault, /* options */ 0,
+                        /* errorString */ NULL);
+        if (!prelinkInfoPlist) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Can't unserialize prelink info.");
+            goto finish;
+        }
+        
+        listPrelinkedKexts(&toolArgs, prelinkInfoPlist, prelinkTextBytes,
+                           prelinkTextSourceAddress, prelinkTextSourceSize,
+                           nextArchInfo);
+        
+        // process next arch or done if user specified an architecture,
+        // fat_arch will be NULL if user passed in an arch via "-arch XXX"
+        nextArchInfo = NULL;
+        if (fat_arch) {
+            fat_arch = getNextFatArch(fat_header, fat_arch);
+            if (fat_arch) {
+                nextArchInfo = NXGetArchInfoFromCpuType(fat_arch->cputype,
+                                                        fat_arch->cpusubtype);
+            }
+        }
+        if (userProvidedArch || nextArchInfo == NULL) {
+            break;
+        }
+    } // while true
+    
     result = EX_OK;
 
 finish:
@@ -340,7 +384,12 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-void listPrelinkedKexts(KclistArgs * toolArgs, CFPropertyListRef kcInfoPlist, const char *prelinkTextBytes, uint64_t prelinkTextSourceAddress, uint64_t prelinkTextSourceSize)
+void listPrelinkedKexts(KclistArgs * toolArgs,
+                        CFPropertyListRef kcInfoPlist,
+                        const char *prelinkTextBytes,
+                        uint64_t prelinkTextSourceAddress,
+                        uint64_t prelinkTextSourceSize,
+                        const NXArchInfo * archInfo)
 {
     CFIndex i, count;
     Boolean haveIDs = CFSetGetCount(toolArgs->kextIDs) > 0 ? TRUE : FALSE;
@@ -357,7 +406,11 @@ void listPrelinkedKexts(KclistArgs * toolArgs, CFPropertyListRef kcInfoPlist, co
             "Unrecognized kernelcache plist data.");
         goto finish;
     }
-    
+
+    if (archInfo) {
+        printf("Listing info for architecture %s\n", archInfo->name);
+    }
+
     count = CFArrayGetCount(kextPlistArray);
     for (i = 0; i < count; i++) {
         CFDictionaryRef kextPlist = (CFDictionaryRef)CFArrayGetValueAtIndex(kextPlistArray, i);

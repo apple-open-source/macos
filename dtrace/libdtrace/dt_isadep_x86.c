@@ -86,6 +86,14 @@ dt_pid_has_jump_table(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	char dmodel = Pstatus(P)->pr_dmodel;
 
 	/*
+	 * That's a terrible idea, but users may request to disable jump table
+	 * analysis.
+	 */
+	if (dtp->dt_nojtanalysis) {
+		return (0);
+	}
+
+	/*
 	 * Take a pass through the function looking for a register-dependant
 	 * jmp instruction. This could be a jump table so we have to be
 	 * ultra conservative.

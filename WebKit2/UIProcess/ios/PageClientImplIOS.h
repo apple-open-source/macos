@@ -33,6 +33,7 @@
 #import <wtf/RetainPtr.h>
 
 OBJC_CLASS WKContentView;
+OBJC_CLASS WKView;
 OBJC_CLASS WKWebView;
 OBJC_CLASS WKEditorUndoTargetObjC;
 
@@ -45,6 +46,7 @@ class PageClientImpl : public PageClient
     {
 public:
     PageClientImpl(WKContentView *, WKWebView *);
+    PageClientImpl(WKContentView *, WKView *);
     virtual ~PageClientImpl();
     
 private:
@@ -54,7 +56,7 @@ private:
     virtual void displayView() override;
     virtual bool canScrollView() override;
     virtual void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset) override;
-    virtual void requestScroll(const WebCore::FloatPoint& scrollPosition, bool isProgrammaticScroll) override;
+    virtual void requestScroll(const WebCore::FloatPoint& scrollPosition, const WebCore::IntPoint& scrollOrigin, bool isProgrammaticScroll) override;
     virtual WebCore::IntSize viewSize() override;
     virtual bool isViewWindowActive() override;
     virtual bool isViewFocused() override;
@@ -67,9 +69,10 @@ private:
     virtual void pageClosed() override;
     virtual void preferencesDidChange() override;
     virtual void toolTipChanged(const String&, const String&) override;
-    virtual bool decidePolicyForGeolocationPermissionRequest(WebFrameProxy&, WebSecurityOrigin&, GeolocationPermissionRequestProxy&) override;
+    virtual bool decidePolicyForGeolocationPermissionRequest(WebFrameProxy&, API::SecurityOrigin&, GeolocationPermissionRequestProxy&) override;
     virtual void didCommitLoadForMainFrame(const String& mimeType, bool useCustomContentProvider) override;
     virtual void handleDownloadRequest(DownloadProxy*) override;
+    virtual void didChangeContentSize(const WebCore::IntSize&) override;
     virtual void setCursor(const WebCore::Cursor&) override;
     virtual void setCursorHiddenUntilMouseMoves(bool) override;
     virtual void didChangeViewportProperties(const WebCore::ViewportAttributes&) override;
@@ -96,7 +99,9 @@ private:
 #endif
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*) override;
     virtual PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*) override;
-    virtual void setTextIndicator(PassRefPtr<WebCore::TextIndicator>, bool fadeOut) override;
+    virtual void setTextIndicator(Ref<WebCore::TextIndicator>, WebCore::TextIndicatorLifetime = WebCore::TextIndicatorLifetime::Permanent) override;
+    virtual void clearTextIndicator(WebCore::TextIndicatorDismissalAnimation = WebCore::TextIndicatorDismissalAnimation::FadeOut) override;
+    virtual void setTextIndicatorAnimationProgress(float) override;
 
     virtual void enterAcceleratedCompositingMode(const LayerTreeContext&) override;
     virtual void exitAcceleratedCompositingMode() override;
@@ -113,6 +118,7 @@ private:
 
     virtual void didCommitLayerTree(const RemoteLayerTreeTransaction&) override;
     virtual void dynamicViewportUpdateChangedTarget(double newScale, const WebCore::FloatPoint& newScrollPosition, uint64_t transactionID) override;
+    virtual void couldNotRestorePageState() override;
     virtual void restorePageState(const WebCore::FloatRect&, double) override;
     virtual void restorePageCenterAndScale(const WebCore::FloatPoint&, double) override;
 
@@ -128,11 +134,9 @@ private:
 
     virtual bool handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, WebOpenPanelParameters*, WebOpenPanelResultListenerProxy*) override;
     virtual void didChangeViewportMetaTagWidth(float) override;
-    virtual void setUsesMinimalUI(bool) override;
     virtual double minimumZoomScale() const override;
-    virtual WebCore::FloatSize contentsSize() const override;
+    virtual WebCore::FloatRect documentRect() const override;
 
-#if ENABLE(INSPECTOR)
     virtual void showInspectorHighlight(const WebCore::Highlight&) override;
     virtual void hideInspectorHighlight() override;
 
@@ -141,7 +145,6 @@ private:
 
     virtual void enableInspectorNodeSearch() override;
     virtual void disableInspectorNodeSearch() override;
-#endif
 
     virtual void zoomToRect(WebCore::FloatRect, double minimumScale, double maximumScale) override;
     virtual void overflowScrollViewWillStartPanGesture() override;
@@ -173,16 +176,26 @@ private:
     virtual void navigationGestureDidBegin() override;
     virtual void navigationGestureWillEnd(bool willNavigate, WebBackForwardListItem&) override;
     virtual void navigationGestureDidEnd(bool willNavigate, WebBackForwardListItem&) override;
+    virtual void navigationGestureDidEnd() override;
     virtual void willRecordNavigationSnapshot(WebBackForwardListItem&) override;
 
     virtual void didFirstVisuallyNonEmptyLayoutForMainFrame() override;
     virtual void didFinishLoadForMainFrame() override;
+    virtual void didFailLoadForMainFrame() override;
     virtual void didSameDocumentNavigationForMainFrame(SameDocumentNavigationType) override;
 
-    virtual void didPerformActionMenuHitTest(const ActionMenuHitTestResult&) override;
+    virtual void didChangeBackgroundColor() override;
+
+#if ENABLE(VIDEO)
+    virtual void mediaDocumentNaturalSizeChanged(const WebCore::IntSize&) override;
+#endif
+
+    virtual void refView() override;
+    virtual void derefView() override;
 
     WKContentView *m_contentView;
     WKWebView *m_webView;
+    WKView *m_wkView;
     RetainPtr<WKEditorUndoTargetObjC> m_undoTarget;
 };
 } // namespace WebKit

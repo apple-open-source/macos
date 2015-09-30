@@ -33,6 +33,9 @@
 #include <dispatch/dispatch.h>
 #include <bsm/libbsm.h>
 #include <libproc.h>
+#if !TARGET_OS_SIMULATOR
+#include <energytrace.h>
+#endif
 
 
 
@@ -110,17 +113,19 @@ __private_extern__ void             logASLAssertionsAggregate( );
 #endif
 
 static bool                         propertiesDictRequiresRoot(CFDictionaryRef   props);
-static IOReturn                     doRetain(pid_t pid, IOPMAssertionID id);
-static IOReturn                     doRelease(pid_t pid, IOPMAssertionID id);
+static IOReturn                     doRetain(pid_t pid, IOPMAssertionID id, int *retainCnt);
+static IOReturn                     doRelease(pid_t pid, IOPMAssertionID id, int *retainCnt);
 static IOReturn                     doSetProperties(pid_t pid, 
                                                     IOPMAssertionID id, 
                                                     CFDictionaryRef props);
 
 static CFArrayRef                   copyPIDAssertionDictionaryFlattened(void);
+static CFArrayRef                   copyAssertionsByType(CFStringRef type);
 static CFDictionaryRef              copyAggregateValuesDictionary(void);
 
 static IOReturn                     doCreate(pid_t pid, CFMutableDictionaryRef newProperties,
-                                             IOPMAssertionID *assertion_id, ProcessInfo **pinfo);
+                                             IOPMAssertionID *assertion_id, ProcessInfo **pinfo,
+                                             int *enTrIntensity);
 static IOReturn                     copyAssertionForID(pid_t inPID, int inID,
                                                        CFMutableDictionaryRef  *outAssertion);
 
@@ -154,7 +159,6 @@ uint32_t                            gDisplaySleepTimer = 0;      /* Display Slee
 unsigned long                       gIdleSleepTimer = 0;         /* Idle Sleep timer value in mins */
 
 extern uint32_t                     gDebugFlags;
-static IOPMAssertionID              gDarkWakeNetworkAssertion = kIOPMNullAssertionID;
 
 /* Number of procs interested in kIOPMAssertionsAnyChangedNotifyString notification */
 static  uint32_t                    gAnyChange = 0;
@@ -198,6 +202,7 @@ kern_return_t _io_pm_assertion_create (
                                        mach_msg_type_number_t  propsCnt,
                                        int                 *assertion_id,
                                        int                 *disableAppSleep,
+                                       int                 *enTrIntensity,
                                        int                 *return_code)
 {
     CFMutableDictionaryRef     newAssertionProperties = NULL;
@@ -239,7 +244,7 @@ kern_return_t _io_pm_assertion_create (
         goto exit;
     }
 
-    *return_code = doCreate(callerPID, newAssertionProperties, (IOPMAssertionID *)assertion_id, &pinfo);
+    *return_code = doCreate(callerPID, newAssertionProperties, (IOPMAssertionID *)assertion_id, &pinfo, enTrIntensity);
 
 #if !TARGET_OS_EMBEDDED
     if ((*return_code == kIOReturnSuccess) && (pinfo != NULL) ) {
@@ -311,6 +316,7 @@ kern_return_t _io_pm_assertion_retain_release (
                                                audit_token_t       token,
                                                int                 assertion_id,
                                                int                 action,
+                                               int                 *retainCnt,
                                                int                 *disableAppSleep,
                                                int                 *enableAppSleep,
                                                int                 *return_code) 
@@ -322,9 +328,9 @@ kern_return_t _io_pm_assertion_retain_release (
     *disableAppSleep = 0;
     *enableAppSleep = 0;
     if (kIOPMAssertionMIGDoRetain == action) {
-        *return_code = doRetain(callerPID, assertion_id);
+        *return_code = doRetain(callerPID, assertion_id, retainCnt);
     } else {
-        *return_code = doRelease(callerPID, assertion_id);
+        *return_code = doRelease(callerPID, assertion_id, retainCnt);
     }
 #if !TARGET_OS_EMBEDDED
     if (*return_code == kIOReturnSuccess) {
@@ -340,6 +346,8 @@ kern_return_t _io_pm_assertion_copy_details (
                                              audit_token_t       token,
                                              int                 assertion_id,
                                              int                 whichData,
+                                             vm_offset_t         props,
+                                             mach_msg_type_number_t propsCnt,
                                              vm_offset_t         *assertions,
                                              mach_msg_type_number_t  *assertionsCnt,
                                              int                 *return_val) 
@@ -374,12 +382,27 @@ kern_return_t _io_pm_assertion_copy_details (
     {
         theCollection = copyRepeatPowerEvents();
     }
+    else if (kIOPMAssertionMIGCopyByType == whichData)
+    {
+        CFStringRef  assertionType = NULL;
+
+        CFDataRef unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)props, propsCnt, kCFAllocatorNull);
+        if (unfolder) {
+            assertionType = (CFStringRef)CFPropertyListCreateWithData(0, unfolder, 0, NULL, NULL);
+            CFRelease(unfolder);
+        }
+        theCollection = copyAssertionsByType(assertionType);
+
+        if (assertionType) {
+            CFRelease(assertionType);
+        }
+    }
 
     if (!theCollection) {
         *assertionsCnt = 0;
         *assertions = 0;
         *return_val = kIOReturnSuccess;
-        return KERN_SUCCESS;
+        goto exit;
     }
 
 
@@ -403,6 +426,12 @@ kern_return_t _io_pm_assertion_copy_details (
         *return_val = kIOReturnInternalError;
     }
 
+exit:
+
+    if (props && propsCnt)
+    {
+        vm_deallocate(mach_task_self(), props, propsCnt);
+    }
     return KERN_SUCCESS;
 }
 
@@ -839,10 +868,10 @@ __private_extern__ IOReturn InternalCreateAssertion(
                           if (outID == NULL) {
                           /* Some don't care for assertionId */
                           IOPMAssertionID   assertionID = kIOPMNullAssertionID;
-                          doCreate(getpid(), properties, &assertionID, NULL);    
+                          doCreate(getpid(), properties, &assertionID, NULL, NULL);
                           }
                           else if ( *outID == kIOPMNullAssertionID )
-                          doCreate(getpid(), properties, outID, NULL);    
+                          doCreate(getpid(), properties, outID, NULL, NULL);
 
                           CFRelease(properties);
                           });
@@ -856,7 +885,7 @@ __private_extern__ void InternalReleaseAssertion(
 {
     CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, ^{
                           if ( *outID != kIOPMNullAssertionID ) {
-                          doRelease(getpid(), *outID);
+                          doRelease(getpid(), *outID, NULL);
                           }
                           *outID = kIOPMNullAssertionID;
                           });
@@ -872,8 +901,8 @@ __private_extern__ void InternalEvaluateAssertions(void)
 
 }
 
-static IOReturn _localCreateAssertionWithTimer(
-                                               CFStringRef type, CFStringRef name, int timerSecs, IOPMAssertionID *outID)
+__private_extern__ IOReturn 
+InternalCreateAssertionWithTimeout(CFStringRef type, CFStringRef name, int timerSecs, IOPMAssertionID *outID)
 {
     CFMutableDictionaryRef          dict = NULL;
 
@@ -884,16 +913,28 @@ static IOReturn _localCreateAssertionWithTimer(
     if ( (dict = _IOPMAssertionDescriptionCreate(type, name, NULL, NULL, NULL,
                                                  (CFTimeInterval)timerSecs, kIOPMAssertionTimeoutActionRelease)) )
     {
-        doCreate(getpid(), dict, outID, NULL);
+        doCreate(getpid(), dict, outID, NULL, NULL);
         CFRelease(dict);
     }
 
     return kIOReturnSuccess;
 
 }
+__private_extern__ IOReturn InternalReleaseAssertionSync(IOPMAssertionID outID)
+{
+    IOReturn ret = kIOReturnError;
+
+    if (outID != kIOPMNullAssertionID) {
+        ret = doRelease(getpid(), outID, NULL);
+    }
+
+    return ret;
+}
+
+
 static IOReturn _localCreateAssertion(CFStringRef type, CFStringRef name, IOPMAssertionID *outID)
 {
-    return _localCreateAssertionWithTimer(type, name, 0, outID);
+    return InternalCreateAssertionWithTimeout(type, name, 0, outID);
 }
 
 static IOReturn _enableAssertionForLimitedPower(pid_t pid, IOPMAssertionID id)
@@ -925,8 +966,9 @@ static IOReturn _enableAssertionForLimitedPower(pid_t pid, IOPMAssertionID id)
 static void  _DarkWakeHandleNetworkWake(void)
 {
     IOReturn rc;
+    IOPMAssertionID gDarkWakeNetworkAssertion = kIOPMNullAssertionID;
 
-    rc = _localCreateAssertionWithTimer(kIOPMAssertInternalPreventSleep, 
+    rc = InternalCreateAssertionWithTimeout(kIOPMAssertInternalPreventSleep, 
                                         CFSTR("Network wake delay proxy assertion"),
                                         30, &gDarkWakeNetworkAssertion);
 
@@ -1040,7 +1082,7 @@ static void devEnumerationDone( devEnumInfo_st *deInfo )
 
     /* Release the assertion */
     if (deInfo->assertId) {
-        doRelease(getpid(), deInfo->assertId);
+        doRelease(getpid(), deInfo->assertId, NULL);
         deInfo->assertId = 0;
         free(deInfo);
     }
@@ -1102,6 +1144,7 @@ void ioKitStateCallback (
 
 static void _AssertForDeviceEnumeration(CFStringRef wakeType)
 {
+#if !TARGET_OS_EMBEDDED
     IOPMAssertionID     deviceEnumerationAssertion = kIOPMNullAssertionID;
     notifyRegInfo_st    *notifyInfo = NULL;
     devEnumInfo_st *deInfo = NULL;
@@ -1110,7 +1153,6 @@ static void _AssertForDeviceEnumeration(CFStringRef wakeType)
     
     if (isA_CFString(wakeType) && (
         CFEqual(wakeType, kIOPMRootDomainWakeTypeAlarm) ||
-        CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) ||
         CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepTimer) ||
         CFEqual(wakeType, kIOPMRootDomainWakeTypeSleepService) ||
         CFEqual(wakeType, kIOPMrootDomainWakeTypeLowBattery) ||
@@ -1180,7 +1222,8 @@ exit:
     if (notifyInfo)
         _DeregisterForNotification(notifyInfo);
 
-    doRelease(getpid(), deviceEnumerationAssertion); 
+    doRelease(getpid(), deviceEnumerationAssertion, NULL); 
+#endif
 }
 
 /*
@@ -1220,7 +1263,7 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
             else if (CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) &&
                      CFEqual(wakeReason, kIOPMRootDomainWakeReasonRTC))
             {
-                _localCreateAssertionWithTimer(kIOPMAssertionTypeBackgroundTask, 
+                InternalCreateAssertionWithTimeout(kIOPMAssertionTypeBackgroundTask, 
                                                CFSTR("Powerd - Wait for client BackgroundTask assertions"), 10, &pushSvcAssert);
             }
             else {
@@ -1277,7 +1320,7 @@ void delayDisplayTurnOff( )
                                                (CFTimeInterval)delay, kIOPMAssertionTimeoutActionTurnOff);
 
         if (dict) {
-            doCreate(getpid(), dict, &id, NULL);    
+            doCreate(getpid(), dict, &id, NULL, NULL);
             CFRelease(dict);
         }
     }
@@ -1340,6 +1383,9 @@ static ProcessInfo* processInfoCreate(pid_t p)
     char                    name[kProcNameBufLen];
     static  uint32_t        create_seq = 0;
 
+    if (proc_name(p, name, sizeof(name)) == 0) 
+        return NULL;
+
     proc = calloc(1, sizeof(ProcessInfo));
     if (!proc) return NULL;
 
@@ -1353,6 +1399,10 @@ static ProcessInfo* processInfoCreate(pid_t p)
 
     dispatch_source_set_event_handler(proc->disp_src, ^{
                                       HandleProcessExit(p);
+                                      // 21904354, clean up any assertions they may have been
+                                      // created after receiving the PROC_EXIT notification.
+                                      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC),
+                                                     dispatch_get_main_queue(), ^{ HandleProcessExit(p); });
                                       });
 
     dispatch_source_set_cancel_handler(proc->disp_src, ^{
@@ -1361,7 +1411,6 @@ static ProcessInfo* processInfoCreate(pid_t p)
 
     dispatch_resume(proc->disp_src);
 
-    proc_name(p, name, sizeof(name));
     proc->name = CFStringCreateWithCString(0, name, kCFStringEncodingUTF8);
     proc->pid = p;
     proc->retain_cnt++;
@@ -1708,7 +1757,7 @@ kern_return_t _io_pm_declare_system_active (
     else
         CFDictionarySetValue(assertionProperties, kIOPMAssertionTypeKey, kIOPMAssertionTypeSystemIsActive);
 
-    if(kIOReturnSuccess != doCreate(callerPID, assertionProperties, (IOPMAssertionID *)assertion_id, NULL))
+    if(kIOReturnSuccess != doCreate(callerPID, assertionProperties, (IOPMAssertionID *)assertion_id, NULL, NULL))
         *return_code = kIOReturnInternalError;
 
 exit:
@@ -1794,7 +1843,7 @@ kern_return_t  _io_pm_declare_user_active (
     if (create_new) {
         CFDictionarySetValue(assertionProperties, kIOPMAssertionTypeKey, kIOPMAssertionUserIsActive);
 
-        *return_code = doCreate(callerPID, assertionProperties, (IOPMAssertionID *)assertion_id, NULL);
+        *return_code = doCreate(callerPID, assertionProperties, (IOPMAssertionID *)assertion_id, NULL, NULL);
         if ((*return_code == kIOReturnSuccess) && 
             (lookupAssertion(callerPID, *assertion_id, &assertion) == kIOReturnSuccess)) {
             assertion->state |= kAssertionTimeoutIsSystemTimer;
@@ -1893,7 +1942,7 @@ kern_return_t  _io_pm_declare_network_client_active (
     if (create_new) {
         CFDictionarySetValue(assertionProperties, kIOPMAssertionTypeKey, kIOPMAssertNetworkClientActive);
 
-        *return_code = doCreate(callerPID, assertionProperties, (IOPMAssertionID *)assertion_id, NULL);
+        *return_code = doCreate(callerPID, assertionProperties, (IOPMAssertionID *)assertion_id, NULL, NULL);
         if ((*return_code == kIOReturnSuccess) && 
             (lookupAssertion(callerPID, *assertion_id, &assertion) == kIOReturnSuccess)) {
             assertion->state |= kAssertionTimeoutIsSystemTimer;
@@ -2261,6 +2310,10 @@ void handleAssertionTimeout(assertionType_t *assertType)
 
         updateAppStats(assertion, kAssertionOpRelease);
         schedEnableAppSleep( assertion );
+#if !TARGET_OS_SIMULATOR
+        entr_act_end(kEnTrCompSysPower, kEnTrActSPPMAssertion,
+                     assertion->assertionId, kEnTrQualTimedOut, kEnTrValNone);
+#endif
 
         if ((dateNow = CFDateCreate(0, CFAbsoluteTimeGetCurrent()))) {
             CFDictionarySetValue(assertion->props, kIOPMAssertionTimedOutDateKey, dateNow);            
@@ -2448,18 +2501,26 @@ void insertTimedAssertion(assertion_t *assertion, assertionType_t *assertType, b
 static void releaseAssertion(assertion_t *assertion, bool callHandler)
 {
     assertionType_t     *assertType;
+    bool active = false;
 
     assertType = &gAssertionTypes[assertion->kassert]; 
 
-    if ( (assertion->kassert == kPreventDisplaySleepType) && 
-         (assertion->pinfo->pid != getpid()))
-        delayDisplayTurnOff( );
-    if (assertion->state & kAssertionStateTimed)
+    if (assertion->state & kAssertionStateTimed) {
         removeTimedAssertion(assertion, assertType, true);
-    else if (assertion->state & kAssertionStateInactive)
+        active = true;
+    }
+    else if (assertion->state & kAssertionStateInactive) {
         removeInactiveAssertion(assertion, assertType);
-    else
+    }
+    else {
         removeActiveAssertion(assertion, assertType);
+        active = true;
+    }
+
+    if (active && (assertion->kassert == kPreventDisplaySleepType) &&
+         (assertion->pinfo->pid != getpid())) {
+        delayDisplayTurnOff( );
+    }
 
     if (!callHandler) return;
 
@@ -2469,7 +2530,7 @@ static void releaseAssertion(assertion_t *assertion, bool callHandler)
 
 }
 
-static IOReturn doRelease(pid_t pid, IOPMAssertionID id)
+static IOReturn doRelease(pid_t pid, IOPMAssertionID id, int *retainCnt)
 {
     IOReturn                    ret;
 
@@ -2481,6 +2542,9 @@ static IOReturn doRelease(pid_t pid, IOPMAssertionID id)
 
     if (assertion->retainCnt)
         assertion->retainCnt--;
+
+    if (retainCnt)
+        *retainCnt = assertion->retainCnt;
 
     if (assertion->retainCnt) {
         return kIOReturnSuccess;
@@ -2534,7 +2598,11 @@ __private_extern__ void HandleProcessExit(pid_t deadPID)
     assertionType_t *assertType = NULL;
     assertion_t     *assertion = NULL;
     __block LIST_HEAD(, assertion) list  = LIST_HEAD_INITIALIZER(list);     /* list of assertions released */
+    ProcessInfo         *pinfo = NULL;
 
+    if ( (pinfo = processInfoGet(deadPID)) ) {
+        pinfo->proc_exited = 1;
+    }
     do_assertion_notify(deadPID, kIOPMAssertionsAnyChangedNotifyString, kIOPMNotifyDeRegister);
     do_assertion_notify(deadPID, kIOPMAssertionTimedOutNotifyString, kIOPMNotifyDeRegister);
     do_assertion_notify(deadPID, kIOPMAssertionsChangedNotifyString, kIOPMNotifyDeRegister);
@@ -2558,6 +2626,10 @@ __private_extern__ void HandleProcessExit(pid_t deadPID)
         /* Release memory after calling the handler to get proper aggregate_assertions value into log */
         while( (assertion = LIST_FIRST(&list)) )
         {
+#if !TARGET_OS_SIMULATOR
+            entr_act_end(kEnTrCompSysPower, kEnTrActSPPMAssertion,
+                                    assertion->assertionId, kEnTrQualNone, kEnTrValNone);
+#endif
             LIST_REMOVE(assertion, link);
             releaseAssertionMemory(assertion, kAClientDeathLog);
         }
@@ -2586,6 +2658,7 @@ static int getAssertionTypeIndex(CFStringRef type)
 
     return idx;
 }
+
 static void forwardPropertiesToAssertion(const void *key, const void *value, void *context)
 {
     assertion_t *assertion = (assertion_t *)context;
@@ -2795,6 +2868,35 @@ static IOReturn doSetProperties(pid_t pid,
     return kIOReturnSuccess;    
 }
 
+__private_extern__ bool checkForActivesByEffect(kerAssertionEffect effectIdx)
+{
+    bool                typeActive = false;
+    assertionType_t     *type = NULL;
+    assertionEffect_t   *effect = NULL;
+
+    if (effectIdx == kNoEffect)
+        return false;
+
+    effect = &gAssertionEffects[effectIdx];
+
+    LIST_FOREACH(type, &effect->assertTypes, link) {
+
+        /*
+         * Check for active assertions in this assertionType's 'active' & 'activeTimed' lists
+         */
+        if ( (type->flags & kAssertionTypeNotValidOnBatt) && ( _getPowerSource() == kBatteryPowered) )
+            typeActive = (type->validOnBattCount > 0);
+        else
+            typeActive = (LIST_FIRST(&type->active) || LIST_FIRST(&type->activeTimed));
+
+        if (typeActive)
+            return true;
+    }
+
+    return false;
+
+}
+
 /*
  * Check for active assertions of the specified type and also for active
  * assertions of linked types.
@@ -2936,7 +3038,9 @@ static inline void updateAggregates(assertionType_t *assertType, bool activesFor
         setAggregateLevel(assertType->kassert,  0 );
     }
 
-    userActiveHandlePowerAssertionsChanged();
+    if((assertType->kassert == kDeclareUserActivityType) || (assertType->kassert == kPreventDisplaySleepType) || (assertType->kassert == kNetworkAccessType) || (assertType->kassert == kTicklessDisplayWakeType)) {
+        userActiveHandlePowerAssertionsChanged();
+    }
 }
 
 static void modifySettings(assertionType_t *assertType, assertionOps op)
@@ -3290,16 +3394,6 @@ static void displayWakeHandler(assertionType_t *assertType, assertionOps op)
                         NULL, 0, NULL, 
                         NULL, NULL, NULL);
 
-    if (level && (gDarkWakeNetworkAssertion != kIOPMNullAssertionID)) {
-        // Release n/w proxy, if it exists.
-        // XXX: This is not a right place to release this, but leaving it here
-        // for now, as this is the only case of releasing an assertion when another 
-        // is created
-        dispatch_async(dispatch_get_main_queue(), ^{
-                       doRelease(getpid(), gDarkWakeNetworkAssertion);
-                       gDarkWakeNetworkAssertion = kIOPMNullAssertionID;
-                       });
-    }
     if (gAggChange) notify_post( kIOPMAssertionsChangedNotifyString );
 }
 #endif
@@ -3383,7 +3477,6 @@ void resetGlobalTimer(assertionType_t *assertType, uint64_t timeout)
 
 }
 
-
 static IOReturn raiseAssertion(assertion_t *assertion)
 {
     int                 idx = -1;
@@ -3398,6 +3491,7 @@ static IOReturn raiseAssertion(assertion_t *assertion)
     assertionType_t     *assertType;
     uint64_t            assertion_id_64;
     CFBooleanRef        val = NULL;
+    CFNumberRef         pidCF = NULL;
 
 
     assertionTypeRef = CFDictionaryGetValue(assertion->props, kIOPMAssertionTypeKey);
@@ -3415,6 +3509,20 @@ static IOReturn raiseAssertion(assertion_t *assertion)
         CFDictionarySetValue(assertion->props, kIOPMAssertionGlobalUniqueIDKey, uniqueAID);
         CFRelease(uniqueAID);
     }
+    numRef = CFNumberCreate(0, kCFNumberSInt32Type, &assertion->assertionId);
+    if (numRef) {
+        CFDictionarySetValue(assertion->props, kIOPMAssertionIdKey, numRef);
+        CFRelease(numRef);
+    }
+    if (assertion->pinfo->name) {
+        CFDictionarySetValue(assertion->props, kIOPMAssertionProcessNameKey, assertion->pinfo->name);
+    }
+    pidCF = CFNumberCreate(0, kCFNumberIntType, &assertion->pinfo->pid);
+    if (pidCF) {
+        CFDictionarySetValue(assertion->props, kIOPMAssertionPIDKey, pidCF);
+        CFRelease(pidCF);
+    }
+
 
     /* Attach the Create Time */
     start_date = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
@@ -3496,7 +3604,8 @@ IOReturn doCreate(
                   pid_t                   pid,
                   CFMutableDictionaryRef  newProperties,
                   IOPMAssertionID         *assertion_id,
-                  ProcessInfo             **procInfo
+                  ProcessInfo             **procInfo,
+                  int                     *enTrIntensity
                  ) 
 {
     int                     i;
@@ -3513,7 +3622,7 @@ IOReturn doCreate(
     // Create a dispatch handler for process exit, if there isn't one
     if ( !(pinfo = processInfoRetain(pid)) ) {
         pinfo = processInfoCreate(pid);
-        if (!pinfo) return kIOReturnNoMemory;
+        if (!pinfo || pinfo->proc_exited) return kIOReturnNoMemory;
 
         if (procInfo) *procInfo = pinfo;
     }
@@ -3559,6 +3668,8 @@ IOReturn doCreate(
     if (gAnyChange) notify_post( kIOPMAssertionsAnyChangedNotifyString );
 
     *assertion_id = assertion->assertionId;
+    if (enTrIntensity)
+        *enTrIntensity = assertType->enTrQuality;
 
     return result;
 }
@@ -3613,6 +3724,34 @@ static void copyAssertion(assertion_t *assertion, CFMutableDictionaryRef asserti
     }
 }
 
+static CFArrayRef copyAssertionsByType(CFStringRef assertionType)
+{
+    __block CFMutableArrayRef       returnArray = NULL;
+    assertionType_t         *assertType = NULL;
+    int idx;
+
+    idx = getAssertionTypeIndex(assertionType);
+    if (idx == -1) {
+        return NULL;
+    }
+    assertType = &gAssertionTypes[idx];
+    applyToAllAssertionsSync(assertType, false, ^(assertion_t *assertion)
+                             {
+                                if (returnArray == NULL) {
+                                    returnArray = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+                                }
+                                if (assertion->kassert < kIOPMNumAssertionTypes) {
+                                    CFDictionarySetValue(assertion->props,
+                                                         kIOPMAssertionTrueTypeKey,
+                                                         assertion_types_arr[assertion->kassert]);
+                                }
+                                CFArrayAppendValue(returnArray, assertion->props);
+                             });
+
+
+    return returnArray;
+
+}
 
 static CFArrayRef copyPIDAssertionDictionaryFlattened(void)
 {
@@ -3682,7 +3821,7 @@ exit:
     return ret;
 }
 
-static IOReturn doRetain(pid_t pid, IOPMAssertionID id)
+static IOReturn doRetain(pid_t pid, IOPMAssertionID id, int *retainCnt)
 {
     IOReturn        ret;
     assertion_t     *assertion = NULL;
@@ -3694,6 +3833,10 @@ static IOReturn doRetain(pid_t pid, IOPMAssertionID id)
     }
 
     assertion->retainCnt++;
+
+    if (retainCnt)
+        *retainCnt = assertion->retainCnt;
+
     if (gAnyChange) notify_post( kIOPMAssertionsAnyChangedNotifyString );
 
     return kIOReturnSuccess;
@@ -3793,14 +3936,14 @@ __private_extern__ void evalAllNetworkAccessAssertions()
 {
 
     assertionType_t     *assertType;
-    int                 changeInSecs;
+    unsigned long       changeInSecs;
     assertion_t         *assertion, *nextAssertion;
     uint64_t            currTime = getMonotonicTime();
     unsigned long       idleSleepTimer = gIdleSleepTimer;
     LIST_HEAD(, assertion) list  = LIST_HEAD_INITIALIZER(list);  // local list to hold assertions for which timeout is changed
 
     getIdleSleepTimer(&idleSleepTimer);
-    changeInSecs = ((int)idleSleepTimer - gIdleSleepTimer) * 60;
+    changeInSecs = (idleSleepTimer - gIdleSleepTimer) * 60UL;
     gIdleSleepTimer = idleSleepTimer;
 
     if (changeInSecs == 0) return;
@@ -3988,7 +4131,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
     kerAssertionEffect  prevEffect, newEffect;
 
     // This can get called before gUserAssertionTypesDict is initialized
-    if ( !gUserAssertionTypesDict )
+    if ( !gUserAssertionTypesDict)
         return;
 
     assertType = &gAssertionTypes[idx];
@@ -4005,6 +4148,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeNeedsCPU, idxRef);
         assertType->handler = modifySettings;
+        assertType->enTrQuality = kEnTrQualNone;
         newEffect = kHighPerfEffect;
         break;
 
@@ -4013,6 +4157,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypePreventUserIdleSystemSleep, idxRef);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeNoIdleSleep, idxRef);
         assertType->handler = modifySettings;
+        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
 
         newEffect = kPrevIdleSlpEffect;
         assertType->flags |= kAssertionTypePreventAppSleep;
@@ -4022,14 +4167,15 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeDisableInflow, idxRef);
         assertType->handler = handleBatteryAssertions;
+        assertType->enTrQuality = kEnTrQualNone;
         newEffect = kDisableInflowEffect;
         break;
-
 
     case kInhibitChargeType:
         idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeInhibitCharging, idxRef);
         assertType->handler = handleBatteryAssertions;
+        assertType->enTrQuality = kEnTrQualNone;
         newEffect = kInhibitChargeEffect;
         break;
 
@@ -4037,6 +4183,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeDisableLowBatteryWarnings, idxRef);
         assertType->handler = handleBatteryAssertions;
+        assertType->enTrQuality = kEnTrQualNone;
         newEffect = kDisableWarningsEffect;
         break;
 
@@ -4045,6 +4192,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypePreventUserIdleDisplaySleep, idxRef);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeNoDisplaySleep, idxRef);
         assertType->handler = setKernelAssertions;
+        assertType->enTrQuality = kEnTrQualSPKeepDisplayAwake;
 
         assertType->flags |= kAssertionTypePreventAppSleep | kAssertionTypeLogOnCreate;
         newEffect = kPrevDisplaySlpEffect;
@@ -4054,6 +4202,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeEnableIdleSleep, idxRef);
         assertType->handler = enableIdleHandler;
+        assertType->enTrQuality = kEnTrQualNone;
         newEffect = kEnableIdleEffect;
         break;
 
@@ -4064,6 +4213,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         assertType->flags |= kAssertionTypeNotValidOnBatt | kAssertionTypePreventAppSleep 
             | kAssertionTypeLogOnCreate;
         assertType->handler = setKernelAssertions;
+        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake | kEnTrQualSPPreventSleepSystem;
 
         newEffect = kPrevDemandSlpEffect;
         break;
@@ -4074,6 +4224,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertMaintenanceActivity, idxRef);
         assertType->flags |= kAssertionTypeNotValidOnBatt | kAssertionTypePreventAppSleep | kAssertionTypeLogOnCreate;
         assertType->handler = setKernelAssertions;
+        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake | kEnTrQualSPPreventSleepSystem;
 
         newEffect = kPrevDemandSlpEffect;
 
@@ -4083,6 +4234,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertPreventDiskIdle, idxRef);
         assertType->handler = modifySettings;
+        assertType->enTrQuality = kEnTrQualNone;
         newEffect = kPreventDiskSleepEffect;
         break;
 
@@ -4090,6 +4242,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
         CFDictionarySetValue(gUserAssertionTypesDict, _kIOPMAssertionTypeExternalMedia, idxRef);
         assertType->handler = setKernelAssertions;
+        assertType->enTrQuality = kEnTrQualNone;
         newEffect = kExternalMediaEffect;
         break;
 
@@ -4097,6 +4250,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionUserIsActive, idxRef);
         assertType->handler = setKernelAssertions;
+        assertType->enTrQuality = kEnTrQualSPKeepDisplayAwake | kEnTrQualSPWakeDisplay;
 
         assertType->flags |= kAssertionTypePreventAppSleep | kAssertionTypeLogOnCreate;
         newEffect = kPrevDisplaySlpEffect;
@@ -4106,12 +4260,18 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeSystemIsActive, idxRef);
         assertType->handler = modifySettings;
+        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
 
         newEffect = kPrevIdleSlpEffect;
         assertType->flags |= kAssertionTypePreventAppSleep | kAssertionTypeLogOnCreate;
         break;
 
     case kPushServiceTaskType:
+#if TARGET_OS_IPHONE
+        assertType->enTrQuality = kEnTrQualNone;
+#else
+        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
+#endif
         if ( isA_SleepSrvcWake() && _SS_allowed() ) {
             idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
             CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeApplePushServiceTask, idxRef);
@@ -4142,11 +4302,15 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
                     assertType->disableCnt++;
                     prevBTdisable = true;
                 }
+                assertType->flags &= ~kAssertionTypeLogOnCreate;
             }
-            else if (prevBTdisable)  {
-                if (assertType->disableCnt) 
-                    assertType->disableCnt--;
-                prevBTdisable = false;
+            else {
+                if (prevBTdisable)  {
+                    if (assertType->disableCnt)
+                        assertType->disableCnt--;
+                    prevBTdisable = false;
+                }
+                assertType->flags |= kAssertionTypeLogOnCreate;
             }
             newEffect = kPrevDemandSlpEffect;
         }
@@ -4159,6 +4323,11 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
                 prevBTdisable = false;
             }
         }
+#if TARGET_OS_IPHONE
+        assertType->enTrQuality = kEnTrQualNone;
+#else
+        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
+#endif
 
         break;
 
@@ -4177,6 +4346,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         idxRef = CFNumberCreate(0, kCFNumberIntType, &altIdx);
         newEffect = kNoEffect;
 #endif
+        assertType->enTrQuality = kEnTrQualNone;
         break;
 
     case kIntPreventDisplaySleepType:
@@ -4185,6 +4355,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertRequiresDisplayAudio, idxRef);
         assertType->handler = setKernelAssertions;
         assertType->flags |= kAssertionTypeLogOnCreate;
+        assertType->enTrQuality = kEnTrQualSPKeepDisplayAwake;
 
         newEffect = kPrevDisplaySlpEffect;
         break;
@@ -4193,6 +4364,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertNetworkClientActive, idxRef);
         assertType->flags |= kAssertionTypePreventAppSleep | kAssertionTypeLogOnCreate;
+        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake | kEnTrQualSPPreventSleepSystem;
 
         if (kACPowered == _getPowerSource()) {
             assertType->handler = setKernelAssertions;
@@ -4206,6 +4378,13 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
 
     case kInteractivePushServiceType:
         newEffect = kNoEffect;
+
+#if TARGET_OS_IPHONE
+        assertType->enTrQuality = kEnTrQualNone;
+#else
+        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
+#endif
+
 #if TCPKEEPALIVE
         if (getTCPKeepAliveState(NULL, 0) == kActive) {
             /* If keep alives are allowed */
@@ -4222,7 +4401,6 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
 
             altIdx = kPushServiceTaskType;
             idxRef = CFNumberCreate(0, kCFNumberIntType, &altIdx);
-
         }
         else {
             /* else make this behave same as BackgroundTask assertion when PowerNap is disabled */
@@ -4262,6 +4440,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         assertType->handler = modifySettings;
         newEffect = kPrevIdleSlpEffect;
         assertType->entitlement = kIOPMReservePwrCtrlEntitlement;
+        assertType->enTrQuality = kEnTrQualSPPreventSleepSystem;
 
         break;
 
@@ -4271,7 +4450,6 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
     }
     if (idxRef)
         CFRelease(idxRef);
-
 
     if (assertType->disableCnt) {
         newEffect = kNoEffect;
@@ -4363,6 +4541,7 @@ __private_extern__ void PMAssertions_prime(void)
 
     // Reset kernel assertions to clear out old values from prior to powerd's crash
     sendUserAssertionsToKernel(0);
+    setClamshellSleepState(0);
 #if TARGET_OS_EMBEDDED
     /* 
      * Disable Idle Sleep until some one comes and enables the idle sleep
@@ -4376,7 +4555,6 @@ __private_extern__ void PMAssertions_prime(void)
 #else
 
     setAggregateLevel(kEnableIdleType, 1); /* Idle sleep is enabled by default */
-    gDebugFlags = kIOPMDebugAssertionASLLog;
 
     notify_register_dispatch("com.apple.notificationcenter.pushdnd", &token,
                              dispatch_get_main_queue(),

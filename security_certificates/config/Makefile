@@ -1,10 +1,8 @@
 #
 #	Makefile to install world-readable directories for trust store files
 #
-KEYCHAINS_DIR=$(DSTROOT)/private/var/Keychains
+SECURITY_DIR=$(DSTROOT)/System/Library/Security
 CRL_CACHE_DIR=$(DSTROOT)/private/var/db/crls
-
-SYSTEM_LIBRARY_DIR=$(DSTROOT)/System/Library
 
 .PHONY: build installhdrs installsrc clean install
 
@@ -29,8 +27,8 @@ install:
 		chown root:wheel $(CRL_CACHE_DIR); \
 		chmod 755 $(CRL_CACHE_DIR); \
 	fi
-	if [ ! -d $(KEYCHAINS_DIR) ]; then \
-		mkdir -p $(KEYCHAINS_DIR); \
-		chown root:wheel $(KEYCHAINS_DIR); \
-		chmod 755 $(KEYCHAINS_DIR); \
+	if [ ! -d $(SECURITY_DIR) ]; then \
+		mkdir -p $(SECURITY_DIR); \
+		chown root:wheel $(SECURITY_DIR); \
+		chmod 755 $(SECURITY_DIR); \
 	fi

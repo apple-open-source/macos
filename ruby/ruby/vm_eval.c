@@ -2,7 +2,7 @@
 
   vm_eval.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Sat May 24 16:02:32 JST 2008
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -684,7 +684,7 @@ raise_method_missing(rb_thread_t *th, int argc, const VALUE *argv, VALUE obj,
     {
 	exc = make_no_method_exception(exc, format, obj, argc, argv);
 	if (!(last_call_status & NOEX_MISSING)) {
-	    th->cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(th->cfp);
+	    rb_vm_pop_cfunc_frame();
 	}
 	rb_exc_raise(exc);
     }
@@ -977,6 +977,7 @@ rb_yield_splat(VALUE values)
         rb_raise(rb_eArgError, "not an array");
     }
     v = rb_yield_0(RARRAY_LENINT(tmp), RARRAY_PTR(tmp));
+    RB_GC_GUARD(tmp);
     return v;
 }
 
@@ -1068,19 +1069,7 @@ rb_iterate(VALUE (* it_proc) (VALUE), VALUE data1,
 		th->errinfo = Qnil;
 		retval = GET_THROWOBJ_VAL(err);
 
-		/* check skipped frame */
-		while (th->cfp != cfp) {
-#if VMDEBUG
-		    printf("skipped frame: %s\n", vm_frametype_name(th->cfp));
-#endif
-		    if (UNLIKELY(VM_FRAME_TYPE(th->cfp) == VM_FRAME_MAGIC_CFUNC)) {
-			const rb_method_entry_t *me = th->cfp->me;
-			EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, th->cfp->self, me->called_id, me->klass, Qnil);
-			RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, me->klass, me->called_id);
-		    }
-
-		    th->cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(th->cfp);
-		}
+		rb_vm_rewind_cfp(th, cfp);
 	    }
 	    else{
 		/* SDR(); printf("%p, %p\n", cdfp, escape_dfp); */
@@ -1091,10 +1080,11 @@ rb_iterate(VALUE (* it_proc) (VALUE), VALUE data1,
 	    VALUE *cep = cfp->ep;
 
 	    if (cep == escape_ep) {
+		rb_vm_rewind_cfp(th, cfp);
+
 		state = 0;
 		th->state = 0;
 		th->errinfo = Qnil;
-		th->cfp = cfp;
 		goto iter_retry;
 	    }
 	}
@@ -1198,7 +1188,7 @@ eval_string_with_cref(VALUE self, VALUE src, VALUE scope, NODE *cref, volatile V
 	    absolute_path = file;
 	}
 
-	if (scope != Qnil) {
+	if (!NIL_P(scope)) {
 	    if (rb_obj_is_kind_of(scope, rb_cBinding)) {
 		GetBindingPtr(scope, bind);
 		envval = bind->env;
@@ -1242,6 +1232,7 @@ eval_string_with_cref(VALUE self, VALUE src, VALUE scope, NODE *cref, volatile V
 	th->parse_in_eval--;
 
 	vm_set_eval_stack(th, iseqval, cref, base_block);
+	th->cfp->klass = CLASS_OF(base_block->self);
 
 	if (0) {		/* for debug */
 	    VALUE disasm = rb_iseq_disasm(iseqval);
@@ -1836,7 +1827,7 @@ rb_catch_obj(VALUE tag, VALUE (*func)(), VALUE data)
 	val = (*func)(tag, data, 1, &tag, Qnil);
     }
     else if (state == TAG_THROW && RNODE(th->errinfo)->u1.value == tag) {
-	th->cfp = saved_cfp;
+	rb_vm_rewind_cfp(th, saved_cfp);
 	val = th->tag->retval;
 	th->errinfo = Qnil;
 	state = 0;

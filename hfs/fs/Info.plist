@@ -74,6 +74,18 @@
 			<key>FSProbeOrder</key>
 			<integer>1000</integer>
 		</dict>
+                <key>7C3457EF-0000-11AA-AA11-00306543ECAC</key>
+                <dict>
+                        <key>FSMediaProperties</key>
+                        <dict>
+                                <key>Content Hint</key>
+                                <string>7C3457EF-0000-11AA-AA11-00306543ECAC</string>
+                                <key>Leaf</key>
+                                <true/>
+                        </dict>
+                        <key>autodiskmount</key>
+                        <false/>
+                </dict>
 		<key>Apple_HFS</key>
 		<dict>
 			<key>FSMediaProperties</key>

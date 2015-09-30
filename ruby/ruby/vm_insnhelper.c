@@ -148,10 +148,12 @@ static void
 unknown_keyword_error(const rb_iseq_t *iseq, VALUE hash)
 {
     VALUE sep = rb_usascii_str_new2(", "), keys;
+    st_table *tbl = rb_hash_tbl(hash);
     const char *msg;
     int i;
     for (i = 0; i < iseq->arg_keywords; i++) {
-	rb_hash_delete(hash, ID2SYM(iseq->arg_keyword_table[i]));
+	st_data_t key = ID2SYM(iseq->arg_keyword_table[i]);
+	st_delete(tbl, &key, NULL);
     }
     keys = rb_funcall(hash, rb_intern("keys"), 0, 0);
     if (!RB_TYPE_P(keys, T_ARRAY)) rb_raise(rb_eArgError, "unknown keyword");
@@ -291,6 +293,27 @@ rb_vm_get_cref(const rb_iseq_t *iseq, const VALUE *ep)
 	rb_bug("rb_vm_get_cref: unreachable");
     }
     return cref;
+}
+
+void
+rb_vm_rewrite_cref_stack(NODE *node, VALUE old_klass, VALUE new_klass, NODE **new_cref_ptr)
+{
+    NODE *new_node;
+    while (node) {
+	if (node->nd_clss == old_klass) {
+	    new_node = NEW_CREF(new_klass);
+	    COPY_CREF_OMOD(new_node, node);
+	    new_node->nd_next = node->nd_next;
+	    *new_cref_ptr = new_node;
+	    return;
+	}
+	new_node = NEW_CREF(node->nd_clss);
+	COPY_CREF_OMOD(new_node, node);
+	node = node->nd_next;
+	*new_cref_ptr = new_node;
+	new_cref_ptr = &new_node->nd_next;
+    }
+    *new_cref_ptr = NULL;
 }
 
 static NODE *
@@ -2021,15 +2044,17 @@ vm_search_super_method(rb_thread_t *th, rb_control_frame_t *reg_cfp, rb_call_inf
 	current_defined_class = RCLASS_REFINED_CLASS(current_defined_class);
     }
 
-    if (!FL_TEST(current_defined_class, RMODULE_INCLUDED_INTO_REFINEMENT) &&
+    if (BUILTIN_TYPE(current_defined_class) != T_MODULE &&
+	BUILTIN_TYPE(current_defined_class) != T_ICLASS && /* bound UnboundMethod */
+	!FL_TEST(current_defined_class, RMODULE_INCLUDED_INTO_REFINEMENT) &&
 	!rb_obj_is_kind_of(ci->recv, current_defined_class)) {
 	VALUE m = RB_TYPE_P(current_defined_class, T_ICLASS) ?
 	    RBASIC(current_defined_class)->klass : current_defined_class;
 
 	rb_raise(rb_eTypeError,
 		 "self has wrong type to call super in this context: "
-		 "%s (expected %s)",
-		 rb_obj_classname(ci->recv), rb_class2name(m));
+		 "%"PRIsVALUE" (expected %"PRIsVALUE")",
+		 rb_obj_class(ci->recv), m);
     }
 
     switch (vm_search_superclass(GET_CFP(), iseq, sigval, ci)) {

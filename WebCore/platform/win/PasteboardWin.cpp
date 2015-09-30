@@ -79,12 +79,10 @@ static LRESULT CALLBACK PasteboardOwnerWndProc(HWND hWnd, UINT message, WPARAM w
         break;
     case WM_DESTROY:
         break;
-#if !OS(WINCE)
     case WM_DRAWCLIPBOARD:
         break;
     case WM_CHANGECBCHAIN:
         break;
-#endif
     default:
         lresult = DefWindowProc(hWnd, message, wParam, lParam);
         break;
@@ -92,39 +90,37 @@ static LRESULT CALLBACK PasteboardOwnerWndProc(HWND hWnd, UINT message, WPARAM w
     return lresult;
 }
 
-PassOwnPtr<Pasteboard> Pasteboard::createForCopyAndPaste()
+std::unique_ptr<Pasteboard> Pasteboard::createForCopyAndPaste()
 {
-    OwnPtr<Pasteboard> pasteboard = adoptPtr(new Pasteboard);
+    auto pasteboard = std::make_unique<Pasteboard>();
     COMPtr<IDataObject> clipboardData;
-#if !OS(WINCE)
     if (!SUCCEEDED(OleGetClipboard(&clipboardData)))
         clipboardData = 0;
-#endif
     pasteboard->setExternalDataObject(clipboardData.get());
-    return pasteboard.release();
+    return pasteboard;
 }
 
-PassOwnPtr<Pasteboard> Pasteboard::createPrivate()
+std::unique_ptr<Pasteboard> Pasteboard::createPrivate()
 {
     // Windows has no "Private pasteboard" concept.
     return createForCopyAndPaste();
 }
 
 #if ENABLE(DRAG_SUPPORT)
-PassOwnPtr<Pasteboard> Pasteboard::createForDragAndDrop()
+std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop()
 {
     COMPtr<WCDataObject> dataObject;
     WCDataObject::createInstance(&dataObject);
-    return adoptPtr(new Pasteboard(dataObject.get()));
+    return std::make_unique<Pasteboard>(dataObject.get());
 }
 
 // static
-PassOwnPtr<Pasteboard> Pasteboard::createForDragAndDrop(const DragData& dragData)
+std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop(const DragData& dragData)
 {
     if (dragData.platformData())
-        return adoptPtr(new Pasteboard(dragData.platformData()));
+        return std::make_unique<Pasteboard>(dragData.platformData());
     // FIXME: Should add a const overload of dragDataMap so we don't need a const_cast here.
-    return adoptPtr(new Pasteboard(const_cast<DragData&>(dragData).dragDataMap()));
+    return std::make_unique<Pasteboard>(const_cast<DragData&>(dragData).dragDataMap());
 }
 #endif
 
@@ -525,7 +521,6 @@ void Pasteboard::writePlainText(const String& text, SmartReplaceOption smartRepl
     writePlainTextToDataObject(text, smartReplaceOption);
 }
 
-#if !OS(WINCE)
 static inline void pathRemoveBadFSCharacters(PWSTR psz, size_t length)
 {
     size_t writeTo = 0;
@@ -539,14 +534,9 @@ static inline void pathRemoveBadFSCharacters(PWSTR psz, size_t length)
     }
     psz[writeTo] = 0;
 }
-#endif
 
 static String filesystemPathFromUrlOrTitle(const String& url, const String& title, const UChar* extension, bool isLink)
 {
-#if OS(WINCE)
-    notImplemented();
-    return String();
-#else
     static const size_t fsPathMaxLengthExcludingNullTerminator = MAX_PATH - 1;
     bool usedURL = false;
     WCHAR fsPathBuffer[MAX_PATH];
@@ -589,7 +579,6 @@ static String filesystemPathFromUrlOrTitle(const String& url, const String& titl
     }
 
     return makeString(static_cast<const UChar*>(fsPathBuffer), extension);
-#endif
 }
 
 // writeFileToDataObject takes ownership of fileDescriptor and fileContent
@@ -734,14 +723,14 @@ void Pasteboard::write(const PasteboardURL& pasteboardURL)
 
 void Pasteboard::writeImage(Element& element, const URL&, const String&)
 {
-    if (!(element.renderer() && element.renderer()->isRenderImage()))
+    if (!is<RenderImage>(element.renderer()))
         return;
 
-    RenderImage* renderer = toRenderImage(element.renderer());
-    CachedImage* cachedImage = renderer->cachedImage();
+    auto& renderer = downcast<RenderImage>(*element.renderer());
+    CachedImage* cachedImage = renderer.cachedImage();
     if (!cachedImage || cachedImage->errorOccurred())
         return;
-    Image* image = cachedImage->imageForRenderer(renderer);
+    Image* image = cachedImage->imageForRenderer(&renderer);
     ASSERT(image);
 
     clear();
@@ -870,14 +859,14 @@ static CachedImage* getCachedImage(Element& element)
 {
     // Attempt to pull CachedImage from element
     RenderObject* renderer = element.renderer();
-    if (!renderer || !renderer->isRenderImage())
-        return 0;
+    if (!is<RenderImage>(renderer))
+        return nullptr;
 
-    RenderImage* image = toRenderImage(renderer);
+    auto* image = downcast<RenderImage>(renderer);
     if (image->cachedImage() && !image->cachedImage()->errorOccurred())
         return image->cachedImage();
 
-    return 0;
+    return nullptr;
 }
 
 static HGLOBAL createGlobalImageFileDescriptor(const String& url, const String& title, CachedImage* image)
@@ -966,10 +955,6 @@ static HGLOBAL createGlobalHDropContent(const URL& url, String& fileName, Shared
         else
             return 0;
     } else {
-#if OS(WINCE)
-        notImplemented();
-        return 0;
-#else
         WCHAR tempPath[MAX_PATH];
         WCHAR extension[MAX_PATH];
         if (!::GetTempPath(WTF_ARRAY_LENGTH(tempPath), tempPath))
@@ -1001,7 +986,6 @@ static HGLOBAL createGlobalHDropContent(const URL& url, String& fileName, Shared
         CloseHandle(tempFileHandle);
         if (!tempWriteSucceeded)
             return 0;
-#endif
     }
 
     SIZE_T dropFilesSize = sizeof(DROPFILES) + (sizeof(WCHAR) * (wcslen(filePath) + 2));
@@ -1034,7 +1018,7 @@ void Pasteboard::writeImageToDataObject(Element& element, const URL& url)
     if (!imageBuffer || !imageBuffer->size())
         return;
 
-    HGLOBAL imageFileDescriptor = createGlobalImageFileDescriptor(url.string(), element.getAttribute(HTMLNames::altAttr), cachedImage);
+    HGLOBAL imageFileDescriptor = createGlobalImageFileDescriptor(url.string(), element.fastGetAttribute(HTMLNames::altAttr), cachedImage);
     if (!imageFileDescriptor)
         return;
 

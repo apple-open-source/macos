@@ -1,0 +1,16 @@
+
+#ifndef sec_SOSTransportKeyParameterKVS_h
+#define sec_SOSTransportKeyParameterKVS_h
+
+
+typedef struct __OpaqueSOSTransportKeyParameterKVS *SOSTransportKeyParameterKVSRef;
+
+bool SOSTransportKeyParameterKVSHandleCloudParameterChange(SOSTransportKeyParameterRef transport, CFDataRef data, CFErrorRef* error);
+bool SOSTransportKeyParameterKVSAppendKeyInterests(SOSTransportKeyParameterKVSRef transport, CFMutableArrayRef alwaysKeys, CFMutableArrayRef afterFirstUnlockKeys, CFMutableArrayRef unlockedKeys, CFErrorRef *error);
+SOSTransportKeyParameterKVSRef SOSTransportKeyParameterKVSCreate(SOSAccountRef account, CFErrorRef *error);
+bool SOSTransportKeyParameterHandleKeyParameterChanges(SOSTransportKeyParameterRef transport, CFDataRef data, CFErrorRef error);
+
+bool SOSTransportKeyParameterHandleNewAccount(SOSTransportKeyParameterRef transport, SOSAccountRef account);
+
+#endif
+

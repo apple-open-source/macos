@@ -43,9 +43,9 @@
 //
 PCSCMonitor::PCSCMonitor(Server &server, const char* pathToCache, ServiceLevel level)
 	: Listener(kNotificationDomainPCSC, SecurityServer::kNotificationAllEvents),
+      MachServer::Timer(true),
       server(server),
 	  mServiceLevel(level),
-      MachServer::Timer(true),
 	  mCachePath(pathToCache),
 	  mTokenCache(NULL)
 {
@@ -181,12 +181,33 @@ void PCSCMonitor::action()
     }
 }
 
+//
+// Remove some types of readers
+//
+void PCSCMonitor::clearReaders(Reader::Type type)
+{
+    if (!mReaders.empty()) {
+        secdebug("pcsc", "%ld readers present - clearing type %d", mReaders.size(), type);
+        for (ReaderMap::iterator it = mReaders.begin(); it != mReaders.end(); ) {
+            ReaderMap::iterator cur = it++;
+            Reader *reader = cur->second;
+            if (reader->isType(type)) {
+                secdebug("pcsc", "removing reader %s", reader->name().c_str());
+                reader->kill();						// prepare to die
+                mReaders.erase(cur);
+            }
+        }
+    }
+}
 
 //
 // Software token support
 //
 void PCSCMonitor::startSoftTokens()
 {
+    // clear all software readers. This will kill the respective TokenDaemons
+    clearReaders(Reader::software);
+    
 	// scan for new ones
 	CodeRepository<Bundle> candidates("Security/tokend", ".tokend", "TOKENDAEMONPATH", false);
 	candidates.update();

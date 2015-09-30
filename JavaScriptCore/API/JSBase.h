@@ -84,11 +84,6 @@ typedef struct OpaqueJSValue* JSObjectRef;
 #define JS_EXPORT
 #endif /* defined(JS_NO_EXPORT) */
 
-/* JS tests uses WTF but has no config.h, so we need to set the export defines here. */
-#ifndef WTF_EXPORT_PRIVATE
-#define WTF_EXPORT_PRIVATE JS_EXPORT
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -141,11 +136,7 @@ JS_EXPORT void JSGarbageCollect(JSContextRef ctx);
 
 /* Enable the Objective-C API for platforms with a modern runtime. */
 #if !defined(JSC_OBJC_API_ENABLED)
-#ifndef JSC_OBJC_API_AVAILABLE_MAC_OS_X_1080
 #define JSC_OBJC_API_ENABLED (defined(__clang__) && defined(__APPLE__) && ((defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090 && !defined(__i386__)) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)))
-#else
-#define JSC_OBJC_API_ENABLED (defined(__clang__) && defined(__APPLE__) && ((defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080 && !defined(__i386__)) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)))
-#endif
 #endif
 
 #endif /* JSBase_h */

@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 if [ "$ACTION" = installhdrs ]; then exit 0; fi
-if [[ "$PLATFORM_NAME" =~ iphone ]]; then exit 0; fi
+if [[ "$PLATFORM_NAME" != "macosx" ]]; then exit 0; fi
 
 UNIFDEF_FLAGS="-D__OPEN_SOURCE__"
 MANPAGES_LIST="${SRCROOT}/man/manpages.lst"

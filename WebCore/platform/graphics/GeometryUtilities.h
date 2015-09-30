@@ -32,18 +32,24 @@
 
 namespace WebCore {
 
+float euclidianDistance(const FloatPoint&, const FloatPoint&);
+
 float findSlope(const FloatPoint& p1, const FloatPoint& p2, float& c);
 
 // Find point where lines through the two pairs of points intersect. Returns false if the lines don't intersect.
-bool findIntersection(const FloatPoint& p1, const FloatPoint& p2, const FloatPoint& d1, const FloatPoint& d2, FloatPoint& intersection);
+WEBCORE_EXPORT bool findIntersection(const FloatPoint& p1, const FloatPoint& p2, const FloatPoint& d1, const FloatPoint& d2, FloatPoint& intersection);
 
 IntRect unionRect(const Vector<IntRect>&);
-FloatRect unionRect(const Vector<FloatRect>&);
+WEBCORE_EXPORT FloatRect unionRect(const Vector<FloatRect>&);
 
 // Map rect r from srcRect to an equivalent rect in destRect.
 FloatRect mapRect(const FloatRect&, const FloatRect& srcRect, const FloatRect& destRect);
 
-FloatRect largestRectWithAspectRatioInsideRect(float aspectRatio, const FloatRect&);
+WEBCORE_EXPORT FloatRect largestRectWithAspectRatioInsideRect(float aspectRatio, const FloatRect&);
+WEBCORE_EXPORT FloatRect smallestRectWithAspectRatioAroundRect(float aspectRatio, const FloatRect&);
+
+// Compute a rect that encloses all points covered by the given rect if it were rotated a full turn around (0,0).
+FloatRect boundsOfRotatingRect(const FloatRect&);
 
 }
 

@@ -223,6 +223,11 @@ command = {
 	       type = "string"
 	       help = "type to fetch (kdc|kpasswd|kadmin|kkdcp)"
 	}
+	option = {
+		long = "uuid"
+		type = "string"
+		help = "uuid reference"
+	}
 	argument = "realm..."
 	min_args = "1"
 	help = "Print the KDC the client will try for a specific realms"

@@ -103,7 +103,7 @@ static FrameState toFrameState(const HistoryItem& historyItem)
 #endif
 
     for (auto& childHistoryItem : historyItem.children()) {
-        FrameState childFrameState = toFrameState(*childHistoryItem);
+        FrameState childFrameState = toFrameState(childHistoryItem);
         frameState.children.append(WTF::move(childFrameState));
     }
 
@@ -116,6 +116,7 @@ PageState toPageState(const WebCore::HistoryItem& historyItem)
 
     pageState.title = historyItem.title();
     pageState.mainFrameState = toFrameState(historyItem);
+    pageState.shouldOpenExternalURLsPolicy = historyItem.shouldOpenExternalURLsPolicy();
 
     return pageState;
 }
@@ -178,16 +179,17 @@ static void applyFrameState(HistoryItem& historyItem, const FrameState& frameSta
 #endif
 
     for (const auto& childFrameState : frameState.children) {
-        RefPtr<HistoryItem> childHistoryItem = HistoryItem::create(childFrameState.urlString, String());
-        applyFrameState(*childHistoryItem, childFrameState);
+        Ref<HistoryItem> childHistoryItem = HistoryItem::create(childFrameState.urlString, String());
+        applyFrameState(childHistoryItem, childFrameState);
 
-        historyItem.addChildItem(childHistoryItem.release());
+        historyItem.addChildItem(WTF::move(childHistoryItem));
     }
 }
 
 PassRefPtr<HistoryItem> toHistoryItem(const PageState& pageState)
 {
     RefPtr<HistoryItem> historyItem = HistoryItem::create(pageState.mainFrameState.urlString, pageState.title);
+    historyItem->setShouldOpenExternalURLsPolicy(pageState.shouldOpenExternalURLsPolicy);
     applyFrameState(*historyItem, pageState.mainFrameState);
 
     return historyItem.release();

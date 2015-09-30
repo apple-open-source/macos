@@ -36,12 +36,12 @@
 #import <WebCore/FontCache.h>
 #import <WebCore/Frame.h>
 #import <WebCore/GCController.h>
-#import <WebCore/GlyphPageTreeNode.h>
+#import <WebCore/GlyphPage.h>
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/IconDatabase.h>
 #import <WebCore/JSDOMWindow.h>
 #import <WebCore/PageCache.h>
-#import <WebCore/PageConsole.h>
+#import <WebCore/PageConsoleClient.h>
 #import <WebCore/PrintContext.h>
 #import <WebCore/RenderTreeAsText.h>
 #import <WebCore/RenderView.h>
@@ -86,7 +86,7 @@ using namespace WebCore;
     
     NSCountedSet *result = [NSCountedSet set];
 
-    OwnPtr<TypeCountSet> counts(JSDOMWindow::commonVM().heap.protectedObjectTypeCounts());
+    std::unique_ptr<TypeCountSet> counts(JSDOMWindow::commonVM().heap.protectedObjectTypeCounts());
     HashCountedSet<const char*>::iterator end = counts->end();
     for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
         for (unsigned i = 0; i < it->value; ++i)
@@ -101,7 +101,7 @@ using namespace WebCore;
     
     NSCountedSet *result = [NSCountedSet set];
 
-    OwnPtr<TypeCountSet> counts(JSDOMWindow::commonVM().heap.objectTypeCounts());
+    std::unique_ptr<TypeCountSet> counts(JSDOMWindow::commonVM().heap.objectTypeCounts());
     HashCountedSet<const char*>::iterator end = counts->end();
     for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
         for (unsigned i = 0; i < it->value; ++i)
@@ -112,17 +112,17 @@ using namespace WebCore;
 
 + (void)garbageCollectJavaScriptObjects
 {
-    gcController().garbageCollectNow();
+    GCController::singleton().garbageCollectNow();
 }
 
 + (void)garbageCollectJavaScriptObjectsOnAlternateThreadForDebugging:(BOOL)waitUntilDone
 {
-    gcController().garbageCollectOnAlternateThreadForDebugging(waitUntilDone);
+    GCController::singleton().garbageCollectOnAlternateThreadForDebugging(waitUntilDone);
 }
 
 + (void)setJavaScriptGarbageCollectorTimerEnabled:(BOOL)enable
 {
-    gcController().setJavaScriptGarbageCollectorTimerEnabled(enable);
+    GCController::singleton().setJavaScriptGarbageCollectorTimerEnabled(enable);
 }
 
 + (size_t)iconPageURLMappingCount
@@ -147,34 +147,34 @@ using namespace WebCore;
 
 + (size_t)cachedFontDataCount
 {
-    return fontCache().fontDataCount();
+    return FontCache::singleton().fontCount();
 }
 
 + (size_t)cachedFontDataInactiveCount
 {
-    return fontCache().inactiveFontDataCount();
+    return FontCache::singleton().inactiveFontCount();
 }
 
 + (void)purgeInactiveFontData
 {
-    fontCache().purgeInactiveFontData();
+    FontCache::singleton().purgeInactiveFontData();
 }
 
 + (size_t)glyphPageCount
 {
-    return GlyphPageTreeNode::treeGlyphPageCount();
+    return GlyphPage::count();
 }
 
 + (BOOL)shouldPrintExceptions
 {
     JSLockHolder lock(JSDOMWindow::commonVM());
-    return PageConsole::shouldPrintExceptions();
+    return PageConsoleClient::shouldPrintExceptions();
 }
 
 + (void)setShouldPrintExceptions:(BOOL)print
 {
     JSLockHolder lock(JSDOMWindow::commonVM());
-    PageConsole::setShouldPrintExceptions(print);
+    PageConsoleClient::setShouldPrintExceptions(print);
 }
 
 + (void)emptyCache
@@ -224,12 +224,12 @@ using namespace WebCore;
 
 + (int)cachedPageCount
 {
-    return pageCache()->pageCount();
+    return PageCache::singleton().pageCount();
 }
 
 + (int)cachedFrameCount
 {
-    return pageCache()->frameCount();
+    return PageCache::singleton().frameCount();
 }
 
 // Deprecated

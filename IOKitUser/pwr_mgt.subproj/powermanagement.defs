@@ -92,6 +92,7 @@ ServerAuditToken token  : audit_token_t;
         in  props       : pointer_t;
         out assertion_id: int;
         out disableAppSleep: int;
+        out enTrIntensity: int;
         out return_code : int);
         
 routine io_pm_assertion_set_properties(
@@ -108,6 +109,7 @@ routine io_pm_assertion_retain_release(
 ServerAuditToken token  : audit_token_t;
         in  assertion_id: int;
         in  action      : int;
+        out retainCnt   : int;
         out disableAppSleep: int;
         out enableAppSleep: int;
         out return_code : int);
@@ -117,6 +119,7 @@ routine io_pm_assertion_copy_details(
 ServerAuditToken token  : audit_token_t;
         in assertion_id : int;
         in whichData    : int;
+        in props        : pointer_t;
         out assertions  : pointer_t, dealloc;
         out return_val  : int);
 
@@ -208,6 +211,7 @@ ServerAuditToken token  : audit_token_t;
 
 routine io_ps_copy_powersources_info(
         server          : mach_port_t;
+        in pstype       : int;
        out powersources : pointer_t, dealloc;
        out return_code  : int);
 

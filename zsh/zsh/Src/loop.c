@@ -73,7 +73,7 @@ execfor(Estate state, int do_exec)
 	    matheval(str);
 	if (errflag) {
 	    state->pc = end;
-	    return lastval = errflag;
+	    return 1;
 	}
 	cond = ecgetstr(state, EC_NODUP, &ctok);
 	advance = ecgetstr(state, EC_NODUP, &atok);
@@ -87,8 +87,13 @@ execfor(Estate state, int do_exec)
 		state->pc = end;
 		return 0;
 	    }
-	    if (htok)
+	    if (htok) {
 		execsubst(args);
+		if (errflag) {
+		    state->pc = end;
+		    return 1;
+		}
+	    }
 	} else {
 	    char **x;
 
@@ -97,7 +102,10 @@ execfor(Estate state, int do_exec)
 		addlinknode(args, dupstring(*x));
 	}
     }
-    lastval = 0;
+
+    if (!args || empty(args))
+	lastval = 0;
+
     loops++;
     pushheap();
     cmdpush(CS_FOR);
@@ -223,15 +231,20 @@ execselect(Estate state, UNUSED(int do_exec))
 	    state->pc = end;
 	    return 0;
 	}
-	if (htok)
+	if (htok) {
 	    execsubst(args);
+	    if (errflag) {
+		state->pc = end;
+		return 1;
+	    }
+	}
     }
     if (!args || empty(args)) {
 	state->pc = end;
-	return 1;
+	return 0;
     }
     loops++;
-    lastval = 0;
+
     pushheap();
     cmdpush(CS_SELECT);
     usezle = interact && SHTTY != -1 && isset(USEZLE);
@@ -249,13 +262,14 @@ execselect(Estate state, UNUSED(int do_exec))
 				   0, ZLCON_SELECT);
 		    if (errflag)
 			str = NULL;
-		    errflag = oef;
+		    /* Keep any user interrupt error status */
+		    errflag = oef | (errflag & ERRFLAG_INT);
 	    	} else {
 		    str = promptexpand(prompt3, 0, NULL, NULL, NULL);
 		    zputs(str, stderr);
 		    free(str);
 		    fflush(stderr);
-		    str = fgets(zalloc(256), 256, inp);
+		    str = fgets(zhalloc(256), 256, inp);
 	    	}
 	    } else
 		str = (char *)getlinknode(bufstack);
@@ -508,14 +522,17 @@ execif(Estate state, int do_exec)
 	s = 1;
 	state->pc = next;
     }
-    noerrexit = olderrexit;
 
     if (run) {
+	/* we need to ignore lastval until we reach execcmd() */
+	noerrexit = olderrexit ? olderrexit : lastval ? 2 : 0;
 	cmdpush(run == 2 ? CS_ELSE : (s ? CS_ELIFTHEN : CS_IFTHEN));
 	execlist(state, 1, do_exec);
 	cmdpop();
-    } else
+    } else {
+	noerrexit = olderrexit;
 	lastval = 0;
+    }
     state->pc = end;
 
     return lastval;
@@ -528,7 +545,7 @@ execcase(Estate state, int do_exec)
     Wordcode end, next;
     wordcode code = state->pc[-1];
     char *word, *pat;
-    int npat, save;
+    int npat, save, nalts, ialt, patok;
     Patprog *spprog, pprog;
 
     end = state->pc + WC_CASE_SKIP(code);
@@ -544,60 +561,74 @@ execcase(Estate state, int do_exec)
 	if (wc_code(code) != WC_CASE)
 	    break;
 
-	pat = NULL;
-	pprog = NULL;
 	save = 0;
-	npat = state->pc[1];
-	spprog = state->prog->pats + npat;
-
 	next = state->pc + WC_CASE_SKIP(code);
+	nalts = *state->pc++;
+	ialt = patok = 0;
 
 	if (isset(XTRACE)) {
-	    char *opat;
-
-	    pat = dupstring(opat = ecrawstr(state->prog, state->pc, NULL));
-	    singsub(&pat);
-	    save = (!(state->prog->flags & EF_HEAP) &&
-		    !strcmp(pat, opat) && *spprog != dummy_patprog2);
-
 	    printprompt4();
 	    fprintf(xtrerr, "case %s (", word);
-	    quote_tokenized_output(pat, xtrerr);
+	}
+
+	while (!patok && nalts) {
+	    npat = state->pc[1];
+	    spprog = state->prog->pats + npat;
+	    pprog = NULL;
+	    pat = NULL;
+	
+	    if (isset(XTRACE)) {
+		int htok = 0;
+		pat = dupstring(ecrawstr(state->prog, state->pc, &htok));
+		if (htok)
+		    singsub(&pat);
+
+		if (ialt++)
+		    fprintf(stderr, " | ");
+		quote_tokenized_output(pat, xtrerr);
+	    }
+
+	    if (*spprog != dummy_patprog1 && *spprog != dummy_patprog2)
+		pprog = *spprog;
+
+	    if (!pprog) {
+		if (!pat) {
+		    char *opat;
+		    int htok = 0;
+
+		    pat = dupstring(opat = ecrawstr(state->prog,
+						    state->pc, &htok));
+		    if (htok)
+			singsub(&pat);
+		    save = (!(state->prog->flags & EF_HEAP) &&
+			    !strcmp(pat, opat) && *spprog != dummy_patprog2);
+		}
+		if (!(pprog = patcompile(pat, (save ? PAT_ZDUP : PAT_STATIC),
+					 NULL)))
+		    zerr("bad pattern: %s", pat);
+		else if (save)
+		    *spprog = pprog;
+	    }
+	    if (pprog && pattry(pprog, word))
+		patok = 1;
+	    state->pc += 2;
+	    nalts--;
+	}
+	state->pc += 2 * nalts;
+	if (isset(XTRACE)) {
 	    fprintf(xtrerr, ")\n");
 	    fflush(xtrerr);
 	}
-	state->pc += 2;
-
-	if (*spprog != dummy_patprog1 && *spprog != dummy_patprog2)
-	    pprog = *spprog;
-
-	if (!pprog) {
-	    if (!pat) {
-		char *opat;
-		int htok = 0;
-
-		pat = dupstring(opat = ecrawstr(state->prog,
-						state->pc - 2, &htok));
-		if (htok)
-		    singsub(&pat);
-		save = (!(state->prog->flags & EF_HEAP) &&
-			!strcmp(pat, opat) && *spprog != dummy_patprog2);
-	    }
-	    if (!(pprog = patcompile(pat, (save ? PAT_ZDUP : PAT_STATIC),
-				     NULL)))
-		zerr("bad pattern: %s", pat);
-	    else if (save)
-		*spprog = pprog;
-	}
-	if (pprog && pattry(pprog, word)) {
+	if (patok) {
 	    execlist(state, 1, ((WC_CASE_TYPE(code) == WC_CASE_OR) &&
 				do_exec));
 	    while (!retflag && wc_code(code) == WC_CASE &&
 		   WC_CASE_TYPE(code) == WC_CASE_AND) {
 		state->pc = next;
-		code = *state->pc;
-		state->pc += 3;
-		next = state->pc + WC_CASE_SKIP(code) - 2;
+		code = *state->pc++;
+		next = state->pc + WC_CASE_SKIP(code);
+		nalts = *state->pc++;
+		state->pc += 2 * nalts;
 		execlist(state, 1, ((WC_CASE_TYPE(code) == WC_CASE_OR) &&
 				    do_exec));
 	    }
@@ -622,6 +653,14 @@ execcase(Estate state, int do_exec)
 zlong
 try_errflag = -1;
 
+/**
+ * Corresponding interrupt error status form `try' block.
+ */
+
+/**/
+zlong
+try_interrupt = -1;
+
 /**/
 zlong
 try_tryflag = 0;
@@ -633,7 +672,7 @@ exectry(Estate state, int do_exec)
     Wordcode end, always;
     int endval;
     int save_retflag, save_breaks, save_contflag;
-    zlong save_try_errflag, save_try_tryflag;
+    zlong save_try_errflag, save_try_tryflag, save_try_interrupt;
 
     end = state->pc + WC_TRY_SKIP(state->pc[-1]);
     always = state->pc + 1 + WC_TRY_SKIP(*state->pc);
@@ -649,8 +688,9 @@ exectry(Estate state, int do_exec)
 
     try_tryflag = save_try_tryflag;
 
-    /* Don't record errflag here, may be reset. */
-    endval = lastval;
+    /* Don't record errflag here, may be reset.  However, */
+    /* endval should show failure when there is an error. */
+    endval = lastval ? lastval : errflag;
 
     freeheap();
 
@@ -659,7 +699,10 @@ exectry(Estate state, int do_exec)
 
     /* The always clause. */
     save_try_errflag = try_errflag;
-    try_errflag = (zlong)errflag;
+    save_try_interrupt = try_interrupt;
+    try_errflag = (zlong)(errflag & ERRFLAG_ERROR);
+    try_interrupt = (zlong)((errflag & ERRFLAG_INT) ? 1 : 0);
+    /* We need to reset all errors to allow the block to execute */
     errflag = 0;
     save_retflag = retflag;
     retflag = 0;
@@ -671,8 +714,16 @@ exectry(Estate state, int do_exec)
     state->pc = always;
     execlist(state, 1, do_exec);
 
-    errflag = try_errflag ? 1 : 0;
+    if (try_errflag)
+	errflag |= ERRFLAG_ERROR;
+    else
+	errflag &= ~ERRFLAG_ERROR;
+    if (try_interrupt)
+	errflag |= ERRFLAG_INT;
+    else
+	errflag &= ~ERRFLAG_INT;
     try_errflag = save_try_errflag;
+    try_interrupt = save_try_interrupt;
     if (!retflag)
 	retflag = save_retflag;
     if (!breaks)

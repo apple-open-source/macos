@@ -36,13 +36,13 @@ namespace WebCore {
 
 using namespace MathMLNames;
 
-RenderMathMLToken::RenderMathMLToken(Element& element, PassRef<RenderStyle> style)
+RenderMathMLToken::RenderMathMLToken(Element& element, Ref<RenderStyle>&& style)
     : RenderMathMLBlock(element, WTF::move(style))
     , m_containsElement(false)
 {
 }
 
-RenderMathMLToken::RenderMathMLToken(Document& document, PassRef<RenderStyle> style)
+RenderMathMLToken::RenderMathMLToken(Document& document, Ref<RenderStyle>&& style)
     : RenderMathMLBlock(document, WTF::move(style))
     , m_containsElement(false)
 {
@@ -51,7 +51,7 @@ RenderMathMLToken::RenderMathMLToken(Document& document, PassRef<RenderStyle> st
 void RenderMathMLToken::addChild(RenderObject* newChild, RenderObject* beforeChild)
 {
     createWrapperIfNeeded();
-    toRenderElement(firstChild())->addChild(newChild, beforeChild);
+    downcast<RenderElement>(*firstChild()).addChild(newChild, beforeChild);
 }
 
 void RenderMathMLToken::createWrapperIfNeeded()
@@ -69,8 +69,8 @@ void RenderMathMLToken::updateTokenContent()
         // The renderers corresponding to the children of the token element are wrapped inside an anonymous RenderMathMLBlock.
         // When one of these renderers is a RenderElement, we handle the RenderMathMLToken differently.
         // For some reason, an additional anonymous RenderBlock is created as a child of the RenderMathMLToken and the renderers are actually inserted into that RenderBlock so we need to dig down one additional level here.
-        const auto& wrapper = toRenderElement(firstChild());
-        if (const auto& block = toRenderElement(wrapper->firstChild()))
+        const auto& wrapper = downcast<RenderElement>(firstChild());
+        if (const auto& block = downcast<RenderElement>(wrapper->firstChild()))
             m_containsElement = childrenOfType<RenderElement>(*block).first();
         updateStyle();
     }
@@ -81,18 +81,18 @@ void RenderMathMLToken::updateStyle()
 {
     const auto& tokenElement = element();
 
-    const auto& wrapper = toRenderElement(firstChild());
+    const auto& wrapper = downcast<RenderElement>(firstChild());
     auto newStyle = RenderStyle::createAnonymousStyleWithDisplay(&style(), FLEX);
 
     if (tokenElement.hasTagName(MathMLNames::miTag)) {
         // This tries to emulate the default mathvariant value on <mi> using the CSS font-style property.
         // FIXME: This should be revised when mathvariant is implemented (http://wkbug/85735) and when fonts with Mathematical Alphanumeric Symbols characters are more popular.
         FontDescription fontDescription(newStyle.get().fontDescription());
-        FontSelector* fontSelector = newStyle.get().font().fontSelector();
+        FontSelector* fontSelector = newStyle.get().fontCascade().fontSelector();
         if (!m_containsElement && element().textContent().stripWhiteSpace().simplifyWhiteSpace().length() == 1 && !tokenElement.hasAttribute(mathvariantAttr))
-            fontDescription.setItalic(true);
+            fontDescription.setItalic(FontItalicOn);
         if (newStyle.get().setFontDescription(fontDescription))
-            newStyle.get().font().update(fontSelector);
+            newStyle.get().fontCascade().update(fontSelector);
     }
 
     wrapper->setStyle(WTF::move(newStyle));

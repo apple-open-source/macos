@@ -27,10 +27,14 @@
 #include <stdint.h>
 #include <Availability.h>
 
-#define NOTIFY_OPT_DEMUX   0x00000001
-#define NOTIFY_OPT_REGEN   0x00000002
-#define NOTIFY_OPT_ENABLE  0x04000000
-#define NOTIFY_OPT_DISABLE 0x08000000
+#define NOTIFY_OPT_DISPATCH 0x00000001
+#define NOTIFY_OPT_REGEN    0x00000002
+#define NOTIFY_OPT_ENABLE   0x04000000
+#define NOTIFY_OPT_DISABLE  0x08000000
+
+#define NOTIFY_NO_DISPATCH  0x80000000
+
+#define ROOT_ENTITLEMENT_KEY "com.apple.notify.root_access"
 
 uint32_t notify_suspend_pid(pid_t pid)
 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);

@@ -26,8 +26,6 @@
 #ifndef WebKitCSSFilterValue_h
 #define WebKitCSSFilterValue_h
 
-#if ENABLE(CSS_FILTERS)
-
 #include "CSSValueList.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
@@ -52,7 +50,7 @@ public:
         DropShadowFilterOperation
     };
 
-    static PassRef<WebKitCSSFilterValue> create(FilterOperationType type)
+    static Ref<WebKitCSSFilterValue> create(FilterOperationType type)
     {
         return adoptRef(*new WebKitCSSFilterValue(type));
     }
@@ -72,10 +70,8 @@ private:
     FilterOperationType m_type;
 };
 
-CSS_VALUE_TYPE_CASTS(WebKitCSSFilterValue, isWebKitCSSFilterValue())
+} // namespace WebCore
 
-}
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(WebKitCSSFilterValue, isWebKitCSSFilterValue())
 
-#endif // ENABLE(CSS_FILTERS)
-
-#endif
+#endif // WebKitCSSFilterValue_h

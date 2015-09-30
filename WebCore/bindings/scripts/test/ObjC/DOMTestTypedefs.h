@@ -29,8 +29,8 @@
 @class DOMSVGPoint;
 @class NSString;
 
-WEBKIT_CLASS_AVAILABLE_MAC(TBD)
-@interface DOMTestTypedefs : DOMObject
+WEBKIT_CLASS_AVAILABLE_MAC(9876_5)
+WEBCORE_EXPORT @interface DOMTestTypedefs : DOMObject
 @property unsigned long long unsignedLongLongAttr;
 @property (strong) NSString *immutableSerializedScriptValue;
 @property int attrWithGetterException;

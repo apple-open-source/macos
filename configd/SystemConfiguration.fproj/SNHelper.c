@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2014 Apple Inc.
+ * Copyright (c) 2013-2015 Apple Inc.
  * All rights reserved.
  */
 #include <errno.h>
@@ -18,9 +18,9 @@ create_connection(dispatch_queue_t queue)
 		xpc_connection_set_event_handler(new_connection,
 			^(xpc_object_t message) {
 				if (isa_xpc_error(message)) {
-					syslog(LOG_INFO, "Got an error on the snhelper connection");
+					syslog(LOG_INFO, "Got an error on the SNHelper connection");
 				} else if (isa_xpc_dictionary(message)) {
-					syslog(LOG_INFO, "Got an unexpected message on the snhelper connection");
+					syslog(LOG_INFO, "Got an unexpected message on the SNHelper connection");
 				}
 			});
 		xpc_connection_resume(new_connection);

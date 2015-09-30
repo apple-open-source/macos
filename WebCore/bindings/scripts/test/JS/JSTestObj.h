@@ -21,23 +21,26 @@
 #ifndef JSTestObj_h
 #define JSTestObj_h
 
+#include "JSDOMPromise.h"
 #include "JSDOMWrapper.h"
 #include "TestObj.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
 class JSTestObj : public JSDOMWrapper {
 public:
     typedef JSDOMWrapper Base;
-    static JSTestObj* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<TestObj> impl)
+    static JSTestObj* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestObj>&& impl)
     {
-        JSTestObj* ptr = new (NotNull, JSC::allocateCell<JSTestObj>(globalObject->vm().heap)) JSTestObj(structure, globalObject, impl);
+        JSTestObj* ptr = new (NotNull, JSC::allocateCell<JSTestObj>(globalObject->vm().heap)) JSTestObj(structure, globalObject, WTF::move(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
     static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static TestObj* toWrapped(JSC::JSValue);
     static bool getOwnPropertySlot(JSC::JSObject*, JSC::ExecState*, JSC::PropertyName, JSC::PropertySlot&);
     static void destroy(JSC::JSCell*);
     ~JSTestObj();
@@ -52,32 +55,28 @@ public:
     static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
     JSC::WriteBarrier<JSC::Unknown> m_cachedAttribute1;
     JSC::WriteBarrier<JSC::Unknown> m_cachedAttribute2;
+    JSC::Strong<JSC::JSPromiseDeferred> m_testPromiseAttrPromiseDeferred;
     static void visitChildren(JSCell*, JSC::SlotVisitor&);
 
 
     // Custom attributes
     JSC::JSValue customAttr(JSC::ExecState*) const;
     void setCustomAttr(JSC::ExecState*, JSC::JSValue);
+    JSC::JSValue testPromiseAttr(JSC::ExecState*) const;
 
     // Custom functions
     JSC::JSValue customMethod(JSC::ExecState*);
     JSC::JSValue customMethodWithArgs(JSC::ExecState*);
     static JSC::JSValue classMethod2(JSC::ExecState*);
     TestObj& impl() const { return *m_impl; }
-    void releaseImpl() { m_impl->deref(); m_impl = 0; }
-
-    void releaseImplIfNotNull()
-    {
-        if (m_impl) {
-            m_impl->deref();
-            m_impl = 0;
-        }
-    }
+    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
 
 private:
     TestObj* m_impl;
+public:
+    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 protected:
-    JSTestObj(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<TestObj>);
+    JSTestObj(JSC::Structure*, JSDOMGlobalObject*, Ref<TestObj>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -85,7 +84,6 @@ protected:
         ASSERT(inherits(info()));
     }
 
-    static const unsigned StructureFlags = JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetOwnPropertySlot | JSC::OverridesVisitChildren | Base::StructureFlags;
 };
 
 class JSTestObjOwner : public JSC::WeakHandleOwner {
@@ -96,17 +94,12 @@ public:
 
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestObj*)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(JSTestObjOwner, jsTestObjOwner, ());
-    return &jsTestObjOwner;
-}
-
-inline void* wrapperContext(DOMWrapperWorld& world, TestObj*)
-{
-    return &world;
+    static NeverDestroyed<JSTestObjOwner> owner;
+    return &owner.get();
 }
 
 JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestObj*);
-TestObj* toTestObj(JSC::JSValue);
+inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, TestObj& impl) { return toJS(exec, globalObject, &impl); }
 
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,13 @@ namespace JSC { namespace FTL {
 
 class SwitchCase {
 public:
-    SwitchCase(LValue value, LBasicBlock target, Weight weight)
+    SwitchCase()
+        : m_value(nullptr)
+        , m_target(nullptr)
+    {
+    }
+
+    SwitchCase(LValue value, LBasicBlock target, Weight weight = Weight())
         : m_value(value)
         , m_target(target)
         , m_weight(weight)

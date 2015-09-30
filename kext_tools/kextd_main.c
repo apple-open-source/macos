@@ -70,6 +70,7 @@
 
 #include "bootcaches.h"
 
+#include "pgo.h"
 
 /*******************************************************************************
 * Globals set from invocation arguments (xxx - could use fewer globals).
@@ -248,6 +249,18 @@ int main(int argc, char * const * argv)
         goto finish;
     }
 
+    CFArrayRef propertyValues;
+    if (readSystemKextPropertyValues(CFSTR("PGO"), gKernelArchInfo,
+                                     /* forceUpdate? */ FALSE, &propertyValues)) {
+        if (pgo_scan_kexts(propertyValues))
+        {
+            /* give the pgo threads time to get into grab_pgo_data before the kernel
+             * starts unloading things. */
+            sleep(1);
+        }
+        CFRelease(propertyValues);
+    }
+    
    /* Note: We are not going to try to update the OSBunderHelpers cache
     * this early as it isn't needed until login. It should normally be
     * up to date anyhow so let's keep startup I/O to an absolute minimum.
@@ -642,7 +655,6 @@ ExitStatus setUpServer(KextdArgs * toolArgs)
                                     NULL,
                                     CFNotificationSuspensionBehaviorDeliverImmediately);
 
-
 #ifndef NO_CFUserNotification
     result = startMonitoringConsoleUser(toolArgs, &sourcePriority);
     if (result != EX_OK) {
@@ -677,14 +689,14 @@ void NoLoadSigFailureKextCallback(CFNotificationCenterRef center,
                                   const void *object,
                                   CFDictionaryRef userInfo)
 {
-    if (userInfo) {
+   if (userInfo) {
         /* synchronize access to our plist file */
         CFRetain(userInfo);
         dispatch_async(dispatch_get_main_queue(), ^ {
             writeKextAlertPlist(userInfo, NO_LOAD_KEXT_ALERT);
         });
     }
-    
+   
     return;
 }
 
@@ -698,7 +710,7 @@ void RevokedCertKextCallback(CFNotificationCenterRef center,
                              const void *object,
                              CFDictionaryRef userInfo)
 {
-    if (userInfo) {
+   if (userInfo) {
         /* synchronize access to our plist file */
         CFRetain(userInfo);
         dispatch_async(dispatch_get_main_queue(), ^ {
@@ -763,7 +775,7 @@ void ExcludedKextCallback(CFNotificationCenterRef center,
                           const void *object,
                           CFDictionaryRef userInfo)
 {
-   if (userInfo) {
+  if (userInfo) {
         /* synchronize access to our plist file */
         CFRetain(userInfo);
         dispatch_async(dispatch_get_main_queue(), ^ {

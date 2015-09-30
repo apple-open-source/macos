@@ -1,9 +1,10 @@
 /*
- * "$Id: tls-sspi.c 12183 2014-10-01 13:02:28Z msweet $"
+ * "$Id: tls-sspi.c 12648 2015-05-20 18:40:42Z msweet $"
  *
- * TLS support for CUPS on Windows using SSPI.
+ * TLS support for CUPS on Windows using the Security Support Provider
+ * Interface (SSPI).
  *
- * Copyright 2010-2014 by Apple Inc.
+ * Copyright 2010-2015 by Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -47,6 +48,14 @@
 #ifndef SECURITY_FLAG_IGNORE_CERT_DATE_INVALID
 #  define SECURITY_FLAG_IGNORE_CERT_DATE_INVALID  0x00002000 /* Expired X509 Cert. */
 #endif /* !SECURITY_FLAG_IGNORE_CERT_DATE_INVALID */
+
+
+/*
+ * Local globals...
+ */
+
+static int		tls_options = -1;/* Options for TLS connections */
+
 
 /*
  * Local functions...
@@ -252,6 +261,9 @@ httpCredentialsGetTrust(
   cert = http_sspi_create_credential((http_credential_t *)cupsArrayFirst(credentials));
   if (!cert)
     return (HTTP_TRUST_UNKNOWN);
+
+  if (cg->any_root < 0)
+    _cupsSetDefaults();
 
   if (cg->any_root)
     certFlags |= SECURITY_FLAG_IGNORE_UNKNOWN_CA;
@@ -897,6 +909,17 @@ _httpTLSRead(http_t *http,		/* I - HTTP connection */
 
 
 /*
+ * '_httpTLSSetOptions()' - Set TLS protocol and cipher suite options.
+ */
+
+void
+_httpTLSSetOptions(int options)		/* I - Options */
+{
+  tls_options = options;
+}
+
+
+/*
  * '_httpTLSStart()' - Set up SSL/TLS support on a connection.
  */
 
@@ -907,7 +930,14 @@ _httpTLSStart(http_t *http)		/* I - HTTP connection */
 	*hostptr;			/* Pointer into hostname */
 
 
-  DEBUG_printf(("7_httpTLSStart(http=%p)", http));
+  DEBUG_printf(("3_httpTLSStart(http=%p)", http));
+
+  if (tls_options < 0)
+  {
+    DEBUG_puts("4_httpTLSStart: Setting defaults.");
+    _cupsSetDefaults();
+    DEBUG_printf(("4_httpTLSStart: tls_options=%x", tls_options));
+  }
 
   if ((http->tls = http_sspi_alloc()) == NULL)
     return (-1);
@@ -1727,11 +1757,47 @@ http_sspi_find_credentials(
   SchannelCred.paCred    = &storedContext;
 
  /*
-  * SSPI doesn't seem to like it if grbitEnabledProtocols is set for a client.
+  * Set supported protocols (can also be overriden in the registry...)
   */
 
+#ifdef SP_PROT_TLS1_2_SERVER
   if (http->mode == _HTTP_MODE_SERVER)
-    SchannelCred.grbitEnabledProtocols = SP_PROT_SSL3TLS1;
+  {
+    if (tls_options & _HTTP_TLS_DENY_TLS10)
+      SchannelCred.grbitEnabledProtocols = SP_PROT_TLS1_2_SERVER | SP_PROT_TLS1_1_SERVER;
+    else if (tls_options & _HTTP_TLS_ALLOW_SSL3)
+      SchannelCred.grbitEnabledProtocols = SP_PROT_TLS1_2_SERVER | SP_PROT_TLS1_1_SERVER | SP_PROT_TLS1_0_SERVER | SP_PROT_SSL3_SERVER;
+    else
+      SchannelCred.grbitEnabledProtocols = SP_PROT_TLS1_2_SERVER | SP_PROT_TLS1_1_SERVER | SP_PROT_TLS1_0_SERVER;
+  }
+  else
+  {
+    if (tls_options & _HTTP_TLS_DENY_TLS10)
+      SchannelCred.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT | SP_PROT_TLS1_1_CLIENT;
+    else if (tls_options & _HTTP_TLS_ALLOW_SSL3)
+      SchannelCred.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT | SP_PROT_TLS1_1_CLIENT | SP_PROT_TLS1_0_CLIENT | SP_PROT_SSL3_CLIENT;
+    else
+      SchannelCred.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT | SP_PROT_TLS1_1_CLIENT | SP_PROT_TLS1_0_CLIENT;
+  }
+
+#else
+  if (http->mode == _HTTP_MODE_SERVER)
+  {
+    if (tls_options & _HTTP_TLS_ALLOW_SSL3)
+      SchannelCred.grbitEnabledProtocols = SP_PROT_TLS1_SERVER | SP_PROT_SSL3_SERVER;
+    else
+      SchannelCred.grbitEnabledProtocols = SP_PROT_TLS1_SERVER;
+  }
+  else
+  {
+    if (tls_options & _HTTP_TLS_ALLOW_SSL3)
+      SchannelCred.grbitEnabledProtocols = SP_PROT_TLS1_CLIENT | SP_PROT_SSL3_CLIENT;
+    else
+      SchannelCred.grbitEnabledProtocols = SP_PROT_TLS1_CLIENT;
+  }
+#endif /* SP_PROT_TLS1_2_SERVER */
+
+  /* TODO: Support _HTTP_TLS_ALLOW_RC4 and _HTTP_TLS_ALLOW_DH options; right now we'll rely on Windows registry to enable/disable RC4/DH... */
 
  /*
   * Create an SSPI credential.
@@ -2361,5 +2427,5 @@ http_sspi_verify(
 
 
 /*
- * End of "$Id: tls-sspi.c 12183 2014-10-01 13:02:28Z msweet $".
+ * End of "$Id: tls-sspi.c 12648 2015-05-20 18:40:42Z msweet $".
  */

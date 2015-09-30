@@ -2,14 +2,14 @@
 
   digest.c -
 
-  $Author: eregon $
+  $Author: usa $
   created at: Fri May 25 08:57:27 JST 2001
 
   Copyright (C) 1995-2001 Yukihiro Matsumoto
   Copyright (C) 2001-2006 Akinori MUSHA
 
   $RoughId: digest.c,v 1.16 2001/07/13 15:38:27 knu Exp $
-  $Id: digest.c 36588 2012-08-01 13:30:51Z eregon $
+  $Id: digest.c 47333 2014-08-31 07:11:29Z usa $
 
 ************************************************/
 
@@ -356,7 +356,8 @@ rb_digest_instance_equal(VALUE self, VALUE other)
         str2 = rb_digest_instance_digest(0, 0, other);
     } else {
         str1 = rb_digest_instance_to_s(self);
-        str2 = other;
+        str2 = rb_check_string_type(other);
+        if (NIL_P(str2)) return Qfalse;
     }
 
     /* never blindly assume that subclass methods return strings */

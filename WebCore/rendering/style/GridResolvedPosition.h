@@ -41,59 +41,46 @@ class GridSpan;
 class RenderBox;
 class RenderStyle;
 
-enum GridPositionSide {
-    ColumnStartSide,
-    ColumnEndSide,
-    RowStartSide,
-    RowEndSide
-};
-
 enum GridTrackSizingDirection {
     ForColumns,
     ForRows
 };
 
+class GridUnresolvedSpan {
+public:
+    GridUnresolvedSpan(GridPosition initialPosition, GridPositionSide initialPositionSide, GridPosition finalPosition, GridPositionSide finalPositionSide)
+        : m_initialPosition(initialPosition)
+        , m_finalPosition(finalPosition)
+        , m_initialPositionSide(initialPositionSide)
+        , m_finalPositionSide(finalPositionSide)
+    {
+    }
+
+    const GridPosition& initialPosition() const { return m_initialPosition; }
+    const GridPosition& finalPosition() const { return m_finalPosition; }
+    GridPositionSide initialPositionSide() const { return m_initialPositionSide; }
+    GridPositionSide finalPositionSide() const { return m_finalPositionSide; }
+
+    bool requiresAutoPlacement() const;
+    void adjustGridPositionsFromStyle(const RenderStyle& gridContainerStyle);
+
+private:
+    GridPosition m_initialPosition;
+    GridPosition m_finalPosition;
+    GridPositionSide m_initialPositionSide;
+    GridPositionSide m_finalPositionSide;
+};
+
 // This class represents an index into one of the dimensions of the grid array.
-// Wraps a size_t integer just for the purpose of knowing what we manipulate in the grid code.
+// Wraps an unsigned integer just for the purpose of knowing what we manipulate in the grid code.
 class GridResolvedPosition {
 public:
-    static GridResolvedPosition adjustGridPositionForRowEndColumnEndSide(size_t resolvedPosition)
-    {
-        return resolvedPosition ? GridResolvedPosition(resolvedPosition - 1) : GridResolvedPosition(0);
-    }
-
-    static GridResolvedPosition adjustGridPositionForSide(size_t resolvedPosition, GridPositionSide side)
-    {
-        // An item finishing on the N-th line belongs to the N-1-th cell.
-        if (side == ColumnEndSide || side == RowEndSide)
-            return adjustGridPositionForRowEndColumnEndSide(resolvedPosition);
-
-        return GridResolvedPosition(resolvedPosition);
-    }
-
-    static GridSpan resolveGridPositionsFromAutoPlacementPosition(const RenderStyle&, const RenderBox&, GridTrackSizingDirection, const GridResolvedPosition&);
-    static void adjustNamedGridItemPosition(const RenderStyle&, GridPosition&, GridPositionSide);
-    static void adjustGridPositionsFromStyle(const RenderStyle&, GridPosition& initialPosition, GridPosition& finalPosition, GridPositionSide initialPositionSide, GridPositionSide finalPositionSide);
-    static std::unique_ptr<GridSpan> resolveGridPositionsFromStyle(const RenderStyle&, const RenderBox&, GridTrackSizingDirection);
-    static GridResolvedPosition resolveNamedGridLinePositionFromStyle(const RenderStyle&, const GridPosition&, GridPositionSide);
-    static GridResolvedPosition resolveGridPositionFromStyle(const RenderStyle&, const GridPosition&, GridPositionSide);
-    static std::unique_ptr<GridSpan> resolveGridPositionAgainstOppositePosition(const RenderStyle&, const GridResolvedPosition&, const GridPosition&, GridPositionSide);
-    static std::unique_ptr<GridSpan> resolveNamedGridLinePositionAgainstOppositePosition(const RenderStyle&, const GridResolvedPosition&, const GridPosition&, GridPositionSide);
-    static std::unique_ptr<GridSpan> resolveRowStartColumnStartNamedGridLinePositionAgainstOppositePosition(const GridResolvedPosition&, const GridPosition&, const Vector<size_t>&);
-    static std::unique_ptr<GridSpan> resolveRowEndColumnEndNamedGridLinePositionAgainstOppositePosition(const GridResolvedPosition&, const GridPosition&, const Vector<size_t>&);
-
-    GridResolvedPosition(size_t position)
+    GridResolvedPosition(unsigned position)
         : m_integerPosition(position)
     {
     }
 
-    GridResolvedPosition(const GridPosition& position, GridPositionSide side)
-    {
-        ASSERT(position.integerPosition());
-        size_t integerPosition = position.integerPosition() - 1;
-
-        m_integerPosition = adjustGridPositionForSide(integerPosition, side).m_integerPosition;
-    }
+    GridResolvedPosition(const GridPosition&, GridPositionSide);
 
     GridResolvedPosition& operator*()
     {
@@ -136,7 +123,7 @@ public:
         return m_integerPosition >= other.m_integerPosition;
     }
 
-    size_t toInt() const
+    unsigned toInt() const
     {
         return m_integerPosition;
     }
@@ -146,9 +133,14 @@ public:
         return GridResolvedPosition(m_integerPosition + 1);
     }
 
-private:
+    static GridSpan resolveGridPositionsFromAutoPlacementPosition(const RenderStyle&, const RenderBox&, GridTrackSizingDirection, const GridResolvedPosition&);
+    static GridSpan resolveGridPositionsFromStyle(const GridUnresolvedSpan&, const RenderStyle&);
+    static GridUnresolvedSpan unresolvedSpanFromStyle(const RenderStyle&, const RenderBox&, GridTrackSizingDirection);
+    static unsigned explicitGridColumnCount(const RenderStyle&);
+    static unsigned explicitGridRowCount(const RenderStyle&);
 
-    size_t m_integerPosition;
+private:
+    unsigned m_integerPosition;
 };
 
 } // namespace WebCore

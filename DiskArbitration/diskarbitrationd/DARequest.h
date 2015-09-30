@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,8 @@ typedef struct __DARequest * DARequestRef;
 enum
 {
 ///w:start
-    _kDARequestStateStagedAuthorize = 0x00200000,
+    _kDARequestStateMountArgumentNoWrite = 0x08000000,
+    _kDARequestStateStagedAuthorize      = 0x00200000,
 ///w:stop
     kDARequestStateStagedProbe   = 0x00010000,
     kDARequestStateStagedApprove = 0x00100000

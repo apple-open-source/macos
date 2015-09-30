@@ -27,7 +27,7 @@
 #include "WebInspectorClientGtk.h"
 
 #include "WKAPICast.h"
-#include "WKSharedAPICast.h"
+#include "WebInspectorProxy.h"
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -86,6 +86,13 @@ void WebInspectorClientGtk::didChangeAttachedWidth(WebInspectorProxy* inspector,
     if (!m_client.didChangeAttachedWidth)
         return;
     m_client.didChangeAttachedWidth(toAPI(inspector), width, m_client.base.clientInfo);
+}
+
+void WebInspectorClientGtk::didChangeAttachAvailability(WebInspectorProxy* inspector, bool available)
+{
+    if (!m_client.didChangeAttachAvailability)
+        return;
+    m_client.didChangeAttachAvailability(toAPI(inspector), available, m_client.base.clientInfo);
 }
 
 } // namespace WebKit

@@ -218,7 +218,7 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
     IOBufferMemoryDescriptor * buffer         = 0;
     UInt32                     bufferReadAt   = 0;
-    UInt32                     bufferSize     = 0;
+    IOByteCount                bufferSize     = 0;
     UInt32                     dpmeBlockSize  = 0;
     UInt32                     dpmeCount      = 0;
     UInt32                     dpmeID         = 0;
@@ -269,7 +269,7 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
     // Determine the official block size to use to scan the partition entries.
 
-    dpmeBlockSize = mediaBlockSize;                      // (natural block size)
+    dpmeBlockSize = (UInt32) mediaBlockSize;             // (natural block size)
 
     if ( OSSwapBigToHostInt16(driverMap->sbSig) == BLOCK0_SIGNATURE )
     {
@@ -588,26 +588,6 @@ IOMedia * IOApplePartitionScheme::instantiateDesiredMediaObject(
 
     return new IOMedia;
 }
-
-#ifndef __LP64__
-bool IOApplePartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
-{
-    //
-    // Attach the given media object to the device tree plane.
-    //
-
-    return super::attachMediaObjectToDeviceTree(media);
-}
-
-void IOApplePartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
-{
-    //
-    // Detach the given media object from the device tree plane.
-    //
-
-    super::detachMediaObjectFromDeviceTree(media);
-}
-#endif /* !__LP64__ */
 
 OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  0);
 OSMetaClassDefineReservedUnused(IOApplePartitionScheme,  1);

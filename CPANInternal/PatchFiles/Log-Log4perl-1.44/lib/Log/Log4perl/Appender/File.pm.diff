@@ -1,0 +1,20 @@
+--- Log-Log4perl-1.44/lib/Log/Log4perl/Appender/File.pm
++++ Log-Log4perl-1.44/lib/Log/Log4perl/Appender/File.pm
+@@ -181,7 +181,7 @@ sub file_close {
+ ##################################################
+     my($self) = @_;
+ 
+-    if(defined $self->{fh}) {
++    if(defined $self->{fh} && defined fileno $self->{fh}) {
+         $self->close_with_care( $self->{ fh } );
+     }
+ 
+@@ -274,7 +274,7 @@ sub DESTROY {
+ ##################################################
+     my($self) = @_;
+ 
+-    if ($self->{fh}) {
++    if(defined $self->{fh} && defined fileno $self->{fh}) {
+         my $fh = $self->{fh};
+         $self->close_with_care( $fh );
+     }

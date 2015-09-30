@@ -1,9 +1,9 @@
 /*
- * "$Id: dest.c 12104 2014-08-20 15:23:40Z msweet $"
+ * "$Id: dest.c 12732 2015-06-12 01:19:22Z msweet $"
  *
  * User-defined destination (and option) support for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2015 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -657,6 +657,7 @@ cupsConnectDest(
 
   http = httpConnect2(hostname, port, addrlist, AF_UNSPEC, encryption, 1, 0,
                       NULL);
+  httpAddrFreeList(addrlist);
 
  /*
   * Connect if requested...
@@ -870,7 +871,7 @@ cupsEnumDests(
   */
 
   num_dests = _cupsGetDests(CUPS_HTTP_DEFAULT, IPP_OP_CUPS_GET_PRINTERS, NULL,
-                            &dests, type, mask);
+                            &dests, type, mask | CUPS_PRINTER_3D);
 
   if ((user_default = _cupsUserDefault(name, sizeof(name))) != NULL)
     defprinter = name;
@@ -1742,7 +1743,7 @@ cupsGetDests2(http_t      *http,	/* I - Connection to server or @code CUPS_HTTP_
   */
 
   *dests    = (cups_dest_t *)0;
-  num_dests = _cupsGetDests(http, IPP_OP_CUPS_GET_PRINTERS, NULL, dests, 0, 0);
+  num_dests = _cupsGetDests(http, IPP_OP_CUPS_GET_PRINTERS, NULL, dests, 0, CUPS_PRINTER_3D);
 
   if (cupsLastError() >= IPP_STATUS_REDIRECTION_OTHER_SITE)
   {
@@ -1959,7 +1960,7 @@ cupsGetNamedDest(http_t     *http,	/* I - Connection to server or @code CUPS_HTT
   * Get the printer's attributes...
   */
 
-  if (!_cupsGetDests(http, op, name, &dest, 0, 0))
+  if (!_cupsGetDests(http, op, name, &dest, 0, CUPS_PRINTER_3D))
     return (NULL);
 
   if (instance)
@@ -2135,7 +2136,7 @@ cupsSetDests2(http_t      *http,	/* I - Connection to server or @code CUPS_HTTP_
   * Get the server destinations...
   */
 
-  num_temps = _cupsGetDests(http, IPP_OP_CUPS_GET_PRINTERS, NULL, &temps, 0, 0);
+  num_temps = _cupsGetDests(http, IPP_OP_CUPS_GET_PRINTERS, NULL, &temps, 0, CUPS_PRINTER_3D);
 
   if (cupsLastError() >= IPP_STATUS_REDIRECTION_OTHER_SITE)
   {
@@ -3942,5 +3943,5 @@ cups_make_string(
 
 
 /*
- * End of "$Id: dest.c 12104 2014-08-20 15:23:40Z msweet $".
+ * End of "$Id: dest.c 12732 2015-06-12 01:19:22Z msweet $".
  */

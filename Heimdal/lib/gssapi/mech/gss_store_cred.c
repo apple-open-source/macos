@@ -34,14 +34,14 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_store_cred(OM_uint32         *minor_status,
-	       gss_cred_id_t     input_cred_handle,
-	       gss_cred_usage_t  cred_usage,
-	       const gss_OID     desired_mech,
-	       OM_uint32         overwrite_cred,
-	       OM_uint32         default_cred,
-	       gss_OID_set       *elements_stored,
-	       gss_cred_usage_t  *cred_usage_stored)
+gss_store_cred(OM_uint32         *__nonnull minor_status,
+	       __nonnull gss_cred_id_t      input_cred_handle,
+	       gss_cred_usage_t             cred_usage,
+	       __nullable const gss_OID     desired_mech,
+	       OM_uint32         	    overwrite_cred,
+	       OM_uint32         	    default_cred,
+	       __nullable gss_OID_set       *__nullable elements_stored,
+	       gss_cred_usage_t  *__nullable cred_usage_stored)
 {
     struct _gss_cred *cred = (struct _gss_cred *) input_cred_handle;
     struct _gss_mechanism_cred *mc;

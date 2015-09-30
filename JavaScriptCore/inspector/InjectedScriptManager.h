@@ -30,8 +30,6 @@
 #ifndef InjectedScriptManager_h
 #define InjectedScriptManager_h
 
-#if ENABLE(INSPECTOR)
-
 #include "InjectedScript.h"
 #include "InjectedScriptHost.h"
 #include "InspectorEnvironment.h"
@@ -66,6 +64,7 @@ public:
     InjectedScript injectedScriptForObjectId(const String& objectId);
     void discardInjectedScripts();
     void releaseObjectGroup(const String& objectGroup);
+    void clearExceptionValue();
 
 protected:
     virtual void didCreateInjectedScript(InjectedScript);
@@ -83,7 +82,5 @@ private:
 };
 
 } // namespace Inspector
-
-#endif // ENABLE(INSPECTOR)
 
 #endif // !defined(InjectedScriptManager_h)

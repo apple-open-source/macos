@@ -21,17 +21,14 @@
 #include "config.h"
 #include "SVGCircleElement.h"
 
-#include "Attribute.h"
 #include "ExceptionCode.h"
 #include "FloatPoint.h"
 #include "RenderSVGEllipse.h"
 #include "RenderSVGPath.h"
 #include "RenderSVGResource.h"
-#include "SVGElementInstance.h"
 #include "SVGException.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
-#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -59,86 +56,49 @@ inline SVGCircleElement::SVGCircleElement(const QualifiedName& tagName, Document
     registerAnimatedPropertiesForSVGCircleElement();
 }
 
-PassRefPtr<SVGCircleElement> SVGCircleElement::create(const QualifiedName& tagName, Document& document)
+Ref<SVGCircleElement> SVGCircleElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new SVGCircleElement(tagName, document));
-}
-
-bool SVGCircleElement::isSupportedAttribute(const QualifiedName& attrName)
-{
-    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
-    if (supportedAttributes.get().isEmpty()) {
-        SVGLangSpace::addSupportedAttributes(supportedAttributes);
-        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
-        supportedAttributes.get().add(SVGNames::cxAttr);
-        supportedAttributes.get().add(SVGNames::cyAttr);
-        supportedAttributes.get().add(SVGNames::rAttr);
-    }
-    return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
+    return adoptRef(*new SVGCircleElement(tagName, document));
 }
 
 void SVGCircleElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     SVGParsingError parseError = NoError;
 
-    if (!isSupportedAttribute(name))
-        SVGGraphicsElement::parseAttribute(name, value);
-    else if (name == SVGNames::cxAttr)
+    if (name == SVGNames::cxAttr)
         setCxBaseValue(SVGLength::construct(LengthModeWidth, value, parseError));
     else if (name == SVGNames::cyAttr)
         setCyBaseValue(SVGLength::construct(LengthModeHeight, value, parseError));
     else if (name == SVGNames::rAttr)
         setRBaseValue(SVGLength::construct(LengthModeOther, value, parseError, ForbidNegativeLengths));
-    else if (SVGLangSpace::parseAttribute(name, value)
-             || SVGExternalResourcesRequired::parseAttribute(name, value)) {
-    } else
-        ASSERT_NOT_REACHED();
 
     reportAttributeParsingError(parseError, name, value);
+
+    SVGGraphicsElement::parseAttribute(name, value);
+    SVGExternalResourcesRequired::parseAttribute(name, value);
 }
 
 void SVGCircleElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    if (!isSupportedAttribute(attrName)) {
-        SVGGraphicsElement::svgAttributeChanged(attrName);
+    SVGGraphicsElement::svgAttributeChanged(attrName);
+
+    if (attrName == SVGNames::cxAttr || attrName == SVGNames::cyAttr || attrName == SVGNames::rAttr) {
+        InstanceInvalidationGuard guard(*this);
+        invalidateSVGPresentationAttributeStyle();
         return;
     }
 
-    SVGElementInstance::InvalidationGuard invalidationGuard(this);
-
-    bool isLengthAttribute = attrName == SVGNames::cxAttr
-                          || attrName == SVGNames::cyAttr
-                          || attrName == SVGNames::rAttr;
-
-    if (isLengthAttribute)
-        updateRelativeLengthsInformation();
-
-    RenderSVGShape* renderer = toRenderSVGShape(this->renderer());
+    auto* renderer = downcast<RenderSVGShape>(this->renderer());
     if (!renderer)
         return;
 
-    if (isLengthAttribute) {
-        renderer->setNeedsShapeUpdate();
-        RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);
-        return;
-    }
-
     if (SVGLangSpace::isKnownAttribute(attrName) || SVGExternalResourcesRequired::isKnownAttribute(attrName)) {
+        InstanceInvalidationGuard guard(*this);
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);
-        return;
     }
-
-    ASSERT_NOT_REACHED();
 }
 
-bool SVGCircleElement::selfHasRelativeLengths() const
-{
-    return cx().isRelative()
-        || cy().isRelative()
-        || r().isRelative();
-}
-
-RenderPtr<RenderElement> SVGCircleElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> SVGCircleElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderSVGEllipse>(*this, WTF::move(style));
 }

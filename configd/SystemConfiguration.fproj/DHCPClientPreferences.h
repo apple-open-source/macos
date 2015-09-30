@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2004, 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001, 2004, 2005, 2008, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,9 @@
 #include <sys/cdefs.h>
 #include <CoreFoundation/CFString.h>
 
+CF_IMPLICIT_BRIDGING_ENABLED
+CF_ASSUME_NONNULL_BEGIN
+
 /*!
 	@header DHCPClientPreferences
 	@discussion The DHCPClientPreferences API allows applications to get and update DHCP preferences.
@@ -54,9 +57,9 @@ __BEGIN_DECLS
  */
 
 Boolean
-DHCPClientPreferencesSetApplicationOptions	(CFStringRef	applicationID,
-						 UInt8		*options,
-						 CFIndex	count)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
+DHCPClientPreferencesSetApplicationOptions	(CFStringRef			applicationID,
+						 UInt8		* __nullable	options,
+						 CFIndex			count)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function DHCPClientPreferencesCopyApplicationOptions
@@ -71,11 +74,14 @@ DHCPClientPreferencesSetApplicationOptions	(CFStringRef	applicationID,
 		When you are finished, use free() to release a non-NULL return value.
  */
 
-UInt8 *
+UInt8 * __nullable
 DHCPClientPreferencesCopyApplicationOptions	(CFStringRef	applicationID,
 						 CFIndex	*count)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 __END_DECLS
+
+CF_ASSUME_NONNULL_END
+CF_IMPLICIT_BRIDGING_DISABLED
 
 #endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #endif	/* _DHCPCLIENTPREFERENCES_H */

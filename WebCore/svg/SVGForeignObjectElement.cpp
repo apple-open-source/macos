@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2014 Adobe Systems Incorporated. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,11 +22,9 @@
 #include "config.h"
 #include "SVGForeignObjectElement.h"
 
-#include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "RenderSVGForeignObject.h"
 #include "RenderSVGResource.h"
-#include "SVGElementInstance.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 #include "XLinkNames.h"
@@ -63,9 +62,9 @@ inline SVGForeignObjectElement::SVGForeignObjectElement(const QualifiedName& tag
     registerAnimatedPropertiesForSVGForeignObjectElement();
 }
 
-PassRefPtr<SVGForeignObjectElement> SVGForeignObjectElement::create(const QualifiedName& tagName, Document& document)
+Ref<SVGForeignObjectElement> SVGForeignObjectElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new SVGForeignObjectElement(tagName, document));
+    return adoptRef(*new SVGForeignObjectElement(tagName, document));
 }
 
 bool SVGForeignObjectElement::isSupportedAttribute(const QualifiedName& attrName)
@@ -86,9 +85,7 @@ void SVGForeignObjectElement::parseAttribute(const QualifiedName& name, const At
 {
     SVGParsingError parseError = NoError;
 
-    if (!isSupportedAttribute(name))
-        SVGGraphicsElement::parseAttribute(name, value);
-    else if (name == SVGNames::xAttr)
+    if (name == SVGNames::xAttr)
         setXBaseValue(SVGLength::construct(LengthModeWidth, value, parseError));
     else if (name == SVGNames::yAttr)
         setYBaseValue(SVGLength::construct(LengthModeHeight, value, parseError));
@@ -96,12 +93,11 @@ void SVGForeignObjectElement::parseAttribute(const QualifiedName& name, const At
         setWidthBaseValue(SVGLength::construct(LengthModeWidth, value, parseError));
     else if (name == SVGNames::heightAttr)
         setHeightBaseValue(SVGLength::construct(LengthModeHeight, value, parseError));
-    else if (SVGLangSpace::parseAttribute(name, value)
-               || SVGExternalResourcesRequired::parseAttribute(name, value)) {
-    } else
-        ASSERT_NOT_REACHED();
 
     reportAttributeParsingError(parseError, name, value);
+
+    SVGGraphicsElement::parseAttribute(name, value);
+    SVGExternalResourcesRequired::parseAttribute(name, value);
 }
 
 void SVGForeignObjectElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -111,21 +107,22 @@ void SVGForeignObjectElement::svgAttributeChanged(const QualifiedName& attrName)
         return;
     }
 
-    SVGElementInstance::InvalidationGuard invalidationGuard(this);
-    
-    bool isLengthAttribute = attrName == SVGNames::xAttr
-                          || attrName == SVGNames::yAttr
-                          || attrName == SVGNames::widthAttr
-                          || attrName == SVGNames::heightAttr;
+    InstanceInvalidationGuard guard(*this);
 
-    if (isLengthAttribute)
+    if (attrName == SVGNames::widthAttr
+        || attrName == SVGNames::heightAttr) {
+        invalidateSVGPresentationAttributeStyle();
+        return;
+    }
+
+    if (attrName == SVGNames::xAttr || attrName == SVGNames::yAttr)
         updateRelativeLengthsInformation();
 
     if (auto renderer = this->renderer())
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);
 }
 
-RenderPtr<RenderElement> SVGForeignObjectElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> SVGForeignObjectElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderSVGForeignObject>(*this, WTF::move(style));
 }
@@ -156,14 +153,6 @@ bool SVGForeignObjectElement::rendererIsNeeded(const RenderStyle& style)
     }
 
     return SVGGraphicsElement::rendererIsNeeded(style);
-}
-
-bool SVGForeignObjectElement::selfHasRelativeLengths() const
-{
-    return x().isRelative()
-        || y().isRelative()
-        || width().isRelative()
-        || height().isRelative();
 }
 
 }

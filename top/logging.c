@@ -213,11 +213,13 @@ static void log_print_all(void *tinst) {
     }
 }
 
-void top_logging_loop_body(void *tinst) {
+void top_logging_loop_body(void *tinst, bool with_sleep) {
     top_insert(tinst);
     log_print_all(tinst);
     fflush(stdout);
-    sleep(top_prefs_get_sleep());
+    if (with_sleep) {
+	sleep(top_prefs_get_sleep());
+    }
     
     if(top_signal_is_exit_set())
 	exit(EXIT_SUCCESS);
@@ -232,10 +234,10 @@ void top_logging_loop(void *tinst) {
     
     if(forever) {
 	while(1)
-	    top_logging_loop_body(tinst);
+	    top_logging_loop_body(tinst, true);
     } else {
 	for(samples = top_prefs_get_samples(); samples > 0; --samples)
-	    top_logging_loop_body(tinst);
+	    top_logging_loop_body(tinst, samples > 1);
 	
 	/* We displayed the requested number of samples. */
 	exit(EXIT_SUCCESS);

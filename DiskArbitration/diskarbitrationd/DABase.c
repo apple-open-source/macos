@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -372,7 +372,7 @@ __private_extern__ CFDictionaryRef ___CFDictionaryCreateFromXMLString( CFAllocat
     {
         CFTypeRef object;
 
-        object = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, data, kCFPropertyListImmutable, NULL );
+        object = CFPropertyListCreateWithData( kCFAllocatorDefault, data, kCFPropertyListImmutable, NULL, NULL );
 
         if ( object )
         {

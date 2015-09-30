@@ -28,12 +28,13 @@
 
 #include "CallFrame.h"
 #include "Identifier.h"
+#include "IdentifierInlines.h"
 #include "JSGlobalObject.h"
 #include <wtf/text/StringView.h>
 
 using namespace JSC;
 
-PassRefPtr<OpaqueJSString> OpaqueJSString::create(const String& string)
+RefPtr<OpaqueJSString> OpaqueJSString::create(const String& string)
 {
     if (string.isNull())
         return nullptr;
@@ -56,32 +57,26 @@ OpaqueJSString::~OpaqueJSString()
 
 String OpaqueJSString::string() const
 {
-    if (!this)
-        return String();
-
     // Return a copy of the wrapped string, because the caller may make it an Identifier.
     return m_string.isolatedCopy();
 }
 
 Identifier OpaqueJSString::identifier(VM* vm) const
 {
-    if (!this || m_string.isNull())
+    if (m_string.isNull())
         return Identifier();
 
     if (m_string.isEmpty())
         return Identifier(Identifier::EmptyIdentifier);
 
     if (m_string.is8Bit())
-        return Identifier(vm, m_string.characters8(), m_string.length());
+        return Identifier::fromString(vm, m_string.characters8(), m_string.length());
 
-    return Identifier(vm, m_string.characters16(), m_string.length());
+    return Identifier::fromString(vm, m_string.characters16(), m_string.length());
 }
 
 const UChar* OpaqueJSString::characters()
 {
-    if (!this)
-        return nullptr;
-
     // m_characters is put in a local here to avoid an extra atomic load.
     UChar* characters = m_characters;
     if (characters)

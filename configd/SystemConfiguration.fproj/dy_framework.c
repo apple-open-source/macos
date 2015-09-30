@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008, 2010-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <dlfcn.h>
 
+#include <CoreFoundation/CFRuntime.h>
 #include "dy_framework.h"
 
 
@@ -627,7 +628,6 @@ _SecCertificateCreateWithData(CFAllocatorRef allocator, CFDataRef data)
 	}
 	return dyfunc ? dyfunc(allocator, data) : NULL;
 }
-
 
 
 

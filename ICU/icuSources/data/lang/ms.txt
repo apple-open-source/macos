@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ms.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/ms.xml
- */
 ms{
     Keys{
         calendar{"Kalendar"}
@@ -31,40 +28,63 @@ ms{
     Languages{
         ab{"Abkhazia"}
         ach{"Akoli"}
+        ady{"Adyghe"}
+        ae{"Avestan"}
+        aeb{"Arab Tunisia"}
         af{"Afrikaans"}
         agq{"Aghem"}
         ak{"Akan"}
+        alt{"Altai Selatan"}
         am{"Amharic"}
         ar{"Arab"}
         ar_001{"Arab Standard Moden"}
+        arn{"Mapuche"}
+        arq{"Arab Algeria"}
+        ary{"Arab Maghribi"}
+        arz{"Arab Mesir"}
         as{"Assam"}
         asa{"Asu"}
+        av{"Avaric"}
         ay{"Aymara"}
         az{"Azerbaijan"}
         bas{"Basaa"}
+        azb{"Azerbaijan Selatan"}
+        ba{"Bashkir"}
+        bal{"Baluchi"}
         bax{"Bamun"}
         bbj{"Ghomala"}
         be{"Belarus"}
+        bej{"Beja"}
         bem{"Bemba"}
         bez{"Bena"}
         bfd{"Bafut"}
         bg{"Bulgaria"}
         bkm{"Kom"}
+        bm{"Bambara"}
         bn{"Benggala"}
         bo{"Tibet"}
+        bpy{"Bishnupriya"}
         br{"Breton"}
+        brh{"Brahui"}
         brx{"Bodo"}
         bs{"Bosnia"}
         bss{"Akoose"}
+        bua{"Buriat"}
         bum{"Bulu"}
         byv{"Medumba"}
         ca{"Catalonia"}
         cay{"Cayuga"}
+        ce{"Chechen"}
         cgg{"Chiga"}
+        chm{"Mari"}
         chr{"Cherokee"}
         ckb{"Kurdi Sorani"}
         co{"Corsica"}
+        cop{"Coptic"}
+        crh{"Turki Krimea"}
         cs{"Czech"}
+        cu{"Slavik Gereja"}
+        cv{"Chuvash"}
         cy{"Wales"}
         da{"Denmark"}
         dav{"Taita"}
@@ -72,6 +92,8 @@ ms{
         de_AT{"Jerman Austria"}
         de_CH{"Jerman Halus Switzerland"}
         dje{"Zarma"}
+        doi{"Dogri"}
+        dsb{"Lower Sorbian"}
         dua{"Duala"}
         dv{"Divehi"}
         dyo{"Jola-Fonyi"}
@@ -105,17 +127,24 @@ ms{
         fy{"Frisian"}
         ga{"Ireland"}
         gaa{"Ga"}
+        gag{"Gagauz"}
+        gba{"Gbaya"}
+        gbz{"Zoroastrian Dari"}
         gd{"Scots Gaelic"}
         gl{"Galicia"}
+        glk{"Gilaki"}
         gn{"Guarani"}
+        grc{"Greek Purba"}
         gsw{"Jerman Switzerland"}
         gu{"Gujerat"}
         guz{"Gusii"}
+        gv{"Manx"}
         ha{"Hausa"}
         haw{"Hawaii"}
         he{"Ibrani"}
         hi{"Hindi"}
         hr{"Croat"}
+        hsb{"Upper Sorbian"}
         ht{"Haiti"}
         hu{"Hungary"}
         hy{"Armenia"}
@@ -124,33 +153,43 @@ ms{
         id{"Indonesia"}
         ie{"Interlingue"}
         ig{"Igbo"}
+        ii{"Sichuan Yi"}
         is{"Iceland"}
         it{"Itali"}
+        iu{"Inuktitut"}
         ja{"Jepun"}
         jgo{"Ngomba"}
         jmc{"Machame"}
         jv{"Jawa"}
         ka{"Georgia"}
+        kab{"Kabyle"}
         kam{"Kamba"}
         kbl{"Kanembu"}
         kde{"Makonde"}
         kea{"Kabuverdianu"}
         kg{"Kongo"}
         khq{"Koyra Chiini"}
+        khw{"Khowar"}
+        ki{"Kikuya"}
         kk{"Kazakhstan"}
         kkj{"Kako"}
+        kl{"Kalaallisut"}
         kln{"Kalenjin"}
         km{"Khmer"}
         kn{"Kannada"}
         ko{"Korea"}
+        koi{"Komi-Permyak"}
+        kok{"Konkani"}
         ks{"Kashmir"}
         ksb{"Shambala"}
         ksf{"Bafia"}
         ksh{"Colognian"}
         ku{"Kurdish"}
+        kw{"Cornish"}
         ky{"Kirghiz"}
         la{"Latin"}
         lag{"Langi"}
+        lah{"Lahnda"}
         lb{"Luxembourg"}
         lg{"Ganda"}
         lkt{"Lakota"}
@@ -160,6 +199,8 @@ ms{
         lt{"Lithuania"}
         lu{"Luba-Katanga"}
         lua{"Luba-Lulua"}
+        luo{"Luo"}
+        lus{"Mizo"}
         luy{"Luyia"}
         lv{"Latvia"}
         maf{"Mafa"}
@@ -169,17 +210,20 @@ ms{
         mfe{"Morisyen"}
         mg{"Malagasy"}
         mgh{"Makhuwa-Meetto"}
-        mgo{"Meta'"}
+        mgo{"Meta’"}
         mi{"Maori"}
         mk{"Macedonia"}
         ml{"Malayalam"}
         mn{"Mongolia"}
+        mni{"Manipuri"}
+        moh{"Mohawk"}
         mr{"Marathi"}
         ms{"Bahasa Melayu"}
         mt{"Malta"}
         mua{"Mundang"}
         my{"Burma"}
         mye{"Myene"}
+        mzn{"Mazanderani"}
         naq{"Nama"}
         nb{"Bokmål Norway"}
         nd{"Ndebele Utara"}
@@ -190,6 +234,7 @@ ms{
         nn{"Nynorsk Norway"}
         nnh{"Ngiemboon"}
         no{"Norway"}
+        nqo{"N’ko"}
         nso{"Sotho Utara"}
         nus{"Nuer"}
         ny{"Nyanja"}
@@ -205,9 +250,11 @@ ms{
         pt_BR{"Portugis Brazil"}
         pt_PT{"Portugis Eropah"}
         qu{"Quechua"}
+        quc{"Kʼicheʼ"}
         rm{"Romansh"}
         rn{"Rundi"}
         ro{"Romania"}
+        ro_MD{"Moldavia"}
         rof{"Rombo"}
         ru{"Rusia"}
         rw{"Kinyarwanda"}
@@ -229,6 +276,10 @@ ms{
         sk{"Slovak"}
         sl{"Slovenia"}
         sm{"Samoa"}
+        sma{"Sami Selatan"}
+        smj{"Lule Sami"}
+        smn{"Inari Sami"}
+        sms{"Skolt Sami"}
         sn{"Shona"}
         so{"Somali"}
         sq{"Albania"}
@@ -239,6 +290,7 @@ ms{
         su{"Sunda"}
         sv{"Sweden"}
         sw{"Swahili"}
+        swb{"Comoria"}
         swc{"Congo Swahili"}
         ta{"Tamil"}
         te{"Telugu"}
@@ -249,6 +301,7 @@ ms{
         ti{"Tigrinya"}
         tk{"Turkmen"}
         tlh{"Klingon"}
+        tly{"Talysh"}
         tn{"Tswana"}
         to{"Tonga"}
         tpi{"Tok Pisin"}
@@ -261,7 +314,7 @@ ms{
         twq{"Tasawaq"}
         ty{"Tahiti"}
         tzm{"Tamazight Atlas Tengah"}
-        ug{"Uighur"}
+        ug{"Uyghur"}
         uk{"Ukraine"}
         und{"Bahasa Tidak Diketahui"}
         ur{"Urdu"}
@@ -286,17 +339,24 @@ ms{
         zxx{"Tiada kandungan linguistik"}
         zza{"Zaza"}
     }
-    LanguagesShort{
+    Languages%short{
         az{"Azeri"}
         en_GB{"Inggeris U.K."}
         en_US{"Inggeris A.S."}
     }
+    Languages%variant{
+        ps{"Pushto"}
+        ug{"Uighur"}
+    }
     Scripts{
         Arab{"Arab"}
         Armn{"Armenia"}
+        Bali{"Bali"}
+        Bamu{"Bamu"}
         Beng{"Bengali"}
         Bopo{"Bopomofo"}
         Brai{"Braille"}
+        Cans{"Cans"}
         Cyrl{"Cyril"}
         Deva{"Devanagari"}
         Ethi{"Ethiopia"}
@@ -336,11 +396,15 @@ ms{
         Hans{"Han Ringkas"}
         Hant{"Han Tradisional"}
     }
+    Scripts%variant{
+        Arab{"Perso-Arab"}
+    }
     Types{
         calendar{
             buddhist{"Kalendar Buddha"}
             chinese{"Kalendar Cina"}
             coptic{"Kalendar Qibti"}
+            dangi{"Kalendar Dangi"}
             ethiopic{"Kalendar Ethiopia"}
             ethiopic-amete-alem{"Kalendar Amete Alem Ethiopia"}
             gregorian{"Kalendar Gregory"}
@@ -348,6 +412,7 @@ ms{
             indian{"Kalendar Kebangsaan India"}
             islamic{"Kalendar Islam"}
             islamic-civil{"Kalendar Sivil Islam"}
+            iso8601{"Kalendar ISO-8601"}
             japanese{"Kalendar Jepun"}
             persian{"Kalendar Parsi"}
             roc{"Kalendar Minguo"}
@@ -447,7 +512,7 @@ ms{
             vaii{"Digit Vai"}
         }
     }
-    Version{"2.0.97.91"}
+    Version{"2.1.12.94"}
     codePatterns{
         language{"Bahasa: {0}"}
         script{"Skrip: {0}"}

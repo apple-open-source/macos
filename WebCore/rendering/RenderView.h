@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2006 Apple Inc.
+ * Copyright (C) 2006, 2015 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,13 +24,12 @@
 
 #include "FrameView.h"
 #include "LayoutState.h"
-#include "PODFreeListArena.h"
 #include "Region.h"
 #include "RenderBlockFlow.h"
+#include "RenderWidget.h"
 #include "SelectionSubtreeRoot.h"
 #include <memory>
 #include <wtf/HashSet.h>
-#include <wtf/OwnPtr.h>
 
 #if ENABLE(SERVICE_CONTROLS)
 #include "SelectionRectGatherer.h"
@@ -45,10 +44,10 @@ class RenderQuote;
 
 class RenderView final : public RenderBlockFlow, public SelectionSubtreeRoot {
 public:
-    RenderView(Document&, PassRef<RenderStyle>);
+    RenderView(Document&, Ref<RenderStyle>&&);
     virtual ~RenderView();
 
-    bool hitTest(const HitTestRequest&, HitTestResult&);
+    WEBCORE_EXPORT bool hitTest(const HitTestRequest&, HitTestResult&);
     bool hitTest(const HitTestRequest&, const HitTestLocation&, HitTestResult&);
 
     virtual const char* renderName() const override { return "RenderView"; }
@@ -89,8 +88,8 @@ public:
     void setSelection(RenderObject* start, int startPos, RenderObject* end, int endPos, SelectionRepaintMode = RepaintNewXOROld);
     void getSelection(RenderObject*& startRenderer, int& startOffset, RenderObject*& endRenderer, int& endOffset) const;
     void clearSelection();
-    RenderObject* selectionStart() const { return m_selectionStart; }
-    RenderObject* selectionEnd() const { return m_selectionEnd; }
+    RenderObject* selectionUnsplitStart() const { return m_selectionUnsplitStart; }
+    RenderObject* selectionUnsplitEnd() const { return m_selectionUnsplitEnd; }
     IntRect selectionBounds(bool clipToVisibleContent = true) const;
     void repaintSelection() const;
 
@@ -185,14 +184,14 @@ public:
     // Notification that this view moved into or out of a native window.
     void setIsInWindow(bool);
 
-    RenderLayerCompositor& compositor();
-    bool usesCompositing() const;
+    WEBCORE_EXPORT RenderLayerCompositor& compositor();
+    WEBCORE_EXPORT bool usesCompositing() const;
 
-    IntRect unscaledDocumentRect() const;
+    WEBCORE_EXPORT IntRect unscaledDocumentRect() const;
     LayoutRect unextendedBackgroundRect(RenderBox* backgroundRenderer) const;
     LayoutRect backgroundRect(RenderBox* backgroundRenderer) const;
 
-    IntRect documentRect() const;
+    WEBCORE_EXPORT IntRect documentRect() const;
 
     // Renderer that paints the root background has background-images which all have background-attachment: fixed.
     bool rootBackgroundIsEntirelyFixed() const;
@@ -202,8 +201,6 @@ public:
     FlowThreadController& flowThreadController();
 
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
-
-    IntervalArena* intervalArena();
 
     IntSize viewportSizeForCSSViewportUnits() const;
 
@@ -218,20 +215,16 @@ public:
     void removeRenderCounter() { ASSERT(m_renderCounterCount > 0); m_renderCounterCount--; }
     bool hasRenderCounters() { return m_renderCounterCount; }
     
-    IntRect pixelSnappedLayoutOverflowRect() const { return pixelSnappedIntRect(layoutOverflowRect()); }
-
     ImageQualityController& imageQualityController();
 
-#if ENABLE(CSS_FILTERS)
     void setHasSoftwareFilters(bool hasSoftwareFilters) { m_hasSoftwareFilters = hasSoftwareFilters; }
     bool hasSoftwareFilters() const { return m_hasSoftwareFilters; }
-#endif
 
     uint64_t rendererCount() const { return m_rendererCount; }
     void didCreateRenderer() { ++m_rendererCount; }
     void didDestroyRenderer() { --m_rendererCount; }
 
-    void resumePausedImageAnimationsIfNeeded();
+    void resumePausedImageAnimationsIfNeeded(IntRect visibleRect);
     void addRendererWithPausedImageAnimations(RenderElement&);
     void removeRendererWithPausedImageAnimations(RenderElement&);
 
@@ -249,8 +242,17 @@ public:
     void scheduleLazyRepaint(RenderBox&);
     void unscheduleLazyRepaint(RenderBox&);
 
+    void protectRenderWidgetUntilLayoutIsDone(RenderWidget& widget) { m_protectedRenderWidgets.append(&widget); }
+    void releaseProtectedRenderWidgets() { m_protectedRenderWidgets.clear(); }
+
+#if ENABLE(CSS_SCROLL_SNAP)
+    void registerBoxWithScrollSnapCoordinates(const RenderBox&);
+    void unregisterBoxWithScrollSnapCoordinates(const RenderBox&);
+    const HashSet<const RenderBox*>& boxesWithScrollSnapCoordinates() { return m_boxesWithScrollSnapCoordinates; }
+#endif
+
 protected:
-    virtual void mapLocalToContainer(const RenderLayerModelObject* repaintContainer, TransformState&, MapCoordinatesFlags = ApplyContainerFlip, bool* wasFixed = 0) const override;
+    virtual void mapLocalToContainer(const RenderLayerModelObject* repaintContainer, TransformState&, MapCoordinatesFlags, bool* wasFixed) const override;
     virtual const RenderObject* pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap&) const override;
     virtual void mapAbsoluteToLocalPoint(MapCoordinatesFlags, TransformState&) const override;
     virtual bool requiresColumns(int desiredColumnCount) const override;
@@ -299,22 +301,26 @@ private:
 
     void pushLayoutStateForCurrentFlowThread(const RenderObject&);
     void popLayoutStateForCurrentFlowThread();
-    
+
     friend class LayoutStateMaintainer;
     friend class LayoutStateDisabler;
 
-    void splitSelectionBetweenSubtrees(RenderObject* start, int startPos, RenderObject* end, int endPos, SelectionRepaintMode blockRepaintMode);
-    void setSubtreeSelection(SelectionSubtreeRoot&, RenderObject* start, int startPos, RenderObject* end, int endPos, SelectionRepaintMode);
+    virtual bool isScrollableOrRubberbandableBox() const override;
+
+    void splitSelectionBetweenSubtrees(const RenderObject* startRenderer, int startPos, const RenderObject* endRenderer, int endPos, SelectionRepaintMode blockRepaintMode);
+    void clearSubtreeSelection(const SelectionSubtreeRoot&, SelectionRepaintMode, OldSelectionData&) const;
+    void updateSelectionForSubtrees(RenderSubtreesMap&, SelectionRepaintMode);
+    void applySubtreeSelection(const SelectionSubtreeRoot&, SelectionRepaintMode, const OldSelectionData&);
     LayoutRect subtreeSelectionBounds(const SelectionSubtreeRoot&, bool clipToVisibleContent = true) const;
     void repaintSubtreeSelection(const SelectionSubtreeRoot&) const;
 
 private:
     FrameView& m_frameView;
 
-    RenderObject* m_selectionStart;
-    RenderObject* m_selectionEnd;
-    int m_selectionStartPos;
-    int m_selectionEndPos;
+    RenderObject* m_selectionUnsplitStart;
+    RenderObject* m_selectionUnsplitEnd;
+    int m_selectionUnsplitStartPos;
+    int m_selectionUnsplitEndPos;
 
     uint64_t m_rendererCount;
 
@@ -342,7 +348,7 @@ private:
 
     bool shouldUsePrintingLayout() const;
 
-    void lazyRepaintTimerFired(Timer&);
+    void lazyRepaintTimerFired();
 
     Timer m_lazyRepaintTimer;
     HashSet<RenderBox*> m_renderersNeedingLazyRepaint;
@@ -354,24 +360,23 @@ private:
     unsigned m_layoutStateDisableCount;
     std::unique_ptr<RenderLayerCompositor> m_compositor;
     std::unique_ptr<FlowThreadController> m_flowThreadController;
-    RefPtr<IntervalArena> m_intervalArena;
 
     RenderQuote* m_renderQuoteHead;
     unsigned m_renderCounterCount;
 
     bool m_selectionWasCaret;
-#if ENABLE(CSS_FILTERS)
     bool m_hasSoftwareFilters;
-#endif
 
     HashSet<RenderElement*> m_renderersWithPausedImageAnimation;
+    Vector<RefPtr<RenderWidget>> m_protectedRenderWidgets;
 
 #if ENABLE(SERVICE_CONTROLS)
     SelectionRectGatherer m_selectionRectGatherer;
 #endif
+#if ENABLE(CSS_SCROLL_SNAP)
+    HashSet<const RenderBox*> m_boxesWithScrollSnapCoordinates;
+#endif
 };
-
-RENDER_OBJECT_TYPE_CASTS(RenderView, isRenderView())
 
 // Stack-based class to assist with LayoutState push/pop
 class LayoutStateMaintainer {
@@ -457,5 +462,7 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderView, isRenderView())
 
 #endif // RenderView_h

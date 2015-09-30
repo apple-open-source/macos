@@ -24,21 +24,23 @@
 #include "JSDOMWrapper.h"
 #include "attribute.h"
 #include <runtime/ErrorPrototype.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
 class JSattribute : public JSDOMWrapper {
 public:
     typedef JSDOMWrapper Base;
-    static JSattribute* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<attribute> impl)
+    static JSattribute* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<attribute>&& impl)
     {
-        JSattribute* ptr = new (NotNull, JSC::allocateCell<JSattribute>(globalObject->vm().heap)) JSattribute(structure, globalObject, impl);
+        JSattribute* ptr = new (NotNull, JSC::allocateCell<JSattribute>(globalObject->vm().heap)) JSattribute(structure, globalObject, WTF::move(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
     static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static attribute* toWrapped(JSC::JSValue);
     static void destroy(JSC::JSCell*);
     ~JSattribute();
 
@@ -51,20 +53,12 @@ public:
 
     static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
     attribute& impl() const { return *m_impl; }
-    void releaseImpl() { m_impl->deref(); m_impl = 0; }
-
-    void releaseImplIfNotNull()
-    {
-        if (m_impl) {
-            m_impl->deref();
-            m_impl = 0;
-        }
-    }
+    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
 
 private:
     attribute* m_impl;
 protected:
-    JSattribute(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<attribute>);
+    JSattribute(JSC::Structure*, JSDOMGlobalObject*, Ref<attribute>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -82,17 +76,12 @@ public:
 
 inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, attribute*)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(JSattributeOwner, jsattributeOwner, ());
-    return &jsattributeOwner;
-}
-
-inline void* wrapperContext(DOMWrapperWorld& world, attribute*)
-{
-    return &world;
+    static NeverDestroyed<JSattributeOwner> owner;
+    return &owner.get();
 }
 
 JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, attribute*);
-attribute* toattribute(JSC::JSValue);
+inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, attribute& impl) { return toJS(exec, globalObject, &impl); }
 
 
 } // namespace WebCore

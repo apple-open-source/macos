@@ -110,9 +110,9 @@ char** backtrace_symbols(void* const* buffer, int size) {
 		if (info[i].dli_sname) {
 			total_bytes += strlen(info[i].dli_sname);
 		} else if(info[i].dli_fname) {
-			const char *tmp = strrchr(info->dli_fname, '/');
+			const char *tmp = strrchr(info[i].dli_fname, '/');
 			if(tmp == NULL)
-				total_bytes += strlen(info->dli_fname);
+				total_bytes += strlen(info[i].dli_fname);
 	                else
 				total_bytes += strlen(tmp + 1);
 		} else {

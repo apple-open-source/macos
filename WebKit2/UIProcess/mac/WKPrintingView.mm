@@ -222,7 +222,7 @@ static void pageDidDrawToImage(const ShareableBitmap::Handle& imageHandle, IPCCa
         ASSERT([view _isPrintingPreview]);
 
         if (!imageHandle.isNull()) {
-            RefPtr<ShareableBitmap> image = ShareableBitmap::create(imageHandle, SharedMemory::ReadOnly);
+            RefPtr<ShareableBitmap> image = ShareableBitmap::create(imageHandle, SharedMemory::Protection::ReadOnly);
 
             if (image)
                 view->_pagePreviews.add(iter->value, image);
@@ -265,10 +265,10 @@ static void pageDidDrawToImage(const ShareableBitmap::Handle& imageHandle, IPCCa
     _webFrame->page()->beginPrinting(_webFrame.get(), printInfo);
 
     IPCCallbackContext* context = new IPCCallbackContext;
-    RefPtr<DataCallback> callback = DataCallback::create([context](API::Data* data, CallbackBase::Error) {
+    RefPtr<DataCallback> callback = DataCallback::create([context](API::Data* data, WebKit::CallbackBase::Error) {
         ASSERT(RunLoop::isMain());
 
-        OwnPtr<IPCCallbackContext> contextDeleter = adoptPtr(context);
+        std::unique_ptr<IPCCallbackContext> contextDeleter(context);
         WKPrintingView *view = context->view.get();
 
         if (context->callbackID == view->_expectedPrintCallback) {
@@ -340,8 +340,8 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
     ASSERT(!_expectedComputedPagesCallback);
 
     IPCCallbackContext* context = new IPCCallbackContext;
-    RefPtr<ComputedPagesCallback> callback = ComputedPagesCallback::create([context](const Vector<WebCore::IntRect>& pageRects, double totalScaleFactorForPrinting, CallbackBase::Error) {
-        OwnPtr<IPCCallbackContext> contextDeleter = adoptPtr(context);
+    RefPtr<ComputedPagesCallback> callback = ComputedPagesCallback::create([context](const Vector<WebCore::IntRect>& pageRects, double totalScaleFactorForPrinting, WebKit::CallbackBase::Error) {
+        std::unique_ptr<IPCCallbackContext> contextDeleter(context);
         pageDidComputePageRects(pageRects, totalScaleFactorForPrinting, context);
     });
     _expectedComputedPagesCallback = callback->callbackID();
@@ -492,8 +492,8 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
                 _webFrame->page()->beginPrinting(_webFrame.get(), PrintInfo([_printOperation printInfo]));
 
                 IPCCallbackContext* context = new IPCCallbackContext;
-                RefPtr<ImageCallback> callback = ImageCallback::create([context](const ShareableBitmap::Handle& imageHandle, CallbackBase::Error) {
-                    OwnPtr<IPCCallbackContext> contextDeleter = adoptPtr(context);
+                RefPtr<ImageCallback> callback = ImageCallback::create([context](const ShareableBitmap::Handle& imageHandle, WebKit::CallbackBase::Error) {
+                    std::unique_ptr<IPCCallbackContext> contextDeleter(context);
                     pageDidDrawToImage(imageHandle, context);
                 });
                 _latestExpectedPreviewCallback = callback->callbackID();

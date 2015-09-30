@@ -1865,12 +1865,18 @@ pcap_close(pcap_t *p)
 		p->cleanup_interface_op(p->opt.source);
 #endif /* __APPLE__ */
 
-	if (p->opt.source != NULL)
+	if (p->opt.source != NULL) {
 		free(p->opt.source);
+		p->opt.source = NULL;
+	}
 
 #ifdef __APPLE__
 	if (p->cleanup_extra_op != NULL)
 		p->cleanup_extra_op(p);
+	if (p->dump_block != NULL) {
+		pcap_ng_free_block(p->dump_block);
+		p->dump_block = NULL;
+	}
 #endif /* __APPLE__ */
 
 	p->cleanup_op(p);

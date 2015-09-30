@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -177,9 +177,9 @@ _nwi_state_ack(nwi_state_t state, const char *bundle_id)
 	__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
 
 /*
- * nwi_state_get_reachability_flags
- *
- * returns the global reachability flags for a given address family.
+ * Function: nwi_state_get_reachability_flags
+ * Purpose:
+ * Returns the global reachability flags for a given address family.
  * If no address family is passed in, it returns the global reachability
  * flags for either families.
  *
@@ -207,6 +207,32 @@ _nwi_state_ack(nwi_state_t state, const char *bundle_id)
  */
 uint32_t
 nwi_state_get_reachability_flags(nwi_state_t nwi_state, int af);
+
+/*
+ * Function: nwi_state_get_interface_names
+ * Purpose:
+ *   Returns the list of network interface names that have connectivity.
+ *   The list is sorted from highest priority to least, highest priority
+ *   appearing at index 0.
+ *
+ *   If 'names' is NULL or 'names_count' is zero, this function returns
+ *   the number of elements that 'names' must contain to get the complete
+ *   list of interface names.
+ *
+ *   If 'names' is not NULL and 'names_count' is not zero, fills 'names' with
+ *   the list of interface names not exceeding 'names_count'. Returns the
+ *   number of elements that were actually populated.
+ *
+ * Notes:
+ * 1. The connectivity that an interface in this list provides may not be for
+ *    general purpose use.
+ * 2. The string pointers remain valid only as long as 'state' remains
+ *    valid.
+ */
+unsigned int
+nwi_state_get_interface_names(nwi_state_t state,
+			      const char * names[], 
+			      unsigned int names_count);
 
 /*
  * nwi_ifstate_get_vpn_server

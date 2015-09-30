@@ -37,6 +37,12 @@ class FailureExpected(Exception):
 	def __str__(self):
 		return self.s
 
+class RepairFailed(Exception):
+	def __init__(self, s):
+		self.s = s
+	def __str__(self):
+		return "RepairFailed({0})".format(self.s)
+
 #
 # launch -- A helper to run another process and collect the standard output
 # and standard error streams.  If the process returns a non-zero exit
@@ -1116,8 +1122,11 @@ def test_fsinfo(disk, fsck, newfs, newfs_opts):
 	def bad_trailing_sig(bytes):
 		return bytes[0:508] + '\xff\x00\xaa\x55' + bytes[512:]
 		
-	def bad_free_count(bytes):
-		return bytes[0:488] + '\xfe\xed\xfa\xce' + bytes[492:]
+	def zero_free_count(bytes):
+		return bytes[0:488] + '\x00\x00\x00\x00' + bytes[492:]
+		
+	def unknown_free_count(bytes):
+		return bytes[0:488] + '\xFF\xFF\xFF\xFF' + bytes[492:]
 	
 	# Figure out where the FSInfo sector ended up
 	launch([newfs]+newfs_opts+[disk])
@@ -1129,7 +1138,7 @@ def test_fsinfo(disk, fsck, newfs, newfs_opts):
 	for func, reason in [(bad_leading_sig, "Bad leading signature"),
 			     (bad_sig2, "Bad structure signature"),
 			     (bad_trailing_sig, "Bad trailing signature"),
-			     (bad_free_count, "Bad free cluster count")]:
+			     ]:
 		launch([newfs]+newfs_opts+[disk])
 		with open(disk, "r+") as f:
 			f.seek(fsinfo * 512)
@@ -1146,6 +1155,31 @@ def test_fsinfo(disk, fsck, newfs, newfs_opts):
 
 		launch([fsck, '-y', disk])
 		launch([fsck, '-n', disk])
+
+	# Test the free cluster count field.  This minor error DOES NOT
+	# set the exit status, but it is repairable.
+	for func, reason, msg in [
+		(zero_free_count, "Zero free cluster count", "Free space in FSInfo block (0) not correct (5232654)\n"),
+		(unknown_free_count, "Unknown free cluster count","Free space in FSInfo block is unset (should be 5232654)\n")]:
+		launch([newfs]+newfs_opts+[disk])
+		with open(disk, "r+") as f:
+			f.seek(fsinfo * 512)
+			bytes = f.read(512)
+			f.seek(fsinfo * 512)
+			bytes = func(bytes)
+			f.write(bytes)
+		stdout,stderr = launch([fsck, '-n', disk], stdout=subprocess.PIPE)
+		sys.stdout.write(stdout)
+		if msg not in stdout:
+			raise FailureExpected(reason)
+		stdout,stderr = launch([fsck, '-y', disk], stdout=subprocess.PIPE)
+		sys.stdout.write(stdout)
+		if msg not in stdout:
+			raise FailureExpected(reason)
+		stdout,stderr = launch([fsck, '-n', disk], stdout=subprocess.PIPE)
+		sys.stdout.write(stdout)
+		if msg in stdout:
+			raise RepairFailed(reason)
 
 #
 # Test when the FAT has too few sectors for the number of clusters.
@@ -1243,7 +1277,7 @@ While some see them as the crazy ones, we see genius. Because the people who are
     
 #
 # Test quick check and repair on a FAT12 volume with large cluster size.
-# See <rdar://problem/18523205> 
+# See <rdar://problem/18523205> Alert "OSX can’t repair the disk XXX” appears when mount FAT12 storage
 #
 def test_18523205(disk, fsck, newfs, newfs_opts):
 	launch([newfs]+newfs_opts+[disk])

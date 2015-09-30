@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,8 @@ enum {
     dhcptype_ip_mult_e  	 = 11,
     dhcptype_ip_pairs_e 	 = 12,
     dhcptype_dns_namelist_e	 = 13,
-    dhcptype_last_e     	 = dhcptype_dns_namelist_e,
+    dhcptype_classless_route_e	 = 14,
+    dhcptype_last_e     	 = dhcptype_classless_route_e,
 };
 
 typedef uint32_t dhcptype_t;

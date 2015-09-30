@@ -230,7 +230,7 @@ int
 umountall(char **typelist)
 {
 	struct fstab *fs;
-	int rval;
+	int rval, cp_len;
 	char *cp;
 
 	while ((fs = getfsent()) != NULL) {
@@ -260,9 +260,10 @@ umountall(char **typelist)
 		 * that they were mounted.  So, we save off the file name
 		 * in some allocated memory, and then call recursively.
 		 */
-		if ((cp = malloc((size_t)strlen(fs->fs_file) + 1)) == NULL)
+		cp_len = (size_t)strlen(fs->fs_file) + 1;
+		if ((cp = malloc(cp_len)) == NULL)
 			err(1, NULL);
-		(void)strcpy(cp, fs->fs_file);
+		(void)strlcpy(cp, fs->fs_file, cp_len);
 		rval = umountall(typelist);
 		rval = umountfs(cp, typelist) || rval;
 		free(cp);
@@ -412,7 +413,7 @@ got_mount_point:
 
 	hp = hp6 = NULL;
 	delimp = NULL;
-	if (!strcmp(type, "nfs") && !isftpfs) {
+	if (nfshost && !strcmp(type, "nfs") && !isftpfs) {
 		/*
 		 * Parse the NFS host out of the name.
 		 *
@@ -476,7 +477,7 @@ got_mount_point:
 		}
 	}
 
-	if (hp || hp6) {
+	if (nfshost && (hp || hp6)) {
 		int match = (namematch(hp) || namematch(hp6));
 		if (hp)
 			freehostent(hp);

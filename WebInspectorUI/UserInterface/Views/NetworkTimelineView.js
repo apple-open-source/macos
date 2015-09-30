@@ -23,12 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.NetworkTimelineView = function(recording)
+WebInspector.NetworkTimelineView = function(timeline, extraArguments)
 {
-    WebInspector.TimelineView.call(this);
+    WebInspector.TimelineView.call(this, timeline, extraArguments);
 
-    this.navigationSidebarTreeOutline.onselect = this._treeElementSelected.bind(this);
-    this.navigationSidebarTreeOutline.ondeselect = this._treeElementDeselected.bind(this);    
+    console.assert(timeline.type === WebInspector.TimelineRecord.Type.Network);
+
     this.navigationSidebarTreeOutline.element.classList.add(WebInspector.NavigationSidebarPanel.HideDisclosureButtonsStyleClassName);
     this.navigationSidebarTreeOutline.element.classList.add(WebInspector.NetworkTimelineView.TreeOutlineStyleClassName);
 
@@ -39,7 +39,15 @@ WebInspector.NetworkTimelineView = function(recording)
 
     columns.type.title = WebInspector.UIString("Type");
     columns.type.width = "8%";
-    columns.type.scopeBar = WebInspector.TimelineDataGrid.createColumnScopeBar("network", WebInspector.Resource.Type);
+
+    var typeToLabelMap = new Map;
+    for (var key in WebInspector.Resource.Type) {
+        var value = WebInspector.Resource.Type[key];
+        typeToLabelMap.set(value, WebInspector.Resource.displayNameForType(value, true));
+    }
+
+    columns.type.scopeBar = WebInspector.TimelineDataGrid.createColumnScopeBar("network", typeToLabelMap);
+    this._scopeBar = columns.type.scopeBar;
 
     columns.method.title = WebInspector.UIString("Method");
     columns.method.width = "6%";
@@ -85,8 +93,7 @@ WebInspector.NetworkTimelineView = function(recording)
     this.element.classList.add(WebInspector.NetworkTimelineView.StyleClassName);
     this.element.appendChild(this._dataGrid.element);
 
-    var networkTimeline = recording.timelines.get(WebInspector.TimelineRecord.Type.Network);
-    networkTimeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._networkTimelineRecordAdded, this);
+    timeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._networkTimelineRecordAdded, this);
 
     this._pendingRecords = [];
 };
@@ -107,7 +114,7 @@ WebInspector.NetworkTimelineView.prototype = {
 
     shown: function()
     {
-        WebInspector.TimelineView.prototype.shown.call(this);
+        WebInspector.ContentView.prototype.shown.call(this);
 
         this._dataGrid.shown();
     },
@@ -116,7 +123,15 @@ WebInspector.NetworkTimelineView.prototype = {
     {
         this._dataGrid.hidden();
 
-        WebInspector.TimelineView.prototype.hidden.call(this);
+        WebInspector.ContentView.prototype.hidden.call(this);
+    },
+
+    closed: function()
+    {
+        console.assert(this.representedObject instanceof WebInspector.Timeline);
+        this.representedObject.removeEventListener(null, null, this);
+
+        this._dataGrid.closed();
     },
 
     updateLayout: function()
@@ -142,12 +157,37 @@ WebInspector.NetworkTimelineView.prototype = {
 
     // Protected
 
+    canShowContentViewForTreeElement: function(treeElement)
+    {
+        if (treeElement instanceof WebInspector.ResourceTreeElement || treeElement instanceof WebInspector.ScriptTreeElement)
+            return true;
+        return WebInspector.TimelineView.prototype.canShowContentViewForTreeElement(treeElement);
+    },
+
+    showContentViewForTreeElement: function(treeElement)
+    {
+        if (treeElement instanceof WebInspector.ResourceTreeElement || treeElement instanceof WebInspector.ScriptTreeElement) {
+            WebInspector.showSourceCode(treeElement.representedObject);
+            return;
+        }
+
+        console.error("Unknown tree element selected.", treeElement);
+    },
+
     treeElementPathComponentSelected: function(event)
     {
         var dataGridNode = this._dataGrid.dataGridNodeForTreeElement(event.data.pathComponent.generalTreeElement);
         if (!dataGridNode)
             return;
         dataGridNode.revealAndSelect();
+    },
+
+    treeElementSelected: function(treeElement, selectedByUser)
+    {
+        if (this._dataGrid.shouldIgnoreSelectionEvent())
+            return;
+
+        WebInspector.TimelineView.prototype.treeElementSelected.call(this, treeElement, selectedByUser);
     },
 
     // Private
@@ -184,58 +224,11 @@ WebInspector.NetworkTimelineView.prototype = {
 
     _dataGridFiltersDidChange: function(event)
     {
-        WebInspector.timelineSidebarPanel.updateFilter();
+        this.timelineSidebarPanel.updateFilter();
     },
 
     _dataGridNodeSelected: function(event)
     {
-        this.dispatchEventToListeners(WebInspector.TimelineView.Event.SelectionPathComponentsDidChange);
-    },
-
-    _treeElementDeselected: function(treeElement)
-    {
-        if (treeElement.status)
-            treeElement.status = "";
-    },
-
-    _treeElementSelected: function(treeElement, selectedByUser)
-    {
-        if (this._dataGrid.shouldIgnoreSelectionEvent())
-            return;
-
-        if (!WebInspector.timelineSidebarPanel.canShowDifferentContentView())
-            return;
-
-        if (treeElement instanceof WebInspector.FolderTreeElement)
-            return;
-
-        if (treeElement instanceof WebInspector.ResourceTreeElement || treeElement instanceof WebInspector.ScriptTreeElement) {
-            WebInspector.resourceSidebarPanel.showSourceCode(treeElement.representedObject);
-            this._updateTreeElementWithCloseButton(treeElement);
-            return;
-        }
-
-        console.error("Unknown tree element selected.");
-    },
-
-    _updateTreeElementWithCloseButton: function(treeElement)
-    {
-        if (this._closeStatusButton) {
-            treeElement.status = this._closeStatusButton.element;
-            return;
-        }
-
-        wrappedSVGDocument(platformImagePath("Close.svg"), null, WebInspector.UIString("Close resource view"), function(element) {
-            this._closeStatusButton = new WebInspector.TreeElementStatusButton(element);
-            this._closeStatusButton.addEventListener(WebInspector.TreeElementStatusButton.Event.Clicked, this._closeStatusButtonClicked, this);
-            if (treeElement === this.navigationSidebarTreeOutline.selectedTreeElement)
-                this._updateTreeElementWithCloseButton(treeElement);
-        }.bind(this));
-    },
-
-    _closeStatusButtonClicked: function(event)
-    {
-        this.navigationSidebarTreeOutline.selectedTreeElement.deselect();
-        WebInspector.timelineSidebarPanel.showTimelineView(WebInspector.TimelineRecord.Type.Network);
+        this.dispatchEventToListeners(WebInspector.ContentView.Event.SelectionPathComponentsDidChange);
     }
 };

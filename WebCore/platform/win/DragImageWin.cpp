@@ -27,8 +27,7 @@
 #include "DragImage.h"
 
 #include "FloatRoundedRect.h"
-#include "Font.h"
-#include "FontCache.h"
+#include "FontCascade.h"
 #include "FontDescription.h"
 #include "FontSelector.h"
 #include "GraphicsContext.h"
@@ -102,10 +101,9 @@ const float MaxDragLabelStringWidth = (MaxDragLabelWidth - 2 * DragLabelBorderX)
 const float DragLinkLabelFontsize = 11;
 const float DragLinkUrlFontSize = 10;
 
-static Font dragLabelFont(int size, bool bold, FontRenderingMode renderingMode)
+static FontCascade dragLabelFont(int size, bool bold, FontRenderingMode renderingMode)
 {
-    Font result;
-#if !OS(WINCE)
+    FontCascade result;
     NONCLIENTMETRICS metrics;
     metrics.cbSize = sizeof(metrics);
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics.cbSize, &metrics, 0);
@@ -116,9 +114,8 @@ static Font dragLabelFont(int size, bool bold, FontRenderingMode renderingMode)
     description.setSpecifiedSize((float)size);
     description.setComputedSize((float)size);
     description.setRenderingMode(renderingMode);
-    result = Font(description, 0, 0);
+    result = FontCascade(description, 0, 0);
     result.update(0);
-#endif
     return result;
 }
 
@@ -126,18 +123,17 @@ DragImageRef createDragImageForLink(URL& url, const String& inLabel, FontRenderi
 {
     // This is more or less an exact match for the Mac OS X code.
 
-    const Font* labelFont;
-    const Font* urlFont;
-    FontCachePurgePreventer fontCachePurgePreventer;
+    const FontCascade* labelFont;
+    const FontCascade* urlFont;
 
     if (fontRenderingMode == AlternateRenderingMode) {
-        static const Font alternateRenderingModeLabelFont = dragLabelFont(DragLinkLabelFontsize, true, AlternateRenderingMode);
-        static const Font alternateRenderingModeURLFont = dragLabelFont(DragLinkUrlFontSize, false, AlternateRenderingMode);
+        static const FontCascade alternateRenderingModeLabelFont = dragLabelFont(DragLinkLabelFontsize, true, AlternateRenderingMode);
+        static const FontCascade alternateRenderingModeURLFont = dragLabelFont(DragLinkUrlFontSize, false, AlternateRenderingMode);
         labelFont = &alternateRenderingModeLabelFont;
         urlFont = &alternateRenderingModeURLFont;
     } else {
-        static const Font normalRenderingModeLabelFont = dragLabelFont(DragLinkLabelFontsize, true, NormalRenderingMode);
-        static const Font normalRenderingModeURLFont = dragLabelFont(DragLinkUrlFontSize, false, NormalRenderingMode);
+        static const FontCascade normalRenderingModeLabelFont = dragLabelFont(DragLinkLabelFontsize, true, NormalRenderingMode);
+        static const FontCascade normalRenderingModeURLFont = dragLabelFont(DragLinkUrlFontSize, false, NormalRenderingMode);
         labelFont = &normalRenderingModeLabelFont;
         urlFont = &normalRenderingModeURLFont;
     }
@@ -154,8 +150,8 @@ DragImageRef createDragImageForLink(URL& url, const String& inLabel, FontRenderi
     }
 
     // First step in drawing the link drag image width.
-    TextRun labelRun(label.impl());
-    TextRun urlRun(urlString.impl());
+    TextRun labelRun(label);
+    TextRun urlRun(urlString);
     IntSize labelSize(labelFont->width(labelRun), labelFont->fontMetrics().ascent() + labelFont->fontMetrics().descent());
 
     if (labelSize.width() > MaxDragLabelStringWidth) {

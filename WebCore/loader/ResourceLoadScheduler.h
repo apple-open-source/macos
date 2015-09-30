@@ -27,6 +27,7 @@
 #include "ResourceLoaderOptions.h"
 #include "ResourceLoadPriority.h"
 #include "Timer.h"
+#include <array>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -48,17 +49,17 @@ class SubresourceLoader;
 class ResourceLoadScheduler {
     WTF_MAKE_NONCOPYABLE(ResourceLoadScheduler); WTF_MAKE_FAST_ALLOCATED;
 public:
-    friend ResourceLoadScheduler* resourceLoadScheduler();
+    WEBCORE_EXPORT friend ResourceLoadScheduler* resourceLoadScheduler();
 
-    virtual PassRefPtr<SubresourceLoader> scheduleSubresourceLoad(Frame*, CachedResource*, const ResourceRequest&, ResourceLoadPriority, const ResourceLoaderOptions&);
-    virtual PassRefPtr<NetscapePlugInStreamLoader> schedulePluginStreamLoad(Frame*, NetscapePlugInStreamLoaderClient*, const ResourceRequest&);
-    virtual void remove(ResourceLoader*);
+    WEBCORE_EXPORT virtual PassRefPtr<SubresourceLoader> scheduleSubresourceLoad(Frame*, CachedResource*, const ResourceRequest&, const ResourceLoaderOptions&);
+    WEBCORE_EXPORT virtual PassRefPtr<NetscapePlugInStreamLoader> schedulePluginStreamLoad(Frame*, NetscapePlugInStreamLoaderClient*, const ResourceRequest&);
+    WEBCORE_EXPORT virtual void remove(ResourceLoader*);
     virtual void setDefersLoading(ResourceLoader*, bool);
     virtual void crossOriginRedirectReceived(ResourceLoader*, const URL& redirectURL);
     
-    virtual void servePendingRequests(ResourceLoadPriority minimumPriority = ResourceLoadPriorityVeryLow);
-    virtual void suspendPendingRequests();
-    virtual void resumePendingRequests();
+    WEBCORE_EXPORT virtual void servePendingRequests(ResourceLoadPriority minimumPriority = ResourceLoadPriority::VeryLow);
+    WEBCORE_EXPORT virtual void suspendPendingRequests();
+    WEBCORE_EXPORT virtual void resumePendingRequests();
     
     bool isSerialLoadingEnabled() const { return m_isSerialLoadingEnabled; }
     virtual void setSerialLoadingEnabled(bool b) { m_isSerialLoadingEnabled = b; }
@@ -72,19 +73,17 @@ public:
     };
 
 protected:
-    ResourceLoadScheduler();
-    virtual ~ResourceLoadScheduler();
-
-    void notifyDidScheduleResourceRequest(ResourceLoader*);
+    WEBCORE_EXPORT ResourceLoadScheduler();
+    WEBCORE_EXPORT virtual ~ResourceLoadScheduler();
 
 #if USE(QUICK_LOOK)
-    bool maybeLoadQuickLookResource(ResourceLoader&);
+    WEBCORE_EXPORT bool maybeLoadQuickLookResource(ResourceLoader&);
 #endif
 
 private:
-    void scheduleLoad(ResourceLoader*, ResourceLoadPriority);
+    void scheduleLoad(ResourceLoader*);
     void scheduleServePendingRequests();
-    void requestTimerFired(Timer&);
+    void requestTimerFired();
 
     bool isSuspendingPendingRequests() const { return !!m_suspendPendingRequestsCount; }
 
@@ -95,21 +94,23 @@ private:
         ~HostInformation();
         
         const String& name() const { return m_name; }
-        void schedule(ResourceLoader*, ResourceLoadPriority = ResourceLoadPriorityVeryLow);
+        void schedule(ResourceLoader*, ResourceLoadPriority = ResourceLoadPriority::VeryLow);
         void addLoadInProgress(ResourceLoader*);
         void remove(ResourceLoader*);
         bool hasRequests() const;
         bool limitRequests(ResourceLoadPriority) const;
 
         typedef Deque<RefPtr<ResourceLoader>> RequestQueue;
-        RequestQueue& requestsPending(ResourceLoadPriority priority) { return m_requestsPending[priority]; }
+        RequestQueue& requestsPending(ResourceLoadPriority priority) { return m_requestsPending[priorityToIndex(priority)]; }
 
-    private:                    
-        RequestQueue m_requestsPending[ResourceLoadPriorityHighest + 1];
+    private:
+        static unsigned priorityToIndex(ResourceLoadPriority);
+
+        std::array<RequestQueue, resourceLoadPriorityCount> m_requestsPending;
         typedef HashSet<RefPtr<ResourceLoader>> RequestMap;
         RequestMap m_requestsLoading;
         const String m_name;
-        const int m_maxRequestsInFlight;
+        const unsigned m_maxRequestsInFlight;
     };
 
     enum CreateHostPolicy {
@@ -118,7 +119,7 @@ private:
     };
     
     HostInformation* hostForURL(const URL&, CreateHostPolicy = FindOnly);
-    void servePendingRequests(HostInformation*, ResourceLoadPriority);
+    WEBCORE_EXPORT void servePendingRequests(HostInformation*, ResourceLoadPriority);
 
     typedef HashMap<String, HostInformation*, StringHash> HostMap;
     HostMap m_hosts;
@@ -130,7 +131,7 @@ private:
     bool m_isSerialLoadingEnabled;
 };
 
-ResourceLoadScheduler* resourceLoadScheduler();
+WEBCORE_EXPORT ResourceLoadScheduler* resourceLoadScheduler();
 
 }
 

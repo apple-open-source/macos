@@ -36,29 +36,29 @@ namespace JSC {
 }
 
 struct OpaqueJSString : public ThreadSafeRefCounted<OpaqueJSString> {
-    static PassRefPtr<OpaqueJSString> create()
+    static Ref<OpaqueJSString> create()
     {
-        return adoptRef(new OpaqueJSString);
+        return adoptRef(*new OpaqueJSString);
     }
 
-    static PassRefPtr<OpaqueJSString> create(const LChar* characters, unsigned length)
+    static Ref<OpaqueJSString> create(const LChar* characters, unsigned length)
     {
-        return adoptRef(new OpaqueJSString(characters, length));
+        return adoptRef(*new OpaqueJSString(characters, length));
     }
 
-    static PassRefPtr<OpaqueJSString> create(const UChar* characters, unsigned length)
+    static Ref<OpaqueJSString> create(const UChar* characters, unsigned length)
     {
-        return adoptRef(new OpaqueJSString(characters, length));
+        return adoptRef(*new OpaqueJSString(characters, length));
     }
 
-    JS_EXPORT_PRIVATE static PassRefPtr<OpaqueJSString> create(const String&);
+    JS_EXPORT_PRIVATE static RefPtr<OpaqueJSString> create(const String&);
 
     JS_EXPORT_PRIVATE ~OpaqueJSString();
 
-    bool is8Bit() { return this ? m_string.is8Bit() : false; }
-    const LChar* characters8() { return this ? m_string.characters8() : nullptr; }
-    const UChar* characters16() { return this ? m_string.characters16() : nullptr; }
-    unsigned length() { return this ? m_string.length() : 0; }
+    bool is8Bit() { return m_string.is8Bit(); }
+    const LChar* characters8() { return m_string.characters8(); }
+    const UChar* characters16() { return m_string.characters16(); }
+    unsigned length() { return m_string.length(); }
 
     const UChar* characters();
 

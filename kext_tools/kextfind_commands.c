@@ -227,7 +227,6 @@ char * stringForData(const UInt8 * data, int numBytes)
         *scan++ = digits[binaryDigit2];
     }
     *scan++ = '\0';
-#pragma unused(scan)
 
 finish:
     return result;

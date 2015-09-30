@@ -168,6 +168,7 @@ usage(FILE *fp)
 	    "\t-v  set verbose mode (report stability attributes, arguments)\n"
 	    "\t-V  report DTrace API version\n"
 	    "\t-w  permit destructive actions\n"
+	    "\t-W  wait for specified process and exit upon its completion\n"
 	    "\t-x  enable or modify compiler and tracing options\n"
 	    "\t-Z  permit probe descriptions that match zero probes\n");
 
@@ -1785,6 +1786,11 @@ main(int argc, char *argv[])
 			case 'X':
 				if (dtrace_setopt(g_dtp, "stdc", optarg) != 0)
 					dfatal("failed to set -X %s", optarg);
+				break;
+
+			case 'W':
+				/* Using -W automatically implies -Z. */
+				g_cflags |= DTRACE_C_ZDEFS;
 				break;
 
 			case 'Z':

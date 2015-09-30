@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>kCSCheckFixVersion</key>
+	<string>1</string>
+	<key>kCSCheckFixUniversal</key>
+	<dict>
+		<key>21946795</key>
+		<dict>
+			<key>com.autodesk.fusion360</key>
+			<array>
+				<string>2.*</string>
+			</array>
+			<key>com.ea.Origin</key>
+			<array>
+				<string>9.*</string>
+			</array>
+			<key>com.pixar.RenderManNC-Installer</key>
+			<array>
+				<string>1.*</string>
+			</array>
+			<key>com.vmware.fusion</key>
+			<array>
+				<string>7.*</string>
+			</array>
+		</dict>
+	</dict>
+</dict>
+</plist>

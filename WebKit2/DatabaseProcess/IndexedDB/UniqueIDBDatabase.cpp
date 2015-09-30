@@ -41,6 +41,7 @@
 #include <WebCore/IDBGetResult.h>
 #include <WebCore/IDBKeyData.h>
 #include <WebCore/IDBKeyRangeData.h>
+#include <WebCore/SecurityOrigin.h>
 #include <wtf/MainThread.h>
 #include <wtf/text/WTFString.h>
 
@@ -69,7 +70,7 @@ UniqueIDBDatabase::UniqueIDBDatabase(const UniqueIDBDatabaseIdentifier& identifi
     // Each unique Indexed Database exists in a directory named for the database, which exists in a directory representing its opening origin.
     m_databaseRelativeDirectory = pathByAppendingComponent(databaseFilenameIdentifier(identifier.openingOrigin()), filenameForDatabaseName());
 
-    DatabaseProcess::shared().ensureIndexedDatabaseRelativePathExists(m_databaseRelativeDirectory);
+    DatabaseProcess::singleton().ensureIndexedDatabaseRelativePathExists(m_databaseRelativeDirectory);
 }
 
 UniqueIDBDatabase::~UniqueIDBDatabase()
@@ -93,8 +94,8 @@ String UniqueIDBDatabase::filenameForDatabaseName() const
 
 String UniqueIDBDatabase::databaseFilenameIdentifier(const SecurityOriginData& originData) const
 {
-    RefPtr<SecurityOrigin> securityOrigin = SecurityOrigin::create(originData.protocol, originData.host, originData.port);
-    return securityOrigin->databaseIdentifier();
+    Ref<SecurityOrigin> securityOrigin(SecurityOrigin::create(originData.protocol, originData.host, originData.port));
+    return securityOrigin.get().databaseIdentifier();
 }
 
 bool UniqueIDBDatabase::canShareDatabases(const SecurityOriginData& openingOrigin, const SecurityOriginData& mainFrameOrigin) const
@@ -118,7 +119,7 @@ void UniqueIDBDatabase::unregisterConnection(DatabaseProcessIDBConnection& conne
 
     if (m_connections.isEmpty() && m_pendingTransactionRollbacks.isEmpty()) {
         shutdown(UniqueIDBDatabaseShutdownType::NormalShutdown);
-        DatabaseProcess::shared().removeUniqueIDBDatabase(*this);
+        DatabaseProcess::singleton().removeUniqueIDBDatabase(*this);
     }
 }
 
@@ -146,7 +147,7 @@ void UniqueIDBDatabase::shutdownBackingStore(UniqueIDBDatabaseShutdownType type,
 {
     ASSERT(!RunLoop::isMain());
 
-    m_backingStore.clear();
+    m_backingStore = nullptr;
 
     if (type == UniqueIDBDatabaseShutdownType::DeleteShutdown) {
         String dbFilename = UniqueIDBDatabase::calculateAbsoluteDatabaseFilename(databaseDirectory);
@@ -166,16 +167,16 @@ void UniqueIDBDatabase::didShutdownBackingStore(UniqueIDBDatabaseShutdownType ty
     RefPtr<UniqueIDBDatabase> protector(adoptRef(this));
 
     // Empty out remaining main thread tasks.
-    while (performNextMainThreadTaskWithoutAdoptRef()) {
+    while (performNextMainThreadTask()) {
     }
 
     // No more requests will be handled, so abort all outstanding requests.
-    for (const auto& it : m_pendingMetadataRequests)
-        it->requestAborted();
-    for (const auto& it : m_pendingTransactionRequests)
-        it.value->requestAborted();
-    for (const auto& it : m_pendingDatabaseTasks)
-        it.value->requestAborted();
+    for (const auto& request : m_pendingMetadataRequests)
+        request->requestAborted();
+    for (const auto& request : m_pendingTransactionRequests.values())
+        request->requestAborted();
+    for (const auto& request : m_pendingDatabaseTasks.values())
+        request->requestAborted();
 
     m_pendingMetadataRequests.clear();
     m_pendingTransactionRequests.clear();
@@ -187,13 +188,13 @@ void UniqueIDBDatabase::didShutdownBackingStore(UniqueIDBDatabaseShutdownType ty
     m_pendingShutdownTask = nullptr;
 }
 
-void UniqueIDBDatabase::deleteDatabase(std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::deleteDatabase(std::function<void (bool)> successCallback)
 {
     ASSERT(RunLoop::isMain());
 
     if (!m_acceptingNewRequests) {
         // Someone else has already shutdown this database, so we can't request a delete.
-        callOnMainThread([successCallback]() {
+        callOnMainThread([successCallback] {
             successCallback(false);
         });
         return;
@@ -204,14 +205,14 @@ void UniqueIDBDatabase::deleteDatabase(std::function<void(bool)> successCallback
         // If the shutdown just completed was a Delete shutdown then we succeeded.
         // If not report failure instead of trying again.
         successCallback(type == UniqueIDBDatabaseShutdownType::DeleteShutdown);
-    }, [this, protector, successCallback]() {
+    }, [this, protector, successCallback] {
         successCallback(false);
     });
 
     shutdown(UniqueIDBDatabaseShutdownType::DeleteShutdown);
 }
 
-void UniqueIDBDatabase::getOrEstablishIDBDatabaseMetadata(std::function<void(bool, const IDBDatabaseMetadata&)> completionCallback)
+void UniqueIDBDatabase::getOrEstablishIDBDatabaseMetadata(std::function<void (bool, const IDBDatabaseMetadata&)> completionCallback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -235,9 +236,9 @@ void UniqueIDBDatabase::getOrEstablishIDBDatabaseMetadata(std::function<void(boo
     bool shouldOpenBackingStore = m_pendingMetadataRequests.isEmpty();
 
     // Then remember this metadata request to be answered later.
-    RefPtr<AsyncRequest> request = AsyncRequestImpl<>::create([completionCallback, this]() {
+    RefPtr<AsyncRequest> request = AsyncRequestImpl<>::create([completionCallback, this] {
         completionCallback(!!m_metadata, m_metadata ? *m_metadata : IDBDatabaseMetadata());
-    }, [completionCallback]() {
+    }, [completionCallback] {
         // The boolean flag to the completion callback represents whether the
         // attempt to get/establish metadata succeeded or failed.
         // Since we're aborting the attempt, it failed, so we always pass in false.
@@ -282,32 +283,32 @@ void UniqueIDBDatabase::didOpenBackingStoreAndReadMetadata(const IDBDatabaseMeta
     }
 }
 
-void UniqueIDBDatabase::openTransaction(const IDBIdentifier& transactionIdentifier, const Vector<int64_t>& objectStoreIDs, IndexedDB::TransactionMode mode, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::openTransaction(const IDBIdentifier& transactionIdentifier, const Vector<int64_t>& objectStoreIDs, IndexedDB::TransactionMode mode, std::function<void (bool)> successCallback)
 {
     postTransactionOperation(transactionIdentifier, createAsyncTask(*this, &UniqueIDBDatabase::openBackingStoreTransaction, transactionIdentifier, objectStoreIDs, mode), successCallback);
 }
 
-void UniqueIDBDatabase::beginTransaction(const IDBIdentifier& transactionIdentifier, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::beginTransaction(const IDBIdentifier& transactionIdentifier, std::function<void (bool)> successCallback)
 {
     postTransactionOperation(transactionIdentifier, createAsyncTask(*this, &UniqueIDBDatabase::beginBackingStoreTransaction, transactionIdentifier), successCallback);
 }
 
-void UniqueIDBDatabase::commitTransaction(const IDBIdentifier& transactionIdentifier, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::commitTransaction(const IDBIdentifier& transactionIdentifier, std::function<void (bool)> successCallback)
 {
     postTransactionOperation(transactionIdentifier, createAsyncTask(*this, &UniqueIDBDatabase::commitBackingStoreTransaction, transactionIdentifier), successCallback);
 }
 
-void UniqueIDBDatabase::resetTransaction(const IDBIdentifier& transactionIdentifier, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::resetTransaction(const IDBIdentifier& transactionIdentifier, std::function<void (bool)> successCallback)
 {
     postTransactionOperation(transactionIdentifier, createAsyncTask(*this, &UniqueIDBDatabase::resetBackingStoreTransaction, transactionIdentifier), successCallback);
 }
 
-void UniqueIDBDatabase::rollbackTransaction(const IDBIdentifier& transactionIdentifier, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::rollbackTransaction(const IDBIdentifier& transactionIdentifier, std::function<void (bool)> successCallback)
 {
     postTransactionOperation(transactionIdentifier, createAsyncTask(*this, &UniqueIDBDatabase::rollbackBackingStoreTransaction, transactionIdentifier), successCallback);
 }
 
-void UniqueIDBDatabase::postTransactionOperation(const IDBIdentifier& transactionIdentifier, std::unique_ptr<AsyncTask> task, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::postTransactionOperation(const IDBIdentifier& transactionIdentifier, std::unique_ptr<AsyncTask> task, std::function<void (bool)> successCallback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -326,7 +327,7 @@ void UniqueIDBDatabase::postTransactionOperation(const IDBIdentifier& transactio
 
     RefPtr<AsyncRequest> request = AsyncRequestImpl<bool>::create([successCallback](bool success) {
         successCallback(success);
-    }, [successCallback]() {
+    }, [successCallback] {
         successCallback(false);
     });
 
@@ -346,7 +347,7 @@ void UniqueIDBDatabase::didCompleteTransactionOperation(const IDBIdentifier& tra
         finalizeRollback(transactionIdentifier);
 }
 
-void UniqueIDBDatabase::changeDatabaseVersion(const IDBIdentifier& transactionIdentifier, uint64_t newVersion, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::changeDatabaseVersion(const IDBIdentifier& transactionIdentifier, uint64_t newVersion, std::function<void (bool)> successCallback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -362,7 +363,7 @@ void UniqueIDBDatabase::changeDatabaseVersion(const IDBIdentifier& transactionId
         if (!success)
             m_metadata->version = oldVersion;
         successCallback(success);
-    }, [this, oldVersion, successCallback]() {
+    }, [this, oldVersion, successCallback] {
         m_metadata->version = oldVersion;
         successCallback(false);
     });
@@ -405,13 +406,10 @@ void UniqueIDBDatabase::didDeleteIndex(uint64_t requestID, bool success)
 
 void UniqueIDBDatabase::didCompleteBoolRequest(uint64_t requestID, bool success)
 {
-    RefPtr<AsyncRequest> request = m_pendingDatabaseTasks.take(requestID);
-    ASSERT(request);
-
-    request->completeRequest(success);
+    m_pendingDatabaseTasks.take(requestID).get().completeRequest(success);
 }
 
-void UniqueIDBDatabase::createObjectStore(const IDBIdentifier& transactionIdentifier, const IDBObjectStoreMetadata& metadata, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::createObjectStore(const IDBIdentifier& transactionIdentifier, const IDBObjectStoreMetadata& metadata, std::function<void (bool)> successCallback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -428,7 +426,7 @@ void UniqueIDBDatabase::createObjectStore(const IDBIdentifier& transactionIdenti
         if (!success)
             m_metadata->objectStores.remove(addedObjectStoreID);
         successCallback(success);
-    }, [this, addedObjectStoreID, successCallback]() {
+    }, [this, addedObjectStoreID, successCallback] {
         m_metadata->objectStores.remove(addedObjectStoreID);
         successCallback(false);
     });
@@ -439,7 +437,7 @@ void UniqueIDBDatabase::createObjectStore(const IDBIdentifier& transactionIdenti
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::createObjectStoreInBackingStore, requestID, transactionIdentifier, metadata));
 }
 
-void UniqueIDBDatabase::deleteObjectStore(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::deleteObjectStore(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, std::function<void (bool)> successCallback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -455,7 +453,7 @@ void UniqueIDBDatabase::deleteObjectStore(const IDBIdentifier& transactionIdenti
         if (!success)
             m_metadata->objectStores.set(metadata.id, metadata);
         successCallback(success);
-    }, [this, metadata, successCallback]() {
+    }, [this, metadata, successCallback] {
         m_metadata->objectStores.set(metadata.id, metadata);
         successCallback(false);
     });
@@ -466,7 +464,7 @@ void UniqueIDBDatabase::deleteObjectStore(const IDBIdentifier& transactionIdenti
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::deleteObjectStoreInBackingStore, requestID, transactionIdentifier, objectStoreID));
 }
 
-void UniqueIDBDatabase::clearObjectStore(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::clearObjectStore(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, std::function<void (bool)> successCallback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -479,7 +477,7 @@ void UniqueIDBDatabase::clearObjectStore(const IDBIdentifier& transactionIdentif
 
     RefPtr<AsyncRequest> request = AsyncRequestImpl<bool>::create([this, successCallback](bool success) {
         successCallback(success);
-    }, [this, successCallback]() {
+    }, [this, successCallback] {
         successCallback(false);
     });
 
@@ -489,7 +487,7 @@ void UniqueIDBDatabase::clearObjectStore(const IDBIdentifier& transactionIdentif
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::clearObjectStoreInBackingStore, requestID, transactionIdentifier, objectStoreID));
 }
 
-void UniqueIDBDatabase::createIndex(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, const IDBIndexMetadata& metadata, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::createIndex(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, const IDBIndexMetadata& metadata, std::function<void (bool)> successCallback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -510,7 +508,7 @@ void UniqueIDBDatabase::createIndex(const IDBIdentifier& transactionIdentifier, 
                 objectStoreFind->value.indexes.remove(addedIndexID);
         }
         successCallback(success);
-    }, [this, objectStoreID, addedIndexID, successCallback]() {
+    }, [this, objectStoreID, addedIndexID, successCallback] {
         auto objectStoreFind = m_metadata->objectStores.find(objectStoreID);
         if (objectStoreFind != m_metadata->objectStores.end())
             objectStoreFind->value.indexes.remove(addedIndexID);
@@ -523,7 +521,7 @@ void UniqueIDBDatabase::createIndex(const IDBIdentifier& transactionIdentifier, 
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::createIndexInBackingStore, requestID, transactionIdentifier, objectStoreID, metadata));
 }
 
-void UniqueIDBDatabase::deleteIndex(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, int64_t indexID, std::function<void(bool)> successCallback)
+void UniqueIDBDatabase::deleteIndex(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, int64_t indexID, std::function<void (bool)> successCallback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -544,7 +542,7 @@ void UniqueIDBDatabase::deleteIndex(const IDBIdentifier& transactionIdentifier, 
                 objectStoreFind->value.indexes.set(metadata.id, metadata);
         }
         successCallback(success);
-    }, [this, objectStoreID, metadata, successCallback]() {
+    }, [this, objectStoreID, metadata, successCallback] {
         auto objectStoreFind = m_metadata->objectStores.find(objectStoreID);
         if (objectStoreFind != m_metadata->objectStores.end())
             objectStoreFind->value.indexes.set(metadata.id, metadata);
@@ -557,7 +555,7 @@ void UniqueIDBDatabase::deleteIndex(const IDBIdentifier& transactionIdentifier, 
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::deleteIndexInBackingStore, requestID, transactionIdentifier, objectStoreID, indexID));
 }
 
-void UniqueIDBDatabase::putRecord(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, const IDBKeyData& keyData, const IPC::DataReference& value, int64_t putMode, const Vector<int64_t>& indexIDs, const Vector<Vector<IDBKeyData>>& indexKeys, std::function<void(const IDBKeyData&, uint32_t, const String&)> callback)
+void UniqueIDBDatabase::putRecord(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, const IDBKeyData& keyData, const IPC::DataReference& value, int64_t putMode, const Vector<int64_t>& indexIDs, const Vector<Vector<IDBKeyData>>& indexKeys, std::function<void (const IDBKeyData&, uint32_t, const String&)> callback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -568,9 +566,9 @@ void UniqueIDBDatabase::putRecord(const IDBIdentifier& transactionIdentifier, in
 
     ASSERT(m_metadata->objectStores.contains(objectStoreID));
 
-    RefPtr<AsyncRequest> request = AsyncRequestImpl<const IDBKeyData&, uint32_t, const String&>::create([this, callback](const IDBKeyData& keyData, uint32_t errorCode, const String& errorMessage) {
+    RefPtr<AsyncRequest> request = AsyncRequestImpl<IDBKeyData, uint32_t, String>::create([this, callback](const IDBKeyData& keyData, uint32_t errorCode, const String& errorMessage) {
         callback(keyData, errorCode, errorMessage);
-    }, [this, callback]() {
+    }, [this, callback] {
         callback(IDBKeyData(), INVALID_STATE_ERR, "Unable to put record into database");
     });
 
@@ -580,7 +578,7 @@ void UniqueIDBDatabase::putRecord(const IDBIdentifier& transactionIdentifier, in
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::putRecordInBackingStore, requestID, transactionIdentifier, m_metadata->objectStores.get(objectStoreID), keyData, value.vector(), putMode, indexIDs, indexKeys));
 }
 
-void UniqueIDBDatabase::getRecord(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, int64_t indexID, const IDBKeyRangeData& keyRangeData, IndexedDB::CursorType cursorType, std::function<void(const IDBGetResult&, uint32_t, const String&)> callback)
+void UniqueIDBDatabase::getRecord(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, int64_t indexID, const IDBKeyRangeData& keyRangeData, IndexedDB::CursorType cursorType, std::function<void (const IDBGetResult&, uint32_t, const String&)> callback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -591,9 +589,9 @@ void UniqueIDBDatabase::getRecord(const IDBIdentifier& transactionIdentifier, in
 
     ASSERT(m_metadata->objectStores.contains(objectStoreID));
 
-    RefPtr<AsyncRequest> request = AsyncRequestImpl<const IDBGetResult&, uint32_t, const String&>::create([this, callback](const IDBGetResult& result, uint32_t errorCode, const String& errorMessage) {
+    RefPtr<AsyncRequest> request = AsyncRequestImpl<IDBGetResult, uint32_t, String>::create([this, callback](const IDBGetResult& result, uint32_t errorCode, const String& errorMessage) {
         callback(result, errorCode, errorMessage);
-    }, [this, callback]() {
+    }, [this, callback] {
         callback(IDBGetResult(), INVALID_STATE_ERR, "Unable to get record from database");
     });
 
@@ -603,7 +601,7 @@ void UniqueIDBDatabase::getRecord(const IDBIdentifier& transactionIdentifier, in
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::getRecordFromBackingStore, requestID, transactionIdentifier, m_metadata->objectStores.get(objectStoreID), indexID, keyRangeData, cursorType));
 }
 
-void UniqueIDBDatabase::openCursor(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, int64_t indexID, IndexedDB::CursorDirection cursorDirection, IndexedDB::CursorType cursorType, IDBDatabaseBackend::TaskType taskType, const IDBKeyRangeData& keyRangeData, std::function<void(int64_t, const IDBKeyData&, const IDBKeyData&, PassRefPtr<SharedBuffer>, uint32_t, const String&)> callback)
+void UniqueIDBDatabase::openCursor(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, int64_t indexID, IndexedDB::CursorDirection cursorDirection, IndexedDB::CursorType cursorType, IDBDatabaseBackend::TaskType taskType, const IDBKeyRangeData& keyRangeData, std::function<void (int64_t, const IDBKeyData&, const IDBKeyData&, PassRefPtr<SharedBuffer>, uint32_t, const String&)> callback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -614,9 +612,9 @@ void UniqueIDBDatabase::openCursor(const IDBIdentifier& transactionIdentifier, i
 
     ASSERT(m_metadata->objectStores.contains(objectStoreID));
 
-    RefPtr<AsyncRequest> request = AsyncRequestImpl<int64_t, const IDBKeyData&, const IDBKeyData&, PassRefPtr<SharedBuffer>, uint32_t, const String&>::create([this, callback](int64_t cursorID, const IDBKeyData& key, const IDBKeyData& primaryKey, PassRefPtr<SharedBuffer> value, uint32_t errorCode, const String& errorMessage) {
+    RefPtr<AsyncRequest> request = AsyncRequestImpl<int64_t, IDBKeyData, IDBKeyData, PassRefPtr<SharedBuffer>, uint32_t, String>::create([this, callback](int64_t cursorID, const IDBKeyData& key, const IDBKeyData& primaryKey, PassRefPtr<SharedBuffer> value, uint32_t errorCode, const String& errorMessage) {
         callback(cursorID, key, primaryKey, value, errorCode, errorMessage);
-    }, [this, callback]() {
+    }, [this, callback] {
         callback(0, nullptr, nullptr, nullptr, INVALID_STATE_ERR, "Unable to get record from database");
     });
 
@@ -626,7 +624,7 @@ void UniqueIDBDatabase::openCursor(const IDBIdentifier& transactionIdentifier, i
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::openCursorInBackingStore, requestID, transactionIdentifier, objectStoreID, indexID, cursorDirection, cursorType, taskType, keyRangeData));
 }
 
-void UniqueIDBDatabase::cursorAdvance(const IDBIdentifier& cursorIdentifier, uint64_t count, std::function<void(const IDBKeyData&, const IDBKeyData&, PassRefPtr<SharedBuffer>, uint32_t, const String&)> callback)
+void UniqueIDBDatabase::cursorAdvance(const IDBIdentifier& cursorIdentifier, uint64_t count, std::function<void (const IDBKeyData&, const IDBKeyData&, PassRefPtr<SharedBuffer>, uint32_t, const String&)> callback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -635,9 +633,9 @@ void UniqueIDBDatabase::cursorAdvance(const IDBIdentifier& cursorIdentifier, uin
         return;
     }
 
-    RefPtr<AsyncRequest> request = AsyncRequestImpl<const IDBKeyData&, const IDBKeyData&, PassRefPtr<SharedBuffer>, uint32_t, const String&>::create([this, callback](const IDBKeyData& key, const IDBKeyData& primaryKey, PassRefPtr<SharedBuffer> value, uint32_t errorCode, const String& errorMessage) {
+    RefPtr<AsyncRequest> request = AsyncRequestImpl<IDBKeyData, IDBKeyData, PassRefPtr<SharedBuffer>, uint32_t, String>::create([this, callback](const IDBKeyData& key, const IDBKeyData& primaryKey, PassRefPtr<SharedBuffer> value, uint32_t errorCode, const String& errorMessage) {
         callback(key, primaryKey, value, errorCode, errorMessage);
-    }, [this, callback]() {
+    }, [this, callback] {
         callback(nullptr, nullptr, nullptr, INVALID_STATE_ERR, "Unable to advance cursor in database");
     });
 
@@ -647,7 +645,7 @@ void UniqueIDBDatabase::cursorAdvance(const IDBIdentifier& cursorIdentifier, uin
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::advanceCursorInBackingStore, requestID, cursorIdentifier, count));
 }
 
-void UniqueIDBDatabase::cursorIterate(const IDBIdentifier& cursorIdentifier, const IDBKeyData& key, std::function<void(const IDBKeyData&, const IDBKeyData&, PassRefPtr<SharedBuffer>, uint32_t, const String&)> callback)
+void UniqueIDBDatabase::cursorIterate(const IDBIdentifier& cursorIdentifier, const IDBKeyData& key, std::function<void (const IDBKeyData&, const IDBKeyData&, PassRefPtr<SharedBuffer>, uint32_t, const String&)> callback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -656,9 +654,9 @@ void UniqueIDBDatabase::cursorIterate(const IDBIdentifier& cursorIdentifier, con
         return;
     }
 
-    RefPtr<AsyncRequest> request = AsyncRequestImpl<const IDBKeyData&, const IDBKeyData&, PassRefPtr<SharedBuffer>, uint32_t, const String&>::create([this, callback](const IDBKeyData& key, const IDBKeyData& primaryKey, PassRefPtr<SharedBuffer> value, uint32_t errorCode, const String& errorMessage) {
+    RefPtr<AsyncRequest> request = AsyncRequestImpl<IDBKeyData, IDBKeyData, PassRefPtr<SharedBuffer>, uint32_t, String>::create([this, callback](const IDBKeyData& key, const IDBKeyData& primaryKey, PassRefPtr<SharedBuffer> value, uint32_t errorCode, const String& errorMessage) {
         callback(key, primaryKey, value, errorCode, errorMessage);
-    }, [this, callback]() {
+    }, [this, callback] {
         callback(nullptr, nullptr, nullptr, INVALID_STATE_ERR, "Unable to iterate cursor in database");
     });
 
@@ -668,7 +666,7 @@ void UniqueIDBDatabase::cursorIterate(const IDBIdentifier& cursorIdentifier, con
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::iterateCursorInBackingStore, requestID, cursorIdentifier, key));
 }
 
-void UniqueIDBDatabase::count(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, int64_t indexID, const IDBKeyRangeData& keyRangeData, std::function<void(int64_t, uint32_t, const String&)> callback)
+void UniqueIDBDatabase::count(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, int64_t indexID, const IDBKeyRangeData& keyRangeData, std::function<void (int64_t, uint32_t, const String&)> callback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -677,9 +675,9 @@ void UniqueIDBDatabase::count(const IDBIdentifier& transactionIdentifier, int64_
         return;
     }
 
-    RefPtr<AsyncRequest> request = AsyncRequestImpl<int64_t, uint32_t, const String&>::create([this, callback](int64_t count, uint32_t errorCode, const String& errorMessage) {
+    RefPtr<AsyncRequest> request = AsyncRequestImpl<int64_t, uint32_t, String>::create([this, callback](int64_t count, uint32_t errorCode, const String& errorMessage) {
         callback(count, errorCode, errorMessage);
-    }, [this, callback]() {
+    }, [this, callback] {
         callback(0, INVALID_STATE_ERR, "Unable to get count from database");
     });
 
@@ -689,7 +687,7 @@ void UniqueIDBDatabase::count(const IDBIdentifier& transactionIdentifier, int64_
     postDatabaseTask(createAsyncTask(*this, &UniqueIDBDatabase::countInBackingStore, requestID, transactionIdentifier, objectStoreID, indexID, keyRangeData));
 }
 
-void UniqueIDBDatabase::deleteRange(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, const IDBKeyRangeData& keyRangeData, std::function<void(uint32_t, const String&)> callback)
+void UniqueIDBDatabase::deleteRange(const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, const IDBKeyRangeData& keyRangeData, std::function<void (uint32_t, const String&)> callback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -698,9 +696,9 @@ void UniqueIDBDatabase::deleteRange(const IDBIdentifier& transactionIdentifier, 
         return;
     }
 
-    RefPtr<AsyncRequest> request = AsyncRequestImpl<uint32_t, const String&>::create([callback](uint32_t errorCode, const String& errorMessage) {
+    RefPtr<AsyncRequest> request = AsyncRequestImpl<uint32_t, String>::create([callback](uint32_t errorCode, const String& errorMessage) {
         callback(errorCode, errorMessage);
-    }, [callback]() {
+    }, [callback] {
         callback(INVALID_STATE_ERR, "Unable to deleteRange from database");
     });
 
@@ -889,10 +887,7 @@ void UniqueIDBDatabase::putRecordInBackingStore(uint64_t requestID, const IDBIde
 
 void UniqueIDBDatabase::didPutRecordInBackingStore(uint64_t requestID, const IDBKeyData& keyData, uint32_t errorCode, const String& errorMessage)
 {
-    RefPtr<AsyncRequest> request = m_pendingDatabaseTasks.take(requestID);
-    ASSERT(request);
-
-    request->completeRequest(keyData, errorCode, errorMessage);
+    m_pendingDatabaseTasks.take(requestID).get().completeRequest(keyData, errorCode, errorMessage);
 }
 
 void UniqueIDBDatabase::getRecordFromBackingStore(uint64_t requestID, const IDBIdentifier& transaction, const IDBObjectStoreMetadata& objectStoreMetadata, int64_t indexID, const IDBKeyRangeData& keyRangeData, IndexedDB::CursorType cursorType)
@@ -950,10 +945,7 @@ void UniqueIDBDatabase::getRecordFromBackingStore(uint64_t requestID, const IDBI
 
 void UniqueIDBDatabase::didGetRecordFromBackingStore(uint64_t requestID, const IDBGetResult& result, uint32_t errorCode, const String& errorMessage)
 {
-    RefPtr<AsyncRequest> request = m_pendingDatabaseTasks.take(requestID);
-    ASSERT(request);
-
-    request->completeRequest(result, errorCode, errorMessage);
+    m_pendingDatabaseTasks.take(requestID).get().completeRequest(result, errorCode, errorMessage);
 }
 
 void UniqueIDBDatabase::openCursorInBackingStore(uint64_t requestID, const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, int64_t indexID, IndexedDB::CursorDirection cursorDirection, IndexedDB::CursorType cursorType, IDBDatabaseBackend::TaskType taskType, const IDBKeyRangeData& keyRange)
@@ -979,10 +971,7 @@ void UniqueIDBDatabase::openCursorInBackingStore(uint64_t requestID, const IDBId
 
 void UniqueIDBDatabase::didOpenCursorInBackingStore(uint64_t requestID, int64_t cursorID, const IDBKeyData& key, const IDBKeyData& primaryKey, const Vector<uint8_t>& valueBuffer, uint32_t errorCode, const String& errorMessage)
 {
-    RefPtr<AsyncRequest> request = m_pendingDatabaseTasks.take(requestID);
-    ASSERT(request);
-
-    request->completeRequest(cursorID, key, primaryKey, SharedBuffer::create(valueBuffer.data(), valueBuffer.size()), errorCode, errorMessage);
+    m_pendingDatabaseTasks.take(requestID).get().completeRequest(cursorID, key, primaryKey, SharedBuffer::create(valueBuffer.data(), valueBuffer.size()), errorCode, errorMessage);
 }
 
 void UniqueIDBDatabase::advanceCursorInBackingStore(uint64_t requestID, const IDBIdentifier& cursorIdentifier, uint64_t count)
@@ -1004,10 +993,7 @@ void UniqueIDBDatabase::advanceCursorInBackingStore(uint64_t requestID, const ID
 
 void UniqueIDBDatabase::didAdvanceCursorInBackingStore(uint64_t requestID, const IDBKeyData& key, const IDBKeyData& primaryKey, const Vector<uint8_t>& valueBuffer, uint32_t errorCode, const String& errorMessage)
 {
-    RefPtr<AsyncRequest> request = m_pendingDatabaseTasks.take(requestID);
-    ASSERT(request);
-
-    request->completeRequest(key, primaryKey, SharedBuffer::create(valueBuffer.data(), valueBuffer.size()), errorCode, errorMessage);
+    m_pendingDatabaseTasks.take(requestID).get().completeRequest(key, primaryKey, SharedBuffer::create(valueBuffer.data(), valueBuffer.size()), errorCode, errorMessage);
 }
 
 void UniqueIDBDatabase::iterateCursorInBackingStore(uint64_t requestID, const IDBIdentifier& cursorIdentifier, const IDBKeyData& iterateKey)
@@ -1029,10 +1015,7 @@ void UniqueIDBDatabase::iterateCursorInBackingStore(uint64_t requestID, const ID
 
 void UniqueIDBDatabase::didIterateCursorInBackingStore(uint64_t requestID, const IDBKeyData& key, const IDBKeyData& primaryKey, const Vector<uint8_t>& valueBuffer, uint32_t errorCode, const String& errorMessage)
 {
-    RefPtr<AsyncRequest> request = m_pendingDatabaseTasks.take(requestID);
-    ASSERT(request);
-
-    request->completeRequest(key, primaryKey, SharedBuffer::create(valueBuffer.data(), valueBuffer.size()), errorCode, errorMessage);
+    m_pendingDatabaseTasks.take(requestID).get().completeRequest(key, primaryKey, SharedBuffer::create(valueBuffer.data(), valueBuffer.size()), errorCode, errorMessage);
 }
 
 void UniqueIDBDatabase::countInBackingStore(uint64_t requestID, const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, int64_t indexID, const IDBKeyRangeData& keyRangeData)
@@ -1042,6 +1025,8 @@ void UniqueIDBDatabase::countInBackingStore(uint64_t requestID, const IDBIdentif
     if (!m_backingStore->count(transactionIdentifier, objectStoreID, indexID, keyRangeData, count)) {
         LOG_ERROR("Failed to get count from backing store.");
         postMainThreadTask(createAsyncTask(*this, &UniqueIDBDatabase::didCountInBackingStore, requestID, 0, IDBDatabaseException::UnknownError, ASCIILiteral("Failed to get count from backing store")));
+
+        return;
     }
 
     postMainThreadTask(createAsyncTask(*this, &UniqueIDBDatabase::didCountInBackingStore, requestID, count, 0, String(StringImpl::empty())));
@@ -1049,10 +1034,7 @@ void UniqueIDBDatabase::countInBackingStore(uint64_t requestID, const IDBIdentif
 
 void UniqueIDBDatabase::didCountInBackingStore(uint64_t requestID, int64_t count, uint32_t errorCode, const String& errorMessage)
 {
-    RefPtr<AsyncRequest> request = m_pendingDatabaseTasks.take(requestID);
-    ASSERT(request);
-
-    request->completeRequest(count, errorCode, errorMessage);
+    m_pendingDatabaseTasks.take(requestID).get().completeRequest(count, errorCode, errorMessage);
 }
 
 void UniqueIDBDatabase::deleteRangeInBackingStore(uint64_t requestID, const IDBIdentifier& transactionIdentifier, int64_t objectStoreID, const IDBKeyRangeData& keyRangeData)
@@ -1060,6 +1042,8 @@ void UniqueIDBDatabase::deleteRangeInBackingStore(uint64_t requestID, const IDBI
     if (!m_backingStore->deleteRange(transactionIdentifier, objectStoreID, keyRangeData)) {
         LOG_ERROR("Failed to delete range from backing store.");
         postMainThreadTask(createAsyncTask(*this, &UniqueIDBDatabase::didDeleteRangeInBackingStore, requestID, IDBDatabaseException::UnknownError, ASCIILiteral("Failed to get count from backing store")));
+
+        return;
     }
 
     m_backingStore->notifyCursorsOfChanges(transactionIdentifier, objectStoreID);
@@ -1069,10 +1053,7 @@ void UniqueIDBDatabase::deleteRangeInBackingStore(uint64_t requestID, const IDBI
 
 void UniqueIDBDatabase::didDeleteRangeInBackingStore(uint64_t requestID, uint32_t errorCode, const String& errorMessage)
 {
-    RefPtr<AsyncRequest> request = m_pendingDatabaseTasks.take(requestID);
-    ASSERT(request);
-
-    request->completeRequest(errorCode, errorMessage);
+    m_pendingDatabaseTasks.take(requestID).get().completeRequest(errorCode, errorMessage);
 }
 
 void UniqueIDBDatabase::didEstablishTransaction(const IDBIdentifier& transactionIdentifier, bool success)
@@ -1125,7 +1106,7 @@ void UniqueIDBDatabase::finalizeRollback(const WebKit::IDBIdentifier& transactio
         resetTransaction(transactionId, [this, transactionId](bool) {
             if (m_acceptingNewRequests && m_connections.isEmpty() && m_pendingTransactionRollbacks.isEmpty()) {
                 shutdown(UniqueIDBDatabaseShutdownType::NormalShutdown);
-                DatabaseProcess::shared().removeUniqueIDBDatabase(*this);
+                DatabaseProcess::singleton().removeUniqueIDBDatabase(*this);
             }
         });
     });
@@ -1134,7 +1115,7 @@ void UniqueIDBDatabase::finalizeRollback(const WebKit::IDBIdentifier& transactio
 String UniqueIDBDatabase::absoluteDatabaseDirectory() const
 {
     ASSERT(RunLoop::isMain());
-    return DatabaseProcess::shared().absoluteIndexedDatabasePathFromDatabaseRelativePath(m_databaseRelativeDirectory);
+    return DatabaseProcess::singleton().absoluteIndexedDatabasePathFromDatabaseRelativePath(m_databaseRelativeDirectory);
 }
 
 void UniqueIDBDatabase::postMainThreadTask(std::unique_ptr<AsyncTask> task, DatabaseTaskType taskType)
@@ -1148,23 +1129,16 @@ void UniqueIDBDatabase::postMainThreadTask(std::unique_ptr<AsyncTask> task, Data
 
     m_mainThreadTasks.append(WTF::move(task));
 
-    // Balanced by an adoptRef() in ::performNextMainThreadTask
-    ref();
-    RunLoop::main().dispatch(bind(&UniqueIDBDatabase::performNextMainThreadTask, this));
+    RefPtr<UniqueIDBDatabase> database(this);
+    RunLoop::main().dispatch([database] {
+        database->performNextMainThreadTask();
+    });
 }
 
-void UniqueIDBDatabase::performNextMainThreadTask()
+bool UniqueIDBDatabase::performNextMainThreadTask()
 {
     ASSERT(RunLoop::isMain());
 
-    // Balanced by a ref() in ::postMainThreadTask
-    RefPtr<UniqueIDBDatabase> protector(adoptRef(this));
-
-    performNextMainThreadTaskWithoutAdoptRef();
-}
-
-bool UniqueIDBDatabase::performNextMainThreadTaskWithoutAdoptRef()
-{
     bool moreTasks;
 
     std::unique_ptr<AsyncTask> task;
@@ -1195,7 +1169,10 @@ void UniqueIDBDatabase::postDatabaseTask(std::unique_ptr<AsyncTask> task, Databa
 
     m_databaseTasks.append(WTF::move(task));
 
-    DatabaseProcess::shared().queue().dispatch(bind(&UniqueIDBDatabase::performNextDatabaseTask, this));
+    RefPtr<UniqueIDBDatabase> database(this);
+    DatabaseProcess::singleton().queue().dispatch([database] {
+        database->performNextDatabaseTask();
+    });
 }
 
 void UniqueIDBDatabase::performNextDatabaseTask()

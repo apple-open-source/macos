@@ -21,8 +21,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(FILTERS)
 #include "SVGFEImage.h"
 
 #include "AffineTransform.h"
@@ -38,15 +36,15 @@
 
 namespace WebCore {
 
-FEImage::FEImage(Filter* filter, PassRefPtr<Image> image, const SVGPreserveAspectRatio& preserveAspectRatio)
+FEImage::FEImage(Filter& filter, RefPtr<Image> image, const SVGPreserveAspectRatio& preserveAspectRatio)
     : FilterEffect(filter)
     , m_image(image)
-    , m_document(0)
+    , m_document(nullptr)
     , m_preserveAspectRatio(preserveAspectRatio)
 {
 }
 
-FEImage::FEImage(Filter* filter, Document& document, const String& href, const SVGPreserveAspectRatio& preserveAspectRatio)
+FEImage::FEImage(Filter& filter, Document& document, const String& href, const SVGPreserveAspectRatio& preserveAspectRatio)
     : FilterEffect(filter)
     , m_document(&document)
     , m_href(href)
@@ -54,14 +52,14 @@ FEImage::FEImage(Filter* filter, Document& document, const String& href, const S
 {
 }
 
-PassRefPtr<FEImage> FEImage::createWithImage(Filter* filter, PassRefPtr<Image> image, const SVGPreserveAspectRatio& preserveAspectRatio)
+Ref<FEImage> FEImage::createWithImage(Filter& filter, RefPtr<Image> image, const SVGPreserveAspectRatio& preserveAspectRatio)
 {
-    return adoptRef(new FEImage(filter, image, preserveAspectRatio));
+    return adoptRef(*new FEImage(filter, image, preserveAspectRatio));
 }
 
-PassRefPtr<FEImage> FEImage::createWithIRIReference(Filter* filter, Document& document, const String& href, const SVGPreserveAspectRatio& preserveAspectRatio)
+Ref<FEImage> FEImage::createWithIRIReference(Filter& filter, Document& document, const String& href, const SVGPreserveAspectRatio& preserveAspectRatio)
 {
-    return adoptRef(new FEImage(filter, document, href, preserveAspectRatio));
+    return adoptRef(*new FEImage(filter, document, href, preserveAspectRatio));
 }
 
 void FEImage::determineAbsolutePaintRect()
@@ -121,7 +119,7 @@ void FEImage::platformApplySoftware()
         const AffineTransform& absoluteTransform = filter().absoluteTransform();
         resultImage->context()->concatCTM(absoluteTransform);
 
-        SVGElement* contextNode = toSVGElement(renderer->element());
+        SVGElement* contextNode = downcast<SVGElement>(renderer->element());
         if (contextNode->hasRelativeLengths()) {
             SVGLengthContext lengthContext(contextNode);
             FloatSize viewportSize;
@@ -160,5 +158,3 @@ TextStream& FEImage::externalRepresentation(TextStream& ts, int indent) const
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(FILTERS)

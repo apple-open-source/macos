@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,8 +30,8 @@
 #include <fsproperties.h>
 #include <paths.h>
 #include <unistd.h>
+#include <FSPrivate.h>
 #include <sys/attr.h>
-#include <sys/dirent.h>
 #include <sys/loadable_fs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
@@ -70,6 +70,7 @@ struct __DAFileSystemProbeContext
     CFURLRef                  repairCommand;
     CFBooleanRef              volumeClean;
     CFStringRef               volumeName;
+    CFStringRef               volumeType;
     CFUUIDRef                 volumeUUID;
 };
 
@@ -78,7 +79,7 @@ typedef struct __DAFileSystemProbeContext __DAFileSystemProbeContext;
 struct __DAFileSystemRenameBuffer
 {
     attrreference_t data;
-    char            name[MAXNAMLEN + 1];
+    char            name[MAXPATHLEN];
 };
 
 typedef struct __DAFileSystemRenameBuffer __DAFileSystemRenameBuffer;
@@ -204,11 +205,11 @@ static void __DAFileSystemProbeCallback( int status, void * parameter, CFDataRef
     {
         if ( status )
         {
-            ( context->callback )( status, NULL, NULL, NULL, context->callbackContext );
+            ( context->callback )( status, NULL, NULL, NULL, NULL, context->callbackContext );
         }
         else
         {
-            ( context->callback )( status, context->volumeClean, context->volumeName, context->volumeUUID, context->callbackContext );
+            ( context->callback )( status, context->volumeClean, context->volumeName, context->volumeType, context->volumeUUID, context->callbackContext );
         }
     }
 
@@ -219,6 +220,7 @@ static void __DAFileSystemProbeCallback( int status, void * parameter, CFDataRef
     if ( context->repairCommand )  CFRelease( context->repairCommand );
     if ( context->volumeClean   )  CFRelease( context->volumeClean   );
     if ( context->volumeName    )  CFRelease( context->volumeName    );
+    if ( context->volumeType    )  CFRelease( context->volumeType    );
     if ( context->volumeUUID    )  CFRelease( context->volumeUUID    );
 
     free( context );
@@ -348,6 +350,8 @@ static void __DAFileSystemProbeCallbackStage3( int status, CFDataRef output, voi
 
     context->volumeClean = CFRetain( ( status == 0 ) ? kCFBooleanTrue : kCFBooleanFalse );
 
+    context->volumeType = _FSCopyNameForVolumeFormatAtNode( context->devicePath );
+
     __DAFileSystemProbeCallback( 0, context, NULL );
 }
 
@@ -357,7 +361,7 @@ CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoi
     {
         uint32_t        size;
         attrreference_t data;
-        char            name[MAXNAMLEN + 1];
+        char            name[MAXPATHLEN];
     };
 
     struct attr_name_t attr     = { 0 };
@@ -680,6 +684,7 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
     context->repairCommand   = repairCommand;
     context->volumeClean     = NULL;
     context->volumeName      = NULL;
+    context->volumeType      = NULL;
     context->volumeUUID      = NULL;
 
     DACommandExecute( probeCommand,
@@ -707,7 +712,7 @@ DAFileSystemProbeErr:
 
         if ( callback )
         {
-            ( callback )( status, NULL, NULL, NULL, callbackContext );
+            ( callback )( status, NULL, NULL, NULL, NULL, callbackContext );
         }
     }
 }

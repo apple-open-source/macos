@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,30 +34,9 @@
 #include <IOKit/storage/IOMedia.h>
 #include <kern/energy_perf.h>
 #include <kern/thread_call.h>
-///w:start
-#if TARGET_OS_EMBEDDED
-#include <sys/disk.h>
-#endif /* TARGET_OS_EMBEDDED */
-///w:stop
 
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOBlockStorageDriver, IOStorage)
-
-#ifdef __LP64__
-#define original request
-#else /* !__LP64__ */
-#define isMediaRemovable() _removable
-#endif /* !__LP64__ */
-
-#ifndef __LP64__
-#define kIOBlockStorageDriverAttributesUnsupported ( ( IOStorage::ExpansionData * ) 2 )
-
-extern IOStorageAttributes gIOStorageAttributesUnsupported;
-
-extern "C" void _ZN20IOBlockStorageDriver14prepareRequestEyP18IOMemoryDescriptor19IOStorageCompletion( IOBlockStorageDriver *, UInt64, IOMemoryDescriptor *, IOStorageCompletion );
-
-#define prepareRequestAttributes( driver ) ( OSMemberFunctionCast( void *, driver, ( void ( IOBlockStorageDriver::* )( UInt64, IOMemoryDescriptor *, IOStorageCompletion ) ) &IOBlockStorageDriver::prepareRequest ) == _ZN20IOBlockStorageDriver14prepareRequestEyP18IOMemoryDescriptor19IOStorageCompletion )
-#endif /* !__LP64__ */
 
 static char * strclean(char * s)
 {
@@ -111,11 +90,6 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
     // Initialize this object's minimal state.
     //
 
-#ifndef __LP64__
-    if (prepareRequestAttributes(this) == false)
-        IOStorage::_expansionData = kIOBlockStorageDriverAttributesUnsupported;
-#endif /* !__LP64__ */
-
     // Ask our superclass' opinion.
 
     if (super::init(properties) == false)  return false;
@@ -124,11 +98,6 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
 
     _expansionData = IONew(ExpansionData, 1);
     if (_expansionData == 0)  return false;
-///w:start
-#if TARGET_OS_EMBEDDED
-    _expansionData->reserved0000     = 0;
-#endif /* TARGET_OS_EMBEDDED */
-///w:stop
 
     initMediaState();
     
@@ -258,12 +227,14 @@ bool IOBlockStorageDriver::didTerminate(IOService *  provider,
     return super::didTerminate(provider, options, defer);
 }
 
+#ifdef __x86_64__
 bool IOBlockStorageDriver::yield(IOService *  provider,
                                  IOOptionBits options,
                                  void *       argument)
 {
     return false;
 }
+#endif /* __x86_64__ */
 
 void IOBlockStorageDriver::free()
 {
@@ -444,43 +415,6 @@ void IOBlockStorageDriver::read(IOService *           client,
 
     // Prepare the transfer.
 
-#ifndef __LP64__
-    if ( IOStorage::_expansionData )
-    {
-        if ( attributes == &gIOStorageAttributesUnsupported )
-        {
-            attributes = NULL;
-
-            if ( IOStorage::_expansionData == kIOBlockStorageDriverAttributesUnsupported )
-            {
-                prepareRequest( byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
-
-                return;
-            }
-        }
-        else
-        {
-            if ( attributes && attributes->options )
-            {
-                complete( completion, kIOReturnUnsupported );
-            }
-            else
-            {
-                if ( IOStorage::_expansionData == kIOBlockStorageDriverAttributesUnsupported )
-                {
-                    prepareRequest( byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
-                }
-                else
-                {
-                    read( client, byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
-                }
-            }
-
-            return;
-        }
-    }
-#endif /* !__LP64__ */
-
     prepareRequest( byteStart, buffer, attributes, completion );
 }
 
@@ -508,43 +442,6 @@ void IOBlockStorageDriver::write(IOService *           client,
     assert( buffer->getDirection( ) == kIODirectionOut );
 
     // Prepare the transfer.
-
-#ifndef __LP64__
-    if ( IOStorage::_expansionData )
-    {
-        if ( attributes == &gIOStorageAttributesUnsupported )
-        {
-            attributes = NULL;
-
-            if ( IOStorage::_expansionData == kIOBlockStorageDriverAttributesUnsupported )
-            {
-                prepareRequest( byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
-
-                return;
-            }
-        }
-        else
-        {
-            if ( attributes && attributes->options )
-            {
-                complete( completion, kIOReturnUnsupported );
-            }
-            else
-            {
-                if ( IOStorage::_expansionData == kIOBlockStorageDriverAttributesUnsupported )
-                {
-                    prepareRequest( byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
-                }
-                else
-                {
-                    write( client, byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
-                }
-            }
-
-            return;
-        }
-    }
-#endif /* !__LP64__ */
 
     prepareRequest( byteStart, buffer, attributes, completion );
 }
@@ -697,27 +594,6 @@ void IOBlockStorageDriver::deleteContext(
     }
 }
 
-#ifndef __LP64__
-void IOBlockStorageDriver::prepareRequest(UInt64               byteStart,
-                                          IOMemoryDescriptor * buffer,
-                                          IOStorageCompletion  completion)
-{
-    //
-    // The prepareRequest method allocates and prepares state for the transfer.
-    //
-    // This method is part of a sequence of methods invoked for each read/write
-    // request.  The first is prepareRequest, which allocates and prepares some
-    // context for the transfer; the second is deblockRequest, which aligns the
-    // transfer at the media's block boundaries; third is breakUpRequest, which
-    // breaks up the transfer into multiple sub-transfers when certain hardware
-    // constraints are exceeded; fourth is executeRequest, which implements the
-    // actual transfer from the block storage device.
-    //
-
-    prepareRequest( byteStart, buffer, NULL, &completion );
-}
-#endif /* !__LP64__ */
-
 void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
                                                     void *   parameter,
                                                     IOReturn status,
@@ -735,11 +611,11 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     AbsoluteTime           time;
     UInt64                 timeInNanoseconds;
 
-    isWrite = (context->original.buffer->getDirection() == kIODirectionOut);
+    isWrite = (context->request.buffer->getDirection() == kIODirectionOut);
 
     // Update the error state, on a short transfer.
 
-    if (actualByteCount < context->original.buffer->getLength())
+    if (actualByteCount < context->request.buffer->getLength())
     {
         if (status == kIOReturnSuccess)
         {
@@ -764,15 +640,16 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
 
     // Complete the transfer request.
 
-    IOStorage::complete(&context->original.completion, status, actualByteCount);
+    IOStorage::complete(&context->request.completion, status, actualByteCount);
 
     // Release our resources.
 
-    context->original.buffer->release();
+    context->request.buffer->release();
 
     driver->deleteContext(context);
 }
 
+#ifdef __x86_64__
 void IOBlockStorageDriver::schedulePoller()
 {
 
@@ -782,6 +659,7 @@ void IOBlockStorageDriver::unschedulePoller()
 {
 
 }
+#endif /* __x86_64__ */
 
 IOReturn IOBlockStorageDriver::message(UInt32      type,
                                        IOService * provider,
@@ -808,7 +686,7 @@ IOReturn IOBlockStorageDriver::message(UInt32      type,
                     } else {
                         nbytes = 0;
                     }
-                    m = instantiateMediaObject(0,nbytes,_mediaBlockSize,NULL);
+                    m = instantiateMediaObject(0,nbytes,(UInt32) _mediaBlockSize,NULL);
                     if (m) {
                         lockForArbitration();
                         if (_mediaObject) {
@@ -839,7 +717,7 @@ IOReturn IOBlockStorageDriver::message(UInt32      type,
         {
             IOReturn status;
             if (open(this)) {
-                status = mediaStateHasChanged((uintptr_t) argument);
+                status = mediaStateHasChanged((IOMediaState) (uintptr_t) argument);
                 close(this);
             } else {
                 status = kIOReturnNotAttached;
@@ -896,7 +774,7 @@ IOBlockStorageDriver::acceptNewMedia(void)
     strlcat(name, "Media", sizeof(name) - strlen(name));
     strclean(name);
 
-    m = instantiateMediaObject(0,nbytes,_mediaBlockSize,name);
+    m = instantiateMediaObject(0,nbytes,(UInt32) _mediaBlockSize,name);
     result = (m) ? kIOReturnSuccess : kIOReturnBadArgument;
 
     if (result == kIOReturnSuccess) {
@@ -1047,6 +925,7 @@ IOBlockStorageDriver::mediaStateHasChanged(IOMediaState state)
     }
 }
 
+#ifdef __x86_64__
 UInt64
 IOBlockStorageDriver::constrainByteCount(UInt64 /* requestedCount */ ,bool isWrite)
 {
@@ -1056,6 +935,7 @@ IOBlockStorageDriver::constrainByteCount(UInt64 /* requestedCount */ ,bool isWri
         return(_maxReadByteTransfer);
     }
 }
+#endif /* __x86_64__ */
 
 /* Decommission a piece of media that has become unavailable either due to
  * ejection or some outside force (e.g. the Giant Hand of the User).
@@ -1139,10 +1019,10 @@ IOBlockStorageDriver::ejectMedia(void)
 
     if (result == kIOReturnSuccess) {	/* eject */
         if (!_writeProtected) {
-            (void)getProvider()->doSynchronizeCache();
+            (void)getProvider()->doSynchronize(0,0);
         }
 
-        (void)getProvider()->doEjectMedia();	/* ignore any error */
+        result = getProvider()->doEjectMedia();
     }
 
     return(result);
@@ -1151,12 +1031,8 @@ IOBlockStorageDriver::ejectMedia(void)
 void
 IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
                                      IOMemoryDescriptor *            buffer,
-#ifdef __LP64__
                                      IOStorageAttributes *           attributes,
                                      IOStorageCompletion *           completion,
-#else /* !__LP64__ */
-                                     IOStorageCompletion             completion,
-#endif /* !__LP64__ */
                                      IOBlockStorageDriver::Context * context)
 {
     UInt32 flags = 0;
@@ -1181,17 +1057,11 @@ IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
     /* Now the protocol-specific provider implements the actual
      * start of the data transfer: */
 
-#ifdef __LP64__
     if (attributes) {
         if (attributes->priority > kIOStoragePriorityDefault) {
             flags |= IO_PRIORITY_LOW;
         }
     }
-#else /* !__LP64__ */
-    if (context->request.attributes.priority > kIOStoragePriorityDefault) {
-        flags |= IO_PRIORITY_LOW;
-    }
-#endif /* !__LP64__ */
 
     if (_solidState) {
         flags |= IO_MEDIUM_SOLID_STATE;
@@ -1206,21 +1076,13 @@ IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
 #if TARGET_OS_EMBEDDED
     // This is where we adjust the offset for this access to the nand layer.
     // We already maintain this buffer's file offset in attributes.fileOffset
-#ifdef __LP64__
     if (!attributes) {
         attributes = &context->request.attributes;
     }
-    attributes->adjustedOffset = ((SInt64)byteStart - (SInt64)context->original.byteStart);
-#else /* !__LP64__ */
-    context->request.attributes.adjustedOffset = ((SInt64)byteStart - (SInt64)context->original.byteStart);
-#endif /* !__LP64__ */
+    attributes->adjustedOffset = ((SInt64)byteStart - (SInt64)context->request.byteStart);
 #endif /* TARGET_OS_EMBEDDED */
-#ifdef __LP64__
     result = getProvider()->doAsyncReadWrite(buffer,block,nblks,attributes,completion);
-#else /* !__LP64__ */
-    result = getProvider()->doAsyncReadWrite(buffer,block,nblks,&context->request.attributes,&completion);
-#endif /* !__LP64__ */
-    
+
     if (result != kIOReturnSuccess) {		/* it failed to start */
         if (result != kIOReturnNotPermitted) {		/* expected error from content protection */
             IOLog("%s[IOBlockStorageDriver]; executeRequest: request failed to start!\n",getName());
@@ -1293,7 +1155,7 @@ IOBlockStorageDriver::handlePowerEvent(void *target,void *refCon,
             if (driver->open(driver)) {
                 if (driver->_mediaObject) {
                     if (!driver->_writeProtected) {
-                        driver->getProvider()->doSynchronizeCache();
+                        driver->getProvider()->doSynchronize(0,0);
                     }
                     if (!driver->_removable && (messageType == kIOMessageSystemWillPowerOff)) {
                         driver->getProvider()->doEjectMedia();
@@ -1368,18 +1230,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
 
         object->release();
     }
-#ifndef __LP64__
-    if (object == 0) {
-        UInt64 maxReadTransfer;
-
-        result = getProvider()->reportMaxReadTransfer(512, &maxReadTransfer);
-        if (result == kIOReturnSuccess) {
-            _maxReadBlockTransfer = maxReadTransfer / 512;
-        }
-
-        getProvider()->setProperty(kIOMaximumBlockCountReadKey, _maxReadBlockTransfer, 64);
-    }
-#endif /* !__LP64__ */
 
     object = copyProperty(kIOMaximumBlockCountWriteKey, gIOServicePlane);
     if (object) {
@@ -1391,18 +1241,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
 
         object->release();
     }
-#ifndef __LP64__
-    if (object == 0) {
-        UInt64 maxWriteTransfer;
-
-        result = getProvider()->reportMaxWriteTransfer(512, &maxWriteTransfer);
-        if (result == kIOReturnSuccess) {
-            _maxWriteBlockTransfer = maxWriteTransfer / 512;
-        }
-
-        getProvider()->setProperty(kIOMaximumBlockCountWriteKey, _maxWriteBlockTransfer, 64);
-    }
-#endif /* !__LP64__ */
 
     object = copyProperty(kIOMaximumByteCountReadKey, gIOServicePlane);
     if (object) {
@@ -1508,13 +1346,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
 
         object->release();
     }
-///w:start
-#if TARGET_OS_EMBEDDED
-    if (getProperty(kIOMaximumPriorityCountKey, gIOServicePlane)) {
-        _expansionData->reserved0000 = 1;
-    }
-#endif /* TARGET_OS_EMBEDDED */
-///w:stop
 
     /* Check for the device being ready with media inserted: */
 
@@ -1538,6 +1369,7 @@ IOBlockStorageDriver::handleStart(IOService * provider)
     return(true);
 }
 
+#ifdef __x86_64__
 bool
 IOBlockStorageDriver::handleYield(IOService *  provider,
                                   IOOptionBits options,
@@ -1545,6 +1377,7 @@ IOBlockStorageDriver::handleYield(IOService *  provider,
 {
     return false;
 }
+#endif /* __x86_64__ */
 
 void
 IOBlockStorageDriver::initMediaState(void)
@@ -1644,14 +1477,13 @@ IOBlockStorageDriver::isMediaEjectable(void) const
     return(_ejectable);
 }
 
-#ifdef __LP64__
 bool
 IOBlockStorageDriver::isMediaRemovable(void) const
 {
     return(_removable);
 }
-#endif /* __LP64__ */
 
+#ifdef __x86_64__
 bool
 IOBlockStorageDriver::isMediaPollExpensive(void) const
 {
@@ -1663,6 +1495,7 @@ IOBlockStorageDriver::isMediaPollRequired(void) const
 {
     return(false);
 }
+#endif /* __x86_64__ */
 
 bool
 IOBlockStorageDriver::isMediaWritable(void) const
@@ -1670,6 +1503,7 @@ IOBlockStorageDriver::isMediaWritable(void) const
     return(!_writeProtected);
 }
 
+#ifdef __x86_64__
 IOReturn
 IOBlockStorageDriver::lockMedia(bool locked)
 {
@@ -1681,6 +1515,7 @@ IOBlockStorageDriver::pollMedia(void)
 {
     return(kIOReturnUnsupported);
 }
+#endif /* __x86_64__ */
 
 IOReturn
 IOBlockStorageDriver::recordMediaParameters(void)
@@ -1736,16 +1571,52 @@ IOBlockStorageDriver::stop(IOService * provider)
 }
 
 IOReturn
-IOBlockStorageDriver::synchronizeCache(IOService *client)
+IOBlockStorageDriver::synchronize(IOService *                 client,
+                                  UInt64                      byteStart,
+                                  UInt64                      byteCount,
+                                  IOStorageSynchronizeOptions options)
 {
-    return(getProvider()->doSynchronizeCache());
+    UInt64 blockStart;
+    UInt64 blockCount;
+
+#ifdef __x86_64__
+    if ( _respondsTo_synchronizeCache )
+    {
+        if ( options == _kIOStorageSynchronizeOption_super__synchronizeCache )
+        {
+            options = 0;
+        }
+        else
+        {
+            return IOStorage::synchronize( client, byteStart, byteCount, options );
+        }
+    }
+#endif /* __x86_64__ */
+
+    if ( ( options & kIOStorageSynchronizeOptionReserved ) )
+    {
+        return kIOReturnBadArgument;
+    }
+
+    blockStart = byteStart / _mediaBlockSize;
+
+    if ( byteCount )
+    {
+        blockCount = ( byteStart + byteCount + _mediaBlockSize - 1 ) / _mediaBlockSize - blockStart;
+    }
+    else
+    {
+        blockCount = 0;
+    }
+
+    return getProvider( )->doSynchronize( blockStart, blockCount, options );
 }
 
 IOReturn
-IOBlockStorageDriver::unmap(IOService *       client,
-                            IOStorageExtent * extents,
-                            UInt32            extentsCount,
-                            UInt32            options)
+IOBlockStorageDriver::unmap(IOService *           client,
+                            IOStorageExtent *     extents,
+                            UInt32                extentsCount,
+                            IOStorageUnmapOptions options)
 {
     UInt32                       extentsIndex;
     IOBlockStorageDeviceExtent * extentsOut;
@@ -1753,7 +1624,7 @@ IOBlockStorageDriver::unmap(IOService *       client,
 
     assert( sizeof( IOStorageExtent ) == sizeof( IOBlockStorageDeviceExtent ) );
 
-    if ( options )
+    if ( ( options & kIOStorageUnmapOptionReserved ) )
     {
         return kIOReturnBadArgument;
     }
@@ -1857,14 +1728,6 @@ IOBlockStorageDriver::setPriority(IOService *       client,
         extentsOut[ extentsIndex ].blockCount = blockCount;
     }
 
-///w:start
-#if TARGET_OS_EMBEDDED
-    if ( _expansionData->reserved0000 )
-    {
-        priority = DK_PRIORITY_TO_TIER( priority );
-    }
-#endif /* TARGET_OS_EMBEDDED */
-///w:stop
     return getProvider( )->doSetPriority( extentsOut, extentsCount, priority );
 }
 
@@ -1890,8 +1753,8 @@ protected:
     struct
     {
         IOMemoryDescriptor * buffer;
-        UInt32               offset;
-        UInt32               length;
+        IOByteCount          offset;
+        IOByteCount          length;
     }                          _chunks[3];
     UInt32                     _chunksCount;
 
@@ -2013,7 +1876,7 @@ bool IODeblocker::initWithBlockSize(
     // _excessCountFinal = byte count from end of request to a media boundary
     //
 
-    UInt32 excessBufferSize = 0;
+    IOByteCount excessBufferSize = 0;
 
     // Ask our superclass' opinion.
 
@@ -2477,12 +2340,8 @@ bool IODeblocker::setThreadCallback(thread_call_func_t callback)
 void IOBlockStorageDriver::deblockRequest(
                                      UInt64                          byteStart,
                                      IOMemoryDescriptor *            buffer,
-#ifdef __LP64__
                                      IOStorageAttributes *           attributes,
                                      IOStorageCompletion *           completion,
-#else /* !__LP64__ */
-                                     IOStorageCompletion             completion,
-#endif /* !__LP64__ */
                                      IOBlockStorageDriver::Context * context )
 {
     //
@@ -2510,11 +2369,7 @@ void IOBlockStorageDriver::deblockRequest(
     if ( (byteStart           % context->block.size) == 0 &&
          (buffer->getLength() % context->block.size) == 0 )
     {
-#ifdef __LP64__
         breakUpRequest(byteStart, buffer, attributes, completion, context);
-#else /* !__LP64__ */
-        breakUpRequest(byteStart, buffer, completion, context);
-#endif /* !__LP64__ */
         return;
     }
 
@@ -2524,13 +2379,8 @@ void IOBlockStorageDriver::deblockRequest(
                                 /* blockSize             */ context->block.size,
                                 /* withRequestStart      */ byteStart,
                                 /* withRequestBuffer     */ buffer,
-#ifdef __LP64__
                                 /* withRequestAttributes */ attributes,
                                 /* withRequestCompletion */ completion,
-#else /* !__LP64__ */
-                                /* withRequestAttributes */ NULL,
-                                /* withRequestCompletion */ &completion,
-#endif /* !__LP64__ */
                                 /* withRequestContext    */ context );
 
     if ( deblocker == 0 )
@@ -2670,11 +2520,7 @@ void IOBlockStorageDriver::deblockRequestExecute(void * parameter, void * target
 
     context = (Context *) deblocker->getRequestContext();
 
-#ifdef __LP64__
     driver->breakUpRequest(byteStart, deblocker, attributes, &completion, context);
-#else /* !__LP64__ */
-    driver->breakUpRequest(byteStart, deblocker, completion, context);
-#endif /* !__LP64__ */
 }
 
 // -----------------------------------------------------------------------------
@@ -2793,7 +2639,7 @@ UInt64 IOBreaker::getBreakSize(
     IOByteCount          bufferLength = withRequestBuffer->getLength();
     IOByteCount          bufferOffset = withRequestBufferOffset;
     addr64_t             chunk        = 0;
-    UInt32               chunkSize    = 0;
+    IOByteCount          chunkSize    = 0;
     addr64_t             segment      = 0;
     UInt32               segmentCount = 0;
     IOByteCount          segmentSize  = 0;
@@ -3172,12 +3018,8 @@ bool IOBreaker::setThreadCallback(thread_call_func_t callback)
 void IOBlockStorageDriver::breakUpRequest(
                                      UInt64                          byteStart,
                                      IOMemoryDescriptor *            buffer,
-#ifdef __LP64__
                                      IOStorageAttributes *           attributes,
                                      IOStorageCompletion *           completion,
-#else /* !__LP64__ */
-                                     IOStorageCompletion             completion,
-#endif /* !__LP64__ */
                                      IOBlockStorageDriver::Context * context )
 {
     //
@@ -3244,11 +3086,7 @@ void IOBlockStorageDriver::breakUpRequest(
 
     if ( buffer->getLength() <= breakSize )
     {
-#ifdef __LP64__
         executeRequest(byteStart, buffer, attributes, completion, context);
-#else /* !__LP64__ */
-        executeRequest(byteStart, buffer, completion, context);
-#endif /* !__LP64__ */
         return;
     }
 
@@ -3267,13 +3105,8 @@ void IOBlockStorageDriver::breakUpRequest(
               /* withRequestBlockSize                 */ context->block.size,
               /* withRequestStart                     */ byteStart,
               /* withRequestBuffer                    */ buffer,
-#ifdef __LP64__
               /* withRequestAttributes                */ attributes,
               /* withRequestCompletion                */ completion,
-#else /* !__LP64__ */
-              /* withRequestAttributes                */ NULL,
-              /* withRequestCompletion                */ &completion,
-#endif /* !__LP64__ */
               /* withRequestContext                   */ context );
     }
     else
@@ -3289,13 +3122,8 @@ void IOBlockStorageDriver::breakUpRequest(
               /* withRequestBlockSize                 */ context->block.size,
               /* withRequestStart                     */ byteStart,
               /* withRequestBuffer                    */ buffer,
-#ifdef __LP64__
               /* withRequestAttributes                */ attributes,
               /* withRequestCompletion                */ completion,
-#else /* !__LP64__ */
-              /* withRequestAttributes                */ NULL,
-              /* withRequestCompletion                */ &completion,
-#endif /* !__LP64__ */
               /* withRequestContext                   */ context );
     }
 
@@ -3398,11 +3226,7 @@ void IOBlockStorageDriver::breakUpRequestExecute(void * parameter, void * target
 
     context = (Context *) breaker->getRequestContext();
 
-#ifdef __LP64__
     driver->executeRequest(byteStart, breaker, attributes, &completion, context);
-#else /* !__LP64__ */
-    driver->executeRequest(byteStart, breaker, completion, context);
-#endif /* !__LP64__ */
 }
 
 void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
@@ -3441,21 +3265,11 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
             return;
         }
 
-#ifdef __LP64__
         if (attributes->reserved0032 || attributes->reserved0064 || attributes->reserved0128)
         {
             complete(completion, kIOReturnBadArgument);
             return;
         }
-#else /* !__LP64__ */
-#if !TARGET_OS_EMBEDDED
-        if (attributes->reserved0064)
-        {
-            complete(completion, kIOReturnBadArgument);
-            return;
-        }
-#endif /* !TARGET_OS_EMBEDDED */
-#endif /* !__LP64__ */
     }
 
     // Allocate a context structure to hold some of our state.
@@ -3470,15 +3284,15 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
     
     // Fill in the context structure with some of our state.
 
-    context->block.size = getMediaBlockSize();
+    context->block.size = (UInt32) getMediaBlockSize();
     context->block.type = kBlockTypeStandard;
 
-    context->original.byteStart = byteStart;
-    context->original.buffer    = buffer;
-    context->original.buffer->retain();
+    context->request.byteStart = byteStart;
+    context->request.buffer    = buffer;
+    context->request.buffer->retain();
 
     if (attributes)  context->request.attributes = *attributes;
-    if (completion)  context->original.completion = *completion;
+    if (completion)  context->request.completion = *completion;
 
     clock_get_uptime(&context->timeStart);
 
@@ -3488,11 +3302,7 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
 
     // Deblock the transfer.
 
-#ifdef __LP64__
     deblockRequest(byteStart, buffer, attributes, &completionOut, context);
-#else /* !__LP64__ */
-    deblockRequest(byteStart, buffer, completionOut, context);
-#endif /* !__LP64__ */
 }
 
 IOReturn
@@ -3501,15 +3311,9 @@ IOBlockStorageDriver::requestIdle(void)
     return(getProvider()->requestIdle());
 }
 
-#ifdef __LP64__
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver,  0);
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver,  1);
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver,  2);
-#else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOBlockStorageDriver,  0);
-OSMetaClassDefineReservedUsed(IOBlockStorageDriver,  1);
-OSMetaClassDefineReservedUsed(IOBlockStorageDriver,  2);
-#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver,  3);
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver,  4);
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver,  5);
@@ -3540,14 +3344,9 @@ OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 29);
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 30);
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 31);
 
-#ifndef __LP64__
-extern "C" void _ZN20IOBlockStorageDriver4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOBlockStorageDriver * driver, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+#ifdef __x86_64__
+extern "C" void _ZN20IOBlockStorageDriver16synchronizeCacheEP9IOService( IOBlockStorageDriver * driver, IOService * client )
 {
-    driver->read( client, byteStart, buffer, NULL, &completion );
+    driver->synchronize( client, 0, 0 );
 }
-
-extern "C" void _ZN20IOBlockStorageDriver5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOBlockStorageDriver * driver, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
-{
-    driver->write( client, byteStart, buffer, NULL, &completion );
-}
-#endif /* !__LP64__ */
+#endif /* __x86_64__ */

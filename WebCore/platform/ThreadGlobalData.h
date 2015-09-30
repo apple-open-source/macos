@@ -30,7 +30,6 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/text/StringHash.h>
 
 #include <wtf/ThreadSpecific.h>
@@ -39,27 +38,23 @@ using WTF::ThreadSpecific;
 
 namespace WebCore {
 
-    class EventNames;
-    class ReplayInputTypes;
     class ThreadTimers;
 
     struct CachedResourceRequestInitiators;
+    struct EventNames;
     struct ICUConverterWrapper;
     struct TECConverterWrapper;
 
     class ThreadGlobalData {
         WTF_MAKE_NONCOPYABLE(ThreadGlobalData);
     public:
-        ThreadGlobalData();
-        ~ThreadGlobalData();
+        WEBCORE_EXPORT ThreadGlobalData();
+        WEBCORE_EXPORT ~ThreadGlobalData();
         void destroy(); // called on workers to clean up the ThreadGlobalData before the thread exits.
 
         const CachedResourceRequestInitiators& cachedResourceRequestInitiators() { return *m_cachedResourceRequestInitiators; }
         EventNames& eventNames() { return *m_eventNames; }
         ThreadTimers& threadTimers() { return *m_threadTimers; }
-#if ENABLE(WEB_REPLAY)
-        ReplayInputTypes& inputTypes() { return *m_inputTypes; }
-#endif
 
         ICUConverterWrapper& cachedConverterICU() { return *m_cachedConverterICU; }
 
@@ -72,35 +67,31 @@ namespace WebCore {
 #endif
 
     private:
-        OwnPtr<CachedResourceRequestInitiators> m_cachedResourceRequestInitiators;
-        OwnPtr<EventNames> m_eventNames;
-        OwnPtr<ThreadTimers> m_threadTimers;
-
-#if ENABLE(WEB_REPLAY)
-        std::unique_ptr<ReplayInputTypes> m_inputTypes;
-#endif
+        std::unique_ptr<CachedResourceRequestInitiators> m_cachedResourceRequestInitiators;
+        std::unique_ptr<EventNames> m_eventNames;
+        std::unique_ptr<ThreadTimers> m_threadTimers;
 
 #ifndef NDEBUG
         bool m_isMainThread;
 #endif
 
-        OwnPtr<ICUConverterWrapper> m_cachedConverterICU;
+        std::unique_ptr<ICUConverterWrapper> m_cachedConverterICU;
 
 #if PLATFORM(MAC)
-        OwnPtr<TECConverterWrapper> m_cachedConverterTEC;
+        std::unique_ptr<TECConverterWrapper> m_cachedConverterTEC;
 #endif
 
-        static ThreadSpecific<ThreadGlobalData>* staticData;
+        WEBCORE_EXPORT static ThreadSpecific<ThreadGlobalData>* staticData;
 #if USE(WEB_THREAD)
-        static ThreadGlobalData* sharedMainThreadStaticData;
+        WEBCORE_EXPORT static ThreadGlobalData* sharedMainThreadStaticData;
 #endif
-        friend ThreadGlobalData& threadGlobalData();
+        WEBCORE_EXPORT friend ThreadGlobalData& threadGlobalData();
     };
 
 #if USE(WEB_THREAD)
-ThreadGlobalData& threadGlobalData();
+WEBCORE_EXPORT ThreadGlobalData& threadGlobalData();
 #else
-ThreadGlobalData& threadGlobalData() PURE_FUNCTION;
+WEBCORE_EXPORT ThreadGlobalData& threadGlobalData() PURE_FUNCTION;
 #endif
     
 } // namespace WebCore

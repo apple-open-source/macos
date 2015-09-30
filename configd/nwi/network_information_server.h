@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,6 @@ __BEGIN_DECLS
 void
 load_NetworkInformation		(CFBundleRef		bundle,
 				 SCLoggerRef		logger,
-				 Boolean		*bundleVerbose,
 				 _nwi_sync_handler_t	syncHandler);
 
 void

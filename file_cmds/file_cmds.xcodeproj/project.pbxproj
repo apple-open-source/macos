@@ -1143,6 +1143,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0773099A1A3A4DFE00E9B4EA /* dd.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = dd.entitlements; sourceTree = "<group>"; };
 		FC8A8B1214B648D7001B97AD /* chmod */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chmod; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B1A14B648E0001B97AD /* chown */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chown; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B2214B648E3001B97AD /* cksum */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cksum; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1691,6 +1692,7 @@
 		FCB1BDF814B6460C0070FACB /* dd */ = {
 			isa = PBXGroup;
 			children = (
+				0773099A1A3A4DFE00E9B4EA /* dd.entitlements */,
 				FCB1BDF914B6460C0070FACB /* args.c */,
 				FCB1BDFA14B6460C0070FACB /* conv.c */,
 				FCB1BDFB14B6460C0070FACB /* conv_tab.c */,
@@ -2081,6 +2083,7 @@
 				FC8A8B3514B648EA001B97AD /* Sources */,
 				FC8A8B3614B648EA001B97AD /* Frameworks */,
 				FC8A8B3714B648EA001B97AD /* CopyFiles */,
+				72E62BA81A3A62960015FC8E /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -2440,7 +2443,7 @@
 		FCB1BDAF14B645D00070FACB /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0600;
+				LastUpgradeCheck = 0610;
 				ORGANIZATIONNAME = "Apple Inc.";
 			};
 			buildConfigurationList = FCB1BDB214B645D00070FACB /* Build configuration list for PBXProject "file_cmds" */;
@@ -2507,6 +2510,20 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/sh -ex";
 			shellScript = "install -d -g ${GROUP} -o ${USER} -m 0755 ${INSTALL_DIR}\ninstall -d -g ${GROUP} -o ${USER} -m 0755 ${DSTROOT}/usr/share\ninstall -d -g ${GROUP} -o ${USER} -m 0755 ${DSTROOT}/usr/share/man\ninstall -d -g ${GROUP} -o ${USER} -m 0755 ${DSTROOT}/usr/share/man/man{1,7,8}";
+			showEnvVarsInLog = 0;
+		};
+		72E62BA81A3A62960015FC8E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". ${SRCROOT}/dd/install_symlink.sh";
 			showEnvVarsInLog = 0;
 		};
 		FC8A8C4C14B64DF9001B97AD /* ShellScript */ = {
@@ -3284,7 +3301,12 @@
 		FC8A8B3914B648EA001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = dd/dd.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "";
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /bin;
+				"INSTALL_PATH[sdk=appletvos]" = /usr/local/bin;
+				"INSTALL_PATH[sdk=iphoneos*]" = /usr/local/bin;
 			};
 			name = Release;
 		};
@@ -3318,7 +3340,6 @@
 		FC8A8B6114B648EC001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_MODE_FLAG = "u+s,u+rw,go-rw,a+X";
 				OTHER_CFLAGS = (
 					"-iquote",
 					"$(SDKROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders",
@@ -3505,6 +3526,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wall",

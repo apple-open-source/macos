@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -136,15 +136,27 @@ static uint32_t dbselect = DB_SELECT_SYSLOGD;
 static uint32_t dbselect = DB_SELECT_ASL;
 #endif
 
+typedef struct
+{
+	char *name;
+	uint32_t count;
+	uint32_t total_messages;
+	size_t total_size;
+	uint32_t *messages;
+	size_t *size;
+} sender_stat_t;
+
+#define ASL_IOS_STATS_DIR "/var/log/asl/Logs/ASLStatistics"
+static uint32_t stats_sender_count;
+static sender_stat_t **stats_sender;
+static uint32_t stats_total_all_messages;
+
 /* notify SPI */
 uint32_t notify_register_plain(const char *name, int *out_token);
 
-//extern asl_msg_t *asl_msg_from_string(const char *buf);
-//extern char *asl_list_to_string(asl_msg_list_t *list, uint32_t *outlen);
-//extern asl_msg_list_t *asl_list_from_string(const char *buf);
-//extern int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b);
 asl_msg_t *_asl_server_control_query(void);
 extern time_t asl_parse_time(const char *in);
+asl_msg_t * asl_base_msg(asl_client_t *asl, uint32_t level, const struct timeval *tv, const char *sstr, const char *fstr, const char *mstr);
 /* END PRIVATE API */
 
 static mach_port_t asl_server_port = MACH_PORT_NULL;
@@ -155,79 +167,129 @@ static const char *myname = "syslog";
 asl_msg_list_t *syslogd_query(asl_msg_list_t *q, uint64_t start, int count, int dir, uint64_t *last);
 static void printmsg(FILE *f, asl_msg_t *msg, char *fmt, int pflags);
 
+#define HELP_UNAVAILABLE -1
+#define HELP_CONTROL HELP_UNAVAILABLE /* undocumented */
+#define HELP_ALL 0
+#define HELP_SEND 1
+#define HELP_REMOTE_CONTROL 2
+#define HELP_CONFIG 3
+#define HELP_MODULE 4
+#define HELP_SEARCH 5
+#define HELP_STATS 6
+
 void
-usage()
+usage(uint32_t section)
 {
+	if (section == HELP_UNAVAILABLE)
+	{
+		fprintf(stderr, "help is not available for this command\n");
+		return;
+	}
+
 	fprintf(stderr, "usage:\n");
-	fprintf(stderr, "%s -s [-r host] [-l level] message...\n", myname);
-	fprintf(stderr, "   send a message\n");
-	fprintf(stderr, "\n");
-	fprintf(stderr, "%s -s [-r host] -k key val [key val]...\n", myname);
-	fprintf(stderr, "   send a message with the given keys and values\n");
-	fprintf(stderr, "\n");
-	fprintf(stderr, "%s -c process [filter]\n", myname);
-	fprintf(stderr, "   get (set if filter is specified) syslog filter for process (pid or name)\n");
-	fprintf(stderr, "   level may be any combination of the characters \"p a c e w n i d\"\n");
-	fprintf(stderr, "   p = Emergency (\"Panic\")\n");
-	fprintf(stderr, "   a = Alert\n");
-	fprintf(stderr, "   c = Critical\n");
-	fprintf(stderr, "   e = Error\n");
-	fprintf(stderr, "   w = Warning\n");
-	fprintf(stderr, "   n = Notice\n");
-	fprintf(stderr, "   i = Info\n");
-	fprintf(stderr, "   d = Debug\n");
-	fprintf(stderr, "   a minus sign preceding a single letter means \"up to\" that level\n");
-	fprintf(stderr, "\n");
-	fprintf(stderr, "%s -config [params...]\n", myname);
-	fprintf(stderr, "   without params, fetch and print syslogd parameters and statistics\n");
-	fprintf(stderr, "   otherwise, set or reset syslogd configuration parameters\n");
-	fprintf(stderr, "\n");
-	fprintf(stderr, "%s -module [name [action]]\n", myname);
-	fprintf(stderr, "   with no name, prints configuration for all ASL output modules\n");
-	fprintf(stderr, "   with name and no action, prints configuration for named ASL output module\n");
-	fprintf(stderr, "   supported actions - module name required, use '*' (with single quotes) for all modules:\n");
-	fprintf(stderr, "       enable [01]          enables (or disables with 0) named module\n");
-	fprintf(stderr, "                            does not apply to com.apple.asl when '*' is used\n");
-	fprintf(stderr, "       checkpoint [file]    checkpoints all files or specified file for named module\n");
-	fprintf(stderr, "\n");
-	fprintf(stderr, "%s [-f file...] [-d path...] [-x file] [-w [N]] [-F format] [-nocompress] [-u] [-sort key1 [key2]] [-nsort key1 [key2]] [-k key [[op] val]]... [-o -k key [[op] val]] ...]...\n", myname);
-	fprintf(stderr, "   -f     read named file[s], rather than standard log message store.\n");
-	fprintf(stderr, "   -d     read all file in named directory path, rather than standard log message store.\n");
-	fprintf(stderr, "   -x     export to named ASL format file, rather than printing\n");
-	fprintf(stderr, "   -w     watch data store (^C to quit)\n");
-	fprintf(stderr, "          prints the last N matching lines (default 10) before waiting\n");
-	fprintf(stderr, "          \"-w all\" prints all matching lines before waiting\n");
-	fprintf(stderr, "          \"-w boot\" prints all matching lines since last system boot before waiting\n");
-	fprintf(stderr, "   -F     output format may be \"std\", \"raw\", \"bsd\", or \"xml\"\n");
-	fprintf(stderr, "          format may also be a string containing variables of the form\n");
-	fprintf(stderr, "          $Key or $(Key) - use the latter for non-whitespace delimited variables\n");
-	fprintf(stderr, "   -T     timestamp format may be \"sec\" (seconds), \"utc\" (UTC), or \"local\" (local timezone)\n");
-	fprintf(stderr, "   -E     text encoding may be \"vis\", \"safe\", or \"none\"\n");
-	fprintf(stderr, "   -nodc  no duplicate message compression\n");
-	fprintf(stderr, "   -u     print timestamps using UTC (equivalent to \"-T utc\")\n");
-	fprintf(stderr, "   -sort  sort messages using value for specified key1 (secondary sort by key2 if provided)\n");
-	fprintf(stderr, "   -nsort numeric sort messages using value for specified key1 (secondary sort by key2 if provided)\n");
-	fprintf(stderr, "   -k     key/value match\n");
-	fprintf(stderr, "          if no operator or value is given, checks for the existence of the key\n");
-	fprintf(stderr, "          if no operator is given, default is \"%s\"\n", OP_EQ);
-	fprintf(stderr, "   -B     only process log messages since last system boot\n");
-	fprintf(stderr, "   -C     alias for \"-k Facility com.apple.console\"\n");
-	fprintf(stderr, "   -o     begins a new query\n");
-	fprintf(stderr, "          queries are \'OR\'ed together\n");
-	fprintf(stderr, "operators are zero or more modifiers followed by a comparison\n");
-	fprintf(stderr, "   %s   equal\n", OP_EQ);
-	fprintf(stderr, "   %s   not equal\n", OP_NE);
-	fprintf(stderr, "   %s   greater than\n", OP_GT);
-	fprintf(stderr, "   %s   greater or equal\n", OP_GE);
-	fprintf(stderr, "   %s   less than\n", OP_LT);
-	fprintf(stderr, "   %s   less or equal\n", OP_LE);
-	fprintf(stderr, "optional modifiers for operators\n");
-	fprintf(stderr, "   %c    case-fold\n", MOD_CASE_FOLD);
-	fprintf(stderr, "   %c    regular expression\n", MOD_REGEX);
-	fprintf(stderr, "   %c    substring\n", MOD_SUBSTRING);
-	fprintf(stderr, "   %c    prefix\n", MOD_PREFIX);
-	fprintf(stderr, "   %c    suffix\n", MOD_SUFFIX);
-	fprintf(stderr, "   %c    numeric comparison\n", MOD_NUMERIC);
+
+	if ((section == HELP_ALL) || (section == HELP_SEND))
+	{
+		fprintf(stderr, "%s -s [-r host] [-l level] message...\n", myname);
+		fprintf(stderr, "   send a message\n");
+		fprintf(stderr, "\n");
+
+		fprintf(stderr, "%s -s [-r host] -k key val [key val]...\n", myname);
+		fprintf(stderr, "   send a message with the given keys and values\n");
+		fprintf(stderr, "\n");
+	}
+
+	if ((section == HELP_ALL) || (section == HELP_REMOTE_CONTROL))
+	{
+		fprintf(stderr, "%s -c process [mask] [-s [on|off]] [-t [on|off]]\n", myname);
+		fprintf(stderr, "   get (set if mask or actions are specified) syslog filter mask and actions for process (pid or name)\n");
+		fprintf(stderr, "   mask may be any combination of the characters \"p a c e w n i d\"\n");
+		fprintf(stderr, "   p = Emergency (\"Panic\")\n");
+		fprintf(stderr, "   a = Alert\n");
+		fprintf(stderr, "   c = Critical\n");
+		fprintf(stderr, "   e = Error\n");
+		fprintf(stderr, "   w = Warning\n");
+		fprintf(stderr, "   n = Notice\n");
+		fprintf(stderr, "   i = Info\n");
+		fprintf(stderr, "   d = Debug\n");
+		fprintf(stderr, "   a minus sign preceding a single letter means \"up to\" that level\n");
+		fprintf(stderr, "   use \"0\" for process to get or set master syslog flags\n");
+		fprintf(stderr, "   use \"-c process off\" to deactivate current settings\n");
+		fprintf(stderr, "   -s controls sending ASL mesages (to syslogd)\n");
+		fprintf(stderr, "   -t controls sending Activity Tracing mesages\n");
+		fprintf(stderr, "\n");
+	}
+
+	if ((section == HELP_ALL) || (section == HELP_CONFIG))
+	{
+		fprintf(stderr, "%s -config [params...]\n", myname);
+		fprintf(stderr, "   without params, fetch and print syslogd parameters and statistics\n");
+		fprintf(stderr, "   otherwise, set or reset syslogd configuration parameters\n");
+		fprintf(stderr, "\n");
+	}
+
+	if ((section == HELP_ALL) || (section == HELP_MODULE))
+	{
+		fprintf(stderr, "%s -module [name [action]]\n", myname);
+		fprintf(stderr, "   with no name, prints configuration for all ASL output modules\n");
+		fprintf(stderr, "   with name and no action, prints configuration for named ASL output module\n");
+		fprintf(stderr, "   supported actions - module name required, use '*' (with single quotes) for all modules:\n");
+		fprintf(stderr, "       enable [01]          enables (or disables with 0) named module\n");
+		fprintf(stderr, "                            does not apply to com.apple.asl when '*' is used\n");
+		fprintf(stderr, "       checkpoint [file]    checkpoints all files or specified file for named module\n");
+		fprintf(stderr, "\n");
+	}
+
+	if ((section == HELP_ALL) || (section == HELP_SEARCH))
+	{
+		fprintf(stderr, "%s [-f file...] [-d path...] [-x file] [-w [N]] [-F format] [-nocompress] [-u] [-sort key1 [key2]] [-nsort key1 [key2]] [-k key [[op] val]]... [-o -k key [[op] val]] ...]...\n", myname);
+		fprintf(stderr, "   -f     read named file[s], rather than standard log message store.\n");
+		fprintf(stderr, "   -d     read all file in named directory path, rather than standard log message store.\n");
+		fprintf(stderr, "   -x     export to named ASL format file, rather than printing\n");
+		fprintf(stderr, "   -w     watch data store (^C to quit)\n");
+		fprintf(stderr, "          prints the last N matching lines (default 10) before waiting\n");
+		fprintf(stderr, "          \"-w all\" prints all matching lines before waiting\n");
+		fprintf(stderr, "          \"-w boot\" prints all matching lines since last system boot before waiting\n");
+		fprintf(stderr, "   -F     output format may be \"std\", \"raw\", \"bsd\", or \"xml\"\n");
+		fprintf(stderr, "          format may also be a string containing variables of the form\n");
+		fprintf(stderr, "          $Key or $(Key) - use the latter for non-whitespace delimited variables\n");
+		fprintf(stderr, "   -T     timestamp format may be \"sec\" (seconds), \"utc\" (UTC), or \"local\" (local timezone)\n");
+		fprintf(stderr, "   -E     text encoding may be \"vis\", \"safe\", or \"none\"\n");
+		fprintf(stderr, "   -nodc  no duplicate message compression\n");
+		fprintf(stderr, "   -u     print timestamps using UTC (equivalent to \"-T utc\")\n");
+		fprintf(stderr, "   -sort  sort messages using value for specified key1 (secondary sort by key2 if provided)\n");
+		fprintf(stderr, "   -nsort numeric sort messages using value for specified key1 (secondary sort by key2 if provided)\n");
+		fprintf(stderr, "   -k     key/value match\n");
+		fprintf(stderr, "          if no operator or value is given, checks for the existence of the key\n");
+		fprintf(stderr, "          if no operator is given, default is \"%s\"\n", OP_EQ);
+		fprintf(stderr, "   -B     only process log messages since last system boot\n");
+		fprintf(stderr, "   -C     alias for \"-k Facility com.apple.console\"\n");
+		fprintf(stderr, "   -o     begins a new query\n");
+		fprintf(stderr, "          queries are \'OR\'ed together\n");
+		fprintf(stderr, "operators are zero or more modifiers followed by a comparison\n");
+		fprintf(stderr, "   %s   equal\n", OP_EQ);
+		fprintf(stderr, "   %s   not equal\n", OP_NE);
+		fprintf(stderr, "   %s   greater than\n", OP_GT);
+		fprintf(stderr, "   %s   greater or equal\n", OP_GE);
+		fprintf(stderr, "   %s   less than\n", OP_LT);
+		fprintf(stderr, "   %s   less or equal\n", OP_LE);
+		fprintf(stderr, "optional modifiers for operators\n");
+		fprintf(stderr, "   %c    case-fold\n", MOD_CASE_FOLD);
+		fprintf(stderr, "   %c    regular expression\n", MOD_REGEX);
+		fprintf(stderr, "   %c    substring\n", MOD_SUBSTRING);
+		fprintf(stderr, "   %c    prefix\n", MOD_PREFIX);
+		fprintf(stderr, "   %c    suffix\n", MOD_SUFFIX);
+		fprintf(stderr, "   %c    numeric comparison\n", MOD_NUMERIC);
+	}
+
+	if ((section == HELP_ALL) || (section == HELP_STATS))
+	{
+		fprintf(stderr, "%s -stats [-n n] [-d path] [-v]\n", myname);
+		fprintf(stderr, "   compiles and prints syslogd usage statistics\n");
+		fprintf(stderr, "   -n n     prints stats for just the top n (e.g. top 10) senders\n");
+		fprintf(stderr, "   -d path  reads the ASL database at the given path for statistics\n");
+		fprintf(stderr, "   -v       verbose ([message_count total_data data_average] for 10 minute intervals)\n");
+	}
 }
 
 const char *
@@ -259,6 +321,16 @@ module_control(int argc, char *argv[])
 	const char *val = NULL;
 	uint64_t last;
 	char *str;
+	int i;
+
+	for (i = 2; i < argc; i++)
+	{
+		if ((!strcmp(argv[i], "-help")) || (!strcmp(argv[i], "--help")))
+		{
+			usage(HELP_MODULE);
+			return 0;
+		}
+	}
 
 	asl_msg_t *ctl = _asl_server_control_query();
 	if (ctl == NULL)
@@ -389,10 +461,10 @@ module_control(int argc, char *argv[])
 			fprintf(stderr, "can't allocate memory - exiting\n");
 			exit(-1);
 		}
-		
+
 		asl_msg_list_append(q, qm);
 		asl_msg_release(qm);
-		
+
 		asl_msg_set_key_val_op(qm, ASL_KEY_OPTION, "control", ASL_QUERY_OP_EQUAL);
 		asprintf(&str, "%s checkpoint%s%s", argv[0], (argc > 2) ? " " : "", (argc > 2) ? argv[2] : "");
 		asl_msg_set_key_val_op(qm, "action", str, ASL_QUERY_OP_EQUAL);
@@ -512,7 +584,7 @@ rcontrol_get_string(const char *name, int *val)
 }
 
 int
-rcontrol_set_string(const char *name, int filter)
+rcontrol_set_string(const char *name, uint32_t bits)
 {
 	int t, status;
 	uint64_t x;
@@ -520,7 +592,7 @@ rcontrol_set_string(const char *name, int filter)
 	status = notify_register_plain(name, &t);
 	if (status != NOTIFY_STATUS_OK) return status;
 
-	x = filter;
+	x = bits;
 	status = notify_set_state(t, x);
 	notify_post(NOTIFY_RC);
 	notify_cancel(t);
@@ -688,6 +760,18 @@ rcontrol_name(pid_t pid, uid_t uid)
 	return str;
 }
 
+void
+print_eval_bits(uint32_t eval)
+{
+	printf("0x%08x O%s ", eval, (eval & EVAL_ACTIVE) ? "N " : "FF");
+	if (eval & EVAL_SEND_ASL) printf("ASL ");
+	if (eval & EVAL_SEND_TRACE) printf("TRACE ");
+	if (eval & EVAL_TEXT_FILE) printf("TEXT ");
+	if (eval & EVAL_ASL_FILE) printf("FILE ");
+	if (eval & EVAL_TUNNEL) printf("TUNNEL ");
+	printf("/ 0x%02x %s\n", eval & EVAL_LEVEL_MASK, asl_filter_string(eval & EVAL_LEVEL_MASK));
+}
+
 int
 rcontrol_get(pid_t pid, uid_t uid)
 {
@@ -700,27 +784,29 @@ rcontrol_get(pid_t pid, uid_t uid)
 		status = rcontrol_get_string(rcontrol_name(pid, uid), &filter);
 		if (status == NOTIFY_STATUS_OK)
 		{
-			printf("Master filter mask: %s\n", asl_filter_string(filter));
+			printf("Master settings: ");
+			print_eval_bits(filter);
 			return 0;
 		}
 
-		printf("Unable to determine master filter mask\n");
+		printf("Unable to determine master settings\n");
 		return -1;
 	}
 
 	status = rcontrol_get_string(rcontrol_name(pid, uid), &filter);
 	if (status == NOTIFY_STATUS_OK)
 	{
-		printf("Process %d syslog filter mask: %s\n", pid, asl_filter_string(filter));
+		printf("Process %d syslog settings: ", pid);
+		print_eval_bits(filter);
 		return 0;
 	}
 
-	printf("Unable to determine syslog filter mask for pid %d\n", pid);
+	printf("Unable to determine syslog settings for pid %d\n", pid);
 	return -1;
 }
 
 int
-rcontrol_set(pid_t pid, uid_t uid, int filter)
+rcontrol_set(pid_t pid, uid_t uid, uint32_t bits)
 {
 	int status;
 	const char *rcname;
@@ -729,7 +815,7 @@ rcontrol_set(pid_t pid, uid_t uid, int filter)
 
 	if (pid < 0)
 	{
-		status = rcontrol_set_string(rcname, filter);
+		status = rcontrol_set_string(rcname, bits);
 
 		if (status == NOTIFY_STATUS_OK)
 		{
@@ -741,7 +827,7 @@ rcontrol_set(pid_t pid, uid_t uid, int filter)
 		return -1;
 	}
 
-	status = rcontrol_set_string(rcname, filter);
+	status = rcontrol_set_string(rcname, bits);
 	if (status == NOTIFY_STATUS_OK)
 	{
 		status = notify_post(rcname);
@@ -763,7 +849,7 @@ rsend(asl_msg_t *msg, char *rhost)
 	int s;
 	struct sockaddr_in dst;
 	struct hostent *h;
-	char myname[MAXHOSTNAMELEN + 1];
+	char host_name[MAXHOSTNAMELEN + 1];
 
 	if (msg == NULL) return 0;
 
@@ -787,14 +873,14 @@ rsend(asl_msg_t *msg, char *rhost)
 
 	tick = time(NULL);
 	timestr = NULL;
-	asprintf(&timestr, "%lu", tick);
+	asprintf(&timestr, "%llu", (unsigned long long)tick);
 	if (timestr != NULL)
 	{
 		asl_msg_set_key_val(msg, ASL_KEY_TIME, timestr);
 		free(timestr);
 	}
 
-	if (gethostname(myname, MAXHOSTNAMELEN) == 0) asl_msg_set_key_val(msg, ASL_KEY_HOST, myname);
+	if (gethostname(host_name, MAXHOSTNAMELEN) == 0) asl_msg_set_key_val(msg, ASL_KEY_HOST, host_name);
 
 	len = 0;
 	str = asl_msg_to_string((asl_msg_t *)msg, &len);
@@ -821,7 +907,7 @@ rlegacy(char *msg, int level, char *rhost)
 	int s;
 	struct sockaddr_in dst;
 	struct hostent *h;
-	char myname[MAXHOSTNAMELEN + 1];
+	char host_name[MAXHOSTNAMELEN + 1];
 
 	if (msg == NULL) return 0;
 
@@ -841,14 +927,238 @@ rlegacy(char *msg, int level, char *rhost)
 	ltime = ctime(&tick);
 	ltime[19] = '\0';
 
-	gethostname(myname, MAXHOSTNAMELEN);
+	gethostname(host_name, MAXHOSTNAMELEN);
 
-	asprintf(&out, "<%d>%s %s syslog[%d]: %s", level, ltime+4, myname, getpid(), msg);
+	asprintf(&out, "<%d>%s %s syslog[%d]: %s", level, ltime+4, host_name, getpid(), msg);
 	len = strlen(out);
 	sendto(s, out, len, 0, (const struct sockaddr *)&dst, sizeof(struct sockaddr_in));
 
 	free(out);
 	close(s);
+	return 0;
+}
+
+void
+stats_print_sender_stats(sender_stat_t *s, uint32_t interval, bool print_samples)
+{
+	uint32_t i;
+	uint32_t p10000 = (s->total_messages * 10000) / stats_total_all_messages;
+
+	if (strcmp(s->name, "*")) printf("%s: %u (%u.%02u%%) %lu\n", s->name, s->total_messages, p10000 / 100, p10000 % 100, s->total_size);
+	else printf("TOTAL: %u (100.00%%) %lu\n", s->total_messages, s->total_size);
+
+	if (print_samples)
+	{
+		int k = 0;
+		printf("[message_count data_size data_average]\n");
+
+		for (i = 0, k = 0; i < s->count; i++)
+		{
+			size_t avg = 0;
+
+			if (s->messages[i] > 0) avg = s->size[i] / s->messages[i];
+			printf("[%u %lu %lu]", s->messages[i], s->size[i], avg);
+			if (++k == 6)
+			{
+				printf("\n");
+				k = 0;
+			}
+			else
+			{
+				printf(" ");
+			}
+		}
+
+		for (; i < interval; i++)
+		{
+			printf("[0 0 0]");
+			if ((++k == 6) || ((i + 1) == interval))
+			{
+				printf("\n");
+				k = 0;
+			}
+			else
+			{
+				printf(" ");
+			}
+		}
+
+		printf("\n");
+	}
+}
+
+int
+stats_n_comp(const void *x, const void *y)
+{
+	int pn, qn;
+	sender_stat_t **p = (sender_stat_t **)x;
+	sender_stat_t **q = (sender_stat_t **)y;
+	pn = (*p)->total_messages;
+	qn = (*q)->total_messages;
+	return qn - pn;
+}
+
+void
+stats_sender_set_stat_numbers(const char *name, sender_stat_t *s, uint32_t interval, uint32_t nmsgs, size_t msize)
+{
+	s->messages = (uint32_t *)reallocf(s->messages, interval * sizeof(uint32_t));
+	s->size = (size_t *)reallocf(s->size, interval * sizeof(size_t));
+
+	for (; s->count < interval; s->count++)
+	{
+		s->messages[s->count] = 0;
+		s->size[s->count] = 0;
+	}
+
+	s->messages[interval - 1] = nmsgs;
+	s->size[interval - 1] = msize;
+
+	s->total_messages += nmsgs;
+	s->total_size += msize;
+
+	if (strcmp(name, "*")) stats_total_all_messages += nmsgs;
+}
+
+void
+stats_sender_set_stats(uint32_t interval, const char *name, uint32_t nmsgs, size_t msize)
+{
+	uint32_t i;
+	for (i = 0; i < stats_sender_count; i++)
+	{
+		if (strcmp(stats_sender[i]->name, name) == 0)
+		{
+			stats_sender_set_stat_numbers(name, stats_sender[i], interval, nmsgs, msize);
+			return;
+		}
+	}
+
+	stats_sender = (sender_stat_t **)realloc(stats_sender, (stats_sender_count + 1) * sizeof(sender_stat_t *));
+	stats_sender[stats_sender_count] = (sender_stat_t *)calloc(1, sizeof(sender_stat_t));
+	stats_sender[stats_sender_count]->name = strdup(name);
+
+	stats_sender_set_stat_numbers(name, stats_sender[stats_sender_count], interval, nmsgs, msize);
+	stats_sender_count++;
+}
+
+void
+stats_process_stat_msg(uint32_t interval, asl_object_t msg)
+{
+	uint32_t i, n;
+
+	n = asl_count(msg);
+
+	for (i = 0; i < n; i++)
+	{
+		const char *key = NULL;
+		const char *val = NULL;
+		uint32_t s_n = 0;
+		size_t s_size = 0;
+		if (asl_fetch_key_val_op(msg, i, &key, &val, NULL) != 0) break;
+		if (key[0] == '*')
+		{
+			if (2 == sscanf(val, "%u %lu", &s_n, &s_size))
+			{
+				stats_sender_set_stats(interval, key + 1, s_n, s_size);
+			}
+		}
+	}
+}
+
+
+int
+asl_stats(int argc, char *argv[])
+{
+	asl_object_t msg;
+	uint32_t i, interval, top = UINT32_MAX;
+	bool print_samples = false;
+	asl_object_t store = NULL;
+
+	for (i = 2; i < argc; i++)
+	{
+		if ((!strcmp(argv[i], "-help")) || (!strcmp(argv[i], "--help")))
+		{
+			usage(HELP_STATS);
+			return 0;
+		}
+		else if (!strcmp(argv[i], "-n"))
+		{
+			i++;
+			if (i >= argc)
+			{
+				fprintf(stderr, "error: expected an integer value following \"-n\"\n");
+				usage(HELP_STATS);
+				return -1;
+			}
+
+			top = 1 + atoi(argv[i]);
+		}
+		else if (!strcmp(argv[i], "-v"))
+		{
+			print_samples = true;
+		}
+		else if (!strcmp(argv[i], "-d"))
+		{
+			i++;
+			if (i >= argc)
+			{
+				fprintf(stderr, "error: expected a directory path following \"-d\"\n");
+				usage(HELP_STATS);
+				return -1;
+			}
+			store = asl_open_path(argv[i], 0);
+			if (store == NULL)
+			{
+				fprintf(stderr, "error: failed to open ASL directory %s\n", argv[i]);
+				return -1;
+			}
+		}
+	}
+
+#if TARGET_OS_EMBEDDED
+	if (store == NULL) store = asl_open_path(ASL_IOS_STATS_DIR, 0);
+	if (store == NULL)
+	{
+		fprintf(stderr, "error: failed to open ASL directory %s\n", ASL_IOS_STATS_DIR);
+		return -1;
+	}
+#endif
+
+	asl_object_t stats_query = asl_new(ASL_TYPE_QUERY);
+	if (stats_query == NULL)
+	{
+		fprintf(stderr, "error: failed to create stats_query\n");
+		return -1;
+	}
+
+	asl_set_query(stats_query, ASL_KEY_FACILITY, "com.apple.asl.statistics", ASL_QUERY_OP_EQUAL);
+
+	asl_object_t stats = asl_search(store, stats_query);
+	asl_release(stats_query);
+	asl_release(store);
+
+	if (stats == NULL)
+	{
+		printf("no statistics records in the ASL database\n");
+		return 0;
+	}
+
+	for (interval = 1, msg = asl_next(stats); msg != NULL; interval++, msg = asl_next(stats))
+	{
+		stats_process_stat_msg(interval, msg);
+	}
+
+	asl_release(stats);
+
+	qsort(stats_sender, stats_sender_count, sizeof(sender_stat_t *), stats_n_comp);
+
+	printf("sender: message_count (%% of total) data_size\n");
+
+	for (i = 0; (i < stats_sender_count) && (i < top); i++)
+	{
+		stats_print_sender_stats(stats_sender[i], interval - 1, print_samples);
+	}
+
+	/* NB sender stats are not freed since we exit after this */
 	return 0;
 }
 
@@ -917,18 +1227,22 @@ asl_string_to_char_level(const char *s)
 int
 syslog_remote_control(int argc, char *argv[])
 {
-	int pid, uid, status, mask;
+	int i, pid, uid, status, mask;
+	uint32_t bits;
 
-	if ((argc < 3) || (argc > 4))
+	if (argc < 3)
 	{
-		fprintf(stderr, "usage:\n");
-		fprintf(stderr, "%s -c process [mask]\n", myname);
-		fprintf(stderr, "   get (set if mask is specified) syslog filter mask for process (pid or name)\n");
-		fprintf(stderr, "   process may be pid or process name\n");
-		fprintf(stderr, "   use \"-c 0\" to get master syslog filter mask\n");
-		fprintf(stderr, "   use \"-c 0 off\" to disable master syslog filter mask\n");
-		fprintf(stderr, "\n");
+		usage(HELP_REMOTE_CONTROL);
 		return -1;
+	}
+
+	for (i = 2; i < argc; i++)
+	{
+		if ((!strcmp(argv[i], "-help")) || (!strcmp(argv[i], "--help")))
+		{
+			usage(HELP_REMOTE_CONTROL);
+			return 0;
+		}
 	}
 
 	pid = RC_MASTER;
@@ -966,36 +1280,78 @@ syslog_remote_control(int argc, char *argv[])
 
 	if (pid == 0) pid = RC_MASTER;
 
-	if (argc == 4)
-	{
-		if ((pid == RC_MASTER) && (!strcasecmp(argv[3], "off"))) mask = 0;
-		else
-		{
-			mask = asl_string_to_filter(argv[3]);
-			if (mask < 0)
-			{
-				printf("unknown syslog mask: %s\n", argv[3]);
-				return -1;
-			}
-		}
-
-		rcontrol_set(pid, uid, mask);
-	}
-	else
+	if (argc == 3)
 	{
 		rcontrol_get(pid, uid);
+		return 0;
 	}
 
+	bits = EVAL_ACTIVE | EVAL_SEND_ASL | EVAL_SEND_TRACE;
+
+	for (i = 3; i < argc; i++)
+	{
+		if ((!strcasecmp(argv[i], "off")) || (!strcmp(argv[i], "0")))
+		{
+			bits = 0;
+		}
+		else if (!strcmp(argv[i], "-s"))
+		{
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-'))
+			{
+				i++;
+				if (!strcasecmp(argv[i], "off") || !strcmp(argv[i], "0")) bits &= ~EVAL_SEND_ASL;
+			}
+		}
+		else if (!strcmp(argv[i], "-t"))
+		{
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-'))
+			{
+				i++;
+				if (!strcasecmp(argv[i], "off") || !strcmp(argv[i], "0")) bits &= ~EVAL_SEND_TRACE;
+			}
+		}
+		else
+		{
+			mask = asl_string_to_filter(argv[i]);
+			if (mask < 0)
+			{
+				printf("can't understand mask: %s\n", argv[i]);
+				return -1;
+			}
+			bits = (bits & EVAL_ACTION_MASK) | mask;
+		}
+	}
+
+	rcontrol_set(pid, uid, bits);
 	return 0;
 }
 
 int
 syslog_send(int argc, char *argv[])
 {
-	int i, start, kv, len, rfmt, rlevel;
-	asl_client_t *asl;
+	int status, i, start, kv, len, rfmt, rlevel;
+	asl_object_t asl = NULL;
 	asl_msg_t *m;
 	char tmp[64], *str, *rhost;
+	struct timeval tval = {0, 0};
+	char host_name[MAXHOSTNAMELEN + 1];
+
+	for (i = 2; i < argc; i++)
+	{
+		if ((!strcmp(argv[i], "-help")) || (!strcmp(argv[i], "--help")))
+		{
+			usage(HELP_SEND);
+			return 0;
+		}
+	}
+
+	status = gettimeofday(&tval, NULL);
+	if (status != 0)
+	{
+		time_t tick = time(NULL);
+		tval.tv_sec = tick;
+		tval.tv_usec = 0;
+	}
 
 	kv = 0;
 	rhost = NULL;
@@ -1026,16 +1382,42 @@ syslog_send(int argc, char *argv[])
 			}
 			start = i+1;
 		}
+		else if (!strcmp(argv[i], "-x"))
+		{
+			i++;
+			if (i >= argc)
+			{
+				fprintf(stderr, "expected a path following -x\n");
+				return -1;
+			}
+
+			asl = asl_open_path(argv[i], ASL_OPT_OPEN_WRITE);
+			if (asl == NULL)
+			{
+				fprintf(stderr, "Could not open %s for write\n", argv[i]);
+				return -1;
+			}
+		}
 	}
 
-	asl = asl_client_open(myname, "syslog", 0);
-	asl_client_set_filter(asl, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
 
-	m = asl_msg_new(ASL_TYPE_MSG);
-	asl_msg_set_key_val(m, ASL_KEY_SENDER, myname);
+	if (asl == NULL) asl = asl_open(myname, "syslog", 0);
+	asl_set_filter(asl, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
 
-	sprintf(tmp, "%d", rlevel);
-	asl_msg_set_key_val(m, ASL_KEY_LEVEL, tmp);
+	m = asl_base_msg(NULL, rlevel, &tval, myname, "syslog", NULL);
+	if (m == NULL)
+	{
+		fprintf(stderr, "Could not create message\n");
+		return -1;
+	}
+
+	if (gethostname(host_name, MAXHOSTNAMELEN) == 0) asl_msg_set_key_val(m, ASL_KEY_HOST, host_name);
+
+	snprintf(tmp, sizeof(tmp), "%d", getuid());
+	asl_msg_set_key_val(m, ASL_KEY_UID, tmp);
+
+	snprintf(tmp, sizeof(tmp), "%d", getgid());
+	asl_msg_set_key_val(m, ASL_KEY_GID, tmp);
 
 	str = NULL;
 
@@ -1065,7 +1447,7 @@ syslog_send(int argc, char *argv[])
 
 	if (rhost == NULL)
 	{
-		asl_client_send(asl, m);
+		asl_send(asl, (asl_object_t)m);
 	}
 	else if (rfmt == SEND_FORMAT_ASL)
 	{
@@ -1080,7 +1462,7 @@ syslog_send(int argc, char *argv[])
 
 	if (str != NULL) free(str);
 
-	asl_client_release(asl);
+	asl_release(asl);
 
 	return 0;
 }
@@ -1095,6 +1477,15 @@ syslog_config(int argc, char *argv[])
 	asl_msg_t *m;
 	asl_string_t *str;
 	const char *key, *val;
+
+	for (i = 2; i < argc; i++)
+	{
+		if ((!strcmp(argv[i], "-help")) || (!strcmp(argv[i], "--help")))
+		{
+			usage(HELP_CONFIG);
+			return 0;
+		}
+	}
 
 	if (argc == 2)
 	{
@@ -1155,6 +1546,15 @@ syslog_control(int argc, char *argv[])
 	asl_client_t *asl;
 	asl_msg_t *m;
 	asl_string_t *str;
+
+	for (i = 2; i < argc; i++)
+	{
+		if ((!strcmp(argv[i], "-help")) || (!strcmp(argv[i], "--help")))
+		{
+			usage(HELP_CONTROL);
+			return 0;
+		}
+	}
 
 	uid = geteuid();
 	if (uid != 0)
@@ -1331,7 +1731,7 @@ syslogd_query(asl_msg_list_t *q, uint64_t start, int count, int dir, uint64_t *l
 	len = 0;
 	str = asl_msg_list_to_string(q, &len);
 
-	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmstr, len, TRUE);
+	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmstr, len, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_ASL));
 	if (kstatus != KERN_SUCCESS)
 	{
 		free(str);
@@ -1538,15 +1938,15 @@ sort_compare_key(asl_msg_t *a, asl_msg_t *b, const char *key)
 }
 
 int
-sort_compare(const void *ap, const void *bp)
+sort_compare(const void **ap, const void **bp)
 {
 	int cmp;
 	asl_msg_t *a, *b;
 
 	if (sort_key == NULL) return 0;
 
-	a = (asl_msg_t *)ap;
-	b = (asl_msg_t *)bp;
+	a = (asl_msg_t *)*ap;
+	b = (asl_msg_t *)*bp;
 
 	cmp = sort_compare_key(a, b, sort_key);
 	if ((cmp == 0) && (sort_key_2 != NULL)) cmp = sort_compare_key(a, b, sort_key_2);
@@ -1921,18 +2321,25 @@ main(int argc, char *argv[])
 
 	if (getuid() == 0) iamroot = 1;
 
+	if ((argc > 1) && ((!strcmp(argv[1], "-help")) || (!strcmp(argv[1], "--help"))))
+	{
+		usage(HELP_ALL);
+		exit(0);
+	}
+
 	for (i = 1; i < argc; i++)
 	{
-		if ((!strcmp(argv[i], "-help")) || (!strcmp(argv[i], "--help")))
-		{
-			usage();
-			exit(0);
-		}
 
 		if ((!strcmp(argv[i], "-time")) || (!strcmp(argv[i], "--time")))
 		{
 			qmin = time(NULL);
 			printf("%llu\n", qmin);
+			exit(0);
+		}
+
+		if ((!strcmp(argv[i], "-stats")) || (!strcmp(argv[i], "--stats")))
+		{
+			asl_stats(argc, argv);
 			exit(0);
 		}
 
@@ -2113,7 +2520,7 @@ main(int argc, char *argv[])
 			if ((i + 1) >= argc)
 			{
 				asl_msg_list_release(qlist);
-				usage();
+				usage(HELP_SEARCH);
 				exit(1);
 			}
 
@@ -2126,7 +2533,7 @@ main(int argc, char *argv[])
 			if ((i + 1) >= argc)
 			{
 				asl_msg_list_release(qlist);
-				usage();
+				usage(HELP_SEARCH);
 				exit(1);
 			}
 
@@ -2143,7 +2550,7 @@ main(int argc, char *argv[])
 			if ((i + 1) >= argc)
 			{
 				asl_msg_list_release(qlist);
-				usage();
+				usage(HELP_SEARCH);
 				exit(1);
 			}
 
@@ -2178,7 +2585,7 @@ main(int argc, char *argv[])
 			if ((i + 1) >= argc)
 			{
 				asl_msg_list_release(qlist);
-				usage();
+				usage(HELP_SEARCH);
 				exit(1);
 			}
 
@@ -2240,7 +2647,7 @@ main(int argc, char *argv[])
 					fprintf(stderr, "invalid sequence: -k");
 					for (j = i; j <= n; j++) fprintf(stderr, " %s", argv[j]);
 					fprintf(stderr, "\n");
-					usage();
+					usage(HELP_SEARCH);
 					exit(1);
 				}
 			}
@@ -2359,22 +2766,22 @@ main(int argc, char *argv[])
 			fprintf(stderr, "\ncan't allocate memory - exiting\n");
 			exit(1);
 		}
-		
+
 		bq = asl_msg_new(ASL_TYPE_QUERY);
 		if (bq == NULL)
 		{
 			fprintf(stderr, "\ncan't allocate memory - exiting\n");
 			exit(1);
 		}
-		
+
 		asl_msg_list_append(bt, bq);
 		asl_msg_release(bq);
-		
+
 		asl_msg_set_key_val_op(bq, "ut_type", "2", ASL_QUERY_OP_EQUAL);
-		
+
 		search_once(NULL, NULL, 0, (asl_msg_list_t *)bt, -1, &qmin, 1, 1, -1, 0);
 		asl_msg_list_release(bt);
-		
+
 		if (qmin > 0) qmin--;
 		tail_count = 0;
 	}

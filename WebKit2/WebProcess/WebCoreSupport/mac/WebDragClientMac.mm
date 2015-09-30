@@ -80,22 +80,32 @@ void WebDragClient::startDrag(RetainPtr<NSImage> image, const IntPoint& point, c
     if (!bitmap || !bitmap->createHandle(handle))
         return;
 
+    m_page->willStartDrag();
+
     // FIXME: Seems this message should be named StartDrag, not SetDragImage.
     m_page->send(Messages::WebPageProxy::SetDragImage(frame.view()->contentsToWindow(point), handle, linkDrag));
 }
 
 static WebCore::CachedImage* cachedImage(Element& element)
 {
-    RenderObject* renderer = element.renderer();
-    if (!renderer)
-        return 0;
-    if (!renderer->isRenderImage())
-        return 0;
-    WebCore::CachedImage* image = toRenderImage(renderer)->cachedImage();
+    auto* renderer = element.renderer();
+    if (!is<WebCore::RenderImage>(renderer))
+        return nullptr;
+    WebCore::CachedImage* image = downcast<WebCore::RenderImage>(*renderer).cachedImage();
     if (!image || image->errorOccurred()) 
-        return 0;
+        return nullptr;
     return image;
 }
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+void WebDragClient::declareAndWriteAttachment(const String& pasteboardName, Element& element, const URL& url, const String& path, WebCore::Frame* frame)
+{
+    ASSERT(pasteboardName == String(NSDragPboard));
+    
+    NSURL* nsURL = (NSURL *)url;
+    m_page->send(Messages::WebPageProxy::SetPromisedDataForAttachment(pasteboardName, String(nsURL.lastPathComponent), String(nsURL.pathExtension), path, String(nsURL.absoluteString), userVisibleString(nsURL)));
+}
+#endif
 
 void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Element& element, const URL& url, const String& label, Frame*)
 {
@@ -125,25 +135,25 @@ void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Eleme
     size_t imageSize = imageBuffer->size();
     SharedMemory::Handle imageHandle;
     
-    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(imageBuffer->size());
+    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::allocate(imageBuffer->size());
     if (!sharedMemoryBuffer)
         return;
     memcpy(sharedMemoryBuffer->data(), imageBuffer->data(), imageSize);
-    sharedMemoryBuffer->createHandle(imageHandle, SharedMemory::ReadOnly);
+    sharedMemoryBuffer->createHandle(imageHandle, SharedMemory::Protection::ReadOnly);
     
     RetainPtr<CFDataRef> data = archive ? archive->rawDataRepresentation() : 0;
     SharedMemory::Handle archiveHandle;
     size_t archiveSize = 0;
     if (data) {
         RefPtr<SharedBuffer> archiveBuffer = SharedBuffer::wrapNSData((NSData *)data.get());
-        RefPtr<SharedMemory> archiveSharedMemoryBuffer = SharedMemory::create(archiveBuffer->size());
+        RefPtr<SharedMemory> archiveSharedMemoryBuffer = SharedMemory::allocate(archiveBuffer->size());
         if (!archiveSharedMemoryBuffer)
             return;
         archiveSize = archiveBuffer->size();
         memcpy(archiveSharedMemoryBuffer->data(), archiveBuffer->data(), archiveSize);
-        archiveSharedMemoryBuffer->createHandle(archiveHandle, SharedMemory::ReadOnly);
+        archiveSharedMemoryBuffer->createHandle(archiveHandle, SharedMemory::Protection::ReadOnly);
     }
-    m_page->send(Messages::WebPageProxy::SetPromisedData(pasteboardName, imageHandle, imageSize, String([response suggestedFilename]), extension, title, String([[response URL] absoluteString]), userVisibleString((NSURL *)url), archiveHandle, archiveSize));
+    m_page->send(Messages::WebPageProxy::SetPromisedDataForImage(pasteboardName, imageHandle, imageSize, String([response suggestedFilename]), extension, title, String([[response URL] absoluteString]), userVisibleString((NSURL *)url), archiveHandle, archiveSize));
 }
 
 } // namespace WebKit

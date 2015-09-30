@@ -30,44 +30,48 @@
 
 #include "UserActivity.h"
 #include "ViewState.h"
-#include <wtf/HashSet.h>
-#include <wtf/WeakPtr.h>
+#include <wtf/RefCounter.h>
 
 namespace WebCore {
 
 class Page;
-class PageActivityAssertionToken;
+
+enum PageActivityAssertionTokenType { };
+typedef RefCounter::Token<PageActivityAssertionTokenType> PageActivityAssertionToken;
+
+struct PageActivityState {
+    enum {
+        UserInputActivity = 1 << 0,
+        AudiblePlugin = 1 << 1,
+        MediaActivity = 1 << 2,
+        PageLoadActivity = 1 << 3,
+    };
+
+    typedef unsigned Flags;
+
+    static const Flags NoFlags = 0;
+    static const Flags AllFlags = UserInputActivity | AudiblePlugin | MediaActivity | PageLoadActivity;
+};
 
 class PageThrottler {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    PageThrottler(Page&, ViewState::Flags);
+    PageThrottler(Page&);
 
-    void setViewState(ViewState::Flags);
-
-    void didReceiveUserInput() { m_hysteresis.impulse(); }
-    void pluginDidEvaluateWhileAudioIsPlaying() { m_hysteresis.impulse(); }
-    std::unique_ptr<PageActivityAssertionToken> mediaActivityToken();
-    std::unique_ptr<PageActivityAssertionToken> pageLoadActivityToken();
+    void didReceiveUserInput() { m_userInputHysteresis.impulse(); }
+    void pluginDidEvaluateWhileAudioIsPlaying() { m_audiblePluginHysteresis.impulse(); }
+    PageActivityAssertionToken mediaActivityToken();
+    PageActivityAssertionToken pageLoadActivityToken();
 
 private:
-    friend class PageActivityAssertionToken;
-    WeakPtr<PageThrottler> weakPtr() { return m_weakPtrFactory.createWeakPtr(); }
-    void incrementActivityCount();
-    void decrementActivityCount();
-
-    void updateHysteresis();
-
-    friend class HysteresisActivity<PageThrottler>;
-    void started();
-    void stopped();
+    void setActivityFlag(PageActivityState::Flags, bool);
 
     Page& m_page;
-    ViewState::Flags m_viewState;
-    WeakPtrFactory<PageThrottler> m_weakPtrFactory;
-    HysteresisActivity<PageThrottler> m_hysteresis;
-    UserActivity::Impl m_activity;
-    size_t m_activityCount;
+    PageActivityState::Flags m_activityState { PageActivityState::NoFlags };
+    HysteresisActivity m_userInputHysteresis;
+    HysteresisActivity m_audiblePluginHysteresis;
+    RefCounter m_mediaActivityCounter;
+    RefCounter m_pageLoadActivityCounter;
 };
 
 }

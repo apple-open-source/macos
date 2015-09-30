@@ -39,19 +39,32 @@
 
 namespace JSC { namespace FTL {
 
+class OutOfLineCodeInfo {
+public:
+    OutOfLineCodeInfo(std::unique_ptr<LinkBuffer> linkBuffer, const char* codeDescription)
+        : m_linkBuffer(WTF::move(linkBuffer))
+        , m_codeDescription(codeDescription)
+    {
+    }
+
+    std::unique_ptr<LinkBuffer> m_linkBuffer;
+    const char* m_codeDescription;
+};
+
 class JITFinalizer : public DFG::Finalizer {
 public:
     JITFinalizer(DFG::Plan&);
     virtual ~JITFinalizer();
-    
+
     size_t codeSize() override;
     bool finalize() override;
     bool finalizeFunction() override;
 
-    OwnPtr<LinkBuffer> exitThunksLinkBuffer;
-    OwnPtr<LinkBuffer> entrypointLinkBuffer;
-    OwnPtr<LinkBuffer> sideCodeLinkBuffer;
-    OwnPtr<LinkBuffer> handleExceptionsLinkBuffer;
+    std::unique_ptr<LinkBuffer> exitThunksLinkBuffer;
+    std::unique_ptr<LinkBuffer> entrypointLinkBuffer;
+    std::unique_ptr<LinkBuffer> sideCodeLinkBuffer;
+    std::unique_ptr<LinkBuffer> handleExceptionsLinkBuffer;
+    Vector<OutOfLineCodeInfo> outOfLineCodeInfos;
     Vector<SlowPathCall> slowPathCalls; // Calls inside the side code.
     Vector<OSRExitCompilationInfo> osrExit;
     GeneratedFunction function;

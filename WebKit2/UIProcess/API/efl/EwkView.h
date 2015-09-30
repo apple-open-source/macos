@@ -29,7 +29,7 @@
 #include "WKRetainPtr.h"
 #include "WebViewEfl.h"
 #include <WebCore/RefPtrCairo.h>
-#include <WebCore/TextDirection.h>
+#include <WebCore/TextFlags.h>
 #include <WebCore/Timer.h>
 #include <WebKit/WKBase.h>
 
@@ -38,7 +38,12 @@
 #include "ewk_touch.h"
 #endif
 
+#ifdef HAVE_ECORE_X
+#include <Ecore_X.h>
+#endif
+
 typedef struct _cairo_surface cairo_surface_t;
+typedef struct _Evas_GL Evas_GL;
 
 namespace WebKit {
 class ContextMenuClientEfl;
@@ -55,6 +60,10 @@ class WebPageProxy;
 #if ENABLE(VIBRATION)
 class VibrationClientEfl;
 #endif
+
+#if HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)
+class WebAccessibility;
+#endif
 }
 
 namespace WebCore {
@@ -62,6 +71,7 @@ class AffineTransform;
 class Color;
 class CoordinatedGraphicsScene;
 class Cursor;
+class FloatPoint;
 class EvasGLContext;
 class EvasGLSurface;
 class Image;
@@ -117,6 +127,8 @@ public:
     void setCustomTextEncodingName(const char* customEncoding);
     const char* userAgent() const { return m_userAgent; }
     void setUserAgent(const char* userAgent);
+    const char* applicationNameForUserAgent() const { return m_applicationNameForUserAgent; }
+    void setApplicationNameForUserAgent(const char* applicationNameForUserAgent);
 
     bool mouseEventsEnabled() const { return m_mouseEventsEnabled; }
     void setMouseEventsEnabled(bool enabled);
@@ -127,10 +139,13 @@ public:
     void doneWithTouchEvent(WKTouchEventRef, bool);
 #endif
 
-    void updateCursor();
+#ifdef HAVE_ECORE_X
+    void updateCursor(Ecore_X_Window);
+#endif
     void setCursor(const WebCore::Cursor& cursor);
 
     void scheduleUpdateDisplay();
+    void setViewportPosition(const WebCore::FloatPoint& contentsPosition);
 
 #if ENABLE(FULLSCREEN_API)
     void enterFullScreen();
@@ -178,17 +193,20 @@ public:
     // FIXME: needs refactoring (split callback invoke)
     void informURLChange();
 
+    void updateScaleToPageViewportController(double scaleFactor, int x, int y);
+
     PassRefPtr<cairo_surface_t> takeSnapshot();
     bool scrollBy(const WebCore::IntSize&);
 
+    void setBackgroundColor(int red, int green, int blue, int alpha);
+
     void didFindZoomableArea(const WKPoint&, const WKRect&);
 
-    // FIXME: PageViewportController needs to fix a problem that current page is shown in (0,0) position when starting to load new page.
-    // Below functions are to fix this problem for now.
-    void setWaitingForNewPage() { m_isWaitingForNewPage = true; }
-    bool didCommitNewPage() { return m_isWaitingForNewPage = false; }
-
     static const char smartClassName[];
+
+#if HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)
+    WebKit::WebAccessibility* webAccessibility() { return m_webAccessibility.get(); }
+#endif
 
 private:
     EwkView(WKViewRef, Evas_Object*);
@@ -200,7 +218,7 @@ private:
     WebCore::IntSize size() const;
     WebCore::IntSize deviceSize() const;
 
-    void displayTimerFired(WebCore::Timer*);
+    void displayTimerFired();
 
     // Evas_Smart_Class callback interface:
     static void handleEvasObjectAdd(Evas_Object*);
@@ -239,7 +257,7 @@ private:
     Evas_Object* m_evasObject;
     RefPtr<EwkContext> m_context;
     RefPtr<EwkPageGroup> m_pageGroup;
-    EflUniquePtr<Evas_GL> m_evasGL;
+    Evas_GL* m_evasGL;
     std::unique_ptr<WebCore::EvasGLContext> m_evasGLContext;
     std::unique_ptr<WebCore::EvasGLSurface> m_evasGLSurface;
     bool m_pendingSurfaceResize;
@@ -257,6 +275,11 @@ private:
 #endif
     std::unique_ptr<EwkBackForwardList> m_backForwardList;
     RefPtr<EwkWindowFeatures> m_windowFeatures;
+
+#ifdef HAVE_ECORE_X
+    Ecore_X_Cursor m_customCursor;
+#endif
+
     union CursorIdentifier {
         CursorIdentifier()
             : image(nullptr)
@@ -265,13 +288,13 @@ private:
         WebCore::Image* image;
         const char* group;
     } m_cursorIdentifier;
-    bool m_useCustomCursor;
 
     WKEinaSharedString m_url;
     mutable WKEinaSharedString m_title;
     WKEinaSharedString m_theme;
     WKEinaSharedString m_customEncoding;
     WKEinaSharedString m_userAgent;
+    WKEinaSharedString m_applicationNameForUserAgent;
     bool m_mouseEventsEnabled;
 #if ENABLE(TOUCH_EVENTS)
     bool m_touchEventsEnabled;
@@ -283,6 +306,10 @@ private:
     std::unique_ptr<WebKit::InputMethodContextEfl> m_inputMethodContext;
 #if ENABLE(INPUT_TYPE_COLOR)
     std::unique_ptr<EwkColorPicker> m_colorPicker;
+#endif
+
+#if HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)
+    std::unique_ptr<WebKit::WebAccessibility> m_webAccessibility;
 #endif
 
     WebKit::PageViewportControllerClientEfl m_pageViewportControllerClient;

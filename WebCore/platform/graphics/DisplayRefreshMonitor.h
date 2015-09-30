@@ -42,7 +42,7 @@ class DisplayRefreshMonitorClient;
 class DisplayRefreshMonitor : public RefCounted<DisplayRefreshMonitor> {
 public:
     static RefPtr<DisplayRefreshMonitor> create(DisplayRefreshMonitorClient&);
-    virtual ~DisplayRefreshMonitor();
+    WEBCORE_EXPORT virtual ~DisplayRefreshMonitor();
     
     // Return true if callback request was scheduled, false if it couldn't be
     // (e.g., hardware refresh is not available)
@@ -77,8 +77,8 @@ public:
     static RefPtr<DisplayRefreshMonitor> createDefaultDisplayRefreshMonitor(PlatformDisplayID);
 
 protected:
-    explicit DisplayRefreshMonitor(PlatformDisplayID);
-    static void handleDisplayRefreshedNotificationOnMainThread(void* data);
+    WEBCORE_EXPORT explicit DisplayRefreshMonitor(PlatformDisplayID);
+    WEBCORE_EXPORT static void handleDisplayRefreshedNotificationOnMainThread(void* data);
 
 private:
     void displayDidRefresh();

@@ -33,7 +33,6 @@
 #include "CachedResourceRequest.h"
 #include "MediaPlayerPrivateAVFoundationCF.h"
 #include "NotImplemented.h"
-#include "ResourceBuffer.h"
 #include "ResourceLoaderOptions.h"
 #include "SharedBuffer.h"
 #include "SoftLinking.h"
@@ -73,9 +72,9 @@ void WebCoreAVCFResourceLoader::startLoading()
     URL requestURL = CFURLRequestGetURL(urlRequest.get());
 
     // ContentSecurityPolicyImposition::DoPolicyCheck is a placeholder value. It does not affect the request since Content Security Policy does not apply to raw resources.
-    CachedResourceRequest request(ResourceRequest(requestURL), ResourceLoaderOptions(SendCallbacks, DoNotSniffContent, BufferData, DoNotAllowStoredCredentials, DoNotAskClientForCrossOriginCredentials, DoSecurityCheck, UseDefaultOriginRestrictionsForType, ContentSecurityPolicyImposition::DoPolicyCheck));
+    CachedResourceRequest request(ResourceRequest(requestURL), ResourceLoaderOptions(SendCallbacks, DoNotSniffContent, BufferData, DoNotAllowStoredCredentials, DoNotAskClientForCrossOriginCredentials, DoSecurityCheck, UseDefaultOriginRestrictionsForType, DoNotIncludeCertificateInfo, ContentSecurityPolicyImposition::DoPolicyCheck));
 
-    request.mutableResourceRequest().setPriority(ResourceLoadPriorityLow);
+    request.mutableResourceRequest().setPriority(ResourceLoadPriority::Low);
     CachedResourceLoader* loader = m_parent->player()->cachedResourceLoader();
     m_resource = loader ? loader->requestRawResource(request) : 0;
     if (m_resource)

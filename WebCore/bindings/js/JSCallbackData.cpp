@@ -60,7 +60,7 @@ JSValue JSCallbackData::invokeCallback(JSValue thisValue, MarkedArgumentBuffer& 
     CallData callData;
     CallType callType = callback()->methodTable()->getCallData(callback(), callData);
     if (callType == CallTypeNone) {
-        function = callback()->get(exec, Identifier(exec, "handleEvent"));
+        function = callback()->get(exec, Identifier::fromString(exec, "handleEvent"));
         callType = getCallData(function, callData);
         if (callType == CallTypeNone)
             return JSValue();
@@ -73,10 +73,10 @@ JSValue JSCallbackData::invokeCallback(JSValue thisValue, MarkedArgumentBuffer& 
 
     InspectorInstrumentationCookie cookie = JSMainThreadExecState::instrumentFunctionCall(context, callType, callData);
 
-    JSValue exception;
+    NakedPtr<Exception> exception;
     JSValue result = context->isDocument()
-        ? JSMainThreadExecState::call(exec, function, callType, callData, thisValue, args, &exception)
-        : JSC::call(exec, function, callType, callData, thisValue, args, &exception);
+        ? JSMainThreadExecState::call(exec, function, callType, callData, thisValue, args, exception)
+        : JSC::call(exec, function, callType, callData, thisValue, args, exception);
 
     InspectorInstrumentation::didCallFunction(cookie, context);
 

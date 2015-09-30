@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2014 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
  * Copyright (C) 2009, 2010, 2011, 2012 Google Inc. All rights reserved.
@@ -471,7 +471,7 @@ void InputType::forwardEvent(Event*)
 
 bool InputType::shouldSubmitImplicitly(Event* event)
 {
-    return event->isKeyboardEvent() && event->type() == eventNames().keypressEvent && toKeyboardEvent(event)->charCode() == '\r';
+    return is<KeyboardEvent>(*event) && event->type() == eventNames().keypressEvent && downcast<KeyboardEvent>(*event).charCode() == '\r';
 }
 
 PassRefPtr<HTMLFormElement> InputType::formForSubmission() const
@@ -479,7 +479,7 @@ PassRefPtr<HTMLFormElement> InputType::formForSubmission() const
     return element().form();
 }
 
-RenderPtr<RenderElement> InputType::createInputRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> InputType::createInputRenderer(Ref<RenderStyle>&& style)
 {
     return RenderPtr<RenderElement>(RenderElement::createFor(element(), WTF::move(style)));
 }
@@ -604,6 +604,10 @@ void InputType::srcAttributeChanged()
 {
 }
 
+void InputType::maxResultsAttributeChanged()
+{
+}
+
 bool InputType::shouldRespectAlignAttribute()
 {
     return false;
@@ -661,11 +665,6 @@ String InputType::defaultValue() const
     return String();
 }
 
-bool InputType::canSetSuggestedValue()
-{
-    return false;
-}
-
 bool InputType::shouldSendChangeEventAfterCheckedChanged()
 {
     return true;
@@ -718,6 +717,11 @@ String InputType::visibleValue() const
     return element().value();
 }
 
+bool InputType::isEmptyValue() const
+{
+    return true;
+}
+
 String InputType::sanitizeValue(const String& proposedValue) const
 {
     return proposedValue;
@@ -751,11 +755,6 @@ bool InputType::shouldResetOnDocumentActivation()
 }
 
 bool InputType::shouldRespectListAttribute()
-{
-    return false;
-}
-
-bool InputType::shouldRespectSpeechAttribute()
 {
     return false;
 }
@@ -925,7 +924,11 @@ void InputType::requiredAttributeChanged()
 {
 }
 
-void InputType::valueAttributeChanged()
+void InputType::capsLockStateMayHaveChanged()
+{
+}
+
+void InputType::updateAutoFillButton()
 {
 }
 
@@ -957,10 +960,6 @@ Decimal InputType::findClosestTickMarkValue(const Decimal&)
     return Decimal::nan();
 }
 #endif
-
-void InputType::updateClearButtonVisibility()
-{
-}
 
 bool InputType::supportsIndeterminateAppearance() const
 {

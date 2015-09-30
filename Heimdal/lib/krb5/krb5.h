@@ -102,6 +102,7 @@ typedef struct krb5_rd_req_out_ctx_data *krb5_rd_req_out_ctx;
 
 /* krb5_rd_req_out_ctx flags */
 #define KRB5_RD_REQ_OUT_PAC_VALID	1
+#define KRB5_RD_REQ_OUT_PAC_CREDENTIALS	2
 
 typedef CKSUMTYPE krb5_cksumtype;
 
@@ -310,8 +311,12 @@ typedef enum krb5_key_usage {
     /* Checksum key usage on KRB5SignedPath */
     KRB5_KU_CANONICALIZED_NAMES = -23,
     /* Checksum key usage on PA-CANONICALIZED */
-    KRB5_KU_H5L_COOKIE = -25
+    KRB5_KU_H5L_COOKIE = -25,
     /* encrypted foo */
+    KRB5_KU_H5L_PFS_AP_CHECKSUM_CLIENT = -27,
+    /* Checksum for pfs checksum in AP protocol */
+    KRB5_KU_H5L_PFS_AP_CHECKSUM_SERVER = -29
+    /* Checksum for pfs checksum in AP protocol */
 } krb5_key_usage;
 
 typedef krb5_key_usage krb5_keyusage;
@@ -349,7 +354,8 @@ typedef enum krb5_address_type {
 enum {
   AP_OPTS_USE_SESSION_KEY = 1,
   AP_OPTS_MUTUAL_REQUIRED = 2,
-  AP_OPTS_USE_SUBKEY = 4		/* library internal */
+  AP_OPTS_USE_SUBKEY = 4,		/* library internal */
+  AP_OPTS_USE_PFS = 8			/* library internal */
 };
 
 typedef HostAddress krb5_address;
@@ -650,7 +656,9 @@ enum {
     KRB5_AUTH_CONTEXT_RET_SEQUENCE 		= 8,
     KRB5_AUTH_CONTEXT_PERMIT_ALL   		= 16,
     KRB5_AUTH_CONTEXT_USE_SUBKEY   		= 32,
-    KRB5_AUTH_CONTEXT_CLEAR_FORWARDED_CRED	= 64
+    KRB5_AUTH_CONTEXT_CLEAR_FORWARDED_CRED	= 64,
+
+    KRB5_AUTH_CONTEXT_USED_PFS			= 256
 };
 
 /* flags for krb5_auth_con_genaddrs */
@@ -667,7 +675,13 @@ enum {
     KRB5_AUTH_CONTEXT_CLEAR_REMOTE_ADDR		= 2
 };
 
-typedef struct krb5_auth_context_data {
+struct _krb5_pfs_data;
+
+/*
+ * krb5_auth_context_data structure should be hidden and not exported for ABI sanity
+ */
+
+struct krb5_auth_context_data {
     unsigned int flags;
 
     krb5_address *local_address;
@@ -692,7 +706,11 @@ typedef struct krb5_auth_context_data {
     
     AuthorizationData *auth_data;
 
-}krb5_auth_context_data, *krb5_auth_context;
+    struct _krb5_pfs_data *pfs;
+
+};
+
+typedef struct krb5_auth_context_data krb5_auth_context_data, *krb5_auth_context;
 
 typedef struct {
     KDC_REP kdc_rep;
@@ -861,6 +879,7 @@ typedef struct krb5_krbhst_info {
     struct addrinfo *ai;
     struct krb5_krbhst_info *next;
     void *__private;
+    const char *source;
     char *path;
     char hostname[1]; /* has to come last */
 } krb5_krbhst_info;

@@ -16,7 +16,8 @@ enum
     isBlackListed = (1UL << 1),
     isGrayListed = (1UL << 2),
     hasFullCert = (1UL << 3),
-    hasCertHash = (1UL << 4)
+    hasCertHash = (1UL << 4),
+    isAllowListed = (1UL << 5)
 };
 
 typedef unsigned long PSAssetFlags;

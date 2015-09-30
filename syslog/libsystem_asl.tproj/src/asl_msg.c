@@ -9,7 +9,7 @@
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -38,6 +38,7 @@
 #include <asl_object.h>
 #include <asl_private.h>
 #include <asl_core.h>
+#include <asl_client.h>
 #include <sys/types.h>
 #include <libkern/OSAtomic.h>
 #include <asl_msg.h>
@@ -61,12 +62,6 @@
 #define PAGE_OBJECT 1
 
 #define forever for(;;)
-
-#define streq(A, B) (strcmp(A, B) == 0)
-#define streq_len(A, B, C) (strncmp(A, B, C) == 0)
-#define strneq(A, B) (strcmp(A, B) != 0)
-#define strcaseeq(A, B) (strcasecmp(A, B) == 0)
-#define strcaseneq(A, B) (strcasecmp(A, B) != 0)
 
 #ifndef ASL_QUERY_OP_FALSE
 #define ASL_QUERY_OP_FALSE 0
@@ -221,21 +216,132 @@ _asl_msg_std_key(const char *s, uint32_t len)
 #pragma mark -
 #pragma mark asl_msg
 
-static asl_msg_t *
-_asl_msg_make_page(void)
+static uint32_t
+_slot_count(asl_msg_t *m)
 {
-	int i;
-	asl_msg_t *out = (asl_msg_t *)calloc(1, sizeof(asl_msg_t));
+	if (m == NULL) return 0;
+	if (m->asl_type == ASL_TYPE_MSG) return ASL_MSG_KVO_MSG_SLOTS;
+	if (m->asl_type == ASL_TYPE_QUERY) return ASL_MSG_KVO_QUERY_SLOTS;
+	return 0;
+}
 
-	if (out == NULL) return NULL;
 
-	for (i = 0; i < ASL_MSG_PAGE_SLOTS; i++)
+static uint16_t
+_get_slot_key(asl_msg_t *m, uint32_t slot)
+{
+	if (m == NULL) return 0;
+
+	if (m->asl_type == ASL_TYPE_MSG)
 	{
-		out->key[i] = ASL_MSG_SLOT_FREE;
-		out->val[i] = ASL_MSG_SLOT_FREE;
+		if (slot < ASL_MSG_KVO_MSG_SLOTS) return m->kvo[slot];
+		return 0;
 	}
 
+	if (m->asl_type == ASL_TYPE_QUERY)
+	{
+		if (slot < ASL_MSG_KVO_QUERY_SLOTS) return m->kvo[slot];
+		return 0;
+	}
+
+	return 0;
+}
+
+
+static void
+_set_slot_key(asl_msg_t *m, uint32_t slot, uint16_t x)
+{
+	if (m == NULL) return;
+
+	if (m->asl_type == ASL_TYPE_MSG)
+	{
+		if (slot < ASL_MSG_KVO_MSG_SLOTS) m->kvo[slot] = x;
+		return;
+	}
+
+	if (m->asl_type == ASL_TYPE_QUERY)
+	{
+		if (slot < ASL_MSG_KVO_QUERY_SLOTS) m->kvo[slot] = x;
+		return;
+	}
+}
+
+
+static uint16_t
+_get_slot_val(asl_msg_t *m, uint32_t slot)
+{
+	if (m == NULL) return 0;
+	if (m->asl_type == ASL_TYPE_MSG)
+	{
+		if (slot < ASL_MSG_KVO_MSG_SLOTS) return m->kvo[slot + ASL_MSG_KVO_MSG_SLOTS];
+		return 0;
+	}
+
+	if (m->asl_type == ASL_TYPE_QUERY)
+	{
+		if (slot < ASL_MSG_KVO_QUERY_SLOTS) return m->kvo[slot + ASL_MSG_KVO_QUERY_SLOTS];
+		return 0;
+	}
+
+	return 0;
+}
+
+static void
+_set_slot_val(asl_msg_t *m, uint32_t slot, uint16_t x)
+{
+	if (m == NULL) return;
+
+	if (m->asl_type == ASL_TYPE_MSG)
+	{
+		if (slot < ASL_MSG_KVO_MSG_SLOTS) m->kvo[slot + ASL_MSG_KVO_MSG_SLOTS] = x;
+		return;
+	}
+
+	if (m->asl_type == ASL_TYPE_QUERY)
+	{
+		if (slot < ASL_MSG_KVO_QUERY_SLOTS) m->kvo[slot + ASL_MSG_KVO_QUERY_SLOTS] = x;
+		return;
+	}
+}
+
+static uint16_t
+_get_slot_op(asl_msg_t *m, uint32_t slot)
+{
+	if (m == NULL) return 0;
+
+	if (m->asl_type == ASL_TYPE_QUERY)
+	{
+		if (slot < ASL_MSG_KVO_QUERY_SLOTS) return m->kvo[slot + (ASL_MSG_KVO_QUERY_SLOTS * 2)];
+		return 0;
+	}
+
+	return 0;
+}
+
+static void
+_set_slot_op(asl_msg_t *m, uint32_t slot, uint16_t x)
+{
+	if (m == NULL) return;
+
+	if (m->asl_type == ASL_TYPE_QUERY)
+	{
+		if (slot < ASL_MSG_KVO_QUERY_SLOTS) m->kvo[slot + (ASL_MSG_KVO_QUERY_SLOTS * 2)] = x;
+	}
+}
+
+static asl_msg_t *
+_asl_msg_make_page(uint32_t type)
+{
+	uint32_t i, n = 0;
+	asl_msg_t *out = (asl_msg_t *)calloc(1, sizeof(asl_msg_t));
+	if (out == NULL) return NULL;
+
+	if (type == ASL_TYPE_MSG) n = ASL_MSG_KVO_MSG_SLOTS * 2;
+	else if (type == ASL_TYPE_QUERY) n = ASL_MSG_KVO_QUERY_SLOTS * 2;
+
+	for (i = 0; i < n; i++) out->kvo[i] = ASL_MSG_SLOT_FREE;
+
 	out->mem_size = sizeof(asl_msg_t);
+	out->asl_type = type;
 
 	return out;
 }
@@ -259,28 +365,33 @@ static const char *
 _asl_msg_slot_key(asl_msg_t *page, uint32_t slot)
 {
 	const char *out;
-	uint16_t x;
+	uint16_t x, k;
 
 	if (page == NULL) return NULL;
-	if (slot >= ASL_MSG_PAGE_SLOTS) return NULL;
-	if (page->key[slot] == ASL_MSG_SLOT_FREE) return NULL;
 
-	switch (page->key[slot] & ASL_MSG_KV_MASK)
+	if ((page->asl_type == ASL_TYPE_MSG) && (slot >= ASL_MSG_KVO_MSG_SLOTS)) return NULL;
+	else if ((page->asl_type == ASL_TYPE_QUERY) && (slot >= ASL_MSG_KVO_QUERY_SLOTS)) return NULL;
+
+	k = _get_slot_key(page, slot);
+
+	if (k == ASL_MSG_SLOT_FREE) return NULL;
+
+	switch (k & ASL_MSG_KV_MASK)
 	{
 		case ASL_MSG_KV_INLINE:
 		{
-			return page->data + page->key[slot];
+			return page->data + k;
 		}
 		case ASL_MSG_KV_DICT:
 		{
-			if ((page->key[slot] > ASL_STD_KEY_BASE) && (page->key[slot] <= ASL_STD_KEY_LAST))
+			if ((k > ASL_STD_KEY_BASE) && (k <= ASL_STD_KEY_LAST))
 			{
-				x = page->key[slot] - ASL_STD_KEY_BASE - 1;
+				x = k - ASL_STD_KEY_BASE - 1;
 				return ASLStandardKey[x];
 			}
-			else if ((page->key[slot] > ASL_MT_KEY_BASE) && (page->key[slot] <= ASL_MT_KEY_LAST))
+			else if ((k > ASL_MT_KEY_BASE) && (k <= ASL_MT_KEY_LAST))
 			{
-				x = page->key[slot] - ASL_MT_KEY_BASE - 1;
+				x = k - ASL_MT_KEY_BASE - 1;
 				return MTStandardKey[x];
 			}
 
@@ -288,7 +399,7 @@ _asl_msg_slot_key(asl_msg_t *page, uint32_t slot)
 		}
 		case ASL_MSG_KV_EXTERN:
 		{
-			x = page->key[slot] & ASL_MSG_OFFSET_MASK;
+			x = k & ASL_MSG_OFFSET_MASK;
 			memcpy(&out, page->data + x, sizeof(char *));
 			return out;
 		}
@@ -301,22 +412,26 @@ static const char *
 _asl_msg_slot_val(asl_msg_t *page, uint32_t slot)
 {
 	const char *out;
-	uint16_t x, type;
+	uint16_t x, v, type;
 
 	if (page == NULL) return NULL;
-	if (slot >= ASL_MSG_PAGE_SLOTS) return NULL;
 
-	if (page->val[slot] == ASL_MSG_SLOT_FREE) return NULL;
+	if ((page->asl_type == ASL_TYPE_MSG) && (slot >= ASL_MSG_KVO_MSG_SLOTS)) return NULL;
+	else if ((page->asl_type == ASL_TYPE_QUERY) && (slot >= ASL_MSG_KVO_QUERY_SLOTS)) return NULL;
 
-	type = page->val[slot] & ASL_MSG_KV_MASK;
+	v = _get_slot_val(page, slot);
+
+	if (v == ASL_MSG_SLOT_FREE) return NULL;
+
+	type = v & ASL_MSG_KV_MASK;
 
 	if (type == ASL_MSG_KV_INLINE)
 	{
-		return page->data + page->val[slot];
+		return page->data + v;
 	}
 	else if (type == ASL_MSG_KV_EXTERN)
 	{
-		x = page->val[slot] & ASL_MSG_OFFSET_MASK;
+		x = v & ASL_MSG_OFFSET_MASK;
 		memcpy(&out, page->data + x, sizeof(char *));
 		return out;
 	}
@@ -332,7 +447,7 @@ asl_msg_new(uint32_t type)
 {
 	asl_msg_t *out;
 
-	out = _asl_msg_make_page();
+	out = _asl_msg_make_page(type);
 	if (out == NULL) return NULL;
 
 	out->asl_type = type;
@@ -344,28 +459,33 @@ asl_msg_new(uint32_t type)
 static void
 _asl_msg_free_page(asl_msg_t *page)
 {
-	uint32_t i;
+	uint32_t i, mslots;
 	char *p;
 
 	if (page == NULL) return;
 
-	for (i = 0; i < ASL_MSG_PAGE_SLOTS; i++)
+	mslots = _slot_count(page);
+
+	for (i = 0; i < mslots; i++)
 	{
-		if (page->key[i] == ASL_STD_KEY_FREE_NOTE)
+		uint16_t k = _get_slot_key(page, i);
+		uint16_t v = _get_slot_val(page, i);
+
+		if (k == ASL_STD_KEY_FREE_NOTE)
 		{
 			const char *x = _asl_msg_slot_val(page, i);
 			if (x != NULL) notify_post(x);
 		}
 
-		if ((page->key[i] & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
+		if ((k & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
 		{
-			memcpy(&p, page->data + (page->key[i] & ASL_MSG_OFFSET_MASK), sizeof(char *));
+			memcpy(&p, page->data + (k & ASL_MSG_OFFSET_MASK), sizeof(char *));
 			free(p);
 		}
 
-		if ((page->val[i] & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
+		if ((v & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
 		{
-			memcpy(&p, page->data + (page->val[i] & ASL_MSG_OFFSET_MASK), sizeof(char *));
+			memcpy(&p, page->data + (v & ASL_MSG_OFFSET_MASK), sizeof(char *));
 			free(p);
 		}
 	}
@@ -456,7 +576,7 @@ _asl_msg_dump_kv(FILE *f, asl_msg_t *msg, uint16_t x)
 void
 _asl_msg_dump(FILE *f, const char *comment, asl_msg_t *msg)
 {
-	int i, page1 = 1;
+	uint32_t i, mslots, page1 = 1;
 
 	if (f == NULL) return;
 	if (msg == NULL)
@@ -464,6 +584,8 @@ _asl_msg_dump(FILE *f, const char *comment, asl_msg_t *msg)
 		fprintf(f, "asl_msg %s: NULL\n", comment);
 		return;
 	}
+
+	mslots = _slot_count(msg);
 
 	while (msg != NULL)
 	{
@@ -484,13 +606,13 @@ _asl_msg_dump(FILE *f, const char *comment, asl_msg_t *msg)
 		fprintf(f, "    mem_size: %llu\n", msg->mem_size);
 		fprintf(f, "    next: %p\n", msg->next);
 
-		for (i = 0; i < ASL_MSG_PAGE_SLOTS; i++)
+		for (i = 0; i < mslots; i++)
 		{
 			fprintf(f, "    slot[%d]: ", i);
-			_asl_msg_dump_kv(f, msg, msg->key[i]);
+			_asl_msg_dump_kv(f, msg, _get_slot_key(msg, i));
 			fprintf(f, " ");
-			_asl_msg_dump_kv(f, msg, msg->val[i]);
-			fprintf(f, " 0x%04x\n", msg->op[i]);
+			_asl_msg_dump_kv(f, msg, _get_slot_val(msg, i));
+			if (msg->asl_type == ASL_TYPE_QUERY) fprintf(f, " 0x%04x\n", _get_slot_op(msg, i));
 		}
 
 		msg = msg->next;
@@ -506,7 +628,7 @@ _asl_msg_dump(FILE *f, const char *comment, asl_msg_t *msg)
 static uint32_t
 _asl_msg_index(asl_msg_t *msg, const char *key, uint32_t *oslot, asl_msg_t **opage)
 {
-	uint32_t i, len, slot;
+	uint32_t i, len, slot, mslots;
 	uint16_t kx;
 	asl_msg_t *page;
 	const char *kp;
@@ -516,6 +638,8 @@ _asl_msg_index(asl_msg_t *msg, const char *key, uint32_t *oslot, asl_msg_t **opa
 
 	i = 0;
 	slot = 0;
+	mslots = _slot_count(msg);
+
 	if (oslot != NULL) *oslot = slot;
 
 	page = msg;
@@ -526,24 +650,24 @@ _asl_msg_index(asl_msg_t *msg, const char *key, uint32_t *oslot, asl_msg_t **opa
 
 	forever
 	{
-		if (page->key[slot] != ASL_MSG_SLOT_FREE)
+		if (_get_slot_key(page, slot) != ASL_MSG_SLOT_FREE)
 		{
 			if (kx != 0)
 			{
-				if (page->key[slot] == kx) return i;
+				if (_get_slot_key(page, slot) == kx) return i;
 			}
-			else if ((page->key[slot] & ASL_MSG_KV_MASK) == ASL_MSG_KV_DICT)
+			else if ((_get_slot_key(page, slot) & ASL_MSG_KV_MASK) == ASL_MSG_KV_DICT)
 			{
-				/* page->key[slot] is a dictionary key, but key is not (kx == 0) so skip this slot */
+				/* _get_slot_key(page, slot) is a dictionary key, but key is not (kx == 0) so skip this slot */
 			}
-			else if ((page->key[slot] & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
+			else if ((_get_slot_key(page, slot) & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
 			{
-				memcpy(&kp, page->data + (page->key[slot] & ASL_MSG_OFFSET_MASK), sizeof(char *));
+				memcpy(&kp, page->data + (_get_slot_key(page, slot) & ASL_MSG_OFFSET_MASK), sizeof(char *));
 				if (streq(key, kp)) return i;
 			}
 			else
 			{
-				kp = page->data + page->key[slot];
+				kp = page->data + _get_slot_key(page, slot);
 				if (streq(key, kp)) return i;
 			}
 		}
@@ -552,7 +676,7 @@ _asl_msg_index(asl_msg_t *msg, const char *key, uint32_t *oslot, asl_msg_t **opa
 		slot++;
 		if (oslot != NULL) *oslot = slot;
 
-		if (slot >= ASL_MSG_PAGE_SLOTS)
+		if (slot >= mslots)
 		{
 			if (page->next == NULL) return IndexNull;
 
@@ -573,13 +697,15 @@ _asl_msg_index(asl_msg_t *msg, const char *key, uint32_t *oslot, asl_msg_t **opa
 static int
 _asl_msg_resolve_index(asl_msg_t *msg, uint32_t n, asl_msg_t **page, uint32_t *slot)
 {
-	uint32_t i, sx;
+	uint32_t i, sx, mslots;
 	asl_msg_t *px;
 
 	if (msg == NULL) return -1;
 
 	*slot = IndexNull;
 	*page = NULL;
+
+	mslots = _slot_count(msg);
 
 	sx = 0;
 
@@ -595,9 +721,9 @@ _asl_msg_resolve_index(asl_msg_t *msg, uint32_t n, asl_msg_t **page, uint32_t *s
 		*page = px;
 
 		/* find slot */
-		for (i = 0; i < ASL_MSG_PAGE_SLOTS; i++)
+		for (i = 0; i < mslots; i++)
 		{
-			if (px->key[i] != ASL_MSG_SLOT_FREE)
+			if (px->kvo[i] != ASL_MSG_SLOT_FREE)
 			{
 				if (sx == n)
 				{
@@ -614,7 +740,7 @@ _asl_msg_resolve_index(asl_msg_t *msg, uint32_t n, asl_msg_t **page, uint32_t *s
 }
 
 /*
- * asl_msg_fetch: iterate over entries 
+ * asl_msg_fetch: iterate over entries
  * initial value of n should be 0.  Subseqent calls should use the last
  * returned value.  Returns IndexNull when there are no more entries
  * Sets the pointers for the next key, value, and op in the msg.
@@ -624,10 +750,12 @@ _asl_msg_resolve_index(asl_msg_t *msg, uint32_t n, asl_msg_t **page, uint32_t *s
 uint32_t
 asl_msg_fetch(asl_msg_t *msg, uint32_t x, const char **keyout, const char **valout, uint16_t *opout)
 {
-	uint32_t p, xpn, xsn;
+	uint32_t p, xpn, xsn, mslots;
 	asl_msg_t *page = NULL;
 
 	if (msg == NULL) return IndexNull;
+
+	mslots = _slot_count(msg);
 
 	xsn = x >> 24;
 	xpn = x & 0x00ffffff;
@@ -644,14 +772,14 @@ asl_msg_fetch(asl_msg_t *msg, uint32_t x, const char **keyout, const char **valo
 
 	if (keyout != NULL) *keyout = _asl_msg_slot_key(page, xsn);
 	if (valout != NULL) *valout = _asl_msg_slot_val(page, xsn);
-	if (opout != NULL) *opout = (uint32_t)(page->op[xsn]);
+	if (opout != NULL) *opout = _get_slot_op(page, xsn);
 
 	/* advance to the next slot */
 	forever
 	{
 		xsn++;
 
-		if (xsn >= ASL_MSG_PAGE_SLOTS)
+		if (xsn >= mslots)
 		{
 			if (page->next == NULL) return 0xff000000;
 			xsn = 0;
@@ -659,7 +787,7 @@ asl_msg_fetch(asl_msg_t *msg, uint32_t x, const char **keyout, const char **valo
 			xpn++;
 		}
 
-		if (page->key[xsn] != ASL_MSG_SLOT_FREE) return ((xsn << 24) | xpn);
+		if (page->kvo[xsn] != ASL_MSG_SLOT_FREE) return ((xsn << 24) | xpn);
 	}
 
 	return IndexNull;
@@ -682,7 +810,7 @@ asl_msg_lookup(asl_msg_t *msg, const char *key, const char **valout, uint16_t *o
 	if (i == IndexNull) return -1;
 
 	if (valout != NULL) *valout = _asl_msg_slot_val(page, slot);
-	if (opout != NULL) *opout = (uint32_t)(page->op[slot]);
+	if (opout != NULL) *opout = _get_slot_op(page, slot);
 
 	return 0;
 }
@@ -706,17 +834,19 @@ asl_msg_get_val_for_key(asl_msg_t *msg, const char *key)
 const char *
 asl_msg_key(asl_msg_t *msg, uint32_t n)
 {
-	uint32_t slot, i;
+	uint32_t slot, i, mslots;
 	asl_msg_t *page;
 
 	if (msg == NULL) return NULL;
 
+	mslots = _slot_count(msg);
+
 	i = 0;
 	for (page = msg; page != NULL; page = page->next)
 	{
-		for (slot = 0; slot < ASL_MSG_PAGE_SLOTS; slot++)
+		for (slot = 0; slot < mslots; slot++)
 		{
-			if (page->key[slot] != ASL_MSG_SLOT_FREE)
+			if (_get_slot_key(page, slot) != ASL_MSG_SLOT_FREE)
 			{
 				if (i == n) return _asl_msg_slot_key(page, slot);
 				i++;
@@ -733,15 +863,18 @@ asl_msg_key(asl_msg_t *msg, uint32_t n)
 static int
 _asl_msg_new_key_val_op(asl_msg_t *msg, const char *key, const char *val, uint32_t op)
 {
-	uint32_t slot, keylen, vallen, total;
+	uint32_t slot, keylen, vallen, total, mslots;
 	uint64_t klen, vlen;
-	uint16_t kx;
+	uint16_t kx, k, v, o;
 	asl_msg_t *page, *last;
 	char *extkey, *extval;
 
 	if (msg == NULL) return -1;
 	if (key == NULL) return -1;
 
+	mslots = _slot_count(msg);
+
+	o = op;
 	extkey = NULL;
 	extval = NULL;
 
@@ -809,15 +942,15 @@ _asl_msg_new_key_val_op(asl_msg_t *msg, const char *key, const char *val, uint32
 		if (total <= (ASL_MSG_PAGE_DATA_SIZE - page->data_size))
 		{
 			/* check for a free slot */
-			for (slot = 0; (slot < ASL_MSG_PAGE_SLOTS) && (page->key[slot] != ASL_MSG_SLOT_FREE); slot++);
-			if (slot < ASL_MSG_PAGE_SLOTS) break;
+			for (slot = 0; (slot < mslots) && (_get_slot_key(page, slot) != ASL_MSG_SLOT_FREE); slot++);
+			if (slot < mslots) break;
 		}
 	}
 
 	if (page == NULL)
 	{
 		/* allocate a new page and attach it */
-		page = _asl_msg_make_page();
+		page = _asl_msg_make_page(msg->asl_type);
 		if (page == NULL)
 		{
 			if (extkey != NULL) free(extkey);
@@ -832,44 +965,47 @@ _asl_msg_new_key_val_op(asl_msg_t *msg, const char *key, const char *val, uint32
 	/* copy key or external key pointer into page data */
 	if (kx != 0)
 	{
-		page->key[slot] = kx;
+		k = kx;
 	}
 	else if (extkey == NULL)
 	{
-		page->key[slot] = page->data_size;
+		k = page->data_size;
 		memcpy(page->data + page->data_size, key, keylen);
 	}
 	else
 	{
-		page->key[slot] = page->data_size | ASL_MSG_KV_EXTERN;
+		k = page->data_size | ASL_MSG_KV_EXTERN;
 		memcpy(page->data + page->data_size, &extkey, keylen);
 		page->mem_size += klen;
 	}
 
+	_set_slot_key(page, slot, k);
 	page->data_size += keylen;
 
 	/* copy val or external val pointer into page data */
-	page->val[slot] = ASL_MSG_SLOT_FREE;
+
+	v = ASL_MSG_SLOT_FREE;
 
 	if (val != NULL)
 	{
 		if (extval == NULL)
 		{
-			page->val[slot] = page->data_size;
+			v = page->data_size;
 			memcpy(page->data + page->data_size, val, vallen);
 		}
 		else
 		{
-			page->val[slot] = page->data_size | ASL_MSG_KV_EXTERN;
+			v = page->data_size | ASL_MSG_KV_EXTERN;
 			memcpy(page->data + page->data_size, &extval, vallen);
 			page->mem_size += vlen;
 		}
 
+		_set_slot_val(page, slot, v);
 		page->data_size += vallen;
 	}
 
 	/* set op */
-	page->op[slot] = (uint16_t)op;
+	_set_slot_op(page, slot, o);
 
 	/* update page count */
 	page->count++;
@@ -888,16 +1024,21 @@ _asl_msg_new_key_val_op(asl_msg_t *msg, const char *key, const char *val, uint32
 static int
 _asl_msg_set_kvo(asl_msg_t *msg, const char *key, const char *val, uint32_t op)
 {
-	uint32_t i, slot, newexternal;
+	uint32_t i, slot, mslots, newexternal;
 	asl_msg_t *page;
 	uint32_t intvallen, extvallen, newvallen;
 	char *intval, *extval, *newval;
+	uint16_t k, v, o;
 
 	if (msg == NULL) return -1;
 	if (key == NULL) return -1;
 
+	mslots = _slot_count(msg);
+
 	slot = IndexNull;
 	page = NULL;
+
+	o = op;
 
 	if ((msg->asl_type == ASL_TYPE_QUERY) || (IndexNull == _asl_msg_index(msg, key, &slot, &page)))
 	{
@@ -911,17 +1052,19 @@ _asl_msg_set_kvo(asl_msg_t *msg, const char *key, const char *val, uint32_t op)
 	extval = NULL;
 	extvallen = 0;
 
-	if (page->val[slot] != ASL_MSG_SLOT_FREE)
+	v = _get_slot_val(page, slot);
+
+	if (v != ASL_MSG_SLOT_FREE)
 	{
-		if ((page->val[slot] & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
+		if ((v & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
 		{
-			i = page->val[slot] & ASL_MSG_OFFSET_MASK;
+			i = v & ASL_MSG_OFFSET_MASK;
 			memcpy(&extval, page->data + i, sizeof(char *));
 			extvallen = sizeof(char *);
 		}
 		else
 		{
-			intval = page->data + page->val[slot];
+			intval = page->data + v;
 			intvallen = strlen(intval) + 1;
 		}
 	}
@@ -937,41 +1080,41 @@ _asl_msg_set_kvo(asl_msg_t *msg, const char *key, const char *val, uint32_t op)
 			free(extval);
 		}
 
-		page->val[slot] = ASL_MSG_SLOT_FREE;
-		if (op != IndexNull) page->op[slot] = (uint16_t)op;
+		_set_slot_val(page, slot, ASL_MSG_SLOT_FREE);
+		if (op != IndexNull) _set_slot_op(page, slot, o);
 		return 0;
 	}
 
 	/* trivial case - internal val doesn't change */
 	if ((intval != NULL) && (streq(val, intval)))
 	{
-		if (op != IndexNull) page->op[slot] = (uint16_t)op;
+		if (op != IndexNull) _set_slot_op(page, slot, o);
 		return 0;
 	}
 
 	/* trivial case - external val doesn't change */
 	if ((extval != NULL) && (streq(val, extval)))
 	{
-		if (op != IndexNull) page->op[slot] = (uint16_t)op;
+		if (op != IndexNull) _set_slot_op(page, slot, o);
 		return 0;
 	}
 
 	/*
 	 * special case: we generally don't compress out holes in the data
 	 * space, but if this is the last string in the currently used data space
-	 * we can just back up the data_size and reset page->val[slot]
+	 * we can just back up the data_size and reset page->val[slot] (a.k.a. page->kvo[slot + mslots])
 	 */
-	i = page->val[slot] & ASL_MSG_OFFSET_MASK;
+	i = v & ASL_MSG_OFFSET_MASK;
 	if ((intval != NULL) && ((i + intvallen) == page->data_size))
 	{
-		page->val[slot] = ASL_MSG_SLOT_FREE;
+		_set_slot_val(page, slot, ASL_MSG_SLOT_FREE);
 		page->data_size -= intvallen;
 		intval = NULL;
 		intvallen = 0;
 	}
 	else if ((extval != NULL) && ((i + extvallen) == page->data_size))
 	{
-		page->val[slot] = ASL_MSG_SLOT_FREE;
+		_set_slot_val(page, slot, ASL_MSG_SLOT_FREE);
 		page->data_size -= extvallen;
 		page->mem_size -= (strlen(extval) + 1);
 		free(extval);
@@ -1001,7 +1144,7 @@ _asl_msg_set_kvo(asl_msg_t *msg, const char *key, const char *val, uint32_t op)
 		extval = NULL;
 
 		/* we can re-use the space of the old value */
-		i = page->val[slot] & ASL_MSG_OFFSET_MASK;
+		i = v & ASL_MSG_OFFSET_MASK;
 
 		if (newexternal == 1)
 		{
@@ -1010,17 +1153,17 @@ _asl_msg_set_kvo(asl_msg_t *msg, const char *key, const char *val, uint32_t op)
 			if (newval == NULL) return -1;
 
 			page->mem_size += (strlen(newval) + 1);
-			page->val[slot] = i | ASL_MSG_KV_EXTERN;
+			_set_slot_val(page, slot, i | ASL_MSG_KV_EXTERN);
 			memcpy(page->data + i, &newval, sizeof(char *));
 		}
 		else
 		{
 			/* new internal value */
-			page->val[slot] = i;
+			_set_slot_val(page, slot, i);
 			memcpy(page->data + i, val, newvallen);
 		}
 
-		if (op != IndexNull) page->op[slot] = (uint16_t)op;
+		if (op != IndexNull) _set_slot_op(page, slot, o);
 		return 0;
 	}
 
@@ -1046,32 +1189,32 @@ _asl_msg_set_kvo(asl_msg_t *msg, const char *key, const char *val, uint32_t op)
 			if (newval == NULL) return -1;
 
 			page->mem_size += (strlen(newval) + 1);
-			page->val[slot] = i | ASL_MSG_KV_EXTERN;
+			_set_slot_val(page, slot, i | ASL_MSG_KV_EXTERN);
 			memcpy(page->data + i, &newval, sizeof(char *));
 		}
 		else
 		{
 			/* new internal value */
-			page->val[slot] = i;
+			_set_slot_val(page, slot, i);
 			memcpy(page->data + i, val, newvallen);
 		}
 
-		if (op != IndexNull) page->op[slot] = (uint16_t)op;
+		if (op != IndexNull) _set_slot_op(page, slot, o);
 		return 0;
 
 	}
 
 	/* no room on this page - free up existing entry and treat this as a new entry */
-	if ((page->key[slot] & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
+	if ((k & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
 	{
-		memcpy(&extval, page->data + (page->key[slot] & ASL_MSG_OFFSET_MASK), sizeof(char *));
+		memcpy(&extval, page->data + (k & ASL_MSG_OFFSET_MASK), sizeof(char *));
 		page->mem_size -= (strlen(extval) + 1);
 		free(extval);
 	}
 
-	page->key[slot] = ASL_MSG_SLOT_FREE;
-	page->val[slot] = ASL_MSG_SLOT_FREE;
-	page->op[slot] = 0;
+	_set_slot_key(page, slot, ASL_MSG_SLOT_FREE);
+	_set_slot_val(page, slot, ASL_MSG_SLOT_FREE);
+	_set_slot_op(page, slot, 0);
 
 	return _asl_msg_new_key_val_op(msg, key, val, op);
 }
@@ -1082,6 +1225,9 @@ asl_msg_set_key_val_op(asl_msg_t *msg, const char *key, const char *val, uint32_
 	char *special, buf[512];
 	uint32_t i, len;
 	int status;
+
+	if (msg == NULL) return -1;
+	if (key == NULL) return -1;
 
 	/* Special case handling */
 	special = NULL;
@@ -1148,28 +1294,34 @@ static void
 _asl_msg_unset_page_slot(asl_msg_t *page, uint32_t slot)
 {
 	char *ext;
+	uint16_t k, v;
 
 	if (page == NULL) return;
-	if (slot >= ASL_MSG_PAGE_SLOTS) return;
-	if (page->key[slot] == ASL_MSG_SLOT_FREE) return;
 
-	if ((page->key[slot] & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
+	if (slot >= _slot_count(page)) return;
+
+	k = _get_slot_key(page, slot);
+	v = _get_slot_val(page, slot);
+
+	if (k == ASL_MSG_SLOT_FREE) return;
+
+	if ((k & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
 	{
-		memcpy(&ext, page->data + (page->key[slot] & ASL_MSG_OFFSET_MASK), sizeof(char *));
+		memcpy(&ext, page->data + (k & ASL_MSG_OFFSET_MASK), sizeof(char *));
 		page->mem_size -= (strlen(ext) + 1);
 		free(ext);
 	}
 
-	if ((page->val[slot] & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
+	if ((v & ASL_MSG_KV_MASK) == ASL_MSG_KV_EXTERN)
 	{
-		memcpy(&ext, page->data + (page->val[slot] & ASL_MSG_OFFSET_MASK), sizeof(char *));
+		memcpy(&ext, page->data + (v & ASL_MSG_OFFSET_MASK), sizeof(char *));
 		page->mem_size -= (strlen(ext) + 1);
 		free(ext);
 	}
 
-	page->key[slot] = ASL_MSG_SLOT_FREE;
-	page->val[slot] = ASL_MSG_SLOT_FREE;
-	page->op[slot] = 0;
+	_set_slot_key(page, slot, ASL_MSG_SLOT_FREE);
+	_set_slot_val(page, slot, ASL_MSG_SLOT_FREE);
+	_set_slot_op(page, slot, 0);
 
 	page->count--;
 }
@@ -1798,8 +1950,8 @@ _asl_time_string(const char *infmt, const char *str, const char *nano)
 		off %= 3600;
 		zm = off / 60;
 
-		if (zm == 0) snprintf(zstr, sizeof(zstr), "%c%02ld", neg ? '-' : '+', zh);
-		else snprintf(zstr, sizeof(zstr), "%c%02ld:%02ld", neg ? '-' : '+', zh, zm);
+		if (zm == 0) snprintf(zstr, sizeof(zstr), "%c%02lld", neg ? '-' : '+', (long long) zh);
+		else snprintf(zstr, sizeof(zstr), "%c%02lld:%02lld", neg ? '-' : '+', (long long) zh, (long long) zm);
 
 		asprintf(&out, "%d-%02d-%02d%c%02d:%02d:%02d%s%s", stm.tm_year + 1900, stm.tm_mon + 1, stm.tm_mday, sep, stm.tm_hour, stm.tm_min, stm.tm_sec, nanobuf, zstr);
 		return out;
@@ -1815,8 +1967,8 @@ _asl_time_string(const char *infmt, const char *str, const char *nano)
 		off %= 3600;
 		zm = off / 60;
 
-		if (zm == 0) snprintf(zstr, sizeof(zstr), "%c%02ld", neg ? '-' : '+', zh);
-		else snprintf(zstr, sizeof(zstr), "%c%02ld:%02ld", neg ? '-' : '+', zh, zm);
+		if (zm == 0) snprintf(zstr, sizeof(zstr), "%c%02lld", neg ? '-' : '+', (long long) zh);
+		else snprintf(zstr, sizeof(zstr), "%c%02lld:%02lld", neg ? '-' : '+', (long long) zh, (long long) zm);
 
 		asprintf(&out, "%d%02d%02dT%02d%02d%02d%s%s", stm.tm_year + 1900, stm.tm_mon + 1, stm.tm_mday, stm.tm_hour, stm.tm_min, stm.tm_sec, nanobuf, zstr);
 		return out;
@@ -1824,7 +1976,7 @@ _asl_time_string(const char *infmt, const char *str, const char *nano)
 
 	if ((!strcasecmp(fmt, "sec")) || (!strcasecmp(fmt, "raw")))
 	{
-		asprintf(&out, "%lu%s", tick, nanobuf);
+		asprintf(&out, "%llu%s", (unsigned long long) tick, nanobuf);
 		return out;
 	}
 
@@ -1882,8 +2034,8 @@ _asl_time_string(const char *infmt, const char *str, const char *nano)
 		off = (zh * 3600) + (zm * 60);
 		if (neg) off *= -1;
 
-		if (zm == 0) snprintf(zstr, sizeof(zstr), "%c%02ld", neg ? '-' : '+', zh);
-		else snprintf(zstr, sizeof(zstr), "%c%02ld:%02ld", neg ? '-' : '+', zh, zm);
+		if (zm == 0) snprintf(zstr, sizeof(zstr), "%c%02lld", neg ? '-' : '+', (long long) zh);
+		else snprintf(zstr, sizeof(zstr), "%c%02lld:%02lld", neg ? '-' : '+', (long long) zh, (long long) zm);
 	}
 
 
@@ -2880,6 +3032,114 @@ asl_format_message(asl_msg_t *msg, const char *mfmt, const char *tfmt, uint32_t 
 }
 
 #pragma mark -
+#pragma mark xpc conversion
+
+static void
+_asl_msg_to_xpc(asl_msg_t *msg, xpc_object_t dict)
+{
+	uint32_t x, len;
+	const char *key, *val, *nano;
+	uint16_t kx;
+
+	if (msg == NULL) return;
+	if (dict == NULL) return;
+
+	nano = NULL;
+	asl_msg_lookup(msg, ASL_KEY_TIME_NSEC, &nano, NULL);
+
+	for (x = asl_msg_fetch(msg, 0, &key, &val, NULL); x != IndexNull; x = asl_msg_fetch(msg, x, &key, &val, NULL))
+	{
+		if (key == NULL) continue;
+
+		len = strlen(key);
+		kx = _asl_msg_std_key(key, len);
+
+		if (val == NULL)
+		{
+			xpc_object_t obj = xpc_null_create();
+			xpc_dictionary_set_value(dict, key, obj);
+			xpc_release(obj);
+		}
+		else if (kx == 0)
+		{
+			if (streq(key, ASL_KEY_SENDER_MACH_UUID))
+			{
+				uuid_t v;
+				if (uuid_parse(val, v) == 0)
+				{
+					xpc_object_t obj = xpc_uuid_create(v);
+					xpc_dictionary_set_value(dict, key, obj);
+					xpc_release(obj);
+				}
+			}
+			else
+			{
+				xpc_object_t obj = xpc_string_create(val);
+				xpc_dictionary_set_value(dict, key, obj);
+				xpc_release(obj);
+			}
+		}
+		else if (kx == ASL_STD_KEY_TIME)
+		{
+			uint64_t t = NSEC_PER_SEC * asl_core_parse_time(val, NULL);
+			if (nano != NULL) t += atoll(nano);
+			xpc_object_t obj = xpc_date_create(t);
+			xpc_dictionary_set_value(dict, key, obj);
+			xpc_release(obj);
+		}
+		else if (kx == ASL_STD_KEY_NANO)
+		{
+			/* handled with ASL_STD_KEY_TIME */
+		}
+		else if ((kx == ASL_STD_KEY_PID) || (kx == ASL_STD_KEY_REF_PID))
+		{
+			int64_t v = atoll(val);
+			xpc_object_t obj = xpc_int64_create(v);
+			xpc_dictionary_set_value(dict, key, obj);
+			xpc_release(obj);
+		}
+		else if ((kx == ASL_STD_KEY_UID) || (kx == ASL_STD_KEY_GID))
+		{
+			int64_t v = atoll(val);
+			xpc_object_t obj = xpc_int64_create(v);
+			xpc_dictionary_set_value(dict, key, obj);
+			xpc_release(obj);
+		}
+		else if (kx == ASL_STD_KEY_LEVEL)
+		{
+			int64_t v = atoll(val);
+			xpc_object_t obj = xpc_int64_create(v);
+			xpc_dictionary_set_value(dict, key, obj);
+			xpc_release(obj);
+		}
+		else if ((kx == ASL_STD_KEY_READ_UID) || (kx == ASL_STD_KEY_READ_GID))
+		{
+			int64_t v = atoll(val);
+			xpc_object_t obj = xpc_int64_create(v);
+			xpc_dictionary_set_value(dict, key, obj);
+			xpc_release(obj);
+		}
+		else if (kx == ASL_STD_KEY_MSG_ID)
+		{
+			/* ignore */
+		}
+		else
+		{
+			xpc_object_t obj = xpc_string_create(val);
+			xpc_dictionary_set_value(dict, key, obj);
+			xpc_release(obj);
+		}
+	}
+}
+
+void
+_asl_log_args_to_xpc(asl_object_t client, asl_object_t msg, xpc_object_t dict)
+{
+	_asl_msg_to_xpc(asl_client_kvdict((asl_client_t *)client), dict);
+	_asl_msg_to_xpc((asl_msg_t *)msg, dict);
+}
+
+#pragma mark -
 #pragma mark asl_object support
 
 static asl_object_private_t *
@@ -2930,7 +3190,8 @@ _jump_get_key_val_op_at_index(asl_object_private_t *obj, size_t n, const char **
 
 	if (key != NULL) *key = _asl_msg_slot_key(page, slot);
 	if (val != NULL) *val = _asl_msg_slot_val(page, slot);
-	if (op != NULL) *op = page->op[slot];
+	if (op != NULL) *op = _get_slot_op(page, slot);
+
 	return 0;
 }
 

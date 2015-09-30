@@ -39,22 +39,22 @@ namespace WebCore {
 
 class CSSGridLineNamesValue : public CSSValueList {
 public:
-    static PassRefPtr<CSSGridLineNamesValue> create()
+    static Ref<CSSGridLineNamesValue> create()
     {
-        return adoptRef(new CSSGridLineNamesValue());
+        return adoptRef(*new CSSGridLineNamesValue);
     }
 
     String customCSSText() const;
 
-    PassRefPtr<CSSGridLineNamesValue> cloneForCSSOM() const;
+    Ref<CSSGridLineNamesValue> cloneForCSSOM() const;
 
 private:
     CSSGridLineNamesValue();
 };
 
-CSS_VALUE_TYPE_CASTS(CSSGridLineNamesValue, isGridLineNamesValue());
+} // namespace WebCore
 
-}
+SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSGridLineNamesValue, isGridLineNamesValue());
 
-#endif
-#endif
+#endif // ENABLE(CSS_GRID_LAYOUT)
+#endif // CSSGridLineNamesValue_h

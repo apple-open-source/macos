@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,9 +43,9 @@ namespace WebCore {
 // This information is needed by spell checking service to update user specific data.
 class SpellingCorrectionRecordUndoCommand : public SimpleEditCommand {
 public:
-    static PassRefPtr<SpellingCorrectionRecordUndoCommand> create(Document& document, const String& corrected, const String& correction)
+    static Ref<SpellingCorrectionRecordUndoCommand> create(Document& document, const String& corrected, const String& correction)
     {
-        return adoptRef(new SpellingCorrectionRecordUndoCommand(document, corrected, correction));
+        return adoptRef(*new SpellingCorrectionRecordUndoCommand(document, corrected, correction));
     }
 private:
     SpellingCorrectionRecordUndoCommand(Document& document, const String& corrected, const String& correction)
@@ -84,7 +84,7 @@ private:
 SpellingCorrectionCommand::SpellingCorrectionCommand(PassRefPtr<Range> rangeToBeCorrected, const String& correction)
     : CompositeEditCommand(rangeToBeCorrected->startContainer()->document())
     , m_rangeToBeCorrected(rangeToBeCorrected)
-    , m_selectionToBeCorrected(m_rangeToBeCorrected.get())
+    , m_selectionToBeCorrected(*m_rangeToBeCorrected)
     , m_correction(correction)
 {
 }

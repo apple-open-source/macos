@@ -55,9 +55,9 @@ private:
 
 #endif
 
-DataTransfer::DataTransfer(DataTransferAccessPolicy policy, PassOwnPtr<Pasteboard> pasteboard, Type type, bool forFileDrag)
+DataTransfer::DataTransfer(DataTransferAccessPolicy policy, std::unique_ptr<Pasteboard> pasteboard, Type type, bool forFileDrag)
     : m_policy(policy)
-    , m_pasteboard(pasteboard)
+    , m_pasteboard(WTF::move(pasteboard))
 #if ENABLE(DRAG_SUPPORT)
     , m_forDrag(type != CopyAndPaste)
     , m_forFileDrag(forFileDrag)
@@ -72,9 +72,9 @@ DataTransfer::DataTransfer(DataTransferAccessPolicy policy, PassOwnPtr<Pasteboar
 #endif
 }
 
-PassRefPtr<DataTransfer> DataTransfer::createForCopyAndPaste(DataTransferAccessPolicy policy)
+Ref<DataTransfer> DataTransfer::createForCopyAndPaste(DataTransferAccessPolicy policy)
 {
-    return adoptRef(new DataTransfer(policy, policy == DataTransferAccessPolicy::Writable ? Pasteboard::createPrivate() : Pasteboard::createForCopyAndPaste()));
+    return adoptRef(*new DataTransfer(policy, policy == DataTransferAccessPolicy::Writable ? Pasteboard::createPrivate() : Pasteboard::createForCopyAndPaste()));
 }
 
 DataTransfer::~DataTransfer()
@@ -159,7 +159,7 @@ Vector<String> DataTransfer::types() const
     return m_pasteboard->types();
 }
 
-FileList* DataTransfer::files() const
+FileList& DataTransfer::files() const
 {
     bool newlyCreatedFileList = !m_fileList;
     if (!m_fileList)
@@ -167,13 +167,13 @@ FileList* DataTransfer::files() const
 
     if (!canReadData()) {
         m_fileList->clear();
-        return m_fileList.get();
+        return *m_fileList;
     }
 
 #if ENABLE(DRAG_SUPPORT)
     if (m_forDrag && !m_forFileDrag) {
         ASSERT(m_fileList->isEmpty());
-        return m_fileList.get();
+        return *m_fileList;
     }
 #endif
 
@@ -181,7 +181,7 @@ FileList* DataTransfer::files() const
         for (const String& filename : m_pasteboard->readFilenames())
             m_fileList->append(File::create(filename));
     }
-    return m_fileList.get();
+    return *m_fileList;
 }
 
 bool DataTransfer::hasFileOfType(const String& type)
@@ -229,14 +229,14 @@ void DataTransfer::setDragImage(Element*, int, int)
 
 #else
 
-PassRefPtr<DataTransfer> DataTransfer::createForDragAndDrop()
+Ref<DataTransfer> DataTransfer::createForDragAndDrop()
 {
-    return adoptRef(new DataTransfer(DataTransferAccessPolicy::Writable, Pasteboard::createForDragAndDrop(), DragAndDrop));
+    return adoptRef(*new DataTransfer(DataTransferAccessPolicy::Writable, Pasteboard::createForDragAndDrop(), DragAndDrop));
 }
 
-PassRefPtr<DataTransfer> DataTransfer::createForDragAndDrop(DataTransferAccessPolicy policy, const DragData& dragData)
+Ref<DataTransfer> DataTransfer::createForDragAndDrop(DataTransferAccessPolicy policy, const DragData& dragData)
 {
-    return adoptRef(new DataTransfer(policy, Pasteboard::createForDragAndDrop(dragData), DragAndDrop, dragData.containsFiles()));
+    return adoptRef(*new DataTransfer(policy, Pasteboard::createForDragAndDrop(dragData), DragAndDrop, dragData.containsFiles()));
 }
 
 bool DataTransfer::canSetDragImage() const
@@ -253,11 +253,9 @@ void DataTransfer::setDragImage(Element* element, int x, int y)
     if (!canSetDragImage())
         return;
 
-    CachedImage* image;
-    if (element && isHTMLImageElement(element) && !element->inDocument())
-        image = toHTMLImageElement(element)->cachedImage();
-    else
-        image = 0;
+    CachedImage* image = nullptr;
+    if (is<HTMLImageElement>(element) && !element->inDocument())
+        image = downcast<HTMLImageElement>(*element).cachedImage();
 
     m_dragLocation = IntPoint(x, y);
 
@@ -270,7 +268,7 @@ void DataTransfer::setDragImage(Element* element, int x, int y)
         m_dragImageLoader->startLoading(m_dragImage);
     }
 
-    m_dragImageElement = image ? 0 : element;
+    m_dragImageElement = image ? nullptr : element;
 
     updateDragImage();
 }

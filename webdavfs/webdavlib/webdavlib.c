@@ -47,7 +47,7 @@
 #define kSSLClientPropTLSServerHostName	CFSTR("TLSServerHostName") /* CFString */
 #define CFENVFORMATSTRING "__CF_USER_TEXT_ENCODING=0x%X:0:0"
 
-#define PRIVATE_CERT_UI_COMMAND "/System/Library/Filesystems/webdav.fs/Support/webdav_cert_ui.app/Contents/MacOS/webdav_cert_ui"
+#define PRIVATE_CERT_UI_COMMAND "/System/Library/Filesystems/webdav.fs/Contents/Resources/webdav_cert_ui.app/Contents/MacOS/webdav_cert_ui"
 
 
 // Context for the callbacks

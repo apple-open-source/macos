@@ -6052,7 +6052,7 @@ if test $tk_aqua = yes; then
     APP_RSRC_FILE='${WISH_RSRC_FILE}'
     REZ="`xcrun -find Rez`"
     test -z "$REZ" && REZ=/Developer/Tools/Rez
-    REZ_FLAGS='-d "SystemSevenOrLater=1" -useDF -ro'
+    REZ_FLAGS='-d "SystemSevenOrLater=1" -useDF -ro -isysroot "${SDKROOT}"'
     if test "$SHARED_BUILD" = 0; then
         EXTRA_INSTALL_BINARIES='@echo "Installing $(TK_RSRC_FILE) to $(LIB_INSTALL_DIR)" && $(INSTALL_DATA) $(TK_RSRC_FILE) $(LIB_INSTALL_DIR)'
 	TK_BUILD_LIB_SPEC="$TK_BUILD_LIB_SPEC -sectcreate __TEXT __tk_rsrc `pwd`/\${TK_RSRC_FILE}"

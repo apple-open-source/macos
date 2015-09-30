@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2014 Apple Inc. All rights reserved.
  * Copyright (C) 2010 MIPS Technologies, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,7 @@
 
 namespace JSC {
 
-class MacroAssemblerMIPS : public AbstractMacroAssembler<MIPSAssembler> {
+class MacroAssemblerMIPS : public AbstractMacroAssembler<MIPSAssembler, MacroAssemblerMIPS> {
 public:
     typedef MIPSRegisters::FPRegisterID FPRegisterID;
 
@@ -707,7 +707,7 @@ public:
         m_assembler.lbu(dest, addrTempRegister, 0);
     }
 
-    void load8Signed(BaseIndex address, RegisterID dest)
+    void load8SignedExtendTo32(BaseIndex address, RegisterID dest)
     {
         if (address.offset >= -32768 && address.offset <= 32767
             && !m_fixedWidth) {
@@ -919,7 +919,7 @@ public:
         }
     }
 
-    void load16Signed(BaseIndex address, RegisterID dest)
+    void load16SignedExtendTo32(BaseIndex address, RegisterID dest)
     {
         if (address.offset >= -32768 && address.offset <= 32767
             && !m_fixedWidth) {
@@ -2111,6 +2111,16 @@ public:
     }
 
     Jump branchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(0))
+    {
+        m_fixedWidth = true;
+        load32(left, dataTempRegister);
+        dataLabel = moveWithPatch(initialRightValue, immTempRegister);
+        Jump temp = branch32(cond, dataTempRegister, immTempRegister);
+        m_fixedWidth = false;
+        return temp;
+    }
+
+    Jump branch32WithPatch(RelationalCondition cond, Address left, DataLabel32& dataLabel, TrustedImm32 initialRightValue = TrustedImm32(0))
     {
         m_fixedWidth = true;
         load32(left, dataTempRegister);

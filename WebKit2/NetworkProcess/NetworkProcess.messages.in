@@ -24,7 +24,7 @@
 
 messages -> NetworkProcess LegacyReceiver {
     # Initializes the network process.
-    InitializeNetworkProcess(WebKit::NetworkProcessCreationParameters processCreationParameters)
+    InitializeNetworkProcess(struct WebKit::NetworkProcessCreationParameters processCreationParameters)
 
     # Creates a connection for communication with a WebProcess
     CreateNetworkConnectionToWebProcess()
@@ -37,7 +37,12 @@ messages -> NetworkProcess LegacyReceiver {
     EnsurePrivateBrowsingSession(WebCore::SessionID sessionID)
     DestroyPrivateBrowsingSession(WebCore::SessionID sessionID)
 
+    FetchWebsiteData(WebCore::SessionID sessionID, uint64_t websiteDataTypes, uint64_t callbackID)
+    DeleteWebsiteData(WebCore::SessionID sessionID, uint64_t websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID)
+    DeleteWebsiteDataForOrigins(WebCore::SessionID sessionID, uint64_t websiteDataTypes, Vector<WebKit::SecurityOriginData> origins, Vector<String> cookieHostNames, uint64_t callbackID)
+
     DownloadRequest(uint64_t downloadID, WebCore::ResourceRequest request)
+    ResumeDownload(uint64_t downloadID, IPC::DataReference resumeData, String path, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
     CancelDownload(uint64_t downloadID)
 
     SetProcessSuppressionEnabled(bool flag)
@@ -51,6 +56,12 @@ messages -> NetworkProcess LegacyReceiver {
     GetNetworkProcessStatistics(uint64_t callbackID)
     
     ClearCacheForAllOrigins(uint32_t cachesToClear)
+    SetCacheModel(uint32_t cacheModel);
+
+    ProcessWillSuspendImminently() -> (bool handled)
+    PrepareToSuspend()
+    CancelPrepareToSuspend()
+    ProcessDidResume()
 }
 
 #endif // ENABLE(NETWORK_PROCESS)

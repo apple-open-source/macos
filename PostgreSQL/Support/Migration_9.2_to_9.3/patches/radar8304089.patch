@@ -1,0 +1,653 @@
+diff -Naur postgresql-9.0.1/configure postgresql/configure
+--- postgresql-9.0.3/configure	2011-01-27 18:21:31.000000000 -0800
++++ postgresql/configure	2011-01-27 18:21:31.000000000 -0800
+@@ -27775,12 +27775,21 @@
+ 
+ # Select shared-memory implementation type.
+ if test "$PORTNAME" != "win32"; then
++  if test x"$USE_POSIX_SHARED_MEMORY" = x"1" ; then
++
++cat >>confdefs.h <<\_ACEOF
++#define USE_POSIX_SHARED_MEMORY 1
++_ACEOF
++
++    SHMEM_IMPLEMENTATION="src/backend/port/posix_shmem.c"
++  else
+ 
+ cat >>confdefs.h <<\_ACEOF
+ #define USE_SYSV_SHARED_MEMORY 1
+ _ACEOF
+ 
+-  SHMEM_IMPLEMENTATION="src/backend/port/sysv_shmem.c"
++    SHMEM_IMPLEMENTATION="src/backend/port/sysv_shmem.c"
++  fi
+ else
+ 
+ cat >>confdefs.h <<\_ACEOF
+diff -Naur postgresql-9.0.3/configure.in postgresql/configure.in
+--- postgresql-9.0.3/configure.in	2011-01-27 18:21:31.000000000 -0800
++++ postgresql/configure.in	2011-01-27 18:21:31.000000000 -0800
+@@ -1700,8 +1700,13 @@
+ 
+ # Select shared-memory implementation type.
+ if test "$PORTNAME" != "win32"; then
+-  AC_DEFINE(USE_SYSV_SHARED_MEMORY, 1, [Define to select SysV-style shared memory.])
+-  SHMEM_IMPLEMENTATION="src/backend/port/sysv_shmem.c"
++  if test x"$USE_POSIX_SHARED_MEMORY" = x"1" ; then
++    AC_DEFINE(USE_POSIX_SHARED_MEMORY, 1, [Define to select POSIX-style shared memory.])
++    SHMEM_IMPLEMENTATION="src/backend/port/posix_shmem.c"
++  else
++    AC_DEFINE(USE_SYSV_SHARED_MEMORY, 1, [Define to select SysV-style shared memory.])
++    SHMEM_IMPLEMENTATION="src/backend/port/sysv_shmem.c"
++  fi
+ else
+   AC_DEFINE(USE_WIN32_SHARED_MEMORY, 1, [Define to select Win32-style shared memory.])
+   SHMEM_IMPLEMENTATION="src/backend/port/win32_shmem.c"
+diff -Naur postgresql-9.0.1/src/include/pg_config.in postgresql/src/include/pg_config.in
+--- postgresql-9.0.1/src/include/pg_config.h.in	2010-10-01 07:25:44.000000000 -0700
++++ postgresql/src/include/pg_config.h.in	2010-12-14 18:59:28.000000000 -0800
+@@ -779,6 +779,9 @@
+ /* Define to 1 to build with PAM support. (--with-pam) */
+ #undef USE_PAM
+ 
++/* Define to select POSIX-style shared memory. */
++#undef USE_POSIX_SHARED_MEMORY
++
+ /* Use replacement snprintf() functions. */
+ #undef USE_REPL_SNPRINTF
+ 
+diff -Naur postgresql-9.0.1/src/template/darwin postgresql/src/template/darwin
+--- postgresql-9.0.1/src/template/darwin	2010-10-01 07:25:44.000000000 -0700
++++ postgresql/src/template/darwin	2010-12-14 12:36:07.000000000 -0800
+@@ -12,3 +12,5 @@
+     USE_SYSV_SEMAPHORES=1
+     ;;
+ esac
++
++USE_POSIX_SHARED_MEMORY=1
+diff -Naur postgresql-9.1.1/src/backend/port/posix_shmem.c postgresql/src/backend/port/posix_shmem.c
+--- postgresql-9.1.1/src/backend/port/posix_shmem.c.orig	1969-12-31 18:00:00.000000000 -0600
++++ postgresql/src/backend/port/posix_shmem.c	2011-10-10 14:05:00.000000000 -0500
+@@ -0,0 +1,582 @@
++/*-------------------------------------------------------------------------
++ *
++ * posix_shmem.c
++ *	  Implement shared memory using POSIX facilities
++ *
++ * These routines represent a fairly thin layer on top of POSIX shared
++ * memory functionality. This also requires a single very small SysV segment
++ * to ensure that oprhaned backends are not still alive in the database after
++ * a restart, for example after a crash or kill -9 of the postmaster.
++ *
++ * Portions Copyright (c) 1996-2006, PostgreSQL Global Development Group
++ * Portions Copyright (c) 1994, Regents of the University of California
++ * Portions Copyright (c) 2007, Apple Inc.
++ *
++ * Permission to use, copy, modify, and distribute this software and its
++ * documentation for any purpose, without fee, and without a written agreement
++ * is hereby granted, provided that the above copyright notice and this
++ * paragraph and the following two paragraphs appear in all copies.
++ *
++ * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA OR APPLE INC. BE LIABLE TO
++ * ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL
++ * DAMAGES, INCLUDING LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE
++ * AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA OR APPLE INC.
++ * HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * THE UNIVERSITY OF CALIFORNIA AND APPLE INC. SPECIFICALLY DISCLAIM ANY
++ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED
++ * HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA OR
++ * APPLE INC. HAVE NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
++ * ENHANCEMENTS, OR MODIFICATIONS.
++ *
++ *-------------------------------------------------------------------------
++ */
++
++#include "postgres.h"
++
++#include <signal.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <sys/file.h>
++#include <sys/mman.h>
++#include <sys/param.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#ifdef HAVE_SYS_IPC_H
++#include <sys/ipc.h>
++#endif
++#ifdef HAVE_SYS_SHM_H
++#include <sys/shm.h>
++#endif
++#ifdef HAVE_KERNEL_OS_H
++#include <kernel/OS.h>
++#endif
++
++#include "miscadmin.h"
++#include "storage/ipc.h"
++#include "storage/pg_shmem.h"
++
++
++#define IPCProtection			(0600)	/* access/modify by user only */
++#define SYSV_SEGMENT_SIZE		1
++
++#ifdef SHM_SHARE_MMU			/* use intimate shared memory on Solaris */
++#define PG_SHMAT_FLAGS			SHM_SHARE_MMU
++#else
++#define PG_SHMAT_FLAGS			0
++#endif
++
++void		   *UsedShmemSegAddr = NULL;
++unsigned long	UsedShmemSegID = 0;		/* Used for the SysV DB integrity 'mutex' segment */
++static void	   *usedSysVSegAddr = NULL;	/* Used for the SysV DB integrity 'mutex' segment, 
++										 * not passed to exec'd backends */
++
++static const char *GenerateIPCName();
++static void *InternalIpcMemoryCreate(Size size);
++static void IpcMemoryDetach(int status, Datum shmaddr);
++static void IpcMemoryDelete(int status, Datum notUsed);
++static void SysVNattachSegMemoryDetach(int status, Datum shmaddr);
++static void SysVNattachSegMemoryDelete(int status, Datum shmId);
++#ifdef EXEC_BACKEND
++static PGShmemHeader *PGSharedMemoryAttach(void);
++#endif
++
++static int shm_open_robust(const char *name, int flags, mode_t mode);
++static int close_robust(int d);
++
++/*
++ *	GenerateIPCName()
++ *
++ * Returns a shared memory object key name using the implicit argument
++ * DataDir, the data directory's pathname via its device and inode values.
++ */
++static const char*
++GenerateIPCName()
++{
++	struct		stat statbuf;
++
++	static char	ipcName[100];
++	static bool	initialized = false;
++	
++	if (!initialized)
++	{
++		/* Get the data directory's device and inode */
++		if (stat(DataDir, &statbuf) < 0)
++			ereport(FATAL,
++					(errcode_for_file_access(),
++					 errmsg("could not stat data directory \"%s\": %m",
++							DataDir)));
++		
++		/*
++		 * POSIX requires that shared memory names begin with a single slash.  
++		 * They should not have any others slashes or any non-alphanumerics to 
++		 * maintain the broadest assumption of what is permitted in a filename.
++		 * Also, case sensitivity should not be presumed.
++		 */
++		snprintf(ipcName, sizeof(ipcName), "/PostgreSQL.%jx.%jx",
++				 (intmax_t) statbuf.st_dev, (intmax_t) statbuf.st_ino);
++		
++		initialized = true;
++	}
++	
++	return ipcName;
++}
++
++/*
++ *	InternalIpcMemoryCreate(size)
++ *
++ * Create a new shared memory segment.
++ * Attaches the segment to the current process and return its attached
++ * address. Callbacks are registered with on_shmem_exit to detach and
++ * delete the segment when on_shmem_exit is called.
++ *
++ * If we fail for any reason print out an error and abort.
++ */
++static void *
++InternalIpcMemoryCreate(Size size)
++{
++	int			fd, sysVNattachSegShmid;
++	void	   *shmaddr, *sysVNattachSegMemAddr;
++	const char *ipcName = GenerateIPCName();
++	char		line[64];
++	
++	/* Create a small SysV shared memory segment to use to prevent
++	 * new postmasters from starting up when there are still
++	 * backends in the database. */
++	sysVNattachSegShmid = shmget(IPC_PRIVATE, SYSV_SEGMENT_SIZE, IPCProtection);
++	if (sysVNattachSegShmid < 0)
++	{
++		ereport(FATAL,
++				(errmsg("could not create shared memory segment: %m"),
++				 errdetail("Failed system call was shmget(key=IPC_PRIVATE, size=%i, 0%o).",
++						   IPCProtection, SYSV_SEGMENT_SIZE),
++				 (errno == EINVAL) ?
++				 errhint("This error usually means that PostgreSQL's request for a shared memory "
++						 "segment of %i byte(s) exceeded your kernel's SHMMAX parameter. It is also possible "
++						 "that it is less than your kernel's SHMMIN parameter, in which case "
++						 "reconfiguring SHMMIN is called for.\n"
++						 "The PostgreSQL documentation contains more information about shared "
++						 "memory configuration.", SYSV_SEGMENT_SIZE) : 0,
++				 (errno == ENOSPC) ?
++				 errhint("This error does *not* mean that you have run out of disk space. "
++						 "It occurs either if all available shared memory IDs have been taken, "
++						 "in which case you need to raise the SHMMNI parameter in your kernel, "
++						 "or because the system's overall limit for shared memory has been "
++						 "reached.\n"
++						 "The PostgreSQL documentation contains more information about shared "
++						 "memory configuration.") : 0));
++	}
++	
++	/* Register on-exit routine to delete the SysV segment */
++	on_shmem_exit(SysVNattachSegMemoryDelete, Int32GetDatum(sysVNattachSegShmid));
++	
++	/* Attach to the SysV segment */
++	sysVNattachSegMemAddr = shmat(sysVNattachSegShmid, NULL, PG_SHMAT_FLAGS);
++	if (sysVNattachSegMemAddr == (void *) -1)
++		elog(FATAL, "shmat(id=%d) failed: %m", sysVNattachSegShmid);
++	
++	/* Register on-exit routine to detach the SysV segment before deleting */
++	on_shmem_exit(SysVNattachSegMemoryDetach, PointerGetDatum(sysVNattachSegMemAddr));
++
++	/* Create new POSIX shared memory segment. We need to unlink any existing 
++	 * segment since ftruncate is unable to resize an existing segment on
++	 * some platforms. 
++	 */
++	shm_unlink(ipcName);
++	fd = shm_open_robust(ipcName, O_RDWR | O_CREAT | O_EXCL, IPCProtection);
++
++	if (fd < 0)
++	{
++		/* Complain and abort */
++		ereport(FATAL,
++				(errmsg("could not create shared memory segment: %m"),
++				 errdetail("Failed system call was shm_open(name=%s, oflag=%lu, mode=%lu).",
++						   GenerateIPCName(), (unsigned long) O_CREAT | O_EXCL,
++						   (unsigned long) IPCProtection),
++				 (errno == EEXIST || errno == EACCES) ?
++				 errhint("This error means that the shared memory segment for "
++						 "this data directory is still in use. Is another "
++						 "postgres running in data directory \"%s\"?", DataDir) : 0,
++				 (errno == EMFILE) ?
++				 errhint("This error means that the process has reached its limit "
++						 "for open file descriptors.") : 0,
++				 (errno == ENOSPC) ?
++				 errhint("This error means the process has ran out of address "
++						 "space.") : 0,
++				 (errno == ENAMETOOLONG) ?
++				 errhint("This error means that the shared memory segment name "
++						 "is too long.") : 0));
++	}
++	
++	/* Register on-exit routine to delete the POSIX segment */
++	on_shmem_exit(IpcMemoryDelete, 0);
++	
++#define OOM_ERROR_HINT errhint("This error usually means that PostgreSQL's request for a shared " \
++							   "memory segment exceeded available memory or swap space. " \
++							   "To reduce the request size (currently %lu bytes), reduce " \
++							   "PostgreSQL's shared_buffers parameter (currently %d) and/or " \
++							   "its max_connections parameter (currently %d).\n" \
++							   "The PostgreSQL documentation contains more information about shared " \
++							   "memory configuration.", \
++							   (unsigned long) size, NBuffers, MaxBackends)
++	
++	/* Increase the size of the file descriptor to the desired length */
++	if (ftruncate(fd, size) == -1)
++	{
++		/* Complain and abort */
++		ereport(FATAL,
++				(errmsg("could not set length of shared memory segment: %m"),
++				 errdetail("Failed system call was ftruncate(fd=%d, size=%lu).",
++						   fd, (unsigned long) size),
++				 OOM_ERROR_HINT));
++	}
++	
++	/* OK, should be able to attach to the segment */
++	shmaddr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
++	
++	/* Close the file descriptor since we don't need it anymore. */
++	close_robust(fd);
++
++	if (shmaddr == (void *) -1)
++	{
++		/* Complain and abort */
++		ereport(FATAL,
++				(errmsg("could not set length of shared memory segment: %m"),
++				 errdetail("Failed system call was mmap with size=%lu and fd=%d: %m",
++						   (unsigned long) size, fd),
++				 OOM_ERROR_HINT));
++	}
++
++	/* Register on-exit routine to detach new segment before deleting */
++	on_shmem_exit(IpcMemoryDetach, PointerGetDatum(shmaddr));
++
++	/* Record SysV shmid in lockfile for data directory so contending postmasters
++	 * can detect whether any orpahned backends are still in the database. 
++	 * Format it so that it's always the same length.
++	 */
++	snprintf(line, sizeof line, "%9lu %9lu", 0UL,
++			 (unsigned long) sysVNattachSegShmid);
++	AddToDataDirLockFile(LOCK_FILE_LINE_SHMEM_KEY, line);
++
++	/* Save address for possible future use */
++	UsedShmemSegAddr = shmaddr;
++	UsedShmemSegID = (unsigned long) sysVNattachSegMemAddr;
++	usedSysVSegAddr = sysVNattachSegMemAddr;
++	
++	return shmaddr;
++}
++
++/****************************************************************************/
++/*	IpcMemoryDetach(status, shmaddr)	removes a shared memory segment		*/
++/*										from process' address space			*/
++/*	(called as an on_shmem_exit callback, hence funny argument list)		*/
++/****************************************************************************/
++static void
++IpcMemoryDetach(int status, Datum shmaddr)
++{
++	PGShmemHeader  *hdr;
++	hdr = (PGShmemHeader *) DatumGetPointer(shmaddr);
++	
++	if (munmap(DatumGetPointer(shmaddr), hdr->totalsize) < 0)
++		elog(LOG, "munmap(%p) failed: %m", DatumGetPointer(shmaddr));
++}
++
++/****************************************************************************/
++/*	IpcMemoryDelete(status, notUsed)		deletes a shared memory segment	*/
++/*	(called as an on_shmem_exit callback, hence funny argument list)		*/
++/****************************************************************************/
++static void
++IpcMemoryDelete(int status, Datum notUsed)
++{
++	const char *ipcName = GenerateIPCName();
++	
++	if (shm_unlink(ipcName) < 0)
++		elog(LOG, "shm_unlink(%s) failed: %m", ipcName);
++}
++
++/****************************************************************************/
++/*	SysVNattachSegMemoryDetach(status, shmaddr)	removes a shared memory		*/
++/*										segment from process' address space	*/
++/*	(called as an on_shmem_exit callback, hence funny argument list)		*/
++/****************************************************************************/
++static void
++SysVNattachSegMemoryDetach(int status, Datum shmaddr)
++{
++	if (shmdt(DatumGetPointer(shmaddr)) < 0)
++		elog(LOG, "shmdt(%p) failed: %m", DatumGetPointer(shmaddr));
++}
++
++/****************************************************************************/
++/*	SysVNattachSegMemoryDelete(status, shmId)	deletes a shared memory seg.*/
++/*	(called as an on_shmem_exit callback, hence funny argument list)		*/
++/****************************************************************************/
++static void
++SysVNattachSegMemoryDelete(int status, Datum shmId)
++{
++	if (shmctl(DatumGetInt32(shmId), IPC_RMID, NULL) < 0)
++		elog(LOG, "shmctl(%d, %d, 0) failed: %m",
++			 DatumGetInt32(shmId), IPC_RMID);
++}
++
++/*
++ * PGSharedMemoryIsInUse
++ *
++ * Is a previously-existing shmem segment still existing and in use?
++ *
++ * The point of this exercise is to detect the case where a prior postmaster
++ * crashed, but it left child backends that are still running.	This only tests
++ * for shmem segments that are associated with the intended DataDir using the
++ * SysV segment that was created only for this purpose.
++ */
++bool
++PGSharedMemoryIsInUse(unsigned long id1, unsigned long id2)
++{
++	int shmId = (int) id2;
++	struct shmid_ds shmStat;
++	
++	/*
++	 * We detect whether a shared memory segment is in use by seeing whether
++	 * it (a) exists and (b) has any processes are attached to it.
++	 */
++	if (shmctl(shmId, IPC_STAT, &shmStat) < 0)
++	{
++		/*
++		 * EINVAL actually has multiple possible causes documented in the
++		 * shmctl man page, but we assume it must mean the segment no longer
++		 * exists.
++		 */
++		if (errno == EINVAL)
++			return false;
++		
++		/*
++		 * EACCES implies that the segment belongs to some other userid, which
++		 * means it is not a Postgres shmem segment (or at least, not one that
++		 * is relevant to our data directory).
++		 */
++		if (errno == EACCES)
++			return false;
++		
++		/*
++		 * Otherwise, we had better assume that the segment is in use. The
++		 * only likely case is EIDRM, which implies that the segment has been
++		 * IPC_RMID'd but there are still processes attached to it.
++		 */
++		return true;
++	}
++	
++	/* If it has attached processes, it's in use */
++	if (shmStat.shm_nattch > 0)
++		return true;
++	
++	/* Otherwise, it is not in use, so free the shmid. (This means that the
++	 * postmaster must have crashed or been kill -9'd and didn't free it itself.) */
++	if (shmctl(shmId, IPC_RMID, NULL) < 0)
++		elog(LOG, "shmctl(%d, %d, 0) failed: %m", shmId, IPC_RMID);
++	return false;
++}
++
++
++/*
++ * PGSharedMemoryCreate
++ *
++ * Create a shared memory segment of the given size and initialize its
++ * standard header.  Also, register an on_shmem_exit callback to release
++ * the storage.
++ *
++ * Dead Postgres segments are released when found, and due to using the inode/device
++ * combination in the shmem key name, collision with non-Postgres shmem segments is
++ * effectively impossible. 
++ *
++ * makePrivate means to always create a new segment, rather than attach to
++ * or recycle any existing segment. Currently, this value is ignored as
++ * all segments are newly created (the dead ones are simply freed either
++ * immediately or when the orphan backends die). Port is similarly ignored, as
++ * this POSIX layer bases its shmem segment names only on the inode/device values.
++ */
++PGShmemHeader *
++PGSharedMemoryCreate(Size size, bool makePrivate, int port)
++{
++	void		   *shmaddr;
++	PGShmemHeader  *hdr;
++	struct stat		statbuf;
++
++	/* Room for a header? */
++	Assert(size > MAXALIGN(sizeof(PGShmemHeader)));
++	
++	/* Create the new segment */
++	shmaddr = InternalIpcMemoryCreate(size);
++	
++	/* OK, we created a new segment.  Mark it as created by this process. */
++	hdr = (PGShmemHeader *) shmaddr;
++	hdr->creatorPID = getpid();
++	hdr->magic = PGShmemMagic;
++
++	/* Fill in the data directory ID info, too */
++	if (stat(DataDir, &statbuf) < 0)
++		ereport(FATAL,
++				(errcode_for_file_access(),
++				 errmsg("could not stat data directory \"%s\": %m",
++						DataDir)));
++	hdr->device = statbuf.st_dev;
++	hdr->inode = statbuf.st_ino;
++
++	/* Initialize space allocation status for segment. */
++	hdr->totalsize = size;
++	hdr->freeoffset = MAXALIGN(sizeof(PGShmemHeader));
++
++	return hdr;
++}
++
++#ifdef EXEC_BACKEND
++
++/*
++ * PGSharedMemoryReAttach
++ *
++ * Re-attach to an already existing shared memory segment.	In the non
++ * EXEC_BACKEND case this is not used, because postmaster children inherit
++ * the shared memory segment attachment via fork().
++ *
++ * UsedShmemSegAddr and UsedShmemSegAdd are implicit parameters to this
++ * routine.  The caller must have already restored them to the postmaster's
++ * values.
++ */
++void
++PGSharedMemoryReAttach(void)
++{
++	void   *hdr;
++	void   *origUsedShmemSegAddr = UsedShmemSegAddr;
++
++	Assert(UsedShmemSegAddr != NULL);
++	Assert(UsedShmemSegID != NULL);
++	Assert(IsUnderPostmaster);
++
++#ifdef __CYGWIN__
++	/* cygipc (currently) appears to not detach on exec. */
++	PGSharedMemoryDetach();
++	UsedShmemSegAddr = origUsedShmemSegAddr;
++#endif
++
++	elog(DEBUG3, "attaching to %p", UsedShmemSegAddr);
++	hdr = (void *) PGSharedMemoryAttach();
++	if (hdr == NULL)
++		elog(FATAL, "could not reattach to shared memory (addr=%p): %m",
++			 UsedShmemSegAddr);
++	if (hdr != origUsedShmemSegAddr)
++		elog(FATAL, "reattaching to shared memory returned unexpected address (got %p, expected %p)",
++			 hdr, origUsedShmemSegAddr);
++
++	UsedShmemSegAddr = hdr;		/* probably redundant */
++}
++
++/*
++ * PGSharedMemoryAttach
++ *
++ * Attach to shared memory and make sure it has a Postgres header
++ *
++ * Returns attach address if OK, else NULL
++ */
++static PGShmemHeader *
++PGSharedMemoryAttach(void)
++{
++	PGShmemHeader *hdr;
++	Size		size;
++	int			fd;
++	
++	/* Attach to the token SysV segment */
++	if (shmat(UsedShmemSegID, NULL, PG_SHMAT_FLAGS) == (void *) -1)
++		return NULL;
++	
++	/* Attach to the POSIX shared memory segment */
++	if ((fd = shm_open_robust(GenerateIPCName(), O_RDWR, 0)) < 0)
++		return NULL;
++	
++	hdr = (PGShmemHeader *) mmap(UsedShmemSegAddr, sizeof(PGShmemHeader),
++								 PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
++	
++	if (hdr == (PGShmemHeader *) -1)
++	{
++		close_robust(fd);
++		return NULL;			/* failed: this should never happen */
++	}
++	
++	if (hdr->magic != PGShmemMagic)
++	{
++		close_robust(fd);
++		munmap((void *) hdr, sizeof(PGShmemHeader));
++		return NULL;			/* segment belongs to a non-Postgres app, which should be impossible */
++	}
++	
++	/* Since the segment has a valid Postgres header, unmap and re-map it with the proper size */
++	size = hdr->totalsize;
++	munmap((void *) hdr, sizeof(PGShmemHeader));
++	hdr = (PGShmemHeader *) mmap(UsedShmemSegAddr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
++	close_robust(fd);
++	
++	if (hdr == (PGShmemHeader *) -1)   /* this shouldn't happen either */
++		return NULL;
++	
++	return hdr;
++}
++#endif   /* EXEC_BACKEND */
++
++/*
++ * PGSharedMemoryDetach
++ *
++ * Detach from the shared memory segments, if still attached.  This is not
++ * intended for use by the process that originally created the segment
++ * (it will have an on_shmem_exit callback registered to do that).	Rather,
++ * this is for subprocesses that have inherited an attachment and want to
++ * get rid of it.
++ */
++void
++PGSharedMemoryDetach(void)
++{
++	PGShmemHeader  *hdr;
++	if (UsedShmemSegAddr != NULL)
++	{
++		hdr = (PGShmemHeader *) UsedShmemSegAddr;
++		if (munmap(UsedShmemSegAddr, hdr->totalsize) < 0)
++			elog(LOG, "munmap(%p) failed: %m", UsedShmemSegAddr);
++		UsedShmemSegAddr = NULL;
++	}
++	
++	if (usedSysVSegAddr != NULL)
++	{
++		if (shmdt(usedSysVSegAddr) < 0)
++			elog(LOG, "shmdt(%p) failed: %m", usedSysVSegAddr);
++		usedSysVSegAddr = NULL;
++	}
++}
++
++/*
++ * shm_open_robust
++ *
++ * Wrapper to call shm_open until it is not interrupted.
++ */
++static int
++shm_open_robust(const char *name, int flags, mode_t mode)
++{
++	int fd;
++	do
++	{
++		fd = shm_open(name, flags, mode);
++	} while (fd < 0 && errno == EINTR);
++	return fd;
++}
++
++/*
++ * close_robust
++ *
++ * Wrapper to call close until it is not interrupted.
++ */
++static int
++close_robust(int d)
++{
++	int result;
++	do
++	{
++		result = close(d);
++	} while (result == -1 && errno == EINTR);
++	return result;
++}

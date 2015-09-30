@@ -29,8 +29,9 @@
 #include "mech_locl.h"
 
 OM_uint32
-_gss_copy_oid(OM_uint32 *minor_status,
-    gss_const_OID from_oid, gss_OID to_oid)
+_gss_copy_oid(OM_uint32 *__nonnull minor_status,
+	      __nonnull gss_const_OID from_oid,
+	      __nonnull gss_OID to_oid)
 {
 	size_t len = from_oid->length;
 
@@ -47,7 +48,8 @@ _gss_copy_oid(OM_uint32 *minor_status,
 }
 
 OM_uint32
-_gss_free_oid(OM_uint32 *minor_status, gss_OID oid)
+_gss_free_oid(OM_uint32 *__nonnull minor_status,
+	      __nonnull gss_OID oid)
 {
 	*minor_status = 0;
 	if (oid->elements) {
@@ -59,8 +61,9 @@ _gss_free_oid(OM_uint32 *minor_status, gss_OID oid)
 }
 
 OM_uint32
-_gss_copy_buffer(OM_uint32 *minor_status,
-    const gss_buffer_t from_buf, gss_buffer_t to_buf)
+_gss_copy_buffer(OM_uint32 *__nonnull minor_status,
+		 __nonnull const gss_buffer_t from_buf,
+		 __nonnull gss_buffer_t to_buf)
 {
 	size_t len = from_buf->length;
 
@@ -77,7 +80,7 @@ _gss_copy_buffer(OM_uint32 *minor_status,
 }
 
 void
-_gss_mg_encode_le_uint32(uint32_t n, uint8_t *p)
+_gss_mg_encode_le_uint32(uint32_t n, uint8_t *__nonnull p)
 {
     p[0] = (n >> 0 ) & 0xFF;
     p[1] = (n >> 8 ) & 0xFF;
@@ -86,14 +89,14 @@ _gss_mg_encode_le_uint32(uint32_t n, uint8_t *p)
 }
 
 void
-_gss_mg_decode_le_uint32(const void *ptr, uint32_t *n)
+_gss_mg_decode_le_uint32(const void *__nonnull ptr, uint32_t *__nonnull n)
 {
     const uint8_t *p = ptr;
     *n = (p[0] << 0) | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
 }
 
 void
-_gss_mg_encode_be_uint32(uint32_t n, uint8_t *p)
+_gss_mg_encode_be_uint32(uint32_t n, uint8_t *__nonnull p)
 {
     p[0] = (n >> 24) & 0xFF;
     p[1] = (n >> 16) & 0xFF;
@@ -102,7 +105,7 @@ _gss_mg_encode_be_uint32(uint32_t n, uint8_t *p)
 }
 
 void
-_gss_mg_decode_be_uint32(const void *ptr, uint32_t *n)
+_gss_mg_decode_be_uint32(const void *__nonnull ptr,  uint32_t *__nonnull n)
 {
     const uint8_t *p = ptr;
     *n = (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | (p[3] << 0);

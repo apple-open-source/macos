@@ -36,6 +36,7 @@
 #include "FrameLoader.h"
 #include "FrameSelection.h"
 #include "FrameTree.h"
+#include "HTMLFrameElementBase.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLNames.h"
 #include "IconDatabase.h"
@@ -45,7 +46,6 @@
 #include "MemoryCache.h"
 #include "Page.h"
 #include "Range.h"
-#include "ResourceBuffer.h"
 #include "Settings.h"
 #include "markup.h"
 #include <wtf/ListHashSet.h>
@@ -437,12 +437,12 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(Node* node, std::function<
     // If the page was loaded with javascript enabled, we don't want to archive <noscript> tags
     // In practice we don't actually know whether scripting was enabled when the page was originally loaded
     // but we can approximate that by checking if scripting is enabled right now.
-    OwnPtr<Vector<QualifiedName>> tagNamesToFilter;
+    std::unique_ptr<Vector<QualifiedName>> tagNamesToFilter;
     if (frame->page() && frame->page()->settings().isScriptEnabled()) {
-        tagNamesToFilter = adoptPtr(new Vector<QualifiedName>);
+        tagNamesToFilter = std::make_unique<Vector<QualifiedName>>();
         tagNamesToFilter->append(HTMLNames::noscriptTag);
     }
-        
+
     Vector<Node*> nodeList;
     String markupString = createMarkup(*node, IncludeNode, &nodeList, DoNotResolveURLs, tagNamesToFilter.get());
     Node::NodeType nodeType = node->nodeType();
@@ -516,8 +516,8 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
     for (size_t i = 0; i < nodesSize; ++i) {
         Node& node = *nodes[i];
         Frame* childFrame;
-        if ((isHTMLFrameElement(node) || isHTMLIFrameElement(node) || isHTMLObjectElement(node))
-            && (childFrame = toHTMLFrameOwnerElement(node).contentFrame())) {
+        if ((is<HTMLFrameElementBase>(node) || is<HTMLObjectElement>(node))
+            && (childFrame = downcast<HTMLFrameOwnerElement>(node).contentFrame())) {
             if (frameFilter && !frameFilter(*childFrame))
                 continue;
                 
@@ -545,13 +545,11 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
 
                 ResourceRequest request(subresourceURL);
 #if ENABLE(CACHE_PARTITIONING)
-                request.setCachePartition(frame->document()->topOrigin()->cachePartition());
+                request.setDomainForCachePartition(frame->document()->topOrigin()->domainForCachePartition());
 #endif
-                CachedResource* cachedResource = memoryCache()->resourceForRequest(request, frame->page()->sessionID());
+                CachedResource* cachedResource = MemoryCache::singleton().resourceForRequest(request, frame->page()->sessionID());
                 if (cachedResource) {
-                    ResourceBuffer* data = cachedResource->resourceBuffer();
-
-                    if (RefPtr<ArchiveResource> resource = ArchiveResource::create(data ? data->sharedBuffer() : 0, subresourceURL, cachedResource->response())) {
+                    if (RefPtr<ArchiveResource> resource = ArchiveResource::create(cachedResource->resourceBuffer(), subresourceURL, cachedResource->response())) {
                         subresources.append(WTF::move(resource));
                         continue;
                     }

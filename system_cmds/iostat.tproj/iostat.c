@@ -972,6 +972,12 @@ record_device(io_registry_entry_t drive)
 		else
 			errx(1, "device does not have a preferred block size");
 
+		// radar:18700383
+		if (drivestat[num_devices].blocksize == 0) {
+			warnx("%s claims a blocksize of 0; defaulting to 512. Its statistics may be inaccurate.", drivestat[num_devices].name);
+			drivestat[num_devices].blocksize = 512;
+		}
+
 		/* clean up, return success */
 		CFRelease(properties);
 		num_devices++;

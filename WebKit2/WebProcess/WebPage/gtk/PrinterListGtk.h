@@ -30,7 +30,7 @@
 
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 
 typedef struct _GtkPrinter GtkPrinter;
 
@@ -38,7 +38,7 @@ namespace WebKit {
 
 class PrinterListGtk: public RefCounted<PrinterListGtk> {
 public:
-    static RefPtr<PrinterListGtk> shared();
+    static RefPtr<PrinterListGtk> getOrCreate();
     ~PrinterListGtk();
 
     GtkPrinter* findPrinter(const char*) const;
@@ -47,11 +47,12 @@ public:
 private:
     PrinterListGtk();
 
-    static gboolean enumeratePrintersFunction(GtkPrinter*);
     void addPrinter(GtkPrinter*);
+    bool isEnumeratingPrinters() const { return m_enumeratingPrinters; }
 
     Vector<GRefPtr<GtkPrinter>, 4> m_printerList;
     GtkPrinter* m_defaultPrinter;
+    bool m_enumeratingPrinters;
     static PrinterListGtk* s_sharedPrinterList;
 };
 

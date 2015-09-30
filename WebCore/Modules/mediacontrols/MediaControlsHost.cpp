@@ -38,6 +38,7 @@
 #include "PageGroup.h"
 #include "TextTrack.h"
 #include "TextTrackList.h"
+#include "UUID.h"
 #include <runtime/JSCJSValueInlines.h>
 
 namespace WebCore {
@@ -60,9 +61,9 @@ const AtomicString& MediaControlsHost::alwaysOnKeyword()
     return alwaysOn;
 }
 
-PassRefPtr<MediaControlsHost> MediaControlsHost::create(HTMLMediaElement* mediaElement)
+Ref<MediaControlsHost> MediaControlsHost::create(HTMLMediaElement* mediaElement)
 {
-    return adoptRef(new MediaControlsHost(mediaElement));
+    return adoptRef(*new MediaControlsHost(mediaElement));
 }
 
 MediaControlsHost::MediaControlsHost(HTMLMediaElement* mediaElement)
@@ -88,7 +89,33 @@ Vector<RefPtr<TextTrack>> MediaControlsHost::sortedTrackListForMenu(TextTrackLis
     return captionPreferences->sortedTrackListForMenu(trackList);
 }
 
+Vector<RefPtr<AudioTrack>> MediaControlsHost::sortedTrackListForMenu(AudioTrackList* trackList)
+{
+    if (!trackList)
+        return Vector<RefPtr<AudioTrack>>();
+
+    Page* page = m_mediaElement->document().page();
+    if (!page)
+        return Vector<RefPtr<AudioTrack>>();
+
+    CaptionUserPreferences* captionPreferences = page->group().captionPreferences();
+    return captionPreferences->sortedTrackListForMenu(trackList);
+}
+
 String MediaControlsHost::displayNameForTrack(TextTrack* track)
+{
+    if (!track)
+        return emptyString();
+
+    Page* page = m_mediaElement->document().page();
+    if (!page)
+        return emptyString();
+
+    CaptionUserPreferences* captionPreferences = page->group().captionPreferences();
+    return captionPreferences->displayNameForTrack(track);
+}
+
+String MediaControlsHost::displayNameForTrack(AudioTrack* track)
 {
     if (!track)
         return emptyString();
@@ -168,7 +195,7 @@ void MediaControlsHost::updateCaptionDisplaySizes()
         m_textTrackContainer->updateSizes(true);
 }
     
-bool MediaControlsHost::mediaPlaybackAllowsInline() const
+bool MediaControlsHost::allowsInlineMediaPlayback() const
 {
     return !m_mediaElement->mediaSession().requiresFullscreenForVideoPlayback(*m_mediaElement);
 }
@@ -185,7 +212,7 @@ bool MediaControlsHost::userGestureRequired() const
 
 String MediaControlsHost::externalDeviceDisplayName() const
 {
-#if ENABLE(IOS_AIRPLAY)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
     MediaPlayer* player = m_mediaElement->player();
     if (!player) {
         LOG(Media, "MediaControlsHost::externalDeviceDisplayName - returning \"\" because player is NULL");
@@ -206,7 +233,7 @@ String MediaControlsHost::externalDeviceType() const
     DEPRECATED_DEFINE_STATIC_LOCAL(String, none, (ASCIILiteral("none")));
     String type = none;
     
-#if ENABLE(IOS_AIRPLAY)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
     DEPRECATED_DEFINE_STATIC_LOCAL(String, airplay, (ASCIILiteral("airplay")));
     DEPRECATED_DEFINE_STATIC_LOCAL(String, tvout, (ASCIILiteral("tvout")));
     
@@ -242,6 +269,11 @@ bool MediaControlsHost::controlsDependOnPageScaleFactor() const
 void MediaControlsHost::setControlsDependOnPageScaleFactor(bool value)
 {
     m_mediaElement->setMediaControlsDependOnPageScaleFactor(value);
+}
+
+String MediaControlsHost::generateUUID() const
+{
+    return createCanonicalUUIDString();
 }
 
 }

@@ -34,7 +34,7 @@
 
 namespace JSC {
 
-class MacroAssemblerARM64 : public AbstractMacroAssembler<ARM64Assembler> {
+class MacroAssemblerARM64 : public AbstractMacroAssembler<ARM64Assembler, MacroAssemblerARM64> {
     static const RegisterID dataTempRegister = ARM64Registers::ip0;
     static const RegisterID memoryTempRegister = ARM64Registers::ip1;
     static const ARM64Registers::FPRegisterID fpTempRegister = ARM64Registers::q31;
@@ -689,6 +689,26 @@ public:
         urshift32(dest, imm, dest);
     }
 
+    void urshift64(RegisterID src, RegisterID shiftAmount, RegisterID dest)
+    {
+        m_assembler.lsr<64>(dest, src, shiftAmount);
+    }
+    
+    void urshift64(RegisterID src, TrustedImm32 imm, RegisterID dest)
+    {
+        m_assembler.lsr<64>(dest, src, imm.m_value & 0x1f);
+    }
+
+    void urshift64(RegisterID shiftAmount, RegisterID dest)
+    {
+        urshift64(dest, shiftAmount, dest);
+    }
+    
+    void urshift64(TrustedImm32 imm, RegisterID dest)
+    {
+        urshift64(dest, imm, dest);
+    }
+
     void xor32(RegisterID src, RegisterID dest)
     {
         xor32(dest, src, dest);
@@ -898,16 +918,16 @@ public:
         load16(address, dest);
     }
 
-    void load16Signed(BaseIndex address, RegisterID dest)
+    void load16SignedExtendTo32(BaseIndex address, RegisterID dest)
     {
         if (!address.offset && (!address.scale || address.scale == 1)) {
-            m_assembler.ldrsh<64>(dest, address.base, address.index, ARM64Assembler::UXTX, address.scale);
+            m_assembler.ldrsh<32>(dest, address.base, address.index, ARM64Assembler::UXTX, address.scale);
             return;
         }
 
         signExtend32ToPtr(TrustedImm32(address.offset), getCachedMemoryTempRegisterIDAndInvalidate());
         m_assembler.add<64>(memoryTempRegister, memoryTempRegister, address.index, ARM64Assembler::UXTX, address.scale);
-        m_assembler.ldrsh<64>(dest, address.base, memoryTempRegister);
+        m_assembler.ldrsh<32>(dest, address.base, memoryTempRegister);
     }
 
     void load8(ImplicitAddress address, RegisterID dest)
@@ -939,16 +959,16 @@ public:
             m_cachedMemoryTempRegister.invalidate();
     }
 
-    void load8Signed(BaseIndex address, RegisterID dest)
+    void load8SignedExtendTo32(BaseIndex address, RegisterID dest)
     {
         if (!address.offset && !address.scale) {
-            m_assembler.ldrsb<64>(dest, address.base, address.index, ARM64Assembler::UXTX, address.scale);
+            m_assembler.ldrsb<32>(dest, address.base, address.index, ARM64Assembler::UXTX, address.scale);
             return;
         }
 
         signExtend32ToPtr(TrustedImm32(address.offset), getCachedMemoryTempRegisterIDAndInvalidate());
         m_assembler.add<64>(memoryTempRegister, memoryTempRegister, address.index, ARM64Assembler::UXTX, address.scale);
-        m_assembler.ldrsb<64>(dest, address.base, memoryTempRegister);
+        m_assembler.ldrsb<32>(dest, address.base, memoryTempRegister);
     }
 
     void store64(RegisterID src, ImplicitAddress address)
@@ -1193,9 +1213,14 @@ public:
         m_assembler.scvtf<64, 32>(fpTempRegister, dest);
         failureCases.append(branchDouble(DoubleNotEqualOrUnordered, src, fpTempRegister));
 
-        // If the result is zero, it might have been -0.0, and the double comparison won't catch this!
-        if (negZeroCheck)
-            failureCases.append(branchTest32(Zero, dest));
+        // Test for negative zero.
+        if (negZeroCheck) {
+            Jump valueIsNonZero = branchTest32(NonZero, dest);
+            RegisterID scratch = getCachedMemoryTempRegisterIDAndInvalidate();
+            m_assembler.fmov<64>(scratch, src);
+            failureCases.append(makeTestBitAndBranch(scratch, 63, IsNonZero));
+            valueIsNonZero.link(this);
+        }
     }
 
     Jump branchDouble(DoubleCondition cond, FPRegisterID left, FPRegisterID right)
@@ -1651,6 +1676,16 @@ public:
 
     Jump branch64(RelationalCondition cond, RegisterID left, RegisterID right)
     {
+        if (right == ARM64Registers::sp) {
+            if (cond == Equal && left != ARM64Registers::sp) {
+                // CMP can only use SP for the left argument, since we are testing for equality, the order
+                // does not matter here.
+                std::swap(left, right);
+            } else {
+                move(right, getCachedDataTempRegisterIDAndInvalidate());
+                right = dataTempRegister;
+            }
+        }
         m_assembler.cmp<64>(left, right);
         return Jump(makeBranch(cond));
     }

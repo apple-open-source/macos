@@ -37,7 +37,6 @@
 #include <windows.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
@@ -75,7 +74,7 @@ public:
 
     void releaseFrontend();
 
-    WebInspectorFrontendClient* frontendClient() { return m_frontendClient; }
+    WebInspectorFrontendClient* frontendClient() { return m_frontendClient.get(); }
 
     void updateHighlight();
 
@@ -85,11 +84,11 @@ private:
 
     WebView* m_inspectedWebView;
     WebCore::Page* m_frontendPage;
-    WebInspectorFrontendClient* m_frontendClient;
+    std::unique_ptr<WebInspectorFrontendClient> m_frontendClient;
     HWND m_inspectedWebViewHandle;
     HWND m_frontendHandle;
 
-    OwnPtr<WebNodeHighlight> m_highlight;
+    std::unique_ptr<WebNodeHighlight> m_highlight;
 };
 
 class WebInspectorFrontendClient : public WebCore::InspectorFrontendClientLocal, WebCore::WindowMessageListener {

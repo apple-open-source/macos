@@ -29,9 +29,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(INSPECTOR)
-
 #include "WorkerInspectorController.h"
 
 #include "CommandLineAPIHost.h"
@@ -39,8 +36,6 @@
 #include "InspectorForwarding.h"
 #include "InspectorInstrumentation.h"
 #include "InspectorTimelineAgent.h"
-#include "InspectorWebBackendDispatchers.h"
-#include "InspectorWebFrontendDispatchers.h"
 #include "InstrumentingAgents.h"
 #include "JSMainThreadExecState.h"
 #include "WebInjectedScriptHost.h"
@@ -48,11 +43,12 @@
 #include "WorkerConsoleAgent.h"
 #include "WorkerDebuggerAgent.h"
 #include "WorkerGlobalScope.h"
-#include "WorkerProfilerAgent.h"
 #include "WorkerReportingProxy.h"
 #include "WorkerRuntimeAgent.h"
 #include "WorkerThread.h"
 #include <inspector/InspectorBackendDispatcher.h>
+#include <inspector/InspectorFrontendDispatchers.h>
+#include <wtf/Stopwatch.h>
 
 using namespace Inspector;
 
@@ -82,6 +78,7 @@ WorkerInspectorController::WorkerInspectorController(WorkerGlobalScope& workerGl
     , m_instrumentingAgents(InstrumentingAgents::create(*this))
     , m_injectedScriptManager(std::make_unique<WebInjectedScriptManager>(*this, WebInjectedScriptHost::create()))
     , m_runtimeAgent(nullptr)
+    , m_executionStopwatch(Stopwatch::create())
 {
     auto runtimeAgent = std::make_unique<WorkerRuntimeAgent>(m_injectedScriptManager.get(), &workerGlobalScope);
     m_runtimeAgent = runtimeAgent.get();
@@ -95,10 +92,6 @@ WorkerInspectorController::WorkerInspectorController(WorkerGlobalScope& workerGl
     m_runtimeAgent->setScriptDebugServer(&debuggerAgent->scriptDebugServer());
     m_agents.append(WTF::move(debuggerAgent));
 
-    auto profilerAgent = std::make_unique<WorkerProfilerAgent>(m_instrumentingAgents.get(), &workerGlobalScope);
-    profilerAgent->setScriptDebugServer(&debuggerAgent->scriptDebugServer());
-    m_agents.append(WTF::move(profilerAgent));
-
     m_agents.append(std::make_unique<InspectorTimelineAgent>(m_instrumentingAgents.get(), nullptr, InspectorTimelineAgent::WorkerInspector, nullptr));
     m_agents.append(WTF::move(consoleAgent));
 
@@ -107,9 +100,7 @@ WorkerInspectorController::WorkerInspectorController(WorkerGlobalScope& workerGl
             , nullptr
             , nullptr
             , nullptr
-#if ENABLE(SQL_DATABASE)
             , nullptr
-#endif
         );
     }
 }
@@ -117,25 +108,25 @@ WorkerInspectorController::WorkerInspectorController(WorkerGlobalScope& workerGl
 WorkerInspectorController::~WorkerInspectorController()
 {
     m_instrumentingAgents->reset();
-    disconnectFrontend(InspectorDisconnectReason::InspectedTargetDestroyed);
+    disconnectFrontend(Inspector::DisconnectReason::InspectedTargetDestroyed);
 }
 
 void WorkerInspectorController::connectFrontend()
 {
     ASSERT(!m_frontendChannel);
     m_frontendChannel = std::make_unique<PageInspectorProxy>(m_workerGlobalScope);
-    m_backendDispatcher = InspectorBackendDispatcher::create(m_frontendChannel.get());
+    m_backendDispatcher = BackendDispatcher::create(m_frontendChannel.get());
     m_agents.didCreateFrontendAndBackend(m_frontendChannel.get(), m_backendDispatcher.get());
 }
 
-void WorkerInspectorController::disconnectFrontend(InspectorDisconnectReason reason)
+void WorkerInspectorController::disconnectFrontend(Inspector::DisconnectReason reason)
 {
     if (!m_frontendChannel)
         return;
 
     m_agents.willDestroyFrontendAndBackend(reason);
     m_backendDispatcher->clearFrontend();
-    m_backendDispatcher.clear();
+    m_backendDispatcher = nullptr;
     m_frontendChannel = nullptr;
 }
 
@@ -148,7 +139,7 @@ void WorkerInspectorController::dispatchMessageFromFrontend(const String& messag
 void WorkerInspectorController::resume()
 {
     ErrorString unused;
-    m_runtimeAgent->run(&unused);
+    m_runtimeAgent->run(unused);
 }
 
 InspectorFunctionCallHandler WorkerInspectorController::functionCallHandler() const
@@ -176,6 +167,9 @@ void WorkerInspectorController::didCallInjectedScriptFunction(JSC::ExecState* sc
     InspectorInstrumentation::didCallFunction(cookie, scriptExecutionContext);
 }
 
-} // namespace WebCore
+Ref<Stopwatch> WorkerInspectorController::executionStopwatch()
+{
+    return m_executionStopwatch.copyRef();
+}
 
-#endif // ENABLE(INSPECTOR)
+} // namespace WebCore

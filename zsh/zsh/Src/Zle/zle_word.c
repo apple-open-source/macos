@@ -80,16 +80,21 @@ viforwardword(char **args)
 	return ret;
     }
     while (n--) {
+	int nl;
 	if (Z_vialnum(zleline[zlecs]))
 	    while (zlecs != zlell && Z_vialnum(zleline[zlecs]))
 		INCCS();
 	else
-	    while (zlecs != zlell && !Z_vialnum(zleline[zlecs]) && !ZC_iblank(zleline[zlecs]))
+	    while (zlecs != zlell && !Z_vialnum(zleline[zlecs]) &&
+		    !ZC_inblank(zleline[zlecs]))
 		INCCS();
 	if (wordflag && !n)
 	    return 0;
-	while (zlecs != zlell && ZC_inblank(zleline[zlecs]))
+	nl = (zleline[zlecs] == ZWC('\n'));
+	while (zlecs != zlell && nl < 2 && ZC_inblank(zleline[zlecs])) {
 	    INCCS();
+	    nl += (zleline[zlecs] == ZWC('\n'));
+	}
     }
     return 0;
 }
@@ -108,12 +113,16 @@ viforwardblankword(char **args)
 	return ret;
     }
     while (n--) {
-	while (zlecs != zlell && !ZC_iblank(zleline[zlecs]))
+	int nl;
+	while (zlecs != zlell && !ZC_inblank(zleline[zlecs]))
 	    INCCS();
 	if (wordflag && !n)
 	    return 0;
-	while (zlecs != zlell && ZC_iblank(zleline[zlecs]))
+	nl = (zleline[zlecs] == ZWC('\n'));
+	while (zlecs != zlell && nl < 2 && ZC_inblank(zleline[zlecs])) {
 	    INCCS();
+	    nl += (zleline[zlecs] == ZWC('\n'));
+	}
     }
     return 0;
 }
@@ -148,20 +157,25 @@ viforwardblankwordend(UNUSED(char **args))
 {
     int n = zmult;
 
-    if (n < 0)
-	return 1;
+    if (n < 0) {
+	int ret;
+	zmult = -n;
+	ret = viforwardblankwordend(args);
+	zmult = n;
+	return ret;
+    }
     while (n--) {
 	while (zlecs != zlell) {
 	    int pos = zlecs;
 	    INCPOS(pos);
-	    if (!ZC_iblank(zleline[pos]))
+	    if (!ZC_inblank(zleline[pos]))
 		break;
 	    zlecs = pos;
 	}
 	while (zlecs != zlell) {
 	    int pos = zlecs;
 	    INCPOS(pos);
-	    if (ZC_iblank(zleline[pos]))
+	    if (ZC_inblank(zleline[pos]))
 		break;
 	    zlecs = pos;
 	}
@@ -180,7 +194,7 @@ viforwardwordend(char **args)
     if (n < 0) {
 	int ret;
 	zmult = -n;
-	ret = backwardword(args);
+	ret = vibackwardwordend(args);
 	zmult = n;
 	return ret;
     }
@@ -211,7 +225,7 @@ viforwardwordend(char **args)
 		    if (zlecs == zlell)
 			break;
 		    INCPOS(pos);
-		    if (Z_vialnum(zleline[pos]) || ZC_iblank(zleline[pos]))
+		    if (Z_vialnum(zleline[pos]) || ZC_inblank(zleline[pos]))
 			break;
 		}
 	    }
@@ -268,16 +282,19 @@ vibackwardword(char **args)
 	return ret;
     }
     while (n--) {
+	int nl = 0;
 	while (zlecs) {
-	    int pos = zlecs;
-	    DECPOS(pos);
-	    if (!ZC_iblank(zleline[pos]))
+	    DECCS();
+	    if (!ZC_inblank(zleline[zlecs]))
 		break;
-	    zlecs = pos;
+	    nl += (zleline[zlecs] == ZWC('\n'));
+	    if (nl == 2) {
+		INCCS();
+		break;
+	    }
 	}
 	if (zlecs) {
 	    int pos = zlecs;
-	    DECPOS(pos);
 	    if (Z_vialnum(zleline[pos])) {
 		for (;;) {
 		    zlecs = pos;
@@ -293,7 +310,7 @@ vibackwardword(char **args)
 		    if (zlecs == 0)
 			break;
 		    DECPOS(pos);
-		    if (Z_vialnum(zleline[pos]) || ZC_iblank(zleline[pos]))
+		    if (Z_vialnum(zleline[pos]) || ZC_inblank(zleline[pos]))
 			break;
 		}
 	    }
@@ -316,20 +333,79 @@ vibackwardblankword(char **args)
 	return ret;
     }
     while (n--) {
+	int nl = 0;
 	while (zlecs) {
 	    int pos = zlecs;
 	    DECPOS(pos);
-	    if (!ZC_iblank(zleline[pos]))
+	    if (!ZC_inblank(zleline[pos]))
 		break;
+	    nl += (zleline[pos] == ZWC('\n'));
+	    if (nl == 2) break;
 	    zlecs = pos;
 	}
 	while (zlecs) {
 	    int pos = zlecs;
 	    DECPOS(pos);
-	    if (ZC_iblank(zleline[pos]))
+	    if (ZC_inblank(zleline[pos]))
 		break;
 	    zlecs = pos;
 	}
+    }
+    return 0;
+}
+
+/**/
+int
+vibackwardwordend(char **args)
+{
+    int n = zmult;
+
+    if (n < 0) {
+	int ret;
+	zmult = -n;
+	ret = viforwardwordend(args);
+	zmult = n;
+	return ret;
+    }
+    while (n-- && zlecs > 1) {
+	int start = 0;
+	if (Z_vialnum(zleline[zlecs]))
+	    start = 1;
+	else if (!ZC_inblank(zleline[zlecs]))
+	    start = 2;
+	DECCS();
+	while (zlecs) {
+	    int same = (start != 1) && ZC_iblank(zleline[zlecs]);
+	    if (start)
+		same |= Z_vialnum(zleline[zlecs]);
+	    if (same == (start == 2))
+		break;
+	    DECCS();
+	}
+	while (zlecs && ZC_iblank(zleline[zlecs]))
+	    DECCS();
+    }
+    return 0;
+}
+
+/**/
+int
+vibackwardblankwordend(char **args)
+{
+    int n = zmult;
+
+    if (n < 0) {
+	int ret;
+	zmult = -n;
+	ret = viforwardblankwordend(args);
+	zmult = n;
+	return ret;
+    }
+    while (n--) {
+	while (zlecs && !ZC_inblank(zleline[zlecs]))
+	    DECCS();
+	while (zlecs && ZC_inblank(zleline[zlecs]))
+	    DECCS();
     }
     return 0;
 }
@@ -629,7 +705,6 @@ transposewords(UNUSED(char **args))
 	    DECPOS(pos);
 	    if (zleline[pos] == ZWC('\n'))
 		return 1;
-	    x = pos;
 	}
 	for (p4 = x; p4 != zlell && ZC_iword(zleline[p4]); INCPOS(p4))
 	    ;

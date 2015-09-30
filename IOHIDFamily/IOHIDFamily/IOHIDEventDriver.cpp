@@ -58,6 +58,8 @@ enum {
 #define kDefaultAbsoluteAxisRemovalPercentage           15
 #define kDefaultPreferredAxisRemovalPercentage          10
 
+#define kHIDUsage_MFiGameController_LED0                0xFF00
+
 //===========================================================================
 // EventElementCollection class
 class EventElementCollection: public OSObject
@@ -188,10 +190,12 @@ OSDictionary * DigitizerTransducer::copyProperties() const
 
 OSDefineMetaClassAndStructors( IOHIDEventDriver, IOHIDEventService )
 
+#define _led                            _reserved->led
 #define _keyboard                       _reserved->keyboard
 #define _scroll                         _reserved->scroll
 #define _relative                       _reserved->relative
 #define _multiAxis                      _reserved->multiAxis
+#define _gameController                 _reserved->gameController
 #define _digitizer                      _reserved->digitizer
 #define _unicode                        _reserved->unicode
 #define _absoluteAxisRemovalPercentage  _reserved->absoluteAxisRemovalPercentage
@@ -227,6 +231,7 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_digitizer.transducers);
     OSSafeReleaseNULL(_digitizer.deviceModeElement);
     OSSafeReleaseNULL(_scroll.elements);
+    OSSafeReleaseNULL(_led.elements);
     OSSafeReleaseNULL(_keyboard.elements);
     OSSafeReleaseNULL(_unicode.legacyElements);
     OSSafeReleaseNULL(_unicode.gesturesCandidates);
@@ -428,16 +433,29 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
             continue;
 
         if (    parseDigitizerElement(element) ||
+                parseGameControllerElement(element) ||
                 parseMultiAxisElement(element) ||
                 parseRelativeElement(element) ||
                 parseScrollElement(element) ||
+                parseLEDElement(element) ||
                 parseKeyboardElement(element) ||
                 parseUnicodeElement(element) ) {
             result = true;
             continue;
         }
         
-        if (element->getUsagePage() == kHIDPage_Button ) {
+        if (element->getUsagePage() == kHIDPage_Button) {
+#if !TARGET_OS_EMBEDDED
+            IOHIDElement *  parent = element;
+            while ((parent = parent->getParentElement()) != NULL) {
+                if (parent->getUsagePage() == kHIDPage_Consumer) {
+                    break;
+                }
+            }
+            if (parent != NULL) {
+              continue;
+            }
+#endif
             if ( !pendingButtonElements ) {
                 pendingButtonElements = OSArray::withCapacity(4);
                 require_action(pendingButtonElements, exit, result = false);
@@ -479,6 +497,8 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
             
             if ( _relative.elements && _relative.elements->getCount() ){
                 _relative.elements->setObject(element);
+            } else if ( _gameController.capable ) {
+                _gameController.elements->setObject(element);
             } else if ( _multiAxis.capable ) {
                 _multiAxis.elements->setObject(element);
             } else if ( _digitizer.transducers && _digitizer.transducers->getCount() ) {
@@ -492,13 +512,16 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
     }
     
     processDigitizerElements();
+    processGameControllerElements();
     processMultiAxisElements();
     processUnicodeElements();
     
     setRelativeProperties();
     setDigitizerProperties();
+    setGameControllerProperties();
     setMultiAxisProperties();
     setScrollProperties();
+    setLEDProperties();
     setKeyboardProperties();
     setUnicodeProperties();
     
@@ -612,6 +635,43 @@ exit:
 }
 
 //====================================================================================================
+// IOHIDEventDriver::processGameControllerElements
+//====================================================================================================
+#define GAME_CONTROLLER_STANDARD_MASK 0x00000F3F
+#define GAME_CONTROLLER_EXTENDED_MASK (0x000270C0 | GAME_CONTROLLER_STANDARD_MASK)
+
+void IOHIDEventDriver::processGameControllerElements()
+{
+    UInt32 index, count;
+    
+    require(_gameController.elements, exit);
+    
+    _gameController.extended = (_gameController.capable & GAME_CONTROLLER_EXTENDED_MASK) == GAME_CONTROLLER_EXTENDED_MASK;
+    
+    for (index=0, count=_gameController.elements->getCount(); index<count; index++) {
+        IOHIDElement *  element     = OSDynamicCast(IOHIDElement, _gameController.elements->getObject(index));
+        UInt32          reportID    = 0;
+        
+        if ( !element )
+            continue;
+        
+        if (element->getUsagePage() == kHIDPage_LEDs) {
+            if (element->getUsage() == kHIDUsage_MFiGameController_LED0)
+                element->setValue(1);
+            continue;
+        }
+        
+        reportID = element->getReportID();
+ 
+        if ( reportID > _gameController.sendingReportID )
+            _gameController.sendingReportID = reportID;
+    }
+    
+exit:
+    return;
+}
+
+//====================================================================================================
 // IOHIDEventDriver::processMultiAxisElements
 //====================================================================================================
 void IOHIDEventDriver::processMultiAxisElements()
@@ -657,7 +717,7 @@ void IOHIDEventDriver::processMultiAxisElements()
                             if ( (_multiAxis.capable & rotationMask) != 0) {
                                 removal *= 2;
                             }
-                            calibratePreferredStateElement(element, removal);
+                            calibrateCenteredPreferredStateElement(element, removal);
                         }
                         break;
                 }
@@ -716,6 +776,37 @@ exit:
 }
 
 //====================================================================================================
+// IOHIDEventDriver::setGameControllerProperties
+//====================================================================================================
+void IOHIDEventDriver::setGameControllerProperties()
+{
+    OSDictionary *  properties  = OSDictionary::withCapacity(4);
+    OSNumber *      number      = NULL;
+    
+    require(properties, exit);
+    require(_gameController.elements, exit);
+    
+    properties->setObject(kIOHIDElementKey, _gameController.elements);
+    
+    number = OSNumber::withNumber(_gameController.capable, 32);
+    require(number, exit);
+
+    properties->setObject("GameControllerCapabilities", number);
+    OSSafeRelease(number);
+    
+    setProperty("GameControllerPointer", properties);
+    
+    number = OSNumber::withNumber(_gameController.extended ? kIOHIDGameControllerTypeExtended : kIOHIDGameControllerTypeStandard, 32);
+    require(number, exit);
+
+    setProperty(kIOHIDGameControllerTypeKey, number);
+    OSSafeRelease(number);
+    
+exit:
+    OSSafeRelease(properties);
+}
+
+//====================================================================================================
 // IOHIDEventDriver::setMultiAxisProperties
 //====================================================================================================
 void IOHIDEventDriver::setMultiAxisProperties()
@@ -753,6 +844,24 @@ void IOHIDEventDriver::setScrollProperties()
     properties->setObject(kIOHIDElementKey, _scroll.elements);
     
     setProperty("Scroll", properties);
+    
+exit:
+    OSSafeRelease(properties);
+}
+
+//====================================================================================================
+// IOHIDEventDriver::setLEDProperties
+//====================================================================================================
+void IOHIDEventDriver::setLEDProperties()
+{
+    OSDictionary * properties = OSDictionary::withCapacity(4);
+    
+    require(properties, exit);
+    require(_led.elements, exit);
+    
+    properties->setObject(kIOHIDElementKey, _led.elements);
+    
+    setProperty("LED", properties);
     
 exit:
     OSSafeRelease(properties);
@@ -1008,13 +1117,50 @@ bool IOHIDEventDriver::parseDigitizerTransducerElement(IOHIDElement * element, I
     }
     
     if ( shouldCalibrate )
-        calibrateDigitizerElement(element, _absoluteAxisRemovalPercentage);
+        calibrateJustifiedPreferredStateElement(element, _absoluteAxisRemovalPercentage);
     
     transducer->elements->setObject(element);
     result = true;
     
 exit:
     return result;
+}
+
+//====================================================================================================
+// IOHIDEventDriver::parseGameControllerElement
+//====================================================================================================
+bool IOHIDEventDriver::parseGameControllerElement(IOHIDElement * element)
+{
+    UInt32 usagePage    = element->getUsagePage();
+    bool   store        = false;
+    bool   ret          = false;
+    
+    if ( !_gameController.elements ) {
+        _gameController.elements = OSArray::withCapacity(4);
+        require(_gameController.elements, exit);
+    }
+    
+    switch ( usagePage ) {
+        case kHIDPage_GenericDesktop:
+        case kHIDPage_Button:
+            _gameController.capable |= checkGameControllerElement(element);
+            if ( !_gameController.capable )
+                break;
+            
+            ret = store = true;
+            break;
+ 
+	case kHIDPage_LEDs:
+            store = true;
+            break;
+    }
+    
+    require(store, exit);
+    
+    _gameController.elements->setObject(element);
+    
+exit:
+    return ret;
 }
 
 //====================================================================================================
@@ -1044,7 +1190,7 @@ bool IOHIDEventDriver::parseMultiAxisElement(IOHIDElement * element)
                     if ( !_multiAxis.capable )
                         break;
 
-                    calibratePreferredStateElement(element, _preferredAxisRemovalPercentage);
+                    calibrateCenteredPreferredStateElement(element, _preferredAxisRemovalPercentage);
                     store = true;
                     break;
             }
@@ -1117,7 +1263,7 @@ bool IOHIDEventDriver::parseScrollElement(IOHIDElement * element)
                 case kHIDUsage_GD_Z:
                     
                     if ((element->getFlags() & (kIOHIDElementFlagsNoPreferredMask|kIOHIDElementFlagsRelativeMask)) == 0) {
-                        calibratePreferredStateElement(element, _preferredAxisRemovalPercentage);
+                        calibrateCenteredPreferredStateElement(element, _preferredAxisRemovalPercentage);
                     }
                     
                     store = true;
@@ -1140,6 +1286,34 @@ bool IOHIDEventDriver::parseScrollElement(IOHIDElement * element)
 exit:
     return store;
 }
+
+//====================================================================================================
+// IOHIDEventDriver::parseLEDElement
+//====================================================================================================
+bool IOHIDEventDriver::parseLEDElement(IOHIDElement * element)
+{
+    UInt32 usagePage    = element->getUsagePage();
+    bool   store        = false;
+    
+    if ( !_led.elements ) {
+        _led.elements = OSArray::withCapacity(4);
+        require(_led.elements, exit);
+    }
+    
+    switch ( usagePage ) {
+        case kHIDPage_LEDs:
+            store = true;
+            break;
+    }
+    
+    require(store, exit);
+    
+    _led.elements->setObject(element);
+    
+exit:
+    return store;
+}
+
 
 //====================================================================================================
 // IOHIDEventDriver::parseKeyboardElement
@@ -1187,14 +1361,6 @@ bool IOHIDEventDriver::parseKeyboardElement(IOHIDElement * element)
         case kHIDPage_Consumer:
         case kHIDPage_Telephony:
             store = true;
-            break;
-        case kHIDPage_LEDs:
-            if (((usage == kHIDUsage_LED_NumLock) || (usage == kHIDUsage_LED_CapsLock))
-                      && (_keyboard.ledElements[usage - kHIDUsage_LED_NumLock] == 0))
-            {
-                _keyboard.ledElements[usage - kHIDUsage_LED_NumLock] = element;
-                store = true;
-            }
             break;
         case kHIDPage_AppleVendorTopCase:
             store = (getProperty(kIOHIDAppleVendorSupported) == kOSBooleanTrue) && (usage == kHIDUsage_AV_TopCase_KeyboardFn);
@@ -1267,7 +1433,7 @@ bool IOHIDEventDriver::parseGestureUnicodeElement(IOHIDElement * element)
         case kHIDPage_Digitizer:
             switch ( usage ) {
                 case kHIDUsage_Dig_GestureCharacterQuality:
-                    calibrateDigitizerElement(element, 0);
+                    calibrateJustifiedPreferredStateElement(element, 0);
                 case kHIDUsage_Dig_GestureCharacterData:
                 case kHIDUsage_Dig_GestureCharacterDataLength:
                 case kHIDUsage_Dig_GestureCharacterEncodingUTF8:
@@ -1367,9 +1533,77 @@ bool IOHIDEventDriver::parseGestureUnicodeElement(IOHIDElement * element)
 }
 #endif
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//====================================================================================================
+// IOHIDEventDriver::checkGameControllerElement
+//====================================================================================================
+UInt32 IOHIDEventDriver::checkGameControllerElement(IOHIDElement * element)
+{
+    UInt32 result   = 0;
+    UInt32 base     = 0;
+    UInt32 offset   = 0;
+    UInt32 usagePage= element->getUsagePage();
+    UInt32 usage    = element->getUsage();
+    bool   preferred=false;
+
+    require(!element->conformsTo(kHIDPage_GenericDesktop, kHIDUsage_GD_Mouse), exit);
+    require(!element->conformsTo(kHIDPage_Digitizer), exit);
+    require(element->conformsTo(kHIDPage_GenericDesktop, kHIDUsage_GD_GamePad) ||
+            element->conformsTo(kHIDPage_GenericDesktop, kHIDUsage_GD_Joystick), exit);
+    require((element->getFlags() & (kIOHIDElementFlagsNoPreferredMask|kIOHIDElementFlagsRelativeMask)) == 0, exit);
+
+    switch (usagePage) {
+        case kHIDPage_GenericDesktop:
+            require((element->getFlags() & kIOHIDElementFlagsVariableMask) != 0, exit);
+            
+            switch (usage) {
+                case kHIDUsage_GD_X:
+                case kHIDUsage_GD_Y:
+                case kHIDUsage_GD_Z:
+                case kHIDUsage_GD_Rz:
+                    offset = 12;
+                    base = kHIDUsage_GD_X;
+                    preferred = true;
+                    break;
+                    
+                case kHIDUsage_GD_DPadUp:
+                case kHIDUsage_GD_DPadDown:
+                case kHIDUsage_GD_DPadLeft:
+                case kHIDUsage_GD_DPadRight:
+                    offset = 8;
+                    base = kHIDUsage_GD_DPadUp;
+                    break;
+                default:
+                    goto exit;
+            }
+            
+            break;
+            
+        case kHIDPage_Button:
+            require(usage >= 1 && usage <= 8, exit);
+            
+            base = kHIDUsage_Button_1;
+            offset = 0;
+            
+            break;
+        default:
+            goto exit;
+            break;
+    };
+    
+    if ( preferred )
+        calibrateCenteredPreferredStateElement(element, _preferredAxisRemovalPercentage);
+    else
+        calibrateJustifiedPreferredStateElement(element, _preferredAxisRemovalPercentage);
+    
+    result = (1<<((usage-base)+ offset));
+    
+exit:
+    return result;
+}
+
+//====================================================================================================
 // IOHIDEventDriver::checkMultiAxisElement
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//====================================================================================================
 UInt32 IOHIDEventDriver::checkMultiAxisElement(IOHIDElement * element)
 {
     UInt32 result = 0;
@@ -1389,9 +1623,9 @@ exit:
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// IOHIDEventDriver::calibratePreferredStateElement
+// IOHIDEventDriver::calibrateCenteredPreferredStateElement
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void IOHIDEventDriver::calibratePreferredStateElement(IOHIDElement * element, SInt32 removalPercentage)
+void IOHIDEventDriver::calibrateCenteredPreferredStateElement(IOHIDElement * element, SInt32 removalPercentage)
 {
     UInt32 mid      = element->getLogicalMin() + ((element->getLogicalMax() - element->getLogicalMin()) / 2);
     UInt32 satMin   = element->getLogicalMin();
@@ -1406,9 +1640,9 @@ void IOHIDEventDriver::calibratePreferredStateElement(IOHIDElement * element, SI
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// IOHIDEventDriver::calibrateDigitizerElement
+// IOHIDEventDriver::calibrateJustifiedPreferredStateElement
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void IOHIDEventDriver::calibrateDigitizerElement(IOHIDElement * element, SInt32 removalPercentage)
+void IOHIDEventDriver::calibrateJustifiedPreferredStateElement(IOHIDElement * element, SInt32 removalPercentage)
 {
     UInt32 satMin   = element->getLogicalMin();
     UInt32 satMax   = element->getLogicalMax();
@@ -1456,6 +1690,7 @@ void IOHIDEventDriver::handleInterruptReport (
 
     handleBootPointingReport(timeStamp, report, reportID);
     handleRelativeReport(timeStamp, reportID);
+    handleGameControllerReport(timeStamp, reportID);
     handleMultiAxisPointerReport(timeStamp, reportID);
     handleDigitizerReport(timeStamp, reportID);
     handleScrollReport(timeStamp, reportID);
@@ -1497,6 +1732,118 @@ void IOHIDEventDriver::handleBootPointingReport(AbsoluteTime timeStamp, IOMemory
 exit:
     return;
 }
+
+//====================================================================================================
+// IOHIDEventDriver::handleGameControllerReport
+//====================================================================================================
+void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32 reportID)
+{
+    bool        handled     = false;
+    UInt32      index, count;
+    
+    
+    require_quiet(_gameController.capable, exit);
+    
+    require_quiet(_gameController.elements, exit);
+    
+    for (index=0, count=_gameController.elements->getCount(); index<count; index++) {
+        IOHIDElement *  element;
+        AbsoluteTime    elementTimeStamp;
+        UInt32          usagePage, usage;
+        bool            elementIsCurrent;
+        
+        element = OSDynamicCast(IOHIDElement, _gameController.elements->getObject(index));
+        if ( !element )
+            continue;
+        
+        elementTimeStamp = element->getTimeStamp();
+        elementIsCurrent = (element->getReportID()==reportID) && (CMP_ABSOLUTETIME(&timeStamp, &elementTimeStamp)==0);
+        
+        if ( !elementIsCurrent )
+            continue;
+        
+        handled |= elementIsCurrent;
+        
+        usagePage   = element->getUsagePage();
+        usage       = element->getUsage();
+        
+        switch ( usagePage ) {
+            case kHIDPage_GenericDesktop:
+                switch ( usage ) {
+                    case kHIDUsage_GD_X:
+                        _gameController.joystick.x = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case kHIDUsage_GD_Y:
+                        _gameController.joystick.y = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case kHIDUsage_GD_Z:
+                        _gameController.joystick.z = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case kHIDUsage_GD_Rz:
+                        _gameController.joystick.rz = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case kHIDUsage_GD_DPadUp:
+                        _gameController.dpad.up = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case kHIDUsage_GD_DPadDown:
+                        _gameController.dpad.down = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case kHIDUsage_GD_DPadLeft:
+                        _gameController.dpad.left = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case kHIDUsage_GD_DPadRight:
+                        _gameController.dpad.right = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                }
+                break;
+            case kHIDPage_Button:
+                switch ( usage ) {
+                    case 1:
+                        _gameController.face.a = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case 2:
+                        _gameController.face.b = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case 3:
+                        _gameController.face.x = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case 4:
+                        _gameController.face.y = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case 5:
+                        _gameController.shoulder.l1 = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case 6:
+                        _gameController.shoulder.r1 = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case 7:
+                        _gameController.shoulder.l2 = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                    case 8:
+                        _gameController.shoulder.r2 = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        break;
+                        
+                }
+                break;
+        }
+    }
+    
+    require_quiet(handled, exit);
+    
+    require_quiet(reportID == _gameController.sendingReportID, exit);
+    
+#if TARGET_OS_EMBEDDED
+    if ( _gameController.extended ) {
+        dispatchExtendedGameControllerEvent(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1, _gameController.shoulder.l2, _gameController.shoulder.r2, _gameController.joystick.x, _gameController.joystick.y, _gameController.joystick.z, _gameController.joystick.rz);
+    } else {
+        dispatchStandardGameControllerEvent(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1);
+    }
+#endif /* TARGET_OS_EMBEDDED */
+    
+exit:
+    return;
+}
+
 
 //====================================================================================================
 // IOHIDEventDriver::handleMultiAxisPointerReport
@@ -2127,14 +2474,33 @@ void IOHIDEventDriver::setElementValue (
                                 UInt32                      usage,
                                 UInt32                      value )
 {
-    IOHIDElement *element = 0;
+    IOHIDElement *element = NULL;
+    uint32_t count, index;
 
-    if ( usagePage == kHIDPage_LEDs )
-        if ((usage == kHIDUsage_LED_NumLock) || (usage == kHIDUsage_LED_CapsLock))
-            element = _keyboard.ledElements[usage - kHIDUsage_LED_NumLock];
-
-    if (element)
-        element->setValue(value);
+    require(usagePage == kHIDPage_LEDs , exit);
+    
+    require(_led.elements, exit);
+    
+    count = _led.elements->getCount();
+    require(count, exit);
+    
+    for (index=0; index<count; index++) {
+        IOHIDElement * temp = OSDynamicCast(IOHIDElement, _led.elements->getObject(index));
+        
+        if ( !temp )
+            continue;
+        
+        if ( temp->getUsage() != usage )
+            continue;
+        
+        element = temp;
+        break;
+    }
+    
+    require(element, exit);
+    element->setValue(value);
+exit:
+    return;
 }
 
 //====================================================================================================
@@ -2144,15 +2510,32 @@ UInt32 IOHIDEventDriver::getElementValue (
                                 UInt32                      usagePage,
                                 UInt32                      usage )
 {
-    IOHIDElement *element = 0;
-
-    if ( usagePage == kHIDPage_LEDs )
-        if ((usage == kHIDUsage_LED_NumLock) || (usage == kHIDUsage_LED_CapsLock))
-            element = _keyboard.ledElements[usage - kHIDUsage_LED_NumLock];
-
+    IOHIDElement *element = NULL;
+    uint32_t count, index;
+    
+    require(usagePage == kHIDPage_LEDs , exit);
+    
+    require(_led.elements, exit);
+    
+    count = _led.elements->getCount();
+    require(count, exit);
+    
+    for (index=0; index<count; index++) {
+        IOHIDElement * temp = OSDynamicCast(IOHIDElement, _led.elements->getObject(index));
+        
+        if ( !temp )
+            continue;
+        
+        if ( temp->getUsage() != usage )
+            continue;
+        
+        element = temp;
+        break;
+    }
+    
+exit:
     return (element) ? element->getValue() : 0;
 }
-
 
 OSMetaClassDefineReservedUnused(IOHIDEventDriver,  0);
 OSMetaClassDefineReservedUnused(IOHIDEventDriver,  1);

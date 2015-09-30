@@ -233,6 +233,7 @@ vtd_rbfree(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size, vtd_rbaddr_t 
 				end = next->end;
 				RB_REMOVE(vtd_rbaddr_list, &bf->rbaddr_list, next);
 				RB_REMOVE(vtd_rbsize_list, &bf->rbsize_list, next);
+				IODelete(next, typeof(*next), 1);
 			}
 		}
 	}
@@ -266,7 +267,7 @@ vtd_rbfree(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size, vtd_rbaddr_t 
 
 static vtd_rbaddr_t 
 vtd_rballoc(vtd_space_t * bf, vtd_rbaddr_t pages, vtd_rbaddr_t align, vtd_rbaddr_t maxround, 
-		    uint32_t mapOptions, upl_page_info_t * pageList)
+		    uint32_t mapOptions, const upl_page_info_t * pageList)
 {
 	vtd_rbaddr_t        addr = 0;
 	vtd_rbaddr_t        end, head, tail;

@@ -31,8 +31,6 @@
 #include "config.h"
 #include "WorkerDebuggerAgent.h"
 
-#if ENABLE(INSPECTOR)
-
 #include "WorkerGlobalScope.h"
 #include "WorkerThread.h"
 #include <inspector/InjectedScript.h>
@@ -114,7 +112,7 @@ void WorkerDebuggerAgent::interruptAndDispatchInspectorCommands(WorkerThread* th
     std::lock_guard<std::mutex> lock(workerDebuggerAgentsMutex());
 
     if (WorkerDebuggerAgent* agent = workerDebuggerAgents().get(thread))
-        agent->m_scriptDebugServer.interruptAndRunTask(adoptPtr(new RunInspectorCommandsTask(thread, agent->m_inspectedWorkerGlobalScope)));
+        agent->m_scriptDebugServer.interruptAndRunTask(std::make_unique<RunInspectorCommandsTask>(thread, agent->m_inspectedWorkerGlobalScope));
 }
 
 void WorkerDebuggerAgent::startListeningScriptDebugServer()
@@ -137,10 +135,10 @@ WorkerScriptDebugServer& WorkerDebuggerAgent::scriptDebugServer()
     return m_scriptDebugServer;
 }
 
-InjectedScript WorkerDebuggerAgent::injectedScriptForEval(ErrorString* error, const int* executionContextId)
+InjectedScript WorkerDebuggerAgent::injectedScriptForEval(ErrorString& error, const int* executionContextId)
 {
     if (executionContextId) {
-        *error = ASCIILiteral("Execution context id is not supported for workers as there is only one execution context.");
+        error = ASCIILiteral("Execution context id is not supported for workers as there is only one execution context.");
         return InjectedScript();
     }
 
@@ -159,5 +157,3 @@ void WorkerDebuggerAgent::unmuteConsole()
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(INSPECTOR)

@@ -906,14 +906,16 @@ EAPOLControlCopyItemIDForAuthenticator(CFDataRef authenticator)
 	    EAPOLClientProfileRef		profile;
 
 	    cfg = EAPOLClientConfigurationCreate(NULL);
-	    profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
-	    if (profile != NULL) {
-		itemID = EAPOLClientItemIDCreateWithProfile(profile);
-	    }
-	    else {
-		/* profile is no longer present */
-	    }
-	    CFRelease(cfg);
+	    if (cfg != NULL) {
+		profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
+		if (profile != NULL) {
+		    itemID = EAPOLClientItemIDCreateWithProfile(profile);
+		}
+		else {
+		    /* profile is no longer present */
+		}
+		CFRelease(cfg);
+            }
 	}
 	else {
 	    itemID = EAPOLClientItemIDCreateDefault();

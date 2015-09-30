@@ -28,7 +28,7 @@ libdir="@libdir@"
 datarootdir="@datadir@"
 datadir="@datadir@"
 installbuilddir="@installbuilddir@"
-includedir="@includedir@"
+includedir="${SDKROOT}@includedir@"
 
 CC="@CC@"
 CPP="@CPP@"

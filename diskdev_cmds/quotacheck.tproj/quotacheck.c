@@ -934,7 +934,7 @@ addid(id, type)
 	if (name)
 		memmove(fup->fu_name, name, len + 1);
 	else 
-		(void)sprintf(fup->fu_name, "%u", (unsigned int)id);
+		(void)snprintf(fup->fu_name, len + 1, "%u", (unsigned int)id);
 
 	return (fup);
 }
@@ -965,7 +965,7 @@ addid(id, type, name)
 	if (name)
 		memmove(fup->fu_name, name, len + 1);
 	else
-		(void)sprintf(fup->fu_name, "%u", id);
+		(void)snprintf(fup->fu_name, len + 1, "%u", id);
 	return (fup);
 }
 #endif /* __APPLE__ */

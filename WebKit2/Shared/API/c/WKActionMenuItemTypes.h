@@ -32,6 +32,7 @@
 extern "C" {
 #endif
 
+// Deprecated; remove when there are no more clients.
 enum {
     kWKContextActionItemTagNoAction = 0,
     kWKContextActionItemTagOpenLinkInDefaultBrowser,
@@ -47,7 +48,8 @@ enum {
     kWKContextActionItemTagTextSuggestions,
     kWKContextActionItemTagCopyVideoURL,
     kWKContextActionItemTagSaveVideoToDownloads,
-    kWKContextActionItemTagShareVideo
+    kWKContextActionItemTagShareVideo,
+    kWKContextActionItemTagShareLink
 };
 
 #ifdef __cplusplus

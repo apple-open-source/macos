@@ -31,7 +31,7 @@
 #import <dispatch/dispatch.h>
 #import <mutex>
 #import <wtf/ThreadSafeRefCounted.h>
-#import <xpc/xpc.h>
+#import <wtf/spi/darwin/XPCSPI.h>
 
 OBJC_CLASS NSDictionary;
 OBJC_CLASS NSString;

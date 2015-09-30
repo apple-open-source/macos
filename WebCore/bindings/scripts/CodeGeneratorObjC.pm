@@ -27,6 +27,8 @@
 package CodeGeneratorObjC;
 
 use constant FileNamePrefix => "DOM";
+use File::Basename;
+use FindBin;
 
 sub ConditionalIsEnabled(\%$);
 
@@ -102,12 +104,12 @@ my %baseTypeHash = ("Object" => 1, "Node" => 1, "NodeList" => 1, "NamedNodeMap" 
                     "NodeIterator" => 1, "TreeWalker" => 1, "AbstractView" => 1, "Blob" => 1);
 
 # Constants
-my $buildingForIPhone = defined $ENV{PLATFORM_NAME} && ($ENV{PLATFORM_NAME} eq "iphoneos" or $ENV{PLATFORM_NAME} eq "iphonesimulator");
+my $shouldUseCGColor = defined $ENV{PLATFORM_NAME} && $ENV{PLATFORM_NAME} ne "macosx";
 my $nullableInit = "bool isNull = false;";
 my $exceptionInit = "WebCore::ExceptionCode ec = 0;";
 my $jsContextSetter = "WebCore::JSMainThreadNullState state;";
 my $exceptionRaiseOnError = "WebCore::raiseOnDOMError(ec);";
-my $assertMainThread = "{ DOM_ASSERT_MAIN_THREAD(); WebCoreThreadViolationCheckRoundOne(); }";
+my $threadViolationCheck = "WebCoreThreadViolationCheckRoundOne();";
 
 my %conflictMethod = (
     # FIXME: Add C language keywords?
@@ -215,6 +217,8 @@ my $implementationLicenseTemplate = << "EOF";
  */
 EOF
 
+my $TBDAvailabilityVersion = "9876_5";
+
 # Default constructor
 sub new
 {
@@ -222,8 +226,6 @@ sub new
     my $reference = { };
 
     $codeGenerator = shift;
-    shift; # $useLayerOnTop
-    shift; # $preprocessor
     $writeDependencies = shift;
 
     bless($reference, $object);
@@ -246,7 +248,8 @@ sub ReadPublicInterfaces
     push(@args, "-I" . $ENV{BUILT_PRODUCTS_DIR} . "/usr/local/include") if $ENV{BUILT_PRODUCTS_DIR};
     push(@args, "-isysroot", $ENV{SDKROOT}) if $ENV{SDKROOT};
 
-    my $fileName = "WebCore/bindings/objc/PublicDOMInterfaces.h";
+    my $bindingsDir = dirname($FindBin::Bin);
+    my $fileName = "$bindingsDir/objc/PublicDOMInterfaces.h";
     my $gccLocation = "";
     if ($ENV{CC}) {
         $gccLocation = $ENV{CC};
@@ -296,7 +299,7 @@ sub ReadPublicInterfaces
 
     # If this class was not found in PublicDOMInterfaces.h then it should be considered as an entirely new public class.
     $newPublicClass = !$found;
-    $interfaceAvailabilityVersion = "TBD" if $newPublicClass;
+    $interfaceAvailabilityVersion = $TBDAvailabilityVersion if $newPublicClass;
 }
 
 sub AddMethodsConstantsAndAttributesFromParentInterfaces
@@ -377,7 +380,10 @@ sub GenerateInterface
         $fatalError = 1;
     }
 
-    die if $fatalError;
+    # FIXME: This should not need to be an exception.
+    # ObjCCustomImplementation doesn't work with CMake right now.
+    # https://bugs.webkit.org/show_bug.cgi?id=135860
+    die if $fatalError && $className ne "DOMAbstractView";
 }
 
 sub GetClassName
@@ -386,7 +392,7 @@ sub GetClassName
 
     # special cases
     return "NSString" if $codeGenerator->IsStringType($name) or $name eq "SerializedScriptValue";
-    return "CGColorRef" if $name eq "Color" and $buildingForIPhone;
+    return "CGColorRef" if $name eq "Color" and $shouldUseCGColor;
     return "NS$name" if IsNativeObjCType($name);
     return "BOOL" if $name eq "boolean";
     return "unsigned char" if $name eq "octet";
@@ -414,7 +420,6 @@ sub GetImplClassName
 {
     my $name = shift;
 
-    return "DOMImplementationFront" if $name eq "DOMImplementation";
     return "DOMWindow" if $name eq "AbstractView";
     return $name;
 }
@@ -532,6 +537,8 @@ sub SkipFunction
     return 1 if $codeGenerator->GetSequenceType($function->signature->type);
     return 1 if $codeGenerator->GetArrayType($function->signature->type);
 
+    return 1 if $function->signature->type eq "Promise";
+
     foreach my $param (@{$function->parameters}) {
         return 1 if $codeGenerator->GetSequenceType($param->type);
         return 1 if $codeGenerator->GetArrayType($param->type);
@@ -550,12 +557,12 @@ sub SkipAttribute
     return 1 if $codeGenerator->GetArrayType($type);
     return 1 if $codeGenerator->IsTypedArrayType($type);
     return 1 if $codeGenerator->IsEnumType($type);
+    return 1 if $type eq "EventHandler";
     return 1 if $attribute->isStatic;
 
-    # This is for DynamicsCompressorNode.idl
-    if ($attribute->signature->name eq "release") {
-        return 1;
-    }
+    # This is for DynamicsCompressorNode.idl.
+    # FIXME: Normally we would rename rather than just skipping for a case like this.
+    return 1 if $attribute->signature->name eq "release";
 
     return 0;
 }
@@ -654,7 +661,7 @@ sub AddIncludesForType
 
     if (IsNativeObjCType($type)) {
         if ($type eq "Color") {
-            if ($buildingForIPhone) {
+            if ($shouldUseCGColor) {
                 $implIncludes{"ColorSpace.h"} = 1;
             } else {
                 $implIncludes{"ColorMac.h"} = 1;
@@ -671,12 +678,6 @@ sub AddIncludesForType
     if ($type eq "DOMWindow") {
         $implIncludes{"DOMAbstractViewInternal.h"} = 1;
         $implIncludes{"DOMWindow.h"} = 1;
-        return;
-    }
-
-    if ($type eq "DOMImplementation") {
-        $implIncludes{"DOMDOMImplementationInternal.h"} = 1;
-        $implIncludes{"DOMImplementationFront.h"} = 1;
         return;
     }
 
@@ -832,7 +833,7 @@ sub GenerateHeader
     }
 
     # - Begin @interface or @protocol
-    my $interfaceDeclaration = ($isProtocol ? "\@protocol $className" : "\@interface $className : $parentName");
+    my $interfaceDeclaration = ($isProtocol ? "\@protocol $className" : "WEBCORE_EXPORT \@interface $className : $parentName");
     $interfaceDeclaration .= " <" . join(", ", @protocolsToImplement) . ">" if @protocolsToImplement > 0;
     $interfaceDeclaration .= "\n";
 
@@ -864,7 +865,7 @@ sub GenerateHeader
             my $publicInterfaceKey = $property . ";";
 
             # FIXME: This only works for the getter, but not the setter.  Need to refactor this code.
-            if ($buildingForTigerOrEarlier && !$buildingForIPhone || IsCoreFoundationType($attributeType)) {
+            if (IsCoreFoundationType($attributeType)) {
                 $publicInterfaceKey = "- (" . $attributeType . ")" . $attributeName . ";";
             }
 
@@ -896,9 +897,19 @@ sub GenerateHeader
             }
 
             if (!IsCoreFoundationType($attributeType)) {
+                # FIXME: We should probably also check that the property type is an Objective-C type.
+                my $needsReturnsRetainedAnnotation = $attributeName =~ /new([A-Z].*)?/;
+
                 $property .= $declarationSuffix;
                 push(@headerAttributes, $property) if $public;
                 push(@privateHeaderAttributes, $property) unless $public;
+                if ($needsReturnsRetainedAnnotation) {
+                    # - GETTER
+                    my $getter = "- (" . $attributeType . ")" . $attributeName . " NS_RETURNS_NOT_RETAINED" . $declarationSuffix;
+                    push(@headerAttributes, $getter) if $public;
+                    push(@privateHeaderAttributes, $getter) unless $public;
+                }
+
             } elsif (ConditionalIsEnabled(%definesRef, $attribute->signature->extendedAttributes->{"Conditional"})) {
                 # - GETTER
                 my $getter = "- (" . $attributeType . ")" . $attributeName . $declarationSuffix;
@@ -1095,7 +1106,8 @@ sub GenerateHeader
             @internalHeaderContent = split("\r", $implementationLicenseTemplate);
         }
 
-        push(@internalHeaderContent, "\n#import <WebCore/$className.h>\n\n");
+        my $classHeaderName = GetClassHeaderName($className);
+        push(@internalHeaderContent, "\n#import <WebCore/$classHeaderName.h>\n\n");
 
         if ($interfaceName eq "Node") {
             push(@internalHeaderContent, "\@protocol DOMEventTarget;\n\n");
@@ -1112,8 +1124,8 @@ sub GenerateHeader
         }
         push(@internalHeaderContent, "}\n\n");
 
-        push(@internalHeaderContent, "$implType* core($className *);\n");
-        push(@internalHeaderContent, "$className *kit($implType*);\n");
+        push(@internalHeaderContent, "WEBCORE_EXPORT $implType* core($className *);\n");
+        push(@internalHeaderContent, "WEBCORE_EXPORT $className *kit($implType*);\n");
 
         if ($interface->extendedAttributes->{"ObjCPolymorphic"}) {
             push(@internalHeaderContent, "Class kitClass($implType*);\n");
@@ -1297,11 +1309,7 @@ sub GenerateImplementation
 
             # Special cases
             my @customGetterContent = (); 
-            if ($attributeTypeSansPtr eq "DOMImplementation") {
-                # FIXME: We have to special case DOMImplementation until DOMImplementationFront is removed
-                $getterContentHead = "kit(implementationFront(IMPL";
-                $getterContentTail .= ")";
-            } elsif ($attributeName =~ /(\w+)DisplayString$/) {
+            if ($attributeName =~ /(\w+)DisplayString$/) {
                 my $attributeToDisplay = $1;
                 $getterContentHead = "WebCore::displayString(IMPL->$attributeToDisplay(), core(self)";
                 $implIncludes{"HitTestResult.h"} = 1;
@@ -1333,7 +1341,7 @@ sub GenerateImplementation
                 $getterContentHead = "kit($getterContentHead";
                 $getterContentTail .= ")";
             } elsif ($idlType eq "Color") {
-                if ($buildingForIPhone) {
+                if ($shouldUseCGColor) {
                     $getterContentHead = "WebCore::cachedCGColor($getterContentHead";
                     $getterContentTail .= ", WebCore::ColorSpaceDeviceRGB)";
                 } else {
@@ -1670,7 +1678,7 @@ sub GenerateImplementation
     if ($parentImplClassName eq "Object") {        
         push(@implContent, "$className *kit($implType* value)\n");
         push(@implContent, "{\n");
-        push(@implContent, "    $assertMainThread;\n");
+        push(@implContent, "    $threadViolationCheck\n");
         push(@implContent, "    if (!value)\n");
         push(@implContent, "        return nil;\n");
         push(@implContent, "    if ($className *wrapper = getDOMWrapper(value))\n");
@@ -1690,7 +1698,7 @@ sub GenerateImplementation
     } else {
         push(@implContent, "$className *kit($implType* value)\n");
         push(@implContent, "{\n");
-        push(@implContent, "    $assertMainThread;\n");
+        push(@implContent, "    $threadViolationCheck\n");
         push(@implContent, "    return static_cast<$className*>(kit(static_cast<WebCore::$baseClass*>(value)));\n");
         push(@implContent, "}\n");
     }

@@ -36,8 +36,10 @@
 
 #include "ClientRect.h"
 #include "DOMTokenList.h"
+#include "ElementChildIterator.h"
 #include "ExceptionCodePlaceholder.h"
 #include "HTMLDivElement.h"
+#include "HTMLParserIdioms.h"
 #include "Logging.h"
 #include "RenderElement.h"
 #include "VTTCue.h"
@@ -81,7 +83,7 @@ VTTRegion::VTTRegion(ScriptExecutionContext& context)
     , m_regionDisplayTree(nullptr)
     , m_track(nullptr)
     , m_currentTop(0)
-    , m_scrollTimer(this, &VTTRegion::scrollTimerFired)
+    , m_scrollTimer(*this, &VTTRegion::scrollTimerFired)
 {
 }
 
@@ -232,7 +234,7 @@ void VTTRegion::setRegionSettings(const String& inputString)
 
         // Verify that we're looking at a '='.
         if (name == None || !input.scan('=')) {
-            input.skipUntil<WebVTTParser::isASpace>();
+            input.skipUntil<isHTMLSpace<UChar>>();
             continue;
         }
 
@@ -268,7 +270,7 @@ void VTTRegion::parseSettingValue(RegionSetting setting, VTTScanner& input)
 {
     DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, scrollUpValueKeyword, ("up", AtomicString::ConstructFromLiteral));
 
-    VTTScanner::Run valueRun = input.collectUntil<WebVTTParser::isASpace>();
+    VTTScanner::Run valueRun = input.collectUntil<isHTMLSpace<UChar>>();
 
     switch (setting) {
     case Id: {
@@ -361,19 +363,20 @@ void VTTRegion::displayLastTextTrackCueBox()
     ASSERT(m_cueContainer);
 
     // The container needs to be rendered, if it is not empty and the region is not currently scrolling.
-    if (!m_cueContainer->renderer() || !m_cueContainer->childNodeCount() || m_scrollTimer.isActive())
+    if (!m_cueContainer->renderer() || !m_cueContainer->hasChildNodes() || m_scrollTimer.isActive())
         return;
 
     // If it's a scrolling region, add the scrolling class.
     if (isScrollingRegion())
-        m_cueContainer->classList()->add(textTrackCueContainerScrollingClass(), IGNORE_EXCEPTION);
+        m_cueContainer->classList().add(textTrackCueContainerScrollingClass(), IGNORE_EXCEPTION);
 
     float regionBottom = m_regionDisplayTree->getBoundingClientRect()->bottom();
 
     // Find first cue that is not entirely displayed and scroll it upwards.
-    for (size_t i = 0; i < m_cueContainer->childNodeCount() && !m_scrollTimer.isActive(); ++i) {
-        float childTop = static_cast<HTMLDivElement*>(m_cueContainer->childNode(i))->getBoundingClientRect()->top();
-        float childBottom = static_cast<HTMLDivElement*>(m_cueContainer->childNode(i))->getBoundingClientRect()->bottom();
+    for (auto& child : childrenOfType<Element>(*m_cueContainer)) {
+        Ref<ClientRect> rect = child.getBoundingClientRect();
+        float childTop = rect->top();
+        float childBottom = rect->bottom();
 
         if (regionBottom >= childBottom)
             continue;
@@ -384,6 +387,7 @@ void VTTRegion::displayLastTextTrackCueBox()
         m_cueContainer->setInlineStyleProperty(CSSPropertyTop, m_currentTop, CSSPrimitiveValue::CSS_PX);
 
         startTimer();
+        break;
     }
 }
 
@@ -394,7 +398,7 @@ void VTTRegion::willRemoveTextTrackCueBox(VTTCueBox* box)
 
     double boxHeight = box->getBoundingClientRect()->bottom() - box->getBoundingClientRect()->top();
 
-    m_cueContainer->classList()->remove(textTrackCueContainerScrollingClass(), IGNORE_EXCEPTION);
+    m_cueContainer->classList().remove(textTrackCueContainerScrollingClass(), IGNORE_EXCEPTION);
 
     m_currentTop += boxHeight;
     m_cueContainer->setInlineStyleProperty(CSSPropertyTop, m_currentTop, CSSPrimitiveValue::CSS_PX);
@@ -474,7 +478,7 @@ void VTTRegion::stopTimer()
         m_scrollTimer.stop();
 }
 
-void VTTRegion::scrollTimerFired(Timer*)
+void VTTRegion::scrollTimerFired()
 {
     LOG(Media, "VTTRegion::scrollTimerFired");
 

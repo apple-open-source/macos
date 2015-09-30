@@ -750,6 +750,7 @@ struct mountargs {
 	char *		principal;				/* principal to use on initial mount */
 	char *		sprinc;					/* server's kerberos principal */
 	uint32_t	nfs_version, nfs_minor_version;		/* NFS version */
+	uint32_t	nfs_min_vers, nfs_max_vers;		/* NFS packed version range */
 	uint32_t	rsize, wsize, readdirsize, readahead;	/* I/O values */
 	struct timespec	acregmin, acregmax, acdirmin, acdirmax;	/* attrcache values */
 	uint32_t	lockmode;				/* advisory file locking mode */
@@ -868,6 +869,10 @@ parse_mountargs(struct xdrbuf *xb, int margslen, struct mountargs *margs)
 		xb_get_32(error, xb, margs->nfs_version);
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_MINOR_VERSION))
 		xb_get_32(error, xb, margs->nfs_minor_version);
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_VERSION_RANGE)) {
+		xb_get_32(error, xb, margs->nfs_min_vers);
+		xb_get_32(error, xb, margs->nfs_max_vers);
+	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READ_SIZE))
 		xb_get_32(error, xb, margs->rsize);
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_WRITE_SIZE))
@@ -1163,6 +1168,20 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 		printf("%cvers=%d", sep, margs->nfs_version);
 		if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_MINOR_VERSION))
 			printf(".%d", margs->nfs_minor_version);
+		SEP;
+	} else if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_VERSION_RANGE)) {
+		uint32_t maj, min;
+
+		maj = PVER2MAJOR(margs->nfs_min_vers);
+		min = PVER2MINOR(margs->nfs_min_vers);
+		printf("%cvers=%d", sep, maj);
+		if (min)
+			printf(".%d", min);
+		maj = PVER2MAJOR(margs->nfs_max_vers);
+		min = PVER2MINOR(margs->nfs_max_vers);
+		printf("-%d", maj);
+		if (min)
+			printf(".%d", min);
 		SEP;
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SOCKET_TYPE))

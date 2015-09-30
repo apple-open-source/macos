@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,6 @@
 
 #if ENABLE(DFG_JIT)
 
-#include "Arguments.h"
 #include "DFGJITCode.h"
 #include "DFGOperations.h"
 #include "JIT.h"
@@ -54,20 +53,55 @@ void handleExitCounts(CCallHelpers& jit, const OSRExitBase& exit)
         AssemblyHelpers::GreaterThanOrEqual,
         AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfJITExecuteCounter()),
         AssemblyHelpers::TrustedImm32(0));
+    
+    // We want to figure out if there's a possibility that we're in a loop. For the outermost
+    // code block in the inline stack, we handle this appropriately by having the loop OSR trigger
+    // check the exit count of the replacement of the CodeBlock from which we are OSRing. The
+    // problem is the inlined functions, which might also have loops, but whose baseline versions
+    // don't know where to look for the exit count. Figure out if those loops are severe enough
+    // that we had tried to OSR enter. If so, then we should use the loop reoptimization trigger.
+    // Otherwise, we should use the normal reoptimization trigger.
+    
+    AssemblyHelpers::JumpList loopThreshold;
+    
+    for (InlineCallFrame* inlineCallFrame = exit.m_codeOrigin.inlineCallFrame; inlineCallFrame; inlineCallFrame = inlineCallFrame->caller.inlineCallFrame) {
+        loopThreshold.append(
+            jit.branchTest8(
+                AssemblyHelpers::NonZero,
+                AssemblyHelpers::AbsoluteAddress(
+                    inlineCallFrame->executable->addressOfDidTryToEnterInLoop())));
+    }
+    
+    jit.move(
+        AssemblyHelpers::TrustedImm32(jit.codeBlock()->exitCountThresholdForReoptimization()),
+        GPRInfo::regT1);
+    
+    if (!loopThreshold.empty()) {
+        AssemblyHelpers::Jump done = jit.jump();
+
+        loopThreshold.link(&jit);
+        jit.move(
+            AssemblyHelpers::TrustedImm32(
+                jit.codeBlock()->exitCountThresholdForReoptimizationFromLoop()),
+            GPRInfo::regT1);
         
-    tooFewFails = jit.branch32(AssemblyHelpers::BelowOrEqual, GPRInfo::regT2, AssemblyHelpers::TrustedImm32(jit.codeBlock()->exitCountThresholdForReoptimization()));
+        done.link(&jit);
+    }
+    
+    tooFewFails = jit.branch32(AssemblyHelpers::BelowOrEqual, GPRInfo::regT2, GPRInfo::regT1);
     
     reoptimizeNow.link(&jit);
     
     // Reoptimize as soon as possible.
 #if !NUMBER_OF_ARGUMENT_REGISTERS
     jit.poke(GPRInfo::regT0);
+    jit.poke(AssemblyHelpers::TrustedImmPtr(&exit), 1);
 #else
     jit.move(GPRInfo::regT0, GPRInfo::argumentGPR0);
-    ASSERT(GPRInfo::argumentGPR0 != GPRInfo::regT1);
+    jit.move(AssemblyHelpers::TrustedImmPtr(&exit), GPRInfo::argumentGPR1);
 #endif
-    jit.move(AssemblyHelpers::TrustedImmPtr(bitwise_cast<void*>(triggerReoptimizationNow)), GPRInfo::regT1);
-    jit.call(GPRInfo::regT1);
+    jit.move(AssemblyHelpers::TrustedImmPtr(bitwise_cast<void*>(triggerReoptimizationNow)), GPRInfo::nonArgGPR0);
+    jit.call(GPRInfo::nonArgGPR0);
     AssemblyHelpers::Jump doneAdjusting = jit.jump();
     
     tooFewFails.link(&jit);
@@ -88,7 +122,9 @@ void handleExitCounts(CCallHelpers& jit, const OSRExitBase& exit)
         break;
     default:
         RELEASE_ASSERT_NOT_REACHED();
+#if COMPILER_QUIRK(CONSIDERS_UNREACHABLE_CODE)
         clippedValue = 0; // Make some compilers, and mhahnenberg, happy.
+#endif
         break;
     }
     jit.store32(AssemblyHelpers::TrustedImm32(-clippedValue), AssemblyHelpers::Address(GPRInfo::regT0, CodeBlock::offsetOfJITExecuteCounter()));
@@ -108,12 +144,46 @@ void reifyInlinedCallFrames(CCallHelpers& jit, const OSRExitBase& exit)
         InlineCallFrame* inlineCallFrame = codeOrigin.inlineCallFrame;
         CodeBlock* baselineCodeBlock = jit.baselineCodeBlockFor(codeOrigin);
         CodeBlock* baselineCodeBlockForCaller = jit.baselineCodeBlockFor(inlineCallFrame->caller);
-        unsigned callBytecodeIndex = inlineCallFrame->caller.bytecodeIndex;
-        CallLinkInfo* callLinkInfo =
-            baselineCodeBlockForCaller->getCallLinkInfoForBytecodeIndex(callBytecodeIndex);
-        RELEASE_ASSERT(callLinkInfo);
+        void* jumpTarget = nullptr;
+        void* trueReturnPC = nullptr;
         
-        void* jumpTarget = callLinkInfo->callReturnLocation.executableAddress();
+        unsigned callBytecodeIndex = inlineCallFrame->caller.bytecodeIndex;
+        
+        switch (inlineCallFrame->kind) {
+        case InlineCallFrame::Call:
+        case InlineCallFrame::Construct:
+        case InlineCallFrame::CallVarargs:
+        case InlineCallFrame::ConstructVarargs: {
+            CallLinkInfo* callLinkInfo =
+                baselineCodeBlockForCaller->getCallLinkInfoForBytecodeIndex(callBytecodeIndex);
+            RELEASE_ASSERT(callLinkInfo);
+            
+            jumpTarget = callLinkInfo->callReturnLocation().executableAddress();
+            break;
+        }
+            
+        case InlineCallFrame::GetterCall:
+        case InlineCallFrame::SetterCall: {
+            StructureStubInfo* stubInfo =
+                baselineCodeBlockForCaller->findStubInfo(CodeOrigin(callBytecodeIndex));
+            RELEASE_ASSERT(stubInfo);
+            
+            switch (inlineCallFrame->kind) {
+            case InlineCallFrame::GetterCall:
+                jumpTarget = jit.vm()->getCTIStub(baselineGetterReturnThunkGenerator).code().executableAddress();
+                break;
+            case InlineCallFrame::SetterCall:
+                jumpTarget = jit.vm()->getCTIStub(baselineSetterReturnThunkGenerator).code().executableAddress();
+                break;
+            default:
+                RELEASE_ASSERT_NOT_REACHED();
+                break;
+            }
+            
+            trueReturnPC = stubInfo->callReturnLocation.labelAtOffset(
+                stubInfo->patch.deltaCallToDone).executableAddress();
+            break;
+        } }
 
         GPRReg callerFrameGPR;
         if (inlineCallFrame->caller.inlineCallFrame) {
@@ -122,47 +192,28 @@ void reifyInlinedCallFrames(CCallHelpers& jit, const OSRExitBase& exit)
         } else
             callerFrameGPR = GPRInfo::callFrameRegister;
         
-#if USE(JSVALUE64)
-        jit.storePtr(AssemblyHelpers::TrustedImmPtr(baselineCodeBlock), AssemblyHelpers::addressFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::CodeBlock)));
-        if (!inlineCallFrame->isClosureCall)
-            jit.store64(AssemblyHelpers::TrustedImm64(JSValue::encode(JSValue(inlineCallFrame->calleeConstant()->scope()))), AssemblyHelpers::addressFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::ScopeChain)));
-        jit.store64(callerFrameGPR, AssemblyHelpers::addressForByteOffset(inlineCallFrame->callerFrameOffset()));
         jit.storePtr(AssemblyHelpers::TrustedImmPtr(jumpTarget), AssemblyHelpers::addressForByteOffset(inlineCallFrame->returnPCOffset()));
+        if (trueReturnPC)
+            jit.storePtr(AssemblyHelpers::TrustedImmPtr(trueReturnPC), AssemblyHelpers::addressFor(inlineCallFrame->stackOffset + virtualRegisterForArgument(inlineCallFrame->arguments.size()).offset()));
+                         
+        jit.storePtr(AssemblyHelpers::TrustedImmPtr(baselineCodeBlock), AssemblyHelpers::addressFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::CodeBlock)));
+        if (!inlineCallFrame->isVarargs())
+            jit.store32(AssemblyHelpers::TrustedImm32(inlineCallFrame->arguments.size()), AssemblyHelpers::payloadFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::ArgumentCount)));
+#if USE(JSVALUE64)
+        jit.store64(callerFrameGPR, AssemblyHelpers::addressForByteOffset(inlineCallFrame->callerFrameOffset()));
         uint32_t locationBits = CallFrame::Location::encodeAsBytecodeOffset(codeOrigin.bytecodeIndex);
         jit.store32(AssemblyHelpers::TrustedImm32(locationBits), AssemblyHelpers::tagFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::ArgumentCount)));
-        jit.store32(AssemblyHelpers::TrustedImm32(inlineCallFrame->arguments.size()), AssemblyHelpers::payloadFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::ArgumentCount)));
         if (!inlineCallFrame->isClosureCall)
             jit.store64(AssemblyHelpers::TrustedImm64(JSValue::encode(JSValue(inlineCallFrame->calleeConstant()))), AssemblyHelpers::addressFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::Callee)));
-        
-        // Leave the captured arguments in regT3.
-        if (baselineCodeBlock->usesArguments())
-            jit.loadPtr(AssemblyHelpers::addressFor(VirtualRegister(inlineCallFrame->stackOffset + unmodifiedArgumentsRegister(baselineCodeBlock->argumentsRegister()).offset())), GPRInfo::regT3);
 #else // USE(JSVALUE64) // so this is the 32-bit part
-        jit.storePtr(AssemblyHelpers::TrustedImmPtr(baselineCodeBlock), AssemblyHelpers::addressFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::CodeBlock)));
-        jit.store32(AssemblyHelpers::TrustedImm32(JSValue::CellTag), AssemblyHelpers::tagFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::ScopeChain)));
-        if (!inlineCallFrame->isClosureCall)
-            jit.storePtr(AssemblyHelpers::TrustedImmPtr(inlineCallFrame->calleeConstant()->scope()), AssemblyHelpers::payloadFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::ScopeChain)));
         jit.storePtr(callerFrameGPR, AssemblyHelpers::addressForByteOffset(inlineCallFrame->callerFrameOffset()));
-        jit.storePtr(AssemblyHelpers::TrustedImmPtr(jumpTarget), AssemblyHelpers::addressForByteOffset(inlineCallFrame->returnPCOffset()));
         Instruction* instruction = baselineCodeBlock->instructions().begin() + codeOrigin.bytecodeIndex;
         uint32_t locationBits = CallFrame::Location::encodeAsBytecodeInstruction(instruction);
         jit.store32(AssemblyHelpers::TrustedImm32(locationBits), AssemblyHelpers::tagFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::ArgumentCount)));
-        jit.store32(AssemblyHelpers::TrustedImm32(inlineCallFrame->arguments.size()), AssemblyHelpers::payloadFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::ArgumentCount)));
         jit.store32(AssemblyHelpers::TrustedImm32(JSValue::CellTag), AssemblyHelpers::tagFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::Callee)));
         if (!inlineCallFrame->isClosureCall)
             jit.storePtr(AssemblyHelpers::TrustedImmPtr(inlineCallFrame->calleeConstant()), AssemblyHelpers::payloadFor((VirtualRegister)(inlineCallFrame->stackOffset + JSStack::Callee)));
-
-        // Leave the captured arguments in regT3.
-        if (baselineCodeBlock->usesArguments())
-            jit.loadPtr(AssemblyHelpers::payloadFor(VirtualRegister(inlineCallFrame->stackOffset + unmodifiedArgumentsRegister(baselineCodeBlock->argumentsRegister()).offset())), GPRInfo::regT3);
 #endif // USE(JSVALUE64) // ending the #else part, so directly above is the 32-bit part
-        
-        if (baselineCodeBlock->usesArguments()) {
-            AssemblyHelpers::Jump noArguments = jit.branchTestPtr(AssemblyHelpers::Zero, GPRInfo::regT3);
-            jit.addPtr(AssemblyHelpers::TrustedImm32(inlineCallFrame->stackOffset * sizeof(EncodedJSValue)), GPRInfo::callFrameRegister, GPRInfo::regT0);
-            jit.storePtr(GPRInfo::regT0, AssemblyHelpers::Address(GPRInfo::regT3, Arguments::offsetOfRegisters()));
-            noArguments.link(&jit);
-        }
     }
 
 #if USE(JSVALUE64)
@@ -199,7 +250,6 @@ static void osrWriteBarrier(CCallHelpers& jit, GPRReg owner, GPRReg scratch)
 void adjustAndJumpToTarget(CCallHelpers& jit, const OSRExitBase& exit)
 {
 #if ENABLE(GGC) 
-    // 11) Write barrier the owner executables because we're jumping into a different block.
     jit.move(AssemblyHelpers::TrustedImmPtr(jit.codeBlock()->ownerExecutable()), GPRInfo::nonArgGPR0);
     osrWriteBarrier(jit, GPRInfo::nonArgGPR0, GPRInfo::nonArgGPR1);
     InlineCallFrameSet* inlineCallFrames = jit.codeBlock()->jitCode()->dfgCommon()->inlineCallFrames.get();
@@ -233,89 +283,6 @@ void adjustAndJumpToTarget(CCallHelpers& jit, const OSRExitBase& exit)
     jit.jump(GPRInfo::regT2);
 }
 
-ArgumentsRecoveryGenerator::ArgumentsRecoveryGenerator() { }
-ArgumentsRecoveryGenerator::~ArgumentsRecoveryGenerator() { }
-
-void ArgumentsRecoveryGenerator::generateFor(
-    int operand, CodeOrigin codeOrigin, CCallHelpers& jit)
-{
-    // Find the right inline call frame.
-    InlineCallFrame* inlineCallFrame = 0;
-    for (InlineCallFrame* current = codeOrigin.inlineCallFrame;
-         current;
-         current = current->caller.inlineCallFrame) {
-        if (current->stackOffset >= operand) {
-            inlineCallFrame = current;
-            break;
-        }
-    }
-
-    if (!jit.baselineCodeBlockFor(inlineCallFrame)->usesArguments())
-        return;
-    VirtualRegister argumentsRegister = jit.baselineArgumentsRegisterFor(inlineCallFrame);
-    if (m_didCreateArgumentsObject.add(inlineCallFrame).isNewEntry) {
-        // We know this call frame optimized out an arguments object that
-        // the baseline JIT would have created. Do that creation now.
-#if USE(JSVALUE64)
-        if (inlineCallFrame) {
-            jit.addPtr(AssemblyHelpers::TrustedImm32(inlineCallFrame->stackOffset * sizeof(EncodedJSValue)), GPRInfo::callFrameRegister, GPRInfo::regT0);
-            jit.setupArguments(GPRInfo::regT0);
-        } else
-            jit.setupArgumentsExecState();
-        jit.move(
-            AssemblyHelpers::TrustedImmPtr(
-                bitwise_cast<void*>(operationCreateArgumentsDuringOSRExit)),
-            GPRInfo::nonArgGPR0);
-        jit.call(GPRInfo::nonArgGPR0);
-        jit.store64(GPRInfo::returnValueGPR, AssemblyHelpers::addressFor(argumentsRegister));
-        jit.store64(
-            GPRInfo::returnValueGPR,
-            AssemblyHelpers::addressFor(unmodifiedArgumentsRegister(argumentsRegister)));
-        jit.move(GPRInfo::returnValueGPR, GPRInfo::regT0); // no-op move on almost all platforms.
-#else // USE(JSVALUE64) -> so the 32_64 part
-        if (inlineCallFrame) {
-            jit.setupArgumentsWithExecState(
-                AssemblyHelpers::TrustedImmPtr(inlineCallFrame));
-            jit.move(
-                AssemblyHelpers::TrustedImmPtr(
-                    bitwise_cast<void*>(operationCreateInlinedArgumentsDuringOSRExit)),
-                GPRInfo::nonArgGPR0);
-        } else {
-            jit.setupArgumentsExecState();
-            jit.move(
-                AssemblyHelpers::TrustedImmPtr(
-                    bitwise_cast<void*>(operationCreateArgumentsDuringOSRExit)),
-                GPRInfo::nonArgGPR0);
-        }
-        jit.call(GPRInfo::nonArgGPR0);
-        jit.store32(
-            AssemblyHelpers::TrustedImm32(JSValue::CellTag),
-            AssemblyHelpers::tagFor(argumentsRegister));
-        jit.store32(
-            GPRInfo::returnValueGPR,
-            AssemblyHelpers::payloadFor(argumentsRegister));
-        jit.store32(
-            AssemblyHelpers::TrustedImm32(JSValue::CellTag),
-            AssemblyHelpers::tagFor(unmodifiedArgumentsRegister(argumentsRegister)));
-        jit.store32(
-            GPRInfo::returnValueGPR,
-            AssemblyHelpers::payloadFor(unmodifiedArgumentsRegister(argumentsRegister)));
-        jit.move(GPRInfo::returnValueGPR, GPRInfo::regT0); // no-op move on almost all platforms.
-#endif // USE(JSVALUE64)
-    }
-
-#if USE(JSVALUE64)
-    jit.load64(AssemblyHelpers::addressFor(argumentsRegister), GPRInfo::regT0);
-    jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
-#else // USE(JSVALUE64) -> so the 32_64 part
-    jit.load32(AssemblyHelpers::payloadFor(argumentsRegister), GPRInfo::regT0);
-    jit.store32(
-        AssemblyHelpers::TrustedImm32(JSValue::CellTag),
-        AssemblyHelpers::tagFor(operand));
-    jit.store32(GPRInfo::regT0, AssemblyHelpers::payloadFor(operand));
-#endif // USE(JSVALUE64)
-}
-    
 } } // namespace JSC::DFG
 
 #endif // ENABLE(DFG_JIT)

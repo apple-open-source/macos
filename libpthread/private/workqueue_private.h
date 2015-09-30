@@ -25,6 +25,7 @@
 #define __PTHREAD_WORKQUEUE_H__
 
 #include <sys/cdefs.h>
+#include <sys/event.h>
 #include <Availability.h>
 #include <pthread/pthread.h>
 #include <pthread/qos.h>
@@ -32,7 +33,7 @@
 #include <pthread/qos_private.h>
 #endif
 
-#define PTHREAD_WORKQUEUE_SPI_VERSION 20140730
+#define PTHREAD_WORKQUEUE_SPI_VERSION 20150304
 
 /* Feature checking flags, returned by _pthread_workqueue_supported()
  *
@@ -42,6 +43,7 @@
 #define WORKQ_FEATURE_DISPATCHFUNC	0x01	// pthread_workqueue_setdispatch_np is supported (or not)
 #define WORKQ_FEATURE_FINEPRIO		0x02	// fine grained pthread workq priorities
 #define WORKQ_FEATURE_MAINTENANCE	0x10	// QOS class maintenance
+#define WORKQ_FEATURE_KEVENT        0x20    // Support for direct kevent delivery
 
 /* Legacy dispatch priority bands */
 
@@ -62,12 +64,19 @@ __BEGIN_DECLS
 typedef void (*pthread_workqueue_function_t)(int queue_priority, int options, void *ctxt);
 // New callback prototype, used with pthread_workqueue_init
 typedef void (*pthread_workqueue_function2_t)(pthread_priority_t priority);
+// Newer callback prototype, used in conjection with function2 when there are kevents to deliver
+// both parameters are in/out parameters
+typedef void (*pthread_workqueue_function_kevent_t)(void **events, int *nevents);
 
 // Initialises the pthread workqueue subsystem, passing the new-style callback prototype,
 // the dispatchoffset and an unused flags field.
 __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
 int
 _pthread_workqueue_init(pthread_workqueue_function2_t func, int offset, int flags);
+
+__OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0)
+int
+_pthread_workqueue_init_with_kevent(pthread_workqueue_function2_t queue_func, pthread_workqueue_function_kevent_t kevent_func, int offset, int flags);
 
 // Non-zero enables kill on current thread, zero disables it.
 __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2)
@@ -98,6 +107,10 @@ _pthread_workqueue_supported(void);
 __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
 int
 _pthread_workqueue_addthreads(int numthreads, pthread_priority_t priority);
+
+__OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0)
+int
+_pthread_workqueue_set_event_manager_priority(pthread_priority_t priority);
 
 // Apply a QoS override without allocating userspace memory
 __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)

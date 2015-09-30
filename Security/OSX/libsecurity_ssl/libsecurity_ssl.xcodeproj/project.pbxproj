@@ -1,0 +1,830 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		0C6C633A15D1BD4800BC68CD /* dtlsEcho */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 0C6C633B15D1BD4800BC68CD /* Build configuration list for PBXAggregateTarget "dtlsEcho" */;
+			buildPhases = (
+			);
+			dependencies = (
+				0C6C633F15D1BD4D00BC68CD /* PBXTargetDependency */,
+				0C6C634115D1BD4E00BC68CD /* PBXTargetDependency */,
+			);
+			name = dtlsEcho;
+			productName = dtlsEcho;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		0C03D65917DFD8C00087643B /* sslCipherSpecs.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA413615C75863002AEC4C /* sslCipherSpecs.c */; };
+		0C03D65B17DFE67E0087643B /* tlsCallbacks.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C03D65A17DFE67E0087643B /* tlsCallbacks.c */; };
+		0C0E0467162C9DF0009F7C71 /* ssl-46-SSLGetSupportedCiphers.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C0E0466162C9DF0009F7C71 /* ssl-46-SSLGetSupportedCiphers.c */; };
+		0C0E046A162CA288009F7C71 /* ssl_regressions.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C0E0469162CA288009F7C71 /* ssl_regressions.h */; };
+		0C0F140B191AC0A200481BA2 /* ssl-50-server.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C0F140A191AC0A200481BA2 /* ssl-50-server.c */; };
+		0C1F06F7189B1F0600E65030 /* sslMemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4260534D89900303760 /* sslMemory.c */; };
+		0C4B8F3A1A895D6E00AE503B /* ssl-53-clientauth.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C4B8F391A895D6E00AE503B /* ssl-53-clientauth.c */; };
+		0C4B8F4F1A8A937600AE503B /* CA-ECC_Cert.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F3B1A8A937600AE503B /* CA-ECC_Cert.h */; };
+		0C4B8F501A8A937600AE503B /* CA-ECC_Key.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F3C1A8A937600AE503B /* CA-ECC_Key.h */; };
+		0C4B8F511A8A937600AE503B /* CA-RSA_Cert.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F3D1A8A937600AE503B /* CA-RSA_Cert.h */; };
+		0C4B8F521A8A937600AE503B /* CA-RSA_Key.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F3E1A8A937600AE503B /* CA-RSA_Key.h */; };
+		0C4B8F531A8A937600AE503B /* ClientECC_Cert_CA-ECC.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F3F1A8A937600AE503B /* ClientECC_Cert_CA-ECC.h */; };
+		0C4B8F541A8A937600AE503B /* ClientECC_Cert_CA-RSA.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F401A8A937600AE503B /* ClientECC_Cert_CA-RSA.h */; };
+		0C4B8F551A8A937600AE503B /* ClientECC_Key.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F411A8A937600AE503B /* ClientECC_Key.h */; };
+		0C4B8F561A8A937600AE503B /* ClientRSA_Cert_CA-ECC.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F421A8A937600AE503B /* ClientRSA_Cert_CA-ECC.h */; };
+		0C4B8F571A8A937600AE503B /* ClientRSA_Cert_CA-RSA.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F431A8A937600AE503B /* ClientRSA_Cert_CA-RSA.h */; };
+		0C4B8F581A8A937600AE503B /* ClientRSA_Key.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F441A8A937600AE503B /* ClientRSA_Key.h */; };
+		0C4B8F591A8A937600AE503B /* ServerECC_Cert_CA-ECC.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F451A8A937600AE503B /* ServerECC_Cert_CA-ECC.h */; };
+		0C4B8F5A1A8A937600AE503B /* ServerECC_Cert_CA-RSA.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F461A8A937600AE503B /* ServerECC_Cert_CA-RSA.h */; };
+		0C4B8F5B1A8A937600AE503B /* ServerECC_Key.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F471A8A937600AE503B /* ServerECC_Key.h */; };
+		0C4B8F5C1A8A937600AE503B /* ServerRSA_Cert_CA-ECC.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F481A8A937600AE503B /* ServerRSA_Cert_CA-ECC.h */; };
+		0C4B8F5D1A8A937600AE503B /* ServerRSA_Cert_CA-RSA.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F491A8A937600AE503B /* ServerRSA_Cert_CA-RSA.h */; };
+		0C4B8F5E1A8A937600AE503B /* ServerRSA_Key.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F4A1A8A937600AE503B /* ServerRSA_Key.h */; };
+		0C4B8F5F1A8A937600AE503B /* Untrusted-CA-RSA_Cert.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F4B1A8A937600AE503B /* Untrusted-CA-RSA_Cert.h */; };
+		0C4B8F601A8A937600AE503B /* Untrusted-CA-RSA_Key.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F4C1A8A937600AE503B /* Untrusted-CA-RSA_Key.h */; };
+		0C4B8F611A8A937600AE503B /* UntrustedClientRSA_Cert_Untrusted-CA-RSA.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F4D1A8A937600AE503B /* UntrustedClientRSA_Cert_Untrusted-CA-RSA.h */; };
+		0C4B8F621A8A937600AE503B /* UntrustedClientRSA_Key.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C4B8F4E1A8A937600AE503B /* UntrustedClientRSA_Key.h */; };
+		0C6C633515D1BB4F00BC68CD /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C6C633315D1BB3300BC68CD /* Security.framework */; };
+		0C6C633615D1BB6000BC68CD /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C6C633315D1BB3300BC68CD /* Security.framework */; };
+		0C6C633815D1BB7100BC68CD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */; };
+		0C6C633915D1BBAA00BC68CD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */; };
+		0C6C634315D1BDCF00BC68CD /* ssl-utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C6C634215D1BDCF00BC68CD /* ssl-utils.c */; };
+		0C6C634515D1BE3900BC68CD /* ssl-utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C6C634415D1BE3900BC68CD /* ssl-utils.h */; };
+		0C6C641F15D5840700BC68CD /* cert-1.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C6C641C15D5840700BC68CD /* cert-1.h */; };
+		0C6C642015D5840700BC68CD /* identity-1.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C6C641D15D5840700BC68CD /* identity-1.h */; };
+		0C6C642115D5840700BC68CD /* privkey-1.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C6C641E15D5840700BC68CD /* privkey-1.h */; };
+		0C6C642315D5938E00BC68CD /* ssl-utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C6C634215D1BDCF00BC68CD /* ssl-utils.c */; };
+		0C6C642415D5939A00BC68CD /* ssl-utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C6C634215D1BDCF00BC68CD /* ssl-utils.c */; };
+		0C80AB1317E9025B008F7F5B /* sslCrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C80AB1217E9025B008F7F5B /* sslCrypto.c */; };
+		0C86A5FD19705A08009B006A /* ssl-52-noconn.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C86A5FC19705A08009B006A /* ssl-52-noconn.c */; };
+		0C8DD1561B1CF75400D43050 /* ssl-54-dhe.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C8DD1531B1CEE9A00D43050 /* ssl-54-dhe.c */; };
+		0CA9800617E3925A00205D87 /* sslKeychain.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4230534D89900303760 /* sslKeychain.c */; };
+		0CA9800917E7734000205D87 /* appleSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF3FF0534D89900303760 /* appleSession.c */; };
+		0CA9803417E7899B00205D87 /* SSLRecordInternal.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA413A15C75863002AEC4C /* SSLRecordInternal.c */; };
+		0CB3EC4818AEDB6B00647921 /* ssl-48-split.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CB3EC4718AEDB6B00647921 /* ssl-48-split.c */; };
+		0CCA417915C89EA3002AEC4C /* ssl-39-echo.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA416815C89EA3002AEC4C /* ssl-39-echo.c */; };
+		0CCA417A15C89EA3002AEC4C /* ssl-40-clientauth.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA416915C89EA3002AEC4C /* ssl-40-clientauth.c */; };
+		0CCA417B15C89EA3002AEC4C /* ssl-41-clientauth.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA416A15C89EA3002AEC4C /* ssl-41-clientauth.c */; };
+		0CCA417C15C89EA3002AEC4C /* ssl-42-ciphers.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA416B15C89EA3002AEC4C /* ssl-42-ciphers.c */; };
+		0CCA417D15C89EA3002AEC4C /* ssl-43-ciphers.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA416C15C89EA3002AEC4C /* ssl-43-ciphers.c */; };
+		0CCA417E15C89EA3002AEC4C /* ssl-45-tls12.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA416D15C89EA3002AEC4C /* ssl-45-tls12.c */; };
+		0CCA42E115C8A3D9002AEC4C /* dtlsEchoClient.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA42C115C8A34E002AEC4C /* dtlsEchoClient.c */; };
+		0CCA42E215C8A3DE002AEC4C /* dtlsEchoServer.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA42C215C8A34E002AEC4C /* dtlsEchoServer.c */; };
+		0CCA42EC15C8A71A002AEC4C /* sslAppUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA42EA15C8A71A002AEC4C /* sslAppUtils.cpp */; };
+		0CCA42ED15C8A71A002AEC4C /* sslAppUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA42EA15C8A71A002AEC4C /* sslAppUtils.cpp */; };
+		0CCAB61A1B3C93E100C97526 /* ssl-55-sessioncache.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCAB6191B3C93E100C97526 /* ssl-55-sessioncache.c */; };
+		0CCF28B8166D5F5000AFA37C /* ssl-47-falsestart.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCF28B7166D5F5000AFA37C /* ssl-47-falsestart.c */; };
+		0CDDC9A7195CD44400E93A27 /* ssl-51-state.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CDDC9A6195CD44400E93A27 /* ssl-51-state.c */; };
+		0CEA459418CF71B700BD32A9 /* ssl-49-sni.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CEA459218CF71AE00BD32A9 /* ssl-49-sni.c */; };
+		4CAFF4540534D89900303760 /* sslContext.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF41A0534D89900303760 /* sslContext.c */; };
+		4CAFF4640534D89900303760 /* sslRecord.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42A0534D89900303760 /* sslRecord.c */; };
+		4CAFF4680534D89900303760 /* sslTransport.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42E0534D89900303760 /* sslTransport.c */; };
+		4CAFF4690534D89900303760 /* sslUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42F0534D89900303760 /* sslUtils.c */; };
+		AAB589F216CACE540071FE64 /* ssl-44-crashes.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CC954F0161A62AE005D3D4A /* ssl-44-crashes.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0C6C633E15D1BD4D00BC68CD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CCA42C815C8A387002AEC4C;
+			remoteInfo = dtlsEchoClient;
+		};
+		0C6C634015D1BD4E00BC68CD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CCA42D615C8A395002AEC4C;
+			remoteInfo = dtlsEchoServer;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0CCA42C715C8A387002AEC4C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		0CCA42D515C8A395002AEC4C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0C03D65A17DFE67E0087643B /* tlsCallbacks.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tlsCallbacks.c; sourceTree = "<group>"; };
+		0C03D65C17DFE6E20087643B /* tlsCallbacks.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tlsCallbacks.h; sourceTree = "<group>"; };
+		0C0E0466162C9DF0009F7C71 /* ssl-46-SSLGetSupportedCiphers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-46-SSLGetSupportedCiphers.c"; sourceTree = "<group>"; };
+		0C0E0469162CA288009F7C71 /* ssl_regressions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ssl_regressions.h; sourceTree = "<group>"; };
+		0C0F140A191AC0A200481BA2 /* ssl-50-server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-50-server.c"; sourceTree = "<group>"; };
+		0C1C92ED15C8AC52007D377B /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
+		0C4B8F391A895D6E00AE503B /* ssl-53-clientauth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-53-clientauth.c"; sourceTree = "<group>"; };
+		0C4B8F3B1A8A937600AE503B /* CA-ECC_Cert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "CA-ECC_Cert.h"; sourceTree = "<group>"; };
+		0C4B8F3C1A8A937600AE503B /* CA-ECC_Key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "CA-ECC_Key.h"; sourceTree = "<group>"; };
+		0C4B8F3D1A8A937600AE503B /* CA-RSA_Cert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "CA-RSA_Cert.h"; sourceTree = "<group>"; };
+		0C4B8F3E1A8A937600AE503B /* CA-RSA_Key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "CA-RSA_Key.h"; sourceTree = "<group>"; };
+		0C4B8F3F1A8A937600AE503B /* ClientECC_Cert_CA-ECC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ClientECC_Cert_CA-ECC.h"; sourceTree = "<group>"; };
+		0C4B8F401A8A937600AE503B /* ClientECC_Cert_CA-RSA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ClientECC_Cert_CA-RSA.h"; sourceTree = "<group>"; };
+		0C4B8F411A8A937600AE503B /* ClientECC_Key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ClientECC_Key.h; sourceTree = "<group>"; };
+		0C4B8F421A8A937600AE503B /* ClientRSA_Cert_CA-ECC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ClientRSA_Cert_CA-ECC.h"; sourceTree = "<group>"; };
+		0C4B8F431A8A937600AE503B /* ClientRSA_Cert_CA-RSA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ClientRSA_Cert_CA-RSA.h"; sourceTree = "<group>"; };
+		0C4B8F441A8A937600AE503B /* ClientRSA_Key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ClientRSA_Key.h; sourceTree = "<group>"; };
+		0C4B8F451A8A937600AE503B /* ServerECC_Cert_CA-ECC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ServerECC_Cert_CA-ECC.h"; sourceTree = "<group>"; };
+		0C4B8F461A8A937600AE503B /* ServerECC_Cert_CA-RSA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ServerECC_Cert_CA-RSA.h"; sourceTree = "<group>"; };
+		0C4B8F471A8A937600AE503B /* ServerECC_Key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ServerECC_Key.h; sourceTree = "<group>"; };
+		0C4B8F481A8A937600AE503B /* ServerRSA_Cert_CA-ECC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ServerRSA_Cert_CA-ECC.h"; sourceTree = "<group>"; };
+		0C4B8F491A8A937600AE503B /* ServerRSA_Cert_CA-RSA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ServerRSA_Cert_CA-RSA.h"; sourceTree = "<group>"; };
+		0C4B8F4A1A8A937600AE503B /* ServerRSA_Key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ServerRSA_Key.h; sourceTree = "<group>"; };
+		0C4B8F4B1A8A937600AE503B /* Untrusted-CA-RSA_Cert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "Untrusted-CA-RSA_Cert.h"; sourceTree = "<group>"; };
+		0C4B8F4C1A8A937600AE503B /* Untrusted-CA-RSA_Key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "Untrusted-CA-RSA_Key.h"; sourceTree = "<group>"; };
+		0C4B8F4D1A8A937600AE503B /* UntrustedClientRSA_Cert_Untrusted-CA-RSA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UntrustedClientRSA_Cert_Untrusted-CA-RSA.h"; sourceTree = "<group>"; };
+		0C4B8F4E1A8A937600AE503B /* UntrustedClientRSA_Key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UntrustedClientRSA_Key.h; sourceTree = "<group>"; };
+		0C6C633315D1BB3300BC68CD /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Security.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		0C6C634215D1BDCF00BC68CD /* ssl-utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-utils.c"; sourceTree = "<group>"; };
+		0C6C634415D1BE3900BC68CD /* ssl-utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ssl-utils.h"; sourceTree = "<group>"; };
+		0C6C641C15D5840700BC68CD /* cert-1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "cert-1.h"; sourceTree = "<group>"; };
+		0C6C641D15D5840700BC68CD /* identity-1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "identity-1.h"; sourceTree = "<group>"; };
+		0C6C641E15D5840700BC68CD /* privkey-1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "privkey-1.h"; sourceTree = "<group>"; };
+		0C80AB1217E9025B008F7F5B /* sslCrypto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sslCrypto.c; sourceTree = "<group>"; };
+		0C85738D15DAB34C0038DFD7 /* tests.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = tests.xcconfig; sourceTree = "<group>"; };
+		0C86A5FC19705A08009B006A /* ssl-52-noconn.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-52-noconn.c"; sourceTree = "<group>"; };
+		0C8DD1531B1CEE9A00D43050 /* ssl-54-dhe.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-54-dhe.c"; sourceTree = "<group>"; };
+		0CB3EC4718AEDB6B00647921 /* ssl-48-split.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-48-split.c"; sourceTree = "<group>"; };
+		0CC954F0161A62AE005D3D4A /* ssl-44-crashes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-44-crashes.c"; sourceTree = "<group>"; };
+		0CCA413415C75863002AEC4C /* SecureTransportPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecureTransportPriv.h; path = ../lib/SecureTransportPriv.h; sourceTree = "<group>"; };
+		0CCA413615C75863002AEC4C /* sslCipherSpecs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sslCipherSpecs.c; sourceTree = "<group>"; };
+		0CCA413715C75863002AEC4C /* sslCipherSpecs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sslCipherSpecs.h; sourceTree = "<group>"; };
+		0CCA413A15C75863002AEC4C /* SSLRecordInternal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SSLRecordInternal.c; sourceTree = "<group>"; };
+		0CCA413B15C75863002AEC4C /* SSLRecordInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SSLRecordInternal.h; sourceTree = "<group>"; };
+		0CCA413C15C75863002AEC4C /* sslTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sslTypes.h; path = ../lib/sslTypes.h; sourceTree = "<group>"; };
+		0CCA414215C75863002AEC4C /* tls_record_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tls_record_internal.h; sourceTree = "<group>"; };
+		0CCA415915C89E8B002AEC4C /* libsecurity_ssl_regressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_ssl_regressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CCA416815C89EA3002AEC4C /* ssl-39-echo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-39-echo.c"; sourceTree = "<group>"; };
+		0CCA416915C89EA3002AEC4C /* ssl-40-clientauth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-40-clientauth.c"; sourceTree = "<group>"; };
+		0CCA416A15C89EA3002AEC4C /* ssl-41-clientauth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-41-clientauth.c"; sourceTree = "<group>"; };
+		0CCA416B15C89EA3002AEC4C /* ssl-42-ciphers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-42-ciphers.c"; sourceTree = "<group>"; };
+		0CCA416C15C89EA3002AEC4C /* ssl-43-ciphers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-43-ciphers.c"; sourceTree = "<group>"; };
+		0CCA416D15C89EA3002AEC4C /* ssl-45-tls12.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-45-tls12.c"; sourceTree = "<group>"; };
+		0CCA42C115C8A34E002AEC4C /* dtlsEchoClient.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dtlsEchoClient.c; sourceTree = "<group>"; };
+		0CCA42C215C8A34E002AEC4C /* dtlsEchoServer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dtlsEchoServer.c; sourceTree = "<group>"; };
+		0CCA42C315C8A34E002AEC4C /* README */ = {isa = PBXFileReference; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+		0CCA42C915C8A387002AEC4C /* dtlsEchoClient */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dtlsEchoClient; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CCA42D715C8A395002AEC4C /* dtlsEchoServer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dtlsEchoServer; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CCA42EA15C8A71A002AEC4C /* sslAppUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = sslAppUtils.cpp; path = sslViewer/sslAppUtils.cpp; sourceTree = SOURCE_ROOT; };
+		0CCA42EB15C8A71A002AEC4C /* sslAppUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sslAppUtils.h; path = sslViewer/sslAppUtils.h; sourceTree = SOURCE_ROOT; };
+		0CCAB6191B3C93E100C97526 /* ssl-55-sessioncache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-55-sessioncache.c"; sourceTree = "<group>"; };
+		0CCF28B7166D5F5000AFA37C /* ssl-47-falsestart.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-47-falsestart.c"; sourceTree = "<group>"; };
+		0CDDC9A6195CD44400E93A27 /* ssl-51-state.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-51-state.c"; sourceTree = "<group>"; };
+		0CEA459218CF71AE00BD32A9 /* ssl-49-sni.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-49-sni.c"; sourceTree = "<group>"; };
+		4CA1FEBE052A3C8100F22E42 /* libsecurity_ssl.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_ssl.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CAFF3FF0534D89900303760 /* appleSession.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = appleSession.c; sourceTree = "<group>"; };
+		4CAFF4000534D89900303760 /* appleSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = appleSession.h; sourceTree = "<group>"; };
+		4CAFF4020534D89900303760 /* cipherSpecs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cipherSpecs.h; sourceTree = "<group>"; };
+		4CAFF4030534D89900303760 /* CipherSuite.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CipherSuite.h; sourceTree = "<group>"; };
+		4CAFF4090534D89900303760 /* SecureTransport.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecureTransport.h; sourceTree = "<group>"; };
+		4CAFF40B0534D89900303760 /* ssl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ssl.h; sourceTree = "<group>"; };
+		4CAFF4170534D89900303760 /* sslBuildFlags.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslBuildFlags.h; sourceTree = "<group>"; };
+		4CAFF41A0534D89900303760 /* sslContext.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslContext.c; sourceTree = "<group>"; };
+		4CAFF41B0534D89900303760 /* sslContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslContext.h; sourceTree = "<group>"; };
+		4CAFF41C0534D89900303760 /* sslDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslDebug.h; sourceTree = "<group>"; };
+		4CAFF4230534D89900303760 /* sslKeychain.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslKeychain.c; sourceTree = "<group>"; };
+		4CAFF4240534D89900303760 /* sslKeychain.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslKeychain.h; sourceTree = "<group>"; };
+		4CAFF4260534D89900303760 /* sslMemory.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslMemory.c; sourceTree = "<group>"; };
+		4CAFF4270534D89900303760 /* sslMemory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslMemory.h; sourceTree = "<group>"; };
+		4CAFF4290534D89900303760 /* sslPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslPriv.h; sourceTree = "<group>"; };
+		4CAFF42A0534D89900303760 /* sslRecord.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslRecord.c; sourceTree = "<group>"; };
+		4CAFF42B0534D89900303760 /* sslRecord.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslRecord.h; sourceTree = "<group>"; };
+		4CAFF42E0534D89900303760 /* sslTransport.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslTransport.c; sourceTree = "<group>"; };
+		4CAFF42F0534D89900303760 /* sslUtils.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslUtils.c; sourceTree = "<group>"; };
+		4CAFF4300534D89900303760 /* sslUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslUtils.h; sourceTree = "<group>"; };
+		4CCBFE3C057FF16800981D43 /* security_ssl.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = security_ssl.exp; sourceTree = "<group>"; };
+		BE6A959C14E3700A00C158E0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		BE6A959D14E3700A00C158E0 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		BE6A959E14E3700A00C158E0 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		BE6A959F14E3700A00C158E0 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		BEB382AE14EC84AC003C055B /* sslCrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sslCrypto.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0CCA415615C89E8B002AEC4C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0CCA42C615C8A387002AEC4C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C6C633815D1BB7100BC68CD /* CoreFoundation.framework in Frameworks */,
+				0C6C633515D1BB4F00BC68CD /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0CCA42D415C8A395002AEC4C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C6C633915D1BBAA00BC68CD /* CoreFoundation.framework in Frameworks */,
+				0C6C633615D1BB6000BC68CD /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		050651C7056A83F3008AD683 /* Apple Custom */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF3FF0534D89900303760 /* appleSession.c */,
+				4CAFF4230534D89900303760 /* sslKeychain.c */,
+			);
+			name = "Apple Custom";
+			sourceTree = "<group>";
+		};
+		050651C8056A8404008AD683 /* SSL Core */ = {
+			isa = PBXGroup;
+			children = (
+				0CCA413A15C75863002AEC4C /* SSLRecordInternal.c */,
+				0CCA413615C75863002AEC4C /* sslCipherSpecs.c */,
+				4CAFF41A0534D89900303760 /* sslContext.c */,
+				4CAFF42A0534D89900303760 /* sslRecord.c */,
+				4CAFF42E0534D89900303760 /* sslTransport.c */,
+				0C03D65A17DFE67E0087643B /* tlsCallbacks.c */,
+				0C03D65C17DFE6E20087643B /* tlsCallbacks.h */,
+			);
+			name = "SSL Core";
+			sourceTree = "<group>";
+		};
+		050651C9056A840E008AD683 /* Private Headers */ = {
+			isa = PBXGroup;
+			children = (
+				0CCA413C15C75863002AEC4C /* sslTypes.h */,
+				0CCA413415C75863002AEC4C /* SecureTransportPriv.h */,
+			);
+			name = "Private Headers";
+			path = ../Security;
+			sourceTree = "<group>";
+		};
+		050651CA056A8415008AD683 /* Public Headers */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF4030534D89900303760 /* CipherSuite.h */,
+				4CAFF4090534D89900303760 /* SecureTransport.h */,
+			);
+			name = "Public Headers";
+			path = ../Security;
+			sourceTree = "<group>";
+		};
+		050651CB056A841C008AD683 /* Crypto */ = {
+			isa = PBXGroup;
+			children = (
+				0C80AB1217E9025B008F7F5B /* sslCrypto.c */,
+			);
+			name = Crypto;
+			sourceTree = "<group>";
+		};
+		050651CC056A8421008AD683 /* Misc. */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF4260534D89900303760 /* sslMemory.c */,
+				4CAFF42F0534D89900303760 /* sslUtils.c */,
+			);
+			name = Misc.;
+			sourceTree = "<group>";
+		};
+		0C4B8F631A8A938A00AE503B /* test-certs */ = {
+			isa = PBXGroup;
+			children = (
+				0C4B8F3B1A8A937600AE503B /* CA-ECC_Cert.h */,
+				0C4B8F3C1A8A937600AE503B /* CA-ECC_Key.h */,
+				0C4B8F3D1A8A937600AE503B /* CA-RSA_Cert.h */,
+				0C4B8F3E1A8A937600AE503B /* CA-RSA_Key.h */,
+				0C4B8F3F1A8A937600AE503B /* ClientECC_Cert_CA-ECC.h */,
+				0C4B8F401A8A937600AE503B /* ClientECC_Cert_CA-RSA.h */,
+				0C4B8F411A8A937600AE503B /* ClientECC_Key.h */,
+				0C4B8F421A8A937600AE503B /* ClientRSA_Cert_CA-ECC.h */,
+				0C4B8F431A8A937600AE503B /* ClientRSA_Cert_CA-RSA.h */,
+				0C4B8F441A8A937600AE503B /* ClientRSA_Key.h */,
+				0C4B8F451A8A937600AE503B /* ServerECC_Cert_CA-ECC.h */,
+				0C4B8F461A8A937600AE503B /* ServerECC_Cert_CA-RSA.h */,
+				0C4B8F471A8A937600AE503B /* ServerECC_Key.h */,
+				0C4B8F481A8A937600AE503B /* ServerRSA_Cert_CA-ECC.h */,
+				0C4B8F491A8A937600AE503B /* ServerRSA_Cert_CA-RSA.h */,
+				0C4B8F4A1A8A937600AE503B /* ServerRSA_Key.h */,
+				0C4B8F4B1A8A937600AE503B /* Untrusted-CA-RSA_Cert.h */,
+				0C4B8F4C1A8A937600AE503B /* Untrusted-CA-RSA_Key.h */,
+				0C4B8F4D1A8A937600AE503B /* UntrustedClientRSA_Cert_Untrusted-CA-RSA.h */,
+				0C4B8F4E1A8A937600AE503B /* UntrustedClientRSA_Key.h */,
+			);
+			path = "test-certs";
+			sourceTree = "<group>";
+		};
+		0CCA415D15C89EA3002AEC4C /* regressions */ = {
+			isa = PBXGroup;
+			children = (
+				0C4B8F631A8A938A00AE503B /* test-certs */,
+				0C6C641C15D5840700BC68CD /* cert-1.h */,
+				0C6C641D15D5840700BC68CD /* identity-1.h */,
+				0C6C641E15D5840700BC68CD /* privkey-1.h */,
+				0CCA416815C89EA3002AEC4C /* ssl-39-echo.c */,
+				0CCA416915C89EA3002AEC4C /* ssl-40-clientauth.c */,
+				0CCA416A15C89EA3002AEC4C /* ssl-41-clientauth.c */,
+				0CCA416B15C89EA3002AEC4C /* ssl-42-ciphers.c */,
+				0CCA416C15C89EA3002AEC4C /* ssl-43-ciphers.c */,
+				0CC954F0161A62AE005D3D4A /* ssl-44-crashes.c */,
+				0CCA416D15C89EA3002AEC4C /* ssl-45-tls12.c */,
+				0C0E0466162C9DF0009F7C71 /* ssl-46-SSLGetSupportedCiphers.c */,
+				0CCF28B7166D5F5000AFA37C /* ssl-47-falsestart.c */,
+				0CB3EC4718AEDB6B00647921 /* ssl-48-split.c */,
+				0CEA459218CF71AE00BD32A9 /* ssl-49-sni.c */,
+				0C0F140A191AC0A200481BA2 /* ssl-50-server.c */,
+				0CDDC9A6195CD44400E93A27 /* ssl-51-state.c */,
+				0C86A5FC19705A08009B006A /* ssl-52-noconn.c */,
+				0C4B8F391A895D6E00AE503B /* ssl-53-clientauth.c */,
+				0C8DD1531B1CEE9A00D43050 /* ssl-54-dhe.c */,
+				0CCAB6191B3C93E100C97526 /* ssl-55-sessioncache.c */,
+				0C6C634215D1BDCF00BC68CD /* ssl-utils.c */,
+				0C6C634415D1BE3900BC68CD /* ssl-utils.h */,
+				0C0E0469162CA288009F7C71 /* ssl_regressions.h */,
+			);
+			path = regressions;
+			sourceTree = "<group>";
+		};
+		0CCA42C015C8A34E002AEC4C /* dtlsEcho */ = {
+			isa = PBXGroup;
+			children = (
+				0CCA42EA15C8A71A002AEC4C /* sslAppUtils.cpp */,
+				0CCA42EB15C8A71A002AEC4C /* sslAppUtils.h */,
+				0CCA42C115C8A34E002AEC4C /* dtlsEchoClient.c */,
+				0CCA42C215C8A34E002AEC4C /* dtlsEchoServer.c */,
+				0CCA42C315C8A34E002AEC4C /* README */,
+			);
+			path = dtlsEcho;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */,
+				0C6C633315D1BB3300BC68CD /* Security.framework */,
+				0CCA42C015C8A34E002AEC4C /* dtlsEcho */,
+				0CCA415D15C89EA3002AEC4C /* regressions */,
+				BE6A959B14E3700A00C158E0 /* config */,
+				4CAFF3FC0534D89900303760 /* lib */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurity_ssl.a */,
+				0CCA415915C89E8B002AEC4C /* libsecurity_ssl_regressions.a */,
+				0CCA42C915C8A387002AEC4C /* dtlsEchoClient */,
+				0CCA42D715C8A395002AEC4C /* dtlsEchoServer */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4CAFF3FC0534D89900303760 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				050651C7056A83F3008AD683 /* Apple Custom */,
+				050651C8056A8404008AD683 /* SSL Core */,
+				050651CA056A8415008AD683 /* Public Headers */,
+				050651C9056A840E008AD683 /* Private Headers */,
+				BE967B0314E9F622002A348A /* Project Headers */,
+				050651CB056A841C008AD683 /* Crypto */,
+				050651CC056A8421008AD683 /* Misc. */,
+				4CCBFE3C057FF16800981D43 /* security_ssl.exp */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		BE6A959B14E3700A00C158E0 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				BE6A959C14E3700A00C158E0 /* base.xcconfig */,
+				BE6A959D14E3700A00C158E0 /* debug.xcconfig */,
+				0C1C92ED15C8AC52007D377B /* kext.xcconfig */,
+				BE6A959E14E3700A00C158E0 /* lib.xcconfig */,
+				BE6A959F14E3700A00C158E0 /* release.xcconfig */,
+				0C85738D15DAB34C0038DFD7 /* tests.xcconfig */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
+		BE967B0314E9F622002A348A /* Project Headers */ = {
+			isa = PBXGroup;
+			children = (
+				0CCA413715C75863002AEC4C /* sslCipherSpecs.h */,
+				0CCA413B15C75863002AEC4C /* SSLRecordInternal.h */,
+				0CCA414215C75863002AEC4C /* tls_record_internal.h */,
+				4CAFF4000534D89900303760 /* appleSession.h */,
+				4CAFF4020534D89900303760 /* cipherSpecs.h */,
+				4CAFF40B0534D89900303760 /* ssl.h */,
+				4CAFF4170534D89900303760 /* sslBuildFlags.h */,
+				4CAFF41B0534D89900303760 /* sslContext.h */,
+				BEB382AE14EC84AC003C055B /* sslCrypto.h */,
+				4CAFF41C0534D89900303760 /* sslDebug.h */,
+				4CAFF4240534D89900303760 /* sslKeychain.h */,
+				4CAFF4270534D89900303760 /* sslMemory.h */,
+				4CAFF4290534D89900303760 /* sslPriv.h */,
+				4CAFF42B0534D89900303760 /* sslRecord.h */,
+				4CAFF4300534D89900303760 /* sslUtils.h */,
+			);
+			name = "Project Headers";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		0CCA415715C89E8B002AEC4C /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C4B8F541A8A937600AE503B /* ClientECC_Cert_CA-RSA.h in Headers */,
+				0C4B8F501A8A937600AE503B /* CA-ECC_Key.h in Headers */,
+				0C4B8F511A8A937600AE503B /* CA-RSA_Cert.h in Headers */,
+				0C4B8F611A8A937600AE503B /* UntrustedClientRSA_Cert_Untrusted-CA-RSA.h in Headers */,
+				0C4B8F5D1A8A937600AE503B /* ServerRSA_Cert_CA-RSA.h in Headers */,
+				0C4B8F621A8A937600AE503B /* UntrustedClientRSA_Key.h in Headers */,
+				0C4B8F601A8A937600AE503B /* Untrusted-CA-RSA_Key.h in Headers */,
+				0C4B8F5F1A8A937600AE503B /* Untrusted-CA-RSA_Cert.h in Headers */,
+				0C4B8F5B1A8A937600AE503B /* ServerECC_Key.h in Headers */,
+				0C4B8F591A8A937600AE503B /* ServerECC_Cert_CA-ECC.h in Headers */,
+				0C4B8F5A1A8A937600AE503B /* ServerECC_Cert_CA-RSA.h in Headers */,
+				0C4B8F531A8A937600AE503B /* ClientECC_Cert_CA-ECC.h in Headers */,
+				0C4B8F571A8A937600AE503B /* ClientRSA_Cert_CA-RSA.h in Headers */,
+				0C4B8F561A8A937600AE503B /* ClientRSA_Cert_CA-ECC.h in Headers */,
+				0C6C634515D1BE3900BC68CD /* ssl-utils.h in Headers */,
+				0C6C641F15D5840700BC68CD /* cert-1.h in Headers */,
+				0C4B8F5E1A8A937600AE503B /* ServerRSA_Key.h in Headers */,
+				0C4B8F4F1A8A937600AE503B /* CA-ECC_Cert.h in Headers */,
+				0C6C642015D5840700BC68CD /* identity-1.h in Headers */,
+				0C4B8F5C1A8A937600AE503B /* ServerRSA_Cert_CA-ECC.h in Headers */,
+				0C6C642115D5840700BC68CD /* privkey-1.h in Headers */,
+				0C4B8F581A8A937600AE503B /* ClientRSA_Key.h in Headers */,
+				0C0E046A162CA288009F7C71 /* ssl_regressions.h in Headers */,
+				0C4B8F521A8A937600AE503B /* CA-RSA_Key.h in Headers */,
+				0C4B8F551A8A937600AE503B /* ClientECC_Key.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		0CCA415815C89E8B002AEC4C /* libsecurity_ssl_regressions */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0CCA415A15C89E8B002AEC4C /* Build configuration list for PBXNativeTarget "libsecurity_ssl_regressions" */;
+			buildPhases = (
+				0CCA415515C89E8B002AEC4C /* Sources */,
+				0CCA415615C89E8B002AEC4C /* Frameworks */,
+				0CCA415715C89E8B002AEC4C /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurity_ssl_regressions;
+			productName = libsecurity_ssl_regressions;
+			productReference = 0CCA415915C89E8B002AEC4C /* libsecurity_ssl_regressions.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		0CCA42C815C8A387002AEC4C /* dtlsEchoClient */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0CCA42D015C8A387002AEC4C /* Build configuration list for PBXNativeTarget "dtlsEchoClient" */;
+			buildPhases = (
+				0CCA42C515C8A387002AEC4C /* Sources */,
+				0CCA42C615C8A387002AEC4C /* Frameworks */,
+				0CCA42C715C8A387002AEC4C /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = dtlsEchoClient;
+			productName = dtlsEchoClient;
+			productReference = 0CCA42C915C8A387002AEC4C /* dtlsEchoClient */;
+			productType = "com.apple.product-type.tool";
+		};
+		0CCA42D615C8A395002AEC4C /* dtlsEchoServer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0CCA42DE15C8A395002AEC4C /* Build configuration list for PBXNativeTarget "dtlsEchoServer" */;
+			buildPhases = (
+				0CCA42D315C8A395002AEC4C /* Sources */,
+				0CCA42D415C8A395002AEC4C /* Frameworks */,
+				0CCA42D515C8A395002AEC4C /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = dtlsEchoServer;
+			productName = dtlsEchoServer;
+			productReference = 0CCA42D715C8A395002AEC4C /* dtlsEchoServer */;
+			productType = "com.apple.product-type.tool";
+		};
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_ssl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD4000987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_ssl" */;
+			buildPhases = (
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurity_ssl;
+			productName = libsecurity_ssl;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_ssl.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0700;
+			};
+			buildConfigurationList = C27AD4040987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_ssl" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_ssl */,
+				0CCA415815C89E8B002AEC4C /* libsecurity_ssl_regressions */,
+				0CCA42C815C8A387002AEC4C /* dtlsEchoClient */,
+				0CCA42D615C8A395002AEC4C /* dtlsEchoServer */,
+				0C6C633A15D1BD4800BC68CD /* dtlsEcho */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0CCA415515C89E8B002AEC4C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CCA417915C89EA3002AEC4C /* ssl-39-echo.c in Sources */,
+				0CB3EC4818AEDB6B00647921 /* ssl-48-split.c in Sources */,
+				0CCA417A15C89EA3002AEC4C /* ssl-40-clientauth.c in Sources */,
+				0CCA417B15C89EA3002AEC4C /* ssl-41-clientauth.c in Sources */,
+				0CCA417C15C89EA3002AEC4C /* ssl-42-ciphers.c in Sources */,
+				0CCA417D15C89EA3002AEC4C /* ssl-43-ciphers.c in Sources */,
+				0C86A5FD19705A08009B006A /* ssl-52-noconn.c in Sources */,
+				AAB589F216CACE540071FE64 /* ssl-44-crashes.c in Sources */,
+				0CCA417E15C89EA3002AEC4C /* ssl-45-tls12.c in Sources */,
+				0C4B8F3A1A895D6E00AE503B /* ssl-53-clientauth.c in Sources */,
+				0CEA459418CF71B700BD32A9 /* ssl-49-sni.c in Sources */,
+				0CCF28B8166D5F5000AFA37C /* ssl-47-falsestart.c in Sources */,
+				0CDDC9A7195CD44400E93A27 /* ssl-51-state.c in Sources */,
+				0C6C634315D1BDCF00BC68CD /* ssl-utils.c in Sources */,
+				0C0E0467162C9DF0009F7C71 /* ssl-46-SSLGetSupportedCiphers.c in Sources */,
+				0C8DD1561B1CF75400D43050 /* ssl-54-dhe.c in Sources */,
+				0CCAB61A1B3C93E100C97526 /* ssl-55-sessioncache.c in Sources */,
+				0C0F140B191AC0A200481BA2 /* ssl-50-server.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0CCA42C515C8A387002AEC4C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C6C642315D5938E00BC68CD /* ssl-utils.c in Sources */,
+				0CCA42E115C8A3D9002AEC4C /* dtlsEchoClient.c in Sources */,
+				0CCA42EC15C8A71A002AEC4C /* sslAppUtils.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0CCA42D315C8A395002AEC4C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C6C642415D5939A00BC68CD /* ssl-utils.c in Sources */,
+				0CCA42E215C8A3DE002AEC4C /* dtlsEchoServer.c in Sources */,
+				0CCA42ED15C8A71A002AEC4C /* sslAppUtils.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C1F06F7189B1F0600E65030 /* sslMemory.c in Sources */,
+				0C80AB1317E9025B008F7F5B /* sslCrypto.c in Sources */,
+				0CA9803417E7899B00205D87 /* SSLRecordInternal.c in Sources */,
+				0CA9800917E7734000205D87 /* appleSession.c in Sources */,
+				0CA9800617E3925A00205D87 /* sslKeychain.c in Sources */,
+				0C03D65917DFD8C00087643B /* sslCipherSpecs.c in Sources */,
+				4CAFF4540534D89900303760 /* sslContext.c in Sources */,
+				0C03D65B17DFE67E0087643B /* tlsCallbacks.c in Sources */,
+				4CAFF4640534D89900303760 /* sslRecord.c in Sources */,
+				4CAFF4680534D89900303760 /* sslTransport.c in Sources */,
+				4CAFF4690534D89900303760 /* sslUtils.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0C6C633F15D1BD4D00BC68CD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0CCA42C815C8A387002AEC4C /* dtlsEchoClient */;
+			targetProxy = 0C6C633E15D1BD4D00BC68CD /* PBXContainerItemProxy */;
+		};
+		0C6C634115D1BD4E00BC68CD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0CCA42D615C8A395002AEC4C /* dtlsEchoServer */;
+			targetProxy = 0C6C634015D1BD4E00BC68CD /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0C6C633C15D1BD4800BC68CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		0C6C633D15D1BD4800BC68CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		0CCA415B15C89E8B002AEC4C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE6A959E14E3700A00C158E0 /* lib.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+			};
+			name = Debug;
+		};
+		0CCA415C15C89E8B002AEC4C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE6A959E14E3700A00C158E0 /* lib.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+			};
+			name = Release;
+		};
+		0CCA42D115C8A387002AEC4C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0C85738D15DAB34C0038DFD7 /* tests.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		0CCA42D215C8A387002AEC4C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0C85738D15DAB34C0038DFD7 /* tests.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		0CCA42DF15C8A395002AEC4C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0C85738D15DAB34C0038DFD7 /* tests.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		0CCA42E015C8A395002AEC4C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0C85738D15DAB34C0038DFD7 /* tests.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD4010987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE6A959E14E3700A00C158E0 /* lib.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+			};
+			name = Debug;
+		};
+		C27AD4030987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE6A959E14E3700A00C158E0 /* lib.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+			};
+			name = Release;
+		};
+		C27AD4050987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE6A959D14E3700A00C158E0 /* debug.xcconfig */;
+			buildSettings = {
+				SDKROOT = macosx.internal;
+			};
+			name = Debug;
+		};
+		C27AD4070987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE6A959F14E3700A00C158E0 /* release.xcconfig */;
+			buildSettings = {
+				SDKROOT = macosx.internal;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0C6C633B15D1BD4800BC68CD /* Build configuration list for PBXAggregateTarget "dtlsEcho" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0C6C633C15D1BD4800BC68CD /* Debug */,
+				0C6C633D15D1BD4800BC68CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0CCA415A15C89E8B002AEC4C /* Build configuration list for PBXNativeTarget "libsecurity_ssl_regressions" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CCA415B15C89E8B002AEC4C /* Debug */,
+				0CCA415C15C89E8B002AEC4C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0CCA42D015C8A387002AEC4C /* Build configuration list for PBXNativeTarget "dtlsEchoClient" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CCA42D115C8A387002AEC4C /* Debug */,
+				0CCA42D215C8A387002AEC4C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0CCA42DE15C8A395002AEC4C /* Build configuration list for PBXNativeTarget "dtlsEchoServer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CCA42DF15C8A395002AEC4C /* Debug */,
+				0CCA42E015C8A395002AEC4C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD4000987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_ssl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4010987FCDF001272E0 /* Debug */,
+				C27AD4030987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD4040987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_ssl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4050987FCDF001272E0 /* Debug */,
+				C27AD4070987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

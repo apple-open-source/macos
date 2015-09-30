@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -230,10 +230,10 @@ logCFPreferencesChange(CFStringRef serviceID, CFArrayRef newPreferences)
 	_SC_cfstring_to_cstring(str, dir, sizeof(dir), kCFStringEncodingUTF8);
 	CFRelease(str);
 
-	SCLog(TRUE, LOG_ERR, CFSTR("CFPreferences being updated, old/new in \"%s\""), dir);
+	SC_log(LOG_NOTICE, "CFPreferences being updated, old/new in \"%s\"", dir);
 
 	if (mkdir(dir, 0755) == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange mkdir() failed, error = %s"), SCErrorString(errno));
+		SC_log(LOG_NOTICE, "mkdir() failed: %s", SCErrorString(errno));
 		return;
 	}
 
@@ -247,7 +247,7 @@ logCFPreferencesChange(CFStringRef serviceID, CFArrayRef newPreferences)
 		strlcat(path, "/backtrace", sizeof(path));
 		fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
 		if (fd == -1) {
-			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange fopen() failed, error = %s"), SCErrorString(errno));
+			SC_log(LOG_NOTICE, "fopen() failed: %s", SCErrorString(errno));
 			CFRelease(trace);
 			return;
 		}
@@ -267,13 +267,13 @@ logCFPreferencesChange(CFStringRef serviceID, CFArrayRef newPreferences)
 		strlcat(path, "/old", sizeof(path));
 		fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
 		if (fd == -1) {
-			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange fopen() failed, error = %s"), SCErrorString(errno));
+			SC_log(LOG_NOTICE, "fopen() failed: %s", SCErrorString(errno));
 			CFRelease(oldPreferences);
 			return;
 		}
 		data = CFPropertyListCreateData(NULL, oldPreferences, kCFPropertyListXMLFormat_v1_0, 0, NULL);
 		if (data == NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange CFPropertyListCreateData() failed"));
+			SC_log(LOG_NOTICE, "CFPropertyListCreateData() failed");
 			close(fd);
 			CFRelease(oldPreferences);
 			return;
@@ -293,12 +293,12 @@ logCFPreferencesChange(CFStringRef serviceID, CFArrayRef newPreferences)
 		strlcat(path, "/new", sizeof(path));
 		fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
 		if (fd == -1) {
-			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange fopen() failed, error = %s"), SCErrorString(errno));
+			SC_log(LOG_NOTICE, "fopen() failed: %s", SCErrorString(errno));
 			return;
 		}
 		data = CFPropertyListCreateData(NULL, newPreferences, kCFPropertyListXMLFormat_v1_0, 0, NULL);
 		if (data == NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange CFPropertyListCreateData() failed"));
+			SC_log(LOG_NOTICE, "CFPropertyListCreateData() failed");
 			close(fd);
 			return;
 		}

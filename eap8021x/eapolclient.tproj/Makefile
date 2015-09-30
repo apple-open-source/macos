@@ -2,7 +2,7 @@
 # To build for Mac OS X using internal SDK, use 'make PLATFORM=macosx <target>'
 # To build for iOS, use 'make PLATFORM=iphoneos <target>'
 
-WIFI_FRAMEWORK=-framework CoreWLAN
+WIFI_FRAMEWORK=-framework CoreWLAN -framework Apple80211
 ifeq ($(PLATFORM),iphoneos)
 # iOS internal SDK
 CORETELEPHONY=-framework CoreTelephony

@@ -92,12 +92,8 @@ public:
         // Some ports don't support windowed plugins.
         ForceFlashWindowlessMode,
 
-        // Windows specific quirks:
-#elif PLUGIN_ARCHITECTURE(WIN)
-        // Whether NPN_UserAgent should always return a Mozilla user agent.
-        // Flash on Windows prior to version 10 only requests windowless plugins 
-        // if we return a Mozilla user agent.
-        WantsMozillaUserAgent,
+        // Flash crashes when NPP_GetValue is called for NPPVpluginCancelSrcStream in windowed mode.
+        DoNotCancelSrcStreamInWindowedMode,
 #endif
 
         // This isn't really a quirk as much as the opposite of a quirk. By default, we don't send wheel events

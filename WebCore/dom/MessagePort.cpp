@@ -157,7 +157,7 @@ void MessagePort::dispatchMessages()
     while (m_entangledChannel && m_entangledChannel->tryGetMessageFromRemote(message, channels)) {
 
         // close() in Worker onmessage handler should prevent next message from dispatching.
-        if (m_scriptExecutionContext->isWorkerGlobalScope() && toWorkerGlobalScope(m_scriptExecutionContext)->isClosing())
+        if (is<WorkerGlobalScope>(*m_scriptExecutionContext) && downcast<WorkerGlobalScope>(*m_scriptExecutionContext).isClosing())
             return;
 
         std::unique_ptr<MessagePortArray> ports = MessagePort::entanglePorts(*m_scriptExecutionContext, WTF::move(channels));
@@ -222,6 +222,13 @@ std::unique_ptr<MessagePortArray> MessagePort::entanglePorts(ScriptExecutionCont
         (*portArray)[i] = port.release();
     }
     return portArray;
+}
+
+bool MessagePort::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener, bool useCapture)
+{
+    if (listener && listener->isAttribute() && eventType == eventNames().messageEvent)
+        start();
+    return EventTargetWithInlineData::addEventListener(eventType, listener, useCapture);
 }
 
 } // namespace WebCore

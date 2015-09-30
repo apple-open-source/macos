@@ -1157,11 +1157,22 @@ IOReturn IOHIDLibUserClient::updateElementValues (const uint64_t * lCookies, uin
     IOReturn    ret = kIOReturnError;
     
     if (fNub && !isInactive()) {
-        uint32_t    cookies[cookieCount];
-        
+        uint32_t   cookies_[kMaxLocalCookieArrayLength];
+        uint32_t   *cookies;
+      
+        cookies = (cookieCount <= kMaxLocalCookieArrayLength) ? cookies_ : (uint32_t*)IOMalloc(cookieCount * sizeof(*cookies));
+ 
+        if (cookies == NULL) {
+          return kIOReturnNoMemory;
+        }
+      
         deflate_vec(cookies, cookieCount, lCookies, cookieCount);
         
         ret = fNub->updateElementValues((IOHIDElementCookie *)cookies, cookieCount);
+      
+        if (cookies != &cookies_[0]) {
+          IOFree(cookies, cookieCount * sizeof(*cookies));
+        }
     }
     
     return ret;
@@ -1178,11 +1189,23 @@ IOReturn IOHIDLibUserClient::postElementValues (const uint64_t * lCookies, uint3
     IOReturn    ret = kIOReturnError;
     
     if (fNub && !isInactive()) {
-        uint32_t    cookies[cookieCount];
-        
+        uint32_t   cookies_[kMaxLocalCookieArrayLength];
+        uint32_t   *cookies;
+
+        cookies = (cookieCount <= kMaxLocalCookieArrayLength) ? cookies_ : (uint32_t*)IOMalloc(cookieCount * sizeof(*cookies));
+
+        if (cookies == NULL) {
+          return kIOReturnNoMemory;
+        }
+      
         deflate_vec(cookies, cookieCount, lCookies, cookieCount);
         
         ret = fNub->postElementValues((IOHIDElementCookie *)cookies, cookieCount);
+
+        if (cookies != &cookies_[0]) {
+          IOFree(cookies, cookieCount * sizeof(*cookies));
+        }
+
     }
     
     return ret;

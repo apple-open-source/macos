@@ -820,7 +820,6 @@ mdb_open(krb5_context context, HDB *db, int flags, mode_t mode)
 	return ENOMEM;
     }
     db->hdb_db = dbopen(fn, flags, mode, DB_BTREE, NULL);
-    free(fn);
 
     if (db->hdb_db == NULL) {
 	switch (errno) {
@@ -831,6 +830,7 @@ mdb_open(krb5_context context, HDB *db, int flags, mode_t mode)
 	    db->hdb_db = dbopen(fn, flags, mode, DB_BTREE, NULL);
 	}
     }
+    free(fn);
 
     /* try to open without .db extension */
     if(db->hdb_db == NULL && errno == ENOENT)

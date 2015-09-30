@@ -35,7 +35,6 @@
 #import "DOMNodeInternal.h"
 #import "DOMWindow.h"
 #import "Document.h"
-#import "DocumentMarker.h"
 #import "DocumentMarkerController.h"
 #import "Editor.h"
 #import "EditorClient.h"
@@ -63,6 +62,7 @@
 #import "RenderLayerCompositor.h"
 #import "RenderTextControl.h"
 #import "RenderView.h"
+#import "RenderedDocumentMarker.h"
 #import "TextBoundaries.h"
 #import "TextIterator.h"
 #import "VisiblePosition.h"
@@ -273,8 +273,6 @@ CGRect Frame::renderRectForPoint(CGPoint point, bool* isReplaced, float* fontSiz
     return CGRectZero;
 }
 
-#define ALLOW_SCROLL_LISTENERS 0
-
 static Node* ancestorRespondingToScrollWheelEvents(const HitTestResult& hitTestResult, Node* terminationNode, IntRect* nodeBounds)
 {
     if (nodeBounds)
@@ -282,18 +280,11 @@ static Node* ancestorRespondingToScrollWheelEvents(const HitTestResult& hitTestR
 
     Node* scrollingAncestor = nullptr;
     for (Node* node = hitTestResult.innerNode(); node && node != terminationNode && !node->hasTagName(HTMLNames::bodyTag); node = node->parentNode()) {
-#if ALLOW_SCROLL_LISTENERS
-        if (node->willRespondToMouseWheelEvents()) {
-            scrollingAncestor = node;
-            continue;
-        }
-#endif
-
         RenderObject* renderer = node->renderer();
         if (!renderer)
             continue;
 
-        if ((renderer->isTextField() || renderer->isTextArea()) && toRenderTextControl(renderer)->canScroll()) {
+        if ((renderer->isTextField() || renderer->isTextArea()) && downcast<RenderTextControl>(*renderer).canScroll()) {
             scrollingAncestor = node;
             continue;
         }
@@ -337,7 +328,7 @@ static Node* ancestorRespondingToClickEvents(const HitTestResult& hitTestResult,
             pointerCursorStillValid = false;
 
         // If we haven't reached the body, and we are still paying attention to pointer cursors, and the node has a pointer cursor...
-        if (pointerCursorStillValid && node->renderStyle() && node->renderStyle()->cursor() == CURSOR_POINTER)
+        if (pointerCursorStillValid && node->renderStyle() && node->renderStyle()->cursor() == CursorPointer)
             pointerCursorNode = node;
         // We want the lowest unbroken chain of pointer cursors.
         else if (pointerCursorNode)
@@ -351,8 +342,8 @@ static Node* ancestorRespondingToClickEvents(const HitTestResult& hitTestResult,
             // If we are interested about the frame, use it.
             if (nodeBounds) {
                 // This is a check to see whether this node is an area element.  The only way this can happen is if this is the first check.
-                if (node == hitTestResult.innerNode() && node != hitTestResult.innerNonSharedNode() && node->hasTagName(HTMLNames::areaTag))
-                    *nodeBounds = pixelSnappedIntRect(toHTMLAreaElement(node)->computeRect(hitTestResult.innerNonSharedNode()->renderer()));
+                if (node == hitTestResult.innerNode() && node != hitTestResult.innerNonSharedNode() && is<HTMLAreaElement>(*node))
+                    *nodeBounds = snappedIntRect(downcast<HTMLAreaElement>(*node).computeRect(hitTestResult.innerNonSharedNode()->renderer()));
                 else if (node && node->renderer())
                     *nodeBounds = node->renderer()->absoluteBoundingBoxRect(true);
             }
@@ -547,16 +538,16 @@ int Frame::preferredHeight() const
 
     document->updateLayout();
 
-    Node* body = document->body();
+    auto* body = document->bodyOrFrameset();
     if (!body)
         return 0;
 
     RenderObject* renderer = body->renderer();
-    if (!renderer || !renderer->isRenderBlock())
+    if (!is<RenderBlock>(renderer))
         return 0;
 
-    RenderBlock* block = toRenderBlock(renderer);
-    return block->height() + block->marginTop() + block->marginBottom();
+    RenderBlock& block = downcast<RenderBlock>(*renderer);
+    return block.height() + block.marginTop() + block.marginBottom();
 }
 
 int Frame::innerLineHeight(DOMNode* domNode) const
@@ -744,11 +735,11 @@ NSArray *Frame::interpretationsForCurrentRoot() const
     if (!document())
         return nil;
 
-    Element* root = selection().selection().selectionType() == VisibleSelection::NoSelection ? document()->body() : selection().selection().rootEditableElement();
-    unsigned rootChildCount = root->childNodeCount();
+    auto* root = selection().selection().selectionType() == VisibleSelection::NoSelection ? document()->bodyOrFrameset() : selection().selection().rootEditableElement();
+    unsigned rootChildCount = root->countChildNodes();
     RefPtr<Range> rangeOfRootContents = Range::create(*document(), createLegacyEditingPosition(root, 0), createLegacyEditingPosition(root, rootChildCount));
 
-    Vector<DocumentMarker*> markersInRoot = document()->markers().markersInRange(rangeOfRootContents.get(), DocumentMarker::DictationPhraseWithAlternatives);
+    auto markersInRoot = document()->markers().markersInRange(rangeOfRootContents.get(), DocumentMarker::DictationPhraseWithAlternatives);
 
     // There are no phrases with alternatives, so there is just one interpretation.
     if (markersInRoot.isEmpty())
@@ -768,7 +759,7 @@ NSArray *Frame::interpretationsForCurrentRoot() const
     unsigned combinationsSoFar = 1;
 
     Node* pastLastNode = rangeOfRootContents->pastLastNode();
-    for (Node* node = rangeOfRootContents->firstNode(); node != pastLastNode; node = NodeTraversal::next(node)) {
+    for (Node* node = rangeOfRootContents->firstNode(); node != pastLastNode; node = NodeTraversal::next(*node)) {
         for (auto* marker : document()->markers().markersFor(node, DocumentMarker::MarkerTypes(DocumentMarker::DictationPhraseWithAlternatives))) {
             // First, add text that precede the marker.
             if (precedingTextStartPosition != createLegacyEditingPosition(node, marker->startOffset())) {
@@ -853,12 +844,12 @@ void Frame::overflowScrollPositionChangedForNode(const IntPoint& position, Node*
     if (!renderer || !renderer->hasLayer())
         return;
 
-    RenderLayer* layer = toRenderBoxModelObject(renderer)->layer();
+    RenderLayer& layer = *downcast<RenderBoxModelObject>(*renderer).layer();
 
-    layer->setIsUserScroll(isUserScroll);
-    layer->scrollToOffsetWithoutAnimation(position);
-    layer->setIsUserScroll(false);
-    layer->didEndScroll(); // FIXME: Should we always call this?
+    layer.setIsUserScroll(isUserScroll);
+    layer.scrollToOffsetWithoutAnimation(position);
+    layer.setIsUserScroll(false);
+    layer.didEndScroll(); // FIXME: Should we always call this?
 }
 
 void Frame::resetAllGeolocationPermission()

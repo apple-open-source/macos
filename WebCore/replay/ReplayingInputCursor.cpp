@@ -31,6 +31,7 @@
 #if ENABLE(WEB_REPLAY)
 
 #include "EventLoopInputDispatcher.h"
+#include "ReplaySessionSegment.h"
 #include "SegmentedInputStorage.h"
 #include "SerializationMethods.h"
 #include "WebReplayInputs.h"
@@ -38,8 +39,8 @@
 
 namespace WebCore {
 
-ReplayingInputCursor::ReplayingInputCursor(SegmentedInputStorage& storage, Page& page, EventLoopInputDispatcherClient* client)
-    : m_storage(storage)
+ReplayingInputCursor::ReplayingInputCursor(RefPtr<ReplaySessionSegment>&& segment, Page& page, EventLoopInputDispatcherClient* client)
+    : m_segment(WTF::move(segment))
     , m_dispatcher(std::make_unique<EventLoopInputDispatcher>(page, *this, client))
 {
     for (size_t i = 0; i < static_cast<size_t>(InputQueue::Count); i++)
@@ -50,9 +51,9 @@ ReplayingInputCursor::~ReplayingInputCursor()
 {
 }
 
-PassRefPtr<ReplayingInputCursor> ReplayingInputCursor::create(SegmentedInputStorage& storage, Page& page, EventLoopInputDispatcherClient* client)
+Ref<ReplayingInputCursor> ReplayingInputCursor::create(RefPtr<ReplaySessionSegment>&& segment, Page& page, EventLoopInputDispatcherClient* client)
 {
-    return adoptRef(new ReplayingInputCursor(storage, page, client));
+    return adoptRef(*new ReplayingInputCursor(WTF::move(segment), page, client));
 }
 
 void ReplayingInputCursor::storeInput(std::unique_ptr<NondeterministicInputBase>)
@@ -61,12 +62,12 @@ void ReplayingInputCursor::storeInput(std::unique_ptr<NondeterministicInputBase>
     ASSERT_NOT_REACHED();
 }
 
-NondeterministicInputBase* ReplayingInputCursor::loadInput(InputQueue queue, const AtomicString& type)
+NondeterministicInputBase* ReplayingInputCursor::loadInput(InputQueue queue, const String& type)
 {
     NondeterministicInputBase* input = uncheckedLoadInput(queue);
 
     if (input->type() != type) {
-        LOG_ERROR("%-25s ERROR: Expected replay input of type %s, but got type %s\n", "[ReplayingInputCursor]", type.string().ascii().data(), input->type().string().ascii().data());
+        LOG_ERROR("%-25s ERROR: Expected replay input of type %s, but got type %s\n", "[ReplayingInputCursor]", type.ascii().data(), input->type().ascii().data());
         return nullptr;
     }
 
@@ -75,13 +76,26 @@ NondeterministicInputBase* ReplayingInputCursor::loadInput(InputQueue queue, con
 
 NondeterministicInputBase* ReplayingInputCursor::uncheckedLoadInput(InputQueue queue)
 {
-    if (m_positions[static_cast<size_t>(queue)] >= m_storage.queueSize(queue)) {
+    if (m_positions[static_cast<size_t>(queue)] >= m_segment->storage().queueSize(queue)) {
         String queueString = EncodingTraits<InputQueue>::encodeValue(queue).convertTo<String>();
         LOG_ERROR("%-30s ERROR No more inputs remain for determinism queue %s, but one was requested.", "[ReplayingInputCursor]", queueString.ascii().data());
         return nullptr;
     }
 
-    return m_storage.load(queue, m_positions[static_cast<size_t>(queue)]++);
+    return m_segment->storage().load(queue, m_positions[static_cast<size_t>(queue)]++);
+}
+
+EventLoopInputData ReplayingInputCursor::loadEventLoopInput()
+{
+    ASSERT(m_segment);
+
+    size_t offset = m_positions.at(static_cast<size_t>(InputQueue::EventLoopInput));
+    ASSERT(offset < m_segment->eventLoopTimings().size());
+
+    EventLoopInputData data;
+    data.timestamp = m_segment->eventLoopTimings().at(offset);
+    data.input = static_cast<EventLoopInputBase*>(uncheckedLoadInput(InputQueue::EventLoopInput));
+    return data;
 }
 
 }; // namespace WebCore

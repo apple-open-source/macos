@@ -44,9 +44,9 @@ DownloadProxyMap::~DownloadProxyMap()
     ASSERT(m_downloads.isEmpty());
 }
 
-DownloadProxy* DownloadProxyMap::createDownloadProxy(WebContext& webContext)
+DownloadProxy* DownloadProxyMap::createDownloadProxy(WebProcessPool& processPool, const WebCore::ResourceRequest& resourceRequest)
 {
-    RefPtr<DownloadProxy> downloadProxy = DownloadProxy::create(*this, webContext);
+    RefPtr<DownloadProxy> downloadProxy = DownloadProxy::create(*this, processPool, resourceRequest);
     m_downloads.set(downloadProxy->downloadID(), downloadProxy);
 
     m_process->addMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadProxy->downloadID(), *downloadProxy);
@@ -60,10 +60,9 @@ void DownloadProxyMap::downloadFinished(DownloadProxy* downloadProxy)
 
     ASSERT(m_downloads.contains(downloadID));
 
+    m_process->removeMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadID);
     downloadProxy->invalidate();
     m_downloads.remove(downloadID);
-
-    m_process->removeMessageReceiver(Messages::DownloadProxy::messageReceiverName(), downloadID);
 }
 
 void DownloadProxyMap::processDidClose()

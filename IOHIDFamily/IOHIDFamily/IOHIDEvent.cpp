@@ -154,94 +154,6 @@ IOHIDEvent * IOHIDEvent::withType(      IOHIDEventType          type,
     return me;
 }
 
-#if 0
-#if !TARGET_OS_EMBEDDED
-
-extern unsigned int hid_adb_2_usb_keymap[];
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// IOHIDEvent::withEventData
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-IOHIDEvent * IOHIDEvent::withEventData (
-                                        AbsoluteTime            timeStamp,
-                                        UInt32                  type,
-                                        NXEventData *           data,
-                                        IOOptionBits            options)
-{
-    IOHIDEvent *me = NULL;
-
-    switch ( type ) {
-        case NX_LMOUSEDOWN:
-        case NX_LMOUSEUP:
-        case NX_RMOUSEDOWN:
-        case NX_RMOUSEUP:
-        case NX_OMOUSEDOWN:
-        case NX_OMOUSEUP:
-            break;
-        case NX_MOUSEMOVED:
-        case NX_LMOUSEDRAGGED:
-        case NX_RMOUSEDRAGGED:
-        case NX_OMOUSEDRAGGED:
-            me = IOHIDEvent::translationEvent(timeStamp, (data->mouseMove.dx<<16) + (data->mouseMove.subx<<8), (data->mouseMove.dy<<16) + (data->mouseMove.suby<<8), 0, options);
-            break;
-
-        case NX_KEYDOWN:
-        case NX_KEYUP:
-            {
-            uint32_t usage = hid_adb_2_usb_keymap[data->key.keyCode];
-
-            if ( usage < kHIDUsage_KeyboardLeftControl || usage > kHIDUsage_KeyboardRightGUI || !data->key.repeat )
-                me = IOHIDEvent::keyboardEvent(timeStamp, kHIDPage_KeyboardOrKeypad, hid_adb_2_usb_keymap[data->key.keyCode], type==NX_KEYDOWN, options | (data->key.repeat ? kIOHIDKeyboardIsRepeat : 0));
-            }
-            break;
-        case NX_SCROLLWHEELMOVED:
-            me = IOHIDEvent::scrollEvent(timeStamp, data->scrollWheel.pointDeltaAxis2<<16, data->scrollWheel.pointDeltaAxis1<<16, data->scrollWheel.pointDeltaAxis3<<16, options);
-            break;
-        case NX_ZOOM:
-            me = IOHIDEvent::zoomEvent(timeStamp, data->scrollWheel.pointDeltaAxis2<<16, data->scrollWheel.pointDeltaAxis1<<16, data->scrollWheel.pointDeltaAxis3<<16, options);
-            break;
-        case NX_SYSDEFINED:
-            switch (data->compound.subType) {
-                case NX_SUBTYPE_AUX_MOUSE_BUTTONS:
-                    me = IOHIDEvent::buttonEvent(timeStamp, data->compound.misc.L[1], options);
-                    break;
-                case NX_SUBTYPE_AUX_CONTROL_BUTTONS:
-                    uint16_t flavor = data->compound.misc.L[0] >> 16;
-                    switch ( flavor ) {
-                        case NX_KEYTYPE_SOUND_UP:
-                        case NX_KEYTYPE_SOUND_DOWN:
-                        case NX_KEYTYPE_BRIGHTNESS_UP:
-                        case NX_KEYTYPE_BRIGHTNESS_DOWN:
-                        case NX_KEYTYPE_HELP:
-                        case NX_POWER_KEY:
-                        case NX_KEYTYPE_MUTE:
-                        case NX_KEYTYPE_NUM_LOCK:
-
-                        case NX_KEYTYPE_EJECT:
-                        case NX_KEYTYPE_VIDMIRROR:
-
-                        case NX_KEYTYPE_PLAY:
-                        case NX_KEYTYPE_NEXT:
-                        case NX_KEYTYPE_PREVIOUS:
-                        case NX_KEYTYPE_FAST:
-                        case NX_KEYTYPE_REWIND:
-
-                        case NX_KEYTYPE_ILLUMINATION_UP:
-                        case NX_KEYTYPE_ILLUMINATION_DOWN:
-                        case NX_KEYTYPE_ILLUMINATION_TOGGLE:
-                            break;
-                    }
-            }
-            break;
-    }
-
-    return me;
-}
-
-#endif /* TARGET_OS_EMBEDDED */
-#endif
-
-
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDEvent::keyboardEvent
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -785,10 +697,14 @@ IOHIDEvent * IOHIDEvent::digitizerEvent(
             event->orientationType = kIOHIDDigitizerOrientationTypeQuality;
             event->orientation.quality.majorRadius = 5<<16;
             event->orientation.quality.minorRadius = 5<<16;
+            event->orientation.polar.majorRadius = 5<<16;
+            event->orientation.polar.minorRadius = 5<<16;
             break;
         default:
             event->orientation.quality.majorRadius = 3<<16;
             event->orientation.quality.minorRadius = 3<<16;
+            event->orientation.polar.majorRadius = 3<<16;
+            event->orientation.polar.minorRadius = 3<<16;
             break;
     }
 
@@ -868,6 +784,79 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
 exit:
     return me;
 }
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::digitizerEventWithPolarOrientation
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
+                                        AbsoluteTime                    timeStamp,
+                                        UInt32                          transducerID,
+                                        IOHIDDigitizerTransducerType    type,
+                                        bool                            inRange,
+                                        UInt32                          buttonState,
+                                        IOFixed                         x,
+                                        IOFixed                         y,
+                                        IOFixed                         z,
+                                        IOFixed                         tipPressure,
+                                        IOFixed                         auxPressure,
+                                        IOFixed                         twist,
+                                        IOFixed                         altitude,
+                                        IOFixed                         azimuth,
+                                        IOFixed                         quality,
+                                        IOFixed                         density,
+                                        IOOptionBits                    options)
+{
+    IOHIDDigitizerEventData * event = NULL;
+
+    IOHIDEvent * me = IOHIDEvent::digitizerEventWithPolarOrientation(timeStamp, transducerID, type, inRange, buttonState, x, y, z, tipPressure, auxPressure, twist, altitude, azimuth, options);
+    require(me, exit);
+ 
+    event = (IOHIDDigitizerEventData *)me->_data;
+ 
+    event->orientation.polar.quality = quality;
+    event->orientation.polar.density = density;
+    
+exit:
+    return me;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::digitizerEventWithPolarOrientation
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
+                                        AbsoluteTime                    timeStamp,
+                                        UInt32                          transducerID,
+                                        IOHIDDigitizerTransducerType    type,
+                                        bool                            inRange,
+                                        UInt32                          buttonState,
+                                        IOFixed                         x,
+                                        IOFixed                         y,
+                                        IOFixed                         z,
+                                        IOFixed                         tipPressure,
+                                        IOFixed                         auxPressure,
+                                        IOFixed                         twist,
+                                        IOFixed                         altitude,
+                                        IOFixed                         azimuth,
+                                        IOFixed                         quality,
+                                        IOFixed                         density,
+                                        IOFixed                         majorRadius,
+                                        IOFixed                         minorRadius,
+                                        IOOptionBits                    options)
+{
+    IOHIDDigitizerEventData * event = NULL;
+
+    IOHIDEvent * me = IOHIDEvent::digitizerEventWithPolarOrientation(timeStamp, transducerID, type, inRange, buttonState, x, y, z, tipPressure, auxPressure, twist, altitude, azimuth, quality, density, options);
+    require(me, exit);
+
+    event = (IOHIDDigitizerEventData *)me->_data;
+
+    event->orientation.polar.majorRadius = majorRadius;
+    event->orientation.polar.minorRadius = minorRadius;
+
+exit:
+    return me;
+}
+
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDEvent::digitizerEventWithQualityOrientation
@@ -993,7 +982,6 @@ IOHIDEvent * IOHIDEvent::biometricEvent(AbsoluteTime timeStamp, IOFixed level, I
     return me;
 }
 
-#if TARGET_OS_EMBEDDED
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDEvent::atmosphericPressureEvent
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1014,7 +1002,85 @@ IOHIDEvent * IOHIDEvent::atmosphericPressureEvent(AbsoluteTime timeStamp, IOFixe
     return me;
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::standardGameControllerEvent
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::standardGameControllerEvent(AbsoluteTime                    timeStamp,
+                                                     IOFixed                         dpadUp,
+                                                     IOFixed                         dpadDown,
+                                                     IOFixed                         dpadLeft,
+                                                     IOFixed                         dpadRight,
+                                                     IOFixed                         faceX,
+                                                     IOFixed                         faceY,
+                                                     IOFixed                         faceA,
+                                                     IOFixed                         faceB,
+                                                     IOFixed                         shoulderL,
+                                                     IOFixed                         shoulderR,
+                                                     IOOptionBits                    options)
+{
+    IOHIDEvent *me = new IOHIDEvent;
+    IOHIDGameControllerEventData *event = NULL;
+    
+    require(me, exit);
+    
+    require_action(me->initWithTypeTimeStamp(kIOHIDEventTypeGameController, timeStamp, options | kIOHIDEventOptionIsAbsolute), exit, me->release());
+    
+    event = (IOHIDGameControllerEventData *)me->_data;
+ 
+    event->dpad.up      = dpadUp;
+    event->dpad.down    = dpadDown;
+    event->dpad.left    = dpadLeft;
+    event->dpad.right   = dpadRight;
+    event->face.x       = faceX;
+    event->face.y       = faceY;
+    event->face.a       = faceA;
+    event->face.b       = faceB;
+    event->shoulder.l1  = shoulderL;
+    event->shoulder.r1  = shoulderR;
+
+exit:
+    return me;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::extendedGameControllerEvent
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::extendedGameControllerEvent(AbsoluteTime                    timeStamp,
+                                                     IOFixed                         dpadUp,
+                                                     IOFixed                         dpadDown,
+                                                     IOFixed                         dpadLeft,
+                                                     IOFixed                         dpadRight,
+                                                     IOFixed                         faceX,
+                                                     IOFixed                         faceY,
+                                                     IOFixed                         faceA,
+                                                     IOFixed                         faceB,
+                                                     IOFixed                         shoulderL1,
+                                                     IOFixed                         shoulderR1,
+                                                     IOFixed                         shoulderL2,
+                                                     IOFixed                         shoulderR2,
+                                                     IOFixed                         joystickX,
+                                                     IOFixed                         joystickY,
+                                                     IOFixed                         joystickZ,
+                                                     IOFixed                         joystickRz,
+                                                     IOOptionBits                    options)
+{
+    IOHIDEvent *me = standardGameControllerEvent(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL1, shoulderR1, options);
+    IOHIDGameControllerEventData *event = NULL;
+    require(me, exit);
+    
+    event = (IOHIDGameControllerEventData *)me->_data;
+    
+    event->controllerType = 1;
+    event->shoulder.l2  = shoulderL2;
+    event->shoulder.r2  = shoulderR2;
+    event->joystick.x   = joystickX;
+    event->joystick.y   = joystickY;
+    event->joystick.z   = joystickZ;
+    event->joystick.rz  = joystickRz;
+
+exit:
+    return me;
+}
 
 //==============================================================================
 // IOHIDEvent::appendChild
@@ -1295,4 +1361,3 @@ uint64_t IOHIDEvent::getLatency(uint32_t scaleFactor)
 
     return ns / scaleFactor;
 }
-

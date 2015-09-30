@@ -36,6 +36,7 @@
 #include <IOKit/hid/IOHIDResourceUserClient.h>
 #include <IOKit/IODataQueueClient.h>
 #include "IOHIDUserDevice.h"
+#include "IOHIDDebugTrace.h"
 #include <IOKit/IOKitLibPrivate.h>
 
 static IOHIDUserDeviceRef   __IOHIDUserDeviceCreate(
@@ -134,7 +135,7 @@ IOHIDUserDeviceRef __IOHIDUserDeviceCreate(
     IOHIDUserDeviceRef  device = NULL;
     void *          offset  = NULL;
     uint32_t        size;
-
+    
     /* allocate service */
     size  = sizeof(__IOHIDUserDevice) - sizeof(CFRuntimeBase);
     device = (IOHIDUserDeviceRef)_CFRuntimeCreateInstance(allocator, IOHIDUserDeviceGetTypeID(), size, NULL);
@@ -147,6 +148,8 @@ IOHIDUserDeviceRef __IOHIDUserDeviceCreate(
     
     device->options = options;
     
+    HIDDEBUGTRACE(kHIDTrace_UserDevice_Create, device, 0, 0, 0);
+
     return device;
 }
 
@@ -156,6 +159,8 @@ IOHIDUserDeviceRef __IOHIDUserDeviceCreate(
 void __IOHIDUserDeviceRelease( CFTypeRef object )
 {
     IOHIDUserDeviceRef device = (IOHIDUserDeviceRef)object;
+    
+    HIDDEBUGTRACE(kHIDTrace_UserDevice_Release, object, 0, 0, 0);
     
     if ( device->queue.data )
     {
@@ -236,6 +241,8 @@ IOReturn __IOHIDUserDeviceStartDevice(IOHIDUserDeviceRef device, IOOptionBits op
     CFDataRef   data = NULL;
     IOReturn    kr;
     uint64_t    input = options;
+    
+    HIDDEBUGTRACE(kHIDTrace_UserDevice_Start, device, options, 0, 0);
     
     data = IOCFSerialize(device->properties, 0);
     require_action(data, error, kr=kIOReturnNoMemory);
@@ -344,7 +351,9 @@ Boolean __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device)
     
 exit:
     
-    return true;
+    HIDDEBUGTRACE(kHIDTrace_UserDevice_AsyncSupport, device, result, 0, 0);
+    
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -382,6 +391,8 @@ void IOHIDUserDeviceScheduleWithRunLoop(IOHIDUserDeviceRef device, CFRunLoopRef 
 //------------------------------------------------------------------------------
 void IOHIDUserDeviceUnscheduleFromRunLoop(IOHIDUserDeviceRef device, CFRunLoopRef runLoop, CFStringRef runLoopMode)
 {
+    HIDDEBUGTRACE(kHIDTrace_UserDevice_Unschedule, device, 0, 0, 0);
+
     if ( !device->queue.port )
         return;
         
@@ -395,6 +406,8 @@ void IOHIDUserDeviceUnscheduleFromRunLoop(IOHIDUserDeviceRef device, CFRunLoopRe
 //------------------------------------------------------------------------------
 void IOHIDUserDeviceScheduleWithDispatchQueue(IOHIDUserDeviceRef device, dispatch_queue_t queue)
 {
+    HIDDEBUGTRACE(kHIDTrace_UserDevice_ScheduleDispatch, device, 0, 0, 0);
+
     if ( !__IOHIDUserDeviceSetupAsyncSupport(device) )
         return;
     
@@ -448,6 +461,8 @@ void IOHIDUserDeviceScheduleWithDispatchQueue(IOHIDUserDeviceRef device, dispatc
 //------------------------------------------------------------------------------
 void IOHIDUserDeviceUnscheduleFromDispatchQueue(IOHIDUserDeviceRef device, dispatch_queue_t queue)
 {
+    HIDDEBUGTRACE(kHIDTrace_UserDevice_UnscheduleDispatch, device, 0, 0, 0);
+    
     if ( !device->queue.port || device->dispatchQueue != queue)
         return;
     
@@ -503,6 +518,8 @@ void __IOHIDUserDeviceQueueCallback(CFMachPortRef port __unused, void *msg __unu
 {
     IOHIDUserDeviceRef device = (IOHIDUserDeviceRef)info;
     
+    HIDDEBUGTRACE(kHIDTrace_UserDevice_QueueCallback, device, 0, 0, 0);
+
     if ( !device->queue.data )
         return;
 
@@ -523,9 +540,12 @@ void __IOHIDUserDeviceQueueCallback(CFMachPortRef port __unused, void *msg __unu
             CFIndex     reportLength    = min(header->length, (nextEntry->size - sizeof(IOHIDResourceDataQueueHeader)));
             uint8_t *   report          = ((uint8_t*)header)+sizeof(IOHIDResourceDataQueueHeader);
             
-            if ( device->setReport.callback )
+            if ( device->setReport.callback ) {
+                HIDDEBUGTRACE(kHIDTrace_UserDevice_SetReportCallback, device, 0, 0, 0);
+
                 response[kIOHIDResourceUserClientResponseIndexResult] = (*device->setReport.callback)(device->setReport.refcon, header->type, header->reportID, report, reportLength);
-                
+            }
+            
         } 
         else if ( header->direction == kIOHIDResourceReportDirectionIn ) {
             // RY: malloc our own data that we'll send back to the kernel.
@@ -560,6 +580,8 @@ void __IOHIDUserDeviceQueueCallback(CFMachPortRef port __unused, void *msg __unu
 void __IOHIDUserDeviceHandleReportAsyncCallback(void *refcon, IOReturn result)
 {
     IOHIDDeviceHandleReportAsyncContext *pContext = (IOHIDDeviceHandleReportAsyncContext *)refcon;
+    
+    HIDDEBUGTRACE(kHIDTrace_UserDevice_HandleReportCallback, pContext, 0, 0, 0);
     
     if (pContext->callback)
         pContext->callback(pContext->refcon, result);
@@ -596,6 +618,8 @@ IOReturn IOHIDUserDeviceHandleReportAsyncWithTimeStamp(IOHIDUserDeviceRef device
 //------------------------------------------------------------------------------
 IOReturn IOHIDUserDeviceHandleReportWithTimeStamp(IOHIDUserDeviceRef device, uint64_t timestamp, uint8_t * report, CFIndex reportLength)
 {
+    HIDDEBUGTRACE(kHIDTrace_UserDevice_HandleReport, timestamp, device, reportLength, 0);
+
     return IOConnectCallMethod(device->connect, kIOHIDResourceDeviceUserClientMethodHandleReport, &timestamp, 1, report, reportLength, NULL, NULL, NULL, NULL);
 }
 

@@ -126,7 +126,12 @@ static void __deviceCallback(void * context, IOReturn result, void * sender, IOH
     if ( !s_timers )
         s_timers = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     
-    printf("%-10.10s: %s\n", terminated ? "terminated" : "matched", debugString ? CFStringGetCStringPtr(debugString, CFStringGetSystemEncoding()) : "");
+    uint64_t uuid = 0;
+    CFNumberRef temp = IOHIDDeviceGetProperty( device, CFSTR(kIOHIDUniqueIDKey) );
+    if ( temp && CFGetTypeID(temp)  == CFNumberGetTypeID() ) CFNumberGetValue( temp, kCFNumberLongLongType, &uuid );
+    CFNumberGetValue( IOHIDDeviceGetProperty( device, CFSTR(kIOHIDUniqueIDKey) ), kCFNumberLongLongType, &uuid );
+
+    printf("%-10.10s: %s UniqueID %llu\n", terminated ? "terminated" : "matched", debugString ? CFStringGetCStringPtr(debugString, CFStringGetSystemEncoding()) : "", uuid );
     
     if ( debugString )
         CFRelease(debugString);

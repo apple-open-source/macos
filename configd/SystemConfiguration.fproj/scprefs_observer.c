@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CommonCrypto/CommonDigest.h>
@@ -29,6 +29,17 @@
 #include <sys/stat.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/scprefs_observer.h>
+
+#define	MANAGED_PREFERENCES_PATH	"/Library/Managed Preferences"
+#if	TARGET_OS_IPHONE
+#define	MOBILE_PREFERENCES_PATH		"/var/mobile/Library/Preferences"
+#endif	// TARGET_OS_IPHONE
+
+#if	!TARGET_OS_IPHONE
+#define	PREFS_OBSERVER_KEY		"com.apple.MCX._managementStatusChangedForDomains"
+#else	// !TARGET_OS_IPHONE
+#define	PREFS_OBSERVER_KEY		"com.apple.ManagedConfiguration.profileListChanged"
+#endif	// !TARGET_OS_IPHONE
 
 #pragma mark -
 #pragma mark Utils
@@ -109,17 +120,16 @@ struct _scprefs_observer_t {
 	char					file[0];
 };
 
-#define MOBILE_PREFERENCES_PATH "/var/mobile/Library/Preferences"
 static const char *
 prefs_observer_get_prefs_path(scprefs_observer_t observer)
 {
 	switch (observer->type) {
 #if	!TARGET_OS_IPHONE
 	case scprefs_observer_type_mcx:
-		return ("/Library/Managed Preferences");
+		return MANAGED_PREFERENCES_PATH;
 #else	// !TARGET_OS_IPHONE
 	case scprefs_observer_type_global:
-		return ("/Library/Managed Preferences");
+		return MANAGED_PREFERENCES_PATH;
 	case scprefs_observer_type_profile:
 		return MOBILE_PREFERENCES_PATH;
 #endif	// !TARGET_OS_IPHONE
@@ -153,9 +163,10 @@ has_changed(scprefs_observer_t  observer) {
 
 	observer->digest = digest;
 
-	SCLog(_sc_verbose, LOG_NOTICE, CFSTR("The following file: %s, %s \n"),
-	      observer->file, (changed)?"has changed":"has not changed");
-	return (changed);
+	SC_log(LOG_INFO, "preferences file: \"%s\", %s",
+	       observer->file,
+	       changed ? "has changed" : "has not changed");
+	return changed;
 }
 
 static dispatch_queue_t
@@ -182,7 +193,7 @@ prefs_observer_handle_notifications()
 {
 	scprefs_observer_t observer;
 
-	SCLog(_sc_verbose, LOG_NOTICE, CFSTR("PrefsObserver Notification received \n"));
+	SC_log(LOG_INFO, "PrefsObserver notification received");
 
 	SLIST_FOREACH(observer, &head, next) {
 		/* if the preferences plist has changed,
@@ -193,7 +204,6 @@ prefs_observer_handle_notifications()
 	}
 }
 
-#define PREFS_OBSERVER_KEY "com.apple.ManagedConfiguration.profileListChanged"
 static void
 _prefs_observer_init()
 {
@@ -247,8 +257,7 @@ _scprefs_observer_watch(_scprefs_observer_type type, const char *plist_name,
 	});
 
 	elem = prefs_observer_priv_create(type, plist_name, queue, block);
-	SCLog(_sc_verbose, LOG_NOTICE, CFSTR("Created a new element to watch for %s \n"),
-	      elem->file);
+	SC_log(LOG_INFO, "Created a new element to watch for %s", elem->file);
 
 	dispatch_sync(prefs_observer_queue, ^{
 		/* Enqueue the request */

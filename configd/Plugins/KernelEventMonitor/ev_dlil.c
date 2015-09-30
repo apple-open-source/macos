@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2006, 2009, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2006, 2009, 2011, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -106,8 +106,10 @@ interface_update_status(const char *if_name,
 
 	/* update status */
 	if (CFDictionaryGetCount(newDict) > 0) {
+		SC_log(LOG_DEBUG, "Update interface link status: %s: %@", if_name, newDict);
 		cache_SCDynamicStoreSetValue(store, key, newDict);
 	} else {
+		SC_log(LOG_DEBUG, "Update interface link status: %s: <removed>", if_name);
 		cache_SCDynamicStoreRemoveValue(store, key);
 	}
 
@@ -156,8 +158,10 @@ interface_update_quality_metric(const char *if_name,
 
 	/* update status */
 	if (CFDictionaryGetCount(newDict) > 0) {
+		SC_log(LOG_DEBUG, "Update interface link quality: %s: %@", if_name, newDict);
 		cache_SCDynamicStoreSetValue(store, key, newDict);
 	} else {
+		SC_log(LOG_DEBUG, "Update interface link quality: %s: <removed>", if_name);
 		cache_SCDynamicStoreRemoveValue(store, key);
 	}
 
@@ -177,7 +181,6 @@ link_update_quality_metric(const char *if_name)
 
 	sock = dgram_socket(AF_INET);
 	if (sock == -1) {
-		SCLog(TRUE, LOG_NOTICE, CFSTR("socket_get_link_quality: socket open failed,  %s"), strerror(errno));
 		goto done;
 	}
 
@@ -250,6 +253,7 @@ interface_update_link_issues(const char		*if_name,
 	CFDictionarySetValue(newDict, kSCPropNetLinkIssuesTimeStamp, timeStamp);
 	CFRelease(timeStamp);
 
+	SC_log(LOG_DEBUG, "Update interface link issues: %s: %@", if_name, newDict);
 	cache_SCDynamicStoreSetValue(store, key, newDict);
 	CFRelease(newDict);
 	CFRelease(key);
@@ -264,6 +268,8 @@ interface_detaching(const char *if_name)
 {
 	CFStringRef		key;
 	CFMutableDictionaryRef	newDict;
+
+	SC_log(LOG_DEBUG, "Detach interface: %s", if_name);
 
 	key = create_interface_key(if_name);
 	newDict = copy_entity(key);
@@ -280,6 +286,8 @@ static void
 interface_remove(const char *if_name)
 {
 	CFStringRef		key;
+
+	SC_log(LOG_DEBUG, "Remove interface: %s", if_name);
 
 	key = create_interface_key(if_name);
 	cache_SCDynamicStoreRemoveValue(store, key);
@@ -312,7 +320,6 @@ link_update_status(const char *if_name, boolean_t attach)
 
 	sock = dgram_socket(AF_INET);
 	if (sock == -1) {
-		SCLog(TRUE, LOG_NOTICE, CFSTR("link_update_status: socket open failed,  %s"), strerror(errno));
 		return;
 	}
 
@@ -352,59 +359,132 @@ link_update_status(const char *if_name, boolean_t attach)
 	return;
 }
 
+
 __private_extern__
-void
-link_add(const char *if_name)
+CFMutableArrayRef
+interfaceListCopy(void)
 {
-	CFStringRef		interface;
 	CFStringRef		cacheKey;
 	CFDictionaryRef		dict;
-	CFMutableDictionaryRef	newDict		= NULL;
-	CFArrayRef		ifList;
-	CFMutableArrayRef	newIFList	= NULL;
+	CFMutableArrayRef	ret_ifList = NULL;
 
-	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
-	cacheKey  = SCDynamicStoreKeyCreateNetworkInterface(NULL,
-							    kSCDynamicStoreDomainState);
-
+	cacheKey = SCDynamicStoreKeyCreateNetworkInterface(NULL,
+							   kSCDynamicStoreDomainState);
 	dict = cache_SCDynamicStoreCopyValue(store, cacheKey);
-	if (dict) {
-		if (isA_CFDictionary(dict)) {
-			newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
-			ifList  = CFDictionaryGetValue(newDict, kSCPropNetInterfaces);
-			if (isA_CFArray(ifList)) {
-				newIFList = CFArrayCreateMutableCopy(NULL, 0, ifList);
+	CFRelease(cacheKey);
+	if (dict != NULL) {
+		if (isA_CFDictionary(dict) != NULL) {
+			CFArrayRef	ifList;
+
+			ifList = CFDictionaryGetValue(dict, kSCPropNetInterfaces);
+			if (isA_CFArray(ifList) != NULL) {
+				ret_ifList = CFArrayCreateMutableCopy(NULL, 0, ifList);
 			}
 		}
 		CFRelease(dict);
 	}
-
-	if (!newDict) {
-		newDict = CFDictionaryCreateMutable(NULL,
-						    0,
-						    &kCFTypeDictionaryKeyCallBacks,
-						    &kCFTypeDictionaryValueCallBacks);
+	if (ret_ifList == NULL) {
+		ret_ifList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
+	return (ret_ifList);
+}
 
-	if (!newIFList) {
-		newIFList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	}
 
-	if (CFArrayContainsValue(newIFList,
-				 CFRangeMake(0, CFArrayGetCount(newIFList)),
-				 interface) == FALSE) {
-		CFArrayAppendValue(newIFList, interface);
-		CFDictionarySetValue(newDict, kSCPropNetInterfaces, newIFList);
+__private_extern__
+void
+interfaceListUpdate(CFArrayRef ifList)
+{
+	CFStringRef	cacheKey;
+	CFDictionaryRef	dict;
+
+	cacheKey = SCDynamicStoreKeyCreateNetworkInterface(NULL,
+							   kSCDynamicStoreDomainState);
+	dict = cache_SCDynamicStoreCopyValue(store, cacheKey);
+	if (dict != NULL && isA_CFDictionary(dict) == NULL) {
+		CFRelease(dict);
+		dict = NULL;
 	}
-	cache_SCDynamicStoreSetValue(store, cacheKey, newDict);
-	link_update_status(if_name, TRUE);
-#ifdef KEV_DL_LINK_QUALITY_METRIC_CHANGED
-	link_update_quality_metric(if_name);
-#endif /* KEV_DL_LINK_QUALITY_METRIC_CHANGED */
+	if (dict == NULL) {
+		dict = CFDictionaryCreate(NULL,
+					  (const void * *)&kSCPropNetInterfaces,
+					  (const void * *)&ifList,
+					  1,
+					  &kCFTypeDictionaryKeyCallBacks,
+					  &kCFTypeDictionaryValueCallBacks);
+		cache_SCDynamicStoreSetValue(store, cacheKey, dict);
+		CFRelease(dict);
+
+	}
+	else {
+		CFMutableDictionaryRef	newDict;
+
+		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+		CFRelease(dict);
+		CFDictionarySetValue(newDict, kSCPropNetInterfaces, ifList);
+		cache_SCDynamicStoreSetValue(store, cacheKey, newDict);
+		CFRelease(newDict);
+	}
 	CFRelease(cacheKey);
+	return;
+}
+
+
+__private_extern__
+Boolean
+interfaceListAddInterface(CFMutableArrayRef ifList, const char * if_name)
+{
+	Boolean		added = FALSE;
+	CFStringRef	interface;
+
+	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
+	if (CFArrayContainsValue(ifList,
+				 CFRangeMake(0, CFArrayGetCount(ifList)),
+				 interface) == FALSE) {
+		/* interface was added, prime the link-specific values */
+		added = TRUE;
+		CFArrayAppendValue(ifList, interface);
+		link_update_status(if_name, TRUE);
+#ifdef KEV_DL_LINK_QUALITY_METRIC_CHANGED
+		link_update_quality_metric(if_name);
+#endif /* KEV_DL_LINK_QUALITY_METRIC_CHANGED */
+	}
 	CFRelease(interface);
-	if (newDict)	CFRelease(newDict);
-	if (newIFList)	CFRelease(newIFList);
+	return (added);
+}
+
+
+static Boolean
+interfaceListRemoveInterface(CFMutableArrayRef ifList, const char * if_name)
+{
+	CFStringRef	interface;
+	CFIndex		where;
+
+	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
+	where = CFArrayGetFirstIndexOfValue(ifList,
+					    CFRangeMake(0, CFArrayGetCount(ifList)),
+					    interface);
+	CFRelease(interface);
+	if (where != kCFNotFound) {
+		CFArrayRemoveValueAtIndex(ifList, where);
+		interface_remove(if_name);
+	}
+	return (where != kCFNotFound);
+}
+
+
+__private_extern__
+void
+link_add(const char *if_name)
+{
+	CFMutableArrayRef	ifList;
+
+	ifList = interfaceListCopy();
+	if (interfaceListAddInterface(ifList, if_name)) {
+		/* interface was added, update the global list */
+		messages_add_msg_with_arg("link_add", if_name);
+		interfaceListUpdate(ifList);
+	}
+	CFRelease(ifList);
 	return;
 }
 
@@ -413,51 +493,14 @@ __private_extern__
 void
 link_remove(const char *if_name)
 {
-	CFStringRef		interface;
-	CFStringRef		cacheKey;
-	CFDictionaryRef		dict;
-	CFMutableDictionaryRef	newDict		= NULL;
-	CFArrayRef		ifList;
-	CFMutableArrayRef	newIFList	= NULL;
-	CFIndex			i;
+	CFMutableArrayRef	ifList;
 
-	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
-	cacheKey  = SCDynamicStoreKeyCreateNetworkInterface(NULL,
-							    kSCDynamicStoreDomainState);
-
-	dict = cache_SCDynamicStoreCopyValue(store, cacheKey);
-	if (dict) {
-		if (isA_CFDictionary(dict)) {
-			newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
-			ifList  = CFDictionaryGetValue(newDict, kSCPropNetInterfaces);
-			if (isA_CFArray(ifList)) {
-				newIFList = CFArrayCreateMutableCopy(NULL, 0, ifList);
-			}
-		}
-		CFRelease(dict);
+	ifList = interfaceListCopy();
+	if (interfaceListRemoveInterface(ifList, if_name)) {
+		/* interface was removed, update the global list */
+		interfaceListUpdate(ifList);
 	}
-
-	if (!newIFList ||
-	    ((i = CFArrayGetFirstIndexOfValue(newIFList,
-					     CFRangeMake(0, CFArrayGetCount(newIFList)),
-					     interface)) == kCFNotFound)
-	   ) {
-		/* we're not tracking this interface */
-		goto done;
-	}
-
-	CFArrayRemoveValueAtIndex(newIFList, i);
-	CFDictionarySetValue(newDict, kSCPropNetInterfaces, newIFList);
-	cache_SCDynamicStoreSetValue(store, cacheKey, newDict);
-
-	interface_remove(if_name);
-
-    done:
-
-	CFRelease(cacheKey);
-	CFRelease(interface);
-	if (newDict)	CFRelease(newDict);
-	if (newIFList)	CFRelease(newIFList);
+	CFRelease(ifList);
 	return;
 }
 
@@ -512,6 +555,7 @@ interface_update_idle_state(const char *if_name)
 							    if_name_cf,
 							    kSCEntNetIdleRoute);
 
+	SC_log(LOG_DEBUG, "Post interface idle: %s", if_name);
 	cache_SCDynamicStoreNotifyValue(store, key);
 	CFRelease(key);
 	CFRelease(if_name_cf);

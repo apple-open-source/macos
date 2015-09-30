@@ -55,7 +55,6 @@ const UInt32 kMinorsAddCountBits = 6;
 const UInt32 kMinorsAddCountMask = (1 << kMinorsAddCountBits) - 1;
 const UInt32 kMinorsAddCount     = (1 << kMinorsAddCountBits);
 const UInt32 kMinorsMaxCountBits = 16;
-const UInt32 kMinorsMaxCountMask = (1 << kMinorsMaxCountBits) - 1;
 const UInt32 kMinorsMaxCount     = (1 << kMinorsMaxCountBits);
 const UInt32 kMinorsBucketCount  = kMinorsMaxCount / kMinorsAddCount;
 const UInt32 kAnchorsAddCount    = 2;
@@ -597,35 +596,6 @@ createNodesErr:
     return false; // (failure)
 }
 
-#ifndef __LP64__
-AnchorTable * IOMediaBSDClient::getAnchors()
-{
-    //
-    // Obtain the table of anchors.
-    //
- 
-    return _anchors;
-}
-
-MinorTable * IOMediaBSDClient::getMinors()
-{
-    //
-    // Obtain the table of anchors.
-    //
-
-    return _minors;
-}
-
-MinorSlot * IOMediaBSDClient::getMinor(UInt32 minorID)
-{
-    //
-    // Obtain information for the specified minor ID.
-    //
-
-    return _minors->getMinor(minorID);
-}
-#endif /* !__LP64__ */
-
 IOMedia * IOMediaBSDClient::getProvider() const
 {
     //
@@ -650,11 +620,7 @@ int IOMediaBSDClient::ioctl( dev_t   dev,
     return ENOTTY;
 }
 
-#ifdef __LP64__
 OSMetaClassDefineReservedUnused(IOMediaBSDClient,  0);
-#else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOMediaBSDClient,  0);
-#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IOMediaBSDClient,  1);
 OSMetaClassDefineReservedUnused(IOMediaBSDClient,  2);
 OSMetaClassDefineReservedUnused(IOMediaBSDClient,  3);
@@ -936,7 +902,6 @@ int dkopen(dev_t dev, int flags, int devtype, proc_t /* proc */)
     else
     {
 ///w:start
-#ifdef __LP64__
         static int root = 0;
 
         if ( root == 0 )
@@ -948,7 +913,6 @@ int dkopen(dev_t dev, int flags, int devtype, proc_t /* proc */)
                 access |= kIOStorageAccessReaderWriter;
             }
         }
-#endif /* __LP64__ */
 ///w:stop
         level    = DK_ADD_ACCESS(minor->bdevOpenLevel, minor->cdevOpenLevel);
         levelOut = DK_ADD_ACCESS(level, access);
@@ -1229,26 +1193,9 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             // This ioctl returns the preferred block size of the media object.
             //
 
-            *(uint32_t *)data = minor->media->getPreferredBlockSize();
+            *(uint32_t *)data = (uint32_t) minor->media->getPreferredBlockSize();
 
         } break;
-
-#ifndef __LP64__
-        case DKIOCGETBLOCKCOUNT32:                               // (uint32_t *)
-        {
-            //
-            // This ioctl returns the size of the media object in blocks.  The
-            // implied block size is returned by DKIOCGETBLOCKSIZE.
-            //
-
-            if ( minor->media->getPreferredBlockSize() )
-                *(uint32_t *)data = ( minor->media->getSize()               / 
-                                      minor->media->getPreferredBlockSize() );
-            else
-                *(uint32_t *)data = 0;
-
-        } break;
-#endif /* !__LP64__ */
 
         case DKIOCGETBLOCKCOUNT:                                 // (uint64_t *)
         {
@@ -1459,7 +1406,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             if ( number )
                 *(uint32_t *)data = number->unsigned32BitValue();
             else
-                *(uint32_t *)data = minor->media->getPreferredBlockSize();
+                *(uint32_t *)data = (uint32_t) minor->media->getPreferredBlockSize();
 
         } break;
 
@@ -1729,6 +1676,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 capacities      = IONew(UInt64, capacitiesCount);
 
                 if ( capacities == 0 )  { error = ENOMEM;  break; }
+                bzero( capacities, sizeof(UInt64) * capacitiesCount );
 
                 driver->getFormatCapacities(capacities, capacitiesCount);
 
@@ -1742,7 +1690,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                     dk_format_capacity_t capacity = { 0 };
 
                     capacity.blockCount = capacities[index] / blockSize;
-                    capacity.blockSize  = blockSize;
+                    capacity.blockSize  = (uint32_t) blockSize;
 
                     if ( proc == kernproc )
                     {
@@ -1763,6 +1711,8 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 IODelete(capacities, UInt64, capacitiesCount);
 
                 if ( capacitiesCount < capacitiesMaxCount )  { error = E2BIG; }
+            } else {
+                request.capacitiesCount = capacitiesMaxCount;
             }
 
             if ( proc_is64bit(proc) )
@@ -1786,8 +1736,32 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
             // Flush the media onto the drive.
 
-            status = minor->media->synchronizeCache(minor->client);
+            status = minor->media->synchronize(minor->client, 0, 0);
             error  = minor->media->errnoFromReturn(status);
+
+        } break;
+
+        case DKIOCSYNCHRONIZE:                             // (dk_synchronize_t)
+        {
+            //
+            // This ioctl asks that the media object be flushed onto the device.
+            //
+
+            dk_synchronize_t * request;
+            IOReturn           status;
+
+            request = (dk_synchronize_t *) data;
+
+            if ( DKIOC_IS_RESERVED( data, 0xF00000 ) )  { error = EINVAL;  break; }
+
+            // Flush the media onto the drive.
+
+            status = minor->media->synchronize( /* client    */ minor->client,
+                                                /* byteStart */ request->offset,
+                                                /* byteCount */ request->length,
+                                                /* options   */ request->options );
+
+            error = minor->media->errnoFromReturn(status);
 
         } break;
 
@@ -1987,8 +1961,8 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             OSDictionary * dictionary = OSDynamicCast(
                          /* class  */ OSDictionary,
                          /* object */ minor->media->getProperty(
-                                 /* key   */ kIOStorageFeaturesKey,
-                                 /* plane */ gIOServicePlane ) );
+                         /* key    */ kIOStorageFeaturesKey,
+                         /* plane  */ gIOServicePlane ) );
 
             *(uint32_t *)data = 0;
 
@@ -1999,7 +1973,15 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 boolean = OSDynamicCast(
                          /* class  */ OSBoolean,
                          /* object */ dictionary->getObject(
-                                 /* key   */ kIOStorageFeatureForceUnitAccess ) );
+                         /* key    */ kIOStorageFeatureBarrier ) );
+
+                if ( boolean == kOSBooleanTrue )
+                    *(uint32_t *)data |= DK_FEATURE_BARRIER;
+
+                boolean = OSDynamicCast(
+                         /* class  */ OSBoolean,
+                         /* object */ dictionary->getObject(
+                         /* key    */ kIOStorageFeatureForceUnitAccess ) );
 
                 if ( boolean == kOSBooleanTrue )
                     *(uint32_t *)data |= DK_FEATURE_FORCE_UNIT_ACCESS;
@@ -2007,7 +1989,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 boolean = OSDynamicCast(
                          /* class  */ OSBoolean,
                          /* object */ dictionary->getObject(
-                                 /* key   */ kIOStorageFeaturePriority ) );
+                         /* key    */ kIOStorageFeaturePriority ) );
 
                 if ( boolean == kOSBooleanTrue )
                     *(uint32_t *)data |= DK_FEATURE_PRIORITY;
@@ -2015,7 +1997,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 boolean = OSDynamicCast(
                          /* class  */ OSBoolean,
                          /* object */ dictionary->getObject(
-                                 /* key   */ kIOStorageFeatureUnmap ) );
+                         /* key    */ kIOStorageFeatureUnmap ) );
 
                 if ( boolean == kOSBooleanTrue )
                     *(uint32_t *)data |= DK_FEATURE_UNMAP;
@@ -2133,7 +2115,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             // media object.
             //
 
-            *(uint32_t *)data = minor->bdevBlockSize;
+            *(uint32_t *)data = (uint32_t) minor->bdevBlockSize;
 
         } break;
 
@@ -2150,23 +2132,6 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 error = EINVAL;
 
         } break;
-
-#ifndef __LP64__
-        case DKIOCGETBLOCKCOUNT32:                               // (uint32_t *)
-        {
-            //
-            // This ioctl returns the size of the media object in blocks.  The
-            // implied block size is returned by DKIOCGETBLOCKSIZE.
-            //
-
-            if ( minor->bdevBlockSize )
-                *(uint32_t *)data = ( minor->media->getSize() /
-                                      minor->bdevBlockSize    );
-            else
-                *(uint32_t *)data = 0;
-
-        } break;
-#endif /* !__LP64__ */
 
         case DKIOCGETBLOCKCOUNT:                                 // (uint64_t *)
         {
@@ -2469,7 +2434,7 @@ inline bool DKR_IS_RAW(dkr_t dkr, dkrtype_t dkrtype)
 inline void DKR_SET_BYTE_COUNT(dkr_t dkr, dkrtype_t dkrtype, UInt64 bcount)
 {
     if (dkrtype == DKRTYPE_BUF)
-        buf_setresid((buf_t)dkr, buf_count((buf_t)dkr) - bcount);
+        buf_setresid((buf_t)dkr, buf_count((buf_t)dkr) - (uint32_t) bcount);
     else
         uio_setresid(((dio_t)dkr)->uio, uio_resid(((dio_t)dkr)->uio) - bcount);
 }
@@ -3205,12 +3170,12 @@ UInt32 MinorTable::insert( IOMedia *          media,
     // for an anchorID of 2 and slicePath of "s3s1".
     //
 
-    void *       bdevNode;
-    void *       cdevNode;
-    UInt32       majorID = gIOMediaBSDClientGlobals.getMajorID();
-    UInt32       minorID;
-    char *       minorName;
-    UInt32       minorNameSize;
+    void *      bdevNode;
+    void *      cdevNode;
+    UInt32      majorID = gIOMediaBSDClientGlobals.getMajorID();
+    UInt32      minorID;
+    char *      minorName;
+    IOByteCount minorNameSize;
 
     if ( _table.buckets == 0 )  return kInvalidMinorID;
 
@@ -3367,9 +3332,9 @@ UInt32 MinorTable::update( IOMedia *          media,
     // obsolete state and "open flux" state, once the new media object arrives.
     //
 
-    UInt32 minorID;
-    char * minorName;
-    UInt32 minorNameSize;
+    UInt32      minorID;
+    char *      minorName;
+    IOByteCount minorNameSize;
 
     // Create a buffer large enough to hold the full name of the minor.
 

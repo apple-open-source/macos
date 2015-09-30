@@ -54,6 +54,7 @@
 				FCCE17BC135A6444002CEE6D /* Products */,
 			);
 			sourceTree = "<group>";
+			usesTabs = 1;
 		};
 		FCCE17BC135A6444002CEE6D /* Products */ = {
 			isa = PBXGroup;
@@ -166,6 +167,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wextra",
@@ -201,12 +203,12 @@
 					"-lxpc",
 					"-ldispatch",
 				);
-				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+				"OTHER_LDFLAGS[sdk=iphone*]" = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
 					"-ldyld",
 					"-lcompiler_rt",
-					"-lsystem_kernel",
+					"-lsystem$(SIM_SUFFIX)_kernel",
 					"-lsystem_malloc",
 					"-lsystem_c",
 					"-lsystem_blocks",
@@ -215,20 +217,8 @@
 					"-ldispatch",
 					"-lxpc",
 				);
-				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
-					"-Wl,-umbrella,System",
-					"-L/usr/lib/system",
-					"-ldyld",
-					"-lcompiler_rt",
-					"-lsystem_sim_kernel",
-					"-lsystem_malloc",
-					"-lsystem_sim_c",
-					"-lsystem_sim_blocks",
-					"-lsystem_sim_asl",
-					"-lsystem_sim_info",
-					"-ldispatch",
-					"-lxpc",
-				);
+				SDKROOT = macosx.internal;
+				"SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wextra",

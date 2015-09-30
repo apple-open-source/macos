@@ -33,7 +33,7 @@
 
 namespace WebCore {
 
-RenderSVGPath::RenderSVGPath(SVGGraphicsElement& element, PassRef<RenderStyle> style)
+RenderSVGPath::RenderSVGPath(SVGGraphicsElement& element, Ref<RenderStyle>&& style)
     : RenderSVGShape(element, WTF::move(style))
 {
 }
@@ -67,9 +67,9 @@ FloatRect RenderSVGPath::calculateUpdatedStrokeBoundingBox() const
 static void useStrokeStyleToFill(GraphicsContext* context)
 {
     if (Gradient* gradient = context->strokeGradient())
-        context->setFillGradient(gradient);
+        context->setFillGradient(*gradient);
     else if (Pattern* pattern = context->strokePattern())
-        context->setFillPattern(pattern);
+        context->setFillPattern(*pattern);
     else
         context->setFillColor(context->strokeColor(), context->strokeColorSpace());
 }

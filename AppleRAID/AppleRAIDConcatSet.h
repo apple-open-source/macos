@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -77,6 +77,6 @@ protected:
     virtual addr64_t getPhysicalSegment(IOByteCount offset, IOByteCount * length, IOOptionBits options = 0);
 };
 
-#endif KERNEL
+#endif /* KERNEL */
 
 #endif /* ! _APPLERAIDCONCATSET_H */

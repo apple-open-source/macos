@@ -44,7 +44,9 @@ error_code INVALID_SESSION_KEY,		"Invalid session key"
 error_code INVALID_NO_GUEST,		"Invalid guest login request"
 
 error_code NO_NETR_CONFIGURED,		"No NETR configured"
-
+error_code NO_OD_CONFIGURED,		"No OD configured"
+error_code OD_NO_USER,			"User doesn't exists"
+error_code INVALID_RESPONSE,		"User provide wrong response"
 
 #
 # Scram errors

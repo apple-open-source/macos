@@ -205,7 +205,7 @@ void CACFLayerTreeHost::setRootChildLayer(PlatformCALayer* layer)
     m_rootLayer->removeAllSublayers();
     m_rootChildLayer = layer;
     if (m_rootChildLayer)
-        m_rootLayer->appendSublayer(m_rootChildLayer.get());
+        m_rootLayer->appendSublayer(*m_rootChildLayer);
 }
    
 void CACFLayerTreeHost::layerTreeDidChange()
@@ -220,14 +220,14 @@ void CACFLayerTreeHost::layerTreeDidChange()
     // The layer tree is changing as a result of someone modifying a PlatformCALayer that doesn't
     // have a corresponding GraphicsLayer. Schedule a flush since we won't schedule one through the
     // normal GraphicsLayer mechanisms.
-    LayerChangesFlusher::shared().flushPendingLayerChangesSoon(this);
+    LayerChangesFlusher::singleton().flushPendingLayerChangesSoon(this);
 }
 
 void CACFLayerTreeHost::destroyRenderer()
 {
-    m_rootLayer = 0;
-    m_rootChildLayer = 0;
-    LayerChangesFlusher::shared().cancelPendingFlush(this);
+    m_rootLayer = nullptr;
+    m_rootChildLayer = nullptr;
+    LayerChangesFlusher::singleton().cancelPendingFlush(this);
 }
 
 static void getDirtyRects(HWND window, Vector<CGRect>& outRects)
@@ -270,7 +270,7 @@ void CACFLayerTreeHost::paint()
 void CACFLayerTreeHost::flushPendingGraphicsLayerChangesSoon()
 {
     m_shouldFlushPendingGraphicsLayerChanges = true;
-    LayerChangesFlusher::shared().flushPendingLayerChangesSoon(this);
+    LayerChangesFlusher::singleton().flushPendingLayerChangesSoon(this);
 }
 
 void CACFLayerTreeHost::setShouldInvertColors(bool)

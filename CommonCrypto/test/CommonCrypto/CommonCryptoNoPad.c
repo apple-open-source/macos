@@ -8,7 +8,7 @@
 entryPoint(CommonCryptoNoPad,"CommonCrypto NoPad Testing")
 #else
 
-static int kTestTestCount = 21912;
+static int kTestTestCount = 1152;
 
 #define MAXSTART 64
 #define MAXOUT 4096

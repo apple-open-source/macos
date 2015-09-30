@@ -64,6 +64,9 @@ IOHIDEventQueue * IOHIDEventQueue::withEntries( UInt32 numEntries,
     IOHIDEventQueue * queue = NULL;
     UInt32 size = numEntries*entrySize;
     
+    if ( numEntries > UINT32_MAX / entrySize )
+        return NULL;
+
     if ( size < MIN_HID_QUEUE_CAPACITY )
         size = MIN_HID_QUEUE_CAPACITY;
     
@@ -99,6 +102,9 @@ Boolean IOHIDEventQueue::initWithEntries(UInt32 numEntries, UInt32 entrySize)
 {
     UInt32 size = numEntries*entrySize;
     
+    if ( numEntries > UINT32_MAX / entrySize )
+        return false;
+
     if ( size < MIN_HID_QUEUE_CAPACITY )
         size = MIN_HID_QUEUE_CAPACITY;
         

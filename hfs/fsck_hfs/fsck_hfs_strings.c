@@ -130,7 +130,7 @@ hfs_errors[] = {
     { E_FreeBlocks,             "Invalid volume free block count",                              fsckMsgError,   fsckLevel1,   0, },
     { E_MDBDamaged,             "Master Directory Block needs minor repair",                    fsckMsgError,   fsckLevel1,   0, },
     { E_VolumeHeaderDamaged,    "Volume header needs minor repair",                             fsckMsgError,   fsckLevel1,   0, },
-    { E_VBMDamaged,             "Volume bitmap needs minor repair for under-allocation",        fsckMsgError,   fsckLevel1,   0, },
+    { E_VBMDamaged,             "Volume bitmap needs repair for under-allocation",              fsckMsgError,   fsckLevel0,   0, },
     { E_InvalidNodeSize,        "Invalid B-tree node size",                                     fsckMsgError,   fsckLevel1,   0, },
     { E_LeafCnt,                "Invalid leaf record count",                                    fsckMsgError,   fsckLevel1,   0, },
     { E_BadValue,               "(It should be %s instead of %s)",                              fsckMsgDamageInfo,fsckLevel1, 2, (const int[]){ fsckTypeString, fsckTypeString } },

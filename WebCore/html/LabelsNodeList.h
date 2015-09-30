@@ -32,13 +32,13 @@ namespace WebCore {
 
 class LabelsNodeList final : public CachedLiveNodeList<LabelsNodeList> {
 public:
-    static PassRef<LabelsNodeList> create(LabelableElement& forNode, const AtomicString&)
+    static Ref<LabelsNodeList> create(LabelableElement& forNode, const AtomicString&)
     {
         return adoptRef(*new LabelsNodeList(forNode));
     }
     ~LabelsNodeList();
 
-    virtual bool nodeMatches(Element*) const override;
+    virtual bool elementMatches(Element&) const override;
     virtual bool isRootedAtDocument() const override { return true; }
 
 private:

@@ -51,9 +51,9 @@ AccessibilityTableRow::~AccessibilityTableRow()
 {
 }
 
-PassRefPtr<AccessibilityTableRow> AccessibilityTableRow::create(RenderObject* renderer)
+Ref<AccessibilityTableRow> AccessibilityTableRow::create(RenderObject* renderer)
 {
-    return adoptRef(new AccessibilityTableRow(renderer));
+    return adoptRef(*new AccessibilityTableRow(renderer));
 }
 
 AccessibilityRole AccessibilityTableRow::determineAccessibilityRole()
@@ -61,11 +61,8 @@ AccessibilityRole AccessibilityTableRow::determineAccessibilityRole()
     if (!isTableRow())
         return AccessibilityRenderObject::determineAccessibilityRole();
 
-    m_ariaRole = determineAriaRoleAttribute();
-
-    AccessibilityRole ariaRole = ariaRoleAttribute();
-    if (ariaRole != UnknownRole)
-        return ariaRole;
+    if ((m_ariaRole = determineAriaRoleAttribute()) != UnknownRole)
+        return m_ariaRole;
 
     return RowRole;
 }
@@ -73,10 +70,7 @@ AccessibilityRole AccessibilityTableRow::determineAccessibilityRole()
 bool AccessibilityTableRow::isTableRow() const
 {
     AccessibilityObject* table = parentTable();
-    if (!table || !table->isAccessibilityTable())
-        return false;
-    
-    return true;
+    return is<AccessibilityTable>(table)  && downcast<AccessibilityTable>(*table).isExposableThroughAccessibility();
 }
     
 AccessibilityObject* AccessibilityTableRow::observableObject() const
@@ -104,36 +98,41 @@ AccessibilityTable* AccessibilityTableRow::parentTable() const
     // The parent table might not be the direct ancestor of the row unfortunately. ARIA states that role="grid" should
     // only have "row" elements, but if not, we still should handle it gracefully by finding the right table.
     for (AccessibilityObject* parent = parentObject(); parent; parent = parent->parentObject()) {
-        // If this is a table object, but not an accessibility table, we should stop because we don't want to
+        // If this is a non-anonymous table object, but not an accessibility table, we should stop because we don't want to
         // choose another ancestor table as this row's table.
-        if (parent->isTable())
-            return parent->isAccessibilityTable() ? toAccessibilityTable(parent) : 0;
+        if (is<AccessibilityTable>(*parent)) {
+            auto& parentTable = downcast<AccessibilityTable>(*parent);
+            if (parentTable.isExposableThroughAccessibility())
+                return &parentTable;
+            if (parentTable.node())
+                break;
+        }
     }
     
-    return 0;
+    return nullptr;
 }
     
 AccessibilityObject* AccessibilityTableRow::headerObject()
 {
     if (!m_renderer || !m_renderer->isTableRow())
-        return 0;
+        return nullptr;
     
     const auto& rowChildren = children();
     if (!rowChildren.size())
-        return 0;
+        return nullptr;
     
     // check the first element in the row to see if it is a TH element
     AccessibilityObject* cell = rowChildren[0].get();
-    if (!cell->isTableCell())
-        return 0;
+    if (!is<AccessibilityTableCell>(*cell))
+        return nullptr;
     
-    RenderObject* cellRenderer = toAccessibilityTableCell(cell)->renderer();
+    RenderObject* cellRenderer = downcast<AccessibilityTableCell>(*cell).renderer();
     if (!cellRenderer)
-        return 0;
+        return nullptr;
     
     Node* cellNode = cellRenderer->node();
     if (!cellNode || !cellNode->hasTagName(thTag))
-        return 0;
+        return nullptr;
     
     return cell;
 }

@@ -23,19 +23,136 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ScriptTimelineRecord = function(eventType, startTime, endTime, callFrames, sourceCodeLocation, details, profilePayload)
+WebInspector.ScriptTimelineRecord = class ScriptTimelineRecord extends WebInspector.TimelineRecord
 {
-    WebInspector.TimelineRecord.call(this, WebInspector.TimelineRecord.Type.Script, startTime, endTime, callFrames, sourceCodeLocation);
+    constructor(eventType, startTime, endTime, callFrames, sourceCodeLocation, details, profilePayload)
+    {
+        super(WebInspector.TimelineRecord.Type.Script, startTime, endTime, callFrames, sourceCodeLocation);
 
-    console.assert(eventType);
+        console.assert(eventType);
 
-    if (eventType in WebInspector.ScriptTimelineRecord.EventType)
-        eventType = WebInspector.ScriptTimelineRecord.EventType[eventType];
+        if (eventType in WebInspector.ScriptTimelineRecord.EventType)
+            eventType = WebInspector.ScriptTimelineRecord.EventType[eventType];
 
-    this._eventType = eventType;
-    this._details = details || "";
-    this._profilePayload = profilePayload || null;
-    this._profile = null;
+        this._eventType = eventType;
+        this._details = details || "";
+        this._profilePayload = profilePayload || null;
+        this._profile = null;
+    }
+
+    // Public
+
+    get eventType()
+    {
+        return this._eventType;
+    }
+
+    get details()
+    {
+        return this._details;
+    }
+
+    get profile()
+    {
+        this._initializeProfileFromPayload();
+        return this._profile;
+    }
+
+    saveIdentityToCookie(cookie)
+    {
+        super.saveIdentityToCookie(cookie);
+
+        cookie[WebInspector.ScriptTimelineRecord.EventTypeCookieKey] = this._eventType;
+        cookie[WebInspector.ScriptTimelineRecord.DetailsCookieKey] = this._details;
+    }
+
+    // Private
+
+    _initializeProfileFromPayload(payload)
+    {
+        if (this._profile || !this._profilePayload)
+            return;
+
+        // FIXME: <https://webkit.org/b/147029> Web Inspector: Better share objects generated from timeline events (Records)
+        if (this._profilePayload.__profile) {
+            this._profile = this._profilePayload.__profile;
+            this._profilePayload = undefined;
+            return;
+        }
+
+        var payload = this._profilePayload;
+        this._profilePayload = undefined;
+
+        console.assert(payload.rootNodes instanceof Array);
+
+        function profileNodeFromPayload(nodePayload)
+        {
+            console.assert("id" in nodePayload);
+
+            if (nodePayload.url) {
+                var sourceCode = WebInspector.frameResourceManager.resourceForURL(nodePayload.url);
+                if (!sourceCode)
+                    sourceCode = WebInspector.debuggerManager.scriptsForURL(nodePayload.url)[0];
+
+                // The lineNumber is 1-based, but we expect 0-based.
+                var lineNumber = nodePayload.lineNumber - 1;
+
+                var sourceCodeLocation = sourceCode ? sourceCode.createLazySourceCodeLocation(lineNumber, nodePayload.columnNumber) : null;
+            }
+
+            var isProgramCode = nodePayload.functionName === "(program)";
+            var isAnonymousFunction = nodePayload.functionName === "(anonymous function)";
+
+            var type = isProgramCode ? WebInspector.ProfileNode.Type.Program : WebInspector.ProfileNode.Type.Function;
+            var functionName = !isProgramCode && !isAnonymousFunction && nodePayload.functionName !== "(unknown)" ? nodePayload.functionName : null;
+
+            // COMPATIBILITY (iOS8): Timeline.CPUProfileNodes used to include an array of complete
+            // call information instead of the aggregated "callInfo" data.
+            var calls = null;
+            if ("calls" in nodePayload) {
+                console.assert(nodePayload.calls instanceof Array);
+                calls = nodePayload.calls.map(profileNodeCallFromPayload);
+            }
+
+            return new WebInspector.ProfileNode(nodePayload.id, type, functionName, sourceCodeLocation, nodePayload.callInfo, calls, nodePayload.children);
+        }
+
+        function profileNodeCallFromPayload(nodeCallPayload)
+        {
+            console.assert("startTime" in nodeCallPayload);
+            console.assert("totalTime" in nodeCallPayload);
+
+            var startTime = WebInspector.timelineManager.computeElapsedTime(nodeCallPayload.startTime);
+
+            return new WebInspector.ProfileNodeCall(startTime, nodeCallPayload.totalTime);
+        }
+
+        var rootNodes = payload.rootNodes;
+
+        // Iterate over the node tree using a stack. Doing this recursively can easily cause a stack overflow.
+        // We traverse the profile in post-order and convert the payloads in place until we get back to the root.
+        var stack = [{parent: {children: rootNodes}, index: 0, root: true}];
+        while (stack.length) {
+            var entry = stack.lastValue;
+
+            if (entry.index < entry.parent.children.length) {
+                var childNodePayload = entry.parent.children[entry.index];
+                if (childNodePayload.children && childNodePayload.children.length)
+                    stack.push({parent: childNodePayload, index: 0});
+
+                ++entry.index;
+            } else {
+                if (!entry.root)
+                    entry.parent.children = entry.parent.children.map(profileNodeFromPayload);
+                else
+                    rootNodes = rootNodes.map(profileNodeFromPayload);
+
+                stack.pop();
+            }
+        }
+
+        this._profile = payload.__profile = new WebInspector.Profile(rootNodes);
+    }
 };
 
 WebInspector.ScriptTimelineRecord.EventType = {
@@ -71,6 +188,9 @@ WebInspector.ScriptTimelineRecord.EventType.displayName = function(eventType, de
         nameMap.set("addsourcebuffer", "Add Source Buffer");
         nameMap.set("addstream", "Add Stream");
         nameMap.set("addtrack", "Add Track");
+        nameMap.set("animationend", "Animation End");
+        nameMap.set("animationiteration", "Animation Iteration");
+        nameMap.set("animationstart", "Animation Start");
         nameMap.set("audioend", "Audio End");
         nameMap.set("audioprocess", "Audio Process");
         nameMap.set("audiostart", "Audio Start");
@@ -246,108 +366,3 @@ WebInspector.ScriptTimelineRecord.EventType.displayName = function(eventType, de
 WebInspector.ScriptTimelineRecord.TypeIdentifier = "script-timeline-record";
 WebInspector.ScriptTimelineRecord.EventTypeCookieKey = "script-timeline-record-event-type";
 WebInspector.ScriptTimelineRecord.DetailsCookieKey = "script-timeline-record-details";
-
-WebInspector.ScriptTimelineRecord.prototype = {
-    constructor: WebInspector.ScriptTimelineRecord,
-
-    // Public
-
-    get eventType()
-    {
-        return this._eventType;
-    },
-
-    get details()
-    {
-        return this._details;
-    },
-
-    get profile()
-    {
-        this._initializeProfileFromPayload();
-        return this._profile;
-    },
-
-    saveIdentityToCookie: function(cookie)
-    {
-        WebInspector.TimelineRecord.prototype.saveIdentityToCookie.call(this, cookie);
-
-        cookie[WebInspector.ScriptTimelineRecord.EventTypeCookieKey] = this._eventType;
-        cookie[WebInspector.ScriptTimelineRecord.DetailsCookieKey] = this._details;
-    },
-
-    // Private
-
-    _initializeProfileFromPayload: function(payload)
-    {
-        if (this._profile || !this._profilePayload)
-            return;
-
-        var payload = this._profilePayload;
-        delete this._profilePayload;
-
-        console.assert(payload.rootNodes instanceof Array);
-
-        function profileNodeFromPayload(nodePayload)
-        {
-            console.assert("id" in nodePayload);
-            console.assert(nodePayload.calls instanceof Array);
-
-            if (nodePayload.url) {
-                var sourceCode = WebInspector.frameResourceManager.resourceForURL(nodePayload.url);
-                if (!sourceCode)
-                    sourceCode = WebInspector.debuggerManager.scriptsForURL(nodePayload.url)[0];
-
-                // The lineNumber is 1-based, but we expect 0-based.
-                var lineNumber = nodePayload.lineNumber - 1;
-
-                var sourceCodeLocation = sourceCode ? sourceCode.createLazySourceCodeLocation(lineNumber, nodePayload.columnNumber) : null;
-            }
-
-            var isProgramCode = nodePayload.functionName === "(program)";
-            var isAnonymousFunction = nodePayload.functionName === "(anonymous function)";
-
-            var type = isProgramCode ? WebInspector.ProfileNode.Type.Program : WebInspector.ProfileNode.Type.Function;
-            var functionName = !isProgramCode && !isAnonymousFunction && nodePayload.functionName !== "(unknown)" ? nodePayload.functionName : null;
-            var calls = nodePayload.calls.map(profileNodeCallFromPayload);
-
-            return new WebInspector.ProfileNode(nodePayload.id, type, functionName, sourceCodeLocation, calls, nodePayload.children);
-        }
-
-        function profileNodeCallFromPayload(nodeCallPayload)
-        {
-            console.assert("startTime" in nodeCallPayload);
-            console.assert("totalTime" in nodeCallPayload);
-
-            return new WebInspector.ProfileNodeCall(nodeCallPayload.startTime, nodeCallPayload.totalTime);
-        }
-
-        var rootNodes = payload.rootNodes;
-
-        // Iterate over the node tree using a stack. Doing this recursively can easily cause a stack overflow.
-        // We traverse the profile in post-order and convert the payloads in place until we get back to the root.
-        var stack = [{parent: {children: rootNodes}, index: 0, root: true}];
-        while (stack.length) {
-            var entry = stack.lastValue;
-
-            if (entry.index < entry.parent.children.length) {
-                var childNodePayload = entry.parent.children[entry.index];
-                if (childNodePayload.children && childNodePayload.children.length)
-                    stack.push({parent: childNodePayload, index: 0});
-
-                ++entry.index;
-            } else {
-                if (!entry.root)
-                    entry.parent.children = entry.parent.children.map(profileNodeFromPayload);
-                else
-                    rootNodes = rootNodes.map(profileNodeFromPayload);
-
-                stack.pop();
-            }
-        }
-
-        this._profile = new WebInspector.Profile(rootNodes, payload.idleTime);
-    }
-};
-
-WebInspector.ScriptTimelineRecord.prototype.__proto__ = WebInspector.TimelineRecord.prototype;

@@ -377,19 +377,23 @@ segregated_band_grow(nanozone_t *nanozone, nano_meta_admin_t pMeta, unsigned int
 	pMeta->slot_current_base_addr = p;
 
 	mach_vm_address_t vm_addr = p & ~((uintptr_t)(BAND_SIZE - 1)); // Address of the (2MB) band covering this (128KB) slot
-    
-    if (nanozone->band_max_mapped_baseaddr[mag_index] < vm_addr) {
-        // Obtain the next band to cover this slot
-        kern_return_t kr = mach_vm_map(mach_task_self(), &vm_addr, BAND_SIZE,
-                0, VM_MAKE_TAG(VM_MEMORY_MALLOC_NANO), MEMORY_OBJECT_NULL, 0, FALSE,
-                VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
 
-        void *q = (uintptr_t)vm_addr;
-        if (kr || q != (void *)(p & ~((uintptr_t)(BAND_SIZE - 1)))) // Must get exactly what we asked for
-            return FALSE;
-        
-        nanozone->band_max_mapped_baseaddr[mag_index] = vm_addr;
-    }
+	if (nanozone->band_max_mapped_baseaddr[mag_index] < vm_addr) {
+		// Obtain the next band to cover this slot
+		kern_return_t kr = mach_vm_map(mach_task_self(), &vm_addr, BAND_SIZE,
+		                               0, VM_MAKE_TAG(VM_MEMORY_MALLOC_NANO), MEMORY_OBJECT_NULL, 0, FALSE,
+		                               VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+
+		void *q = (uintptr_t)vm_addr;
+		if (kr || q != (void *)(p & ~((uintptr_t)(BAND_SIZE - 1)))) { // Must get exactly what we asked for
+			if (!kr) {
+				mach_vm_deallocate(mach_task_self(), vm_addr, BAND_SIZE);
+			}
+			return FALSE;
+		}
+
+		nanozone->band_max_mapped_baseaddr[mag_index] = vm_addr;
+	}
 
 	// Randomize the starting allocation from this slot (introduces 11 to 14 bits of entropy)
 	if (0 == pMeta->slot_objects_mapped) { // First encounter?
@@ -1393,6 +1397,7 @@ nano_try_madvise(nanozone_t *nanozone, size_t goal)
 				// _malloc_printf(ASL_LEVEL_WARNING,"slot_bitarray: %db page_bitarray: %db\n", bitarray_size(log_size), bitarray_size(log_page_count));
 				if (!slot_bitarray) {
 					malloc_printf("bitarray_create(%d) in nano_try_madvise returned errno=%d.", log_size, errno);
+					free(page_bitarray);
 					return bytes_toward_goal;
 				}
 

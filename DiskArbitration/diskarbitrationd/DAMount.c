@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,12 +34,14 @@
 #include <unistd.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <IOKit/pwr_mgt/IOPMLib.h>
 
 struct __DAMountCallbackContext
 {
 ///w:start
     Boolean         automatic;
 ///w:stop
+    IOPMAssertionID assertionID;
     DAMountCallback callback;
     void *          callbackContext;
     DADiskRef       disk;
@@ -95,6 +97,13 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
     __DAMountCallbackContext * context = parameter;
 
     DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
+
+    if ( context->assertionID != kIOPMNullAssertionID )
+    {
+        IOPMAssertionRelease( context->assertionID );
+
+        context->assertionID = kIOPMNullAssertionID;
+    }
 
     if ( status )
     {
@@ -265,15 +274,13 @@ void _DAMountCreateTrashFolder( DADiskRef disk, CFURLRef mountpoint )
 
         if ( CFURLGetFileSystemRepresentation( mountpoint, TRUE, ( void * ) path, sizeof( path ) ) )
         {
-            struct stat status;
-
             /*
-             * Determine whether the trash folder exists.
+             * Determine whether the trash folder exists already.
              */
 
             strlcat( path, "/.Trashes", sizeof( path ) );
 
-            if ( stat( path, &status ) )
+            if ( access( path, F_OK ) )
             {
                 /*
                  * Create the trash folder.
@@ -400,7 +407,6 @@ CFURLRef DAMountCreateMountPoint( DADiskRef disk )
 
 CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction action )
 {
-    FILE *      file;
     CFIndex     index;
     CFURLRef    mountpoint;
     char        name[MAXPATHLEN];
@@ -499,20 +505,6 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
                         }
 
                         mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
-
-                        /*
-                         * Create the mount point cookie file.
-                         */
-
-                        strlcat( path, "/",                               sizeof( path ) );
-                        strlcat( path, kDAMainMountPointFolderCookieFile, sizeof( path ) );
-
-                        file = fopen( path, "w" );
-
-                        if ( file )
-                        {
-                            fclose( file );
-                        }
                     }
 
                     break;
@@ -633,20 +625,6 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
                     value = value ? value : kCFBooleanFalse;
                 }
             }
-
-            break;
-        }
-        case kDAMountPreferenceWrite:
-        {
-            value = kCFBooleanTrue;
-///w:start
-            if ( DADiskGetState( disk, _kDADiskStateMountPreferenceNoWrite ) )
-            {
-                DADiskSetState( disk, _kDADiskStateMountPreferenceNoWrite, FALSE );
-
-                value = kCFBooleanFalse;
-            }
-///w:stop
 
             break;
         }
@@ -785,6 +763,12 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
         {
             force = TRUE;
         }
+        else if ( CFEqual( argument, CFSTR( "automatic" ) ) )
+        {
+            automatic = NULL;
+
+            check = kCFBooleanTrue;
+        }
         else
         {
             CFStringAppend( options, argument );
@@ -795,15 +779,6 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     va_end( arguments );
 
     CFStringTrim( options, CFSTR( "," ) );
-
-    if ( CFEqual( options, CFSTR( "automatic" ) ) )
-    {
-        automatic = NULL;
-
-        check = kCFBooleanTrue;
-
-        CFStringReplaceAll( options, CFSTR( "" ) );
-    }
 ///w:start
     context->automatic = ( automatic == NULL ) ? TRUE : FALSE;
 ///w:stop
@@ -921,8 +896,8 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
             if ( automatic == kCFBooleanTrue )
             {
-                DADiskSetOption( disk, kDADiskOptionMountAutomatic,        TRUE );
-                DADiskSetOption( disk, kDADiskOptionMountAutomaticNoDefer, TRUE );
+                DADiskSetState( disk, _kDADiskStateMountAutomatic,        TRUE );
+                DADiskSetState( disk, _kDADiskStateMountAutomaticNoDefer, TRUE );
             }
         }
 
@@ -1007,9 +982,9 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
     if ( automatic == NULL )
     {
-        if ( DADiskGetOption( disk, kDADiskOptionMountAutomatic ) )
+        if ( DADiskGetState( disk, _kDADiskStateMountAutomatic ) )
         {
-            if ( DADiskGetOption( disk, kDADiskOptionMountAutomaticNoDefer ) )
+            if ( DADiskGetState( disk, _kDADiskStateMountAutomaticNoDefer ) )
             {
                 automatic = kCFBooleanTrue;
             }
@@ -1043,12 +1018,6 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
      */
 
     if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
-    {
-        CFStringInsert( options, 0, CFSTR( "," ) );
-        CFStringInsert( options, 0, kDAFileSystemMountArgumentNoWrite );
-    }
-
-    if ( DAMountGetPreference( disk, kDAMountPreferenceWrite ) == FALSE )
     {
         CFStringInsert( options, 0, CFSTR( "," ) );
         CFStringInsert( options, 0, kDAFileSystemMountArgumentNoWrite );
@@ -1135,6 +1104,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
     CFRetain( disk );
 
+    context->assertionID     = kIOPMNullAssertionID;
     context->callback        = callback;
     context->callbackContext = callbackContext;
     context->disk            = disk;
@@ -1145,6 +1115,15 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     if ( check == kCFBooleanTrue )
     {
         DALogDebug( "  repaired disk, id = %@, ongoing.", disk );
+
+        IOPMAssertionCreateWithDescription( kIOPMAssertionTypePreventUserIdleSystemSleep,
+                                            CFSTR( _kDADaemonName ),
+                                            NULL,
+                                            NULL,
+                                            NULL,
+                                            0,
+                                            NULL,
+                                            &context->assertionID );
 
         DAFileSystemRepair( DADiskGetFileSystem( disk ),
                             DADiskGetDevice( disk ),

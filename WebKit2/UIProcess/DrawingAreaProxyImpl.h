@@ -39,7 +39,7 @@ namespace WebKit {
 
 class DrawingAreaProxyImpl : public DrawingAreaProxy {
 public:
-    explicit DrawingAreaProxyImpl(WebPageProxy*);
+    explicit DrawingAreaProxyImpl(WebPageProxy&);
     virtual ~DrawingAreaProxyImpl();
 
     void paint(BackingStore::PlatformGraphicsContext, const WebCore::IntRect&, WebCore::Region& unpaintedRegion);
@@ -47,6 +47,12 @@ public:
     bool isInAcceleratedCompositingMode() const { return !m_layerTreeContext.isEmpty(); }
 
     bool hasReceivedFirstUpdate() const { return m_hasReceivedFirstUpdate; }
+
+#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
+    void setNativeSurfaceHandleForCompositing(uint64_t);
+#endif
+
+    void forceResize() { sizeDidChange(); }
 
 private:
     // DrawingAreaProxy

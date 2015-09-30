@@ -40,7 +40,7 @@
 
 namespace JSC {
 
-const ClassInfo RegExp::s_info = { "RegExp", 0, 0, 0, CREATE_METHOD_TABLE(RegExp) };
+const ClassInfo RegExp::s_info = { "RegExp", 0, 0, CREATE_METHOD_TABLE(RegExp) };
 
 RegExpFlags regExpFlags(const String& string)
 {
@@ -113,7 +113,7 @@ RegExpFunctionalTestCollector* RegExpFunctionalTestCollector::get()
     return s_instance;
 }
 
-void RegExpFunctionalTestCollector::outputOneTest(RegExp* regExp, String s, int startOffset, int* ovector, int result)
+void RegExpFunctionalTestCollector::outputOneTest(RegExp* regExp, const String& s, int startOffset, int* ovector, int result)
 {
     if ((!m_lastRegExp) || (m_lastRegExp != regExp)) {
         m_lastRegExp = regExp;
@@ -273,8 +273,10 @@ void RegExp::compile(VM* vm, Yarr::YarrCharSize charSize)
     Yarr::YarrPattern pattern(m_patternString, ignoreCase(), multiline(), &m_constructionError);
     if (m_constructionError) {
         RELEASE_ASSERT_NOT_REACHED();
+#if COMPILER_QUIRK(CONSIDERS_UNREACHABLE_CODE)
         m_state = ParseError;
         return;
+#endif
     }
     ASSERT(m_numSubpatterns == pattern.m_numSubpatterns);
 
@@ -287,22 +289,16 @@ void RegExp::compile(VM* vm, Yarr::YarrCharSize charSize)
 #if ENABLE(YARR_JIT)
     if (!pattern.m_containsBackreferences && !pattern.containsUnsignedLengthPattern() && vm->canUseRegExpJIT()) {
         Yarr::jitCompile(pattern, charSize, vm, m_regExpJITCode);
-#if ENABLE(YARR_JIT_DEBUG)
-        if (!m_regExpJITCode.isFallBack())
-            m_state = JITCode;
-        else
-            m_state = ByteCode;
-#else
         if (!m_regExpJITCode.isFallBack()) {
             m_state = JITCode;
             return;
         }
-#endif
     }
 #else
     UNUSED_PARAM(charSize);
 #endif
 
+    m_state = ByteCode;
     m_regExpBytecode = Yarr::byteCompile(pattern, &vm->m_regExpAllocator);
 }
 
@@ -396,8 +392,10 @@ void RegExp::compileMatchOnly(VM* vm, Yarr::YarrCharSize charSize)
     Yarr::YarrPattern pattern(m_patternString, ignoreCase(), multiline(), &m_constructionError);
     if (m_constructionError) {
         RELEASE_ASSERT_NOT_REACHED();
+#if COMPILER_QUIRK(CONSIDERS_UNREACHABLE_CODE)
         m_state = ParseError;
         return;
+#endif
     }
     ASSERT(m_numSubpatterns == pattern.m_numSubpatterns);
 
@@ -410,22 +408,16 @@ void RegExp::compileMatchOnly(VM* vm, Yarr::YarrCharSize charSize)
 #if ENABLE(YARR_JIT)
     if (!pattern.m_containsBackreferences && !pattern.containsUnsignedLengthPattern() && vm->canUseRegExpJIT()) {
         Yarr::jitCompile(pattern, charSize, vm, m_regExpJITCode, Yarr::MatchOnly);
-#if ENABLE(YARR_JIT_DEBUG)
-        if (!m_regExpJITCode.isFallBack())
-            m_state = JITCode;
-        else
-            m_state = ByteCode;
-#else
         if (!m_regExpJITCode.isFallBack()) {
             m_state = JITCode;
             return;
         }
-#endif
     }
 #else
     UNUSED_PARAM(charSize);
 #endif
 
+    m_state = ByteCode;
     m_regExpBytecode = Yarr::byteCompile(pattern, &vm->m_regExpAllocator);
 }
 
@@ -498,7 +490,7 @@ void RegExp::invalidateCode()
 #if ENABLE(YARR_JIT)
     m_regExpJITCode.clear();
 #endif
-    m_regExpBytecode.clear();
+    m_regExpBytecode = nullptr;
 }
 
 #if ENABLE(YARR_JIT_DEBUG)

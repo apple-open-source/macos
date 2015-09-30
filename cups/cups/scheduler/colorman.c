@@ -1,5 +1,5 @@
 /*
- * "$Id: colorman.c 11560 2014-02-06 20:10:19Z msweet $"
+ * "$Id: colorman.c 12626 2015-05-07 00:39:18Z msweet $"
  *
  * Color management routines for the CUPS scheduler.
  *
@@ -151,8 +151,11 @@ cupsdRegisterColor(cupsd_printer_t *p)	/* I - Printer */
   }
 
 #elif defined(HAVE_DBUS)
-  colord_unregister_printer(p);
-  colord_register_printer(p);
+  if (!RunUser)
+  {
+    colord_unregister_printer(p);
+    colord_register_printer(p);
+  }
 #endif /* __APPLE__ */
 }
 
@@ -186,7 +189,8 @@ void
 cupsdStopColor(void)
 {
 #if !defined(__APPLE__) && defined(HAVE_DBUS)
-  dbus_connection_unref(colord_con);
+  if (colord_con)
+    dbus_connection_unref(colord_con);
   colord_con = NULL;
 #endif /* !__APPLE__ && HAVE_DBUS */
 }
@@ -204,7 +208,8 @@ cupsdUnregisterColor(cupsd_printer_t *p)/* I - Printer */
     apple_unregister_profiles(p);
 
 #elif defined(HAVE_DBUS)
-  colord_unregister_printer(p);
+  if (!RunUser)
+    colord_unregister_printer(p);
 #endif /* __APPLE__ */
 }
 
@@ -363,7 +368,7 @@ apple_register_profiles(
   * Make sure ColorSync is available...
   */
 
-  if (ColorSyncRegisterDevice == NULL)
+  if (&ColorSyncRegisterDevice == NULL)
     return;
 
  /*
@@ -863,7 +868,7 @@ apple_unregister_profiles(
   * Make sure ColorSync is available...
   */
 
-  if (ColorSyncUnregisterDevice != NULL)
+  if (&ColorSyncUnregisterDevice != NULL)
   {
     CFUUIDRef deviceUUID;		/* Device UUID */
 
@@ -1514,5 +1519,5 @@ colord_unregister_printer(
 
 
 /*
- * End of "$Id: colorman.c 11560 2014-02-06 20:10:19Z msweet $".
+ * End of "$Id: colorman.c 12626 2015-05-07 00:39:18Z msweet $".
  */

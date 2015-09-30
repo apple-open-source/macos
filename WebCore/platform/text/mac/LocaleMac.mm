@@ -36,7 +36,6 @@
 #include "Language.h"
 #include "LocalizedStrings.h"
 #include <wtf/DateMath.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -67,9 +66,9 @@ static RetainPtr<NSLocale> determineLocale(const String& locale)
      return adoptNS([[NSLocale alloc] initWithLocaleIdentifier:locale]);
 }
 
-PassOwnPtr<Locale> Locale::create(const AtomicString& locale)
+std::unique_ptr<Locale> Locale::create(const AtomicString& locale)
 {
-    return LocaleMac::create(determineLocale(locale.string()).get());
+    return std::make_unique<LocaleMac>(determineLocale(locale.string()).get());
 }
 
 static RetainPtr<NSDateFormatter> createDateTimeFormatter(NSLocale* locale, NSCalendar* calendar, NSDateFormatterStyle dateStyle, NSDateFormatterStyle timeStyle)
@@ -85,7 +84,7 @@ static RetainPtr<NSDateFormatter> createDateTimeFormatter(NSLocale* locale, NSCa
 
 LocaleMac::LocaleMac(NSLocale* locale)
     : m_locale(locale)
-#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 80000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090)
+#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 80000) || PLATFORM(MAC)
     , m_gregorianCalendar(adoptNS([[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian]))
 #else
     , m_gregorianCalendar(adoptNS([[NSCalendar alloc] initWithCalendarIdentifier:NSGregorianCalendar]))
@@ -102,11 +101,6 @@ LocaleMac::LocaleMac(NSLocale* locale)
 
 LocaleMac::~LocaleMac()
 {
-}
-
-PassOwnPtr<LocaleMac> LocaleMac::create(NSLocale* locale)
-{
-    return adoptPtr(new LocaleMac(locale));
 }
 
 RetainPtr<NSDateFormatter> LocaleMac::shortDateFormatter()

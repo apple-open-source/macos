@@ -230,6 +230,7 @@
     <ClCompile Include="colldata.cpp">
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
+    <ClCompile Include="numfmtspectest.cpp" />
     <ClCompile Include="regiontst.cpp" />
     <ClCompile Include="ucharstrietest.cpp" />
     <ClCompile Include="itrbbi.cpp" />
@@ -308,9 +309,6 @@
     <ClCompile Include="itrbnfp.cpp" />
     <ClCompile Include="itrbnfrt.cpp" />
     <ClCompile Include="locnmtst.cpp" />
-    <ClCompile Include="lrucachetest.cpp">
-      <DisableLanguageExtensions>false</DisableLanguageExtensions>
-    </ClCompile>
     <ClCompile Include="measfmttest.cpp" />
     <ClCompile Include="miscdtfm.cpp" />
     <ClCompile Include="msfmrgts.cpp" />
@@ -321,9 +319,11 @@
     <ClCompile Include="plurfmts.cpp" />
     <ClCompile Include="plurults.cpp" />
     <ClCompile Include="pptest.cpp" />
+    <ClCompile Include="quantityformattertest.cpp" />
     <ClCompile Include="reldatefmttest.cpp">
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
+    <ClCompile Include="scientificnumberformattertest.cpp" />
     <ClCompile Include="sdtfmtts.cpp" />
     <ClCompile Include="selfmts.cpp" />
     <ClCompile Include="tchcfmt.cpp" />
@@ -343,6 +343,9 @@
     <ClCompile Include="tzregts.cpp" />
     <ClCompile Include="tzrulets.cpp" />
     <ClCompile Include="tztest.cpp">
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+    </ClCompile>
+    <ClCompile Include="unifiedcachetest.cpp">
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
     <ClCompile Include="windttst.cpp">

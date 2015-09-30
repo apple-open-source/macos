@@ -26,7 +26,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
 #include "WebNodeHighlight.h"
 
 #include "WebView.h"
@@ -38,7 +37,6 @@
 #include <WebCore/Page.h>
 #include <WebCore/WindowMessageBroadcaster.h>
 #include <wtf/HashSet.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/win/GDIObject.h>
 
 using namespace WebCore;
@@ -48,17 +46,12 @@ static ATOM registerOverlayClass();
 static LPCTSTR kWebNodeHighlightPointerProp = TEXT("WebNodeHighlightPointer");
 
 WebNodeHighlight::WebNodeHighlight(WebView* webView)
-    : 
-#if ENABLE(INSPECTOR)    
-      m_inspectedWebView(webView),
-#endif // ENABLE(INSPECTOR)
-      m_overlay(0)
+    : m_inspectedWebView(webView)
+    , m_overlay(0)
     , m_observedWindow(0)
     , m_showsWhileWebViewIsVisible(false)
 {
-#if ENABLE(INSPECTOR)
     m_inspectedWebView->viewWindow(&m_inspectedWebViewWindow);
-#endif // ENABLE(INSPECTOR)
 }
 
 WebNodeHighlight::~WebNodeHighlight()
@@ -164,9 +157,7 @@ void WebNodeHighlight::update()
     ::SelectObject(hdc.get(), hbmp.get());
 
     GraphicsContext context(hdc.get());
-#if ENABLE(INSPECTOR)
     m_inspectedWebView->page()->inspectorController().drawHighlight(context);
-#endif
 
     BLENDFUNCTION bf;
     bf.BlendOp = AC_SRC_OVER;

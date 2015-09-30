@@ -30,16 +30,15 @@
 
 #include "GraphicsContext.h"
 
+#if USE(CAIRO)
+
 #include "PlatformContextCairo.h"
 #include "RefPtrCairo.h"
 #include <cairo.h>
 #include <math.h>
 #include <stdio.h>
 
-#if PLATFORM(GTK)
-#include <pango/pango.h>
-typedef struct _GdkExposeEvent GdkExposeEvent;
-#elif PLATFORM(WIN)
+#if PLATFORM(WIN)
 #include <cairo-win32.h>
 #endif
 
@@ -49,9 +48,6 @@ class GraphicsContextPlatformPrivate {
 public:
     GraphicsContextPlatformPrivate(PlatformContextCairo* newPlatformContext)
         : platformContext(newPlatformContext)
-#if PLATFORM(GTK)
-        , expose(0)
-#endif
 #if PLATFORM(WIN) || (PLATFORM(GTK) && OS(WINDOWS))
         // NOTE:  These may note be needed: review and remove once Cairo implementation is complete
         , m_hdc(0)
@@ -95,9 +91,6 @@ public:
     PlatformContextCairo* platformContext;
     Vector<float> layers;
 
-#if PLATFORM(GTK)
-    GdkEventExpose* expose;
-#endif
 #if PLATFORM(WIN) || (PLATFORM(GTK) && OS(WINDOWS))
     HDC m_hdc;
     bool m_shouldIncludeChildWindows;
@@ -122,5 +115,7 @@ public:
 
 
 } // namespace WebCore
+
+#endif // USE(CAIRO)
 
 #endif // GraphicsContextPlatformPrivateCairo_h

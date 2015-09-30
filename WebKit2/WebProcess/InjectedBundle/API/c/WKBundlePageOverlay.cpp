@@ -35,6 +35,7 @@
 #include "WKRetainPtr.h"
 #include "WKSharedAPICast.h"
 #include "WKStringPrivate.h"
+#include "WebPage.h"
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/PageOverlay.h>
 #include <WebCore/PlatformMouseEvent.h>
@@ -134,21 +135,22 @@ private:
     }
 
 #if PLATFORM(MAC)
-    virtual DDActionContext *actionContextForResultAtPoint(WebPageOverlay& pageOverlay, WebCore::FloatPoint location, RefPtr<WebCore::Range>& rangeHandle)
+    virtual DDActionContext *actionContextForResultAtPoint(WebPageOverlay& pageOverlay, WebCore::FloatPoint location, RefPtr<WebCore::Range>& rangeHandle) override
     {
-        if (!m_client.actionContextForResultAtPoint)
-            return nil;
+        if (m_client.actionContextForResultAtPoint) {
+            WKBundleRangeHandleRef apiRange = nullptr;
+            DDActionContext *actionContext = (DDActionContext *)m_client.actionContextForResultAtPoint(toAPI(&pageOverlay), WKPointMake(location.x(), location.y()), &apiRange, m_client.base.clientInfo);
 
-        WKBundleRangeHandleRef apiRange = nullptr;
-        DDActionContext *actionContext = (DDActionContext *)m_client.actionContextForResultAtPoint(toAPI(&pageOverlay), WKPointMake(location.x(), location.y()), &apiRange, m_client.base.clientInfo);
+            if (apiRange)
+                rangeHandle = toImpl(apiRange)->coreRange();
 
-        if (apiRange)
-            rangeHandle = toImpl(apiRange)->coreRange();
+            return actionContext;
+        }
 
-        return actionContext;
+        return nil;
     }
 
-    virtual void dataDetectorsDidPresentUI(WebPageOverlay& pageOverlay)
+    virtual void dataDetectorsDidPresentUI(WebPageOverlay& pageOverlay) override
     {
         if (!m_client.dataDetectorsDidPresentUI)
             return;
@@ -156,7 +158,7 @@ private:
         m_client.dataDetectorsDidPresentUI(toAPI(&pageOverlay), m_client.base.clientInfo);
     }
 
-    virtual void dataDetectorsDidChangeUI(WebPageOverlay& pageOverlay)
+    virtual void dataDetectorsDidChangeUI(WebPageOverlay& pageOverlay) override
     {
         if (!m_client.dataDetectorsDidChangeUI)
             return;
@@ -164,7 +166,7 @@ private:
         m_client.dataDetectorsDidChangeUI(toAPI(&pageOverlay), m_client.base.clientInfo);
     }
 
-    virtual void dataDetectorsDidHideUI(WebPageOverlay& pageOverlay)
+    virtual void dataDetectorsDidHideUI(WebPageOverlay& pageOverlay) override
     {
         if (!m_client.dataDetectorsDidHideUI)
             return;
@@ -223,7 +225,7 @@ WKTypeID WKBundlePageOverlayGetTypeID()
 WKBundlePageOverlayRef WKBundlePageOverlayCreate(WKBundlePageOverlayClientBase* wkClient)
 {
     auto clientImpl = std::make_unique<PageOverlayClientImpl>(wkClient);
-    return toAPI(WebPageOverlay::create(WTF::move(clientImpl)).leakRef());
+    return toAPI(&WebPageOverlay::create(WTF::move(clientImpl)).leakRef());
 }
 
 void WKBundlePageOverlaySetAccessibilityClient(WKBundlePageOverlayRef bundlePageOverlayRef, WKBundlePageOverlayAccessibilityClientBase* client)

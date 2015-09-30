@@ -140,7 +140,9 @@ private:
             struct {
                 UInt32                  startMask;
                 UInt32                  mask;
-                IOTimerEventSource *    timer;
+                UInt32                  nmiMask;
+                UInt32                  nmiDelay;
+                IOTimerEventSource *    nmiTimer;
             } debug;
 
             bool                    swapISO;
@@ -196,6 +198,8 @@ private:
     
 #if TARGET_OS_EMBEDDED
     void                    debuggerTimerCallback(IOTimerEventSource *sender);
+
+    void                    stackshotTimerCallback(IOTimerEventSource *sender);
 #endif
     
     void                    multiAxisTimerCallback(IOTimerEventSource *sender);
@@ -644,6 +648,84 @@ public:
                                 IOOptionBits                options = 0);
     
 protected:
+    /*!
+     @function dispatchStandardGameControllerEvent
+     @abstract Dispatch standard game controller event
+     @discussion This is meant to dispatch a conforming standard game controller event that includes the
+     following: Direction Pad, Face Buttons, and Left and Right Shoulder Buttons.
+     @param timeStamp   AbsoluteTime representing origination of event
+     @param dpadUp      Direction pad up with a fixed value between 0.0 and 1.0
+     @param dpadDown    Direction pad down with a fixed value between 0.0 and 1.0
+     @param dpadLeft    Direction pad left with a fixed value between 0.0 and 1.0
+     @param dpadRight   Direction pad right with a fixed value between 0.0 and 1.0
+     @param faceX       Face button X with a fixed value between 0.0 and 1.0
+     @param faceY       Face button Y with a fixed value between 0.0 and 1.0
+     @param faceA       Face button A with a fixed value between 0.0 and 1.0
+     @param faceB       Face button B with a fixed value between 0.0 and 1.0
+     @param shoulderL   Left shoulder button with a fixed value between 0.0 and 1.0
+     @param shoulderR   Right shoulder button with a fixed value between 0.0 and 1.0
+     @param options     Additional options to be defined.
+     */
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  12);
+    virtual void            dispatchStandardGameControllerEvent(
+                                                                AbsoluteTime                    timeStamp,
+                                                                IOFixed                         dpadUp,
+                                                                IOFixed                         dpadDown,
+                                                                IOFixed                         dpadLeft,
+                                                                IOFixed                         dpadRight,
+                                                                IOFixed                         faceX,
+                                                                IOFixed                         faceY,
+                                                                IOFixed                         faceA,
+                                                                IOFixed                         faceB,
+                                                                IOFixed                         shoulderL,
+                                                                IOFixed                         shoulderR,
+                                                                IOOptionBits                    options         = 0 );
+    
+    /*!
+     @function dispatchExtendedGameControllerEvent
+     @abstract Dispatch extended game controller event
+     @discussion This is meant to dispatch a conforming extended game controller event that includes the
+     following: Direction Pad, Face Buttons, Left and Right Joysticks and 2 Left and 2 Right Shoulder Buttons.
+     @param timeStamp   AbsoluteTime representing origination of event
+     @param dpadUp      Direction pad up with a fixed value between 0.0 and 1.0
+     @param dpadDown    Direction pad down with a fixed value between 0.0 and 1.0
+     @param dpadLeft    Direction pad left with a fixed value between 0.0 and 1.0
+     @param dpadRight   Direction pad right with a fixed value between 0.0 and 1.0
+     @param faceX       Face button X with a fixed value between 0.0 and 1.0
+     @param faceY       Face button Y with a fixed value between 0.0 and 1.0
+     @param faceA       Face button A with a fixed value between 0.0 and 1.0
+     @param faceB       Face button B with a fixed value between 0.0 and 1.0
+     @param shoulderL1  Top left shoulder button with a fixed value between 0.0 and 1.0
+     @param shoulderR1  Top right shoulder button with a fixed value between 0.0 and 1.0
+     @param shoulderL2  Bottom left shoulder button with a fixed value between 0.0 and 1.0
+     @param shoulderR2  Bottom right shoulder button with a fixed value between 0.0 and 1.0
+     @param joystickX   Joystick X axis with a fixed value between -1.0 and 1.0
+     @param joystickY   Joystick Y axis with a fixed value between -1.0 and 1.0
+     @param joystickZ   Joystick Z axis with a fixed value between -1.0 and 1.0
+     @param joystickRz  Joystick Rz axis with a fixed value between -1.0 and 1.0
+     @param options     Additional options to be defined.
+     */
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  13);
+    virtual void            dispatchExtendedGameControllerEvent(
+                                                                AbsoluteTime                    timeStamp,
+                                                                IOFixed                         dpadUp,
+                                                                IOFixed                         dpadDown,
+                                                                IOFixed                         dpadLeft,
+                                                                IOFixed                         dpadRight,
+                                                                IOFixed                         faceX,
+                                                                IOFixed                         faceY,
+                                                                IOFixed                         faceA,
+                                                                IOFixed                         faceB,
+                                                                IOFixed                         shoulderL1,
+                                                                IOFixed                         shoulderR1,
+                                                                IOFixed                         shoulderL2,
+                                                                IOFixed                         shoulderR2,
+                                                                IOFixed                         joystickX,
+                                                                IOFixed                         joystickY,
+                                                                IOFixed                         joystickZ,
+                                                                IOFixed                         joystickRz,
+                                                                IOOptionBits                    options         = 0 );
+    
 
 #else
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  7);
@@ -651,9 +733,9 @@ protected:
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  9);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 10);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 11);
-#endif
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 12);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 13);
+#endif
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 14);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 15);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 16);

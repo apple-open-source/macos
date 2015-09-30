@@ -91,7 +91,7 @@ asl_store_open_write(const char *basedir, asl_store_t **s)
 	asl_store_t *out;
 	struct stat sb;
 	uint32_t i, flags;
-	char *path;
+	char path[MAXPATHLEN];
 	FILE *sd;
 	uint64_t last_id;
 	time_t start;
@@ -104,26 +104,26 @@ asl_store_open_write(const char *basedir, asl_store_t **s)
 	if (basedir == NULL) basedir = PATH_ASL_STORE;
 
 	memset(&sb, 0, sizeof(struct stat));
-	if (stat(basedir, &sb) != 0) return ASL_STATUS_INVALID_STORE;
-	if (!S_ISDIR(sb.st_mode)) return ASL_STATUS_INVALID_STORE;
-
-	path = NULL;
-	asprintf(&path, "%s/%s", basedir, FILE_ASL_STORE_DATA);
-	if (path == NULL) return ASL_STATUS_NO_MEMORY;
+	if (stat(basedir, &sb) != 0)
+	{
+		if (errno != ENOENT) return ASL_STATUS_INVALID_STORE;
+		if (mkdir(basedir, 0755) != 0) return ASL_STATUS_WRITE_FAILED;
+	}
+	else
+	{
+		if (!S_ISDIR(sb.st_mode)) return ASL_STATUS_INVALID_STORE;
+	}
+	
+	snprintf(path, sizeof(path), "%s/%s", basedir, FILE_ASL_STORE_DATA);
 
 	sd = NULL;
 
 	memset(&sb, 0, sizeof(struct stat));
 	if (stat(path, &sb) != 0)
 	{
-		if (errno != ENOENT)
-		{
-			free(path);
-			return ASL_STATUS_FAILED;
-		}
+		if (errno != ENOENT) return ASL_STATUS_FAILED;
 
 		sd = fopen(path, "w+");
-		free(path);
 
 		if (sd == NULL) return ASL_STATUS_FAILED;
 
@@ -150,7 +150,6 @@ asl_store_open_write(const char *basedir, asl_store_t **s)
 	else
 	{
 		sd = fopen(path, "r+");
-		free(path);
 
 		if (sd == NULL) return ASL_STATUS_FAILED;
 		if (fread(&last_id, sizeof(uint64_t), 1, sd) != 1)
@@ -370,7 +369,7 @@ asl_store_sweep_file_cache(asl_store_t *s)
 static char *
 asl_store_make_ug_path(const char *dir, const char *base, const char *ext, uid_t ruid, gid_t rgid, uid_t *u, gid_t *g, mode_t *m)
 {
-	char *path  = NULL;
+	char *path = NULL;
 
 	*u = 0;
 	*g = 0;
@@ -516,7 +515,8 @@ asl_store_save(asl_store_t *s, asl_msg_t *msg)
 {
 	struct tm ctm;
 	time_t msg_time, now, bb;
-	char *path, *tmp_path, *tstring, *scratch;
+	char *path;
+	char tstring[128], tmp_path[MAXPATHLEN];
 	const char *val;
 	uid_t ruid;
 	gid_t rgid;
@@ -600,7 +600,6 @@ asl_store_save(asl_store_t *s, asl_msg_t *msg)
 
 	if (localtime_r((const time_t *)&msg_time, &ctm) == NULL) return ASL_STATUS_FAILED;
 
-	tstring = NULL;
 	if (bb == 1)
 	{
 		/*
@@ -619,19 +618,14 @@ asl_store_save(asl_store_t *s, asl_msg_t *msg)
 		bb = mktime(&ctm);
 
 		if (localtime_r((const time_t *)&bb, &ctm) == NULL) return ASL_STATUS_FAILED;
-		asprintf(&tstring, "BB.%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+		snprintf(tstring, sizeof(tstring), "BB.%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
 	}
 	else
 	{
-		asprintf(&tstring, "%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+		snprintf(tstring, sizeof(tstring), "%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
 	}
 
-	if (tstring == NULL) return ASL_STATUS_NO_MEMORY;
-
 	status = asl_store_file_open_write(s, tstring, ruid, rgid, bb, &f, now, check_cache);
-	free(tstring);
-	tstring = NULL;
-
 	if (status != ASL_STATUS_OK) return status;
 
 	status = asl_file_save(f, msg, &xid);
@@ -652,36 +646,22 @@ asl_store_save(asl_store_t *s, asl_msg_t *msg)
 
 		if (path != NULL)
 		{
-			tmp_path = NULL;
-
 			len = strlen(path);
 			if ((len >= 4) && (!strcmp(path + len - 4, ".asl")))
 			{
 				/* rename xxxxxxx.asl to xxxxxxx.timestamp.asl */
-				scratch = strdup(path);
-				if (scratch != NULL)
-				{
-					scratch[len - 4] = '\0';
-					asprintf(&tmp_path, "%s.%llu.asl", scratch, ftime);
-					free(scratch);
-
-				}
+				char scratch[MAXPATHLEN];
+				snprintf(scratch, sizeof(scratch), "%s", path);
+				scratch[len - 4] = '\0';
+				snprintf(tmp_path, sizeof(tmp_path), "%s.%llu.asl", scratch, ftime);
 			}
 			else
 			{
 				/* append timestamp */
-				asprintf(&tmp_path, "%s.%llu", path, ftime);
+				snprintf(tmp_path, sizeof(tmp_path), "%s.%llu", path, ftime);
 			}
 
-			if (tmp_path == NULL)
-			{
-				status = ASL_STATUS_NO_MEMORY;
-			}
-			else
-			{
-				if (rename(path, tmp_path) != 0) status = ASL_STATUS_FAILED;
-				free(tmp_path);
-			}
+			if (rename(path, tmp_path) != 0) status = ASL_STATUS_FAILED;
 
 			free(path);
 		}
@@ -695,12 +675,11 @@ asl_store_save(asl_store_t *s, asl_msg_t *msg)
 static ASL_STATUS
 asl_store_mkdir(asl_store_t *s, const char *dir, mode_t m)
 {
-	char *tstring = NULL;
+	char tstring[MAXPATHLEN];
 	int status;
 	struct stat sb;
 
-	asprintf(&tstring, "%s/%s", s->base_dir, dir);
-	if (tstring == NULL) return ASL_STATUS_NO_MEMORY;
+	snprintf(tstring, sizeof(tstring), "%s/%s", s->base_dir, dir);
 
 	memset(&sb, 0, sizeof(struct stat));
 	status = stat(tstring, &sb);
@@ -708,32 +687,22 @@ asl_store_mkdir(asl_store_t *s, const char *dir, mode_t m)
 	if (status == 0)
 	{
 		/* must be a directory */
-		if (!S_ISDIR(sb.st_mode))
-		{
-			free(tstring);
-			return ASL_STATUS_INVALID_STORE;
-		}
+		if (!S_ISDIR(sb.st_mode)) return ASL_STATUS_INVALID_STORE;
 	}
 	else
 	{
 		if (errno == ENOENT)
 		{
 			/* doesn't exist - create it */
-			if (mkdir(tstring, m) != 0)
-			{
-				free(tstring);
-				return ASL_STATUS_WRITE_FAILED;
-			}
+			if (mkdir(tstring, m) != 0) return ASL_STATUS_WRITE_FAILED;
 		}
 		else
 		{
 			/* stat failed for some other reason */
-			free(tstring);
 			return ASL_STATUS_FAILED;
 		}
 	}
 
-	free(tstring);
 	return ASL_STATUS_OK;
 }
 
@@ -742,7 +711,8 @@ asl_store_open_aux(asl_store_t *s, asl_msg_t *msg, int *out_fd, char **url)
 {
 	struct tm ctm;
 	time_t msg_time, bb;
-	char *path, *dir, *tstring;
+	char *path;
+	char tstring[128], dir[128];
 	const char *val;
 	uid_t ruid, u;
 	gid_t rgid, g;
@@ -782,7 +752,6 @@ asl_store_open_aux(asl_store_t *s, asl_msg_t *msg, int *out_fd, char **url)
 
 	if (localtime_r((const time_t *)&msg_time, &ctm) == NULL) return ASL_STATUS_FAILED;
 
-	dir = NULL;
 	if (bb == 1)
 	{
 		/*
@@ -801,35 +770,25 @@ asl_store_open_aux(asl_store_t *s, asl_msg_t *msg, int *out_fd, char **url)
 		bb = mktime(&ctm);
 
 		if (localtime_r((const time_t *)&bb, &ctm) == NULL) return ASL_STATUS_FAILED;
-		asprintf(&dir, "BB.AUX.%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+		snprintf(dir, sizeof(dir), "BB.AUX.%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
 	}
 	else
 	{
-		asprintf(&dir, "AUX.%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+		snprintf(dir, sizeof(dir), "AUX.%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
 	}
-
-	if (dir == NULL) return ASL_STATUS_NO_MEMORY;
 
 	status = asl_store_mkdir(s, dir, 0755);
-	if (status != ASL_STATUS_OK)
-	{
-		free(dir);
-		return status;
-	}
+	if (status != ASL_STATUS_OK) return status;
 
 	fid = s->next_id;
 	s->next_id++;
-	tstring = NULL;
 
-	asprintf(&tstring, "%s/%llu", dir, fid);
-	free(dir);
-	if (tstring == NULL) return ASL_STATUS_NO_MEMORY;
+	snprintf(tstring, sizeof(tstring), "%s/%llu", dir, fid);
 
 	u = 0;
 	g = 0;
 	m = 0644;
 	path = asl_store_make_ug_path(s->base_dir, tstring, NULL, ruid, rgid, &u, &g, &m);
-	free(tstring);
 	if (path == NULL) return ASL_STATUS_NO_MEMORY;
 
 	fd = asl_file_create(path, u, g, m);
@@ -857,7 +816,7 @@ asl_store_match(asl_store_t *s, asl_msg_list_t *qlist, uint64_t *last_id, uint64
 	struct dirent *dent;
 	uint32_t status;
 	asl_file_t *f;
-	char *path;
+	char path[MAXPATHLEN];
 	asl_file_list_t *files;
 	asl_msg_list_t *res;
 
@@ -875,12 +834,10 @@ asl_store_match(asl_store_t *s, asl_msg_list_t *qlist, uint64_t *last_id, uint64
 	{
 		if (dent->d_name[0] == '.') continue;
 
-		path = NULL;
-		asprintf(&path, "%s/%s", s->base_dir, dent->d_name);
+		snprintf(path, sizeof(path), "%s/%s", s->base_dir, dent->d_name);
 
 		/* NB asl_file_open_read will fail if path is NULL, if the file is not an ASL store file, or if it isn't readable */
 		status = asl_file_open_read(path, &f);
-		if (path != NULL) free(path);
 		if ((status != ASL_STATUS_OK) || (f == NULL)) continue;
 
 		files = asl_file_list_add(files, f);
@@ -986,7 +943,7 @@ asl_store_match_start(asl_store_t *s, uint64_t start_id, int32_t direction)
 	struct dirent *dent;
 	uint32_t status;
 	asl_file_t *f;
-	char *path;
+	char path[MAXPATHLEN];
 	asl_file_list_t *files;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
@@ -1006,8 +963,7 @@ asl_store_match_start(asl_store_t *s, uint64_t start_id, int32_t direction)
 	{
 		if (dent->d_name[0] == '.') continue;
 
-		path = NULL;
-		asprintf(&path, "%s/%s", s->base_dir, dent->d_name);
+		snprintf(path, sizeof(path), "%s/%s", s->base_dir, dent->d_name);
 
 		/*
 		 * NB asl_file_open_read will fail if path is NULL,
@@ -1015,7 +971,6 @@ asl_store_match_start(asl_store_t *s, uint64_t start_id, int32_t direction)
 		 * We expect that.
 		 */
 		status = asl_file_open_read(path, &f);
-		if (path != NULL) free(path);
 		if ((status != ASL_STATUS_OK) || (f == NULL)) continue;
 
 		files = asl_file_list_add(files, f);
@@ -1141,7 +1096,6 @@ _jump_search(asl_object_private_t *obj, asl_object_private_t *query)
 	asl_msg_list_t *out = NULL;
 	asl_msg_list_t *ql = NULL;
 	uint64_t last;
-	uint32_t status = ASL_STATUS_FAILED;
 
 	if (query == NULL)
 	{
@@ -1160,7 +1114,6 @@ _jump_search(asl_object_private_t *obj, asl_object_private_t *query)
 		asl_msg_list_release(ql);
 	}
 
-	if (status != ASL_STATUS_OK) return NULL;
 	return (asl_object_private_t *)out;
 }
 

@@ -1,9 +1,9 @@
 /*
- * "$Id: process.c 12104 2014-08-20 15:23:40Z msweet $"
+ * "$Id: process.c 12671 2015-05-27 23:59:26Z msweet $"
  *
  * Process management routines for the CUPS scheduler.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2015 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -25,6 +25,15 @@
 #ifdef HAVE_POSIX_SPAWN
 #  include <spawn.h>
 extern char **environ;
+#endif /* HAVE_POSIX_SPAWN */
+#ifdef HAVE_POSIX_SPAWN
+#  if !defined(__OpenBSD__) || OpenBSD >= 201505
+#    define USE_POSIX_SPAWN 1
+#  else
+#    define USE_POSIX_SPAWN 0
+#  endif /* !__OpenBSD__ || */
+#else
+#  define USE_POSIX_SPAWN 0
 #endif /* HAVE_POSIX_SPAWN */
 
 
@@ -323,6 +332,9 @@ cupsdCreateProfile(int job_id,		/* I - Job ID or 0 for none */
     /* Also allow access to device files... */
     cupsFilePuts(fp, "(allow file-write* file-read-data file-read-metadata file-ioctl\n"
                      "       (regex #\"^/dev/\"))\n");
+
+    /* And allow kernel extensions to be loaded, e.g., SMB */
+    cupsFilePuts(fp, "(allow system-kext-load)\n");
   }
   else
   {
@@ -459,18 +471,19 @@ cupsdStartProcess(
   int		i;			/* Looping var */
   const char	*exec_path = command;	/* Command to be exec'd */
   char		*real_argv[110],	/* Real command-line arguments */
-		cups_exec[1024];	/* Path to "cups-exec" program */
-  uid_t		user;			/* Command UID */
-  cupsd_proc_t	*proc;			/* New process record */
-#ifdef HAVE_POSIX_SPAWN
-  posix_spawn_file_actions_t actions;	/* Spawn file actions */
-  posix_spawnattr_t attrs;		/* Spawn attributes */
-  char		user_str[16],		/* User string */
+		cups_exec[1024],	/* Path to "cups-exec" program */
+		user_str[16],		/* User string */
 		group_str[16],		/* Group string */
 		nice_str[16];		/* FilterNice string */
+  uid_t		user;			/* Command UID */
+  cupsd_proc_t	*proc;			/* New process record */
+#if USE_POSIX_SPAWN
+  posix_spawn_file_actions_t actions;	/* Spawn file actions */
+  posix_spawnattr_t attrs;		/* Spawn attributes */
+  sigset_t	defsignals;		/* Default signals */
 #elif defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;		/* POSIX signal handler */
-#endif /* HAVE_POSIX_SPAWN */
+#endif /* USE_POSIX_SPAWN */
 #if defined(__APPLE__)
   char		processPath[1024],	/* CFProcessPath environment variable */
 		linkpath[1024];		/* Link path for symlinks... */
@@ -534,9 +547,9 @@ cupsdStartProcess(
   * Use helper program when we have a sandbox profile...
   */
 
-#ifndef HAVE_POSIX_SPAWN
+#if !USE_POSIX_SPAWN
   if (profile)
-#endif /* !HAVE_POSIX_SPAWN */
+#endif /* !USE_POSIX_SPAWN */
   {
     snprintf(cups_exec, sizeof(cups_exec), "%s/daemon/cups-exec", ServerBin);
     snprintf(user_str, sizeof(user_str), "%d", user);
@@ -572,21 +585,28 @@ cupsdStartProcess(
       cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdStartProcess: argv[%d] = \"%s\"", i, argv[i]);
   }
 
-#ifdef HAVE_POSIX_SPAWN
+#if USE_POSIX_SPAWN
  /*
   * Setup attributes and file actions for the spawn...
   */
 
   cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdStartProcess: Setting spawn attributes.");
+  sigemptyset(&defsignals);
+  sigaddset(&defsignals, SIGTERM);
+  sigaddset(&defsignals, SIGCHLD);
+  sigaddset(&defsignals, SIGPIPE);
+
   posix_spawnattr_init(&attrs);
   posix_spawnattr_setflags(&attrs, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF);
+  posix_spawnattr_setpgroup(&attrs, 0);
+  posix_spawnattr_setsigdefault(&attrs, &defsignals);
 
   cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdStartProcess: Setting file actions.");
   posix_spawn_file_actions_init(&actions);
   if (infd != 0)
   {
     if (infd < 0)
-      posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_WRONLY, 0);
+      posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
     else
       posix_spawn_file_actions_adddup2(&actions, infd, 0);
   }
@@ -788,7 +808,7 @@ cupsdStartProcess(
   }
 
   cupsdReleaseSignals();
-#endif /* HAVE_POSIX_SPAWN */
+#endif /* USE_POSIX_SPAWN */
 
   if (*pid)
   {
@@ -870,5 +890,5 @@ cupsd_requote(char       *dst,		/* I - Destination buffer */
 
 
 /*
- * End of "$Id: process.c 12104 2014-08-20 15:23:40Z msweet $".
+ * End of "$Id: process.c 12671 2015-05-27 23:59:26Z msweet $".
  */

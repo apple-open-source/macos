@@ -51,14 +51,10 @@ public:
     virtual void remove(TrackBase*, bool scheduleEvent = true);
 
     // EventTarget
-    virtual EventTargetInterface eventTargetInterface() const = 0;
+    virtual EventTargetInterface eventTargetInterface() const override = 0;
     using RefCounted<TrackListBase>::ref;
     using RefCounted<TrackListBase>::deref;
     virtual ScriptExecutionContext* scriptExecutionContext() const override final { return m_context; }
-
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(addtrack);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(change);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(removetrack);
 
     void clearElement() { m_element = 0; }
     Element* element() const;

@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "MediaSessionManager.h"
+#include "PlatformMediaSessionManager.h"
 
 #if USE(AUDIO_SESSION)
 
@@ -35,19 +35,15 @@
 using namespace WebCore;
 
 static const size_t kWebAudioBufferSize = 128;
-
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 static const size_t kLowPowerVideoBufferSize = 4096;
-#endif
 
-void MediaSessionManager::updateSessionState()
+void PlatformMediaSessionManager::updateSessionState()
 {
-    LOG(Media, "MediaSessionManager::updateSessionState() - types: Video(%d), Audio(%d), WebAudio(%d)", count(MediaSession::Video), count(MediaSession::Audio), count(MediaSession::WebAudio));
+    LOG(Media, "PlatformMediaSessionManager::updateSessionState() - types: Video(%d), Audio(%d), WebAudio(%d)", count(PlatformMediaSession::Video), count(PlatformMediaSession::Audio), count(PlatformMediaSession::WebAudio));
 
-    if (has(MediaSession::WebAudio))
+    if (has(PlatformMediaSession::WebAudio))
         AudioSession::sharedSession().setPreferredBufferSize(kWebAudioBufferSize);
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
-    else if ((has(MediaSession::Video) || has(MediaSession::Audio)) && Settings::lowPowerVideoAudioBufferSizeEnabled()) {
+    else if ((has(PlatformMediaSession::Video) || has(PlatformMediaSession::Audio)) && Settings::lowPowerVideoAudioBufferSizeEnabled()) {
         // FIXME: <http://webkit.org/b/116725> Figure out why enabling the code below
         // causes media LayoutTests to fail on 10.8.
 
@@ -59,18 +55,14 @@ void MediaSessionManager::updateSessionState()
 
         AudioSession::sharedSession().setPreferredBufferSize(bufferSize);
     }
-#endif
 
 #if PLATFORM(IOS)
-    if (activeAudioSessionRequired())
-        AudioSession::sharedSession().setActive(true);
-
     if (!Settings::shouldManageAudioSessionCategory())
         return;
 
-    if (has(MediaSession::Video) || has(MediaSession::Audio))
+    if (has(PlatformMediaSession::Video) || has(PlatformMediaSession::Audio))
         AudioSession::sharedSession().setCategory(AudioSession::MediaPlayback);
-    else if (has(MediaSession::WebAudio))
+    else if (has(PlatformMediaSession::WebAudio))
         AudioSession::sharedSession().setCategory(AudioSession::AmbientSound);
 #endif
 }

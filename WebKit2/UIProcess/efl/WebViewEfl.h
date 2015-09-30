@@ -63,7 +63,7 @@ public:
     void setViewBackgroundColor(const WebCore::Color&);
     WebCore::Color viewBackgroundColor();
 private:
-    WebViewEfl(WebContext*, WebPageGroup*);
+    WebViewEfl(WebProcessPool*, WebPageGroup*);
 
     void setCursor(const WebCore::Cursor&) override;
     PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*) override;
@@ -85,6 +85,17 @@ private:
 #endif
 
     virtual void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, const IPC::DataReference&) override final;
+
+    virtual void didFirstVisuallyNonEmptyLayoutForMainFrame() override final { }
+    virtual void didFinishLoadForMainFrame() override final { }
+    virtual void didSameDocumentNavigationForMainFrame(SameDocumentNavigationType) override final { }
+
+#if ENABLE(VIDEO)
+    virtual void mediaDocumentNaturalSizeChanged(const WebCore::IntSize&) override final { }
+#endif
+
+    virtual void refView() override final { }
+    virtual void derefView() override final { }
 
 private:
     EwkView* m_ewkView;

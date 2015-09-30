@@ -67,9 +67,9 @@ class TextTrack : public TrackBase, public EventTargetWithInlineData
 #endif
     {
 public:
-    static PassRefPtr<TextTrack> create(ScriptExecutionContext* context, TextTrackClient* client, const AtomicString& kind, const AtomicString& id, const AtomicString& label, const AtomicString& language)
+    static Ref<TextTrack> create(ScriptExecutionContext* context, TextTrackClient* client, const AtomicString& kind, const AtomicString& id, const AtomicString& label, const AtomicString& language)
     {
-        return adoptRef(new TextTrack(context, client, kind, id, label, language, AddTrack));
+        return adoptRef(*new TextTrack(context, client, kind, id, label, language, AddTrack));
     }
     virtual ~TextTrack();
 
@@ -122,8 +122,6 @@ public:
 
     void cueWillChange(TextTrackCue*);
     void cueDidChange(TextTrackCue*);
-
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(cuechange);
 
     enum TextTrackType { TrackElement, AddTrack, InBand };
     TextTrackType trackType() const { return m_trackType; }

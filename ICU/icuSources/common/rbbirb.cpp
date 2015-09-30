@@ -68,6 +68,7 @@ RBBIRuleBuilder::RBBIRuleBuilder(const UnicodeString   &rules,
     fChainRules         = FALSE;
     fLBCMNoChain        = FALSE;
     fLookAheadHardBreak = FALSE;
+    fRINoChain          = FALSE;
     fUSetNodes          = NULL;
     fRuleStatusVals     = NULL;
     fScanner            = NULL;

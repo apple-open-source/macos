@@ -2,7 +2,7 @@
 
   vm_core.h -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: 04/01/01 19:41:38 JST
 
   Copyright (C) 2004-2007 Koichi Sasada
@@ -692,6 +692,7 @@ typedef struct {
 typedef struct {
     VALUE env;
     VALUE path;
+    VALUE blockprocval;	/* for GC mark */
     unsigned short first_lineno;
 } rb_binding_t;
 
@@ -730,7 +731,8 @@ enum vm_special_object_type {
 #define VM_FRAME_MAGIC_IFUNC  0x81
 #define VM_FRAME_MAGIC_EVAL   0x91
 #define VM_FRAME_MAGIC_LAMBDA 0xa1
-#define VM_FRAME_MAGIC_MASK_BITS   8
+#define VM_FRAME_MAGIC_RESCUE 0xb1
+#define VM_FRAME_MAGIC_MASK_BITS 8
 #define VM_FRAME_MAGIC_MASK   (~(~0<<VM_FRAME_MAGIC_MASK_BITS))
 
 #define VM_FRAME_TYPE(cfp) ((cfp)->flag & VM_FRAME_MAGIC_MASK)
@@ -805,6 +807,7 @@ rb_block_t *rb_vm_control_frame_block_ptr(rb_control_frame_t *cfp);
 /* VM related object allocate functions */
 VALUE rb_thread_alloc(VALUE klass);
 VALUE rb_proc_alloc(VALUE klass);
+VALUE rb_binding_alloc(VALUE klass);
 
 /* for debug */
 extern void rb_vmdebug_stack_dump_raw(rb_thread_t *, rb_control_frame_t *);
@@ -829,6 +832,7 @@ int rb_thread_method_id_and_class(rb_thread_t *th, ID *idp, VALUE *klassp);
 VALUE rb_vm_invoke_proc(rb_thread_t *th, rb_proc_t *proc,
 			int argc, const VALUE *argv, const rb_block_t *blockptr);
 VALUE rb_vm_make_proc(rb_thread_t *th, const rb_block_t *block, VALUE klass);
+VALUE rb_vm_make_binding(rb_thread_t *th, const rb_control_frame_t *src_cfp);
 VALUE rb_vm_make_env_object(rb_thread_t *th, rb_control_frame_t *cfp);
 VALUE rb_binding_new_with_cfp(rb_thread_t *th, const rb_control_frame_t *src_cfp);
 void rb_vm_inc_const_missing_count(void);
@@ -853,10 +857,13 @@ VALUE rb_name_err_mesg_new(VALUE obj, VALUE mesg, VALUE recv, VALUE method);
 void rb_vm_stack_to_heap(rb_thread_t *th);
 void ruby_thread_init_stack(rb_thread_t *th);
 int rb_vm_control_frame_id_and_class(const rb_control_frame_t *cfp, ID *idp, VALUE *klassp);
+void rb_vm_rewind_cfp(rb_thread_t *th, rb_control_frame_t *cfp);
 
 void rb_gc_mark_machine_stack(rb_thread_t *th);
 
 int rb_autoloading_value(VALUE mod, ID id, VALUE* value);
+
+void rb_vm_rewrite_cref_stack(NODE *node, VALUE old_klass, VALUE new_klass, NODE **new_cref_ptr);
 
 #define sysstack_error GET_VM()->special_exceptions[ruby_error_sysstack]
 

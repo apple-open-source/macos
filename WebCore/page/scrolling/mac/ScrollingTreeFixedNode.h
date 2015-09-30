@@ -40,7 +40,7 @@ class FixedPositionViewportConstraints;
 
 class ScrollingTreeFixedNode : public ScrollingTreeNode {
 public:
-    static PassRefPtr<ScrollingTreeFixedNode> create(ScrollingTree&, ScrollingNodeID);
+    WEBCORE_EXPORT static Ref<ScrollingTreeFixedNode> create(ScrollingTree&, ScrollingNodeID);
 
     virtual ~ScrollingTreeFixedNode();
 
@@ -54,9 +54,9 @@ private:
     RetainPtr<CALayer> m_layer;
 };
 
-SCROLLING_NODE_TYPE_CASTS(ScrollingTreeFixedNode, isFixedNode());
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_SCROLLING_NODE(ScrollingTreeFixedNode, isFixedNode())
 
 #endif // ENABLE(ASYNC_SCROLLING)
 

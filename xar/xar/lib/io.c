@@ -151,6 +151,7 @@ size_t xar_io_get_toc_checksum_length_for_type(const char *type) {
 	} else if( strcmp(type, XAR_OPT_VAL_SHA512) == 0 ) {
 		return 64;
 	} else if( strcmp(type, XAR_OPT_VAL_MD5) == 0 ) {
+		// Left in place regardless of XAR_SUPPORT_MD5 for proper archive parsing
 		return 16;
 	} else {
 		return 0;
@@ -168,6 +169,7 @@ size_t xar_io_get_toc_checksum_length(xar_t x) {
 		case XAR_CKSUM_SHA512:
 			return 64;
 		case XAR_CKSUM_MD5:
+			// Left in place regardless of XAR_SUPPORT_MD5 for proper archive parsing
 			return 16;
 		default:
 			fprintf(stderr, "Unknown hashing algorithm, skipping\n");

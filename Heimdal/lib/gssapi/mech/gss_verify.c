@@ -29,11 +29,11 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_verify(OM_uint32 *minor_status,
-    gss_ctx_id_t context_handle,
-    gss_buffer_t message_buffer,
-    gss_buffer_t token_buffer,
-    int *qop_state)
+gss_verify(OM_uint32 *__nonnull minor_status,
+    __nonnull gss_ctx_id_t context_handle,
+    __nonnull gss_buffer_t message_buffer,
+    __nonnull gss_buffer_t token_buffer,
+    int *__nonnull qop_state)
 {
 
 	return (gss_verify_mic(minor_status,

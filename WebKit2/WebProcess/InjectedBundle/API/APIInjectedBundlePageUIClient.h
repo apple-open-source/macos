@@ -33,14 +33,15 @@ class HitTestResult;
 }
 
 namespace WebKit {
+class InjectedBundleNodeHandle;
 class WebFrame;
 class WebPage;
-class WebSecurityOrigin;
 }
 
 namespace API {
 
 class Object;
+class SecurityOrigin;
 
 namespace InjectedBundle {
 
@@ -69,8 +70,8 @@ public:
     virtual UIElementVisibility menuBarIsVisible(WebKit::WebPage*) { return UIElementVisibility::Unknown; }
     virtual UIElementVisibility toolbarsAreVisible(WebKit::WebPage*) { return UIElementVisibility::Unknown; }
 
-    virtual bool didReachApplicationCacheOriginQuota(WebKit::WebPage*, WebKit::WebSecurityOrigin*, int64_t totalBytesNeeded) { UNUSED_PARAM(totalBytesNeeded); return false; }
-    virtual uint64_t didExceedDatabaseQuota(WebKit::WebPage*, WebKit::WebSecurityOrigin*, const WTF::String& databaseName, const WTF::String& databaseDisplayName, uint64_t currentQuotaBytes, uint64_t currentOriginUsageBytes, uint64_t currentDatabaseUsageBytes, uint64_t expectedUsageBytes)
+    virtual bool didReachApplicationCacheOriginQuota(WebKit::WebPage*, SecurityOrigin*, int64_t totalBytesNeeded) { UNUSED_PARAM(totalBytesNeeded); return false; }
+    virtual uint64_t didExceedDatabaseQuota(WebKit::WebPage*, SecurityOrigin*, const WTF::String& databaseName, const WTF::String& databaseDisplayName, uint64_t currentQuotaBytes, uint64_t currentOriginUsageBytes, uint64_t currentDatabaseUsageBytes, uint64_t expectedUsageBytes)
     {
         UNUSED_PARAM(databaseName);
         UNUSED_PARAM(databaseDisplayName);
@@ -85,6 +86,12 @@ public:
     virtual WTF::String plugInStartLabelSubtitle(const WTF::String& mimeType) const { UNUSED_PARAM(mimeType); return emptyString(); }
     virtual WTF::String plugInExtraStyleSheet() const { return emptyString(); }
     virtual WTF::String plugInExtraScript() const { return emptyString(); }
+
+    virtual void didBeginTrackingPotentialLongMousePress(WebKit::WebPage*, const WebCore::IntPoint&, const WebCore::HitTestResult&, RefPtr<API::Object>& userData) { UNUSED_PARAM(userData); }
+    virtual void didRecognizeLongMousePress(WebKit::WebPage*, RefPtr<API::Object>& userData) { UNUSED_PARAM(userData); }
+    virtual void didCancelTrackingPotentialLongMousePress(WebKit::WebPage*, RefPtr<API::Object>& userData) { UNUSED_PARAM(userData); }
+
+    virtual void didClickAutoFillButton(WebKit::WebPage&, WebKit::InjectedBundleNodeHandle&, RefPtr<API::Object>&) { }
 };
 
 } // namespace InjectedBundle

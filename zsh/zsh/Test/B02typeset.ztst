@@ -468,3 +468,43 @@
 0:retying arrays to same array works
 >foo bar
 >goo car
+
+ (
+   setopt POSIXBUILTINS
+   readonly pbro
+   print ${+pbro} >&2
+   (typeset pbro=3)
+   (pbro=4)
+   readonly -p | grep pbro >&2  # shows up as "readonly" although unset
+   typeset -r pbro        # idempotent (no error)...
+   print ${+pbro} >&2     # ...so still readonly...
+   typeset +r pbro        # ...can't turn it off
+ )
+1:readonly with POSIX_BUILTINS
+?0
+?(eval):5: read-only variable: pbro
+?(eval):6: read-only variable: pbro
+?typeset -r pbro
+?0
+?(eval):10: read-only variable: pbro
+
+  readonly foo=bar novalue
+  readonly -p
+0:readonly -p output (no readonly specials)
+>typeset -r foo=bar
+>typeset -r novalue=''
+
+  local -a a1 a2
+  local -r r1=yes r2=no
+  a1=(one two) a2=(three four)
+  readonly a1
+  typeset -pm 'a[12]'
+  typeset -pm 'r[12]'
+0:readonly -p output
+>typeset -a a1
+>a1=(one two)
+>typeset -ar a1
+>typeset -a a2
+>a2=(three four)
+>typeset -r r1=yes
+>typeset -r r2=no

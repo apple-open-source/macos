@@ -118,7 +118,8 @@ public:
     void setSize(FillSize f) { m_sizeType = f.type; m_sizeLength = f.size; }
     void setMaskSourceType(EMaskSourceType m) { m_maskSourceType = m; m_maskSourceTypeSet = true; }
 
-    void clearImage() { m_image.clear(); m_imageSet = false; }
+    void clearImage() { m_image = nullptr; m_imageSet = false; }
+
     void clearXPosition() { m_xPosSet = false; m_backgroundOriginSet = false; }
     void clearYPosition() { m_yPosSet = false; m_backgroundOriginSet = false; }
 
@@ -153,6 +154,8 @@ public:
     void fillUnsetProperties();
     void cullEmptyLayers();
 
+    static bool imagesIdentical(const FillLayer*, const FillLayer*);
+
     static EFillAttachment initialFillAttachment(EFillLayerType) { return ScrollBackgroundAttachment; }
     static EFillBox initialFillClip(EFillLayerType) { return BorderFillBox; }
     static EFillBox initialFillOrigin(EFillLayerType type) { return type == BackgroundFillLayer ? PaddingFillBox : BorderFillBox; }
@@ -160,13 +163,11 @@ public:
     static EFillRepeat initialFillRepeatY(EFillLayerType) { return RepeatFill; }
     static CompositeOperator initialFillComposite(EFillLayerType) { return CompositeSourceOver; }
     static BlendMode initialFillBlendMode(EFillLayerType) { return BlendModeNormal; }
-    static EFillSizeType initialFillSizeType(EFillLayerType) { return SizeNone; }
-    static LengthSize initialFillSizeLength(EFillLayerType) { return LengthSize(); }
-    static FillSize initialFillSize(EFillLayerType type) { return FillSize(initialFillSizeType(type), initialFillSizeLength(type)); }
+    static FillSize initialFillSize(EFillLayerType) { return FillSize(); }
     static Length initialFillXPosition(EFillLayerType) { return Length(0.0f, Percent); }
     static Length initialFillYPosition(EFillLayerType) { return Length(0.0f, Percent); }
-    static StyleImage* initialFillImage(EFillLayerType) { return 0; }
-    static EMaskSourceType initialMaskSourceType(EFillLayerType) { return MaskAlpha; }
+    static StyleImage* initialFillImage(EFillLayerType) { return nullptr; }
+    static EMaskSourceType initialFillMaskSourceType(EFillLayerType) { return MaskAlpha; }
 
 private:
     friend class RenderStyle;

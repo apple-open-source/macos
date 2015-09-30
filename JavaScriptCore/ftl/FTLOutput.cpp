@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -138,9 +138,16 @@ void Output::branch(LValue condition, LBasicBlock taken, Weight takenWeight, LBa
             constInt32(notTakenWeight.scaleToTotal(total))));
 }
 
-void Output::crashNonTerminal()
+void Output::check(LValue condition, WeightedTarget taken, Weight notTakenWeight)
 {
-    call(intToPtr(constIntPtr(abort), pointerType(functionType(voidType))));
+    LBasicBlock continuation = FTL_NEW_BLOCK(*this, ("Output::check continuation"));
+    branch(condition, taken, WeightedTarget(continuation, notTakenWeight));
+    appendTo(continuation);
+}
+
+void Output::check(LValue condition, WeightedTarget taken)
+{
+    check(condition, taken, taken.weight().inverse());
 }
 
 } } // namespace JSC::FTL

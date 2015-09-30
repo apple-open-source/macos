@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -114,6 +114,16 @@ ip_is_linklocal(struct in_addr iaddr)
 
     return (IN_LINKLOCAL(val));
 }
+
+INLINE uint32_t
+prefix_to_mask32(unsigned int prefix_length)
+{
+    if (prefix_length > 32 || prefix_length == 0) {
+	return (0);
+    }
+    return (0xffffffff << (32 - prefix_length));
+}
+
 
 int	nbits_host(struct in_addr mask);
 

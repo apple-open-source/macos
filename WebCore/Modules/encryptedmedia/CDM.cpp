@@ -29,6 +29,7 @@
 
 #include "CDM.h"
 
+#include "CDMPrivateClearKey.h"
 #include "CDMPrivateMediaPlayer.h"
 #include "CDMSession.h"
 #include "MediaKeyError.h"
@@ -65,11 +66,16 @@ static Vector<CDMFactory*>& installedCDMFactories()
     if (!queriedCDMs) {
         queriedCDMs = true;
 
+        cdms.get().append(new CDMFactory([](CDM* cdm) { return std::make_unique<CDMPrivateClearKey>(cdm); },
+            CDMPrivateClearKey::supportsKeySystem, CDMPrivateClearKey::supportsKeySystemAndMimeType));
+
         // FIXME: initialize specific UA CDMs. http://webkit.org/b/109318, http://webkit.org/b/109320
-        cdms.get().append(new CDMFactory(CDMPrivateMediaPlayer::create, CDMPrivateMediaPlayer::supportsKeySystem, CDMPrivateMediaPlayer::supportsKeySystemAndMimeType));
+        cdms.get().append(new CDMFactory([](CDM* cdm) { return std::make_unique<CDMPrivateMediaPlayer>(cdm); },
+            CDMPrivateMediaPlayer::supportsKeySystem, CDMPrivateMediaPlayer::supportsKeySystemAndMimeType));
 
 #if PLATFORM(MAC) && ENABLE(MEDIA_SOURCE)
-        cdms.get().append(new CDMFactory(CDMPrivateMediaSourceAVFObjC::create, CDMPrivateMediaSourceAVFObjC::supportsKeySystem, CDMPrivateMediaSourceAVFObjC::supportsKeySystemAndMimeType));
+        cdms.get().append(new CDMFactory([](CDM* cdm) { return std::make_unique<CDMPrivateMediaSourceAVFObjC>(cdm); },
+            CDMPrivateMediaSourceAVFObjC::supportsKeySystem, CDMPrivateMediaSourceAVFObjC::supportsKeySystemAndMimeType));
 #endif
     }
 
@@ -83,10 +89,9 @@ void CDM::registerCDMFactory(CreateCDM constructor, CDMSupportsKeySystem support
 
 static CDMFactory* CDMFactoryForKeySystem(const String& keySystem)
 {
-    Vector<CDMFactory*>& cdmFactories = installedCDMFactories();
-    for (size_t i = 0; i < cdmFactories.size(); ++i) {
-        if (cdmFactories[i]->supportsKeySystem(keySystem))
-            return cdmFactories[i];
+    for (auto& factory : installedCDMFactories()) {
+        if (factory->supportsKeySystem(keySystem))
+            return factory;
     }
     return 0;
 }
@@ -113,7 +118,7 @@ std::unique_ptr<CDM> CDM::create(const String& keySystem)
 
 CDM::CDM(const String& keySystem)
     : m_keySystem(keySystem)
-    , m_client(0)
+    , m_client(nullptr)
 {
     m_private = CDMFactoryForKeySystem(keySystem)->constructor(this);
 }

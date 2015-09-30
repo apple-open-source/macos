@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -77,7 +77,7 @@ config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 	/*
 	 * unknown message ID, log and return an error.
 	 */
-	SCLog(TRUE, LOG_ERR, CFSTR("config_demux(): unknown message ID (%d) received"), request->msgh_id);
+	SC_log(LOG_ERR, "unknown message ID (%d) received", request->msgh_id);
 	reply->msgh_bits        = MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(request->msgh_bits), 0);
 	reply->msgh_remote_port = request->msgh_remote_port;
 	reply->msgh_size        = sizeof(mig_reply_error_t);	/* Minimal size */
@@ -97,6 +97,7 @@ __private_extern__
 void
 configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
+	os_activity_t		activity_id;
 	mig_reply_error_t *	bufRequest	= msg;
 	uint32_t		bufReply_q[MACH_MSG_BUFFER_SIZE/sizeof(uint32_t)];
 	mig_reply_error_t *	bufReply	= (mig_reply_error_t *)bufReply_q;
@@ -104,15 +105,17 @@ configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	mach_msg_return_t	mr;
 	int			options;
 
+	activity_id = os_activity_start("processing SCDynamicStore request",
+					OS_ACTIVITY_FLAG_DEFAULT);
+
 	if (bufSize == 0) {
 		// get max size for MiG reply buffers
 		bufSize = _config_subsystem.maxsize;
 
 		// check if our on-the-stack reply buffer will be big enough
 		if (bufSize > sizeof(bufReply_q)) {
-			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("configdCallback(): buffer size should be increased > %d"),
-			      _config_subsystem.maxsize);
+			SC_log(LOG_NOTICE, "buffer size should be increased > %d",
+			       _config_subsystem.maxsize);
 		}
 	}
 
@@ -181,6 +184,9 @@ configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 
 	if (bufReply != (mig_reply_error_t *)bufReply_q)
 		CFAllocatorDeallocate(NULL, bufReply);
+
+	os_activity_end(activity_id);
+
 	return;
 }
 
@@ -197,6 +203,7 @@ void
 server_init()
 {
 	serverSessionRef	mySession;
+	int			ret;
 	CFRunLoopSourceRef	rls;
 	char			*service_name;
 	mach_port_t		service_port	= MACH_PORT_NULL;
@@ -215,17 +222,16 @@ server_init()
 			break;
 		case BOOTSTRAP_NOT_PRIVILEGED :
 			/* if another instance of the server is starting */
-			SCLog(TRUE, LOG_ERR, CFSTR("'%s' server already starting"), service_name);
+			SC_log(LOG_ERR, "'%s' server already starting", service_name);
 			exit (EX_UNAVAILABLE);
 		case BOOTSTRAP_SERVICE_ACTIVE :
 			/* if another instance of the server is active */
-			SCLog(TRUE, LOG_ERR, CFSTR("'%s' server already active"), service_name);
+			SC_log(LOG_ERR, "'%s' server already active", service_name);
 			exit (EX_UNAVAILABLE);
 		default :
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("server_init bootstrap_check_in(..., '%s', ...) failed: %s"),
-			      service_name,
-			      bootstrap_strerror(status));
+			SC_log(LOG_ERR, "server_init bootstrap_check_in(..., '%s', ...) failed: %s",
+			       service_name,
+			       bootstrap_strerror(status));
 			exit (EX_UNAVAILABLE);
 	}
 
@@ -240,6 +246,12 @@ server_init()
 	rls = CFMachPortCreateRunLoopSource(NULL, configd_port, 0);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 	CFRelease(rls);
+
+	// bump thread QoS priority
+	ret = pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
+	if (ret != 0) {
+		SC_log(LOG_ERR, "pthread_set_qos_class_self_np() failed: %s", strerror(errno));
+	}
 
 	return;
 }

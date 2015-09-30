@@ -80,4 +80,11 @@
 (deny file-write-create (vnode-type SYMLINK))
 (deny file-read-xattr file-write-xattr (xattr-regex #"^com\.apple\.security\.private\."))
 
+;; AWD logging
+(allow mach-lookup (global-name "com.apple.awdd"))
+(allow-create-directory
+    (literal "/private/var/mobile/Library/Logs/awd"))
+(allow file-read* file-write*
+    (subpath "/private/var/mobile/Library/Logs/awd"))
+
 (network-client (remote tcp))

@@ -164,7 +164,7 @@ hpgps_start(
 	 */
 	(void)sprintf(device, DEVICE, unit);
 	/* mode parameter to server config line shares ttl slot */
-	if ((peer->ttl == 1)) {
+	if (peer->ttl == 1) {
 		if (!(fd = refclock_open(device, SPEED232Z,
 				LDISC_CLK | LDISC_7O1)))
 			return (0);

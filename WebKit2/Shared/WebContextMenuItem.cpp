@@ -40,6 +40,12 @@ WebContextMenuItem::WebContextMenuItem(const WebContextMenuItemData& data)
 {
 }
 
+WebContextMenuItem::WebContextMenuItem(const WebCore::ContextMenuItem& coreItem)
+    : m_webContextMenuItemData(coreItem)
+{
+    m_nativeContextMenuItem = std::make_unique<NativeContextMenuItem>(coreItem);
+}
+
 PassRefPtr<WebContextMenuItem> WebContextMenuItem::create(const String& title, bool enabled, API::Array* submenuItems)
 {
     size_t size = submenuItems->size();
@@ -62,7 +68,7 @@ WebContextMenuItem* WebContextMenuItem::separatorItem()
     return separatorItem;
 }
 
-PassRefPtr<API::Array> WebContextMenuItem::submenuItemsAsAPIArray() const
+Ref<API::Array> WebContextMenuItem::submenuItemsAsAPIArray() const
 {
     if (m_webContextMenuItemData.type() != WebCore::SubmenuType)
         return API::Array::create();

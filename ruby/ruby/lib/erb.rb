@@ -257,7 +257,7 @@ require "cgi/util"
 # Rails, the web application framework, uses ERB to create views.
 #
 class ERB
-  Revision = '$Date:: 2013-01-26 12:58:33 +0900#$' # :nodoc: #'
+  Revision = '$Date:: 2014-09-03 13:42:39 +0900#$' # :nodoc: #'
 
   # Returns revision information for the erb.rb module.
   def self.version
@@ -836,7 +836,7 @@ class ERB
   # the results of that code.  (See ERB::new for details on how this process
   # can be affected by _safe_level_.)
   #
-  # _b_ accepts a Binding or Proc object which is used to set the context of
+  # _b_ accepts a Binding object which is used to set the context of
   # code evaluation.
   #
   def result(b=new_toplevel)

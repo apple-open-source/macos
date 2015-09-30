@@ -27,7 +27,7 @@
 #include "HitTestRequest.h"
 #include "LayoutRect.h"
 #include "RoundedRect.h"
-#include "TextDirection.h"
+#include "TextFlags.h"
 #include <wtf/Forward.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/RefPtr.h>
@@ -47,16 +47,16 @@ class Scrollbar;
 class HitTestLocation {
 public:
 
-    HitTestLocation();
+    WEBCORE_EXPORT HitTestLocation();
     HitTestLocation(const LayoutPoint&);
-    HitTestLocation(const FloatPoint&);
+    WEBCORE_EXPORT HitTestLocation(const FloatPoint&);
     HitTestLocation(const FloatPoint&, const FloatQuad&);
     // Pass non-zero padding values to perform a rect-based hit test.
     HitTestLocation(const LayoutPoint& centerPoint, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
     // Make a copy the HitTestLocation in a new region by applying given offset to internal point and area.
     HitTestLocation(const HitTestLocation&, const LayoutSize& offset);
-    HitTestLocation(const HitTestLocation&);
-    ~HitTestLocation();
+    WEBCORE_EXPORT HitTestLocation(const HitTestLocation&);
+    WEBCORE_EXPORT ~HitTestLocation();
     HitTestLocation& operator=(const HitTestLocation&);
 
     const LayoutPoint& point() const { return m_point; }
@@ -66,8 +66,8 @@ public:
     bool isRectBasedTest() const { return m_isRectBased; }
     bool isRectilinear() const { return m_isRectilinear; }
     IntRect boundingBox() const { return m_boundingBox; }
-
-    static IntRect rectForPoint(const LayoutPoint&, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
+    
+    WEBCORE_EXPORT static IntRect rectForPoint(const LayoutPoint&, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
     int topPadding() const { return roundedPoint().y() - m_boundingBox.y(); }
     int rightPadding() const { return m_boundingBox.maxX() - roundedPoint().x() - 1; }
     int bottomPadding() const { return m_boundingBox.maxY() - roundedPoint().y() - 1; }

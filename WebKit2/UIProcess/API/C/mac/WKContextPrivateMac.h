@@ -27,6 +27,7 @@
 #define WKContextPrivateMac_h
 
 #include <WebKit/WKBase.h>
+#include <WebKit/WKPluginLoadPolicy.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,12 +38,18 @@ WK_EXPORT void WKContextSetProcessSuppressionEnabled(WKContextRef context, bool 
 
 WK_EXPORT bool WKContextIsPlugInUpdateAvailable(WKContextRef context, WKStringRef plugInBundleIdentifier);
 
+WK_EXPORT void WKContextSetPluginLoadClientPolicy(WKContextRef context, WKPluginLoadClientPolicy policy, WKStringRef host, WKStringRef bundleIdentifier, WKStringRef versionString);
+WK_EXPORT void WKContextClearPluginClientPolicies(WKContextRef context);
+
 WK_EXPORT WKDictionaryRef WKContextCopyPlugInInfoForBundleIdentifier(WKContextRef context, WKStringRef plugInBundleIdentifier);
 
 typedef void (^WKContextGetInfoForInstalledPlugInsBlock)(WKArrayRef, WKErrorRef);
 WK_EXPORT void WKContextGetInfoForInstalledPlugIns(WKContextRef context, WKContextGetInfoForInstalledPlugInsBlock block);
 
 WK_EXPORT void WKContextResetHSTSHosts(WKContextRef context);
+
+// The time here is relative to the Unix epoch.
+WK_EXPORT void WKContextResetHSTSHostsAddedAfterDate(WKContextRef context, double startDateIntervalSince1970);
 
 WK_EXPORT void WKContextRegisterSchemeForCustomProtocol(WKContextRef context, WKStringRef scheme);
 WK_EXPORT void WKContextUnregisterSchemeForCustomProtocol(WKContextRef context, WKStringRef scheme);
@@ -69,6 +76,8 @@ WK_EXPORT WKStringRef WKPlugInInfoIsSandboxedKey();
 
 WK_EXPORT bool WKContextShouldBlockWebGL();
 WK_EXPORT bool WKContextShouldSuggestBlockWebGL();
+
+WK_EXPORT pid_t WKContextGetNetworkProcessIdentifier(WKContextRef context);
 
 #ifdef __cplusplus
 }

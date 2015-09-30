@@ -27,22 +27,22 @@
 #include "WebProcessCreationParameters.h"
 
 #include "APIData.h"
+#if PLATFORM(COCOA)
+#include "ArgumentCodersCF.h"
+#endif
 #include "WebCoreArgumentCoders.h"
 
 namespace WebKit {
 
 WebProcessCreationParameters::WebProcessCreationParameters()
     : shouldAlwaysUseComplexTextCodePath(false)
+    , shouldEnableMemoryPressureReliefLogging(false)
     , shouldUseFontSmoothing(true)
     , defaultRequestTimeoutInterval(INT_MAX)
 #if PLATFORM(COCOA)
-    , nsURLCacheMemoryCapacity(0)
-    , nsURLCacheDiskCapacity(0)
-    , shouldForceScreenFontSubstitution(false)
     , shouldEnableKerningAndLigaturesByDefault(false)
     , shouldEnableJIT(false)
     , shouldEnableFTLJIT(false)
-    , shouldEnableMemoryPressureReliefLogging(false)
 #endif
 #if ENABLE(NETWORK_PROCESS)
     , usesNetworkProcess(false)
@@ -56,28 +56,36 @@ WebProcessCreationParameters::WebProcessCreationParameters()
 {
 }
 
+WebProcessCreationParameters::~WebProcessCreationParameters()
+{
+}
+
 void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
 {
     encoder << injectedBundlePath;
     encoder << injectedBundlePathExtensionHandle;
+    encoder << initializationUserData;
     encoder << applicationCacheDirectory;
     encoder << applicationCacheDirectoryExtensionHandle;
     encoder << webSQLDatabaseDirectory;
     encoder << webSQLDatabaseDirectoryExtensionHandle;
-    encoder << diskCacheDirectory;
-    encoder << diskCacheDirectoryExtensionHandle;
+#if ENABLE(SECCOMP_FILTERS)
     encoder << cookieStorageDirectory;
+#endif
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+    encoder << uiProcessCookieStorageIdentifier;
+#endif
 #if PLATFORM(IOS)
     encoder << cookieStorageDirectoryExtensionHandle;
-    encoder << openGLCacheDirectoryExtensionHandle;
+    encoder << containerCachesDirectoryExtensionHandle;
     encoder << containerTemporaryDirectoryExtensionHandle;
-    encoder << hstsDatabasePathExtensionHandle;
 #endif
     encoder << mediaKeyStorageDirectory;
     encoder << mediaKeyStorageDirectoryExtensionHandle;
     encoder << shouldUseTestingNetworkSession;
-    encoder << urlSchemesRegistererdAsEmptyDocument;
+    encoder << urlSchemesRegisteredAsEmptyDocument;
     encoder << urlSchemesRegisteredAsSecure;
+    encoder << urlSchemesRegisteredAsBypassingContentSecurityPolicy;
     encoder << urlSchemesForWhichDomainRelaxationIsForbidden;
     encoder << urlSchemesRegisteredAsLocal;
     encoder << urlSchemesRegisteredAsNoAccess;
@@ -86,13 +94,9 @@ void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
 #if ENABLE(CACHE_PARTITIONING)
     encoder << urlSchemesRegisteredAsCachePartitioned;
 #endif
-#if ENABLE(CUSTOM_PROTOCOLS)
     encoder << urlSchemesRegisteredForCustomProtocols;
-#endif
 #if USE(SOUP)
-#if !ENABLE(CUSTOM_PROTOCOLS)
-    encoder << urlSchemesRegistered;
-#endif
+    encoder << diskCacheDirectory;
     encoder << cookiePersistentStoragePath;
     encoder << cookiePersistentStorageType;
     encoder.encodeEnum(cookieAcceptPolicy);
@@ -100,7 +104,9 @@ void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
 #endif
     encoder.encodeEnum(cacheModel);
     encoder << shouldAlwaysUseComplexTextCodePath;
+    encoder << shouldEnableMemoryPressureReliefLogging;
     encoder << shouldUseFontSmoothing;
+    encoder << fontWhitelist;
     encoder << iconDatabaseEnabled;
     encoder << terminationTimeout;
     encoder << languages;
@@ -113,16 +119,12 @@ void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
 #if PLATFORM(COCOA)
     encoder << presenterApplicationPid;
     encoder << accessibilityEnhancedUserInterfaceEnabled;
-    encoder << nsURLCacheMemoryCapacity;
-    encoder << nsURLCacheDiskCapacity;
     encoder << acceleratedCompositingPort;
     encoder << uiProcessBundleResourcePath;
     encoder << uiProcessBundleResourcePathExtensionHandle;
-    encoder << shouldForceScreenFontSubstitution;
     encoder << shouldEnableKerningAndLigaturesByDefault;
     encoder << shouldEnableJIT;
     encoder << shouldEnableFTLJIT;
-    encoder << shouldEnableMemoryPressureReliefLogging;
     encoder << !!bundleParameterData;
     if (bundleParameterData)
         encoder << bundleParameterData->dataReference();
@@ -145,6 +147,14 @@ void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder << hasSelectionServices;
     encoder << hasRichContentServices;
 #endif
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    encoder << pluginLoadClientPolicies;
+#endif
+
+#if (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+    IPC::encode(encoder, networkATSContext.get());
+#endif
 }
 
 bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProcessCreationParameters& parameters)
@@ -152,6 +162,8 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
     if (!decoder.decode(parameters.injectedBundlePath))
         return false;
     if (!decoder.decode(parameters.injectedBundlePathExtensionHandle))
+        return false;
+    if (!decoder.decode(parameters.initializationUserData))
         return false;
     if (!decoder.decode(parameters.applicationCacheDirectory))
         return false;
@@ -161,20 +173,20 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
         return false;
     if (!decoder.decode(parameters.webSQLDatabaseDirectoryExtensionHandle))
         return false;
-    if (!decoder.decode(parameters.diskCacheDirectory))
-        return false;
-    if (!decoder.decode(parameters.diskCacheDirectoryExtensionHandle))
-        return false;
+#if ENABLE(SECCOMP_FILTERS)
     if (!decoder.decode(parameters.cookieStorageDirectory))
         return false;
+#endif
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+    if (!decoder.decode(parameters.uiProcessCookieStorageIdentifier))
+        return false;
+#endif
 #if PLATFORM(IOS)
     if (!decoder.decode(parameters.cookieStorageDirectoryExtensionHandle))
         return false;
-    if (!decoder.decode(parameters.openGLCacheDirectoryExtensionHandle))
+    if (!decoder.decode(parameters.containerCachesDirectoryExtensionHandle))
         return false;
     if (!decoder.decode(parameters.containerTemporaryDirectoryExtensionHandle))
-        return false;
-    if (!decoder.decode(parameters.hstsDatabasePathExtensionHandle))
         return false;
 #endif
     if (!decoder.decode(parameters.mediaKeyStorageDirectory))
@@ -183,9 +195,11 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
         return false;
     if (!decoder.decode(parameters.shouldUseTestingNetworkSession))
         return false;
-    if (!decoder.decode(parameters.urlSchemesRegistererdAsEmptyDocument))
+    if (!decoder.decode(parameters.urlSchemesRegisteredAsEmptyDocument))
         return false;
     if (!decoder.decode(parameters.urlSchemesRegisteredAsSecure))
+        return false;
+    if (!decoder.decode(parameters.urlSchemesRegisteredAsBypassingContentSecurityPolicy))
         return false;
     if (!decoder.decode(parameters.urlSchemesForWhichDomainRelaxationIsForbidden))
         return false;
@@ -201,15 +215,11 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
     if (!decoder.decode(parameters.urlSchemesRegisteredAsCachePartitioned))
         return false;
 #endif
-#if ENABLE(CUSTOM_PROTOCOLS)
     if (!decoder.decode(parameters.urlSchemesRegisteredForCustomProtocols))
         return false;
-#endif
 #if USE(SOUP)
-#if !ENABLE(CUSTOM_PROTOCOLS)
-    if (!decoder.decode(parameters.urlSchemesRegistered))
+    if (!decoder.decode(parameters.diskCacheDirectory))
         return false;
-#endif
     if (!decoder.decode(parameters.cookiePersistentStoragePath))
         return false;
     if (!decoder.decode(parameters.cookiePersistentStorageType))
@@ -223,7 +233,11 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
         return false;
     if (!decoder.decode(parameters.shouldAlwaysUseComplexTextCodePath))
         return false;
+    if (!decoder.decode(parameters.shouldEnableMemoryPressureReliefLogging))
+        return false;
     if (!decoder.decode(parameters.shouldUseFontSmoothing))
+        return false;
+    if (!decoder.decode(parameters.fontWhitelist))
         return false;
     if (!decoder.decode(parameters.iconDatabaseEnabled))
         return false;
@@ -247,17 +261,11 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
         return false;
     if (!decoder.decode(parameters.accessibilityEnhancedUserInterfaceEnabled))
         return false;
-    if (!decoder.decode(parameters.nsURLCacheMemoryCapacity))
-        return false;
-    if (!decoder.decode(parameters.nsURLCacheDiskCapacity))
-        return false;
     if (!decoder.decode(parameters.acceleratedCompositingPort))
         return false;
     if (!decoder.decode(parameters.uiProcessBundleResourcePath))
         return false;
     if (!decoder.decode(parameters.uiProcessBundleResourcePathExtensionHandle))
-        return false;
-    if (!decoder.decode(parameters.shouldForceScreenFontSubstitution))
         return false;
     if (!decoder.decode(parameters.shouldEnableKerningAndLigaturesByDefault))
         return false;
@@ -265,9 +273,7 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
         return false;
     if (!decoder.decode(parameters.shouldEnableFTLJIT))
         return false;
-    if (!decoder.decode(parameters.shouldEnableMemoryPressureReliefLogging))
-        return false;
-    
+
     bool hasBundleParameterData;
     if (!decoder.decode(hasBundleParameterData))
         return false;
@@ -304,6 +310,16 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
     if (!decoder.decode(parameters.hasSelectionServices))
         return false;
     if (!decoder.decode(parameters.hasRichContentServices))
+        return false;
+#endif
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    if (!decoder.decode(parameters.pluginLoadClientPolicies))
+        return false;
+#endif
+
+#if (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+    if (!IPC::decode(decoder, parameters.networkATSContext))
         return false;
 #endif
 

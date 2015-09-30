@@ -71,7 +71,7 @@ test_integer (void)
     };
 
     int values[] = {0, 127, 128, 256, -128, -129, -1, -255, 255,
-		    0x7fffffff};
+		    0x7fffffff };
     int i, ret;
     int ntests = sizeof(tests) / sizeof(*tests);
 
@@ -93,6 +93,22 @@ test_integer (void)
 
     for (i = 0; i < ntests; ++i)
 	free (tests[i].name);
+    return ret;
+}
+
+static int
+test_length (void)
+{
+    const unsigned char data[1] = "\x80";
+    size_t val, size;
+    int ret;
+    
+    ret = der_get_length(data, sizeof(data), &val, &size);
+    if (ret == 0) {
+	if (val != ASN1_INDEFINITE)
+	    ret = 1;
+    }
+
     return ret;
 }
 
@@ -1176,6 +1192,7 @@ main(int argc, char **argv)
 
     ret += test_integer ();
     ret += test_integer_more();
+    ret += test_length();
     ret += test_unsigned ();
     ret += test_octet_string ();
     ret += test_bmp_string ();

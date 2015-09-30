@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -67,17 +67,17 @@ public:
 private:
     bool isNotNegZero(Node* node)
     {
-        if (!m_graph.isNumberConstant(node))
+        if (!node->isNumberConstant())
             return false;
-        double value = m_graph.valueOfNumberConstant(node);
+        double value = node->asNumber();
         return (value || 1.0 / value > 0.0);
     }
     
     bool isNotPosZero(Node* node)
     {
-        if (!m_graph.isNumberConstant(node))
+        if (!node->isNumberConstant())
             return false;
-        double value = m_graph.valueOfNumberConstant(node);
+        double value = node->asNumber();
         return (value || 1.0 / value < 0.0);
     }
 
@@ -85,7 +85,7 @@ private:
     template<int power>
     bool isWithinPowerOfTwoForConstant(Node* node)
     {
-        JSValue immediateValue = node->valueOfJSConstant(codeBlock());
+        JSValue immediateValue = node->asJSValue();
         if (!immediateValue.isNumber())
             return false;
         double immediate = immediateValue.asNumber();
@@ -95,7 +95,7 @@ private:
     template<int power>
     bool isWithinPowerOfTwoNonRecursive(Node* node)
     {
-        if (node->op() != JSConstant)
+        if (!node->isNumberConstant())
             return false;
         return isWithinPowerOfTwoForConstant<power>(node);
     }
@@ -104,7 +104,9 @@ private:
     bool isWithinPowerOfTwo(Node* node)
     {
         switch (node->op()) {
-        case JSConstant: {
+        case DoubleConstant:
+        case JSConstant:
+        case Int52Constant: {
             return isWithinPowerOfTwoForConstant<power>(node);
         }
             
@@ -128,9 +130,9 @@ private:
                 return true;
             
             Node* shiftAmount = node->child2().node();
-            if (shiftAmount->op() != JSConstant)
+            if (!node->isNumberConstant())
                 return false;
-            JSValue immediateValue = shiftAmount->valueOfJSConstant(codeBlock());
+            JSValue immediateValue = shiftAmount->asJSValue();
             if (!immediateValue.isInt32())
                 return false;
             return immediateValue.asInt32() > 32 - power;
@@ -257,7 +259,14 @@ private:
             node->child2()->mergeFlags(flags);
             break;
         }
-            
+
+        case ArithClz32: {
+            flags &= ~(NodeBytecodeUsesAsNumber | NodeBytecodeNeedsNegZero | NodeBytecodeUsesAsOther | ~NodeBytecodeUsesAsArrayIndex);
+            flags |= NodeBytecodeUsesAsInt;
+            node->child1()->mergeFlags(flags);
+            break;
+        }
+
         case ArithSub: {
             if (isNotNegZero(node->child1().node()) || isNotPosZero(node->child2().node()))
                 flags &= ~NodeBytecodeNeedsNegZero;
@@ -310,22 +319,17 @@ private:
         }
             
         case ArithMod: {
-            flags |= NodeBytecodeUsesAsNumber | NodeBytecodeNeedsNegZero;
+            flags |= NodeBytecodeUsesAsNumber;
             flags &= ~NodeBytecodeUsesAsOther;
 
             node->child1()->mergeFlags(flags);
-            node->child2()->mergeFlags(flags);
+            node->child2()->mergeFlags(flags & ~NodeBytecodeNeedsNegZero);
             break;
         }
             
         case GetByVal: {
             node->child1()->mergeFlags(NodeBytecodeUsesAsValue);
             node->child2()->mergeFlags(NodeBytecodeUsesAsNumber | NodeBytecodeUsesAsOther | NodeBytecodeUsesAsInt | NodeBytecodeUsesAsArrayIndex);
-            break;
-        }
-            
-        case GetMyArgumentByValSafe: {
-            node->child1()->mergeFlags(NodeBytecodeUsesAsNumber | NodeBytecodeUsesAsOther | NodeBytecodeUsesAsInt | NodeBytecodeUsesAsArrayIndex);
             break;
         }
             
@@ -348,7 +352,8 @@ private:
             break;
         }
             
-        case ToString: {
+        case ToString:
+        case CallStringConstructor: {
             node->child1()->mergeFlags(NodeBytecodeUsesAsNumber | NodeBytecodeUsesAsOther);
             break;
         }
@@ -388,6 +393,11 @@ private:
                 // We don't need NodeBytecodeNeedsNegZero because if the cases are all strings
                 // then -0 and 0 are treated the same.
                 node->child1()->mergeFlags(NodeBytecodeUsesAsNumber | NodeBytecodeUsesAsOther);
+                break;
+            case SwitchCell:
+                // There is currently no point to being clever here since this is used for switching
+                // on objects.
+                mergeDefaultFlags(node);
                 break;
             }
             break;

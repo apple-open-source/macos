@@ -29,9 +29,12 @@
 
 #import <Foundation/Foundation.h>
 
+WK_ASSUME_NONNULL_BEGIN
+
 @class WKPreferences;
 @class WKProcessPool;
 @class WKUserContentController;
+@class WKWebsiteDataStore;
 
 #if TARGET_OS_IPHONE
 /*! @enum WKSelectionGranularity
@@ -71,11 +74,24 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
 */
 @property (nonatomic, strong) WKUserContentController *userContentController;
 
+/*! @abstract The website data store to be used by the web view.
+ */
+@property (nonatomic, strong) WKWebsiteDataStore *websiteDataStore WK_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA);
+
 /*! @abstract A Boolean value indicating whether the web view suppresses
  content rendering until it is fully loaded into memory.
  @discussion The default value is NO.
  */
 @property (nonatomic) BOOL suppressesIncrementalRendering;
+
+/*! @abstract The name of the application as used in the user agent string.
+*/
+@property (WK_NULLABLE_PROPERTY nonatomic, copy) NSString *applicationNameForUserAgent WK_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA);
+
+/*! @abstract A Boolean value indicating whether AirPlay is allowed.
+ @discussion The default value is YES.
+ */
+@property (nonatomic) BOOL allowsAirPlayForMediaPlayback WK_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA);
 
 #if TARGET_OS_IPHONE
 /*! @abstract A Boolean value indicating whether HTML5 videos play inline
@@ -88,12 +104,7 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
  user to start playing them (YES) or can play automatically (NO).
  @discussion The default value is YES.
  */
-@property (nonatomic) BOOL mediaPlaybackRequiresUserAction;
-
-/*! @abstract A Boolean value indicating whether AirPlay is allowed.
- @discussion The default value is YES.
- */
-@property (nonatomic) BOOL mediaPlaybackAllowsAirPlay;
+@property (nonatomic) BOOL requiresUserActionForMediaPlayback WK_AVAILABLE(NA, WK_IOS_TBA);
 
 /*! @abstract The level of granularity with which the user can interactively
  select content in the web view.
@@ -102,8 +113,25 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
  */
 @property (nonatomic) WKSelectionGranularity selectionGranularity;
 
+/*! @abstract A Boolean value indicating whether HTML5 videos may play
+ picture-in-picture.
+ @discussion The default value is YES.
+ */
+@property (nonatomic) BOOL allowsPictureInPictureMediaPlayback WK_AVAILABLE(NA, WK_IOS_TBA);
+
 #endif
 
 @end
+
+@interface WKWebViewConfiguration (WKDeprecated)
+
+#if TARGET_OS_IPHONE
+@property (nonatomic) BOOL mediaPlaybackRequiresUserAction WK_DEPRECATED(NA, NA, 8_0, WK_IOS_TBA, "Please use requiresUserActionForMediaPlayback");
+@property (nonatomic) BOOL mediaPlaybackAllowsAirPlay WK_DEPRECATED(NA, NA, 8_0, WK_IOS_TBA, "Please use allowsAirPlayForMediaPlayback");
+#endif
+
+@end
+
+WK_ASSUME_NONNULL_END
 
 #endif

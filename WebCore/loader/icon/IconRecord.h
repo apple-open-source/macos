@@ -32,7 +32,6 @@
 #include "PageURLRecord.h"
 #include "SharedBuffer.h"
 #include <wtf/HashSet.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
@@ -75,9 +74,9 @@ private:
 class IconRecord : public RefCounted<IconRecord> {
     friend class PageURLRecord;
 public:
-    static PassRefPtr<IconRecord> create(const String& url)
+    static Ref<IconRecord> create(const String& url)
     {
-        return adoptRef(new IconRecord(url));
+        return adoptRef(*new IconRecord(url));
     }
     ~IconRecord();
     

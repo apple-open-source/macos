@@ -25,12 +25,13 @@
 
 WebInspector.ConsolePrompt = function(delegate, mimeType, element)
 {
-    WebInspector.Object.call(this);
+    // FIXME: Convert this to a WebInspector.Object subclass, and call super().
+    // WebInspector.Object.call(this);
 
     mimeType = parseMIMEType(mimeType).type;
 
     this._element = element || document.createElement("div");
-    this._element.classList.add(WebInspector.ConsolePrompt.StyleClassName);
+    this._element.classList.add("console-prompt");
     this._element.classList.add(WebInspector.SyntaxHighlightedStyleClassName);
 
     this._delegate = delegate || null;
@@ -50,6 +51,7 @@ WebInspector.ConsolePrompt = function(delegate, mimeType, element)
         "Ctrl-N": this._handleNextKey.bind(this),
         "Enter": this._handleEnterKey.bind(this),
         "Cmd-Enter": this._handleCommandEnterKey.bind(this),
+        "Tab": this._handleTabKey.bind(this),
         "Esc": this._handleEscapeKey.bind(this)
     };
 
@@ -62,7 +64,6 @@ WebInspector.ConsolePrompt = function(delegate, mimeType, element)
     this._historyIndex = 0;
 };
 
-WebInspector.ConsolePrompt.StyleClassName = "console-prompt";
 WebInspector.ConsolePrompt.MaximumHistorySize = 30;
 
 WebInspector.ConsolePrompt.prototype = {
@@ -140,6 +141,11 @@ WebInspector.ConsolePrompt.prototype = {
         this._completionController.updateCompletions(completions, implicitSuffix);
     },
 
+    pushHistoryItem: function(text)
+    {
+        this._commitHistoryEntry({text});
+    },
+
     // Protected
 
     completionControllerCompletionsNeeded: function(completionController, prefix, defaultCompletions, base, suffix, forced)
@@ -158,7 +164,26 @@ WebInspector.ConsolePrompt.prototype = {
     },
 
     // Private
-    
+
+    _handleTabKey: function(codeMirror)
+    {
+        var cursor = codeMirror.getCursor();
+        var line = codeMirror.getLine(cursor.line);
+
+        if (!line.trim().length)
+            return CodeMirror.Pass;
+
+        var firstNonSpace = line.search(/[^\s]/);
+
+        if (cursor.ch <= firstNonSpace)
+            return CodeMirror.Pass;
+
+        this._completionController.completeAtCurrentPositionIfNeeded().then(function(result) {
+            if (result === WebInspector.CodeMirrorCompletionController.UpdatePromise.NoCompletionsFound)
+                InspectorFrontendHost.beep();
+        });
+    },
+
     _handleEscapeKey: function(codeMirror)
     {
         if (this.text)
@@ -239,23 +264,7 @@ WebInspector.ConsolePrompt.prototype = {
                 return;
             }
 
-            var historyEntry = this._historyEntryForCurrentText();
-
-            // Replace the previous entry if it does not have text or if the text is the same.
-            if (this._history[1] && (!this._history[1].text || this._history[1].text === historyEntry.text)) {
-                this._history[1] = historyEntry;
-                this._history[0] = {};
-            } else {
-                // Replace the first history entry and push a new empty one.
-                this._history[0] = historyEntry;
-                this._history.unshift({});
-
-                // Trim the history length if needed.
-                if (this._history.length > WebInspector.ConsolePrompt.MaximumHistorySize)
-                    this._history = this._history.slice(0, WebInspector.ConsolePrompt.MaximumHistorySize);
-            }
-
-            this._historyIndex = 0;
+            this._commitHistoryEntry(this._historyEntryForCurrentText());
 
             this._codeMirror.setValue("");
             this._codeMirror.clearHistory();
@@ -273,6 +282,25 @@ WebInspector.ConsolePrompt.prototype = {
         }
 
         commitTextOrInsertNewLine.call(this, true);
+    },
+
+    _commitHistoryEntry: function(historyEntry)
+    {
+        // Replace the previous entry if it does not have text or if the text is the same.
+        if (this._history[1] && (!this._history[1].text || this._history[1].text === historyEntry.text)) {
+            this._history[1] = historyEntry;
+            this._history[0] = {};
+        } else {
+            // Replace the first history entry and push a new empty one.
+            this._history[0] = historyEntry;
+            this._history.unshift({});
+
+            // Trim the history length if needed.
+            if (this._history.length > WebInspector.ConsolePrompt.MaximumHistorySize)
+                this._history = this._history.slice(0, WebInspector.ConsolePrompt.MaximumHistorySize);
+        }
+
+        this._historyIndex = 0;
     },
 
     _handleCommandEnterKey: function(codeMirror)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -182,6 +182,7 @@ main(int argc, char * argv[1])
     LinkAddressesRef		link_addrs = NULL;
     struct sockaddr_dl *	link = NULL;
     uint32_t			log_flags = 0;
+    int				packet_identifier = BAD_IDENTIFIER;
     SCPreferencesRef		prefs;
     EAPOLSocketSourceRef	source;
     SupplicantRef 		supp = NULL;
@@ -295,7 +296,8 @@ main(int argc, char * argv[1])
     if (S_load_modules() != kEAPClientModuleStatusOK) {
 	log_then_exit(EX_SOFTWARE);
     }
-    supp = EAPOLSocketSourceCreateSupplicant(source, control_dict);
+    supp = EAPOLSocketSourceCreateSupplicant(source, control_dict,
+					     &packet_identifier);
     if (supp == NULL) {
 	EAPLOG_FL(LOG_NOTICE, "EAPOLSocketSourceCreateSupplicant failed");
 	EAPOLSocketSourceFree(&source);
@@ -315,7 +317,7 @@ main(int argc, char * argv[1])
     }
     my_CFRelease(&control_dict);
     my_CFRelease(&config_dict);
-    Supplicant_start(supp);
+    Supplicant_start(supp, packet_identifier);
     
     LinkAddresses_free(&link_addrs);
     CFRunLoopRun();

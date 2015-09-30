@@ -70,7 +70,10 @@
 #define ASL_FILE_FILTER_FLAG_KEEP_MATCHES 0x00000001
 
 /* NB CACHE_SIZE must be > 1 */
-#define CACHE_SIZE 256
+#define CACHE_SIZE 128
+
+/* This makes the maximum size of a file_string_t 128 bytes */
+#define CACHE_MAX_STRING_LEN 108
 
 /* Size of the fixed-length part of a MSG record */
 #define MSG_RECORD_FIXED_LENGTH 122
@@ -101,7 +104,7 @@ typedef struct file_string_s
 	uint64_t where;
 	uint32_t hash;
 	struct file_string_s *next;
-	char str[];
+	char str[CACHE_MAX_STRING_LEN];
 } file_string_t;
 
 typedef struct asl_file_s
@@ -113,8 +116,10 @@ typedef struct asl_file_s
 	uint32_t string_cache_count;
 	uint32_t msg_count;
 	file_string_t *string_list;
+	file_string_t *string_spare;
 	uint64_t first;
 	uint64_t last;
+	uint64_t last_mid;
 	uint64_t prev;
 	uint64_t cursor;
 	uint64_t cursor_xid;

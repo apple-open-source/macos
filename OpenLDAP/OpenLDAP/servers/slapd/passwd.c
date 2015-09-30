@@ -61,6 +61,7 @@ int passwd_extop(
 	int rc;
 	BackendDB *op_be;
 	int freenewpw = 0;
+	LDAPControl	*ctrls[2];
 	struct berval dn = BER_BVNULL, ndn = BER_BVNULL;
 #ifdef __APPLE__
 	CFDictionaryRef userpolicyinfodict = NULL;
@@ -410,7 +411,7 @@ old_good:;
 		if(isChangingOwnPassword) {
 			authPolicyAllowed = APAuthenticationAllowed(userpolicyinfodict, true, &cferr,   ^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &op->o_conn->c_sasl_dn); }, ^(CFDictionaryRef updates){  odusers_accountpolicy_updatedata( updates, &op->o_conn->c_sasl_dn ); });
 			if(authPolicyAllowed == false && (cferr && CFErrorGetCode(cferr) != kAPResultFailedPasswordChangePolicy)) {
-				Debug(LDAP_DEBUG_ANY, "%s: set password for user %s failed\n", __func__, op->o_req_ndn.bv_val, 0);
+				Debug(LDAP_DEBUG_ANY, "%s: set password for user %s failed (user is disabled)\n", __func__, op->o_req_ndn.bv_val, 0);
 				rs->sr_err = rc = LDAP_UNWILLING_TO_PERFORM;
 				// The text here is important, it gets
 				// interpreted by AODCM and converted into
@@ -419,18 +420,72 @@ old_good:;
 				free(tmppass);
 				goto error_return;	
 			}
+			if(policyData) {
+				CFRelease(policyData);
+				policyData = NULL;
+			}
 		}
 			
-		authPolicyAllowed = APPasswordChangeAllowed(userpolicyinfodict, &cferr,	^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &op->o_req_dn); },
-																						^(CFDictionaryRef updates){  odusers_accountpolicy_updatedata( updates, &op->o_req_dn ); });
+		if(odusers_accountpolicy_override(&op->o_req_dn)) {
+			CFMutableDictionaryRef fakeupdates = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			int zero = 0;
+			CFNumberRef cfzero = CFNumberCreate(NULL, kCFNumberIntType, &zero);
+			time_t tmptime = time(NULL);
+			CFNumberRef passModDate = CFNumberCreate(NULL, kCFNumberLongLongType, (long long)&tmptime);
+			CFStringRef cfpass = CFStringCreateWithCString(NULL, tmppass, kCFStringEncodingUTF8);
+
+			CFDictionarySetValue(fakeupdates, kAPAttributeFailedAuthentications, cfzero);
+			CFRelease(cfzero);
+			CFDictionarySetValue(fakeupdates, kAPAttributeLastPasswordChangeTime, passModDate);
+			CFRelease(passModDate);
+			CFDictionarySetValue(fakeupdates, kAPAttributePassword, cfpass);
+			CFRelease(cfpass);
+			odusers_accountpolicy_updatedata(fakeupdates, &op->o_req_dn);
+			CFRelease(fakeupdates);
+			authPolicyAllowed = true;
+		} else {
+			authPolicyAllowed = APPasswordChangeAllowed(userpolicyinfodict, &cferr,	^(CFArrayRef keys){ return odusers_accountpolicy_retrievedata(&policyData, keys, &op->o_req_dn); }, ^(CFDictionaryRef updates){  odusers_accountpolicy_updatedata( updates, &op->o_req_dn ); });
+		}
 	}
 
 	if (!authPolicyAllowed) {
-		Debug(LDAP_DEBUG_ANY, "%s: set password for user %s failed\n", __func__, op->o_req_ndn.bv_val, 0);
+		Debug(LDAP_DEBUG_ANY, "%s: set password for user %s failed (APPasswordChangeAllowed failed)\n", __func__, op->o_req_ndn.bv_val, 0);
 		rs->sr_err = rc = LDAP_UNWILLING_TO_PERFORM;
 		rs->sr_text = "APPasswordChangeAllowed failed";
+
+                // Extract the policy evaluation details from the error and
+                // return them in the control.
+                if (cferr) {
+                        CFDictionaryRef userInfo = CFErrorCopyUserInfo(cferr);
+                        if (userInfo) {
+                                // All we really want from the userInfo is the
+                                // kAPPolicyKeyEvaluationDetails, but the eval details
+                                // are a CFArray and we can only serialize the
+                                // CFDictionary.  So send all of userInfo.
+                                CFDataRef userInfoData = CFPropertyListCreateData(kCFAllocatorDefault, userInfo, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
+                                if (userInfoData) {
+                                        int len = (int)CFDataGetLength(userInfoData);
+
+                                        ctrls[0] = op->o_tmpalloc( sizeof(LDAPControl), op->o_tmpmemctx );
+                                        ctrls[0]->ldctl_oid = LDAP_CONTROL_POLICY_EVALUATION_DETAILS;
+                                        ctrls[0]->ldctl_iscritical = false;
+                                        ctrls[0]->ldctl_value.bv_len = len;
+                                        ctrls[0]->ldctl_value.bv_val = op->o_tmpalloc( len, op->o_tmpmemctx );
+                                        CFDataGetBytes(userInfoData, CFRangeMake(0, len), (UInt8*)ctrls[0]->ldctl_value.bv_val);
+                                        ctrls[1] = NULL;
+                                        slap_add_ctrls( op, rs, ctrls );
+
+                                        CFRelease(userInfoData);
+                                } else {
+                                        Debug(LDAP_DEBUG_ANY, "%s: unable to convert policy error user info to CFData for user %s\n", __func__, op->o_req_ndn.bv_val, 0);
+                                }
+
+                                CFRelease(userInfo);
+                        }
+                }
+
 		free(tmppass);
-		goto error_return;	
+		goto error_return;
 	}
 
 	Debug(LDAP_DEBUG_ANY, "%s: %s changed password for %s\n", __func__, op->o_conn->c_dn.bv_val, op->o_req_ndn.bv_val);

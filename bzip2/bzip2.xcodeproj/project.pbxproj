@@ -168,7 +168,7 @@
 		FD9B88A8104C8F090096D791 /* Copy Scripts */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/bin";
+			dstPath = "/usr/bin";
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B88AC104C8F3B0096D791 /* bzdiff in Copy Scripts */,
@@ -180,7 +180,7 @@
 		FD9B88C4104C93630096D791 /* Copy Man Pages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "$(INSTALL_PATH_PREFIX)/usr/share/man/man1";
+			dstPath = "/usr/share/man/man1";
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B88CB104C93D70096D791 /* bzdiff.1 in Copy Man Pages */,

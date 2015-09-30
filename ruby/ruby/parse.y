@@ -2,7 +2,7 @@
 
   parse.y -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Fri May 28 18:02:42 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -2621,12 +2621,18 @@ primary		: literal
 			$$ = dispatch1(paren, 0);
 		    %*/
 		    }
-		| tLPAREN_ARG expr {lex_state = EXPR_ENDARG;} rparen
+		| tLPAREN_ARG
 		    {
+			$<val>1 = cmdarg_stack;
+			cmdarg_stack = 0;
+		    }
+		  expr {lex_state = EXPR_ENDARG;} rparen
+		    {
+			cmdarg_stack = $<val>1;
 		    /*%%%*/
-			$$ = $2;
+			$$ = $3;
 		    /*%
-			$$ = dispatch1(paren, $2);
+			$$ = dispatch1(paren, $3);
 		    %*/
 		    }
 		| tLPAREN compstmt ')'
@@ -4037,7 +4043,13 @@ symbol_list	: /* none */
 		    {
 		    /*%%%*/
 			$2 = evstr2dstr($2);
-			nd_set_type($2, NODE_DSYM);
+			if (nd_type($2) == NODE_DSTR) {
+			    nd_set_type($2, NODE_DSYM);
+			}
+			else {
+			    nd_set_type($2, NODE_LIT);
+			    $2->nd_lit = rb_str_intern($2->nd_lit);
+			}
 			$$ = list_append($1, $2);
 		    /*%
 			$$ = dispatch2(symbols_add, $1, $2);
@@ -5240,7 +5252,7 @@ parser_yyerror(struct parser_params *parser, const char *msg)
 	buf = ALLOCA_N(char, len+2);
 	MEMCPY(buf, p, char, len);
 	buf[len] = '\0';
-	rb_compile_error_append("%s%s%s", pre, buf, post);
+	rb_compile_error_with_enc(NULL, 0, (void *)current_enc, "%s%s%s", pre, buf, post);
 
 	i = (int)(lex_p - p);
 	p2 = buf; pe = buf + len;
@@ -6452,7 +6464,10 @@ parser_here_document(struct parser_params *parser, NODE *here)
 	    if (pend < lex_pend) rb_str_cat(str, "\n", 1);
 	    lex_goto_eol(parser);
 	    if (nextc() == -1) {
-		if (str) dispose_string(str);
+		if (str) {
+		    dispose_string(str);
+		    str = 0;
+		}
 		goto error;
 	    }
 	} while (!whole_match_p(eos, len, indent));
@@ -7974,7 +7989,7 @@ parser_yylex(struct parser_params *parser)
 
       default:
 	if (!parser_is_identchar()) {
-	    rb_compile_error(PARSER_ARG  "Invalid char `\\x%02X' in expression", c);
+	    compile_error(PARSER_ARG  "Invalid char `\\x%02X' in expression", c);
 	    goto retry;
 	}
 
@@ -9558,30 +9573,25 @@ local_pop_gen(struct parser_params *parser)
 
 #ifndef RIPPER
 static ID*
-vtable_tblcpy(ID *buf, const struct vtable *src)
-{
-    int i, cnt = vtable_size(src);
-
-    if (cnt > 0) {
-        buf[0] = cnt;
-        for (i = 0; i < cnt; i++) {
-            buf[i] = src->tbl[i];
-        }
-        return buf;
-    }
-    return 0;
-}
-
-static ID*
 local_tbl_gen(struct parser_params *parser)
 {
-    int cnt = vtable_size(lvtbl->args) + vtable_size(lvtbl->vars);
+    int cnt_args = vtable_size(lvtbl->args);
+    int cnt_vars = vtable_size(lvtbl->vars);
+    int cnt = cnt_args + cnt_vars;
+    int i, j;
     ID *buf;
 
     if (cnt <= 0) return 0;
     buf = ALLOC_N(ID, cnt + 1);
-    vtable_tblcpy(buf+1, lvtbl->args);
-    vtable_tblcpy(buf+vtable_size(lvtbl->args)+1, lvtbl->vars);
+    MEMCPY(buf+1, lvtbl->args->tbl, ID, cnt_args);
+    /* remove IDs duplicated to warn shadowing */
+    for (i = 0, j = cnt_args+1; i < cnt_vars; ++i) {
+	ID id = lvtbl->vars->tbl[i];
+	if (!vtable_included(lvtbl->args, id)) {
+	    buf[j++] = id;
+	}
+    }
+    if (--j < cnt) REALLOC_N(buf, ID, (cnt = j) + 1);
     buf[0] = cnt;
     return buf;
 }

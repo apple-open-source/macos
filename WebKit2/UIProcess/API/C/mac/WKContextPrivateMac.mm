@@ -27,9 +27,9 @@
 #import "WKContextPrivateMac.h"
 
 #import "APIArray.h"
+#import "APIDictionary.h"
 #import "APINumber.h"
 #import "APIString.h"
-#import "ImmutableDictionary.h"
 #import "PluginInfoStore.h"
 #import "PluginInformation.h"
 #import "StringUtilities.h"
@@ -37,7 +37,7 @@
 #import "WKPluginInformation.h"
 #import "WKSharedAPICast.h"
 #import "WKStringCF.h"
-#import "WebContext.h"
+#import "WebProcessPool.h"
 #import <WebKitSystemInterface.h>
 #import <wtf/RetainPtr.h>
 
@@ -52,6 +52,20 @@ bool WKContextIsPlugInUpdateAvailable(WKContextRef contextRef, WKStringRef plugI
 #endif
 }
 
+void WKContextSetPluginLoadClientPolicy(WKContextRef contextRef, WKPluginLoadClientPolicy policy, WKStringRef host, WKStringRef bundleIdentifier, WKStringRef versionString)
+{
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    toImpl(contextRef)->setPluginLoadClientPolicy(toPluginLoadClientPolicy(policy), toWTFString(host), toWTFString(bundleIdentifier), toWTFString(versionString));
+#endif
+}
+
+void WKContextClearPluginClientPolicies(WKContextRef contextRef)
+{
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    toImpl(contextRef)->clearPluginClientPolicies();
+#endif
+}
+
 WKDictionaryRef WKContextCopyPlugInInfoForBundleIdentifier(WKContextRef contextRef, WKStringRef plugInBundleIdentifierRef)
 {
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -59,7 +73,7 @@ WKDictionaryRef WKContextCopyPlugInInfoForBundleIdentifier(WKContextRef contextR
     if (plugin.path.isNull())
         return 0;
 
-    RefPtr<ImmutableDictionary> dictionary = createPluginInformationDictionary(plugin);
+    RefPtr<API::Dictionary> dictionary = createPluginInformationDictionary(plugin);
     return toAPI(dictionary.release().leakRef());
 #else
     return 0;
@@ -93,16 +107,19 @@ void WKContextResetHSTSHosts(WKContextRef context)
     return toImpl(context)->resetHSTSHosts();
 }
 
-
+void WKContextResetHSTSHostsAddedAfterDate(WKContextRef context, double startDateIntervalSince1970)
+{
+    return toImpl(context)->resetHSTSHostsAddedAfterDate(startDateIntervalSince1970);
+}
 
 void WKContextRegisterSchemeForCustomProtocol(WKContextRef context, WKStringRef scheme)
 {
-    WebContext::registerGlobalURLSchemeAsHavingCustomProtocolHandlers(toWTFString(scheme));
+    WebProcessPool::registerGlobalURLSchemeAsHavingCustomProtocolHandlers(toWTFString(scheme));
 }
 
 void WKContextUnregisterSchemeForCustomProtocol(WKContextRef context, WKStringRef scheme)
 {
-    WebContext::unregisterGlobalURLSchemeAsHavingCustomProtocolHandlers(toWTFString(scheme));
+    WebProcessPool::unregisterGlobalURLSchemeAsHavingCustomProtocolHandlers(toWTFString(scheme));
 }
 
 /* DEPRECATED -  Please use constants from WKPluginInformation instead. */
@@ -145,4 +162,14 @@ bool WKContextShouldBlockWebGL()
 bool WKContextShouldSuggestBlockWebGL()
 {
     return WKShouldSuggestBlockingWebGL();
+}
+
+pid_t WKContextGetNetworkProcessIdentifier(WKContextRef contextRef)
+{
+#if ENABLE(NETWORK_PROCESS)
+    return toImpl(contextRef)->networkProcessIdentifier();
+#else
+    UNUSED_PARAM(contextRef);
+    return 0;
+#endif
 }

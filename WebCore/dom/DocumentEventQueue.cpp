@@ -39,7 +39,7 @@ namespace WebCore {
 class DocumentEventQueue::Timer final : public SuspendableTimer {
 public:
     Timer(DocumentEventQueue& eventQueue)
-        : SuspendableTimer(&eventQueue.m_document)
+        : SuspendableTimer(eventQueue.m_document)
         , m_eventQueue(eventQueue)
     {
     }
@@ -50,6 +50,8 @@ private:
         ASSERT(!isSuspended());
         m_eventQueue.pendingEventTimerFired();
     }
+
+    const char* activeDOMObjectName() const override { return "DocumentEventQueueTimer"; }
 
     DocumentEventQueue& m_eventQueue;
 };

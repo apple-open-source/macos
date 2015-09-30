@@ -28,20 +28,21 @@
 #ifndef WebKitWebViewBasePrivate_h
 #define WebKitWebViewBasePrivate_h
 
+#include "DragAndDropHandler.h"
+#include "GestureController.h"
 #include "WebContextMenuProxyGtk.h"
 #include "WebInspectorProxy.h"
 #include "WebKitPrivate.h"
 #include "WebKitWebViewBase.h"
 #include "WebPageProxy.h"
 
-WebKitWebViewBase* webkitWebViewBaseCreate(WebKit::WebContext*, WebKit::WebPageGroup*, WebKit::WebUserContentControllerProxy*, WebKit::WebPageProxy*);
+WebKitWebViewBase* webkitWebViewBaseCreate(WebKit::WebProcessPool*, WebKit::WebPreferences*, WebKit::WebPageGroup*, WebKit::WebUserContentControllerProxy*, WebKit::WebPageProxy*);
 GtkIMContext* webkitWebViewBaseGetIMContext(WebKitWebViewBase*);
 WebKit::WebPageProxy* webkitWebViewBaseGetPage(WebKitWebViewBase*);
-void webkitWebViewBaseCreateWebPage(WebKitWebViewBase*, WebKit::WebContext*, WebKit::WebPageGroup*, WebKit::WebUserContentControllerProxy*, WebKit::WebPageProxy*);
+void webkitWebViewBaseCreateWebPage(WebKitWebViewBase*, WebKit::WebProcessPool*, WebKit::WebPageConfiguration&&);
 void webkitWebViewBaseSetTooltipText(WebKitWebViewBase*, const char*);
 void webkitWebViewBaseSetTooltipArea(WebKitWebViewBase*, const WebCore::IntRect&);
 void webkitWebViewBaseForwardNextKeyEvent(WebKitWebViewBase*);
-void webkitWebViewBaseStartDrag(WebKitWebViewBase*, const WebCore::DragData&, PassRefPtr<WebKit::ShareableBitmap> dragImage);
 void webkitWebViewBaseChildMoveResize(WebKitWebViewBase*, GtkWidget*, const WebCore::IntRect&);
 void webkitWebViewBaseEnterFullScreen(WebKitWebViewBase*);
 void webkitWebViewBaseExitFullScreen(WebKitWebViewBase*);
@@ -52,11 +53,6 @@ WebKit::WebContextMenuProxyGtk* webkitWebViewBaseGetActiveContextMenuProxy(WebKi
 GdkEvent* webkitWebViewBaseTakeContextMenuEvent(WebKitWebViewBase*);
 void webkitWebViewBaseSetInputMethodState(WebKitWebViewBase*, bool enabled);
 void webkitWebViewBaseUpdateTextInputState(WebKitWebViewBase*);
-void webkitWebViewBaseUpdatePreferences(WebKitWebViewBase*);
-
-#if USE(TEXTURE_MAPPER_GL)
-void webkitWebViewBaseQueueDrawOfAcceleratedCompositingResults(WebKitWebViewBase*);
-#endif
 
 void webkitWebViewBaseSetFocus(WebKitWebViewBase*, bool focused);
 bool webkitWebViewBaseIsInWindowActive(WebKitWebViewBase*);
@@ -73,5 +69,16 @@ void webkitWebViewBaseAddAuthenticationDialog(WebKitWebViewBase*, GtkWidget* aut
 void webkitWebViewBaseCancelAuthenticationDialog(WebKitWebViewBase*);
 void webkitWebViewBaseAddWebInspector(WebKitWebViewBase*, GtkWidget* inspector, WebKit::AttachmentSide);
 void webkitWebViewBaseResetClickCounter(WebKitWebViewBase*);
+void webkitWebViewBaseEnterAcceleratedCompositingMode(WebKitWebViewBase*);
+void webkitWebViewBaseExitAcceleratedCompositingMode(WebKitWebViewBase*);
+void webkitWebViewBaseDidRelaunchWebProcess(WebKitWebViewBase*);
+
+#if ENABLE(DRAG_SUPPORT)
+WebKit::DragAndDropHandler& webkitWebViewBaseDragAndDropHandler(WebKitWebViewBase*);
+#endif
+
+#if HAVE(GTK_GESTURES)
+WebKit::GestureController& webkitWebViewBaseGestureController(WebKitWebViewBase*);
+#endif
 
 #endif // WebKitWebViewBasePrivate_h

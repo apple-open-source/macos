@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,7 @@
 #define kEAPOLClientControlConfiguration	CFSTR("Configuration")
 #define kEAPOLClientControlUserInput		CFSTR("UserInput")
 #define kEAPOLClientControlMode			CFSTR("Mode") /* CFNumber(EAPOLControlMode) */
+#define kEAPOLClientControlPacketIdentifier	CFSTR("PacketIdentifier") /* CFNumber */
 
 enum {
     kEAPOLClientControlCommandRun = 1,

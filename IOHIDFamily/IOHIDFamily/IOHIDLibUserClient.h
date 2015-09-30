@@ -30,6 +30,8 @@
 
 #include <IOKit/hid/IOHIDKeys.h>
 
+#define kMaxLocalCookieArrayLength  512
+
 enum IOHIDLibUserClientConnectTypes {
 	kIOHIDLibUserClientConnectManager = 0x00484944 /* HID */
 };

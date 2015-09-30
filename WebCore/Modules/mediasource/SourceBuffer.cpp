@@ -62,7 +62,7 @@
 
 namespace WebCore {
 
-static double ExponentialMovingAverageCoefficient = 0.1;
+static const double ExponentialMovingAverageCoefficient = 0.1;
 
 // Allow hasCurrentTime() to be off by as much as the length of a 24fps video frame
 static const MediaTime& currentTimeFudgeFactor()
@@ -109,20 +109,22 @@ struct SourceBuffer::TrackBuffer {
     }
 };
 
-PassRef<SourceBuffer> SourceBuffer::create(PassRef<SourceBufferPrivate> sourceBufferPrivate, MediaSource* source)
+Ref<SourceBuffer> SourceBuffer::create(Ref<SourceBufferPrivate>&& sourceBufferPrivate, MediaSource* source)
 {
     RefPtr<SourceBuffer> sourceBuffer(adoptRef(new SourceBuffer(WTF::move(sourceBufferPrivate), source)));
     sourceBuffer->suspendIfNeeded();
     return sourceBuffer.releaseNonNull();
 }
 
-SourceBuffer::SourceBuffer(PassRef<SourceBufferPrivate> sourceBufferPrivate, MediaSource* source)
+SourceBuffer::SourceBuffer(Ref<SourceBufferPrivate>&& sourceBufferPrivate, MediaSource* source)
     : ActiveDOMObject(source->scriptExecutionContext())
     , m_private(WTF::move(sourceBufferPrivate))
     , m_source(source)
     , m_asyncEventQueue(*this)
     , m_mode(segmentsKeyword())
-    , m_appendBufferTimer(this, &SourceBuffer::appendBufferTimerFired)
+    , m_appendBufferTimer(*this, &SourceBuffer::appendBufferTimerFired)
+    , m_appendWindowStart(MediaTime::zeroTime())
+    , m_appendWindowEnd(MediaTime::positiveInfiniteTime())
     , m_groupStartTimestamp(MediaTime::invalidTime())
     , m_groupEndTimestamp(MediaTime::zeroTime())
     , m_buffered(TimeRanges::create())
@@ -133,7 +135,7 @@ SourceBuffer::SourceBuffer(PassRef<SourceBufferPrivate> sourceBufferPrivate, Med
     , m_reportedExtraMemoryCost(0)
     , m_pendingRemoveStart(MediaTime::invalidTime())
     , m_pendingRemoveEnd(MediaTime::invalidTime())
-    , m_removeTimer(this, &SourceBuffer::removeTimerFired)
+    , m_removeTimer(*this, &SourceBuffer::removeTimerFired)
     , m_updating(false)
     , m_receivedFirstInitializationSegment(false)
     , m_active(false)
@@ -149,7 +151,7 @@ SourceBuffer::~SourceBuffer()
 {
     ASSERT(isRemoved());
 
-    m_private->setClient(0);
+    m_private->setClient(nullptr);
 }
 
 PassRefPtr<TimeRanges> SourceBuffer::buffered(ExceptionCode& ec) const
@@ -211,6 +213,64 @@ void SourceBuffer::setTimestampOffset(double offset, ExceptionCode& ec)
     m_timestampOffset = newTimestampOffset;
 }
 
+double SourceBuffer::appendWindowStart() const
+{
+    return m_appendWindowStart.toDouble();
+};
+
+void SourceBuffer::setAppendWindowStart(double newValue, ExceptionCode& ec)
+{
+    // Section 3.1 appendWindowStart attribute setter steps.
+    // http://www.w3.org/TR/media-source/#widl-SourceBuffer-appendWindowStart
+    // 1. If this object has been removed from the sourceBuffers attribute of the parent media source,
+    //    then throw an INVALID_STATE_ERR exception and abort these steps.
+    // 2. If the updating attribute equals true, then throw an INVALID_STATE_ERR exception and abort these steps.
+    if (isRemoved() || m_updating) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+
+    // 3. If the new value is less than 0 or greater than or equal to appendWindowEnd then
+    //    throw an INVALID_ACCESS_ERR exception and abort these steps.
+    if (newValue < 0 || newValue >= m_appendWindowEnd.toDouble()) {
+        ec = INVALID_ACCESS_ERR;
+        return;
+    }
+
+    // 4. Update the attribute to the new value.
+    m_appendWindowStart = MediaTime::createWithDouble(newValue);
+}
+
+double SourceBuffer::appendWindowEnd() const
+{
+    return m_appendWindowEnd.toDouble();
+};
+
+void SourceBuffer::setAppendWindowEnd(double newValue, ExceptionCode& ec)
+{
+    // Section 3.1 appendWindowEnd attribute setter steps.
+    // http://www.w3.org/TR/media-source/#widl-SourceBuffer-appendWindowEnd
+    // 1. If this object has been removed from the sourceBuffers attribute of the parent media source,
+    //    then throw an INVALID_STATE_ERR exception and abort these steps.
+    // 2. If the updating attribute equals true, then throw an INVALID_STATE_ERR exception and abort these steps.
+    if (isRemoved() || m_updating) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+
+    // 3. If the new value equals NaN, then throw an INVALID_ACCESS_ERR and abort these steps.
+    // 4. If the new value is less than or equal to appendWindowStart then throw an INVALID_ACCESS_ERR exception
+    //    and abort these steps.
+    if (std::isnan(newValue) || newValue <= m_appendWindowStart.toDouble()) {
+        ec = INVALID_ACCESS_ERR;
+        return;
+    }
+
+    // 5.. Update the attribute to the new value.
+    m_appendWindowEnd = MediaTime::createWithDouble(newValue);
+}
+
+
 void SourceBuffer::appendBuffer(PassRefPtr<ArrayBuffer> data, ExceptionCode& ec)
 {
     // Section 3.2 appendBuffer()
@@ -237,6 +297,33 @@ void SourceBuffer::appendBuffer(PassRefPtr<ArrayBufferView> data, ExceptionCode&
     appendBufferInternal(static_cast<unsigned char*>(data->baseAddress()), data->byteLength(), ec);
 }
 
+void SourceBuffer::resetParserState()
+{
+    // Section 3.5.2 Reset Parser State algorithm steps.
+    // http://www.w3.org/TR/2014/CR-media-source-20140717/#sourcebuffer-reset-parser-state
+    // 1. If the append state equals PARSING_MEDIA_SEGMENT and the input buffer contains some complete coded frames,
+    //    then run the coded frame processing algorithm until all of these complete coded frames have been processed.
+    // FIXME: If any implementation will work in pulling mode (instead of async push to SourceBufferPrivate, and forget)
+    //     this should be handled somehow either here, or in m_private->abort();
+
+    // 2. Unset the last decode timestamp on all track buffers.
+    // 3. Unset the last frame duration on all track buffers.
+    // 4. Unset the highest presentation timestamp on all track buffers.
+    // 5. Set the need random access point flag on all track buffers to true.
+    for (auto& trackBufferPair : m_trackBufferMap.values()) {
+        trackBufferPair.lastDecodeTimestamp = MediaTime::invalidTime();
+        trackBufferPair.lastFrameDuration = MediaTime::invalidTime();
+        trackBufferPair.highestPresentationTimestamp = MediaTime::invalidTime();
+        trackBufferPair.needRandomAccessFlag = true;
+    }
+    // 6. Remove all bytes from the input buffer.
+    // Note: this is handled by abortIfUpdating()
+    // 7. Set append state to WAITING_FOR_SEGMENT.
+    m_appendState = WaitingForSegment;
+
+    m_private->abort();
+}
+
 void SourceBuffer::abort(ExceptionCode& ec)
 {
     // Section 3.2 abort() method steps.
@@ -254,9 +341,13 @@ void SourceBuffer::abort(ExceptionCode& ec)
     abortIfUpdating();
 
     // 4. Run the reset parser state algorithm.
-    m_private->abort();
+    resetParserState();
 
-    // FIXME(229408) Add steps 5-6 update appendWindowStart & appendWindowEnd.
+    // 5. Set appendWindowStart to the presentation start time.
+    m_appendWindowStart = MediaTime::zeroTime();
+
+    // 6. Set appendWindowEnd to positive Infinity.
+    m_appendWindowEnd = MediaTime::positiveInfiniteTime();
 }
 
 void SourceBuffer::remove(double start, double end, ExceptionCode& ec)
@@ -269,33 +360,49 @@ void SourceBuffer::remove(const MediaTime& start, const MediaTime& end, Exceptio
     LOG(MediaSource, "SourceBuffer::remove(%p) - start(%lf), end(%lf)", this, start.toDouble(), end.toDouble());
 
     // Section 3.2 remove() method steps.
-    // 1. If start is negative or greater than duration, then throw an InvalidAccessError exception and abort these steps.
-    // 2. If end is less than or equal to start, then throw an InvalidAccessError exception and abort these steps.
-    if (start < MediaTime::zeroTime() || (m_source && (!m_source->duration().isValid() || start > m_source->duration())) || end <= start) {
+    // 1. If duration equals NaN, then throw an InvalidAccessError exception and abort these steps.
+    // 2. If start is negative or greater than duration, then throw an InvalidAccessError exception and abort these steps.
+    // 3. If end is less than or equal to start, then throw an InvalidAccessError exception and abort these steps.
+
+    // FIXME: reorder/revisit this section once <https://www.w3.org/Bugs/Public/show_bug.cgi?id=27857> got resolved
+    // as it seems wrong to check mediaSource duration before checking isRemoved().
+    if ((m_source && m_source->duration().isInvalid())
+        || start < MediaTime::zeroTime() || (m_source && start > m_source->duration())
+        || end <= start) {
         ec = INVALID_ACCESS_ERR;
         return;
     }
 
-    // 3. If this object has been removed from the sourceBuffers attribute of the parent media source then throw an
+    // 4. If this object has been removed from the sourceBuffers attribute of the parent media source then throw an
     //    InvalidStateError exception and abort these steps.
-    // 4. If the updating attribute equals true, then throw an InvalidStateError exception and abort these steps.
+    // 5. If the updating attribute equals true, then throw an InvalidStateError exception and abort these steps.
     if (isRemoved() || m_updating) {
         ec = INVALID_STATE_ERR;
         return;
     }
 
-    // 5. If the readyState attribute of the parent media source is in the "ended" state then run the following steps:
-    // 5.1. Set the readyState attribute of the parent media source to "open"
-    // 5.2. Queue a task to fire a simple event named sourceopen at the parent media source .
+    // 6. If the readyState attribute of the parent media source is in the "ended" state then run the following steps:
+    // 6.1. Set the readyState attribute of the parent media source to "open"
+    // 6.2. Queue a task to fire a simple event named sourceopen at the parent media source .
     m_source->openIfInEndedState();
 
-    // 6. Set the updating attribute to true.
+    // 7. Run the range removal algorithm with start and end as the start and end of the removal range.
+    rangeRemoval(start, end);
+}
+
+void SourceBuffer::rangeRemoval(const MediaTime& start, const MediaTime& end)
+{
+    // 3.5.7 Range Removal
+    // https://rawgit.com/w3c/media-source/7bbe4aa33c61ec025bc7acbd80354110f6a000f9/media-source.html#sourcebuffer-range-removal
+    // 1. Let start equal the starting presentation timestamp for the removal range.
+    // 2. Let end equal the end presentation timestamp for the removal range.
+    // 3. Set the updating attribute to true.
     m_updating = true;
 
-    // 7. Queue a task to fire a simple event named updatestart at this SourceBuffer object.
+    // 4. Queue a task to fire a simple event named updatestart at this SourceBuffer object.
     scheduleEvent(eventNames().updatestartEvent);
 
-    // 8. Return control to the caller and run the rest of the steps asynchronously.
+    // 5. Return control to the caller and run the rest of the steps asynchronously.
     m_pendingRemoveStart = start;
     m_pendingRemoveEnd = end;
     m_removeTimer.startOneShot(0);
@@ -340,7 +447,7 @@ void SourceBuffer::removedFromMediaSource()
     }
 
     m_private->removedFromMediaSource();
-    m_source = 0;
+    m_source = nullptr;
 }
 
 void SourceBuffer::seekToTime(const MediaTime& time)
@@ -401,6 +508,16 @@ void SourceBuffer::stop()
 {
     m_appendBufferTimer.stop();
     m_removeTimer.stop();
+}
+
+bool SourceBuffer::canSuspendForPageCache() const
+{
+    return !hasPendingActivity();
+}
+
+const char* SourceBuffer::activeDOMObjectName() const
+{
+    return "SourceBuffer";
 }
 
 bool SourceBuffer::isRemoved() const
@@ -464,10 +581,10 @@ void SourceBuffer::appendBufferInternal(unsigned char* data, unsigned size, Exce
     // 6. Asynchronously run the buffer append algorithm.
     m_appendBufferTimer.startOneShot(0);
 
-    reportExtraMemoryCost();
+    reportExtraMemoryAllocated();
 }
 
-void SourceBuffer::appendBufferTimerFired(Timer&)
+void SourceBuffer::appendBufferTimerFired()
 {
     if (isRemoved())
         return;
@@ -509,9 +626,10 @@ void SourceBuffer::sourceBufferPrivateAppendComplete(SourceBufferPrivate*, Appen
     // https://dvcs.w3.org/hg/html-media/raw-file/default/media-source/media-source.html#sourcebuffer-buffer-append
 
     // 2. If the input buffer contains bytes that violate the SourceBuffer byte stream format specification,
-    // then run the end of stream algorithm with the error parameter set to "decode" and abort this algorithm.
+    // then run the append error algorithm with the decode error parameter set to true and abort this algorithm.
     if (result == ParsingFailed) {
-        m_source->streamEndedWithError(decodeError(), IgnorableExceptionCode());
+        LOG(MediaSource, "SourceBuffer::sourceBufferPrivateAppendComplete(%p) - result = ParsingFailed", this);
+        appendError(true);
         return;
     }
 
@@ -549,15 +667,21 @@ void SourceBuffer::sourceBufferPrivateAppendComplete(SourceBufferPrivate*, Appen
             provideMediaData(trackBuffer, trackID);
     }
 
-    reportExtraMemoryCost();
+    reportExtraMemoryAllocated();
     if (extraMemoryCost() > this->maximumBufferSize())
         m_bufferFull = true;
 
     LOG(Media, "SourceBuffer::sourceBufferPrivateAppendComplete(%p) - buffered = %s", this, toString(m_buffered->ranges()).utf8().data());
 }
 
-void SourceBuffer::sourceBufferPrivateDidReceiveRenderingError(SourceBufferPrivate*, int)
+void SourceBuffer::sourceBufferPrivateDidReceiveRenderingError(SourceBufferPrivate*, int error)
 {
+#if LOG_DISABLED
+    UNUSED_PARAM(error);
+#endif
+
+    LOG(MediaSource, "SourceBuffer::sourceBufferPrivateDidReceiveRenderingError(%p) - result = %i", this, error);
+
     if (!isRemoved())
         m_source->streamEndedWithError(decodeError(), IgnorableExceptionCode());
 }
@@ -669,13 +793,6 @@ void SourceBuffer::removeCodedFrames(const MediaTime& start, const MediaTime& en
                 trackBuffer.needsReenqueueing = true;
         }
 
-        // Only force the TrackBuffer to re-enqueue if the removed ranges overlap with enqueued and possibly
-        // not yet displayed samples.
-        PlatformTimeRanges possiblyEnqueuedRanges(currentMediaTime, trackBuffer.lastEnqueuedPresentationTime);
-        possiblyEnqueuedRanges.intersectWith(erasedRanges->ranges());
-        if (possiblyEnqueuedRanges.length())
-            trackBuffer.needsReenqueueing = true;
-
         erasedRanges->invert();
         m_buffered->intersectWith(*erasedRanges);
 
@@ -692,27 +809,27 @@ void SourceBuffer::removeCodedFrames(const MediaTime& start, const MediaTime& en
     LOG(Media, "SourceBuffer::removeCodedFrames(%p) - buffered = %s", this, toString(m_buffered->ranges()).utf8().data());
 }
 
-void SourceBuffer::removeTimerFired(Timer*)
+void SourceBuffer::removeTimerFired()
 {
     ASSERT(m_updating);
     ASSERT(m_pendingRemoveStart.isValid());
     ASSERT(m_pendingRemoveStart < m_pendingRemoveEnd);
 
-    // Section 3.2 remove() method steps
-    // https://dvcs.w3.org/hg/html-media/raw-file/default/media-source/media-source.html#widl-SourceBuffer-remove-void-double-start-double-end
+    // Section 3.5.7 Range Removal
+    // http://w3c.github.io/media-source/#sourcebuffer-range-removal
 
-    // 9. Run the coded frame removal algorithm with start and end as the start and end of the removal range.
+    // 6. Run the coded frame removal algorithm with start and end as the start and end of the removal range.
     removeCodedFrames(m_pendingRemoveStart, m_pendingRemoveEnd);
 
-    // 10. Set the updating attribute to false.
+    // 7. Set the updating attribute to false.
     m_updating = false;
     m_pendingRemoveStart = MediaTime::invalidTime();
     m_pendingRemoveEnd = MediaTime::invalidTime();
 
-    // 11. Queue a task to fire a simple event named update at this SourceBuffer object.
+    // 8. Queue a task to fire a simple event named update at this SourceBuffer object.
     scheduleEvent(eventNames().updateEvent);
 
-    // 12. Queue a task to fire a simple event named updateend at this SourceBuffer object.
+    // 9. Queue a task to fire a simple event named updateend at this SourceBuffer object.
     scheduleEvent(eventNames().updateendEvent);
 }
 
@@ -877,6 +994,8 @@ void SourceBuffer::setActive(bool active)
 
 void SourceBuffer::sourceBufferPrivateDidEndStream(SourceBufferPrivate*, const WTF::AtomicString& error)
 {
+    LOG(MediaSource, "SourceBuffer::sourceBufferPrivateDidEndStream(%p) - result = %s", this, String(error).utf8().data());
+
     if (!isRemoved())
         m_source->streamEndedWithError(error, IgnorableExceptionCode());
 }
@@ -886,8 +1005,11 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(SourceBuff
     if (isRemoved())
         return;
 
-    // 3.5.7 Initialization Segment Received
-    // https://dvcs.w3.org/hg/html-media/raw-file/default/media-source/media-source.html#sourcebuffer-init-segment-received
+    LOG(MediaSource, "SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(%p)", this);
+
+    // 3.5.8 Initialization Segment Received (ctd)
+    // https://rawgit.com/w3c/media-source/c3ad59c7a370d04430969ba73d18dc9bcde57a33/index.html#sourcebuffer-init-segment-received [Editor's Draft 09 January 2015]
+
     // 1. Update the duration attribute if it currently equals NaN:
     if (m_source->duration().isInvalid()) {
         // ↳ If the initialization segment contains a duration:
@@ -898,16 +1020,18 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(SourceBuff
         m_source->setDurationInternal(newDuration);
     }
 
-    // 2. If the initialization segment has no audio, video, or text tracks, then run the end of stream
-    // algorithm with the error parameter set to "decode" and abort these steps.
+    // 2. If the initialization segment has no audio, video, or text tracks, then run the append error algorithm
+    // with the decode error parameter set to true and abort these steps.
     if (!segment.audioTracks.size() && !segment.videoTracks.size() && !segment.textTracks.size())
-        m_source->streamEndedWithError(decodeError(), IgnorableExceptionCode());
-
+        appendError(true);
 
     // 3. If the first initialization segment flag is true, then run the following steps:
     if (m_receivedFirstInitializationSegment) {
+
+        // 3.1. Verify the following properties. If any of the checks fail then run the append error algorithm
+        // with the decode error parameter set to true and abort these steps.
         if (!validateInitializationSegment(segment)) {
-            m_source->streamEndedWithError(decodeError(), IgnorableExceptionCode());
+            appendError(true);
             return;
         }
         // 3.2 Add the appropriate track descriptions from this initialization segment to each of the track buffers.
@@ -938,15 +1062,16 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(SourceBuff
         ASSERT(segment.textTracks.size() == textTracks()->length());
         for (auto& textTrackInfo : segment.textTracks) {
             if (textTracks()->length() == 1) {
-                toInbandTextTrack(textTracks()->item(0))->setPrivate(textTrackInfo.track);
+                downcast<InbandTextTrack>(*textTracks()->item(0)).setPrivate(textTrackInfo.track);
                 break;
             }
 
             auto textTrack = textTracks()->getTrackById(textTrackInfo.track->id());
             ASSERT(textTrack);
-            toInbandTextTrack(textTrack)->setPrivate(textTrackInfo.track);
+            downcast<InbandTextTrack>(*textTrack).setPrivate(textTrackInfo.track);
         }
 
+        // 3.3 Set the need random access point flag on all track buffers to true.
         for (auto& trackBuffer : m_trackBufferMap.values())
             trackBuffer.needRandomAccessFlag = true;
     }
@@ -957,13 +1082,14 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(SourceBuff
     // 5. If the first initialization segment flag is false, then run the following steps:
     if (!m_receivedFirstInitializationSegment) {
         // 5.1 If the initialization segment contains tracks with codecs the user agent does not support,
-        // then run the end of stream algorithm with the error parameter set to "decode" and abort these steps.
+        // then run the append error algorithm with the decode error parameter set to true and abort these steps.
         // NOTE: This check is the responsibility of the SourceBufferPrivate.
 
         // 5.2 For each audio track in the initialization segment, run following steps:
         for (auto& audioTrackInfo : segment.audioTracks) {
             AudioTrackPrivate* audioTrackPrivate = audioTrackInfo.track.get();
 
+            // FIXME: Implement steps 5.2.1-5.2.8.1 as per Editor's Draft 09 January 2015, and reorder this
             // 5.2.1 Let new audio track be a new AudioTrack object.
             // 5.2.2 Generate a unique ID and assign it to the id property on new video track.
             RefPtr<AudioTrack> newAudioTrack = AudioTrack::create(this, audioTrackPrivate);
@@ -1004,6 +1130,7 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(SourceBuff
         for (auto& videoTrackInfo : segment.videoTracks) {
             VideoTrackPrivate* videoTrackPrivate = videoTrackInfo.track.get();
 
+            // FIXME: Implement steps 5.3.1-5.3.8.1 as per Editor's Draft 09 January 2015, and reorder this
             // 5.3.1 Let new video track be a new VideoTrack object.
             // 5.3.2 Generate a unique ID and assign it to the id property on new video track.
             RefPtr<VideoTrack> newVideoTrack = VideoTrack::create(this, videoTrackPrivate);
@@ -1044,6 +1171,7 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(SourceBuff
         for (auto& textTrackInfo : segment.textTracks) {
             InbandTextTrackPrivate* textTrackPrivate = textTrackInfo.track.get();
 
+            // FIXME: Implement steps 5.4.1-5.4.8.1 as per Editor's Draft 09 January 2015, and reorder this
             // 5.4.1 Let new text track be a new TextTrack object with its properties populated with the
             // appropriate information from the initialization segment.
             RefPtr<InbandTextTrack> newTextTrack = InbandTextTrack::create(scriptExecutionContext(), this, textTrackPrivate);
@@ -1078,6 +1206,7 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(SourceBuff
         // 5.5 If active track flag equals true, then run the following steps:
         if (activeTrackFlag) {
             // 5.5.1 Add this SourceBuffer to activeSourceBuffers.
+            // 5.5.2 Queue a task to fire a simple event named addsourcebuffer at activeSourceBuffers
             setActive(true);
         }
 
@@ -1107,11 +1236,11 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(SourceBuff
 
 bool SourceBuffer::validateInitializationSegment(const InitializationSegment& segment)
 {
-    // 3.5.7 Initialization Segment Received (ctd)
-    // https://dvcs.w3.org/hg/html-media/raw-file/default/media-source/media-source.html#sourcebuffer-init-segment-received
+    // FIXME: ordering of all 3.5.X (X>=7) functions needs to be updated to post-[24 July 2014 Editor's Draft] version
+    // 3.5.8 Initialization Segment Received (ctd)
+    // https://rawgit.com/w3c/media-source/c3ad59c7a370d04430969ba73d18dc9bcde57a33/index.html#sourcebuffer-init-segment-received [Editor's Draft 09 January 2015]
 
-    // 3.1. Verify the following properties. If any of the checks fail then run the end of stream
-    // algorithm with the error parameter set to "decode" and abort these steps.
+    // Note: those are checks from step 3.1
     //   * The number of audio, video, and text tracks match what was in the first initialization segment.
     if (segment.audioTracks.size() != audioTracks()->length()
         || segment.videoTracks.size() != videoTracks()->length()
@@ -1178,10 +1307,44 @@ public:
     }
 };
 
+void SourceBuffer::appendError(bool decodeErrorParam)
+{
+    // 3.5.3 Append Error Algorithm
+    // https://rawgit.com/w3c/media-source/c3ad59c7a370d04430969ba73d18dc9bcde57a33/index.html#sourcebuffer-append-error [Editor's Draft 09 January 2015]
+
+    ASSERT(m_updating);
+    // 1. Run the reset parser state algorithm.
+    resetParserState();
+
+    // 2. Set the updating attribute to false.
+    m_updating = false;
+
+    // 3. Queue a task to fire a simple event named error at this SourceBuffer object.
+    scheduleEvent(eventNames().errorEvent);
+
+    // 4. Queue a task to fire a simple event named updateend at this SourceBuffer object.
+    scheduleEvent(eventNames().updateendEvent);
+
+    // 5. If decode error is true, then run the end of stream algorithm with the error parameter set to "decode".
+    if (decodeErrorParam)
+        m_source->streamEndedWithError(decodeError(), IgnorableExceptionCode());
+}
+
 void SourceBuffer::sourceBufferPrivateDidReceiveSample(SourceBufferPrivate*, PassRefPtr<MediaSample> prpSample)
 {
     if (isRemoved())
         return;
+
+    // 3.5.1 Segment Parser Loop
+    // 6.1 If the first initialization segment received flag is false, then run the append error algorithm
+    //     with the decode error parameter set to true and abort this algorithm.
+    // Note: current design makes SourceBuffer somehow ignorant of append state - it's more a thing
+    //  of SourceBufferPrivate. That's why this check can't really be done in appendInternal.
+    //  unless we force some kind of design with state machine switching.
+    if (!m_receivedFirstInitializationSegment) {
+        appendError(true);
+        return;
+    }
 
     RefPtr<MediaSample> sample = prpSample;
 
@@ -1284,6 +1447,11 @@ void SourceBuffer::sourceBufferPrivateDidReceiveSample(SourceBufferPrivate*, Pas
             continue;
         }
 
+        if (m_timestampOffset) {
+            // Reflect the new timestamps back into the sample.
+            sample->offsetTimestampsBy(m_timestampOffset);
+        }
+
         // 1.7 Let frame end timestamp equal the sum of presentation timestamp and frame duration.
         MediaTime frameEndTimestamp = presentationTimestamp + frameDuration;
 
@@ -1293,7 +1461,12 @@ void SourceBuffer::sourceBufferPrivateDidReceiveSample(SourceBufferPrivate*, Pas
         // 1.9 If frame end timestamp is greater than appendWindowEnd, then set the need random access
         // point flag to true, drop the coded frame, and jump to the top of the loop to start processing
         // the next coded frame.
-        // FIXME: implement append windows
+        if (presentationTimestamp < m_appendWindowStart || frameEndTimestamp > m_appendWindowEnd) {
+            trackBuffer.needRandomAccessFlag = true;
+            didDropSample();
+            return;
+        }
+
 
         // 1.10 If the decode timestamp is less than the presentation start time, then run the end of stream
         // algorithm with the error parameter set to "decode", and abort these steps.
@@ -1620,14 +1793,18 @@ void SourceBuffer::provideMediaData(TrackBuffer& trackBuffer, AtomicString track
     unsigned enqueuedSamples = 0;
 #endif
 
-    auto sampleIt = trackBuffer.decodeQueue.begin();
-    for (auto sampleEnd = trackBuffer.decodeQueue.end(); sampleIt != sampleEnd; ++sampleIt) {
+    while (!trackBuffer.decodeQueue.empty()) {
         if (!m_private->isReadyForMoreSamples(trackID)) {
             m_private->notifyClientWhenReadyForMoreSamples(trackID);
             break;
         }
 
-        RefPtr<MediaSample> sample = sampleIt->second;
+        // FIXME(rdar://problem/20635969): Remove this re-entrancy protection when the aforementioned radar is resolved; protecting
+        // against re-entrancy introduces a small inefficency when removing appended samples from the decode queue one at a time
+        // rather than when all samples have been enqueued.
+        RefPtr<MediaSample> sample = trackBuffer.decodeQueue.begin()->second;
+        trackBuffer.decodeQueue.erase(trackBuffer.decodeQueue.begin());
+
         // Do not enqueue samples spanning a significant unbuffered gap.
         // NOTE: one second is somewhat arbitrary. MediaSource::monitorSourceBuffers() is run
         // on the playbackTimer, which is effectively every 350ms. Allowing > 350ms gap between
@@ -1645,9 +1822,7 @@ void SourceBuffer::provideMediaData(TrackBuffer& trackBuffer, AtomicString track
 #if !LOG_DISABLED
         ++enqueuedSamples;
 #endif
-
     }
-    trackBuffer.decodeQueue.erase(trackBuffer.decodeQueue.begin(), sampleIt);
 
     LOG(MediaSource, "SourceBuffer::provideMediaData(%p) - Enqueued %u samples", this, enqueuedSamples);
 }
@@ -1726,7 +1901,7 @@ void SourceBuffer::monitorBufferingRate()
 std::unique_ptr<PlatformTimeRanges> SourceBuffer::bufferedAccountingForEndOfStream() const
 {
     // FIXME: Revisit this method once the spec bug <https://www.w3.org/Bugs/Public/show_bug.cgi?id=26436> is resolved.
-    std::unique_ptr<PlatformTimeRanges> virtualRanges = PlatformTimeRanges::create(m_buffered->ranges());
+    auto virtualRanges = std::make_unique<PlatformTimeRanges>(m_buffered->ranges());
     if (m_source->isEnded()) {
         MediaTime start = virtualRanges->maximumBufferedTime();
         MediaTime end = m_source->duration();
@@ -1815,18 +1990,19 @@ size_t SourceBuffer::extraMemoryCost() const
     return extraMemoryCost;
 }
 
-void SourceBuffer::reportExtraMemoryCost()
+void SourceBuffer::reportExtraMemoryAllocated()
 {
     size_t extraMemoryCost = this->extraMemoryCost();
-    if (extraMemoryCost < m_reportedExtraMemoryCost)
+    if (extraMemoryCost <= m_reportedExtraMemoryCost)
         return;
 
     size_t extraMemoryCostDelta = extraMemoryCost - m_reportedExtraMemoryCost;
     m_reportedExtraMemoryCost = extraMemoryCost;
 
     JSC::JSLockHolder lock(scriptExecutionContext()->vm());
-    if (extraMemoryCostDelta > 0)
-        scriptExecutionContext()->vm().heap.reportExtraMemoryCost(extraMemoryCostDelta);
+    // FIXME: Adopt reportExtraMemoryVisited, and switch to reportExtraMemoryAllocated.
+    // https://bugs.webkit.org/show_bug.cgi?id=142595
+    scriptExecutionContext()->vm().heap.deprecatedReportExtraMemory(extraMemoryCostDelta);
 }
 
 Vector<String> SourceBuffer::bufferedSamplesForTrackID(const AtomicString& trackID)
@@ -1845,8 +2021,8 @@ Vector<String> SourceBuffer::bufferedSamplesForTrackID(const AtomicString& track
 
 Document& SourceBuffer::document() const
 {
-    ASSERT(scriptExecutionContext()->isDocument());
-    return *static_cast<Document*>(scriptExecutionContext());
+    ASSERT(scriptExecutionContext());
+    return downcast<Document>(*scriptExecutionContext());
 }
 
 void SourceBuffer::setMode(const AtomicString& newMode, ExceptionCode& ec)

@@ -43,7 +43,7 @@ class Plugin;
 
 class NPRemoteObjectMap : public RefCounted<NPRemoteObjectMap> {
 public:
-    static PassRefPtr<NPRemoteObjectMap> create(IPC::Connection*);
+    static Ref<NPRemoteObjectMap> create(IPC::Connection*);
     ~NPRemoteObjectMap();
 
     // Creates an NPObjectProxy wrapper for the remote object with the given remote object ID.
@@ -61,7 +61,7 @@ public:
 
     void pluginDestroyed(Plugin*);
 
-    void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
+    void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
 
 private:
     explicit NPRemoteObjectMap(IPC::Connection*);

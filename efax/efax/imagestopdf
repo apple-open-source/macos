@@ -9,56 +9,41 @@
 import sys, os
 from Quartz.CoreGraphics import *
 from Quartz.ImageIO import *
+from LaunchServices import kUTTypePDF
 
 
 if len(sys.argv) > 2 :
-	
+
 	hasImages = False
-	defaultPageRect = CGRectMake(0, 0, 612, 792)
-	ctx = CGPDFContextCreateWithURL(CFURLCreateWithFileSystemPath(kCFAllocatorDefault, sys.argv[-1], kCFURLPOSIXPathStyle, False), defaultPageRect, None)
-	if ctx:
-		for arg in sys.argv[1:-1] :
-			image = None
-			transform = None
-			url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, arg, kCFURLPOSIXPathStyle, False)
-			provider = CGDataProviderCreateWithURL(url)
-			if provider:
-				imageSrc = CGImageSourceCreateWithDataProvider(provider, None)
-				if imageSrc:
-					image = CGImageSourceCreateImageAtIndex(imageSrc, 0, None)
 
-			if image is not None :
-				imageSize = CGSizeMake(CGImageGetWidth(image), CGImageGetHeight(image))
+	url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, sys.argv[-1], kCFURLPOSIXPathStyle, False)
+	if url is None :
+		sys.exit('imagestopdf: ' + sys.argv[-1] + ': Can\'t create url')
 
-				xRes = 204.0
-				yRes = 196.0
+	idr = CGImageDestinationCreateWithURL(url, kUTTypePDF, len(sys.argv)-2, None)
+	if idr is None :
+		sys.exit('imagestopdf: ' + sys.argv[-1] + ': Can\'t create file')
 
-				imageProps = CGImageSourceCopyPropertiesAtIndex(imageSrc, 0, None)
-				if imageProps is not None :
-					tiffProps = imageProps[kCGImagePropertyTIFFDictionary]
-					if tiffProps is not None :
-						xRes = tiffProps[kCGImagePropertyTIFFXResolution]
-						yRes = tiffProps[kCGImagePropertyTIFFYResolution]
+	for arg in sys.argv[1:-1] :
+		image = None
+		url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, arg, kCFURLPOSIXPathStyle, False)
+		if url :
+			isr = CGImageSourceCreateWithURL(url, None)
+			if isr :
+				props = CGImageSourceCopyPropertiesAtIndex(isr, 0, None)
+				if props :
+					image = CGImageSourceCreateImageAtIndex(isr, 0, None)
+					if image :
+						CGImageDestinationAddImage(idr, image, props)
+						hasImages = True
 
-				transform = CGAffineTransformMakeScale( 72.0/xRes, 72.0/yRes)
-				if transform is not None :
-					imageSize = CGSizeApplyAffineTransform(imageSize, transform)
+		if image is None :
+			print >> sys.stderr, 'imagestopdf: ' + arg + ': Invalid image file'
 
-				mediaBox = CGRectMake(0, 0, imageSize.width, imageSize.height)
-
-				CGContextBeginPage(ctx, mediaBox)
-				CGContextDrawImage(ctx, mediaBox, image)
-				CGContextEndPage(ctx)
-
-				hasImages = True
-			else:
-				print >> sys.stderr, 'imagestopdf: invalid image file "' + arg + '"'
-
-		CGPDFContextClose(ctx)
-
-	if hasImages is False:
-		os.remove(sys.argv[-1])
-		sys.exit('imagestopdf: no images found!')
+	if hasImages is True :
+		CGImageDestinationFinalize(idr)
+	else :
+		sys.exit('imagestopdf: No images found!')
 
 else :
 	print >> sys.stderr, 'Usage: imagestopdf [image-file ...] pdf-file'

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2004-2014, International Business Machines
+* Copyright (c) 2004-2015, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -17,12 +17,13 @@
 #include "unicode/numfmt.h"
 #include "currfmt.h"
 #include "unicode/localpointer.h"
+#include "simplepatternformatter.h"
 #include "quantityformatter.h"
 #include "unicode/plurrule.h"
 #include "unicode/decimfmt.h"
-#include "lrucache.h"
 #include "uresimp.h"
 #include "unicode/ures.h"
+#include "ureslocs.h"
 #include "cstring.h"
 #include "mutex.h"
 #include "ucln_in.h"
@@ -30,28 +31,14 @@
 #include "charstr.h"
 #include "unicode/putil.h"
 #include "unicode/smpdtfmt.h"
+#include "uassert.h"
 
 #include "sharednumberformat.h"
 #include "sharedpluralrules.h"
+#include "unifiedcache.h"
 
-#define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
-#define MEAS_UNIT_COUNT 52
+#define MEAS_UNIT_COUNT 122
 #define WIDTH_INDEX_COUNT (UMEASFMT_WIDTH_NARROW + 1)
-
-static icu::LRUCache *gCache = NULL;
-static UMutex gCacheMutex = U_MUTEX_INITIALIZER;
-static icu::UInitOnce gCacheInitOnce = U_INITONCE_INITIALIZER;
-
-U_CDECL_BEGIN
-static UBool U_CALLCONV measfmt_cleanup() {
-    gCacheInitOnce.reset();
-    if (gCache) {
-        delete gCache;
-        gCache = NULL;
-    }
-    return TRUE;
-}
-U_CDECL_END
 
 U_NAMESPACE_BEGIN
 
@@ -94,6 +81,8 @@ private:
 class MeasureFormatCacheData : public SharedObject {
 public:
     QuantityFormatter formatters[MEAS_UNIT_COUNT][WIDTH_INDEX_COUNT];
+    SimplePatternFormatter perFormatters[WIDTH_INDEX_COUNT];
+
     MeasureFormatCacheData();
     void adoptCurrencyFormat(int32_t widthIndex, NumberFormat *nfToAdopt) {
         delete currencyFormats[widthIndex];
@@ -116,26 +105,48 @@ public:
     const NumericDateFormatters *getNumericDateFormatters() const {
         return numericDateFormatters;
     }
+    void adoptPerUnitFormatter(
+            int32_t index,
+            int32_t widthIndex,
+            SimplePatternFormatter *formatterToAdopt) {
+        delete perUnitFormatters[index][widthIndex];
+        perUnitFormatters[index][widthIndex] = formatterToAdopt;
+    }
+    const SimplePatternFormatter * const * getPerUnitFormattersByIndex(
+            int32_t index) const {
+        return perUnitFormatters[index];
+    }
     virtual ~MeasureFormatCacheData();
 private:
     NumberFormat *currencyFormats[WIDTH_INDEX_COUNT];
     NumberFormat *integerFormat;
     NumericDateFormatters *numericDateFormatters;
+    SimplePatternFormatter *perUnitFormatters[MEAS_UNIT_COUNT][WIDTH_INDEX_COUNT];
     MeasureFormatCacheData(const MeasureFormatCacheData &other);
     MeasureFormatCacheData &operator=(const MeasureFormatCacheData &other);
 };
 
 MeasureFormatCacheData::MeasureFormatCacheData() {
-    for (int32_t i = 0; i < LENGTHOF(currencyFormats); ++i) {
+    for (int32_t i = 0; i < UPRV_LENGTHOF(currencyFormats); ++i) {
         currencyFormats[i] = NULL;
+    }
+    for (int32_t i = 0; i < MEAS_UNIT_COUNT; ++i) {
+        for (int32_t j = 0; j < WIDTH_INDEX_COUNT; ++j) {
+            perUnitFormatters[i][j] = NULL;
+        }
     }
     integerFormat = NULL;
     numericDateFormatters = NULL;
 }
 
 MeasureFormatCacheData::~MeasureFormatCacheData() {
-    for (int32_t i = 0; i < LENGTHOF(currencyFormats); ++i) {
+    for (int32_t i = 0; i < UPRV_LENGTHOF(currencyFormats); ++i) {
         delete currencyFormats[i];
+    }
+    for (int32_t i = 0; i < MEAS_UNIT_COUNT; ++i) {
+        for (int32_t j = 0; j < WIDTH_INDEX_COUNT; ++j) {
+            delete perUnitFormatters[i][j];
+        }
     }
     delete integerFormat;
     delete numericDateFormatters;
@@ -200,6 +211,22 @@ static UBool loadMeasureUnitData(
             status = U_ZERO_ERROR;
             continue;
         }
+        {
+            // compound per
+            LocalUResourceBundlePointer compoundPerBundle(
+                    ures_getByKeyWithFallback(
+                            widthBundle.getAlias(),
+                            "compound/per",
+                            NULL,
+                            &status));
+            if (U_FAILURE(status)) {
+                status = U_ZERO_ERROR;
+            } else {
+                UnicodeString perPattern;
+                getString(compoundPerBundle.getAlias(), perPattern, status);
+                cacheData.perFormatters[currentWidth].compile(perPattern, status);
+            }
+        }
         for (int32_t currentUnit = 0; currentUnit < unitCount; ++currentUnit) {
             // Be sure status is clear next lookup may fail.
             if (U_FAILURE(status)) {
@@ -238,10 +265,23 @@ static UBool loadMeasureUnitData(
                     delete [] units;
                     return FALSE;
                 }
+                const char * resKey = ures_getKey(pluralBundle.getAlias());
+                if (uprv_strcmp(resKey, "dnam") == 0) {
+                    continue; // skip display name & per pattern (new in CLDR 26 / ICU 54) for now, not part of plurals
+                }
+                if (uprv_strcmp(resKey, "per") == 0) {
+                    UnicodeString perPattern;
+                    getString(pluralBundle.getAlias(), perPattern, status);
+                    cacheData.adoptPerUnitFormatter(
+                            units[currentUnit].getIndex(),
+                            currentWidth, 
+                            new SimplePatternFormatter(perPattern));
+                    continue;
+                }
                 UnicodeString rawPattern;
                 getString(pluralBundle.getAlias(), rawPattern, status);
                 cacheData.formatters[units[currentUnit].getIndex()][currentWidth].add(
-                        ures_getKey(pluralBundle.getAlias()),
+                        resKey,
                         rawPattern,
                         status);
             }
@@ -302,28 +342,25 @@ static NumericDateFormatters *loadNumericDateFormatters(
     return result;
 }
 
-// Creates the MeasureFormatCacheData for a particular locale
-static SharedObject *U_CALLCONV createData(
-        const char *localeId, UErrorCode &status) {
-    LocalUResourceBundlePointer topLevel(ures_open(NULL, localeId, &status));
+template<> U_I18N_API
+const MeasureFormatCacheData *LocaleCacheKey<MeasureFormatCacheData>::createObject(
+        const void * /*unused*/, UErrorCode &status) const {
+    const char *localeId = fLoc.getName();
+    LocalUResourceBundlePointer unitsBundle(ures_open(U_ICUDATA_UNIT, localeId, &status));
     static UNumberFormatStyle currencyStyles[] = {
             UNUM_CURRENCY_PLURAL, UNUM_CURRENCY_ISO, UNUM_CURRENCY};
+    LocalPointer<MeasureFormatCacheData> result(new MeasureFormatCacheData(), status);
     if (U_FAILURE(status)) {
         return NULL;
     }
-    LocalPointer<MeasureFormatCacheData> result(new MeasureFormatCacheData());
-    if (result.isNull()) {
-        status = U_MEMORY_ALLOCATION_ERROR;
-        return NULL;
-    }
     if (!loadMeasureUnitData(
-            topLevel.getAlias(),
+            unitsBundle.getAlias(),
             *result,
             status)) {
         return NULL;
     }
     result->adoptNumericDateFormatters(loadNumericDateFormatters(
-            topLevel.getAlias(), status));
+            unitsBundle.getAlias(), status));
     if (U_FAILURE(status)) {
         return NULL;
     }
@@ -346,31 +383,8 @@ static SharedObject *U_CALLCONV createData(
         decfmt->setRoundingMode(DecimalFormat::kRoundDown);
     }
     result->adoptIntegerFormat(inf);
+    result->addRef();
     return result.orphan();
-}
-
-static void U_CALLCONV cacheInit(UErrorCode &status) {
-    U_ASSERT(gCache == NULL);
-    U_ASSERT(MeasureUnit::getIndexCount() == MEAS_UNIT_COUNT);
-    ucln_i18n_registerCleanup(UCLN_I18N_MEASFMT, measfmt_cleanup);
-    gCache = new SimpleLRUCache(100, &createData, status);
-    if (U_FAILURE(status)) {
-        delete gCache;
-        gCache = NULL;
-    }
-}
-
-static UBool getFromCache(
-        const char *locale,
-        const MeasureFormatCacheData *&ptr,
-        UErrorCode &status) {
-    umtx_initOnce(gCacheInitOnce, &cacheInit, status);
-    if (U_FAILURE(status)) {
-        return FALSE;
-    }
-    Mutex lock(&gCacheMutex);
-    gCache->get(locale, ptr, status);
-    return U_SUCCESS(status);
 }
 
 static UBool isTimeUnit(const MeasureUnit &mu, const char *tu) {
@@ -575,6 +589,40 @@ void MeasureFormat::parseObject(
     return;
 }
 
+UnicodeString &MeasureFormat::formatMeasurePerUnit(
+        const Measure &measure,
+        const MeasureUnit &perUnit,
+        UnicodeString &appendTo,
+        FieldPosition &pos,
+        UErrorCode &status) const {
+    if (U_FAILURE(status)) {
+        return appendTo;
+    }
+    MeasureUnit *resolvedUnit =
+            MeasureUnit::resolveUnitPerUnit(measure.getUnit(), perUnit);
+    if (resolvedUnit != NULL) {
+        Measure newMeasure(measure.getNumber(), resolvedUnit, status);
+        return formatMeasure(
+                newMeasure, **numberFormat, appendTo, pos, status);
+    }
+    FieldPosition fpos(pos.getField());
+    UnicodeString result;
+    int32_t offset = withPerUnitAndAppend(
+            formatMeasure(
+                    measure, **numberFormat, result, fpos, status),
+            perUnit,
+            appendTo,
+            status);
+    if (U_FAILURE(status)) {
+        return appendTo;
+    }
+    if (fpos.getBeginIndex() != 0 || fpos.getEndIndex() != 0) {
+        pos.setBeginIndex(fpos.getBeginIndex() + offset);
+        pos.setEndIndex(fpos.getEndIndex() + offset);
+    }
+    return appendTo;
+}
+
 UnicodeString &MeasureFormat::formatMeasures(
         const Measure *measures,
         int32_t measureCount,
@@ -636,27 +684,26 @@ void MeasureFormat::initMeasureFormat(
     const char *name = locale.getName();
     setLocaleIDs(name, name);
 
-    if (!getFromCache(name, cache, status)) {
-        return;
-    }
-
-    SharedObject::copyPtr(
-            PluralRules::createSharedInstance(
-                    locale, UPLURAL_TYPE_CARDINAL, status),
-            pluralRules);
+    UnifiedCache::getByLocale(locale, cache, status);
     if (U_FAILURE(status)) {
         return;
     }
-    pluralRules->removeRef();
+
+    const SharedPluralRules *pr = PluralRules::createSharedInstance(
+            locale, UPLURAL_TYPE_CARDINAL, status);
+    if (U_FAILURE(status)) {
+        return;
+    }
+    SharedObject::copyPtr(pr, pluralRules);
+    pr->removeRef();
     if (nf.isNull()) {
-        SharedObject::copyPtr(
-                NumberFormat::createSharedInstance(
-                        locale, UNUM_DECIMAL, status),
-                numberFormat);
+        const SharedNumberFormat *shared = NumberFormat::createSharedInstance(
+                locale, UNUM_DECIMAL, status);
         if (U_FAILURE(status)) {
             return;
         }
-        numberFormat->removeRef();
+        SharedObject::copyPtr(shared, numberFormat);
+        shared->removeRef();
     } else {
         adoptNumberFormat(nf.orphan(), status);
         if (U_FAILURE(status)) {
@@ -693,6 +740,11 @@ UBool MeasureFormat::setMeasureFormatLocale(const Locale &locale, UErrorCode &st
     initMeasureFormat(locale, width, NULL, status);
     return U_SUCCESS(status);
 } 
+
+// Apple-specific for now
+UMeasureFormatWidth MeasureFormat::getWidth() const {
+    return width;
+}
 
 const NumberFormat &MeasureFormat::getNumberFormat() const {
     return **numberFormat;
@@ -893,6 +945,93 @@ const QuantityFormatter *MeasureFormat::getQuantityFormatter(
     }
     status = U_MISSING_RESOURCE_ERROR;
     return NULL;
+}
+
+const SimplePatternFormatter *MeasureFormat::getPerUnitFormatter(
+        int32_t index,
+        int32_t widthIndex) const {
+    const SimplePatternFormatter * const * perUnitFormatters =
+            cache->getPerUnitFormattersByIndex(index);
+    if (perUnitFormatters[widthIndex] != NULL) {
+        return perUnitFormatters[widthIndex];
+    }
+    if (perUnitFormatters[UMEASFMT_WIDTH_SHORT] != NULL) {
+        return perUnitFormatters[UMEASFMT_WIDTH_SHORT];
+    }
+    if (perUnitFormatters[UMEASFMT_WIDTH_WIDE] != NULL) {
+        return perUnitFormatters[UMEASFMT_WIDTH_WIDE];
+    }
+    return NULL;
+}
+
+const SimplePatternFormatter *MeasureFormat::getPerFormatter(
+        int32_t widthIndex,
+        UErrorCode &status) const {
+    if (U_FAILURE(status)) {
+        return NULL;
+    }
+    const SimplePatternFormatter * perFormatters = cache->perFormatters;
+    
+    if (perFormatters[widthIndex].getPlaceholderCount() == 2) {
+        return &perFormatters[widthIndex];
+    }
+    if (perFormatters[UMEASFMT_WIDTH_SHORT].getPlaceholderCount() == 2) {
+        return &perFormatters[UMEASFMT_WIDTH_SHORT];
+    }
+    if (perFormatters[UMEASFMT_WIDTH_WIDE].getPlaceholderCount() == 2) {
+        return &perFormatters[UMEASFMT_WIDTH_WIDE];
+    }
+    status = U_MISSING_RESOURCE_ERROR;
+    return NULL;
+}
+
+static void getPerUnitString(
+        const QuantityFormatter &formatter,
+        UnicodeString &result) {
+    result = formatter.getByVariant("one")->getPatternWithNoPlaceholders();
+    result.trim();
+}
+
+int32_t MeasureFormat::withPerUnitAndAppend(
+        const UnicodeString &formatted,
+        const MeasureUnit &perUnit,
+        UnicodeString &appendTo,
+        UErrorCode &status) const {
+    int32_t offset = -1;
+    if (U_FAILURE(status)) {
+        return offset;
+    }
+    const SimplePatternFormatter *perUnitFormatter = getPerUnitFormatter(
+            perUnit.getIndex(), widthToIndex(width));
+    if (perUnitFormatter != NULL) {
+        const UnicodeString *params[] = {&formatted};
+        perUnitFormatter->formatAndAppend(
+                params,
+                UPRV_LENGTHOF(params),
+                appendTo,
+                &offset,
+                1,
+                status);
+        return offset;
+    }
+    const SimplePatternFormatter *perFormatter = getPerFormatter(
+            widthToIndex(width), status);
+    const QuantityFormatter *qf = getQuantityFormatter(
+            perUnit.getIndex(), widthToIndex(width), status);
+    if (U_FAILURE(status)) {
+        return offset;
+    }
+    UnicodeString perUnitString;
+    getPerUnitString(*qf, perUnitString);
+    const UnicodeString *params[] = {&formatted, &perUnitString};
+    perFormatter->formatAndAppend(
+            params,
+            UPRV_LENGTHOF(params),
+            appendTo,
+            &offset,
+            1,
+            status);
+    return offset;
 }
 
 UnicodeString &MeasureFormat::formatMeasuresSlowTrack(

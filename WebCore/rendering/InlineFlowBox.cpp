@@ -23,13 +23,14 @@
 #include "CSSPropertyNames.h"
 #include "Document.h"
 #include "EllipsisBox.h"
-#include "Font.h"
+#include "FontCascade.h"
 #include "GraphicsContext.h"
 #include "InlineTextBox.h"
 #include "HitTestResult.h"
 #include "RenderBlock.h"
 #include "RenderInline.h"
 #include "RenderLayer.h"
+#include "RenderLineBreak.h"
 #include "RenderListMarker.h"
 #include "RenderRubyBase.h"
 #include "RenderRubyRun.h"
@@ -70,12 +71,12 @@ void InlineFlowBox::setHasBadChildList()
 
 LayoutUnit InlineFlowBox::getFlowSpacingLogicalWidth()
 {
-    LayoutUnit totWidth = marginBorderPaddingLogicalLeft() + marginBorderPaddingLogicalRight();
-    for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
-        if (curr->isInlineFlowBox())
-            totWidth += toInlineFlowBox(curr)->getFlowSpacingLogicalWidth();
+    LayoutUnit totalWidth = marginBorderPaddingLogicalLeft() + marginBorderPaddingLogicalRight();
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (is<InlineFlowBox>(*child))
+            totalWidth += downcast<InlineFlowBox>(*child).getFlowSpacingLogicalWidth();
     }
-    return totWidth;
+    return totalWidth;
 }
 
 static void setHasTextDescendantsOnAncestors(InlineFlowBox* box)
@@ -108,8 +109,8 @@ void InlineFlowBox::addToLine(InlineBox* child)
         if (child->renderer().parent() == &renderer())
             m_hasTextChildren = true;
         setHasTextDescendantsOnAncestors(this);
-    } else if (child->isInlineFlowBox()) {
-        if (toInlineFlowBox(child)->hasTextDescendants())
+    } else if (is<InlineFlowBox>(*child)) {
+        if (downcast<InlineFlowBox>(*child).hasTextDescendants())
             setHasTextDescendantsOnAncestors(this);
     }
 
@@ -121,7 +122,7 @@ void InlineFlowBox::addToLine(InlineBox* child)
             shouldClearDescendantsHaveSameLineHeightAndBaseline = true;
         else if (child->behavesLikeText()) {
             if (child->renderer().isLineBreak() || child->renderer().parent() != &renderer()) {
-                if (!parentStyle.font().fontMetrics().hasIdenticalAscentDescentAndLineGap(childStyle.font().fontMetrics())
+                if (!parentStyle.fontCascade().fontMetrics().hasIdenticalAscentDescentAndLineGap(childStyle.fontCascade().fontMetrics())
                     || parentStyle.lineHeight() != childStyle.lineHeight()
                     || (parentStyle.verticalAlign() != BASELINE && !isRootInlineBox()) || childStyle.verticalAlign() != BASELINE)
                     shouldClearDescendantsHaveSameLineHeightAndBaseline = true;
@@ -134,11 +135,10 @@ void InlineFlowBox::addToLine(InlineBox* child)
                 // Other than making a zillion tests have to regenerate results, there's no reason to ditch the optimization here.
                 shouldClearDescendantsHaveSameLineHeightAndBaseline = child->renderer().isBR();
             } else {
-                ASSERT(isInlineFlowBox());
-                InlineFlowBox* childFlowBox = toInlineFlowBox(child);
+                auto& childFlowBox = downcast<InlineFlowBox>(*child);
                 // Check the child's bit, and then also check for differences in font, line-height, vertical-align
-                if (!childFlowBox->descendantsHaveSameLineHeightAndBaseline()
-                    || !parentStyle.font().fontMetrics().hasIdenticalAscentDescentAndLineGap(childStyle.font().fontMetrics())
+                if (!childFlowBox.descendantsHaveSameLineHeightAndBaseline()
+                    || !parentStyle.fontCascade().fontMetrics().hasIdenticalAscentDescentAndLineGap(childStyle.fontCascade().fontMetrics())
                     || parentStyle.lineHeight() != childStyle.lineHeight()
                     || (parentStyle.verticalAlign() != BASELINE && !isRootInlineBox()) || childStyle.verticalAlign() != BASELINE
                     || childStyle.hasBorder() || childStyle.hasPadding() || childStyle.hasTextCombine())
@@ -157,15 +157,15 @@ void InlineFlowBox::addToLine(InlineBox* child)
             if (childStyle->letterSpacing() < 0 || childStyle->textShadow() || childStyle->textEmphasisMark() != TextEmphasisMarkNone || childStyle->textStrokeWidth())
                 child->clearKnownToHaveNoOverflow();
         } else if (child->renderer().isReplaced()) {
-            const RenderBox& box = toRenderBox(child->renderer());
+            const RenderBox& box = downcast<RenderBox>(child->renderer());
             if (box.hasRenderOverflow() || box.hasSelfPaintingLayer())
                 child->clearKnownToHaveNoOverflow();
         } else if (!child->renderer().isLineBreak() && (childStyle.boxShadow() || child->boxModelObject()->hasSelfPaintingLayer()
-            || (child->renderer().isListMarker() && !toRenderListMarker(child->renderer()).isInside())
+            || (is<RenderListMarker>(child->renderer()) && !downcast<RenderListMarker>(child->renderer()).isInside())
             || childStyle.hasBorderImageOutsets()))
             child->clearKnownToHaveNoOverflow();
         
-        if (knownToHaveNoOverflow() && child->isInlineFlowBox() && !toInlineFlowBox(child)->knownToHaveNoOverflow())
+        if (knownToHaveNoOverflow() && is<InlineFlowBox>(*child) && !downcast<InlineFlowBox>(*child).knownToHaveNoOverflow())
             clearKnownToHaveNoOverflow();
     }
 
@@ -179,14 +179,6 @@ void InlineFlowBox::removeChild(InlineBox* child)
     if (!isDirty())
         dirtyLineBoxes();
 
-    if (child->prevLeafChild() && child->prevLeafChild()->isInlineTextBox()) {
-        if (child->isInlineTextBox()) 
-            toInlineTextBox(child->prevLeafChild())->renderer().setContentIsKnownToFollow(toInlineTextBox(child)->renderer().contentIsKnownToFollow());
-        // FIXME: Handle the case where we remove the last inline box, and it's not a text box. If we're trying to share
-        // expansion opportunites both inside and outside a replaced element (such as for ruby bases), we need to search
-        // outside the current inline box tree to determine if there is content that follows the new last inline item.
-    }
-
     root().childRemoved(child);
 
     if (child == m_firstChild)
@@ -198,7 +190,7 @@ void InlineFlowBox::removeChild(InlineBox* child)
     if (child->prevOnLine())
         child->prevOnLine()->setNextOnLine(child->nextOnLine());
     
-    child->setParent(0);
+    child->setParent(nullptr);
 
     checkConsistency();
 }
@@ -206,19 +198,19 @@ void InlineFlowBox::removeChild(InlineBox* child)
 void InlineFlowBox::deleteLine()
 {
     InlineBox* child = firstChild();
-    InlineBox* next = 0;
+    InlineBox* next = nullptr;
     while (child) {
         ASSERT(this == child->parent());
         next = child->nextOnLine();
 #ifndef NDEBUG
-        child->setParent(0);
+        child->setParent(nullptr);
 #endif
         child->deleteLine();
         child = next;
     }
 #ifndef NDEBUG
-    m_firstChild = 0;
-    m_lastChild = 0;
+    m_firstChild = nullptr;
+    m_lastChild = nullptr;
 #endif
 
     removeLineBoxFromRenderObject();
@@ -227,7 +219,7 @@ void InlineFlowBox::deleteLine()
 
 void InlineFlowBox::removeLineBoxFromRenderObject()
 {
-    toRenderInline(renderer()).lineBoxes().removeLineBox(this);
+    downcast<RenderInline>(renderer()).lineBoxes().removeLineBox(this);
 }
 
 void InlineFlowBox::extractLine()
@@ -240,7 +232,7 @@ void InlineFlowBox::extractLine()
 
 void InlineFlowBox::extractLineBoxFromRenderObject()
 {
-    toRenderInline(renderer()).lineBoxes().extractLineBox(this);
+    downcast<RenderInline>(renderer()).lineBoxes().extractLineBox(this);
 }
 
 void InlineFlowBox::attachLine()
@@ -253,7 +245,7 @@ void InlineFlowBox::attachLine()
 
 void InlineFlowBox::attachLineBoxToRenderObject()
 {
-    toRenderInline(renderer()).lineBoxes().attachLineBox(this);
+    downcast<RenderInline>(renderer()).lineBoxes().attachLineBox(this);
 }
 
 void InlineFlowBox::adjustPosition(float dx, float dy)
@@ -308,7 +300,7 @@ void InlineFlowBox::determineSpacingForFlowBoxes(bool lastLine, bool isLogically
 
     // The root inline box never has borders/margins/padding.
     if (parent()) {
-        const auto& inlineFlow = toRenderInline(renderer());
+        const auto& inlineFlow = downcast<RenderInline>(renderer());
 
         bool ltr = renderer().style().isLeftToRightDirection();
 
@@ -355,11 +347,9 @@ void InlineFlowBox::determineSpacingForFlowBoxes(bool lastLine, bool isLogically
     setEdges(includeLeftEdge, includeRightEdge);
 
     // Recur into our children.
-    for (InlineBox* currChild = firstChild(); currChild; currChild = currChild->nextOnLine()) {
-        if (currChild->isInlineFlowBox()) {
-            InlineFlowBox* currFlow = toInlineFlowBox(currChild);
-            currFlow->determineSpacingForFlowBoxes(lastLine, isLogicallyLastRunWrapped, logicallyLastRunRenderer);
-        }
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (is<InlineFlowBox>(*child))
+            downcast<InlineFlowBox>(*child).determineSpacingForFlowBoxes(lastLine, isLogicallyLastRunWrapped, logicallyLastRunRenderer);
     }
 }
 
@@ -374,7 +364,7 @@ float InlineFlowBox::placeBoxesInInlineDirection(float logicalLeft, bool& needsW
     float minLogicalLeft = startLogicalLeft;
     float maxLogicalRight = logicalLeft;
 
-    placeBoxRangeInInlineDirection(firstChild(), 0, logicalLeft, minLogicalLeft, maxLogicalRight, needsWordSpacing);
+    placeBoxRangeInInlineDirection(firstChild(), nullptr, logicalLeft, minLogicalLeft, maxLogicalRight, needsWordSpacing);
 
     logicalLeft += borderLogicalRight() + paddingLogicalRight();
     endPlacingBoxRangesInInlineDirection(startLogicalLeft, logicalLeft, minLogicalLeft, maxLogicalRight);
@@ -384,54 +374,54 @@ float InlineFlowBox::placeBoxesInInlineDirection(float logicalLeft, bool& needsW
 float InlineFlowBox::placeBoxRangeInInlineDirection(InlineBox* firstChild, InlineBox* lastChild, float& logicalLeft, float& minLogicalLeft, float& maxLogicalRight, bool& needsWordSpacing)
 {
     float totalExpansion = 0;
-    for (InlineBox* curr = firstChild; curr && curr != lastChild; curr = curr->nextOnLine()) {
-        if (curr->renderer().isText()) {
-            InlineTextBox* text = toInlineTextBox(curr);
-            RenderText& rt = text->renderer();
-            if (rt.textLength()) {
-                if (needsWordSpacing && isSpaceOrNewline(rt.characterAt(text->start())))
-                    logicalLeft += text->lineStyle().font().wordSpacing();
-                needsWordSpacing = !isSpaceOrNewline(rt.characterAt(text->end()));
+    for (InlineBox* child = firstChild; child && child != lastChild; child = child->nextOnLine()) {
+        if (is<RenderText>(child->renderer())) {
+            auto& textBox = downcast<InlineTextBox>(*child);
+            RenderText& renderText = textBox.renderer();
+            if (renderText.textLength()) {
+                if (needsWordSpacing && isSpaceOrNewline(renderText.characterAt(textBox.start())))
+                    logicalLeft += textBox.lineStyle().fontCascade().wordSpacing();
+                needsWordSpacing = !isSpaceOrNewline(renderText.characterAt(textBox.end()));
             }
-            text->setLogicalLeft(logicalLeft);
+            textBox.setLogicalLeft(logicalLeft);
             if (knownToHaveNoOverflow())
                 minLogicalLeft = std::min(logicalLeft, minLogicalLeft);
-            logicalLeft += text->logicalWidth();
-            totalExpansion += text->expansion();
+            logicalLeft += textBox.logicalWidth();
+            totalExpansion += textBox.expansion();
             if (knownToHaveNoOverflow())
                 maxLogicalRight = std::max(logicalLeft, maxLogicalRight);
         } else {
-            if (curr->renderer().isOutOfFlowPositioned()) {
-                if (curr->renderer().parent()->style().isLeftToRightDirection())
-                    curr->setLogicalLeft(logicalLeft);
+            if (child->renderer().isOutOfFlowPositioned()) {
+                if (child->renderer().parent()->style().isLeftToRightDirection())
+                    child->setLogicalLeft(logicalLeft);
                 else
                     // Our offset that we cache needs to be from the edge of the right border box and
                     // not the left border box.  We have to subtract |x| from the width of the block
                     // (which can be obtained from the root line box).
-                    curr->setLogicalLeft(root().blockFlow().logicalWidth() - logicalLeft);
+                    child->setLogicalLeft(root().blockFlow().logicalWidth() - logicalLeft);
                 continue; // The positioned object has no effect on the width.
             }
-            if (curr->renderer().isRenderInline()) {
-                InlineFlowBox* flow = toInlineFlowBox(curr);
-                logicalLeft += flow->marginLogicalLeft();
+            if (is<RenderInline>(child->renderer())) {
+                auto& flow = downcast<InlineFlowBox>(*child);
+                logicalLeft += flow.marginLogicalLeft();
                 if (knownToHaveNoOverflow())
                     minLogicalLeft = std::min(logicalLeft, minLogicalLeft);
-                logicalLeft = flow->placeBoxesInInlineDirection(logicalLeft, needsWordSpacing);
-                totalExpansion += flow->expansion();
+                logicalLeft = flow.placeBoxesInInlineDirection(logicalLeft, needsWordSpacing);
+                totalExpansion += flow.expansion();
                 if (knownToHaveNoOverflow())
                     maxLogicalRight = std::max(logicalLeft, maxLogicalRight);
-                logicalLeft += flow->marginLogicalRight();
-            } else if (!curr->renderer().isListMarker() || toRenderListMarker(curr->renderer()).isInside()) {
+                logicalLeft += flow.marginLogicalRight();
+            } else if (!is<RenderListMarker>(child->renderer()) || downcast<RenderListMarker>(child->renderer()).isInside()) {
                 // The box can have a different writing-mode than the overall line, so this is a bit complicated.
                 // Just get all the physical margin and overflow values by hand based off |isVertical|.
-                LayoutUnit logicalLeftMargin = isHorizontal() ? curr->boxModelObject()->marginLeft() : curr->boxModelObject()->marginTop();
-                LayoutUnit logicalRightMargin = isHorizontal() ? curr->boxModelObject()->marginRight() : curr->boxModelObject()->marginBottom();
+                LayoutUnit logicalLeftMargin = isHorizontal() ? child->boxModelObject()->marginLeft() : child->boxModelObject()->marginTop();
+                LayoutUnit logicalRightMargin = isHorizontal() ? child->boxModelObject()->marginRight() : child->boxModelObject()->marginBottom();
                 
                 logicalLeft += logicalLeftMargin;
-                curr->setLogicalLeft(logicalLeft);
+                child->setLogicalLeft(logicalLeft);
                 if (knownToHaveNoOverflow())
                     minLogicalLeft = std::min(logicalLeft, minLogicalLeft);
-                logicalLeft += curr->logicalWidth();
+                logicalLeft += child->logicalWidth();
                 if (knownToHaveNoOverflow())
                     maxLogicalRight = std::max(logicalLeft, maxLogicalRight);
                 logicalLeft += logicalRightMargin;
@@ -451,29 +441,29 @@ bool InlineFlowBox::requiresIdeographicBaseline(const GlyphOverflowAndFallbackFo
 
     const RenderStyle& lineStyle = this->lineStyle();
     if (lineStyle.fontDescription().nonCJKGlyphOrientation() == NonCJKGlyphOrientationUpright
-        || lineStyle.font().primaryFont()->hasVerticalGlyphs())
+        || lineStyle.fontCascade().primaryFont().hasVerticalGlyphs())
         return true;
 
-    for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
-        if (curr->renderer().isOutOfFlowPositioned())
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (child->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
         
-        if (curr->isInlineFlowBox()) {
-            if (toInlineFlowBox(curr)->requiresIdeographicBaseline(textBoxDataMap))
+        if (is<InlineFlowBox>(*child)) {
+            if (downcast<InlineFlowBox>(*child).requiresIdeographicBaseline(textBoxDataMap))
                 return true;
         } else {
-            if (curr->lineStyle().font().primaryFont()->hasVerticalGlyphs())
+            if (child->lineStyle().fontCascade().primaryFont().hasVerticalGlyphs())
                 return true;
             
-            const Vector<const SimpleFontData*>* usedFonts = 0;
-            if (curr->isInlineTextBox()) {
-                GlyphOverflowAndFallbackFontsMap::const_iterator it = textBoxDataMap.find(toInlineTextBox(curr));
-                usedFonts = it == textBoxDataMap.end() ? 0 : &it->value.first;
+            const Vector<const Font*>* usedFonts = nullptr;
+            if (is<InlineTextBox>(*child)) {
+                GlyphOverflowAndFallbackFontsMap::const_iterator it = textBoxDataMap.find(downcast<InlineTextBox>(child));
+                usedFonts = it == textBoxDataMap.end() ? nullptr : &it->value.first;
             }
 
             if (usedFonts) {
-                for (size_t i = 0; i < usedFonts->size(); ++i) {
-                    if (usedFonts->at(i)->hasVerticalGlyphs())
+                for (const Font* font : *usedFonts) {
+                    if (font->hasVerticalGlyphs())
                         return true;
                 }
             }
@@ -492,15 +482,15 @@ static bool verticalAlignApplies(const RenderObject& renderer)
 
 void InlineFlowBox::adjustMaxAscentAndDescent(int& maxAscent, int& maxDescent, int maxPositionTop, int maxPositionBottom)
 {
-    for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
         // The computed lineheight needs to be extended for the
         // positioned elements
-        if (curr->renderer().isOutOfFlowPositioned())
+        if (child->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
 
-        if ((curr->verticalAlign() == TOP || curr->verticalAlign() == BOTTOM) && verticalAlignApplies(curr->renderer())) {
-            int lineHeight = curr->lineHeight();
-            if (curr->verticalAlign() == TOP) {
+        if ((child->verticalAlign() == TOP || child->verticalAlign() == BOTTOM) && verticalAlignApplies(child->renderer())) {
+            int lineHeight = child->lineHeight();
+            if (child->verticalAlign() == TOP) {
                 if (maxAscent + maxDescent < lineHeight)
                     maxDescent = lineHeight - maxAscent;
             }
@@ -513,8 +503,8 @@ void InlineFlowBox::adjustMaxAscentAndDescent(int& maxAscent, int& maxDescent, i
                 break;
         }
 
-        if (curr->isInlineFlowBox())
-            toInlineFlowBox(curr)->adjustMaxAscentAndDescent(maxAscent, maxDescent, maxPositionTop, maxPositionBottom);
+        if (is<InlineFlowBox>(*child))
+            downcast<InlineFlowBox>(*child).adjustMaxAscentAndDescent(maxAscent, maxDescent, maxPositionTop, maxPositionBottom);
     }
 }
 
@@ -562,11 +552,11 @@ void InlineFlowBox::computeLogicalBoxHeights(RootInlineBox& rootBox, LayoutUnit&
     if (!checkChildren)
         return;
 
-    for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
-        if (curr->renderer().isOutOfFlowPositioned())
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (child->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
         
-        InlineFlowBox* inlineFlowBox = curr->isInlineFlowBox() ? toInlineFlowBox(curr) : 0;
+        InlineFlowBox* inlineFlowBox = is<InlineFlowBox>(*child) ? downcast<InlineFlowBox>(child) : nullptr;
         
         bool affectsAscent = false;
         bool affectsDescent = false;
@@ -574,17 +564,17 @@ void InlineFlowBox::computeLogicalBoxHeights(RootInlineBox& rootBox, LayoutUnit&
         // The verticalPositionForBox function returns the distance between the child box's baseline
         // and the root box's baseline.  The value is negative if the child box's baseline is above the
         // root box's baseline, and it is positive if the child box's baseline is below the root box's baseline.
-        curr->setLogicalTop(rootBox.verticalPositionForBox(curr, verticalPositionCache));
+        child->setLogicalTop(rootBox.verticalPositionForBox(child, verticalPositionCache));
         
         int ascent = 0;
         int descent = 0;
-        rootBox.ascentAndDescentForBox(*curr, textBoxDataMap, ascent, descent, affectsAscent, affectsDescent);
+        rootBox.ascentAndDescentForBox(*child, textBoxDataMap, ascent, descent, affectsAscent, affectsDescent);
 
         LayoutUnit boxHeight = ascent + descent;
-        if (curr->verticalAlign() == TOP && verticalAlignApplies(curr->renderer())) {
+        if (child->verticalAlign() == TOP && verticalAlignApplies(child->renderer())) {
             if (maxPositionTop < boxHeight)
                 maxPositionTop = boxHeight;
-        } else if (curr->verticalAlign() == BOTTOM && verticalAlignApplies(curr->renderer())) {
+        } else if (child->verticalAlign() == BOTTOM && verticalAlignApplies(child->renderer())) {
             if (maxPositionBottom < boxHeight)
                 maxPositionBottom = boxHeight;
         } else if (!inlineFlowBox || strictMode || inlineFlowBox->hasTextChildren() || (inlineFlowBox->descendantsHaveSameLineHeightAndBaseline() && inlineFlowBox->hasTextDescendants())
@@ -595,8 +585,8 @@ void InlineFlowBox::computeLogicalBoxHeights(RootInlineBox& rootBox, LayoutUnit&
             // means is that ascent and descent (including leading), can end up being negative.  The setMaxAscent and
             // setMaxDescent booleans are used to ensure that we're willing to initially set maxAscent/Descent to negative
             // values.
-            ascent -= curr->logicalTop();
-            descent += curr->logicalTop();
+            ascent -= child->logicalTop();
+            descent += child->logicalTop();
             if (affectsAscent && (maxAscent < ascent || !setMaxAscent)) {
                 maxAscent = ascent;
                 setMaxAscent = true;
@@ -633,78 +623,78 @@ void InlineFlowBox::placeBoxesInBlockDirection(LayoutUnit top, LayoutUnit maxHei
             adjustmentForChildrenWithSameLineHeightAndBaseline += renderer().borderAndPaddingBefore();
     }
 
-    for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
-        if (curr->renderer().isOutOfFlowPositioned())
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (child->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
 
         if (descendantsHaveSameLineHeightAndBaseline()) {
-            curr->adjustBlockDirectionPosition(adjustmentForChildrenWithSameLineHeightAndBaseline);
+            child->adjustBlockDirectionPosition(adjustmentForChildrenWithSameLineHeightAndBaseline);
             continue;
         }
 
-        InlineFlowBox* inlineFlowBox = curr->isInlineFlowBox() ? toInlineFlowBox(curr) : 0;
+        InlineFlowBox* inlineFlowBox = is<InlineFlowBox>(*child) ? downcast<InlineFlowBox>(child) : nullptr;
         bool childAffectsTopBottomPos = true;
 
-        if (curr->verticalAlign() == TOP && verticalAlignApplies(curr->renderer()))
-            curr->setLogicalTop(top);
-        else if (curr->verticalAlign() == BOTTOM && verticalAlignApplies(curr->renderer()))
-            curr->setLogicalTop(top + maxHeight - curr->lineHeight());
+        if (child->verticalAlign() == TOP && verticalAlignApplies(child->renderer()))
+            child->setLogicalTop(top);
+        else if (child->verticalAlign() == BOTTOM && verticalAlignApplies(child->renderer()))
+            child->setLogicalTop(top + maxHeight - child->lineHeight());
         else {
             if (!strictMode && inlineFlowBox && !inlineFlowBox->hasTextChildren() && !inlineFlowBox->renderer().hasInlineDirectionBordersOrPadding()
                 && !(inlineFlowBox->descendantsHaveSameLineHeightAndBaseline() && inlineFlowBox->hasTextDescendants()))
                 childAffectsTopBottomPos = false;
-            LayoutUnit posAdjust = maxAscent - curr->baselinePosition(baselineType);
-            curr->setLogicalTop(curr->logicalTop() + top + posAdjust);
+            LayoutUnit posAdjust = maxAscent - child->baselinePosition(baselineType);
+            child->setLogicalTop(child->logicalTop() + top + posAdjust);
         }
         
-        LayoutUnit newLogicalTop = curr->logicalTop();
+        LayoutUnit newLogicalTop = child->logicalTop();
         LayoutUnit newLogicalTopIncludingMargins = newLogicalTop;
-        LayoutUnit boxHeight = curr->logicalHeight();
+        LayoutUnit boxHeight = child->logicalHeight();
         LayoutUnit boxHeightIncludingMargins = boxHeight;
 
-        const RenderStyle& childLineStyle = curr->lineStyle();
-        if (curr->behavesLikeText() || curr->isInlineFlowBox()) {
+        const RenderStyle& childLineStyle = child->lineStyle();
+        if (child->behavesLikeText() || is<InlineFlowBox>(*child)) {
             const FontMetrics& fontMetrics = childLineStyle.fontMetrics();
-            newLogicalTop += curr->baselinePosition(baselineType) - fontMetrics.ascent(baselineType);
-            if (curr->isInlineFlowBox()) {
-                RenderBoxModelObject& boxObject = toRenderBoxModelObject(curr->renderer());
+            newLogicalTop += child->baselinePosition(baselineType) - fontMetrics.ascent(baselineType);
+            if (is<InlineFlowBox>(*child)) {
+                RenderBoxModelObject& boxObject = downcast<InlineFlowBox>(*child).renderer();
                 newLogicalTop -= childLineStyle.isHorizontalWritingMode()
                     ? boxObject.borderTop() + boxObject.paddingTop()
                     : boxObject.borderRight() + boxObject.paddingRight();
             }
             newLogicalTopIncludingMargins = newLogicalTop;
-        } else if (!curr->renderer().isBR()) {
-            const RenderBox& box = toRenderBox(curr->renderer());
+        } else if (!child->renderer().isBR() && !child->renderer().isAnonymousInlineBlock()) {
+            const auto& box = downcast<RenderBox>(child->renderer());
             newLogicalTopIncludingMargins = newLogicalTop;
-            LayoutUnit overSideMargin = curr->isHorizontal() ? box.marginTop() : box.marginRight();
-            LayoutUnit underSideMargin = curr->isHorizontal() ? box.marginBottom() : box.marginLeft();
+            LayoutUnit overSideMargin = child->isHorizontal() ? box.marginTop() : box.marginRight();
+            LayoutUnit underSideMargin = child->isHorizontal() ? box.marginBottom() : box.marginLeft();
             newLogicalTop += overSideMargin;
             boxHeightIncludingMargins += overSideMargin + underSideMargin;
         }
 
-        curr->setLogicalTop(newLogicalTop);
+        child->setLogicalTop(newLogicalTop);
 
         if (childAffectsTopBottomPos) {
-            if (curr->renderer().isRubyRun()) {
+            if (is<RenderRubyRun>(child->renderer())) {
                 // Treat the leading on the first and last lines of ruby runs as not being part of the overall lineTop/lineBottom.
                 // Really this is a workaround hack for the fact that ruby should have been done as line layout and not done using
                 // inline-block.
-                if (renderer().style().isFlippedLinesWritingMode() == (curr->renderer().style().rubyPosition() == RubyPositionAfter))
+                if (renderer().style().isFlippedLinesWritingMode() == (child->renderer().style().rubyPosition() == RubyPositionAfter))
                     hasAnnotationsBefore = true;
                 else
                     hasAnnotationsAfter = true;
 
-                RenderRubyRun& rubyRun = toRenderRubyRun(curr->renderer());
+                auto& rubyRun = downcast<RenderRubyRun>(child->renderer());
                 if (RenderRubyBase* rubyBase = rubyRun.rubyBase()) {
-                    LayoutUnit bottomRubyBaseLeading = (curr->logicalHeight() - rubyBase->logicalBottom()) + rubyBase->logicalHeight() - (rubyBase->lastRootBox() ? rubyBase->lastRootBox()->lineBottom() : LayoutUnit());
+                    LayoutUnit bottomRubyBaseLeading = (child->logicalHeight() - rubyBase->logicalBottom()) + rubyBase->logicalHeight() - (rubyBase->lastRootBox() ? rubyBase->lastRootBox()->lineBottom() : LayoutUnit());
                     LayoutUnit topRubyBaseLeading = rubyBase->logicalTop() + (rubyBase->firstRootBox() ? rubyBase->firstRootBox()->lineTop() : LayoutUnit());
                     newLogicalTop += !renderer().style().isFlippedLinesWritingMode() ? topRubyBaseLeading : bottomRubyBaseLeading;
                     boxHeight -= (topRubyBaseLeading + bottomRubyBaseLeading);
                 }
             }
-            if (curr->isInlineTextBox()) {
+            if (is<InlineTextBox>(*child)) {
                 bool emphasisMarkIsOver;
-                if (toInlineTextBox(curr)->emphasisMarkExistsAndIsAbove(childLineStyle, emphasisMarkIsOver)) {
+                if (downcast<InlineTextBox>(*child).emphasisMarkExistsAndIsAbove(childLineStyle, emphasisMarkIsOver)) {
                     if (emphasisMarkIsOver != childLineStyle.isFlippedLinesWritingMode())
                         hasAnnotationsBefore = true;
                     else
@@ -759,11 +749,11 @@ void InlineFlowBox::maxLogicalBottomForTextDecorationLine(float& maxLogicalBotto
         if (!(child->lineStyle().textDecorationsInEffect() & textDecoration))
             continue; // If the text decoration isn't in effect on the child, then it must be outside of |decorationRenderer|'s hierarchy.
         
-        if (decorationRenderer && decorationRenderer->isRenderInline() && !isAncestorAndWithinBlock(toRenderInline(*decorationRenderer), &child->renderer()))
+        if (decorationRenderer && decorationRenderer->isRenderInline() && !isAncestorAndWithinBlock(downcast<RenderInline>(*decorationRenderer), &child->renderer()))
             continue;
         
-        if (child->isInlineFlowBox())
-            toInlineFlowBox(child)->maxLogicalBottomForTextDecorationLine(maxLogicalBottom, decorationRenderer, textDecoration);
+        if (is<InlineFlowBox>(*child))
+            downcast<InlineFlowBox>(*child).maxLogicalBottomForTextDecorationLine(maxLogicalBottom, decorationRenderer, textDecoration);
         else {
             if (child->isInlineTextBox() || child->lineStyle().textDecorationSkip() == TextDecorationSkipNone)
                 maxLogicalBottom = std::max<float>(maxLogicalBottom, child->logicalBottom());
@@ -780,11 +770,11 @@ void InlineFlowBox::minLogicalTopForTextDecorationLine(float& minLogicalTop, con
         if (!(child->lineStyle().textDecorationsInEffect() & textDecoration))
             continue; // If the text decoration isn't in effect on the child, then it must be outside of |decorationRenderer|'s hierarchy.
         
-        if (decorationRenderer && decorationRenderer->isRenderInline() && !isAncestorAndWithinBlock(toRenderInline(*decorationRenderer), &child->renderer()))
+        if (decorationRenderer && decorationRenderer->isRenderInline() && !isAncestorAndWithinBlock(downcast<RenderInline>(*decorationRenderer), &child->renderer()))
             continue;
         
-        if (child->isInlineFlowBox())
-            toInlineFlowBox(child)->minLogicalTopForTextDecorationLine(minLogicalTop, decorationRenderer, textDecoration);
+        if (is<InlineFlowBox>(*child))
+            downcast<InlineFlowBox>(*child).minLogicalTopForTextDecorationLine(minLogicalTop, decorationRenderer, textDecoration);
         else {
             if (child->isInlineTextBox() || child->lineStyle().textDecorationSkip() == TextDecorationSkipNone)
                 minLogicalTop = std::min<float>(minLogicalTop, child->logicalTop());
@@ -797,14 +787,14 @@ void InlineFlowBox::flipLinesInBlockDirection(LayoutUnit lineTop, LayoutUnit lin
     // Flip the box on the line such that the top is now relative to the lineBottom instead of the lineTop.
     setLogicalTop(lineBottom - (logicalTop() - lineTop) - logicalHeight());
     
-    for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
-        if (curr->renderer().isOutOfFlowPositioned())
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (child->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders aren't affected here.
         
-        if (curr->isInlineFlowBox())
-            toInlineFlowBox(curr)->flipLinesInBlockDirection(lineTop, lineBottom);
+        if (is<InlineFlowBox>(*child))
+            downcast<InlineFlowBox>(*child).flipLinesInBlockDirection(lineTop, lineBottom);
         else
-            curr->setLogicalTop(lineBottom - (curr->logicalTop() - lineTop) - curr->logicalHeight());
+            child->setLogicalTop(lineBottom - (child->logicalTop() - lineTop) - child->logicalHeight());
     }
 }
 
@@ -853,10 +843,10 @@ inline void InlineFlowBox::addBorderOutsetVisualOverflow(LayoutRect& logicalVisu
 
     LayoutBoxExtent borderOutsets = lineStyle.borderImageOutsets();
 
-    LayoutUnit borderOutsetLogicalTop = borderOutsets.logicalTop(lineStyle.writingMode());
-    LayoutUnit borderOutsetLogicalBottom = borderOutsets.logicalBottom(lineStyle.writingMode());
-    LayoutUnit borderOutsetLogicalLeft = borderOutsets.logicalLeft(lineStyle.writingMode());
-    LayoutUnit borderOutsetLogicalRight = borderOutsets.logicalRight(lineStyle.writingMode());
+    LayoutUnit borderOutsetLogicalTop = borderOutsets.before(lineStyle.writingMode());
+    LayoutUnit borderOutsetLogicalBottom = borderOutsets.after(lineStyle.writingMode());
+    LayoutUnit borderOutsetLogicalLeft = borderOutsets.start(lineStyle.writingMode());
+    LayoutUnit borderOutsetLogicalRight = borderOutsets.end(lineStyle.writingMode());
 
     // Similar to how glyph overflow works, if our lines are flipped, then it's actually the opposite border that applies, since
     // the line is "upside down" in terms of block coordinates. vertical-rl and horizontal-bt are the flipped line modes.
@@ -884,7 +874,7 @@ inline void InlineFlowBox::addTextBoxVisualOverflow(InlineTextBox& textBox, Glyp
     const RenderStyle& lineStyle = this->lineStyle();
     
     GlyphOverflowAndFallbackFontsMap::iterator it = textBoxDataMap.find(&textBox);
-    GlyphOverflow* glyphOverflow = it == textBoxDataMap.end() ? 0 : &it->value.second;
+    GlyphOverflow* glyphOverflow = it == textBoxDataMap.end() ? nullptr : &it->value.second;
     bool isFlippedLine = lineStyle.isFlippedLinesWritingMode();
 
     int topGlyphEdge = glyphOverflow ? (isFlippedLine ? glyphOverflow->bottom : glyphOverflow->top) : 0;
@@ -900,7 +890,7 @@ inline void InlineFlowBox::addTextBoxVisualOverflow(InlineTextBox& textBox, Glyp
 
     bool emphasisMarkIsAbove;
     if (lineStyle.textEmphasisMark() != TextEmphasisMarkNone && textBox.emphasisMarkExistsAndIsAbove(lineStyle, emphasisMarkIsAbove)) {
-        int emphasisMarkHeight = lineStyle.font().emphasisMarkHeight(lineStyle.textEmphasisMarkString());
+        int emphasisMarkHeight = lineStyle.fontCascade().emphasisMarkHeight(lineStyle.textEmphasisMarkString());
         if (emphasisMarkIsAbove == !lineStyle.isFlippedLinesWritingMode())
             topGlyphOverflow = std::min(topGlyphOverflow, -emphasisMarkHeight);
         else
@@ -909,7 +899,7 @@ inline void InlineFlowBox::addTextBoxVisualOverflow(InlineTextBox& textBox, Glyp
 
     // If letter-spacing is negative, we should factor that into right layout overflow. (Even in RTL, letter-spacing is
     // applied to the right, so this is not an issue with left overflow.
-    rightGlyphOverflow -= std::min(0, (int)lineStyle.font().letterSpacing());
+    rightGlyphOverflow -= std::min(0, (int)lineStyle.fontCascade().letterSpacing());
 
     LayoutUnit textShadowLogicalTop;
     LayoutUnit textShadowLogicalBottom;
@@ -938,7 +928,7 @@ inline void InlineFlowBox::addTextBoxVisualOverflow(InlineTextBox& textBox, Glyp
 
 inline void InlineFlowBox::addReplacedChildOverflow(const InlineBox* inlineBox, LayoutRect& logicalLayoutOverflow, LayoutRect& logicalVisualOverflow)
 {
-    const RenderBox& box = toRenderBox(inlineBox->renderer());
+    const RenderBox& box = downcast<RenderBox>(inlineBox->renderer());
     
     // Visual overflow only propagates if the box doesn't have a self-painting layer.  This rectangle does not include
     // transforms or relative positioning (since those objects always have self-painting layers), but it does need to be adjusted
@@ -964,7 +954,7 @@ void InlineFlowBox::computeOverflow(LayoutUnit lineTop, LayoutUnit lineBottom, G
         return;
 
     if (m_overflow)
-        m_overflow.clear();
+        m_overflow = nullptr;
 
     // Visual overflow just includes overflow for stuff we need to repaint ourselves.  Self-painting layers are ignored.
     // Layout overflow is used to determine scrolling extent, so it still includes child layers and also factors in
@@ -975,27 +965,27 @@ void InlineFlowBox::computeOverflow(LayoutUnit lineTop, LayoutUnit lineBottom, G
     addBoxShadowVisualOverflow(logicalVisualOverflow);
     addBorderOutsetVisualOverflow(logicalVisualOverflow);
 
-    for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
-        if (curr->renderer().isOutOfFlowPositioned())
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (child->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
 
-        if (curr->renderer().isLineBreak())
+        if (is<RenderLineBreak>(child->renderer()))
             continue;
-        if (curr->renderer().isText()) {
-            InlineTextBox* text = toInlineTextBox(curr);
-            LayoutRect textBoxOverflow(enclosingLayoutRect(text->logicalFrameRect()));
-            addTextBoxVisualOverflow(*text, textBoxDataMap, textBoxOverflow);
+        if (is<RenderText>(child->renderer())) {
+            auto& textBox = downcast<InlineTextBox>(*child);
+            LayoutRect textBoxOverflow(enclosingLayoutRect(textBox.logicalFrameRect()));
+            addTextBoxVisualOverflow(textBox, textBoxDataMap, textBoxOverflow);
             logicalVisualOverflow.unite(textBoxOverflow);
-        } else if (curr->renderer().isRenderInline()) {
-            InlineFlowBox* flow = toInlineFlowBox(curr);
-            flow->computeOverflow(lineTop, lineBottom, textBoxDataMap);
-            if (!flow->renderer().hasSelfPaintingLayer())
-                logicalVisualOverflow.unite(flow->logicalVisualOverflowRect(lineTop, lineBottom));
-            LayoutRect childLayoutOverflow = flow->logicalLayoutOverflowRect(lineTop, lineBottom);
-            childLayoutOverflow.move(flow->renderer().relativePositionLogicalOffset());
+        } else if (is<RenderInline>(child->renderer())) {
+            auto& flow = downcast<InlineFlowBox>(*child);
+            flow.computeOverflow(lineTop, lineBottom, textBoxDataMap);
+            if (!flow.renderer().hasSelfPaintingLayer())
+                logicalVisualOverflow.unite(flow.logicalVisualOverflowRect(lineTop, lineBottom));
+            LayoutRect childLayoutOverflow = flow.logicalLayoutOverflowRect(lineTop, lineBottom);
+            childLayoutOverflow.move(flow.renderer().relativePositionLogicalOffset());
             logicalLayoutOverflow.unite(childLayoutOverflow);
         } else
-            addReplacedChildOverflow(curr, logicalLayoutOverflow, logicalVisualOverflow);
+            addReplacedChildOverflow(child, logicalLayoutOverflow, logicalVisualOverflow);
     }
     
     setOverflowFromLogicalRects(logicalLayoutOverflow, logicalVisualOverflow, lineTop, lineBottom);
@@ -1034,8 +1024,12 @@ void InlineFlowBox::setOverflowFromLogicalRects(const LayoutRect& logicalLayoutO
     setVisualOverflow(visualOverflow, lineTop, lineBottom);
 }
 
-bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom)
+bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom, HitTestAction hitTestAction)
 {
+    // As long as we don't have an anonymous inline block on our line, we restrict our hit testing only to the foreground phase.
+    if (!hasAnonymousInlineBlock() && hitTestAction != HitTestForeground)
+        return false;
+
     LayoutRect overflowRect(visualOverflowRect(lineTop, lineBottom));
     flipForWritingMode(overflowRect);
     overflowRect.moveBy(accumulatedOffset);
@@ -1044,29 +1038,29 @@ bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 
     // Check children first.
     // We need to account for culled inline parents of the hit-tested nodes, so that they may also get included in area-based hit-tests.
-    RenderElement* culledParent = 0;
-    for (InlineBox* curr = lastChild(); curr; curr = curr->prevOnLine()) {
-        if (curr->renderer().isText() || !curr->boxModelObject()->hasSelfPaintingLayer()) {
-            RenderElement* newParent = 0;
+    RenderElement* culledParent = nullptr;
+    for (InlineBox* child = lastChild(); child; child = child->prevOnLine()) {
+        if (is<RenderText>(child->renderer()) || !child->boxModelObject()->hasSelfPaintingLayer()) {
+            RenderElement* newParent = nullptr;
             // Culled parents are only relevant for area-based hit-tests, so ignore it in point-based ones.
             if (locationInContainer.isRectBasedTest()) {
-                newParent = curr->renderer().parent();
+                newParent = child->renderer().parent();
                 if (newParent == &renderer())
-                    newParent = 0;
+                    newParent = nullptr;
             }
             // Check the culled parent after all its children have been checked, to do this we wait until
             // we are about to test an element with a different parent.
             if (newParent != culledParent) {
                 if (!newParent || !newParent->isDescendantOf(culledParent)) {
                     while (culledParent && culledParent != &renderer() && culledParent != newParent) {
-                        if (culledParent->isRenderInline() && toRenderInline(culledParent)->hitTestCulledInline(request, result, locationInContainer, accumulatedOffset))
+                        if (is<RenderInline>(*culledParent) && downcast<RenderInline>(*culledParent).hitTestCulledInline(request, result, locationInContainer, accumulatedOffset))
                             return true;
                         culledParent = culledParent->parent();
                     }
                 }
                 culledParent = newParent;
             }
-            if (curr->nodeAtPoint(request, result, locationInContainer, accumulatedOffset, lineTop, lineBottom)) {
+            if (child->nodeAtPoint(request, result, locationInContainer, accumulatedOffset, lineTop, lineBottom, hitTestAction)) {
                 renderer().updateHitTestResult(result, locationInContainer.point() - toLayoutSize(accumulatedOffset));
                 return true;
             }
@@ -1074,7 +1068,7 @@ bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
     }
     // Check any culled ancestor of the final children tested.
     while (culledParent && culledParent != &renderer()) {
-        if (culledParent->isRenderInline() && toRenderInline(culledParent)->hitTestCulledInline(request, result, locationInContainer, accumulatedOffset))
+        if (is<RenderInline>(*culledParent) && downcast<RenderInline>(*culledParent).hitTestCulledInline(request, result, locationInContainer, accumulatedOffset))
             return true;
         culledParent = culledParent->parent();
     }
@@ -1127,12 +1121,16 @@ bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 
 void InlineFlowBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, LayoutUnit lineTop, LayoutUnit lineBottom)
 {
+    // As long as we don't have an anonymous inline block on our line, we restrict our painting only to a few phases.
+    if (!hasAnonymousInlineBlock() && (paintInfo.phase != PaintPhaseForeground && paintInfo.phase != PaintPhaseSelection && paintInfo.phase != PaintPhaseOutline && paintInfo.phase != PaintPhaseSelfOutline && paintInfo.phase != PaintPhaseChildOutlines && paintInfo.phase != PaintPhaseTextClip && paintInfo.phase != PaintPhaseMask))
+        return;
+
     LayoutRect overflowRect(visualOverflowRect(lineTop, lineBottom));
     overflowRect.inflate(renderer().maximalOutlineSize(paintInfo.phase));
     flipForWritingMode(overflowRect);
     overflowRect.moveBy(paintOffset);
     
-    if (!paintInfo.rect.intersects(pixelSnappedIntRect(overflowRect)))
+    if (!paintInfo.rect.intersects(snappedIntRect(overflowRect)))
         return;
 
     if (paintInfo.phase != PaintPhaseChildOutlines) {
@@ -1140,9 +1138,9 @@ void InlineFlowBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
             // Add ourselves to the paint info struct's list of inlines that need to paint their
             // outlines.
             if (renderer().style().visibility() == VISIBLE && renderer().hasOutline() && !isRootInlineBox()) {
-                RenderInline& inlineFlow = toRenderInline(renderer());
+                RenderInline& inlineFlow = downcast<RenderInline>(renderer());
 
-                RenderBlock* cb = 0;
+                RenderBlock* containingBlock = nullptr;
                 bool containingBlockPaintsContinuationOutline = inlineFlow.continuation() || inlineFlow.isInlineElementContinuation();
                 if (containingBlockPaintsContinuationOutline) {           
                     // FIXME: See https://bugs.webkit.org/show_bug.cgi?id=54690. We currently don't reconnect inline continuations
@@ -1152,8 +1150,8 @@ void InlineFlowBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
                     if (!enclosingAnonymousBlock->isAnonymousBlock())
                         containingBlockPaintsContinuationOutline = false;
                     else {
-                        cb = enclosingAnonymousBlock->containingBlock();
-                        for (auto box = &renderer(); box != cb; box = &box->parent()->enclosingBoxModelObject()) {
+                        containingBlock = enclosingAnonymousBlock->containingBlock();
+                        for (auto box = &renderer(); box != containingBlock; box = &box->parent()->enclosingBoxModelObject()) {
                             if (box->hasSelfPaintingLayer()) {
                                 containingBlockPaintsContinuationOutline = false;
                                 break;
@@ -1165,16 +1163,18 @@ void InlineFlowBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
                 if (containingBlockPaintsContinuationOutline) {
                     // Add ourselves to the containing block of the entire continuation so that it can
                     // paint us atomically.
-                    cb->addContinuationWithOutline(toRenderInline(renderer().element()->renderer()));
+                    containingBlock->addContinuationWithOutline(downcast<RenderInline>(renderer().element()->renderer()));
                 } else if (!inlineFlow.isInlineElementContinuation())
                     paintInfo.outlineObjects->add(&inlineFlow);
             }
         } else if (paintInfo.phase == PaintPhaseMask) {
-            paintMask(paintInfo, paintOffset);
+            if (!hasAnonymousInlineBlock())
+                paintMask(paintInfo, paintOffset);
             return;
         } else {
             // Paint our background, border and box-shadow.
-            paintBoxDecorations(paintInfo, paintOffset);
+            if (!hasAnonymousInlineBlock())
+                paintBoxDecorations(paintInfo, paintOffset);
         }
     }
 
@@ -1340,7 +1340,7 @@ void InlineFlowBox::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint&
     GraphicsContext* context = paintInfo.context;
     LayoutRect paintRect = LayoutRect(adjustedPaintoffset, frameRect.size());
     // Shadow comes first and is behind the background and border.
-    if (!renderer().boxShadowShouldBeAppliedToBackground(BackgroundBleedNone, this))
+    if (!renderer().boxShadowShouldBeAppliedToBackground(adjustedPaintoffset, BackgroundBleedNone, this))
         paintBoxShadow(paintInfo, lineStyle, Normal, paintRect);
 
     Color c = lineStyle.visitedDependentColor(CSSPropertyBackgroundColor);
@@ -1349,7 +1349,7 @@ void InlineFlowBox::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint&
 
     // :first-line cannot be used to put borders on a line. Always paint borders with our
     // non-first-line style.
-    if (!parent() || !renderer().style().hasBorder())
+    if (!parent() || !renderer().style().hasBorderDecoration())
         return;
     const NinePieceImage& borderImage = renderer().style().borderImage();
     StyleImage* borderImageSource = borderImage.image();
@@ -1461,17 +1461,17 @@ void InlineFlowBox::paintMask(PaintInfo& paintInfo, const LayoutPoint& paintOffs
 
 InlineBox* InlineFlowBox::firstLeafChild() const
 {
-    InlineBox* leaf = 0;
+    InlineBox* leaf = nullptr;
     for (InlineBox* child = firstChild(); child && !leaf; child = child->nextOnLine())
-        leaf = child->isLeaf() ? child : toInlineFlowBox(child)->firstLeafChild();
+        leaf = child->isLeaf() ? child : downcast<InlineFlowBox>(*child).firstLeafChild();
     return leaf;
 }
 
 InlineBox* InlineFlowBox::lastLeafChild() const
 {
-    InlineBox* leaf = 0;
+    InlineBox* leaf = nullptr;
     for (InlineBox* child = lastChild(); child && !leaf; child = child->prevOnLine())
-        leaf = child->isLeaf() ? child : toInlineFlowBox(child)->lastLeafChild();
+        leaf = child->isLeaf() ? child : downcast<InlineFlowBox>(*child).lastLeafChild();
     return leaf;
 }
 
@@ -1528,15 +1528,15 @@ void InlineFlowBox::clearTruncation()
 LayoutUnit InlineFlowBox::computeOverAnnotationAdjustment(LayoutUnit allowedPosition) const
 {
     LayoutUnit result = 0;
-    for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
-        if (curr->renderer().isOutOfFlowPositioned())
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (child->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
         
-        if (curr->isInlineFlowBox())
-            result = std::max(result, toInlineFlowBox(curr)->computeOverAnnotationAdjustment(allowedPosition));
+        if (is<InlineFlowBox>(*child))
+            result = std::max(result, downcast<InlineFlowBox>(*child).computeOverAnnotationAdjustment(allowedPosition));
         
-        if (curr->renderer().isReplaced() && curr->renderer().isRubyRun() && curr->renderer().style().rubyPosition() == RubyPositionBefore) {
-            RenderRubyRun& rubyRun = toRenderRubyRun(curr->renderer());
+        if (child->renderer().isReplaced() && is<RenderRubyRun>(child->renderer()) && child->renderer().style().rubyPosition() == RubyPositionBefore) {
+            auto& rubyRun = downcast<RenderRubyRun>(child->renderer());
             RenderRubyText* rubyText = rubyRun.rubyText();
             if (!rubyText)
                 continue;
@@ -1545,26 +1545,26 @@ LayoutUnit InlineFlowBox::computeOverAnnotationAdjustment(LayoutUnit allowedPosi
                 LayoutUnit topOfFirstRubyTextLine = rubyText->logicalTop() + (rubyText->firstRootBox() ? rubyText->firstRootBox()->lineTop() : LayoutUnit());
                 if (topOfFirstRubyTextLine >= 0)
                     continue;
-                topOfFirstRubyTextLine += curr->logicalTop();
+                topOfFirstRubyTextLine += child->logicalTop();
                 result = std::max(result, allowedPosition - topOfFirstRubyTextLine);
             } else {
                 LayoutUnit bottomOfLastRubyTextLine = rubyText->logicalTop() + (rubyText->lastRootBox() ? rubyText->lastRootBox()->lineBottom() : rubyText->logicalHeight());
-                if (bottomOfLastRubyTextLine <= curr->logicalHeight())
+                if (bottomOfLastRubyTextLine <= child->logicalHeight())
                     continue;
-                bottomOfLastRubyTextLine += curr->logicalTop();
+                bottomOfLastRubyTextLine += child->logicalTop();
                 result = std::max(result, bottomOfLastRubyTextLine - allowedPosition);
             }
         }
 
-        if (curr->isInlineTextBox()) {
-            const RenderStyle& childLineStyle = curr->lineStyle();
+        if (is<InlineTextBox>(*child)) {
+            const RenderStyle& childLineStyle = child->lineStyle();
             bool emphasisMarkIsAbove;
-            if (childLineStyle.textEmphasisMark() != TextEmphasisMarkNone && toInlineTextBox(curr)->emphasisMarkExistsAndIsAbove(childLineStyle, emphasisMarkIsAbove) && emphasisMarkIsAbove) {
+            if (childLineStyle.textEmphasisMark() != TextEmphasisMarkNone && downcast<InlineTextBox>(*child).emphasisMarkExistsAndIsAbove(childLineStyle, emphasisMarkIsAbove) && emphasisMarkIsAbove) {
                 if (!childLineStyle.isFlippedLinesWritingMode()) {
-                    int topOfEmphasisMark = curr->logicalTop() - childLineStyle.font().emphasisMarkHeight(childLineStyle.textEmphasisMarkString());
+                    int topOfEmphasisMark = child->logicalTop() - childLineStyle.fontCascade().emphasisMarkHeight(childLineStyle.textEmphasisMarkString());
                     result = std::max(result, allowedPosition - topOfEmphasisMark);
                 } else {
-                    int bottomOfEmphasisMark = curr->logicalBottom() + childLineStyle.font().emphasisMarkHeight(childLineStyle.textEmphasisMarkString());
+                    int bottomOfEmphasisMark = child->logicalBottom() + childLineStyle.fontCascade().emphasisMarkHeight(childLineStyle.textEmphasisMarkString());
                     result = std::max(result, bottomOfEmphasisMark - allowedPosition);
                 }
             }
@@ -1576,15 +1576,15 @@ LayoutUnit InlineFlowBox::computeOverAnnotationAdjustment(LayoutUnit allowedPosi
 LayoutUnit InlineFlowBox::computeUnderAnnotationAdjustment(LayoutUnit allowedPosition) const
 {
     LayoutUnit result = 0;
-    for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
-        if (curr->renderer().isOutOfFlowPositioned())
+    for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
+        if (child->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
 
-        if (curr->isInlineFlowBox())
-            result = std::max(result, toInlineFlowBox(curr)->computeUnderAnnotationAdjustment(allowedPosition));
+        if (is<InlineFlowBox>(*child))
+            result = std::max(result, downcast<InlineFlowBox>(*child).computeUnderAnnotationAdjustment(allowedPosition));
 
-        if (curr->renderer().isReplaced() && curr->renderer().isRubyRun() && curr->renderer().style().rubyPosition() == RubyPositionAfter) {
-            RenderRubyRun& rubyRun = toRenderRubyRun(curr->renderer());
+        if (child->renderer().isReplaced() && is<RenderRubyRun>(child->renderer()) && child->renderer().style().rubyPosition() == RubyPositionAfter) {
+            auto& rubyRun = downcast<RenderRubyRun>(child->renderer());
             RenderRubyText* rubyText = rubyRun.rubyText();
             if (!rubyText)
                 continue;
@@ -1593,27 +1593,27 @@ LayoutUnit InlineFlowBox::computeUnderAnnotationAdjustment(LayoutUnit allowedPos
                 LayoutUnit topOfFirstRubyTextLine = rubyText->logicalTop() + (rubyText->firstRootBox() ? rubyText->firstRootBox()->lineTop() : LayoutUnit());
                 if (topOfFirstRubyTextLine >= 0)
                     continue;
-                topOfFirstRubyTextLine += curr->logicalTop();
+                topOfFirstRubyTextLine += child->logicalTop();
                 result = std::max(result, allowedPosition - topOfFirstRubyTextLine);
             } else {
                 LayoutUnit bottomOfLastRubyTextLine = rubyText->logicalTop() + (rubyText->lastRootBox() ? rubyText->lastRootBox()->lineBottom() : rubyText->logicalHeight());
-                if (bottomOfLastRubyTextLine <= curr->logicalHeight())
+                if (bottomOfLastRubyTextLine <= child->logicalHeight())
                     continue;
-                bottomOfLastRubyTextLine += curr->logicalTop();
+                bottomOfLastRubyTextLine += child->logicalTop();
                 result = std::max(result, bottomOfLastRubyTextLine - allowedPosition);
             }
         }
 
-        if (curr->isInlineTextBox()) {
-            const RenderStyle& childLineStyle = curr->lineStyle();
+        if (is<InlineTextBox>(*child)) {
+            const RenderStyle& childLineStyle = child->lineStyle();
             bool emphasisMarkIsAbove;
-            toInlineTextBox(curr)->emphasisMarkExistsAndIsAbove(childLineStyle, emphasisMarkIsAbove);
+            downcast<InlineTextBox>(*child).emphasisMarkExistsAndIsAbove(childLineStyle, emphasisMarkIsAbove);
             if (childLineStyle.textEmphasisMark() != TextEmphasisMarkNone && !emphasisMarkIsAbove) {
                 if (!childLineStyle.isFlippedLinesWritingMode()) {
-                    LayoutUnit bottomOfEmphasisMark = curr->logicalBottom() + childLineStyle.font().emphasisMarkHeight(childLineStyle.textEmphasisMarkString());
+                    LayoutUnit bottomOfEmphasisMark = child->logicalBottom() + childLineStyle.fontCascade().emphasisMarkHeight(childLineStyle.textEmphasisMarkString());
                     result = std::max(result, bottomOfEmphasisMark - allowedPosition);
                 } else {
-                    LayoutUnit topOfEmphasisMark = curr->logicalTop() - childLineStyle.font().emphasisMarkHeight(childLineStyle.textEmphasisMarkString());
+                    LayoutUnit topOfEmphasisMark = child->logicalTop() - childLineStyle.fontCascade().emphasisMarkHeight(childLineStyle.textEmphasisMarkString());
                     result = std::max(result, allowedPosition - topOfEmphasisMark);
                 }
             }
@@ -1678,8 +1678,8 @@ void InlineFlowBox::collectLeafBoxesInLogicalOrder(Vector<InlineBox*>& leafBoxes
 void InlineFlowBox::computeReplacedAndTextLineTopAndBottom(LayoutUnit& lineTop, LayoutUnit& lineBottom) const
 {
     for (const auto* box = firstChild(); box; box = box->nextOnLine()) {
-        if (box->isInlineFlowBox())
-            toInlineFlowBox(box)->computeReplacedAndTextLineTopAndBottom(lineTop, lineBottom);
+        if (is<InlineFlowBox>(*box))
+            downcast<InlineFlowBox>(*box).computeReplacedAndTextLineTopAndBottom(lineTop, lineBottom);
         else {
             if (box->logicalTop() < lineTop)
                 lineTop = box->logicalTop();
@@ -1689,19 +1689,23 @@ void InlineFlowBox::computeReplacedAndTextLineTopAndBottom(LayoutUnit& lineTop, 
     }
 }
 
-#ifndef NDEBUG
+#if ENABLE(TREE_DEBUGGING)
 
 const char* InlineFlowBox::boxName() const
 {
     return "InlineFlowBox";
 }
 
-void InlineFlowBox::showLineTreeAndMark(const InlineBox* markedBox1, const char* markedLabel1, const InlineBox* markedBox2, const char* markedLabel2, const RenderObject* obj, int depth) const
+void InlineFlowBox::showLineTreeAndMark(const InlineBox* markedBox, int depth) const
 {
-    InlineBox::showLineTreeAndMark(markedBox1, markedLabel1, markedBox2, markedLabel2, obj, depth);
+    InlineBox::showLineTreeAndMark(markedBox, depth);
     for (const InlineBox* box = firstChild(); box; box = box->nextOnLine())
-        box->showLineTreeAndMark(markedBox1, markedLabel1, markedBox2, markedLabel2, obj, depth + 1);
+        box->showLineTreeAndMark(markedBox, depth + 1);
 }
+
+#endif
+
+#ifndef NDEBUG
 
 void InlineFlowBox::checkConsistency() const
 {

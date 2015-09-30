@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -162,3 +162,7 @@ extern void	rxpollstatpr(void);
 extern void	ifmalist_dump(void);
 
 extern int print_time(void);
+extern void	print_link_status(const char *);
+
+extern void	print_extbkidle_stats(uint32_t, char *, int);
+extern void	print_nstat_stats(uint32_t, char *, int);

@@ -1,5 +1,5 @@
 /*
- * "$Id: http.c 12131 2014-08-28 23:38:16Z msweet $"
+ * "$Id: http.c 12489 2015-02-05 19:40:10Z msweet $"
  *
  * HTTP routines for CUPS.
  *
@@ -2702,6 +2702,19 @@ httpSetField(http_t       *http,	/* I - HTTP connection */
         http->server = _cupsStrAlloc(value);
         break;
 
+    case HTTP_FIELD_WWW_AUTHENTICATE :
+       /* CUPS STR #4503 - don't override WWW-Authenticate for unknown auth schemes */
+        if (http->fields[HTTP_FIELD_WWW_AUTHENTICATE][0] &&
+	    _cups_strncasecmp(value, "Basic ", 6) &&
+	    _cups_strncasecmp(value, "Digest ", 7) &&
+	    _cups_strncasecmp(value, "Negotiate ", 10))
+	{
+	  DEBUG_printf(("1httpSetField: Ignoring unknown auth scheme in \"%s\".", value));
+          return;
+	}
+
+	/* Fall through to copy */
+
     default :
 	strlcpy(http->fields[field], value, HTTP_MAX_VALUE);
 	break;
@@ -3611,6 +3624,17 @@ httpWriteResponse(http_t        *http,	/* I - HTTP connection */
 	return (-1);
       }
     }
+
+   /*
+    * "Click-jacking" defense (STR #4492)...
+    */
+
+    if (httpPrintf(http, "X-Frame-Options: DENY\r\n"
+                         "Content-Security-Policy: frame-ancestors 'none'\r\n") < 1)
+    {
+      http->status = HTTP_STATUS_ERROR;
+      return (-1);
+    }
   }
 
   if (httpWrite2(http, "\r\n", 2) < 2)
@@ -4008,7 +4032,7 @@ http_debug_hex(const char *prefix,	/* I - Prefix for line */
   for (i = 0; i < bytes; i += 16)
   {
     for (j = 0, ptr = start; j < 16 && (i + j) < bytes; j ++, ptr += 2)
-      sprintf(ptr, "%02X", buffer[i + j] & 255);
+      snprintf(ptr, 3, "%02X", buffer[i + j] & 255);
 
     while (j < 16)
     {
@@ -4826,5 +4850,5 @@ http_write_chunk(http_t     *http,	/* I - HTTP connection */
 
 
 /*
- * End of "$Id: http.c 12131 2014-08-28 23:38:16Z msweet $".
+ * End of "$Id: http.c 12489 2015-02-05 19:40:10Z msweet $".
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,6 +61,7 @@ g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/Sys
 
 #include "../IOFireWireSerialBusProtocolTransportTimestamps.h"
 #include "../IOFireWireSerialBusProtocolTransportDebugging.h"
+#include <IOKit/scsi/SCSICommandOperationCodes.h>
 
 #define DEBUG 			0
 
@@ -115,26 +116,39 @@ enum
 #define kTraceBufferSampleSize			60000
 #define kMicrosecondsPerSecond			1000000
 #define kMicrosecondsPerMillisecond		1000
+#define kFilePathMaxSize				256
+#define kInvalid						0xdeadbeef
+#define kDivisorEntry					0xfeedface
 
 
 //-----------------------------------------------------------------------------
 //	Globals
 //-----------------------------------------------------------------------------
 
-int					gBiasSeconds		= 0;
-int					gNumCPUs			= 1;
-double				gDivisor 			= 0.0;		/* Trace divisor converts to microseconds */
-kd_buf *			gTraceBuffer		= NULL;
-boolean_t			gTraceEnabled 		= FALSE;
-boolean_t			gSetRemoveFlag		= TRUE;
-boolean_t			gVerbose			= FALSE;
-boolean_t			gEnableTraceOnly 	= FALSE;
-const char *		gProgramName		= NULL;
-uint32_t			gPrintfMask			= 0;
-uint32_t			gSavedFWDebugMask	= 0;
+int					gBiasSeconds                        = 0;
+int					gNumCPUs                            = 1;
+double				gDivisor                            = 0.0;		/* Trace divisor converts to microseconds */
+kd_buf *			gTraceBuffer                        = NULL;
+boolean_t			gTraceEnabled                       = FALSE;
+boolean_t			gSetRemoveFlag                      = TRUE;
+boolean_t			gVerbose                            = FALSE;
+boolean_t			gEnableTraceOnly                    = FALSE;
+const char *		gProgramName                        = NULL;
+uint32_t			gPrintfMask                         = 0;
+uint32_t			gSavedFWDebugMask                   = 0;
+boolean_t			gReadTraceFile                      = FALSE;
+boolean_t			gWriteToTraceFile                   = FALSE;
+FILE *				gTraceFileStream                    = NULL;
+char				gTraceFilePath [ kFilePathMaxSize ] = { 0 };
+
+u_int8_t			fullCDB [ 16 ]				= { 0 };
+int64_t 			current_usecs				= 0;
+int64_t 			prev_usecs					= 0;
+int64_t				delta_usecs					= 0;
 
 TAILQ_HEAD(SCSITaskLogEntryHead, SCSITaskLogEntry) gListHead	= TAILQ_HEAD_INITIALIZER(gListHead);
 TAILQ_HEAD(FireWireDeviceHead, FireWireDevice) gDeviceListHead	= TAILQ_HEAD_INITIALIZER(gDeviceListHead);
+
 
 //-----------------------------------------------------------------------------
 //	Prototypes
@@ -151,6 +165,9 @@ SignalHandler ( int signal );
 
 static void
 GetDivisor ( void );
+
+static void
+ParseTraceFile ( void );
 
 static void
 RegisterSignalHandlers ( void );
@@ -171,10 +188,19 @@ static void
 InitializeTraceBuffer ( void );
 
 static void
+ParseKernelTracePoint ( kd_buf inTracePoint );
+
+static void
 ParseArguments ( int argc, const char * argv[] );
 
 static void
 PrintUsage ( void );
+
+static void
+PrintSCSICommand ( void );
+
+static void
+PrintTimeStamp ( void );
 
 static FireWireDevice *
 MapObjectToDevice ( unsigned int obj );
@@ -277,26 +303,98 @@ main ( int argc, const char * argv[] )
 	
 	// Get the clock divisor.
 	GetDivisor ( );
-	
-	// Does the user only want the trace points enabled and no logging?
-	if ( gEnableTraceOnly == FALSE )
-	{
-		
-		printf ( "SBP2DiskLogger v1.0\n" );
-		
-		// No, they want logging. Start main loop.
-		while ( 1 )
-		{
-			
-			usleep ( 20 * kMicrosecondsPerMillisecond );
-			CollectTrace ( );
-			
-		}
-		
-	}
+    
+    // Does the user only want the trace points enabled and no logging?
+    if ( gEnableTraceOnly == FALSE )
+    {
+        
+        printf ( "SBP2DiskLogger v1.1\n" );
+        
+        if ( gReadTraceFile == FALSE )
+        {
+            
+            // No, they want logging. Start main loop.
+            while ( 1 )
+            {
+                
+                usleep ( 20 * kMicrosecondsPerMillisecond );
+                CollectTrace ( );
+                
+            }
+            
+        }
+        
+        else
+        {
+            
+            ParseTraceFile ( );
+            
+        }
+        
+    }
 	
 	return 0;
 	
+}
+
+
+//-----------------------------------------------------------------------------
+//	ParseTraceFile
+//-----------------------------------------------------------------------------
+
+static void
+ParseTraceFile ( )
+{
+    
+    FILE * traceFile;
+    
+    traceFile = fopen ( gTraceFilePath, "r" );
+    kd_buf kp;
+    bzero( &kp, sizeof ( kd_buf ) );
+    
+    if ( traceFile )
+    {
+        
+        while ( fread ( &kp, sizeof ( kd_buf ), 1, traceFile ) )
+        {
+            
+            kd_buf tracepoint;
+            bzero ( &tracepoint, sizeof ( kd_buf ) );
+            
+            if ( kp.debugid == kInvalid )
+            {
+                
+                printf ( "Found an invalid entry in raw file.\n" );
+                continue;
+                
+            }
+            
+            if ( kp.debugid == kDivisorEntry )
+            {
+                
+                gDivisor = ( double )( kp.timestamp );
+                printf ( "Found divisor %f as 0x%llx\n", gDivisor, kp.timestamp );
+                
+            }
+            else
+            {
+                
+                // send tracepoint to be processed
+                ParseKernelTracePoint ( kp );
+                
+            }
+            
+        }
+        
+        fclose ( traceFile );
+        
+    }
+    
+    else
+    {
+        Quit ( "Could not open specified trace file :(\n" );
+    }
+    
 }
 
 
@@ -309,11 +407,121 @@ PrintUsage ( void )
 {
 	
 	printf ( "\n" );
-	printf ( "Usage: %s [--help] [--enable] [--disable] [--all] [--verbose]\n", gProgramName );
+	printf ( "Usage: %s [--help] [--enable] [--disable] [--all] [--verbose] [--output <file_path>] [--read <file_path>]\n", gProgramName );
 	printf ( "\n" );
 	
 	exit ( 0 );
 	
+}
+
+
+//-----------------------------------------------------------------------------
+//	PrintSCSICommand
+//-----------------------------------------------------------------------------
+
+static void
+PrintSCSICommand ( void )
+{
+    
+    switch ( fullCDB [0] )
+    {
+            
+        case kSCSICmd_TEST_UNIT_READY:
+        {
+            
+            printf ( " kSCSICmd_TEST_UNIT_READY\n" );
+            
+        }
+            break;
+            
+        case kSCSICmd_REQUEST_SENSE:
+        {
+            
+            printf ( " kSCSICmd_REQUEST_SENSE\n" );
+            
+        }
+            break;
+            
+        case kSCSICmd_READ_10:
+        {
+            
+            u_int32_t	LOGICAL_BLOCK_ADDRESS	= 0;
+            u_int16_t	TRANSFER_LENGTH			= 0;
+            
+            LOGICAL_BLOCK_ADDRESS   = fullCDB [2];
+            LOGICAL_BLOCK_ADDRESS <<= 8;
+            LOGICAL_BLOCK_ADDRESS  |= fullCDB [3];
+            LOGICAL_BLOCK_ADDRESS <<= 8;
+            LOGICAL_BLOCK_ADDRESS  |= fullCDB [4];
+            LOGICAL_BLOCK_ADDRESS <<= 8;
+            LOGICAL_BLOCK_ADDRESS  |= fullCDB [5];
+            
+            TRANSFER_LENGTH   = fullCDB [7];
+            TRANSFER_LENGTH <<= 8;
+            TRANSFER_LENGTH  |= fullCDB [8];
+            
+            printf ( "kSCSICmd_READ_10, LBA = %p, length = %p\n", ( void * ) LOGICAL_BLOCK_ADDRESS, ( void * ) TRANSFER_LENGTH );
+            
+        }
+            break;
+            
+        case kSCSICmd_WRITE_10:
+        {
+            
+            u_int32_t	LOGICAL_BLOCK_ADDRESS	= 0;
+            u_int16_t	TRANSFER_LENGTH			= 0;
+            
+            LOGICAL_BLOCK_ADDRESS   = fullCDB [2];
+            LOGICAL_BLOCK_ADDRESS <<= 8;
+            LOGICAL_BLOCK_ADDRESS  |= fullCDB [3];
+            LOGICAL_BLOCK_ADDRESS <<= 8;
+            LOGICAL_BLOCK_ADDRESS  |= fullCDB [4];
+            LOGICAL_BLOCK_ADDRESS <<= 8;
+            LOGICAL_BLOCK_ADDRESS  |= fullCDB [5];
+            
+            TRANSFER_LENGTH   = fullCDB [7];
+            TRANSFER_LENGTH <<= 8;
+            TRANSFER_LENGTH  |= fullCDB [8];
+            
+            printf ( "kSCSICmd_WRITE_10, LBA = %p, length = %p\n", ( void * ) LOGICAL_BLOCK_ADDRESS, ( void * ) TRANSFER_LENGTH );
+            
+        }
+            break;
+            
+        default:
+        {
+            printf ( "This command has not yet been decoded\n" );
+        }
+            break;
+            
+    }
+    
+}
+
+
+//-----------------------------------------------------------------------------
+//	PrintTimeStamp
+//-----------------------------------------------------------------------------
+
+static void
+PrintTimeStamp ( void )
+{
+    
+    time_t		currentTime = time ( NULL );
+    
+    if ( prev_usecs == 0 )
+    {
+        delta_usecs = 0;
+    }
+    else
+    {
+        delta_usecs = current_usecs - prev_usecs;
+    }
+    
+    prev_usecs = current_usecs;
+    
+    printf ( "%-8.8s [%lld][%10lld us]", &( ctime ( &currentTime )[11] ), current_usecs, delta_usecs );
+    
 }
 
 
@@ -328,11 +536,13 @@ ParseArguments ( int argc, const char * argv[] )
 	int 					c;
 	struct option 			long_options[] =
 	{
-		{ "all",			no_argument,	0, 'a' },
-		{ "enable",			no_argument,	0, 'e' },
-		{ "disable",		no_argument,	0, 'd' },
-		{ "verbose",		no_argument,	0, 'v' },
-		{ "help",			no_argument,	0, 'h' },
+		{ "all",			no_argument,        0, 'a' },
+		{ "enable",			no_argument,        0, 'e' },
+		{ "disable",		no_argument,        0, 'd' },
+		{ "verbose",		no_argument,        0, 'v' },
+        { "output",         required_argument,  0, 'o' },
+        { "read",           required_argument,  0, 'r' },
+		{ "help",			no_argument,        0, 'h' },
 		{ 0, 0, 0, 0 }
 	};
 	
@@ -343,7 +553,7 @@ ParseArguments ( int argc, const char * argv[] )
 		return;	
 	}
 	
-    while ( ( c = getopt_long ( argc, ( char * const * ) argv , "aedvh?", long_options, NULL  ) ) != -1 )
+    while ( ( c = getopt_long ( argc, ( char * const * ) argv , "aedvo:r:h?", long_options, NULL  ) ) != -1 )
 	{
 		
 		switch ( c )
@@ -366,6 +576,33 @@ ParseArguments ( int argc, const char * argv[] )
 			case 'v':
 				gVerbose = TRUE;
 				break;
+                
+            case 'o':
+                gWriteToTraceFile = TRUE;
+                if ( optarg == NULL )
+                {
+                    Quit ( "No file specified with -f argument\n");
+                }
+                
+                if ( strlcpy ( gTraceFilePath, optarg, sizeof ( gTraceFilePath ) ) >= sizeof ( gTraceFilePath ) )
+                {
+                    Quit ( "The path length of raw file is too long\n" );
+                }
+                break;
+                
+            case 'r':
+                gReadTraceFile = TRUE;
+                printf("input is from file\n");
+                if ( optarg == NULL )
+                {
+                    Quit ( "No file specified with -r argument\n");
+                }
+                
+                if ( strlcpy ( gTraceFilePath, optarg, sizeof ( gTraceFilePath ) ) >= sizeof ( gTraceFilePath ) )
+                {
+                    Quit ( "The path length of raw file is too long\n" );
+                }
+                break;
 			
 			case 'h':
 				PrintUsage ( );
@@ -652,345 +889,36 @@ CollectTrace ( void )
 	for ( index = 0; index < count; index++ )
 	{
 		
-		int 				debugID;
-		int 				type;
-		uint64_t 			now;
-		int64_t 			usecs;
-		int 				secs;
-		time_t 				currentTime;
-		
-		debugID = gTraceBuffer[index].debugid;
-		type	= debugID & ~(DBG_FUNC_START | DBG_FUNC_END);
-		
-		now = gTraceBuffer[index].timestamp & KDBG_TIMESTAMP_MASK;
-		
-		if ( index == 0 )
-		{
-			
-			/*
-			 * Compute bias seconds after each trace buffer read.
-			 * This helps resync timestamps with the system clock
-			 * in the event of a system sleep.
-			 */
-			usecs = ( int64_t )( now / gDivisor );
-			secs = usecs / kMicrosecondsPerSecond;
-			currentTime = time ( NULL );
-			gBiasSeconds = currentTime - secs;
-			
-		}
-		
-		switch ( type )
-		{
-			
-			case kSendSCSICommandCode1:
-			{
-				
-				SCSITaskLogEntry *	entry = NULL;
-				
-				// If this isn't asked for, don't do any work.
-				if ( gVerbose == FALSE )
-					continue;
-				
-				entry = ( SCSITaskLogEntry * ) malloc ( sizeof ( SCSITaskLogEntry ) );
-				TAILQ_INSERT_TAIL ( &gListHead, entry, chain );
-				
-				// Initialize the fields.
-				bzero ( entry->cdb, sizeof ( entry->cdb ) );
-				entry->senseKey = 0;
-				entry->ASC		= 0;
-				entry->ASCQ		= 0;
-				
-				entry->taskID = gTraceBuffer[index].arg2;
-				entry->cdb[0] = gTraceBuffer[index].arg3 & 0xFF;
-				entry->cdb[1] = ( gTraceBuffer[index].arg3 >>  8 ) & 0xFF;
-				entry->cdb[2] = ( gTraceBuffer[index].arg3 >> 16 ) & 0xFF;
-				entry->cdb[3] = ( gTraceBuffer[index].arg3 >> 24 ) & 0xFF;
-				entry->cdb[4] = gTraceBuffer[index].arg4 & 0xFF;
-				entry->cdb[5] = ( gTraceBuffer[index].arg4 >>  8 ) & 0xFF;
-				entry->cdb[6] = ( gTraceBuffer[index].arg4 >> 16 ) & 0xFF;
-				entry->cdb[7] = ( gTraceBuffer[index].arg4 >> 24 ) & 0xFF;
-				
-			}
-			break;
-
-			case kSendSCSICommandCode2:
-			{
-				
-				// If this isn't asked for, don't do any work.
-				if ( gVerbose == FALSE )
-					continue;
-				
-				if ( !TAILQ_EMPTY ( &gListHead ) )
-				{
-					
-					SCSITaskLogEntry *	entry = NULL;
-					
-					entry = TAILQ_FIRST ( &gListHead );
-					while ( entry != NULL )
-					{
-						
-						if ( entry->taskID == gTraceBuffer[index].arg2 )
-						{
-							
-							entry->cdb[ 8] = gTraceBuffer[index].arg3 & 0xFF;
-							entry->cdb[ 9] = ( gTraceBuffer[index].arg3 >>  8 ) & 0xFF;
-							entry->cdb[10] = ( gTraceBuffer[index].arg3 >> 16 ) & 0xFF;
-							entry->cdb[11] = ( gTraceBuffer[index].arg3 >> 24 ) & 0xFF;
-							entry->cdb[12] = gTraceBuffer[index].arg4 & 0xFF;
-							entry->cdb[13] = ( gTraceBuffer[index].arg4 >>  8 ) & 0xFF;
-							entry->cdb[14] = ( gTraceBuffer[index].arg4 >> 16 ) & 0xFF;
-							entry->cdb[15] = ( gTraceBuffer[index].arg4 >> 24 ) & 0xFF;
-							
-							printf ( "%-8.8s FireWire Send SCSI Command, Request[0x%08X]: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
-								&( ctime ( &currentTime )[11] ),
-								entry->taskID,
-								entry->cdb[ 0], entry->cdb[ 1], entry->cdb[ 2], entry->cdb[ 3],
-								entry->cdb[ 4], entry->cdb[ 5], entry->cdb[ 6], entry->cdb[ 7],
-								entry->cdb[ 8], entry->cdb[ 9], entry->cdb[10], entry->cdb[11],
-								entry->cdb[12], entry->cdb[13], entry->cdb[14], entry->cdb[15] );
-							
-						}
-						
-						entry = TAILQ_NEXT ( entry, chain );
-						
-					}
-					
-				}
-				
-			}
-			break;
-
-			case kSCSICommandSenseDataCode:
-			{
-
-				if ( gVerbose == FALSE )
-					continue;
-				
-				if ( !TAILQ_EMPTY ( &gListHead ) )
-				{
-					
-					SCSITaskLogEntry *	entry = NULL;
-					
-					entry = TAILQ_FIRST ( &gListHead );
-					while ( entry != NULL )
-					{
-						
-						if ( entry->taskID == gTraceBuffer[index].arg2 )
-						{
-							
-							entry->senseKey = gTraceBuffer[index].arg3;
-							entry->ASC = ( gTraceBuffer[index].arg4 >> 8 ) & 0xFF;
-							entry->ASCQ = gTraceBuffer[index].arg4 & 0xFF;
-							break;
-							
-						}
-						
-						entry = TAILQ_NEXT ( entry, chain );
-						
-					}
-					
-				}
-				
-			}
-			break;
-			
-			case kCompleteSCSICommandCode:
-			{
-				
-				if ( gVerbose == FALSE )
-					continue;
-				
-				if ( !TAILQ_EMPTY ( &gListHead ) )
-				{
-					
-					SCSITaskLogEntry *	entry = NULL;
-					
-					entry = TAILQ_FIRST ( &gListHead );
-					while ( entry != NULL )
-					{
-						
-						if ( entry->taskID == gTraceBuffer[index].arg2 )
-						{
-							
-							printf ( "%-8.8s FireWire SCSI Response[0x%08X]: serviceResponse = %d, taskStatus = %d, senseKey = 0x%02X, ASC = 0x%02X, ASCQ = 0x%02X\n",
-									 &( ctime ( &currentTime )[11] ), ( unsigned int ) gTraceBuffer[index].arg2, ( int ) (gTraceBuffer[index].arg3 >> 8) & 0xFF, ( int ) gTraceBuffer[index].arg3 & 0xFF, entry->senseKey, entry->ASC, entry->ASCQ );
-							
-							TAILQ_REMOVE ( &gListHead, entry, chain );
-							free ( entry );
-							break;
-							
-						}
-						
-						entry = TAILQ_NEXT ( entry, chain );
-						
-					}
-					
-				}
-				
-			}
-			break;
-			
-			case kGUIDCode:
-			{
-				
-				uint64_t			GUID 	= 0;
-				FireWireDevice *	device	= NULL;
-				
-				GUID = gTraceBuffer[index].arg2;
-				GUID = ( GUID << 32 ) | gTraceBuffer[index].arg3;
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				
-				if ( gTraceBuffer[index].arg4 == 0 )
-				{
-					
-					printf ( "[GUID %qd]: FireWire SBP2 Device appeared, obj = 0x%08X\n", GUID, ( unsigned int ) gTraceBuffer[index].arg1 );
-					
-					device = ( FireWireDevice * ) malloc ( sizeof ( FireWireDevice ) );
-					if ( device != NULL )
-					{
-						
-						device->obj 	= gTraceBuffer[index].arg1;
-						device->GUID	= GUID;
-						
-						TAILQ_INSERT_TAIL ( &gDeviceListHead, device, chain );
-						
-					}
-				
-				}
-				
-				else
-				{
-					
-					printf ( "[GUID %qd]: FireWire SBP2 Device removed, obj = 0x%08X\n", GUID, ( unsigned int ) gTraceBuffer[index].arg1 );
-					
-					if ( !TAILQ_EMPTY ( &gDeviceListHead ) )
-					{
-						
-						FireWireDevice *	device = NULL;
-												
-						device = MapObjectToDevice ( gTraceBuffer[index].arg1 );
-						if ( device != NULL )
-						{
-							
-							TAILQ_REMOVE ( &gDeviceListHead, device, chain );
-							free ( device );
-							
-						}
-						
-					}
-					
-				}
-				
-			}
-			break;
-			
-			case kLoginRequestCode:
-			{
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Login Request, obj = 0x%08X, state = %d, count = %d\n", ( unsigned int ) gTraceBuffer[index].arg1, ( int ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3 );
-				
-			}
-			break;
-
-			case kLoginCompletionCode:
-			{
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
+        int 				debugID;
+        int 				type;
+        
+        debugID = gTraceBuffer[index].debugid;
+        type	= debugID & ~( DBG_FUNC_START | DBG_FUNC_END );
+   
+        if ( ( type >= 0x05278000 ) && ( type <= 0x052783FF ) )
+        {
+            
+            // Print trace data to stdout.
+            if ( gWriteToTraceFile == FALSE )
+            {
+            
+                ParseKernelTracePoint ( gTraceBuffer[index] );
                 
-                // We only have a valid SBP2 login params block who's values we can display if the login completed successfully. 
-                if ( gTraceBuffer[index].arg2 == 0 )
-                {
-                    printf ( "FireWire Login Completion, obj = 0x%08X, status = 0x%08X, details = 0x%02X, sbpStatus = 0x%02X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3, ( unsigned int ) gTraceBuffer[index].arg4 );
-				}
-                else
-                {
-                    printf ( "FireWire Login Completion, obj = 0x%08X, status = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
-                }
+            }
+            
+            else
+            {
                 
-			}
-			break;
-			
-			case kLoginLostCode:
-			{
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Login Lost, obj = 0x%08X, state = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
-				
-			}
-			break;
-
-			case kLoginResumedCode:
-			{
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Login Resumed, obj = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1 );
-				
-			}
-			break;
-
-			case kSubmitOrbCode:
-			{
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Submit ORB, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
-				
-			}
-			break;
-
-			case kStatusNotifyCode:
-			{
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Status Notify, obj = 0x%08X, ORB = 0x%08X, notificationEvent = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
-				
-			}
-			break;
-
-			case kFetchAgentResetCode:
-			{
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Reset Fetch Agent, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
-				
-			}
-			break;
-
-			case kFetchAgentResetCompleteCode:
-			{
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Fetch Agent Reset Complete, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
-				
-			}
-			break;
-
-			case kLogicalUnitResetCode:
-			{
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Logical Unit Reset, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
-				
-			}
-			break;
-
-			case kLogicalUnitResetCompleteCode:
-			{
-				
-				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Logical Unit Reset Complete, obj = 0x%08X, ORB = 0x%08X, status = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
-				
-			}
-			break;
-
-			default:
-			{
-				continue;
-			}
-			break;
-			
-		}
+                fwrite (    ( const void * ) & ( gTraceBuffer [ index ] ),
+                        sizeof ( kd_buf ),
+                        1,
+                        gTraceFileStream );
+                
+                fflush (    gTraceFileStream );
+                
+            }
+            
+        }
 		
 	}
 	
@@ -1078,6 +1006,333 @@ LoadFireWireExtension ( void )
 	
 	posix_spawn_file_actions_destroy ( &fileActions );
 	
+}
+
+
+//-----------------------------------------------------------------------------
+//	ParseKernelTracePoint
+//-----------------------------------------------------------------------------
+
+static void
+ParseKernelTracePoint ( kd_buf inTracePoint )
+{
+ 
+    int 				debugID;
+    int 				type;
+    uint64_t 			now;
+    
+    debugID = inTracePoint.debugid;
+    type	= debugID & ~( DBG_FUNC_START | DBG_FUNC_END );
+    
+    now = inTracePoint.timestamp & KDBG_TIMESTAMP_MASK;
+    current_usecs = ( int64_t )( now / gDivisor );
+    
+    // Filter out the traces that aren't ours.
+    if ( ( type <= 0x05278000 ) || ( type >= 0x052783FF ) )
+        return;
+    
+    PrintTimeStamp ( );
+   
+    switch ( type )
+    {
+            
+        case kSendSCSICommandCode1:
+        {
+            
+            SCSITaskLogEntry *	entry = NULL;
+            
+            // If this isn't asked for, don't do any work.
+            if ( gVerbose == FALSE )
+                return;
+            
+            entry = ( SCSITaskLogEntry * ) malloc ( sizeof ( SCSITaskLogEntry ) );
+            TAILQ_INSERT_TAIL ( &gListHead, entry, chain );
+            
+            // Initialize the fields.
+            bzero ( entry->cdb, sizeof ( entry->cdb ) );
+            entry->senseKey = 0;
+            entry->ASC		= 0;
+            entry->ASCQ		= 0;
+            
+            entry->taskID = inTracePoint.arg2;
+            entry->cdb[0] = inTracePoint.arg3 & 0xFF;
+            entry->cdb[1] = ( inTracePoint.arg3 >>  8 ) & 0xFF;
+            entry->cdb[2] = ( inTracePoint.arg3 >> 16 ) & 0xFF;
+            entry->cdb[3] = ( inTracePoint.arg3 >> 24 ) & 0xFF;
+            entry->cdb[4] = inTracePoint.arg4 & 0xFF;
+            entry->cdb[5] = ( inTracePoint.arg4 >>  8 ) & 0xFF;
+            entry->cdb[6] = ( inTracePoint.arg4 >> 16 ) & 0xFF;
+            entry->cdb[7] = ( inTracePoint.arg4 >> 24 ) & 0xFF;
+            
+        }
+            break;
+            
+        case kSendSCSICommandCode2:
+        {
+            
+            // If this isn't asked for, don't do any work.
+            if ( gVerbose == FALSE )
+                return;
+            
+            if ( !TAILQ_EMPTY ( &gListHead ) )
+            {
+                
+                SCSITaskLogEntry *	entry = NULL;
+                
+                entry = TAILQ_FIRST ( &gListHead );
+                while ( entry != NULL )
+                {
+                    
+                    if ( entry->taskID == inTracePoint.arg2 )
+                    {
+                        
+                        entry->cdb[ 8] = inTracePoint.arg3 & 0xFF;
+                        entry->cdb[ 9] = ( inTracePoint.arg3 >>  8 ) & 0xFF;
+                        entry->cdb[10] = ( inTracePoint.arg3 >> 16 ) & 0xFF;
+                        entry->cdb[11] = ( inTracePoint.arg3 >> 24 ) & 0xFF;
+                        entry->cdb[12] = inTracePoint.arg4 & 0xFF;
+                        entry->cdb[13] = ( inTracePoint.arg4 >>  8 ) & 0xFF;
+                        entry->cdb[14] = ( inTracePoint.arg4 >> 16 ) & 0xFF;
+                        entry->cdb[15] = ( inTracePoint.arg4 >> 24 ) & 0xFF;
+                        
+                        printf ( "FireWire Send SCSI Command, Request[0x%08X]: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+                                entry->taskID,
+                                entry->cdb[ 0], entry->cdb[ 1], entry->cdb[ 2], entry->cdb[ 3],
+                                entry->cdb[ 4], entry->cdb[ 5], entry->cdb[ 6], entry->cdb[ 7],
+                                entry->cdb[ 8], entry->cdb[ 9], entry->cdb[10], entry->cdb[11],
+                                entry->cdb[12], entry->cdb[13], entry->cdb[14], entry->cdb[15] );
+                        
+                    }
+                    
+                    entry = TAILQ_NEXT ( entry, chain );
+                    
+                }
+                
+            }
+            
+        }
+            break;
+            
+        case kSCSICommandSenseDataCode:
+        {
+            
+            if ( gVerbose == FALSE )
+                return;
+            
+            if ( !TAILQ_EMPTY ( &gListHead ) )
+            {
+                
+                SCSITaskLogEntry *	entry = NULL;
+                
+                entry = TAILQ_FIRST ( &gListHead );
+                while ( entry != NULL )
+                {
+                    
+                    if ( entry->taskID == inTracePoint.arg2 )
+                    {
+                        
+                        entry->senseKey = inTracePoint.arg3;
+                        entry->ASC = ( inTracePoint.arg4 >> 8 ) & 0xFF;
+                        entry->ASCQ = inTracePoint.arg4 & 0xFF;
+                        break;
+                        
+                    }
+                    
+                    entry = TAILQ_NEXT ( entry, chain );
+                    
+                }
+                
+            }
+            
+        }
+            break;
+            
+        case kCompleteSCSICommandCode:
+        {
+            
+            if ( gVerbose == FALSE )
+                return;
+            
+            if ( !TAILQ_EMPTY ( &gListHead ) )
+            {
+                
+                SCSITaskLogEntry *	entry = NULL;
+                
+                entry = TAILQ_FIRST ( &gListHead );
+                while ( entry != NULL )
+                {
+                    
+                    if ( entry->taskID == inTracePoint.arg2 )
+                    {
+                        
+                        printf ( "FireWire SCSI Response[0x%08X]: serviceResponse = %d, taskStatus = %d, senseKey = 0x%02X, ASC = 0x%02X, ASCQ = 0x%02X\n",
+                                ( unsigned int ) inTracePoint.arg2, ( int ) (inTracePoint.arg3 >> 8) & 0xFF, ( int ) inTracePoint.arg3 & 0xFF, entry->senseKey, entry->ASC, entry->ASCQ );
+                        
+                        TAILQ_REMOVE ( &gListHead, entry, chain );
+                        free ( entry );
+                        break;
+                        
+                    }
+                    
+                    entry = TAILQ_NEXT ( entry, chain );
+                    
+                }
+                
+            }
+            
+        }
+            break;
+            
+        case kGUIDCode:
+        {
+            
+            uint64_t			GUID 	= 0;
+            FireWireDevice *	device	= NULL;
+            
+            GUID = inTracePoint.arg2;
+            GUID = ( GUID << 32 ) | inTracePoint.arg3;
+            
+            if ( inTracePoint.arg4 == 0 )
+            {
+                
+                printf ( "[GUID %qd]: FireWire SBP2 Device appeared, obj = 0x%08X\n", GUID, ( unsigned int ) inTracePoint.arg1 );
+                
+                device = ( FireWireDevice * ) malloc ( sizeof ( FireWireDevice ) );
+                if ( device != NULL )
+                {
+                    
+                    device->obj 	= inTracePoint.arg1;
+                    device->GUID	= GUID;
+                    
+                    TAILQ_INSERT_TAIL ( &gDeviceListHead, device, chain );
+                    
+                }
+                
+            }
+            
+            else
+            {
+                
+                printf ( "[GUID %qd]: FireWire SBP2 Device removed, obj = 0x%08X\n", GUID, ( unsigned int ) inTracePoint.arg1 );
+                
+                if ( !TAILQ_EMPTY ( &gDeviceListHead ) )
+                {
+                    
+                    FireWireDevice *	device = NULL;
+                    
+                    device = MapObjectToDevice ( inTracePoint.arg1 );
+                    if ( device != NULL )
+                    {
+                        
+                        TAILQ_REMOVE ( &gDeviceListHead, device, chain );
+                        free ( device );
+                        
+                    }
+                    
+                }
+                
+            }
+            
+        }
+            break;
+            
+        case kLoginRequestCode:
+        {
+            
+            printf ( "FireWire Login Request, obj = 0x%08X, state = %d, count = %d\n", ( unsigned int ) inTracePoint.arg1, ( int ) inTracePoint.arg2, ( int ) inTracePoint.arg3 );
+            
+        }
+            break;
+            
+        case kLoginCompletionCode:
+        {
+            
+            // We only have a valid SBP2 login params block who's values we can display if the login completed successfully.
+            if ( inTracePoint.arg2 == 0 )
+            {
+                printf ( "FireWire Login Completion, obj = 0x%08X, status = 0x%08X, details = 0x%02X, sbpStatus = 0x%02X\n", ( unsigned int ) inTracePoint.arg1, ( unsigned int ) inTracePoint.arg2, ( unsigned int ) inTracePoint.arg3, ( unsigned int ) inTracePoint.arg4 );
+            }
+            else
+            {
+                printf ( "FireWire Login Completion, obj = 0x%08X, status = 0x%08X\n", ( unsigned int ) inTracePoint.arg1, ( unsigned int ) inTracePoint.arg2 );
+            }
+            
+        }
+            break;
+            
+        case kLoginLostCode:
+        {
+            
+            printf ( "FireWire Login Lost, obj = 0x%08X, state = 0x%08X\n", ( unsigned int ) inTracePoint.arg1, ( unsigned int ) inTracePoint.arg2 );
+            
+        }
+            break;
+            
+        case kLoginResumedCode:
+        {
+            
+            printf ( "FireWire Login Resumed, obj = 0x%08X\n", ( unsigned int ) inTracePoint.arg1 );
+            
+        }
+            break;
+            
+        case kSubmitOrbCode:
+        {
+            
+            printf ( "FireWire Submit ORB, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) inTracePoint.arg1, ( unsigned int ) inTracePoint.arg2 );
+            
+        }
+            break;
+            
+        case kStatusNotifyCode:
+        {
+            
+            printf ( "FireWire Status Notify, obj = 0x%08X, ORB = 0x%08X, notificationEvent = 0x%08X\n", ( unsigned int ) inTracePoint.arg1, ( unsigned int ) inTracePoint.arg2, ( unsigned int ) inTracePoint.arg3 );
+            
+        }
+            break;
+            
+        case kFetchAgentResetCode:
+        {
+            
+            printf ( "FireWire Reset Fetch Agent, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) inTracePoint.arg1, ( unsigned int ) inTracePoint.arg2 );
+            
+        }
+            break;
+            
+        case kFetchAgentResetCompleteCode:
+        {
+            
+            printf ( "FireWire Fetch Agent Reset Complete, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) inTracePoint.arg1, ( unsigned int ) inTracePoint.arg2 );
+            
+        }
+            break;
+            
+        case kLogicalUnitResetCode:
+        {
+            
+            printf ( "FireWire Logical Unit Reset, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) inTracePoint.arg1, ( unsigned int ) inTracePoint.arg2 );
+            
+        }
+            break;
+            
+        case kLogicalUnitResetCompleteCode:
+        {
+            
+            printf ( "FireWire Logical Unit Reset Complete, obj = 0x%08X, ORB = 0x%08X, status = 0x%08X\n", ( unsigned int ) inTracePoint.arg1, ( unsigned int ) inTracePoint.arg2, ( unsigned int ) inTracePoint.arg3 );
+            
+        }
+            break;
+            
+        default:
+        {
+            return;
+        }
+        break;
+            
+    }
+
+    
 }
 
 

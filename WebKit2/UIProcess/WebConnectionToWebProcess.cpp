@@ -27,7 +27,6 @@
 #include "WebConnectionToWebProcess.h"
 
 #include "WebConnectionMessages.h"
-#include "WebContextUserMessageCoders.h"
 #include "WebProcessProxy.h"
 
 namespace WebKit {
@@ -45,20 +44,21 @@ WebConnectionToWebProcess::WebConnectionToWebProcess(WebProcessProxy* process)
 
 void WebConnectionToWebProcess::invalidate()
 {
+    m_process->removeMessageReceiver(Messages::WebConnection::messageReceiverName());
+
     m_process = 0;
 }
 
 // WebConnection
 
-void WebConnectionToWebProcess::encodeMessageBody(IPC::ArgumentEncoder& encoder, API::Object* messageBody)
+RefPtr<API::Object> WebConnectionToWebProcess::transformHandlesToObjects(API::Object* object)
 {
-    encoder << WebContextUserMessageEncoder(messageBody, *m_process);
+    return m_process->transformHandlesToObjects(object);
 }
 
-bool WebConnectionToWebProcess::decodeMessageBody(IPC::ArgumentDecoder& decoder, RefPtr<API::Object>& messageBody)
+RefPtr<API::Object> WebConnectionToWebProcess::transformObjectsToHandles(API::Object* object)
 {
-    WebContextUserMessageDecoder messageBodyDecoder(messageBody, *m_process);
-    return decoder.decode(messageBodyDecoder);
+    return m_process->transformObjectsToHandles(object);
 }
 
 bool WebConnectionToWebProcess::hasValidConnection() const

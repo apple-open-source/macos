@@ -30,6 +30,7 @@
 
 #include "RegisterAllocator.h"
 #include <JavaScriptCore/MacroAssembler.h>
+#include <limits>
 
 namespace WebCore {
 
@@ -38,12 +39,13 @@ public:
     class StackReference {
     public:
         StackReference()
-            : m_offsetFromTop(-1)
+            : m_offsetFromTop(std::numeric_limits<unsigned>::max())
         { }
         explicit StackReference(unsigned offset)
             : m_offsetFromTop(offset)
         { }
         operator unsigned() const { return m_offsetFromTop; }
+        bool isValid() const { return m_offsetFromTop != std::numeric_limits<unsigned>::max(); }
     private:
         unsigned m_offsetFromTop;
     };
@@ -57,6 +59,11 @@ public:
     {
     }
 
+    StackReference stackTop()
+    {
+        return StackReference(m_offsetFromTop + stackUnitInBytes());
+    }
+
     ~StackAllocator()
     {
         RELEASE_ASSERT(!m_offsetFromTop);
@@ -65,16 +72,44 @@ public:
 
     StackReference allocateUninitialized()
     {
-        RELEASE_ASSERT(!m_hasFunctionCallPadding);
-        m_assembler.addPtrNoFlags(JSC::MacroAssembler::TrustedImm32(-stackUnitInBytes()), JSC::MacroAssembler::stackPointerRegister);
-        m_offsetFromTop += stackUnitInBytes();
-        return StackReference(m_offsetFromTop);
+        return allocateUninitialized(1)[0];
     }
 
-    StackReferenceVector push(const Vector<JSC::MacroAssembler::RegisterID>& registerIDs)
+    StackReferenceVector allocateUninitialized(unsigned count)
     {
         RELEASE_ASSERT(!m_hasFunctionCallPadding);
         StackReferenceVector stackReferences;
+        unsigned oldOffsetFromTop = m_offsetFromTop;
+#if CPU(ARM64)
+        for (unsigned i = 0; i < count - 1; i += 2) {
+            m_offsetFromTop += stackUnitInBytes();
+            stackReferences.append(StackReference(m_offsetFromTop - stackUnitInBytes() / 2));
+            stackReferences.append(StackReference(m_offsetFromTop));
+        }
+        if (count % 2) {
+            m_offsetFromTop += stackUnitInBytes();
+            stackReferences.append(StackReference(m_offsetFromTop));
+        }
+#else
+        for (unsigned i = 0; i < count; ++i) {
+            m_offsetFromTop += stackUnitInBytes();
+            stackReferences.append(StackReference(m_offsetFromTop));
+        }
+#endif
+        m_assembler.addPtrNoFlags(JSC::MacroAssembler::TrustedImm32(-(m_offsetFromTop - oldOffsetFromTop)), JSC::MacroAssembler::stackPointerRegister);
+        return stackReferences;
+    }
+
+    template<size_t inlineCapacity, typename OverflowHandler>
+    StackReferenceVector push(const Vector<JSC::MacroAssembler::RegisterID, inlineCapacity, OverflowHandler>& registerIDs)
+    {
+        RELEASE_ASSERT(!m_hasFunctionCallPadding);
+
+        StackReferenceVector stackReferences;
+
+        if (registerIDs.isEmpty())
+            return stackReferences;
+
 #if CPU(ARM64)
         unsigned pushRegisterCount = registerIDs.size();
         for (unsigned i = 0; i < pushRegisterCount - 1; i += 2) {
@@ -100,7 +135,8 @@ public:
         return StackReference(m_offsetFromTop);
     }
 
-    void pop(const StackReferenceVector& stackReferences, const Vector<JSC::MacroAssembler::RegisterID>& registerIDs)
+    template<size_t inlineCapacity, typename OverflowHandler>
+    void pop(const StackReferenceVector& stackReferences, const Vector<JSC::MacroAssembler::RegisterID, inlineCapacity, OverflowHandler>& registerIDs)
     {
         RELEASE_ASSERT(!m_hasFunctionCallPadding);
 
@@ -132,13 +168,6 @@ public:
         RELEASE_ASSERT(m_offsetFromTop >= stackUnitInBytes());
         m_offsetFromTop -= stackUnitInBytes();
         m_assembler.popToRestore(registerID);
-    }
-
-    void popAndDiscard(StackReference stackReference)
-    {
-        RELEASE_ASSERT(stackReference == m_offsetFromTop);
-        m_assembler.addPtr(JSC::MacroAssembler::TrustedImm32(stackUnitInBytes()), JSC::MacroAssembler::stackPointerRegister);
-        m_offsetFromTop -= stackUnitInBytes();
     }
 
     void popAndDiscardUpTo(StackReference stackReference)
@@ -205,16 +234,30 @@ public:
         stackC.reset();
     }
 
-    unsigned offsetToStackReference(StackReference stackReference)
+    JSC::MacroAssembler::Address addressOf(StackReference stackReference)
     {
-        RELEASE_ASSERT(m_offsetFromTop >= stackReference);
-        return m_offsetFromTop - stackReference;
+        return JSC::MacroAssembler::Address(JSC::MacroAssembler::stackPointerRegister, offsetToStackReference(stackReference));
     }
+
+    StackAllocator& operator=(const StackAllocator& other)
+    {
+        RELEASE_ASSERT(&m_assembler == &other.m_assembler);
+        m_offsetFromTop = other.m_offsetFromTop;
+        m_hasFunctionCallPadding = other.m_hasFunctionCallPadding;
+        return *this;
+    }
+
 
 private:
     static unsigned stackUnitInBytes()
     {
         return JSC::MacroAssembler::pushToSaveByteOffset();
+    }
+
+    unsigned offsetToStackReference(StackReference stackReference)
+    {
+        RELEASE_ASSERT(m_offsetFromTop >= stackReference);
+        return m_offsetFromTop - stackReference;
     }
 
     void reset()

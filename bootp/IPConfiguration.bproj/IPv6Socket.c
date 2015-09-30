@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -152,7 +152,7 @@ ICMPv6SocketOpen(bool receive_too)
 #if defined(SO_RECV_ANYIF)
     if (setsockopt(sockfd, SOL_SOCKET, SO_RECV_ANYIF, (caddr_t)&opt,
 		   sizeof(opt)) < 0) {
-	IPConfigLogFL(LOG_INFO, "setsockopt(SO_RECV_ANYIF) failed, %s",
+	IPConfigLogFL(LOG_ERR, "setsockopt(SO_RECV_ANYIF) failed, %s",
 		      strerror(errno));
     }
 #endif /* SO_RECV_ANYIF */
@@ -178,7 +178,7 @@ ICMPv6SocketOpen(bool receive_too)
     /* set traffic class */
     if (setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
 		   sizeof(opt)) < 0) {
-	IPConfigLogFL(LOG_INFO, "setsockopt(SO_TRAFFIC_CLASS) failed, %s",
+	IPConfigLogFL(LOG_ERR, "setsockopt(SO_TRAFFIC_CLASS) failed, %s",
 		      strerror(errno));
     }
 #endif /* SO_TRAFFIC_CLASS */

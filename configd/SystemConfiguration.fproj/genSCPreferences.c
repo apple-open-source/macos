@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -30,6 +30,9 @@
 
 /*
  * Modification History
+ *
+ * 12 March 2015		Sushant Chavan (sushant_chavan@apple.com)
+ * - cleanup of SC_SCHEMA_DECLARATION and SC_SCHEMA_KV macros.
  *
  * 4 March 2004			Allan Nathanson (ajn@apple.com)
  * - an alternate scheme to help facilitate access to the schema
@@ -59,17 +62,17 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 2000-2014 Apple Inc. All rights reserved.\n"
+" * Copyright (c) 2000-2015 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
-" * \n"
+" *\n"
 " * This file contains Original Code and/or Modifications of Original Code\n"
 " * as defined in and that are subject to the Apple Public Source License\n"
 " * Version 2.0 (the 'License'). You may not use this file except in\n"
 " * compliance with the License. Please obtain a copy of the License at\n"
 " * http://www.opensource.apple.com/apsl/ and read it before using this\n"
 " * file.\n"
-" * \n"
+" *\n"
 " * The Original Code and all software distributed under the License are\n"
 " * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER\n"
 " * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,\n"
@@ -77,7 +80,7 @@ char copyright_string[] =
 " * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.\n"
 " * Please see the License for the specific language governing rights and\n"
 " * limitations under the License.\n"
-" * \n"
+" *\n"
 " * @APPLE_LICENSE_HEADER_END@\n"
 " */\n";
 
@@ -116,6 +119,7 @@ typedef enum {
 	SC_10_9_IPHONE_7_0_PRIVATE,
 	SC_10_10_IPHONE_7_0_PRIVATE,
 	SC_10_10_IPHONE_8_0_PRIVATE,
+	SC_10_11_IPHONE_9_0_PRIVATE,
 	SC_IPHONE_2_0_PRIVATE,
 	COMMENT_DEPRECATED,
 	GROUP_DEPRECATED,
@@ -230,6 +234,7 @@ typedef enum {
 #define DHCPCLIENTID		"DHCPClientID"
 #define DIALMODE		"DialMode"
 #define DIALONDEMAND		"DialOnDemand"
+#define DISABLEUNTILNEEDED	"DisableUntilNeeded"
 #define DISCONNECT		"Disconnect"
 #define DISCONNECTONANSWER	"DisconnectOnAnswer"
 #define DISCONNECTONFASTUSERSWITCH	"DisconnectOnFastUserSwitch"
@@ -419,6 +424,7 @@ typedef enum {
 #define SERVERS			"Servers"
 #define SERVICE			"Service"
 #define SERVICES		"Services"
+#define SERVICEID		"ServiceID"
 #define SERVICEIDS		"ServiceIDs"
 #define SESSIONTIMER		"SessionTimer"
 #define SETS			"Sets"
@@ -429,6 +435,7 @@ typedef enum {
 #define SOCKS			"SOCKS"
 #define SORTLIST		"SortList"
 #define SPEAKER			"Speaker"
+#define SPECIFIC		"Specific"
 #define SPEED			"Speed"
 #define SSID			"SSID"
 #define STATE			"State"
@@ -502,7 +509,9 @@ static schemaDefinition names[] = {
     { COMMENT, "", NULL, NULL, NULL },
 
   { GROUP_PRIVATE, NULL, "Generic Keys", NULL, NULL },
+    { SC_10_5_PRIVATE, NETPROP, IGNORELINKSTATUS, NULL, CFBOOLEAN },
     { SC_10_10_IPHONE_8_0_PRIVATE, PROP, CONFIRMED INTERFACENAME, NULL, CFSTRING },
+    { SC_10_11_IPHONE_9_0_PRIVATE, PROP, DISABLEUNTILNEEDED, NULL, CFNUMBER_BOOL },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
 
@@ -574,7 +583,7 @@ static schemaDefinition names[] = {
     { SC_10_10_IPHONE_8_0_PRIVATE, NETENT, IPV4 ROUTER ARP FAILURE, NULL, NULL},
     { SC_10_10_IPHONE_8_0_PRIVATE, NETENT, IPV4 ROUTER ARP ALIVE, NULL, NULL},
     { SC_10_9_IPHONE_7_0_PRIVATE, NETENT, LINKISSUES, NULL, CFDICTIONARY},
-    { SC_10_7_IPHONE_5_0_PRIVATE, NETENT, LINKQUALITY, NULL, CFDICTIONARY}, 
+    { SC_10_7_IPHONE_5_0_PRIVATE, NETENT, LINKQUALITY, NULL, CFDICTIONARY},
     { SC_10_7_IPHONE_4_0_PRIVATE, NETENT, LOOPBACK, NULL, CFDICTIONARY },
     { SC_10_6_IPHONE_3_0_PRIVATE, NETENT, ONDEMAND, NULL, CFDICTIONARY },
     { SC_10_6_IPHONE_2_0_PRIVATE, NETENT, SERVICE, "__SERVICE__", CFDICTIONARY },
@@ -587,11 +596,6 @@ static schemaDefinition names[] = {
     { SC_10_1, NETPROP, SERVICE ORDER, NULL, CFARRAY_CFSTRING },
     { SC_10_1, NETPROP, PPP OVERRIDEPRIMARY, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
-
-  { GROUP_PRIVATE, NETPROP, KEY_PREFIX COMP NETWORK " Properties", NULL, NULL },
-
-    { SC_10_5_PRIVATE, NETPROP, IGNORELINKSTATUS, NULL, CFBOOLEAN },
-    { COMMENT_PRIVATE, "", NULL, NULL, NULL },	
 
   { GROUP, NETPROP INTERFACES, KEY_PREFIX COMP NETWORK INTERFACE " Properties", NULL, NULL },
 
@@ -661,6 +665,7 @@ static schemaDefinition names[] = {
 
   { GROUP_PRIVATE, NETPROP DNS, KEY_PREFIX NETENT DNS " Entity Keys", NULL, NULL },
 
+    { SC_10_11_IPHONE_9_0_PRIVATE, NETPROP DNS, CONFIRMED SERVICEID, NULL, CFSTRING },
 	{ SC_10_9_IPHONE_7_0_PRIVATE, NETPROP DNS, SERVICE IDENTIFIER, NULL, CFNUMBER },
 	{ SC_10_9_IPHONE_7_0_PRIVATE, NETPROP DNS, SUPPLEMENTAL MATCH DOMAINS NO SEARCH, NULL, CFNUMBER_BOOL},
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
@@ -856,7 +861,7 @@ static schemaDefinition names[] = {
   { GROUP_PRIVATE, NETPROP LINK, KEY_PREFIX NETENT LINK " Entity Keys", NULL, NULL },
     { SC_10_10_IPHONE_8_0_PRIVATE, NETPROP LINK, EXPENSIVE, NULL, CFBOOLEAN },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
-    
+
   { GROUP_PRIVATE, NETPROP LINK, KEY_PREFIX NETENT LINKISSUES " Entity Keys", NULL, NULL },
 
     { SC_10_9_IPHONE_7_0_PRIVATE, NETPROP LINKISSUES, MODULEID, NULL, CFDATA },
@@ -1087,6 +1092,7 @@ static schemaDefinition names[] = {
     { SC_10_9_IPHONE_6_0_PRIVATE, NETPROP PROXIES, FALLBACK ALLOWED, NULL, CFNUMBER_BOOL },
     { SC_10_7_IPHONE_5_0_PRIVATE, NETPROP PROXIES, SUPPLEMENTAL MATCH DOMAINS, NULL, CFARRAY_CFSTRING},
     { SC_10_7_IPHONE_5_0_PRIVATE, NETPROP PROXIES, SUPPLEMENTAL MATCH ORDERS, NULL, CFARRAY_CFNUMBER},
+    { SC_10_11_IPHONE_9_0_PRIVATE, NETPROP PROXIES, SERVICE SPECIFIC, NULL, CFNUMBER_BOOL },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
     { SC_10_7_IPHONE_5_0_PRIVATE, NETPROP PROXIES, SCOPED, "__SCOPED__", CFDICTIONARY},
     { SC_10_9_IPHONE_7_0_PRIVATE, NETPROP PROXIES, SERVICES, "__SERVICES__", CFDICTIONARY},
@@ -1278,33 +1284,12 @@ static schemaDefinition names[] = {
     { END, NULL, NULL, NULL, NULL },
 };
 
-static int	maxkbuf		= 0;
-static char	*maxkstr	= NULL;
-static int	maxvbuf		= 0;
-static char	*maxvstr	= NULL;
-
-static __inline__ void
-setmax(int *max, char **maxstr, char *str)
-{
-    int l;
-
-    l = strlen(str);
-    if (l > *max) {
-	if (*maxstr) free(*maxstr);
-	*maxstr = strdup(str);
-	*max = l;
-    }
-    return;
-}
-
 enum {
     gen_header_e,
     gen_comments_e,
     gen_comments_private_e,
     gen_headerdoc_e,
     gen_headerdoc_private_e,
-    gen_hfile_e,
-    gen_hfile_private_e,
     gen_cfile_e,
 };
 
@@ -1344,205 +1329,107 @@ print_headerdoc(schemaDefinition *def)
 
 	snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
 		 def->prefix, def->key);
-	setmax(&maxkbuf, &maxkstr, kbuf);
 
 	snprintf(vbuf, sizeof(vbuf), "\"%s\"",
 		 def->value ? def->value : def->key);
-	setmax(&maxvbuf, &maxvstr, vbuf);
+
 
 	printf("\n");
-
 	printf("/*!\n");
 	printf("  @const %s\n", kbuf);
-	switch (def->control) {
-	    case SC_10_1:
-		printf("  @availability Introduced in Mac OS X 10.1.\n");
-		break;
-	    case SC_10_2:
-		printf("  @availability Introduced in Mac OS X 10.2.\n");
-		break;
-	    case SC_10_3:
-		printf("  @availability Introduced in Mac OS X 10.3.\n");
-		break;
-	    case SC_10_1_10_4:
-		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.4.\n");
-		break;
-	    case SC_10_4:
-		printf("  @availability Introduced in Mac OS X 10.4.\n");
-		break;
-	    case SC_10_1_10_5:
-		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.\n");
-		break;
-	    case SC_10_5:
-		printf("  @availability Introduced in Mac OS X 10.5.\n");
-		break;
-	    case SC_10_5_10_7:
-		printf("  @availability Introduced in Mac OS X 10.5, but later deprecated in Mac OS X 10.7.\n");
-		break;
-	    case SC_10_5_PRIVATE:
-		printf("  @availability Introduced in Mac OS X 10.5.\n");
-		break;
-	    case SC_10_1_10_6:
-		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.\n");
-		break;
-	    case SC_10_2_10_6:
-		printf("  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.6.\n");
-		break;
-	    case SC_10_1_10_9:
-		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.9.\n");
-		break;
-	    case SC_10_2_10_9:
-		printf("  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.\n");
-		break;
-	    case SC_10_3_10_9:
-		printf("  @availability Introduced in Mac OS X 10.3, but later deprecated in Mac OS X 10.9.\n");
-		break;
-	    case SC_10_4_10_9:
-		printf("  @availability Introduced in Mac OS X 10.4, but later deprecated in Mac OS X 10.9.\n");
-		break;
-	    case SC_10_6_IPHONE_2_0:
-	    case SC_10_6_IPHONE_2_0_PRIVATE:
-		printf("  @availability Introduced in Mac OS X 10.6.\n");
-		break;
-	    case SC_10_6_IPHONE_3_0:
-	    case SC_10_6_IPHONE_3_0_PRIVATE:
-		printf("  @availability Introduced in Mac OS X 10.6.\n");
-		break;
-	    case SC_10_7_IPHONE_4_0:
-	    case SC_10_7_IPHONE_4_0_PRIVATE:
-	    case SC_10_7_IPHONE_5_0_PRIVATE:
-		printf("  @availability Introduced in Mac OS X 10.7.\n");
-		break;
-	    case SC_10_8_IPHONE_6_0_PRIVATE:
-		printf("  @availability Introduced in Mac OS X 10.8.\n");
-		break;
-	    case SC_10_9_IPHONE_6_0_PRIVATE:
-	    case SC_10_9_IPHONE_7_0_PRIVATE:
-		printf("  @availability Introduced in Mac OS X 10.9.\n");
-		break;
-	    case SC_10_10_IPHONE_7_0_PRIVATE:
-	    case SC_10_10_IPHONE_8_0_PRIVATE:
-		printf("  @availability Introduced in Mac OS X 10.10.\n");
-		break;
-	    case SC_IPHONE_2_0_PRIVATE:
-		printf("  @availability Introduced in iPhone OS 2.0.\n");
-		break;
+	if (def->type) {
+	    printf("  @discussion Value is a %s\n", def->type);
 	}
 	printf(" */\n");
-	printf("extern const CFStringRef %s;\n", kbuf);
-
-	return;
-}
-
-void
-print_hfile(schemaDefinition *def)
-{
-	char kbuf[256];
-	char vbuf[256];
-
-	snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
-		 def->prefix, def->key);
-	setmax(&maxkbuf, &maxkstr, kbuf);
-
-	snprintf(vbuf, sizeof(vbuf), "\"%s\"",
-		 def->value ? def->value : def->key);
-	setmax(&maxvbuf, &maxvstr, vbuf);
-
-	printf("\n");
-
+	printf("extern const CFStringRef %-49s", kbuf);
 	switch (def->control) {
 	    case SC_10_1:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);\n");
 		break;
 	    case SC_10_2:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);\n");
 		break;
 	    case SC_10_3:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);\n");
 		break;
 	    case SC_10_1_10_4:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA))\n", kbuf);
+		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA);\n");
 		break;
 	    case SC_10_4:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);\n");
 		break;
 	    case SC_10_1_10_5:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))\n", kbuf);
+		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);\n");
 		break;
 	    case SC_10_5:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);\n");
 		break;
 	    case SC_10_5_10_7:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_5,__MAC_10_7,__IPHONE_NA,__IPHONE_NA))\n", kbuf);
+		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_5,__MAC_10_7,__IPHONE_NA,__IPHONE_NA);\n");
 		break;
 	    case SC_10_5_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);\n");
 		break;
 	    case SC_10_1_10_6:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))\n", kbuf);
+		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);\n");
 		break;
 	    case SC_10_2_10_6:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))\n", kbuf);
+		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);\n");
 		break;
 	    case SC_10_1_10_9:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);\n");
 		break;
 	    case SC_10_2_10_9:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);\n");
 		break;
 	    case SC_10_3_10_9:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);\n");
 		break;
 	    case SC_10_4_10_9:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);\n");
 		break;
 	    case SC_10_6_IPHONE_2_0:
 	    case SC_10_6_IPHONE_2_0_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);\n");
 		break;
 	    case SC_10_6_IPHONE_3_0:
 	    case SC_10_6_IPHONE_3_0_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0/*SPI*/);\n");
 		break;
 	    case SC_10_7_IPHONE_4_0:
 	    case SC_10_7_IPHONE_4_0_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/);\n");
 		break;
 	    case SC_10_7_IPHONE_5_0_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);\n");
 		break;
 	    case SC_10_8_IPHONE_6_0_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/);\n");
 		break;
 	    case SC_10_9_IPHONE_6_0_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_6_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_6_0/*SPI*/);\n");
 		break;
 	    case SC_10_9_IPHONE_7_0_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);\n");
 		break;
 	    case SC_10_10_IPHONE_7_0_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_7_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_7_0/*SPI*/);\n");
 		break;
 	    case SC_10_10_IPHONE_8_0_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0/*SPI*/);\n");
+		break;
+	    case SC_10_11_IPHONE_9_0_PRIVATE:
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_11,__IPHONE_9_0/*SPI*/);\n");
 		break;
 	    case SC_IPHONE_2_0_PRIVATE:
-		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_2_0/*SPI*/);\n");
 		break;
 	    default:
-		printf("  " SC_SCHEMA_DECLARATION "(%s,)\n", kbuf);
+		printf("\n");
 		break;
 	}
 
-	printf("  #define %-48s              \\\n",
-	       kbuf);
-	printf("	  " SC_SCHEMA_KV "(%-48s \\\n",
-	       kbuf);
-	printf("		      ,%-48s \\\n",
-	       vbuf);
-	printf("		      ,%-48s )\n",
-	       def->type ? def->type : "");
-
+	printf("#define %s %s\n", kbuf, kbuf);
 	return;
 }
 
@@ -1595,10 +1482,6 @@ dump_names(int type)
 
 	    case DEFINE: {
 		switch (type) {
-		    case gen_hfile_e:
-			printf("\n");
-			print_define(&names[i]);
-			break;
 		    case gen_cfile_e:
 			if ((strcmp(names[i].prefix, "#if") == 0) ||
 			    (strcmp(names[i].prefix, "#ifdef") == 0) ||
@@ -1616,10 +1499,6 @@ dump_names(int type)
 
 	    case DEFINE_PRIVATE: {
 		switch (type) {
-		    case gen_hfile_private_e:
-			printf("\n");
-			print_define(&names[i]);
-			break;
 		    case gen_cfile_e:
 			if ((strcmp(names[i].prefix, "#if") == 0) ||
 			    (strcmp(names[i].prefix, "#ifdef") == 0) ||
@@ -1712,6 +1591,7 @@ dump_names(int type)
 			    case SC_10_9_IPHONE_7_0_PRIVATE:
 			    case SC_10_10_IPHONE_7_0_PRIVATE:
 			    case SC_10_10_IPHONE_8_0_PRIVATE:
+			    case SC_10_11_IPHONE_9_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 				// don't report private definitions
 				break;
@@ -1742,6 +1622,7 @@ dump_names(int type)
 			    case SC_10_9_IPHONE_7_0_PRIVATE:
 			    case SC_10_10_IPHONE_7_0_PRIVATE:
 			    case SC_10_10_IPHONE_8_0_PRIVATE:
+			    case SC_10_11_IPHONE_9_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 				print_comment(&names[i]);
 				break;
@@ -1763,6 +1644,7 @@ dump_names(int type)
 			    case SC_10_9_IPHONE_7_0_PRIVATE:
 			    case SC_10_10_IPHONE_7_0_PRIVATE:
 			    case SC_10_10_IPHONE_8_0_PRIVATE:
+			    case SC_10_11_IPHONE_9_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 				// don't report private definitions
 				break;
@@ -1783,6 +1665,7 @@ dump_names(int type)
 			    case SC_10_9_IPHONE_7_0_PRIVATE:
 			    case SC_10_10_IPHONE_7_0_PRIVATE:
 			    case SC_10_10_IPHONE_8_0_PRIVATE:
+			    case SC_10_11_IPHONE_9_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 				print_headerdoc(&names[i]);
 				break;
@@ -1791,48 +1674,6 @@ dump_names(int type)
 				break;
 			}
 			break;
-
-		    case gen_hfile_e:
-			switch (names[i].control) {
-			    case SC_10_5_PRIVATE:
-			    case SC_10_6_IPHONE_2_0_PRIVATE:
-			    case SC_10_6_IPHONE_3_0_PRIVATE:
-			    case SC_10_7_IPHONE_4_0_PRIVATE:
-			    case SC_10_7_IPHONE_5_0_PRIVATE:
-			    case SC_10_8_IPHONE_6_0_PRIVATE:
-			    case SC_10_9_IPHONE_6_0_PRIVATE:
-			    case SC_10_9_IPHONE_7_0_PRIVATE:
-			    case SC_10_10_IPHONE_7_0_PRIVATE:
-			    case SC_10_10_IPHONE_8_0_PRIVATE:
-			    case SC_IPHONE_2_0_PRIVATE:
-				break;
-				// don't report private definitions
-			    default:
-				print_hfile(&names[i]);
-				break;
-			}
-			break;
-		    case gen_hfile_private_e:
-			switch (names[i].control) {
-			    case SC_10_5_PRIVATE:
-			    case SC_10_6_IPHONE_2_0_PRIVATE:
-			    case SC_10_6_IPHONE_3_0_PRIVATE:
-			    case SC_10_7_IPHONE_4_0_PRIVATE:
-			    case SC_10_7_IPHONE_5_0_PRIVATE:
-			    case SC_10_8_IPHONE_6_0_PRIVATE:
-			    case SC_10_9_IPHONE_6_0_PRIVATE:
-			    case SC_10_9_IPHONE_7_0_PRIVATE:
-			    case SC_10_10_IPHONE_7_0_PRIVATE:
-			    case SC_10_10_IPHONE_8_0_PRIVATE:
-			    case SC_IPHONE_2_0_PRIVATE:
-				print_hfile(&names[i]);
-				break;
-			    default:
-				// don't report public definitions
-				break;
-			}
-			break;
-
 		    case gen_cfile_e:
 			snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
 				 names[i].prefix, names[i].key);
@@ -1852,12 +1693,6 @@ dump_names(int type)
 	}
     }
  done:
-    switch (type) {
-	case gen_hfile_e:
-	    fprintf(stderr, "max key: length = %2d, string = %s\n", maxkbuf, maxkstr);
-	    fprintf(stderr, "max val: length = %2d, string = %s\n", maxvbuf, maxvstr);
-	    break;
-    }
     return;
 }
 
@@ -1877,43 +1712,6 @@ main(int argc, char * argv[])
 	dump_names(gen_comments_e);
 	printf(" */\n\n\n");
 
-	printf("/*\n");
-	printf(" * Note: The MACOSX_DEPLOYMENT_TARGET environment variable should be used\n");
-	printf(" *       when building an application targeted for an earlier version of\n");
-	printf(" *       Mac OS X.  Please reference Technical Note TN2064 for more details.\n");
-	printf(" */\n\n");
-
-	printf("/*\n");
-	printf(" * Note: For Cocoa/Obj-C/Foundation applications accessing these preference\n");
-	printf(" *       keys you may want to consider the following :\n");
-	printf(" *\n");
-	printf(" *       #define " SC_SCHEMA_DECLARATION "(k,q)\textern NSString * k;\n");
-	printf(" *       #import <SystemConfiguration/SystemConfiguration.h>\n");
-	printf(" */\n\n");
-
-	printf("/*\n");
-	printf(" * Note: For CFM applications using these schema keys you may want to\n");
-	printf(" *       consider the following :\n");
-	printf(" *\n");
-	printf(" *       #define " SC_SCHEMA_DECLARATION "(k,q)\n");
-	printf(" *       #define " SC_SCHEMA_KV "(k,v,t)\tlookup_SC_key( CFSTR( #k ) )\n");
-	printf(" *       #include <SystemConfiguration/SystemConfiguration.h>\n");
-	printf(" *\n");
-	printf(" *       CFStringRef lookup_SC_key(CFStringRef key)\n");
-	printf(" *       {\n");
-	printf(" *         // this function should [dynamically, on-demand] load the\n");
-	printf(" *         // SystemConfiguration.framework, look up the provided key,\n");
-	printf(" *         // and return the associated value.\n");
-	printf(" *       }\n");
-	printf(" */\n\n");
-
-	printf("/*\n");
-	printf(" * Note: Earlier versions of this header file defined a \"SCSTR\" macro\n");
-	printf(" *       which helped to facilitate Obj-C development. Use of this macro\n");
-	printf(" *       has been deprecated (in Mac OS X 10.4) in favor of the newer\n");
-	printf(" *       \"" SC_SCHEMA_DECLARATION "\" and \"" SC_SCHEMA_KV "\" macros\n");
-	printf(" */\n\n\n");
-
 	printf("#ifndef\t_SCSCHEMADEFINITIONS_H\n");
 	printf("#ifdef\tUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS\n");
 	printf("#include <SystemConfiguration/_SCSchemaDefinitions.h>\n");
@@ -1921,46 +1719,24 @@ main(int argc, char * argv[])
 	printf("#define\t_SCSCHEMADEFINITIONS_H\n");
 	printf("\n");
 
-	printf("/* -------------------- Macro declarations -------------------- */\n\n");
-
 	printf("#include <Availability.h>\n");
 	printf("#include <TargetConditionals.h>\n");
+	printf("#include <CoreFoundation/CFString.h>\n");
 	printf("\n");
 
-	printf("/*\n");
-	printf(" * Define a schema key/value/type tuple\n");
-	printf(" */\n");
-	printf("#ifndef " SC_SCHEMA_KV "\n");
-	printf("  #define " SC_SCHEMA_KV "(k,v,t)\tk\n");
-	printf("#endif\n\n");
-
-	printf("/*\n");
-	printf(" * Provide an \"extern\" for the key/value\n");
-	printf(" */\n");
-	printf("#ifndef " SC_SCHEMA_DECLARATION "\n");
-	printf("  #ifndef SCSTR\n");
-	printf("    #include <CoreFoundation/CFString.h>\n");
-	printf("    #define " SC_SCHEMA_DECLARATION "(k,q)\textern const CFStringRef k q;\n");
-	printf("  #else\n");
-	printf("    #import <Foundation/NSString.h>\n");
-	printf("    #define " SC_SCHEMA_DECLARATION "(k,q)\textern NSString * k q;\n");
-	printf("  #endif\n");
-	printf("#endif\n");
-
-	printf("/* -------------------- HeaderDoc comments -------------------- */\n\n\n");
-	printf("#if\t0\n");
 	printf("/*!\n");
 	printf(" *\t@header SCSchemaDefinitions\n");
-	printf(" */\n");
+	printf(" */\n\n");
+
+
+	printf("\n");
+	printf("CF_ASSUME_NONNULL_BEGIN\n");
+
 	dump_names(gen_headerdoc_e);
+
 	printf("\n");
-	printf("#endif\t/* 0 */\n\n\n");
-
-	printf("/* -------------------- Schema declarations -------------------- */\n\n");
-
-
-	dump_names(gen_hfile_e);
-	printf("\n");
+	printf("CF_ASSUME_NONNULL_END");
+	printf("\n\n");
 
 	printf("#endif\t/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */\n");
 	printf("#endif\t/* _SCSCHEMADEFINITIONS_H */\n");
@@ -1977,22 +1753,13 @@ main(int argc, char * argv[])
 	printf("#define _SCSCHEMADEFINITIONSPRIVATE_H\n");
 	printf("\n");
 
-	printf("/* -------------------- Macro declarations -------------------- */\n\n");
-
 	printf("#include <SystemConfiguration/SCSchemaDefinitions.h>\n\n");
 
-	printf("/* -------------------- HeaderDoc comments -------------------- */\n\n\n");
-	printf("#if\t0\n");
 	printf("/*!\n");
 	printf(" *\t@header SCSchemaDefinitionsPrivate\n");
 	printf(" */\n");
 	dump_names(gen_headerdoc_private_e);
-	printf("\n");
-	printf("#endif\t/* 0 */\n\n\n");
-
-	printf("/* -------------------- Schema declarations -------------------- */\n\n");
-	dump_names(gen_hfile_private_e);
-	printf("\n");
+	printf("\n\n");
 
 	printf("#endif\t/* _SCSCHEMADEFINITIONSPRIVATE_H */\n");
     }

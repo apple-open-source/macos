@@ -78,6 +78,9 @@ extern kern_return_t
 IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds );
 
 extern kern_return_t
+IOHIDSetOnScreenCursorBounds( io_connect_t connect, const IOGPoint * point, const IOGBounds * bounds );
+
+extern kern_return_t
 IOHIDGetScrollAcceleration( io_connect_t handle, double * acceleration );
 
 extern kern_return_t

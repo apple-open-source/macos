@@ -35,11 +35,10 @@
 #include "ActiveDOMObject.h"
 #include "EventNames.h"
 #include "EventTarget.h"
-#include "URL.h"
 #include "NotificationClient.h"
-#include "SharedBuffer.h"
-#include "TextDirection.h"
 #include "ThreadableLoaderClient.h"
+#include "URL.h"
+#include "WritingMode.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -65,15 +64,15 @@ typedef int ExceptionCode;
 class Notification final : public RefCounted<Notification>, public ActiveDOMObject, public EventTargetWithInlineData {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    Notification();
+    WEBCORE_EXPORT Notification();
 #if ENABLE(LEGACY_NOTIFICATIONS)
-    static PassRef<Notification> create(const String& title, const String& body, const String& iconURI, ScriptExecutionContext*, ExceptionCode&, PassRefPtr<NotificationCenter> provider);
+    static Ref<Notification> create(const String& title, const String& body, const String& iconURI, ScriptExecutionContext*, ExceptionCode&, PassRefPtr<NotificationCenter> provider);
 #endif
 #if ENABLE(NOTIFICATIONS)
-    static PassRef<Notification> create(ScriptExecutionContext&, const String& title, const Dictionary& options);
+    static Ref<Notification> create(Document&, const String& title, const Dictionary& options);
 #endif
     
-    virtual ~Notification();
+    WEBCORE_EXPORT virtual ~Notification();
 
     void show();
 #if ENABLE(LEGACY_NOTIFICATIONS)
@@ -103,19 +102,10 @@ public:
 
     TextDirection direction() const { return dir() == "rtl" ? RTL : LTR; }
 
-#if ENABLE(LEGACY_NOTIFICATIONS)
-    EventListener* ondisplay() { return getAttributeEventListener(eventNames().showEvent); }
-    void setOndisplay(PassRefPtr<EventListener> listener) { setAttributeEventListener(eventNames().showEvent, listener); }
-#endif
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(show);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(close);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(click);
-    
-    void dispatchClickEvent();
-    void dispatchCloseEvent();
-    void dispatchErrorEvent();
-    void dispatchShowEvent();
+    WEBCORE_EXPORT void dispatchClickEvent();
+    WEBCORE_EXPORT void dispatchCloseEvent();
+    WEBCORE_EXPORT void dispatchErrorEvent();
+    WEBCORE_EXPORT void dispatchShowEvent();
 
     using RefCounted<Notification>::ref;
     using RefCounted<Notification>::deref;
@@ -129,12 +119,12 @@ public:
     // Deprecated. Use functions from NotificationCenter.
     void detachPresenter() { }
 
-    void finalize();
+    WEBCORE_EXPORT void finalize();
 
 #if ENABLE(NOTIFICATIONS)
     static const String permission(ScriptExecutionContext*);
-    static const String permissionString(NotificationClient::Permission);
-    static void requestPermission(ScriptExecutionContext*, PassRefPtr<NotificationPermissionCallback> = 0);
+    WEBCORE_EXPORT static const String permissionString(NotificationClient::Permission);
+    static void requestPermission(ScriptExecutionContext*, PassRefPtr<NotificationPermissionCallback> = nullptr);
 #endif
 
 private:
@@ -147,10 +137,12 @@ private:
 
     void setBody(const String& body) { m_body = body; }
 
-    // ActiveDOMObject interface
-    virtual void contextDestroyed() override;
+    // ActiveDOMObject API.
+    void contextDestroyed() override;
+    const char* activeDOMObjectName() const override;
+    bool canSuspendForPageCache() const override;
 
-    // EventTarget interface
+    // EventTarget API.
     virtual void refEventTarget() override { ref(); }
     virtual void derefEventTarget() override { deref(); }
 
@@ -158,7 +150,7 @@ private:
     void finishLoadingIcon();
 
 #if ENABLE(NOTIFICATIONS)
-    void taskTimerFired(Timer&);
+    void taskTimerFired();
 #endif
 
     // Text notifications.

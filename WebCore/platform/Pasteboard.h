@@ -34,6 +34,7 @@
 
 #if PLATFORM(GTK)
 typedef struct _GtkClipboard GtkClipboard;
+#include <wtf/glib/GRefPtr.h>
 #endif
 
 #if PLATFORM(IOS)
@@ -68,8 +69,8 @@ enum ShouldSerializeSelectedTextForDataTransfer { DefaultSelectedTextType, Inclu
 
 struct PasteboardWebContent {
 #if !(PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(WIN))
-    PasteboardWebContent();
-    ~PasteboardWebContent();
+    WEBCORE_EXPORT PasteboardWebContent();
+    WEBCORE_EXPORT ~PasteboardWebContent();
     bool canSmartCopyOrDelete;
     RefPtr<SharedBuffer> dataInWebArchiveFormat;
     RefPtr<SharedBuffer> dataInRTFDFormat;
@@ -77,6 +78,12 @@ struct PasteboardWebContent {
     String dataInStringFormat;
     Vector<String> clientTypes;
     Vector<RefPtr<SharedBuffer>> clientData;
+#endif
+#if PLATFORM(GTK)
+    bool canSmartCopyOrDelete;
+    String text;
+    String markup;
+    GRefPtr<GClosure> callback;
 #endif
 };
 
@@ -86,14 +93,19 @@ struct PasteboardURL {
 #if PLATFORM(MAC)
     String userVisibleForm;
 #endif
+#if PLATFORM(GTK)
+    String markup;
+#endif
 };
 
 struct PasteboardImage {
-    PasteboardImage();
-    ~PasteboardImage();
+    WEBCORE_EXPORT PasteboardImage();
+    WEBCORE_EXPORT ~PasteboardImage();
     RefPtr<Image> image;
-#if !(PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(WIN))
+#if !(PLATFORM(EFL) || PLATFORM(WIN))
     PasteboardURL url;
+#endif
+#if !(PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(WIN))
     RefPtr<SharedBuffer> resourceData;
     String resourceMIMEType;
 #endif
@@ -127,10 +139,22 @@ struct PasteboardPlainText {
 class Pasteboard {
     WTF_MAKE_NONCOPYABLE(Pasteboard); WTF_MAKE_FAST_ALLOCATED;
 public:
+    Pasteboard();
     ~Pasteboard();
 
-    static PassOwnPtr<Pasteboard> createForCopyAndPaste();
-    static PassOwnPtr<Pasteboard> createPrivate(); // Temporary pasteboard. Can put data on this and then write to another pasteboard with writePasteboard.
+#if PLATFORM(GTK)
+    explicit Pasteboard(PassRefPtr<DataObjectGtk>);
+    explicit Pasteboard(GtkClipboard*);
+#endif
+
+#if PLATFORM(WIN)
+    explicit Pasteboard(IDataObject*);
+    explicit Pasteboard(WCDataObject*);
+    explicit Pasteboard(const DragDataMap&);
+#endif
+
+    WEBCORE_EXPORT static std::unique_ptr<Pasteboard> createForCopyAndPaste();
+    static std::unique_ptr<Pasteboard> createPrivate(); // Temporary pasteboard. Can put data on this and then write to another pasteboard with writePasteboard.
 
     bool hasData();
     Vector<String> types();
@@ -152,27 +176,25 @@ public:
 
     void writeMarkup(const String& markup);
     enum SmartReplaceOption { CanSmartReplace, CannotSmartReplace };
-    void writePlainText(const String&, SmartReplaceOption); // FIXME: Two separate functions would be clearer than one function with an argument.
+    WEBCORE_EXPORT void writePlainText(const String&, SmartReplaceOption); // FIXME: Two separate functions would be clearer than one function with an argument.
     void writePasteboard(const Pasteboard& sourcePasteboard);
 
 #if ENABLE(DRAG_SUPPORT)
-    static PassOwnPtr<Pasteboard> createForDragAndDrop();
-    static PassOwnPtr<Pasteboard> createForDragAndDrop(const DragData&);
+    static std::unique_ptr<Pasteboard> createForDragAndDrop();
+    static std::unique_ptr<Pasteboard> createForDragAndDrop(const DragData&);
 
     void setDragImage(DragImageRef, const IntPoint& hotSpot);
 #endif
 
-#if PLATFORM(GTK) || PLATFORM(WIN)
+#if PLATFORM(WIN)
     PassRefPtr<DocumentFragment> documentFragment(Frame&, Range&, bool allowPlainText, bool& chosePlainText); // FIXME: Layering violation.
     void writeImage(Element&, const URL&, const String& title); // FIXME: Layering violation.
     void writeSelection(Range&, bool canSmartCopyOrDelete, Frame&, ShouldSerializeSelectedTextForDataTransfer = DefaultSelectedTextType); // FIXME: Layering violation.
 #endif
 
 #if PLATFORM(GTK)
-    static PassOwnPtr<Pasteboard> create(PassRefPtr<DataObjectGtk>);
-    static PassOwnPtr<Pasteboard> create(GtkClipboard*);
     PassRefPtr<DataObjectGtk> dataObject() const;
-    static PassOwnPtr<Pasteboard> createForGlobalSelection();
+    static std::unique_ptr<Pasteboard> createForGlobalSelection();
 #endif
 
 #if PLATFORM(IOS)
@@ -182,7 +204,6 @@ public:
 
 #if PLATFORM(MAC)
     explicit Pasteboard(const String& pasteboardName);
-    static PassOwnPtr<Pasteboard> create(const String& pasteboardName);
 
     const String& name() const { return m_pasteboardName; }
 #endif
@@ -190,24 +211,14 @@ public:
 #if PLATFORM(WIN)
     COMPtr<IDataObject> dataObject() const { return m_dataObject; }
     void setExternalDataObject(IDataObject*);
+    const DragDataMap& dragDataMap() const { return m_dragDataMap; }
     void writeURLToWritableDataObject(const URL&, const String&);
     COMPtr<WCDataObject> writableDataObject() const { return m_writableDataObject; }
     void writeImageToDataObject(Element&, const URL&); // FIXME: Layering violation.
 #endif
 
 private:
-    Pasteboard();
-
-#if PLATFORM(GTK)
-    Pasteboard(PassRefPtr<DataObjectGtk>);
-    Pasteboard(GtkClipboard*);
-#endif
-
 #if PLATFORM(WIN)
-    explicit Pasteboard(IDataObject*);
-    explicit Pasteboard(WCDataObject*);
-    explicit Pasteboard(const DragDataMap&);
-
     void finishCreatingPasteboard();
     void writeRangeToDataObject(Range&, Frame&); // FIXME: Layering violation.
     void writeURLToDataObject(const URL&, const String&);

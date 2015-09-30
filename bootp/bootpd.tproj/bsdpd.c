@@ -849,11 +849,14 @@ escape_password(const char * password, int password_length,
 
 #define PUNCTUATION  CFSTR(CHARSET_SYMBOLS)
     pass_str = CFStringCreateWithCString(NULL, password, kCFStringEncodingUTF8);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
     str = CFURLCreateStringByAddingPercentEscapes(NULL,
 						  pass_str, 
 						  NULL,
 						  PUNCTUATION,
 						  kCFStringEncodingUTF8);
+#pragma GCC diagnostic pop
     CFRelease(pass_str);
     if (CFStringGetCString(str,
 			   escaped_password,

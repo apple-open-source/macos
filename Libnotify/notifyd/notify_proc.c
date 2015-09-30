@@ -109,7 +109,7 @@ cancel_proc(void *px)
 		cancel_subscription(c);
 	}
 
-	_nc_list_release_list(x);
+	_nc_list_free_list(x);
 }
 
 static void
@@ -139,7 +139,7 @@ cancel_port(mach_port_t port, dispatch_source_t src)
 		cancel_subscription(c);
 	}
 
-	_nc_list_release_list(x);
+	_nc_list_free_list(x);
 }
 
 static void
@@ -316,15 +316,27 @@ kern_return_t __notify_server_post_3
 {
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
+	pid_t pid = (pid_t)-1;
+	int status;
+	name_info_t *n;
 
 	if (global.notify_state == NULL) return KERN_SUCCESS;
+
+	n = (name_info_t *)_nc_table_find_64(global.notify_state->name_id_table, name_id);
+	if (n == NULL) return KERN_SUCCESS;
+
+	status = server_preflight(NULL, 0, audit, -1, &uid, &gid, &pid, NULL);
+	if (status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
+	
+	if ((uid != 0) && has_root_entitlement(pid)) uid = 0;
+
+	status = _notify_lib_check_controlled_access(global.notify_state, n->name, uid, gid, NOTIFY_ACCESS_WRITE);
+	if (status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
 	call_statistics.post++;
 	call_statistics.post_by_id++;
 
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_post name_id %llu\n", name_id);
-
-	audit_token_to_au32(audit, NULL, &uid, &gid, NULL, NULL, NULL, NULL, NULL);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_post name_id %llu [%s]\n", name_id, n->name);
 
 	daemon_post_nid(name_id, uid, gid);
 	return KERN_SUCCESS;
@@ -342,15 +354,15 @@ kern_return_t __notify_server_post_2
 {
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
+	pid_t pid = (pid_t)-1;
 	name_info_t *n;
 
 	*name_id = 0;
 
-	*status = server_preflight(name, nameCnt, audit, -1, &uid, &gid, NULL, NULL);
+	*status = server_preflight(name, nameCnt, audit, -1, &uid, &gid, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
-	call_statistics.post++;
-	call_statistics.post_by_name_and_fetch_id++;
+	if ((uid != 0) && has_root_entitlement(pid)) uid = 0;
 
 	*status = _notify_lib_check_controlled_access(global.notify_state, name, uid, gid, NOTIFY_ACCESS_WRITE);
 	if (*status != NOTIFY_STATUS_OK)
@@ -359,6 +371,9 @@ kern_return_t __notify_server_post_2
 		return KERN_SUCCESS;
 	}
 
+	call_statistics.post++;
+	call_statistics.post_by_name_and_fetch_id++;
+	
 	n = NULL;
 	*status = daemon_post(name, uid, gid);
 	if (*status == NOTIFY_STATUS_OK)
@@ -1053,6 +1068,9 @@ kern_return_t __notify_server_set_state_3
 	*status = server_preflight(NULL, 0, audit, -1, &uid, &gid, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
+	bool root_entitlement = has_root_entitlement(pid);
+	if ((uid != 0) && root_entitlement) uid = 0;
+
 	call_statistics.set_state++;
 	call_statistics.set_state_by_client_and_fetch_id++;
 
@@ -1068,8 +1086,8 @@ kern_return_t __notify_server_set_state_3
 		*name_id = c->name_info->name_id; 
 	}
 
-	if (*name_id == UINT64_MAX) log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state_3 %d %d %llu\n", pid, token, state);
-	else log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state_3 %d %d %llu [%llu]\n", pid, token, state, *name_id);
+	if (*name_id == UINT64_MAX) log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state_3 %d %d %llu [uid %d%s gid %d]\n", pid, token, state, uid, root_entitlement ? " (entitlement)" : "", gid);
+	else log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state_3 %d %d %llu [%llu] [uid %d%s gid %d]\n", pid, token, state, *name_id, uid, root_entitlement ? " (entitlement)" : "", gid);
 
 	return KERN_SUCCESS;
 }
@@ -1107,15 +1125,19 @@ kern_return_t __notify_server_set_state_2
 	uint32_t status;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
+	pid_t pid = (pid_t)-1;
 
 	if (global.notify_state == NULL) return KERN_SUCCESS;
 
 	call_statistics.set_state++;
 	call_statistics.set_state_by_id++;
 
-	audit_token_to_au32(audit, NULL, &uid, &gid, NULL, NULL, NULL, NULL, NULL);
+	audit_token_to_au32(audit, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
 
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state_2 %llu %llu\n", name_id, state);
+	bool root_entitlement = has_root_entitlement(pid);
+	if ((uid != 0) && root_entitlement) uid = 0;
+
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state_2 %d %llu %llu [uid %d%s gid %d]\n", pid, name_id, state, uid, root_entitlement ? " (entitlement)" : "", gid);
 
 	status = _notify_lib_set_state(global.notify_state, name_id, state, uid, gid);
 	return KERN_SUCCESS;
@@ -1133,9 +1155,12 @@ kern_return_t __notify_server_set_owner
 )
 {
 	uid_t auid = (uid_t)-1;
+	pid_t pid = (pid_t)-1;
 
-	*status = server_preflight(name, nameCnt, audit, -1, &auid, NULL, NULL, NULL);
+	*status = server_preflight(name, nameCnt, audit, -1, &auid, NULL, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
+
+	if ((auid != 0) && has_root_entitlement(pid)) auid = 0;
 
 	call_statistics.set_owner++;
 
@@ -1193,11 +1218,12 @@ kern_return_t __notify_server_set_access
 	uint32_t u, g;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
+	pid_t pid = (pid_t)-1;
 
-	*status = server_preflight(name, nameCnt, audit, -1, &uid, &gid, NULL, NULL);
+	*status = server_preflight(name, nameCnt, audit, -1, &uid, &gid, &pid, NULL);
 	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
 
-	call_statistics.set_access++;
+	if ((uid != 0) && has_root_entitlement(pid)) uid = 0;
 
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_access %s 0x%03x\n", name, mode);
 
@@ -1210,6 +1236,8 @@ kern_return_t __notify_server_set_access
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		return KERN_SUCCESS;
 	}
+
+	call_statistics.set_access++;
 
 	*status = _notify_lib_set_access(global.notify_state, name, mode);
 	if ((u != 0) || (g != 0)) *status = _notify_lib_set_owner(global.notify_state, name, u, g);

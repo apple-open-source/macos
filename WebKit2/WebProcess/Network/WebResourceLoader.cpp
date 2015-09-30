@@ -38,17 +38,17 @@
 #include <WebCore/ApplicationCacheHost.h>
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/DocumentLoader.h>
-#include <WebCore/ResourceBuffer.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceLoader.h>
+#include <WebCore/SubresourceLoader.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-PassRefPtr<WebResourceLoader> WebResourceLoader::create(PassRefPtr<ResourceLoader> coreLoader)
+Ref<WebResourceLoader> WebResourceLoader::create(PassRefPtr<ResourceLoader> coreLoader)
 {
-    return adoptRef(new WebResourceLoader(coreLoader));
+    return adoptRef(*new WebResourceLoader(coreLoader));
 }
 
 WebResourceLoader::WebResourceLoader(PassRefPtr<WebCore::ResourceLoader> coreLoader)
@@ -62,7 +62,7 @@ WebResourceLoader::~WebResourceLoader()
 
 IPC::Connection* WebResourceLoader::messageSenderConnection()
 {
-    return WebProcess::shared().networkConnection()->connection();
+    return WebProcess::singleton().networkConnection()->connection();
 }
 
 uint64_t WebResourceLoader::messageSenderDestinationID()
@@ -77,24 +77,25 @@ void WebResourceLoader::cancelResourceLoader()
 
 void WebResourceLoader::detachFromCoreLoader()
 {
-    m_coreLoader = 0;
+    m_coreLoader = nullptr;
 }
 
 void WebResourceLoader::willSendRequest(const ResourceRequest& proposedRequest, const ResourceResponse& redirectResponse)
 {
     LOG(Network, "(WebProcess) WebResourceLoader::willSendRequest to '%s'", proposedRequest.url().string().utf8().data());
 
-    Ref<WebResourceLoader> protect(*this);
+    RefPtr<WebResourceLoader> protect(this);
 
     ResourceRequest newRequest = proposedRequest;
     if (m_coreLoader->documentLoader()->applicationCacheHost()->maybeLoadFallbackForRedirect(m_coreLoader.get(), newRequest, redirectResponse))
         return;
-    m_coreLoader->willSendRequest(newRequest, redirectResponse);
-    
-    if (!m_coreLoader)
-        return;
-    
-    send(Messages::NetworkResourceLoader::ContinueWillSendRequest(newRequest));
+    // FIXME: Do we need to update NetworkResourceLoader clientCredentialPolicy in case loader policy is DoNotAskClientForCrossOriginCredentials?
+    m_coreLoader->willSendRequest(WTF::move(newRequest), redirectResponse, [protect](ResourceRequest&& request) {
+        if (!protect->m_coreLoader)
+            return;
+
+        protect->send(Messages::NetworkResourceLoader::ContinueWillSendRequest(request));
+    });
 }
 
 void WebResourceLoader::didSendData(uint64_t bytesSent, uint64_t totalBytesToBeSent)
@@ -102,33 +103,28 @@ void WebResourceLoader::didSendData(uint64_t bytesSent, uint64_t totalBytesToBeS
     m_coreLoader->didSendData(bytesSent, totalBytesToBeSent);
 }
 
-void WebResourceLoader::didReceiveResponseWithCertificateInfo(const ResourceResponse& response, const CertificateInfo& certificateInfo, bool needsContinueDidReceiveResponseMessage)
+void WebResourceLoader::didReceiveResponse(const ResourceResponse& response, bool needsContinueDidReceiveResponseMessage)
 {
     LOG(Network, "(WebProcess) WebResourceLoader::didReceiveResponseWithCertificateInfo for '%s'. Status %d.", m_coreLoader->url().string().utf8().data(), response.httpStatusCode());
 
     Ref<WebResourceLoader> protect(*this);
 
-    ResourceResponse responseCopy(response);
-
-    // FIXME: This should use CertificateInfo to avoid the platform ifdefs. See https://bugs.webkit.org/show_bug.cgi?id=124724.
-#if PLATFORM(COCOA)
-    responseCopy.setCertificateChain(certificateInfo.certificateChain());
-#elif USE(SOUP)
-    responseCopy.setSoupMessageCertificate(certificateInfo.certificate());
-    responseCopy.setSoupMessageTLSErrors(certificateInfo.tlsErrors());
-#endif
-
-    if (m_coreLoader->documentLoader()->applicationCacheHost()->maybeLoadFallbackForResponse(m_coreLoader.get(), responseCopy))
+    if (m_coreLoader->documentLoader()->applicationCacheHost()->maybeLoadFallbackForResponse(m_coreLoader.get(), response))
         return;
 
+    bool shoudCallCoreLoaderDidReceiveResponse = true;
 #if USE(QUICK_LOOK)
     // Refrain from calling didReceiveResponse if QuickLook will convert this response, since the MIME type of the
     // converted resource isn't yet known. WebResourceLoaderQuickLookDelegate will later call didReceiveResponse upon
     // receiving the converted data.
-    m_coreLoader->documentLoader()->setQuickLookHandle(QuickLookHandle::create(resourceLoader(), responseCopy.nsURLResponse()));
-    if (!m_coreLoader->documentLoader()->quickLookHandle())
+    bool isMainLoad = m_coreLoader->documentLoader()->mainResourceLoader() == m_coreLoader;
+    if (isMainLoad && QuickLookHandle::shouldCreateForMIMEType(response.mimeType())) {
+        m_coreLoader->documentLoader()->setQuickLookHandle(QuickLookHandle::create(*m_coreLoader, response));
+        shoudCallCoreLoaderDidReceiveResponse = false;
+    }
 #endif
-        m_coreLoader->didReceiveResponse(responseCopy);
+    if (shoudCallCoreLoaderDidReceiveResponse)
+        m_coreLoader->didReceiveResponse(response);
 
     // If m_coreLoader becomes null as a result of the didReceiveResponse callback, we can't use the send function(). 
     if (!m_coreLoader)
@@ -182,11 +178,12 @@ void WebResourceLoader::didReceiveResource(const ShareableResource::Handle& hand
 {
     LOG(Network, "(WebProcess) WebResourceLoader::didReceiveResource for '%s'", m_coreLoader->url().string().utf8().data());
 
+    RefPtr<SharedBuffer> buffer = handle.tryWrapInSharedBuffer();
+
 #if USE(QUICK_LOOK)
     if (QuickLookHandle* quickLookHandle = m_coreLoader->documentLoader()->quickLookHandle()) {
-        RetainPtr<CFDataRef> cfBuffer = handle.tryWrapInCFData();
-        if (cfBuffer) {
-            if (quickLookHandle->didReceiveData(cfBuffer.get())) {
+        if (buffer) {
+            if (quickLookHandle->didReceiveData(buffer->existingCFData())) {
                 quickLookHandle->didFinishLoading();
                 return;
             }
@@ -195,7 +192,6 @@ void WebResourceLoader::didReceiveResource(const ShareableResource::Handle& hand
     }
 #endif
 
-    RefPtr<SharedBuffer> buffer = handle.tryWrapInSharedBuffer();
     if (!buffer) {
         LOG_ERROR("Unable to create buffer from ShareableResource sent from the network process.");
         m_coreLoader->didFail(internalError(m_coreLoader->request().url()));

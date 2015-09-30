@@ -912,6 +912,15 @@ int main (int argc, const char * argv[])
             else if ( !strcmp("--ri", argv[argi]) && (argi+1) < argc) {
                 reportInterval = (uint32_t)strtol(argv[++argi], NULL, 10);
             }
+            else if ( !strcmp("--auth", argv[argi]) && (argi+1) < argc) {
+                int authenticated = (uint32_t)strtol(argv[++argi], NULL, 10);
+            
+                if (authenticated) {
+                    CFDictionarySetValue(properties, CFSTR("Authenticated"), kCFBooleanTrue);
+                } else {
+                    CFDictionarySetValue(properties, CFSTR("Authenticated"), kCFBooleanFalse);
+                }
+            }
         }
         // data
         else if ( !dataString && data && dataIndex < dataSize ) {

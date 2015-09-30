@@ -27,7 +27,8 @@
 #define File_h
 
 #include "Blob.h"
-#include <wtf/PassRefPtr.h>
+#include <wtf/Ref.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -36,22 +37,22 @@ class URL;
 
 class File final : public Blob {
 public:
-    static PassRefPtr<File> create(const String& path)
+    static Ref<File> create(const String& path)
     {
-        return adoptRef(new File(path));
+        return adoptRef(*new File(path));
     }
 
-    static PassRefPtr<File> deserialize(const String& path, const URL& srcURL, const String& type, const String& name)
+    static Ref<File> deserialize(const String& path, const URL& srcURL, const String& type, const String& name)
     {
-        return adoptRef(new File(deserializationContructor, path, srcURL, type, name));
+        return adoptRef(*new File(deserializationContructor, path, srcURL, type, name));
     }
 
     // Create a file with a name exposed to the author (via File.name and associated DOM properties) that differs from the one provided in the path.
-    static PassRefPtr<File> createWithName(const String& path, const String& nameOverride)
+    static Ref<File> createWithName(const String& path, const String& nameOverride)
     {
         if (nameOverride.isEmpty())
-            return adoptRef(new File(path));
-        return adoptRef(new File(path, nameOverride));
+            return adoptRef(*new File(path));
+        return adoptRef(*new File(path, nameOverride));
     }
 
     virtual bool isFile() const override { return true; }
@@ -69,7 +70,7 @@ public:
 #endif
 
 private:
-    explicit File(const String& path);
+    WEBCORE_EXPORT explicit File(const String& path);
     File(const String& path, const String& nameOverride);
 
     File(DeserializationContructor, const String& path, const URL& srcURL, const String& type, const String& name);
@@ -83,18 +84,10 @@ private:
     String m_name;
 };
 
-inline File* toFile(Blob* blob)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!blob || blob->isFile());
-    return static_cast<File*>(blob);
-}
-
-inline const File* toFile(const Blob* blob)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(!blob || blob->isFile());
-    return static_cast<const File*>(blob);
-}
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::File)
+    static bool isType(const WebCore::Blob& blob) { return blob.isFile(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // File_h

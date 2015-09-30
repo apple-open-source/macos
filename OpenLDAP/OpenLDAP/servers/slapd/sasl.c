@@ -605,7 +605,6 @@ sasl_authdata_lookup( Operation *op, SlapReply *rs )
 		return 0;
 	}
 	for ( i = 0; sl->list[i].name; i++ ) {
-		bool desdecode = 0;
 		const char *findattr = sl->list[i].name+1;
 
 		// Requests for cmusaslsecretDIGEST-MD5 mapped to cmusaslsecretDIGEST-UMD5
@@ -613,21 +612,19 @@ sasl_authdata_lookup( Operation *op, SlapReply *rs )
 			findattr = "cmusaslsecretDIGEST-UMD5";
 		}
 
-		if ( !strncmp( sl->list[i].name, "*cmusasl", 8) ) {
-			ad = NULL;
-			text = NULL;
-			rc = slap_str2ad(findattr, &ad, &text);
-			if (rc != LDAP_SUCCESS) {
-				Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed\n", __PRETTY_FUNCTION__, 0, 0);
-				return 0;
-			}
+		ad = NULL;
+		text = NULL;
+		rc = slap_str2ad(findattr, &ad, &text);
+		if (rc != LDAP_SUCCESS) {
+			Debug(LDAP_DEBUG_TRACE, "%s: slap_str2ad failed of (%s)\n", __PRETTY_FUNCTION__, findattr, 0);
+			continue;
+		}
 
-			a = attr_find(rs->sr_entry->e_attrs, ad);
-			if ( !a ) return 0;
-			for ( bv = a->a_vals; bv->bv_val; bv++ ) {
-				sl->sparams->utils->prop_set(sl->sparams->propctx, sl->list[i].name, bv->bv_val, bv->bv_len);
-				break;
-			}
+		a = attr_find(rs->sr_entry->e_attrs, ad);
+		if ( !a ) continue;
+		for ( bv = a->a_vals; bv->bv_val; bv++ ) {
+			sl->sparams->utils->prop_set(sl->sparams->propctx, sl->list[i].name, bv->bv_val, bv->bv_len);
+			break;
 		}
 	}
 
@@ -1891,7 +1888,7 @@ int slap_sasl_bind( Operation *op, SlapReply *rs )
 			Debug(LDAP_DEBUG_ANY, "%s: Account Policy Violation for: %s\n", __PRETTY_FUNCTION__, op->o_conn->c_sasl_dn.bv_val, 0);
 			CFIndex errcode = cferr ? CFErrorGetCode(cferr) : 0;
 			switch (errcode) {
-				case kAPResultFailedAuthenticationPolicy: rs->sr_text = "2 Account expired"; break;
+				case kAPResultFailedAuthenticationPolicy: rs->sr_text = "1 Account disabled"; break;
 				case kAPResultFailedPasswordChangePolicy: rs->sr_text = "5 New password required"; break;
 				default: rs->sr_text = "99 Account Policy Violation"; break;
 			}
@@ -1992,7 +1989,7 @@ int slap_sasl_bind( Operation *op, SlapReply *rs )
 
 out:
 
-	Debug(LDAP_DEBUG_TRACE, "<== slap_sasl_bind: rc=%d\n", rs->sr_err, 0, 0);
+	Debug(LDAP_DEBUG_TRACE, "<== slap_sasl_bind: rc=%d : (%s)\n", rs->sr_err, rs->sr_text, 0);
 
 #elif defined(SLAP_BUILTIN_SASL)
 	/* built-in SASL implementation */

@@ -33,12 +33,13 @@ class RenderMeter;
 class HTMLProgressElement;
 class RenderProgress;
     
-class AccessibilityProgressIndicator : public AccessibilityRenderObject {
+class AccessibilityProgressIndicator final : public AccessibilityRenderObject {
 public:
-    static PassRefPtr<AccessibilityProgressIndicator> create(RenderProgress*);
+    static Ref<AccessibilityProgressIndicator> create(RenderProgress*);
 #if ENABLE(METER_ELEMENT)
-    static PassRefPtr<AccessibilityProgressIndicator> create(RenderMeter*);
+    static Ref<AccessibilityProgressIndicator> create(RenderMeter*);
 #endif
+    virtual Element* element() const override;
 
 private:
     virtual AccessibilityRole roleValue() const override { return ProgressIndicatorRole; }

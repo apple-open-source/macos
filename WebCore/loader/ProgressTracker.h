@@ -48,7 +48,7 @@ public:
 
     static unsigned long createUniqueIdentifier();
 
-    double estimatedProgress() const;
+    WEBCORE_EXPORT double estimatedProgress() const;
 
     void progressStarted(Frame&);
     void progressCompleted(Frame&);
@@ -66,7 +66,7 @@ private:
     void reset();
     void finalProgressComplete();
 
-    void progressHeartbeatTimerFired(Timer&);
+    void progressHeartbeatTimerFired();
     
     static unsigned long s_uniqueIdentifier;
     

@@ -53,14 +53,25 @@
 #undef __STDC_LIMIT_MACROS
 #undef __STDC_CONSTANT_MACROS
 
-extern "C" WTF_EXPORT_PRIVATE JSC::LLVMAPI* initializeAndGetJSCLLVMAPI(void (*)(const char*, ...));
+static void llvmCrash(const char*) NO_RETURN;
+extern "C" WTF_EXPORT_PRIVATE JSC::LLVMAPI* initializeAndGetJSCLLVMAPI(
+    void (*)(const char*, ...) NO_RETURN, bool* enableFastISel);
 
 static void llvmCrash(const char* reason)
 {
     g_llvmTrapCallback("LLVM fatal error: %s", reason);
 }
 
-extern "C" JSC::LLVMAPI* initializeAndGetJSCLLVMAPI(void (*callback)(const char*, ...))
+template<typename... Args>
+void initCommandLine(Args... args)
+{
+    const char* theArgs[] = { args... };
+    llvm::cl::ParseCommandLineOptions(sizeof(theArgs) / sizeof(const char*), theArgs);
+}
+
+extern "C" JSC::LLVMAPI* initializeAndGetJSCLLVMAPI(
+    void (*callback)(const char*, ...) NO_RETURN,
+    bool* enableFastISel)
 {
     g_llvmTrapCallback = callback;
     
@@ -81,28 +92,49 @@ extern "C" JSC::LLVMAPI* initializeAndGetJSCLLVMAPI(void (*callback)(const char*
     LLVMInitializeX86AsmPrinter();
     LLVMInitializeX86Disassembler();
 #elif CPU(ARM64)
+#if (__IPHONE_OS_VERSION_MIN_REQUIRED > 80200) || OS(LINUX)
+    LLVMInitializeAArch64TargetInfo();
+    LLVMInitializeAArch64Target();
+    LLVMInitializeAArch64TargetMC();
+    LLVMInitializeAArch64AsmPrinter();
+    LLVMInitializeAArch64Disassembler();
+#else
     LLVMInitializeARM64TargetInfo();
     LLVMInitializeARM64Target();
     LLVMInitializeARM64TargetMC();
     LLVMInitializeARM64AsmPrinter();
     LLVMInitializeARM64Disassembler();
+#endif
 #else
     UNREACHABLE_FOR_PLATFORM();
 #endif
     
-    const char* args[] = {
-        "llvmForJSC.dylib",
-        "-enable-stackmap-liveness=true",
-        "-enable-patchpoint-liveness=true"
-    };
-    llvm::cl::ParseCommandLineOptions(sizeof(args) / sizeof(const char*), args);
+#if LLVM_VERSION_MAJOR >= 4 || (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 6)
+    // It's OK to have fast ISel, if it was requested.
+#else
+    // We don't have enough support for fast ISel. Disable it.
+    *enableFastISel = false;
+#endif
+
+    if (*enableFastISel)
+        initCommandLine("llvmForJSC.dylib", "-enable-misched=false", "-regalloc=basic");
+    else
+        initCommandLine("llvmForJSC.dylib", "-enable-patchpoint-liveness=true");
     
     JSC::LLVMAPI* result = new JSC::LLVMAPI;
+    
+    // Initialize the whole thing to null.
+    memset(result, 0, sizeof(*result));
     
 #define LLVM_API_FUNCTION_ASSIGNMENT(returnType, name, signature) \
     result->name = LLVM##name;
     FOR_EACH_LLVM_API_FUNCTION(LLVM_API_FUNCTION_ASSIGNMENT);
 #undef LLVM_API_FUNCTION_ASSIGNMENT
+    
+    // Handle conditionally available functions.
+#if LLVM_VERSION_MAJOR >= 4 || (LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 6)
+    result->AddLowerSwitchPass = LLVMAddLowerSwitchPass;
+#endif
     
     return result;
 }

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2014, International Business Machines Corporation and
+ * Copyright (c) 1997-2015, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*****************************************************************************
@@ -20,6 +20,7 @@
 #include "cstring.h"
 #include "uparse.h"
 #include "uresimp.h"
+#include "cmemory.h"
 
 #include "unicode/putil.h"
 #include "unicode/ubrk.h"
@@ -36,7 +37,7 @@
 #include "unicode/uldnames.h"
 #include "unicode/parseerr.h" /* may not be included with some uconfig switches */
 #include "udbgutil.h"
-#define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
+#include "unicode/ualoc.h" /* Apple-specific */
 
 static void TestNullDefault(void);
 static void TestNonexistentLanguageExemplars(void);
@@ -46,7 +47,11 @@ static void TestDisplayNameBrackets(void);
 
 static void TestUnicodeDefines(void);
 
+static void TestIsRightToLeft(void);
+
+static void TestGetLanguagesForRegion(void);
 static void TestGetAppleParent(void);
+static void TestAppleLocalizationsToUse(void);
 
 void PrintDataTable();
 
@@ -100,7 +105,7 @@ static const char* const rawData2[LOCALE_INFO_SIZE][LOCALE_SIZE] = {
     /* display name (French) */
     {   "anglais (\\u00C9tats-Unis)", "fran\\u00E7ais (France)", "catalan (Espagne)", 
         "grec (Gr\\u00E8ce)", "norv\\u00E9gien (Norv\\u00E8ge, NY)",  "chinois (simplifi\\u00e9, Chine)", 
-        "allemand (Allemagne, ordre de tri=ordre de l\\u2019annuaire)", "espagnol (ordre de tri=ordre traditionnel)", "japonais (Japon, calendrier=Calendrier japonais)" },
+        "allemand (Allemagne, ordre de tri=ordre de l\\u2019annuaire)", "espagnol (ordre de tri=ordre traditionnel)", "japonais (Japon, calendrier=calendrier japonais)" },
 
     /* display language (Catalan) */
     {   "angl\\u00E8s", "franc\\u00E8s", "catal\\u00E0", "grec",  "noruec", "xin\\u00E8s", "alemany", "espanyol", "japon\\u00E8s"    },
@@ -250,7 +255,14 @@ void addLocaleTest(TestNode** root)
     TESTCASE(TestUnicodeDefines);
     TESTCASE(TestEnglishExemplarCharacters);
     TESTCASE(TestDisplayNameBrackets);
+    TESTCASE(TestIsRightToLeft);
+    TESTCASE(TestToUnicodeLocaleKey);
+    TESTCASE(TestToLegacyKey);
+    TESTCASE(TestToUnicodeLocaleType);
+    TESTCASE(TestToLegacyType);
+    TESTCASE(TestGetLanguagesForRegion);
     TESTCASE(TestGetAppleParent);
+    TESTCASE(TestAppleLocalizationsToUse);
 }
 
 
@@ -668,7 +680,7 @@ static void TestDisplayNames()
 
     /* test that the default locale has a display name for its own language */
     errorCode=U_ZERO_ERROR;
-    length=uloc_getDisplayLanguage(NULL, NULL, buffer, LENGTHOF(buffer), &errorCode);
+    length=uloc_getDisplayLanguage(NULL, NULL, buffer, UPRV_LENGTHOF(buffer), &errorCode);
     if(U_FAILURE(errorCode) || (length<=3 && buffer[0]<=0x7f)) {
         /* check <=3 to reject getting the language code as a display name */
         log_data_err("unable to get a display string for the language of the default locale - %s (Are you missing data?)\n", u_errorName(errorCode));
@@ -676,14 +688,14 @@ static void TestDisplayNames()
 
     /* test that we get the language code itself for an unknown language, and a default warning */
     errorCode=U_ZERO_ERROR;
-    length=uloc_getDisplayLanguage("qq", "rr", buffer, LENGTHOF(buffer), &errorCode);
+    length=uloc_getDisplayLanguage("qq", "rr", buffer, UPRV_LENGTHOF(buffer), &errorCode);
     if(errorCode!=U_USING_DEFAULT_WARNING || length!=2 || buffer[0]!=0x71 || buffer[1]!=0x71) {
         log_err("error getting the display string for an unknown language - %s\n", u_errorName(errorCode));
     }
     
     /* test that we get a default warning for a display name where one component is unknown (4255) */
     errorCode=U_ZERO_ERROR;
-    length=uloc_getDisplayName("qq_US_POSIX", "en_US", buffer, LENGTHOF(buffer), &errorCode);
+    length=uloc_getDisplayName("qq_US_POSIX", "en_US", buffer, UPRV_LENGTHOF(buffer), &errorCode);
     if(errorCode!=U_USING_DEFAULT_WARNING) {
         log_err("error getting the display name for a locale with an unknown language - %s\n", u_errorName(errorCode));
     }
@@ -696,14 +708,14 @@ static void TestDisplayNames()
             "ca_ES",
             "el_GR" };
         static const char *expect[] = { "Spanish (Calendar=Japanese Calendar, Sort Order=Traditional Sort Order)", /* note sorted order of keywords */
-            "espagnol (calendrier=Calendrier japonais, ordre de tri=ordre traditionnel)",
+            "espagnol (calendrier=calendrier japonais, ordre de tri=ordre traditionnel)",
             "espanyol (calendari=calendari japon\\u00e8s, ordenaci\\u00f3=ordre tradicional)",
             "\\u0399\\u03c3\\u03c0\\u03b1\\u03bd\\u03b9\\u03ba\\u03ac (\\u0397\\u03bc\\u03b5\\u03c1\\u03bf\\u03bb\\u03cc\\u03b3\\u03b9\\u03bf=\\u0399\\u03b1\\u03c0\\u03c9\\u03bd\\u03b9\\u03ba\\u03cc \\u03b7\\u03bc\\u03b5\\u03c1\\u03bf\\u03bb\\u03cc\\u03b3\\u03b9\\u03bf, \\u03a3\\u03b5\\u03b9\\u03c1\\u03ac \\u03c4\\u03b1\\u03be\\u03b9\\u03bd\\u03cc\\u03bc\\u03b7\\u03c3\\u03b7\\u03c2=\\u03a0\\u03b1\\u03c1\\u03b1\\u03b4\\u03bf\\u03c3\\u03b9\\u03b1\\u03ba\\u03ae \\u03c3\\u03b5\\u03b9\\u03c1\\u03ac \\u03c4\\u03b1\\u03be\\u03b9\\u03bd\\u03cc\\u03bc\\u03b7\\u03c3\\u03b7\\u03c2)" };
         UChar *expectBuffer;
 
-        for(i=0;i<LENGTHOF(testL);i++) {
+        for(i=0;i<UPRV_LENGTHOF(testL);i++) {
             errorCode = U_ZERO_ERROR;
-            uloc_getDisplayName(aLocale, testL[i], buffer, LENGTHOF(buffer), &errorCode);
+            uloc_getDisplayName(aLocale, testL[i], buffer, UPRV_LENGTHOF(buffer), &errorCode);
             if(U_FAILURE(errorCode)) {
                 log_err("FAIL in uloc_getDisplayName(%s,%s,..) -> %s\n", aLocale, testL[i], u_errorName(errorCode));
             } else {
@@ -735,7 +747,7 @@ static void TestDisplayNames()
         if(ec==U_BUFFER_OVERFLOW_ERROR) {
             ec=U_ZERO_ERROR;
         }
-        len=uloc_getDisplayName(locale, displayLocale, result, LENGTHOF(result), &ec);
+        len=uloc_getDisplayName(locale, displayLocale, result, UPRV_LENGTHOF(result), &ec);
         if(U_FAILURE(ec)) {
             log_err("uloc_getDisplayName(%s, %s...) returned error: %s",
                     locale, displayLocale, u_errorName(ec));
@@ -1036,16 +1048,21 @@ typedef struct {
     const char * namedRegion;
     const char * namedLocale;
     const char * regionName;
-    const char * localeName;
+    const char * ulocLocaleName;
+    const char * uldnLocaleName;
 } DisplayNameBracketsItem;
 
 static const DisplayNameBracketsItem displayNameBracketsItems[] = {
-    { "en", "CC", "en_CC",      "Cocos (Keeling) Islands",  "English (Cocos [Keeling] Islands)"  },
-    { "en", "MM", "my_MM",      "Myanmar (Burma)",          "Burmese (Myanmar [Burma])"          },
-    { "en", "MM", "my_Mymr_MM", "Myanmar (Burma)",          "Burmese (Myanmar, Myanmar [Burma])" },
-    { "zh", "CC", "en_CC",      "\\u79D1\\u79D1\\u65AF\\uFF08\\u57FA\\u6797\\uFF09\\u7FA4\\u5C9B", "\\u82F1\\u6587\\uFF08\\u79D1\\u79D1\\u65AF\\uFF3B\\u57FA\\u6797\\uFF3D\\u7FA4\\u5C9B\\uFF09" },
-    { "zh", "CG", "fr_CG",      "\\u521A\\u679C\\uFF08\\u5E03\\uFF09",                             "\\u6CD5\\u6587\\uFF08\\u521A\\u679C\\uFF3B\\u5E03\\uFF3D\\uFF09" },
-    { NULL, NULL, NULL,         NULL,                       NULL                                 }
+    { "en", "CC", "en_CC",      "Cocos (Keeling) Islands",  "English (Cocos [Keeling] Islands)",  "English (Cocos [Keeling] Islands)" },
+    { "en", "MM", "my_MM",      "Myanmar (Burma)",          "Burmese (Myanmar [Burma])",          "Burmese (Myanmar)"                 },
+    { "en", "MM", "my_Mymr_MM", "Myanmar (Burma)",          "Burmese (Myanmar, Myanmar [Burma])", "Burmese (Myanmar, Myanmar)"        },
+    { "zh", "CC", "en_CC",      "\\u79D1\\u79D1\\u65AF\\uFF08\\u57FA\\u6797\\uFF09\\u7FA4\\u5C9B",
+                                "\\u82F1\\u6587\\uFF08\\u79D1\\u79D1\\u65AF\\uFF3B\\u57FA\\u6797\\uFF3D\\u7FA4\\u5C9B\\uFF09",
+                                "\\u82F1\\u6587\\uFF08\\u79D1\\u79D1\\u65AF\\uFF3B\\u57FA\\u6797\\uFF3D\\u7FA4\\u5C9B\\uFF09"         },
+    { "zh", "CG", "fr_CG",      "\\u521A\\u679C\\uFF08\\u5E03\\uFF09",
+                                "\\u6CD5\\u6587\\uFF08\\u521A\\u679C\\uFF3B\\u5E03\\uFF3D\\uFF09",
+                                "\\u6CD5\\u6587\\uFF08\\u521A\\u679C\\uFF3B\\u5E03\\uFF3D\\uFF09"                                     },
+    { NULL, NULL, NULL,         NULL,                       NULL,                                  NULL                               }
 };
 
 enum { kDisplayNameBracketsMax = 128 };
@@ -1057,12 +1074,14 @@ static void TestDisplayNameBrackets()
         ULocaleDisplayNames * uldn;
         UErrorCode status;
         UChar expectRegionName[kDisplayNameBracketsMax];
-        UChar expectLocaleName[kDisplayNameBracketsMax];
+        UChar expectUlocLocaleName[kDisplayNameBracketsMax];
+        UChar expectUldnLocaleName[kDisplayNameBracketsMax];
         UChar getName[kDisplayNameBracketsMax];
         int32_t ulen;
         
         (void) u_unescape(itemPtr->regionName, expectRegionName, kDisplayNameBracketsMax);
-        (void) u_unescape(itemPtr->localeName, expectLocaleName, kDisplayNameBracketsMax);
+        (void) u_unescape(itemPtr->ulocLocaleName, expectUlocLocaleName, kDisplayNameBracketsMax);
+        (void) u_unescape(itemPtr->uldnLocaleName, expectUldnLocaleName, kDisplayNameBracketsMax);
 
         status = U_ZERO_ERROR;
         ulen = uloc_getDisplayCountry(itemPtr->namedLocale, itemPtr->displayLocale, getName, kDisplayNameBracketsMax, &status);
@@ -1072,8 +1091,15 @@ static void TestDisplayNameBrackets()
 
         status = U_ZERO_ERROR;
         ulen = uloc_getDisplayName(itemPtr->namedLocale, itemPtr->displayLocale, getName, kDisplayNameBracketsMax, &status);
-        if ( U_FAILURE(status) || u_strcmp(getName, expectLocaleName) != 0 ) {
+        if ( U_FAILURE(status) || u_strcmp(getName, expectUlocLocaleName) != 0 ) {
             log_data_err("uloc_getDisplayName for displayLocale %s and namedLocale %s returns unexpected name or status %s\n", itemPtr->displayLocale, itemPtr->namedLocale, myErrorName(status));
+        }
+        if ( U_FAILURE(status) ) {
+            log_data_err("uloc_getDisplayName for displayLocale %s and namedLocale %-10s returns unexpected status %s\n", itemPtr->displayLocale, itemPtr->namedLocale, myErrorName(status));
+        } else if ( u_strcmp(getName, expectUlocLocaleName) != 0 ) {
+            char bbuf[128];
+            u_strToUTF8(bbuf, 128, NULL, getName, ulen, &status);
+            log_data_err("uloc_getDisplayName for displayLocale %s and namedLocale %-10s returns unexpected name (len %d): \"%s\"\n", itemPtr->displayLocale, itemPtr->namedLocale, ulen, bbuf);
         }
 
 #if !UCONFIG_NO_FORMATTING
@@ -1088,8 +1114,12 @@ static void TestDisplayNameBrackets()
 
             status = U_ZERO_ERROR;
             ulen = uldn_localeDisplayName(uldn, itemPtr->namedLocale, getName, kDisplayNameBracketsMax, &status);
-            if ( U_FAILURE(status) || u_strcmp(getName, expectLocaleName) != 0 ) {
-                log_data_err("uldn_localeDisplayName for displayLocale %s and namedLocale %s returns unexpected name or status %s\n", itemPtr->displayLocale, itemPtr->namedLocale, myErrorName(status));
+            if ( U_FAILURE(status) ) {
+                log_data_err("uldn_localeDisplayName for displayLocale %s and namedLocale %-10s returns unexpected status %s\n", itemPtr->displayLocale, itemPtr->namedLocale, myErrorName(status));
+            } else if ( u_strcmp(getName, expectUldnLocaleName) != 0 ) {
+                char bbuf[128];
+                u_strToUTF8(bbuf, 128, NULL, getName, ulen, &status);
+                log_data_err("uldn_localeDisplayName for displayLocale %s and namedLocale %-10s returns unexpected name (len %d): \"%s\"\n", itemPtr->displayLocale, itemPtr->namedLocale, ulen, bbuf);
             }
 
             uldn_close(uldn);
@@ -2198,14 +2228,14 @@ static void TestDisplayKeywordValues(void){
         {   "de_AT@currency=ATS",         "fr_FR", 
             {0x0073, 0x0063, 0x0068, 0x0069, 0x006c, 0x006c, 0x0069, 0x006e, 0x0067, 0x0020, 0x0061, 0x0075, 0x0074, 0x0072, 0x0069, 0x0063, 0x0068, 0x0069, 0x0065, 0x006e, 0x0000}
         },
-        { "de_DE@currency=DEM",         "it", 
-            {0x004d, 0x0061, 0x0072, 0x0063, 0x006f, 0x0020, 0x0054, 0x0065, 0x0064, 0x0065, 0x0073, 0x0063, 0x006f, 0x0000}
+        {   "de_DE@currency=DEM",         "it", 
+            {0x006d, 0x0061, 0x0072, 0x0063, 0x006f, 0x0020, 0x0074, 0x0065, 0x0064, 0x0065, 0x0073, 0x0063, 0x006f, 0x0000}
         },
         {   "el_GR@currency=GRD",         "en",    
             {0x0047, 0x0072, 0x0065, 0x0065, 0x006b, 0x0020, 0x0044, 0x0072, 0x0061, 0x0063, 0x0068, 0x006d, 0x0061, 0x0000}
         },
         {   "eu_ES@currency=ESP",         "it_IT", 
-            {0x0050, 0x0065, 0x0073, 0x0065, 0x0074, 0x0061, 0x0020, 0x0053, 0x0070, 0x0061, 0x0067, 0x006e, 0x006f, 0x006c, 0x0061, 0x0000}
+            {0x0070, 0x0065, 0x0073, 0x0065, 0x0074, 0x0061, 0x0020, 0x0073, 0x0070, 0x0061, 0x0067, 0x006e, 0x006f, 0x006c, 0x0061, 0x0000}
         },
         {   "de@collation=phonebook",     "es",    
             {0x006F, 0x0072, 0x0064, 0x0065, 0x006E, 0x0020, 0x0064, 0x0065, 0x0020, 0x006C, 0x0069, 0x0073, 0x0074, 0x00ED, 0x006E, 0x0020, 0x0074, 0x0065, 0x006C, 0x0065, 0x0066, 0x00F3, 0x006E, 0x0069, 0x0063, 0x006F, 0x0000}
@@ -2782,7 +2812,7 @@ static void TestCalendar() {
         log_err_status(status, "Could not open res_index.res. Exiting. Error: %s\n", u_errorName(status));
         return;
     }
-    for (i=0; i<LENGTHOF(LOCALE_ALIAS); i++) {
+    for (i=0; i<UPRV_LENGTHOF(LOCALE_ALIAS); i++) {
         const char* oldLoc = LOCALE_ALIAS[i][0];
         const char* newLoc = LOCALE_ALIAS[i][1];
         UCalendar* c1 = NULL;
@@ -2818,7 +2848,7 @@ static void TestDateFormat() {
         log_err_status(status, "Could not open res_index.res. Exiting. Error: %s\n", u_errorName(status));
         return;
     }
-    for (i=0; i<LENGTHOF(LOCALE_ALIAS); i++) {
+    for (i=0; i<UPRV_LENGTHOF(LOCALE_ALIAS); i++) {
         const char* oldLoc = LOCALE_ALIAS[i][0];
         const char* newLoc = LOCALE_ALIAS[i][1];
         UDateFormat* df1 = NULL;
@@ -2861,7 +2891,7 @@ static void TestCollation() {
         log_err_status(status, "Could not open res_index.res. Exiting. Error: %s\n", u_errorName(status));
         return;
     }
-    for (i=0; i<LENGTHOF(LOCALE_ALIAS); i++) {
+    for (i=0; i<UPRV_LENGTHOF(LOCALE_ALIAS); i++) {
         const char* oldLoc = LOCALE_ALIAS[i][0];
         const char* newLoc = LOCALE_ALIAS[i][1];
         UCollator* c1 = NULL;
@@ -2985,7 +3015,7 @@ static void  TestULocale() {
         log_err_status(status, "Could not open res_index.res. Exiting. Error: %s\n", u_errorName(status));
         return;
     }
-    for (i=0; i<LENGTHOF(LOCALE_ALIAS); i++) {
+    for (i=0; i<UPRV_LENGTHOF(LOCALE_ALIAS); i++) {
         const char* oldLoc = LOCALE_ALIAS[i][0];
         const char* newLoc = LOCALE_ALIAS[i][1];
         UChar name1[256], name2[256];
@@ -3031,7 +3061,7 @@ static void TestUResourceBundle() {
         return;
     }
     resIndex = ures_open(NULL,"res_index", &status);
-    for (i=0; i<LENGTHOF(LOCALE_ALIAS); i++) {
+    for (i=0; i<UPRV_LENGTHOF(LOCALE_ALIAS); i++) {
 
         const char* oldLoc = LOCALE_ALIAS[i][0];
         const char* newLoc = LOCALE_ALIAS[i][1];
@@ -3076,7 +3106,7 @@ static void TestDisplayName() {
     int32_t capacity = 256;
     int i =0;
     int j=0;
-    for (i=0; i<LENGTHOF(LOCALE_ALIAS); i++) {
+    for (i=0; i<UPRV_LENGTHOF(LOCALE_ALIAS); i++) {
         const char* oldLoc = LOCALE_ALIAS[i][0];
         const char* newLoc = LOCALE_ALIAS[i][1];
         UErrorCode status = U_ZERO_ERROR;
@@ -4121,8 +4151,8 @@ const char* const full_data[][3] = {
     "fi"
   }, {
     "und_FM",
-    "chk_Latn_FM",
-    "chk"
+    "en_Latn_FM",
+    "en_FM"
   }, {
     "und_FO",
     "fo_Latn_FO",
@@ -4721,8 +4751,8 @@ const char* const full_data[][3] = {
     "uz"
   }, {
     "und_VA",
-    "la_Latn_VA",
-    "la"
+    "it_Latn_VA",
+    "it_VA"
   }, {
     "und_VE",
     "es_Latn_VE",
@@ -5674,7 +5704,6 @@ static void TestLikelySubtags()
 }
 
 const char* const locale_to_langtag[][3] = {
-    {"@x=elmer",    "x-elmer",      "x-elmer"},
     {"",            "und",          "und"},
     {"en",          "en",           "en"},
     {"en_US",       "en-US",        "en-US"},
@@ -5708,9 +5737,9 @@ const char* const locale_to_langtag[][3] = {
     {"en@timezone=America/New_York;calendar=japanese",    "en-u-ca-japanese-tz-usnyc",    "en-u-ca-japanese-tz-usnyc"},
     {"en@timezone=US/Eastern",  "en-u-tz-usnyc",    "en-u-tz-usnyc"},
     {"en@x=x-y-z;a=a-b-c",  "en-x-x-y-z",   NULL},
-    {"it@collation=badcollationtype;colStrength=identical;cu=usd-eur", "it-u-ks-identic",  NULL},
+    {"it@collation=badcollationtype;colStrength=identical;cu=usd-eur", "it-u-cu-usd-eur-ks-identic",  NULL},
     {"en_US_POSIX", "en-US-u-va-posix", "en-US-u-va-posix"},
-    {"en_US_POSIX@calendar=japanese;currency=EUR","en-US-u-ca-japanese-cu-EUR-va-posix", "en-US-u-ca-japanese-cu-EUR-va-posix"},
+    {"en_US_POSIX@calendar=japanese;currency=EUR","en-US-u-ca-japanese-cu-eur-va-posix", "en-US-u-ca-japanese-cu-eur-va-posix"},
     {"@x=elmer",    "x-elmer",      "x-elmer"},
     {"en@x=elmer",  "en-x-elmer",   "en-x-elmer"},
     {"@x=elmer;a=exta", "und-a-exta-x-elmer",   "und-a-exta-x-elmer"},
@@ -5780,6 +5809,7 @@ static const struct {
     const char  *locID;
     int32_t     len;
 } langtag_to_locale[] = {
+    {"ja-u-ijkl-efgh-abcd-ca-japanese-xx-yyy-zzz-kn",   "ja@attribute=abcd-efgh-ijkl;calendar=japanese;colnumeric=yes;xx=yyy-zzz",  FULL_LENGTH},
     {"en",                  "en",                   FULL_LENGTH},
     {"en-us",               "en_US",                FULL_LENGTH},
     {"und-US",              "_US",                  FULL_LENGTH},
@@ -5849,7 +5879,7 @@ static void TestForLanguageTag(void) {
                 langtag_to_locale[i].bcpID, u_errorName(status));
         } else {
             if (uprv_strcmp(langtag_to_locale[i].locID, locale) != 0) {
-                log_err("uloc_forLanguageTag returned locale [%s] for input language tag [%s] - expected: [%s]\n",
+                log_data_err("uloc_forLanguageTag returned locale [%s] for input language tag [%s] - expected: [%s]\n",
                     locale, langtag_to_locale[i].bcpID, langtag_to_locale[i].locID);
             }
             if (parsedLen != expParsedLen) {
@@ -5859,6 +5889,187 @@ static void TestForLanguageTag(void) {
         }
     }
 }
+
+static void TestToUnicodeLocaleKey(void)
+{
+    /* $IN specifies the result should be the input pointer itself */
+    static const char* DATA[][2] = {
+        {"calendar",    "ca"},
+        {"CALEndar",    "ca"},  /* difference casing */
+        {"ca",          "ca"},  /* bcp key itself */
+        {"kv",          "kv"},  /* no difference between legacy and bcp */
+        {"foo",         NULL},  /* unknown, bcp ill-formed */
+        {"ZZ",          "$IN"}, /* unknown, bcp well-formed -  */
+        {NULL,          NULL}
+    };
+
+    int32_t i;
+    for (i = 0; DATA[i][0] != NULL; i++) {
+        const char* keyword = DATA[i][0];
+        const char* expected = DATA[i][1];
+        const char* bcpKey = NULL;
+
+        bcpKey = uloc_toUnicodeLocaleKey(keyword);
+        if (expected == NULL) {
+            if (bcpKey != NULL) {
+                log_err("toUnicodeLocaleKey: keyword=%s => %s, expected=NULL\n", keyword, bcpKey);
+            }
+        } else if (bcpKey == NULL) {
+            log_data_err("toUnicodeLocaleKey: keyword=%s => NULL, expected=%s\n", keyword, expected);
+        } else if (uprv_strcmp(expected, "$IN") == 0) {
+            if (bcpKey != keyword) {
+                log_err("toUnicodeLocaleKey: keyword=%s => %s, expected=%s(input pointer)\n", keyword, bcpKey, keyword);
+            }
+        } else if (uprv_strcmp(bcpKey, expected) != 0) {
+            log_err("toUnicodeLocaleKey: keyword=%s => %s, expected=%s\n", keyword, bcpKey, expected);
+        }
+    }
+}
+
+static void TestToLegacyKey(void)
+{
+    /* $IN specifies the result should be the input pointer itself */
+    static const char* DATA[][2] = {
+        {"kb",          "colbackwards"},
+        {"kB",          "colbackwards"},    /* different casing */
+        {"Collation",   "collation"},   /* keyword itself with different casing */
+        {"kv",          "kv"},  /* no difference between legacy and bcp */
+        {"foo",         "$IN"}, /* unknown, bcp ill-formed */
+        {"ZZ",          "$IN"}, /* unknown, bcp well-formed */
+        {"e=mc2",       NULL},  /* unknown, bcp/legacy ill-formed */
+        {NULL,          NULL}
+    };
+
+    int32_t i;
+    for (i = 0; DATA[i][0] != NULL; i++) {
+        const char* keyword = DATA[i][0];
+        const char* expected = DATA[i][1];
+        const char* legacyKey = NULL;
+
+        legacyKey = uloc_toLegacyKey(keyword);
+        if (expected == NULL) {
+            if (legacyKey != NULL) {
+                log_err("toLegacyKey: keyword=%s => %s, expected=NULL\n", keyword, legacyKey);
+            }
+        } else if (legacyKey == NULL) {
+            log_err("toLegacyKey: keyword=%s => NULL, expected=%s\n", keyword, expected);
+        } else if (uprv_strcmp(expected, "$IN") == 0) {
+            if (legacyKey != keyword) {
+                log_err("toLegacyKey: keyword=%s => %s, expected=%s(input pointer)\n", keyword, legacyKey, keyword);
+            }
+        } else if (uprv_strcmp(legacyKey, expected) != 0) {
+            log_data_err("toUnicodeLocaleKey: keyword=%s, %s, expected=%s\n", keyword, legacyKey, expected);
+        }
+    }
+}
+
+static void TestToUnicodeLocaleType(void)
+{
+    /* $IN specifies the result should be the input pointer itself */
+    static const char* DATA[][3] = {
+        {"tz",              "Asia/Kolkata",     "inccu"},
+        {"calendar",        "gregorian",        "gregory"},
+        {"ca",              "gregorian",        "gregory"},
+        {"ca",              "Gregorian",        "gregory"},
+        {"ca",              "buddhist",         "buddhist"},
+        {"Calendar",        "Japanese",         "japanese"},
+        {"calendar",        "Islamic-Civil",    "islamic-civil"},
+        {"calendar",        "islamicc",         "islamic-civil"},   /* bcp type alias */
+        {"colalternate",    "NON-IGNORABLE",    "noignore"},
+        {"colcaselevel",    "yes",              "true"},
+        {"tz",              "america/new_york", "usnyc"},
+        {"tz",              "Asia/Kolkata",     "inccu"},
+        {"timezone",        "navajo",           "usden"},
+        {"ca",              "aaaa",             "$IN"},     /* unknown type, well-formed type */
+        {"ca",              "gregory-japanese-islamic", "$IN"}, /* unknown type, well-formed type */
+        {"zz",              "gregorian",        NULL},      /* unknown key, ill-formed type */
+        {"co",              "foo-",             NULL},      /* unknown type, ill-formed type */
+        {"variableTop",     "00A0",             "$IN"},     /* valid codepoints type */
+        {"variableTop",     "wxyz",             "$IN"},     /* invalid codepoints type - return as is for now */
+        {"kr",              "space-punct",      "space-punct"}, /* valid reordercode type */
+        {"kr",              "digit-spacepunct", NULL},      /* invalid (bcp ill-formed) reordercode type */
+        {NULL,              NULL,               NULL}
+    };
+
+    int32_t i;
+    for (i = 0; DATA[i][0] != NULL; i++) {
+        const char* keyword = DATA[i][0];
+        const char* value = DATA[i][1];
+        const char* expected = DATA[i][2];
+        const char* bcpType = NULL;
+
+        bcpType = uloc_toUnicodeLocaleType(keyword, value);
+        if (expected == NULL) {
+            if (bcpType != NULL) {
+                log_err("toUnicodeLocaleType: keyword=%s, value=%s => %s, expected=NULL\n", keyword, value, bcpType);
+            }
+        } else if (bcpType == NULL) {
+            log_data_err("toUnicodeLocaleType: keyword=%s, value=%s => NULL, expected=%s\n", keyword, value, expected);
+        } else if (uprv_strcmp(expected, "$IN") == 0) {
+            if (bcpType != value) {
+                log_err("toUnicodeLocaleType: keyword=%s, value=%s => %s, expected=%s(input pointer)\n", keyword, value, bcpType, value);
+            }
+        } else if (uprv_strcmp(bcpType, expected) != 0) {
+            log_data_err("toUnicodeLocaleType: keyword=%s, value=%s => %s, expected=%s\n", keyword, value, bcpType, expected);
+        }
+    }
+}
+
+static void TestToLegacyType(void)
+{
+    /* $IN specifies the result should be the input pointer itself */
+    static const char* DATA[][3] = {
+        {"calendar",        "gregory",          "gregorian"},
+        {"ca",              "gregory",          "gregorian"},
+        {"ca",              "Gregory",          "gregorian"},
+        {"ca",              "buddhist",         "buddhist"},
+        {"Calendar",        "Japanese",         "japanese"},
+        {"calendar",        "Islamic-Civil",    "islamic-civil"},
+        {"calendar",        "islamicc",         "islamic-civil"},   /* bcp type alias */
+        {"colalternate",    "noignore",         "non-ignorable"},
+        {"colcaselevel",    "true",             "yes"},
+        {"tz",              "usnyc",            "America/New_York"},
+        {"tz",              "inccu",            "Asia/Calcutta"},
+        {"timezone",        "usden",            "America/Denver"},
+        {"timezone",        "usnavajo",         "America/Denver"},  /* bcp type alias */
+        {"colstrength",     "quarternary",      "quaternary"},  /* type alias */
+        {"ca",              "aaaa",             "$IN"}, /* unknown type */
+        {"calendar",        "gregory-japanese-islamic", "$IN"}, /* unknown type, well-formed type */
+        {"zz",              "gregorian",        "$IN"}, /* unknown key, bcp ill-formed type */
+        {"ca",              "gregorian-calendar",   "$IN"}, /* known key, bcp ill-formed type */
+        {"co",              "e=mc2",            NULL},  /* known key, ill-formed bcp/legacy type */
+        {"variableTop",     "00A0",             "$IN"},     /* valid codepoints type */
+        {"variableTop",     "wxyz",             "$IN"},    /* invalid codepoints type - return as is for now */
+        {"kr",              "space-punct",      "space-punct"}, /* valid reordercode type */
+        {"kr",              "digit-spacepunct", "digit-spacepunct"},    /* invalid reordercode type, but ok for legacy syntax */
+        {NULL,              NULL,               NULL}
+    };
+
+    int32_t i;
+    for (i = 0; DATA[i][0] != NULL; i++) {
+        const char* keyword = DATA[i][0];
+        const char* value = DATA[i][1];
+        const char* expected = DATA[i][2];
+        const char* legacyType = NULL;
+
+        legacyType = uloc_toLegacyType(keyword, value);
+        if (expected == NULL) {
+            if (legacyType != NULL) {
+                log_err("toLegacyType: keyword=%s, value=%s => %s, expected=NULL\n", keyword, value, legacyType);
+            }
+        } else if (legacyType == NULL) {
+            log_err("toLegacyType: keyword=%s, value=%s => NULL, expected=%s\n", keyword, value, expected);
+        } else if (uprv_strcmp(expected, "$IN") == 0) {
+            if (legacyType != value) {
+                log_err("toLegacyType: keyword=%s, value=%s => %s, expected=%s(input pointer)\n", keyword, value, legacyType, value);
+            }
+        } else if (uprv_strcmp(legacyType, expected) != 0) {
+            log_data_err("toLegacyType: keyword=%s, value=%s => %s, expected=%s\n", keyword, value, legacyType, expected);
+        }
+    }
+}
+
+
 
 static void test_unicode_define(const char *namech, char ch, const char *nameu, UChar uch)
 {
@@ -5881,17 +6092,26 @@ static void TestUnicodeDefines(void) {
   TEST_UNICODE_DEFINE(ULOC_KEYWORD_ITEM_SEPARATOR, ULOC_KEYWORD_ITEM_SEPARATOR_UNICODE);
 }
 
+static void TestIsRightToLeft() {
+    // API test only. More test cases in intltest/LocaleTest.
+    if(uloc_isRightToLeft("root") || !uloc_isRightToLeft("EN-HEBR")) {
+        log_err("uloc_isRightToLeft() failed");
+    }
+}
+
 /* Apple-specific, test for Apple-specific function ualoc_getAppleParent */
 static const char* localesAndAppleParent[] = {
     "en",               "root",
     "en-US",            "en",
-    "en-CA",            "en",
+    "en-CA",            "en_001",
     "en-001",           "en",
     "en_001",           "en",
     "en-GB",            "en_001",
     "en_GB",            "en_001",
-    "en-IN",            "en_GB",
     "en-AU",            "en_GB",
+    "en-HK",            "en_GB",
+    "en-IN",            "en_GB",
+    "en-PK",            "en_GB",
     "es",               "root",
     "es-ES",            "es",
     "es-419",           "es",
@@ -5919,6 +6139,8 @@ static const char* localesAndAppleParent[] = {
     "zh_TW",            "root",
     "zh-TW",            "root",
     "zh-Hant",          "zh_TW",
+    "zh_HK",            "zh_Hant_HK",
+    "zh-HK",            "zh_Hant_HK",
     "zh_Hant",          "zh_TW",
     "zh-Hant-HK",       "zh_Hant",
     "zh_Hant_HK",       "zh_Hant",
@@ -5953,4 +6175,676 @@ static void TestGetAppleParent() {
             log_err("FAIL: ualoc_getAppleParent input \"%s\", expected parent \"%s\", got parent \"%s\"\n", locale, expectParent, getParent);
         }
     }
+}
+
+/* Apple-specific, test for Apple-specific function ualoc_getLanguagesForRegion */
+enum { kUALanguageEntryMax = 10 };
+
+static void TestGetLanguagesForRegion() {
+    UALanguageEntry entries[kUALanguageEntryMax];
+    int32_t entryCount;
+    UErrorCode status;
+    const char * region;
+
+    status = U_ZERO_ERROR;
+    region = "CN";
+    entryCount = ualoc_getLanguagesForRegion(region, 0.001, entries, kUALanguageEntryMax, &status);
+    if (U_FAILURE(status)) {
+            log_err("FAIL: ualoc_getLanguagesForRegion %s, status %s\n", region, u_errorName(status));
+    } else {
+        // Expect approximately:
+        // zh_Hans 0.90 UALANGSTATUS_OFFICIAL
+        // wuu 0.06 Wu
+        // hsn 0.06 Xiang
+        // hak 0.023 Hakka
+        // nan 0.019 Minnan
+        // gan 0.017 Gan
+        // ii  0.006 Yi
+        // ug_Arab 0.0055 Uighur UALANGSTATUS_REGIONAL_OFFICIAL
+        // ...at least 4 more with fractions >= 0.001
+        if (entryCount < kUALanguageEntryMax) {
+            log_err("FAIL: ualoc_getLanguagesForRegion %s, entryCount %d is too small\n", region, entryCount);
+        } else {
+            UALanguageEntry* entryPtr = entries;
+            if (uprv_strcmp(entryPtr->languageCode, "zh_Hans") != 0 || entryPtr->userFraction < 0.8 || entryPtr->userFraction > 1.0 || entryPtr->status != UALANGSTATUS_OFFICIAL) {
+                log_err("FAIL: ualoc_getLanguagesForRegion %s, invalid entries[0] { %s, %.3f, %d }\n", region, entryPtr->languageCode, entryPtr->userFraction, (int)entryPtr->status);
+            }
+            for (entryPtr++; entryPtr < entries + kUALanguageEntryMax && uprv_strcmp(entryPtr->languageCode, "ug_Arab") != 0; entryPtr++)
+                ;
+            if (entryPtr < entries + kUALanguageEntryMax) {
+                // we found ug_Arab, make sure it has correct status
+                if (entryPtr->status != UALANGSTATUS_REGIONAL_OFFICIAL) {
+                    log_err("FAIL: ualoc_getLanguagesForRegion %s, ug_Arab had incorrect status %d\n", (int)entryPtr->status);
+                }
+            } else {
+                // did not find ug_Arab
+                log_err("FAIL: ualoc_getLanguagesForRegion %s, entries did not include ug_Arab\n", region);
+            }
+        }
+    }
+
+    status = U_ZERO_ERROR;
+    region = "CA";
+    entryCount = ualoc_getLanguagesForRegion(region, 0.001, entries, kUALanguageEntryMax, &status);
+    if (U_FAILURE(status)) {
+            log_err("FAIL: ualoc_getLanguagesForRegion %s, status %s\n", region, u_errorName(status));
+    } else {
+        // Expect approximately:
+        // en 0.85 UALANGSTATUS_OFFICIAL
+        // fr 0.22 UALANGSTATUS_OFFICIAL
+        // ...
+        if (entryCount < 2) {
+            log_err("FAIL: ualoc_getLanguagesForRegion %s, entryCount %d is too small\n", region, entryCount);
+        } else {
+            if (uprv_strcmp(entries[0].languageCode, "en") != 0 || entries[0].userFraction < 0.7 || entries[0].userFraction > 1.0 || entries[0].status != UALANGSTATUS_OFFICIAL) {
+                log_err("FAIL: ualoc_getLanguagesForRegion %s, invalid entries[0] { %s, %.3f, %d }\n", region, entries[0].languageCode, entries[0].userFraction, (int)entries[0].status);
+            }
+            if (uprv_strcmp(entries[1].languageCode, "fr") != 0 || entries[1].userFraction < 0.1 || entries[1].userFraction > 1.0 || entries[1].status != UALANGSTATUS_OFFICIAL) {
+                log_err("FAIL: ualoc_getLanguagesForRegion %s, invalid entries[1] { %s, %.3f, %d }\n", region, entries[1].languageCode, entries[1].userFraction, (int)entries[1].status);
+            }
+        }
+    }
+
+    status = U_ZERO_ERROR;
+    region = "IN";
+    entryCount = ualoc_getLanguagesForRegion(region, 0.001, NULL, 0, &status);
+    if (U_FAILURE(status)) {
+            log_err("FAIL: ualoc_getLanguagesForRegion %s, status %s\n", region, u_errorName(status));
+    } else {
+        if (entryCount < 40) {
+            log_err("FAIL: ualoc_getLanguagesForRegion %s, entryCount %d is too small\n", region, entryCount);
+        }
+    }
+}
+
+/* data for TestAppleLocalizationsToUse */
+
+typedef struct {
+    const char * const *locs;
+    int32_t             locCount;
+} AppleLocsAndCount;
+
+enum { kNumLocSets = 6 };
+
+typedef struct {
+    const char * language;
+    const char ** expLocsForSets[kNumLocSets];
+} LangAndExpLocs;
+
+
+static const char * appleLocs1[] = {
+    "Arabic",
+    "Danish",
+    "Dutch",
+    "English",
+    "Finnish",
+    "French",
+    "German",
+    "Italian",
+    "Japanese",
+    "Korean",
+    "Norwegian",
+    "Polish",
+    "Portuguese",
+    "Russian",
+    "Spanish",
+    "Swedish",
+    "Thai",
+    "Turkish",
+    "ca",
+    "cs",
+    "el",
+    "he",
+    "hr",
+    "hu",
+    "id",
+    "ms",
+    "ro",
+    "sk",
+    "uk",
+    "vi",
+    "zh_CN", "zh_TW",
+};
+
+static const char * appleLocs2[] = {
+    "ar",
+    "ca",
+    "cs",
+    "da",
+    "de",
+    "el",
+    "en", "en_AU", "en_GB",
+    "es", "es_MX",
+    "fi",
+    "fr", "fr_CA",
+    "he",
+    "hr",
+    "hu",
+    "id",
+    "it",
+    "ja",
+    "ko",
+    "ms",
+    "nl",
+    "no",
+    "pl",
+    "pt", "pt_PT",
+    "ro",
+    "ru",
+    "sk",
+    "sv",
+    "th",
+    "tr",
+    "uk",
+    "vi",
+    "zh_CN", "zh_HK", "zh_TW",
+};
+
+static const char * appleLocs3[] = {
+    "ar",
+    "ca",
+    "cs",
+    "da",
+    "de",
+    "el",
+    "en", "en_AU", "en_CA", "en_GB",
+    "es", "es_419",
+    "fi",
+    "fr", "fr_CA", "fr_FR",
+    "he",
+    "hr",
+    "hu",
+    "id",
+    "it",
+    "ja",
+    "ko",
+    "ms",
+    "nb",
+    "nl",
+    "pl",
+    "pt", "pt_BR", "pt_PT",
+    "ro",
+    "ru",
+    "sk",
+    "sv",
+    "th",
+    "tr",
+    "uk",
+    "vi",
+    "zh_CN", "zh_HK", "zh_MO", "zh_TW",
+};
+
+static const char * appleLocs4[] = {
+    "en", "en_AU", "en_CA", "en_GB", "en_IN", "en_US",
+    "es", "es_419", "es_MX",
+    "fr", "fr_CA", "fr_CH", "fr_FR",
+    "nl", "nl_BE", "nl_NL",
+    "pt", "pt_BR",
+    "ro", "ro_MD", "ro_RO",
+    "zh_Hans", "zh_Hant", "zh_Hant_HK",
+};
+
+static const char * appleLocs5[] = {
+    "en", "en_001", "en_AU", "en_GB",
+    "es", "es_ES", "es_MX",
+    "zh_CN", "zh_Hans", "zh_Hant", "zh_TW",
+    "yi",
+    "fil",
+    "haw",
+    "tlh",
+    "sr",
+    "sr-Latn",
+};
+
+// list 6
+static const char * appleLocs6[] = {
+    "en", "en_001", "en_150", "en_AU", "en_GB",
+    "es", "es_419", "es_ES", "es_MX",
+    "zh_CN", "zh_Hans", "zh_Hant", "zh_Hant_HK", "zh_HK", "zh_TW",
+    "iw",
+    "in",
+    "mo",
+    "tl",
+};
+
+static const AppleLocsAndCount locAndCountEntries[kNumLocSets] = {
+    { appleLocs1, UPRV_LENGTHOF(appleLocs1) },
+    { appleLocs2, UPRV_LENGTHOF(appleLocs2) },
+    { appleLocs3, UPRV_LENGTHOF(appleLocs3) },
+    { appleLocs4, UPRV_LENGTHOF(appleLocs4) },
+    { appleLocs5, UPRV_LENGTHOF(appleLocs5) },
+    { appleLocs6, UPRV_LENGTHOF(appleLocs6) },
+};
+
+
+static const char* l1_ar[]          = { "ar", NULL };
+static const char* l1_Ara[]         = { "Arabic", NULL };
+static const char* l1_ca[]          = { "ca", NULL };
+static const char* l1_cs[]          = { "cs", NULL };
+static const char* l1_da[]          = { "da", NULL };
+static const char* l1_Dan[]         = { "Danish", NULL };
+static const char* l1_de[]          = { "de", NULL };
+static const char* l1_Ger[]         = { "German", NULL };
+static const char* l1_el[]          = { "el", NULL };
+static const char* l1_en[]          = { "en", NULL };
+static const char* l1_Eng[]         = { "English", NULL };
+static const char* l2_en_001_[]     = { "en_001", "en", NULL };
+static const char* l2_en_CA_[]      = { "en_CA", "en", NULL };
+static const char* l2_en_GB_[]      = { "en_GB", "en", NULL };
+static const char* l2_en_US_[]      = { "en_US", "en", NULL };
+static const char* l2_en_GB_Eng[]   = { "en_GB", "English", NULL };
+static const char* l3_en_GB001_[]   = { "en_GB", "en_001", "en", NULL };
+static const char* l3_en_AUGB_[]    = { "en_AU", "en_GB", "en", NULL };
+static const char* l3_en_INGB_[]    = { "en_IN", "en_GB", "en", NULL };
+static const char* l4_en_150GB001_[] = { "en_150", "en_GB", "en_001", "en", NULL };
+static const char* l4_en_AUGB001_[] = { "en_AU", "en_GB", "en_001", "en", NULL };
+static const char* l1_es[]          = { "es", NULL };
+static const char* l1_Spa[]         = { "Spanish", NULL };
+static const char* l2_es_419_[]     = { "es_419", "es", NULL };
+static const char* l2_es_ES_[]      = { "es_ES", "es", NULL };
+static const char* l2_es_MX_[]      = { "es_MX", "es", NULL };
+static const char* l2_es_MX_Spa[]   = { "es_MX", "Spanish", NULL };
+static const char* l3_es_MX419_[]   = { "es_MX", "es_419", "es", NULL };
+static const char* l1_fi[]          = { "fi", NULL };
+static const char* l1_Fin[]         = { "Finnish", NULL };
+static const char* l1_fil[]         = { "fil", NULL };
+static const char* l1_tl[]          = { "tl", NULL };
+static const char* l1_fr[]          = { "fr", NULL };
+static const char* l1_Fre[]         = { "French", NULL };
+static const char* l2_fr_CA_[]      = { "fr_CA", "fr", NULL };
+static const char* l2_fr_CH_[]      = { "fr_CH", "fr", NULL };
+static const char* l2_fr_FR_[]      = { "fr_FR", "fr", NULL };
+static const char* l1_haw[]         = { "haw", NULL };
+static const char* l1_he[]          = { "he", NULL };
+static const char* l1_hr[]          = { "hr", NULL };
+static const char* l1_hu[]          = { "hu", NULL };
+static const char* l1_id[]          = { "id", NULL };
+static const char* l1_in[]          = { "in", NULL };
+static const char* l1_it[]          = { "it", NULL };
+static const char* l1_Ita[]         = { "Italian", NULL };
+static const char* l1_ja[]          = { "ja", NULL };
+static const char* l1_Japn[]        = { "Japanese", NULL };
+static const char* l1_ko[]          = { "ko", NULL };
+static const char* l1_Kor[]         = { "Korean", NULL };
+static const char* l1_ms[]          = { "ms", NULL };
+static const char* l1_nb[]          = { "nb", NULL };
+static const char* l1_no[]          = { "no", NULL };
+static const char* l1_Nor[]         = { "Norwegian", NULL };
+static const char* l1_nl[]          = { "nl", NULL };
+static const char* l1_Dut[]         = { "Dutch", NULL };
+static const char* l2_nl_BE_[]      = { "nl_BE", "nl", NULL };
+static const char* l1_pl[]          = { "pl", NULL };
+static const char* l1_Pol[]         = { "Polish", NULL };
+static const char* l1_pt[]          = { "pt", NULL };
+static const char* l1_pt_PT[]       = { "pt_PT", NULL };
+static const char* l1_Port[]        = { "Portuguese", NULL };
+static const char* l2_pt_BR_[]      = { "pt_BR", "pt", NULL };
+static const char* l2_pt_PT_[]      = { "pt_PT", "pt", NULL };
+static const char* l1_ro[]          = { "ro", NULL };
+static const char* l2_ro_MD_[]      = { "ro_MD", "ro", NULL };
+static const char* l1_mo[]          = { "mo", NULL };
+static const char* l1_ru[]          = { "ru", NULL };
+static const char* l1_Rus[]         = { "Russian", NULL };
+static const char* l1_sk[]          = { "sk", NULL };
+static const char* l1_sr[]          = { "sr", NULL };
+static const char* l1_srLatn[]      = { "sr-Latn", NULL };
+static const char* l1_sv[]          = { "sv", NULL };
+static const char* l1_Swe[]         = { "Swedish", NULL };
+static const char* l1_th[]          = { "th", NULL };
+static const char* l1_Thai[]        = { "Thai", NULL };
+static const char* l1_tlh[]         = { "tlh", NULL };
+static const char* l1_tr[]          = { "tr", NULL };
+static const char* l1_Tur[]         = { "Turkish", NULL };
+static const char* l1_uk[]          = { "uk", NULL };
+static const char* l1_vi[]          = { "vi", NULL };
+static const char* l1_yi[]          = { "yi", NULL };
+static const char* l1_iw[]          = { "iw", NULL };
+static const char* l1_zh_CN[]       = { "zh_CN", NULL };
+static const char* l1_zh_TW[]       = { "zh_TW", NULL };
+static const char* l1_zh_Hans[]     = { "zh_Hans", NULL };
+static const char* l1_zh_Hant[]     = { "zh_Hant", NULL };
+static const char* l1_zhHant[]      = { "zh-Hant", NULL };
+static const char* l2_zh_HKTW[]     = { "zh_HK", "zh_TW", NULL };
+static const char* l2_zh_Hant_HK_[] = { "zh_Hant_HK", "zh_Hant", NULL };
+static const char* l2_zh_CN_Hans[]  = { "zh_CN", "zh_Hans", NULL };
+static const char* l2_zh_TW_Hant[]  = { "zh_TW", "zh_Hant", NULL };
+static const char* l3_zh_MOHKTW[]   = { "zh_MO", "zh_HK", "zh_TW", NULL };
+static const char* l3_zh_HK_HantHK_Hant[] = { "zh_HK", "zh_Hant_HK", "zh_Hant", NULL };
+
+static const LangAndExpLocs appleLangAndLoc[] = {
+//    language\    result for appleLocs1      appleLocs2      appleLocs3      appleLocs4      appleLocs5      appleLocs6
+    { "zh",                 { l1_zh_CN,       l1_zh_CN,       l1_zh_CN,       l1_zh_Hans,     l1_zh_Hans,     l1_zh_Hans     } },
+    { "zh-Hans",            { l1_zh_CN,       l1_zh_CN,       l1_zh_CN,       l1_zh_Hans,     l1_zh_Hans,     l1_zh_Hans     } },
+    { "zh-Hant",            { l1_zh_TW,       l1_zh_TW,       l1_zh_TW,       l1_zh_Hant,     l1_zh_Hant,     l1_zh_Hant     } },
+    { "zh-Hans-CN",         { l1_zh_CN,       l1_zh_CN,       l1_zh_CN,       l1_zh_Hans,     l2_zh_CN_Hans,  l2_zh_CN_Hans  } },
+    { "zh-Hans-SG",         { l1_zh_CN,       l1_zh_CN,       l1_zh_CN,       l1_zh_Hans,     l1_zh_Hans,     l1_zh_Hans     } },
+    { "zh-Hant-TW",         { l1_zh_TW,       l1_zh_TW,       l1_zh_TW,       l1_zh_Hant,     l2_zh_TW_Hant,  l2_zh_TW_Hant  } },
+    { "zh-Hant-HK",         { l1_zh_TW,       l2_zh_HKTW,     l2_zh_HKTW,     l2_zh_Hant_HK_, l1_zh_Hant,     l2_zh_Hant_HK_ } },
+    { "zh-Hant-MO",         { l1_zh_TW,       l2_zh_HKTW,     l3_zh_MOHKTW,   l2_zh_Hant_HK_, l1_zh_Hant,     l2_zh_Hant_HK_ } },
+    { "zh-Hans-HK",         { l1_zh_CN,       l1_zh_CN,       l1_zh_CN,       l1_zh_Hans,     l1_zh_Hans,     l1_zh_Hans     } },
+    { "zh-CN",              { l1_zh_CN,       l1_zh_CN,       l1_zh_CN,       l1_zh_Hans,     l2_zh_CN_Hans,  l2_zh_CN_Hans  } },
+    { "zh-SG",              { l1_zh_CN,       l1_zh_CN,       l1_zh_CN,       l1_zh_Hans,     l1_zh_Hans,     l1_zh_Hans     } },
+    { "zh-TW",              { l1_zh_TW,       l1_zh_TW,       l1_zh_TW,       l1_zh_Hant,     l2_zh_TW_Hant,  l2_zh_TW_Hant  } },
+    { "zh-HK",              { l1_zh_TW,       l2_zh_HKTW,     l2_zh_HKTW,     l2_zh_Hant_HK_, l1_zh_Hant,     l3_zh_HK_HantHK_Hant } },
+    { "zh-MO",              { l1_zh_TW,       l2_zh_HKTW,     l3_zh_MOHKTW,   l2_zh_Hant_HK_, l1_zh_Hant,     l2_zh_Hant_HK_ } },
+    { "en",                 { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
+    { "en-US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
+    { "en-AU",              { l1_Eng,         l3_en_AUGB_,    l3_en_AUGB_,    l3_en_AUGB_,    l4_en_AUGB001_, l4_en_AUGB001_ } },
+    { "en-CA",              { l1_Eng,         l1_en,          l2_en_CA_,      l2_en_CA_,      l2_en_001_,     l2_en_001_     } },
+    { "en-GB",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-IN",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l3_en_INGB_,    l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
+    { "en_US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
+    { "en-FR",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l4_en_150GB001_ } },
+    { "en-IL",              { l1_Eng,         l1_en,          l1_en,          l1_en,          l2_en_001_,     l2_en_001_     } },
+    { "en-001",             { l1_Eng,         l1_en,          l1_en,          l1_en,          l2_en_001_,     l2_en_001_     } },
+    { "en-150",             { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l4_en_150GB001_ } },
+    { "en-Latn",            { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
+    { "en-Latn-US",         { l1_Eng,         l1_en,          l1_en,          l1_en,/*TODO*/  l1_en,          l1_en          } },
+    { "en-US-POSIX",        { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
+    { "en-Latn-US-POSIX",   { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
+    { "en-u-ca-hebrew",     { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
+    { "en@calendar=hebrew", { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
+    { "en-",                { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
+    { "en_",                { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
+    { "es",                 { l1_Spa,         l1_es,          l1_es,          l1_es,          l1_es,          l1_es          } },
+    { "es-ES",              { l1_Spa,         l1_es,          l1_es,          l1_es,          l2_es_ES_,      l2_es_ES_      } },
+    { "es-419",             { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
+    { "es-MX",              { l1_Spa,         l2_es_MX_,      l2_es_419_,     l3_es_MX419_,   l2_es_MX_,      l3_es_MX419_   } },
+    { "es-AR",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
+    { "es-Latn",            { l1_Spa,         l1_es,          l1_es,          l1_es,          l1_es,          l1_es          } },
+    { "es-Latn-MX",         { l1_Spa,         l1_es,          l1_es,          l1_es,          l1_es,          l1_es          } },
+    { "pt",                 { l1_Port,        l1_pt,          l1_pt,          l1_pt,          NULL,           NULL  } },
+    { "pt-BR",              { l1_Port,        l1_pt,          l2_pt_BR_,      l2_pt_BR_,      NULL,           NULL  } },
+    { "pt-PT",              { l1_Port,        l2_pt_PT_,      l2_pt_PT_,      l1_pt,          NULL,           NULL  } },
+    { "pt-MO",              { l1_Port,        l2_pt_PT_,      l2_pt_PT_,      l1_pt,          NULL,           NULL  } },
+    { "fr",                 { l1_Fre,         l1_fr,          l1_fr,          l1_fr,          NULL,           NULL  } },
+    { "fr-FR",              { l1_Fre,         l1_fr,          l2_fr_FR_,      l2_fr_FR_,      NULL,           NULL  } },
+    { "fr-CA",              { l1_Fre,         l2_fr_CA_,      l2_fr_CA_,      l2_fr_CA_,      NULL,           NULL  } },
+    { "fr-CH",              { l1_Fre,         l1_fr,          l1_fr,          l2_fr_CH_,      NULL,           NULL  } },
+    { "ar",                 { l1_Ara,         l1_ar,          l1_ar,          NULL,           NULL,           NULL  } },
+    { "da",                 { l1_Dan,         l1_da,          l1_da,          NULL,           NULL,           NULL  } },
+    { "nl",                 { l1_Dut,         l1_nl,          l1_nl,          l1_nl,          NULL,           NULL  } },
+    { "nl-BE",              { l1_Dut,         l1_nl,          l1_nl,          l2_nl_BE_,      NULL,           NULL  } },
+    { "fi",                 { l1_Fin,         l1_fi,          l1_fi,          NULL,           NULL,           NULL  } },
+    { "de",                 { l1_Ger,         l1_de,          l1_de,          NULL,           NULL,           NULL  } },
+    { "it",                 { l1_Ita,         l1_it,          l1_it,          NULL,           NULL,           NULL  } },
+    { "ja",                 { l1_Japn,        l1_ja,          l1_ja,          NULL,           NULL,           NULL  } },
+    { "ko",                 { l1_Kor,         l1_ko,          l1_ko,          NULL,           NULL,           NULL  } },
+    { "nb",                 { l1_Nor,         l1_no,          l1_nb,          NULL,           NULL,           NULL  } },
+    { "no",                 { l1_Nor,         l1_no,          l1_nb,          NULL,           NULL,           NULL  } },
+    { "pl",                 { l1_Pol,         l1_pl,          l1_pl,          NULL,           NULL,           NULL  } },
+    { "ru",                 { l1_Rus,         l1_ru,          l1_ru,          NULL,           NULL,           NULL  } },
+    { "sv",                 { l1_Swe,         l1_sv,          l1_sv,          NULL,           NULL,           NULL  } },
+    { "th",                 { l1_Thai,        l1_th,          l1_th,          NULL,           NULL,           NULL  } },
+    { "tr",                 { l1_Tur,         l1_tr,          l1_tr,          NULL,           NULL,           NULL  } },
+    { "ca",                 { l1_ca,          l1_ca,          l1_ca,          NULL,           NULL,           NULL  } },
+    { "cs",                 { l1_cs,          l1_cs,          l1_cs,          NULL,           NULL,           NULL  } },
+    { "el",                 { l1_el,          l1_el,          l1_el,          NULL,           NULL,           NULL  } },
+    { "he",                 { l1_he,          l1_he,          l1_he,          NULL,           NULL,           l1_iw } },
+    { "iw",                 { l1_he,          l1_he,          l1_he,          NULL,           NULL,           l1_iw } },
+    { "hr",                 { l1_hr,          l1_hr,          l1_hr,          NULL,           NULL,           NULL  } },
+    { "hu",                 { l1_hu,          l1_hu,          l1_hu,          NULL,           NULL,           NULL  } },
+    { "id",                 { l1_id,          l1_id,          l1_id,          NULL,           NULL,           l1_in } },
+    { "in",                 { l1_id,          l1_id,          l1_id,          NULL,           NULL,           l1_in } },
+    { "ms",                 { l1_ms,          l1_ms,          l1_ms,          NULL,           NULL,           NULL  } },
+    { "ro",                 { l1_ro,          l1_ro,          l1_ro,          l1_ro,          NULL,           NULL  } },
+    { "mo",                 { l1_ro,          l1_ro,          l1_ro,          l2_ro_MD_,      NULL,           l1_mo } },
+    { "sk",                 { l1_sk,          l1_sk,          l1_sk,          NULL,           NULL,           NULL  } },
+    { "uk",                 { l1_uk,          l1_uk,          l1_uk,          NULL,           NULL,           NULL  } },
+    { "vi",                 { l1_vi,          l1_vi,          l1_vi,          NULL,           NULL,           NULL  } },
+    { "yi",                 { NULL,           NULL,           NULL,           NULL,           l1_yi,          NULL  } },
+    { "ji",                 { NULL,           NULL,           NULL,           NULL,           l1_yi,          NULL  } },
+    { "fil",                { NULL,           NULL,           NULL,           NULL,           l1_fil,         l1_tl } },
+    { "tl",                 { NULL,           NULL,           NULL,           NULL,           l1_fil,         l1_tl } },
+    { "haw",                { NULL,           NULL,           NULL,           NULL,           l1_haw,         NULL  } },
+    { "sr",                 { NULL,           NULL,           NULL,           NULL,           l1_sr,          NULL  } },
+    { "sr-Cyrl",            { NULL,           NULL,           NULL,           NULL,           l1_sr,          NULL  } },
+    { "sr-Latn",            { NULL,           NULL,           NULL,           NULL,           l1_srLatn,      NULL  } },
+    { "tlh",                { NULL,           NULL,           NULL,           NULL,           l1_tlh,         NULL  } },
+    { "Default@2x",         { NULL,           NULL,           NULL,           NULL,           NULL,           NULL  } },
+    { "default",            { NULL,           NULL,           NULL,           NULL,           NULL,           NULL  } },
+    { "root",               { NULL,           NULL,           NULL,           NULL,           NULL,           NULL  } },
+    { "",                   { NULL,           NULL,           NULL,           NULL,           NULL,           NULL  } },
+    { "_US",                { NULL,           NULL,           NULL,           NULL,           NULL,           NULL  } },
+    { "-US",                { NULL,           NULL,           NULL,           NULL,           NULL,           NULL  } },
+    { "-u-ca-hebrew",       { NULL,           NULL,           NULL,           NULL,           NULL,           NULL  } },
+    { "-u-ca-hebrew",       { NULL,           NULL,           NULL,           NULL,           NULL,           NULL  } },
+    { "@calendar=hebrew",   { NULL,           NULL,           NULL,           NULL,           NULL,           NULL  } },
+};
+enum { kNumAppleLangAndLoc = UPRV_LENGTHOF(appleLangAndLoc) };
+
+/* tests from <rdar://problem/21518031> */
+
+static const char * appleLocsA1[] = { "en", "fr", "de", "zh-Hant" };
+static const char * appleLocsA2[] = { "en", "fr", "de", "zh_TW", "zh_CN", "zh-Hant" };
+static const char * appleLocsA3[] = { "en", "en_IN", "en_GB", "fr", "de", "zh_TW" };
+static const char * appleLocsA4[] = { "Spanish", "es_MX", "English", "en_GB" };
+static const char * appleLocsA5[] = { "en", "fr", "de", "pt", "pt_PT" };
+static const char * appleLocsA6[] = { "en", "pt_PT" };
+
+static const AppleLocsAndCount locAndCountEntriesA[kNumLocSets] = {
+    { appleLocsA1, UPRV_LENGTHOF(appleLocsA1) },
+    { appleLocsA2, UPRV_LENGTHOF(appleLocsA2) },
+    { appleLocsA3, UPRV_LENGTHOF(appleLocsA3) },
+    { appleLocsA4, UPRV_LENGTHOF(appleLocsA4) },
+    { appleLocsA5, UPRV_LENGTHOF(appleLocsA5) },
+    { appleLocsA6, UPRV_LENGTHOF(appleLocsA6) },
+};
+
+static const LangAndExpLocs appleLangAndLocA[] = {
+//    language\    result for appleLocsA1     appleLocsA2         appleLocsA3     appleLocsA4     appleLocsA5     appleLocsA6
+    { "zh-Hant",            { l1_zhHant,/*0*/ l1_zhHant,/*zh_TW*/ l1_zh_TW,       NULL,           NULL,           NULL        } },
+    { "zh_Hant",            { l1_zhHant,      l1_zhHant,/*zh_TW*/ l1_zh_TW,       NULL,           NULL,           NULL        } },
+    { "zh_HK",              { l1_zhHant,      l1_zhHant,/*zh_TW*/ l1_zh_TW,       NULL,           NULL,           NULL        } },
+    { "en_IN",              { l1_en,          l1_en,              l3_en_INGB_,    l2_en_GB_Eng,   l1_en,          l1_en       } },
+    { "es_MX",              { NULL,           NULL,               NULL,           l2_es_MX_Spa,   NULL,           NULL        } },
+    { "pt_PT",              { NULL,           NULL,               NULL,           NULL,           l2_pt_PT_,      l1_pt_PT    } },
+    { "pt",                 { NULL,           NULL,               NULL,           NULL,           l1_pt,          l1_pt_PT    } },
+};
+enum { kNumAppleLangAndLocA = UPRV_LENGTHOF(appleLangAndLocA) };
+
+/* tests from log attached to 21682790 */
+
+static const char * appleLocsB1[] = {
+    "ar",       "Base",     "ca",       "cs",
+    "da",       "Dutch",    "el",       "English",
+    "es_MX",    "fi",       "French",   "German",
+    "he",       "hr",       "hu",       "id",
+    "Italian",  "Japanese", "ko",       "ms",
+    "no",       "pl",       "pt",       "pt_PT",
+    "ro",       "ru",       "sk",       "Spanish",
+    "sv",       "th",       "tr",       "uk",
+    "vi",       "zh_CN",    "zh_TW"
+};
+
+static const char * appleLocsB2[] = {
+    "ar",                   "ca",       "cs",
+    "da",       "Dutch",    "el",       "English",
+    "es_MX",    "fi",       "French",   "German",
+    "he",       "hr",       "hu",       "id",
+    "Italian",  "Japanese", "ko",       "ms",
+    "no",       "pl",       "pt",       "pt_PT",
+    "ro",       "ru",       "sk",       "Spanish",
+    "sv",       "th",       "tr",       "uk",
+    "vi",       "zh_CN",    "zh_TW"
+};
+
+static const char * appleLocsB3[] = {
+    "ar",       "ca",       "cs",       "da",
+    "de",       "el",       "en",       "es",
+    "es_MX",    "fi",       "French",   "he",
+    "hr",       "hu",       "id",       "Italian",
+    "ja",       "ko",       "ms",       "nl",
+    "no",       "pl",       "pt",       "pt_PT",
+    "ro",       "ru",       "sk",       "sv",
+    "th",       "tr",       "uk",       "vi",
+    "zh_CN",    "zh_TW"
+};
+
+static const char * appleLocsB4[] = {
+    "ar",       "ca",       "cs",       "da",
+    "de",       "el",       "en",       "es",
+    "es_MX",    "fi",       "fr",       "he",
+    "hr",       "hu",       "id",       "it",
+    "ja",       "ko",       "ms",       "nl",
+    "no",       "pl",       "pt",       "pt_PT",
+    "ro",       "ru",       "sk",       "sv",
+    "th",       "tr",       "uk",       "vi",
+    "zh_CN",     "zh_TW"
+};
+
+static const char * appleLocsB5[] = { "en" };
+
+static const char * appleLocsB6[] = { "English" };
+
+static const AppleLocsAndCount locAndCountEntriesB[kNumLocSets] = {
+    { appleLocsB1, UPRV_LENGTHOF(appleLocsB1) },
+    { appleLocsB2, UPRV_LENGTHOF(appleLocsB2) },
+    { appleLocsB3, UPRV_LENGTHOF(appleLocsB3) },
+    { appleLocsB4, UPRV_LENGTHOF(appleLocsB4) },
+    { appleLocsB5, UPRV_LENGTHOF(appleLocsB5) },
+    { appleLocsB6, UPRV_LENGTHOF(appleLocsB6) },
+};
+
+static const LangAndExpLocs appleLangAndLocB[] = {
+//    language\    result for appleLocsB1     appleLocsB2         appleLocsB3     appleLocsB4     appleLocsB5     appleLocsB6
+// Prefs 1, logged with sets B1-B3
+    { "en",                 { l1_Eng,         l1_Eng,             l1_en,          l1_en,          l1_en,          l1_Eng      } },
+    { "es",                 { l1_Spa,         l1_Spa,             l1_es,          l1_es,          NULL,           NULL        } },
+// Prefs 2, logged with sets B1-B6
+    { "English",            { l1_Eng,         l1_Eng,             l1_en,          l1_en,          l1_en,          l1_Eng      } },
+    { "Spanish",            { l1_Spa,         l1_Spa,             l1_es,          l1_es,          NULL,           NULL        } },
+};
+enum { kNumAppleLangAndLocB = UPRV_LENGTHOF(appleLangAndLocB) };
+
+typedef struct {
+    const AppleLocsAndCount * locAndCountEntriesPtr;
+    const LangAndExpLocs *    appleLangAndLocPtr;
+    int32_t                   appleLangAndLocCount;
+} AppleLocToUseTestSet;
+
+static const AppleLocToUseTestSet altuTestSets[] = {
+    { locAndCountEntries,  appleLangAndLoc,  kNumAppleLangAndLoc },
+    { locAndCountEntriesA, appleLangAndLocA, kNumAppleLangAndLocA },
+    { locAndCountEntriesB, appleLangAndLocB, kNumAppleLangAndLocB },
+    { NULL, NULL, 0 }
+};
+
+/* tests for multiple prefs sets */
+
+static const char * appleLocsM[] = { "en", "en_GB", "pt", "pt_PT", "zh_CN", "zh_Hant" };
+static const char * prefLangsM[] = { "tlh", "zh_HK", "zh_SG", "zh_Hans", "pt_BR", "pt_PT", "en_IN", "en" };
+static const char * locsToUseM[] = { "zh_Hant" };
+enum {
+    kNumAppleLocsM = UPRV_LENGTHOF(appleLocsM),
+    kNumPrefLangsM = UPRV_LENGTHOF(prefLangsM),
+    kNumLocsToUseM = UPRV_LENGTHOF(locsToUseM),
+};
+
+/* general enums */
+
+enum { kMaxLocalizationsToUse = 8, kPrintArrayBufSize = 128 };
+
+// array, array of pointers to strings to print
+// count, count of array elements, may be -1 if array is terminated by a NULL entry
+// buf, buffer into which to put concatenated strings
+// bufSize, length of buf
+static void printStringArray(const char **array, int32_t count, char *buf, int32_t bufSize) {
+    char * bufPtr = buf;
+    const char * curEntry;
+    int32_t idx, countMax = bufSize/16;
+    if (count < 0 || count > countMax) {
+        count = countMax;
+    }
+    for (idx = 0; idx < count && (curEntry = *array++) != NULL; idx++) {
+        int32_t len = sprintf(bufPtr, "%s\"%.12s\"", (idx > 0)? ", ": "", curEntry);
+        if (len <= 0) {
+            break;
+        }
+        bufPtr += len;
+    }
+    *bufPtr = 0; /* ensure termination */
+}
+
+static UBool equalStringArrays(const char **array1, int32_t count1, const char **array2, int32_t count2) {
+    const char ** array1Ptr = array1;
+    const char ** array2Ptr = array2;
+    if (count1 < 0) {
+        count1 = 0;
+        while (*array1Ptr++ != NULL) {
+            count1++;
+        }
+    }
+    if (count2 < 0) {
+        count2 = 0;
+        while (*array2Ptr++ != NULL) {
+            count2++;
+        }
+    }
+    if (count1 != count2) {
+        return FALSE;
+    }
+    int32_t idx;
+    for (idx = 0; idx < count1; idx++) {
+        if (uprv_strcmp(array1[idx], array2[idx]) != 0) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static void TestAppleLocalizationsToUse() {
+    const AppleLocToUseTestSet * testSetPtr;
+    const char * locsToUse[kMaxLocalizationsToUse];
+    int32_t numLocsToUse;
+    UErrorCode status;
+    char printExpected[kPrintArrayBufSize];
+    char printActual[kPrintArrayBufSize];
+
+    for (testSetPtr = altuTestSets; testSetPtr->locAndCountEntriesPtr != NULL; testSetPtr++) {
+        int32_t iLocSet, iLang;
+
+        for (iLocSet = 0; iLocSet < kNumLocSets; iLocSet++) {
+            for (iLang = 0; iLang < testSetPtr->appleLangAndLocCount; iLang++) {
+                status = U_ZERO_ERROR;
+                const char * language = testSetPtr->appleLangAndLocPtr[iLang].language;
+                const char ** expLocsForSet = testSetPtr->appleLangAndLocPtr[iLang].expLocsForSets[iLocSet];
+
+                numLocsToUse = ualoc_localizationsToUse(&language, 1,
+                                                        testSetPtr->locAndCountEntriesPtr[iLocSet].locs, testSetPtr->locAndCountEntriesPtr[iLocSet].locCount,
+                                                        locsToUse, kMaxLocalizationsToUse, &status);
+                if (U_FAILURE(status)) {
+                    log_err("FAIL: ualoc_localizationsToUse testSet %d, locSet %d, lang %s, status %s\n",
+                            testSetPtr-altuTestSets, iLocSet+1, language, u_errorName(status));
+                } else if (numLocsToUse == 0 && expLocsForSet != NULL) {
+                    printStringArray(expLocsForSet, -1, printExpected, kPrintArrayBufSize);
+                    log_err("FAIL: ualoc_localizationsToUse testSet %d, locSet %d, lang %s, expect {%s}, get no results\n",
+                            testSetPtr-altuTestSets, iLocSet+1, language, printExpected);
+                } else if (numLocsToUse > 0 && expLocsForSet == NULL) {
+                    printStringArray(locsToUse, numLocsToUse, printActual, kPrintArrayBufSize);
+                    log_err("FAIL: ualoc_localizationsToUse testSet %d, locSet %d, lang %s, expect no results, get {%s}\n",
+                            testSetPtr-altuTestSets, iLocSet+1, language, printActual);
+                } else if (numLocsToUse > 0 && !equalStringArrays(expLocsForSet, -1, locsToUse, numLocsToUse)) {
+                    printStringArray(expLocsForSet, -1, printExpected, kPrintArrayBufSize);
+                    printStringArray(locsToUse, numLocsToUse, printActual, kPrintArrayBufSize);
+                    log_err("FAIL: ualoc_localizationsToUse testSet %d, locSet %d, lang %s:\n            expect {%s}\n            get    {%s}\n",
+                            testSetPtr-altuTestSets, iLocSet+1, language, printExpected, printActual);
+                }
+            }
+        }
+    }
+
+
+    status = U_ZERO_ERROR;
+    numLocsToUse = ualoc_localizationsToUse(prefLangsM, kNumPrefLangsM, appleLocsM, kNumAppleLocsM, locsToUse, kMaxLocalizationsToUse, &status);
+    if (U_FAILURE(status)) {
+        log_err("FAIL: ualoc_localizationsToUse appleLocsM, langs prefLangsM, status %s\n", u_errorName(status));
+    } else if (!equalStringArrays(locsToUseM, kNumLocsToUseM, locsToUse, numLocsToUse)) {
+        printStringArray(locsToUseM, kNumLocsToUseM, printExpected, kPrintArrayBufSize);
+        printStringArray(locsToUse, numLocsToUse, printActual, kPrintArrayBufSize);
+        log_err("FAIL: ualoc_localizationsToUse appleLocsM, langs prefLangsM:\n            expect {%s}\n            get    {%s}\n",
+                printExpected, printActual);
+    }
+
 }

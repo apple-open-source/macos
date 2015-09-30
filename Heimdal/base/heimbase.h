@@ -268,6 +268,7 @@ typedef struct heim_queue *heim_queue_t;
 typedef struct heim_queue_attr *heim_queue_attr_t;
 
 heim_queue_t	heim_queue_create(const char *, heim_queue_attr_t);
+void		heim_queue_release(heim_queue_t);
 void		heim_async_f(heim_queue_t, void *, void (*)(void *));
 
 typedef struct heim_sema_t *heim_sema_t;

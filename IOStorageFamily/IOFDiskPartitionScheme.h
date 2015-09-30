@@ -190,20 +190,6 @@ protected:
                                                      UInt32       partitionID,
                                                      UInt32       fdiskBlock );
 
-#ifndef __LP64__
-    /*
-     * Attach the given media object to the device tree plane.
-     */
-
-    virtual bool attachMediaObjectToDeviceTree(IOMedia * media) __attribute__ ((deprecated));
-
-    /*
-     * Detach the given media object from the device tree plane.
-     */
-
-    virtual void detachMediaObjectFromDeviceTree(IOMedia * media) __attribute__ ((deprecated));
-#endif /* !__LP64__ */
-
 public:
 
     /*
@@ -236,13 +222,8 @@ public:
 
     virtual IOReturn requestProbe(IOOptionBits options);
 
-#ifdef __LP64__
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  0);
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  1);
-#else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOFDiskPartitionScheme,  0);
-    OSMetaClassDeclareReservedUsed(IOFDiskPartitionScheme,  1);
-#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  2);
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  3);
     OSMetaClassDeclareReservedUnused(IOFDiskPartitionScheme,  4);

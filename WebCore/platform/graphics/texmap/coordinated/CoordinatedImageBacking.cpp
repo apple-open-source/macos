@@ -66,7 +66,7 @@ CoordinatedImageBacking::CoordinatedImageBacking(Client* client, PassRefPtr<Imag
     : m_client(client)
     , m_image(image)
     , m_id(getCoordinatedImageBackingID(m_image.get()))
-    , m_clearContentsTimer(this, &CoordinatedImageBacking::clearContentsTimerFired)
+    , m_clearContentsTimer(*this, &CoordinatedImageBacking::clearContentsTimerFired)
     , m_isDirty(false)
     , m_isVisible(false)
 {
@@ -141,7 +141,7 @@ void CoordinatedImageBacking::releaseSurfaceIfNeeded()
 {
     // We must keep m_surface until UI Process reads m_surface.
     // If m_surface exists, it was created in the previous update.
-    m_surface.clear();
+    m_surface = nullptr;
 }
 
 static const double clearContentsTimerInterval = 3;
@@ -151,8 +151,8 @@ void CoordinatedImageBacking::updateVisibilityIfNeeded(bool& changedToVisible)
     bool previousIsVisible = m_isVisible;
 
     m_isVisible = false;
-    for (size_t i = 0; i < m_hosts.size(); ++i) {
-        if (m_hosts[i]->imageBackingVisible()) {
+    for (auto& host : m_hosts) {
+        if (host->imageBackingVisible()) {
             m_isVisible = true;
             break;
         }
@@ -173,7 +173,7 @@ void CoordinatedImageBacking::updateVisibilityIfNeeded(bool& changedToVisible)
     }
 }
 
-void CoordinatedImageBacking::clearContentsTimerFired(Timer*)
+void CoordinatedImageBacking::clearContentsTimerFired()
 {
     m_client->clearImageBackingContents(id());
 }

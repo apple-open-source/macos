@@ -38,7 +38,7 @@ namespace WebCore {
 
 using namespace MathMLNames;
     
-RenderMathMLUnderOver::RenderMathMLUnderOver(Element& element, PassRef<RenderStyle> style)
+RenderMathMLUnderOver::RenderMathMLUnderOver(Element& element, Ref<RenderStyle>&& style)
     : RenderMathMLBlock(element, WTF::move(style))
 {
     // Determine what kind of under/over expression we have by element name
@@ -55,19 +55,19 @@ RenderMathMLUnderOver::RenderMathMLUnderOver(Element& element, PassRef<RenderSty
 RenderMathMLOperator* RenderMathMLUnderOver::unembellishedOperator()
 {
     RenderObject* base = firstChild();
-    if (!base || !base->isRenderMathMLBlock())
-        return 0;
-    return toRenderMathMLBlock(base)->unembellishedOperator();
+    if (!is<RenderMathMLBlock>(base))
+        return nullptr;
+    return downcast<RenderMathMLBlock>(*base).unembellishedOperator();
 }
 
-int RenderMathMLUnderOver::firstLineBaseline() const
+Optional<int> RenderMathMLUnderOver::firstLineBaseline() const
 {
     RenderBox* base = firstChildBox();
     if (!base)
-        return -1;
-    LayoutUnit baseline = base->firstLineBaseline();
-    if (baseline != -1)
-        baseline += base->logicalTop();
+        return Optional<int>();
+    Optional<int> baseline = base->firstLineBaseline();
+    if (baseline)
+        baseline.value() += static_cast<int>(base->logicalTop());
     return baseline;
 }
 
@@ -78,20 +78,20 @@ void RenderMathMLUnderOver::layout()
 
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
         if (child->needsLayout()) {
-            if (child->isRenderMathMLBlock()) {
-                if (auto renderOperator = toRenderMathMLBlock(child)->unembellishedOperator()) {
+            if (is<RenderMathMLBlock>(child)) {
+                if (auto renderOperator = downcast<RenderMathMLBlock>(*child).unembellishedOperator()) {
                     renderOperator->resetStretchSize();
                     renderOperators.append(renderOperator);
                 }
             }
 
-            toRenderElement(child)->layout();
+            downcast<RenderElement>(*child).layout();
         }
 
         // Skipping the embellished op does not work for nested structures like
         // <munder><mover><mo>_</mo>...</mover> <mo>_</mo></munder>.
-        if (child->isBox())
-            stretchWidth = std::max<LayoutUnit>(stretchWidth, toRenderBox(child)->logicalWidth());
+        if (is<RenderBox>(*child))
+            stretchWidth = std::max<LayoutUnit>(stretchWidth, downcast<RenderBox>(*child).logicalWidth());
     }
 
     // Set the sizes of (possibly embellished) stretchy operator children.

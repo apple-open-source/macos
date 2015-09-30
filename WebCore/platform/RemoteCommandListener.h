@@ -26,19 +26,20 @@
 #ifndef RemoteCommandListener_h
 #define RemoteCommandListener_h
 
-#include "MediaSession.h"
+#include "PlatformMediaSession.h"
 
 namespace WebCore {
 
 class RemoteCommandListenerClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     virtual ~RemoteCommandListenerClient() { }
-    virtual void didReceiveRemoteControlCommand(MediaSession::RemoteControlCommandType) = 0;
+    virtual void didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType) = 0;
 };
 
 class RemoteCommandListener {
 public:
-    static std::unique_ptr<RemoteCommandListener> create(RemoteCommandListenerClient&);
+    WEBCORE_EXPORT static std::unique_ptr<RemoteCommandListener> create(RemoteCommandListenerClient&);
     RemoteCommandListener(RemoteCommandListenerClient& client) : m_client(client) { }
     virtual ~RemoteCommandListener() { }
 

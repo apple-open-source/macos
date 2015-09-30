@@ -52,7 +52,7 @@ sntp_query_extended(const char *host, const char *servname, bool use_service_por
 		struct timeval time_estimate;
 		double delay, dispersion;
 		
-		if (resolve_hosts(&our_host, 1, our_servname, &resolved_hosts, AF_INET) != 1) {
+		if (resolve_hosts(&our_host, 1, our_servname, &resolved_hosts, AF_UNSPEC) != 1) {
 #ifdef DEBUG
 			fprintf(stderr, "Unable to resolve hostname %s\n", our_host);
 #endif

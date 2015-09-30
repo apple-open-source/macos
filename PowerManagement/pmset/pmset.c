@@ -27,6 +27,8 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
@@ -47,7 +49,7 @@
     IOReturn DisplayServicesResetAmbientLightAll( void );
 #endif
 
-#include "../pmconfigd/PrivateLib.h"
+#include "CommonLib.h"
 
 // dynamically mig generated
 #include "powermanagement.h"
@@ -111,6 +113,7 @@
 #define ARG_DEEPSLEEP       "standby"
 #define ARG_DEEPSLEEPDELAY  "standbydelay"
 #define ARG_DARKWAKES       "darkwakes"
+#define ARG_POWERNAP        "powernap"
 #define ARG_RESTOREDEFAULTS "restoredefaults"
 
 
@@ -119,6 +122,7 @@
 #define ARG_SCHED           "sched"
 #define ARG_REPEAT          "repeat"
 #define ARG_CANCEL          "cancel"
+#define ARG_CANCEL_ALL      "cancelall"
 #define ARG_RELATIVE        "relative"
 //#define ARG_SLEEP         "sleep"
 #define ARG_SHUTDOWN        "shutdown"
@@ -157,6 +161,8 @@
 #define ARG_USERACTIVITYLOG "useractivitylog"
 #define ARG_USERACTIVITY    "useractivity"
 #define ARG_LOG             "log"
+#define LOG_TEXT            0
+#define LOG_JSON            1
 #define ARG_LISTEN          "listen"
 #define ARG_HISTORY         "history"
 #define ARG_HISTORY_DETAILED "historydetailed"
@@ -249,10 +255,21 @@ static const size_t kMaxArgStringLength = 49;
 #define kPMCurrStateChID  IOREPORT_MAKEID('P','M','C','u','r','S','t','\0' )
 #endif                                                                                                                          
 
+#define kSleepDelaysBcktSize    10
+#define kSleepDelaysChID IOREPORT_MAKEID('r','d','S','l','p','D','l','y')
+
+#define kAssertDelayBcktSize    3
+#define kAssertDelayChID IOREPORT_MAKEID('r','d','A','s','r','t','D','l')
 /* RootDomain IOReporting channels */
 #define kSleepCntChID IOREPORT_MAKEID('S','l','e','e','p','C','n','t')
 #define kDarkWkCntChID IOREPORT_MAKEID('G','U','I','W','k','C','n','t')
 #define kUserWkCntChID IOREPORT_MAKEID('D','r','k','W','k','C','n','t')
+
+ /* Check for supported Hibernate Modes */
+ #define kNoOfSupportedHibernateModes 3
+ #define ARG_SUPPORTED_HIBERNATE_MODE1 "0"
+ #define ARG_SUPPORTED_HIBERNATE_MODE2 "3"
+ #define ARG_SUPPORTED_HIBERNATE_MODE3 "25"
 
 typedef struct {
     const char *name;
@@ -276,7 +293,7 @@ PMFeature all_features[] =
     { kIOPMGPUSwitchKey,            ARG_GPU },
     { kIOPMDeepSleepEnabledKey,     ARG_DEEPSLEEP },
     { kIOPMDeepSleepDelayKey,       ARG_DEEPSLEEPDELAY },
-    { kIOPMDarkWakeBackgroundTaskKey, ARG_DARKWAKES },
+    { kIOPMDarkWakeBackgroundTaskKey, ARG_POWERNAP },
     { kIOPMTTYSPreventSleepKey,     ARG_TTYKEEPAWAKE },
     { kIOHibernateModeKey,          ARG_HIBERNATEMODE },
     { kIOHibernateFileKey,          ARG_HIBERNATEFILE },
@@ -374,7 +391,9 @@ static void log_useractivity_presentActive(bool runOnce);
 static void log_useractivity_level(bool runOnce);
 static void show_useractivity_level(uint64_t lev, uint64_t msb);
 
-static void show_log(void);
+static void show_log(char **argv);
+static void show_log_text(asl_object_t repsonse);
+static void show_log_json(asl_object_t repsonse);
 static void show_uuid(bool keep_running);
 static void listen_for_everything(void);
 static bool is_display_dim_captured(void);
@@ -405,6 +424,7 @@ static bool isBatteryPollingStopped(void);
 static void set_nopoll(void);
 
 static void print_pretty_date(CFAbsoluteTime t, bool newline);
+static bool return_pretty_date(CFAbsoluteTime t, char *pretty_date);
 static void print_short_date(CFAbsoluteTime t, bool newline);
 static void print_date_with_style(const char *, CFDateFormatterStyle dayStyle, CFDateFormatterStyle timeStyle, CFAbsoluteTime t, bool newline);
 
@@ -475,6 +495,7 @@ static int parseScheduledEvent(
         int                         *num_args_parsed,
         ScheduledEventReturnType    *local_scheduled_event, 
         bool                        *cancel_scheduled_event,
+        bool                        *cancel_all_scheduled_events,
         bool                        is_relative_event);
 static int parseRepeatingEvent(
         char                        **argv,
@@ -549,7 +570,7 @@ static CommandAndAction the_getters[] =
     	{kActionGetLog,         ARG_SYSLOADLOG,     ^(char **arg){ log_systemload(); }},
     	{kActionGetLog,         ARG_USERACTIVITYLOG,^(char **arg){ log_useractivity_presentActive(kRunLoop); }},
     	{kActionGetOnceNoArgs,  ARG_USERACTIVITY   ,^(char **arg){ log_useractivity_presentActive(kRunOnce); }},
-    	{kActionGetOnceNoArgs,  ARG_LOG,            ^(char **arg){ show_log(); }},
+    	{kActionGetOnceNoArgs,  ARG_LOG,            ^(char **arg){ show_log(arg); }},
     	{kActionGetLog,         ARG_LISTEN,         ^(char **arg){ listen_for_everything(); }},
     	{kActionGetOnceNoArgs,  ARG_HISTORY,        ^(char **arg){ show_power_event_history(); }},
     	{kActionGetOnceNoArgs,  ARG_HISTORY_DETAILED, ^(char **arg){ show_power_event_history_detailed(); }},
@@ -889,7 +910,8 @@ int main(int argc, char *argv[]) {
     
     
     if(scheduled_event_return)
-    {
+    {   
+        // If scheduled_event_return is non-NULL and cancel_scheduled_event is TRUE it corresponds to cancel.
         if(cancel_scheduled_event)
         {
             // cancel the event described by scheduled_event_return
@@ -917,7 +939,25 @@ int main(int argc, char *argv[]) {
         
         // free individual members
         scheduled_event_struct_destroy(scheduled_event_return);
+
+    } else if(cancel_scheduled_event) {
+       
+       // If scheduled_event_return is NULL and cancel_scheduled_event is TRUE it corresponds to cancel_all
+        ret = IOPMCancelAllScheduledPowerEvents();
+        if(kIOReturnSuccess != ret) {
+            if(kIOReturnNotPrivileged == ret) {
+                fprintf(stderr, "pmset: Must be run as root to modify settings\n");
+        
+	    } else {
+                fprintf(stderr, "pmset: Error 0x%08x cancelling all scheduled events\n", ret);
+            }
+            fflush(stderr);
+            exit(1);
+        }
+        // free individual members
+        scheduled_event_struct_destroy(scheduled_event_return);
     }
+
     
     if(cancel_repeating_event) 
     {
@@ -1811,6 +1851,9 @@ print_scheduled_report(CFArrayRef events)
     CFStringRef         author = NULL;
     CFDateFormatterRef  formatter = NULL;
     CFStringRef         cf_str_date = NULL;
+    CFNumberRef         leeway = NULL;
+    int                 leeway_secs = 0;
+    bool                user_visible = false;
     
     if(!events || !(count = CFArrayGetCount(events))) return;
     
@@ -1821,6 +1864,8 @@ print_scheduled_report(CFArrayRef events)
     printf("Scheduled power events:\n");
     for(i=0; i<count; i++)
     {
+        leeway_secs = 0;
+        user_visible = false;
         ev = (CFDictionaryRef)CFArrayGetValueAtIndex(events, i);
         
         cf_str_date = CFDateFormatterCreateStringWithDate(kCFAllocatorDefault,
@@ -1847,9 +1892,18 @@ print_scheduled_report(CFArrayRef events)
             type_ptr = ARG_WAKEORPOWERON;
         else 
             type_ptr = type_buf;
+
+        leeway = CFDictionaryGetValue(ev, CFSTR(kIOPMPowerEventLeewayKey));
+        if (isA_CFNumber(leeway))  {
+            CFNumberGetValue(leeway, kCFNumberIntType, &leeway_secs);
+        }
+        user_visible = (CFDictionaryGetValue(ev, CFSTR(kIOPMPowerEventUserVisible)) == kCFBooleanTrue) ?
+                        true : false;
         
         printf(" [%ld]  %s at %s", i, type_ptr, date_buf);
-        if(name_buf[0]) printf(" by %s", name_buf);
+        if(name_buf[0]) printf(" by '%s'", name_buf);
+        if (leeway_secs) printf(" leeway secs: %d", leeway_secs);
+        if (user_visible) printf(" User visible: true");
         printf("\n");
     }
     
@@ -2399,9 +2453,19 @@ exit:
 
 static void print_pretty_date(CFAbsoluteTime t, bool newline)
 {
+    char    _date[60];
+ 
+    if(return_pretty_date(t, _date)) {
+        printf("%s ", _date); fflush(stdout);
+        if(newline) printf("\n");
+    }
+
+}
+
+static bool return_pretty_date(CFAbsoluteTime t, char *pretty_date)
+{
     CFDateFormatterRef  date_format;
     CFStringRef         time_date;
-    char                _date[60];
  
     date_format = CFDateFormatterCreate (NULL, NULL, kCFDateFormatterNoStyle, kCFDateFormatterNoStyle);
     CFDateFormatterSetFormat(date_format, CFSTR("yyyy-MM-dd HH:mm:ss ZZZ"));
@@ -2410,14 +2474,12 @@ static void print_pretty_date(CFAbsoluteTime t, bool newline)
         date_format, t);
     CFRelease(date_format);
 
-    if(time_date)
-    {
-        CFStringGetCString(time_date, _date, 60, kCFStringEncodingMacRoman);
-        printf("%s ", _date); fflush(stdout);
-        if(newline) printf("\n");
-        CFRelease(time_date); 
+    if(time_date) {
+        CFStringGetCString(time_date, pretty_date, 60, kCFStringEncodingMacRoman);
+        CFRelease(time_date);
+        return true;
     }
-
+    return false;
 }
 
 static void print_short_date(CFAbsoluteTime t, bool newline)
@@ -2624,7 +2686,7 @@ static void show_assertions_individually(void (^printer)(
                 
                 char                    assertionType[400];
                 char                    val_buf[300];
-                char                    assertionName[300];
+                char                    *assertionName;
                 bool                    timed_out = false;
                 int                     createdSince = 0;
 
@@ -2644,7 +2706,9 @@ static void show_assertions_individually(void (^printer)(
                 
                 val_string = CFDictionaryGetValue(tmp_dict, kIOPMAssertionNameKey);
                 if (val_string) {
-                    CFStringGetCString(val_string, assertionName, sizeof(assertionName), kCFStringEncodingMacRoman);
+                    assertionName = (char *)malloc(CFStringGetLength(val_string)+1);
+                    if (assertionName)
+                        CFStringGetCString(val_string, assertionName, CFStringGetLength(val_string)+1, kCFStringEncodingMacRoman);
                 }
                 
                 timed_out = CFDictionaryGetValue(tmp_dict, kIOPMAssertionTimedOutDateKey);
@@ -2781,6 +2845,7 @@ static void show_assertions_individually(void (^printer)(
                 if (printer) {
                     printer(pid_name_buf, assertionType, assertionName, createdSince);
                 }
+                if (assertionName) free(assertionName);
             }
         }
         free(pids);
@@ -3055,6 +3120,57 @@ static void show_assertions_in_kernel(void)
     }
     CFRelease(rootDomainProperties);
 }
+
+static void show_sleep_preventers(int preventerType)
+{
+    char        strbuf[125];
+    CFArrayRef  preventers;
+    IOReturn    ret;
+    char        name[32];
+    long        count;
+    size_t      len = 0;
+
+
+    strbuf[0] = 0;
+
+    ret = IOPMCopySleepPreventersList(preventerType, &preventers);
+    if ((ret != kIOReturnSuccess) || (!isA_CFArray(preventers)))
+    {
+        return;
+    }
+    count = CFArrayGetCount(preventers);
+    if (!count)
+    {
+        goto exit;
+    }
+
+    snprintf(strbuf, sizeof(strbuf), "%s sleep preventers: ",
+             (preventerType == kIOPMIdleSleepPreventers) ? "Idle" : "System");
+
+    for (int i = 0; i < count; i++)
+    {
+        CFStringRef cfstr = CFArrayGetValueAtIndex(preventers, i);
+        CFStringGetCString(cfstr, name, sizeof(name), kCFStringEncodingUTF8);
+
+        if (i != 0) {
+            strlcat(strbuf, ", ", sizeof(strbuf));
+        }
+        len = strlcat(strbuf, name, sizeof(strbuf));
+    }
+    if (len >= sizeof(strbuf)) {
+        // Put '...' to indicate incomplete string
+        strbuf[sizeof(strbuf)-4] = strbuf[sizeof(strbuf)-3] = strbuf[sizeof(strbuf)-2] = '.';
+        strbuf[sizeof(strbuf)-1] = '\0';
+    }
+
+    printf("%s\n", strbuf);
+exit:
+    if (preventers)
+    {
+        CFRelease(preventers);
+    }
+
+}
 static void show_assertions(const char *decorate)
 {
     print_pretty_date(CFAbsoluteTimeGetCurrent(), decorate?false:true);
@@ -3065,6 +3181,8 @@ static void show_assertions(const char *decorate)
     show_assertions_system_aggregates(false);
     show_assertions_individually(NULL);
     show_assertions_in_kernel();
+    show_sleep_preventers(kIOPMIdleSleepPreventers);
+    show_sleep_preventers(kIOPMSystemSleepPreventers);
 
     return;
 }
@@ -4195,6 +4313,20 @@ static int checkAndSetIntValue(
     return 0;
 }
 
+
+/* Check if the input Hibernate mode is supported/valid or not */
+ static int checkSupportedHibernateMode(char *valstr)
+ {
+     const char * const supportedModes[] = { ARG_SUPPORTED_HIBERNATE_MODE1, ARG_SUPPORTED_HIBERNATE_MODE2, ARG_SUPPORTED_HIBERNATE_MODE3 };
+     
+     if(!valstr) return -1;
+     
+     for( int i=0; i<kNoOfSupportedHibernateModes; i++)
+         if(!strcmp(valstr,supportedModes[i]))
+              return 0;
+     return -1;
+ }
+
 static int checkAndSetStrValue(char *valstr, CFStringRef settingKey, int apply,
                 CFMutableDictionaryRef ac, CFMutableDictionaryRef batt, CFMutableDictionaryRef ups)
 {
@@ -4491,6 +4623,7 @@ static int parseScheduledEvent(
     int                         *num_args_parsed,
     ScheduledEventReturnType    *local_scheduled_event, 
     bool                        *cancel_scheduled_event,
+    bool                        *cancel_all_scheduled_events,
     bool                        is_relative_event)
 {
     CFDateFormatterRef          formatter = 0;
@@ -4515,7 +4648,17 @@ static int parseScheduledEvent(
     }
     
     string_tolower(argv[i], argv[i]);
-    
+ 
+    // cancel_all
+    if(!is_relative_event && (0 == strcmp(argv[i], ARG_CANCEL_ALL))) {
+       *cancel_all_scheduled_events = true;
+        i++;
+
+       ret = kParseSuccess;
+       goto exit;
+       
+    }
+
     // cancel
     if(!is_relative_event && (0 == strcmp(argv[i], ARG_CANCEL))) {
         char            *endptr = NULL;
@@ -4750,6 +4893,7 @@ static int parseArgs(int argc,
     IOReturn                    kr;
     ScheduledEventReturnType    *local_scheduled_event = 0;
     bool                        local_cancel_event = false;
+    bool                        local_cancel_all_events = false;
     CFMutableDictionaryRef      local_repeating_event = 0;
     bool                        local_cancel_repeating = false;
     CFDictionaryRef             tmp_profiles = 0;
@@ -4980,6 +5124,7 @@ static int parseArgs(int argc,
                             &args_parsed,
                             local_scheduled_event, 
                             &local_cancel_event,
+                            &local_cancel_all_events,
                             false);
             if(kParseSuccess != ret)
             {
@@ -5005,6 +5150,7 @@ static int parseArgs(int argc,
                             &args_parsed,
                             local_scheduled_event, 
                             &local_cancel_event,
+                            &local_cancel_all_events,
                             true);
             if(kParseSuccess != ret)
             {
@@ -5394,6 +5540,11 @@ static int parseArgs(int argc,
                 i+=2;
             } else if(0 == strncmp(argv[i], ARG_HIBERNATEMODE, kMaxArgStringLength))
             {
+	        if(-1 == checkSupportedHibernateMode(argv[i+1]))
+                {
+                    ret = kParseBadArgs;
+                    goto exit;
+                }
                 if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOHibernateModeKey), 
                                                         apply, false, kNoMultiplier, 
                                                         ac, battery, ups))
@@ -5480,7 +5631,8 @@ static int parseArgs(int argc,
                 }
                 modified |= kModSettings;
                 i+=2;
-            } else if(0 == strncmp(argv[i], ARG_DARKWAKES, kMaxArgStringLength))
+            } else if(0 == strncmp(argv[i], ARG_DARKWAKES, kMaxArgStringLength) ||
+                     (0 == strncmp(argv[i], ARG_POWERNAP, kMaxArgStringLength)))
             {
                 if((-1 == checkAndSetIntValue(argv[i+1],
                             CFSTR(kIOPMDarkWakeBackgroundTaskKey), apply,
@@ -5583,8 +5735,12 @@ exit:
     }
 
     if(modified & kModSched) {
-        *scheduled_event = local_scheduled_event;
-        *cancel_scheduled_event = local_cancel_event;
+        if(!local_cancel_all_events) {
+            *scheduled_event = local_scheduled_event;
+            *cancel_scheduled_event = local_cancel_event;
+        }
+        else    
+            *cancel_scheduled_event = true;    
     }
     
     if(modified & kModRepeat) {
@@ -5937,7 +6093,7 @@ static asl_object_t open_pm_asl_store(void)
     return response;
 }
 
-static void pmlog_print_claimedwakes(CFAbsoluteTime  abs_time, asl_object_t m)
+static void pmlog_print_claimedwakes(CFAbsoluteTime  abs_time, asl_object_t m, int logType)
 {
     int i=0;
     char key[255];
@@ -5950,26 +6106,43 @@ static void pmlog_print_claimedwakes(CFAbsoluteTime  abs_time, asl_object_t m)
             break;
         }
         if (i == 0) {
-            print_pretty_date(abs_time, false);
-            printf("%-20s\t",  "WakeDetails"); // domain
+            if (!logType) {
+                print_pretty_date(abs_time, false);
+                printf("%-20s\t",  "WakeDetails"); // domain
+            }
+            else {
+                printf(",\"WakeDetails\":\"[{%s\"", claimed);
+            }
         }
         i++;
-        printf("%-75s\n", claimed);
+        if (!logType)
+            printf("%-75s\n", claimed);
+        else if (i != 1) {
+            printf(",\"%s\"", claimed);
+        }
 
     } while (true);
     
+    if (logType && i) {
+        printf("}]");
+    }
     return;
 }
 
-static void printWakeReqMsg(asl_object_t m)
+static void printWakeReqMsg(asl_object_t m, int logType)
 {
-    int chosen = -1, cnt = 0;
+    int cnt = 0;
+    long  chosen = -1;
     char    key[50];
     const char    *appName, *wakeType, *delta, *str;
 
     if ((str = asl_get(m, kPMASLWakeReqChosenIdx))) {
         chosen = strtol(str, NULL, 0);
     }
+    
+    if (logType)
+        printf(",\"Requests\":[");
+
     while (true) {
 
         snprintf(key, sizeof(key), "%s%d", KPMASLWakeReqAppNamePrefix, cnt);
@@ -5987,27 +6160,38 @@ static void printWakeReqMsg(asl_object_t m)
         snprintf(key, sizeof(key), "%s%d", kPMASLWakeReqClientInfoPrefix, cnt);
         str = asl_get(m, key); // Optional client info
 
-        printf("[%sproc=%s request=%s inDelta=%s%s%s%s] ",
-               (cnt == chosen) ? "*" : "",
-               appName, wakeType, delta,
-               (str) ? " info=\"" : "",
-               (str) ? str : "",
-               (str) ? "\"" : "");
-
+        if (!logType)
+            printf("[%sproc=%s request=%s inDelta=%s%s%s%s] ",
+                   (cnt == chosen) ? "*" : "",
+                   appName, wakeType, delta,
+                   (str) ? " info=\"" : "",
+                   (str) ? str : "",
+                   (str) ? "\"" : "");
+        else {
+            if (cnt != 0)
+                printf(",");
+            printf("{\"proc\":\"%s\",\"request\":\"%s\",\"inDelta\":\"%s%s%s\"}",
+                   appName, wakeType, delta,
+                   (str) ? " info=" : "",
+                   (str) ? str : "");
+        }
         cnt++;
     }
-
+    if (logType) {
+        printf("],\"Chosen\":%ld", chosen);
+    }
 }
-static void printStatsMsg(asl_object_t m)
+
+static void printStatsMsg(asl_object_t m, int logType)
 {
-    int     cnt = 0;
+    int           cnt = 0;
     const char    *appName, *responseType, *delay;
     const char    *transition = NULL;
-    char    *str, buf[128];
+    char          *str, buf[128];
     const char    *ps, *msg;
+    bool          messageFlag=false;
 
     while (true) {
-
 
         snprintf(buf, sizeof(buf), "%s%d",kPMASLResponseAppNamePrefix, cnt);
         if (!(appName = asl_get(m, buf))) 
@@ -6040,21 +6224,179 @@ static void printStatsMsg(asl_object_t m)
             snprintf(buf, sizeof(buf), "driver is slow(msg: %s to %s)", 
                      (msg) ? msg : "", (ps) ? ps : "");
             str = buf;
+            messageFlag=true;
         }
         else
             break;
 
         transition = asl_get(m, kPMASLResponseSystemTransition);
         if (cnt == 0 && transition)
-            printf("Delays to %s notifications: ", transition);
+            printf("%sDelays to %s notifications%s:%s ", 
+                   (logType) ? ",\"":"",
+                   transition,
+                   (logType) ? "\"":"",
+                   (logType) ? "[":"");
 
-        printf("[%s %s(%s ms)] ", appName, str, delay);
+        if(!logType)
+            printf("[%s %s(%s ms)] ", appName, str, delay);
+        else {
+            if(cnt != 0)
+                printf(",");
+            printf("{\"Name\":\"%s\",\"Status\":\"%s\",\"%s\":\"%s%s%s\",\"Delay\":\"%s ms\"}"
+                     , appName,
+                     (messageFlag) ? "Driver is slow":str, 
+                     (messageFlag) ? "Message":"", 
+                     (messageFlag) ? msg:"",
+                     (messageFlag) ? " to ":"",
+                     (messageFlag) ? ps:"",
+                     delay);
+            messageFlag=false;
+        }
         cnt++;
+    }
+    if(logType)
+        printf("]");
+}
+
+static void replaceDoubleQuote(char *str)
+{
+     char *current = str;
+     char *ptr = NULL;
+     while((ptr = strchr(current,'"'))) {
+         *ptr = '\'';
+         current = ptr;
+     }
+}
+
+static void printAssertion(asl_object_t m, int logType)
+{
+    char    key[100];
+    const char *processId, *processName;
+    const char *assertAction, *assertType, *assertName, *assertAge, *assertId;
+    const char *msg;
+
+    snprintf(key, sizeof(key), "%s", kPMASLPIDKey);
+    processId = asl_get(m, key);
+
+    snprintf(key, sizeof(key), "%s", kPMASLProcessNameKey);
+    processName = asl_get(m, key);
+
+    snprintf(key, sizeof(key), "%s", kPMASLActionKey);
+    assertAction = asl_get(m, key);
+
+    snprintf(key, sizeof(key), "%s", kPMASLAssertionTypeKey);
+    assertType = asl_get(m, key);
+
+    snprintf(key, sizeof(key), "%s", kPMASLAssertionNameKey);
+    assertName = asl_get(m, key);
+
+    snprintf(key, sizeof(key), "%s", kPMASLAssertionAgeKey);
+    assertAge = asl_get(m, key);
+
+    snprintf(key, sizeof(key), "%s", kPMASLAssertionIdKey);
+    assertId = asl_get(m, key);
+
+    snprintf(key, sizeof(key), "%s", ASL_KEY_MSG);
+    msg = asl_get(m, key);
+    
+    if (!logType) {
+        if (!processName)
+            printf("%s", msg);
+        else
+            printf( "PID %s(%s) %s %s %s%s%s %s id:0x%s %s",
+                    processId,
+                    processName ? processName : "?",
+                    assertAction,
+                    assertType ? assertType : "",
+                    assertName ? "\"" : "",
+                    assertName ? assertName : "", 
+                    assertName ? "\"" : "",
+                    assertAge ? assertAge : "",
+                    assertId, msg);
+    }
+    else {
+        if (!processName) {
+	    replaceDoubleQuote((char* )msg); 
+            printf(",\"Message\":\"%s\"", msg);
+	}
+        else
+            printf( ",\"PID\":%s,\"Process Name\":\"%s\",\"Action\":\"%s\",\"Type\""
+                    ":\"%s\",\"Name\":\"%s\",\"Duration\":\"%s\",\"id\":\"0x%s\",\"Message\":\"%s\"",
+                    processId,
+                    processName ? processName : "?",
+                    assertAction,
+                    assertType ? assertType : "",
+                    assertName ? assertName : "", 
+                    assertAge ? assertAge : "",
+                    assertId, msg);
     }
 }
 
+static void printSleepWakeMsg(asl_object_t m, int logType)
+{
+    char       key[100];
+    const char *source, *percentage;
+    const char *msg;
+
+    snprintf(key, sizeof(key), "%s", kPMASLPowerSourceKey);
+    source = asl_get(m, key);
+
+    snprintf(key, sizeof(key), "%s", kPMASLBatteryPercentageKey);
+    percentage = asl_get(m, key);
+
+    snprintf(key, sizeof(key), "%s", ASL_KEY_MSG);
+    msg = asl_get(m, key);
+    
+    if (!logType) {
+        if (!source)
+            printf("%s", msg);
+        else
+            printf( "%s Using %s %s%s%s", msg, source,
+                    percentage ? "\(Charge:" : "",
+                    percentage ? percentage : "",
+                    percentage ? "%) " : "");
+    } else {
+        if (source) {
+            printf(",\"Source\":\"%s\"", source);
+            if (percentage)
+                printf(",\"Percentage\":\"%s\"", percentage);
+        }
+        replaceDoubleQuote((char *)msg);
+        printf(",\"Message\":\"%s\"", msg);
+    }
+    
+}
+
 /* All PM messages in ASL log */
-static void show_log(void)
+static void show_log(char **argv)
+{
+    asl_object_t        response = NULL;
+
+    response = open_pm_asl_store();
+    if (!response) {
+        printf("Error - no messages found in PM ASL data store at: %s\n", kPMASLStorePath);
+        return;
+    } else
+        printf("PM ASL data store: %s\n", kPMASLStorePath);
+    
+    if (argv[0]) {
+        if (!strcmp(argv[0],"-json")) {
+            show_log_json(response);
+            return;
+        }
+        // Should we have this?
+        /* else */
+        /* { */
+        /*     printf("Error - bad arguments\n"); */
+        /*     return; */
+        /* } */
+    }
+    show_log_text(response);
+    return;
+}
+
+/* All PM messages in ASL log in text format */
+static void show_log_text(asl_object_t response)
 {
     asl_object_t        m = NULL;
     char                uuid[100];
@@ -6063,21 +6405,10 @@ static void show_log(void)
     bool                first_iter = true;
     CFAbsoluteTime      boot_time = 0;
 
-    asl_object_t        response = NULL;
-
-    response = open_pm_asl_store();
-    if (!response)
-    {
-        printf("Error - no messages found in PM ASL data store at: %s\n", kPMASLStorePath);
-        return;
-    } else {
-        printf("PM ASL data store: %s\n", kPMASLStorePath);
-    }
-    
     uuid[0] = 0;
 
-    while ((m = _my_next_response(response)))
-    {
+    while ((m = _my_next_response(response))) {
+
         const char  *val = NULL;
         int32_t     print_duration_time = -1;
         long        time_read = 0;
@@ -6086,21 +6417,20 @@ static void show_log(void)
         bool        isAwakening = false;
         bool        kerStats = false, pmStats = false;
         bool        wakeReq = false;
+        bool        assert = false;
+        bool        sleepWake = false;
         CFAbsoluteTime  abs_time ;
 
-        if ((val = asl_get(m, kPMASLDomainKey)))
-        {
+        if ((val = asl_get(m, kPMASLDomainKey))) {
             if (!strncmp(val, kPMASLDomainPMStart, sizeof(kPMASLDomainPMStart)-1)) {
                 new_boot_cycle = true;
             }
         }
         
-        if (((val = asl_get(m, kPMASLUUIDKey)) && (strncmp( val, uuid, sizeof(uuid)) != 0)) || new_boot_cycle ) 
-        {
+        if (((val = asl_get(m, kPMASLUUIDKey)) && (strncmp( val, uuid, sizeof(uuid)) != 0)) || new_boot_cycle ) {
             // New Sleep cycle is about to begin
             // Print Sleep cnt and dark wake cnt of previous sleep/wake cycle
-            if ( !first_iter )
-            {
+            if ( !first_iter ) {
                printf("Sleep/Wakes since boot");
                if (boot_time) {
                   printf(" at ");
@@ -6123,10 +6453,9 @@ static void show_log(void)
             printf("UUID: %s\n", val);
             sleep_cnt = 0;
         }
-
+         
         // Time
-        if ((val = asl_get(m, ASL_KEY_TIME))) 
-        {
+        if ((val = asl_get(m, ASL_KEY_TIME))) {
             time_read = atol(val);
             abs_time = (CFAbsoluteTime)(time_read - kCFAbsoluteTimeIntervalSince1970);
             print_pretty_date(abs_time, false);
@@ -6134,10 +6463,8 @@ static void show_log(void)
                boot_time = abs_time;
         }
 
-
         // Domain
-        if ((val = asl_get(m, kPMASLDomainKey)))
-        {   
+        if ((val = asl_get(m, kPMASLDomainKey))) {   
             const char *value1 = asl_get(m, kPMASLValueKey);
 
             if (strnstr(val, "Response.", strlen(val))) {
@@ -6155,47 +6482,53 @@ static void show_log(void)
                 printf("%-20s\t", "Wake Requests");
                 wakeReq = true;
             } 
+            else if (!strncmp(val, kPMASLDomainPMAssertions, sizeof(kPMASLDomainPMAssertions))) {
+                printf("%-20s\t", "Assertions");
+                assert = true;
+            } 
             else {
                 printf("%-20s\t",  (char *)val);
             }
 
     
-            if (!strncmp(kPMASLDomainPMSleep, val, sizeof(kPMASLDomainPMSleep) )) 
-            {
+            if (!strncmp(kPMASLDomainPMSleep, val, sizeof(kPMASLDomainPMSleep) )) {
                 if ( (print_duration_time = _getNextWakeTime(response)) != -1) {
                     print_duration_time -= time_read;
                 }
-
+                sleepWake = true;
                if (value1) {
                    sleep_cnt = strtol(value1, NULL, 0);
                 }
             }
             else if (!strncmp(kPMASLDomainPMWake, val, sizeof(kPMASLDomainPMWake)) ||
-                     !strncmp(kPMASLDomainPMDarkWake, val, sizeof(kPMASLDomainPMDarkWake)))
-            {
+                     !strncmp(kPMASLDomainPMDarkWake, val, sizeof(kPMASLDomainPMDarkWake))) {
                 isAwakening = true;
                 if ( (print_duration_time = _getNextSleepTime(response, val)) != -1) {
                     print_duration_time -= time_read;
                 }
-                
+                sleepWake = true;
                 if (value1 &&
-                    !strncmp(kPMASLDomainPMDarkWake, val, sizeof(kPMASLDomainPMDarkWake) ))
-                {
+                    !strncmp(kPMASLDomainPMDarkWake, val, sizeof(kPMASLDomainPMDarkWake) )) {
                     dark_wake_cnt = strtol(value1, NULL, 0);
                 }
             }
         }
-        else 
-        {
+        else {
             printf("%-20s\t",  " ");
         }
         
         // Message
         if (pmStats || kerStats) {
-            printStatsMsg(m);
+            printStatsMsg(m, LOG_TEXT);
         }
         else if (wakeReq) {
-            printWakeReqMsg(m);
+            printWakeReqMsg(m, LOG_TEXT);
+        }
+        else if (assert) {
+            printAssertion(m, LOG_TEXT);
+        }
+        else if (sleepWake) {
+            printSleepWakeMsg(m, LOG_TEXT);
         }
         else if ((val = asl_get(m, ASL_KEY_MSG))) {
             printf("%-75s\t", val);
@@ -6211,15 +6544,13 @@ static void show_log(void)
         }
         printf("%-10s", buf);
 
-        if ((val = asl_get(m, kPMASLDelayKey)))
-        {   
+        if ((val = asl_get(m, kPMASLDelayKey))) {   
             printf("%-10s\t", val);
         }
-        
         printf("\n");
         
         if (isAwakening) {
-            pmlog_print_claimedwakes(abs_time, m);
+            pmlog_print_claimedwakes(abs_time, m, LOG_TEXT);
         }
         
     }
@@ -6236,6 +6567,187 @@ static void show_log(void)
     show_assertions("Showing all currently held IOKit power assertions");
 }
 
+/* All PM messages in ASL log in json format */
+static void show_log_json(asl_object_t response)
+{
+    asl_object_t        m = NULL;
+    char                uuid[100];
+    long                sleep_cnt = 0;
+    long                item_cnt = 0;
+    long                dark_wake_cnt = 0;
+    bool                first_iter = true;
+    char                boot_time[70];
+    bool                newSession = true;
+    int                 session_cnt = 0;
+    uuid[0] = 0;
+
+    // Initialize the output
+    printf("[");
+    
+    while ((m = _my_next_response(response))) {
+
+        const char  *val = NULL;
+        int32_t     print_duration_time = -1;
+        long        time_read = 0;
+        char        time[70];
+        bool        new_boot_cycle = false;
+        bool        isAwakening = false;
+        bool        kerStats = false, pmStats = false;
+        bool        wakeReq = false;
+        bool        assert = false;
+        bool        sleepWake = false;
+
+        CFAbsoluteTime  abs_time ;
+        
+        if ((val = asl_get(m, kPMASLDomainKey))) {
+            if (!strncmp(val, kPMASLDomainPMStart, sizeof(kPMASLDomainPMStart)-1)) 
+                new_boot_cycle = true;
+        }
+        
+        if (((val = asl_get(m, kPMASLUUIDKey)) && (strncmp( val, uuid, sizeof(uuid)) != 0)) || new_boot_cycle ) {
+            // New Sleep cycle is about to begin
+            // Print Sleep cnt and dark wake cnt of previous sleep/wake cycle
+            if ( !first_iter ) {
+                //Close the log json array
+                printf("\n]");
+                printf(",\n\"UUID\":\"%s\",\"Boot Time\":\"%s\"", uuid, boot_time);
+                //Close the previous session json object
+                printf("\n},\n");
+            }
+            item_cnt = 0;
+            dark_wake_cnt = 0;
+            sleep_cnt = 0;
+            first_iter = false;
+            
+            // Start a new session json object
+            printf("\n{\"SessionId\":\"%d\",", session_cnt);
+            // Start a new log json array
+            printf("\n\"Log\":[");
+          
+            //Save the uuid
+            snprintf(uuid, sizeof(uuid), "%s", (char *)val);
+            newSession = true;
+            session_cnt++;
+
+        }
+
+        //Print the start of a new log entry
+        if(!newSession)
+            printf(",");
+        printf("\n{");
+
+        // Time
+        if ((val = asl_get(m, ASL_KEY_TIME))) {
+            time_read = atol(val);
+            abs_time = (CFAbsoluteTime)(time_read - kCFAbsoluteTimeIntervalSince1970);
+            return_pretty_date(abs_time, time);
+            printf("\"TimeStamp\":\"%s\"",time);
+            if (new_boot_cycle)
+                strcpy(boot_time, time);
+        }
+
+        // Domain
+        if ((val = asl_get(m, kPMASLDomainKey))) {   
+            const char *value1 = asl_get(m, kPMASLValueKey);
+
+            if (strnstr(val, "Response.", strlen(val))) {
+                printf(",\"Domain\":\"Response\"");
+            }
+            else if (!strncmp(val, kPMASLDomainKernelClientStats, sizeof(kPMASLDomainKernelClientStats))) {
+                printf(",\"Domain\":\"Kernel Client Acks\"");
+                kerStats = true;
+            }
+            else if (!strncmp(val, kPMASLDomainPMClientStats, sizeof(kPMASLDomainPMClientStats))) {
+                printf(",\"Domain\":\"PM Client Acks\"");
+                pmStats = true;
+            }
+            else if (!strncmp(val, kPMASLDomainClientWakeRequests, sizeof(kPMASLDomainClientWakeRequests))) {
+                printf(",\"Domain\":\"Wake Requests\"");
+                wakeReq = true;
+            }
+            else if (!strncmp(val, kPMASLDomainPMAssertions, sizeof(kPMASLDomainPMAssertions))) {
+                printf(",\"Domain\":\"Assertions\"");
+                assert = true;
+            }
+            else {
+                printf(",\"Domain\":\"%s\"", (char *)val);
+            }
+    
+            if (!strncmp(kPMASLDomainPMSleep, val, sizeof(kPMASLDomainPMSleep))) {
+                if ( (print_duration_time = _getNextWakeTime(response)) != -1) {
+                    print_duration_time -= time_read;
+                }
+                sleepWake = true;
+               if (value1) {
+                   sleep_cnt = strtol(value1, NULL, 0);
+                }
+            }
+            else if (!strncmp(kPMASLDomainPMWake, val, sizeof(kPMASLDomainPMWake)) ||
+                     !strncmp(kPMASLDomainPMDarkWake, val, sizeof(kPMASLDomainPMDarkWake))) {
+                isAwakening = true;
+                if ( (print_duration_time = _getNextSleepTime(response, val)) != -1) {
+                    print_duration_time -= time_read;
+                }
+                sleepWake = true;
+                if (value1 &&
+                    !strncmp(kPMASLDomainPMDarkWake, val, sizeof(kPMASLDomainPMDarkWake) )) {
+                    dark_wake_cnt = strtol(value1, NULL, 0);
+                }
+            }
+        }
+        else {
+            printf(",\"Domain\":\"\"");
+        }
+
+        // Message
+        if (pmStats || kerStats) {
+            printStatsMsg(m, LOG_JSON);
+        }
+        else if (wakeReq) {
+            printWakeReqMsg(m, LOG_JSON);
+        }
+        else if (assert) {
+            printAssertion(m, LOG_JSON);
+        }
+        else if (sleepWake) {
+            printSleepWakeMsg(m, LOG_JSON);
+        }
+        else if ((val = asl_get(m, ASL_KEY_MSG))) {
+            printf(",\"Message\":\"%s\"", val);
+       } else {
+            printf(",\"Message\":\"\"");
+        }
+        
+        // Duration/Delay
+        if (-1 != print_duration_time) {
+            printf(",\"Duration\":\"%d secs\"", print_duration_time);
+        }
+
+        if ((val = asl_get(m, kPMASLDelayKey))) {
+            printf(",\"Delay\":\"%s\"", val);
+        }
+        
+        if (isAwakening) {
+            pmlog_print_claimedwakes(abs_time, m, LOG_JSON);
+        }
+
+        // End the log Entry
+        printf("}");
+        newSession = false;
+        item_cnt++;
+        
+    }
+
+    //Close the log array object
+    printf("\n]");
+
+    //Close the last session
+    printf("\n}");
+
+    //Close the Session Array.
+    printf("\n]\n");
+
+}
 
 static void show_power_event_history(void)
 {
@@ -6980,10 +7492,35 @@ static void show_getters(void)
     }
 }
 
+#if 0
+static void
+describeSamples(IOReportChannelRef ch)
+{
+
+    int i, cnt;
+    int64_t hits, min, max, sum;
+
+    cnt = IOReportHistogramGetBucketCount(ch);
+    printf("Bkt | hits  min  max  sum\n");
+    printf("-------------------------\n");
+    for (i = 0; i < cnt; i++) {
+        hits = IOReportHistogramGetBucketHits(ch, i);
+        min = IOReportHistogramGetBucketMinValue(ch, i);
+        max = IOReportHistogramGetBucketMaxValue(ch, i);
+        sum = IOReportHistogramGetBucketSum(ch, i);
+
+        printf("%3d | %4lld  %3lld  %3lld  %3lld\n", i, hits, min, max, sum);
+    }
+
+
+}
+#endif
+
+
 void fetchChannelData( char     *object,
     uint64_t                channel_id,
     bool                    print_error,
-    void                    (^processChannelData)(uint64_t, CFStringRef))
+    void                    (^processChannelData)(IOReportSampleRef))
 {
     CFMutableDictionaryRef  desiredChs = NULL, subbedChs = NULL;
     CFDictionaryRef 		mdict  = NULL;
@@ -7011,10 +7548,7 @@ void fetchChannelData( char     *object,
     if ((samples = IOReportCreateSamples(iorsub, subbedChs, NULL))) {
         IOReportIterate(samples, ^(IOReportSampleRef ch) {
      
-            uint64_t curstate = IOReportSimpleGetIntegerValue(ch, NULL);
-            CFStringRef drv_name = IOReportChannelGetDriverName(ch);
-            
-            processChannelData(curstate, drv_name);
+            processChannelData(ch);
             return kIOReportIterOk;
         });
 	}
@@ -7047,12 +7581,15 @@ void display_powerstate( char *object, bool print_error)
         row1= false;
     }
 
-    fetchChannelData(object, kPMCurrStateChID, print_error,  ^(uint64_t state_id, CFStringRef drv_name) {
+    fetchChannelData(object, kPMCurrStateChID, print_error,  ^(IOReportSampleRef ch) {
         bool is_on = false, is_usable = false, is_lowpower = false;
         uint32_t cur_st=0, max_st=0;
         CFNumberRef objRef = NULL;
         const char *dname_cstr;
         char dname_buf[25], *spcptr;
+
+        uint64_t state_id = IOReportSimpleGetIntegerValue(ch, NULL);
+        CFStringRef drv_name = IOReportChannelGetDriverName(ch);
 
         // making this name useful is one reason this code might be better
         // in ioreg :P
@@ -7341,13 +7878,36 @@ static void show_rdStats(char **argv)
 {
 
     fetchChannelData("IOPMrootDomain", kSleepCntChID, true,
-            ^(uint64_t state_id, CFStringRef drv_name){ printf("Sleep Count:%lld\n", state_id); } );
+            ^(IOReportSampleRef ch) { 
+            uint64_t state_id = IOReportSimpleGetIntegerValue(ch, NULL);
+            printf("Sleep Count:%lld\n", state_id); 
+          } );
 
     fetchChannelData("IOPMrootDomain", kDarkWkCntChID, true,
-            ^(uint64_t state_id, CFStringRef drv_name){ printf("Dark Wake Count:%lld\n", state_id); } );
+            ^(IOReportSampleRef ch) { 
+            uint64_t state_id = IOReportSimpleGetIntegerValue(ch, NULL);
+            printf("Dark Wake Count:%lld\n", state_id); 
+          } );
 
     fetchChannelData("IOPMrootDomain", kUserWkCntChID, true,
-            ^(uint64_t state_id, CFStringRef drv_name){ printf("User Wake Count:%lld\n", state_id); } );
+            ^(IOReportSampleRef ch) { 
+            uint64_t state_id = IOReportSimpleGetIntegerValue(ch, NULL);
+            printf("User Wake Count:%lld\n", state_id); 
+          } );
+
+#if 0
+    fetchChannelData("IOPMrootDomain", kAssertDelayChID, true,
+            ^(IOReportSampleRef ch) { 
+            printf("Histogram of time elapsed before assertion after wake(Bucket size: %d secs)\n", kAssertDelayBcktSize);
+            describeSamples(ch);
+          } );
+
+    fetchChannelData("IOPMrootDomain", kSleepDelaysChID, true,
+            ^(IOReportSampleRef ch) { 
+            printf("Histogram of time taken to go to sleep(Bucket size: %d secs)\n", kSleepDelaysBcktSize);
+            describeSamples(ch);
+          } );
+#endif
 
 }
 
@@ -7365,11 +7925,11 @@ static void show_sleep_blockers(char **argv)
     IOReportSampleRef   delta;
     int iter_cnt = 0;
     __block int cnt = 0;
-    long    interval = 0;
+    unsigned int interval = 0;
 
     if (argv[0] != NULL) {
         if (!strncmp(argv[0], "-i", sizeof("-i"))) {
-            interval = strtol(argv[1], NULL, 0);
+            interval = (unsigned int)strtol(argv[1], NULL, 0);
         }
     }
     if (!interval) interval = 60;
@@ -7382,7 +7942,7 @@ static void show_sleep_blockers(char **argv)
 
     signal(SIGINT, cancelAggregates);
 
-    printf("Polling for sleep blockers at %ld secs interval\n", interval);
+    printf("Polling for sleep blockers at %u secs interval\n", interval);
     basis = IOPMCopyAssertionActivityAggregate( );
     while (true) {
 
@@ -7419,7 +7979,7 @@ static void show_sleep_blockers(char **argv)
         IOReportIterate(delta, ^(IOReportChannelRef ch) {
             int64_t     eff1, eff2, eff3;
             char name[2*MAXCOMLEN];
-            pid_t pid;
+            uint64_t pid;
 
             eff1 = IOReportArrayGetValueAtIndex(ch, 1); // Idle Sleep
             eff2 = IOReportArrayGetValueAtIndex(ch, 2); // Demand Sleep
@@ -7435,9 +7995,9 @@ static void show_sleep_blockers(char **argv)
 
                 pid = IOReportChannelGetChannelID(ch);
                 name[0] = 0;
-                proc_name(pid, name, sizeof(name));
+                proc_name((pid_t)pid, name, sizeof(name));
                 snprintf(name, MAXCOMLEN, "%s", name);
-                snprintf(name, sizeof(name), "%s(%d)", name, pid);
+                snprintf(name, sizeof(name), "%s(%d)", name, (pid_t)pid);
                 printf("%-25s ", name);
                 printf("%15lld %15lld %15lld\n", eff1, eff2, eff3);
                 cnt++;

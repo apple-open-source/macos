@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,13 +27,13 @@
 
 #include "PlatformCALayerWinInternal.h"
 
-#include "Font.h"
-#include "FontCache.h"
+#include "FontCascade.h"
 #include "GraphicsContext.h"
 #include "PlatformCALayer.h"
 #include "TextRun.h"
 #include "TileController.h"
 #include "TiledBacking.h"
+#include "WebCoreHeaderDetection.h"
 #include <QuartzCore/CACFLayer.h>
 #include <wtf/MainThread.h>
 
@@ -61,6 +61,10 @@ PlatformCALayerWinInternal::PlatformCALayerWinInternal(PlatformCALayer* owner)
         // Tiled layers are placed in a child layer that is always the first child of the TiledLayer
         m_tileParent = adoptCF(CACFLayerCreate(kCACFLayer));
         CACFLayerInsertSublayer(m_owner->platformLayer(), m_tileParent.get(), 0);
+#if HAVE(CACFLAYER_SETCONTENTSSCALE)
+        CACFLayerSetContentsScale(m_tileParent.get(), CACFLayerGetContentsScale(m_owner->platformLayer()));
+#endif
+
         updateTiles();
     }
 }
@@ -131,8 +135,6 @@ void PlatformCALayerWinInternal::displayCallback(CACFLayerRef caLayer, CGContext
 #endif
 
     if (owner()->owner()->platformCALayerShowRepaintCounter(owner())) {
-        FontCachePurgePreventer fontCachePurgePreventer;
-
         String text = String::number(owner()->owner()->platformCALayerIncrementRepaintCount(owner()));
 
         CGContextSaveGState(context);
@@ -162,7 +164,7 @@ void PlatformCALayerWinInternal::displayCallback(CACFLayerRef caLayer, CGContext
 
         desc.setComputedSize(18);
         
-        Font font = Font(desc, 0, 0);
+        FontCascade font = FontCascade(desc, 0, 0);
         font.update(0);
 
         GraphicsContext cg(context);
@@ -186,16 +188,19 @@ void PlatformCALayerWinInternal::internalSetNeedsDisplay(const FloatRect* dirtyR
         CACFLayerSetNeedsDisplay(owner()->platformLayer(), 0);
 }
 
-void PlatformCALayerWinInternal::setNeedsDisplay(const FloatRect* dirtyRect)
+void PlatformCALayerWinInternal::setNeedsDisplay()
+{
+    internalSetNeedsDisplay(0);
+}
+
+void PlatformCALayerWinInternal::setNeedsDisplayInRect(const FloatRect& dirtyRect)
 {
     if (layerTypeIsTiled(m_owner->layerType())) {
         // FIXME: Only setNeedsDisplay for tiles that are currently visible
         int numTileLayers = tileCount();
-        CGRect rect;
-        if (dirtyRect)
-            rect = *dirtyRect;
+        CGRect rect = dirtyRect;
         for (int i = 0; i < numTileLayers; ++i)
-            CACFLayerSetNeedsDisplay(tileAtIndex(i), dirtyRect ? &rect : 0);
+            CACFLayerSetNeedsDisplay(tileAtIndex(i), &rect);
 
         if (m_owner->owner() && m_owner->owner()->platformCALayerShowRepaintCounter(m_owner)) {
             CGRect layerBounds = m_owner->bounds();
@@ -215,15 +220,15 @@ void PlatformCALayerWinInternal::setNeedsDisplay(const FloatRect* dirtyRect)
                     repaintCounterRect.setY(layerBounds.height() - (layerBounds.y() + repaintCounterRect.height()));
                 internalSetNeedsDisplay(&repaintCounterRect);
             }
-            if (dirtyRect && owner()->owner()->platformCALayerContentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesTopDown) {
-                FloatRect flippedDirtyRect = *dirtyRect;
+            if (owner()->owner()->platformCALayerContentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesTopDown) {
+                FloatRect flippedDirtyRect = dirtyRect;
                 flippedDirtyRect.setY(owner()->bounds().height() - (flippedDirtyRect.y() + flippedDirtyRect.height()));
                 internalSetNeedsDisplay(&flippedDirtyRect);
                 return;
             }
         }
 
-        internalSetNeedsDisplay(dirtyRect);
+        internalSetNeedsDisplay(&dirtyRect);
     }
     owner()->setNeedsCommit();
 }
@@ -281,16 +286,16 @@ void PlatformCALayerWinInternal::removeAllSublayers()
     }
 }
 
-void PlatformCALayerWinInternal::insertSublayer(PlatformCALayer* layer, size_t index)
+void PlatformCALayerWinInternal::insertSublayer(PlatformCALayer& layer, size_t index)
 {
     index = min(index, sublayerCount());
     if (layerTypeIsTiled(m_owner->layerType())) {
         // Add 1 to account for the tile parent layer
-        index++;
+        ++index;
     }
 
-    layer->removeFromSuperlayer();
-    CACFLayerInsertSublayer(owner()->platformLayer(), layer->platformLayer(), index);
+    layer.removeFromSuperlayer();
+    CACFLayerInsertSublayer(owner()->platformLayer(), layer.platformLayer(), index);
     owner()->setNeedsCommit();
 }
 
@@ -420,6 +425,9 @@ void PlatformCALayerWinInternal::addTile()
     CACFLayerSetAnchorPoint(newLayer.get(), CGPointMake(0, 1));
     CACFLayerSetUserData(newLayer.get(), this);
     CACFLayerSetDisplayCallback(newLayer.get(), tileDisplayCallback);
+#if HAVE(CACFLAYER_SETCONTENTSSCALE)
+    CACFLayerSetContentsScale(newLayer.get(), CACFLayerGetContentsScale(m_tileParent.get()));
+#endif
 
     CFArrayRef sublayers = CACFLayerGetSublayers(m_tileParent.get());
     CACFLayerInsertSublayer(m_tileParent.get(), newLayer.get(), sublayers ? CFArrayGetCount(sublayers) : 0);
@@ -526,7 +534,7 @@ void PlatformCALayerWinInternal::drawTile(CACFLayerRef tile, CGContextRef contex
 TileController* PlatformCALayerWinInternal::createTileController(PlatformCALayer* rootLayer)
 {
     ASSERT(!m_tileController);
-    m_tileController = TileController::create(rootLayer);
+    m_tileController = std::make_unique<TileController>(rootLayer);
     return m_tileController.get();
 }
 

@@ -26,6 +26,9 @@
 #include "config.h"
 #include "X11Helper.h"
 
+#include "PlatformDisplayX11.h"
+#include "XUniquePtr.h"
+
 namespace WebCore {
 
 // Used for handling XError.
@@ -52,25 +55,6 @@ static int handleXPixmapCreationError(Display*, XErrorEvent* event)
 
     return 0;
 }
-
-struct DisplayConnection {
-    DisplayConnection()
-    {
-        m_display = XOpenDisplay(0);
-
-        if (!m_display)
-            LOG_ERROR("Failed to make connection with X");
-    }
-
-    ~DisplayConnection()
-    {
-        XCloseDisplay(m_display);
-    }
-
-    Display* display() { return m_display; }
-private:
-    Display* m_display;
-};
 
 struct OffScreenRootWindow {
 
@@ -240,7 +224,7 @@ void X11Helper::createOffScreenWindow(uint32_t* handleId, const EGLint id, bool 
     memset(&visualInfoTemplate, 0, sizeof(XVisualInfo));
     visualInfoTemplate.visualid = visualId;
     int matchingCount = 0;
-    OwnPtrX11<XVisualInfo> matchingVisuals(XGetVisualInfo(nativeDisplay(), VisualIDMask, &visualInfoTemplate, &matchingCount));
+    XUniquePtr<XVisualInfo> matchingVisuals(XGetVisualInfo(nativeDisplay(), VisualIDMask, &visualInfoTemplate, &matchingCount));
     XVisualInfo* foundVisual = 0;
 
     if (matchingVisuals) {
@@ -277,7 +261,7 @@ void X11Helper::createPixmap(Pixmap* handleId, const EGLint id, bool hasAlpha, c
     memset(&visualInfoTemplate, 0, sizeof(XVisualInfo));
     visualInfoTemplate.visualid = visualId;
     int matchingCount = 0;
-    OwnPtrX11<XVisualInfo> matchingVisuals(XGetVisualInfo(nativeDisplay(), VisualIDMask, &visualInfoTemplate, &matchingCount));
+    XUniquePtr<XVisualInfo> matchingVisuals(XGetVisualInfo(nativeDisplay(), VisualIDMask, &visualInfoTemplate, &matchingCount));
     XVisualInfo* foundVisual = 0;
     int requiredDepth = hasAlpha ? 32 : 24;
 
@@ -331,9 +315,7 @@ bool X11Helper::isXRenderExtensionSupported()
 
 Display* X11Helper::nativeDisplay()
 {
-    // Display connection will only be broken at program shutdown.
-    static DisplayConnection displayConnection;
-    return displayConnection.display();
+    return downcast<PlatformDisplayX11>(PlatformDisplay::sharedDisplay()).native();
 }
 
 Window X11Helper::offscreenRootWindow()

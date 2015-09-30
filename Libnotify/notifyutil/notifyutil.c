@@ -42,6 +42,7 @@
 #define PRINT_STATE    0x00000002
 #define PRINT_TIME     0x00000004
 #define PRINT_TYPE     0x00000008
+#define PRINT_TOKEN    0x00000010
 #define PRINT_VERBOSE  0xffffffff
 
 #ifndef USEC_PER_SEC
@@ -224,8 +225,15 @@ process_event(int tid)
 
 	needspace = 0;
 
+	if (printopt & PRINT_TOKEN)
+	{
+		printf("[%d]", tid);
+		needspace = 1;
+	}
+
 	if (printopt & PRINT_TIME)
 	{
+		if (needspace) printf(" ");
 		snprintf(tstr, sizeof(tstr), "%llu", now.tv_usec + USEC_PER_SEC + 500);
 		tstr[4] = '\0';
 		printf("%d.%s", (int)now.tv_sec, tstr+1);
@@ -264,6 +272,8 @@ process_event(int tid)
 		status = notify_cancel(tid);
 		reg_delete(index);
 	}
+	
+	if (reg_count == 0) exit(0);
 }
 
 static void 
@@ -323,9 +333,9 @@ signal_handler(uint32_t sig)
 }
 
 static void
-dispatch_handler(const char *name)
+dispatch_handler(int x)
 {
-	uint32_t index = reg_find_name(name);
+	uint32_t index = reg_find_token(x);
 	if (index == IndexNull) return;
 
 	process_event(reg[index].token);
@@ -417,7 +427,7 @@ do_register(const char *name, uint32_t type, uint32_t signum, uint32_t count)
 
 		case TYPE_DISPATCH:
 		{
-			status = notify_register_dispatch(name, &tid, watch_queue, ^(int x){ dispatch_handler(name); });
+			status = notify_register_dispatch(name, &tid, watch_queue, ^(int x){ dispatch_handler(x); });
 			if (status != NOTIFY_STATUS_OK) return status;
 			break;
 		}
@@ -473,7 +483,7 @@ int
 main(int argc, const char *argv[])
 {
 	const char *name;
-	uint32_t i, n, index, signum, ntype, status, opts, nap;
+	uint32_t i, n, signum, ntype, status, opts, nap;
 	int tid;
 	uint64_t state;
 
@@ -510,7 +520,7 @@ main(int argc, const char *argv[])
 		}
 		else if (!strcmp(argv[i], "-M"))
 		{
-			opts |= NOTIFY_OPT_DEMUX;
+			opts |= NOTIFY_OPT_DISPATCH;
 		}
 		else if (!strcmp(argv[i], "-R"))
 		{
@@ -689,13 +699,6 @@ main(int argc, const char *argv[])
 
 			i++;
 			tid = IndexNull;
-
-			index = reg_find_name(argv[i]);
-			if (index != IndexNull)
-			{
-				fprintf(stderr, "Already watching for %s\n", argv[i]);
-				continue;
-			}
 
 			status = do_register(argv[i], ntype, signum, n);
 			if (status != NOTIFY_STATUS_OK) printf("%s: %s\n", argv[i], notify_status_strerror(status));

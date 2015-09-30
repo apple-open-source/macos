@@ -29,6 +29,7 @@
 
 #if ENABLE(SPEECH_SYNTHESIS)
 
+#include "BlockExceptions.h"
 #include "PlatformSpeechSynthesisUtterance.h"
 #include "PlatformSpeechSynthesisVoice.h"
 #include "SoftLinking.h"
@@ -46,7 +47,6 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSpeechUtteranceMaximumSpeechRate, float)
 #define AVSpeechUtteranceDefaultSpeechRate getAVSpeechUtteranceDefaultSpeechRate()
 #define AVSpeechUtteranceMaximumSpeechRate getAVSpeechUtteranceMaximumSpeechRate()
 
-#define AVSpeechSynthesizerClass getAVSpeechSynthesizerClass()
 #define AVSpeechUtteranceClass getAVSpeechUtteranceClass()
 #define AVSpeechSynthesisVoiceClass getAVSpeechSynthesisVoiceClass()
 
@@ -96,8 +96,9 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSpeechUtteranceMaximumSpeechRate, float)
     if (!utterance)
         return;
     
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     if (!m_synthesizer) {
-        m_synthesizer = adoptNS([[AVSpeechSynthesizerClass alloc] init]);
+        m_synthesizer = adoptNS([allocAVSpeechSynthesizerInstance() init]);
         [m_synthesizer setDelegate:self];
     }
 
@@ -126,6 +127,7 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSpeechUtteranceMaximumSpeechRate, float)
     m_utterance = utterance;
     
     [m_synthesizer speakUtterance:avUtterance];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 - (void)pause
@@ -133,7 +135,9 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSpeechUtteranceMaximumSpeechRate, float)
     if (!m_utterance)
         return;
     
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_synthesizer pauseSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 - (void)resume
@@ -141,7 +145,9 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSpeechUtteranceMaximumSpeechRate, float)
     if (!m_utterance)
         return;
     
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_synthesizer continueSpeaking];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 - (void)cancel
@@ -149,7 +155,9 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSpeechUtteranceMaximumSpeechRate, float)
     if (!m_utterance)
         return;
     
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_synthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didStartSpeechUtterance:(AVSpeechUtterance *)utterance
@@ -171,7 +179,7 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSpeechUtteranceMaximumSpeechRate, float)
     
     // Clear the m_utterance variable in case finish speaking kicks off a new speaking job immediately.
     RefPtr<WebCore::PlatformSpeechSynthesisUtterance> platformUtterance = m_utterance;
-    m_utterance = 0;
+    m_utterance = nullptr;
     
     m_synthesizerObject->client()->didFinishSpeaking(platformUtterance);
 }
@@ -205,7 +213,7 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSpeechUtteranceMaximumSpeechRate, float)
     
     // Clear the m_utterance variable in case finish speaking kicks off a new speaking job immediately.
     RefPtr<WebCore::PlatformSpeechSynthesisUtterance> platformUtterance = m_utterance;
-    m_utterance = 0;
+    m_utterance = nullptr;
     
     m_synthesizerObject->client()->didFinishSpeaking(platformUtterance);
 }
@@ -237,15 +245,20 @@ PlatformSpeechSynthesizer::~PlatformSpeechSynthesizer()
 
 void PlatformSpeechSynthesizer::initializeVoiceList()
 {
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     for (AVSpeechSynthesisVoice *voice in [AVSpeechSynthesisVoiceClass speechVoices]) {
-        // iOS Speech voices only expose their language as an identifying aspect.
         NSString *language = [voice language];
+        bool isDefault = true;
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000
+        NSString *voiceURI = [voice identifier];
+        NSString *name = [voice name];
+#else
         NSString *voiceURI = language;
         NSString *name = language;
-        bool isDefault = true;
-        
+#endif
         m_voiceList.append(PlatformSpeechSynthesisVoice::create(voiceURI, name, language, true, isDefault));
     }
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 void PlatformSpeechSynthesizer::pause()

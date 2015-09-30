@@ -52,7 +52,7 @@ void SimplifyMarkupCommand::doApply()
     // without affecting the style. The goal is to produce leaner markup even when starting
     // from a verbose fragment.
     // We look at inline elements as well as non top level divs that don't have attributes. 
-    for (Node* node = m_firstNode.get(); node && node != m_nodeAfterLast; node = NodeTraversal::next(node)) {
+    for (Node* node = m_firstNode.get(); node && node != m_nodeAfterLast; node = NodeTraversal::next(*node)) {
         if (node->firstChild() || (node->isTextNode() && node->nextSibling()))
             continue;
         
@@ -61,7 +61,7 @@ void SimplifyMarkupCommand::doApply()
         if (!startingStyle)
             continue;
         Node* currentNode = startingNode;
-        Node* topNodeWithStartingStyle = 0;
+        Node* topNodeWithStartingStyle = nullptr;
         while (currentNode != rootNode) {
             if (currentNode->parentNode() != rootNode && isRemovableBlock(currentNode))
                 nodesToRemove.append(currentNode);
@@ -70,16 +70,16 @@ void SimplifyMarkupCommand::doApply()
             if (!currentNode)
                 break;
 
-            if (!currentNode->renderer() || !currentNode->renderer()->isRenderInline() || toRenderInline(currentNode->renderer())->alwaysCreateLineBoxes())
+            if (!is<RenderInline>(currentNode->renderer()) || downcast<RenderInline>(*currentNode->renderer()).alwaysCreateLineBoxes())
                 continue;
             
             if (currentNode->firstChild() != currentNode->lastChild()) {
-                topNodeWithStartingStyle = 0;
+                topNodeWithStartingStyle = nullptr;
                 break;
             }
             
             unsigned context;
-            if (currentNode->renderStyle()->diff(startingStyle, context) == StyleDifferenceEqual)
+            if (currentNode->renderStyle()->diff(*startingStyle, context) == StyleDifferenceEqual)
                 topNodeWithStartingStyle = currentNode;
             
         }

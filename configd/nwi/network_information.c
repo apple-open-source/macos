@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,43 +81,6 @@ _nwi_state_initialize(void)
 	}
 }
 
-static
-void
-_nwi_set_alias(nwi_state* state, nwi_ifstate* ifstate)
-{
-	nwi_ifstate*	  ifstate_alias;
-	int af = ifstate->af;
-	int af_alias;
-
-	af_alias = (af == AF_INET)?AF_INET6:AF_INET;
-
-	ifstate_alias =
-		nwi_state_get_ifstate_with_name(state, af_alias,
-					ifstate->ifname);
-
-	if (ifstate_alias != NULL) {
-		ifstate_alias->af_alias = ifstate;
-	}
-	ifstate->af_alias = ifstate_alias;
-	return;
-}
-
-static
-void
-_nwi_state_reset_alias(nwi_state_t state) {
-	int i;
-
-	for (i = 0; i < state->ipv4_count; i++) {
-		state->nwi_ifstates[i].af_alias = NULL;
-	}
-
-	for (i = state->ipv6_start;
-	     i < state->ipv6_start + state->ipv6_count; i++) {
-		_nwi_set_alias(state, &state->nwi_ifstates[i]);
-	}
-}
-
-
 #pragma mark -
 #pragma mark Network information [nwi] APIs
 
@@ -135,11 +98,7 @@ _nwi_state_reset_alias(nwi_state_t state) {
 const char *
 nwi_state_get_notify_key()
 {
-#if	!TARGET_IPHONE_SIMULATOR
 	return "com.apple.system.SystemConfiguration.nwi";
-#else	// !TARGET_IPHONE_SIMULATOR
-	return "com.apple.iOS_Simulator.SystemConfiguration.nwi";
-#endif	// !TARGET_IPHONE_SIMULATOR
 }
 
 #define ATOMIC_CMPXCHG(p, o, n)	__sync_bool_compare_and_swap((p), (o), (n))
@@ -173,18 +132,16 @@ nwi_state_release(nwi_state_t state)
 	}
 
 	// release connection reference on 1-->0 transition
-	if (state->svr) {
-		dispatch_sync(__nwi_configuration_queue(), ^{
-			if (--nwi_active == 0) {
-				// if last reference, drop connection
-				libSC_info_client_release(nwi_client);
-				nwi_client = NULL;
-			}
-		});
-	}
+	dispatch_sync(__nwi_configuration_queue(), ^{
+		if (--nwi_active == 0) {
+		    // if last reference, drop connection
+		    libSC_info_client_release(nwi_client);
+		    nwi_client = NULL;
+		}
+	    });
 
 	// release nwi_state
-	free(state);
+	nwi_state_free(state);
 
 	return;
 }
@@ -253,8 +210,14 @@ _nwi_state_copy_data()
 		if (dataRef != NULL) {
 			nwi_state = malloc(dataLen);
 			bcopy((void *)dataRef, nwi_state, dataLen);
-			nwi_state->ref = 0;
-			nwi_state->svr = TRUE;
+			if (nwi_state->version != NWI_STATE_VERSION) {
+				/* make sure the version matches */
+				nwi_state_free(nwi_state);
+				nwi_state = NULL;
+			}
+			else {
+				nwi_state->ref = 0;
+			}
 		}
 
 		xpc_release(reply);
@@ -310,7 +273,6 @@ nwi_state_copy(void)
 		if (G_nwi_state != NULL) {
 			/* one reference for G_nwi_state */
 			nwi_state_retain(G_nwi_state);
-			_nwi_state_reset_alias(G_nwi_state);
 		}
 	}
 	if (G_nwi_state != NULL) {
@@ -399,8 +361,7 @@ nwi_ifstate_get_generation(nwi_ifstate_t ifstate)
 const char *
 nwi_ifstate_get_ifname(nwi_ifstate_t ifstate)
 {
-	return (ifstate != NULL?ifstate->ifname:NULL);
-
+	return ((ifstate != NULL) ? ifstate->ifname : NULL);
 }
 
 static uint64_t
@@ -418,9 +379,12 @@ flags_from_af(int af)
 nwi_ifstate_flags
 nwi_ifstate_get_flags(nwi_ifstate_t ifstate)
 {
-	nwi_ifstate_t		alias = ifstate->af_alias;
+	nwi_ifstate_t		alias = NULL;
 	nwi_ifstate_flags 	flags = 0ULL;
 
+	if (ifstate->af_alias_offset != 0) {
+		alias = ifstate + ifstate->af_alias_offset;
+	}
 	flags |= flags_from_af(ifstate->af);
 	if ((ifstate->flags & NWI_IFSTATE_FLAGS_HAS_DNS) != 0) {
 		flags |= NWI_IFSTATE_FLAGS_HAS_DNS;
@@ -460,9 +424,12 @@ nwi_state_get_first_ifstate(nwi_state_t state, int af)
 	}
 
 	ifstate = nwi_state_get_ifstate_with_index(state, af, 0);
+	if (ifstate == NULL) {
+		return NULL;
+	}
 	if ((ifstate->flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST)
 	    != 0) {
-		ifstate =  NULL;
+		ifstate = NULL;
 	}
 
 	return ifstate;
@@ -497,31 +464,25 @@ nwi_state_get_ifstate(nwi_state_t state, const char * ifname)
  *   Returns the next, lower priority nwi_ifstate_t after the specified
  *   'ifstate' for the protocol family 'af'.
  *
- *   Returns NULL when the end of the list is reached.
+ *   Returns NULL when the end of the list is reached, or we reach an
+ *   item that is not in the list.
  */
 nwi_ifstate_t
 nwi_ifstate_get_next(nwi_ifstate_t ifstate, int af)
 {
-	nwi_ifstate_t alias, next;
-
-	alias =
-		(af == ifstate->af)?ifstate:ifstate->af_alias;
-
-	if (alias == NULL) {
-		return NULL;
+	ifstate = nwi_ifstate_get_alias(ifstate, af);
+	if (ifstate == NULL
+	    || ((ifstate->flags
+		 & (NWI_IFSTATE_FLAGS_NOT_IN_LIST
+		    | NWI_IFSTATE_FLAGS_LAST_ITEM))
+		!= 0)) {
+		return (NULL);
 	}
-
-	/* We don't return interfaces marked rank never */
-	if ((alias->flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST) != 0) {
-		return NULL;
+	ifstate++;
+	if ((ifstate->flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST) != 0) {
+		return (NULL);
 	}
-
-	next = ++alias;
-
-	if ((next->flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST) == 0) {
-		return next;
-	}
-	return NULL;
+	return (ifstate);
 }
 
 /*
@@ -671,7 +632,7 @@ nwi_ifstate_get_signature(nwi_ifstate_t ifstate, int af, int * length)
 			break;
 		case AF_INET:
 		case AF_INET6:
-			i_state = (ifstate->af == af) ? ifstate : ifstate->af_alias;
+			i_state = nwi_ifstate_get_alias(ifstate, af);
 			break;
 		default:
 			break;
@@ -695,12 +656,13 @@ _nwi_ifstate_is_in_list(nwi_ifstate_t ifstate, int af)
 {
 	nwi_ifstate_t i_state;
 
-	i_state = (ifstate->af == af) ? ifstate : ifstate->af_alias;
+	i_state = nwi_ifstate_get_alias(ifstate, af);
 	if (i_state == NULL) {
 		return FALSE;
 	}
 
-	if ((nwi_ifstate_get_flags(i_state) & NWI_IFSTATE_FLAGS_NOT_IN_LIST) == 0) {
+	if ((nwi_ifstate_get_flags(i_state) & NWI_IFSTATE_FLAGS_NOT_IN_LIST)
+	    == 0) {
 		return TRUE;
 	}
 
@@ -755,24 +717,320 @@ nwi_ifstate_get_dns_signature(nwi_ifstate_t ifstate, int * length)
 	return signature;
 }
 
+unsigned int
+nwi_state_get_interface_names(nwi_state_t state,
+			      const char * names[], 
+			      unsigned int names_count)
+{
+	int		i;
+	nwi_ifindex_t *	scan;
+
+	if (names == NULL || names_count == 0) {
+		return (state->if_list_count);
+	}
+	for (i = 0, scan = nwi_state_if_list(state);
+	     i < state->if_list_count; i++, scan++) {
+		names[i] = state->ifstate_list[*scan].ifname;
+	}
+	return (state->if_list_count);
+}
 
 #pragma mark -
 #pragma mark Network information [nwi] test code
 
 
-#ifdef MAIN
+#ifdef TEST_NWI
+
+#include <arpa/inet.h>
+
+typedef union {
+	const struct sockaddr *		sa;
+	const struct sockaddr_in *	sin;
+	const struct sockaddr_in6 * 	sin6;
+} my_sockaddr_t;
+
+static const char *
+my_sockaddr_ntop(const struct sockaddr * sa, char * buf, int buf_len)
+{
+	my_sockaddr_t	addr;
+	const void *	addr_ptr = NULL;
+
+	addr.sa = sa;
+	switch (sa->sa_family) {
+	case AF_INET:
+		addr_ptr = &addr.sin->sin_addr;
+		break;
+	case AF_INET6:
+		addr_ptr = &addr.sin6->sin6_addr;
+		break;
+	default:
+		addr_ptr = NULL;
+		break;
+	}
+	if (addr_ptr == NULL) {
+		return (NULL);
+	}
+	return (inet_ntop(addr.sa->sa_family, addr_ptr, buf, buf_len));
+}
+
+static void
+nwi_ifstate_print(nwi_ifstate_t ifstate)
+{
+	const char * 		addr_str;
+	void *			address;
+	char 			addr_ntopbuf[INET6_ADDRSTRLEN];
+	const char *		diff_str;
+	char 			vpn_ntopbuf[INET6_ADDRSTRLEN];
+	const struct sockaddr *	vpn_addr;
+	const char *		vpn_addr_str = NULL;
+	
+	address = nwi_ifstate_get_address(ifstate);
+	addr_str = inet_ntop(ifstate->af, address,
+			     addr_ntopbuf, sizeof(addr_ntopbuf));
+	vpn_addr = nwi_ifstate_get_vpn_server(ifstate);
+	if (vpn_addr != NULL) {
+		vpn_addr_str = my_sockaddr_ntop(vpn_addr, vpn_ntopbuf,
+						sizeof(vpn_ntopbuf));
+	}
+	diff_str = nwi_ifstate_get_diff_str(ifstate);
+	printf("%s%s%s%s rank 0x%x iaddr %s%s%s reach_flags 0x%x\n",
+	       ifstate->ifname,
+	       diff_str,
+	       (ifstate->flags & NWI_IFSTATE_FLAGS_HAS_DNS) != 0
+	       ? " dns" : "",
+	       (ifstate->flags & NWI_IFSTATE_FLAGS_NOT_IN_LIST) != 0
+	       ? " never" : "",
+	       ifstate->rank,
+	       addr_str,
+	       (vpn_addr_str != NULL) ? " vpn_server_addr: " : "",
+	       (vpn_addr_str != NULL) ? vpn_addr_str : "",
+	       ifstate->reach_flags);
+	return;
+}
+
+static void
+traverse_ifstates(nwi_state_t state)
+{
+	nwi_ifstate_t	alias;
+	int		i;
+	nwi_ifstate_t	scan;
+
+	scan = nwi_state_get_first_ifstate(state, AF_INET);
+	printf("IPv4 traverse list:\n");
+	for (i = 0; scan != NULL; i++) {
+		printf("[%d] flags=0x%llx ", i, scan->flags);
+		nwi_ifstate_print(scan);
+		alias = nwi_ifstate_get_alias(scan, nwi_other_af(scan->af));
+		scan = nwi_ifstate_get_next(scan, AF_INET);
+		if (alias != NULL) {
+			printf("\t alias is ");
+			nwi_ifstate_print(alias);
+		}
+	}
+	printf("IPv6 traverse list:\n");
+	scan = nwi_state_get_first_ifstate(state, AF_INET6);
+	for (i = 0; scan != NULL; i++) {
+		printf("[%d] flags=0x%llx ", i, scan->flags);
+		alias = nwi_ifstate_get_alias(scan, nwi_other_af(scan->af));
+		nwi_ifstate_print(scan);
+		scan = nwi_ifstate_get_next(scan, AF_INET6);
+		if (alias != NULL) {
+			printf("\t alias is ");
+			nwi_ifstate_print(alias);
+		}
+	}
+}
+
+static void
+nwi_state_print_common(nwi_state_t state, bool diff)
+{
+	unsigned int	count = 0;
+	int		i;
+	nwi_ifstate_t 	scan;
+	
+	if (state == NULL) {
+		return;
+	}
+	printf("nwi_state = { "
+	       "gen=%llu max_if=%u #v4=%u #v6=%u "
+	       "reach_flags=(v4=0x%x, v6=0x%x) }\n",
+	       state->generation_count,
+	       state->max_if_count,
+	       state->ipv4_count,
+	       state->ipv6_count,
+	       nwi_state_get_reachability_flags(state, AF_INET),
+	       nwi_state_get_reachability_flags(state, AF_INET6));
+	if (state->ipv4_count) {
+		printf("IPv4:\n");
+		for (i = 0, scan = nwi_state_ifstate_list(state, AF_INET);
+		     i < state->ipv4_count; i++, scan++) {
+			printf("[%d] ", i);
+			nwi_ifstate_print(scan);
+		}
+	}
+	if (state->ipv6_count) {
+		printf("IPv6:\n");
+		for (i = 0, scan = nwi_state_ifstate_list(state, AF_INET6);
+		     i < state->ipv6_count; i++, scan++) {
+			printf("[%d] ", i);
+			nwi_ifstate_print(scan);
+		}
+	}
+	if (!diff) {
+		count = nwi_state_get_interface_names(state, NULL, 0);
+		if (count > 0) {
+			const char *	names[count];
+		
+			count = nwi_state_get_interface_names(state, names,
+							      count);
+			printf("%d interfaces%s", count,
+			       (count != 0) ? ": " : "");
+			for (i = 0; i < count; i++) {
+				printf("%s%s", (i == 0) ? "" : ", ", names[i]);
+			}
+			printf("\n");
+		}
+		else {
+			printf("0 interfaces\n");
+		}
+		traverse_ifstates(state);
+	}
+	printf("-----------------------------------\n");
+	return;
+}
+
+static void
+nwi_state_print(nwi_state_t state)
+{
+	nwi_state_print_common(state, FALSE);
+}
+
+static void
+nwi_state_print_diff(nwi_state_t state)
+{
+	printf("DIFF\n");
+	nwi_state_print_common(state, TRUE);
+}
+
+static void
+doit(void)
+{
+	struct in_addr	addr = { 0 };
+	struct in6_addr	addr6;
+	nwi_ifstate_t	ifstate;
+	nwi_state_t	state;
+	nwi_state_t	diff_state;
+	nwi_state_t	new_state;
+	nwi_state_t	old_state;
+	nwi_state_t	old_state_copy;
+
+	state = nwi_state_new(NULL, 0);
+	nwi_state_print(state);
+	state = nwi_state_new(NULL, 1);
+	nwi_state_print(state);
+	state = nwi_state_new(state, 2);
+	nwi_state_print(state);
+	state = nwi_state_new(state, 10);
+	nwi_state_print(state);
+
+	bzero(&addr6, sizeof(addr6));
+	/* populate old_state */
+	old_state = nwi_state_new(NULL, 5);
+	for (int i = 0; i < 5; i++) {
+		char		ifname[IFNAMSIZ];
+		
+		snprintf(ifname, sizeof(ifname), "en%d", i);
+		addr.s_addr = htonl((i % 2) ? i : (i + 1));
+		ifstate = nwi_state_add_ifstate(old_state, ifname, AF_INET, 0,
+						(i % 2) ? (i - 1) : (i + 1),
+						&addr,
+						NULL,
+						0);
+		addr6.__u6_addr.__u6_addr32[0] = htonl(i);
+		ifstate = nwi_state_add_ifstate(old_state, ifname, AF_INET6, 0,
+						(i % 2) ? (10 - i) : i,
+						&addr6,
+						NULL,
+						0);
+	}
+	nwi_state_finalize(old_state);
+	nwi_state_print(old_state);
+
+	diff_state = nwi_state_diff(NULL, old_state);
+	nwi_state_print_diff(diff_state);
+	nwi_state_free(diff_state);
+
+	/* remember the old state */
+	old_state_copy = nwi_state_make_copy(old_state);
+
+	/* create new state */
+	new_state = nwi_state_new(old_state, 10);
+	nwi_state_print(new_state);
+
+	for (int i = 0; i < 10; i++) {
+		char		ifname[IFNAMSIZ];
+		uint64_t	flags;
+
+		snprintf(ifname, sizeof(ifname), "en%d", i);
+		addr6.__u6_addr.__u6_addr32[0] = htonl(i);
+		flags = (i > 6) ? NWI_IFSTATE_FLAGS_NOT_IN_LIST : 0;
+		ifstate = nwi_state_add_ifstate(new_state, ifname, AF_INET6,
+						flags,
+						i,
+						&addr6,
+						NULL,
+						0);
+	}
+	for (int i = 9; i >= 0; i--) {
+		char		ifname[IFNAMSIZ];
+
+		snprintf(ifname, sizeof(ifname), "en%d", i);
+		addr.s_addr = htonl(i);
+		if (i != 3) {
+			ifstate = nwi_state_add_ifstate(new_state,
+							ifname, AF_INET, 
+							0,
+							i,
+							&addr,
+							NULL,
+							0);
+		}
+	}
+	nwi_state_finalize(new_state);
+	nwi_state_print(new_state);
+
+	diff_state = nwi_state_diff(old_state_copy, new_state);
+	nwi_state_print_diff(diff_state);
+	nwi_state_free(diff_state);
+	
+	diff_state = nwi_state_diff(new_state, old_state_copy);
+	nwi_state_print_diff(diff_state);
+	nwi_state_free(diff_state);
+
+	nwi_state_free(old_state_copy);
+	nwi_state_free(new_state);
+	return;
+}
 
 int
-main(int argc, char **argv)
+main()
 {
-	dns_config_t	*config;
+	doit();
+	exit(0);
+	return (0);
+}
 
-	config = dns_configuration_copy();
-	if (config != NULL) {
-		dns_configuration_free(&config);
-	}
+#endif /* TEST_NWI */
+
+#ifdef TEST_NWI_STATE
+
+int
+main(int argc, char * argv[])
+{
+	nwi_state_t state = nwi_state_copy();
 
 	exit(0);
+	return (0);
 }
 
 #endif

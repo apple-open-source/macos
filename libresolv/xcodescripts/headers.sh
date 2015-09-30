@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e -x
 
-DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
 DIR="$DSTROOT"/usr/include/arpa
 install -d -m 0755 -o "$INSTALL_OWNER" -g "$INSTALL_GROUP" \
 	"$DIR"

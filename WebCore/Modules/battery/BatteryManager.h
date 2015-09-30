@@ -35,7 +35,7 @@ class ScriptExecutionContext;
 class BatteryManager : public ActiveDOMObject, public RefCounted<BatteryManager>, public EventTarget {
 public:
     virtual ~BatteryManager();
-    static PassRef<BatteryManager> create(Navigator*);
+    static Ref<BatteryManager> create(Navigator*);
 
     // EventTarget implementation.
     virtual EventTargetInterface eventTargetInterface() const override { return BatteryManagerEventTargetInterfaceType; }
@@ -46,23 +46,12 @@ public:
     double dischargingTime();
     double level();
 
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(chargingchange);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(chargingtimechange);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(dischargingtimechange);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(levelchange);
-
     void didChangeBatteryStatus(PassRefPtr<Event>, PassRefPtr<BatteryStatus>);
     void updateBatteryStatus(PassRefPtr<BatteryStatus>);
     void batteryControllerDestroyed() { m_batteryController = nullptr; }
 
     using RefCounted<BatteryManager>::ref;
     using RefCounted<BatteryManager>::deref;
-
-    // ActiveDOMObject implementation.
-    virtual bool canSuspend() const override { return true; }
-    virtual void suspend(ReasonForSuspension) override;
-    virtual void resume() override;
-    virtual void stop() override;
 
 protected:
     virtual EventTargetData* eventTargetData() override { return &m_eventTargetData; }
@@ -71,9 +60,17 @@ protected:
 private:
     explicit BatteryManager(Navigator*);
 
+    // ActiveDOMObject API.
+    bool canSuspendForPageCache() const override;
+    void suspend(ReasonForSuspension) override;
+    void resume() override;
+    void stop() override;
+
     // EventTarget implementation.
     virtual void refEventTarget() override { ref(); }
     virtual void derefEventTarget() override { deref(); }
+
+    virtual const char* activeDOMObjectName() const override { return "BatteryManager"; }
 
     BatteryController* m_batteryController;
     EventTargetData m_eventTargetData;

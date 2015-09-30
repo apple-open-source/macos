@@ -126,9 +126,9 @@ for a in test_gsscf ; do
 done
 
 # GSS Apps
-if [ "X${SSH_CONNECTION}" = X ] ; then
-    /AppleInternal/CoreOS/Heimdal/Applications/GSSTestApp.app/Contents/MacOS/GSSTestApp
-fi
+#if [ "X${SSH_CONNECTION}" = X ] ; then
+#    /AppleInternal/CoreOS/Heimdal/Applications/GSSTestApp.app/Contents/MacOS/GSSTestApp
+#fi
 
 # check/kdc
 for a in check-kdc check-fast check-kpasswdd ; do
@@ -169,7 +169,8 @@ fi
 
 # check apple non root
 # check-apple-netlogon -- <rdar://problem/16389320> re-enabled netlogon tests
-for a in check-apple-ad check-apple-dump check-apple-mitdump  ; do
+# check-apple-ad -- <rdar://problem/20488983> renabled check-apple-ad tests
+for a in check-apple-dump check-apple-mitdump  ; do
     run_test $a /usr/local/libexec/heimdal/tests/apple/$a
 done
 for a in test_export ; do
@@ -194,10 +195,12 @@ defaults delete /Library/Preferences/org.h5l.hx509 AllowHX509Validation
 (cd $HOME/$crashlogs && ls -1 ) > $crashusernew
 (cd $crashlogs && ls -1 ) > $crashsystemnew
 
-# but only if we are not running under raft, since raft handles that
-if [ X"${VERSIONER_RAFT_VERSION}" == "X" ]; then
+# but only if we are not running under raft/bats, since raft handles that
+if [ X"${VERSIONER_RAFT_VERSION}" == "X" -a X"${BATS}" == "X" ]; then
     check_crash system $crashsystemold $crashsystemnew
     check_crash user $crashuserold $crashusernew
+else
+    echo "skipping crashlog collection"
 fi
 
 rm -f $crashusernew $crashuserold $crashsystemnew $crashsystemold

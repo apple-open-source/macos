@@ -24,20 +24,6 @@
 
 #include "config.h"
 
-#ifdef __APPLE_CRYPTO__
-#include "ossl-config.h"
-
-#include "ossl-crypto.h"
-
-#include "ossl-objects.h"
-#include "ossl-engine.h"
-#include "ossl-evp.h"
-#include "ossl-err.h"
-#include "ossl-pem.h"
-#include "ossl-rsa.h"
-#include "ossl-bio.h"
-#else
-#warning Using OpenSSL headers
 #include <openssl/objects.h>
 #include <openssl/engine.h>
 #include <openssl/evp.h>
@@ -45,7 +31,6 @@
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/bio.h>
-#endif
 
 #include "cipher.h"
 
@@ -300,11 +285,7 @@ main()
 		return 0;
 	}
 	
-#ifdef __APPLE_CRYPTO__
-	printf("Using Apple Crypto\n");
-#else
 	printf("Using OpenSSL Crypto\n");
-#endif
 	
 	RSA *rsa_key_ptr = RSA_new();
 	

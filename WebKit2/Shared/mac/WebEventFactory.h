@@ -28,6 +28,12 @@
 
 #import "WebEvent.h"
 
+#if USE(APPKIT)
+namespace WebCore {
+class PlatformMouseEvent;
+}
+#endif
+
 namespace WebKit {
 
 // FIXME: This is not needed in the WebProcess and should be moved to be a peer
@@ -36,9 +42,10 @@ namespace WebKit {
 class WebEventFactory {
 public:
 #if USE(APPKIT)
-    static WebMouseEvent createWebMouseEvent(NSEvent *, NSView *windowView);
+    static WebMouseEvent createWebMouseEvent(NSEvent *, NSEvent *lastPressureEvent, NSView *windowView);
     static WebWheelEvent createWebWheelEvent(NSEvent *, NSView *windowView);
     static WebKeyboardEvent createWebKeyboardEvent(NSEvent *, bool handledByInputMethod, const Vector<WebCore::KeypressCommand>&);
+    static bool shouldBeHandledAsContextClick(const WebCore::PlatformMouseEvent&);
 #endif // USE(APPKIT)
 };
 

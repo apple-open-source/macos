@@ -33,6 +33,8 @@
 #include "WebEvent.h"
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/NotImplemented.h>
+#include <WebCore/PlatformDisplayX11.h>
+#include <WebCore/XUniquePtr.h>
 
 #if PLATFORM(GTK)
 #include <gtk/gtk.h>
@@ -101,26 +103,9 @@ static inline unsigned long rootWindowID()
 #endif
 }
 
-#if PLATFORM(GTK)
-static bool moduleMixesGtkSymbols(Module* module)
-{
-#ifdef GTK_API_VERSION_2
-    return module->functionPointer<gpointer>("gtk_application_get_type");
-#else
-    return module->functionPointer<gpointer>("gtk_object_get_type");
-#endif
-}
-#endif
-
 Display* NetscapePlugin::x11HostDisplay()
 {
-#if PLATFORM(GTK)
-    return GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
-#elif PLATFORM(EFL) && defined(HAVE_ECORE_X)
-    return static_cast<Display*>(ecore_x_display_get());
-#else
-    return 0;
-#endif
+    return downcast<PlatformDisplayX11>(PlatformDisplay::sharedDisplay()).native();
 }
 
 #if PLATFORM(GTK)
@@ -191,12 +176,10 @@ bool NetscapePlugin::platformPostInitializeWindowless()
     visualTemplate.depth = depth;
     visualTemplate.c_class = TrueColor;
     int numMatching;
-    XVisualInfo* visualInfo = XGetVisualInfo(display, VisualScreenMask | VisualDepthMask | VisualClassMask,
-                                             &visualTemplate, &numMatching);
+    XUniquePtr<XVisualInfo> visualInfo(XGetVisualInfo(display, VisualScreenMask | VisualDepthMask | VisualClassMask, &visualTemplate, &numMatching));
     ASSERT(visualInfo);
-    Visual* visual = visualInfo[0].visual;
+    Visual* visual = visualInfo.get()[0].visual;
     ASSERT(visual);
-    XFree(visualInfo);
 
     callbackStruct->visual = visual;
     callbackStruct->colormap = XCreateColormap(display, rootWindowID(), visual, AllocNone);
@@ -212,13 +195,10 @@ void NetscapePlugin::platformPreInitialize()
 
 bool NetscapePlugin::platformPostInitialize()
 {
-#if PLATFORM(GTK)
-    if (moduleMixesGtkSymbols(m_pluginModule->module()))
-        return false;
-#endif
-
     uint64_t windowID = 0;
-    bool needsXEmbed = false;
+    // NPPVpluginNeedsXEmbed is a boolean value, but at least the
+    // Flash player plugin is using an 'int' instead.
+    int needsXEmbed = 0;
     if (m_isWindowed) {
         NPP_GetValue(NPPVpluginNeedsXEmbed, &needsXEmbed);
         if (needsXEmbed) {
@@ -251,10 +231,7 @@ void NetscapePlugin::platformDestroy()
     XFreeColormap(hostDisplay, callbackStruct->colormap);
     delete callbackStruct;
 
-    if (m_drawable) {
-        XFreePixmap(hostDisplay, m_drawable);
-        m_drawable = 0;
-    }
+    m_drawable.reset();
 
 #if PLATFORM(GTK)
     if (m_platformPluginWidget) {
@@ -281,18 +258,12 @@ void NetscapePlugin::platformGeometryDidChange()
         return;
     }
 
-    Display* display = x11HostDisplay();
-    if (m_drawable)
-        XFreePixmap(display, m_drawable);
-
-    if (m_pluginSize.isEmpty()) {
-        m_drawable = 0;
+    m_drawable.reset();
+    if (m_pluginSize.isEmpty())
         return;
-    }
 
-    m_drawable = XCreatePixmap(display, rootWindowID(), m_pluginSize.width(), m_pluginSize.height(), displayDepth());
-
-    XSync(display, false); // Make sure that the server knows about the Drawable.
+    m_drawable = XCreatePixmap(x11HostDisplay(), rootWindowID(), m_pluginSize.width(), m_pluginSize.height(), displayDepth());
+    XSync(x11HostDisplay(), false); // Make sure that the server knows about the Drawable.
 }
 
 void NetscapePlugin::platformVisibilityDidChange()
@@ -326,7 +297,7 @@ void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirt
     XGraphicsExposeEvent& exposeEvent = xevent.xgraphicsexpose;
     exposeEvent.type = GraphicsExpose;
     exposeEvent.display = x11HostDisplay();
-    exposeEvent.drawable = m_drawable;
+    exposeEvent.drawable = m_drawable.get();
 
     IntRect exposedRect(dirtyRect);
     exposeEvent.x = exposedRect.x();
@@ -343,11 +314,8 @@ void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirt
         XSync(m_pluginDisplay, false);
 
 #if PLATFORM(GTK) || (PLATFORM(EFL) && USE(CAIRO))
-    RefPtr<cairo_surface_t> drawableSurface = adoptRef(cairo_xlib_surface_create(m_pluginDisplay,
-                                                                                 m_drawable,
-                                                                                 static_cast<NPSetWindowCallbackStruct*>(m_npWindow.ws_info)->visual,
-                                                                                 m_pluginSize.width(),
-                                                                                 m_pluginSize.height()));
+    RefPtr<cairo_surface_t> drawableSurface = adoptRef(cairo_xlib_surface_create(m_pluginDisplay, m_drawable.get(),
+        static_cast<NPSetWindowCallbackStruct*>(m_npWindow.ws_info)->visual, m_pluginSize.width(), m_pluginSize.height()));
     cairo_t* cr = context->platformContext()->cr();
     cairo_save(cr);
 
@@ -488,6 +456,9 @@ bool NetscapePlugin::platformHandleMouseEvent(const WebMouseEvent& event)
     case WebEvent::MouseMove:
         setXMotionEventFields(xEvent, event, convertToRootView(IntPoint()));
         break;
+    case WebEvent::MouseForceChanged:
+    case WebEvent::MouseForceDown:
+    case WebEvent::MouseForceUp:
     case WebEvent::NoType:
     case WebEvent::Wheel:
     case WebEvent::KeyDown:

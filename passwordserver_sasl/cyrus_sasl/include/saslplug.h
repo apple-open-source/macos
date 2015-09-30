@@ -486,7 +486,7 @@ typedef int sasl_client_plug_init_t(const sasl_utils_t *utils,
 /* add a client plug-in
  */
 LIBSASL_API int sasl_client_add_plugin(const char *plugname,
-				       sasl_client_plug_init_t *cplugfunc);
+				       sasl_client_plug_init_t *cplugfunc) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 typedef struct client_sasl_mechanism
 {
@@ -503,7 +503,7 @@ typedef void sasl_client_info_callback_t (client_sasl_mechanism_t *m,
 /* Dump information about available client plugins */
 LIBSASL_API int sasl_client_plugin_info (const char *mech_list,
 	sasl_client_info_callback_t *info_cb,
-	void *info_cb_rock);
+	void *info_cb_rock) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 
 /********************
@@ -834,7 +834,7 @@ typedef int sasl_server_plug_init_t(const sasl_utils_t *utils,
  * add a server plug-in
  */
 LIBSASL_API int sasl_server_add_plugin(const char *plugname,
-				       sasl_server_plug_init_t *splugfunc);
+				       sasl_server_plug_init_t *splugfunc) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 
 typedef struct server_sasl_mechanism
@@ -856,7 +856,7 @@ typedef void sasl_server_info_callback_t (server_sasl_mechanism_t *m,
    used for canon and auxprop plugins) */
 LIBSASL_API int sasl_server_plugin_info (const char *mech_list,
 	sasl_server_info_callback_t *info_cb,
-	void *info_cb_rock);
+	void *info_cb_rock) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 
 /*********************************************************
@@ -930,7 +930,7 @@ typedef int sasl_canonuser_init_t(const sasl_utils_t *utils,
 /* add a canonuser plugin
  */
 LIBSASL_API int sasl_canonuser_add_plugin(const char *plugname,
-				  sasl_canonuser_init_t *canonuserfunc);
+				  sasl_canonuser_init_t *canonuserfunc) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 /******************************************************
  * auxiliary property plug-in -- added cjn 1999-09-29 *
@@ -1011,10 +1011,10 @@ typedef int sasl_auxprop_init_t(const sasl_utils_t *utils,
 /* add an auxiliary property plug-in
  */
 LIBSASL_API int sasl_auxprop_add_plugin(const char *plugname,
-					sasl_auxprop_init_t *auxpropfunc);
+					sasl_auxprop_init_t *auxpropfunc) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 /* APPLE */
 LIBSASL_API int sasl_auxprop_add_plugin_nolog(const char *plugname,
-					sasl_auxprop_init_t *auxpropfunc);
+					sasl_auxprop_init_t *auxpropfunc) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 typedef void auxprop_info_callback_t (sasl_auxprop_plug_t *m,
 			              sasl_info_callback_stage_t stage,
@@ -1024,7 +1024,7 @@ typedef void auxprop_info_callback_t (sasl_auxprop_plug_t *m,
    used for canon and server authentication plugins) */
 LIBSASL_API int auxprop_plugin_info (const char *mech_list,
 	auxprop_info_callback_t *info_cb,
-	void *info_cb_rock);
+	void *info_cb_rock) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 #ifdef __cplusplus
 }

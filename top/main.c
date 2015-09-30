@@ -187,6 +187,11 @@ int main(int argc, char *argv[]) {
 	return EXIT_FAILURE;
     }
 
+    /* 18007048: If output isn't a tty and -l isn't specified, imply -l 0. */
+    if (!isatty(STDOUT_FILENO) && top_prefs_get_samples() < 0) {
+	top_prefs_set_samples(0);
+    }
+
     if(top_prefs_get_samples() > -1)
 	top_prefs_set_logging_mode(true);
     

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005, 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2005, 2008-2010, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,9 @@
 #include <SystemConfiguration/SCNetwork.h>
 #include <dispatch/dispatch.h>
 
+CF_IMPLICIT_BRIDGING_ENABLED
+CF_ASSUME_NONNULL_BEGIN
+
 /*!
 	@header SCNetworkReachability
 	@discussion The SCNetworkReachability API allows an application to
@@ -52,7 +55,7 @@
 	@typedef SCNetworkReachabilityRef
 	@discussion This is the handle to a network address or name.
  */
-typedef const struct __SCNetworkReachability * SCNetworkReachabilityRef;
+typedef const struct CF_BRIDGED_TYPE(id) __SCNetworkReachability * SCNetworkReachabilityRef;
 
 
 /*!
@@ -74,10 +77,10 @@ typedef const struct __SCNetworkReachability * SCNetworkReachabilityRef;
  */
 typedef struct {
 	CFIndex		version;
-	void *		info;
-	const void	*(*retain)(const void *info);
-	void		(*release)(const void *info);
-	CFStringRef	(*copyDescription)(const void *info);
+	void *		__nullable info;
+	const void	* __nonnull (* __nullable retain)(const void *info);
+	void		(* __nullable release)(const void *info);
+	CFStringRef	__nonnull (* __nullable copyDescription)(const void *info);
 } SCNetworkReachabilityContext;
 
 /*!
@@ -144,7 +147,7 @@ typedef struct {
 		be reached via an EDGE, GPRS, or other "cell" connection.
 #endif	// TARGET_OS_IPHONE
  */
-enum {
+typedef CF_OPTIONS(uint32_t, SCNetworkReachabilityFlags) {
 	kSCNetworkReachabilityFlagsTransientConnection	= 1<<0,
 	kSCNetworkReachabilityFlagsReachable		= 1<<1,
 	kSCNetworkReachabilityFlagsConnectionRequired	= 1<<2,
@@ -159,7 +162,6 @@ enum {
 
 	kSCNetworkReachabilityFlagsConnectionAutomatic	= kSCNetworkReachabilityFlagsConnectionOnTraffic
 };
-typedef	uint32_t	SCNetworkReachabilityFlags;
 
 /*!
 	@typedef SCNetworkReachabilityCallBack
@@ -172,9 +174,9 @@ typedef	uint32_t	SCNetworkReachabilityFlags;
 	@param info A C pointer to a user-specified block of data.
  */
 typedef void (*SCNetworkReachabilityCallBack)	(
-						SCNetworkReachabilityRef	target,
-						SCNetworkReachabilityFlags	flags,
-						void				*info
+						SCNetworkReachabilityRef			target,
+						SCNetworkReachabilityFlags			flags,
+						void			     *	__nullable	info
 						);
 
 __BEGIN_DECLS
@@ -189,10 +191,10 @@ __BEGIN_DECLS
 
 		 You must release the returned value.
  */
-SCNetworkReachabilityRef
+SCNetworkReachabilityRef __nullable
 SCNetworkReachabilityCreateWithAddress		(
-						CFAllocatorRef			allocator,
-						const struct sockaddr		*address
+						CFAllocatorRef			__nullable	allocator,
+						const struct sockaddr				*address
 						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 /*!
@@ -208,11 +210,11 @@ SCNetworkReachabilityCreateWithAddress		(
 
 		 You must release the returned value.
  */
-SCNetworkReachabilityRef
+SCNetworkReachabilityRef __nullable
 SCNetworkReachabilityCreateWithAddressPair	(
-						CFAllocatorRef			allocator,
-						const struct sockaddr		*localAddress,
-						const struct sockaddr		*remoteAddress
+						CFAllocatorRef			__nullable	allocator,
+						const struct sockaddr		* __nullable	localAddress,
+						const struct sockaddr		* __nullable	remoteAddress
 						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 /*!
@@ -227,10 +229,10 @@ SCNetworkReachabilityCreateWithAddressPair	(
 
 		You must release the returned value.
  */
-SCNetworkReachabilityRef
+SCNetworkReachabilityRef __nullable
 SCNetworkReachabilityCreateWithName		(
-						CFAllocatorRef			allocator,
-						const char			*nodename
+						CFAllocatorRef			__nullable	allocator,
+						const char					*nodename
 						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 /*!
@@ -275,9 +277,9 @@ SCNetworkReachabilityGetFlags			(
  */
 Boolean
 SCNetworkReachabilitySetCallback		(
-						SCNetworkReachabilityRef	target,
-						SCNetworkReachabilityCallBack	callout,
-						SCNetworkReachabilityContext	*context
+						SCNetworkReachabilityRef			target,
+						SCNetworkReachabilityCallBack	__nullable	callout,
+						SCNetworkReachabilityContext	* __nullable	context
 						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 /*!
@@ -331,10 +333,13 @@ SCNetworkReachabilityUnscheduleFromRunLoop	(
  */
 Boolean
 SCNetworkReachabilitySetDispatchQueue		(
-						SCNetworkReachabilityRef	target,
-						dispatch_queue_t		queue
+						SCNetworkReachabilityRef			target,
+						dispatch_queue_t		__nullable	queue
 						)				__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
 
 __END_DECLS
+
+CF_ASSUME_NONNULL_END
+CF_IMPLICIT_BRIDGING_DISABLED
 
 #endif /* _SCNETWORKREACHABILITY_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,6 +67,7 @@ const CFStringRef kDADiskDescriptionVolumeMountableKey = CFSTR( "DAVolumeMountab
 const CFStringRef kDADiskDescriptionVolumeNameKey      = CFSTR( "DAVolumeName"      );
 const CFStringRef kDADiskDescriptionVolumeNetworkKey   = CFSTR( "DAVolumeNetwork"   );
 const CFStringRef kDADiskDescriptionVolumePathKey      = CFSTR( "DAVolumePath"      );
+const CFStringRef kDADiskDescriptionVolumeTypeKey      = CFSTR( "DAVolumeType"      );
 const CFStringRef kDADiskDescriptionVolumeUUIDKey      = CFSTR( "DAVolumeUUID"      );
 
 const CFStringRef kDADiskDescriptionMediaBlockSizeKey  = CFSTR( "DAMediaBlockSize"  );
@@ -406,14 +407,14 @@ __private_extern__ CFDataRef _DASerializeDiskDescription( CFAllocatorRef allocat
 
 __private_extern__ CFTypeRef _DAUnserialize( CFAllocatorRef allocator, CFDataRef data )
 {
-    return CFPropertyListCreateFromXMLData( allocator, data, kCFPropertyListImmutable, NULL );
+    return CFPropertyListCreateWithData( allocator, data, kCFPropertyListImmutable, NULL, NULL );
 }
 
 __private_extern__ CFMutableDictionaryRef _DAUnserializeDiskDescription( CFAllocatorRef allocator, CFDataRef data )
 {
     CFMutableDictionaryRef description;
 
-    description = ( void * ) CFPropertyListCreateFromXMLData( allocator, data, kCFPropertyListMutableContainers, NULL );
+    description = ( void * ) CFPropertyListCreateWithData( allocator, data, kCFPropertyListMutableContainers, NULL, NULL );
 
     if ( description )
     {

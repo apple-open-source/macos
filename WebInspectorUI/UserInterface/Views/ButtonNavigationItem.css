@@ -39,18 +39,7 @@
     text-align: center;
     height: auto;
 
-    -webkit-justify-content: center;
-}
-
-body.mac-platform.legacy .navigation-bar .item.button.text-only {
-    padding: 0 10px;
-    margin: 0;
-
-    text-shadow: rgba(255, 255, 255, 0.5) 0 1px 0;
-    line-height: 20px;
-    border: none;
-    text-align: inherit;
-    height: 28px;
+    justify-content: center;
 }
 
 .navigation-bar .item.button > .glyph {
@@ -71,6 +60,12 @@ body.window-inactive .navigation-bar .item.button:not(.suppress-emboss) > .glyph
 
 body.window-inactive .navigation-bar .item.button.disabled:not(.suppress-emboss) > .glyph {
     opacity: 0.35 !important;
+}
+
+.navigation-bar .item.button.suppress-emboss {
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 .navigation-bar .item.button.suppress-emboss > .glyph {

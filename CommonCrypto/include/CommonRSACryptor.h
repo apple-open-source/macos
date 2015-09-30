@@ -422,6 +422,8 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 	@param      modulus     		The modulus in MSB format.
 	@param      modulusLength     	The modulus data length. 	(in/out parameter)
     @param      exponent			The raw data bytes of the exponent.
+            exponent is the private exponent (aka "d") for a private key (ccRSAKeyPrivate).
+            exponent is the public exponent (aka "e") for a public key (ccRSAKeyPublic).
 	@param      exponentLength     	The exponent data length.	(in/out parameter)
     @param      p					The raw data bytes of the modulus factor P.
     								(ccRSAKeyPrivate only)
@@ -442,18 +444,18 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 	@abstract   For FIPS CAVS testing we need the ability to create an RSA 
     			key from an exponent and Modulus.
 
-	@param      keyType     		The type of key to create - ccRSAKeyPublic
-    								 or ccRSAKeyPrivate.
-	@param      modulus     		The modulus in MSB format.
-	@param      modulusLength     	The modulus data length.
-    @param      exponent			The raw data bytes of the exponent.
-	@param      exponentLength     	The exponent data length.
-    @param      p					The raw data bytes of the modulus factor P.
-    								(ccRSAKeyPrivate only)
-	@param      pLength     		The P data length.
-    @param      q					The raw data bytes of the modulus factor Q.
-    								(ccRSAKeyPrivate only)
-	@param      qLength     		The Q data length.
+	@param      keyType                 The type of key to create - ccRSAKeyPublic
+                                        or ccRSAKeyPrivate.
+	@param      modulus                 The modulus in MSB format.
+	@param      modulusLength           The modulus data length.
+    @param      publicExponent			The raw data bytes of the public exponent (aka "e").
+	@param      publicExponentLength    The public exponent data length.
+    @param      p                       The raw data bytes of the modulus factor P.
+                                        (ccRSAKeyPrivate only)
+	@param      pLength                 The P data length.
+    @param      q                       The raw data bytes of the modulus factor Q.
+                                        (ccRSAKeyPrivate only)
+	@param      qLength                 The Q data length.
 
     @result		If the function is successful (kCCSuccess) a RSACryptoRef is 
     			returned in the ref parameter.  All other errors result in
@@ -461,7 +463,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 */
 
 CCCryptorStatus
-CCRSACryptorCreateFromData( CCRSAKeyType keyType, uint8_t *modulus, size_t modulusLength, uint8_t *exponent, size_t exponentLength,
+CCRSACryptorCreateFromData( CCRSAKeyType keyType, uint8_t *modulus, size_t modulusLength, uint8_t *publicExponent, size_t publicExponentLength,
  							uint8_t *p, size_t pLength, uint8_t *q, size_t qLength, CCRSACryptorRef *ref)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 

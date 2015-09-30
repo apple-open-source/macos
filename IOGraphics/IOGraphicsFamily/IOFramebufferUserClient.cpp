@@ -126,7 +126,7 @@ IOReturn IOFramebufferUserClient::clientMemoryForType( UInt32 type,
 
         default:
             mem = (IOMemoryDescriptor *) owner->userAccessRanges->getObject( type );
-            mem->retain();
+            if (mem) mem->retain();
             break;
     }
 

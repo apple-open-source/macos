@@ -28,8 +28,6 @@
 #include "ActiveDOMObject.h"
 
 #include "ScriptExecutionContext.h"
-#include "WorkerGlobalScope.h"
-#include "WorkerThread.h"
 
 namespace WebCore {
 
@@ -92,7 +90,7 @@ bool ActiveDOMObject::hasPendingActivity() const
     return m_pendingActivityCount;
 }
 
-bool ActiveDOMObject::canSuspend() const
+bool ActiveDOMObject::canSuspendForPageCache() const
 {
     return false;
 }

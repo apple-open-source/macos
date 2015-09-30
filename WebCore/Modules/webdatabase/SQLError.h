@@ -29,8 +29,6 @@
 #ifndef SQLError_h
 #define SQLError_h
 
-#if ENABLE(SQL_DATABASE)
-
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/WTFString.h>
 
@@ -38,12 +36,12 @@ namespace WebCore {
 
 class SQLError : public ThreadSafeRefCounted<SQLError> {
 public:
-    static PassRefPtr<SQLError> create(unsigned code, const String& message) { return adoptRef(new SQLError(code, message)); }
-    static PassRefPtr<SQLError> create(unsigned code, const char* message, int sqliteCode)
+    static Ref<SQLError> create(unsigned code, const String& message) { return adoptRef(*new SQLError(code, message)); }
+    static Ref<SQLError> create(unsigned code, const char* message, int sqliteCode)
     {
         return create(code, String::format("%s (%d)", message, sqliteCode));
     }
-    static PassRefPtr<SQLError> create(unsigned code, const char* message, int sqliteCode, const char* sqliteMessage)
+    static Ref<SQLError> create(unsigned code, const char* message, int sqliteCode, const char* sqliteMessage)
     {
         return create(code, String::format("%s (%d %s)", message, sqliteCode, sqliteMessage));
     }
@@ -69,7 +67,5 @@ private:
 };
 
 }
-
-#endif
 
 #endif // SQLError_h

@@ -45,17 +45,16 @@
 #import "WKNSError.h"
 #import "WKNSURLAuthenticationChallenge.h"
 #import "WKNSURLExtras.h"
-#import "WKNSURLProtectionSpace.h"
 #import "WKPagePolicyClientInternal.h"
 #import "WKProcessGroupPrivate.h"
-#import "WKRenderingProgressEventsInternal.h"
 #import "WKRetainPtr.h"
 #import "WKURLRequestNS.h"
 #import "WKURLResponseNS.h"
 #import "WeakObjCPtr.h"
 #import "WebCertificateInfo.h"
-#import "WebContext.h"
 #import "WebPageProxy.h"
+#import "WebProcessPool.h"
+#import "WebProtectionSpace.h"
 #import "_WKRemoteObjectRegistryInternal.h"
 #import <wtf/NeverDestroyed.h>
 
@@ -126,6 +125,8 @@ private:
     virtual void didChangeCanGoForward() override { }
     virtual void willChangeNetworkRequestsInProgress() override { }
     virtual void didChangeNetworkRequestsInProgress() override { }
+    virtual void willChangeCertificateInfo() override { }
+    virtual void didChangeCertificateInfo() override { }
 
     WKBrowsingContextController *m_controller;
 };
@@ -164,7 +165,10 @@ static HashMap<WebPageProxy*, WKBrowsingContextController *>& browsingContextCon
 
     _page->pageLoadState().removeObserver(*_pageLoadStateObserver);
 
-    [_remoteObjectRegistry _invalidate];
+    if (_remoteObjectRegistry) {
+        _page->process().processPool().removeMessageReceiver(Messages::RemoteObjectRegistry::messageReceiverName(), _page->pageID());
+        [_remoteObjectRegistry _invalidate];
+    }
 
     [super dealloc];
 }
@@ -173,12 +177,12 @@ static HashMap<WebPageProxy*, WKBrowsingContextController *>& browsingContextCon
 
 + (void)registerSchemeForCustomProtocol:(NSString *)scheme
 {
-    WebContext::registerGlobalURLSchemeAsHavingCustomProtocolHandlers(scheme);
+    WebProcessPool::registerGlobalURLSchemeAsHavingCustomProtocolHandlers(scheme);
 }
 
 + (void)unregisterSchemeForCustomProtocol:(NSString *)scheme
 {
-    WebContext::unregisterGlobalURLSchemeAsHavingCustomProtocolHandlers(scheme);
+    WebProcessPool::unregisterGlobalURLSchemeAsHavingCustomProtocolHandlers(scheme);
 }
 
 - (void)loadRequest:(NSURLRequest *)request
@@ -192,7 +196,7 @@ static HashMap<WebPageProxy*, WKBrowsingContextController *>& browsingContextCon
     if (userData)
         wkUserData = ObjCObjectGraph::create(userData);
 
-    _page->loadRequest(request, wkUserData.get());
+    _page->loadRequest(request, ShouldOpenExternalURLsPolicy::ShouldNotAllow, wkUserData.get());
 }
 
 - (void)loadFileURL:(NSURL *)URL restrictToFilesWithin:(NSURL *)allowedDirectory
@@ -236,18 +240,12 @@ static HashMap<WebPageProxy*, WKBrowsingContextController *>& browsingContextCon
     [self loadData:data MIMEType:MIMEType textEncodingName:encodingName baseURL:baseURL userData:nil];
 }
 
-static void releaseNSData(unsigned char*, const void* data)
-{
-    [(NSData *)data release];
-}
-
 - (void)loadData:(NSData *)data MIMEType:(NSString *)MIMEType textEncodingName:(NSString *)encodingName baseURL:(NSURL *)baseURL userData:(id)userData
 {
     RefPtr<API::Data> apiData;
     if (data) {
         // FIXME: This should copy the data.
-        [data retain];
-        apiData = API::Data::createWithoutCopying((const unsigned char*)[data bytes], [data length], releaseNSData, data);
+        apiData = API::Data::createWithoutCopying(data);
     }
 
     RefPtr<ObjCObjectGraph> wkUserData;
@@ -361,25 +359,6 @@ static void releaseNSData(unsigned char*, const void* data)
 - (double)estimatedProgress
 {
     return _page->estimatedProgress();
-}
-
-static inline LayoutMilestones layoutMilestones(WKRenderingProgressEvents events)
-{
-    LayoutMilestones milestones = 0;
-
-    if (events & WKRenderingProgressEventFirstLayout)
-        milestones |= DidFirstLayout;
-
-    if (events & WKRenderingProgressEventFirstPaintWithSignificantArea)
-        milestones |= DidHitRelevantRepaintedObjectsAreaThreshold;
-
-    return milestones;
-}
-
-- (void)setObservedRenderingProgressEvents:(WKRenderingProgressEvents)events
-{
-    _observedRenderingProgressEvents = events;
-    _page->listenForLayoutMilestones(layoutMilestones(events));
 }
 
 #pragma mark Active Document Introspection
@@ -497,7 +476,7 @@ static bool canAuthenticateAgainstProtectionSpaceInFrame(WKPageRef page, WKFrame
     auto loadDelegate = browsingContext->_loadDelegate.get();
 
     if ([loadDelegate respondsToSelector:@selector(browsingContextController:canAuthenticateAgainstProtectionSpace:)])
-        return [(id <WKBrowsingContextLoadDelegatePrivate>)loadDelegate browsingContextController:browsingContext canAuthenticateAgainstProtectionSpace:wrapper(*toImpl(protectionSpace))];
+        return [(id <WKBrowsingContextLoadDelegatePrivate>)loadDelegate browsingContextController:browsingContext canAuthenticateAgainstProtectionSpace:toImpl(protectionSpace)->protectionSpace().nsSpace()];
 
     return false;
 }
@@ -560,15 +539,6 @@ static void processDidCrash(WKPageRef page, const void* clientInfo)
         [(id <WKBrowsingContextLoadDelegatePrivate>)loadDelegate browsingContextControllerWebProcessDidCrash:browsingContext];
 }
 
-static void didLayout(WKPageRef page, WKLayoutMilestones milestones, WKTypeRef userData, const void* clientInfo)
-{
-    WKBrowsingContextController *browsingContext = (WKBrowsingContextController *)clientInfo;
-    auto loadDelegate = browsingContext->_loadDelegate.get();
-
-    if ([loadDelegate respondsToSelector:@selector(browsingContextController:renderingProgressDidChange:)])
-        [loadDelegate browsingContextController:browsingContext renderingProgressDidChange:renderingProgressEvents(milestones)];
-}
-
 static void setUpPageLoaderClient(WKBrowsingContextController *browsingContext, WebPageProxy& page)
 {
     WKPageLoaderClientV4 loaderClient;
@@ -592,8 +562,6 @@ static void setUpPageLoaderClient(WKBrowsingContextController *browsingContext, 
     loaderClient.didChangeBackForwardList = didChangeBackForwardList;
 
     loaderClient.processDidCrash = processDidCrash;
-
-    loaderClient.didLayout = didLayout;
 
     WKPageSetPageLoaderClient(toAPI(&page), &loaderClient.base);
 }
@@ -860,7 +828,7 @@ static void setUpPagePolicyClient(WKBrowsingContextController *browsingContext, 
 {
     if (!_remoteObjectRegistry) {
         _remoteObjectRegistry = adoptNS([[_WKRemoteObjectRegistry alloc] _initWithMessageSender:*_page]);
-        _page->process().context().addMessageReceiver(Messages::RemoteObjectRegistry::messageReceiverName(), _page->pageID(), [_remoteObjectRegistry remoteObjectRegistry]);
+        _page->process().processPool().addMessageReceiver(Messages::RemoteObjectRegistry::messageReceiverName(), _page->pageID(), [_remoteObjectRegistry remoteObjectRegistry]);
     }
 
     return _remoteObjectRegistry.get();

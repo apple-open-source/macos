@@ -30,8 +30,6 @@
 //#include <string>
 //#include <iostream>
 
-#define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
-
 U_NAMESPACE_BEGIN
 
 namespace {
@@ -351,7 +349,7 @@ void AlphabeticIndex::initLabels(UVector &indexCharacters, UErrorCode &errorCode
     }
     if (U_FAILURE(errorCode)) { return; }
 
-    // if the result is still too large, cut down to maxCount elements, by removing every nth element
+    // if the result is still too large, cut down to maxLabelCount_ elements, by removing every nth element
 
     int32_t size = indexCharacters.size() - 1;
     if (size > maxLabelCount_) {
@@ -444,9 +442,8 @@ BucketList *AlphabeticIndex::createBucketList(UErrorCode &errorCode) const {
     };
     UBool hasPinyin = FALSE;
 
-    LocalPointer<UVector> bucketList(new UVector(errorCode));
-    if (bucketList.isNull()) {
-        errorCode = U_MEMORY_ALLOCATION_ERROR;
+    LocalPointer<UVector> bucketList(new UVector(errorCode), errorCode);
+    if (U_FAILURE(errorCode)) {
         return NULL;
     }
     bucketList->setDeleter(uprv_deleteUObject);
@@ -603,9 +600,8 @@ BucketList *AlphabeticIndex::createBucketList(UErrorCode &errorCode) const {
         nextBucket = bucket;
     }
 
-    LocalPointer<UVector> publicBucketList(new UVector(errorCode));
-    if (bucketList.isNull()) {
-        errorCode = U_MEMORY_ALLOCATION_ERROR;
+    LocalPointer<UVector> publicBucketList(new UVector(errorCode), errorCode);
+    if (U_FAILURE(errorCode)) {
         return NULL;
     }
     // Do not call publicBucketList->setDeleter():
@@ -992,9 +988,8 @@ UVector *AlphabeticIndex::firstStringsInScript(UErrorCode &status) {
     if (U_FAILURE(status)) {
         return NULL;
     }
-    LocalPointer<UVector> dest(new UVector(status));
-    if (dest.isNull()) {
-        status = U_MEMORY_ALLOCATION_ERROR;
+    LocalPointer<UVector> dest(new UVector(status), status);
+    if (U_FAILURE(status)) {
         return NULL;
     }
     dest->setDeleter(uprv_deleteUObject);

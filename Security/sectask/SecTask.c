@@ -32,6 +32,7 @@
 #include <System/sys/codesign.h>
 #include <bsm/libbsm.h>
 #include <inttypes.h>
+#include <syslog.h>
 #include <utilities/SecCFWrappers.h>
 
 #define USE_LIBPROC  0
@@ -207,7 +208,17 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
     
     ret = csops_task(task, CS_OPS_ENTITLEMENTS_BLOB, &header, sizeof(header));
     /* Any other combination means no entitlements */
-    if (ret == -1 && errno == ERANGE) {
+	if (ret == -1) {
+		if (errno != ERANGE) {
+			syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d", errno);	// to ease diagnostics
+			// EINVAL is what the kernel says for unsigned code, so we'll have to let that pass
+			if (errno == EINVAL) {
+				task->entitlementsLoaded = true;
+				return true;
+			}
+			ret = errno;	// what really went wrong
+			goto out;		// bail out
+		}
         bufferlen = ntohl(header.length);
         /* check for insane values */
         if (bufferlen > 1024 * 1024 || bufferlen < 8) {

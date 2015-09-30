@@ -127,6 +127,9 @@ extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_cred_get_default_oid_desc;
 extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_cred_renew_oid_desc;
 #define GSS_C_CRED_RENEW (&__gss_c_cred_renew_oid_desc)
 
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_ctx_pfs_x_oid_desc;
+#define GSS_C_CTX_PFS_X (&__gss_c_ctx_pfs_x_oid_desc)
+
  /* glue for gss_inquire_saslname_for_mech */
 extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_ma_sasl_mech_name_oid_desc;
 #define GSS_C_MA_SASL_MECH_NAME (&__gss_c_ma_sasl_mech_name_oid_desc)

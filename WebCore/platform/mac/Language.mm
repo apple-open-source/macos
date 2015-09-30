@@ -27,7 +27,8 @@
 #import "Language.h"
 
 #import "BlockExceptions.h"
-#import "WebCoreSystemInterface.h"
+#import "CFBundleSPI.h"
+#import "WebCoreNSStringExtras.h"
 #import <mutex>
 #import <wtf/Assertions.h>
 #import <wtf/NeverDestroyed.h>
@@ -77,16 +78,24 @@ static Vector<String>& preferredLanguages()
 
 namespace WebCore {
 
-static String httpStyleLanguageCode(NSString *languageCode)
+static String httpStyleLanguageCode(NSString *language)
 {
-    // Look up the language code using CFBundle.
-    RetainPtr<CFStringRef> preferredLanguageCode = adoptCF(wkCopyCFLocalizationPreferredName((CFStringRef)languageCode));
+    SInt32 languageCode;
+    SInt32 regionCode; 
+    SInt32 scriptCode; 
+    CFStringEncoding stringEncoding; 
 
+    // FIXME: This transformation is very wrong:
+    // 1. There is no reason why CFBundle localization names would be at all related to language names as used on the Web.
+    // 2. Script Manager codes cannot represent all languages that are now supported by the platform, so the conversion is lossy.
+    // 3. This should probably match what is sent by the network layer as Accept-Language, but currently, that's implemented separately.
+    CFBundleGetLocalizationInfoForLocalization((CFStringRef)language, &languageCode, &regionCode, &scriptCode, &stringEncoding);
+    RetainPtr<CFStringRef> preferredLanguageCode = adoptCF(CFBundleCopyLocalizationForLocalizationInfo(languageCode, regionCode, scriptCode, stringEncoding));
     if (preferredLanguageCode)
-        languageCode = (NSString *)preferredLanguageCode.get();
+        language = (NSString *)preferredLanguageCode.get();
 
     // Make the string lowercase.
-    NSString *lowercaseLanguageCode = [languageCode lowercaseString];
+    NSString *lowercaseLanguageCode = [language lowercaseString];
 
     // Turn a '_' into a '-' if it appears after a 2-letter language code.
     if ([lowercaseLanguageCode length] >= 3 && [lowercaseLanguageCode characterAtIndex:2] == '_') {

@@ -27,9 +27,9 @@
 #define DragImage_h
 
 #include "FloatSize.h"
-#include "FontRenderingMode.h"
 #include "ImageOrientation.h"
 #include "IntSize.h"
+#include "TextFlags.h"
 #include <wtf/Forward.h>
 
 #if PLATFORM(IOS)
@@ -81,7 +81,7 @@ DragImageRef createDragImageFromImage(Image*, ImageOrientationDescription);
 DragImageRef createDragImageIconForCachedImageFilename(const String&);
 
 DragImageRef createDragImageForNode(Frame&, Node&);
-DragImageRef createDragImageForSelection(Frame&, bool forceBlackText = false);
+WEBCORE_EXPORT DragImageRef createDragImageForSelection(Frame&, bool forceBlackText = false);
 DragImageRef createDragImageForRange(Frame&, Range&, bool forceBlackText = false);
 DragImageRef createDragImageForImage(Frame&, Node&, IntRect& imageRect, IntRect& elementRect);
 DragImageRef createDragImageForLink(URL&, const String& label, FontRenderingMode);

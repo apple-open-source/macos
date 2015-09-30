@@ -28,45 +28,19 @@
 
 #if ENABLE(NETWORK_PROCESS)
 
-#import "DiskCacheMonitor.h"
+#import "NetworkDiskCacheMonitor.h"
 #import "ShareableResource.h"
+#import <WebCore/CFNetworkSPI.h>
 #import <WebCore/ResourceHandle.h>
 #import <WebCore/SharedBuffer.h>
 
 using namespace WebCore;
 
-#ifdef __has_include
-#if __has_include(<CFNetwork/CFURLCache.h>)
-#include <CFNetwork/CFURLCache.h>
-#endif
-#if __has_include(<CFNetwork/CFURLCachePriv.h>)
-#include <CFNetwork/CFURLCachePriv.h>
-#endif
-#endif
-
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
-typedef const struct _CFURLCache* CFURLCacheRef;
-typedef const struct _CFCachedURLResponse* CFCachedURLResponseRef;
-extern "C" CFURLCacheRef CFURLCacheCopySharedURLCache();
-extern "C" CFCachedURLResponseRef CFURLCacheCopyResponseForRequest(CFURLCacheRef, CFURLRequestRef);
-extern "C" CFDataRef _CFCachedURLResponseGetMemMappedData(CFCachedURLResponseRef);
-extern "C" CFBooleanRef _CFURLCacheIsResponseDataMemMapped(CFURLCacheRef, CFDataRef);
-#endif
-
-@interface NSCachedURLResponse (NSCachedURLResponseDetails)
--(CFCachedURLResponseRef)_CFCachedURLResponse;
-@end
-
 namespace WebKit {
-
-#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 
 static void tryGetShareableHandleFromCFData(ShareableResource::Handle& handle, CFDataRef data)
 {
-    if (!data || CFDataGetLength(data) < (CFIndex)NetworkResourceLoader::fileBackedResourceMinimumSize())
-        return;
-
-    RefPtr<SharedMemory> sharedMemory = SharedMemory::createFromVMBuffer((void*)CFDataGetBytePtr(data), CFDataGetLength(data));
+    RefPtr<SharedMemory> sharedMemory = SharedMemory::create((void*)CFDataGetBytePtr(data), CFDataGetLength(data), SharedMemory::Protection::ReadOnly);
     if (!sharedMemory) {
         LOG_ERROR("Failed to create VM shared memory for cached resource.");
         return;
@@ -84,7 +58,7 @@ void NetworkResourceLoader::tryGetShareableHandleFromCFURLCachedResponse(Shareab
     tryGetShareableHandleFromCFData(handle, data);
 }
 
-void NetworkResourceLoader::tryGetShareableHandleFromSharedBuffer(ShareableResource::Handle& handle, SharedBuffer* buffer)
+void NetworkResourceLoader::tryGetShareableHandleFromSharedBuffer(ShareableResource::Handle& handle, SharedBuffer& buffer)
 {
     static CFURLCacheRef cache = CFURLCacheCopySharedURLCache();
     ASSERT(isMainThread());
@@ -93,7 +67,7 @@ void NetworkResourceLoader::tryGetShareableHandleFromSharedBuffer(ShareableResou
     if (!cache)
         return;
 
-    CFDataRef data = buffer->existingCFData();
+    CFDataRef data = buffer.existingCFData();
     if (!data)
         return;
 
@@ -102,7 +76,6 @@ void NetworkResourceLoader::tryGetShareableHandleFromSharedBuffer(ShareableResou
 
     tryGetShareableHandleFromCFData(handle, data);
 }
-#endif // __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 
 size_t NetworkResourceLoader::fileBackedResourceMinimumSize()
 {
@@ -110,12 +83,13 @@ size_t NetworkResourceLoader::fileBackedResourceMinimumSize()
 }
 
 #if USE(CFNETWORK)
+
 void NetworkResourceLoader::willCacheResponseAsync(ResourceHandle* handle, CFCachedURLResponseRef cfResponse)
 {
     ASSERT_UNUSED(handle, handle == m_handle);
 
     if (m_bytesReceived >= fileBackedResourceMinimumSize())
-        DiskCacheMonitor::monitorFileBackingStoreCreation(cfResponse, this);
+        NetworkDiskCacheMonitor::monitorFileBackingStoreCreation(cfResponse, this);
 
     m_handle->continueWillCacheResponse(cfResponse);
 }
@@ -126,13 +100,12 @@ void NetworkResourceLoader::willCacheResponseAsync(ResourceHandle* handle, NSCac
 {
     ASSERT_UNUSED(handle, handle == m_handle);
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     if (m_bytesReceived >= fileBackedResourceMinimumSize())
-        DiskCacheMonitor::monitorFileBackingStoreCreation([nsResponse _CFCachedURLResponse], this);
-#endif
+        NetworkDiskCacheMonitor::monitorFileBackingStoreCreation([nsResponse _CFCachedURLResponse], this);
 
     m_handle->continueWillCacheResponse(nsResponse);
 }
+
 #endif // !USE(CFNETWORK)
 
 } // namespace WebKit

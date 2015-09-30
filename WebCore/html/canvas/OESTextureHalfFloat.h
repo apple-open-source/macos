@@ -30,9 +30,9 @@
 
 namespace WebCore {
 
-class OESTextureHalfFloat : public WebGLExtension {
+class OESTextureHalfFloat final : public WebGLExtension {
 public:
-    OESTextureHalfFloat(WebGLRenderingContext*);
+    OESTextureHalfFloat(WebGLRenderingContextBase*);
     virtual ~OESTextureHalfFloat();
 
     virtual ExtensionName getName() const override;

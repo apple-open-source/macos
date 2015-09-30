@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/yo_BJ.xml
@@ -107,5 +107,5 @@ yo_BJ{
         zh{"Èdè Mandari"}
         zu{"Èdè Shulu"}
     }
-    Version{"2.0.98.62"}
+    Version{"2.1.13.24"}
 }

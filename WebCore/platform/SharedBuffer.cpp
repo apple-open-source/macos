@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2009-2010. All rights reserved.
+ * Copyright (C) 2015 Canon Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,18 +28,13 @@
 #include "config.h"
 #include "SharedBuffer.h"
 
-#include "PurgeableBuffer.h"
 #include <algorithm>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/unicode/UTF8.h>
-
-#if ENABLE(DISK_IMAGE_CACHE)
-#include "DiskImageCacheIOS.h"
-#endif
 
 namespace WebCore {
 
 #if !USE(NETWORK_CFDATA_ARRAY_CALLBACK)
+
 static const unsigned segmentSize = 0x1000;
 static const unsigned segmentPositionMask = 0x0FFF;
 
@@ -62,72 +58,52 @@ static inline void freeSegment(char* p)
 {
     fastFree(p);
 }
+
 #endif
 
 SharedBuffer::SharedBuffer()
-    : m_size(0)
-    , m_buffer(adoptRef(new DataBuffer))
-    , m_shouldUsePurgeableMemory(false)
-#if ENABLE(DISK_IMAGE_CACHE)
-    , m_isMemoryMapped(false)
-    , m_diskImageCacheId(DiskImageCache::invalidDiskCacheId)
-    , m_notifyMemoryMappedCallback(nullptr)
-    , m_notifyMemoryMappedCallbackData(nullptr)
-#endif
+    : m_buffer(adoptRef(new DataBuffer))
 {
 }
 
 SharedBuffer::SharedBuffer(unsigned size)
     : m_size(size)
     , m_buffer(adoptRef(new DataBuffer))
-    , m_shouldUsePurgeableMemory(false)
-#if ENABLE(DISK_IMAGE_CACHE)
-    , m_isMemoryMapped(false)
-    , m_diskImageCacheId(DiskImageCache::invalidDiskCacheId)
-    , m_notifyMemoryMappedCallback(nullptr)
-    , m_notifyMemoryMappedCallbackData(nullptr)
-#endif
 {
 }
 
 SharedBuffer::SharedBuffer(const char* data, unsigned size)
-    : m_size(0)
-    , m_buffer(adoptRef(new DataBuffer))
-    , m_shouldUsePurgeableMemory(false)
-#if ENABLE(DISK_IMAGE_CACHE)
-    , m_isMemoryMapped(false)
-    , m_diskImageCacheId(DiskImageCache::invalidDiskCacheId)
-    , m_notifyMemoryMappedCallback(nullptr)
-    , m_notifyMemoryMappedCallbackData(nullptr)
-#endif
+    : m_buffer(adoptRef(new DataBuffer))
 {
     append(data, size);
 }
 
 SharedBuffer::SharedBuffer(const unsigned char* data, unsigned size)
-    : m_size(0)
-    , m_buffer(adoptRef(new DataBuffer))
-    , m_shouldUsePurgeableMemory(false)
-#if ENABLE(DISK_IMAGE_CACHE)
-    , m_isMemoryMapped(false)
-    , m_diskImageCacheId(DiskImageCache::invalidDiskCacheId)
-    , m_notifyMemoryMappedCallback(nullptr)
-    , m_notifyMemoryMappedCallbackData(nullptr)
-#endif
+    : m_buffer(adoptRef(new DataBuffer))
 {
     append(reinterpret_cast<const char*>(data), size);
 }
-    
+
+SharedBuffer::SharedBuffer(MappedFileData&& fileData)
+    : m_buffer(adoptRef(new DataBuffer))
+    , m_fileData(WTF::move(fileData))
+{
+}
+
 SharedBuffer::~SharedBuffer()
 {
-#if ENABLE(DISK_IMAGE_CACHE)
-    if (m_diskImageCacheId) {
-        diskImageCache().removeItem(m_diskImageCacheId);
-        m_isMemoryMapped = false;
-        m_diskImageCacheId = DiskImageCache::invalidDiskCacheId;
-    }
-#endif
     clear();
+}
+
+RefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& filePath)
+{
+    bool mappingSuccess;
+    MappedFileData mappedFileData(filePath, mappingSuccess);
+
+    if (!mappingSuccess)
+        return SharedBuffer::createFromReadingFile(filePath);
+
+    return adoptRef(new SharedBuffer(WTF::move(mappedFileData)));
 }
 
 PassRefPtr<SharedBuffer> SharedBuffer::adoptVector(Vector<char>& vector)
@@ -138,143 +114,30 @@ PassRefPtr<SharedBuffer> SharedBuffer::adoptVector(Vector<char>& vector)
     return buffer.release();
 }
 
-PassRefPtr<SharedBuffer> SharedBuffer::adoptPurgeableBuffer(PassOwnPtr<PurgeableBuffer> purgeableBuffer) 
-{ 
-    ASSERT(!purgeableBuffer->isPurgeable());
-    RefPtr<SharedBuffer> buffer = create();
-    buffer->m_purgeableBuffer = purgeableBuffer;
-    return buffer.release();
-}
-
 unsigned SharedBuffer::size() const
 {
     if (hasPlatformData())
         return platformDataSize();
     
-    if (m_purgeableBuffer)
-        return m_purgeableBuffer->size();
-    
+    if (m_fileData)
+        return m_fileData.size();
+
     return m_size;
-}
-
-#if ENABLE(DISK_IMAGE_CACHE)
-bool SharedBuffer::isAllowedToBeMemoryMapped() const
-{
-    return m_diskImageCacheId != DiskImageCache::invalidDiskCacheId;
-}
-
-SharedBuffer::MemoryMappingState SharedBuffer::allowToBeMemoryMapped()
-{
-    if (isMemoryMapped())
-        return SharedBuffer::SuccessAlreadyMapped;
-
-    if (isAllowedToBeMemoryMapped())
-        return SharedBuffer::PreviouslyQueuedForMapping;
-
-    m_diskImageCacheId = diskImageCache().writeItem(this);
-    if (m_diskImageCacheId == DiskImageCache::invalidDiskCacheId)
-        return SharedBuffer::FailureCacheFull;
-
-    return SharedBuffer::QueuedForMapping;
-}
-
-void SharedBuffer::failedMemoryMap()
-{
-    if (m_notifyMemoryMappedCallback)
-        m_notifyMemoryMappedCallback(this, SharedBuffer::Failed, m_notifyMemoryMappedCallbackData);
-}
-
-void SharedBuffer::markAsMemoryMapped()
-{
-    ASSERT(!isMemoryMapped());
-
-    m_isMemoryMapped = true;
-    unsigned savedSize = size();
-    clear();
-    m_size = savedSize;
-
-    if (m_notifyMemoryMappedCallback)
-        m_notifyMemoryMappedCallback(this, SharedBuffer::Succeeded, m_notifyMemoryMappedCallbackData);
-}
-
-SharedBuffer::MemoryMappedNotifyCallbackData SharedBuffer::memoryMappedNotificationCallbackData() const
-{
-    return m_notifyMemoryMappedCallbackData;
-}
-
-SharedBuffer::MemoryMappedNotifyCallback SharedBuffer::memoryMappedNotificationCallback() const
-{
-    return m_notifyMemoryMappedCallback;
-}
-
-void SharedBuffer::setMemoryMappedNotificationCallback(MemoryMappedNotifyCallback callback, MemoryMappedNotifyCallbackData data)
-{
-    ASSERT(!m_notifyMemoryMappedCallback || !callback);
-    ASSERT(!m_notifyMemoryMappedCallbackData || !data);
-
-    m_notifyMemoryMappedCallback = callback;
-    m_notifyMemoryMappedCallbackData = data;
-}
-#endif
-
-// Try to create a PurgeableBuffer. We can fail to create one for any of the
-// following reasons:
-//   - shouldUsePurgeableMemory is set to false.
-//   - the size of the buffer is less than the minimum size required by
-//     PurgeableBuffer (currently 16k).
-//   - PurgeableBuffer::createUninitialized() call fails.
-void SharedBuffer::createPurgeableBuffer() const
-{
-    if (m_purgeableBuffer)
-        return;
-
-    if (hasPlatformData())
-        return;
-
-#if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
-    if (singleDataArrayBuffer())
-        return;
-#endif
-
-    if (!m_buffer->hasOneRef())
-        return;
-
-    if (!m_shouldUsePurgeableMemory)
-        return;
-
-    char* destination = 0;
-    m_purgeableBuffer = PurgeableBuffer::createUninitialized(m_size, destination);
-    if (!m_purgeableBuffer)
-        return;
-    unsigned bufferSize = m_buffer->data.size();
-    if (bufferSize) {
-        memcpy(destination, m_buffer->data.data(), bufferSize);
-        destination += bufferSize;
-        (const_cast<SharedBuffer*>(this))->clearDataBuffer();
-    }
-    copyBufferAndClear(destination, m_size - bufferSize);
 }
 
 const char* SharedBuffer::data() const
 {
-#if ENABLE(DISK_IMAGE_CACHE)
-    if (isMemoryMapped())
-        return static_cast<const char*>(diskImageCache().dataForItem(m_diskImageCacheId));
-#endif
-
     if (hasPlatformData())
         return platformData();
+
+    if (m_fileData)
+        return static_cast<const char*>(m_fileData.data());
 
 #if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
     if (const char* buffer = singleDataArrayBuffer())
         return buffer;
 #endif
 
-    createPurgeableBuffer();
-
-    if (m_purgeableBuffer)
-        return m_purgeableBuffer->data();
-    
     return this->buffer().data();
 }
 
@@ -317,13 +180,10 @@ void SharedBuffer::append(SharedBuffer* data)
 
 void SharedBuffer::append(const char* data, unsigned length)
 {
-    ASSERT(!m_purgeableBuffer);
-#if ENABLE(DISK_IMAGE_CACHE)
-    ASSERT(!isMemoryMapped());
-#endif
     if (!length)
         return;
 
+    maybeTransferMappedFileData();
     maybeTransferPlatformData();
 
 #if !USE(NETWORK_CFDATA_ARRAY_CALLBACK)
@@ -374,12 +234,13 @@ void SharedBuffer::append(const Vector<char>& data)
 
 void SharedBuffer::clear()
 {
+    m_fileData = { };
+
     clearPlatformData();
     
 #if !USE(NETWORK_CFDATA_ARRAY_CALLBACK)
-    for (unsigned i = 0; i < m_segments.size(); ++i)
-        freeSegment(m_segments[i]);
-
+    for (char* segment : m_segments)
+        freeSegment(segment);
     m_segments.clear();
 #else
     m_dataArray.clear();
@@ -387,13 +248,13 @@ void SharedBuffer::clear()
 
     m_size = 0;
     clearDataBuffer();
-    m_purgeableBuffer.clear();
 }
 
-PassRefPtr<SharedBuffer> SharedBuffer::copy() const
+Ref<SharedBuffer> SharedBuffer::copy() const
 {
-    RefPtr<SharedBuffer> clone(adoptRef(new SharedBuffer));
-    if (m_purgeableBuffer || hasPlatformData()) {
+    Ref<SharedBuffer> clone { adoptRef(*new SharedBuffer) };
+
+    if (hasPlatformData() || m_fileData) {
         clone->append(data(), size());
         return clone;
     }
@@ -401,20 +262,17 @@ PassRefPtr<SharedBuffer> SharedBuffer::copy() const
     clone->m_size = m_size;
     clone->m_buffer->data.reserveCapacity(m_size);
     clone->m_buffer->data.append(m_buffer->data.data(), m_buffer->data.size());
-#if !USE(NETWORK_CFDATA_ARRAY_CALLBACK)
-    for (unsigned i = 0; i < m_segments.size(); ++i)
-        clone->m_buffer->data.append(m_segments[i], segmentSize);
-#else
-    for (unsigned i = 0; i < m_dataArray.size(); ++i)
-        clone->append(m_dataArray[i].get());
-#endif
-    return clone;
-}
 
-PassOwnPtr<PurgeableBuffer> SharedBuffer::releasePurgeableBuffer()
-{ 
-    ASSERT(hasOneRef()); 
-    return m_purgeableBuffer.release(); 
+#if !USE(NETWORK_CFDATA_ARRAY_CALLBACK)
+    for (char* segment : m_segments)
+        clone->m_buffer->data.append(segment, segmentSize);
+#else
+    for (auto& data : m_dataArray)
+        clone->m_dataArray.append(data.get());
+#endif
+    ASSERT(clone->size() == size());
+
+    return clone;
 }
 
 void SharedBuffer::duplicateDataBufferIfNecessary() const
@@ -445,24 +303,23 @@ void SharedBuffer::clearDataBuffer()
 }
 
 #if !USE(NETWORK_CFDATA_ARRAY_CALLBACK)
+
 void SharedBuffer::copyBufferAndClear(char* destination, unsigned bytesToCopy) const
 {
-    for (unsigned i = 0; i < m_segments.size(); ++i) {
+    for (char* segment : m_segments) {
         unsigned effectiveBytesToCopy = std::min(bytesToCopy, segmentSize);
-        memcpy(destination, m_segments[i], effectiveBytesToCopy);
+        memcpy(destination, segment, effectiveBytesToCopy);
         destination += effectiveBytesToCopy;
         bytesToCopy -= effectiveBytesToCopy;
-        freeSegment(m_segments[i]);
+        freeSegment(segment);
     }
     m_segments.clear();
 }
+
 #endif
 
 const Vector<char>& SharedBuffer::buffer() const
 {
-#if ENABLE(DISK_IMAGE_CACHE)
-    ASSERT(!isMemoryMapped());
-#endif
     unsigned bufferSize = m_buffer->data.size();
     if (m_size > bufferSize) {
         duplicateDataBufferIfNecessary();
@@ -480,16 +337,7 @@ unsigned SharedBuffer::getSomeData(const char*& someData, unsigned position) con
         return 0;
     }
 
-#if ENABLE(DISK_IMAGE_CACHE)
-    ASSERT(position < size());
-    if (isMemoryMapped()) {
-        const char* data = static_cast<const char*>(diskImageCache().dataForItem(m_diskImageCacheId));
-        someData = data + position;
-        return size() - position;
-    }
-#endif
-
-    if (hasPlatformData() || m_purgeableBuffer) {
+    if (hasPlatformData() || m_fileData) {
         ASSERT_WITH_SECURITY_IMPLICATION(position < size());
         someData = data() + position;
         return totalSize - position;
@@ -520,6 +368,14 @@ unsigned SharedBuffer::getSomeData(const char*& someData, unsigned position) con
 #else
     return copySomeDataFromDataArray(someData, position);
 #endif
+}
+
+void SharedBuffer::maybeTransferMappedFileData()
+{
+    if (m_fileData) {
+        auto fileData = WTF::move(m_fileData);
+        append(static_cast<const char*>(fileData.data()), fileData.size());
+    }
 }
 
 #if !USE(CF) && !USE(SOUP)

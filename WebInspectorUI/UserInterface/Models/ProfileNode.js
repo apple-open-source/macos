@@ -23,130 +23,155 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ProfileNode = function(id, type, functionName, sourceCodeLocation, calls, childNodes)
+WebInspector.ProfileNode = class ProfileNode extends WebInspector.Object
 {
-    WebInspector.Object.call(this);
+    constructor(id, type, functionName, sourceCodeLocation, callInfo, calls, childNodes)
+    {
+        super();
 
-    childNodes = childNodes || [];
+        childNodes = childNodes || [];
 
-    console.assert(id);
-    console.assert(calls instanceof Array);
-    console.assert(calls.length >= 1);
-    console.assert(calls.reduce(function(previousValue, call) { return previousValue && call instanceof WebInspector.ProfileNodeCall; }, true));
-    console.assert(childNodes instanceof Array);
-    console.assert(childNodes.reduce(function(previousValue, node) { return previousValue && node instanceof WebInspector.ProfileNode; }, true));
+        console.assert(id);
+        console.assert(!calls || calls instanceof Array);
+        console.assert(!calls || calls.length >= 1);
+        console.assert(!calls || calls.every(function(call) { return call instanceof WebInspector.ProfileNodeCall; }));
+        console.assert(childNodes instanceof Array);
+        console.assert(childNodes.every(function(node) { return node instanceof WebInspector.ProfileNode; }));
 
-    this._id = id;
-    this._type = type || WebInspector.ProfileNode.Type.Function;
-    this._functionName = functionName || null;
-    this._sourceCodeLocation = sourceCodeLocation || null;
-    this._calls = calls;
-    this._childNodes = childNodes;
-    this._parentNode = null;
-    this._previousSibling = null;
-    this._nextSibling = null;
-    this._computedTotalTimes = false;
+        this._id = id;
+        this._type = type || WebInspector.ProfileNode.Type.Function;
+        this._functionName = functionName || null;
+        this._sourceCodeLocation = sourceCodeLocation || null;
+        this._calls = calls || null;
+        this._callInfo = callInfo || null;
+        this._childNodes = childNodes;
+        this._parentNode = null;
+        this._previousSibling = null;
+        this._nextSibling = null;
+        this._computedTotalTimes = false;
 
-    for (var i = 0; i < this._childNodes.length; ++i)
-        this._childNodes[i].establishRelationships(this, this._childNodes[i - 1], this._childNodes[i + 1]);
+        if (this._callInfo) {            
+            this._startTime = this._callInfo.startTime;
+            this._endTime = this._callInfo.endTime;
+            this._totalTime = this._callInfo.totalTime;
+            this._callCount = this._callInfo.callCount;
+        }
 
-    for (var i = 0; i < this._calls.length; ++i)
-        this._calls[i].establishRelationships(this, this._calls[i - 1], this._calls[i + 1]);
-};
+        for (var i = 0; i < this._childNodes.length; ++i)
+            this._childNodes[i].establishRelationships(this, this._childNodes[i - 1], this._childNodes[i + 1]);
 
-WebInspector.ProfileNode.Type = {
-    Function: "profile-node-type-function",
-    Program: "profile-node-type-program"
-};
-
-WebInspector.ProfileNode.TypeIdentifier = "profile-node";
-WebInspector.ProfileNode.TypeCookieKey = "profile-node-type";
-WebInspector.ProfileNode.FunctionNameCookieKey = "profile-node-function-name";
-WebInspector.ProfileNode.SourceCodeURLCookieKey = "profile-node-source-code-url";
-WebInspector.ProfileNode.SourceCodeLocationLineCookieKey = "profile-node-source-code-location-line";
-WebInspector.ProfileNode.SourceCodeLocationColumnCookieKey = "profile-node-source-code-location-column";
-
-WebInspector.ProfileNode.prototype = {
-    constructor: WebInspector.ProfileNode,
-    __proto__: WebInspector.Object.prototype,
+        if (this._calls) {
+            for (var i = 0; i < this._calls.length; ++i)
+                this._calls[i].establishRelationships(this, this._calls[i - 1], this._calls[i + 1]);
+        }
+    }
 
     // Public
 
     get id()
     {
         return this._id;
-    },
+    }
 
     get type()
     {
         return this._type;
-    },
+    }
 
     get functionName()
     {
         return this._functionName;
-    },
+    }
 
     get sourceCodeLocation()
     {
         return this._sourceCodeLocation;
-    },
+    }
 
     get startTime()
     {
         if (this._startTime === undefined)
             this._startTime =  Math.max(0, this._calls[0].startTime);
         return this._startTime;
-    },
+    }
 
     get endTime()
     {
         if (this._endTime === undefined)
             this._endTime = Math.min(this._calls.lastValue.endTime, Infinity);
         return this._endTime;
-    },
+    }
 
     get selfTime()
     {
         this._computeTotalTimesIfNeeded();
         return this._selfTime;
-    },
+    }
 
     get totalTime()
     {
         this._computeTotalTimesIfNeeded();
         return this._totalTime;
-    },
+    }
+
+    get callInfo()
+    {
+        return this._callInfo;
+    }
 
     get calls()
     {
         return this._calls;
-    },
+    }
 
     get previousSibling()
     {
         return this._previousSibling;
-    },
+    }
 
     get nextSibling()
     {
         return this._nextSibling;
-    },
+    }
 
     get parentNode()
     {
         return this._parentNode;
-    },
+    }
 
     get childNodes()
     {
         return this._childNodes;
-    },
+    }
 
-    computeCallInfoForTimeRange: function(rangeStartTime, rangeEndTime)
+    computeCallInfoForTimeRange(rangeStartTime, rangeEndTime)
     {
         console.assert(typeof rangeStartTime === "number");
         console.assert(typeof rangeEndTime === "number");
+
+        // With aggregate call info we can't accurately partition self/total/average time
+        // in partial ranges because we don't know exactly when each call started. So we
+        // always return the entire range.
+        if (this._callInfo) {
+            if (this._selfTime === undefined) {
+                var childNodesTotalTime = 0;
+                for (var childNode of this._childNodes)
+                    childNodesTotalTime += childNode.totalTime;
+                this._selfTime = this._totalTime - childNodesTotalTime;
+            }
+
+            return {
+                callCount: this._callCount,
+                startTime: this._startTime,
+                endTime: this._endTime,
+                selfTime: this._selfTime,
+                totalTime: this._totalTime,
+                averageTime: (this._selfTime / this._callCount),
+            };
+        }
+
+        // COMPATIBILITY (iOS8): Profiles included per-call information and can be finely partitioned.
+        // Compute that below by iterating over all the calls / children for the time range.
 
         var recordCallCount = true;
         var callCount = 0;
@@ -175,10 +200,10 @@ WebInspector.ProfileNode.prototype = {
         var selfTime = totalTime - childNodesTotalTime;
         var averageTime = selfTime / callCount;
 
-        return {startTime: startTime, endTime: endTime, totalTime: totalTime, selfTime: selfTime, callCount: callCount, averageTime: averageTime};
-    },
+        return {startTime, endTime, totalTime, selfTime, callCount, averageTime};
+    }
 
-    traverseNextProfileNode: function(stayWithin)
+    traverseNextProfileNode(stayWithin)
     {
         var profileNode = this._childNodes[0];
         if (profileNode)
@@ -199,29 +224,29 @@ WebInspector.ProfileNode.prototype = {
             return null;
 
         return profileNode.nextSibling;
-    },
+    }
 
-    saveIdentityToCookie: function(cookie)
+    saveIdentityToCookie(cookie)
     {
         cookie[WebInspector.ProfileNode.TypeCookieKey] = this._type || null;
         cookie[WebInspector.ProfileNode.FunctionNameCookieKey] = this._functionName || null;
         cookie[WebInspector.ProfileNode.SourceCodeURLCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.sourceCode.url ? this._sourceCodeLocation.sourceCode.url.hash : null : null;
         cookie[WebInspector.ProfileNode.SourceCodeLocationLineCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.lineNumber : null;
         cookie[WebInspector.ProfileNode.SourceCodeLocationColumnCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.columnNumber : null;
-    },
+    }
 
     // Protected
 
-    establishRelationships: function(parentNode, previousSibling, nextSibling)
+    establishRelationships(parentNode, previousSibling, nextSibling)
     {
         this._parentNode = parentNode || null;
         this._previousSibling = previousSibling || null;
         this._nextSibling = nextSibling || null;
-    },
+    }
 
     // Private
 
-    _computeTotalTimes: function()
+    _computeTotalTimesIfNeeded()
     {
         if (this._computedTotalTimes)
             return;
@@ -235,3 +260,15 @@ WebInspector.ProfileNode.prototype = {
         this._totalTime = info.totalTime;
     }
 };
+
+WebInspector.ProfileNode.Type = {
+    Function: "profile-node-type-function",
+    Program: "profile-node-type-program"
+};
+
+WebInspector.ProfileNode.TypeIdentifier = "profile-node";
+WebInspector.ProfileNode.TypeCookieKey = "profile-node-type";
+WebInspector.ProfileNode.FunctionNameCookieKey = "profile-node-function-name";
+WebInspector.ProfileNode.SourceCodeURLCookieKey = "profile-node-source-code-url";
+WebInspector.ProfileNode.SourceCodeLocationLineCookieKey = "profile-node-source-code-location-line";
+WebInspector.ProfileNode.SourceCodeLocationColumnCookieKey = "profile-node-source-code-location-column";

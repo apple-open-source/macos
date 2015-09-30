@@ -523,62 +523,25 @@ The FILE ROTATION section describes this in detail.
 .It rotate=NAME_STYLE
 Enables log file rotation and specifies the file naming scheme for rotated files.
 This option does not apply to ASL directories.
-Four styles are supported:
-.Pp
-.Bl -tag -width "local-basic" -compact -indent
-.It sec
-Rotated file names are of the form
-.Dq example.log.T1340607600 .
-The file names include the creation time of the file in seconds since the epoch.
-.Pp
-.It utc
-Rotated file names are in ISO 8601 extended format, for example
-.Dq example.log.2012-06-24T07:00:00Z .
-The file names includes its creation time as a UTC date and time.
-.Pp
-.It utc-basic
-Rotated file names are in ISO 8601 basic format, for example
-.Dq example.log.20120624T070000Z .
-The file names includes its creation time as a UTC date and time.
-.Pp
-.It local
-Rotated file names are in ISO 8601 extended format, for example
-.Dq example.log.2012-06-24T07:00:00-7 .
-The file names includes its creation time as date and time in the local time zone.
-The local timezone offset is included as a trailing part of the name.
-.Pp
-.It local-basic
-Rotated file names are in ISO 8601 basic format, for example
-.Dq example.log.20120624T070000-07 .
-The file names includes its creation time as date and time in the local time zone.
-The local timezone offset is included as a trailing part of the name.
-.Pp
-.It seq
-Rotated file names are of the form
-.Dq example.log.N
-where N is an integer sequence number.
-Files are re-numbered on each rotation so that the 
-.Dq 0
-file is the most recent.
-.El
+NAME_STYLE may either be a simple time-stamp style:
+.Dq sec ,
+.Dq utc ,
+.Dq utc-basic ,
+.Dq local ,
+.Dq local-basic ,
+or
+.Dq seq ;
+or the value may contain the file's base name, a file name extension, and one of the time-stame styles.
+For example
+.Dq example.seq.log
+or
+.Dq example.log.utc-basic.
+A detailed description of name styles may be found in the FILE ROTATION section below.
 .Pp
 If the option 
 .Dq rotate
 appears without a value, the naming style defaults to
 .Dq "sec" .
-.Pp
-Note that using the local timezone for timestamped files may cause odd behavior on highly-mobile systems.
-.Nm aslmanager
-will delete files after a specified time-to-live (see below).
-The age of the file is determined by the file name.
-If files are created in different timezones but saved with a non-absolute timestamp,
-the age calculation may result in some files being considered older or newer than they are in reality.
-.Pp
-Also note that sequenced files (using the
-.Dq seq
-style) will initially be checkpointed using a file name containing a timestamp in seconds.
-.Nm aslmanager
-will re-sequence the files when it scans for checkpoint files.
 .Pp
 .It ttl=DAYS
 Specifies the number of days that older versions of rotated files should be allowed to remain in the filesystem.
@@ -605,6 +568,13 @@ Enables gzip file compression for rotated log files.
 When compressed, the extension 
 .Dq .gz
 is appended to the file name.
+When the output is an ASL directory, data files are compressed after midnight local time.
+This means that messages written in the current day will be readable using
+.Nm syslog Fl d
+or using the
+.Xr asl 3
+API.
+Messages in compressed data files will not be available until the files are un-compressed.
 .Pp
 .It file_max=SIZE
 Limits the size of an active log file.
@@ -629,16 +599,129 @@ Specifies a size limit for the total of all rotated versions of a file.
 .Nm aslmanager
 will delete rotated files, oldest first, to reduce the total below the limit.
 SIZE may be specified in the same format as the file_max option.
+.Pp
+.It basestamp
+Causes
+.Nm syslogd
+to add a timestamp to the file name when it is created.
+For example,
+.Pp
+.Dl
+> example.log rotate=utc-basic basestamp
+.Pp
+will result in syslogd writing to, e.g.
+.Dq example.log.20120625T070000Z
+rather than to
+.Dq example.log .
+Note that this option does nothing with sequenced (``seq'') files.
+.Pp
+.It symlink
+This option may only be used together with the basestamp option.
+It causes
+.Nm syslogd
+to create a symlink with the unstamped file name to the currently active log file.
+For example,
+.Pp
+.Dl
+> example.log rotate=sec basestamp symlink
+.Pp
+will result in syslogd writing to, e.g.
+.Dq example.log.T1340607600 ,
+and creating a sybolic link from
+.Dq example.log
+to the active file.
+.Pp
 .El
 .Ss FILE ROTATION
 .Nm syslogd
 and
 .Nm aslmanager
-work together to automatically provide all the features of file rotation.
-However, it is useful to understand how the process works.
+work together to provide the features of file rotation.
 This section describes the file rotation options that may be used in /etc/asl.conf
 or an ASL Output Module configuration file,
 together with a description of how the system works to support those features.
+.Pp
+File rotation or file rolling is enabled by the
+.Dq rotate
+output configuration option.
+It is typically specificed with a value which specifies the naming sytle for rotated files.
+Name styles may simply be a timestamp format, which is appended to the filename.
+.Pp
+.Bl -tag -width "local-basic" -compact -indent
+.It sec
+Rotated file names are of the form
+.Dq example.log.T1340607600 .
+The file names include the creation time of the file in seconds since the epoch.
+.Pp
+.It utc
+Rotated file names are in ISO 8601 extended format, for example
+.Dq example.log.2012-06-24T07:00:00Z .
+The file names includes its creation time as a UTC date and time.
+.Pp
+.It utc-basic
+Rotated file names are in ISO 8601 basic format, for example
+.Dq example.log.20120624T070000Z .
+The file names includes its creation time as a UTC date and time.
+.Pp
+.It local
+Rotated file names are in ISO 8601 extended format, for example
+.Dq example.log.2012-06-24T07:00:00-7 .
+The file names includes its creation time as date and time in the local time zone.
+The local timezone offset is included as a trailing part of the name.
+The value
+.Dq lcl
+is an alias for
+.Dq local .
+.Pp
+.It local-basic
+Rotated file names are in ISO 8601 basic format, for example
+.Dq example.log.20120624T070000-07 .
+The file names includes its creation time as date and time in the local time zone.
+The local timezone offset is included as a trailing part of the name.
+The value
+.Dq lcl-basic
+is an alias for
+.Dq local-basic .
+.Pp
+.It seq
+Rotated file names are of the form
+.Dq example.log.N
+where N is an integer sequence number.
+Files are re-numbered on each rotation so that the
+.Dq 0
+file is the most recent.
+.El
+.Pp
+Note that using the local timezone for timestamped files may cause odd behavior on highly mobile systems.
+.Nm aslmanager
+will delete files after a specified time-to-live (see below).
+The age of the file is determined by the file name.
+If files are created in different timezones but saved with a non-absolute timestamp,
+the age calculation may result in some files being considered older or newer than they are in reality.
+.Pp
+Also note that sequenced files (using the
+.Dq seq
+style) will initially be checkpointed using a file name containing a timestamp in seconds.
+.Nm aslmanager
+will re-sequence the files when it scans for checkpoint files.
+.Pp
+.Pp
+Alternatively, the name style may be have two or three components.
+The first component is the
+.Dq base
+name of the file, with no filename extension.
+The base name may be followed by a timestamp format and optionally by a filename extension,
+or the base name may be followed by an extension (the extension is optional) and a timestamp format.
+These components must be separated by a dot character.
+.Pp
+For example, this output configuration line specifies that the output file
+.Dq example.log
+should be rotated to create the files
+.Dq example.0.log ,
+.Dq example.1.log ,
+and so on.
+.Pp
+.Dl > example.log rotate=example.seq.log
 .Pp
 If a file is marked for rotation,
 .Nm syslogd
@@ -647,8 +730,9 @@ will close the file at the start of a new day or when the file exceeds its
 size limit.
 At that point,
 .Nm syslogd
-renames the file and starts a new file to continue logging.
-The old file is renamed with the file's creation time included in its name.
+renames the file with the file's creation time included in its name
+(unless the basestamp option is present, in which case the file's creation time
+is already included in the filename) and starts a new file to continue logging.
 This operation is called checkpointing the file.
 .Pp
 For example,

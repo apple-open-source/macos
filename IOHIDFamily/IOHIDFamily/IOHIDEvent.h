@@ -79,16 +79,6 @@ public:
 
     static IOHIDEvent *     withType(   IOHIDEventType          type    = kIOHIDEventTypeNULL,
                                         IOOptionBits            options = 0);
-
-#if 0
-#if !TARGET_OS_EMBEDDED
-    static IOHIDEvent *     withEventData (
-                                        AbsoluteTime            timeStamp, 
-                                        UInt32                  type,
-                                        NXEventData *           data, 
-                                        IOOptionBits            options = 0);
-#endif /*!TARGET_OS_EMBEDDED*/
-#endif
                                         
     static IOHIDEvent *     keyboardEvent(  
                                         AbsoluteTime            timeStamp, 
@@ -247,6 +237,44 @@ public:
                                         IOFixed                         altitude        = 0,
                                         IOFixed                         azimuth         = 0,
                                         IOOptionBits                    options         = 0 );
+    
+    static IOHIDEvent *     digitizerEventWithPolarOrientation(
+                                        AbsoluteTime                    timeStamp,
+                                        UInt32                          transducerID,
+                                        IOHIDDigitizerTransducerType    type,
+                                        bool                            inRange,
+                                        UInt32                          buttonState,
+                                        IOFixed                         x,
+                                        IOFixed                         y,
+                                        IOFixed                         z               = 0,
+                                        IOFixed                         tipPressure     = 0,
+                                        IOFixed                         auxPressure     = 0,
+                                        IOFixed                         twist           = 0,
+                                        IOFixed                         altitude        = 0,
+                                        IOFixed                         azimuth         = 0,
+                                        IOFixed                         quality         = 0,
+                                        IOFixed                         density         = 0,
+                                        IOOptionBits                    options         = 0 );
+
+    static IOHIDEvent *     digitizerEventWithPolarOrientation(
+                                        AbsoluteTime                    timeStamp,
+                                        UInt32                          transducerID,
+                                        IOHIDDigitizerTransducerType    type,
+                                        bool                            inRange,
+                                        UInt32                          buttonState,
+                                        IOFixed                         x,
+                                        IOFixed                         y,
+                                        IOFixed                         z               = 0,
+                                        IOFixed                         tipPressure     = 0,
+                                        IOFixed                         auxPressure     = 0,
+                                        IOFixed                         twist           = 0,
+                                        IOFixed                         altitude        = 0,
+                                        IOFixed                         azimuth         = 0,
+                                        IOFixed                         quality         = 0,
+                                        IOFixed                         density         = 0,
+                                        IOFixed                         majorRadius     = 6<<16,
+                                        IOFixed                         minorRadius     = 6<<16,
+                                        IOOptionBits                    options         = 0 );
 
     static IOHIDEvent *     digitizerEventWithQualityOrientation(
                                         AbsoluteTime                    timeStamp,
@@ -284,11 +312,44 @@ public:
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent *     biometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options=0);
-#if TARGET_OS_EMBEDDED
+
     static IOHIDEvent *     atmosphericPressureEvent(AbsoluteTime timeStamp, IOFixed level, UInt32 sequence=0, IOOptionBits options=0);
-#endif /* TARGET_OS_EMBEDDED */
 
     static IOHIDEvent *     unicodeEvent(AbsoluteTime timeStamp, UInt8 * payload, UInt32 length, IOHIDUnicodeEncodingType encoding, IOFixed quality, IOOptionBits options);
+
+    static IOHIDEvent *     standardGameControllerEvent(
+                                        AbsoluteTime                    timeStamp,
+                                        IOFixed                         dpadUp,
+                                        IOFixed                         dpadDown,
+                                        IOFixed                         dpadLeft,
+                                        IOFixed                         dpadRight,
+                                        IOFixed                         faceX,
+                                        IOFixed                         faceY,
+                                        IOFixed                         faceA,
+                                        IOFixed                         faceB,
+                                        IOFixed                         shoulderL,
+                                        IOFixed                         shoulderR,
+                                        IOOptionBits                    options = 0);
+
+    static IOHIDEvent *     extendedGameControllerEvent(
+                                        AbsoluteTime                    timeStamp,
+                                        IOFixed                         dpadUp,
+                                        IOFixed                         dpadDown,
+                                        IOFixed                         dpadLeft,
+                                        IOFixed                         dpadRight,
+                                        IOFixed                         faceX,
+                                        IOFixed                         faceY,
+                                        IOFixed                         faceA,
+                                        IOFixed                         faceB,
+                                        IOFixed                         shoulderL1,
+                                        IOFixed                         shoulderR1,
+                                        IOFixed                         shoulderL2,
+                                        IOFixed                         shoulderR2,
+                                        IOFixed                         joystickX,
+                                        IOFixed                         joystickY,
+                                        IOFixed                         joystickZ,
+                                        IOFixed                         joystickRz,
+                                        IOOptionBits                    options = 0);
 
     virtual void            appendChild(IOHIDEvent *childEvent);
 

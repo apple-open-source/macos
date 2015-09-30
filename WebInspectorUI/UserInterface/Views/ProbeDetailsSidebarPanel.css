@@ -37,9 +37,7 @@
     display: block;
 }
 
-.details-section.probe-set .options > .probe-remove,
-.details-section.probe-set .options > .probe-clear-samples,
-.details-section.probe-set .options > .probe-add {
+.details-section.probe-set .options > :matches(.probe-remove, .probe-clear-samples, .probe-add) {
     float: right;
     height: 11px;
     margin-top: 1px;
@@ -59,20 +57,6 @@
 .details-section.probe-set .options > .probe-add {
     content: url(../Images/Plus.svg);
     height: 13px;
-}
-
-body.mac-platform.legacy .details-section.probe-set .options > .probe-clear-samples {
-    content: url(../Images/Legacy/NavigationItemTrash.svg);
-    height: 16px;
-}
-
-body.mac-platform.legacy .details-section.probe-set .options > .probe-remove {
-    content: url(../Images/Legacy/CloseLarge.svg);
-}
-
-body.mac-platform.legacy .details-section.probe-set .options > .probe-add {
-    content: url(../Images/Legacy/Plus.svg);
-    height: 11px;
 }
 
 .details-section.probe-set .options > input {

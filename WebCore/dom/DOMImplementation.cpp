@@ -47,6 +47,7 @@
 #include "SVGDocument.h"
 #include "SVGNames.h"
 #include "SecurityOrigin.h"
+#include "SecurityOriginPolicy.h"
 #include "Settings.h"
 #include "StyleSheetContents.h"
 #include "SubframeLoader.h"
@@ -89,7 +90,7 @@ static bool isSupportedSVG10Feature(const String& feature, const String& version
     static bool initialized = false;
     DEPRECATED_DEFINE_STATIC_LOCAL(FeatureSet, svgFeatures, ());
     if (!initialized) {
-#if ENABLE(FILTERS) && ENABLE(SVG_FONTS)
+#if ENABLE(SVG_FONTS)
         addString(svgFeatures, "svg");
         addString(svgFeatures, "svg.static");
 #endif
@@ -97,7 +98,7 @@ static bool isSupportedSVG10Feature(const String& feature, const String& version
 //      addString(svgFeatures, "svg.dynamic");
 //      addString(svgFeatures, "svg.dom.animation");
 //      addString(svgFeatures, "svg.dom.dynamic");
-#if ENABLE(FILTERS) && ENABLE(SVG_FONTS)
+#if ENABLE(SVG_FONTS)
         addString(svgFeatures, "dom");
         addString(svgFeatures, "dom.svg");
         addString(svgFeatures, "dom.svg.static");
@@ -121,7 +122,7 @@ static bool isSupportedSVG11Feature(const String& feature, const String& version
         // Sadly, we cannot claim to implement any of the SVG 1.1 generic feature sets
         // lack of Font and Filter support.
         // http://bugs.webkit.org/show_bug.cgi?id=15480
-#if ENABLE(FILTERS) && ENABLE(SVG_FONTS)
+#if ENABLE(SVG_FONTS)
         addString(svgFeatures, "SVG");
         addString(svgFeatures, "SVGDOM");
         addString(svgFeatures, "SVG-static");
@@ -154,10 +155,8 @@ static bool isSupportedSVG11Feature(const String& feature, const String& version
         addString(svgFeatures, "Clip");
         addString(svgFeatures, "BasicClip");
         addString(svgFeatures, "Mask");
-#if ENABLE(FILTERS)
         addString(svgFeatures, "Filter");
         addString(svgFeatures, "BasicFilter");
-#endif
         addString(svgFeatures, "DocumentEventsAttribute");
         addString(svgFeatures, "GraphicalEventsAttribute");
 //      addString(svgFeatures, "AnimationEventsAttribute");
@@ -196,7 +195,7 @@ bool DOMImplementation::hasFeature(const String& feature, const String& version)
     return true;
 }
 
-PassRefPtr<DocumentType> DOMImplementation::createDocumentType(const String& qualifiedName,
+RefPtr<DocumentType> DOMImplementation::createDocumentType(const String& qualifiedName,
     const String& publicId, const String& systemId, ExceptionCode& ec)
 {
     String prefix, localName;
@@ -211,7 +210,7 @@ DOMImplementation* DOMImplementation::getInterface(const String& /*feature*/)
     return 0;
 }
 
-PassRefPtr<Document> DOMImplementation::createDocument(const String& namespaceURI,
+RefPtr<Document> DOMImplementation::createDocument(const String& namespaceURI,
     const String& qualifiedName, DocumentType* doctype, ExceptionCode& ec)
 {
     RefPtr<Document> doc;
@@ -222,7 +221,7 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& namespaceUR
     else
         doc = Document::create(0, URL());
 
-    doc->setSecurityOrigin(m_document.securityOrigin());
+    doc->setSecurityOriginPolicy(m_document.securityOriginPolicy());
 
     RefPtr<Node> documentElement;
     if (!qualifiedName.isEmpty()) {
@@ -236,10 +235,10 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& namespaceUR
     if (documentElement)
         doc->appendChild(documentElement.release());
 
-    return doc.release();
+    return doc;
 }
 
-PassRefPtr<CSSStyleSheet> DOMImplementation::createCSSStyleSheet(const String&, const String& media, ExceptionCode&)
+RefPtr<CSSStyleSheet> DOMImplementation::createCSSStyleSheet(const String&, const String& media, ExceptionCode&)
 {
     // FIXME: Title should be set.
     // FIXME: Media could have wrong syntax, in which case we should generate an exception.
@@ -290,18 +289,18 @@ bool DOMImplementation::isTextMIMEType(const String& mimeType)
     return false;
 }
 
-PassRefPtr<HTMLDocument> DOMImplementation::createHTMLDocument(const String& title)
+RefPtr<HTMLDocument> DOMImplementation::createHTMLDocument(const String& title)
 {
     RefPtr<HTMLDocument> d = HTMLDocument::create(0, URL());
     d->open();
     d->write("<!doctype html><html><body></body></html>");
     if (!title.isNull())
         d->setTitle(title);
-    d->setSecurityOrigin(m_document.securityOrigin());
-    return d.release();
+    d->setSecurityOriginPolicy(m_document.securityOriginPolicy());
+    return d;
 }
 
-PassRefPtr<Document> DOMImplementation::createDocument(const String& type, Frame* frame, const URL& url)
+RefPtr<Document> DOMImplementation::createDocument(const String& type, Frame* frame, const URL& url)
 {
     // Plugins cannot take HTML and XHTML from us, and we don't even need to initialize the plugin database for those.
     if (type == "text/html")
@@ -330,7 +329,7 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& type, Frame
 
     // PDF is one image type for which a plugin can override built-in support.
     // We do not want QuickTime to take over all image types, obviously.
-    if (MIMETypeRegistry::isPDFOrPostScriptMIMEType(type) && pluginData && pluginData->supportsMimeType(type, allowedPluginTypes))
+    if (MIMETypeRegistry::isPDFOrPostScriptMIMEType(type) && pluginData && pluginData->supportsWebVisibleMimeType(type, allowedPluginTypes))
         return PluginDocument::create(frame, url);
     if (Image::supportsType(type))
         return ImageDocument::create(*frame, url);
@@ -349,7 +348,7 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& type, Frame
     // Everything else except text/plain can be overridden by plugins. In particular, Adobe SVG Viewer should be used for SVG, if installed.
     // Disallowing plug-ins to use text/plain prevents plug-ins from hijacking a fundamental type that the browser is expected to handle,
     // and also serves as an optimization to prevent loading the plug-in database in the common case.
-    if (type != "text/plain" && ((pluginData && pluginData->supportsMimeType(type, allowedPluginTypes)) || (frame && frame->loader().client().shouldAlwaysUsePluginDocument(type))))
+    if (type != "text/plain" && ((pluginData && pluginData->supportsWebVisibleMimeType(type, allowedPluginTypes)) || (frame && frame->loader().client().shouldAlwaysUsePluginDocument(type))))
         return PluginDocument::create(frame, url);
     if (isTextMIMEType(type))
         return TextDocument::create(frame, url);

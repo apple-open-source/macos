@@ -58,7 +58,7 @@ void CryptoKeySerializationRaw::reconcileExtractable(bool&) const
 
 std::unique_ptr<CryptoKeyData> CryptoKeySerializationRaw::keyData() const
 {
-    return CryptoKeyDataOctetSequence::create(m_data);
+    return std::make_unique<CryptoKeyDataOctetSequence>(m_data);
 }
 
 bool CryptoKeySerializationRaw::serialize(const CryptoKey& key, Vector<uint8_t>& result)
@@ -69,10 +69,10 @@ bool CryptoKeySerializationRaw::serialize(const CryptoKey& key, Vector<uint8_t>&
         return false;
     }
 
-    if (!isCryptoKeyDataOctetSequence(*keyData))
+    if (!is<CryptoKeyDataOctetSequence>(*keyData))
         return false;
 
-    result.appendVector(toCryptoKeyDataOctetSequence(*keyData).octetSequence());
+    result.appendVector(downcast<CryptoKeyDataOctetSequence>(*keyData).octetSequence());
     return true;
 }
 

@@ -30,18 +30,12 @@
  */
 
 #include <syslog.h>
+#include <notify.h>
 #include <bsm/libbsm.h>
 #include "PrivateLib.h"
 #include "AutoWakeScheduler.h"
 #include "RepeatingAutoWake.h"
 #include "PMAssertions.h"
-
-enum {
-    kIOWakeTimer = 0,
-    kIOPowerOnTimer = 1,
-    kIOSleepTimer = 2,
-    kIOShutdownTimer = 3
-};
 
 enum {                                                                                                                                         
     kIOPMMaxScheduledEntries = 1000                                                                                                            
@@ -53,6 +47,8 @@ static CFAbsoluteTime        gMinScheduleTime = 5.0;
 #else
 #define MIN_SCHEDULE_TIME   (0.0)
 #endif
+
+extern uint32_t gDebugFlags;
 
 typedef void (*powerEventCallout)(CFDictionaryRef);
 
@@ -91,6 +87,7 @@ PowerEventBehavior          poweronBehavior;
 PowerEventBehavior          wakeorpoweronBehavior;
 
 static uint32_t     activeEventCnt = 0;
+static bool         wakePurgeAllowed = true;
 enum {
     kBehaviorsCount = 6
 };
@@ -113,7 +110,7 @@ PowerEventBehavior *behaviors[] =
  */
 static bool             isEntryValidAndFuturistic(CFDictionaryRef, CFDateRef);
 static void             schedulePowerEvent(PowerEventBehavior *);
-static bool             purgePastEvents(PowerEventBehavior *);
+static void             purgePastEvents(PowerEventBehavior *);
 static void             copyScheduledPowerChangeArrays(void);
 static CFDictionaryRef  copyEarliestUpcoming(PowerEventBehavior *);
 static CFDateRef        _getScheduledEventDate(CFDictionaryRef);
@@ -451,21 +448,167 @@ schedulePowerEventType(CFStringRef type)
     schedulePowerEvent(behaviors[i]);
 }
 
+static void print_one(char *str, CFDictionaryRef entry)
+{
+    CFStringRef name, type;
+    CFDateRef   date;
+    CFAbsoluteTime  abs;
+    int month, day, hour, minute, second;
+    char name_str[200], type_str[100];
+    CFNumberRef leeway = NULL;
+    int leeway_secs = 0;
+    bool  userVisible = false;
+
+    if (!isA_CFDictionary(entry))
+        return;
+
+    name = CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventAppNameKey));
+    type = CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventTypeKey));
+    date = CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventTimeKey));
+    leeway = CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventLeewayKey));
+    userVisible = (CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventUserVisible)) == kCFBooleanTrue) ?
+                    true : false;
+
+    abs = CFDateGetAbsoluteTime(date);
+    name_str[0] = type_str[0] = 0;
+    month=day=hour=minute=second = 0;
+
+    if (isA_CFString(name)) {
+        CFStringGetCString(name, name_str, sizeof(name_str), kCFStringEncodingMacRoman);
+    }
+
+    if (isA_CFString(type)) {
+        CFStringGetCString(type, type_str, sizeof(type_str), kCFStringEncodingMacRoman);
+    }
+    if (isA_CFDate(date)) {
+        abs = CFDateGetAbsoluteTime(date);
+        CFCalendarDecomposeAbsoluteTime(_gregorian(), abs, "MdHms", &month, &day, &hour, &minute, &second);
+    }
+
+    if (isA_CFNumber(leeway))  {
+        CFNumberGetValue(leeway, kCFNumberIntType, &leeway_secs);
+    }
+
+    asl_log(0,0,ASL_LEVEL_ERR, "%s WakeReq App:\"%s\" type=%s time=%02d/%02d %02d:%02d:%02d leeway:%d secs user-visible:%d",
+            (str != NULL) ? str : "", 
+            name_str, type_str,  month, day, hour, minute, second, leeway_secs, userVisible);
+
+
+}
+
+#if 0
+static void print_sched(PowerEventBehavior *b)
+{
+    CFArrayRef arr = NULL;
+    CFIndex                 i, count = 0;
+
+    if (b && b->array) {
+        arr = b->array;
+        if (isA_CFArray(arr)) count = CFArrayGetCount(arr);
+    }
+    asl_log(0,0,ASL_LEVEL_ERR, "Dump all Wake Requests:\n");
+    for (i = 0; i < count; i++) {
+        CFDictionaryRef entry = CFArrayGetValueAtIndex(arr, i);
+
+        if (!isA_CFDictionary(entry))
+            return;
+        print_one(NULL, entry);
+
+    }
+
+}
+
+#endif
+
+/*
+ * getWakeScheduleTime - Returns the absolute time when this event's wake will
+ * be scheduled, taking leeway into account
+ */
+static CFAbsoluteTime getWakeScheduleTime(CFDictionaryRef event)
+{
+
+    CFAbsoluteTime      wakeup_abs = 0;
+    CFDateRef           wakeup_date = NULL;
+    CFNumberRef         leeway = NULL;
+    int                 leeway_secs = 0;
+
+    wakeup_date = isA_CFDate(CFDictionaryGetValue(event, 
+                                                  CFSTR(kIOPMPowerEventTimeKey)));
+    if (!wakeup_date)
+        return 0;
+
+    wakeup_abs = CFDateGetAbsoluteTime(wakeup_date);
+    leeway = CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventLeewayKey));
+    if (isA_CFNumber(leeway))  {
+        CFNumberGetValue(leeway, kCFNumberIntType, &leeway_secs);
+    }
+    if (leeway_secs < 0)
+        leeway_secs = 0;
+
+    return (wakeup_abs + leeway_secs);
+}
+
 __private_extern__ CFTimeInterval getEarliestRequestAutoWake(void)
 {
+    CFIndex             cnt, i;
+    CFArrayRef          arr = NULL;
+
     CFDictionaryRef     one_event = NULL;
-    CFDateRef           event_date = NULL;
-    CFTimeInterval      absTime = 0.0;
+    CFDictionaryRef     event = NULL;
+    CFDictionaryRef     repeat_event = NULL;
+    PowerEventBehavior  *behave = &wakeBehavior;
+    CFAbsoluteTime      now = CFAbsoluteTimeGetCurrent();
+    CFAbsoluteTime      one_event_ts = 0;
+    CFAbsoluteTime      wakeup_abs = 0;
     
-    if (!(one_event = copyEarliestUpcoming(&wakeBehavior))) {
-        return 0.0;
+    // wake and poweron types get merged with wakeorpoweron array
+    if(behave->sharedEvents) {
+        arr = copyMergedEventArray(behave, behave->sharedEvents);
+    } else {
+        arr = behave->array;
     }
-    if (!(event_date = _getScheduledEventDate(one_event))) {
-        return 0.0;
+
+
+    i = cnt = 0;
+    for ( isA_CFArray(arr) && (cnt = CFArrayGetCount(arr)); i < cnt; i++) {
+        event = CFArrayGetValueAtIndex(arr, i);
+        if (!isA_CFDictionary(event)) continue;
+
+        wakeup_abs = getWakeScheduleTime(event);
+        if ((!wakeup_abs) || (wakeup_abs < now + MIN_SCHEDULE_TIME))
+            continue;
+
+        if ((one_event_ts == 0) || (wakeup_abs < one_event_ts)) {
+            one_event = event;
+            one_event_ts = wakeup_abs;
+        }
     }
-    absTime = CFDateGetAbsoluteTime(event_date);
-    CFRelease(one_event);
-    return absTime;
+
+#if !TARGET_OS_EMBEDDED
+    repeat_event = copyNextRepeatingEvent(behave->title);
+    if (repeat_event)
+    {
+        wakeup_abs = getWakeScheduleTime(repeat_event);
+        if ((wakeup_abs != 0) && 
+            ((one_event_ts == 0) || (wakeup_abs < one_event_ts))) {
+            one_event_ts = wakeup_abs;
+            one_event = repeat_event;
+        }
+    }
+#endif
+
+
+    //print_sched(&wakeBehavior);
+    if (gDebugFlags & kIOPMDebugLogWakeRequests) {
+        print_one("Selected",  one_event);
+    }
+
+    if (repeat_event)
+        CFRelease(repeat_event);
+
+    if(arr && behave->sharedEvents) CFRelease(arr);
+
+    return one_event_ts;
 }
 
 /******************************************************************************
@@ -603,23 +746,22 @@ isEntryValidAndFuturistic(CFDictionaryRef wakeup_dict, CFDateRef date_now)
  * Purge past wakeup times
  * Does not care whether its operating on wakeup or poweron array.
  * Just purges all entries with a time < now
- * returns true on success, false on any failure
  *
  */
-static bool 
+static void 
 purgePastEvents(PowerEventBehavior  *behave)
 {
     CFDateRef           date_now;
     CFDictionaryRef     event;
-    bool                ret;
 
+    if ((!wakePurgeAllowed) && (behave == &wakeBehavior)) return;
     
     if( !behave 
         || !behave->title
         || !behave->array
         || (0 == CFArrayGetCount(behave->array)))
     {
-        return true;
+        return;
     }
     
     date_now = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
@@ -643,9 +785,7 @@ purgePastEvents(PowerEventBehavior  *behave)
 
     CFRelease(date_now);
 
-    ret = true;
-
-    return ret;
+    return;
 }
 
 
@@ -991,6 +1131,9 @@ removeEvent(PowerEventBehavior  *behave, CFDictionaryRef event)
                         behaviors[j]->currentEvent = NULL;
                     }
                 
+                if (CFDictionaryGetValue(cancelee, CFSTR(kIOPMPowerEventUserVisible)) == kCFBooleanTrue) {
+                    notify_post(kIOPMUserVisiblePowerEventNotification);
+                }
                 CFArrayRemoveValueAtIndex(behave->array, i);
                 activeEventCnt--;
                 return true;
@@ -1001,6 +1144,57 @@ removeEvent(PowerEventBehavior  *behave, CFDictionaryRef event)
     return false;
 }
 
+static IOReturn
+removeAllEvents(audit_token_t token)   
+{
+
+    CFIndex             i;
+    uid_t               callerEUID;
+    IOReturn ret = kIOReturnSuccess;
+    SCPreferencesRef    prefs = 0;
+
+    audit_token_to_au32(token, NULL, &callerEUID, NULL, NULL, NULL, NULL, NULL, NULL);
+
+    if((ret = createSCSession(&prefs, callerEUID, 1)) != kIOReturnSuccess)
+        goto exit;
+ 
+    for(i=0; i<kBehaviorsCount; i++)
+    {
+        if(!behaviors[i]->array)
+            continue;
+        if(behaviors[i]->currentEvent) {
+            CFRelease(behaviors[i]->currentEvent);
+            behaviors[i]->currentEvent = NULL;
+        }
+        CFArrayRemoveAllValues(behaviors[i]->array);
+        if((ret=updateToDisk(prefs, behaviors[i], behaviors[i]->title) != kIOReturnSuccess)) {
+            ret=kIOReturnError;
+            goto exit;
+        }
+        /* updateToDisk throws error if 'behaviours[i]->array=NULL' is passed as a parameter. */
+        /* Resetting the array to NULL post updatToDisk */
+        behaviors[i]->array=NULL;
+        /* Schedule the power event */
+        if (CFEqual(behaviors[i]->title, CFSTR(kIOPMAutoWakeOrPowerOn))) {
+            /*
+             * If this is a 'WakeOrPowerOn' event, schedule
+             * this for both wakeBehavior & poweronBehavior
+             */
+            schedulePowerEvent(&wakeBehavior);
+            schedulePowerEvent(&poweronBehavior);
+        }
+        else {
+            schedulePowerEvent(behaviors[i]);
+        }
+
+    }
+    activeEventCnt=0;
+    ret=kIOReturnSuccess;
+exit:
+    destroySCSession(prefs, 1);
+    return ret;
+
+}
 
 
 
@@ -1024,6 +1218,7 @@ _io_pm_schedule_power_event
     uid_t               callerEUID;
     int                 i;
 
+
     *return_code = kIOReturnSuccess;
 
     audit_token_to_au32(token, NULL, &callerEUID, NULL, NULL, NULL, NULL, NULL, NULL);
@@ -1033,6 +1228,13 @@ _io_pm_schedule_power_event
         goto exit;
     }
 
+    if(action == kIOPMCancelAllScheduledEvents) {
+        
+        /* Remove all the events from in-memory array as well as Update the disk.
+           Failure can occur due to failure to write to disk */
+        *return_code = removeAllEvents(token);
+        goto exit;
+    }
     dataRef = CFDataCreate(0, (const UInt8 *)flatPackage, packageLen);
     if (dataRef) {
         event = (CFDictionaryRef)CFPropertyListCreateWithData(0, dataRef, 0, NULL, NULL); 
@@ -1066,7 +1268,7 @@ _io_pm_schedule_power_event
     if((*return_code = createSCSession(&prefs, callerEUID, 1)) != kIOReturnSuccess)
         goto exit;
 
-    if (action == 1) {
+    if (action == kIOPMScheduleEvent) {
 
         /* Add event to in-memory array */
         addEvent(behaviors[i], event);
@@ -1076,8 +1278,15 @@ _io_pm_schedule_power_event
             removeEvent(behaviors[i], event);
             goto exit;
         }
+        if (gDebugFlags & kIOPMDebugLogWakeRequests) {
+            print_one(NULL, event);
+        }
+        if (CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventUserVisible)) == kCFBooleanTrue) {
+            notify_post(kIOPMUserVisiblePowerEventNotification);
+        }
     }
-    else {
+    else if(action == kIOPMCancelScheduledEvent) {
+
         /* Remove event from in-memory array */
         if (!removeEvent(behaviors[i], event)) {
             *return_code = kIOReturnNotFound;
@@ -1087,6 +1296,7 @@ _io_pm_schedule_power_event
         /* Update to disk. Ignore the failure; */
         updateToDisk(prefs, behaviors[i], type);
     }
+
     /* Schedule the power event */
     if (CFEqual(type, CFSTR(kIOPMAutoWakeOrPowerOn))) {
         /*
@@ -1139,3 +1349,111 @@ __private_extern__ CFArrayRef copyScheduledPowerEvents(void)
 
 
 
+/*
+ * checkPendingWakeReqs -
+ * Checks for upcoming Wake requests and/or wake requests in recent past based on the flags.
+ *
+ *  'options' bits:
+ *      CHECK_UPCOMING  : Checks for upcoming wake requests in next 'MIN_SLEEP_DURATION' time
+ *      CHECK_EXPIRED   : Checks for any wake requsts in recent past, since purging of events is disabled
+ *      PREVENT_PURGING : Prevents purging of wake requests whose requested time is into past
+ *      ALLOW_PURGING   : Allows purging of wake events that are expired
+ *
+ *  Returns 'true' if there are upcoming/expired wake requests
+ *      else returns flase
+ */
+__private_extern__ bool checkPendingWakeReqs(int options)
+{
+    bool        exists = false;
+    static      CFAbsoluteTime  purgePrevent_ts = 0;
+    CFDateRef   wakeup_date = NULL;
+    CFIndex     cnt, i;
+
+    CFDictionaryRef     event = NULL;
+    PowerEventBehavior  *behave = &wakeBehavior;
+    IOPMAssertionID     id;
+    CFAbsoluteTime      now_ts;
+    CFAbsoluteTime      upperbound_ts = 0, lowerbound_ts = 0;
+    CFAbsoluteTime      wakeup_abs = 0;
+
+    now_ts = CFAbsoluteTimeGetCurrent();
+    if (options & PREVENT_PURGING) {
+        // First purge any past events and then prevent purging
+        purgePastEvents(behave);
+        wakePurgeAllowed = false;
+        purgePrevent_ts = now_ts;
+    }
+
+    if (options & CHECK_UPCOMING) {
+        upperbound_ts = now_ts + MIN_SLEEP_DURATION;
+    }
+    else {
+        upperbound_ts = now_ts;
+    }
+
+    if ((options & CHECK_EXPIRED) && (purgePrevent_ts != 0)) {
+        lowerbound_ts = purgePrevent_ts;
+    }
+    else {
+        lowerbound_ts = now_ts;
+    }
+
+    if (upperbound_ts != lowerbound_ts) {
+
+        i = cnt = 0;
+        for (isA_CFArray(behave->array) && (cnt = CFArrayGetCount(behave->array)); i < cnt; i++) {
+
+            event = CFArrayGetValueAtIndex(behave->array, i);
+            if (!isA_CFDictionary(event)) continue;
+
+            wakeup_abs = getWakeScheduleTime(event);
+            if (!wakeup_abs) continue;
+
+            wakeup_date = CFDateCreate(0, wakeup_abs);
+
+            if (wakeup_abs < lowerbound_ts)
+                continue;
+
+            if (wakeup_abs > upperbound_ts) {
+                break;
+            }
+            else {
+                exists = true;
+                break;
+            }
+        }
+    }
+
+    if (exists && isA_CFDictionary(event) && isA_CFDate(wakeup_date)) {
+        // Take an assertion until this wake request timer expires
+
+        CFStringRef     date_str = NULL, name = NULL;
+        CFStringRef     appName = NULL;
+
+        CFDateFormatterRef  format = NULL;
+
+        appName = isA_CFString(CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventAppNameKey)));
+        format = CFDateFormatterCreate(NULL, NULL, kCFDateFormatterShortStyle, kCFDateFormatterMediumStyle);
+
+        date_str = CFDateFormatterCreateStringWithDate(NULL, format, wakeup_date);
+
+        name = CFStringCreateWithFormat(NULL, NULL, CFSTR("Delay sleep for wake request \"%@\" at \"%@\""),
+                                                    appName, date_str);
+        InternalCreateAssertionWithTimeout(kIOPMAssertPreventUserIdleSystemSleep, name, 
+                                           (wakeup_abs-now_ts > 1) ? (wakeup_abs-now_ts) : 1, &id);
+        if (format) CFRelease(format);
+        if (date_str) CFRelease(date_str);
+        if (name) CFRelease(name);
+    }
+
+    if (options & ALLOW_PURGING) {
+        wakePurgeAllowed = true;
+        purgePrevent_ts = 0;
+
+        purgePastEvents(behave);
+    }
+
+    if (wakeup_date) CFRelease(wakeup_date);
+
+    return exists;
+}

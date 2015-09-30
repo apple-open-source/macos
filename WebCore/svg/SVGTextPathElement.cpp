@@ -21,10 +21,8 @@
 #include "config.h"
 #include "SVGTextPathElement.h"
 
-#include "Attribute.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGTextPath.h"
-#include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include "XLinkNames.h"
 #include <wtf/NeverDestroyed.h>
@@ -55,9 +53,9 @@ inline SVGTextPathElement::SVGTextPathElement(const QualifiedName& tagName, Docu
     registerAnimatedPropertiesForSVGTextPathElement();
 }
 
-PassRefPtr<SVGTextPathElement> SVGTextPathElement::create(const QualifiedName& tagName, Document& document)
+Ref<SVGTextPathElement> SVGTextPathElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new SVGTextPathElement(tagName, document));
+    return adoptRef(*new SVGTextPathElement(tagName, document));
 }
 
 SVGTextPathElement::~SVGTextPathElement()
@@ -67,7 +65,7 @@ SVGTextPathElement::~SVGTextPathElement()
 
 void SVGTextPathElement::clearResourceReferences()
 {
-    document().accessSVGExtensions()->removeAllTargetReferencesForElement(this);
+    document().accessSVGExtensions().removeAllTargetReferencesForElement(this);
 }
 
 bool SVGTextPathElement::isSupportedAttribute(const QualifiedName& attrName)
@@ -86,9 +84,7 @@ void SVGTextPathElement::parseAttribute(const QualifiedName& name, const AtomicS
 {
     SVGParsingError parseError = NoError;
 
-    if (!isSupportedAttribute(name))
-        SVGTextContentElement::parseAttribute(name, value);
-    else if (name == SVGNames::startOffsetAttr)
+    if (name == SVGNames::startOffsetAttr)
         setStartOffsetBaseValue(SVGLength::construct(LengthModeOther, value, parseError));
     else if (name == SVGNames::methodAttr) {
         SVGTextPathMethodType propertyValue = SVGPropertyTraits<SVGTextPathMethodType>::fromString(value);
@@ -98,11 +94,12 @@ void SVGTextPathElement::parseAttribute(const QualifiedName& name, const AtomicS
         SVGTextPathSpacingType propertyValue = SVGPropertyTraits<SVGTextPathSpacingType>::fromString(value);
         if (propertyValue > 0)
             setSpacingBaseValue(propertyValue);
-    } else if (SVGURIReference::parseAttribute(name, value)) {
-    } else
-        ASSERT_NOT_REACHED();
+    }
 
     reportAttributeParsingError(parseError, name, value);
+
+    SVGTextContentElement::parseAttribute(name, value);
+    SVGURIReference::parseAttribute(name, value);
 }
 
 void SVGTextPathElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -112,7 +109,7 @@ void SVGTextPathElement::svgAttributeChanged(const QualifiedName& attrName)
         return;
     }
 
-    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    InstanceInvalidationGuard guard(*this);
 
     if (SVGURIReference::isKnownAttribute(attrName)) {
         buildPendingResource();
@@ -126,7 +123,7 @@ void SVGTextPathElement::svgAttributeChanged(const QualifiedName& attrName)
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);
 }
 
-RenderPtr<RenderElement> SVGTextPathElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> SVGTextPathElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderSVGTextPath>(*this, WTF::move(style));
 }
@@ -162,27 +159,27 @@ void SVGTextPathElement::buildPendingResource()
     Element* target = SVGURIReference::targetElementFromIRIString(href(), document(), &id);
     if (!target) {
         // Do not register as pending if we are already pending this resource.
-        if (document().accessSVGExtensions()->isPendingResource(this, id))
+        if (document().accessSVGExtensions().isPendingResource(this, id))
             return;
 
         if (!id.isEmpty()) {
-            document().accessSVGExtensions()->addPendingResource(id, this);
+            document().accessSVGExtensions().addPendingResource(id, this);
             ASSERT(hasPendingResources());
         }
     } else if (target->hasTagName(SVGNames::pathTag)) {
         // Register us with the target in the dependencies map. Any change of hrefElement
         // that leads to relayout/repainting now informs us, so we can react to it.
-        document().accessSVGExtensions()->addElementReferencingTarget(this, toSVGElement(target));
+        document().accessSVGExtensions().addElementReferencingTarget(this, downcast<SVGElement>(target));
     }
 }
 
 Node::InsertionNotificationRequest SVGTextPathElement::insertedInto(ContainerNode& rootParent)
 {
     SVGTextContentElement::insertedInto(rootParent);
-    return InsertionShouldCallDidNotifySubtreeInsertions;
+    return InsertionShouldCallFinishedInsertingSubtree;
 }
 
-void SVGTextPathElement::didNotifySubtreeInsertions(ContainerNode*)
+void SVGTextPathElement::finishedInsertingSubtree()
 {
     buildPendingResource();
 }

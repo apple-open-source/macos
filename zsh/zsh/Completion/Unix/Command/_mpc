@@ -25,7 +25,7 @@ _mpc_command() {
   local mpc_cmds
 
   mpc_cmds=(
-    add:"add a song to the current playlist"
+    add:"append a song to the end of the current playlist"
     clear:"clear the current playlist"
     crop:"remove all songs except for the currently playing song"
     current:"show the currently playing song"
@@ -35,6 +35,7 @@ _mpc_command() {
     enable:"enable a output"
     idle:"wait until an event occurs"
     idleloop:"loop waiting for events"
+    insert:"insert a song after the currently playing song in the playlist"
     listall:"list all songs in the music directory"
     load:"load file as a playlist"
     ls:"list the contents of specified directory"
@@ -67,21 +68,21 @@ _mpc_command() {
   )
 
   if (( CURRENT == 1 )); then
-    _describe -t command "mpc commands" mpc_cmds
+    _describe -t commands "mpc command" mpc_cmds
   else
-    local curcontext="$curcontext"
+    local cmd=$words[1]
+    local curcontext="${curcontext%:*}:mpc-${cmd}" ret=1
+    if ! _call_function ret _mpc_$cmd; then
+      _default && ret=0
+    fi
+    return ret
   fi
-
-  local cmd=$words[1]
-
-  local curcontext="${curcontext%:*}:mpc-${cmd}"
-  _call_function ret _mpc_$cmd
 }
 
 _mpc_helper_bool() {
   local expl states
   states=(on off yes no 1 0 true false)
-  _wanted states expl boolean compadd $expl -a states
+  _wanted states expl boolean compadd -a states
 }
 
 (( $+functions[_mpc_helper_songnumbers] )) ||
@@ -99,7 +100,7 @@ _mpc_helper_songnumbers() {
     NM="$compstate[nmatches]"
   fi
 
-  out=("${(@f)$(_call_program song-numbers mpc $foo playlist 2>/dev/null)}")
+  out=("${(@f)$(_call_program song-numbers mpc $foo playlist)}")
   out=("${(@M)out[@]:#${~MATCH}}")
 
   sn=("${(@)${(@M)out}//(#b)(#s)(\#|[ >]#)([0-9]#)*/$match[2]}")
@@ -253,7 +254,7 @@ _mpc_search() {
   local list expl
   list=(album artist title track name genre date composer performer comment disc filename any)
 
-  if [[ $#words -eq 2 ]]; then
+  if ! (( $#words % 2 )); then
     _wanted list expl table compadd $expl -a list
   else
     _message "pattern"

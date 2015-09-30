@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebMutableURLRequest.h"
 
@@ -54,7 +53,7 @@ WebMutableURLRequest::WebMutableURLRequest(bool isMutable)
     , m_isMutable(isMutable)
 {
     gClassCount++;
-    gClassNameCount.add("WebMutableURLRequest");
+    gClassNameCount().add("WebMutableURLRequest");
 }
 
 WebMutableURLRequest* WebMutableURLRequest::createInstance()
@@ -98,7 +97,7 @@ WebMutableURLRequest* WebMutableURLRequest::createImmutableInstance(const Resour
 WebMutableURLRequest::~WebMutableURLRequest()
 {
     gClassCount--;
-    gClassNameCount.remove("WebMutableURLRequest");
+    gClassNameCount().remove("WebMutableURLRequest");
 }
 
 // IUnknown -------------------------------------------------------------------

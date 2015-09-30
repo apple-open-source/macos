@@ -81,6 +81,7 @@ static void logAssertionActivity(assertLogAction  action,
     CFNumberRef     pid_cf = NULL, retain_cf = NULL, uniqueAID = NULL;
     CFTypeRef       type = NULL, name = NULL, btSymbols = NULL;
     CFTypeRef       onBehalfPid = NULL, onBehalfPidStr = NULL;
+    CFTypeRef       onBehalfBundleID = NULL;
 
     CFMutableDictionaryRef  entry = NULL;
     CFDictionaryRef         props = assertion->props;
@@ -90,31 +91,46 @@ static void logAssertionActivity(assertLogAction  action,
     case kACreateLog:
         logBT = true;
         actionStr = CFSTR(kPMASLAssertionActionCreate);
+        assertion->state |= kAssertionStateLogged;
         break;
 
     case kACreateRetain:
         logBT = true;
+        assertion->state |= kAssertionStateLogged;
         actionStr = CFSTR(kPMASLAssertionActionRetain);
         break;
 
     case kATurnOnLog:
         logBT = true;
         actionStr = CFSTR(kPMASLAssertionActionTurnOn);
+        assertion->state |= kAssertionStateLogged;
         break;
 
     case kAReleaseLog:
+        if ((assertion->state & kAssertionStateLogged) == 0) {
+            return;
+        }
         actionStr = CFSTR(kPMASLAssertionActionRelease);
         break;
 
     case kAClientDeathLog:
+        if ((assertion->state & kAssertionStateLogged) == 0) {
+            return;
+        }
         actionStr = CFSTR(kPMASLAssertionActionClientDeath);
         break;
 
     case kATimeoutLog:
+        if ((assertion->state & kAssertionStateLogged) == 0) {
+            return;
+        }
         actionStr = CFSTR(kPMASLAssertionActionTimeOut);
         break;
 
     case kATurnOffLog:
+        if ((assertion->state & kAssertionStateLogged) == 0) {
+            return;
+        }
         actionStr = CFSTR(kPMASLAssertionActionTurnOff);
         break;
 
@@ -181,6 +197,10 @@ static void logAssertionActivity(assertLogAction  action,
 
     if ((onBehalfPidStr = CFDictionaryGetValue(props, kIOPMAssertionOnBehalfOfPIDReason)) != NULL) 
         CFDictionarySetValue(entry, kIOPMAssertionOnBehalfOfPIDReason, onBehalfPidStr);
+
+    // Assertion on behalf of Bundle ID
+    if ((onBehalfBundleID = CFDictionaryGetValue(props, kIOPMAssertionOnBehalfOfBundleID)) != NULL)
+        CFDictionarySetValue(entry, kIOPMAssertionOnBehalfOfBundleID, onBehalfBundleID);
 
     if (logBT) {
         // Backtrace of assertion creation
@@ -285,6 +305,7 @@ static void logAssertionToASL(assertLogAction  action,
     char            ageString[kShortStringLen];
     char            aslMessageString[kLongStringLen];
     char            assertionsBuf[kLongStringLen];
+    char            aslAssertionId[kLongStringLen];
     CFMutableDictionaryRef assertionDictionary;
     char            *assertionAction = NULL;
     assertionType_t         *assertType = NULL;
@@ -370,13 +391,14 @@ static void logAssertionToASL(assertLogAction  action,
         if (foundAssertionType) {
             CFStringGetCString(foundAssertionType, assertionTypeCString, 
                                sizeof(assertionTypeCString), kCFStringEncodingUTF8);
-            asl_set(m, kPMASLAssertionNameKey, assertionTypeCString);
+            asl_set(m, kPMASLAssertionTypeKey, assertionTypeCString);
         }
 
         foundAssertionName = CFDictionaryGetValue(assertionDictionary, kIOPMAssertionNameKey);
         if (foundAssertionName) {
             CFStringGetCString(foundAssertionName, assertionNameCString, 
                                sizeof(assertionNameCString), kCFStringEncodingUTF8);            
+            asl_set(m, kPMASLAssertionNameKey, assertionNameCString);
         }
 
         /*
@@ -390,6 +412,7 @@ static void logAssertionToASL(assertLogAction  action,
             int minutes                     = (createdSince / 60) % 60;
             int seconds                     = createdSince % 60;
             snprintf(ageString, sizeof(ageString), "%02d:%02d:%02d ", hours, minutes, seconds);
+            asl_set(m, kPMASLAssertionAgeKey, ageString);
         }
 
         /*
@@ -407,6 +430,7 @@ static void logAssertionToASL(assertLogAction  action,
     if ((procName = assertion->pinfo->name))
     {
         CFStringGetCString(procName, proc_name_buf, sizeof(proc_name_buf), kCFStringEncodingUTF8);
+        asl_set(m, kPMASLProcessNameKey, proc_name_buf);
     }
 
     printAggregateAssertionsToBuf(assertionsBuf, sizeof(assertionsBuf), getKerAssertionBits());
@@ -416,17 +440,11 @@ static void logAssertionToASL(assertLogAction  action,
         asl_set(m, kPMASLPIDKey, pid_buf);
     }
 
-    snprintf(aslMessageString, sizeof(aslMessageString), "PID %s(%s) %s %s %s%s%s %s id:0x%llx %s",
-             pid_buf,
-             procName ? proc_name_buf:"?",
-             assertionAction,
-             foundAssertionType ? assertionTypeCString:"",
-             foundAssertionName?"\"":"", foundAssertionName ? assertionNameCString:"", 
-             foundAssertionName?"\"":"",
-             foundDate?ageString:"",
-             (((uint64_t)assertion->kassert) << 32) | (assertion->assertionId),
-             assertionsBuf);
+    snprintf(aslMessageString, sizeof(aslMessageString), "%s", assertionsBuf);
 
+    snprintf(aslAssertionId, sizeof(aslAssertionId), "0x%llx", (((uint64_t)assertion->kassert) << 32) | (assertion->assertionId));
+
+    asl_set(m, kPMASLAssertionIdKey, aslAssertionId );
     asl_set(m, ASL_KEY_MSG, aslMessageString);
     asl_set(m, kPMASLActionKey, assertionAction);
     asl_set(m, kPMASLDomainKey, kPMASLDomainPMAssertions);
@@ -441,10 +459,14 @@ void logASLAssertionsAggregate( )
     aslmsg m;
     char            aslMessageString[100];
     char            assertionsBuf[100];
+    char            capacityBuf[64];
     static int      prevPwrSrc = -1;
     static uint32_t prevAssertionBits = 0;
-    int             pwrSrc;
+    PowerSources    pwrSrc;
+    uint32_t        capacity;
+    bool            battExists;
 
+    battExists = getPowerState(&pwrSrc, &capacity);
     pwrSrc = _getPowerSource();
     if ( (prevPwrSrc == pwrSrc) && (prevAssertionBits == getKerAssertionBits()) )
         return;
@@ -454,9 +476,15 @@ void logASLAssertionsAggregate( )
 
     printAggregateAssertionsToBuf(assertionsBuf, sizeof(assertionsBuf), getKerAssertionBits());
 
-    snprintf(aslMessageString, sizeof(aslMessageString), "Summary- %s Using %s",
+    if (battExists)
+        snprintf(capacityBuf, sizeof(capacityBuf), "(Charge: %d)", capacity);
+    else
+        capacityBuf[0] = 0;
+
+    snprintf(aslMessageString, sizeof(aslMessageString), "Summary- %s Using %s%s",
              assertionsBuf,
-             ( pwrSrc == kBatteryPowered) ? "Batt" : "AC");
+             (pwrSrc == kBatteryPowered) ? "Batt" : "AC",
+             capacityBuf);
 
     m = new_msg_pmset_log();
     asl_set(m, ASL_KEY_MSG, aslMessageString);
@@ -767,14 +795,18 @@ kern_return_t _io_pm_assertion_activity_aggregate (
     CFMutableDictionaryRef  samples = NULL;
     struct aggregateStats   aggStats;
 
+    memset(&aggStats, 0, sizeof(aggStats));
     *statsSize = 0;
     *rc = kIOReturnError;
 
     if (gActivityAggCnt == 0) {
+        asl_log(0,0,ASL_LEVEL_ERR,
+                "gActivityAggCnt = 0; IOPMCopyAssertionActivityAggregate()"
+                " called without w/o IOPMSetAssertionActivityAggregate(true)?!\n");
+        // sleep(30);  // spindump -> look for IOPMCopyAssertionActivityAggregate()
         *rc = kIOReturnNotOpen;
         goto exit;
     }
-    memset(&aggStats, 0, sizeof(aggStats));
     aggStats.curTime = getMonotonicTime();
 
     cnt = CFDictionaryGetCount(gProcessDict);

@@ -48,7 +48,6 @@ static EncodedJSValue JSC_HOST_CALL numberProtoFuncValueOf(ExecState*);
 static EncodedJSValue JSC_HOST_CALL numberProtoFuncToFixed(ExecState*);
 static EncodedJSValue JSC_HOST_CALL numberProtoFuncToExponential(ExecState*);
 static EncodedJSValue JSC_HOST_CALL numberProtoFuncToPrecision(ExecState*);
-static EncodedJSValue JSC_HOST_CALL numberProtoFuncClz(ExecState*);
 
 }
 
@@ -56,7 +55,7 @@ static EncodedJSValue JSC_HOST_CALL numberProtoFuncClz(ExecState*);
 
 namespace JSC {
 
-const ClassInfo NumberPrototype::s_info = { "Number", &NumberObject::s_info, 0, ExecState::numberPrototypeTable, CREATE_METHOD_TABLE(NumberPrototype) };
+const ClassInfo NumberPrototype::s_info = { "Number", &NumberObject::s_info, &numberPrototypeTable, CREATE_METHOD_TABLE(NumberPrototype) };
 
 /* Source for NumberPrototype.lut.h
 @begin numberPrototypeTable
@@ -66,7 +65,6 @@ const ClassInfo NumberPrototype::s_info = { "Number", &NumberObject::s_info, 0, 
   toFixed           numberProtoFuncToFixed          DontEnum|Function 1
   toExponential     numberProtoFuncToExponential    DontEnum|Function 1
   toPrecision       numberProtoFuncToPrecision      DontEnum|Function 1
-  clz               numberProtoFuncClz              DontEnum|Function 1
 @end
 */
 
@@ -87,7 +85,7 @@ void NumberPrototype::finishCreation(VM& vm, JSGlobalObject*)
 
 bool NumberPrototype::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot &slot)
 {
-    return getStaticFunctionSlot<NumberObject>(exec, ExecState::numberPrototypeTable(exec->vm()), jsCast<NumberPrototype*>(object), propertyName, slot);
+    return getStaticFunctionSlot<NumberObject>(exec, numberPrototypeTable, jsCast<NumberPrototype*>(object), propertyName, slot);
 }
 
 // ------------------------------ Functions ---------------------------
@@ -378,7 +376,7 @@ EncodedJSValue JSC_HOST_CALL numberProtoFuncToExponential(ExecState* exec)
 
     // Handle NaN and Infinity.
     if (!std::isfinite(x))
-        return JSValue::encode(jsString(exec, String::numberToStringECMAScript(x)));
+        return JSValue::encode(jsNontrivialString(exec, String::numberToStringECMAScript(x)));
 
     // Round if the argument is not undefined, always format as exponential.
     char buffer[WTF::NumberToStringBufferLength];
@@ -446,45 +444,10 @@ EncodedJSValue JSC_HOST_CALL numberProtoFuncToPrecision(ExecState* exec)
 
     // Handle NaN and Infinity.
     if (!std::isfinite(x))
-        return JSValue::encode(jsString(exec, String::numberToStringECMAScript(x)));
+        return JSValue::encode(jsNontrivialString(exec, String::numberToStringECMAScript(x)));
 
     NumberToStringBuffer buffer;
     return JSValue::encode(jsString(exec, String(numberToFixedPrecisionString(x, significantFigures, buffer))));
-}
-
-#if !COMPILER(GCC) && !COMPILER(CLANG)
-static inline int clz(uint32_t number)
-{
-    int zeroCount = 0;
-    for (int i = 31; i >= 0; i--) {
-        if (!(number >> i))
-            zeroCount++;
-        else
-            break;
-    }
-    return zeroCount;
-}
-#endif
-
-EncodedJSValue JSC_HOST_CALL numberProtoFuncClz(ExecState* exec)
-{
-    double x;
-    if (!toThisNumber(exec->thisValue(), x))
-        return throwVMTypeError(exec);
-
-    if (!std::isfinite(x))
-        return JSValue::encode(JSValue(x));
-
-    uint32_t number = toUInt32(x);
-#if COMPILER(GCC) || COMPILER(CLANG)
-    int zeroCount = 32;
-    if (number)
-        zeroCount = __builtin_clz(number);
-
-    return JSValue::encode(JSValue(zeroCount));
-#else
-    return JSValue::encode(JSValue(clz(number)));
-#endif
 }
 
 static inline int32_t extractRadixFromArgs(ExecState* exec)
@@ -540,7 +503,7 @@ EncodedJSValue JSC_HOST_CALL numberProtoFuncToString(ExecState* exec)
     }
 
     if (!std::isfinite(doubleValue))
-        return JSValue::encode(jsString(exec, String::numberToStringECMAScript(doubleValue)));
+        return JSValue::encode(jsNontrivialString(exec, String::numberToStringECMAScript(doubleValue)));
 
     RadixBuffer s;
     return JSValue::encode(jsString(exec, toStringWithRadix(s, doubleValue, radix)));

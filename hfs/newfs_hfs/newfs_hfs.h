@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -218,16 +218,19 @@ struct hfsparams {
 	uint32_t 	nextFreeFileID;
 
 	uint32_t 	catalogClumpSize;
+	uint32_t 	catalogInitialSize;
 	uint32_t 	catalogNodeSize;
 	uint32_t	catalogExtsCount;
 	uint32_t	catalogStartBlock;
 
 	uint32_t 	extentsClumpSize;
+	uint32_t 	extentsInitialSize;
 	uint32_t 	extentsNodeSize;
 	uint32_t	extentsExtsCount;
 	uint32_t	extentsStartBlock;
 
 	uint32_t 	attributesClumpSize;
+	uint32_t 	attributesInitialSize;
 	uint32_t 	attributesNodeSize;
 	uint32_t	attributesExtsCount;
 	uint32_t	attributesStartBlock;

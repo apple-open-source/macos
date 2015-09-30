@@ -40,7 +40,6 @@
 #include <security_cdsa_utilities/u32handleobject.h>
 #include <security_cdsa_utilities/cssmdb.h>
 #include <security_utilities/machserver.h>
-#include <security_agent_client/agentclient.h>
 #include <security_utilities/timeflow.h>
 #include <string>
 #include <map>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006, 2008, 2009, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2008, 2009, 2012, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -172,6 +172,7 @@ enum {
 	RESOLVER_ATTRIBUTE_SEARCH,
 	RESOLVER_ATTRIBUTE_SORTADDR,
 	RESOLVER_ATTRIBUTE_OPTIONS,
+	RESOLVER_ATTRIBUTE_CONFIGURATION_ID,
 };
 
 

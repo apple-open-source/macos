@@ -55,10 +55,10 @@
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_canonicalize_name(OM_uint32 *minor_status,
-    const gss_name_t input_name,
-    const gss_OID mech_type,
-    gss_name_t *output_name)
+gss_canonicalize_name(OM_uint32 * __nonnull minor_status,
+    __nonnull const gss_name_t input_name,
+    __nonnull const gss_OID mech_type,
+    __nonnull gss_name_t * __nullable output_name)
 {
 	OM_uint32 major_status;
 	struct _gss_name *name = (struct _gss_name *) input_name;

@@ -2189,115 +2189,25 @@ IOFBUpdateConnectState( IOFBConnectRef connectRef )
 }
 
 IOReturn
-IOAccelReadFramebuffer(io_service_t framebuffer, uint32_t width, uint32_t height, size_t rowBytes,
+IOAccelReadFramebuffer(io_service_t framebuffer, uint32_t width __unused, uint32_t height, size_t rowBytes,
                         mach_vm_address_t * result, mach_vm_size_t * bytecount)
 {
-    IOReturn     err;
-    io_service_t accelerator;
-    UInt32       framebufferIndex;
+    IOReturn          err;
     mach_vm_size_t    size = 0;
-    uintptr_t         surfaceID = 155;
     mach_vm_address_t buffer = 0;
-    IOAccelConnect                      connect = MACH_PORT_NULL;
-    IOAccelDeviceRegion *               region = NULL;
-    IOAccelSurfaceInformation           surfaceInfo;
-    IOGraphicsAcceleratorInterface **   interface = 0;
-    IOBlitterPtr                        copyRegionProc;
-    IOBlitCopyRegion                    op;
-    IOBlitSurface                       dest;
-    SInt32                              quality = 0;
-
-    TIMESTART();
 
     *result    = 0;
     *bytecount = 0;
-    dest.interfaceRef = NULL;
+	size = rowBytes * height;
 
-    do
-    {
-        err = IOAccelFindAccelerator(framebuffer, &accelerator, &framebufferIndex);
-        if (kIOReturnSuccess != err) continue;
-        err = IOAccelCreateSurface(accelerator, surfaceID, 
-                                   kIOAccelSurfaceModeWindowedBit | kIOAccelSurfaceModeColorDepth8888,
-                                   &connect);
-        IOObjectRelease(accelerator);
-        if (kIOReturnSuccess != err) continue;
-    
-        size = rowBytes * height;
-    
-        region = calloc(1, sizeof (IOAccelDeviceRegion) + sizeof(IOAccelBounds));
-        if (!region) continue;
-    
-        region->num_rects = 1;
-        region->bounds.x = region->rect[0].x = 0;
-        region->bounds.y = region->rect[0].y = 0;
-        region->bounds.h = region->rect[0].h = height;
-        region->bounds.w = region->rect[0].w = width;
-        
-        err = mach_vm_allocate(mach_task_self(), &buffer, size, 
-                               VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_COREGRAPHICS_FRAMEBUFFERS));
-        if (kIOReturnSuccess != err) continue;
-    
-        err = IOAccelSetSurfaceFramebufferShapeWithBackingAndLength(connect, region,
-                    kIOAccelSurfaceShapeIdentityScaleBit| 
-                    kIOAccelSurfaceShapeNonBlockingBit| 
-                    //kIOAccelSurfaceShapeStaleBackingBit |
-                    kIOAccelSurfaceShapeNonSimpleBit,
-                    0,
-                    (IOVirtualAddress) buffer,
-                    (UInt32) rowBytes,
-                    (UInt32) size);
-        if (kIOReturnSuccess != err) continue;
-        err = IOCreatePlugInInterfaceForService(framebuffer,
-                            kIOGraphicsAcceleratorTypeID,
-                            kIOGraphicsAcceleratorInterfaceID,
-                            (IOCFPlugInInterface ***)&interface, &quality );
-        if (kIOReturnSuccess != err) continue;
-        err = (*interface)->GetBlitter(interface,
-                                    kIOBlitAllOptions,
-                                    (kIOBlitTypeCopyRegion | kIOBlitTypeOperationType0),
-                                    kIOBlitSourceFramebuffer,
-                                    &copyRegionProc);
-        if (kIOReturnSuccess != err) continue;
-        err = (*interface)->AllocateSurface(interface, kIOBlitHasCGSSurface, &dest, (void *) surfaceID);
-        if (kIOReturnSuccess != err) continue;
-        err = (*interface)->SetDestination(interface, kIOBlitSurfaceDestination, &dest);
-        if (kIOReturnSuccess != err) continue;
-        op.region = region;
-        op.deltaX = 0;
-        op.deltaY = 0;
-        err = (*copyRegionProc)(interface,
-                        kNilOptions,
-                        (kIOBlitTypeCopyRegion | kIOBlitTypeOperationType0),
-                        kIOBlitSourceFramebuffer,
-                        &op.operation,
-                        (void *) 0);
-        if (kIOReturnSuccess != err) continue;
-        (*interface)->Flush(interface, kNilOptions);
-        err = IOAccelWriteLockSurfaceWithOptions(connect,
-                kIOAccelSurfaceLockInBacking, &surfaceInfo, sizeof(surfaceInfo));
-        if (kIOReturnSuccess != err) continue;
-    
-        (void ) IOAccelWriteUnlockSurfaceWithOptions(connect, kIOAccelSurfaceLockInBacking);
-    }
-    while (false);
-
-    if (dest.interfaceRef) (*interface)->FreeSurface(interface, kIOBlitHasCGSSurface, &dest);
-
-    // destroy the surface
-    if (connect) (void) IOAccelDestroySurface(connect);
-
-    if (region) free(region);
-
-    if (interface) IODestroyPlugInInterface((IOCFPlugInInterface **)interface);
+	err = mach_vm_allocate(mach_task_self(), &buffer, size, 
+						   VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_COREGRAPHICS_FRAMEBUFFERS));
 
     if (kIOReturnSuccess == err) 
     {
         *result    = buffer;
         *bytecount = size;
     }
-
-    TIMEEND("IOAccelReadFramebuffer");
 
     return (err);
 }
@@ -2830,8 +2740,10 @@ IOFBAcknowledgePM( io_connect_t connect )
     IOIndex         depth;
     IOPixelInformation  pixelInfo;
 	uint32_t            idx;    
-
-    if (connectRef->didPowerOff)
+	bool                didPowerOff;
+	
+	didPowerOff = connectRef->didPowerOff;
+    if (didPowerOff)
     do
     {
         connectRef->didPowerOff = false;
@@ -2846,6 +2758,7 @@ IOFBAcknowledgePM( io_connect_t connect )
                                                 kIOVRAMSaveAttribute, &vramSave );
         if ((kIOReturnSuccess != err) || !vramSave)
             continue;
+
         err = _IOFBGetCurrentDisplayModeAndDepth(connectRef, &mode, &depth);
         if (err)
             continue;
@@ -2853,6 +2766,7 @@ IOFBAcknowledgePM( io_connect_t connect )
                                         kIOFBSystemAperture, &pixelInfo );
         if (err)
             continue;
+		syslog(LOG_ERR, "no sleep images for WillPowerOffWithImages\n");
         err = IOAccelReadFramebuffer(connectRef->framebuffer,
                                      pixelInfo.activeWidth, pixelInfo.activeHeight,
                                      pixelInfo.bytesPerRow,
@@ -2875,6 +2789,7 @@ IOFBAcknowledgePM( io_connect_t connect )
     }
     while (false);
 
+    if (didPowerOff)
 	{
 		// save images to files
 		struct stat stat_buf;
@@ -4533,7 +4448,13 @@ IOFramebufferFinishOpen(IOFBConnectRef connectRef)
         || (0 == (startFlags & (kDisplayModeValidFlag | kMirrorOnlyFlags))))
     {
         // go to default
-        if( connectRef->defaultMode) {
+        if (connectRef->startMode != kIODisplayModeIDInvalid)
+        {
+            startMode  = connectRef->startMode;
+            startDepth = connectRef->startDepth;
+        }
+        else if( connectRef->defaultMode)
+        {
             startMode = connectRef->defaultMode;
             startDepth = connectRef->defaultDepth;
         }

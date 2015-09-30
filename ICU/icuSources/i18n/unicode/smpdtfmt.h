@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 1997-2014, International Business Machines Corporation and
+* Copyright (C) 1997-2015, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -45,6 +45,8 @@ class DateFormat;
 class MessageFormat;
 class FieldPositionHandler;
 class TimeZoneFormat;
+class SharedNumberFormat;
+class SimpleDateFormatMutableNFs;
 
 /**
  *
@@ -71,7 +73,8 @@ class TimeZoneFormat;
  * <a href="http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table">UTS#35
  * Unicode Locale Data Markup Language (LDML)</a> and further documented for ICU in the
  * <a href="https://sites.google.com/site/icuprojectuserguide/formatparse/datetime?pli=1#TOC-Date-Field-Symbol-Table">ICU
- * User Guide</a>. The following pattern letters are currently available:</p>
+ * User Guide</a>. The following pattern letters are currently available (note that the actual
+ * values depend on CLDR and may change from the examples shown here):</p>
  *
  * <table border="1">
  *     <tr>
@@ -87,7 +90,7 @@ class TimeZoneFormat;
  *         <td style="text-align: center">1..3</td>
  *         <td>AD</td>
  *         <td rowspan="3">Era - Replaced with the Era string for the current date. One to three letters for the 
- *         abbreviated form, four letters for the long form, five for the narrow form.</td>
+ *         abbreviated form, four letters for the long (wide) form, five for the narrow form.</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">4</td>
@@ -182,7 +185,7 @@ class TimeZoneFormat;
  *         <td>&#30002;&#23376;</td>
  *         <td rowspan="3">Cyclic year name. Calendars such as the Chinese lunar calendar (and related calendars)
  *         and the Hindu calendars use 60-year cycles of year names. Use one through three letters for the abbreviated
- *         name, four for the full name, or five for the narrow name (currently the data only provides abbreviated names,
+ *         name, four for the full (wide) name, or five for the narrow name (currently the data only provides abbreviated names,
  *         which will be used for all requested name widths). If the calendar does not provide cyclic year name data,
  *         or if the year value to be formatted is out of the range of years for which cyclic name data is provided,
  *         then numeric formatting is used (behaves like 'y').</td>
@@ -200,8 +203,8 @@ class TimeZoneFormat;
  *         <td rowspan="3" style="text-align: center">Q</td>
  *         <td style="text-align: center">1..2</td>
  *         <td>02</td>
- *         <td rowspan="3">Quarter - Use one or two for the numerical quarter, three for the abbreviation, or four 
- *         for the full name.</td>
+ *         <td rowspan="3">Quarter - Use one or two for the numerical quarter, three for the abbreviation, or four for the
+ *         full (wide) name (five for the narrow name is not yet supported).</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">3</td>
@@ -216,7 +219,7 @@ class TimeZoneFormat;
  *         <td style="text-align: center">1..2</td>
  *         <td>02</td>
  *         <td rowspan="3"><b>Stand-Alone</b> Quarter - Use one or two for the numerical quarter, three for the abbreviation, 
- *         or four for the full name.</td>
+ *         or four for the full name (five for the narrow name is not yet supported).</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">3</td>
@@ -232,11 +235,12 @@ class TimeZoneFormat;
  *         <td style="text-align: center">1..2</td>
  *         <td>09</td>
  *         <td rowspan="4">Month - Use one or two for the numerical month, three for the abbreviation, four for
- *         the full name, or five for the narrow name.</td>
+ *         the full (wide) name, or five for the narrow name. With two ("MM"), the month number is zero-padded
+ *         if necessary (e.g. "08")</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">3</td>
- *         <td>Sept</td>
+ *         <td>Sep</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">4</td>
@@ -251,11 +255,12 @@ class TimeZoneFormat;
  *         <td style="text-align: center">1..2</td>
  *         <td>09</td>
  *         <td rowspan="4"><b>Stand-Alone</b> Month - Use one or two for the numerical month, three for the abbreviation, 
- *         or four for the full name, or 5 for the narrow name.</td>
+ *         four for the full (wide) name, or 5 for the narrow name. With two ("LL"), the month number is zero-padded if
+ *         necessary (e.g. "08")</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">3</td>
- *         <td>Sept</td>
+ *         <td>Sep</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">4</td>
@@ -270,7 +275,8 @@ class TimeZoneFormat;
  *         <td style="text-align: center">w</td>
  *         <td style="text-align: center">1..2</td>
  *         <td>27</td>
- *         <td>Week of Year.</td>
+ *         <td>Week of Year. Use "w" to show the minimum number of digits, or "ww" to always show two digits
+ *         (zero-padding if necessary, e.g. "08").</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">W</td>
@@ -283,7 +289,8 @@ class TimeZoneFormat;
  *         <td style="text-align: center">d</td>
  *         <td style="text-align: center">1..2</td>
  *         <td>1</td>
- *         <td>Date - Day of the month</td>
+ *         <td>Date - Day of the month. Use "d" to show the minimum number of digits, or "dd" to always show
+ *         two digits (zero-padding if necessary, e.g. "08").</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">D</td>
@@ -311,8 +318,8 @@ class TimeZoneFormat;
  *         day</th>
  *         <td rowspan="4" style="text-align: center">E</td>
  *         <td style="text-align: center">1..3</td>
- *         <td>Tues</td>
- *         <td rowspan="4">Day of week - Use one through three letters for the short day, or four for the full name, 
+ *         <td>Tue</td>
+ *         <td rowspan="4">Day of week - Use one through three letters for the short day, four for the full (wide) name, 
  *         five for the narrow name, or six for the short name.</td>
  *     </tr>
  *     <tr>
@@ -336,7 +343,7 @@ class TimeZoneFormat;
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">3</td>
- *         <td>Tues</td>
+ *         <td>Tue</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">4</td>
@@ -355,12 +362,12 @@ class TimeZoneFormat;
  *         <td style="text-align: center">1</td>
  *         <td>2</td>
  *         <td rowspan="5"><b>Stand-Alone</b> local day of week - Use one letter for the local numeric value (same
- *         as 'e'), three for the short day, four for the full name, five for the narrow name, or six for
+ *         as 'e'), three for the short day, four for the full (wide) name, five for the narrow name, or six for
  *         the short name.</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">3</td>
- *         <td>Tues</td>
+ *         <td>Tue</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">4</td>
@@ -415,20 +422,23 @@ class TimeZoneFormat;
  *         <td style="text-align: center">m</td>
  *         <td style="text-align: center">1..2</td>
  *         <td>59</td>
- *         <td>Minute. Use one or two for zero padding.</td>
+ *         <td>Minute. Use "m" to show the minimum number of digits, or "mm" to always show two digits
+ *         (zero-padding if necessary, e.g. "08").</td>
  *     </tr>
  *     <tr>
  *         <th rowspan="3">second</th>
  *         <td style="text-align: center">s</td>
  *         <td style="text-align: center">1..2</td>
  *         <td>12</td>
- *         <td>Second. Use one or two for zero padding.</td>
+ *         <td>Second. Use "s" to show the minimum number of digits, or "ss" to always show two digits
+ *         (zero-padding if necessary, e.g. "08").</td>
  *     </tr>
  *     <tr>
  *         <td style="text-align: center">S</td>
  *         <td style="text-align: center">1..n</td>
- *         <td>3456</td>
- *         <td>Fractional Second - truncates (like other time fields) to the count of letters.
+ *         <td>3450</td>
+ *         <td>Fractional Second - truncates (like other time fields) to the count of letters when formatting.
+ *         Appends zeros if more than 3 letters specified. Truncates at three significant digits when parsing.
  *         (example shows display using pattern SSSS for seconds value 12.34567)</td>
  *     </tr>
  *     <tr>
@@ -1109,7 +1119,6 @@ public:
      */
     virtual const TimeZoneFormat* getTimeZoneFormat(void) const;
 
-    /* Cannot use #ifndef U_HIDE_DRAFT_API for the following draft method since it is virtual */
     /**
      * Set a particular UDisplayContext value in the formatter, such as
      * UDISPCTX_CAPITALIZATION_FOR_STANDALONE. Note: For getContext, see
@@ -1118,9 +1127,44 @@ public:
      * @param status Input/output status. If at entry this indicates a failure
      *               status, the function will do nothing; otherwise this will be
      *               updated with any new status from the function. 
-     * @draft ICU 53
+     * @stable ICU 53
      */
     virtual void setContext(UDisplayContext value, UErrorCode& status);
+    
+#ifndef U_HIDE_DRAFT_API
+    /**
+     * Overrides base class method and
+     * This method clears per field NumberFormat instances 
+     * previously set by {@see adoptNumberFormat(const UnicodeString&, NumberFormat*, UErrorCode)} 
+     * @param adoptNF the NumbeferFormat used
+     * @draft ICU 54
+     */
+    void adoptNumberFormat(NumberFormat *formatToAdopt);
+
+    /**
+     * Allow the user to set the NumberFormat for several fields
+     * It can be a single field like: "y"(year) or "M"(month)
+     * It can be several field combined together: "yM"(year and month)
+     * Note: 
+     * 1 symbol field is enough for multiple symbol field (so "y" will override "yy", "yyy")
+     * If the field is not numeric, then override has no effect (like "MMM" will use abbreviation, not numerical field)
+     * Per field NumberFormat can also be cleared in {@see DateFormat::setNumberFormat(const NumberFormat& newNumberFormat)}
+     *
+     * @param fields  the fields to override(like y)
+     * @param adoptNF the NumbeferFormat used
+     * @param status  Receives a status code, which will be U_ZERO_ERROR
+     *                if the operation succeeds.
+     * @draft ICU 54
+     */
+    void adoptNumberFormat(const UnicodeString& fields, NumberFormat *formatToAdopt, UErrorCode &status);
+
+    /**
+     * Get the numbering system to be used for a particular field.
+     * @param field The UDateFormatField to get
+     * @draft ICU 54
+     */
+    const NumberFormat * getNumberFormatForField(UChar field) const;
+#endif  /* U_HIDE_DRAFT_API */
 
 #ifndef U_HIDE_INTERNAL_API
     /**
@@ -1218,6 +1262,7 @@ private:
                    int32_t fieldNum,
                    FieldPositionHandler& handler,
                    Calendar& cal,
+                   SimpleDateFormatMutableNFs &mutableNFs,
                    UErrorCode& status) const; // in case of illegal argument
 
     /**
@@ -1237,8 +1282,7 @@ private:
                            UnicodeString &appendTo,
                            int32_t value,
                            int32_t minDigits,
-                           int32_t maxDigits,
-                           UBool basicNumFmt) const;
+                           int32_t maxDigits) const;
 
     /**
      * Return true if the given format character, occuring count
@@ -1264,14 +1308,6 @@ private:
      * @return the newly constructed fCalendar
      */
     Calendar *initializeCalendar(TimeZone* adoptZone, const Locale& locale, UErrorCode& status);
-
-    /**
-     * initializes fSymbols from parameters.
-     * @param locale Locale of the symbols
-     * @param calendar Alias to Calendar that will be used.
-     * @param status Error code
-     */
-    void initializeSymbols(const Locale& locale, Calendar* calendar, UErrorCode& status);
 
     /**
      * Called by several of the constructors to load pattern data and formatting symbols
@@ -1335,12 +1371,13 @@ private:
      *                   will be set to the offset of the character after the match
      * @param whitespaceLenient <code>TRUE</code> if whitespace parse is lenient, <code>FALSE</code> otherwise.
      * @param partialMatchLenient <code>TRUE</code> if partial match parse is lenient, <code>FALSE</code> otherwise.
+     * @param oldLeniency <code>TRUE</code> if old leniency control is lenient, <code>FALSE</code> otherwise.
      *
      * @return <code>TRUE</code> if the literal text could be matched, <code>FALSE</code> otherwise.
      */
     static UBool matchLiterals(const UnicodeString &pattern, int32_t &patternOffset,
                                const UnicodeString &text, int32_t &textOffset, 
-                               UBool whitespaceLenient, UBool partialMatchLenient);
+                               UBool whitespaceLenient, UBool partialMatchLenient, UBool oldLeniency);
     
     /**
      * Private member function that converts the parsed date strings into
@@ -1364,7 +1401,7 @@ private:
      */
     int32_t subParse(const UnicodeString& text, int32_t& start, UChar ch, int32_t count,
                      UBool obeyCount, UBool allowNegative, UBool ambiguousYear[], int32_t& saveHebrewMonth, Calendar& cal,
-                     int32_t patLoc, MessageFormat * numericLeapMonthFormatter, UTimeZoneFormatTimeType *tzTimeType) const;
+                     int32_t patLoc, MessageFormat * numericLeapMonthFormatter, UTimeZoneFormatTimeType *tzTimeType, SimpleDateFormatMutableNFs &mutableNFs) const;
 
     void parseInt(const UnicodeString& text,
                   Formattable& number,
@@ -1440,11 +1477,6 @@ private:
     void initNumberFormatters(const Locale &locale,UErrorCode &status);
 
     /**
-     * Get the numbering system to be used for a particular field.
-     */
-     NumberFormat * getNumberFormatByIndex(UDateFormatField index) const;
-
-    /**
      * Parse the given override string and set up structures for number formats
      */
     void processOverrideString(const Locale &locale, const UnicodeString &str, int8_t type, UErrorCode &status);
@@ -1464,6 +1496,8 @@ private:
      */
     TimeZoneFormat *tzFormat() const;
 
+    const NumberFormat* getNumberFormatByIndex(UDateFormatField index) const;
+
     /**
      * Used to map Calendar field to field level.
      * The larger the level, the smaller the field unit.
@@ -1471,7 +1505,16 @@ private:
      * UCAL_MONTH level is 20.
      */
     static const int32_t fgCalendarFieldToLevel[];
-    static const int32_t fgPatternCharToLevel[];
+
+    /**
+     * Map calendar field letter into calendar field level.
+     */
+    static int32_t getLevelFromChar(UChar ch);
+
+    /**
+     * Tell if a character can be used to define a field in a format string.
+     */
+    static UBool isSyntaxChar(UChar ch);
 
     /**
      * The formatting pattern for this formatter.
@@ -1520,15 +1563,21 @@ private:
      */
     /*transient*/ int32_t   fDefaultCenturyStartYear;
 
-    typedef struct NSOverride {
-        NumberFormat *nf;
+    struct NSOverride : public UMemory {
+        const SharedNumberFormat *snf;
         int32_t hash;
         NSOverride *next;
-    } NSOverride;
+        void free();
+        NSOverride() : snf(NULL), hash(0), next(NULL) {
+        }
+        ~NSOverride();
+    };
 
-    NumberFormat    **fNumberFormatters;
-
-    NSOverride      *fOverrideList;
+    /**
+     * The number format in use for each date field. NULL means fall back
+     * to fNumberFormat in DateFormat.
+     */
+    const SharedNumberFormat    **fSharedNumberFormatters;
 
     UBool fHaveDefaultCentury;
 

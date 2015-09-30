@@ -46,14 +46,17 @@ struct RemoteInspectorDebuggableInfo;
 class JS_EXPORT_PRIVATE RemoteInspector final : public RemoteInspectorXPCConnection::Client {
 public:
     static void startDisabled();
-    static RemoteInspector& shared();
+    static RemoteInspector& singleton();
     friend class NeverDestroyed<RemoteInspector>;
 
     void registerDebuggable(RemoteInspectorDebuggable*);
     void unregisterDebuggable(RemoteInspectorDebuggable*);
     void updateDebuggable(RemoteInspectorDebuggable*);
+    void updateDebuggableAutomaticInspectCandidate(RemoteInspectorDebuggable*);
     void sendMessageToRemoteFrontend(unsigned identifier, const String& message);
     void setupFailed(unsigned identifier);
+    void setupCompleted(unsigned identifier);
+    bool waitingForAutomaticInspection(unsigned identifier);
 
     bool enabled() const { return m_enabled; }
     bool hasActiveDebugSession() const { return m_hasActiveDebugSession; }
@@ -83,6 +86,8 @@ private:
 
     void updateHasActiveDebugSession();
 
+    void sendAutomaticInspectionCandidateMessage();
+
     virtual void xpcConnectionReceivedMessage(RemoteInspectorXPCConnection*, NSString *messageName, NSDictionary *userInfo) override;
     virtual void xpcConnectionFailed(RemoteInspectorXPCConnection*) override;
     virtual void xpcConnectionUnhandledMessage(RemoteInspectorXPCConnection*, xpc_object_t) override;
@@ -94,6 +99,8 @@ private:
     void receivedIndicateMessage(NSDictionary *userInfo);
     void receivedProxyApplicationSetupMessage(NSDictionary *userInfo);
     void receivedConnectionDiedMessage(NSDictionary *userInfo);
+    void receivedAutomaticInspectionConfigurationMessage(NSDictionary *userInfo);
+    void receivedAutomaticInspectionRejectMessage(NSDictionary *userInfo);
 
     static bool startEnabled;
 
@@ -117,6 +124,9 @@ private:
     pid_t m_parentProcessIdentifier;
     RetainPtr<CFDataRef> m_parentProcessAuditData;
     bool m_shouldSendParentProcessInformation;
+    bool m_automaticInspectionEnabled;
+    bool m_automaticInspectionPaused;
+    unsigned m_automaticInspectionCandidateIdentifier;
 };
 
 } // namespace Inspector

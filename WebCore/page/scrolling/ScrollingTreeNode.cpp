@@ -36,7 +36,7 @@ ScrollingTreeNode::ScrollingTreeNode(ScrollingTree& scrollingTree, ScrollingNode
     : m_scrollingTree(scrollingTree)
     , m_nodeType(nodeType)
     , m_nodeID(nodeID)
-    , m_parent(0)
+    , m_parent(nullptr)
 {
 }
 
@@ -49,7 +49,7 @@ void ScrollingTreeNode::appendChild(PassRefPtr<ScrollingTreeNode> childNode)
     childNode->setParent(this);
 
     if (!m_children)
-        m_children = adoptPtr(new ScrollingTreeChildrenVector);
+        m_children = std::make_unique<ScrollingTreeChildrenVector>();
 
     m_children->append(childNode);
 }

@@ -74,7 +74,6 @@ static size_t offsetForInputQueue(InputQueue inputQueue)
 }
 
 SegmentedInputStorage::SegmentedInputStorage()
-    : m_inputCount(0)
 {
     for (size_t i = 0; i < offsetForInputQueue(InputQueue::Count); i++)
         m_queues.append(new QueuedInputs);
@@ -93,17 +92,17 @@ NondeterministicInputBase* SegmentedInputStorage::load(InputQueue inputQueue, si
     NondeterministicInputBase* input = queue(inputQueue).at(offset).get();
     ASSERT(input);
 
-    LOG(WebReplay, "%-20s %s: %s %s\n", "ReplayEvents", queueTypeToLogPrefix(inputQueue, true), input->type().string().utf8().data(), jsonStringForInput(*input).utf8().data());
+    LOG(WebReplay, "%-20s %s: %s %s\n", "ReplayEvents", queueTypeToLogPrefix(inputQueue, true), input->type().utf8().data(), jsonStringForInput(*input).utf8().data());
 
     return input;
 }
 
 void SegmentedInputStorage::store(std::unique_ptr<NondeterministicInputBase> input)
 {
-    ASSERT(input);
-    ASSERT(input->queue() < InputQueue::Count);
+    ASSERT_ARG(input, input);
+    ASSERT_ARG(input, input->queue() < InputQueue::Count);
 
-    LOG(WebReplay, "%-14s#%-5u %s: %s %s\n", "ReplayEvents", m_inputCount++, queueTypeToLogPrefix(input->queue(), false), input->type().string().utf8().data(), jsonStringForInput(*input).utf8().data());
+    LOG(WebReplay, "%-14s#%-5u %s: %s %s\n", "ReplayEvents", m_inputCount++, queueTypeToLogPrefix(input->queue(), false), input->type().utf8().data(), jsonStringForInput(*input).utf8().data());
 
     m_queues.at(offsetForInputQueue(input->queue()))->append(WTF::move(input));
 }
@@ -115,7 +114,7 @@ size_t SegmentedInputStorage::queueSize(InputQueue inputQueue) const
 
 const SegmentedInputStorage::QueuedInputs& SegmentedInputStorage::queue(InputQueue queue) const
 {
-    ASSERT(queue < InputQueue::Count);
+    ASSERT_ARG(queue, queue < InputQueue::Count);
     return *m_queues.at(offsetForInputQueue(queue));
 }
 

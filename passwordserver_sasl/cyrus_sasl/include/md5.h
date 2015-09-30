@@ -22,6 +22,8 @@ These notices must be retained in any copies of any part of this
 documentation and/or software.
  */
 
+#include <Availability.h>
+
 /* MD5 context. */
 typedef struct {
   UINT4 state[4];                                   /* state (ABCD) */
@@ -33,9 +35,9 @@ typedef struct {
 extern "C" {
 #endif
 
-void _sasl_MD5Init (MD5_CTX *);
-void _sasl_MD5Update (MD5_CTX *, const unsigned char *, unsigned int);
-void _sasl_MD5Final (unsigned char [16], MD5_CTX *);
+void _sasl_MD5Init (MD5_CTX *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
+void _sasl_MD5Update (MD5_CTX *, const unsigned char *, unsigned int) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
+void _sasl_MD5Final (unsigned char [16], MD5_CTX *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_11,__IPHONE_NA,__IPHONE_NA);
 
 #ifdef __cplusplus
 }

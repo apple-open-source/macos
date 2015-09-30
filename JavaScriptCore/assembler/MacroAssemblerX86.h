@@ -30,10 +30,6 @@
 
 #include "MacroAssemblerX86Common.h"
 
-#if USE(MASM_PROBE)
-#include <wtf/StdLibExtras.h>
-#endif
-
 namespace JSC {
 
 class MacroAssemblerX86 : public MacroAssemblerX86Common {
@@ -168,14 +164,14 @@ public:
         m_assembler.movb_i8m(imm.m_value, address);
     }
     
-    // Possibly clobbers src.
-    // FIXME: Don't do that.
-    // https://bugs.webkit.org/show_bug.cgi?id=131690
     void moveDoubleToInts(FPRegisterID src, RegisterID dest1, RegisterID dest2)
     {
+        ASSERT(isSSE2Present());
+        m_assembler.pextrw_irr(3, src, dest1);
+        m_assembler.pextrw_irr(2, src, dest2);
+        lshift32(TrustedImm32(16), dest1);
+        or32(dest1, dest2);
         movePackedToInt32(src, dest1);
-        rshiftPacked(TrustedImm32(32), src);
-        movePackedToInt32(src, dest2);
     }
 
     void moveIntsToDouble(RegisterID src1, RegisterID src2, FPRegisterID dest, FPRegisterID scratch)
@@ -287,7 +283,6 @@ public:
     }
 
     static bool supportsFloatingPoint() { return isSSE2Present(); }
-    // See comment on MacroAssemblerARMv7::supportsFloatingPointTruncate()
     static bool supportsFloatingPointTruncate() { return isSSE2Present(); }
     static bool supportsFloatingPointSqrt() { return isSSE2Present(); }
     static bool supportsFloatingPointAbs() { return isSSE2Present(); }
@@ -350,11 +345,6 @@ public:
         X86Assembler::revertJumpTo_cmpl_im_force32(instructionStart.executableAddress(), initialValue, 0, address.base);
     }
 
-#if USE(MASM_PROBE)
-    // For details about probe(), see comment in MacroAssemblerX86_64.h.
-    void probe(ProbeFunction, void* arg1 = 0, void* arg2 = 0);
-#endif // USE(MASM_PROBE)
-
 private:
     friend class LinkBuffer;
     friend class RepatchBuffer;
@@ -373,45 +363,7 @@ private:
     {
         X86Assembler::relinkCall(call.dataLocation(), destination.executableAddress());
     }
-
-#if USE(MASM_PROBE)
-    inline TrustedImm32 trustedImm32FromPtr(void* ptr)
-    {
-        return TrustedImm32(TrustedImmPtr(ptr));
-    }
-
-    inline TrustedImm32 trustedImm32FromPtr(ProbeFunction function)
-    {
-        return TrustedImm32(TrustedImmPtr(reinterpret_cast<void*>(function)));
-    }
-
-    inline TrustedImm32 trustedImm32FromPtr(void (*function)())
-    {
-        return TrustedImm32(TrustedImmPtr(reinterpret_cast<void*>(function)));
-    }
-#endif
 };
-
-#if USE(MASM_PROBE)
-
-extern "C" void ctiMasmProbeTrampoline();
-
-// For details on "What code is emitted for the probe?" and "What values are in
-// the saved registers?", see comment for MacroAssemblerX86::probe() in
-// MacroAssemblerX86_64.h.
-
-inline void MacroAssemblerX86::probe(MacroAssemblerX86::ProbeFunction function, void* arg1, void* arg2)
-{
-    push(RegisterID::esp);
-    push(RegisterID::eax);
-    push(trustedImm32FromPtr(arg2));
-    push(trustedImm32FromPtr(arg1));
-    push(trustedImm32FromPtr(function));
-
-    move(trustedImm32FromPtr(ctiMasmProbeTrampoline), RegisterID::eax);
-    call(RegisterID::eax);
-}
-#endif // USE(MASM_PROBE)
 
 } // namespace JSC
 

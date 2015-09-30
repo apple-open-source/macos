@@ -54,13 +54,12 @@ static HashSet<Worker*>* allWorkers;
 
 void networkStateChanged(bool isOnLine)
 {
-    HashSet<Worker*>::iterator end = allWorkers->end();
-    for (HashSet<Worker*>::iterator it = allWorkers->begin(); it != end; ++it)
-        (*it)->notifyNetworkStateChange(isOnLine);
+    for (auto& worker : *allWorkers)
+        worker->notifyNetworkStateChange(isOnLine);
 }
 
 inline Worker::Worker(ScriptExecutionContext& context)
-    : AbstractWorker(context)
+    : ActiveDOMObject(&context)
     , m_contextProxy(WorkerGlobalScopeProxy::create(this))
 {
     if (!allWorkers) {
@@ -72,28 +71,28 @@ inline Worker::Worker(ScriptExecutionContext& context)
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 }
 
-PassRefPtr<Worker> Worker::create(ScriptExecutionContext& context, const String& url, ExceptionCode& ec)
+RefPtr<Worker> Worker::create(ScriptExecutionContext& context, const String& url, ExceptionCode& ec)
 {
     ASSERT(isMainThread());
 
     // We don't currently support nested workers, so workers can only be created from documents.
     ASSERT_WITH_SECURITY_IMPLICATION(context.isDocument());
 
-    RefPtr<Worker> worker = adoptRef(new Worker(context));
+    Ref<Worker> worker = adoptRef(*new Worker(context));
 
     worker->suspendIfNeeded();
 
     URL scriptURL = worker->resolveURL(url, ec);
     if (scriptURL.isEmpty())
-        return 0;
+        return nullptr;
 
     // The worker context does not exist while loading, so we must ensure that the worker object is not collected, nor are its event listeners.
-    worker->setPendingActivity(worker.get());
+    worker->setPendingActivity(worker.ptr());
 
     worker->m_scriptLoader = WorkerScriptLoader::create();
-    worker->m_scriptLoader->loadAsynchronously(&context, scriptURL, DenyCrossOriginRequests, worker.get());
+    worker->m_scriptLoader->loadAsynchronously(&context, scriptURL, DenyCrossOriginRequests, worker.ptr());
 
-    return worker.release();
+    return WTF::move(worker);
 }
 
 Worker::~Worker()
@@ -126,10 +125,15 @@ void Worker::terminate()
     m_contextProxy->terminateWorkerGlobalScope();
 }
 
-bool Worker::canSuspend() const
+bool Worker::canSuspendForPageCache() const
 {
     // FIXME: It is not currently possible to suspend a worker, so pages with workers can not go into page cache.
     return false;
+}
+
+const char* Worker::activeDOMObjectName() const
+{
+    return "Worker";
 }
 
 void Worker::stop()

@@ -12,5 +12,7 @@ Extra_CC_Flags += -D__FBSDID=__RCSID
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
-Install_Program_Mode = 04555
+Install_Program_Mode = 0555
 
+after_install:
+	/usr/bin/codesign --force --sign - --entitlements entitlements.plist $(DSTROOT)$(Install_Dir)/$(Project)

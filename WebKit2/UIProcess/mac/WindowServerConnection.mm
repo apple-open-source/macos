@@ -26,8 +26,8 @@
 #import "config.h"
 #import "WindowServerConnection.h"
 
-#import "WebContext.h"
 #import "WebKitSystemInterface.h"
+#import "WebProcessPool.h"
 
 namespace WebKit {
 
@@ -43,23 +43,23 @@ void WindowServerConnection::applicationWindowModificationsStopped(bool stopped)
 
 void WindowServerConnection::applicationWindowModificationsStarted(uint32_t, void*, uint32_t, void*, uint32_t)
 {
-    WindowServerConnection::shared().applicationWindowModificationsStopped(false);
+    WindowServerConnection::singleton().applicationWindowModificationsStopped(false);
 }
 
 void WindowServerConnection::applicationWindowModificationsStopped(uint32_t, void*, uint32_t, void*, uint32_t)
 {
-    WindowServerConnection::shared().applicationWindowModificationsStopped(true);
+    WindowServerConnection::singleton().applicationWindowModificationsStopped(true);
 }
 
 void WindowServerConnection::windowServerConnectionStateChanged()
 {
-    for (auto* context : WebContext::allContexts())
-        context->windowServerConnectionStateChanged();
+    for (auto* processPool : WebProcessPool::allProcessPools())
+        processPool->windowServerConnectionStateChanged();
 }
 
 #endif
 
-WindowServerConnection& WindowServerConnection::shared()
+WindowServerConnection& WindowServerConnection::singleton()
 {
     static WindowServerConnection& windowServerConnection = *new WindowServerConnection;
     return windowServerConnection;

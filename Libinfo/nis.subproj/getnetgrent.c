@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,6 +72,7 @@ void _old_setnetgrent(grp)
 	
 	if (oldgrp == NULL)
 		oldgrp = (char *)calloc(1,256);
+		if (oldgrp == NULL) return;
 	if (strcmp(oldgrp, grp) == 0)
 		grlist = grouplist;
 	else {
@@ -162,6 +163,7 @@ doit(group,list)
 		if (*p == '(') {
 			gpls = (struct grouplist *)
 			    malloc(sizeof(struct grouplist));
+			if (gpls == NULL) return;
 			p++;
 			if (!(p = fill(p,&gpls->gl_machine,',')))
 				goto syntax_error;
@@ -215,6 +217,7 @@ fill(start,target,termchar)
 			;
 		size = q - p + 1;
 		*target = malloc(size+1);
+		if (*target == NULL) return NULL;
 		(void) strncpy(*target,p,(int) size);
 		(*target)[size] = 0;
 	}

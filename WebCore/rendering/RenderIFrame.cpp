@@ -39,14 +39,14 @@ namespace WebCore {
 
 using namespace HTMLNames;
     
-RenderIFrame::RenderIFrame(HTMLIFrameElement& element, PassRef<RenderStyle> style)
+RenderIFrame::RenderIFrame(HTMLIFrameElement& element, Ref<RenderStyle>&& style)
     : RenderFrameBase(element, WTF::move(style))
 {
 }
 
 HTMLIFrameElement& RenderIFrame::iframeElement() const
 {
-    return toHTMLIFrameElement(RenderFrameBase::frameOwnerElement());
+    return downcast<HTMLIFrameElement>(RenderFrameBase::frameOwnerElement());
 }
 
 bool RenderIFrame::shouldComputeSizeAsReplaced() const

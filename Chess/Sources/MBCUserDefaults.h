@@ -61,6 +61,7 @@ extern NSString * const kMBCGameCity;
 extern NSString * const kMBCGameCountry;
 extern NSString * const kMBCGameEvent;
 extern NSString * const kMBCHumanName;
+extern NSString * const kMBCHumanName2;
 extern NSString * const kMBCBattleScars;
 extern NSString * const kMBCBoardAngle;
 extern NSString * const kMBCBoardSpin;

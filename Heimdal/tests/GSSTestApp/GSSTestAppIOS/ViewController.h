@@ -7,15 +7,12 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "TestHarness.h"
+#import "CredentialTableController.h"
 
-@interface ViewController : UIViewController <TestHarnessProtocol>
+@interface ViewController : UIViewController <GSSCredentialsChangeNotification>
 
-@property (weak) IBOutlet UIBarButtonItem *runTestsButton;
-@property (weak) IBOutlet UILabel *statusLabel;
-@property (weak) IBOutlet UITextView *progressTextView;
-
-- (IBAction)runTests:(id)sender;
+@property (weak) IBOutlet UITableView *credentialsTableView;
+@property (assign) CredentialTableController *credentialsTableController;
 
 
 @end

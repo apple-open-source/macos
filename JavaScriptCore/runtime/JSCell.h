@@ -25,6 +25,7 @@
 
 #include "CallData.h"
 #include "ConstructData.h"
+#include "EnumerationMode.h"
 #include "Heap.h"
 #include "IndexingType.h"
 #include "JSLock.h"
@@ -38,6 +39,7 @@ namespace JSC {
 
 class CopyVisitor;
 class ExecState;
+class Identifier;
 class JSArrayBufferView;
 class JSDestructibleObject;
 class JSGlobalObject;
@@ -45,11 +47,6 @@ class LLIntOffsetsExtractor;
 class PropertyDescriptor;
 class PropertyNameArray;
 class Structure;
-
-enum EnumerationMode {
-    ExcludeDontEnumProperties,
-    IncludeDontEnumProperties
-};
 
 template<typename T> void* allocateCell(Heap&);
 template<typename T> void* allocateCell(Heap&, size_t);
@@ -76,7 +73,8 @@ public:
     static const unsigned StructureFlags = 0;
 
     static const bool needsDestruction = false;
-    static const bool hasImmortalStructure = false;
+
+    static JSCell* seenMultipleCalleeObjects() { return bitwise_cast<JSCell*>(static_cast<uintptr_t>(1)); }
 
     enum CreatingEarlyCellTag { CreatingEarlyCell };
     JSCell(CreatingEarlyCellTag);
@@ -88,6 +86,7 @@ protected:
 public:
     // Querying the type.
     bool isString() const;
+    bool isSymbol() const;
     bool isObject() const;
     bool isGetterSetter() const;
     bool isCustomGetterSetter() const;
@@ -107,12 +106,20 @@ public:
 
     const char* className() const;
 
+    VM* vm() const;
+
     // Extracting the value.
     JS_EXPORT_PRIVATE bool getString(ExecState*, String&) const;
     JS_EXPORT_PRIVATE String getString(ExecState*) const; // null string if not a string
     JS_EXPORT_PRIVATE JSObject* getObject(); // NULL if not an object
     const JSObject* getObject() const; // NULL if not an object
         
+    // Returns information about how to call/construct this cell as a function/constructor. May tell
+    // you that the cell is not callable or constructor (default is that it's not either). If it
+    // says that the function is callable, and the TypeOfShouldCallGetCallData type flag is set, and
+    // this is an object, then typeof will return "function" instead of "object". These methods
+    // cannot change their minds and must be thread-safe. They are sometimes called from compiler
+    // threads.
     JS_EXPORT_PRIVATE static CallType getCallData(JSCell*, CallData&);
     JS_EXPORT_PRIVATE static ConstructType getConstructData(JSCell*, ConstructData&);
 
@@ -145,7 +152,7 @@ public:
     bool isZapped() const { return !*reinterpret_cast<uintptr_t* const*>(this); }
 
     static bool canUseFastGetOwnProperty(const Structure&);
-    JSValue fastGetOwnProperty(VM&, Structure&, const String&);
+    JSValue fastGetOwnProperty(VM&, Structure&, PropertyName);
 
     enum GCData : uint8_t {
         Marked = 0, // The object has survived a GC and is in the old gen.
@@ -214,6 +221,11 @@ protected:
     static NO_RETURN_DUE_TO_CRASH void getOwnPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
     static NO_RETURN_DUE_TO_CRASH void getOwnNonIndexPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
     static NO_RETURN_DUE_TO_CRASH void getPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
+
+    static uint32_t getEnumerableLength(ExecState*, JSObject*);
+    static NO_RETURN_DUE_TO_CRASH void getStructurePropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
+    static NO_RETURN_DUE_TO_CRASH void getGenericPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
+
     static String className(const JSObject*);
     JS_EXPORT_PRIVATE static bool customHasInstance(JSObject*, ExecState*, JSValue);
     static bool defineOwnProperty(JSObject*, ExecState*, PropertyName, const PropertyDescriptor&, bool shouldThrow);
@@ -235,14 +247,14 @@ private:
 template<typename To, typename From>
 inline To jsCast(From* from)
 {
-    ASSERT(!from || from->JSCell::inherits(std::remove_pointer<To>::type::info()));
+    ASSERT_WITH_SECURITY_IMPLICATION(!from || from->JSCell::inherits(std::remove_pointer<To>::type::info()));
     return static_cast<To>(from);
 }
     
 template<typename To>
 inline To jsCast(JSValue from)
 {
-    ASSERT(from.isCell() && from.asCell()->JSCell::inherits(std::remove_pointer<To>::type::info()));
+    ASSERT_WITH_SECURITY_IMPLICATION(from.isCell() && from.asCell()->JSCell::inherits(std::remove_pointer<To>::type::info()));
     return static_cast<To>(from.asCell());
 }
 

@@ -2266,11 +2266,14 @@ S_copy_disabled_interfaces(void)
 
 	    if_name_cf = CFStringCreateWithCString(NULL, if_name(if_p),
 						   kCFStringEncodingUTF8);
-	    if (list == NULL) {
-		list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	    if (if_name_cf != NULL) {
+		if (list == NULL) {
+		    list = CFArrayCreateMutable(NULL, 0,
+						&kCFTypeArrayCallBacks);
+		}
+		CFArrayAppendValue(list, if_name_cf);
+		CFRelease(if_name_cf);
 	    }
-	    CFArrayAppendValue(list, if_name_cf);
-	    CFRelease(if_name_cf);
 	}
     }
     return (list);

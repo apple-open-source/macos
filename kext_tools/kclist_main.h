@@ -37,7 +37,7 @@ enum {
 #define kOptArch   'a'
 
 #define kOptUUID   'u'
-#define kOptNameUUID	"uuid"
+#define kOptNameUUID    "uuid"
 
 #define kOptChars  "a:hvu"
 
@@ -69,8 +69,16 @@ ExitStatus readArgs(
     char * const  ** argv,
     KclistArgs  * toolArgs);
 ExitStatus checkArgs(KclistArgs * toolArgs);
-void listPrelinkedKexts(KclistArgs * toolArgs, CFPropertyListRef kcInfoPlist, const char *prelinkTextBytes, uint64_t prelinkTextSourceAddress, uint64_t prelinkTextSourceSize);
-void printKextInfo(CFDictionaryRef kextPlist, Boolean beVerbose, Boolean printUUIDs, const char *kextTextBytes);
+void listPrelinkedKexts(KclistArgs * toolArgs,
+                        CFPropertyListRef kcInfoPlist,
+                        const char *prelinkTextBytes,
+                        uint64_t prelinkTextSourceAddress,
+                        uint64_t prelinkTextSourceSize,
+                        const NXArchInfo * archInfo);
+void printKextInfo(CFDictionaryRef kextPlist,
+                   Boolean beVerbose,
+                   Boolean printUUIDs,
+                   const char *kextTextBytes);
 
 void usage(UsageLevel usageLevel);
 

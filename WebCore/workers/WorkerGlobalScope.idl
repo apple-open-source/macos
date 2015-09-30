@@ -31,7 +31,6 @@
     JSCustomGetOwnPropertySlotAndDescriptor,
     EventTarget,
     JSLegacyParent=JSWorkerGlobalScopeBase,
-    JSNoStaticTables,
 ] interface WorkerGlobalScope {
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
@@ -40,9 +39,9 @@
     [Replaceable] readonly attribute WorkerLocation location;
     void close();
 
-    attribute EventListener onerror;
-    attribute EventListener onoffline;
-    attribute EventListener ononline;
+    attribute EventHandler onerror;
+    attribute EventHandler onoffline;
+    attribute EventHandler ononline;
 
     // WorkerUtils
 

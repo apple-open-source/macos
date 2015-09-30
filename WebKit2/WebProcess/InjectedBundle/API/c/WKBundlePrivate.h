@@ -40,10 +40,7 @@
 extern "C" {
 #endif
 
-// TestRunner only SPI
-WK_EXPORT void WKBundleSetAlwaysAcceptCookies(WKBundleRef bundle, bool);
-WK_EXPORT void WKBundleRemoveAllVisitedLinks(WKBundleRef bundle);
-WK_EXPORT void WKBundleSetCacheModel(WKBundleRef bundle, uint32_t cacheModel);
+// TestRunner only SPIs.
 // Will make WebProcess ignore this preference until a preferences change notification, only for WebKitTestRunner use.
 WK_EXPORT void WKBundleOverrideBoolPreferenceForTestRunner(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKStringRef preference, bool enabled);
 WK_EXPORT void WKBundleSetAllowUniversalAccessFromFileURLs(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool enabled);
@@ -100,8 +97,6 @@ WK_EXPORT size_t WKBundleGetJavaScriptObjectsCount(WKBundleRef bundle);
 WK_EXPORT bool WKBundleIsProcessingUserGesture(WKBundleRef bundle);
 
 WK_EXPORT void WKBundleSetTabKeyCyclesThroughElements(WKBundleRef bundle, WKBundlePageRef page, bool enabled);
-WK_EXPORT void WKBundleSetSerialLoadingEnabled(WKBundleRef bundle, bool enabled);
-WK_EXPORT void WKBundleDispatchPendingLoadRequests(WKBundleRef bundle);
 
 #ifdef __cplusplus
 }

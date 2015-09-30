@@ -20,6 +20,7 @@
 #include "unicode/numfmt.h"
 #include "unicode/decimfmt.h"
 #include "unicode/rbnf.h"
+#include "unicode/compactdecimalformat.h"
 #include "unicode/ustring.h"
 #include "unicode/fmtable.h"
 #include "unicode/dcfmtsym.h"
@@ -55,6 +56,7 @@ unum_open(  UNumberFormatStyle    style,
     case UNUM_CURRENCY_ISO:
     case UNUM_CURRENCY_PLURAL:
     case UNUM_CURRENCY_ACCOUNTING:
+    case UNUM_CASH_CURRENCY:
         retVal = NumberFormat::createInstance(Locale(locale), style, *status);
         break;
 
@@ -112,6 +114,14 @@ unum_open(  UNumberFormatStyle    style,
         retVal = new RuleBasedNumberFormat(URBNF_NUMBERING_SYSTEM, Locale(locale), *status);
         break;
 #endif
+
+    case UNUM_DECIMAL_COMPACT_SHORT:
+        retVal = CompactDecimalFormat::createInstance(Locale(locale), UNUM_SHORT, *status);
+        break;
+
+    case UNUM_DECIMAL_COMPACT_LONG:
+        retVal = CompactDecimalFormat::createInstance(Locale(locale), UNUM_LONG, *status);
+        break;
 
     default:
         *status = U_UNSUPPORTED_ERROR;
@@ -191,7 +201,12 @@ unum_formatInt64(const UNumberFormat* fmt,
     if(pos != 0)
         fp.setField(pos->field);
     
-    ((const NumberFormat*)fmt)->format(number, res, fp, *status);
+    const CompactDecimalFormat* cdf = dynamic_cast<const CompactDecimalFormat*>((const NumberFormat*)fmt);
+    if (cdf != NULL) {
+        cdf->format(number, res, fp); // CompactDecimalFormat does not override the version with UErrorCode& !!
+    } else {
+        ((const NumberFormat*)fmt)->format(number, res, fp, *status);
+    }
 
     if(pos != 0) {
         pos->beginIndex = fp.getBeginIndex();
@@ -224,7 +239,12 @@ unum_formatDouble(    const    UNumberFormat*  fmt,
   if(pos != 0)
     fp.setField(pos->field);
   
-  ((const NumberFormat*)fmt)->format(number, res, fp, *status);
+  const CompactDecimalFormat* cdf = dynamic_cast<const CompactDecimalFormat*>((const NumberFormat*)fmt);
+  if (cdf != NULL) {
+      cdf->format(number, res, fp); // CompactDecimalFormat does not override the version with UErrorCode& !!
+  } else {
+      ((const NumberFormat*)fmt)->format(number, res, fp, *status);
+  }
   
   if(pos != 0) {
     pos->beginIndex = fp.getBeginIndex();

@@ -24,7 +24,6 @@
  */
 
 #include "BAssert.h"
-#include "BeginTag.h"
 #include "LargeChunk.h"
 #include "Deallocator.h"
 #include "Heap.h"
@@ -32,17 +31,21 @@
 #include "PerProcess.h"
 #include "SmallChunk.h"
 #include <algorithm>
+#include <cstdlib>
 #include <sys/mman.h>
 
 using namespace std;
 
 namespace bmalloc {
 
-Deallocator::Deallocator()
-    : m_objectLog()
-    , m_smallLineCaches()
-    , m_mediumLineCache()
+Deallocator::Deallocator(Heap* heap)
+    : m_isBmallocEnabled(heap->environment().isBmallocEnabled())
 {
+    if (!m_isBmallocEnabled) {
+        // Fill the object log in order to disable the fast path.
+        while (m_objectLog.size() != m_objectLog.capacity())
+            m_objectLog.push(nullptr);
+    }
 }
 
 Deallocator::~Deallocator()
@@ -52,17 +55,8 @@ Deallocator::~Deallocator()
     
 void Deallocator::scavenge()
 {
-    processObjectLog();
-    
-    std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
-    Heap* heap = PerProcess<Heap>::getFastCase();
-    
-    for (auto& smallLineCache : m_smallLineCaches) {
-        while (smallLineCache.size())
-            heap->deallocateSmallLine(lock, smallLineCache.pop());
-    }
-    while (m_mediumLineCache.size())
-        heap->deallocateMediumLine(lock, m_mediumLineCache.pop());
+    if (m_isBmallocEnabled)
+        processObjectLog();
 }
 
 void Deallocator::deallocateLarge(void* object)
@@ -73,26 +67,23 @@ void Deallocator::deallocateLarge(void* object)
 
 void Deallocator::deallocateXLarge(void* object)
 {
-    std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
+    std::unique_lock<StaticMutex> lock(PerProcess<Heap>::mutex());
     PerProcess<Heap>::getFastCase()->deallocateXLarge(lock, object);
 }
 
 void Deallocator::processObjectLog()
 {
     std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
+    Heap* heap = PerProcess<Heap>::getFastCase();
     
     for (auto object : m_objectLog) {
         if (isSmall(object)) {
             SmallLine* line = SmallLine::get(object);
-            if (!line->deref(lock))
-                continue;
-            deallocateSmallLine(lock, line);
+            heap->derefSmallLine(lock, line);
         } else {
-            BASSERT(isSmallOrMedium(object));
+            BASSERT(isMedium(object));
             MediumLine* line = MediumLine::get(object);
-            if (!line->deref(lock))
-                continue;
-            deallocateMediumLine(lock, line);
+            heap->derefMediumLine(lock, line);
         }
     }
     
@@ -102,7 +93,13 @@ void Deallocator::processObjectLog()
 void Deallocator::deallocateSlowCase(void* object)
 {
     BASSERT(!deallocateFastCase(object));
+    
+    if (!m_isBmallocEnabled) {
+        free(object);
+        return;
+    }
 
+    BASSERT(objectType(nullptr) == XLarge);
     if (!object)
         return;
 
@@ -112,55 +109,10 @@ void Deallocator::deallocateSlowCase(void* object)
         return;
     }
 
-    BeginTag* beginTag = LargeChunk::beginTag(object);
-    if (!beginTag->isXLarge())
+    if (!isXLarge(object))
         return deallocateLarge(object);
     
     return deallocateXLarge(object);
-}
-
-void Deallocator::deallocateSmallLine(std::lock_guard<StaticMutex>& lock, SmallLine* line)
-{
-    SmallLineCache& smallLineCache = m_smallLineCaches[SmallPage::get(line)->smallSizeClass()];
-    if (smallLineCache.size() == smallLineCache.capacity())
-        return PerProcess<Heap>::getFastCase()->deallocateSmallLine(lock, line);
-
-    smallLineCache.push(line);
-}
-
-SmallLine* Deallocator::allocateSmallLine(size_t smallSizeClass)
-{
-    SmallLineCache& smallLineCache = m_smallLineCaches[smallSizeClass];
-    if (!smallLineCache.size()) {
-        std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
-        Heap* heap = PerProcess<Heap>::getFastCase();
-
-        while (smallLineCache.size() != smallLineCache.capacity())
-            smallLineCache.push(heap->allocateSmallLine(lock, smallSizeClass));
-    }
-
-    return smallLineCache.pop();
-}
-
-void Deallocator::deallocateMediumLine(std::lock_guard<StaticMutex>& lock, MediumLine* line)
-{
-    if (m_mediumLineCache.size() == m_mediumLineCache.capacity())
-        return PerProcess<Heap>::getFastCase()->deallocateMediumLine(lock, line);
-
-    m_mediumLineCache.push(line);
-}
-
-MediumLine* Deallocator::allocateMediumLine()
-{
-    if (!m_mediumLineCache.size()) {
-        std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
-        Heap* heap = PerProcess<Heap>::getFastCase();
-
-        while (m_mediumLineCache.size() != m_mediumLineCache.capacity())
-            m_mediumLineCache.push(heap->allocateMediumLine(lock));
-    }
-
-    return m_mediumLineCache.pop();
 }
 
 } // namespace bmalloc

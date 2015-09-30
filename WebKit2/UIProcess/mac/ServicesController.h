@@ -34,13 +34,11 @@
 
 namespace WebKit {
 
-class WebContext;
-
 class ServicesController {
     WTF_MAKE_NONCOPYABLE(ServicesController);
     friend class NeverDestroyed<ServicesController>;
 public:
-    static ServicesController& shared();
+    static ServicesController& singleton();
 
     bool hasImageServices() const { return m_hasImageServices; }
     bool hasSelectionServices() const { return m_hasSelectionServices; }

@@ -132,7 +132,7 @@ main(argc, argv)
 	bcc = NULL;
 	smopts = NULL;
 	subject = NULL;
-	while ((i = getopt(argc, argv, "FEHIN:b:c:edfins:u:v")) != -1) {
+	while ((i = getopt(argc, argv, "FEHINb:c:edfins:u:v")) != -1) {
 		switch (i) {
 		case 'u':
 			/*

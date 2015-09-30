@@ -197,6 +197,7 @@ struct _krb5_krb_auth_data;
 
 #include "heim_threads.h"
 #include "crypto.h"
+#include "dns_sd.h"
 
 #include <krb5-private.h>
 
@@ -254,12 +255,13 @@ struct _krb5_get_init_creds_opt_private {
     krb5_pk_init_ctx pk_init_ctx;
     krb5_get_init_creds_tristate addressless;
     int flags;
-#define KRB5_INIT_CREDS_DONE			1
-#define KRB5_INIT_CREDS_CANONICALIZE		2
-#define KRB5_INIT_CREDS_NO_C_CANON_CHECK	4
-#define KRB5_INIT_CREDS_NO_C_NO_EKU_CHECK	8
-#define KRB5_INIT_CREDS_PKU2U			16
-#define KRB5_INIT_CREDS_PKINIT_KX_VALID		32
+#define KRB5_INIT_CREDS_DONE					1
+#define KRB5_INIT_CREDS_CANONICALIZE				2
+#define KRB5_INIT_CREDS_NO_C_CANON_CHECK			4
+#define KRB5_INIT_CREDS_NO_C_NO_EKU_CHECK			8
+#define KRB5_INIT_CREDS_PKU2U					16
+#define KRB5_INIT_CREDS_PKINIT_KX_VALID				32
+#define KRB5_INIT_CREDS_PKINIT_NO_KRBTGT_OTHERNAME_CHECK	64
     struct {
         krb5_gic_process_last_req func;
         void *ctx;
@@ -334,8 +336,8 @@ typedef struct krb5_context_data {
 #define KRB5_DEFAULT_CCNAME_FILE "FILE:%{TEMP}/krb5cc_%{uid}"
 #endif
 #define KRB5_DEFAULT_CCNAME_API "API:"
-#define KRB5_DEFAULT_CCNAME_KCM_KCM "KCM:%{uid}"
-#define KRB5_DEFAULT_CCNAME_KCM_API "API:%{uid}"
+#define KRB5_DEFAULT_CCNAME_KCM_KCM "KCM:%{uid}-%{asid}"
+#define KRB5_DEFAULT_CCNAME_KCM_API "API:%{uid}-%{asid}"
 
 #define EXTRACT_TICKET_ALLOW_CNAME_MISMATCH		1
 #define EXTRACT_TICKET_ALLOW_SERVER_MISMATCH		2
@@ -392,10 +394,26 @@ enum krb5_pk_type {
 
 #endif /* PKINIT */
 
+struct _krb5_srv_query_ctx;
+
+
 struct srv_reply {
-    krb5_krbhst_info *hi;
+    struct heim_base_uniq base;
+    uint16_t port;
     uint16_t priority;
     int32_t weight;
+    struct _krb5_srv_query_ctx *query;
+    heim_sema_t sema;
+    DNSServiceRef srv_sd;
+    char *hostname;
+    krb5_krbhst_info *hostinfo;
+    struct {
+	unsigned int getAddrDone:1;
+	unsigned int recvIPv4:1;
+	unsigned int recvIPv6:1;
+	unsigned int failedIPv4:1;
+	unsigned int failedIPv6:1;
+    } flags;
 };
 
 struct _krb5_srv_query_ctx {
@@ -409,11 +427,13 @@ struct _krb5_srv_query_ctx {
     const char *path;
 
 #ifdef __APPLE__
-    int queryPostProcessingDone;
+    struct {
+	unsigned srvQueryDone:1;
+    } state;
     int port;
 
     /* replys */
-    struct srv_reply *array;
+    struct srv_reply **array;
     size_t len;
 #endif
 };

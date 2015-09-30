@@ -26,11 +26,20 @@
 #ifndef PerThread_h
 #define PerThread_h
 
+#include "BPlatform.h"
 #include "Inline.h"
 #include <mutex>
 #include <pthread.h>
-#if defined(__has_include) && __has_include(<System/pthread_machdep.h>)
+
+#if defined(__has_include)
+#if __has_include(<System/pthread_machdep.h>)
 #include <System/pthread_machdep.h>
+#define HAVE_PTHREAD_MACHDEP_H 1
+#else
+#define HAVE_PTHREAD_MACHDEP_H 0
+#endif
+#else
+#define HAVE_PTHREAD_MACHDEP_H 0
 #endif
 
 namespace bmalloc {
@@ -49,18 +58,21 @@ private:
     static void destructor(void*);
 };
 
+#if HAVE_PTHREAD_MACHDEP_H
+
 class Cache;
-
 template<typename T> struct PerThreadStorage;
-
-#if defined(__has_include) && __has_include(<System/pthread_machdep.h>)
 
 // For now, we only support PerThread<Cache>. We can expand to other types by
 // using more keys.
-
 template<> struct PerThreadStorage<Cache> {
     static const pthread_key_t key = __PTK_FRAMEWORK_JAVASCRIPTCORE_KEY0;
-    static void* get() { return _pthread_getspecific_direct(key); }
+
+    static void* get()
+    {
+        return _pthread_getspecific_direct(key);
+    }
+
     static void init(void* object, void (*destructor)(void*))
     {
         _pthread_setspecific_direct(key, object);
@@ -71,26 +83,32 @@ template<> struct PerThreadStorage<Cache> {
 #else
 
 template<typename T> struct PerThreadStorage {
-    static __thread void* object;
-    static pthread_key_t key;
-    static std::once_flag onceFlag;
-
-    static void* get() { return object; }
+    static bool s_didInitialize;
+    static pthread_key_t s_key;
+    static std::once_flag s_onceFlag;
+    
+    static void* get()
+    {
+        if (!s_didInitialize)
+            return nullptr;
+        return pthread_getspecific(s_key);
+    }
+    
     static void init(void* object, void (*destructor)(void*))
     {
-        std::call_once(onceFlag, [destructor]() {
-            pthread_key_create(&key, destructor);
+        std::call_once(s_onceFlag, [destructor]() {
+            pthread_key_create(&s_key, destructor);
+            s_didInitialize = true;
         });
-        pthread_setspecific(key, object);
-        PerThreadStorage<Cache>::object = object;
+        pthread_setspecific(s_key, object);
     }
 };
 
-template<typename T> __thread void* PerThreadStorage<T>::object;
-template<typename T> pthread_key_t PerThreadStorage<T>::key;
-template<typename T> std::once_flag PerThreadStorage<T>::onceFlag;
+template<typename T> bool PerThreadStorage<T>::s_didInitialize;
+template<typename T> pthread_key_t PerThreadStorage<T>::s_key;
+template<typename T> std::once_flag PerThreadStorage<T>::s_onceFlag;
 
-#endif // defined(__has_include) && __has_include(<System/pthread_machdep.h>)
+#endif
 
 template<typename T>
 INLINE T* PerThread<T>::getFastCase()

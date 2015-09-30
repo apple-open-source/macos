@@ -29,17 +29,17 @@
 #include "GraphicsContextCG.h"
 
 #include "AffineTransform.h"
+#include "CoreGraphicsSPI.h"
 #include "FloatConversion.h"
 #include "GraphicsContextPlatformPrivateCG.h"
 #include "ImageBuffer.h"
 #include "ImageOrientation.h"
-#include "URL.h"
 #include "Path.h"
 #include "Pattern.h"
 #include "ShadowBlur.h"
 #include "SubimageCacheWithTimer.h"
 #include "Timer.h"
-#include <CoreGraphics/CoreGraphics.h>
+#include "URL.h"
 #include <wtf/MathExtras.h>
 #include <wtf/RetainPtr.h>
 
@@ -52,16 +52,8 @@
 #endif
 
 #if PLATFORM(IOS)
-#include <CoreGraphics/CGContextGState.h>
 #include <wtf/HashMap.h>
 #endif
-
-#if !PLATFORM(IOS)
-extern "C" {
-    CG_EXTERN void CGContextSetCTM(CGContextRef, CGAffineTransform);
-    CG_EXTERN CGAffineTransform CGContextGetBaseCTM(CGContextRef);
-};
-#endif // !PLATFORM(IOS)
 
 // FIXME: The following using declaration should be in <wtf/HashFunctions.h>.
 using WTF::pairIntHash;
@@ -104,14 +96,6 @@ CGColorSpaceRef sRGBColorSpaceRef()
 #endif // PLATFORM(IOS)
 }
 
-#if PLATFORM(IOS)
-void setStrokeAndFillColor(CGContextRef context, CGColorRef color)
-{
-    CGContextSetStrokeColorWithColor(context, color);
-    CGContextSetFillColorWithColor(context, color);
-}
-#endif // PLATFORM(IOS)
-
 #if PLATFORM(WIN) || PLATFORM(IOS)
 CGColorSpaceRef linearRGBColorSpaceRef()
 {
@@ -120,23 +104,15 @@ CGColorSpaceRef linearRGBColorSpaceRef()
 }
 #endif
 
-void GraphicsContext::platformInit(CGContextRef cgContext, bool shouldUseContextColors)
+void GraphicsContext::platformInit(CGContextRef cgContext)
 {
     m_data = new GraphicsContextPlatformPrivate(cgContext);
     setPaintingDisabled(!cgContext);
     if (cgContext) {
-#if PLATFORM(IOS)
-        m_state.shouldUseContextColors = shouldUseContextColors;
-        if (shouldUseContextColors) {
-#else
-        UNUSED_PARAM(shouldUseContextColors);
-#endif
         // Make sure the context starts in sync with our state.
         setPlatformFillColor(fillColor(), fillColorSpace());
         setPlatformStrokeColor(strokeColor(), strokeColorSpace());
-#if PLATFORM(IOS)
-        }
-#endif
+        setPlatformStrokeThickness(strokeThickness());
     }
 }
 
@@ -169,18 +145,11 @@ void GraphicsContext::restorePlatformState()
     m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
-void GraphicsContext::drawNativeImage(PassNativeImagePtr imagePtr, const FloatSize& imageSize, ColorSpace styleColorSpace, const FloatRect& destRect, const FloatRect& srcRect, float scale, CompositeOperator op, BlendMode blendMode, ImageOrientation orientation)
+void GraphicsContext::drawNativeImage(PassNativeImagePtr imagePtr, const FloatSize& imageSize, ColorSpace styleColorSpace, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, BlendMode blendMode, ImageOrientation orientation)
 {
     RetainPtr<CGImageRef> image(imagePtr);
 
     float currHeight = orientation.usesWidthAsHeight() ? CGImageGetWidth(image.get()) : CGImageGetHeight(image.get());
-#if PLATFORM(IOS)
-    // Unapply the scaling since we are getting this from a scaled bitmap.
-    currHeight /= scale;
-#else
-    UNUSED_PARAM(scale);
-#endif
-
     if (currHeight <= srcRect.y())
         return;
 
@@ -221,9 +190,6 @@ void GraphicsContext::drawNativeImage(PassNativeImagePtr imagePtr, const FloatSi
             subimageRect.setHeight(ceilf(subimageRect.height() + topPadding));
             adjustedDestRect.setHeight(subimageRect.height() / yScale);
 
-#if PLATFORM(IOS)
-            subimageRect.scale(scale, scale);
-#endif
 #if CACHE_SUBIMAGES
             image = subimageCache().getSubimage(image.get(), subimageRect);
 #else
@@ -319,119 +285,85 @@ void GraphicsContext::drawLine(const FloatPoint& point1, const FloatPoint& point
     if (strokeStyle() == NoStroke)
         return;
 
-    float width = strokeThickness();
+    float thickness = strokeThickness();
+    bool isVerticalLine = (point1.x() + thickness == point2.x());
+    float strokeWidth = isVerticalLine ? point2.y() - point1.y() : point2.x() - point1.x();
+    if (!thickness || !strokeWidth)
+        return;
+
+    CGContextRef context = platformContext();
+    StrokeStyle strokeStyle = this->strokeStyle();
+    float cornerWidth = 0;
+    bool drawsDashedLine = strokeStyle == DottedStroke || strokeStyle == DashedStroke;
+
+    if (drawsDashedLine) {
+        CGContextSaveGState(context);
+        // Figure out end points to ensure we always paint corners.
+        cornerWidth = strokeStyle == DottedStroke ? thickness : std::min(2 * thickness, std::max(thickness, strokeWidth / 3));
+        setCGFillColor(context, strokeColor(), strokeColorSpace());
+        if (isVerticalLine) {
+            CGContextFillRect(context, FloatRect(point1.x(), point1.y(), thickness, cornerWidth));
+            CGContextFillRect(context, FloatRect(point1.x(), point2.y() - cornerWidth, thickness, cornerWidth));
+        } else {
+            CGContextFillRect(context, FloatRect(point1.x(), point1.y(), cornerWidth, thickness));
+            CGContextFillRect(context, FloatRect(point2.x() - cornerWidth, point1.y(), cornerWidth, thickness));
+        }
+        strokeWidth -= 2 * cornerWidth;
+        float patternWidth = strokeStyle == DottedStroke ? thickness : std::min(3 * thickness, std::max(thickness, strokeWidth / 3));
+        // Check if corner drawing sufficiently covers the line.
+        if (strokeWidth <= patternWidth + 1) {
+            CGContextRestoreGState(context);
+            return;
+        }
+
+        // Pattern starts with full fill and ends with the empty fill.
+        // 1. Let's start with the empty phase after the corner.
+        // 2. Check if we've got odd or even number of patterns and whether they fully cover the line.
+        // 3. In case of even number of patterns and/or remainder, move the pattern start position
+        // so that the pattern is balanced between the corners.
+        float patternOffset = patternWidth;
+        int numberOfSegments = floorf(strokeWidth / patternWidth);
+        bool oddNumberOfSegments = numberOfSegments % 2;
+        float remainder = strokeWidth - (numberOfSegments * patternWidth);
+        if (oddNumberOfSegments && remainder)
+            patternOffset -= remainder / 2;
+        else if (!oddNumberOfSegments) {
+            if (remainder)
+                patternOffset += patternOffset - (patternWidth + remainder)  / 2;
+            else
+                patternOffset += patternWidth  / 2;
+        }
+        const CGFloat dashedLine[2] = { static_cast<CGFloat>(patternWidth), static_cast<CGFloat>(patternWidth) };
+        CGContextSetLineDash(context, patternOffset, dashedLine, 2);
+    }
 
     FloatPoint p1 = point1;
     FloatPoint p2 = point2;
-    bool isVerticalLine = (p1.x() == p2.x());
-    
-    // For odd widths, we add in 0.5 to the appropriate x/y so that the float arithmetic
-    // works out.  For example, with a border width of 3, KHTML will pass us (y1+y2)/2, e.g.,
-    // (50+53)/2 = 103/2 = 51 when we want 51.5. It is always true that an even width gave
-    // us a perfect position, but an odd width gave us a position that is off by exactly 0.5.
-    if (strokeStyle() == DottedStroke || strokeStyle() == DashedStroke) {
-        if (isVerticalLine) {
-            p1.move(0, width);
-            p2.move(0, -width);
-        } else {
-            p1.move(width, 0);
-            p2.move(-width, 0);
-        }
+    // Center line and cut off corners for pattern patining.
+    if (isVerticalLine) {
+        float centerOffset = (p2.x() - p1.x()) / 2;
+        p1.move(centerOffset, cornerWidth);
+        p2.move(-centerOffset, -cornerWidth);
+    } else {
+        float centerOffset = (p2.y() - p1.y()) / 2;
+        p1.move(cornerWidth, centerOffset);
+        p2.move(-cornerWidth, -centerOffset);
     }
-    
-    if (((int)width) % 2) {
-        if (isVerticalLine) {
-            // We're a vertical line.  Adjust our x.
-            p1.move(0.5f, 0.0f);
-            p2.move(0.5f, 0.0f);
-        } else {
-            // We're a horizontal line. Adjust our y.
-            p1.move(0.0f, 0.5f);
-            p2.move(0.0f, 0.5f);
-        }
-    }
-    
-    int patWidth = 0;
-    switch (strokeStyle()) {
-    case NoStroke:
-    case SolidStroke:
-    case DoubleStroke:
-    case WavyStroke: // FIXME: https://bugs.webkit.org/show_bug.cgi?id=94112 - Needs platform support.
-        break;
-    case DottedStroke:
-        patWidth = (int)width;
-        break;
-    case DashedStroke:
-        patWidth = 3 * (int)width;
-        break;
-    }
-
-    CGContextRef context = platformContext();
 
     if (shouldAntialias()) {
-        bool willAntialias = false;
 #if PLATFORM(IOS)
         // Force antialiasing on for line patterns as they don't look good with it turned off (<rdar://problem/5459772>).
-        willAntialias = patWidth;
+        CGContextSetShouldAntialias(context, strokeStyle == DottedStroke || strokeStyle == DashedStroke);
+#else
+        CGContextSetShouldAntialias(context, false);
 #endif
-        CGContextSetShouldAntialias(context, willAntialias);
     }
-
-    if (patWidth) {
-        CGContextSaveGState(context);
-
-        // Do a rect fill of our endpoints.  This ensures we always have the
-        // appearance of being a border.  We then draw the actual dotted/dashed line.
-        setCGFillColor(context, strokeColor(), strokeColorSpace());  // The save/restore make it safe to mutate the fill color here without setting it back to the old color.
-        if (isVerticalLine) {
-            CGContextFillRect(context, FloatRect(p1.x() - width / 2, p1.y() - width, width, width));
-            CGContextFillRect(context, FloatRect(p2.x() - width / 2, p2.y(), width, width));
-        } else {
-            CGContextFillRect(context, FloatRect(p1.x() - width, p1.y() - width / 2, width, width));
-            CGContextFillRect(context, FloatRect(p2.x(), p2.y() - width / 2, width, width));
-        }
-
-        // Example: 80 pixels with a width of 30 pixels.
-        // Remainder is 20.  The maximum pixels of line we could paint
-        // will be 50 pixels.
-        int distance = (isVerticalLine ? (int)(point2.y() - point1.y()) : (point2.x() - point1.x())) - 2*(int)width;
-        int remainder = distance % patWidth;
-        int coverage = distance - remainder;
-        int numSegments = coverage / patWidth;
-
-        float patternOffset = 0.0f;
-        // Special case 1px dotted borders for speed.
-        if (patWidth == 1)
-            patternOffset = 1.0f;
-        else {
-            bool evenNumberOfSegments = !(numSegments % 2);
-            if (remainder)
-                evenNumberOfSegments = !evenNumberOfSegments;
-            if (evenNumberOfSegments) {
-                if (remainder) {
-                    patternOffset += patWidth - remainder;
-                    patternOffset += remainder / 2;
-                } else
-                    patternOffset = patWidth / 2;
-            } else {
-                if (remainder)
-                    patternOffset = (patWidth - remainder)/2;
-            }
-        }
-
-        const CGFloat dottedLine[2] = { static_cast<CGFloat>(patWidth), static_cast<CGFloat>(patWidth) };
-        CGContextSetLineDash(context, patternOffset, dottedLine, 2);
-    }
-
     CGContextBeginPath(context);
     CGContextMoveToPoint(context, p1.x(), p1.y());
     CGContextAddLineToPoint(context, p2.x(), p2.y());
-
     CGContextStrokePath(context);
-
-    if (patWidth)
+    if (drawsDashedLine)
         CGContextRestoreGState(context);
-
     if (shouldAntialias())
         CGContextSetShouldAntialias(context, true);
 }
@@ -466,8 +398,7 @@ void GraphicsContext::drawJoinedLines(CGPoint points[], unsigned count, bool ant
 }
 #endif
 
-// This method is only used to draw the little circles used in lists.
-void GraphicsContext::drawEllipse(const IntRect& rect)
+void GraphicsContext::drawEllipse(const FloatRect& rect)
 {
     if (paintingDisabled())
         return;
@@ -476,31 +407,6 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
     path.addEllipse(rect);
     drawPath(path);
 }
-
-#if PLATFORM(IOS)
-void GraphicsContext::drawEllipse(const FloatRect& rect)
-{
-    if (paintingDisabled())
-        return;
-
-    CGContextRef context(platformContext());
-
-    CGContextSaveGState(context);
-
-    setCGFillColor(context, fillColor(), fillColorSpace());
-    setCGStrokeColor(context, strokeColor(), strokeColorSpace());
-
-    CGContextSetLineWidth(context, strokeThickness());
-    
-    CGContextBeginPath(context);
-    CGContextAddEllipseInRect(context, rect);
-
-    CGContextFillPath(context);
-    CGContextStrokePath(context);
-    
-    CGContextRestoreGState(context);
-}
-#endif
 
 static void addConvexPolygonToPath(Path& path, size_t numberOfPoints, const FloatPoint* points)
 {
@@ -1094,13 +1000,6 @@ void GraphicsContext::setMiterLimit(float limit)
     CGContextSetMiterLimit(platformContext(), limit);
 }
 
-void GraphicsContext::setAlpha(float alpha)
-{
-    if (paintingDisabled())
-        return;
-    CGContextSetAlpha(platformContext(), alpha);
-}
-
 void GraphicsContext::clearRect(const FloatRect& r)
 {
     if (paintingDisabled())
@@ -1161,7 +1060,19 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
 
     if (m_state.strokePattern)
         applyStrokePattern();
-    CGContextStrokeRectWithWidth(context, rect, lineWidth);
+
+    // Using CGContextAddRect and CGContextStrokePath to stroke rect rather than
+    // convenience functions (CGContextStrokeRect/CGContextStrokeRectWithWidth).
+    // The convenience functions currently (in at least OSX 10.9.4) fail to
+    // apply some attributes of the graphics state in certain cases
+    // (as identified in https://bugs.webkit.org/show_bug.cgi?id=132948)
+    CGContextSaveGState(context);
+    setStrokeThickness(lineWidth);
+
+    CGContextAddRect(context, rect);
+    CGContextStrokePath(context);
+
+    CGContextRestoreGState(context);
 }
 
 void GraphicsContext::setLineCap(LineCap cap)
@@ -1393,19 +1304,13 @@ void GraphicsContext::drawLinesForText(const FloatPoint& point, const DashArray&
             dashBounds.append(CGRectMake(bounds.x() + widths[i], bounds.y() + 2 * bounds.height(), widths[i+1] - widths[i], bounds.height()));
     }
 
-#if PLATFORM(IOS)
-    if (m_state.shouldUseContextColors)
-#endif
-        if (fillColorIsNotEqualToStrokeColor)
-            setCGFillColor(platformContext(), localStrokeColor, strokeColorSpace());
+    if (fillColorIsNotEqualToStrokeColor)
+        setCGFillColor(platformContext(), localStrokeColor, strokeColorSpace());
 
     CGContextFillRects(platformContext(), dashBounds.data(), dashBounds.size());
 
-#if PLATFORM(IOS)
-    if (m_state.shouldUseContextColors)
-#endif
-        if (fillColorIsNotEqualToStrokeColor)
-            setCGFillColor(platformContext(), fillColor(), fillColorSpace());
+    if (fillColorIsNotEqualToStrokeColor)
+        setCGFillColor(platformContext(), fillColor(), fillColorSpace());
 }
 
 void GraphicsContext::setURLForRect(const URL& link, const IntRect& destRect)
@@ -1549,7 +1454,7 @@ void GraphicsContext::setPlatformStrokeThickness(float thickness)
 {
     if (paintingDisabled())
         return;
-    CGContextSetLineWidth(platformContext(), thickness);
+    CGContextSetLineWidth(platformContext(), std::max(thickness, 0.f));
 }
 
 void GraphicsContext::setPlatformFillColor(const Color& color, ColorSpace colorSpace)
@@ -1571,6 +1476,13 @@ void GraphicsContext::setPlatformShouldSmoothFonts(bool enable)
     if (paintingDisabled())
         return;
     CGContextSetShouldSmoothFonts(platformContext(), enable);
+}
+
+void GraphicsContext::setPlatformAlpha(float alpha)
+{
+    if (paintingDisabled())
+        return;
+    CGContextSetAlpha(platformContext(), alpha);
 }
 
 void GraphicsContext::setPlatformCompositeOperation(CompositeOperator mode, BlendMode blendMode)
@@ -1625,6 +1537,12 @@ void GraphicsContext::setPlatformCompositeOperation(CompositeOperator mode, Blen
             break;
         case BlendModeLuminosity:
             target = kCGBlendModeLuminosity;
+            break;
+        case BlendModePlusDarker:
+            target = kCGBlendModePlusDarker;
+            break;
+        case BlendModePlusLighter:
+            target = kCGBlendModePlusLighter;
             break;
         default:
             break;

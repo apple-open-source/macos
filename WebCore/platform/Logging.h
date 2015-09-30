@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2013 Apple Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006, 2013, 2015 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,12 +42,14 @@ namespace WebCore {
     M(Archives) \
     M(BackForward) \
     M(Compositing) \
-    M(DiskImageCache) \
+    M(ContentFiltering) \
+    M(DOMTimers) \
     M(Editing) \
     M(Events) \
     M(FTP) \
     M(FileAPI) \
     M(Frames) \
+    M(Fullscreen) \
     M(Gamepad) \
     M(History) \
     M(IconDatabase) \
@@ -67,16 +69,17 @@ namespace WebCore {
     M(RemoteInspector) \
     M(ResourceLoading) \
     M(SQLDatabase) \
+    M(Services) \
     M(SpellingAndGrammar) \
     M(StorageAPI) \
     M(Threading) \
     M(WebAudio) \
     M(WebGL) \
     M(WebReplay) \
-    M(Services) \
+    M(WheelEventTestTriggers) \
 
 #define DECLARE_LOG_CHANNEL(name) \
-    extern WTFLogChannel JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, name);
+    WEBCORE_EXPORT extern WTFLogChannel JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, name);
 
 WEBCORE_LOG_CHANNELS(DECLARE_LOG_CHANNEL)
 
@@ -84,7 +87,7 @@ WEBCORE_LOG_CHANNELS(DECLARE_LOG_CHANNEL)
 
     String logLevelString();
     bool isLogChannelEnabled(const String& name);
-    void initializeLoggingChannelsIfNecessary();
+    WEBCORE_EXPORT void initializeLoggingChannelsIfNecessary();
 }
 
 #endif // !LOG_DISABLED

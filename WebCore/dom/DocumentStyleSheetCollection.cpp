@@ -45,9 +45,11 @@
 #include "StyleSheetList.h"
 #include "UserContentController.h"
 #include "UserContentURLPattern.h"
+#include "UserStyleSheet.h"
 
 namespace WebCore {
 
+using namespace ContentExtensions;
 using namespace HTMLNames;
 
 DocumentStyleSheetCollection::DocumentStyleSheetCollection(Document& document)
@@ -56,13 +58,11 @@ DocumentStyleSheetCollection::DocumentStyleSheetCollection(Document& document)
     , m_injectedStyleSheetCacheValid(false)
     , m_hadActiveLoadingStylesheet(false)
     , m_pendingUpdateType(NoUpdate)
-    , m_usesSiblingRules(false)
-    , m_usesSiblingRulesOverride(false)
     , m_usesFirstLineRules(false)
     , m_usesFirstLetterRules(false)
-    , m_usesBeforeAfterRules(false)
-    , m_usesBeforeAfterRulesOverride(false)
     , m_usesRemUnits(false)
+    , m_usesStyleBasedEditability(false)
+    , m_styleResolverChangedTimer(*this, &DocumentStyleSheetCollection::styleResolverChangedTimerFired)
 {
 }
 
@@ -70,19 +70,15 @@ void DocumentStyleSheetCollection::combineCSSFeatureFlags()
 {
     // Delay resetting the flags until after next style recalc since unapplying the style may not work without these set (this is true at least with before/after).
     const StyleResolver& styleResolver = m_document.ensureStyleResolver();
-    m_usesSiblingRules = m_usesSiblingRules || styleResolver.usesSiblingRules();
     m_usesFirstLineRules = m_usesFirstLineRules || styleResolver.usesFirstLineRules();
     m_usesFirstLetterRules = m_usesFirstLetterRules || styleResolver.usesFirstLetterRules();
-    m_usesBeforeAfterRules = m_usesBeforeAfterRules || styleResolver.usesBeforeAfterRules();
 }
 
 void DocumentStyleSheetCollection::resetCSSFeatureFlags()
 {
     const StyleResolver& styleResolver = m_document.ensureStyleResolver();
-    m_usesSiblingRules = styleResolver.usesSiblingRules();
     m_usesFirstLineRules = styleResolver.usesFirstLineRules();
     m_usesFirstLetterRules = styleResolver.usesFirstLetterRules();
-    m_usesBeforeAfterRules = styleResolver.usesBeforeAfterRules();
 }
 
 CSSStyleSheet* DocumentStyleSheetCollection::pageUserSheet()
@@ -108,7 +104,7 @@ CSSStyleSheet* DocumentStyleSheetCollection::pageUserSheet()
 void DocumentStyleSheetCollection::clearPageUserSheet()
 {
     if (m_pageUserSheet) {
-        m_pageUserSheet = 0;
+        m_pageUserSheet = nullptr;
         m_document.styleResolverChanged(DeferRecalcStyle);
     }
 }
@@ -183,17 +179,49 @@ void DocumentStyleSheetCollection::invalidateInjectedStyleSheetCache()
     m_document.styleResolverChanged(DeferRecalcStyle);
 }
 
-void DocumentStyleSheetCollection::addAuthorSheet(PassRef<StyleSheetContents> authorSheet)
+void DocumentStyleSheetCollection::addAuthorSheet(Ref<StyleSheetContents>&& authorSheet)
 {
     ASSERT(!authorSheet.get().isUserStyleSheet());
     m_authorStyleSheets.append(CSSStyleSheet::create(WTF::move(authorSheet), &m_document));
     m_document.styleResolverChanged(RecalcStyleImmediately);
 }
 
-void DocumentStyleSheetCollection::addUserSheet(PassRef<StyleSheetContents> userSheet)
+void DocumentStyleSheetCollection::addUserSheet(Ref<StyleSheetContents>&& userSheet)
 {
     ASSERT(userSheet.get().isUserStyleSheet());
     m_userStyleSheets.append(CSSStyleSheet::create(WTF::move(userSheet), &m_document));
+    m_document.styleResolverChanged(RecalcStyleImmediately);
+}
+
+#if ENABLE(CONTENT_EXTENSIONS)
+void DocumentStyleSheetCollection::addDisplayNoneSelector(const String& identifier, const String& selector, uint32_t selectorID)
+{
+    auto result = m_contentExtensionSelectorSheets.add(identifier, nullptr);
+    if (result.isNewEntry) {
+        result.iterator->value = ContentExtensionStyleSheet::create(m_document);
+        m_userStyleSheets.append(&result.iterator->value->styleSheet());
+    }
+
+    result.iterator->value->addDisplayNoneSelector(selector, selectorID);
+    m_styleResolverChangedTimer.startOneShot(0);
+}
+
+void DocumentStyleSheetCollection::maybeAddContentExtensionSheet(const String& identifier, StyleSheetContents& sheet)
+{
+    ASSERT(sheet.isUserStyleSheet());
+
+    if (m_contentExtensionSheets.contains(identifier))
+        return;
+
+    Ref<CSSStyleSheet> cssSheet = CSSStyleSheet::create(sheet, &m_document);
+    m_contentExtensionSheets.set(identifier, &cssSheet.get());
+    m_userStyleSheets.append(adoptRef(cssSheet.leakRef()));
+    m_styleResolverChangedTimer.startOneShot(0);
+}
+#endif // ENABLE(CONTENT_EXTENSIONS)
+
+void DocumentStyleSheetCollection::styleResolverChangedTimerFired()
+{
     m_document.styleResolverChanged(RecalcStyleImmediately);
 }
 
@@ -230,7 +258,7 @@ void DocumentStyleSheetCollection::addStyleSheetCandidateNode(Node& node, bool c
     // since styles outside of the body and head continue to be shunted into the head
     // (and thus can shift to end up before dynamically added DOM content that is also
     // outside the body).
-    if ((createdByParser && m_document.body()) || m_styleSheetCandidateNodes.isEmpty()) {
+    if ((createdByParser && m_document.bodyOrFrameset()) || m_styleSheetCandidateNodes.isEmpty()) {
         m_styleSheetCandidateNodes.add(&node);
         return;
     }
@@ -266,27 +294,27 @@ void DocumentStyleSheetCollection::collectActiveStyleSheets(Vector<RefPtr<StyleS
 
     for (auto& node : m_styleSheetCandidateNodes) {
         StyleSheet* sheet = nullptr;
-        if (node->nodeType() == Node::PROCESSING_INSTRUCTION_NODE) {
+        if (is<ProcessingInstruction>(*node)) {
             // Processing instruction (XML documents only).
             // We don't support linking to embedded CSS stylesheets, see <https://bugs.webkit.org/show_bug.cgi?id=49281> for discussion.
-            ProcessingInstruction* pi = toProcessingInstruction(node);
-            sheet = pi->sheet();
+            ProcessingInstruction& pi = downcast<ProcessingInstruction>(*node);
+            sheet = pi.sheet();
 #if ENABLE(XSLT)
             // Don't apply XSL transforms to already transformed documents -- <rdar://problem/4132806>
-            if (pi->isXSL() && !m_document.transformSourceDocument()) {
+            if (pi.isXSL() && !m_document.transformSourceDocument()) {
                 // Don't apply XSL transforms until loading is finished.
                 if (!m_document.parsing())
-                    m_document.applyXSLTransform(pi);
+                    m_document.applyXSLTransform(&pi);
                 return;
             }
 #endif
-        } else if ((node->isHTMLElement() && (toHTMLElement(*node).hasTagName(linkTag) || toHTMLElement(*node).hasTagName(styleTag))) || (node->isSVGElement() && toSVGElement(*node).hasTagName(SVGNames::styleTag))) {
-            Element& element = toElement(*node);
-            AtomicString title = element.getAttribute(titleAttr);
+        } else if (is<HTMLLinkElement>(*node) || is<HTMLStyleElement>(*node) || is<SVGStyleElement>(*node)) {
+            Element& element = downcast<Element>(*node);
+            AtomicString title = element.fastGetAttribute(titleAttr);
             bool enabledViaScript = false;
-            if (isHTMLLinkElement(element)) {
+            if (is<HTMLLinkElement>(element)) {
                 // <LINK> element
-                HTMLLinkElement& linkElement = toHTMLLinkElement(element);
+                HTMLLinkElement& linkElement = downcast<HTMLLinkElement>(element);
                 if (linkElement.isDisabled())
                     continue;
                 enabledViaScript = linkElement.isEnabledViaScript();
@@ -305,12 +333,12 @@ void DocumentStyleSheetCollection::collectActiveStyleSheets(Vector<RefPtr<StyleS
             }
             // Get the current preferred styleset. This is the
             // set of sheets that will be enabled.
-            if (isSVGStyleElement(element))
-                sheet = toSVGStyleElement(element).sheet();
-            else if (isHTMLLinkElement(element))
-                sheet = toHTMLLinkElement(element).sheet();
+            if (is<SVGStyleElement>(element))
+                sheet = downcast<SVGStyleElement>(element).sheet();
+            else if (is<HTMLLinkElement>(element))
+                sheet = downcast<HTMLLinkElement>(element).sheet();
             else
-                sheet = toHTMLStyleElement(element).sheet();
+                sheet = downcast<HTMLStyleElement>(element).sheet();
             // Check to see if this sheet belongs to a styleset
             // (thus making it PREFERRED or ALTERNATE rather than
             // PERSISTENT).
@@ -322,7 +350,7 @@ void DocumentStyleSheetCollection::collectActiveStyleSheets(Vector<RefPtr<StyleS
                     // we are NOT an alternate sheet, then establish
                     // us as the preferred set. Otherwise, just ignore
                     // this sheet.
-                    if (isHTMLStyleElement(element) || !rel.contains("alternate"))
+                    if (is<HTMLStyleElement>(element) || !rel.contains("alternate"))
                         m_preferredStylesheetSetName = m_selectedStylesheetSetName = title;
                 }
                 if (title != m_preferredStylesheetSetName)
@@ -388,7 +416,7 @@ void DocumentStyleSheetCollection::analyzeStyleSheetChange(UpdateFlag updateFlag
     styleResolverUpdateType = hasInsertions ? Reset : Additive;
 
     // If we are already parsing the body and so may have significant amount of elements, put some effort into trying to avoid style recalcs.
-    if (!m_document.body() || m_document.hasNodesWithPlaceholderStyle())
+    if (!m_document.bodyOrFrameset() || m_document.hasNodesWithPlaceholderStyle())
         return;
     StyleInvalidationAnalysis invalidationAnalysis(addedSheets, styleResolver.mediaQueryEvaluator());
     if (invalidationAnalysis.dirtiesAllStyle())
@@ -397,26 +425,17 @@ void DocumentStyleSheetCollection::analyzeStyleSheetChange(UpdateFlag updateFlag
     requiresFullStyleRecalc = false;
 }
 
-static bool styleSheetsUseRemUnits(const Vector<RefPtr<CSSStyleSheet>>& sheets)
-{
-    for (unsigned i = 0; i < sheets.size(); ++i) {
-        if (sheets[i]->contents().usesRemUnits())
-            return true;
-    }
-    return false;
-}
-
 static void filterEnabledNonemptyCSSStyleSheets(Vector<RefPtr<CSSStyleSheet>>& result, const Vector<RefPtr<StyleSheet>>& sheets)
 {
     for (unsigned i = 0; i < sheets.size(); ++i) {
-        if (!sheets[i]->isCSSStyleSheet())
+        if (!is<CSSStyleSheet>(*sheets[i]))
             continue;
-        if (sheets[i]->disabled())
+        CSSStyleSheet& sheet = downcast<CSSStyleSheet>(*sheets[i]);
+        if (sheet.disabled())
             continue;
-        CSSStyleSheet* sheet = static_cast<CSSStyleSheet*>(sheets[i].get());
-        if (!sheet->length())
+        if (!sheet.length())
             continue;
-        result.append(sheet);
+        result.append(&sheet);
     }
 }
 
@@ -464,7 +483,12 @@ bool DocumentStyleSheetCollection::updateActiveStyleSheets(UpdateFlag updateFlag
     m_activeAuthorStyleSheets.swap(activeCSSStyleSheets);
     m_styleSheetsForStyleSheetList.swap(activeStyleSheets);
 
-    m_usesRemUnits = styleSheetsUseRemUnits(m_activeAuthorStyleSheets);
+    for (const auto& sheet : m_activeAuthorStyleSheets) {
+        if (sheet->contents().usesRemUnits())
+            m_usesRemUnits = true;
+        if (sheet->contents().usesStyleBasedEditability())
+            m_usesStyleBasedEditability = true;
+    }
     m_pendingUpdateType = NoUpdate;
 
     return requiresFullStyleRecalc;

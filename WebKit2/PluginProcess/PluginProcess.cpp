@@ -48,7 +48,7 @@ using namespace WebCore;
 
 namespace WebKit {
 
-PluginProcess& PluginProcess::shared()
+PluginProcess& PluginProcess::singleton()
 {
     static NeverDestroyed<PluginProcess> pluginProcess;
     return pluginProcess;
@@ -57,9 +57,6 @@ PluginProcess& PluginProcess::shared()
 PluginProcess::PluginProcess()
     : m_supportsAsynchronousPluginInitialization(false)
     , m_minimumLifetimeTimer(RunLoop::main(), this, &PluginProcess::minimumLifetimeTimerFired)
-#if PLATFORM(COCOA)
-    , m_compositingRenderServerPort(MACH_PORT_NULL)
-#endif
     , m_connectionActivity("PluginProcess connection activity.")
 {
     NetscapePlugin::setSetExceptionFunction(WebProcessConnection::setGlobalException);
@@ -70,20 +67,17 @@ PluginProcess::~PluginProcess()
 {
 }
 
-void PluginProcess::lowMemoryHandler(bool critical)
-{
-    UNUSED_PARAM(critical);
-    if (shared().shouldTerminate())
-        shared().terminate();
-}
-
 void PluginProcess::initializeProcess(const ChildProcessInitializationParameters& parameters)
 {
     m_pluginPath = parameters.extraInitializationData.get("plugin-path");
     platformInitializeProcess(parameters);
 
-    memoryPressureHandler().setLowMemoryHandler(lowMemoryHandler);
-    memoryPressureHandler().install();
+    auto& memoryPressureHandler = MemoryPressureHandler::singleton();
+    memoryPressureHandler.setLowMemoryHandler([this] (Critical, Synchronous) {
+        if (shouldTerminate())
+            terminate();
+    });
+    memoryPressureHandler.install();
 }
 
 void PluginProcess::removeWebProcessConnection(WebProcessConnection* webProcessConnection)
@@ -123,23 +117,23 @@ bool PluginProcess::shouldTerminate()
     return m_webProcessConnections.isEmpty();
 }
 
-void PluginProcess::didReceiveMessage(IPC::Connection* connection, IPC::MessageDecoder& decoder)
+void PluginProcess::didReceiveMessage(IPC::Connection& connection, IPC::MessageDecoder& decoder)
 {
     didReceivePluginProcessMessage(connection, decoder);
 }
 
-void PluginProcess::didClose(IPC::Connection*)
+void PluginProcess::didClose(IPC::Connection&)
 {
-    // The UI process has crashed, just go ahead and quit.
+    // The UI process has crashed, just quit.
     // FIXME: If the plug-in is spinning in the main loop, we'll never get this message.
     stopRunLoop();
 }
 
-void PluginProcess::didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference, IPC::StringReference)
+void PluginProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference, IPC::StringReference)
 {
 }
 
-void PluginProcess::initializePluginProcess(const PluginProcessCreationParameters& parameters)
+void PluginProcess::initializePluginProcess(PluginProcessCreationParameters&& parameters)
 {
     ASSERT(!m_pluginModule);
 
@@ -147,7 +141,7 @@ void PluginProcess::initializePluginProcess(const PluginProcessCreationParameter
     setMinimumLifetime(parameters.minimumLifetime);
     setTerminationTimeout(parameters.terminationTimeout);
 
-    platformInitializePluginProcess(parameters);
+    platformInitializePluginProcess(WTF::move(parameters));
 }
 
 void PluginProcess::createWebProcessConnection()
@@ -205,19 +199,29 @@ void PluginProcess::getSitesWithData(uint64_t callbackID)
     parentProcessConnection()->send(Messages::PluginProcessProxy::DidGetSitesWithData(sites, callbackID), 0);
 }
 
-void PluginProcess::clearSiteData(const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID)
+void PluginProcess::deleteWebsiteData(std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID)
 {
-    if (NetscapePluginModule* module = netscapePluginModule()) {
-        if (sites.isEmpty()) {
-            // Clear everything.
-            module->clearSiteData(String(), flags, maxAgeInSeconds);
-        } else {
-            for (size_t i = 0; i < sites.size(); ++i)
-                module->clearSiteData(sites[i], flags, maxAgeInSeconds);
+    if (auto* module = netscapePluginModule()) {
+        auto currentTime = std::chrono::system_clock::now();
+
+        if (currentTime > modifiedSince) {
+            uint64_t maximumAge = std::chrono::duration_cast<std::chrono::seconds>(currentTime - modifiedSince).count();
+
+            module->clearSiteData(String(), NP_CLEAR_ALL, maximumAge);
         }
     }
 
-    parentProcessConnection()->send(Messages::PluginProcessProxy::DidClearSiteData(callbackID), 0);
+    parentProcessConnection()->send(Messages::PluginProcessProxy::DidDeleteWebsiteData(callbackID), 0);
+}
+
+void PluginProcess::deleteWebsiteDataForHostNames(const Vector<String>& hostNames, uint64_t callbackID)
+{
+    if (auto* module = netscapePluginModule()) {
+        for (auto& hostName : hostNames)
+            module->clearSiteData(hostName, NP_CLEAR_ALL, std::numeric_limits<uint64_t>::max());
+    }
+
+    parentProcessConnection()->send(Messages::PluginProcessProxy::DidDeleteWebsiteDataForHostNames(callbackID), 0);
 }
 
 void PluginProcess::setMinimumLifetime(double lifetime)

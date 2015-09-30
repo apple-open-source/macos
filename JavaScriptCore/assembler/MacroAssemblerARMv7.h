@@ -34,7 +34,7 @@
 
 namespace JSC {
 
-class MacroAssemblerARMv7 : public AbstractMacroAssembler<ARMv7Assembler> {
+class MacroAssemblerARMv7 : public AbstractMacroAssembler<ARMv7Assembler, MacroAssemblerARMv7> {
     static const RegisterID dataTempRegister = ARMRegisters::ip;
     static const RegisterID addressTempRegister = ARMRegisters::r6;
 
@@ -546,7 +546,7 @@ private:
         }
     }
     
-    void load16Signed(ArmAddress address, RegisterID dest)
+    void load16SignedExtendTo32(ArmAddress address, RegisterID dest)
     {
         ASSERT(address.type == ArmAddress::HasIndex);
         m_assembler.ldrsh(dest, address.base, address.u.index, address.u.scale);
@@ -566,7 +566,7 @@ private:
         }
     }
     
-    void load8Signed(ArmAddress address, RegisterID dest)
+    void load8SignedExtendTo32(ArmAddress address, RegisterID dest)
     {
         ASSERT(address.type == ArmAddress::HasIndex);
         m_assembler.ldrsb(dest, address.base, address.u.index, address.u.scale);
@@ -668,7 +668,7 @@ public:
         load8(setupArmAddress(address), dest);
     }
 
-    void load8Signed(ImplicitAddress, RegisterID)
+    void load8SignedExtendTo32(ImplicitAddress, RegisterID)
     {
         UNREACHABLE_FOR_PLATFORM();
     }
@@ -678,9 +678,9 @@ public:
         load8(setupArmAddress(address), dest);
     }
     
-    void load8Signed(BaseIndex address, RegisterID dest)
+    void load8SignedExtendTo32(BaseIndex address, RegisterID dest)
     {
-        load8Signed(setupArmAddress(address), dest);
+        load8SignedExtendTo32(setupArmAddress(address), dest);
     }
 
     void load8(const void* address, RegisterID dest)
@@ -714,9 +714,9 @@ public:
         m_assembler.ldrh(dest, makeBaseIndexBase(address), address.index, address.scale);
     }
     
-    void load16Signed(BaseIndex address, RegisterID dest)
+    void load16SignedExtendTo32(BaseIndex address, RegisterID dest)
     {
-        load16Signed(setupArmAddress(address), dest);
+        load16SignedExtendTo32(setupArmAddress(address), dest);
     }
     
     void load16(ImplicitAddress address, RegisterID dest)
@@ -730,7 +730,7 @@ public:
         }
     }
     
-    void load16Signed(ImplicitAddress, RegisterID)
+    void load16SignedExtendTo32(ImplicitAddress, RegisterID)
     {
         UNREACHABLE_FOR_PLATFORM();
     }
@@ -1901,31 +1901,14 @@ public:
         UNREACHABLE_FOR_PLATFORM();
     }
 
-#if USE(MASM_PROBE)
-    struct CPUState {
-        #define DECLARE_REGISTER(_type, _regName) \
-            _type _regName;
-        FOR_EACH_CPU_REGISTER(DECLARE_REGISTER)
-        #undef DECLARE_REGISTER
-    };
-
-    struct ProbeContext;
-    typedef void (*ProbeFunction)(struct ProbeContext*);
-
-    struct ProbeContext {
-        ProbeFunction probeFunction;
-        void* arg1;
-        void* arg2;
-        CPUState cpu;
-
-        void dump(const char* indentation = 0);
-    private:
-        void dumpCPURegisters(const char* indentation);
-    };
-
-    // For details about probe(), see comment in MacroAssemblerX86_64.h.
+#if ENABLE(MASM_PROBE)
+    // Methods required by the MASM_PROBE mechanism as defined in
+    // AbstractMacroAssembler.h. 
+    static void printCPURegisters(CPUState&, int indentation = 0);
+    static void printRegister(CPUState&, RegisterID);
+    static void printRegister(CPUState&, FPRegisterID);
     void probe(ProbeFunction, void* arg1 = 0, void* arg2 = 0);
-#endif // USE(MASM_PROBE)
+#endif // ENABLE(MASM_PROBE)
 
 protected:
     ALWAYS_INLINE Jump jump()
@@ -2037,7 +2020,7 @@ private:
         ARMv7Assembler::relinkCall(call.dataLocation(), destination.executableAddress());
     }
 
-#if USE(MASM_PROBE)
+#if ENABLE(MASM_PROBE)
     inline TrustedImm32 trustedImm32FromPtr(void* ptr)
     {
         return TrustedImm32(TrustedImmPtr(ptr));

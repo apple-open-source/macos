@@ -55,7 +55,7 @@ public:
 
     Element* focusedElement();
     Element* getElementById(const AtomicString&) const;
-    Element* getElementById(const String&) const;
+    WEBCORE_EXPORT Element* getElementById(const String&) const;
     const Vector<Element*>* getAllElementsById(const AtomicString&) const;
     bool hasElementWithId(const AtomicStringImpl&) const;
     bool containsMultipleElementsWithId(const AtomicString& id) const;
@@ -76,8 +76,6 @@ public:
     void addImageMap(HTMLMapElement&);
     void removeImageMap(HTMLMapElement&);
     HTMLMapElement* getImageMap(const String& url) const;
-
-    Element* elementFromPoint(int x, int y) const;
 
     // For accessibility.
     bool shouldCacheLabelsByForAttribute() const { return !!m_labelsByForAttribute; }
@@ -148,7 +146,6 @@ inline bool TreeScope::containsMultipleElementsWithName(const AtomicString& name
     return m_elementsByName && name.impl() && m_elementsByName->containsMultiple(*name.impl());
 }
 
-Node* nodeFromPoint(Document*, int x, int y, LayoutPoint* localPoint = 0);
 TreeScope* commonTreeScope(Node*, Node*);
 
 } // namespace WebCore

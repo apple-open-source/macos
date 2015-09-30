@@ -67,16 +67,23 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-if [[ "${PLATFORM_NAME}" == "iphoneos"* ]]; then
+case "$PLATFORM_NAME" in
+iphone*|appletv*|watch*)
     mkdir -p "${PRIVATEDIR}/var/db"
     mkdir -p -m a+rx "${PRIVATEDIR}/var/db/timezone"
 
     # This link must precisely start with TZDIR followed by a slash. radar:13532660
     ln -hfs "/var/db/timezone/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/var/db/timezone/localtime"
-else
+    ;;
+macosx)
     mkdir -p "${PRIVATEDIR}/etc"
     ln -hfs "/usr/share/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/etc/localtime"
-fi
+    ;;
+*)
+    echo "Unsupported platform: $PLATFORM_NAME"
+    exit 1
+    ;;
+esac
 
 rm -f "${VERSIONFILE}"
 echo ${DATVERS} > "${VERSIONFILE}"

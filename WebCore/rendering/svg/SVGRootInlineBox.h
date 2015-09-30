@@ -38,27 +38,27 @@ public:
 
     RenderSVGText& renderSVGText();
 
-    virtual float virtualLogicalHeight() const override final { return m_logicalHeight; }
+    virtual float virtualLogicalHeight() const override { return m_logicalHeight; }
     void setLogicalHeight(float height) { m_logicalHeight = height; }
 
-    virtual void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom) override final;
+    virtual void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom) override;
 
     void computePerCharacterLayoutInformation();
 
     InlineBox* closestLeafChildForPosition(const LayoutPoint&);
 
 private:
-    virtual bool isSVGRootInlineBox() const override final { return true; }
+    virtual bool isSVGRootInlineBox() const override { return true; }
     void reorderValueLists(Vector<SVGTextLayoutAttributes*>&);
     void layoutCharactersInTextBoxes(InlineFlowBox*, SVGTextLayoutEngine&);
-    void layoutChildBoxes(InlineFlowBox*, FloatRect* = 0);
+    void layoutChildBoxes(InlineFlowBox*, FloatRect* = nullptr);
     void layoutRootBox(const FloatRect&);
 
     float m_logicalHeight;
 };
 
-INLINE_BOX_OBJECT_TYPE_CASTS(SVGRootInlineBox, isSVGRootInlineBox())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_INLINE_BOX(SVGRootInlineBox, isSVGRootInlineBox())
 
 #endif // SVGRootInlineBox_h

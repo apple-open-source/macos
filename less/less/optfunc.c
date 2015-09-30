@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 1984-2007  Mark Nudelman
+ * Copyright (C) 1984-2012  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
  *
- * For more information about less, or for information on how to 
- * contact the author, see the README file.
+ * For more information, see the README file.
  */
 
 
@@ -33,6 +32,7 @@ extern int bufspace;
 extern int pr_type;
 extern int plusoption;
 extern int swindow;
+extern int sc_width;
 extern int sc_height;
 extern int secure;
 extern int dohelp;
@@ -47,6 +47,8 @@ extern IFILE curr_ifile;
 extern char version[];
 extern int jump_sline;
 extern int jump_sline_fraction;
+extern int shift_count;
+extern int shift_count_fraction;
 extern int less_is_more;
 extern char* dashp_commands;
 #if LOGFILE
@@ -130,34 +132,6 @@ opt__O(type, s)
 #endif
 
 /*
- * Handlers for -l option.
- */
-	public void
-opt_l(type, s)
-	int type;
-	char *s;
-{
-	int err;
-	int n;
-	char *t;
-	
-	switch (type)
-	{
-	case INIT:
-		t = s;
-		n = getnum(&t, "l", &err);
-		if (err || n <= 0)
-		{
-			error("Line number is required after -l", NULL_PARG);
-			return;
-		}
-		plusoption = TRUE;
-		ungetsc(s);
-		break;
-	}
-}
-
-/*
  * Handlers for -j option.
  */
 	public void
@@ -220,6 +194,70 @@ calc_jump_sline()
 	if (jump_sline_fraction < 0)
 		return;
 	jump_sline = sc_height * jump_sline_fraction / NUM_FRAC_DENOM;
+}
+
+/*
+ * Handlers for -# option.
+ */
+	public void
+opt_shift(type, s)
+	int type;
+	char *s;
+{
+	PARG parg;
+	char buf[16];
+	int len;
+	int err;
+
+	switch (type)
+	{
+	case INIT:
+	case TOGGLE:
+		if (*s == '.')
+		{
+			s++;
+			shift_count_fraction = getfraction(&s, "#", &err);
+			if (err)
+				error("Invalid column fraction", NULL_PARG);
+			else
+				calc_shift_count();
+		} else
+		{
+			int hs = getnum(&s, "#", &err);
+			if (err)
+				error("Invalid column number", NULL_PARG);
+			else
+			{
+				shift_count = hs;
+				shift_count_fraction = -1;
+			}
+		}
+		break;
+	case QUERY:
+		if (shift_count_fraction < 0)
+		{
+			parg.p_int = shift_count;
+			error("Horizontal shift %d columns", &parg);
+		} else
+		{
+
+			sprintf(buf, ".%06d", shift_count_fraction);
+			len = strlen(buf);
+			while (len > 2 && buf[len-1] == '0')
+				len--;
+			buf[len] = '\0';
+			parg.p_string = buf;
+			error("Horizontal shift %s of screen width", &parg);
+		}
+		break;
+	}
+}
+	public void
+calc_shift_count()
+{
+	if (shift_count_fraction < 0)
+		return;
+	shift_count = sc_width * shift_count_fraction / NUM_FRAC_DENOM;
 }
 
 #if USERFILE
@@ -443,7 +481,30 @@ opt__V(type, s)
 		any_display = 1;
 		putstr("less ");
 		putstr(version);
-		putstr("\nCopyright (C) 1984-2007 Mark Nudelman\n\n");
+		putstr(" (");
+#if HAVE_GNU_REGEX
+		putstr("GNU ");
+#endif
+#if HAVE_POSIX_REGCOMP
+		putstr("POSIX ");
+#endif
+#if HAVE_PCRE
+		putstr("PCRE ");
+#endif
+#if HAVE_RE_COMP
+		putstr("BSD ");
+#endif
+#if HAVE_REGCMP
+		putstr("V8 ");
+#endif
+#if HAVE_V8_REGCOMP
+		putstr("Spencer V8 ");
+#endif
+#if !HAVE_GNU_REGEX && !HAVE_POSIX_REGCOMP && !HAVE_PCRE && !HAVE_RE_COMP && !HAVE_REGCMP && !HAVE_V8_REGCOMP
+		putstr("no ");
+#endif
+		putstr("regular expressions)\n");
+		putstr("Copyright (C) 1984-2012 Mark Nudelman\n\n");
 		putstr("less comes with NO WARRANTY, to the extent permitted by law.\n");
 		putstr("For information about the terms of redistribution,\n");
 		putstr("see the file named README in the less distribution.\n");
@@ -473,14 +534,14 @@ colordesc(s, fg_color, bg_color)
 		return;
 	}
 	if (*s != '.')
-		bg = 0;
+		bg = nm_bg_color;
 	else
 	{
 		s++;
 		bg = getnum(&s, "D", &err);
 		if (err)
 		{
-			error("Missing fg color in -D", NULL_PARG);
+			error("Missing bg color in -D", NULL_PARG);
 			return;
 		}
 	}
@@ -674,6 +735,6 @@ opt_dashp(type,s)
 	int type;
 	char *s;
 {
-	dashp_commands = s;
+	dashp_commands = save(s);
 }
 

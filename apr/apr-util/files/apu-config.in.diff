@@ -1,0 +1,11 @@
+--- apu-config.in.orig	2015-04-01 16:25:53.000000000 -0700
++++ apu-config.in	2015-04-01 16:26:01.000000000 -0700
+@@ -25,7 +25,7 @@
+ exec_prefix="@exec_prefix@"
+ bindir="@bindir@"
+ libdir="@libdir@"
+-includedir="@includedir@"
++includedir="${SDKROOT}@includedir@"
+ 
+ LIBS="@APRUTIL_EXPORT_LIBS@"
+ INCLUDES="@APRUTIL_INCLUDES@"

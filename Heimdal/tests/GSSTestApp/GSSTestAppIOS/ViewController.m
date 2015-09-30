@@ -7,24 +7,28 @@
 //
 
 #import "ViewController.h"
-
-
-@interface ViewController ()
-@property (strong) TestHarness *tests;
-@property (strong) dispatch_queue_t queue;
-@end
+#import "WebbyViewController.h"
+#import "FakeXCTest.h"
 
 @implementation ViewController
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    
-    self.tests = [[TestHarness alloc] init];
-    self.tests.delegate = self;
-    self.queue = dispatch_queue_create("test-queue", NULL);
-    
-    [self runTests:self];
+    self.credentialsTableController = [CredentialTableController getGlobalController];
+    self.credentialsTableView.delegate = self.credentialsTableController;
+    self.credentialsTableView.dataSource = self.credentialsTableController;
+    self.credentialsTableView.allowsMultipleSelectionDuringEditing = NO;
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [self.credentialsTableController addNotification:self];
+    [super viewDidAppear:animated];
+}
+
+- (void)viewDidDisappear:(BOOL)animated {
+    [self.credentialsTableController removeNotification:self];
+    [super viewDidDisappear:animated];
 }
 
 - (NSUInteger)supportedInterfaceOrientations
@@ -32,63 +36,18 @@
     return UIInterfaceOrientationMaskPortrait;
 }
 
-- (IBAction)runTests:(id)sender
-{
-    [self.statusLabel setText:@"running"];
-    [self.progressTextView setText:@""];
-    
-    dispatch_async(self.queue, ^{
-	[self.tests runTests];
-	dispatch_async(dispatch_get_main_queue(), ^{
-	    [self.statusLabel setText:@""];
-	});
-    });
+- (void)GSSCredentialChangeNotifification {
+    [self.credentialsTableView reloadData];
 }
 
-- (void)appendProgress:(NSString *)string color:(UIColor *)color {
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
 
-    NSMutableAttributedString* str = [[NSMutableAttributedString alloc] initWithString:string];
-    if (color)
-        [str addAttribute:NSForegroundColorAttributeName value:color range:NSMakeRange(0, [str length])];
+    NSString *name = [segue identifier];
 
-    NSTextStorage *textStorage = [self.progressTextView textStorage];
-
-    [textStorage beginEditing];
-    [textStorage appendAttributedString:str];
-    [textStorage endEditing];
+    if ([name isEqualToString:@"UIWebView"] || [name isEqualToString:@"WKWebView"]) {
+        WebbyViewController *vc = [segue destinationViewController];
+        vc.type = [segue identifier];
+    }
 }
-
-- (void)THPTestStart:(NSString *)name
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self appendProgress:[NSString stringWithFormat:@"[TEST] %@\n",name] color:[UIColor purpleColor]];
-    });
-}
-- (void)THPTestOutput:(NSString *)output
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self appendProgress:[NSString stringWithFormat:@"%@\n", output] color:NULL];
-    });
-
-}
-- (void)THPTestComplete:(NSString *)name status:(bool)status duration:(float)durataion
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSString *grade = status ? @"PASS" : @"FAIL";
-        UIColor *color = status ? [UIColor greenColor] : [UIColor redColor];
-        [self appendProgress:[NSString stringWithFormat:@"duration: %f\n", durataion] color:NULL];
-        [self appendProgress:[NSString stringWithFormat:@"[%@] %@\n", grade, name] color:color];
-    });
-
-}
-- (void)THPSuiteComplete:(bool)status
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        UIColor *color = status ? [UIColor greenColor] : [UIColor redColor];
-        [self appendProgress:[NSString stringWithFormat:@"test %s\n", status ? "pass" : "fail"]  color:color];
-    });
-}
-
-
 
 @end

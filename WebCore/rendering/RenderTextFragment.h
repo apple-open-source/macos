@@ -39,8 +39,6 @@ public:
 
     virtual ~RenderTextFragment();
 
-    virtual bool isTextFragment() const override { return true; }
-
     virtual bool canBeSelectionLeaf() const override;
 
     unsigned start() const { return m_start; }
@@ -60,6 +58,7 @@ public:
     void setAltText(const String& altText) { m_altText = altText; }
     
 private:
+    virtual bool isTextFragment() const override { return true; }
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
     virtual void willBeDestroyed() override;
 
@@ -73,8 +72,11 @@ private:
     RenderBoxModelObject* m_firstLetter;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderTextFragment, isText() && toRenderText(renderer).isTextFragment())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::RenderTextFragment)
+    static bool isType(const WebCore::RenderText& renderer) { return renderer.isTextFragment(); }
+    static bool isType(const WebCore::RenderObject& renderer) { return is<WebCore::RenderText>(renderer) && isType(downcast<WebCore::RenderText>(renderer)); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // RenderTextFragment_h

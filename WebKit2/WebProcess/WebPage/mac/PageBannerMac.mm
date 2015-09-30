@@ -26,7 +26,7 @@
 #include "config.h"
 #include "PageBanner.h"
 
-#if !PLATFORM(IOS)
+#if PLATFORM(MAC)
 
 #include "WebPage.h"
 #include <WebCore/FrameView.h>
@@ -36,17 +36,13 @@ using namespace WebCore;
 
 namespace WebKit {
 
-PassRefPtr<PageBanner> PageBanner::create(CALayer *layer, int height, Client* client)
+Ref<PageBanner> PageBanner::create(CALayer *layer, int height, Client* client)
 {
-    return adoptRef(new PageBanner(layer, height, client));
+    return adoptRef(*new PageBanner(layer, height, client));
 }
 
 PageBanner::PageBanner(CALayer *layer, int height, Client* client)
-    : m_type(NotSet)
-    , m_client(client)
-    , m_webPage(0)
-    , m_mouseDownInBanner(false)
-    , m_isHidden(false)
+    : m_client(client)
     , m_layer(layer)
     , m_height(height)
 {
@@ -170,4 +166,4 @@ CALayer *PageBanner::layer()
 
 } // namespace WebKit
 
-#endif // !PLATFORM(IOS)
+#endif // PLATFORM(MAC)

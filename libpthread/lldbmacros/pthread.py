@@ -77,7 +77,7 @@ def GetPthreadSummary(thread):
 
 	return format.format(threadstr, hex(thread.thread_id), uthreadstr)
 
-@header("{0: <24s} {1: <24s} {2: <10s} {3: <10s} {4: <10s} {5: <10s} {6: <10s}".format('proc', 'wq', 'sched', 'req', 'idle', 'flags', 'wqflags'))
+@header("{0: <24s} {1: <24s} {2: <10s} {3: <10s} {4: <10s} {5: <10s} {6: <10s}".format('proc', 'wq', 'sched', 'req', 'idle', 'wq_flags', 'wq_lflags'))
 def GetPthreadWorkqueueSummary(wq):
 	format = "{0: <24s} {1: <24s} {2: <10d} {3: <10d} {4: <10d} {5: <10s} {6: <10s}"
 	procstr = str("{0: <#020x}".format(wq.wq_proc))
@@ -103,15 +103,17 @@ def GetPthreadWorkqueueSummary(wq):
 	
 	return format.format(procstr, wqstr, wq.wq_threads_scheduled, wq.wq_reqcount, wq.wq_thidlecount, "".join(flags), "".join(wqflags))
 
-@header("{0: <24s} {1: <5s} {2: <5s} {3: <5s} {4: <5s} {5: <5s} {6: <5s}".format('category', 'uint', 'uinit', 'lgcy', 'util', 'bckgd', 'maint'))
+@header("{0: <24s} {1: <5s} {2: <5s} {3: <5s} {4: <5s} {5: <5s} {6: <5s} {7: <5s}".format('category', 'uint', 'uinit', 'lgcy', 'util', 'bckgd', 'maint', 'event'))
 def GetPthreadWorkqueueDetail(wq):
-	format = "  {0: <22s} {1: <5d} {2: <5d} {3: <5d} {4: <5d} {5: <5d} {6: <5d}"
+	format = "  {0: <22s} {1: <5d} {2: <5d} {3: <5d} {4: <5d} {5: <5d} {6: <5d} {7: <5d}"
 	# requests
-	reqstr = format.format('requests', wq.wq_requests[0], wq.wq_requests[1], wq.wq_requests[2], wq.wq_requests[3], wq.wq_requests[4], wq.wq_requests[5])
-	ocstr = format.format('ocreqs', wq.wq_ocrequests[0], wq.wq_ocrequests[1], wq.wq_ocrequests[2], wq.wq_ocrequests[3], wq.wq_ocrequests[4], wq.wq_ocrequests[5])
-	schedstr = format.format('scheduled', wq.wq_thscheduled_count[0], wq.wq_thscheduled_count[1], wq.wq_thscheduled_count[2], wq.wq_thscheduled_count[3], wq.wq_thscheduled_count[4], wq.wq_thscheduled_count[5])
-	activestr = format.format('active', wq.wq_thactive_count[0], wq.wq_thactive_count[1], wq.wq_thactive_count[2], wq.wq_thactive_count[3], wq.wq_thactive_count[4], wq.wq_thactive_count[5])
-	return "\n".join([reqstr, ocstr, schedstr, activestr])
+	reqstr = format.format('requests', wq.wq_requests[0], wq.wq_requests[1], wq.wq_requests[2], wq.wq_requests[3], wq.wq_requests[4], wq.wq_requests[5], wq.wq_requests[6])
+	ocstr = format.format('ocreqs', wq.wq_ocrequests[0], wq.wq_ocrequests[1], wq.wq_ocrequests[2], wq.wq_ocrequests[3], wq.wq_ocrequests[4], wq.wq_ocrequests[5], wq.wq_ocrequests[6])
+	keventstr = format.format('kevent_reqs', wq.wq_kevent_requests[0], wq.wq_kevent_requests[1], wq.wq_kevent_requests[2], wq.wq_kevent_requests[3], wq.wq_kevent_requests[4], wq.wq_kevent_requests[5], wq.wq_kevent_requests[6])
+	ockeventstr = format.format('kevent_ocreqs', wq.wq_kevent_ocrequests[0], wq.wq_kevent_ocrequests[1], wq.wq_kevent_ocrequests[2], wq.wq_kevent_ocrequests[3], wq.wq_kevent_ocrequests[4], wq.wq_kevent_ocrequests[5], wq.wq_kevent_ocrequests[6])
+	schedstr = format.format('scheduled', wq.wq_thscheduled_count[0], wq.wq_thscheduled_count[1], wq.wq_thscheduled_count[2], wq.wq_thscheduled_count[3], wq.wq_thscheduled_count[4], wq.wq_thscheduled_count[5], wq.wq_thscheduled_count[6])
+	activestr = format.format('active', wq.wq_thactive_count[0], wq.wq_thactive_count[1], wq.wq_thactive_count[2], wq.wq_thactive_count[3], wq.wq_thactive_count[4], wq.wq_thactive_count[5], wq.wq_thactive_count[6])
+	return "\n".join([reqstr, ocstr, keventstr, ockeventstr, schedstr, activestr])
 
 @lldb_command('showpthreadstate')
 def PthreadCurrentMutex(cmd_args=None):

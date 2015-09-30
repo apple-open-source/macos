@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebHistory.h"
 
@@ -34,6 +33,7 @@
 #include "WebKit.h"
 #include "WebNotificationCenter.h"
 #include "WebPreferences.h"
+#include "WebVisitedLinkStore.h"
 #include <WebCore/BString.h>
 #include <WebCore/HistoryItem.h>
 #include <WebCore/URL.h>
@@ -126,12 +126,12 @@ static void getDayBoundaries(DATE day, DATE& beginningOfDay, DATE& beginningOfNe
     addDayToSystemTime(beginningOfNextDayLocalTime);
 
     SYSTEMTIME beginningSystemTime;
-    ::TzSpecificLocalTimeToSystemTime(0, &beginningLocalTime, &beginningSystemTime);
-    ::SystemTimeToVariantTime(&beginningSystemTime, &beginningOfDay);
+    if (::TzSpecificLocalTimeToSystemTime(0, &beginningLocalTime, &beginningSystemTime))
+        ::SystemTimeToVariantTime(&beginningSystemTime, &beginningOfDay);
 
     SYSTEMTIME beginningOfNextDaySystemTime;
-    ::TzSpecificLocalTimeToSystemTime(0, &beginningOfNextDayLocalTime, &beginningOfNextDaySystemTime);
-    ::SystemTimeToVariantTime(&beginningOfNextDaySystemTime, &beginningOfNextDay);
+    if (::TzSpecificLocalTimeToSystemTime(0, &beginningOfNextDayLocalTime, &beginningOfNextDaySystemTime))
+        ::SystemTimeToVariantTime(&beginningOfNextDaySystemTime, &beginningOfNextDay);
 }
 
 static inline DATE beginningOfDay(DATE date)
@@ -158,7 +158,7 @@ WebHistory::WebHistory()
 , m_preferences(0)
 {
     gClassCount++;
-    gClassNameCount.add("WebHistory");
+    gClassNameCount().add("WebHistory");
 
     m_preferences = WebPreferences::sharedStandardPreferences();
 }
@@ -166,7 +166,7 @@ WebHistory::WebHistory()
 WebHistory::~WebHistory()
 {
     gClassCount--;
-    gClassNameCount.remove("WebHistory");
+    gClassNameCount().remove("WebHistory");
 }
 
 WebHistory* WebHistory::createInstance()
@@ -262,8 +262,8 @@ HRESULT STDMETHODCALLTYPE WebHistory::setOptionalSharedHistory(
     if (sharedHistoryStorage() == history)
         return S_OK;
     sharedHistoryStorage().query(history);
-    PageGroup::setShouldTrackVisitedLinks(sharedHistoryStorage());
-    PageGroup::removeAllVisitedLinks();
+    WebVisitedLinkStore::setShouldTrackVisitedLinks(sharedHistoryStorage());
+    WebVisitedLinkStore::removeAllVisitedLinks();
     return S_OK;
 }
 
@@ -323,7 +323,7 @@ HRESULT STDMETHODCALLTYPE WebHistory::removeAllItems( void)
 
     m_entriesByURL.clear();
 
-    PageGroup::removeAllVisitedLinks();
+    WebVisitedLinkStore::removeAllVisitedLinks();
 
     return postNotification(kWebHistoryAllItemsRemovedNotification, userInfo.get());
 }
@@ -373,13 +373,13 @@ HRESULT STDMETHODCALLTYPE WebHistory::allItems(
 
 HRESULT WebHistory::setVisitedLinkTrackingEnabled(BOOL visitedLinkTrackingEnabled)
 {
-    PageGroup::setShouldTrackVisitedLinks(visitedLinkTrackingEnabled);
+    WebVisitedLinkStore::setShouldTrackVisitedLinks(visitedLinkTrackingEnabled);
     return S_OK;
 }
 
 HRESULT WebHistory::removeAllVisitedLinks()
 {
-    PageGroup::removeAllVisitedLinks();
+    WebVisitedLinkStore::removeAllVisitedLinks();
     return S_OK;
 }
 
@@ -504,7 +504,7 @@ void WebHistory::visitedURL(const URL& url, const String& title, const String& h
     if (urlString.isEmpty())
         return;
 
-    IWebHistoryItem* entry = m_entriesByURL.get(urlString).get();
+    IWebHistoryItem* entry = m_entriesByURL.get(urlString);
     if (!entry) {
         COMPtr<WebHistoryItem> item(AdoptCOM, WebHistoryItem::createInstance());
         if (!item)
@@ -566,7 +566,7 @@ HRESULT WebHistory::removeItemForURLString(const WTF::String& urlString)
         return E_FAIL;
 
     if (!m_entriesByURL.size())
-        PageGroup::removeAllVisitedLinks();
+        WebVisitedLinkStore::removeAllVisitedLinks();
 
     return S_OK;
 }
@@ -578,8 +578,8 @@ COMPtr<IWebHistoryItem> WebHistory::itemForURLString(const String& urlString) co
     return m_entriesByURL.get(urlString);
 }
 
-void WebHistory::addVisitedLinksToPageGroup(PageGroup& group)
+void WebHistory::addVisitedLinksToVisitedLinkStore(WebVisitedLinkStore& visitedLinkStore)
 {
     for (auto& url : m_entriesByURL.keys())
-        group.addVisitedLinkHash(visitedLinkHash(url));
+        visitedLinkStore.addVisitedLink(url);
 }

@@ -85,7 +85,7 @@ ProgressTracker::ProgressTracker(ProgressTrackerClient& client)
     , m_finalProgressChangedSent(false)
     , m_progressValue(0)
     , m_numProgressTrackedFrames(0)
-    , m_progressHeartbeatTimer(this, &ProgressTracker::progressHeartbeatTimerFired)
+    , m_progressHeartbeatTimer(*this, &ProgressTracker::progressHeartbeatTimerFired)
     , m_heartbeatsWithNoProgress(0)
     , m_totalBytesReceivedBeforePreviousHeartbeat(0)
     , m_isMainLoad(false)
@@ -113,7 +113,7 @@ void ProgressTracker::reset()
     m_lastNotifiedProgressTime = std::chrono::steady_clock::time_point();
     m_finalProgressChangedSent = false;
     m_numProgressTrackedFrames = 0;
-    m_originatingProgressFrame = 0;
+    m_originatingProgressFrame = nullptr;
 
     m_heartbeatsWithNoProgress = 0;
     m_totalBytesReceivedBeforePreviousHeartbeat = 0;
@@ -234,7 +234,7 @@ void ProgressTracker::incrementProgress(unsigned long identifier, unsigned bytes
     }
     
     int numPendingOrLoadingRequests = frame->loader().numPendingOrLoadingRequests(true);
-    estimatedBytesForPendingRequests = progressItemDefaultEstimatedLength * numPendingOrLoadingRequests;
+    estimatedBytesForPendingRequests = static_cast<long long>(progressItemDefaultEstimatedLength) * numPendingOrLoadingRequests;
     remainingBytes = ((m_totalPageAndResourceBytesToLoad + estimatedBytesForPendingRequests) - m_totalBytesReceived);
     if (remainingBytes > 0)  // Prevent divide by 0.
         percentOfRemainingBytes = (double)bytesReceived / (double)remainingBytes;
@@ -305,7 +305,7 @@ bool ProgressTracker::isMainLoadProgressing() const
     return m_progressValue && m_progressValue < finalProgressValue && m_heartbeatsWithNoProgress < loadStalledHeartbeatCount;
 }
 
-void ProgressTracker::progressHeartbeatTimerFired(Timer&)
+void ProgressTracker::progressHeartbeatTimerFired()
 {
     if (m_totalBytesReceived < m_totalBytesReceivedBeforePreviousHeartbeat + minumumBytesPerHeartbeatForProgress)
         ++m_heartbeatsWithNoProgress;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,7 @@
 
 namespace JSC {
 
-const ClassInfo PropertyTable::s_info = { "PropertyTable", 0, 0, 0, CREATE_METHOD_TABLE(PropertyTable) };
+const ClassInfo PropertyTable::s_info = { "PropertyTable", 0, 0, CREATE_METHOD_TABLE(PropertyTable) };
 
 PropertyTable* PropertyTable::create(VM& vm, unsigned initialCapacity)
 {
@@ -82,15 +82,13 @@ PropertyTable::PropertyTable(VM& vm, const PropertyTable& other)
     memcpy(m_index, other.m_index, dataSize());
 
     iterator end = this->end();
-    for (iterator iter = begin(); iter != end; ++iter) {
+    for (iterator iter = begin(); iter != end; ++iter)
         iter->key->ref();
-        vm.heap.writeBarrier(this, iter->specificValue.get());
-    }
 
     // Copy the m_deletedOffsets vector.
     Vector<PropertyOffset>* otherDeletedOffsets = other.m_deletedOffsets.get();
     if (otherDeletedOffsets)
-        m_deletedOffsets = adoptPtr(new Vector<PropertyOffset>(*otherDeletedOffsets));
+        m_deletedOffsets = std::make_unique<Vector<PropertyOffset>>(*otherDeletedOffsets);
 }
 
 PropertyTable::PropertyTable(VM& vm, unsigned initialCapacity, const PropertyTable& other)
@@ -109,13 +107,12 @@ PropertyTable::PropertyTable(VM& vm, unsigned initialCapacity, const PropertyTab
         ASSERT(canInsert());
         reinsert(*iter);
         iter->key->ref();
-        vm.heap.writeBarrier(this, iter->specificValue.get());
     }
 
     // Copy the m_deletedOffsets vector.
     Vector<PropertyOffset>* otherDeletedOffsets = other.m_deletedOffsets.get();
     if (otherDeletedOffsets)
-        m_deletedOffsets = adoptPtr(new Vector<PropertyOffset>(*otherDeletedOffsets));
+        m_deletedOffsets = std::make_unique<Vector<PropertyOffset>>(*otherDeletedOffsets);
 }
 
 void PropertyTable::destroy(JSCell* cell)
@@ -132,17 +129,5 @@ PropertyTable::~PropertyTable()
     fastFree(m_index);
 }
 
-void PropertyTable::visitChildren(JSCell* cell, SlotVisitor& visitor)
-{
-    PropertyTable* thisObject = jsCast<PropertyTable*>(cell);
-    ASSERT_GC_OBJECT_INHERITS(thisObject, info());
-    ASSERT(thisObject->structure()->typeInfo().overridesVisitChildren());
+} // namespace JSC
 
-    JSCell::visitChildren(thisObject, visitor);
-
-    PropertyTable::iterator end = thisObject->end();
-    for (PropertyTable::iterator ptr = thisObject->begin(); ptr != end; ++ptr)
-        visitor.append(&ptr->specificValue);
-}
-
-}

@@ -1,4 +1,4 @@
-/* $Id: openbsd-compat.h,v 1.55 2013/02/15 01:20:42 dtucker Exp $ */
+/* $Id: openbsd-compat.h,v 1.62 2014/09/30 23:43:08 djm Exp $ */
 
 /*
  * Copyright (c) 1999-2003 Damien Miller.  All rights reserved.
@@ -43,7 +43,11 @@
 #include "readpassphrase.h"
 #include "vis.h"
 #include "getrrsetbyname.h"
+#include "sha1.h"
 #include "sha2.h"
+#include "rmd160.h"
+#include "md5.h"
+#include "blf.h"
 
 #ifndef HAVE_BASENAME
 char *basename(const char *path);
@@ -60,6 +64,10 @@ void closefrom(int);
 #ifndef HAVE_GETCWD
 char *getcwd(char *pt, size_t size);
 #endif 
+
+#ifndef HAVE_REALLOCARRAY
+void *reallocarray(void *, size_t, size_t);
+#endif
 
 #if !defined(HAVE_REALPATH) || defined(BROKEN_REALPATH)
 char *realpath(const char *path, char *resolved);
@@ -111,6 +119,10 @@ char *dirname(const char *path);
 int	fmt_scaled(long long number, char *result);
 #endif
 
+#ifndef HAVE_SCAN_SCALED
+int	scan_scaled(char *, long long *);
+#endif
+
 #if defined(BROKEN_INET_NTOA) || !defined(HAVE_INET_NTOA)
 char *inet_ntoa(struct in_addr in);
 #endif
@@ -139,6 +151,7 @@ int getgrouplist(const char *, gid_t, gid_t *, int *);
 
 #if !defined(HAVE_GETOPT) || !defined(HAVE_GETOPT_OPTRESET)
 int BSDgetopt(int argc, char * const *argv, const char *opts);
+#include "openbsd-compat/getopt.h"
 #endif
 
 #if defined(HAVE_DECL_WRITEV) && HAVE_DECL_WRITEV == 0
@@ -156,9 +169,13 @@ int writev(int, struct iovec *, int);
 
 #ifndef HAVE_GETPEEREID
 int getpeereid(int , uid_t *, gid_t *);
-#endif 
+#endif
 
-#ifndef HAVE_ARC4RANDOM
+#ifdef HAVE_ARC4RANDOM
+# ifndef HAVE_ARC4RANDOM_STIR
+#  define arc4random_stir()
+# endif
+#else
 unsigned int arc4random(void);
 void arc4random_stir(void);
 #endif /* !HAVE_ARC4RANDOM */
@@ -202,6 +219,11 @@ unsigned long long strtoull(const char *, char **, int);
 long long strtonum(const char *, long long, long long, const char **);
 #endif
 
+/* multibyte character support */
+#ifndef HAVE_MBLEN
+# define mblen(x, y)	(1)
+#endif
+
 #if !defined(HAVE_VASPRINTF) || !defined(HAVE_VSNPRINTF)
 # include <stdarg.h>
 #endif
@@ -226,6 +248,15 @@ char *group_from_gid(gid_t, int);
 int timingsafe_bcmp(const void *, const void *, size_t);
 #endif
 
+#ifndef HAVE_BCRYPT_PBKDF
+int	bcrypt_pbkdf(const char *, size_t, const u_int8_t *, size_t,
+    u_int8_t *, size_t, unsigned int);
+#endif
+
+#ifndef HAVE_EXPLICIT_BZERO
+void explicit_bzero(void *p, size_t n);
+#endif
+
 void *xmmap(size_t size);
 char *xcrypt(const char *password, const char *salt);
 char *shadow_pw(struct passwd *pw);
@@ -243,5 +274,21 @@ char *shadow_pw(struct passwd *pw);
 #include "port-solaris.h"
 #include "port-tun.h"
 #include "port-uw.h"
+
+/* _FORTIFY_SOURCE breaks FD_ISSET(n)/FD_SET(n) for n > FD_SETSIZE. Avoid. */
+#if defined(HAVE_FEATURES_H) && defined(_FORTIFY_SOURCE)
+# include <features.h>
+# if defined(__GNU_LIBRARY__) && defined(__GLIBC_PREREQ)
+#  if __GLIBC_PREREQ(2, 15) && (_FORTIFY_SOURCE > 0)
+#   include <sys/socket.h>  /* Ensure include guard is defined */
+#   undef FD_SET
+#   undef FD_ISSET
+#   define FD_SET(n, set)	kludge_FD_SET(n, set)
+#   define FD_ISSET(n, set)	kludge_FD_ISSET(n, set)
+void kludge_FD_SET(int, fd_set *);
+int kludge_FD_ISSET(int, fd_set *);
+#  endif /* __GLIBC_PREREQ(2, 15) && (_FORTIFY_SOURCE > 0) */
+# endif /* __GNU_LIBRARY__ && __GLIBC_PREREQ */
+#endif /* HAVE_FEATURES_H && _FORTIFY_SOURCE */
 
 #endif /* _OPENBSD_COMPAT_H */

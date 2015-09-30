@@ -111,7 +111,7 @@
 		72C94EC4178C6B8100F7E87D /* manifest.data */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = manifest.data; sourceTree = "<group>"; };
 		72C94EC5178C6B8100F7E87D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		72CF429A16E66DD70039F148 /* Release */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Release; sourceTree = BUILT_PRODUCTS_DIR; };
-		BE0875B819871FC000357E99 /* AppleBaselineEscrowCertificates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppleBaselineEscrowCertificates.h; path = ../../../Security/sec/Security/AppleBaselineEscrowCertificates.h; sourceTree = "<group>"; };
+		BE0875B819871FC000357E99 /* AppleBaselineEscrowCertificates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppleBaselineEscrowCertificates.h; path = ../../../OSX/sec/Security/AppleBaselineEscrowCertificates.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */

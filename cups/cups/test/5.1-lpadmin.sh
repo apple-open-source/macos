@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id: 5.1-lpadmin.sh 11468 2013-12-18 20:31:42Z msweet $"
+# "$Id: 5.1-lpadmin.sh 12489 2015-02-05 19:40:10Z msweet $"
 #
 # Test the lpadmin command.
 #
@@ -57,8 +57,8 @@ echo ""
 
 echo "Add Shared Printer Test"
 echo ""
-echo "    lpadmin -p Test3 -E -v ipp://localhost:8631/printers/Test2 -m raw"
-$VALGRIND ../systemv/lpadmin -p Test3 -E -v ipp://localhost:8631/printers/Test2 -m raw 2>&1
+echo "    lpadmin -p Test3 -E -v ipp://localhost:$IPP_PORT/printers/Test2 -m raw"
+$VALGRIND ../systemv/lpadmin -p Test3 -E -v ipp://localhost:$IPP_PORT/printers/Test2 -m raw 2>&1
 if test $? != 0; then
 	echo "    FAILED"
 	exit 1
@@ -68,5 +68,5 @@ fi
 echo ""
 
 #
-# End of "$Id: 5.1-lpadmin.sh 11468 2013-12-18 20:31:42Z msweet $".
+# End of "$Id: 5.1-lpadmin.sh 12489 2015-02-05 19:40:10Z msweet $".
 #

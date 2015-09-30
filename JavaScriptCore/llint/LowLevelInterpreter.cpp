@@ -34,7 +34,6 @@
 #include "LLIntCLoop.h"
 #include "LLIntSlowPaths.h"
 #include "JSCInlines.h"
-#include "VMInspector.h"
 #include <wtf/Assertions.h>
 #include <wtf/MathExtras.h>
 
@@ -338,7 +337,7 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
     CallFrame* startCFR = cfr.callFrame;
 #endif
 
-    // Initialize the incoming args for doCallToJavaScript:
+    // Initialize the incoming args for doVMEntryToJavaScript:
     t0.vp = executableAddress;
     t1.vm = vm;
     t2.protoCallFrame = protoCallFrame;

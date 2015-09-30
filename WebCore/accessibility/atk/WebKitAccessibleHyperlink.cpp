@@ -231,10 +231,10 @@ static gint getRangeLengthForObject(AccessibilityObject* obj, Range* range)
         return baseLength;
 
     RenderObject* renderer = markerObj->renderer();
-    if (!renderer || !renderer->isListMarker())
+    if (!is<RenderListMarker>(renderer))
         return baseLength;
 
-    RenderListMarker& marker = toRenderListMarker(*renderer);
+    auto& marker = downcast<RenderListMarker>(*renderer);
     return baseLength + marker.text().length() + marker.suffix().length();
 }
 
@@ -385,7 +385,7 @@ static void webkitAccessibleHyperlinkClassInit(AtkHyperlinkClass* klass)
 static void webkitAccessibleHyperlinkInit(AtkHyperlink* link)
 {
     WEBKIT_ACCESSIBLE_HYPERLINK(link)->priv = WEBKIT_ACCESSIBLE_HYPERLINK_GET_PRIVATE(link);
-    WEBKIT_ACCESSIBLE_HYPERLINK(link)->priv->hyperlinkImpl = 0;
+    WEBKIT_ACCESSIBLE_HYPERLINK(link)->priv->hyperlinkImpl = nullptr;
 }
 
 GType webkitAccessibleHyperlinkGetType()

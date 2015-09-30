@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2010, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -145,24 +145,18 @@ createParentDirectory(const char *path)
 				    (grpP != NULL)) {
 					group = grpP->gr_gid;
 				} else {
-					SCLog(TRUE, LOG_ERR,
-					      CFSTR("SCPreferencesLock getgrnam_r() failed: %s"),
-					      strerror(errno));
+					SC_log(LOG_NOTICE, "getgrnam_r() failed: %s", strerror(errno));
 					group = 0;	// wheel
 				}
 			}
 
 			if (chown(dir, -1, group) == -1) {
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("SCPreferencesLock chown() failed: %s"),
-				      strerror(errno));
+				SC_log(LOG_NOTICE, "chown() failed: %s", strerror(errno));
 			}
 
 			// set [force] mode
 			if (chmod(dir, mode) == -1) {
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("SCPreferencesLock chmod() failed: %s"),
-				      strerror(errno));
+				SC_log(LOG_NOTICE, "chmod() failed: %s", strerror(errno));
 			}
 
 			if ((slash == NULL) || (scan == dir)) {
@@ -185,9 +179,7 @@ createParentDirectory(const char *path)
 		slash = strchr(scan + 1, '/');
 	}
 
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR("SCPreferencesLock mkdir() failed: %s"),
-	      strerror(errno));
+	SC_log(LOG_NOTICE, "mkdir() failed: %s", strerror(errno));
 	return -1;
 }
 
@@ -239,9 +231,7 @@ has_O_EXLOCK(SCPreferencesPrivateRef prefsPrivate)
 
 	fd = open(prefsPrivate->lockPath, O_WRONLY|O_CREAT, 0644);
 	if (fd == -1) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCPreferencesLock open() failed: %s"),
-		      strerror(errno));
+		SC_log(LOG_NOTICE, "open() failed: %s", strerror(errno));
 		return FALSE;
 	}
 
@@ -249,9 +239,7 @@ has_O_EXLOCK(SCPreferencesPrivateRef prefsPrivate)
 	unlink(prefsPrivate->lockPath);
 	close(fd);
 	if (ret == -1) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCPreferencesLock fstatfs() failed: %s"),
-		      strerror(errno));
+		SC_log(LOG_NOTICE, "fstatfs() failed: %s", strerror(errno));
 		return FALSE;
 	}
 
@@ -265,9 +253,7 @@ has_O_EXLOCK(SCPreferencesPrivateRef prefsPrivate)
 			  sizeof(attrbuf),
 			  0);			// options
 	if (ret == -1) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCPreferencesLock getattrlist() failed: %s"),
-		      strerror(errno));
+		SC_log(LOG_NOTICE, "getattrlist() failed: %s", strerror(errno));
 		return FALSE;
 	}
 
@@ -281,12 +267,19 @@ has_O_EXLOCK(SCPreferencesPrivateRef prefsPrivate)
 
 
 static Boolean
-lockWithSCDynamicStore(SCPreferencesPrivateRef	prefsPrivate, Boolean wait)
+lockWithSCDynamicStore(SCPreferencesRef	prefs, Boolean wait)
 {
-	CFArrayRef	changes;
-	Boolean		locked		= FALSE;
-	Boolean		ok;
-	int		sc_status	= kSCStatusOK;
+	CFArrayRef		changes;
+	Boolean			locked		= FALSE;
+	Boolean			ok;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	int			sc_status	= kSCStatusOK;
+
+	// add SCDynamicStore session (for lock monitoring)
+	ok = __SCPreferencesAddSession(prefs);
+	if (!ok) {
+		return FALSE;
+	}
 
 	// add [lock] notification
 	ok = SCDynamicStoreAddWatchedKey(prefsPrivate->session,
@@ -294,7 +287,17 @@ lockWithSCDynamicStore(SCPreferencesPrivateRef	prefsPrivate, Boolean wait)
 					 FALSE);
 	if (!ok) {
 		sc_status = SCError();
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesLock SCDynamicStoreAddWatchedKey() failed"));
+		SC_log(LOG_INFO, "SCDynamicStoreAddWatchedKey() failed");
+	}
+
+	// add SCDynamicStore session (for the actual lock)
+	if (ok) {
+		prefsPrivate->sessionNoO_EXLOCK = SCDynamicStoreCreate(NULL, prefsPrivate->name, NULL, NULL);
+		if (prefsPrivate->sessionNoO_EXLOCK == NULL) {
+			sc_status = SCError();
+			SC_log(LOG_INFO, "SCDynamicStoreCreate() failed");
+			ok = FALSE;
+		}
 	}
 
 	while (ok) {
@@ -302,7 +305,7 @@ lockWithSCDynamicStore(SCPreferencesPrivateRef	prefsPrivate, Boolean wait)
 
 		// Attempt to acquire the lock
 		value = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
-		ok = SCDynamicStoreAddTemporaryValue(prefsPrivate->session,
+		ok = SCDynamicStoreAddTemporaryValue(prefsPrivate->sessionNoO_EXLOCK,
 						     prefsPrivate->sessionKeyLock,
 						     value);
 		CFRelease(value);
@@ -320,7 +323,7 @@ lockWithSCDynamicStore(SCPreferencesPrivateRef	prefsPrivate, Boolean wait)
 		ok = SCDynamicStoreNotifyWait(prefsPrivate->session);
 		if (!ok) {
 			sc_status = SCError();
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesLock SCDynamicStoreNotifyWait() failed"));
+			SC_log(LOG_INFO, "SCDynamicStoreNotifyWait() failed");
 			break;
 		}
 
@@ -329,7 +332,7 @@ lockWithSCDynamicStore(SCPreferencesPrivateRef	prefsPrivate, Boolean wait)
 		if (changes != NULL) {
 			CFRelease(changes);
 		} else {
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesLock SCDynamicStoreCopyNotifiedKeys() failed"));
+			SC_log(LOG_INFO, "SCDynamicStoreCopyNotifiedKeys() failed");
 			break;
 		}
 	}
@@ -345,9 +348,17 @@ lockWithSCDynamicStore(SCPreferencesPrivateRef	prefsPrivate, Boolean wait)
 		CFRelease(changes);
 	}
 
+	__SCPreferencesRemoveSession(prefs);
+
+	if (!locked && (prefsPrivate->sessionNoO_EXLOCK != NULL)) {
+		CFRelease(prefsPrivate->sessionNoO_EXLOCK);
+		prefsPrivate->sessionNoO_EXLOCK = NULL;
+	}
+
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);
 	}
+
 	return locked;
 }
 
@@ -387,9 +398,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 
 	pthread_mutex_lock(&prefsPrivate->lock);
 
-	if (prefsPrivate->session == NULL) {
-		__SCPreferencesAddSession(prefs);
-	}
+	__SCPreferencesAddSessionKeys(prefs);
 
 	if (prefsPrivate->lockPath == NULL) {
 		char	*path;
@@ -406,7 +415,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
     retry :
 
 	if (prefsPrivate->sessionKeyLock != NULL) {
-		if (lockWithSCDynamicStore(prefsPrivate, wait)) {
+		if (lockWithSCDynamicStore(prefs, wait)) {
 			goto locked;
 		}
 
@@ -427,9 +436,8 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 					// create parent (/Library/Preferences/SystemConfiguration)
 					ret = createParentDirectory(prefsPrivate->lockPath);
 					if (ret == 0) {
-						SCLog(TRUE, LOG_NOTICE,
-						      CFSTR("created directory for \"%s\""),
-						      prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+						SC_log(LOG_INFO, "created directory for \"%s\"",
+						       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
 						goto retry;
 					} else if (errno == EROFS) {
 						goto locked;
@@ -458,9 +466,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 		}
 
 		sc_status = errno;
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCPreferencesLock open() failed: %s"),
-		      strerror(errno));
+		SC_log(LOG_NOTICE, "open() failed: %s", strerror(errno));
 		goto error;
 	}
 
@@ -497,8 +503,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 			if (errno == ENOENT) {
 				bzero(&statBuf, sizeof(statBuf));
 			} else {
-				SCLog(TRUE, LOG_DEBUG,
-				      CFSTR("SCPreferencesLock stat() failed: %s"),
+				SC_log(LOG_INFO, "stat() failed: %s",
 				      strerror(errno));
 				goto stale;
 			}

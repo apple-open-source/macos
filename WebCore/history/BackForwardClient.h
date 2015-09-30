@@ -41,7 +41,7 @@ public:
     {
     }
 
-    virtual void addItem(PassRefPtr<HistoryItem>) = 0;
+    virtual void addItem(Ref<HistoryItem>&&) = 0;
 
     virtual void goToItem(HistoryItem*) = 0;
         
@@ -59,12 +59,6 @@ public:
     // FIXME: Consider renaming this method once we upstream the iOS changes to WebView.mm.
     virtual bool clearAllPageCaches() = 0;
 #endif
-
-    // FIXME: Delete these once all callers are using BackForwardController
-    // instead of calling this directly.
-    HistoryItem* backItem() { return itemAtIndex(-1); }
-    HistoryItem* currentItem() { return itemAtIndex(0); }
-    HistoryItem* forwardItem() { return itemAtIndex(1); }
 };
 
 } // namespace WebCore

@@ -67,6 +67,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	CFDataRef labeldata = NULL;
 	CFDataRef labeldata2 = NULL;
 	struct statfs sb;
+	BLVersionRec	osVersion;
 
     BLPreBootEnvType	preboot;
 	
@@ -205,9 +206,24 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	/* If user gave options that require boot.efi creation, do it now. */
     if(actargs[kbootefi].present) {
         if(!actargs[kbootefi].hasArg) {
-			
-            snprintf(actargs[kbootefi].argument, kMaxArgLength-1, "%s/%s", actargs[kmount].argument, kBL_PATH_I386_BOOT_EFI);
-			
+			// Let's see what OS we're on
+			BLGetOSVersion(context, actargs[kmount].argument, &osVersion);
+			if (osVersion.major != 10) {
+				// Uh-oh, what do we do with this?
+				blesscontextprintf(context, kBLLogLevelError, "OS Major version unrecognized\n");
+				return 2;
+			}
+			actargs[kbootefi].argument[0] = '\0';
+			if (osVersion.minor >= 11) {
+				// use bootdev.efi by default if it exists
+				snprintf(actargs[kbootefi].argument, kMaxArgLength-1, "%s/%s", actargs[kmount].argument, kBL_PATH_I386_BOOTDEV_EFI);
+				if (access(actargs[kbootefi].argument, R_OK) != 0) {
+					actargs[kbootefi].argument[0] = '\0';
+				}
+			}
+			if (!actargs[kbootefi].argument[0]) {
+				snprintf(actargs[kbootefi].argument, kMaxArgLength-1, "%s/%s", actargs[kmount].argument, kBL_PATH_I386_BOOT_EFI);
+			}
         }
 		
 		ret = BLLoadFile(context, actargs[kbootefi].argument, 0, &bootEFIdata);

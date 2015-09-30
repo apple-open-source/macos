@@ -226,7 +226,6 @@ static OSStatus sslServe(
 	const char				*acceptedProts,
 	CFArrayRef				serverCerts,		// required
 	char					*password,			// optional
-	CFArrayRef				encryptServerCerts,	// optional
 	bool				allowExpired,
 	bool				allowAnyRoot,
 	bool				allowExpiredRoot,
@@ -334,13 +333,6 @@ static OSStatus sslServe(
 		ortn = SSLSetCertificate(ctx, serverCerts);
 		if(ortn) {
 			printSslErrStr("SSLSetCertificate", ortn);
-			goto cleanup;
-		}
-	}
-	if(encryptServerCerts) {
-		ortn = SSLSetEncryptionCertificate(ctx, encryptServerCerts);
-		if(ortn) {
-			printSslErrStr("SSLSetEncryptionCertificate", ortn);
 			goto cleanup;
 		}
 	}
@@ -700,9 +692,7 @@ int main(int argc, char **argv)
 	char				*argp;
 	otSocket			listenSock;
 	CFArrayRef			serverCerts = nil;		// required
-	CFArrayRef			encryptCerts = nil;		// optional
 	SecKeychainRef		serverKc = nil;
-	SecKeychainRef		encryptKc = nil;
 	int 				loopNum;
 	int					errCount = 0;
 	SSLClientCertificateState certState;		// obtained from sslServe
@@ -722,7 +712,6 @@ int main(int argc, char **argv)
 	bool			resumableEnable = true;
 	bool			pause = false;
 	char				*keyChainName = NULL;
-	char				*encryptKeyChainName = NULL;
 	int					loops = 1;
 	SSLAuthenticate		authenticate = kNeverAuthenticate;
 	bool			nonBlocking = false;
@@ -750,9 +739,6 @@ int main(int argc, char **argv)
 				break;
 			case 'k':
 				keyChainName = &argp[2];
-				break;
-			case 'y':
-				encryptKeyChainName = &argp[2];
 				break;
 			case 'e':
 				allowExpired = true;
@@ -950,16 +936,8 @@ int main(int argc, char **argv)
 			/* oh well */
 		}
 	}
-	if(encryptKeyChainName) {
-		encryptCerts = getSslCerts(encryptKeyChainName, true, completeCertChain,
-			anchorFile, &encryptKc);
-		if(encryptCerts == nil) {
-			exit(1);
-		}
-	}
 #else
     (void) doIdSearch;
-    (void) encryptKeyChainName;
 #endif
 	if(protXOnly) {
 		switch(attemptProt) {
@@ -999,7 +977,6 @@ int main(int argc, char **argv)
 			acceptedProts,
 			serverCerts,
 			password,
-			encryptCerts,
 			allowExpired,
 			allowAnyRoot,
 			allowExpiredRoot,
@@ -1054,9 +1031,6 @@ int main(int argc, char **argv)
 
 	if(serverKc) {
 		CFRelease(serverKc);
-	}
-	if(encryptKc) {
-		CFRelease(encryptKc);
 	}
     return errCount;
 

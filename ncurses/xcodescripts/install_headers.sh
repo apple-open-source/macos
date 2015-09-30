@@ -1,11 +1,6 @@
 #!/bin/sh
 set -e -x
 
-# check if we're building for the simulator
-if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ]; then
-	DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
-fi
-
 mkdir -p "$DSTROOT/usr/include"
 install -g "$INSTALL_GROUP" -o "$INSTALL_OWNER" -m "$INSTALL_MODE_FLAG" \
 	./ncurses/include/tic.h \

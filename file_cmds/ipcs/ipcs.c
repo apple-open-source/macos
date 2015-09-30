@@ -117,26 +117,6 @@ usage(void)
 	errx(EX_USAGE, "%s","usage: ipcs [-abcmopqstMQST]\n");
 }
 
-static int
-safe_sysctlbyname(const char *name, void *oldp, size_t *oldlenp, void *newp, size_t newlen)
-{
-	int rv, sv_errno=0;
-
-	if (seteuid(0)) /* iterator needs root write access to sysctl */
-		err(1, "seteuid(0) failed");
-
-	rv = sysctlbyname(name, oldp, oldlenp, newp, newlen);
-	if (rv < 0)
-		sv_errno = errno;
-
-	if (seteuid(getuid()))
-		err(1, "seteuid(%d) failed", getuid());
-
-	if (rv < 0)
-		errno = sv_errno;
-	return rv;
-}
-
 int
 main(argc, argv)
 	int     argc;
@@ -148,9 +128,6 @@ main(argc, argv)
 	time_t	now;
 	char	datestring[100];
 	int	i;
-
-	if (seteuid(getuid()))	/* run as user */
-		err(1, "seteuid(%d) failed", getuid());
 
 	while ((i = getopt(argc, argv, "MmQqSsabcoptT")) != -1)
 		switch (i) {
@@ -219,7 +196,7 @@ main(argc, argv)
 			ic.ipcs_data = &msginfo;
 			ic.ipcs_datalen = sizeof(msginfo);
 
-			if (safe_sysctlbyname(IPCS_MSG_SYSCTL, &ic, &ic_size, &ic, ic_size)) {
+			if (sysctlbyname(IPCS_MSG_SYSCTL, &ic, &ic_size, &ic, ic_size)) {
 				if (errno != EPERM) {
 					char buffer[1024];
 					snprintf(buffer, 1024, "sysctlbyname(IPCS_MSG_SYSCTL, op=CONF, &ic, &%ld) datalen=%d",
@@ -270,7 +247,7 @@ main(argc, argv)
 
 			memset(msqptr, 0, sizeof(*msqptr));
 
-			while(!(safe_sysctlbyname(IPCS_MSG_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
+			while(!(sysctlbyname(IPCS_MSG_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
 				ic.ipcs_data = msqptr;
 
 				if (msqptr->msg_qbytes != 0) {
@@ -345,7 +322,7 @@ main(argc, argv)
 			ic.ipcs_data = &shminfo;
 			ic.ipcs_datalen = sizeof(shminfo);
 
-			if (safe_sysctlbyname(IPCS_SHM_SYSCTL, &ic, &ic_size, &ic, ic_size)) {
+			if (sysctlbyname(IPCS_SHM_SYSCTL, &ic, &ic_size, &ic, ic_size)) {
 				if (errno != EPERM) {
 					errx(1, "sysctlbyname(IPCS_SHM_SYSCTL, op=CONF, &ic, &%ld) datalen=%d failed: %s\n",
 					     sizeof(ic), ic.ipcs_datalen, strerror(errno));
@@ -391,7 +368,7 @@ main(argc, argv)
 			ic.ipcs_data = shmptr;
 			memset(shmptr, 0, sizeof(*shmptr));
 
-			while(!(safe_sysctlbyname(IPCS_SHM_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
+			while(!(sysctlbyname(IPCS_SHM_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
 				ic.ipcs_data = shmptr; /* xnu workaround */
 
 				if (shmptr->shm_perm.mode & 0x0800) {
@@ -467,7 +444,7 @@ else
 			ic.ipcs_data = &seminfo;
 			ic.ipcs_datalen = sizeof(seminfo);
 
-			if (safe_sysctlbyname(IPCS_SEM_SYSCTL, &ic, &ic_size, &ic, ic_size)) {
+			if (sysctlbyname(IPCS_SEM_SYSCTL, &ic, &ic_size, &ic, ic_size)) {
 				if (errno != EPERM) {
 					char buffer[1024];
 					snprintf(buffer, 1024, "sysctlbyname(IPCS_SEM_SYSCTL, op=CONF, &ic, &%ld) datalen=%d",
@@ -522,7 +499,7 @@ else
 
 			memset(semaptr, 0, sizeof(*semaptr));
 
-			while(!(safe_sysctlbyname(IPCS_SEM_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
+			while(!(sysctlbyname(IPCS_SEM_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
 				ic.ipcs_data = semaptr;	/* xnu workaround */
 
 				if ((semaptr->sem_perm.mode & SEM_ALLOC) != 0) {

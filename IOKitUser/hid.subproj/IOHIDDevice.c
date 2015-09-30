@@ -206,7 +206,7 @@ static  pthread_once_t  __deviceTypeInit            = PTHREAD_ONCE_INIT;
 static  CFTypeID        __kIOHIDDeviceTypeID        = _kCFRuntimeNotATypeID;
 static  CFSetCallBacks  __callbackBaseSetCallbacks  = {};
 
-static CFStringRef __debugKeys[] = {CFSTR(kIOHIDTransportKey), CFSTR(kIOHIDVendorIDKey), CFSTR(kIOHIDVendorIDSourceKey), CFSTR(kIOHIDProductIDKey), CFSTR(kIOHIDManufacturerKey), CFSTR(kIOHIDProductKey), CFSTR(kIOHIDPrimaryUsagePageKey), CFSTR(kIOHIDPrimaryUsageKey), CFSTR(kIOHIDCategoryKey), CFSTR(kIOHIDReportIntervalKey), CFSTR(kIOHIDSampleIntervalKey)};
+static CFStringRef __debugKeys[] = {CFSTR(kIOHIDTransportKey), CFSTR(kIOHIDVendorIDKey), CFSTR(kIOHIDVendorIDSourceKey), CFSTR(kIOHIDProductIDKey), CFSTR(kIOHIDManufacturerKey), CFSTR(kIOHIDProductKey), CFSTR(kIOHIDPrimaryUsagePageKey), CFSTR(kIOHIDPrimaryUsageKey), CFSTR(kIOHIDCategoryKey), CFSTR(kIOHIDReportIntervalKey), CFSTR(kIOHIDSampleIntervalKey), CFSTR(kIOHIDBatchIntervalKey)};
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // __IOHIDDeviceCopyDebugDescription
@@ -500,8 +500,6 @@ IOReturn IOHIDDeviceClose(
                                 IOHIDDeviceRef                  device, 
                                 IOOptionBits                    options)
 {
-    if ( device->removalCallbackSet )
-        CFSetRemoveAllValues(device->removalCallbackSet);
     if ( device->inputValueCallbackSet )
         CFSetRemoveAllValues(device->inputValueCallbackSet);
     if ( device->inputReportCallbackSet )
@@ -728,7 +726,15 @@ void IOHIDDeviceUnscheduleFromRunLoop(
 {
     if ( CFEqual(device->runLoop, runLoop) && 
             CFEqual(device->runLoopMode, runLoopMode)) {
-            
+ 
+        if ( device->queue ) {
+          IOHIDQueueStop(device->queue);
+
+          IOHIDQueueUnscheduleFromRunLoop(device->queue,
+                                          device->runLoop,
+                                          device->runLoopMode);
+        }
+      
         if ( device->notificationPort ) {        
             CFRunLoopRemoveSource(
                 device->runLoop, 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -128,8 +128,8 @@ eaptls_compute_session_key(EAPTLSPluginDataRef context)
 				  context->key_data,
 				  sizeof(context->key_data));
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeSessionKey failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeSessionKey failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	return (FALSE);
     }
     context->key_data_valid = TRUE;
@@ -166,8 +166,8 @@ eaptls_start(EAPClientPluginDataRef plugin)
     ssl_context = EAPTLSMemIOContextCreate(FALSE, &context->mem_io, NULL, 
 					   &status);
     if (ssl_context == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	goto failed;
     }
     if (context->resume_sessions && plugin->unique_id != NULL) {
@@ -175,7 +175,8 @@ eaptls_start(EAPClientPluginDataRef plugin)
 			      plugin->unique_id_length);
 	if (status != noErr) {
 	    EAPLOG_FL(LOG_NOTICE,
-		      "SSLSetPeerID failed, %s", EAPSSLErrorString(status));
+		      "SSLSetPeerID failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    goto failed;
 	}
     }
@@ -194,8 +195,8 @@ eaptls_start(EAPClientPluginDataRef plugin)
 	status = SSLSetCertificate(ssl_context, context->certs);
 	if (status != noErr) {
 	    EAPLOG_FL(LOG_NOTICE, 
-		      "SSLSetCertificate failed, %s",
-		      EAPSSLErrorString(status));
+		      "SSLSetCertificate failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    goto failed;
 	}
     }
@@ -392,8 +393,8 @@ eaptls_handshake(EAPClientPluginDataRef plugin,
 					&context->last_write_size);
 	break;
     default:
-	EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	context->last_ssl_error = status;
 	my_CFRelease(&context->server_certs);
 	(void)EAPSSLCopyPeerCertificates(context->ssl_context,
@@ -454,8 +455,8 @@ eaptls_request(EAPClientPluginDataRef plugin,
     if (context->ssl_context != NULL) {
 	status = SSLGetSessionState(context->ssl_context, &ssl_state);
 	if (status != noErr) {
-	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s",
-		      EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    context->plugin_state = kEAPClientStateFailure;
 	    context->last_ssl_error = status;
 	    goto done;

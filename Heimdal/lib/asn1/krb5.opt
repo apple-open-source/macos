@@ -4,4 +4,5 @@
 --sequence=METHOD-DATA
 --sequence=ETYPE-INFO
 --sequence=ETYPE-INFO2
+--sequence=KRB5-PFS-SELECTIONS
 --fuzzer

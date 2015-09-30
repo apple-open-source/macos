@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: configure.ac 11830 2014-04-24 12:10:41Z msweet $"
+dnl "$Id: configure.ac 12828 2015-07-31 15:22:17Z msweet $"
 dnl
 dnl Configuration script for CUPS.
 dnl
-dnl Copyright 2007-2014 by Apple Inc.
+dnl Copyright 2007-2015 by Apple Inc.
 dnl Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl These coded instructions, statements, and computer programs are the
@@ -13,7 +13,11 @@ dnl which should have been included with this file.  If this file is
 dnl file is missing or damaged, see the license at "http://www.cups.org/".
 dnl
 
-AC_INIT(cups/cups.h)
+dnl We need at least autoconf 2.60...
+AC_PREREQ(2.60)
+
+dnl Package name and version...
+AC_INIT([CUPS], [2.1.0], [https://www.cups.org/str.php], [cups], [https://www.cups.org/])
 
 sinclude(config-scripts/cups-opsys.m4)
 sinclude(config-scripts/cups-common.m4)
@@ -66,7 +70,6 @@ AC_OUTPUT(Makedefs
 	  conf/pam.std
 	  conf/snmp.conf
 	  cups-config
-	  data/testprint
 	  desktop/cups.desktop
 	  doc/index.html
 	  man/client.conf.man
@@ -81,6 +84,7 @@ AC_OUTPUT(Makedefs
 	  scheduler/cups.sh
 	  scheduler/cups.xml
 	  scheduler/org.cups.cups-lpd.plist
+	  scheduler/org.cups.cups-lpdAT.service
 	  scheduler/org.cups.cupsd.path
 	  scheduler/org.cups.cupsd.service
 	  scheduler/org.cups.cupsd.socket
@@ -91,5 +95,5 @@ AC_OUTPUT(Makedefs
 chmod +x cups-config
 
 dnl
-dnl End of "$Id: configure.ac 11830 2014-04-24 12:10:41Z msweet $".
+dnl End of "$Id: configure.ac 12828 2015-07-31 15:22:17Z msweet $".
 dnl

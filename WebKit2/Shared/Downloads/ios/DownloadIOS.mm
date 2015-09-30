@@ -29,7 +29,6 @@
 #if PLATFORM(IOS)
 
 #import "DataReference.h"
-#import <CFNetwork/CFURLDownload.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/ResourceError.h>
 #import <WebCore/ResourceHandle.h>
@@ -37,10 +36,15 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/RunLoop.h>
 
+#if USE(CFNETWORK)
+#import <CFNetwork/CFURLDownload.h>
+#endif
+
 using namespace WebCore;
 
 namespace WebKit {
 
+#if USE(CFNETWORK)
 // FIXME: If possible, we should consider moving some callbacks off the main thread or at least
 // making them asynchonous calls.
 static void dispatchOnMainThread(void(^block)())
@@ -117,21 +121,34 @@ static void setUpDownloadClient(CFURLDownloadClient& client, Download& download)
     client.didFail = [](CFURLDownloadRef downloadRef, CFErrorRef error, const void* clientInfo) {
         dispatchOnMainThread(^{
             auto resumeData = adoptCF(CFURLDownloadCopyResumeData(downloadRef));
-            toDownload(clientInfo)->didFail(error, IPC::DataReference(CFDataGetBytePtr(resumeData.get()), CFDataGetLength(resumeData.get())));
+            toDownload(clientInfo)->didFail(error, IPC::DataReference(resumeData ? CFDataGetBytePtr(resumeData.get()) : nullptr, resumeData ? CFDataGetLength(resumeData.get()) : 0));
         });
     };
 }
+#endif // USE(CFNETWORK)
 
 void Download::start()
 {
     notImplemented();
 }
 
+void Download::resume(const IPC::DataReference&, const String&, const SandboxExtension::Handle&)
+{
+    notImplemented();
+}
+
 void Download::startWithHandle(ResourceHandle* handle, const ResourceResponse& response)
 {
+#if USE(CFNETWORK)
     CFURLDownloadClient client;
     setUpDownloadClient(client, *this);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     m_download = adoptCF(CFURLDownloadCreateAndStartWithLoadingConnection(NULL, handle->releaseConnectionForDownload().get(), m_request.cfURLRequest(UpdateHTTPBody), response.cfURLResponse(), &client));
+#pragma clang diagnostic pop
+#else
+    notImplemented();
+#endif
 }
 
 void Download::cancel()
@@ -140,11 +157,6 @@ void Download::cancel()
 }
 
 void Download::platformInvalidate()
-{
-    notImplemented();
-}
-
-void Download::didDecideDestination(const String&, bool)
 {
     notImplemented();
 }

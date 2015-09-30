@@ -29,13 +29,13 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_inquire_cred_by_mech(OM_uint32 *minor_status,
-    const gss_cred_id_t cred_handle,
-    const gss_OID mech_type,
-    gss_name_t *cred_name,
-    OM_uint32 *initiator_lifetime,
-    OM_uint32 *acceptor_lifetime,
-    gss_cred_usage_t *cred_usage)
+gss_inquire_cred_by_mech(OM_uint32 * __nonnull minor_status,
+    __nullable const gss_cred_id_t cred_handle,
+    __nonnull const gss_OID mech_type,
+    __nullable gss_name_t * __nullable cred_name,
+    OM_uint32 *__nullable initiator_lifetime,
+    OM_uint32 *__nullable acceptor_lifetime,
+    gss_cred_usage_t *__nullable cred_usage)
 {
 	OM_uint32 major_status;
 	gssapi_mech_interface m;

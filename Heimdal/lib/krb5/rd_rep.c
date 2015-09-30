@@ -61,6 +61,14 @@ krb5_rd_rep(krb5_context context,
 	goto out;
     }
 
+    if (ap_rep.pfs && auth_context->pfs) {
+	ret = _krb5_pfs_rd_rep(context, auth_context, &ap_rep);
+	if (ret)
+	    goto out;
+    } else {
+	_krb5_auth_con_free_pfs(context, auth_context);
+    }
+
     ret = krb5_crypto_init(context, auth_context->keyblock, 0, &crypto);
     if (ret)
 	goto out;
@@ -99,10 +107,23 @@ krb5_rd_rep(krb5_context context,
     if ((*repl)->seq_number)
 	krb5_auth_con_setremoteseqnumber(context, auth_context,
 					 *((*repl)->seq_number));
-    if ((*repl)->subkey)
+    if ((*repl)->subkey) {
+
+	if (ap_rep.pfs && auth_context->pfs) {
+	    ret = _krb5_pfs_update_key(context, auth_context,
+				       "server key",
+				       (*repl)->subkey);
+	    if (ret)
+		goto out;
+	} else {
+	    _krb5_debugx(context, 10, "krb5_rd_rep not using PFS");
+	}
+
 	krb5_auth_con_setremotesubkey(context, auth_context, (*repl)->subkey);
+    }
 
  out:
+    _krb5_auth_con_free_pfs(context, auth_context);
     krb5_data_free (&data);
     free_AP_REP (&ap_rep);
     return ret;

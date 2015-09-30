@@ -38,12 +38,27 @@ public:
         switch (webEvent.type()) {
         case WebEvent::MouseDown:
             m_type = WebCore::PlatformEvent::MousePressed;
+            m_force = WebCore::ForceAtClick;
             break;
         case WebEvent::MouseUp:
             m_type = WebCore::PlatformEvent::MouseReleased;
+            m_force = WebCore::ForceAtClick;
             break;
         case WebEvent::MouseMove:
             m_type = WebCore::PlatformEvent::MouseMoved;
+            m_force = webEvent.force();
+            break;
+        case WebEvent::MouseForceChanged:
+            m_type = WebCore::PlatformEvent::MouseForceChanged;
+            m_force = webEvent.force();
+            break;
+        case WebEvent::MouseForceDown:
+            m_type = WebCore::PlatformEvent::MouseForceDown;
+            m_force = WebCore::ForceAtForceClick;
+            break;
+        case WebEvent::MouseForceUp:
+            m_type = WebCore::PlatformEvent::MouseForceUp;
+            m_force = WebCore::ForceAtForceClick;
             break;
         default:
             ASSERT_NOT_REACHED();
@@ -82,6 +97,10 @@ public:
         m_position = webEvent.position();
         m_globalPosition = webEvent.globalPosition();
         m_clickCount = webEvent.clickCount();
+#if PLATFORM(MAC)
+        m_eventNumber = webEvent.eventNumber();
+        m_menuTypeForEvent = webEvent.menuTypeForEvent();
+#endif
 
         m_modifierFlags = 0;
         if (webEvent.shiftKey())
@@ -185,7 +204,7 @@ public:
         m_windowsVirtualKeyCode = webEvent.windowsVirtualKeyCode();
         m_nativeVirtualKeyCode = webEvent.nativeVirtualKeyCode();
         m_macCharCode = webEvent.macCharCode();
-#if USE(APPKIT)
+#if USE(APPKIT) || PLATFORM(GTK)
         m_handledByInputMethod = webEvent.handledByInputMethod();
         m_commands = webEvent.commands();
 #endif
@@ -219,6 +238,9 @@ static WebCore::PlatformTouchPoint::TouchPhaseType touchEventType(const WebPlatf
     }
 }
 
+#if ENABLE(IOS_TOUCH_EVENTS)
+#include <WebKitAdditions/WebEventConversionIOS.cpp>
+#else
 class WebKit2PlatformTouchPoint : public WebCore::PlatformTouchPoint {
 public:
 WebKit2PlatformTouchPoint(const WebPlatformTouchPoint& webTouchPoint)
@@ -226,6 +248,8 @@ WebKit2PlatformTouchPoint(const WebPlatformTouchPoint& webTouchPoint)
 {
 }
 };
+#endif // ENABLE(IOS_TOUCH_EVENTS)
+
 #else
 
 class WebKit2PlatformTouchPoint : public WebCore::PlatformTouchPoint {
@@ -308,6 +332,7 @@ public:
         m_gestureRotation = webEvent.gestureRotation();
         m_canPreventNativeGestures = webEvent.canPreventNativeGestures();
         m_isGesture = webEvent.isGesture();
+        m_isPotentialTap = webEvent.isPotentialTap();
         m_position = webEvent.position();
         m_globalPosition = webEvent.position();
 #else

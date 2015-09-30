@@ -27,6 +27,8 @@
 #include "WebUserContentController.h"
 
 #include "DataReference.h"
+#include "SecurityOriginData.h"
+#include "WebCompiledContentExtension.h"
 #include "WebFrame.h"
 #include "WebPage.h"
 #include "WebProcess.h"
@@ -68,16 +70,16 @@ PassRefPtr<WebUserContentController> WebUserContentController::getOrCreate(uint6
 
 WebUserContentController::WebUserContentController(uint64_t identifier)
     : m_identifier(identifier)
-    , m_userContentController(*UserContentController::create())
+    , m_userContentController(UserContentController::create())
 {
-    WebProcess::shared().addMessageReceiver(Messages::WebUserContentController::messageReceiverName(), m_identifier, *this);
+    WebProcess::singleton().addMessageReceiver(Messages::WebUserContentController::messageReceiverName(), m_identifier, *this);
 }
 
 WebUserContentController::~WebUserContentController()
 {
     ASSERT(userContentControllers().contains(m_identifier));
 
-    WebProcess::shared().removeMessageReceiver(Messages::WebUserContentController::messageReceiverName(), m_identifier);
+    WebProcess::singleton().removeMessageReceiver(Messages::WebUserContentController::messageReceiverName(), m_identifier);
 
     userContentControllers().remove(m_identifier);
 }
@@ -116,6 +118,7 @@ public:
 
     virtual ~WebUserMessageHandlerDescriptorProxy()
     {
+        m_descriptor->invalidateClient();
     }
 
     // WebCore::UserMessageHandlerDescriptor::Client
@@ -133,7 +136,7 @@ public:
         if (!webPage)
             return;
 
-        WebProcess::shared().parentProcessConnection()->send(Messages::WebUserContentControllerProxy::DidPostMessage(webPage->pageID(), webFrame->frameID(), m_identifier, IPC::DataReference(value->data())), m_controller->identifier());
+        WebProcess::singleton().parentProcessConnection()->send(Messages::WebUserContentControllerProxy::DidPostMessage(webPage->pageID(), webFrame->frameID(), SecurityOriginData::fromFrame(webFrame), m_identifier, IPC::DataReference(value->data())), m_controller->identifier());
     }
 
     WebCore::UserMessageHandlerDescriptor& descriptor() { return *m_descriptor; }
@@ -179,5 +182,26 @@ void WebUserContentController::removeUserScriptMessageHandler(uint64_t identifie
     UNUSED_PARAM(identifier);
 #endif
 }
+
+#if ENABLE(CONTENT_EXTENSIONS)
+void WebUserContentController::addUserContentExtensions(const Vector<std::pair<String, WebCompiledContentExtensionData>>& userContentExtensions)
+{
+    for (const auto& userContentExtension : userContentExtensions) {
+        WebCompiledContentExtensionData contentExtensionData = userContentExtension.second;
+        RefPtr<WebCompiledContentExtension> compiledContentExtension = WebCompiledContentExtension::create(WTF::move(contentExtensionData));
+        m_userContentController->addUserContentExtension(userContentExtension.first, compiledContentExtension);
+    }
+}
+
+void WebUserContentController::removeUserContentExtension(const String& name)
+{
+    m_userContentController->removeUserContentExtension(name);
+}
+
+void WebUserContentController::removeAllUserContentExtensions()
+{
+    m_userContentController->removeAllUserContentExtensions();
+}
+#endif
 
 } // namespace WebKit

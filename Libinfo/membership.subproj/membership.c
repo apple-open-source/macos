@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,6 +22,9 @@
 
 #include <stdlib.h>
 #include <sys/errno.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <grp.h>
 #include <mach/mach.h>
 #include "membership.h"
 #include "membershipPriv.h"
@@ -183,6 +186,7 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 				
 				if (memcmp(uu, _user_compat_prefix, COMPAT_PREFIX_LEN) == 0) {
 					id_t *tempRes = malloc(sizeof(*tempRes));
+					if (tempRes == NULL) return ENOMEM;
 					memcpy(&tempID, &uu[COMPAT_PREFIX_LEN], sizeof(tempID));
 					(*tempRes) = ntohl(tempID);
 					(*result) = tempRes;
@@ -192,6 +196,7 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 					return 0;
 				} else if (memcmp(uu, _group_compat_prefix, COMPAT_PREFIX_LEN) == 0) {
 					id_t *tempRes = malloc(sizeof(*tempRes));
+					if (tempRes == NULL) return ENOMEM;
 					memcpy(&tempID, &uu[COMPAT_PREFIX_LEN], sizeof(tempID));
 					(*tempRes) = ntohl(tempID);
 					(*result) = tempRes;
@@ -213,6 +218,7 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 					tempID = *((id_t *) identifier);
 					if ((tempID == 0) || (_mbr_od_available() == false)) {
 						uint8_t *tempUU = malloc(sizeof(uuid_t));
+						if (tempUU == NULL) return ENOMEM;
 						uuid_copy(tempUU, _user_compat_prefix);
 						*((id_t *) &tempUU[COMPAT_PREFIX_LEN]) = htonl(tempID);
 						(*result) = tempUU;
@@ -229,6 +235,7 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 					tempID = *((id_t *) identifier);
 					if ((tempID == 0) || (_mbr_od_available() == false)) {
 						uint8_t *tempUU = malloc(sizeof(uuid_t));
+						if (tempUU == NULL) return ENOMEM;
 						uuid_copy(tempUU, _group_compat_prefix);
 						*((id_t *) &tempUU[COMPAT_PREFIX_LEN]) = htonl(tempID);
 						(*result) = tempUU;
@@ -260,7 +267,8 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 			reply_id = xpc_dictionary_get_data(reply, "identifier", &idLen);
 			if (reply_id != NULL) {
 				char *identifier = malloc(idLen);
-				
+				if (identifier == NULL) return ENOMEM;
+
 				memcpy(identifier, reply_id, idLen); // should already be NULL terminated, etc.
 				(*result) = identifier;
 				
@@ -345,6 +353,37 @@ mbr_identifier_to_uuid(int id_type, const void *identifier, size_t identifier_si
 		uuid_copy(uu, result);
 		free(result);
 	}
+	else if ((rc == EIO) && (_mbr_od_available() == false)) {
+		switch (id_type) {
+			case ID_TYPE_USERNAME:
+			{
+				struct passwd *pw = getpwnam(identifier);
+				if (pw) {
+					rc = mbr_identifier_translate(ID_TYPE_UID, &(pw->pw_uid), sizeof(id_t), ID_TYPE_UUID, (void **) &result, NULL);
+					if (rc == 0) {
+						uuid_copy(uu, result);
+						free(result);
+					}
+				}
+				break;
+			}
+			case ID_TYPE_GROUPNAME:
+			{
+				struct group *grp = getgrnam(identifier);
+				if (grp) {
+					rc = mbr_identifier_translate(ID_TYPE_GID, &(grp->gr_gid), sizeof(id_t), ID_TYPE_UUID, (void **) &result, NULL);
+					if (rc == 0) {
+						uuid_copy(uu, result);
+						free(result);
+					}
+				}
+				break;
+			}
+
+			default:
+				break;
+		}
+	}
 	
 	return rc;
 }
@@ -427,6 +466,7 @@ mbr_check_membership_ext(int userid_type, const void *userid, size_t userid_size
 	xpc_dictionary_set_int64(payload, "user_idtype", userid_type);
 	xpc_dictionary_set_data(payload, "user_id", userid, userid_size);
 	xpc_dictionary_set_int64(payload, "group_idtype", groupid_type);
+	xpc_dictionary_set_bool(payload, "refresh", refresh);
 	
 	switch (groupid_type) {
 		case ID_TYPE_GROUPNAME:

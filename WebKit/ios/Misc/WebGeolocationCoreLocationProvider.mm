@@ -30,7 +30,6 @@
 #import <CoreLocation/CLLocation.h>
 #import <CoreLocation/CLLocationManagerDelegate.h>
 #import <CoreLocation/CoreLocation.h>
-#import <CoreLocation/CoreLocationPriv.h>
 #import <WebCore/GeolocationPosition.h>
 #import <WebCore/SoftLinking.h>
 #import <WebKitLogging.h>
@@ -66,17 +65,14 @@ using namespace WebCore;
 {
     ASSERT(!_locationManager);
 
-#define CLLocationManager getCLLocationManagerClass()
-    _locationManager = adoptNS([[CLLocationManager alloc] init]);
-    _lastAuthorizationStatus = [CLLocationManager authorizationStatus];
-#undef CLLocationManager
+    _locationManager = adoptNS([allocCLLocationManagerInstance() init]);
+    _lastAuthorizationStatus = [getCLLocationManagerClass() authorizationStatus];
 
     [ _locationManager setDelegate:self];
 }
 
 - (id)initWithListener:(id<WebGeolocationCoreLocationUpdateListener>)listener
 {
-    ASSERT_MAIN_THREAD();
     self = [super init];
     if (self) {
         _positionListener = listener;
@@ -87,15 +83,12 @@ using namespace WebCore;
 
 - (void)dealloc
 {
-    ASSERT_MAIN_THREAD();
     [_locationManager setDelegate:nil];
     [super dealloc];
 }
 
 - (void)requestGeolocationAuthorization
 {
-    ASSERT_MAIN_THREAD();
-
     if (![getCLLocationManagerClass() locationServicesEnabled]) {
         [_positionListener geolocationAuthorizationDenied];
         return;
@@ -128,8 +121,6 @@ static bool isAuthorizationGranted(CLAuthorizationStatus authorizationStatus)
 
 - (void)start
 {
-    ASSERT_MAIN_THREAD();
-
     if (![getCLLocationManagerClass() locationServicesEnabled]
         || !isAuthorizationGranted([getCLLocationManagerClass() authorizationStatus])) {
         [_locationManager stopUpdatingLocation];
@@ -142,7 +133,6 @@ static bool isAuthorizationGranted(CLAuthorizationStatus authorizationStatus)
 
 - (void)stop
 {
-    ASSERT_MAIN_THREAD();
     [_locationManager stopUpdatingLocation];
 }
 
@@ -224,7 +214,6 @@ static bool isAuthorizationGranted(CLAuthorizationStatus authorizationStatus)
 
 - (void)setEnableHighAccuracy:(BOOL)flag
 {
-    ASSERT_MAIN_THREAD();
     [_locationManager setDesiredAccuracy:flag ? kCLLocationAccuracyBest : kCLLocationAccuracyHundredMeters];
 }
 

@@ -35,15 +35,14 @@ class SVGScriptElement final : public SVGElement
                              , public SVGExternalResourcesRequired
                              , public ScriptElement {
 public:
-    static PassRefPtr<SVGScriptElement> create(const QualifiedName&, Document&, bool wasInsertedByParser);
+    static Ref<SVGScriptElement> create(const QualifiedName&, Document&, bool wasInsertedByParser);
 
 private:
     SVGScriptElement(const QualifiedName&, Document&, bool wasInsertedByParser, bool alreadyStarted);
 
-    bool isSupportedAttribute(const QualifiedName&);
     virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
     virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
-    virtual void didNotifySubtreeInsertions(ContainerNode*) override;
+    virtual void finishedInsertingSubtree() override;
     virtual void childrenChanged(const ChildChange&) override;
 
     virtual void svgAttributeChanged(const QualifiedName&) override;
@@ -66,7 +65,7 @@ private:
 
     virtual void dispatchLoadEvent() override { SVGExternalResourcesRequired::dispatchLoadEvent(this); }
 
-    virtual PassRefPtr<Element> cloneElementWithoutAttributesAndChildren() override;
+    virtual RefPtr<Element> cloneElementWithoutAttributesAndChildren(Document&) override;
     virtual bool rendererIsNeeded(const RenderStyle&) override { return false; }
 
     // SVGExternalResourcesRequired
@@ -80,14 +79,12 @@ private:
 #endif
 
     BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGScriptElement)
-        DECLARE_ANIMATED_STRING(Href, href)
-        DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+        DECLARE_ANIMATED_STRING_OVERRIDE(Href, href)
+        DECLARE_ANIMATED_BOOLEAN_OVERRIDE(ExternalResourcesRequired, externalResourcesRequired)
     END_DECLARE_ANIMATED_PROPERTIES
 
     Timer m_svgLoadEventTimer;
 };
-
-NODE_TYPE_CASTS(SVGScriptElement)
 
 } // namespace WebCore
 

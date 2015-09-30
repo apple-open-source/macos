@@ -31,8 +31,6 @@
 #ifndef InspectorController_h
 #define InspectorController_h
 
-#if ENABLE(INSPECTOR)
-
 #include "InspectorInstrumentationCookie.h"
 #include "InspectorOverlay.h"
 #include <inspector/InspectorAgentRegistry.h>
@@ -44,11 +42,16 @@
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
+class BackendDispatcher;
+class FrontendChannel;
 class InspectorAgent;
-class InspectorBackendDispatcher;
-class InspectorFrontendChannel;
-class InspectorProfilerAgent;
 class InspectorObject;
+
+namespace Protocol {
+namespace OverlayTypes {
+class NodeHighlightData;
+}
+}
 }
 
 namespace WebCore {
@@ -60,6 +63,7 @@ class InspectorClient;
 class InspectorDOMAgent;
 class InspectorDOMDebuggerAgent;
 class InspectorFrontendClient;
+class InspectorInstrumentation;
 class InspectorPageAgent;
 class InspectorResourceAgent;
 class InspectorTimelineAgent;
@@ -81,21 +85,21 @@ public:
     bool enabled() const;
     Page& inspectedPage() const;
 
-    void show();
-    void close();
+    WEBCORE_EXPORT void show();
+    WEBCORE_EXPORT void close();
 
-    void setInspectorFrontendClient(std::unique_ptr<InspectorFrontendClient>);
+    WEBCORE_EXPORT void setInspectorFrontendClient(InspectorFrontendClient*);
     bool hasInspectorFrontendClient() const;
-    void didClearWindowObjectInWorld(Frame*, DOMWrapperWorld&);
+    void didClearWindowObjectInWorld(Frame&, DOMWrapperWorld&);
 
-    void dispatchMessageFromFrontend(const String& message);
+    WEBCORE_EXPORT void dispatchMessageFromFrontend(const String& message);
 
-    bool hasFrontend() const { return !!m_inspectorFrontendChannel; }
+    bool hasFrontend() const { return !!m_frontendChannel; }
     bool hasLocalFrontend() const;
     bool hasRemoteFrontend() const;
 
-    void connectFrontend(Inspector::InspectorFrontendChannel*);
-    void disconnectFrontend(Inspector::InspectorDisconnectReason);
+    WEBCORE_EXPORT void connectFrontend(Inspector::FrontendChannel*, bool isAutomaticInspection);
+    WEBCORE_EXPORT void disconnectFrontend(Inspector::DisconnectReason);
     void setProcessId(long);
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -103,21 +107,21 @@ public:
 #endif
 
     void inspect(Node*);
-    void drawHighlight(GraphicsContext&) const;
-    void getHighlight(Highlight*, InspectorOverlay::CoordinateSystem) const;
+    WEBCORE_EXPORT void drawHighlight(GraphicsContext&) const;
+    WEBCORE_EXPORT void getHighlight(Highlight&, InspectorOverlay::CoordinateSystem) const;
     void hideHighlight();
     Node* highlightedNode() const;
 
     void setIndicating(bool);
 
-    PassRefPtr<Inspector::InspectorObject> buildObjectForHighlightedNode() const;
+    WEBCORE_EXPORT Ref<Inspector::Protocol::Array<Inspector::Protocol::OverlayTypes::NodeHighlightData>> buildObjectForHighlightedNodes() const;
 
     bool isUnderTest() const { return m_isUnderTest; }
     void setIsUnderTest(bool isUnderTest) { m_isUnderTest = isUnderTest; }
-    void evaluateForTestInFrontend(const String& script);
+    WEBCORE_EXPORT void evaluateForTestInFrontend(const String& script);
 
-    bool profilerEnabled() const;
-    void setProfilerEnabled(bool);
+    WEBCORE_EXPORT bool profilerEnabled() const;
+    WEBCORE_EXPORT void setProfilerEnabled(bool);
 
     void resume();
 
@@ -130,9 +134,13 @@ public:
     virtual Inspector::InspectorEvaluateHandler evaluateHandler() const override;
     virtual void willCallInjectedScriptFunction(JSC::ExecState*, const String& scriptName, int scriptLine) override;
     virtual void didCallInjectedScriptFunction(JSC::ExecState*) override;
+    virtual void frontendInitialized() override;
+    virtual Ref<WTF::Stopwatch> executionStopwatch() override;
+
+    WEBCORE_EXPORT void didComposite(Frame&);
 
 private:
-    friend InstrumentingAgents* instrumentationForPage(Page*);
+    friend class InspectorInstrumentation;
 
     RefPtr<InstrumentingAgents> m_instrumentingAgents;
     std::unique_ptr<WebInjectedScriptManager> m_injectedScriptManager;
@@ -144,17 +152,18 @@ private:
     InspectorPageAgent* m_pageAgent;
     PageDebuggerAgent* m_debuggerAgent;
     InspectorDOMDebuggerAgent* m_domDebuggerAgent;
-    Inspector::InspectorProfilerAgent* m_profilerAgent;
     InspectorTimelineAgent* m_timelineAgent;
 
-    RefPtr<Inspector::InspectorBackendDispatcher> m_inspectorBackendDispatcher;
-    std::unique_ptr<InspectorFrontendClient> m_inspectorFrontendClient;
-    Inspector::InspectorFrontendChannel* m_inspectorFrontendChannel;
+    RefPtr<Inspector::BackendDispatcher> m_backendDispatcher;
+    Inspector::FrontendChannel* m_frontendChannel;
+    Ref<WTF::Stopwatch> m_executionStopwatch;
     Page& m_page;
     InspectorClient* m_inspectorClient;
-    Inspector::InspectorAgentRegistry m_agents;
+    InspectorFrontendClient* m_inspectorFrontendClient;
+    Inspector::AgentRegistry m_agents;
     Vector<InspectorInstrumentationCookie, 2> m_injectedScriptInstrumentationCookies;
     bool m_isUnderTest;
+    bool m_isAutomaticInspection;
 
 #if ENABLE(REMOTE_INSPECTOR)
     bool m_hasRemoteFrontend;
@@ -162,7 +171,5 @@ private:
 };
 
 }
-
-#endif // ENABLE(INSPECTOR)
 
 #endif // !defined(InspectorController_h)

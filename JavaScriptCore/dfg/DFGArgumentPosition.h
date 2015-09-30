@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,6 +46,9 @@ public:
     void addVariable(VariableAccessData* variable)
     {
         m_variables.append(variable);
+        
+        // We may set this early. Merging it here saves us time in prediction propagation.
+        variable->mergeShouldNeverUnbox(m_shouldNeverUnbox);
     }
     
     VariableAccessData* someVariable() const
@@ -123,10 +126,7 @@ public:
             if (i)
                 out.print(" ");
 
-            if (operand.isArgument())
-                out.print("arg", operand.toArgument(), "(", VariableAccessDataDump(*graph, variable), ")");
-            else
-                out.print("r", operand.toLocal(), "(", VariableAccessDataDump(*graph, variable), ")");
+            out.print(operand, "(", VariableAccessDataDump(*graph, variable), ")");
         }
         out.print("\n");
     }

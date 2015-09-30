@@ -1091,12 +1091,12 @@ static inline bool IO_COPY_MBUF(
 	mbuf_copy_pkthdr(dst, src);
 	mbuf_pkthdr_setheader(dst, NULL); //otherwise it could be pointing into src's data
 	
-    dst_len = mbuf_len(dst);
+    dst_len = (int)mbuf_len(dst);
     dst_dat = (caddr_t)mbuf_data(dst);
 
     while (src) {
 
-        src_len = mbuf_len( src );
+        src_len = (int)mbuf_len( src );
         src_dat = (caddr_t)mbuf_data( src );
 
         if (src_len > length)
@@ -1128,7 +1128,7 @@ static inline bool IO_COPY_MBUF(
             if (dst_len == 0) {
                 if (!(dst = mbuf_next(dst)))
                     return (length == 0);
-                dst_len = mbuf_len(dst);
+                dst_len = (int)mbuf_len(dst);
                 dst_dat = (caddr_t)mbuf_data(dst);
             }
 
@@ -1164,7 +1164,7 @@ mbuf_t IONetworkController::replacePacket(mbuf_t * mp,
 
     // If size is zero, then size is taken from the source mbuf.
 
-    if (size == 0) size = mbuf_pkthdr_len(m);
+    if (size == 0) size = (UInt32)mbuf_pkthdr_len(m);
     
     // Allocate a new packet to replace the current packet.
 
@@ -1194,7 +1194,7 @@ mbuf_t IONetworkController::copyPacket(mbuf_t m,
 
     // If size is zero, then size is taken from the source mbuf.
 
-    if (size == 0) size = mbuf_pkthdr_len(m);
+    if (size == 0) size = (UInt32)mbuf_pkthdr_len(m);
 	
     // Copy the current mbuf to the new mbuf, and return the new mbuf.
     // The input mbuf is left intact.
@@ -1245,7 +1245,7 @@ mbuf_t IONetworkController::replaceOrCopyPacket(mbuf_t *mp,
 
         m = *mp;
 
-        if ( (*mp = getPacket( mbuf_pkthdr_len(m), MBUF_DONTWAIT,
+        if ( (*mp = getPacket( (UInt32)mbuf_pkthdr_len(m), MBUF_DONTWAIT,
                                _alignStart, _alignLength)) == 0 )
         {
             *mp = m; m = 0;  // error recovery
@@ -2166,7 +2166,7 @@ IOReturn IONetworkController::handleCommand(void * target,
 {
 
     IONetworkController * self    = (IONetworkController *) target;
-    UInt32                command = (uintptr_t) param0;
+    UInt32                command = (UInt32)((uintptr_t) param0);
     IOService *           client  = (IOService *) param1;
     IOReturn              ret     = kIOReturnSuccess;
     UInt32                count   = 0;

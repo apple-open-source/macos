@@ -26,7 +26,7 @@
 #include "IOAudioTypes.h"
 #include "IOAudioDefines.h"
 #include "IOAudioDebug.h"
-#include "AudioTracepoints.h"
+#include <IOKit/audio/AudioTracepoints.h>
 
 #include <libkern/c++/OSSet.h>
 #include <libkern/c++/OSCollectionIterator.h>

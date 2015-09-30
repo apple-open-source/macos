@@ -22,7 +22,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#include "config.h"
 #include "WebKitDLL.h"
 #include "DefaultDownloadDelegate.h"
 
@@ -47,13 +46,13 @@ DefaultDownloadDelegate::DefaultDownloadDelegate()
     : m_refCount(0)
 {
     gClassCount++;
-    gClassNameCount.add("DefaultDownloadDelegate");
+    gClassNameCount().add("DefaultDownloadDelegate");
 }
 
 DefaultDownloadDelegate::~DefaultDownloadDelegate()
 {
     gClassCount--;
-    gClassNameCount.remove("DefaultDownloadDelegate");
+    gClassNameCount().remove("DefaultDownloadDelegate");
     HashSet<IWebDownload*>::iterator i = m_downloads.begin();
     for (;i != m_downloads.end(); ++i)
         (*i)->Release();

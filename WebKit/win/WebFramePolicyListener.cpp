@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebFramePolicyListener.h"
 
@@ -41,13 +40,13 @@ WebFramePolicyListener::WebFramePolicyListener(PassRefPtr<Frame> frame)
     , m_frame(frame)
 {
     gClassCount++;
-    gClassNameCount.add("WebFramePolicyListener");
+    gClassNameCount().add("WebFramePolicyListener");
 }
 
 WebFramePolicyListener::~WebFramePolicyListener()
 {
     gClassCount--;
-    gClassNameCount.remove("WebFramePolicyListener");
+    gClassNameCount().remove("WebFramePolicyListener");
 }
 
 WebFramePolicyListener* WebFramePolicyListener::createInstance(PassRefPtr<Frame> frame)
@@ -127,6 +126,6 @@ void WebFramePolicyListener::receivedPolicyDecision(PolicyAction action)
 
 void WebFramePolicyListener::invalidate()
 {
-    m_frame = 0;
+    m_frame = nullptr;
 }
 

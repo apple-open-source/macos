@@ -86,7 +86,32 @@ cfstring2cstring(CFStringRef string)
     return str;
 }
 
+static char *HeimCredImpersonateBundle = NULL;
 
+void
+HeimCredSetImpersonateBundle(CFStringRef bundle)
+{
+    if (HeimCredImpersonateBundle) {
+	free(HeimCredImpersonateBundle);
+	HeimCredImpersonateBundle = NULL;
+    }
+    if (bundle) {
+	HeimCredImpersonateBundle = cfstring2cstring(bundle);
+    }
+}
+
+const char *
+HeimCredGetImpersonateBundle(void)
+{
+    return HeimCredImpersonateBundle;
+}
+
+static void
+UpdateImpersonateBundle(xpc_object_t message)
+{
+    if (HeimCredImpersonateBundle)
+	xpc_dictionary_set_string(message, "impersonate", HeimCredImpersonateBundle);
+}
 
 
 /*
@@ -161,6 +186,7 @@ HeimWakeupVersion(void)
     xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(request, "command", "wakeup");
     xpc_dictionary_set_int64(request, "version", 0);
+    UpdateImpersonateBundle(request);
     xpc_connection_send_message(HeimCredCTX.conn, request);
     xpc_release(request);
 }
@@ -181,6 +207,7 @@ heim_send_message_with_reply_sync(NSDictionary *message)
 
     xrequest = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_data(xrequest, "data", [request mutableBytes], [request length]);
+    UpdateImpersonateBundle(xrequest);
 
     xpc_object_t xreply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, xrequest);
 
@@ -249,6 +276,7 @@ HeimCredAddItem(xpc_object_t object)
     return cred;
 }
 
+
 /*
  *
  */
@@ -270,6 +298,8 @@ HeimCredCreate(CFDictionaryRef attributes, CFErrorRef *error)
     xpc_dictionary_set_string(request, "command", "create");
     xpc_dictionary_set_value(request, "attributes", xpcattrs);
     xpc_release(xpcattrs);
+
+    UpdateImpersonateBundle(request);
 
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
     xpc_release(request);
@@ -364,6 +394,9 @@ HeimCredSetAttributes(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *
     HeimCredSetUUID(request, "uuid", cred->uuid);
     xpc_dictionary_set_value(request, "attributes", xpcquery);
     xpc_release(xpcquery);
+
+    UpdateImpersonateBundle(request);
+
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
     xpc_release(request);
     if (reply == NULL) {
@@ -418,6 +451,8 @@ HeimCredCopyAttributes(HeimCredRef cred, CFSetRef attributes, CFErrorRef *error)
 	xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
 	xpc_dictionary_set_string(request, "command", "fetch");
 	HeimCredSetUUID(request, "uuid", cred->uuid);
+	UpdateImpersonateBundle(request);
+
 	xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
 	xpc_release(request);
 	if (reply == NULL) {
@@ -456,6 +491,9 @@ SendQueryCommand(const char *command, CFDictionaryRef query)
     xpc_dictionary_set_string(request, "command", command);
     xpc_dictionary_set_value(request, "query", xpcquery);
     xpc_release(xpcquery);
+
+    UpdateImpersonateBundle(request);
+
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
     xpc_release(request);
     return reply;
@@ -591,6 +629,9 @@ HeimCredMove(CFUUIDRef from, CFUUIDRef to)
     xpc_dictionary_set_string(request, "command", "move");
     HeimCredSetUUID(request, "from", from);
     HeimCredSetUUID(request, "to", to);
+
+    UpdateImpersonateBundle(request);
+
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
     xpc_release(request);
     xpc_release(reply);
@@ -614,6 +655,8 @@ HeimCredCopyStatus(CFStringRef mech)
     }
 	
     HC_INIT();
+
+    UpdateImpersonateBundle(request);
 
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
     xpc_release(request);
@@ -642,6 +685,9 @@ HeimCredCopyDefaultCredential(CFStringRef mech, CFErrorRef *error)
     xpc_dictionary_set_string(request, "command", "default");
     xpc_dictionary_set_string(request, "mech", mechName);
     free(mechName);
+
+    UpdateImpersonateBundle(request);
+
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
     xpc_release(request);
 

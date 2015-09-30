@@ -1002,6 +1002,203 @@ class TestRefinement < Test::Unit::TestCase
     INPUT
   end
 
+  def test_change_refined_new_method_visibility
+    assert_separately([''], <<-"end;")
+    $VERBOSE = nil
+    bug10706 = '[ruby-core:67387] [Bug #10706]'
+    module RefinementBug
+      refine Object do
+        def foo
+        end
+      end
+    end
+
+    assert_raise(NameError, bug10706) {private(:foo)}
+    end;
+  end
+
+  def test_alias_refined_method
+  assert_separately([''], <<-"end;")
+    $VERBOSE = nil
+    bug10731 = '[ruby-core:67523] [Bug #10731]'
+
+    class C
+    end
+
+    module RefinementBug
+      refine C do
+        def foo
+        end
+
+        def bar
+        end
+      end
+    end
+
+    assert_raise(NameError, bug10731) do
+      class C
+        alias foo bar
+      end
+    end
+    end;
+  end
+
+  def test_refined_method_defined
+    assert_separately([], <<-"end;")
+    $VERBOSE = nil
+    bug10753 = '[ruby-core:67656] [Bug #10753]'
+
+    c = Class.new do
+      def refined_public; end
+      def refined_protected; end
+      def refined_private; end
+
+      public :refined_public
+      protected :refined_protected
+      private :refined_private
+    end
+
+    m = Module.new do
+      refine(c) do
+        def refined_public; end
+        def refined_protected; end
+        def refined_private; end
+
+        public :refined_public
+        protected :refined_protected
+        private :refined_private
+      end
+    end
+
+    using m
+
+    assert_equal(true, c.public_method_defined?(:refined_public), bug10753)
+    assert_equal(false, c.public_method_defined?(:refined_protected), bug10753)
+    assert_equal(false, c.public_method_defined?(:refined_private), bug10753)
+
+    assert_equal(false, c.protected_method_defined?(:refined_public), bug10753)
+    assert_equal(true, c.protected_method_defined?(:refined_protected), bug10753)
+    assert_equal(false, c.protected_method_defined?(:refined_private), bug10753)
+
+    assert_equal(false, c.private_method_defined?(:refined_public), bug10753)
+    assert_equal(false, c.private_method_defined?(:refined_protected), bug10753)
+    assert_equal(true, c.private_method_defined?(:refined_private), bug10753)
+    end;
+  end
+
+  def test_undefined_refined_method_defined
+    assert_separately([], <<-"end;")
+    $VERBOSE = nil
+    bug10753 = '[ruby-core:67656] [Bug #10753]'
+
+    c = Class.new
+
+    m = Module.new do
+      refine(c) do
+        def undefined_refined_public; end
+        def undefined_refined_protected; end
+        def undefined_refined_private; end
+        public :undefined_refined_public
+        protected :undefined_refined_protected
+        private :undefined_refined_private
+      end
+    end
+
+    using m
+
+    assert_equal(false, c.public_method_defined?(:undefined_refined_public), bug10753)
+    assert_equal(false, c.public_method_defined?(:undefined_refined_protected), bug10753)
+    assert_equal(false, c.public_method_defined?(:undefined_refined_private), bug10753)
+
+    assert_equal(false, c.protected_method_defined?(:undefined_refined_public), bug10753)
+    assert_equal(false, c.protected_method_defined?(:undefined_refined_protected), bug10753)
+    assert_equal(false, c.protected_method_defined?(:undefined_refined_private), bug10753)
+
+    assert_equal(false, c.private_method_defined?(:undefined_refined_public), bug10753)
+    assert_equal(false, c.private_method_defined?(:undefined_refined_protected), bug10753)
+    assert_equal(false, c.private_method_defined?(:undefined_refined_private), bug10753)
+    end;
+  end
+
+  def test_remove_refined_method
+    assert_separately([], <<-"end;")
+    $VERBOSE = nil
+    bug10765 = '[ruby-core:67722] [Bug #10765]'
+
+    class C
+      def foo
+        "C#foo"
+      end
+    end
+
+    module RefinementBug
+      refine C do
+        def foo
+          "RefinementBug#foo"
+        end
+      end
+    end
+
+    using RefinementBug
+
+    class C
+      remove_method :foo
+    end
+
+    assert_equal("RefinementBug#foo", C.new.foo, bug10765)
+    end;
+  end
+
+  def test_remove_undefined_refined_method
+    assert_separately([], <<-"end;")
+    $VERBOSE = nil
+    bug10765 = '[ruby-core:67722] [Bug #10765]'
+
+    class C
+    end
+
+    module RefinementBug
+      refine C do
+        def foo
+        end
+      end
+    end
+
+    using RefinementBug
+
+    assert_raise(NameError, bug10765) {
+      class C
+        remove_method :foo
+      end
+    }
+    end;
+  end
+
+  module NotIncludeSuperclassMethod
+    class X
+      def foo
+      end
+    end
+
+    class Y < X
+    end
+
+    module Bar
+      refine Y do
+        def foo
+        end
+      end
+    end
+  end
+
+  def test_instance_methods_not_include_superclass_method
+    bug10826 = '[ruby-dev:48854] [Bug #10826]'
+    assert_not_include(NotIncludeSuperclassMethod::Y.instance_methods(false),
+                       :foo, bug10826)
+    assert_include(NotIncludeSuperclassMethod::Y.instance_methods(true),
+                   :foo, bug10826)
+  end
+
   private
 
   def eval_using(mod, s)

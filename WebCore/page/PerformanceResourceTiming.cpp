@@ -49,7 +49,7 @@ namespace WebCore {
 static double monotonicTimeToDocumentMilliseconds(Document* document, double seconds)
 {
     ASSERT(seconds >= 0.0);
-    return document->loader()->timing()->monotonicTimeToZeroBasedDocumentTime(seconds) * 1000.0;
+    return document->loader()->timing().monotonicTimeToZeroBasedDocumentTime(seconds) * 1000.0;
 }
 
 static bool passesTimingAllowCheck(const ResourceResponse& response, Document* requestingDocument)
@@ -67,10 +67,11 @@ static bool passesTimingAllowCheck(const ResourceResponse& response, Document* r
 
     const String& securityOrigin = requestingDocument->securityOrigin()->toString();
     Vector<String> timingAllowOrigins;
-    timingAllowOriginString.split(" ", timingAllowOrigins);
-    for (size_t i = 0; i < timingAllowOrigins.size(); ++i)
-        if (timingAllowOrigins[i] == securityOrigin)
+    timingAllowOriginString.split(' ', timingAllowOrigins);
+    for (auto& origin : timingAllowOrigins) {
+        if (origin == securityOrigin)
             return true;
+    }
 
     return false;
 }
@@ -80,7 +81,6 @@ PerformanceResourceTiming::PerformanceResourceTiming(const AtomicString& initiat
     , m_initiatorType(initiatorType)
     , m_timing(response.resourceLoadTiming())
     , m_finishTime(finishTime)
-    , m_didReuseConnection(response.connectionReused())
     , m_shouldReportDetails(passesTimingAllowCheck(response, requestingDocument))
     , m_requestingDocument(requestingDocument)
 {
@@ -144,7 +144,7 @@ double PerformanceResourceTiming::connectStart() const
         return 0.0;
 
     // connectStart will be -1 when a network request is not made.
-    if (m_timing.connectStart < 0 || m_didReuseConnection)
+    if (m_timing.connectStart < 0)
         return domainLookupEnd();
 
     // connectStart includes any DNS time, so we may need to trim that off.
@@ -161,7 +161,7 @@ double PerformanceResourceTiming::connectEnd() const
         return 0.0;
 
     // connectStart will be -1 when a network request is not made.
-    if (m_timing.connectEnd < 0 || m_didReuseConnection)
+    if (m_timing.connectEnd < 0)
         return connectStart();
 
     return resourceTimeToDocumentMilliseconds(m_timing.connectEnd);
@@ -195,7 +195,7 @@ double PerformanceResourceTiming::resourceTimeToDocumentMilliseconds(int deltaMi
 {
     if (!deltaMilliseconds)
         return 0.0;
-    return monotonicTimeToDocumentMilliseconds(m_requestingDocument.get(), m_requestingDocument.get()->loader()->timing()->navigationStart()) + deltaMilliseconds;
+    return monotonicTimeToDocumentMilliseconds(m_requestingDocument.get(), m_requestingDocument->loader()->timing().navigationStart()) + deltaMilliseconds;
 }
 
 } // namespace WebCore

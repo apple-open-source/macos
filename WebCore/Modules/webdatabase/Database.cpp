@@ -29,10 +29,8 @@
 #include "config.h"
 #include "Database.h"
 
-#if ENABLE(SQL_DATABASE)
-
 #include "ChangeVersionData.h"
-#include "DatabaseBackendContext.h"
+#include "ChangeVersionWrapper.h"
 #include "DatabaseCallback.h"
 #include "DatabaseContext.h"
 #include "DatabaseManager.h"
@@ -71,11 +69,10 @@ PassRefPtr<Database> Database::create(ScriptExecutionContext*, PassRefPtr<Databa
     return static_cast<Database*>(backend.get());
 }
 
-Database::Database(PassRefPtr<DatabaseBackendContext> databaseContext,
-    const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize)
-    : DatabaseBase(databaseContext->scriptExecutionContext())
-    , DatabaseBackend(databaseContext, name, expectedVersion, displayName, estimatedSize)
-    , m_databaseContext(DatabaseBackend::databaseContext()->frontend())
+Database::Database(PassRefPtr<DatabaseContext> databaseContext, const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize)
+    : DatabaseBackend(databaseContext.get(), name, expectedVersion, displayName, estimatedSize)
+    , m_scriptExecutionContext(databaseContext->scriptExecutionContext())
+    , m_databaseContext(databaseContext)
     , m_deleted(false)
 {
     m_databaseThreadSecurityOrigin = m_contextThreadSecurityOrigin->isolatedCopy();
@@ -91,11 +88,139 @@ Database::~Database()
         // Grab a pointer to the script execution here because we're releasing it when we pass it to
         // DerefContextTask::create.
         PassRefPtr<ScriptExecutionContext> passedContext = m_scriptExecutionContext.release();
-        passedContext->postTask({ScriptExecutionContext::Task::CleanupTask, [=] (ScriptExecutionContext& context) {
+        passedContext->postTask({ScriptExecutionContext::Task::CleanupTask, [passedContext] (ScriptExecutionContext& context) {
             ASSERT_UNUSED(context, &context == passedContext);
             RefPtr<ScriptExecutionContext> scriptExecutionContext(passedContext);
         }});
     }
+}
+
+bool Database::openAndVerifyVersion(bool setVersionInNewDatabase, DatabaseError& error, String& errorMessage)
+{
+    DatabaseTaskSynchronizer synchronizer;
+    if (!databaseContext()->databaseThread() || databaseContext()->databaseThread()->terminationRequested(&synchronizer))
+        return false;
+
+    bool success = false;
+    auto task = std::make_unique<DatabaseOpenTask>(this, setVersionInNewDatabase, &synchronizer, error, errorMessage, success);
+    databaseContext()->databaseThread()->scheduleImmediateTask(WTF::move(task));
+    synchronizer.waitForTaskCompletion();
+
+    return success;
+}
+
+void Database::close()
+{
+    ASSERT(databaseContext()->databaseThread());
+    ASSERT(currentThread() == databaseContext()->databaseThread()->getThreadID());
+
+    {
+        MutexLocker locker(m_transactionInProgressMutex);
+
+        // Clean up transactions that have not been scheduled yet:
+        // Transaction phase 1 cleanup. See comment on "What happens if a
+        // transaction is interrupted?" at the top of SQLTransactionBackend.cpp.
+        RefPtr<SQLTransactionBackend> transaction;
+        while (!m_transactionQueue.isEmpty()) {
+            transaction = m_transactionQueue.takeFirst();
+            transaction->notifyDatabaseThreadIsShuttingDown();
+        }
+
+        m_isTransactionQueueEnabled = false;
+        m_transactionInProgress = false;
+    }
+
+    closeDatabase();
+
+    // DatabaseThread keeps databases alive by referencing them in its
+    // m_openDatabaseSet. DatabaseThread::recordDatabaseClose() will remove
+    // this database from that set (which effectively deref's it). We hold on
+    // to it with a local pointer here for a liitle longer, so that we can
+    // unschedule any DatabaseTasks that refer to it before the database gets
+    // deleted.
+    Ref<DatabaseBackend> protect(*this);
+    databaseContext()->databaseThread()->recordDatabaseClosed(this);
+    databaseContext()->databaseThread()->unscheduleDatabaseTasks(this);
+}
+
+bool Database::performOpenAndVerify(bool setVersionInNewDatabase, DatabaseError& error, String& errorMessage)
+{
+    if (DatabaseBackendBase::performOpenAndVerify(setVersionInNewDatabase, error, errorMessage)) {
+        if (databaseContext()->databaseThread())
+            databaseContext()->databaseThread()->recordDatabaseOpen(this);
+
+        return true;
+    }
+
+    return false;
+}
+
+void Database::scheduleTransaction()
+{
+    ASSERT(!m_transactionInProgressMutex.tryLock()); // Locked by caller.
+    RefPtr<SQLTransactionBackend> transaction;
+
+    if (m_isTransactionQueueEnabled && !m_transactionQueue.isEmpty())
+        transaction = m_transactionQueue.takeFirst();
+
+    if (transaction && databaseContext()->databaseThread()) {
+        auto task = std::make_unique<DatabaseTransactionTask>(transaction);
+        LOG(StorageAPI, "Scheduling DatabaseTransactionTask %p for transaction %p\n", task.get(), task->transaction());
+        m_transactionInProgress = true;
+        databaseContext()->databaseThread()->scheduleTask(WTF::move(task));
+    } else
+        m_transactionInProgress = false;
+}
+
+PassRefPtr<SQLTransactionBackend> Database::runTransaction(PassRefPtr<SQLTransaction> transaction, bool readOnly, const ChangeVersionData* data)
+{
+    MutexLocker locker(m_transactionInProgressMutex);
+    if (!m_isTransactionQueueEnabled)
+        return 0;
+
+    RefPtr<SQLTransactionWrapper> wrapper;
+    if (data)
+        wrapper = ChangeVersionWrapper::create(data->oldVersion(), data->newVersion());
+
+    RefPtr<SQLTransactionBackend> transactionBackend = SQLTransactionBackend::create(this, transaction, wrapper, readOnly);
+    m_transactionQueue.append(transactionBackend);
+    if (!m_transactionInProgress)
+        scheduleTransaction();
+
+    return transactionBackend;
+}
+
+void Database::scheduleTransactionStep(SQLTransactionBackend* transaction)
+{
+    if (!databaseContext()->databaseThread())
+        return;
+
+    auto task = std::make_unique<DatabaseTransactionTask>(transaction);
+    LOG(StorageAPI, "Scheduling DatabaseTransactionTask %p for the transaction step\n", task.get());
+    databaseContext()->databaseThread()->scheduleTask(WTF::move(task));
+}
+
+void Database::inProgressTransactionCompleted()
+{
+    MutexLocker locker(m_transactionInProgressMutex);
+    m_transactionInProgress = false;
+    scheduleTransaction();
+}
+
+bool Database::hasPendingTransaction()
+{
+    MutexLocker locker(m_transactionInProgressMutex);
+    return m_transactionInProgress || !m_transactionQueue.isEmpty();
+}
+
+SQLTransactionClient* Database::transactionClient() const
+{
+    return databaseContext()->databaseThread()->transactionClient();
+}
+
+SQLTransactionCoordinator* Database::transactionCoordinator() const
+{
+    return databaseContext()->databaseThread()->transactionCoordinator();
 }
 
 Database* Database::from(DatabaseBackend* backend)
@@ -129,7 +254,7 @@ void Database::markAsDeletedAndClose()
         return;
     }
 
-    auto task = DatabaseCloseTask::create(this, &synchronizer);
+    auto task = std::make_unique<DatabaseCloseTask>(this, &synchronizer);
     databaseContext()->databaseThread()->scheduleImmediateTask(WTF::move(task));
     synchronizer.waitForTaskCompletion();
 }
@@ -140,7 +265,8 @@ void Database::closeImmediately()
     DatabaseThread* databaseThread = databaseContext()->databaseThread();
     if (databaseThread && !databaseThread->terminationRequested() && opened()) {
         logErrorMessage("forcibly closing database");
-        databaseThread->scheduleImmediateTask(DatabaseCloseTask::create(this, 0));
+        auto task = std::make_unique<DatabaseCloseTask>(this, nullptr);
+        databaseThread->scheduleImmediateTask(WTF::move(task));
     }
 }
 
@@ -162,23 +288,23 @@ void Database::readTransaction(PassRefPtr<SQLTransactionCallback> callback, Pass
     runTransaction(callback, errorCallback, successCallback, true);
 }
 
-void Database::runTransaction(PassRefPtr<SQLTransactionCallback> callback, PassRefPtr<SQLTransactionErrorCallback> errorCallback,
-    PassRefPtr<VoidCallback> successCallback, bool readOnly, const ChangeVersionData* changeVersionData)
+void Database::runTransaction(RefPtr<SQLTransactionCallback>&& callback, RefPtr<SQLTransactionErrorCallback>&& errorCallback, RefPtr<VoidCallback>&& successCallback, bool readOnly, const ChangeVersionData* changeVersionData)
 {
-    RefPtr<SQLTransactionErrorCallback> errorCallbackProtector(errorCallback);
-    RefPtr<SQLTransaction> transaction = SQLTransaction::create(this, callback, successCallback, errorCallbackProtector, readOnly);
+    RefPtr<SQLTransaction> transaction = SQLTransaction::create(*this, WTF::move(callback), WTF::move(successCallback), errorCallback.copyRef(), readOnly);
 
-    RefPtr<SQLTransactionBackend> transactionBackend(backend()->runTransaction(transaction.release(), readOnly, changeVersionData));
-    if (!transactionBackend && errorCallbackProtector)
-        scriptExecutionContext()->postTask([=] (ScriptExecutionContext&) {
-            errorCallbackProtector->handleEvent(SQLError::create(SQLError::UNKNOWN_ERR, "database has been closed").get());
+    RefPtr<SQLTransactionBackend> transactionBackend = runTransaction(transaction.release(), readOnly, changeVersionData);
+    if (!transactionBackend && errorCallback) {
+        WTF::RefPtr<SQLTransactionErrorCallback> errorCallbackProtector = WTF::move(errorCallback);
+        m_scriptExecutionContext->postTask([errorCallbackProtector](ScriptExecutionContext&) {
+            errorCallbackProtector->handleEvent(SQLError::create(SQLError::UNKNOWN_ERR, "database has been closed").ptr());
         });
+    }
 }
 
 void Database::scheduleTransactionCallback(SQLTransaction* transaction)
 {
     RefPtr<SQLTransaction> transactionProtector(transaction);
-    m_scriptExecutionContext->postTask([=] (ScriptExecutionContext&) {
+    m_scriptExecutionContext->postTask([transactionProtector] (ScriptExecutionContext&) {
         transactionProtector->performPendingCallback();
     });
 }
@@ -188,7 +314,7 @@ Vector<String> Database::performGetTableNames()
     disableAuthorizer();
 
     SQLiteStatement statement(sqliteDatabase(), "SELECT name FROM sqlite_master WHERE type='table';");
-    if (statement.prepare() != SQLResultOk) {
+    if (statement.prepare() != SQLITE_OK) {
         LOG_ERROR("Unable to retrieve list of tables for database %s", databaseDebugName().ascii().data());
         enableAuthorizer();
         return Vector<String>();
@@ -196,7 +322,7 @@ Vector<String> Database::performGetTableNames()
 
     Vector<String> tableNames;
     int result;
-    while ((result = statement.step()) == SQLResultRow) {
+    while ((result = statement.step()) == SQLITE_ROW) {
         String name = statement.getColumnText(0);
         if (name != databaseInfoTableName())
             tableNames.append(name);
@@ -204,12 +330,17 @@ Vector<String> Database::performGetTableNames()
 
     enableAuthorizer();
 
-    if (result != SQLResultDone) {
+    if (result != SQLITE_DONE) {
         LOG_ERROR("Error getting tables for database %s", databaseDebugName().ascii().data());
         return Vector<String>();
     }
 
     return tableNames;
+}
+
+void Database::logErrorMessage(const String& message)
+{
+    m_scriptExecutionContext->addConsoleMessage(MessageSource::Storage, MessageLevel::Error, message);
 }
 
 Vector<String> Database::tableNames()
@@ -221,7 +352,7 @@ Vector<String> Database::tableNames()
     if (!databaseContext()->databaseThread() || databaseContext()->databaseThread()->terminationRequested(&synchronizer))
         return result;
 
-    auto task = DatabaseTableNamesTask::create(this, &synchronizer, result);
+    auto task = std::make_unique<DatabaseTableNamesTask>(this, &synchronizer, result);
     databaseContext()->databaseThread()->scheduleImmediateTask(WTF::move(task));
     synchronizer.waitForTaskCompletion();
 
@@ -238,5 +369,3 @@ SecurityOrigin* Database::securityOrigin() const
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(SQL_DATABASE)

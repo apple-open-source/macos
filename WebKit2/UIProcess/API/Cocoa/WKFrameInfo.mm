@@ -28,53 +28,47 @@
 
 #if WK_API_ENABLED
 
-#import "WebFrameProxy.h"
-#import "_WKSecurityOrigin.h"
-#import <wtf/RetainPtr.h>
+#import "WKSecurityOriginInternal.h"
 
-@implementation WKFrameInfo {
-    RetainPtr<NSURLRequest> _request;
-    RetainPtr<_WKSecurityOrigin> _securityOrigin;
-}
+@implementation WKFrameInfo
 
-- (instancetype)initWithWebFrameProxy:(WebKit::WebFrameProxy&)webFrameProxy
+- (void)dealloc
 {
-    return [self initWithWebFrameProxy:webFrameProxy securityOrigin:nil];
-}
+    _frameInfo->~FrameInfo();
 
-- (instancetype)initWithWebFrameProxy:(WebKit::WebFrameProxy&)webFrameProxy securityOrigin:(_WKSecurityOrigin *)securityOrigin
-{
-    if (!(self = [super init]))
-        return nil;
-
-    _mainFrame = webFrameProxy.isMainFrame();
-
-    // FIXME: This should use the full request of the frame, not just the URL.
-    _request = [NSURLRequest requestWithURL:[NSURL URLWithString:webFrameProxy.url()]];
-
-    _securityOrigin = securityOrigin;
-
-    return self;
+    [super dealloc];
 }
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"<%@: %p; isMainFrame = %s; request = %@>", NSStringFromClass(self.class), self, _mainFrame ? "YES" : "NO", _request.get()];
+    return [NSString stringWithFormat:@"<%@: %p; isMainFrame = %s; request = %@>", NSStringFromClass(self.class), self, self.mainFrame ? "YES" : "NO", self.request];
+}
+
+- (BOOL)isMainFrame
+{
+    return _frameInfo->isMainFrame();
 }
 
 - (NSURLRequest *)request
 {
-    return _request.get();
+    return _frameInfo->request().nsURLRequest(WebCore::DoNotUpdateHTTPBody);
 }
 
-- (_WKSecurityOrigin *)securityOrigin
+- (WKSecurityOrigin *)securityOrigin
 {
-    return _securityOrigin.get();
+    return wrapper(_frameInfo->securityOrigin());
 }
 
 - (id)copyWithZone:(NSZone *)zone
 {
     return [self retain];
+}
+
+#pragma mark WKObject protocol implementation
+
+- (API::Object&)_apiObject
+{
+    return *_frameInfo;
 }
 
 @end

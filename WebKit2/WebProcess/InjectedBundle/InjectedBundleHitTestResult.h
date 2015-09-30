@@ -40,11 +40,12 @@ class WebFrame;
 
 class InjectedBundleHitTestResult : public API::ObjectImpl<API::Object::Type::BundleHitTestResult> {
 public:
-    static PassRefPtr<InjectedBundleHitTestResult> create(const WebCore::HitTestResult&);
+    static Ref<InjectedBundleHitTestResult> create(const WebCore::HitTestResult&);
 
     const WebCore::HitTestResult& coreHitTestResult() const { return m_hitTestResult; }
 
-    PassRefPtr<InjectedBundleNodeHandle> nodeHandle() const; 
+    PassRefPtr<InjectedBundleNodeHandle> nodeHandle() const;
+    PassRefPtr<InjectedBundleNodeHandle> urlElementHandle() const;
     WebFrame* frame() const;
     WebFrame* targetFrame() const;
 

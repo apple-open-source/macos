@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/iu.xml
@@ -23,7 +23,7 @@ iu{
     LocaleScript{
         "Cans",
     }
-    Version{"2.0.92.90"}
+    Version{"2.1.6.69"}
     calendar{
         generic{
             AmPmMarkers{
@@ -41,7 +41,7 @@ iu{
                 "h:mm a",
                 "EEEE, MMMM d, y G",
                 "MMMM d, y G",
-                "MMMM d, y G",
+                "MMM d, y G",
                 "MM/dd/y GGGGG",
                 "{1} {0}",
                 "{1} {0}",
@@ -104,7 +104,7 @@ iu{
                 "h:mm a",
                 "EEEE, MMMM d, y",
                 "MMMM d, y",
-                "MMMM d, y",
+                "MMM d, y",
                 "MM/dd/y",
                 "{1} {0}",
                 "{1} {0}",

@@ -236,7 +236,7 @@ EAPSIMAKAPacketDump(FILE * out_f, EAPPacketRef pkt);
     CFSTR("EAPSIMAKAIMSI") 			/* string */
 
 /*
- * Property: kEAPClientPropEAPSIMAKAIMSI
+ * Property: kEAPClientPropEAPSIMAKARealm
  * Purpose:
  *   Statically configure the realm.  May be required in some configurations
  *   to ensure proper AAA routing.
@@ -279,5 +279,25 @@ EAPSIMAKAPacketDump(FILE * out_f, EAPPacketRef pkt);
  */
 EAPSIMAKAAttributeType
 EAPSIMAKAIdentityTypeGetAttributeType(CFStringRef string);
+
+/*
+ * Property: kEAPClientPropEAPSIMAKAKi
+ * Purpose:
+ * Statically configured subscriber key. This property is required by SIM simulator.
+ * If the static triplets properties are not provided and this property along with
+ * kEAPClientPropEAPSIMAKAOPc is provided then they are used to generate Kc and SRES
+ * later using the SRAND sent by the server.
+ */
+#define kEAPClientPropEAPSIMAKAKi		CFSTR("EAPSIMAKAKi") /* data */
+
+/*
+ * Property: kEAPClientPropEAPSIMAKAOPc
+ * Purpose:
+ * Statically configured operator specific constant. This property is required by SIM simulator.
+ * If the static triplets properties are not provided and this property along with
+ * kEAPClientPropEAPSIMAKAKi is provided then they are used to generate Kc and SRES
+ * later using the SRAND sent by the server.
+ */
+#define kEAPClientPropEAPSIMAKAOPc		CFSTR("EAPSIMAKAOPc") /* data */
 
 #endif /* _EAP8021X_EAPSIMAKAUTIL_H */

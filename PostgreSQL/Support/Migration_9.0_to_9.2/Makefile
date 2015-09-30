@@ -9,7 +9,7 @@ Project         = postgresql
 ProjectName     = PostgreSQL
 UserType        = Administrator
 ToolType        = Commands
-Submission      = 26.5
+Submission      = 26.6
 
 # Include common server build variables
 -include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
@@ -43,6 +43,7 @@ Extra_Configure_Flags	= --prefix=$(SERVER_INSTALL_PATH_PREFIX)$(LIBEXECDIR)/post
 			--enable-thread-safety \
 			--enable-dtrace \
 			--with-tcl \
+			--with-tclconfig=$(SDKROOT)/usr/lib \
 			--with-perl \
 			--with-python \
 			--with-gssapi \
@@ -60,7 +61,7 @@ Extra_Make_Flags	=
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 9.0.13
+AEP_Version	= 9.0.17
 AEP_LicenseFile	= $(Sources)/COPYRIGHT
 AEP_Patches	= arches.patch pg_config_manual_h.patch \
 			radar7687126.patch radar7756388.patch radar8304089.patch \

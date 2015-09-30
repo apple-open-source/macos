@@ -40,7 +40,8 @@ private:
 
     virtual WebCore::TiledBacking* tiledBacking() override { return m_tileController.get(); }
 
-    virtual void setNeedsDisplay(const WebCore::FloatRect* dirtyRect = 0) override;
+    virtual void setNeedsDisplayInRect(const WebCore::FloatRect& dirtyRect) override;
+    virtual void setNeedsDisplay() override;
 
     virtual const WebCore::PlatformCALayerList* customSublayers() const override;
 
@@ -58,7 +59,7 @@ private:
     virtual void setBorderWidth(float) override;
     virtual void setBorderColor(const WebCore::Color&) override;
 
-    OwnPtr<WebCore::TileController> m_tileController;
+    std::unique_ptr<WebCore::TileController> m_tileController;
     mutable WebCore::PlatformCALayerList m_customSublayers;
 };
 

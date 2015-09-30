@@ -27,8 +27,8 @@
 #include "WebOpenPanelResultListenerProxy.h"
 #include <WebCore/FileSystem.h>
 #include <glib/gi18n-lib.h>
-#include <wtf/gobject/GRefPtr.h>
-#include <wtf/gobject/GUniquePtr.h>
+#include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
 
 using namespace WebKit;
@@ -206,7 +206,7 @@ const gchar* const* webkit_file_chooser_request_get_mime_types(WebKitFileChooser
     if (request->priv->mimeTypes)
         return reinterpret_cast<gchar**>(request->priv->mimeTypes->pdata);
 
-    RefPtr<API::Array> mimeTypes = request->priv->parameters->acceptMIMETypes();
+    Ref<API::Array> mimeTypes = request->priv->parameters->acceptMIMETypes();
     size_t numOfMimeTypes = mimeTypes->size();
     if (!numOfMimeTypes)
         return 0;
@@ -247,7 +247,7 @@ GtkFileFilter* webkit_file_chooser_request_get_mime_types_filter(WebKitFileChoos
     if (request->priv->filter)
         return request->priv->filter.get();
 
-    RefPtr<API::Array> mimeTypes = request->priv->parameters->acceptMIMETypes();
+    Ref<API::Array> mimeTypes = request->priv->parameters->acceptMIMETypes();
     size_t numOfMimeTypes = mimeTypes->size();
     if (!numOfMimeTypes)
         return 0;
@@ -315,7 +315,7 @@ void webkit_file_chooser_request_select_files(WebKitFileChooserRequest* request,
     g_ptr_array_add(selectedFiles.get(), 0);
 
     // Select the files in WebCore and update local private attributes.
-    request->priv->listener->chooseFiles(API::Array::create(WTF::move(choosenFiles)).get());
+    request->priv->listener->chooseFiles(API::Array::create(WTF::move(choosenFiles)).ptr());
     request->priv->selectedFiles = selectedFiles;
     request->priv->handledRequest = true;
 }
@@ -354,7 +354,7 @@ const gchar* const* webkit_file_chooser_request_get_selected_files(WebKitFileCho
     request->priv->selectedFiles = adoptGRef(g_ptr_array_new_with_free_func(g_free));
     for (size_t i = 0; i < numOfFiles; ++i) {
         API::String* webFileName = static_cast<API::String*>(selectedFileNames->at(i));
-        if (webFileName->isEmpty())
+        if (webFileName->stringView().isEmpty())
             continue;
         CString filename = fileSystemRepresentation(webFileName->string());
         g_ptr_array_add(request->priv->selectedFiles.get(), g_strdup(filename.data()));

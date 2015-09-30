@@ -31,10 +31,10 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_compare_name(OM_uint32 *minor_status,
-    const gss_name_t name1_arg,
-    const gss_name_t name2_arg,
-    int *name_equal)
+gss_compare_name(OM_uint32 *__nonnull minor_status,
+    __nonnull const gss_name_t name1_arg,
+    __nonnull const gss_name_t name2_arg,
+    int *__nonnull name_equal)
 {
 	struct _gss_name *name1 = (struct _gss_name *) name1_arg;
 	struct _gss_name *name2 = (struct _gss_name *) name2_arg;

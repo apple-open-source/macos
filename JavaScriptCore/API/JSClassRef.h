@@ -85,8 +85,8 @@ public:
 };
 
 struct OpaqueJSClass : public ThreadSafeRefCounted<OpaqueJSClass> {
-    static PassRefPtr<OpaqueJSClass> create(const JSClassDefinition*);
-    static PassRefPtr<OpaqueJSClass> createNoAutomaticPrototype(const JSClassDefinition*);
+    static Ref<OpaqueJSClass> create(const JSClassDefinition*);
+    static Ref<OpaqueJSClass> createNoAutomaticPrototype(const JSClassDefinition*);
     JS_EXPORT_PRIVATE ~OpaqueJSClass();
     
     String className();
@@ -120,8 +120,8 @@ private:
 
     // Strings in these data members should not be put into any AtomicStringTable.
     String m_className;
-    OwnPtr<OpaqueJSClassStaticValuesTable> m_staticValues;
-    OwnPtr<OpaqueJSClassStaticFunctionsTable> m_staticFunctions;
+    std::unique_ptr<OpaqueJSClassStaticValuesTable> m_staticValues;
+    std::unique_ptr<OpaqueJSClassStaticFunctionsTable> m_staticFunctions;
 };
 
 #endif // JSClassRef_h

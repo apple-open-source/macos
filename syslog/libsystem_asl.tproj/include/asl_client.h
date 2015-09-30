@@ -96,6 +96,9 @@ ASL_STATUS asl_client_send(asl_client_t *client, asl_msg_t *msg) __OSX_AVAILABLE
 asl_msg_list_t *asl_client_search(asl_client_t *client, asl_msg_t *query) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 asl_msg_list_t *asl_client_match(asl_client_t *client, asl_msg_list_t *querylist, size_t *last, size_t start, size_t count, uint32_t duration, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
 
+uint32_t asl_client_set_control(asl_client_t *client, uint32_t filter) __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+uint32_t asl_client_get_control(asl_client_t *client) __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+
 __END_DECLS
 
 #endif /* __ASL_CLIENT_H__ */

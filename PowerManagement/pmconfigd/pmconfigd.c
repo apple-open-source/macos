@@ -39,9 +39,11 @@
 #if !TARGET_OS_EMBEDDED
 #include <IOKit/platform/IOPlatformSupportPrivate.h>
 #include <AssertMacros.h>
+#include <spawn.h>
 #endif
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/hid/AppleHIDUsageTables.h>
 
 #include <Security/SecTask.h>
 
@@ -107,6 +109,10 @@
     asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: kernel retain = %d, user retain = %d\n", \
         x, IOObjectGetKernelRetainCount(y), IOObjectGetUserRetainCount(y)); } while(0)
 */
+#if !TARGET_OS_EMBEDDED
+#define kSpindumpOnFullWakeDir      "/Library/Logs/SleepWakeDebug"
+static int kPMSpindumpDelayOnFullWake = 15; // Take spindump 15secs after fullwake
+#endif
 
 // Global keys
 static CFStringRef              gTZNotificationNameString           = NULL;
@@ -151,6 +157,7 @@ static dispatch_source_t        gDWTMsgDispatch; /* Darkwake thermal emergency m
 
 // defined by MiG
 extern boolean_t powermanagement_server(mach_msg_header_t *, mach_msg_header_t *);
+extern uint32_t  gDebugFlags;
 
 
 // foward declarations
@@ -158,6 +165,7 @@ static void initializeESPrefsDynamicStore(void);
 static void initializeInterestNotifications(void);
 static void initializeHIDInterestNotifications(
                 int usagePage,
+                int usage,
                 IONotificationPortRef notify_port);
 static void initializeTimezoneChangeNotifications(void);
 static void initializeCalendarResyncNotification(void);
@@ -263,15 +271,12 @@ __private_extern__ void dynamicStoreNotifyCallBack(
  */
 
 
-
-
 int main(int argc __unused, char *argv[] __unused)
 {
     CFRunLoopSourceRef      cfmp_rls = 0;
     CFMachPortContext       context  = { 0, (void *)1, NULL, NULL, serverMPCopyDescription };
     kern_return_t           kern_result = 0;
     
-    xpc_register();
     
     kern_result = bootstrap_check_in(
                             bootstrap_port, 
@@ -299,6 +304,8 @@ int main(int argc __unused, char *argv[] __unused)
                                 serverPort);
         }
     }
+#else
+    xpc_register();
 #endif
 
     if (BOOTSTRAP_SUCCESS != kern_result) {
@@ -339,6 +346,7 @@ int main(int argc __unused, char *argv[] __unused)
     _oneOffHacksSetup();
 #endif
     
+    PMConnection_prime();
     initializeSleepWakeNotifications();
 
     // Prime the messagetracer UUID pump
@@ -350,7 +358,6 @@ int main(int argc __unused, char *argv[] __unused)
     PMAssertions_prime();
     PMSystemEvents_prime();
     SystemLoad_prime();
-    PMConnection_prime();
 
 #if !TARGET_OS_EMBEDDED
     UPSLowPower_prime();
@@ -365,6 +372,10 @@ int main(int argc __unused, char *argv[] __unused)
     notify_post(kIOUserAssertionReSync);
     logASLMessagePMStart();
 
+#if TARGET_OS_EMBEDDED
+    pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED,0);
+    pthread_set_fixedpriority_self();
+#endif
     CFRunLoopRun();
     return 0;
 }
@@ -477,6 +488,68 @@ ClockSleepWakeNotification(IOPMSystemPowerStateCapabilities old_cap,
     }
 }
 
+static void takeSpindump( )
+{
+
+#if !TARGET_OS_EMBEDDED
+    static int debug_arg = -1;
+    int rc;
+    static int spindump_pid = -1;
+    char boot_args[256];
+    struct stat sb;
+
+    // Take a spindump if:
+    // "debug" value is set in nvram boot-args parameter or this is a seed build
+    // and kIOPMDebugEnableSpindumpOnFullwake is set in gDebugFlags
+
+    if ((gDebugFlags & kIOPMDebugEnableSpindumpOnFullwake) == 0) {
+        // Flag to disable this mechainsm, if required
+        return;
+    }
+
+    if (debug_arg == -1) {
+#if RC_SEED_BUILD
+        debug_arg = 1;
+#else
+        boot_args[0] = 0;
+        debug_arg = 0;
+
+        if ((getNvramArgStr("boot-args", boot_args, sizeof(boot_args)) == kIOReturnSuccess) &&
+            (strnstr(boot_args, "debug=", sizeof(boot_args)) != NULL)) {
+            debug_arg = 1;
+        }
+#endif
+    }
+
+    if (debug_arg <= 0) {
+        return;
+    }
+
+    if (spindump_pid != -1) {
+        /* If the previously spawned process is alive, kill it */
+        struct proc_bsdinfo pbsd;
+        rc = proc_pidinfo(spindump_pid, PROC_PIDTBSDINFO, (uint64_t)0, &pbsd, sizeof(struct proc_bsdinfo));
+        if ((rc == 0) && (pbsd.pbi_ppid == getpid())) {
+            kill(spindump_pid, SIGKILL);
+            spindump_pid = -1;
+        }
+    }
+
+    rc = stat(kSpindumpOnFullWakeDir, &sb);
+    if ((rc == -1) && (errno == ENOENT)) {
+        rc = mkdir(kSpindumpOnFullWakeDir, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+    }
+    if (rc != 0) {
+        return;
+    }
+    char* const spindump_args[] = {"/usr/sbin/taskpolicy", "-b", "/usr/sbin/spindump", "-notarget","5", 
+                                    "100", "-file", kSpindumpOnFullWakeDir"/fullwake-spindump.txt", 0};
+    spindump_pid = _SCDPluginExecCommand(NULL, NULL, 0, 0, "/usr/sbin/taskpolicy", spindump_args);
+
+#endif
+
+}
+
 
 /*  
  * 
@@ -506,9 +579,14 @@ SleepWakeCallback(
             IOAllowPowerChange(_pm_ack_port, (long)acknowledgementToken);
             break;
 
-        case kIOMessageSystemHasPoweredOn:
+        case kIOMessageSystemWillPowerOn:
         case kIOMessageSystemWillNotSleep:
+#if !TARGET_OS_EMBEDDED
+           dispatch_after(dispatch_time(DISPATCH_TIME_NOW, kPMSpindumpDelayOnFullWake * NSEC_PER_SEC),
+                           dispatch_get_main_queue(), ^{ takeSpindump(); });
+#endif
             _set_sleep_revert(true);
+            checkPendingWakeReqs(ALLOW_PURGING);
             break;
 
         default:
@@ -867,6 +945,7 @@ static void pushNewSleepWakeUUID(void)
 }
 
 
+#if !TARGET_OS_EMBEDDED
 static void AppClaimWakeReason(xpc_object_t claim)
 {
     const char              *id;
@@ -942,6 +1021,7 @@ static void xpc_register(void)
     
     xpc_connection_resume(connection);
 }
+#endif
 
 
 static boolean_t 
@@ -1331,12 +1411,14 @@ initializeInterestNotifications()
     }
     
     // Listen for Power devices and Battery Systems to start ioupsd
-    initializeHIDInterestNotifications(kIOPowerDeviceUsageKey, notify_port);
-    initializeHIDInterestNotifications(kIOBatterySystemUsageKey, notify_port);
+    initializeHIDInterestNotifications(kIOPowerDeviceUsageKey, 0, notify_port);
+    initializeHIDInterestNotifications(kIOBatterySystemUsageKey, 0, notify_port);
+    initializeHIDInterestNotifications(kHIDPage_AppleVendor, kHIDUsage_AppleVendor_AccessoryBattery, notify_port);
 }
 
 static void
 initializeHIDInterestNotifications(int usagePage,
+                                   int usage,			
                                    IONotificationPortRef notify_port)
 {
     CFMutableDictionaryRef matchingDict = IOServiceMatching(kIOHIDDeviceKey);
@@ -1354,10 +1436,24 @@ initializeHIDInterestNotifications(int usagePage,
     }
 
     CFDictionarySetValue(matchingDict,
-                         CFSTR(kIOHIDPrimaryUsagePageKey),
+                         CFSTR(kIOHIDDeviceUsagePageKey),
                          cfUsagePageKey);
     CFRelease(cfUsagePageKey);
     
+    if (usage) {
+        CFNumberRef cfUsageKey = CFNumberCreate(kCFAllocatorDefault,
+                                                    kCFNumberIntType,
+                                                    &usage);
+        if (!cfUsageKey) {
+            CFRelease(matchingDict);
+            return;
+        }
+        
+        CFDictionarySetValue(matchingDict,
+                             CFSTR(kIOHIDDeviceUsageKey),
+                             cfUsageKey);
+        CFRelease(cfUsageKey);
+    }
     
     // Now set up a notification to be called when a device is first matched by
     // I/O Kit. Note that this will not catch any devices that were already

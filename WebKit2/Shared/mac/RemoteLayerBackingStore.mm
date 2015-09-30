@@ -37,19 +37,13 @@
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/IOSurface.h>
 #import <WebCore/IOSurfacePool.h>
+#import <WebCore/MachSendRight.h>
+#import <WebCore/QuartzCoreSPI.h>
 #import <WebCore/WebLayer.h>
 
 #if USE(IOSURFACE)
 #import <mach/mach_port.h>
 #endif
-
-#if __has_include(<QuartzCore/CALayerPrivate.h>)
-#import <QuartzCore/CALayerPrivate.h>
-#endif
-
-@interface CALayer (Details)
-@property BOOL contentsOpaque;
-@end
 
 using namespace WebCore;
 
@@ -72,6 +66,7 @@ RemoteLayerBackingStore::~RemoteLayerBackingStore()
 
     if (!m_layer)
         return;
+
     if (RemoteLayerTreeContext* context = m_layer->context())
         context->backingStoreWillBeDestroyed(*this);
 }
@@ -113,8 +108,7 @@ void RemoteLayerBackingStore::encode(IPC::ArgumentEncoder& encoder) const
 
 #if USE(IOSURFACE)
     if (m_acceleratesDrawing) {
-        mach_port_t port = m_frontBuffer.surface->createMachPort();
-        encoder << IPC::MachPort(port, MACH_MSG_TYPE_MOVE_SEND);
+        encoder << m_frontBuffer.surface->createSendRight();
         return;
     }
 #endif
@@ -142,11 +136,10 @@ bool RemoteLayerBackingStore::decode(IPC::ArgumentDecoder& decoder, RemoteLayerB
 
 #if USE(IOSURFACE)
     if (result.m_acceleratesDrawing) {
-        IPC::MachPort machPort;
-        if (!decoder.decode(machPort))
+        MachSendRight sendRight;
+        if (!decoder.decode(sendRight))
             return false;
-        result.m_frontBuffer.surface = IOSurface::createFromMachPort(machPort.port(), ColorSpaceDeviceRGB);
-        mach_port_deallocate(mach_task_self(), machPort.port());
+        result.m_frontBuffer.surface = IOSurface::createFromSendRight(sendRight, ColorSpaceDeviceRGB);
         return true;
     }
 #endif
@@ -171,11 +164,16 @@ void RemoteLayerBackingStore::setNeedsDisplay()
     setNeedsDisplay(IntRect(IntPoint(), expandedIntSize(m_size)));
 }
 
-void RemoteLayerBackingStore::swapToValidFrontBuffer()
+IntSize RemoteLayerBackingStore::backingStoreSize() const
 {
     FloatSize scaledSize = m_size;
     scaledSize.scale(m_scale);
-    IntSize expandedScaledSize = roundedIntSize(scaledSize);
+    return roundedIntSize(scaledSize);
+}
+
+void RemoteLayerBackingStore::swapToValidFrontBuffer()
+{
+    IntSize expandedScaledSize = backingStoreSize();
 
 #if USE(IOSURFACE)
     if (m_acceleratesDrawing) {
@@ -209,14 +207,17 @@ bool RemoteLayerBackingStore::display()
 
     m_lastDisplayTime = std::chrono::steady_clock::now();
 
+    bool needToEncodeBackingStore = false;
     if (RemoteLayerTreeContext* context = m_layer->context())
-        context->backingStoreWillBeDisplayed(*this);
+        needToEncodeBackingStore = context->backingStoreWillBeDisplayed(*this);
 
     // Make the previous front buffer non-volatile early, so that we can dirty the whole layer if it comes back empty.
     setBufferVolatility(BufferType::Front, false);
 
-    if (m_dirtyRegion.isEmpty() || m_size.isEmpty())
-        return false;
+    IntSize expandedScaledSize = backingStoreSize();
+
+    if (m_dirtyRegion.isEmpty() || expandedScaledSize.isEmpty())
+        return needToEncodeBackingStore;
 
     IntRect layerBounds(IntPoint(), expandedIntSize(m_size));
     if (!hasFrontBuffer())
@@ -227,9 +228,6 @@ bool RemoteLayerBackingStore::display()
         m_dirtyRegion.unite(indicatorRect);
     }
 
-    FloatSize scaledSize = m_size;
-    scaledSize.scale(m_scale);
-    IntSize expandedScaledSize = roundedIntSize(scaledSize);
     IntRect expandedScaledLayerBounds(IntPoint(), expandedScaledSize);
     bool willPaintEntireBackingStore = m_dirtyRegion.contains(layerBounds);
 
@@ -334,6 +332,13 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, CGImageRef
         m_layer->owner()->platformCALayerPaintContents(m_layer, context, dirtyBounds);
         break;
     case PlatformCALayer::LayerTypeWebLayer:
+    case PlatformCALayer::LayerTypeBackdropLayer:
+        PlatformCALayer::drawLayerContents(cgContext, m_layer, m_paintingRects);
+        break;
+    case PlatformCALayer::LayerTypeDarkSystemBackdropLayer:
+    case PlatformCALayer::LayerTypeLightSystemBackdropLayer:
+        // FIXME: These have a more complicated layer hierarchy. We need to paint into
+        // a child layer in order to see the rendered results.
         PlatformCALayer::drawLayerContents(cgContext, m_layer, m_paintingRects);
         break;
     case PlatformCALayer::LayerTypeLayer:
@@ -344,6 +349,8 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, CGImageRef
     case PlatformCALayer::LayerTypeRootLayer:
     case PlatformCALayer::LayerTypeAVPlayerLayer:
     case PlatformCALayer::LayerTypeWebGLLayer:
+    case PlatformCALayer::LayerTypeShapeLayer:
+    case PlatformCALayer::LayerTypeScrollingLayer:
     case PlatformCALayer::LayerTypeCustom:
         ASSERT_NOT_REACHED();
         break;
@@ -445,8 +452,7 @@ void RemoteLayerBackingStore::Buffer::discard()
 {
 #if USE(IOSURFACE)
     if (surface)
-        IOSurfacePool::sharedPool().addSurface(surface.get());
-    surface = nullptr;
+        IOSurfacePool::sharedPool().addSurface(WTF::move(surface));
     isVolatile = false;
 #endif
     bitmap = nullptr;

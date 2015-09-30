@@ -51,6 +51,7 @@
 #define WebKitShrinksStandaloneImagesToFitPreferenceKey @"WebKitShrinksStandaloneImagesToFit"
 #define WebKitJavaEnabledPreferenceKey @"WebKitJavaEnabled"
 #define WebKitJavaScriptEnabledPreferenceKey @"WebKitJavaScriptEnabled"
+#define WebKitJavaScriptMarkupEnabledPreferenceKey @"WebKitJavaScriptMarkupEnabled"
 #define WebKitWebSecurityEnabledPreferenceKey @"WebKitWebSecurityEnabled"
 #define WebKitAllowUniversalAccessFromFileURLsPreferenceKey @"WebKitAllowUniversalAccessFromFileURLs"
 #define WebKitAllowFileAccessFromFileURLsPreferenceKey @"WebKitAllowFileAccessFromFileURLs"
@@ -84,9 +85,9 @@
 #define WebKitFTPDirectoryTemplatePath @"WebKitFTPDirectoryTemplatePath"
 #define WebKitForceFTPDirectoryListings @"WebKitForceFTPDirectoryListings"
 #define WebKitDeveloperExtrasEnabledPreferenceKey @"WebKitDeveloperExtrasEnabledPreferenceKey"
-#define WebKitJavaScriptExperimentsEnabledPreferenceKey @"WebKitJavaScriptExperimentsEnabledPreferenceKey"
+#define WebKitJavaScriptRuntimeFlagsPreferenceKey @"WebKitJavaScriptRuntimeFlagsPreferenceKey"
 #define WebKitAuthorAndUserStylesEnabledPreferenceKey @"WebKitAuthorAndUserStylesEnabledPreferenceKey"
-#define WebKitApplicationChromeModeEnabledPreferenceKey @"WebKitApplicationChromeModeEnabledPreferenceKey"
+#define WebKitDOMTimersThrottlingEnabledPreferenceKey @"WebKitDOMTimersThrottlingEnabledPreferenceKey"
 #define WebKitWebArchiveDebugModeEnabledPreferenceKey @"WebKitWebArchiveDebugModeEnabledPreferenceKey"
 #define WebKitLocalFileContentSniffingEnabledPreferenceKey @"WebKitLocalFileContentSniffingEnabledPreferenceKey"
 #define WebKitLocalStorageDatabasePathPreferenceKey @"WebKitLocalStorageDatabasePathPreferenceKey"
@@ -103,10 +104,10 @@
 #define WebKitCSSRegionsEnabledPreferenceKey @"WebKitCSSRegionsEnabled"
 #define WebKitCSSCompositingEnabledPreferenceKey @"WebKitCSSCompositingEnabled"
 #define WebKitShowDebugBordersPreferenceKey @"WebKitShowDebugBorders"
+#define WebKitSimpleLineLayoutDebugBordersEnabledPreferenceKey @"WebKitSimpleLineLayoutDebugBordersEnabled"
 #define WebKitShowRepaintCounterPreferenceKey @"WebKitShowRepaintCounter"
 #define WebKitWebAudioEnabledPreferenceKey @"WebKitWebAudioEnabled"
 #define WebKitWebGLEnabledPreferenceKey @"WebKitWebGLEnabled"
-#define WebKitMultithreadedWebGLEnabledPreferenceKey @"WebKitMultithreadedWebGLEnabled"
 #define WebKitForceSoftwareWebGLRenderingPreferenceKey @"WebKitForceSoftwareWebGLRendering"
 #define WebKitAccelerated2dCanvasEnabledPreferenceKey @"WebKitAccelerated2dCanvasEnabled"
 #define WebKitFrameFlatteningEnabledPreferenceKey @"WebKitFrameFlatteningEnabled"
@@ -118,8 +119,11 @@
 #define WebKitHyperlinkAuditingEnabledPreferenceKey @"WebKitHyperlinkAuditingEnabled"
 #define WebKitAVFoundationEnabledKey @"WebKitAVFoundationEnabled"
 #define WebKitHixie76WebSocketProtocolEnabledKey @"WebKitHixie76WebSocketProtocolEnabled"
-#define WebKitMediaPlaybackRequiresUserGesturePreferenceKey @"WebKitMediaPlaybackRequiresUserGesture"
-#define WebKitMediaPlaybackAllowsInlinePreferenceKey @"WebKitMediaPlaybackAllowsInline"
+#define WebKitRequiresUserGestureForMediaPlaybackPreferenceKey @"WebKitMediaPlaybackRequiresUserGesture"
+#define WebKitAllowsInlineMediaPlaybackPreferenceKey @"WebKitMediaPlaybackAllowsInline"
+#define WebKitAllowsPictureInPictureMediaPlaybackPreferenceKey @"WebKitAllowsPictureInPictureMediaPlayback"
+#define WebKitAllowsAirPlayForMediaPlaybackPreferenceKey @"WebKitMediaPlaybackAllowsAirPlay"
+#define WebKitMediaControlsScaleWithPageZoomPreferenceKey @"WebKitMediaControlsScaleWithPageZoom"
 #define WebKitMockScrollbarsEnabledPreferenceKey @"WebKitMockScrollbarsEnabled"
 #define WebKitShouldDisplaySubtitlesPreferenceKey @"WebKitShouldDisplaySubtitles"
 #define WebKitShouldDisplayCaptionsPreferenceKey @"WebKitShouldDisplayCaptions"
@@ -128,14 +132,12 @@
 #define WebKitSuppressesIncrementalRenderingKey @"WebKitSuppressesIncrementalRendering"
 #define WebKitSubpixelCSSOMElementMetricsEnabledPreferenceKey @"WebKitSubpixelCSSOMElementMetricsEnabled"
 #if TARGET_OS_IPHONE
-#define WebKitMediaPlaybackAllowsAirPlayPreferenceKey @"WebKitMediaPlaybackAllowsAirPlay"
 #define WebKitAudioSessionCategoryOverride @"WebKitAudioSessionCategoryOverride"
 #define WebKitAVKitEnabled @"WebKitAVKitEnabled"
 #endif
 #define WebKitShouldRespectImageOrientationKey @"WebKitShouldRespectImageOrientation"
 #define WebKitRequestAnimationFrameEnabledPreferenceKey @"WebKitRequestAnimationFrameEnabled"
 #define WebKitDiagnosticLoggingEnabledKey @"WebKitDiagnosticLoggingEnabled"
-#define WebKitScreenFontSubstitutionEnabledKey @"WebKitScreenFontSubstitutionEnabled"
 #define WebKitStorageBlockingPolicyKey @"WebKitStorageBlockingPolicy"
 #define WebKitPlugInSnapshottingEnabledPreferenceKey @"WebKitPlugInSnapshottingEnabled"
 #define WebKitQTKitEnabledPreferenceKey @"WebKitQTKitEnabled"
@@ -159,6 +161,7 @@
 #define WebKitPDFDisplayModePreferenceKey @"WebKitPDFDisplayMode"
 #define WebKitPDFScaleFactorPreferenceKey @"WebKitPDFScaleFactor"
 #endif
+
 #define WebKitUseSiteSpecificSpoofingPreferenceKey @"WebKitUseSiteSpecificSpoofing"
 #define WebKitEditableLinkBehaviorPreferenceKey @"WebKitEditableLinkBehavior"
 #define WebKitCacheModelPreferenceKey @"WebKitCacheModelPreferenceKey"
@@ -167,24 +170,14 @@
 #define WebKitBackspaceKeyNavigationEnabledKey @"WebKitBackspaceKeyNavigationEnabled"
 #define WebKitIncrementalRenderingSuppressionTimeoutInSecondsKey @"WebKitIncrementalRenderingSuppressionTimeoutInSeconds"
 #define WebKitWantsBalancedSetDefersLoadingBehaviorKey @"WebKitWantsBalancedSetDefersLoadingBehavior"
-
-// CoreGraphics deferred updates are disabled if WebKitEnableCoalescedUpdatesPreferenceKey is set
-// to NO, or has no value.  For compatibility with Mac OS X 10.4.6, deferred updates are OFF by
-// default.
-#define WebKitEnableDeferredUpdatesPreferenceKey @"WebKitEnableDeferredUpdates"
-
-// For debugging only. Don't use these.
-#define WebKitPageCacheSizePreferenceKey @"WebKitPageCacheSizePreferenceKey"
-#define WebKitObjectCacheSizePreferenceKey @"WebKitObjectCacheSizePreferenceKey"
 #define WebKitDebugFullPageZoomPreferenceKey @"WebKitDebugFullPageZoomPreferenceKey"
-
 #define WebKitMinimumZoomFontSizePreferenceKey @"WebKitMinimumZoomFontSizePreferenceKey"
+#define WebKitAntialiasedFontDilationEnabledKey @"AntialiasedFontDilationEnabled"
 #define WebKitHTTPEquivEnabledPreferenceKey @"WebKitHTTPEquivEnabled"
 
 #if TARGET_OS_IPHONE
 #define WebKitStandalonePreferenceKey @"WebKitStandalonePreferenceKey"
 #define WebKitTelephoneParsingEnabledPreferenceKey @"WebKitTelephoneParsingEnabledPreferenceKey"
-#define WebKitAlwaysUseBaselineOfPrimaryFontPreferenceKey @"WebKitAlwaysUseBaselineOfPrimaryFontPreferenceKey"
 #define WebKitAllowMultiElementImplicitFormSubmissionPreferenceKey @"WebKitAllowMultiElementImplicitFormSubmissionPreferenceKey"
 #define WebKitAlwaysRequestGeolocationPermissionPreferenceKey @"WebKitAlwaysRequestGeolocationPermission"
 #define WebKitLayoutIntervalPreferenceKey @"WebKitLayoutIntervalPreferenceKey"
@@ -197,10 +190,5 @@
 #define WebKitNetworkDataUsageTrackingEnabledPreferenceKey @"WebKitNetworkDataUsageTrackingEnabledPreferenceKey"
 #define WebKitNetworkInterfaceNamePreferenceKey @"WebKitNetworkInterfaceNamePreferenceKey"
 #endif
-
-#define WebKitDiskImageCacheEnabledPreferenceKey @"WebKitDiskImageCacheEnabled"
-#define WebKitDiskImageCacheMinimumImageSizePreferenceKey @"WebKitDiskImageCacheMinimumImageSize"
-#define WebKitDiskImageCacheMaximumCacheSizePreferenceKey @"WebKitDiskImageCacheMaximumCacheSize"
-#define WebKitDiskImageCacheSavedCacheDirectoryKey @"WebKitDiskImageCacheSavedCacheDirectory"
 
 #define WebKitEnableInheritURIQueryComponentPreferenceKey @"WebKitEnableInheritURIQueryComponent"

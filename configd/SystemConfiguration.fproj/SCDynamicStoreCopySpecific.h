@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDynamicStore.h>
 
+CF_IMPLICIT_BRIDGING_ENABLED
+CF_ASSUME_NONNULL_BEGIN
 
 /*!
 	@header SCDynamicStoreCopySpecific
@@ -58,10 +60,10 @@ __BEGIN_DECLS
 		NULL if the name has not been set or if an error was encountered.
 		You must release the returned value.
  */
-CFStringRef
+CFStringRef __nullable
 SCDynamicStoreCopyComputerName		(
-					SCDynamicStoreRef	store,
-					CFStringEncoding	*nameEncoding
+					SCDynamicStoreRef	__nullable	store,
+					CFStringEncoding	* __nullable	nameEncoding
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -86,11 +88,11 @@ SCDynamicStoreCopyComputerName		(
 		NULL if no user is logged in or if an error was encountered.
 		You must release the returned value.
  */
-CFStringRef
+CFStringRef __nullable
 SCDynamicStoreCopyConsoleUser		(
-					SCDynamicStoreRef	store,
-					uid_t			*uid,
-					gid_t			*gid
+					SCDynamicStoreRef	__nullable	store,
+					uid_t			* __nullable	uid,
+					gid_t			* __nullable	gid
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_NA);
 
 /*!
@@ -103,9 +105,9 @@ SCDynamicStoreCopyConsoleUser		(
 		NULL if the name has not been set or if an error was encountered.
 		You must release the returned value.
  */
-CFStringRef
+CFStringRef __nullable
 SCDynamicStoreCopyLocalHostName		(
-					SCDynamicStoreRef	store
+					SCDynamicStoreRef	__nullable	store
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
@@ -119,9 +121,9 @@ SCDynamicStoreCopyLocalHostName		(
 		was encountered.
 		You must release the returned value.
  */
-CFStringRef
+CFStringRef __nullable
 SCDynamicStoreCopyLocation		(
-					SCDynamicStoreRef	store
+					SCDynamicStoreRef	__nullable	store
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_NA);
 
 /*!
@@ -204,12 +206,15 @@ SCDynamicStoreCopyLocation		(
 		was encountered.
 		You must release the returned value.
  */
-CFDictionaryRef
+CFDictionaryRef __nullable
 SCDynamicStoreCopyProxies		(
-					SCDynamicStoreRef	store
+					SCDynamicStoreRef	__nullable	store
 					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 __END_DECLS
+
+CF_ASSUME_NONNULL_END
+CF_IMPLICIT_BRIDGING_DISABLED
 
 #endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #endif	/* _SCDYNAMICSTORECOPYSPECIFIC_H */

@@ -171,7 +171,8 @@ int unpublish_keyentry(CFStringRef key, CFStringRef entry);
 int unpublish_dict(CFStringRef dict);
 int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef ref1, CFTypeRef ref1a, 
 						CFStringRef property2, CFTypeRef ref2,
-						CFStringRef property3, CFTypeRef ref3, int clean);
+						CFStringRef property3, CFTypeRef ref3,
+						CFStringRef property4, CFStringRef ref4, int clean);
 int unpublish_dictentry(CFStringRef dict, CFStringRef entry);
 static void sys_eventnotify(void *param, uintptr_t code);
 static void sys_timeremaining(void *param, uintptr_t info);
@@ -2882,7 +2883,8 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
 ----------------------------------------------------------------------------- */
 int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef ref1, CFTypeRef ref1a, 
 						CFStringRef property2, CFTypeRef ref2,
-						CFStringRef property3, CFTypeRef ref3, int clean)
+						CFStringRef property3, CFTypeRef ref3,
+						CFStringRef property4, CFStringRef ref4, int clean)
 {
     CFMutableArrayRef		mutable_array;
     CFArrayRef			array = NULL;
@@ -2961,6 +2963,10 @@ int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef 
 		CFDictionarySetValue(dict, property3, mutable_array);
 		CFRelease(mutable_array);
     }
+
+	if (property4) {
+		CFDictionarySetValue(dict, property4, ref4);
+	}
 	    
 	if (update_publish_dict(key,dict))
         ret = 1;
@@ -3004,13 +3010,18 @@ int sifdns(u_int32_t dns1, u_int32_t dns2)
 		
 	if (dns2 && (dns2!=dns1))
 		str2 = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&dns2));
-		
-	result = publish_dns_wins_entry(kSCEntNetDNS, kSCPropNetDNSServerAddresses, str1, str2, kSCPropNetDNSSupplementalMatchDomains, strname, kSCPropNetDNSSupplementalMatchOrders, num, clean);
+
+#ifndef kSCPropNetDNSConfirmedServiceID
+#define kSCPropNetDNSConfirmedServiceID	CFSTR("ConfirmedServiceID")
+#endif
+	result = publish_dns_wins_entry(kSCEntNetDNS, kSCPropNetDNSServerAddresses, str1, str2, kSCPropNetDNSSupplementalMatchDomains, strname, kSCPropNetDNSSupplementalMatchOrders, num,
+									kSCPropNetDNSConfirmedServiceID, serviceidRef,
+									clean);
 #ifndef kSCPropNetProxiesSupplementalMatchDomains			
 #define kSCPropNetProxiesSupplementalMatchDomains kSCPropNetDNSSupplementalMatchDomains
 #define kSCPropNetProxiesSupplementalMatchOrders kSCPropNetDNSSupplementalMatchOrders
 #endif
-	if (result) publish_dns_wins_entry(kSCEntNetProxies, kSCPropNetProxiesSupplementalMatchDomains, strname, 0, kSCPropNetProxiesSupplementalMatchOrders, num, 0, 0, clean);
+	if (result) publish_dns_wins_entry(kSCEntNetProxies, kSCPropNetProxiesSupplementalMatchDomains, strname, 0, kSCPropNetProxiesSupplementalMatchOrders, num, 0, 0, 0, 0, clean);
 
 done:
 	if (num)
@@ -3042,7 +3053,7 @@ int sifwins(u_int32_t wins1, u_int32_t wins2)
 	if (wins2)
 		str2 = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&wins2));
 		
-	result = publish_dns_wins_entry(kSCEntNetSMB, kSCPropNetSMBWINSAddresses, str1, str2, 0, 0, 0, 0, clean);
+	result = publish_dns_wins_entry(kSCEntNetSMB, kSCPropNetSMBWINSAddresses, str1, str2, 0, 0, 0, 0, 0, 0, clean);
 
 done:
 	if (str1)

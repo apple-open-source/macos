@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,100 +23,106 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ScopeBar = function(identifier, items, defaultItem) {
-    WebInspector.NavigationItem.call(this, identifier);
+WebInspector.ScopeBar = class ScopeBar extends WebInspector.NavigationItem
+{
+    constructor(identifier, items, defaultItem, shouldGroupNonExclusiveItems)
+    {
+        super(identifier);
 
-    this._element.classList.add(WebInspector.ScopeBar.StyleClassName);
+        this._element.classList.add("scope-bar");
 
-    this._items = items;
-    this._defaultItem = defaultItem;
+        this._items = items;
+        this._defaultItem = defaultItem;
+        this._shouldGroupNonExclusiveItems = shouldGroupNonExclusiveItems || false;
 
-    this._itemsById = [];
-    this._populate();
-};
-
-WebInspector.ScopeBar.StyleClassName = "scope-bar";
-WebInspector.ScopeBar.Event = {
-    SelectionChanged: "scopebar-selection-did-change"
-};
-
-WebInspector.ScopeBar.prototype = {
-    constructor: WebInspector.ScopeBar,
+        this._populate();
+    }
 
     // Public
 
     get defaultItem()
     {
         return this._defaultItem;
-    },
+    }
 
-    item: function(id)
+    get items()
     {
-        return this._itemsById[id];
-    },
+        return this._items;
+    }
+
+    item(id)
+    {
+        return this._itemsById.get(id);
+    }
 
     get selectedItems()
     {
         return this._items.filter(function(item) {
             return item.selected;
         });
-    },
+    }
 
-    updateLayout: function(expandOnly)
+    hasNonDefaultItemSelected()
     {
-        if (expandOnly)
-            return;
-
-        for (var i = 0; i < this._items.length; ++i) {
-            var item = this._items[i];
-            var isSelected = item.selected;
-
-            if (!isSelected)
-                item.element.classList.add(WebInspector.ScopeBarItem.SelectedStyleClassName);
-
-            var selectedWidth = item.element.offsetWidth;
-            if (selectedWidth)
-                item.element.style.minWidth = selectedWidth + "px";
-
-            if (!isSelected)
-                item.element.classList.remove(WebInspector.ScopeBarItem.SelectedStyleClassName);
-        }
-    },
+        return this._items.some(function(item) {
+            return item.selected && item !== this._defaultItem;
+        }, this);
+    }
 
     // Private
-    
-    _populate: function()
-    {
-        var item;
-        for (var i = 0; i < this._items.length; ++i) {
-            item = this._items[i];
-            this._itemsById[item.id] = item;
-            this._element.appendChild(item.element);
 
-            item.addEventListener(WebInspector.ScopeBarItem.Event.SelectionChanged, this._itemSelectionDidChange, this);
+    _populate()
+    {
+        this._itemsById = new Map;
+
+        if (this._shouldGroupNonExclusiveItems) {
+            var nonExclusiveItems = [];
+
+            for (var item of this._items) {
+                this._itemsById.set(item.id, item);
+
+                if (item.exclusive)
+                    this._element.appendChild(item.element);
+                else
+                    nonExclusiveItems.push(item);
+
+                item.addEventListener(WebInspector.ScopeBarItem.Event.SelectionChanged, this._itemSelectionDidChange, this);
+            }
+
+            this._multipleItem = new WebInspector.MultipleScopeBarItem(nonExclusiveItems);
+            this._element.appendChild(this._multipleItem.element);
+        } else {
+            for (var item of this._items) {
+                this._itemsById.set(item.id, item);
+                this._element.appendChild(item.element);
+
+                item.addEventListener(WebInspector.ScopeBarItem.Event.SelectionChanged, this._itemSelectionDidChange, this);
+            }
         }
 
         if (!this.selectedItems.length && this._defaultItem)
             this._defaultItem.selected = true;
-    },
-    
-    _itemSelectionDidChange: function(event)
+
+        this._element.classList.toggle("default-item-selected", this._defaultItem.selected);
+    }
+
+    _itemSelectionDidChange(event)
     {
         var sender = event.target;
         var item;
 
         // An exclusive item was selected, unselect everything else.
-        if (sender.isExclusive && sender.selected) {
+        if (sender.exclusive && sender.selected) {
             for (var i = 0; i < this._items.length; ++i) {
                 item = this._items[i];
                 if (item !== sender)
                     item.selected = false;
             }
         } else {
-            var replacesCurrentSelection = !event.data.withModifier;
+            var replacesCurrentSelection = this._shouldGroupNonExclusiveItems || !event.data.withModifier;
             for (var i = 0; i < this._items.length; ++i) {
                 item = this._items[i];
-                if (item.isExclusive && item !== sender && sender.selected)
+                if (item.exclusive && item !== sender && sender.selected)
                     item.selected = false;
                 else if (sender.selected && replacesCurrentSelection && sender !== item)
                     item.selected = false;
@@ -127,8 +133,11 @@ WebInspector.ScopeBar.prototype = {
         if (!this.selectedItems.length && this._defaultItem)
             this._defaultItem.selected = true;
 
+        this._element.classList.toggle("default-item-selected", this._defaultItem.selected);
         this.dispatchEventToListeners(WebInspector.ScopeBar.Event.SelectionChanged);
     }
 };
 
-WebInspector.ScopeBar.prototype.__proto__ = WebInspector.NavigationItem.prototype;
+WebInspector.ScopeBar.Event = {
+    SelectionChanged: "scopebar-selection-did-change"
+};

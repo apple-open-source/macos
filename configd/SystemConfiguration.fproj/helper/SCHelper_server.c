@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2005-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -50,7 +50,7 @@
 
 
 //
-// entitlement used to control write access to a given "prefsID"
+// entitlement used to control read (or write) access to a given "prefsID"
 //
 #define	kSCReadEntitlementName		CFSTR("com.apple.SystemConfiguration.SCPreferences-read-access")
 #define	kSCWriteEntitlementName		CFSTR("com.apple.SystemConfiguration.SCPreferences-write-access")
@@ -165,8 +165,7 @@ __SCHelperSessionSetAuthorization(SCHelperSessionRef session, CFTypeRef authoriz
 			status = AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDefaults);
 //			status = AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDestroyRights);
 			if (status != errAuthorizationSuccess) {
-				SCLog(TRUE, LOG_DEBUG,
-				      CFSTR("AuthorizationFree() failed: status = %d"),
+				SC_log(LOG_DEBUG, "AuthorizationFree() failed: status = %d",
 				      (int)status);
 			}
 		} else {
@@ -190,9 +189,8 @@ __SCHelperSessionSetAuthorization(SCHelperSessionRef session, CFTypeRef authoriz
 			status = AuthorizationCreateFromExternalForm(&extForm,
 								     &sessionPrivate->authorization);
 			if (status != errAuthorizationSuccess) {
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("AuthorizationCreateFromExternalForm() failed: status = %d"),
-				      (int)status);
+				SC_log(LOG_NOTICE, "AuthorizationCreateFromExternalForm() failed: status = %d",
+				       (int)status);
 				sessionPrivate->authorization = NULL;
 				ok = FALSE;
 			}
@@ -285,16 +283,11 @@ __SCHelperSessionSetPreferences(SCHelperSessionRef session, SCPreferencesRef pre
 		CFRetain(prefs);
 	}
 	if (sessionPrivate->prefs != NULL) {
-		SCLog(debug, LOG_DEBUG,
-		      CFSTR("%p : close"),
-		      session);
+		SC_log(LOG_INFO, "%p : close", session);
 		CFRelease(sessionPrivate->prefs);
 	}
 	if (prefs != NULL) {
-		SCLog(debug, LOG_DEBUG,
-		      CFSTR("%p : open, prefs = %@"),
-		      session,
-		      prefs);
+		SC_log(LOG_INFO, "%p : open, prefs = %@", session, prefs);
 	}
 	sessionPrivate->prefs = prefs;
 
@@ -375,13 +368,12 @@ __SCHelperSessionLog(const void *value, void *context)
 	if ((sessionPrivate->mp != NULL) && (sessionPrivate->prefs != NULL)) {
 		SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)sessionPrivate->prefs;
 
-		SCLog(TRUE, LOG_NOTICE,
-		      CFSTR("  %p {port = %p, caller = %@, path = %s%s}"),
-		      session,
-		      (void *)(uintptr_t)CFMachPortGetPort(sessionPrivate->mp),
-		      prefsPrivate->name,
-		      prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
-		      prefsPrivate->locked ? ", locked" : "");
+		SC_log(LOG_INFO, "  %p {port = %p, caller = %@, path = %s%s}",
+		       session,
+		       (void *)(uintptr_t)CFMachPortGetPort(sessionPrivate->mp),
+		       prefsPrivate->name,
+		       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
+		       prefsPrivate->locked ? ", locked" : "");
 
 		if ((sessionPrivate->backtraces != NULL) &&
 		    (CFSetGetCount(sessionPrivate->backtraces) > 0)) {
@@ -508,7 +500,7 @@ __SCHelperSessionCreate(CFAllocatorRef allocator)
 	}
 
 	if (pthread_mutex_init(&sessionPrivate->lock, NULL) != 0) {
-		SCLog(TRUE, LOG_ERR, CFSTR("pthread_mutex_init(): failure to initialize per session lock"));
+		SC_log(LOG_NOTICE, "pthread_mutex_init(): failure to initialize per session lock");
 		CFRelease(sessionPrivate);
 		return NULL;
 	}
@@ -647,7 +639,7 @@ __SCHelperSessionLogBacktrace(const void *value, void *context)
 			return;
 		}
 
-		SCLog(TRUE, LOG_INFO, CFSTR("created backtrace log: %s"), path);
+		SC_log(LOG_INFO, "created backtrace log: %s", path);
 	}
 
 	SCPrint(TRUE, *logFile, CFSTR("%@\n"), backtrace);
@@ -932,13 +924,13 @@ do_interface_refresh(SCHelperSessionRef session, void *info, CFDataRef data, uin
 
 	if ((data != NULL) && !_SCUnserializeString(&ifName, data, NULL, 0)) {
 		*status = kSCStatusInvalidArgument;
-		SCLog(TRUE, LOG_ERR, CFSTR("interface name not valid"));
+		SC_log(LOG_NOTICE, "interface name not valid");
 		return FALSE;
 	}
 
 	if (ifName == NULL) {
 		*status = kSCStatusInvalidArgument;
-		SCLog(TRUE, LOG_ERR, CFSTR("interface name not valid"));
+		SC_log(LOG_NOTICE, "interface name not valid");
 		return FALSE;
 	}
 
@@ -946,14 +938,13 @@ do_interface_refresh(SCHelperSessionRef session, void *info, CFDataRef data, uin
 		ok = _SCNetworkInterfaceForceConfigurationRefresh(ifName);
 		if (!ok) {
 			*status = SCError();
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("interface \"%@\" not refreshed: %s"),
+			SC_log(LOG_NOTICE, "interface \"%@\" not refreshed: %s",
 			      ifName,
 			      SCErrorString(*status));
 		}
 	} else {
 		*status = kSCStatusInvalidArgument;
-		SCLog(TRUE, LOG_ERR, CFSTR("interface name not valid"));
+		SC_log(LOG_NOTICE, "interface name not valid");
 	}
 
 	CFRelease(ifName);
@@ -985,12 +976,12 @@ do_prefs_Open(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *
 	}
 
 	if ((data != NULL) && !_SCUnserialize((CFPropertyListRef *)&prefsInfo, data, NULL, 0)) {
-		SCLog(TRUE, LOG_ERR, CFSTR("data not valid, %@"), data);
+		SC_log(LOG_NOTICE, "data not valid, %@", data);
 		return FALSE;
 	}
 
 	if ((prefsInfo == NULL) || !isA_CFDictionary(prefsInfo)) {
-		SCLog(TRUE, LOG_ERR, CFSTR("info not valid"));
+		SC_log(LOG_NOTICE, "info not valid");
 		if (prefsInfo != NULL) CFRelease(prefsInfo);
 		return FALSE;
 	}
@@ -1004,7 +995,7 @@ do_prefs_Open(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *
 		    CFStringHasSuffix(prefsID, CFSTR("/..")) ||
 		    (CFStringFind(prefsID, CFSTR("/../"), 0).location != kCFNotFound)) {
 			// if we're trying to escape from the preferences directory
-			SCLog(TRUE, LOG_ERR, CFSTR("prefsID (%@) not valid"), prefsID);
+			SC_log(LOG_NOTICE, "prefsID (%@) not valid", prefsID);
 			CFRelease(prefsInfo);
 			*status = kSCStatusInvalidArgument;
 			return TRUE;
@@ -1018,7 +1009,7 @@ do_prefs_Open(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *
 	// get preferences session "name"
 	name = CFDictionaryGetValue(prefsInfo, CFSTR("name"));
 	if (!isA_CFString(name)) {
-		SCLog(TRUE, LOG_ERR, CFSTR("session \"name\" not valid"));
+		SC_log(LOG_NOTICE, "session \"name\" not valid");
 		CFRelease(prefsInfo);
 		return FALSE;
 	}
@@ -1026,7 +1017,7 @@ do_prefs_Open(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *
 	// get PID of caller
 	pid = CFDictionaryGetValue(prefsInfo, CFSTR("PID"));
 	if (!isA_CFNumber(pid)) {
-		SCLog(TRUE, LOG_ERR, CFSTR("PID not valid"));
+		SC_log(LOG_NOTICE, "PID not valid");
 		CFRelease(prefsInfo);
 		return FALSE;
 	}
@@ -1034,7 +1025,7 @@ do_prefs_Open(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *
 	// get process name of caller
 	proc_name = CFDictionaryGetValue(prefsInfo, CFSTR("PROC_NAME"));
 	if (!isA_CFString(proc_name)) {
-		SCLog(TRUE, LOG_ERR, CFSTR("process name not valid"));
+		SC_log(LOG_NOTICE, "process name not valid");
 		CFRelease(prefsInfo);
 		return FALSE;
 	}
@@ -1174,12 +1165,16 @@ static Boolean
 do_prefs_Commit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *status, CFDataRef *reply)
 {
 	Boolean			ok;
-	SCPreferencesRef	prefs		= __SCHelperSessionGetPreferences(session);
-	CFPropertyListRef	prefsData	= NULL;
-	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	SCPreferencesRef	prefs			= __SCHelperSessionGetPreferences(session);
+	CFPropertyListRef	prefsData		= NULL;
+	SCPreferencesPrivateRef	prefsPrivate		= (SCPreferencesPrivateRef)prefs;
+	Boolean			saveAccessed;
+	Boolean			saveChanged;
+	CFMutableDictionaryRef	savePrefs		= NULL;
+	Boolean			saveValid		= FALSE;
 	Boolean			useSetFilter;
 	Boolean			useVPNFilter;
-	CFArrayRef		vpnTypes	= NULL;
+	CFArrayRef		vpnTypes		= NULL;
 
 	if (prefs == NULL) {
 		return FALSE;
@@ -1293,20 +1288,39 @@ do_prefs_Commit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t
 		}
 	}
 
-	if (prefsPrivate->prefs != NULL) {
-		CFRelease(prefsPrivate->prefs);
-	}
-	prefsPrivate->prefs    = CFDictionaryCreateMutableCopy(NULL, 0, prefsData);
-	prefsPrivate->accessed = TRUE;
-	prefsPrivate->changed  = TRUE;
+	/* Take a backup of prefs, accessed bit, changed bit to
+	 restore them IFF the commit fails. Pretend as if the
+	 commit never happened!
+	 */
+	savePrefs = prefsPrivate->prefs;
+	saveAccessed = prefsPrivate->accessed;
+	saveChanged = prefsPrivate->changed;
+	
+	prefsPrivate->prefs	= CFDictionaryCreateMutableCopy(NULL, 0, prefsData);
+	prefsPrivate->accessed	= TRUE;
+	prefsPrivate->changed	= TRUE;
+	saveValid		= TRUE;
 
     commit :
 
 	ok = SCPreferencesCommitChanges(prefs);
 	if (ok) {
+		if (savePrefs != NULL) {
+			CFRelease(savePrefs);
+		}
 		*reply = SCPreferencesGetSignature(prefs);
 		CFRetain(*reply);
 	} else {
+		/* Restore the backup we took earlier */
+		if (saveValid) {
+			if (prefsPrivate->prefs != NULL) {
+				CFRelease(prefsPrivate->prefs);
+			}
+			
+			prefsPrivate->prefs = savePrefs;
+			prefsPrivate->accessed = saveAccessed;
+			prefsPrivate->changed = saveChanged;
+		}
 		*status = SCError();
 	}
 
@@ -1469,20 +1483,18 @@ copyEntitlement(SCHelperSessionRef session, CFStringRef entitlement)
 			if (!CFEqual(domain, kCFErrorDomainMach) ||
 			    ((code != kIOReturnInvalid) && (code != kIOReturnNotFound))) {
 				// if unexpected error
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("SecTaskCopyValueForEntitlement(,\"%@\",) failed, error = %@ : %@"),
-				      entitlement,
-				      error,
-				      sessionName(session));
+				SC_log(LOG_NOTICE, "SecTaskCopyValueForEntitlement(,\"%@\",) failed, error = %@ : %@",
+				       entitlement,
+				       error,
+				       sessionName(session));
 			}
 			CFRelease(error);
 		}
 
 		CFRelease(task);
 	} else {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SecTaskCreateWithAuditToken() failed: %@"),
-		      sessionName(session));
+		SC_log(LOG_NOTICE, "SecTaskCreateWithAuditToken() failed: %@",
+		       sessionName(session));
 	}
 
 	return value;
@@ -1592,10 +1604,9 @@ checkEntitlement(SCHelperSessionRef session, CFStringRef prefsID, CFStringRef en
 				hasEntitlement = TRUE;
 			}
 		} else {
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("hasAuthorization() session=%@: entitlement=%@: not valid"),
-			      sessionName(session),
-			      entitlement_name);
+			SC_log(LOG_NOTICE, "hasAuthorization() session=%@: entitlement=%@: not valid",
+			       sessionName(session),
+			       entitlement_name);
 		}
 
 		CFRelease(entitlement);
@@ -1665,9 +1676,8 @@ hasAuthorization(SCHelperSessionRef session, Boolean needWrite)
 						 flags,
 						 NULL);
 		if (status != errAuthorizationSuccess) {
-			SCLog(TRUE, LOG_DEBUG,
-			      CFSTR("AuthorizationCopyRights() failed: status = %d"),
-			      (int)status);
+			SC_log(LOG_INFO, "AuthorizationCopyRights() failed: status = %d",
+			       (int)status);
 			return FALSE;
 		}
 
@@ -1690,10 +1700,9 @@ hasAuthorization(SCHelperSessionRef session, Boolean needWrite)
 		if (sessionPrivate->callerWriteAccess == YES) {
 			return TRUE;
 		} else {
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("SCPreferences write access to \"%@\" denied, no entitlement for \"%@\""),
-			      prefsID,
-			      sessionName(session));
+			SC_log(LOG_NOTICE, "SCPreferences write access to \"%@\" denied, no entitlement for \"%@\"",
+			       prefsID,
+			       sessionName(session));
 			return FALSE;
 		}
 	}
@@ -1710,10 +1719,9 @@ hasAuthorization(SCHelperSessionRef session, Boolean needWrite)
 		return TRUE;
 	}
 
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR("SCPreferences access to \"%@\" denied, no entitlement for \"%@\""),
-	      prefsID,
-	      sessionName(session));
+	SC_log(LOG_NOTICE, "SCPreferences access to \"%@\" denied, no entitlement for \"%@\"",
+	       prefsID,
+	       sessionName(session));
 	return FALSE;
 }
 
@@ -1793,9 +1801,9 @@ newHelper(void *arg)
 		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 		CFRelease(rls);
 
-		SCLog(debug, LOG_DEBUG, CFSTR("%p : start"), session);
+		SC_log(LOG_INFO, "%p : start", session);
 		CFRunLoopRun();
-		SCLog(debug, LOG_DEBUG, CFSTR("%p : stop"), session);
+		SC_log(LOG_INFO, "%p : stop", session);
 	}
 
 	return NULL;
@@ -1863,9 +1871,9 @@ notify_server(mach_msg_header_t *request, mach_msg_header_t *reply)
 			break;
 	}
 
-	SCLog(TRUE, LOG_ERR, CFSTR("HELP!, Received notification: port=%d, msgh_id=%d"),
-	      Request->not_header.msgh_local_port,
-	      Request->not_header.msgh_id);
+	SC_log(LOG_NOTICE, "HELP!, Received notification: port=%d, msgh_id=%d",
+	       Request->not_header.msgh_local_port,
+	       Request->not_header.msgh_id);
 
 	Reply->NDR     = NDR_record;
 	Reply->RetCode = MIG_BAD_ID;
@@ -1898,7 +1906,7 @@ helper_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 	/*
 	 * unknown message ID, log and return an error.
 	 */
-	SCLog(TRUE, LOG_ERR, CFSTR("helper_demux(): unknown message ID (%d) received"), request->msgh_id);
+	SC_log(LOG_NOTICE, "helper_demux(): unknown message ID (%d) received", request->msgh_id);
 	reply->msgh_bits        = MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(request->msgh_bits), 0);
 	reply->msgh_remote_port = request->msgh_remote_port;
 	reply->msgh_size        = sizeof(mig_reply_error_t);	/* Minimal size */
@@ -1917,6 +1925,7 @@ helper_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 static void
 helperCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
+	os_activity_t		activity_id;
 	mig_reply_error_t *	bufRequest	= msg;
 	uint32_t		bufReply_q[MACH_MSG_BUFFER_SIZE/sizeof(uint32_t)];
 	mig_reply_error_t *	bufReply	= (mig_reply_error_t *)bufReply_q;
@@ -1924,15 +1933,17 @@ helperCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	mach_msg_return_t	mr;
 	int			options;
 
+	activity_id = os_activity_start("processing SCHelper request",
+					OS_ACTIVITY_FLAG_DEFAULT);
+
 	if (bufSize == 0) {
 		// get max size for MiG reply buffers
 		bufSize = _helper_subsystem.maxsize;
 
 		// check if our on-the-stack reply buffer will be big enough
 		if (bufSize > sizeof(bufReply_q)) {
-			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("helperCallback(): buffer size should be increased > %d"),
-			      _helper_subsystem.maxsize);
+			SC_log(LOG_NOTICE, "buffer size should be increased > %d",
+			       _helper_subsystem.maxsize);
 		}
 	}
 
@@ -2001,6 +2012,9 @@ helperCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 
 	if (bufReply != (mig_reply_error_t *)bufReply_q)
 		CFAllocatorDeallocate(NULL, bufReply);
+
+	os_activity_end(activity_id);
+
 	return;
 }
 
@@ -2035,7 +2049,7 @@ _helperinit(mach_port_t			server,
 	session = __SCHelperSessionFindWithPort(server);
 	if (session != NULL) {
 #ifdef	DEBUG
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_helperinit(): session is already open."));
+		SC_log(LOG_DEBUG, "session is already open");
 #endif	/* DEBUG */
 		*status = kSCStatusFailed;	/* you can't re-open an "open" session */
 		return KERN_SUCCESS;
@@ -2046,11 +2060,9 @@ _helperinit(mach_port_t			server,
 	sessionPrivate = (SCHelperSessionPrivateRef)session;
 
 	// create per-session port
-	kr = mach_port_allocate(mach_task_self(),
-				MACH_PORT_RIGHT_RECEIVE,
-				&sessionPrivate->port);
+	kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &sessionPrivate->port);
 	if (kr != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_helperinit(): mach_port_allocate() failed: %s"), mach_error_string(kr));
+		SC_log(LOG_ERR, "mach_port_allocate() failed: %s", mach_error_string(kr));
 		*status = kr;
 		goto done;
 	}
@@ -2083,7 +2095,7 @@ _helperinit(mach_port_t			server,
 					    MACH_MSG_TYPE_MAKE_SEND_ONCE,
 					    &oldNotify);
 	if (kr != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_helperinit() mach_port_request_notification() failed: %s"), mach_error_string(kr));
+		SC_log(LOG_NOTICE, "mach_port_request_notification() failed: %s", mach_error_string(kr));
 
 		// clean up CFMachPort, mach port rights
 		CFMachPortInvalidate(sessionPrivate->mp);
@@ -2096,7 +2108,7 @@ _helperinit(mach_port_t			server,
 	}
 
 	if (oldNotify != MACH_PORT_NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_helperinit(): oldNotify != MACH_PORT_NULL"));
+		SC_log(LOG_NOTICE, "oldNotify != MACH_PORT_NULL");
 	}
 
 	// add send right (that will be passed back to the client)
@@ -2177,23 +2189,21 @@ _helperexec(mach_port_t			server,
 
 	i = findCommand(msgID);
 	if (i == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("received unknown command : %u"), msgID);
+		SC_log(LOG_NOTICE, "received unknown command : %u", msgID);
 		*status = kSCStatusInvalidArgument;
 		goto done;
 	}
 
-	SCLog(debug, LOG_DEBUG,
-	      CFSTR("%p : processing command \"%s\"%s"),
-	      session,
-	      helpers[i].commandName,
-	      (data != NULL) ? " w/data" : "");
+	SC_log(LOG_INFO, "%p : processing command \"%s\"%s",
+	       session,
+	       helpers[i].commandName,
+	       (data != NULL) ? " w/data" : "");
 
 	if (helpers[i].needsAuthorization &&
 	    !hasAuthorization(session, helpers[i].needsWrite)) {
-		SCLog(debug, LOG_DEBUG,
-		      CFSTR("%p : command \"%s\" : not authorized"),
-		      session,
-		      helpers[i].commandName);
+		SC_log(LOG_INFO, "%p : command \"%s\" : not authorized",
+		       session,
+		       helpers[i].commandName);
 		*status = kSCStatusAccessError;
 	}
 
@@ -2207,11 +2217,10 @@ _helperexec(mach_port_t			server,
 	if ((*status != -1) || (reply != NULL)) {
 		Boolean	ok;
 
-		SCLog(debug, LOG_DEBUG,
-		      CFSTR("%p : sending status %u%s"),
-		      session,
-		      *status,
-		      (reply != NULL) ? " w/reply" : "");
+		SC_log(LOG_INFO, "%p : sending status %u%s",
+		       session,
+		       *status,
+		       (reply != NULL) ? " w/reply" : "");
 
 		/* serialize the data */
 		if (reply != NULL) {
@@ -2260,9 +2269,8 @@ init_MiG(const char *service_name, int *n_listeners)
 
 	kr = bootstrap_check_in(bootstrap_port, service_name, &service_port);
 	if (kr != BOOTSTRAP_SUCCESS) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCHelper: bootstrap_check_in() failed: %s"),
-		      bootstrap_strerror(kr));
+		SC_log(LOG_NOTICE, "bootstrap_check_in() failed: %s",
+		       bootstrap_strerror(kr));
 		return 1;
 	}
 
@@ -2318,8 +2326,7 @@ main(int argc, char **argv)
 				break;
 			case '?':
 			default :
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("ignoring unknown or ambiguous command line option"));
+				SC_log(LOG_NOTICE, "ignoring unknown or ambiguous command line option");
 				break;
 		}
 	}
@@ -2327,7 +2334,7 @@ main(int argc, char **argv)
 //	argv += optind;
 
 	if (geteuid() != 0) {
-		SCLog(TRUE, LOG_ERR, CFSTR("%s"), strerror(EACCES));
+		SC_log(LOG_NOTICE, "%s", strerror(EACCES));
 		exit(EACCES);
 	}
 
@@ -2368,7 +2375,7 @@ main(int argc, char **argv)
 			if (gen_reported != gen_current) {
 				FILE	*logFile	= NULL;
 
-				SCLog(TRUE, LOG_NOTICE, CFSTR("active (but IDLE) sessions"));
+				SC_log(LOG_INFO, "active (but IDLE) sessions");
 				CFSetApplyFunction(sessions, __SCHelperSessionLog, (void *)&logFile);
 				gen_reported = gen_current;
 

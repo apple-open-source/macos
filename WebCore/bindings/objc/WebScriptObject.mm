@@ -48,9 +48,10 @@
 #import <runtime/JSLock.h>
 #import <runtime/Completion.h>
 #import <runtime/Completion.h>
-#import <wtf/TCSpinLock.h>
+#import <wtf/SpinLock.h>
 #import <wtf/Threading.h>
-#include <wtf/text/WTFString.h>
+#import <wtf/spi/cocoa/NSMapTableSPI.h>
+#import <wtf/text/WTFString.h>
 
 using namespace JSC::Bindings;
 using namespace WebCore;
@@ -71,7 +72,7 @@ using JSC::makeSource;
 namespace WebCore {
 
 static NSMapTable* JSWrapperCache;
-static SpinLock spinLock = SPINLOCK_INITIALIZER;
+static StaticSpinLock spinLock;
 
 NSObject* getJSWrapper(JSObject* impl)
 {
@@ -120,7 +121,7 @@ id createJSWrapper(JSC::JSObject* object, PassRefPtr<JSC::Bindings::RootObject> 
     return [[[WebScriptObject alloc] _initWithJSObject:object originRootObject:origin rootObject:root] autorelease];
 }
 
-static void addExceptionToConsole(ExecState* exec, JSC::JSValue& exception)
+static void addExceptionToConsole(ExecState* exec, JSC::Exception* exception)
 {
     JSDOMWindow* window = asJSDOMWindow(exec->vmEntryGlobalObject());
     if (!window || !exception)
@@ -130,7 +131,7 @@ static void addExceptionToConsole(ExecState* exec, JSC::JSValue& exception)
 
 static void addExceptionToConsole(ExecState* exec)
 {
-    JSC::JSValue exception = exec->exception();
+    JSC::Exception* exception = exec->exception();
     exec->clearException();
     addExceptionToConsole(exec, exception);
 }
@@ -329,7 +330,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     JSLockHolder lock(exec);
     ASSERT(!exec->hadException());
 
-    JSC::JSValue function = [self _imp]->get(exec, Identifier(exec, String(name)));
+    JSC::JSValue function = [self _imp]->get(exec, Identifier::fromString(exec, String(name)));
     CallData callData;
     CallType callType = getCallData(function, callData);
     if (callType == CallTypeNone)
@@ -341,8 +342,8 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     if (![self _isSafeScript])
         return nil;
 
-    JSC::JSValue exception;
-    JSC::JSValue result = JSMainThreadExecState::call(exec, function, callType, callData, [self _imp], argList, &exception);
+    NakedPtr<JSC::Exception> exception;
+    JSC::JSValue result = JSMainThreadExecState::call(exec, function, callType, callData, [self _imp], argList, exception);
 
     if (exception) {
         addExceptionToConsole(exec, exception);
@@ -365,7 +366,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 
     JSLockHolder lock(exec);
     
-    JSC::JSValue returnValue = JSMainThreadExecState::evaluate(exec, makeSource(String(script)), JSC::JSValue(), 0);
+    JSC::JSValue returnValue = JSMainThreadExecState::evaluate(exec, makeSource(String(script)), JSC::JSValue());
 
     id resultObj = [WebScriptObject _convertValueToObjcValue:returnValue originRootObject:[self _originRootObject] rootObject:[self _rootObject]];
     
@@ -383,7 +384,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     JSLockHolder lock(exec);
     JSObject* object = JSC::jsDynamicCast<JSObject*>([self _imp]);
     PutPropertySlot slot(object);
-    object->methodTable()->put(object, exec, Identifier(exec, String(key)), convertObjcValueToValue(exec, &value, ObjcObjectType, [self _rootObject]), slot);
+    object->methodTable()->put(object, exec, Identifier::fromString(exec, String(key)), convertObjcValueToValue(exec, &value, ObjcObjectType, [self _rootObject]), slot);
 
     if (exec->hadException()) {
         addExceptionToConsole(exec);
@@ -406,7 +407,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
         // leaving the lock permanently held
         JSLockHolder lock(exec);
         
-        JSC::JSValue result = [self _imp]->get(exec, Identifier(exec, String(key)));
+        JSC::JSValue result = [self _imp]->get(exec, Identifier::fromString(exec, String(key)));
         
         if (exec->hadException()) {
             addExceptionToConsole(exec);
@@ -432,7 +433,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ASSERT(!exec->hadException());
 
     JSLockHolder lock(exec);
-    [self _imp]->methodTable()->deleteProperty([self _imp], exec, Identifier(exec, String(key)));
+    [self _imp]->methodTable()->deleteProperty([self _imp], exec, Identifier::fromString(exec, String(key)));
 
     if (exec->hadException()) {
         addExceptionToConsole(exec);
@@ -449,7 +450,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ASSERT(!exec->hadException());
 
     JSLockHolder lock(exec);
-    BOOL result = [self _imp]->hasProperty(exec, Identifier(exec, String(key)));
+    BOOL result = [self _imp]->hasProperty(exec, Identifier::fromString(exec, String(key)));
 
     if (exec->hadException()) {
         addExceptionToConsole(exec);
@@ -671,11 +672,13 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     return self;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
 - (void)dealloc
 {
     return;
-    [super dealloc]; // make -Wdealloc-check happy
 }
+#pragma clang diagnostic pop
 
 + (WebUndefined *)undefined
 {

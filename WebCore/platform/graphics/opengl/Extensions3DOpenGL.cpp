@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#if USE(3D_GRAPHICS)
+#if ENABLE(GRAPHICS_CONTEXT_3D)
 
 #include "Extensions3DOpenGL.h"
 
@@ -33,10 +33,8 @@
 #include <wtf/Vector.h>
 
 #if PLATFORM(IOS)
-#include "ANGLE/ShaderLang.h"
 #include <OpenGLES/ES2/glext.h>
 #elif PLATFORM(MAC)
-#include "ANGLE/ShaderLang.h"
 #include <OpenGL/gl.h>
 #elif PLATFORM(GTK) || PLATFORM(EFL) || PLATFORM(WIN)
 #include "OpenGLShims.h"
@@ -169,6 +167,20 @@ bool Extensions3DOpenGL::supportsExtension(const String& name)
             && (m_availableExtensions.contains("GL_ARB_draw_instanced") || m_availableExtensions.contains("GL_EXT_draw_instanced"));
     }
 
+    if (name == "GL_EXT_sRGB")
+#if PLATFORM(IOS)
+        return m_availableExtensions.contains("GL_EXT_sRGB");
+#else
+        return m_availableExtensions.contains("GL_EXT_texture_sRGB") && (m_availableExtensions.contains("GL_EXT_framebuffer_sRGB") || m_availableExtensions.contains("GL_ARB_framebuffer_sRGB"));
+#endif
+
+    if (name == "GL_EXT_frag_depth")
+#if PLATFORM(MAC)
+        return true;
+#else
+        return m_availableExtensions.contains("GL_EXT_frag_depth");
+#endif
+
     // Desktop GL always supports GL_OES_rgb8_rgba8.
     if (name == "GL_OES_rgb8_rgba8")
         return true;
@@ -204,7 +216,9 @@ bool Extensions3DOpenGL::supportsExtension(const String& name)
         return m_availableExtensions.contains("GL_EXT_texture_filter_anisotropic");
 
     if (name == "GL_EXT_draw_buffers") {
-#if PLATFORM(MAC) || PLATFORM(GTK)
+#if PLATFORM(IOS)
+        return m_availableExtensions.contains(name);
+#elif PLATFORM(MAC) || PLATFORM(GTK)
         return m_availableExtensions.contains("GL_ARB_draw_buffers");
 #else
         // FIXME: implement support for other platforms.
@@ -238,7 +252,7 @@ void Extensions3DOpenGL::drawArraysInstanced(GC3Denum mode, GC3Dint first, GC3Ds
     m_context->makeContextCurrent();
 #if PLATFORM(GTK)
     ::glDrawArraysInstanced(mode, first, count, primcount);
-#elif PLATFORM(IOS) || PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#elif PLATFORM(COCOA)
     ::glDrawArraysInstancedARB(mode, first, count, primcount);
 #else
     UNUSED_PARAM(mode);
@@ -253,7 +267,7 @@ void Extensions3DOpenGL::drawElementsInstanced(GC3Denum mode, GC3Dsizei count, G
     m_context->makeContextCurrent();
 #if PLATFORM(GTK)
     ::glDrawElementsInstanced(mode, count, type, reinterpret_cast<GLvoid*>(static_cast<intptr_t>(offset)), primcount);
-#elif PLATFORM(IOS) || PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#elif PLATFORM(COCOA)
     ::glDrawElementsInstancedARB(mode, count, type, reinterpret_cast<GLvoid*>(static_cast<intptr_t>(offset)), primcount);
 #else
     UNUSED_PARAM(mode);
@@ -269,7 +283,7 @@ void Extensions3DOpenGL::vertexAttribDivisor(GC3Duint index, GC3Duint divisor)
     m_context->makeContextCurrent();
 #if PLATFORM(GTK)
     ::glVertexAttribDivisor(index, divisor);
-#elif PLATFORM(IOS) || PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#elif PLATFORM(COCOA)
     ::glVertexAttribDivisorARB(index, divisor);
 #else
     UNUSED_PARAM(index);
@@ -292,4 +306,4 @@ bool Extensions3DOpenGL::isVertexArrayObjectSupported()
 
 } // namespace WebCore
 
-#endif // USE(3D_GRAPHICS)
+#endif // ENABLE(GRAPHICS_CONTEXT_3D)

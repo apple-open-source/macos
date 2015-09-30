@@ -31,7 +31,7 @@
 #include "SVGRenderStyle.h"
 #include "SVGURIReference.h"
 
-#ifndef NDEBUG
+#if ENABLE(TREE_DEBUGGING)
 #include <stdio.h>
 #endif
 
@@ -141,14 +141,12 @@ static HashSet<AtomicString>& chainableResourceTags()
 static inline String targetReferenceFromResource(SVGElement& element)
 {
     String target;
-    if (isSVGPatternElement(element))
-        target = toSVGPatternElement(element).href();
-    else if (isSVGGradientElement(element))
-        target = toSVGGradientElement(element).href();
-#if ENABLE(FILTERS)
-    else if (isSVGFilterElement(element))
-        target = toSVGFilterElement(element).href();
-#endif
+    if (is<SVGPatternElement>(element))
+        target = downcast<SVGPatternElement>(element).href();
+    else if (is<SVGGradientElement>(element))
+        target = downcast<SVGGradientElement>(element).href();
+    else if (is<SVGFilterElement>(element))
+        target = downcast<SVGFilterElement>(element).href();
     else
         ASSERT_NOT_REACHED();
 
@@ -174,9 +172,9 @@ static inline RenderSVGResourceContainer* paintingResourceFromSVGPaint(Document&
     return container;
 }
 
-static inline void registerPendingResource(SVGDocumentExtensions* extensions, const AtomicString& id, SVGElement& element)
+static inline void registerPendingResource(SVGDocumentExtensions& extensions, const AtomicString& id, SVGElement& element)
 {
-    extensions->addPendingResource(id, &element);
+    extensions.addPendingResource(id, &element);
 }
 
 bool SVGResources::buildCachedResources(const RenderElement& renderer, const SVGRenderStyle& svgStyle)
@@ -187,12 +185,11 @@ bool SVGResources::buildCachedResources(const RenderElement& renderer, const SVG
     if (!renderer.element())
         return false;
 
-    auto& element = toSVGElement(*renderer.element());
+    auto& element = downcast<SVGElement>(*renderer.element());
 
     Document& document = element.document();
 
-    SVGDocumentExtensions* extensions = document.accessSVGExtensions();
-    ASSERT(extensions);
+    SVGDocumentExtensions& extensions = document.accessSVGExtensions();
 
     const AtomicString& tagName = element.localName();
     if (tagName.isNull())
@@ -208,7 +205,6 @@ bool SVGResources::buildCachedResources(const RenderElement& renderer, const SVG
                 registerPendingResource(extensions, id, element);
         }
 
-#if ENABLE(FILTERS)
         if (svgStyle.hasFilter()) {
             AtomicString id(svgStyle.filterResource());
             if (setFilter(getRenderSVGResourceById<RenderSVGResourceFilter>(document, id)))
@@ -216,7 +212,6 @@ bool SVGResources::buildCachedResources(const RenderElement& renderer, const SVG
             else
                 registerPendingResource(extensions, id, element);
         }
-#endif
 
         if (svgStyle.hasMasker()) {
             AtomicString id(svgStyle.maskerResource());
@@ -294,10 +289,8 @@ void SVGResources::removeClientFromCache(RenderElement& renderer, bool markForIn
     if (m_clipperFilterMaskerData) {
         if (m_clipperFilterMaskerData->clipper)
             m_clipperFilterMaskerData->clipper->removeClientFromCache(renderer, markForInvalidation);
-#if ENABLE(FILTERS)
         if (m_clipperFilterMaskerData->filter)
             m_clipperFilterMaskerData->filter->removeClientFromCache(renderer, markForInvalidation);
-#endif
         if (m_clipperFilterMaskerData->masker)
             m_clipperFilterMaskerData->masker->removeClientFromCache(renderer, markForInvalidation);
     }
@@ -373,16 +366,12 @@ void SVGResources::resourceDestroyed(RenderSVGResourceContainer& resource)
         }
         break;
     case FilterResourceType:
-#if ENABLE(FILTERS)
         if (!m_clipperFilterMaskerData)
             break;
         if (m_clipperFilterMaskerData->filter == &resource) {
             m_clipperFilterMaskerData->filter->removeAllClientsFromCache();
             m_clipperFilterMaskerData->filter = 0;
         }
-#else
-        ASSERT_NOT_REACHED();
-#endif
         break;
     case ClipperResourceType:
         if (!m_clipperFilterMaskerData)
@@ -413,10 +402,8 @@ void SVGResources::buildSetOfResources(HashSet<RenderSVGResourceContainer*>& set
     if (m_clipperFilterMaskerData) {
         if (m_clipperFilterMaskerData->clipper)
             set.add(m_clipperFilterMaskerData->clipper);
-#if ENABLE(FILTERS)
         if (m_clipperFilterMaskerData->filter)
             set.add(m_clipperFilterMaskerData->filter);
-#endif
         if (m_clipperFilterMaskerData->masker)
             set.add(m_clipperFilterMaskerData->masker);
     }
@@ -459,7 +446,6 @@ void SVGResources::resetClipper()
     m_clipperFilterMaskerData->clipper = 0;
 }
 
-#if ENABLE(FILTERS)
 bool SVGResources::setFilter(RenderSVGResourceFilter* filter)
 {
     if (!filter)
@@ -480,7 +466,6 @@ void SVGResources::resetFilter()
     ASSERT(m_clipperFilterMaskerData->filter);
     m_clipperFilterMaskerData->filter = 0;
 }
-#endif
 
 bool SVGResources::setMarkerStart(RenderSVGResourceMarker* markerStart)
 {
@@ -627,7 +612,7 @@ void SVGResources::resetLinkedResource()
     m_linkedResource = 0;
 }
 
-#ifndef NDEBUG
+#if ENABLE(TREE_DEBUGGING)
 void SVGResources::dump(const RenderObject* object)
 {
     ASSERT(object);
@@ -641,10 +626,8 @@ void SVGResources::dump(const RenderObject* object)
     if (m_clipperFilterMaskerData) {
         if (RenderSVGResourceClipper* clipper = m_clipperFilterMaskerData->clipper)
             fprintf(stderr, " |-> Clipper    : %p (node=%p)\n", clipper, &clipper->clipPathElement());
-#if ENABLE(FILTERS)
         if (RenderSVGResourceFilter* filter = m_clipperFilterMaskerData->filter)
             fprintf(stderr, " |-> Filter     : %p (node=%p)\n", filter, &filter->filterElement());
-#endif
         if (RenderSVGResourceMasker* masker = m_clipperFilterMaskerData->masker)
             fprintf(stderr, " |-> Masker     : %p (node=%p)\n", masker, &masker->maskElement());
     }

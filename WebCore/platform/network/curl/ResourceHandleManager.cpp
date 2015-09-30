@@ -171,30 +171,17 @@ static void calculateWebTimingInformations(ResourceHandleInternal* d)
     curl_easy_getinfo(d->m_handle, CURLINFO_STARTTRANSFER_TIME, &startTransfertTime);
     curl_easy_getinfo(d->m_handle, CURLINFO_PRETRANSFER_TIME, &preTransferTime);
 
-    d->m_response.resourceLoadTiming()->dnsStart = 0;
-    d->m_response.resourceLoadTiming()->dnsEnd = static_cast<int>(dnslookupTime * 1000);
+    d->m_response.resourceLoadTiming().domainLookupStart = 0;
+    d->m_response.resourceLoadTiming().domainLookupEnd = static_cast<int>(dnslookupTime * 1000);
 
-    d->m_response.resourceLoadTiming()->connectStart = static_cast<int>(dnslookupTime * 1000);
-    d->m_response.resourceLoadTiming()->connectEnd = static_cast<int>(connectTime * 1000);
+    d->m_response.resourceLoadTiming().connectStart = static_cast<int>(dnslookupTime * 1000);
+    d->m_response.resourceLoadTiming().connectEnd = static_cast<int>(connectTime * 1000);
 
-    d->m_response.resourceLoadTiming()->sendStart = static_cast<int>(connectTime *1000);
-    d->m_response.resourceLoadTiming()->sendEnd =static_cast<int>(preTransferTime * 1000);
+    d->m_response.resourceLoadTiming().requestStart = static_cast<int>(connectTime *1000);
+    d->m_response.resourceLoadTiming().responseStart =static_cast<int>(preTransferTime * 1000);
 
-    if (appConnectTime) {
-        d->m_response.resourceLoadTiming()->sslStart = static_cast<int>(connectTime * 1000);
-        d->m_response.resourceLoadTiming()->sslEnd = static_cast<int>(appConnectTime *1000);
-    }
-}
-
-static int sockoptfunction(void* data, curl_socket_t /*curlfd*/, curlsocktype /*purpose*/)
-{
-    ResourceHandle* job = static_cast<ResourceHandle*>(data);
-    ResourceHandleInternal* d = job->getInternal();
-
-    if (d->m_response.resourceLoadTiming())
-        d->m_response.resourceLoadTiming()->requestTime = monotonicallyIncreasingTime();
-
-    return 0;
+    if (appConnectTime)
+        d->m_response.resourceLoadTiming().secureConnectionStart = static_cast<int>(connectTime * 1000);
 }
 #endif
 
@@ -228,11 +215,19 @@ inline static bool isHttpAuthentication(int statusCode)
     return statusCode == 401;
 }
 
+inline static bool isHttpNotModified(int statusCode)
+{
+    return statusCode == 304;
+}
+
 ResourceHandleManager::ResourceHandleManager()
-    : m_downloadTimer(this, &ResourceHandleManager::downloadTimerCallback)
+    : m_downloadTimer(*this, &ResourceHandleManager::downloadTimerCallback)
     , m_cookieJarFileName(cookieJarPath())
     , m_certificatePath (certificatePath())
     , m_runningJobs(0)
+#ifndef NDEBUG
+    , m_logFile(nullptr)
+#endif
 {
     curl_global_init(CURL_GLOBAL_ALL);
     m_curlMultiHandle = curl_multi_init();
@@ -243,6 +238,12 @@ ResourceHandleManager::ResourceHandleManager()
     curl_share_setopt(m_curlShareHandle, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
 
     initCookieSession();
+
+#ifndef NDEBUG
+    char* logFile = getenv("CURL_LOG_FILE");
+    if (logFile)
+        m_logFile = fopen(logFile, "a");
+#endif
 }
 
 ResourceHandleManager::~ResourceHandleManager()
@@ -252,6 +253,11 @@ ResourceHandleManager::~ResourceHandleManager()
     if (m_cookieJarFileName)
         fastFree(m_cookieJarFileName);
     curl_global_cleanup();
+
+#ifndef NDEBUG
+    if (m_logFile)
+        fclose(m_logFile);
+#endif
 }
 
 CURLSH* ResourceHandleManager::getCurlShareHandle() const
@@ -459,7 +465,7 @@ static size_t headerCallback(char* ptr, size_t size, size_t nmemb, void* data)
     size_t totalSize = size * nmemb;
     ResourceHandleClient* client = d->client();
 
-    String header = String::fromUTF8WithLatin1Fallback(static_cast<const char*>(ptr), totalSize);
+    String header(static_cast<const char*>(ptr), totalSize);
 
     /*
      * a) We can finish and send the ResourceResponse
@@ -491,19 +497,13 @@ static size_t headerCallback(char* ptr, size_t size, size_t nmemb, void* data)
         d->m_response.setHTTPStatusCode(httpCode);
         d->m_response.setMimeType(extractMIMETypeFromMediaType(d->m_response.httpHeaderField(HTTPHeaderName::ContentType)).lower());
         d->m_response.setTextEncodingName(extractCharsetFromMediaType(d->m_response.httpHeaderField(HTTPHeaderName::ContentType)));
-        d->m_response.setSuggestedFilename(filenameFromHTTPContentDisposition(d->m_response.httpHeaderField(HTTPHeaderName::ContentDisposition)));
 
         if (d->m_response.isMultipart()) {
             String boundary;
             bool parsed = MultipartHandle::extractBoundary(d->m_response.httpHeaderField(HTTPHeaderName::ContentType), boundary);
             if (parsed)
-                d->m_multipartHandle = MultipartHandle::create(job, boundary);
+                d->m_multipartHandle = std::make_unique<MultipartHandle>(job, boundary);
         }
-
-#if ENABLE(WEB_TIMING)
-        if (d->m_response.resourceLoadTiming() && d->m_response.resourceLoadTiming()->requestTime)
-            d->m_response.resourceLoadTiming()->receiveHeadersEnd = milisecondsSinceRequest(d->m_response.resourceLoadTiming()->requestTime);
-#endif
 
         // HTTP redirection
         if (isHttpRedirect(httpCode)) {
@@ -533,9 +533,14 @@ static size_t headerCallback(char* ptr, size_t size, size_t nmemb, void* data)
         }
 
         if (client) {
-            if (httpCode == 304) {
+            if (isHttpNotModified(httpCode)) {
                 const String& url = job->firstRequest().url().string();
-                CurlCacheManager::getInstance().getCachedResponse(url, d->m_response);
+                if (CurlCacheManager::getInstance().getCachedResponse(url, d->m_response)) {
+                    if (d->m_addedCacheValidationHeaders) {
+                        d->m_response.setHTTPStatusCode(200);
+                        d->m_response.setHTTPStatusText("OK");
+                    }
+                }
             }
             client->didReceiveResponse(job, d->m_response);
             CurlCacheManager::getInstance().didReceiveResponse(*job, d->m_response);
@@ -607,7 +612,7 @@ size_t readCallback(void* ptr, size_t size, size_t nmemb, void* data)
     return sent;
 }
 
-void ResourceHandleManager::downloadTimerCallback(Timer* /* timer */)
+void ResourceHandleManager::downloadTimerCallback()
 {
     startScheduledJobs();
 
@@ -930,10 +935,11 @@ void ResourceHandleManager::dispatchSynchronousJob(ResourceHandle* job)
 
 void ResourceHandleManager::startJob(ResourceHandle* job)
 {
-    URL kurl = job->firstRequest().url();
+    URL url = job->firstRequest().url();
 
-    if (kurl.protocolIsData()) {
+    if (url.protocolIsData()) {
         handleDataURL(job);
+        job->deref();
         return;
     }
 
@@ -1021,6 +1027,8 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
 #ifndef NDEBUG
     if (getenv("DEBUG_CURL"))
         curl_easy_setopt(d->m_handle, CURLOPT_VERBOSE, 1);
+    if (m_logFile)
+        curl_easy_setopt(d->m_handle, CURLOPT_STDERR, m_logFile);
 #endif
     curl_easy_setopt(d->m_handle, CURLOPT_SSL_VERIFYPEER, 1L);
     curl_easy_setopt(d->m_handle, CURLOPT_SSL_VERIFYHOST, 2L);
@@ -1065,7 +1073,9 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
     if (job->firstRequest().httpHeaderFields().size() > 0) {
         HTTPHeaderMap customHeaders = job->firstRequest().httpHeaderFields();
 
-        if (CurlCacheManager::getInstance().isCached(url)) {
+        bool hasCacheHeaders = customHeaders.contains(HTTPHeaderName::IfModifiedSince) || customHeaders.contains(HTTPHeaderName::IfNoneMatch);
+        if (!hasCacheHeaders && CurlCacheManager::getInstance().isCached(url)) {
+            CurlCacheManager::getInstance().addCacheEntryClient(url, job);
             HTTPHeaderMap& requestHeaders = CurlCacheManager::getInstance().requestHeaders(url);
 
             // append additional cache information
@@ -1075,6 +1085,7 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
                 customHeaders.set(it->key, it->value);
                 ++it;
             }
+            d->m_addedCacheValidationHeaders = true;
         }
 
         HTTPHeaderMap::const_iterator end = customHeaders.end();
@@ -1104,7 +1115,7 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
     else if ("HEAD" == method)
         curl_easy_setopt(d->m_handle, CURLOPT_NOBODY, TRUE);
     else {
-        curl_easy_setopt(d->m_handle, CURLOPT_CUSTOMREQUEST, method.latin1().data());
+        curl_easy_setopt(d->m_handle, CURLOPT_CUSTOMREQUEST, method.ascii().data());
         setupPUT(job, &headers);
     }
 
@@ -1120,11 +1131,6 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
         curl_easy_setopt(d->m_handle, CURLOPT_PROXY, m_proxy.utf8().data());
         curl_easy_setopt(d->m_handle, CURLOPT_PROXYTYPE, m_proxyType);
     }
-#if ENABLE(WEB_TIMING)
-    curl_easy_setopt(d->m_handle, CURLOPT_SOCKOPTFUNCTION, sockoptfunction);
-    curl_easy_setopt(d->m_handle, CURLOPT_SOCKOPTDATA, job);
-    d->m_response.setResourceLoadTiming(ResourceLoadTiming::create());
-#endif
 }
 
 void ResourceHandleManager::initCookieSession()

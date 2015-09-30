@@ -280,6 +280,27 @@ my_CFStringArrayToEtherArray(CFArrayRef array, char * buffer, int * buffer_size,
     return (TRUE);
 }
 
+PRIVATE_EXTERN CFArrayRef
+my_CFStringArrayCreate(const char * * strings, CFIndex strings_count)
+{
+    CFIndex		i;
+    CFMutableArrayRef	ret_list;
+
+    ret_list = CFArrayCreateMutable(NULL, strings_count,
+				    &kCFTypeArrayCallBacks);
+    for (i = 0; i < strings_count; i++) {
+	CFStringRef	str;
+
+	str = CFStringCreateWithCString(NULL, strings[i],
+					kCFStringEncodingUTF8);
+	if (str != NULL) {
+	    CFArrayAppendValue(ret_list, str);
+	    CFRelease(str);
+	}
+    }
+    return (ret_list);
+}
+
 PRIVATE_EXTERN bool
 my_CFStringToIPAddress(CFStringRef str, struct in_addr * ret_ip)
 {

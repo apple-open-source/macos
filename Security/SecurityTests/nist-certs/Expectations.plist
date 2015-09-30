@@ -71,28 +71,6 @@
 	<string>Check PDF</string>
 	<key>InvalidonlySomeReasonsTest21EE.crt</key>
 	<string>Check PDF</string>
-	<key>ValidDNSnameConstraintsTest30EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNSnameConstraintsTest32EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNandRFC822nameConstraintsTest27EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNnameConstraintsTest11EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNnameConstraintsTest14EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNnameConstraintsTest18EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNnameConstraintsTest19EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNnameConstraintsTest1EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNnameConstraintsTest4EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNnameConstraintsTest5EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNnameConstraintsTest6EE.crt</key>
-	<string>Check PDF</string>
 	<key>ValidDSAParameterInheritanceTest5EE.crt</key>
 	<string>Check PDF</string>
 	<key>ValidDSASignaturesTest4EE.crt</key>
@@ -109,12 +87,6 @@
 	<string>Check PDF</string>
 	<key>ValidPolicyMappingTest6EE.crt</key>
 	<string>Check PDF</string>
-	<key>ValidRFC822nameConstraintsTest21EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidRFC822nameConstraintsTest23EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidRFC822nameConstraintsTest25EE.crt</key>
-	<string>Check PDF</string>
 	<key>ValidRolloverfromPrintableStringtoUTF8StringTest10EE.crt</key>
 	<string>Check PDF</string>
 	<key>ValidSelfIssuedinhibitAnyPolicyTest7EE.crt</key>
@@ -127,15 +99,17 @@
 	<string>Check PDF</string>
 	<key>ValidSelfIssuedpathLenConstraintTest17EE.crt</key>
 	<string>Check PDF</string>
-	<key>ValidURInameConstraintsTest34EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidURInameConstraintsTest36EE.crt</key>
-	<string>Check PDF</string>
 	<key>ValidUTF8StringCaseInsensitiveMatchTest11EE.crt</key>
 	<string>Check PDF</string>
 	<key>ValidinhibitPolicyMappingTest2EE.crt</key>
 	<string>Check PDF</string>
 	<key>ValidinhibitPolicyMappingTest4EE.crt</key>
 	<string>Check PDF</string>
+	<key>InvalidDNnameConstraintsTest13EE.crt</key>
+	<string>Check PDF</string>
+	<key>ValidDNnameConstraintsTest14EE.crt</key>
+	<string>Can&apos;t evaluate empty subject name.</string>
+	<key>ValidDNnameConstraintsTest19EE.crt</key>
+	<string>Chains must be cryptographically valid.</string>
 </dict>
 </plist>

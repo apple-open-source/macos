@@ -63,7 +63,7 @@ private:
     const RenderSVGShape& m_renderer;
 };
 
-RenderSVGShape::RenderSVGShape(SVGGraphicsElement& element, PassRef<RenderStyle> style)
+RenderSVGShape::RenderSVGShape(SVGGraphicsElement& element, Ref<RenderStyle>&& style)
     : RenderSVGModelObject(element, WTF::move(style))
     , m_needsBoundariesUpdate(false) // Default is false, the cached rects are empty from the beginning.
     , m_needsShapeUpdate(true) // Default is true, so we grab a Path object once from SVGGraphicsElement.
@@ -218,7 +218,7 @@ bool RenderSVGShape::shouldGenerateMarkerPositions() const
     if (!graphicsElement().supportsMarkers())
         return false;
 
-    SVGResources* resources = SVGResourcesCache::cachedResourcesForRenderObject(*this);
+    auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
     if (!resources)
         return false;
 
@@ -271,7 +271,7 @@ void RenderSVGShape::strokeShape(GraphicsContext* context)
 
 void RenderSVGShape::fillStrokeMarkers(PaintInfo& childPaintInfo)
 {
-    Vector<PaintType> paintOrder = style().svgStyle().paintTypesForPaintOrder();
+    auto paintOrder = style().svgStyle().paintTypesForPaintOrder();
     for (unsigned i = 0; i < paintOrder.size(); ++i) {
         switch (paintOrder.at(i)) {
         case PaintTypeFill:
@@ -346,7 +346,7 @@ bool RenderSVGShape::nodeAtFloatPoint(const HitTestRequest& request, HitTestResu
             fillRule = svgStyle.clipRule();
         if ((hitRules.canHitStroke && (svgStyle.hasStroke() || !hitRules.requireStroke) && strokeContains(localPoint, hitRules.requireStroke))
             || (hitRules.canHitFill && (svgStyle.hasFill() || !hitRules.requireFill) && fillContains(localPoint, hitRules.requireFill, fillRule))) {
-            updateHitTestResult(result, roundedLayoutPoint(localPoint));
+            updateHitTestResult(result, LayoutPoint(localPoint));
             return true;
         }
     }
@@ -372,7 +372,7 @@ FloatRect RenderSVGShape::markerRect(float strokeWidth) const
 {
     ASSERT(!m_markerPositions.isEmpty());
 
-    SVGResources* resources = SVGResourcesCache::cachedResourcesForRenderObject(*this);
+    auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
     ASSERT(resources);
 
     RenderSVGResourceMarker* markerStart = resources->markerStart();
@@ -432,7 +432,7 @@ void RenderSVGShape::updateRepaintBoundingBox()
 float RenderSVGShape::strokeWidth() const
 {
     SVGLengthContext lengthContext(&graphicsElement());
-    return style().svgStyle().strokeWidth().value(lengthContext);
+    return lengthContext.valueForLength(style().svgStyle().strokeWidth());
 }
 
 bool RenderSVGShape::hasSmoothStroke() const
@@ -448,7 +448,7 @@ void RenderSVGShape::drawMarkers(PaintInfo& paintInfo)
 {
     ASSERT(!m_markerPositions.isEmpty());
 
-    SVGResources* resources = SVGResourcesCache::cachedResourcesForRenderObject(*this);
+    auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
     if (!resources)
         return;
 

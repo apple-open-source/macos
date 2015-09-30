@@ -48,7 +48,7 @@
 
 namespace WebCore {
 
-RenderRegion::RenderRegion(Element& element, PassRef<RenderStyle> style, RenderFlowThread* flowThread)
+RenderRegion::RenderRegion(Element& element, Ref<RenderStyle>&& style, RenderFlowThread* flowThread)
     : RenderBlockFlow(element, WTF::move(style))
     , m_flowThread(flowThread)
     , m_parentNamedFlowThread(nullptr)
@@ -56,7 +56,7 @@ RenderRegion::RenderRegion(Element& element, PassRef<RenderStyle> style, RenderF
 {
 }
 
-RenderRegion::RenderRegion(Document& document, PassRef<RenderStyle> style, RenderFlowThread* flowThread)
+RenderRegion::RenderRegion(Document& document, Ref<RenderStyle>&& style, RenderFlowThread* flowThread)
     : RenderBlockFlow(document, WTF::move(style))
     , m_flowThread(flowThread)
     , m_parentNamedFlowThread(nullptr)
@@ -156,7 +156,7 @@ LayoutRect RenderRegion::overflowRectForFlowThreadPortion(const LayoutRect& flow
     if (shouldClipFlowThreadContent())
         return flowThreadPortionRect;
 
-    LayoutRect flowThreadOverflow = overflowType == VisualOverflow ? visualOverflowRectForBox(m_flowThread) : layoutOverflowRectForBox(m_flowThread);
+    LayoutRect flowThreadOverflow = overflowType == VisualOverflow ? visualOverflowRectForBox(*m_flowThread) : layoutOverflowRectForBox(m_flowThread);
 
     // We are interested about the outline size only when computing the visual overflow.
     LayoutUnit outlineSize = overflowType == VisualOverflow ? LayoutUnit(maximalOutlineSize(PaintPhaseOutline)) : LayoutUnit();
@@ -218,15 +218,8 @@ void RenderRegion::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
 void RenderRegion::computeOverflowFromFlowThread()
 {
     ASSERT(isValid());
-    
-    LayoutRect layoutRect;
-    {
-        // When getting the overflow from the flow thread we need to temporarly reset the current flow thread because
-        // we're changing flows.
-        CurrentRenderFlowThreadMaintainer flowThreadMaintainer(m_flowThread);
-        layoutRect = layoutOverflowRectForBox(m_flowThread);
-    }
 
+    LayoutRect layoutRect = layoutOverflowRectForBox(m_flowThread);
     layoutRect.setLocation(contentBoxRect().location() + (layoutRect.location() - m_flowThreadPortionRect.location()));
 
     // FIXME: Correctly adjust the layout overflow for writing modes.
@@ -419,13 +412,11 @@ void RenderRegion::computePreferredLogicalWidths()
     setPreferredLogicalWidthsDirty(false);
 }
 
-void RenderRegion::adjustRegionBoundsFromFlowThreadPortionRect(const LayoutPoint& layerOffset, LayoutRect& regionBounds)
+void RenderRegion::adjustRegionBoundsFromFlowThreadPortionRect(LayoutRect& regionBounds) const
 {
     LayoutRect flippedFlowThreadPortionRect = flowThreadPortionRect();
     flowThread()->flipForWritingMode(flippedFlowThreadPortionRect);
     regionBounds.moveBy(flippedFlowThreadPortionRect.location());
-
-    UNUSED_PARAM(layerOffset);
 }
 
 void RenderRegion::ensureOverflowForBox(const RenderBox* box, RefPtr<RenderOverflow>& overflow, bool forceCreation)
@@ -525,16 +516,16 @@ LayoutRect RenderRegion::layoutOverflowRectForBox(const RenderBox* box)
     return overflow->layoutOverflowRect();
 }
 
-LayoutRect RenderRegion::visualOverflowRectForBox(const RenderBoxModelObject* box)
+LayoutRect RenderRegion::visualOverflowRectForBox(const RenderBoxModelObject& box)
 {
-    if (box->isRenderInline()) {
-        const RenderInline* inlineBox = toRenderInline(box);
-        return inlineBox->linesVisualOverflowBoundingBoxInRegion(this);
+    if (is<RenderInline>(box)) {
+        const RenderInline& inlineBox = downcast<RenderInline>(box);
+        return inlineBox.linesVisualOverflowBoundingBoxInRegion(this);
     }
 
-    if (box->isBox()) {
+    if (is<RenderBox>(box)) {
         RefPtr<RenderOverflow> overflow;
-        ensureOverflowForBox(toRenderBox(box), overflow, true);
+        ensureOverflowForBox(&downcast<RenderBox>(box), overflow, true);
 
         ASSERT(overflow);
         return overflow->visualOverflowRect();
@@ -553,7 +544,7 @@ LayoutRect RenderRegion::layoutOverflowRectForBoxForPropagation(const RenderBox*
     if (!box->hasOverflowClip())
         rect.unite(layoutOverflowRectForBox(box));
 
-    bool hasTransform = box->hasLayer() && box->layer()->transform();
+    bool hasTransform = box->hasTransform();
     if (box->isInFlowPositioned() || hasTransform) {
         if (hasTransform)
             rect = box->layer()->currentTransform().mapRect(rect);
@@ -565,7 +556,7 @@ LayoutRect RenderRegion::layoutOverflowRectForBoxForPropagation(const RenderBox*
     return rect;
 }
 
-LayoutRect RenderRegion::visualOverflowRectForBoxForPropagation(const RenderBoxModelObject* box)
+LayoutRect RenderRegion::visualOverflowRectForBoxForPropagation(const RenderBoxModelObject& box)
 {
     LayoutRect rect = visualOverflowRectForBox(box);
     flowThread()->flipForWritingModeLocalCoordinates(rect);

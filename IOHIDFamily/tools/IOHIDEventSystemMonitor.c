@@ -40,6 +40,7 @@ static struct {
 } __matching[0xff]   = {};
 static uint32_t                     __matchingCount                             = 0;
 static uint32_t                     __matchingInterval                          = -1;
+static uint32_t                     __matchingBatchInterval                     = -1;
 static uint64_t                     __eventLastTimestamps[kIOHIDEventTypeCount] = {};
 static CFMutableArrayRef            __eventIntervals[kIOHIDEventTypeCount]      = {};
 static uint64_t                     __eventCounts[kIOHIDEventTypeCount]         = {};
@@ -86,7 +87,7 @@ IOHIDEventBlock eventBlock = ^(void * target, void * refcon, void * sender, IOHI
     
     __eventLastTimestamps[type] = timestamp;
     
-    if ( ((1<<type) & __eventMask) != 0 ) {
+    if ( (((uint64_t)1<<type) & __eventMask) != 0 ) {
     
         CFStringRef outputString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@"), event);
         
@@ -119,19 +120,26 @@ static boolean_t filterEventCallback(void * target, void * refcon, void * sender
 IOHIDServiceClientBlock serviceClientBlock =  ^(void * target, void * refcon, IOHIDServiceClientRef service)
 {
     CFStringRef string;
+    CFNumberRef number;
     
     if ( refcon == kAdded ) {
         IOHIDServiceClientRegisterRemovalBlock(service, serviceClientBlock, NULL, (void*)kRemoved);
 
         if ( __clientType == kIOHIDEventSystemClientTypeRateControlled ) {
-            CFNumberRef number;
-            
             if ( __matchingInterval != -1 ) {
                 number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &__matchingInterval);
                 if ( number ) {
                     IOHIDServiceClientSetProperty(service, CFSTR(kIOHIDServiceReportIntervalKey), number);
                     CFRelease(number);
                 }
+            }
+        }
+
+        if ( __matchingBatchInterval != -1 ) {
+            number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &__matchingBatchInterval);
+            if ( number ) {
+                IOHIDServiceClientSetProperty(service, CFSTR(kIOHIDServiceBatchIntervalKey), number);
+                CFRelease(number);
             }
         }
     }
@@ -218,7 +226,7 @@ static void dispatchClientEvents(IOHIDEventSystemClientRef system, uint64_t mask
         for ( uint32_t index=0; index<kIOHIDEventTypeCount; index++ ) {
             IOHIDEventRef event;
             
-            if ( ((1<<index) & mask) == 0 )
+            if ( (((uint64_t)1<<index) & mask) == 0 )
                 continue;
                     
             event = IOHIDEventCreate(kCFAllocatorDefault, index, mach_absolute_time(), 0);
@@ -469,7 +477,7 @@ static void printDictionaryValue(CFStringRef key, CFDictionaryRef dictionary, CF
 
 static void listServices(CFArrayRef services, CFIndex indentationLevel)
 {
-    static CFStringRef sServiceKeys[] = {CFSTR(kIOHIDServiceRegistryIDKey), CFSTR(kIOHIDServiceRegistryNameKey), CFSTR(kIOHIDBuiltInKey), CFSTR(kIOHIDDisplayIntegratedKey), CFSTR(kIOHIDServicePrimaryUsagePageKey), CFSTR(kIOHIDServicePrimaryUsageKey), CFSTR(kIOHIDServiceReportIntervalKey), CFSTR(kIOHIDServiceSampleIntervalKey), CFSTR(kIOHIDServiceNextEventTimeStampDeltaKey), CFSTR(kIOHIDCategoryKey), CFSTR(kIOHIDServiceTransportKey)};
+    static CFStringRef sServiceKeys[] = {CFSTR(kIOHIDServiceRegistryIDKey), CFSTR(kIOHIDServiceRegistryNameKey), CFSTR(kIOHIDBuiltInKey), CFSTR(kIOHIDDisplayIntegratedKey), CFSTR(kIOHIDServicePrimaryUsagePageKey), CFSTR(kIOHIDServicePrimaryUsageKey), CFSTR(kIOHIDServiceReportIntervalKey), CFSTR(kIOHIDServiceSampleIntervalKey), CFSTR(kIOHIDServiceNextEventTimeStampDeltaKey), CFSTR(kIOHIDCategoryKey), CFSTR(kIOHIDServiceTransportKey), CFSTR(kIOHIDServiceBatchIntervalKey)};
     CFIndex index;
     
     for ( index=0; index<CFArrayGetCount(services); index++, printf("\n") ) {
@@ -813,6 +821,7 @@ static void printHelp()
     printf("\n");
     printf("\t-lc\t\t\t\t: List clients\n");
     printf("\t-ls\t\t\t\t: List services\n");
+    printf("\t-S <interval>: Set sample interval\n");
     printf("\t-V\t\t\t\t: Version\n");
     printf("\n\tAvailable Event Types:\n");
     
@@ -834,6 +843,7 @@ typedef enum {
     kEventRegistrationTypeBuiltIn,
     kEventRegistrationTypeInterval,
     kEventRegistrationTypeTimeout,
+    kEventRegistrationTypeBatch,
 } EventRegistrationType;
 
 int main (int argc __unused, const char * argv[] __unused)
@@ -920,6 +930,9 @@ int main (int argc __unused, const char * argv[] __unused)
             else if ( !strcmp("-t", arg) ) {
                 registrationType = kEventRegistrationTypeTimeout;
             }
+            else if ( !strcmp("-B", arg) ) {
+                registrationType = kEventRegistrationTypeBatch;
+            }
             else if ( !strcmp("-V", arg) ) {
                 printf("Version: %s\n", __version);
             }
@@ -930,13 +943,13 @@ int main (int argc __unused, const char * argv[] __unused)
                 __eventMask &= ~(strtoull(arg, NULL, 16));
             }
             else if ( registrationType == kEventRegistrationTypeAdd ) {
-                __eventMask |= (1<<strtoull(arg, NULL, 10));
+                __eventMask |= ((uint64_t)1)<<(strtoull(arg, NULL, 10));
             }
             else if ( registrationType ==  kEventRegistrationTypeRemove ) {
-                __eventMask &= ~(1<<strtoull(arg, NULL, 10));
+                __eventMask &= ~(((uint64_t)1)<<(strtoull(arg, NULL, 10)));
             }
             else if ( registrationType ==  kEventRegistrationTypeDispatch ) {
-                __dispatchEventMask |= (1<<strtoull(arg, NULL, 10));
+                __dispatchEventMask |= ((uint64_t)1)<<(strtoull(arg, NULL, 10));
             }
             else if ( registrationType == kEventRegistrationTypeDispatchMask ) {
                 __dispatchEventMask = strtoull(arg, NULL, 16);
@@ -958,6 +971,9 @@ int main (int argc __unused, const char * argv[] __unused)
             }
             else if ( registrationType == kEventRegistrationTypeTimeout ) {
                 __timeout = (uint32_t)strtoul(arg, NULL, 10);
+            }
+            else if ( registrationType == kEventRegistrationTypeBatch ) {
+                __matchingBatchInterval = (uint32_t)strtoul(arg, NULL, 10);
             }
             else if ( !strcmp("-h", arg ) ) {
                 printHelp();

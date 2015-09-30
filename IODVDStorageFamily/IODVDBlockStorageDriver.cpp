@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -285,11 +285,7 @@ IODVDBlockStorageDriver::readStructure(IOMemoryDescriptor *buffer,const DVDStruc
     return(getProvider()->readDVDStructure(buffer,format,address,layer,agid));
 }
 
-#ifdef __LP64__
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  0);
-#else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IODVDBlockStorageDriver,  0);
-#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  1);
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  2);
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  3);

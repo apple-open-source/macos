@@ -44,16 +44,15 @@ FillLayer::FillLayer(EFillLayerType type)
     : m_image(FillLayer::initialFillImage(type))
     , m_xPosition(FillLayer::initialFillXPosition(type))
     , m_yPosition(FillLayer::initialFillYPosition(type))
-    , m_sizeLength(FillLayer::initialFillSizeLength(type))
     , m_attachment(FillLayer::initialFillAttachment(type))
     , m_clip(FillLayer::initialFillClip(type))
     , m_origin(FillLayer::initialFillOrigin(type))
     , m_repeatX(FillLayer::initialFillRepeatX(type))
     , m_repeatY(FillLayer::initialFillRepeatY(type))
     , m_composite(FillLayer::initialFillComposite(type))
-    , m_sizeType(FillLayer::initialFillSizeType(type))
+    , m_sizeType(SizeNone)
     , m_blendMode(FillLayer::initialFillBlendMode(type))
-    , m_maskSourceType(FillLayer::initialMaskSourceType(type))
+    , m_maskSourceType(FillLayer::initialFillMaskSourceType(type))
     , m_imageSet(false)
     , m_attachmentSet(false)
     , m_clipSet(false)
@@ -363,7 +362,7 @@ bool FillLayer::hasRepeatXY() const
 bool FillLayer::hasImage() const
 {
     for (auto* layer = this; layer; layer = layer->m_next.get()) {
-        if (layer->m_image)
+        if (layer->image())
             return true;
     }
     return false;
@@ -376,6 +375,22 @@ bool FillLayer::hasFixedImage() const
             return true;
     }
     return false;
+}
+
+static inline bool layerImagesIdentical(const FillLayer& layer1, const FillLayer& layer2)
+{
+    // We just care about pointer equivalency.
+    return layer1.image() == layer2.image();
+}
+
+bool FillLayer::imagesIdentical(const FillLayer* layer1, const FillLayer* layer2)
+{
+    for (; layer1 && layer2; layer1 = layer1->next(), layer2 = layer2->next()) {
+        if (!layerImagesIdentical(*layer1, *layer2))
+            return false;
+    }
+
+    return !layer1 && !layer2;
 }
 
 } // namespace WebCore

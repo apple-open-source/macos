@@ -34,12 +34,12 @@ class HTMLImageElement;
 
 class ImageDocument final : public HTMLDocument {
 public:
-    static PassRefPtr<ImageDocument> create(Frame& frame, const URL& url)
+    static Ref<ImageDocument> create(Frame& frame, const URL& url)
     {
-        return adoptRef(new ImageDocument(frame, url));
+        return adoptRef(*new ImageDocument(frame, url));
     }
 
-    HTMLImageElement* imageElement() const;
+    WEBCORE_EXPORT HTMLImageElement* imageElement() const;
 
     void updateDuringParsing();
     void finishedParsing();
@@ -54,7 +54,7 @@ public:
 private:
     ImageDocument(Frame&, const URL&);
 
-    virtual PassRefPtr<DocumentParser> createParser() override;
+    virtual Ref<DocumentParser> createParser() override;
 
     LayoutSize imageSize();
 
@@ -82,11 +82,11 @@ private:
     bool m_shouldShrinkImage;
 };
 
-inline bool isImageDocument(const Document& document) { return document.isImageDocument(); }
-void isImageDocument(const ImageDocument&); // Catch unnecessary runtime check of type known at compile time.
+} // namespace WebCore
 
-DOCUMENT_TYPE_CASTS(ImageDocument)
-
-}
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ImageDocument)
+    static bool isType(const WebCore::Document& document) { return document.isImageDocument(); }
+    static bool isType(const WebCore::Node& node) { return is<WebCore::Document>(node) && isType(downcast<WebCore::Document>(node)); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ImageDocument_h

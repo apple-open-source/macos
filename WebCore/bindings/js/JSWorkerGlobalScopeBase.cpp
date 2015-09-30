@@ -37,17 +37,13 @@
 #include <runtime/JSCJSValueInlines.h>
 #include <runtime/Microtask.h>
 
-#if ENABLE(SHARED_WORKERS)
-#include "JSSharedWorkerGlobalScope.h"
-#endif
-
 using namespace JSC;
 
 namespace WebCore {
 
-const ClassInfo JSWorkerGlobalScopeBase::s_info = { "WorkerGlobalScope", &JSDOMGlobalObject::s_info, 0, 0, CREATE_METHOD_TABLE(JSWorkerGlobalScopeBase) };
+const ClassInfo JSWorkerGlobalScopeBase::s_info = { "WorkerGlobalScope", &JSDOMGlobalObject::s_info, 0, CREATE_METHOD_TABLE(JSWorkerGlobalScopeBase) };
 
-const GlobalObjectMethodTable JSWorkerGlobalScopeBase::s_globalObjectMethodTable = { &allowsAccessFrom, &supportsProfiling, &supportsRichSourceInfo, &shouldInterruptScript, &javaScriptExperimentsEnabled, &queueTaskToEventLoop, &shouldInterruptScriptBeforeTimeout };
+const GlobalObjectMethodTable JSWorkerGlobalScopeBase::s_globalObjectMethodTable = { &allowsAccessFrom, &supportsProfiling, &supportsRichSourceInfo, &shouldInterruptScript, &javaScriptRuntimeFlags, &queueTaskToEventLoop, &shouldInterruptScriptBeforeTimeout };
 
 JSWorkerGlobalScopeBase::JSWorkerGlobalScopeBase(JSC::VM& vm, JSC::Structure* structure, PassRefPtr<WorkerGlobalScope> impl)
     : JSDOMGlobalObject(vm, structure, &normalWorld(vm), &s_globalObjectMethodTable)
@@ -96,9 +92,9 @@ bool JSWorkerGlobalScopeBase::shouldInterruptScriptBeforeTimeout(const JSGlobalO
     return JSGlobalObject::shouldInterruptScriptBeforeTimeout(object);
 }
 
-bool JSWorkerGlobalScopeBase::javaScriptExperimentsEnabled(const JSGlobalObject* object)
+RuntimeFlags JSWorkerGlobalScopeBase::javaScriptRuntimeFlags(const JSGlobalObject* object)
 {
-    return JSGlobalObject::javaScriptExperimentsEnabled(object);
+    return JSGlobalObject::javaScriptRuntimeFlags(object);
 }
 
 void JSWorkerGlobalScopeBase::queueTaskToEventLoop(const JSGlobalObject* object, PassRefPtr<Microtask> task)
@@ -136,28 +132,10 @@ JSDedicatedWorkerGlobalScope* toJSDedicatedWorkerGlobalScope(JSValue value)
     return 0;
 }
 
-#if ENABLE(SHARED_WORKERS)
-JSSharedWorkerGlobalScope* toJSSharedWorkerGlobalScope(JSValue value)
-{
-    if (!value.isObject())
-        return 0;
-    const ClassInfo* classInfo = asObject(value)->classInfo();
-    if (classInfo == JSSharedWorkerGlobalScope::info())
-        return jsCast<JSSharedWorkerGlobalScope*>(asObject(value));
-    if (classInfo == JSProxy::info())
-        return jsDynamicCast<JSSharedWorkerGlobalScope*>(jsCast<JSProxy*>(asObject(value))->target());
-    return 0;
-}
-#endif
 
 JSWorkerGlobalScope* toJSWorkerGlobalScope(JSValue value)
 {
-    JSWorkerGlobalScope* context = toJSDedicatedWorkerGlobalScope(value);
-#if ENABLE(SHARED_WORKERS)
-    if (!context)
-        context = toJSSharedWorkerGlobalScope(value);
-#endif
-    return context;
+    return toJSDedicatedWorkerGlobalScope(value);
 }
 
 } // namespace WebCore

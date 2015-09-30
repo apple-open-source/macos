@@ -26,6 +26,7 @@
 #ifndef PlatformCookieJar_h
 #define PlatformCookieJar_h
 
+#include <chrono>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
@@ -39,16 +40,16 @@ struct Cookie;
 
 // FIXME: These should probably be NetworkStorageSession member functions.
 
-String cookiesForDOM(const NetworkStorageSession&, const URL& firstParty, const URL&);
-void setCookiesFromDOM(const NetworkStorageSession&, const URL& firstParty, const URL&, const String&);
-bool cookiesEnabled(const NetworkStorageSession&, const URL& firstParty, const URL&);
-String cookieRequestHeaderFieldValue(const NetworkStorageSession&, const URL& firstParty, const URL&);
-bool getRawCookies(const NetworkStorageSession&, const URL& firstParty, const URL&, Vector<Cookie>&);
-void deleteCookie(const NetworkStorageSession&, const URL&, const String&);
-void getHostnamesWithCookies(const NetworkStorageSession&, HashSet<String>& hostnames);
-void deleteCookiesForHostname(const NetworkStorageSession&, const String& hostname);
-void deleteAllCookies(const NetworkStorageSession&);
-void deleteAllCookiesModifiedAfterDate(const NetworkStorageSession&, double date);
+WEBCORE_EXPORT String cookiesForDOM(const NetworkStorageSession&, const URL& firstParty, const URL&);
+WEBCORE_EXPORT void setCookiesFromDOM(const NetworkStorageSession&, const URL& firstParty, const URL&, const String&);
+WEBCORE_EXPORT bool cookiesEnabled(const NetworkStorageSession&, const URL& firstParty, const URL&);
+WEBCORE_EXPORT String cookieRequestHeaderFieldValue(const NetworkStorageSession&, const URL& firstParty, const URL&);
+WEBCORE_EXPORT bool getRawCookies(const NetworkStorageSession&, const URL& firstParty, const URL&, Vector<Cookie>&);
+WEBCORE_EXPORT void deleteCookie(const NetworkStorageSession&, const URL&, const String&);
+WEBCORE_EXPORT void getHostnamesWithCookies(const NetworkStorageSession&, HashSet<String>& hostnames);
+WEBCORE_EXPORT void deleteCookiesForHostnames(const NetworkStorageSession&, const Vector<String>& cookieHostNames);
+WEBCORE_EXPORT void deleteAllCookies(const NetworkStorageSession&);
+WEBCORE_EXPORT void deleteAllCookiesModifiedSince(const NetworkStorageSession&, std::chrono::system_clock::time_point);
 
 }
 

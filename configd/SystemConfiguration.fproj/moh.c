@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002, 2003, 2005, 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002, 2003, 2005, 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -149,20 +149,20 @@ MOHExec(int		ref,
 	//  send the command
 	n = writen(ref, &msg, sizeof(msg));
 	if (n == -1) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec writen() failed: %s"), strerror(errno));
+		SC_log(LOG_INFO, "writen() failed: %s", strerror(errno));
 		return errno;
 	} else if (n != sizeof(msg)) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec writen() failed: wrote=%ld"), n);
+		SC_log(LOG_INFO, "writen() failed: wrote=%ld", n);
 		return -1;
 	}
 
 	if ((request != NULL) && (requestLen > 0)) {
 		n = writen(ref, request, requestLen);
 		if (n == -1) {
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec writen() failed: %s"), strerror(errno));
+			SC_log(LOG_INFO, "writen() failed: %s", strerror(errno));
 			return errno;
 		} else if (n != (ssize_t)requestLen) {
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec writen() failed: wrote=%ld"), n);
+			SC_log(LOG_INFO, "writen() failed: wrote=%ld", n);
 			return -1;
 		}
 	}
@@ -170,10 +170,10 @@ MOHExec(int		ref,
 	// always expect a reply
 	n = readn(ref, &msg, sizeof(msg));
 	if (n == -1) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec readn() failed: error=%s"), strerror(errno));
+		SC_log(LOG_INFO, "readn() failed: error=%s", strerror(errno));
 		return errno;
 	} else if (n != sizeof(msg)) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec readn() failed: insufficent data, read=%ld"), n);
+		SC_log(LOG_INFO, "readn() failed: insufficent data, read=%ld", n);
 		return -1;
 	}
 
@@ -183,11 +183,11 @@ MOHExec(int		ref,
 			// read reply
 			n = readn(ref, buf, msg.m_len);
 			if (n == -1) {
-				SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec readn() failed: error=%s"), strerror(errno));
+				SC_log(LOG_INFO, "readn() failed: error=%s", strerror(errno));
 				CFAllocatorDeallocate(NULL, buf);
 				return errno;
 			} else if (n != (ssize_t)msg.m_len) {
-				SCLog(_sc_verbose, LOG_ERR, CFSTR("MOHExec readn() failed: insufficent data, read=%ld"), n);
+				SC_log(LOG_INFO, "readn() failed: insufficent data, read=%ld", n);
 				CFAllocatorDeallocate(NULL, buf);
 				return -1;
 			}

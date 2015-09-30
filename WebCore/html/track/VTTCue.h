@@ -59,12 +59,12 @@ public:
     virtual void applyCSSProperties(const IntSize& videoSize);
 
     static const AtomicString& vttCueBoxShadowPseudoId();
-    virtual void setFontSizeFromCaptionUserPrefs(int fontSize) { m_fontSizeFromCaptionUserPrefs = fontSize; }
+    void setFontSizeFromCaptionUserPrefs(int fontSize) { m_fontSizeFromCaptionUserPrefs = fontSize; }
 
 protected:
     VTTCueBox(Document&, VTTCue&);
 
-    virtual RenderPtr<RenderElement> createElementRenderer(PassRef<RenderStyle>) override;
+    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override final;
 
     VTTCue& m_cue;
     int m_fontSizeFromCaptionUserPrefs;
@@ -74,17 +74,17 @@ protected:
 
 class VTTCue : public TextTrackCue {
 public:
-    static PassRefPtr<VTTCue> create(ScriptExecutionContext& context, double start, double end, const String& content)
+    static Ref<VTTCue> create(ScriptExecutionContext& context, double start, double end, const String& content)
     {
         return create(context, MediaTime::createWithDouble(start), MediaTime::createWithDouble(end), content);
     }
 
-    static PassRefPtr<VTTCue> create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, const String& content)
+    static Ref<VTTCue> create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, const String& content)
     {
-        return adoptRef(new VTTCue(context, start, end, content));
+        return adoptRef(*new VTTCue(context, start, end, content));
     }
 
-    static PassRefPtr<VTTCue> create(ScriptExecutionContext&, const WebVTTCueData&);
+    static Ref<VTTCue> create(ScriptExecutionContext&, const WebVTTCueData&);
 
     static const AtomicString& cueBackdropShadowPseudoId();
 
@@ -123,7 +123,7 @@ public:
     void notifyRegionWhenRemovingDisplayTree(bool);
 #endif
 
-    virtual void setIsActive(bool);
+    virtual void setIsActive(bool) override;
 
     bool hasDisplayTree() const { return m_displayTree; }
     VTTCueBox* getDisplayTree(const IntSize& videoSize, int fontSize);
@@ -167,7 +167,7 @@ public:
     virtual bool cueContentsMatch(const TextTrackCue&) const override;
     virtual bool doesExtendCue(const TextTrackCue&) const override;
 
-    virtual CueType cueType() const { return WebVTT; }
+    virtual CueType cueType() const override { return WebVTT; }
     virtual bool isRenderable() const override final { return true; }
 
     virtual void didChange() override;

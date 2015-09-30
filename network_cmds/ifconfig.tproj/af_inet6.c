@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -595,10 +595,10 @@ static struct cmd inet6_cmds[] = {
 	/* RFC 4429, section 3.1, says:
 	 * "Optimistic DAD SHOULD NOT be used for manually entered
 	 * addresses."
-	 *
-	 * DEF_CMD("optimistic",	IN6_IFF_OPTIMISTIC,	setip6flags),
-	 * DEF_CMD("-optimistic",	-IN6_IFF_OPTIMISTIC,	setip6flags),
+	 * it's not a MUST...
 	 */
+	DEF_CMD("optimistic",	IN6_IFF_OPTIMISTIC,	setip6flags),
+	DEF_CMD("-optimistic",	-IN6_IFF_OPTIMISTIC,	setip6flags),
 	DEF_CMD("deprecated",	IN6_IFF_DEPRECATED,	setip6flags),
 	DEF_CMD("-deprecated", -IN6_IFF_DEPRECATED,	setip6flags),
 	DEF_CMD("autoconf",	IN6_IFF_AUTOCONF,	setip6flags),

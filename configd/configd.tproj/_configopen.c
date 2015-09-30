@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -154,9 +154,7 @@ _configopen(mach_port_t			server,
 	 */
 	mySession = addSession(server, openMPCopyDescription);
 	if (mySession == NULL) {
-#ifdef	DEBUG
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_configopen(): session is already open."));
-#endif	/* DEBUG */
+		SC_log(LOG_NOTICE, "session is already open");
 		*sc_status = kSCStatusFailed;	/* you can't re-open an "open" session */
 		goto done;
 	}
@@ -173,12 +171,9 @@ _configopen(mach_port_t			server,
 			   mySession->serverRunLoopSource,
 			   kCFRunLoopDefaultMode);
 
-	if (_configd_trace) {
-		SCTrace(TRUE, _configd_trace,
-			CFSTR("open    : %5d : %@\n"),
-			*newServer,
-			name);
-	}
+	SC_trace(_configd_trace, "open    : %5d : %@\n",
+		 *newServer,
+		 name);
 
 	*sc_status = __SCDynamicStoreOpen(&mySession->store, name);
 	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
@@ -205,7 +200,7 @@ _configopen(mach_port_t			server,
 						MACH_MSG_TYPE_MAKE_SEND_ONCE,
 						&oldNotify);
 	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_configopen() mach_port_request_notification() failed: %s"), mach_error_string(status));
+		SC_log(LOG_NOTICE, "mach_port_request_notification() failed: %s", mach_error_string(status));
 		cleanupSession(*newServer);
 		*newServer = MACH_PORT_NULL;
 		*sc_status = kSCStatusFailed;
@@ -214,7 +209,7 @@ _configopen(mach_port_t			server,
 	__MACH_PORT_DEBUG(TRUE, "*** _configopen (after mach_port_request_notification)", *newServer);
 
 	if (oldNotify != MACH_PORT_NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_configopen(): oldNotify != MACH_PORT_NULL"));
+		SC_log(LOG_NOTICE, "oldNotify != MACH_PORT_NULL");
 	}
 
 	/*

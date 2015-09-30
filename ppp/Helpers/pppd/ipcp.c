@@ -83,6 +83,8 @@
 #include "ipcp.h"
 #include "pathnames.h"
 
+#define IPCP_NOTIFY_STORE_ON_TIMEOUT_COUNT 2
+
 #ifndef lint
 static const char rcsid[] = RCSID;
 #endif
@@ -156,6 +158,7 @@ static int  ipcp_reqci __P((fsm *, u_char *, int *, int)); /* Rcv CI */
 static void ipcp_up __P((fsm *));		/* We're UP */
 static void ipcp_down __P((fsm *));		/* We're DOWN */
 static void ipcp_finished __P((fsm *));	/* Don't need lower layer */
+static void ipcp_retransmit __P((fsm *));	/* Our confreq is timed out */
 
 fsm ipcp_fsm[NUM_PPP];		/* IPCP fsm structure */
 
@@ -172,7 +175,7 @@ static fsm_callbacks ipcp_callbacks = { /* IPCP callback routines */
     NULL,			/* Called when we want the lower layer up */
     ipcp_finished,		/* Called when we want the lower layer down */
     NULL,			/* Called when Protocol-Reject received */
-    NULL,			/* Retransmission is necessary */
+    ipcp_retransmit,		/* Retransmission is necessary */
     NULL,			/* Called to handle protocol-specific codes */
     "IPCP"			/* String name of protocol */
 };
@@ -2070,6 +2073,19 @@ ipcp_finished(f)
 	if (ipcp_is_open) {
 		ipcp_is_open = 0;
 		np_finished(f->unit, PPP_IP);
+	}
+}
+
+
+/*
+ * ipcp_retransmit - about to retransmit confreq, notify dynamic store if needed.
+ */
+static void
+ipcp_retransmit(f)
+    fsm *f;
+{
+	if ((f->maxconfreqtransmits - f->retransmits) == IPCP_NOTIFY_STORE_ON_TIMEOUT_COUNT) {
+		notify(protocolsready_notifier,0);
 	}
 }
 

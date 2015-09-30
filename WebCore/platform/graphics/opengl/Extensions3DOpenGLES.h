@@ -29,6 +29,8 @@
 
 #include "Extensions3DOpenGLCommon.h"
 
+#if USE(OPENGL_ES_2)
+
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
@@ -61,6 +63,8 @@ namespace WebCore {
 
 class Extensions3DOpenGLES : public Extensions3DOpenGLCommon {
 public:
+    // This class only needs to be instantiated by GraphicsContext3D implementations.
+    explicit Extensions3DOpenGLES(GraphicsContext3D*);
     virtual ~Extensions3DOpenGLES();
 
     virtual void framebufferTexture2DMultisampleIMG(unsigned long target, unsigned long attachment, unsigned long textarget, unsigned int texture, int level, unsigned long samples);
@@ -93,10 +97,6 @@ public:
     virtual void getnUniformivEXT(GC3Duint program, int location, GC3Dsizei bufSize, int *params);
 
 protected:
-    // This class only needs to be instantiated by GraphicsContext3D implementations.
-    friend class GraphicsContext3D;
-    Extensions3DOpenGLES(GraphicsContext3D*);
-
     virtual bool supportsExtension(const String&);
     virtual String getExtensions();
 
@@ -124,5 +124,7 @@ protected:
 };
 
 } // namespace WebCore
+
+#endif // USE(OPENGL_ES_2)
 
 #endif // Extensions3DOpenGLES_h

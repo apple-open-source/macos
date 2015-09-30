@@ -82,9 +82,6 @@ WK_EXPORT void WKPageBeginPrinting(WKPageRef page, WKFrameRef frame, WKPrintInfo
 WK_EXPORT void WKPageDrawPagesToPDF(WKPageRef page, WKFrameRef frame, WKPrintInfo printInfo, uint32_t first, uint32_t count, WKPageDrawToPDFFunction callback, void* context);
 WK_EXPORT void WKPageEndPrinting(WKPageRef page);
 
-// FIXME https://bugs.webkit.org/show_bug.cgi?id=66979: Remove this sync call.
-WK_EXPORT WKImageRef WKPageCreateSnapshotOfVisibleContent(WKPageRef page);
-
 WK_EXPORT void WKPageSetShouldSendEventsSynchronously(WKPageRef page, bool sync);
 
 WK_EXPORT bool WKPageGetAllowsRemoteInspection(WKPageRef page);
@@ -98,9 +95,6 @@ WK_EXPORT void WKPageGetBytecodeProfile(WKPageRef page, void* context, WKPageGet
     
 WK_EXPORT WKArrayRef WKPageCopyRelatedPages(WKPageRef page);
 
-typedef void (*WKPageInvalidMessageFunction)(uint32_t messageID);
-WK_EXPORT void WKPageSetInvalidMessageFunction(WKPageInvalidMessageFunction function);
-
 enum {
     kWKScrollPinningBehaviorDoNotPin,
     kWKScrollPinningBehaviorPinToTop,
@@ -113,6 +107,21 @@ WK_EXPORT void WKPageSetScrollPinningBehavior(WKPageRef page, WKScrollPinningBeh
 
 WK_EXPORT bool WKPageGetAddsVisitedLinks(WKPageRef page);
 WK_EXPORT void WKPageSetAddsVisitedLinks(WKPageRef page, bool visitedLinks);
+
+WK_EXPORT bool WKPageIsPlayingAudio(WKPageRef page);
+WK_EXPORT void WKPageSetMuted(WKPageRef page, bool muted);
+
+enum {
+    kWKMediaEventTypePlayPause,
+    kWKMediaEventTypeTrackNext,
+    kWKMediaEventTypeTrackPrevious
+};
+typedef uint32_t WKMediaEventType;
+
+WK_EXPORT bool WKPageHasMediaSessionWithActiveMediaElements(WKPageRef page);
+WK_EXPORT void WKPageHandleMediaEvent(WKPageRef page, WKMediaEventType event);
+
+WK_EXPORT void WKPageLoadURLWithShouldOpenExternalURLsPolicy(WKPageRef page, WKURLRef url, bool shouldOpenExternalURLs);
 
 #ifdef __cplusplus
 }

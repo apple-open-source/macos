@@ -9,7 +9,7 @@
 	<key>OpenSourceLicenseFile</key>
 	<string>PostgreSQL.txt</string>
 	<key>OpenSourceMD5</key>
-	<string>faa074026711a7d2f3d921716974e302</string>
+	<string>005ed5a4e78e2b2bb4093b6299206f5e</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Support for building on Mac OS X</string>
@@ -20,11 +20,11 @@
 	<key>OpenSourceProject</key>
 	<string>PostgreSQL</string>
 	<key>OpenSourceSHA1</key>
-	<string>186e5990ac50d87aeae2142ffd3dc46c786ddf6c</string>
+	<string>75711945f0126c5b426504618352988faf380374</string>
 	<key>OpenSourceURL</key>
-	<string>https://ftp.postgresql.org/pub/source/v9.2.13/postgresql-9.2.13.tar.gz</string>
+	<string>https://ftp.postgresql.org/pub/source/v9.3.7/postgresql-9.3.7.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>9.2.13</string>
+	<string>9.3.7</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://postgresql.org/</string>
 	</dict>

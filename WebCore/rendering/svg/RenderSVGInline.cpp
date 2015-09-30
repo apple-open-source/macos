@@ -30,7 +30,7 @@
 
 namespace WebCore {
     
-RenderSVGInline::RenderSVGInline(SVGGraphicsElement& element, PassRef<RenderStyle> style)
+RenderSVGInline::RenderSVGInline(SVGGraphicsElement& element, Ref<RenderStyle>&& style)
     : RenderInline(element, WTF::move(style))
 {
     setAlwaysCreateLineBoxes();
@@ -95,7 +95,7 @@ void RenderSVGInline::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) co
 
     FloatRect textBoundingBox = textAncestor->strokeBoundingBox();
     for (InlineFlowBox* box = firstLineBox(); box; box = box->nextLineBox())
-        quads.append(localToAbsoluteQuad(FloatRect(textBoundingBox.x() + box->x(), textBoundingBox.y() + box->y(), box->logicalWidth(), box->logicalHeight()), false, wasFixed));
+        quads.append(localToAbsoluteQuad(FloatRect(textBoundingBox.x() + box->x(), textBoundingBox.y() + box->y(), box->logicalWidth(), box->logicalHeight()), UseTransforms, wasFixed));
 }
 
 void RenderSVGInline::willBeDestroyed()
@@ -129,19 +129,20 @@ void RenderSVGInline::addChild(RenderObject* child, RenderObject* beforeChild)
         textAncestor->subtreeChildWasAdded(child);
 }
 
-RenderObject* RenderSVGInline::removeChild(RenderObject& child)
+void RenderSVGInline::removeChild(RenderObject& child)
 {
     SVGResourcesCache::clientWillBeRemovedFromTree(child);
 
     auto* textAncestor = RenderSVGText::locateRenderSVGTextAncestor(*this);
-    if (!textAncestor)
-        return RenderInline::removeChild(child);
+    if (!textAncestor) {
+        RenderInline::removeChild(child);
+        return;
+    }
 
     Vector<SVGTextLayoutAttributes*, 2> affectedAttributes;
     textAncestor->subtreeChildWillBeRemoved(&child, affectedAttributes);
-    RenderObject* next = RenderInline::removeChild(child);
+    RenderInline::removeChild(child);
     textAncestor->subtreeChildWasRemoved(affectedAttributes);
-    return next;
 }
 
 }

@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 if [ "$ACTION" = installhdrs ]; then exit 0; fi
-if [ "${PLATFORM_NAME/iphone/}" != "${PLATFORM_NAME}" ]; then exit 0; fi
+if [ "${PLATFORM_NAME}" != "macosx" ]; then exit 0; fi
 
 UNIFDEF_FLAGS=`${SRCROOT}/xcodescripts/generate_features.pl --unifdef`
 MANPAGES_LIST="${SRCROOT}/man/manpages.lst"

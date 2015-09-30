@@ -593,7 +593,7 @@ addid(id, type, name)
 	if (name) {
 		bcopy(name, fup->fu_name, len + 1);
 	} else {
-		sprintf(fup->fu_name, "%u", id);
+		snprintf(fup->fu_name, len + 1, "%u", id);
 	}
 	return (fup);
 }
@@ -622,9 +622,9 @@ timeprt(seconds)
 		return (buf);
 	}
 	if (minutes >= 60) {
-		sprintf(buf, "%2ld:%ld", minutes / 60, minutes % 60);
+		snprintf(buf, sizeof(buf), "%2ld:%ld", minutes / 60, minutes % 60);
 		return (buf);
 	}
-	sprintf(buf, "%2ld", minutes);
+	snprintf(buf, sizeof(buf), "%2ld", minutes);
 	return (buf);
 }

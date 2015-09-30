@@ -51,7 +51,7 @@ MeterShadowElement::MeterShadowElement(Document& document)
 
 HTMLMeterElement* MeterShadowElement::meterElement() const
 {
-    return toHTMLMeterElement(shadowHost());
+    return downcast<HTMLMeterElement>(shadowHost());
 }
 
 bool MeterShadowElement::rendererIsNeeded(const RenderStyle& style)
@@ -73,7 +73,7 @@ bool MeterInnerElement::rendererIsNeeded(const RenderStyle& style)
     return render && !render->theme().supportsMeter(render->style().appearance()) && HTMLDivElement::rendererIsNeeded(style);
 }
 
-RenderPtr<RenderElement> MeterInnerElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> MeterInnerElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderMeter>(*this, WTF::move(style));
 }

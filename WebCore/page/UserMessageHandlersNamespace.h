@@ -30,7 +30,6 @@
 
 #include "FrameDestructionObserver.h"
 #include "UserMessageHandler.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
@@ -44,7 +43,7 @@ class DOMWrapperWorld;
 
 class UserMessageHandlersNamespace : public RefCounted<UserMessageHandlersNamespace>, public FrameDestructionObserver {
 public:
-    static PassRef<UserMessageHandlersNamespace> create(Frame& frame)
+    static Ref<UserMessageHandlersNamespace> create(Frame& frame)
     {
         return adoptRef(*new UserMessageHandlersNamespace(frame));
     }

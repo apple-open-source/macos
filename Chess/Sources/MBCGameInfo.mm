@@ -88,9 +88,6 @@ NSString * kMBCHumanLast		= @"MBCHumanLast";
 	} else
 		humanName = NSFullUserName();
 
-	// 
-	// Get the city we might be in. 
-	//
 	NSString *		city 	= @"?";
 	NSString *		country	= @"?";
 
@@ -239,6 +236,7 @@ const int kNumFixedMenuItems = 2;
     //
     NSUserDefaults *        defaults    =   [NSUserDefaults standardUserDefaults];
     NSString *              human       =   [defaults stringForKey:kMBCHumanName];
+    NSString *              human2      =   [defaults stringForKey:kMBCHumanName2];
     NSString *              engine      =   NSLocalizedString(@"engine_player", @"Computer");
     NSMutableDictionary *   props       =   fDocument.properties;
     BOOL                    gameCenter  =   [fDocument remoteSide] != kNeitherSide;
@@ -257,7 +255,7 @@ const int kNumFixedMenuItems = 2;
         if (gameCenter)
             [self setPlayerAlias:[props objectForKey:@"BlackPlayerID"] forKey:@"Black"];
         else if (SideIncludesBlack(sideToPlay))
-            [fDocument setObject:human forKey:@"Black"];
+            [fDocument setObject:human2 forKey:@"Black"];
         else 
             [fDocument setObject:engine forKey:@"Black"];
 
@@ -426,10 +424,12 @@ const int kNumFixedMenuItems = 2;
     //
     for (NSString * edited in fEditedProperties) {
         id val = [fDocument objectForKey:edited];
-        if ([edited isEqual:@"White"] 
-         || ([edited isEqual:@"Black"] && ![fEditedProperties objectForKey:@"White"])
-        )
-            [defaults setObject:val forKey:kMBCHumanName]; 
+        if ([edited isEqual:@"White"]) { //|| ([edited isEqual:@"Black"] && ![fEditedProperties objectForKey:@"White"])) {
+            [defaults setObject:val forKey:kMBCHumanName];
+        }
+        else if ([edited isEqual:@"Black"]) {
+            [defaults setObject:val forKey:kMBCHumanName2];
+        }
         else if ([edited isEqual:@"City"] ||[edited isEqual:@"Country"] || [edited isEqual:@"Event"])
             [defaults setObject:val forKey:[@"MBCGame" stringByAppendingString:edited]];
         else if ([[edited substringToIndex:3] isEqual:@"MBC"])

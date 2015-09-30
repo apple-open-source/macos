@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -39,17 +39,6 @@
 
 #pragma mark -
 #pragma mark Support functions
-
-
-//__private_extern__ void
-//log_xpc_object(const char *msg, xpc_object_t obj)
-//{
-//	char	*desc;
-//
-//	desc = xpc_copy_description(obj);
-//	asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s = %s", msg, desc);
-//	free(desc);
-//}
 
 
 #pragma mark -
@@ -98,7 +87,7 @@ _handle_entitlement_check_failure(pid_t pid)
 		if (!CFArrayContainsValue(pids, CFRangeMake(0, CFArrayGetCount(pids)), pidNumber)) {
 			CFArrayAppendValue(pids, pidNumber);
 
-			SCLog(TRUE, LOG_ERR, CFSTR("DNS/nwi dropping ack w/no entitlement, pid = %d"), pid);
+			SC_log(LOG_INFO, "DNS/nwi dropping ack w/no entitlement, pid = %d", pid);
 
 			if (!cleanupScheduled) {
 				cleanupScheduled = TRUE;

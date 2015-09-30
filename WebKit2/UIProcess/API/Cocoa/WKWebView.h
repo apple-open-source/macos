@@ -33,6 +33,8 @@
 #import <AppKit/AppKit.h>
 #endif
 
+WK_ASSUME_NONNULL_BEGIN
+
 @class WKBackForwardList;
 @class WKBackForwardListItem;
 @class WKNavigation;
@@ -59,10 +61,10 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
 @property (nonatomic, readonly, copy) WKWebViewConfiguration *configuration;
 
 /*! @abstract The web view's navigation delegate. */
-@property (nonatomic, weak) id <WKNavigationDelegate> navigationDelegate;
+@property (WK_NULLABLE_PROPERTY nonatomic, weak) id <WKNavigationDelegate> navigationDelegate;
 
 /*! @abstract The web view's user interface delegate. */
-@property (nonatomic, weak) id <WKUIDelegate> UIDelegate;
+@property (WK_NULLABLE_PROPERTY nonatomic, weak) id <WKUIDelegate> UIDelegate;
 
 /*! @abstract The web view's back-forward list. */
 @property (nonatomic, readonly, strong) WKBackForwardList *backForwardList;
@@ -87,14 +89,32 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
  @param request The request specifying the URL to which to navigate.
  @result A new navigation for the given request.
  */
-- (WKNavigation *)loadRequest:(NSURLRequest *)request;
+- (WK_NULLABLE WKNavigation *)loadRequest:(NSURLRequest *)request;
+
+/*! @abstract Navigates to the requested file URL on the filesystem.
+ @param URL The file URL to which to navigate.
+ @param readAccessURL The URL to allow read access to.
+ @discussion If readAccessURL references a single file, only that file may be loaded by WebKit.
+ If readAccessURL references a directory, files inside that file may be loaded by WebKit.
+ @result A new navigation for the given file URL.
+ */
+- (WK_NULLABLE WKNavigation *)loadFileURL:(NSURL *)URL allowingReadAccessToURL:(NSURL *)readAccessURL WK_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA);
 
 /*! @abstract Sets the webpage contents and base URL.
  @param string The string to use as the contents of the webpage.
  @param baseURL A URL that is used to resolve relative URLs within the document.
  @result A new navigation.
  */
-- (WKNavigation *)loadHTMLString:(NSString *)string baseURL:(NSURL *)baseURL;
+- (WK_NULLABLE WKNavigation *)loadHTMLString:(NSString *)string baseURL:(WK_NULLABLE NSURL *)baseURL;
+
+/*! @abstract Sets the webpage contents and base URL.
+ @param data The data to use as the contents of the webpage.
+ @param MIMEType The MIME type of the data.
+ @param encodingName The data's character encoding name.
+ @param baseURL A URL that is used to resolve relative URLs within the document.
+ @result A new navigation.
+ */
+- (WK_NULLABLE WKNavigation *)loadData:(NSData *)data MIMEType:(NSString *)MIMEType characterEncodingName:(NSString *)characterEncodingName baseURL:(NSURL *)baseURL WK_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA);
 
 /*! @abstract Navigates to an item from the back-forward list and sets it
  as the current item.
@@ -104,13 +124,13 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
  the current item or is not part of the web view's back-forward list.
  @seealso backForwardList
  */
-- (WKNavigation *)goToBackForwardListItem:(WKBackForwardListItem *)item;
+- (WK_NULLABLE WKNavigation *)goToBackForwardListItem:(WKBackForwardListItem *)item;
 
 /*! @abstract The page title.
  @discussion @link WKWebView @/link is key-value observing (KVO) compliant
  for this property.
  */
-@property (nonatomic, readonly, copy) NSString *title;
+@property (WK_NULLABLE_PROPERTY nonatomic, readonly, copy) NSString *title;
 
 /*! @abstract The active URL.
  @discussion This is the URL that should be reflected in the user
@@ -118,7 +138,7 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
  @link WKWebView @/link is key-value observing (KVO) compliant for this
  property.
  */
-@property (nonatomic, readonly, copy) NSURL *URL;
+@property (WK_NULLABLE_PROPERTY nonatomic, readonly, copy) NSURL *URL;
 
 /*! @abstract A Boolean value indicating whether the view is currently
  loading content.
@@ -144,6 +164,13 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
  */
 @property (nonatomic, readonly) BOOL hasOnlySecureContent;
 
+/*! @abstract An array of SecCertificateRef objects forming the certificate
+ chain for the currently committed navigation.
+ @discussion The certificates are ordered from leaf (at index 0) to anchor.
+ @link WKWebView @/link is key-value observing (KVO) compliant for this property.
+ */
+@property (nonatomic, readonly, copy) NSArray *certificateChain WK_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA);
+
 /*! @abstract A Boolean value indicating whether there is a back item in
  the back-forward list that can be navigated to.
  @discussion @link WKWebView @/link is key-value observing (KVO) compliant
@@ -164,24 +191,24 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
  @result A new navigation to the requested item, or nil if there is no back
  item in the back-forward list.
  */
-- (WKNavigation *)goBack;
+- (WK_NULLABLE WKNavigation *)goBack;
 
 /*! @abstract Navigates to the forward item in the back-forward list.
  @result A new navigation to the requested item, or nil if there is no
  forward item in the back-forward list.
  */
-- (WKNavigation *)goForward;
+- (WK_NULLABLE WKNavigation *)goForward;
 
 /*! @abstract Reloads the current page.
  @result A new navigation representing the reload.
  */
-- (WKNavigation *)reload;
+- (WK_NULLABLE WKNavigation *)reload;
 
 /*! @abstract Reloads the current page, performing end-to-end revalidation
  using cache-validating conditionals if possible.
  @result A new navigation representing the reload.
  */
-- (WKNavigation *)reloadFromOrigin;
+- (WK_NULLABLE WKNavigation *)reloadFromOrigin;
 
 /*! @abstract Stops loading all resources on the current page.
  */
@@ -192,13 +219,23 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
  @param completionHandler A block to invoke when script evaluation completes or fails.
  @discussion The completionHandler is passed the result of the script evaluation or an error.
 */
-- (void)evaluateJavaScript:(NSString *)javaScriptString completionHandler:(void (^)(id, NSError *))completionHandler;
+- (void)evaluateJavaScript:(NSString *)javaScriptString completionHandler:(void (^ WK_NULLABLE_SPECIFIER)(WK_NULLABLE_SPECIFIER id, NSError * WK_NULLABLE_SPECIFIER error))completionHandler;
 
 /*! @abstract A Boolean value indicating whether horizontal swipe gestures
  will trigger back-forward list navigations.
  @discussion The default value is NO.
  */
 @property (nonatomic) BOOL allowsBackForwardNavigationGestures;
+
+/*! @abstract The custom user agent string or nil if no custom user agent string has been set.
+*/
+@property (WK_NULLABLE_PROPERTY nonatomic, copy) NSString *customUserAgent WK_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA);
+
+/*! @abstract A Boolean value indicating whether link preview is allowed for any
+ links inside this WKWebView.
+ @discussion The default value is NO on iOS and YES on Mac.
+ */
+@property (nonatomic) BOOL allowsLinkPreview WK_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA);
 
 #if TARGET_OS_IPHONE
 /*! @abstract The scroll view associated with the web view.
@@ -239,33 +276,35 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
  back-forward list.
  @param sender The object that sent this message.
  */
-- (IBAction)goBack:(id)sender;
+- (IBAction)goBack:(WK_NULLABLE id)sender;
 
 /*! @abstract Action method that navigates to the forward item in the
  back-forward list.
  @param sender The object that sent this message.
  */
-- (IBAction)goForward:(id)sender;
+- (IBAction)goForward:(WK_NULLABLE id)sender;
 
 /*! @abstract Action method that reloads the current page.
  @param sender The object that sent this message.
  */
-- (IBAction)reload:(id)sender;
+- (IBAction)reload:(WK_NULLABLE id)sender;
 
 /*! @abstract Action method that reloads the current page, performing
  end-to-end revalidation using cache-validating conditionals if possible.
  @param sender The object that sent this message.
  */
-- (IBAction)reloadFromOrigin:(id)sender;
+- (IBAction)reloadFromOrigin:(WK_NULLABLE id)sender;
 
 /*! @abstract Action method that stops loading all resources on the current
  page.
  @param sender The object that sent this message.
  */
-- (IBAction)stopLoading:(id)sender;
+- (IBAction)stopLoading:(WK_NULLABLE id)sender;
 
 @end
 
 #endif
+
+WK_ASSUME_NONNULL_END
 
 #endif

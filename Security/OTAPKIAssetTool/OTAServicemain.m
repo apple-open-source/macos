@@ -27,6 +27,8 @@
 
 #import <Foundation/Foundation.h>
 #import <xpc/private.h>
+#import <TargetConditionals.h>
+
 #import "OTAServiceApp.h"
 
 int main(int argc, const char * argv[])
@@ -40,6 +42,7 @@ int main(int argc, const char * argv[])
 		/* Spin a runloop so events can be delivered */
 		CFRunLoopRun();
     }
+
     return 0;
 }
         

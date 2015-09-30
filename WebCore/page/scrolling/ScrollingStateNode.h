@@ -30,8 +30,8 @@
 
 #include "GraphicsLayer.h"
 #include "ScrollingCoordinator.h"
-#include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -171,8 +171,8 @@ public:
     bool representsPlatformLayerID() const { return m_representation == PlatformLayerIDRepresentation; }
     
 private:
-    void retainPlatformLayer(PlatformLayer*);
-    void releasePlatformLayer(PlatformLayer*);
+    WEBCORE_EXPORT void retainPlatformLayer(PlatformLayer*);
+    WEBCORE_EXPORT void releasePlatformLayer(PlatformLayer*);
 
     union {
         GraphicsLayer* m_graphicsLayer;
@@ -197,7 +197,7 @@ public:
     bool isFrameScrollingNode() const { return m_nodeType == FrameScrollingNode; }
     bool isOverflowScrollingNode() const { return m_nodeType == OverflowScrollingNode; }
 
-    virtual PassRefPtr<ScrollingStateNode> clone(ScrollingStateTree& adoptiveTree) = 0;
+    virtual Ref<ScrollingStateNode> clone(ScrollingStateTree& adoptiveTree) = 0;
     PassRefPtr<ScrollingStateNode> cloneAndReset(ScrollingStateTree& adoptiveTree);
     void cloneAndResetChildren(ScrollingStateNode&, ScrollingStateTree& adoptiveTree);
 
@@ -218,7 +218,7 @@ public:
     virtual void syncLayerPositionForViewportRect(const LayoutRect& /*viewportRect*/) { }
 
     const LayerRepresentation& layer() const { return m_layer; }
-    void setLayer(const LayerRepresentation&);
+    WEBCORE_EXPORT void setLayer(const LayerRepresentation&);
 
     ScrollingStateTree& scrollingStateTree() const { return m_scrollingStateTree; }
 
@@ -249,15 +249,17 @@ private:
     ScrollingStateTree& m_scrollingStateTree;
 
     ScrollingStateNode* m_parent;
-    OwnPtr<Vector<RefPtr<ScrollingStateNode>>> m_children;
+    std::unique_ptr<Vector<RefPtr<ScrollingStateNode>>> m_children;
 
     LayerRepresentation m_layer;
 };
 
-#define SCROLLING_STATE_NODE_TYPE_CASTS(ToValueTypeName, predicate) \
-    TYPE_CASTS_BASE(ToValueTypeName, ScrollingStateNode, value, value->predicate, value.predicate)
-
 } // namespace WebCore
+
+#define SPECIALIZE_TYPE_TRAITS_SCROLLING_STATE_NODE(ToValueTypeName, predicate) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToValueTypeName) \
+    static bool isType(const WebCore::ScrollingStateNode& node) { return node.predicate; } \
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
 

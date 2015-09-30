@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -529,8 +529,6 @@ eapmschapv2_success_request(EAPClientPluginDataRef plugin,
     }
     switch (context->state) {
     case kMSCHAPv2ClientStateResponseSent:
-	EAPLOG(LOG_DEBUG,
-	       "eapmschapv2_success_request: successfully authenticated");
 	break;
     case kMSCHAPv2ClientStateChangePasswordSent:
 	EAPLOG(LOG_NOTICE,

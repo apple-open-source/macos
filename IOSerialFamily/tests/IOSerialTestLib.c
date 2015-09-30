@@ -1,11 +1,17 @@
 
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
+#include <dispatch/dispatch.h>
+
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 
 #include <IOKit/serial/ioss.h>
 
@@ -14,6 +20,11 @@
 int _testIOSSIOSPEEDIoctl(int fd, speed_t speed);
 int _modifyAttributes(int fd, struct termios *originalOptions);
 int _modifyModemLines(int fd);
+void _sleepAndReenumerate(const char *deviceid, struct timespec tim);
+void _sleepAndClose(int fd, struct timespec tim);
+void _sleepAndWrite(int fd, struct timespec tim);
+void _sleepAndRead(int fd, struct timespec tim);
+int _openAndClose(const char *path);
 
 #pragma mark -
 
@@ -168,6 +179,129 @@ int _modifyModemLines(int fd)
     
 fail:
     return -1;
+}
+
+inline void _sleepAndReenumerate(const char *deviceid, struct timespec tim)
+{
+    struct timespec tim2;
+    
+    nanosleep(&tim, &tim2);
+    
+    execlp("/AppleInternal/Applications/USB Prober.app/Contents/Resources/reenumerate",
+           "reenumerate", "-v", deviceid,
+           NULL);
+}
+
+inline void _sleepAndClose(int fd, struct timespec tim)
+{
+    struct timespec tim2;
+    int result = 0;
+    
+    nanosleep(&tim, &tim2);
+    
+    printf("closing\n");
+    result = close(fd);
+    if (result) {
+        printf("close failed\n");
+        return;
+    }
+    printf("closed\n");
+}
+
+inline void _sleepAndWrite(int fd, struct timespec tim)
+{
+    struct timespec tim2;
+    int result = 0;
+    ssize_t     numBytes;       // Number of bytes read or written
+    
+    nanosleep(&tim, &tim2);
+
+    printf("writing\n");
+    
+    numBytes = write(fd, "Hello World", strnlen("Hello World", 256));
+    if (numBytes == -1) {
+        printf("write returned -1\n");
+    }
+    else if ((size_t)numBytes < strnlen("Hello World", 256)) {
+        printf("write did not complete\n");
+    }
+    
+    printf("write returned %zd\n", numBytes);
+    
+    printf("closing\n");
+    result = close(fd);
+    if (result) {
+        printf("close failed\n");
+        return;
+    }
+    printf("closed\n");
+}
+
+inline void _sleepAndRead(int fd, struct timespec tim)
+{
+    struct timespec tim2;
+    int result = 0;
+    ssize_t numBytes;
+    char *string;
+    
+    string = malloc(11 *sizeof(char));
+    if (!string) {
+        printf("malloc failed\n");
+        return;
+    }
+    
+    nanosleep(&tim, &tim2);
+
+    printf("reading\n");
+    numBytes = read(fd, string, 11);
+    if (numBytes == -1) {
+        printf("read returned -1\n");
+    }
+    else {
+        if ((size_t)numBytes < 11) {
+            printf("read did not complete\n");
+        }
+        printf("read returned %zd\n", numBytes);
+    }
+    
+    printf("closing\n");
+    result = close(fd);
+    if (result) {
+        printf("close failed\n");
+        goto finish;
+    }
+    printf("closed\n");
+
+finish:
+    if (string) {
+        free(string);
+    }
+}
+
+inline int _openAndClose(const char *path)
+{
+    int fd = -1;
+    int result = 0;
+    
+    printf("opening\n");
+    fd = open(path, O_RDWR|O_NONBLOCK);
+    if (fd == -1) {
+        printf("open failed\n");
+        return -1;
+    }
+    printf("opened\n");
+    
+    sleep(3);
+    
+    printf("closing\n");
+    result = close(fd);
+    if (result) {
+        printf("close failed\n");
+        return -1;
+    }
+    printf("closed\n");
+    
+    return 0;
 }
 
 #pragma mark -
@@ -390,5 +524,544 @@ fail:
     if (readFd != -1) close(readFd);
     if (writeFd != -1) close(writeFd);
     return -1;
+}
+
+int testOpenReenumerate(const char *path, const char *deviceid)
+{
+//    const char *path = "/dev/cu.usbserial-A6008hCW";
+//    const char *deviceid = "0x403,0x6001";
+    
+    int pid;
+    struct stat file_stat;
+    int exists = 0;
+    
+    struct timespec tim[34];
+    
+    // Use different delay values, from 0s to 1.6s, with 50ms increments
+    for (int i=0; i<20; i++) {
+        tim[i].tv_sec = 0;
+        tim[i].tv_nsec = i*50*1000*1000;
+    }
+    for (int i=0; i<14; i++) {
+        tim[20+i].tv_sec = 1;
+        tim[20+i].tv_nsec = i*50*1000*1000;
+    }
+    
+    int i = 0;
+    while (1) {
+        printf("  testOpen: i: %d\n", i);
+        // check presence of device node
+        if (!(exists = stat(path, &file_stat) == 0)) {
+            printf("file does not exist\n");
+            sleep(3);
+            continue;
+        }
+        
+        pid = fork();
+        if (pid == 0) {
+            // child
+            _sleepAndReenumerate(deviceid, tim[i]);
+        }
+        else if (pid > 0) {
+            //parent
+            _openAndClose(path);
+            wait(NULL);
+            printf("[PASS] testOpen\n");
+        }
+        sleep(4);
+        i++;
+        if (i >= 34) {
+            break;
+        }
+    }
+    
+    return 0;
+
+}
+
+int testCloseReenumerate(const char *path, const char *deviceid)
+{
+    //    const char *path = "/dev/cu.usbserial-A6008hCW";
+    //    const char *deviceid = "0x403,0x6001";
+    
+    int pid;
+    struct stat file_stat;
+    int exists = 0;
+    
+    struct timespec tim[20];
+    
+    // Use different delay values, from 2.5ms to 7.5ms, with 250us increments
+    for (int i=0; i<20; i++) {
+        tim[i].tv_sec = 0;
+        tim[i].tv_nsec = 25*100*1000 + i*250*1000;
+    }
+    
+    int i = 0;
+    while (1) {
+        int fd;
+        printf("  testClose: i: %d\n", i);
+        // check presence of device node
+        if (!(exists = stat(path, &file_stat) == 0)) {
+            printf("file does not exist\n");
+            sleep(3);
+            continue;
+        }
+        
+        printf("opening i: %d\n", i);
+
+        fd = open(path, O_RDWR|O_NOCTTY|O_NONBLOCK);
+        if (fd == -1) {
+            printf("open failed\n");
+            return -1;
+        }
+        printf("opened\n");
+        
+        ioctl(fd, TIOCEXCL);
+        fcntl(fd, F_SETFL, 0);
+        int handshake;
+        handshake = TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR;
+        ioctl(fd, TIOCMSET, &handshake);
+
+        
+        pid = fork();
+        if (pid == 0) {
+            // child
+            execlp("/AppleInternal/Applications/USB Prober.app/Contents/Resources/reenumerate",
+                   "reenumerate", "-v", deviceid,
+                   NULL);
+        }
+        else if (pid > 0) {
+            //parent
+            _sleepAndClose(fd, tim[i]);
+            wait(NULL);
+            printf("[PASS] testClose\n");
+        }
+        sleep(3);
+        i++;
+        if (i >= 20) {
+            break;
+        }
+    }
+    
+    return 0;
+    
+}
+
+int testWriteReenumerate(const char *path, const char *deviceid)
+{
+    //    const char *path = "/dev/cu.usbserial-A6008hCW";
+    //    const char *deviceid = "0x403,0x6001";
+    
+    int pid;
+    struct stat file_stat;
+    int exists = 0;
+    
+    struct timespec tim[24];
+    
+    // Use different delay values, from 5ms to 8ms, with 125us increments
+    for (int i=0; i<24; i++) {
+        tim[i].tv_sec = 0;
+        tim[i].tv_nsec = 5*1000*1000 + i*125*1000;
+    }
+    
+    int i = 0;
+    while (1) {
+        int fd;
+        printf("  testWrite: i: %d\n", i);
+        // check presence of device node
+        if (!(exists = stat(path, &file_stat) == 0)) {
+            printf("file does not exist\n");
+            sleep(3);
+            continue;
+        }
+        
+        printf("opening i: %d\n", i);
+        
+        fd = open(path, O_RDWR|O_NOCTTY|O_NONBLOCK);
+        if (fd == -1) {
+            printf("open failed\n");
+            return -1;
+        }
+        printf("opened\n");
+        
+        ioctl(fd, TIOCEXCL);
+        fcntl(fd, F_SETFL, 0);
+        int handshake;
+        handshake = TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR;
+        ioctl(fd, TIOCMSET, &handshake);
+        
+        pid = fork();
+        if (pid == 0) {
+            // child
+            execlp("/AppleInternal/Applications/USB Prober.app/Contents/Resources/reenumerate",
+                   "reenumerate", "-v", deviceid,
+                   NULL);
+        }
+        else if (pid > 0) {
+            //parent
+            _sleepAndWrite(fd, tim[i]);
+            wait(NULL);
+            printf("[PASS] testWrite\n");
+        }
+        sleep(3);
+        i++;
+        if (i >= 24) {
+            break;
+        }
+    }
+    
+    return 0;
+    
+}
+
+int testReadReenumerate(const char *writepath, const char *readpath, const char *locationid)
+{
+    //    const char *path = "/dev/cu.usbserial-A6008hCW";
+    //    const char *deviceid = "0x403,0x6001";
+    
+    int pid;
+    struct stat file_stat;
+    int exists = 0;
+    int writefd;
+    
+    struct timespec tim[20];
+    
+    // Use different delay values, from 3 to 9ms
+    for (int i=0; i<20; i++) {
+        tim[i].tv_sec = 0;
+        tim[i].tv_nsec = 3*1000*1000 + i*300*1000;
+    }
+    
+    writefd = open(writepath, O_RDWR|O_NOCTTY|O_NONBLOCK);
+    if (writefd == -1) {
+        printf("open failed: writefd\n");
+        return -1;
+    }
+    
+    ioctl(writefd, TIOCEXCL);
+    fcntl(writefd, F_SETFL, 0);
+    int handshake;
+    handshake = TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR;
+    ioctl(writefd, TIOCMSET, &handshake);
+
+    dispatch_queue_t queue = dispatch_queue_create("myqueue", DISPATCH_QUEUE_CONCURRENT);
+    
+    int i = 0;
+    while (1) {
+        int readfd;
+        printf("  testRead: i: %d\n", i);
+        // check presence of device node
+        if (!(exists = stat(readpath, &file_stat) == 0)) {
+            printf("file does not exist\n");
+            sleep(3);
+            continue;
+        }
+        
+        printf("opening i: %d\n", i);
+        readfd = open(readpath, O_RDWR|O_NOCTTY|O_NONBLOCK);
+        if (readfd == -1) {
+            printf("open failed\n");
+            return -1;
+        }
+        printf("opened\n");
+        
+        ioctl(readfd, TIOCEXCL);
+        fcntl(readfd, F_SETFL, 0);
+        int handshake;
+        handshake = TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR;
+        ioctl(readfd, TIOCMSET, &handshake);
+        
+        dispatch_async(queue, ^{
+            write(writefd, "Hello World", 11);
+        });
+        
+        sleep(1); // wait for write
+        
+        pid = fork();
+        if (pid == 0) {
+            // child
+            execlp("/AppleInternal/Applications/USB Prober.app/Contents/Resources/reenumerate",
+                   "reenumerate", "-v", "-l", locationid,
+                   NULL);
+        }
+        else if (pid > 0) {
+            //parent
+            _sleepAndRead(readfd, tim[i]);
+            wait(NULL);
+            printf("[PASS] testRead\n");
+        }
+        sleep(3);
+        i++;
+        
+        if (i >= 20) {
+            break;
+        }
+    }
+    
+    dispatch_barrier_async(queue, ^{
+        dispatch_suspend(queue);
+        dispatch_release(queue);
+    });
+
+    return 0;
+    
+}
+
+int testWriteClose(const char *path)
+{
+    //    const char *path = "/dev/cu.usbserial-A6008hCW";
+    //    const char *deviceid = "0x403,0x6001";
+    
+    struct stat file_stat;
+    int exists = 0;
+    
+    struct timespec tim[20];
+    
+    dispatch_queue_t queue;
+
+    // Use different delay values
+    for (int i=0; i<20; i++) {
+        tim[i].tv_sec = 0;
+        tim[i].tv_nsec = i*800;
+    }
+
+    queue = dispatch_queue_create("queue", DISPATCH_QUEUE_SERIAL);
+    
+    int i = 0;
+    while (1) {
+        int fd;
+        printf("  testWriteClose: i: %d\n", i);
+        // check presence of device node
+        if (!(exists = stat(path, &file_stat) == 0)) {
+            printf("file does not exist\n");
+            sleep(3);
+            continue;
+        }
+        
+        printf("opening i: %d\n", i);
+        
+        fd = open(path, O_RDWR|O_NOCTTY|O_NONBLOCK);
+        if (fd == -1) {
+            printf("[FAIL] open failed\n");
+            return -1;
+        }
+        printf("opened\n");
+        
+        ioctl(fd, TIOCEXCL);
+        fcntl(fd, F_SETFL, 0);
+        int handshake;
+        handshake = TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR;
+        ioctl(fd, TIOCMSET, &handshake);
+
+        struct termios options;
+        struct termios originalOptions;
+        // snapshot the current terminal state in originalOptions
+        if (tcgetattr(fd, &originalOptions) == -1) {
+            printf("[FAIL] _modifyAttributes: tcgetattr failed\n");
+            return -1;
+        }
+        options = originalOptions;
+        options.c_cflag |= (CLOCAL);
+        // Cause the new options to take effect immediately.
+        if (tcsetattr(fd, TCSANOW, &options) == -1) {
+            printf("[FAIL] _modifyAttributes: tcsetattr failed\n");
+            return -1;
+        }
+        
+        struct timespec tim1 = tim[i];
+        dispatch_async(queue, ^{
+            printf("writing\n");
+            
+            ssize_t numBytes;
+            numBytes = write(fd, "Hello World", strnlen("Hello World", 256));
+            if (numBytes == -1) {
+                printf("write returned -1\n");
+                return;
+            }
+            else if ((size_t)numBytes < strnlen("Hello World", 256)) {
+                printf("write did not complete\n");
+            }
+            
+            printf("write returned %zd\n", numBytes);
+        });
+
+        struct timespec tim2;
+        nanosleep(&tim1, &tim2);
+        int result = close(fd);
+        if (result) {
+            printf("[FAIL] closing: failed\n");
+            return -1;
+        }
+        printf("closing: closed\n");
+
+        sleep(1);
+        
+        dispatch_sync(queue, ^{
+            // do nothing; this just makes sure the write block is complete.
+        });
+        
+        i++;
+        if (i >= 20) {
+            break;
+        }
+    }
+    
+    dispatch_barrier_async(queue, ^{
+        dispatch_suspend(queue);
+        dispatch_release(queue);
+    });
+    
+    printf("[PASS] testWriteClose\n");
+    return 0;
+}
+
+int testReadClose(const char *writepath, const char *readpath)
+{
+    //    const char *path = "/dev/cu.usbserial-A6008hCW";
+    //    const char *deviceid = "0x403,0x6001";
+    
+    struct stat file_stat;
+    int exists = 0;
+    int writefd;
+    
+    struct timespec tim[20];
+    
+    dispatch_queue_t queue;
+    
+    // Use different delay values
+    for (int i=0; i<20; i++) {
+        tim[i].tv_sec = 0;
+        tim[i].tv_nsec = i*3*1000;
+    }
+    
+    if (!(exists = stat(writepath, &file_stat) == 0)) {
+        printf("file does not exist\n");
+        sleep(3);
+        return -1;
+    }
+    
+    writefd = open(writepath, O_RDWR|O_NOCTTY|O_NONBLOCK);
+    if (writefd == -1) {
+        printf("[FAIL] open failed\n");
+        return -1;
+    }
+    
+    ioctl(writefd, TIOCEXCL);
+    fcntl(writefd, F_SETFL, 0);
+    int handshake;
+    handshake = TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR;
+    ioctl(writefd, TIOCMSET, &handshake);
+    
+    struct termios options;
+    struct termios originalOptions;
+    // snapshot the current terminal state in originalOptions
+    if (tcgetattr(writefd, &originalOptions) == -1) {
+        printf("[FAIL] _modifyAttributes: tcgetattr failed\n");
+        return -1;
+    }
+    options = originalOptions;
+    options.c_cflag |= (CLOCAL);
+    // Cause the new options to take effect immediately.
+    if (tcsetattr(writefd, TCSANOW, &options) == -1) {
+        printf("[FAIL] _modifyAttributes: tcsetattr failed\n");
+        return -1;
+    }
+    
+    queue = dispatch_queue_create("queue", DISPATCH_QUEUE_SERIAL);
+    
+    int i = 0;
+    while (1) {
+        int readfd;
+        printf("  testReadClose: i: %d\n", i);
+        // check presence of device node
+        if (!(exists = stat(readpath, &file_stat) == 0)) {
+            printf("file does not exist\n");
+            sleep(3);
+            continue;
+        }
+        
+        printf("opening i: %d\n", i);
+        
+        readfd = open(readpath, O_RDWR|O_NOCTTY|O_NONBLOCK);
+        if (readfd == -1) {
+            printf("[FAIL] open failed\n");
+            return -1;
+        }
+        printf("opened\n");
+        
+        ioctl(readfd, TIOCEXCL);
+        fcntl(readfd, F_SETFL, 0);
+        int handshake;
+        handshake = TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR;
+        ioctl(readfd, TIOCMSET, &handshake);
+        
+        struct termios options;
+        struct termios originalOptions;
+        // snapshot the current terminal state in originalOptions
+        if (tcgetattr(readfd, &originalOptions) == -1) {
+            printf("[FAIL] _modifyAttributes: tcgetattr failed\n");
+            return -1;
+        }
+        options = originalOptions;
+        options.c_cflag |= (CLOCAL);
+        // Cause the new options to take effect immediately.
+        if (tcsetattr(readfd, TCSANOW, &options) == -1) {
+            printf("[FAIL] _modifyAttributes: tcsetattr failed\n");
+            return -1;
+        }
+
+        sleep(1);
+        
+        dispatch_async(queue, ^{
+            write(writefd, "Hello World", 11);
+        });
+        sleep(1);
+
+        dispatch_async(queue, ^{
+            printf("reading\n");
+            
+            char buf[20];
+            ssize_t numBytes;
+            numBytes = read(readfd, buf, strnlen("Hello World", 256));
+            if (numBytes == -1) {
+                printf("read returned -1\n");
+                return;
+            }
+            else if ((size_t)numBytes < strnlen("Hello World", 256)) {
+                printf("read did not complete\n");
+            }
+            
+            printf("read returned %zd\n", numBytes);
+        });
+        
+        struct timespec tim1 = tim[i];
+        struct timespec tim2;
+        nanosleep(&tim1, &tim2);
+        int result = close(readfd);
+        if (result) {
+            printf("[FAIL] closing: failed\n");
+            return -1;
+        }
+        printf("closing: closed\n");
+        
+        sleep(1);
+        
+        dispatch_sync(queue, ^{
+            // do nothing; this just makes sure the read block and write block completed.
+        });
+        
+        i++;
+        if (i >= 20) {
+            break;
+        }
+    }
+    
+    dispatch_barrier_async(queue, ^{
+        dispatch_suspend(queue);
+        dispatch_release(queue);
+    });
+    
+    printf("[PASS] testReadClose\n");
+    return 0;
 }
 

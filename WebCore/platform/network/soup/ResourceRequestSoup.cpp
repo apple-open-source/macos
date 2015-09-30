@@ -26,6 +26,7 @@
 #include "GUniquePtrSoup.h"
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
+#include "WebKitSoupRequestGeneric.h"
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
@@ -65,12 +66,12 @@ void ResourceRequest::updateFromSoupMessageHeaders(SoupMessageHeaders* soupHeade
     const char* headerName;
     const char* headerValue;
     while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue))
-        m_httpHeaderFields.set(String::fromUTF8(headerName), String::fromUTF8(headerValue));
+        m_httpHeaderFields.set(String(headerName), String(headerValue));
 }
 
 void ResourceRequest::updateSoupMessage(SoupMessage* soupMessage) const
 {
-    g_object_set(soupMessage, SOUP_MESSAGE_METHOD, httpMethod().utf8().data(), NULL);
+    g_object_set(soupMessage, SOUP_MESSAGE_METHOD, httpMethod().ascii().data(), NULL);
 
     GUniquePtr<SoupURI> uri = createSoupURI();
     soup_message_set_uri(soupMessage, uri.get());
@@ -80,7 +81,7 @@ void ResourceRequest::updateSoupMessage(SoupMessage* soupMessage) const
 
 SoupMessage* ResourceRequest::toSoupMessage() const
 {
-    SoupMessage* soupMessage = soup_message_new(httpMethod().utf8().data(), url().string().utf8().data());
+    SoupMessage* soupMessage = soup_message_new(httpMethod().ascii().data(), url().string().utf8().data());
     if (!soupMessage)
         return 0;
 
@@ -102,7 +103,7 @@ void ResourceRequest::updateFromSoupMessage(SoupMessage* soupMessage)
     if (shouldPortBeResetToZero)
         m_url.setPort(0);
 
-    m_httpMethod = String::fromUTF8(soupMessage->method);
+    m_httpMethod = String(soupMessage->method);
 
     updateFromSoupMessageHeaders(soupMessage->request_headers);
 
@@ -122,12 +123,14 @@ static const char* gSoupRequestInitiatingPageIDKey = "wk-soup-request-initiating
 
 void ResourceRequest::updateSoupRequest(SoupRequest* soupRequest) const
 {
-    if (!m_initiatingPageID)
-        return;
+    if (m_initiatingPageID) {
+        uint64_t* initiatingPageIDPtr = static_cast<uint64_t*>(fastMalloc(sizeof(uint64_t)));
+        *initiatingPageIDPtr = m_initiatingPageID;
+        g_object_set_data_full(G_OBJECT(soupRequest), g_intern_static_string(gSoupRequestInitiatingPageIDKey), initiatingPageIDPtr, fastFree);
+    }
 
-    uint64_t* initiatingPageIDPtr = static_cast<uint64_t*>(fastMalloc(sizeof(uint64_t)));
-    *initiatingPageIDPtr = m_initiatingPageID;
-    g_object_set_data_full(G_OBJECT(soupRequest), g_intern_static_string(gSoupRequestInitiatingPageIDKey), initiatingPageIDPtr, fastFree);
+    if (WEBKIT_IS_SOUP_REQUEST_GENERIC(soupRequest))
+        webkitSoupRequestGenericSetRequest(WEBKIT_SOUP_REQUEST_GENERIC(soupRequest), *this);
 }
 
 void ResourceRequest::updateFromSoupRequest(SoupRequest* soupRequest)

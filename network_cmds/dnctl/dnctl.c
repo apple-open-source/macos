@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -274,7 +274,7 @@ static void
 list_queues(struct dn_flow_set *fs, struct dn_flow_queue *q)
 {
 	int l;
-	int index_printed, indexes = 0;
+	int index_printed = 0, indexes = 0;
 	char buff[255];
     struct protoent *pe;
     

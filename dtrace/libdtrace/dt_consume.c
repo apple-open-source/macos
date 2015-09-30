@@ -21,6 +21,7 @@
 
 /*
  * Portions copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Portions copyright (c) 2011, Delphix. All rights reserved.
  */
 
 /*
@@ -2108,8 +2109,35 @@ dt_setopt(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
 
 static int
 dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu,
-    dtrace_bufdesc_t *buf, boolean_t just_one,
-    dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc, void *arg)
+               dtrace_bufdesc_t *buf, boolean_t just_one, dtrace_probedata_t *datap,
+               dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc, void *arg);
+
+
+static int
+dt_consume_cpu_once(dtrace_hdl_t *dtp, FILE *fp, int cpu,
+					dtrace_bufdesc_t *buf, dtrace_probedata_t *datap,
+					dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc, void *arg)
+{
+	return dt_consume_cpu(dtp, fp, cpu, buf, B_TRUE, datap, efunc, rfunc, arg);
+}
+
+static int
+dt_consume_cpu_many(dtrace_hdl_t *dtp, FILE *fp, int cpu,
+					dtrace_bufdesc_t *buf,
+					dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc, void *arg)
+{
+	dtrace_probedata_t data;
+	bzero(&data, sizeof (data));
+	data.dtpda_handle = dtp;
+	data.dtpda_cpu = cpu;
+	return dt_consume_cpu(dtp, fp, cpu, buf, B_FALSE, &data, efunc, rfunc, arg);
+}
+
+
+static int
+dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu,
+               dtrace_bufdesc_t *buf, boolean_t just_one, dtrace_probedata_t *datap,
+               dtrace_consume_probe_f *efunc, dtrace_consume_rec_f *rfunc, void *arg)
 {
 	dtrace_epid_t id;
 	size_t offs, start = buf->dtbd_oldest, end = buf->dtbd_size;
@@ -2118,13 +2146,9 @@ dt_consume_cpu(dtrace_hdl_t *dtp, FILE *fp, int cpu,
 	int rval, i, n;
 	dtrace_epid_t last = DTRACE_EPIDNONE;
 	uint64_t tracememsize = 0;
-	dtrace_probedata_t data;
 	uint64_t drops;
 	caddr_t addr;
 
-	bzero(&data, sizeof (data));
-	data.dtpda_handle = dtp;
-	data.dtpda_cpu = cpu;
 
 again:
 	for (offs = start; offs < end; ) {
@@ -2143,14 +2167,14 @@ again:
 			continue;
 		}
 
-		if ((rval = dt_epid_lookup(dtp, id, &data.dtpda_edesc,
-		    &data.dtpda_pdesc)) != 0)
+		if ((rval = dt_epid_lookup(dtp, id, &datap->dtpda_edesc,
+		    &datap->dtpda_pdesc)) != 0)
 			return (rval);
-		epd = data.dtpda_edesc;
-		data.dtpda_data = buf->dtbd_data + offs;
+		epd = datap->dtpda_edesc;
+		datap->dtpda_data = buf->dtbd_data + offs;
 
-		if (data.dtpda_edesc->dtepd_uarg != DT_ECB_DEFAULT) {
-			rval = dt_handle(dtp, &data);
+		if (datap->dtpda_edesc->dtepd_uarg != DT_ECB_DEFAULT) {
+			rval = dt_handle(dtp, datap);
 
 			if (rval == DTRACE_CONSUME_NEXT)
 				goto nextepid;
@@ -2160,13 +2184,13 @@ again:
 		}
 
 		if (flow)
-			(void) dt_flowindent(dtp, &data, last, buf, offs);
+			(void) dt_flowindent(dtp, datap, last, buf, offs);
 
-		rval = (*efunc)(&data, arg);
+		rval = (*efunc)(datap, arg);
 
 		if (flow) {
-			if (data.dtpda_flow == DTRACEFLOW_ENTRY)
-				data.dtpda_indent += 2;
+			if (datap->dtpda_flow == DTRACEFLOW_ENTRY)
+				datap->dtpda_indent += 2;
 		}
 
 		if (rval == DTRACE_CONSUME_NEXT)
@@ -2181,9 +2205,9 @@ again:
 		for (i = 0; i < epd->dtepd_nrecs; i++) {
 			dtrace_recdesc_t *rec = &epd->dtepd_rec[i];
 			dtrace_actkind_t act = rec->dtrd_action;
-			data.dtpda_data = buf->dtbd_data + offs +
+			datap->dtpda_data = buf->dtbd_data + offs +
 			    rec->dtrd_offset;
-			addr = data.dtpda_data;
+			addr = datap->dtpda_data;
             
 			if (act == DTRACEACT_LIBACT) {
 				uint64_t arg = rec->dtrd_arg;
@@ -2253,7 +2277,7 @@ again:
 						val = "1";
 					}
 
-					rv = dt_setopt(dtp, &data, addr, val);
+					rv = dt_setopt(dtp, datap, addr, val);
 
 					if (rv != 0)
 						return (-1);
@@ -2290,7 +2314,7 @@ again:
 				continue;
 			}
 
-			rval = (*rfunc)(&data, rec, arg);
+			rval = (*rfunc)(datap, rec, arg);
 
             if (act == DTRACEACT_APPLEBINARY) {
                 /* 
@@ -2382,7 +2406,7 @@ again:
 					break;
 				}
 
-				n = (*func)(dtp, fp, fmtdata, &data,
+				n = (*func)(dtp, fp, fmtdata, datap,
 				    rec, epd->dtepd_nrecs - i,
 				    (uchar_t *)buf->dtbd_data + offs,
 				    buf->dtbd_size - offs);
@@ -2393,6 +2417,34 @@ again:
 				if (n > 0)
 					i += n - 1;
 				goto nextrec;
+			}
+
+			/*
+			 * If this is a DIF expression, and the record has a
+			 * format set, this indicates we have a CTF type name
+			 * associated with the data and we should try to print
+			 * it out by type.
+			 */
+			if (act == DTRACEACT_DIFEXPR) {
+				const char *strdata = dt_strdata_lookup(dtp, rec->dtrd_format);
+				if (strdata != NULL) {
+					n = dtrace_print(dtp, fp, strdata,
+					                 addr, rec->dtrd_size);
+
+					/*
+					 * dtrace_print() will return -1 on
+					 * error, or return the number of bytes
+					 * consumed.  It will return 0 if the
+					 * type couldn't be determined, and we
+					 * should fall through to the normal
+					 * trace method.
+					 */
+					if (n < 0)
+						return (-1);
+
+					if (n > 0)
+						goto nextrec;
+				}
 			}
 
 nofmt:
@@ -2511,7 +2563,7 @@ nofmt:
 				return (-1); /* errno is set for us */
 
 nextrec:
-			if (dt_buffered_flush(dtp, &data, rec, NULL, 0) < 0)
+			if (dt_buffered_flush(dtp, datap, rec, NULL, 0) < 0)
 				return (-1); /* errno is set for us */
 		}
 
@@ -2519,7 +2571,7 @@ nextrec:
 		 * Call the record callback with a NULL record to indicate
 		 * that we're done processing this EPID.
 		 */
-		rval = (*rfunc)(&data, NULL, arg);
+		rval = (*rfunc)(datap, NULL, arg);
 nextepid:
 		offs += epd->dtepd_size;
 		last = id;
@@ -2772,7 +2824,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp,
 		 * we are, we actually processed any END probes on another
 		 * CPU.  We can simply consume this buffer and return.
 		 */
-		rval = dt_consume_cpu(dtp, fp, cpu, buf, B_FALSE,
+		rval = dt_consume_cpu_many(dtp, fp, cpu, buf,
 		    pf, rf, arg);
 		dt_put_buf(dtp, buf);
 		return (rval);
@@ -2792,7 +2844,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp,
 	dtp->dt_errhdlr = dt_consume_begin_error;
 	dtp->dt_errarg = &begin;
 
-	rval = dt_consume_cpu(dtp, fp, cpu, buf, B_FALSE,
+	rval = dt_consume_cpu_many(dtp, fp, cpu, buf,
 	    dt_consume_begin_probe, dt_consume_begin_record, &begin);
 
 	dtp->dt_errhdlr = begin.dtbgn_errhdlr;
@@ -2820,7 +2872,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp,
 		if (nbuf == NULL)
 			continue;
 
-		rval = dt_consume_cpu(dtp, fp, i, nbuf, B_FALSE,
+		rval = dt_consume_cpu_many(dtp, fp, i, nbuf,
 		    pf, rf, arg);
 		dt_put_buf(dtp, nbuf);
 		if (rval != 0) {
@@ -2843,7 +2895,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp,
 	dtp->dt_errhdlr = dt_consume_begin_error;
 	dtp->dt_errarg = &begin;
 
-	rval = dt_consume_cpu(dtp, fp, cpu, buf, B_FALSE,
+	rval = dt_consume_cpu_many(dtp, fp, cpu, buf,
 	    dt_consume_begin_probe, dt_consume_begin_record, &begin);
 
 	dtp->dt_errhdlr = begin.dtbgn_errhdlr;
@@ -2939,7 +2991,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 			if (buf == NULL)
 				continue;
 
-			rval = dt_consume_cpu(dtp, fp, i, buf, B_FALSE, pf, rf, arg);
+			rval = dt_consume_cpu_many(dtp, fp, i, buf, pf, rf, arg);
 			dt_put_buf(dtp, buf);
 			if (rval != 0)
 				return (rval);
@@ -2953,8 +3005,8 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 			if (buf == NULL)
 				return (0);
 
-			rval = dt_consume_cpu(dtp, fp, dtp->dt_endedon,
-			    buf, B_FALSE, pf, rf, arg);
+			rval = dt_consume_cpu_many(dtp, fp, dtp->dt_endedon,
+			    buf, pf, rf, arg);
 			dt_put_buf(dtp, buf);
 			return (rval);
 		}
@@ -2981,10 +3033,18 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 		uint_t cookie = 0;
 		dtrace_bufdesc_t *buf;
 
+        dtrace_probedata_t data[max_ncpus];
+        bzero(data, sizeof(data));
+
 		bzero(drops, max_ncpus * sizeof (uint64_t));
 
-		if (dtp->dt_bufq == NULL) {
-			dtp->dt_bufq = dt_pq_init(dtp, max_ncpus * 2,
+		/* Initialize the priority queue if it's not already there.  we need
+		 * 2*max_ncpus - 1 slots in the queue because we're going to leave
+		 * max_ncpus - 1 buffers in the queue for the next round of
+		 * dtrace_consume to deal with.
+		 */
+		 if (dtp->dt_bufq == NULL) {
+			dtp->dt_bufq = dt_pq_init(dtp, 2*max_ncpus - 1,
 			    dt_buf_oldest, NULL);
 			if (dtp->dt_bufq == NULL) /* ENOMEM */
 				return (-1);
@@ -3034,8 +3094,8 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 				continue;
 			}
 
-			if ((rval = dt_consume_cpu(dtp, fp,
-			    buf->dtbd_cpu, buf, B_TRUE, pf, rf, arg)) != 0)
+			if ((rval = dt_consume_cpu_once(dtp, fp,
+			    buf->dtbd_cpu, buf, &data[buf->dtbd_cpu], pf, rf, arg)) != 0)
 				return (rval);
 			dt_pq_insert(dtp->dt_bufq, buf);
 		}

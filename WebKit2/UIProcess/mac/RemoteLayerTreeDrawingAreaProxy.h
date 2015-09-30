@@ -39,14 +39,15 @@ namespace WebKit {
 class RemoteLayerTreeTransaction;
 class RemoteScrollingCoordinatorTransaction;
 
-class RemoteLayerTreeDrawingAreaProxy : public DrawingAreaProxy {
+class RemoteLayerTreeDrawingAreaProxy final : public DrawingAreaProxy {
 public:
-    explicit RemoteLayerTreeDrawingAreaProxy(WebPageProxy*);
+    explicit RemoteLayerTreeDrawingAreaProxy(WebPageProxy&);
     virtual ~RemoteLayerTreeDrawingAreaProxy();
 
     const RemoteLayerTreeHost& remoteLayerTreeHost() const { return m_remoteLayerTreeHost; }
 
     void acceleratedAnimationDidStart(uint64_t layerID, const String& key, double startTime);
+    void acceleratedAnimationDidEnd(uint64_t layerID, const String& key);
 
     uint64_t nextLayerTreeTransactionID() const { return m_pendingLayerTreeTransactionID + 1; }
     uint64_t lastCommittedLayerTreeTransactionID() const { return m_transactionIDForPendingCACommit; }
@@ -70,17 +71,19 @@ private:
 
     float indicatorScale(WebCore::IntSize contentsSize) const;
     virtual void updateDebugIndicator() override;
-    void updateDebugIndicator(WebCore::IntSize contentsSize, bool rootLayerChanged, float scale);
+    void updateDebugIndicator(WebCore::IntSize contentsSize, bool rootLayerChanged, float scale, const WebCore::IntPoint& scrollPosition);
     void updateDebugIndicatorPosition();
     void initializeDebugIndicator();
 
     virtual void waitForDidUpdateViewState() override;
-    virtual void hideContentUntilNextUpdate() override;
+    virtual void hideContentUntilPendingUpdate() override;
+    virtual void hideContentUntilAnyUpdate() override;
+    virtual bool hasVisibleContent() const override;
     
     WebCore::FloatPoint indicatorLocation() const;
 
     // IPC::MessageReceiver
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
     // Message handlers
     void willCommitLayerTree(uint64_t transactionID);
@@ -89,26 +92,26 @@ private:
     void sendUpdateGeometry();
 
     RemoteLayerTreeHost m_remoteLayerTreeHost;
-    bool m_isWaitingForDidUpdateGeometry;
+    bool m_isWaitingForDidUpdateGeometry { false };
 
     WebCore::IntSize m_lastSentSize;
-    WebCore::IntSize m_lastSentLayerPosition;
 
     std::unique_ptr<RemoteLayerTreeHost> m_debugIndicatorLayerTreeHost;
     RetainPtr<CALayer> m_tileMapHostLayer;
     RetainPtr<CALayer> m_exposedRectIndicatorLayer;
 
-    uint64_t m_pendingLayerTreeTransactionID;
-    uint64_t m_lastVisibleTransactionID;
-    uint64_t m_transactionIDForPendingCACommit;
+    uint64_t m_pendingLayerTreeTransactionID { 0 };
+    uint64_t m_lastVisibleTransactionID { 0 };
+    uint64_t m_transactionIDForPendingCACommit { 0 };
+    uint64_t m_transactionIDForUnhidingContent { 0 };
 
     CallbackMap m_callbacks;
 
     RetainPtr<OneShotDisplayLinkHandler> m_displayLinkHandler;
 };
 
-DRAWING_AREA_PROXY_TYPE_CASTS(RemoteLayerTreeDrawingAreaProxy, type() == DrawingAreaTypeRemoteLayerTree);
-
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_DRAWING_AREA_PROXY(RemoteLayerTreeDrawingAreaProxy, DrawingAreaTypeRemoteLayerTree)
 
 #endif // RemoteLayerTreeDrawingAreaProxy_h

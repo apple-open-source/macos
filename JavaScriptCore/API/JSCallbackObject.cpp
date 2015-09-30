@@ -34,8 +34,8 @@
 namespace JSC {
 
 // Define the two types of JSCallbackObjects we support.
-template <> const ClassInfo JSCallbackObject<JSDestructibleObject>::s_info = { "CallbackObject", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSCallbackObject) };
-template <> const ClassInfo JSCallbackObject<JSGlobalObject>::s_info = { "CallbackGlobalObject", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSCallbackObject) };
+template <> const ClassInfo JSCallbackObject<JSDestructibleObject>::s_info = { "CallbackObject", &Base::s_info, 0, CREATE_METHOD_TABLE(JSCallbackObject) };
+template <> const ClassInfo JSCallbackObject<JSGlobalObject>::s_info = { "CallbackGlobalObject", &Base::s_info, 0, CREATE_METHOD_TABLE(JSCallbackObject) };
 
 template<> const bool JSCallbackObject<JSDestructibleObject>::needsDestruction = true;
 template<> const bool JSCallbackObject<JSGlobalObject>::needsDestruction = false;
@@ -61,15 +61,4 @@ Structure* JSCallbackObject<JSGlobalObject>::createStructure(VM& vm, JSGlobalObj
     return Structure::create(vm, globalObject, proto, TypeInfo(GlobalObjectType, StructureFlags), info()); 
 }
 
-void JSCallbackObjectData::finalize(Handle<Unknown> handle, void* context)
-{
-    JSClassRef jsClass = static_cast<JSClassRef>(context);
-    JSObjectRef thisRef = toRef(static_cast<JSObject*>(handle.get().asCell()));
-    
-    for (; jsClass; jsClass = jsClass->parentClass)
-        if (JSObjectFinalizeCallback finalize = jsClass->finalize)
-            finalize(thisRef);
-    WeakSet::deallocate(WeakImpl::asWeakImpl(handle.slot()));
-}
-    
 } // namespace JSC

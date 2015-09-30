@@ -1,5 +1,8 @@
-typeset [ {+|-}AEFHUafghklprtuxmz ] [ -LRZi [ n ]] [ name[=value] ... ]
-typeset -T [ {+|-}Urux ] [ -LRZ [ n ]] SCALAR[=value] array [ sep ]
+typeset [ {+|-}AHUaghlmprtux ] [ {+|-}EFLRZi [ n ] ]
+        [ + | name[=value] ... ]
+typeset -T [ {+|-}Uglprux ] [ {+|-}LRZ [ n ] ]
+        [ + | SCALAR[=value] array [ sep ] ]
+typeset -f [ {+|-}TUkmtuz ] [ + | name ... ]
        Set or display attributes and values for shell parameters.
 
        A parameter is created for each name that does not already refer
@@ -12,18 +15,15 @@ typeset -T [ {+|-}Urux ] [ -LRZ [ n ]] SCALAR[=value] array [ sep ]
        For each name=value assignment, the parameter  name  is  set  to
        value.  Note that arrays currently cannot be assigned in typeset
        expressions, only  scalars  and  integers.   Unless  the  option
-       KSH TYPESET  is  set, normal expansion rules apply to assignment
-          -
+       KSH_TYPESET  is  set, normal expansion rules apply to assignment
        arguments, so value may be split into  separate  words;  if  the
        option  is  set, assignments which can be recognised when expan-
        sion is performed are treated as single words.  For example  the
        command  typeset  vbl=$(echo  one  two) is treated as having one
-       argument if KSH TYPESET is set, but otherwise is treated as hav-
-                      -
+       argument if KSH_TYPESET is set, but otherwise is treated as hav-
        ing the two arguments vbl=one and two.
 
-       If  the shell option TYPESET SILENT is not set, for each remain-
-                                   -
+       If  the shell option TYPESET_SILENT is not set, for each remain-
        ing name that refers to a parameter that is set,  the  name  and
        value of the parameter are printed in the form of an assignment.
        Nothing is printed for newly-created  parameters,  or  when  any
@@ -31,93 +31,132 @@ typeset -T [ {+|-}Urux ] [ -LRZ [ n ]] SCALAR[=value] array [ sep ]
        Using `+' instead of minus to introduce an  attribute  turns  it
        off.
 
-       If  the -p option is given, parameters and values are printed in
-       the form of a typeset command and an assignment (which  will  be
-       printed  separately  for arrays and associative arrays), regard-
-       less of other flags and options.   Note  that  the  -h  flag  on
-       parameters is respected; no value will be shown for these param-
-       eters.
-
-       If the -T option is  given,  two  or  three  arguments  must  be
-       present (an exception is that zero arguments are allowed to show
-       the list of parameters created in this fashion).  The first  two
-       are  the name of a scalar and an array parameter (in that order)
-       that will be tied together in the manner  of  $PATH  and  $path.
-       The  optional  third  argument  is  a single-character separator
-       which will be used to join the elements of the array to form the
-       scalar;  if  absent,  a  colon is used, as with $PATH.  Only the
-       first character of the separator is significant;  any  remaining
-       characters  are  ignored.   Only  the  scalar  parameter  may be
-       assigned an initial value.  Both the scalar and  the  array  may
-       otherwise  be manipulated as normal.  If one is unset, the other
-       will automatically be unset too.  There is no way of untying the
-       variables  without unsetting them, or converting the type of one
-       of them with another typeset command; +T does not work,  assign-
-       ing  an  array  to SCALAR is an error, and assigning a scalar to
-       array sets it to be a  single-element  array.   Note  that  both
-       `typeset  -xT ...' and `export -T ...' work, but only the scalar
-       will be marked for export.  Setting the value using  the  scalar
-       version  causes  a  split  on  all  separators  (which cannot be
-       quoted).  It is possible to use the same two tied variables with
-       a  different  separator  character  in  which case the variables
-       remain joined as before but the separator is changed.  This flag
-       has a different meaning when used with -f; see below.
-
-       The  -g  (global)  flag  is treated specially: it means that any
-       resulting parameter will not be restricted to local scope.  Note
-       that  this  does not necessarily mean that the parameter will be
-       global, as the flag will apply to any existing  parameter  (even
-       if unset) from an enclosing function.  This flag does not affect
-       the parameter after creation, hence it has no effect when  list-
-       ing  existing  parameters,  nor does the flag +g have any effect
-       except in combination with -m (see below).
-
-       If no name is present, the names and values  of  all  parameters
+       If  no  name  is present, the names and values of all parameters
        are printed.  In this case the attribute flags restrict the dis-
-       play  to  only  those  parameters  that   have   the   specified
-       attributes,  and using `+' rather than `-' to introduce the flag
+       play   to   only   those  parameters  that  have  the  specified
+       attributes, and using `+' rather than `-' to introduce the  flag
        suppresses printing of the values of parameters when there is no
-       parameter  name.  Also, if the last option is the word `+', then
-       names are printed but values are not.
+       parameter name.
 
-       If the -m flag is given the name arguments are taken as patterns
-       (which  should be quoted).  With no attribute flags, all parame-
-       ters (or functions with the -f flag)  with  matching  names  are
-       printed  (the  shell  option  TYPESET SILENT is not used in this
-                                            -
-       case).  Note that -m is ignored if no patterns  are  given.   If
-       the  +g  flag is combined with -m, a new local parameter is cre-
-       ated for every matching parameter that  is  not  already  local.
-       Otherwise  -m  applies  all  other  flags  or assignments to the
-       existing parameters.  Except  when  assignments  are  made  with
-       name=value,  using  +m  forces  the  matching  parameters  to be
-       printed, even inside a function.
+       If no attribute flags are given, and either  no  name  arguments
+       are  present  or  the  flag +m is used, then each parameter name
+       printed is preceded by a list of the attributes of that  parame-
+       ter  (array, association, exported, float, integer, readonly, or
+       undefined for autoloaded parameters not yet loaded).  If  +m  is
+       used  with  attribute  flags, and all those flags are introduced
+       with +, the matching parameter names are printed but their  val-
+       ues are not.
 
-       If no attribute flags are given and either no -m flag is present
-       or the +m form was used, each parameter name printed is preceded
-       by a list of the attributes of that parameter  (array,  associa-
-       tion,   exported,  integer,  readonly).   If  +m  is  used  with
-       attribute flags, and all those flags are introduced with +,  the
-       matching parameter names are printed but their values are not.
+       The following control flags change the behavior of typeset:
 
-       Attribute  flags that transform the final value (-L, -R, -Z, -l,
-       u) are only applied to the expanded value  at  the  point  of  a
-       parameter  expansion expression using `$'.  They are not applied
-       when a parameter is retrieved internally by the  shell  for  any
+       +      If  `+'  appears by itself in a separate word as the last
+              option, then the names of all parameters (functions  with
+              -f)  are  printed,  but  the values (function bodies) are
+              not.  No name arguments may appear, and it  is  an  error
+              for  any  other options to follow `+'.  The effect of `+'
+              is as if all attribute flags which precede it were  given
+              with a `+' prefix.  For example, `typeset -U +' is equiv-
+              alent to `typeset +U'  and  displays  the  names  of  all
+              arrays  having the uniqueness attribute, whereas `typeset
+              -f -U +' displays the names  of  all  autoloadable  func-
+              tions.   If  +  is the only option, then type information
+              (array, readonly, etc.) is also printed for each  parame-
+              ter, in the same manner as `typeset +m "*"'.
+
+       -g     The  -g  (global) means that any resulting parameter will
+              not be restricted to local scope.  Note  that  this  does
+              not  necessarily  mean that the parameter will be global,
+              as the flag will apply to any existing parameter (even if
+              unset)  from  an  enclosing function.  This flag does not
+              affect the parameter after  creation,  hence  it  has  no
+              effect  when  listing  existing  parameters, nor does the
+              flag +g have any effect except  in  combination  with  -m
+              (see below).
+
+       -m     If  the  -m flag is given the name arguments are taken as
+              patterns (use quoting to prevent these from being  inter-
+              preted  as  file patterns).  With no attribute flags, all
+              parameters (or functions with the -f flag) with  matching
+              names are printed (the shell option TYPESET_SILENT is not
+              used in this case).
+
+              If the +g flag is combined with -m, a new local parameter
+              is  created  for  every  matching  parameter  that is not
+              already local.  Otherwise -m applies all other  flags  or
+              assignments to the existing parameters.
+
+              Except  when  assignments are made with name=value, using
+              +m forces the matching parameters and their attributes to
+              be  printed,  even  inside  a  function.  Note that -m is
+              ignored if no patterns are given, so  `typeset  -m'  dis-
+              plays attributes but `typeset -a +m' does not.
+
+       -p     If  the  -p  option  is  given, parameters and values are
+              printed in the form of a typeset command and  an  assign-
+              ment  (which  will  be  printed separately for arrays and
+              associative  arrays),  regardless  of  other  flags   and
+              options.    Note  that  the  -H  flag  on  parameters  is
+              respected; no value will be shown for these parameters.
+
+              As the intention of this option is to produce output that
+              can  restore  the current state, readonly specials (whose
+              values cannot be changed) are not shown  and  assignments
+              to  arrays  are  shown  before  the typeset rendering the
+              array readonly.
+
+       -T [ scalar[=value] array [ sep ] ]
+              This flag has a different meaning when used with -f;  see
+              below.   Otherwise  the  -T option requires zero, two, or
+              three arguments to be present.  With  no  arguments,  the
+              list  of  parameters  created  in  this fashion is shown.
+              With two or three arguments, the first two are  the  name
+              of  a  scalar  and  of an array parameter (in that order)
+              that will be tied together in the  manner  of  $PATH  and
+              $path.  The optional third argument is a single-character
+              separator which will be used to join the elements of  the
+              array  to form the scalar; if absent, a colon is used, as
+              with $PATH.  Only the first character of the separator is
+              significant; any remaining characters are ignored.
+
+              Only  the  scalar  parameter  may  be assigned an initial
+              value.  Both the scalar and the array  may  otherwise  be
+              manipulated  as  normal.  If one is unset, the other will
+              automatically be unset too.  There is no way  of  untying
+              the  variables  without unsetting them, nor of converting
+              the type of one of them with another typeset command;  +T
+              does  not work, assigning an array to scalar is an error,
+              and assigning a scalar to array sets  it  to  be  a  sin-
+              gle-element array.
+
+              Note  that  both  `typeset  -xT ...'  and `export -T ...'
+              work, but only the scalar  will  be  marked  for  export.
+              Setting the value using the scalar version causes a split
+              on all separators (which cannot be quoted).  It is possi-
+              ble to apply -T to two previously tied variables but with
+              a different separator character, in which case the  vari-
+              ables  remain  joined  as  before  but  the  separator is
+              changed.
+
+       Attribute flags that transform the final value (-L, -R, -Z,  -l,
+       -u)  are  only  applied  to the expanded value at the point of a
+       parameter expansion expression using `$'.  They are not  applied
+       when  a  parameter  is retrieved internally by the shell for any
        purpose.
 
        The following attribute flags may be specified:
 
-       -A     The  names  refer  to  associative  array parameters; see
+       -A     The names refer  to  associative  array  parameters;  see
               `Array Parameters' in zshparam(1).
 
-       -L     Left justify and remove leading blanks from value.  If  n
-              is  nonzero,  it defines the width of the field.  If n is
-              zero, the width is determined by the width of  the  value
-              of  the first assignment.  In the case of numeric parame-
-              ters, the length of the complete value  assigned  to  the
-              parameter  is  used to determine the width, not the value
-              that would be output.
+       -L [ n ]
+              Left  justify  and  remove  leading blanks from the value
+              when the parameter is expanded.   If  n  is  nonzero,  it
+              defines  the width of the field.  If n is zero, the width
+              is determined by the width of  the  value  of  the  first
+              assignment.   In  the  case  of  numeric  parameters, the
+              length of the complete value assigned to the parameter is
+              used  to determine the width, not the value that would be
+              output.
 
               The width is the count of characters, which may be multi-
               byte  characters  if  the  MULTIBYTE option is in effect.
@@ -132,7 +171,8 @@ typeset -T [ {+|-}Urux ] [ -LRZ [ n ]] SCALAR[=value] array [ sep ]
               numeric parameters.  Leading zeros are removed if the  -Z
               flag is also set.
 
-       -R     Similar  to  -L, except that right justification is used;
+       -R [ n ]
+              Similar  to  -L, except that right justification is used;
               when the parameter is expanded, the field is left  filled
               with  blanks  or truncated from the end.  May not be com-
               bined with the -Z flag.
@@ -143,7 +183,8 @@ typeset -T [ {+|-}Urux ] [ -LRZ [ n ]] SCALAR[=value] array [ sep ]
               PATH  or FIGNORE, etc.  This flag has a different meaning
               when used with -f; see below.
 
-       -Z     Specially handled if set along with the -L flag.   Other-
+       -Z [ n ]
+              Specially handled if set along with the -L flag.   Other-
               wise,  similar  to -R, except that leading zeros are used
               for padding instead of  blanks  if  the  first  non-blank
               character  is  a digit.  Numeric parameters are specially
@@ -170,8 +211,7 @@ typeset -T [ {+|-}Urux ] [ -LRZ [ n ]] SCALAR[=value] array [ sep ]
               tion `Functions'. The -k and -z flags make  the  function
               be   loaded  using  ksh-style  or  zsh-style  autoloading
               respectively. If neither is given,  the  setting  of  the
-              KSH AUTOLOAD   option  determines  how  the  function  is
-                 -
+              KSH_AUTOLOAD   option  determines  how  the  function  is
               loaded.
 
        -h     Hide: only useful for special  parameters  (those  marked
@@ -204,17 +244,20 @@ typeset -T [ {+|-}Urux ] [ -LRZ [ n ]] SCALAR[=value] array [ sep ]
               that  unlike the -h flag this is also useful for non-spe-
               cial parameters.
 
-       -i     Use an internal integer representation.  If n is  nonzero
+       -i [ n ]
+              Use an internal integer representation.  If n is  nonzero
               it  defines  the  output arithmetic base, otherwise it is
               determined by the first assignment.  Bases from 2  to  36
               inclusive are allowed.
 
-       -E     Use an internal double-precision floating point represen-
+       -E [ n ]
+              Use an internal double-precision floating point represen-
               tation.  On output the variable will be converted to sci-
               entific  notation.  If n is nonzero it defines the number
               of significant figures to display; the default is ten.
 
-       -F     Use an internal double-precision floating point represen-
+       -F [ n ]
+              Use an internal double-precision floating point represen-
               tation.   On  output  the  variable  will be converted to
               fixed-point decimal notation.  If n is nonzero it defines
               the  number of digits to display after the decimal point;
@@ -227,37 +270,45 @@ typeset -T [ {+|-}Urux ] [ -LRZ [ n ]] SCALAR[=value] array [ sep ]
               is a special parameter, the  readonly  attribute  can  be
               turned on, but cannot then be turned off.
 
-       -t     Tags  the named parameters.  Tags have no special meaning
-              to the shell.  This flag has  a  different  meaning  when
+              If   the  POSIX_BUILTINS  option  is  set,  the  readonly
+              attribute is more restrictive:  unset  variables  can  be
+              marked  readonly and cannot then be set; furthermore, the
+              readonly attribute cannot be removed from  any  variable.
+              Note that in zsh (unlike other shells) it is still possi-
+              ble to create a local variable of the same name  as  this
+              is considered a different variable (though this variable,
+              too, can be marked readonly).
+
+       -t     Tags the named parameters.  Tags have no special  meaning
+              to  the  shell.   This  flag has a different meaning when
               used with -f; see above.
 
-       -u     Convert  the  result to upper case whenever the parameter
-              is expanded.  The value is not converted  when  assigned.
-              This  flag has a different meaning when used with -f; see
+       -u     Convert the result to upper case whenever  the  parameter
+              is  expanded.   The value is not converted when assigned.
+              This flag has a different meaning when used with -f;  see
               above.
 
-       -x     Mark for automatic export to the  environment  of  subse-
-              quently  executed  commands.  If the option GLOBAL EXPORT
-                                                                -
-              is set, this implies the option -g,  unless  +g  is  also
-              explicitly  given;  in  other  words the parameter is not
-              made local to the enclosing function.  This is  for  com-
+       -x     Mark  for  automatic  export to the environment of subse-
+              quently executed commands.  If the  option  GLOBAL_EXPORT
+              is  set,  this  implies  the option -g, unless +g is also
+              explicitly given; in other words  the  parameter  is  not
+              made  local  to the enclosing function.  This is for com-
               patibility with previous versions of zsh.
 
 declare
        Same as typeset.
 
-float [ {+|-}EFHghlprtux ] [ -LRZ [ n ]] [ name[=value] ... ]
+float [ {+|-}Hghlprtux ] [ {+|-}EFLRZ [ n ] ] [ name[=value] ... ]
        Equivalent  to  typeset  -E,  except  that options irrelevant to
        floating point numbers are not permitted.
 
-integer [ {+|-}Hghilprtux ] [ -LRZ [ n ]] [ name[=value] ... ]
-       Equivalent  to  typeset  -i,  except  that options irrelevant to
+integer [ {+|-}Hghlprtux ] [ {+|-}LRZi [ n ] ] [ name[=value] ... ]
+       Equivalent to typeset -i,  except  that  options  irrelevant  to
        integers are not permitted.
 
-local [ {+|-}AEFHUahlprtux ] [ -LRZi [ n ]] [ name[=value] ] ...
+local [ {+|-}AHUahlprtux ] [ {+|-}EFLRZi [ n ] ] [ name[=value] ... ]
        Same as typeset, except that the options -g, and -f are not per-
-       mitted.  In this case the -x option does not force  the  use  of
+       mitted.   In  this  case the -x option does not force the use of
        -g, i.e. exported variables will be local to functions.
 
 readonly

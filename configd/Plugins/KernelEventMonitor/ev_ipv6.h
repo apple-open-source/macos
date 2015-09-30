@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2004, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2011, 2012, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,8 +36,9 @@
 
 __BEGIN_DECLS
 
-void	interface_update_ipv6	(struct ifaddrs *ifap, const char *if_name);
-
+void	interface_update_ipv6(struct ifaddrs *ifap, const char *if_name);
+void	ipv6_duplicated_address(const char * if_name, const struct in6_addr * addr,
+				int hw_len, const void * hw_addr);
 __END_DECLS
 
 #endif /* _EV_IPV6_H */

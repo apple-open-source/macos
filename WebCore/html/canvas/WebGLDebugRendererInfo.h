@@ -30,14 +30,14 @@
 
 namespace WebCore {
 
-class WebGLDebugRendererInfo : public WebGLExtension {
+class WebGLDebugRendererInfo final : public WebGLExtension {
 public:
     enum EnumType {
         UNMASKED_VENDOR_WEBGL = 0x9245,
         UNMASKED_RENDERER_WEBGL = 0x9246
     };
 
-    explicit WebGLDebugRendererInfo(WebGLRenderingContext*);
+    explicit WebGLDebugRendererInfo(WebGLRenderingContextBase*);
     virtual ~WebGLDebugRendererInfo();
 
     virtual ExtensionName getName() const override;

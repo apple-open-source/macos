@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import <TargetConditionals.h>
+
+#if !TARGET_OS_IPHONE
+
 #import <AppKit/NSWindow.h>
 #import <WebKit/WKDeclarationSpecifiers.h>
 #import <WebKit/WKInspector.h>
@@ -37,6 +41,7 @@ const NSInteger WKInspectorViewTag = 1000;
 // actions that need to work when the Web Inspector window is key.
 WK_EXPORT @interface WKWebInspectorProxyObjCAdapter : NSObject <NSWindowDelegate> {
     void* _inspectorProxy;
+    BOOL _ignoreNextInspectedViewFrameDidChange;
 }
 
 @property (readonly) WKInspectorRef inspectorRef;
@@ -45,4 +50,6 @@ WK_EXPORT @interface WKWebInspectorProxyObjCAdapter : NSObject <NSWindowDelegate
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

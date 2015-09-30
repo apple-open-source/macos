@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -136,7 +136,7 @@ open_dhcpv6_socket(uint16_t client_port)
 #if defined(SO_RECV_ANYIF)
     if (setsockopt(sockfd, SOL_SOCKET, SO_RECV_ANYIF, (caddr_t)&opt,
 		   sizeof(opt)) < 0) {
-	my_log(LOG_INFO, "setsockopt(SO_RECV_ANYIF) failed, %s",
+	my_log(LOG_ERR, "setsockopt(SO_RECV_ANYIF) failed, %s",
 	       strerror(errno));
     }
 #endif /* SO_RECV_ANYIF */
@@ -146,7 +146,7 @@ open_dhcpv6_socket(uint16_t client_port)
     /* set traffic class */
     if (setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
 		   sizeof(opt)) < 0) {
-	my_log(LOG_INFO, "setsockopt(SO_TRAFFIC_CLASS) failed, %s",
+	my_log(LOG_ERR, "setsockopt(SO_TRAFFIC_CLASS) failed, %s",
 	       strerror(errno));
     }
 #endif /* SO_TRAFFIC_CLASS */
@@ -210,16 +210,16 @@ STATIC void
 DHCPv6SocketDelayedClose(void * arg1, void * arg2, void * arg3)
 {
     if (S_globals->read_fd == NULL) {
-	my_log(LOG_ERR, 
+	my_log(LOG_NOTICE,
 	       "DHCPv6SocketDelayedClose(): socket is already closed");
 	return;
     }
     if (S_globals->read_fd_refcount > 0) {
-	my_log(LOG_ERR, 
+	my_log(LOG_NOTICE,
 	       "DHCPv6SocketDelayedClose(): called when socket in use");
 	return;
     }
-    my_log(LOG_DEBUG,
+    my_log(LOG_INFO,
 	   "DHCPv6SocketDelayedClose(): closing DHCPv6 socket %d",
 	   FDCalloutGetFD(S_globals->read_fd));
 
@@ -265,6 +265,14 @@ DHCPv6SocketDemux(int if_index, const DHCPv6PacketRef pkt, int pkt_len)
 		   if_name(DHCPv6SocketGetInterface(client)), str);
 	    CFRelease(str);
 	}
+	else {
+	    my_log(LOG_INFO,"[%s] Receive %s (%d) [%d bytes]",
+		   if_name(DHCPv6SocketGetInterface(client)),
+		   DHCPv6MessageName(pkt->msg_type),
+		   pkt->msg_type,
+		   pkt_len);
+
+	}
 	if (client->receive_func != NULL) {
 	    (*client->receive_func)(client->receive_arg1, client->receive_arg2,
 				    &data);
@@ -303,7 +311,7 @@ DHCPv6SocketCreate(interface_t * if_p)
 
     globals = DHCPv6SocketGetGlobals();
     if (globals == NULL) {
-	my_log(LOG_ERR, "DHCPv6SocketCreate: could not allocate globals");
+	my_log(LOG_NOTICE, "DHCPv6SocketCreate: could not allocate globals");
 	return (NULL);
     }
     sock = malloc(sizeof(*sock));
@@ -343,7 +351,7 @@ DHCPv6SocketRelease(DHCPv6SocketRef * sock_p)
 	dynarray_remove(&S_globals->sockets, i, NULL);
     }
     else {
-	my_log(LOG_ERR, "DHCPv6SocketRelease: %s not in list?",
+	my_log(LOG_NOTICE, "DHCPv6SocketRelease: %s not in list?",
 	       if_name(sock->if_p));
     }
     DHCPv6SocketFreeElement(sock);
@@ -361,18 +369,18 @@ DHCPv6SocketCloseSocket(DHCPv6SocketRef sock)
 	return;
     }
     if (S_globals->read_fd_refcount <= 0) {
-	my_log(LOG_ERR, "DHCPv6SocketCloseSocket(%s): refcount %d",
+	my_log(LOG_NOTICE, "DHCPv6SocketCloseSocket(%s): refcount %d",
 	       if_name(sock->if_p), S_globals->read_fd_refcount);
 	return;
     }
     S_globals->read_fd_refcount--;
-    my_log(LOG_DEBUG, "DHCPv6SocketCloseSocket(%s): refcount %d",
+    my_log(LOG_INFO, "DHCPv6SocketCloseSocket(%s): refcount %d",
 	   if_name(sock->if_p), S_globals->read_fd_refcount);
     sock->fd_open = FALSE;
     if (S_globals->read_fd_refcount == 0) {
 	struct timeval tv;
 
-	my_log(LOG_DEBUG, 
+	my_log(LOG_INFO, 
 	       "DHCPv6SocketCloseSocket(): scheduling delayed close");
 
 	tv.tv_sec = 1; /* close it after 1 second of non-use */
@@ -438,13 +446,13 @@ DHCPv6SocketRead(void * arg1, void * arg2)
 	    break;
 	default:
 	    /* this should never occur */
-	    my_log(LOG_ERR, "Why did we get control message type %d?",
+	    my_log(LOG_NOTICE, "Why did we get control message type %d?",
 		   cm->cmsg_type);
 	    break;
 	}
     }
     if (pktinfo == NULL) {
-	my_log(LOG_ERR, 
+	my_log(LOG_NOTICE,
 	       "DHCPv6SocketRead: missing IPV6_PKTINFO");
 	return;
     }
@@ -461,7 +469,7 @@ DHCPv6SocketOpenSocket(DHCPv6SocketRef sock)
     }
     timer_cancel(S_globals->timer_callout);
     S_globals->read_fd_refcount++;
-    my_log(LOG_DEBUG, "DHCPv6SocketOpenSocket (%s): refcount %d", 
+    my_log(LOG_INFO, "DHCPv6SocketOpenSocket (%s): refcount %d", 
 	   if_name(sock->if_p), S_globals->read_fd_refcount);
     sock->fd_open = TRUE;
     if (S_globals->read_fd_refcount > 1) {
@@ -469,19 +477,19 @@ DHCPv6SocketOpenSocket(DHCPv6SocketRef sock)
 	return (TRUE);
     }
     if (S_globals->read_fd != NULL) {
-	my_log(LOG_DEBUG, "DHCPv6SocketOpenSocket(): socket is still open");
+	my_log(LOG_INFO, "DHCPv6SocketOpenSocket(): socket is still open");
     }
     else {
 	int	sockfd;
 
 	sockfd = open_dhcpv6_socket(S_client_port);
 	if (sockfd < 0) {
-	    my_log(LOG_ERR, 
+	    my_log(LOG_NOTICE,
 		   "DHCPv6SocketOpenSocket: socket() failed, %s",
 		   strerror(errno));
 	    goto failed;
 	}
-	my_log(LOG_DEBUG, 
+	my_log(LOG_INFO,
 	       "DHCPv6SocketOpenSocket(): opened DHCPv6 socket %d",
 	       sockfd);
 	/* register as a reader */
@@ -505,7 +513,7 @@ DHCPv6SocketEnableReceive(DHCPv6SocketRef sock,
     sock->receive_arg1 = arg1;
     sock->receive_arg2 = arg2;
     if (DHCPv6SocketOpenSocket(sock) == FALSE) {
-	my_log(LOG_ERR, "DHCPv6SocketEnableReceive(%s): failed",
+	my_log(LOG_NOTICE, "DHCPv6SocketEnableReceive(%s): failed",
 	       if_name(sock->if_p));
     }
     return;
@@ -542,7 +550,7 @@ DHCPv6SocketTransmit(DHCPv6SocketRef sock,
     if (sock->fd_open == FALSE) {
 	/* open the DHCPv6 socket in case it's needed */
 	if (DHCPv6SocketOpenSocket(sock) == FALSE) {
-	    my_log(LOG_ERR, "DHCPv6Socket: failed to open socket");
+	    my_log(LOG_NOTICE, "DHCPv6Socket: failed to open socket");
 	    return (FALSE);
 	}
 	needs_close = TRUE;
@@ -562,8 +570,15 @@ DHCPv6SocketTransmit(DHCPv6SocketRef sock,
 	    DHCPv6OptionListPrintToString(str, options);
 	    DHCPv6OptionListRelease(&options);
 	}
-	my_log(~LOG_DEBUG,"[%s] Transmit %@", if_name(sock->if_p), str);
+	my_log(~LOG_DEBUG, "[%s] Transmit %@", if_name(sock->if_p), str);
 	CFRelease(str);
+    }
+    else {
+	my_log(LOG_INFO, "[%s] Transmit %s (%d) [%d bytes]",
+	       if_name(sock->if_p),
+	       DHCPv6MessageName(pkt->msg_type),
+	       pkt->msg_type,
+	       pkt_len);
     }
     ret = S_send_packet(FDCalloutGetFD(S_globals->read_fd),
 			if_link_index(sock->if_p), pkt, pkt_len);

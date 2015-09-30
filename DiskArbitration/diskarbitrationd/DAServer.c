@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -582,48 +582,15 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
 
                 if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                 {
-                    if ( DADiskGetOption( disk, kDADiskOptionMountAutomaticNoDefer ) == FALSE )
+                    if ( DADiskGetState( disk, _kDADiskStateMountAutomaticNoDefer ) == FALSE )
                     {
                         unmount = TRUE;
                     }
                 }
 
-                if ( DADiskGetOption( disk, kDADiskOptionEjectUponLogout ) )
-                {
-                    unmount = TRUE;
-                }
-
                 if ( unmount )
                 {
                     DADiskUnmount( disk, kDADiskUnmountOptionDefault, NULL );
-                }
-            }
-        }
-
-        for ( index = 0; index < count; index++ )
-        {
-            DADiskRef disk;
-
-            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
-
-            /*
-             * Eject this disk.
-             */
-
-            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
-            {
-                Boolean eject;
-
-                eject = FALSE;
-
-                if ( DADiskGetOption( disk, kDADiskOptionEjectUponLogout ) )
-                {
-                    eject = TRUE;
-                }
-
-                if ( eject )
-                {
-                    DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
                 }
             }
         }
@@ -1294,33 +1261,6 @@ kern_return_t _DAServerDiskSetOptions( mach_port_t _session, caddr_t _disk, int3
             if ( disk )
             {
                 DALogDebug( "  set disk options, id = %@, options = 0x%08X, value = %s.", disk, _options, _value ? "true" : "false" );
-
-                if ( DADiskGetState( disk, kDADiskStateStagedAppear ) )
-                {
-                    if ( ( _options & kDADiskOptionPrivate ) )
-                    {
-                        if ( _value )
-                        {
-                            if ( DADiskGetOption( disk, kDADiskOptionPrivate ) == FALSE )
-                            {
-                                DADiskDisappearedCallback( disk );
-
-                                DAStageSignal( );
-                            }
-                        }
-                        else
-                        {
-                            if ( DADiskGetOption( disk, kDADiskOptionPrivate ) )
-                            {
-                                DADiskSetOption( disk, kDADiskOptionPrivate, FALSE );
-
-                                DADiskAppearedCallback( disk );
-
-                                DAStageSignal( );
-                            }
-                        }
-                    }
-                }
 
                 DADiskSetOptions( disk, _options, _value );
 
@@ -2134,7 +2074,7 @@ CFRunLoopSourceRef DAServerCreateRunLoopSource( CFAllocatorRef allocator, CFInde
 
         if ( __gDAServerPort == MACH_PORT_NULL )
         {
-            bootstrap_check_in( bootstrap_port, _kDADaemonName, &__gDAServerPort );
+            ( void ) bootstrap_check_in( bootstrap_port, _kDADaemonName, &__gDAServerPort );
         }
 
         if ( __gDAServerPort )

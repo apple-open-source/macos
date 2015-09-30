@@ -235,8 +235,8 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                 CFDictionaryAddValue(dict, CFSTR("Boot Volume"), vol);
                 CFRelease(vol);
                 
-                tempData = CFPropertyListCreateXMLData(kCFAllocatorDefault, dict);
-                
+				tempData = CFPropertyListCreateData(kCFAllocatorDefault, dict, kCFPropertyListXMLFormat_v1_0, 0, NULL);
+				
                 write(fileno(stdout), CFDataGetBytePtr(tempData), CFDataGetLength(tempData));
                 
                 CFRelease(tempData);
@@ -335,7 +335,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
     if(actargs[kplist].present) {
         CFDataRef		tempData = NULL;
         
-        tempData = CFPropertyListCreateXMLData(kCFAllocatorDefault, dict);
+		tempData = CFPropertyListCreateData(kCFAllocatorDefault, dict, kCFPropertyListXMLFormat_v1_0, 0, NULL);
         
         write(fileno(stdout), CFDataGetBytePtr(tempData), CFDataGetLength(tempData));
         

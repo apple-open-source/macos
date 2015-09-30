@@ -1284,7 +1284,7 @@ interface_action(
 				int save_errno = errno;
 				msyslog(LOG_DEBUG, "Ignoring address %s because ioctl failed errno:%d",
 						stoa((sockaddr_u *)&sa6), save_errno);
-				os_trace("Ignoring IPv6 address because ioctl failed errno:%d", save_errno);
+				os_trace_debug("Ignoring IPv6 address because ioctl failed errno:%d", save_errno);
 			bail:
 				close(s6);
 				return ACTION_IGNORE;

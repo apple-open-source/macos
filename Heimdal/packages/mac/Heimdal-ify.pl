@@ -17,7 +17,7 @@ while(<IN>) {
 	s/<krb5-types.h>/<inttypes.h>/;
 	print OUT;
 	print OUT "#include <unistd.h>\n";
-    } elsif (m/_err.h/ or m/_asn1.h/ or m/krb5.*\.h/ or m/com_.*\.h/ or m/gssapi.*\.h/ or m/.*-protos\.h/ or /heimbase.h/) {
+    } elsif (m/_err.h/ or m/_asn1.h/ or m/krb5.*\.h/ or m/com_.*\.h/ or m/gssapi.*\.h/ or m/.*-protos\.h/ or /heimbase.h/ or m/-const.h/) {
 	s/#include +\<(.*).h>/#include <${replace}\/$1.h>/;
 	print OUT;
     } else {

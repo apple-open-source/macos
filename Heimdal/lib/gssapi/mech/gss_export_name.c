@@ -31,9 +31,9 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_export_name(OM_uint32 *minor_status,
-    const gss_name_t input_name,
-    gss_buffer_t exported_name)
+gss_export_name(OM_uint32 *__nonnull minor_status,
+    __nonnull const gss_name_t input_name,
+    __nonnull gss_buffer_t exported_name)
 {
 	struct _gss_name *name = (struct _gss_name *) input_name;
 	struct _gss_mechanism_name *mn;
@@ -57,8 +57,11 @@ gss_export_name(OM_uint32 *minor_status,
 }
 
 OM_uint32
-gss_mg_export_name(OM_uint32 *minor_status, const gss_const_OID mech,
-		   const void *name, size_t length, gss_buffer_t exported_name)
+gss_mg_export_name(OM_uint32 * __nonnull minor_status,
+		   __nonnull const gss_const_OID mech,
+		    const void *__nonnull name,
+		   size_t length, 
+		   __nonnull gss_buffer_t exported_name)
 {
     uint8_t *buf;
 

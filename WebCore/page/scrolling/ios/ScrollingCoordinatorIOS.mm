@@ -39,20 +39,19 @@
 #include "ScrollingTreeFrameScrollingNodeIOS.h"
 #include "ScrollingTreeStickyNode.h"
 #include "ScrollingTreeIOS.h"
-#include <wtf/Functional.h>
 #include <wtf/MainThread.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
-PassRefPtr<ScrollingCoordinator> ScrollingCoordinator::create(Page* page)
+Ref<ScrollingCoordinator> ScrollingCoordinator::create(Page* page)
 {
-    return adoptRef(new ScrollingCoordinatorIOS(page));
+    return adoptRef(*new ScrollingCoordinatorIOS(page));
 }
 
 ScrollingCoordinatorIOS::ScrollingCoordinatorIOS(Page* page)
     : AsyncScrollingCoordinator(page)
-    , m_scrollingStateTreeCommitterTimer(this, &ScrollingCoordinatorIOS::scrollingStateTreeCommitterTimerFired)
+    , m_scrollingStateTreeCommitterTimer(*this, &ScrollingCoordinatorIOS::scrollingStateTreeCommitterTimerFired)
 {
     setScrollingTree(ScrollingTreeIOS::create(this));
 }
@@ -91,7 +90,7 @@ void ScrollingCoordinatorIOS::scheduleTreeStateCommit()
     m_scrollingStateTreeCommitterTimer.startOneShot(0);
 }
 
-void ScrollingCoordinatorIOS::scrollingStateTreeCommitterTimerFired(Timer*)
+void ScrollingCoordinatorIOS::scrollingStateTreeCommitterTimerFired()
 {
     commitTreeState();
 }
@@ -100,7 +99,7 @@ void ScrollingCoordinatorIOS::commitTreeState()
 {
     ASSERT(scrollingStateTree()->hasChangedProperties());
 
-    OwnPtr<ScrollingStateTree> treeState = scrollingStateTree()->commit(LayerRepresentation::PlatformLayerRepresentation);
+    scrollingStateTree()->commit(LayerRepresentation::PlatformLayerRepresentation);
     // FIXME: figure out how to commit.
 }
 

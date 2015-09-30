@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,10 +29,28 @@ enum PageOverlayType {
 "document"
 };
 
+// These map to ResourceRequestCachePolicy.
+enum CachePolicy {
+    "UseProtocolCachePolicy",
+    "ReloadIgnoringCacheData",
+    "ReturnCacheDataElseLoad",
+    "ReturnCacheDataDontLoad"
+};
+
+enum ResourceLoadPriority {
+    "ResourceLoadPriorityVeryLow",
+    "ResourceLoadPriorityLow",
+    "ResourceLoadPriorityMedium",
+    "ResourceLoadPriorityHigh",
+    "ResourceLoadPriorityVeryHigh"
+};
+
 [
     NoInterfaceObject,
 ] interface Internals {
     DOMString address(Node node);
+    [RaisesException] boolean nodeNeedsStyleRecalc(Node node);
+    DOMString description(any value);
 
     // Animated image pausing testing.
     [RaisesException] boolean hasPausedImageAnimations(Element element);
@@ -40,6 +58,17 @@ enum PageOverlayType {
     [RaisesException] DOMString elementRenderTreeAsText(Element element);
     boolean isPreloaded(DOMString url);
     boolean isLoadingFromMemoryCache(DOMString url);
+    DOMString xhrResponseSource(XMLHttpRequest xhr);
+    boolean isSharingStyleSheetContents(Element linkA, Element linkB);
+    boolean isStyleSheetLoadingSubresources(Element link);
+    void clearMemoryCache();
+    void pruneMemoryCacheToSize(long size);
+    long memoryCacheSize();
+    void setOverrideCachePolicy(CachePolicy policy);
+    void setOverrideResourceLoadPriority(ResourceLoadPriority priority);
+
+    void clearPageCache();
+    unsigned int pageCacheSize();
 
     [RaisesException] CSSStyleDeclaration computedStyleIncludingVisitedInfo(Node node);
 
@@ -96,6 +125,8 @@ enum PageOverlayType {
 
     [RaisesException] void setScrollViewPosition(long x, long y);
 
+    [RaisesException] void setViewBaseBackgroundColor(DOMString colorValue);
+
     [RaisesException] void setPagination(DOMString mode, long gap, optional long pageLength);
 
     [RaisesException] DOMString configurationForViewport(unrestricted float devicePixelRatio,
@@ -106,10 +137,9 @@ enum PageOverlayType {
 
     [RaisesException] boolean wasLastChangeUserEdit(Element textField);
     [RaisesException] boolean elementShouldAutoComplete(Element inputElement);
-    [RaisesException] DOMString suggestedValue(Element inputElement);
-    [RaisesException] void setSuggestedValue(Element inputElement, DOMString value);
     [RaisesException] void setEditingValue(Element inputElement, DOMString value);
     [RaisesException] void setAutofilled(Element inputElement, boolean enabled);
+    [RaisesException] void setShowAutoFillButton(Element inputElement, boolean enabled);
     [RaisesException] unsigned long countMatchesForText(DOMString text, unsigned long findOptions, DOMString markMatches);
 
     [RaisesException] void paintControlTints();
@@ -121,6 +151,7 @@ enum PageOverlayType {
     [RaisesException] unsigned long lengthFromRange(Element scope, Range range);
     [RaisesException] DOMString rangeAsText(Range range);
     [RaisesException] Range subrange(Range range, long rangeLocation, long rangeLength);
+    [RaisesException] Range rangeForDictionaryLookupAtLocation(long x, long y);
 
     [RaisesException] void setDelegatesScrolling(boolean enabled);
 
@@ -129,6 +160,9 @@ enum PageOverlayType {
 
     sequence<DOMString> userPreferredLanguages();
     void setUserPreferredLanguages(sequence<DOMString> languages);
+
+    sequence<DOMString> userPreferredAudioCharacteristics();
+    void setUserPreferredAudioCharacteristic(DOMString characteristic);
 
     [RaisesException] unsigned long wheelEventHandlerCount();
     [RaisesException] unsigned long touchEventHandlerCount();
@@ -141,8 +175,6 @@ enum PageOverlayType {
     DOMString parserMetaData(optional any func);
 
     void updateEditorUINowIfScheduled();
-
-    Node findEditingDeleteButton();
 
     [RaisesException] boolean hasSpellingMarker(long from, long length);
     [RaisesException] boolean hasGrammarMarker(long from, long length);
@@ -195,27 +227,29 @@ enum PageOverlayType {
 
     // As per spec: http://www.w3.org/TR/WebIDL/#idl-sequence
     // "Sequences must not be used as the type of an attribute, constant or exception field."
-    // FIXME: this will lead to BUG interals.consoleProfiles !== interals.consoleProfiles as profile will always returns new array.
+    // FIXME: this will lead to BUG internals.consoleProfiles !== internals.consoleProfiles as profile will always returns new array.
     readonly attribute ScriptProfile[] consoleProfiles;
 
     unsigned long numberOfLiveNodes();
     unsigned long numberOfLiveDocuments();
-    [Conditional=INSPECTOR] sequence<DOMString> consoleMessageArgumentCounts();
-    [Conditional=INSPECTOR] DOMWindow openDummyInspectorFrontend(DOMString url);
-    [Conditional=INSPECTOR] void closeDummyInspectorFrontend();
-    [Conditional=INSPECTOR, RaisesException] void setJavaScriptProfilingEnabled(boolean creates);
-    [Conditional=INSPECTOR, RaisesException] void setInspectorIsUnderTest(boolean isUnderTest);
+    sequence<DOMString> consoleMessageArgumentCounts();
+    DOMWindow openDummyInspectorFrontend(DOMString url);
+    void closeDummyInspectorFrontend();
+    [RaisesException] void setJavaScriptProfilingEnabled(boolean creates);
+    [RaisesException] void setInspectorIsUnderTest(boolean isUnderTest);
 
     DOMString counterValue(Element element);
     long pageNumber(Element element, optional unrestricted float pageWidth, optional unrestricted float pageHeight);
     DOMString[] shortcutIconURLs();
-    DOMString[] allIconURLs();
     long numberOfPages(optional unrestricted double pageWidthInPixels, optional unrestricted double pageHeightInPixels);
     [RaisesException] DOMString pageProperty(DOMString propertyName, long pageNumber);
     [RaisesException] DOMString pageSizeAndMarginsInPixels(long pageIndex, long width, long height, long marginTop, long marginRight, long marginBottom, long marginLeft);
 
     [RaisesException] void setPageScaleFactor(unrestricted float scaleFactor, long x, long y);
     [RaisesException] void setPageZoomFactor(unrestricted float zoomFactor);
+
+    [RaisesException] void setUseFixedLayout(boolean useFixedLayout);
+    [RaisesException] void setFixedLayoutSize(long width, long height);
 
     void setHeaderHeight(unrestricted float height);
     void setFooterHeight(unrestricted float height);
@@ -240,7 +274,7 @@ enum PageOverlayType {
 
     DOMString[] getReferencedFilePaths();
 
-    // These functions both reset the tracked repaint rects. They are inteded to be used in the following order:
+    // These functions both reset the tracked repaint rects. They are intended to be used in the following order:
     //  startTrackingRepaints, repaintRectsAsText, stopTrackingRepaints.
     [RaisesException] void startTrackingRepaints();
     [RaisesException] void stopTrackingRepaints();
@@ -248,24 +282,43 @@ enum PageOverlayType {
     [RaisesException] void startTrackingLayerFlushes();
     [RaisesException] unsigned long layerFlushCount();
 
+    // Query if a timer is currently throttled, to debug timer throttling.
+    [RaisesException] boolean isTimerThrottled(long timerHandle);
+
+    boolean isRequestAnimationFrameThrottled();
+    boolean areTimersThrottled();
+
+    [RaisesException] void startTrackingStyleRecalcs();
+    [RaisesException] unsigned long styleRecalcCount();
+
+    [RaisesException] void startTrackingCompositingUpdates();
+    [RaisesException] unsigned long compositingUpdateCount();
+
     // |node| should be Document, HTMLIFrameElement, or unspecified.
     // If |node| is an HTMLIFrameElement, it assumes node.contentDocument is
     // specified without security checks. Unspecified means this document.
     [RaisesException] void updateLayoutIgnorePendingStylesheetsAndRunPostLayoutTasks(optional Node node);
+
+    readonly attribute unsigned long layoutCount;
 
     // Returns a string with information about the mouse cursor used at the specified client location.
     [RaisesException] DOMString getCurrentCursorInfo();
 
     [RaisesException] DOMString markerTextForListItem(Element element);
 
+    [RaisesException] DOMString toolTipFromElement(Element element);
+
     SerializedScriptValue deserializeBuffer(ArrayBuffer buffer);
     ArrayBuffer serializeObject(SerializedScriptValue obj);
+
+    boolean isFromCurrentWorld(any obj);
 
     void setUsesOverlayScrollbars(boolean enabled);
 
     void forceReload(boolean endToEnd);
 
     [Conditional=VIDEO] void simulateAudioInterruption(Node node);
+    [Conditional=VIDEO, RaisesException] boolean mediaElementHasCharacteristic(Node node, DOMString characteristic);
 
     [Conditional=ENCRYPTED_MEDIA_V2] void initializeMockCDM();
 
@@ -301,8 +354,29 @@ enum PageOverlayType {
     [Conditional=VIDEO] void applicationWillEnterForeground();
     [Conditional=VIDEO] void applicationWillEnterBackground();
     [Conditional=VIDEO, RaisesException] void setMediaSessionRestrictions(DOMString mediaType, DOMString restrictions);
+    [Conditional=VIDEO, RaisesException] void setMediaElementRestrictions(HTMLMediaElement element, DOMString restrictions);
+    [Conditional=WEB_AUDIO, RaisesException] void setAudioContextRestrictions(AudioContext context, DOMString restrictions);
     [Conditional=VIDEO, RaisesException] void postRemoteControlCommand(DOMString command);
     
     [Conditional=VIDEO] void simulateSystemSleep();
     [Conditional=VIDEO] void simulateSystemWake();
+    [Conditional=VIDEO] boolean elementIsBlockingDisplaySleep(Element element);
+
+    [RaisesException] void installMockPageOverlay(PageOverlayType type);
+    [RaisesException] DOMString pageOverlayLayerTreeAsText();
+
+    void setPageMuted(boolean muted);
+    boolean isPagePlayingAudio();
+    
+    File createFile(DOMString url);
+    void queueMicroTask(long testNumber);
+    boolean testPreloaderSettingViewport();
+
+    [Conditional=CONTENT_FILTERING] readonly attribute MockContentFilterSettings mockContentFilterSettings;
+
+#if defined(ENABLE_CSS_SCROLL_SNAP) && ENABLE_CSS_SCROLL_SNAP
+    [RaisesException] DOMString scrollSnapOffsets(Element element);
+#endif
+
+    [RaisesException] DOMPath pathWithShrinkWrappedRects(sequence<double> rectComponents, double radius);
 };

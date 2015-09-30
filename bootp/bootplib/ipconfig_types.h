@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,6 +62,7 @@ typedef enum {
     ipconfig_status_not_found_e = 17,
     ipconfig_status_resource_unavailable_e = 18,
     ipconfig_status_network_changed_e = 19,
+    ipconfig_status_lease_expired_e = 20,
     ipconfig_status_last_e,
 } ipconfig_status_t;
 
@@ -88,7 +89,8 @@ ipconfig_status_string(ipconfig_status_t status)
 	"address timed out",
 	"not found",
 	"resource unavailable",
-	"network changed"
+	"network changed",
+	"lease expired"
     };
     if (status >= ipconfig_status_last_e)
 	return ("<unknown>");

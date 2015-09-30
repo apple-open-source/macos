@@ -49,9 +49,9 @@ AccessibilityTableColumn::~AccessibilityTableColumn()
 {
 }    
 
-PassRefPtr<AccessibilityTableColumn> AccessibilityTableColumn::create()
+Ref<AccessibilityTableColumn> AccessibilityTableColumn::create()
 {
-    return adoptRef(new AccessibilityTableColumn());
+    return adoptRef(*new AccessibilityTableColumn());
 }
 
 void AccessibilityTableColumn::setParent(AccessibilityObject* parent)
@@ -70,41 +70,39 @@ LayoutRect AccessibilityTableColumn::elementRect() const
 AccessibilityObject* AccessibilityTableColumn::headerObject()
 {
     if (!m_parent)
-        return 0;
+        return nullptr;
     
     RenderObject* renderer = m_parent->renderer();
     if (!renderer)
-        return 0;
+        return nullptr;
+    if (!is<AccessibilityTable>(*m_parent))
+        return nullptr;
+
+    auto& parentTable = downcast<AccessibilityTable>(*m_parent);
+    if (!parentTable.isExposableThroughAccessibility())
+        return nullptr;
     
-    if (!m_parent->isAccessibilityTable())
-        return 0;
-    
-    AccessibilityTable* parentTable = toAccessibilityTable(m_parent);
-    if (parentTable->isAriaTable()) {
+    if (parentTable.isAriaTable()) {
         for (const auto& cell : children()) {
             if (cell->ariaRoleAttribute() == ColumnHeaderRole)
                 return cell.get();
         }
         
-        return 0;
+        return nullptr;
     }
 
-    if (!renderer->isTable())
-        return 0;
+    if (!is<RenderTable>(*renderer))
+        return nullptr;
     
-    RenderTable* table = toRenderTable(renderer);
-    
-    AccessibilityObject* headerObject = 0;
-    
-    // try the <thead> section first. this doesn't require th tags
-    headerObject = headerObjectForSection(table->header(), false);
+    RenderTable& table = downcast<RenderTable>(*renderer);
 
-    if (headerObject)
+    // try the <thead> section first. this doesn't require th tags
+    if (auto* headerObject = headerObjectForSection(table.header(), false))
         return headerObject;
     
-    RenderTableSection* bodySection = table->firstBody();
+    RenderTableSection* bodySection = table.firstBody();
     while (bodySection && bodySection->isAnonymous())
-        bodySection = table->sectionBelow(bodySection, SkipEmptySections);
+        bodySection = table.sectionBelow(bodySection, SkipEmptySections);
     
     // now try for <th> tags in the first body. If the first body is 
     return headerObjectForSection(bodySection, true);
@@ -113,16 +111,16 @@ AccessibilityObject* AccessibilityTableColumn::headerObject()
 AccessibilityObject* AccessibilityTableColumn::headerObjectForSection(RenderTableSection* section, bool thTagRequired)
 {
     if (!section)
-        return 0;
+        return nullptr;
     
     unsigned numCols = section->numColumns();
     if (m_columnIndex >= numCols)
-        return 0;
+        return nullptr;
     
     if (!section->numRows())
-        return 0;
+        return nullptr;
     
-    RenderTableCell* cell = 0;
+    RenderTableCell* cell = nullptr;
     // also account for cells that have a span
     for (int testCol = m_columnIndex; testCol >= 0; --testCol) {
         
@@ -152,7 +150,7 @@ AccessibilityObject* AccessibilityTableColumn::headerObjectForSection(RenderTabl
     }
     
     if (!cell)
-        return 0;
+        return nullptr;
 
     return axObjectCache()->getOrCreate(cell);
 }
@@ -174,14 +172,17 @@ void AccessibilityTableColumn::addChildren()
     ASSERT(!m_haveChildren); 
     
     m_haveChildren = true;
-    if (!m_parent || !m_parent->isAccessibilityTable())
+    if (!is<AccessibilityTable>(m_parent))
+        return;
+
+    auto& parentTable = downcast<AccessibilityTable>(*m_parent);
+    if (!parentTable.isExposableThroughAccessibility())
         return;
     
-    AccessibilityTable* parentTable = toAccessibilityTable(m_parent);
-    int numRows = parentTable->rowCount();
+    int numRows = parentTable.rowCount();
     
-    for (int i = 0; i < numRows; i++) {
-        AccessibilityTableCell* cell = parentTable->cellForColumnAndRow(m_columnIndex, i);
+    for (int i = 0; i < numRows; ++i) {
+        AccessibilityTableCell* cell = parentTable.cellForColumnAndRow(m_columnIndex, i);
         if (!cell)
             continue;
         

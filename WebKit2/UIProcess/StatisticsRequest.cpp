@@ -27,7 +27,7 @@
 #include "StatisticsRequest.h"
 
 #include "APIArray.h"
-#include "MutableDictionary.h"
+#include "APIDictionary.h"
 
 namespace WebKit {
 
@@ -51,17 +51,17 @@ uint64_t StatisticsRequest::addOutstandingRequest()
     return requestID;
 }
 
-static void addToDictionaryFromHashMap(MutableDictionary* dictionary, const HashMap<String, uint64_t>& map)
+static void addToDictionaryFromHashMap(API::Dictionary* dictionary, const HashMap<String, uint64_t>& map)
 {
     HashMap<String, uint64_t>::const_iterator end = map.end();
     for (HashMap<String, uint64_t>::const_iterator it = map.begin(); it != end; ++it)
         dictionary->set(it->key, RefPtr<API::UInt64>(API::UInt64::create(it->value)).get());
 }
 
-static PassRefPtr<MutableDictionary> createDictionaryFromHashMap(const HashMap<String, uint64_t>& map)
+static Ref<API::Dictionary> createDictionaryFromHashMap(const HashMap<String, uint64_t>& map)
 {
-    RefPtr<MutableDictionary> result = MutableDictionary::create();
-    addToDictionaryFromHashMap(result.get(), map);
+    Ref<API::Dictionary> result = API::Dictionary::create();
+    addToDictionaryFromHashMap(result.ptr(), map);
     return result;
 }
 
@@ -71,7 +71,7 @@ void StatisticsRequest::completedRequest(uint64_t requestID, const StatisticsDat
     m_outstandingRequests.remove(requestID);
 
     if (!m_responseDictionary)
-        m_responseDictionary = MutableDictionary::create();
+        m_responseDictionary = API::Dictionary::create();
     
     // FIXME (Multi-WebProcess) <rdar://problem/13200059>: This code overwrites any previous response data received.
     // When getting responses from multiple WebProcesses we need to combine items instead of clobbering them.
@@ -79,9 +79,9 @@ void StatisticsRequest::completedRequest(uint64_t requestID, const StatisticsDat
     addToDictionaryFromHashMap(m_responseDictionary.get(), data.statisticsNumbers);
 
     if (!data.javaScriptProtectedObjectTypeCounts.isEmpty())
-        m_responseDictionary->set("JavaScriptProtectedObjectTypeCounts", createDictionaryFromHashMap(data.javaScriptProtectedObjectTypeCounts).get());
+        m_responseDictionary->set("JavaScriptProtectedObjectTypeCounts", createDictionaryFromHashMap(data.javaScriptProtectedObjectTypeCounts));
     if (!data.javaScriptObjectTypeCounts.isEmpty())
-        m_responseDictionary->set("JavaScriptObjectTypeCounts", createDictionaryFromHashMap(data.javaScriptObjectTypeCounts).get());
+        m_responseDictionary->set("JavaScriptObjectTypeCounts", createDictionaryFromHashMap(data.javaScriptObjectTypeCounts));
 
     if (!data.webCoreCacheStatistics.isEmpty()) {
         Vector<RefPtr<API::Object>> cacheStatistics;
@@ -90,12 +90,12 @@ void StatisticsRequest::completedRequest(uint64_t requestID, const StatisticsDat
         for (const auto& statistic : data.webCoreCacheStatistics)
             cacheStatistics.uncheckedAppend(createDictionaryFromHashMap(statistic));
 
-        m_responseDictionary->set("WebCoreCacheStatistics", API::Array::create(WTF::move(cacheStatistics)).get());
+        m_responseDictionary->set("WebCoreCacheStatistics", API::Array::create(WTF::move(cacheStatistics)));
     }
 
     if (m_outstandingRequests.isEmpty()) {
         m_callback->performCallbackWithReturnValue(m_responseDictionary.get());
-        m_callback = 0;
+        m_callback = nullptr;
     }
 }
 

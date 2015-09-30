@@ -29,11 +29,11 @@
 #include "mech_locl.h"
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_get_mic(OM_uint32 *minor_status,
-    const gss_ctx_id_t context_handle,
+gss_get_mic(OM_uint32 *__nonnull minor_status,
+    __nonnull const gss_ctx_id_t context_handle,
     gss_qop_t qop_req,
-    const gss_buffer_t message_buffer,
-    gss_buffer_t message_token)
+    __nonnull const gss_buffer_t message_buffer,
+    __nonnull gss_buffer_t message_token)
 {
 	struct _gss_context *ctx = (struct _gss_context *) context_handle;
 	gssapi_mech_interface m;

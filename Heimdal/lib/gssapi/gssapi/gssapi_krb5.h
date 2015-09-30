@@ -82,9 +82,9 @@ extern gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_nt_principal_name_referral_oi
  */
 
 typedef struct gss_krb5_lucid_key {
-	OM_uint32	type;
-	OM_uint32	length;
-	void *		data;
+	OM_uint32		type;
+	OM_uint32		length;
+	void * __nullable	data;
 } gss_krb5_lucid_key_t;
 
 typedef struct gss_krb5_rfc1964_keydata {

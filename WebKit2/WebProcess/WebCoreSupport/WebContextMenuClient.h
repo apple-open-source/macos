@@ -42,10 +42,10 @@ public:
     }
     
 private:
-    virtual void contextMenuDestroyed();
+    virtual void contextMenuDestroyed() override;
     
 #if USE(CROSS_PLATFORM_CONTEXT_MENUS)
-    virtual PassOwnPtr<WebCore::ContextMenu> customizeMenu(PassOwnPtr<WebCore::ContextMenu>) override;
+    virtual std::unique_ptr<WebCore::ContextMenu> customizeMenu(std::unique_ptr<WebCore::ContextMenu>) override;
 #else
     virtual WebCore::PlatformMenuDescription getCustomMenuFromDefaultItems(WebCore::ContextMenu*) override;
 #endif
@@ -57,7 +57,8 @@ private:
     virtual bool isSpeaking() override;
     virtual void speak(const String&) override;
     virtual void stopSpeaking() override;
-    
+    virtual WebCore::ContextMenuItem shareMenuItem(const WebCore::HitTestResult&) override;
+
 #if PLATFORM(COCOA)
     virtual void searchWithSpotlight() override;
 #endif

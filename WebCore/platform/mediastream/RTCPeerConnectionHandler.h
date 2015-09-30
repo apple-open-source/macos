@@ -39,7 +39,7 @@
 
 namespace WebCore {
 
-class MediaStreamSource;
+class RealtimeMediaSource;
 class RTCConfigurationPrivate;
 class RTCDTMFSenderHandler;
 class RTCDataChannelHandler;
@@ -73,7 +73,7 @@ typedef std::unique_ptr<RTCPeerConnectionHandler> (*CreatePeerConnectionHandler)
 
 class RTCPeerConnectionHandler {
 public:
-    static CreatePeerConnectionHandler create;
+    WEBCORE_EXPORT static CreatePeerConnectionHandler create;
     virtual ~RTCPeerConnectionHandler() { }
 
     static const AtomicString& incompatibleConstraintsErrorName();
@@ -95,7 +95,7 @@ public:
     virtual void removeStream(PassRefPtr<MediaStreamPrivate>) = 0;
     virtual void getStats(PassRefPtr<RTCStatsRequest>) = 0;
     virtual std::unique_ptr<RTCDataChannelHandler> createDataChannel(const String& label, const RTCDataChannelInit&) = 0;
-    virtual std::unique_ptr<RTCDTMFSenderHandler> createDTMFSender(PassRefPtr<MediaStreamSource>) = 0;
+    virtual std::unique_ptr<RTCDTMFSenderHandler> createDTMFSender(PassRefPtr<RealtimeMediaSource>) = 0;
     virtual void stop() = 0;
 };
 

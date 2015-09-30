@@ -25,7 +25,7 @@
 #ifndef _DEFINES_H
 #define _DEFINES_H
 
-/* $Id: defines.h,v 1.171 2013/03/07 09:06:13 dtucker Exp $ */
+/* $Id: defines.h,v 1.183 2014/09/02 19:33:26 djm Exp $ */
 
 
 /* Constants */
@@ -105,6 +105,17 @@ enum
 # endif /* PATH_MAX */
 #endif /* MAXPATHLEN */
 
+#ifndef HOST_NAME_MAX
+# include "netdb.h" /* for MAXHOSTNAMELEN */
+# if defined(_POSIX_HOST_NAME_MAX)
+#  define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+# elif defined(MAXHOSTNAMELEN)
+#  define HOST_NAME_MAX MAXHOSTNAMELEN
+# else
+#  define HOST_NAME_MAX	255
+# endif
+#endif /* HOST_NAME_MAX */
+
 #if defined(HAVE_DECL_MAXSYMLINKS) && HAVE_DECL_MAXSYMLINKS == 0
 # define MAXSYMLINKS 5
 #endif
@@ -169,11 +180,6 @@ enum
 
 #ifndef MAP_FAILED
 # define MAP_FAILED ((void *)-1)
-#endif
-
-/* *-*-nto-qnx doesn't define this constant in the system headers */
-#ifdef MISSING_NFDBITS
-# define	NFDBITS (8 * sizeof(unsigned long))
 #endif
 
 /*
@@ -274,6 +280,21 @@ typedef unsigned long long int u_int64_t;
 # endif
 #endif
 
+#ifndef HAVE_UINTXX_T
+typedef u_int8_t uint8_t;
+typedef u_int16_t uint16_t;
+typedef u_int32_t uint32_t;
+typedef u_int64_t uint64_t;
+#endif
+
+#ifndef HAVE_INTMAX_T
+typedef long long intmax_t;
+#endif
+
+#ifndef HAVE_UINTMAX_T
+typedef unsigned long long uintmax_t;
+#endif
+
 #ifndef HAVE_U_CHAR
 typedef unsigned char u_char;
 # define HAVE_U_CHAR
@@ -355,9 +376,17 @@ struct winsize {
 };
 #endif
 
-/* *-*-nto-qnx does not define this type in the system headers */
-#ifdef MISSING_FD_MASK
+/* bits needed for select that may not be in the system headers */
+#ifndef HAVE_FD_MASK
  typedef unsigned long int	fd_mask;
+#endif
+
+#if defined(HAVE_DECL_NFDBITS) && HAVE_DECL_NFDBITS == 0
+# define	NFDBITS (8 * sizeof(unsigned long))
+#endif
+
+#if defined(HAVE_DECL_HOWMANY) && HAVE_DECL_HOWMANY == 0
+# define howmany(x,y)	(((x)+((y)-1))/(y))
 #endif
 
 /* Paths */
@@ -387,7 +416,7 @@ struct winsize {
 
 /* user may have set a different path */
 #if defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY)
-# undef _PATH_MAILDIR MAILDIR
+# undef _PATH_MAILDIR
 #endif /* defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY) */
 
 #ifdef MAIL_DIRECTORY
@@ -484,11 +513,6 @@ struct winsize {
 # define __nonnull__(x)
 #endif
 
-/* *-*-nto-qnx doesn't define this macro in the system headers */
-#ifdef MISSING_HOWMANY
-# define howmany(x,y)	(((x)+((y)-1))/(y))
-#endif
-
 #ifndef OSSH_ALIGNBYTES
 #define OSSH_ALIGNBYTES	(sizeof(int) - 1)
 #endif
@@ -573,6 +597,12 @@ struct winsize {
 # undef HAVE_GAI_STRERROR
 #endif
 
+#if defined(HAVE_GETADDRINFO)
+# if defined(HAVE_DECL_AI_NUMERICSERV) && HAVE_DECL_AI_NUMERICSERV == 0
+#   define AI_NUMERICSERV	0
+# endif
+#endif
+
 #if defined(BROKEN_UPDWTMPX) && defined(HAVE_UPDWTMPX)
 # undef HAVE_UPDWTMPX
 #endif
@@ -589,10 +619,6 @@ struct winsize {
 #if !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY)
 # define memmove(s1, s2, n) bcopy((s2), (s1), (n))
 #endif /* !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY) */
-
-#if defined(HAVE_VHANGUP) && !defined(HAVE_DEV_PTMX)
-#  define USE_VHANGUP
-#endif /* defined(HAVE_VHANGUP) && !defined(HAVE_DEV_PTMX) */
 
 #ifndef GETPGRP_VOID
 # include <unistd.h>
@@ -796,12 +822,32 @@ struct winsize {
 # define SSH_IOBUFSZ 8192
 #endif
 
-#ifndef _NSIG
-# ifdef NSIG
-#  define _NSIG NSIG
+/*
+ * Platforms that have arc4random_uniform() and not arc4random_stir()
+ * shouldn't need the latter.
+ */
+#if defined(HAVE_ARC4RANDOM) && defined(HAVE_ARC4RANDOM_UNIFORM) && \
+    !defined(HAVE_ARC4RANDOM_STIR)
+# define arc4random_stir()
+#endif
+
+#ifndef HAVE_VA_COPY
+# ifdef HAVE___VA_COPY
+#  define va_copy(dest, src) __va_copy(dest, src)
 # else
-#  define _NSIG 128
+#  define va_copy(dest, src) (dest) = (src)
 # endif
 #endif
+
+#ifndef __predict_true
+# if defined(__GNUC__) && \
+     ((__GNUC__ > (2)) || (__GNUC__ == (2) && __GNUC_MINOR__ >= (96)))
+#  define __predict_true(exp)     __builtin_expect(((exp) != 0), 1)
+#  define __predict_false(exp)    __builtin_expect(((exp) != 0), 0)
+# else
+#  define __predict_true(exp)     ((exp) != 0)
+#  define __predict_false(exp)    ((exp) != 0)
+# endif /* gcc version */
+#endif /* __predict_true */
 
 #endif /* _DEFINES_H */

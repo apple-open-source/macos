@@ -177,6 +177,7 @@ bind_random(int sock)
 		/* random port in the range RANDOM_BIND_FIRST to RANDOM_BIND_LAST */
 		src_port = (res_randomid() % (RANDOM_BIND_LAST - RANDOM_BIND_FIRST)) + RANDOM_BIND_FIRST;
 		memset(&local, 0, sizeof(struct sockaddr_in));
+		local.sin_family = AF_INET;
 		local.sin_port = htons(src_port);
 
 		status = bind(sock, (struct sockaddr *)&local, sizeof(struct sockaddr_in));

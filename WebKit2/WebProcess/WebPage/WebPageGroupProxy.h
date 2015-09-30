@@ -37,25 +37,27 @@ class MessageDecoder;
 
 namespace WebCore {
 class PageGroup;
+class UserContentController;
 }
 
 namespace WebKit {
+
+class WebCompiledContentExtensionData;
 
 class WebPageGroupProxy : public API::ObjectImpl<API::Object::Type::BundlePageGroup> {
 public:
     static PassRefPtr<WebPageGroupProxy> create(const WebPageGroupData&);
     virtual ~WebPageGroupProxy();
 
-    const String& identifier() const { return m_data.identifer; }
+    const String& identifier() const { return m_data.identifier; }
     uint64_t pageGroupID() const { return m_data.pageGroupID; }
     bool isVisibleToInjectedBundle() const { return m_data.visibleToInjectedBundle; }
     bool isVisibleToHistoryClient() const { return m_data.visibleToHistoryClient; }
     WebCore::PageGroup* corePageGroup() const { return m_pageGroup; }
 
-    void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&);
+    WebCore::UserContentController& userContentController();
 
-private:
-    WebPageGroupProxy(const WebPageGroupData&);
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&);
 
     void addUserStyleSheet(const WebCore::UserStyleSheet&);
     void addUserScript(const WebCore::UserScript&);
@@ -63,8 +65,19 @@ private:
     void removeAllUserScripts();
     void removeAllUserContent();
 
+#if ENABLE(CONTENT_EXTENSIONS)
+    void addUserContentExtension(const String& name, WebCompiledContentExtensionData);
+    void removeUserContentExtension(const String& name);
+    void removeAllUserContentExtensions();
+#endif
+
+private:
+    WebPageGroupProxy(const WebPageGroupData&);
+
     WebPageGroupData m_data;
     WebCore::PageGroup* m_pageGroup;
+
+    RefPtr<WebCore::UserContentController> m_userContentController;
 };
 
 } // namespace WebKit

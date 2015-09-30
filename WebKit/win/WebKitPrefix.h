@@ -27,11 +27,11 @@
  */ 
 
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0502
+#define _WIN32_WINNT 0x601
 #endif
 
 #ifndef WINVER
-#define WINVER 0x0502
+#define WINVER 0x0601
 #endif
 
 #ifndef _WINSOCKAPI_
@@ -45,3 +45,10 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <WebKit/WebKit.h>
+#include "config.h"
+
+// WebKit.dll is expected to export the symbols in WebCore that have been marked
+// as WEBCORE_EXPORT
+#undef WEBCORE_EXPORT
+#define WEBCORE_EXPORT WTF_EXPORT_DECLARATION
+

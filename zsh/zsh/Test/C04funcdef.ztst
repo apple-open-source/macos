@@ -208,6 +208,11 @@
 >Da de da
 >Do be do
 
+  () (cat $1 $2) <(print process expanded) =(print expanded to file)
+0:Process substitution with anonymous functions
+>process expanded
+>expanded to file
+
   () { print This has arguments $*; } of all sorts; print After the function
   function { print More stuff $*; } and why not; print Yet more
 0:Anonymous function with arguments
@@ -266,7 +271,29 @@
 >OK
 >ignorebraces is off
 >ignorebraces is still on here
+#` (matching error message for editors parsing the file)
 
+# lsfoo should not be expanded as an anonymous function argument
+ alias lsfoo='This is not ls.'
+ () (echo anon func; echo "$@") lsfoo
+0:Anonmous function with arguments in a form nobody sane would ever use but unfortunately we have to support anyway
+>anon func
+>lsfoo
+
+ print foo | () cat
+0:Simple anonymous function should not simplify enclosing pipeline
+>foo
+
+ alias fooalias=barexpansion
+ funcwithalias() { echo $(fooalias); }
+ functions funcwithalias
+ barexpansion() { print This is the correct output.; }
+ funcwithalias
+0:Alias expanded in command substitution does not appear expanded in text
+>funcwithalias () {
+>	echo $(fooalias)
+>}
+>This is the correct output.
 
 %clean
 

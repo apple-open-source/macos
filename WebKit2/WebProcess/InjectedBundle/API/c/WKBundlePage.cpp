@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011, 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,7 +46,9 @@
 #include "WebFrame.h"
 #include "WebFullScreenManager.h"
 #include "WebImage.h"
+#include "WebInspector.h"
 #include "WebPage.h"
+#include "WebPageGroupProxy.h"
 #include "WebPageOverlay.h"
 #include "WebRenderLayer.h"
 #include "WebRenderObject.h"
@@ -57,6 +59,7 @@
 #include <WebCore/PageOverlay.h>
 #include <WebCore/PageOverlayController.h>
 #include <WebCore/URL.h>
+#include <WebCore/WheelEventTestTrigger.h>
 #include <wtf/StdLibExtras.h>
 
 using namespace WebKit;
@@ -69,7 +72,7 @@ WKTypeID WKBundlePageGetTypeID()
 void WKBundlePageSetContextMenuClient(WKBundlePageRef pageRef, WKBundlePageContextMenuClientBase* wkClient)
 {
 #if ENABLE(CONTEXT_MENUS)
-    toImpl(pageRef)->initializeInjectedBundleContextMenuClient(wkClient);
+    toImpl(pageRef)->setInjectedBundleContextMenuClient(std::make_unique<InjectedBundlePageContextMenuClient>(wkClient));
 #else
     UNUSED_PARAM(pageRef);
     UNUSED_PARAM(wkClient);
@@ -460,12 +463,7 @@ void WKBundlePageListenForLayoutMilestones(WKBundlePageRef pageRef, WKLayoutMile
 
 WKBundleInspectorRef WKBundlePageGetInspector(WKBundlePageRef pageRef)
 {
-#if ENABLE(INSPECTOR)
     return toAPI(toImpl(pageRef)->inspector());
-#else
-    UNUSED_PARAM(pageRef);
-    return 0;
-#endif
 }
 
 void WKBundlePageForceRepaint(WKBundlePageRef page)
@@ -526,7 +524,7 @@ void WKBundlePageResetTrackedRepaints(WKBundlePageRef pageRef)
 
 WKArrayRef WKBundlePageCopyTrackedRepaintRects(WKBundlePageRef pageRef)
 {
-    return toAPI(toImpl(pageRef)->trackedRepaintRects().leakRef());
+    return toAPI(&toImpl(pageRef)->trackedRepaintRects().leakRef());
 }
 
 void WKBundlePageSetComposition(WKBundlePageRef pageRef, WKStringRef text, int from, int length)
@@ -575,3 +573,43 @@ void WKBundlePageSetUseTestingViewportConfiguration(WKBundlePageRef pageRef, boo
     toImpl(pageRef)->setUseTestingViewportConfiguration(useTestingViewportConfiguration);
 }
 #endif
+
+void WKBundlePageStartMonitoringScrollOperations(WKBundlePageRef pageRef)
+{
+    WebKit::WebPage* webPage = toImpl(pageRef);
+    WebCore::Page* page = webPage ? webPage->corePage() : nullptr;
+    
+    if (!page)
+        return;
+
+    page->ensureTestTrigger();
+}
+
+void WKBundlePageRegisterScrollOperationCompletionCallback(WKBundlePageRef pageRef, WKBundlePageTestNotificationCallback callback, void* context)
+{
+    if (!callback)
+        return;
+    
+    WebKit::WebPage* webPage = toImpl(pageRef);
+    WebCore::Page* page = webPage ? webPage->corePage() : nullptr;
+    if (!page || !page->expectsWheelEventTriggers())
+        return;
+    
+    page->ensureTestTrigger().setTestCallbackAndStartNotificationTimer([=]() {
+        callback(context);
+    });
+}
+
+void WKBundlePagePostMessage(WKBundlePageRef pageRef, WKStringRef messageNameRef, WKTypeRef messageBodyRef)
+{
+    toImpl(pageRef)->postMessage(toWTFString(messageNameRef), toImpl(messageBodyRef));
+}
+
+void WKBundlePagePostSynchronousMessage(WKBundlePageRef pageRef, WKStringRef messageNameRef, WKTypeRef messageBodyRef, WKTypeRef* returnDataRef)
+{
+    RefPtr<API::Object> returnData;
+    toImpl(pageRef)->postSynchronousMessage(toWTFString(messageNameRef), toImpl(messageBodyRef), returnData);
+    if (returnDataRef)
+        *returnDataRef = toAPI(returnData.release().leakRef());
+}
+

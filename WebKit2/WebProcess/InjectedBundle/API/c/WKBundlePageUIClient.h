@@ -54,6 +54,10 @@ typedef WKStringRef (*WKBundlePagePlugInCreateStartLabelTitleCallback)(WKStringR
 typedef WKStringRef (*WKBundlePagePlugInCreateStartLabelSubtitleCallback)(WKStringRef mimeType, const void *clientInfo);
 typedef WKStringRef (*WKBundlePagePlugInCreateExtraStyleSheetCallback)(const void *clientInfo);
 typedef WKStringRef (*WKBundlePagePlugInCreateExtraScriptCallback)(const void *clientInfo);
+typedef void (*WKBundlePageDidBeginTrackingPotentialLongMousePressCallback)(WKBundlePageRef page, WKPoint mouseDownPosition, WKBundleHitTestResultRef hitTestResult, WKTypeRef* userData, const void *clientInfo);
+typedef void (*WKBundlePageDidRecognizeLongMousePressCallback)(WKBundlePageRef page, WKTypeRef* userData, const void *clientInfo);
+typedef void (*WKBundlePageDidCancelTrackingPotentialLongMousePressCallback)(WKBundlePageRef page, WKTypeRef* userData, const void *clientInfo);
+typedef void (*WKBundlePageDidClickAutoFillButtonCallback)(WKBundlePageRef page, WKBundleNodeHandleRef inputElement, WKTypeRef* userData, const void *clientInfo);
 
 typedef struct WKBundlePageUIClientBase {
     int                                                                 version;
@@ -133,6 +137,43 @@ typedef struct WKBundlePageUIClientV2 {
     WKBundlePagePlugInCreateExtraScriptCallback                         createPlugInExtraScript;
 } WKBundlePageUIClientV2;
 
+typedef struct WKBundlePageUIClientV3 {
+    WKBundlePageUIClientBase                                            base;
+
+    // Version 0.
+    WKBundlePageWillAddMessageToConsoleCallback                         willAddMessageToConsole;
+    WKBundlePageWillSetStatusbarTextCallback                            willSetStatusbarText;
+    WKBundlePageWillRunJavaScriptAlertCallback                          willRunJavaScriptAlert;
+    WKBundlePageWillRunJavaScriptConfirmCallback                        willRunJavaScriptConfirm;
+    WKBundlePageWillRunJavaScriptPromptCallback                         willRunJavaScriptPrompt;
+    WKBundlePageMouseDidMoveOverElementCallback                         mouseDidMoveOverElement;
+    WKBundlePageDidScrollCallback                                       pageDidScroll;
+    void*                                                               unused1;
+    WKBundlePageGenerateFileForUploadCallback                           shouldGenerateFileForUpload;
+    WKBundlePageGenerateFileForUploadCallback                           generateFileForUpload;
+    void*                                                               unused2;
+    WKBundlePageStatusBarIsVisibleCallback                              statusBarIsVisible;
+    WKBundlePageMenuBarIsVisibleCallback                                menuBarIsVisible;
+    WKBundlePageToolbarsAreVisibleCallback                              toolbarsAreVisible;
+
+    // Version 1.
+    WKBundlePageReachedAppCacheOriginQuotaCallback                      didReachApplicationCacheOriginQuota;
+
+    // Version 2.
+    WKBundlePageExceededDatabaseQuotaCallback                           didExceedDatabaseQuota;
+    WKBundlePagePlugInCreateStartLabelTitleCallback                     createPlugInStartLabelTitle;
+    WKBundlePagePlugInCreateStartLabelSubtitleCallback                  createPlugInStartLabelSubtitle;
+    WKBundlePagePlugInCreateExtraStyleSheetCallback                     createPlugInExtraStyleSheet;
+    WKBundlePagePlugInCreateExtraScriptCallback                         createPlugInExtraScript;
+
+    // Version 3.
+    WKBundlePageDidBeginTrackingPotentialLongMousePressCallback         didBeginTrackingPotentialLongMousePress;
+    WKBundlePageDidRecognizeLongMousePressCallback                      didRecognizeLongMousePress;
+    WKBundlePageDidCancelTrackingPotentialLongMousePressCallback        didCancelTrackingPotentialLongMousePress;
+
+    WKBundlePageDidClickAutoFillButtonCallback                          didClickAutoFillButton;
+} WKBundlePageUIClientV3;
+
 enum { kWKBundlePageUIClientCurrentVersion WK_ENUM_DEPRECATED("Use an explicit version number instead") = 2 };
 typedef struct WKBundlePageUIClient {
     int                                                                 version;
@@ -163,6 +204,6 @@ typedef struct WKBundlePageUIClient {
     WKBundlePagePlugInCreateStartLabelSubtitleCallback                  createPlugInStartLabelSubtitle;
     WKBundlePagePlugInCreateExtraStyleSheetCallback                     createPlugInExtraStyleSheet;
     WKBundlePagePlugInCreateExtraScriptCallback                         createPlugInExtraScript;
-} WKBundlePageUIClient WK_DEPRECATED("Use an explicit versioned struct instead");
+} WKBundlePageUIClient WK_C_DEPRECATED("Use an explicit versioned struct instead");
 
 #endif // WKBundlePageUIClient_h

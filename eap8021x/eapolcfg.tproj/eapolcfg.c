@@ -493,7 +493,7 @@ S_profile_show_export_remove(const char * command,
 	{ "domain",	required_argument,	NULL,	'd' },
 	{ NULL,		0,			NULL,	0 }
     };
-    EAPOLClientProfileRef	profile;
+    EAPOLClientProfileRef	profile = NULL;
     CFStringRef			profileID = NULL;
     int				ret = 1;
     CFDataRef			ssid = NULL;
@@ -1319,7 +1319,6 @@ S_password_item_set(const char * command, int argc, char * const * argv)
     CFDataRef			name = NULL;
     bool			P_flag = FALSE;
     CFDataRef			password = NULL;
-    EAPOLClientProfileRef	profile = NULL;
     CFStringRef			profileID = NULL;
     int				ret = 1;
     bool			system_flag = FALSE;
@@ -1466,7 +1465,6 @@ S_password_item_get(const char * command, int argc, char * const * argv)
     };
     bool			P_flag = FALSE;
     CFDataRef			password = NULL;
-    EAPOLClientProfileRef	profile = NULL;
     CFStringRef			profileID = NULL;
     CFDataRef			name = NULL;
     bool			n_flag = FALSE;
@@ -1590,7 +1588,6 @@ S_password_item_remove(const char * command, int argc, char * const * argv)
 	{ "ssid",	required_argument,	NULL,	's' },
 	{ NULL,		0,		NULL,	0 }
     };
-    EAPOLClientProfileRef	profile = NULL;
     CFStringRef			profileID = NULL;
     int				ret = 1;
     bool			system_flag = FALSE;
@@ -1692,7 +1689,6 @@ S_identity_set_clear_get(const char * command, int argc, char * const * argv)
 	{ "certificate", 	required_argument,	NULL,	'c' },
 	{ NULL,			0,			NULL,	0 }
     };
-    EAPOLClientProfileRef	profile = NULL;
     CFStringRef			profileID = NULL;
     int				ret = 1;
     CFDataRef			ssid = NULL;
@@ -2404,7 +2400,6 @@ S_authentication_start(const char * command, int argc, char * const * argv)
 	{ "ssid",		required_argument,	NULL,	's' },
 	{ NULL,			0,			NULL,	0 }
     };
-    EAPOLClientProfileRef	profile;
     CFStringRef			profileID = NULL;
     int				ret = 1;
     CFDataRef			ssid = NULL;

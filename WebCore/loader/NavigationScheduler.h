@@ -37,10 +37,12 @@
 
 namespace WebCore {
 
+class Document;
 class FormSubmission;
 class Frame;
 class ScheduledNavigation;
 class SecurityOrigin;
+class SubstituteData;
 class URL;
 
 class NavigationDisablerForBeforeUnload {
@@ -68,11 +70,12 @@ public:
     bool redirectScheduledDuringLoad();
     bool locationChangePending();
 
-    void scheduleRedirect(double delay, const URL&);
-    void scheduleLocationChange(SecurityOrigin*, const URL&, const String& referrer, LockHistory = LockHistory::Yes, LockBackForwardList = LockBackForwardList::Yes);
+    void scheduleRedirect(Document* initiatingDocument, double delay, const URL&);
+    void scheduleLocationChange(Document* initiatingDocument, SecurityOrigin*, const URL&, const String& referrer, LockHistory = LockHistory::Yes, LockBackForwardList = LockBackForwardList::Yes);
     void scheduleFormSubmission(PassRefPtr<FormSubmission>);
-    void scheduleRefresh();
+    void scheduleRefresh(Document* initiatingDocument);
     void scheduleHistoryNavigation(int steps);
+    void scheduleSubstituteDataLoad(const URL& baseURL, const SubstituteData&);
 
     void startTimer();
 
@@ -83,7 +86,7 @@ private:
     bool shouldScheduleNavigation() const;
     bool shouldScheduleNavigation(const URL&) const;
 
-    void timerFired(Timer&);
+    void timerFired();
     void schedule(std::unique_ptr<ScheduledNavigation>);
 
     static LockBackForwardList mustLockBackForwardList(Frame& targetFrame);

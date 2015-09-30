@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2009, 2010, 2014 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -178,6 +178,16 @@ public:
     std::unique_ptr<CSSParserValueList> args;
 };
 
+enum class CSSParserSelectorCombinator {
+    Child,
+    DescendantSpace,
+#if ENABLE(CSS_SELECTORS_LEVEL4)
+    DescendantDoubleChild,
+#endif
+    DirectAdjacent,
+    IndirectAdjacent
+};
+
 class CSSParserSelector {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -195,12 +205,13 @@ public:
     void setValue(const AtomicString& value) { m_selector->setValue(value); }
     void setAttribute(const QualifiedName& value, bool isCaseInsensitive) { m_selector->setAttribute(value, isCaseInsensitive); }
     void setArgument(const AtomicString& value) { m_selector->setArgument(value); }
-    void setMatch(CSSSelector::Match value) { m_selector->m_match = value; }
-    void setRelation(CSSSelector::Relation value) { m_selector->m_relation = value; }
+    void setAttributeValueMatchingIsCaseInsensitive(bool isCaseInsensitive) { m_selector->setAttributeValueMatchingIsCaseInsensitive(isCaseInsensitive); }
+    void setMatch(CSSSelector::Match value) { m_selector->setMatch(value); }
+    void setRelation(CSSSelector::Relation value) { m_selector->setRelation(value); }
     void setForPage() { m_selector->setForPage(); }
 
-
     void adoptSelectorVector(Vector<std::unique_ptr<CSSParserSelector>>& selectorVector);
+    void setLangArgumentList(const Vector<CSSParserString>& stringVector);
 
     void setPseudoClassValue(const CSSParserString& pseudoClassString);
     CSSSelector::PseudoClassType pseudoClassType() const { return m_selector->pseudoClassType(); }
@@ -209,23 +220,28 @@ public:
     bool isPseudoElementCueFunction() const
     {
 #if ENABLE(VIDEO_TRACK)
-        return m_selector->m_match == CSSSelector::PseudoElement && m_selector->pseudoElementType() == CSSSelector::PseudoElementCue;
+        return m_selector->match() == CSSSelector::PseudoElement && m_selector->pseudoElementType() == CSSSelector::PseudoElementCue;
 #else
         return false;
 #endif
     }
 
-    bool isSimple() const;
     bool hasShadowDescendant() const;
+    bool matchesPseudoElement() const;
 
     CSSParserSelector* tagHistory() const { return m_tagHistory.get(); }
     void setTagHistory(std::unique_ptr<CSSParserSelector> selector) { m_tagHistory = WTF::move(selector); }
     void clearTagHistory() { m_tagHistory.reset(); }
     void insertTagHistory(CSSSelector::Relation before, std::unique_ptr<CSSParserSelector>, CSSSelector::Relation after);
     void appendTagHistory(CSSSelector::Relation, std::unique_ptr<CSSParserSelector>);
+    void appendTagHistory(CSSParserSelectorCombinator, std::unique_ptr<CSSParserSelector>);
     void prependTagSelector(const QualifiedName&, bool tagIsForNamespaceRule = false);
 
 private:
+#if ENABLE(CSS_SELECTORS_LEVEL4)
+    void setDescendantUseDoubleChildSyntax() { m_selector->setDescendantUseDoubleChildSyntax(); }
+#endif
+
     std::unique_ptr<CSSSelector> m_selector;
     std::unique_ptr<CSSParserSelector> m_tagHistory;
 };

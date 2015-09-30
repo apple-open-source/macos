@@ -369,7 +369,7 @@ signal_suspend(UNUSED(int sig), int wait_cmd)
 #ifdef POSIX_SIGNALS
 # ifdef BROKEN_POSIX_SIGSUSPEND
     sigprocmask(SIG_SETMASK, &set, &oset);
-    pause();
+    ret = pause();
     sigprocmask(SIG_SETMASK, &oset, NULL);
 # else /* not BROKEN_POSIX_SIGSUSPEND */
     ret = sigsuspend(&set);
@@ -522,14 +522,14 @@ wait_for_processes(void)
 	    get_usage();
 	}
 	/*
-	 * Remember the status associated with $!, so we can
-	 * wait for it even if it's exited.  This value is
-	 * only used if we can't find the PID in the job table,
-	 * so it doesn't matter that the value we save here isn't
-	 * useful until the process has exited.
+	 * Accumulate a list of older jobs.  We only do this for
+	 * background jobs, which is something in the job table
+	 * that's not marked as in the current shell or as shell builtin
+	 * and is not equal to the current foreground job.
 	 */
-	if (pn != NULL && pid == lastpid && lastpid_status != -1L)
-	    lastpid_status = lastval2;
+	if (jn && !(jn->stat & (STAT_CURSH|STAT_BUILTIN)) &&
+	    jn - jobtab != thisjob)
+	    addbgstatus(pid, (int)lastval2);
     }
 }
 
@@ -594,6 +594,17 @@ zhandler(int sig)
 	wait_for_processes();
         break;
  
+    case SIGPIPE:
+	if (!handletrap(SIGPIPE)) {
+	    if (!interact)
+		_exit(SIGPIPE);
+	    else if (!isatty(SHTTY)) {
+		stopmsg = 1;
+		zexit(SIGPIPE, 1);
+	    }
+	}
+	break;
+
     case SIGHUP:
         if (!handletrap(SIGHUP)) {
             stopmsg = 1;
@@ -608,7 +619,7 @@ zhandler(int sig)
 		zexit(SIGINT, 1);
             if (list_pipe || chline || simple_pline) {
                 breaks = loops;
-                errflag = 1;
+                errflag |= ERRFLAG_INT;
 		inerrflush();
 		check_cursh_sig(SIGINT);
             }
@@ -629,6 +640,11 @@ zhandler(int sig)
 	    if (idle >= 0 && idle < tmout)
 		alarm(tmout - idle);
 	    else {
+		/*
+		 * We want to exit now.
+		 * Cancel all errors, including a user interrupt
+		 * which is now redundant.
+		 */
 		errflag = noerrs = 0;
 		zwarn("timeout");
 		stopmsg = 1;
@@ -752,7 +768,7 @@ dosavetrap(int sig, int level)
 	Shfunc shf, newshf = NULL;
 	if ((shf = (Shfunc)gettrapnode(sig, 1))) {
 	    /* Copy the node for saving */
-	    newshf = (Shfunc) zalloc(sizeof(*newshf));
+	    newshf = (Shfunc) zshcalloc(sizeof(*newshf));
 	    newshf->node.nam = ztrdup(shf->node.nam);
 	    newshf->node.flags = shf->node.flags;
 	    newshf->funcdef = dupeprog(shf->funcdef, 0);
@@ -896,6 +912,8 @@ removetrap(int sig)
         intr();
 	noholdintr();
     } else if (sig == SIGHUP)
+        install_handler(sig);
+    else if (sig == SIGPIPE && interact && !forklevel)
         install_handler(sig);
     else if (sig && sig <= SIGCOUNT &&
 #ifdef SIGWINCH
@@ -1155,6 +1173,7 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
     char *name, num[4];
     int obreaks = breaks;
     int oretflag = retflag;
+    int olastval = lastval;
     int isfunc;
     int traperr, new_trap_state, new_trap_return;
 
@@ -1191,7 +1210,7 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
     intrap++;
     *sigtr |= ZSIG_IGNORED;
 
-    lexsave();
+    zcontext_save();
     /* execsave will save the old trap_return and trap_state */
     execsave();
     breaks = retflag = 0;
@@ -1246,14 +1265,25 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
     new_trap_return = trap_return;
 
     execrestore();
-    lexrestore();
+    zcontext_restore();
 
     if (new_trap_state == TRAP_STATE_FORCE_RETURN &&
 	/* zero return from function isn't special */
 	!(isfunc && new_trap_return == 0)) {
 	if (isfunc) {
 	    breaks = loops;
-	    errflag = 1;
+	    /*
+	     * For SIGINT we behave the same as the default behaviour
+	     * i.e. we set the error bit indicating an interrupt.
+	     * We do this with SIGQUIT, too, even though we don't
+	     * handle SIGQUIT by default.  That's to try to make
+	     * it behave a bit more like its normal behaviour when
+	     * the trap handler has told us that's what it wants.
+	     */
+	    if (sig == SIGINT || sig == SIGQUIT)
+		errflag |= ERRFLAG_INT;
+	    else
+		errflag |= ERRFLAG_ERROR;
 	}
 	lastval = new_trap_return;
 	/* return triggered */
@@ -1261,8 +1291,19 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
     } else {
 	if (traperr && !EMULATION(EMULATE_SH))
 	    lastval = 1;
-	if (try_tryflag)
-	    errflag = traperr;
+	else {
+	    /*
+	     * With no explicit forced return, we keep the
+	     * lastval from before the trap ran.
+	     */
+	    lastval = olastval;
+	}
+	if (try_tryflag) {
+	    if (traperr)
+		errflag |= ERRFLAG_ERROR;
+	    else
+		errflag &= ~ERRFLAG_ERROR;
+	}
 	breaks += obreaks;
 	/* return not triggered: restore old flag */
 	retflag = oretflag;

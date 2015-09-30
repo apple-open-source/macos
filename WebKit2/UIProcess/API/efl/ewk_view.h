@@ -31,14 +31,11 @@
  * - "back,forward,list,changed", void: reports that the view's back / forward list had changed.
  * - "cancel,vibration", void: request to cancel the vibration.
  * - "contents,size,changed", Ewk_CSS_Size*: reports that contents size was changed.
- * - "download,cancelled", Ewk_Download_Job*: reports that a download was effectively cancelled.
- * - "download,failed", Ewk_Download_Job_Error*: reports that a download failed with the given error.
- * - "download,finished", Ewk_Download_Job*: reports that a download completed successfully.
- * - "download,request", Ewk_Download_Job*: reports that a new download has been requested. The client should set the
- *   destination path by calling ewk_download_job_destination_set() or the download will fail.
  * - "file,chooser,request", Ewk_File_Chooser_Request*: reports that a request has been made for the user to choose
  *   a file (or several) on the file system. Call ewk_file_chooser_request_ref() on the request object to process it
  *   asynchronously.
+ * - "focus,notfound", Ewk_Focus_Direction*: reports that there was no element to be focused on the given direction.
+ *   The user can handle next focus behavior using the signal.
  * - "form,submission,request", Ewk_Form_Submission_Request*: Reports that a form request is about to be submitted.
  *   The Ewk_Form_Submission_Request passed contains information about the text fields of the form. This
  *   is typically used to store login information that can be used later to pre-fill the form.
@@ -77,7 +74,6 @@
 #include "ewk_context.h"
 #include "ewk_context_menu.h"
 #include "ewk_download_job.h"
-#include "ewk_error.h"
 #include "ewk_page_group.h"
 #include "ewk_popup_menu.h"
 #include "ewk_security_origin.h"
@@ -115,7 +111,25 @@ struct Ewk_View_Smart_Class {
     Eina_Bool (*context_menu_show)(Ewk_View_Smart_Data *sd, Evas_Coord x, Evas_Coord y, Ewk_Context_Menu *menu);
     Eina_Bool (*context_menu_hide)(Ewk_View_Smart_Data *sd);
 
+    /**
+     * @brief smart method to notify that \<select\> tag is pressed.
+     *
+     * Application should implement this method to support select tag.
+     *
+     * @note After @c popup_menu_hide is called, @a menu will not be valid.
+     *
+     * @see ewk_popup_menu_selected_index_get
+     * @see ewk_popup_menu_selected_index_set
+     * @see ewk_popup_menu_close
+     */
     Eina_Bool (*popup_menu_show)(Ewk_View_Smart_Data *sd, Eina_Rectangle rect, Ewk_Text_Direction text_direction, double page_scale_factor, Ewk_Popup_Menu *menu);
+    /**
+     * @brief smart method to notify that current @a menu will be hidden and destroyed.
+     *
+     * @see ewk_popup_menu_selected_index_get
+     * @see ewk_popup_menu_selected_index_set
+     * @see ewk_popup_menu_close
+     */
     Eina_Bool (*popup_menu_hide)(Ewk_View_Smart_Data *sd);
 
     // event handling:
@@ -200,7 +214,12 @@ struct Ewk_View_Smart_Class {
  */
 #define EWK_VIEW_SMART_CLASS_INIT_NAME_VERSION(name) EWK_VIEW_SMART_CLASS_INIT(EVAS_SMART_CLASS_INIT_NAME_VERSION(name))
 
+#ifdef __cplusplus
+typedef class EwkView EwkView;
+#else
 typedef struct EwkView EwkView;
+#endif
+
 /**
  * @brief Contains an internal View data.
  *
@@ -223,17 +242,6 @@ struct Ewk_View_Smart_Data {
     } changed;
 };
 
-/// Creates a type name for Ewk_Download_Job_Error.
-typedef struct Ewk_Download_Job_Error Ewk_Download_Job_Error;
-
-/**
- * @brief Structure containing details about a download failure.
- */
-struct Ewk_Download_Job_Error {
-    Ewk_Download_Job *download_job; /**< download that failed */
-    Ewk_Error *error; /**< download error */
-};
-
 /// Creates a type name for Ewk_CSS_Size.
 typedef struct Ewk_CSS_Size Ewk_CSS_Size;
 
@@ -248,7 +256,6 @@ struct Ewk_CSS_Size {
 /**
  * Enum values used to specify search options.
  * @brief   Provides option to find text
- * @info    Keep this in sync with WKFindOptions.h
  */
 enum Ewk_Find_Options {
     EWK_FIND_OPTIONS_NONE, /**< no search flags, this means a case sensitive, no wrap, forward only search. */
@@ -274,6 +281,14 @@ typedef enum {
     EWK_PAGINATION_MODE_TOP_TO_BOTTOM, /**< go to the next page with scrolling top to bottom vertically. */
     EWK_PAGINATION_MODE_BOTTOM_TO_TOP /**< go to the next page with scrolling bottom to top vertically. */
 } Ewk_Pagination_Mode;
+
+/**
+ * Enum values used to set focus direction.
+ */
+typedef enum Ewk_Focus_Direction {
+    EWK_FOCUS_DIRECTION_FORWARD = 0,
+    EWK_FOCUS_DIRECTION_BACKWARD,
+} Ewk_Focus_Direction;
 
 /**
  * @typedef Ewk_View_Script_Execute_Cb Ewk_View_Script_Execute_Cb
@@ -536,7 +551,7 @@ EAPI Eina_Bool ewk_view_html_string_load(Evas_Object *o, const char *html, const
  *
  * @return @c EINA_TRUE on success or @c EINA_FALSE otherwise
  */
-EAPI Eina_Bool ewk_view_scale_set(Evas_Object *o, double scaleFactor, int x, int y);
+EAPI Eina_Bool ewk_view_scale_set(Evas_Object *o, double scale_factor, int cx, int cy);
 
 /**
  * Queries the current scale factor of the page.
@@ -592,6 +607,8 @@ EAPI double ewk_view_page_zoom_get(const Evas_Object *o);
  * using a device pixel ratio of 2.0 it can be done by loading an image of say 100x100
  * pixels but showing it at half the size.
  *
+ * @code
+ *
  * @media (-webkit-min-device-pixel-ratio: 1.5) {
  *     .icon {
  *         width: 50px;
@@ -599,6 +616,8 @@ EAPI double ewk_view_page_zoom_get(const Evas_Object *o);
  *         url: "/images/icon@2x.png"; // This is actually a 100x100 image
  *     }
  * }
+ *
+ * @endcode
  *
  * If the above is used on a device with device pixel ratio of 1.5, it will be scaled
  * down but still provide a better looking image.
@@ -669,8 +688,9 @@ EAPI Eina_Bool ewk_view_custom_encoding_set(Evas_Object *o, const char *encoding
  *
  * @param o view object to get the current user agent
  *
- * @return @c eina_stringshare containing the current user agent, or
- *         @c default user agent if it's not set
+ * @return @c eina_stringshare containing the current user agent, or @c default user agent
+ *
+ * @see ewk_view_user_agent_set()
  */
 EAPI const char *ewk_view_user_agent_get(const Evas_Object *o);
 
@@ -680,9 +700,52 @@ EAPI const char *ewk_view_user_agent_get(const Evas_Object *o);
  * @param o view to set the user agent
  * @param user_agent the user agent string to set or @c NULL to restore the default one
  *
+ * @note If you just want to add your application name in the user agent,
+ *       use ewk_view_application_name_for_user_agent_set().
+ *
  * @return @c EINA_TRUE on success @c EINA_FALSE otherwise
+ *
+ * @see ewk_view_application_name_for_user_agent_get()
+ * @see ewk_view_application_name_for_user_agent_set()
  */
 EAPI Eina_Bool ewk_view_user_agent_set(Evas_Object *o, const char *user_agent);
+
+/**
+ * Gets the application name for the user agent string.
+ *
+ * @param o view object to get the current application name
+ *
+ * @return @c eina_stringshare containing the current application name
+ *         @c NULL otherwise
+ *
+ * @see ewk_view_application_name_for_user_agent_set()
+ */
+EAPI const char *ewk_view_application_name_for_user_agent_get(const Evas_Object *o);
+
+/**
+ * Sets the application name for the user agent string.
+ *
+ * In HTTP, the user agent string is used for content negotiation,
+ * where the origin server selects suitable content or operating parameters for the response.
+ *
+ * If custom user agent is not set by ewk_view_user_agent_set(),
+ * the user agent string will consist of the common components which web engine provides and @a application_name.
+ *
+ * If you want to change the whole user agent string, please use ewk_view_user_agent_set().
+ *
+ * @param o view to set application name for the user agent
+ * @param application_name the application_name to set or @c NULL to remove application_name from the common user agent string.
+ *
+ * @note Below is the example of default user agent string.
+ *
+ *       Mozilla/5.0 (X11; Linux; Unknown) AppleWebKit/601.1 (KHTML, like Gecko) Version/8.0 Safari/601.1 @a application_name
+ *
+ * @return @c EINA_TRUE on success @c EINA_FALSE otherwise
+ *
+ * @see ewk_view_user_agent_set()
+ * @see ewk_view_user_agent_get()
+ */
+EAPI Eina_Bool ewk_view_application_name_for_user_agent_set(Evas_Object *o, const char *application_name);
 
 /**
  * Searches and hightlights the given string in the document.
@@ -942,6 +1005,42 @@ EAPI void ewk_view_bg_color_get(const Evas_Object *o, int *r, int *g, int *b, in
  * @return @c EINA_TRUE on success or @c EINA_FALSE otherwise
  */
 EAPI Eina_Bool ewk_view_contents_size_get(const Evas_Object *o, Evas_Coord *width, Evas_Coord *height);
+
+/**
+ * Get status of the activate action. Activate action describes the click.
+ *
+ * @param o view of the object
+ *
+ * @return @c EINA_TRUE on success, or @c EINA_FALSE otherwise
+ */
+EAPI Eina_Bool ewk_view_accessibility_action_activate_get(const Evas_Object *o);
+
+/**
+ * Get status of the next action. Action next moves and focuses next object.
+ *
+ * @param o view of the object
+ *
+ * @return @c EINA_TRUE on success, or @c EINA_FALSE otherwise
+ */
+EAPI Eina_Bool ewk_view_accessibility_action_next_get(const Evas_Object *o);
+
+/**
+ * Get status of the previous action. Previous action moves and focuses previous element.
+ *
+ * @param o view of the object
+ *
+ * @return @c EINA_TRUE on success, or @c EINA_FALSE otherwise
+ */
+EAPI Eina_Bool ewk_view_accessibility_action_prev_get(const Evas_Object *o);
+
+/**
+ * Get status of the read action. Read action focuses object with specific coordinates.
+ *
+ * @param o view of the object
+ *
+ * @return @c EINA_TRUE on success, or @c EINA_FALSE otherwise
+ */
+EAPI Eina_Bool ewk_view_accessibility_action_read_by_point_get(const Evas_Object *o);
 
 #ifdef __cplusplus
 }

@@ -38,7 +38,7 @@ namespace WebKit {
 
 class DatabaseToWebProcessConnection : public RefCounted<DatabaseToWebProcessConnection>, public IPC::Connection::Client, public IPC::MessageSender {
 public:
-    static PassRefPtr<DatabaseToWebProcessConnection> create(IPC::Connection::Identifier);
+    static Ref<DatabaseToWebProcessConnection> create(IPC::Connection::Identifier);
     ~DatabaseToWebProcessConnection();
 
     IPC::Connection* connection() const { return m_connection.get(); }
@@ -47,11 +47,13 @@ private:
     DatabaseToWebProcessConnection(IPC::Connection::Identifier);
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
-    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
-    virtual void didClose(IPC::Connection*) override;
-    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
-    void didReceiveDatabaseToWebProcessConnectionMessage(IPC::Connection*, IPC::MessageDecoder&);
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    virtual void didClose(IPC::Connection&) override;
+    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::Database; }
+    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Web; }
+    void didReceiveDatabaseToWebProcessConnectionMessage(IPC::Connection&, IPC::MessageDecoder&);
 
     // IPC::MessageSender
     virtual IPC::Connection* messageSenderConnection() override { return m_connection.get(); }

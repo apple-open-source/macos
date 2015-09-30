@@ -25,13 +25,14 @@
 
 #if PLATFORM(IOS)
 
-#import <UIKit/UIWebScrollView.h>
+#import "UIKitSPI.h"
 
 @class WKWebView;
 
 @interface WKScrollView : UIWebScrollView
 
 @property (nonatomic, assign) WKWebView <UIScrollViewDelegate> *internalDelegate;
+@property (nonatomic, readonly) CGFloat preferredScrollDecelerationFactor;
 
 - (void)_setContentSizePreservingContentOffsetDuringRubberband:(CGSize)contentSize;
 

@@ -56,7 +56,7 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
         return IgnoreObject;
 
     // Include all tables, even layout tables. The AT can decide what to do with each.
-    if (role == CellRole || role == TableRole)
+    if (role == CellRole || role == TableRole || role == ColumnHeaderRole || role == RowHeaderRole)
         return IncludeObject;
 
     // The object containing the text should implement AtkText itself.
@@ -76,10 +76,17 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     if (role == UnknownRole)
         return IgnoreObject;
 
+    if (role == InlineRole)
+        return IncludeObject;
+
     // Lines past this point only make sense for AccessibilityRenderObjects.
     RenderObject* renderObject = renderer();
     if (!renderObject)
         return DefaultBehavior;
+
+    // The text displayed by an ARIA menu item is exposed through the accessible name.
+    if (renderObject->isAnonymousBlock() && parent->isMenuItem())
+        return IgnoreObject;
 
     // We don't want <span> elements to show up in the accessibility hierarchy unless
     // we have good reasons for that (e.g. focusable or visible because of containing
@@ -154,7 +161,7 @@ bool AccessibilityObject::allowsTextRanges() const
 
     // Check roles as the last fallback mechanism.
     AccessibilityRole role = roleValue();
-    return role == ParagraphRole || role == LabelRole || role == DivRole || role == FormRole;
+    return role == ParagraphRole || role == LabelRole || role == DivRole || role == FormRole || role == PreRole;
 }
 
 unsigned AccessibilityObject::getLengthForTextRange() const
@@ -166,9 +173,9 @@ unsigned AccessibilityObject::getLengthForTextRange() const
 
     // Gtk ATs need this for all text objects; not just text controls.
     Node* node = this->node();
-    RenderObject* renderer = node ? node->renderer() : 0;
-    if (renderer && renderer->isText())
-        textLength = toRenderText(*renderer).textLength();
+    RenderObject* renderer = node ? node->renderer() : nullptr;
+    if (is<RenderText>(renderer))
+        textLength = downcast<RenderText>(*renderer).textLength();
 
     // Get the text length from the elements under the
     // accessibility object if the value is still zero.

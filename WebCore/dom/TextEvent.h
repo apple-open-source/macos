@@ -37,15 +37,15 @@ namespace WebCore {
 
     enum class MailBlockquoteHandling;
 
-    class TextEvent : public UIEvent {
+    class TextEvent final : public UIEvent {
     public:
 
-        static PassRefPtr<TextEvent> create();
-        static PassRefPtr<TextEvent> create(PassRefPtr<AbstractView>, const String& data, TextEventInputType = TextEventInputKeyboard);
-        static PassRefPtr<TextEvent> createForPlainTextPaste(PassRefPtr<AbstractView>, const String& data, bool shouldSmartReplace);
-        static PassRefPtr<TextEvent> createForFragmentPaste(PassRefPtr<AbstractView>, PassRefPtr<DocumentFragment> data, bool shouldSmartReplace, bool shouldMatchStyle, MailBlockquoteHandling);
-        static PassRefPtr<TextEvent> createForDrop(PassRefPtr<AbstractView>, const String& data);
-        static PassRefPtr<TextEvent> createForDictation(PassRefPtr<AbstractView>, const String& data, const Vector<DictationAlternative>& dictationAlternatives);
+        static Ref<TextEvent> create();
+        static Ref<TextEvent> create(PassRefPtr<AbstractView>, const String& data, TextEventInputType = TextEventInputKeyboard);
+        static Ref<TextEvent> createForPlainTextPaste(PassRefPtr<AbstractView>, const String& data, bool shouldSmartReplace);
+        static Ref<TextEvent> createForFragmentPaste(PassRefPtr<AbstractView>, PassRefPtr<DocumentFragment> data, bool shouldSmartReplace, bool shouldMatchStyle, MailBlockquoteHandling);
+        static Ref<TextEvent> createForDrop(PassRefPtr<AbstractView>, const String& data);
+        static Ref<TextEvent> createForDictation(PassRefPtr<AbstractView>, const String& data, const Vector<DictationAlternative>& dictationAlternatives);
 
         virtual ~TextEvent();
     
@@ -87,8 +87,8 @@ namespace WebCore {
         Vector<DictationAlternative> m_dictationAlternatives;
     };
 
-EVENT_TYPE_CASTS(TextEvent)
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENT(TextEvent)
 
 #endif // TextEvent_h

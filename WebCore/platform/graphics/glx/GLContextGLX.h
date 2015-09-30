@@ -23,12 +23,10 @@
 #if USE(GLX)
 
 #include "GLContext.h"
+#include "XUniquePtr.h"
+#include "XUniqueResource.h"
 
-typedef struct __GLXcontextRec* GLXContext;
-typedef unsigned long GLXPbuffer;
-typedef unsigned long GLXPixmap;
 typedef unsigned char GLubyte;
-typedef unsigned long Pixmap;
 typedef unsigned long XID;
 typedef void* ContextKeyType;
 
@@ -37,9 +35,12 @@ namespace WebCore {
 class GLContextGLX : public GLContext {
     WTF_MAKE_NONCOPYABLE(GLContextGLX);
 public:
-    static PassOwnPtr<GLContextGLX> createContext(XID window, GLContext* sharingContext);
-    static PassOwnPtr<GLContextGLX> createWindowContext(XID window, GLContext* sharingContext);
+    static std::unique_ptr<GLContextGLX> createContext(XID window, GLContext* sharingContext);
+    static std::unique_ptr<GLContextGLX> createWindowContext(XID window, GLContext* sharingContext);
 
+    GLContextGLX(XUniqueGLXContext&&, XID);
+    GLContextGLX(XUniqueGLXContext&&, XUniqueGLXPbuffer&&);
+    GLContextGLX(XUniqueGLXContext&&, XUniquePixmap&&, XUniqueGLXPixmap&&);
     virtual ~GLContextGLX();
     virtual bool makeContextCurrent();
     virtual void swapBuffers();
@@ -47,24 +48,22 @@ public:
     virtual bool canRenderToDefaultFramebuffer();
     virtual IntSize defaultFrameBufferSize();
     virtual cairo_device_t* cairoDevice();
+    virtual bool isEGLContext() const { return false; }
 
-#if USE(3D_GRAPHICS)
+#if ENABLE(GRAPHICS_CONTEXT_3D)
     virtual PlatformGraphicsContext3D platformContext();
 #endif
 
 private:
-    static PassOwnPtr<GLContextGLX> createPbufferContext(GLXContext sharingContext);
-    static PassOwnPtr<GLContextGLX> createPixmapContext(GLXContext sharingContext);
+    static std::unique_ptr<GLContextGLX> createPbufferContext(GLXContext sharingContext);
+    static std::unique_ptr<GLContextGLX> createPixmapContext(GLXContext sharingContext);
 
-    GLContextGLX(GLXContext);
-    GLContextGLX(GLXContext, Pixmap, GLXPixmap);
-
-    GLXContext m_context;
-    XID m_window;
-    GLXPbuffer m_pbuffer;
-    Pixmap m_pixmap;
-    GLXPixmap m_glxPixmap;
-    cairo_device_t* m_cairoDevice;
+    XUniqueGLXContext m_context;
+    XID m_window { 0 };
+    XUniqueGLXPbuffer m_pbuffer;
+    XUniquePixmap m_pixmap;
+    XUniqueGLXPixmap m_glxPixmap;
+    cairo_device_t* m_cairoDevice { nullptr };
 };
 
 } // namespace WebCore

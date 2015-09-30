@@ -26,8 +26,6 @@
 #include "config.h"
 #include "InspectorConsoleAgent.h"
 
-#if ENABLE(INSPECTOR)
-
 #include "ConsoleMessage.h"
 #include "InjectedScriptManager.h"
 #include "ScriptArguments.h"
@@ -57,22 +55,22 @@ InspectorConsoleAgent::~InspectorConsoleAgent()
 {
 }
 
-void InspectorConsoleAgent::didCreateFrontendAndBackend(Inspector::InspectorFrontendChannel* frontendChannel, InspectorBackendDispatcher* backendDispatcher)
+void InspectorConsoleAgent::didCreateFrontendAndBackend(FrontendChannel* frontendChannel, BackendDispatcher* backendDispatcher)
 {
-    m_frontendDispatcher = std::make_unique<InspectorConsoleFrontendDispatcher>(frontendChannel);
-    m_backendDispatcher = InspectorConsoleBackendDispatcher::create(backendDispatcher, this);
+    m_frontendDispatcher = std::make_unique<ConsoleFrontendDispatcher>(frontendChannel);
+    m_backendDispatcher = ConsoleBackendDispatcher::create(backendDispatcher, this);
 }
 
-void InspectorConsoleAgent::willDestroyFrontendAndBackend(InspectorDisconnectReason)
+void InspectorConsoleAgent::willDestroyFrontendAndBackend(DisconnectReason)
 {
     m_frontendDispatcher = nullptr;
-    m_backendDispatcher.clear();
+    m_backendDispatcher = nullptr;
 
     String errorString;
-    disable(&errorString);
+    disable(errorString);
 }
 
-void InspectorConsoleAgent::enable(ErrorString*)
+void InspectorConsoleAgent::enable(ErrorString&)
 {
     if (m_enabled)
         return;
@@ -89,7 +87,7 @@ void InspectorConsoleAgent::enable(ErrorString*)
         m_consoleMessages[i]->addToFrontend(m_frontendDispatcher.get(), m_injectedScriptManager, false);
 }
 
-void InspectorConsoleAgent::disable(ErrorString*)
+void InspectorConsoleAgent::disable(ErrorString&)
 {
     if (!m_enabled)
         return;
@@ -97,7 +95,7 @@ void InspectorConsoleAgent::disable(ErrorString*)
     m_enabled = false;
 }
 
-void InspectorConsoleAgent::clearMessages(ErrorString*)
+void InspectorConsoleAgent::clearMessages(ErrorString&)
 {
     m_consoleMessages.clear();
     m_expiredConsoleMessageCount = 0;
@@ -111,50 +109,24 @@ void InspectorConsoleAgent::clearMessages(ErrorString*)
 
 void InspectorConsoleAgent::reset()
 {
-    ErrorString error;
-    clearMessages(&error);
+    ErrorString unused;
+    clearMessages(unused);
 
     m_times.clear();
     m_counts.clear();
 }
 
-void InspectorConsoleAgent::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, PassRefPtr<ScriptCallStack> callStack, unsigned long requestIdentifier)
+void InspectorConsoleAgent::addMessageToConsole(std::unique_ptr<ConsoleMessage> message)
 {
     if (!m_injectedScriptManager->inspectorEnvironment().developerExtrasEnabled())
         return;
 
-    if (type == MessageType::Clear) {
-        ErrorString error;
-        clearMessages(&error);
+    if (message->type() == MessageType::Clear) {
+        ErrorString unused;
+        clearMessages(unused);
     }
 
-    addConsoleMessage(std::make_unique<ConsoleMessage>(source, type, level, message, callStack, requestIdentifier));
-}
-
-void InspectorConsoleAgent::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, JSC::ExecState* state, PassRefPtr<ScriptArguments> arguments, unsigned long requestIdentifier)
-{
-    if (!m_injectedScriptManager->inspectorEnvironment().developerExtrasEnabled())
-        return;
-
-    if (type == MessageType::Clear) {
-        ErrorString error;
-        clearMessages(&error);
-    }
-
-    addConsoleMessage(std::make_unique<ConsoleMessage>(source, type, level, message, arguments, state, requestIdentifier));
-}
-
-void InspectorConsoleAgent::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, const String& scriptID, unsigned lineNumber, unsigned columnNumber, JSC::ExecState* state, unsigned long requestIdentifier)
-{
-    if (!m_injectedScriptManager->inspectorEnvironment().developerExtrasEnabled())
-        return;
-
-    if (type == MessageType::Clear) {
-        ErrorString error;
-        clearMessages(&error);
-    }
-
-    addConsoleMessage(std::make_unique<ConsoleMessage>(source, type, level, message, scriptID, lineNumber, columnNumber, state, requestIdentifier));
+    addConsoleMessage(WTF::move(message));
 }
 
 Vector<unsigned> InspectorConsoleAgent::consoleMessageArgumentCounts() const
@@ -191,7 +163,7 @@ void InspectorConsoleAgent::stopTiming(const String& title, PassRefPtr<ScriptCal
 
     double elapsed = monotonicallyIncreasingTime() - startTime;
     String message = title + String::format(": %.3fms", elapsed * 1000);
-    addMessageToConsole(MessageSource::ConsoleAPI, MessageType::Timing, MessageLevel::Debug, message, callStack);
+    addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::Timing, MessageLevel::Debug, message, callStack));
 }
 
 void InspectorConsoleAgent::count(JSC::ExecState* state, PassRefPtr<ScriptArguments> arguments)
@@ -216,7 +188,7 @@ void InspectorConsoleAgent::count(JSC::ExecState* state, PassRefPtr<ScriptArgume
     m_counts.add(identifier, count);
 
     String message = title + ": " + String::number(count);
-    addMessageToConsole(MessageSource::ConsoleAPI, MessageType::Log, MessageLevel::Debug, message, callStack);
+    addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::Log, MessageLevel::Debug, message, callStack));
 }
 
 static bool isGroupMessage(MessageType type)
@@ -249,5 +221,3 @@ void InspectorConsoleAgent::addConsoleMessage(std::unique_ptr<ConsoleMessage> co
 }
 
 } // namespace Inspector
-
-#endif // ENABLE(INSPECTOR)

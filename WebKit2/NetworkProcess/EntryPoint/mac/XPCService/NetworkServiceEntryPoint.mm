@@ -30,11 +30,15 @@
 #import "WKBase.h"
 #import "XPCServiceEntryPoint.h"
 
+#if HAVE(OS_ACTIVITY)
+#include <os/activity.h>
+#endif
+
 namespace WebKit {
 
 class NetworkServiceInitializerDelegate : public XPCServiceInitializerDelegate {
 public:
-    NetworkServiceInitializerDelegate(IPC::XPCPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
+    NetworkServiceInitializerDelegate(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
         : XPCServiceInitializerDelegate(WTF::move(connection), initializerMessage)
     {
     }
@@ -53,6 +57,14 @@ void NetworkServiceInitializer(xpc_connection_t connection, xpc_object_t initial
     // the this process don't try to insert the shim and crash.
     EnvironmentUtilities::stripValuesEndingWithString("DYLD_INSERT_LIBRARIES", "/SecItemShim.dylib");
 
-    XPCServiceInitializer<NetworkProcess, NetworkServiceInitializerDelegate>(IPC::adoptXPC(connection), initializerMessage);
+#if HAVE(OS_ACTIVITY)
+    os_activity_t activity = os_activity_start("com.apple.WebKit.Networking", OS_ACTIVITY_FLAG_DEFAULT);
+#endif
+
+    XPCServiceInitializer<NetworkProcess, NetworkServiceInitializerDelegate>(adoptOSObject(connection), initializerMessage);
+
+#if HAVE(OS_ACTIVITY)
+    os_activity_end(activity);
+#endif
 #endif
 }

@@ -44,6 +44,7 @@ static char sccsid[] = "@(#)random.c	8.2 (Berkeley) 5/19/95";
 # include <unistd.h>
 #endif
 #include <stdio.h>
+#include <os/log.h>
 
 #include <ntp_types.h>
 #include <ntp_random.h>
@@ -482,6 +483,7 @@ ntp_random( void )
 	return(i);
 }
 
+#if __has_include(<openssl/err.h>)
 /*
  * Crypto-quality random number functions
  *
@@ -534,10 +536,11 @@ ntp_crypto_random_buf(
 
 		err = ERR_get_error();
 		err_str = ERR_error_string(err, NULL);
+        os_log_error(OS_LOG_DEFAULT, "%s", err_str);
 		/* XXX: Log the error */
 
 		return -1;
 	}
 	return 0;
 }
-
+#endif // <openssl/err.h>

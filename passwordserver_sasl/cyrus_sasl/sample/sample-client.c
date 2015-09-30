@@ -44,6 +44,7 @@
 #include "../../cyrus_sasl/config.h"
 #include <limits.h>
 #include <stdio.h>
+#include <readline/readline.h>
 #include <string.h>
 #include <stdlib.h>
 #ifdef WIN32
@@ -99,7 +100,7 @@ build_ident[] = "$Build: sample-client " PACKAGE "-" VERSION " $";
 static const char *progname = NULL;
 static int verbose;
 
-#define SAMPLE_SEC_BUF_SIZE (2048)
+#define SAMPLE_SEC_BUF_SIZE (4096)
 
 #define N_CALLBACKS (16)
 
@@ -406,10 +407,15 @@ samp_recv()
 {
   unsigned len;
   int result;
+
+  char *line = readline(NULL);
   
-  if (! fgets(buf, SAMPLE_SEC_BUF_SIZE, stdin)) {
+  if (! line) {
     fail("Unable to parse input");
   }
+
+  strlcpy(buf, line, SAMPLE_SEC_BUF_SIZE);
+  free(line);
 
   if (strncmp(buf, "S: ", 3) != 0) {
     fail("Line must start with 'S: '");

@@ -376,6 +376,7 @@ private:
         uint32_t                    txPullOptions;
         uint32_t                    txQueueSize;
         uint32_t                    txSchedulingModel;
+        uint32_t                    txTargetQdelay;
         uint32_t                    txThreadState;
         volatile UInt32             txThreadFlags;
         uint32_t                    txThreadSignal;
@@ -396,6 +397,8 @@ private:
         void *                      peqRefcon;
         uint32_t                    subType;
 #endif
+        uint16_t                    txStartDelayQueueLength;	/* optional */
+        uint16_t                    txStartDelayTimeout;        /* optional */
     };
 
     ExpansionData *         _reserved;
@@ -1084,6 +1087,20 @@ protected:
 	virtual bool     initIfnetParams( struct ifnet_init_params * params );
 
     OSMetaClassDeclareReservedUsed(IONetworkInterface, 4);
+    
+/*! @function configureOutputStartDelay
+    @abstract Configure the output start delay
+    @discussion This optional routine, if used, needs to be called after 
+    IONetworkInterface::init() and before IONetworkInterface::attachToDataLinkLayer().
+    This allows for over-riding ifnet_init_eparams.start_delay_qlen and 
+    ifnet_init_eparams.start_delay_timeout.
+    @param outputStartDelayQueueLength, maps to ifnet_init_eparams.start_delay_qlen
+    @param outputStartDelayTimeout, maps to ifnet_init_eparams.start_delay_timeout
+    @result <code>kIOReturnSuccess</code> if interface was successfully
+    configured.
+ */
+    IOReturn configureOutputStartDelay( uint16_t outputStartDelayQueueLength,
+                                        uint16_t outputStartDelayTimeout );
 
 public:
 #ifdef __PRIVATE_SPI__
@@ -1153,6 +1170,7 @@ public:
     Pass zero or <code>kOutputPacketSchedulingModelNormal</code> for the default
     model which lets the network stacking choose the most appropriate scheduling
     and queueing algorithm.
+    @param outputTargetQdelay Allow drivers to set the default target delay.
     @result <code>kIOReturnSuccess</code> if interface was successfully
     configured to use the pull-model for outbound packets.
 */
@@ -1160,7 +1178,8 @@ public:
                             uint32_t       driverQueueSize,
                             IOOptionBits   options               = 0,
                             uint32_t       outputQueueSize       = 0,
-                            uint32_t       outputSchedulingModel = 0 );
+                            uint32_t       outputSchedulingModel = 0,
+                            uint32_t       outputTargetQdelay = 0);
 
     OSMetaClassDeclareReservedUsed(IONetworkInterface, 5);
 

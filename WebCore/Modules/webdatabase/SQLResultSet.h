@@ -29,8 +29,6 @@
 #ifndef SQLResultSet_h
 #define SQLResultSet_h
 
-#if ENABLE(SQL_DATABASE)
-
 #include "DatabaseBasicTypes.h"
 #include "SQLResultSetRowList.h"
 #include <wtf/ThreadSafeRefCounted.h>
@@ -39,7 +37,7 @@ namespace WebCore {
 
 class SQLResultSet : public ThreadSafeRefCounted<SQLResultSet> {
 public:
-    static PassRefPtr<SQLResultSet> create() { return adoptRef(new SQLResultSet); }
+    static Ref<SQLResultSet> create() { return adoptRef(*new SQLResultSet); }
 
     SQLResultSetRowList* rows() const;
 
@@ -60,7 +58,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif
 
 #endif // SQLResultSet_h

@@ -48,11 +48,15 @@ struct PACTYPE {
 };
 
 struct krb5_pac_data {
+    struct heim_base_uniq base;
     struct PACTYPE *pac;
     krb5_data data;
     struct PAC_INFO_BUFFER *server_checksum;
     struct PAC_INFO_BUFFER *privsvr_checksum;
     struct PAC_INFO_BUFFER *logon_name;
+    struct PAC_INFO_BUFFER *credential_info;
+
+    krb5_data credential_data;
 };
 
 #define PAC_ALIGNMENT			8
@@ -60,10 +64,12 @@ struct krb5_pac_data {
 #define PACTYPE_SIZE			8
 #define PAC_INFO_BUFFER_SIZE		16
 
+#define PAC_CREDENTIAL_INFO		2
 #define PAC_SERVER_CHECKSUM		6
 #define PAC_PRIVSVR_CHECKSUM		7
 #define PAC_LOGON_NAME			10
 #define PAC_CONSTRAINED_DELEGATION	11
+#define PAC_USER_UPN_DNS		12
 
 #define CHECK(r,f,l)						\
 	do {							\
@@ -111,6 +117,26 @@ HMAC_MD5_any_checksum(krb5_context context,
     return ret;
 }
 
+static krb5_error_code
+assign_pac_buffer(krb5_context context, struct PAC_INFO_BUFFER **val, struct PAC_INFO_BUFFER *value, const char *type)
+{
+    if (*val != NULL) {
+	krb5_set_error_message(context, EINVAL, N_("PAC have two %s", ""), type);
+	return EINVAL;
+    }
+    *val = value;
+    return 0;
+}
+
+
+static void
+pac_release(void *ptr)
+{
+    krb5_pac pac = ptr;
+    krb5_data_free(&pac->data);
+    krb5_data_free(&pac->credential_data);
+    free(pac->pac);
+}
 
 /*
  *
@@ -125,7 +151,7 @@ krb5_pac_parse(krb5_context context, const void *ptr, size_t len,
     krb5_storage *sp = NULL;
     uint32_t i, tmp, tmp2, header_end;
 
-    p = calloc(1, sizeof(*p));
+    p = heim_uniq_alloc(sizeof(*p), "krb5-pac", pac_release);
     if (p == NULL) {
 	ret = krb5_enomem(context);
 	goto out;
@@ -142,7 +168,12 @@ krb5_pac_parse(krb5_context context, const void *ptr, size_t len,
     CHECK(ret, krb5_ret_uint32(sp, &tmp2), out);
     if (tmp < 1) {
 	ret = EINVAL; /* Too few buffers */
-	krb5_set_error_message(context, ret, N_("PAC have too few buffer", ""));
+	krb5_set_error_message(context, ret, N_("PAC have too few buffers", ""));
+	goto out;
+    }
+    if (tmp > 1000) {
+	ret = HEIM_PAC_TOO_MANY; /* Too many buffers */
+	krb5_set_error_message(context, ret, N_("PAC have too many buffers", ""));
 	goto out;
     }
     if (tmp2 != 0) {
@@ -209,31 +240,25 @@ krb5_pac_parse(krb5_context context, const void *ptr, size_t len,
 	}
 
 	/* let save pointer to data we need later */
-	if (p->pac->buffers[i].type == PAC_SERVER_CHECKSUM) {
-	    if (p->server_checksum) {
-		ret = EINVAL;
-		krb5_set_error_message(context, ret,
-				       N_("PAC have two server checksums", ""));
-		goto out;
-	    }
-	    p->server_checksum = &p->pac->buffers[i];
-	} else if (p->pac->buffers[i].type == PAC_PRIVSVR_CHECKSUM) {
-	    if (p->privsvr_checksum) {
-		ret = EINVAL;
-		krb5_set_error_message(context, ret,
-				       N_("PAC have two KDC checksums", ""));
-		goto out;
-	    }
-	    p->privsvr_checksum = &p->pac->buffers[i];
-	} else if (p->pac->buffers[i].type == PAC_LOGON_NAME) {
-	    if (p->logon_name) {
-		ret = EINVAL;
-		krb5_set_error_message(context, ret,
-				       N_("PAC have two logon names", ""));
-		goto out;
-	    }
-	    p->logon_name = &p->pac->buffers[i];
+	switch (p->pac->buffers[i].type) {
+	case PAC_SERVER_CHECKSUM:
+	    ret = assign_pac_buffer(context, &p->server_checksum, &p->pac->buffers[i], "server checksum");
+	    break;
+	case PAC_PRIVSVR_CHECKSUM:
+	    ret = assign_pac_buffer(context, &p->privsvr_checksum, &p->pac->buffers[i], "KDC checksum");
+	    break;
+	case PAC_LOGON_NAME:
+	    ret = assign_pac_buffer(context, &p->logon_name, &p->pac->buffers[i], "logon names");
+	    break;
+	case PAC_CREDENTIAL_INFO:
+	    ret = assign_pac_buffer(context, &p->credential_info, &p->pac->buffers[i], "credential info");
+	    break;
+	default:
+	    _krb5_debugx(context, 5, "krb5_pac_parse: unsupported pac type %d", (int)p->pac->buffers[i].type);
+	    ret = 0;
 	}
+	if (ret)
+	    goto out;
     }
 
     ret = krb5_data_copy(&p->data, ptr, len);
@@ -264,7 +289,7 @@ krb5_pac_init(krb5_context context, krb5_pac *pac)
     krb5_error_code ret;
     krb5_pac p;
 
-    p = calloc(1, sizeof(*p));
+    p = heim_uniq_alloc(sizeof(*p), "krb5-pac", pac_release);
     if (p == NULL) {
 	return krb5_enomem(context);
     }
@@ -429,11 +454,7 @@ krb5_pac_get_types(krb5_context context,
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_pac_free(krb5_context context, krb5_pac pac)
 {
-    if (pac) {
-	krb5_data_free(&pac->data);
-	free(pac->pac);
-	free(pac);
-    }
+    heim_release(pac);
 }
 
 /*
@@ -871,6 +892,97 @@ krb5_pac_verify(krb5_context context,
     }
 
     return 0;
+}
+
+/*
+ *
+ */
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_pac_process_credentials_buffer(krb5_context context,
+				    krb5_pac pac,
+				    krb5_keyblock *as_rep_key)
+{
+    uint32_t version = 0;
+    int32_t encryptionType = 0;
+    krb5_storage *sp = NULL;
+    krb5_crypto crypto = NULL;
+    krb5_error_code ret;
+
+    if (pac->credential_data.length)
+	return HEIM_PAC_MALFORMED;
+
+    if (pac->credential_info == NULL)
+	return HEIM_PAC_CINFO_MISSING;
+
+    if (pac->credential_info->buffersize < 8)
+	return HEIM_PAC_MALFORMED;
+    if (pac->credential_info->buffersize > 10000)
+	return HEIM_PAC_TOO_MANY;
+
+    sp = krb5_storage_from_readonly_mem(((const char *)pac->data.data) + pac->credential_info->offset_lo,
+					pac->credential_info->buffersize);
+    if (sp == NULL)
+	return krb5_enomem(context);
+
+    krb5_storage_set_flags(sp, KRB5_STORAGE_BYTEORDER_LE);
+
+    CHECK(ret, krb5_ret_uint32(sp, &version), out);
+    CHECK(ret, krb5_ret_int32(sp, &encryptionType), out);
+
+    if (version != 0) {
+	ret = HEIM_PAC_VERSION;
+	krb5_set_error_message(context, ret, N_("unsupport pac credentail version: %d", ""), (int)version);
+	goto out;
+    }
+    
+    /*
+     * Check the specific encryptes we support, these are hard coded in MS-KILE/MS-PAC
+     */
+    switch (encryptionType) {
+    case 0x01:
+    case 0x03:
+    case 0x11:
+    case 0x12:
+    case 0x17:
+	break;
+    default:
+	ret = HEIM_PAC_INVALID_ENCTYPE;
+	krb5_set_error_message(context, ret, N_("enctype: %d not support as pac enctype", ""), (int)encryptionType);
+	goto out;
+    }
+
+    if (as_rep_key->keytype != encryptionType) {
+	ret = HEIM_PAC_INVALID_ENCTYPE;
+	krb5_set_error_message(context, ret, N_("as key (%d) mismatch with PAC enctype (%d)", ""),
+			       (int)as_rep_key->keytype, (int)encryptionType);
+	goto out;
+    }
+
+    ret = krb5_crypto_init(context, as_rep_key, 0, &crypto);
+    if (ret)
+	goto out;
+
+    ret = krb5_decrypt(context, crypto, KRB5_KU_OTHER_ENCRYPTED,
+		       ((const char *)pac->data.data) + pac->credential_info->offset_lo + 8,
+		       pac->credential_info->buffersize - 8,
+		       &pac->credential_data);
+    if (ret)
+	goto out;
+
+ out:
+    if (sp)
+	krb5_storage_free(sp);
+    if (crypto)
+	krb5_crypto_destroy(context, crypto);
+    
+    return ret;
+}
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_pac_copy_credential_package(krb5_context context, krb5_pac pac, const char *package, krb5_data *data)
+{
+    return HEIM_PAC_CINFO_MISSING;
 }
 
 /*

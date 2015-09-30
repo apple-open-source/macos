@@ -141,20 +141,11 @@ struct {								\
 	QUEUEDEBUG_HEIM_TAILQ_POSTREMOVE((elm), field);			\
 } while (/*CONSTCOND*/0)
 
-#define	HEIM_TAILQ_FOREACH(var, head, field)				\
-	for ((var) = ((head)->tqh_first);				\
-		(var);							\
-		(var) = ((var)->field.tqe_next))
-
-#define	HEIM_TAILQ_FOREACH_REVERSE(var, head, headname, field)		\
-	for ((var) = (*(((struct headname *)((head)->tqh_last))->tqh_last)); \
-		(var);							\
-		(var) = (*(((struct headname *)((var)->field.tqe_prev))->tqh_last)))
-
 /*
  * Tail queue access methods.
  */
 #define	HEIM_TAILQ_EMPTY(head)		((head)->tqh_first == NULL)
+#define	HEIM_TAILQ_END(head)		(NULL)
 #define	HEIM_TAILQ_FIRST(head)		((head)->tqh_first)
 #define	HEIM_TAILQ_NEXT(elm, field)		((elm)->field.tqe_next)
 
@@ -162,6 +153,24 @@ struct {								\
 	(*(((struct headname *)((head)->tqh_last))->tqh_last))
 #define	HEIM_TAILQ_PREV(elm, headname, field) \
 	(*(((struct headname *)((elm)->field.tqe_prev))->tqh_last))
+
+
+#define	HEIM_TAILQ_FOREACH(var, head, field)				\
+	for ((var) = ((head)->tqh_first);				\
+	     (var) != HEIM_TAILQ_END(head);				\
+	     (var) = ((var)->field.tqe_next))
+
+#define	HEIM_TAILQ_FOREACH_SAFE(var, head, field, next)			\
+	for ((var) = ((head)->tqh_first);				\
+	    (var) != HEIM_TAILQ_END(head) && ((next) = HEIM_TAILQ_NEXT(var, field), 1); \
+	    (var) = (next))
+
+#define	HEIM_TAILQ_FOREACH_REVERSE(var, head, headname, field)		\
+	for ((var) = (*(((struct headname *)((head)->tqh_last))->tqh_last)); \
+		(var);							\
+		(var) = (*(((struct headname *)((var)->field.tqe_prev))->tqh_last)))
+
+
 
 
 #endif	/* !_HEIM_QUEUE_H_ */

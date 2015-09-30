@@ -192,7 +192,6 @@ For example, to enable DHCP on interfaces en0 and en1, disable BOOTP on all
 interfaces, enable NetBoot on en1, and enable relay agent on interface en1,
 \fI/etc/bootpd.plist\fR could contain:
 .nf
-
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -335,6 +334,32 @@ present, the server will supply its own default domain name (if available).
 .It Sy dhcp_domain_search
 The domain search list (option code 119).  If this property is not
 present, the server will supply its domain search list (if available).
+.It Sy dhcp_classless_static_route
+The classless static route (option code 121).  The list of static routes is
+specified using an array of strings. The array is interpreted as an array of
+string pairs, the first element of the pair describes the destination network
+using the notation
+"\fI<destination_ip>\fR/\fI<prefix_length>\fR", and the second element gives the
+gateway as "\fI<gateway_ip\fR". If "\fI<gateway_ip>\fR" is "0.0.0.0",
+the destination is the interface itself.
+.Pp
+For example:
+.nf
+	<key>dhcp_classless_static_route</key>
+	<array>
+		<string>192.168.100.0/22</string>
+		<string>0.0.0.0</string>
+		<string>44.100.100.100/22</string>
+		<string>192.168.100.1</string>
+		<string>129.210.177.132/25</string>
+		<string>1.1.1.1</string>
+	</array>
+.fi
+.Pp
+The first route has destination 192.168.100.0/22 and gateway 0.0.0.0 which
+means 192.168.100.0/22 is directly reachable on the link.  The second route
+has destination 44.100.100.100/22 and gateway 192.168.100.1. The third route
+has destination 129.210.177.132/25 and gateway 1.1.1.1.
 .It Sy dhcp_ldap_url
 The default LDAP URL (option code 95).
 .It Sy dhcp_netinfo_server_address

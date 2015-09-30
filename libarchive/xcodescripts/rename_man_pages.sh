@@ -2,8 +2,6 @@
 
 set -ex
 
-DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
-
 if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
 	[ -z "${DSTROOT}" ] && exit 1
 	[ -d "${DSTROOT}/usr/share" ] && rm -rf "${DSTROOT}/usr/share"

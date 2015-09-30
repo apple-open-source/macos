@@ -3,6 +3,7 @@
                   2004, 2005 Rob Buis <buis@kde.org>
     Copyright (C) 2005, 2006 Apple Inc.
     Copyright (C) Research In Motion Limited 2010. All rights reserved.
+    Copyright (C) 2014 Adobe Systems Incorporated. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -40,9 +41,9 @@ class RenderObject;
 
 class SVGRenderStyle : public RefCounted<SVGRenderStyle> {    
 public:
-    static PassRef<SVGRenderStyle> createDefaultStyle();
-    static PassRef<SVGRenderStyle> create() { return adoptRef(*new SVGRenderStyle); }
-    PassRef<SVGRenderStyle> copy() const;
+    static Ref<SVGRenderStyle> createDefaultStyle();
+    static Ref<SVGRenderStyle> create() { return adoptRef(*new SVGRenderStyle); }
+    Ref<SVGRenderStyle> copy() const;
     ~SVGRenderStyle();
 
     bool inheritedNotEqual(const SVGRenderStyle*) const;
@@ -111,20 +112,6 @@ public:
         return length;
     }
 
-    static SVGLength initialStrokeDashOffset()
-    {
-        SVGLength length;
-        length.newValueSpecifiedUnits(LengthTypeNumber, 0, ASSERT_NO_EXCEPTION);
-        return length;
-    }
-
-    static SVGLength initialStrokeWidth()
-    {
-        SVGLength length;
-        length.newValueSpecifiedUnits(LengthTypeNumber, 1, ASSERT_NO_EXCEPTION);
-        return length;
-    }
-
     // SVG CSS Property setters
     void setAlignmentBaseline(EAlignmentBaseline val) { svg_noninherited_flags.f._alignmentBaseline = val; }
     void setDominantBaseline(EDominantBaseline val) { svg_noninherited_flags.f._dominantBaseline = val; }
@@ -145,6 +132,41 @@ public:
     void setGlyphOrientationVertical(EGlyphOrientation val) { svg_inherited_flags._glyphOrientationVertical = val; }
     void setMaskType(EMaskType val) { svg_noninherited_flags.f.maskType = val; }
     void setPaintOrder(PaintOrder val) { svg_inherited_flags.paintOrder = val; }
+    void setCx(const Length& obj)
+    {
+        if (!(layout->cx == obj))
+            layout.access()->cx = obj;
+    }
+    void setCy(const Length& obj)
+    {
+        if (!(layout->cy == obj))
+            layout.access()->cy = obj;
+    }
+    void setR(const Length& obj)
+    {
+        if (!(layout->r == obj))
+            layout.access()->r = obj;
+    }
+    void setRx(const Length& obj)
+    {
+        if (!(layout->rx == obj))
+            layout.access()->rx = obj;
+    }
+    void setRy(const Length& obj)
+    {
+        if (!(layout->ry == obj))
+            layout.access()->ry = obj;
+    }
+    void setX(const Length& obj)
+    {
+        if (!(layout->x == obj))
+            layout.access()->x = obj;
+    }
+    void setY(const Length& obj)
+    {
+        if (!(layout->y == obj))
+            layout.access()->y = obj;
+    }
 
     void setFillOpacity(float obj)
     {
@@ -210,13 +232,13 @@ public:
             stroke.access()->miterLimit = obj;
     }
 
-    void setStrokeWidth(const SVGLength& obj)
+    void setStrokeWidth(const Length& obj)
     {
         if (!(stroke->width == obj))
             stroke.access()->width = obj;
     }
 
-    void setStrokeDashOffset(const SVGLength& obj)
+    void setStrokeDashOffset(const Length& obj)
     {
         if (!(stroke->dashOffset == obj))
             stroke.access()->dashOffset = obj;
@@ -332,8 +354,8 @@ public:
     const String& strokePaintUri() const { return stroke->paintUri; }
     Vector<SVGLength> strokeDashArray() const { return stroke->dashArray; }
     float strokeMiterLimit() const { return stroke->miterLimit; }
-    SVGLength strokeWidth() const { return stroke->width; }
-    SVGLength strokeDashOffset() const { return stroke->dashOffset; }
+    const Length& strokeWidth() const { return stroke->width; }
+    const Length& strokeDashOffset() const { return stroke->dashOffset; }
     SVGLength kerning() const { return text->kerning; }
     float stopOpacity() const { return stops->opacity; }
     const Color& stopColor() const { return stops->color; }
@@ -342,6 +364,13 @@ public:
     const Color& lightingColor() const { return misc->lightingColor; }
     SVGLength baselineShiftValue() const { return misc->baselineShiftValue; }
     ShadowData* shadow() const { return shadowSVG->shadow.get(); }
+    const Length& cx() const { return layout->cx; }
+    const Length& cy() const { return layout->cy; }
+    const Length& r() const { return layout->r; }
+    const Length& rx() const { return layout->rx; }
+    const Length& ry() const { return layout->ry; }
+    const Length& x() const { return layout->x; }
+    const Length& y() const { return layout->y; }
     String clipperResource() const { return resources->clipper; }
     String filterResource() const { return resources->filter; }
     String maskerResource() const { return resources->masker; }
@@ -350,7 +379,7 @@ public:
     String markerEndResource() const { return inheritedResources->markerEnd; }
     EMaskType maskType() const { return (EMaskType) svg_noninherited_flags.f.maskType; }
     PaintOrder paintOrder() const { return (PaintOrder) svg_inherited_flags.paintOrder; }
-    Vector<PaintType> paintTypesForPaintOrder() const;
+    Vector<PaintType, 3> paintTypesForPaintOrder() const;
 
     const SVGPaint::SVGPaintType& visitedLinkFillPaintType() const { return fill->visitedLinkPaintType; }
     const Color& visitedLinkFillPaintColor() const { return fill->visitedLinkPaintColor; }
@@ -440,6 +469,7 @@ protected:
     DataRef<StyleStopData> stops;
     DataRef<StyleMiscData> misc;
     DataRef<StyleShadowSVGData> shadowSVG;
+    DataRef<StyleLayoutData> layout;
     DataRef<StyleResourceData> resources;
 
 private:

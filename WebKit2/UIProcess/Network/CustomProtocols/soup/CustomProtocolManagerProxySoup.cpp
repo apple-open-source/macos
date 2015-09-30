@@ -20,35 +20,35 @@
 #include "config.h"
 #include "CustomProtocolManagerProxy.h"
 
-#if ENABLE(CUSTOM_PROTOCOLS)
-
 #include "ChildProcessProxy.h"
 #include "CustomProtocolManagerMessages.h"
 #include "CustomProtocolManagerProxyMessages.h"
-#include "WebContext.h"
+#include "WebProcessPool.h"
 #include "WebSoupCustomProtocolRequestManager.h"
 #include <WebCore/ResourceRequest.h>
 
 namespace WebKit {
 
-CustomProtocolManagerProxy::CustomProtocolManagerProxy(ChildProcessProxy* childProcessProxy, WebContext& webContext)
+CustomProtocolManagerProxy::CustomProtocolManagerProxy(ChildProcessProxy* childProcessProxy, WebProcessPool& processPool)
     : m_childProcessProxy(childProcessProxy)
-    , m_webContext(webContext)
+    , m_processPool(processPool)
 {
     ASSERT(m_childProcessProxy);
     m_childProcessProxy->addMessageReceiver(Messages::CustomProtocolManagerProxy::messageReceiverName(), *this);
 }
 
+CustomProtocolManagerProxy::~CustomProtocolManagerProxy()
+{
+}
+
 void CustomProtocolManagerProxy::startLoading(uint64_t customProtocolID, const WebCore::ResourceRequest& request)
 {
-    m_webContext.supplement<WebSoupCustomProtocolRequestManager>()->startLoading(customProtocolID, request);
+    m_processPool.supplement<WebSoupCustomProtocolRequestManager>()->startLoading(customProtocolID, request);
 }
 
 void CustomProtocolManagerProxy::stopLoading(uint64_t customProtocolID)
 {
-    m_webContext.supplement<WebSoupCustomProtocolRequestManager>()->stopLoading(customProtocolID);
+    m_processPool.supplement<WebSoupCustomProtocolRequestManager>()->stopLoading(customProtocolID);
 }
 
 } // namespace WebKit
-
-#endif // ENABLE(CUSTOM_PROTOCOLS)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2014-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,12 @@
 #include "PlatformCALayerWin.h"
 
 #include "AbstractCACFLayerTreeHost.h"
-#include "Font.h"
+#include "FontCascade.h"
 #include "GraphicsContext.h"
 #include "PlatformCAAnimationWin.h"
 #include "PlatformCALayerWinInternal.h"
 #include "TileController.h"
+#include "WebCoreHeaderDetection.h"
 #include <QuartzCore/CoreAnimationCF.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <wtf/CurrentTime.h>
@@ -128,7 +129,6 @@ static void layoutSublayersProc(CACFLayerRef caLayer)
 PlatformCALayerWin::PlatformCALayerWin(LayerType layerType, PlatformLayer* layer, PlatformCALayerClient* owner)
     : PlatformCALayer(layer ? LayerTypeCustom : layerType, owner)
     , m_customAppearance(GraphicsLayer::NoCustomAppearance)
-    , m_customBehavior(GraphicsLayer::NoCustomBehavior)
 {
     if (layer) {
         m_layer = layer;
@@ -136,6 +136,10 @@ PlatformCALayerWin::PlatformCALayerWin(LayerType layerType, PlatformLayer* layer
     }
 
     m_layer = adoptCF(CACFLayerCreate(toCACFLayerType(layerType)));
+
+#if HAVE(CACFLAYER_SETCONTENTSSCALE)
+    CACFLayerSetContentsScale(m_layer.get(), owner ? owner->platformCALayerDeviceScaleFactor() : 1.0f);
+#endif
 
     // Create the PlatformCALayerWinInternal object and point to it in the userdata.
     PlatformCALayerWinInternal* intern = new PlatformCALayerWinInternal(this);
@@ -182,9 +186,7 @@ PassRefPtr<PlatformCALayer> PlatformCALayerWin::clone(PlatformCALayerClient* own
     newLayer->setOpaque(isOpaque());
     newLayer->setBackgroundColor(backgroundColor());
     newLayer->setContentsScale(contentsScale());
-#if ENABLE(CSS_FILTERS)
-    newLayer->copyFiltersFrom(this);
-#endif
+    newLayer->copyFiltersFrom(*this);
 
     return newLayer;
 }
@@ -192,10 +194,10 @@ PassRefPtr<PlatformCALayer> PlatformCALayerWin::clone(PlatformCALayerClient* own
 PlatformCALayer* PlatformCALayerWin::rootLayer() const
 {
     AbstractCACFLayerTreeHost* host = layerTreeHostForLayer(this);
-    return host ? host->rootLayer() : 0;
+    return host ? host->rootLayer() : nullptr;
 }
 
-void PlatformCALayerWin::animationStarted(const String&, CFTimeInterval beginTime)
+void PlatformCALayerWin::animationStarted(const String& animationKey, CFTimeInterval beginTime)
 {
     // Update start time for any animation not yet started
     CFTimeInterval cacfBeginTime = currentTimeToMediaTime(beginTime);
@@ -205,14 +207,25 @@ void PlatformCALayerWin::animationStarted(const String&, CFTimeInterval beginTim
         it->value->setActualStartTimeIfNeeded(cacfBeginTime);
 
     if (m_owner)
-        m_owner->platformCALayerAnimationStarted(beginTime);
+        m_owner->platformCALayerAnimationStarted(animationKey, beginTime);
 }
 
-void PlatformCALayerWin::setNeedsDisplay(const FloatRect* dirtyRect)
+void PlatformCALayerWin::animationEnded(const String& animationKey)
 {
-    intern(this)->setNeedsDisplay(dirtyRect);
+    if (m_owner)
+        m_owner->platformCALayerAnimationEnded(animationKey);
 }
-    
+
+void PlatformCALayerWin::setNeedsDisplayInRect(const FloatRect& dirtyRect)
+{
+    intern(this)->setNeedsDisplayInRect(dirtyRect);
+}
+
+void PlatformCALayerWin::setNeedsDisplay()
+{
+    intern(this)->setNeedsDisplay();
+}
+
 void PlatformCALayerWin::setNeedsCommit()
 {
     AbstractCACFLayerTreeHost* host = layerTreeHostForLayer(this);
@@ -261,54 +274,51 @@ void PlatformCALayerWin::removeAllSublayers()
     intern(this)->removeAllSublayers();
 }
 
-void PlatformCALayerWin::appendSublayer(PlatformCALayer* layer)
+void PlatformCALayerWin::appendSublayer(PlatformCALayer& layer)
 {
     // This must be in terms of insertSublayer instead of a direct call so PlatformCALayerInternal can override.
     insertSublayer(layer, intern(this)->sublayerCount());
 }
 
-void PlatformCALayerWin::insertSublayer(PlatformCALayer* layer, size_t index)
+void PlatformCALayerWin::insertSublayer(PlatformCALayer& layer, size_t index)
 {
     intern(this)->insertSublayer(layer, index);
 }
 
-void PlatformCALayerWin::replaceSublayer(PlatformCALayer* reference, PlatformCALayer* newLayer)
+void PlatformCALayerWin::replaceSublayer(PlatformCALayer& reference, PlatformCALayer& newLayer)
 {
     // This must not use direct calls to allow PlatformCALayerInternal to override.
-    ASSERT_ARG(reference, reference);
-    ASSERT_ARG(reference, reference->superlayer() == this);
+    ASSERT_ARG(reference, reference.superlayer() == this);
 
-    if (reference == newLayer)
+    if (&reference == &newLayer)
         return;
 
-    int referenceIndex = intern(this)->indexOfSublayer(reference);
+    int referenceIndex = intern(this)->indexOfSublayer(&reference);
     ASSERT(referenceIndex != -1);
     if (referenceIndex == -1)
         return;
 
-    reference->removeFromSuperlayer();
+    reference.removeFromSuperlayer();
 
-    if (newLayer) {
-        newLayer->removeFromSuperlayer();
-        insertSublayer(newLayer, referenceIndex);
-    }
+    newLayer.removeFromSuperlayer();
+    insertSublayer(newLayer, referenceIndex);
 }
 
-void PlatformCALayerWin::adoptSublayers(PlatformCALayer* source)
+void PlatformCALayerWin::adoptSublayers(PlatformCALayer& source)
 {
     PlatformCALayerList sublayers;
-    intern(source)->getSublayers(sublayers);
+    intern(&source)->getSublayers(sublayers);
 
     // Use setSublayers() because it properly nulls out the superlayer pointers.
     setSublayers(sublayers);
 }
 
-void PlatformCALayerWin::addAnimationForKey(const String& key, PlatformCAAnimation* animation)
+void PlatformCALayerWin::addAnimationForKey(const String& key, PlatformCAAnimation& animation)
 {
     // Add it to the animation list
-    m_animations.add(key, animation);
+    m_animations.add(key, &animation);
 
-    CACFLayerAddAnimation(m_layer.get(), key.createCFString().get(), toPlatformCAAnimationWin(animation)->platformAnimation());
+    CACFLayerAddAnimation(m_layer.get(), key.createCFString().get(), downcast<PlatformCAAnimationWin>(animation).platformAnimation());
     setNeedsCommit();
 
     // Tell the host about it so we can fire the start animation event
@@ -423,6 +433,15 @@ void PlatformCALayerWin::setHidden(bool value)
     setNeedsCommit();
 }
 
+void PlatformCALayerWin::setBackingStoreAttached(bool)
+{
+}
+
+bool PlatformCALayerWin::backingStoreAttached() const
+{
+    return true;
+}
+
 void PlatformCALayerWin::setGeometryFlipped(bool value)
 {
     CACFLayerSetGeometryFlipped(m_layer.get(), value);
@@ -534,17 +553,13 @@ void PlatformCALayerWin::setOpacity(float value)
     setNeedsCommit();
 }
 
-#if ENABLE(CSS_FILTERS)
-
 void PlatformCALayerWin::setFilters(const FilterOperations&)
 {
 }
 
-void PlatformCALayerWin::copyFiltersFrom(const PlatformCALayer*)
+void PlatformCALayerWin::copyFiltersFrom(const PlatformCALayer&)
 {
 }
-
-#endif // ENABLE(CSS_FILTERS)
 
 void PlatformCALayerWin::setName(const String& value)
 {
@@ -572,11 +587,61 @@ void PlatformCALayerWin::setEdgeAntialiasingMask(unsigned mask)
 
 float PlatformCALayerWin::contentsScale() const
 {
-    return 1;
+#if HAVE(CACFLAYER_SETCONTENTSSCALE)
+    return CACFLayerGetContentsScale(m_layer.get());
+#else
+    return 1.0f;
+#endif
 }
 
-void PlatformCALayerWin::setContentsScale(float)
+void PlatformCALayerWin::setContentsScale(float scaleFactor)
 {
+#if HAVE(CACFLAYER_SETCONTENTSSCALE)
+    CACFLayerSetContentsScale(m_layer.get(), scaleFactor);
+#endif
+}
+
+float PlatformCALayerWin::cornerRadius() const
+{
+    return 0; // FIXME: implement.
+}
+
+void PlatformCALayerWin::setCornerRadius(float value)
+{
+    // FIXME: implement.
+}
+
+FloatRoundedRect PlatformCALayerWin::shapeRoundedRect() const
+{
+    // FIXME: implement.
+    return FloatRoundedRect();
+}
+
+void PlatformCALayerWin::setShapeRoundedRect(const FloatRoundedRect&)
+{
+    // FIXME: implement.
+}
+
+WindRule PlatformCALayerWin::shapeWindRule() const
+{
+    // FIXME: implement.
+    return RULE_NONZERO;
+}
+
+void PlatformCALayerWin::setShapeWindRule(WindRule)
+{
+    // FIXME: implement.
+}
+
+Path PlatformCALayerWin::shapePath() const
+{
+    // FIXME: implement.
+    return Path();
+}
+
+void PlatformCALayerWin::setShapePath(const Path&)
+{
+    // FIXME: implement.
 }
 
 #ifndef NDEBUG
@@ -664,7 +729,7 @@ static void printLayer(const PlatformCALayer* layer, int indent)
         if (CFGetTypeID(layerContents) == CGImageGetTypeID()) {
             CGImageRef imageContents = static_cast<CGImageRef>(const_cast<void*>(layerContents));
             printIndent(indent + 1);
-            fprintf(stderr, "(contents (image [%d %d]))\n",
+            fprintf(stderr, "(contents (image [%Iu %Iu]))\n",
                 CGImageGetWidth(imageContents), CGImageGetHeight(imageContents));
         }
     }

@@ -33,7 +33,7 @@ public:
     static const double IndeterminatePosition;
     static const double InvalidPosition;
 
-    static PassRefPtr<HTMLProgressElement> create(const QualifiedName&, Document&);
+    static Ref<HTMLProgressElement> create(const QualifiedName&, Document&);
 
     double value() const;
     void setValue(double, ExceptionCode&);
@@ -52,7 +52,7 @@ private:
     virtual bool shouldAppearIndeterminate() const override;
     virtual bool supportLabels() const override { return true; }
 
-    virtual RenderPtr<RenderElement> createElementRenderer(PassRef<RenderStyle>) override;
+    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
     virtual bool childShouldCreateRenderer(const Node&) const override;
     RenderProgress* renderProgress() const;
 
@@ -66,8 +66,6 @@ private:
 
     ProgressValueElement* m_value;
 };
-
-NODE_TYPE_CASTS(HTMLProgressElement)
 
 } // namespace
 

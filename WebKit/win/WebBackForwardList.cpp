@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebBackForwardList.h"
 
@@ -56,7 +55,7 @@ WebBackForwardList::WebBackForwardList(PassRefPtr<BackForwardList> backForwardLi
     backForwardListWrappers().set(m_backForwardList.get(), this);
 
     gClassCount++;
-    gClassNameCount.add("WebBackForwardList");
+    gClassNameCount().add("WebBackForwardList");
 }
 
 WebBackForwardList::~WebBackForwardList()
@@ -67,7 +66,7 @@ WebBackForwardList::~WebBackForwardList()
     backForwardListWrappers().remove(m_backForwardList.get());
 
     gClassCount--;
-    gClassNameCount.remove("WebBackForwardList");
+    gClassNameCount().remove("WebBackForwardList");
 }
 
 WebBackForwardList* WebBackForwardList::createInstance(PassRefPtr<BackForwardList> backForwardList)
@@ -125,7 +124,7 @@ HRESULT STDMETHODCALLTYPE WebBackForwardList::addItem(
     if (!item || FAILED(item->QueryInterface(&webHistoryItem)))
         return E_FAIL;
  
-    m_backForwardList->addItem(webHistoryItem->historyItem());
+    m_backForwardList->addItem(*webHistoryItem->historyItem());
     return S_OK;
 }
 
@@ -210,7 +209,7 @@ HRESULT STDMETHODCALLTYPE WebBackForwardList::backListWithLimit(
 
     if (list)
         for (unsigned i = 0; i < historyItemVector.size(); i++)
-            list[i] = WebHistoryItem::createInstance(historyItemVector[i].get());
+            list[i] = WebHistoryItem::createInstance(historyItemVector[i].ptr());
 
     return S_OK;
 }
@@ -227,7 +226,7 @@ HRESULT STDMETHODCALLTYPE WebBackForwardList::forwardListWithLimit(
 
     if (list)
         for (unsigned i = 0; i < historyItemVector.size(); i++)
-            list[i] = WebHistoryItem::createInstance(historyItemVector[i].get());
+            list[i] = WebHistoryItem::createInstance(historyItemVector[i].ptr());
 
     return S_OK;
 }

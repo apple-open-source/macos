@@ -32,14 +32,13 @@
 #ifndef InspectorTimelineAgent_h
 #define InspectorTimelineAgent_h
 
-#if ENABLE(INSPECTOR)
-
 #include "InspectorWebAgentBase.h"
-#include "InspectorWebBackendDispatchers.h"
-#include "InspectorWebFrontendDispatchers.h"
 #include "LayoutRect.h"
+#include <inspector/InspectorBackendDispatchers.h>
+#include <inspector/InspectorFrontendDispatchers.h>
 #include <inspector/InspectorValues.h>
 #include <inspector/ScriptDebugListener.h>
+#include <wtf/Stopwatch.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 
@@ -62,6 +61,7 @@ class PageScriptDebugServer;
 class RenderObject;
 class ResourceRequest;
 class ResourceResponse;
+class RunLoopObserver;
 
 typedef String ErrorString;
 
@@ -72,8 +72,9 @@ enum class TimelineRecordType {
     InvalidateLayout,
     Layout,
     Paint,
+    Composite,
+    RenderingFrame,
     ScrollLayer,
-    ResizeImage,
 
     ParseHTML,
 
@@ -89,12 +90,6 @@ enum class TimelineRecordType {
     TimeStamp,
     Time,
     TimeEnd,
-
-    ScheduleResourceRequest,
-    ResourceSendRequest,
-    ResourceReceiveResponse,
-    ResourceReceivedData,
-    ResourceFinish,
 
     XHRReadyStateChange,
     XHRLoad,
@@ -113,22 +108,9 @@ enum class TimelineRecordType {
     WebSocketDestroy
 };
 
-class TimelineTimeConverter {
-public:
-    TimelineTimeConverter()
-        : m_startOffset(0)
-    {
-    }
-    double fromMonotonicallyIncreasingTime(double time) const  { return (time - m_startOffset) * 1000.0; }
-    void reset();
-
-private:
-    double m_startOffset;
-};
-
-class InspectorTimelineAgent
+class InspectorTimelineAgent final
     : public InspectorAgentBase
-    , public Inspector::InspectorTimelineBackendDispatcherHandler
+    , public Inspector::TimelineBackendDispatcherHandler
     , public Inspector::ScriptDebugListener {
     WTF_MAKE_NONCOPYABLE(InspectorTimelineAgent);
     WTF_MAKE_FAST_ALLOCATED;
@@ -136,13 +118,13 @@ public:
     enum InspectorType { PageInspector, WorkerInspector };
 
     InspectorTimelineAgent(InstrumentingAgents*, InspectorPageAgent*, InspectorType, InspectorClient*);
-    ~InspectorTimelineAgent();
+    virtual ~InspectorTimelineAgent();
 
-    virtual void didCreateFrontendAndBackend(Inspector::InspectorFrontendChannel*, Inspector::InspectorBackendDispatcher*) override;
-    virtual void willDestroyFrontendAndBackend(Inspector::InspectorDisconnectReason) override;
+    virtual void didCreateFrontendAndBackend(Inspector::FrontendChannel*, Inspector::BackendDispatcher*) override;
+    virtual void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
 
-    virtual void start(ErrorString* = nullptr, const int* maxCallStackDepth = nullptr) override;
-    virtual void stop(ErrorString* = nullptr) override;
+    virtual void start(ErrorString&, const int* maxCallStackDepth = nullptr) override;
+    virtual void stop(ErrorString&) override;
 
     int id() const { return m_id; }
 
@@ -154,62 +136,44 @@ public:
     void startFromConsole(JSC::ExecState*, const String &title);
     PassRefPtr<JSC::Profile> stopFromConsole(JSC::ExecState*, const String& title);
 
-    void willCallFunction(const String& scriptName, int scriptLine, Frame*);
-    void didCallFunction(Frame*);
-
-    void willDispatchEvent(const Event&, Frame*);
-    void didDispatchEvent();
-
-    void didInvalidateLayout(Frame*);
-    void willLayout(Frame*);
-    void didLayout(RenderObject*);
-
-    void didScheduleStyleRecalculation(Frame*);
-    void willRecalculateStyle(Frame*);
-    void didRecalculateStyle();
-
-    void willPaint(Frame*);
-    void didPaint(RenderObject*, const LayoutRect&);
-
-    void willScroll(Frame*);
-    void didScroll();
-
-    void willWriteHTML(unsigned startLine, Frame*);
-    void didWriteHTML(unsigned endLine);
-
+    // InspectorInstrumentation callbacks.
     void didInstallTimer(int timerId, int timeout, bool singleShot, Frame*);
     void didRemoveTimer(int timerId, Frame*);
     void willFireTimer(int timerId, Frame*);
     void didFireTimer();
-
+    void willCallFunction(const String& scriptName, int scriptLine, Frame*);
+    void didCallFunction(Frame*);
     void willDispatchXHRReadyStateChangeEvent(const String&, int, Frame*);
     void didDispatchXHRReadyStateChangeEvent();
+    void willDispatchEvent(const Event&, Frame*);
+    void didDispatchEvent();
+    void willEvaluateScript(const String&, int, Frame&);
+    void didEvaluateScript(Frame&);
+    void didInvalidateLayout(Frame&);
+    void willLayout(Frame&);
+    void didLayout(RenderObject*);
+    void willScroll(Frame&);
+    void didScroll();
     void willDispatchXHRLoadEvent(const String&, Frame*);
     void didDispatchXHRLoadEvent();
-
-    void willEvaluateScript(const String&, int, Frame*);
-    void didEvaluateScript(Frame*);
-
-    void didTimeStamp(Frame*, const String&);
-    void didMarkDOMContentEvent(Frame*);
-    void didMarkLoadEvent(Frame*);
-
-    void time(Frame*, const String&);
-    void timeEnd(Frame*, const String&);
-
-    void didScheduleResourceRequest(const String& url, Frame*);
-    void willSendResourceRequest(unsigned long, const ResourceRequest&, Frame*);
-    void willReceiveResourceResponse(unsigned long, const ResourceResponse&, Frame*);
-    void didReceiveResourceResponse();
-    void didFinishLoadingResource(unsigned long, bool didFail, double finishTime, Frame*);
-    void willReceiveResourceData(unsigned long identifier, Frame*, int length);
-    void didReceiveResourceData();
-
+    void willComposite(Frame&);
+    void didComposite();
+    void willPaint(Frame&);
+    void didPaint(RenderObject*, const LayoutRect&);
+    void willRecalculateStyle(Frame*);
+    void didRecalculateStyle();
+    void didScheduleStyleRecalculation(Frame*);
+    void willWriteHTML(unsigned startLine, Frame*);
+    void didWriteHTML(unsigned endLine);
+    void didTimeStamp(Frame&, const String&);
+    void didMarkDOMContentEvent(Frame&);
+    void didMarkLoadEvent(Frame&);
     void didRequestAnimationFrame(int callbackId, Frame*);
     void didCancelAnimationFrame(int callbackId, Frame*);
     void willFireAnimationFrame(int callbackId, Frame*);
     void didFireAnimationFrame();
-
+    void time(Frame&, const String&);
+    void timeEnd(Frame&, const String&);
 #if ENABLE(WEB_SOCKETS)
     void didCreateWebSocket(unsigned long identifier, const URL&, const String& protocol, Frame*);
     void willSendWebSocketHandshakeRequest(unsigned long identifier, Frame*);
@@ -218,7 +182,7 @@ public:
 #endif
 
 protected:
-    // ScriptDebugListener. This is only used to create records for probe samples.
+    // ScriptDebugListener
     virtual void didParseSource(JSC::SourceID, const Script&) override { }
     virtual void failedToParseSource(const String&, const String&, int, int, const String&) override { }
     virtual void didPause(JSC::ExecState*, const Deprecated::ScriptValue&, const Deprecated::ScriptValue&) override { }
@@ -226,7 +190,7 @@ protected:
 
     virtual void breakpointActionLog(JSC::ExecState*, const String&) override { }
     virtual void breakpointActionSound(int) override { }
-    virtual void breakpointActionProbe(JSC::ExecState*, const Inspector::ScriptBreakpointAction&, int hitCount, const Deprecated::ScriptValue& result) override;
+    virtual void breakpointActionProbe(JSC::ExecState*, const Inspector::ScriptBreakpointAction&, unsigned batchId, unsigned sampleId, const Deprecated::ScriptValue& result) override;
 
 private:
     friend class TimelineRecordStack;
@@ -247,50 +211,53 @@ private:
 
     void internalStart(const int* maxCallStackDepth = nullptr);
     void internalStop();
+    double timestamp();
 
-    void sendEvent(PassRefPtr<Inspector::InspectorObject>);
-    void appendRecord(PassRefPtr<Inspector::InspectorObject> data, TimelineRecordType, bool captureCallStack, Frame*);
-    void pushCurrentRecord(PassRefPtr<Inspector::InspectorObject>, TimelineRecordType, bool captureCallStack, Frame*);
+    void sendEvent(RefPtr<Inspector::InspectorObject>&&);
+    void appendRecord(RefPtr<Inspector::InspectorObject>&& data, TimelineRecordType, bool captureCallStack, Frame*);
+    void pushCurrentRecord(RefPtr<Inspector::InspectorObject>&&, TimelineRecordType, bool captureCallStack, Frame*);
     void pushCurrentRecord(const TimelineRecordEntry& record) { m_recordStack.append(record); }
 
-    TimelineRecordEntry createRecordEntry(PassRefPtr<Inspector::InspectorObject> data, TimelineRecordType, bool captureCallStack, Frame*);
+    TimelineRecordEntry createRecordEntry(RefPtr<Inspector::InspectorObject>&& data, TimelineRecordType, bool captureCallStack, Frame*);
 
     void setFrameIdentifier(Inspector::InspectorObject* record, Frame*);
 
     void didCompleteRecordEntry(const TimelineRecordEntry&);
     void didCompleteCurrentRecord(TimelineRecordType);
 
-    void addRecordToTimeline(PassRefPtr<Inspector::InspectorObject>, TimelineRecordType);
+    void addRecordToTimeline(RefPtr<Inspector::InspectorObject>&&, TimelineRecordType);
     void clearRecordStack();
 
     void localToPageQuad(const RenderObject&, const LayoutRect&, FloatQuad*);
-    const TimelineTimeConverter& timeConverter() const { return m_timeConverter; }
-    double timestamp();
     Page* page();
 
     InspectorPageAgent* m_pageAgent;
-    PageScriptDebugServer* m_scriptDebugServer;
-    TimelineTimeConverter m_timeConverter;
+    PageScriptDebugServer* m_scriptDebugServer { nullptr };
 
-    std::unique_ptr<Inspector::InspectorTimelineFrontendDispatcher> m_frontendDispatcher;
-    RefPtr<Inspector::InspectorTimelineBackendDispatcher> m_backendDispatcher;
-    double m_timestampOffset;
+    std::unique_ptr<Inspector::TimelineFrontendDispatcher> m_frontendDispatcher;
+    RefPtr<Inspector::TimelineBackendDispatcher> m_backendDispatcher;
 
     Vector<TimelineRecordEntry> m_recordStack;
 
-    int m_id;
-    int m_maxCallStackDepth;
+    int m_id { 1 };
+    int m_callStackDepth { 0 };
+    int m_maxCallStackDepth { 5 };
     InspectorType m_inspectorType;
     InspectorClient* m_client;
 
     Vector<TimelineRecordEntry> m_pendingConsoleProfileRecords;
 
-    int m_recordingProfileDepth;
-    bool m_enabled;
-    bool m_enabledFromFrontend;
+    bool m_enabled { false };
+    bool m_enabledFromFrontend { false };
+
+#if PLATFORM(COCOA)
+    std::unique_ptr<WebCore::RunLoopObserver> m_frameStartObserver;
+    std::unique_ptr<WebCore::RunLoopObserver> m_frameStopObserver;
+#endif
+    int m_runLoopNestingLevel { 0 };
+    bool m_startedComposite { false };
 };
 
 } // namespace WebCore
 
-#endif // !ENABLE(INSPECTOR)
 #endif // !defined(InspectorTimelineAgent_h)

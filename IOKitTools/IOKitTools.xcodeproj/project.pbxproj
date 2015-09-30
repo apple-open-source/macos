@@ -37,6 +37,7 @@
 		2D7D915C08F4B07A003CF2E8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CF60A305585D4100A48F3A /* CoreFoundation.framework */; };
 		2D7D915D08F4B07A003CF2E8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CF609C05585D4100A48F3A /* IOKit.framework */; };
 		2D7D916308F4B0C2003CF2E8 /* ioalloccount.c in Sources */ = {isa = PBXBuildFile; fileRef = 97CF609205585D4100A48F3A /* ioalloccount.c */; };
+		52D8C8FA19A7E816009D43FB /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D8C8F819A7E816009D43FB /* CoreSymbolication.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -83,6 +84,7 @@
 		2D7D902D08F4AFC7003CF2E8 /* ioreg */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioreg; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D7D915008F4B017003CF2E8 /* ioclasscount */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioclasscount; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D7D916108F4B07A003CF2E8 /* ioalloccount */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioalloccount; sourceTree = BUILT_PRODUCTS_DIR; };
+		52D8C8F819A7E816009D43FB /* CoreSymbolication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSymbolication.framework; path = /System/Library/PrivateFrameworks/CoreSymbolication.framework; sourceTree = "<absolute>"; };
 		97CF603205585D4100A48F3A /* ioreg.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ioreg.c; sourceTree = "<group>"; };
 		97CF603805585D4100A48F3A /* ioreg.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = ioreg.8; sourceTree = "<group>"; };
 		97CF607F05585D4100A48F3A /* ioclasscount.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ioclasscount.c; sourceTree = "<group>"; };
@@ -110,6 +112,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				52D8C8FA19A7E816009D43FB /* CoreSymbolication.framework in Frameworks */,
 				2D7D915608F4B076003CF2E8 /* CoreFoundation.framework in Frameworks */,
 				2D7D915708F4B076003CF2E8 /* IOKit.framework in Frameworks */,
 			);
@@ -119,6 +122,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				52D8C8FA19A7E816009D43FB /* CoreSymbolication.framework in Frameworks */,
 				2D7D915C08F4B07A003CF2E8 /* CoreFoundation.framework in Frameworks */,
 				2D7D915D08F4B07A003CF2E8 /* IOKit.framework in Frameworks */,
 			);
@@ -182,6 +186,7 @@
 		97CF609905585D4100A48F3A /* External Frameworks and Libraries */ = {
 			isa = PBXGroup;
 			children = (
+				52D8C8F819A7E816009D43FB /* CoreSymbolication.framework */,
 				056F26F20AFBD911006CB74E /* libMallocDebug.a */,
 				97CF60D005585DC900A48F3A /* libncurses.dylib */,
 				97CF609C05585D4100A48F3A /* IOKit.framework */,
@@ -247,9 +252,15 @@
 /* Begin PBXProject section */
 		97CF60AF05585D4200A48F3A /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 2D7D900708F4AE49003CF2E8 /* Build configuration list for PBXProject "IOKitTools" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 97CF601A05585D4100A48F3A /* IOKitTools */;
 			productRefGroup = 97CF602B05585D4100A48F3A /* Products */;
 			projectDirPath = "";
@@ -373,6 +384,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				PRODUCT_NAME = ioclasscount;
 				SKIP_INSTALL = NO;
 			};
@@ -381,6 +396,10 @@
 		2D7D915408F4B04A003CF2E8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				PRODUCT_NAME = ioclasscount;
 				SKIP_INSTALL = NO;
 			};
@@ -390,6 +409,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(SDK_ROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders/mach",
+					"$(inherited)",
+				);
 				PRODUCT_NAME = ioalloccount;
 				SKIP_INSTALL = NO;
 			};
@@ -398,6 +425,14 @@
 		2D7D916008F4B07A003CF2E8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(SDK_ROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders/mach",
+					"$(inherited)",
+				);
 				PRODUCT_NAME = ioalloccount;
 				SKIP_INSTALL = NO;
 			};

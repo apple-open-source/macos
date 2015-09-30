@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004, 2015 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,17 +40,17 @@ class VisibleSelection {
 public:
     enum SelectionType { NoSelection, CaretSelection, RangeSelection };
 
-    VisibleSelection();
+    WEBCORE_EXPORT VisibleSelection();
 
     VisibleSelection(const Position&, EAffinity, bool isDirectional = false);
     VisibleSelection(const Position&, const Position&, EAffinity = SEL_DEFAULT_AFFINITY, bool isDirectional = false);
 
-    VisibleSelection(const Range*, EAffinity = SEL_DEFAULT_AFFINITY, bool isDirectional = false);
+    WEBCORE_EXPORT VisibleSelection(const Range&, EAffinity = SEL_DEFAULT_AFFINITY, bool isDirectional = false);
     
-    VisibleSelection(const VisiblePosition&, bool isDirectional = false);
-    VisibleSelection(const VisiblePosition&, const VisiblePosition&, bool isDirectional = false);
+    WEBCORE_EXPORT VisibleSelection(const VisiblePosition&, bool isDirectional = false);
+    WEBCORE_EXPORT VisibleSelection(const VisiblePosition&, const VisiblePosition&, bool isDirectional = false);
 
-    static VisibleSelection selectionFromContentsOfNode(Node*);
+    WEBCORE_EXPORT static VisibleSelection selectionFromContentsOfNode(Node*);
 
     SelectionType selectionType() const { return m_selectionType; }
 
@@ -83,31 +83,31 @@ public:
     bool isDirectional() const { return m_isDirectional; }
     void setIsDirectional(bool isDirectional) { m_isDirectional = isDirectional; }
 
-    bool isAll(EditingBoundaryCrossingRule) const;
+    WEBCORE_EXPORT bool isAll(EditingBoundaryCrossingRule) const;
 
     void appendTrailingWhitespace();
 
-    bool expandUsingGranularity(TextGranularity granularity);
+    WEBCORE_EXPORT bool expandUsingGranularity(TextGranularity granularity);
     
     // We don't yet support multi-range selections, so we only ever have one range to return.
-    PassRefPtr<Range> firstRange() const;
+    WEBCORE_EXPORT PassRefPtr<Range> firstRange() const;
 
     // FIXME: Most callers probably don't want this function, but are using it
     // for historical reasons.  toNormalizedRange contracts the range around
     // text, and moves the caret upstream before returning the range.
-    PassRefPtr<Range> toNormalizedRange() const;
+    WEBCORE_EXPORT PassRefPtr<Range> toNormalizedRange() const;
     
-    Element* rootEditableElement() const;
-    bool isContentEditable() const;
+    WEBCORE_EXPORT Element* rootEditableElement() const;
+    WEBCORE_EXPORT bool isContentEditable() const;
     bool hasEditableStyle() const;
-    bool isContentRichlyEditable() const;
+    WEBCORE_EXPORT bool isContentRichlyEditable() const;
     // Returns a shadow tree node for legacy shadow trees, a child of the
     // ShadowRoot node for new shadow trees, or 0 for non-shadow trees.
     Node* nonBoundaryShadowTreeRootNode() const;
 
-    bool isInPasswordField() const;
+    WEBCORE_EXPORT bool isInPasswordField() const;
 
-#ifndef NDEBUG
+#if ENABLE(TREE_DEBUGGING)
     void debugPosition() const;
     void formatForDebugger(char* buffer, unsigned length) const;
     void showTreeForThis() const;
@@ -156,7 +156,7 @@ inline bool operator!=(const VisibleSelection& a, const VisibleSelection& b)
 
 } // namespace WebCore
 
-#ifndef NDEBUG
+#if ENABLE(TREE_DEBUGGING)
 // Outside the WebCore namespace for ease of invocation from gdb.
 void showTree(const WebCore::VisibleSelection&);
 void showTree(const WebCore::VisibleSelection*);

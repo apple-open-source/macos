@@ -1013,7 +1013,15 @@ int pptp_connect(int *errorcode)
         if (ifscope && ifscope[0]) {
             ifindex = if_nametoindex(ifscope);
         }
-        while (connectx(ctrlsockfd, NULL, 0, (struct sockaddr *)&addr, sizeof(addr), ifindex, ASSOCID_ANY, CONNID_ANY)) {
+        
+        sa_endpoints_t sa;
+        bzero(&sa, sizeof(sa));
+        sa.sae_srcif = ifindex;
+        sa.sae_dstaddr = (struct sockaddr*)&addr;
+        sa.sae_dstaddrlen = addr.sin_len;
+
+        while (connectx(ctrlsockfd, &sa, SAE_CONNID_ANY, 0, NULL, 0, NULL, NULL))
+        {
             if (errno != EINTR) {
                 error("PPTP connect errno = %d %m\n", errno);
                 if ((errno == ETIMEDOUT || errno == ECONNREFUSED) &&

@@ -67,6 +67,18 @@
     <Filter Include="llvm">
       <UniqueIdentifier>{852e9415-245c-4012-aeb8-38ca9efb73b8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inspector\scripts">
+      <UniqueIdentifier>{a29d27c0-2c34-482b-87cc-21e7ef290c88}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inspector\scripts\codegen">
+      <UniqueIdentifier>{17e304e8-c0e8-4b18-88fa-62b86eba9959}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inspector\scripts\tests">
+      <UniqueIdentifier>{0a034c97-3947-47c4-8085-2ddc8aa1ade0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inspector\scripts\tests\expected">
+      <UniqueIdentifier>{6be9d367-0091-4ebb-b96c-4ef83790362b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\API\JSBase.cpp">
@@ -117,6 +129,9 @@
     <ClCompile Include="..\assembler\MacroAssembler.cpp">
       <Filter>assembler</Filter>
     </ClCompile>
+    <ClCompile Include="..\assembler\MacroAssemblerX86Common.cpp">
+      <Filter>assembler</Filter>
+    </ClCompile>
     <ClCompile Include="..\builtins\BuiltinExecutables.cpp">
       <Filter>builtins</Filter>
     </ClCompile>
@@ -127,6 +142,9 @@
       <Filter>bytecode</Filter>
     </ClCompile>
     <ClCompile Include="..\bytecode\BytecodeBasicBlock.cpp">
+      <Filter>bytecode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\bytecode\BytecodeIntrinsicRegistry.cpp">
       <Filter>bytecode</Filter>
     </ClCompile>
     <ClCompile Include="..\bytecode\BytecodeLivenessAnalysis.cpp">
@@ -213,17 +231,14 @@
     <ClCompile Include="..\debugger\Debugger.cpp">
       <Filter>debugger</Filter>
     </ClCompile>
-    <ClCompile Include="..\debugger\DebuggerActivation.cpp">
+    <ClCompile Include="..\debugger\DebuggerCallFrame.cpp">
       <Filter>debugger</Filter>
     </ClCompile>
-    <ClCompile Include="..\debugger\DebuggerCallFrame.cpp">
+    <ClCompile Include="..\debugger\DebuggerScope.cpp">
       <Filter>debugger</Filter>
     </ClCompile>
     <ClCompile Include="..\disassembler\Disassembler.cpp">
       <Filter>disassembler</Filter>
-    </ClCompile>
-    <ClCompile Include="..\heap\BlockAllocator.cpp">
-      <Filter>heap</Filter>
     </ClCompile>
     <ClCompile Include="..\heap\ConservativeRoots.cpp">
       <Filter>heap</Filter>
@@ -267,6 +282,9 @@
     <ClCompile Include="..\heap\HeapTimer.cpp">
       <Filter>heap</Filter>
     </ClCompile>
+    <ClCompile Include="..\heap\HeapVerifier.cpp">
+      <Filter>heap</Filter>
+    </ClCompile>
     <ClCompile Include="..\heap\IncrementalSweeper.cpp">
       <Filter>heap</Filter>
     </ClCompile>
@@ -289,9 +307,6 @@
       <Filter>heap</Filter>
     </ClCompile>
     <ClCompile Include="..\heap\SlotVisitor.cpp">
-      <Filter>heap</Filter>
-    </ClCompile>
-    <ClCompile Include="..\heap\SuperRegion.cpp">
       <Filter>heap</Filter>
     </ClCompile>
     <ClCompile Include="..\heap\Weak.cpp">
@@ -330,9 +345,6 @@
     <ClCompile Include="..\inspector\agents\InspectorDebuggerAgent.cpp">
       <Filter>inspector</Filter>
     </ClCompile>
-    <ClCompile Include="..\inspector\agents\InspectorProfilerAgent.cpp">
-      <Filter>inspector</Filter>
-    </ClCompile>
     <ClCompile Include="..\inspector\agents\InspectorRuntimeAgent.cpp">
       <Filter>inspector</Filter>
     </ClCompile>
@@ -353,12 +365,6 @@
     </ClCompile>
     <ClCompile Include="..\interpreter\StackVisitor.cpp">
       <Filter>interpreter</Filter>
-    </ClCompile>
-    <ClCompile Include="..\interpreter\VMInspector.cpp">
-      <Filter>interpreter</Filter>
-    </ClCompile>
-    <ClCompile Include="..\jit\ClosureCallStubRoutine.cpp">
-      <Filter>jit</Filter>
     </ClCompile>
     <ClCompile Include="..\jit\ExecutableAllocator.cpp">
       <Filter>jit</Filter>
@@ -510,13 +516,13 @@
     <ClCompile Include="..\runtime\ArgList.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
-    <ClCompile Include="..\runtime\Arguments.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
     <ClCompile Include="..\runtime\ArrayConstructor.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\ArrayPrototype.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\BasicBlockLocation.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\BooleanConstructor.cpp">
@@ -550,6 +556,9 @@
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\ConstructData.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\ControlFlowProfiler.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\CustomGetterSetter.cpp">
@@ -591,7 +600,13 @@
     <ClCompile Include="..\runtime\FunctionConstructor.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
+    <ClCompile Include="..\runtime\FunctionHasExecutedCache.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
     <ClCompile Include="..\runtime\FunctionPrototype.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\FunctionRareData.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\GetterSetter.cpp">
@@ -609,7 +624,16 @@
     <ClCompile Include="..\runtime\InternalFunction.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
-    <ClCompile Include="..\runtime\JSActivation.cpp">
+    <ClCompile Include="..\runtime\IntlObject.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\IteratorOperations.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\IteratorPrototype.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\JSLexicalEnvironment.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\JSAPIValueWrapper.cpp">
@@ -619,6 +643,9 @@
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\JSBoundFunction.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\JSCallee.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\JSCell.cpp">
@@ -639,6 +666,9 @@
     <ClCompile Include="..\runtime\JSGlobalObjectFunctions.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
+    <ClCompile Include="..\runtime\JSJob.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
     <ClCompile Include="..\runtime\JSLock.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
@@ -657,7 +687,7 @@
     <ClCompile Include="..\runtime\JSONObject.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
-    <ClCompile Include="..\runtime\JSPropertyNameIterator.cpp">
+    <ClCompile Include="..\runtime\JSPropertyNameEnumerator.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\JSProxy.cpp">
@@ -678,19 +708,28 @@
     <ClCompile Include="..\runtime\JSString.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
+    <ClCompile Include="..\runtime\JSStringIterator.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
     <ClCompile Include="..\runtime\JSStringJoiner.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\JSSymbolTableObject.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
-    <ClCompile Include="..\runtime\JSVariableObject.cpp">
+    <ClCompile Include="..\runtime\JSTemplateRegistryKey.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\JSEnvironmentRecord.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\JSWithScope.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\JSWeakMap.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\JSWeakSet.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\JSWrapperObject.cpp">
@@ -705,28 +744,25 @@
     <ClCompile Include="..\runtime\MapPrototype.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
-    <ClCompile Include="..\runtime\MapData.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
     <ClCompile Include="..\runtime\MapConstructor.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
+    <ClCompile Include="..\runtime\MathCommon.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
     <ClCompile Include="..\runtime\MathObject.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
-    <ClCompile Include="..\runtime\NameConstructor.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
-    <ClCompile Include="..\runtime\NameInstance.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
-    <ClCompile Include="..\runtime\NamePrototype.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\NativeErrorConstructor.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\NativeErrorPrototype.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\NullGetterFunction.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\NullSetterFunction.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\NumberConstructor.cpp">
@@ -753,9 +789,6 @@
     <ClCompile Include="..\runtime\PropertyDescriptor.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
-    <ClCompile Include="..\runtime\PropertyNameArray.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
     <ClCompile Include="..\runtime\PropertySlot.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
@@ -780,6 +813,9 @@
     <ClCompile Include="..\runtime\RegExpPrototype.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
+    <ClCompile Include="..\runtime\RuntimeType.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
     <ClCompile Include="..\runtime\SamplingCounter.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
@@ -792,13 +828,7 @@
     <ClCompile Include="..\runtime\SetIteratorPrototype.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
-    <ClCompile Include="..\runtime\SetIteratorConstructor.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
     <ClCompile Include="..\runtime\SetConstructor.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
-    <ClCompile Include="..\runtime\SetIteratorConstructor.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\SparseArrayValueMap.cpp">
@@ -808,6 +838,9 @@
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\StringConstructor.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\StringIteratorPrototype.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\StringObject.cpp">
@@ -828,7 +861,34 @@
     <ClCompile Include="..\runtime\StructureIDTable.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
+    <ClCompile Include="..\runtime\Symbol.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\SymbolConstructor.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\SymbolObject.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\SymbolPrototype.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
     <ClCompile Include="..\runtime\SymbolTable.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\TemplateRegistry.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\TypeLocationCache.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\TypeProfiler.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\TypeProfilerLog.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\TypeSet.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\Watchdog.cpp">
@@ -841,6 +901,15 @@
       <Filter>tools</Filter>
     </ClCompile>
     <ClCompile Include="..\tools\CodeProfiling.cpp">
+      <Filter>tools</Filter>
+    </ClCompile>
+    <ClCompile Include="..\tools\FunctionOverrides.cpp">
+      <Filter>tools</Filter>
+    </ClCompile>
+    <ClCompile Include="..\tools\JSDollarVM.cpp">
+      <Filter>tools</Filter>
+    </ClCompile>
+    <ClCompile Include="..\tools\JSDollarVMPrototype.cpp">
       <Filter>tools</Filter>
     </ClCompile>
     <ClCompile Include="..\yarr\RegularExpression.cpp">
@@ -945,12 +1014,6 @@
     <ClCompile Include="..\runtime\JSPromiseDeferred.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
-    <ClCompile Include="..\runtime\JSPromiseFunctions.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
-    <ClCompile Include="..\runtime\JSPromiseReaction.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
     <ClCompile Include="..\runtime\JSPromisePrototype.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
@@ -963,6 +1026,12 @@
     <ClCompile Include="..\runtime\WeakMapPrototype.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
+    <ClCompile Include="..\runtime\WeakSetConstructor.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\WeakSetPrototype.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
     <ClCompile Include="..\heap\CodeBlockSet.cpp">
       <Filter>heap</Filter>
     </ClCompile>
@@ -970,6 +1039,9 @@
       <Filter>heap</Filter>
     </ClCompile>
     <ClCompile Include="..\bytecode\DeferredCompilationCallback.cpp">
+      <Filter>bytecode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\bytecode\DeferredSourceDump.cpp">
       <Filter>bytecode</Filter>
     </ClCompile>
     <ClCompile Include="..\dfg\DFGCompilationKey.cpp">
@@ -993,9 +1065,6 @@
     <ClCompile Include="..\dfg\DFGAbstractValue.cpp">
       <Filter>dfg</Filter>
     </ClCompile>
-    <ClCompile Include="..\dfg\DFGArgumentsSimplificationPhase.cpp">
-      <Filter>dfg</Filter>
-    </ClCompile>
     <ClCompile Include="..\dfg\DFGArrayMode.cpp">
       <Filter>dfg</Filter>
     </ClCompile>
@@ -1006,9 +1075,6 @@
       <Filter>dfg</Filter>
     </ClCompile>
     <ClCompile Include="..\dfg\DFGBasicBlock.cpp">
-      <Filter>dfg</Filter>
-    </ClCompile>
-    <ClCompile Include="..\dfg\DFGBinarySwitch.cpp">
       <Filter>dfg</Filter>
     </ClCompile>
     <ClCompile Include="..\dfg\DFGBlockInsertionSet.cpp">
@@ -1054,9 +1120,6 @@
       <Filter>dfg</Filter>
     </ClCompile>
     <ClCompile Include="..\dfg\DFGDesiredIdentifiers.cpp">
-      <Filter>dfg</Filter>
-    </ClCompile>
-    <ClCompile Include="..\dfg\DFGDesiredStructureChains.cpp">
       <Filter>dfg</Filter>
     </ClCompile>
     <ClCompile Include="..\dfg\DFGDesiredTransitions.cpp">
@@ -1120,6 +1183,9 @@
       <Filter>dfg</Filter>
     </ClCompile>
     <ClCompile Include="..\dfg\DFGLazyJSValue.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGLazyNode.cpp">
       <Filter>dfg</Filter>
     </ClCompile>
     <ClCompile Include="..\dfg\DFGLICMPhase.cpp">
@@ -1272,19 +1338,7 @@
     <ClCompile Include="..\runtime\CompilationResult.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
-    <ClCompile Include="..\runtime\ArrayIteratorConstructor.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
     <ClCompile Include="..\runtime\ArrayIteratorPrototype.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
-    <ClCompile Include="..\runtime\ArgumentsIteratorConstructor.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
-    <ClCompile Include="..\runtime\ArgumentsIteratorPrototype.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
-    <ClCompile Include="..\runtime\MapIteratorConstructor.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\MapIteratorPrototype.cpp">
@@ -1294,9 +1348,6 @@
       <Filter>jit</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\JSArrayIterator.cpp">
-      <Filter>runtime</Filter>
-    </ClCompile>
-    <ClCompile Include="..\runtime\JSArgumentsIterator.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
     <ClCompile Include="..\runtime\JSMapIterator.cpp">
@@ -1332,13 +1383,7 @@
     <ClCompile Include="..\dfg\DFGAvailability.cpp">
       <Filter>dfg</Filter>
     </ClCompile>
-    <ClCompile Include="..\dfg\DFGResurrectionForValidationPhase.cpp">
-      <Filter>dfg</Filter>
-    </ClCompile>
     <ClCompile Include="..\bytecode\CodeBlockJettisoningWatchpoint.cpp">
-      <Filter>bytecode</Filter>
-    </ClCompile>
-    <ClCompile Include="..\bytecode\ProfiledCodeBlockJettisoningWatchpoint.cpp">
       <Filter>bytecode</Filter>
     </ClCompile>
     <ClCompile Include="..\bindings\ScriptValue.cpp">
@@ -1359,13 +1404,13 @@
     <ClCompile Include="..\runtime\ArrayBufferNeuteringWatchpoint.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
-    <ClCompile Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorJSBackendDispatchers.cpp">
+    <ClCompile Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorBackendDispatchers.cpp">
       <Filter>Derived Sources</Filter>
     </ClCompile>
-    <ClCompile Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorJSFrontendDispatchers.cpp">
+    <ClCompile Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorFrontendDispatchers.cpp">
       <Filter>Derived Sources</Filter>
     </ClCompile>
-    <ClCompile Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorJSTypeBuilders.cpp">
+    <ClCompile Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorProtocolObjects.cpp">
       <Filter>Derived Sources</Filter>
     </ClCompile>
     <ClCompile Include="..\jit\ArityCheckFailReturnThunks.cpp">
@@ -1608,9 +1653,139 @@
     <ClCompile Include="..\runtime\MemoryStatistics.cpp">
       <Filter>runtime</Filter>
     </ClCompile>
+    <ClCompile Include="..\bytecode\ComplexGetStatus.cpp">
+      <Filter>bytecode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\bytecode\ConstantStructureCheck.cpp">
+      <Filter>bytecode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGDoesGC.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGFrozenValue.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGHeapLocation.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGMayExit.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGPureValue.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGStructureAbstractValue.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGStructureRegistrationPhase.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGTransition.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGValueStrength.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\Exception.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\runtime\ExceptionFuzz.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\bytecode\StructureSet.cpp">
+      <Filter>bytecode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\bytecode\ToThisStatus.cpp">
+      <Filter>bytecode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\bytecode\CallEdge.cpp">
+      <Filter>bytecode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\bytecode\CallVariant.cpp">
+      <Filter>bytecode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGAvailabilityMap.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGBlockSet.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGBlockWorklist.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGInsertOSRHintsForUpdate.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGNaiveDominators.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGObjectAllocationSinkingPhase.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGObjectMaterializationData.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGPhiChildren.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGPrePostNumbering.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGPromotedHeapLocation.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dfg\DFGSSACalculator.cpp">
+      <Filter>dfg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\FTLExitPropertyValue.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\FTLExitTimeObjectMaterialization.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ftl\FTLOperations.cpp">
+      <Filter>ftl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\jit\BinarySwitch.cpp">
+      <Filter>jit</Filter>
+    </ClCompile>
+    <ClCompile Include="..\jit\PolymorphicCallStubRoutine.cpp">
+      <Filter>jit</Filter>
+    </ClCompile>
+    <ClCompile Include="..\bytecode\VirtualRegister.cpp">
+      <Filter>bytecode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\jit\SetupVarargsFrame.cpp" />
     <ClCompile Include="JavaScriptCoreDLL.cpp">
       <Filter>API</Filter>
     </ClCompile>
+    <ClCompile Include="..\dfg\DFGPutStackSinkingPhase.cpp" />
+    <ClCompile Include="..\ftl\FTLJSCallBase.cpp" />
+    <ClCompile Include="..\ftl\FTLJSCallVarargs.cpp" />
+    <ClCompile Include="..\runtime\JSCatchScope.cpp" />
+    <ClCompile Include="..\runtime\JSFunctionNameScope.cpp" />
+    <ClCompile Include="..\jit\ExecutableAllocatorFixedVMPool.cpp">
+      <Filter>jit</Filter>
+    </ClCompile>
+    <ClCompile Include="..\bytecode\VariableWriteFireDetail.cpp" />
+    <ClCompile Include="..\dfg\DFGArgumentsEliminationPhase.cpp" />
+    <ClCompile Include="..\dfg\DFGArgumentsUtilities.cpp" />
+    <ClCompile Include="..\dfg\DFGCleanUpPhase.cpp" />
+    <ClCompile Include="..\dfg\DFGEpoch.cpp" />
+    <ClCompile Include="..\dfg\DFGMovHintRemovalPhase.cpp" />
+    <ClCompile Include="..\dfg\DFGPhantomInsertionPhase.cpp" />
+    <ClCompile Include="..\dfg\DFGVarargsForwardingPhase.cpp" />
+    <ClCompile Include="..\jit\ExecutableAllocationFuzz.cpp" />
+    <ClCompile Include="..\runtime\ClonedArguments.cpp" />
+    <ClCompile Include="..\runtime\ConstantMode.cpp" />
+    <ClCompile Include="..\runtime\DirectArguments.cpp" />
+    <ClCompile Include="..\runtime\DirectArgumentsOffset.cpp" />
+    <ClCompile Include="..\runtime\InferredValue.cpp" />
+    <ClCompile Include="..\runtime\ScopeOffset.cpp" />
+    <ClCompile Include="..\runtime\ScopedArguments.cpp" />
+    <ClCompile Include="..\runtime\ScopedArgumentsTable.cpp" />
+    <ClCompile Include="..\runtime\TypeofType.cpp" />
+    <ClCompile Include="..\runtime\VarOffset.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\API\APICallbackFunction.h">
@@ -1751,6 +1926,9 @@
     <ClInclude Include="..\bytecode\BytecodeBasicBlock.h">
       <Filter>bytecode</Filter>
     </ClInclude>
+    <ClInclude Include="..\bytecode\BytecodeIntrinsicRegistry.h">
+      <Filter>bytecode</Filter>
+    </ClInclude>
     <ClInclude Include="..\bytecode\BytecodeLivenessAnalysis.h">
       <Filter>bytecode</Filter>
     </ClInclude>
@@ -1850,6 +2028,9 @@
     <ClInclude Include="..\bytecode\StructureStubInfo.h">
       <Filter>bytecode</Filter>
     </ClInclude>
+    <ClInclude Include="..\bytecode\TypeLocation.h">
+      <Filter>bytecode</Filter>
+    </ClInclude>
     <ClInclude Include="..\bytecode\UnlinkedCodeBlock.h">
       <Filter>bytecode</Filter>
     </ClInclude>
@@ -1886,13 +2067,16 @@
     <ClInclude Include="..\debugger\Debugger.h">
       <Filter>debugger</Filter>
     </ClInclude>
-    <ClInclude Include="..\debugger\DebuggerActivation.h">
-      <Filter>debugger</Filter>
-    </ClInclude>
     <ClInclude Include="..\debugger\DebuggerCallFrame.h">
       <Filter>debugger</Filter>
     </ClInclude>
+    <ClInclude Include="..\debugger\DebuggerEvalEnabler.h">
+      <Filter>debugger</Filter>
+    </ClInclude>
     <ClInclude Include="..\debugger\DebuggerPrimitives.h">
+      <Filter>debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\debugger\DebuggerScope.h">
       <Filter>debugger</Filter>
     </ClInclude>
     <ClInclude Include="..\dfg\DFGDriver.h">
@@ -1903,9 +2087,6 @@
     </ClInclude>
     <ClInclude Include="..\disassembler\Disassembler.h">
       <Filter>disassembler</Filter>
-    </ClInclude>
-    <ClInclude Include="..\heap\BlockAllocator.h">
-      <Filter>heap</Filter>
     </ClInclude>
     <ClInclude Include="..\heap\ConservativeRoots.h">
       <Filter>heap</Filter>
@@ -1988,9 +2169,6 @@
     <ClInclude Include="..\heap\Heap.h">
       <Filter>heap</Filter>
     </ClInclude>
-    <ClInclude Include="..\heap\HeapBlock.h">
-      <Filter>heap</Filter>
-    </ClInclude>
     <ClInclude Include="..\heap\HeapInlines.h">
       <Filter>heap</Filter>
     </ClInclude>
@@ -2004,6 +2182,9 @@
       <Filter>heap</Filter>
     </ClInclude>
     <ClInclude Include="..\heap\HeapTimer.h">
+      <Filter>heap</Filter>
+    </ClInclude>
+    <ClInclude Include="..\heap\HeapVerifier.h">
       <Filter>heap</Filter>
     </ClInclude>
     <ClInclude Include="..\heap\IncrementalSweeper.h">
@@ -2042,9 +2223,6 @@
     <ClInclude Include="..\heap\RecursiveAllocationScope.h">
       <Filter>heap</Filter>
     </ClInclude>
-    <ClInclude Include="..\heap\Region.h">
-      <Filter>heap</Filter>
-    </ClInclude>
     <ClInclude Include="..\heap\SlotVisitor.h">
       <Filter>heap</Filter>
     </ClInclude>
@@ -2055,9 +2233,6 @@
       <Filter>heap</Filter>
     </ClInclude>
     <ClInclude Include="..\heap\StrongInlines.h">
-      <Filter>heap</Filter>
-    </ClInclude>
-    <ClInclude Include="..\heap\SuperRegion.h">
       <Filter>heap</Filter>
     </ClInclude>
     <ClInclude Include="..\heap\TinyBloomFilter.h">
@@ -2108,9 +2283,6 @@
     <ClInclude Include="..\inspector\InspectorFrontendChannel.h">
       <Filter>inspector</Filter>
     </ClInclude>
-    <ClInclude Include="..\inspector\InspectorTypeBuilder.h">
-      <Filter>inspector</Filter>
-    </ClInclude>
     <ClInclude Include="..\inspector\InspectorValues.h">
       <Filter>inspector</Filter>
     </ClInclude>
@@ -2118,9 +2290,6 @@
       <Filter>inspector</Filter>
     </ClInclude>
     <ClInclude Include="..\inspector\agents\InspectorDebuggerAgent.h">
-      <Filter>inspector</Filter>
-    </ClInclude>
-    <ClInclude Include="..\inspector\agents\InspectorProfilerAgent.h">
       <Filter>inspector</Filter>
     </ClInclude>
     <ClInclude Include="..\inspector\agents\InspectorRuntimeAgent.h">
@@ -2141,6 +2310,9 @@
     <ClInclude Include="..\interpreter\CallFrameClosure.h">
       <Filter>interpreter</Filter>
     </ClInclude>
+    <ClInclude Include="..\interpreter\VMEntryRecord.h">
+      <Filter>interpreter</Filter>
+    </ClInclude>
     <ClInclude Include="..\interpreter\Interpreter.h">
       <Filter>interpreter</Filter>
     </ClInclude>
@@ -2158,12 +2330,6 @@
     </ClInclude>
     <ClInclude Include="..\interpreter\StackVisitor.h">
       <Filter>interpreter</Filter>
-    </ClInclude>
-    <ClInclude Include="..\interpreter\VMInspector.h">
-      <Filter>interpreter</Filter>
-    </ClInclude>
-    <ClInclude Include="..\jit\ClosureCallStubRoutine.h">
-      <Filter>jit</Filter>
     </ClInclude>
     <ClInclude Include="..\jit\CompactJITCodeMap.h">
       <Filter>jit</Filter>
@@ -2267,9 +2433,6 @@
     <ClInclude Include="..\parser\NodeConstructors.h">
       <Filter>parser</Filter>
     </ClInclude>
-    <ClInclude Include="..\parser\NodeInfo.h">
-      <Filter>parser</Filter>
-    </ClInclude>
     <ClInclude Include="..\parser\Nodes.h">
       <Filter>parser</Filter>
     </ClInclude>
@@ -2360,9 +2523,6 @@
     <ClInclude Include="..\runtime\ArgList.h">
       <Filter>runtime</Filter>
     </ClInclude>
-    <ClInclude Include="..\runtime\Arguments.h">
-      <Filter>runtime</Filter>
-    </ClInclude>
     <ClInclude Include="..\runtime\ArrayConstructor.h">
       <Filter>runtime</Filter>
     </ClInclude>
@@ -2373,6 +2533,9 @@
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\ArrayStorage.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\BasicBlockLocation.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\BatchedTransitionOptimizer.h">
@@ -2429,6 +2592,9 @@
     <ClInclude Include="..\runtime\ConstructData.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\runtime\ControlFlowProfiler.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
     <ClInclude Include="..\runtime\CustomGetterSetter.h">
       <Filter>runtime</Filter>
     </ClInclude>
@@ -2445,6 +2611,9 @@
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\DatePrototype.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\EnumerationMode.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\Error.h">
@@ -2471,7 +2640,13 @@
     <ClInclude Include="..\runtime\FunctionConstructor.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\runtime\FunctionHasExecutedCache.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
     <ClInclude Include="..\runtime\FunctionPrototype.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\FunctionRareData.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\GetterSetter.h">
@@ -2495,10 +2670,22 @@
     <ClInclude Include="..\runtime\InternalFunction.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\runtime\IntlObject.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
     <ClInclude Include="..\runtime\Intrinsic.h">
       <Filter>runtime</Filter>
     </ClInclude>
-    <ClInclude Include="..\runtime\JSActivation.h">
+    <ClInclude Include="..\runtime\IterationStatus.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\IteratorOperations.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\IteratorPrototype.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\JSLexicalEnvironment.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\JSAPIValueWrapper.h">
@@ -2508,6 +2695,9 @@
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\JSBoundFunction.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\JSCallee.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\JSCell.h">
@@ -2534,6 +2724,9 @@
     <ClInclude Include="..\runtime\JSGlobalObjectFunctions.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\runtime\JSJob.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
     <ClInclude Include="..\runtime\JSLock.h">
       <Filter>runtime</Filter>
     </ClInclude>
@@ -2549,7 +2742,7 @@
     <ClInclude Include="..\runtime\JSONObject.h">
       <Filter>runtime</Filter>
     </ClInclude>
-    <ClInclude Include="..\runtime\JSPropertyNameIterator.h">
+    <ClInclude Include="..\runtime\JSPropertyNameEnumerator.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\JSProxy.h">
@@ -2567,10 +2760,16 @@
     <ClInclude Include="..\runtime\JSStringBuilder.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\runtime\JSStringIterator.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
     <ClInclude Include="..\runtime\JSStringJoiner.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\JSSymbolTableObject.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\JSTemplateRegistryKey.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\JSType.h">
@@ -2579,7 +2778,7 @@
     <ClInclude Include="..\runtime\JSTypeInfo.h">
       <Filter>runtime</Filter>
     </ClInclude>
-    <ClInclude Include="..\runtime\JSVariableObject.h">
+    <ClInclude Include="..\runtime\JSEnvironmentRecord.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\JSWithScope.h">
@@ -2600,19 +2799,16 @@
     <ClInclude Include="..\runtime\MathObject.h">
       <Filter>runtime</Filter>
     </ClInclude>
-    <ClInclude Include="..\runtime\NameConstructor.h">
-      <Filter>runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="..\runtime\NameInstance.h">
-      <Filter>runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="..\runtime\NamePrototype.h">
-      <Filter>runtime</Filter>
-    </ClInclude>
     <ClInclude Include="..\runtime\NativeErrorConstructor.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\NativeErrorPrototype.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\NullGetterFunction.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\NullSetterFunction.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\NumberConstructor.h">
@@ -2699,6 +2895,12 @@
     <ClInclude Include="..\runtime\Reject.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\runtime\RuntimeFlags.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\RuntimeType.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
     <ClInclude Include="..\runtime\SamplingCounter.h">
       <Filter>runtime</Filter>
     </ClInclude>
@@ -2712,6 +2914,9 @@
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\StringConstructor.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\StringIteratorPrototype.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\StringObject.h">
@@ -2738,10 +2943,40 @@
     <ClInclude Include="..\runtime\StructureTransitionTable.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\runtime\Symbol.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\SymbolConstructor.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\SymbolObject.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\SymbolPrototype.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
     <ClInclude Include="..\runtime\SymbolTable.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\runtime\TemplateRegistry.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\TemplateRegistryKey.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
     <ClInclude Include="..\runtime\Tracing.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\TypeLocationCache.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\TypeProfiler.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\TypeProfilerLog.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\TypeSet.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\Uint16WithFraction.h">
@@ -2766,6 +3001,15 @@
       <Filter>tools</Filter>
     </ClInclude>
     <ClInclude Include="..\tools\CodeProfiling.h">
+      <Filter>tools</Filter>
+    </ClInclude>
+    <ClInclude Include="..\tools\FunctionOverrides.h">
+      <Filter>tools</Filter>
+    </ClInclude>
+    <ClInclude Include="..\tools\JSDollarVM.h">
+      <Filter>tools</Filter>
+    </ClInclude>
+    <ClInclude Include="..\tools\JSDollarVMPrototype.h">
       <Filter>tools</Filter>
     </ClInclude>
     <ClInclude Include="..\tools\ProfileTreeNode.h">
@@ -2835,13 +3079,13 @@
     <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\HeaderDetection.h">
       <Filter>Derived Sources</Filter>
     </ClInclude>
-    <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorJSBackendDispatchers.h">
+    <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorBackendDispatchers.h">
       <Filter>Derived Sources</Filter>
     </ClInclude>
-    <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorJSFrontendDispatchers.h">
+    <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorFrontendDispatchers.h">
       <Filter>Derived Sources</Filter>
     </ClInclude>
-    <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorJSTypeBuilders.h">
+    <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\InspectorProtocolObjects.h">
       <Filter>Derived Sources</Filter>
     </ClInclude>
     <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\JSGlobalObject.lut.h">
@@ -2874,6 +3118,9 @@
     <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\StringConstructor.lut.h">
       <Filter>Derived Sources</Filter>
     </ClInclude>
+    <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\ArrayIteratorPrototype.lut.h">
+      <Filter>Derived Sources</Filter>
+    </ClInclude>
     <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\ArrayPrototype.lut.h">
       <Filter>Derived Sources</Filter>
     </ClInclude>
@@ -2885,9 +3132,6 @@
     </ClInclude>
     <ClInclude Include="..\runtime\VMEntryScope.h">
       <Filter>runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="..\assembler\MacroAssemblerX86Common.cpp">
-      <Filter>assembler</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\IntendedStructureChain.h">
       <Filter>runtime</Filter>
@@ -2947,12 +3191,6 @@
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\JSPromiseDeferred.h">
-      <Filter>runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="..\runtime\JSPromiseFunctions.h">
-      <Filter>runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="..\runtime\JSPromiseReaction.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\JSPromisePrototype.h">
@@ -3072,16 +3310,16 @@
     <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\KeywordLookup.lut.h">
       <Filter>Derived Sources</Filter>
     </ClInclude>
-    <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\RegExpObject.lut.h">
-      <Filter>Derived Sources</Filter>
-    </ClInclude>
-    <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\NamePrototype.lut.h">
+    <ClInclude Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\SymbolPrototype.lut.h">
       <Filter>Derived Sources</Filter>
     </ClInclude>
     <ClInclude Include="..\heap\CodeBlockSet.h">
       <Filter>heap</Filter>
     </ClInclude>
     <ClInclude Include="..\bytecode\DeferredCompilationCallback.h">
+      <Filter>bytecode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bytecode\DeferredSourceDump.h">
       <Filter>bytecode</Filter>
     </ClInclude>
     <ClInclude Include="..\dfg\DFGCompilationKey.h">
@@ -3111,6 +3349,9 @@
     <ClInclude Include="..\runtime\MapData.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\runtime\MapDataInlines.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
     <ClInclude Include="..\runtime\SetPrototype.h">
       <Filter>runtime</Filter>
     </ClInclude>
@@ -3121,9 +3362,6 @@
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\SetConstructor.h">
-      <Filter>runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="..\runtime\SetIteratorConstructor.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\dfg\DFGAbstractHeap.h">
@@ -3150,9 +3388,6 @@
     <ClInclude Include="..\dfg\DFGArgumentPosition.h">
       <Filter>dfg</Filter>
     </ClInclude>
-    <ClInclude Include="..\dfg\DFGArgumentsSimplificationPhase.h">
-      <Filter>dfg</Filter>
-    </ClInclude>
     <ClInclude Include="..\dfg\DFGArrayifySlowPathGenerator.h">
       <Filter>dfg</Filter>
     </ClInclude>
@@ -3169,9 +3404,6 @@
       <Filter>dfg</Filter>
     </ClInclude>
     <ClInclude Include="..\dfg\DFGBasicBlockInlines.h">
-      <Filter>dfg</Filter>
-    </ClInclude>
-    <ClInclude Include="..\dfg\DFGBinarySwitch.h">
       <Filter>dfg</Filter>
     </ClInclude>
     <ClInclude Include="..\dfg\DFGBlockInsertionSet.h">
@@ -3226,9 +3458,6 @@
       <Filter>dfg</Filter>
     </ClInclude>
     <ClInclude Include="..\dfg\DFGDesiredIdentifiers.h">
-      <Filter>dfg</Filter>
-    </ClInclude>
-    <ClInclude Include="..\dfg\DFGDesiredStructureChains.h">
       <Filter>dfg</Filter>
     </ClInclude>
     <ClInclude Include="..\dfg\DFGDesiredTransitions.h">
@@ -3316,6 +3545,9 @@
       <Filter>dfg</Filter>
     </ClInclude>
     <ClInclude Include="..\dfg\DFGLazyJSValue.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGLazyNode.h">
       <Filter>dfg</Filter>
     </ClInclude>
     <ClInclude Include="..\dfg\DFGLICMPhase.h">
@@ -3462,9 +3694,6 @@
     <ClInclude Include="..\dfg\DFGValidate.h">
       <Filter>dfg</Filter>
     </ClInclude>
-    <ClInclude Include="..\dfg\DFGValueRecoveryOverride.h">
-      <Filter>dfg</Filter>
-    </ClInclude>
     <ClInclude Include="..\dfg\DFGValueSource.h">
       <Filter>dfg</Filter>
     </ClInclude>
@@ -3510,13 +3739,7 @@
     <ClInclude Include="..\runtime\ArrayIteratorPrototype.h">
       <Filter>runtime</Filter>
     </ClInclude>
-    <ClInclude Include="..\runtime\ArrayIteratorConstructor.h">
-      <Filter>runtime</Filter>
-    </ClInclude>
     <ClInclude Include="..\runtime\MapIteratorPrototype.h">
-      <Filter>runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="..\runtime\MapIteratorConstructor.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\Microtask.h">
@@ -3537,13 +3760,19 @@
     <ClInclude Include="..\runtime\WeakMapConstructor.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\runtime\WeakSetConstructor.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\WeakSetPrototype.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
     <ClInclude Include="..\runtime\JSWeakMap.h">
       <Filter>runtime</Filter>
     </ClInclude>
-    <ClInclude Include="..\runtime\JSArrayIterator.h">
+    <ClInclude Include="..\runtime\JSWeakSet.h">
       <Filter>runtime</Filter>
     </ClInclude>
-    <ClInclude Include="..\runtime\JSArgumentsIterator.h">
+    <ClInclude Include="..\runtime\JSArrayIterator.h">
       <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="..\runtime\JSMapIterator.h">
@@ -3579,9 +3808,6 @@
     <ClInclude Include="..\jit\JITInlineCacheGenerator.h">
       <Filter>jit</Filter>
     </ClInclude>
-    <ClInclude Include="..\dfg\DFGResurrectionForValidationPhase.h">
-      <Filter>dfg</Filter>
-    </ClInclude>
     <ClInclude Include="..\dfg\DFGAvailability.h">
       <Filter>dfg</Filter>
     </ClInclude>
@@ -3591,17 +3817,8 @@
     <ClInclude Include="..\bytecode\CodeBlockJettisoningWatchpoint.h">
       <Filter>bytecode</Filter>
     </ClInclude>
-    <ClInclude Include="..\bytecode\ProfiledCodeBlockJettisoningWatchpoint.h">
-      <Filter>bytecode</Filter>
-    </ClInclude>
     <ClInclude Include="..\runtime\StackAlignment.h">
       <Filter>runtime</Filter>
-    </ClInclude>
-    <ClInclude Include="..\heap\DelayedReleaseScope.h">
-      <Filter>heap</Filter>
-    </ClInclude>
-    <ClInclude Include="..\bytecode\VariableWatchpointSet.h">
-      <Filter>bytecode</Filter>
     </ClInclude>
     <ClInclude Include="..\bindings\ScriptFunctionCall.h">
       <Filter>bindings</Filter>
@@ -3916,6 +4133,149 @@
     <ClInclude Include="..\runtime\MemoryStatistics.h">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClInclude Include="..\bytecode\ComplexGetStatus.h">
+      <Filter>bytecode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bytecode\ConstantStructureCheck.h">
+      <Filter>bytecode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGDoesGC.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGFrozenValue.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGHeapLocation.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGMayExit.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGPureValue.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGStructureClobberState.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGStructureRegistrationPhase.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGTransition.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGValueStrength.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\Exception.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\runtime\ExceptionFuzz.h">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bytecode\ToThisStatus.h">
+      <Filter>bytecode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bytecode\CallVariant.h">
+      <Filter>bytecode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bytecode\CallEdge.h">
+      <Filter>bytecode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGAvailabilityMap.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGBlockMap.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGBlockMapInlines.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGBlockSet.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGSSACalculator.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGBlockSetInlines.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGBlockWorklist.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGInsertOSRHintsForUpdate.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGNaiveDominators.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGObjectAllocationSinkingPhase.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGObjectMaterializationData.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGPhiChildren.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGPrePostNumbering.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGPromotedHeapLocation.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGPromoteHeapAccess.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\FTLExitPropertyValue.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\FTLExitTimeObjectMaterialization.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ftl\FTLOperations.h">
+      <Filter>ftl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\jit\BinarySwitch.h">
+      <Filter>jit</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dfg\DFGPreciseLocalClobberize.h">
+      <Filter>dfg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\jit\PolymorphicCallStubRoutine.h">
+      <Filter>jit</Filter>
+    </ClInclude>
+    <ClInclude Include="..\jit\SetupVarargsFrame.h" />
+    <ClInclude Include="..\dfg\DFGPutStackSinkingPhase.h" />
+    <ClInclude Include="..\ftl\FTLJSCallBase.h" />
+    <ClInclude Include="..\ftl\FTLJSCallVarargs.h" />
+    <ClInclude Include="..\runtime\JSCatchScope.h" />
+    <ClInclude Include="..\runtime\JSFunctionNameScope.h" />
+    <ClInclude Include="..\runtime\MathCommon.h" />
+    <ClInclude Include="..\bytecode\BytecodeKills.h" />
+    <ClInclude Include="..\bytecode\VariableWriteFireDetail.h" />
+    <ClInclude Include="..\dfg\DFGArgumentsEliminationPhase.h" />
+    <ClInclude Include="..\dfg\DFGArgumentsUtilities.h" />
+    <ClInclude Include="..\dfg\DFGCallCreateDirectArgumentsSlowPathGenerator.h" />
+    <ClInclude Include="..\dfg\DFGCleanUpPhase.h" />
+    <ClInclude Include="..\dfg\DFGEpoch.h" />
+    <ClInclude Include="..\dfg\DFGForAllKills.h" />
+    <ClInclude Include="..\dfg\DFGMovHintRemovalPhase.h" />
+    <ClInclude Include="..\dfg\DFGPhantomInsertionPhase.h" />
+    <ClInclude Include="..\dfg\DFGVarargsForwardingPhase.h" />
+    <ClInclude Include="..\jit\ExecutableAllocationFuzz.h" />
+    <ClInclude Include="..\runtime\ArgumentsMode.h" />
+    <ClInclude Include="..\runtime\ClonedArguments.h" />
+    <ClInclude Include="..\runtime\DirectArguments.h" />
+    <ClInclude Include="..\runtime\DirectArgumentsOffset.h" />
+    <ClInclude Include="..\runtime\GenericArguments.h" />
+    <ClInclude Include="..\runtime\GenericArgumentsInlines.h" />
+    <ClInclude Include="..\runtime\GenericOffset.h" />
+    <ClInclude Include="..\runtime\InferredValue.h" />
+    <ClInclude Include="..\runtime\ScopeOffset.h" />
+    <ClInclude Include="..\runtime\ScopedArguments.h" />
+    <ClInclude Include="..\runtime\ScopedArgumentsTable.h" />
+    <ClInclude Include="..\runtime\TypeofType.h" />
+    <ClInclude Include="..\runtime\VarOffset.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="JavaScriptCorePreLink.cmd" />
@@ -3923,6 +4283,177 @@
     <None Include="JavaScriptCorePreBuild.cmd" />
     <None Include="..\bytecode\BytecodeList.json">
       <Filter>bytecode</Filter>
+    </None>
+    <None Include="..\inspector\scripts\cssmin.py">
+      <Filter>inspector\scripts</Filter>
+    </None>
+    <None Include="..\inspector\scripts\generate-combined-inspector-json.py">
+      <Filter>inspector\scripts</Filter>
+    </None>
+    <None Include="..\inspector\scripts\generate-inspector-protocol-bindings.py">
+      <Filter>inspector\scripts</Filter>
+    </None>
+    <None Include="..\inspector\scripts\inline-and-minify-stylesheets-and-scripts.py">
+      <Filter>inspector\scripts</Filter>
+    </None>
+    <None Include="..\inspector\scripts\jsmin.py">
+      <Filter>inspector\scripts</Filter>
+    </None>
+    <None Include="..\inspector\scripts\xxd.pl">
+      <Filter>inspector\scripts</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\__init__.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\cpp_generator.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\cpp_generator_templates.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\generate_cpp_backend_dispatcher_header.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\generate_cpp_backend_dispatcher_implementation.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\generate_cpp_frontend_dispatcher_header.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\generate_cpp_frontend_dispatcher_implementation.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\generate_cpp_protocol_types_header.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\generate_cpp_protocol_types_implementation.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\generate_js_backend_commands.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\generator.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\generator_templates.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\codegen\models.py">
+      <Filter>inspector\scripts\codegen</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\commands-with-async-attribute.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\commands-with-optional-call-return-parameters.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\domains-with-varying-command-sizes.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\events-with-optional-parameters.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\fail-on-duplicate-type-declarations.json-error">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\fail-on-enum-with-no-values.json-error">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\fail-on-string-typed-optional-parameter-flag.json-error">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\fail-on-string-typed-optional-type-member.json-error">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\fail-on-type-declaration-using-type-reference.json-error">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\fail-on-type-with-lowercase-name.json-error">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\fail-on-unknown-type-reference-in-type-declaration.json-error">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\fail-on-unknown-type-reference-in-type-member.json-error">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\same-type-id-different-domain.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\shadowed-optional-type-setters.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\type-declaration-aliased-primitive-type.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\type-declaration-array-type.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\type-declaration-enum-type.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\type-declaration-object-type.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\expected\type-requiring-runtime-casts.json-result">
+      <Filter>inspector\scripts\tests\expected</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\commands-with-async-attribute.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\commands-with-optional-call-return-parameters.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\domains-with-varying-command-sizes.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\events-with-optional-parameters.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\fail-on-duplicate-type-declarations.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\fail-on-enum-with-no-values.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\fail-on-string-typed-optional-parameter-flag.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\fail-on-string-typed-optional-type-member.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\fail-on-type-declaration-using-type-reference.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\fail-on-type-with-lowercase-name.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\fail-on-unknown-type-reference-in-type-declaration.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\fail-on-unknown-type-reference-in-type-member.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\same-type-id-different-domain.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\shadowed-optional-type-setters.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\type-declaration-aliased-primitive-type.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\type-declaration-array-type.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\type-declaration-enum-type.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\type-declaration-object-type.json">
+      <Filter>inspector\scripts\tests</Filter>
+    </None>
+    <None Include="..\inspector\scripts\tests\type-requiring-runtime-casts.json">
+      <Filter>inspector\scripts\tests</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

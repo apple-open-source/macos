@@ -28,20 +28,12 @@
 
 #if PLATFORM(IOS)
 
+#import "UIKitSPI.h"
 #import "WKContentView.h"
 #import "WKContentViewInteraction.h"
 #import "WKFormPopover.h"
 #import "WebPageProxy.h"
-#import <CoreFoundation/CFUniChar.h>
-#import <UIKit/UIApplication_Private.h>
-#import <UIKit/UIDevice_Private.h>
-#import <UIKit/UIKeyboard_Private.h>
-#import <UIKit/UIKeyboardImpl.h>
 #import <UIKit/UIPickerView.h>
-#import <UIKit/UIPickerView_Private.h>
-#import <UIKit/UITableViewCell_Private.h>
-#import <UIKit/UIStringDrawing_Private.h>
-#import <UIKit/UIWebFormAccessory.h>
 #import <WebCore/LocalizedStrings.h>
 #import <wtf/RetainPtr.h>
 
@@ -143,11 +135,18 @@ static NSString *stringWithWritingDirection(NSString *string, UITextWritingDirec
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    
-    if (_singleSelectionIndex != NSNotFound) {
-        NSIndexPath *indexPath = [NSIndexPath indexPathForRow:_singleSelectionIndex inSection:_singleSelectionSection];
-        [self.tableView scrollToRowAtIndexPath:indexPath atScrollPosition:UITableViewScrollPositionMiddle animated:NO];
-    }
+
+    if (_singleSelectionIndex == NSNotFound)
+        return;
+
+    if (_singleSelectionSection >= (NSUInteger)[self.tableView numberOfSections])
+        return;
+
+    if (_singleSelectionIndex >= (NSUInteger)[self.tableView numberOfRowsInSection:_singleSelectionSection])
+        return;
+
+    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:_singleSelectionIndex inSection:_singleSelectionSection];
+    [self.tableView scrollToRowAtIndexPath:indexPath atScrollPosition:UITableViewScrollPositionMiddle animated:NO];
 }
 
 #pragma mark UITableView delegate methods
@@ -370,7 +369,6 @@ static NSString *stringWithWritingDirection(NSString *string, UITextWritingDirec
 @implementation WKSelectPopover {
     WKContentView *_view;
     RetainPtr<WKSelectTableViewController> _tableViewController;
-    RetainPtr<UIKeyboard> _keyboard;
 }
 
 - (instancetype)initWithView:(WKContentView *)view hasGroups:(BOOL)hasGroups
@@ -382,7 +380,6 @@ static NSString *stringWithWritingDirection(NSString *string, UITextWritingDirec
     CGRect frame;
     frame.origin = CGPointZero;
     frame.size = [UIKeyboard defaultSizeForInterfaceOrientation:[UIApp interfaceOrientation]];
-    _keyboard = adoptNS([[UIKeyboard alloc] initWithFrame:frame]);
 
     _tableViewController = adoptNS([[WKSelectTableViewController alloc] initWithView:view hasGroups:hasGroups]);
     [_tableViewController setPopover:self];
@@ -404,14 +401,14 @@ static NSString *stringWithWritingDirection(NSString *string, UITextWritingDirec
     else
         popoverViewController.preferredContentSize = popoverSize;
     
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     self.popoverController = [[[UIPopoverController alloc] initWithContentViewController:popoverViewController] autorelease];
+#pragma clang diagnostic pop
+
     [navController release];
     
     [[UIKeyboardImpl sharedInstance] setDelegate:_tableViewController.get()];
-    [_keyboard setSize:[UIKeyboard defaultSizeForInterfaceOrientation:[UIApp interfaceOrientation]]];
-    [_keyboard prepareForGeometryChange];
-    [_keyboard geometryChangeDone:NO];
-    [_keyboard activate];
     
     return self;
 }

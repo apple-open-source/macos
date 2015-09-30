@@ -363,6 +363,24 @@ class TestThread < Test::Unit::TestCase
     c.kill if c
   end
 
+  def test_switch_while_busy_loop
+    bug1402 = "[ruby-dev:38319] [Bug #1402]"
+    flag = true
+    th = Thread.current
+    waiter = Thread.start {
+      sleep 0.1
+      flag = false
+      sleep 1
+      th.raise(bug1402)
+    }
+    assert_nothing_raised(RuntimeError, bug1402) do
+      nil while flag
+    end
+    assert(!flag, bug1402)
+  ensure
+    waiter.kill.join
+  end
+
   def test_safe_level
     t = Thread.new { $SAFE = 3; sleep }
     sleep 0.5
@@ -963,5 +981,26 @@ Thread.new(Thread.current) {|mth|
 
     pid, status = Process.waitpid2(pid)
     assert_equal(false, status.success?, bug8433)
+  end if Process.respond_to?(:fork)
+
+  def test_fork_in_thread
+    bug9751 = '[ruby-core:62070] [Bug #9751]'
+    f = nil
+    th = Thread.start do
+      unless f = IO.popen("-")
+        STDERR.reopen(STDOUT)
+        exit
+      end
+      Process.wait2(f.pid)
+    end
+    unless th.join(3)
+      Process.kill(:QUIT, f.pid)
+      Process.kill(:KILL, f.pid) unless th.join(1)
+    end
+    _, status = th.value
+    output = f.read
+    f.close
+    assert_not_predicate(status, :signaled?, FailDesc[status, bug9751, output])
+    assert_predicate(status, :success?, bug9751)
   end if Process.respond_to?(:fork)
 end

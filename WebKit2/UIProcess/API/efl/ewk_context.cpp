@@ -30,17 +30,18 @@
 #include "WKContextSoup.h"
 #include "WKNumber.h"
 #include "WKString.h"
-#include "WebContext.h"
 #include "WebIconDatabase.h"
+#include "WebProcessPool.h"
 #include "ewk_application_cache_manager_private.h"
 #include "ewk_context_private.h"
 #include "ewk_cookie_manager_private.h"
 #include "ewk_database_manager_private.h"
 #include "ewk_favicon_database_private.h"
-#include "ewk_private.h"
 #include "ewk_storage_manager_private.h"
 #include "ewk_url_scheme_request_private.h"
 #include <JavaScriptCore/JSContextRef.h>
+#include <Shared/WebCertificateInfo.h>
+#include <WebCore/CertificateInfo.h>
 #include <WebCore/FileSystem.h>
 #include <WebCore/IconDatabase.h>
 #include <WebCore/Language.h>
@@ -63,7 +64,7 @@ static inline ContextMap& contextMap()
     return map;
 }
 
-EwkContext::EwkContext(WKContextRef context)
+EwkContext::EwkContext(WKContextRef context, const String& extensionsPath)
     : m_context(context)
     , m_databaseManager(std::make_unique<EwkDatabaseManager>(WKContextGetDatabaseManager(context)))
     , m_storageManager(std::make_unique<EwkStorageManager>(WKContextGetKeyValueStorageManager(context)))
@@ -74,6 +75,7 @@ EwkContext::EwkContext(WKContextRef context)
     , m_requestManagerClient(std::make_unique<RequestManagerClientEfl>(context))
     , m_historyClient(std::make_unique<ContextHistoryClientEfl>(context))
     , m_jsGlobalContext(nullptr)
+    , m_extensionsPath(extensionsPath)
 {
     ContextMap::AddResult result = contextMap().add(context, this);
     ASSERT_UNUSED(result, result.isNewEntry);
@@ -94,8 +96,20 @@ EwkContext::EwkContext(WKContextRef context)
     TextCheckerClientEfl::instance().ensureSpellCheckingLanguage();
 #endif
 
-    m_callbackForMessageFromInjectedBundle.callback = nullptr;
-    m_callbackForMessageFromInjectedBundle.userData = nullptr;
+    m_callbackForMessageFromExtension.callback = nullptr;
+    m_callbackForMessageFromExtension.userData = nullptr;
+
+    if (!extensionsPath.isEmpty() || isDefaultBundle()) {
+        WKContextInjectedBundleClientV1 client;
+        memset(&client, 0, sizeof(client));
+
+        client.base.version = 1;
+        client.base.clientInfo = this;
+        client.didReceiveMessageFromInjectedBundle = didReceiveMessageFromInjectedBundle;
+        client.getInjectedBundleInitializationUserData = getInjectedBundleInitializationUserData;
+
+        WKContextSetInjectedBundleClient(m_context.get(), &client.base);
+    }
 }
 
 EwkContext::~EwkContext()
@@ -116,24 +130,33 @@ PassRefPtr<EwkContext> EwkContext::findOrCreateWrapper(WKContextRef context)
     return adoptRef(new EwkContext(context));
 }
 
-PassRefPtr<EwkContext> EwkContext::create()
+static String bundlePathForExtension()
 {
-    return adoptRef(new EwkContext(adoptWK(WKContextCreate()).get()));
+    String bundlePathForExtension = WebCore::pathByAppendingComponent(String::fromUTF8(TEST_LIB_DIR), EXTENSIONMANAGERNAME);
+    if (WebCore::fileExists(bundlePathForExtension))
+        return bundlePathForExtension;
+
+    bundlePathForExtension = WebCore::pathByAppendingComponent(String::fromUTF8(EXTENSIONMANAGERDIR), EXTENSIONMANAGERNAME);
+    if (WebCore::fileExists(bundlePathForExtension))
+        return bundlePathForExtension;
+
+    return emptyString();
 }
 
-PassRefPtr<EwkContext> EwkContext::create(const String& injectedBundlePath)
+Ref<EwkContext> EwkContext::create(const String& extensionsPath)
 {   
-    if (!fileExists(injectedBundlePath))
-        return 0;
+    String bundlePath = bundlePathForExtension();
+    if (bundlePath.isEmpty())
+        return adoptRef(*new EwkContext(adoptWK(WKContextCreate()).get()));
 
-    WKRetainPtr<WKStringRef> path = adoptWK(toCopiedAPI(injectedBundlePath));
+    WKRetainPtr<WKStringRef> path = adoptWK(toCopiedAPI(bundlePath));
 
-    return adoptRef(new EwkContext(adoptWK(WKContextCreateWithInjectedBundlePath(path.get())).get()));
+    return adoptRef(*new EwkContext(adoptWK(WKContextCreateWithInjectedBundlePath(path.get())).get(), extensionsPath));
 }
 
 EwkContext* EwkContext::defaultContext()
 {
-    static EwkContext* defaultInstance = create().leakRef();
+    static EwkContext* defaultInstance = &create().leakRef();
 
     return defaultInstance;
 }
@@ -357,57 +380,41 @@ static inline EwkContext* toEwkContext(const void* clientInfo)
 
 void EwkContext::didReceiveMessageFromInjectedBundle(WKContextRef, WKStringRef messageName, WKTypeRef messageBody, const void* clientInfo)
 {
-    toEwkContext(clientInfo)->processReceivedMessageFromInjectedBundle(messageName, messageBody, nullptr);
+    toEwkContext(clientInfo)->processReceivedMessageFromInjectedBundle(messageName, messageBody);
 }
 
-void EwkContext::didReceiveSynchronousMessageFromInjectedBundle(WKContextRef, WKStringRef messageName, WKTypeRef messageBody, WKTypeRef* returnData, const void* clientInfo)
+WKTypeRef EwkContext::getInjectedBundleInitializationUserData(WKContextRef, const void* clientInfo)
 {
-    toEwkContext(clientInfo)->processReceivedMessageFromInjectedBundle(messageName, messageBody, returnData);
+    return static_cast<WKTypeRef>(toCopiedAPI(toEwkContext(clientInfo)->extensionsPath()));
 }
 
-void EwkContext::setMessageFromInjectedBundleCallback(Ewk_Context_Message_From_Injected_Bundle_Cb callback, void* userData)
+void EwkContext::setMessageFromExtensionCallback(Ewk_Context_Message_From_Extension_Cb callback, void* userData)
 {
-    m_callbackForMessageFromInjectedBundle.userData = userData;
+    m_callbackForMessageFromExtension.userData = userData;
 
-    if (m_callbackForMessageFromInjectedBundle.callback == callback)
+    if (m_callbackForMessageFromExtension.callback == callback)
         return;
 
-    if (!m_callbackForMessageFromInjectedBundle.callback) {
-        WKContextInjectedBundleClientV1 client;
-        memset(&client, 0, sizeof(client));
-
-        client.base.version = 1;
-        client.base.clientInfo = this;
-        client.didReceiveMessageFromInjectedBundle = didReceiveMessageFromInjectedBundle;
-        client.didReceiveSynchronousMessageFromInjectedBundle = didReceiveSynchronousMessageFromInjectedBundle;
-
-        WKContextSetInjectedBundleClient(m_context.get(), &client.base);
-    } else if (!callback)
-        WKContextSetInjectedBundleClient(m_context.get(), nullptr);
-
-    m_callbackForMessageFromInjectedBundle.callback = callback;
+    m_callbackForMessageFromExtension.callback = callback;
 }
 
-void EwkContext::processReceivedMessageFromInjectedBundle(WKStringRef messageName, WKTypeRef messageBody, WKTypeRef* returnData)
+void EwkContext::processReceivedMessageFromInjectedBundle(WKStringRef messageName, WKTypeRef messageBody)
 {
-    if (!m_callbackForMessageFromInjectedBundle.callback)
+    if (!m_callbackForMessageFromExtension.callback)
         return;
 
     CString name = toImpl(messageName)->string().utf8();
-    CString body;
-    if (messageBody && WKStringGetTypeID() == WKGetTypeID(messageBody))
-        body = toImpl(static_cast<WKStringRef>(messageBody))->string().utf8();
+    Eina_Value* value = nullptr;
+    if (messageBody && WKStringGetTypeID() == WKGetTypeID(messageBody)) {
+        value = eina_value_new(EINA_VALUE_TYPE_STRING);
+        CString body = toImpl(static_cast<WKStringRef>(messageBody))->string().utf8();
+        eina_value_set(value, body.data());
+    }
 
-    if (returnData) {
-        char* returnString = nullptr;
-        m_callbackForMessageFromInjectedBundle.callback(name.data(), body.data(), &returnString, m_callbackForMessageFromInjectedBundle.userData);
-        if (returnString) {
-            *returnData = WKStringCreateWithUTF8CString(returnString);
-            free(returnString);
-        } else
-            *returnData = WKStringCreateWithUTF8CString("");
-    } else
-        m_callbackForMessageFromInjectedBundle.callback(name.data(), body.data(), nullptr, m_callbackForMessageFromInjectedBundle.userData);
+    m_callbackForMessageFromExtension.callback(name.data(), value, m_callbackForMessageFromExtension.userData);
+
+    if (value)
+        eina_value_free(value);
 }
 
 Ewk_TLS_Error_Policy EwkContext::ignoreTLSErrors() const
@@ -424,6 +431,28 @@ void EwkContext::setIgnoreTLSErrors(Ewk_TLS_Error_Policy TLSErrorPolicy) const
     toImpl(m_context.get())->setIgnoreTLSErrors(isNewPolicy);
 }
 
+void EwkContext::allowSpecificHTTPSCertificateForHost(const String& pem, const String& host) const
+{
+    CString certificate = pem.ascii();
+
+    GTlsCertificate* gTlsCertificate = g_tls_certificate_new_from_pem(
+        certificate.data(), certificate.length(), nullptr);
+
+    if (!gTlsCertificate)
+        return;
+
+    WebCore::CertificateInfo certificateInfo = WebCore::CertificateInfo(gTlsCertificate, G_TLS_CERTIFICATE_VALIDATE_ALL);
+
+    RefPtr<WebCertificateInfo> webCertificateInfo = WebCertificateInfo::create(certificateInfo);
+
+    toImpl(m_context.get())->allowSpecificHTTPSCertificateForHost(webCertificateInfo.get(), host);
+}
+
+bool EwkContext::isDefaultBundle() const
+{
+    return bundlePathForExtension() == toImpl(m_context.get())->injectedBundlePath();
+}
+
 Ewk_Context* ewk_context_default_get()
 {
     return EwkContext::defaultContext();
@@ -431,14 +460,14 @@ Ewk_Context* ewk_context_default_get()
 
 Ewk_Context* ewk_context_new()
 {
-    return EwkContext::create().leakRef();
+    return &EwkContext::create().leakRef();
 }
 
-Ewk_Context* ewk_context_new_with_injected_bundle_path(const char* path)
+Ewk_Context* ewk_context_new_with_extensions_path(const char* path)
 {
     EINA_SAFETY_ON_NULL_RETURN_VAL(path, nullptr);
 
-    return EwkContext::create(String::fromUTF8(path)).leakRef();
+    return &EwkContext::create(String::fromUTF8(path)).leakRef();
 }
 
 Eina_Bool ewk_context_url_scheme_register(Ewk_Context* ewkContext, const char* scheme, Ewk_Url_Scheme_Request_Cb callback, void* userData)
@@ -457,6 +486,13 @@ void ewk_context_history_callbacks_set(Ewk_Context* ewkContext, Ewk_History_Navi
     EWK_OBJ_GET_IMPL_OR_RETURN(EwkContext, ewkContext, impl);
 
     impl->historyClient()->setCallbacks(navigate, clientRedirect, serverRedirect, titleUpdate, populateVisitedLinks, data);
+}
+
+void ewk_context_download_callbacks_set(Ewk_Context* ewkContext, Ewk_Download_Requested_Cb requested, Ewk_Download_Failed_Cb failed, Ewk_Download_Cancelled_Cb cancelled,  Ewk_Download_Finished_Cb finished, void* data)
+{
+    EWK_OBJ_GET_IMPL_OR_RETURN(EwkContext, ewkContext, impl);
+
+    impl->downloadManager()->setClientCallbacks(requested, failed, cancelled, finished, data);
 }
 
 void ewk_context_visited_link_add(Ewk_Context* ewkContext, const char* visitedURL)
@@ -505,22 +541,31 @@ void ewk_context_resource_cache_clear(Ewk_Context* ewkContext)
     impl->clearResourceCache();
 }
 
-void ewk_context_message_post_to_injected_bundle(Ewk_Context* ewkContext, const char* name, const char* body)
+Eina_Bool ewk_context_message_post_to_extensions(Ewk_Context* ewkContext, const char* name, const Eina_Value* body)
 {
-    EWK_OBJ_GET_IMPL_OR_RETURN(EwkContext, ewkContext, impl);
-    EINA_SAFETY_ON_NULL_RETURN(name);
-    EINA_SAFETY_ON_NULL_RETURN(body);
+    EWK_OBJ_GET_IMPL_OR_RETURN(EwkContext, ewkContext, impl, false);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(name, false);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(body, false);
 
+    const Eina_Value_Type* type = eina_value_type_get(body);
+    if (type != EINA_VALUE_TYPE_STRINGSHARE && type != EINA_VALUE_TYPE_STRING)
+        return false;
+
+    const char* value;
+    eina_value_get(body, &value);
+
+    WKRetainPtr<WKTypeRef> messageBody = adoptWK(WKStringCreateWithUTF8CString(value));
     WKRetainPtr<WKStringRef> messageName(AdoptWK, WKStringCreateWithUTF8CString(name));
-    WKRetainPtr<WKStringRef> messageBody(AdoptWK, WKStringCreateWithUTF8CString(body));
     WKContextPostMessageToInjectedBundle(impl->wkContext(), messageName.get(), messageBody.get());
+
+    return true;
 }
 
-void ewk_context_message_from_injected_bundle_callback_set(Ewk_Context* ewkContext, Ewk_Context_Message_From_Injected_Bundle_Cb callback, void* userData)
+void ewk_context_message_from_extensions_callback_set(Ewk_Context* ewkContext, Ewk_Context_Message_From_Extension_Cb callback, void* userData)
 {
     EWK_OBJ_GET_IMPL_OR_RETURN(EwkContext, ewkContext, impl);
 
-    impl->setMessageFromInjectedBundleCallback(callback, userData);
+    impl->setMessageFromExtensionCallback(callback, userData);
 }
 
 Eina_Bool ewk_context_process_model_set(Ewk_Context* ewkContext, Ewk_Process_Model processModel)
@@ -575,4 +620,11 @@ void ewk_context_preferred_languages_set(Eina_List* languages)
 
     WebCore::overrideUserPreferredLanguages(preferredLanguages);
     WebCore::languageDidChange();
+}
+
+void ewk_context_tls_certificate_for_host_allow(Ewk_Context* context, const char* pem, const char* host)
+{
+    EWK_OBJ_GET_IMPL_OR_RETURN(const EwkContext, context, impl);
+
+    impl->allowSpecificHTTPSCertificateForHost(pem, host);
 }

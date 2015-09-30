@@ -52,7 +52,7 @@ static String urlForLoggingTrack(const URL& url)
     
 inline HTMLTrackElement::HTMLTrackElement(const QualifiedName& tagName, Document& document)
     : HTMLElement(tagName, document)
-    , m_loadTimer(this, &HTMLTrackElement::loadTimerFired)
+    , m_loadTimer(*this, &HTMLTrackElement::loadTimerFired)
 {
     LOG(Media, "HTMLTrackElement::HTMLTrackElement - %p", this);
     ASSERT(hasTagName(trackTag));
@@ -64,9 +64,9 @@ HTMLTrackElement::~HTMLTrackElement()
         m_track->clearClient();
 }
 
-PassRefPtr<HTMLTrackElement> HTMLTrackElement::create(const QualifiedName& tagName, Document& document)
+Ref<HTMLTrackElement> HTMLTrackElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new HTMLTrackElement(tagName, document));
+    return adoptRef(*new HTMLTrackElement(tagName, document));
 }
 
 Node::InsertionNotificationRequest HTMLTrackElement::insertedInto(ContainerNode& insertionPoint)
@@ -85,8 +85,8 @@ Node::InsertionNotificationRequest HTMLTrackElement::insertedInto(ContainerNode&
 
 void HTMLTrackElement::removedFrom(ContainerNode& insertionPoint)
 {
-    if (!parentNode() && isHTMLMediaElement(insertionPoint))
-        toHTMLMediaElement(insertionPoint).didRemoveTextTrack(this);
+    if (!parentNode() && is<HTMLMediaElement>(insertionPoint))
+        downcast<HTMLMediaElement>(insertionPoint).didRemoveTextTrack(this);
     HTMLElement::removedFrom(insertionPoint);
 }
 
@@ -200,7 +200,7 @@ void HTMLTrackElement::scheduleLoad()
     m_loadTimer.startOneShot(0);
 }
 
-void HTMLTrackElement::loadTimerFired(Timer&)
+void HTMLTrackElement::loadTimerFired()
 {
     if (!fastHasAttribute(srcAttr))
         return;
@@ -343,10 +343,10 @@ void HTMLTrackElement::textTrackRemoveCue(TextTrack* track, PassRefPtr<TextTrack
 HTMLMediaElement* HTMLTrackElement::mediaElement() const
 {
     Element* parent = parentElement();
-    if (parent && parent->isMediaElement())
-        return toHTMLMediaElement(parentNode());
+    if (is<HTMLMediaElement>(parent))
+        return downcast<HTMLMediaElement>(parentNode());
 
-    return 0;
+    return nullptr;
 }
 
 }

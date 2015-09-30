@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 12133 2014-08-29 11:28:25Z msweet $"
+# "$Id: Makefile 12671 2015-05-27 23:59:26Z msweet $"
 #
 # Scheduler Makefile for CUPS.
 #
-# Copyright 2007-2013 by Apple Inc.
+# Copyright 2007-2015 by Apple Inc.
 # Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 # These coded instructions, statements, and computer programs are the
@@ -206,8 +206,9 @@ install-data:
 		$(INSTALL_DATA) org.cups.cupsd.path $(BUILDROOT)$(SYSTEMD_DIR); \
 		$(INSTALL_DATA) org.cups.cupsd.service $(BUILDROOT)$(SYSTEMD_DIR); \
 		$(INSTALL_DATA) org.cups.cupsd.socket $(BUILDROOT)$(SYSTEMD_DIR); \
-	fi
-	if test "x$(XINETD)" != x; then \
+		$(INSTALL_DATA) org.cups.cups-lpdAT.service $(BUILDROOT)$(SYSTEMD_DIR)/org.cups.cups-lpd@.service; \
+		$(INSTALL_DATA) org.cups.cups-lpd.socket $(BUILDROOT)$(SYSTEMD_DIR); \
+	elif test "x$(XINETD)" != x; then \
 		echo Installing xinetd configuration file for cups-lpd...; \
 		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(XINETD); \
 		$(INSTALL_DATA) cups-lpd.xinetd $(BUILDROOT)$(XINETD)/cups-lpd; \
@@ -401,6 +402,12 @@ cupsfilter:	cupsfilter.o $(LIBCUPSMIME) ../cups/$(LIBCUPS)
 	$(RM) convert
 	$(LN) cupsfilter convert
 
+cupsfilter-static:	cupsfilter.o libcupsmime.a ../cups/$(LIBCUPSSTATIC)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o cupsfilter-static cupsfilter.o libcupsmime.a \
+		../cups/$(LIBCUPSSTATIC) $(COMMONLIBS) $(LIBZ) $(SSLLIBS) \
+		$(DNSSDLIBS) $(LIBGSSAPI)
+
 
 #
 # Make the device daemon, "cups-deviced".
@@ -547,5 +554,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 12133 2014-08-29 11:28:25Z msweet $".
+# End of "$Id: Makefile 12671 2015-05-27 23:59:26Z msweet $".
 #

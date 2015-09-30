@@ -4,11 +4,6 @@ set -e -x
 # Do nothing for installhdrs
 [ "$ACTION" == "installhdrs" ] && exit 0
 
-# check if we're building for the simulator
-if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ]; then
-	DSTROOT="$DSTROOT$INSTALL_PATH_PREFIX"
-fi
-
 mkdir -p "$DSTROOT"/usr/local/OpenSource{Licenses,Versions}
 install -g "$INSTALL_GROUP" -o "$INSTALL_OWNER" -m "$ALTERNATE_MODE" \
 	ncurses.txt \

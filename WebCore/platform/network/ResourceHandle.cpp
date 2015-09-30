@@ -71,7 +71,7 @@ void ResourceHandle::registerBuiltinSynchronousLoader(const AtomicString& protoc
 }
 
 ResourceHandle::ResourceHandle(NetworkingContext* context, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff)
-    : d(adoptPtr(new ResourceHandleInternal(this, context, request, client, defersLoading, shouldContentSniff && shouldContentSniffURL(request.url()))))
+    : d(std::make_unique<ResourceHandleInternal>(this, context, request, client, defersLoading, shouldContentSniff && shouldContentSniffURL(request.url())))
 {
     if (!request.url().isValid()) {
         scheduleFailure(InvalidURLFailure);
@@ -108,7 +108,7 @@ void ResourceHandle::scheduleFailure(FailureType type)
     d->m_failureTimer.startOneShot(0);
 }
 
-void ResourceHandle::failureTimerFired(Timer&)
+void ResourceHandle::failureTimerFired()
 {
     if (!client())
         return;
@@ -237,11 +237,6 @@ void ResourceHandle::setDefersLoading(bool defers)
     }
 
     platformSetDefersLoading(defers);
-}
-
-void ResourceHandle::didChangePriority(ResourceLoadPriority)
-{
-    // Optionally implemented by platform.
 }
 
 } // namespace WebCore

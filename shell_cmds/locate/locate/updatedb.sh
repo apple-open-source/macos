@@ -30,7 +30,7 @@
 
 if [ "$(id -u)" = "0" ]; then
 	rc=0
-	export FCODES=`mktemp -t updatedb`
+	export FCODES=`sudo -u nobody mktemp -t updatedb`
 	chown nobody $FCODES
 	tmpdb=`su -fm nobody -c "$0"` || rc=1
 	if [ $rc = 0 ]; then

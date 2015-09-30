@@ -29,9 +29,6 @@
 #include "config.h"
 #include "ContentSearchUtilities.h"
 
-#if ENABLE(INSPECTOR)
-
-#include "InspectorJSTypeBuilders.h"
 #include "InspectorValues.h"
 #include "RegularExpression.h"
 #include "Yarr.h"
@@ -121,9 +118,9 @@ std::unique_ptr<Vector<size_t>> lineEndings(const String& text)
     return result;
 }
 
-static PassRefPtr<Inspector::TypeBuilder::GenericTypes::SearchMatch> buildObjectForSearchMatch(size_t lineNumber, const String& lineContent)
+static Ref<Inspector::Protocol::GenericTypes::SearchMatch> buildObjectForSearchMatch(size_t lineNumber, const String& lineContent)
 {
-    return Inspector::TypeBuilder::GenericTypes::SearchMatch::create()
+    return Inspector::Protocol::GenericTypes::SearchMatch::create()
         .setLineNumber(lineNumber)
         .setLineContent(lineContent)
         .release();
@@ -154,15 +151,17 @@ int countRegularExpressionMatches(const JSC::Yarr::RegularExpression& regex, con
     return result;
 }
 
-PassRefPtr<Inspector::TypeBuilder::Array<Inspector::TypeBuilder::GenericTypes::SearchMatch>> searchInTextByLines(const String& text, const String& query, const bool caseSensitive, const bool isRegex)
+Ref<Inspector::Protocol::Array<Inspector::Protocol::GenericTypes::SearchMatch>> searchInTextByLines(const String& text, const String& query, const bool caseSensitive, const bool isRegex)
 {
-    RefPtr<Inspector::TypeBuilder::Array<Inspector::TypeBuilder::GenericTypes::SearchMatch>> result = Inspector::TypeBuilder::Array<Inspector::TypeBuilder::GenericTypes::SearchMatch>::create();
+    Ref<Inspector::Protocol::Array<Inspector::Protocol::GenericTypes::SearchMatch>> result = Inspector::Protocol::Array<Inspector::Protocol::GenericTypes::SearchMatch>::create();
 
     JSC::Yarr::RegularExpression regex = ContentSearchUtilities::createSearchRegex(query, caseSensitive, isRegex);
     Vector<std::pair<size_t, String>> matches = getRegularExpressionMatchesByLines(regex, text);
 
-    for (const auto& match : matches)
-        result->addItem(buildObjectForSearchMatch(match.first, match.second));
+    for (const auto& match : matches) {
+        Ref<Inspector::Protocol::GenericTypes::SearchMatch> matchObject = buildObjectForSearchMatch(match.first, match.second);
+        result->addItem(WTF::move(matchObject));
+    }
 
     return result;
 }
@@ -181,11 +180,12 @@ static String stylesheetCommentPattern(const String& name)
 
 static String findMagicComment(const String& content, const String& patternString)
 {
+    ASSERT(!content.isNull());
     const char* error = nullptr;
     JSC::Yarr::YarrPattern pattern(patternString, false, true, &error);
     ASSERT(!error);
     BumpPointerAllocator regexAllocator;
-    OwnPtr<JSC::Yarr::BytecodePattern> bytecodePattern = JSC::Yarr::byteCompile(pattern, &regexAllocator);
+    auto bytecodePattern = JSC::Yarr::byteCompile(pattern, &regexAllocator);
     ASSERT(bytecodePattern);
 
     ASSERT(pattern.m_numSubpatterns == 1);
@@ -216,5 +216,3 @@ String findStylesheetSourceMapURL(const String& content)
 
 } // namespace ContentSearchUtilities
 } // namespace Inspector
-
-#endif // ENABLE(INSPECTOR)

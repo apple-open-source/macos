@@ -41,7 +41,7 @@ using namespace JSC;
 
 namespace WebCore {
 
-const ClassInfo JSDOMWindowShell::s_info = { "JSDOMWindowShell", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSDOMWindowShell) };
+const ClassInfo JSDOMWindowShell::s_info = { "JSDOMWindowShell", &Base::s_info, 0, CREATE_METHOD_TABLE(JSDOMWindowShell) };
 
 JSDOMWindowShell::JSDOMWindowShell(VM& vm, Structure* structure, DOMWrapperWorld& world)
     : Base(vm, structure)
@@ -66,7 +66,7 @@ void JSDOMWindowShell::setWindow(VM& vm, JSDOMWindow* window)
     ASSERT_ARG(window, window);
     setTarget(vm, window);
     structure()->setGlobalObject(vm, window);
-    gcController().garbageCollectSoon();
+    GCController::singleton().garbageCollectSoon();
 }
 
 void JSDOMWindowShell::setWindow(PassRefPtr<DOMWindow> domWindow)
@@ -83,7 +83,7 @@ void JSDOMWindowShell::setWindow(PassRefPtr<DOMWindow> domWindow)
     Strong<JSDOMWindowPrototype> prototype(vm, JSDOMWindowPrototype::create(vm, 0, prototypeStructure));
 
     Structure* structure = JSDOMWindow::createStructure(vm, 0, prototype.get());
-    JSDOMWindow* jsDOMWindow = JSDOMWindow::create(vm, structure, domWindow, this);
+    JSDOMWindow* jsDOMWindow = JSDOMWindow::create(vm, structure, *domWindow, this);
     prototype->structure()->setGlobalObject(vm, jsDOMWindow);
     setWindow(vm, jsDOMWindow);
     ASSERT(jsDOMWindow->globalObject() == jsDOMWindow);

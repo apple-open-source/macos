@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -96,6 +96,13 @@ typedef enum {
     kInnerAuthTypeEAP,
 } InnerAuthType;
 
+enum {
+    kEAPInnerAuthStateUnknown = 0,
+    kEAPInnerAuthStateSuccess = 1,
+    kEAPInnerAuthStateFailure = 2,
+};
+typedef int EAPInnerAuthState;
+
 static const char * auth_strings[] = {
     "none",
     "PAP",
@@ -117,6 +124,26 @@ typedef enum {
     kAuthStateStarted,
     kAuthStateComplete,
 } AuthState;
+
+static int inner_auth_types[] = {
+    kEAPTypeMSCHAPv2,
+    kEAPTypeGenericTokenCard,
+    kEAPTypeMD5Challenge,
+};
+
+static int inner_auth_types_count = sizeof(inner_auth_types) / sizeof(inner_auth_types[0]);
+    
+struct eap_client {
+    EAPClientModuleRef		module;
+    EAPClientPluginData		plugin_data;
+    CFArrayRef			require_props;
+    CFDictionaryRef		publish_props;
+    EAPType			last_type;
+    const char *		last_type_name;
+    EAPClientStatus		last_status;
+    int				last_error;
+};
+
 #define TTLS_MSCHAP_RESPONSE_LENGTH	(MSCHAP_NT_RESPONSE_SIZE	\
 					 + MSCHAP_LM_RESPONSE_SIZE	\
 					 + MSCHAP_FLAGS_SIZE		\
@@ -150,6 +177,13 @@ typedef struct {
     bool			resume_sessions;
     bool			session_was_resumed;
 
+    /* EAP state: */
+    EAPInnerAuthState		inner_auth_state;
+    struct eap_client		eap;
+    EAPPacketRef		last_packet;
+    char			last_packet_buf[1024];
+    int				last_eap_type_index;
+
     /* MSCHAPv2 state: */
     uint8_t			peer_challenge[MSCHAP2_CHALLENGE_SIZE];
     uint8_t			nt_response[MSCHAP_NT_RESPONSE_SIZE];
@@ -161,6 +195,47 @@ enum {
 };
 
 #define BAD_IDENTIFIER			(-1)
+
+static void
+eap_client_free(EAPTTLSPluginDataRef context);
+
+static void
+free_last_packet(EAPTTLSPluginDataRef context)
+{
+    if (context->last_packet != NULL
+	&& (void *)context->last_packet != context->last_packet_buf) {
+	free(context->last_packet);
+    }
+    context->last_packet = NULL;
+    return;
+}
+
+static void
+save_last_packet(EAPTTLSPluginDataRef context, EAPPacketRef packet)
+{
+    EAPPacketRef	last_packet;
+    int			len;
+
+    last_packet = context->last_packet;
+    if (last_packet == packet) {
+	/* don't bother re-saving the same buffer */
+	return;
+    }
+    len = EAPPacketGetLength(packet);
+    if (len > sizeof(context->last_packet_buf)) {
+	context->last_packet = (EAPPacketRef)malloc(len);
+    }
+    else {
+	context->last_packet = (EAPPacketRef)context->last_packet_buf;
+    }
+    memcpy(context->last_packet, packet, len);
+    if (last_packet != NULL
+	&& (void *)last_packet != context->last_packet_buf) {
+	free(last_packet);
+    }
+    return;
+}
+
 
 static InnerAuthType
 InnerAuthTypeFromString(char * str)
@@ -188,8 +263,8 @@ eapttls_compute_session_key(EAPTTLSPluginDataRef context)
 				  sizeof(context->key_data));
     if (status != noErr) {
 	EAPLOG_FL(LOG_NOTICE, 
-		  "EAPTLSComputeSessionKey failed, %s",
-		  EAPSSLErrorString(status));
+		  "EAPTLSComputeSessionKey failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	return (FALSE);
     }
     context->key_data_valid = TRUE;
@@ -199,6 +274,7 @@ eapttls_compute_session_key(EAPTTLSPluginDataRef context)
 static void
 eapttls_free_context(EAPTTLSPluginDataRef context)
 {
+    eap_client_free(context);
     if (context->ssl_context != NULL) {
 	CFRelease(context->ssl_context);
 	context->ssl_context = NULL;
@@ -226,8 +302,8 @@ eapttls_start(EAPClientPluginDataRef plugin)
     ssl_context = EAPTLSMemIOContextCreate(FALSE, &context->mem_io, NULL, 
 					   &status);
     if (ssl_context == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	goto failed;
     }
     if (context->resume_sessions && plugin->unique_id != NULL) {
@@ -235,7 +311,8 @@ eapttls_start(EAPClientPluginDataRef plugin)
 			      plugin->unique_id_length);
 	if (status != noErr) {
 	    EAPLOG_FL(LOG_NOTICE, 
-		      "SSLSetPeerID failed, %s", EAPSSLErrorString(status));
+		      "SSLSetPeerID failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    goto failed;
 	}
     }
@@ -254,8 +331,8 @@ eapttls_start(EAPClientPluginDataRef plugin)
 	status = SSLSetCertificate(ssl_context, context->certs);
 	if (status != noErr) {
 	    EAPLOG_FL(LOG_NOTICE, 
-		      "SSLSetCertificate failed, %s",
-		      EAPSSLErrorString(status));
+		      "SSLSetCertificate failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    goto failed;
 	}
     }
@@ -267,6 +344,7 @@ eapttls_start(EAPClientPluginDataRef plugin)
     context->handshake_complete = FALSE;
     context->authentication_started = FALSE;
     context->trust_proceed = FALSE;
+    context->inner_auth_state = kEAPInnerAuthStateUnknown;
     context->server_auth_completed = FALSE;
     context->key_data_valid = FALSE;
     context->last_write_size = 0;
@@ -319,7 +397,7 @@ eapttls_init(EAPClientPluginDataRef plugin, CFArrayRef * required_props,
     context->mtu = plugin->mtu;
     inner_auth_type = get_inner_auth_type(plugin->properties);
     if (inner_auth_type == kInnerAuthTypeNone) {
-	inner_auth_type = kInnerAuthTypeMSCHAPv2;
+	inner_auth_type = kInnerAuthTypeEAP;
     }
     context->inner_auth_type = inner_auth_type;
     context->resume_sessions
@@ -420,11 +498,11 @@ eapttls_pap(EAPClientPluginDataRef plugin)
     printf("\n----------PAP Raw AVP Data START\n");
     print_data(data, offset - data);
     printf("----------PAP Raw AVP Data END\n");
-#endif /* 0 */
+#endif
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	ret = FALSE;
     }
     free(data);
@@ -432,12 +510,235 @@ eapttls_pap(EAPClientPluginDataRef plugin)
 }
 
 static bool
+eapttls_eap_read_avp(EAPClientPluginDataRef plugin, int avp_code,
+		     uint8_t * data, uint32_t * data_length)
+{
+    DiameterAVP 		avp;
+    EAPTTLSPluginDataRef 	context = (EAPTTLSPluginDataRef)plugin->private;
+    uint32_t			flags_length;
+    size_t			len;
+    bool			ret = FALSE;
+    OSStatus			status = noErr;
+    uint32_t			max_data_length = *data_length;
+
+    while (status != errSSLWouldBlock) {
+	len = 0;
+	status = SSLRead(context->ssl_context, &avp, sizeof(avp), &len);
+	if (status != noErr) {
+	    if (status != errSSLWouldBlock) {
+		EAPLOG_FL(LOG_NOTICE, "SSLRead failed, %s (%d)",
+			  EAPSSLErrorString(status), (int)status);
+	    }
+	    goto done;
+	}
+	if (len != sizeof(avp)) {
+	    EAPLOG_FL(LOG_NOTICE, "EAP AVP is invalid");
+	    goto done;
+	}
+	flags_length
+	    = DiameterAVPLengthFromFlagsLength(ntohl(avp.AVP_flags_length));
+	if (flags_length <= sizeof(avp)) {
+	    EAPLOG_FL(LOG_NOTICE, "EAP AVP is too short %d <= %d",
+		      flags_length, (int)sizeof(avp));
+	    goto done;
+	}
+	flags_length -= sizeof(avp);
+	flags_length = roundup(flags_length, 4);
+	if (flags_length > max_data_length) {
+	    EAPLOG_FL(LOG_NOTICE, "EAP AVP is too large %d > %d",
+		      flags_length, max_data_length);
+	    goto done;
+	}
+	if (ret == FALSE && ntohl(avp.AVP_code) == avp_code) {
+	    status = SSLRead(context->ssl_context, data, flags_length, &len);
+	    if (status != noErr) {
+		EAPLOG_FL(LOG_NOTICE, "SSLRead failed, %s (%d)",
+			  EAPSSLErrorString(status), (int)status);
+		goto done;
+	    }
+	    *data_length = (uint32_t)len;
+	    ret = TRUE;
+	}
+	else {
+	    uint8_t	temp_buf[flags_length];
+
+	    status = SSLRead(context->ssl_context, temp_buf, flags_length,
+			     &len);
+	    if (status != noErr) {
+		EAPLOG_FL(LOG_NOTICE, "SSLRead failed, %s (%d)",
+			  EAPSSLErrorString(status), (int)status);
+		goto done;
+	    }
+	}
+    }
+
+done:
+    if (ret == FALSE) {
+	context->last_ssl_error = status;
+    }
+    return ret;
+}
+
+/**
+ ** EAP client module access convenience routines
+ **/
+static void
+eap_client_free(EAPTTLSPluginDataRef context)
+{
+    if (context->eap.module != NULL) {
+	EAPClientModulePluginFree(context->eap.module, 
+				  &context->eap.plugin_data);
+	context->eap.module = NULL;
+	bzero(&context->eap.plugin_data, sizeof(context->eap.plugin_data));
+    }
+    my_CFRelease(&context->eap.require_props);
+    my_CFRelease(&context->eap.publish_props);
+    context->eap.last_type = kEAPTypeInvalid;
+    context->eap.last_type_name = NULL;
+    context->eap.last_status = kEAPClientStatusOK;
+    context->eap.last_error = 0;
+    return;
+}
+
+static EAPType
+eap_client_type(EAPTTLSPluginDataRef context)
+{
+    if (context->eap.module == NULL) {
+	return (kEAPTypeInvalid);
+    }
+    return (EAPClientModulePluginEAPType(context->eap.module));
+}
+
+static __inline__ void
+S_set_uint32(const uint32_t * v_p, uint32_t value)
+{
+    *((uint32_t *)v_p) = value;
+    return;
+}
+
+static bool
+eap_client_init(EAPClientPluginDataRef plugin, EAPType type)
+{
+    EAPTTLSPluginDataRef 	context = (EAPTTLSPluginDataRef)plugin->private;
+    EAPClientModule *	module;
+
+    context->eap.last_type = kEAPTypeInvalid;
+    context->eap.last_type_name = NULL;
+
+    if (context->eap.module != NULL) {
+	EAPLOG(LOG_NOTICE, "eap_client_init: already initialized\n");
+	return (TRUE);
+    }
+    module = EAPClientModuleLookup(type);
+    if (module == NULL) {
+	return (FALSE);
+    }
+    my_CFRelease(&context->eap.require_props);
+    my_CFRelease(&context->eap.publish_props);
+    bzero(&context->eap.plugin_data, sizeof(context->eap.plugin_data));
+    S_set_uint32(&context->eap.plugin_data.mtu, plugin->mtu);
+    context->eap.plugin_data.username = plugin->username;
+    S_set_uint32(&context->eap.plugin_data.username_length, 
+		 plugin->username_length);
+    context->eap.plugin_data.password = plugin->password;
+    S_set_uint32(&context->eap.plugin_data.password_length, 
+		 plugin->password_length);
+    *((CFDictionaryRef *)&context->eap.plugin_data.properties) 
+	= plugin->properties;
+    context->eap.last_status = 
+	EAPClientModulePluginInit(module, &context->eap.plugin_data,
+				  &context->eap.require_props, 
+				  &context->eap.last_error);
+    context->eap.last_type_name = EAPClientModulePluginEAPName(module);
+    context->eap.last_type = type;
+    if (context->eap.last_status != kEAPClientStatusOK) {
+	return (FALSE);
+    }
+    context->eap.module = module;
+    return (TRUE);
+}
+
+static CFArrayRef
+eap_client_require_properties(EAPTTLSPluginDataRef context)
+{
+    return (EAPClientModulePluginRequireProperties(context->eap.module,
+						   &context->eap.plugin_data));
+}
+
+static CFDictionaryRef
+eap_client_publish_properties(EAPTTLSPluginDataRef context)
+{
+    return (EAPClientModulePluginPublishProperties(context->eap.module,
+						   &context->eap.plugin_data));
+}
+
+static EAPClientState
+eap_client_process(EAPClientPluginDataRef plugin, EAPPacketRef in_pkt_p,
+		   EAPPacketRef * out_pkt_p)
+{
+    EAPTTLSPluginDataRef 	context = (EAPTTLSPluginDataRef)plugin->private;
+    EAPClientState 	cstate;
+
+    context->eap.plugin_data.username = plugin->username;
+    S_set_uint32(&context->eap.plugin_data.username_length, 
+		 plugin->username_length);
+    context->eap.plugin_data.password = plugin->password;
+    S_set_uint32(&context->eap.plugin_data.password_length, 
+		 plugin->password_length);
+    S_set_uint32(&context->eap.plugin_data.generation, 
+		 plugin->generation);
+    *((CFDictionaryRef *)&context->eap.plugin_data.properties) 
+	= plugin->properties;
+    cstate = EAPClientModulePluginProcess(context->eap.module,
+					  &context->eap.plugin_data,
+					  in_pkt_p, out_pkt_p,
+					  &context->eap.last_status, 
+					  &context->eap.last_error);
+    return (cstate);
+}
+
+static void
+eap_client_free_packet(EAPTTLSPluginDataRef context, EAPPacketRef out_pkt_p)
+{
+    EAPClientModulePluginFreePacket(context->eap.module, 
+				    &context->eap.plugin_data,
+				    out_pkt_p);
+}
+
+/**
+ ** TTLS EAP processing
+ **/
+
+static bool
+is_supported_type(EAPType type)
+{
+    int			i;
+
+    for (i = 0; i < inner_auth_types_count; i++) {
+	if (inner_auth_types[i] == type) {
+	    return (TRUE);
+	}
+    }
+    return (FALSE);
+}
+
+static EAPType
+next_eap_type(EAPTTLSPluginDataRef context)
+{
+    if (context->last_eap_type_index >= inner_auth_types_count) {
+	return (kEAPTypeInvalid);
+    }
+    return (inner_auth_types[context->last_eap_type_index++]);
+}
+
+bool
 eapttls_eap_start(EAPClientPluginDataRef plugin, int identifier)
 {
     DiameterAVP *	avp;
     EAPTTLSPluginDataRef context = (EAPTTLSPluginDataRef)plugin->private;
     void *		data;
     int			data_length;
+    int			data_length_r;
     void *		offset;
     size_t		length;
     EAPResponsePacket *	resp_p = NULL;
@@ -446,7 +747,8 @@ eapttls_eap_start(EAPClientPluginDataRef plugin, int identifier)
 
     /* allocate buffer to hold message */
     data_length = sizeof(*avp) + plugin->username_length + sizeof(*resp_p);
-    data = malloc(data_length);
+    data_length_r = roundup(data_length, 4);
+    data = malloc(data_length_r);
     if (data == NULL) {
 	EAPLOG_FL(LOG_NOTICE, "malloc failed");
 	return (FALSE);
@@ -467,18 +769,303 @@ eapttls_eap_start(EAPClientPluginDataRef plugin, int identifier)
     resp_p->type = kEAPTypeIdentity;
     bcopy(plugin->username, resp_p->type_data, plugin->username_length);
     offset += sizeof(*resp_p) + plugin->username_length;
+    if (data_length_r > data_length) {
+	bzero(offset, data_length_r - data_length);
+    }
+    if (plugin->log_enabled) {
+	CFMutableStringRef		log_msg;
+
+	log_msg = CFStringCreateMutable(NULL, 0);
+	EAPPacketIsValid((const EAPPacketRef)resp_p,
+			 EAPPacketGetLength((const EAPPacketRef)resp_p),
+			 log_msg);
+	EAPLOG(-LOG_DEBUG, "TTLS Send EAP Payload:\n%@", log_msg);
+	CFRelease(log_msg);
+    }
+
 #if 0
     printf("offset - data %d length %d\n", offset - data, data_length);
 #endif /* 0 */
-    status = SSLWrite(context->ssl_context, data, offset - data, &length);
+    status = SSLWrite(context->ssl_context, data, data_length_r, &length);
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	ret = FALSE;
     }
     free(data);
     return (ret);
 }
+
+EAPResponsePacketRef
+eapttls_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
+		    char * out_buf, int * out_buf_size, 
+		    EAPClientStatus * client_status,
+		    bool * call_module_free_packet)
+{
+    EAPTTLSPluginDataRef	context = (EAPTTLSPluginDataRef)plugin->private;
+    uint8_t			desired_type;
+    EAPResponsePacketRef	out_pkt_p = NULL;
+    EAPClientState		state;
+
+    *call_module_free_packet = FALSE;
+    switch (in_pkt_p->code) {
+    case kEAPCodeRequest:
+	if (in_pkt_p->type == kEAPTypeInvalid) {
+	    goto done;
+	}
+	if (in_pkt_p->type != eap_client_type(context)) {
+	    if (is_supported_type(in_pkt_p->type) == FALSE) {
+		EAPType eap_type = next_eap_type(context);
+		if (eap_type == kEAPTypeInvalid) {
+		    *client_status = kEAPClientStatusProtocolNotSupported;
+		    context->plugin_state = kEAPClientStateFailure;
+		    goto done;
+		}
+		desired_type = eap_type;
+		out_pkt_p = (EAPResponsePacketRef)
+		    EAPPacketCreate(out_buf, *out_buf_size,
+				    kEAPCodeResponse, 
+				    in_pkt_p->identifier,
+				    kEAPTypeNak, &desired_type,
+				    1, 
+				    out_buf_size);
+		goto done;
+	    }
+	    eap_client_free(context);
+	    if (eap_client_init(plugin, in_pkt_p->type) == FALSE) {
+		if (context->eap.last_status 
+		    != kEAPClientStatusUserInputRequired) {
+		    EAPLOG_FL(LOG_NOTICE,
+			      "eap_client_init type %d failed",
+			      in_pkt_p->type);
+		    *client_status = context->eap.last_status;
+		    context->plugin_state = kEAPClientStateFailure;
+		    goto done;
+		}
+		*client_status = context->eap.last_status;
+		save_last_packet(context, (EAPPacketRef)in_pkt_p);
+		goto done;
+	    }
+	}
+	break;
+    case kEAPCodeResponse:
+	if (in_pkt_p->type != eap_client_type(context)) {
+	    /* this should not happen, but if it does, ignore the packet */
+	    goto done;
+	}
+	break;
+    case kEAPCodeFailure:
+	break;
+    case kEAPCodeSuccess:
+	break;
+    default:
+	break;
+    }
+	
+    if (context->eap.module == NULL) {
+	goto done;
+    }
+
+    /* invoke the authentication method "process" function */
+    my_CFRelease(&context->eap.require_props);
+    my_CFRelease(&context->eap.publish_props);
+
+    state = eap_client_process(plugin, (EAPPacketRef)in_pkt_p, 
+			       (EAPPacketRef *)&out_pkt_p);
+    if (out_pkt_p != NULL) {
+	*call_module_free_packet = TRUE;
+	*out_buf_size = EAPPacketGetLength((EAPPacketRef)out_pkt_p);
+    }
+    context->eap.publish_props = eap_client_publish_properties(context);
+
+    switch (state) {
+    case kEAPClientStateAuthenticating:
+	if (context->eap.last_status == kEAPClientStatusUserInputRequired) {
+	    context->eap.require_props 
+		= eap_client_require_properties(context);
+	    save_last_packet(context, (EAPPacketRef)in_pkt_p);
+	    *client_status = context->last_client_status =
+		context->eap.last_status;
+	}
+	break;
+    case kEAPClientStateSuccess:
+	/* authentication method succeeded */
+	context->inner_auth_state = kEAPInnerAuthStateSuccess;
+	break;
+    case kEAPClientStateFailure:
+	/* authentication method failed */
+	context->inner_auth_state = kEAPInnerAuthStateFailure;
+	*client_status = context->eap.last_status;
+	//context->plugin_state = kEAPClientStateFailure;
+	break;
+    }
+
+ done:
+    return (out_pkt_p);
+}
+
+PRIVATE_EXTERN bool
+eapttls_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
+	    EAPClientStatus * client_status)
+{
+    DiameterAVP *	avp_p;
+    bool 		call_module_free_packet = FALSE;
+    EAPTTLSPluginDataRef context = (EAPTTLSPluginDataRef)plugin->private;
+    uint8_t		in_buf[2048];
+    uint32_t		in_data_size = 0;
+    EAPRequestPacketRef	in_pkt_p;
+    char 		out_buf[2048];
+    void *		out_data;
+    int			out_data_size;
+    int			out_data_size_r = 0;
+    size_t		out_data_size_ret;
+    EAPResponsePacketRef out_pkt_p = NULL;
+    int			out_pkt_size;
+    memoryBufferRef	read_buf = &context->read_buffer;
+    bool		ret = FALSE;
+    OSStatus		status;
+
+    if (eaptls_in->identifier == context->previous_identifier) {
+	/* we've already seen this packet */
+	memoryBufferClear(read_buf);
+	if (context->last_packet == NULL) {
+	    return (FALSE);
+	}
+	/* use the remembered packet */
+	in_pkt_p = (EAPRequestPacketRef)context->last_packet;
+    }
+    else {
+	CFMutableStringRef	log_msg = NULL;
+	bool			is_valid;
+	bool			found_avp = FALSE;
+
+	in_data_size = sizeof(in_buf);
+	found_avp = eapttls_eap_read_avp(plugin,
+					 kRADIUSAttributeTypeEAPMessage,
+					 in_buf, &in_data_size);
+	if (found_avp == TRUE) {
+	    in_pkt_p = (EAPRequestPacketRef)(in_buf);
+	    log_msg = plugin->log_enabled
+		? CFStringCreateMutable(NULL, 0) : NULL;
+	    is_valid = EAPPacketIsValid((EAPPacketRef)in_pkt_p, in_data_size,
+					log_msg);
+	    if (log_msg != NULL) {
+		EAPLOG(-LOG_DEBUG, "TTLS Receive EAP Payload%s:\n%@",
+		       is_valid ? "" : " Invalid", log_msg);
+		CFRelease(log_msg);
+	    }
+	    if (is_valid == FALSE) {
+		if (plugin->log_enabled == FALSE) {
+		    EAPLOG(LOG_NOTICE, "TTLS Receive EAP Payload Invalid");
+		}
+		goto done;
+	    }
+	}
+	else {
+	    EAPLOG(LOG_NOTICE, "TTLS EAP Payload is missing");
+	    context->plugin_state = kEAPClientStateFailure;
+	    goto done;
+	}
+    }
+    out_pkt_size = sizeof(out_buf);
+    switch (in_pkt_p->code) {
+    case kEAPCodeRequest:
+	switch (in_pkt_p->type) {
+	case kEAPTypeIdentity:
+	    out_pkt_p = (EAPResponsePacketRef)
+		EAPPacketCreate(out_buf, out_pkt_size, 
+				kEAPCodeResponse, in_pkt_p->identifier,
+				kEAPTypeIdentity, plugin->username,
+				plugin->username_length, 
+				&out_pkt_size);
+	    break;
+	case kEAPTypeNotification:
+	    out_pkt_p = (EAPResponsePacketRef)
+		EAPPacketCreate(out_buf, out_pkt_size, 
+				kEAPCodeResponse, in_pkt_p->identifier,
+				kEAPTypeNotification, NULL, 0, 
+				&out_pkt_size);
+	    break;
+	default:
+	    out_pkt_p = eapttls_eap_process(plugin, in_pkt_p,
+					    out_buf, &out_pkt_size,
+					    client_status,
+					    &call_module_free_packet);
+	    break;
+	}
+	break;
+    case kEAPCodeResponse:
+	/* we shouldn't really be processing EAP Responses */
+	out_pkt_p = eapttls_eap_process(plugin, in_pkt_p,
+					out_buf, &out_pkt_size,
+					client_status,
+					&call_module_free_packet);
+	break;
+    case kEAPCodeSuccess:
+	out_pkt_p = eapttls_eap_process(plugin, in_pkt_p,
+					out_buf, &out_pkt_size,
+					client_status,
+					&call_module_free_packet);
+	break;
+    case kEAPCodeFailure:
+	out_pkt_p = eapttls_eap_process(plugin, in_pkt_p,
+					out_buf, &out_pkt_size,
+					client_status,
+					&call_module_free_packet);
+	break;
+    }
+
+    if (out_pkt_p == NULL) {
+	goto done;
+    }
+    if (plugin->log_enabled) {
+	CFMutableStringRef		log_msg;
+
+	log_msg = CFStringCreateMutable(NULL, 0);
+	EAPPacketIsValid((const EAPPacketRef)out_pkt_p,
+			 EAPPacketGetLength((const EAPPacketRef)out_pkt_p),
+			 log_msg);
+	EAPLOG(-LOG_DEBUG, "TTLS Send EAP Payload:\n%@", log_msg);
+	CFRelease(log_msg);
+    }
+
+    free_last_packet(context);
+
+    /* need to form complete packet */
+    out_data_size = out_pkt_size + sizeof(*avp_p);
+    out_data_size_r = roundup(out_data_size, 4);
+    out_data = malloc(out_data_size_r);
+    bzero(out_data, out_data_size_r);
+    avp_p = (DiameterAVP *)out_data;
+    avp_p->AVP_code = htonl(kRADIUSAttributeTypeEAPMessage);
+    avp_p->AVP_flags_length
+	= htonl(DiameterAVPMakeFlagsLength(0, out_data_size));
+    bcopy(out_pkt_p, out_data + sizeof(*avp_p), out_pkt_size);
+
+    status = SSLWrite(context->ssl_context, out_data,
+		      out_data_size_r, &out_data_size_ret);
+    free(out_data);
+    if ((char *)out_pkt_p != out_buf) {
+	if (call_module_free_packet) {
+	    eap_client_free_packet(context, (EAPPacketRef)out_pkt_p);
+	}
+	else {
+	    free(out_pkt_p);
+	}
+    }
+    if (status != noErr) {
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SSLWrite failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
+    }
+    else {
+	ret = TRUE;
+    }
+
+ done:
+    return (ret);
+}
+
 
 /*
  * Function: eapttls_chap
@@ -508,8 +1095,8 @@ eapttls_chap(EAPClientPluginDataRef plugin)
 				  kEAPTTLSChallengeLabelLength,
 				  key_data, sizeof(key_data));
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeKeyData failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeKeyData failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	return (FALSE);
     }
 
@@ -574,8 +1161,8 @@ eapttls_chap(EAPClientPluginDataRef plugin)
 #endif /* 0 */
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	ret = FALSE;
     }
     free(data);
@@ -612,8 +1199,8 @@ eapttls_mschap(EAPClientPluginDataRef plugin)
 				  kEAPTTLSChallengeLabelLength,
 				  key_data, sizeof(key_data));
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeKeyData failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeKeyData failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	return (FALSE);
     }
 
@@ -690,8 +1277,8 @@ eapttls_mschap(EAPClientPluginDataRef plugin)
 #endif /* 0 */
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	ret = FALSE;
     }
     free(data);
@@ -727,8 +1314,8 @@ eapttls_mschap2(EAPClientPluginDataRef plugin)
 				  context->auth_challenge_id,
 				  MSCHAP2_CHALLENGE_SIZE + 1);
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeKeyData failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeKeyData failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	return (FALSE);
     }
 
@@ -814,8 +1401,8 @@ eapttls_mschap2(EAPClientPluginDataRef plugin)
 
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	ret = FALSE;
     }
     free(data);
@@ -837,8 +1424,8 @@ eapttls_mschap2_verify(EAPClientPluginDataRef plugin, int identifier)
     status = SSLRead(context->ssl_context, &avpv, sizeof(avpv), 
 		     &data_size);
     if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "SSLRead failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLRead failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	context->plugin_state = kEAPClientStateFailure;
 	context->last_ssl_error = status;
 	goto done;
@@ -995,9 +1582,11 @@ eapttls_verify_server(EAPClientPluginDataRef plugin,
 
 static EAPPacketRef
 eapttls_tunnel(EAPClientPluginDataRef plugin,
-	       int identifier, EAPClientStatus * client_status)
+	       EAPTLSPacketRef eaptls_in,
+	       EAPClientStatus * client_status)
 {
     EAPTTLSPluginDataRef 	context = (EAPTTLSPluginDataRef)plugin->private;
+    int 			identifier = eaptls_in->identifier;
     EAPPacketRef		pkt = NULL;
     memoryBufferRef		read_buf = &context->read_buffer;
 
@@ -1024,6 +1613,18 @@ eapttls_tunnel(EAPClientPluginDataRef plugin,
 	}
 	else {
 	    pkt = eapttls_mschap2_verify(plugin, identifier);
+	}
+	break;
+    case kInnerAuthTypeEAP:
+	if (eapttls_eap(plugin, eaptls_in, client_status)) {
+	    memoryBufferRef	write_buf = &context->write_buffer;
+
+	    pkt = EAPTLSPacketCreate(kEAPCodeResponse,
+				     kEAPTypeTTLS,
+				     eaptls_in->identifier,
+				     context->mtu,
+				     write_buf,
+				     &context->last_write_size);
 	}
 	break;
     }
@@ -1107,8 +1708,8 @@ eapttls_handshake(EAPClientPluginDataRef plugin,
 					      identifier, client_status);
 	break;
     default:
-	EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s",
-		  EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s (%ld)",
+		  EAPSSLErrorString(status), (long)status);
 	context->last_ssl_error = status;
 	my_CFRelease(&context->server_certs);
 	(void) EAPSSLCopyPeerCertificates(context->ssl_context,
@@ -1146,7 +1747,7 @@ eapttls_request(EAPClientPluginDataRef plugin,
 		EAPClientStatus * client_status)
 {
     EAPTTLSPluginDataRef	context = (EAPTTLSPluginDataRef)plugin->private;
-    EAPTLSPacket * 		eaptls_in = (EAPTLSPacket *)in_pkt; 
+    EAPTLSPacketRef 		eaptls_in = (EAPTLSPacket *)in_pkt; 
     EAPTLSLengthIncludedPacket *eaptls_in_l;
     EAPPacketRef		eaptls_out = NULL;
     int				in_data_length;
@@ -1169,8 +1770,8 @@ eapttls_request(EAPClientPluginDataRef plugin,
     if (context->ssl_context != NULL) {
 	status = SSLGetSessionState(context->ssl_context, &ssl_state);
 	if (status != noErr) {
-	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s",
-		      EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    context->plugin_state = kEAPClientStateFailure;
 	    context->last_ssl_error = status;
 	    goto done;
@@ -1235,8 +1836,8 @@ eapttls_request(EAPClientPluginDataRef plugin,
 	}
 	status = SSLHandshake(context->ssl_context);
 	if (status != errSSLWouldBlock) {
-	    EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s",
-		      EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s (%ld)",
+		      EAPSSLErrorString(status), (long)status);
 	    context->last_ssl_error = status;
 	    context->plugin_state = kEAPClientStateFailure;
 	    goto done;
@@ -1331,7 +1932,7 @@ eapttls_request(EAPClientPluginDataRef plugin,
 	if (context->handshake_complete) {
 	    /* subsequent request */
 	    eaptls_out = eapttls_tunnel(plugin,
-					eaptls_in->identifier,
+					eaptls_in,
 					client_status);
 	}
 	else {
@@ -1367,16 +1968,13 @@ eapttls_process(EAPClientPluginDataRef plugin,
 	*out_pkt_p = eapttls_request(plugin, in_pkt, client_status);
 	break;
     case kEAPCodeSuccess:
-	if (context->trust_proceed) {
-	    context->plugin_state = kEAPClientStateSuccess;
-	}
-	else if (context->handshake_complete) {
+	if (context->handshake_complete && context->trust_proceed == FALSE) {
 	    *out_pkt_p 
 		= eapttls_verify_server(plugin, in_pkt->identifier, 
 					client_status);
-	    if (context->trust_proceed) {
-		context->plugin_state = kEAPClientStateSuccess;
-	    }
+	}
+	if (context->trust_proceed) {
+	    context->plugin_state = kEAPClientStateSuccess;
 	}
 	break;
     case kEAPCodeFailure:
@@ -1474,13 +2072,50 @@ eapttls_require_props(EAPClientPluginDataRef plugin)
 	array = CFArrayCreate(NULL, (const void **)&str,
 			      1, &kCFTypeArrayCallBacks);
     }
+    else if (context->inner_auth_type == kInnerAuthTypeEAP) {
+	if (context->handshake_complete) {
+	    if (context->eap.require_props != NULL) {
+		array = CFRetain(context->eap.require_props);
+	    }
+	}
+    }
     else if (plugin->password == NULL) {
 	CFStringRef	str = kEAPClientPropUserPassword;
 	array = CFArrayCreate(NULL, (const void **)&str,
 			      1, &kCFTypeArrayCallBacks);
     }
+
  done:
     return (array);
+}
+
+static void
+dictInsertEAPTypeInfo(CFMutableDictionaryRef dict, EAPType type,
+		      const char * type_name)
+{
+    CFNumberRef			eap_type_cf;
+    int				eap_type = type;
+
+    if (type == kEAPTypeInvalid) {
+	return;
+    }
+
+    /* EAPTypeName */
+    if (type_name != NULL) {
+	CFStringRef		eap_type_name_cf;
+	eap_type_name_cf 
+	    = CFStringCreateWithCString(NULL, type_name, 
+					kCFStringEncodingASCII);
+	CFDictionarySetValue(dict, kEAPClientInnerEAPTypeName, 
+			     eap_type_name_cf);
+	my_CFRelease(&eap_type_name_cf);
+    }
+    /* EAPType */
+    eap_type_cf = CFNumberCreate(NULL, kCFNumberIntType, &eap_type);
+    CFDictionarySetValue(dict, kEAPClientInnerEAPType, eap_type_cf);
+    my_CFRelease(&eap_type_cf);
+
+    return;
 }
 
 static CFDictionaryRef
@@ -1498,9 +2133,17 @@ eapttls_publish_props(EAPClientPluginDataRef plugin)
     if (cert_list == NULL) {
 	return (NULL);
     }
-    dict = CFDictionaryCreateMutable(NULL, 0,
-				     &kCFTypeDictionaryKeyCallBacks,
-				     &kCFTypeDictionaryValueCallBacks);
+    if (context->inner_auth_type == kInnerAuthTypeEAP
+	&& context->handshake_complete
+	&& context->eap.publish_props != NULL) {
+	dict = CFDictionaryCreateMutableCopy(NULL, 0, 
+					     context->eap.publish_props);
+    }
+    else {
+	dict = CFDictionaryCreateMutable(NULL, 0,
+					 &kCFTypeDictionaryKeyCallBacks,
+					 &kCFTypeDictionaryValueCallBacks);
+    }
     CFDictionarySetValue(dict, kEAPClientPropTLSServerCertificateChain,
 			 cert_list);
     CFDictionarySetValue(dict, kEAPClientPropTLSSessionWasResumed,
@@ -1516,6 +2159,10 @@ eapttls_publish_props(EAPClientPluginDataRef plugin)
 	c = CFNumberCreate(NULL, kCFNumberIntType, &tmp);
 	CFDictionarySetValue(dict, kEAPClientPropTLSNegotiatedCipher, c);
 	CFRelease(c);
+    }
+    if (context->eap.module != NULL) {
+	dictInsertEAPTypeInfo(dict, context->eap.last_type,
+			      context->eap.last_type_name);
     }
     if (context->last_client_status == kEAPClientStatusUserInputRequired
 	&& context->trust_proceed == FALSE) {

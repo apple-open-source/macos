@@ -1,0 +1,62 @@
+TOOLS for Apple-CryptKit curve generation/testing.
+24 Apr 2001 REC
+
+The state-of-the-art in ECC (elliptic-curve cryptography)
+is in a well known mode of imperfection.  For example,
+it is very easy to generate CM (complex-multiplication)
+curves, with known order and parameters; yet, it is suspected
+by some (though unproven in any sense of rigor)
+that better security accrues if curves are entirely
+"random" in the sense of random base prime p, and random (a,b)
+under minimal constraints such as prime curve order, etc.
+Thus the collection of this Directory is a potpourri of
+various tools, including a Schoof implementation (schoof.c, 
+schoofs.c) for arbitrary curves.  As expected, said implementation
+is very slow, yet we have used it for some of the current
+CryptKit curves, while for other curves we have used the
+fast CM methods, and for yet other curves we have borrowed
+recommended parameters from other investigators.
+
+Contained in this Directory are various C sources:
+
+* curvegen.c, curvegenFEE.c
+  Utility for generating CM curves, links to other sources
+  as shown in comment atop source.
+
+* factor.c
+  Utility for factoring such as curve orders;
+  see comment atop source.
+
+* giants.c, ellproj.c, fmodule.c, tools.c
+  Number-theoretical library sources, having standard and
+  some ECC-specific tools.
+
+* schoof.c, shoofs.c
+  Curve-order finder, using the celebratd Schoof algorithm
+  When run, you input p, a, b (Weierstrass parameterization)
+  and out comes the curve order, sometimes after a very long
+  wait.  The source schoofs.c is a "sieving Schoof" method
+  as explained in the References below, for finding curves
+  of prime-or-nearly-prime order (along with the same constraint
+  for twists).
+
+together with Mathematica sources:
+
+* curverecords.nb
+  A program to test current CryptKit points/orders.
+
+* FEED affine.nb, FEEDsansY.nb
+  Programs for testing FEED, in particular the integrity of
+  any choice for x1Minus (a coordinate for the twist curve).
+
+References
+
+Crandall R and Pomerance C, "Prime numbers: a computational perspective," Springer-Verlag, 2001.
+
+Crandall, R. E., U.S. Patents #5159632 (1992), #5271061 (1993),
+    #5463690 (1994), "Method and apparatus for public key exchange in 
+    a cryptographic system."
+
+Crandall, R. E. 1996 U. S. Patent #5581616, "Method and apparatus
+    for Digital Signature Authentication."
+

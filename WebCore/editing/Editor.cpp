@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2011, 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2011, 2013-2015 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -71,6 +71,7 @@
 #include "RemoveFormatCommand.h"
 #include "RenderBlock.h"
 #include "RenderTextControl.h"
+#include "RenderedDocumentMarker.h"
 #include "RenderedPosition.h"
 #include "ReplaceSelectionCommand.h"
 #include "Settings.h"
@@ -92,10 +93,6 @@
 #include "htmlediting.h"
 #include "markup.h"
 #include <wtf/unicode/CharacterNames.h>
-
-#if ENABLE(DELETION_UI)
-#include "DeleteButtonController.h"
-#endif
 
 #if PLATFORM(IOS)
 #include "DictationCommandIOS.h"
@@ -147,63 +144,6 @@ using namespace HTMLNames;
 using namespace WTF;
 using namespace Unicode;
 
-#if ENABLE(DELETION_UI)
-
-PassRefPtr<Range> Editor::avoidIntersectionWithDeleteButtonController(const Range* range) const
-{
-    if (!range)
-        return 0;
-
-    Node* startContainer = range->startContainer();
-    int startOffset = range->startOffset();
-    Node* endContainer = range->endContainer();
-    int endOffset = range->endOffset();
-
-    if (!startContainer)
-        return 0;
-
-    ASSERT(endContainer);
-
-    Element* element = m_deleteButtonController->containerElement();
-    if (startContainer == element || startContainer->isDescendantOf(element)) {
-        ASSERT(element->parentNode());
-        startContainer = element->parentNode();
-        startOffset = element->nodeIndex();
-    }
-    if (endContainer == element || endContainer->isDescendantOf(element)) {
-        ASSERT(element->parentNode());
-        endContainer = element->parentNode();
-        endOffset = element->nodeIndex();
-    }
-
-    return Range::create(range->ownerDocument(), startContainer, startOffset, endContainer, endOffset);
-}
-
-VisibleSelection Editor::avoidIntersectionWithDeleteButtonController(const VisibleSelection& selection) const
-{
-    if (selection.isNone())
-        return selection;
-
-    Element* element = m_deleteButtonController->containerElement();
-    if (!element)
-        return selection;
-    VisibleSelection updatedSelection = selection;
-
-    Position updatedBase = selection.base();
-    updatePositionForNodeRemoval(updatedBase, element);
-    if (updatedBase != selection.base())
-        updatedSelection.setBase(updatedBase);
-
-    Position updatedExtent = selection.extent();
-    updatePositionForNodeRemoval(updatedExtent, element);
-    if (updatedExtent != selection.extent())
-        updatedSelection.setExtent(updatedExtent);
-
-    return updatedSelection;
-}
-
-#endif
-
 // When an event handler has moved the selection outside of a text control
 // we should use the target control's selection for this editing operation.
 VisibleSelection Editor::selectionForCommand(Event* event)
@@ -214,10 +154,10 @@ VisibleSelection Editor::selectionForCommand(Event* event)
     // If the target is a text control, and the current selection is outside of its shadow tree,
     // then use the saved selection for that text control.
     HTMLTextFormControlElement* textFormControlOfSelectionStart = enclosingTextFormControl(selection.start());
-    HTMLTextFormControlElement* textFromControlOfTarget = isHTMLTextFormControlElement(*event->target()->toNode()) ? toHTMLTextFormControlElement(event->target()->toNode()) : nullptr;
+    HTMLTextFormControlElement* textFromControlOfTarget = is<HTMLTextFormControlElement>(*event->target()->toNode()) ? downcast<HTMLTextFormControlElement>(event->target()->toNode()) : nullptr;
     if (textFromControlOfTarget && (selection.start().isNull() || textFromControlOfTarget != textFormControlOfSelectionStart)) {
         if (RefPtr<Range> range = textFromControlOfTarget->selection())
-            return VisibleSelection(range.get(), DOWNSTREAM, selection.isDirectional());
+            return VisibleSelection(*range, DOWNSTREAM, selection.isDirectional());
     }
     return selection;
 }
@@ -231,10 +171,9 @@ EditingBehavior Editor::behavior() const
 EditorClient* Editor::client() const
 {
     if (Page* page = m_frame.page())
-        return page->editorClient();
-    return 0;
+        return &page->editorClient();
+    return nullptr;
 }
-
 
 TextCheckerClient* Editor::textChecker() const
 {
@@ -269,12 +208,12 @@ bool Editor::handleTextEvent(TextEvent* event)
             if (client()->performsTwoStepPaste(event->pastingFragment()))
                 return true;
 #endif
-            replaceSelectionWithFragment(event->pastingFragment(), false, event->shouldSmartReplace(), event->shouldMatchStyle(), event->mailBlockquoteHandling());
+            replaceSelectionWithFragment(event->pastingFragment(), false, event->shouldSmartReplace(), event->shouldMatchStyle(), EditActionPaste, event->mailBlockquoteHandling());
 #if PLATFORM(IOS)
         }
 #endif
         else 
-            replaceSelectionWithText(event->data(), false, event->shouldSmartReplace());
+            replaceSelectionWithText(event->data(), false, event->shouldSmartReplace(), EditActionPaste);
         return true;
     }
 
@@ -326,18 +265,16 @@ bool Editor::canCut() const
 static HTMLImageElement* imageElementFromImageDocument(Document& document)
 {
     if (!document.isImageDocument())
-        return 0;
+        return nullptr;
     
-    HTMLElement* body = document.body();
+    HTMLElement* body = document.bodyOrFrameset();
     if (!body)
-        return 0;
+        return nullptr;
     
     Node* node = body->firstChild();
-    if (!node)
-        return 0;
-    if (!isHTMLImageElement(node))
-        return 0;
-    return toHTMLImageElement(node);
+    if (!is<HTMLImageElement>(node))
+        return nullptr;
+    return downcast<HTMLImageElement>(node);
 }
 
 bool Editor::canCopy() const
@@ -437,12 +374,12 @@ bool Editor::deleteWithDirection(SelectionDirection direction, TextGranularity g
     return true;
 }
 
-void Editor::deleteSelectionWithSmartDelete(bool smartDelete)
+void Editor::deleteSelectionWithSmartDelete(bool smartDelete, EditAction editingAction)
 {
     if (m_frame.selection().isNone())
         return;
 
-    applyCommand(DeleteSelectionCommand::create(document(), smartDelete));
+    applyCommand(DeleteSelectionCommand::create(document(), smartDelete, true, false, false, true, editingAction));
 }
 
 void Editor::clearText()
@@ -451,18 +388,19 @@ void Editor::clearText()
 }
 
 #if PLATFORM(IOS)
-void Editor::insertDictationPhrases(PassOwnPtr<Vector<Vector<String> > > dictationPhrases, RetainPtr<id> metadata)
+
+void Editor::insertDictationPhrases(Vector<Vector<String>>&& dictationPhrases, RetainPtr<id> metadata)
 {
     if (m_frame.selection().isNone())
         return;
-        
-    if (dictationPhrases->isEmpty())
+
+    if (dictationPhrases.isEmpty())
         return;
-        
-    applyCommand(DictationCommandIOS::create(document(), dictationPhrases, metadata));
+
+    applyCommand(DictationCommandIOS::create(document(), WTF::move(dictationPhrases), WTF::move(metadata)));
 }
 
-void Editor::setDictationPhrasesAsChildOfElement(PassOwnPtr<Vector<Vector<String> > > dictationPhrases, RetainPtr<id> metadata, Element* element)
+void Editor::setDictationPhrasesAsChildOfElement(const Vector<Vector<String>>& dictationPhrases, RetainPtr<id> metadata, Element& element)
 {
     // Clear the composition.
     clear();
@@ -473,54 +411,50 @@ void Editor::setDictationPhrasesAsChildOfElement(PassOwnPtr<Vector<Vector<String
     
     m_frame.selection().clear();
     
-    element->removeChildren();
+    element.removeChildren();
     
-    if (dictationPhrases->isEmpty()) {
+    if (dictationPhrases.isEmpty()) {
         client()->respondToChangedContents();
         return;
     }
     
     ExceptionCode ec;    
     RefPtr<Range> context = document().createRange();
-    context->selectNodeContents(element, ec);
-    
+    context->selectNodeContents(&element, ec);
+
     StringBuilder dictationPhrasesBuilder;
-    size_t dictationPhraseCount = dictationPhrases->size();
-    for (size_t i = 0; i < dictationPhraseCount; i++) {
-        const String& firstInterpretation = dictationPhrases->at(i)[0];
-        dictationPhrasesBuilder.append(firstInterpretation);
-    }
-    String serializedDictationPhrases = dictationPhrasesBuilder.toString();
-    
-    element->appendChild(createFragmentFromText(*context.get(), serializedDictationPhrases), ec);
-    
+    for (auto& interpretations : dictationPhrases)
+        dictationPhrasesBuilder.append(interpretations[0]);
+
+    element.appendChild(createFragmentFromText(*context, dictationPhrasesBuilder.toString()), ec);
+
     // We need a layout in order to add markers below.
     document().updateLayout();
-    
-    if (!element->firstChild()->isTextNode()) {
+
+    if (!element.firstChild()->isTextNode()) {
         // Shouldn't happen.
-        ASSERT(element->firstChild()->isTextNode());
+        ASSERT(element.firstChild()->isTextNode());
         return;
     }
-        
-    Text* textNode = static_cast<Text*>(element->firstChild());
+
+    Text& textNode = downcast<Text>(*element.firstChild());
     int previousDictationPhraseStart = 0;
-    for (size_t i = 0; i < dictationPhraseCount; i++) {
-        const Vector<String>& interpretations = dictationPhrases->at(i);
+    for (auto& interpretations : dictationPhrases) {
         int dictationPhraseLength = interpretations[0].length();
         int dictationPhraseEnd = previousDictationPhraseStart + dictationPhraseLength;
         if (interpretations.size() > 1) {
-            RefPtr<Range> dictationPhraseRange = Range::create(document(), textNode, previousDictationPhraseStart, textNode, dictationPhraseEnd);
-            document().markers().addDictationPhraseWithAlternativesMarker(dictationPhraseRange.get(), interpretations);
+            auto dictationPhraseRange = Range::create(document(), &textNode, previousDictationPhraseStart, &textNode, dictationPhraseEnd);
+            document().markers().addDictationPhraseWithAlternativesMarker(dictationPhraseRange.ptr(), interpretations);
         }
         previousDictationPhraseStart = dictationPhraseEnd;
     }
-    
-    RefPtr<Range> resultRange = Range::create(document(), textNode, 0, textNode, textNode->length());
-    document().markers().addDictationResultMarker(resultRange.get(), metadata);
-    
+
+    auto resultRange = Range::create(document(), &textNode, 0, &textNode, textNode.length());
+    document().markers().addDictationResultMarker(resultRange.ptr(), metadata);
+
     client()->respondToChangedContents();
 }
+
 #endif
 
 void Editor::pasteAsPlainText(const String& pastingText, bool smartReplace)
@@ -567,20 +501,6 @@ String Editor::plainTextFromPasteboard(const PasteboardPlainText& text)
 
 #endif
 
-#if !PLATFORM(COCOA) && !PLATFORM(EFL)
-void Editor::pasteWithPasteboard(Pasteboard* pasteboard, bool allowPlainText, MailBlockquoteHandling mailBlockquoteHandling)
-{
-    RefPtr<Range> range = selectedRange();
-    if (!range)
-        return;
-
-    bool chosePlainText;
-    RefPtr<DocumentFragment> fragment = pasteboard->documentFragment(m_frame, *range, allowPlainText, chosePlainText);
-    if (fragment && shouldInsertFragment(fragment, range, EditorInsertActionPasted))
-        pasteAsFragment(fragment, canSmartReplaceWithPasteboard(*pasteboard), chosePlainText, mailBlockquoteHandling);
-}
-#endif
-
 bool Editor::canSmartReplaceWithPasteboard(Pasteboard& pasteboard)
 {
     return client() && client()->smartInsertDeleteEnabled() && pasteboard.canSmartReplace();
@@ -593,14 +513,14 @@ bool Editor::shouldInsertFragment(PassRefPtr<DocumentFragment> fragment, PassRef
     
     if (fragment) {
         Node* child = fragment->firstChild();
-        if (child && fragment->lastChild() == child && child->isCharacterDataNode())
-            return client()->shouldInsertText(toCharacterData(child)->data(), replacingDOMRange.get(), givenAction);
+        if (is<CharacterData>(child) && fragment->lastChild() == child)
+            return client()->shouldInsertText(downcast<CharacterData>(*child).data(), replacingDOMRange.get(), givenAction);
     }
 
     return client()->shouldInsertNode(fragment.get(), replacingDOMRange.get(), givenAction);
 }
 
-void Editor::replaceSelectionWithFragment(PassRefPtr<DocumentFragment> fragment, bool selectReplacement, bool smartReplace, bool matchStyle, MailBlockquoteHandling mailBlockquoteHandling)
+void Editor::replaceSelectionWithFragment(PassRefPtr<DocumentFragment> fragment, bool selectReplacement, bool smartReplace, bool matchStyle, EditAction editingAction, MailBlockquoteHandling mailBlockquoteHandling)
 {
     VisibleSelection selection = m_frame.selection().selection();
     if (selection.isNone() || !selection.isContentEditable() || !fragment)
@@ -616,7 +536,7 @@ void Editor::replaceSelectionWithFragment(PassRefPtr<DocumentFragment> fragment,
     if (mailBlockquoteHandling == MailBlockquoteHandling::IgnoreBlockquote)
         options |= ReplaceSelectionCommand::IgnoreMailBlockquote;
 
-    applyCommand(ReplaceSelectionCommand::create(document(), fragment, options, EditActionPaste));
+    applyCommand(ReplaceSelectionCommand::create(document(), fragment, options, editingAction));
     revealSelectionAfterEditingOperation();
 
     selection = m_frame.selection().selection();
@@ -630,13 +550,13 @@ void Editor::replaceSelectionWithFragment(PassRefPtr<DocumentFragment> fragment,
     m_spellChecker->requestCheckingFor(SpellCheckRequest::create(resolveTextCheckingTypeMask(TextCheckingTypeSpelling | TextCheckingTypeGrammar), TextCheckingProcessBatch, rangeToCheck, rangeToCheck));
 }
 
-void Editor::replaceSelectionWithText(const String& text, bool selectReplacement, bool smartReplace)
+void Editor::replaceSelectionWithText(const String& text, bool selectReplacement, bool smartReplace, EditAction editingAction)
 {
     RefPtr<Range> range = selectedRange();
     if (!range)
         return;
 
-    replaceSelectionWithFragment(createFragmentFromText(*range, text), selectReplacement, smartReplace, true);
+    replaceSelectionWithFragment(createFragmentFromText(*range, text), selectReplacement, smartReplace, true, editingAction);
 }
 
 PassRefPtr<Range> Editor::selectedRange()
@@ -709,7 +629,7 @@ void Editor::setTextAsChildOfElement(const String& text, Element* elem)
     // set the selection to the end
     VisibleSelection selection;
 
-    Position pos = createLegacyEditingPosition(elem, elem->childNodeCount());
+    Position pos = createLegacyEditingPosition(elem, elem->countChildNodes());
 
     VisiblePosition visiblePos(pos, VP_DEFAULT_AFFINITY);
     if (visiblePos.isNull())
@@ -790,7 +710,7 @@ bool Editor::hasBidiSelection() const
         startNode = m_frame.selection().selection().visibleStart().deepEquivalent().deprecatedNode();
 
     auto renderer = startNode->renderer();
-    while (renderer && !renderer->isRenderBlockFlow())
+    while (renderer && !is<RenderBlockFlow>(*renderer))
         renderer = renderer->parent();
 
     if (!renderer)
@@ -799,7 +719,7 @@ bool Editor::hasBidiSelection() const
     if (!renderer->style().isLeftToRightDirection())
         return true;
 
-    return toRenderBlockFlow(renderer)->containsNonZeroBidiLevel();
+    return downcast<RenderBlockFlow>(*renderer).containsNonZeroBidiLevel();
 }
 
 TriState Editor::selectionUnorderedListState() const
@@ -908,7 +828,7 @@ void Editor::removeFormattingAndStyle()
 
 void Editor::clearLastEditCommand() 
 {
-    m_lastEditCommand.clear();
+    m_lastEditCommand = nullptr;
 }
 #if PLATFORM(IOS)
 // If the selection is adjusted from UIKit without closing the typing, the typing command may
@@ -933,7 +853,7 @@ bool Editor::dispatchCPPEvent(const AtomicString& eventType, DataTransferAccessP
     target->dispatchEvent(event, IGNORE_EXCEPTION);
     bool noDefaultProcessing = event->defaultPrevented();
     if (noDefaultProcessing && policy == DataTransferAccessPolicy::Writable) {
-        OwnPtr<Pasteboard> pasteboard = Pasteboard::createForCopyAndPaste();
+        auto pasteboard = Pasteboard::createForCopyAndPaste();
         pasteboard->clear();
         pasteboard->writePasteboard(dataTransfer->pasteboard());
     }
@@ -948,9 +868,9 @@ Node* Editor::findEventTargetFrom(const VisibleSelection& selection) const
 {
     Node* target = selection.start().element();
     if (!target)
-        target = document().body();
+        target = document().bodyOrFrameset();
     if (!target)
-        return 0;
+        return nullptr;
 
     return target;
 }
@@ -964,16 +884,32 @@ void Editor::applyStyle(StyleProperties* style, EditAction editingAction)
 {
     switch (m_frame.selection().selection().selectionType()) {
     case VisibleSelection::NoSelection:
-        // do nothing
-        break;
+        return;
     case VisibleSelection::CaretSelection:
-        computeAndSetTypingStyle(style, editingAction);
+        computeAndSetTypingStyle(EditingStyle::create(style), editingAction);
         break;
     case VisibleSelection::RangeSelection:
         if (style)
-            applyCommand(ApplyStyleCommand::create(document(), EditingStyle::create(style).get(), editingAction));
+            applyCommand(ApplyStyleCommand::create(document(), EditingStyle::create(style).ptr(), editingAction));
         break;
     }
+    client()->didApplyStyle();
+}
+
+void Editor::applyStyle(RefPtr<EditingStyle>&& style, EditAction editingAction)
+{
+    switch (m_frame.selection().selection().selectionType()) {
+    case VisibleSelection::NoSelection:
+        return;
+    case VisibleSelection::CaretSelection:
+        computeAndSetTypingStyle(*style, editingAction);
+        break;
+    case VisibleSelection::RangeSelection:
+        if (style)
+            applyCommand(ApplyStyleCommand::create(document(), style.get(), editingAction));
+        break;
+    }
+    client()->didApplyStyle();
 }
     
 bool Editor::shouldApplyStyle(StyleProperties* style, Range* range)
@@ -985,14 +921,14 @@ void Editor::applyParagraphStyle(StyleProperties* style, EditAction editingActio
 {
     switch (m_frame.selection().selection().selectionType()) {
     case VisibleSelection::NoSelection:
-        // do nothing
-        break;
+        return;
     case VisibleSelection::CaretSelection:
     case VisibleSelection::RangeSelection:
         if (style)
-            applyCommand(ApplyStyleCommand::create(document(), EditingStyle::create(style).get(), editingAction, ApplyStyleCommand::ForceBlockProperties));
+            applyCommand(ApplyStyleCommand::create(document(), EditingStyle::create(style).ptr(), editingAction, ApplyStyleCommand::ForceBlockProperties));
         break;
     }
+    client()->didApplyStyle();
 }
 
 void Editor::applyStyleToSelection(StyleProperties* style, EditAction editingAction)
@@ -1000,8 +936,21 @@ void Editor::applyStyleToSelection(StyleProperties* style, EditAction editingAct
     if (!style || style->isEmpty() || !canEditRichly())
         return;
 
-    if (client() && client()->shouldApplyStyle(style, m_frame.selection().toNormalizedRange().get()))
-        applyStyle(style, editingAction);
+    if (!client() || !client()->shouldApplyStyle(style, m_frame.selection().toNormalizedRange().get()))
+        return;
+    applyStyle(style, editingAction);
+}
+
+void Editor::applyStyleToSelection(Ref<EditingStyle>&& style, EditAction editingAction)
+{
+    if (style->isEmpty() || !canEditRichly())
+        return;
+
+    // FIXME: This is wrong for text decorations since m_mutableStyle is empty.
+    if (!client() || !client()->shouldApplyStyle(style->styleWithResolvedTextDecorations().ptr(), m_frame.selection().toNormalizedRange().get()))
+        return;
+
+    applyStyle(WTF::move(style), editingAction);
 }
 
 void Editor::applyParagraphStyleToSelection(StyleProperties* style, EditAction editingAction)
@@ -1078,7 +1027,8 @@ void Editor::appliedEditing(PassRefPtr<CompositeEditCommand> cmd)
 
     // Don't clear the typing style with this selection change.  We do those things elsewhere if necessary.
     FrameSelection::SetSelectionOptions options = cmd->isDictationCommand() ? FrameSelection::DictationTriggered : 0;
-    changeSelectionAfterCommand(newSelection, options);
+    
+    changeSelectionAfterCommand(newSelection, options, cmd->applyEditType());
     dispatchEditableContentChangedEvents(composition->startingRootEditableElement(), composition->endingRootEditableElement());
 
     updateEditorUINowIfScheduled();
@@ -1109,14 +1059,14 @@ void Editor::unappliedEditing(PassRefPtr<EditCommandComposition> cmd)
     notifyTextFromControls(cmd->startingRootEditableElement(), cmd->endingRootEditableElement());
 
     VisibleSelection newSelection(cmd->startingSelection());
-    changeSelectionAfterCommand(newSelection, FrameSelection::defaultSetSelectionOptions());
+    changeSelectionAfterCommand(newSelection, FrameSelection::defaultSetSelectionOptions(), cmd->unapplyEditType());
     dispatchEditableContentChangedEvents(cmd->startingRootEditableElement(), cmd->endingRootEditableElement());
 
     updateEditorUINowIfScheduled();
 
     m_alternativeTextController->respondToUnappliedEditing(cmd.get());
 
-    m_lastEditCommand = 0;
+    m_lastEditCommand = nullptr;
     if (client())
         client()->registerRedoStep(cmd);
     respondToChangedContents(newSelection);
@@ -1134,7 +1084,7 @@ void Editor::reappliedEditing(PassRefPtr<EditCommandComposition> cmd)
     
     updateEditorUINowIfScheduled();
 
-    m_lastEditCommand = 0;
+    m_lastEditCommand = nullptr;
     if (client())
         client()->registerUndoStep(cmd);
     respondToChangedContents(newSelection);
@@ -1142,9 +1092,6 @@ void Editor::reappliedEditing(PassRefPtr<EditCommandComposition> cmd)
 
 Editor::Editor(Frame& frame)
     : m_frame(frame)
-#if ENABLE(DELETION_UI)
-    , m_deleteButtonController(std::make_unique<DeleteButtonController>(frame))
-#endif
     , m_ignoreCompositionSelectionChange(false)
     , m_shouldStartNewKillRingSequence(false)
     // This is off by default, since most editors want this behavior (this matches IE but not FF).
@@ -1155,11 +1102,11 @@ Editor::Editor(Frame& frame)
     , m_areMarkedTextMatchesHighlighted(false)
     , m_defaultParagraphSeparator(EditorParagraphSeparatorIsDiv)
     , m_overwriteModeEnabled(false)
-    , m_editorUIUpdateTimer(this, &Editor::editorUIUpdateTimerFired)
+    , m_editorUIUpdateTimer(*this, &Editor::editorUIUpdateTimerFired)
     , m_editorUIUpdateTimerShouldCheckSpellingAndGrammar(false)
     , m_editorUIUpdateTimerWasTriggeredByDictation(false)
 #if ENABLE(TELEPHONE_NUMBER_DETECTION) && !PLATFORM(IOS)
-    , m_telephoneNumberDetectionUpdateTimer(this, &Editor::scanSelectionForTelephoneNumbers)
+    , m_telephoneNumberDetectionUpdateTimer(*this, &Editor::scanSelectionForTelephoneNumbers)
 #endif
 {
 }
@@ -1178,10 +1125,6 @@ void Editor::clear()
     m_customCompositionUnderlines.clear();
     m_shouldStyleWithCSS = false;
     m_defaultParagraphSeparator = EditorParagraphSeparatorIsDiv;
-
-#if ENABLE(DELETION_UI)
-    m_deleteButtonController = std::make_unique<DeleteButtonController>(m_frame);
-#endif
 }
 
 bool Editor::insertText(const String& text, Event* triggeringEvent)
@@ -1233,14 +1176,14 @@ bool Editor::insertTextWithoutSendingTextEvent(const String& text, bool selectIn
 
             // Insert the text
             if (triggeringEvent && triggeringEvent->isDictation())
-                DictationCommand::insertText(&document.get(), text, triggeringEvent->dictationAlternatives(), selection);
+                DictationCommand::insertText(document, text, triggeringEvent->dictationAlternatives(), selection);
             else {
                 TypingCommand::Options options = 0;
                 if (selectInsertedText)
                     options |= TypingCommand::SelectInsertedText;
                 if (autocorrectionWasApplied)
                     options |= TypingCommand::RetainAutocorrectionIndicator;
-                TypingCommand::insertText(document.get(), text, selection, options, triggeringEvent && triggeringEvent->isComposition() ? TypingCommand::TextCompositionConfirm : TypingCommand::TextCompositionNone);
+                TypingCommand::insertText(document, text, selection, options, triggeringEvent && triggeringEvent->isComposition() ? TypingCommand::TextCompositionConfirm : TypingCommand::TextCompositionNone);
             }
 
             // Reveal the current selection
@@ -1333,13 +1276,13 @@ void Editor::performCutOrCopy(EditorActionSpecifier action)
             imageElement = imageElementFromImageDocument(document());
 
         if (imageElement) {
-#if PLATFORM(COCOA) || PLATFORM(EFL)
+#if PLATFORM(COCOA) || PLATFORM(EFL) || PLATFORM(GTK)
             writeImageToPasteboard(*Pasteboard::createForCopyAndPaste(), *imageElement, document().url(), document().title());
 #else
             Pasteboard::createForCopyAndPaste()->writeImage(*imageElement, document().url(), document().title());
 #endif
         } else {
-#if PLATFORM(COCOA) || PLATFORM(EFL)
+#if PLATFORM(COCOA) || PLATFORM(EFL) || PLATFORM(GTK)
             writeSelectionToPasteboard(*Pasteboard::createForCopyAndPaste());
 #else
             // FIXME: Convert all other platforms to match Mac and delete this.
@@ -1350,7 +1293,7 @@ void Editor::performCutOrCopy(EditorActionSpecifier action)
 
     didWriteSelectionToPasteboard();
     if (action == CutAction)
-        deleteSelectionWithSmartDelete(canSmartCopyOrDelete());
+        deleteSelectionWithSmartDelete(canSmartCopyOrDelete(), EditActionCut);
 }
 
 void Editor::paste()
@@ -1365,8 +1308,7 @@ void Editor::paste(Pasteboard& pasteboard)
     if (!canPaste())
         return;
     updateMarkersForWordsAffectedByEditing(false);
-    CachedResourceLoader* loader = document().cachedResourceLoader();
-    ResourceCacheValidationSuppressor validationSuppressor(loader);
+    ResourceCacheValidationSuppressor validationSuppressor(document().cachedResourceLoader());
     if (m_frame.selection().selection().isContentRichlyEditable())
         pasteWithPasteboard(&pasteboard, true);
     else
@@ -1408,12 +1350,12 @@ void Editor::simplifyMarkup(Node* startNode, Node* endNode)
         // check if start node is before endNode
         Node* node = startNode;
         while (node && node != endNode)
-            node = NodeTraversal::next(node);
+            node = NodeTraversal::next(*node);
         if (!node)
             return;
     }
     
-    applyCommand(SimplifyMarkupCommand::create(document(), startNode, (endNode) ? NodeTraversal::next(endNode) : 0));
+    applyCommand(SimplifyMarkupCommand::create(document(), startNode, endNode ? NodeTraversal::next(*endNode) : nullptr));
 }
 
 void Editor::copyURL(const URL& url, const String& title)
@@ -1445,7 +1387,7 @@ void Editor::copyImage(const HitTestResult& result)
     if (url.isEmpty())
         url = result.absoluteImageURL();
 
-#if PLATFORM(COCOA) || PLATFORM(EFL)
+#if PLATFORM(COCOA) || PLATFORM(EFL) || PLATFORM(GTK)
     writeImageToPasteboard(*Pasteboard::createForCopyAndPaste(), *element, url, result.altDisplayString());
 #else
     Pasteboard::createForCopyAndPaste()->writeImage(*element, url, result.altDisplayString());
@@ -1669,10 +1611,10 @@ void Editor::setBaseWritingDirection(WritingDirection direction)
 #endif
         
     Element* focusedElement = document().focusedElement();
-    if (focusedElement && isHTMLTextFormControlElement(*focusedElement)) {
+    if (is<HTMLTextFormControlElement>(focusedElement)) {
         if (direction == NaturalWritingDirection)
             return;
-        toHTMLElement(focusedElement)->setAttribute(dirAttr, direction == LeftToRightWritingDirection ? "ltr" : "rtl");
+        downcast<HTMLTextFormControlElement>(*focusedElement).setAttribute(dirAttr, direction == LeftToRightWritingDirection ? "ltr" : "rtl");
         focusedElement->dispatchInputEvent();
         document().updateStyleIfNeeded();
         return;
@@ -1785,7 +1727,7 @@ void Editor::setComposition(const String& text, SetCompositionMode mode)
     if (text.isEmpty() && mode != CancelComposition)
         TypingCommand::deleteSelection(document(), 0);
 
-    m_compositionNode = 0;
+    m_compositionNode = nullptr;
     m_customCompositionUnderlines.clear();
 
     insertTextForConfirmedComposition(text);
@@ -1860,7 +1802,7 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
     if (text.isEmpty())
         TypingCommand::deleteSelection(document(), TypingCommand::PreventSpellChecking);
 
-    m_compositionNode = 0;
+    m_compositionNode = nullptr;
     m_customCompositionUnderlines.clear();
 
     if (!text.isEmpty()) {
@@ -1874,8 +1816,8 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
         Node* extentNode = extent.deprecatedNode();
         unsigned extentOffset = extent.deprecatedEditingOffset();
 
-        if (baseNode && baseNode == extentNode && baseNode->isTextNode() && baseOffset + text.length() == extentOffset) {
-            m_compositionNode = toText(baseNode);
+        if (is<Text>(baseNode) && baseNode == extentNode && baseOffset + text.length() == extentOffset) {
+            m_compositionNode = downcast<Text>(baseNode);
             m_compositionStart = baseOffset;
             m_compositionEnd = extentOffset;
             m_customCompositionUnderlines = underlines;
@@ -2085,7 +2027,7 @@ void Editor::advanceToNextMisspelling(bool startBeforeSelection)
         
         // FIXME 4859190: This gets confused with doubled punctuation at the end of a paragraph
         RefPtr<Range> badGrammarRange = TextIterator::subrange(grammarSearchRange.get(), grammarPhraseOffset + grammarDetail.location, grammarDetail.length);
-        m_frame.selection().setSelection(VisibleSelection(badGrammarRange.get(), SEL_DEFAULT_AFFINITY));
+        m_frame.selection().setSelection(VisibleSelection(*badGrammarRange, SEL_DEFAULT_AFFINITY));
         m_frame.selection().revealSelection();
         
         client()->updateSpellingUIWithGrammarString(badGrammarPhrase, grammarDetail);
@@ -2097,7 +2039,7 @@ void Editor::advanceToNextMisspelling(bool startBeforeSelection)
         // a marker so we draw the red squiggle later.
         
         RefPtr<Range> misspellingRange = TextIterator::subrange(spellingSearchRange.get(), misspellingOffset, misspelledWord.length());
-        m_frame.selection().setSelection(VisibleSelection(misspellingRange.get(), DOWNSTREAM));
+        m_frame.selection().setSelection(VisibleSelection(*misspellingRange, DOWNSTREAM));
         m_frame.selection().revealSelection();
         
         client()->updateSpellingUIWithMisspelledWord(misspelledWord);
@@ -2314,7 +2256,7 @@ void Editor::markMisspellingsAfterTypingToWord(const VisiblePosition &wordStart,
 
     // If autocorrected word is non empty, replace the misspelled word by this word.
     if (!autocorrectedString.isEmpty()) {
-        VisibleSelection newSelection(misspellingRange.get(), DOWNSTREAM);
+        VisibleSelection newSelection(*misspellingRange, DOWNSTREAM);
         if (newSelection != m_frame.selection().selection()) {
             if (!m_frame.selection().shouldChangeSelection(newSelection))
                 return;
@@ -2323,7 +2265,7 @@ void Editor::markMisspellingsAfterTypingToWord(const VisiblePosition &wordStart,
 
         if (!m_frame.editor().shouldInsertText(autocorrectedString, misspellingRange.get(), EditorInsertActionTyped))
             return;
-        m_frame.editor().replaceSelectionWithText(autocorrectedString, false, false);
+        m_frame.editor().replaceSelectionWithText(autocorrectedString, false, false, EditActionInsert);
 
         // Reset the charet one character further.
         m_frame.selection().moveTo(m_frame.selection().selection().end());
@@ -2387,7 +2329,7 @@ bool Editor::isSpellCheckingEnabledFor(Node* node) const
 {
     if (!node)
         return false;
-    const Element* focusedElement = node->isElementNode() ? toElement(node) : node->parentElement();
+    const Element* focusedElement = is<Element>(*node) ? downcast<Element>(node) : node->parentElement();
     if (!focusedElement)
         return false;
     return focusedElement->isSpellCheckingEnabled();
@@ -2437,7 +2379,7 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingTypeMask textC
 
     Range* rangeToCheck = shouldMarkGrammar ? grammarRange : spellingRange;
     TextCheckingParagraph paragraphToCheck(rangeToCheck);
-    if (paragraphToCheck.isRangeEmpty() || paragraphToCheck.isEmpty())
+    if (paragraphToCheck.isEmpty())
         return;
     RefPtr<Range> paragraphRange = paragraphToCheck.paragraphRange();
 
@@ -2477,7 +2419,7 @@ static bool isAutomaticTextReplacementType(TextCheckingType type)
 
 static void correctSpellcheckingPreservingTextCheckingParagraph(TextCheckingParagraph& paragraph, PassRefPtr<Range> rangeToReplace, const String& replacement, int resultLocation, int resultLength)
 {
-    ContainerNode* scope = toContainerNode(highestAncestor(paragraph.paragraphRange()->startContainer()));
+    ContainerNode* scope = downcast<ContainerNode>(highestAncestor(paragraph.paragraphRange()->startContainer()));
 
     size_t paragraphLocation;
     size_t paragraphLength;
@@ -2602,7 +2544,7 @@ void Editor::markAndReplaceFor(PassRefPtr<SpellCheckRequest> request, const Vect
                 continue;
             }
 
-            VisibleSelection selectionToReplace(rangeToReplace.get(), DOWNSTREAM);
+            VisibleSelection selectionToReplace(*rangeToReplace, DOWNSTREAM);
             if (selectionToReplace != m_frame.selection().selection()) {
                 if (!m_frame.selection().shouldChangeSelection(selectionToReplace))
                     continue;
@@ -2669,7 +2611,7 @@ void Editor::changeBackToReplacedString(const String& replacedString)
     
     m_alternativeTextController->recordAutocorrectionResponseReversed(replacedString, selection);
     TextCheckingParagraph paragraph(selection);
-    replaceSelectionWithText(replacedString, false, false);
+    replaceSelectionWithText(replacedString, false, false, EditActionInsert);
     RefPtr<Range> changedRange = paragraph.subrange(paragraph.checkingStart(), replacedString.length());
     changedRange->startContainer()->document().markers().addMarker(changedRange.get(), DocumentMarker::Replacement, String());
     m_alternativeTextController->markReversed(changedRange.get());
@@ -2773,9 +2715,9 @@ void Editor::updateMarkersForWordsAffectedByEditing(bool doNotRemoveIfSelectionA
     // of marker that contains the word in question, and remove marker on that whole range.
     RefPtr<Range> wordRange = Range::create(document(), startOfFirstWord.deepEquivalent(), endOfLastWord.deepEquivalent());
 
-    Vector<DocumentMarker*> markers = document().markers().markersInRange(wordRange.get(), DocumentMarker::DictationAlternatives);
-    for (size_t i = 0; i < markers.size(); ++i)
-        m_alternativeTextController->removeDictationAlternativesForMarker(markers[i]);
+    Vector<RenderedDocumentMarker*> markers = document().markers().markersInRange(wordRange.get(), DocumentMarker::DictationAlternatives);
+    for (auto* marker : markers)
+        m_alternativeTextController->removeDictationAlternativesForMarker(marker);
 
 #if PLATFORM(IOS)
     document().markers().removeMarkers(wordRange.get(), DocumentMarker::Spelling | DocumentMarker::CorrectionIndicator | DocumentMarker::SpellCheckingExemption | DocumentMarker::DictationAlternatives | DocumentMarker::DictationPhraseWithAlternatives, DocumentMarkerController::RemovePartiallyOverlappingMarker);
@@ -2804,7 +2746,7 @@ PassRefPtr<Range> Editor::rangeForPoint(const IntPoint& windowPoint)
     IntPoint framePoint = frameView->windowToContents(windowPoint);
     VisibleSelection selection(frame->visiblePositionForPoint(framePoint));
 
-    return avoidIntersectionWithDeleteButtonController(selection.toNormalizedRange().get());
+    return selection.toNormalizedRange();
 }
 
 void Editor::revealSelectionAfterEditingOperation(const ScrollAlignment& alignment, RevealExtentOption revealExtentOption)
@@ -2815,7 +2757,7 @@ void Editor::revealSelectionAfterEditingOperation(const ScrollAlignment& alignme
     m_frame.selection().revealSelection(alignment, revealExtentOption);
 }
 
-void Editor::setIgnoreCompositionSelectionChange(bool ignore)
+void Editor::setIgnoreCompositionSelectionChange(bool ignore, RevealSelection shouldRevealExistingSelection)
 {
     if (m_ignoreCompositionSelectionChange == ignore)
         return;
@@ -2826,7 +2768,7 @@ void Editor::setIgnoreCompositionSelectionChange(bool ignore)
     if (!ignore)
         respondToChangedSelection(m_frame.selection().selection(), 0);
 #endif
-    if (!ignore)
+    if (!ignore && shouldRevealExistingSelection == RevealSelection::Yes)
         revealSelectionAfterEditingOperation(ScrollAlignment::alignToEdgeIfNeeded, RevealExtent);
 }
 
@@ -2885,7 +2827,7 @@ void Editor::transpose()
     RefPtr<Range> range = makeRange(previous, next);
     if (!range)
         return;
-    VisibleSelection newSelection(range.get(), DOWNSTREAM);
+    VisibleSelection newSelection(*range, DOWNSTREAM);
 
     // Transpose the two characters.
     String text = plainText(range.get());
@@ -2903,7 +2845,7 @@ void Editor::transpose()
     // Insert the transposed characters.
     if (!shouldInsertText(transposed, range.get(), EditorInsertActionTyped))
         return;
-    replaceSelectionWithText(transposed, false, false);
+    replaceSelectionWithText(transposed, false, false, EditActionInsert);
 }
 
 void Editor::addToKillRing(Range* range, bool prepend)
@@ -2935,7 +2877,7 @@ void Editor::dismissCorrectionPanelAsIgnored()
     m_alternativeTextController->dismiss(ReasonForDismissingAlternativeTextIgnored);
 }
 
-void Editor::changeSelectionAfterCommand(const VisibleSelection& newSelection,  FrameSelection::SetSelectionOptions options)
+void Editor::changeSelectionAfterCommand(const VisibleSelection& newSelection, FrameSelection::SetSelectionOptions options, AXTextStateChangeIntent intent)
 {
     // If the new selection is orphaned, then don't update the selection.
     if (newSelection.start().isOrphan() || newSelection.end().isOrphan())
@@ -2947,7 +2889,7 @@ void Editor::changeSelectionAfterCommand(const VisibleSelection& newSelection,  
     // See <rdar://problem/5729315> Some shouldChangeSelectedDOMRange contain Ranges for selections that are no longer valid
     bool selectionDidNotChangeDOMPosition = newSelection == m_frame.selection().selection();
     if (selectionDidNotChangeDOMPosition || m_frame.selection().shouldChangeSelection(newSelection))
-        m_frame.selection().setSelection(newSelection, options);
+        m_frame.selection().setSelection(newSelection, options, intent);
 
     // Some editing operations change the selection visually without affecting its position within the DOM.
     // For example when you press return in the following (the caret is marked by ^):
@@ -3039,22 +2981,20 @@ bool Editor::shouldChangeSelection(const VisibleSelection& oldSelection, const V
     return client() && client()->shouldChangeSelectedRange(oldSelection.toNormalizedRange().get(), newSelection.toNormalizedRange().get(), affinity, stillSelecting);
 }
 
-void Editor::computeAndSetTypingStyle(StyleProperties* style, EditAction editingAction)
+void Editor::computeAndSetTypingStyle(EditingStyle& style, EditAction editingAction)
 {
-    if (!style || style->isEmpty()) {
+    if (style.isEmpty()) {
         m_frame.selection().clearTypingStyle();
         return;
     }
 
     // Calculate the current typing style.
     RefPtr<EditingStyle> typingStyle;
-    if (m_frame.selection().typingStyle()) {
-        typingStyle = m_frame.selection().typingStyle()->copy();
-        typingStyle->overrideWithStyle(style);
-    } else
-        typingStyle = EditingStyle::create(style);
-
-    typingStyle->prepareToApplyAt(m_frame.selection().selection().visibleStart().deepEquivalent(), EditingStyle::PreserveWritingDirection);
+    if (auto existingTypingStyle = m_frame.selection().typingStyle())
+        typingStyle = existingTypingStyle->copy();
+    else
+        typingStyle = EditingStyle::create();
+    typingStyle->overrideTypingStyleAt(style, m_frame.selection().selection().visibleStart().deepEquivalent());
 
     // Handle block styles, substracting these from the typing style.
     RefPtr<EditingStyle> blockStyle = typingStyle->extractAndRemoveBlockProperties();
@@ -3063,6 +3003,11 @@ void Editor::computeAndSetTypingStyle(StyleProperties* style, EditAction editing
 
     // Set the remaining style as the typing style.
     m_frame.selection().setTypingStyle(typingStyle);
+}
+
+void Editor::computeAndSetTypingStyle(StyleProperties& properties, EditAction editingAction)
+{
+    return computeAndSetTypingStyle(EditingStyle::create(&properties), editingAction);
 }
 
 void Editor::textFieldDidBeginEditing(Element* e)
@@ -3109,19 +3054,17 @@ void Editor::applyEditingStyleToBodyElement() const
     RefPtr<NodeList> list = document().getElementsByTagName("body");
     unsigned len = list->length();
     for (unsigned i = 0; i < len; i++)
-        applyEditingStyleToElement(toElement(list->item(i)));
+        applyEditingStyleToElement(downcast<Element>(list->item(i)));
 }
 
 void Editor::applyEditingStyleToElement(Element* element) const
 {
-    if (!element)
-        return;
-    ASSERT(element->isStyledElement());
-    if (!element->isStyledElement())
+    ASSERT(!element || is<StyledElement>(*element));
+    if (!is<StyledElement>(element))
         return;
 
     // Mutate using the CSSOM wrapper so we get the same event behavior as a script.
-    CSSStyleDeclaration* style = toStyledElement(element)->style();
+    CSSStyleDeclaration* style = downcast<StyledElement>(*element).style();
     style->setPropertyInternal(CSSPropertyWordWrap, "break-word", false, IGNORE_EXCEPTION);
     style->setPropertyInternal(CSSPropertyWebkitNbspMode, "space", false, IGNORE_EXCEPTION);
     style->setPropertyInternal(CSSPropertyWebkitLineBreak, "after-white-space", false, IGNORE_EXCEPTION);
@@ -3136,7 +3079,7 @@ bool Editor::findString(const String& target, FindOptions options)
     if (!resultRange)
         return false;
 
-    m_frame.selection().setSelection(VisibleSelection(resultRange.get(), DOWNSTREAM));
+    m_frame.selection().setSelection(VisibleSelection(*resultRange, DOWNSTREAM));
 
     if (!(options & DoNotRevealSelection))
         m_frame.selection().revealSelection();
@@ -3177,7 +3120,7 @@ PassRefPtr<Range> Editor::rangeOfString(const String& target, Range* referenceRa
     RefPtr<Node> shadowTreeRoot = referenceRange && referenceRange->startContainer() ? referenceRange->startContainer()->nonBoundaryShadowTreeRootNode() : 0;
     if (shadowTreeRoot) {
         if (forward)
-            searchRange->setEnd(shadowTreeRoot.get(), shadowTreeRoot->childNodeCount());
+            searchRange->setEnd(shadowTreeRoot.get(), shadowTreeRoot->countChildNodes());
         else
             searchRange->setStart(shadowTreeRoot.get(), 0);
     }
@@ -3186,7 +3129,7 @@ PassRefPtr<Range> Editor::rangeOfString(const String& target, Range* referenceRa
     // If we started in the reference range and the found range exactly matches the reference range, find again.
     // Build a selection with the found range to remove collapsed whitespace.
     // Compare ranges instead of selection objects to ignore the way that the current selection was made.
-    if (startInReferenceRange && areRangesEqual(VisibleSelection(resultRange.get()).toNormalizedRange().get(), referenceRange)) {
+    if (startInReferenceRange && areRangesEqual(VisibleSelection(*resultRange).toNormalizedRange().get(), referenceRange)) {
         searchRange = rangeOfContents(document());
         if (forward)
             searchRange->setStart(referenceRange->endPosition());
@@ -3195,7 +3138,7 @@ PassRefPtr<Range> Editor::rangeOfString(const String& target, Range* referenceRa
 
         if (shadowTreeRoot) {
             if (forward)
-                searchRange->setEnd(shadowTreeRoot.get(), shadowTreeRoot->childNodeCount());
+                searchRange->setEnd(shadowTreeRoot.get(), shadowTreeRoot->countChildNodes());
             else
                 searchRange->setStart(shadowTreeRoot.get(), 0);
         }
@@ -3288,7 +3231,7 @@ unsigned Editor::countMatchesForText(const String& target, Range* range, FindOpt
 
         Node* shadowTreeRoot = searchRange->shadowRoot();
         if (searchRange->collapsed(IGNORE_EXCEPTION) && shadowTreeRoot)
-            searchRange->setEnd(shadowTreeRoot, shadowTreeRoot->childNodeCount(), IGNORE_EXCEPTION);
+            searchRange->setEnd(shadowTreeRoot, shadowTreeRoot->countChildNodes(), IGNORE_EXCEPTION);
     } while (true);
 
     if (markMatches || matches) {
@@ -3357,11 +3300,6 @@ bool Editor::shouldDetectTelephoneNumbers()
     if (!m_frame.document())
         return false;
     return document().isTelephoneNumberParsingEnabled() && TelephoneNumberDetector::isSupported();
-}
-
-void Editor::scanSelectionForTelephoneNumbers(Timer&)
-{
-    scanSelectionForTelephoneNumbers();
 }
 
 void Editor::scanSelectionForTelephoneNumbers()
@@ -3456,10 +3394,10 @@ void Editor::updateEditorUINowIfScheduled()
     if (!m_editorUIUpdateTimer.isActive())
         return;
     m_editorUIUpdateTimer.stop();
-    editorUIUpdateTimerFired(m_editorUIUpdateTimer);
+    editorUIUpdateTimerFired();
 }
 
-void Editor::editorUIUpdateTimerFired(Timer&)
+void Editor::editorUIUpdateTimerFired()
 {
     VisibleSelection oldSelection = m_oldSelectionForEditorUIUpdate;
 
@@ -3522,9 +3460,6 @@ void Editor::editorUIUpdateTimerFired(Timer&)
     if (!isContinuousGrammarCheckingEnabled)
         document().markers().removeMarkers(DocumentMarker::Grammar);
 
-#if ENABLE(DELETION_UI)
-    m_deleteButtonController->respondToChangedSelection(oldSelection);
-#endif
     if (!m_editorUIUpdateTimerWasTriggeredByDictation)
         m_alternativeTextController->respondToChangedSelection(oldSelection);
 
@@ -3535,18 +3470,18 @@ static Node* findFirstMarkable(Node* node)
 {
     while (node) {
         if (!node->renderer())
-            return 0;
+            return nullptr;
         if (node->renderer()->isTextOrLineBreak())
             return node;
-        if (isHTMLTextFormControlElement(*node))
-            node = toHTMLTextFormControlElement(node)->visiblePositionForIndex(1).deepEquivalent().deprecatedNode();
+        if (is<HTMLTextFormControlElement>(*node))
+            node = downcast<HTMLTextFormControlElement>(*node).visiblePositionForIndex(1).deepEquivalent().deprecatedNode();
         else if (node->firstChild())
             node = node->firstChild();
         else
             node = node->nextSibling();
     }
 
-    return 0;
+    return nullptr;
 }
 
 bool Editor::selectionStartHasMarkerFor(DocumentMarker::MarkerType markerType, int from, int length) const
@@ -3557,9 +3492,8 @@ bool Editor::selectionStartHasMarkerFor(DocumentMarker::MarkerType markerType, i
 
     unsigned int startOffset = static_cast<unsigned int>(from);
     unsigned int endOffset = static_cast<unsigned int>(from + length);
-    Vector<DocumentMarker*> markers = document().markers().markersFor(node);
-    for (size_t i = 0; i < markers.size(); ++i) {
-        DocumentMarker* marker = markers[i];
+    Vector<RenderedDocumentMarker*> markers = document().markers().markersFor(node);
+    for (auto* marker : markers) {
         if (marker->startOffset() <= startOffset && endOffset <= marker->endOffset() && marker->type() == markerType)
             return true;
     }
@@ -3607,13 +3541,6 @@ TextCheckingTypeMask Editor::resolveTextCheckingTypeMask(TextCheckingTypeMask te
     return checkingTypes;
 }
 
-void Editor::deviceScaleFactorChanged()
-{
-#if ENABLE(DELETION_UI)
-    m_deleteButtonController->deviceScaleFactorChanged();
-#endif
-}
-
 bool Editor::unifiedTextCheckerEnabled() const
 {
     return WebCore::unifiedTextCheckerEnabled(&m_frame);
@@ -3640,38 +3567,5 @@ Document& Editor::document() const
     ASSERT(m_frame.document());
     return *m_frame.document();
 }
-
-#if PLATFORM(COCOA)
-// FIXME: This figures out the current style by inserting a <span>!
-RenderStyle* Editor::styleForSelectionStart(Frame* frame, Node *&nodeToRemove)
-{
-    nodeToRemove = nullptr;
-
-    if (frame->selection().isNone())
-        return nullptr;
-
-    Position position = frame->selection().selection().visibleStart().deepEquivalent();
-    if (!position.isCandidate() || position.isNull())
-        return nullptr;
-
-    RefPtr<EditingStyle> typingStyle = frame->selection().typingStyle();
-    if (!typingStyle || !typingStyle->style())
-        return &position.deprecatedNode()->renderer()->style();
-
-    RefPtr<Element> styleElement = frame->document()->createElement(spanTag, false);
-
-    String styleText = typingStyle->style()->asText() + " display: inline";
-    styleElement->setAttribute(styleAttr, styleText);
-
-    styleElement->appendChild(frame->document()->createEditingTextNode(""), ASSERT_NO_EXCEPTION);
-
-    position.deprecatedNode()->parentNode()->appendChild(styleElement, ASSERT_NO_EXCEPTION);
-
-    nodeToRemove = styleElement.get();
-
-    frame->document()->updateStyleIfNeeded();
-    return styleElement->renderer() ? &styleElement->renderer()->style() : nullptr;
-}
-#endif
 
 } // namespace WebCore

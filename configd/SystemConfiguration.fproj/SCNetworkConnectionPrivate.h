@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 #define _SCNETWORKCONNECTIONPRIVATE_H
 
 #include <Availability.h>
+#include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #if !TARGET_IPHONE_SIMULATOR
 #include <ne_session.h>
@@ -34,7 +35,7 @@
 #include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
 
 
-typedef const struct __SCUserPreferencesRef * SCUserPreferencesRef;
+typedef const struct CF_BRIDGED_TYPE(id) __SCUserPreferencesRef * SCUserPreferencesRef;
 
 
 __BEGIN_DECLS

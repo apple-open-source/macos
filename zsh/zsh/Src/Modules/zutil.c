@@ -30,6 +30,55 @@
 #include "zutil.mdh"
 #include "zutil.pro"
 
+typedef struct {
+    char **match;
+    char **mbegin;
+    char **mend;
+} MatchData;
+
+static void
+savematch(MatchData *m)
+{
+    char **a;
+
+    queue_signals();
+    a = getaparam("match");
+    m->match = a ? zarrdup(a) : NULL;
+    a = getaparam("mbegin");
+    m->mbegin = a ? zarrdup(a) : NULL;
+    a = getaparam("mend");
+    m->mend = a ? zarrdup(a) : NULL;
+    unqueue_signals();
+}
+
+static void
+restorematch(MatchData *m)
+{
+    if (m->match)
+	setaparam("match", m->match);
+    else
+	unsetparam("match");
+    if (m->mbegin)
+	setaparam("mbegin", m->mbegin);
+    else
+	unsetparam("mbegin");
+    if (m->mend)
+	setaparam("mend", m->mend);
+    else
+	unsetparam("mend");
+}
+
+static void
+freematch(MatchData *m)
+{
+    if (m->match)
+	freearray(m->match);
+    if (m->mbegin)
+	freearray(m->mbegin);
+    if (m->mend)
+	freearray(m->mend);
+}
+
 /* Style stuff. */
 
 typedef struct stypat *Stypat;
@@ -252,7 +301,8 @@ setstypat(Style s, char *pat, Patprog prog, char **vals, int eval)
 	int ef = errflag;
 
 	eprog = parse_string(zjoin(vals, ' ', 1), 0);
-	errflag = ef;
+	/* Keep any user interrupt error status */
+	errflag = ef | (errflag & ERRFLAG_INT);
 
 	if (!eprog)
 	{
@@ -345,10 +395,11 @@ evalstyle(Stypat p)
     unsetparam("reply");
     execode(p->eval, 1, 0, "style");
     if (errflag) {
-	errflag = ef;
+	/* Keep any user interrupt error status */
+	errflag = ef | (errflag & ERRFLAG_INT);
 	return NULL;
     }
-    errflag = ef;
+    errflag = ef | (errflag & ERRFLAG_INT);
 
     queue_signals();
     if ((ret = getaparam("reply")))
@@ -370,15 +421,21 @@ lookupstyle(char *ctxt, char *style)
 {
     Style s;
     Stypat p;
+    char **found = NULL;
 
     s = (Style)zstyletab->getnode2(zstyletab, style);
-    if (!s)
-	return NULL;
-    for (p = s->pats; p; p = p->next)
-	if (pattry(p->prog, ctxt))
-	    return (p->eval ? evalstyle(p) : p->vals);
+    if (s) {
+	MatchData match;
+	savematch(&match);
+	for (p = s->pats; p; p = p->next)
+	    if (pattry(p->prog, ctxt)) {
+		found = (p->eval ? evalstyle(p) : p->vals);
+		break;
+	    }
+	restorematch(&match);
+    }
 
-    return NULL;
+    return found;
 }
 
 static int
@@ -857,6 +914,9 @@ bin_zformat(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 	{
 	    char **ap, *cp;
 	    int nbc = 0, colon = 0, pre = 0, suf = 0;
+#ifdef MULTIBYTE_SUPPORT
+	    int prechars = 0;
+#endif /* MULTIBYTE_SUPPORT */
 
 	    for (ap = args + 2; *ap; ap++) {
 		for (nbc = 0, cp = *ap; *cp && *cp != ':'; cp++)
@@ -864,10 +924,23 @@ bin_zformat(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 			cp++, nbc++;
 		if (*cp == ':' && cp[1]) {
 		    int d;
+#ifdef MULTIBYTE_SUPPORT
+		    int dchars = 0;
+#endif /* MULTIBYTE_SUPPORT */
 
 		    colon++;
 		    if ((d = cp - *ap - nbc) > pre)
 			pre = d;
+#ifdef MULTIBYTE_SUPPORT
+		    if (isset(MULTIBYTE)) {
+			*cp = '\0';
+			dchars = MB_METASTRWIDTH(*ap) - nbc;
+			*cp = ':';
+		    } else
+			dchars = d;
+		    if (dchars > prechars)
+			prechars = dchars;
+#endif /* MULTIBYTE_SUPPORT */
 		    if ((d = strlen(cp + 1)) > suf)
 			suf = d;
 		}
@@ -880,8 +953,10 @@ bin_zformat(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 		ret = (char **) zalloc((arrlen(args + 2) + 1) *
 				       sizeof(char *));
 
+#ifndef MULTIBYTE_SUPPORT
 		memcpy(buf + pre, args[1], sl);
 		suf = pre + sl;
+#endif /* MULTIBYTE_SUPPORT */
 
 		for (rp = ret, ap = args + 2; *ap; ap++) {
 		    copy = dupstring(*ap);
@@ -893,9 +968,27 @@ bin_zformat(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 		    oldc = *cpp;
 		    *cpp = '\0';
 		    if (((cpp == cp && oldc == ':') || *cp == ':') && cp[1]) {
+#ifdef MULTIBYTE_SUPPORT
+			int rempad;
+			char *ptr;
+			memcpy(buf, copy, (cpp - copy));
+			*cp = '\0';
+			if (isset(MULTIBYTE))
+			    rempad = prechars - MB_METASTRWIDTH(copy);
+			else
+			    rempad = prechars - strlen(copy);
+			ptr = buf + (cpp - copy);
+			if (rempad)
+			    memset(ptr, ' ', rempad);
+			ptr += rempad;
+			memcpy(ptr, args[1], sl);
+			ptr += sl;
+			strcpy(ptr, cp + 1);
+#else /* MULTIBYTE_SUPPORT */
 			memset(buf, ' ', pre);
 			memcpy(buf, copy, (cpp - copy));
 			strcpy(buf + suf, cp + 1);
+#endif /* MULTIBYTE_SUPPORT */
 			*rp++ = ztrdup(buf);
 		    } else
 			*rp++ = ztrdup(copy);
@@ -913,55 +1006,6 @@ bin_zformat(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 }
 
 /* Zregexparse stuff. */
-
-typedef struct {
-    char **match;
-    char **mbegin;
-    char **mend;
-} MatchData;
-
-static void
-savematch(MatchData *m)
-{
-    char **a;
-
-    queue_signals();
-    a = getaparam("match");
-    m->match = a ? zarrdup(a) : NULL;
-    a = getaparam("mbegin");
-    m->mbegin = a ? zarrdup(a) : NULL;
-    a = getaparam("mend");
-    m->mend = a ? zarrdup(a) : NULL;
-    unqueue_signals();
-}
-
-static void
-restorematch(MatchData *m)
-{
-    if (m->match)
-	setaparam("match", m->match);
-    else
-	unsetparam("match");
-    if (m->mbegin)
-	setaparam("mbegin", m->mbegin);
-    else
-	unsetparam("mbegin");
-    if (m->mend)
-	setaparam("mend", m->mend);
-    else
-	unsetparam("mend");
-}
-
-static void
-freematch(MatchData *m)
-{
-    if (m->match)
-	freearray(m->match);
-    if (m->mbegin)
-	freearray(m->mbegin);
-    if (m->mend)
-	freearray(m->mend);
-}
 
 typedef struct {
     int cutoff;
@@ -1543,6 +1587,45 @@ add_opt_val(Zoptdesc d, char *arg)
     }
 }
 
+/*
+ * For "zparseopts -K -A assoc ..." this function copies the keys and
+ * values from the default and allocates the extra space for any parsed
+ * values having the same keys.  If there are no new values, creates an
+ * empty array.  Returns a pointer to the NULL element marking the end.
+ *
+ *  aval = pointer to the newly allocated array
+ *  assoc = name of the default hash param to copy
+ *  keep = whether we need to make the copy at all
+ *  num = count of new values to add space for
+ */
+static char **
+zalloc_default_array(char ***aval, char *assoc, int keep, int num)
+{
+    char **ap = 0;
+
+    *aval = 0;
+    if (keep && num) {
+	struct value vbuf;
+	Value v = fetchvalue(&vbuf, &assoc, 0,
+			     SCANPM_WANTKEYS|SCANPM_WANTVALS|SCANPM_MATCHMANY);
+	if (v && v->isarr) {
+	    char **dp, **dval = getarrvalue(v);
+	    int dnum = (dval ? arrlen(dval) : 0) + 1;
+	    *aval = (char **) zalloc(((num * 2) + dnum) * sizeof(char *));
+	    for (ap = *aval, dp = dval; dp && *dp; dp++) {
+		*ap = (char *) zalloc(strlen(*dp) + 1);
+		strcpy(*ap++, *dp);
+	    }
+	    *ap = NULL;
+	}
+    }
+    if (!ap) {
+	ap = *aval = (char **) zalloc(((num * 2) + 1) * sizeof(char *));
+	*ap = NULL;
+    }
+    return ap;
+}
+
 static int
 bin_zparseopts(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
@@ -1825,8 +1908,8 @@ bin_zparseopts(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 		num++;
 
 	if (!keep || num) {
-	    aval = (char **) zalloc(((num * 2) + 1) * sizeof(char *));
-	    for (ap = aval, d = opt_descs; d; d = d->next) {
+	    ap = zalloc_default_array(&aval, assoc, keep, num);
+	    for (d = opt_descs; d; d = d->next) {
 		if (d->vals) {
 		    *ap++ = n = (char *) zalloc(strlen(d->name) + 2);
 		    *n = '-';

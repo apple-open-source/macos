@@ -88,8 +88,10 @@ CommonSymmetricWrap(int argc, char *const *argv)
     byteBuffer keybuf = mallocByteBuffer(2048);
     for(int i=0; i<2048; i++) keybuf->bytes[i] = i%256;
     key = bytesToHexString(keybuf);
+    free(keybuf);
     accum |= wrapTest(kek, key, NULL);
-    
+    free(key);
+
     if(verbose) diag("Test Vectors from RFC 3394");
     if(verbose) diag("4.1 Wrap 128 bits of Key Data with a 128-bit KEK");
     kek = "000102030405060708090A0B0C0D0E0F";
@@ -126,7 +128,6 @@ CommonSymmetricWrap(int argc, char *const *argv)
     key = "00112233445566778899AABBCCDDEEFF000102030405060708090A0B0C0D0E0F";
     wrapped_key = "28C9F404C4B810F4CBCCB35CFB87F8263F5786E2D80ED326CBC7F0E71A99F43BFB988B9B7A02DD21";
     accum |= wrapTest(kek, key, wrapped_key);
-    
     return accum;
 }
 #endif

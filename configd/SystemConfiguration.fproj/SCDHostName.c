@@ -43,7 +43,7 @@
 #pragma mark ComputerName
 
 
-__private_extern__ CFStringRef
+CFStringRef
 _SCPreferencesCopyComputerName(SCPreferencesRef	prefs,
 			       CFStringEncoding	*nameEncoding)
 {
@@ -232,6 +232,14 @@ SCPreferencesSetComputerName(SCPreferencesRef	prefs,
 	} else {
 		ok = SCPreferencesPathRemoveValue(prefs, path);
 	}
+	
+	if (ok) {
+		if (name != NULL) {
+			SC_log(LOG_NOTICE, "attempting to set the computer name to \"%@\"", name);
+		} else {
+			SC_log(LOG_NOTICE, "attempting to reset the computer name");
+		}
+	}
 
 	CFRelease(path);
 	CFRelease(newDict);
@@ -323,6 +331,14 @@ SCPreferencesSetHostName(SCPreferencesRef	prefs,
 		ok = SCPreferencesPathSetValue(prefs, path, newDict);
 	} else {
 		ok = SCPreferencesPathRemoveValue(prefs, path);
+	}
+	
+	if (ok) {
+		if (name != NULL) {
+			SC_log(LOG_NOTICE, "attempting to set the host name to \"%@\"", name);
+		} else {
+			SC_log(LOG_NOTICE, "attempting to reset the host name");
+		}
 	}
 
 	CFRelease(path);
@@ -562,6 +578,14 @@ SCPreferencesSetLocalHostName(SCPreferencesRef	prefs,
 		ok = SCPreferencesPathSetValue(prefs, path, newDict);
 	} else {
 		ok = SCPreferencesPathRemoveValue(prefs, path);
+	}
+	
+	if (ok) {
+		if (name != NULL) {
+			SC_log(LOG_NOTICE, "attempting to set the local host name to \"%@\"", name);
+		} else {
+			SC_log(LOG_NOTICE, "attempting to reset the local host name");
+		}
 	}
 
 	CFRelease(path);

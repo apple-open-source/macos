@@ -609,14 +609,10 @@ krb5_checksum_is_keyed(krb5_context context,
 		       krb5_cksumtype type)
 {
     struct _krb5_checksum_type *ct = _krb5_find_checksum(type);
-    if(ct == NULL) {
-	if (context)
-	    krb5_set_error_message (context, KRB5_PROG_SUMTYPE_NOSUPP,
-				    N_("checksum type %d not supported", ""),
-				    type);
-	return KRB5_PROG_SUMTYPE_NOSUPP;
-    }
-    return ct->flags & F_KEYED;
+    if(ct == NULL)
+	return FALSE;
+
+    return (ct->flags & F_KEYED) ? TRUE : FALSE;
 }
 
 KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
@@ -624,14 +620,10 @@ krb5_checksum_is_collision_proof(krb5_context context,
 				 krb5_cksumtype type)
 {
     struct _krb5_checksum_type *ct = _krb5_find_checksum(type);
-    if(ct == NULL) {
-	if (context)
-	    krb5_set_error_message (context, KRB5_PROG_SUMTYPE_NOSUPP,
-				    N_("checksum type %d not supported", ""),
-				    type);
-	return KRB5_PROG_SUMTYPE_NOSUPP;
-    }
-    return ct->flags & F_CPROOF;
+    if(ct == NULL)
+	return FALSE;
+
+    return (ct->flags & F_CPROOF) ? TRUE : FALSE;
 }
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
@@ -1011,7 +1003,7 @@ static krb5_error_code
 decrypt_internal_derived(krb5_context context,
 			 krb5_crypto crypto,
 			 unsigned usage,
-			 void *data,
+			 const void *data,
 			 size_t len,
 			 krb5_data *result,
 			 void *ivec)
@@ -1093,7 +1085,7 @@ decrypt_internal_derived(krb5_context context,
 static krb5_error_code
 decrypt_internal(krb5_context context,
 		 krb5_crypto crypto,
-		 void *data,
+		 const void *data,
 		 size_t len,
 		 krb5_data *result,
 		 void *ivec)
@@ -1164,7 +1156,7 @@ static krb5_error_code
 decrypt_internal_special(krb5_context context,
 			 krb5_crypto crypto,
 			 int usage,
-			 void *data,
+			 const void *data,
 			 size_t len,
 			 krb5_data *result,
 			 void *ivec)
@@ -1835,7 +1827,7 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decrypt_ivec(krb5_context context,
 		  krb5_crypto crypto,
 		  unsigned usage,
-		  void *data,
+		  const void *data,
 		  size_t len,
 		  krb5_data *result,
 		  void *ivec)
@@ -1854,7 +1846,7 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decrypt(krb5_context context,
 	     krb5_crypto crypto,
 	     unsigned usage,
-	     void *data,
+	     const void *data,
 	     size_t len,
 	     krb5_data *result)
 {
@@ -2487,11 +2479,17 @@ krb5_crypto_prf_length(krb5_context context,
 {
     struct _krb5_encryption_type *et = _krb5_find_enctype(type);
 
-    if(et == NULL || et->prf_length == 0) {
+    if(et == NULL) {
 	krb5_set_error_message(context, KRB5_PROG_ETYPE_NOSUPP,
 			       N_("encryption type %d not supported", ""),
 			       type);
 	return KRB5_PROG_ETYPE_NOSUPP;
+    }
+    if(et->prf_length == 0) {
+	krb5_set_error_message(context, HEIM_PFS_ENCTYPE_PRF_NOT_SUPPORTED,
+			       N_("encryption type %d not supported", ""),
+			       type);
+	return HEIM_PFS_ENCTYPE_PRF_NOT_SUPPORTED;
     }
 
     *length = et->prf_length;
@@ -2509,10 +2507,10 @@ krb5_crypto_prf(krb5_context context,
     krb5_data_zero(output);
 
     if(et->prf == NULL) {
-	krb5_set_error_message(context, KRB5_PROG_ETYPE_NOSUPP,
+	krb5_set_error_message(context, HEIM_PFS_ENCTYPE_PRF_NOT_SUPPORTED,
 			       "kerberos prf for %s not supported",
 			       et->name);
-	return KRB5_PROG_ETYPE_NOSUPP;
+	return HEIM_PFS_ENCTYPE_PRF_NOT_SUPPORTED;
     }
 
     return (*et->prf)(context, crypto, input, output);
@@ -2603,6 +2601,8 @@ krb5_crypto_fx_cf2(krb5_context context,
     size_t i, keysize;
 
     memset(res, 0, sizeof(*res));
+    krb5_data_zero(&os1);
+    krb5_data_zero(&os2);
 
     ret = krb5_enctype_keysize(context, enctype, &keysize);
     if (ret)

@@ -83,6 +83,7 @@ iterate(void *cctx, gss_OID mech, gss_cred_id_t cred)
 	HEIM_SLIST_INSERT_HEAD(&c->gc_mc, mc, gmc_link);
 
 	ctx->iter(ctx->userctx, mech, (gss_cred_id_t)c);
+
     } else {
 	/*
 	 * Now that we reach the end of this mechs credentials,
@@ -105,11 +106,11 @@ iterate(void *cctx, gss_OID mech, gss_cred_id_t cred)
  */
 
 OM_uint32 GSSAPI_LIB_FUNCTION
-gss_iter_creds_f(OM_uint32 *min_stat,
+gss_iter_creds_f(OM_uint32 *__nonnull min_stat,
 		 OM_uint32 flags,
-		 gss_const_OID mech,
-		 void * userctx,
-		 void (*useriter)(void *, gss_iter_OID, gss_cred_id_t))
+		 __nullable gss_const_OID mech,
+		 void * __nullable userctx,
+		  void (*__nonnull useriter)(void *__nullable , __nullable gss_iter_OID, __nullable gss_cred_id_t))
 {
     struct _gss_iter *ctx;
     gss_OID_set mechs;
@@ -192,10 +193,10 @@ useriter_block(void *ctx, gss_const_OID mech, gss_cred_id_t cred)
 
 
 OM_uint32 GSSAPI_LIB_FUNCTION
-gss_iter_creds(OM_uint32 *min_stat,
+gss_iter_creds(OM_uint32 *__nonnull min_stat,
 	       OM_uint32 flags,
-	       gss_const_OID mech,
-	       void (^useriter)(gss_iter_OID, gss_cred_id_t))
+	       __nullable gss_const_OID mech,
+	       void (^__nonnull useriter)(__nullable gss_iter_OID, __nullable gss_cred_id_t))
 {
     void (^u)(gss_const_OID, gss_cred_id_t) = (void (^)(gss_const_OID, gss_cred_id_t))Block_copy(useriter);
 

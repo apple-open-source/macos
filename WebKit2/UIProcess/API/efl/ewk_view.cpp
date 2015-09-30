@@ -23,10 +23,11 @@
 #include "ewk_view_private.h"
 
 #include "EwkView.h"
+#include "WebInspectorProxy.h"
 #include "ewk_back_forward_list_private.h"
 #include "ewk_context_private.h"
+#include "ewk_main_private.h"
 #include "ewk_page_group_private.h"
-#include "ewk_private.h"
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <WebKit/WKAPICast.h>
 #include <WebKit/WKData.h>
@@ -42,8 +43,8 @@
 #include <WebKit/WKViewEfl.h>
 #include <wtf/text/CString.h>
 
-#if ENABLE(INSPECTOR)
-#include "WebInspectorProxy.h"
+#if HAVE(ACCESSIBILITY)
+#include "WebAccessibility.h"
 #endif
 
 using namespace WebKit;
@@ -79,11 +80,16 @@ Eina_Bool ewk_view_smart_class_set(Ewk_View_Smart_Class* api)
 
 Evas_Object* EWKViewCreate(WKContextRef context, WKPageGroupRef pageGroup, Evas* canvas, Evas_Smart* smart)
 {
+    if (!EwkMain::singleton().isInitialized()) {
+        EINA_LOG_CRIT("EWebKit has not been initialized. You must call ewk_init() before creating view.");
+        return nullptr;
+    }
+
     WKRetainPtr<WKViewRef> wkView = adoptWK(WKViewCreate(context, pageGroup));
     if (EwkView* ewkView = EwkView::create(wkView.get(), canvas, smart))
         return ewkView->evasObject();
 
-    return 0;
+    return nullptr;
 }
 
 WKViewRef EWKViewGetWKView(Evas_Object* ewkView)
@@ -201,6 +207,8 @@ Eina_Bool ewk_view_scale_set(Evas_Object* ewkView, double scaleFactor, int x, in
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
 
     WKPageSetScaleFactor(impl->wkPage(), scaleFactor, WKPointMake(x, y));
+    impl->updateScaleToPageViewportController(scaleFactor, x, y);
+
     return true;
 }
 
@@ -363,6 +371,21 @@ Eina_Bool ewk_view_user_agent_set(Evas_Object* ewkView, const char* userAgent)
     return true;
 }
 
+Eina_Bool ewk_view_application_name_for_user_agent_set(Evas_Object* ewkView, const char* applicationName)
+{
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
+
+    impl->setApplicationNameForUserAgent(applicationName);
+    return true;
+}
+
+const char* ewk_view_application_name_for_user_agent_get(const Evas_Object* ewkView)
+{
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
+
+    return impl->applicationNameForUserAgent();
+}
+
 inline WKFindOptions toWKFindOptions(Ewk_Find_Options options)
 {
     unsigned wkFindOptions = 0;
@@ -481,7 +504,6 @@ Eina_Bool ewk_view_touch_events_enabled_get(const Evas_Object* ewkView)
 
 Eina_Bool ewk_view_inspector_show(Evas_Object* ewkView)
 {
-#if ENABLE(INSPECTOR)
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
 
     WKInspectorRef wkInspector = WKPageGetInspector(impl->wkPage());
@@ -489,15 +511,10 @@ Eina_Bool ewk_view_inspector_show(Evas_Object* ewkView)
         WKInspectorShow(wkInspector);
 
     return true;
-#else
-    UNUSED_PARAM(ewkView);
-    return false;
-#endif
 }
 
 Eina_Bool ewk_view_inspector_close(Evas_Object* ewkView)
 {
-#if ENABLE(INSPECTOR)
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
 
     WKInspectorRef wkInspector = WKPageGetInspector(impl->wkPage());
@@ -505,10 +522,6 @@ Eina_Bool ewk_view_inspector_close(Evas_Object* ewkView)
         WKInspectorClose(wkInspector);
 
     return true;
-#else
-    UNUSED_PARAM(ewkView);
-    return false;
-#endif
 }
 
 inline WKPaginationMode toWKPaginationMode(Ewk_Pagination_Mode mode)
@@ -600,7 +613,11 @@ static void ewkViewPageContentsAsMHTMLCallback(WKDataRef wkData, WKErrorRef, voi
     EINA_SAFETY_ON_NULL_RETURN(context);
 
     auto contentsContext = std::unique_ptr<Ewk_Page_Contents_Context>(static_cast<Ewk_Page_Contents_Context*>(context));
-    contentsContext->callback(contentsContext->type, reinterpret_cast<const char*>(WKDataGetBytes(wkData)), contentsContext->userData);
+    contentsContext->callback(
+        contentsContext->type,
+        CString(reinterpret_cast<const char*>(WKDataGetBytes(wkData)), WKDataGetSize(wkData)).data(),
+        contentsContext->userData);
+
 }
 
 /**
@@ -733,12 +750,7 @@ void ewk_view_bg_color_set(Evas_Object* ewkView, int red, int green, int blue, i
 
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl);
 
-    if (red == 255 && green == 255 && blue == 255 && alpha == 255)
-        WKViewSetDrawsBackground(impl->wkView(), true);
-    else
-        WKViewSetDrawsBackground(impl->wkView(), false);
-
-    WKViewSetBackgroundColor(impl->wkView(), red, green, blue, alpha);
+    impl->setBackgroundColor(red, green, blue, alpha);
 }
 
 void ewk_view_bg_color_get(const Evas_Object* ewkView, int* red, int* green, int* blue, int* alpha)
@@ -768,4 +780,48 @@ Eina_Bool ewk_view_contents_size_get(const Evas_Object* ewkView, Evas_Coord* wid
         *height = contentsSize.height;
 
     return true;
+}
+
+Eina_Bool ewk_view_accessibility_action_activate_get(const Evas_Object* ewkView)
+{
+#if HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
+    return impl->webAccessibility()->activateAction();
+#else
+    UNUSED_PARAM(ewkView);
+    return false;
+#endif
+}
+
+Eina_Bool ewk_view_accessibility_action_next_get(const Evas_Object* ewkView)
+{
+#if HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
+    return impl->webAccessibility()->nextAction();
+#else
+    UNUSED_PARAM(ewkView);
+    return false;
+#endif
+}
+
+Eina_Bool ewk_view_accessibility_action_prev_get(const Evas_Object* ewkView)
+{
+#if HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
+    return impl->webAccessibility()->prevAction();
+#else
+    UNUSED_PARAM(ewkView);
+    return false;
+#endif
+}
+
+Eina_Bool ewk_view_accessibility_action_read_by_point_get(const Evas_Object* ewkView)
+{
+#if HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
+    return impl->webAccessibility()->readAction();
+#else
+    UNUSED_PARAM(ewkView);
+    return false;
+#endif
 }

@@ -65,6 +65,9 @@ static int __pthread_tsd_max = __pthread_tsd_first;
 static const int __pthread_tsd_start = _INTERNAL_POSIX_THREAD_KEYS_MAX;
 static const int __pthread_tsd_end = _INTERNAL_POSIX_THREAD_KEYS_END;
 
+static int __pthread_key_legacy_behaviour = 0;
+static int __pthread_key_legacy_behaviour_log = 0;
+
 // Omit support for pthread key destructors in the static archive for dyld.
 // dyld does not create and destroy threads so these are not necessary.
 //
@@ -78,6 +81,15 @@ static struct {
 } _pthread_keys[_INTERNAL_POSIX_THREAD_KEYS_END];
 
 static pthread_lock_t tsd_lock = LOCK_INITIALIZER;
+
+// The pthread_tsd destruction order can be reverted to the old (pre-10.11) order
+// by setting this environment variable.
+void
+_pthread_key_global_init(const char *envp[])
+{
+	__pthread_key_legacy_behaviour = _simple_getenv(envp, "PTHREAD_KEY_LEGACY_DESTRUCTOR_ORDER") ? 1 : 0;
+	__pthread_key_legacy_behaviour_log = _simple_getenv(envp, "PTHREAD_KEY_LEGACY_DESTRUCTOR_ORDER_LOG") ? 1 : 0;
+}
 
 // Returns true if successful, false if destructor was already set.
 static bool
@@ -209,10 +221,73 @@ _pthread_tsd_cleanup_key(pthread_t self, pthread_key_t key)
 }
 #endif // !VARIANT_DYLD
 
-void
-_pthread_tsd_cleanup(pthread_t self)
-{
+#import <_simple.h>
+#import <dlfcn.h>
+
 #if !VARIANT_DYLD
+static void
+_pthread_tsd_cleanup_new(pthread_t self)
+{
+	int j;
+
+	// clean up all keys except the garbage collection key
+	for (j = 0; j < PTHREAD_DESTRUCTOR_ITERATIONS; j++) {
+		pthread_key_t k;
+		for (k = __pthread_tsd_start; k <= self->max_tsd_key; k++) {
+			_pthread_tsd_cleanup_key(self, k);
+		}
+
+		for (k = __pthread_tsd_first; k <= __pthread_tsd_max; k++) {
+			if (k >= __PTK_FRAMEWORK_GC_KEY0 && k <= __PTK_FRAMEWORK_GC_KEY9) {
+				// GC must be cleaned up last
+				continue;
+			}
+			_pthread_tsd_cleanup_key(self, k);
+		}
+	}
+
+	self->max_tsd_key = 0;
+
+	// clean up all the GC keys
+	for (j = 0; j < PTHREAD_DESTRUCTOR_ITERATIONS; j++) {
+		pthread_key_t k;
+		for (k = __PTK_FRAMEWORK_GC_KEY0; k <= __PTK_FRAMEWORK_GC_KEY9; k++) {
+			_pthread_tsd_cleanup_key(self, k);
+		}
+	}
+}
+
+static void
+_pthread_tsd_behaviour_check(pthread_t self)
+{
+	// Iterate from dynamic-key start to dynamic-key end, if the key has both
+	// a desctructor and a value then _pthread_tsd_cleanup_key would cause
+	// us to re-trigger the destructor.
+	Dl_info i;
+	pthread_key_t k;
+
+	for (k = __pthread_tsd_start; k <= __pthread_tsd_end; k++) {
+		void (*destructor)(void *);
+		if (_pthread_key_get_destructor(k, &destructor)) {
+			void **ptr = &self->tsd[k];
+			void *value = *ptr;
+			if (value && destructor) {
+				_simple_asl_log(ASL_LEVEL_ERR, "pthread_tsd",
+						"warning: dynamic tsd keys dirty after static key cleanup loop.");
+
+				if (dladdr(destructor, &i) == 0) {
+					_simple_asl_log(ASL_LEVEL_ERR, "pthread_tsd", i.dli_fname);
+					_simple_asl_log(ASL_LEVEL_ERR, "pthread_tsd", i.dli_saddr);
+				}
+			}
+		}
+	}
+
+}
+
+static void
+_pthread_tsd_cleanup_legacy(pthread_t self)
+{
 	int j;
 
 	// clean up dynamic keys first
@@ -231,6 +306,28 @@ _pthread_tsd_cleanup(pthread_t self)
 		for (k = __pthread_tsd_first; k <= __pthread_tsd_max; k++) {
 			_pthread_tsd_cleanup_key(self, k);
 		}
+
+		if (__pthread_key_legacy_behaviour_log != 0 && self->max_tsd_key != 0) {
+			// max_tsd_key got dirtied, either by static or dynamic keys being
+			// reset. check for any dirty dynamic keys.
+			_pthread_tsd_behaviour_check(self);
+		}
+	}
+}
+#endif // !VARIANT_DYLD
+
+void
+_pthread_tsd_cleanup(pthread_t self)
+{
+#if !VARIANT_DYLD
+
+	// unless __pthread_key_legacy_behaviour == 1, use the new pthread key
+	// destructor order: (dynamic -> static) x5 -> (GC x5)
+
+	if (__pthread_key_legacy_behaviour == 0) {
+		_pthread_tsd_cleanup_new(self);
+	} else {
+		_pthread_tsd_cleanup_legacy(self);
 	}
 #endif // !VARIANT_DYLD
 }

@@ -42,8 +42,8 @@ static pthread_priority_t _main_qos = QOS_CLASS_UNSPECIFIED;
 struct pthread_override_s
 {
 	uint32_t sig;
-	pthread_t pthread;
 	mach_port_t kthread;
+	pthread_t pthread;
 	pthread_priority_t priority;
 	bool malloced;
 };
@@ -339,6 +339,20 @@ pthread_set_fixedpriority_self(void)
 	
 	if (__pthread_supported_features & PTHREAD_FEATURE_SETSELF) {
 		return _pthread_set_properties_self(_PTHREAD_SET_SELF_FIXEDPRIORITY_FLAG, 0, 0);
+	} else {
+		return ENOTSUP;
+	}
+}
+
+int
+pthread_set_timeshare_self(void)
+{
+	if (!(__pthread_supported_features & PTHREAD_FEATURE_BSDTHREADCTL)) {
+		return ENOTSUP;
+	}
+	
+	if (__pthread_supported_features & PTHREAD_FEATURE_SETSELF) {
+		return _pthread_set_properties_self(_PTHREAD_SET_SELF_TIMESHARE_FLAG, 0, 0);
 	} else {
 		return ENOTSUP;
 	}

@@ -70,7 +70,7 @@
 /* the number of threads available to handle requests from the kernel file system and downloads */
 #define WEBDAV_REQUEST_THREADS 5
 
-#define PRIVATE_CERT_UI_COMMAND "/System/Library/Filesystems/webdav.fs/Support/webdav_cert_ui.app/Contents/MacOS/webdav_cert_ui"
+#define PRIVATE_CERT_UI_COMMAND "/System/Library/Filesystems/webdav.fs/Contents/Resources/webdav_cert_ui.app/Contents/MacOS/webdav_cert_ui"
 #define PRIVATE_UNMOUNT_COMMAND "/sbin/umount"
 #define PRIVATE_UNMOUNT_FLAGS "-f"
 

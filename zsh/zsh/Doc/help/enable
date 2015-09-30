@@ -15,8 +15,6 @@ enable [ -afmprs ] name ...
        enable  -p  reenables  patterns  disabled with disable -p.  Note
        that it does not override globbing options; for example, `enable
        -p  "~"'  does  not  cause  the pattern character ~ to be active
-       unless the EXTENDED GLOB option is also set.  To enable all pos-
-                          -
-       sible  patterns  (so  that  they may be invidually disabled with
-       disable -p), use `setopt EXTENDED GLOB KSH GLOB NO SH GLOB'.
-                                        -        -       -  -
+       unless the EXTENDED_GLOB option is also set.  To enable all pos-
+       sible  patterns  (so that they may be individually disabled with
+       disable -p), use `setopt EXTENDED_GLOB KSH_GLOB NO_SH_GLOB'.

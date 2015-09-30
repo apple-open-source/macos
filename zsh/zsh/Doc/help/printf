@@ -9,7 +9,7 @@ printf format [ arg ... ]
        to be reused as shell input. With the numeric format specifiers,
        if the corresponding argument starts with a quote character, the
        numeric value of the following character is used as  the  number
-       to  print  otherwise  the argument is evaluated as an arithmetic
+       to  print;  otherwise the argument is evaluated as an arithmetic
        expression. See the  section  `Arithmetic  Evaluation'  in  zsh-
        misc(1)  for a description of arithmetic expressions. With `%n',
        the corresponding argument is taken as an  identifier  which  is

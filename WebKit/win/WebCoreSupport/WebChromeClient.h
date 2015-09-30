@@ -88,10 +88,8 @@ public:
     virtual bool runJavaScriptConfirm(WebCore::Frame*, const WTF::String&);
     virtual bool runJavaScriptPrompt(WebCore::Frame*, const WTF::String& message, const WTF::String& defaultValue, WTF::String& result);
     virtual void setStatusbarText(const WTF::String&);
-    virtual bool shouldInterruptJavaScript();
 
     virtual WebCore::KeyboardUIMode keyboardUIMode();
-    virtual WebCore::IntRect windowResizerRect() const;
 
     virtual void invalidateRootView(const WebCore::IntRect&);
     virtual void invalidateContentsAndRootView(const WebCore::IntRect&);
@@ -112,14 +110,10 @@ public:
 
     virtual void print(WebCore::Frame*);
 
-#if ENABLE(SQL_DATABASE)
     virtual void exceededDatabaseQuota(WebCore::Frame*, const WTF::String&, WebCore::DatabaseDetails);
-#endif
 
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
     virtual void reachedApplicationCacheOriginQuota(WebCore::SecurityOrigin*, int64_t totalSpaceNeeded);
-
-    virtual void populateVisitedLinks();
 
     virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
     virtual void loadIconForFiles(const Vector<WTF::String>&, WebCore::FileIconLoader*);
@@ -138,10 +132,6 @@ public:
     // to do an eager layout before the drawing.
     virtual void scheduleCompositingLayerFlush();
 
-#if USE(TILED_BACKING_STORE)
-    virtual void delegatedScrollRequested(const WebCore::IntPoint&) { }
-#endif
-
 #if PLATFORM(WIN) && USE(AVFOUNDATION)
     virtual WebCore::GraphicsDeviceAdapter* graphicsDeviceAdapter() const override;
 #endif
@@ -149,9 +139,9 @@ public:
     virtual void scrollRectIntoView(const WebCore::IntRect&) const { }
 
 #if ENABLE(VIDEO)
-    virtual bool supportsFullscreenForNode(const WebCore::Node*);
-    virtual void enterFullscreenForNode(WebCore::Node*);
-    virtual void exitFullscreenForNode(WebCore::Node*);
+    virtual bool supportsVideoFullscreen();
+    virtual void enterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&);
+    virtual void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&);
 #endif
 
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
@@ -170,7 +160,7 @@ public:
     virtual void exitFullScreenForElement(WebCore::Element*);
 #endif
 
-    virtual void numWheelEventHandlersChanged(unsigned) { }
+    virtual void wheelEventHandlersChanged(bool) override { }
 
     WebView* webView() { return m_webView; }
 
@@ -183,6 +173,6 @@ private:
     WebView* m_webView;
 
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
-    OwnPtr<WebDesktopNotificationsDelegate> m_notificationsDelegate;
+    std::unique_ptr<WebDesktopNotificationsDelegate> m_notificationsDelegate;
 #endif
 };

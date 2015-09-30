@@ -58,19 +58,31 @@ inline JSCallbackObject<Parent>* JSCallbackObject<Parent>::asCallbackObject(Enco
 template <class Parent>
 JSCallbackObject<Parent>::JSCallbackObject(ExecState* exec, Structure* structure, JSClassRef jsClass, void* data)
     : Parent(exec->vm(), structure)
-    , m_callbackObjectData(adoptPtr(new JSCallbackObjectData(data, jsClass)))
+    , m_callbackObjectData(std::make_unique<JSCallbackObjectData>(data, jsClass))
 {
 }
+
+extern const GlobalObjectMethodTable javaScriptCoreAPIGlobalObjectMethodTable;
 
 // Global object constructor.
 // FIXME: Move this into a separate JSGlobalCallbackObject class derived from this one.
 template <class Parent>
 JSCallbackObject<Parent>::JSCallbackObject(VM& vm, JSClassRef jsClass, Structure* structure)
-    : Parent(vm, structure)
-    , m_callbackObjectData(adoptPtr(new JSCallbackObjectData(0, jsClass)))
+    : Parent(vm, structure, &javaScriptCoreAPIGlobalObjectMethodTable)
+    , m_callbackObjectData(std::make_unique<JSCallbackObjectData>(nullptr, jsClass))
 {
 }
 
+template <class Parent>
+JSCallbackObject<Parent>::~JSCallbackObject()
+{
+    JSObjectRef thisRef = toRef(static_cast<JSObject*>(this));
+    for (JSClassRef jsClass = classRef(); jsClass; jsClass = jsClass->parentClass) {
+        if (JSObjectFinalizeCallback finalize = jsClass->finalize)
+            finalize(thisRef);
+    }
+}
+    
 template <class Parent>
 void JSCallbackObject<Parent>::finishCreation(ExecState* exec)
 {
@@ -106,13 +118,6 @@ void JSCallbackObject<Parent>::init(ExecState* exec)
         JSLock::DropAllLocks dropAllLocks(exec);
         JSObjectInitializeCallback initialize = initRoutines[i];
         initialize(toRef(exec), toRef(this));
-    }
-
-    for (JSClassRef jsClassPtr = classRef(); jsClassPtr; jsClassPtr = jsClassPtr->parentClass) {
-        if (jsClassPtr->finalize) {
-            WeakSet::allocate(this, m_callbackObjectData.get(), classRef());
-            break;
-        }
     }
 }
 
@@ -265,6 +270,9 @@ void JSCallbackObject<Parent>::put(JSCell* cell, ExecState* exec, PropertyName p
             
             if (OpaqueJSClassStaticFunctionsTable* staticFunctions = jsClass->staticFunctions(exec)) {
                 if (StaticFunctionEntry* entry = staticFunctions->get(name)) {
+                    PropertySlot getSlot(thisObject);
+                    if (Parent::getOwnPropertySlot(thisObject, exec, propertyName, getSlot))
+                        return Parent::put(thisObject, exec, propertyName, value, slot);
                     if (entry->attributes & kJSPropertyAttributeReadOnly)
                         return;
                     thisObject->JSCallbackObject<Parent>::putDirect(exec->vm(), propertyName, value); // put as override property
@@ -516,8 +524,10 @@ void JSCallbackObject<Parent>::getOwnNonIndexPropertyNames(JSObject* object, Exe
             for (iterator it = staticValues->begin(); it != end; ++it) {
                 StringImpl* name = it->key.get();
                 StaticValueEntry* entry = it->value.get();
-                if (entry->getProperty && (!(entry->attributes & kJSPropertyAttributeDontEnum) || (mode == IncludeDontEnumProperties)))
-                    propertyNames.add(Identifier(exec, name));
+                if (entry->getProperty && (!(entry->attributes & kJSPropertyAttributeDontEnum) || mode.includeDontEnumProperties())) {
+                    ASSERT(!name->isSymbol());
+                    propertyNames.add(Identifier::fromString(exec, String(name)));
+                }
             }
         }
         
@@ -527,8 +537,10 @@ void JSCallbackObject<Parent>::getOwnNonIndexPropertyNames(JSObject* object, Exe
             for (iterator it = staticFunctions->begin(); it != end; ++it) {
                 StringImpl* name = it->key.get();
                 StaticFunctionEntry* entry = it->value.get();
-                if (!(entry->attributes & kJSPropertyAttributeDontEnum) || (mode == IncludeDontEnumProperties))
-                    propertyNames.add(Identifier(exec, name));
+                if (!(entry->attributes & kJSPropertyAttributeDontEnum) || mode.includeDontEnumProperties()) {
+                    ASSERT(!name->isSymbol());
+                    propertyNames.add(Identifier::fromString(exec, String(name)));
+                }
             }
         }
     }

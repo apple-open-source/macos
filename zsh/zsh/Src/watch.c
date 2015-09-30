@@ -333,7 +333,7 @@ watchlog2(int inout, WATCH_STRUCT_UTMP *u, char *fmt, int prnt, int fini)
 		    }
 		    timet = getlogtime(u, inout);
 		    tm = localtime(&timet);
-		    ztrftime(buf, 40, fm2, tm);
+		    ztrftime(buf, 40, fm2, tm, 0L);
 		    printf("%s", (*buf == ' ') ? buf + 1 : buf);
 		    break;
 		case '%':
@@ -375,6 +375,27 @@ watchlog2(int inout, WATCH_STRUCT_UTMP *u, char *fmt, int prnt, int fini)
     return fmt;
 }
 
+/* See if the watch entry matches */
+
+static int
+watchlog_match(char *teststr, char *actual, int len)
+{
+    int ret = 0;
+    Patprog pprog;
+    char *str = dupstring(teststr);
+
+    tokenize(str);
+
+    if ((pprog = patcompile(str, PAT_STATIC, 0))) {
+	queue_signals();
+	if (pattry(pprog, actual))
+	    ret = 1;
+	unqueue_signals();
+    } else if (!strncmp(actual, teststr, len))
+	ret = 1;
+    return ret;
+}
+
 /* check the List for login/logouts */
 
 /**/
@@ -403,7 +424,7 @@ watchlog(int inout, WATCH_STRUCT_UTMP *u, char **w, char *fmt)
 	    for (vv = v; *vv && *vv != '@' && *vv != '%'; vv++);
 	    sav = *vv;
 	    *vv = '\0';
-	    if (strncmp(u->ut_name, v, sizeof(u->ut_name)))
+	    if (!watchlog_match(v, u->ut_name, sizeof(u->ut_name)))
 		bad = 1;
 	    *vv = sav;
 	    v = vv;
@@ -413,7 +434,7 @@ watchlog(int inout, WATCH_STRUCT_UTMP *u, char **w, char *fmt)
 		for (vv = ++v; *vv && *vv != '@'; vv++);
 		sav = *vv;
 		*vv = '\0';
-		if (strncmp(u->ut_line, v, sizeof(u->ut_line)))
+		if (!watchlog_match(v, u->ut_line, sizeof(u->ut_line)))
 		    bad = 1;
 		*vv = sav;
 		v = vv;
@@ -423,7 +444,7 @@ watchlog(int inout, WATCH_STRUCT_UTMP *u, char **w, char *fmt)
 		for (vv = ++v; *vv && *vv != '%'; vv++);
 		sav = *vv;
 		*vv = '\0';
-		if (strncmp(u->ut_host, v, strlen(v)))
+		if (!watchlog_match(v, u->ut_host, strlen(v)))
 		    bad = 1;
 		*vv = sav;
 		v = vv;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006, 2009, 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2009, 2011-2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -346,6 +346,15 @@ _dns_resolver_add_sortaddr(dns_create_resolver_t *_resolver, dns_sortaddr_t *sor
 
 	resolver->resolver.n_sortaddr = htonl(ntohl(resolver->resolver.n_sortaddr) + 1);
 	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_SORTADDR, (uint32_t)sizeof(dns_sortaddr_t), (void *)sortaddr);
+	return;
+}
+
+
+__private_extern__
+void
+_dns_resolver_set_configuration_identifier(dns_create_resolver_t *_resolver, const char *cid)
+{
+	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_CONFIGURATION_ID, (uint32_t)strlen(cid) + 1, (void *)cid);
 	return;
 }
 

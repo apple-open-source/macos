@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/tk.xml
@@ -38,7 +38,7 @@ tk{
             }
         }
     }
-    Version{"2.0.92.90"}
+    Version{"2.1.6.69"}
     calendar{
         generic{
             DateTimePatterns{
@@ -58,10 +58,6 @@ tk{
             }
             availableFormats{
                 Ed{"d E"}
-                Gy{"y G"}
-                GyMMM{"MMM y G"}
-                GyMMMEd{"d MMM y G E"}
-                GyMMMd{"d MMM y G"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -79,14 +75,13 @@ tk{
                 mmss{"mm:ss"}
                 ms{"mm:ss"}
                 y{"y G"}
-                yyyy{"y G"}
-                yyyyM{"MM.y G"}
-                yyyyMEd{"dd.MM.y G E"}
-                yyyyMMM{"MMM y G"}
-                yyyyMMMEd{"d MMM y G E"}
-                yyyyMMMM{"MMMM y G"}
-                yyyyMMMd{"d MMM y G"}
-                yyyyMd{"dd.MM.y G"}
+                yM{"MM.y GGGGG"}
+                yMEd{"dd.MM.y GGGGG E"}
+                yMMM{"MMM y G"}
+                yMMMEd{"d MMM y G E"}
+                yMMMM{"MMMM y G"}
+                yMMMd{"d MMM y G"}
+                yMd{"dd.MM.y GGGGG"}
             }
             intervalFormats{
                 H{
@@ -151,22 +146,22 @@ tk{
                     y{"y-y G"}
                 }
                 yM{
-                    M{"MM.y - MM.y G"}
-                    y{"MM.y - MM.y G"}
+                    M{"MM.y - MM.y GGGGG"}
+                    y{"MM.y - MM.y GGGGG"}
                 }
                 yMEd{
-                    M{"dd.MM.y E - dd.MM.y E"}
-                    d{"dd.MM.y E - dd.MM.y E"}
-                    y{"dd.MM.y E - dd.MM.y E"}
+                    M{"dd.MM.y E - dd.MM.y E GGGGG"}
+                    d{"dd.MM.y E - dd.MM.y E GGGGG"}
+                    y{"dd.MM.y E - dd.MM.y E GGGGG"}
                 }
                 yMMM{
                     M{"MMM-MMM y G"}
                     y{"MMM y - MMM y G"}
                 }
                 yMMMEd{
-                    M{"d MMM y E - d MMM y E"}
-                    d{"d MMM y E - d MMM y E"}
-                    y{"d MMM y E - d MMM y E"}
+                    M{"d MMM y E - d MMM y E G"}
+                    d{"d MMM y E - d MMM y E G"}
+                    y{"d MMM y E - d MMM y E G"}
                 }
                 yMMMM{
                     M{"MMMM-MMMM y G"}
@@ -178,9 +173,9 @@ tk{
                     y{"d MMM y - d MMM y G"}
                 }
                 yMd{
-                    M{"dd.MM.y - dd.MM.y G"}
-                    d{"dd.MM.y - dd.MM.y G"}
-                    y{"dd.MM.y - dd.MM.y G"}
+                    M{"dd.MM.y - dd.MM.y GGGGG"}
+                    d{"dd.MM.y - dd.MM.y GGGGG"}
+                    y{"dd.MM.y - dd.MM.y GGGGG"}
                 }
             }
         }
@@ -202,10 +197,6 @@ tk{
             }
             availableFormats{
                 Ed{"d E"}
-                Gy{"y G"}
-                GyMMM{"MMM y G"}
-                GyMMMEd{"d MMM y G E"}
-                GyMMMd{"d MMM y G"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}

@@ -169,7 +169,7 @@ stringsubst(LinkList list, LinkNode node, int pf_flags, int asssub)
 	    if (errflag)
 		return NULL;
 	    if (!subst)
-		subst = "";
+		rest = subst = "";
 
 	    sublen = strlen(subst);
 	    restlen = strlen(rest);
@@ -195,7 +195,7 @@ stringsubst(LinkList list, LinkNode node, int pf_flags, int asssub)
 
     while (!errflag && (c = *str)) {
 	if ((qt = c == Qstring) || c == String) {
-	    if ((c = str[1]) == Inpar) {
+	    if ((c = str[1]) == Inpar || c == Inparmath) {
 		if (!qt)
 		    list->list.flags |= LF_ARRAY;
 		str++;
@@ -258,24 +258,43 @@ stringsubst(LinkList list, LinkNode node, int pf_flags, int asssub)
 		skipparens(Inpar, Outpar, &str);
 #endif
 		str--;
-	    } else {
-		endchar = c;
-		*str = '\0';
-
-		while (*++str != endchar)
-		    DPUTS(!*str, "BUG: parse error in command substitution");
-	    }
-	    *str++ = '\0';
-	    if (endchar == Outpar && str2[1] == '(' && str[-2] == ')') {
-		/* Math substitution of the form $((...)) */
-		str[-2] = '\0';
+	    } else if (c == Inparmath) {
+		/*
+		 * Math substitution of the form $((...)).
+		 * These can be nested, for goodness sake...
+		 */
+		int mathpar = 1;
+		str[-1] = '\0';
+		while (mathpar && *str) {
+		    str++;
+		    if (*str == Outparmath)
+			mathpar--;
+		    else if (*str == Inparmath)
+			mathpar++;
+		}
+		if (*str != Outparmath) {
+		    zerr("failed to find end of math substitution");
+		    return NULL;
+		}
+		str[-1] = '\0';
 		if (isset(EXECOPT))
-		    str = arithsubst(str2 + 2, &str3, str);
+		    str = arithsubst(str2 + 2, &str3, str+1);
 		else
 		    strncpy(str3, str2, 1);
 		setdata(node, (void *) str3);
 		continue;
+	    } else {
+		endchar = c;
+		*str = '\0';
+
+		while (*++str != endchar) {
+		    if (!*str) {
+			zerr("failed to find end of command substitution");
+			return NULL;
+		    }
+		}
 	    }
+	    *str++ = '\0';
 
 	    /* It is a command substitution, which will be parsed again   *
 	     * by the lexer, so we untokenize it first, but we cannot use *
@@ -298,7 +317,7 @@ stringsubst(LinkList list, LinkNode node, int pf_flags, int asssub)
 	    if (endchar == Outpar)
 		str2--;
 	    if (!(s = (char *) ugetnode(pl))) {
-		str = strcpy(str2, str);
+		str = (char *)memmove(str2, str, strlen(str)+1);
 		continue;
 	    }
 	    if (!qt && (pf_flags & PREFORK_SINGLE) && isset(GLOBSUBST))
@@ -1306,7 +1325,7 @@ get_intarg(char **s, int *delmatchp)
     p = dupstring(*s + arglen);
     *s = t + arglen;
     *t = sav;
-    if (parsestr(p))
+    if (parsestr(&p))
 	return -1;
     singsub(&p);
     if (errflag)
@@ -1317,7 +1336,7 @@ get_intarg(char **s, int *delmatchp)
     if (ret < 0)
 	ret = -ret;
     *delmatchp = arglen;
-    return ret < 0 ? -ret : ret;
+    return ret;
 }
 
 /* Parsing for the (e) flag. */
@@ -1329,18 +1348,21 @@ subst_parse_str(char **sp, int single, int err)
 
     *sp = s = dupstring(*sp);
 
-    if (!(err ? parsestr(s) : parsestrnoerr(s))) {
+    if (!(err ? parsestr(&s) : parsestrnoerr(&s))) {
+	*sp = s;
 	if (!single) {
             int qt = 0;
 
-	    for (; *s; s++)
+	    for (; *s; s++) {
 		if (!qt) {
 		    if (*s == Qstring)
 			*s = String;
 		    else if (*s == Qtick)
 			*s = Tick;
-                } else if (*s == Dnull)
+                }
+		if (*s == Dnull)
                     qt = !qt;
+	    }
 	}
 	return 0;
     }
@@ -1385,12 +1407,23 @@ static char *
 untok_and_escape(char *s, int escapes, int tok_arg)
 {
     int klen;
-    char *dst;
+    char *dst = NULL;
 
-    untokenize(dst = dupstring(s));
-    if (escapes) {
-	dst = getkeystring(dst, &klen, GETKEYS_SEP, NULL);
-	dst = metafy(dst, klen, META_HREALLOC);
+    if (escapes && (*s == String || *s == Qstring) && s[1]) {
+	char *pstart = s+1, *pend;
+	for (pend = pstart; *pend; pend++)
+	    if (!iident(*pend))
+		break;
+	if (!*pend) {
+	    dst = dupstring(getsparam(pstart));
+	}
+    }
+    if (dst == NULL) {
+	untokenize(dst = dupstring(s));
+	if (escapes) {
+	    dst = getkeystring(dst, &klen, GETKEYS_SEP, NULL);
+	    dst = metafy(dst, klen, META_HREALLOC);
+	}
     }
     if (tok_arg)
 	shtokenize(dst);
@@ -1426,7 +1459,8 @@ check_colon_subscript(char *str, char **endp)
     }
     sav = **endp;
     **endp = '\0';
-    if (parsestr(str = dupstring(str)))
+    str = dupstring(str);
+    if (parsestr(&str))
 	return NULL;
     singsub(&str);
     remnulargs(str);
@@ -1522,6 +1556,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
      * unset.  I don't quite understand why (v == NULL) isn't
      * good enough, but there are places where we seem to need
      * to second guess whether a value is a real value or not.
+     * See in particular the (colf && !vunset) test below.
      */
     int vunset = 0;
     /*
@@ -1566,7 +1601,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
     /* combination of (L), (U) and (C) flags. */
     int casmod = CASMOD_NONE;
     /*
-     * quotemod says we are doing either (q) (positive), (Q) (negative)
+     * quotemod says we are doing either (q/b) (positive), (Q) (negative)
      * or not (0).  quotetype counts the q's for the first case.
      * quoterr is simply (X) but gets passed around a lot because the
      * combination (eX) needs it.
@@ -1819,7 +1854,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 		    break;
 
 		case 'q':
-		    if (quotetype == QT_DOLLARS)
+		    if (quotetype == QT_DOLLARS ||
+			quotetype == QT_BACKSLASH_PATTERN)
 			goto flagerr;
 		    if (s[1] == '-') {
 			if (quotemod)
@@ -1834,6 +1870,12 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 			}
 			quotemod++, quotetype++;
 		    }
+		    break;
+		case 'b':
+		    if (quotemod || quotetype != QT_NONE)
+			goto flagerr;
+		    quotemod = 1;
+		    quotetype = QT_BACKSLASH_PATTERN;
 		    break;
 		case 'Q':
 		    quotemod--;
@@ -2114,6 +2156,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 		    nojoin = !(ifs && *ifs);
 	    }
 	} else if ((c == '#' || c == Pound) &&
+		   (inbrace || !isset(POSIXIDENTIFIERS)) &&
 		   (itype_end(s+1, IIDENT, 0) != s + 1
 		    || (cc = s[1]) == '*' || cc == Star || cc == '@'
 		    || cc == '?' || cc == Quest
@@ -2191,12 +2234,28 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
      */
     idbeg = s;
     if ((subexp = (inbrace && s[-1] && isstring(*s) &&
-		   (s[1] == Inbrace || s[1] == Inpar)))) {
+		   (s[1] == Inbrace || s[1] == Inpar || s[1] == Inparmath)))) {
 	int sav;
 	int quoted = *s == Qstring;
+	int outtok;
 
 	val = s++;
-	skipparens(*s, *s == Inpar ? Outpar : Outbrace, &s);
+	switch (*s) {
+	case Inbrace:
+	    outtok = Outbrace;
+	    break;
+	case Inpar:
+	    outtok = Outpar;
+	    break;
+	case Inparmath:
+	    outtok = Outparmath;
+	    break;
+	default:
+	    /* "Can't Happen" (TM) */
+	    DPUTS(1, "Nested substitution: This Can't Happen (TM)");
+	    return NULL;
+	}
+	skipparens(*s, outtok, &s);
 	sav = *s;
 	*s = 0;
 	/*
@@ -2638,8 +2697,10 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 	 * - (array) contains no elements
 	 * - (scalar) contains an empty string
 	 */
-	if (colf && !vunset)
+	if (colf && !vunset) {
 	    vunset = (isarr) ? !*aval : !*val || (*val == Nularg && !val[1]);
+	    vunset *= -1; /* Record that vunset was originally false */
+	}
 
 	switch (s[-1]) {
 	case '+':
@@ -2808,7 +2869,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 		haserr = parse_subst_string(s);
 		noerrs = one;
 		if (!quoteerr) {
-		    errflag = oef;
+		    /* Retain user interrupt error status */
+		    errflag = oef | (errflag & ERRFLAG_INT);
 		    if (haserr)
 			shtokenize(s);
 		} else if (haserr || errflag) {
@@ -2862,7 +2924,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 		getmatcharr(&aval, s, flags, flnum, replstr);
 	    } else {
 		if (vunset) {
-		    if (unset(UNSET)) {
+		    if (vunset > 0 && unset(UNSET)) {
 			*idend = '\0';
 			zerr("%s: parameter not set", idbeg);
 			return NULL;
@@ -2877,6 +2939,67 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 		getmatch(&val, s, flags, flnum, replstr);
 	    }
 	    break;
+	}
+    } else if (inbrace && (*s == '^' || *s == Hat)) {
+	char **zip;
+	int shortest = 1;
+	++s;
+	if (*s == '^' || *s == Hat) {
+	    shortest = 0;
+	    ++s;
+	}
+	if (*itype_end(s, IIDENT, 0)) {
+	    untokenize(s);
+	    zerr("not an identifier: %s", s);
+	    return NULL;
+	}
+	if (vunset) {
+	    if (vunset > 0 && unset(UNSET)) {
+		*idend = '\0';
+		zerr("%s: parameter not set", idbeg);
+		return NULL;
+	    }
+	    val = dupstring("");
+	} else {
+	    char *sval;
+	    zip = getaparam(s);
+	    if (!zip) {
+		sval = getsparam(s);
+		if (sval)
+		    zip = hmkarray(sval);
+	    }
+	    if (!isarr) aval = mkarray(val);
+	    if (zip) {
+		char **out;
+		int alen, ziplen, outlen, i = 0;
+		alen = arrlen(aval);
+		ziplen = arrlen(zip);
+		outlen = shortest ^ (alen > ziplen) ? alen : ziplen;
+		if (!shortest && (alen == 0 || ziplen == 0)) {
+		    if (ziplen)
+			aval = arrdup(zip);
+		} else {
+		    out = zhalloc(sizeof(char *) * (2 * outlen + 1));
+		    while (i < outlen) {
+			if (copied)
+			    out[i*2] = aval[i % alen];
+			else
+			    out[i*2] = dupstring(aval[i % alen]);
+			out[i*2+1] = dupstring(zip[i % ziplen]);
+			i++;
+		    }
+		    out[i*2] = NULL;
+		    aval = out;
+		    copied = 1;
+		    isarr = 1;
+		}
+	    } else {
+		if (unset(UNSET)) {
+		    zerr("%s: parameter not set", s);
+		    return NULL;
+		}
+		val = dupstring("");
+	    }
 	}
     } else if (inbrace && (*s == '|' || *s == Bar ||
 			   *s == '*' || *s == Star)) {
@@ -2913,7 +3036,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 		*ap = NULL;
 	    } else {
 		if (vunset) {
-		    if (unset(UNSET)) {
+		    if (vunset > 0 && unset(UNSET)) {
 			*idend = '\0';
 			zerr("%s: parameter not set", idbeg);
 			deletehashtable(ht);
@@ -2935,14 +3058,14 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 	     */
 	    if (!vunset) {
 		if (isarr) {
-		    aval = mkarray(NULL);
+		    aval = hmkarray(NULL);
 		} else {
 		    val = dupstring("");
 		}
 	    }
 	}
 	if (vunset) {
-	    if (unset(UNSET)) {
+	    if (vunset > 0 && unset(UNSET)) {
 		*idend = '\0';
 		zerr("%s: parameter not set", idbeg);
 		return NULL;
@@ -2959,7 +3082,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 	    val = dupstring(vunset ? "0" : "1");
 	    isarr = 0;
 	} else if (vunset) {
-	    if (unset(UNSET)) {
+	    if (vunset > 0 && unset(UNSET)) {
 		*idend = '\0';
 		zerr("%s: parameter not set", idbeg);
 		return NULL;
@@ -3174,8 +3297,10 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 		haserr = 1;
 	}
 	noerrs = one;
-	if (!quoteerr)
-	    errflag = oef;
+	if (!quoteerr) {
+	    /* Retain user interrupt error status */
+	    errflag = oef | (errflag & ERRFLAG_INT);
+	}
 	if (haserr || errflag)
 	    return NULL;
     }
@@ -3352,7 +3477,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
     if (quotemod) {
 	int pre = 0, post = 0;
 
-	if (quotemod > 0 && quotetype > QT_BACKSLASH) {
+	if (quotemod > 0) {
 	    switch (quotetype)
 	    {
 	    case QT_DOLLARS:
@@ -3363,6 +3488,9 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 
 	    case QT_SINGLE_OPTIONAL:
 		/* quotes will be added for us */
+	    case QT_BACKSLASH:
+	    case QT_BACKSLASH_PATTERN:
+		/* no quotes */
 		break;
 
 	    default:
@@ -3408,8 +3536,10 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 		    untokenize(*ap);
 		}
 		noerrs = one;
-		if (!quoteerr)
-		    errflag = oef;
+		if (!quoteerr) {
+		    /* Retain any user interrupt error status */
+		    errflag = oef | (errflag & ERRFLAG_INT);
+		}
 		else if (haserr || errflag) {
 		    zerr("parse error in parameter value");
 		    return NULL;
@@ -3441,8 +3571,10 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 		    noerrs = 1;
 		haserr = parse_subst_string(val);
 		noerrs = one;
-		if (!quoteerr)
-		    errflag = oef;
+		if (!quoteerr) {
+		    /* Retain any user interrupt error status */
+		    errflag = oef | (errflag & ERRFLAG_INT);
+		}
 		else if (haserr || errflag) {
 		    zerr("parse error in parameter value");
 		    return NULL;
@@ -3754,19 +3886,19 @@ static char *
 arithsubst(char *a, char **bptr, char *rest)
 {
     char *s = *bptr, *t;
-    char buf[BDIGBUFSIZE], *b = buf;
+    char buf[BDIGBUFSIZE], *b;
     mnumber v;
 
     singsub(&a);
     v = matheval(a);
     if ((v.type & MN_FLOAT) && !outputradix)
-	b = convfloat(v.u.d, 0, 0, NULL);
+	b = convfloat_underscore(v.u.d, outputunderscore);
     else {
 	if (v.type & MN_FLOAT)
 	    v.u.l = (zlong) v.u.d;
-	convbase(buf, v.u.l, outputradix);
+	b = convbase_underscore(buf, v.u.l, outputradix, outputunderscore);
     }
-    t = *bptr = (char *) hcalloc(strlen(*bptr) + strlen(b) + 
+    t = *bptr = (char *) hcalloc(strlen(*bptr) + strlen(b) +
 				 strlen(rest) + 1);
     t--;
     while ((*++t = *s++));
@@ -4011,7 +4143,8 @@ modify(char **str, char **ptr)
 			    noerrs = 1;
 			    parse_subst_string(copy);
 			    noerrs = one;
-			    errflag = oef;
+			    /* Retain any user interrupt error status */
+			    errflag = oef | (errflag & ERRFLAG_INT);
 			    remnulargs(copy);
 			    untokenize(copy);
 			}
@@ -4086,7 +4219,8 @@ modify(char **str, char **ptr)
 			noerrs = 1;
 			parse_subst_string(*str);
 			noerrs = one;
-			errflag = oef;
+			/* Retain any user interrupt error status */
+			errflag = oef | (errflag & ERRFLAG_INT);
 			remnulargs(*str);
 			untokenize(*str);
 		    }

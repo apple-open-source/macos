@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,10 +30,6 @@
 
 #define	super	IOBlockStorageDriver
 OSDefineMetaClassAndStructors(IOCDBlockStorageDriver,IOBlockStorageDriver)
-
-#ifdef __LP64__
-#define original request
-#endif /* __LP64__ */
 
 IOCDBlockStorageDevice *
 IOCDBlockStorageDriver::getProvider() const
@@ -188,32 +184,6 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
     return(result);
 }
 
-#ifndef __LP64__
-IOReturn
-IOCDBlockStorageDriver::audioPause(bool pause)
-{
-    return(getProvider()->audioPause(pause));
-}
-
-IOReturn
-IOCDBlockStorageDriver::audioPlay(CDMSF timeStart,CDMSF timeStop)
-{
-    return(getProvider()->audioPlay(timeStart,timeStop));
-}
-
-IOReturn
-IOCDBlockStorageDriver::audioScan(CDMSF timeStart,bool reverse)
-{
-    return(getProvider()->audioScan(timeStart,reverse));
-}
-
-IOReturn
-IOCDBlockStorageDriver::audioStop()
-{
-    return(getProvider()->audioStop());
-}
-#endif /* !__LP64__ */
-
 IOReturn
 IOCDBlockStorageDriver::cacheTocInfo(void)
 {
@@ -322,12 +292,8 @@ IOCDBlockStorageDriver::ejectMedia(void)
 void
 IOCDBlockStorageDriver::executeRequest(UInt64 byteStart,
                                        IOMemoryDescriptor *buffer,
-#ifdef __LP64__
                                        IOStorageAttributes *attributes,
                                        IOStorageCompletion *completion,
-#else /* !__LP64__ */
-                                       IOStorageCompletion completion,
-#endif /* !__LP64__ */
                                        IOBlockStorageDriver::Context *context)
 {
     UInt32 block;
@@ -372,21 +338,13 @@ IOCDBlockStorageDriver::executeRequest(UInt64 byteStart,
             result = getProvider()->doAsyncReadCD(buffer,block,nblks,
                                    (CDSectorArea)context->block.typeSub[0],
                                    (CDSectorType)context->block.typeSub[1],
-#ifdef __LP64__
                                    completion ? *completion : (IOStorageCompletion) { 0 });
-#else /* !__LP64__ */
-                                   completion);
-#endif /* !__LP64__ */
         } else {
             complete(completion,kIOReturnUnsupported);
             return;
         }
     } else {
-#ifdef __LP64__
         result = getProvider()->doAsyncReadWrite(buffer,block,nblks,attributes,completion);
-#else /* !__LP64__ */
-        result = getProvider()->doAsyncReadWrite(buffer,block,nblks,&context->request.attributes,&completion);
-#endif /* !__LP64__ */
     }
 
     if (result != kIOReturnSuccess) {		/* it failed to start */
@@ -404,20 +362,6 @@ IOCDBlockStorageDriver::free(void)
 
     super::free();
 }
-
-#ifndef __LP64__
-IOReturn
-IOCDBlockStorageDriver::getAudioStatus(CDAudioStatus *status)
-{
-    return(getProvider()->getAudioStatus(status));
-}
-
-IOReturn
-IOCDBlockStorageDriver::getAudioVolume(UInt8 *leftVolume,UInt8 *rightVolume)
-{
-    return(getProvider()->getAudioVolume(leftVolume,rightVolume));
-}
-#endif /* !__LP64__ */
 
 const char *
 IOCDBlockStorageDriver::getDeviceTypeName(void)
@@ -481,10 +425,6 @@ IOCDBlockStorageDriver::init(OSDictionary * properties)
 
     _minBlockNumberAudio = 0;
     _maxBlockNumberAudio = 0;
-#ifndef __LP64__
-    _maxReadByteTransfer = 196608;
-    _maxWriteByteTransfer = 196608;
-#endif /* !__LP64__ */
     _toc = NULL;
     _tocSize = 0;
 
@@ -571,20 +511,12 @@ IOCDBlockStorageDriver::readCD(IOService *client,
                                IOMemoryDescriptor *buffer,
                                CDSectorArea sectorArea,
                                CDSectorType sectorType,
-#ifdef __LP64__
                                IOStorageAttributes *attributes,
                                IOStorageCompletion *completion)
-#else /* !__LP64__ */
-                               IOStorageCompletion completion)
-#endif /* !__LP64__ */
 {
     assert(buffer->getDirection() == kIODirectionIn);
 
-#ifdef __LP64__
     prepareRequest(byteStart, buffer, sectorArea, sectorType, attributes, completion);
-#else /* !__LP64__ */
-    prepareRequest(byteStart, buffer, sectorArea, sectorType, completion);
-#endif /* !__LP64__ */
 }
 
 IOReturn
@@ -670,12 +602,8 @@ IOCDBlockStorageDriver::prepareRequest(UInt64 byteStart,
                                        IOMemoryDescriptor *buffer,
                                        CDSectorArea sectorArea,
                                        CDSectorType sectorType,
-#ifdef __LP64__
                                        IOStorageAttributes *attributes,
                                        IOStorageCompletion *completion)
-#else /* !__LP64__ */
-                                       IOStorageCompletion completion)
-#endif /* !__LP64__ */
 {
     IOStorageCompletion completionOut; 
     Context *           context;
@@ -741,16 +669,12 @@ IOCDBlockStorageDriver::prepareRequest(UInt64 byteStart,
         context->block.typeSub[1] = sectorType;    
     }
 
-    context->original.byteStart  = byteStart;
-    context->original.buffer     = buffer;
-    context->original.buffer->retain();
+    context->request.byteStart  = byteStart;
+    context->request.buffer     = buffer;
+    context->request.buffer->retain();
 
-#ifdef __LP64__
     if (attributes)  context->request.attributes = *attributes;
     if (completion)  context->request.completion = *completion;
-#else /* !__LP64__ */
-    context->original.completion = completion;
-#endif /* !__LP64__ */
 
     clock_get_uptime(&context->timeStart);
 
@@ -760,11 +684,7 @@ IOCDBlockStorageDriver::prepareRequest(UInt64 byteStart,
 
     // Deblock the transfer.
 
-#ifdef __LP64__
     deblockRequest(byteStart, buffer, attributes, &completionOut, context);
-#else /* !__LP64__ */
-    deblockRequest(byteStart, buffer, completionOut, context);
-#endif /* !__LP64__ */
 }
 
 IOReturn
@@ -793,14 +713,6 @@ IOCDBlockStorageDriver::recordMediaParameters(void)
 
     return(kIOReturnSuccess);
 }
-
-#ifndef __LP64__
-IOReturn
-IOCDBlockStorageDriver::setAudioVolume(UInt8 leftVolume,UInt8 rightVolume)
-{
-    return(getProvider()->setAudioVolume(leftVolume,rightVolume));
-}
-#endif /* !__LP64__ */
 
 IOReturn
 IOCDBlockStorageDriver::getSpeed(UInt16 * kilobytesPerSecond)
@@ -843,37 +755,20 @@ IOCDBlockStorageDriver::writeCD(IOService *client,
                                 IOMemoryDescriptor *buffer,
                                 CDSectorArea sectorArea,
                                 CDSectorType sectorType,
-#ifdef __LP64__
                                 IOStorageAttributes *attributes,
                                 IOStorageCompletion *completion)
-#else /* !__LP64__ */
-                                IOStorageCompletion completion)
-#endif /* !__LP64__ */
 {
     assert(buffer->getDirection() == kIODirectionOut);
 
-#ifdef __LP64__
     prepareRequest(byteStart, buffer, sectorArea, sectorType, attributes, completion);
-#else /* !__LP64__ */
-    prepareRequest(byteStart, buffer, sectorArea, sectorType, completion);
-#endif /* !__LP64__ */
 }
 
-#ifdef __LP64__
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  0);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  1);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  2);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  3);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  4);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  5);
-#else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver,  0);
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver,  1);
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver,  2);
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver,  3);
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver,  4);
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver,  5);
-#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  6);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  7);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  8);

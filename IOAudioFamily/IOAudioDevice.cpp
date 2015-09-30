@@ -28,7 +28,7 @@
 #include "IOAudioDefines.h"
 #include "IOAudioLevelControl.h"
 #include "IOAudioToggleControl.h"
-#include "AudioTracepoints.h"
+#include <IOKit/audio/AudioTracepoints.h>
 
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
@@ -133,9 +133,7 @@ static int AudioSysctl ( struct sysctl_oid * oidp, void * arg1, int arg2, struct
     DEBUG_UNUSED ( oidp );
     DEBUG_UNUSED ( arg1 );
     DEBUG_UNUSED ( arg2 );
-    
-    //IOLog( "USBSysctl: gUSBStackDebugFlags = 0x%08X\n", ( unsigned int ) gUSBStackDebugFlags );
-    
+        
     error = SYSCTL_IN ( req, &audioArgs, sizeof ( audioArgs ) );
     if ( ( error == 0 ) && ( audioArgs.type == kAudioTypeDebug ) )
     {
@@ -151,7 +149,6 @@ static int AudioSysctl ( struct sysctl_oid * oidp, void * arg1, int arg2, struct
         }
     }
     
-    IOLog("AudioSysctl: (%d)\n", gAudioStackDebugFlags);
     return error;
 }
 
@@ -874,7 +871,7 @@ IOAudioDevicePowerState IOAudioDevice::getPendingPowerState()
 
 void IOAudioDevice::audioEngineStarting()
 {
-    audioDebugIOLog(3, "+ IOAudioDevice[%p]::audioEngineStarting() - numRunningAudioEngines = %ld\n", this, (long int)( numRunningAudioEngines + 1 ) );
+    audioDebugIOLog(3, "+ IOAudioDevice[%p]::audioEngineStarting() - numRunningAudioEngines = %ld\n", this, (long int)numRunningAudioEngines );
 
     numRunningAudioEngines++;
     
@@ -896,12 +893,12 @@ void IOAudioDevice::audioEngineStarting()
             pendingPowerState = kIOAudioDeviceActive;
 		}
     }
-    audioDebugIOLog(3, "- IOAudioDevice[%p]::audioEngineStarting() - numRunningAudioEngines = %ld\n", this, (long int)( numRunningAudioEngines + 1 ) );
+    audioDebugIOLog(3, "- IOAudioDevice[%p]::audioEngineStarting() - numRunningAudioEngines = %ld\n", this, (long int)numRunningAudioEngines );
 }
 
 void IOAudioDevice::audioEngineStopped()
 {
-    audioDebugIOLog(3, "+ IOAudioDevice[%p]::audioEngineStopped() - numRunningAudioEngines = %ld\n", this, (long int)( numRunningAudioEngines - 1 ) );
+    audioDebugIOLog(3, "+ IOAudioDevice[%p]::audioEngineStopped() - numRunningAudioEngines = %ld\n", this, (long int)numRunningAudioEngines );
 
 	if ( numRunningAudioEngines > 0 ) {
 	    numRunningAudioEngines--;
@@ -918,7 +915,7 @@ void IOAudioDevice::audioEngineStopped()
 			scheduleIdleAudioSleep();
         }
     }
-    audioDebugIOLog(3, "- IOAudioDevice[%p]::audioEngineStopped() - numRunningAudioEngines = %ld\n", this, (long int)( numRunningAudioEngines - 1 ) );
+    audioDebugIOLog(3, "- IOAudioDevice[%p]::audioEngineStopped() - numRunningAudioEngines = %ld\n", this, (long int)numRunningAudioEngines );
 }
 
 IOWorkLoop *IOAudioDevice::getWorkLoop() const

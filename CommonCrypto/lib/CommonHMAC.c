@@ -212,7 +212,7 @@ CCHmacClone(CCHmacContextRef ctx) {
 	/* if this fails, it's time to adjust CC_HMAC_CONTEXT_SIZE */
     if((hmacCtx = CC_XMALLOC(sizeof(_NewHmacContext))) == NULL) return NULL;
 	
-	CC_MEMCPY(hmacCtx, ctx, sizeof(_NewHmacContext));
+	CC_XMEMCPY(hmacCtx, ctx, sizeof(_NewHmacContext));
 	return (CCHmacContextRef) hmacCtx;
 }
 

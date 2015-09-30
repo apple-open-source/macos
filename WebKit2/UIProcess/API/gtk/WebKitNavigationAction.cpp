@@ -22,7 +22,7 @@
 
 #include "WebKitNavigationActionPrivate.h"
 #include <gdk/gdk.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 
 using namespace WebKit;
 
@@ -74,7 +74,7 @@ void webkit_navigation_action_free(WebKitNavigationAction* navigation)
  * webkit_navigation_action_get_navigation_type:
  * @navigation: a #WebKitNavigationAction
  *
- * Rtuen the type of action that triggered the navigation.
+ * Return the type of action that triggered the navigation.
  *
  * Returns: a #WebKitNavigationType
  *

@@ -1,6 +1,6 @@
 #include "base.xcconfig"
 
-INSTALL_PATH_ACTUAL = /usr/bin
+INSTALL_PATH = /usr/bin
 OTHER_LDFLAGS = -lncurses
 GCC_C_LANGUAGE_STANDARD = gnu99
 GCC_CW_ASM_SYNTAX = NO

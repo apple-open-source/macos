@@ -528,8 +528,8 @@ xcc_remove_cred(krb5_context context,
     if (servername == NULL)
 	return KRB5_CC_END;
     
-    const void *keys[] = { (void *)kHEIMAttrParentCredential, kHEIMAttrType, kHEIMAttrServerName };
-    const void *values[] = { (void *)x->uuid, kHEIMTypeKerberos, servername };
+    const void *keys[] = { (const void *)kHEIMAttrParentCredential, kHEIMAttrType, kHEIMAttrServerName };
+    const void *values[] = { (const void *)x->uuid, kHEIMTypeKerberos, servername };
     
     /* XXX match enctype */
     
@@ -570,12 +570,12 @@ xcc_get_cache_first(krb5_context context, krb5_cc_cursor *cursor)
     struct xcc_cursor *c;
 
     const void *keys[] = {
-	(void *)kHEIMAttrType,
-	(void *)kHEIMAttrServerName,
+	(const void *)kHEIMAttrType,
+	(const void *)kHEIMAttrServerName,
     };
     const void *values[] = {
-	(void *)kHEIMTypeKerberos,
-	(void *)kCFNull,
+	(const void *)kHEIMTypeKerberos,
+	(const void *)kCFNull,
     };
     
     c = calloc(1, sizeof(*c));
@@ -663,25 +663,35 @@ xcc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
     krb5_xcc *xfrom = XCACHE(from);
     krb5_xcc *xto = XCACHE(to);
     
+    /* uuid */
     if (!HeimCredMove(xfrom->uuid, xto->uuid))
 	return KRB5_CC_END;
 
+    CFRELEASE_NULL(xfrom->uuid);
+
+    /* cred */
     CFRELEASE_NULL(xto->cred);
     CFRELEASE_NULL(xfrom->cred);
 
-    free(xto->cache_name);
-    xto->cache_name = NULL;
-    genName(xto);
-
+    /* clientName */
     CFRELEASE_NULL(xto->clientName);
     xto->clientName = xfrom->clientName;
     xfrom->clientName = NULL;
 
+    /* primary_principal */
     if (xto->primary_principal)
 	krb5_free_principal(context, xto->primary_principal);
     xto->primary_principal = xfrom->primary_principal;
     xfrom->primary_principal = NULL;
     
+    /* cache_name */
+    free(xto->cache_name);
+    xto->cache_name = NULL;
+    genName(xto);
+
+    /* outer foo */
+    krb5_data_free(&from->data);
+
     return 0;
 }
 

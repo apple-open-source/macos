@@ -648,7 +648,7 @@ void URL::init(const URL& base, const String& relative, const TextEncoding& enco
     }
 }
 
-URL URL::copy() const
+URL URL::isolatedCopy() const
 {
     URL result = *this;
     result.m_string = result.m_string.isolatedCopy();
@@ -2117,6 +2117,11 @@ String URL::stringCenterEllipsizedToLength(unsigned length) const
 URL URL::fakeURLWithRelativePart(const String& relativePart)
 {
     return URL(URL(), "webkit-fake-url://" + createCanonicalUUIDString() + '/' + relativePart);
+}
+
+URL URL::fileURLWithFileSystemPath(const String& filePath)
+{
+    return URL(URL(), "file:///" + filePath);
 }
 
 }

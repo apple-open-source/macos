@@ -36,6 +36,7 @@
 #include "RenderFlowThread.h"
 #include "RenderIterator.h"
 #include "RenderNamedFlowThread.h"
+#include "RenderTableCell.h"
 #include "RenderView.h"
 #include "StyleResolver.h"
 
@@ -43,7 +44,7 @@
 
 namespace WebCore {
 
-RenderNamedFlowFragment::RenderNamedFlowFragment(Document& document, PassRef<RenderStyle> style)
+RenderNamedFlowFragment::RenderNamedFlowFragment(Document& document, Ref<RenderStyle>&& style)
     : RenderRegion(document, WTF::move(style), nullptr)
     , m_hasCustomRegionStyle(false)
     , m_hasAutoLogicalHeight(false)
@@ -56,7 +57,7 @@ RenderNamedFlowFragment::~RenderNamedFlowFragment()
 {
 }
 
-PassRef<RenderStyle> RenderNamedFlowFragment::createStyle(const RenderStyle& parentStyle)
+Ref<RenderStyle> RenderNamedFlowFragment::createStyle(const RenderStyle& parentStyle)
 {
     auto style = RenderStyle::createAnonymousStyleWithDisplay(&parentStyle, BLOCK);
 
@@ -184,7 +185,7 @@ LayoutUnit RenderNamedFlowFragment::maxPageLogicalHeight() const
     ASSERT(parent());
 
     const RenderStyle& styleToUse = parent()->style();
-    return styleToUse.logicalMaxHeight().isUndefined() ? RenderFlowThread::maxLogicalHeight() : toRenderBlock(parent())->computeReplacedLogicalHeightUsing(styleToUse.logicalMaxHeight());
+    return styleToUse.logicalMaxHeight().isUndefined() ? RenderFlowThread::maxLogicalHeight() : downcast<RenderBlock>(*parent()).computeReplacedLogicalHeightUsing(styleToUse.logicalMaxHeight());
 }
 
 LayoutRect RenderNamedFlowFragment::flowThreadPortionRectForClipping(bool isFirstRegionInRange, bool isLastRegionInRange) const
@@ -231,7 +232,7 @@ RenderBlockFlow& RenderNamedFlowFragment::fragmentContainer() const
 {
     ASSERT(parent());
     ASSERT(parent()->isRenderNamedFlowFragmentContainer());
-    return *toRenderBlockFlow(parent());
+    return downcast<RenderBlockFlow>(*parent());
 }
 
 RenderLayer& RenderNamedFlowFragment::fragmentContainerLayer() const
@@ -248,11 +249,10 @@ bool RenderNamedFlowFragment::shouldClipFlowThreadContent() const
     return isLastRegion() && (style().regionFragment() == BreakRegionFragment);
 }
     
-LayoutSize RenderNamedFlowFragment::offsetFromContainer(RenderObject* o, const LayoutPoint&, bool*) const
+LayoutSize RenderNamedFlowFragment::offsetFromContainer(RenderElement& container, const LayoutPoint&, bool*) const
 {
-    ASSERT(&fragmentContainer() == o);
-    ASSERT(container() == o);
-    UNUSED_PARAM(o);
+    ASSERT_UNUSED(container, &fragmentContainer() == &container);
+    ASSERT_UNUSED(container, this->container() == &container);
     return topLeftLocationOffset();
 }
 
@@ -344,10 +344,10 @@ void RenderNamedFlowFragment::checkRegionStyle()
     if (!isPseudoElement())
         customRegionStyle = view().document().ensureStyleResolver().checkRegionStyle(generatingElement());
     setHasCustomRegionStyle(customRegionStyle);
-    toRenderNamedFlowThread(m_flowThread)->checkRegionsWithStyling();
+    downcast<RenderNamedFlowThread>(*m_flowThread).checkRegionsWithStyling();
 }
 
-PassRefPtr<RenderStyle> RenderNamedFlowFragment::computeStyleInRegion(RenderElement& renderer, RenderStyle& parentStyle)
+PassRefPtr<RenderStyle> RenderNamedFlowFragment::computeStyleInRegion(RenderElement& renderer, RenderStyle& parentStyle) const
 {
     ASSERT(!renderer.isAnonymous());
 
@@ -371,16 +371,16 @@ void RenderNamedFlowFragment::computeChildrenStyleInRegion(RenderElement& render
         } else {
             if (child.isAnonymous() || child.isInFlowRenderFlowThread())
                 childStyleInRegion = RenderStyle::createAnonymousStyleWithDisplay(&renderer.style(), child.style().display());
-            else if (child.isText())
+            else if (is<RenderText>(child))
                 childStyleInRegion = RenderStyle::clone(&renderer.style());
             else
-                childStyleInRegion = computeStyleInRegion(toRenderElement(child), renderer.style());
+                childStyleInRegion = computeStyleInRegion(downcast<RenderElement>(child), renderer.style());
         }
 
         setObjectStyleInRegion(&child, childStyleInRegion, objectRegionStyleCached);
 
-        if (child.isRenderElement())
-            computeChildrenStyleInRegion(toRenderElement(child));
+        if (is<RenderElement>(child))
+            computeChildrenStyleInRegion(downcast<RenderElement>(child));
     }
 }
 
@@ -389,11 +389,11 @@ void RenderNamedFlowFragment::setObjectStyleInRegion(RenderObject* object, PassR
     ASSERT(object->flowThreadContainingBlock());
 
     RefPtr<RenderStyle> objectOriginalStyle = &object->style();
-    if (object->isRenderElement())
-        toRenderElement(object)->setStyleInternal(*styleInRegion);
+    if (is<RenderElement>(*object))
+        downcast<RenderElement>(*object).setStyleInternal(*styleInRegion);
 
-    if (object->isBoxModelObject() && !object->hasBoxDecorations()) {
-        bool hasBoxDecorations = object->isTableCell()
+    if (is<RenderBoxModelObject>(*object) && !object->hasBoxDecorations()) {
+        bool hasBoxDecorations = is<RenderTableCell>(*object)
         || object->style().hasBackground()
         || object->style().hasBorder()
         || object->style().hasAppearance()
@@ -465,14 +465,14 @@ void RenderNamedFlowFragment::restoreRegionObjectsOriginalStyle()
         RenderObject* object = const_cast<RenderObject*>(objectPair.key);
         RefPtr<RenderStyle> objectRegionStyle = &object->style();
         RefPtr<RenderStyle> objectOriginalStyle = objectPair.value.style;
-        if (object->isRenderElement())
-            toRenderElement(object)->setStyleInternal(*objectOriginalStyle);
+        if (is<RenderElement>(*object))
+            downcast<RenderElement>(*object).setStyleInternal(*objectOriginalStyle);
 
         bool shouldCacheRegionStyle = objectPair.value.cached;
         if (!shouldCacheRegionStyle) {
             // Check whether we should cache the computed style in region.
             unsigned changedContextSensitiveProperties = ContextSensitivePropertyNone;
-            StyleDifference styleDiff = objectOriginalStyle->diff(objectRegionStyle.get(), changedContextSensitiveProperties);
+            StyleDifference styleDiff = objectOriginalStyle->diff(*objectRegionStyle, changedContextSensitiveProperties);
             if (styleDiff < StyleDifferenceLayoutPositionedMovementOnly)
                 shouldCacheRegionStyle = true;
         }
@@ -489,7 +489,7 @@ void RenderNamedFlowFragment::restoreRegionObjectsOriginalStyle()
 
 RenderNamedFlowThread* RenderNamedFlowFragment::namedFlowThread() const
 {
-    return toRenderNamedFlowThread(flowThread());
+    return downcast<RenderNamedFlowThread>(flowThread());
 }
 
 LayoutRect RenderNamedFlowFragment::visualOverflowRect() const
@@ -536,7 +536,7 @@ void RenderNamedFlowFragment::absoluteQuadsForBoxInRegion(Vector<FloatQuad>& qua
         return;
 
     CurrentRenderRegionMaintainer regionMaintainer(*this);
-    quads.append(renderer->localToAbsoluteQuad(FloatRect(fragmentRect), 0 /* mode */, wasFixed));
+    quads.append(renderer->localToAbsoluteQuad(FloatRect(fragmentRect), UseTransforms, wasFixed));
 }
 
 } // namespace WebCore

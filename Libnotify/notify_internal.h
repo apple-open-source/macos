@@ -26,10 +26,15 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <TargetConditionals.h>
+#include <libkern/OSAtomic.h>
 
-struct notify_globals_s {
-	// Global lock.
+struct notify_globals_s
+{
+	/* global lock */
 	pthread_mutex_t notify_lock;
+
+	/* notify_check() lock */
+	OSSpinLock checkLock;
 
 	int32_t notify_ipc_version;
 	pid_t notify_server_pid;
@@ -37,7 +42,7 @@ struct notify_globals_s {
 	uint32_t client_opts;
 	uint32_t saved_opts;
 
-	// Last allocated name id.
+	/* last allocated name id */
 	uint64_t name_id;
 
 	dispatch_once_t self_state_once;
@@ -52,26 +57,30 @@ struct notify_globals_s {
 	dispatch_source_t notify_dispatch_source;
 	dispatch_source_t server_proc_source;
 	
-	dispatch_once_t token_table_once;
-	table_t *token_table;
-	table_t *token_name_table;
+	dispatch_once_t internal_once;
+	table_t *registration_table;
+	table_t *name_table;
 	uint32_t token_id;
-	
-	// File descriptor list.
+
+	dispatch_once_t make_background_send_queue_once;
+	dispatch_queue_t background_send_queue;
+
+	/* file descriptor list */
 	uint32_t fd_count;
 	int *fd_clnt;
 	int *fd_srv;
 	int *fd_refcount;
 	
-	// Mach port list.
+	/* mach port list */
 	uint32_t mp_count;
 	mach_port_t *mp_list;
 	int *mp_refcount;
 	int *mp_mine;
 	
-	// Shared memory base address.
+	/* shared memory base address */
 	uint32_t *shm_base;
 };
+
 typedef struct notify_globals_s *notify_globals_t;
 
 #if __has_include(<os/alloc_once_private.h>)
@@ -89,7 +98,8 @@ notify_globals_t _notify_globals_impl(void);
 
 __attribute__((__pure__))
 static inline notify_globals_t
-_notify_globals(void) {
+_notify_globals(void)
+{
 #if _NOTIFY_HAS_ALLOC_ONCE
 	return (notify_globals_t)os_alloc_once(OS_ALLOC_ONCE_KEY_LIBSYSTEM_NOTIFY,
 		sizeof(struct notify_globals_s), &_notify_init_globals);

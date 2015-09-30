@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,7 +37,21 @@
 #include "LLVMAPI.h"
 #include <wtf/RefCountedArray.h>
 
-namespace JSC { namespace FTL {
+#if OS(DARWIN)
+#define SECTION_NAME_PREFIX "__"
+#elif OS(LINUX)
+#define SECTION_NAME_PREFIX "."
+#else
+#error "Unsupported platform"
+#endif
+
+#define SECTION_NAME(NAME) (SECTION_NAME_PREFIX NAME)
+
+namespace JSC {
+
+class TrackedReferences;
+
+namespace FTL {
 
 class JITCode : public JSC::JITCode {
 public:
@@ -57,13 +71,15 @@ public:
     void initializeArityCheckEntrypoint(CodeRef);
     void initializeAddressForCall(CodePtr);
     
+    void validateReferences(const TrackedReferences&) override;
+    
     const Vector<RefPtr<ExecutableMemoryHandle>>& handles() const { return m_handles; }
     const Vector<RefPtr<DataSection>>& dataSections() const { return m_dataSections; }
     
     CodePtr exitThunks();
     
-    JITCode* ftl();
-    DFG::CommonData* dfgCommon();
+    JITCode* ftl() override;
+    DFG::CommonData* dfgCommon() override;
     
     DFG::CommonData common;
     SegmentedVector<OSRExit, 8> osrExit;

@@ -39,17 +39,18 @@
 
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 
 namespace WebCore {
 
     class AuthenticationChallenge;
     class Credential;
+    class NetworkingContext;
     class SocketStreamHandleClient;
 
     class SocketStreamHandle : public RefCounted<SocketStreamHandle>, public SocketStreamHandleBase {
     public:
-        static PassRefPtr<SocketStreamHandle> create(const URL& url, SocketStreamHandleClient* client) { return adoptRef(new SocketStreamHandle(url, client)); }
+        static PassRefPtr<SocketStreamHandle> create(const URL& url, SocketStreamHandleClient* client, NetworkingContext&) { return adoptRef(new SocketStreamHandle(url, client)); }
         static PassRefPtr<SocketStreamHandle> create(GSocketConnection* socketConnection, SocketStreamHandleClient* client) { return adoptRef(new SocketStreamHandle(socketConnection, client)); }
 
         virtual ~SocketStreamHandle();

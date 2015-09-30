@@ -34,7 +34,7 @@
 
 namespace WebCore {
 
-RenderScrollbarPart::RenderScrollbarPart(Document& document, PassRef<RenderStyle> style, RenderScrollbar* scrollbar, ScrollbarPart part)
+RenderScrollbarPart::RenderScrollbarPart(Document& document, Ref<RenderStyle>&& style, RenderScrollbar* scrollbar, ScrollbarPart part)
     : RenderBlock(document, WTF::move(style), 0)
     , m_scrollbar(scrollbar)
     , m_part(part)
@@ -138,13 +138,13 @@ void RenderScrollbarPart::styleDidChange(StyleDifference diff, const RenderStyle
     setFloating(false);
     setHasOverflowClip(false);
     if (oldStyle && m_scrollbar && m_part != NoPart && diff >= StyleDifferenceRepaint)
-        m_scrollbar->theme()->invalidatePart(m_scrollbar, m_part);
+        m_scrollbar->theme()->invalidatePart(*m_scrollbar, m_part);
 }
 
 void RenderScrollbarPart::imageChanged(WrappedImagePtr image, const IntRect* rect)
 {
     if (m_scrollbar && m_part != NoPart)
-        m_scrollbar->theme()->invalidatePart(m_scrollbar, m_part);
+        m_scrollbar->theme()->invalidatePart(*m_scrollbar, m_part);
     else {
         if (view().frameView().isFrameViewScrollCorner(this)) {
             view().frameView().invalidateScrollCorner(view().frameView().scrollCornerRect());
@@ -175,7 +175,7 @@ void RenderScrollbarPart::paintIntoRect(GraphicsContext* graphicsContext, const 
     }
     
     // Now do the paint.
-    PaintInfo paintInfo(graphicsContext, pixelSnappedIntRect(rect), PaintPhaseBlockBackground, PaintBehaviorNormal);
+    PaintInfo paintInfo(graphicsContext, snappedIntRect(rect), PaintPhaseBlockBackground, PaintBehaviorNormal);
     paint(paintInfo, paintOffset);
     paintInfo.phase = PaintPhaseChildBlockBackgrounds;
     paint(paintInfo, paintOffset);

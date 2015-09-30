@@ -233,9 +233,17 @@ CCRNGCreate(uint32_t options, CCRandomRef *rngRef)
 CCRNGStatus
 CCRNGRelease(CCRandomRef rng)
 {
+
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     if(rng->rngtype == rng_created) {
-        ccrng_CommonCrypto_done(rng->state.drbg.rng_state);
+        ccInternalRandomRef drbg=rng;
+        ccrng_CommonCrypto_done(DRBG_RNG_STATE(drbg));
+        if(DRBG_INFO(drbg)) {
+            if(DRBG_RNG_STATE(drbg))  CC_XFREE(DRBG_RNG_STATE(drbg), sizeof(struct ccrng_CommonCrypto_state));
+            if(DRBG_DRBG_STATE(drbg)) CC_XFREE(DRBG_DRBG_STATE(drbg), drbg->info.drbg->size);
+            CC_XFREE(DRBG_INFO(drbg), sizeof(struct ccdrbg_info));
+        }
+
         CC_XFREE(rng, sizeof(ccInternalRandom));
     }
     return kCCSuccess;        

@@ -30,6 +30,7 @@
 
 #import "WebKitSystemInterface.h"
 #import <WebCore/KeyboardEvent.h>
+#import <WebCore/NSMenuSPI.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/Scrollbar.h>
 #import <WebCore/WindowsKeyboardCodes.h>
@@ -75,6 +76,9 @@ static WebMouseEvent::Button mouseButtonForEvent(NSEvent *event)
         case NSOtherMouseUp:
         case NSOtherMouseDragged:
             return WebMouseEvent::MiddleButton;
+#if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
+        case NSEventTypePressure:
+#endif
         case NSMouseEntered:
         case NSMouseExited:
             return currentMouseButton();
@@ -155,50 +159,56 @@ static NSPoint globalPoint(const NSPoint& windowPoint, NSWindow *window)
 static NSPoint globalPointForEvent(NSEvent *event)
 {
     switch ([event type]) {
-        case NSLeftMouseDown:
-        case NSLeftMouseDragged:
-        case NSLeftMouseUp:
-        case NSMouseEntered:
-        case NSMouseExited:
-        case NSMouseMoved:
-        case NSOtherMouseDown:
-        case NSOtherMouseDragged:
-        case NSOtherMouseUp:
-        case NSRightMouseDown:
-        case NSRightMouseDragged:
-        case NSRightMouseUp:
-        case NSScrollWheel:
-            return globalPoint([event locationInWindow], [event window]);
-        default:
-            return NSZeroPoint;
+#if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
+    case NSEventTypePressure:
+#endif
+    case NSLeftMouseDown:
+    case NSLeftMouseDragged:
+    case NSLeftMouseUp:
+    case NSMouseEntered:
+    case NSMouseExited:
+    case NSMouseMoved:
+    case NSOtherMouseDown:
+    case NSOtherMouseDragged:
+    case NSOtherMouseUp:
+    case NSRightMouseDown:
+    case NSRightMouseDragged:
+    case NSRightMouseUp:
+    case NSScrollWheel:
+        return globalPoint([event locationInWindow], [event window]);
+    default:
+        return NSZeroPoint;
     }
 }
 
 static NSPoint pointForEvent(NSEvent *event, NSView *windowView)
 {
     switch ([event type]) {
-        case NSLeftMouseDown:
-        case NSLeftMouseDragged:
-        case NSLeftMouseUp:
-        case NSMouseEntered:
-        case NSMouseExited:
-        case NSMouseMoved:
-        case NSOtherMouseDown:
-        case NSOtherMouseDragged:
-        case NSOtherMouseUp:
-        case NSRightMouseDown:
-        case NSRightMouseDragged:
-        case NSRightMouseUp:
-        case NSScrollWheel: {
-            // Note: This will have its origin at the bottom left of the window unless windowView is flipped.
-            // In those cases, the Y coordinate gets flipped by Widget::convertFromContainingWindow.
-            NSPoint location = [event locationInWindow];
-            if (windowView)
-                location = [windowView convertPoint:location fromView:nil];
-            return location;
-        }
-        default:
-            return NSZeroPoint;
+#if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
+    case NSEventTypePressure:
+#endif
+    case NSLeftMouseDown:
+    case NSLeftMouseDragged:
+    case NSLeftMouseUp:
+    case NSMouseEntered:
+    case NSMouseExited:
+    case NSMouseMoved:
+    case NSOtherMouseDown:
+    case NSOtherMouseDragged:
+    case NSOtherMouseUp:
+    case NSRightMouseDown:
+    case NSRightMouseDragged:
+    case NSRightMouseUp:
+    case NSScrollWheel: {
+        // Note: This will have its origin at the bottom left of the window unless windowView is flipped.
+        // In those cases, the Y coordinate gets flipped by Widget::convertFromContainingWindow.
+        NSPoint location = [event locationInWindow];
+        if (windowView)
+            location = [windowView convertPoint:location fromView:nil];
+        return location;
+    }
+    default:
+        return NSZeroPoint;
     }
 }
 
@@ -215,10 +225,8 @@ static WebWheelEvent::Phase phaseForEvent(NSEvent *event)
         phase |= WebWheelEvent::PhaseEnded;
     if ([event phase] & NSEventPhaseCancelled)
         phase |= WebWheelEvent::PhaseCancelled;
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
     if ([event phase] & NSEventPhaseMayBegin)
         phase |= WebWheelEvent::PhaseMayBegin;
-#endif
 
     return static_cast<WebWheelEvent::Phase>(phase);
 }
@@ -340,21 +348,62 @@ static inline WebEvent::Modifiers modifiersForEvent(NSEvent *event)
     return (WebEvent::Modifiers)modifiers;
 }
 
-WebMouseEvent WebEventFactory::createWebMouseEvent(NSEvent *event, NSView *windowView)
+static int typeForEvent(NSEvent *event)
+{
+    if ([NSMenu respondsToSelector:@selector(menuTypeForEvent:)])
+        return static_cast<int>([NSMenu menuTypeForEvent:event]);
+    
+    if (mouseButtonForEvent(event) == WebMouseEvent::RightButton)
+        return static_cast<int>(NSMenuTypeContextMenu);
+    
+    if (mouseButtonForEvent(event) == WebMouseEvent::LeftButton && (modifiersForEvent(event) & WebEvent::ControlKey))
+        return static_cast<int>(NSMenuTypeContextMenu);
+    
+    return static_cast<int>(NSMenuTypeNone);
+}
+
+bool WebEventFactory::shouldBeHandledAsContextClick(const WebCore::PlatformMouseEvent& event)
+{
+    return (static_cast<NSMenuType>(event.menuTypeForEvent()) == NSMenuTypeContextMenu);
+}
+
+WebMouseEvent WebEventFactory::createWebMouseEvent(NSEvent *event, NSEvent *lastPressureEvent, NSView *windowView)
 {
     NSPoint position = pointForEvent(event, windowView);
     NSPoint globalPosition = globalPointForEvent(event);
 
-    WebEvent::Type type                     = mouseEventTypeForEvent(event);
-    WebMouseEvent::Button button            = mouseButtonForEvent(event);
-    float deltaX                            = [event deltaX];
-    float deltaY                            = [event deltaY];
-    float deltaZ                            = [event deltaZ];
-    int clickCount                          = clickCountForEvent(event);
-    WebEvent::Modifiers modifiers           = modifiersForEvent(event);
-    double timestamp                        = eventTimeStampSince1970(event);
+    WebEvent::Type type = mouseEventTypeForEvent(event);
+#if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
+    if ([event type] == NSEventTypePressure) {
+        // Since AppKit doesn't send mouse events for force down or force up, we have to use the current pressure
+        // event and lastPressureEvent to detect if this is MouseForceDown, MouseForceUp, or just MouseForceChanged.
+        if (lastPressureEvent.stage == 1 && event.stage == 2)
+            type = WebEvent::MouseForceDown;
+        else if (lastPressureEvent.stage == 2 && event.stage == 1)
+            type = WebEvent::MouseForceUp;
+        else
+            type = WebEvent::MouseForceChanged;
+    }
+#endif
 
-    return WebMouseEvent(type, button, IntPoint(position), IntPoint(globalPosition), deltaX, deltaY, deltaZ, clickCount, modifiers, timestamp);
+    WebMouseEvent::Button button = mouseButtonForEvent(event);
+    float deltaX = [event deltaX];
+    float deltaY = [event deltaY];
+    float deltaZ = [event deltaZ];
+    int clickCount = clickCountForEvent(event);
+    WebEvent::Modifiers modifiers = modifiersForEvent(event);
+    double timestamp = eventTimeStampSince1970(event);
+    int eventNumber = [event eventNumber];
+    int menuTypeForEvent = typeForEvent(event);
+
+    double force = 0;
+#if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
+    int stage = [event type] == NSEventTypePressure ? event.stage : lastPressureEvent.stage;
+    double pressure = [event type] == NSEventTypePressure ? event.pressure : lastPressureEvent.pressure;
+    force = pressure + stage;
+#endif
+
+    return WebMouseEvent(type, button, IntPoint(position), IntPoint(globalPosition), deltaX, deltaY, deltaZ, clickCount, modifiers, timestamp, force, eventNumber, menuTypeForEvent);
 }
 
 WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windowView)

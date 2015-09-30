@@ -27,7 +27,7 @@
 
 #include "config.h"
 
-#if USE(3D_GRAPHICS)
+#if ENABLE(GRAPHICS_CONTEXT_3D)
 
 #include "FormatConverter.h"
 
@@ -91,7 +91,7 @@ void generatetables(){
 }
 */
 
-unsigned short baseTable[512] = {
+static const unsigned short baseTable[512] = {
 0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,
 0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,
 0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,
@@ -126,7 +126,7 @@ unsigned short baseTable[512] = {
 64512,  64512,  64512,  64512,  64512,  64512,  64512,  64512,  64512,  64512,  64512,  64512,  64512,  64512,  64512,  64512
 };
 
-unsigned char shiftTable[512] = {
+static const unsigned char shiftTable[512] = {
 24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,
 24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,
 24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,     24,
@@ -1273,4 +1273,4 @@ ALWAYS_INLINE_EXCEPT_MSVC void FormatConverter::convert()
 
 } // namespace WebCore
 
-#endif // USE(3D_GRAPHICS)
+#endif // ENABLE(GRAPHICS_CONTEXT_3D)

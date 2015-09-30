@@ -39,6 +39,7 @@ EWK2UnitTestBase::EWK2UnitTestBase()
     , m_webView(0)
     , m_ewkViewClass(ewk2UnitTestBrowserViewSmartClass())
     , m_multipleProcesses(false)
+    , m_withExtension(false)
 {
     ewk_view_smart_class_set(&m_ewkViewClass);
 }
@@ -61,7 +62,12 @@ void EWK2UnitTestBase::SetUp()
 
     Evas_Smart* smart = evas_smart_class_new(&m_ewkViewClass.sc);
 
-    Ewk_Context* newContext = ewk_context_new();
+    Ewk_Context* newContext;
+    if (m_withExtension)
+        newContext = ewk_context_new_with_extensions_path(TEST_LIB_DIR);
+    else
+        newContext = ewk_context_new();
+
     if (m_multipleProcesses)
         ewk_context_process_model_set(newContext, EWK_PROCESS_MODEL_MULTIPLE_SECONDARY);
 
@@ -239,6 +245,17 @@ bool EWK2UnitTestBase::waitUntilTrue(bool &flag, double timeoutSeconds)
     return !data.didTimeOut();
 }
 
+bool EWK2UnitTestBase::waitUntilDirectionChanged(Ewk_Focus_Direction &direction, double timeoutSeconds)
+{
+    CallbackDataTimer data(timeoutSeconds);
+    Ewk_Focus_Direction initialDirection = direction;
+
+    while (!data.isDone() && direction == initialDirection)
+        ecore_main_loop_iterate();
+
+    return !data.didTimeOut();
+}
+
 Eina_List* EWK2UnitTestBase::waitUntilSpellingLanguagesLoaded(unsigned expectedLanguageCount, double timeoutValue)
 {
     // Keep waiting until all languages has been loaded or leave afqter timeout.
@@ -310,6 +327,26 @@ void EWK2UnitTestBase::multiUp(int id, int x, int y)
 void EWK2UnitTestBase::multiMove(int id, int x, int y)
 {
     evas_event_feed_multi_move(evas_object_evas_get(m_webView), id, x, y, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+}
+
+void EWK2UnitTestBase::keyDown(const char* keyname, const char* key, const char* string, const char* modifier)
+{
+    Evas* evas = evas_object_evas_get(m_webView);
+    ASSERT(evas);
+
+    if (modifier) {
+        evas_key_modifier_on(evas, modifier);
+        evas_event_feed_key_down(evas, keyname, key, string, 0, 0, 0);
+        evas_key_modifier_off(evas, modifier);
+        return;
+    }
+
+    evas_event_feed_key_down(evas, keyname, key, string, 0, 0, 0);
+}
+
+void EWK2UnitTestBase::keyUp(const char* keyname, const char* key, const char* string)
+{
+    evas_event_feed_key_up(evas_object_evas_get(m_webView), keyname, key, string, 0, 0, 0);
 }
 
 } // namespace EWK2UnitTest

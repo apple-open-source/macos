@@ -68,14 +68,14 @@ friend class ImageLoader;
 friend class ResourceCacheValidationSuppressor;
 
 public:
-    static PassRef<CachedResourceLoader> create(DocumentLoader* documentLoader) { return adoptRef(*new CachedResourceLoader(documentLoader)); }
+    static Ref<CachedResourceLoader> create(DocumentLoader* documentLoader) { return adoptRef(*new CachedResourceLoader(documentLoader)); }
     ~CachedResourceLoader();
 
     CachedResourceHandle<CachedImage> requestImage(CachedResourceRequest&);
     CachedResourceHandle<CachedCSSStyleSheet> requestCSSStyleSheet(CachedResourceRequest&);
     CachedResourceHandle<CachedCSSStyleSheet> requestUserCSSStyleSheet(CachedResourceRequest&);
     CachedResourceHandle<CachedScript> requestScript(CachedResourceRequest&);
-    CachedResourceHandle<CachedFont> requestFont(CachedResourceRequest&);
+    CachedResourceHandle<CachedFont> requestFont(CachedResourceRequest&, bool isSVG);
     CachedResourceHandle<CachedRawResource> requestRawResource(CachedResourceRequest&);
     CachedResourceHandle<CachedRawResource> requestMainResource(CachedResourceRequest&);
     CachedResourceHandle<CachedSVGDocument> requestSVGDocument(CachedResourceRequest&);
@@ -104,6 +104,7 @@ public:
     void setImagesEnabled(bool);
 
     bool shouldDeferImageLoad(const URL&) const;
+    bool shouldPerformImageLoad(const URL&) const;
     
     CachePolicy cachePolicy(CachedResource::Type) const;
     
@@ -113,17 +114,17 @@ public:
     void clearDocumentLoader() { m_documentLoader = 0; }
     SessionID sessionID() const;
 
-    void removeCachedResource(CachedResource*) const;
+    void removeCachedResource(CachedResource&);
 
     void loadDone(CachedResource*, bool shouldPerformPostLoadActions = true);
 
-    void garbageCollectDocumentResources();
+    WEBCORE_EXPORT void garbageCollectDocumentResources();
     
     void incrementRequestCount(const CachedResource*);
     void decrementRequestCount(const CachedResource*);
     int requestCount() const { return m_requestCount; }
 
-    bool isPreloaded(const String& urlString) const;
+    WEBCORE_EXPORT bool isPreloaded(const String& urlString) const;
     void clearPreloads();
     void clearPendingPreloads();
     void preload(CachedResource::Type, CachedResourceRequest&, const String& charset);
@@ -152,7 +153,7 @@ private:
     bool shouldContinueAfterNotifyingLoadedFromMemoryCache(const CachedResourceRequest&, CachedResource*);
     bool checkInsecureContent(CachedResource::Type, const URL&) const;
 
-    void garbageCollectDocumentResourcesTimerFired(Timer&);
+    void garbageCollectDocumentResourcesTimerFired();
     void performPostLoadActions();
 
     bool clientDefersImage(const URL&) const;
@@ -165,7 +166,7 @@ private:
     
     int m_requestCount;
     
-    OwnPtr<ListHashSet<CachedResource*>> m_preloads;
+    std::unique_ptr<ListHashSet<CachedResource*>> m_preloads;
     struct PendingPreload {
         CachedResource::Type m_type;
         CachedResourceRequest m_request;
@@ -193,22 +194,18 @@ class ResourceCacheValidationSuppressor {
     WTF_MAKE_NONCOPYABLE(ResourceCacheValidationSuppressor);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ResourceCacheValidationSuppressor(CachedResourceLoader* loader)
+    ResourceCacheValidationSuppressor(CachedResourceLoader& loader)
         : m_loader(loader)
-        , m_previousState(false)
+        , m_previousState(m_loader.m_allowStaleResources)
     {
-        if (m_loader) {
-            m_previousState = m_loader->m_allowStaleResources;
-            m_loader->m_allowStaleResources = true;
-        }
+        m_loader.m_allowStaleResources = true;
     }
     ~ResourceCacheValidationSuppressor()
     {
-        if (m_loader)
-            m_loader->m_allowStaleResources = m_previousState;
+        m_loader.m_allowStaleResources = m_previousState;
     }
 private:
-    CachedResourceLoader* m_loader;
+    CachedResourceLoader& m_loader;
     bool m_previousState;
 };
 

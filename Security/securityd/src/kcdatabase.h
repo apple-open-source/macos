@@ -33,6 +33,7 @@
 
 #include "localdatabase.h"
 #include <securityd_client/ss_types.h>
+#include "agentclient.h"
 
 class KeychainDatabase;
 class KeychainDbCommon;
@@ -239,7 +240,7 @@ protected:
 	void makeUnlocked(const CssmData &passphrase);	// interior version of unlock(CssmData)
 	
 	void establishOldSecrets(const AccessCredentials *creds);
-	void establishNewSecrets(const AccessCredentials *creds, SecurityAgent::Reason reason);
+	bool establishNewSecrets(const AccessCredentials *creds, SecurityAgent::Reason reason);
 	
 	bool interactiveUnlock();
 	

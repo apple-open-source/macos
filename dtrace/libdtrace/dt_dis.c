@@ -22,6 +22,9 @@
 /*
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013 Joyent, Inc. All rights reserved.
  */
 
 #pragma ident	"@(#)dt_dis.c	1.6	05/07/31 SMI"
@@ -299,9 +302,10 @@ dt_dis_typestr(const dtrace_diftype_t *t, char *buf, size_t len)
 		(void) snprintf(ckind, sizeof (ckind), "0x%x", t->dtdt_ckind);
 	}
 
-	if (t->dtdt_flags & DIF_TF_BYREF) {
-		(void) snprintf(buf, len, "%s (%s) by ref (size %lu)",
-		    kind, ckind, (ulong_t)t->dtdt_size);
+	if (t->dtdt_flags & (DIF_TF_BYREF | DIF_TF_BYUREF)) {
+		(void) snprintf(buf, len, "%s (%s) by %sref (size %lu)",
+		    kind, ckind, (t->dtdt_flags & DIF_TF_BYUREF) ? "user " : "",
+		    (ulong_t)t->dtdt_size);
 	} else {
 		(void) snprintf(buf, len, "%s (%s) (size %lu)",
 		    kind, ckind, (ulong_t)t->dtdt_size);

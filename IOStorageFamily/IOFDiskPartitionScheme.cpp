@@ -226,7 +226,7 @@ OSSet * IOFDiskPartitionScheme::scan(SInt32 * score)
     //
 
     IOBufferMemoryDescriptor * buffer         = 0;
-    UInt32                     bufferSize     = 0;
+    IOByteCount                bufferSize     = 0;
     UInt32                     fdiskBlock     = 0;
     UInt32                     fdiskBlockExtn = 0;
     UInt32                     fdiskBlockNext = 0;
@@ -555,33 +555,8 @@ IOMedia * IOFDiskPartitionScheme::instantiateDesiredMediaObject(
     return new IOMedia;
 }
 
-#ifndef __LP64__
-bool IOFDiskPartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
-{
-    //
-    // Attach the given media object to the device tree plane.
-    //
-
-    return super::attachMediaObjectToDeviceTree(media);
-}
-
-void IOFDiskPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
-{
-    //
-    // Detach the given media object from the device tree plane.
-    //
-
-    super::detachMediaObjectFromDeviceTree(media);
-}
-#endif /* !__LP64__ */
-
-#ifdef __LP64__
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  0);
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  1);
-#else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOFDiskPartitionScheme,  0);
-OSMetaClassDefineReservedUsed(IOFDiskPartitionScheme,  1);
-#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  2);
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  3);
 OSMetaClassDefineReservedUnused(IOFDiskPartitionScheme,  4);

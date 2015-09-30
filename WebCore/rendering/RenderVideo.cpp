@@ -48,7 +48,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderVideo::RenderVideo(HTMLVideoElement& element, PassRef<RenderStyle> style)
+RenderVideo::RenderVideo(HTMLVideoElement& element, Ref<RenderStyle>&& style)
     : RenderMedia(element, WTF::move(style))
 {
     setIntrinsicSize(calculateIntrinsicSize());
@@ -146,7 +146,7 @@ IntRect RenderVideo::videoBox() const
     if (videoElement().shouldDisplayPosterImage())
         intrinsicSize = m_cachedImageSize;
 
-    return pixelSnappedIntRect(replacedContentRect(intrinsicSize));
+    return snappedIntRect(replacedContentRect(intrinsicSize));
 }
 
 bool RenderVideo::shouldDisplayVideo() const
@@ -188,10 +188,12 @@ void RenderVideo::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
 
     if (displayingPoster)
         paintIntoRect(context, rect);
-    else if (view().frameView().paintBehavior() & PaintBehaviorFlattenCompositingLayers)
-        mediaPlayer->paintCurrentFrameInContext(context, rect);
-    else
-        mediaPlayer->paint(context, rect);
+    else if (!videoElement().isFullscreen() || !mediaPlayer->supportsAcceleratedRendering()) {
+        if (view().frameView().paintBehavior() & PaintBehaviorFlattenCompositingLayers)
+            mediaPlayer->paintCurrentFrameInContext(context, rect);
+        else
+            mediaPlayer->paint(context, rect);
+    }
 }
 
 void RenderVideo::layout()
@@ -203,7 +205,7 @@ void RenderVideo::layout()
     
 HTMLVideoElement& RenderVideo::videoElement() const
 {
-    return toHTMLVideoElement(RenderMedia::mediaElement());
+    return downcast<HTMLVideoElement>(RenderMedia::mediaElement());
 }
 
 void RenderVideo::updateFromElement()
@@ -274,14 +276,7 @@ bool RenderVideo::requiresImmediateCompositing() const
 static const RenderBlock* rendererPlaceholder(const RenderObject* renderer)
 {
     RenderObject* parent = renderer->parent();
-    if (!parent)
-        return 0;
-    
-    RenderFullScreen* fullScreen = parent->isRenderFullScreen() ? toRenderFullScreen(parent) : 0;
-    if (!fullScreen)
-        return 0;
-    
-    return fullScreen->placeholder();
+    return is<RenderFullScreen>(parent) ? downcast<RenderFullScreen>(*parent).placeholder() : nullptr;
 }
 
 LayoutUnit RenderVideo::offsetLeft() const

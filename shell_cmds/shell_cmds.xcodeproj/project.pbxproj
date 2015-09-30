@@ -253,6 +253,7 @@
 		FCE30EE014B536F200CC0294 /* locate.code.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA13A114A141A300AA698B /* locate.code.c */; };
 		FCE30EE114B536F800CC0294 /* locate.code.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA13B114A141A300AA698B /* locate.code.8 */; };
 		FCED3AF614B4FC1800C313C3 /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FCED3AF514B4FC1800C313C3 /* libpam.dylib */; };
+		FD88EB03198C5257006B7EFD /* envopts.c in Sources */ = {isa = PBXBuildFile; fileRef = FD88EB01198C5257006B7EFD /* envopts.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1640,6 +1641,8 @@
 		FCE30ED214B5368A00CC0294 /* locate.bigram */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = locate.bigram; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCE30EDE14B536C900CC0294 /* locate.code */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = locate.code; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCED3AF514B4FC1800C313C3 /* libpam.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpam.dylib; path = /usr/lib/libpam.dylib; sourceTree = "<absolute>"; };
+		FD88EB01198C5257006B7EFD /* envopts.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = envopts.c; sourceTree = "<group>"; };
+		FD88EB02198C5257006B7EFD /* envopts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = envopts.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2207,6 +2210,8 @@
 			children = (
 				FCBA136214A141A300AA698B /* env.1 */,
 				FCBA136314A141A300AA698B /* env.c */,
+				FD88EB01198C5257006B7EFD /* envopts.c */,
+				FD88EB02198C5257006B7EFD /* envopts.h */,
 			);
 			path = env;
 			sourceTree = "<group>";
@@ -3639,6 +3644,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FCBA14FC14A144E500AA698B /* env.c in Sources */,
+				FD88EB03198C5257006B7EFD /* envopts.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

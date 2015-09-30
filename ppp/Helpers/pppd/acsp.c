@@ -502,7 +502,8 @@ extern CFStringRef 		serviceidRef;
 extern SCDynamicStoreRef	cfgCache;
 extern int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef ref1, CFTypeRef ref1a, 
 						CFStringRef property2, CFTypeRef ref2,
-						CFStringRef property3, CFTypeRef ref3, int clean);
+						CFStringRef property3, CFTypeRef ref3,
+						CFStringRef property4, CFStringRef ref4, int clean);
 extern int route_interface(int cmd, struct in_addr host, struct in_addr mask, char iftype, char *ifname, int is_host);
 extern int route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr gateway, int use_gway_flag);
 
@@ -1434,15 +1435,20 @@ static void acsp_plugin_add_domains(acsp_domain	*domain)
 		error("ACSP plugin: error adding domain name - could not create CFNumber\n");
 		return;
 	}
-		
+
+#ifndef kSCPropNetDNSConfirmedServiceID
+#define kSCPropNetDNSConfirmedServiceID	CFSTR("ConfirmedServiceID")
+#endif
     while (domain) {
         if ((str = CFStringCreateWithCString(NULL, domain->name, kCFStringEncodingUTF8))) {
-			err = publish_dns_wins_entry(kSCEntNetDNS, kSCPropNetDNSSearchDomains, str, 0, kSCPropNetDNSSupplementalMatchDomains, str, kSCPropNetDNSSupplementalMatchOrders, num, clean);
+			err = publish_dns_wins_entry(kSCEntNetDNS, kSCPropNetDNSSearchDomains, str, 0, kSCPropNetDNSSupplementalMatchDomains, str, kSCPropNetDNSSupplementalMatchOrders, num,
+										 kSCPropNetDNSConfirmedServiceID, serviceidRef,
+										 clean);
 #ifndef kSCPropNetProxiesSupplementalMatchDomains			
 #define kSCPropNetProxiesSupplementalMatchDomains kSCPropNetDNSSupplementalMatchDomains
 #define kSCPropNetProxiesSupplementalMatchOrders kSCPropNetDNSSupplementalMatchOrders
 #endif
-			if (err) publish_dns_wins_entry(kSCEntNetProxies, kSCPropNetProxiesSupplementalMatchDomains, str, 0, kSCPropNetProxiesSupplementalMatchOrders, num, 0, 0, clean);
+			if (err) publish_dns_wins_entry(kSCEntNetProxies, kSCPropNetProxiesSupplementalMatchDomains, str, 0, kSCPropNetProxiesSupplementalMatchOrders, num, 0, 0, 0, 0, clean);
 			CFRelease(str);
             if (err == 0) {
                 error("ACSP plugin: error adding domain name\n");

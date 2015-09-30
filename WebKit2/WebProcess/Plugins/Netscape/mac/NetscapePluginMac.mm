@@ -34,8 +34,10 @@
 #import "WebEvent.h"
 #import <Carbon/Carbon.h>
 #import <WebCore/GraphicsContext.h>
+#import <WebCore/MachSendRight.h>
 #import <WebCore/NotImplemented.h>
 #import <WebKitSystemInterface.h>
+#import <objc/runtime.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/text/StringView.h>
 
@@ -170,11 +172,14 @@ NPError NetscapePlugin::popUpContextMenu(NPMenu* npMenu)
     return NPERR_NO_ERROR;
 }
 
-mach_port_t NetscapePlugin::compositingRenderServerPort()
+const MachSendRight& NetscapePlugin::compositingRenderServerPort()
 {
 #if HAVE(OUT_OF_PROCESS_LAYER_HOSTING)
-    if (m_layerHostingMode == LayerHostingMode::OutOfProcess)
-        return MACH_PORT_NULL;
+    if (m_layerHostingMode == LayerHostingMode::OutOfProcess) {
+        static NeverDestroyed<MachSendRight> sendRight;
+
+        return sendRight;
+    }
 #endif
 
     return controller()->compositingRenderServerPort();
@@ -1052,7 +1057,7 @@ void NetscapePlugin::setLayerHostingMode(LayerHostingMode layerHostingMode)
     m_layerHostingMode = layerHostingMode;
 
     // Tell the plug-in about the new compositing render server port. If it returns OK we'll ask it again for a new layer.
-    mach_port_t port = NetscapePlugin::compositingRenderServerPort();
+    mach_port_t port = NetscapePlugin::compositingRenderServerPort().sendRight();
     if (NPP_SetValue(static_cast<NPNVariable>(WKNVCALayerRenderServerPort), &port) != NPERR_NO_ERROR)
         return;
 

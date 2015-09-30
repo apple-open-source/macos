@@ -26,6 +26,7 @@
 #ifndef PlatformCALayer_h
 #define PlatformCALayer_h
 
+#include "FloatRoundedRect.h"
 #include "GraphicsLayer.h"
 #include "PlatformCALayerClient.h"
 #include <QuartzCore/CABase.h>
@@ -34,6 +35,7 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
@@ -52,9 +54,9 @@ class PlatformCAAnimation;
 
 typedef Vector<RefPtr<PlatformCALayer>> PlatformCALayerList;
 
-class PlatformCALayer : public RefCounted<PlatformCALayer> {
+class WEBCORE_EXPORT PlatformCALayer : public RefCounted<PlatformCALayer> {
 #if PLATFORM(COCOA)
-    friend class PlatformCALayerMac;
+    friend class PlatformCALayerCocoa;
 #elif PLATFORM(WIN)
     friend class PlatformCALayerWin;
 #endif
@@ -76,6 +78,11 @@ public:
         LayerTypeRootLayer,
         LayerTypeAVPlayerLayer,
         LayerTypeWebGLLayer,
+        LayerTypeBackdropLayer,
+        LayerTypeShapeLayer,
+        LayerTypeLightSystemBackdropLayer,
+        LayerTypeDarkSystemBackdropLayer,
+        LayerTypeScrollingLayer,
         LayerTypeCustom
     };
     enum FilterType { Linear, Nearest, Trilinear };
@@ -86,7 +93,7 @@ public:
 
     GraphicsLayer::PlatformLayerID layerID() const { return m_layerID; }
 
-    virtual bool isPlatformCALayerMac() const { return false; }
+    virtual bool isPlatformCALayerCocoa() const { return false; }
     virtual bool isPlatformCALayerRemote() const { return false; }
     virtual bool isPlatformCALayerRemoteCustom() const { return false; }
 
@@ -102,8 +109,10 @@ public:
     virtual void setOwner(PlatformCALayerClient* owner) { m_owner = owner; }
 
     virtual void animationStarted(const String& key, CFTimeInterval beginTime) = 0;
+    virtual void animationEnded(const String& key) = 0;
 
-    virtual void setNeedsDisplay(const FloatRect* dirtyRect = 0) = 0;
+    virtual void setNeedsDisplay() = 0;
+    virtual void setNeedsDisplayInRect(const FloatRect& dirtyRect) = 0;
 
     virtual void copyContentsFromLayer(PlatformCALayer*) = 0;
 
@@ -113,18 +122,18 @@ public:
     virtual void removeFromSuperlayer() = 0;
     virtual void setSublayers(const PlatformCALayerList&) = 0;
     virtual void removeAllSublayers() = 0;
-    virtual void appendSublayer(PlatformCALayer*) = 0;
-    virtual void insertSublayer(PlatformCALayer*, size_t index) = 0;
-    virtual void replaceSublayer(PlatformCALayer* reference, PlatformCALayer*) = 0;
+    virtual void appendSublayer(PlatformCALayer&) = 0;
+    virtual void insertSublayer(PlatformCALayer&, size_t index) = 0;
+    virtual void replaceSublayer(PlatformCALayer& reference, PlatformCALayer&) = 0;
 
     // A list of sublayers that GraphicsLayerCA should maintain as the first sublayers.
     virtual const PlatformCALayerList* customSublayers() const = 0;
 
     // This method removes the sublayers from the source and reparents them to the current layer.
     // Any sublayers previously in the current layer are removed.
-    virtual void adoptSublayers(PlatformCALayer* source) = 0;
+    virtual void adoptSublayers(PlatformCALayer& source) = 0;
 
-    virtual void addAnimationForKey(const String& key, PlatformCAAnimation*) = 0;
+    virtual void addAnimationForKey(const String& key, PlatformCAAnimation&) = 0;
     virtual void removeAnimationForKey(const String& key) = 0;
     virtual PassRefPtr<PlatformCAAnimation> animationForKey(const String& key) = 0;
 
@@ -167,6 +176,10 @@ public:
 
     virtual void setContentsRect(const FloatRect&) = 0;
 
+    virtual void setBackingStoreAttached(bool) = 0;
+    virtual bool backingStoreAttached() const = 0;
+    virtual bool backingContributesToMemoryEstimate() const { return true; }
+
     virtual void setMinificationFilter(FilterType) = 0;
     virtual void setMagnificationFilter(FilterType) = 0;
 
@@ -179,11 +192,8 @@ public:
 
     virtual float opacity() const = 0;
     virtual void setOpacity(float) = 0;
-
-#if ENABLE(CSS_FILTERS)
     virtual void setFilters(const FilterOperations&) = 0;
-    virtual void copyFiltersFrom(const PlatformCALayer*) = 0;
-#endif
+    virtual void copyFiltersFrom(const PlatformCALayer&) = 0;
 
 #if ENABLE(CSS_COMPOSITING)
     virtual void setBlendMode(BlendMode) = 0;
@@ -198,13 +208,24 @@ public:
     virtual float contentsScale() const = 0;
     virtual void setContentsScale(float) = 0;
 
+    virtual float cornerRadius() const = 0;
+    virtual void setCornerRadius(float) = 0;
+
     virtual void setEdgeAntialiasingMask(unsigned) = 0;
+    
+    // Only used by LayerTypeShapeLayer.
+    virtual FloatRoundedRect shapeRoundedRect() const = 0;
+    virtual void setShapeRoundedRect(const FloatRoundedRect&) = 0;
+
+    // Only used by LayerTypeShapeLayer.
+    virtual Path shapePath() const = 0;
+    virtual void setShapePath(const Path&) = 0;
+
+    virtual WindRule shapeWindRule() const = 0;
+    virtual void setShapeWindRule(WindRule) = 0;
     
     virtual GraphicsLayer::CustomAppearance customAppearance() const = 0;
     virtual void updateCustomAppearance(GraphicsLayer::CustomAppearance) = 0;
-
-    virtual GraphicsLayer::CustomBehavior customBehavior() const = 0;
-    virtual void updateCustomBehavior(GraphicsLayer::CustomBehavior) = 0;
 
     virtual TiledBacking* tiledBacking() = 0;
 
@@ -260,9 +281,11 @@ protected:
     PlatformCALayerClient* m_owner;
 };
 
-#define PLATFORM_CALAYER_TYPE_CASTS(ToValueTypeName, predicate) \
-    TYPE_CASTS_BASE(ToValueTypeName, WebCore::PlatformCALayer, object, object->predicate, object.predicate)
-
 } // namespace WebCore
+
+#define SPECIALIZE_TYPE_TRAITS_PLATFORM_CALAYER(ToValueTypeName, predicate) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(ToValueTypeName) \
+    static bool isType(const WebCore::PlatformCALayer& layer) { return layer.predicate; } \
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // PlatformCALayer_h

@@ -35,7 +35,7 @@
 #include <glib-object.h>
 #include <gst/gst.h>
 #include <gst/tag/tag.h>
-#include <wtf/gobject/GUniquePtr.h>
+#include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
 
 GST_DEBUG_CATEGORY_EXTERN(webkit_media_player_debug);
@@ -167,8 +167,15 @@ void TrackPrivateBaseGStreamer::notifyTrackOfTagsChanged()
     if (getTag(tags.get(), GST_TAG_TITLE, m_label))
         client->labelChanged(m_owner, m_label);
 
-    if (getLanguageCode(tags.get(), m_language))
-        client->languageChanged(m_owner, m_language);
+    AtomicString language;
+    if (!getLanguageCode(tags.get(), language))
+        return;
+
+    if (language == m_language)
+        return;
+
+    m_language = language;
+    client->languageChanged(m_owner, m_language);
 }
 
 } // namespace WebCore

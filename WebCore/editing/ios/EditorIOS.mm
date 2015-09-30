@@ -35,7 +35,7 @@
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
 #include "EditorClient.h"
-#include "Font.h"
+#include "FontCascade.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
 #include "HTMLConverter.h"
@@ -44,12 +44,12 @@
 #include "HTMLParserIdioms.h"
 #include "HTMLTextAreaElement.h"
 #include "LegacyWebArchive.h"
+#include "NSAttributedStringSPI.h"
 #include "NodeTraversal.h"
 #include "Page.h"
 #include "Pasteboard.h"
 #include "RenderBlock.h"
 #include "RenderImage.h"
-#include "ResourceBuffer.h"
 #include "SharedBuffer.h"
 #include "SoftLinking.h"
 #include "StyleProperties.h"
@@ -58,8 +58,6 @@
 #include "WAKAppKitStubs.h"
 #include "htmlediting.h"
 #include "markup.h"
-
-#if PLATFORM(IOS)
 
 SOFT_LINK_FRAMEWORK(AppSupport)
 SOFT_LINK(AppSupport, CPSharedResourcesDirectory, CFStringRef, (void), ())
@@ -80,12 +78,6 @@ SOFT_LINK_CONSTANT(MobileCoreServices, kUTTagClassMIMEType, CFStringRef)
 #define kUTTagClassFilenameExtension getkUTTagClassFilenameExtension()
 #define kUTTagClassMIMEType getkUTTagClassMIMEType()
 
-SOFT_LINK_PRIVATE_FRAMEWORK(UIFoundation)
-SOFT_LINK_CONSTANT(UIFoundation, NSFontAttributeName, NSString *)
-#define NSFontAttributeName getNSFontAttributeName()
-SOFT_LINK_CONSTANT(UIFoundation, NSUnderlineStyleAttributeName, NSString *)
-#define NSUnderlineStyleAttributeName getNSUnderlineStyleAttributeName()
-
 @interface NSAttributedString (NSAttributedStringKitAdditions)
 - (id)initWithRTF:(NSData *)data documentAttributes:(NSDictionary **)dict;
 - (id)initWithRTFD:(NSData *)data documentAttributes:(NSDictionary **)dict;
@@ -93,21 +85,6 @@ SOFT_LINK_CONSTANT(UIFoundation, NSUnderlineStyleAttributeName, NSString *)
 - (NSData *)RTFDFromRange:(NSRange)range documentAttributes:(NSDictionary *)dict;
 - (BOOL)containsAttachments;
 @end
-
-typedef NS_ENUM(NSInteger, NSUnderlineStyle) {
-    NSUnderlineStyleNone                                = 0x00,
-    NSUnderlineStyleSingle                              = 0x01,
-    NSUnderlineStyleThick NS_ENUM_AVAILABLE_IOS(7_0)    = 0x02,
-    NSUnderlineStyleDouble NS_ENUM_AVAILABLE_IOS(7_0)   = 0x09,
-    
-    NSUnderlinePatternSolid NS_ENUM_AVAILABLE_IOS(7_0)      = 0x0000,
-    NSUnderlinePatternDot NS_ENUM_AVAILABLE_IOS(7_0)        = 0x0100,
-    NSUnderlinePatternDash NS_ENUM_AVAILABLE_IOS(7_0)       = 0x0200,
-    NSUnderlinePatternDashDot NS_ENUM_AVAILABLE_IOS(7_0)    = 0x0300,
-    NSUnderlinePatternDashDotDot NS_ENUM_AVAILABLE_IOS(7_0) = 0x0400,
-    
-    NSUnderlineByWord NS_ENUM_AVAILABLE_IOS(7_0) = 0x8000
-};
 
 namespace WebCore {
 
@@ -183,12 +160,12 @@ void Editor::setTextAlignmentForChangedBaseWritingDirection(WritingDirection dir
         return;
 
     Element* focusedElement = m_frame.document()->focusedElement();
-    if (focusedElement && (focusedElement->hasTagName(textareaTag) || (focusedElement->hasTagName(inputTag) &&
-        (toHTMLInputElement(focusedElement)->isTextField() ||
-         toHTMLInputElement(focusedElement)->isSearchField())))) {
+    if (focusedElement && (is<HTMLTextAreaElement>(*focusedElement) || (is<HTMLInputElement>(*focusedElement)
+        && (downcast<HTMLInputElement>(*focusedElement).isTextField()
+            || downcast<HTMLInputElement>(*focusedElement).isSearchField())))) {
         if (direction == NaturalWritingDirection)
             return;
-        toHTMLElement(focusedElement)->setAttribute(alignAttr, newValue);
+        downcast<HTMLElement>(*focusedElement).setAttribute(alignAttr, newValue);
         m_frame.document()->updateStyleIfNeeded();
         return;
     }
@@ -206,7 +183,7 @@ bool Editor::insertParagraphSeparatorInQuotedContent()
     return true;
 }
 
-const SimpleFontData* Editor::fontForSelection(bool& hasMultipleFonts) const
+const Font* Editor::fontForSelection(bool& hasMultipleFonts) const
 {
     hasMultipleFonts = false;
 
@@ -214,9 +191,9 @@ const SimpleFontData* Editor::fontForSelection(bool& hasMultipleFonts) const
         Node* nodeToRemove;
         RenderStyle* style = styleForSelectionStart(&m_frame, nodeToRemove); // sets nodeToRemove
 
-        const SimpleFontData* result = 0;
+        const Font* result = nullptr;
         if (style)
-            result = style->font().primaryFont();
+            result = &style->fontCascade().primaryFont();
 
         if (nodeToRemove) {
             ExceptionCode ec;
@@ -227,21 +204,21 @@ const SimpleFontData* Editor::fontForSelection(bool& hasMultipleFonts) const
         return result;
     }
 
-    const SimpleFontData* font = 0;
+    const Font* font = 0;
     RefPtr<Range> range = m_frame.selection().toNormalizedRange();
     if (Node* startNode = adjustedSelectionStartForStyleComputation(m_frame.selection().selection()).deprecatedNode()) {
         Node* pastEnd = range->pastLastNode();
         // In the loop below, n should eventually match pastEnd and not become nil, but we've seen at least one
         // unreproducible case where this didn't happen, so check for null also.
-        for (Node* node = startNode; node && node != pastEnd; node = NodeTraversal::next(node)) {
+        for (Node* node = startNode; node && node != pastEnd; node = NodeTraversal::next(*node)) {
             auto renderer = node->renderer();
             if (!renderer)
                 continue;
             // FIXME: Are there any node types that have renderers, but that we should be skipping?
-            const SimpleFontData* primaryFont = renderer->style().font().primaryFont();
+            const Font& primaryFont = renderer->style().fontCascade().primaryFont();
             if (!font)
-                font = primaryFont;
-            else if (font != primaryFont) {
+                font = &primaryFont;
+            else if (font != &primaryFont) {
                 hasMultipleFonts = true;
                 break;
             }
@@ -260,19 +237,12 @@ NSDictionary* Editor::fontAttributesForSelectionStart() const
 
     NSMutableDictionary* result = [NSMutableDictionary dictionary];
     
-    CTFontRef font = style->font().primaryFont()->getCTFont();
+    CTFontRef font = style->fontCascade().primaryFont().getCTFont();
     if (font)
         [result setObject:(id)font forKey:NSFontAttributeName];
 
-    RefPtr<EditingStyle> typingStyle = m_frame.selection().typingStyle();
-    if (typingStyle && typingStyle->style()) {
-        String value = typingStyle->style()->getPropertyValue(CSSPropertyWebkitTextDecorationsInEffect);
-        if (value.contains("underline"))
-            [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
-    } else {
-        if (style->textDecorationsInEffect() & TextDecorationUnderline)
-            [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
-    }
+    getTextDecorationAttributesRespectingTypingStyle(*style, result);
+
     if (nodeToRemove)
         nodeToRemove->remove(ASSERT_NO_EXCEPTION);
     
@@ -283,7 +253,7 @@ void Editor::removeUnchangeableStyles()
 {
     // This function removes styles that the user cannot modify by applying their default values.
     
-    RefPtr<EditingStyle> editingStyle = EditingStyle::create(m_frame.document()->body());
+    RefPtr<EditingStyle> editingStyle = EditingStyle::create(m_frame.document()->bodyOrFrameset());
     RefPtr<MutableStyleProperties> defaultStyle = editingStyle.get()->style()->mutableCopy();
     
     // Text widgets implement background color via the UIView property. Their body element will not have one.
@@ -359,15 +329,13 @@ void Editor::writeSelectionToPasteboard(Pasteboard& pasteboard)
 
 static void getImage(Element& imageElement, RefPtr<Image>& image, CachedImage*& cachedImage)
 {
-    auto renderer = imageElement.renderer();
-    if (!renderer || !renderer->isRenderImage())
+    auto* renderer = imageElement.renderer();
+    if (!is<RenderImage>(renderer))
         return;
 
-    CachedImage* tentativeCachedImage = toRenderImage(renderer)->cachedImage();
-    if (!tentativeCachedImage || tentativeCachedImage->errorOccurred()) {
-        tentativeCachedImage = 0;
+    CachedImage* tentativeCachedImage = downcast<RenderImage>(*renderer).cachedImage();
+    if (!tentativeCachedImage || tentativeCachedImage->errorOccurred())
         return;
-    }
 
     image = tentativeCachedImage->imageForRenderer(renderer);
     if (!image)
@@ -389,7 +357,7 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
     pasteboardImage.url.url = imageElement.document().completeURL(stripLeadingAndTrailingHTMLSpaces(imageElement.imageSourceURL()));
     pasteboardImage.url.title = title;
     pasteboardImage.resourceMIMEType = pasteboard.resourceMIMEType(cachedImage->response().mimeType());
-    pasteboardImage.resourceData = cachedImage->resourceBuffer()->sharedBuffer();
+    pasteboardImage.resourceData = cachedImage->resourceBuffer();
 
     pasteboard.write(pasteboardImage);
 }
@@ -646,5 +614,3 @@ void Editor::replaceSelectionWithAttributedString(NSAttributedString *attributed
 }
 
 } // namespace WebCore
-
-#endif // PLATFORM(IOS)

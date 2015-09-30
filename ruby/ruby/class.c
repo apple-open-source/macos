@@ -2,7 +2,7 @@
 
   class.c -
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Tue Aug 10 15:05:44 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -121,32 +121,17 @@ rb_class_new(VALUE super)
     return rb_class_boot(super);
 }
 
-static NODE*
-rewrite_cref_stack(NODE *node, VALUE old_klass, VALUE new_klass)
-{
-    NODE *new_node;
-    if (!node) {
-	return NULL;
-    }
-    if (node->nd_clss == old_klass) {
-	new_node = NEW_CREF(new_klass);
-	new_node->nd_next = node->nd_next;
-    } else {
-	new_node = NEW_CREF(node->nd_clss);
-	new_node->nd_next = rewrite_cref_stack(node->nd_next, old_klass, new_klass);
-    }
-    return new_node;
-}
-
 static void
 clone_method(VALUE klass, ID mid, const rb_method_entry_t *me)
 {
     VALUE newiseqval;
     if (me->def && me->def->type == VM_METHOD_TYPE_ISEQ) {
 	rb_iseq_t *iseq;
+	NODE *new_cref;
 	newiseqval = rb_iseq_clone(me->def->body.iseq->self, klass);
 	GetISeqPtr(newiseqval, iseq);
-	iseq->cref_stack = rewrite_cref_stack(me->def->body.iseq->cref_stack, me->klass, klass);
+	rb_vm_rewrite_cref_stack(me->def->body.iseq->cref_stack, me->klass, klass, &new_cref);
+	iseq->cref_stack = new_cref;
 	rb_add_method(klass, mid, VM_METHOD_TYPE_ISEQ, iseq, me->flag);
 	RB_GC_GUARD(newiseqval);
     }
@@ -205,12 +190,21 @@ rb_mod_init_copy(VALUE clone, VALUE orig)
     }
     RCLASS_SUPER(clone) = RCLASS_SUPER(orig);
     RCLASS_EXT(clone)->allocator = RCLASS_EXT(orig)->allocator;
+    if (RCLASS_IV_TBL(clone)) {
+	st_free_table(RCLASS_IV_TBL(clone));
+	RCLASS_IV_TBL(clone) = 0;
+    }
+    if (RCLASS_CONST_TBL(clone)) {
+	rb_free_const_table(RCLASS_CONST_TBL(clone));
+	RCLASS_CONST_TBL(clone) = 0;
+    }
+    if (RCLASS_M_TBL(clone)) {
+	rb_free_m_table(RCLASS_M_TBL(clone));
+	RCLASS_M_TBL(clone) = 0;
+    }
     if (RCLASS_IV_TBL(orig)) {
 	st_data_t id;
 
-	if (RCLASS_IV_TBL(clone)) {
-	    st_free_table(RCLASS_IV_TBL(clone));
-	}
 	RCLASS_IV_TBL(clone) = st_copy(RCLASS_IV_TBL(orig));
 	CONST_ID(id, "__tmp_classpath__");
 	st_delete(RCLASS_IV_TBL(clone), &id, 0);
@@ -220,16 +214,11 @@ rb_mod_init_copy(VALUE clone, VALUE orig)
 	st_delete(RCLASS_IV_TBL(clone), &id, 0);
     }
     if (RCLASS_CONST_TBL(orig)) {
-	if (RCLASS_CONST_TBL(clone)) {
-	    rb_free_const_table(RCLASS_CONST_TBL(clone));
-	}
+
 	RCLASS_CONST_TBL(clone) = st_init_numtable();
 	st_foreach(RCLASS_CONST_TBL(orig), clone_const_i, (st_data_t)RCLASS_CONST_TBL(clone));
     }
     if (RCLASS_M_TBL(orig)) {
-	if (RCLASS_M_TBL(clone)) {
-	    rb_free_m_table(RCLASS_M_TBL(clone));
-	}
 	RCLASS_M_TBL(clone) = st_init_numtable();
 	st_foreach(RCLASS_M_TBL(orig), clone_method_i, (st_data_t)clone);
     }
@@ -982,25 +971,32 @@ ins_methods_pub_i(st_data_t name, st_data_t type, st_data_t ary)
     return ins_methods_push((ID)name, (long)type, (VALUE)ary, NOEX_PUBLIC);
 }
 
+struct method_entry_arg {
+    st_table *list;
+    int recur;
+};
+
 static int
 method_entry_i(st_data_t key, st_data_t value, st_data_t data)
 {
     const rb_method_entry_t *me = (const rb_method_entry_t *)value;
-    st_table *list = (st_table *)data;
+    struct method_entry_arg *arg = (struct method_entry_arg *)data;
     long type;
 
     if (me && me->def->type == VM_METHOD_TYPE_REFINED) {
+	VALUE klass = me->klass;
 	me = rb_resolve_refined_method(Qnil, me, NULL);
 	if (!me) return ST_CONTINUE;
+	if (!arg->recur && me->klass != klass) return ST_CONTINUE;
     }
-    if (!st_lookup(list, key, 0)) {
+    if (!st_lookup(arg->list, key, 0)) {
 	if (UNDEFINED_METHOD_ENTRY_P(me)) {
 	    type = -1; /* none */
 	}
 	else {
 	    type = VISI(me->flag);
 	}
-	st_add_direct(list, key, type);
+	st_add_direct(arg->list, key, type);
     }
     return ST_CONTINUE;
 }
@@ -1010,7 +1006,7 @@ class_instance_method_list(int argc, VALUE *argv, VALUE mod, int obj, int (*func
 {
     VALUE ary;
     int recur, prepended = 0;
-    st_table *list;
+    struct method_entry_arg me_arg;
 
     if (argc == 0) {
 	recur = TRUE;
@@ -1026,16 +1022,17 @@ class_instance_method_list(int argc, VALUE *argv, VALUE mod, int obj, int (*func
 	prepended = 1;
     }
 
-    list = st_init_numtable();
+    me_arg.list = st_init_numtable();
+    me_arg.recur = recur;
     for (; mod; mod = RCLASS_SUPER(mod)) {
-	if (RCLASS_M_TBL(mod)) st_foreach(RCLASS_M_TBL(mod), method_entry_i, (st_data_t)list);
+	if (RCLASS_M_TBL(mod)) st_foreach(RCLASS_M_TBL(mod), method_entry_i, (st_data_t)&me_arg);
 	if (BUILTIN_TYPE(mod) == T_ICLASS && !prepended) continue;
 	if (obj && FL_TEST(mod, FL_SINGLETON)) continue;
 	if (!recur) break;
     }
     ary = rb_ary_new();
-    st_foreach(list, func, ary);
-    st_free_table(list);
+    st_foreach(me_arg.list, func, ary);
+    st_free_table(me_arg.list);
 
     return ary;
 }
@@ -1247,8 +1244,9 @@ rb_obj_public_methods(int argc, VALUE *argv, VALUE obj)
 VALUE
 rb_obj_singleton_methods(int argc, VALUE *argv, VALUE obj)
 {
-    VALUE recur, ary, klass;
-    st_table *list;
+    VALUE recur, ary, klass, origin;
+    struct method_entry_arg me_arg;
+    st_table *mtbl;
 
     if (argc == 0) {
 	recur = Qtrue;
@@ -1257,22 +1255,24 @@ rb_obj_singleton_methods(int argc, VALUE *argv, VALUE obj)
 	rb_scan_args(argc, argv, "01", &recur);
     }
     klass = CLASS_OF(obj);
-    list = st_init_numtable();
+    origin = RCLASS_ORIGIN(klass);
+    me_arg.list = st_init_numtable();
+    me_arg.recur = RTEST(recur);
     if (klass && FL_TEST(klass, FL_SINGLETON)) {
-	if (RCLASS_M_TBL(klass))
-	    st_foreach(RCLASS_M_TBL(klass), method_entry_i, (st_data_t)list);
+	if ((mtbl = RCLASS_M_TBL(origin)) != 0)
+	    st_foreach(mtbl, method_entry_i, (st_data_t)&me_arg);
 	klass = RCLASS_SUPER(klass);
     }
     if (RTEST(recur)) {
 	while (klass && (FL_TEST(klass, FL_SINGLETON) || RB_TYPE_P(klass, T_ICLASS))) {
-	    if (RCLASS_M_TBL(klass))
-		st_foreach(RCLASS_M_TBL(klass), method_entry_i, (st_data_t)list);
+	    if (klass != origin && (mtbl = RCLASS_M_TBL(klass)) != 0)
+		st_foreach(mtbl, method_entry_i, (st_data_t)&me_arg);
 	    klass = RCLASS_SUPER(klass);
 	}
     }
     ary = rb_ary_new();
-    st_foreach(list, ins_methods_i, ary);
-    st_free_table(list);
+    st_foreach(me_arg.list, ins_methods_i, ary);
+    st_free_table(me_arg.list);
 
     return ary;
 }

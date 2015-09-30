@@ -61,6 +61,7 @@
 #include "HTMLFrameElementBase.h"
 #include "HTMLNames.h"
 #include "HTMLTableCellElement.h"
+#include "HTMLTableRowElement.h"
 #include "HitTestResult.h"
 #include "ImageBuffer.h"
 #include "InspectorInstrumentation.h"
@@ -95,6 +96,7 @@
 #include "TextResourceDecoder.h"
 #include "UserContentController.h"
 #include "UserContentURLPattern.h"
+#include "UserScript.h"
 #include "UserTypingGestureIndicator.h"
 #include "VisibleUnits.h"
 #include "WebKitFontFamilyNames.h"
@@ -161,7 +163,7 @@ Frame::Frame(Page& page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient&
     , m_eventHandler(std::make_unique<EventHandler>(*this))
     , m_animationController(std::make_unique<AnimationController>(*this))
 #if PLATFORM(IOS)
-    , m_overflowAutoScrollTimer(this, &Frame::overflowAutoScrollTimerFired)
+    , m_overflowAutoScrollTimer(*this, &Frame::overflowAutoScrollTimerFired)
     , m_selectionChangeCallbacksDisabled(false)
     , m_timersPausedCount(0)
 #endif
@@ -203,16 +205,16 @@ Frame::Frame(Page& page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient&
 #endif
 }
 
-PassRefPtr<Frame> Frame::create(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* client)
+Ref<Frame> Frame::create(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* client)
 {
     ASSERT(page);
     ASSERT(client);
-    return adoptRef(new Frame(*page, ownerElement, *client));
+    return adoptRef(*new Frame(*page, ownerElement, *client));
 }
 
 Frame::~Frame()
 {
-    setView(0);
+    setView(nullptr);
     loader().cancelAndClear();
 
     // FIXME: We should not be doing all this work inside the destructor
@@ -240,7 +242,7 @@ void Frame::removeDestructionObserver(FrameDestructionObserver* observer)
     m_destructionObservers.remove(observer);
 }
 
-void Frame::setView(PassRefPtr<FrameView> view)
+void Frame::setView(RefPtr<FrameView>&& view)
 {
     // We the custom scroll bars as early as possible to prevent m_doc->detach()
     // from messing with the view such that its scroll bars won't be torn down.
@@ -259,7 +261,7 @@ void Frame::setView(PassRefPtr<FrameView> view)
     
     eventHandler().clear();
 
-    m_view = view;
+    m_view = WTF::move(view);
 
     // Only one form submission is allowed per view of a part.
     // Since this part may be getting reused as a result of being
@@ -267,14 +269,14 @@ void Frame::setView(PassRefPtr<FrameView> view)
     loader().resetMultipleFormSubmissionProtection();
 }
 
-void Frame::setDocument(PassRefPtr<Document> newDocument)
+void Frame::setDocument(RefPtr<Document>&& newDocument)
 {
     ASSERT(!newDocument || newDocument->frame() == this);
 
     if (m_doc && !m_doc->inPageCache())
         m_doc->prepareForDestruction();
 
-    m_doc = newDocument.get();
+    m_doc = newDocument.copyRef();
     ASSERT(!m_doc || m_doc->domWindow());
     ASSERT(!m_doc || m_doc->domWindow()->frame() == this);
 
@@ -282,6 +284,8 @@ void Frame::setDocument(PassRefPtr<Document> newDocument)
     // that the document is not destroyed during this function call.
     if (newDocument)
         newDocument->didBecomeCurrentDocumentInFrame();
+
+    InspectorInstrumentation::frameDocumentUpdated(this);
 }
 
 #if ENABLE(ORIENTATION_EVENTS)
@@ -291,9 +295,9 @@ void Frame::orientationChanged()
     for (Frame* frame = this; frame; frame = frame->tree().traverseNext())
         frames.append(*frame);
 
-    for (unsigned i = 0; i < frames.size(); i++) {
-        if (Document* doc = frames[i]->document())
-            doc->dispatchWindowEvent(Event::create(eventNames().orientationchangeEvent, false, false));
+    for (auto& frame : frames) {
+        if (Document* document = frame->document())
+            document->dispatchWindowEvent(Event::create(eventNames().orientationchangeEvent, false, false));
     }
 }
 
@@ -346,7 +350,7 @@ String Frame::searchForLabelsAboveCell(const JSC::Yarr::RegularExpression& regEx
     if (aboveCell) {
         // search within the above cell we found for a match
         size_t lengthSearched = 0;    
-        for (Text* textNode = TextNodeTraversal::firstWithin(aboveCell); textNode; textNode = TextNodeTraversal::next(textNode, aboveCell)) {
+        for (Text* textNode = TextNodeTraversal::firstWithin(*aboveCell); textNode; textNode = TextNodeTraversal::next(*textNode, aboveCell)) {
             if (!textNode->renderer() || textNode->renderer()->style().visibility() != VISIBLE)
                 continue;
             // For each text chunk, run the regexp
@@ -367,8 +371,10 @@ String Frame::searchForLabelsAboveCell(const JSC::Yarr::RegularExpression& regEx
     return String();
 }
 
+// FIXME: This should take an Element&.
 String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element* element, size_t* resultDistance, bool* resultIsInCellAbove)
 {
+    ASSERT(element);
     JSC::Yarr::RegularExpression regExp = createRegExpForLabels(labels);
     // We stop searching after we've seen this many chars
     const unsigned int charsSearchedThreshold = 500;
@@ -376,7 +382,7 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
     // charsSearchedThreshold, to make it more likely that we'll search whole nodes.
     const unsigned int maxCharsSearched = 600;
     // If the starting element is within a table, the cell that contains it
-    HTMLTableCellElement* startingTableCell = 0;
+    HTMLTableCellElement* startingTableCell = nullptr;
     bool searchedCellAbove = false;
 
     if (resultDistance)
@@ -387,14 +393,14 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
     // walk backwards in the node tree, until another element, or form, or end of tree
     int unsigned lengthSearched = 0;
     Node* n;
-    for (n = NodeTraversal::previous(element); n && lengthSearched < charsSearchedThreshold; n = NodeTraversal::previous(n)) {
+    for (n = NodeTraversal::previous(*element); n && lengthSearched < charsSearchedThreshold; n = NodeTraversal::previous(*n)) {
         // We hit another form element or the start of the form - bail out
-        if (isHTMLFormElement(n) || (n->isHTMLElement() && toElement(n)->isFormControlElement()))
+        if (is<HTMLFormElement>(*n) || is<HTMLFormControlElement>(*n))
             break;
 
-        if (n->hasTagName(tdTag) && !startingTableCell) {
-            startingTableCell = toHTMLTableCellElement(n);
-        } else if (n->hasTagName(trTag) && startingTableCell) {
+        if (n->hasTagName(tdTag) && !startingTableCell)
+            startingTableCell = downcast<HTMLTableCellElement>(n);
+        else if (is<HTMLTableRowElement>(*n) && startingTableCell) {
             String result = searchForLabelsAboveCell(regExp, startingTableCell, resultDistance);
             if (!result.isEmpty()) {
                 if (resultIsInCellAbove)
@@ -476,7 +482,7 @@ String Frame::matchLabelsAgainstElement(const Vector<String>& labels, Element* e
     if (!resultFromNameAttribute.isEmpty())
         return resultFromNameAttribute;
     
-    return matchLabelsAgainstString(labels, element->getAttribute(idAttr));
+    return matchLabelsAgainstString(labels, element->fastGetAttribute(idAttr));
 }
 
 #if PLATFORM(IOS)
@@ -495,7 +501,7 @@ void Frame::scrollOverflowLayer(RenderLayer* layer, const IntRect& visibleRect, 
     int x = layer->scrollXOffset();
     int exposeLeft = exposeRect.x();
     int exposeRight = exposeLeft + exposeRect.width();
-    int clientWidth = box->clientWidth();
+    int clientWidth = roundToInt(box->clientWidth());
     if (exposeLeft <= 0)
         x = std::max(0, x + exposeLeft - clientWidth / 2);
     else if (exposeRight >= clientWidth)
@@ -504,7 +510,7 @@ void Frame::scrollOverflowLayer(RenderLayer* layer, const IntRect& visibleRect, 
     int y = layer->scrollYOffset();
     int exposeTop = exposeRect.y();
     int exposeBottom = exposeTop + exposeRect.height();
-    int clientHeight = box->clientHeight();
+    int clientHeight = roundToInt(box->clientHeight());
     if (exposeTop <= 0)
         y = std::max(0, y + exposeTop - clientHeight / 2);
     else if (exposeBottom >= clientHeight)
@@ -515,7 +521,7 @@ void Frame::scrollOverflowLayer(RenderLayer* layer, const IntRect& visibleRect, 
     selection().updateAppearance();
 }
 
-void Frame::overflowAutoScrollTimerFired(Timer*)
+void Frame::overflowAutoScrollTimerFired()
 {
     if (!eventHandler().mousePressed() || checkOverflowScroll(PerformOverflowScroll) == OverflowScrollNone) {
         if (m_overflowAutoScrollTimer.isActive())
@@ -713,10 +719,7 @@ void Frame::injectUserScriptsForWorld(DOMWrapperWorld& world, const UserScriptVe
     if (!doc)
         return;
 
-    Vector<ScriptSourceCode> sourceCode;
-    unsigned count = userScripts.size();
-    for (unsigned i = 0; i < count; ++i) {
-        UserScript* script = userScripts[i].get();
+    for (auto& script : userScripts) {
         if (script->injectedFrames() == InjectInTopFrameOnly && ownerElement())
             continue;
 
@@ -727,24 +730,24 @@ void Frame::injectUserScriptsForWorld(DOMWrapperWorld& world, const UserScriptVe
 
 RenderView* Frame::contentRenderer() const
 {
-    return document() ? document()->renderView() : 0;
+    return document() ? document()->renderView() : nullptr;
 }
 
 RenderWidget* Frame::ownerRenderer() const
 {
     HTMLFrameOwnerElement* ownerElement = m_ownerElement;
     if (!ownerElement)
-        return 0;
-    auto object = ownerElement->renderer();
+        return nullptr;
+    auto* object = ownerElement->renderer();
     if (!object)
-        return 0;
+        return nullptr;
     // FIXME: If <object> is ever fixed to disassociate itself from frames
     // that it has started but canceled, then this can turn into an ASSERT
     // since m_ownerElement would be 0 when the load is canceled.
     // https://bugs.webkit.org/show_bug.cgi?id=18585
-    if (!object->isWidget())
-        return 0;
-    return toRenderWidget(object);
+    if (!is<RenderWidget>(*object))
+        return nullptr;
+    return downcast<RenderWidget>(object);
 }
 
 Frame* Frame::frameForWidget(const Widget* widget)
@@ -756,8 +759,7 @@ Frame* Frame::frameForWidget(const Widget* widget)
 
     // Assume all widgets are either a FrameView or owned by a RenderWidget.
     // FIXME: That assumption is not right for scroll bars!
-    ASSERT_WITH_SECURITY_IMPLICATION(widget->isFrameView());
-    return &toFrameView(widget)->frame();
+    return &downcast<FrameView>(*widget).frame();
 }
 
 void Frame::clearTimers(FrameView *view, Document *document)
@@ -785,10 +787,10 @@ void Frame::willDetachPage()
     // FIXME: It's unclear as to why this is called more than once, but it is,
     // so page() could be NULL.
     if (page() && page()->focusController().focusedFrame() == this)
-        page()->focusController().setFocusedFrame(0);
+        page()->focusController().setFocusedFrame(nullptr);
 
     if (page() && page()->scrollingCoordinator() && m_view)
-        page()->scrollingCoordinator()->willDestroyScrollableArea(m_view.get());
+        page()->scrollingCoordinator()->willDestroyScrollableArea(*m_view);
 
 #if PLATFORM(IOS)
     if (WebThreadCountOfObservedContentModifiers() > 0 && m_page)
@@ -814,7 +816,7 @@ String Frame::displayStringModifiedByEncoding(const String& str) const
     return document() ? document()->displayStringModifiedByEncoding(str) : str;
 }
 
-VisiblePosition Frame::visiblePositionForPoint(const IntPoint& framePoint)
+VisiblePosition Frame::visiblePositionForPoint(const IntPoint& framePoint) const
 {
     HitTestResult result = eventHandler().hitTestResultAtPoint(framePoint, HitTestRequest::ReadOnly | HitTestRequest::Active);
     Node* node = result.innerNonSharedNode();
@@ -842,11 +844,11 @@ Document* Frame::documentAtPoint(const IntPoint& point)
     return result.innerNode() ? &result.innerNode()->document() : 0;
 }
 
-PassRefPtr<Range> Frame::rangeForPoint(const IntPoint& framePoint)
+RefPtr<Range> Frame::rangeForPoint(const IntPoint& framePoint)
 {
     VisiblePosition position = visiblePositionForPoint(framePoint);
     if (position.isNull())
-        return 0;
+        return nullptr;
 
     Position deepPosition = position.deepEquivalent();
     Text* containerText = deepPosition.containerText();
@@ -858,17 +860,17 @@ PassRefPtr<Range> Frame::rangeForPoint(const IntPoint& framePoint)
         RefPtr<Range> previousCharacterRange = makeRange(previous, position);
         LayoutRect rect = editor().firstRectForRange(previousCharacterRange.get());
         if (rect.contains(framePoint))
-            return previousCharacterRange.release();
+            return previousCharacterRange;
     }
 
     VisiblePosition next = position.next();
     if (RefPtr<Range> nextCharacterRange = makeRange(position, next)) {
         LayoutRect rect = editor().firstRectForRange(nextCharacterRange.get());
         if (rect.contains(framePoint))
-            return nextCharacterRange.release();
+            return nextCharacterRange;
     }
 
-    return 0;
+    return nullptr;
 }
 
 void Frame::createView(const IntSize& viewportSize, const Color& backgroundColor, bool transparent,
@@ -884,13 +886,13 @@ void Frame::createView(const IntSize& viewportSize, const Color& backgroundColor
     if (isMainFrame && view())
         view()->setParentVisible(false);
 
-    setView(0);
+    setView(nullptr);
 
     RefPtr<FrameView> frameView;
     if (isMainFrame) {
         frameView = FrameView::create(*this, viewportSize);
         frameView->setFixedLayoutSize(fixedLayoutSize);
-#if USE(TILED_BACKING_STORE)
+#if USE(COORDINATED_GRAPHICS)
         frameView->setFixedVisibleContentRect(fixedVisibleContentRect);
 #else
         UNUSED_PARAM(fixedVisibleContentRect);
@@ -901,7 +903,7 @@ void Frame::createView(const IntSize& viewportSize, const Color& backgroundColor
 
     frameView->setScrollbarModes(horizontalScrollbarMode, verticalScrollbarMode, horizontalLock, verticalLock);
 
-    setView(frameView);
+    setView(frameView.copyRef());
 
     if (backgroundColor.isValid())
         frameView->updateBackgroundRecursively(backgroundColor, transparent);
@@ -960,10 +962,8 @@ void Frame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomFactor
 
     // Respect SVGs zoomAndPan="disabled" property in standalone SVG documents.
     // FIXME: How to handle compound documents + zoomAndPan="disabled"? Needs SVG WG clarification.
-    if (document->isSVGDocument()) {
-        if (!toSVGDocument(document)->zoomAndPanEnabled())
-            return;
-    }
+    if (is<SVGDocument>(*document) && !downcast<SVGDocument>(*document).zoomAndPanEnabled())
+        return;
 
     if (m_pageZoomFactor != pageZoomFactor) {
         if (FrameView* view = this->view()) {
@@ -988,7 +988,7 @@ void Frame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomFactor
     }
 
     if (isMainFrame())
-        pageCache()->markPagesForFullStyleRecalc(page);
+        PageCache::singleton().markPagesForFullStyleRecalc(*page);
 }
 
 float Frame::frameScaleFactor() const

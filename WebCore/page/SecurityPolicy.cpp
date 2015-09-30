@@ -111,18 +111,18 @@ bool SecurityPolicy::allowSubstituteDataAccessToLocal()
 bool SecurityPolicy::isAccessWhiteListed(const SecurityOrigin* activeOrigin, const SecurityOrigin* targetOrigin)
 {
     if (OriginAccessWhiteList* list = originAccessMap().get(activeOrigin->toString())) {
-        for (size_t i = 0; i < list->size();  ++i) {
-           if (list->at(i).matchesOrigin(*targetOrigin))
-               return true;
-       }
+        for (auto& entry : *list) {
+            if (entry.matchesOrigin(*targetOrigin))
+                return true;
+        }
     }
     return false;
 }
 
 bool SecurityPolicy::isAccessToURLWhiteListed(const SecurityOrigin* activeOrigin, const URL& url)
 {
-    RefPtr<SecurityOrigin> targetOrigin = SecurityOrigin::create(url);
-    return isAccessWhiteListed(activeOrigin, targetOrigin.get());
+    Ref<SecurityOrigin> targetOrigin(SecurityOrigin::create(url));
+    return isAccessWhiteListed(activeOrigin, &targetOrigin.get());
 }
 
 void SecurityPolicy::addOriginAccessWhitelistEntry(const SecurityOrigin& sourceOrigin, const String& destinationProtocol, const String& destinationDomain, bool allowDestinationSubdomains)
@@ -154,14 +154,12 @@ void SecurityPolicy::removeOriginAccessWhitelistEntry(const SecurityOrigin& sour
     if (it == map.end())
         return;
 
-    OriginAccessWhiteList* list = it->value.get();
-    size_t index = list->find(OriginAccessEntry(destinationProtocol, destinationDomain, allowDestinationSubdomains ? OriginAccessEntry::AllowSubdomains : OriginAccessEntry::DisallowSubdomains));
-    if (index == notFound)
+    OriginAccessWhiteList& list = *it->value;
+    OriginAccessEntry originAccessEntry(destinationProtocol, destinationDomain, allowDestinationSubdomains ? OriginAccessEntry::AllowSubdomains : OriginAccessEntry::DisallowSubdomains);
+    if (!list.removeFirst(originAccessEntry))
         return;
 
-    list->remove(index);
-
-    if (list->isEmpty())
+    if (list.isEmpty())
         map.remove(it);
 }
 

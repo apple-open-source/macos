@@ -1203,18 +1203,8 @@ deallocate_pages(szone_t *szone, void *addr, size_t size, unsigned debug_flags)
 		szone_error(szone, 0, "Can't deallocate_pages region", addr, NULL);
 }
 
-/* On OS X we use MADV_FREE_REUSABLE, which signals the kernel to remove the given
- * pages from the memory statistics for our process. However, on returning that memory
- * to use we have to signal that it has been reused.
- *
- * On iOS MADV_FREE is used, which does no such tinkering and madvise_reuse_range is a
- * no-op.
- */
-#if TARGET_OS_EMBEDDED
-# define MADVISE_STYLE MADV_FREE
-#else
-# define MADVISE_STYLE MADV_FREE_REUSABLE
-#endif
+/* As of <rdar://problem/19818071> we now use MADV_FREE_REUSABLE on both platforms. */
+#define MADVISE_STYLE MADV_FREE_REUSABLE
 
 static int
 madvise_free_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last)
@@ -1250,7 +1240,6 @@ madvise_free_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi, u
 static int
 madvise_reuse_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t phHi)
 {
-#if !TARGET_OS_EMBEDDED
 	if (phHi > pgLo) {
 		size_t len = phHi - pgLo;
 
@@ -1263,7 +1252,6 @@ madvise_reuse_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t phHi)
 			return 1;
 		}
 	}
-#endif
 	return 0;
 }
 

@@ -32,6 +32,7 @@
 #include "AXObjectCache.h"
 #include "AccessibilityTable.h"
 #include "AccessibilityTableRow.h"
+#include "ElementIterator.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "RenderObject.h"
@@ -50,9 +51,9 @@ AccessibilityTableCell::~AccessibilityTableCell()
 {
 }
 
-PassRefPtr<AccessibilityTableCell> AccessibilityTableCell::create(RenderObject* renderer)
+Ref<AccessibilityTableCell> AccessibilityTableCell::create(RenderObject* renderer)
 {
-    return adoptRef(new AccessibilityTableCell(renderer));
+    return adoptRef(*new AccessibilityTableCell(renderer));
 }
 
 bool AccessibilityTableCell::computeAccessibilityIsIgnored() const
@@ -63,8 +64,10 @@ bool AccessibilityTableCell::computeAccessibilityIsIgnored() const
     if (decision == IgnoreObject)
         return true;
     
-    // Ignore anonymous table cells.
-    if (!node())
+    // Ignore anonymous table cells as long as they're not in a table (ie. when display:table is used).
+    RenderObject* renderTable = is<RenderTableCell>(m_renderer) ? downcast<RenderTableCell>(*m_renderer).table() : nullptr;
+    bool inTable = renderTable && renderTable->node() && (renderTable->node()->hasTagName(tableTag) || nodeHasRole(renderTable->node(), "grid"));
+    if (!node() && !inTable)
         return true;
         
     if (!isTableCell())
@@ -75,22 +78,40 @@ bool AccessibilityTableCell::computeAccessibilityIsIgnored() const
 
 AccessibilityTable* AccessibilityTableCell::parentTable() const
 {
-    if (!m_renderer || !m_renderer->isTableCell())
-        return 0;
+    if (!is<RenderTableCell>(m_renderer))
+        return nullptr;
 
     // If the document no longer exists, we might not have an axObjectCache.
     if (!axObjectCache())
-        return 0;
+        return nullptr;
     
     // Do not use getOrCreate. parentTable() can be called while the render tree is being modified 
     // by javascript, and creating a table element may try to access the render tree while in a bad state.
     // By using only get() implies that the AXTable must be created before AXTableCells. This should
     // always be the case when AT clients access a table.
     // https://bugs.webkit.org/show_bug.cgi?id=42652
-    AccessibilityObject* parentTable = axObjectCache()->get(toRenderTableCell(m_renderer)->table());
-    if (!parentTable || !parentTable->isTable())
+    AccessibilityObject* parentTable = axObjectCache()->get(downcast<RenderTableCell>(*m_renderer).table());
+    if (!is<AccessibilityTable>(parentTable))
         return nullptr;
-    return toAccessibilityTable(parentTable);
+    
+    // The RenderTableCell's table() object might be anonymous sometimes. We should handle it gracefully
+    // by finding the right table.
+    if (!parentTable->node()) {
+        for (AccessibilityObject* parent = parentObject(); parent; parent = parent->parentObject()) {
+            // If this is a non-anonymous table object, but not an accessibility table, we should stop because
+            // we don't want to choose another ancestor table as this cell's table.
+            if (is<AccessibilityTable>(*parent)) {
+                auto& parentTable = downcast<AccessibilityTable>(*parent);
+                if (parentTable.isExposableThroughAccessibility())
+                    return &parentTable;
+                if (parentTable.node())
+                    break;
+            }
+        }
+        return nullptr;
+    }
+    
+    return downcast<AccessibilityTable>(parentTable);
 }
     
 bool AccessibilityTableCell::isTableCell() const
@@ -99,24 +120,87 @@ bool AccessibilityTableCell::isTableCell() const
     // This used to check if the unignoredParent was a row, but that exploded performance if
     // this was in nested tables. This check should be just as good.
     AccessibilityObject* parentTable = this->parentTable();
-    return parentTable && parentTable->isAccessibilityTable();
+    return is<AccessibilityTable>(parentTable) && downcast<AccessibilityTable>(*parentTable).isExposableThroughAccessibility();
 }
     
 AccessibilityRole AccessibilityTableCell::determineAccessibilityRole()
 {
-    // Always call determineAccessibleRole so that the ARIA role is set.
-    // Even though this object reports a Cell role, the ARIA role will be used
-    // to determine if it's a column header.
+    // AccessibilityRenderObject::determineAccessibleRole provides any ARIA-supplied
+    // role, falling back on the role to be used if we determine here that the element
+    // should not be exposed as a cell. Thus if we already know it's a cell, return that.
     AccessibilityRole defaultRole = AccessibilityRenderObject::determineAccessibilityRole();
+    if (defaultRole == ColumnHeaderRole || defaultRole == RowHeaderRole || defaultRole == CellRole)
+        return defaultRole;
+
     if (!isTableCell())
         return defaultRole;
-    
+    if (isColumnHeaderCell())
+        return ColumnHeaderRole;
+    if (isRowHeaderCell())
+        return RowHeaderRole;
+
     return CellRole;
 }
     
 bool AccessibilityTableCell::isTableHeaderCell() const
 {
     return node() && node()->hasTagName(thTag);
+}
+
+bool AccessibilityTableCell::isColumnHeaderCell() const
+{
+    const AtomicString& scope = getAttribute(scopeAttr);
+    if (scope == "col" || scope == "colgroup")
+        return true;
+    if (scope == "row" || scope == "rowgroup")
+        return false;
+    if (!isTableHeaderCell())
+        return false;
+
+    // We are in a situation after checking the scope attribute.
+    // It is an attempt to resolve the type of th element without support in the specification.
+    // Checking tableTag and tbodyTag allows to check the case of direct row placement in the table and lets stop the loop at the table level.
+    for (Node* parentNode = node(); parentNode; parentNode = parentNode->parentNode()) {
+        if (parentNode->hasTagName(theadTag))
+            return true;
+        if (parentNode->hasTagName(tfootTag))
+            return false;
+        if (parentNode->hasTagName(tableTag) || parentNode->hasTagName(tbodyTag)) {
+            std::pair<unsigned, unsigned> rowRange;
+            rowIndexRange(rowRange);
+            if (!rowRange.first)
+                return true;
+            return false;
+        }
+    }
+    return false;
+}
+
+bool AccessibilityTableCell::isRowHeaderCell() const
+{
+    const AtomicString& scope = getAttribute(scopeAttr);
+    if (scope == "row" || scope == "rowgroup")
+        return true;
+    if (scope == "col" || scope == "colgroup")
+        return false;
+    if (!isTableHeaderCell())
+        return false;
+
+    // We are in a situation after checking the scope attribute.
+    // It is an attempt to resolve the type of th element without support in the specification.
+    // Checking tableTag allows to check the case of direct row placement in the table and lets stop the loop at the table level.
+    for (Node* parentNode = node(); parentNode; parentNode = parentNode->parentNode()) {
+        if (parentNode->hasTagName(tfootTag) || parentNode->hasTagName(tbodyTag) || parentNode->hasTagName(tableTag)) {
+            std::pair<unsigned, unsigned> colRange;
+            columnIndexRange(colRange);
+            if (!colRange.first)
+                return true;
+            return false;
+        }
+        if (parentNode->hasTagName(theadTag))
+            return false;
+    }
+    return false;
 }
 
 bool AccessibilityTableCell::isTableCellInSameRowGroup(AccessibilityTableCell* otherTableCell)
@@ -187,9 +271,9 @@ void AccessibilityTableCell::columnHeaders(AccessibilityChildrenVector& headers)
         tableCell->rowIndexRange(childRowRange);
             
         const AtomicString& scope = tableCell->getAttribute(scopeAttr);
-        if (scope == "col" || tableCell->isTableHeaderCell())
+        if (scope == "colgroup" && isTableCellInSameColGroup(tableCell))
             headers.append(tableCell);
-        else if (scope == "colgroup" && isTableCellInSameColGroup(tableCell))
+        else if (tableCell->isColumnHeaderCell())
             headers.append(tableCell);
     }
 }
@@ -212,48 +296,39 @@ void AccessibilityTableCell::rowHeaders(AccessibilityChildrenVector& headers)
             continue;
         
         const AtomicString& scope = tableCell->getAttribute(scopeAttr);
-        if (scope == "row")
+        if (scope == "rowgroup" && isTableCellInSameRowGroup(tableCell))
             headers.append(tableCell);
-        else if (scope == "rowgroup" && isTableCellInSameRowGroup(tableCell))
+        else if (tableCell->isRowHeaderCell())
             headers.append(tableCell);
     }
 }
-    
-void AccessibilityTableCell::rowIndexRange(std::pair<unsigned, unsigned>& rowRange)
+
+AccessibilityTableRow* AccessibilityTableCell::parentRow() const
 {
-    if (!m_renderer || !m_renderer->isTableCell())
+    AccessibilityObject* parent = parentObjectUnignored();
+    if (!is<AccessibilityTableRow>(*parent))
+        return nullptr;
+    return downcast<AccessibilityTableRow>(parent);
+}
+
+void AccessibilityTableCell::rowIndexRange(std::pair<unsigned, unsigned>& rowRange) const
+{
+    if (!is<RenderTableCell>(m_renderer))
         return;
     
-    RenderTableCell* renderCell = toRenderTableCell(m_renderer);
-    rowRange.first = renderCell->rowIndex();
-    rowRange.second = renderCell->rowSpan();
+    RenderTableCell& renderCell = downcast<RenderTableCell>(*m_renderer);
+    rowRange.second = renderCell.rowSpan();
     
-    // since our table might have multiple sections, we have to offset our row appropriately
-    RenderTableSection* section = renderCell->section();
-    RenderTable* table = renderCell->table();
-    if (!table || !section)
-        return;
-
-    RenderTableSection* footerSection = table->footer();
-    unsigned rowOffset = 0;
-    for (RenderTableSection* tableSection = table->topSection(); tableSection; tableSection = table->sectionBelow(tableSection, SkipEmptySections)) {
-        // Don't add row offsets for bottom sections that are placed in before the body section.
-        if (tableSection == footerSection)
-            continue;
-        if (tableSection == section)
-            break;
-        rowOffset += tableSection->numRows();
-    }
-
-    rowRange.first += rowOffset;
+    if (AccessibilityTableRow* parentRow = this->parentRow())
+        rowRange.first = parentRow->rowIndex();
 }
     
-void AccessibilityTableCell::columnIndexRange(std::pair<unsigned, unsigned>& columnRange)
+void AccessibilityTableCell::columnIndexRange(std::pair<unsigned, unsigned>& columnRange) const
 {
-    if (!m_renderer || !m_renderer->isTableCell())
+    if (!is<RenderTableCell>(m_renderer))
         return;
     
-    const RenderTableCell& cell = *toRenderTableCell(m_renderer);
+    const RenderTableCell& cell = downcast<RenderTableCell>(*m_renderer);
     columnRange.first = cell.table()->colToEffCol(cell.col());
     columnRange.second = cell.table()->colToEffCol(cell.col() + cell.colSpan()) - columnRange.first;
 }
@@ -263,34 +338,34 @@ AccessibilityObject* AccessibilityTableCell::titleUIElement() const
     // Try to find if the first cell in this row is a <th>. If it is,
     // then it can act as the title ui element. (This is only in the
     // case when the table is not appearing as an AXTable.)
-    if (isTableCell() || !m_renderer || !m_renderer->isTableCell())
-        return 0;
+    if (isTableCell() || !is<RenderTableCell>(m_renderer))
+        return nullptr;
 
     // Table cells that are th cannot have title ui elements, since by definition
     // they are title ui elements
     Node* node = m_renderer->node();
     if (node && node->hasTagName(thTag))
-        return 0;
+        return nullptr;
     
-    RenderTableCell* renderCell = toRenderTableCell(m_renderer);
+    RenderTableCell& renderCell = downcast<RenderTableCell>(*m_renderer);
 
     // If this cell is in the first column, there is no need to continue.
-    int col = renderCell->col();
+    int col = renderCell.col();
     if (!col)
-        return 0;
+        return nullptr;
 
-    int row = renderCell->rowIndex();
+    int row = renderCell.rowIndex();
 
-    RenderTableSection* section = renderCell->section();
+    RenderTableSection* section = renderCell.section();
     if (!section)
-        return 0;
+        return nullptr;
     
     RenderTableCell* headerCell = section->primaryCellAt(row, 0);
-    if (!headerCell || headerCell == renderCell)
-        return 0;
+    if (!headerCell || headerCell == &renderCell)
+        return nullptr;
 
     if (!headerCell->element() || !headerCell->element()->hasTagName(thTag))
-        return 0;
+        return nullptr;
     
     return axObjectCache()->getOrCreate(headerCell);
 }

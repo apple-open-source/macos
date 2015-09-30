@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -167,15 +167,6 @@ public:
 
     /* --- A subclass must implement the the following methods: --- */
 
-#ifndef __LP64__
-    virtual IOReturn	doAsyncReadWrite(IOMemoryDescriptor *buffer,
-                                            UInt32 block, UInt32 nblks,
-                                            IOStorageCompletion completion) __attribute__ ((deprecated));
-
-    virtual IOReturn	doSyncReadWrite(IOMemoryDescriptor *buffer,
-                                    UInt32 block,UInt32 nblks) __attribute__ ((deprecated));
-#endif /* !__LP64__ */
-
     /*!
      * @function doEjectMedia
      * @abstract
@@ -210,17 +201,12 @@ public:
     virtual UInt32	doGetFormatCapacities(UInt64 * capacities,
                                             UInt32   capacitiesMaxCount) const	= 0;
 
+#ifdef __x86_64__
     virtual IOReturn	doLockUnlockMedia(bool doLock) __attribute__ ((deprecated));
+#endif /* __x86_64__ */
 
-    /*!
-     * @function doSynchronizeCache
-     * @abstract
-     * Force data blocks in the hardware's buffer to be flushed to the media.
-     * @discussion
-     * This method should only be called if the media is writable.
-     */
-    virtual IOReturn	doSynchronizeCache(void)	= 0;
-    
+    virtual IOReturn	doSynchronizeCache(void) __attribute__ ((deprecated));
+
     /*!
      * @function getVendorString
      * @abstract
@@ -278,13 +264,9 @@ public:
      */
     virtual IOReturn	reportEjectability(bool *isEjectable)	= 0;
 
+#ifdef __x86_64__
     virtual IOReturn	reportLockability(bool *isLockable) __attribute__ ((deprecated));
-
-#ifndef __LP64__
-    virtual IOReturn	reportMaxReadTransfer(UInt64 blockSize,UInt64 *max) __attribute__ ((deprecated));
-
-    virtual IOReturn	reportMaxWriteTransfer(UInt64 blockSize,UInt64 *max) __attribute__ ((deprecated));
-#endif /* !__LP64__ */
+#endif /* __x86_64__ */
 
     /*!
      * @function reportMaxValidBlock
@@ -313,8 +295,10 @@ public:
      */
     virtual IOReturn	reportMediaState(bool *mediaPresent,bool *changedState = 0)	= 0;
     
+#ifdef __x86_64__
     virtual IOReturn	reportPollRequirements(bool *pollRequired,
                                             bool *pollIsExpensive) __attribute__ ((deprecated));
+#endif /* __x86_64__ */
     
     /*!
      * @function reportRemovability
@@ -340,12 +324,6 @@ public:
      */
     virtual IOReturn	reportWriteProtection(bool *isWriteProtected)	= 0;
 
-#ifndef __LP64__
-    virtual IOReturn	doAsyncReadWrite(IOMemoryDescriptor *buffer,
-                                            UInt64 block, UInt64 nblks,
-                                            IOStorageCompletion completion) __attribute__ ((deprecated));
-#endif /* !__LP64__ */
-
     /*!
      * @function getWriteCacheState
      * @abstract
@@ -357,11 +335,7 @@ public:
      * Pointer to returned result. True indicates the write cache is enabled;
      * False indicates the write cache is disabled.
      */
-#ifdef __LP64__
-    virtual IOReturn	getWriteCacheState(bool *enabled)	= 0;
-#else /* !__LP64__ */
-    virtual IOReturn	getWriteCacheState(bool *enabled); /* 10.3.0 */
-#endif /* !__LP64__ */
+    virtual IOReturn	getWriteCacheState(bool *enabled);
 
     /*!
      * @function setWriteCacheState
@@ -373,11 +347,7 @@ public:
      * @param enabled
      * True to enable the write cache; False to disable the write cache.
      */
-#ifdef __LP64__
-    virtual IOReturn	setWriteCacheState(bool enabled)	= 0;
-#else /* !__LP64__ */
-    virtual IOReturn	setWriteCacheState(bool enabled); /* 10.3.0 */
-#endif /* !__LP64__ */
+    virtual IOReturn	setWriteCacheState(bool enabled);
 
     /*!
      * @function doAsyncReadWrite
@@ -396,17 +366,10 @@ public:
      * @param completion
      * The completion routine to call once the data transfer is complete.
      */
-#ifdef __LP64__
     virtual IOReturn	doAsyncReadWrite(IOMemoryDescriptor *buffer,
                                             UInt64 block, UInt64 nblks,
                                             IOStorageAttributes *attributes,
                                             IOStorageCompletion *completion)	= 0;
-#else /* !__LP64__ */
-    virtual IOReturn	doAsyncReadWrite(IOMemoryDescriptor *buffer,
-                                            UInt64 block, UInt64 nblks,
-                                            IOStorageAttributes *attributes,
-                                            IOStorageCompletion *completion); /* 10.5.0 */
-#endif /* !__LP64__ */
 
     /*!
      * @function requestIdle
@@ -418,9 +381,11 @@ public:
      * to spin down when it enters such an idle state, and spin up on the next read request
      * from the system.
      */
-    virtual IOReturn	requestIdle(void); /* 10.6.0 */
+    virtual IOReturn	requestIdle(void);
 
+#ifdef __x86_64__
     virtual IOReturn doDiscard(UInt64 block, UInt64 nblks) __attribute__ ((deprecated));
+#endif /* __x86_64__ */
 
     /*!
      * @function doUnmap
@@ -431,10 +396,12 @@ public:
      * overwrite the contents of this buffer in order to satisfy the request.
      * @param extentsCount
      * Number of extents.
+     * @param options
+     * Options for the unmap.  See IOStorageUnmapOptions.
      */
     virtual IOReturn doUnmap(IOBlockStorageDeviceExtent * extents,
                              UInt32                       extentsCount,
-                             UInt32                       options = 0); /* 10.6.6 */
+                             IOStorageUnmapOptions        options = 0); /* 10.6.6 */
 
     /*!
      * @function doSetPriority
@@ -452,23 +419,32 @@ public:
                                    UInt32                       extentsCount,
                                    IOStoragePriority            priority); /* 10.10.0 */
 
+    /*!
+     * @function doSynchronize
+     * @abstract
+     * Force data blocks in the hardware's buffer to be flushed to the media.
+     * @discussion
+     * This method should only be called if the media is writable.
+     * @param block
+     * The starting block number of the synchronization.
+     * @param nblks
+     * The integral number of blocks to be synchronized.  Set to zero to specify the
+     * end-of-media.
+     * @param options
+     * Options for the synchronization.  See IOStorageSynchronizeOptions.
+     */
+    virtual IOReturn	doSynchronize(UInt64                      block,
+                                      UInt64                      nblks,
+                                      IOStorageSynchronizeOptions options = 0); /* 10.11.0 */
+
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  0);
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  1);
-#ifdef __LP64__
-    OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  2);
+    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  2);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  3);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  4);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  5);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  6);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  7);
-#else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  2);
-    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  3);
-    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  4);
-    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  5);
-    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  6);
-    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  7);
-#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  8);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  9);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice, 10);

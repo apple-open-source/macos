@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/collation/as.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/xml/collation/as.xml
- */
 as{
     Version{"2.0.96.14"}
     collations{
@@ -19,7 +16,7 @@ as{
                 "&[before 1]ত<ৎ=ত্\u200D"
                 "&হ<ক্ষ"
             }
-            Version{"25"}
+            Version{"27.0.1"}
         }
     }
 }

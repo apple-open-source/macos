@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,7 @@
 
 #if PLATFORM(IOS)
 
-#include "MediaSessionManager.h"
+#include "PlatformMediaSessionManager.h"
 #include <wtf/RetainPtr.h>
 
 OBJC_CLASS WebMediaSessionHelper;
@@ -37,31 +37,34 @@ OBJC_CLASS WebMediaSessionHelper;
 extern NSString* WebUIApplicationWillResignActiveNotification;
 extern NSString* WebUIApplicationWillEnterForegroundNotification;
 extern NSString* WebUIApplicationDidBecomeActiveNotification;
+extern NSString* WebUIApplicationDidEnterBackgroundNotification;
 #endif
 
 namespace WebCore {
 
-class MediaSessionManageriOS : public MediaSessionManager {
+class MediaSessionManageriOS : public PlatformMediaSessionManager {
 public:
     virtual ~MediaSessionManageriOS();
 
-private:
-    friend class MediaSessionManager;
+    void externalOutputDeviceAvailableDidChange();
+    virtual bool hasWirelessTargetsAvailable() override;
 
-    virtual void sessionWillBeginPlayback(MediaSession&) override;
-    virtual void sessionWillEndPlayback(MediaSession&) override;
+private:
+    friend class PlatformMediaSessionManager;
+
+    MediaSessionManageriOS();
+
+    virtual bool sessionWillBeginPlayback(PlatformMediaSession&) override;
+    virtual void sessionWillEndPlayback(PlatformMediaSession&) override;
     
     void updateNowPlayingInfo();
     
     virtual void resetRestrictions() override;
 
-#if ENABLE(IOS_AIRPLAY)
-    virtual bool hasWirelessTargetsAvailable() override;
-    virtual void startMonitoringAirPlayRoutes() override;
-    virtual void stopMonitoringAirPlayRoutes() override;
-#endif
+    virtual void configureWireLessTargetMonitoring() override;
 
-    MediaSessionManageriOS();
+    virtual bool sessionCanLoadMedia(const PlatformMediaSession&) const override;
+    
     RetainPtr<WebMediaSessionHelper> m_objcObserver;
 };
 

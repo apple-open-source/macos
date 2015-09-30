@@ -31,7 +31,7 @@
 #include "TextIterator.h"
 #include "WebKitAccessibleWrapperAtk.h"
 #include <wtf/NeverDestroyed.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -78,6 +78,14 @@ void AXObjectCache::attachWrapper(AccessibilityObject* obj)
 
     // Don't emit the signal when the actual object being added is not going to be exposed.
     if (obj->accessibilityIsIgnoredByDefault())
+        return;
+
+    // Don't emit the signal if the object being added is not -- or not yet -- rendered,
+    // which can occur in nested iframes. In these instances we don't want to ignore the
+    // child. But if an assistive technology is listening, AT-SPI2 will attempt to create
+    // and cache the state set for the child upon emission of the signal. If the object
+    // has not yet been rendered, this will result in a crash.
+    if (!obj->renderer())
         return;
 
     // Don't emit the signal for objects whose parents won't be exposed directly.
@@ -133,21 +141,19 @@ static void notifyChildrenSelectionChange(AccessibilityObject* object)
 
     // Only support HTML select elements so far (ARIA selectors not supported).
     Node* node = object->node();
-    if (!node || !isHTMLSelectElement(node))
+    if (!is<HTMLSelectElement>(node))
         return;
 
     // Emit signal from the listbox's point of view first.
     g_signal_emit_by_name(object->wrapper(), "selection-changed");
 
     // Find the item where the selection change was triggered from.
-    HTMLSelectElement* select = toHTMLSelectElement(node);
-    if (!select)
-        return;
-    int changedItemIndex = select->activeSelectionStartListIndex();
+    HTMLSelectElement& select = downcast<HTMLSelectElement>(*node);
+    int changedItemIndex = select.activeSelectionStartListIndex();
 
     AccessibilityObject* listObject = getListObject(object);
     if (!listObject) {
-        oldListObject.get() = 0;
+        oldListObject.get() = nullptr;
         return;
     }
 
@@ -160,10 +166,10 @@ static void notifyChildrenSelectionChange(AccessibilityObject* object)
     // further comparisons make sense. Otherwise, just reset
     // oldFocusedObject so it won't be taken into account.
     if (oldListObject.get() != listObject)
-        oldFocusedObject.get() = 0;
+        oldFocusedObject.get() = nullptr;
 
-    AtkObject* axItem = item ? item->wrapper() : 0;
-    AtkObject* axOldFocusedObject = oldFocusedObject.get() ? oldFocusedObject.get()->wrapper() : 0;
+    AtkObject* axItem = item ? item->wrapper() : nullptr;
+    AtkObject* axOldFocusedObject = oldFocusedObject.get() ? oldFocusedObject.get()->wrapper() : nullptr;
 
     // Old focused object just lost focus, so emit the events.
     if (axOldFocusedObject && axItem != axOldFocusedObject) {
@@ -175,8 +181,12 @@ static void notifyChildrenSelectionChange(AccessibilityObject* object)
     if (axItem) {
         bool isSelected = item->isSelected();
         atk_object_notify_state_change(axItem, ATK_STATE_SELECTED, isSelected);
-        g_signal_emit_by_name(axItem, "focus-event", isSelected);
-        atk_object_notify_state_change(axItem, ATK_STATE_FOCUSED, isSelected);
+        // When the selection changes in a collapsed widget such as a combo box
+        // whose child menu is not showing, that collapsed widget retains focus.
+        if (!object->isCollapsed()) {
+            g_signal_emit_by_name(axItem, "focus-event", isSelected);
+            atk_object_notify_state_change(axItem, ATK_STATE_FOCUSED, isSelected);
+        }
     }
 
     // Update pointers to the previously involved objects.
@@ -192,14 +202,15 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* coreObject, AX
 
     switch (notification) {
     case AXCheckedStateChanged:
-        if (!coreObject->isCheckboxOrRadio())
+        if (!coreObject->isCheckboxOrRadio() && !coreObject->isSwitch())
             return;
         atk_object_notify_state_change(axObject, ATK_STATE_CHECKED, coreObject->isChecked());
         break;
 
     case AXSelectedChildrenChanged:
     case AXMenuListValueChanged:
-        if (notification == AXMenuListValueChanged && coreObject->isMenuList()) {
+        // Accessible focus claims should not be made if the associated widget is not focused.
+        if (notification == AXMenuListValueChanged && coreObject->isMenuList() && coreObject->isFocused()) {
             g_signal_emit_by_name(axObject, "focus-event", true);
             atk_object_notify_state_change(axObject, ATK_STATE_FOCUSED, true);
         }
@@ -257,11 +268,14 @@ void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject* obje
     // Select the right signal to be emitted
     CString detail;
     switch (textChange) {
-    case AXObjectCache::AXTextInserted:
+    case AXTextInserted:
         detail = "text-insert";
         break;
-    case AXObjectCache::AXTextDeleted:
+    case AXTextDeleted:
         detail = "text-remove";
+        break;
+    case AXTextAttributesChanged:
+        detail = "text-attributes-changed";
         break;
     }
 

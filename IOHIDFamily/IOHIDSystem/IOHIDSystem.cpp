@@ -671,9 +671,12 @@ struct IOHIDSystem::ExpansionData
     // async delayed notifications
     IOLock                  *delayedNotificationLock;
     OSArray                 *delayedNotificationArray;
-    IOTimerEventSource      *delayedNotificationSource;
+    thread_call_t           delayedNotificationThread;
     
     OSDictionary            *senderIDDictionary;
+    
+    UInt32                  onScreenPinMask;
+    IOGBounds               onScreenBounds[EV_MAX_SCREENS];
 };
 
 #define _cursorHelper               (_privateData->cursorHelper)
@@ -712,9 +715,13 @@ struct IOHIDSystem::ExpansionData
 
 #define _delayedNotificationLock    (_privateData->delayedNotificationLock)
 #define _delayedNotificationArray   (_privateData->delayedNotificationArray)
-#define _delayedNotificationSource  (_privateData->delayedNotificationSource)
+#define _delayedNotificationThread  (_privateData->delayedNotificationThread)
+
 
 #define _senderIDDictionary         (_privateData->senderIDDictionary)
+
+#define _onScreenBounds             (_privateData->onScreenBounds)
+#define _onScreenPinMask            (_privateData->onScreenPinMask)
 
 enum {
     kScrollDirectionInvalid = 0,
@@ -900,18 +907,19 @@ bool IOHIDSystem::start(IOService * provider)
      */
     workLoop = IOHIDWorkLoop::workLoop();
     cmdGate = IOCommandGate::commandGate(this);
-    periodicES = IOTimerEventSource::timerEventSource(this, (IOTimerEventSource::Action) &_periodicEvents );
+    periodicES = IOTimerEventSource::timerEventSource(this, (IOTimerEventSource::Action) &_periodicEvents);
     eventConsumerES = IOInterruptEventSource::interruptEventSource(this, (IOInterruptEventSource::Action) &doKickEventConsumer);
     keyboardEQES = IOInterruptEventSource::interruptEventSource(this, (IOInterruptEventSource::Action) &doProcessKeyboardEQ);
-    _delayedNotificationSource = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDSystem::doProcessNotifications));
     
-    require(workLoop && cmdGate && periodicES && eventConsumerES && keyboardEQES && _delayedNotificationSource, exit_early);
+    require(workLoop && cmdGate && periodicES && eventConsumerES && keyboardEQES, exit_early);
     
     require_noerr(workLoop->addEventSource(cmdGate), exit_early);
     require_noerr(workLoop->addEventSource(periodicES), exit_early);
     require_noerr(workLoop->addEventSource(eventConsumerES), exit_early);
     require_noerr(workLoop->addEventSource(keyboardEQES), exit_early);
-    require_noerr(workLoop->addEventSource(_delayedNotificationSource), exit_early);
+  
+    _delayedNotificationThread = thread_call_allocate( OSMemberFunctionCast(thread_call_func_t, this, &IOHIDSystem::doProcessNotifications), this);
+    require(_delayedNotificationThread, exit_early);
     
     publishNotify = addMatchingNotification(gIOPublishNotification,
                                             matchingDevice,
@@ -1082,7 +1090,7 @@ bool IOHIDSystem::genericNotificationHandler(void * handler,
 {
     bool result = false;
 
-    if (handler && newService && _delayedNotificationSource) {
+    if (handler && newService) {
         IOHIDSystem_notificationData    rawData = {(IOCommandGate::Action)handler, newService};
         OSData                          *data = OSData::withBytes(&rawData, sizeof(rawData));
 
@@ -1090,10 +1098,11 @@ bool IOHIDSystem::genericNotificationHandler(void * handler,
             newService->retain();
             IOLockLock(_delayedNotificationLock);
             _delayedNotificationArray->setObject(data);
-            retain(); // Retain IOHIDSystem in case it tries to go away before this notification is processed.
             IOLockUnlock(_delayedNotificationLock);
             data->release();
-            _delayedNotificationSource->setTimeoutUS(1);
+
+            thread_call_enter (_delayedNotificationThread);
+
             result = true;
         }
     }
@@ -1101,10 +1110,7 @@ bool IOHIDSystem::genericNotificationHandler(void * handler,
     return result;
 }
 
-void IOHIDSystem::doProcessNotifications(IOTimerEventSource *sender __unused)
-{
-    bool reschedule = false;
-    
+void IOHIDSystem::doProcessNotifications() {
     while (_delayedNotificationArray->getCount() > 0) {
         // retrieve the first item from the queue
         IOLockLock(_delayedNotificationLock);
@@ -1118,18 +1124,63 @@ void IOHIDSystem::doProcessNotifications(IOTimerEventSource *sender __unused)
         // process the notification
         if (notificationData) {
             const IOHIDSystem_notificationData *data = (const IOHIDSystem_notificationData *)notificationData->getBytesNoCopy();
-            cmdGate->runAction(data->handler, data->newService);
+            data->handler(this, data->newService, NULL, NULL, NULL);
             data->newService->release();
             notificationData->release();
-            release(); // IOHIDSystem was retained in case it tried to go away before this notification was processed.
         }
-    }
-    
-    if (reschedule) {
-        _delayedNotificationSource->setTimeoutUS(1);
     }
 }
 
+
+bool IOHIDSystem::handlePublishNotificationGated(
+                                            void * target,
+                                            IOService * newService )
+{
+    IOHIDSystem * self = (IOHIDSystem *) target;
+
+    IORegistryEntry *entry = newService;
+
+    while(entry) {
+        if (kOSBooleanTrue == entry->getProperty("MTEventSource")) {
+            self->touchEventPosters->setObject(newService);
+            break;
+        }
+        else {
+            entry = entry->getParentEntry(gIOServicePlane);
+        }
+    }
+
+    if( OSDynamicCast(IOHIDevice, newService) ||
+       OSDynamicCast(IOHIDEventService, newService)) {
+        OSNumber *altSender = OSDynamicCast(OSNumber, newService->getProperty(kIOHIDAltSenderIdKey, gIOServicePlane));
+        if (altSender) {
+            self->_privateData->senderIDDictionary->setObject((const OSSymbol *)newService, altSender);
+        }
+        
+        if (self->ioHIDevices) {
+            if (self->ioHIDevices->getNextIndexOfObject(newService, 0) == (unsigned)-1)
+                self->ioHIDevices->setObject(newService);
+        }
+        
+        if (OSDynamicCast(IOHIPointing, newService))
+        {
+            AppendNewCachedMouseEventForService(self->cachedButtonStates, newService);
+        }
+        
+        OSArray * newSystemInfo = OSArray::withArray(self->systemInfo);
+        if ( newSystemInfo )
+        {
+            AppendNewNXSystemInfoForService(newSystemInfo, newService);
+            self->setProperty(kNXSystemInfoKey, newSystemInfo);
+            OSSafeReleaseNULL(self->systemInfo);
+            self->systemInfo = newSystemInfo;
+        }
+        
+    }
+    
+    return true;
+    
+}
 
 bool IOHIDSystem::handlePublishNotification(
             void * target,
@@ -1145,50 +1196,29 @@ bool IOHIDSystem::handlePublishNotification(
     // avoiding OSDynamicCast & dependency on graphics family
     if( newService->metaCast("IODisplayWrangler")) {
         if( !self->displayManager) {
-            self->displayManager = newService;
             self->displayState = newService->registerInterestedDriver(self);
+            self->displayManager = newService;
         }
         return true;
     }
 
-    self->attach( newService );
-
-    if( OSDynamicCast(IOHIDevice, newService) ||
-        OSDynamicCast(IOHIDEventService, newService)) {
-        OSNumber *altSender = OSDynamicCast(OSNumber, newService->getProperty(kIOHIDAltSenderIdKey, gIOServicePlane));
-        if (altSender) {
-            self->_privateData->senderIDDictionary->setObject((const OSSymbol *)newService, altSender);
-        }
-        
-        if (self->ioHIDevices) {
-            if (self->ioHIDevices->getNextIndexOfObject(newService, 0) == (unsigned)-1)
-                self->ioHIDevices->setObject(newService);
-        }
-
-        if (OSDynamicCast(IOHIPointing, newService))
-        {
-            AppendNewCachedMouseEventForService(self->cachedButtonStates, newService);
-        }
-
-        OSArray * newSystemInfo = OSArray::withArray(self->systemInfo);
-        if ( newSystemInfo )
-        {
-            AppendNewNXSystemInfoForService(newSystemInfo, newService);
-            self->setProperty(kNXSystemInfoKey, newSystemInfo);
-            OSSafeReleaseNULL(self->systemInfo);
-            self->systemInfo = newSystemInfo;
-        }
-
-        if(self->eventsOpen || OSDynamicCast(IOHIKeyboard, newService))
-            self->registerEventSource( newService );
+    if (self->attach( newService ) == false) {
+        return true;
     }
+  
+    self->cmdGate->runAction((IOCommandGate::Action)handlePublishNotificationGated, newService);
 
+    if( OSDynamicCast(IOHIDevice, newService) || OSDynamicCast(IOHIDEventService, newService)) {
+        if(self->eventsOpen || OSDynamicCast(IOHIKeyboard, newService)) {
+            self->registerEventSource( newService );
+        }
+    }
     return true;
 }
 
-bool IOHIDSystem::handleTerminateNotification(
-            void * target,
-            IOService * service )
+bool IOHIDSystem::handleTerminateNotificationGated(
+                                              void * target,
+                                              IOService * service )
 {
     IOHIDSystem * self = (IOHIDSystem *) target;
     OSArray * newSystemInfo = NULL;
@@ -1251,6 +1281,14 @@ exit_early:
     return true;
 }
 
+bool IOHIDSystem::handleTerminateNotification(
+            void * target,
+            IOService * service )
+{
+    IOHIDSystem * self = (IOHIDSystem *) target;
+    return self->cmdGate->runAction((IOCommandGate::Action)handleTerminateNotificationGated, service);
+}
+
 /*
  * Free locally allocated resources, and then ourselves.
  */
@@ -1292,21 +1330,6 @@ void IOHIDSystem::free()
         keyboardEQES = 0;
     }
     
-    if (_privateData) {
-        if (_delayedNotificationSource) {
-            _delayedNotificationSource->cancelTimeout();
-            if ( workLoop )
-                workLoop->removeEventSource( _delayedNotificationSource );
-            _delayedNotificationSource->release();
-        }
-        if (_delayedNotificationLock) {
-            IOLockFree(_delayedNotificationLock);
-            _delayedNotificationLock = 0;
-        }
-        OSSafeReleaseNULL(_delayedNotificationArray);
-    }
-    
-    
     if (evScreen) IOFree( (void *)evScreen, evScreenSize );
     evScreen = (void *)0;
     evScreenSize = 0;
@@ -1331,11 +1354,25 @@ void IOHIDSystem::free()
         eventTerminateNotify->remove();
         eventTerminateNotify = 0;
     }
-    if (_displayWranglerMatching) {
-        _displayWranglerMatching->remove();
-        _displayWranglerMatching = 0;
+    if (_privateData) {
+      
+        if (_displayWranglerMatching) {
+            _displayWranglerMatching->remove();
+            _displayWranglerMatching = 0;
+        }
+
+        if (_delayedNotificationThread) {
+            thread_call_cancel_wait(_delayedNotificationThread);
+            thread_call_free (_delayedNotificationThread);
+        }
+
+        if (_delayedNotificationLock) {
+            IOLockFree(_delayedNotificationLock);
+            _delayedNotificationLock = 0;
+        }
+
+        OSSafeReleaseNULL(_delayedNotificationArray);
     }
-    
     OSSafeReleaseNULL(cmdGate); // gate is already closed
     OSSafeReleaseNULL(workLoop);
     OSSafeReleaseNULL(ioHIDevices);
@@ -2336,10 +2373,20 @@ void IOHIDSystem::postEvent(int           what,
     PROFILE_TRACE(7);
     if ( processKEQ )
         processKeyboardEQ(this, &ts);
+    
+    unsigned int head = evg->LLEHead;
+    unsigned int last = evg->LLELast;
+    unsigned int tail = evg->LLETail;
+    
+    if ((head >= LLEQSIZE) || (tail >= LLEQSIZE) || (last >= LLEQSIZE))
+    {
+        IOLog("postEvent: LLEventQueue corrupted %d %d %d\n", evg->LLEHead, evg->LLETail, evg->LLELast);
+        return;
+    }
 
-    NXEQElement * theHead = (NXEQElement *) &evg->lleq[evg->LLEHead];
-    NXEQElement * theLast = (NXEQElement *) &evg->lleq[evg->LLELast];
-    NXEQElement * theTail = (NXEQElement *) &evg->lleq[evg->LLETail];
+    NXEQElement * theHead = (NXEQElement *) &evg->lleq[head];
+    NXEQElement * theLast = (NXEQElement *) &evg->lleq[last];
+    NXEQElement * theTail = (NXEQElement *) &evg->lleq[tail];
     int         wereEvents;
 
     if (CMP_ABSOLUTETIME(&ts, &lastEventTime) < 0) {
@@ -2380,7 +2427,7 @@ void IOHIDSystem::postEvent(int           what,
             theLast->event.data = *myData;
         OSSpinLockUnlock(&theLast->sema);
     }
-    else if (theTail->next != evg->LLEHead) {
+    else if (theTail->next != head) {
         /* store event in tail */
         theTail->event.type         = what;
         // <rdar://problem/12682920> Task: Switch event.service_id to use registry ID
@@ -3039,6 +3086,26 @@ void IOHIDSystem::detachEventSources()
     }
 }
 
+
+IOReturn IOHIDSystem::updateParamPropertiesGated(IOService * source) {
+
+  OSDictionary * newParams = OSDictionary::withDictionary( savedParameters );
+  if( newParams) {
+
+      // update with user settings
+      if ( OSDynamicCast(IOHIDevice, source) )
+          ((IOHIDevice *)source)->setParamProperties( newParams );
+      else if ( OSDynamicCast(IOHIDEventService, source) )
+          ((IOHIDEventService *)source)->setSystemProperties( newParams );
+
+      setProperty( kIOHIDParametersKey, newParams );
+      newParams->release();
+      savedParameters = newParams;
+  }
+
+  return kIOReturnSuccess;
+}
+
 //
 // EventSrcClient implementation
 //
@@ -3083,21 +3150,8 @@ bool IOHIDSystem::registerEventSource(IOService * source)
 
     if ( success )
     {
-
-        OSDictionary * newParams = OSDictionary::withDictionary( savedParameters );
-        if( newParams) {
-
-            // update with user settings
-            if ( OSDynamicCast(IOHIDevice, source) )
-                ((IOHIDevice *)source)->setParamProperties( newParams );
-            else if ( OSDynamicCast(IOHIDEventService, source) )
-                ((IOHIDEventService *)source)->setSystemProperties( newParams );
-
-            setProperty( kIOHIDParametersKey, newParams );
-            newParams->release();
-            savedParameters = newParams;
-        }
-
+        //Yet another gate call to protect savedParameters on registerEventSource call from handlePublishNotification
+        cmdGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDSystem::updateParamPropertiesGated),source);
     }
     else
         IOLog("%s: Seize of %s failed.\n", registryName, source->getName());
@@ -4601,8 +4655,7 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
         }
         if (keycode != UINT_MAX) {
             if (eventType == NX_KEYDOWN) {
-                sendStackShotMessage(keycode);
-                IOLog("IOHIDSystem posted stackshot event 0x%02x\n", (unsigned)keycode);
+                handle_stackshot_keychord(keycode);
             }
             return;
         }
@@ -5312,9 +5365,27 @@ void IOHIDSystem::disableContinuousCursor()
     _continuousCursor = false;
 }
 
+void IOHIDSystem::_onScreenCursorPin()
+{
+    IOGPoint p      = _cursorHelper.desktopLocation();
+    int screen      = pointToScreen(&p);
+    
+    // check if current desktop location is in a screen with clipping bounds
+    // and apply it
+    
+    require_quiet(screen != -1, exit);
+    require_quiet((((1 << screen) & _onScreenPinMask) != 0), exit);
+
+    _cursorHelper.desktopLocation().clipToRect(_onScreenBounds[screen]);
+    
+exit:
+    return;
+}
+
 void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObject * sender)
 {
     bool cursorMoved = true;
+    
     IOHID_DEBUG(kIOHIDDebugCode_SetCursorPosition, sender,
                 _cursorHelper.desktopLocation().xValue().as64(),
                 _cursorHelper.desktopLocation().yValue().as64(), 0);
@@ -5346,6 +5417,13 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
         if (cursorPinned) {
             _cursorHelper.desktopLocation().clipToRect(cursorPin);
         }
+        
+        else if (_onScreenPinMask != 0) {
+            // If the cursor is on a screen with active on-screen pin bounds
+            // clip it within those bounds
+            _onScreenCursorPin();
+        }
+        
         else {
             /* Get mask of screens on which the cursor is present */
             for (int i = 0; i < screens; i++ ) {
@@ -5477,7 +5555,12 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
                 }
             }
         }
-
+        
+        if ((newScreens != 0) && (_onScreenPinMask != 0)) {
+            // We are on a new screen now, check if there an on-screen bounds to clip to
+            _onScreenCursorPin();
+        }
+        
         /* Catch the no-move case */
         if ((_cursorHelper.desktopLocation().xValue().asFixed24x8() == evg->desktopCursorFixed.x) &&
             (_cursorHelper.desktopLocation().yValue().asFixed24x8() == evg->desktopCursorFixed.y) &&
@@ -5680,7 +5763,7 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
                     || (false == newConnect->attach( this ))
                     || (false == newConnect->start( this ))
                     || ((type == kIOHIDServerConnectType)
-                        && (err = evOpen()))
+                        && (err = evOpen())) 
                 )) {
             newConnect->detach( this );
             newConnect->release();
@@ -5864,18 +5947,62 @@ IOReturn IOHIDSystem::setContinuousCursorEnableGated(void* p1)
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDSystem::extSetBounds( IOGBounds * bounds )
+IOReturn IOHIDSystem::setBounds( IOGBounds * bounds, IOGPoint * screenPoint, bool onScreen )
 {
+    int         screen          = -1;
+    IOReturn    status          = kIOReturnBadArgument;
+    UInt32      screenMask      = 0;
+    
     if (mac_iokit_check_hid_control(kauth_cred_get()))
         return kIOReturnNotPermitted;
+    
+    if (onScreen) {
+        require(bounds, exit);
+        require(screenPoint, exit);
+  
+        screen = pointToScreen(screenPoint);
+        require(screen != -1, exit);
+        
+        screenMask = (1 << screen);
 
-    if( bounds->minx != bounds->maxx) {
-        cursorPin = *bounds;
-        cursorPinned = true;
-    } else
-        cursorPinned = false;
+        if( bounds->minx != bounds->maxx) {
+            _onScreenBounds[screen] = *bounds;
+            _onScreenPinMask |= screenMask;
+        } else {
+            _onScreenBounds[screen].maxx = 0;
+            _onScreenBounds[screen].maxy = 0;
+            _onScreenPinMask &= ~screenMask;
+        }
+    }
+    else {
+        if( bounds->minx != bounds->maxx) {
+            cursorPin = *bounds;
+            cursorPinned = true;
+        } else {
+            cursorPinned = false;
+        }
+    }
+    
+    status = kIOReturnSuccess;
+    
+exit:
+    return( status );
+}
 
-    return( kIOReturnSuccess );
+IOReturn IOHIDSystem::extSetBounds(void* param,void*,void*,void*,void*,void*)
+{
+    IOGBounds * bounds = (IOGBounds *) param;
+    return setBounds(bounds, NULL, false);
+}
+
+IOReturn IOHIDSystem::extSetOnScreenBounds(void * param, void*, void*, void*, void*, void*)
+{
+    u_int16_t * data = (u_int16_t *)param;
+    
+    IOGPoint  point  = {.x = data[0], .y = data[1]};
+    IOGBounds bounds = {.minx = data[2], .miny = data[3], .maxx = data[4], .maxy = data[5]};
+    
+    return setBounds(&bounds, &point, true);
 }
 
 IOReturn IOHIDSystem::extPostEvent(void*p1,void*p2,void*,void*,void*,void*)
@@ -6946,6 +7073,8 @@ IOReturn IOHIDSystem::doSetParamPropertiesPost(IOHIDSystem *self, void * arg0)
     return self->setParamPropertiesPostGated((OSDictionary *)arg0);
 }
 
+
+
 IOReturn IOHIDSystem::setParamPropertiesPostGated( OSDictionary * dict)
 {
     if ( dict->getObject(kIOHIDTemporaryParametersKey) == NULL ) {
@@ -6998,7 +7127,7 @@ IOReturn IOHIDSystem::setParamPropertiesPostGated( OSDictionary * dict)
 UInt8 IOHIDSystem::getSubtypeForSender(OSObject * sender)
 {
     UInt8 subtype = NX_SUBTYPE_DEFAULT;
-    if (touchEventPosters->containsObject(sender)) {
+    if ( touchEventPosters->containsObject(sender)) {
         subtype = NX_SUBTYPE_MOUSE_TOUCH;
     }
     return subtype;
@@ -7029,20 +7158,7 @@ void IOHIDSystem::updateScrollEventForSender(OSObject * sender, NXEventData * ev
 
 bool IOHIDSystem::attach( IOService * provider )
 {
-    IORegistryEntry *entry = provider;
-
-    if (!super::attach(provider))   return false;
-    while(entry) {
-        if (kOSBooleanTrue == entry->getProperty("MTEventSource")) {
-            touchEventPosters->setObject(provider);
-            entry = 0;
-        }
-        else {
-            entry = entry->getParentEntry(gIOServicePlane);
-        }
-    }
-
-    return true;
+    return super::attach(provider);
 }
 
 void IOHIDSystem::detach( IOService * provider )

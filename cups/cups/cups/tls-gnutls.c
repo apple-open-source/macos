@@ -1,9 +1,9 @@
 /*
- * "$Id: tls-gnutls.c 12183 2014-10-01 13:02:28Z msweet $"
+ * "$Id: tls-gnutls.c 12673 2015-05-28 00:13:57Z msweet $"
  *
  * TLS support code for CUPS using GNU TLS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2015 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -36,6 +36,7 @@ static char		*tls_keypath = NULL;
 					/* Server cert keychain path */
 static _cups_mutex_t	tls_mutex = _CUPS_MUTEX_INITIALIZER;
 					/* Mutex for keychain/certs */
+static int		tls_options = -1;/* Options for TLS connections */
 
 
 /*
@@ -405,6 +406,9 @@ httpCredentialsGetTrust(
 
   if ((cert = http_gnutls_create_credential((http_credential_t *)cupsArrayFirst(credentials))) == NULL)
     return (HTTP_TRUST_UNKNOWN);
+
+  if (cg->any_root < 0)
+    _cupsSetDefaults();
 
  /*
   * Look this common name up in the default keychains...
@@ -1002,6 +1006,17 @@ _httpTLSSetCredentials(http_t *http)	/* I - Connection to server */
 
 
 /*
+ * '_httpTLSSetOptions()' - Set TLS protocol and cipher suite options.
+ */
+
+void
+_httpTLSSetOptions(int options)		/* I - Options */
+{
+  tls_options = options;
+}
+
+
+/*
  * '_httpTLSStart()' - Set up SSL/TLS support on a connection.
  */
 
@@ -1013,9 +1028,18 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
   int			status;		/* Status of handshake */
   gnutls_certificate_credentials_t *credentials;
 					/* TLS credentials */
+  char			priority_string[1024];
+					/* Priority string */
 
 
-  DEBUG_printf(("7_httpTLSStart(http=%p)", http));
+  DEBUG_printf(("3_httpTLSStart(http=%p)", http));
+
+  if (tls_options < 0)
+  {
+    DEBUG_puts("4_httpTLSStart: Setting defaults.");
+    _cupsSetDefaults();
+    DEBUG_printf(("4_httpTLSStart: tls_options=%x", tls_options));
+  }
 
   if (http->mode == _HTTP_MODE_SERVER && !tls_keypath)
   {
@@ -1094,7 +1118,6 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
     char	crtfile[1024],		/* Certificate file */
 		keyfile[1024];		/* Private key file */
     int		have_creds = 0;		/* Have credentials? */
-
 
     if (http->fields[HTTP_FIELD_HOST][0])
     {
@@ -1184,6 +1207,32 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
 
     return (-1);
   }
+
+  strlcpy(priority_string, "NORMAL", sizeof(priority_string));
+
+  if (tls_options & _HTTP_TLS_DENY_TLS10)
+    strlcat(priority_string, ":+VERS-TLS-ALL:-VERS-TLS1.0:-VERS-SSL3.0", sizeof(priority_string));
+  else if (tls_options & _HTTP_TLS_ALLOW_SSL3)
+    strlcat(priority_string, ":+VERS-TLS-ALL", sizeof(priority_string));
+  else
+    strlcat(priority_string, ":+VERS-TLS-ALL:-VERS-SSL3.0", sizeof(priority_string));
+
+  if (!(tls_options & _HTTP_TLS_ALLOW_RC4))
+    strlcat(priority_string, ":-ARCFOUR-128", sizeof(priority_string));
+
+  if (!(tls_options & _HTTP_TLS_ALLOW_DH))
+    strlcat(priority_string, ":!ANON-DH", sizeof(priority_string));
+
+#ifdef HAVE_GNUTLS_PRIORITY_SET_DIRECT
+  gnutls_priority_set_direct(http->tls, priority_string, NULL);
+
+#else
+  gnutls_priority_t priority;		/* Priority */
+
+  gnutls_priority_init(&priority, priority_string, NULL);
+  gnutls_priority_set(http->tls, priority);
+  gnutls_priority_deinit(priority);
+#endif /* HAVE_GNUTLS_PRIORITY_SET_DIRECT */
 
   gnutls_transport_set_ptr(http->tls, (gnutls_transport_ptr_t)http);
   gnutls_transport_set_pull_function(http->tls, http_gnutls_read);
@@ -1292,5 +1341,5 @@ _httpTLSWrite(http_t     *http,		/* I - Connection to server */
 
 
 /*
- * End of "$Id: tls-gnutls.c 12183 2014-10-01 13:02:28Z msweet $".
+ * End of "$Id: tls-gnutls.c 12673 2015-05-28 00:13:57Z msweet $".
  */

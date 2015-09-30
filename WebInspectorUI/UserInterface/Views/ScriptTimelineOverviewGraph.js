@@ -23,21 +23,19 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ScriptTimelineOverviewGraph = function(recording)
+WebInspector.ScriptTimelineOverviewGraph = function(timeline)
 {
-    WebInspector.TimelineOverviewGraph.call(this, recording);
+    WebInspector.TimelineOverviewGraph.call(this, timeline);
 
-    this.element.classList.add(WebInspector.ScriptTimelineOverviewGraph.StyleClassName);
+    this.element.classList.add("script");
 
-    this._scriptTimeline = recording.timelines.get(WebInspector.TimelineRecord.Type.Script);
+    this._scriptTimeline = timeline;
     this._scriptTimeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._scriptTimelineRecordAdded, this);
 
     this._timelineRecordBars = [];
 
     this.reset();
 };
-
-WebInspector.ScriptTimelineOverviewGraph.StyleClassName = "script";
 
 WebInspector.ScriptTimelineOverviewGraph.prototype = {
     constructor: WebInspector.ScriptTimelineOverviewGraph,

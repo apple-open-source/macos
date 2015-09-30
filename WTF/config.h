@@ -29,22 +29,14 @@
 #if OS(WINDOWS)
 
 #ifndef _WIN32_WINNT
-#if defined(_M_X64) || defined(__x86_64__) 
-#define _WIN32_WINNT 0x600
-#else
-#define _WIN32_WINNT 0x0502
-#endif
+#define _WIN32_WINNT 0x601
 #endif
 
 #ifndef WINVER
-#if defined(_M_X64) || defined(__x86_64__) 
-#define WINVER 0x0600
-#else
-#define WINVER 0x0502
-#endif
+#define WINVER 0x0601
 #endif
 
-#if !COMPILER(MSVC7_OR_LOWER) && !OS(WINCE)
+#if !COMPILER(MSVC7_OR_LOWER)
 // We need to define this before the first #include of stdlib.h or it won't contain rand_s.
 #ifndef _CRT_RAND_S
 #define _CRT_RAND_S
@@ -52,8 +44,6 @@
 #endif
 
 #endif
-
-#define WTF_CHANGES 1
 
 #ifdef __cplusplus
 #undef new

@@ -34,10 +34,12 @@
  */
 
 /* workq_kernreturn commands */
-#define WQOPS_THREAD_RETURN 4
-#define WQOPS_QUEUE_NEWSPISUPP  0x10	/* this is to check for newer SPI support */
-#define WQOPS_QUEUE_REQTHREADS  0x20	/* request number of threads of a prio */
-#define WQOPS_QUEUE_REQTHREADS2 0x30	/* request a number of threads in a given priority bucket */
+#define WQOPS_THREAD_RETURN        0x04	/* parks the thread back into the kernel */
+#define WQOPS_QUEUE_NEWSPISUPP     0x10	/* this is to check for newer SPI support */
+#define WQOPS_QUEUE_REQTHREADS     0x20	/* request number of threads of a prio */
+#define WQOPS_QUEUE_REQTHREADS2    0x30	/* request a number of threads in a given priority bucket */
+#define WQOPS_THREAD_KEVENT_RETURN 0x40	/* parks the thread after delivering the passed kevent array */
+#define WQOPS_SET_EVENT_MANAGER_PRIORITY 0x80	/* max() in the provided priority in the the priority of the event manager */
 
 /* flag values for reuse field in the libc side _pthread_wqthread */
 #define	WQ_FLAG_THREAD_PRIOMASK		0x0000ffff
@@ -45,6 +47,8 @@
 #define	WQ_FLAG_THREAD_OVERCOMMIT	0x00010000	/* thread is with overcommit prio */
 #define	WQ_FLAG_THREAD_REUSE		0x00020000	/* thread is being reused */
 #define	WQ_FLAG_THREAD_NEWSPI		0x00040000	/* the call is with new SPIs */
+#define WQ_FLAG_THREAD_KEVENT       0x00080000  /* thread is response to kevent req */
+#define WQ_FLAG_THREAD_EVENT_MANAGER    0x00100000  /* event manager thread */
 
 /* These definitions are only available to the kext, to avoid bleeding constants and types across the boundary to
  * the userspace library.
@@ -71,7 +75,11 @@ enum {
 #define WORKQUEUE_LOW_PRIOQUEUE     2       /* low priority queue */
 #define WORKQUEUE_BG_PRIOQUEUE      3       /* background priority queue */
 
-#define WORKQUEUE_NUM_BUCKETS 6
+#define WORKQUEUE_NUM_BUCKETS 7
+
+// Sometimes something gets passed a bucket number and we need a way to express
+// that it's actually the event manager.  Use the (n+1)th bucket for that.
+#define WORKQUEUE_EVENT_MANAGER_BUCKET (WORKQUEUE_NUM_BUCKETS-1)
 
 /* wq_max_constrained_threads = max(64, N_CPU * WORKQUEUE_CONSTRAINED_FACTOR)
  * This used to be WORKQUEUE_NUM_BUCKETS + 1 when NUM_BUCKETS was 4, yielding
@@ -101,6 +109,7 @@ struct threadlist {
 #define TH_LIST_BUSY		0x10
 #define TH_LIST_NEED_WAKEUP	0x20
 #define TH_LIST_CONSTRAINED	0x40
+#define TH_LIST_EVENT_MGR_SCHED_PRI	0x80
 
 
 struct workqueue {
@@ -108,8 +117,8 @@ struct workqueue {
 	vm_map_t	wq_map;
 	task_t		wq_task;
 	thread_call_t	wq_atimer_call;
-	int 		wq_flags;
-	int			wq_lflags;
+	int 		wq_flags;  // updated atomically
+	int			wq_lflags; // protected by wqueue lock
 	uint64_t 	wq_thread_yielded_timestamp;
 	uint32_t	wq_thread_yielded_count;
 	uint32_t	wq_timer_interval;
@@ -118,15 +127,28 @@ struct workqueue {
 	uint32_t	wq_constrained_threads_scheduled;
 	uint32_t	wq_nthreads;
 	uint32_t	wq_thidlecount;
-	uint32_t	wq_reqcount;
 	TAILQ_HEAD(, threadlist) wq_thrunlist;
 	TAILQ_HEAD(, threadlist) wq_thidlelist;
+
+	/* Counters for how many requests we have outstanding.  The invariants here:
+	 *   - reqcount == SUM(requests) + (event manager ? 1 : 0)
+	 *   - SUM(ocrequests) + SUM(kevent_requests) + SUM(kevent_ocrequests) <= SUM(requests)
+	 *   - # of constrained requests is difference between quantities above
+	 * i.e. a kevent+overcommit request will incrument reqcount, requests and 
+	 * kevent_ocrequests only.
+	 */
+	uint32_t	wq_reqcount;
 	uint16_t	wq_requests[WORKQUEUE_NUM_BUCKETS];
 	uint16_t	wq_ocrequests[WORKQUEUE_NUM_BUCKETS];
+	uint16_t	wq_kevent_requests[WORKQUEUE_NUM_BUCKETS];
+	uint16_t	wq_kevent_ocrequests[WORKQUEUE_NUM_BUCKETS];
+
 	uint16_t	wq_reqconc[WORKQUEUE_NUM_BUCKETS];	  		/* requested concurrency for each priority level */
 	uint16_t	wq_thscheduled_count[WORKQUEUE_NUM_BUCKETS];
 	uint32_t	wq_thactive_count[WORKQUEUE_NUM_BUCKETS] __attribute__((aligned(4))); /* must be uint32_t since we OSAddAtomic on these */
-	uint64_t	wq_lastblocked_ts[WORKQUEUE_NUM_BUCKETS] __attribute__((aligned(8)));
+	uint64_t	wq_lastblocked_ts[WORKQUEUE_NUM_BUCKETS] __attribute__((aligned(8))); /* XXX: why per bucket? */
+
+	uint32_t wq_event_manager_priority;
 };
 #define WQ_LIST_INITED		0x01
 #define WQ_ATIMER_RUNNING	0x02
@@ -136,7 +158,6 @@ struct workqueue {
 #define WQL_ATIMER_WAITING	0x02
 #define WQL_EXCEEDED_CONSTRAINED_THREAD_LIMIT    0x04
 #define WQL_EXCEEDED_TOTAL_THREAD_LIMIT          0x08
-
 
 #define WQ_VECT_SET_BIT(vector, bit)	\
 	vector[(bit) / 32] |= (1 << ((bit) % 32))

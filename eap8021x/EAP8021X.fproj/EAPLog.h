@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,7 +43,7 @@ void
 EAPLogSetVerbose(bool verbose);
 
 void
-EAPLog(int level, CFStringRef format, ...);
+EAPLog(int level, CFStringRef format, ...) CF_FORMAT_FUNCTION(2, 3);
 
 INLINE const char *
 EAPLogFileName(const char * file)

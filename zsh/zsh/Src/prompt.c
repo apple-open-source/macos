@@ -183,7 +183,7 @@ promptexpand(char *s, int ns, char *rs, char *Rs, unsigned int *txtchangep)
 	int oldval = lastval;
 
 	s = dupstring(s);
-	if (!parsestr(s))
+	if (!parsestr(&s))
 	    singsub(&s);
 	/*
 	 * We don't need the special Nularg hack here and we're
@@ -192,8 +192,11 @@ promptexpand(char *s, int ns, char *rs, char *Rs, unsigned int *txtchangep)
 	if (*s == Nularg && s[1] == '\0')
 	    *s = '\0';
 
-	/* Ignore errors and status change in prompt substitution */
-	errflag = olderr;
+	/*
+	 * Ignore errors and status change in prompt substitution.
+	 * However, keep any user interrupt error that occurred.
+	 */
+	errflag = olderr | (errflag & ERRFLAG_INT);
 	lastval = oldval;
     }
 
@@ -270,6 +273,8 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
     char *ss, *hostnam;
     int t0, arg, test, sep, j, numjobs;
     struct tm *tm;
+    struct timezone dummy_tz;
+    struct timeval tv;
     time_t timet;
     Nameddir nd;
 
@@ -365,8 +370,21 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		case 'l':
 		    *bv->bp = '\0';
 		    countprompt(bv->bufline, &t0, 0, 0);
+		    if (minus)
+			t0 = zterm_columns - t0;
 		    if (t0 >= arg)
 			test = 1;
+		    break;
+		case 'e':
+		    {
+			Funcstack fsptr = funcstack;
+			test = arg;
+			while (fsptr && test > 0) {
+			    test--;
+			    fsptr = fsptr->prev;
+			}
+			test = !test;
+		    }
 		    break;
 		case 'L':
 		    if (shlvl >= arg)
@@ -558,6 +576,14 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		break;
 	    case '<':
 	    case '>':
+		/* Test (minus) here so -0 means "at the right margin" */
+		if (minus) {
+		    *bv->bp = '\0';
+		    countprompt(bv->bufline, &t0, 0, 0);
+		    arg = zterm_columns - t0 + arg;
+		    if (arg <= 0)
+			arg = 1;
+		}
 		if (!prompttrunc(arg, *bv->fm, doprint, endchar, txtchangep))
 		    return *bv->fm;
 		break;
@@ -636,8 +662,8 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 			tmfmt = "%l:%M%p";
 			break;
 		    }
-		    timet = time(NULL);
-		    tm = localtime(&timet);
+		    gettimeofday(&tv, &dummy_tz);
+		    tm = localtime(&tv.tv_sec);
 		    /*
 		     * Hack because strftime won't say how
 		     * much space it actually needs.  Try to add it
@@ -647,7 +673,7 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		     */
 		    for(j = 0, t0 = strlen(tmfmt)*8; j < 3; j++, t0*=2) {
 			addbufspc(t0);
-			if (ztrftime(bv->bp, t0, tmfmt, tm) >= 0)
+			if (ztrftime(bv->bp, t0, tmfmt, tm, tv.tv_usec) >= 0)
 			    break;
 		    }
 		    /* There is enough room for this because addbufspc(t0)
@@ -774,6 +800,19 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		if(bv->Rstring)
 		    stradd(bv->Rstring);
 		break;
+	    case 'e':
+	    {
+		int depth = 0;
+		Funcstack fsptr = funcstack;
+		while (fsptr) {
+		    depth++;
+		    fsptr = fsptr->prev;
+		}
+		addbufspc(DIGBUFSIZE);
+		sprintf(bv->bp, "%d", depth);
+		bv->bp += strlen(bv->bp);
+		break;
+	    }
 	    case 'I':
 		if (funcstack && funcstack->tp != FS_SOURCE &&
 		    !IN_EVAL_TRAP()) {
@@ -1172,7 +1211,7 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar,
 	    addbufspc(1);
 	    *bv->bp++ = '<';
 	}
-	ptr = bv->buf + w;		/* addbv->bufspc() may have realloc()'d bv->buf */
+	ptr = bv->buf + w;	/* addbufspc() may have realloc()'d bv->buf */
 	/*
 	 * Now:
 	 *   bv->buf is the start of the output prompt buffer
@@ -1187,7 +1226,7 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar,
 	bv->trunccount = bv->dontcount;
 	putpromptchar(doprint, endchar, txtchangep);
 	bv->trunccount = 0;
-	ptr = bv->buf + w;		/* putpromptchar() may have realloc()'d */
+	ptr = bv->buf + w;	/* putpromptchar() may have realloc()'d */
 	*bv->bp = '\0';
 	/*
 	 * Now:
@@ -1280,12 +1319,11 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar,
 			     */
 			    for (;;) {
 				*ptr++ = *fulltextptr;
-				if (*fulltextptr == Outpar ||
-				    *fulltextptr == '\0')
+				if (*fulltextptr == '\0' ||
+				    *fulltextptr++ == Outpar)
 				    break;
-				if (*fulltextptr == Nularg)
+				if (fulltextptr[-1] == Nularg)
 				    remw--;
-				fulltextptr++;
 			    }
 			} else {
 #ifdef MULTIBYTE_SUPPORT
@@ -1361,12 +1399,11 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar,
 			if (*skiptext == Inpar) {
 			    /* see comment on left truncation above */
 			    for (;;) {
-				if (*skiptext == Outpar ||
-				    *skiptext == '\0')
+				if (*skiptext == '\0' ||
+				    *skiptext++ == Outpar)
 				    break;
-				if (*skiptext == Nularg)
+				if (skiptext[-1] == Nularg)
 				    maxwidth--;
-				skiptext++;
 			    }
 			} else {
 #ifdef MULTIBYTE_SUPPORT
@@ -1473,7 +1510,7 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar,
 	/* Now we have to trick it into matching endchar again */
 	bv->fm--;
     } else {
-	if (*bv->fm != ']')
+	if (*bv->fm != endchar)
 	    bv->fm++;
 	while(*bv->fm && *bv->fm != truncchar) {
 	    if (*bv->fm == '\\' && bv->fm[1])

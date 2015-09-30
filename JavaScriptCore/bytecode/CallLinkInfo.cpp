@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,28 +29,36 @@
 #include "DFGOperations.h"
 #include "DFGThunks.h"
 #include "JSCInlines.h"
+#include "Repatch.h"
 #include "RepatchBuffer.h"
+#include <wtf/ListDump.h>
 #include <wtf/NeverDestroyed.h>
 
 #if ENABLE(JIT)
 namespace JSC {
 
+void CallLinkInfo::clearStub()
+{
+    if (!stub())
+        return;
+
+    m_stub->clearCallNodesFor(this);
+    m_stub = nullptr;
+}
+
 void CallLinkInfo::unlink(RepatchBuffer& repatchBuffer)
 {
-    ASSERT(isLinked());
+    if (!isLinked()) {
+        // We could be called even if we're not linked anymore because of how polymorphic calls
+        // work. Each callsite within the polymorphic call stub may separately ask us to unlink().
+        RELEASE_ASSERT(!isOnList());
+        return;
+    }
     
-    if (Options::showDisassembly())
-        dataLog("Unlinking call from ", callReturnLocation, " to ", pointerDump(repatchBuffer.codeBlock()), "\n");
-
-    repatchBuffer.revertJumpReplacementToBranchPtrWithPatch(RepatchBuffer::startOfBranchPtrWithPatchOnRegister(hotPathBegin), static_cast<MacroAssembler::RegisterID>(calleeGPR), 0);
-    repatchBuffer.relink(
-        callReturnLocation,
-        repatchBuffer.codeBlock()->vm()->getCTIStub(linkThunkGeneratorFor(
-            (callType == Construct || callType == ConstructVarargs)? CodeForConstruct : CodeForCall,
-            isFTL ? MustPreserveRegisters : RegisterPreservationNotRequired)).code());
-    hasSeenShouldRepatch = false;
-    callee.clear();
-    stub.clear();
+    unlinkFor(
+        repatchBuffer, *this,
+        (m_callType == Construct || m_callType == ConstructVarargs)? CodeForConstruct : CodeForCall,
+        m_isFTL ? MustPreserveRegisters : RegisterPreservationNotRequired);
 
     // It will be on a list if the callee has a code block.
     if (isOnList())
@@ -59,31 +67,41 @@ void CallLinkInfo::unlink(RepatchBuffer& repatchBuffer)
 
 void CallLinkInfo::visitWeak(RepatchBuffer& repatchBuffer)
 {
+    auto handleSpecificCallee = [&] (JSFunction* callee) {
+        if (Heap::isMarked(callee->executable()))
+            m_hasSeenClosure = true;
+        else
+            m_clearedByGC = true;
+    };
+    
     if (isLinked()) {
-        if (stub) {
-            if (!Heap::isMarked(stub->structure())
-                || !Heap::isMarked(stub->executable())) {
+        if (stub()) {
+            if (!stub()->visitWeak(repatchBuffer)) {
                 if (Options::verboseOSR()) {
                     dataLog(
                         "Clearing closure call from ", *repatchBuffer.codeBlock(), " to ",
-                        stub->executable()->hashFor(specializationKind()),
-                        ", stub routine ", RawPointer(stub.get()), ".\n");
+                        listDump(stub()->variants()), ", stub routine ", RawPointer(stub()),
+                        ".\n");
                 }
                 unlink(repatchBuffer);
+                m_clearedByGC = true;
             }
-        } else if (!Heap::isMarked(callee.get())) {
+        } else if (!Heap::isMarked(m_callee.get())) {
             if (Options::verboseOSR()) {
                 dataLog(
                     "Clearing call from ", *repatchBuffer.codeBlock(), " to ",
-                    RawPointer(callee.get()), " (",
-                    callee.get()->executable()->hashFor(specializationKind()),
+                    RawPointer(m_callee.get()), " (",
+                    m_callee.get()->executable()->hashFor(specializationKind()),
                     ").\n");
             }
+            handleSpecificCallee(m_callee.get());
             unlink(repatchBuffer);
         }
     }
-    if (!!lastSeenCallee && !Heap::isMarked(lastSeenCallee.get()))
-        lastSeenCallee.clear();
+    if (haveLastSeenCallee() && !Heap::isMarked(lastSeenCallee())) {
+        handleSpecificCallee(lastSeenCallee());
+        clearLastSeenCallee();
+    }
 }
 
 CallLinkInfo& CallLinkInfo::dummy()

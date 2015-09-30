@@ -27,7 +27,7 @@
 #define WebNotification_h
 
 #include "APIObject.h"
-#include "WebSecurityOrigin.h"
+#include "APISecurityOrigin.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
@@ -43,9 +43,9 @@ namespace WebKit {
 
 class WebNotification : public API::ObjectImpl<API::Object::Type::Notification> {
 public:
-    static PassRefPtr<WebNotification> create(const String& title, const String& body, const String& iconURL, const String& tag, const String& lang, const String& dir, const String& originString, uint64_t notificationID)
+    static Ref<WebNotification> create(const String& title, const String& body, const String& iconURL, const String& tag, const String& lang, const String& dir, const String& originString, uint64_t notificationID)
     {
-        return adoptRef(new WebNotification(title, body, iconURL, tag, lang, dir, originString, notificationID));
+        return adoptRef(*new WebNotification(title, body, iconURL, tag, lang, dir, originString, notificationID));
     }
 
     const String& title() const { return m_title; }
@@ -54,7 +54,7 @@ public:
     const String& tag() const { return m_tag; }
     const String& lang() const { return m_lang; }
     const String& dir() const { return m_dir; }
-    WebSecurityOrigin* origin() const { return m_origin.get(); }
+    API::SecurityOrigin* origin() const { return m_origin.get(); }
     
     uint64_t notificationID() const { return m_notificationID; }
 
@@ -67,7 +67,7 @@ private:
     String m_tag;
     String m_lang;
     String m_dir;
-    RefPtr<WebSecurityOrigin> m_origin;
+    RefPtr<API::SecurityOrigin> m_origin;
     uint64_t m_notificationID;
 };
 

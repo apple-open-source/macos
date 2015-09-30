@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -104,7 +104,8 @@ S_open_bootp_socket(uint16_t client_port)
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
-	perror("socket");
+	my_log(LOG_ERR, "socket failed, %s",
+	       strerror(errno));
 	return (-1);
     }
     bzero((char *)&me, sizeof(me));
@@ -231,7 +232,7 @@ bootp_session_delayed_close(void * arg1, void * arg2, void * arg3)
 	       "bootp_session_delayed_close(): called when socket in use");
 	return;
     }
-    my_log(LOG_DEBUG, 
+    my_log(LOG_INFO, 
 	   "bootp_session_delayed_close(): closing bootp socket %d",
 	   FDCalloutGetFD(session->read_fd));
 
@@ -254,13 +255,13 @@ bootp_client_close_socket(bootp_client_t * client)
 	return;
     }
     session->read_fd_refcount--;
-    my_log(LOG_DEBUG, "bootp_client_close_socket(%s): refcount %d",
+    my_log(LOG_INFO, "bootp_client_close_socket(%s): refcount %d",
 	   if_name(client->if_p), session->read_fd_refcount);
     client->fd_open = FALSE;
     if (session->read_fd_refcount == 0) {
 	struct timeval tv;
 
-	my_log(LOG_DEBUG, 
+	my_log(LOG_INFO, 
 	       "bootp_client_close_socket(): scheduling delayed close");
 
 	tv.tv_sec = 1; /* close it after 1 second of non-use */
@@ -282,7 +283,7 @@ bootp_client_open_socket(bootp_client_t * client)
     }
     timer_cancel(session->timer_callout);
     session->read_fd_refcount++;
-    my_log(LOG_DEBUG, "bootp_client_open_socket (%s): refcount %d", 
+    my_log(LOG_INFO, "bootp_client_open_socket (%s): refcount %d", 
 	   if_name(client->if_p), session->read_fd_refcount);
     client->fd_open = TRUE;
     if (session->read_fd_refcount > 1) {
@@ -290,7 +291,7 @@ bootp_client_open_socket(bootp_client_t * client)
 	return (TRUE);
     }
     if (session->read_fd != NULL) {
-	my_log(LOG_DEBUG, "bootp_client_open_socket(): socket is still open");
+	my_log(LOG_INFO, "bootp_client_open_socket(): socket is still open");
     }
     else {
 	int	sockfd;
@@ -302,7 +303,7 @@ bootp_client_open_socket(bootp_client_t * client)
 		   strerror(errno));
 	    goto failed;
 	}
-	my_log(LOG_DEBUG, 
+	my_log(LOG_INFO, 
 	       "bootp_client_open_socket(): opened bootp socket %d",
 	       sockfd);
 	/* register as a reader */
@@ -405,8 +406,7 @@ bootp_client_transmit(bootp_client_t * client,
 	if (if_index != 0) {
 	    my_log(~LOG_DEBUG, 
 		   "[%s] Transmit %d byte packet dest "
-		   IP_FORMAT
-		   " scope %d\n%@",
+		   IP_FORMAT " scope %d\n%@",
 		   if_name(client->if_p), len, 
 		   IP_LIST(&dest_ip), if_index, str);
 	}
@@ -416,6 +416,15 @@ bootp_client_transmit(bootp_client_t * client,
 		   if_name(client->if_p), len, str);
 	}
 	CFRelease(str);
+    }
+    else {
+	my_log(LOG_INFO,
+	       "[%s] Transmit %d byte packet xid 0x%lx to "
+	       IP_FORMAT " [scope=%d]",
+	       if_name(client->if_p), len,
+	       ntohl(((struct dhcp *)data)->dp_xid),
+	       IP_LIST(&dest_ip),
+	       if_index);
     }
     if (session->read_fd != NULL) {
 	sockfd = FDCalloutGetFD(session->read_fd);
@@ -465,6 +474,7 @@ bootp_session_free(bootp_session_t * * session_p)
 
 static void
 bootp_session_deliver(bootp_session_t * session, const char * ifname,
+		      const struct in_addr * from_ip,
 		      void * data, int size)
 {
     bootp_receive_data_t	event;
@@ -474,21 +484,29 @@ bootp_session_deliver(bootp_session_t * session, const char * ifname,
 	return;
     }
 
+    bzero(&event, sizeof(event));
+    event.data = (struct dhcp *)data;
+    event.size = size;
+    dhcpol_parse_packet(&event.options, event.data, size, NULL);
     if (S_verbose) {
 	CFMutableStringRef	str;
 
 	str = CFStringCreateMutable(NULL, 0);
-	dhcp_packet_print_cfstr(str, (struct dhcp *)data, size);
+	dhcp_packet_with_options_print_cfstr(str, event.data, size,
+					     &event.options);
 	my_log(~LOG_DEBUG,
-	       "[%s] Receive %d byte packet\n%@", 
-	       ifname, size, str);
+	       "[%s] Receive %d byte packet from " IP_FORMAT "\n%@", 
+	       ifname, size, IP_LIST(from_ip), str);
 	CFRelease(str);
     }
+    else {
+	my_log(LOG_INFO, "[%s] Receive %d byte packet xid 0x%lx from "
+	       IP_FORMAT,
+	       ifname, size,
+	       ntohl(event.data->dp_xid),
+	       IP_LIST(from_ip));
+    }
 
-    bzero(&event, sizeof(event));
-    event.data = (struct dhcp *)data;
-    event.size = size;
-    dhcpol_parse_packet(&event.options, (struct dhcp *)data, size, NULL);
     for (i = 0; i < dynarray_count(&session->clients); i++) {
 	bootp_client_t *	client;
 
@@ -565,7 +583,7 @@ bootp_session_read(void * arg1, void * arg2)
     if (n > 0) {
 	if (msghdr_copy_ifname(&msg, ifname, sizeof(ifname))) {
 	    /* ALIGN: receive_buf aligned to uint64_t bytes */
-	    bootp_session_deliver(session, ifname, 
+	    bootp_session_deliver(session, ifname, &from.sin_addr,
 				  (void *)receive_buf, (int)n);
 	}
     }

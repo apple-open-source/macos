@@ -34,9 +34,9 @@ namespace WebCore {
 
 class ScrollingStateOverflowScrollingNode : public ScrollingStateScrollingNode {
 public:
-    static PassRefPtr<ScrollingStateOverflowScrollingNode> create(ScrollingStateTree&, ScrollingNodeID);
+    static Ref<ScrollingStateOverflowScrollingNode> create(ScrollingStateTree&, ScrollingNodeID);
 
-    virtual PassRefPtr<ScrollingStateNode> clone(ScrollingStateTree&);
+    virtual Ref<ScrollingStateNode> clone(ScrollingStateTree&) override;
 
     virtual ~ScrollingStateOverflowScrollingNode();
 
@@ -46,7 +46,7 @@ public:
 
     // This is a layer with the contents that move.
     const LayerRepresentation& scrolledContentsLayer() const { return m_scrolledContentsLayer; }
-    void setScrolledContentsLayer(const LayerRepresentation&);
+    WEBCORE_EXPORT void setScrolledContentsLayer(const LayerRepresentation&);
     
     virtual void dumpProperties(TextStream&, int indent) const override;
 
@@ -57,9 +57,9 @@ private:
     LayerRepresentation m_scrolledContentsLayer;    
 };
 
-SCROLLING_STATE_NODE_TYPE_CASTS(ScrollingStateOverflowScrollingNode, isOverflowScrollingNode());
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_SCROLLING_STATE_NODE(ScrollingStateOverflowScrollingNode, isOverflowScrollingNode())
 
 #endif // ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
 

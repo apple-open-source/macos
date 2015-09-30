@@ -1,3 +1,4 @@
+
 #!/bin/sh
 
 checkonly=no
@@ -18,7 +19,7 @@ ec=0
 rm -f leaks-log > /dev/null
 
 # leaks dies on asan (rdar://14724199)
-if [ "$(uname -s)" = "Darwin" -a X"$asan" = X ]; then
+if [ 1 = 0 -a "$(uname -s)" = "Darwin" -a X"$asan" = X ]; then
     echo "leaks check on $name ($pid)"
     leaks -exclude __CFInitialize $pid > leaks-log 2>&1 || \
         { echo "leaks failed: $?"; cat leaks-log; exit 1; }

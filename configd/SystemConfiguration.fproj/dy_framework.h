@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008, 2010-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -399,7 +399,6 @@ _SecCertificateCreateWithData		(
 					CFDataRef			data
 					);
 #define SecCertificateCreateWithData _SecCertificateCreateWithData
-
 
 
 

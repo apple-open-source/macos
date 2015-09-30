@@ -258,6 +258,18 @@ dt_opt_debug(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	return (0);
 }
 
+static int
+dt_opt_nojtanalysis(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	if ((dtp == NULL) || (arg != NULL)) {
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+	}
+
+	dtp->dt_nojtanalysis = 1;
+
+	return (0);
+}
+
 /*ARGSUSED*/
 static int
 dt_opt_iregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
@@ -955,6 +967,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "linktype", dt_opt_linktype },
 	{ "mangled", dt_opt_mangled },
 	{ "nolibs", dt_opt_cflags, DTRACE_C_NOLIBS },
+	{ "nojtanalysis", dt_opt_nojtanalysis },
 	{ "pgmax", dt_opt_pgmax },
 	{ "preallocate", dt_opt_preallocate },
 	{ "pspec", dt_opt_cflags, DTRACE_C_PSPEC },

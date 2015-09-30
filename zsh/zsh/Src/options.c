@@ -165,6 +165,7 @@ static struct optname optns[] = {
 {{NULL, "ignoreclosebraces",  OPT_EMULATE},		 IGNORECLOSEBRACES},
 {{NULL, "ignoreeof",	      0},			 IGNOREEOF},
 {{NULL, "incappendhistory",   0},			 INCAPPENDHISTORY},
+{{NULL, "incappendhistorytime",   0},			 INCAPPENDHISTORYTIME},
 {{NULL, "interactive",	      OPT_SPECIAL},		 INTERACTIVE},
 {{NULL, "interactivecomments",OPT_BOURNE},		 INTERACTIVECOMMENTS},
 {{NULL, "ksharrays",	      OPT_EMULATE|OPT_BOURNE},	 KSHARRAYS},
@@ -179,6 +180,7 @@ static struct optname optns[] = {
 {{NULL, "listrowsfirst",      0},			 LISTROWSFIRST},
 {{NULL, "listtypes",	      OPT_ALL},			 LISTTYPES},
 {{NULL, "localoptions",	      OPT_EMULATE|OPT_KSH},	 LOCALOPTIONS},
+{{NULL, "localloops",	      OPT_EMULATE},		 LOCALLOOPS},
 {{NULL, "localpatterns",      OPT_EMULATE},		 LOCALPATTERNS},
 {{NULL, "localtraps",	      OPT_EMULATE|OPT_KSH},	 LOCALTRAPS},
 {{NULL, "login",	      OPT_SPECIAL},		 LOGINSHELL},
@@ -207,6 +209,7 @@ static struct optname optns[] = {
 {{NULL, "pathscript",	      OPT_EMULATE|OPT_BOURNE},	 PATHSCRIPT},
 {{NULL, "pipefail",           OPT_EMULATE},              PIPEFAIL},
 {{NULL, "posixaliases",       OPT_EMULATE|OPT_BOURNE},	 POSIXALIASES},
+{{NULL, "posixargzero",       OPT_EMULATE},              POSIXARGZERO},
 {{NULL, "posixbuiltins",      OPT_EMULATE|OPT_BOURNE},	 POSIXBUILTINS},
 {{NULL, "posixcd",            OPT_EMULATE|OPT_BOURNE},	 POSIXCD},
 {{NULL, "posixidentifiers",   OPT_EMULATE|OPT_BOURNE},	 POSIXIDENTIFIERS},
@@ -763,7 +766,17 @@ dosetopt(int optno, int value, int force, char *new_opts)
 #ifdef HAVE_SETUID
 	setuid(getuid());
 	setgid(getgid());
-#endif /* HAVE_SETUID */
+        if (setuid(getuid())) {
+            zwarn("failed to change user ID: %e", errno);
+            return -1;
+	} else if (setgid(getgid())) {
+            zwarn("failed to change group ID: %e", errno);
+            return -1;
+        }
+#else
+        zwarn("setuid not available");
+        return -1;
+#endif /* not HAVE_SETUID */
 #ifdef JOB_CONTROL
     } else if (!force && optno == MONITOR && value) {
 	if (new_opts[optno] == value)

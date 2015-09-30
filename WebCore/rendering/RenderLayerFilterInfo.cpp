@@ -29,16 +29,12 @@
  */
 
 #include "config.h"
-
-#if ENABLE(CSS_FILTERS)
 #include "RenderLayerFilterInfo.h"
 
 #include "CachedSVGDocument.h"
 #include "CachedSVGDocumentReference.h"
 #include "FilterEffectRenderer.h"
-#include "SVGElement.h"
-#include "SVGFilter.h"
-#include "SVGFilterPrimitiveStandardAttributes.h"
+#include "RenderSVGResourceFilter.h"
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -86,7 +82,7 @@ RenderLayer::FilterInfo::~FilterInfo()
     removeReferenceFilterClients();
 }
 
-void RenderLayer::FilterInfo::setRenderer(PassRefPtr<FilterEffectRenderer> renderer)
+void RenderLayer::FilterInfo::setRenderer(RefPtr<FilterEffectRenderer>&& renderer)
 { 
     m_renderer = renderer; 
 }
@@ -99,26 +95,21 @@ void RenderLayer::FilterInfo::notifyFinished(CachedResource*)
 void RenderLayer::FilterInfo::updateReferenceFilterClients(const FilterOperations& operations)
 {
     removeReferenceFilterClients();
-    for (size_t i = 0, size = operations.size(); i < size; ++i) {
-        FilterOperation* filterOperation = operations.operations()[i].get();
-        if (filterOperation->type() != FilterOperation::REFERENCE)
+    for (auto& operation : operations.operations()) {
+        if (!is<ReferenceFilterOperation>(*operation))
             continue;
-        ReferenceFilterOperation* referenceFilterOperation = toReferenceFilterOperation(filterOperation);
-        CachedSVGDocumentReference* documentReference = referenceFilterOperation->cachedSVGDocumentReference();
-        CachedSVGDocument* cachedSVGDocument = documentReference ? documentReference->document() : 0;
-
-        if (cachedSVGDocument) {
+        auto& referenceOperation = downcast<ReferenceFilterOperation>(*operation);
+        auto* documentReference = referenceOperation.cachedSVGDocumentReference();
+        if (auto* cachedSVGDocument = documentReference ? documentReference->document() : nullptr) {
             // Reference is external; wait for notifyFinished().
             cachedSVGDocument->addClient(this);
             m_externalSVGReferences.append(cachedSVGDocument);
         } else {
-            // Reference is internal; add layer as a client so we can trigger
-            // filter repaint on SVG attribute change.
-            Element* filter = m_layer.renderer().document().getElementById(referenceFilterOperation->fragment());
-
-            if (!filter || !filter->renderer() || !filter->renderer()->isSVGResourceFilter())
+            // Reference is internal; add layer as a client so we can trigger filter repaint on SVG attribute change.
+            Element* filter = m_layer.renderer().document().getElementById(referenceOperation.fragment());
+            if (!filter || !is<RenderSVGResourceFilter>(filter->renderer()))
                 continue;
-            toRenderSVGResourceContainer(*filter->renderer()).addClientRenderLayer(&m_layer);
+            downcast<RenderSVGResourceFilter>(*filter->renderer()).addClientRenderLayer(&m_layer);
             m_internalSVGReferences.append(filter);
         }
     }
@@ -126,18 +117,15 @@ void RenderLayer::FilterInfo::updateReferenceFilterClients(const FilterOperation
 
 void RenderLayer::FilterInfo::removeReferenceFilterClients()
 {
-    for (size_t i = 0, size = m_externalSVGReferences.size(); i < size; ++i)
-        m_externalSVGReferences[i]->removeClient(this);
+    for (auto& resourceHandle : m_externalSVGReferences)
+        resourceHandle->removeClient(this);
     m_externalSVGReferences.clear();
-    for (size_t i = 0, size = m_internalSVGReferences.size(); i < size; ++i) {
-        Element* filter = m_internalSVGReferences[i].get();
-        if (!filter->renderer())
-            continue;
-        toRenderSVGResourceContainer(*filter->renderer()).removeClientRenderLayer(&m_layer);
+
+    for (auto& filter : m_internalSVGReferences) {
+        if (auto* renderer = filter->renderer())
+            downcast<RenderSVGResourceContainer>(*renderer).removeClientRenderLayer(&m_layer);
     }
     m_internalSVGReferences.clear();
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(CSS_FILTERS)

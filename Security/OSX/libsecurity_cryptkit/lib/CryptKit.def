@@ -1,0 +1,113 @@
+LIBRARY CryptKit.dll
+
+EXPORTS
+
+	feePubKeyAlloc
+	feePubKeyFree
+	feePubKeyInitFromPrivData
+	feePubKeyInitFromKey
+	feePubKeyInitFromKeyString
+	feePubKeyCreateKeyString
+	feePubKeyIsEqual
+	feePubKeyCreatePad
+	feePubKeyCreateSignature
+	feePubKeyVerifySignature
+	feePubKeyUsageName
+	feePubKeyAlgorithmName
+	feePubKeyBitsize
+	feeDESNewWithState
+	feeDESFree
+	feeDESSetState
+	feeDESSetBlockMode
+	feeDESSetChainMode
+	feeDESPlainBlockSize
+	feeDESCipherBlockSize
+	feeDESCipherBufSize
+
+	feeDESCipherTextSize
+
+	feeDESEncryptBlock
+	feeDESDecryptBlock
+	feeDESEncrypt
+	feeDESDecrypt
+	feeSigNewWithKey
+	feeSigFree
+	feeSigPm
+	feeSigSign
+	feeSigData
+	feeSigParse
+	feeSigVerify
+	feeSigSigner
+	feeHashAlloc
+	feeHashReinit
+	feeHashFree
+	feeHashAddData
+	feeHashDigest
+	feeHashDigestLen
+	feeRandAllocWithSeed
+	feeRandAlloc
+	feeRandFree
+	feeRandNextNum
+	feeRandBytes
+	feeReturnString
+	feeFEEDNewWithPubKey
+	feeFEEDFree
+	feeFEEDPlainBlockSize
+	feeFEEDCipherBlockSize
+	feeFEEDCipherBufSize
+
+	feeFEEDCipherTextSize
+	feeFEEDEncryptBlock
+	feeFEEDDecryptBlock
+	feeFEEDEncrypt
+	feeFEEDDecrypt
+
+	feeFEEDExpNewWithPubKey
+
+	feeFEEDExpFree
+
+	feeFEEDExpPlainBlockSize
+
+	feeFEEDExpCipherBlockSize
+
+	feeFEEDExpCipherBufSize
+
+	feeFEEDExpCipherTextSize
+
+	feeFEEDExpEncryptBlock
+
+	feeFEEDExpDecryptBlock
+
+	feeFEEDExpEncrypt
+
+	feeFEEDExpDecrypt
+	dec64
+	enc64
+	isValidEnc64
+	feeCFileNewFromCipherText
+	feeCFileDataRepresentation
+	feeCFileNewFromDataRep
+	feeCFileFree
+	feeCFileEncrType
+	feeCFileCipherText
+	feeCFileSendPubKeyData
+	feeCFileOtherKeyData
+	feeCFileSigData
+	parseCipherFile
+
+	createCipherFile
+	fmalloc
+	fmallocWithData
+	ffree
+
+	.objc_class_name_NSFEEPublicKey CONSTANT
+
+	.objc_category_name_NSFEEPublicKey_Private CONSTANT
+
+	.objc_class_name_NSRandomNumberGenerator CONSTANT
+
+	.objc_class_name_NSDESCryptor CONSTANT
+
+	.objc_class_name_NSCipherFile CONSTANT
+
+

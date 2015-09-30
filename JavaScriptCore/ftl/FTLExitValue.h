@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,7 +34,11 @@
 #include "VirtualRegister.h"
 #include <wtf/PrintStream.h>
 
-namespace JSC { namespace FTL {
+namespace JSC {
+
+class TrackedReferences;
+
+namespace FTL {
 
 // This is like ValueRecovery, but respects the way that the FTL does OSR
 // exit: the live non-constant non-flushed values are passed as arguments
@@ -51,9 +55,11 @@ enum ExitValueKind {
     ExitValueInJSStackAsInt32,
     ExitValueInJSStackAsInt52,
     ExitValueInJSStackAsDouble,
-    ExitValueArgumentsObjectThatWasNotCreated,
-    ExitValueRecovery
+    ExitValueRecovery,
+    ExitValueMaterializeNewObject
 };
+
+class ExitTimeObjectMaterialization;
 
 class ExitValue {
 public:
@@ -119,13 +125,6 @@ public:
         return result;
     }
     
-    static ExitValue argumentsObjectThatWasNotCreated()
-    {
-        ExitValue result;
-        result.m_kind = ExitValueArgumentsObjectThatWasNotCreated;
-        return result;
-    }
-    
     static ExitValue recovery(RecoveryOpcode opcode, unsigned leftArgument, unsigned rightArgument, ValueFormat format)
     {
         ExitValue result;
@@ -136,6 +135,8 @@ public:
         result.u.recovery.format = format;
         return result;
     }
+    
+    static ExitValue materializeNewObject(ExitTimeObjectMaterialization*);
     
     ExitValueKind kind() const { return m_kind; }
     
@@ -154,8 +155,8 @@ public:
     }
     bool isConstant() const { return kind() == ExitValueConstant; }
     bool isArgument() const { return kind() == ExitValueArgument; }
-    bool isArgumentsObjectThatWasNotCreated() const { return kind() == ExitValueArgumentsObjectThatWasNotCreated; }
     bool isRecovery() const { return kind() == ExitValueRecovery; }
+    bool isObjectMaterialization() const { return kind() == ExitValueMaterializeNewObject; }
     
     ExitArgument exitArgument() const
     {
@@ -199,7 +200,13 @@ public:
         return VirtualRegister(u.virtualRegister);
     }
     
-    ExitValue withVirtualRegister(VirtualRegister virtualRegister)
+    ExitTimeObjectMaterialization* objectMaterialization() const
+    {
+        ASSERT(isObjectMaterialization());
+        return u.newObjectMaterializationData;
+    }
+
+    ExitValue withVirtualRegister(VirtualRegister virtualRegister) const
     {
         ASSERT(isInJSStackSomehow());
         ExitValue result;
@@ -207,46 +214,19 @@ public:
         result.u.virtualRegister = virtualRegister.offset();
         return result;
     }
-
+    
+    ExitValue withLocalsOffset(int offset) const;
+    
     // If it's in the JSStack somehow, this will tell you what format it's in, in a manner
     // that is compatible with exitArgument().format(). If it's a constant or it's dead, it
     // will claim to be a JSValue. If it's an argument then it will tell you the argument's
     // format.
-    ValueFormat valueFormat() const
-    {
-        switch (kind()) {
-        case InvalidExitValue:
-            RELEASE_ASSERT_NOT_REACHED();
-            return InvalidValueFormat;
-            
-        case ExitValueDead:
-        case ExitValueConstant:
-        case ExitValueInJSStack:
-        case ExitValueArgumentsObjectThatWasNotCreated:
-            return ValueFormatJSValue;
-            
-        case ExitValueArgument:
-            return exitArgument().format();
-            
-        case ExitValueInJSStackAsInt32:
-            return ValueFormatInt32;
-            
-        case ExitValueInJSStackAsInt52:
-            return ValueFormatInt52;
-            
-        case ExitValueInJSStackAsDouble:
-            return ValueFormatDouble;
-            
-        case ExitValueRecovery:
-            return recoveryFormat();
-        }
-        
-        RELEASE_ASSERT_NOT_REACHED();
-        return InvalidValueFormat;
-    }
+    ValueFormat valueFormat() const;
 
     void dump(PrintStream&) const;
     void dumpInContext(PrintStream&, DumpContext*) const;
+    
+    void validateReferences(const TrackedReferences&) const;
     
 private:
     ExitValueKind m_kind;
@@ -260,6 +240,7 @@ private:
             uint16_t opcode;
             uint16_t format;
         } recovery;
+        ExitTimeObjectMaterialization* newObjectMaterializationData;
     } u;
 };
 

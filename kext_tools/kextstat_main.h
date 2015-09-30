@@ -44,10 +44,12 @@ enum {
 #define kOptNameNoKernelComponents  "no-kernel"
 #define kOptNameListOnly            "list-only"
 #define kOptNameArchitecture        "arch"
+#define kOptNameSort        "sort"
 
 #define kOptNoKernelComponents      'k'
 #define kOptListOnly                'l'
 #define kOptArchitecture            'a'
+#define kOptSort                    's'
 
 #if 0
 // bundle-id,version,compatible-version,is-kernel,is-interface,retaincount,path,uuid,started,prelinked,index,address,size,wired,dependencies,classes,cputype,cpusubtype
@@ -82,6 +84,7 @@ struct option sOptInfo[] = {
     { kOptNameBundleIdentifier,   required_argument,  NULL,     kOptBundleIdentifier },
     { kOptNameNoKernelComponents, no_argument,        NULL,     kOptNoKernelComponents },
     { kOptNameListOnly,           no_argument,        NULL,     kOptListOnly },
+    { kOptNameSort,               no_argument,        NULL,     kOptSort },
     { kOptNameArch,               no_argument,        NULL,     kOptArchitecture },
 
     { NULL, 0, NULL, 0 }  // sentinel to terminate list
@@ -95,6 +98,7 @@ typedef struct {
     Boolean            flagNoKernelComponents;
     Boolean            flagListOnly;
     Boolean            flagShowArchitecture;
+    Boolean            flagSortByLoadAddress;
     CFMutableArrayRef  bundleIDs;          // must release
     
     CFDictionaryRef    loadedKextInfo;     // must release
@@ -110,6 +114,8 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs);
 
 Boolean getNumValue(CFNumberRef aNumber, CFNumberType type, void * valueOut);
 int compareKextInfo(const void * vKextInfo1, const void * vKextInfo2);
+int compareKextInfoLoadAddress(const void * vKextInfo1, const void * vKextInfo2);
+
 CFComparisonResult compareNumbers(
     const void * val1,
     const void * val2,

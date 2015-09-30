@@ -34,6 +34,22 @@
 
 #define kIOPMRepeatingAppName               "Repeating"
 
+/* Flags for checkPendingWakeReqs() */
+#define CHECK_UPCOMING          0x1
+#define CHECK_EXPIRED           0x2
+#define PREVENT_PURGING         0x4
+#define ALLOW_PURGING           0x8
+
+/* 
+ * MIN_SLEEP_DURATION - Minimum duration(in secs) for which we like the system to sleep. Any user wake requests 
+ *                      that are going to wake the system before this duration should prevent sleep.
+ */
+#if TARGET_OS_EMBEDDED
+#define MIN_SLEEP_DURATION      15
+#else
+#define MIN_SLEEP_DURATION      60
+#endif
+
 __private_extern__ void             AutoWake_prime(void);
 __private_extern__ void             AutoWakeCapabilitiesNotification(IOPMSystemPowerStateCapabilities old_cap, IOPMSystemPowerStateCapabilities new_cap);
 __private_extern__ void             AutoWakeCalendarChange(void);
@@ -41,5 +57,6 @@ __private_extern__ IOReturn         createSCSession(SCPreferencesRef *prefs, uid
 __private_extern__ void             schedulePowerEventType(CFStringRef type);
 __private_extern__ void             destroySCSession(SCPreferencesRef prefs, int unlock);
 __private_extern__ CFTimeInterval   getEarliestRequestAutoWake(void);
+__private_extern__ bool             checkPendingWakeReqs(int options);
 
 #endif // _AutoWakeScheduler_h_

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,38 +23,37 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "BoundaryTagInlines.h"
-#include "Heap.h"
-#include "LargeChunk.h"
+#include "LargeObject.h"
 #include "Line.h"
 #include "PerProcess.h"
+#include "SuperChunk.h"
+#include "VMHeap.h"
 #include <thread>
 
 namespace bmalloc {
 
 VMHeap::VMHeap()
+    : m_largeObjects(Owner::VMHeap)
 {
 }
 
-void VMHeap::allocateSmallChunk()
+void VMHeap::grow()
 {
-    SmallChunk* chunk = SmallChunk::create();
-    for (auto* it = chunk->begin(); it != chunk->end(); ++it)
+    SuperChunk* superChunk = SuperChunk::create();
+#if BOS(DARWIN)
+    m_zone.addSuperChunk(superChunk);
+#endif
+
+    SmallChunk* smallChunk = superChunk->smallChunk();
+    for (auto* it = smallChunk->begin(); it != smallChunk->end(); ++it)
         m_smallPages.push(it);
-}
 
-void VMHeap::allocateMediumChunk()
-{
-    MediumChunk* chunk = MediumChunk::create();
-    for (auto* it = chunk->begin(); it != chunk->end(); ++it)
+    MediumChunk* mediumChunk = superChunk->mediumChunk();
+    for (auto* it = mediumChunk->begin(); it != mediumChunk->end(); ++it)
         m_mediumPages.push(it);
-}
 
-Range VMHeap::allocateLargeChunk()
-{
-    LargeChunk* chunk = LargeChunk::create();
-    Range result = BoundaryTag::init(chunk);
-    return result;
+    LargeChunk* largeChunk = superChunk->largeChunk();
+    m_largeObjects.insert(LargeObject(LargeObject::init(largeChunk).begin()));
 }
 
 } // namespace bmalloc

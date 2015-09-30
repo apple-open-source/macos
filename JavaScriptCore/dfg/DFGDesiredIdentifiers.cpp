@@ -52,14 +52,14 @@ unsigned DesiredIdentifiers::numberOfIdentifiers()
     return m_codeBlock->numberOfIdentifiers() + m_addedIdentifiers.size();
 }
 
-void DesiredIdentifiers::addLazily(StringImpl* rep)
+void DesiredIdentifiers::addLazily(UniquedStringImpl* rep)
 {
     m_addedIdentifiers.append(rep);
 }
 
-StringImpl* DesiredIdentifiers::at(unsigned index) const
+UniquedStringImpl* DesiredIdentifiers::at(unsigned index) const
 {
-    StringImpl* result;
+    UniquedStringImpl* result;
     if (index < m_codeBlock->numberOfIdentifiers())
         result = m_codeBlock->identifier(index).impl();
     else
@@ -71,9 +71,9 @@ StringImpl* DesiredIdentifiers::at(unsigned index) const
 void DesiredIdentifiers::reallyAdd(VM& vm, CommonData* commonData)
 {
     for (unsigned i = 0; i < m_addedIdentifiers.size(); ++i) {
-        StringImpl* rep = m_addedIdentifiers[i];
+        auto rep = m_addedIdentifiers[i];
         ASSERT(rep->hasAtLeastOneRef());
-        commonData->dfgIdentifiers.append(Identifier(&vm, rep));
+        commonData->dfgIdentifiers.append(Identifier::fromUid(&vm, rep));
     }
 }
 

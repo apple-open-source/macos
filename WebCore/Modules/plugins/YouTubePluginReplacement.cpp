@@ -28,6 +28,7 @@
 
 #include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "HTMLPlugInElement.h"
 #include "Page.h"
 #include "RenderElement.h"
@@ -66,14 +67,14 @@ YouTubePluginReplacement::YouTubePluginReplacement(HTMLPlugInElement& plugin, co
         m_attributes.add(paramNames[i], paramValues[i]);
 }
 
-RenderPtr<RenderElement> YouTubePluginReplacement::createElementRenderer(HTMLPlugInElement& plugin, PassRef<RenderStyle> style)
+RenderPtr<RenderElement> YouTubePluginReplacement::createElementRenderer(HTMLPlugInElement& plugin, Ref<RenderStyle>&& style, const RenderTreePosition& insertionPosition)
 {
     ASSERT_UNUSED(plugin, m_parentElement == &plugin);
 
     if (!m_embedShadowElement)
         return nullptr;
     
-    return m_embedShadowElement->createElementRenderer(WTF::move(style));
+    return m_embedShadowElement->createElementRenderer(WTF::move(style), insertionPosition);
 }
 
 bool YouTubePluginReplacement::installReplacement(ShadowRoot* root)
@@ -128,7 +129,7 @@ static YouTubePluginReplacement::KeyValueMap queryKeysAndValues(const String& qu
     while (equalSearchLocation < queryLength - 1 && equalSearchLength) {
         
         // Search for "=".
-        size_t equalLocation = queryString.find("=", equalSearchLocation);
+        size_t equalLocation = queryString.find('=', equalSearchLocation);
         if (equalLocation == notFound)
             break;
         
@@ -141,7 +142,7 @@ static YouTubePluginReplacement::KeyValueMap queryKeysAndValues(const String& qu
         size_t keyLength = equalLocation - equalSearchLocation;
         
         // Seach for the ampersand.
-        size_t ampersandLocation = queryString.find("&", indexAfterEqual);
+        size_t ampersandLocation = queryString.find('&', indexAfterEqual);
         
         // Get the value after the "=", before the ampersand.
         size_t valueLocation = indexAfterEqual;
@@ -185,7 +186,9 @@ static bool isYouTubeURL(const URL& url)
     return hostName == "m.youtube.com"
         || hostName == "youtu.be"
         || hostName == "www.youtube.com"
-        || hostName == "youtube.com";
+        || hostName == "youtube.com"
+        || hostName == "www.youtube-nocookie.com"
+        || hostName == "youtube-nocookie.com";
 }
 
 static const String& valueForKey(const YouTubePluginReplacement::KeyValueMap& dictionary, const String& key)
@@ -282,7 +285,7 @@ static URL processAndCreateYouTubeURL(const URL& url, bool& isYouTubeShortenedUR
 
 String YouTubePluginReplacement::youTubeURL(const String& srcString)
 {
-    URL srcURL(URL(), srcString);
+    URL srcURL = m_parentElement->document().completeURL(stripLeadingAndTrailingHTMLSpaces(srcString));
 
     bool isYouTubeShortenedURL = false;
     URL youTubeURL = processAndCreateYouTubeURL(srcURL, isYouTubeShortenedURL);
@@ -323,13 +326,13 @@ String YouTubePluginReplacement::youTubeURL(const String& srcString)
     // See: <rdar://problem/11535155>
     StringBuilder finalURL;
     if (isYouTubeShortenedURL)
-        finalURL.append("http://www.youtube.com");
+        finalURL.appendLiteral("http://www.youtube.com");
     else
         finalURL.append(srcURLPrefix);
     finalURL.appendLiteral("/embed/");
     finalURL.append(videoID);
     if (!query.isEmpty()) {
-        finalURL.appendLiteral("?");
+        finalURL.append('?');
         finalURL.append(query);
     }
     return finalURL.toString();

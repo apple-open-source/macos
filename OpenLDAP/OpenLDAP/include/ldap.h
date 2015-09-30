@@ -380,6 +380,10 @@ typedef struct ldapcontrol {
 #define LDAP_CONTROL_VLVREQUEST    	"2.16.840.1.113730.3.4.9"
 #define LDAP_CONTROL_VLVRESPONSE    "2.16.840.1.113730.3.4.10"
 
+#ifdef __APPLE__
+#define LDAP_CONTROL_POLICY_EVALUATION_DETAILS  "1.3.6.1.4.1.63.10.1.1"
+#endif
+
 /* LDAP Unsolicited Notifications */
 #define	LDAP_NOTICE_OF_DISCONNECTION	"1.3.6.1.4.1.1466.20036" /* RFC 4511 */
 #define LDAP_NOTICE_DISCONNECT LDAP_NOTICE_OF_DISCONNECTION
@@ -850,7 +854,7 @@ typedef int (*ldap_sync_search_entry_f) LDAP_P((
 	ldap_sync_t			*ls,
 	LDAPMessage			*msg,
 	struct berval			*entryUUID,
-	ldap_sync_refresh_t		phase ));
+	ldap_sync_refresh_t		phase )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * Called when a reference is returned; the client should know 
@@ -858,7 +862,7 @@ typedef int (*ldap_sync_search_entry_f) LDAP_P((
  */
 typedef int (*ldap_sync_search_reference_f) LDAP_P((
 	ldap_sync_t			*ls,
-	LDAPMessage			*msg ));
+	LDAPMessage			*msg )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * Called when specific intermediate/final messages are returned.
@@ -877,7 +881,7 @@ typedef int (*ldap_sync_intermediate_f) LDAP_P((
 	ldap_sync_t			*ls,
 	LDAPMessage			*msg,
 	BerVarray			syncUUIDs,
-	ldap_sync_refresh_t		phase ));
+	ldap_sync_refresh_t		phase )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * Called when a searchResultDone is returned.  In refreshAndPersist,
@@ -887,7 +891,7 @@ typedef int (*ldap_sync_intermediate_f) LDAP_P((
 typedef int (*ldap_sync_search_result_f) LDAP_P((
 	ldap_sync_t			*ls,
 	LDAPMessage			*msg,
-	int				refreshDeletes ));
+	int				refreshDeletes )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * This structure contains all information about the persistent search;
@@ -948,9 +952,9 @@ struct sockaddr;
 
 /* Called after a connection is established */
 typedef int (ldap_conn_add_f) LDAP_P(( LDAP *ld, Sockbuf *sb, LDAPURLDesc *srv, struct sockaddr *addr,
-	struct ldap_conncb *ctx ));
+	struct ldap_conncb *ctx )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 /* Called before a connection is closed */
-typedef void (ldap_conn_del_f) LDAP_P(( LDAP *ld, Sockbuf *sb, struct ldap_conncb *ctx ));
+typedef void (ldap_conn_del_f) LDAP_P(( LDAP *ld, Sockbuf *sb, struct ldap_conncb *ctx )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /* Callbacks are pushed on a stack. Last one pushed is first one executed. The
  * delete callback is called with a NULL Sockbuf just before freeing the LDAP handle.
@@ -974,49 +978,49 @@ LDAP_F( int )
 ldap_get_option LDAP_P((
 	LDAP *ld,
 	int option,
-	void *outvalue));
+	void *outvalue)) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_set_option LDAP_P((
 	LDAP *ld,
 	int option,
-	LDAP_CONST void *invalue));
+	LDAP_CONST void *invalue)) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /* V3 REBIND Function Callback Prototype */
 typedef int (LDAP_REBIND_PROC) LDAP_P((
 	LDAP *ld, LDAP_CONST char *url,
 	ber_tag_t request, ber_int_t msgid,
-	void *params ));
+	void *params )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_set_rebind_proc LDAP_P((
 	LDAP *ld,
 	LDAP_REBIND_PROC *rebind_proc,
-	void *params ));
+	void *params )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /* V3 referral selection Function Callback Prototype */
 typedef int (LDAP_NEXTREF_PROC) LDAP_P((
 	LDAP *ld, char ***refsp, int *cntp,
-	void *params ));
+	void *params )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_set_nextref_proc LDAP_P((
 	LDAP *ld,
 	LDAP_NEXTREF_PROC *nextref_proc,
-	void *params ));
+	void *params )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /* V3 URLLIST Function Callback Prototype */
 typedef int (LDAP_URLLIST_PROC) LDAP_P((
 	LDAP *ld, 
 	LDAPURLDesc **urllist,
 	LDAPURLDesc **url,
-	void *params ));
+	void *params )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_set_urllist_proc LDAP_P((
 	LDAP *ld,
 	LDAP_URLLIST_PROC *urllist_proc,
-	void *params ));
+	void *params )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * in controls.c:
@@ -1041,29 +1045,29 @@ ldap_control_create LDAP_P((
 	int iscritical,
 	struct berval *value,
 	int dupval,
-	LDAPControl **ctrlp ));
+	LDAPControl **ctrlp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( LDAPControl * )
 ldap_control_find LDAP_P((
 	LDAP_CONST char *oid,
 	LDAPControl **ctrls,
-	LDAPControl ***nextctrlp ));
+	LDAPControl ***nextctrlp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void )
 ldap_control_free LDAP_P((
-	LDAPControl *ctrl ));
+	LDAPControl *ctrl )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void )
 ldap_controls_free LDAP_P((
-	LDAPControl **ctrls ));
+	LDAPControl **ctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( LDAPControl ** )
 ldap_controls_dup LDAP_P((
-	LDAPControl *LDAP_CONST *controls ));
+	LDAPControl *LDAP_CONST *controls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( LDAPControl * )
 ldap_control_dup LDAP_P((
-	LDAP_CONST LDAPControl *c ));
+	LDAP_CONST LDAPControl *c )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * in dnssrv.c:
@@ -1071,17 +1075,17 @@ ldap_control_dup LDAP_P((
 LDAP_F( int )
 ldap_domain2dn LDAP_P((
 	LDAP_CONST char* domain,
-	char** dn ));
+	char** dn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_dn2domain LDAP_P((
 	LDAP_CONST char* dn,
-	char** domain ));
+	char** domain )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_domain2hostlist LDAP_P((
 	LDAP_CONST char *domain,
-	char** hostlist ));
+	char** hostlist )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * in extended.c:
@@ -1093,7 +1097,7 @@ ldap_extended_operation LDAP_P((
 	struct berval	*reqdata,
 	LDAPControl		**serverctrls,
 	LDAPControl		**clientctrls,
-	int				*msgidp ));
+	int				*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_extended_operation_s LDAP_P((
@@ -1103,7 +1107,7 @@ ldap_extended_operation_s LDAP_P((
 	LDAPControl		**serverctrls,
 	LDAPControl		**clientctrls,
 	char			**retoidp,
-	struct berval	**retdatap ));
+	struct berval	**retdatap )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_extended_result LDAP_P((
@@ -1111,7 +1115,7 @@ ldap_parse_extended_result LDAP_P((
 	LDAPMessage		*res,
 	char			**retoidp,
 	struct berval	**retdatap,
-	int				freeit ));
+	int				freeit )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_intermediate LDAP_P((
@@ -1120,7 +1124,7 @@ ldap_parse_intermediate LDAP_P((
 	char			**retoidp,
 	struct berval	**retdatap,
 	LDAPControl		***serverctrls,
-	int				freeit ));
+	int				freeit )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 
 /*
@@ -1131,7 +1135,7 @@ ldap_abandon_ext LDAP_P((
 	LDAP			*ld,
 	int				msgid,
 	LDAPControl		**serverctrls,
-	LDAPControl		**clientctrls ));
+	LDAPControl		**clientctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED	
 LDAP_F( int )
@@ -1150,7 +1154,7 @@ ldap_add_ext LDAP_P((
 	LDAPMod			**attrs,
 	LDAPControl		**serverctrls,
 	LDAPControl		**clientctrls,
-	int 			*msgidp ));
+	int 			*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_add_ext_s LDAP_P((
@@ -1158,7 +1162,7 @@ ldap_add_ext_s LDAP_P((
 	LDAP_CONST char	*dn,
 	LDAPMod			**attrs,
 	LDAPControl		**serverctrls,
-	LDAPControl		**clientctrls ));
+	LDAPControl		**clientctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 LDAP_F( int )
@@ -1186,7 +1190,7 @@ ldap_sasl_bind LDAP_P((
 	struct berval	*cred,
 	LDAPControl		**serverctrls,
 	LDAPControl		**clientctrls,
-	int				*msgidp ));
+	int				*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /* Interaction flags (should be passed about in a control)
  *  Automatic (default): use defaults, prompt otherwise
@@ -1203,7 +1207,7 @@ ldap_sasl_bind LDAP_P((
  *  should likely passed in a control (and provided controls)
  */
 typedef int (LDAP_SASL_INTERACT_PROC) LDAP_P((
-	LDAP *ld, unsigned flags, void* defaults, void *interact ));
+	LDAP *ld, unsigned flags, void* defaults, void *interact )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_sasl_interactive_bind LDAP_P((
@@ -1223,7 +1227,7 @@ ldap_sasl_interactive_bind LDAP_P((
 
 	/* returned during bind processing */
 	const char **rmech,
-	int *msgid ));
+	int *msgid )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_sasl_interactive_bind_s LDAP_P((
@@ -1236,7 +1240,7 @@ ldap_sasl_interactive_bind_s LDAP_P((
 	/* should be client controls */
 	unsigned flags,
 	LDAP_SASL_INTERACT_PROC *proc,
-	void *defaults ));
+	void *defaults )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_sasl_bind_s LDAP_P((
@@ -1246,14 +1250,14 @@ ldap_sasl_bind_s LDAP_P((
 	struct berval	*cred,
 	LDAPControl		**serverctrls,
 	LDAPControl		**clientctrls,
-	struct berval	**servercredp ));
+	struct berval	**servercredp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_sasl_bind_result LDAP_P((
 	LDAP			*ld,
 	LDAPMessage		*res,
 	struct berval	**servercredp,
-	int				freeit ));
+	int				freeit )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 /*
@@ -1303,7 +1307,7 @@ ldap_compare_ext LDAP_P((
 	struct berval	*bvalue,
 	LDAPControl		**serverctrls,
 	LDAPControl		**clientctrls,
-	int 			*msgidp ));
+	int 			*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_compare_ext_s LDAP_P((
@@ -1312,7 +1316,7 @@ ldap_compare_ext_s LDAP_P((
 	LDAP_CONST char	*attr,
 	struct berval	*bvalue,
 	LDAPControl		**serverctrls,
-	LDAPControl		**clientctrls ));
+	LDAPControl		**clientctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 LDAP_F( int )
@@ -1340,14 +1344,14 @@ ldap_delete_ext LDAP_P((
 	LDAP_CONST char	*dn,
 	LDAPControl		**serverctrls,
 	LDAPControl		**clientctrls,
-	int 			*msgidp ));
+	int 			*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_delete_ext_s LDAP_P((
 	LDAP			*ld,
 	LDAP_CONST char	*dn,
 	LDAPControl		**serverctrls,
-	LDAPControl		**clientctrls ));
+	LDAPControl		**clientctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 LDAP_F( int )
@@ -1374,11 +1378,11 @@ ldap_parse_result LDAP_P((
 	char			**errmsgp,
 	char			***referralsp,
 	LDAPControl		***serverctrls,
-	int				freeit ));
+	int				freeit )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( char * )
 ldap_err2string LDAP_P((
-	int err ));
+	int err )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 LDAP_F( int )
@@ -1401,13 +1405,13 @@ LDAP_F( int )
 ldap_gssapi_bind LDAP_P((
 	LDAP *ld,
 	LDAP_CONST char *dn,
-	LDAP_CONST char *creds ));
+	LDAP_CONST char *creds )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_gssapi_bind_s LDAP_P((
 	LDAP *ld,
 	LDAP_CONST char *dn,
-	LDAP_CONST char *creds ));
+	LDAP_CONST char *creds )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 
 /*
@@ -1420,7 +1424,7 @@ ldap_modify_ext LDAP_P((
 	LDAPMod			**mods,
 	LDAPControl		**serverctrls,
 	LDAPControl		**clientctrls,
-	int 			*msgidp ));
+	int 			*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_modify_ext_s LDAP_P((
@@ -1428,7 +1432,7 @@ ldap_modify_ext_s LDAP_P((
 	LDAP_CONST char	*dn,
 	LDAPMod			**mods,
 	LDAPControl		**serverctrls,
-	LDAPControl		**clientctrls ));
+	LDAPControl		**clientctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 LDAP_F( int )
@@ -1457,7 +1461,7 @@ ldap_rename LDAP_P((
 	int deleteoldrdn,
 	LDAPControl **sctrls,
 	LDAPControl **cctrls,
-	int *msgidp ));
+	int *msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_rename_s LDAP_P((
@@ -1467,7 +1471,7 @@ ldap_rename_s LDAP_P((
 	LDAP_CONST char *newSuperior,
 	int deleteoldrdn,
 	LDAPControl **sctrls,
-	LDAPControl **cctrls ));
+	LDAPControl **cctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 LDAP_F( int )
@@ -1531,16 +1535,16 @@ ldap_open LDAP_P((	/* deprecated, use ldap_create or ldap_initialize */
 
 LDAP_F( int )
 ldap_create LDAP_P((
-	LDAP **ldp ));
+	LDAP **ldp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_initialize LDAP_P((
 	LDAP **ldp,
-	LDAP_CONST char *url ));
+	LDAP_CONST char *url )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( LDAP * )
 ldap_dup LDAP_P((
-	LDAP *old ));
+	LDAP *old )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * in tls.c
@@ -1548,24 +1552,24 @@ ldap_dup LDAP_P((
 
 LDAP_F( int )
 ldap_tls_inplace LDAP_P((
-	LDAP *ld ));
+	LDAP *ld )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_start_tls LDAP_P((
 	LDAP *ld,
 	LDAPControl **serverctrls,
 	LDAPControl **clientctrls,
-	int *msgidp ));
+	int *msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_install_tls LDAP_P((
-	LDAP *ld ));
+	LDAP *ld )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_start_tls_s LDAP_P((
 	LDAP *ld,
 	LDAPControl **serverctrls,
-	LDAPControl **clientctrls ));
+	LDAPControl **clientctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * in messages.c:
@@ -1573,17 +1577,17 @@ ldap_start_tls_s LDAP_P((
 LDAP_F( LDAPMessage * )
 ldap_first_message LDAP_P((
 	LDAP *ld,
-	LDAPMessage *chain ));
+	LDAPMessage *chain )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( LDAPMessage * )
 ldap_next_message LDAP_P((
 	LDAP *ld,
-	LDAPMessage *msg ));
+	LDAPMessage *msg )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_count_messages LDAP_P((
 	LDAP *ld,
-	LDAPMessage *chain ));
+	LDAPMessage *chain )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * in references.c:
@@ -1591,17 +1595,17 @@ ldap_count_messages LDAP_P((
 LDAP_F( LDAPMessage * )
 ldap_first_reference LDAP_P((
 	LDAP *ld,
-	LDAPMessage *chain ));
+	LDAPMessage *chain )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( LDAPMessage * )
 ldap_next_reference LDAP_P((
 	LDAP *ld,
-	LDAPMessage *ref ));
+	LDAPMessage *ref )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_count_references LDAP_P((
 	LDAP *ld,
-	LDAPMessage *chain ));
+	LDAPMessage *chain )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_reference LDAP_P((
@@ -1609,7 +1613,7 @@ ldap_parse_reference LDAP_P((
 	LDAPMessage		*ref,
 	char			***referralsp,
 	LDAPControl		***serverctrls,
-	int				freeit));
+	int				freeit)) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 
 /*
@@ -1618,23 +1622,23 @@ ldap_parse_reference LDAP_P((
 LDAP_F( LDAPMessage * )
 ldap_first_entry LDAP_P((
 	LDAP *ld,
-	LDAPMessage *chain ));
+	LDAPMessage *chain )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( LDAPMessage * )
 ldap_next_entry LDAP_P((
 	LDAP *ld,
-	LDAPMessage *entry ));
+	LDAPMessage *entry )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_count_entries LDAP_P((
 	LDAP *ld,
-	LDAPMessage *chain ));
+	LDAPMessage *chain )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_get_entry_controls LDAP_P((
 	LDAP			*ld,
 	LDAPMessage		*entry,
-	LDAPControl		***serverctrls));
+	LDAPControl		***serverctrls)) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 
 /*
@@ -1643,12 +1647,12 @@ ldap_get_entry_controls LDAP_P((
 LDAP_F( LDAPMessage * )
 ldap_delete_result_entry LDAP_P((
 	LDAPMessage **list,
-	LDAPMessage *e ));
+	LDAPMessage *e )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void )
 ldap_add_result_entry LDAP_P((
 	LDAPMessage **list,
-	LDAPMessage *e ));
+	LDAPMessage *e )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 
 /*
@@ -1657,7 +1661,7 @@ ldap_add_result_entry LDAP_P((
 LDAP_F( char * )
 ldap_get_dn LDAP_P((
 	LDAP *ld,
-	LDAPMessage *entry ));
+	LDAPMessage *entry )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 typedef struct ldap_ava {
 	struct berval la_attr;
@@ -1693,63 +1697,63 @@ typedef LDAPRDN* LDAPDN;
 #define LDAP_DN_P_NOSPACEAFTERRDN	0x2000U
 #define LDAP_DN_PEDANTIC			0xF000U
 
-LDAP_F( void ) ldap_rdnfree LDAP_P(( LDAPRDN rdn ));
-LDAP_F( void ) ldap_dnfree LDAP_P(( LDAPDN dn ));
+LDAP_F( void ) ldap_rdnfree LDAP_P(( LDAPRDN rdn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
+LDAP_F( void ) ldap_dnfree LDAP_P(( LDAPDN dn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_bv2dn LDAP_P(( 
 	struct berval *bv, 
 	LDAPDN *dn, 
-	unsigned flags ));
+	unsigned flags )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_str2dn LDAP_P((
 	LDAP_CONST char *str,
 	LDAPDN *dn,
-	unsigned flags ));
+	unsigned flags )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_dn2bv LDAP_P((
 	LDAPDN dn,
 	struct berval *bv,
-	unsigned flags ));
+	unsigned flags )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_dn2str LDAP_P((
 	LDAPDN dn,
 	char **str,
-	unsigned flags ));
+	unsigned flags )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_bv2rdn LDAP_P((
 	struct berval *bv,
 	LDAPRDN *rdn,
 	char **next,
-	unsigned flags ));
+	unsigned flags )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_str2rdn LDAP_P((
 	LDAP_CONST char *str,
 	LDAPRDN *rdn,
 	char **next,
-	unsigned flags ));
+	unsigned flags )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_rdn2bv LDAP_P((
 	LDAPRDN rdn,
 	struct berval *bv,
-	unsigned flags ));
+	unsigned flags )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_rdn2str LDAP_P((
 	LDAPRDN rdn,
 	char **str,
-	unsigned flags ));
+	unsigned flags )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_dn_normalize LDAP_P((
 	LDAP_CONST char *in, unsigned iflags,
-	char **out, unsigned oflags ));
+	char **out, unsigned oflags )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( char * )
 ldap_dn2ufn LDAP_P(( /* deprecated, use ldap_str2dn/dn2str */
@@ -1766,11 +1770,11 @@ ldap_explode_rdn LDAP_P(( /* deprecated, ldap_str2rdn */
 	int notypes )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_10, __IPHONE_NA, __IPHONE_NA, "use ldap_str2rdn");
 
 typedef int LDAPDN_rewrite_func
-	LDAP_P(( LDAPDN dn, unsigned flags, void *ctx ));
+	LDAP_P(( LDAPDN dn, unsigned flags, void *ctx )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_X509dn2bv LDAP_P(( void *x509_name, struct berval *dn,
-	LDAPDN_rewrite_func *func, unsigned flags ));
+	LDAPDN_rewrite_func *func, unsigned flags )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( char * )
 ldap_dn2dcedn LDAP_P(( /* deprecated, ldap_str2dn/dn2str */
@@ -1786,12 +1790,12 @@ ldap_dn2ad_canonical LDAP_P(( /* deprecated, ldap_str2dn/dn2str */
 
 LDAP_F( int )
 ldap_get_dn_ber LDAP_P((
-	LDAP *ld, LDAPMessage *e, BerElement **berout, struct berval *dn ));
+	LDAP *ld, LDAPMessage *e, BerElement **berout, struct berval *dn )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_get_attribute_ber LDAP_P((
 	LDAP *ld, LDAPMessage *e, BerElement *ber, struct berval *attr,
-	struct berval **vals ));
+	struct berval **vals )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * in getattr.c
@@ -1800,13 +1804,13 @@ LDAP_F( char * )
 ldap_first_attribute LDAP_P((
 	LDAP *ld,
 	LDAPMessage *entry,
-	BerElement **ber ));
+	BerElement **ber )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( char * )
 ldap_next_attribute LDAP_P((
 	LDAP *ld,
 	LDAPMessage *entry,
-	BerElement *ber ));
+	BerElement *ber )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 
 /*
@@ -1816,15 +1820,15 @@ LDAP_F( struct berval ** )
 ldap_get_values_len LDAP_P((
 	LDAP *ld,
 	LDAPMessage *entry,
-	LDAP_CONST char *target ));
+	LDAP_CONST char *target )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_count_values_len LDAP_P((
-	struct berval **vals ));
+	struct berval **vals )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void )
 ldap_value_free_len LDAP_P((
-	struct berval **vals ));
+	struct berval **vals )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 LDAP_F( char ** )
@@ -1851,24 +1855,24 @@ ldap_result LDAP_P((
 	int msgid,
 	int all,
 	struct timeval *timeout,
-	LDAPMessage **result ));
+	LDAPMessage **result )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_msgtype LDAP_P((
-	LDAPMessage *lm ));
+	LDAPMessage *lm )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_msgid   LDAP_P((
-	LDAPMessage *lm ));
+	LDAPMessage *lm )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_msgfree LDAP_P((
-	LDAPMessage *lm ));
+	LDAPMessage *lm )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_msgdelete LDAP_P((
 	LDAP *ld,
-	int msgid ));
+	int msgid )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 
 /*
@@ -1877,7 +1881,7 @@ ldap_msgdelete LDAP_P((
 LDAP_F( int )
 ldap_bv2escaped_filter_value LDAP_P(( 
 	struct berval *in, 
-	struct berval *out ));
+	struct berval *out )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_search_ext LDAP_P((
@@ -1891,7 +1895,7 @@ ldap_search_ext LDAP_P((
 	LDAPControl		**clientctrls,
 	struct timeval	*timeout,
 	int				sizelimit,
-	int				*msgidp ));
+	int				*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_search_ext_s LDAP_P((
@@ -1905,7 +1909,7 @@ ldap_search_ext_s LDAP_P((
 	LDAPControl		**clientctrls,
 	struct timeval	*timeout,
 	int				sizelimit,
-	LDAPMessage		**res ));
+	LDAPMessage		**res )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 LDAP_F( int )
@@ -1946,17 +1950,17 @@ LDAP_F( int )
 ldap_unbind_ext LDAP_P((
 	LDAP			*ld,
 	LDAPControl		**serverctrls,
-	LDAPControl		**clientctrls));
+	LDAPControl		**clientctrls)) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_unbind_ext_s LDAP_P((
 	LDAP			*ld,
 	LDAPControl		**serverctrls,
-	LDAPControl		**clientctrls));
+	LDAPControl		**clientctrls)) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_destroy LDAP_P((
-	LDAP			*ld));
+	LDAP			*ld)) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 LDAP_F( int )
@@ -1974,7 +1978,7 @@ ldap_unbind_s LDAP_P(( /* deprecated, use ldap_unbind_ext_s */
 LDAP_F( int )
 ldap_put_vrFilter LDAP_P((
 	BerElement *ber,
-	const char *vrf ));
+	const char *vrf )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * in free.c
@@ -1982,34 +1986,34 @@ ldap_put_vrFilter LDAP_P((
 
 LDAP_F( void * )
 ldap_memalloc LDAP_P((
-	ber_len_t s ));
+	ber_len_t s )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void * )
 ldap_memrealloc LDAP_P((
 	void* p,
-	ber_len_t s ));
+	ber_len_t s )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void * )
 ldap_memcalloc LDAP_P((
 	ber_len_t n,
-	ber_len_t s ));
+	ber_len_t s )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void )
 ldap_memfree LDAP_P((
-	void* p ));
+	void* p )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void )
 ldap_memvfree LDAP_P((
-	void** v ));
+	void** v )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( char * )
 ldap_strdup LDAP_P((
-	LDAP_CONST char * ));
+	LDAP_CONST char * )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void )
 ldap_mods_free LDAP_P((
 	LDAPMod **mods,
-	int freemods ));
+	int freemods )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 
 #if LDAP_DEPRECATED
@@ -2047,28 +2051,28 @@ ldap_sort_strcasecmp LDAP_P((
  */
 LDAP_F( int )
 ldap_is_ldap_url LDAP_P((
-	LDAP_CONST char *url ));
+	LDAP_CONST char *url )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_is_ldaps_url LDAP_P((
-	LDAP_CONST char *url ));
+	LDAP_CONST char *url )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_is_ldapi_url LDAP_P((
-	LDAP_CONST char *url ));
+	LDAP_CONST char *url )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_url_parse LDAP_P((
 	LDAP_CONST char *url,
-	LDAPURLDesc **ludpp ));
+	LDAPURLDesc **ludpp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( char * )
 ldap_url_desc2str LDAP_P((
-	LDAPURLDesc *ludp ));
+	LDAPURLDesc *ludp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void )
 ldap_free_urldesc LDAP_P((
-	LDAPURLDesc *ludp ));
+	LDAPURLDesc *ludp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 
 /*
@@ -2082,13 +2086,13 @@ ldap_cancel LDAP_P(( LDAP *ld,
 	int cancelid,
 	LDAPControl		**sctrls,
 	LDAPControl		**cctrls,
-	int				*msgidp ));
+	int				*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_cancel_s LDAP_P(( LDAP *ld,
 	int cancelid,
 	LDAPControl **sctrl,
-	LDAPControl **cctrl ));
+	LDAPControl **cctrl )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * LDAP Turn Extended Operation <draft-zeilenga-ldap-turn-xx.txt>
@@ -2102,14 +2106,14 @@ ldap_turn LDAP_P(( LDAP *ld,
 	LDAP_CONST char* identifier,
 	LDAPControl		**sctrls,
 	LDAPControl		**cctrls,
-	int				*msgidp ));
+	int				*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_turn_s LDAP_P(( LDAP *ld,
 	int mutual,
 	LDAP_CONST char* identifier,
 	LDAPControl **sctrl,
-	LDAPControl **cctrl ));
+	LDAPControl **cctrl )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * LDAP Paged Results
@@ -2122,7 +2126,7 @@ ldap_create_page_control_value LDAP_P((
 	LDAP *ld,
 	ber_int_t pagesize,
 	struct berval *cookie,
-	struct berval *value ));
+	struct berval *value )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_create_page_control LDAP_P((
@@ -2130,7 +2134,7 @@ ldap_create_page_control LDAP_P((
 	ber_int_t pagesize,
 	struct berval *cookie,
 	int iscritical,
-	LDAPControl **ctrlp ));
+	LDAPControl **ctrlp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #if LDAP_DEPRECATED
 LDAP_F( int )
@@ -2147,7 +2151,7 @@ ldap_parse_pageresponse_control LDAP_P((
 	LDAP *ld,
 	LDAPControl *ctrl,
 	ber_int_t *count,
-	struct berval *cookie ));
+	struct berval *cookie )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * LDAP Server Side Sort
@@ -2165,38 +2169,38 @@ typedef struct ldapsortkey {
 LDAP_F( int )
 ldap_create_sort_keylist LDAP_P((
 	LDAPSortKey ***sortKeyList,
-	char *keyString ));
+	char *keyString )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void )
 ldap_free_sort_keylist LDAP_P((
-	LDAPSortKey **sortkeylist ));
+	LDAPSortKey **sortkeylist )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_create_sort_control_value LDAP_P((
 	LDAP *ld,
 	LDAPSortKey **keyList,
-	struct berval *value ));
+	struct berval *value )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_create_sort_control LDAP_P((
 	LDAP *ld,
 	LDAPSortKey **keyList,
 	int iscritical,
-	LDAPControl **ctrlp ));
+	LDAPControl **ctrlp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_sort_control LDAP_P((
 	LDAP           *ld,
 	LDAPControl    **ctrlp,
 	unsigned long  *result,
-	char           **attribute ));
+	char           **attribute )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_sortresponse_control LDAP_P((
 	LDAP *ld,
 	LDAPControl *ctrl,
 	ber_int_t *result,
-	char **attribute ));
+	char **attribute )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * LDAP Virtual List View
@@ -2220,13 +2224,13 @@ LDAP_F( int )
 ldap_create_vlv_control_value LDAP_P((
 	LDAP *ld,
 	LDAPVLVInfo *ldvlistp,
-	struct berval *value));
+	struct berval *value)) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_create_vlv_control LDAP_P((
 	LDAP *ld,
 	LDAPVLVInfo *ldvlistp,
-	LDAPControl **ctrlp ));
+	LDAPControl **ctrlp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_vlv_control LDAP_P(( 
@@ -2235,7 +2239,7 @@ ldap_parse_vlv_control LDAP_P((
 	unsigned long *target_posp,
 	unsigned long *list_countp,
 	struct berval **contextp,
-	int           *errcodep ));
+	int           *errcodep )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_vlvresponse_control LDAP_P((
@@ -2244,7 +2248,7 @@ ldap_parse_vlvresponse_control LDAP_P((
 	ber_int_t *target_posp,
 	ber_int_t *list_countp,
 	struct berval **contextp,
-	int           *errcodep ));
+	int           *errcodep )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * LDAP Who Am I?
@@ -2256,20 +2260,20 @@ LDAP_F( int )
 ldap_parse_whoami LDAP_P((
 	LDAP *ld,
 	LDAPMessage *res,
-	struct berval **authzid ));
+	struct berval **authzid )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_whoami LDAP_P(( LDAP *ld,
 	LDAPControl		**sctrls,
 	LDAPControl		**cctrls,
-	int				*msgidp ));
+	int				*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_whoami_s LDAP_P((
 	LDAP *ld,
 	struct berval **authzid,
 	LDAPControl **sctrls,
-	LDAPControl **cctrls ));
+	LDAPControl **cctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * LDAP Password Modify
@@ -2281,7 +2285,7 @@ LDAP_F( int )
 ldap_parse_passwd LDAP_P((
 	LDAP *ld,
 	LDAPMessage *res,
-	struct berval *newpasswd ));
+	struct berval *newpasswd )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_passwd LDAP_P(( LDAP *ld,
@@ -2290,7 +2294,7 @@ ldap_passwd LDAP_P(( LDAP *ld,
 	struct berval	*newpw,
 	LDAPControl		**sctrls,
 	LDAPControl		**cctrls,
-	int				*msgidp ));
+	int				*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_passwd_s LDAP_P((
@@ -2300,7 +2304,7 @@ ldap_passwd_s LDAP_P((
 	struct berval	*newpw,
 	struct berval *newpasswd,
 	LDAPControl **sctrls,
-	LDAPControl **cctrls ));
+	LDAPControl **cctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #ifdef LDAP_CONTROL_PASSWORDPOLICYREQUEST
 /*
@@ -2325,7 +2329,7 @@ typedef enum passpolicyerror_enum {
 LDAP_F( int )
 ldap_create_passwordpolicy_control LDAP_P((
         LDAP *ld,
-        LDAPControl **ctrlp ));
+        LDAPControl **ctrlp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_passwordpolicy_control LDAP_P((
@@ -2333,10 +2337,10 @@ ldap_parse_passwordpolicy_control LDAP_P((
         LDAPControl *ctrl,
         ber_int_t *expirep,
         ber_int_t *gracep,
-        LDAPPasswordPolicyError *errorp ));
+        LDAPPasswordPolicyError *errorp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( const char * )
-ldap_passwordpolicy_err2txt LDAP_P(( LDAPPasswordPolicyError ));
+ldap_passwordpolicy_err2txt LDAP_P(( LDAPPasswordPolicyError )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 #endif /* LDAP_CONTROL_PASSWORDPOLICYREQUEST */
 
 /*
@@ -2349,7 +2353,7 @@ LDAP_F( int )
 ldap_parse_refresh LDAP_P((
 	LDAP *ld,
 	LDAPMessage *res,
-	ber_int_t *newttl ));
+	ber_int_t *newttl )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_refresh LDAP_P(( LDAP *ld,
@@ -2357,7 +2361,7 @@ ldap_refresh LDAP_P(( LDAP *ld,
 	ber_int_t ttl,
 	LDAPControl		**sctrls,
 	LDAPControl		**cctrls,
-	int				*msgidp ));
+	int				*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_refresh_s LDAP_P((
@@ -2366,7 +2370,7 @@ ldap_refresh_s LDAP_P((
 	ber_int_t ttl,
 	ber_int_t *newttl,
 	LDAPControl **sctrls,
-	LDAPControl **cctrls ));
+	LDAPControl **cctrls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * LDAP Transactions
@@ -2376,13 +2380,13 @@ LDAP_F( int )
 ldap_txn_start LDAP_P(( LDAP *ld,
 	LDAPControl		**sctrls,
 	LDAPControl		**cctrls,
-	int				*msgidp ));
+	int				*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_txn_start_s LDAP_P(( LDAP *ld,
 	LDAPControl **sctrl,
 	LDAPControl **cctrl,
-	struct berval **rettxnid ));
+	struct berval **rettxnid )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_txn_end LDAP_P(( LDAP *ld,
@@ -2390,7 +2394,7 @@ ldap_txn_end LDAP_P(( LDAP *ld,
 	struct berval	*txnid,
 	LDAPControl		**sctrls,
 	LDAPControl		**cctrls,
-	int				*msgidp ));
+	int				*msgidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_txn_end_s LDAP_P(( LDAP *ld,
@@ -2398,7 +2402,7 @@ ldap_txn_end_s LDAP_P(( LDAP *ld,
 	struct berval *txnid,
 	LDAPControl **sctrl,
 	LDAPControl **cctrl,
-	int *retidp ));
+	int *retidp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 #endif
 
 /*
@@ -2410,7 +2414,7 @@ ldap_txn_end_s LDAP_P(( LDAP *ld,
  */
 LDAP_F( ldap_sync_t * )
 ldap_sync_initialize LDAP_P((
-	ldap_sync_t	*ls ));
+	ldap_sync_t	*ls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * destroy the persistent search structure
@@ -2418,7 +2422,7 @@ ldap_sync_initialize LDAP_P((
 LDAP_F( void )
 ldap_sync_destroy LDAP_P((
 	ldap_sync_t	*ls,
-	int		freeit ));
+	int		freeit )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * initialize a refreshOnly sync
@@ -2426,28 +2430,28 @@ ldap_sync_destroy LDAP_P((
 LDAP_F( int )
 ldap_sync_init LDAP_P((
 	ldap_sync_t	*ls,
-	int		mode ));
+	int		mode )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * initialize a refreshOnly sync
  */
 LDAP_F( int )
 ldap_sync_init_refresh_only LDAP_P((
-	ldap_sync_t	*ls ));
+	ldap_sync_t	*ls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * initialize a refreshAndPersist sync
  */
 LDAP_F( int )
 ldap_sync_init_refresh_and_persist LDAP_P((
-	ldap_sync_t	*ls ));
+	ldap_sync_t	*ls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * poll for new responses
  */
 LDAP_F( int )
 ldap_sync_poll LDAP_P((
-	ldap_sync_t	*ls ));
+	ldap_sync_t	*ls )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #ifdef LDAP_CONTROL_X_SESSION_TRACKING
 
@@ -2461,7 +2465,7 @@ ldap_create_session_tracking_value LDAP_P((
 	char		*sessionSourceName,
 	char		*formatOID,
 	struct berval	*sessionTrackingIdentifier,
-	struct berval	*value ));
+	struct berval	*value )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_create_session_tracking LDAP_P((
@@ -2470,7 +2474,7 @@ ldap_create_session_tracking LDAP_P((
 	char		*sessionSourceName,
 	char		*formatOID,
 	struct berval	*sessionTrackingIdentifier,
-	LDAPControl	**ctrlp ));
+	LDAPControl	**ctrlp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_session_tracking_control LDAP_P((
@@ -2479,7 +2483,7 @@ ldap_parse_session_tracking_control LDAP_P((
 	struct berval *ip,
 	struct berval *name,
 	struct berval *oid,
-	struct berval *id ));
+	struct berval *id )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 #endif /* LDAP_CONTROL_X_SESSION_TRACKING */
 
@@ -2490,14 +2494,14 @@ LDAP_F (int)
 ldap_create_assertion_control_value LDAP_P((
 	LDAP		*ld,
 	char		*assertion,
-	struct berval	*value ));
+	struct berval	*value )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_create_assertion_control LDAP_P((
 	LDAP		*ld,
 	char		*filter,
 	int		iscritical,
-	LDAPControl	**ctrlp ));
+	LDAPControl	**ctrlp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 /*
  * in deref.c
@@ -2525,30 +2529,30 @@ LDAP_F( int )
 ldap_create_deref_control_value LDAP_P((
 	LDAP *ld,
 	LDAPDerefSpec *ds,
-	struct berval *value ));
+	struct berval *value )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_create_deref_control LDAP_P((
 	LDAP		*ld,
 	LDAPDerefSpec	*ds,
 	int		iscritical,
-	LDAPControl	**ctrlp ));
+	LDAPControl	**ctrlp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( void )
 ldap_derefresponse_free LDAP_P((
-	LDAPDerefRes *dr ));
+	LDAPDerefRes *dr )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_derefresponse_control LDAP_P((
 	LDAP *ld,
 	LDAPControl *ctrl,
-	LDAPDerefRes **drp ));
+	LDAPDerefRes **drp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_F( int )
 ldap_parse_deref_control LDAP_P((
 	LDAP		*ld,
 	LDAPControl	**ctrls,
-	LDAPDerefRes	**drp ));
+	LDAPDerefRes	**drp )) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_11, __IPHONE_NA, __IPHONE_NA, "use OpenDirectory Framework");
 
 LDAP_END_DECL
 #endif /* _LDAP_H */

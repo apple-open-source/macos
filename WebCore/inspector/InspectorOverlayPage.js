@@ -22,6 +22,8 @@ const regionNumberStrokeColor = "rgb(61, 127, 204)";
 const shapeHighlightColor = "rgba(96, 82, 127, 0.8)";
 const shapeMarginHighlightColor = "rgba(96, 82, 127, 0.6)";
 
+const paintRectFillColor = "rgba(255, 0, 0, 0.5)";
+
 function drawPausedInDebuggerMessage(message)
 {
     var pausedInDebugger = document.getElementById("paused-in-debugger");
@@ -163,6 +165,24 @@ function drawGutter()
     }
 }
 
+var updatePaintRectsIntervalID;
+
+function updatePaintRects(paintRectList)
+{
+    var context = paintRectsCanvas.getContext("2d");
+    context.save();
+    context.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+    context.clearRect(0, 0, paintRectsCanvas.width, paintRectsCanvas.height);
+
+    context.fillStyle = paintRectFillColor;
+
+    for (var rectObject of paintRectList)
+        context.fillRect(rectObject.x, rectObject.y, rectObject.width, rectObject.height);
+
+    context.restore();
+}
+
 function reset(resetData)
 {
     var deviceScaleFactor = resetData.deviceScaleFactor;
@@ -170,6 +190,8 @@ function reset(resetData)
     window.frameViewFullSize = resetData.frameViewFullSize;
 
     window.canvas = document.getElementById("canvas");
+    window.paintRectsCanvas = document.getElementById("paintrects-canvas");
+
     window.context = canvas.getContext("2d");
     window.rightGutter = document.getElementById("right-gutter");
     window.bottomGutter = document.getElementById("bottom-gutter");
@@ -179,6 +201,12 @@ function reset(resetData)
     canvas.style.width = viewportSize.width + "px";
     canvas.style.height = viewportSize.height + "px";
     context.scale(deviceScaleFactor, deviceScaleFactor);
+
+    // We avoid getting the the context for the paint rects canvas until we need to paint, to avoid backing store allocation.
+    paintRectsCanvas.width = deviceScaleFactor * viewportSize.width;
+    paintRectsCanvas.height = deviceScaleFactor * viewportSize.height;
+    paintRectsCanvas.style.width = viewportSize.width + "px";
+    paintRectsCanvas.style.height = viewportSize.height + "px";
 
     document.getElementById("paused-in-debugger").style.visibility = "hidden";
     document.getElementById("element-title-container").innerHTML = "";
@@ -233,36 +261,36 @@ function _truncateString(value, maxLength)
     return value && value.length > maxLength ? value.substring(0, 50) + "\u2026" : value;
 }
 
-function _createElementTitle(elementInfo)
+function _createElementTitle(elementData)
 {
     var builder = new DOMBuilder("div", "element-title");
     
-    builder.appendSpanIfNotNull("tag-name", elementInfo.tagName);
-    builder.appendSpanIfNotNull("node-id", elementInfo.idValue, "#");
-    builder.appendSpanIfNotNull("class-name", _truncateString(elementInfo.className, 50));
+    builder.appendSpanIfNotNull("tag-name", elementData.tagName);
+    builder.appendSpanIfNotNull("node-id", elementData.idValue, "#");
+    builder.appendSpanIfNotNull("class-name", _truncateString(elementData.className, 50));
 
     builder.appendTextNode(" ");
-    builder.appendSpan("node-width", elementInfo.nodeWidth);
+    builder.appendSpan("node-width", elementData.size.width);
     // \xd7 is the code for the &times; HTML entity.
     builder.appendSpan("px", "px \xd7 ");
-    builder.appendSpan("node-height", elementInfo.nodeHeight);
+    builder.appendSpan("node-height", elementData.size.height);
     builder.appendSpan("px", "px");
 
-    builder.appendPropertyIfNotNull("role-name", "Role", elementInfo.role);
-    builder.appendPropertyIfNotNull("region-flow-name", "Region Flow", elementInfo.regionFlowInfo ? elementInfo.regionFlowInfo.name : null);
-    builder.appendPropertyIfNotNull("content-flow-name", "Content Flow", elementInfo.contentFlowInfo ? elementInfo.contentFlowInfo.name : null);
+    builder.appendPropertyIfNotNull("role-name", "Role", elementData.role);
+    builder.appendPropertyIfNotNull("region-flow-name", "Region Flow", elementData.regionFlowData ? elementData.regionFlowData.name : null);
+    builder.appendPropertyIfNotNull("content-flow-name", "Content Flow", elementData.contentFlowData ? elementData.contentFlowData.name : null);
 
     document.getElementById("element-title-container").appendChild(builder.element);
 
     return builder.element;
 }
 
-function _drawElementTitle(elementInfo, fragmentHighlight, scroll)
+function _drawElementTitle(elementData, fragmentHighlight, scroll)
 {
-    if (!elementInfo || !fragmentHighlight.quads.length)
+    if (!elementData || !fragmentHighlight.quads.length)
         return;
-    
-    var elementTitle = _createElementTitle(elementInfo);
+
+    var elementTitle = _createElementTitle(elementData);
 
     var marginQuad = fragmentHighlight.quads[0];
 
@@ -277,11 +305,10 @@ function _drawElementTitle(elementInfo, fragmentHighlight, scroll)
     var renderArrowDown = false;
 
     var boxX = marginQuad[0].x;
-    
-    var containingRegion = fragmentHighlight.region;
-    if (containingRegion) {
+
+    var clipQuad = fragmentHighlight.regionClippingArea;
+    if (clipQuad) {
         // Restrict the position of the title box to the area of the containing region.
-        var clipQuad = containingRegion.quad;
         anchorTop = Math.max(anchorTop, Math.min(clipQuad[0].y, clipQuad[1].y, clipQuad[2].y, clipQuad[3].y));
         anchorBottom = Math.min(anchorBottom, Math.max(clipQuad[0].y, clipQuad[1].y, clipQuad[2].y, clipQuad[3].y));
         boxX = Math.max(boxX, Math.min(clipQuad[0].x, clipQuad[1].x, clipQuad[2].x, clipQuad[3].x));
@@ -383,7 +410,8 @@ function _drawRegionsHighlight(regions)
     }
 }
 
-function _drawShapeHighlight(shapeInfo) {
+function _drawShapeHighlight(shapeInfo)
+{
     if (shapeInfo.marginShape)
         drawPath(context, shapeInfo.marginShape, shapeMarginHighlightColor);
 
@@ -401,9 +429,9 @@ function _drawFragmentHighlight(highlight)
 
     context.save();
 
-    if (highlight.region) {
+    if (highlight.regionClippingArea) {
         // Clip to the containing region to avoid showing fragments that are not rendered by this region.
-        quadToPath(highlight.region.quad).clip();
+        quadToPath(highlight.regionClippingArea).clip();
     }
 
     var quads = highlight.quads.slice();
@@ -459,26 +487,32 @@ function hidePageIndication()
     document.body.classList.remove("indicate");
 }
 
-function drawNodeHighlight(highlight)
+function drawNodeHighlight(allHighlights)
 {
-    context.save();
-    context.translate(-highlight.scroll.x, -highlight.scroll.y);
-
-    for (var i = 0; i < highlight.fragments.length; ++i)
-        _drawFragmentHighlight(highlight.fragments[i]);
-
-    if (highlight.elementInfo && highlight.elementInfo.regionFlowInfo)
-        _drawRegionsHighlight(highlight.elementInfo.regionFlowInfo.regions);
-
-    if (highlight.elementInfo && highlight.elementInfo.shapeOutsideInfo)
-        _drawShapeHighlight(highlight.elementInfo.shapeOutsideInfo);
-
-    context.restore();
-
     var elementTitleContainer = document.getElementById("element-title-container");
-    elementTitleContainer.innerHTML = "";
-    for (var i = 0; i < highlight.fragments.length; ++i)
-        _drawElementTitle(highlight.elementInfo, highlight.fragments[i], highlight.scroll);
+    while (elementTitleContainer.hasChildNodes())
+        elementTitleContainer.removeChild(elementTitleContainer.lastChild);
+
+    for (var highlight of allHighlights) {
+        context.save();
+        context.translate(-highlight.scrollOffset.x, -highlight.scrollOffset.y);
+
+        for (var fragment of highlight.fragments)
+            _drawFragmentHighlight(fragment);
+
+        if (highlight.elementData && highlight.elementData.regionFlowData)
+            _drawRegionsHighlight(highlight.elementData.regionFlowData.regions);
+
+        if (highlight.elementData && highlight.elementData.shapeOutsideData)
+            _drawShapeHighlight(highlight.elementData.shapeOutsideData);
+
+        context.restore();
+
+        if (allHighlights.length === 1) {
+            for (var fragment of highlight.fragments)
+                _drawElementTitle(highlight.elementData, fragment, highlight.scrollOffset);
+        }
+    }
 }
 
 function drawQuadHighlight(highlight)

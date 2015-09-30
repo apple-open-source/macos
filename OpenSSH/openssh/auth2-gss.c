@@ -1,4 +1,4 @@
-/* $OpenBSD: auth2-gss.c,v 1.18 2012/12/02 20:34:09 djm Exp $ */
+/* $OpenBSD: auth2-gss.c,v 1.22 2015/01/19 20:07:45 markus Exp $ */
 
 /*
  * Copyright (c) 2001-2007 Simon Wilkinson. All rights reserved.
@@ -40,6 +40,7 @@
 #include "log.h"
 #include "dispatch.h"
 #include "buffer.h"
+#include "misc.h"
 #include "servconf.h"
 #include "packet.h"
 #include "ssh-gss.h"
@@ -47,10 +48,10 @@
 
 extern ServerOptions options;
 
-static void input_gssapi_token(int type, u_int32_t plen, void *ctxt);
-static void input_gssapi_mic(int type, u_int32_t plen, void *ctxt);
-static void input_gssapi_exchange_complete(int type, u_int32_t plen, void *ctxt);
-static void input_gssapi_errtok(int, u_int32_t, void *);
+static int input_gssapi_token(int type, u_int32_t plen, void *ctxt);
+static int input_gssapi_mic(int type, u_int32_t plen, void *ctxt);
+static int input_gssapi_exchange_complete(int type, u_int32_t plen, void *ctxt);
+static int input_gssapi_errtok(int, u_int32_t, void *);
 
 /* 
  * The 'gssapi_keyex' userauth mechanism.
@@ -81,7 +82,7 @@ userauth_gsskeyex(Authctxt *authctxt)
 		    authctxt->pw));
 	
 	buffer_free(&b);
-	xfree(mic.value);
+	free(mic.value);
 
 	return (authenticated);
 }
@@ -96,7 +97,6 @@ userauth_gssapi(Authctxt *authctxt)
 	gss_OID_desc goid = {0, NULL};
 	Gssctxt *ctxt = NULL;
 	int mechs;
-	gss_OID_set supported;
 	int present;
 	OM_uint32 ms;
 	u_int len;
@@ -111,12 +111,10 @@ userauth_gssapi(Authctxt *authctxt)
 		return (0);
 	}
 
-	ssh_gssapi_supported_oids(&supported);
 	do {
 		mechs--;
 
-		if (doid)
-			xfree(doid);
+		free(doid);
 
 		present = 0;
 		doid = packet_get_string(&len);
@@ -125,17 +123,14 @@ userauth_gssapi(Authctxt *authctxt)
 		    doid[1] == len - 2) {
 			goid.elements = doid + 2;
 			goid.length   = len - 2;
-			gss_test_oid_set_member(&ms, &goid, supported,
-			    &present);
+			ssh_gssapi_test_oid_supported(&ms, &goid, &present);
 		} else {
 			logit("Badly formed OID received");
 		}
 	} while (mechs > 0 && !present);
 
-	gss_release_oid_set(&ms, &supported);
-
 	if (!present) {
-		xfree(doid);
+		free(doid);
 		authctxt->server_caused_failure = 1;
 		return (0);
 	}
@@ -143,7 +138,7 @@ userauth_gssapi(Authctxt *authctxt)
 	if (GSS_ERROR(PRIVSEP(ssh_gssapi_server_ctx(&ctxt, &goid)))) {
 		if (ctxt != NULL)
 			ssh_gssapi_delete_ctx(&ctxt);
-		xfree(doid);
+		free(doid);
 		authctxt->server_caused_failure = 1;
 		return (0);
 	}
@@ -156,7 +151,7 @@ userauth_gssapi(Authctxt *authctxt)
 	packet_put_string(doid, len);
 
 	packet_send();
-	xfree(doid);
+	free(doid);
 
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, &input_gssapi_token);
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_ERRTOK, &input_gssapi_errtok);
@@ -165,7 +160,7 @@ userauth_gssapi(Authctxt *authctxt)
 	return (0);
 }
 
-static void
+static int
 input_gssapi_token(int type, u_int32_t plen, void *ctxt)
 {
 	Authctxt *authctxt = ctxt;
@@ -187,7 +182,7 @@ input_gssapi_token(int type, u_int32_t plen, void *ctxt)
 	maj_status = PRIVSEP(ssh_gssapi_accept_ctx(gssctxt, &recv_tok,
 	    &send_tok, &flags));
 
-	xfree(recv_tok.value);
+	free(recv_tok.value);
 
 	if (GSS_ERROR(maj_status)) {
 		if (send_tok.length != 0) {
@@ -216,10 +211,14 @@ input_gssapi_token(int type, u_int32_t plen, void *ctxt)
 		}
 	}
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	gss_release_buffer(&min_status, &send_tok);
+#pragma clang diagnostic pop
+	return 0;
 }
 
-static void
+static int
 input_gssapi_errtok(int type, u_int32_t plen, void *ctxt)
 {
 	Authctxt *authctxt = ctxt;
@@ -242,7 +241,7 @@ input_gssapi_errtok(int type, u_int32_t plen, void *ctxt)
 	maj_status = PRIVSEP(ssh_gssapi_accept_ctx(gssctxt, &recv_tok,
 	    &send_tok, NULL));
 
-	xfree(recv_tok.value);
+	free(recv_tok.value);
 
 	/* We can't return anything to the client, even if we wanted to */
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, NULL);
@@ -250,7 +249,11 @@ input_gssapi_errtok(int type, u_int32_t plen, void *ctxt)
 
 	/* The client will have already moved on to the next auth */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	gss_release_buffer(&maj_status, &send_tok);
+#pragma clang diagnostic pop
+	return 0;
 }
 
 /*
@@ -259,17 +262,14 @@ input_gssapi_errtok(int type, u_int32_t plen, void *ctxt)
  * which only enables it once the GSSAPI exchange is complete.
  */
 
-static void
+static int
 input_gssapi_exchange_complete(int type, u_int32_t plen, void *ctxt)
 {
 	Authctxt *authctxt = ctxt;
-	Gssctxt *gssctxt;
 	int authenticated;
 
 	if (authctxt == NULL || (authctxt->methoddata == NULL && !use_privsep))
 		fatal("No authentication or GSSAPI context");
-
-	gssctxt = authctxt->methoddata;
 
 	/*
 	 * We don't need to check the status, because we're only enabled in
@@ -287,9 +287,10 @@ input_gssapi_exchange_complete(int type, u_int32_t plen, void *ctxt)
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_MIC, NULL);
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_EXCHANGE_COMPLETE, NULL);
 	userauth_finish(authctxt, authenticated, "gssapi-with-mic", NULL);
+	return 0;
 }
 
-static void
+static int
 input_gssapi_mic(int type, u_int32_t plen, void *ctxt)
 {
 	Authctxt *authctxt = ctxt;
@@ -320,7 +321,7 @@ input_gssapi_mic(int type, u_int32_t plen, void *ctxt)
 		logit("GSSAPI MIC check failed");
 
 	buffer_free(&b);
-	xfree(mic.value);
+	free(mic.value);
 
 	authctxt->postponed = 0;
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, NULL);
@@ -328,6 +329,7 @@ input_gssapi_mic(int type, u_int32_t plen, void *ctxt)
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_MIC, NULL);
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_EXCHANGE_COMPLETE, NULL);
 	userauth_finish(authctxt, authenticated, "gssapi-with-mic", NULL);
+	return 0;
 }
 
 Authmethod method_gsskeyex = {

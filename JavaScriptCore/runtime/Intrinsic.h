@@ -35,6 +35,7 @@ enum Intrinsic {
     MaxIntrinsic,
     SqrtIntrinsic,
     SinIntrinsic,
+    Clz32Intrinsic,
     CosIntrinsic,
     ArrayPushIntrinsic,
     ArrayPopIntrinsic,
@@ -52,16 +53,14 @@ enum Intrinsic {
     StringPrototypeValueOfIntrinsic,
     IMulIntrinsic,
     FRoundIntrinsic,
-    ArrayIteratorNextValueIntrinsic,
-    ArrayIteratorNextKeyIntrinsic,
-    ArrayIteratorNextGenericIntrinsic,
-    
+
     // Debugging intrinsics. These are meant to be used as testing hacks within
     // jsc.cpp and should never be exposed to users.
     DFGTrueIntrinsic,
     OSRExitIntrinsic,
     IsFinalTierIntrinsic,
     SetInt32HeapPredictionIntrinsic,
+    CheckInt32Intrinsic,
     FiatInt52Intrinsic,
 };
 

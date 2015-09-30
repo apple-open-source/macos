@@ -27,17 +27,24 @@
 
 #if WK_API_ENABLED
 
-namespace WebKit {
-class WebFrameProxy;
+#import "APIFrameInfo.h"
+#import "WKObject.h"
+
+namespace API {
+
+inline WKFrameInfo *wrapper(API::FrameInfo& frameInfo)
+{
+    ASSERT([frameInfo.wrapper() isKindOfClass:[WKFrameInfo class]]);
+
+    return (WKFrameInfo *)frameInfo.wrapper();
 }
 
-@class _WKSecurityOrigin;
+}
 
-@interface WKFrameInfo ()
-
-- (instancetype)initWithWebFrameProxy:(WebKit::WebFrameProxy&)webFrameProxy;
-- (instancetype)initWithWebFrameProxy:(WebKit::WebFrameProxy&)webFrameProxy securityOrigin:(_WKSecurityOrigin *)securityOrigin;
-
+@interface WKFrameInfo () <WKObject> {
+@package
+    API::ObjectStorage<API::FrameInfo> _frameInfo;
+}
 @end
 
 #endif

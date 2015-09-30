@@ -49,16 +49,17 @@ namespace WebKit {
 // The plug-in that we're currently calling NPP_New for.
 static NetscapePlugin* currentNPPNewPlugin;
 
-PassRefPtr<NetscapePlugin> NetscapePlugin::create(PassRefPtr<NetscapePluginModule> pluginModule)
+RefPtr<NetscapePlugin> NetscapePlugin::create(PassRefPtr<NetscapePluginModule> pluginModule)
 {
     if (!pluginModule)
-        return 0;
+        return nullptr;
 
-    return adoptRef(new NetscapePlugin(pluginModule));
+    return adoptRef(*new NetscapePlugin(pluginModule));
 }
     
 NetscapePlugin::NetscapePlugin(PassRefPtr<NetscapePluginModule> pluginModule)
-    : m_nextRequestID(0)
+    : Plugin(NetscapePluginType)
+    , m_nextRequestID(0)
     , m_pluginModule(pluginModule)
     , m_npWindow()
     , m_isStarted(false)
@@ -147,13 +148,6 @@ const char* NetscapePlugin::userAgent(NPP npp)
 
 const char* NetscapePlugin::userAgent()
 {
-#if PLUGIN_ARCHITECTURE(WIN)
-    static const char* MozillaUserAgent = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1) Gecko/20061010 Firefox/2.0";
-    
-    if (quirks().contains(PluginQuirks::WantsMozillaUserAgent))
-        return MozillaUserAgent;
-#endif
-
     if (m_userAgent.isNull()) {
         String userAgent = controller()->userAgent();
         ASSERT(!userAgent.isNull());
@@ -254,6 +248,11 @@ bool NetscapePlugin::isPrivateBrowsingEnabled()
     return controller()->isPrivateBrowsingEnabled();
 }
 
+bool NetscapePlugin::isMuted() const
+{
+    return controller()->isMuted();
+}
+
 NPObject* NetscapePlugin::windowScriptNPObject()
 {
     return controller()->windowScriptNPObject();
@@ -278,7 +277,7 @@ void NetscapePlugin::cancelStreamLoad(NetscapePluginStream* pluginStream)
 void NetscapePlugin::removePluginStream(NetscapePluginStream* pluginStream)
 {
     if (pluginStream == m_manualStream) {
-        m_manualStream = 0;
+        m_manualStream = nullptr;
         return;
     }
 
@@ -397,7 +396,45 @@ void NetscapePlugin::setCookiesForURL(const String& urlString, const String& coo
 bool NetscapePlugin::getAuthenticationInfo(const ProtectionSpace& protectionSpace, String& username, String& password)
 {
     return controller()->getAuthenticationInfo(protectionSpace, username, password);
-}    
+}
+
+void NetscapePlugin::registerRedirect(NetscapePluginStream* stream, const URL& requestURL, int redirectResponseStatus, void* notificationData)
+{
+#if ENABLE(NETWORK_PROCESS)
+    // NPP_URLRedirectNotify may synchronously request this stream back out, so set it first
+    m_redirects.set(notificationData, std::make_pair(stream, requestURL.string()));
+    if (!NPP_URLRedirectNotify(requestURL.string().utf8().data(), redirectResponseStatus, notificationData)) {
+        m_redirects.take(notificationData);
+        controller()->continueStreamLoad(stream->streamID());
+    }
+#else
+    controller()->continueStreamLoad(stream->streamID());
+#endif
+}
+
+void NetscapePlugin::urlRedirectResponse(void* notifyData, bool allow)
+{
+    if (!m_redirects.contains(notifyData))
+        return;
+
+    auto redirect = m_redirects.take(notifyData);
+    if (!redirect.first)
+        return;
+
+    RefPtr<NetscapePluginStream> stream = redirect.first;
+    if (!allow) {
+        controller()->cancelStreamLoad(stream->streamID());
+        stream->stop(NPRES_USER_BREAK);
+    } else {
+        stream->setURL(redirect.second);
+        controller()->continueStreamLoad(stream->streamID());
+    }
+}
+
+void NetscapePlugin::setIsPlayingAudio(bool isPlayingAudio)
+{
+    controller()->setPluginIsPlayingAudio(isPlayingAudio);
+}
 
 NPError NetscapePlugin::NPP_New(NPMIMEType pluginType, uint16_t mode, int16_t argc, char* argn[], char* argv[], NPSavedData* savedData)
 {
@@ -447,6 +484,15 @@ int16_t NetscapePlugin::NPP_HandleEvent(void* event)
 void NetscapePlugin::NPP_URLNotify(const char* url, NPReason reason, void* notifyData)
 {
     m_pluginModule->pluginFuncs().urlnotify(&m_npp, url, reason, notifyData);
+}
+
+bool NetscapePlugin::NPP_URLRedirectNotify(const char* url, int32_t status, void* notifyData)
+{
+    if (!m_pluginModule->pluginFuncs().urlredirectnotify)
+        return false;
+
+    m_pluginModule->pluginFuncs().urlredirectnotify(&m_npp, url, status, notifyData);
+    return true;
 }
 
 NPError NetscapePlugin::NPP_GetValue(NPPVariable variable, void *value)
@@ -507,6 +553,12 @@ void NetscapePlugin::callSetWindowInvisible()
 
 bool NetscapePlugin::shouldLoadSrcURL()
 {
+#if PLUGIN_ARCHITECTURE(X11)
+    // Flash crashes when NPP_GetValue is called for NPPVpluginCancelSrcStream in windowed mode.
+    if (m_isWindowed && m_pluginModule->pluginQuirks().contains(PluginQuirks::DoNotCancelSrcStreamInWindowedMode))
+        return true;
+#endif
+
     // Check if we should cancel the load
     NPBool cancelSrcStream = false;
 
@@ -560,7 +612,7 @@ static bool isTransparentSilverlightBackgroundValue(const String& lowercaseBackg
         }
     } else if (lowercaseBackgroundValue.startsWith("sc#")) {
         Vector<String> components;
-        lowercaseBackgroundValue.substring(3).split(",", components);
+        lowercaseBackgroundValue.substring(3).split(',', components);
 
         // An ScRGB value with alpha transparency, in the form sc#A,R,G,B.
         if (components.size() == 4) {
@@ -750,8 +802,10 @@ void NetscapePlugin::geometryDidChange(const IntSize& pluginSize, const IntRect&
     m_clipRect = clipRect;
     m_pluginToRootViewTransform = pluginToRootViewTransform;
 
+#if PLUGIN_ARCHITECTURE(X11)
     IntPoint frameRectLocationInWindowCoordinates = m_pluginToRootViewTransform.mapPoint(IntPoint());
     m_frameRectInWindowCoordinates = IntRect(frameRectLocationInWindowCoordinates, m_pluginSize);
+#endif
 
     platformGeometryDidChange();
 
@@ -800,6 +854,14 @@ void NetscapePlugin::didEvaluateJavaScript(uint64_t requestID, const String& res
     
     if (NetscapePluginStream* pluginStream = streamFromID(requestID))
         pluginStream->sendJavaScriptStream(result);
+}
+
+void NetscapePlugin::streamWillSendRequest(uint64_t streamID, const URL& requestURL, const URL& redirectResponseURL, int redirectResponseStatus)
+{
+    ASSERT(m_isStarted);
+
+    if (NetscapePluginStream* pluginStream = streamFromID(streamID))
+        pluginStream->willSendRequest(requestURL, redirectResponseURL, redirectResponseStatus);
 }
 
 void NetscapePlugin::streamDidReceiveResponse(uint64_t streamID, const URL& responseURL, uint32_t streamLength, 
@@ -1069,6 +1131,12 @@ bool NetscapePlugin::convertFromRootView(const IntPoint& pointInRootViewCoordina
 
     pointInPluginCoordinates = m_pluginToRootViewTransform.inverse().mapPoint(pointInRootViewCoordinates);
     return true;
+}
+
+void NetscapePlugin::mutedStateChanged(bool muted)
+{
+    NPBool value = muted;
+    NPP_SetValue(NPNVmuteAudioBool, &value);
 }
 
 #if !PLATFORM(COCOA)

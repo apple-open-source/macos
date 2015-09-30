@@ -32,14 +32,21 @@
 #include "ChildProcess.h"
 #include "DownloadManager.h"
 #include "MessageReceiverMap.h"
-#include "NetworkResourceLoadScheduler.h"
+#include <WebCore/DiagnosticLoggingClient.h>
+#include <WebCore/MemoryPressureHandler.h>
 #include <WebCore/SessionID.h>
 #include <memory>
 #include <wtf/Forward.h>
 #include <wtf/NeverDestroyed.h>
 
+#if PLATFORM(IOS)
+#include "WebSQLiteDatabaseTracker.h"
+#endif
+
 namespace WebCore {
 class CertificateInfo;
+class NetworkStorageSession;
+class SecurityOrigin;
 }
 
 namespace WebKit {
@@ -47,13 +54,14 @@ class AuthenticationManager;
 class NetworkConnectionToWebProcess;
 class NetworkProcessSupplement;
 struct NetworkProcessCreationParameters;
+struct SecurityOriginData;
 
 class NetworkProcess : public ChildProcess, private DownloadManager::Client {
     WTF_MAKE_NONCOPYABLE(NetworkProcess);
     friend class NeverDestroyed<NetworkProcess>;
     friend class NeverDestroyed<DownloadManager>;
 public:
-    static NetworkProcess& shared();
+    static NetworkProcess& singleton();
 
     template <typename T>
     T* supplement()
@@ -69,11 +77,28 @@ public:
 
     void removeNetworkConnectionToWebProcess(NetworkConnectionToWebProcess*);
 
-    NetworkResourceLoadScheduler& networkResourceLoadScheduler() { return m_networkResourceLoadScheduler; }
-
     AuthenticationManager& authenticationManager();
     DownloadManager& downloadManager();
     bool canHandleHTTPSServerTrustEvaluation() const { return m_canHandleHTTPSServerTrustEvaluation; }
+
+    void processWillSuspendImminently(bool& handled);
+    void prepareToSuspend();
+    void cancelPrepareToSuspend();
+    void processDidResume();
+
+    // Diagnostic messages logging.
+    void logDiagnosticMessage(uint64_t webPageID, const String& message, const String& description, WebCore::ShouldSample);
+    void logDiagnosticMessageWithResult(uint64_t webPageID, const String& message, const String& description, WebCore::DiagnosticLoggingResultType, WebCore::ShouldSample);
+    void logDiagnosticMessageWithValue(uint64_t webPageID, const String& message, const String& description, const String& value, WebCore::ShouldSample);
+
+#if USE(CFURLCACHE)
+    static Vector<Ref<WebCore::SecurityOrigin>> cfURLCacheOrigins();
+    static void clearCFURLCacheForOrigins(const Vector<SecurityOriginData>&);
+#endif
+
+#if PLATFORM(COCOA)
+    void clearHSTSCache(WebCore::NetworkStorageSession&, std::chrono::system_clock::time_point modifiedSince);
+#endif
 
 private:
     NetworkProcess();
@@ -84,8 +109,8 @@ private:
     virtual void terminate() override;
     void platformTerminate();
 
-    static void lowMemoryHandler(bool critical);
-    static void platformLowMemoryHandler(bool critical);
+    void lowMemoryHandler(WebCore::Critical);
+    void platformLowMemoryHandler(WebCore::Critical);
 
     // ChildProcess
     virtual void initializeProcess(const ChildProcessInitializationParameters&) override;
@@ -95,10 +120,12 @@ private:
     virtual bool shouldTerminate() override;
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
-    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
-    virtual void didClose(IPC::Connection*) override;
-    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    virtual void didClose(IPC::Connection&) override;
+    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::Network; }
+    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::UI; }
 
     // DownloadManager::Client
     virtual void didCreateDownload() override;
@@ -107,12 +134,22 @@ private:
     virtual AuthenticationManager& downloadsAuthenticationManager() override;
 
     // Message Handlers
-    void didReceiveNetworkProcessMessage(IPC::Connection*, IPC::MessageDecoder&);
+    void didReceiveNetworkProcessMessage(IPC::Connection&, IPC::MessageDecoder&);
+    void didReceiveSyncNetworkProcessMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
     void initializeNetworkProcess(const NetworkProcessCreationParameters&);
     void createNetworkConnectionToWebProcess();
     void ensurePrivateBrowsingSession(WebCore::SessionID);
     void destroyPrivateBrowsingSession(WebCore::SessionID);
+
+    void fetchWebsiteData(WebCore::SessionID, uint64_t websiteDataTypes, uint64_t callbackID);
+    void deleteWebsiteData(WebCore::SessionID, uint64_t websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID);
+    void deleteWebsiteDataForOrigins(WebCore::SessionID, uint64_t websiteDataTypes, const Vector<SecurityOriginData>& origins, const Vector<String>& cookieHostNames, uint64_t callbackID);
+
+    // FIXME: This should take a session ID so we can identify which disk cache to delete.
+    void clearDiskCache(std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
+
     void downloadRequest(uint64_t downloadID, const WebCore::ResourceRequest&);
+    void resumeDownload(uint64_t downloadID, const IPC::DataReference& resumeData, const String& path, const SandboxExtension::Handle&);
     void cancelDownload(uint64_t downloadID);
     void setCacheModel(uint32_t);
     void allowSpecificHTTPSCertificateForHost(const WebCore::CertificateInfo&, const String& host);
@@ -131,11 +168,11 @@ private:
     // Connections to WebProcesses.
     Vector<RefPtr<NetworkConnectionToWebProcess>> m_webProcessConnections;
 
-    NetworkResourceLoadScheduler m_networkResourceLoadScheduler;
-
     String m_diskCacheDirectory;
     bool m_hasSetCacheModel;
     CacheModel m_cacheModel;
+    int64_t m_diskCacheSizeOverride { -1 };
+    bool m_diskCacheIsDisabledForTesting;
     bool m_canHandleHTTPSServerTrustEvaluation;
 
     typedef HashMap<const char*, std::unique_ptr<NetworkProcessSupplement>, PtrHash<const char*>> NetworkProcessSupplementMap;
@@ -148,6 +185,10 @@ private:
     // multiple requests to clear the cache can come in before previous requests complete, and we need to wait for all of them.
     // In the future using WorkQueue and a counting semaphore would work, as would WorkQueue supporting the libdispatch concept of "work groups".
     dispatch_group_t m_clearCacheDispatchGroup;
+#endif
+
+#if PLATFORM(IOS)
+    WebSQLiteDatabaseTracker m_webSQLiteDatabaseTracker;
 #endif
 };
 

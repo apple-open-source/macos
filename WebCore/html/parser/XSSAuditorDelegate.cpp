@@ -53,20 +53,20 @@ XSSAuditorDelegate::XSSAuditorDelegate(Document& document)
 static inline String buildConsoleError(const XSSInfo& xssInfo)
 {
     StringBuilder message;
-    message.append("The XSS Auditor ");
+    message.appendLiteral("The XSS Auditor ");
     message.append(xssInfo.m_didBlockEntirePage ? "blocked access to" : "refused to execute a script in");
-    message.append(" '");
+    message.appendLiteral(" '");
     message.append(xssInfo.m_originalURL);
-    message.append("' because ");
+    message.appendLiteral("' because ");
     message.append(xssInfo.m_didBlockEntirePage ? "the source code of a script" : "its source code");
-    message.append(" was found within the request.");
+    message.appendLiteral(" was found within the request.");
 
     if (xssInfo.m_didSendCSPHeader)
-        message.append(" The server sent a 'Content-Security-Policy' header requesting this behavior.");
+        message.appendLiteral(" The server sent a 'Content-Security-Policy' header requesting this behavior.");
     else if (xssInfo.m_didSendXSSProtectionHeader)
-        message.append(" The server sent an 'X-XSS-Protection' header requesting this behavior.");
+        message.appendLiteral(" The server sent an 'X-XSS-Protection' header requesting this behavior.");
     else
-        message.append(" The auditor was enabled as the server sent neither an 'X-XSS-Protection' nor 'Content-Security-Policy' header.");
+        message.appendLiteral(" The auditor was enabled as the server sent neither an 'X-XSS-Protection' nor 'Content-Security-Policy' header.");
 
     return message.toString();
 }
@@ -82,12 +82,12 @@ PassRefPtr<FormData> XSSAuditorDelegate::generateViolationReport(const XSSInfo& 
             httpBody = formData->flattenToString();
     }
 
-    RefPtr<InspectorObject> reportDetails = InspectorObject::create();
+    Ref<InspectorObject> reportDetails = InspectorObject::create();
     reportDetails->setString("request-url", xssInfo.m_originalURL);
     reportDetails->setString("request-body", httpBody);
 
-    RefPtr<InspectorObject> reportObject = InspectorObject::create();
-    reportObject->setObject("xss-report", reportDetails.release());
+    Ref<InspectorObject> reportObject = InspectorObject::create();
+    reportObject->setObject("xss-report", WTF::move(reportDetails));
 
     return FormData::create(reportObject->toJSONString().utf8().data());
 }
@@ -112,7 +112,7 @@ void XSSAuditorDelegate::didBlockScript(const XSSInfo& xssInfo)
     }
 
     if (xssInfo.m_didBlockEntirePage)
-        m_document.frame()->navigationScheduler().scheduleLocationChange(m_document.securityOrigin(), SecurityOrigin::urlWithUniqueSecurityOrigin(), String());
+        m_document.frame()->navigationScheduler().scheduleLocationChange(&m_document, m_document.securityOrigin(), SecurityOrigin::urlWithUniqueSecurityOrigin(), String());
 }
 
 } // namespace WebCore

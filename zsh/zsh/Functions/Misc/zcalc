@@ -96,6 +96,9 @@
 emulate -L zsh
 setopt extendedglob
 
+# For testing in ZLE functions.
+local ZCALC_ACTIVE=1
+
 # TODO: make local variables that shouldn't be visible in expressions
 # begin with _.
 local line ans base defbase forms match mbegin mend psvar optlist opt arg
@@ -196,8 +199,8 @@ while (( expression_mode )) ||
   # special cases
   # Set default base if `[#16]' or `[##16]' etc. on its own.
   # Unset it if `[#]' or `[##]'.
-  if [[ $line = (#b)[[:blank:]]#('[#'(\#|)(<->|)']')[[:blank:]]#(*) ]]; then
-    if [[ -z $match[4] ]]; then
+  if [[ $line = (#b)[[:blank:]]#('[#'(\#|)((<->|)(|_|_<->))']')[[:blank:]]#(*) ]]; then
+    if [[ -z $match[6] ]]; then
       if [[ -z $match[3] ]]; then
 	defbase=
       else

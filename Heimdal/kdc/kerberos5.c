@@ -444,7 +444,7 @@ pa_srp_announce(kdc_request_t r, const struct kdc_patype *type, METHOD_DATA *md)
 
     srpset = pa_srp_get_set(r);
     if (srpset == NULL || srpset->len == 0) {
-	kdc_log(r->context, r->config, 0, "user has no SRP keys");
+	kdc_log(r->context, r->config, 5, "user has no SRP keys");
 	return 0;
     }
 

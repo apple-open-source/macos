@@ -28,6 +28,7 @@
 #if ENABLE(NETWORK_PROCESS)
 #include "NetworkProcess.h"
 
+#include "NetworkCache.h"
 #include "NetworkProcessCreationParameters.h"
 #include "ResourceCachesToClear.h"
 #include "WebCookieManager.h"
@@ -37,13 +38,15 @@
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/SoupNetworkSession.h>
 #include <libsoup/soup.h>
-#include <wtf/gobject/GRefPtr.h>
-#include <wtf/gobject/GUniquePtr.h>
+#include <wtf/RAMSize.h>
+#include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/GUniquePtr.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
+#if !ENABLE(NETWORK_CACHE)
 static uint64_t getCacheDiskFreeSize(SoupCache* cache)
 {
     ASSERT(cache);
@@ -55,25 +58,7 @@ static uint64_t getCacheDiskFreeSize(SoupCache* cache)
 
     return WebCore::getVolumeFreeSizeForPath(cacheDir.get());
 }
-
-static uint64_t getMemorySize()
-{
-    static uint64_t kDefaultMemorySize = 512;
-#if !OS(WINDOWS)
-    long pageSize = sysconf(_SC_PAGESIZE);
-    if (pageSize == -1)
-        return kDefaultMemorySize;
-
-    long physPages = sysconf(_SC_PHYS_PAGES);
-    if (physPages == -1)
-        return kDefaultMemorySize;
-
-    return ((pageSize / 1024) * physPages) / 1024;
-#else
-    // Fallback to default for other platforms.
-    return kDefaultMemorySize;
 #endif
-}
 
 void NetworkProcess::userPreferredLanguagesChanged(const Vector<String>& languages)
 {
@@ -83,9 +68,27 @@ void NetworkProcess::userPreferredLanguagesChanged(const Vector<String>& languag
 void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreationParameters& parameters)
 {
     ASSERT(!parameters.diskCacheDirectory.isEmpty());
-    GRefPtr<SoupCache> soupCache = adoptGRef(soup_cache_new(parameters.diskCacheDirectory.utf8().data(), SOUP_CACHE_SINGLE_USER));
+    m_diskCacheDirectory = parameters.diskCacheDirectory;
+
+#if ENABLE(NETWORK_CACHE)
+    // Clear the old soup cache if it exists.
+    SoupNetworkSession::defaultSession().clearCache(WebCore::directoryName(m_diskCacheDirectory));
+
+    NetworkCache::singleton().initialize(m_diskCacheDirectory, parameters.shouldEnableNetworkCacheEfficacyLogging);
+#else
+    // We used to use the given cache directory for the soup cache, but now we use a subdirectory to avoid
+    // conflicts with other cache files in the same directory. Remove the old cache files if they still exist.
+    SoupNetworkSession::defaultSession().clearCache(WebCore::directoryName(m_diskCacheDirectory));
+
+    GRefPtr<SoupCache> soupCache = adoptGRef(soup_cache_new(m_diskCacheDirectory.utf8().data(), SOUP_CACHE_SINGLE_USER));
     SoupNetworkSession::defaultSession().setCache(soupCache.get());
+    // Set an initial huge max_size for the SoupCache so the call to soup_cache_load() won't evict any cached
+    // resource. The final size of the cache will be set by NetworkProcess::platformSetCacheModel().
+    unsigned initialMaxSize = soup_cache_get_max_size(soupCache.get());
+    soup_cache_set_max_size(soupCache.get(), G_MAXUINT);
     soup_cache_load(soupCache.get());
+    soup_cache_set_max_size(soupCache.get(), initialMaxSize);
+#endif
 
     if (!parameters.cookiePersistentStoragePath.isEmpty()) {
         supplement<WebCookieManager>()->setCookiePersistentStorage(parameters.cookiePersistentStoragePath,
@@ -110,16 +113,26 @@ void NetworkProcess::platformSetCacheModel(CacheModel cacheModel)
     unsigned long urlCacheMemoryCapacity = 0;
     unsigned long urlCacheDiskCapacity = 0;
 
+#if ENABLE(NETWORK_CACHE)
+    uint64_t diskFreeSize = WebCore::getVolumeFreeSizeForPath(m_diskCacheDirectory.utf8().data()) / WTF::MB;
+#else
     SoupCache* cache = SoupNetworkSession::defaultSession().cache();
-    uint64_t diskFreeSize = getCacheDiskFreeSize(cache) / 1024 / 1024;
+    uint64_t diskFreeSize = getCacheDiskFreeSize(cache) / WTF::MB;
+#endif
 
-    uint64_t memSize = getMemorySize();
+    uint64_t memSize = WTF::ramSize() / WTF::MB;
     calculateCacheSizes(cacheModel, memSize, diskFreeSize,
         cacheTotalCapacity, cacheMinDeadCapacity, cacheMaxDeadCapacity, deadDecodedDataDeletionInterval,
         pageCacheCapacity, urlCacheMemoryCapacity, urlCacheDiskCapacity);
 
+#if ENABLE(NETWORK_CACHE)
+    auto& networkCache = NetworkCache::singleton();
+    if (networkCache.isEnabled())
+        networkCache.setCapacity(urlCacheDiskCapacity);
+#else
     if (urlCacheDiskCapacity > soup_cache_get_max_size(cache))
         soup_cache_set_max_size(cache, urlCacheDiskCapacity);
+#endif
 }
 
 void NetworkProcess::setIgnoreTLSErrors(bool ignoreTLSErrors)
@@ -137,7 +150,18 @@ void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
     if (cachesToClear == InMemoryResourceCachesOnly)
         return;
 
+    clearDiskCache(std::chrono::system_clock::time_point::min(), [] { });
+}
+
+void NetworkProcess::clearDiskCache(std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler)
+{
+#if ENABLE(NETWORK_CACHE)
+    NetworkCache::singleton().clear(modifiedSince, WTF::move(completionHandler));
+#else
+    UNUSED_PARAM(modifiedSince);
+    UNUSED_PARAM(completionHandler);
     soup_cache_clear(SoupNetworkSession::defaultSession().cache());
+#endif
 }
 
 void NetworkProcess::platformTerminate()

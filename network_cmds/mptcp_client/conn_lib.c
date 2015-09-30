@@ -44,10 +44,10 @@
 #include "conn_lib.h"
 
 int
-copyassocids(int s, associd_t **aidpp, uint32_t *cnt)
+copyassocids(int s, sae_associd_t **aidpp, uint32_t *cnt)
 {
 	struct so_aidreq aidr;
-	associd_t *buf;
+	sae_associd_t *buf;
 	int err;
 	
 	if (aidpp == NULL || cnt == NULL) {
@@ -67,7 +67,7 @@ copyassocids(int s, associd_t **aidpp, uint32_t *cnt)
 	if (aidr.sar_cnt == 0)
 		return (0);
 	
-	buf = calloc(aidr.sar_cnt, sizeof (associd_t));
+	buf = calloc(aidr.sar_cnt, sizeof (sae_associd_t));
 	if (buf == NULL)
 		return (-1);
 	
@@ -85,16 +85,16 @@ copyassocids(int s, associd_t **aidpp, uint32_t *cnt)
 }
 
 void
-freeassocids(associd_t *aidp)
+freeassocids(sae_associd_t *aidp)
 {
 	free(aidp);
 }
 
 int
-copyconnids(int s, associd_t aid, connid_t **cidp, uint32_t *cnt)
+copyconnids(int s, sae_associd_t aid, sae_connid_t **cidp, uint32_t *cnt)
 {
 	struct so_cidreq cidr;
-	connid_t *buf;
+	sae_connid_t *buf;
 	int err;
 	
 	if (cidp == NULL || cnt == NULL) {
@@ -115,7 +115,7 @@ copyconnids(int s, associd_t aid, connid_t **cidp, uint32_t *cnt)
 	if (cidr.scr_cnt == 0)
 		return (0);
 	
-	buf = calloc(cidr.scr_cnt, sizeof (connid_t));
+	buf = calloc(cidr.scr_cnt, sizeof (sae_connid_t));
 	if (buf == NULL)
 		return (-1);
 	
@@ -133,13 +133,13 @@ copyconnids(int s, associd_t aid, connid_t **cidp, uint32_t *cnt)
 }
 
 void
-freeconnids(connid_t *cidp)
+freeconnids(sae_connid_t *cidp)
 {
 	free(cidp);
 }
 
 int
-copyconninfo(int s, connid_t cid, conninfo_t **cfop)
+copyconninfo(int s, sae_connid_t cid, conninfo_t **cfop)
 {
 	struct sockaddr *src = NULL, *dst = NULL, *aux = NULL;
 	struct so_cinforeq scir;
@@ -200,7 +200,7 @@ copyconninfo(int s, connid_t cid, conninfo_t **cfop)
 	buf->ci_error = scir.scir_error;
 	buf->ci_aux_type = scir.scir_aux_type;
 	buf->ci_aux_data = aux;
-	*cfop = buf;
+	*cfop = (conninfo_t*)buf;
 	
 	return (0);
 	

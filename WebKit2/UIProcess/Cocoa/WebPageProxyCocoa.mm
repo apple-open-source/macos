@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WebProcessProxy.h"
 
-#import <wtf/cf/TypeCasts.h>
+#import <wtf/cf/TypeCastsCF.h>
 
 namespace WebKit {
 
@@ -72,10 +72,12 @@ void WebPageProxy::loadRecentSearches(const String& name, Vector<String>& search
     }
 }
 
-void WebPageProxy::contentFilterDidBlockLoadForFrame(const WebCore::ContentFilter& contentFilter, uint64_t frameID)
+#if ENABLE(CONTENT_FILTERING)
+void WebPageProxy::contentFilterDidBlockLoadForFrame(const WebCore::ContentFilterUnblockHandler& unblockHandler, uint64_t frameID)
 {
     if (WebFrameProxy* frame = m_process->webFrame(frameID))
-        frame->setContentFilterForBlockedLoad(std::make_unique<WebCore::ContentFilter>(contentFilter));
+        frame->contentFilterDidBlockLoad(unblockHandler);
 }
+#endif
 
 }

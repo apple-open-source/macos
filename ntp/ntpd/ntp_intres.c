@@ -853,7 +853,7 @@ request(
 		total_len = pchEnd - (char *)&reqpkt;
 		if (total_len > sizeof(reqpkt)) {
 			msyslog(LOG_ERR,
-				"intres total_len %u limit is %u (%u octet digest)\n",
+				"intres total_len %zu limit is %lu (%zu octet digest)\n",
 				total_len, sizeof(reqpkt),
 				req_hashlen);
 			resolver_exit(1);
@@ -872,7 +872,7 @@ request(
 		n = authencrypt(req_keyid, (void *)&reqpkt, req_len);
 		if ((size_t)n != req_hashlen + sizeof(reqpkt.keyid)) {
 			msyslog(LOG_ERR,
-				"intres maclen %d expected %u\n",
+				"intres maclen %d expected %lu\n",
 				n, req_hashlen + sizeof(reqpkt.keyid));
 			resolver_exit(1);
 		}

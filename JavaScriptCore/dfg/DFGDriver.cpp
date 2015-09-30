@@ -30,6 +30,7 @@
 #include "JSString.h"
 
 #include "CodeBlock.h"
+#include "DFGFunctionWhitelist.h"
 #include "DFGJITCode.h"
 #include "DFGPlan.h"
 #include "DFGThunks.h"
@@ -38,6 +39,7 @@
 #include "JSCInlines.h"
 #include "Options.h"
 #include "SamplingTool.h"
+#include "TypeProfilerLog.h"
 #include <wtf/Atomics.h>
 
 #if ENABLE(FTL_JIT)
@@ -61,6 +63,10 @@ static CompilationResult compileImpl(
 {
     SamplingRegion samplingRegion("DFG Compilation (Driver)");
     
+    if (!Options::bytecodeRangeToDFGCompile().isInRange(codeBlock->instructionCount())
+        || !FunctionWhitelist::ensureGlobalWhitelist().contains(codeBlock))
+        return CompilationFailed;
+    
     numCompilations++;
     
     ASSERT(codeBlock);
@@ -78,23 +84,26 @@ static CompilationResult compileImpl(
     if (mode == DFGMode) {
         vm.getCTIStub(linkCallThunkGenerator);
         vm.getCTIStub(linkConstructThunkGenerator);
-        vm.getCTIStub(linkClosureCallThunkGenerator);
+        vm.getCTIStub(linkPolymorphicCallThunkGenerator);
         vm.getCTIStub(virtualCallThunkGenerator);
         vm.getCTIStub(virtualConstructThunkGenerator);
     } else {
         vm.getCTIStub(linkCallThatPreservesRegsThunkGenerator);
         vm.getCTIStub(linkConstructThatPreservesRegsThunkGenerator);
-        vm.getCTIStub(linkClosureCallThatPreservesRegsThunkGenerator);
+        vm.getCTIStub(linkPolymorphicCallThatPreservesRegsThunkGenerator);
         vm.getCTIStub(virtualCallThatPreservesRegsThunkGenerator);
         vm.getCTIStub(virtualConstructThatPreservesRegsThunkGenerator);
     }
     
+    if (vm.typeProfiler())
+        vm.typeProfilerLog()->processLogEntries(ASCIILiteral("Preparing for DFG compilation."));
+    
     RefPtr<Plan> plan = adoptRef(
         new Plan(codeBlock, profiledDFGCodeBlock, mode, osrEntryBytecodeIndex, mustHandleValues));
     
+    plan->callback = callback;
     if (Options::enableConcurrentJIT()) {
         Worklist* worklist = ensureGlobalWorklistFor(mode);
-        plan->callback = callback;
         if (logCompilationChanges(mode))
             dataLog("Deferring DFG compilation of ", *codeBlock, " with queue length ", worklist->queueLength(), ".\n");
         worklist->enqueue(plan);

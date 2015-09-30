@@ -27,6 +27,7 @@
 #define GenericCallback_h
 
 #include "APIError.h"
+#include "APISerializedScriptValue.h"
 #include "ProcessThrottler.h"
 #include "ShareableBitmap.h"
 #include "WKAPICast.h"
@@ -68,10 +69,10 @@ protected:
     struct TypeTag { };
     typedef const TypeTag* Type;
 
-    explicit CallbackBase(Type type, std::unique_ptr<ProcessThrottler::BackgroundActivityToken> activityToken)
+    explicit CallbackBase(Type type, const ProcessThrottler::BackgroundActivityToken& activityToken)
         : m_type(type)
         , m_callbackID(generateCallbackID())
-        , m_activityToken(WTF::move(activityToken))
+        , m_activityToken(activityToken)
     {
     }
 
@@ -85,7 +86,7 @@ private:
 
     Type m_type;
     uint64_t m_callbackID;
-    std::unique_ptr<ProcessThrottler::BackgroundActivityToken> m_activityToken;
+    ProcessThrottler::BackgroundActivityToken m_activityToken;
 };
 
 template<typename... T>
@@ -93,9 +94,9 @@ class GenericCallback : public CallbackBase {
 public:
     typedef std::function<void (T..., Error)> CallbackFunction;
 
-    static PassRefPtr<GenericCallback> create(CallbackFunction callback, std::unique_ptr<ProcessThrottler::BackgroundActivityToken> activityToken = nullptr)
+    static PassRefPtr<GenericCallback> create(CallbackFunction callback, const ProcessThrottler::BackgroundActivityToken& activityToken = nullptr)
     {
-        return adoptRef(new GenericCallback(callback, WTF::move(activityToken)));
+        return adoptRef(new GenericCallback(callback, activityToken));
     }
 
     virtual ~GenericCallback()
@@ -129,8 +130,8 @@ public:
     }
 
 private:
-    GenericCallback(CallbackFunction callback, std::unique_ptr<ProcessThrottler::BackgroundActivityToken> activityToken)
-        : CallbackBase(type(), WTF::move(activityToken))
+    GenericCallback(CallbackFunction callback, const ProcessThrottler::BackgroundActivityToken& activityToken)
+        : CallbackBase(type(), activityToken)
         , m_callback(callback)
     {
     }
@@ -145,11 +146,11 @@ private:
     CallbackFunction m_callback;
 };
 
-template<typename APIReturnValueType, typename InternalReturnValueType = typename APITypeInfo<APIReturnValueType>::ImplType>
+template<typename APIReturnValueType, typename InternalReturnValueType = typename APITypeInfo<APIReturnValueType>::ImplType*>
 static typename GenericCallback<InternalReturnValueType>::CallbackFunction toGenericCallbackFunction(void* context, void (*callback)(APIReturnValueType, WKErrorRef, void*))
 {
     return [context, callback](InternalReturnValueType returnValue, CallbackBase::Error error) {
-        callback(toAPI(returnValue), error != CallbackBase::Error::None ? toAPI(API::Error::create().get()) : 0, context);
+        callback(toAPI(returnValue), error != CallbackBase::Error::None ? toAPI(API::Error::create().ptr()) : 0, context);
     };
 }
 
@@ -190,9 +191,9 @@ public:
     };
 
     template<typename... T>
-    uint64_t put(std::function<void (T...)> function, std::unique_ptr<ProcessThrottler::BackgroundActivityToken> activityToken)
+    uint64_t put(std::function<void (T...)> function, const ProcessThrottler::BackgroundActivityToken& activityToken)
     {
-        auto callback = GenericCallbackType<sizeof...(T), T...>::type::create(WTF::move(function), WTF::move(activityToken));
+        auto callback = GenericCallbackType<sizeof...(T), T...>::type::create(WTF::move(function), activityToken);
         return put(callback);
     }
 

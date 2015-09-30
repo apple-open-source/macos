@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2014 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -140,7 +140,11 @@ PassRefPtr<CSSValue> CSSParserValue::createCSSValue()
     case CSSPrimitiveValue::CSS_PARSER_IDENTIFIER:
     case CSSPrimitiveValue::CSS_COUNTER_NAME:
     case CSSPrimitiveValue::CSS_SHAPE:
+    case CSSPrimitiveValue::CSS_FONT_FAMILY:
     case CSSPrimitiveValue::CSS_QUAD:
+#if ENABLE(CSS_SCROLL_SNAP)
+    case CSSPrimitiveValue::CSS_LENGTH_REPEAT:
+#endif
     case CSSPrimitiveValue::CSS_CALC:
     case CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_NUMBER:
     case CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_LENGTH:
@@ -164,7 +168,7 @@ CSSParserSelector* CSSParserSelector::parsePagePseudoSelector(const CSSParserStr
         return nullptr;
 
     auto selector = std::make_unique<CSSParserSelector>();
-    selector->m_selector->m_match = CSSSelector::PagePseudoClass;
+    selector->m_selector->setMatch(CSSSelector::PagePseudoClass);
     selector->m_selector->setPagePseudoType(pseudoType);
     return selector.release();
 }
@@ -179,7 +183,7 @@ CSSParserSelector* CSSParserSelector::parsePseudoElementSelector(CSSParserString
         return nullptr;
 
     auto selector = std::make_unique<CSSParserSelector>();
-    selector->m_selector->m_match = CSSSelector::PseudoElement;
+    selector->m_selector->setMatch(CSSSelector::PseudoElement);
     selector->m_selector->setPseudoElementType(pseudoType);
     selector->m_selector->setValue(name);
     return selector.release();
@@ -196,7 +200,7 @@ CSSParserSelector* CSSParserSelector::parsePseudoElementCueFunctionSelector(cons
         return nullptr;
 
     auto selector = std::make_unique<CSSParserSelector>();
-    selector->m_selector->m_match = CSSSelector::PseudoElement;
+    selector->m_selector->setMatch(CSSSelector::PseudoElement);
     selector->m_selector->setPseudoElementType(CSSSelector::PseudoElementCue);
     selector->adoptSelectorVector(*selectorVector);
     return selector.release();
@@ -205,16 +209,19 @@ CSSParserSelector* CSSParserSelector::parsePseudoElementCueFunctionSelector(cons
 
 CSSParserSelector* CSSParserSelector::parsePseudoClassAndCompatibilityElementSelector(CSSParserString& pseudoTypeString)
 {
+    if (pseudoTypeString.length() && pseudoTypeString[pseudoTypeString.length() - 1] == '(')
+        return nullptr;
+
     PseudoClassOrCompatibilityPseudoElement pseudoType = parsePseudoClassAndCompatibilityElementString(pseudoTypeString);
     if (pseudoType.pseudoClass != CSSSelector::PseudoClassUnknown) {
         auto selector = std::make_unique<CSSParserSelector>();
-        selector->m_selector->m_match = CSSSelector::PseudoClass;
-        selector->m_selector->m_pseudoType = pseudoType.pseudoClass;
+        selector->m_selector->setMatch(CSSSelector::PseudoClass);
+        selector->m_selector->setPseudoClassType(pseudoType.pseudoClass);
         return selector.release();
     }
     if (pseudoType.compatibilityPseudoElement != CSSSelector::PseudoElementUnknown) {
         auto selector = std::make_unique<CSSParserSelector>();
-        selector->m_selector->m_match = CSSSelector::PseudoElement;
+        selector->m_selector->setMatch(CSSSelector::PseudoElement);
         selector->m_selector->setPseudoElementType(pseudoType.compatibilityPseudoElement);
         AtomicString name = pseudoTypeString;
         selector->m_selector->setValue(name);
@@ -255,32 +262,45 @@ void CSSParserSelector::adoptSelectorVector(Vector<std::unique_ptr<CSSParserSele
     m_selector->setSelectorList(WTF::move(selectorList));
 }
 
-void CSSParserSelector::setPseudoClassValue(const CSSParserString& pseudoClassString)
+void CSSParserSelector::setLangArgumentList(const Vector<CSSParserString>& stringVector)
 {
-    ASSERT(m_selector->m_match == CSSSelector::PseudoClass);
-
-    PseudoClassOrCompatibilityPseudoElement pseudoType = parsePseudoClassAndCompatibilityElementString(pseudoClassString);
-    m_selector->m_pseudoType = pseudoType.pseudoClass;
+    ASSERT_WITH_MESSAGE(!stringVector.isEmpty(), "No CSS Selector takes an empty argument list.");
+    auto argumentList = std::make_unique<Vector<AtomicString>>();
+    argumentList->reserveInitialCapacity(stringVector.size());
+    for (const AtomicString& languageArgument : stringVector)
+        argumentList->append(languageArgument);
+    m_selector->setLangArgumentList(WTF::move(argumentList));
 }
 
-bool CSSParserSelector::isSimple() const
+void CSSParserSelector::setPseudoClassValue(const CSSParserString& pseudoClassString)
 {
-    if (m_selector->selectorList() || m_selector->matchesPseudoElement())
+    ASSERT(m_selector->match() == CSSSelector::PseudoClass);
+
+    PseudoClassOrCompatibilityPseudoElement pseudoType = parsePseudoClassAndCompatibilityElementString(pseudoClassString);
+    m_selector->setPseudoClassType(pseudoType.pseudoClass);
+}
+
+static bool selectorListMatchesPseudoElement(const CSSSelectorList* selectorList)
+{
+    if (!selectorList)
         return false;
 
-    if (!m_tagHistory)
-        return true;
-
-    if (m_selector->m_match == CSSSelector::Tag) {
-        // We can't check against anyQName() here because namespace may not be nullAtom.
-        // Example:
-        //     @namespace "http://www.w3.org/2000/svg";
-        //     svg:not(:root) { ...
-        if (m_selector->tagQName().localName() == starAtom)
-            return m_tagHistory->isSimple();
+    for (const CSSSelector* subSelector = selectorList->first(); subSelector; subSelector = CSSSelectorList::next(subSelector)) {
+        for (const CSSSelector* selector = subSelector; selector; selector = selector->tagHistory()) {
+            if (selector->matchesPseudoElement())
+                return true;
+            if (const CSSSelectorList* subselectorList = selector->selectorList()) {
+                if (selectorListMatchesPseudoElement(subselectorList))
+                    return true;
+            }
+        }
     }
-
     return false;
+}
+
+bool CSSParserSelector::matchesPseudoElement() const
+{
+    return m_selector->matchesPseudoElement() || selectorListMatchesPseudoElement(m_selector->selectorList());
 }
 
 void CSSParserSelector::insertTagHistory(CSSSelector::Relation before, std::unique_ptr<CSSParserSelector> selector, CSSSelector::Relation after)
@@ -297,7 +317,44 @@ void CSSParserSelector::appendTagHistory(CSSSelector::Relation relation, std::un
     CSSParserSelector* end = this;
     while (end->tagHistory())
         end = end->tagHistory();
+
     end->setRelation(relation);
+    end->setTagHistory(WTF::move(selector));
+}
+
+void CSSParserSelector::appendTagHistory(CSSParserSelectorCombinator relation, std::unique_ptr<CSSParserSelector> selector)
+{
+    CSSParserSelector* end = this;
+    while (end->tagHistory())
+        end = end->tagHistory();
+
+    CSSSelector::Relation selectorRelation;
+    switch (relation) {
+    case CSSParserSelectorCombinator::Child:
+        selectorRelation = CSSSelector::Child;
+        break;
+    case CSSParserSelectorCombinator::DescendantSpace:
+        selectorRelation = CSSSelector::Descendant;
+        break;
+#if ENABLE(CSS_SELECTORS_LEVEL4)
+    case CSSParserSelectorCombinator::DescendantDoubleChild:
+        selectorRelation = CSSSelector::Descendant;
+        break;
+#endif
+    case CSSParserSelectorCombinator::DirectAdjacent:
+        selectorRelation = CSSSelector::DirectAdjacent;
+        break;
+    case CSSParserSelectorCombinator::IndirectAdjacent:
+        selectorRelation = CSSSelector::IndirectAdjacent;
+        break;
+    }
+    end->setRelation(selectorRelation);
+
+#if ENABLE(CSS_SELECTORS_LEVEL4)
+    if (relation == CSSParserSelectorCombinator::DescendantDoubleChild)
+        end->setDescendantUseDoubleChildSyntax();
+#endif
+
     end->setTagHistory(WTF::move(selector));
 }
 
@@ -309,7 +366,7 @@ void CSSParserSelector::prependTagSelector(const QualifiedName& tagQName, bool t
     m_tagHistory = WTF::move(second);
 
     m_selector = std::make_unique<CSSSelector>(tagQName, tagIsForNamespaceRule);
-    m_selector->m_relation = CSSSelector::SubSelector;
+    m_selector->setRelation(CSSSelector::SubSelector);
 }
 
 }

@@ -193,7 +193,7 @@ compctlread(char *name, char **args, Options ops, char *reply)
 
     /* only allowed to be called for completion */
     if (!incompctlfunc) {
-	zwarnnam(name, "option valid only in functions called for completion");
+	zwarnnam(name, "option valid only in functions called via compctl");
 	return 1;
     }
 
@@ -1515,7 +1515,7 @@ printcompctl(char *s, Compctl cc, int printflags, int ispat)
 	if (cclist & COMP_LIST)
 	    printf(" --");
     }
-    if (cc && cc->xor) {
+    if (cc->xor) {
 	/* print xor'd (+) completions */
 	printf(" +");
 	if (cc->xor != &cc_default)
@@ -1879,7 +1879,7 @@ ccmakehookfn(UNUSED(Hookdef dummy), struct ccmakedat *dat)
 	if (!m || !(m = m->next))
 	    break;
 
-	errflag = 0;
+	errflag &= ~ERRFLAG_ERROR;
     }
     redup(osi, 0);
     dat->lst = 1;
@@ -2121,7 +2121,7 @@ getreal(char *str)
     if (!errflag && nonempty(l) &&
 	((char *) peekfirst(l)) && ((char *) peekfirst(l))[0])
 	return dupstring(peekfirst(l));
-    errflag = 0;
+    errflag &= ~ERRFLAG_ERROR;
 
     return dupstring(str);
 }
@@ -2599,7 +2599,7 @@ makecomplistlist(Compctl cc, char *s, int incmd, int compadd)
 	makecomplistflags(cc, s, incmd, compadd);
 
     /* Reset some information variables for the next try. */
-    errflag = 0;
+    errflag &= ~ERRFLAG_ERROR;
     offs = oloffs;
     wb = owb;
     we = owe;
@@ -2795,7 +2795,7 @@ sep_comp_string(char *ss, char *s, int noffs)
      * get the words we have to expand.                        */
     addedx = 1;
     noerrs = 1;
-    lexsave();
+    zcontext_save();
     lexflags = LEXFLAGS_ZLE;
     tmp = (char *) zhalloc(tl = sl + 3 + strlen(s));
     strcpy(tmp, ss);
@@ -2847,9 +2847,9 @@ sep_comp_string(char *ss, char *s, int noffs)
     noaliases = ona;
     strinend();
     inpop();
-    errflag = 0;
+    errflag &= ~ERRFLAG_ERROR;
     noerrs = ne;
-    lexrestore();
+    zcontext_restore();
     wb = owb;
     we = owe;
     zlemetacs = ocs;
@@ -3391,7 +3391,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 		    mflags |= CMF_FILE;
 		    for (n = firstnode(l); n; incnode(n))
 			addmatch(getdata(n), NULL);
-		    mflags &= !CMF_FILE;
+		    mflags &= ~CMF_FILE;
 		}
 		opts[NULLGLOB] = ng;
 	    } else {
@@ -3416,7 +3416,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 			    *npp++ = tp;
 			    pp++;
 			}
-			*npp = '\0';
+			*npp = NULL;
 		    }
 		}
 		if (!dirs) {
@@ -3685,7 +3685,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 
 	for (i = 0; i <= maxjob; i++)
 	    if ((jobtab[i].stat & STAT_INUSE) &&
-		jobtab[i].procs && jobtab[i].procs->text) {
+		jobtab[i].procs && jobtab[i].procs->text[0]) {
 		int stopped = jobtab[i].stat & STAT_STOPPED;
 
 		j = dupstring(jobtab[i].procs->text);
@@ -3707,7 +3707,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 
 	/* Put the string in the lexer buffer and call the lexer to *
 	 * get the words we have to expand.                        */
-	lexsave();
+	zcontext_save();
 	lexflags = LEXFLAGS_ZLE;
 	tmpbuf = (char *)zhalloc(strlen(cc->str) + 5);
 	sprintf(tmpbuf, "foo %s", cc->str); /* KLUDGE! */
@@ -3725,8 +3725,8 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 	noaliases = ona;
 	strinend();
 	inpop();
-	errflag = 0;
-	lexrestore();
+	errflag &= ~ERRFLAG_ERROR;
+	zcontext_restore();
 	/* Fine, now do full expansion. */
 	prefork(foo, 0);
 	if (!errflag) {
@@ -3853,7 +3853,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 	    yaptr = get_user_var(uv);
 	if ((tt = cc->explain)) {
 	    tt = dupstring(tt);
-	    if ((cc->mask & CC_EXPANDEXPL) && !parsestr(tt)) {
+	    if ((cc->mask & CC_EXPANDEXPL) && !parsestr(&tt)) {
 		singsub(&tt);
 		untokenize(tt);
 	    }
@@ -3873,7 +3873,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 	}
     } else if ((tt = cc->explain)) {
 	tt = dupstring(tt);
-	if ((cc->mask & CC_EXPANDEXPL) && !parsestr(tt)) {
+	if ((cc->mask & CC_EXPANDEXPL) && !parsestr(&tt)) {
 	    singsub(&tt);
 	    untokenize(tt);
 	}

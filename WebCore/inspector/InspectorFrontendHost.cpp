@@ -28,9 +28,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(INSPECTOR)
-
 #include "InspectorFrontendHost.h"
 
 #include "ContextMenu.h"
@@ -156,11 +153,11 @@ void InspectorFrontendHost::requestSetDockSide(const String& side)
     if (!m_client)
         return;
     if (side == "undocked")
-        m_client->requestSetDockSide(InspectorFrontendClient::UNDOCKED);
+        m_client->requestSetDockSide(InspectorFrontendClient::DockSide::Undocked);
     else if (side == "right")
-        m_client->requestSetDockSide(InspectorFrontendClient::DOCKED_TO_RIGHT);
+        m_client->requestSetDockSide(InspectorFrontendClient::DockSide::Right);
     else if (side == "bottom")
-        m_client->requestSetDockSide(InspectorFrontendClient::DOCKED_TO_BOTTOM);
+        m_client->requestSetDockSide(InspectorFrontendClient::DockSide::Bottom);
 }
 
 void InspectorFrontendHost::closeWindow()
@@ -204,6 +201,12 @@ void InspectorFrontendHost::setToolbarHeight(unsigned height)
 {
     if (m_client)
         m_client->setToolbarHeight(height);
+}
+
+void InspectorFrontendHost::startWindowDrag()
+{
+    if (m_client)
+        m_client->startWindowDrag();
 }
 
 void InspectorFrontendHost::moveWindowBy(float x, float y) const
@@ -284,12 +287,12 @@ void InspectorFrontendHost::showContextMenu(Event* event, const Vector<ContextMe
 void InspectorFrontendHost::dispatchEventAsContextMenuEvent(Event* event)
 {
 #if ENABLE(CONTEXT_MENUS) && USE(ACCESSIBILITY_CONTEXT_MENUS)
-    if (!event || !event->isMouseEvent())
+    if (!is<MouseEvent>(event))
         return;
 
     Frame* frame = event->target()->toNode()->document().frame();
-    MouseEvent* mouseEvent = toMouseEvent(event);
-    IntPoint mousePoint = IntPoint(mouseEvent->clientX(), mouseEvent->clientY());
+    MouseEvent& mouseEvent = downcast<MouseEvent>(*event);
+    IntPoint mousePoint = IntPoint(mouseEvent.clientX(), mouseEvent.clientY());
 
     m_frontendPage->contextMenuController().showContextMenuAt(frame, mousePoint);
 #else
@@ -300,6 +303,12 @@ void InspectorFrontendHost::dispatchEventAsContextMenuEvent(Event* event)
 bool InspectorFrontendHost::isUnderTest()
 {
     return m_client && m_client->isUnderTest();
+}
+
+void InspectorFrontendHost::unbufferedLog(const String& message)
+{
+    // This is used only for debugging inspector tests.
+    WTFLogAlways("InspectorTest: %s", message.utf8().data());
 }
 
 void InspectorFrontendHost::beep()
@@ -318,5 +327,3 @@ bool InspectorFrontendHost::canInspectWorkers()
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(INSPECTOR)

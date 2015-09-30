@@ -86,7 +86,7 @@ timer_notify_check(void)
     }
     status = notify_check(S_time_change_token, &check);
     if (status != NOTIFY_STATUS_OK) {
-	my_log(LOG_ERR, "timer: notify_check failed with %d", status);
+	my_log(LOG_NOTICE, "timer: notify_check failed with %d", status);
     }
     else if (check != 0) {
 	S_time_generation++;
@@ -104,7 +104,7 @@ timer_register_time_change(void)
     }
     status = notify_register_check(kNotifyClockSet, &S_time_change_token);
     if (status != NOTIFY_STATUS_OK) {
-	my_log(LOG_ERR, "timer: notify_register_check(%s) failed, %d",
+	my_log(LOG_NOTICE, "timer: notify_register_check(%s) failed, %d",
 	       kNotifyClockSet, status);
 	return;
     }

@@ -33,27 +33,27 @@
 
 namespace WebCore {
     
-class AccessibilityList : public AccessibilityRenderObject {
-    
-private:
-    explicit AccessibilityList(RenderObject*);
+class AccessibilityList final : public AccessibilityRenderObject {
 public:
-    static PassRefPtr<AccessibilityList> create(RenderObject*);
+    static Ref<AccessibilityList> create(RenderObject*);
     virtual ~AccessibilityList();
     
-    virtual bool isList() const override { return true; }
     bool isUnorderedList() const;
     bool isOrderedList() const;
     bool isDescriptionList() const;
 
-    virtual AccessibilityRole roleValue() const override final;
+    virtual AccessibilityRole roleValue() const override;
+
 private:
+    explicit AccessibilityList(RenderObject*);
+    virtual bool isList() const override { return true; }
     virtual bool computeAccessibilityIsIgnored() const override;
     virtual AccessibilityRole determineAccessibilityRole() override;
+    bool childHasPseudoVisibleListItemMarkers(RenderObject*);
 };
 
-ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityList, isList())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_ACCESSIBILITY(AccessibilityList, isList())
 
 #endif // AccessibilityList_h

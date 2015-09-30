@@ -5,6 +5,7 @@
 //  Copyright (c) 2014 Apple Inc. All Rights Reserved.
 //
 
+#import <Foundation/NSXPCConnection.h>
 #import "SWCViewController.h"
 #import <UIKit/UIViewController_Private.h>
 #import <UIKit/UIFont_Private.h>
@@ -14,7 +15,10 @@
 
 #include <bsm/libbsm.h>
 #include <ipc/securityd_client.h>
+
 #include "SharedWebCredential/swcagent_client.h"
+
+#import "SWCViewController.h"
 
 const NSString* SWC_PASSWORD_KEY = @"spwd";
 const NSString* SWC_ACCOUNT_KEY  = @"acct";

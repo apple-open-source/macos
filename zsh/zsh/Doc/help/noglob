@@ -1,2 +1,2 @@
 noglob simple command
-       See the section `Precommand Modifiers'.
+       See the section `Precommand Modifiers' in zshmisc(1).

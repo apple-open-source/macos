@@ -31,7 +31,6 @@
 #ifndef ewk_context_menu_item_h
 #define ewk_context_menu_item_h
 
-#include "ewk_defines.h"
 #include <Eina.h>
 
 #ifdef __cplusplus
@@ -39,9 +38,26 @@ extern "C" {
 #endif
 
 /**
+ * Declare Ewk_Context_Menu as Ewk_Object.
+ *
+ * @see Ewk_Object
+ */
+#ifdef __cplusplus
+typedef class EwkObject Ewk_Context_Menu;
+#else
+typedef struct EwkObject Ewk_Context_Menu;
+#endif
+
+/** Creates a type name for Ewk_Context_Menu_Item */
+#ifdef __cplusplus
+typedef class EwkContextMenuItem Ewk_Context_Menu_Item;
+#else
+typedef struct EwkContextMenuItem Ewk_Context_Menu_Item;
+#endif
+
+/**
  * \enum    Ewk_Context_Menu_Item_Type
  * @brief   Defines the types of the items for the context menu.
- * @info    Keep this in sync with WKContextMenuItemTypes.h
  */
 typedef enum {
     EWK_ACTION_TYPE,

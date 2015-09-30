@@ -22,6 +22,9 @@
  *
  * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
 
 #pragma ident	"@(#)dt_grammar.y	1.9	06/01/07 SMI"
@@ -108,6 +111,7 @@ static int yylex(void);
 %token	DT_KEY_VOLATILE
 %token	DT_KEY_WHILE
 %token	DT_KEY_XLATOR
+%token	DT_KEY_USERLAND
 
 %token	DT_TOK_EPRED
 %token	DT_CTX_DEXPR
@@ -635,6 +639,7 @@ type_specifier:	DT_KEY_VOID { $$ = dt_decl_spec(CTF_K_INTEGER, DUP("void")); }
 	|	DT_KEY_DOUBLE { $$ = dt_decl_spec(CTF_K_FLOAT, DUP("double")); }
 	|	DT_KEY_SIGNED { $$ = dt_decl_attr(DT_DA_SIGNED); }
 	|	DT_KEY_UNSIGNED { $$ = dt_decl_attr(DT_DA_UNSIGNED); }
+	|	DT_KEY_USERLAND { $$ = dt_decl_attr(DT_DA_USER); }
 	|	DT_KEY_STRING {
 			$$ = dt_decl_spec(CTF_K_TYPEDEF, DUP("string"));
 		}

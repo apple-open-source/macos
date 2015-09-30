@@ -179,27 +179,17 @@ using namespace WebCore;
 
 - (unsigned long long)usage
 {
-#if ENABLE(SQL_DATABASE)
-    return DatabaseManager::manager().usageForOrigin(reinterpret_cast<SecurityOrigin*>(_private));
-#else
-    return 0;
-#endif
+    return DatabaseManager::singleton().usageForOrigin(reinterpret_cast<SecurityOrigin*>(_private));
 }
 
 - (unsigned long long)quota
 {
-#if ENABLE(SQL_DATABASE)
-    return DatabaseManager::manager().quotaForOrigin(reinterpret_cast<SecurityOrigin*>(_private));
-#else
-    return 0;
-#endif
+    return DatabaseManager::singleton().quotaForOrigin(reinterpret_cast<SecurityOrigin*>(_private));
 }
 
 - (void)setQuota:(unsigned long long)quota
 {
-#if ENABLE(SQL_DATABASE)
-    DatabaseManager::manager().setQuota(reinterpret_cast<SecurityOrigin*>(_private), quota);
-#endif
+    DatabaseManager::singleton().setQuota(reinterpret_cast<SecurityOrigin*>(_private), quota);
 }
 
 @end

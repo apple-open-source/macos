@@ -43,10 +43,10 @@ struct cutbuffer *kring;
 int kringsize, kringnum;
 
 /* Vi named cut buffers.  0-25 are the named buffers "a to "z, and *
- * 26-34 are the numbered buffer stack "1 to "9.                   */
+ * 26-35 are the numbered buffer stack "0 to "9.                   */
 
 /**/
-struct cutbuffer vibuf[35];
+struct cutbuffer vibuf[36];
 
 /* the line before last mod (for undo purposes) */
 
@@ -117,7 +117,7 @@ int
 zlecharasstring(ZLE_CHAR_T inchar, char *buf)
 {
 #ifdef MULTIBYTE_SUPPORT
-    size_t ret;
+    int ret;
     char *ptr;
 
 #ifdef __STDC_ISO_10646__
@@ -675,37 +675,65 @@ zle_restore_positions(void)
 	zlell = oldpos->ll;
     }
 
-    /* Count number of regions and see if the array needs resizing */
-    for (nreg = 0, oldrhp = oldpos->regions;
-	 oldrhp;
-	 nreg++, oldrhp = oldrhp->next)
-	;
-    if (nreg + N_SPECIAL_HIGHLIGHTS != n_region_highlights) {
-	n_region_highlights = nreg + N_SPECIAL_HIGHLIGHTS;
-	region_highlights = (struct region_highlight *)
-	    zrealloc(region_highlights,
-		     sizeof(struct region_highlight) * n_region_highlights);
+    if (oldpos->regions) {
+	/* Count number of regions and see if the array needs resizing */
+	for (nreg = 0, oldrhp = oldpos->regions;
+	     oldrhp;
+	     nreg++, oldrhp = oldrhp->next)
+	    ;
+	if (nreg + N_SPECIAL_HIGHLIGHTS != n_region_highlights) {
+	    n_region_highlights = nreg + N_SPECIAL_HIGHLIGHTS;
+	    region_highlights = (struct region_highlight *)
+		zrealloc(region_highlights,
+			 sizeof(struct region_highlight) * n_region_highlights);
+	}
+	oldrhp = oldpos->regions;
+	rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+	while (oldrhp) {
+	    struct zle_region *nextrhp = oldrhp->next;
+
+	    rhp->atr = oldrhp->atr;
+	    rhp->flags = oldrhp->flags;
+	    if (zlemetaline) {
+		rhp->start_meta = oldrhp->start;
+		rhp->end_meta = oldrhp->end;
+	    } else {
+		rhp->start = oldrhp->start;
+		rhp->end = oldrhp->end;
+	    }
+
+	    zfree(oldrhp, sizeof(*oldrhp));
+	    oldrhp = nextrhp;
+	    rhp++;
+	}
+    } else if (region_highlights) {
+	zfree(region_highlights, sizeof(struct region_highlight) *
+	      n_region_highlights);
+	region_highlights  = NULL;
+	n_region_highlights = 0;
     }
+
+    zfree(oldpos, sizeof(*oldpos));
+}
+
+/*
+ * Discard positions previously saved, the line has been updated.
+ */
+
+/**/
+mod_export void
+zle_free_positions(void)
+{
+    struct zle_position *oldpos = zle_positions;
+    struct zle_region *oldrhp;
+
+    zle_positions = oldpos->next;
     oldrhp = oldpos->regions;
-    rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
     while (oldrhp) {
 	struct zle_region *nextrhp = oldrhp->next;
-
-	rhp->atr = oldrhp->atr;
-	rhp->flags = oldrhp->flags;
-	if (zlemetaline) {
-	    rhp->start_meta = oldrhp->start;
-	    rhp->end_meta = oldrhp->end;
-	} else {
-	    rhp->start = oldrhp->start;
-	    rhp->end = oldrhp->end;
-	}
-
 	zfree(oldrhp, sizeof(*oldrhp));
 	oldrhp = nextrhp;
-	rhp++;
     }
-
     zfree(oldpos, sizeof(*oldpos));
 }
 
@@ -764,6 +792,8 @@ spaceinline(int ct)
 
 	if (mark > zlecs)
 	    mark += ct;
+	if (viinsbegin > zlecs)
+	    viinsbegin = 0;
 
 	if (region_highlights) {
 	    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
@@ -893,7 +923,7 @@ cut(int i, int ct, int flags)
 void
 cuttext(ZLE_STRING_T line, int ct, int flags)
 {
-    if (!ct)
+    if (!(ct || vilinerange) ||  zmod.flags & MOD_NULL)
 	return;
 
     UNMETACHECK();
@@ -920,17 +950,23 @@ cuttext(ZLE_STRING_T line, int ct, int flags)
 	    ZS_memcpy(b->buf + len, line, ct);
 	    b->len = len + ct;
 	}
-	return;
-    } else {
-	/* Save in "1, shifting "1-"8 along to "2-"9 */
-	int n;
-	free(vibuf[34].buf);
-	for(n=34; n>26; n--)
-	    vibuf[n] = vibuf[n-1];
+    } else if (flags & CUT_YANK) {
+	/* Save in "0 */
+	free(vibuf[26].buf);
 	vibuf[26].buf = (ZLE_STRING_T)zalloc(ct * ZLE_CHAR_SIZE);
 	ZS_memcpy(vibuf[26].buf, line, ct);
 	vibuf[26].len = ct;
 	vibuf[26].flags = vilinerange ? CUTBUFFER_LINE : 0;
+    } else {
+	/* Save in "1, shifting "1-"8 along to "2-"9 */
+	int n;
+	free(vibuf[35].buf);
+	for(n=35; n>27; n--)
+	    vibuf[n] = vibuf[n-1];
+	vibuf[27].buf = (ZLE_STRING_T)zalloc(ct * ZLE_CHAR_SIZE);
+	ZS_memcpy(vibuf[27].buf, line, ct);
+	vibuf[27].len = ct;
+	vibuf[27].flags = vilinerange ? CUTBUFFER_LINE : 0;
     }
     if (!cutbuf.buf) {
 	cutbuf.buf = (ZLE_STRING_T)zalloc(ZLE_CHAR_SIZE);
@@ -960,8 +996,9 @@ cuttext(ZLE_STRING_T line, int ct, int flags)
 	cutbuf.buf = s;
 	cutbuf.len += ct;
     } else {
+	/* don't alloc 0 bytes; length 0 occurs for blank lines in vi mode */
 	cutbuf.buf = realloc((char *)cutbuf.buf,
-			     (cutbuf.len + ct) * ZLE_CHAR_SIZE);
+			     (cutbuf.len + (ct ? ct : 1)) * ZLE_CHAR_SIZE);
 	ZS_memcpy(cutbuf.buf + cutbuf.len, line, ct);
 	cutbuf.len += ct;
     }
@@ -1077,6 +1114,7 @@ setline(char *s, int flags)
      */
     free(zleline);
 
+    viinsbegin = 0;
     zleline = stringaszleline(scp, 0, &zlell, &linesz, NULL);
 
     if ((flags & ZSL_TOEND) && (zlecs = zlell) && invicmdmode())
@@ -1335,7 +1373,6 @@ int
 handlefeep(UNUSED(char **args))
 {
     zbeep();
-    region_active = 0;
     return 0;
 }
 
@@ -1354,7 +1391,10 @@ handlesuffix(UNUSED(char **args))
 
 /* head of the undo list, and the current position */
 
-static struct change *changes, *curchange;
+/**/
+struct change *curchange;
+
+static struct change *changes;
 
 /* list of pending changes, not yet in the undo system */
 
@@ -1362,7 +1402,8 @@ static struct change *nextchanges, *endnextchanges;
 
 /* incremented to provide a unique change number */
 
-static zlong undo_changeno;
+/**/
+zlong undo_changeno;
 
 /* If non-zero, the last increment to undo_changeno was for the variable */
 
@@ -1629,6 +1670,31 @@ viundochange(char **args)
 	return undo(args);
 }
 
+/**/
+int
+splitundo(char **args)
+{
+    if (vistartchange >= 0) {
+	mergeundo();
+	vistartchange = undo_changeno;
+    }
+    handleundo();
+    return 0;
+}
+
+/**/
+void
+mergeundo(void)
+{
+    struct change *current;
+    for (current = curchange->prev;
+	    current && current->prev && current->changeno > vistartchange+1;
+	    current = current->prev) {
+	current->flags |= CH_PREV;
+	current->prev->flags |= CH_NEXT;
+    }
+}
+
 /*
  * Call a ZLE hook: a user-defined widget called at a specific point
  * within the line editor.
@@ -1656,7 +1722,8 @@ zlecallhook(char *name, char *arg)
     execzlefunc(thingy, args, 1);
     unrefthingy(thingy);
 
-    errflag = saverrflag;
+    /* Retain any user interrupt error status */
+    errflag = saverrflag | (errflag & ERRFLAG_INT);
     retflag = savretflag;
 }
 

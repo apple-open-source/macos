@@ -184,7 +184,6 @@ udp_in_init()
 	return 0;
 }
 
-/* N.B. Does NOT close fds.  They "belong" to launchd. */
 int
 udp_in_close(void)
 {
@@ -203,6 +202,7 @@ udp_in_close(void)
 
 		if (ufd[i] != -1)
 		{
+			close(ufd[i]);
 			ufd[i] = -1;
 		}
 	}

@@ -68,8 +68,6 @@
        (literal "/private/var/db/mds/system/mds.lock")
        (literal "/private/var/log/krb5kdc/kdc.log"))
 
-(allow ipc-posix-shm)
-
 (allow mach-lookup
 	(global-name "com.apple.CoreServices.coreservicesd")
 	(global-name "com.apple.SecurityServer")
@@ -91,9 +89,6 @@
        (literal "/private/var/run/ldapi")
        (remote udp)
        (remote tcp))
-
-(allow process-exec
-       (literal "/usr/local/heimdal/libexec/kdc"))
 
 (allow sysctl-read)
 

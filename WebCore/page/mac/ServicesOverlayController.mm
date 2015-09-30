@@ -46,29 +46,23 @@
 #import "MainFrame.h"
 #import "Page.h"
 #import "PageOverlayController.h"
-#import "PlatformCAAnimationMac.h"
+#import "PlatformCAAnimationCocoa.h"
 #import "Settings.h"
 #import "SoftLinking.h"
 #import <QuartzCore/QuartzCore.h>
 
 const float highlightFadeAnimationDuration = 0.3;
 
-// FIXME: Move more of this to DataDetectorsSPI.h.
-SOFT_LINK(DataDetectors, DDHighlightCreateWithRectsInVisibleRectWithStyleAndDirection, DDHighlightRef, (CFAllocatorRef allocator, CGRect* rects, CFIndex count, CGRect globalVisibleRect, DDHighlightStyle style, Boolean withArrow, NSWritingDirection writingDirection, Boolean endsWithEOL, Boolean flipped), (allocator, rects, count, globalVisibleRect, style, withArrow, writingDirection, endsWithEOL, flipped))
-SOFT_LINK(DataDetectors, DDHighlightGetLayerWithContext, CGLayerRef, (DDHighlightRef highlight, CGContextRef context), (highlight, context))
-SOFT_LINK(DataDetectors, DDHighlightGetBoundingRect, CGRect, (DDHighlightRef highlight), (highlight))
-SOFT_LINK(DataDetectors, DDHighlightPointIsOnHighlight, Boolean, (DDHighlightRef highlight, CGPoint point, Boolean* onButton), (highlight, point, onButton))
-
 namespace WebCore {
 
-PassRefPtr<ServicesOverlayController::Highlight> ServicesOverlayController::Highlight::createForSelection(ServicesOverlayController& controller, RetainPtr<DDHighlightRef> ddHighlight, PassRefPtr<Range> range)
+Ref<ServicesOverlayController::Highlight> ServicesOverlayController::Highlight::createForSelection(ServicesOverlayController& controller, RetainPtr<DDHighlightRef> ddHighlight, PassRefPtr<Range> range)
 {
-    return adoptRef(new Highlight(controller, Type::Selection, ddHighlight, range));
+    return adoptRef(*new Highlight(controller, Highlight::SelectionType, ddHighlight, range));
 }
 
-PassRefPtr<ServicesOverlayController::Highlight> ServicesOverlayController::Highlight::createForTelephoneNumber(ServicesOverlayController& controller, RetainPtr<DDHighlightRef> ddHighlight, PassRefPtr<Range> range)
+Ref<ServicesOverlayController::Highlight> ServicesOverlayController::Highlight::createForTelephoneNumber(ServicesOverlayController& controller, RetainPtr<DDHighlightRef> ddHighlight, PassRefPtr<Range> range)
 {
-    return adoptRef(new Highlight(controller, Type::TelephoneNumber, ddHighlight, range));
+    return adoptRef(*new Highlight(controller, Highlight::TelephoneNumberType, ddHighlight, range));
 }
 
 ServicesOverlayController::Highlight::Highlight(ServicesOverlayController& controller, Type type, RetainPtr<DDHighlightRef> ddHighlight, PassRefPtr<WebCore::Range> range)
@@ -87,7 +81,7 @@ ServicesOverlayController::Highlight::Highlight(ServicesOverlayController& contr
 
     // Set directly on the PlatformCALayer so that when we leave the 'from' value implicit
     // in our animations, we get the right initial value regardless of flush timing.
-    toGraphicsLayerCA(layer())->platformCALayer()->setOpacity(0);
+    downcast<GraphicsLayerCA>(*layer()).platformCALayer()->setOpacity(0);
 
     controller.didCreateHighlight(this);
 }
@@ -164,8 +158,8 @@ void ServicesOverlayController::Highlight::fadeIn()
     [animation setRemovedOnCompletion:false];
     [animation setToValue:@1];
 
-    RefPtr<PlatformCAAnimation> platformAnimation = PlatformCAAnimationMac::create(animation.get());
-    toGraphicsLayerCA(layer())->platformCALayer()->addAnimationForKey("FadeHighlightIn", platformAnimation.get());
+    RefPtr<PlatformCAAnimation> platformAnimation = PlatformCAAnimationCocoa::create(animation.get());
+    downcast<GraphicsLayerCA>(*layer()).platformCALayer()->addAnimationForKey("FadeHighlightIn", *platformAnimation);
 }
 
 void ServicesOverlayController::Highlight::fadeOut()
@@ -182,8 +176,8 @@ void ServicesOverlayController::Highlight::fadeOut()
         retainedSelf->didFinishFadeOutAnimation();
     }];
 
-    RefPtr<PlatformCAAnimation> platformAnimation = PlatformCAAnimationMac::create(animation.get());
-    toGraphicsLayerCA(layer())->platformCALayer()->addAnimationForKey("FadeHighlightOut", platformAnimation.get());
+    RefPtr<PlatformCAAnimation> platformAnimation = PlatformCAAnimationCocoa::create(animation.get());
+    downcast<GraphicsLayerCA>(*layer()).platformCALayer()->addAnimationForKey("FadeHighlightOut", *platformAnimation);
     [CATransaction commit];
 }
 
@@ -210,9 +204,8 @@ static IntRect textQuadsToBoundingRectForRange(Range& range)
 
 ServicesOverlayController::ServicesOverlayController(MainFrame& mainFrame)
     : m_mainFrame(mainFrame)
-    , m_servicesOverlay(nullptr)
-    , m_isTextOnly(false)
-    , m_determineActiveHighlightTimer(this, &ServicesOverlayController::determineActiveHighlightTimerFired)
+    , m_determineActiveHighlightTimer(*this, &ServicesOverlayController::determineActiveHighlightTimerFired)
+    , m_buildHighlightsTimer(*this, &ServicesOverlayController::buildPotentialHighlightsIfNeeded)
 {
 }
 
@@ -385,8 +378,7 @@ void ServicesOverlayController::selectionRectsDidChange(const Vector<LayoutRect>
     m_currentSelectionRects.reverse();
 
     LOG(Services, "ServicesOverlayController - Selection rects changed - Now have %lu\n", rects.size());
-
-    buildSelectionHighlight();
+    invalidateHighlightsOfType(Highlight::SelectionType);
 #else
     UNUSED_PARAM(rects);
     UNUSED_PARAM(gapRects);
@@ -398,8 +390,45 @@ void ServicesOverlayController::selectedTelephoneNumberRangesChanged()
 {
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED > 1090
     LOG(Services, "ServicesOverlayController - Telephone number ranges changed\n");
-    buildPhoneNumberHighlights();
+    invalidateHighlightsOfType(Highlight::TelephoneNumberType);
 #endif
+}
+
+void ServicesOverlayController::invalidateHighlightsOfType(Highlight::Type type)
+{
+    if (!m_mainFrame.settings().serviceControlsEnabled())
+        return;
+
+    m_dirtyHighlightTypes |= type;
+    m_buildHighlightsTimer.startOneShot(0);
+}
+
+void ServicesOverlayController::buildPotentialHighlightsIfNeeded()
+{
+    if (!m_dirtyHighlightTypes)
+        return;
+
+    if (m_dirtyHighlightTypes & Highlight::TelephoneNumberType)
+        buildPhoneNumberHighlights();
+
+    if (m_dirtyHighlightTypes & Highlight::SelectionType)
+        buildSelectionHighlight();
+
+    m_dirtyHighlightTypes = 0;
+
+    if (m_potentialHighlights.isEmpty()) {
+        if (m_servicesOverlay)
+            m_mainFrame.pageOverlayController().uninstallPageOverlay(m_servicesOverlay, PageOverlay::FadeMode::DoNotFade);
+        return;
+    }
+
+    if (telephoneNumberRangesForFocusedFrame().isEmpty() && !hasRelevantSelectionServices())
+        return;
+
+    createOverlayIfNeeded();
+
+    bool mouseIsOverButton;
+    determineActiveHighlight(mouseIsOverButton);
 }
 
 bool ServicesOverlayController::mouseIsOverHighlight(Highlight& highlight, bool& mouseIsOverButton) const
@@ -425,7 +454,7 @@ std::chrono::milliseconds ServicesOverlayController::remainingTimeUntilHighlight
     // Highlight hysteresis is only for selection services, because telephone number highlights are already much more stable
     // by virtue of being expanded to include the entire telephone number. However, we will still avoid highlighting
     // telephone numbers while the mouse is down.
-    if (highlight->type() == Highlight::Type::TelephoneNumber)
+    if (highlight->type() == Highlight::TelephoneNumberType)
         return mousePressed ? minimumTimeUntilHighlightShouldBeShown : 0_ms;
 
     auto now = std::chrono::steady_clock::now();
@@ -437,7 +466,7 @@ std::chrono::milliseconds ServicesOverlayController::remainingTimeUntilHighlight
     return std::chrono::duration_cast<std::chrono::milliseconds>(remainingDelay);
 }
 
-void ServicesOverlayController::determineActiveHighlightTimerFired(Timer&)
+void ServicesOverlayController::determineActiveHighlightTimerFired()
 {
     bool mouseIsOverButton;
     determineActiveHighlight(mouseIsOverButton);
@@ -471,54 +500,57 @@ void ServicesOverlayController::removeAllPotentialHighlightsOfType(Highlight::Ty
 
 void ServicesOverlayController::buildPhoneNumberHighlights()
 {
-    if (!DataDetectorsLibrary())
-        return;
+    Vector<RefPtr<Range>> phoneNumberRanges;
+    for (Frame* frame = &m_mainFrame; frame; frame = frame->tree().traverseNext())
+        phoneNumberRanges.appendVector(frame->editor().detectedTelephoneNumberRanges());
 
-    if (!m_mainFrame.settings().serviceControlsEnabled())
+    if (phoneNumberRanges.isEmpty()) {
+        removeAllPotentialHighlightsOfType(Highlight::TelephoneNumberType);
+        return;
+    }
+
+    if (!DataDetectorsLibrary())
         return;
 
     HashSet<RefPtr<Highlight>> newPotentialHighlights;
 
     FrameView& mainFrameView = *m_mainFrame.view();
 
-    for (Frame* frame = &m_mainFrame; frame; frame = frame->tree().traverseNext()) {
-        auto& ranges = frame->editor().detectedTelephoneNumberRanges();
-        for (auto& range : ranges) {
-            // FIXME: This will choke if the range wraps around the edge of the view.
-            // What should we do in that case?
-            IntRect rect = textQuadsToBoundingRectForRange(*range);
+    for (auto& range : phoneNumberRanges) {
+        // FIXME: This will choke if the range wraps around the edge of the view.
+        // What should we do in that case?
+        IntRect rect = textQuadsToBoundingRectForRange(*range);
 
-            // Convert to the main document's coordinate space.
-            // FIXME: It's a little crazy to call contentsToWindow and then windowToContents in order to get the right coordinate space.
-            // We should consider adding conversion functions to ScrollView for contentsToDocument(). Right now, contentsToRootView() is
-            // not equivalent to what we need when you have a topContentInset or a header banner.
-            FrameView* viewForRange = range->ownerDocument().view();
-            if (!viewForRange)
-                continue;
-            rect.setLocation(mainFrameView.windowToContents(viewForRange->contentsToWindow(rect.location())));
+        // Convert to the main document's coordinate space.
+        // FIXME: It's a little crazy to call contentsToWindow and then windowToContents in order to get the right coordinate space.
+        // We should consider adding conversion functions to ScrollView for contentsToDocument(). Right now, contentsToRootView() is
+        // not equivalent to what we need when you have a topContentInset or a header banner.
+        FrameView* viewForRange = range->ownerDocument().view();
+        if (!viewForRange)
+            continue;
+        rect.setLocation(mainFrameView.windowToContents(viewForRange->contentsToWindow(rect.location())));
 
-            CGRect cgRect = rect;
-            RetainPtr<DDHighlightRef> ddHighlight = adoptCF(DDHighlightCreateWithRectsInVisibleRectWithStyleAndDirection(nullptr, &cgRect, 1, mainFrameView.visibleContentRect(), DDHighlightStyleBubbleStandard | DDHighlightStyleStandardIconArrow, YES, NSWritingDirectionNatural, NO, YES));
+        CGRect cgRect = rect;
+        RetainPtr<DDHighlightRef> ddHighlight = adoptCF(DDHighlightCreateWithRectsInVisibleRectWithStyleAndDirection(nullptr, &cgRect, 1, mainFrameView.visibleContentRect(), DDHighlightStyleBubbleStandard | DDHighlightStyleStandardIconArrow, YES, NSWritingDirectionNatural, NO, YES));
 
-            newPotentialHighlights.add(Highlight::createForTelephoneNumber(*this, ddHighlight, range));
-        }
+        newPotentialHighlights.add(Highlight::createForTelephoneNumber(*this, ddHighlight, range));
     }
 
-    replaceHighlightsOfTypePreservingEquivalentHighlights(newPotentialHighlights, Highlight::Type::TelephoneNumber);
-
-    didRebuildPotentialHighlights();
+    replaceHighlightsOfTypePreservingEquivalentHighlights(newPotentialHighlights, Highlight::TelephoneNumberType);
 }
 
 void ServicesOverlayController::buildSelectionHighlight()
 {
-    if (!DataDetectorsLibrary())
+    if (m_currentSelectionRects.isEmpty()) {
+        removeAllPotentialHighlightsOfType(Highlight::SelectionType);
         return;
-
-    if (!m_mainFrame.settings().serviceControlsEnabled())
-        return;
+    }
 
     Page* page = m_mainFrame.page();
     if (!page)
+        return;
+
+    if (!DataDetectorsLibrary())
         return;
 
     HashSet<RefPtr<Highlight>> newPotentialHighlights;
@@ -535,7 +567,7 @@ void ServicesOverlayController::buildSelectionHighlight()
         FrameView* viewForRange = selectionRange->ownerDocument().view();
 
         for (auto& rect : m_currentSelectionRects) {
-            IntRect currentRect = pixelSnappedIntRect(rect);
+            IntRect currentRect = snappedIntRect(rect);
             currentRect.setLocation(mainFrameView->windowToContents(viewForRange->contentsToWindow(currentRect.location())));
             cgRects.append((CGRect)currentRect);
         }
@@ -548,9 +580,7 @@ void ServicesOverlayController::buildSelectionHighlight()
         }
     }
 
-    replaceHighlightsOfTypePreservingEquivalentHighlights(newPotentialHighlights, Highlight::Type::Selection);
-
-    didRebuildPotentialHighlights();
+    replaceHighlightsOfTypePreservingEquivalentHighlights(newPotentialHighlights, Highlight::SelectionType);
 }
 
 void ServicesOverlayController::replaceHighlightsOfTypePreservingEquivalentHighlights(HashSet<RefPtr<Highlight>>& newPotentialHighlights, Highlight::Type type)
@@ -586,23 +616,6 @@ bool ServicesOverlayController::hasRelevantSelectionServices()
     if (Page* page = m_mainFrame.page())
         return page->chrome().client().hasRelevantSelectionServices(m_isTextOnly);
     return false;
-}
-
-void ServicesOverlayController::didRebuildPotentialHighlights()
-{
-    if (m_potentialHighlights.isEmpty()) {
-        if (m_servicesOverlay)
-            m_mainFrame.pageOverlayController().uninstallPageOverlay(m_servicesOverlay, PageOverlay::FadeMode::DoNotFade);
-        return;
-    }
-
-    if (telephoneNumberRangesForFocusedFrame().isEmpty() && !hasRelevantSelectionServices())
-        return;
-
-    createOverlayIfNeeded();
-
-    bool mouseIsOverButton;
-    determineActiveHighlight(mouseIsOverButton);
 }
 
 void ServicesOverlayController::createOverlayIfNeeded()
@@ -643,7 +656,7 @@ bool ServicesOverlayController::highlightsAreEquivalent(const Highlight* a, cons
 
 ServicesOverlayController::Highlight* ServicesOverlayController::findTelephoneNumberHighlightContainingSelectionHighlight(Highlight& selectionHighlight)
 {
-    if (selectionHighlight.type() != Highlight::Type::Selection)
+    if (selectionHighlight.type() != Highlight::SelectionType)
         return nullptr;
 
     Page* page = m_mainFrame.page();
@@ -659,7 +672,7 @@ ServicesOverlayController::Highlight* ServicesOverlayController::findTelephoneNu
         return nullptr;
 
     for (auto& highlight : m_potentialHighlights) {
-        if (highlight->type() != Highlight::Type::TelephoneNumber)
+        if (highlight->type() != Highlight::TelephoneNumberType)
             continue;
 
         if (highlight->range()->contains(*activeSelectionRange))
@@ -671,15 +684,17 @@ ServicesOverlayController::Highlight* ServicesOverlayController::findTelephoneNu
 
 void ServicesOverlayController::determineActiveHighlight(bool& mouseIsOverActiveHighlightButton)
 {
+    buildPotentialHighlightsIfNeeded();
+
     mouseIsOverActiveHighlightButton = false;
 
     RefPtr<Highlight> newActiveHighlight;
 
     for (auto& highlight : m_potentialHighlights) {
-        if (highlight->type() == Highlight::Type::Selection) {
+        if (highlight->type() == Highlight::SelectionType) {
             // If we've already found a new active highlight, and it's
             // a telephone number highlight, prefer that over this selection highlight.
-            if (newActiveHighlight && newActiveHighlight->type() == Highlight::Type::TelephoneNumber)
+            if (newActiveHighlight && newActiveHighlight->type() == Highlight::TelephoneNumberType)
                 continue;
 
             // If this highlight has no compatible services, it can't be active.
@@ -698,7 +713,7 @@ void ServicesOverlayController::determineActiveHighlight(bool& mouseIsOverActive
 
     // If our new active highlight is a selection highlight that is completely contained
     // by one of the phone number highlights, we'll make the phone number highlight active even if it's not hovered.
-    if (newActiveHighlight && newActiveHighlight->type() == Highlight::Type::Selection) {
+    if (newActiveHighlight && newActiveHighlight->type() == Highlight::SelectionType) {
         if (Highlight* containedTelephoneNumberHighlight = findTelephoneNumberHighlightContainingSelectionHighlight(*newActiveHighlight)) {
             newActiveHighlight = containedTelephoneNumberHighlight;
 
@@ -794,8 +809,9 @@ void ServicesOverlayController::didScrollFrame(PageOverlay&, Frame& frame)
     if (frame.isMainFrame())
         return;
 
-    buildPhoneNumberHighlights();
-    buildSelectionHighlight();
+    invalidateHighlightsOfType(Highlight::TelephoneNumberType);
+    invalidateHighlightsOfType(Highlight::SelectionType);
+    buildPotentialHighlightsIfNeeded();
 
     bool mouseIsOverActiveHighlightButton;
     determineActiveHighlight(mouseIsOverActiveHighlightButton);
@@ -813,7 +829,7 @@ void ServicesOverlayController::handleClick(const IntPoint& clickPoint, Highligh
 
     IntPoint windowPoint = frameView->contentsToWindow(clickPoint);
 
-    if (highlight.type() == Highlight::Type::Selection) {
+    if (highlight.type() == Highlight::SelectionType) {
         auto telephoneNumberRanges = telephoneNumberRangesForFocusedFrame();
         Vector<String> selectedTelephoneNumbers;
         selectedTelephoneNumbers.reserveCapacity(telephoneNumberRanges.size());
@@ -821,7 +837,7 @@ void ServicesOverlayController::handleClick(const IntPoint& clickPoint, Highligh
             selectedTelephoneNumbers.append(range->text());
 
         page->chrome().client().handleSelectionServiceClick(page->focusController().focusedOrMainFrame().selection(), selectedTelephoneNumbers, windowPoint);
-    } else if (highlight.type() == Highlight::Type::TelephoneNumber)
+    } else if (highlight.type() == Highlight::TelephoneNumberType)
         page->chrome().client().handleTelephoneNumberClick(highlight.range()->text(), windowPoint);
 }
 

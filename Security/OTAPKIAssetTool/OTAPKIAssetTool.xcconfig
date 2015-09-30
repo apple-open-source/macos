@@ -1,0 +1,14 @@
+//
+//  OTAPKIAssetTool.xcconfig
+//  Security
+//
+//
+
+// launchd plist
+APPLY_RULES_IN_COPY_FILES = YES
+PLIST_FILE_OUTPUT_FORMAT = binary
+LAUNCHD_PLIST_INSTALL_DIR = $(DSTROOT)$(SYSTEM_LIBRARY_DIR)/LaunchDaemons
+
+// We do not want to install OTAPKIAssetTool into the simulator, so only
+// define this for non-sim platforms.
+OTAPKIASSETTOOL_LAUNCHD_PLIST[sdk=iphoneos*] = OTAPKIAssetTool/com.apple.OTAPKIAssetTool.plist

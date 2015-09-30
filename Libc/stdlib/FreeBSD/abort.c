@@ -140,7 +140,7 @@ __abort()
 	__builtin_trap();
 }
 
-__private_extern__ void
+void
 abort_report_np(const char *fmt, ...)
 {
 	_SIMPLE_STRING s;

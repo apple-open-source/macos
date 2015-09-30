@@ -105,10 +105,9 @@ diff -aur postgresql-9.2.0/src/backend/postmaster/pgstat.c postgresql/src/backen
  		{
  			/*
  			 * This is the case we actually think is likely, so take pains to
-diff -aur postgresql-9.0.2/src/backend/postmaster/postmaster.c postgresql/src/backend/postmaster/postmaster.c
---- postgresql-9.0.2/src/backend/postmaster/postmaster.c	2010-12-13 18:55:50.000000000 -0800
-+++ postgresql/src/backend/postmaster/postmaster.c	2010-12-14 12:36:07.000000000 -0800
-@@ -79,6 +79,7 @@
+--- postgresql-9.3.7/src/backend/postmaster/postmaster.c	2015-05-19 15:33:58.000000000 -0700
++++ postgresql/src/backend/postmaster/postmaster.c	2015-07-01 17:09:30.000000000 -0700
+@@ -78,6 +78,7 @@
  #include <arpa/inet.h>
  #include <netdb.h>
  #include <limits.h>
@@ -116,16 +115,15 @@ diff -aur postgresql-9.0.2/src/backend/postmaster/postmaster.c postgresql/src/ba
  
  #ifdef HAVE_SYS_SELECT_H
  #include <sys/select.h>
-@@ -347,7 +348,7 @@
- static int	BackendStartup(Port *port);
+@@ -418,6 +419,7 @@
  static int	ProcessStartupPacket(Port *port, bool SSLdone);
  static void processCancelRequest(Port *port, void *pkt);
--static int	initMasks(fd_set *rmask);
+ static int	initMasks(fd_set *rmask);
 +static int	initPollfds(struct pollfd *fds);
  static void report_fork_failure_to_client(Port *port, int errnum);
  static CAC_state canAcceptConnections(void);
  static long PostmasterRandom(void);
-@@ -1347,19 +1348,18 @@
+@@ -1529,19 +1531,19 @@
  static int
  ServerLoop(void)
  {
@@ -142,42 +140,43 @@ diff -aur postgresql-9.0.2/src/backend/postmaster/postmaster.c postgresql/src/ba
  
  	for (;;)
  	{
--		fd_set		rmask;
+ 		fd_set		rmask;
 -		int			selres;
 +		int			pollres;
  
  		/*
  		 * Wait for a connection request to arrive.
-@@ -1371,24 +1371,17 @@
- 		 * any new connections, so we don't call select() at all; just sleep
- 		 * for a little bit with signals unblocked.
+@@ -1553,40 +1555,33 @@
+ 		 * If we are in PM_WAIT_DEAD_END state, then we don't want to accept
+ 		 * any new connections, so we don't call select(), and just sleep.
  		 */
 -		memcpy((char *) &rmask, (char *) &readmask, sizeof(fd_set));
  
- 		PG_SETMASK(&UnBlockSig);
- 
  		if (pmState == PM_WAIT_DEAD_END)
  		{
+ 			PG_SETMASK(&UnBlockSig);
+ 
  			pg_usleep(100000L); /* 100 msec seems reasonable */
 -			selres = 0;
 +			pollres = 0;
+ 
+ 			PG_SETMASK(&BlockSig);
  		}
  		else
  		{
 -			/* must set timeout each time; some OSes change it! */
 -			struct timeval timeout;
 -
--			timeout.tv_sec = 60;
--			timeout.tv_usec = 0;
+-			/* Needs to run with blocked signals! */
+-			DetermineSleepTime(&timeout);
 -
+ 			PG_SETMASK(&UnBlockSig);
+ 
 -			selres = select(nSockets, &rmask, NULL, NULL, &timeout);
 +			pollres = poll(pfds, nSockets, 60 * 1000);
- 		}
  
- 		/*
-@@ -1397,14 +1390,14 @@
- 		 */
- 		PG_SETMASK(&BlockSig);
+ 			PG_SETMASK(&BlockSig);
+ 		}
  
 -		/* Now check the select() result */
 -		if (selres < 0)
@@ -193,7 +192,7 @@ diff -aur postgresql-9.0.2/src/backend/postmaster/postmaster.c postgresql/src/ba
  				return STATUS_ERROR;
  			}
  		}
-@@ -1413,7 +1406,7 @@
+@@ -1595,7 +1590,7 @@
  		 * New connection pending on any of our sockets? If so, fork a child
  		 * process to deal with it.
  		 */
@@ -202,7 +201,7 @@ diff -aur postgresql-9.0.2/src/backend/postmaster/postmaster.c postgresql/src/ba
  		{
  			int			i;
  
-@@ -1421,7 +1414,7 @@
+@@ -1603,7 +1598,7 @@
  			{
  				if (ListenSocket[i] == PGINVALID_SOCKET)
  					break;
@@ -211,12 +210,7 @@ diff -aur postgresql-9.0.2/src/backend/postmaster/postmaster.c postgresql/src/ba
  				{
  					Port	   *port;
  
-@@ -1505,30 +1498,27 @@
- 
- 
- /*
-- * Initialise the masks for select() for the ports we are listening on.
-+ * Initialise the pollfds for poll() for the ports we are listening on.
+@@ -1713,26 +1708,24 @@
   * Return the number of sockets to listen on.
   */
  static int
@@ -235,7 +229,7 @@ diff -aur postgresql-9.0.2/src/backend/postmaster/postmaster.c postgresql/src/ba
  		if (fd == PGINVALID_SOCKET)
  			break;
 -		FD_SET(fd, rmask);
--
+ 
 -		if (fd > maxsock)
 -			maxsock = fd;
 +		pfds->fd = fd;

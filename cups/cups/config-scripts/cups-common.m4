@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-common.m4 12142 2014-08-30 02:35:43Z msweet $"
+dnl "$Id: cups-common.m4 12827 2015-07-31 15:21:37Z msweet $"
 dnl
 dnl Common configuration stuff for CUPS.
 dnl
-dnl Copyright 2007-2014 by Apple Inc.
+dnl Copyright 2007-2015 by Apple Inc.
 dnl Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl These coded instructions, statements, and computer programs are the
@@ -13,18 +13,26 @@ dnl which should have been included with this file.  If this file is
 dnl file is missing or damaged, see the license at "http://www.cups.org/".
 dnl
 
-dnl We need at least autoconf 2.60...
-AC_PREREQ(2.60)
-
 dnl Set the name of the config header file...
 AC_CONFIG_HEADER(config.h)
 
 dnl Version number information...
-CUPS_VERSION="2.0.0"
-CUPS_REVISION=""
-#if test -z "$CUPS_REVISION" -a -d .svn; then
-#	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
-#fi
+CUPS_VERSION="AC_PACKAGE_VERSION"
+
+case "$CUPS_VERSION" in
+	*svn)
+		if test -z "$CUPS_REVISION" -a -d .svn; then
+			CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
+		else
+			CUPS_REVISION=""
+		fi
+		;;
+
+	*)
+		CUPS_REVISION=""
+		;;
+esac
+
 CUPS_BUILD="cups-$CUPS_VERSION"
 
 AC_ARG_WITH(cups_build, [  --with-cups-build       set "cups-config --build" string ],
@@ -33,8 +41,8 @@ AC_ARG_WITH(cups_build, [  --with-cups-build       set "cups-config --build" str
 AC_SUBST(CUPS_VERSION)
 AC_SUBST(CUPS_REVISION)
 AC_SUBST(CUPS_BUILD)
-AC_DEFINE_UNQUOTED(CUPS_SVERSION, "CUPS v$CUPS_VERSION$CUPS_REVISION")
-AC_DEFINE_UNQUOTED(CUPS_MINIMAL, "CUPS/$CUPS_VERSION$CUPS_REVISION")
+AC_DEFINE_UNQUOTED(CUPS_SVERSION, "AC_PACKAGE_NAME v$CUPS_VERSION$CUPS_REVISION")
+AC_DEFINE_UNQUOTED(CUPS_MINIMAL, "AC_PACKAGE_NAME/$CUPS_VERSION$CUPS_REVISION")
 
 dnl Default compiler flags...
 CFLAGS="${CFLAGS:=}"
@@ -137,12 +145,16 @@ AC_CHECK_HEADER(bstring.h,AC_DEFINE(HAVE_BSTRING_H))
 AC_CHECK_HEADER(sys/ioctl.h,AC_DEFINE(HAVE_SYS_IOCTL_H))
 AC_CHECK_HEADER(sys/param.h,AC_DEFINE(HAVE_SYS_PARAM_H))
 AC_CHECK_HEADER(sys/ucred.h,AC_DEFINE(HAVE_SYS_UCRED_H))
+AC_CHECK_HEADER(asl.h,AC_DEFINE(HAVE_ASL_H))
 
 dnl Checks for iconv.h and iconv_open
 AC_CHECK_HEADER(iconv.h,
 	SAVELIBS="$LIBS"
 	LIBS=""
 	AC_SEARCH_LIBS(iconv_open,iconv,
+		AC_DEFINE(HAVE_ICONV_H)
+		SAVELIBS="$SAVELIBS $LIBS")
+	AC_SEARCH_LIBS(libiconv_open,iconv,
 		AC_DEFINE(HAVE_ICONV_H)
 		SAVELIBS="$SAVELIBS $LIBS")
 	LIBS="$SAVELIBS")
@@ -462,5 +474,5 @@ esac
 AC_SUBST(BUILDDIRS)
 
 dnl
-dnl End of "$Id: cups-common.m4 12142 2014-08-30 02:35:43Z msweet $".
+dnl End of "$Id: cups-common.m4 12827 2015-07-31 15:21:37Z msweet $".
 dnl

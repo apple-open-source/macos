@@ -189,23 +189,13 @@ protected:
      * Attach the given media object to the device tree plane.
      */
 
-#ifdef __LP64__
     virtual bool attachMediaObjectToDeviceTree(IOMedia * media);
-#else /* !__LP64__ */
-    virtual bool attachMediaObjectToDeviceTree(IOMedia *    media,
-                                               IOOptionBits options = 0); /* 10.5.0 */
-#endif /* !__LP64__ */
 
     /*
      * Detach the given media object from the device tree plane.
      */
 
-#ifdef __LP64__
     virtual void detachMediaObjectFromDeviceTree(IOMedia * media);
-#else /* !__LP64__ */
-    virtual void detachMediaObjectFromDeviceTree(IOMedia *    media,
-                                                 IOOptionBits options = 0); /* 10.5.0 */
-#endif /* !__LP64__ */
 
     /*
      * Updates a set of existing partitions, represented by partitionsOld,
@@ -218,7 +208,7 @@ protected:
      */
 
     virtual OSSet * juxtaposeMediaObjects(OSSet * partitionsOld,
-                                          OSSet * partitionsNew); /* 10.5.0 */
+                                          OSSet * partitionsNew);
 
 public:
 
@@ -302,22 +292,30 @@ public:
                        IOStorageCompletion * completion);
 
     /*!
-     * @function synchronizeCache
+     * @function synchronize
      * @discussion
-     * Flush the cached data in the storage object, if any, synchronously.
+     * Flush the cached data in the storage object, if any.
      * @param client
-     * Client requesting the cache synchronization.
+     * Client requesting the synchronization.
+     * @param byteStart
+     * Starting byte offset for the synchronization.
+     * @param byteCount
+     * Size of the synchronization.  Set to zero to specify the end-of-media.
+     * @param options
+     * Options for the synchronization.  See IOStorageSynchronizeOptions.
      * @result
-     * Returns the status of the cache synchronization.
+     * Returns the status of the synchronization.
      */
 
-    virtual IOReturn synchronizeCache(IOService * client);
+    virtual IOReturn synchronize(IOService *                 client,
+                                 UInt64                      byteStart,
+                                 UInt64                      byteCount,
+                                 IOStorageSynchronizeOptions options = 0);
 
     /*!
      * @function unmap
      * @discussion
-     * Delete unused data from the storage object at the specified byte offsets,
-     * synchronously.
+     * Delete unused data from the storage object at the specified byte offsets.
      * @param client
      * Client requesting the operation.
      * @param extents
@@ -325,14 +323,16 @@ public:
      * overwrite the contents of this buffer in order to satisfy the request.
      * @param extentsCount
      * Number of extents.
+     * @param options
+     * Options for the unmap.  See IOStorageUnmapOptions.
      * @result
      * Returns the status of the operation.
      */
 
-    virtual IOReturn unmap(IOService *       client,
-                           IOStorageExtent * extents,
-                           UInt32            extentsCount,
-                           UInt32            options = 0);
+    virtual IOReturn unmap(IOService *           client,
+                           IOStorageExtent *     extents,
+                           UInt32                extentsCount,
+                           IOStorageUnmapOptions options = 0);
 
     /*!
      * @function lockPhysicalExtents
@@ -411,15 +411,9 @@ public:
 
     virtual IOMedia * getProvider() const;
 
-#ifdef __LP64__
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  0);
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  1);
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  2);
-#else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOPartitionScheme,  0);
-    OSMetaClassDeclareReservedUsed(IOPartitionScheme,  1);
-    OSMetaClassDeclareReservedUsed(IOPartitionScheme,  2);
-#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  3);
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  4);
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  5);

@@ -304,10 +304,10 @@
 		4D0E89A71534FF48004CD678 /* mount_hfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mount_hfs.c; sourceTree = "<group>"; };
 		4D0E89A81534FF48004CD678 /* optical.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = optical.c; sourceTree = "<group>"; };
 		4D0E89A91534FF48004CD678 /* optical.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = optical.h; sourceTree = "<group>"; };
-		4D6E7827191D3E7E004E3F93 /* fsck_hfs.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fsck_hfs.entitlements; sourceTree = "<group>"; };
+		4D6E7827191D3E7E004E3F93 /* fsck_hfs.ios.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = fsck_hfs.ios.entitlements; sourceTree = "<group>"; };
 		4D6E7828191D3F26004E3F93 /* newfs_hfs.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = newfs_hfs.entitlements; path = newfs_hfs/newfs_hfs.entitlements; sourceTree = SOURCE_ROOT; };
-		4D6E7829191D3F41004E3F93 /* mount_hfs.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = mount_hfs.entitlements; sourceTree = "<group>"; };
-		4D7C8964192141CA002013C9 /* hfs_util.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = hfs_util.entitlements; sourceTree = "<group>"; };
+		4D6E7829191D3F41004E3F93 /* mount_hfs.ios.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = mount_hfs.ios.entitlements; sourceTree = "<group>"; };
+		4D7C8964192141CA002013C9 /* hfs_util.ios.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = hfs_util.ios.entitlements; sourceTree = "<group>"; };
 		4D7C8965192141DB002013C9 /* CopyHFSMeta.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = CopyHFSMeta.entitlements; sourceTree = "<group>"; };
 		4D7C8966192141ED002013C9 /* fstyp_hfs.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = fstyp_hfs.entitlements; sourceTree = "<group>"; };
 		4DE6C7461535012200C11066 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
@@ -386,6 +386,9 @@
 		863D03961820761900A4F0C4 /* util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = util.c; sourceTree = "<group>"; };
 		86CBF37F183186C300A64A93 /* libhfs_metadata.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libhfs_metadata.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		86CBF3851831880F00A64A93 /* iterate_hfs_metadata.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = iterate_hfs_metadata.c; path = libhfs_metadata/iterate_hfs_metadata.c; sourceTree = SOURCE_ROOT; };
+		9D7AAC861B44874E0001F573 /* mount_hfs.osx.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = mount_hfs.osx.entitlements; sourceTree = "<group>"; };
+		9D7AAC871B44880B0001F573 /* hfs_util.osx.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = hfs_util.osx.entitlements; sourceTree = "<group>"; };
+		9D9067881B44633C003D2117 /* fsck_hfs.osx.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fsck_hfs.osx.entitlements; sourceTree = "<group>"; };
 		C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_jnl.c; sourceTree = "<group>"; };
 		C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_main.c; sourceTree = "<group>"; };
 		C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
@@ -522,7 +525,8 @@
 				4D0E89A71534FF48004CD678 /* mount_hfs.c */,
 				4D0E89A81534FF48004CD678 /* optical.c */,
 				4D0E89A61534FF48004CD678 /* mount_hfs.8 */,
-				4D6E7829191D3F41004E3F93 /* mount_hfs.entitlements */,
+				4D6E7829191D3F41004E3F93 /* mount_hfs.ios.entitlements */,
+				9D7AAC861B44874E0001F573 /* mount_hfs.osx.entitlements */,
 			);
 			path = mount_hfs;
 			sourceTree = "<group>";
@@ -563,7 +567,8 @@
 				4DFD9418153600060039B6BA /* dfalib */,
 				4DFD9440153600060039B6BA /* docs */,
 				4DFD9446153600060039B6BA /* fsck_hfs.8 */,
-				4D6E7827191D3E7E004E3F93 /* fsck_hfs.entitlements */,
+				4D6E7827191D3E7E004E3F93 /* fsck_hfs.ios.entitlements */,
+				9D9067881B44633C003D2117 /* fsck_hfs.osx.entitlements */,
 			);
 			path = fsck_hfs;
 			sourceTree = "<group>";
@@ -665,7 +670,8 @@
 				C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */,
 				C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */,
 				C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */,
-				4D7C8964192141CA002013C9 /* hfs_util.entitlements */,
+				4D7C8964192141CA002013C9 /* hfs_util.ios.entitlements */,
+				9D7AAC871B44880B0001F573 /* hfs_util.osx.entitlements */,
 			);
 			path = hfs_util;
 			sourceTree = "<group>";
@@ -859,7 +865,6 @@
 				8DD76FAB0486AB0100D96B5E /* Sources */,
 				8DD76FAD0486AB0100D96B5E /* Frameworks */,
 				8DD76FAF0486AB0100D96B5E /* Copy man8 */,
-				4DFD9541153785060039B6BA /* Create symlink */,
 			);
 			buildRules = (
 			);
@@ -1003,23 +1008,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/fsck_hfs ${DSTROOT}/sbin/fsck_hfs\nchgrp -h wheel ${DSTROOT}/sbin/fsck_hfs\n";
-			showEnvVarsInLog = 0;
-		};
-		4DFD9541153785060039B6BA /* Create symlink */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/hfs.util",
-			);
-			name = "Create symlink";
-			outputPaths = (
-				"$(DSTROOT)$(FS_BUNDLE_PATH)/hfs.util",
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_DIR}/hfs.util ${DSTROOT}${FS_BUNDLE_PATH}/hfs.util";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -1228,8 +1216,9 @@
 		1DEB928708733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.ios.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = hfs_util/hfs_util.osx.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = hfs.util;
 			};
@@ -1255,8 +1244,9 @@
 		4D0E89A41534FE65004CD678 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = mount_hfs/mount_hfs.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = mount_hfs/mount_hfs.ios.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = mount_hfs/mount_hfs.osx.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				EXCLUDED_SOURCE_FILE_NAMES = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = optical.c;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = optical.c;
@@ -1299,8 +1289,9 @@
 		4DFD93FB1535FF510039B6BA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = fsck_hfs/fsck_hfs.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = fsck_hfs/fsck_hfs.ios.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = fsck_hfs/fsck_hfs.osx.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"BSD=1",
 					"CONFIG_HFS_TRIM=1",

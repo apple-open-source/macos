@@ -24,19 +24,14 @@ trap [ arg ] [ sig ... ]
        have no SIGERR signal (this is the usual case).
 
        If sig is DEBUG then arg will be executed before each command if
-       the  option  DEBUG BEFORE CMD is set (as it is by default), else
-                         -      -
+       the  option  DEBUG_BEFORE_CMD is set (as it is by default), else
        after each command.  Here, a `command' is what is described as a
        `sublist'  in the shell grammar, see the section SIMPLE COMMANDS
-       & PIPELINES in zshmisc(1).  If DEBUG BEFORE CMD is  set  various
-                                           -      -
+       & PIPELINES in zshmisc(1).  If DEBUG_BEFORE_CMD is  set  various
        additional  features  are  available.   First, it is possible to
-       skip the next command by setting the option  ERR EXIT;  see  the
-                                                       -
-       description  of the ERR EXIT option in zshoptions(1).  Also, the
-                              -
-       shell parameter ZSH DEBUG CMD is set to the string corresponding
-                          -     -
+       skip the next command by setting the option  ERR_EXIT;  see  the
+       description  of the ERR_EXIT option in zshoptions(1).  Also, the
+       shell parameter ZSH_DEBUG_CMD is set to the string corresponding
        to  the  command  to  be executed following the trap.  Note that
        this string is reconstructed from the internal  format  and  may
        not be formatted the same way as the original text.  The parame-

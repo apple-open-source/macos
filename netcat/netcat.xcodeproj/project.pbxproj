@@ -18,14 +18,14 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		722CFA250FF427640065AA57 /* Copy manpage */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
 				722CFA260FF427780065AA57 /* nc.1 in Copy manpage */,
 			);
 			name = "Copy manpage";
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -194,6 +194,8 @@
 				INSTALL_PATH = /usr/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = nc;
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;

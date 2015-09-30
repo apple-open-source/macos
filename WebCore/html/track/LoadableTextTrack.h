@@ -30,6 +30,7 @@
 
 #include "TextTrack.h"
 #include "TextTrackLoader.h"
+#include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -37,11 +38,11 @@ namespace WebCore {
 class HTMLTrackElement;
 class LoadableTextTrack;
 
-class LoadableTextTrack : public TextTrack, private TextTrackLoaderClient {
+class LoadableTextTrack final : public TextTrack, private TextTrackLoaderClient {
 public:
-    static PassRefPtr<LoadableTextTrack> create(HTMLTrackElement* track, const String& kind, const String& label, const String& language)
+    static Ref<LoadableTextTrack> create(HTMLTrackElement* track, const String& kind, const String& label, const String& language)
     {
-        return adoptRef(new LoadableTextTrack(track, kind, label, language));
+        return adoptRef(*new LoadableTextTrack(track, kind, label, language));
     }
     virtual ~LoadableTextTrack();
 
@@ -64,12 +65,12 @@ private:
     virtual void newCuesAvailable(TextTrackLoader*) override;
     virtual void cueLoadingCompleted(TextTrackLoader*, bool loadingFailed) override;
 #if ENABLE(WEBVTT_REGIONS)
-    virtual void newRegionsAvailable(TextTrackLoader*);
+    virtual void newRegionsAvailable(TextTrackLoader*) override;
 #endif
 
     LoadableTextTrack(HTMLTrackElement*, const String& kind, const String& label, const String& language);
 
-    void loadTimerFired(Timer&);
+    void loadTimerFired();
 
     HTMLTrackElement* m_trackElement;
     Timer m_loadTimer;
@@ -79,5 +80,10 @@ private:
 };
 } // namespace WebCore
 
-#endif
-#endif
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::LoadableTextTrack)
+    static bool isType(const WebCore::TextTrack& track) { return track.trackType() == WebCore::TextTrack::TrackElement; }
+SPECIALIZE_TYPE_TRAITS_END()
+
+#endif // ENABLE(VIDEO_TRACK)
+
+#endif // LoadableTextTrack_h

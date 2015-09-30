@@ -336,7 +336,7 @@ bytesFromColonHexString(CFStringRef colon_hex, int * len)
     return (NULL);
 }
 
-PRIVATE_EXTERN CFStringRef
+CF_RETURNS_RETAINED PRIVATE_EXTERN CFStringRef
 IPv4ARPCollisionKeyParse(CFStringRef cache_key, struct in_addr * ipaddr_p,
 			 void * * hwaddr, int * hwlen)
 {
@@ -511,27 +511,14 @@ DNSEntityCreateWithDHCPInfo(dhcp_info_t * info_p)
 				(dns_search != NULL), dns_dict);
 	}
 	if (dns_search != NULL) {
-	    const char * *	search_list = NULL;
-	    int			search_count = 0;
-	    
-	    search_list = DNSNameListCreate(dns_search, dns_search_len,
-					    &search_count);
-	    if (search_list != NULL) {
-		array = CFArrayCreateMutable(NULL, 
-					     search_count,
-					     &kCFTypeArrayCallBacks);
-		for (i = 0; i < search_count; i++) {
-		    CFStringRef str;
+	    CFArrayRef	dns_search_array;
 
-		    str = CFStringCreateWithCString(NULL, search_list[i],
-						    kCFStringEncodingUTF8);
-		    CFArrayAppendValue(array, str);
-		    CFRelease(str);
-		}
-		CFDictionarySetValue(dns_dict, kSCPropNetDNSSearchDomains, 
-				     array);
-		CFRelease(array);
-		free(search_list);
+	    dns_search_array
+		= DNSNameListCreateArray(dns_search, dns_search_len);
+	    if (dns_search_array != NULL) {
+		CFDictionarySetValue(dns_dict, kSCPropNetDNSSearchDomains,
+				     dns_search_array);
+		CFRelease(dns_search_array);
 	    }
 	}
     }
@@ -568,7 +555,6 @@ STATIC CFDictionaryRef
 DNSEntityCreateWithDHCPv6Info(dhcpv6_info_t * info_p)
 {
     CFMutableArrayRef		array = NULL;
-    int				i;
     DHCPv6OptionListRef 	options;
     CFMutableDictionaryRef	dict;
     const struct in6_addr *	scan;
@@ -626,24 +612,14 @@ DNSEntityCreateWithDHCPv6Info(dhcpv6_info_t * info_p)
 
     /* retrieve the DNS search list, if present */
     if (search != NULL) {
-	const char * *		list;
-	int			list_count;
+	CFArrayRef	dns_search_array;
 
-	list = DNSNameListCreate(search, search_len, &list_count);
-	if (list != NULL) {
-	    array = CFArrayCreateMutable(NULL, list_count,
-					 &kCFTypeArrayCallBacks);
-	    for (i = 0; i < list_count; i++) {
-		CFStringRef		str;
-		str = CFStringCreateWithCString(NULL, list[i],
-						kCFStringEncodingUTF8);
-		CFArrayAppendValue(array, str);
-		CFRelease(str);
-	    }
+	dns_search_array
+	    = DNSNameListCreateArray(search, search_len);
+	if (dns_search_array != NULL) {
 	    CFDictionarySetValue(dict, kSCPropNetDNSSearchDomains,
-				 array);
-	    CFRelease(array);
-	    free(list);
+				 dns_search_array);
+	    CFRelease(dns_search_array);
 	}
     }
     return (dict);

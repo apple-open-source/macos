@@ -13,6 +13,7 @@
 #include "unicode/gregocal.h"
 #include "dtfmtrtts.h"
 #include "caltest.h"
+#include "cstring.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -169,7 +170,7 @@ void DateFormatRoundTripTest::TestDateFormatRoundTrip()
 #if 1
     // installed locales
     for (int i=0; i < locCount; ++i) {
-            test(avail[i]);
+        test(avail[i]);
     }
 #endif
 
@@ -283,6 +284,10 @@ void DateFormatRoundTripTest::test(DateFormat *fmt, const Locale &origLocale, UB
     
     UBool isGregorian = FALSE;
     UErrorCode minStatus = U_ZERO_ERROR;
+    if(fmt->getCalendar() == NULL) {
+      errln((UnicodeString)"DateFormatRoundTripTest::test, DateFormat getCalendar() returns null for " + origLocale.getName());
+      return;
+    } 
     UDate minDate = CalendarTest::minDateOfCalendar(*fmt->getCalendar(), isGregorian, minStatus);
     if(U_FAILURE(minStatus)) {
       errln((UnicodeString)"Failure getting min date for " + origLocale.getName());

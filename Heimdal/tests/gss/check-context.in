@@ -264,6 +264,27 @@ for mech in krb5 krb5iov spnego; do
 
 done
 
+for a in "" "--wrapunwrap" "--wrapunwrap --delegate"; do
+
+	echo "Check kerberos pfs ($a)" ; > ${testdir}/messages.log
+	${test_context} \
+	    --mech-type=krb5 \
+	    --mutual-auth \
+	    $a \
+	    --require-pfs \
+	    --name-type=hostbased-service host@lucid.test.h5l.se || \
+		{ eval "$testfailed"; }
+
+	echo "Check kerberos no-pfs (non-mutual) ($a)" ; > ${testdir}/messages.log
+	${test_context} \
+	    --mech-type=krb5 \
+	    $a \
+	    --no-require-pfs \
+	    --name-type=hostbased-service host@lucid.test.h5l.se || \
+		{ eval "$testfailed"; }
+done
+
+
 echo "test gsskrb5_register_acceptor_identity (both positive and negative)"
 
 cp ${keytabfile} ${keytabfile}.new

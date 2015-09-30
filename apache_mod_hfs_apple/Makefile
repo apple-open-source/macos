@@ -20,8 +20,9 @@ MODULE_NAME = mod_hfs_apple
 MODULE_SRC2 = $(MODULE_NAME)2.c
 MODULE = $(MODULE_NAME).so
 OTHER_SRC = APPLE_LICENSE
-HEADERS =
 APXS2=/usr/sbin/apxs
+SDK_HEADERS =  "-I$(SDKROOT)/usr/include/ -I$(SDKROOT)/usr/include/apache2 "
+LDFLAGS += "-L$(SDKROOT)/usr/lib"
 SRCFILES = Makefile $(MODULE_SRC) $(MODULE_SRC2) $(OTHER_SRC) $(HEADERS)
 INSTALLDIR2 := $(shell $(APXS2) -q LIBEXECDIR)
 
@@ -33,7 +34,7 @@ include $(MAKEFILEDIR)/platform.make
 include $(MAKEFILEDIR)/commands-$(OS).make
 
 all build $(MODULE): $(MODULE_SRC) $(OTHER_SRC)
-	$(APXS2) -c $(MORE_FLAGS) -o $(MODULE) $(MODULE_SRC2) $(OTHER_SRC)
+	$(APXS2) -S INCLUDEDIR=$(SDK_HEADERS) -c $(MORE_FLAGS) $(LDFLAGS)  -o $(MODULE) $(MODULE_SRC2) $(OTHER_SRC)
  
 installsrc:
 	@echo "Installing source files..."

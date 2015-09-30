@@ -38,7 +38,7 @@ namespace WebCore {
 FrameTree::~FrameTree()
 {
     for (Frame* child = firstChild(); child; child = child->tree().nextSibling())
-        child->setView(0);
+        child->setView(nullptr);
 }
 
 void FrameTree::setName(const AtomicString& name) 
@@ -108,7 +108,7 @@ void FrameTree::actuallyAppendChild(PassRefPtr<Frame> child)
 
 void FrameTree::removeChild(Frame* child)
 {
-    child->tree().m_parent = 0;
+    child->tree().m_parent = nullptr;
 
     // Slightly tricky way to prevent deleting the child until we are done with it, w/o
     // extra refs. These swaps leave the child in a circular list by itself. Clearing its
@@ -120,8 +120,8 @@ void FrameTree::removeChild(Frame* child)
     // For some inexplicable reason, the following line does not compile without the explicit std:: namespace
     std::swap(newLocationForPrevious, child->tree().m_previousSibling);
 
-    child->tree().m_previousSibling = 0;
-    child->tree().m_nextSibling = 0;
+    child->tree().m_previousSibling = nullptr;
+    child->tree().m_nextSibling = nullptr;
 
     m_scopedChildCount = invalidCount;
 }
@@ -486,13 +486,15 @@ static void printFrames(const WebCore::Frame& frame, const WebCore::Frame* targe
     printIndent(indent);
     printf("  ownerElement=%p\n", frame.ownerElement());
     printIndent(indent);
-    printf("  frameView=%p\n", view);
+    printf("  frameView=%p (needs layout %d)\n", view, view ? view->needsLayout() : false);
+    printIndent(indent);
+    printf("  renderView=%p\n", view ? view->renderView() : nullptr);
     printIndent(indent);
     printf("  ownerRenderer=%p\n", frame.ownerRenderer());
     printIndent(indent);
     printf("  document=%p (needs style recalc %d)\n", frame.document(), frame.document() ? frame.document()->childNeedsStyleRecalc() : false);
     printIndent(indent);
-    printf("  uri=%s\n\n", frame.document()->documentURI().utf8().data());
+    printf("  uri=%s\n", frame.document()->documentURI().utf8().data());
 
     for (WebCore::Frame* child = frame.tree().firstChild(); child; child = child->tree().nextSibling())
         printFrames(*child, targetFrame, indent + 1);

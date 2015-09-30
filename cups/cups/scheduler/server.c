@@ -1,5 +1,5 @@
 /*
- * "$Id: server.c 11573 2014-02-10 20:40:04Z msweet $"
+ * "$Id: server.c 12698 2015-06-08 17:47:35Z msweet $"
  *
  *   Server start/stop routines for the CUPS scheduler.
  *
@@ -142,21 +142,24 @@ cupsdStopServer(void)
 
   if (AccessFile != NULL)
   {
-    cupsFileClose(AccessFile);
+    if (AccessFile != LogStderr)
+      cupsFileClose(AccessFile);
 
     AccessFile = NULL;
   }
 
   if (ErrorFile != NULL)
   {
-    cupsFileClose(ErrorFile);
+    if (ErrorFile != LogStderr)
+      cupsFileClose(ErrorFile);
 
     ErrorFile = NULL;
   }
 
   if (PageFile != NULL)
   {
-    cupsFileClose(PageFile);
+    if (PageFile != LogStderr)
+      cupsFileClose(PageFile);
 
     PageFile = NULL;
   }
@@ -180,5 +183,5 @@ cupsdStopServer(void)
 
 
 /*
- * End of "$Id: server.c 11573 2014-02-10 20:40:04Z msweet $".
+ * End of "$Id: server.c 12698 2015-06-08 17:47:35Z msweet $".
  */

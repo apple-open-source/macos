@@ -36,8 +36,12 @@
 #include "krb5_locl.h"
 #include <resolve.h>
 #include "locate_plugin.h"
+#if __APPLE__
+#include <dns_sd.h>
+#include <dns_sd_private.h>
+#endif
 
-static void append_host_hostinfo(struct krb5_krbhst_data *, struct krb5_krbhst_info *);
+static void append_host_hostinfo(krb5_context, struct krb5_krbhst_data *, struct krb5_krbhst_info *);
 
 struct krb5_krbhst_data {
     struct heim_base_uniq base;
@@ -46,27 +50,36 @@ struct krb5_krbhst_data {
     unsigned int flags;
     int def_port;
     int port;			/* hardwired port number if != 0 */
-#define KD_CONFIG		0x1
-#define KD_SRV_UDP		0x2
-#define KD_SRV_TCP		0x4
-#define KD_SRV_HTTP		0x8
-#define KD_SRV_KKDCP		0x10
-#define KD_FALLBACK		0x20
-#define KD_CONFIG_EXISTS	0x40
-#define KD_LARGE_MSG		0x80
-#define KD_PLUGIN		0x100
-#define KD_HOSTNAMES		0x200
+#define KD_CONFIG		0x0001
+#define KD_SRV_UDP		0x0002
+#define KD_SRV_TCP		0x0004
+#define KD_SITE_SRV_UDP		0x0008
+#define KD_SITE_SRV_TCP		0x0010
+#define KD_SRV_HTTP		0x0020
+#define KD_SRV_KKDCP		0x0040
+#define KD_FALLBACK		0x0080
+#define KD_CONFIG_EXISTS	0x0100
+#define KD_LARGE_MSG		0x0200
+#define KD_PLUGIN		0x0400
+#define KD_HOSTNAMES		0x0800
+#define KD_DELEG_UUID		0x1000
     krb5_error_code (*get_next)(krb5_context, struct krb5_krbhst_data *,
 				krb5_krbhst_info**);
 
     char *hostname;
+    char *sitename;
+    krb5_uuid delegate_uuid;
     unsigned int fallback_count;
 
     struct krb5_krbhst_info *hosts, **index, **end;
 
     krb5_context context;
-    heim_queue_t process_queue;
-    heim_queue_t queue;
+    heim_queue_t srv_queue;
+    heim_queue_t addrinfo_queue;
+#if __APPLE__
+    DNSServiceRef main_sd;
+    DNSServiceRef addrinfo_sd;
+#endif
     void (*callback)(void *, krb5_krbhst_info *);
     void *userctx;
 };
@@ -91,31 +104,46 @@ query_release(void *ctx)
     struct _krb5_srv_query_ctx *query = (struct _krb5_srv_query_ctx *)ctx;
 
     free(query->domain);
-    heim_release(query->handle);
     if (query->sema)
 	dispatch_release((dispatch_semaphore_t)query->sema);
 #ifdef __APPLE__
-    if (query->array)
+    if (query->array) {
+	size_t n;
+	for (n = 0; n < query->len; n++) {
+
+	    /*
+	     * check if the call is still pending, if it is, cancel it and
+	     * clean up the reference that the callback was supposed
+	     * to clean
+	     */
+	    dispatch_sync((dispatch_queue_t)query->handle->addrinfo_queue, ^{
+		if (query->array[n]->srv_sd) {
+		    DNSServiceRefDeallocate(query->array[n]->srv_sd);
+		    query->array[n]->srv_sd = NULL;
+
+		    if (!query->array[n]->flags.getAddrDone) {
+			heim_release(query->array[n]);
+		    }
+		}
+	    });
+	    heim_release(query->array[n]);
+	}
 	free(query->array);
+    }
 #endif
+    heim_release(query->handle);
 }
 
-
-
-
 #ifdef __APPLE__
-
-#include <dns_sd.h>
-
 
 static int
 compare_srv(const void *a, const void *b)
 {
-    const struct srv_reply *aa = a, *bb = b;
+    struct srv_reply * const *aa = a, * const *bb = b;
 
-    if(aa->priority == bb->priority)
-	return aa->weight - bb->weight;
-    return aa->priority - aa->priority;
+    if((*aa)->priority == (*bb)->priority)
+	return (*aa)->weight - (*bb)->weight;
+    return (*aa)->priority - (*bb)->priority;
 }
 
 void
@@ -139,22 +167,22 @@ _krb5_state_srv_sort(struct _krb5_srv_query_ctx *query)
     prio_marker = 0;
 
     for (n = 1; n < query->len; n++) {
-	if (query->array[prio_marker].priority != query->array[n].priority) {
+	if (query->array[prio_marker]->priority != query->array[n]->priority) {
 
 	    for (m = prio_marker; m < n && sum != 0; m++) {
-		int32_t count = -1;
+		int32_t count = -1 * (int32_t)(query->len + 1);
 
 		rnd = rk_random() % sum;
 
 		for (o = prio_marker; o < n; o++) {
-		    if (query->array[o].weight < 0)
+		    if (query->array[o]->weight < 0)
 			continue;
-		    if (rnd <= (uint32_t)query->array[o].weight) {
-			sum -= query->array[o].weight;
-			query->array[o].weight = count--;
+		    if (rnd <= (uint32_t)query->array[o]->weight) {
+			sum -= query->array[o]->weight;
+			query->array[o]->weight = count++;
 			break;
 		    }
-		    rnd -= query->array[o].weight;
+		    rnd -= query->array[o]->weight;
 		}
 		if (o >= n)
 		    _krb5_debugx(query->context, 2,
@@ -163,11 +191,29 @@ _krb5_state_srv_sort(struct _krb5_srv_query_ctx *query)
 	    sum = 0;
 	    prio_marker = n;
 	} else {
-	    sum += query->array[n].weight;
+	    sum += query->array[n]->weight;
 	}
     }
     
     qsort(query->array, query->len, sizeof(query->array[0]), compare_srv);
+}
+
+static const char *
+srv_reply_get_hostname(struct srv_reply *reply)
+{
+    if (reply->hostinfo)
+	return reply->hostinfo->hostname;
+    if (reply->hostname)
+	return reply->hostname;
+    return "<no-hostname>";
+}
+
+static int
+srv_reply_get_port(struct srv_reply *reply)
+{
+    if (reply->hostinfo == NULL)
+	return 0;
+    return reply->hostinfo->port;
 }
 
 static void
@@ -178,104 +224,353 @@ state_append_hosts(struct _krb5_srv_query_ctx *query)
     _krb5_debugx(query->context, 10, "SRV order after sorting");
 
     for (n = 0; n < query->len; n++) {
-	_krb5_debugx(query->context, 10, "  SRV%lu kdc: %s prio: %d weight: %d",
+	_krb5_debugx(query->context, 10, "  SRV%lu kdc: %s:%d prio: %d weight: %d",
 		     (unsigned long)n,
-		     query->array[n].hi->hostname, 
-		     query->array[n].priority,
-		     query->array[n].weight);
+		     srv_reply_get_hostname(query->array[n]),
+		     srv_reply_get_port(query->array[n]),
+		     query->array[n]->priority,
+		     query->array[n]->weight);
 
-	append_host_hostinfo(query->handle, query->array[n].hi);
+	append_host_hostinfo(query->context, query->handle, query->array[n]->hostinfo);
     }
 }
 
-static void
-QueryReplyCallback(DNSServiceRef sdRef,
-		   DNSServiceFlags flags,
-		   uint32_t ifIndex,
-		   DNSServiceErrorType errorCode,
-		   const char *fullname,
-		   uint16_t rrtype,
-		   uint16_t rrclass,
-		   uint16_t rdlen,
-		   const void *rdata,
-		   uint32_t ttl,
-		   void *context)
-{
-    const uint8_t *end_rd = ((uint8_t *)rdata) + rdlen, *rd = rdata;
-    struct _krb5_srv_query_ctx *query = context;
-    uint16_t priority, weight, port;
-    struct srv_reply *tmp;
-    krb5_krbhst_info *hi;
-    int status;
+/*
+ *
+ */
 
-    if (query->queryPostProcessingDone) {
-	_krb5_debugx(query->context, 10, "Got DNS callback after MoreComing == 0 was already set!");
+static void
+dns_query_done(struct _krb5_srv_query_ctx *query)
+{
+    size_t n;
+
+    heim_assert(!query->state.srvQueryDone, "DNS-SD invariant not true, canceled but got error message");
+    query->state.srvQueryDone = 1;
+
+    /* wait up for all children queries if we had any */
+    for (n = 0; n < query->len; n++) {
+	if (query->array[n]->sema) {
+	    _krb5_debugx(query->context, 10, "SRV waiting for addrinfo: %s", srv_reply_get_hostname(query->array[n]));
+	    heim_sema_wait(query->array[n]->sema, 10);
+	}
+    }
+
+    _krb5_state_srv_sort(query);
+
+    state_append_hosts(query);
+
+    dispatch_semaphore_signal((dispatch_semaphore_t)query->sema);
+    heim_release(query);
+}
+
+/*
+ *
+ */
+
+static void
+srv_release(void *ctx)
+{
+    struct srv_reply *reply = ctx;
+    if (reply->sema)
+	heim_release(reply->sema);
+    if (reply->srv_sd) {
+	DNSServiceRefDeallocate(reply->srv_sd);
+	reply->srv_sd = NULL;
+    }
+    if (reply->hostname)
+	free(reply->hostname);
+}
+
+static void
+add_hostinfo(struct srv_reply *reply,
+	     const char *hostname,
+	     struct addrinfo *ai,
+	     const char *source,
+	     struct _krb5_srv_query_ctx *query)
+{
+    struct krb5_krbhst_info *hi;
+    size_t hostname_len = strlen(hostname);
+
+    hi = calloc(1, sizeof(*hi) + hostname_len);
+    if (hi == NULL) {
+	if (ai)
+	    freeaddrinfo(ai);
+	return;
+    }
+    memcpy(hi->hostname, hostname, strlen(hostname) + 1);
+
+    hi->proto = query->proto_num;
+
+    hi->def_port = 0;
+    hi->port = reply->port;
+
+    if (query->path)
+	hi->path = strdup(query->path);
+
+    hi->source = source;
+    hi->ai = NULL;
+
+    hi->next = reply->hostinfo;
+    reply->hostinfo = hi;
+}
+
+static void
+dns_getaddrinfo_callback(DNSServiceRef sdRef,
+			 DNSServiceFlags flags,
+			 uint32_t interfaceIndex,
+			 DNSServiceErrorType errorCode,
+			 const char *hostname,
+			 const struct sockaddr *address,
+			 uint32_t ttl,
+			 void *context)
+{
+    struct srv_reply *srv_reply = context;
+    struct _krb5_srv_query_ctx *query = srv_reply->query;
+    struct addrinfo *ai = NULL;
+    char host[NI_MAXHOST];
+    int error;
+
+    if (srv_reply->flags.getAddrDone) {
+	return;
+    }
+
+    /*
+     * We get called twice, once for each address family, so we need
+     * to keep track of successful lookups and failures.
+     *
+     * The failure to find a name arrive in the form of a
+     * kDNSServiceErr_NoError, all other failure are treated as hard
+     * failures and the connection is directly aborted.
+     */
+
+    if (errorCode != kDNSServiceErr_NoError) {
+	if (errorCode == kDNSServiceErr_NoSuchRecord) {
+	    if (address->sa_family == AF_INET)
+		srv_reply->flags.failedIPv4 = 1;
+	    else if (address->sa_family == AF_INET6)
+		srv_reply->flags.failedIPv6 = 1;
+	    else
+		flags = 0; /* other values are undefined on failure */
+
+	    _krb5_debugx(query->context, 10, "SRV callback: getaddrinfo no such record for af = %d", (int)address->sa_family);
+	} else {
+	    _krb5_debugx(query->context, 10, "SRV callback: getaddrinfo error: %d", (int)errorCode);
+	    flags = 0; /* other values are undefined on failure */
+	}
+	goto end;
+    }
+
+    _krb5_debugx(query->context, 10, "DNS getaddrinfo callback on: %s for af = %d", hostname, (int)address->sa_family);
+
+
+    if (address->sa_family == AF_INET)
+	srv_reply->flags.recvIPv4 = 1;
+    else if (address->sa_family == AF_INET6)
+	srv_reply->flags.recvIPv6 = 1;
+
+
+    /* Now this is silly, go get from a sockaddr to a addrinfo, bounce though getaddrinfo/getnameinfo */
+    error = getnameinfo(address, (socklen_t)rk_socket_addr_size(address), host, sizeof(host), NULL, 0, NI_NUMERICHOST);
+    if (error == 0) {
+	struct addrinfo hints;
+	char portname[NI_MAXSERV];
+
+	_krb5_debugx(query->context, 10, " SRV getaddrinfo: domain: %s addr: %s:%d", query->domain, host, srv_reply->port);
+
+	snprintf(portname, sizeof(portname), "%d", srv_reply->port);
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = address->sa_family;
+	hints.ai_flags = AI_NUMERICHOST | AI_NUMERICSERV;
+	
+	error = getaddrinfo(host, portname, &hints, &ai);
+	if (error) {
+	    _krb5_debugx(query->context, 10, " SRV getaddrinfo: failed to parse host: [%s]:%s error: %d", host, portname, error);
+	    goto end;
+	}
+    }
+
+    _krb5_debugx(query->context, 10, " Adding srv-addrinfo host: %s:%d", hostname, srv_reply->port);
+    add_hostinfo(srv_reply, hostname, ai, "srv-addrinfo", query);
+
+end:
+    _krb5_debugx(query->context, 10, " SRV getaddrinfo end");
+
+    /*
+     * Also keep a hard stop in we missed a signal
+     */
+
+    if ((srv_reply->flags.failedIPv4 || srv_reply->flags.recvIPv4) &&
+	(srv_reply->flags.failedIPv6 || srv_reply->flags.recvIPv6))
+    {
+	flags = 0;
+    }
+
+    if ((flags & kDNSServiceFlagsMoreComing) == 0) {
+	_krb5_debugx(query->context, 10, " DNS getaddrinfo done: %s", srv_reply->hostname);
+	srv_reply->flags.getAddrDone = true;
+	heim_sema_signal(srv_reply->sema);
+	heim_release(srv_reply);
+    }
+}
+
+
+static void
+SRVQueryCallback(DNSServiceRef sdRef,
+		 DNSServiceFlags flags,
+		 uint32_t ifIndex,
+		 DNSServiceErrorType errorCode,
+		 const char *fullname,
+		 uint16_t rrtype,
+		 uint16_t rrclass,
+		 uint16_t rdlen,
+		 const void *rdata,
+		 uint32_t ttl,
+		 void *context)
+{
+    const uint8_t *end_rd = ((const uint8_t *)rdata) + rdlen, *rd = rdata;
+    struct _krb5_srv_query_ctx *query = context;
+    struct srv_reply *srv_reply = NULL;
+    uint16_t priority, weight, port;
+    struct srv_reply **tmp;
+    char *hostname = NULL;
+    int status;
+    DNSServiceErrorType error;
+
+    if (query->state.srvQueryDone) {
+	_krb5_debugx(query->context, 10, "Got SRV callback after MoreComing == 0 was already set!");
 	return;
     }
 
     if (errorCode != kDNSServiceErr_NoError) {
 	flags = 0; /* other values are undefined on failure */
+	_krb5_debugx(query->context, 10, "SRV callback: error: %d", (int)errorCode);
 	goto end;
     }
 
-    if (rrtype != kDNSServiceType_SRV)
+    if (rrtype != kDNSServiceType_SRV) {
+	_krb5_debugx(query->context, 10, "SRV callback: rd_len no srv query");
 	goto end;
+    }
 
-    if (rdlen < 7)
+    if (rdlen < 7) {
+	_krb5_debugx(query->context, 10, "SRV callback: rd_len too short: %d", (int)rdlen);
 	goto end;
+    }
 
     priority = (rd[0] << 8) | rd[1];
     weight = (rd[2] << 8) | rd[3];
     port = (rd[4] << 8) | rd[5];
-    
-    if (rdlen + sizeof(*hi) < rdlen)
-	goto end;
 
-    hi = calloc(1, sizeof(*hi) + rdlen);
-    if (hi == NULL)
-	goto end;
+    _krb5_debugx(query->context, 10, "Got SRV callback: %s:%d prio: %d weight: %d",
+		 fullname, port, priority, weight);
 
-    status = dn_expand(rdata, end_rd, rd + 6, hi->hostname, rdlen);
-    if(status < 0 || (size_t)status + 6 > rdlen) {
-	free(hi);
+    hostname = malloc(rdlen + 1);
+    if (hostname == NULL) {
+	_krb5_debugx(query->context, 10, "SRV callback: failed to allocate hostname");
 	goto end;
     }
 
-    hi->proto = query->proto_num;
+    status = dn_expand(rdata, end_rd, rd + 6, hostname, rdlen);
+    if(status < 0 || (size_t)status + 6 > rdlen) {
+	_krb5_debugx(query->context, 10, "SRV callback: dn_expand: %d", status);
+	goto end;
+    }
 
-    hi->def_port = 0;
-    if (query->port != 0)
-	hi->port = query->port;
-    else
-	hi->port = port;
+    srv_reply = heim_uniq_alloc(sizeof(query->array[query->len][0]), "heim-srv-object", srv_release);
+    if (srv_reply == NULL) {
+	_krb5_debugx(query->context, 10, "SRV callback: alloc heim-srv-object");
+	goto end;
+    }
 
-    if (query->path)
-	hi->path = strdup(query->path);
-    
+    srv_reply->port = port;
+    srv_reply->priority = priority;
+    srv_reply->weight = weight;
+    srv_reply->query = query;
+    srv_reply->hostname = hostname;
+    hostname = NULL;
+
+    /*
+     * Only trigger the A/AAAA query if we are delegating
+     */
+    if (query->handle->flags & KD_DELEG_UUID) {
+	struct krb5_krbhst_data *handle = query->handle;
+
+	_krb5_debugx(query->context, 10, "Got delegated query on: %s", srv_reply->hostname);
+
+	/*
+	 * If we are dealing with KD_DELEG_UUID, we need a second handle to
+	 * for the addrinfo calls, since mDNSResponder uses that to track the
+	 * morecomming flag, and if we have these new addrinfo calls outstanding
+	 * while the main query is still out there (it will be), it will never
+	 * get the morecoming flag cleared.
+	 */
+
+	if (handle->addrinfo_sd == NULL) {
+
+	    error = DNSServiceCreateDelegateConnection(&handle->addrinfo_sd, 0, handle->delegate_uuid);
+	    if (error != kDNSServiceErr_NoError) {
+		_krb5_debugx(context, 2,
+			     "Failed setting up search context for addrinfo resolving for %s failed: %d",
+			     srv_reply->hostname, error);
+		goto end;
+	    }
+
+	    error = DNSServiceSetDispatchQueue(handle->addrinfo_sd, (dispatch_queue_t)handle->addrinfo_queue);
+	    if (error) {
+		DNSServiceRefDeallocate(handle->addrinfo_sd);
+		_krb5_debugx(context, 2,
+			     "Failed setting run queue for SRV query: %d", error);
+		goto end;
+	    }
+	}
+
+	srv_reply->sema = heim_sema_create(0);
+	if (srv_reply->sema == NULL) {
+	    goto end;
+	}
+
+	srv_reply->srv_sd = handle->addrinfo_sd;
+	heim_retain(srv_reply); /* retain for callback */
+
+	error = DNSServiceGetAddrInfo(&srv_reply->srv_sd,
+				      kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates | kDNSServiceFlagsShareConnection,
+				      0,
+				      kDNSServiceProtocol_IPv4 | kDNSServiceProtocol_IPv6,
+				      srv_reply->hostname,
+				      dns_getaddrinfo_callback,
+				      srv_reply);
+	if (error) {
+	    _krb5_debugx(query->context, 10, "Failed doing A/AAAA lookup: %s: %d", srv_reply->hostname, error);
+	    heim_release(srv_reply); /* release for the callback that will never happen */
+	    goto end;
+	}
+    } else {
+	_krb5_debugx(query->context, 10, "Adding host: %s:%d", srv_reply->hostname, srv_reply->port);
+	add_hostinfo(srv_reply, srv_reply->hostname, NULL, "srv", query);
+    }
+
     tmp = realloc(query->array, (query->len + 1) * sizeof(query->array[0]));
     if (tmp == NULL) {
-	if (hi->path)
-	    free(hi->path);
-	free(hi);
+	_krb5_debugx(query->context, 10, "SRV callback: realloc failed");
+	heim_release(srv_reply);
 	goto end;
     }
     query->array = tmp;
-    query->array[query->len].hi = hi;
-    query->array[query->len].priority = priority;
-    query->array[query->len].weight = weight;
+    query->array[query->len] = heim_retain(srv_reply);
     query->len++;
 
  end:
+    _krb5_debugx(query->context, 10, "SRV callback end: %s", fullname);
+
+    if (srv_reply)
+	heim_release(srv_reply);
+
+    if (hostname) {
+	free(hostname);
+    }
     if ((flags & kDNSServiceFlagsMoreComing) == 0) {
-	heim_assert(!query->queryPostProcessingDone, "DNS-SD invariant not true, canceled but got error message");
-
-	_krb5_state_srv_sort(query);
-
-	state_append_hosts(query);
-
-	query->queryPostProcessingDone = true;
-	dispatch_semaphore_signal((dispatch_semaphore_t)query->sema);
-	heim_release(query);
+	_krb5_debugx(query->context, 10, "SRV callback no more comming");
+	dns_query_done(query);
     }
 }
 
@@ -285,25 +580,44 @@ QueryReplyCallback(DNSServiceRef sdRef,
 
 static krb5_error_code
 srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
-	       heim_queue_t dnsQueue,
 	       struct _krb5_srv_query_ctx *query)
 {
     DNSServiceRef client = NULL;
     DNSServiceErrorType error;
     krb5_error_code ret;
 
+    if (handle->flags & KD_DELEG_UUID) {
+	error = DNSServiceCreateDelegateConnection(&handle->main_sd, 0, handle->delegate_uuid);
+    } else {
+        error = DNSServiceCreateConnection(&handle->main_sd);
+    }
+    if (error != kDNSServiceErr_NoError) {
+	_krb5_debugx(context, 2,
+		     "Failed setting up search context for domain %s failed: %d",
+		     query->domain, error);
+	return KRB5_KDC_UNREACH;
+    }
+
+    error = DNSServiceSetDispatchQueue(handle->main_sd, (dispatch_queue_t)handle->srv_queue);
+    if (error) {
+	DNSServiceRefDeallocate(handle->main_sd);
+	_krb5_debugx(context, 2,
+		     "Failed setting run queue for SRV query: %d", error);
+	return KRB5_KDC_UNREACH;
+    }
+
+    client = handle->main_sd;
+
+    heim_retain(query);
     error = DNSServiceQueryRecord(&client,
-				  kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates,
+				  kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates | kDNSServiceFlagsShareConnection,
 				  0,
 				  query->domain,
 				  kDNSServiceType_SRV,
 				  kDNSServiceClass_IN,
-				  QueryReplyCallback,
+				  SRVQueryCallback,
 				  query);
-    if (!error) {
-	heim_retain(query);
-
-	DNSServiceSetDispatchQueue(client, (dispatch_queue_t)dnsQueue);
+    if (error == kDNSServiceErr_NoError) {
 
 	if (dispatch_semaphore_wait((dispatch_semaphore_t)query->sema,  dispatch_time(DISPATCH_TIME_NOW, 10ull * NSEC_PER_SEC))) {
 	    _krb5_debugx(context, 2,
@@ -313,8 +627,9 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 	} else
 	    ret = 0;
 
+
 	/* must run the DNSServiceRefDeallocate on the same queue as dns request are processed on */
-	dispatch_sync((dispatch_queue_t)dnsQueue, ^{
+	dispatch_sync((dispatch_queue_t)handle->srv_queue, ^{
 	    DNSServiceRefDeallocate(client);
 
 	    /*
@@ -324,12 +639,14 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 	     * will be no more callbacks.
 	     */
 
-	    if (!query->queryPostProcessingDone) {
+	    if (!query->state.srvQueryDone) {
 		heim_release(query);
-		query->queryPostProcessingDone = true;
+		query->state.srvQueryDone = 1;
 	    }
 	});
     } else {
+	heim_release(query);
+
 	_krb5_debugx(context, 2,
 		     "searching DNS for domain %s failed: %d",
 		     query->domain, error);
@@ -374,28 +691,27 @@ srv_query_domain(void *ctx)
 		hi->port = handle->port;
 	    else
 		hi->port = rr->u.srv->port;
-
+	    hi->source = "srv";
 	    if (query->path)
 		hi->path = strdup(query->path);
 	    strlcpy(hi->hostname, rr->u.srv->target, len + 1);
 
-	    append_host_hostinfo(kd, hi);
+	    append_host_hostinfo(query->context, kd, hi);
 	}
     }
 
  out:
     if (r)
 	rk_dns_free_data(r);
-    heim_sema_signal(queue->sema);
-    heim_release(queue->handle);
+    heim_sema_signal(query->sema);
+    heim_release(query->handle);
 }
 
 static krb5_error_code
 srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
-	       heim_queue_t queue,
 	       struct _krb5_srv_query_ctx *query)
 {
-    heim_async_f(queue, query, srv_query_domain);
+    heim_async_f(handle->process_queue, query, srv_query_domain);
     heim_sema_wait(query->sema, 10);
 }
 
@@ -448,8 +764,12 @@ _krb5_krbhst_get_realm(krb5_krbhst_handle handle)
  */
 
 static struct krb5_krbhst_info*
-parse_hostspec(krb5_context context, struct krb5_krbhst_data *kd,
-	       const char *spec, int def_port, int port)
+parse_hostspec(krb5_context context,
+	       struct krb5_krbhst_data *kd,
+	       const char *source,
+	       const char *spec,
+	       int def_port,
+	       int port)
 {
     const char *p = spec, *q, *portstr = NULL;
     struct krb5_krbhst_info *hi;
@@ -480,6 +800,8 @@ parse_hostspec(krb5_context context, struct krb5_krbhst_data *kd,
 	p += 4;
     }
 
+    hi->source = source;
+
     if (p[0] == '[' && (q = strchr(p, ']')) != NULL) {
 	/* if address looks like [foo:bar] or [foo:bar]: its a ipv6
 	   adress, strip of [] */
@@ -507,7 +829,7 @@ parse_hostspec(krb5_context context, struct krb5_krbhst_data *kd,
 
     /* if we had a path, pick it up now */
     if (p && p[0] == '/')
-	hi->path = strdup((char *)(p + 1));
+	hi->path = strdup(&p[1]);
 
     strlwr(hi->hostname);
 
@@ -565,41 +887,56 @@ _krb5_krbhost_info_move(krb5_context context,
 
 
 static void
-append_host_hostinfo(struct krb5_krbhst_data *kd, struct krb5_krbhst_info *host)
+append_host_hostinfo(krb5_context context, struct krb5_krbhst_data *kd, struct krb5_krbhst_info *host)
 {
-    struct krb5_krbhst_info *h;
+    struct krb5_krbhst_info *h, *next;
 
     HEIMDAL_MUTEX_lock(&kd->mutex);
 
-    for(h = kd->hosts; h && host; h = h->next) {
-	if(h->proto == host->proto &&
-	   h->port == host->port &&
-	   strcasecmp(h->hostname, host->hostname) == 0)
-	{
-	    _krb5_free_krbhst_info(host);
-	    host = NULL;
-	}
-    }
+    while (host) {
+	next = host->next;
+	host->next = NULL;
 
-    if (host) {
-	*kd->end = host;
-	kd->end = &host->next;
+	/* 
+	 * First filter out duplicates
+	 */
+	for(h = kd->hosts; h && host; h = h->next) {
+	    if(h->proto == host->proto &&
+	       h->port == host->port &&
+	       strcasecmp(h->hostname, host->hostname) == 0)
+	    {
+		_krb5_debugx(context, 10, "dropping dup KDC host: %s:%d (proto %d)", h->hostname, h->port, h->proto);
+		_krb5_free_krbhst_info(host);
+		host = NULL;
+	    }
+	}
+
+	if (host) {
+	    *kd->end = host;
+	    kd->end = &host->next;
+	}
+
+	host = next;
     }
 
     HEIMDAL_MUTEX_unlock(&kd->mutex);
 }
 
 static krb5_error_code
-append_host_string(krb5_context context, struct krb5_krbhst_data *kd,
-		   const char *host, int def_port, int port)
+append_host_string(krb5_context context,
+		   struct krb5_krbhst_data *kd,
+		   const char *source,
+		   const char *host,
+		   int def_port,
+		   int port)
 {
     struct krb5_krbhst_info *hi;
 
-    hi = parse_hostspec(context, kd, host, def_port, port);
+    hi = parse_hostspec(context, kd, source, host, def_port, port);
     if(hi == NULL)
 	return ENOMEM;
 
-    append_host_hostinfo(kd, hi);
+    append_host_hostinfo(context, kd, hi);
     return 0;
 }
 
@@ -726,28 +1063,17 @@ get_next(struct krb5_krbhst_data *kd, krb5_krbhst_info **host)
     return hi ? TRUE : FALSE;
 }
 
-static void
-srv_get_dns_queue(void *ctx)
-{
-    heim_queue_t *dnsQueue = ctx;
-    *dnsQueue = heim_queue_create("com.apple.kerberos.dns", NULL);
-}
-
 static krb5_error_code
 srv_get_hosts(krb5_context context, struct krb5_krbhst_data *kd,
-	      const char *proto, const char *service)
+	      const char *sitename, const char *proto, const char *service)
 {
     struct _krb5_srv_query_ctx *query = NULL;
-    static heim_queue_t dnsQueue;
-    static heim_base_once_t once;
     int proto_num, def_port;
     const char *path = NULL;
     char *domain = NULL;
 
     if (krb5_realm_is_lkdc(kd->realm))
 	return 0;
-
-    heim_base_once_f(&once, &dnsQueue, srv_get_dns_queue);
 
     proto_num = string_to_proto(proto);
     if(proto_num < 0) {
@@ -766,10 +1092,13 @@ srv_get_hosts(krb5_context context, struct krb5_krbhst_data *kd,
 	def_port = ntohs(krb5_getportbyname (context, service, proto, 88));
     }
 
-    asprintf(&domain, "_%s._%s.%s.", service, proto, kd->realm);
-    if (domain == NULL) {
-	return krb5_enomem(context);
+    if (sitename) {
+	asprintf(&domain, "_%s._%s.%s._sites.%s.", service, proto, sitename, kd->realm);
+    } else {
+	asprintf(&domain, "_%s._%s.%s.", service, proto, kd->realm);
     }
+    if (domain == NULL)
+	return krb5_enomem(context);
 
     query = heim_uniq_alloc(sizeof(*query), "heim-query-ctx", query_release);
     if (query == NULL) {
@@ -793,7 +1122,7 @@ srv_get_hosts(krb5_context context, struct krb5_krbhst_data *kd,
     query->len = 0;
 #endif
 
-    srv_find_realm(context, kd, dnsQueue, query);
+    srv_find_realm(context, kd, query);
 
     heim_release(query);
 
@@ -821,7 +1150,7 @@ config_get_hosts(krb5_context context, struct krb5_krbhst_data *kd,
 	return;
     kd->flags |= KD_CONFIG_EXISTS;
     for(i = 0; hostlist && hostlist[i] != NULL; i++)
-	append_host_string(context, kd, hostlist[i], kd->def_port, kd->port);
+	append_host_string(context, kd, "config", hostlist[i], kd->def_port, kd->port);
 
     krb5_config_free_strings(hostlist);
 }
@@ -893,10 +1222,11 @@ fallback_get_hosts(krb5_context context, struct krb5_krbhst_data *kd,
 	hi->proto = proto;
 	hi->port  = hi->def_port = port;
 	hi->ai    = ai;
+	hi->source = "fallback";
 	memmove(hi->hostname, host, hostlen);
 	hi->hostname[hostlen] = '\0';
 	free(host);
-	append_host_hostinfo(kd, hi);
+	append_host_hostinfo(context, kd, hi);
 	kd->fallback_count++;
     }
     return 0;
@@ -932,9 +1262,10 @@ add_plugin_host(struct krb5_krbhst_data *kd,
     hi->proto = proto;
     hi->port  = hi->def_port = portnum;
     hi->ai    = ai;
+    hi->source = "plugin";
     memmove(hi->hostname, host, hostlen);
     hi->hostname[hostlen] = '\0';
-    append_host_hostinfo(kd, hi);
+    append_host_hostinfo(kd->context, kd, hi);
 
     return 0;
 }
@@ -1031,8 +1362,10 @@ hostnames_get_hosts(krb5_context context,
 		    const char *type)
 {
     kd->flags |= KD_HOSTNAMES;
-    if (kd->hostname)
-	append_host_string(context, kd, kd->hostname, kd->def_port, kd->port);
+    if (kd->hostname) {
+	_krb5_debugx(context, 5, "adding hostname: %s", kd->hostname);
+	append_host_string(context, kd, "hostname", kd->hostname, kd->def_port, kd->port);
+    }
 }
 
 
@@ -1075,27 +1408,38 @@ kdc_get_next(krb5_context context,
     }
 
     if(context->srv_lookup) {
+	if(kd->sitename && (kd->flags & KD_SITE_SRV_UDP) == 0 && (kd->flags & KD_LARGE_MSG) == 0) {
+	    srv_get_hosts(context, kd, kd->sitename, "udp", "kerberos");
+	    kd->flags |= KD_SITE_SRV_UDP;
+	    if(get_next(kd, host))
+		return 0;
+	}
+	if(kd->sitename && (kd->flags & KD_SITE_SRV_TCP) == 0) {
+	    srv_get_hosts(context, kd, kd->sitename, "tcp", "kerberos");
+	    kd->flags |= KD_SRV_TCP;
+	    if(get_next(kd, host))
+		return 0;
+	}
 	if((kd->flags & KD_SRV_UDP) == 0 && (kd->flags & KD_LARGE_MSG) == 0) {
-	    srv_get_hosts(context, kd, "udp", "kerberos");
+	    srv_get_hosts(context, kd, NULL, "udp", "kerberos");
 	    kd->flags |= KD_SRV_UDP;
 	    if(get_next(kd, host))
 		return 0;
 	}
-
 	if((kd->flags & KD_SRV_TCP) == 0) {
-	    srv_get_hosts(context, kd, "tcp", "kerberos");
+	    srv_get_hosts(context, kd, NULL, "tcp", "kerberos");
 	    kd->flags |= KD_SRV_TCP;
 	    if(get_next(kd, host))
 		return 0;
 	}
 	if((kd->flags & KD_SRV_HTTP) == 0) {
-	    srv_get_hosts(context, kd, "http", "kerberos");
+	    srv_get_hosts(context, kd, NULL, "http", "kerberos");
 	    kd->flags |= KD_SRV_HTTP;
 	    if(get_next(kd, host))
 		return 0;
 	}
 	if((kd->flags & KD_SRV_KKDCP) == 0) {
-	    srv_get_hosts(context, kd, "kkdcp", "kerberos");
+	    srv_get_hosts(context, kd, NULL, "kkdcp", "kerberos");
 	    kd->flags |= KD_SRV_KKDCP;
 	    if(get_next(kd, host))
 		return 0;
@@ -1147,7 +1491,7 @@ admin_get_next(krb5_context context,
 
     if(context->srv_lookup) {
 	if((kd->flags & KD_SRV_TCP) == 0) {
-	    srv_get_hosts(context, kd, "tcp", "kerberos-adm");
+	    srv_get_hosts(context, kd, NULL, "tcp", "kerberos-adm");
 	    kd->flags |= KD_SRV_TCP;
 	    if(get_next(kd, host))
 		return 0;
@@ -1201,13 +1545,13 @@ kpasswd_get_next(krb5_context context,
 
     if(context->srv_lookup) {
 	if((kd->flags & KD_SRV_UDP) == 0) {
-	    srv_get_hosts(context, kd, "udp", "kpasswd");
+	    srv_get_hosts(context, kd, NULL, "udp", "kpasswd");
 	    kd->flags |= KD_SRV_UDP;
 	    if(get_next(kd, host))
 		return 0;
 	}
 	if((kd->flags & KD_SRV_TCP) == 0) {
-	    srv_get_hosts(context, kd, "tcp", "kpasswd");
+	    srv_get_hosts(context, kd, NULL, "tcp", "kpasswd");
 	    kd->flags |= KD_SRV_TCP;
 	    if(get_next(kd, host))
 		return 0;
@@ -1243,7 +1587,22 @@ krbhost_dealloc(void *ptr)
     }
     if (handle->hostname)
 	free(handle->hostname);
-
+    if (handle->sitename)
+	free(handle->sitename);
+    if (handle->srv_queue)
+	heim_queue_release(handle->srv_queue);
+    if (handle->addrinfo_queue)
+	heim_queue_release(handle->addrinfo_queue);
+#if __APPLE__
+    if (handle->main_sd) {
+	DNSServiceRefDeallocate(handle->main_sd);
+	handle->main_sd = NULL;
+    }
+    if (handle->addrinfo_sd) {
+	DNSServiceRefDeallocate(handle->addrinfo_sd);
+	handle->addrinfo_sd = NULL;
+    }
+#endif
     HEIMDAL_MUTEX_destroy(&handle->mutex);
 
     free(handle->realm);
@@ -1261,6 +1620,17 @@ common_init(krb5_context context,
 	return NULL;
 
     if((kd->realm = strdup(realm)) == NULL) {
+	heim_release(kd);
+	return NULL;
+    }
+
+    kd->srv_queue = heim_queue_create("krbhst-srv", NULL);
+    if (kd->srv_queue == NULL) {
+	heim_release(kd);
+	return NULL;
+    }
+    kd->addrinfo_queue = heim_queue_create("krbhst-addrinfo", NULL);
+    if (kd->addrinfo_queue == NULL) {
 	heim_release(kd);
 	return NULL;
     }
@@ -1376,10 +1746,6 @@ krbhst_callback_done(void *ctx)
     void (*callback)(void *, krb5_krbhst_info *) = handle->callback;
     void *userctx = handle->userctx;
 
-    /* reset per processing data */
-    heim_release(handle->queue);
-    handle->queue = NULL;
-
     handle->callback = NULL;
     handle->userctx = NULL;
 
@@ -1405,10 +1771,10 @@ process_loop(void *ctx)
     
     while(krb5_krbhst_next(handle->context, handle, &hi)) {
 	hi->__private = heim_retain(handle);
-	heim_async_f(handle->queue, hi, krbhst_callback);
+	heim_async_f(handle->srv_queue, hi, krbhst_callback);
     }
 
-    heim_async_f(handle->queue, handle, krbhst_callback_done);
+    heim_async_f(handle->srv_queue, handle, krbhst_callback_done);
 }
 
 /*
@@ -1418,22 +1784,15 @@ process_loop(void *ctx)
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 _krb5_krbhst_async(krb5_context context,
 		   krb5_krbhst_handle handle,
-		   heim_queue_t queue,
 		   void *userctx,
 		   void (*callback)(void *userctx, krb5_krbhst_info *host))
 {
-    heim_assert(handle->queue == NULL, "krbhst have a outstanding request already");
-
-    handle->queue = heim_retain(queue);
     handle->context = context;
-
-    if (handle->process_queue == NULL)
-	handle->process_queue = heim_queue_create("krbhst", NULL);
 
     handle->userctx = userctx;
     handle->callback = callback;
 
-    heim_async_f(handle->process_queue, heim_retain(handle), process_loop);
+    heim_async_f(handle->srv_queue, heim_retain(handle), process_loop);
 
     return 0;
 }
@@ -1442,9 +1801,9 @@ KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 _krb5_krbhst_cancel(krb5_context context,
 		    krb5_krbhst_handle handle)
 {
-    heim_assert(handle->process_queue != NULL, "cancel non async krbhst");
+    heim_assert(handle->srv_queue != NULL, "cancel non async krbhst");
     heim_assert(handle->callback != NULL, "cancel on already canceled handle");
-    heim_async_f(handle->queue, handle, krbhst_callback_cancel);
+    heim_async_f(handle->srv_queue, handle, krbhst_callback_cancel);
 }
 
 /*
@@ -1479,9 +1838,33 @@ krb5_krbhst_set_hostname(krb5_context context,
 	free(handle->hostname);
     handle->hostname = strdup(hostname);
     if (handle->hostname == NULL)
-	return ENOMEM;
+	return krb5_enomem(context);
     return 0;
 }
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_krbhst_set_sitename(krb5_context context,
+			 krb5_krbhst_handle handle,
+			 const char *sitename)
+{
+    if (handle->sitename)
+	free(handle->sitename);
+    handle->sitename = strdup(sitename);
+    if (handle->sitename == NULL)
+	return krb5_enomem(context);
+    return 0;
+}
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_krbhst_set_delgated_uuid(krb5_context context,
+			      krb5_krbhst_handle handle,
+			      krb5_uuid uuid)
+{
+    handle->flags |= KD_DELEG_UUID;
+    memcpy(handle->delegate_uuid, uuid, sizeof(krb5_uuid));
+    return 0;
+}
+
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_krbhst_reset(krb5_context context, krb5_krbhst_handle handle)

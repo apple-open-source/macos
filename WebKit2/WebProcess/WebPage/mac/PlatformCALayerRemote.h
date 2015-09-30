@@ -51,7 +51,8 @@ public:
 
     void recursiveBuildTransaction(RemoteLayerTreeContext&, RemoteLayerTreeTransaction&);
 
-    virtual void setNeedsDisplay(const WebCore::FloatRect* dirtyRect = 0) override;
+    virtual void setNeedsDisplayInRect(const WebCore::FloatRect& dirtyRect) override;
+    virtual void setNeedsDisplay() override;
 
     virtual void copyContentsFromLayer(PlatformCALayer*) override;
 
@@ -59,16 +60,17 @@ public:
     virtual void removeFromSuperlayer() override;
     virtual void setSublayers(const WebCore::PlatformCALayerList&) override;
     virtual void removeAllSublayers() override;
-    virtual void appendSublayer(WebCore::PlatformCALayer*) override;
-    virtual void insertSublayer(WebCore::PlatformCALayer*, size_t index) override;
-    virtual void replaceSublayer(WebCore::PlatformCALayer* reference, WebCore::PlatformCALayer*) override;
+    virtual void appendSublayer(WebCore::PlatformCALayer&) override;
+    virtual void insertSublayer(WebCore::PlatformCALayer&, size_t index) override;
+    virtual void replaceSublayer(WebCore::PlatformCALayer& reference, WebCore::PlatformCALayer&) override;
     virtual const WebCore::PlatformCALayerList* customSublayers() const override { return nullptr; }
-    virtual void adoptSublayers(WebCore::PlatformCALayer* source) override;
+    virtual void adoptSublayers(WebCore::PlatformCALayer& source) override;
 
-    virtual void addAnimationForKey(const String& key, WebCore::PlatformCAAnimation*) override;
+    virtual void addAnimationForKey(const String& key, WebCore::PlatformCAAnimation&) override;
     virtual void removeAnimationForKey(const String& key) override;
     virtual PassRefPtr<WebCore::PlatformCAAnimation> animationForKey(const String& key) override;
     virtual void animationStarted(const String& key, CFTimeInterval beginTime) override;
+    virtual void animationEnded(const String& key) override;
 
     virtual void setMask(WebCore::PlatformCALayer*) override;
 
@@ -91,6 +93,10 @@ public:
     virtual void setSublayerTransform(const WebCore::TransformationMatrix&) override;
 
     virtual void setHidden(bool) override;
+
+    virtual void setBackingStoreAttached(bool) override;
+    virtual bool backingStoreAttached() const override;
+    virtual bool backingContributesToMemoryEstimate() const override { return backingStoreAttached(); }
 
     virtual void setGeometryFlipped(bool) override;
 
@@ -120,11 +126,9 @@ public:
     virtual float opacity() const override;
     virtual void setOpacity(float) override;
 
-#if ENABLE(CSS_FILTERS)
     virtual void setFilters(const WebCore::FilterOperations&) override;
     static bool filtersCanBeComposited(const WebCore::FilterOperations&);
-    virtual void copyFiltersFrom(const WebCore::PlatformCALayer*) override;
-#endif
+    virtual void copyFiltersFrom(const WebCore::PlatformCALayer&) override;
 
 #if ENABLE(CSS_COMPOSITING)
     virtual void setBlendMode(WebCore::BlendMode) override;
@@ -139,13 +143,23 @@ public:
     virtual float contentsScale() const override;
     virtual void setContentsScale(float) override;
 
+    virtual float cornerRadius() const override;
+    virtual void setCornerRadius(float) override;
+
     virtual void setEdgeAntialiasingMask(unsigned) override;
+
+    // FIXME: Having both shapeRoundedRect and shapePath is redundant. We could use shapePath for everything.
+    virtual WebCore::FloatRoundedRect shapeRoundedRect() const override;
+    virtual void setShapeRoundedRect(const WebCore::FloatRoundedRect&) override;
+
+    virtual WebCore::Path shapePath() const override;
+    virtual void setShapePath(const WebCore::Path&) override;
+
+    virtual WebCore::WindRule shapeWindRule() const override;
+    virtual void setShapeWindRule(WebCore::WindRule) override;
 
     virtual WebCore::GraphicsLayer::CustomAppearance customAppearance() const override;
     virtual void updateCustomAppearance(WebCore::GraphicsLayer::CustomAppearance) override;
-
-    virtual WebCore::GraphicsLayer::CustomBehavior customBehavior() const override;
-    virtual void updateCustomBehavior(WebCore::GraphicsLayer::CustomBehavior) override;
 
     virtual WebCore::TiledBacking* tiledBacking() override { return nullptr; }
 
@@ -193,8 +207,8 @@ private:
     RemoteLayerTreeContext* m_context;
 };
 
-PLATFORM_CALAYER_TYPE_CASTS(PlatformCALayerRemote, isPlatformCALayerRemote())
-
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_PLATFORM_CALAYER(WebKit::PlatformCALayerRemote, isPlatformCALayerRemote())
 
 #endif // PlatformCALayerRemote_h

@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2007, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -41,6 +41,9 @@
 #endif
 #endif	/* NOTYET */
 
+#ifndef	kSCEntNetIPv6DuplicatedAddress
+#define	kSCEntNetIPv6DuplicatedAddress		CFSTR("IPv6DuplicatedAddress")
+#endif	/* kSCEntNetIPv6DuplicatedAddress */
 
 static void
 appendAddress(CFMutableDictionaryRef dict, CFStringRef key, struct sockaddr_in6 *sin6)
@@ -48,7 +51,7 @@ appendAddress(CFMutableDictionaryRef dict, CFStringRef key, struct sockaddr_in6 
 	CFStringRef		addr;
 	CFArrayRef		addrs;
 	CFMutableArrayRef	newAddrs;
-	char			str[64];
+	char			str[INET6_ADDRSTRLEN];
 
 	addrs = CFDictionaryGetValue(dict, key);
 	if (addrs) {
@@ -58,7 +61,7 @@ appendAddress(CFMutableDictionaryRef dict, CFStringRef key, struct sockaddr_in6 
 	}
 
 	if (inet_ntop(AF_INET6, (const void *)&sin6->sin6_addr, str, sizeof(str)) == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("inet_ntop() failed: %s"), strerror(errno));
+		SC_log(LOG_INFO, "inet_ntop() failed: %s", strerror(errno));
 		str[0] = '\0';
 	}
 
@@ -232,8 +235,10 @@ updateStore(const void *key, const void *value, void *context)
 
 	if (!dict || !CFEqual(dict, newDict)) {
 		if (CFDictionaryGetCount(newDict) > 0) {
+			SC_log(LOG_DEBUG, "Update interface configuration: %@: %@", key, newDict);
 			cache_SCDynamicStoreSetValue(store, key, newDict);
 		} else if (dict) {
+			SC_log(LOG_DEBUG, "Update interface configuration: %@: <removed>", key);
 			cache_SCDynamicStoreRemoveValue(store, key);
 		}
 		network_changed = TRUE;
@@ -268,7 +273,7 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 
 	if (!ifap) {
 		if (getifaddrs(&ifap_temp) == -1) {
-			SCLog(TRUE, LOG_ERR, CFSTR("getifaddrs() failed: %s"), strerror(errno));
+			SC_log(LOG_NOTICE, "getifaddrs() failed: %s", strerror(errno));
 			goto error;
 		}
 		ifap = ifap_temp;
@@ -295,7 +300,6 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 		if (sock == -1) {
 			sock = dgram_socket(AF_INET6);
 			if (sock == -1) {
-				SCLog(TRUE, LOG_NOTICE, CFSTR("interface_update_ipv6: socket open failed, %s"), strerror(errno));
 				goto error;
 			}
 		}
@@ -331,9 +335,7 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 		ifr6.ifr_addr = *sin6;
 		if (ioctl(sock, SIOCGIFAFLAG_IN6, &ifr6) == -1) {
 			/* if flags not available for this address */
-			SCLog(TRUE,
-			      (errno != EADDRNOTAVAIL) ? LOG_NOTICE : LOG_DEBUG,
-			      CFSTR("interface_update_ipv6: ioctl failed, %s"),
+			SC_log((errno != EADDRNOTAVAIL) ? LOG_NOTICE : LOG_DEBUG, "ioctl() failed: %s",
 			      strerror(errno));
 		}
 
@@ -401,4 +403,36 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 	CFRelease(newIFs);
 
 	return;
+}
+
+__private_extern__
+void
+ipv6_duplicated_address(const char * if_name, const struct in6_addr * addr,
+			int hw_len, const void * hw_addr)
+{
+	uint8_t	*		hw_addr_bytes = (uint8_t *)hw_addr;
+	int			i;
+	CFStringRef		if_name_cf;
+	CFMutableStringRef	key;
+	char			ntopbuf[INET6_ADDRSTRLEN];
+	CFStringRef		prefix;
+
+	if_name_cf = CFStringCreateWithCString(NULL, if_name,
+					       kCFStringEncodingASCII);
+	prefix = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							       kSCDynamicStoreDomainState,
+							       if_name_cf,
+							       kSCEntNetIPv6DuplicatedAddress);
+	ntopbuf[0] = '\0';
+	(void)inet_ntop(AF_INET6, addr, ntopbuf, sizeof(ntopbuf));
+	key = CFStringCreateMutableCopy(NULL, 0, prefix);
+	CFStringAppendFormat(key, NULL, CFSTR("/%s"), ntopbuf);
+	for (i = 0; i < hw_len; i++) {
+	    CFStringAppendFormat(key, NULL, CFSTR("%s%02x"),
+				 (i == 0) ? "/" : ":", hw_addr_bytes[i]);
+	}
+	cache_SCDynamicStoreNotifyValue(store, key);
+	CFRelease(key);
+	CFRelease(prefix);
+	CFRelease(if_name_cf);
 }

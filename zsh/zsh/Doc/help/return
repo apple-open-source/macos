@@ -1,7 +1,8 @@
 return [ n ]
-       Causes  a shell function or `.' script to return to the invoking
-       script with the return status specified by n.  If n is  omitted,
-       the return status is that of the last command executed.
+       Causes a shell function or `.' script to return to the  invoking
+       script with the return status specified by an arithmetic expres-
+       sion n. If n is omitted, the return status is that of  the  last
+       command executed.
 
        If  return  was  executed from a trap in a TRAPNAL function, the
        effect is different for zero and non-zero return  status.   With

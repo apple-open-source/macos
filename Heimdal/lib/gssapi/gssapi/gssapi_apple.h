@@ -40,12 +40,12 @@ extern "C" {
  * @ingroup gssapi
  */
 
-gss_cred_id_t GSSAPI_LIB_FUNCTION
-GSSCreateCredentialFromUUID (CFUUIDRef uuid)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+__nullable gss_cred_id_t GSSAPI_LIB_FUNCTION
+GSSCreateCredentialFromUUID (__nonnull CFUUIDRef uuid)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
-CFErrorRef
+__nullable CFErrorRef
 GSSCreateError (
-	gss_const_OID mech,
+	__nonnull gss_const_OID mech,
 	OM_uint32 major_status,
 	OM_uint32 minor_status)  __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
@@ -61,11 +61,11 @@ GSSCreateError (
  * @ingroup gssapi
  */
 
-gss_name_t
+__nullable gss_name_t
 GSSCreateName (
-	CFTypeRef name,
-	gss_const_OID name_type,
-	CFErrorRef *error)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+	__nonnull CFTypeRef name,
+	__nonnull gss_const_OID name_type,
+	__nullable CFErrorRef *__nullable error)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /**
  * Copy the name describing the credential
@@ -77,8 +77,8 @@ GSSCreateName (
  * @ingroup gssapi
  */
 
-gss_name_t
-GSSCredentialCopyName (gss_cred_id_t cred)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+__nullable gss_name_t
+GSSCredentialCopyName (__nonnull gss_cred_id_t cred)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /**
  * Returns a copy of the UUID of the GSS credential
@@ -92,8 +92,8 @@ GSSCredentialCopyName (gss_cred_id_t cred)  __OSX_AVAILABLE_STARTING(__MAC_10_9,
  * @ingroup gssapi
  */
 
-CFUUIDRef
-GSSCredentialCopyUUID (gss_cred_id_t credential)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+__nullable CFUUIDRef
+GSSCredentialCopyUUID (gss_cred_id_t __nonnull credential)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /**
  * Return the lifetime (in seconds) left of the credential.
@@ -107,7 +107,7 @@ GSSCredentialCopyUUID (gss_cred_id_t credential)  __OSX_AVAILABLE_STARTING(__MAC
  */
 
 OM_uint32
-GSSCredentialGetLifetime (gss_cred_id_t cred)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+GSSCredentialGetLifetime (__nonnull gss_cred_id_t cred)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /**
  * Returns a string that is suitable for displaying to user, must not
@@ -120,8 +120,8 @@ GSSCredentialGetLifetime (gss_cred_id_t cred)  __OSX_AVAILABLE_STARTING(__MAC_10
  * @ingroup gssapi
  */
 
-CFStringRef
-GSSNameCreateDisplayString (gss_name_t name)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+__nullable CFStringRef
+GSSNameCreateDisplayString (__nonnull gss_name_t name)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /**
  * Change pasword for a gss name
@@ -140,10 +140,10 @@ GSSNameCreateDisplayString (gss_name_t name)  __OSX_AVAILABLE_STARTING(__MAC_10_
 
 OM_uint32 GSSAPI_LIB_FUNCTION
 gss_aapl_change_password (
-	const gss_name_t name,
-	gss_const_OID mech,
-	CFDictionaryRef attributes,
-	CFErrorRef *error)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0);
+	__nonnull const gss_name_t name,
+	__nonnull gss_const_OID mech,
+	__nonnull CFDictionaryRef attributes,
+	__nullable CFErrorRef *__nullable error)  __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0);
 
 /**
  * Acquire a new initial credentials using long term credentials (password, certificate).
@@ -172,15 +172,28 @@ gss_aapl_change_password (
  *
  * attributes must contains one of the following keys
  * * kGSSICPassword - CFStringRef password
- * * kGSSICCertificate - SecIdentityRef to the certificate to use with PKINIT/PKU2U
+ * * kGSSICCertificate - SecIdentityRef, SecCertificate, or CFDataRef[data of a Keychain Persistent Reference] to the certificate to use with PKINIT/PKU2U
  *
  * optional keys
  * * kGSSCredentialUsage - one of kGSS_C_INITIATE, kGSS_C_ACCEPT, kGSS_C_BOTH, default if not given is kGSS_C_INITIATE
  * * kGSSICVerifyCredential - validate the credential with a trusted source that there was no MITM
  * * kGSSICLKDCHostname - CFStringRef hostname of LKDC hostname
  * * kGSSICKerberosCacheName - CFStringRef name of cache that will be created (including type)
+ * * kGSSICSiteName - CFStringRef name of site (you are authenticating too) used for load balancing in DNS in Kerberos)
  * * kGSSICAppIdentifierACL - CFArrayRef[CFStringRef] prefix of bundle ID allowed to access this credential
+ * * kGSSICCreateNewCredential - CFBooleanRef if set caller wants to create a new credential and not overwrite a credential with the same name
  *
+ * * kGSSICAppleSourceApp - CFDictionaryRef application we are performing this on behalf of (only applies to AppVPN)
+ *
+ * Keys for kGSSICAppleSourceApp dictionary:
+ *
+ * - kGSSICAppleSourceAppAuditToken - audit token of process this is
+ *  		preformed on behalf of, the audit_token_t is wrapped
+ *  		in a CFDataRef.
+ * - kGSSICAppleSourceAppPID - PID in a CFNumberRef of process this is
+ *              preformed on behalf of
+ * - kGSSICAppleSourceAppUUID - UUID of the application
+ * - kGSSICAppleSourceAppSigningIdentity - bundle/signing identity of the application
  *
  *	  
  * @ingroup gssapi
@@ -188,11 +201,11 @@ gss_aapl_change_password (
 
 OM_uint32 GSSAPI_LIB_FUNCTION
 gss_aapl_initial_cred (
-	const gss_name_t desired_name,
-	gss_const_OID desired_mech,
-	CFDictionaryRef attributes,
-	gss_cred_id_t * output_cred_handle,
-	CFErrorRef *error)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+	__nonnull const gss_name_t desired_name,
+	__nonnull gss_const_OID desired_mech,
+	__nullable CFDictionaryRef attributes,
+	__nonnull gss_cred_id_t * __nullable output_cred_handle,
+	__nullable CFErrorRef *__nullable error)  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 #ifdef __cplusplus
 }

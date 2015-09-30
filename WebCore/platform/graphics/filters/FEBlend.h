@@ -23,7 +23,6 @@
 #ifndef FEBlend_h
 #define FEBlend_h
 
-#if ENABLE(FILTERS)
 #include "FilterEffect.h"
 
 #include "Filter.h"
@@ -32,7 +31,7 @@ namespace WebCore {
 
 class FEBlend : public FilterEffect {
 public:
-    static PassRefPtr<FEBlend> create(Filter*, BlendMode);
+    static Ref<FEBlend> create(Filter&, BlendMode);
 
     BlendMode blendMode() const;
     bool setBlendMode(BlendMode);
@@ -47,13 +46,11 @@ public:
     virtual TextStream& externalRepresentation(TextStream&, int indention) const;
 
 private:
-    FEBlend(Filter*, BlendMode);
+    FEBlend(Filter&, BlendMode);
 
     BlendMode m_mode;
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(FILTERS)
 
 #endif // FEBlend_h

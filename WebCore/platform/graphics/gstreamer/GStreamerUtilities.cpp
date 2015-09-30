@@ -24,10 +24,17 @@
 
 #include "IntSize.h"
 
-#include <gst/audio/audio.h>
+#include <gst/audio/audio-info.h>
 #include <gst/gst.h>
+#include <gst/video/video-info.h>
 #include <wtf/MathExtras.h>
-#include <wtf/gobject/GUniquePtr.h>
+#include <wtf/glib/GUniquePtr.h>
+
+#if ENABLE(VIDEO_TRACK) && USE(GSTREAMER_MPEGTS)
+#define GST_USE_UNSTABLE_API
+#include <gst/mpegts/mpegts.h>
+#undef GST_USE_UNSTABLE_API
+#endif
 
 namespace WebCore {
 
@@ -123,15 +130,19 @@ void unmapGstBuffer(GstBuffer* buffer)
 
 bool initializeGStreamer()
 {
-#if GST_CHECK_VERSION(0, 10, 31)
     if (gst_is_initialized())
         return true;
-#endif
 
     GUniqueOutPtr<GError> error;
     // FIXME: We should probably pass the arguments from the command line.
     bool gstInitialized = gst_init_check(0, 0, &error.outPtr());
     ASSERT_WITH_MESSAGE(gstInitialized, "GStreamer initialization failed: %s", error ? error->message : "unknown error occurred");
+
+#if ENABLE(VIDEO_TRACK) && USE(GSTREAMER_MPEGTS)
+    if (gstInitialized)
+        gst_mpegts_initialize();
+#endif
+
     return gstInitialized;
 }
 

@@ -1007,7 +1007,7 @@ dt_printf_validate(dt_pfargv_t *pfv, uint_t flags,
 		xyerror(D_TYPE_ERR, "failed to lookup agg type %s\n", aggtype);
 
 	bzero(&aggnode, sizeof (aggnode));
-	dt_node_type_assign(&aggnode, dtt.dtt_ctfp, dtt.dtt_type);
+	dt_node_type_assign(&aggnode, dtt.dtt_ctfp, dtt.dtt_type, B_FALSE);
 
 	for (i = 0, j = 0; i < pfv->pfv_argc; i++, pfd = pfd->pfd_next) {
 		const dt_pfconv_t *pfc = pfd->pfd_conv;
@@ -1233,6 +1233,19 @@ pfprint_average(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 
 /*ARGSUSED*/
 static int
+pfprint_standard_deviation(dtrace_hdl_t *dtp, FILE *fp, const char *format,
+    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+{
+	const uint64_t *data = addr;
+
+	if (size != sizeof (uint64_t) * 4)
+		return (dt_set_errno(dtp, EDT_DMISMATCH));
+
+	return (dt_printf(dtp, fp, format, dt_stddev((uint64_t*) data, normal)));
+}
+
+/*ARGSUSED*/
+static int
 pfprint_quantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
@@ -1439,6 +1452,9 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			break;
 		case DTRACEAGG_LLQUANTIZE:
 			func = pfprint_llquantize;
+			break;
+		case DTRACEAGG_STDDEV:
+			func = pfprint_standard_deviation;
 			break;
 		case DTRACEACT_MOD:
 			func = pfprint_mod;

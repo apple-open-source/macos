@@ -40,7 +40,6 @@
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
 #include "PluginData.h"
-#include "ReplayInputTypes.h"
 #include "SecurityOrigin.h"
 #include "URL.h"
 #include <wtf/text/Base64.h>
@@ -54,10 +53,10 @@ using WebCore::PlatformMouseEvent;
 using WebCore::PlatformWheelEvent;
 using WebCore::PlatformWheelEventGranularity;
 using WebCore::PluginData;
+using WebCore::PluginLoadClientPolicy;
 using WebCore::PluginInfo;
 using WebCore::SecurityOrigin;
 using WebCore::URL;
-using WebCore::inputTypes;
 
 #if PLATFORM(COCOA)
 using WebCore::KeypressCommand;
@@ -72,20 +71,19 @@ WEB_REPLAY_INPUT_NAMES_FOR_EACH(IMPORT_FROM_WEBCORE_NAMESPACE)
 
 namespace WebCore {
 
-unsigned long frameIndexFromDocument(const Document* document)
+uint32_t frameIndexFromDocument(const Document* document)
 {
     ASSERT(document);
     ASSERT(document->frame());
     return frameIndexFromFrame(document->frame());
 }
 
-unsigned long frameIndexFromFrame(const Frame* targetFrame)
+uint32_t frameIndexFromFrame(const Frame* targetFrame)
 {
     ASSERT(targetFrame);
 
-    unsigned long currentIndex = 0;
-    const Frame* mainFrame = &targetFrame->tree().top();
-    for (const Frame* frame = mainFrame; frame; ++currentIndex, frame = frame->tree().traverseNext(mainFrame)) {
+    uint32_t currentIndex = 0;
+    for (const Frame* frame = &targetFrame->tree().top(); frame; ++currentIndex, frame = frame->tree().traverseNext()) {
         if (frame == targetFrame)
             return currentIndex;
     }
@@ -94,21 +92,20 @@ unsigned long frameIndexFromFrame(const Frame* targetFrame)
     return 0;
 }
 
-Document* documentFromFrameIndex(Page* page, unsigned long frameIndex)
+Document* documentFromFrameIndex(Page* page, uint32_t frameIndex)
 {
     Frame* frame = frameFromFrameIndex(page, frameIndex);
     return frame ? frame->document() : nullptr;
 }
 
-Frame* frameFromFrameIndex(Page* page, unsigned long frameIndex)
+Frame* frameFromFrameIndex(Page* page, uint32_t frameIndex)
 {
     ASSERT(page);
     ASSERT(frameIndex >= 0);
 
-    MainFrame* mainFrame = &page->mainFrame();
-    Frame* frame = mainFrame;
-    unsigned long currentIndex = 0;
-    for (; currentIndex < frameIndex && frame; ++currentIndex, frame = frame->tree().traverseNext(mainFrame)) { }
+    Frame* frame = &page->mainFrame();
+    uint32_t currentIndex = 0;
+    for (; currentIndex < frameIndex && frame; ++currentIndex, frame = frame->tree().traverseNext()) { }
 
     return frame;
 }
@@ -167,13 +164,11 @@ bool EncodingTraits<MimeClassInfo>::decodeValue(EncodedValue& encodedData, MimeC
 EncodedValue EncodingTraits<NondeterministicInputBase>::encodeValue(const NondeterministicInputBase& input)
 {
     EncodedValue encodedValue = EncodedValue::createObject();
-    const AtomicString& type = input.type();
-
-    ENCODE_TYPE_WITH_KEY(encodedValue, String, type, type.string());
+    ENCODE_TYPE_WITH_KEY(encodedValue, String, type, input.type());
 
 #define ENCODE_IF_TYPE_TAG_MATCHES(name) \
-    if (type == inputTypes().name) { \
-        InputTraits<name>::encode(encodedValue, static_cast<const name&>(input)); \
+    if (is<name>(input)) { \
+        InputTraits<name>::encode(encodedValue, downcast<name>(input)); \
         return encodedValue; \
     } \
 
@@ -182,8 +177,8 @@ EncodedValue EncodingTraits<NondeterministicInputBase>::encodeValue(const Nondet
 #undef ENCODE_IF_TYPE_TAG_MATCHES
 
     // The macro won't work here because of the class template argument.
-    if (type == inputTypes().MemoizedDOMResult) {
-        InputTraits<MemoizedDOMResultBase>::encode(encodedValue, static_cast<const MemoizedDOMResultBase&>(input));
+    if (is<MemoizedDOMResultBase>(input)) {
+        InputTraits<MemoizedDOMResultBase>::encode(encodedValue, downcast<MemoizedDOMResultBase>(input));
         return encodedValue;
     }
 
@@ -196,7 +191,7 @@ bool EncodingTraits<NondeterministicInputBase>::decodeValue(EncodedValue& encode
     DECODE_TYPE_WITH_KEY(encodedValue, String, type);
 
 #define DECODE_IF_TYPE_TAG_MATCHES(name) \
-    if (type == inputTypes().name) { \
+    if (type == InputTraits<name>::type()) { \
         std::unique_ptr<name> decodedInput; \
         if (!InputTraits<name>::decode(encodedValue, decodedInput)) \
             return false; \
@@ -209,7 +204,7 @@ bool EncodingTraits<NondeterministicInputBase>::decodeValue(EncodedValue& encode
     WEB_REPLAY_INPUT_NAMES_FOR_EACH(DECODE_IF_TYPE_TAG_MATCHES)
 #undef DECODE_IF_TYPE_TAG_MATCHES
 
-    if (type == inputTypes().MemoizedDOMResult) {
+    if (type == InputTraits<MemoizedDOMResultBase>::type()) {
         std::unique_ptr<MemoizedDOMResultBase> decodedInput;
         if (!InputTraits<MemoizedDOMResultBase>::decode(encodedValue, decodedInput))
             return false;
@@ -294,7 +289,7 @@ bool EncodingTraits<PlatformKeyboardEvent>::decodeValue(EncodedValue& encodedVal
     DECODE_TYPE_WITH_KEY(encodedValue, Vector<KeypressCommand>, commands);
 #endif
 
-    PlatformKeyboardEvent platformEvent = PlatformKeyboardEvent(type, text, unmodifiedText, keyIdentifier, windowsVirtualKeyCode, nativeVirtualKeyCode, macCharCode, autoRepeat, keypad, systemKey, modifiers, timestamp);
+    PlatformKeyboardEvent platformEvent = PlatformKeyboardEvent(type, text, unmodifiedText, keyIdentifier, WTF::safeCast<int>(windowsVirtualKeyCode), WTF::safeCast<int>(nativeVirtualKeyCode), WTF::safeCast<int>(macCharCode), autoRepeat, keypad, systemKey, modifiers, timestamp);
 #if USE(APPKIT)
     input = std::make_unique<PlatformKeyboardEventAppKit>(platformEvent, handledByInputMethod, commands);
 #else
@@ -319,6 +314,7 @@ EncodedValue EncodingTraits<PlatformMouseEvent>::encodeValue(const PlatformMouse
     ENCODE_TYPE_WITH_KEY(encodedValue, bool, altKey, input.altKey());
     ENCODE_TYPE_WITH_KEY(encodedValue, bool, metaKey, input.metaKey());
     ENCODE_TYPE_WITH_KEY(encodedValue, int, timestamp, input.timestamp());
+    ENCODE_TYPE_WITH_KEY(encodedValue, double, force, input.force());
 
     return encodedValue;
 }
@@ -337,11 +333,12 @@ bool EncodingTraits<PlatformMouseEvent>::decodeValue(EncodedValue& encodedValue,
     DECODE_TYPE_WITH_KEY(encodedValue, bool, altKey);
     DECODE_TYPE_WITH_KEY(encodedValue, bool, metaKey);
     DECODE_TYPE_WITH_KEY(encodedValue, int, timestamp);
+    DECODE_TYPE_WITH_KEY(encodedValue, double, force);
 
     input = std::make_unique<PlatformMouseEvent>(IntPoint(positionX, positionY),
         IntPoint(globalPositionX, globalPositionY),
         button, type, clickCount,
-        shiftKey, ctrlKey, altKey, metaKey, timestamp);
+        shiftKey, ctrlKey, altKey, metaKey, timestamp, force);
     return true;
 }
 
@@ -443,19 +440,18 @@ bool EncodingTraits<PlatformWheelEvent>::decodeValue(EncodedValue& encodedData, 
 
 EncodedValue EncodingTraits<PluginData>::encodeValue(RefPtr<PluginData> input)
 {
+    // FIXME: This needs to work in terms of web-visible plug-ins.
     EncodedValue encodedData = EncodedValue::createObject();
 
     ENCODE_TYPE_WITH_KEY(encodedData, Vector<PluginInfo>, plugins, input->plugins());
-    ENCODE_TYPE_WITH_KEY(encodedData, Vector<MimeClassInfo>, mimes, input->mimes());
-    ENCODE_TYPE_WITH_KEY(encodedData, Vector<size_t>, mimePluginIndices, input->mimePluginIndices());
 
     return encodedData;
 }
 
 class DeserializedPluginData : public PluginData {
 public:
-    DeserializedPluginData(Vector<PluginInfo> plugins, Vector<MimeClassInfo> mimes, Vector<size_t> indices)
-        : PluginData(plugins, mimes, indices)
+    DeserializedPluginData(Vector<PluginInfo> plugins)
+        : PluginData(plugins)
     {
     }
 };
@@ -463,10 +459,9 @@ public:
 bool EncodingTraits<PluginData>::decodeValue(EncodedValue& encodedData, RefPtr<PluginData>& input)
 {
     DECODE_TYPE_WITH_KEY(encodedData, Vector<PluginInfo>, plugins);
-    DECODE_TYPE_WITH_KEY(encodedData, Vector<MimeClassInfo>, mimes);
-    DECODE_TYPE_WITH_KEY(encodedData, Vector<size_t>, mimePluginIndices);
 
-    input = adoptRef(new DeserializedPluginData(plugins, mimes, mimePluginIndices));
+    // FIXME: This needs to work in terms of web-visible plug-ins.
+    input = adoptRef(new DeserializedPluginData(plugins));
 
     return true;
 }
@@ -481,6 +476,11 @@ EncodedValue EncodingTraits<PluginInfo>::encodeValue(const PluginInfo& input)
     ENCODE_TYPE_WITH_KEY(encodedData, String, desc, input.desc);
     ENCODE_TYPE_WITH_KEY(encodedData, Vector<MimeClassInfo>, mimes, input.mimes);
     ENCODE_TYPE_WITH_KEY(encodedData, bool, isApplicationPlugin, input.isApplicationPlugin);
+    ENCODE_TYPE_WITH_KEY(encodedData, PluginLoadClientPolicy, clientLoadPolicy, static_cast<PluginLoadClientPolicy>(input.clientLoadPolicy));
+#if PLATFORM(MAC)
+    ENCODE_TYPE_WITH_KEY(encodedData, String, bundleIdentifier, input.bundleIdentifier);
+    ENCODE_TYPE_WITH_KEY(encodedData, String, versionString, input.versionString);
+#endif
 
     return encodedData;
 }
@@ -495,6 +495,11 @@ bool EncodingTraits<PluginInfo>::decodeValue(EncodedValue& encodedData, PluginIn
     DECODE_TYPE_WITH_KEY_TO_LVALUE(encodedData, String, desc, info.desc);
     DECODE_TYPE_WITH_KEY_TO_LVALUE(encodedData, Vector<MimeClassInfo>, mimes, info.mimes);
     DECODE_TYPE_WITH_KEY_TO_LVALUE(encodedData, bool, isApplicationPlugin, info.isApplicationPlugin);
+    DECODE_TYPE_WITH_KEY_TO_LVALUE(encodedData, PluginLoadClientPolicy, clientLoadPolicy, info.clientLoadPolicy);
+#if PLATFORM(MAC)
+    DECODE_TYPE_WITH_KEY_TO_LVALUE(encodedData, String, bundleIdentifier, input.bundleIdentifier);
+    DECODE_TYPE_WITH_KEY_TO_LVALUE(encodedData, String, versionString, input.versionString);
+#endif
 
     input = info;
     return true;

@@ -60,11 +60,6 @@ CookiesStrategy* WebPlatformStrategies::createCookiesStrategy()
     return this;
 }
 
-DatabaseStrategy* WebPlatformStrategies::createDatabaseStrategy()
-{
-    return this;
-}
-
 LoaderStrategy* WebPlatformStrategies::createLoaderStrategy()
 {
     return this;
@@ -76,16 +71,6 @@ PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
 }
 
 PluginStrategy* WebPlatformStrategies::createPluginStrategy()
-{
-    return this;
-}
-
-SharedWorkerStrategy* WebPlatformStrategies::createSharedWorkerStrategy()
-{
-    return this;
-}
-
-StorageStrategy* WebPlatformStrategies::createStorageStrategy()
 {
     return this;
 }
@@ -142,6 +127,21 @@ void WebPlatformStrategies::getPluginInfo(const Page* page, Vector<PluginInfo>& 
     
     END_BLOCK_OBJC_EXCEPTIONS;
 }
+
+void WebPlatformStrategies::getWebVisiblePluginInfo(const Page* page, Vector<PluginInfo>& plugins)
+{
+    getPluginInfo(page, plugins);
+}
+
+#if PLATFORM(MAC)
+void WebPlatformStrategies::setPluginLoadClientPolicy(PluginLoadClientPolicy, const String&, const String&, const String&)
+{
+}
+
+void WebPlatformStrategies::clearPluginClientPolicies()
+{
+}
+#endif
 
 void WebPlatformStrategies::getTypes(Vector<String>& types, const String& pasteboardName)
 {

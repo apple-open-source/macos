@@ -1442,19 +1442,14 @@ libtop_pinfo_update_boosts(task_t task, libtop_pinfo_t* pinfo) {
 static kern_return_t
 libtop_pinfo_update_mach_ports(task_t task, libtop_pinfo_t* pinfo) {
 	kern_return_t kr;
-	mach_msg_type_number_t ncnt, tcnt;
-	mach_port_name_array_t names;
-	mach_port_type_array_t types;
+	ipc_info_space_basic_t info;
 
 	pinfo->psamp.p_prt = pinfo->psamp.prt;
 
-	kr = mach_port_names(task, &names, &ncnt, &types, &tcnt);
-	if (kr != KERN_SUCCESS) return 0;
-
-	pinfo->psamp.prt = ncnt;
-
-	kr = mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)names, ncnt * sizeof(*names));
-	kr = mach_vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)types, tcnt * sizeof(*types));
+	kr = mach_port_space_basic_info(task, &info);
+	if (kr == KERN_SUCCESS) {
+		pinfo->psamp.prt = info.iisb_table_inuse;
+	}
 	
 	return kr;
 }
@@ -1664,7 +1659,7 @@ libtop_pinfo_update_cpu_usage(task_t task, libtop_pinfo_t* pinfo, int *state) {
 		kr = thread_info(threads[i], THREAD_BASIC_INFO, (thread_info_t)&info, &count);
 		if (kr != KERN_SUCCESS) continue;
 		
-		if ((info.flags & TH_FLAGS_IDLE) == 0) {
+		if ((info.flags & (TH_FLAGS_IDLE | TH_FLAGS_GLOBAL_FORCED_IDLE)) == 0) {
 			struct timeval tv;
 			TIME_VALUE_TO_TIMEVAL(&info.user_time, &tv);
 			timeradd(&pinfo->psamp.total_time, &tv, &pinfo->psamp.total_time);

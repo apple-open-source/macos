@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ckb.xml
@@ -229,8 +229,13 @@ ckb{
         ZW{"زیمبابوی"}
         ZZ{"نەناسراو"}
     }
-    CountriesShort{
+    Countries%short{
         MO{"ماکاو"}
     }
-    Version{"2.0.92.90"}
+    Countries%variant{
+        CD{"کۆماری دیموکراتیکی کۆنگۆ"}
+        CG{"کۆماری کۆنگۆ"}
+        TL{"تیمۆری ڕۆژھەڵات"}
+    }
+    Version{"2.1.6.69"}
 }

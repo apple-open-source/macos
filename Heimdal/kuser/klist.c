@@ -59,7 +59,7 @@ json_time(time_t t)
     static char s[128];
     struct tm *tm;
     tm = localtime(&t);
-    if (strftime(s, sizeof(s), "%Y%m%d%k%M%S", tm) == 0)
+    if (strftime(s, sizeof(s), "%Y%m%d%H%M%S", tm) == 0)
 	snprintf(s, sizeof(s), "%ld", (long)t);
     return s;
 }

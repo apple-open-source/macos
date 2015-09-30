@@ -32,12 +32,15 @@
 #include "NativeWebKeyboardEvent.h"
 #include "NativeWebMouseEvent.h"
 #include "NotImplemented.h"
-#include "WebContext.h"
+#include "WebColorPickerGtk.h"
 #include "WebContextMenuProxyGtk.h"
 #include "WebEventFactory.h"
+#include "WebKitColorChooser.h"
+#include "WebKitWebView.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebPageProxy.h"
 #include "WebPopupMenuProxyGtk.h"
+#include "WebProcessPool.h"
 #include <WebCore/Cursor.h>
 #include <WebCore/EventNames.h>
 #include <WebCore/GtkUtilities.h>
@@ -53,19 +56,10 @@ PageClientImpl::PageClientImpl(GtkWidget* viewWidget)
 {
 }
 
-void PageClientImpl::getEditorCommandsForKeyEvent(const NativeWebKeyboardEvent& event, const AtomicString& eventType, Vector<WTF::String>& commandList)
-{
-    ASSERT(eventType == eventNames().keydownEvent || eventType == eventNames().keypressEvent);
-
-    KeyBindingTranslator::EventType type = eventType == eventNames().keydownEvent ?
-        KeyBindingTranslator::KeyDown : KeyBindingTranslator::KeyPress;
-    m_keyBindingTranslator.getEditorCommandsForKeyEvent(const_cast<GdkEventKey*>(&event.nativeEvent()->key), type, commandList);
-}
-
 // PageClient's pure virtual functions
 std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy()
 {
-    return std::make_unique<DrawingAreaProxyImpl>(webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(m_viewWidget)));
+    return std::make_unique<DrawingAreaProxyImpl>(*webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(m_viewWidget)));
 }
 
 void PageClientImpl::setViewNeedsDisplay(const WebCore::IntRect& rect)
@@ -83,7 +77,7 @@ void PageClientImpl::scrollView(const WebCore::IntRect& scrollRect, const WebCor
     setViewNeedsDisplay(scrollRect);
 }
 
-void PageClientImpl::requestScroll(const WebCore::FloatPoint&, bool)
+void PageClientImpl::requestScroll(const WebCore::FloatPoint&, const WebCore::IntPoint&, bool)
 {
     notImplemented();
 }
@@ -124,7 +118,7 @@ void PageClientImpl::PageClientImpl::processDidExit()
 
 void PageClientImpl::didRelaunchProcess()
 {
-    notImplemented();
+    webkitWebViewBaseDidRelaunchWebProcess(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
 }
 
 void PageClientImpl::toolTipChanged(const String&, const String& newToolTip)
@@ -225,27 +219,36 @@ PassRefPtr<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPagePr
     return WebContextMenuProxyGtk::create(m_viewWidget, page);
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
-PassRefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy*, const WebCore::Color&, const WebCore::IntRect&)
+PassRefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy* page, const WebCore::Color& color, const WebCore::IntRect& rect)
+{
+    if (WEBKIT_IS_WEB_VIEW(m_viewWidget))
+        return WebKitColorChooser::create(*page, color, rect);
+    return WebColorPickerGtk::create(*page, color, rect);
+}
+
+void PageClientImpl::setTextIndicator(Ref<WebCore::TextIndicator>, WebCore::TextIndicatorLifetime)
 {
     notImplemented();
-    return 0;
 }
-#endif
 
-void PageClientImpl::setTextIndicator(PassRefPtr<WebCore::TextIndicator>, bool /* fadeOut */, bool /* animate */)
+void PageClientImpl::clearTextIndicator(WebCore::TextIndicatorDismissalAnimation)
+{
+    notImplemented();
+}
+
+void PageClientImpl::setTextIndicatorAnimationProgress(float)
 {
     notImplemented();
 }
 
 void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext&)
 {
-    notImplemented();
+    webkitWebViewBaseEnterAcceleratedCompositingMode(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
 }
 
 void PageClientImpl::exitAcceleratedCompositingMode()
 {
-    notImplemented();
+    webkitWebViewBaseExitAcceleratedCompositingMode(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
 }
 
 void PageClientImpl::updateAcceleratedCompositingMode(const LayerTreeContext&)
@@ -268,10 +271,17 @@ void PageClientImpl::updateTextInputState()
     webkitWebViewBaseUpdateTextInputState(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
 }
 
+#if ENABLE(DRAG_SUPPORT)
 void PageClientImpl::startDrag(const WebCore::DragData& dragData, PassRefPtr<ShareableBitmap> dragImage)
 {
-    webkitWebViewBaseStartDrag(WEBKIT_WEB_VIEW_BASE(m_viewWidget), dragData, dragImage);
+    WebKitWebViewBase* webView = WEBKIT_WEB_VIEW_BASE(m_viewWidget);
+    webkitWebViewBaseDragAndDropHandler(webView).startDrag(dragData, dragImage);
+
+    // A drag starting should prevent a double-click from happening. This might
+    // happen if a drag is followed very quickly by another click (like in the WTR).
+    webkitWebViewBaseResetClickCounter(webView);
 }
+#endif
 
 void PageClientImpl::handleDownloadRequest(DownloadProxy* download)
 {
@@ -332,6 +342,12 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& event, bool w
 {
     if (wasEventHandled)
         return;
+
+#if HAVE(GTK_GESTURES)
+    GestureController& gestureController = webkitWebViewBaseGestureController(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
+    if (gestureController.handleEvent(event.nativeEvent()))
+        return;
+#endif
 
     // Emulate pointer events if unhandled.
     const GdkEvent* touchEvent = event.nativeEvent();
@@ -394,7 +410,27 @@ void PageClientImpl::navigationGestureDidEnd(bool, WebBackForwardListItem&)
 {
 }
 
+void PageClientImpl::navigationGestureDidEnd()
+{
+}
+
 void PageClientImpl::willRecordNavigationSnapshot(WebBackForwardListItem&)
+{
+}
+
+void PageClientImpl::didFirstVisuallyNonEmptyLayoutForMainFrame()
+{
+}
+
+void PageClientImpl::didFinishLoadForMainFrame()
+{
+}
+
+void PageClientImpl::didSameDocumentNavigationForMainFrame(SameDocumentNavigationType)
+{
+}
+
+void PageClientImpl::didChangeBackgroundColor()
 {
 }
 

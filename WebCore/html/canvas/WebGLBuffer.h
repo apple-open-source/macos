@@ -37,11 +37,11 @@ class ArrayBufferView;
 
 namespace WebCore {
 
-class WebGLBuffer : public WebGLSharedObject {
+class WebGLBuffer final : public WebGLSharedObject {
 public:
     virtual ~WebGLBuffer();
 
-    static PassRefPtr<WebGLBuffer> create(WebGLRenderingContext*);
+    static Ref<WebGLBuffer> create(WebGLRenderingContextBase*);
 
     bool associateBufferData(GC3Dsizeiptr size);
     bool associateBufferData(JSC::ArrayBuffer*);
@@ -66,7 +66,7 @@ public:
     bool hasEverBeenBound() const { return object() && m_target; }
 
 protected:
-    WebGLBuffer(WebGLRenderingContext*);
+    WebGLBuffer(WebGLRenderingContextBase*);
 
     virtual void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override;
 

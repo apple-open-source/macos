@@ -22,10 +22,8 @@
 #include "config.h"
 #include "SVGClipPathElement.h"
 
-#include "Attribute.h"
 #include "Document.h"
 #include "RenderSVGResourceClipper.h"
-#include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include "SVGTransformList.h"
 #include "StyleResolver.h"
@@ -51,9 +49,9 @@ inline SVGClipPathElement::SVGClipPathElement(const QualifiedName& tagName, Docu
     registerAnimatedPropertiesForSVGClipPathElement();
 }
 
-PassRefPtr<SVGClipPathElement> SVGClipPathElement::create(const QualifiedName& tagName, Document& document)
+Ref<SVGClipPathElement> SVGClipPathElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new SVGClipPathElement(tagName, document));
+    return adoptRef(*new SVGClipPathElement(tagName, document));
 }
 
 bool SVGClipPathElement::isSupportedAttribute(const QualifiedName& attrName)
@@ -69,24 +67,15 @@ bool SVGClipPathElement::isSupportedAttribute(const QualifiedName& attrName)
 
 void SVGClipPathElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(name)) {
-        SVGGraphicsElement::parseAttribute(name, value);
-        return;
-    }
-
     if (name == SVGNames::clipPathUnitsAttr) {
-        SVGUnitTypes::SVGUnitType propertyValue = SVGPropertyTraits<SVGUnitTypes::SVGUnitType>::fromString(value);
+        auto propertyValue = SVGPropertyTraits<SVGUnitTypes::SVGUnitType>::fromString(value);
         if (propertyValue > 0)
             setClipPathUnitsBaseValue(propertyValue);
         return;
     }
 
-    if (SVGLangSpace::parseAttribute(name, value))
-        return;
-    if (SVGExternalResourcesRequired::parseAttribute(name, value))
-        return;
-
-    ASSERT_NOT_REACHED();
+    SVGGraphicsElement::parseAttribute(name, value);
+    SVGExternalResourcesRequired::parseAttribute(name, value);
 }
 
 void SVGClipPathElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -96,7 +85,7 @@ void SVGClipPathElement::svgAttributeChanged(const QualifiedName& attrName)
         return;
     }
 
-    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    InstanceInvalidationGuard guard(*this);
 
     if (RenderObject* object = renderer())
         object->setNeedsLayout();
@@ -113,7 +102,7 @@ void SVGClipPathElement::childrenChanged(const ChildChange& change)
         object->setNeedsLayout();
 }
 
-RenderPtr<RenderElement> SVGClipPathElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> SVGClipPathElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderSVGResourceClipper>(*this, WTF::move(style));
 }

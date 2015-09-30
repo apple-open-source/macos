@@ -64,7 +64,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#import <CoreFoundation/CFLogUtilities.h>
+#import <CoreFoundation/CoreFoundation.h>
 
 @implementation MBCController
 
@@ -336,7 +336,7 @@
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender
 {
-    return YES;
+    return NO;
 }
 
 - (void)updateApplicationBadge

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -437,7 +437,7 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator )
      */
 
     _DAInitialize( );
-    
+
     /*
      * Create the session.
      */
@@ -507,6 +507,8 @@ if ( strcmp( session->_name, "SystemUIServer" ) == 0 )
 
 CFTypeID DASessionGetTypeID( void )
 {
+    _DAInitialize( );
+
     return __kDASessionTypeID;
 }
 

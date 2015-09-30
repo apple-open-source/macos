@@ -32,9 +32,9 @@
 
 namespace WebCore {
 
-class HTMLSourceElement final : public HTMLElement {
+class HTMLSourceElement final : public HTMLElement, public ActiveDOMObject {
 public:
-    static PassRefPtr<HTMLSourceElement> create(const QualifiedName&, Document&);
+    static Ref<HTMLSourceElement> create(const QualifiedName&, Document&);
 
     String media() const;
     String type() const;
@@ -52,12 +52,18 @@ private:
     virtual void removedFrom(ContainerNode&) override;
     virtual bool isURLAttribute(const Attribute&) const override;
 
-    void errorEventTimerFired(Timer&);
+    // ActiveDOMObject.
+    const char* activeDOMObjectName() const override;
+    bool canSuspendForPageCache() const override;
+    void suspend(ReasonForSuspension) override;
+    void resume() override;
+    void stop() override;
+
+    void errorEventTimerFired();
 
     Timer m_errorEventTimer;
+    bool m_shouldRescheduleErrorEventOnResume { false };
 };
-
-NODE_TYPE_CASTS(HTMLSourceElement)
 
 } //namespace
 

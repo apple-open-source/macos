@@ -68,7 +68,6 @@
 #include <kern/zalloc.h>
 #include <kern/sched_prim.h>
 #include <kern/processor.h>
-#include <kern/wait_queue.h>
 //#include <kern/mach_param.h>
 #include <mach/mach_vm.h>
 #include <mach/mach_param.h>

@@ -69,6 +69,8 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCSchemaDefinitions.h>
 
+#define ACSCP_NOTIFY_STORE_ON_TIMEOUT_COUNT 2
+
 #ifndef lint
 static const char rcsid[] = RCSID;
 #endif
@@ -136,6 +138,7 @@ static int  acscp_reqci __P((fsm *, u_char *, int *, int)); 	/* Rcv CI */
 static void acscp_up __P((fsm *));				/* We're UP */
 static void acscp_down __P((fsm *));				/* We're DOWN */
 static void acscp_finished __P((fsm *));			/* Don't need lower layer */
+static void acscp_retransmit __P((fsm *));			/* Our confreq is timed out */
 
 fsm acscp_fsm[NUM_PPP];		/* acscp fsm structure */
 
@@ -152,7 +155,7 @@ static fsm_callbacks acscp_callbacks = { /* ACSCP callback routines */
     NULL,			/* Called when we want the lower layer up */
     acscp_finished,		/* Called when we want the lower layer down */
     NULL,			/* Called when Protocol-Reject received */
-    NULL,			/* Retransmission is necessary */
+    acscp_retransmit,		/* Retransmission is necessary */
     NULL,			/* Called to handle protocol-specific codes */
     "acscp"			/* String name of protocol */
 };
@@ -834,6 +837,19 @@ acscp_finished(f)
 		acscp_is_open = 0;
         np_finished(f->unit, PPP_ACSP);
     }
+}
+
+
+/*
+ * acscp_retransmit - about to retransmit confreq, notify dynamic store if needed.
+ */
+static void
+acscp_retransmit(f)
+    fsm *f;
+{
+	if ((f->maxconfreqtransmits - f->retransmits) == ACSCP_NOTIFY_STORE_ON_TIMEOUT_COUNT) {
+		notify(protocolsready_notifier,0);
+	}
 }
 
 /*

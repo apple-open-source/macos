@@ -23,19 +23,28 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "WKUserContentController.h"
+#import "WKUserContentControllerPrivate.h"
 
 #if WK_API_ENABLED
 
-#import <wtf/RefPtr.h>
+#import "WKObject.h"
+#import "WebUserContentControllerProxy.h"
 
 namespace WebKit {
+
 class WebUserContentControllerProxy;
+
+inline WKUserContentController *wrapper(WebUserContentControllerProxy& userContentController)
+{
+    ASSERT([userContentController.wrapper() isKindOfClass:[WKUserContentController class]]);
+    return (WKUserContentController *)userContentController.wrapper();
 }
 
-@interface WKUserContentController () {
+}
+
+@interface WKUserContentController () <WKObject> {
 @package
-    RefPtr<WebKit::WebUserContentControllerProxy> _userContentControllerProxy;
+    API::ObjectStorage<WebKit::WebUserContentControllerProxy> _userContentControllerProxy;
 }
 @end
 

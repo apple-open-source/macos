@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -245,9 +245,7 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
                        /* buffer          */                buffer,
                        /* sectorArea      */ (CDSectorArea) request->sectorArea,
                        /* sectorType      */ (CDSectorType) request->sectorType,
-#ifdef __LP64__
                        /* attributes      */                NULL,
-#endif /* __LP64__ */
                        /* actualByteCount */                &actualByteCount );
 
             status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
@@ -279,9 +277,7 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
                        /* buffer          */                buffer,
                        /* sectorArea      */ (CDSectorArea) request->sectorArea,
                        /* sectorType      */ (CDSectorType) request->sectorType,
-#ifdef __LP64__
                        /* attributes      */                NULL,
-#endif /* __LP64__ */
                        /* actualByteCount */                &actualByteCount );
 
             status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;

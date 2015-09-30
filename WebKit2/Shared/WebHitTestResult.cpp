@@ -25,6 +25,7 @@
 #include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/HitTestResult.h>
+#include <WebCore/RenderObject.h>
 #include <WebCore/URL.h>
 #include <WebCore/Node.h>
 #include <wtf/text/WTFString.h>
@@ -57,7 +58,38 @@ WebHitTestResult::Data::Data(const HitTestResult& hitTestResult)
     , isOverTextInsideFormControlElement(hitTestResult.isOverTextInsideFormControlElement())
     , allowsCopy(hitTestResult.allowsCopy())
     , isDownloadableMedia(hitTestResult.isDownloadableMedia())
+    , imageSize(0)
 {
+}
+
+WebHitTestResult::Data::Data(const WebCore::HitTestResult& hitTestResult, bool includeImage)
+    : absoluteImageURL(hitTestResult.absoluteImageURL().string())
+    , absolutePDFURL(hitTestResult.absolutePDFURL().string())
+    , absoluteLinkURL(hitTestResult.absoluteLinkURL().string())
+    , absoluteMediaURL(hitTestResult.absoluteMediaURL().string())
+    , linkLabel(hitTestResult.textContent())
+    , linkTitle(hitTestResult.titleDisplayString())
+    , isContentEditable(hitTestResult.isContentEditable())
+    , elementBoundingBox(elementBoundingBoxInWindowCoordinates(hitTestResult))
+    , isScrollbar(hitTestResult.scrollbar())
+    , isSelected(hitTestResult.isSelected())
+    , isTextNode(hitTestResult.innerNode() && hitTestResult.innerNode()->isTextNode())
+    , isOverTextInsideFormControlElement(hitTestResult.isOverTextInsideFormControlElement())
+    , allowsCopy(hitTestResult.allowsCopy())
+    , isDownloadableMedia(hitTestResult.isDownloadableMedia())
+    , imageSize(0)
+{
+    if (!includeImage)
+        return;
+
+    if (Image* image = hitTestResult.image()) {
+        RefPtr<SharedBuffer> buffer = image->data();
+        if (buffer) {
+            imageSharedMemory = SharedMemory::allocate(buffer->size());
+            memcpy(imageSharedMemory->data(), buffer->data(), buffer->size());
+            imageSize = buffer->size();
+        }
+    }
 }
 
 WebHitTestResult::Data::~Data()
@@ -80,6 +112,21 @@ void WebHitTestResult::Data::encode(IPC::ArgumentEncoder& encoder) const
     encoder << isOverTextInsideFormControlElement;
     encoder << allowsCopy;
     encoder << isDownloadableMedia;
+    encoder << lookupText;
+    encoder << dictionaryPopupInfo;
+
+    SharedMemory::Handle imageHandle;
+    if (imageSharedMemory && imageSharedMemory->data())
+        imageSharedMemory->createHandle(imageHandle, SharedMemory::Protection::ReadOnly);
+    encoder << imageHandle;
+    encoder << imageSize;
+
+    bool hasLinkTextIndicator = linkTextIndicator;
+    encoder << hasLinkTextIndicator;
+    if (hasLinkTextIndicator)
+        encoder << linkTextIndicator->data();
+
+    platformEncode(encoder);
 }
 
 bool WebHitTestResult::Data::decode(IPC::ArgumentDecoder& decoder, WebHitTestResult::Data& hitTestResultData)
@@ -97,11 +144,46 @@ bool WebHitTestResult::Data::decode(IPC::ArgumentDecoder& decoder, WebHitTestRes
         || !decoder.decode(hitTestResultData.isTextNode)
         || !decoder.decode(hitTestResultData.isOverTextInsideFormControlElement)
         || !decoder.decode(hitTestResultData.allowsCopy)
-        || !decoder.decode(hitTestResultData.isDownloadableMedia))
+        || !decoder.decode(hitTestResultData.isDownloadableMedia)
+        || !decoder.decode(hitTestResultData.lookupText)
+        || !decoder.decode(hitTestResultData.dictionaryPopupInfo))
         return false;
 
+    SharedMemory::Handle imageHandle;
+    if (!decoder.decode(imageHandle))
+        return false;
+
+    if (!imageHandle.isNull())
+        hitTestResultData.imageSharedMemory = SharedMemory::map(imageHandle, SharedMemory::Protection::ReadOnly);
+
+    if (!decoder.decode(hitTestResultData.imageSize))
+        return false;
+
+    bool hasLinkTextIndicator;
+    if (!decoder.decode(hasLinkTextIndicator))
+        return false;
+
+    if (hasLinkTextIndicator) {
+        WebCore::TextIndicatorData indicatorData;
+        if (!decoder.decode(indicatorData))
+            return false;
+
+        hitTestResultData.linkTextIndicator = WebCore::TextIndicator::create(indicatorData);
+    }
+
+    return platformDecode(decoder, hitTestResultData);
+}
+
+#if !PLATFORM(MAC)
+void WebHitTestResult::Data::platformEncode(IPC::ArgumentEncoder& encoder) const
+{
+}
+
+bool WebHitTestResult::Data::platformDecode(IPC::ArgumentDecoder& decoder, WebHitTestResult::Data& hitTestResultData)
+{
     return true;
 }
+#endif // !PLATFORM(MAC)
 
 IntRect WebHitTestResult::Data::elementBoundingBoxInWindowCoordinates(const HitTestResult& hitTestResult)
 {
@@ -117,7 +199,11 @@ IntRect WebHitTestResult::Data::elementBoundingBoxInWindowCoordinates(const HitT
     if (!view)
         return IntRect();
 
-    return view->contentsToWindow(node->pixelSnappedBoundingBox());
+    RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return IntRect();
+
+    return view->contentsToWindow(renderer->absoluteBoundingBoxRect());
 }
 
 } // WebKit

@@ -18,4 +18,6 @@
 (allow mach-per-user-lookup)
 (allow mach-lookup
 	(global-name "com.apple.system.notification_center")
+	(global-name "com.apple.system.opendirectoryd.libinfo")
+	(global-name "com.apple.system.opendirectoryd.libinfo") ;; duplicate name as a work-around for 19978803
 	(global-name "com.apple.system.logger"))

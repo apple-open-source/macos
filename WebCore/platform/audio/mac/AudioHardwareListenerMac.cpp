@@ -89,34 +89,34 @@ static bool currentDeviceSupportsLowPowerBufferSize()
 
 static const AudioObjectPropertyAddress& processIsRunningPropertyDescriptor()
 {
-    static AudioObjectPropertyAddress processIsRunningProperty = {
+    static const AudioObjectPropertyAddress processIsRunningProperty = {
         kAudioHardwarePropertyProcessIsRunning,
         kAudioObjectPropertyScopeGlobal,
         kAudioObjectPropertyElementMaster
     };
 
     return processIsRunningProperty;
-};
+}
 
 static const AudioObjectPropertyAddress& outputDevicePropertyDescriptor()
 {
-    static AudioObjectPropertyAddress outputDeviceProperty = {
+    static const AudioObjectPropertyAddress outputDeviceProperty = {
         kAudioHardwarePropertyDefaultOutputDevice,
         kAudioObjectPropertyScopeGlobal,
         kAudioObjectPropertyElementMaster
     };
 
     return outputDeviceProperty;
-};
+}
 
-PassRefPtr<AudioHardwareListener> AudioHardwareListener::create(Client& client)
+Ref<AudioHardwareListener> AudioHardwareListener::create(Client& client)
 {
     return AudioHardwareListenerMac::create(client);
 }
 
-PassRefPtr<AudioHardwareListenerMac> AudioHardwareListenerMac::create(Client& client)
+Ref<AudioHardwareListenerMac> AudioHardwareListenerMac::create(Client& client)
 {
-    return adoptRef(new AudioHardwareListenerMac(client));
+    return adoptRef(*new AudioHardwareListenerMac(client));
 }
 
 AudioHardwareListenerMac::AudioHardwareListenerMac(Client& client)

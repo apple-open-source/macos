@@ -722,7 +722,6 @@
 		BACBF18B10290AE000BBFC85 /* ipsec.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ipsec.txt; sourceTree = "<group>"; };
 		BACD8C681496A50C0042DEA1 /* Preferences.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Preferences.c; sourceTree = "<group>"; };
 		BACD8C691496A50C0042DEA1 /* Preferences.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Preferences.h; sourceTree = "<group>"; };
-		C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -799,7 +798,6 @@
 				BA64A933114EFE5C00F3574C /* racoon.sb */,
 				BACBF18B10290AE000BBFC85 /* ipsec.txt */,
 				72265DDB0F818F9300730A7D /* ipsec.plist */,
-				C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */,
 				25E5E82D0981A61900F2834C /* ipsec-tools */,
 				2589CB5409D8AE95002DC960 /* Libraries */,
 				25D3DB4C098998230025F703 /* Frameworks */,
@@ -2108,7 +2106,6 @@
 		};
 		812530B60D3FE994006BDF4F /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ADDITIONAL_SDKS = "";
 				ARCHS = (
@@ -2134,7 +2131,6 @@
 		};
 		812530B70D3FE994006BDF4F /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ADDITIONAL_SDKS = "";
 				ARCHS = (
@@ -2160,7 +2156,6 @@
 		};
 		812530B90D3FE994006BDF4F /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ADDITIONAL_SDKS = "";
 				ARCHS = (
@@ -2186,7 +2181,6 @@
 		};
 		812531060D3FE9DC006BDF4F /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "$(inherited)";
@@ -2244,7 +2238,6 @@
 		};
 		812531070D3FE9DC006BDF4F /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "$(inherited)";
@@ -2299,7 +2292,6 @@
 		};
 		812531090D3FE9DC006BDF4F /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "$(inherited)";
@@ -2354,7 +2346,6 @@
 		};
 		81DDFDA70D622C1700C5CB87 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_IDENTITY = "";
@@ -2397,7 +2388,6 @@
 		};
 		81DDFDA80D622C1700C5CB87 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_IDENTITY = "";
@@ -2439,7 +2429,6 @@
 		};
 		81DDFDA90D622C1700C5CB87 /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_IDENTITY = "";
@@ -2479,7 +2468,6 @@
 		};
 		81DDFDCA0D622C2700C5CB87 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "";
@@ -2518,7 +2506,6 @@
 		};
 		81DDFDCB0D622C2700C5CB87 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "";
@@ -2554,7 +2541,6 @@
 		};
 		81DDFDCC0D622C2700C5CB87 /* Default */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C172BD980E6369BE0030F8EB /* AspenSDK.xcconfig */;
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "";

@@ -36,6 +36,7 @@
 
 #include "WebVTTParser.h"
 
+#include "HTMLParserIdioms.h"
 #include "ISOVTTCue.h"
 #include "ProcessingInstruction.h"
 #include "Text.h"
@@ -258,7 +259,7 @@ bool WebVTTParser::hasRequiredFileIdentifier(const String& line)
     if (!line.startsWith(fileIdentifier, fileIdentifierLength))
         return false;
 
-    if (line.length() > fileIdentifierLength && !isASpace(line[fileIdentifierLength]))
+    if (line.length() > fileIdentifierLength && !isHTMLSpace(line[fileIdentifierLength]))
         return false;
     return true;
 }
@@ -306,25 +307,25 @@ WebVTTParser::ParseState WebVTTParser::collectTimingsAndSettings(const String& l
 
     // Collect WebVTT cue timings and settings. (5.3 WebVTT cue timings and settings parsing.)
     // Steps 1 - 3 - Let input be the string being parsed and position be a pointer into input
-    input.skipWhile<isASpace>();
+    input.skipWhile<isHTMLSpace<UChar>>();
 
     // Steps 4 - 5 - Collect a WebVTT timestamp. If that fails, then abort and return failure. Otherwise, let cue's text track cue start time be the collected time.
     if (!collectTimeStamp(input, m_currentStartTime))
         return BadCue;
     
-    input.skipWhile<isASpace>();
+    input.skipWhile<isHTMLSpace<UChar>>();
 
     // Steps 6 - 9 - If the next three characters are not "-->", abort and return failure.
     if (!input.scan("-->"))
         return BadCue;
     
-    input.skipWhile<isASpace>();
+    input.skipWhile<isHTMLSpace<UChar>>();
 
     // Steps 10 - 11 - Collect a WebVTT timestamp. If that fails, then abort and return failure. Otherwise, let cue's text track cue end time be the collected time.
     if (!collectTimeStamp(input, m_currentEndTime))
         return BadCue;
 
-    input.skipWhile<isASpace>();
+    input.skipWhile<isHTMLSpace<UChar>>();
 
     // Step 12 - Parse the WebVTT settings for the cue (conducted in TextTrackCue).
     m_currentSettings = input.restOfInputAsString();
@@ -347,7 +348,7 @@ WebVTTParser::ParseState WebVTTParser::collectCueText(const String& line)
         return recoverCue(line);
     }
     if (!m_currentContent.isEmpty())
-        m_currentContent.append("\n");
+        m_currentContent.append('\n');
     m_currentContent.append(line);
 
     return CueText;
@@ -560,7 +561,7 @@ void WebVTTTreeBuilder::constructTreeFromToken(Document& document)
         if (nodeType == WebVTTNodeTypeNone)
             break;
 
-        WebVTTNodeType currentType = m_currentNode->isWebVTTElement() ? toWebVTTElement(m_currentNode.get())->webVTTNodeType() : WebVTTNodeTypeNone;
+        WebVTTNodeType currentType = is<WebVTTElement>(*m_currentNode) ? downcast<WebVTTElement>(*m_currentNode).webVTTNodeType() : WebVTTNodeTypeNone;
         // <rt> is only allowed if the current node is <ruby>.
         if (nodeType == WebVTTNodeTypeRubyText && currentType != WebVTTNodeTypeRuby)
             break;
@@ -588,10 +589,10 @@ void WebVTTTreeBuilder::constructTreeFromToken(Document& document)
         
         // The only non-VTTElement would be the DocumentFragment root. (Text
         // nodes and PIs will never appear as m_currentNode.)
-        if (!m_currentNode->isWebVTTElement())
+        if (!is<WebVTTElement>(*m_currentNode))
             break;
 
-        WebVTTNodeType currentType = toWebVTTElement(m_currentNode.get())->webVTTNodeType();
+        WebVTTNodeType currentType = downcast<WebVTTElement>(*m_currentNode).webVTTNodeType();
         bool matchesCurrent = nodeType == currentType;
         if (!matchesCurrent) {
             // </ruby> auto-closes <rt>

@@ -2,14 +2,14 @@
  * Copyright (c) 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -26,17 +26,20 @@
 
 #include <stdio.h>
 #include <xpc/xpc.h>
+#include <asl_msg.h>
 
 #define ASL_MODULE_NAME "com.apple.asl"
 #define _PATH_CRASHREPORTER "/Library/Logs/CrashReporter"
-#define _PATH_CRASHREPORTER_MOBILE "/var/mobile/Library/Logs/CrashReporter"
+#define _PATH_CRASHREPORTER_MOBILE_1 "/var/mobile/Library/Logs/CrashReporter"
+#define _PATH_CRASHREPORTER_MOBILE_2 "/private/var/mobile/Library/Logs/CrashReporter"
+#define ASL_INTERNAL_LOGS_DIR "Logs"
 
 #define ASL_SERVICE_NAME "com.apple.system.logger"
 
 #define CRASH_MOVER_WILL_START_NOTIFICATION  "CrashMoverWillStart"
 
-#define DEFAULT_TTL 7 /* days */
 #define SECONDS_PER_DAY 86400
+#define DEFAULT_TTL (7 * SECONDS_PER_DAY)
 
 #define ACTION_NONE       0
 #define ACTION_SET_PARAM  1
@@ -71,20 +74,33 @@
 #define MODULE_FLAG_NONSTD_DIR   0x00000020
 #define MODULE_FLAG_EXTERNAL     0x00000040
 #define MODULE_FLAG_TRUNCATE     0x00000080
-#define MODULE_FLAG_STYLE_SEC    0x00000100 /* foo.T1332799722 (note STYLE_SEC_PREFIX_CHAR) */
-#define MODULE_FLAG_STYLE_SEQ    0x00000200 /* foo.0 */
-#define MODULE_FLAG_STYLE_UTC    0x00000400 /* foo.2012-04-06T13:45:00Z */
-#define MODULE_FLAG_STYLE_UTC_B  0x00000800 /* ("basic utc") foo.20120406T134500Z */
-#define MODULE_FLAG_STYLE_LCL    0x00001000 /* foo.2012-04-06T13:45:00-7 */
-#define MODULE_FLAG_STYLE_LCL_B  0x00002000 /* ("basic local") foo.20120406T134500-7 */
-#define MODULE_FLAG_BASESTAMP    0x00004000 /* base file has timestamp */
-#define MODULE_FLAG_CRASHLOG     0x00008000 /* checkpoint on CrashMoverWillStart notification */
-#define MODULE_FLAG_SOFT_WRITE   0x00010000 /* ignore write failures */
-#define MODULE_FLAG_TYPE_ASL     0x00020000 /* asl format file */
-#define MODULE_FLAG_TYPE_ASL_DIR 0x00040000 /* asl format directory */
-#define MODULE_FLAG_STD_BSD_MSG  0x00080000 /* print format is std, bsd, or msg */
+#define MODULE_FLAG_BASESTAMP    0x00000100 /* base file has timestamp */
+#define MODULE_FLAG_SYMLINK      0x00000200 /* link to basestamp name */
+#define MODULE_FLAG_CRASHLOG     0x00000400 /* checkpoint on CrashMoverWillStart notification */
+#define MODULE_FLAG_SOFT_WRITE   0x00000800 /* ignore write failures */
+#define MODULE_FLAG_TYPE_ASL     0x00001000 /* asl format file */
+#define MODULE_FLAG_TYPE_ASL_DIR 0x00002000 /* asl format directory */
+#define MODULE_FLAG_STD_BSD_MSG  0x00004000 /* print format is std, bsd, or msg */
+#define MODULE_FLAG_ACTIVITY     0x00008000
 
-#define MODULE_FLAG_STYLE_BITS   (MODULE_FLAG_STYLE_SEC | MODULE_FLAG_STYLE_SEQ | MODULE_FLAG_STYLE_UTC | MODULE_FLAG_STYLE_UTC_B | MODULE_FLAG_STYLE_LCL | MODULE_FLAG_STYLE_LCL_B)
+#define MODULE_NAME_STYLE_FORMAT_MASK    0xf0000000
+#define MODULE_NAME_STYLE_FORMAT_BS      0x10000000 /* base.stamp */
+#define MODULE_NAME_STYLE_FORMAT_BES     0x20000000 /* base.ext.stamp */
+#define MODULE_NAME_STYLE_FORMAT_BSE     0x40000000 /* base.stamp.ext */
+#define MODULE_NAME_STYLE_STAMP_MASK     0x000000ff
+#define MODULE_NAME_STYLE_STAMP_SEC      0x00000001 /* foo.T1332799722 (note STYLE_SEC_PREFIX_CHAR) */
+#define MODULE_NAME_STYLE_STAMP_SEQ      0x00000002 /* foo.0 */
+#define MODULE_NAME_STYLE_STAMP_UTC      0x00000004 /* foo.2012-04-06T13:45:00Z */
+#define MODULE_NAME_STYLE_STAMP_UTC_B    0x00000008 /* ("basic utc") foo.20120406T134500Z */
+#define MODULE_NAME_STYLE_STAMP_LCL      0x00000010 /* foo.2012-04-06T13:45:00-7 */
+#define MODULE_NAME_STYLE_STAMP_LCL_B    0x00000020 /* ("basic local") foo.20120406T134500-7 */
+
+#define STAMP_STYLE_INVALID -1
+#define STAMP_STYLE_NULL     0
+#define STAMP_STYLE_SEC      1
+#define STAMP_STYLE_SEQ      2
+#define STAMP_STYLE_ISO8601  3
+
 #define CHECKPOINT_TEST   0x00000000
 #define CHECKPOINT_FORCE  0x00000001
 #define CHECKPOINT_CRASH  0x00000002
@@ -93,11 +109,15 @@
 
 typedef struct
 {
+	char *dir;
 	char *path;
-	char *fname;
+	char *current_name;
 	char *fmt;
-	const char *tfmt;
 	char *rotate_dir;
+	char *base;
+	char *ext;
+	const char *tfmt;
+	uint32_t style_flags;
 	uint32_t pvt_flags;
 	uint32_t flags;
 	uint32_t fails;
@@ -112,7 +132,7 @@ typedef struct
 	size_t file_max;
 	size_t all_max;
 	uint32_t refcount;
-	time_t stamp;
+	time_t timestamp;
 	size_t size;
 	void *private;
 } asl_out_dst_data_t;
@@ -138,6 +158,7 @@ typedef struct asl_out_module_s
 typedef struct asl_out_file_list_s
 {
 	char *name;
+	uint32_t stamp;
 	time_t ftime;
 	uint32_t seq;
 	size_t size;
@@ -165,20 +186,22 @@ void asl_out_module_print(FILE *f, asl_out_module_t *m);
 char *asl_out_module_rule_to_string(asl_out_rule_t *r);
 
 int asl_out_mkpath(asl_out_module_t *mlist, asl_out_rule_t *r);
+int asl_make_database_dir(const char *dir, char **out);
 int asl_out_dst_checkpoint(asl_out_dst_data_t *dst, uint32_t force);
 int asl_out_dst_file_create_open(asl_out_dst_data_t *dst, char **pathp);
 int asl_out_dst_set_access(int fd, asl_out_dst_data_t *dst);
 void asl_make_timestamp(time_t stamp, uint32_t flags, char *buf, size_t len);
-void asl_make_dst_filename(asl_out_dst_data_t *dst, char *buf, size_t len);
+void asl_dst_make_current_name(asl_out_dst_data_t *dst, uint32_t xflags, char *buf, size_t len);
 
 asl_out_dst_data_t *asl_out_dst_data_retain(asl_out_dst_data_t *dst);
 void asl_out_dst_data_release(asl_out_dst_data_t *dst);
 
 /* rotated log files */
-asl_out_file_list_t *asl_list_log_files(const char *dir, const char *base, bool src, uint32_t flags);
+asl_out_file_list_t *asl_list_log_files(const char *dir, const char *base, const char *ext, uint32_t flags, bool src);
 asl_out_file_list_t * asl_list_src_files(asl_out_dst_data_t *dst);
 asl_out_file_list_t * asl_list_dst_files(asl_out_dst_data_t *dst);
 void asl_out_file_list_free(asl_out_file_list_t *l);
+asl_out_dst_data_t *asl_out_dest_for_path(asl_out_module_t *m, const char *path);
 
 asl_msg_t *configuration_profile_to_asl_msg(const char *ident);
 

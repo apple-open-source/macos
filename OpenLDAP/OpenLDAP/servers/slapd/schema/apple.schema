@@ -1575,6 +1575,13 @@ attributetype ( 1.3.6.1.1.1.1.51
   SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
   SINGLE-VALUE )
 
+# SRP
+attributetype ( 1.3.6.1.1.1.1.52
+  NAME 'SRP-RFC5054-4096-SHA512-PBKDF2'
+  EQUALITY octetStringMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
+  SINGLE-VALUE )
+
 # Time the user was created.
 attributetype ( 1.3.6.1.1.1.1.55
   NAME 'creationDate'
@@ -1691,7 +1698,7 @@ objectclass (
   MAY ( uid $ authGUID $ passwordModDate $ lastLoginTime $ lastFailedLoginTime $ loginFailedAttempts $
         disableReason $ apple-user-passwordpolicy $ apple-accountpolicy $ adminGroups $ cmusaslsecretSMBNT $
 		 cmusaslsecretSMBLM $ cmusaslsecretDIGEST-MD5 $ cmusaslsecretCRAM-MD5 $ cmusaslsecretPPS $
-		 KerberosRealmName $ KerberosPrincName $ password $ creationDate $ historyData $
+		 KerberosRealmName $ KerberosPrincName $ password $ SRP-RFC5054-4096-SHA512-PBKDF2 $ creationDate $ historyData $
 		 draft-krbPrincipalName $ draft-krbRealmName $ draft-krbPrincipalAliases $
 		 draft-krbTicketMaxLife $ draft-krbTicketMaxRenewal $ draft-krbEncSaltTypes $
 		 draft-krbKeySet $ draft-krbKeyVersion $ draft-krbPrincipalRealm $ draft-krbTicketPolicy $ 

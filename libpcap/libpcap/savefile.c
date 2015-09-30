@@ -431,7 +431,7 @@ found:
 	 */
 	p->oneshot_callback = pcap_oneshot;
 
-	p->cleanup_op = sf_cleanup;
+	p->cleanup_op = isng ? pcap_ng_cleanup : sf_cleanup;
 	p->activated = 1;
 
 	return (p);

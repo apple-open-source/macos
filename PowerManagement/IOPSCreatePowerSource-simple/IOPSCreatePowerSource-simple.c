@@ -11,12 +11,12 @@
 #include <IOKit/ps/IOPSKeys.h>
 #include <IOKit/IOCFSerialize.h>
 
-static CFDictionaryRef      copyNextPSDictionary(void);
+static CFDictionaryRef      copyNextPSDictionary(CFStringRef type);
 static CFStringRef          copyNextPSType(void);
 
 static void iterateCreateSetRelease(int iterations);
-static bool verifyThatAPublishedPowerSourceIsNamed(CFStringRef checkname);
-static void createAndCheckForExistence(CFStringRef useName);
+static bool verifyThatAPublishedPowerSourceIsNamed(CFStringRef checkname, CFStringRef type);
+static void createAndCheckForExistence(CFStringRef useName, CFStringRef type);
 static void fillAndReleaseAllPowerSourceSlots(int count);
 
 static const int kTryDictionaries = 5;
@@ -27,7 +27,8 @@ int main(int argc, const char * argv[])
     for (int i = 0; i< 3; i++)
     {
         iterateCreateSetRelease(kTryDictionaries);
-        createAndCheckForExistence(CFSTR("Snaggletooth"));
+        createAndCheckForExistence(CFSTR("Snaggletooth"), CFSTR(kIOPSUPSType));
+        createAndCheckForExistence(CFSTR("Snaggletooth"), CFSTR(kIOPSAccessoryType));
         fillAndReleaseAllPowerSourceSlots(kMaxPSCount * 2);
     }
 }
@@ -37,7 +38,7 @@ int main(int argc, const char * argv[])
 //******************************************************************************
 //******************************************************************************
 
-static void createAndCheckForExistence(CFStringRef useName)
+static void createAndCheckForExistence(CFStringRef useName, CFStringRef type)
 {
     CFDictionaryRef         useDictionary = NULL;
     CFMutableDictionaryRef  setDictionary = NULL;
@@ -48,7 +49,7 @@ static void createAndCheckForExistence(CFStringRef useName)
     CFStringGetCString(useName, buf, sizeof(buf), kCFStringEncodingUTF8);
 
 
-    useDictionary = copyNextPSDictionary();
+    useDictionary = copyNextPSDictionary(type);
     if (useDictionary) {
         setDictionary = CFDictionaryCreateMutableCopy(0, 0, useDictionary);
         if (setDictionary) {
@@ -75,7 +76,7 @@ static void createAndCheckForExistence(CFStringRef useName)
     }
     CFRelease(setDictionary);
 
-    if (verifyThatAPublishedPowerSourceIsNamed(useName))
+    if (verifyThatAPublishedPowerSourceIsNamed(useName, type))
     {
         printf("[PASS] Successfully created, then found, a power source named %s\n", buf);
     } else {
@@ -89,7 +90,7 @@ static void createAndCheckForExistence(CFStringRef useName)
     // before we check if the Release worked.
     sleep(1);
 
-    if (!verifyThatAPublishedPowerSourceIsNamed(useName))
+    if (!verifyThatAPublishedPowerSourceIsNamed(useName, type))
     {
         printf("[PASS] Successfully RELEASED (it's not published any more), a power source named %s\n", buf);
     } else {
@@ -101,14 +102,19 @@ static void createAndCheckForExistence(CFStringRef useName)
     return;
 }
 
-static bool verifyThatAPublishedPowerSourceIsNamed(CFStringRef checkname)
+static bool verifyThatAPublishedPowerSourceIsNamed(CFStringRef checkname, CFStringRef type)
 {
     CFTypeRef blob = NULL;
     CFArrayRef arr = NULL;
     CFDictionaryRef details = NULL;
     bool doMatch = false;
 
-    blob = IOPSCopyPowerSourcesInfo();
+    if (CFStringCompare(type, CFSTR(kIOPSAccessoryType), 0) == kCFCompareEqualTo) {
+        blob = IOPSCopyPowerSourcesByType(kIOPSSourceForAccessories);
+    }
+    else {
+        blob = IOPSCopyPowerSourcesInfo();
+    }
     if (blob) {
         arr = IOPSCopyPowerSourcesList(blob);
     }
@@ -215,7 +221,7 @@ static void iterateCreateSetRelease(int iterations)
          * Set
          */
         CFDictionaryRef psdict = NULL;
-        psdict = copyNextPSDictionary();
+        psdict = copyNextPSDictionary(NULL);
 
         if (!psdict) {
             printf("[FAIL] internal error generating testing dictionary");
@@ -274,11 +280,13 @@ enum {
     kDesignCap,
     kVoltage,
     kIsFinishingCharge,
-    kTransportType
+    kTransportType,
+    kPSType,
+    kPSState
 };
 
 //******************************************************************************
-static CFDictionaryRef copyNextPSDictionary(void)
+static CFDictionaryRef copyNextPSDictionary(CFStringRef type)
 {
     const CFStringRef   keys[] = {
         CFSTR(kIOPSCurrentCapacityKey),
@@ -293,7 +301,9 @@ static CFDictionaryRef copyNextPSDictionary(void)
         CFSTR(kIOPSDesignCapacityKey),
         CFSTR(kIOPSVoltageKey),
         CFSTR(kIOPSIsFinishingChargeKey),
-        CFSTR(kIOPSTransportTypeKey)
+        CFSTR(kIOPSTransportTypeKey),
+        CFSTR(kIOPSTypeKey),
+        CFSTR(kIOPSPowerSourceStateKey)
     };
 
     CFTypeRef *values = NULL;
@@ -320,6 +330,12 @@ static CFDictionaryRef copyNextPSDictionary(void)
     values[kVoltage] = CFNumberCreate(0, kCFNumberIntType, &tmpInt);
     values[kIsFinishingCharge] = CFRetain(kCFBooleanTrue);
     values[kTransportType] = CFSTR(kIOPSUSBTransportType);
+    if (type != NULL)
+        values[kPSType] = type;
+    else
+        values[kPSType] = CFSTR(kIOPSUPSType);
+
+    values[kPSState] = CFSTR(kIOPSACPowerValue);
 
     return CFDictionaryCreate(0, (const void **)keys, (const void **)values, count,
                               &kCFTypeDictionaryKeyCallBacks,

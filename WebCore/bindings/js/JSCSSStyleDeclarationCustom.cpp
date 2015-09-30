@@ -36,6 +36,7 @@
 #include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
 #include "StyleProperties.h"
+#include "StyledElement.h"
 #include <runtime/IdentifierInlines.h>
 #include <runtime/StringPrototype.h>
 #include <wtf/ASCIICType.h>
@@ -339,8 +340,10 @@ bool JSCSSStyleDeclaration::putDelegate(ExecState* exec, PropertyName propertyNa
     }
 
     ExceptionCode ec = 0;
-    impl().setPropertyInternal(static_cast<CSSPropertyID>(propertyInfo.propertyID), propValue, important, ec);
+    CSSPropertyID propertyID = static_cast<CSSPropertyID>(propertyInfo.propertyID);
+    impl().setPropertyInternal(propertyID, propValue, important, ec);
     setDOMException(exec, ec);
+
     return true;
 }
 
@@ -376,7 +379,7 @@ void JSCSSStyleDeclaration::getOwnPropertyNames(JSObject* object, ExecState* exe
 
         propertyIdentifiers = new Identifier[numCSSProperties];
         for (int i = 0; i < numCSSProperties; ++i)
-            propertyIdentifiers[i] = Identifier(exec, jsPropertyNames[i].impl());
+            propertyIdentifiers[i] = Identifier::fromString(exec, jsPropertyNames[i]);
     }
 
     for (int i = 0; i < numCSSProperties; ++i)

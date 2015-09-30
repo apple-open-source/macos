@@ -77,8 +77,8 @@ namespace WebCore {
 
         unsigned itemCount() const;
 
-        PlatformMenuDescription platformDescription() const;
-        void setPlatformDescription(PlatformMenuDescription);
+        WEBCORE_EXPORT PlatformMenuDescription platformDescription() const;
+        WEBCORE_EXPORT void setPlatformDescription(PlatformMenuDescription);
 
         PlatformMenuDescription releasePlatformDescription();
 #endif // USE(CROSS_PLATFORM_CONTEXT_MENUS)
@@ -92,16 +92,13 @@ namespace WebCore {
         RetainPtr<NSMutableArray> m_platformDescription;
 #else
         PlatformMenuDescription m_platformDescription;
-#if OS(WINCE)
-        unsigned m_itemCount;
-#endif
 #endif
 
 #endif // USE(CROSS_PLATFORM_CONTEXT_MENUS)
     };
 
 #if !USE(CROSS_PLATFORM_CONTEXT_MENUS)
-Vector<ContextMenuItem> contextMenuItemVector(PlatformMenuDescription);
+WEBCORE_EXPORT Vector<ContextMenuItem> contextMenuItemVector(PlatformMenuDescription);
 PlatformMenuDescription platformMenuDescription(Vector<ContextMenuItem>&);
 #endif
 

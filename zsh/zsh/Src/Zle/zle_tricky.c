@@ -611,8 +611,6 @@ docomplete(int lst)
     active = 1;
     comprecursive = 0;
     makecommaspecial(0);
-    if (undoing)
-	setlastline();
 
     /* From the C-code's point of view, we can only use compctl as a default
      * type of completion. Load it if it hasn't been loaded already and
@@ -636,7 +634,8 @@ docomplete(int lst)
     metafy_line();
 
     ocs = zlemetacs;
-    origline = dupstring(zlemetaline);
+    zsfree(origline);
+    origline = ztrdup(zlemetaline);
     origcs = zlemetacs;
     origll = zlemetall;
     if (!isfirstln && (chline != NULL || zle_chline != NULL)) {
@@ -664,8 +663,9 @@ docomplete(int lst)
      * NOTE: get_comp_string() calls pushheap(), but not popheap(). */
     noerrs = 1;
     s = get_comp_string();
-    DPUTS(wb < 0 || zlemetacs < wb || zlemetacs > we,
-	  "BUG: 0 <= wb <= zlemetacs <= we is not true!");
+    DPUTS3(wb < 0 || zlemetacs < wb || zlemetacs > we,
+	  "BUG: 0 <= wb (%d) <= zlemetacs (%d) <= we (%d) is not true!",
+	   wb, zlemetacs, we);
     noerrs = ne;
     /* For vi mode, reset the start-of-insertion pointer to the beginning *
      * of the word being completed, if it is currently later.  Vi itself  *
@@ -698,7 +698,7 @@ docomplete(int lst)
     freeheap();
     /* Save the lexer state, in case the completion code uses the lexer *
      * somewhere (e.g. when processing a compctl -s flag).              */
-    lexsave();
+    zcontext_save();
     if (inwhat == IN_ENV)
 	lincmd = 0;
     if (s) {
@@ -830,7 +830,7 @@ docomplete(int lst)
 	    if (olst == COMP_EXPAND_COMPLETE &&
 		!strcmp(ol, zlemetaline)) {
 		zlemetacs = ocs;
-		errflag = 0;
+		errflag &= ~ERRFLAG_ERROR;
 
 		if (!compfunc) {
 		    char *p;
@@ -868,7 +868,7 @@ docomplete(int lst)
     } else
 	ret = 1;
     /* Reset the lexer state, pop the heap. */
-    lexrestore();
+    zcontext_restore();
     popheap();
 
     dat[0] = lst;
@@ -878,6 +878,19 @@ docomplete(int lst)
 
     active = 0;
     makecommaspecial(0);
+
+    /*
+     * As a special case, we reset user interrupts here.
+     * That's because completion is an intensive piece of
+     * computation that the user might want to interrupt separately
+     * from anything else going on.  If they do, they probably
+     * want to keep the line edit buffer intact.
+     *
+     * There's a race here that the user might hit ^C just
+     * after completion exited anyway, but that's inevitable.
+     */
+    errflag &= ~ERRFLAG_INT;
+
     return dat[1];
 }
 
@@ -1151,7 +1164,7 @@ get_comp_string(void)
     varname = NULL;
     insubscr = 0;
     clwpos = -1;
-    lexsave();
+    zcontext_save();
     lexflags = LEXFLAGS_ZLE;
     inpush(dupstrspace(linptr), 0, NULL);
     strinbeg(0);
@@ -1164,7 +1177,7 @@ get_comp_string(void)
      * being separated by tokens | & &! |& || &&).  The loop stops when *
      * the end of the command containing the cursor is reached.  What   *
      * makes this messy is checking for things like redirections, loops *
-    * and whatnot. */
+     * and whatnot. */
 
     do {
         qsub = noword = 0;
@@ -1395,7 +1408,8 @@ get_comp_string(void)
     }
     strinend();
     inpop();
-    errflag = lexflags = 0;
+    lexflags = 0;
+    errflag &= ~ERRFLAG_ERROR;
     if (parbegin != -1) {
 	/* We are in command or process substitution if we are not in
 	 * a $((...)). */
@@ -1408,7 +1422,7 @@ get_comp_string(void)
 		zlemetall -= parend;
 		zlemetaline[zlemetall + addedx] = '\0';
 	    }
-	    lexrestore();
+	    zcontext_restore();
 	    tt = NULL;
 	    goto start;
 	}
@@ -1482,12 +1496,12 @@ get_comp_string(void)
 	if (tmp) {
 	    tmp = NULL;
 	    linptr = zlemetaline;
-	    lexrestore();
+	    zcontext_restore();
 	    addedx = 0;
 	    goto start;
 	}
 	noaliases = ona;
-	lexrestore();
+	zcontext_restore();
 	return NULL;
     }
 
@@ -1722,9 +1736,11 @@ get_comp_string(void)
 	    for (pe = p + 2; *pe && *pe != Snull && i + (pe - p) < zlemetacs;
 		 pe++)
 		;
-	    if (!*pe) {
+	    if (*pe != Snull) {
 		/* no terminating Snull, can't substitute */
 		skipchars = 2;
+		if (*pe)
+		    j = 1;
 	    } else {
 		/*
 		 * Try and substitute the $'...' expression.
@@ -1797,6 +1813,10 @@ get_comp_string(void)
 		     * first clue how the completion system actually works.
 		     */
 		    skipchars = 2;
+		    /*
+		     * Also pretend we're in single quotes.
+		     */
+		    j = 1;
 		}
 	    }
 	}
@@ -1819,7 +1839,7 @@ get_comp_string(void)
 		    ocs = zlemetacs;
 		    zlemetacs = i;
 		    foredel(skipchars, CUT_RAW);
-		    if ((zlemetacs = ocs) > (i -= skipchars))
+		    if ((zlemetacs = ocs) > --i)
 			zlemetacs -= skipchars;
 		    we -= skipchars;
 		}
@@ -2131,7 +2151,7 @@ get_comp_string(void)
 	    offs = boffs;
 	}
     }
-    lexrestore();
+    zcontext_restore();
 
     return (char *)s;
 }
@@ -2771,7 +2791,7 @@ doexpandhist(void)
     expanding = 1;
     excs = zlemetacs;
     zlemetall = zlemetacs = 0;
-    lexsave();
+    zcontext_save();
     /* We push ol as it will remain unchanged */
     inpush(ol, 0, NULL);
     strinbeg(1);
@@ -2783,7 +2803,7 @@ doexpandhist(void)
     } while (tok != ENDINPUT && tok != LEXERR);
     while (!lexstop)
 	hgetc();
-    /* We have to save errflags because it's reset in lexrestore. Since  *
+    /* We have to save errflags because it's reset in zcontext_restore. Since  *
      * noerrs was set to 1 errflag is true if there was a habort() which *
      * means that the expanded string is unusable.                       */
     err = errflag;
@@ -2791,12 +2811,13 @@ doexpandhist(void)
     noaliases = ona;
     strinend();
     inpop();
-    lexrestore();
+    zcontext_restore();
     expanding = 0;
 
     if (!err) {
 	zlemetacs = excs;
 	if (strcmp(zlemetaline, ol)) {
+	    zle_free_positions();
 	    unmetafy_line();
 	    /* For vi mode -- reset the beginning-of-insertion pointer   *
 	     * to the beginning of the line.  This seems a little silly, *
@@ -2889,7 +2910,7 @@ getcurcmd(void)
     int curlincmd;
     char *s = NULL;
 
-    lexsave();
+    zcontext_save();
     lexflags = LEXFLAGS_ZLE;
     metafy_line();
     inpush(dupstrspace(zlemetaline), 0, NULL);
@@ -2911,9 +2932,9 @@ getcurcmd(void)
     popheap();
     strinend();
     inpop();
-    errflag = 0;
+    errflag &= ~ERRFLAG_ERROR;
     unmetafy_line();
-    lexrestore();
+    zcontext_restore();
 
     return s;
 }

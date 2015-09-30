@@ -45,9 +45,8 @@ shell features as well.  The autoloadable tt(run-help) function, found in
 tt(Functions/Misc), searches for these helpfiles and performs several
 other tests to produce the most complete help possible for the command.
 
-There may already be a directory of help files on your system; look in
-tt(/usr/share/zsh) or tt(/usr/local/share/zsh) and subdirectories below
-those, or ask your system administrator.
+Help files are installed by default to a subdirectory of tt(/usr/share/zsh)
+or tt(/usr/local/share/zsh).
 
 To create your own help files with tt(helpfiles), choose or create a
 directory where the individual command help files will reside.  For
@@ -55,22 +54,22 @@ example, you might choose tt(~/zsh_help).  If you unpacked the zsh
 distribution in your home directory, you would use the commands:
 
 example(mkdir ~/zsh_help
-cd ~/zsh_help
-man zshall | colcrt - | \ 
-perl ~/zsh-version()/Util/helpfiles)
-
-findex(run-help, use of)
-Next, to use the tt(run-help) function, you need to add lines something
-like the following to your tt(.zshrc) or equivalent startup file:
-
-example(unalias run-help
-autoload run-help
-HELPDIR=~/zsh_help)
+perl ~/zsh-version()/Util/helpfiles ~/zsh_help)
 
 vindex(HELPDIR)
 The tt(HELPDIR) parameter tells tt(run-help) where to look for the help
-files.  If your system already has a help file directory installed, set
-tt(HELPDIR) to the path of that directory instead.
+files. When unset, it uses the default installation path.
+To use your own set of help files, set this to the appropriate path
+in one of your startup files:
+
+example(HELPDIR=~/zsh_help)
+
+findex(run-help, use of)
+To use the tt(run-help) function, you need to add lines something
+like the following to your tt(.zshrc) or equivalent startup file:
+
+example(unalias run-help
+autoload run-help)
 
 Note that in order for `tt(autoload run-help)' to work, the tt(run-help)
 file must be in one of the directories named in your tt(fpath) array (see
@@ -99,7 +98,7 @@ be used to keep function digests up to date.
 startitem()
 findex(zrecompile)
 xitem(tt(zrecompile) [ tt(-qt) ] [ var(name) ... ])
-item(tt(zrecompile) [ tt(-qt) ] tt(-p) var(args) [ tt(-)tt(-) var(args) ... ])(
+item(tt(zrecompile) [ tt(-qt) ] tt(-p) var(arg) ... [ tt(-)tt(-) var(arg) ... ])(
 This tries to find tt(*.zwc) files and automatically re-compile them if at
 least one of the original files is newer than the compiled file.  This
 works only if the names stored in the compiled files are full paths or are
@@ -119,7 +118,7 @@ Without the tt(-t) option, the return status is zero if all files that
 needed re-compilation could be compiled and non-zero if compilation for at
 least one of the files failed.
 
-If the tt(-p) option is given, the var(args) are interpreted as one
+If the tt(-p) option is given, the var(arg)s are interpreted as one
 or more sets of arguments for tt(zcompile), separated by `tt(-)tt(-)'.
 For example:
 
@@ -175,7 +174,7 @@ findex(zkbd)
 The large number of possible combinations of keyboards, workstations,
 terminals, emulators, and window systems makes it impossible for zsh to
 have built-in key bindings for every situation.  The tt(zkbd) utility,
-found in Functions/Misc, can help you quickly create key bindings for your
+found in tt(Functions/Misc), can help you quickly create key bindings for your
 configuration.
 
 Run tt(zkbd) either as an autoloaded function, or as a shell script:
@@ -292,7 +291,7 @@ cindex(hook function utility)
 
 startitem()
 findex(add-zsh-hook)
-item(tt(add-zsh-hook) [-dD] var(hook) var(function))(
+item(tt(add-zsh-hook) [ tt(-dD) ] [ tt(-Uzk) ] var(hook) var(function))(
 Several functions are special to the shell, as described in the section
 ifnzman(Special Functions, noderef(Functions))\
 ifzman(SPECIAL FUNCTIONS, see zmanref(zshmisc)),
@@ -596,22 +595,22 @@ In order to do that, you may use the tt(vcs_info) function.
 The following VCSs are supported, showing the abbreviated name by which
 they are referred to within the system:
 startsitem()
-sitem(Bazaar (tt(bzr)))(http://bazaar-vcs.org/)
-sitem(Codeville (tt(cdv)))(http://codeville.org/)
-sitem(Concurrent Versioning System (tt(cvs)))(http://www.nongnu.org/cvs/)
-sitem(Darcs (tt(darcs)))(http://darcs.net/)
-sitem(Fossil (tt(fossil)))(http://fossil-scm.org/)
-sitem(Git (tt(git)))(http://git-scm.com/)
-sitem(GNU arch (tt(tla)))(http://www.gnu.org/software/gnu-arch/)
-sitem(Mercurial (tt(hg)))(http://mercurial.selenic.com/)
-sitem(Monotone (tt(mtn)))(http://monotone.ca/)
-sitem(Perforce (tt(p4)))(http://www.perforce.com/)
-sitem(Subversion (tt(svn)))(http://subversion.tigris.org/)
-sitem(SVK (tt(svk)))(http://svk.bestpractical.com/)
+sitem(Bazaar (tt(bzr)))(uref(http://bazaar.canonical.com/))
+sitem(Codeville (tt(cdv)))(uref(http://freecode.com/projects/codeville/))
+sitem(Concurrent Versioning System (tt(cvs)))(uref(http://www.nongnu.org/cvs/))
+sitem(Darcs (tt(darcs)))(uref(http://darcs.net/))
+sitem(Fossil (tt(fossil)))(uref(http://fossil-scm.org/))
+sitem(Git (tt(git)))(uref(http://git-scm.com/))
+sitem(GNU arch (tt(tla)))(uref(http://www.gnu.org/software/gnu-arch/))
+sitem(Mercurial (tt(hg)))(uref(http://mercurial.selenic.com/))
+sitem(Monotone (tt(mtn)))(uref(http://monotone.ca/))
+sitem(Perforce (tt(p4)))(uref(http://www.perforce.com/))
+sitem(Subversion (tt(svn)))(uref(http://subversion.apache.org/))
+sitem(SVK (tt(svk)))(uref(http://svk.bestpractical.com/))
 endsitem()
 
 There is also support for the patch management system tt(quilt)
-(http://savannah.nongnu.org/projects/quilt). See tt(Quilt Support)
+(uref(http://savannah.nongnu.org/projects/quilt)). See tt(Quilt Support)
 below for details.
 
 To load tt(vcs_info):
@@ -636,7 +635,7 @@ PS1='%F{5}[%F{2}%n%F{5}] %F{3}%3~ ${vcs_info_msg_0_}%f%# ')
 
 Obviously, the last two lines are there for demonstration. You need to
 call tt(vcs_info) from your tt(precmd) function. Once that is done you need
-a tt(single quoted) tt('${vcs_info_msg_0_}') in your prompt.
+a em(single quoted) tt('${vcs_info_msg_0_}') in your prompt.
 
 To be able to use tt('${vcs_info_msg_0_}') directly in your prompt like
 this, you will need to have the tt(PROMPT_SUBST) option enabled.
@@ -827,16 +826,31 @@ item(tt(check-for-changes))(
 If enabled, this style causes the tt(%c) and tt(%u) format escapes to show
 when the working directory has uncommitted changes. The strings displayed by
 these escapes can be controlled via the tt(stagedstr) and tt(unstagedstr)
-styles. The only backends that currently support this option are tt(git) and
-tt(hg) (tt(hg) only supports unstaged).
+styles. The only backends that currently support this option are tt(git),
+tt(hg), and tt(bzr) (the latter two only support unstaged).
 
 For this style to be evaluated with the tt(hg) backend, the tt(get-revision)
 style needs to be set and the tt(use-simple) style needs to be unset. The
 latter is the default; the former is not.
 
+With the tt(bzr) backend, em(lightweight checkouts) only honor this style if
+the tt(use-server) style is set.
+
 Note, the actions taken if this style is enabled are potentially expensive
 (read: they may be slow, depending on how big the current repository is).
 Therefore, it is disabled by default.
+)
+kindex(check-for-staged-changes)
+item(tt(check-for-staged-changes))(
+This style is like tt(check-for-changes), but it never checks the worktree
+files, only the metadata in the tt(.${vcs}) dir.  Therefore,
+this style initializes only the tt(%c) escape (with tt(stagedstr)) but
+not the tt(%u) escape.  This style is faster than tt(check-for-changes).
+
+In the tt(git) backend, this style checks for changes in the index.
+Other backends do not currently implement this style.
+
+This style is disabled by default.
 )
 kindex(stagedstr)
 item(tt(stagedstr))(
@@ -851,7 +865,7 @@ in the repository.
 kindex(command)
 item(tt(command))(
 This style causes tt(vcs_info) to use the supplied string as the command
-to use as the VCS's binary. Note, that setting this in ':vcs_info:*' is
+to use as the VCS's binary. Note, that setting this in 'tt(:vcs_info:*)' is
 not a good idea.
 
 If the value of this style is empty (which is the default), the used binary
@@ -863,7 +877,7 @@ when this style is looked up.
 
 For example, this style can be used to use binaries from non-default
 installation directories. Assume, tt(git) is installed in /usr/bin but
-your sysadmin installed a newer version in /usr/bin/local. Instead of
+your sysadmin installed a newer version in /usr/local/bin. Instead of
 changing the order of your tt($PATH) parameter, you can do this:
 example(zstyle ':vcs_info:git:*:-all-' command /usr/local/bin/git)
 )
@@ -881,6 +895,9 @@ backend is only usable if you have set the environment variable
 tt(P4CONFIG) to a file name and have corresponding files in the root
 directories of each Perforce client.  See comments in the function
 tt(VCS_INFO_detect_p4) for more detail.
+
+The Bazaar backend (tt(bzr)) uses this to permit contacting the server
+about lightweight checkouts, see the tt(check-for-changes) style.
 )
 kindex(use-simple)
 item(tt(use-simple))(
@@ -910,6 +927,10 @@ kindex(get-bookmarks)
 item(tt(get-bookmarks))(
 If set to true, the tt(hg) backend will try to get a list of current
 bookmarks. They will be available via the `tt(%m)' replacement.
+
+The default is to generate a comma-separated list of all bookmark names
+that refer to the currently checked out revision.  If a bookmark is active,
+its name is suffixed an asterisk and placed first in the list.
 )
 kindex(use-prompt-escapes)
 item(tt(use-prompt-escapes))(
@@ -927,6 +948,21 @@ item(tt(hooks))(
 A list style that defines hook-function names. See bf(Hooks in vcs_info)
 below for details.
 )
+kindex(patch-format)
+kindex(nopatch-format)
+xitem(tt(patch-format))
+item(tt(nopatch-format))(
+This pair of styles format the patch information used by the tt(%m) expando in
+formats and actionformats for the tt(git) and tt(hg) backends.  The value is
+subject to certain tt(%)-expansions described below.
+)
+kindex(get-unapplied)
+item(tt(get-unapplied))(
+This boolean style controls whether a backend should attempt to gather a list
+of unapplied patches (for example with Mercurial Queue patches).
+
+Used by the tt(quilt) and tt(hg) backends.
+)
 enditem()
 
 The default values for these styles in all contexts are:
@@ -942,6 +978,7 @@ sitem(tt(enable))(ALL)
 sitem(tt(disable))((empty list))
 sitem(tt(disable-patterns))((empty list))
 sitem(tt(check-for-changes))(false)
+sitem(tt(check-for-staged-changes))(false)
 sitem(tt(stagedstr))((string: "S"))
 sitem(tt(unstagedstr))((string: "U"))
 sitem(tt(command))((empty string))
@@ -957,6 +994,9 @@ sitem(tt(use-quilt))(false)
 sitem(tt(quilt-standalone))(false)
 sitem(tt(quilt-patch-dir))(empty - use tt($QUILT_PATCHES))
 sitem(tt(quiltcommand))(quilt)
+sitem(tt(patch-format))(var(backend dependent))
+sitem(tt(nopatch-format))(var(backend dependent))
+sitem(tt(get-unapplied))(false)
 endsitem()
 
 In normal tt(formats) and tt(actionformats) the following replacements are
@@ -978,11 +1018,26 @@ sitem(tt(%r))(The repository name. If tt(%R) is tt(/foo/bar/repoXY), tt(%r)
 is tt(repoXY).)
 sitem(tt(%S))(A subdirectory within a repository. If tt($PWD) is
 tt(/foo/bar/repoXY/beer/tasty), tt(%S) is tt(beer/tasty).)
-sitem(tt(%m))(A "misc" replacement. It is at the discretion of the backend to
-decide what this replacement expands to. It is currently used by the tt(hg)
-and tt(git) backends to display patch information from the tt(mq) and
-tt(stgit) extensions.)
 endsitem()
+startitem()
+item(tt(%m))(
+A "misc" replacement. It is at the discretion of the backend to
+decide what this replacement expands to.
+
+The tt(hg) and tt(git) backends use this expando to display patch information.
+tt(hg) sources patch information from the tt(mq) extensions; tt(git) from the
+tt(rebase) command and from the and tt(stgit) extension.  The tt(patch-format)
+and tt(nopatch-format) styles control the generated string.  The former is used
+when at least one patch from the patch queue has been applied, and the latter
+otherwise.
+
+The tt(hg) backend displays bookmark information in this expando (in addition
+to tt(mq) information).  See the tt(get-mq) and tt(get-bookmarks) styles.  Both
+of these styles may be enabled at the same time.  If both are enabled, both
+resulting strings will be shown separated by a semicolon (that cannot currently
+be customized).
+)
+enditem()
 
 In tt(branchformat) these replacements are done:
 
@@ -1138,8 +1193,8 @@ item(tt(vcs_info_hookdel))(
 Remove hook-functions from a given hook. The hook needs to be given as the
 first non-option argument; what follows is a list of hook-function
 names to un-register from the hook. If `tt(-a)' is used as the first
-argument, tt(all) occurances of the functions are unregistered. Otherwise
-only the last occurance is removed (if a function was registered to a hook
+argument, tt(all) occurrences of the functions are unregistered. Otherwise
+only the last occurrence is removed (if a function was registered to a hook
 more than once) . The `tt(+vi-)' prefix needs to be left out here. See
 bf(Hooks in vcs_info) below for details.
 )
@@ -1164,12 +1219,12 @@ without restarting the shell.
 )
 enditem()
 
-All functions named VCS_INFO_* are for internal use only.
+All functions named tt(VCS_INFO_*) are for internal use only.
 
 subsect(Variable Description)
 
 startitem()
-item(tt(${vcs_info_msg_)var(N)tt(_}) (Note the trailing underscore))
+item(tt(${vcs_info_msg_)var(N)tt(_)}) (Note the trailing underscore))
 (
 Where var(N) is an integer, e.g., tt(vcs_info_msg_0_). These variables
 are the storage for the informational message the last tt(vcs_info) call
@@ -1182,7 +1237,7 @@ exported into the environment. (See the tt(max-exports) style above.)
 )
 enditem()
 
-All variables named VCS_INFO_* are for internal use only.
+All variables named tt(VCS_INFO_*) are for internal use only.
 
 subsect(Hooks in vcs_info)
 
@@ -1201,7 +1256,7 @@ example(zstyle ':vcs_info:*+foo:*' hooks bar baz)
 
 This registers functions to the hook `foo' for all backends. In order to
 avoid namespace problems, all registered function names are prepended by
-a `+vi-', so the actual functions called for the `foo' hook are
+a `tt(+vi-)', so the actual functions called for the `foo' hook are
 `tt(+vi-bar)' and `tt(+vi-baz)'.
 
 If you would like to register a function to a hook regardless of the
@@ -1272,16 +1327,19 @@ tt(get-revision) and tt(get-bookmarks) styles must be true.
 This hook gets the names of the Mercurial bookmarks that
 tt(vcs_info) collected from `hg'.
 
+If a bookmark is active, the key tt(${hook_com[hg-active-bookmark]}) is
+set to its name.  The key is otherwise unset.
+
 When setting tt(ret) to non-zero, the string in
 tt(${hook_com[hg-bookmark-string]}) will be used in the tt(%m) escape in
-tt(formats) and tt(actionformats) and will be availabe in the global
+tt(formats) and tt(actionformats) and will be available in the global
 tt(backend_misc) array as tt(${backend_misc[bookmarks]}).
 )
 item(tt(gen-applied-string))(
-Called in the tt(git) (with tt(stgit)), and tt(hg) (with tt(mq)) backends
-and in tt(quilt) support when the tt(applied-string) is generated; the
-tt(use-quilt) zstyle must be true for tt(quilt) (the tt(mq) and tt(stgit)
-backends are active by default).
+Called in the tt(git) (with tt(stgit) or during rebase), and tt(hg)
+(with tt(mq)) backends and in tt(quilt) support when the tt(applied-string)
+is generated; the tt(use-quilt) zstyle must be true for tt(quilt) (the tt(mq)
+and tt(stgit) backends are active by default).
 
 This hook gets the names of all applied patches which tt(vcs_info) collected
 so far in the opposite order, which means that the first argument is the
@@ -1294,9 +1352,9 @@ tt(backend_misc) array as tt($backend_misc[patches]}); and it will be
 available as tt(%p) in the tt(patch-format) and tt(nopatch-format) styles.
 )
 item(tt(gen-unapplied-string))(
-Called in the tt(git) (with tt(stgit)), and tt(hg) (with tt(mq)) backend
-and in tt(quilt) support when the tt(unapplied-string) is generated; the
-tt(get-unapplied) style must be true.
+Called in the tt(git) (with tt(stgit) or during rebase), and tt(hg) (with
+tt(mq)) backend and in tt(quilt) support when the tt(unapplied-string) is
+generated; the tt(get-unapplied) style must be true.
 
 This hook gets the names of all unapplied patches which tt(vcs_info)
 collected so far in the opposite order, which mean that the first argument is
@@ -1319,7 +1377,12 @@ tt(patch-format) and tt(nopatch-format) styles.
 item(tt(no-vcs))(
 This hooks is called when no version control system was detected.
 
-The `hook_com' parameter is not used.
+The `tt(hook_com)' parameter is not used.
+)
+item(tt(post-backend))(
+Called as soon as the backend has finished collecting information.
+
+The `tt(hook_com)' keys available are as for the tt(set-message) hook.
 )
 item(tt(post-quilt))(
 Called after the tt(quilt) support is done. The following information
@@ -1354,9 +1417,33 @@ If tt(ret) is set to non-zero, the string in
 tt(${hook_com[rev-replace]}) will be used unchanged as the
 `tt(%i)' replacement in the variables set by tt(vcs_info).
 )
+item(tt(pre-addon-quilt))(
+This hook is used when tt(vcs_info)'s quilt functionality is active in "addon"
+mode (quilt used on top of a real version control system). It is activated
+right before any quilt specific action is taken.
+
+Setting the `tt(ret)' variable in this hook to a non-zero value avoids any
+quilt specific actions from being run at all.
+)
+item(tt(set-patch-format))(
+This hook is used to control some of the possible expansions in
+tt(patch-format) and tt(nopatch-format) styles with patch queue systems such as
+quilt, mqueue and the like.
+
+This hook is used in the tt(git), tt(hg) and tt(quilt) backends.
+
+The hook allows the control of the tt(%p) (tt(${hook_com[applied]})) and tt(%u)
+(tt(${hook_com[unapplied]})) expansion in all backends that use the hook. With
+the mercurial backend, the tt(%g) (tt(${hook_com[guards]})) expansion is
+controllable in addition to that.
+
+If tt(ret) is set to non-zero, the string in tt(${hook_com[patch-replace]})
+will be used unchanged instead of an expanded format from tt(patch-format) or
+tt(nopatch-format).
+)
 item(tt(set-message))(
-Called each time before a `tt(vcs_info_msg_N_)' message is set.
-It takes two arguments; the first being the `N' in the message
+Called each time before a `tt(vcs_info_msg_)var(N)tt(_)' message is set.
+It takes two arguments; the first being the `var(N)' in the message
 variable name, the second is the currently configured tt(formats) or
 tt(actionformats).
 
@@ -1381,8 +1468,8 @@ tt(vcs_info).
 )
 enditem()
 
-If all of this sounds rather confusing, take a look at the tt(Examples)
-section below and also in the Misc/vcs_info-examples file in the Zsh source.
+If all of this sounds rather confusing, take a look at the bf(Examples)
+section below and also in the tt(Misc/vcs_info-examples) file in the Zsh source.
 They contain some explanatory code.
 
 subsect(Examples)
@@ -1400,8 +1487,8 @@ Provide a special formats for tt(git):
 example(zstyle ':vcs_info:git:*' formats       ' GIT, BABY! [%b]'
 zstyle ':vcs_info:git:*' actionformats ' GIT ACTION! [%b|%a]')
 
-All tt(%x) expansion in all sorts of formats ("formats", "actionformats",
-branchformat, you name it) are done using the `tt(zformat)' builtin from
+All tt(%x) expansion in all sorts of formats (tt(formats), tt(actionformats),
+tt(branchformat), you name it) are done using the `tt(zformat)' builtin from
 the `tt(zsh/zutil)' module. That means you can do everything with these
 tt(%x) items what zformat supports. In particular, if you want something
 that is really long to have a fixed width, like a hash in a mercurial
@@ -1417,16 +1504,17 @@ example(zstyle ':vcs_info:bzr:*' use-simple true)
 If you do use tt(use-simple), please report if it does `the-right-thing[tm]'.
 
 Display the revision number in yellow for tt(bzr) and tt(svn):
-example(zstyle ':vcs_info:(svn|bzr):*' branchformat '%b%{'${fg[yellow]}'%}:%r')
+example(zstyle ':vcs_info:(svn|bzr):*' \ 
+       branchformat '%b%{'${fg[yellow]}'%}:%r')
 
-If you want colors, make sure you enclose the color codes in tt(%{...%})
+If you want colors, make sure you enclose the color codes in tt(%{)var(...)tt(%})
 if you want to use the string provided by tt(vcs_info) in prompts.
 
 Here is how to print the VCS information as a command (not in a prompt):
 example(alias vcsi='vcs_info command; vcs_info_lastmsg')
 
 This way, you can even define different formats for output via
-tt(vcs_info_lastmsg) in the ':vcs_info:*:command:*' namespace.
+tt(vcs_info_lastmsg) in the 'tt(:vcs_info:*:command:*)' namespace.
 
 Now as promised, some code that uses hooks:
 say, you'd like to replace the string `svn' by `subversion' in
@@ -1481,22 +1569,15 @@ function +vi-hgbookmarks+LPAR()RPAR() {
     # This makes the bookmarks string use only those
     # bookmarks. If there's more than one, it
     # concatenates them using commas.
-    local s i
     # The bookmarks returned by `hg' are available in
-    # the functions positional parameters.
-    (( $# == 0 )) && return 0
-    for i in "$@"; do
-        if [[ $i == sh/* ]]; then
-            [[ -n $s ]] && s=$s,
-            s=${s}$i
-        fi
-    done
+    # the function's positional parameters.
+    local s="${(Mj:,:)@:#sh/*}"
     # Now, the communication with the code that calls
     # the hook functions is done via the hook_com[]
-    # hash. The key, at which the `gen-hg-bookmark-string'
-    # hook looks at is `hg-bookmark-string'. So:
+    # hash. The key at which the `gen-hg-bookmark-string'
+    # hook looks is `hg-bookmark-string'. So:
     hook_com[hg-bookmark-string]=$s
-    # And to signal, that we want to use the sting we
+    # And to signal that we want to use the string we
     # just generated, set the special variable `ret' to
     # something other than the default zero:
     ret=1
@@ -1766,7 +1847,8 @@ Neither of the styles tt(word-chars) nor tt(word-class) is used in this case.
 Here are some examples of use of the tt(word-context) style to extend
 the context.
 
-example(zstyle ':zle:*' word-context "*/*" file "[[:space:]]" whitespace
+example(zstyle ':zle:*' word-context \ 
+       "*/*" file "[[:space:]]" whitespace
 zstyle ':zle:transpose-words:whitespace' word-style shell
 zstyle ':zle:transpose-words:filename' word-style normal
 zstyle ':zle:transpose-words:filename' word-chars '')
@@ -1848,7 +1930,7 @@ described immediately above, i.e. using styles to decide the word
 boundaries.  However, it is not a replacement for any existing function.
 
 The basic behaviour is to delete the word around the cursor.  There is no
-numeric prefix handling; only the single word around the cursor is
+numeric argument handling; only the single word around the cursor is
 considered.  If the widget contains the string tt(kill), the removed text
 will be placed in the cutbuffer for future yanking.  This can be obtained
 by defining tt(kill-whole-word-match) as follows:
@@ -1873,6 +1955,12 @@ item(tt(edit-command-line))(
 Edit the command line using your visual editor, as in tt(ksh).
 
 example(bindkey -M vicmd v edit-command-line)
+)
+tindex(expand-absolute-path)
+item(tt(expand-absolute-path))(
+Expand the file name under the cursor to an absolute path, resolving
+symbolic links.  Where possible, the initial path segment is turned
+into a named directory or reference to a user's home directory.
 )
 tindex(history-beginning-search-backward-end)
 tindex(history-beginning-search-forward-end)
@@ -1908,14 +1996,14 @@ full history line.  Note that leading zeroes must be typed (they are only
 shown when necessary for removing ambiguity).  The entire history is
 searched; there is no distinction between forwards and backwards.
 
-With a prefix argument, the search is not anchored to the start of
+With a numeric argument, the search is not anchored to the start of
 the line; the string typed by the use may appear anywhere in the line
 in the history.
 
 If the widget name contains `tt(-end)' the cursor is moved to the end of
 the line inserted.  If the widget name contains `tt(-space)' any space
 in the text typed is treated as a wildcard and can match anything (hence
-a leading space is equivalent to giving a prefix argument).  Both
+a leading space is equivalent to giving a numeric argument).  Both
 forms can be combined, for example:
 
 example(zle -N history-beginning-search-menu-space-end \ 
@@ -1945,8 +2033,8 @@ vindex(incarg, use of)
 item(tt(incarg))(
 Typing the keystrokes for this widget with the cursor placed on or to the
 left of an integer causes that integer to be incremented by one.  With a
-numeric prefix argument, the number is incremented by the amount of the
-argument (decremented if the prefix argument is negative).  The shell
+numeric argument, the number is incremented by the amount of the
+argument (decremented if the numeric argument is negative).  The shell
 parameter tt(incarg) may be set to change the default increment to
 something other than one.
 
@@ -1975,7 +2063,7 @@ accented characters, the two keys are a base character followed by a code
 for the accent, while for other special characters the two characters
 together form a mnemonic for the character to be inserted.  The
 two-character codes are a subset of those given by RFC 1345 (see for
-example tt(http://www.faqs.org/rfcs/rfc1345.html)).
+example uref(http://www.faqs.org/rfcs/rfc1345.html)).
 
 The function may optionally be followed by up to two characters which
 replace one or both of the characters read from the keyboard; if both
@@ -2182,8 +2270,9 @@ using a two-character mnemonic.
 )
 tindex(narrow-to-region)
 tindex(narrow-to-region-invisible)
-xitem(tt(narrow-to-region [ -p) var(pre) tt(] [ -P) var(post) tt(]))
-xitem(    tt([ -S) var(statepm) tt(| -R) var(statepm) tt(] [ -n ] [) var(start) var(end) tt(])))
+redef(SPACES)(0)(tt(ifztexi(NOTRANS(@ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ ))ifnztexi(                 )))
+xitem(tt(narrow-to-region )[ tt(-p) var(pre) ] [ tt(-P) var(post) ])
+xitem(SPACES()[ tt(-S) var(statepm) | tt(-R) var(statepm) ] [ tt(-n) ] [ var(start) var(end) ])
 item(tt(narrow-to-region-invisible))(
 Narrow the editable portion of the buffer to the region between the cursor
 and the mark, which may be in either order.  The region may not be empty.
@@ -2306,6 +2395,32 @@ The name is a slight misnomer, as in fact the shell's own minibuffer is
 not used.  Hence it is still possible to call tt(executed-named-cmd) and
 similar functions while reading a value.
 )
+tindex(replace-argument)
+tindex(replace-argument-edit)
+item(tt(replace-argument), tt(replace-argument-edit))
+(
+The function tt(replace-argument) can be used to replace a command
+line argument in the current command line or, if the current command
+line is empty, in the last command line executed (the new command line
+is not executed).  Arguments are as delimited by standard shell syntax,
+
+If a numeric argument is given, that specifies the argument to be
+replaced.  0 means the command name, as in history expansion.
+A negative numeric argument counts backward from the last word.
+
+If no numeric argument is given, the current argument is replaced;
+this is the last argument if the previous history line is being used.
+
+The function prompts for a replacement argument.
+
+If the widget contains the string tt(edit), for example is defined as
+
+example(zle -N replace-argument-edit replace-argument)
+
+then the function presents the current value of the argument for
+editing, otherwise the editing buffer for the replacement is
+initially empty.
+)
 tindex(replace-string)
 tindex(replace-string-again)
 tindex(replace-pattern)
@@ -2394,7 +2509,7 @@ This function may replace the tt(insert-last-word) widget, like so:
 
 example(zle -N insert-last-word smart-insert-last-word)
 
-With a numeric prefix, or when passed command line arguments in a call
+With a numeric argument, or when passed command line arguments in a call
 from another widget, it behaves like tt(insert-last-word), except that
 words in comments are ignored when tt(INTERACTIVE_COMMENTS) is set.
 
@@ -2423,12 +2538,12 @@ The effect is similar to the function of the same name in Emacs.
 
 Transpose the current line with the previous line and move the cursor
 to the start of the next line.  Repeating this (which can be done by
-providing a positive numeric prefix argument) has the effect of moving
+providing a positive numeric argument) has the effect of moving
 the line above the cursor down by a number of lines.
 
-With a negative numeric prefix argument, requires two lines above the
+With a negative numeric argument, requires two lines above the
 cursor.  These two lines are transposed and the cursor moved to the
-start of the previous line.  Using a numeric prefix less than -1
+start of the previous line.  Using a numeric argument less than -1
 has the effect of moving the line above the cursor up by minus that
 number of lines.
 )
@@ -2443,6 +2558,25 @@ alias until it reaches the command that will be executed.
 The style tt(whence) is available in the context tt(:zle:$WIDGET); this
 may be set to an array to give the command and options that will be used to
 investigate the command word found.  The default is tt(whence -c).
+)
+tindex(zcalc-auto-insert)
+item(tt(zcalc-auto-insert))(
+This function is useful together with the tt(zcalc) function described in
+ifzman(the section Mathematical Functions)\
+ifnzman(noderef(Mathematical Functions)).
+It should be bound to a key representing a binary operator such
+as `tt(PLUS())', `tt(-)', `tt(*)' or `tt(/)'.  When running in zcalc,
+if the key occurs at the start of the line or immediately following
+an open parenthesis, the text tt("ans ") is inserted before the
+representation of the key itself.  This allows easy use of the
+answer from the previous calculation in the current line.  The
+text to be inserted before the symbol typed can be modified by setting
+the variable tt(ZCALC_AUTO_INSERT_PREFIX).
+
+Hence, for example, typing `tt(PLUS()12)' followed by return adds 12
+to the previous result.
+
+When not in zcalc, the key simply inserts the symbol itself.
 )
 enditem()
 
@@ -2789,8 +2923,8 @@ command to an appropriate viewer.
 startitem()
 findex(zsh-mime-setup)
 findex(zsh-mime-handler)
-xitem(tt(zsh-mime-setup) [ tt(-fv) ] [ tt(-l) [ var(suffix ...) ] ])
-item(tt(zsh-mime-handler [-l] var(command arguments ...)))(
+xitem(tt(zsh-mime-setup) [ tt(-fv) ] [ tt(-l) [ var(suffix) ... ] ])
+item(tt(zsh-mime-handler) [ tt(-l) ] var(command argument) ...)(
 These two functions use the files tt(~/.mime.types) and tt(/etc/mime.types),
 which associate types and extensions, as well as tt(~/.mailcap) and
 tt(/etc/mailcap) files, which associate types and the programs that
@@ -2898,8 +3032,8 @@ types even if they are executable.  As this example shows, the complete
 file name is matched against the pattern, regardless of how the file
 was passed to the handler.  The file is resolved to a full path using
 the tt(:A) modifier described in
-ifzman(the subsection Modifers in zmanref(zshexpn))\
-ifnzman(noderef(Modifiers)));
+ifzman(the subsection Modifiers in zmanref(zshexpn))\
+ifnzman(noderef(Modifiers));
 this means that symbolic links are resolved where possible, so that
 links into other file systems behave in the correct fashion.
 )
@@ -3160,8 +3294,18 @@ A reasonably powerful calculator based on zsh's arithmetic evaluation
 facility.  The syntax is similar to that of formulae in most programming
 languages; see
 ifzman(the section `Arithmetic Evaluation' in zmanref(zshmisc))\
-ifnzman(noderef(Arithmetic Evaluation)) for details.  The mathematical
-library tt(zsh/mathfunc) will be loaded if it is available; see
+ifnzman(noderef(Arithmetic Evaluation)) for details.
+
+Non-programmers should note that, as in many other programming
+languages, expressions involving only integers (whether constants
+without a `tt(.)', variables containing such constants as strings, or
+variables declared to be integers) are by default evaluated using
+integer arithmetic, which is not how an ordinary desk calculator
+operates.  To force floating point operation, pass the option tt(-f);
+see further notes below.
+
+The mathematical library tt(zsh/mathfunc) will be loaded if it is
+available; see
 ifzman(the section `The zsh/mathfunc Module' in zmanref(zshmodules))\
 ifnzman(noderef(The zsh/mathfunc Module)).  The mathematical functions
 correspond to the raw system libraries, so trigonometric functions are
@@ -3370,21 +3514,22 @@ by the prompt theme system (ifzman(see above)\
 ifnzman(noderef(Prompt Themes))).  You seldom should need to run
 tt(colors) more than once.
 
-The eight base colors are: black, red, green, yellow, blue, magenta, cyan,
-and white.  Each of these has codes for foreground and background.  In
-addition there are eight intensity attributes: bold, faint, standout,
-underline, blink, reverse, and conceal.  Finally, there are six codes used
-to negate attributes: none (reset all attributes to the defaults), normal
-(neither bold nor faint), no-standout, no-underline, no-blink, and
-no-reverse.
+The eight base colors are: tt(black), tt(red), tt(green), tt(yellow),
+tt(blue), tt(magenta), tt(cyan), and tt(white).  Each of these has codes for
+foreground and background.  In addition there are seven intensity attributes:
+tt(bold), tt(faint), tt(standout), tt(underline), tt(blink), tt(reverse),
+and tt(conceal).  Finally, there are seven codes used to negate attributes:
+tt(none) (reset all attributes to the defaults), tt(normal)
+(neither bold nor faint), tt(no-standout), tt(no-underline), tt(no-blink),
+tt(no-reverse), and tt(no-conceal).
 
 Some terminals do not support all combinations of colors and intensities.
 
 The associative arrays are:
 
 startitem()
-xitem(color)
-item(colour)(
+xitem(tt(color))
+item(tt(colour))(
 Map all the color names to their integer codes, and integer codes to the
 color names.  The eight base names map to the foreground color codes, as
 do names prefixed with `tt(fg-)', such as `tt(fg-red)'.  Names prefixed
@@ -3395,16 +3540,16 @@ and the tt(bg-) form for backgrounds.
 Although it is a misnomer to call them `colors', these arrays also map the
 other fourteen attributes from names to codes and codes to names.
 )
-xitem(fg)
-xitem(fg_bold)
-item(fg_no_bold)(
+xitem(tt(fg))
+xitem(tt(fg_bold))
+item(tt(fg_no_bold))(
 Map the eight basic color names to ANSI terminal escape sequences that set
 the corresponding foreground text properties.  The tt(fg) sequences change
 the color without changing the eight intensity attributes.
 )
-xitem(bg)
-xitem(bg_bold)
-item(bg_no_bold)(
+xitem(tt(bg))
+xitem(tt(bg_bold))
+item(tt(bg_no_bold))(
 Map the eight basic color names to ANSI terminal escape sequences that set
 the corresponding background properties.  The tt(bg) sequences change the
 color without changing the eight intensity attributes.
@@ -3541,6 +3686,17 @@ If you quit in the middle of a game, the next invocation of the tt(tetris)
 widget will continue where you left off.  If you lost, it will start a new
 game.
 )
+item(tt(tetriscurses))(
+This is a port of the above to zcurses.  The input handling is improved
+a bit so that moving a block sideways doesn't automatically advance a
+timestep, and the graphics use unicode block graphics.
+
+This version does not save the game state between invocations, and is not
+invoked as a widget, but rather as:
+
+example(autoload -U tetriscurses
+tetriscurses)
+)
 findex(zargs)
 item(tt(zargs) [ var(option) ... tt(-)tt(-) ] [ var(input) ... ] [ tt(-)tt(-) var(command) [ var(arg) ... ] ])(
 This function has a similar purpose to GNU xargs.  Instead of
@@ -3652,11 +3808,13 @@ ifzman(above)\
 ifnzman((noderef(Utilities))).
 )
 findex(zmv)
-item(tt(zmv) [ tt(-finqQsvwW) ] [ -C | -L | -M | -[pP] var(program) ] [ -o var(optstring) ] var(srcpat) var(dest) )(
+redef(SPACES)(0)(tt(ifztexi(NOTRANS(@ @ @ @ ))ifnztexi(    )))
+xitem(tt(zmv) [ tt(-finqQsvwW) ] [ tt(-C) | tt(-L) | tt(-M) | -{tt(p)|tt(P)} var(program) ] [ tt(-o) var(optstring) ])
+item(SPACES()var(srcpat) var(dest) )(
 Move (usually, rename) files matching the pattern var(srcpat) to
 corresponding files having names of the form given by var(dest), where
 var(srcpat) contains parentheses surrounding patterns which will be
-replaced in turn by $1, $2, ... in var(dest).  For example,
+replaced in turn by tt($1), tt($2), ... in var(dest).  For example,
 
 example(zmv '(*).lis' '$1.txt')
 
@@ -3676,7 +3834,7 @@ sitem(tt(-f))(Force overwriting of destination files.  Not currently
 passed down to the tt(mv)/tt(cp)/tt(ln) command due to vagaries of
 implementations (but you can use tt(-o-f) to do that).)
 sitem(tt(-i))(Interactive: show each line to be executed and ask the user
-whether to execute it.  `Y' or `y' will execute it, anything else will
+whether to execute it.  `tt(Y)' or `tt(y)' will execute it, anything else will
 skip it.  Note that you just need to type one character.)
 sitem(tt(-n))(No execution: print what would happen, but don't do it.)
 sitem(tt(-q))(Turn bare glob qualifiers off: now assumed by default, so
@@ -3688,7 +3846,7 @@ sitem(tt(-v))(Verbose: print each command as it's being executed.)
 sitem(tt(-w))(Pick out wildcard parts of the pattern, as described above,
 and implicitly add parentheses for referring to them.)
 sitem(tt(-W))(Just like tt(-w), with the addition of turning wildcards in
-the replacement pattern into sequential ${1} .. ${N} references.)
+the replacement pattern into sequential tt(${1}) .. tt(${N}) references.)
 sxitem(tt(-C))
 sxitem(tt(-L))
 sitem(tt(-M))(Force tt(cp), tt(ln) or tt(mv), respectively, regardless of
@@ -3726,18 +3884,18 @@ ifzman(above)\
 ifnzman((noderef(Utilities))).
 )
 findex(zstyle+)
-item(tt(zstyle+) var(context) var(style) var(value) [ + var(subcontext) var(style) var(value) ... ])(
+item(tt(zstyle+) var(context) var(style) var(value) [ tt(+) var(subcontext) var(style) var(value) ... ])(
 This makes defining styles a bit simpler by using a single `tt(+)' as a
 special token that allows you to append a context name to the previously
 used context name.  Like this:
 
-example(zstyle+ ':foo:bar' style1 value1 \ 
-      + ':baz'     style2 value2 \ 
-      + ':frob'    style3 value3)
+example(zstyle+ ':foo:bar' var(style1) var(value1) \ 
+      + ':baz'     var(style2) var(value2) \ 
+      + ':frob'    var(style3) var(value3))
 
-This defines `style1' with `value1' for the context tt(:foo:bar) as usual,
-but it also defines `style2' with `value2' for the context
-tt(:foo:bar:baz) and `style3' with `value3' for tt(:foo:bar:frob).  Any
+This defines var(style1) with var(value1) for the context tt(:foo:bar) as usual,
+but it also defines var(style2) with var(value2) for the context
+tt(:foo:bar:baz) and var(style3) with var(value3) for tt(:foo:bar:frob).  Any
 var(subcontext) may be the empty string to re-use the first context
 unchanged.
 )

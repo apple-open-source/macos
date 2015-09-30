@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebURLCredential.h"
 
@@ -39,13 +38,13 @@ WebURLCredential::WebURLCredential(const Credential& credential)
     , m_credential(credential)
 {
     gClassCount++;
-    gClassNameCount.add("WebURLCredential");
+    gClassNameCount().add("WebURLCredential");
 }
 
 WebURLCredential::~WebURLCredential()
 {
     gClassCount--;
-    gClassNameCount.remove("WebURLCredential");
+    gClassNameCount().remove("WebURLCredential");
 }
 
 WebURLCredential* WebURLCredential::createInstance()

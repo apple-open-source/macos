@@ -44,13 +44,13 @@
  */
 
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
-gss_wrap(OM_uint32 *minor_status,
-    const gss_ctx_id_t context_handle,
+gss_wrap(OM_uint32 *__nonnull minor_status,
+    __nonnull const gss_ctx_id_t context_handle,
     int conf_req_flag,
     gss_qop_t qop_req,
-    const gss_buffer_t input_message_buffer,
-    int *conf_state,
-    gss_buffer_t output_message_buffer)
+    __nonnull const gss_buffer_t input_message_buffer,
+    int *__nullable conf_state,
+    __nonnull gss_buffer_t output_message_buffer)
 {
 	struct _gss_context *ctx = (struct _gss_context *) context_handle;
 	gssapi_mech_interface m;

@@ -1,5 +1,5 @@
 /*
- * "$Id: config.h 12142 2014-08-30 02:35:43Z msweet $"
+ * "$Id: config.h 12836 2015-08-06 14:13:37Z msweet $"
  *
  * Configuration file for CUPS on Windows.
  *
@@ -96,8 +96,8 @@ typedef unsigned long useconds_t;
  * Version of software...
  */
 
-#define CUPS_SVERSION "CUPS v2.0.0"
-#define CUPS_MINIMAL "CUPS/2.0.0"
+#define CUPS_SVERSION "CUPS v2.1.0"
+#define CUPS_MINIMAL "CUPS/2.1.0"
 
 
 /*
@@ -378,6 +378,13 @@ typedef unsigned long useconds_t;
  */
 
 /* #undef HAVE_GNUTLS_TRANSPORT_SET_PULL_TIMEOUT_FUNCTION */
+
+
+/*
+ * Do we have the gnutls_priority_set_direct function?
+ */
+
+/* #undef HAVE_GNUTLS_PRIORITY_SET_DIRECT */
 
 
 /*
@@ -792,5 +799,5 @@ static __inline int _cups_abs(int i) { return (i < 0 ? -i : i); }
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h 12142 2014-08-30 02:35:43Z msweet $".
+ * End of "$Id: config.h 12836 2015-08-06 14:13:37Z msweet $".
  */

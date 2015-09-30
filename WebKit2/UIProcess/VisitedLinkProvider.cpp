@@ -30,8 +30,9 @@
 #include "VisitedLinkProviderMessages.h"
 #include "VisitedLinkTable.h"
 #include "VisitedLinkTableControllerMessages.h"
-#include "WebContext.h"
 #include "WebProcessMessages.h"
+#include "WebProcessPool.h"
+#include "WebProcessProxy.h"
 
 using namespace WebCore;
 
@@ -46,9 +47,9 @@ static uint64_t generateIdentifier()
     return ++identifier;
 }
 
-PassRefPtr<VisitedLinkProvider> VisitedLinkProvider::create()
+Ref<VisitedLinkProvider> VisitedLinkProvider::create()
 {
-    return adoptRef(new VisitedLinkProvider);
+    return adoptRef(*new VisitedLinkProvider);
 }
 
 VisitedLinkProvider::~VisitedLinkProvider()
@@ -92,6 +93,14 @@ void VisitedLinkProvider::removeProcess(WebProcessProxy& process)
     process.removeMessageReceiver(Messages::VisitedLinkProvider::messageReceiverName(), m_identifier);
 }
 
+void VisitedLinkProvider::addVisitedLinkHash(LinkHash linkHash)
+{
+    m_pendingVisitedLinks.add(linkHash);
+
+    if (!m_pendingVisitedLinksTimer.isActive())
+        m_pendingVisitedLinksTimer.startOneShot(0);
+}
+
 void VisitedLinkProvider::removeAll()
 {
     m_pendingVisitedLinksTimer.stop();
@@ -101,17 +110,19 @@ void VisitedLinkProvider::removeAll()
     m_table.clear();
 
     for (WebProcessProxy* process : m_processes) {
-        ASSERT(process->context().processes().contains(process));
+        ASSERT(process->processPool().processes().contains(process));
         process->connection()->send(Messages::VisitedLinkTableController::RemoveAllVisitedLinks(), m_identifier);
     }
 }
 
-void VisitedLinkProvider::addVisitedLinkHash(LinkHash linkHash)
+void VisitedLinkProvider::webProcessWillOpenConnection(WebProcessProxy&, IPC::Connection&)
 {
-    m_pendingVisitedLinks.add(linkHash);
+    // FIXME: Implement.
+}
 
-    if (!m_pendingVisitedLinksTimer.isActive())
-        m_pendingVisitedLinksTimer.startOneShot(0);
+void VisitedLinkProvider::webProcessDidCloseConnection(WebProcessProxy&, IPC::Connection&)
+{
+    // FIXME: Implement.
 }
 
 void VisitedLinkProvider::addVisitedLinkHashFromPage(uint64_t pageID, LinkHash linkHash)
@@ -180,7 +191,7 @@ void VisitedLinkProvider::pendingVisitedLinksTimerFired()
         return;
 
     for (WebProcessProxy* process : m_processes) {
-        ASSERT(process->context().processes().contains(process));
+        ASSERT(process->processPool().processes().contains(process));
 
         if (addedVisitedLinks.size() > 20)
             process->connection()->send(Messages::VisitedLinkTableController::AllVisitedLinkStateChanged(), m_identifier);
@@ -191,7 +202,7 @@ void VisitedLinkProvider::pendingVisitedLinksTimerFired()
 
 void VisitedLinkProvider::resizeTable(unsigned newTableSize)
 {
-    RefPtr<SharedMemory> newTableMemory = SharedMemory::create(newTableSize * sizeof(LinkHash));
+    RefPtr<SharedMemory> newTableMemory = SharedMemory::allocate(newTableSize * sizeof(LinkHash));
 
     if (!newTableMemory) {
         LOG_ERROR("Could not allocate shared memory for visited link table");
@@ -236,10 +247,10 @@ void VisitedLinkProvider::resizeTable(unsigned newTableSize)
 
 void VisitedLinkProvider::sendTable(WebProcessProxy& process)
 {
-    ASSERT(process.context().processes().contains(&process));
+    ASSERT(process.processPool().processes().contains(&process));
 
     SharedMemory::Handle handle;
-    if (!m_table.sharedMemory()->createHandle(handle, SharedMemory::ReadOnly))
+    if (!m_table.sharedMemory()->createHandle(handle, SharedMemory::Protection::ReadOnly))
         return;
 
     process.connection()->send(Messages::VisitedLinkTableController::SetVisitedLinkTable(handle), m_identifier);

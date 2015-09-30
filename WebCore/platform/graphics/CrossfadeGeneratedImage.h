@@ -34,13 +34,11 @@
 
 namespace WebCore {
 
-class CSSCrossfadeValue;
-
 class CrossfadeGeneratedImage final : public GeneratedImage {
 public:
-    static PassRefPtr<CrossfadeGeneratedImage> create(Image* fromImage, Image* toImage, float percentage, const FloatSize& crossfadeSize, const FloatSize& size)
+    static Ref<CrossfadeGeneratedImage> create(Image* fromImage, Image* toImage, float percentage, const FloatSize& crossfadeSize, const FloatSize& size)
     {
-        return adoptRef(new CrossfadeGeneratedImage(fromImage, toImage, percentage, crossfadeSize, size));
+        return adoptRef(*new CrossfadeGeneratedImage(fromImage, toImage, percentage, crossfadeSize, size));
     }
 
     virtual void setContainerSize(const FloatSize&) override { }

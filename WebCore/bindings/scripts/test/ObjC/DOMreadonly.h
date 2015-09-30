@@ -26,6 +26,6 @@
 
 #import <WebCore/DOMObject.h>
 
-WEBKIT_CLASS_AVAILABLE_MAC(TBD)
-@interface DOMreadonly : DOMObject
+WEBKIT_CLASS_AVAILABLE_MAC(9876_5)
+WEBCORE_EXPORT @interface DOMreadonly : DOMObject
 @end

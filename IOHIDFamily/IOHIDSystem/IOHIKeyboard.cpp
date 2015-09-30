@@ -35,7 +35,6 @@
 #include "IOKit/hidsystem/IOHIKeyboard.h"
 #include "IOHIDKeyboardDevice.h"
 #include "IOHIDFamilyTrace.h"
-#include "IOHIDSecurePromptClient.h"
 #include "ev_private.h"
 
 //************************************************************************
@@ -54,7 +53,7 @@ struct KeyboardReserved
     bool			dispatchEventCalled;
     bool			isSeized;
     bool			repeatMode;
-    bool            hasSecurePrompt;
+    bool            hasSecurePrompt; // deprecated
     IOService *		openClient;
     IOHIDKeyboardDevice *	keyboardNub;
 };
@@ -204,9 +203,6 @@ void IOHIKeyboard::stop(IOService * provider)
 		if ( tempReservedStruct->keyboardNub )
 			tempReservedStruct->keyboardNub->release();
 		tempReservedStruct->keyboardNub = NULL;
-        
-		if ( tempReservedStruct->hasSecurePrompt )
-            tempReservedStruct->hasSecurePrompt = false;
 		
 		RemoveKeyboardReservedStructForService(this);
 	}
@@ -470,12 +466,7 @@ void IOHIKeyboard::autoRepeat()
     
     if ( AbsoluteTime_to_scalar(&_downRepeatTime) )
     {
-        // Device is due to generate a repeat
-        // <rdar://problem/7415196> 
-        if (postSecureKey(_codeToRepeat, true)) {
-            // do nothing
-        }
-        else if (_keyMap) {
+        if (_keyMap) {
             _keyMap->translateKeyCode(_codeToRepeat,
                                       true, /* direction */
                                       _keyState /* keyBits */);
@@ -790,12 +781,6 @@ void IOHIKeyboard::dispatchKeyboardEvent(unsigned int keyCode,
 
     _lastEventTime = time;
     
-    // <rdar://problem/7415196>
-    if (postSecureKey(keyCode, goingDown)) {
-        IOLockUnlock( _deviceLock);
-        return;
-    }
-
     if (tempReservedStruct)
     {
         if (tempReservedStruct->keyboardNub)
@@ -995,54 +980,6 @@ IOReturn IOHIKeyboard::message( UInt32 type, IOService * provider,
                 }
             }
             break;
-         
-        case IOHIDSecurePromptClient::gatheringMessage:
-        {
-            if (argument) {
-                // Only do things if someone is turning ON gathering.
-                AbsoluteTime ts;
-                clock_get_uptime(&ts);
-                
-                // kill any pending repeat
-                if (_codeToRepeat != ((unsigned)-1))
-                    dispatchKeyboardEvent(_codeToRepeat, false, ts);
-                
-                // now get rid of any other keys that might be down
-                UInt32 i, maxKeys = maxKeyCodes();
-                for (i=0; i<maxKeys; i++)
-                    if ( EVK_IS_KEYDOWN(i,_keyState) )
-                        dispatchKeyboardEvent(i, false, ts);
-
-                // continue to issue zero'ed out flags changed events
-                // just in case any of the flag bits were manually set
-                _updateEventFlags(this, 0);
-
-                _keyboardSpecialEvent(  this, 
-                                        NX_SYSDEFINED, 
-                                        0, 
-                                        NX_NOSPECIALKEY, 
-                                        NX_SUBTYPE_STICKYKEYS_RELEASE, 
-                                        _guid, 
-                                        0, 
-                                        _lastEventTime);
-                
-                // Now, disable gathering on all other secure clients
-                if (provider) {
-                    OSIterator *itr = getClientIterator();
-                    if (itr) {
-                    	IOHIDSecurePromptClient *client = NULL;
-                        do {
-                            client = IOHIDSecurePromptClient::nextForIterator(itr);
-                            if (client && (client != provider) && client->gathering()) {
-                                client->setGathering(0);
-                            }
-                        }
-                        while(client);
-                        itr->release();
-                    }
-                }
-            }
-        }
 
         default:
             ret = super::message(type, provider, argument);
@@ -1126,147 +1063,11 @@ void IOHIKeyboard::_updateEventFlags( IOHIKeyboard * self,
     else {
         // this is skanky
         UpdateEventFlagsCallback uefCallback = (UpdateEventFlagsCallback)self->_updateEventFlagsAction;
-        
-        (*uefCallback)(self->_updateEventFlagsTarget,
-                       flags,
-                       self,
-                       0);
-    }
-}
-
-/******************************************************************************/
-IOReturn IOHIKeyboard::newUserClient(task_t          owningTask,
-                                     void *          security_id,
-                                     UInt32          type,
-                                     OSDictionary *  properties,
-                                     IOUserClient ** handler )
-{
-    if ( type == IOHIDSecurePromptClient::clientID )
-        return kIOReturnUnsupported;
-    
-    return super::newUserClient( owningTask, security_id, type, properties, handler );
-}
-
-/******************************************************************************/
-static bool IOHIKeyboard_attachSecurePromptClient_Callback(void * target,
-                                                           void * refCon __unused,
-                                                           IOService * newService,
-                                                           IONotifier * notifier __unused )
-{
-    IOHIDSecurePromptClient *client = (IOHIDSecurePromptClient*)target;
-    IOHIKeyboard *keyboard = OSDynamicCast(IOHIKeyboard, newService);
-    
-    require(client, improper_call);
-    require(keyboard, improper_call);
-    
-    require(!client->dead(), invalid_client);
-    
-    return client->attach(keyboard);
-    
-invalid_client:
-improper_call:
-    return false;
-}
-
-/******************************************************************************/
-IOReturn IOHIKeyboard::newUserClientGated(task_t          owningTask,
-                                          void *          security_id,
-                                          OSDictionary *  properties,
-                                          IOUserClient ** handler )
-{
-    IOHIDSecurePromptClient * client = new IOHIDSecurePromptClient;
-        
-    if ( !client->initWithTask( owningTask, security_id, 0, properties ) ) {
-        client->release();
-        return kIOReturnBadArgument;
-    }
-    
-    if ( !client->start( this ) ) {
-        client->detach( this );
-        client->release();
-        return kIOReturnInternalError;
-    }
-    
-    *handler = client;
-    
-// vtn3 TODO: tell client to guess table
-    
-    // This user client must be attached to all keyboards
-    OSDictionary *match = IOService::serviceMatching(kIOHIKeyboardClass);
-
-    IONotifier *notifier = IOService::addMatchingNotification(gIOPublishNotification,
-                                                              match,
-                                                              IOHIKeyboard_attachSecurePromptClient_Callback,
-                                                              client);
-    client->setNotifier(notifier);
-    match->release();
-    notifier->release();
-    
-    return kIOReturnSuccess;
-}
-
-/******************************************************************************/
-bool IOHIKeyboard::
-postSecureKey(UInt8 key, bool down)
-{
-    KeyboardReserved *reservedStruct = GetKeyboardReservedStructEventForService(this);
-    bool posted = false;
-    if (reservedStruct && reservedStruct->hasSecurePrompt) {
-        IOHIDSecurePromptClient *client = NULL;
-        OSIterator *itr = getClientIterator();
-        if (itr) {
-            do {
-                client = IOHIDSecurePromptClient::nextForIterator(itr);
-                if (client && client->gathering()) {
-                    IOReturn result = client->postKey(key, down);
-                    client = NULL;
-                    if (result == kIOReturnSuccess) {
-                        // event was posted internally. needs suppression.
-                        posted = true;
-                    }
-                }
-            }
-            while(client);
-            itr->release();
-        }
-    }
-    return posted;
-}
-
-/******************************************************************************/
-bool IOHIKeyboard::
-attachToChild(IORegistryEntry * child,
-              const IORegistryPlane * plane )
-{
-    IOHIDSecurePromptClient *secureClient = OSDynamicCast(IOHIDSecurePromptClient, child);
-    if (secureClient) {
-        KeyboardReserved *reservedStruct = GetKeyboardReservedStructEventForService(this);
-        if (reservedStruct) {
-            reservedStruct->hasSecurePrompt = true;
-        }
-    }
-    return super::attachToChild(child, plane);
-}
-
-/******************************************************************************/
-void IOHIKeyboard::
-detachFromChild(IORegistryEntry * child,
-                const IORegistryPlane * plane )
-{
-    IOHIDSecurePromptClient *secureClient = OSDynamicCast(IOHIDSecurePromptClient, child);
-
-    super::detachFromChild(child, plane);
-
-    if (secureClient) {
-        KeyboardReserved *reservedStruct = GetKeyboardReservedStructEventForService(this);
-        if (reservedStruct && reservedStruct->hasSecurePrompt) {
-            OSIterator *itr = getClientIterator();
-            if (itr) {
-                if (NULL == IOHIDSecurePromptClient::nextForIterator(itr)) {
-                    reservedStruct->hasSecurePrompt = false;
-                }
-                itr->release();
-            }
+        if (uefCallback) {
+            (*uefCallback)(self->_updateEventFlagsTarget,
+                           flags,
+                           self,
+                           0);
         }
     }
 }

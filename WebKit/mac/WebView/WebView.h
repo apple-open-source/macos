@@ -54,6 +54,12 @@
 @class WebScriptObject;
 @class WebViewPrivate;
 
+@protocol WebDownloadDelegate;
+@protocol WebFrameLoadDelegate;
+@protocol WebPolicyDelegate;
+@protocol WebResourceLoadDelegate;
+@protocol WebUIDelegate;
+
 // Element dictionary keys
 extern NSString *WebElementDOMNodeKey;          // DOMNode of the element
 extern NSString *WebElementFrameKey;            // WebFrame of the element
@@ -222,31 +228,31 @@ extern NSString *WebViewProgressFinishedNotification;
     @property UIDelegate
     @abstract The WebView's WebUIDelegate.
 */
-@property (nonatomic, assign) id UIDelegate;
+@property (nonatomic, assign) id <WebUIDelegate> UIDelegate;
 
 /*!
     @property resourceLoadDelegate
     @abstract The WebView's WebResourceLoadDelegate.
 */
-@property (nonatomic, assign) id resourceLoadDelegate;
+@property (nonatomic, assign) id <WebResourceLoadDelegate> resourceLoadDelegate;
 
 /*!
     @property downloadDelegate
     @abstract The WebView's WebDownloadDelegate.
 */
-@property (nonatomic, assign) id downloadDelegate;
+@property (nonatomic, assign) id <WebDownloadDelegate> downloadDelegate;
 
 /*!
     @property frameLoadDelegate
     @abstract The WebView's WebFrameLoadDelegate delegate.
 */
-@property (nonatomic, assign) id frameLoadDelegate;
+@property (nonatomic, assign) id <WebFrameLoadDelegate> frameLoadDelegate;
 
 /*!
     @property policyDelegate
     @abstract The WebView's WebPolicyDelegate.
 */
-@property (nonatomic, assign) id policyDelegate;
+@property (nonatomic, assign) id <WebPolicyDelegate> policyDelegate;
 
 /*!
     @property mainFrame

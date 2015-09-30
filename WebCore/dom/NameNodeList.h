@@ -33,14 +33,14 @@ namespace WebCore {
 // NodeList which lists all Nodes in a Element with a given "name" attribute
 class NameNodeList final : public CachedLiveNodeList<NameNodeList> {
 public:
-    static PassRef<NameNodeList> create(ContainerNode& rootNode, const AtomicString& name)
+    static Ref<NameNodeList> create(ContainerNode& rootNode, const AtomicString& name)
     {
         return adoptRef(*new NameNodeList(rootNode, name));
     }
 
     virtual ~NameNodeList();
 
-    virtual bool nodeMatches(Element*) const override;
+    virtual bool elementMatches(Element&) const override;
     virtual bool isRootedAtDocument() const override { return false; }
 
 private:
@@ -49,9 +49,9 @@ private:
     AtomicString m_name;
 };
 
-inline bool NameNodeList::nodeMatches(Element* element) const
+inline bool NameNodeList::elementMatches(Element& element) const
 {
-    return element->getNameAttribute() == m_name;
+    return element.getNameAttribute() == m_name;
 }
 
 } // namespace WebCore

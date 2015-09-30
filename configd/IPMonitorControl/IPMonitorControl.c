@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2013-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -85,7 +85,7 @@ __IPMonitorControlCopyDebugDesc(CFTypeRef cf)
 {
     CFAllocatorRef		allocator = CFGetAllocator(cf);
     IPMonitorControlRef		control = (IPMonitorControlRef)cf;
-    
+
     return (CFStringCreateWithFormat(allocator, NULL,
 				     CFSTR("<IPMonitorControl %p>"),
 				     control));
@@ -95,7 +95,7 @@ STATIC void
 __IPMonitorControlDeallocate(CFTypeRef cf)
 {
     IPMonitorControlRef control = (IPMonitorControlRef)cf;
-    
+
     if (control->connection != NULL) {
 	xpc_release(control->connection);
     }
@@ -104,7 +104,7 @@ __IPMonitorControlDeallocate(CFTypeRef cf)
     }
     return;
 }
-    
+
 /**
  ** IPMonitorControl support functions
  **/
@@ -147,18 +147,17 @@ IPMonitorControlHandleResponse(xpc_object_t event, Boolean async,
     if (type == XPC_TYPE_DICTIONARY) {
 	if (async) {
 	    /* we don't expect async responses messages */
-	    my_log(LOG_NOTICE, "IPMonitorControl: unexpected message");
+	    my_log(LOG_NOTICE, "unexpected message");
 	}
 	else {
 	    int64_t	error;
-	    
+
 	    error = xpc_dictionary_get_int64(event,
 					     kIPMonitorControlResponseKeyError);
 	    if (error != 0) {
 		success = FALSE;
 #ifdef TEST_IPMONITOR_CONTROL
-		my_log(LOG_NOTICE,
-		       "IPMonitorControl: failure code %lld", error);
+		my_log(LOG_NOTICE, "failure code %lld", error);
 #endif /* TEST_IPMONITOR_CONTROL */
 	    }
 	    else {
@@ -169,7 +168,7 @@ IPMonitorControlHandleResponse(xpc_object_t event, Boolean async,
     else if (type == XPC_TYPE_ERROR) {
 	if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
 #ifdef TEST_IPMONITOR_CONTROL
-	    my_log(LOG_NOTICE, "IPMonitorControl: can retry");
+	    my_log(LOG_NOTICE, "can retry");
 #endif /* TEST_IPMONITOR_CONTROL */
 	    retry = TRUE;
 	}
@@ -177,11 +176,11 @@ IPMonitorControlHandleResponse(xpc_object_t event, Boolean async,
 	    const char *	desc;
 
 	    desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
-	    my_log(LOG_NOTICE, "IPMonitorControl: %s", desc);
+	    my_log(LOG_NOTICE, "%s", desc);
 	}
     }
     else {
-	my_log(LOG_NOTICE, "IPMonitorControl: unknown event type : %p", type);
+	my_log(LOG_NOTICE, "unknown event type : %p", type);
     }
     if (retry_p != NULL) {
 	*retry_p = retry;
@@ -230,7 +229,7 @@ ApplyInterfaceRank(const void * key, const void * value, void * context)
     SCNetworkServicePrimaryRank	rank;
     xpc_object_t		request;
 
-    if (CFStringGetCString(key, ifname, sizeof(ifname), 
+    if (CFStringGetCString(key, ifname, sizeof(ifname),
 			   kCFStringEncodingUTF8) == FALSE) {
 	return;
     }
@@ -268,10 +267,14 @@ IPMonitorControlCreate(void)
     control = __IPMonitorControlAllocate(NULL);
     queue = dispatch_queue_create("IPMonitorControl", NULL);
     connection
-	= xpc_connection_create_mach_service(kIPMonitorControlServerName, 
+	= xpc_connection_create_mach_service(kIPMonitorControlServerName,
 					     queue, flags);
     handler = ^(xpc_object_t event) {
-	Boolean			retry;
+	os_activity_t	activity_id;
+	Boolean		retry;
+
+	activity_id = os_activity_start("processing IPMonitor [rank] reply",
+					OS_ACTIVITY_FLAG_DEFAULT);
 
 	(void)IPMonitorControlHandleResponse(event, TRUE, &retry);
 	if (retry && control->assertions != NULL) {
@@ -279,6 +282,8 @@ IPMonitorControlCreate(void)
 				      ApplyInterfaceRank,
 				      control->connection);
 	}
+
+	os_activity_end(activity_id);
     };
     xpc_connection_set_event_handler(connection, handler);
     control->connection = connection;
@@ -296,7 +301,7 @@ IPMonitorControlSetInterfacePrimaryRank(IPMonitorControlRef control,
     xpc_object_t	request;
     Boolean		success = FALSE;
 
-    if (CFStringGetCString(ifname_cf, ifname, sizeof(ifname), 
+    if (CFStringGetCString(ifname_cf, ifname, sizeof(ifname),
 			   kCFStringEncodingUTF8) == FALSE) {
 	return (FALSE);
     }
@@ -317,7 +322,7 @@ IPMonitorControlSetInterfacePrimaryRank(IPMonitorControlRef control,
 	reply = xpc_connection_send_message_with_reply_sync(control->connection,
 							    request);
 	if (reply == NULL) {
-	    my_log(LOG_NOTICE, "IPMonitorControl: failed to send message");
+	    my_log(LOG_NOTICE, "failed to send message");
 	    break;
 	}
 	success = IPMonitorControlHandleResponse(reply, FALSE,
@@ -329,7 +334,7 @@ IPMonitorControlSetInterfacePrimaryRank(IPMonitorControlRef control,
 	if (retry_on_error) {
 	    continue;
 	}
-	my_log(LOG_NOTICE, "IPMonitorControl: fatal error");
+	my_log(LOG_NOTICE, "fatal error");
 	break;
     }
     xpc_release(request);
@@ -358,7 +363,7 @@ IPMonitorControlGetInterfacePrimaryRank(IPMonitorControlRef control,
     xpc_object_t		request;
 
     rank = kSCNetworkServicePrimaryRankDefault;
-    if (CFStringGetCString(ifname_cf, ifname, sizeof(ifname), 
+    if (CFStringGetCString(ifname_cf, ifname, sizeof(ifname),
 			   kCFStringEncodingUTF8) == FALSE) {
 	goto done;
     }
@@ -377,7 +382,7 @@ IPMonitorControlGetInterfacePrimaryRank(IPMonitorControlRef control,
 	reply = xpc_connection_send_message_with_reply_sync(control->connection,
 							    request);
 	if (reply == NULL) {
-	    my_log(LOG_NOTICE, "IPMonitorControl: failed to send message");
+	    my_log(LOG_NOTICE, "failed to send message");
 	    break;
 	}
 	success = IPMonitorControlHandleResponse(reply, FALSE, &retry_on_error);

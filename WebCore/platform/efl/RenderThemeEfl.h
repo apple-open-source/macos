@@ -104,48 +104,45 @@ public:
 
     void adjustSizeConstraints(RenderStyle&, FormType) const;
 
-    // System fonts.
-    virtual void systemFont(CSSValueID, FontDescription&) const override;
-
-    virtual void adjustCheckboxStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustCheckboxStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintCheckbox(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustRadioStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustRadioStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintRadio(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustButtonStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustTextFieldStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustTextFieldStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintTextField(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
-    virtual void adjustTextAreaStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustTextAreaStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintTextArea(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
-    virtual void adjustMenuListStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustMenuListStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintMenuList(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
-    virtual void adjustMenuListButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustMenuListButtonStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintMenuListButtonDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
-    virtual void adjustSearchFieldResultsDecorationPartStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustSearchFieldResultsDecorationPartStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintSearchFieldResultsDecorationPart(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustSearchFieldStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustSearchFieldStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintSearchField(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustSearchFieldResultsButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustSearchFieldResultsButtonStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintSearchFieldResultsButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustSearchFieldCancelButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustSearchFieldCancelButtonStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintSearchFieldCancelButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustSliderTrackStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustSliderTrackStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintSliderTrack(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustSliderThumbStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustSliderThumbStyle(StyleResolver&, RenderStyle&, Element*) const override;
 
-    virtual void adjustSliderThumbSize(RenderStyle&, Element&) const override;
+    virtual void adjustSliderThumbSize(RenderStyle&, Element*) const override;
 
 #if ENABLE(DATALIST_ELEMENT)
     virtual IntSize sliderTickSize() const override;
@@ -157,12 +154,12 @@ public:
 
     virtual bool paintSliderThumb(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    virtual void adjustInnerSpinButtonStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustInnerSpinButtonStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintInnerSpinButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
     static void setDefaultFontSize(int fontsize);
 
-    virtual void adjustProgressBarStyle(StyleResolver&, RenderStyle&, Element&) const override;
+    virtual void adjustProgressBarStyle(StyleResolver&, RenderStyle&, Element*) const override;
     virtual bool paintProgressBar(const RenderObject&, const PaintInfo&, const IntRect&) override;
     virtual double animationRepeatIntervalForProgressBar(RenderProgress&) const override;
     virtual double animationDurationForProgressBar(RenderProgress&) const override;
@@ -188,6 +185,9 @@ private:
     {
         return m_edje || (!m_themePath.isEmpty() && const_cast<RenderThemeEfl*>(this)->loadTheme());
     }
+
+    // System fonts.
+    virtual void updateCachedSystemFontDescription(CSSValueID, FontDescription&) const override;
 
     ALWAYS_INLINE Ecore_Evas* canvas() const { return m_canvas.get(); }
     ALWAYS_INLINE Evas_Object* edje() const { return m_edje.get(); }
@@ -223,7 +223,7 @@ private:
     void applyPartDescription(Evas_Object*, struct ThemePartDesc*);
 
     struct ThemePartCacheEntry {
-        static PassOwnPtr<RenderThemeEfl::ThemePartCacheEntry> create(const String& themePath, FormType, const IntSize&);
+        static std::unique_ptr<RenderThemeEfl::ThemePartCacheEntry> create(const String& themePath, FormType, const IntSize&);
         void reuse(const String& themePath, FormType, const IntSize&);
 
         ALWAYS_INLINE Ecore_Evas* canvas() { return m_canvas.get(); }
@@ -245,7 +245,7 @@ private:
     // List of ThemePartCacheEntry* sorted so that the most recently
     // used entries come first. We use a list for efficient moving
     // of items within the container.
-    Eina_List* m_partCache;
+    Vector<std::unique_ptr<ThemePartCacheEntry>> m_partCache;
 
     ThemePartCacheEntry* getThemePartFromCache(FormType, const IntSize&);
     void clearThemePartCache();

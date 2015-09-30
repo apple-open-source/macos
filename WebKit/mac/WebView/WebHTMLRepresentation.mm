@@ -106,8 +106,15 @@ static NSMutableArray *newArrayByConcatenatingArrays(NSArray *first, NSArray *se
 
 + (NSArray *)supportedMIMETypes
 {
-    static __unsafe_unretained NSArray *staticSupportedMIMETypes = newArrayByConcatenatingArrays([self supportedNonImageMIMETypes], [self supportedImageMIMETypes]);
+    static __unsafe_unretained NSArray *staticSupportedMIMETypes = newArrayByConcatenatingArrays([self supportedNonImageMIMETypes],
+        newArrayByConcatenatingArrays([self supportedImageMIMETypes], [self supportedMediaMIMETypes]));
     return staticSupportedMIMETypes;
+}
+
++ (NSArray *)supportedMediaMIMETypes
+{
+    static __unsafe_unretained NSArray *staticSupportedMediaMIMETypes = newArrayWithStrings(MIMETypeRegistry::getSupportedMediaMIMETypes());
+    return staticSupportedMediaMIMETypes;
 }
 
 + (NSArray *)supportedNonImageMIMETypes
@@ -277,7 +284,7 @@ static NSMutableArray *newArrayByConcatenatingArrays(NSArray *first, NSArray *se
 
 - (NSAttributedString *)attributedStringFrom:(DOMNode *)startNode startOffset:(int)startOffset to:(DOMNode *)endNode endOffset:(int)endOffset
 {
-    return editingAttributedStringFromRange(*Range::create(core(startNode)->document(), core(startNode), startOffset, core(endNode), endOffset));
+    return editingAttributedStringFromRange(Range::create(core(startNode)->document(), core(startNode), startOffset, core(endNode), endOffset));
 }
 #endif
 
@@ -305,7 +312,7 @@ static HTMLFormElement* formElementFromDOMElement(DOMElement *element)
 static HTMLInputElement* inputElementFromDOMElement(DOMElement* element)
 {
     Element* node = core(element);
-    return node && isHTMLInputElement(node) ? toHTMLInputElement(node) : 0;
+    return is<HTMLInputElement>(node) ? downcast<HTMLInputElement>(node) : nullptr;
 }
 
 - (BOOL)elementDoesAutoComplete:(DOMElement *)element
@@ -424,8 +431,10 @@ static RegularExpression* regExpForLabels(NSArray *labels)
     return result;
 }
 
+// FIXME: This should take an Element&.
 static NSString* searchForLabelsBeforeElement(Frame* frame, NSArray* labels, Element* element, size_t* resultDistance, bool* resultIsInCellAbove)
 {
+    ASSERT(element);
     RegularExpression* regExp = regExpForLabels(labels);
     // We stop searching after we've seen this many chars
     const unsigned int charsSearchedThreshold = 500;
@@ -444,16 +453,12 @@ static NSString* searchForLabelsBeforeElement(Frame* frame, NSArray* labels, Ele
     // walk backwards in the node tree, until another element, or form, or end of tree
     unsigned lengthSearched = 0;
     Node* n;
-    for (n = NodeTraversal::previous(element);
-         n && lengthSearched < charsSearchedThreshold;
-         n = NodeTraversal::previous(n))
-    {
-        if (n->hasTagName(formTag)
-            || (n->isHTMLElement() && toElement(n)->isFormControlElement()))
-        {
+    for (n = NodeTraversal::previous(*element); n && lengthSearched < charsSearchedThreshold; n = NodeTraversal::previous(*n)) {
+        if (is<HTMLFormElement>(*n) || is<HTMLFormControlElement>(*n)) {
             // We hit another form element or the start of the form - bail out
             break;
-        } else if (n->hasTagName(tdTag) && !startingTableCell) {
+        }
+        if (n->hasTagName(tdTag) && !startingTableCell) {
             startingTableCell = static_cast<HTMLTableCellElement*>(n);
         } else if (n->hasTagName(trTag) && startingTableCell) {
             NSString* result = frame->searchForLabelsAboveCell(*regExp, startingTableCell, resultDistance);

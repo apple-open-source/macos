@@ -43,9 +43,9 @@
 
 namespace WebCore {
 
-PassRefPtr<IDBCursor> IDBCursor::create(PassRefPtr<IDBCursorBackend> backend, IndexedDB::CursorDirection direction, IDBRequest* request, IDBAny* source, IDBTransaction* transaction)
+Ref<IDBCursor> IDBCursor::create(PassRefPtr<IDBCursorBackend> backend, IndexedDB::CursorDirection direction, IDBRequest* request, IDBAny* source, IDBTransaction* transaction)
 {
-    return adoptRef(new IDBCursor(backend, direction, request, source, transaction));
+    return adoptRef(*new IDBCursor(backend, direction, request, source, transaction));
 }
 
 const AtomicString& IDBCursor::directionNext()
@@ -259,7 +259,7 @@ void IDBCursor::close()
     m_transactionNotifier.cursorFinished();
     if (m_request) {
         m_request->finishCursor();
-        m_request.clear();
+        m_request = nullptr;
     }
 }
 

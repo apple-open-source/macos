@@ -56,10 +56,6 @@ class Storage;
 class TrackBase;
 class VoidCallback;
 
-#if ENABLE(SCRIPTED_SPEECH)
-class SpeechRecognitionResultList;
-#endif
-
 class JSDictionary {
 public:
     JSDictionary(JSC::ExecState* exec, JSC::JSObject* initializerObject)
@@ -78,7 +74,7 @@ public:
     // Returns true if the property was found in the dictionary, and the value could be converted to the desired type.
     template <typename Result>
     bool get(const char* propertyName, Result&) const;
-    bool getWithUndefinedOrNullCheck(const String& propertyName, String& value) const;
+    bool getWithUndefinedOrNullCheck(const char* propertyName, String& value) const;
 
     JSC::ExecState* execState() const { return m_exec; }
     JSC::JSObject* initializerObject() const { return m_initializerObject.get(); }
@@ -138,12 +134,10 @@ private:
     static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<DOMError>& result);
     static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<VoidCallback>& result);
 #endif
-#if ENABLE(SCRIPTED_SPEECH)
-    static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<SpeechRecognitionResultList>&);
-#endif
 #if ENABLE(GAMEPAD)
     static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<Gamepad>&);
 #endif
+    static void convertValue(JSC::ExecState*, JSC::JSValue, JSC::JSFunction*&);
 
     JSC::ExecState* m_exec;
     JSC::Strong<JSC::JSObject> m_initializerObject;

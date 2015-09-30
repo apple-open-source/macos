@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-startup.m4 11748 2014-03-27 01:16:09Z msweet $"
+dnl "$Id: cups-startup.m4 12827 2015-07-31 15:21:37Z msweet $"
 dnl
 dnl Launch-on-demand/startup stuff for CUPS.
 dnl
-dnl Copyright 2007-2014 by Apple Inc.
+dnl Copyright 2007-2015 by Apple Inc.
 dnl Copyright 1997-2005 by Easy Software Products, all rights reserved.
 dnl
 dnl These coded instructions, statements, and computer programs are the
@@ -56,12 +56,13 @@ if test x$enable_systemd != xno; then
 	        	AC_MSG_ERROR(Need pkg-config to enable systemd support.)
                 fi
         else
-        	AC_MSG_CHECKING(for libsystemd-daemon)
-                if $PKGCONFIG --exists libsystemd-daemon; then
+        	AC_MSG_CHECKING(for libsystemd)
+                if $PKGCONFIG --exists libsystemd; then
                         AC_MSG_RESULT(yes)
-                        ONDEMANDFLAGS=`$PKGCONFIG --cflags libsystemd-daemon`
-                        ONDEMANDLIBS=`$PKGCONFIG --libs libsystemd-daemon`
+                        ONDEMANDFLAGS=`$PKGCONFIG --cflags libsystemd`
+                        ONDEMANDLIBS=`$PKGCONFIG --libs libsystemd`
                         AC_DEFINE(HAVE_SYSTEMD)
+			AC_CHECK_HEADER(systemd/sd-journal.h,AC_DEFINE(HAVE_SYSTEMD_SD_JOURNAL_H))
 			if test "x$SYSTEMD_DIR" = x; then
 			        SYSTEMD_DIR="`$PKGCONFIG --variable=systemdsystemunitdir systemd`"
                         fi
@@ -166,11 +167,11 @@ if test "x$xinetd" = x; then
                         fi
                 done
         fi
-elif test "x$xinet" != xno; then
+elif test "x$xinetd" != xno; then
 	XINETD="$xinetd"
 fi
 
 
 dnl
-dnl End of "$Id: cups-startup.m4 11748 2014-03-27 01:16:09Z msweet $".
+dnl End of "$Id: cups-startup.m4 12827 2015-07-31 15:21:37Z msweet $".
 dnl

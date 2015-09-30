@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,10 @@
 #define BoundaryTag_h
 
 #include "BAssert.h"
+#include "Owner.h"
+#include "Range.h"
 #include "Sizes.h"
+#include <cstring>
 
 namespace bmalloc {
 
@@ -39,11 +42,7 @@ class Range;
 class BoundaryTag {
 public:
     static Range init(LargeChunk*);
-    static Range deallocate(void*);
-    static void allocate(size_t, Range&, Range& leftover, bool& hasPhysicalPages);
-
-    bool isXLarge() { return m_size == xLargeMarker; }
-    void setXLarge() { m_size = xLargeMarker; }
+    static unsigned compactBegin(void*);
 
     bool isFree() { return m_isFree; }
     void setFree(bool isFree) { m_isFree = isFree; }
@@ -51,42 +50,60 @@ public:
     bool isEnd() { return m_isEnd; }
     void setEnd(bool isEnd) { m_isEnd = isEnd; }
 
-    bool hasPhysicalPages() { return m_hasPhysicalPages; }
-    void setHasPhysicalPages(bool hasPhysicalPages) { m_hasPhysicalPages = hasPhysicalPages; }
+    Owner owner() { return static_cast<Owner>(m_owner); }
+    void setOwner(Owner owner) { m_owner = static_cast<unsigned>(owner); }
+    
+    bool isMarked() { return m_isMarked; }
+    void setMarked(bool isMarked) { m_isMarked = isMarked; }
 
     bool isNull() { return !m_size; }
-    void clear() { memset(this, 0, sizeof(*this)); }
+    void clear() { std::memset(this, 0, sizeof(*this)); }
     
     size_t size() { return m_size; }
-    void setSize(size_t);
+    unsigned compactBegin() { return m_compactBegin; }
+
+    void setRange(const Range&);
+    
+    bool isSentinel() { return !m_compactBegin; }
+    void initSentinel();
     
     EndTag* prev();
     BeginTag* next();
 
 private:
-    static const size_t flagBits = 3;
-    static const size_t sizeBits = bitCount<unsigned>() - flagBits;
-    static const size_t xLargeMarker = 1; // This size is unused because our minimum object size is greater than it.
+    static const size_t flagBits = 4;
+    static const size_t compactBeginBits = 4;
+    static const size_t sizeBits = bitCount<unsigned>() - flagBits - compactBeginBits;
 
-    static_assert(largeMin > xLargeMarker, "largeMin must provide enough umbrella to fit xLargeMarker.");
-    static_assert((1 << sizeBits) - 1 >= largeMax, "largeMax must be encodable in a BoundaryTag.");
+    static_assert(
+        (1 << compactBeginBits) - 1 >= (largeMin - 1) / largeAlignment,
+        "compactBegin must be encodable in a BoundaryTag.");
 
-    static void splitLarge(BeginTag*, size_t size, EndTag*& endTag, Range&, Range& leftover);
-    static void mergeLargeLeft(EndTag*& prev, BeginTag*& beginTag, Range&, bool& hasPhysicalPages);
-    static void mergeLargeRight(EndTag*&, BeginTag*& next, Range&, bool& hasPhysicalPages);
-    static void mergeLarge(BeginTag*&, EndTag*&, Range&);
+    static_assert(
+        (1 << sizeBits) - 1 >= largeMax,
+        "largeMax must be encodable in a BoundaryTag.");
 
     bool m_isFree: 1;
     bool m_isEnd: 1;
-    bool m_hasPhysicalPages: 1;
+    unsigned m_owner: 1;
+    bool m_isMarked: 1;
+    unsigned m_compactBegin: compactBeginBits;
     unsigned m_size: sizeBits;
 };
 
-inline void BoundaryTag::setSize(size_t size)
+inline unsigned BoundaryTag::compactBegin(void* object)
 {
-    m_size = static_cast<unsigned>(size);
-    BASSERT(this->size() == size);
-    BASSERT(!isXLarge());
+    return static_cast<unsigned>(
+        reinterpret_cast<uintptr_t>(mask(object, largeMin - 1)) / largeAlignment);
+}
+
+inline void BoundaryTag::setRange(const Range& range)
+{
+    m_compactBegin = compactBegin(range.begin());
+    BASSERT(this->compactBegin() == compactBegin(range.begin()));
+
+    m_size = static_cast<unsigned>(range.size());
+    BASSERT(this->size() == range.size());
 }
 
 inline EndTag* BoundaryTag::prev()
@@ -99,6 +116,13 @@ inline BeginTag* BoundaryTag::next()
 {
     BoundaryTag* next = this + 1;
     return reinterpret_cast<BeginTag*>(next);
+}
+
+inline void BoundaryTag::initSentinel()
+{
+    setRange(Range(nullptr, largeMin));
+    setFree(false);
+    setOwner(Owner::VMHeap);
 }
 
 } // namespace bmalloc

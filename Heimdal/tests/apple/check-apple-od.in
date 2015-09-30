@@ -51,7 +51,7 @@ echo "checking for od.apple.com"
 echo "Interactive kinit for smbtest@OD.APPLE.COM"; > ${logfile}
     kinitpty=${testdir}/foopassword.rkpty
 cat > ${kinitpty} <<EOF
-expect Password
+expect password
 password smbtest\n
 EOF
    ${rkpty} ${kinitpty} ${kinit} smbtest@OD.APPLE.COM >/dev/null || { echo "kinit failed with: $?" ; cat ${logfile}; exit 1; }

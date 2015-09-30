@@ -61,8 +61,12 @@
 
 extern IntlTest *createCompactDecimalFormatTest();
 extern IntlTest *createGenderInfoTest();
+#if !UCONFIG_NO_BREAK_ITERATION
 extern IntlTest *createRelativeDateTimeFormatterTest();
+#endif
 extern IntlTest *createMeasureFormatTest();
+extern IntlTest *createNumberFormatSpecificationTest();
+extern IntlTest *createScientificNumberFormatterTest();
 
 #define TESTCLASS(id, TestClass)          \
     case id:                              \
@@ -160,6 +164,7 @@ void IntlTestFormat::runIndexedTest( int32_t index, UBool exec, const char* &nam
           break;
         TESTCLASS(45,RegionTest);
         case 46:
+#if !UCONFIG_NO_BREAK_ITERATION
           name = "RelativeDateTimeFormatterTest";
           if (exec) {
             logln("RelativeDateTimeFormatterTest test---");
@@ -167,6 +172,7 @@ void IntlTestFormat::runIndexedTest( int32_t index, UBool exec, const char* &nam
             LocalPointer<IntlTest> test(createRelativeDateTimeFormatterTest());
             callTest(*test, par);
           }
+#endif
           break;
         case 47:
           name = "MeasureFormatTest";
@@ -174,6 +180,24 @@ void IntlTestFormat::runIndexedTest( int32_t index, UBool exec, const char* &nam
             logln("MeasureFormatTest test---");
             logln((UnicodeString)"");
             LocalPointer<IntlTest> test(createMeasureFormatTest());
+            callTest(*test, par);
+          }
+          break;
+        case 48:
+          name = "NumberFormatSpecificationTest";
+          if (exec) {
+            logln("NumberFormatSpecificationTest test---");
+            logln((UnicodeString)"");
+            LocalPointer<IntlTest> test(createNumberFormatSpecificationTest());
+            callTest(*test, par);
+          }
+          break;
+       case 49:
+          name = "ScientificNumberFormatterTest";
+          if (exec) {
+            logln("ScientificNumberFormatterTest test---");
+            logln((UnicodeString)"");
+            LocalPointer<IntlTest> test(createScientificNumberFormatterTest());
             callTest(*test, par);
           }
           break;

@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebError.h"
 #include "WebKit.h"
@@ -44,13 +43,13 @@ WebError::WebError(const ResourceError& error, IPropertyBag* userInfo)
     , m_userInfo(userInfo)
 {
     gClassCount++;
-    gClassNameCount.add("WebError");
+    gClassNameCount().add("WebError");
 }
 
 WebError::~WebError()
 {
     gClassCount--;
-    gClassNameCount.remove("WebError");
+    gClassNameCount().remove("WebError");
 }
 
 WebError* WebError::createInstance(const ResourceError& error, IPropertyBag* userInfo)

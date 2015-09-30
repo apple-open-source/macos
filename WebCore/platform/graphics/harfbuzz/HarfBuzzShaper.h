@@ -37,15 +37,13 @@
 #include "hb.h"
 #include <memory>
 #include <wtf/HashSet.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
 class Font;
-class SimpleFontData;
+class FontCascade;
 
 class HarfBuzzShaper {
 public:
@@ -54,7 +52,7 @@ public:
         NormalizeMirrorChars
     };
 
-    HarfBuzzShaper(const Font*, const TextRun&);
+    HarfBuzzShaper(const FontCascade*, const TextRun&);
     virtual ~HarfBuzzShaper();
 
     bool shape(GlyphBuffer* = 0);
@@ -66,10 +64,7 @@ public:
 private:
     class HarfBuzzRun {
     public:
-        static PassOwnPtr<HarfBuzzRun> create(const SimpleFontData* fontData, unsigned startIndex, unsigned numCharacters, TextDirection direction, hb_script_t script)
-        {
-            return adoptPtr(new HarfBuzzRun(fontData, startIndex, numCharacters, direction, script));
-        }
+        HarfBuzzRun(const Font*, unsigned startIndex, unsigned numCharacters, TextDirection, hb_script_t);
 
         void applyShapeResult(hb_buffer_t*);
         void setGlyphAndPositions(unsigned index, uint16_t glyphId, float advance, float offsetX, float offsetY);
@@ -78,7 +73,7 @@ private:
         int characterIndexForXPosition(float targetX);
         float xPositionForOffset(unsigned offset);
 
-        const SimpleFontData* fontData() { return m_fontData; }
+        const Font* fontData() { return m_fontData; }
         unsigned startIndex() const { return m_startIndex; }
         unsigned numCharacters() const { return m_numCharacters; }
         unsigned numGlyphs() const { return m_numGlyphs; }
@@ -91,9 +86,7 @@ private:
         hb_script_t script() { return m_script; }
 
     private:
-        HarfBuzzRun(const SimpleFontData*, unsigned startIndex, unsigned numCharacters, TextDirection, hb_script_t);
-
-        const SimpleFontData* m_fontData;
+        const Font* m_fontData;
         unsigned m_startIndex;
         size_t m_numCharacters;
         unsigned m_numGlyphs;
@@ -127,7 +120,7 @@ private:
 
     GlyphBufferAdvance createGlyphBufferAdvance(float, float);
 
-    const Font* m_font;
+    const FontCascade* m_font;
     std::unique_ptr<UChar[]> m_normalizedBuffer;
     unsigned m_normalizedBufferLength;
     const TextRun& m_run;
@@ -139,7 +132,7 @@ private:
     int m_letterSpacing; // Pixels to be added after each glyph.
 
     Vector<hb_feature_t, 4> m_features;
-    Vector<OwnPtr<HarfBuzzRun>, 16> m_harfBuzzRuns;
+    Vector<std::unique_ptr<HarfBuzzRun>, 16> m_harfBuzzRuns;
 
     FloatPoint m_startOffset;
 

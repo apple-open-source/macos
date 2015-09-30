@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006, 2008, 2009, 2011-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2008, 2009, 2011-2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -90,6 +90,11 @@ _dns_resolver_add_sortaddr	(dns_create_resolver_t	*_resolver,
 				 dns_sortaddr_t		*sortaddr)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 void
+_dns_resolver_set_configuration_identifier
+				(dns_create_resolver_t	*_resolver,
+				 const char		*config_identifier)	__OSX_AVAILABLE_STARTING(__MAC_10_11,__IPHONE_9_0);
+
+void
 _dns_resolver_set_flags		(dns_create_resolver_t	*_resolver,
 				 uint32_t		flags)			__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
 
@@ -114,8 +119,9 @@ _dns_resolver_set_timeout	(dns_create_resolver_t	*_resolver,
 				 uint32_t		timeout)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 void
-_dns_resolver_set_service_identifier	(dns_create_resolver_t	*_resolver,
-					uint32_t		service_identifier)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0);
+_dns_resolver_set_service_identifier
+				(dns_create_resolver_t	*_resolver,
+				 uint32_t		service_identifier)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0);
 
 void
 _dns_resolver_free		(dns_create_resolver_t	*_resolver)		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);

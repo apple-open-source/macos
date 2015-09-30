@@ -39,16 +39,12 @@ class RenderRubyRun;
 
 class RenderRubyBase final : public RenderBlockFlow {
 public:
-    RenderRubyBase(Document&, PassRef<RenderStyle>);
+    RenderRubyBase(Document&, Ref<RenderStyle>&&);
     virtual ~RenderRubyBase();
     
-    virtual const char* renderName() const { return "RenderRubyBase (anonymous)"; }
-
-    virtual bool isRubyBase() const { return true; }
-
+    virtual const char* renderName() const override { return "RenderRubyBase (anonymous)"; }
+    
     RenderRubyRun* rubyRun() const;
-
-    virtual void cachePriorCharactersIfNeeded(const LazyLineBreakIterator&) override;
 
     void setIsAfterExpansion(bool isAfterExpansion) { m_isAfterExpansion = isAfterExpansion; }
     bool isAfterExpansion() { return m_isAfterExpansion; }
@@ -60,11 +56,14 @@ public:
         m_initialOffset = 0;
         m_isAfterExpansion = true;
     }
+    
+    virtual void cachePriorCharactersIfNeeded(const LazyLineBreakIterator&) override;
 
 private:
-    virtual bool isChildAllowed(const RenderObject&, const RenderStyle&) const;
-    virtual ETextAlign textAlignmentForLine(bool endsWithSoftBreak) const;
-    virtual void adjustInlineDirectionLineBounds(int expansionOpportunityCount, float& logicalLeft, float& logicalWidth) const;
+    virtual bool isRubyBase() const override { return true; }
+    virtual bool isChildAllowed(const RenderObject&, const RenderStyle&) const override;
+    virtual ETextAlign textAlignmentForLine(bool endsWithSoftBreak) const override;
+    virtual void adjustInlineDirectionLineBounds(int expansionOpportunityCount, float& logicalLeft, float& logicalWidth) const override;
     void mergeChildrenWithBase(RenderRubyBase* toBlock);
 
     void moveChildren(RenderRubyBase* toBase, RenderObject* beforeChild = 0);
@@ -78,8 +77,8 @@ private:
     unsigned m_isAfterExpansion : 1;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderRubyBase, isRubyBase())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderRubyBase, isRubyBase())
 
 #endif // RenderRubyBase_h

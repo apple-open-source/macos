@@ -51,9 +51,21 @@ enum class TextIndicatorPresentationTransition {
     Bounce,
     BounceAndCrossfade,
 
-    // These animations need to be driven manually via TextIndicatorWindow::setAnimationProgress.
+    // This animation needs to be driven manually via TextIndicatorWindow::setAnimationProgress.
     FadeIn,
-    Crossfade
+};
+
+enum class TextIndicatorLifetime {
+    // The TextIndicator should indicate the text until dismissed.
+    Permanent,
+
+    // The TextIndicator should briefly indicate the text and then automatically dismiss.
+    Temporary
+};
+
+enum class TextIndicatorDismissalAnimation {
+    None,
+    FadeOut
 };
 
 struct TextIndicatorData {
@@ -64,22 +76,23 @@ struct TextIndicatorData {
     RefPtr<Image> contentImageWithHighlight;
     RefPtr<Image> contentImage;
     TextIndicatorPresentationTransition presentationTransition;
+    bool wantsMargin;
 };
 
 class TextIndicator : public RefCounted<TextIndicator> {
 public:
-    static PassRefPtr<TextIndicator> create(const TextIndicatorData&);
-    static PassRefPtr<TextIndicator> createWithSelectionInFrame(Frame&, TextIndicatorPresentationTransition);
-    static PassRefPtr<TextIndicator> createWithRange(const Range&, TextIndicatorPresentationTransition);
+    WEBCORE_EXPORT static Ref<TextIndicator> create(const TextIndicatorData&);
+    WEBCORE_EXPORT static RefPtr<TextIndicator> createWithSelectionInFrame(Frame&, TextIndicatorPresentationTransition, unsigned margin = 0);
+    WEBCORE_EXPORT static RefPtr<TextIndicator> createWithRange(const Range&, TextIndicatorPresentationTransition, unsigned margin = 0);
 
-    ~TextIndicator();
+    WEBCORE_EXPORT ~TextIndicator();
 
     FloatRect selectionRectInRootViewCoordinates() const { return m_data.selectionRectInRootViewCoordinates; }
     FloatRect textBoundingRectInRootViewCoordinates() const { return m_data.textBoundingRectInRootViewCoordinates; }
     const Vector<FloatRect>& textRectsInBoundingRectCoordinates() const { return m_data.textRectsInBoundingRectCoordinates; }
     float contentImageScaleFactor() const { return m_data.contentImageScaleFactor; }
-    Image *contentImageWithHighlight() const { return m_data.contentImageWithHighlight.get(); }
-    Image *contentImage() const { return m_data.contentImage.get(); }
+    Image* contentImageWithHighlight() const { return m_data.contentImageWithHighlight.get(); }
+    Image* contentImage() const { return m_data.contentImage.get(); }
 
     TextIndicatorPresentationTransition presentationTransition() const { return m_data.presentationTransition; }
     void setPresentationTransition(TextIndicatorPresentationTransition transition) { m_data.presentationTransition = transition; }
@@ -90,6 +103,9 @@ public:
     bool wantsContentCrossfade() const;
     bool wantsFadeIn() const;
     bool wantsManualAnimation() const;
+
+    void setWantsMargin(bool wantsMargin) { m_data.wantsMargin = wantsMargin; }
+    bool wantsMargin() const { return m_data.wantsMargin; }
 
 private:
     TextIndicator(const TextIndicatorData&);

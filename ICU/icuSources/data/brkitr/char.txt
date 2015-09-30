@@ -18,50 +18,7 @@ $Control     = [\p{Grapheme_Cluster_Break = Control}];
 # TODO: Restore if the Prepend set becomes non-empty again: $Prepend     = [\p{Grapheme_Cluster_Break = Prepend}];
 $Extend      = [\p{Grapheme_Cluster_Break = Extend}];
 $SpacingMark = [\p{Grapheme_Cluster_Break = SpacingMark}];
-
-$RI_A        = \U0001F1E6;  # Trail ETU
-$RI_B        = \U0001F1E7;  # Trail ER
-$RI_C        = \U0001F1E8;  # Trail AHLNO
-$RI_D        = \U0001F1E9;  # Trail EK
-$RI_E        = \U0001F1EA;  # Trail S
-$RI_F        = \U0001F1EB;  # Trail IR
-$RI_G        = \U0001F1EC;  # Trail B
-$RI_H        = \U0001F1ED;  # Trail K
-$RI_I        = \U0001F1EE;  # Trail DELNT
-$RI_J        = \U0001F1EF;  # Trail OP
-$RI_K        = \U0001F1F0;  # Trail R
-$RI_M        = \U0001F1F2;  # Trail OXY
-$RI_N        = \U0001F1F3;  # Trail LOZ
-$RI_P        = \U0001F1F5;  # Trail HLRT
-$RI_R        = \U0001F1F7;  # Trail U
-$RI_S        = \U0001F1F8;  # Trail AEG
-$RI_T        = \U0001F1F9;  # Trail R
-$RI_U        = \U0001F1FA;  # Trail S
-$RI_V        = \U0001F1FB;	# Trail N
-$RI_Z        = \U0001F1FF;	# Trail A
-# unused trail values, safe as addl lead: C F J M Q V W
-# unused lead values, safe as addl trail: L O Q W X Y
-
-$RI_A_End    = [\U0001F1EA \U0001F1F9 \U0001F1FA];  	        # ETU
-$RI_B_End    = [\U0001F1EA \U0001F1F7];                         # ER
-$RI_C_End    = [\U0001F1E6 \U0001F1ED \U0001F1F1 \U0001F1F3 \U0001F1F4]; # AHLNO
-$RI_D_End    = [\U0001F1EA \U0001F1F0];                         # EK
-$RI_E_End    = \U0001F1F8;                                      # S
-$RI_F_End    = [\U0001F1EE \U0001F1F7];                         # IR
-$RI_G_End    = \U0001F1E7;                                      # B
-$RI_H_End    = \U0001F1F0;                                      # K
-$RI_I_End    = [\U0001F1E9 \U0001F1EA \U0001F1F1 \U0001F1F3 \U0001F1F9]; # DELNT
-$RI_J_End    = [\U0001F1F5 \U0001F1F4];                         # OP
-$RI_K_End    = \U0001F1F7;                                      # R
-$RI_M_End    = [\U0001F1F4 \U0001F1FD \U0001F1FE];              # OXY
-$RI_N_End    = [\U0001F1F1 \U0001F1F4 \U0001F1FF];              # LOZ
-$RI_P_End    = [\U0001F1ED \U0001F1F1 \U0001F1F7 \U0001F1F9];   # HLRT
-$RI_R_End    = \U0001F1FA;                                      # U
-$RI_S_End    = [\U0001F1E6 \U0001F1EA \U0001F1EC];              # AEG
-$RI_T_End    = \U0001F1F7;                                      # R
-$RI_U_End    = \U0001F1F8;                                      # S
-$RI_V_End    = \U0001F1F3;                                      # N
-$RI_Z_End    = \U0001F1E6;                                      # A
+$RI          = [\p{Grapheme_Cluster_Break = Regional_Indicator}];
 
 # Special character classes for people & body part emoji:
 # Subsets of $Extend:
@@ -85,6 +42,7 @@ $LVT     = [\p{Grapheme_Cluster_Break = LVT}];
 
 ## -------------------------------------------------
 !!chain;
+!!RINoChain;
 
 !!forward;
 
@@ -94,26 +52,8 @@ $L ($L | $V | $LV | $LVT);
 ($LV | $V) ($V | $T);
 ($LVT | $T) $T;
 
-$RI_A $RI_A_End;
-$RI_B $RI_B_End;
-$RI_C $RI_C_End;
-$RI_D $RI_D_End;
-$RI_E $RI_E_End;
-$RI_F $RI_F_End;
-$RI_G $RI_G_End;
-$RI_H $RI_H_End;
-$RI_I $RI_I_End;
-$RI_J $RI_J_End;
-$RI_K $RI_K_End;
-$RI_M $RI_M_End;
-$RI_N $RI_N_End;
-$RI_P $RI_P_End;
-$RI_R $RI_R_End;
-$RI_S $RI_S_End;
-$RI_T $RI_T_End;
-$RI_U $RI_U_End;
-$RI_V $RI_V_End;
-$RI_Z $RI_Z_End;
+$RI $RI $Extend* / $RI;
+$RI $RI $Extend*;
 
 [^$Control $CR $LF] $Extend;
 
@@ -134,26 +74,8 @@ $LF $CR;
 ($V | $T) ($LV | $V);
 $T ($LVT | $T);
 
-$RI_A_End $RI_A;
-$RI_B_End $RI_B;
-$RI_C_End $RI_C;
-$RI_D_End $RI_D;
-$RI_E_End $RI_E;
-$RI_F_End $RI_F;
-$RI_G_End $RI_G;
-$RI_H_End $RI_H;
-$RI_I_End $RI_I;
-$RI_J_End $RI_J;
-$RI_K_End $RI_K;
-$RI_M_End $RI_M;
-$RI_N_End $RI_N;
-$RI_P_End $RI_P;
-$RI_R_End $RI_R;
-$RI_S_End $RI_S;
-$RI_T_End $RI_T;
-$RI_U_End $RI_U;
-$RI_V_End $RI_V;
-$RI_Z_End $RI_Z;
+$Extend* $RI $RI / $Extend* $RI $RI;
+$Extend* $RI $RI;
 
 $Extend      [^$Control $CR $LF];
 $SpacingMark [^$Control $CR $LF];
@@ -171,11 +93,13 @@ $EmojiMods $EmojiVar? $EmojiForMods;
 
 !!safe_reverse;
 $LF $CR;
+$RI $RI+;
 [$EmojiVar $EmojiMods]+ $EmojiForMods;
 
 ## -------------------------------------------------
 
 !!safe_forward;
 $CR $LF;
+$RI $RI+;
 $EmojiForMods [$EmojiVar $EmojiMods]+;
 

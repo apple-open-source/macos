@@ -70,6 +70,10 @@
 #import <AppKit/NSTextAlternatives.h>
 #endif
 
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+#include <WebCore/WebMediaSessionManagerMac.h>
+#endif
+
 @interface NSApplication (WebNSApplicationDetails)
 - (NSCursor *)_cursorRectCursor;
 @end
@@ -140,7 +144,7 @@ PageClientImpl::PageClientImpl(WKView* wkView, WKWebView *webView)
     , m_webView(webView)
     , m_undoTarget(adoptNS([[WKEditorUndoTargetObjC alloc] init]))
 #if USE(DICTATION_ALTERNATIVES)
-    , m_alternativeTextUIController(adoptPtr(new AlternativeTextUIController))
+    , m_alternativeTextUIController(std::make_unique<AlternativeTextUIController>())
 #endif
 {
 #if !WK_API_ENABLED
@@ -177,7 +181,7 @@ void PageClientImpl::scrollView(const IntRect& scrollRect, const IntSize& scroll
     ASSERT_NOT_REACHED();
 }
 
-void PageClientImpl::requestScroll(const FloatPoint& scrollPosition, bool isProgrammaticScroll)
+void PageClientImpl::requestScroll(const FloatPoint& scrollPosition, const IntPoint& scrollOrigin, bool isProgrammaticScroll)
 {
     ASSERT_NOT_REACHED();
 }
@@ -234,20 +238,11 @@ bool PageClientImpl::isViewVisible()
     if (!activeViewWindow.isVisible)
         return false;
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 1080
-    // Mountain Lion and previous do not support occlusion notifications, and as such will
-    // continue to report as "visible" when not on the active space.
-    if (!activeViewWindow.isOnActiveSpace)
-        return false;
-#endif
-
     if (activeView.isHiddenOrHasHiddenAncestor)
         return false;
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     if ([m_wkView windowOcclusionDetectionEnabled] && (activeViewWindow.occlusionState & NSWindowOcclusionStateVisible) != NSWindowOcclusionStateVisible)
         return false;
-#endif
 
     return true;
 }
@@ -264,7 +259,7 @@ bool PageClientImpl::isViewInWindow()
 
 bool PageClientImpl::isVisuallyIdle()
 {
-    return WindowServerConnection::shared().applicationWindowModificationsHaveStopped() || !isViewVisible();
+    return WindowServerConnection::singleton().applicationWindowModificationsHaveStopped() || !isViewVisible();
 }
 
 LayerHostingMode PageClientImpl::viewLayerHostingMode()
@@ -316,6 +311,7 @@ void PageClientImpl::toolTipChanged(const String& oldToolTip, const String& newT
 
 void PageClientImpl::didCommitLoadForMainFrame(const String& mimeType, bool useCustomContentProvider)
 {
+    [m_wkView _didCommitLoadForMainFrame];
 }
 
 void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, const IPC::DataReference& dataReference)
@@ -329,6 +325,11 @@ void PageClientImpl::handleDownloadRequest(DownloadProxy* download)
     ASSERT([download->wrapper() isKindOfClass:[_WKDownload class]]);
     [static_cast<_WKDownload *>(download->wrapper()) setOriginatingWebView:m_webView];
 #endif
+}
+
+void PageClientImpl::didChangeContentSize(const WebCore::IntSize& newSize)
+{
+    [m_wkView _didChangeContentSize:newSize];
 }
 
 void PageClientImpl::setCursor(const WebCore::Cursor& cursor)
@@ -403,16 +404,32 @@ void PageClientImpl::setDragImage(const IntPoint& clientPosition, PassRefPtr<Sha
 {
     RetainPtr<CGImageRef> dragCGImage = dragImage->makeCGImage();
     RetainPtr<NSImage> dragNSImage = adoptNS([[NSImage alloc] initWithCGImage:dragCGImage.get() size:dragImage->size()]);
+    IntSize size([dragNSImage size]);
+    size.scale(1.0 / toImpl([m_wkView pageRef])->deviceScaleFactor());
+    [dragNSImage setSize:size];
 
-    [m_wkView _setDragImage:dragNSImage.get() at:clientPosition linkDrag:isLinkDrag];
+#if WK_API_ENABLED
+    if (m_webView) {
+        NSPoint webViewPosition = [m_wkView convertPoint:clientPosition toView:m_webView];
+        [m_wkView _dragImageForView:m_webView withImage:dragNSImage.get() at:webViewPosition linkDrag:isLinkDrag];
+    } else
+#endif
+        [m_wkView _dragImageForView:m_wkView withImage:dragNSImage.get() at:clientPosition linkDrag:isLinkDrag];
 }
 
-void PageClientImpl::setPromisedData(const String& pasteboardName, PassRefPtr<SharedBuffer> imageBuffer, const String& filename, const String& extension, const String& title, const String& url, const String& visibleUrl, PassRefPtr<SharedBuffer> archiveBuffer)
+void PageClientImpl::setPromisedDataForImage(const String& pasteboardName, PassRefPtr<SharedBuffer> imageBuffer, const String& filename, const String& extension, const String& title, const String& url, const String& visibleUrl, PassRefPtr<SharedBuffer> archiveBuffer)
 {
     RefPtr<Image> image = BitmapImage::create();
     image->setData(imageBuffer.get(), true);
-    [m_wkView _setPromisedData:image.get() withFileName:filename withExtension:extension withTitle:title withURL:url withVisibleURL:visibleUrl withArchive:archiveBuffer.get() forPasteboard:pasteboardName];
+    [m_wkView _setPromisedDataForImage:image.get() withFileName:filename withExtension:extension withTitle:title withURL:url withVisibleURL:visibleUrl withArchive:archiveBuffer.get() forPasteboard:pasteboardName];
 }
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+void PageClientImpl::setPromisedDataForAttachment(const String& pasteboardName, const String& filename, const String& extension, const String& title, const String& url, const String& visibleUrl)
+{
+    [m_wkView _setPromisedDataForAttachment:filename withExtension:extension withTitle:title withURL:url withVisibleURL:visibleUrl forPasteboard:pasteboardName];
+}
+#endif
 
 void PageClientImpl::updateSecureInputState()
 {
@@ -488,9 +505,14 @@ PassRefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy* page,
 }
 #endif
 
-void PageClientImpl::setTextIndicator(PassRefPtr<TextIndicator> textIndicator, bool fadeOut)
+void PageClientImpl::setTextIndicator(Ref<TextIndicator> textIndicator, WebCore::TextIndicatorLifetime lifetime)
 {
-    [m_wkView _setTextIndicator:textIndicator fadeOut:fadeOut];
+    [m_wkView _setTextIndicator:textIndicator.get() withLifetime:lifetime];
+}
+
+void PageClientImpl::clearTextIndicator(WebCore::TextIndicatorDismissalAnimation dismissalAnimation)
+{
+    [m_wkView _clearTextIndicatorWithAnimation:dismissalAnimation];
 }
 
 void PageClientImpl::setTextIndicatorAnimationProgress(float progress)
@@ -540,6 +562,11 @@ PassRefPtr<ViewSnapshot> PageClientImpl::takeViewSnapshot()
     return [m_wkView _takeViewSnapshot];
 }
 
+void PageClientImpl::selectionDidChange()
+{
+    [m_wkView _selectionChanged];
+}
+
 void PageClientImpl::wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent& event)
 {
     [m_wkView _wheelEventWasNotHandledByWebCore:event.nativeEvent()];
@@ -568,17 +595,19 @@ void PageClientImpl::didPerformDictionaryLookup(const DictionaryPopupInfo& dicti
 
     RetainPtr<NSMutableDictionary> mutableOptions = adoptNS([(NSDictionary *)dictionaryPopupInfo.options.get() mutableCopy]);
 
+    [m_wkView _prepareForDictionaryLookup];
+
     if (canLoadLUTermOptionDisableSearchTermIndicator() && dictionaryPopupInfo.textIndicator.contentImage) {
-        [m_wkView _setTextIndicator:TextIndicator::create(dictionaryPopupInfo.textIndicator) fadeOut:NO];
+        [m_wkView _setTextIndicator:TextIndicator::create(dictionaryPopupInfo.textIndicator) withLifetime:TextIndicatorLifetime::Permanent];
         [mutableOptions setObject:@YES forKey:getLUTermOptionDisableSearchTermIndicator()];
         [getLULookupDefinitionModuleClass() showDefinitionForTerm:dictionaryPopupInfo.attributedString.string.get() atLocation:textBaselineOrigin options:mutableOptions.get()];
     } else
         [getLULookupDefinitionModuleClass() showDefinitionForTerm:dictionaryPopupInfo.attributedString.string.get() atLocation:textBaselineOrigin options:mutableOptions.get()];
 }
 
-void PageClientImpl::dismissContentRelativeChildWindows()
+void PageClientImpl::dismissContentRelativeChildWindows(bool withAnimation)
 {
-    [m_wkView _dismissContentRelativeChildWindows];
+    [m_wkView _dismissContentRelativeChildWindowsWithAnimation:withAnimation];
 }
 
 void PageClientImpl::showCorrectionPanel(AlternativeTextType type, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings)
@@ -612,11 +641,11 @@ void PageClientImpl::recordAutocorrectionResponse(AutocorrectionResponseType res
     CorrectionPanel::recordAutocorrectionResponse(m_wkView, response, replacedString, replacementString);
 }
 
-void PageClientImpl::recommendedScrollbarStyleDidChange(int32_t newStyle)
+void PageClientImpl::recommendedScrollbarStyleDidChange(ScrollbarStyle newStyle)
 {
     // Now re-create a tracking area with the appropriate options given the new scrollbar style
-    NSTrackingAreaOptions options = NSTrackingMouseMoved | NSTrackingMouseEnteredAndExited | NSTrackingInVisibleRect;
-    if (newStyle == NSScrollerStyleLegacy)
+    NSTrackingAreaOptions options = NSTrackingMouseMoved | NSTrackingMouseEnteredAndExited | NSTrackingInVisibleRect | NSTrackingCursorUpdate;
+    if (newStyle == ScrollbarStyle::AlwaysVisible)
         options |= NSTrackingActiveAlways;
     else
         options |= NSTrackingActiveInKeyWindow;
@@ -737,6 +766,10 @@ void PageClientImpl::navigationGestureDidEnd(bool willNavigate, WebBackForwardLi
 #endif
 }
 
+void PageClientImpl::navigationGestureDidEnd()
+{
+}
+
 void PageClientImpl::willRecordNavigationSnapshot(WebBackForwardListItem& item)
 {
 #if WK_API_ENABLED
@@ -757,6 +790,11 @@ void PageClientImpl::didFinishLoadForMainFrame()
     [m_wkView _didFinishLoadForMainFrame];
 }
 
+void PageClientImpl::didFailLoadForMainFrame()
+{
+    [m_wkView _didFailLoadForMainFrame];
+}
+
 void PageClientImpl::didSameDocumentNavigationForMainFrame(SameDocumentNavigationType type)
 {
     [m_wkView _didSameDocumentNavigationForMainFrame:type];
@@ -767,6 +805,11 @@ void PageClientImpl::removeNavigationGestureSnapshot()
     [m_wkView _removeNavigationGestureSnapshot];
 }
 
+void PageClientImpl::didChangeBackgroundColor()
+{
+    notImplemented();
+}
+
 CGRect PageClientImpl::boundsOfLayerInLayerBackedWindowCoordinates(CALayer *layer) const
 {
     CALayer *windowContentLayer = static_cast<NSView *>(m_wkView.window.contentView).layer;
@@ -775,10 +818,10 @@ CGRect PageClientImpl::boundsOfLayerInLayerBackedWindowCoordinates(CALayer *laye
     return [windowContentLayer convertRect:layer.bounds fromLayer:layer];
 }
 
-void PageClientImpl::didPerformActionMenuHitTest(const ActionMenuHitTestResult& result, bool forImmediateAction, API::Object* userData)
+void PageClientImpl::didPerformImmediateActionHitTest(const WebHitTestResult::Data& result, bool contentPreventsDefault, API::Object* userData)
 {
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
-    [m_wkView _didPerformActionMenuHitTest:result forImmediateAction:forImmediateAction userData:userData];
+    [m_wkView _didPerformImmediateActionHitTest:result contentPreventsDefault:contentPreventsDefault userData:userData];
 #endif
 }
 
@@ -787,6 +830,31 @@ void PageClientImpl::showPlatformContextMenu(NSMenu *menu, IntPoint location)
     [menu popUpMenuPositioningItem:nil atLocation:location inView:m_wkView];
 }
 
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+WebCore::WebMediaSessionManager& PageClientImpl::mediaSessionManager()
+{
+    return WebMediaSessionManagerMac::singleton();
+}
+#endif
+
+#if ENABLE(VIDEO)
+void PageClientImpl::mediaDocumentNaturalSizeChanged(const IntSize& newSize)
+{
+#if WK_API_ENABLED
+    [m_webView _mediaDocumentNaturalSizeChanged:newSize];
+#endif
+}
+#endif
+
+void PageClientImpl::refView()
+{
+    CFRetain(m_wkView);
+}
+
+void PageClientImpl::derefView()
+{
+    CFRelease(m_wkView);
+}
 
 } // namespace WebKit
 

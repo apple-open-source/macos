@@ -35,11 +35,14 @@ namespace WebCore {
 
 class RenderMedia : public RenderImage {
 public:
-    RenderMedia(HTMLMediaElement&, PassRef<RenderStyle>);
-    RenderMedia(HTMLMediaElement&, PassRef<RenderStyle>, const IntSize& intrinsicSize);
+    RenderMedia(HTMLMediaElement&, Ref<RenderStyle>&&);
+    RenderMedia(HTMLMediaElement&, Ref<RenderStyle>&&, const IntSize& intrinsicSize);
     virtual ~RenderMedia();
 
-    HTMLMediaElement& mediaElement() const { return toHTMLMediaElement(nodeForNonAnonymous()); }
+    HTMLMediaElement& mediaElement() const { return downcast<HTMLMediaElement>(nodeForNonAnonymous()); }
+
+protected:
+    virtual void layout() override;
 
 private:
     void element() const = delete;
@@ -53,13 +56,13 @@ private:
 
     virtual bool requiresForcedStyleRecalcPropagation() const override final { return true; }
 
-    virtual bool shadowControlsNeedCustomLayoutMetrics() const { return true; }
+    virtual bool shadowControlsNeedCustomLayoutMetrics() const override { return true; }
 };
-
-RENDER_OBJECT_TYPE_CASTS(RenderMedia, isMedia())
 
 } // namespace WebCore
 
-#endif
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderMedia, isMedia())
+
+#endif // ENABLE(VIDEO)
 
 #endif // RenderMedia_h

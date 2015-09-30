@@ -26,74 +26,42 @@
 #include "config.h"
 #include "PageThrottler.h"
 
-#include "Chrome.h"
-#include "ChromeClient.h"
-#include "MainFrame.h"
 #include "Page.h"
-#include "PageActivityAssertionToken.h"
-#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
-PageThrottler::PageThrottler(Page& page, ViewState::Flags viewState)
+PageThrottler::PageThrottler(Page& page)
     : m_page(page)
-    , m_viewState(viewState)
-    , m_weakPtrFactory(this)
-    , m_hysteresis(*this)
-    , m_activity("Page is active.")
-    , m_activityCount(0)
+    , m_userInputHysteresis([this](HysteresisState state) { setActivityFlag(PageActivityState::UserInputActivity, state == HysteresisState::Started); })
+    , m_audiblePluginHysteresis([this](HysteresisState state) { setActivityFlag(PageActivityState::AudiblePlugin, state == HysteresisState::Started); })
+    , m_mediaActivityCounter([this](bool value) { setActivityFlag(PageActivityState::MediaActivity, value); })
+    , m_pageLoadActivityCounter([this](bool value) { setActivityFlag(PageActivityState::PageLoadActivity, value); })
 {
-    if (!(m_viewState & ViewState::IsVisuallyIdle))
-        m_hysteresis.start();
 }
 
-std::unique_ptr<PageActivityAssertionToken> PageThrottler::mediaActivityToken()
+PageActivityAssertionToken PageThrottler::mediaActivityToken()
 {
-    return std::make_unique<PageActivityAssertionToken>(*this);
+    return m_mediaActivityCounter.token<PageActivityAssertionTokenType>();
 }
 
-std::unique_ptr<PageActivityAssertionToken> PageThrottler::pageLoadActivityToken()
+PageActivityAssertionToken PageThrottler::pageLoadActivityToken()
 {
-    return std::make_unique<PageActivityAssertionToken>(*this);
+    return m_pageLoadActivityCounter.token<PageActivityAssertionTokenType>();
 }
 
-void PageThrottler::incrementActivityCount()
+void PageThrottler::setActivityFlag(PageActivityState::Flags flag, bool value)
 {
-    ++m_activityCount;
-    updateHysteresis();
-}
-
-void PageThrottler::decrementActivityCount()
-{
-    --m_activityCount;
-    updateHysteresis();
-}
-
-void PageThrottler::updateHysteresis()
-{
-    if (m_activityCount || !(m_viewState & ViewState::IsVisuallyIdle))
-        m_hysteresis.start();
+    PageActivityState::Flags activityState = m_activityState;
+    if (value)
+        activityState |= flag;
     else
-        m_hysteresis.stop();
-}
+        activityState &= ~flag;
 
-void PageThrottler::setViewState(ViewState::Flags viewState)
-{
-    ViewState::Flags changed = m_viewState ^ viewState;
-    m_viewState = viewState;
+    if (m_activityState == activityState)
+        return;
+    m_activityState = activityState;
 
-    if (changed & ViewState::IsVisuallyIdle)
-        updateHysteresis();
-}
-
-void PageThrottler::started()
-{
-    m_activity.beginActivity();
-}
-
-void PageThrottler::stopped()
-{
-    m_activity.endActivity();
+    m_page.setPageActivityState(m_activityState);
 }
 
 }

@@ -510,9 +510,11 @@ static int
 file_free(hx509_certs certs, void *data)
 {
     struct ks_file *ksf = data;
-    hx509_certs_free(&ksf->certs);
-    free(ksf->fn);
-    free(ksf);
+    if (ksf) {
+	hx509_certs_free(&ksf->certs);
+	free(ksf->fn);
+	free(ksf);
+    }
     return 0;
 }
 

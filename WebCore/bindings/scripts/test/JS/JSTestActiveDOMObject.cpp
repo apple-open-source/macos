@@ -106,7 +106,7 @@ static const HashTableValue JSTestActiveDOMObjectTableValues[] =
 };
 
 static const HashTable JSTestActiveDOMObjectTable = { 2, 3, true, JSTestActiveDOMObjectTableValues, 0, JSTestActiveDOMObjectTableIndex };
-const ClassInfo JSTestActiveDOMObjectConstructor::s_info = { "TestActiveDOMObjectConstructor", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSTestActiveDOMObjectConstructor) };
+const ClassInfo JSTestActiveDOMObjectConstructor::s_info = { "TestActiveDOMObjectConstructor", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestActiveDOMObjectConstructor) };
 
 JSTestActiveDOMObjectConstructor::JSTestActiveDOMObjectConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
     : DOMConstructorObject(structure, globalObject)
@@ -129,7 +129,7 @@ static const HashTableValue JSTestActiveDOMObjectPrototypeTableValues[] =
     { "postMessage", JSC::Function, NoIntrinsic, (intptr_t)static_cast<NativeFunction>(jsTestActiveDOMObjectPrototypeFunctionPostMessage), (intptr_t) (1) },
 };
 
-const ClassInfo JSTestActiveDOMObjectPrototype::s_info = { "TestActiveDOMObjectPrototype", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSTestActiveDOMObjectPrototype) };
+const ClassInfo JSTestActiveDOMObjectPrototype::s_info = { "TestActiveDOMObjectPrototype", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestActiveDOMObjectPrototype) };
 
 void JSTestActiveDOMObjectPrototype::finishCreation(VM& vm)
 {
@@ -137,11 +137,11 @@ void JSTestActiveDOMObjectPrototype::finishCreation(VM& vm)
     reifyStaticProperties(vm, JSTestActiveDOMObjectPrototypeTableValues, *this);
 }
 
-const ClassInfo JSTestActiveDOMObject::s_info = { "TestActiveDOMObject", &Base::s_info, &JSTestActiveDOMObjectTable, 0 , CREATE_METHOD_TABLE(JSTestActiveDOMObject) };
+const ClassInfo JSTestActiveDOMObject::s_info = { "TestActiveDOMObject", &Base::s_info, &JSTestActiveDOMObjectTable, CREATE_METHOD_TABLE(JSTestActiveDOMObject) };
 
-JSTestActiveDOMObject::JSTestActiveDOMObject(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<TestActiveDOMObject> impl)
+JSTestActiveDOMObject::JSTestActiveDOMObject(Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestActiveDOMObject>&& impl)
     : JSDOMWrapper(structure, globalObject)
-    , m_impl(impl.leakRef())
+    , m_impl(&impl.leakRef())
 {
 }
 
@@ -163,12 +163,12 @@ void JSTestActiveDOMObject::destroy(JSC::JSCell* cell)
 
 JSTestActiveDOMObject::~JSTestActiveDOMObject()
 {
-    releaseImplIfNotNull();
+    releaseImpl();
 }
 
 bool JSTestActiveDOMObject::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
 {
-    JSTestActiveDOMObject* thisObject = jsCast<JSTestActiveDOMObject*>(object);
+    auto* thisObject = jsCast<JSTestActiveDOMObject*>(object);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     return getStaticValueSlot<JSTestActiveDOMObject, Base>(exec, JSTestActiveDOMObjectTable, thisObject, propertyName, slot);
 }
@@ -178,10 +178,10 @@ EncodedJSValue jsTestActiveDOMObjectExcitingAttr(ExecState* exec, JSObject* slot
     UNUSED_PARAM(exec);
     UNUSED_PARAM(slotBase);
     UNUSED_PARAM(thisValue);
-    JSTestActiveDOMObject* castedThis = jsCast<JSTestActiveDOMObject*>(slotBase);
+    auto* castedThis = jsCast<JSTestActiveDOMObject*>(slotBase);
     if (!BindingSecurity::shouldAllowAccessToDOMWindow(exec, castedThis->impl()))
         return JSValue::encode(jsUndefined());
-    TestActiveDOMObject& impl = castedThis->impl();
+    auto& impl = castedThis->impl();
     JSValue result = jsNumber(impl.excitingAttr());
     return JSValue::encode(result);
 }
@@ -211,10 +211,10 @@ EncodedJSValue JSC_HOST_CALL jsTestActiveDOMObjectPrototypeFunctionExcitingFunct
     ASSERT_GC_OBJECT_INHERITS(castedThis, JSTestActiveDOMObject::info());
     if (!BindingSecurity::shouldAllowAccessToDOMWindow(exec, castedThis->impl()))
         return JSValue::encode(jsUndefined());
-    TestActiveDOMObject& impl = castedThis->impl();
-    if (exec->argumentCount() < 1)
+    auto& impl = castedThis->impl();
+    if (UNLIKELY(exec->argumentCount() < 1))
         return throwVMError(exec, createNotEnoughArgumentsError(exec));
-    Node* nextChild(toNode(exec->argument(0)));
+    Node* nextChild = JSNode::toWrapped(exec->argument(0));
     if (UNLIKELY(exec->hadException()))
         return JSValue::encode(jsUndefined());
     impl.excitingFunction(nextChild);
@@ -228,10 +228,10 @@ EncodedJSValue JSC_HOST_CALL jsTestActiveDOMObjectPrototypeFunctionPostMessage(E
     if (UNLIKELY(!castedThis))
         return throwThisTypeError(*exec, "TestActiveDOMObject", "postMessage");
     ASSERT_GC_OBJECT_INHERITS(castedThis, JSTestActiveDOMObject::info());
-    TestActiveDOMObject& impl = castedThis->impl();
-    if (exec->argumentCount() < 1)
+    auto& impl = castedThis->impl();
+    if (UNLIKELY(exec->argumentCount() < 1))
         return throwVMError(exec, createNotEnoughArgumentsError(exec));
-    const String& message(exec->argument(0).isEmpty() ? String() : exec->argument(0).toString(exec)->value(exec));
+    String message = exec->argument(0).toString(exec)->value(exec);
     if (UNLIKELY(exec->hadException()))
         return JSValue::encode(jsUndefined());
     impl.postMessage(message);
@@ -247,10 +247,9 @@ bool JSTestActiveDOMObjectOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unk
 
 void JSTestActiveDOMObjectOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
-    JSTestActiveDOMObject* jsTestActiveDOMObject = jsCast<JSTestActiveDOMObject*>(handle.slot()->asCell());
-    DOMWrapperWorld& world = *static_cast<DOMWrapperWorld*>(context);
+    auto* jsTestActiveDOMObject = jsCast<JSTestActiveDOMObject*>(handle.slot()->asCell());
+    auto& world = *static_cast<DOMWrapperWorld*>(context);
     uncacheWrapper(world, &jsTestActiveDOMObject->impl(), jsTestActiveDOMObject);
-    jsTestActiveDOMObject->releaseImpl();
 }
 
 #if ENABLE(BINDING_INTEGRITY)
@@ -289,7 +288,7 @@ JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject* globalObject, TestActiveDO
     return createNewWrapper<JSTestActiveDOMObject>(globalObject, impl);
 }
 
-TestActiveDOMObject* toTestActiveDOMObject(JSC::JSValue value)
+TestActiveDOMObject* JSTestActiveDOMObject::toWrapped(JSC::JSValue value)
 {
     if (auto* wrapper = jsDynamicCast<JSTestActiveDOMObject*>(value))
         return &wrapper->impl();

@@ -155,7 +155,7 @@ static struct getargs args[] = {
     { "start-time",	's', arg_string, &start_str,
       NP_("when ticket gets valid", ""), "time" },
 
-    { "kdc-hostname",	's', arg_string, &kdc_hostname,
+    { "kdc-hostname",	 0,  arg_string, &kdc_hostname,
       NP_("redirect the request to specific KDC", ""), "hostname" },
 
     { "use-keytab",     'k', arg_flag, &use_keytab,
@@ -572,7 +572,7 @@ get_new_tickets(krb5_context context,
 	char *p, *prompt;
 
 	krb5_unparse_name(context, principal, &p);
-	asprintf (&prompt, N_("%s's Password: ", ""), p);
+	asprintf (&prompt, N_("%s's password: ", ""), p);
 	free(p);
 
 	if (UI_UTIL_read_pw_string(passwd, sizeof(passwd)-1, prompt, 0)){

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,11 +33,12 @@
 #import "BlockExceptions.h"
 #import "Logging.h"
 #import "MediaConstraints.h"
-#import "MediaStreamSourceStates.h"
 #import "NotImplemented.h"
-#import "SoftLinking.h"
+#import "RealtimeMediaSourceStates.h"
 #import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
+
+#import "CoreMediaSoftLink.h"
 
 typedef AVCaptureConnection AVCaptureConnectionType;
 typedef AVCaptureDevice AVCaptureDeviceType;
@@ -46,7 +47,6 @@ typedef AVCaptureOutput AVCaptureOutputType;
 typedef AVCaptureVideoDataOutput AVCaptureVideoDataOutputType;
 
 SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
-SOFT_LINK_FRAMEWORK_OPTIONAL(CoreMedia)
 
 SOFT_LINK_CLASS(AVFoundation, AVCaptureConnection)
 SOFT_LINK_CLASS(AVFoundation, AVCaptureDevice)
@@ -73,12 +73,6 @@ SOFT_LINK_POINTER(AVFoundation, AVCaptureSessionPresetLow, NSString *)
 #define AVCaptureSessionPreset352x288 getAVCaptureSessionPreset352x288()
 #define AVCaptureSessionPresetLow getAVCaptureSessionPresetLow()
 
-SOFT_LINK(CoreMedia, CMSampleBufferGetFormatDescription, CMFormatDescriptionRef, (CMSampleBufferRef sbuf), (sbuf));
-SOFT_LINK(CoreMedia, CMSampleBufferGetPresentationTimeStamp, CMTime, (CMSampleBufferRef sbuf), (sbuf));
-SOFT_LINK(CoreMedia, CMTimeCompare, int32_t, (CMTime time1, CMTime time2), (time1, time2))
-SOFT_LINK(CoreMedia, CMTimeMake, CMTime, (int64_t value, int32_t timescale), (value, timescale))
-SOFT_LINK(CoreMedia, CMVideoFormatDescriptionGetDimensions, CMVideoDimensions, (CMVideoFormatDescriptionRef videoDesc), (videoDesc));
-
 namespace WebCore {
 
 RefPtr<AVMediaCaptureSource> AVVideoCaptureSource::create(AVCaptureDeviceType* device, const AtomicString& id, PassRefPtr<MediaConstraints> constraint)
@@ -87,20 +81,20 @@ RefPtr<AVMediaCaptureSource> AVVideoCaptureSource::create(AVCaptureDeviceType* d
 }
 
 AVVideoCaptureSource::AVVideoCaptureSource(AVCaptureDeviceType* device, const AtomicString& id, PassRefPtr<MediaConstraints> constraint)
-    : AVMediaCaptureSource(device, id, MediaStreamSource::Video, constraint)
+    : AVMediaCaptureSource(device, id, RealtimeMediaSource::Video, constraint)
     , m_frameRate(0)
     , m_width(0)
     , m_height(0)
 {
     currentStates()->setSourceId(id);
-    currentStates()->setSourceType(MediaStreamSourceStates::Camera);
+    currentStates()->setSourceType(RealtimeMediaSourceStates::Camera);
 }
 
 AVVideoCaptureSource::~AVVideoCaptureSource()
 {
 }
 
-RefPtr<MediaStreamSourceCapabilities> AVVideoCaptureSource::capabilities() const
+RefPtr<RealtimeMediaSourceCapabilities> AVVideoCaptureSource::capabilities() const
 {
     notImplemented();
     return 0;
@@ -108,14 +102,14 @@ RefPtr<MediaStreamSourceCapabilities> AVVideoCaptureSource::capabilities() const
 
 void AVVideoCaptureSource::updateStates()
 {
-    MediaStreamSourceStates* states = currentStates();
+    RealtimeMediaSourceStates* states = currentStates();
 
     if ([device() position] == AVCaptureDevicePositionFront)
-        states->setFacingMode(MediaStreamSourceStates::User);
+        states->setFacingMode(RealtimeMediaSourceStates::User);
     else if ([device() position] == AVCaptureDevicePositionBack)
-        states->setFacingMode(MediaStreamSourceStates::Environment);
+        states->setFacingMode(RealtimeMediaSourceStates::Environment);
     else
-        states->setFacingMode(MediaStreamSourceStates::Unknown);
+        states->setFacingMode(RealtimeMediaSourceStates::Unknown);
     
     states->setFrameRate(m_frameRate);
     states->setWidth(m_width);
@@ -208,7 +202,7 @@ bool AVVideoCaptureSource::applyConstraints(MediaConstraints* constraints)
 
 void AVVideoCaptureSource::setupCaptureSession()
 {
-    RetainPtr<AVCaptureDeviceInputType> videoIn = adoptNS([[AVCaptureDeviceInput alloc] initWithDevice:device() error:nil]);
+    RetainPtr<AVCaptureDeviceInputType> videoIn = adoptNS([allocAVCaptureDeviceInputInstance() initWithDevice:device() error:nil]);
     ASSERT([session() canAddInput:videoIn.get()]);
     if ([session() canAddInput:videoIn.get()])
         [session() addInput:videoIn.get()];
@@ -216,7 +210,7 @@ void AVVideoCaptureSource::setupCaptureSession()
     if (constraints())
         applyConstraints(constraints());
 
-    RetainPtr<AVCaptureVideoDataOutputType> videoOutput = adoptNS([[AVCaptureVideoDataOutput alloc] init]);
+    RetainPtr<AVCaptureVideoDataOutputType> videoOutput = adoptNS([allocAVCaptureVideoDataOutputInstance() init]);
     setVideoSampleBufferDelegate(videoOutput.get());
     ASSERT([session() canAddOutput:videoOutput.get()]);
     if ([session() canAddOutput:videoOutput.get()])

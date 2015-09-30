@@ -30,21 +30,17 @@
 
 namespace WebCore {
 
-PassRef<HTMLAllCollection> HTMLAllCollection::create(Document& document, CollectionType type)
+Ref<HTMLAllCollection> HTMLAllCollection::create(Document& document, CollectionType type)
 {
     return adoptRef(*new HTMLAllCollection(document, type));
 }
 
-HTMLAllCollection::HTMLAllCollection(Document& document, CollectionType type)
+inline HTMLAllCollection::HTMLAllCollection(Document& document, CollectionType type)
     : HTMLCollection(document, type)
 {
 }
 
-HTMLAllCollection::~HTMLAllCollection()
-{
-}
-
-Node* HTMLAllCollection::namedItemWithIndex(const AtomicString& name, unsigned index) const
+Element* HTMLAllCollection::namedItemWithIndex(const AtomicString& name, unsigned index) const
 {
     updateNamedElementCache();
     const CollectionNamedElementCache& cache = namedItemCaches();
@@ -60,7 +56,7 @@ Node* HTMLAllCollection::namedItemWithIndex(const AtomicString& name, unsigned i
             return elements->at(index);
     }
 
-    return 0;
+    return nullptr;
 }
 
 } // namespace WebCore

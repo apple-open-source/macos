@@ -108,6 +108,7 @@ IOPCIScalar IOPCIRangeCollapse(IOPCIRange * headRange, IOPCIScalar alignment);
 IOPCIScalar IOPCIRangeListLastFree(IOPCIRange * headRange, IOPCIScalar align);
 IOPCIScalar IOPCIRangeLastFree(IOPCIRange * headRange, IOPCIScalar align);
 void        IOPCIRangeListOptimize(IOPCIRange * headRange);
+IOPCIScalar IOPCIRangeListSize(IOPCIRange * first);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -131,7 +132,7 @@ enum {
     kIOPCIConfiguratorVTLog          = 0x00000004,
     
     kIOPCIConfiguratorAER            = 0x00000008,
-    //        = 0x00000010,
+    kIOPCIConfiguratorWakeToOff      = 0x00000010,
     //        = 0x00000020,
 
     kIOPCIConfiguratorLogSaveRestore = 0x00000040,

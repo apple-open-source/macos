@@ -214,6 +214,8 @@
 /* Begin PBXProject section */
 		075F51C6FFE0D39C11CE15BF /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = ACBBA9B50D4FDAA300E75387 /* Build configuration list for PBXProject "IOFireWireSerialBusProtocolTransport" */;
 			compatibilityVersion = "Xcode 2.4";
 			developmentRegion = English;
@@ -311,21 +313,70 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		34DF6B481A93F9C500BFB495 /* Default With Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+			};
+			name = "Default With Coverage";
+		};
+		34DF6B491A93F9C500BFB495 /* Default With Coverage */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528902A3143556B90056B997 /* IOFireWireSerialBusProtocolTransport.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				BUILD_SETTING = "";
+				COPY_PHASE_STRIP = YES;
+				GCC_VERSION = "";
+				INFOPLIST_FILE = "Info-IOFireWireSerialBusProtocolTransport.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/";
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOFireWireSerialBusProtocolTransport;
+				MODULE_VERSION = 2.5.1;
+				OTHER_CFLAGS = (
+					"-Wno-format",
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOFireWireSerialBusProtocolTransport;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64 ppc";
+				WARNING_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = "Default With Coverage";
+		};
 		ACBBA9AF0D4FDAA300E75387 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
 			};
 			name = Development;
 		};
 		ACBBA9B00D4FDAA300E75387 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
 			};
 			name = Deployment;
 		};
 		ACBBA9B10D4FDAA300E75387 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
 			};
 			name = Default;
 		};
@@ -438,6 +489,7 @@
 				ACBBA9AF0D4FDAA300E75387 /* Development */,
 				ACBBA9B00D4FDAA300E75387 /* Deployment */,
 				ACBBA9B10D4FDAA300E75387 /* Default */,
+				34DF6B481A93F9C500BFB495 /* Default With Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
@@ -448,6 +500,7 @@
 				ACBBA9B20D4FDAA300E75387 /* Development */,
 				ACBBA9B30D4FDAA300E75387 /* Deployment */,
 				ACBBA9B40D4FDAA300E75387 /* Default */,
+				34DF6B491A93F9C500BFB495 /* Default With Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

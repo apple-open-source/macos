@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
 
 #define err_local_diskarbitration err_sub( 0x368 )
 
@@ -64,7 +67,7 @@ typedef mach_error_t DAReturn;
  * Type of a reference to DADissenter instances.
  */
 
-typedef const struct __DADissenter * DADissenterRef;
+typedef const struct CF_BRIDGED_TYPE( id ) __DADissenter * DADissenterRef;
 
 /*!
  * @function   DADissenterCreate
@@ -75,7 +78,7 @@ typedef const struct __DADissenter * DADissenterRef;
  * @result     A reference to a new DADissenter.
  */
 
-extern DADissenterRef DADissenterCreate( CFAllocatorRef allocator, DAReturn status, CFStringRef string );
+extern DADissenterRef DADissenterCreate( CFAllocatorRef __nullable allocator, DAReturn status, CFStringRef __nullable string );
 
 /*!
  * @function   DADissenterGetStatus
@@ -93,9 +96,12 @@ extern DAReturn DADissenterGetStatus( DADissenterRef dissenter );
  * @result     The return code string.
  */
 
-extern CFStringRef DADissenterGetStatusString( DADissenterRef dissenter );
+extern CFStringRef __nullable DADissenterGetStatusString( DADissenterRef dissenter );
 
 #endif /* !__DISKARBITRATIOND__ */
+
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
 
 #ifdef __cplusplus
 }

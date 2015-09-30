@@ -49,6 +49,7 @@
 #include <WebCore/IDBKeyRangeData.h>
 #include <WebCore/Image.h>
 #include <WebCore/Length.h>
+#include <WebCore/Path.h>
 #include <WebCore/PluginData.h>
 #include <WebCore/ProtectionSpace.h>
 #include <WebCore/Region.h>
@@ -82,6 +83,14 @@
 #include <WebCore/SharedBuffer.h>
 #endif // PLATFORM(IOS)
 
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+#include <WebCore/MediaPlaybackTargetContext.h>
+#endif
+
+#if ENABLE(MEDIA_SESSION)
+#include <WebCore/MediaSessionMetadata.h>
+#endif
+
 using namespace WebCore;
 using namespace WebKit;
 
@@ -99,12 +108,83 @@ bool ArgumentCoder<AffineTransform>::decode(ArgumentDecoder& decoder, AffineTran
 
 void ArgumentCoder<TransformationMatrix>::encode(ArgumentEncoder& encoder, const TransformationMatrix& transformationMatrix)
 {
-    SimpleArgumentCoder<TransformationMatrix>::encode(encoder, transformationMatrix);
+    encoder << transformationMatrix.m11();
+    encoder << transformationMatrix.m12();
+    encoder << transformationMatrix.m13();
+    encoder << transformationMatrix.m14();
+
+    encoder << transformationMatrix.m21();
+    encoder << transformationMatrix.m22();
+    encoder << transformationMatrix.m23();
+    encoder << transformationMatrix.m24();
+
+    encoder << transformationMatrix.m31();
+    encoder << transformationMatrix.m32();
+    encoder << transformationMatrix.m33();
+    encoder << transformationMatrix.m34();
+
+    encoder << transformationMatrix.m41();
+    encoder << transformationMatrix.m42();
+    encoder << transformationMatrix.m43();
+    encoder << transformationMatrix.m44();
 }
 
 bool ArgumentCoder<TransformationMatrix>::decode(ArgumentDecoder& decoder, TransformationMatrix& transformationMatrix)
 {
-    return SimpleArgumentCoder<TransformationMatrix>::decode(decoder, transformationMatrix);
+    double m11;
+    if (!decoder.decode(m11))
+        return false;
+    double m12;
+    if (!decoder.decode(m12))
+        return false;
+    double m13;
+    if (!decoder.decode(m13))
+        return false;
+    double m14;
+    if (!decoder.decode(m14))
+        return false;
+
+    double m21;
+    if (!decoder.decode(m21))
+        return false;
+    double m22;
+    if (!decoder.decode(m22))
+        return false;
+    double m23;
+    if (!decoder.decode(m23))
+        return false;
+    double m24;
+    if (!decoder.decode(m24))
+        return false;
+
+    double m31;
+    if (!decoder.decode(m31))
+        return false;
+    double m32;
+    if (!decoder.decode(m32))
+        return false;
+    double m33;
+    if (!decoder.decode(m33))
+        return false;
+    double m34;
+    if (!decoder.decode(m34))
+        return false;
+
+    double m41;
+    if (!decoder.decode(m41))
+        return false;
+    double m42;
+    if (!decoder.decode(m42))
+        return false;
+    double m43;
+    if (!decoder.decode(m43))
+        return false;
+    double m44;
+    if (!decoder.decode(m44))
+        return false;
+
+    transformationMatrix.setMatrix(m11, m12, m13, m14, m21, m22, m23, m24, m31, m32, m33, m34, m41, m42, m43, m44);
+    return true;
 }
 
 void ArgumentCoder<LinearTimingFunction>::encode(ArgumentEncoder& encoder, const LinearTimingFunction& timingFunction)
@@ -228,6 +308,16 @@ bool ArgumentCoder<FloatSize>::decode(ArgumentDecoder& decoder, FloatSize& float
 }
 
 
+void ArgumentCoder<FloatRoundedRect>::encode(ArgumentEncoder& encoder, const FloatRoundedRect& roundedRect)
+{
+    SimpleArgumentCoder<FloatRoundedRect>::encode(encoder, roundedRect);
+}
+
+bool ArgumentCoder<FloatRoundedRect>::decode(ArgumentDecoder& decoder, FloatRoundedRect& roundedRect)
+{
+    return SimpleArgumentCoder<FloatRoundedRect>::decode(decoder, roundedRect);
+}
+
 #if PLATFORM(IOS)
 void ArgumentCoder<FloatQuad>::encode(ArgumentEncoder& encoder, const FloatQuad& floatQuad)
 {
@@ -281,6 +371,115 @@ void ArgumentCoder<IntSize>::encode(ArgumentEncoder& encoder, const IntSize& int
 bool ArgumentCoder<IntSize>::decode(ArgumentDecoder& decoder, IntSize& intSize)
 {
     return SimpleArgumentCoder<IntSize>::decode(decoder, intSize);
+}
+
+static void pathPointCountApplierFunction(void* info, const PathElement*)
+{
+    uint64_t* pointCount = static_cast<uint64_t*>(info);
+    ++*pointCount;
+}
+
+static void pathEncodeApplierFunction(void* info, const PathElement* element)
+{
+    ArgumentEncoder& encoder = *static_cast<ArgumentEncoder*>(info);
+
+    encoder.encodeEnum(element->type);
+
+    switch (element->type) {
+    case PathElementMoveToPoint: // The points member will contain 1 value.
+        encoder << element->points[0];
+        break;
+    case PathElementAddLineToPoint: // The points member will contain 1 value.
+        encoder << element->points[0];
+        break;
+    case PathElementAddQuadCurveToPoint: // The points member will contain 2 values.
+        encoder << element->points[0];
+        encoder << element->points[1];
+        break;
+    case PathElementAddCurveToPoint: // The points member will contain 3 values.
+        encoder << element->points[0];
+        encoder << element->points[1];
+        encoder << element->points[2];
+        break;
+    case PathElementCloseSubpath: // The points member will contain no values.
+        break;
+    }
+}
+
+void ArgumentCoder<Path>::encode(ArgumentEncoder& encoder, const Path& path)
+{
+    uint64_t numPoints = 0;
+    path.apply(&numPoints, pathPointCountApplierFunction);
+
+    encoder << numPoints;
+
+    path.apply(&encoder, pathEncodeApplierFunction);
+}
+
+bool ArgumentCoder<Path>::decode(ArgumentDecoder& decoder, Path& path)
+{
+    uint64_t numPoints;
+    if (!decoder.decode(numPoints))
+        return false;
+    
+    path.clear();
+
+    for (uint64_t i = 0; i < numPoints; ++i) {
+    
+        PathElementType elementType;
+        if (!decoder.decodeEnum(elementType))
+            return false;
+        
+        switch (elementType) {
+        case PathElementMoveToPoint: { // The points member will contain 1 value.
+            FloatPoint point;
+            if (!decoder.decode(point))
+                return false;
+            path.moveTo(point);
+            break;
+        }
+        case PathElementAddLineToPoint: { // The points member will contain 1 value.
+            FloatPoint point;
+            if (!decoder.decode(point))
+                return false;
+            path.addLineTo(point);
+            break;
+        }
+        case PathElementAddQuadCurveToPoint: { // The points member will contain 2 values.
+            FloatPoint controlPoint;
+            if (!decoder.decode(controlPoint))
+                return false;
+
+            FloatPoint endPoint;
+            if (!decoder.decode(endPoint))
+                return false;
+
+            path.addQuadCurveTo(controlPoint, endPoint);
+            break;
+        }
+        case PathElementAddCurveToPoint: { // The points member will contain 3 values.
+            FloatPoint controlPoint1;
+            if (!decoder.decode(controlPoint1))
+                return false;
+
+            FloatPoint controlPoint2;
+            if (!decoder.decode(controlPoint2))
+                return false;
+
+            FloatPoint endPoint;
+            if (!decoder.decode(endPoint))
+                return false;
+
+            path.addBezierCurveTo(controlPoint1, controlPoint2, endPoint);
+            break;
+        }
+        case PathElementCloseSubpath: // The points member will contain no values.
+            path.closeSubpath();
+            break;
+        }
+    }
+
+    return true;
 }
 
 template<> struct ArgumentCoder<Region::Span> {
@@ -375,9 +574,18 @@ bool ArgumentCoder<MimeClassInfo>::decode(ArgumentDecoder& decoder, MimeClassInf
 
 void ArgumentCoder<PluginInfo>::encode(ArgumentEncoder& encoder, const PluginInfo& pluginInfo)
 {
-    encoder << pluginInfo.name << pluginInfo.file << pluginInfo.desc << pluginInfo.mimes << pluginInfo.isApplicationPlugin;
+    encoder << pluginInfo.name;
+    encoder << pluginInfo.file;
+    encoder << pluginInfo.desc;
+    encoder << pluginInfo.mimes;
+    encoder << pluginInfo.isApplicationPlugin;
+    encoder.encodeEnum(pluginInfo.clientLoadPolicy);
+#if PLATFORM(MAC)
+    encoder << pluginInfo.bundleIdentifier;
+    encoder << pluginInfo.versionString;
+#endif
 }
-    
+
 bool ArgumentCoder<PluginInfo>::decode(ArgumentDecoder& decoder, PluginInfo& pluginInfo)
 {
     if (!decoder.decode(pluginInfo.name))
@@ -390,41 +598,18 @@ bool ArgumentCoder<PluginInfo>::decode(ArgumentDecoder& decoder, PluginInfo& plu
         return false;
     if (!decoder.decode(pluginInfo.isApplicationPlugin))
         return false;
-
-    return true;
-}
-
-
-void ArgumentCoder<HTTPHeaderMap>::encode(ArgumentEncoder& encoder, const HTTPHeaderMap& headerMap)
-{
-    encoder << static_cast<uint64_t>(headerMap.size());
-    for (auto& keyValuePair : headerMap) {
-        encoder << keyValuePair.key;
-        encoder << keyValuePair.value;
-    }
-}
-
-bool ArgumentCoder<HTTPHeaderMap>::decode(ArgumentDecoder& decoder, HTTPHeaderMap& headerMap)
-{
-    uint64_t size;
-    if (!decoder.decode(size))
+    PluginLoadClientPolicy clientLoadPolicy;
+    if (!decoder.decodeEnum(clientLoadPolicy))
         return false;
-
-    for (size_t i = 0; i < size; ++i) {
-        String name;
-        if (!decoder.decode(name))
-            return false;
-
-        String value;
-        if (!decoder.decode(value))
-            return false;
-
-        headerMap.set(name, value);
-    }
+#if PLATFORM(MAC)
+    if (!decoder.decode(pluginInfo.bundleIdentifier))
+        return false;
+    if (!decoder.decode(pluginInfo.versionString))
+        return false;
+#endif
 
     return true;
 }
-
 
 void ArgumentCoder<AuthenticationChallenge>::encode(ArgumentEncoder& encoder, const AuthenticationChallenge& challenge)
 {
@@ -507,56 +692,25 @@ bool ArgumentCoder<ProtectionSpace>::decode(ArgumentDecoder& decoder, Protection
 
 void ArgumentCoder<Credential>::encode(ArgumentEncoder& encoder, const Credential& credential)
 {
-#if CERTIFICATE_CREDENTIALS_SUPPORTED
-    encoder.encodeEnum(credential.type());
-
-    if (credential.type() == CredentialTypeClientCertificate) {
-        IPC::encode(encoder, credential.identity());
-
-        encoder << !!credential.certificates();
-        if (credential.certificates())
-            IPC::encode(encoder, credential.certificates());
-
-        encoder.encodeEnum(credential.persistence());
+    if (credential.encodingRequiresPlatformData()) {
+        encoder << true;
+        encodePlatformData(encoder, credential);
         return;
     }
-#endif
-    encoder << credential.user() << credential.password();
 
+    encoder << false;
+    encoder << credential.user() << credential.password();
     encoder.encodeEnum(credential.persistence());
 }
 
 bool ArgumentCoder<Credential>::decode(ArgumentDecoder& decoder, Credential& credential)
 {
-#if CERTIFICATE_CREDENTIALS_SUPPORTED
-    CredentialType type;
-
-    if (!decoder.decodeEnum(type))
+    bool hasPlatformData;
+    if (!decoder.decode(hasPlatformData))
         return false;
 
-    if (type == CredentialTypeClientCertificate) {
-        RetainPtr<SecIdentityRef> identity;
-        if (!IPC::decode(decoder, identity))
-            return false;
-
-        bool hasCertificates;
-        if (!decoder.decode(hasCertificates))
-            return false;
-
-        RetainPtr<CFArrayRef> certificates;
-        if (hasCertificates) {
-            if (!IPC::decode(decoder, certificates))
-                return false;
-        }
-
-        CredentialPersistence persistence;
-        if (!decoder.decodeEnum(persistence))
-            return false;
-
-        credential = Credential(identity.get(), certificates.get(), persistence);
-        return true;
-    }
-#endif
+    if (hasPlatformData)
+        return decodePlatformData(decoder, credential);
 
     String user;
     if (!decoder.decode(user))
@@ -616,6 +770,9 @@ void ArgumentCoder<Cursor>::encode(ArgumentEncoder& encoder, const Cursor& curso
     encoder << true;
     encodeImage(encoder, cursor.image());
     encoder << cursor.hotSpot();
+#if ENABLE(MOUSE_CURSOR_SCALE)
+    encoder << cursor.imageScaleFactor();
+#endif
 }
 
 bool ArgumentCoder<Cursor>::decode(ArgumentDecoder& decoder, Cursor& cursor)
@@ -657,36 +814,26 @@ bool ArgumentCoder<Cursor>::decode(ArgumentDecoder& decoder, Cursor& cursor)
     if (!image->rect().contains(hotSpot))
         return false;
 
+#if ENABLE(MOUSE_CURSOR_SCALE)
+    float scale;
+    if (!decoder.decode(scale))
+        return false;
+
+    cursor = Cursor(image.get(), hotSpot, scale);
+#else
     cursor = Cursor(image.get(), hotSpot);
+#endif
     return true;
 }
 #endif
 
 void ArgumentCoder<ResourceRequest>::encode(ArgumentEncoder& encoder, const ResourceRequest& resourceRequest)
 {
-    if (kShouldSerializeWebCoreData) {
-        encoder << resourceRequest.url().string();
-        encoder << resourceRequest.httpMethod();
-        encoder << resourceRequest.httpHeaderFields();
-
-        // FIXME: Do not encode HTTP message body.
-        // 1. It can be large and thus costly to send across.
-        // 2. It is misleading to provide a body with some requests, while others use body streams, which cannot be serialized at all.
-        FormData* httpBody = resourceRequest.httpBody();
-        encoder << static_cast<bool>(httpBody);
-        if (httpBody)
-            encoder << httpBody->flattenToString();
-
-        encoder << resourceRequest.firstPartyForCookies().string();
-    }
-
 #if ENABLE(CACHE_PARTITIONING)
     encoder << resourceRequest.cachePartition();
 #endif
 
-#if ENABLE(INSPECTOR)
     encoder << resourceRequest.hiddenFromInspector();
-#endif
 
     if (resourceRequest.encodingRequiresPlatformData()) {
         encoder << true;
@@ -699,42 +846,6 @@ void ArgumentCoder<ResourceRequest>::encode(ArgumentEncoder& encoder, const Reso
 
 bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder& decoder, ResourceRequest& resourceRequest)
 {
-    if (kShouldSerializeWebCoreData) {
-        ResourceRequest request;
-
-        String url;
-        if (!decoder.decode(url))
-            return false;
-        request.setURL(URL(URL(), url));
-
-        String httpMethod;
-        if (!decoder.decode(httpMethod))
-            return false;
-        request.setHTTPMethod(httpMethod);
-
-        HTTPHeaderMap headers;
-        if (!decoder.decode(headers))
-            return false;
-        request.setHTTPHeaderFields(WTF::move(headers));
-
-        bool hasHTTPBody;
-        if (!decoder.decode(hasHTTPBody))
-            return false;
-        if (hasHTTPBody) {
-            String httpBody;
-            if (!decoder.decode(httpBody))
-                return false;
-            request.setHTTPBody(FormData::create(httpBody.utf8()));
-        }
-
-        String firstPartyForCookies;
-        if (!decoder.decode(firstPartyForCookies))
-            return false;
-        request.setFirstPartyForCookies(URL(URL(), firstPartyForCookies));
-
-        resourceRequest = request;
-    }
-
 #if ENABLE(CACHE_PARTITIONING)
     String cachePartition;
     if (!decoder.decode(cachePartition))
@@ -742,12 +853,10 @@ bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder& decoder, ResourceRe
     resourceRequest.setCachePartition(cachePartition);
 #endif
 
-#if ENABLE(INSPECTOR)
     bool isHiddenFromInspector;
     if (!decoder.decode(isHiddenFromInspector))
         return false;
     resourceRequest.setHiddenFromInspector(isHiddenFromInspector);
-#endif
 
     bool hasPlatformData;
     if (!decoder.decode(hasPlatformData))
@@ -758,188 +867,13 @@ bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder& decoder, ResourceRe
     return resourceRequest.decodeWithoutPlatformData(decoder);
 }
 
-void ArgumentCoder<ResourceResponse>::encode(ArgumentEncoder& encoder, const ResourceResponse& resourceResponse)
-{
-#if PLATFORM(COCOA)
-    bool shouldSerializeWebCoreData = !resourceResponse.platformResponseIsUpToDate();
-    encoder << shouldSerializeWebCoreData;
-#else
-    bool shouldSerializeWebCoreData = true;
-#endif
-
-    encodePlatformData(encoder, resourceResponse);
-
-    if (shouldSerializeWebCoreData) {
-        bool responseIsNull = resourceResponse.isNull();
-        encoder << responseIsNull;
-        if (responseIsNull)
-            return;
-
-        encoder << resourceResponse.url().string();
-        encoder << static_cast<int32_t>(resourceResponse.httpStatusCode());
-        encoder << resourceResponse.httpHeaderFields();
-
-        encoder << resourceResponse.mimeType();
-        encoder << resourceResponse.textEncodingName();
-        encoder << static_cast<int64_t>(resourceResponse.expectedContentLength());
-        encoder << resourceResponse.httpStatusText();
-        encoder << resourceResponse.suggestedFilename();
-    }
-    
-#if ENABLE(WEB_TIMING)
-    const ResourceLoadTiming& timing = resourceResponse.resourceLoadTiming();
-    encoder << timing.domainLookupStart;
-    encoder << timing.domainLookupEnd;
-    encoder << timing.connectStart;
-    encoder << timing.connectEnd;
-    encoder << timing.requestStart;
-    encoder << timing.responseStart;
-    encoder << timing.secureConnectionStart;
-#endif
-}
-
-bool ArgumentCoder<ResourceResponse>::decode(ArgumentDecoder& decoder, ResourceResponse& resourceResponse)
-{
-#if PLATFORM(COCOA)
-    bool hasSerializedWebCoreData;
-    if (!decoder.decode(hasSerializedWebCoreData))
-        return false;
-#else
-    bool hasSerializedWebCoreData = true;
-#endif
-
-    ResourceResponse response;
-
-    if (!decodePlatformData(decoder, response))
-        return false;
-
-    if (hasSerializedWebCoreData) {
-        bool responseIsNull;
-        if (!decoder.decode(responseIsNull))
-            return false;
-        if (responseIsNull) {
-            resourceResponse = ResourceResponse();
-            return true;
-        }
-
-        String url;
-        if (!decoder.decode(url))
-            return false;
-        response.setURL(URL(URL(), url));
-
-        int32_t httpStatusCode;
-        if (!decoder.decode(httpStatusCode))
-            return false;
-        response.setHTTPStatusCode(httpStatusCode);
-
-        HTTPHeaderMap headers;
-        if (!decoder.decode(headers))
-            return false;
-        for (HTTPHeaderMap::const_iterator it = headers.begin(), end = headers.end(); it != end; ++it)
-            response.setHTTPHeaderField(it->key, it->value);
-
-        String mimeType;
-        if (!decoder.decode(mimeType))
-            return false;
-        response.setMimeType(mimeType);
-
-        String textEncodingName;
-        if (!decoder.decode(textEncodingName))
-            return false;
-        response.setTextEncodingName(textEncodingName);
-
-        int64_t contentLength;
-        if (!decoder.decode(contentLength))
-            return false;
-        response.setExpectedContentLength(contentLength);
-
-        String httpStatusText;
-        if (!decoder.decode(httpStatusText))
-            return false;
-        response.setHTTPStatusText(httpStatusText);
-
-        String suggestedFilename;
-        if (!decoder.decode(suggestedFilename))
-            return false;
-        response.setSuggestedFilename(suggestedFilename);
-    }
-    
-#if ENABLE(WEB_TIMING)
-    ResourceLoadTiming& timing = response.resourceLoadTiming();
-    if (!decoder.decode(timing.domainLookupStart)
-        || !decoder.decode(timing.domainLookupEnd)
-        || !decoder.decode(timing.connectStart)
-        || !decoder.decode(timing.connectEnd)
-        || !decoder.decode(timing.requestStart)
-        || !decoder.decode(timing.responseStart)
-        || !decoder.decode(timing.secureConnectionStart))
-        return false;
-#endif
-
-    resourceResponse = response;
-
-    return true;
-}
-
 void ArgumentCoder<ResourceError>::encode(ArgumentEncoder& encoder, const ResourceError& resourceError)
 {
-    if (kShouldSerializeWebCoreData) {
-        bool errorIsNull = resourceError.isNull();
-        encoder << errorIsNull;
-        if (errorIsNull)
-            return;
-
-        encoder << resourceError.domain();
-        encoder << resourceError.errorCode();
-        encoder << resourceError.failingURL();
-        encoder << resourceError.localizedDescription();
-        encoder << resourceError.isCancellation();
-        encoder << resourceError.isTimeout();
-    }
-
     encodePlatformData(encoder, resourceError);
 }
 
 bool ArgumentCoder<ResourceError>::decode(ArgumentDecoder& decoder, ResourceError& resourceError)
 {
-    if (kShouldSerializeWebCoreData) {
-        bool errorIsNull;
-        if (!decoder.decode(errorIsNull))
-            return false;
-        if (errorIsNull) {
-            resourceError = ResourceError();
-            return true;
-        }
-
-        String domain;
-        if (!decoder.decode(domain))
-            return false;
-
-        int errorCode;
-        if (!decoder.decode(errorCode))
-            return false;
-
-        String failingURL;
-        if (!decoder.decode(failingURL))
-            return false;
-
-        String localizedDescription;
-        if (!decoder.decode(localizedDescription))
-            return false;
-
-        bool isCancellation;
-        if (!decoder.decode(isCancellation))
-            return false;
-
-        bool isTimeout;
-        if (!decoder.decode(isTimeout))
-            return false;
-
-        resourceError = ResourceError(domain, errorCode, failingURL, localizedDescription);
-        resourceError.setIsCancellation(isCancellation);
-        resourceError.setIsTimeout(isTimeout);
-    }
-
     return decodePlatformData(decoder, resourceError);
 }
 
@@ -1166,8 +1100,6 @@ bool ArgumentCoder<Cookie>::decode(ArgumentDecoder& decoder, Cookie& cookie)
     return true;
 }
 
-
-#if ENABLE(SQL_DATABASE)
 void ArgumentCoder<DatabaseDetails>::encode(ArgumentEncoder& encoder, const DatabaseDetails& details)
 {
     encoder << details.name();
@@ -1207,8 +1139,6 @@ bool ArgumentCoder<DatabaseDetails>::decode(ArgumentDecoder& decoder, DatabaseDe
     details = DatabaseDetails(name, displayName, expectedUsage, currentUsage, creationTime, modificationTime);
     return true;
 }
-
-#endif
 
 #if PLATFORM(IOS)
 
@@ -1253,9 +1183,9 @@ static void encodeSharedBuffer(ArgumentEncoder& encoder, SharedBuffer* buffer)
     SharedMemory::Handle handle;
     encoder << (buffer ? static_cast<uint64_t>(buffer->size()): 0);
     if (buffer) {
-        RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(buffer->size());
+        RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::allocate(buffer->size());
         memcpy(sharedMemoryBuffer->data(), buffer->data(), buffer->size());
-        sharedMemoryBuffer->createHandle(handle, SharedMemory::ReadOnly);
+        sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
         encoder << handle;
     }
 }
@@ -1271,7 +1201,7 @@ static bool decodeSharedBuffer(ArgumentDecoder& decoder, RefPtr<SharedBuffer>& b
         if (!decoder.decode(handle))
             return false;
 
-        RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(handle, SharedMemory::ReadOnly);
+        RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::map(handle, SharedMemory::Protection::ReadOnly);
         buffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryBuffer->data()), bufferSize);
     }
 
@@ -1516,9 +1446,35 @@ bool ArgumentCoder<UserStyleSheet>::decode(ArgumentDecoder& decoder, UserStyleSh
     if (!decoder.decodeEnum(level))
         return false;
 
-    userStyleSheet = UserStyleSheet(source, url, whitelist, blacklist, injectedFrames, level);
+    userStyleSheet = UserStyleSheet(source, url, WTF::move(whitelist), WTF::move(blacklist), injectedFrames, level);
     return true;
 }
+
+#if ENABLE(MEDIA_SESSION)
+void ArgumentCoder<MediaSessionMetadata>::encode(ArgumentEncoder& encoder, const MediaSessionMetadata& result)
+{
+    encoder << result.artist();
+    encoder << result.album();
+    encoder << result.title();
+    encoder << result.artworkURL();
+}
+
+bool ArgumentCoder<MediaSessionMetadata>::decode(ArgumentDecoder& decoder, MediaSessionMetadata& result)
+{
+    String artist, album, title;
+    URL artworkURL;
+    if (!decoder.decode(artist))
+        return false;
+    if (!decoder.decode(album))
+        return false;
+    if (!decoder.decode(title))
+        return false;
+    if (!decoder.decode(artworkURL))
+        return false;
+    result = MediaSessionMetadata(title, artist, album, artworkURL);
+    return true;
+}
+#endif
 
 void ArgumentCoder<UserScript>::encode(ArgumentEncoder& encoder, const UserScript& userScript)
 {
@@ -1556,7 +1512,7 @@ bool ArgumentCoder<UserScript>::decode(ArgumentDecoder& decoder, UserScript& use
     if (!decoder.decodeEnum(injectedFrames))
         return false;
 
-    userScript = UserScript(source, url, whitelist, blacklist, injectionTime, injectedFrames);
+    userScript = UserScript(source, url, WTF::move(whitelist), WTF::move(blacklist), injectionTime, injectedFrames);
     return true;
 }
 
@@ -1712,7 +1668,7 @@ bool ArgumentCoder<StickyPositionViewportConstraints>::decode(ArgumentDecoder& d
     return true;
 }
 
-#if ENABLE(CSS_FILTERS) && !USE(COORDINATED_GRAPHICS)
+#if !USE(COORDINATED_GRAPHICS)
 void ArgumentCoder<FilterOperation>::encode(ArgumentEncoder& encoder, const FilterOperation& filter)
 {
     encoder.encodeEnum(filter.type());
@@ -1726,26 +1682,26 @@ void ArgumentCoder<FilterOperation>::encode(ArgumentEncoder& encoder, const Filt
     case FilterOperation::SEPIA:
     case FilterOperation::SATURATE:
     case FilterOperation::HUE_ROTATE:
-        encoder << toBasicColorMatrixFilterOperation(filter).amount();
+        encoder << downcast<BasicColorMatrixFilterOperation>(filter).amount();
         break;
     case FilterOperation::INVERT:
     case FilterOperation::OPACITY:
     case FilterOperation::BRIGHTNESS:
     case FilterOperation::CONTRAST:
-        encoder << toBasicComponentTransferFilterOperation(filter).amount();
+        encoder << downcast<BasicComponentTransferFilterOperation>(filter).amount();
         break;
     case FilterOperation::BLUR:
-        encoder << toBlurFilterOperation(filter).stdDeviation();
+        encoder << downcast<BlurFilterOperation>(filter).stdDeviation();
         break;
     case FilterOperation::DROP_SHADOW: {
-        const auto& dropShadowFilter = toDropShadowFilterOperation(filter);
+        const auto& dropShadowFilter = downcast<DropShadowFilterOperation>(filter);
         encoder << dropShadowFilter.location();
         encoder << dropShadowFilter.stdDeviation();
         encoder << dropShadowFilter.color();
         break;
     }
     case FilterOperation::DEFAULT:
-        encoder.encodeEnum(toDefaultFilterOperation(filter).representedType());
+        encoder.encodeEnum(downcast<DefaultFilterOperation>(filter).representedType());
         break;
     case FilterOperation::PASSTHROUGH:
         break;
@@ -1843,7 +1799,7 @@ bool ArgumentCoder<FilterOperations>::decode(ArgumentDecoder& decoder, FilterOpe
 
     return true;
 }
-#endif // ENABLE(CSS_FILTERS) && !USE(COORDINATED_GRAPHICS)
+#endif // !USE(COORDINATED_GRAPHICS)
 
 #if ENABLE(INDEXED_DATABASE)
 void ArgumentCoder<IDBDatabaseMetadata>::encode(ArgumentEncoder& encoder, const IDBDatabaseMetadata& metadata)
@@ -2176,6 +2132,7 @@ void ArgumentCoder<TextIndicatorData>::encode(ArgumentEncoder& encoder, const Te
     encoder << textIndicatorData.textBoundingRectInRootViewCoordinates;
     encoder << textIndicatorData.textRectsInBoundingRectCoordinates;
     encoder << textIndicatorData.contentImageScaleFactor;
+    encoder << textIndicatorData.wantsMargin;
     encoder.encodeEnum(textIndicatorData.presentationTransition);
 
     bool hasImage = textIndicatorData.contentImage;
@@ -2203,6 +2160,9 @@ bool ArgumentCoder<TextIndicatorData>::decode(ArgumentDecoder& decoder, TextIndi
     if (!decoder.decode(textIndicatorData.contentImageScaleFactor))
         return false;
 
+    if (!decoder.decode(textIndicatorData.wantsMargin))
+        return false;
+
     if (!decoder.decodeEnum(textIndicatorData.presentationTransition))
         return false;
 
@@ -2220,5 +2180,31 @@ bool ArgumentCoder<TextIndicatorData>::decode(ArgumentDecoder& decoder, TextIndi
 
     return true;
 }
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+void ArgumentCoder<MediaPlaybackTargetContext>::encode(ArgumentEncoder& encoder, const MediaPlaybackTargetContext& target)
+{
+    int32_t targetType = target.type;
+    encoder << targetType;
+
+    if (!target.encodingRequiresPlatformData())
+        return;
+
+    encodePlatformData(encoder, target);
+}
+
+bool ArgumentCoder<MediaPlaybackTargetContext>::decode(ArgumentDecoder& decoder, MediaPlaybackTargetContext& target)
+{
+    int32_t targetType;
+    if (!decoder.decode(targetType))
+        return false;
+
+    target.type = static_cast<MediaPlaybackTargetContext::ContextType>(targetType);
+    if (!target.encodingRequiresPlatformData())
+        return false;
+
+    return decodePlatformData(decoder, target);
+}
+#endif
 
 } // namespace IPC

@@ -1,9 +1,9 @@
 /*
- * "$Id: http-private.h 12131 2014-08-28 23:38:16Z msweet $"
+ * "$Id: http-private.h 12646 2015-05-20 01:26:55Z msweet $"
  *
  * Private HTTP definitions for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2015 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -126,6 +126,7 @@ extern CFAbsoluteTime SecCertificateNotValidAfter(SecCertificateRef certificate)
 
 #  ifndef WIN32
 #    include <net/if.h>
+#    include <resolv.h>
 #    ifdef HAVE_GETIFADDRS
 #      include <ifaddrs.h>
 #    else
@@ -161,6 +162,12 @@ extern "C" {
 #define _HTTP_RESOLVE_FQDN	2	/* Resolve to a FQDN */
 #define _HTTP_RESOLVE_FAXOUT	4	/* Resolve FaxOut service? */
 
+#define _HTTP_TLS_NONE		0	/* No TLS options */
+#define _HTTP_TLS_ALLOW_RC4	1	/* Allow RC4 cipher suites */
+#define _HTTP_TLS_ALLOW_SSL3	2	/* Allow SSL 3.0 */
+#define _HTTP_TLS_ALLOW_DH	4	/* Allow DH/DHE key negotiation */
+#define _HTTP_TLS_DENY_TLS10	16	/* Deny TLS 1.0 */
+
 
 /*
  * Types and functions for SSL support...
@@ -183,10 +190,6 @@ typedef gnutls_certificate_credentials_t *http_tls_credentials_t;
 #    if !defined(HAVE_SECBASEPRIV_H) && defined(HAVE_CSSMERRORSTRING) /* Declare prototype for function in that header... */
 extern const char *cssmErrorString(int error);
 #    endif /* !HAVE_SECBASEPRIV_H && HAVE_CSSMERRORSTRING */
-#    ifndef HAVE_SECITEMPRIV_H /* Declare constants from that header... */
-extern const CFTypeRef kSecClassCertificate;
-extern const CFTypeRef kSecClassIdentity;
-#    endif /* !HAVE_SECITEMPRIV_H */
 #    if !defined(HAVE_SECIDENTITYSEARCHPRIV_H) && defined(HAVE_SECIDENTITYSEARCHCREATEWITHPOLICY) /* Declare prototype for function in that header... */
 extern OSStatus SecIdentitySearchCreateWithPolicy(SecPolicyRef policy,
 				CFStringRef idString, CSSM_KEYUSE keyUsage,
@@ -420,6 +423,7 @@ extern void		_httpTLSInitialize(void);
 extern size_t		_httpTLSPending(http_t *http);
 extern int		_httpTLSRead(http_t *http, char *buf, int len);
 extern int		_httpTLSSetCredentials(http_t *http);
+extern void		_httpTLSSetOptions(int options);
 extern int		_httpTLSStart(http_t *http);
 extern void		_httpTLSStop(http_t *http);
 extern int		_httpTLSWrite(http_t *http, const char *buf, int len);
@@ -438,5 +442,5 @@ extern int		_httpWait(http_t *http, int msec, int usessl);
 #endif /* !_CUPS_HTTP_PRIVATE_H_ */
 
 /*
- * End of "$Id: http-private.h 12131 2014-08-28 23:38:16Z msweet $".
+ * End of "$Id: http-private.h 12646 2015-05-20 01:26:55Z msweet $".
  */

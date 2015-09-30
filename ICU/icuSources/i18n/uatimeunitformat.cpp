@@ -1,6 +1,6 @@
 /*
 *****************************************************************************************
-* Copyright (C) 2014 Apple Inc. All Rights Reserved.
+* Copyright (C) 2014-2015 Apple Inc. All Rights Reserved.
 *****************************************************************************************
 */
 
@@ -18,6 +18,7 @@
 #include "unicode/unistr.h"
 #include "unicode/unum.h"
 #include "unicode/ures.h"
+#include "ureslocs.h"
 #include "uresimp.h"
 #include "ustr_imp.h"
 
@@ -163,7 +164,7 @@ uatmufmt_getTimePattern(const char*     locale,
     }
     int32_t resLen = 0;
     const UChar* resPtr = NULL;
-    UResourceBundle* rb =  ures_open(NULL, locale, status);
+    UResourceBundle* rb =  ures_open(U_ICUDATA_UNIT, locale, status);
     rb = ures_getByKeyWithFallback(rb, "durationUnits", rb, status);
     resPtr = ures_getStringByKeyWithFallback(rb, key, &resLen, status);
     if (U_SUCCESS(*status)) {

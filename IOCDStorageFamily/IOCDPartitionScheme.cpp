@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -816,12 +816,8 @@ void IOCDPartitionScheme::read( IOService *           client,
                            /* buffer     */ buffer,
                            /* sectorArea */ (CDSectorArea) kCDSectorAreaUser,
                            /* sectorType */ (CDSectorType) (byteStart >> 32),
-#ifdef __LP64__
                            /* attributes */ attributes,
                            /* completion */ completion );
-#else /* !__LP64__ */
-                           /* completion */ completion ? *completion : (IOStorageCompletion) { 0 } );
-#endif /* !__LP64__ */
 }
 
 void IOCDPartitionScheme::write( IOService *           client,
@@ -846,12 +842,8 @@ void IOCDPartitionScheme::write( IOService *           client,
                             /* buffer     */ buffer,
                             /* sectorArea */ (CDSectorArea) kCDSectorAreaUser,
                             /* sectorType */ (CDSectorType) (byteStart >> 32),
-#ifdef __LP64__
                             /* attributes */ attributes,
                             /* completion */ completion );
-#else /* !__LP64__ */
-                            /* completion */ completion ? *completion : (IOStorageCompletion) { 0 } );
-#endif /* !__LP64__ */
 }
 
 OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  0);

@@ -16,7 +16,6 @@ protected:
 public:
     // Create a workloop
     static IOHIDWorkLoop * workLoop();
-
 };
 
 #endif /* ! _IOKIT_IOHIDWORKLOOP_H */

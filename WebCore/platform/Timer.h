@@ -46,17 +46,17 @@ class TimerBase {
     WTF_MAKE_NONCOPYABLE(TimerBase);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    TimerBase();
-    virtual ~TimerBase();
+    WEBCORE_EXPORT TimerBase();
+    WEBCORE_EXPORT virtual ~TimerBase();
 
-    void start(double nextFireInterval, double repeatInterval);
+    WEBCORE_EXPORT void start(double nextFireInterval, double repeatInterval);
 
     void startRepeating(double repeatInterval) { start(repeatInterval, repeatInterval); }
     void startRepeating(std::chrono::milliseconds repeatInterval) { startRepeating(repeatInterval.count() * 0.001); }
     void startOneShot(double interval) { start(interval, 0); }
     void startOneShot(std::chrono::milliseconds interval) { startOneShot(interval.count() * 0.001); }
 
-    void stop();
+    WEBCORE_EXPORT void stop();
     bool isActive() const;
 
     double nextFireInterval() const;
@@ -114,19 +114,8 @@ private:
 
 
 class Timer : public TimerBase {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    template <typename TimerFiredClass, typename TimerFiredBaseClass>
-    Timer(TimerFiredClass* object, void (TimerFiredBaseClass::*function)(Timer&))
-        : m_function(std::bind(function, object, std::ref(*this)))
-    {
-    }
-
-    template <typename TimerFiredClass, typename TimerFiredBaseClass>
-    Timer(TimerFiredClass* object, void (TimerFiredBaseClass::*function)(Timer*))
-        : m_function(std::bind(function, object, this))
-    {
-    }
-
     template <typename TimerFiredClass, typename TimerFiredBaseClass>
     Timer(TimerFiredClass& object, void (TimerFiredBaseClass::*function)())
         : m_function(std::bind(function, &object))
@@ -161,8 +150,8 @@ inline bool TimerBase::isActive() const
 class DeferrableOneShotTimer : protected TimerBase {
 public:
     template<typename TimerFiredClass>
-    DeferrableOneShotTimer(TimerFiredClass* object, void (TimerFiredClass::*function)(), std::chrono::milliseconds delay)
-        : DeferrableOneShotTimer(std::bind(function, object), delay)
+    DeferrableOneShotTimer(TimerFiredClass& object, void (TimerFiredClass::*function)(), std::chrono::milliseconds delay)
+        : DeferrableOneShotTimer(std::bind(function, &object), delay)
     {
     }
 

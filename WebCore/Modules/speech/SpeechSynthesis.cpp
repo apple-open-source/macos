@@ -37,13 +37,13 @@
 
 namespace WebCore {
     
-PassRefPtr<SpeechSynthesis> SpeechSynthesis::create()
+Ref<SpeechSynthesis> SpeechSynthesis::create()
 {
-    return adoptRef(new SpeechSynthesis);
+    return adoptRef(*new SpeechSynthesis);
 }
     
 SpeechSynthesis::SpeechSynthesis()
-    : m_currentSpeechUtterance(0)
+    : m_currentSpeechUtterance(nullptr)
     , m_isPaused(false)
 #if PLATFORM(IOS)
     , m_restrictions(RequireUserGestureForSpeechStartRestriction)
@@ -55,7 +55,7 @@ void SpeechSynthesis::setPlatformSynthesizer(std::unique_ptr<PlatformSpeechSynth
 {
     m_platformSpeechSynthesizer = WTF::move(synthesizer);
     m_voiceList.clear();
-    m_currentSpeechUtterance = 0;
+    m_currentSpeechUtterance = nullptr;
     m_utteranceQueue.clear();
     m_isPaused = false;
 }
@@ -74,10 +74,8 @@ const Vector<RefPtr<SpeechSynthesisVoice>>& SpeechSynthesis::getVoices()
         m_platformSpeechSynthesizer = std::make_unique<PlatformSpeechSynthesizer>(this);
 
     // If the voiceList is empty, that's the cue to get the voices from the platform again.
-    const Vector<RefPtr<PlatformSpeechSynthesisVoice>>& platformVoices = m_platformSpeechSynthesizer->voiceList();
-    size_t voiceCount = platformVoices.size();
-    for (size_t k = 0; k < voiceCount; k++)
-        m_voiceList.append(SpeechSynthesisVoice::create(platformVoices[k]));
+    for (auto& voice : m_platformSpeechSynthesizer->voiceList())
+        m_voiceList.append(SpeechSynthesisVoice::create(voice));
 
     return m_voiceList;
 }
@@ -147,7 +145,7 @@ void SpeechSynthesis::cancel()
     m_utteranceQueue.clear();
     if (m_platformSpeechSynthesizer)
         m_platformSpeechSynthesizer->cancel();
-    current = 0;
+    current = nullptr;
     
     // The platform should have called back immediately and cleared the current utterance.
     ASSERT(!m_currentSpeechUtterance);
@@ -176,7 +174,7 @@ void SpeechSynthesis::handleSpeakingCompleted(SpeechSynthesisUtterance* utteranc
     ASSERT(m_currentSpeechUtterance);
     RefPtr<SpeechSynthesisUtterance> protect(utterance);
     
-    m_currentSpeechUtterance = 0;
+    m_currentSpeechUtterance = nullptr;
 
     fireEvent(errorOccurred ? eventNames().errorEvent : eventNames().endEvent, utterance, 0, String());
 
@@ -243,4 +241,4 @@ void SpeechSynthesis::speakingErrorOccurred(PassRefPtr<PlatformSpeechSynthesisUt
 
 } // namespace WebCore
 
-#endif // ENABLE(INPUT_SPEECH)
+#endif // ENABLE(SPEECH_SYNTHESIS)

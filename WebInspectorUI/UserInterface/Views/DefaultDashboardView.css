@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,22 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-body.web .toolbar.collapsed .dashboard.default > .time,
-body.web .toolbar.collapsed .dashboard.default > .resourcesSize,
-body.web .toolbar.collapsed .dashboard.default > .logs {
+body.web .toolbar.collapsed .dashboard.default > :matches(.resourcesSize, .time, .logs) {
     display: none;
 }
 
-body.javascript .toolbar .dashboard.default > .time,
-body.javascript .toolbar .dashboard.default > .resourcesSize,
-body.javascript .toolbar .dashboard.default > .resourcesCount {
+body.javascript .toolbar .dashboard.default > :matches(.resourcesCount, .resourcesSize, .time) {
     display: none;
 }
 
 .toolbar .dashboard.default {
-    display: -webkit-flex;
-    -webkit-flex-flow: row nowrap;
-    -webkit-justify-content: space-between;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: center;
 }
 
 .toolbar .dashboard.default > .item {
@@ -46,20 +42,15 @@ body.javascript .toolbar .dashboard.default > .resourcesCount {
 
     padding: 0 5px;
 
-    display: -webkit-flex;
+    display: flex;
 
     min-width: 45px;
 
-    -webkit-justify-content: center;
-    -webkit-align-items: center;
+    justify-content: center;
+    align-items: center;
 
     border-radius: 4px;
     border: 1px solid transparent;
-}
-
-body.mac-platform.legacy .toolbar .dashboard.default > .item {
-    font-family: Helvetica, sans-serif;
-    font-weight: bold;
 }
 
 .toolbar .dashboard.default > .time,
@@ -76,8 +67,8 @@ body.mac-platform.legacy .toolbar .dashboard.default > .item {
 }
 
 .toolbar .dashboard.default > .item > * {
-    display: -webkit-flex;
-    -webkit-align-items: center;
+    display: flex;
+    align-items: center;
 }
 
 .toolbar .dashboard.default > .item > img {
@@ -96,8 +87,8 @@ body.mac-platform.legacy .toolbar .dashboard.default > .item {
 }
 
 .toolbar .dashboard.default > .item > div {
-    display: -webkit-flex;
-    -webkit-flex: 1;
+    display: flex;
+    flex: 1;
 
     color: rgba(0, 0, 0, 0.2);
     padding-left: 2px;
@@ -136,30 +127,6 @@ body.mac-platform.legacy .toolbar .dashboard.default > .item {
     opacity: 0.9;
 }
 
-body.mac-platform.legacy .toolbar .dashboard.default > .resourcesCount > img {
-    content: url(../Images/Legacy/Resources.svg);
-}
-
-body.mac-platform.legacy .toolbar .dashboard.default > .time > img {
-    content: url(../Images/Legacy/Time.svg);
-}
-
-body.mac-platform.legacy .toolbar .dashboard.default > .logs > img {
-    content: url(../Images/Legacy/Logs.svg);
-}
-
-body.mac-platform.legacy .toolbar .dashboard.default > .resourcesSize > img {
-    content: url(../Images/Legacy/Weight.svg);
-}
-
-body.mac-platform.legacy .toolbar .dashboard.default > .errors > img {
-    content: url(../Images/Legacy/Errors.svg);
-}
-
-body.mac-platform.legacy .toolbar .dashboard.default > .errors.enabled > img {
-    content: url(../Images/Legacy/ErrorsEnabled.svg);
-}
-
 .toolbar .dashboard.default > .errors.enabled:hover > img {
     opacity: 1;
 }
@@ -179,14 +146,6 @@ body.mac-platform.legacy .toolbar .dashboard.default > .errors.enabled > img {
 .toolbar .dashboard.default > .issues.enabled > img {
     content: url(../Images/IssuesEnabled.svg);
     opacity: 0.9;
-}
-
-body.mac-platform.legacy .toolbar .dashboard.default > .issues > img {
-    content: url(../Images/Legacy/Issues.svg);
-}
-
-body.mac-platform.legacy .toolbar .dashboard.default > .issues.enabled > img {
-    content: url(../Images/Legacy/IssuesEnabled.svg);
 }
 
 .toolbar .dashboard.default > .issues.enabled:hover > img {
@@ -216,16 +175,12 @@ body.mac-platform.legacy .toolbar .dashboard.default > .issues.enabled > img {
 /* Styles for the extra short style, one row with quite a small y-margin */
 
 .toolbar.label-only .dashboard.default > .item,
-.toolbar.small-size.icon-only .dashboard.default > .item,
-.toolbar.small-size.icon-and-label-vertical .dashboard.default > .item,
-.toolbar.small-size.icon-and-label-horizontal .dashboard.default > .item {
+.toolbar.small-size:matches(.icon-only, .icon-and-label-vertical, .icon-and-label-horizontal) .dashboard.default > .item {
     margin: 1px 0;
 }
 
 /* Styles for the fairly short style, one row with quite a bit of y-margin */
 
-.toolbar.normal-size.icon-only .dashboard.default > .item,
-.toolbar.normal-size.icon-and-label-vertical .dashboard.default > .item,
-.toolbar.normal-size.icon-and-label-horizontal .dashboard.default > .item {
+.toolbar.normal-size:matches(.icon-only, .icon-and-label-vertical, .icon-and-label-horizontal) .dashboard.default > .item {
     margin: 4px 0;
 }

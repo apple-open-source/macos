@@ -312,10 +312,10 @@ int CommonHMacClone(int argc, char *const *argv)
 			}
 			
 			ok(doHMacCloneTest(ptext, ptextLen, hmacAlg, keySizeInBytes, stagedOrig, stagedClone, quiet, verbose), "HMacClone Test");
-			if(loops && (loop == loops)) {
+            free(bb);
+            if(loops && (loop == loops)) {
 				break;
 			}
-            free(bb);
 		}	/* main loop */
 		
 	}	/* for algs */

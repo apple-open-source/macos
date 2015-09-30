@@ -32,7 +32,7 @@
 
 namespace WebCore {
 
-RenderSVGRect::RenderSVGRect(SVGRectElement& element, PassRef<RenderStyle> style)
+RenderSVGRect::RenderSVGRect(SVGRectElement& element, Ref<RenderStyle>&& style)
     : RenderSVGShape(element, WTF::move(style))
     , m_usePathFallback(false)
 {
@@ -44,7 +44,7 @@ RenderSVGRect::~RenderSVGRect()
 
 SVGRectElement& RenderSVGRect::rectElement() const
 {
-    return toSVGRectElement(RenderSVGShape::graphicsElement());
+    return downcast<SVGRectElement>(RenderSVGShape::graphicsElement());
 }
 
 void RenderSVGRect::updateShapeFromElement()
@@ -56,7 +56,7 @@ void RenderSVGRect::updateShapeFromElement()
     m_outerStrokeRect = FloatRect();
 
     SVGLengthContext lengthContext(&rectElement());
-    FloatSize boundingBoxSize(rectElement().width().value(lengthContext), rectElement().height().value(lengthContext));
+    FloatSize boundingBoxSize(lengthContext.valueForLength(style().width(), LengthModeWidth), lengthContext.valueForLength(style().height(), LengthModeHeight));
 
     // Element is invalid if either dimension is negative.
     if (boundingBoxSize.width() < 0 || boundingBoxSize.height() < 0)
@@ -73,7 +73,9 @@ void RenderSVGRect::updateShapeFromElement()
         m_usePathFallback = false;
     }
 
-    m_fillBoundingBox = FloatRect(FloatPoint(rectElement().x().value(lengthContext), rectElement().y().value(lengthContext)), boundingBoxSize);
+    m_fillBoundingBox = FloatRect(FloatPoint(lengthContext.valueForLength(style().svgStyle().x(), LengthModeWidth),
+        lengthContext.valueForLength(style().svgStyle().y(), LengthModeHeight)),
+        boundingBoxSize);
 
     // To decide if the stroke contains a point we create two rects which represent the inner and
     // the outer stroke borders. A stroke contains the point, if the point is between them.

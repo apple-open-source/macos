@@ -35,6 +35,7 @@
 #include "PaintInfo.h"
 #include "RenderIterator.h"
 #include "RenderMathMLRadicalOperator.h"
+#include "RenderMathMLSquareRoot.h"
 
 namespace WebCore {
     
@@ -54,12 +55,12 @@ namespace WebCore {
 // In order to accept invalid markup and to handle <mroot> and <msqrt> consistently, we will allow any number of children in the BaseWrapper of <mroot> too.
 // We will allow the IndexWrapper to be empty and it will always contain the last child of the <mroot> if there are at least 2 elements.
 
-RenderMathMLRoot::RenderMathMLRoot(Element& element, PassRef<RenderStyle> style)
+RenderMathMLRoot::RenderMathMLRoot(Element& element, Ref<RenderStyle>&& style)
     : RenderMathMLBlock(element, WTF::move(style))
 {
 }
 
-RenderMathMLRoot::RenderMathMLRoot(Document& document, PassRef<RenderStyle> style)
+RenderMathMLRoot::RenderMathMLRoot(Document& document, Ref<RenderStyle>&& style)
     : RenderMathMLBlock(document, WTF::move(style))
 {
 }
@@ -67,25 +68,25 @@ RenderMathMLRoot::RenderMathMLRoot(Document& document, PassRef<RenderStyle> styl
 RenderMathMLRootWrapper* RenderMathMLRoot::baseWrapper() const
 {
     ASSERT(!isEmpty());
-    return toRenderMathMLRootWrapper(lastChild());
+    return downcast<RenderMathMLRootWrapper>(lastChild());
 }
 
 RenderMathMLBlock* RenderMathMLRoot::radicalWrapper() const
 {
     ASSERT(!isEmpty());
-    return toRenderMathMLBlock(lastChild()->previousSibling());
+    return downcast<RenderMathMLBlock>(lastChild()->previousSibling());
 }
 
 RenderMathMLRootWrapper* RenderMathMLRoot::indexWrapper() const
 {
     ASSERT(!isEmpty());
-    return isRenderMathMLSquareRoot() ? nullptr : toRenderMathMLRootWrapper(firstChild());
+    return is<RenderMathMLSquareRoot>(*this) ? nullptr : downcast<RenderMathMLRootWrapper>(firstChild());
 }
 
 RenderMathMLRadicalOperator* RenderMathMLRoot::radicalOperator() const
 {
     ASSERT(!isEmpty());
-    return toRenderMathMLRadicalOperator(radicalWrapper()->firstChild());
+    return downcast<RenderMathMLRadicalOperator>(radicalWrapper()->firstChild());
 }
 
 void RenderMathMLRoot::restructureWrappers()
@@ -157,18 +158,18 @@ void RenderMathMLRoot::addChild(RenderObject* newChild, RenderObject* beforeChil
     auto index = indexWrapper();
     RenderElement* actualParent;
     RenderElement* actualBeforeChild;
-    if (isRenderMathMLSquareRoot()) {
+    if (is<RenderMathMLSquareRoot>(*this)) {
         // For square root, we always insert the child into the base wrapper.
         actualParent = base;
         if (beforeChild && beforeChild->parent() == base)
-            actualBeforeChild = toRenderElement(beforeChild);
+            actualBeforeChild = downcast<RenderElement>(beforeChild);
         else
             actualBeforeChild = nullptr;
     } else {
         // For mroot, we insert the child into the parent of beforeChild, or at the end of the index. The wrapper structure is reorganize below.
         actualParent = beforeChild ? beforeChild->parent() : nullptr;
         if (actualParent == base || actualParent == index)
-            actualBeforeChild = toRenderElement(beforeChild);
+            actualBeforeChild = downcast<RenderElement>(beforeChild);
         else {
             actualParent = index;
             actualBeforeChild = nullptr;
@@ -198,26 +199,26 @@ void RenderMathMLRoot::updateStyle()
 
     // We set some constants to draw the radical, as defined in the OpenType MATH tables.
 
-    m_ruleThickness = 0.05f * style().font().size();
+    m_ruleThickness = 0.05f * style().fontCascade().size();
 
     // FIXME: The recommended default for m_verticalGap in displaystyle is rule thickness + 1/4 x-height (https://bugs.webkit.org/show_bug.cgi?id=118737).
     m_verticalGap = 11 * m_ruleThickness / 4;
     m_extraAscender = m_ruleThickness;
-    LayoutUnit kernBeforeDegree = 5 * style().font().size() / 18;
-    LayoutUnit kernAfterDegree = -10 * style().font().size() / 18;
+    LayoutUnit kernBeforeDegree = 5 * style().fontCascade().size() / 18;
+    LayoutUnit kernAfterDegree = -10 * style().fontCascade().size() / 18;
     m_degreeBottomRaisePercent = 0.6f;
 
-    const auto& primaryFontData = style().font().primaryFont();
-    if (primaryFontData && primaryFontData->mathData()) {
+    const auto& primaryFont = style().fontCascade().primaryFont();
+    if (auto* mathData = style().fontCascade().primaryFont().mathData()) {
         // FIXME: m_verticalGap should use RadicalDisplayStyleVertical in display mode (https://bugs.webkit.org/show_bug.cgi?id=118737).
-        m_verticalGap = primaryFontData->mathData()->getMathConstant(primaryFontData, OpenTypeMathData::RadicalVerticalGap);
-        m_ruleThickness = primaryFontData->mathData()->getMathConstant(primaryFontData, OpenTypeMathData::RadicalRuleThickness);
-        m_extraAscender = primaryFontData->mathData()->getMathConstant(primaryFontData, OpenTypeMathData::RadicalExtraAscender);
+        m_verticalGap = mathData->getMathConstant(primaryFont, OpenTypeMathData::RadicalVerticalGap);
+        m_ruleThickness = mathData->getMathConstant(primaryFont, OpenTypeMathData::RadicalRuleThickness);
+        m_extraAscender = mathData->getMathConstant(primaryFont, OpenTypeMathData::RadicalExtraAscender);
 
         if (!isRenderMathMLSquareRoot()) {
-            kernBeforeDegree = primaryFontData->mathData()->getMathConstant(primaryFontData, OpenTypeMathData::RadicalKernBeforeDegree);
-            kernAfterDegree = primaryFontData->mathData()->getMathConstant(primaryFontData, OpenTypeMathData::RadicalKernAfterDegree);
-            m_degreeBottomRaisePercent = primaryFontData->mathData()->getMathConstant(primaryFontData, OpenTypeMathData::RadicalDegreeBottomRaisePercent);
+            kernBeforeDegree = mathData->getMathConstant(primaryFont, OpenTypeMathData::RadicalKernBeforeDegree);
+            kernAfterDegree = mathData->getMathConstant(primaryFont, OpenTypeMathData::RadicalKernAfterDegree);
+            m_degreeBottomRaisePercent = mathData->getMathConstant(primaryFont, OpenTypeMathData::RadicalDegreeBottomRaisePercent);
         }
     }
 
@@ -232,7 +233,7 @@ void RenderMathMLRoot::updateStyle()
     auto base = baseWrapper();
     auto baseStyle = RenderStyle::createAnonymousStyleWithDisplay(&style(), FLEX);
     baseStyle.get().setMarginTop(Length(0, Fixed)); // This will be updated in RenderMathMLRoot::layout().
-    baseStyle.get().setAlignItems(AlignBaseline);
+    baseStyle.get().setAlignItemsPosition(ItemPositionBaseline);
     base->setStyle(WTF::move(baseStyle));
     base->setNeedsLayoutAndPrefWidthsRecalc();
 
@@ -243,17 +244,17 @@ void RenderMathMLRoot::updateStyle()
         indexStyle.get().setMarginTop(Length(0, Fixed)); // This will be updated in RenderMathMLRoot::layout().
         indexStyle.get().setMarginStart(Length(kernBeforeDegree, Fixed));
         indexStyle.get().setMarginEnd(Length(kernAfterDegree, Fixed));
-        indexStyle.get().setAlignItems(AlignBaseline);
+        indexStyle.get().setAlignItemsPosition(ItemPositionBaseline);
         index->setStyle(WTF::move(indexStyle));
         index->setNeedsLayoutAndPrefWidthsRecalc();
     }
 }
 
-int RenderMathMLRoot::firstLineBaseline() const
+Optional<int> RenderMathMLRoot::firstLineBaseline() const
 {
     if (!isEmpty()) {
         auto base = baseWrapper();
-        return static_cast<int>(lroundf(base->firstLineBaseline() + base->marginTop()));
+        return static_cast<int>(lroundf(base->firstLineBaseline().valueOr(-1) + base->marginTop()));
     }
 
     return RenderMathMLBlock::firstLineBaseline();
@@ -277,16 +278,14 @@ void RenderMathMLRoot::layout()
     // We layout the children.
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
         if (child->needsLayout())
-            toRenderElement(child)->layout();
+            downcast<RenderElement>(*child).layout();
     }
 
     auto radical = radicalOperator();
     if (radical) {
         // We stretch the radical sign to cover the height of the base wrapper.
         float baseHeight = base->logicalHeight();
-        float baseHeightAboveBaseline = base->firstLineBaseline();
-        if (baseHeightAboveBaseline == -1)
-            baseHeightAboveBaseline = baseHeight;
+        float baseHeightAboveBaseline = base->firstLineBaseline().valueOr(baseHeight);
         float baseDepthBelowBaseline = baseHeight - baseHeightAboveBaseline;
         baseHeightAboveBaseline += m_verticalGap;
         radical->stretchTo(baseHeightAboveBaseline, baseDepthBelowBaseline);
@@ -299,7 +298,7 @@ void RenderMathMLRoot::layout()
             auto index = indexWrapper();
             float indexHeight = 0;
             if (!index->isEmpty())
-                indexHeight = toRenderBlock(index->firstChild())->logicalHeight();
+                indexHeight = downcast<RenderBlock>(*index->firstChild()).logicalHeight();
             float indexTopMargin = (1.0 - m_degreeBottomRaisePercent) * radical->stretchSize() + radicalTopMargin - indexHeight;
             if (indexTopMargin < 0) {
                 // If the index is too tall, we must add space at the top of renderer.
@@ -348,19 +347,17 @@ RenderPtr<RenderMathMLRootWrapper> RenderMathMLRootWrapper::createAnonymousWrapp
     return newBlock;
 }
 
-RenderObject* RenderMathMLRootWrapper::removeChildWithoutRestructuring(RenderObject& child)
+void RenderMathMLRootWrapper::removeChildWithoutRestructuring(RenderObject& child)
 {
-    return RenderMathMLBlock::removeChild(child);
+    RenderMathMLBlock::removeChild(child);
 }
 
-RenderObject* RenderMathMLRootWrapper::removeChild(RenderObject& child)
+void RenderMathMLRootWrapper::removeChild(RenderObject& child)
 {
-    RenderObject* next = RenderMathMLBlock::removeChild(child);
+    RenderMathMLBlock::removeChild(child);
 
     if (!(beingDestroyed() || documentBeingDestroyed()))
-        toRenderMathMLRoot(parent())->restructureWrappers();
-
-    return next;
+        downcast<RenderMathMLRoot>(*parent()).restructureWrappers();
 }
 
 }

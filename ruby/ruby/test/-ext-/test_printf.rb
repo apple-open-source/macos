@@ -22,6 +22,12 @@ class Test_SPrintf < Test::Unit::TestCase
     assert_equal("{<#{self.class}:#{object_id}>}", Bug::Printf.v(self))
   end
 
+  def test_quote
+    assert_equal('["\n"]', Bug::Printf.q("\n"))
+    assert_equal('[aaa]', Bug::Printf.q('aaa'))
+    assert_equal('[a a]', Bug::Printf.q('a a'))
+  end
+
   def test_encoding
     def self.to_s
       "\u{3042 3044 3046 3048 304a}"
@@ -45,5 +51,11 @@ class Test_SPrintf < Test::Unit::TestCase
                    to_s: Bug::Printf.s(obj).untrusted?,
                    inspect: Bug::Printf.v(obj).untrusted?,
                  })
+  end
+
+  def test_string_prec
+    assert_equal("a", Bug::Printf.("s", "a", prec: 3)[0])
+    assert_equal("  a", Bug::Printf.("s", "a", width: 3, prec: 3)[0])
+    assert_equal("a  ", Bug::Printf.("s", "a", minus: true, width: 3, prec: 3)[0])
   end
 end

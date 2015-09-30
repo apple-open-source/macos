@@ -74,7 +74,7 @@ public:
 	};
 	
 public:
-	CodeSignatures(const char *path);
+	CodeSignatures();
 	~CodeSignatures();
 	
 	void open(const char *path);
@@ -96,8 +96,7 @@ public:
 private:
 	OSStatus matchSignedClientToLegacyACL(Process &process, SecCodeRef code,
 		const OSXVerifier &verifier, const AclValidationContext &context);
-	bool verifyLegacy(Process &process, const CssmData &signature, string path);
-	
+
 private:
 	UnixPlusPlus::UnixDb mDb;
 

@@ -31,8 +31,13 @@
 
 namespace JSC {
 
-enum JSParserStrictness { JSParseNormal, JSParseBuiltin, JSParseStrict };
-enum JSParserMode { JSParseProgramCode, JSParseFunctionCode };
+enum class JSParserStrictMode { NotStrict, Strict };
+enum class JSParserBuiltinMode { NotBuiltin, Builtin };
+enum class JSParserCodeType { Program, Function };
+
+enum class ConstructorKind { None, Base, Derived };
+enum class SuperBinding { Needed, NotNeeded };
+enum class ThisTDZMode { AlwaysCheck, CheckIfNeeded };
 
 enum ProfilerMode { ProfilerOff, ProfilerOn };
 enum DebuggerMode { DebuggerOff, DebuggerOn };
@@ -75,6 +80,7 @@ const CodeFeatures ThisFeature = 1 << 4;
 const CodeFeatures StrictModeFeature = 1 << 5;
 const CodeFeatures ShadowsArgumentsFeature = 1 << 6;
 const CodeFeatures ModifiedParameterFeature = 1 << 7;
+const CodeFeatures ModifiedArgumentsFeature = 1 << 8;
 
 const CodeFeatures AllFeatures = EvalFeature | ArgumentsFeature | WithFeature | CatchFeature | ThisFeature | StrictModeFeature | ShadowsArgumentsFeature | ModifiedParameterFeature;
 

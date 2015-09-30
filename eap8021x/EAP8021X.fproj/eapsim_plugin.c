@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,6 +62,7 @@
 #include "EAPSIMAKA.h"
 #include "EAPSIMAKAUtil.h"
 #include "EAPLog.h"
+#include "sim_simulator.h"
 
 #define EAP_SIM_NAME		"EAP-SIM"
 
@@ -123,7 +124,9 @@ typedef struct {
     CFArrayRef			kc;
     CFArrayRef			sres;
     CFArrayRef			rand;
-} SIMStaticTriplets, * SIMStaticTripletsRef;
+    CFDataRef			ki;
+    CFDataRef			opc;
+} SIMStatic, * SIMStaticRef;
 
 /*
  * Type: EAPSIMContext
@@ -139,7 +142,7 @@ typedef struct {
     int				n_required_rands;
     EAPSIMAKAAttributeType	last_identity_type;
     CFDataRef			last_identity;
-    SIMStaticTriplets		sim_static;
+    SIMStatic			sim_static;
     EAPSIMAKAKeyInfo		key_info;
     bool			key_info_valid;
     uint8_t			nonce_mt[NONCE_MT_SIZE];
@@ -468,7 +471,30 @@ copy_data_array(CFDictionaryRef properties, CFStringRef prop_name,
 }
 
 STATIC bool
-SIMStaticTripletsInitFromProperties(SIMStaticTripletsRef sim_static_p,
+SIMStaticSimulatedSIMInitFromProperties(SIMStaticRef sim_static_p,
+					CFDictionaryRef properties)
+{
+    CFDataRef 	ki;
+    CFDataRef 	opc;
+    bool	success = FALSE;
+
+    ki = CFDictionaryGetValue(properties, kEAPClientPropEAPSIMAKAKi);
+    opc = CFDictionaryGetValue(properties, kEAPClientPropEAPSIMAKAOPc);
+    if (isA_CFData(ki) != NULL && isA_CFData(opc) != NULL
+	&& CFDataGetLength(ki) == SIM_KI_SIZE
+	&& CFDataGetLength(opc) == SIM_OPC_SIZE) {
+	EAPLOG(LOG_DEBUG, "eapsim: using MILENAGE based soft-sim.");
+	sim_static_p->ki = ki;
+	sim_static_p->opc = opc;
+	CFRetain(ki);
+	CFRetain(opc);
+	success = TRUE;
+    }
+    return (success);
+}
+
+STATIC bool
+SIMStaticTripletsInitFromProperties(SIMStaticRef sim_static_p,
 				    CFDictionaryRef properties)
 {
     CFIndex		count;
@@ -476,12 +502,6 @@ SIMStaticTripletsInitFromProperties(SIMStaticTripletsRef sim_static_p,
     CFArrayRef		rand;
     CFArrayRef		sres;
 
-    my_CFRelease(&sim_static_p->kc);
-    my_CFRelease(&sim_static_p->sres);
-    my_CFRelease(&sim_static_p->rand);
-    if (properties == NULL) {
-	return (FALSE);
-    }
     kc = copy_data_array(properties,
 			 kEAPClientPropEAPSIMKcList,
 			 SIM_KC_SIZE);
@@ -500,31 +520,54 @@ SIMStaticTripletsInitFromProperties(SIMStaticTripletsRef sim_static_p,
      * and the corresponding Kc and SRES value is retrieved.
      */
     if (kc == NULL || sres == NULL) {
-        goto failed;
+	goto failed;
     }
     count = CFArrayGetCount(kc);
-    if (count != CFArrayGetCount(sres) 
+    if (count != CFArrayGetCount(sres)
 	|| (rand != NULL && count != CFArrayGetCount(rand))) {
-        /* they need to be parallel arrays */
-        goto failed;
+	/* they need to be parallel arrays */
+	goto failed;
     }
     sim_static_p->kc = kc;
     sim_static_p->sres = sres;
     sim_static_p->rand = rand;
     return (TRUE);
 
- failed:
+failed:
     my_CFRelease(&kc);
     my_CFRelease(&sres);
     my_CFRelease(&rand);
     return (FALSE);
 }
 
+STATIC bool
+SIMStaticInitFromProperties(SIMStaticRef sim_static_p,
+			    CFDictionaryRef properties)
+{
+    bool	success = FALSE;
+
+    my_CFRelease(&sim_static_p->kc);
+    my_CFRelease(&sim_static_p->sres);
+    my_CFRelease(&sim_static_p->rand);
+    my_CFRelease(&sim_static_p->ki);
+    my_CFRelease(&sim_static_p->opc);
+
+    if (properties != NULL) {
+	success = SIMStaticTripletsInitFromProperties(sim_static_p, properties);
+	if (success == FALSE) {
+	    success = SIMStaticSimulatedSIMInitFromProperties(sim_static_p,
+							      properties);
+	}
+    }
+    return (success);
+}
+
+
 STATIC void
 EAPSIMContextFree(EAPSIMContextRef context)
 {
     EAPSIMContextSetVersionList(context, NULL, 0);
-    SIMStaticTripletsInitFromProperties(&context->sim_static, NULL);
+    SIMStaticInitFromProperties(&context->sim_static, NULL);
     EAPSIMAKAPersistentStateRelease(context->persist);
     EAPSIMContextSetLastIdentity(context, NULL);
     EAPSIMContextClear(context);
@@ -536,19 +579,18 @@ STATIC int
 EAPSIMContextLookupStaticRAND(EAPSIMContextRef context, 
 			      const uint8_t rand[SIM_RAND_SIZE])
 {
-    CFIndex	count;
-    int		i;
+    if (context->sim_static.rand != NULL) {
+	CFIndex	count;
+	int		i;
 
-    if (context->sim_static.rand == NULL) {
-	return (-1);
-    }
-    count = CFArrayGetCount(context->sim_static.rand);
-    for (i = 0; i < count; i++) {
-	CFDataRef	data;
+	count = CFArrayGetCount(context->sim_static.rand);
+	for (i = 0; i < count; i++) {
+	    CFDataRef	data;
 
-	data = CFArrayGetValueAtIndex(context->sim_static.rand, i);
-	if (bcmp(rand, CFDataGetBytePtr(data), SIM_RAND_SIZE) == 0) {
-	    return (i);
+	    data = CFArrayGetValueAtIndex(context->sim_static.rand, i);
+	    if (bcmp(rand, CFDataGetBytePtr(data), SIM_RAND_SIZE) == 0) {
+		return (i);
+	    }
 	}
     }
     return (-1);
@@ -563,8 +605,9 @@ EAPSIMContextSIMProcessRAND(EAPSIMContextRef context,
     uint8_t *		kc_scan;
     const uint8_t *	rand_scan;
     uint8_t *		sres_scan;
+    SIMStatic *		sim_static_p = &context->sim_static;
 
-    if (context->sim_static.kc != NULL) {
+    if (sim_static_p->kc != NULL) {
         /* use the static SIM information */
         rand_scan = rand_p;
         kc_scan = kc_p;
@@ -574,7 +617,7 @@ EAPSIMContextSIMProcessRAND(EAPSIMContextRef context,
             CFDataRef	sres_data;
             int		where;
             
-            if (context->sim_static.rand != NULL) {
+            if (sim_static_p->rand != NULL) {
                 where = EAPSIMContextLookupStaticRAND(context, rand_scan);
                 if (where == -1) {
                     EAPLOG(LOG_NOTICE, "eapsim: can't find static RAND value");
@@ -586,9 +629,9 @@ EAPSIMContextSIMProcessRAND(EAPSIMContextRef context,
                 where = 0;
             }
     
-            kc_data = CFArrayGetValueAtIndex(context->sim_static.kc, where);
+            kc_data = CFArrayGetValueAtIndex(sim_static_p->kc, where);
             bcopy(CFDataGetBytePtr(kc_data), kc_scan, SIM_KC_SIZE);
-            sres_data = CFArrayGetValueAtIndex(context->sim_static.sres, where);
+            sres_data = CFArrayGetValueAtIndex(sim_static_p->sres, where);
             bcopy(CFDataGetBytePtr(sres_data), sres_scan, SIM_SRES_SIZE);
             
             /* move to the next element */
@@ -596,6 +639,19 @@ EAPSIMContextSIMProcessRAND(EAPSIMContextRef context,
             kc_scan += SIM_KC_SIZE;
             sres_scan += SIM_SRES_SIZE;
         }
+    }
+    else if (sim_static_p->ki != NULL && sim_static_p->opc != NULL) {
+	rand_scan = rand_p;
+	kc_scan = kc_p;
+	sres_scan = sres_p;
+	for (i = 0; i < count; i++) {
+	    sim_simulator_gsm_milenage_algo(CFDataGetBytePtr(sim_static_p->opc),
+					    CFDataGetBytePtr(sim_static_p->ki),
+					    rand_scan, sres_scan, kc_scan);
+	    kc_scan += SIM_KC_SIZE;
+	    sres_scan += SIM_SRES_SIZE;
+	    rand_scan += SIM_RAND_SIZE;
+	}
     }
     else {
         /* ask the SIM to get the (Kc, SRES) pairs from the RAND's */
@@ -617,17 +673,17 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
     EAPSIMContextRef		context = NULL;
     EAPSIMAKAAttributeType 	identity_type;
     CFStringRef			imsi = NULL;
-    SIMStaticTriplets		triplets;
+    SIMStatic			sim_static;
 
     /* for testing, allow static triplets to override a real SIM */
-    bzero(&triplets, sizeof(triplets));
-    if (SIMStaticTripletsInitFromProperties(&triplets,
-					    plugin->properties)) {
+    bzero(&sim_static, sizeof(sim_static));
+    if (SIMStaticInitFromProperties(&sim_static,
+				    plugin->properties)) {
 	imsi = copy_static_imsi(plugin->properties);
 	if (imsi == NULL) {
 	    EAPLOG(LOG_NOTICE,
 		   "eapsim: static triplets specified but IMSI missing");
-	    SIMStaticTripletsInitFromProperties(&triplets, NULL);
+	    SIMStaticInitFromProperties(&sim_static, NULL);
 	    return (kEAPClientStatusConfigurationInvalid);
 	}
     }
@@ -645,7 +701,7 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
     context = (EAPSIMContextRef)malloc(sizeof(*context));
     if (context == NULL) {
 	CFRelease(imsi);
-	(void)SIMStaticTripletsInitFromProperties(&triplets, NULL);
+	(void)SIMStaticInitFromProperties(&sim_static, NULL);
 	return (kEAPClientStatusAllocationFailed);
     }
     EAPSIMContextClear(context);
@@ -655,7 +711,7 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 					 CC_SHA1_DIGEST_LENGTH,
 					 imsi, identity_type);
     CFRelease(imsi);
-    context->sim_static = triplets;
+    context->sim_static = sim_static;
     context->n_required_rands 
 	= S_get_plist_int(plugin->properties,
 			  kEAPClientPropEAPSIMNumberOfRANDs,
@@ -877,7 +933,7 @@ eapsim_start(EAPSIMContextRef context,
 	CFDataRef	identity_data = NULL;
 	Boolean		reauth_id_used = FALSE;
 
-	if (context->sim_static.kc != NULL) {
+	if (context->sim_static.kc != NULL || context->sim_static.ki != NULL) {
 	    identity = copy_static_identity(context->plugin->properties);
 	}
 	else {

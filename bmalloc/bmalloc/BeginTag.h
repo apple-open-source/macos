@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,14 +31,7 @@
 namespace bmalloc {
 
 class BeginTag : public BoundaryTag {
-public:
-    bool isInFreeList(size_t);
 };
-
-inline bool BeginTag::isInFreeList(size_t size)
-{
-    return isFree() && !isEnd() && this->size() == size;
-}
 
 } // namespace bmalloc
 

@@ -59,6 +59,9 @@ static void TestUFormattable(void);
 static void TestUNumberingSystem(void);
 static void TestCurrencyIsoPluralFormat(void);
 static void TestContext(void);
+static void TestCurrencyUsage(void);
+static void TestCurrFmtNegSameAsPositive(void);
+static void TestVariousStylesAndAttributes(void);
 static void TestParseAltNum(void);
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/cnumtst/" #x)
@@ -86,6 +89,9 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestUNumberingSystem);
     TESTCASE(TestCurrencyIsoPluralFormat);
     TESTCASE(TestContext);
+    TESTCASE(TestCurrencyUsage);
+    TESTCASE(TestCurrFmtNegSameAsPositive);
+    TESTCASE(TestVariousStylesAndAttributes);
     TESTCASE(TestParseAltNum);
 }
 
@@ -1218,7 +1224,7 @@ static void TestSpelloutNumberParse()
     const NumParseTestItem * testPtr;
     for (testPtr = spelloutParseTests; testPtr->testname != NULL; ++testPtr) {
         UErrorCode status = U_ZERO_ERROR;
-        int32_t	value, position = testPtr->startPos;
+        int32_t value, position = testPtr->startPos;
         UNumberFormat *nf = unum_open(UNUM_SPELLOUT, NULL, 0, testPtr->locale, NULL, &status);
         if (U_FAILURE(status)) {
             log_err_status(status, "unum_open fails for UNUM_SPELLOUT with locale %s, status %s\n", testPtr->locale, myErrorName(status));
@@ -1283,8 +1289,8 @@ static void TestSigDigRounding()
     UErrorCode status = U_ZERO_ERROR;
     UChar expected[128];
     UChar result[128];
-    char		temp1[128];
-    char		temp2[128];
+    char  temp1[128];
+    char  temp2[128];
     UNumberFormat* fmt;
     double d = 123.4;
 
@@ -1547,8 +1553,8 @@ static void TestInt64Format() {
                 log_err("parseDouble returned incorrect value, got: %g\n", valDouble);
             }
         }
-		
-		u_uastrcpy(result, "5.06e-27");
+
+        u_uastrcpy(result, "5.06e-27");
         parsepos = 0;
         valDouble = unum_parseDouble(fmt, result, u_strlen(result), &parsepos, &status);
         if (U_FAILURE(status)) {
@@ -2462,7 +2468,9 @@ static void TestCurrencyIsoPluralFormat(void) {
 
         {"en_US", "1", "USD", "$1.00", "USD1.00", "1.00 US dollars"},
         {"en_US", "1234.56", "USD", "$1,234.56", "USD1,234.56", "1,234.56 US dollars"},
+        {"en_US@cf=account", "1234.56", "USD", "$1,234.56", "USD1,234.56", "1,234.56 US dollars"},
         {"en_US", "-1234.56", "USD", "-$1,234.56", "-USD1,234.56", "-1,234.56 US dollars"},
+        {"en_US@cf=account", "-1234.56", "USD", "($1,234.56)", "-USD1,234.56", "-1,234.56 US dollars"},
         {"zh_CN", "1", "USD", "US$\\u00A01.00", "USD\\u00A01.00", "1.00\\u7F8E\\u5143"},
         {"zh_CN", "1234.56", "USD", "US$\\u00A01,234.56", "USD\\u00A01,234.56", "1,234.56\\u7F8E\\u5143"},
         // wrong ISO code {"zh_CN", "1", "CHY", "CHY1.00", "CHY1.00", "1.00 CHY"},
@@ -2474,6 +2482,7 @@ static void TestCurrencyIsoPluralFormat(void) {
         {"ru_RU", "5", "RUB", "5,00\\u00A0\\u20BD", "5,00\\u00A0RUB", "5,00 \\u0440\\u043E\\u0441\\u0441\\u0438\\u0439\\u0441\\u043A\\u043E\\u0433\\u043E \\u0440\\u0443\\u0431\\u043B\\u044F"},
         // test locale without currency information
         {"root", "-1.23", "USD", "-US$\\u00A01.23", "-USD\\u00A01.23", "-1.23 USD"},
+        {"root@cf=account", "-1.23", "USD", "-US$\\u00A01.23", "-USD\\u00A01.23", "-1.23 USD"},
         // test choice format
         {"es_AR", "1", "INR", "INR1,00", "INR1,00", "1,00 rupia india"},
     };
@@ -2593,6 +2602,316 @@ static void TestContext(void) {
         unum_close(unum);
     }
 #endif /* #if !UCONFIG_NO_NORMALIZATION && !UCONFIG_NO_BREAK_ITERATION */
+}
+
+static void TestCurrencyUsage(void) {
+    static const char* DATA[][2] = {
+        /* the data are:
+         * currency ISO code to be formatted,
+         * format result using CURRENCYSTYLE with CASH purpose,-
+         * Note that as of CLDR 26:-
+         * - TWD switches from 0 decimals to 2; PKR still has 0, so change test to that
+         * - CAD and all other currencies that rounded to .05 no longer do
+         */
+
+        {"PKR", "PKR124"},
+        {"CAD", "CA$123.57"},
+        {"USD", "$123.57"}
+    };
+
+    // 1st time for getter/setter, 2nd for factory method
+    int32_t i;
+    for(i=0; i<2; i++){
+        const char* localeString = "en_US";
+        double numberToBeFormat = 123.567;
+        UNumberFormat* unumFmt;
+        UNumberFormatStyle style = UNUM_CURRENCY;
+        UErrorCode status = U_ZERO_ERROR;
+        int32_t j;
+
+        if(i == 1){ // change for factory method
+            style = UNUM_CASH_CURRENCY;
+        }
+
+        unumFmt = unum_open(style, NULL, 0, localeString, NULL, &status);
+        if (U_FAILURE(status)) {
+            log_data_err("FAIL: unum_open, locale %s, style %d - %s\n",
+                        localeString, (int)style, myErrorName(status));
+            continue;
+        }
+
+        if(i == 0){ // this is for the getter/setter
+            if(unum_getAttribute(unumFmt, UNUM_CURRENCY_USAGE) != UCURR_USAGE_STANDARD) {
+                log_err("FAIL: currency usage attribute is not UNUM_CURRENCY_STANDARD\n");
+            }
+
+            unum_setAttribute(unumFmt, UNUM_CURRENCY_USAGE, UCURR_USAGE_CASH);
+        }
+
+        if(unum_getAttribute(unumFmt, UNUM_CURRENCY_USAGE) != UCURR_USAGE_CASH) {
+            log_err("FAIL: currency usage attribute is not UNUM_CURRENCY_CASH\n");
+        }
+
+        for (j=0; j<LENGTH(DATA); ++j) { 
+            UChar expect[64];
+            int32_t expectLen;
+            UChar currencyCode[4];
+            UChar result[64];
+            int32_t resultLen;
+            UFieldPosition pos = {0};
+
+            u_charsToUChars(DATA[j][0], currencyCode, 3);
+            expectLen = u_unescape(DATA[j][1], expect, LENGTH(expect));
+
+            unum_setTextAttribute(unumFmt, UNUM_CURRENCY_CODE, currencyCode, 3, &status);
+            assertSuccess("num_setTextAttribute()", &status);
+
+            resultLen = unum_formatDouble(unumFmt, numberToBeFormat, result, LENGTH(result),
+                                        &pos, &status);
+            assertSuccess("num_formatDouble()", &status);
+
+            if(resultLen != expectLen || u_strcmp(result, expect) != 0) {
+                log_err("Fail: Error in Number Format Currency Purpose using unum_setAttribute() expected: %s, got %s\n",
+                aescstrdup(expect, expectLen), aescstrdup(result, resultLen));
+            }
+
+        }
+    
+        unum_close(unumFmt);
+    }
+}
+
+static UChar currFmtNegSameAsPos[] = /* "\u00A4#,##0.00;\u00A4#,##0.00" */
+    {0xA4,0x23,0x2C,0x23,0x23,0x30,0x2E,0x30,0x30,0x3B,0xA4,0x23,0x2C,0x23,0x23,0x30,0x2E,0x30,0x30,0};
+
+static UChar currFmtToPatExpected[] = /* "\u00A4#,##0.00" */
+    {0xA4,0x23,0x2C,0x23,0x23,0x30,0x2E,0x30,0x30,0};
+
+static UChar currFmtResultExpected[] = /* "$100.00" */
+    {0x24,0x31,0x30,0x30,0x2E,0x30,0x30,0};
+
+static UChar emptyString[] = {0};
+
+enum { kUBufSize = 64, kBBufSize = 128 };
+
+static void TestCurrFmtNegSameAsPositive(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UNumberFormat* unumfmt = unum_open(UNUM_CURRENCY, NULL, 0, "en_US", NULL, &status);
+    if ( U_SUCCESS(status) ) {
+        unum_applyPattern(unumfmt, FALSE, currFmtNegSameAsPos, -1, NULL, &status);
+        if (U_SUCCESS(status)) {
+            UChar ubuf[kUBufSize];
+            int32_t ulen = unum_toPattern(unumfmt, FALSE, ubuf, kUBufSize, &status);
+            if (U_FAILURE(status)) {
+                log_err("unum_toPattern fails with status %s\n", myErrorName(status));
+            } else if (u_strcmp(ubuf, currFmtToPatExpected) != 0) {
+                log_err("unum_toPattern result wrong, expected %s, got %s\n", aescstrdup(currFmtToPatExpected,-1), aescstrdup(ubuf,ulen));
+            }
+            unum_setSymbol(unumfmt, UNUM_MINUS_SIGN_SYMBOL, emptyString, 0, &status);
+            if (U_SUCCESS(status)) {
+                ulen = unum_formatDouble(unumfmt, -100.0, ubuf, kUBufSize, NULL, &status);
+                if (U_FAILURE(status)) {
+                    log_err("unum_formatDouble fails with status %s\n", myErrorName(status));
+                } else if (u_strcmp(ubuf, currFmtResultExpected) != 0) {
+                    log_err("unum_formatDouble result wrong, expected %s, got %s\n", aescstrdup(currFmtResultExpected,-1), aescstrdup(ubuf,ulen));
+                }
+            } else {
+                log_err("unum_setSymbol fails with status %s\n", myErrorName(status));
+            }
+        } else {
+            log_err("unum_applyPattern fails with status %s\n", myErrorName(status));
+        }
+        unum_close(unumfmt);
+    } else {
+        log_data_err("unum_open UNUM_CURRENCY for en_US fails with status %s\n", myErrorName(status));
+    }
+}
+
+
+typedef struct {
+  double value;
+  const char *expected;
+} ValueAndExpectedString;
+
+static const ValueAndExpectedString enShort[] = {
+  {0.0, "0"},
+  {0.17, "0.17"},
+  {1.0, "1"},
+  {1234.0, "1.23K"},
+  {12345.0, "12.3K"},
+  {123456.0, "123K"},
+  {1234567.0, "1.23M"},
+  {12345678.0, "12.3M"},
+  {123456789.0, "123M"},
+  {1.23456789E9, "1.23B"},
+  {1.23456789E10, "12.3B"},
+  {1.23456789E11, "123B"},
+  {1.23456789E12, "1.23T"},
+  {1.23456789E13, "12.3T"},
+  {1.23456789E14, "123T"},
+  {1.23456789E15, "1230T"},
+  {0.0, NULL}
+};
+
+static const ValueAndExpectedString enShortMax2[] = {
+  {0.0, "0"},
+  {0.17, "0.17"},
+  {1.0, "1"},
+  {1234.0, "1.2K"},
+  {12345.0, "12K"},
+  {123456.0, "120K"},
+  {1234567.0, "1.2M"},
+  {12345678.0, "12M"},
+  {123456789.0, "120M"},
+  {1.23456789E9, "1.2B"},
+  {1.23456789E10, "12B"},
+  {1.23456789E11, "120B"},
+  {1.23456789E12, "1.2T"},
+  {1.23456789E13, "12T"},
+  {1.23456789E14, "120T"},
+  {1.23456789E15, "1200T"},
+  {0.0, NULL}
+};
+
+static const ValueAndExpectedString enShortMax5[] = {
+  {0.0, "0"},
+  {0.17, "0.17"},
+  {1.0, "1"},
+  {1234.0, "1.234K"},
+  {12345.0, "12.345K"},
+  {123456.0, "123.46K"},
+  {1234567.0, "1.2346M"},
+  {12345678.0, "12.346M"},
+  {123456789.0, "123.46M"},
+  {1.23456789E9, "1.2346B"},
+  {1.23456789E10, "12.346B"},
+  {1.23456789E11, "123.46B"},
+  {1.23456789E12, "1.2346T"},
+  {1.23456789E13, "12.346T"},
+  {1.23456789E14, "123.46T"},
+  {1.23456789E15, "1234.6T"},
+  {0.0, NULL}
+};
+
+static const ValueAndExpectedString enShortMin3[] = {
+  {0.0, "0.00"},
+  {0.17, "0.170"},
+  {1.0, "1.00"},
+  {1234.0, "1.23K"},
+  {12345.0, "12.3K"},
+  {123456.0, "123K"},
+  {1234567.0, "1.23M"},
+  {12345678.0, "12.3M"},
+  {123456789.0, "123M"},
+  {1.23456789E9, "1.23B"},
+  {1.23456789E10, "12.3B"},
+  {1.23456789E11, "123B"},
+  {1.23456789E12, "1.23T"},
+  {1.23456789E13, "12.3T"},
+  {1.23456789E14, "123T"},
+  {1.23456789E15, "1230T"},
+  {0.0, NULL}
+};
+
+static const ValueAndExpectedString jaShortMax2[] = {
+  {1234.0, "1.2\\u5343"},
+  {12345.0, "1.2\\u4E07"},
+  {123456.0, "12\\u4E07"},
+  {1234567.0, "120\\u4E07"},
+  {12345678.0, "1200\\u4E07"},
+  {123456789.0, "1.2\\u5104"},
+  {1.23456789E9, "12\\u5104"},
+  {1.23456789E10, "120\\u5104"},
+  {1.23456789E11, "1200\\u5104"},
+  {1.23456789E12, "1.2\\u5146"},
+  {1.23456789E13, "12\\u5146"},
+  {1.23456789E14, "120\\u5146"},
+  {0.0, NULL}
+};
+
+static const ValueAndExpectedString srLongMax2[] = {
+  {1234.0, "1,2 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0435"}, // 10^3 few
+  {12345.0, "12 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0430"}, // 10^3 other
+  {21789.0, "22 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0435"}, // 10^3 few
+  {123456.0, "120 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0430"}, // 10^3 other
+  {999999.0, "1 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D"}, // 10^6 one
+  {1234567.0, "1,2 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"}, // 10^6 few
+  {12345678.0, "12 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"}, // 10^6 other
+  {123456789.0, "120 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"}, // 10^6 other
+  {1.23456789E9, "1,2 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0435"}, // 10^9 few
+  {1.23456789E10, "12 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0438"}, // 10^9 other
+  {2.08901234E10, "21 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0430"}, // 10^9 one
+  {2.18901234E10, "22 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0435"}, // 10^9 few
+  {1.23456789E11, "120 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0438"}, // 10^9 other
+  {-1234.0, "-1,2 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0435"},
+  {-12345.0, "-12 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0430"},
+  {-21789.0, "-22 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0435"},
+  {-123456.0, "-120 \\u0445\\u0438\\u0459\\u0430\\u0434\\u0430"},
+  {-999999.0, "-1 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D"},
+  {-1234567.0, "-1,2 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"},
+  {-12345678.0, "-12 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"},
+  {-123456789.0, "-120 \\u043C\\u0438\\u043B\\u0438\\u043E\\u043D\\u0430"},
+  {-1.23456789E9, "-1,2 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0435"},
+  {-1.23456789E10, "-12 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0438"},
+  {-2.08901234E10, "-21 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0430"},
+  {-2.18901234E10, "-22 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0435"},
+  {-1.23456789E11, "-120 \\u043C\\u0438\\u043B\\u0438\\u0458\\u0430\\u0440\\u0434\\u0438"},
+  {0.0, NULL}
+};
+
+typedef struct {
+    const char *       locale;
+    UNumberFormatStyle style;
+    int32_t            attribute; // UNumberFormatAttribute, or -1 for none
+    int32_t            attrValue; //
+    const ValueAndExpectedString * veItems;
+} LocStyleAttributeTest;
+
+static const LocStyleAttributeTest lsaTests[] = {
+  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     -1,                             0,  enShort },
+  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  enShortMax2 },
+  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    5,  enShortMax5 },
+  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MIN_SIGNIFICANT_DIGITS,    3,  enShortMin3 },
+  { "ja",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  jaShortMax2 },
+  { "sr",   UNUM_DECIMAL_COMPACT_LONG,      UNUM_MAX_SIGNIFICANT_DIGITS,    2,  srLongMax2  },
+  { NULL,   (UNumberFormatStyle)0,          -1,                             0,  NULL } 
+};
+
+static void TestVariousStylesAndAttributes(void) {
+    const LocStyleAttributeTest * lsaTestPtr;
+    for (lsaTestPtr = lsaTests; lsaTestPtr->locale != NULL; lsaTestPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        UNumberFormat * unum = unum_open(lsaTestPtr->style, NULL, 0, lsaTestPtr->locale, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("FAIL: unum_open style %d, locale %s: error %s\n", (int)lsaTestPtr->style, lsaTestPtr->locale, u_errorName(status));
+        } else {
+            const ValueAndExpectedString * veItemPtr;
+            if (lsaTestPtr->attribute >= 0) {
+                unum_setAttribute(unum, (UNumberFormatAttribute)lsaTestPtr->attribute, lsaTestPtr->attrValue);
+            }
+            for (veItemPtr = lsaTestPtr->veItems; veItemPtr->expected != NULL; veItemPtr++) {
+                UChar uexp[kUBufSize];
+                UChar uget[kUBufSize];
+                int32_t uexplen, ugetlen;
+               
+                status = U_ZERO_ERROR;
+                uexplen = u_unescape(veItemPtr->expected, uexp, kUBufSize);
+                ugetlen = unum_formatDouble(unum, veItemPtr->value, uget, kUBufSize, NULL, &status);
+                if ( U_FAILURE(status) ) {
+                    log_err("FAIL: unum_formatDouble style %d, locale %s, attr %d, value %.2f: error %s\n",
+                            (int)lsaTestPtr->style, lsaTestPtr->locale, lsaTestPtr->attribute, veItemPtr->value, u_errorName(status));
+                } else if (ugetlen != uexplen || u_strncmp(uget, uexp, uexplen) != 0) {
+                    char bexp[kBBufSize];
+                    char bget[kBBufSize];
+                    u_strToUTF8(bexp, kBBufSize, NULL, uexp, uexplen, &status);
+                    u_strToUTF8(bget, kBBufSize, NULL, uget, ugetlen, &status);
+                    log_err("FAIL: unum_formatDouble style %d, locale %s, attr %d, value %.2f: expect \"%s\", get \"%s\"\n",
+                            (int)lsaTestPtr->style, lsaTestPtr->locale, lsaTestPtr->attribute, veItemPtr->value, bexp, bget);
+                }
+            }
+            unum_close(unum);
+        }
+    }
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

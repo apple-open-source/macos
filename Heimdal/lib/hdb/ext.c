@@ -265,12 +265,12 @@ hdb_entry_set_pkinit_acl(hdb_entry *entry,
     a->val[a->len].subject = strdup(subject);
 
     if (issuer) {
-	a->val[a->len].issuer = malloc(sizeof(a->val[a->len].subject));
+	a->val[a->len].issuer = malloc(sizeof(*a->val[a->len].issuer));
 	*(a->val[a->len].issuer) = strdup(issuer);
     }
 
     if (anchor) {
-	a->val[a->len].anchor = malloc(sizeof(a->val[a->len].anchor));
+	a->val[a->len].anchor = malloc(sizeof(*a->val[a->len].anchor));
 	*(a->val[a->len].anchor) = strdup(anchor);
     }
     a->len++;

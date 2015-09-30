@@ -52,7 +52,7 @@ echo "Interactive kinit for heimdalcoreos@APPLECONNECT-UAT.APPLE.COM"; > ${testd
 kinitpty=${testdir}/foopassword.rkpty
 
 cat > ${kinitpty} <<EOF
-expect Password
+expect password
 password Foobar13\n
 EOF
 

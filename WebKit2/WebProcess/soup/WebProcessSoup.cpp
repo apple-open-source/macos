@@ -41,12 +41,9 @@
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/SoupNetworkSession.h>
 #include <libsoup/soup.h>
-#include <wtf/gobject/GRefPtr.h>
-#include <wtf/gobject/GUniquePtr.h>
-
-#if !ENABLE(CUSTOM_PROTOCOLS)
-#include "WebSoupRequestManager.h"
-#endif
+#include <wtf/RAMSize.h>
+#include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/GUniquePtr.h>
 
 namespace WebKit {
 
@@ -62,32 +59,13 @@ static uint64_t getCacheDiskFreeSize(SoupCache* cache)
     return WebCore::getVolumeFreeSizeForPath(cacheDir.get());
 }
 
-static uint64_t getMemorySize()
-{
-    static uint64_t kDefaultMemorySize = 512;
-#if !OS(WINDOWS)
-    long pageSize = sysconf(_SC_PAGESIZE);
-    if (pageSize == -1)
-        return kDefaultMemorySize;
-
-    long physPages = sysconf(_SC_PHYS_PAGES);
-    if (physPages == -1)
-        return kDefaultMemorySize;
-
-    return ((pageSize / 1024) * physPages) / 1024;
-#else
-    // Fallback to default for other platforms.
-    return kDefaultMemorySize;
-#endif
-}
-
 void WebProcess::platformSetCacheModel(CacheModel cacheModel)
 {
     unsigned cacheTotalCapacity = 0;
     unsigned cacheMinDeadCapacity = 0;
     unsigned cacheMaxDeadCapacity = 0;
     auto deadDecodedDataDeletionInterval = std::chrono::seconds { 0 };
-    unsigned pageCacheCapacity = 0;
+    unsigned pageCacheSize = 0;
 
     unsigned long urlCacheMemoryCapacity = 0;
     unsigned long urlCacheDiskCapacity = 0;
@@ -97,18 +75,23 @@ void WebProcess::platformSetCacheModel(CacheModel cacheModel)
 
     if (!usesNetworkProcess()) {
         cache = WebCore::SoupNetworkSession::defaultSession().cache();
-        diskFreeSize = getCacheDiskFreeSize(cache) / 1024 / 1024;
+        diskFreeSize = getCacheDiskFreeSize(cache) / WTF::MB;
     }
 
-    uint64_t memSize = getMemorySize();
+    uint64_t memSize = WTF::ramSize() / WTF::MB;
     calculateCacheSizes(cacheModel, memSize, diskFreeSize,
                         cacheTotalCapacity, cacheMinDeadCapacity, cacheMaxDeadCapacity, deadDecodedDataDeletionInterval,
-                        pageCacheCapacity, urlCacheMemoryCapacity, urlCacheDiskCapacity);
+                        pageCacheSize, urlCacheMemoryCapacity, urlCacheDiskCapacity);
 
-    WebCore::memoryCache()->setDisabled(cacheModel == CacheModelDocumentViewer);
-    WebCore::memoryCache()->setCapacities(cacheMinDeadCapacity, cacheMaxDeadCapacity, cacheTotalCapacity);
-    WebCore::memoryCache()->setDeadDecodedDataDeletionInterval(deadDecodedDataDeletionInterval);
-    WebCore::pageCache()->setCapacity(pageCacheCapacity);
+    auto& memoryCache = WebCore::MemoryCache::singleton();
+    memoryCache.setDisabled(cacheModel == CacheModelDocumentViewer);
+    memoryCache.setCapacities(cacheMinDeadCapacity, cacheMaxDeadCapacity, cacheTotalCapacity);
+    memoryCache.setDeadDecodedDataDeletionInterval(deadDecodedDataDeletionInterval);
+    WebCore::PageCache::singleton().setMaxSize(pageCacheSize);
+
+#if PLATFORM(GTK)
+    WebCore::PageCache::singleton().setShouldClearBackingStores(true);
+#endif
 
     if (!usesNetworkProcess()) {
         if (urlCacheDiskCapacity > soup_cache_get_max_size(cache))
@@ -138,7 +121,7 @@ static void languageChanged(void*)
     setSoupSessionAcceptLanguage(WebCore::userPreferredLanguages());
 }
 
-void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters& parameters, IPC::MessageDecoder&)
+void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters&& parameters)
 {
 #if ENABLE(SECCOMP_FILTERS)
     {
@@ -153,9 +136,26 @@ void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters
         return;
 
     ASSERT(!parameters.diskCacheDirectory.isEmpty());
-    GRefPtr<SoupCache> soupCache = adoptGRef(soup_cache_new(parameters.diskCacheDirectory.utf8().data(), SOUP_CACHE_SINGLE_USER));
+
+    // We used to use the given cache directory for the soup cache, but now we use a subdirectory to avoid
+    // conflicts with other cache files in the same directory. Remove the old cache files if they still exist.
+    WebCore::SoupNetworkSession::defaultSession().clearCache(WebCore::directoryName(parameters.diskCacheDirectory));
+
+#if ENABLE(NETWORK_CACHE)
+    // When network cache is enabled, the disk cache directory is the network process one.
+    CString diskCachePath = WebCore::pathByAppendingComponent(WebCore::directoryName(parameters.diskCacheDirectory), "webkit").utf8();
+#else
+    CString diskCachePath = parameters.diskCacheDirectory.utf8();
+#endif
+
+    GRefPtr<SoupCache> soupCache = adoptGRef(soup_cache_new(diskCachePath.data(), SOUP_CACHE_SINGLE_USER));
     WebCore::SoupNetworkSession::defaultSession().setCache(soupCache.get());
+    // Set an initial huge max_size for the SoupCache so the call to soup_cache_load() won't evict any cached
+    // resource. The final size of the cache will be set by NetworkProcess::platformSetCacheModel().
+    unsigned initialMaxSize = soup_cache_get_max_size(soupCache.get());
+    soup_cache_set_max_size(soupCache.get(), G_MAXUINT);
     soup_cache_load(soupCache.get());
+    soup_cache_set_max_size(soupCache.get(), initialMaxSize);
 
     if (!parameters.cookiePersistentStoragePath.isEmpty()) {
         supplement<WebCookieManager>()->setCookiePersistentStorage(parameters.cookiePersistentStoragePath,
@@ -165,11 +165,6 @@ void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters
 
     if (!parameters.languages.isEmpty())
         setSoupSessionAcceptLanguage(parameters.languages);
-
-#if !ENABLE(CUSTOM_PROTOCOLS)
-    for (size_t i = 0; i < parameters.urlSchemesRegistered.size(); i++)
-        supplement<WebSoupRequestManager>()->registerURIScheme(parameters.urlSchemesRegistered[i]);
-#endif
 
     setIgnoreTLSErrors(parameters.ignoreTLSErrors);
 

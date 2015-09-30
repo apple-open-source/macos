@@ -83,79 +83,6 @@ ccRSAkeysize(CCRSACryptor *cryptor) {
     return ccn_bitlen(ccrsa_ctx_n(cryptor->fk), ccrsa_ctx_m(cryptor->fk));
 }
 
-/*
- 
- This is done for FIPS.  Basically we make sure that the two keys will work to encrypt/decrypt
- each other's data.  This will test up to 4K bit keys.
- 
-*/
-
-#define MAXKEYTEST 512
-
-static bool
-ccRSApairwiseConsistencyCheck(CCRSACryptorRef privateKey, CCRSACryptorRef publicKey)
-{
-	CCCryptorStatus status = kCCSuccess;
-	size_t theDataLen = MAXKEYTEST, resultLen, recoveryLen;
-	uint8_t theData[MAXKEYTEST];
-	uint8_t theResult[MAXKEYTEST];
-	uint8_t theRecovered[MAXKEYTEST];
-
-    /* 
-     
-     the RSA keysize had better be equal - we convert keysizes to bytes since we need to
-     work with the appropriate size data buffers for tests.
-     
-     */
-    
-    theDataLen = CCRSAGetKeySize(privateKey) / 8;
-    if(theDataLen > MAXKEYTEST || theDataLen != (size_t) (CCRSAGetKeySize(publicKey) / 8)) {
-        return false;
-    }
-    
-    /* Fill the input buffer for the test */
-    
-    CC_XMEMSET(theData, 0x0a, theDataLen);
-    
-    /* Encrypt the buffer with the private key then be sure the output isn't the same as the input */
-    resultLen = theDataLen;
-    status = CCRSACryptorCrypt(privateKey, theData, theDataLen, theResult, &resultLen);
-        
-	if (kCCSuccess != status) {
-        return false;
-    }
-    
-    if(CC_XMEMCMP(theData, theResult, theDataLen) == 0) { 
-        return false; 
-    }
-    
-    /* Decrypt the buffer with the public key and be sure the output matches the original input */
-	
-    recoveryLen = theDataLen;
-    status = CCRSACryptorCrypt(publicKey, theResult, resultLen, theRecovered, &recoveryLen);
-
-	if (kCCSuccess != status) { 
-        return false; 
-    }
-    
-    if(recoveryLen != theDataLen) { 
-        return false; 
-    }
-    
-    if(CC_XMEMCMP(theData, theRecovered, theDataLen) != 0) { 
-        return false; 
-    }
-    
-    /* Cleanup and leave */
-    
-    CC_XZEROMEM(theData, MAXKEYTEST);
-    CC_XZEROMEM(theResult, MAXKEYTEST);
-    CC_XZEROMEM(theRecovered, MAXKEYTEST);
-
-	return true;	
-}
-
-
 #pragma mark APIDone
 
 CCCryptorStatus 
@@ -176,20 +103,23 @@ CCRSACryptorGeneratePair(size_t keysize, uint32_t e, CCRSACryptorRef *publicKey,
     ccn_write_int(1, &cc_unit_e, eSize, eBytes);
     
     *publicKey = *privateKey = NULL;
-    
+
+
+    // Allocate memory for the private key
     __Require_Action((privateCryptor = ccMallocRSACryptor(keysize, ccRSAKeyPrivate)) != NULL, errOut, retval = kCCMemoryFailure);
-        
-    // __Require_Action((ccrsa_generate_key(keysize, privateCryptor->rsaKey.full, sizeof(e), &e, theRng) == 0), errOut, retval = kCCDecodeError);
-    __Require_Action((ccrsa_generate_931_key(keysize, privateCryptor->fk, eSize, eBytes, theRng1, theRng2) == 0), errOut, retval = kCCDecodeError);
+
+    // Generate a public / private key pair compliant with FIPS 186 standard
+    // as long as the keysize is one specified by the standard and that |e|>=17bits.
+    // Consistency check done in corecrypto.
+    __Require_Action((ccrsa_generate_fips186_key(keysize, privateCryptor->fk, eSize, eBytes, theRng1, theRng2) == 0), errOut, retval = kCCDecodeError);
     
     privateCryptor->keyType = ccRSAKeyPrivate;
-    
     __Require_Action((publicCryptor = CCRSACryptorGetPublicKeyFromPrivateKey(privateCryptor)) != NULL, errOut, retval = kCCMemoryFailure);
     
     *publicKey = publicCryptor;
     *privateKey = privateCryptor;
-    
-    __Require_Action(ccRSApairwiseConsistencyCheck(*privateKey, *publicKey) == true, errOut, retval = kCCDecodeError);
+
+
 
     return kCCSuccess;
     
@@ -514,7 +444,7 @@ errOut:
 
 CCCryptorStatus
 CCRSACryptorCreateFromData( CCRSAKeyType keyType, uint8_t *modulus, size_t modulusLength, 
-                            uint8_t *exponent, size_t exponentLength,
+                            uint8_t *publicExponent, size_t publicExponentLength,
                             uint8_t *p, size_t pLength, uint8_t *q, size_t qLength,
                             CCRSACryptorRef *ref)
 {
@@ -530,7 +460,7 @@ CCRSACryptorCreateFromData( CCRSAKeyType keyType, uint8_t *modulus, size_t modul
     __Require_Action((rsaKey = ccMallocRSACryptor(nbits, keyType)) != NULL, errOut, retval = kCCMemoryFailure);
 
     __Require_Action(ccn_read_uint(n, ccrsa_ctx_m(rsaKey->fk), modulusLength, modulus) == 0, errOut, retval = kCCParamError);
-    __Require_Action(ccn_read_uint(n, ccrsa_ctx_e(rsaKey->fk), exponentLength, exponent) == 0, errOut, retval = kCCParamError);
+    __Require_Action(ccn_read_uint(n, ccrsa_ctx_e(rsaKey->fk), publicExponentLength, publicExponent) == 0, errOut, retval = kCCParamError);
     cczp_init(ccrsa_ctx_zm(rsaKey->fk));
     rsaKey->keySize = ccn_bitlen(n, ccrsa_ctx_m(rsaKey->fk));
 

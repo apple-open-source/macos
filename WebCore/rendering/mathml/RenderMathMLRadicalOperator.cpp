@@ -56,15 +56,14 @@ const float gRadicalLineThicknessEms = 0.02f;
 // Radical thick line thickness (em)
 const float gRadicalThickLineThicknessEms = 0.1f;
 
-RenderMathMLRadicalOperator::RenderMathMLRadicalOperator(Document& document, PassRef<RenderStyle> style)
+RenderMathMLRadicalOperator::RenderMathMLRadicalOperator(Document& document, Ref<RenderStyle>&& style)
     : RenderMathMLOperator(document, WTF::move(style), String(&gRadicalCharacter, 1), MathMLOperatorDictionary::Prefix)
 {
 }
 
 void RenderMathMLRadicalOperator::stretchTo(LayoutUnit heightAboveBaseline, LayoutUnit depthBelowBaseline)
 {
-    const auto& primaryFontData = style().font().primaryFont();
-    if (!primaryFontData || !primaryFontData->mathData()) {
+    if (!style().fontCascade().primaryFont().mathData()) {
         // If we do not have an OpenType MATH font, we always make the radical depth a bit larger than the target.
         depthBelowBaseline += gRadicalBottomPointLower;
     }
@@ -72,20 +71,19 @@ void RenderMathMLRadicalOperator::stretchTo(LayoutUnit heightAboveBaseline, Layo
     RenderMathMLOperator::stretchTo(heightAboveBaseline, depthBelowBaseline);
 }
 
-void RenderMathMLRadicalOperator::SetOperatorProperties()
+void RenderMathMLRadicalOperator::setOperatorProperties()
 {
-    RenderMathMLOperator::SetOperatorProperties();
+    RenderMathMLOperator::setOperatorProperties();
     // We remove spacing around the radical symbol.
-    m_leadingSpace = 0;
-    m_trailingSpace = 0;
+    setLeadingSpace(0);
+    setTrailingSpace(0);
 }
 
 void RenderMathMLRadicalOperator::computePreferredLogicalWidths()
 {
     ASSERT(preferredLogicalWidthsDirty());
 
-    const auto& primaryFontData = style().font().primaryFont();
-    if (primaryFontData && primaryFontData->mathData()) {
+    if (style().fontCascade().primaryFont().mathData()) {
         RenderMathMLOperator::computePreferredLogicalWidths();
         return;
     }
@@ -98,8 +96,7 @@ void RenderMathMLRadicalOperator::computePreferredLogicalWidths()
 
 void RenderMathMLRadicalOperator::computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues& computedValues) const
 {
-    const auto& primaryFontData = style().font().primaryFont();
-    if (primaryFontData && primaryFontData->mathData()) {
+    if (style().fontCascade().primaryFont().mathData()) {
         RenderMathMLOperator::computeLogicalHeight(logicalHeight, logicalTop, computedValues);
         return;
     }
@@ -114,8 +111,7 @@ void RenderMathMLRadicalOperator::paint(PaintInfo& info, const LayoutPoint& pain
     if (info.context->paintingDisabled() || info.phase != PaintPhaseForeground || style().visibility() != VISIBLE)
         return;
 
-    const auto& primaryFontData = style().font().primaryFont();
-    if (primaryFontData && primaryFontData->mathData()) {
+    if (style().fontCascade().primaryFont().mathData()) {
         RenderMathMLOperator::paint(info, paintOffset);
         return;
     }
@@ -174,32 +170,6 @@ void RenderMathMLRadicalOperator::paint(PaintInfo& info, const LayoutPoint& pain
     line.addLineTo(dipLeftPoint);
 
     info.context->strokePath(line);
-}
-
-LayoutUnit RenderMathMLRadicalOperator::trailingSpaceError()
-{
-    const auto& primaryFontData = style().font().primaryFont();
-    if (!primaryFontData || !primaryFontData->mathData())
-        return 0;
-
-    // For OpenType MATH font, the layout is based on RenderMathOperator for which the preferred width is sometimes overestimated (bug https://bugs.webkit.org/show_bug.cgi?id=130326).
-    // Hence we determine the error in the logical width with respect to the actual width of the glyph(s) used to paint the radical.
-    LayoutUnit width = logicalWidth();
-
-    if (m_stretchyData.mode() == DrawNormal) {
-        GlyphData data = style().font().glyphDataForCharacter(m_operator, !style().isLeftToRightDirection());
-        return width - advanceForGlyph(data);
-    }
-
-    if (m_stretchyData.mode() == DrawSizeVariant)
-        return width - advanceForGlyph(m_stretchyData.variant());
-
-    float assemblyWidth = advanceForGlyph(m_stretchyData.top());
-    assemblyWidth = std::max(assemblyWidth, advanceForGlyph(m_stretchyData.bottom()));
-    assemblyWidth = std::max(assemblyWidth, advanceForGlyph(m_stretchyData.extension()));
-    if (m_stretchyData.middle().glyph)
-        assemblyWidth = std::max(assemblyWidth, advanceForGlyph(m_stretchyData.middle()));
-    return width - assemblyWidth;
 }
 
 }

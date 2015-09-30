@@ -120,6 +120,8 @@ typedef struct stat *Statptr;	 /* This makes the Ultrix compiler happy.  Go figu
 #define TT_POSIX_BLOCKS 1
 #define TT_KILOBYTES 2
 #define TT_MEGABYTES 3
+#define TT_GIGABYTES 4
+#define TT_TERABYTES 5
 
 
 typedef int (*TestMatchFunc) _((char *, struct stat *, off_t, char *));
@@ -176,7 +178,7 @@ struct globdata {
     int gd_gf_numsort;
     int gd_gf_follow, gd_gf_sorts, gd_gf_nsorts;
     struct globsort gd_gf_sortlist[MAX_SORTS];
-    LinkList gd_gf_pre_words;
+    LinkList gd_gf_pre_words, gd_gf_post_words;
 
     char *gd_glob_pre, *gd_glob_suf;
 };
@@ -208,6 +210,7 @@ static struct globdata curglobdata;
 #define gf_nsorts     (curglobdata.gd_gf_nsorts)
 #define gf_sortlist   (curglobdata.gd_gf_sortlist)
 #define gf_pre_words  (curglobdata.gd_gf_pre_words)
+#define gf_post_words (curglobdata.gd_gf_post_words)
 
 /* and macros for save/restore */
 
@@ -383,8 +386,8 @@ insert(char *s, int checked)
     while (!inserts || (news = dupstring(*inserts++))) {
 	if (colonmod) {
 	    /* Handle the remainder of the qualifier:  e.g. (:r:s/foo/bar/). */
-	    s = colonmod;
-	    modify(&news, &s);
+	    char *mod = colonmod;
+	    modify(&news, &mod);
 	}
 	if (!statted && (gf_sorts & GS_NORMAL)) {
 	    statfullpath(s, &buf, 1);
@@ -434,7 +437,7 @@ insert(char *s, int checked)
 	matchptr++;
 
 	if (++matchct == matchsz) {
-	    matchbuf = (Gmatch )realloc((char *)matchbuf,
+	    matchbuf = (Gmatch)zrealloc((char *)matchbuf,
 					sizeof(struct gmatch) * (matchsz *= 2));
 
 	    matchptr = matchbuf + matchct;
@@ -443,6 +446,7 @@ insert(char *s, int checked)
 	    break;
     }
     unqueue_signals();
+    return;
 }
 
 /* Do the globbing:  scanner is called recursively *
@@ -451,7 +455,7 @@ insert(char *s, int checked)
 
 /**/
 static void
-scanner(Complist q)
+scanner(Complist q, int shortcircuit)
 {
     Patprog p;
     int closure;
@@ -459,16 +463,19 @@ scanner(Complist q)
     int errssofar = errsfound;
     struct dirsav ds;
 
-    init_dirsav(&ds);
-    if (!q)
+    if (!q || errflag)
 	return;
+    init_dirsav(&ds);
 
     if ((closure = q->closure)) {
 	/* (foo/)# - match zero or more dirs */
 	if (q->closure == 2)	/* (foo/)## - match one or more dirs */
 	    q->closure = 1;
-	else
-	    scanner(q->next);
+	else {
+	    scanner(q->next, shortcircuit);
+	    if (shortcircuit && shortcircuit == matchct)
+		return;
+	}
     }
     p = q->pat;
     /* Now the actual matching for the current path section. */
@@ -513,8 +520,11 @@ scanner(Complist q)
 		}
 		if (add) {
 		    addpath(str, l);
-		    if (!closure || !statfullpath("", NULL, 1))
-			scanner((q->closure) ? q : q->next);
+		    if (!closure || !statfullpath("", NULL, 1)) {
+			scanner((q->closure) ? q : q->next, shortcircuit);
+			if (shortcircuit && shortcircuit == matchct)
+			    return;
+		    }
 		    pathbuf[pathpos = oppos] = '\0';
 		}
 	    }
@@ -522,6 +532,8 @@ scanner(Complist q)
 	    if (str[l])
 		str = dupstrpfx(str, l);
 	    insert(str, 0);
+	    if (shortcircuit && shortcircuit == matchct)
+		return;
 	}
     } else {
 	/* Do pattern matching on current path section. */
@@ -609,9 +621,12 @@ scanner(Complist q)
 		    memcpy(subdirs + subdirlen, (char *)&errsfound,
 			   sizeof(int));
 		    subdirlen += sizeof(int);
-		} else
+		} else {
 		    /* if the last filename component, just add it */
 		    insert(fn, 1);
+		    if (shortcircuit && shortcircuit == matchct)
+			return;
+		}
 	    }
 	}
 	closedir(lock);
@@ -624,7 +639,10 @@ scanner(Complist q)
 		fn += l + 1;
 		memcpy((char *)&errsfound, fn, sizeof(int));
 		fn += sizeof(int);
-		scanner((q->closure) ? q : q->next);  /* scan next level */
+		/* scan next level */
+		scanner((q->closure) ? q : q->next, shortcircuit); 
+		if (shortcircuit && shortcircuit == matchct)
+		    return;
 		pathbuf[pathpos = oppos] = '\0';
 	    }
 	    hrealloc(subdirs, subdirlen, 0);
@@ -638,6 +656,7 @@ scanner(Complist q)
 	    close(ds.dirfd);
 	pathbufcwd = pbcwdsav;
     }
+    return;
 }
 
 /* This function tokenizes a zsh glob pattern */
@@ -663,7 +682,7 @@ parsecomplist(char *instr)
 	/* Now get the next path component if there is one. */
 	l1 = (Complist) zhalloc(sizeof *l1);
 	if ((l1->next = parsecomplist(instr)) == NULL) {
-	    errflag = 1;
+	    errflag |= ERRFLAG_ERROR;
 	    return NULL;
 	}
 	l1->pat = patcompile(NULL, compflags | PAT_ANY, NULL);
@@ -689,7 +708,8 @@ parsecomplist(char *instr)
 	    }
 	    l1 = (Complist) zhalloc(sizeof *l1);
 	    l1->pat = p1;
-	    l1->closure = 1 + pdflag;
+	    /* special case (/)# to avoid infinite recursion */
+	    l1->closure = (*((char *)p1 + p1->startoff)) ? 1 + pdflag : 0;
 	    l1->follow = 0;
 	    l1->next = parsecomplist(instr);
 	    return (l1->pat) ? l1 : NULL;
@@ -709,7 +729,7 @@ parsecomplist(char *instr)
 	    return (ef && !l1->next) ? NULL : l1;
 	}
     }
-    errflag = 1;
+    errflag |= ERRFLAG_ERROR;
     return NULL;
 }
 
@@ -881,6 +901,9 @@ gmatchcmp(Gmatch a, Gmatch b)
 		/* Count slashes.  Trailing slashes don't count. */
 		while (*aptr && *aptr == *bptr)
 		    aptr++, bptr++;
+		/* Like I just said... */
+		if ((!*aptr || !*bptr) && aptr > a->name && aptr[-1] == '/')
+		    aptr--, bptr--;
 		if (*aptr)
 		    for (; aptr[1]; aptr++)
 			if (*aptr == '/') {
@@ -1056,7 +1079,75 @@ insert_glob_match(LinkList list, LinkNode next, char *data)
 	}
     }
 
-    insertlinknode(list, next, data);
+    next = insertlinknode(list, next, data);
+
+    if (gf_post_words) {
+	LinkNode added;
+	for (added = firstnode(gf_post_words); added; incnode(added)) {
+	    next = insertlinknode(list, next, dupstring(getdata(added)));
+	}
+    }
+}
+
+/*
+ * Return
+ *   1 if str ends in bare glob qualifiers
+ *   2 if str ends in non-bare glob qualifiers (#q)
+ *   0 otherwise.
+ *
+ * str is the string to check.
+ * sl is its length (to avoid recalculation).
+ * nobareglob is 1 if bare glob qualifiers are not allowed.
+ * *sp, if sp is not null, will be a pointer to the opening parenthesis.
+ */
+
+/**/
+int
+checkglobqual(char *str, int sl, int nobareglob, char **sp)
+{
+    char *s;
+    int paren, ret = 1;
+
+    if (str[sl - 1] != Outpar)
+	return 0;
+
+    /* Check these are really qualifiers, not a set of *
+     * alternatives or exclusions.  We can be more     *
+     * lenient with an explicit (#q) than with a bare  *
+     * set of qualifiers.                              */
+    paren = 0;
+    for (s = str + sl - 2; *s && (*s != Inpar || paren); s--) {
+	switch (*s) {
+	case Outpar:
+	    paren++; /*FALLTHROUGH*/
+	case Bar:
+	    if (!zpc_disables[ZPC_BAR])
+		nobareglob = 1;
+	    break;
+	case Tilde:
+	    if (isset(EXTENDEDGLOB) && !zpc_disables[ZPC_TILDE])
+		nobareglob = 1;
+	    break;
+	case Inpar:
+	    paren--;
+	    break;
+	}
+	if (s == str)
+	    break;
+    }
+    if (*s != Inpar)
+	return 0;
+    if (isset(EXTENDEDGLOB) && !zpc_disables[ZPC_HASH] && s[1] == Pound) {
+	if (s[2] != 'q')
+	    return 0;
+	ret = 2;
+    } else if (nobareglob)
+	return 0;
+
+    if (sp)
+	*sp = s;
+
+    return ret;
 }
 
 /* Main entry point to the globbing code for filename globbing. *
@@ -1078,6 +1169,8 @@ zglob(LinkList list, LinkNode np, int nountok)
 					/* and index+1 of the last match */
     struct globdata saved;		/* saved glob state              */
     int nobareglob = !isset(BAREGLOBQUAL);
+    int shortcircuit = 0;		/* How many files to match;      */
+					/* 0 means no limit              */
 
     if (unset(GLOBOPT) || !haswilds(ostr) || unset(EXECOPT)) {
 	if (!nountok)
@@ -1109,14 +1202,14 @@ zglob(LinkList list, LinkNode np, int nountok)
     gf_noglobdots = unset(GLOBDOTS);
     gf_numsort = isset(NUMERICGLOBSORT);
     gf_sorts = gf_nsorts = 0;
-    gf_pre_words = NULL;
+    gf_pre_words = gf_post_words = NULL;
 
     /* Check for qualifiers */
     while (!nobareglob ||
 	   (isset(EXTENDEDGLOB) && !zpc_disables[ZPC_HASH])) {
 	struct qual *newquals;
 	char *s;
-	int sense, paren;
+	int sense, qualsfound;
 	off_t data;
 	char *sdata, *newcolonmod;
 	int (*func) _((char *, Statptr, off_t, char *));
@@ -1146,40 +1239,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 	newquals = qo = qn = ql = NULL;
 
 	sl = strlen(str);
-	if (str[sl - 1] != Outpar)
-	    break;
-
-	/* Check these are really qualifiers, not a set of *
-	 * alternatives or exclusions.  We can be more     *
-	 * lenient with an explicit (#q) than with a bare  *
-	 * set of qualifiers.                              */
-	paren = 0;
-	for (s = str + sl - 2; *s && (*s != Inpar || paren); s--) {
-	    switch (*s) {
-	    case Outpar:
-		paren++; /*FALLTHROUGH*/
-	    case Bar:
-		if (!zpc_disables[ZPC_BAR])
-		    nobareglob = 1;
-		break;
-	    case Tilde:
-		if (isset(EXTENDEDGLOB) && !zpc_disables[ZPC_TILDE])
-		    nobareglob = 1;
-		break;
-	    case Inpar:
-		paren--;
-		break;
-	    }
-	}
-	if (*s != Inpar)
-	    break;
-	if (isset(EXTENDEDGLOB) && !zpc_disables[ZPC_HASH] && s[1] == Pound) {
-	    if (s[2] == 'q') {
-		*s = 0;
-		s += 2;
-	    } else
-		break;
-	} else if (nobareglob)
+	if (!(qualsfound = checkglobqual(str, sl, nobareglob, &s)))
 	    break;
 
 	/* Real qualifiers found. */
@@ -1192,6 +1252,8 @@ zglob(LinkList list, LinkNode np, int nountok)
 
 	str[sl-1] = 0;
 	*s++ = 0;
+	if (qualsfound == 2)
+	    s += 2;
 	while (*s && !newcolonmod) {
 	    func = (int (*) _((char *, Statptr, off_t, char *)))0;
 	    if (idigit(*s)) {
@@ -1362,7 +1424,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 			/* Find matching delimiters */
 			tt = get_strarg(s, &arglen);
 			if (!*tt) {
-			    zerr("missing end of name");
+			    zerr("missing delimiter for 'u' glob qualifier");
 			    data = 0;
 			} else {
 #ifdef USE_GETPWNAM
@@ -1402,7 +1464,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 
 			tt = get_strarg(s, &arglen);
 			if (!*tt) {
-			    zerr("missing end of name");
+			    zerr("missing delimiter for 'g' glob qualifier");
 			    data = 0;
 			} else {
 #ifdef USE_GETGRNAM
@@ -1459,6 +1521,23 @@ zglob(LinkList list, LinkNode np, int nountok)
 		    /* Numeric glob sort */
 		    gf_numsort = !(sense & 1);
 		    break;
+		case 'Y':
+		{
+		    /* Short circuit: limit number of matches */
+		    const char *s_saved = s;
+		    shortcircuit = !(sense & 1);
+		    if (shortcircuit) {
+			/* Parse the argument. */
+			data = qgetnum(&s);
+			if ((shortcircuit = data) != data) {
+			    /* Integer overflow */
+			    zerr("value too big: Y%s", s_saved);
+			    restore_globstate(saved);
+			    return;
+			}
+		    }
+		    break;
+		}
 		case 'a':
 		    /* Access time in given range */
 		    g_amc = 0;
@@ -1486,6 +1565,12 @@ zglob(LinkList list, LinkNode np, int nountok)
 			g_units = TT_KILOBYTES, ++s;
 		    else if (*s == 'm' || *s == 'M')
 			g_units = TT_MEGABYTES, ++s;
+#if defined(ZSH_64_BIT_TYPE) || defined(LONG_IS_64_BIT)
+                    else if (*s == 'g' || *s == 'G')
+                        g_units = TT_GIGABYTES, ++s;
+                    else if (*s == 't' || *s == 'T')
+                        g_units = TT_TERABYTES, ++s;
+#endif
 		  getrange:
 		    /* Get time multiplier */
 		    if (g_amc >= 0) {
@@ -1549,9 +1634,10 @@ zglob(LinkList list, LinkNode np, int nountok)
 			restore_globstate(saved);
 			return;
 		    }
+		    if ((sense & 2) &&
+			(t & (GS_SIZE|GS_ATIME|GS_MTIME|GS_CTIME|GS_LINKS)))
+			t <<= GS_SHIFT; /* HERE: GS_EXEC? */
 		    if (t != GS_EXEC) {
-			if ((sense & 2) && !(t & (GS_NAME|GS_DEPTH)))
-			    t <<= GS_SHIFT; /* HERE: GS_EXEC? */
 			if (gf_sorts & t) {
 			    zerr("doubled sort specifier");
 			    restore_globstate(saved);
@@ -1605,9 +1691,10 @@ zglob(LinkList list, LinkNode np, int nountok)
 
 		    if (tt != NULL)
 		    {
-			if (!gf_pre_words)
-			    gf_pre_words = newlinklist();
-			addlinknode(gf_pre_words, tt);
+			LinkList *words = sense & 1 ? &gf_post_words : &gf_pre_words;
+			if (!*words)
+			    *words = newlinklist();
+			addlinknode(*words, tt);
 		    }
 		    break;
 		}
@@ -1704,12 +1791,12 @@ zglob(LinkList list, LinkNode np, int nountok)
 	    insertlinknode(list, node, ostr);
 	    return;
 	}
-	errflag = 0;
+	errflag &= ~ERRFLAG_ERROR;
 	zerr("bad pattern: %s", ostr);
 	return;
     }
     if (!gf_nsorts) {
-	gf_sortlist[0].tp = gf_sorts = GS_NAME;
+	gf_sortlist[0].tp = gf_sorts = (shortcircuit ? GS_NONE : GS_NAME);
 	gf_nsorts = 1;
     }
     /* Initialise receptacle for matched files, *
@@ -1721,7 +1808,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 
     /* The actual processing takes place here: matches go into  *
      * matchbuf.  This is the only top-level call to scanner(). */
-    scanner(q);
+    scanner(q, shortcircuit);
 
     /* Deal with failures to match depending on options */
     if (matchct)
@@ -1731,7 +1818,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 	    badcshglob |= 1;	/* at least one cmd. line expansion failed */
 	} else if (isset(NOMATCH)) {
 	    zerr("no matches found: %s", ostr);
-	    free(matchbuf);
+	    zfree(matchbuf, 0);
 	    restore_globstate(saved);
 	    return;
 	} else {
@@ -1787,7 +1874,8 @@ zglob(LinkList list, LinkNode np, int nountok)
 				tmpptr->sortstrs[iexec] = tmpptr->name;
 			}
 
-			errflag = ef;
+			/* Retain any user interrupt error status */
+			errflag = ef | (errflag & ERRFLAG_INT);
 			lastval = lv;
 		    } else {
 			/* Failed, let's be safe */
@@ -1832,8 +1920,10 @@ zglob(LinkList list, LinkNode np, int nountok)
 		matchptr++;
 	    }
 	}
+    } else if (!badcshglob && !isset(NOMATCH) && matchct == 1) {
+	insert_glob_match(list, node, (--matchptr)->name);
     }
-    free(matchbuf);
+    zfree(matchbuf, 0);
 
     restore_globstate(saved);
 }
@@ -1895,6 +1985,8 @@ hasbraces(char *str)
 	switch (*str++) {
 	case Inbrace:
 	    if (!lbr) {
+		if (bracechardots(str-1, NULL, NULL))
+		    return 1;
 		lbr = str - 1;
 		if (*str == '-')
 		    str++;
@@ -2027,6 +2119,68 @@ xpandredir(struct redir *fn, LinkList redirtab)
     return ret;
 }
 
+/*
+ * Check for a brace expansion of the form {<char>..<char>}.
+ * On input str must be positioned at an Inbrace, but the sequence
+ * of characters beyond that has not necessarily been checked.
+ * Return 1 if found else 0.
+ *
+ * The other parameters are optionaland if the function returns 1 are
+ * used to return:
+ * - *c1p: the first character in the expansion.
+ * - *c2p: the final character in the expansion.
+ */
+
+/**/
+static int
+bracechardots(char *str, convchar_t *c1p, convchar_t *c2p)
+{
+    convchar_t cstart, cend;
+    char *pnext = str + 1, *pconv, convstr[2];
+    if (itok(*pnext)) {
+	if (*pnext == Inbrace)
+	    return 0;
+	convstr[0] = ztokens[*pnext - Pound];
+	convstr[1] = '\0';
+	pconv = convstr;
+    } else
+	pconv = pnext;
+    MB_METACHARINIT();
+    pnext += MB_METACHARLENCONV(pconv, &cstart);
+    if (
+#ifdef MULTIBYTE_SUPPORT
+	cstart == WEOF ||
+#else
+	!cstart ||
+#endif
+	pnext[0] != '.' || pnext[1] != '.')
+	return 0;
+    pnext += 2;
+    if (itok(*pnext)) {
+	if (*pnext == Inbrace)
+	    return 0;
+	convstr[0] = ztokens[*pnext - Pound];
+	convstr[1] = '\0';
+	pconv = convstr;
+    } else
+	pconv = pnext;
+    MB_METACHARINIT();
+    pnext += MB_METACHARLENCONV(pconv, &cend);
+    if (
+#ifdef MULTIBYTE_SUPPORT
+	cend == WEOF ||
+#else
+	!cend ||
+#endif
+	*pnext != Outbrace)
+	return 0;
+    if (c1p)
+	*c1p = cstart;
+    if (c2p)
+	*c2p = cend;
+    return 1;
+}
+
 /* brace expansion */
 
 /**/
@@ -2060,10 +2214,57 @@ xpandbraces(LinkList list, LinkNode *np)
 	char *dots, *p, *dots2 = NULL;
 	LinkNode olast = last;
 	/* Get the first number of the range */
-	zlong rstart = zstrtol(str+1,&dots,10), rend = 0;
+	zlong rstart, rend;
 	int err = 0, rev = 0, rincr = 1;
-	int wid1 = (dots - str) - 1, wid2 = (str2 - dots) - 2, wid3 = 0;
-	int strp = str - str3;
+	int wid1, wid2, wid3, strp;
+	convchar_t cstart, cend;
+
+	if (bracechardots(str, &cstart, &cend)) {
+	    int lenalloc;
+	    /*
+	     * This is a character range.
+	     */
+	    if (cend < cstart) {
+		convchar_t ctmp = cend;
+		cend = cstart;
+		cstart = ctmp;
+		rev = 1;
+	    }
+	    uremnode(list, node);
+	    strp = str - str3;
+	    lenalloc = strp + strlen(str2+1) + 1;
+	    do {
+#ifdef MULTIBYTE_SUPPORT
+		char *ncptr;
+		int nclen;
+		mb_metacharinit();
+		ncptr = wcs_nicechar(cend, NULL, NULL);
+		nclen = strlen(ncptr);
+		p = zhalloc(lenalloc + nclen);
+		memcpy(p, str3, strp);
+		memcpy(p + strp, ncptr, nclen);
+		strcpy(p + strp + nclen, str2 + 1);
+#else
+		p = zhalloc(lenalloc + 1);
+		memcpy(p, str3, strp);
+		sprintf(p + strp, "%c", cend);
+		strcat(p + strp, str2 + 1);
+#endif
+		insertlinknode(list, last, p);
+		if (rev)	/* decreasing:  add in reverse order. */
+		    last = nextnode(last);
+	    } while (cend-- > cstart);
+	    *np = nextnode(olast);
+	    return;
+	}
+
+	/* Get the first number of the range */
+	rstart = zstrtol(str+1,&dots,10);
+	rend = 0;
+	wid1 = (dots - str) - 1;
+	wid2 = (str2 - dots) - 2;
+	wid3 = 0;
+	strp = str - str3;
 
 	if (dots == str + 1 || *dots != '.' || dots[1] != '.')
 	    err++;
@@ -3443,9 +3644,9 @@ qualiscom(UNUSED(char *name), struct stat *buf, UNUSED(off_t mod), UNUSED(char *
 static int
 qualsize(UNUSED(char *name), struct stat *buf, off_t size, UNUSED(char *dummy))
 {
-#if defined(LONG_IS_64_BIT) || defined(OFF_T_IS_64_BIT)
+#if defined(ZSH_64_BIT_TYPE) || defined(LONG_IS_64_BIT)
 # define QS_CAST_SIZE()
-    off_t scaled = buf->st_size;
+    zlong scaled = buf->st_size;
 #else
 # define QS_CAST_SIZE() (unsigned long)
     unsigned long scaled = (unsigned long)buf->st_size;
@@ -3464,6 +3665,16 @@ qualsize(UNUSED(char *name), struct stat *buf, off_t size, UNUSED(char *dummy))
 	scaled += 1048575l;
 	scaled /= 1048576l;
 	break;
+#if defined(ZSH_64_BIT_TYPE) || defined(LONG_IS_64_BIT)
+    case TT_GIGABYTES:
+        scaled += ZLONG_CONST(1073741823);
+        scaled /= ZLONG_CONST(1073741824);
+        break;
+    case TT_TERABYTES:
+        scaled += ZLONG_CONST(1099511627775);
+        scaled /= ZLONG_CONST(1099511627776);
+        break;
+#endif
     }
 
     return (g_range < 0 ? scaled < QS_CAST_SIZE() size :
@@ -3524,7 +3735,8 @@ qualsheval(char *name, UNUSED(struct stat *buf), UNUSED(off_t days), char *str)
 	execode(prog, 1, 0, "globqual");
 
 	ret = lastval;
-	errflag = ef;
+	/* Retain any user interrupt error status */
+	errflag = ef | (errflag & ERRFLAG_INT);
 	lastval = lv;
 
 	if (!(inserts = getaparam("reply")) &&

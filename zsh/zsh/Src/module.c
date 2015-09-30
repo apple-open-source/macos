@@ -1577,7 +1577,9 @@ try_load_module(char const *name)
 	if (l + (**pp ? strlen(*pp) : 1) > PATH_MAX)
 	    continue;
 	sprintf(buf, "%s/%s.%s", **pp ? *pp : ".", name, DL_EXT);
-	ret = dlopen(unmeta(buf), RTLD_LAZY | RTLD_GLOBAL);
+	unmetafy(buf, NULL);
+	if (*buf) /* dlopen(NULL) returns a handle to the main binary */
+	    ret = dlopen(buf, RTLD_LAZY | RTLD_GLOBAL);
     }
 
     return ret;
@@ -1597,8 +1599,9 @@ do_load_module(char const *name, int silent)
     ret = try_load_module(name);
     if (!ret && !silent) {
 #ifdef HAVE_DLERROR
+	char *errstr = dlerror();
 	zwarn("failed to load module `%s': %s", name,
-	      metafy(dlerror(), -1, META_USEHEAP));
+	      errstr ? metafy(errstr, -1, META_HEAPDUP) : "empty module path");
 #else
 	zwarn("failed to load module: %s", name);
 #endif
@@ -3367,7 +3370,7 @@ mod_export int
 handlefeatures(Module m, Features f, int **enables)
 {
     if (!enables || *enables)
-	return setfeatureenables(m, f, *enables);
+	return setfeatureenables(m, f, enables ? *enables : NULL);
     *enables = getfeatureenables(m, f);
     return 0;
 }

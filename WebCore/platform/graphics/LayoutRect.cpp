@@ -104,14 +104,15 @@ void LayoutRect::uniteIfNonZero(const LayoutRect& other)
     m_size = newMaxPoint - newLocation;
 }
 
-void LayoutRect::scale(float s)
+void LayoutRect::scale(float scaleValue)
 {
-    m_location.scale(s, s);
-    m_size.scale(s);
+    scale(scaleValue, scaleValue);
 }
 
 void LayoutRect::scale(float xScale, float yScale)
 {
+    if (isInfinite())
+        return;
     m_location.scale(xScale, yScale);
     m_size.scale(xScale, yScale);
 }
@@ -138,20 +139,16 @@ IntRect enclosingIntRect(const LayoutRect& rect)
 
 LayoutRect enclosingLayoutRect(const FloatRect& rect)
 {
-#if ENABLE(SUBPIXEL_LAYOUT)
     LayoutPoint location = flooredLayoutPoint(rect.minXMinYCorner());
     LayoutPoint maxPoint = ceiledLayoutPoint(rect.maxXMaxYCorner());
 
     return LayoutRect(location, maxPoint - location);
-#else
-    return enclosingIntRect(rect);
-#endif
 }
 
-FloatRect enclosingRectForPainting(const LayoutRect& rect, float pixelSnappingFactor)
+FloatRect encloseRectToDevicePixels(const LayoutRect& rect, float pixelSnappingFactor)
 {
-    FloatPoint location = flooredForPainting(rect.minXMinYCorner(), pixelSnappingFactor);
-    FloatPoint maxPoint = ceiledForPainting(rect.maxXMaxYCorner(), pixelSnappingFactor);
+    FloatPoint location = floorPointToDevicePixels(rect.minXMinYCorner(), pixelSnappingFactor);
+    FloatPoint maxPoint = ceilPointToDevicePixels(rect.maxXMaxYCorner(), pixelSnappingFactor);
 
     return FloatRect(location, maxPoint - location);
 }

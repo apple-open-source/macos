@@ -145,6 +145,9 @@ struct krb5_sendto_ctx_data {
     krb5_sendto_ctx_func func;
     void *data;
     char *hostname;
+    char *sitename;
+    krb5_uuid delegated_uuid;
+    char *delegated_signing_identity;
     krb5_krbhst_handle krbhst;
 
     /* context2 */
@@ -152,8 +155,12 @@ struct krb5_sendto_ctx_data {
     krb5_data response;
     heim_array_t hosts;
     const char *realm;
+
     int stateflags;
-#define KRBHST_COMPLETED	1
+#define KRBHST_SF_COMPLETED		1
+
+    int contextflags;
+#define KRBHST_CTX_F_HAVE_DELEGATED_UUID	1
 
     /* prexmit */
     krb5_sendto_prexmit prexmit_func;
@@ -176,6 +183,10 @@ dealloc_sendto_ctx(void *ptr)
     krb5_sendto_ctx ctx = (krb5_sendto_ctx)ptr;
     if (ctx->hostname)
 	free(ctx->hostname);
+    if (ctx->sitename)
+	free(ctx->sitename);
+    if (ctx->delegated_signing_identity)
+	free(ctx->delegated_signing_identity);
     heim_release(ctx->hosts);
     heim_release(ctx->krbhst);
 }
@@ -233,12 +244,63 @@ krb5_sendto_set_hostname(krb5_context context,
     if (ctx->hostname == NULL)
 	free(ctx->hostname);
     ctx->hostname = strdup(hostname);
-    if (ctx->hostname == NULL) {
-	krb5_set_error_message(context, ENOMEM, N_("malloc: out of memory", ""));
-	return ENOMEM;
-    }
+    if (ctx->hostname == NULL)
+	return krb5_enomem(context);
     return 0;
 }
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_sendto_set_sitename(krb5_context context,
+			 krb5_sendto_ctx ctx,
+			 const char *sitename)
+{
+    if (ctx->sitename == NULL)
+	free(ctx->sitename);
+    ctx->sitename = strdup(sitename);
+    if (ctx->sitename == NULL)
+	return krb5_enomem(context);
+    return 0;
+}
+
+#include <xpc/xpc.h>
+#if !TARGET_OS_SIMULATOR
+#include <NEHelperClient.h>
+#endif
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_sendto_set_delegated_app(krb5_context context,
+			      krb5_sendto_ctx ctx,
+			      krb5_uuid uuid,
+			      const char *signingIdentity)
+{
+    ctx->contextflags |= KRBHST_CTX_F_HAVE_DELEGATED_UUID;
+    if (uuid)
+	memcpy(ctx->delegated_uuid, uuid, sizeof(krb5_uuid));
+    else if (signingIdentity) {
+#if TARGET_OS_SIMULATOR
+	memset(ctx->delegated_uuid, 0, sizeof(krb5_uuid));
+#else
+	xpc_object_t uuid_array = NEHelperCacheCopyAppUUIDMapping(signingIdentity, NULL);
+	if (uuid_array && xpc_get_type(uuid_array) == XPC_TYPE_ARRAY && xpc_array_get_count(uuid_array) > 0) {
+	    const uint8_t *neuuid = xpc_array_get_uuid(uuid_array, 0);
+	    memcpy(ctx->delegated_uuid, neuuid, sizeof(krb5_uuid));
+	} else {
+	    memset(ctx->delegated_uuid, 0, sizeof(krb5_uuid));
+	}
+	if (uuid_array) {
+	    xpc_release(uuid_array);
+	}
+#endif
+    }
+    if (ctx->delegated_signing_identity) {
+	free(ctx->delegated_signing_identity);
+	ctx->delegated_signing_identity = NULL;
+    }
+    if (signingIdentity)
+	ctx->delegated_signing_identity = strdup(signingIdentity);
+    return 0;
+}
+
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 _krb5_sendto_ctx_set_krb5hst(krb5_context context,
@@ -316,20 +378,22 @@ debug_host(krb5_context context, int level, struct host *host, const char *fmt, 
 	__attribute__((__format__(__printf__, 4, 5)));
 
 static void
-debug_host(krb5_context context, int level, struct host *host, const char *fmt, ...)
+debug_hostv(krb5_context context, int level, struct host *host, const char *fmt, va_list ap)
+	__attribute__((__format__(__printf__, 4, 0)));
+
+
+static void
+debug_hostv(krb5_context context, int level, struct host *host, const char *fmt, va_list ap)
 {
     const char *proto = "unknown";
     char name[NI_MAXHOST], port[NI_MAXSERV];
     char *text = NULL;
-    va_list ap;
     int ret;
 
     if (!_krb5_have_debug(context, 5))
 	return;
 
-    va_start(ap, fmt);
     ret = vasprintf(&text, fmt, ap);
-    va_end(ap);
     if (ret == -1 || text == NULL)
 	return;
 
@@ -353,6 +417,17 @@ debug_host(krb5_context context, int level, struct host *host, const char *fmt, 
     _krb5_debugx(context, level, "%s: %s %s:%s (%s) tid: %08x",
 		 text, proto, name, port, host->hi->hostname, host->tid);
     free(text);
+
+}
+
+static void
+debug_host(krb5_context context, int level, struct host *host, const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    debug_hostv(context, level, host, fmt, ap);
+    va_end(ap);
 }
 
 
@@ -369,9 +444,17 @@ deallocate_host(void *ptr)
 }
 
 static void
-host_dead(krb5_context context, struct host *host, const char *msg)
+host_dead(krb5_context context, struct host *host, const char *msg, ...)
+	__attribute__((__format__(__printf__, 3, 4)));
+
+
+static void
+host_dead(krb5_context context, struct host *host, const char *msg, ...)
 {
-    debug_host(context, 5, host, "%s", msg);
+    va_list ap;
+    va_start(ap, msg);
+    debug_hostv(context, 5, host, msg, ap);
+    va_end(ap);
     rk_closesocket(host->fd);
     host->fd = rk_INVALID_SOCKET;
     host->state = DEAD;
@@ -488,6 +571,7 @@ send_kkdcp(krb5_context context, struct host *host)
 		_krb5_put_int(length, retdata.length, 4);
 		krb5_net_write_block(context, &host->fd2, length, sizeof(length), 2);
 		krb5_net_write_block(context, &host->fd2, retdata.data, retdata.length, 2);
+		krb5_data_free(&retdata);
 	    }
  
  	    close(host->fd2);
@@ -567,10 +651,10 @@ host_connect(krb5_context context, krb5_sendto_ctx ctx, struct host *host)
 
     if (connect(host->fd, ai->ai_addr, ai->ai_addrlen) < 0) {
 	if (errno == EINPROGRESS && (hi->proto == KRB5_KRBHST_HTTP || hi->proto == KRB5_KRBHST_TCP)) {
-	    debug_host(context, 5, host, "connecting to %d", host->fd);
+	    debug_host(context, 5, host, "connecting to %d (in progress)", host->fd);
 	    host->state = CONNECTING;
 	} else {
-	    host_dead(context, host, "failed to connect");
+	    host_dead(context, host, "failed to connect: %d", errno);
 	}
     } else {
 	host_connected(context, ctx, host);
@@ -839,6 +923,116 @@ eval_host_state(krb5_context context,
  *
  */
 
+#if !TARGET_OS_SIMULATOR
+#include <network/private.h>
+#include <ne_session.h>
+
+#ifndef SO_FLOW_DIVERT_TOKEN
+#define	SO_FLOW_DIVERT_TOKEN	0x1106
+#endif
+
+#endif
+
+static void
+prepare_app_vpn(krb5_context context,
+		krb5_sendto_ctx ctx,
+		krb5_krbhst_info *hi,
+		int fd)
+{
+#if !TARGET_OS_SIMULATOR
+    const char *hostname = hi->hostname;
+    nw_path_evaluator_t evaluator = NULL;
+    nw_parameters_t parameters = NULL;
+    nw_endpoint_t nwhost = NULL;
+    xpc_object_t token = NULL;
+    nw_path_t path = NULL;
+    char port[10];
+    int error;
+
+    snprintf(port, sizeof(port), "%d", hi->port);
+
+    nwhost = nw_endpoint_create_host(hostname, port);
+    if (nwhost == NULL)
+	_krb5_debugx(context, 5, "host_create: nw_endpoint_t host is NULL");
+
+    parameters = nw_parameters_create();
+    if (parameters == NULL) {
+	_krb5_debugx(context, 5, "host_create: nw_parameters_t is NULL");
+	goto out;
+    }
+
+    nw_parameters_set_e_proc_uuid(parameters, ctx->delegated_uuid);
+
+    evaluator = nw_path_create_evaluator_for_endpoint(nwhost, parameters);
+    if (evaluator == NULL) {
+	_krb5_debugx(context, 5, "host_create: nw_path_evaluator_t is NULL");
+	goto out;
+    }
+
+    path = nw_path_evaluator_copy_path(evaluator);
+    if (path == NULL) {
+	_krb5_debugx(context, 5, "host_create: nw_path_t is NULL");
+	goto out;
+    }
+
+    if (!nw_path_is_flow_divert(path)) {
+	_krb5_debugx(context, 5, "host_create: no flow divert");
+	goto out;
+    }
+
+    uint32_t flow_divert_unit = nw_path_get_flow_divert_unit(path);
+    if (flow_divert_unit == 0) {
+	_krb5_debugx(context, 5, "host_create: divert unit");
+	goto out;
+    }
+
+    uuid_t config_uuid;
+
+    if (!nw_path_get_vpn_config_id(path, &config_uuid)) {
+	_krb5_debugx(context, 5, "host_create: no config");
+	goto out;
+    }
+
+    xpc_object_t flow_properties = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_data(flow_properties, NESessionFlowPropertyHostAddress, hi->ai->ai_addr, hi->ai->ai_addrlen);
+    xpc_dictionary_set_string(flow_properties, NESessionFlowPropertyHostName, hostname);
+    xpc_dictionary_set_int64(flow_properties, NESessionFlowPropertyHostPort, hi->port);
+
+    token = ne_session_policy_copy_flow_divert_token(config_uuid, flow_divert_unit, flow_properties, ctx->delegated_signing_identity);
+    if (token == NULL) {
+	_krb5_debugx(context, 5, "host_create: no token");
+	goto out;
+    }
+
+    error = setsockopt(fd,
+		       SOL_SOCKET,
+		       SO_FLOW_DIVERT_TOKEN,
+		       xpc_data_get_bytes_ptr(token),
+		       (socklen_t)xpc_data_get_length(token));
+    if (error) {
+	_krb5_debugx(context, 5, "host_create: SO_FLOW_DIVERT_TOKEN failed: %d", errno);
+	goto out;
+    }
+
+    _krb5_debugx(context, 5, "host_create: have app vpn divert");
+
+out:
+    if (nwhost)
+	network_release(nwhost);
+    if (parameters)
+	network_release(parameters);
+    if (path)
+	network_release(path);
+    if (evaluator)
+	network_release(evaluator);
+    if (token)
+	xpc_release(token);
+#endif
+}
+
+
+
+
 static struct host *
 host_create(krb5_context context,
 	    krb5_sendto_ctx ctx,
@@ -850,7 +1044,7 @@ host_create(krb5_context context,
 
     host = heim_uniq_alloc(sizeof(*host), "sendto-host", deallocate_host);
     if (host == NULL)
-	    return ENOMEM;
+	    return NULL;
 
     host->hi = hi;
     host->fd = fd;
@@ -876,6 +1070,29 @@ host_create(krb5_context context,
 	host->fun = &udp_fun;
 	break;
     }
+
+
+
+#if __APPLE__
+#ifndef SO_DELEGATED_UUID
+#define    SO_DELEGATED_UUID    0x1108
+#endif
+
+    /*
+     * If we have a uuid, pass that along
+     */
+    if (ctx->contextflags & KRBHST_CTX_F_HAVE_DELEGATED_UUID) {
+	int error;
+
+	_krb5_debugx(context, 5, "host_create: setting host delegate", errno);
+
+	error = setsockopt(host->fd, SOL_SOCKET, SO_DELEGATED_UUID, ctx->delegated_uuid, sizeof(uuid_t));
+	if (error)
+	    _krb5_debugx(context, 5, "host_create: SO_DELEGATED_UUID failed: %d", errno);
+
+	prepare_app_vpn(context, ctx, hi, host->fd);
+    }
+#endif
 
     host->tries = host->fun->ntries;
     
@@ -1162,7 +1379,7 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
 	});
 
     if (heim_array_get_length(ctx->hosts) == 0) {
-	if (ctx->stateflags & KRBHST_COMPLETED) {
+	if (ctx->stateflags & KRBHST_SF_COMPLETED) {
 	    _krb5_debugx(context, 5, "no more hosts to send/recv packets to/from "
 			 "trying to pulling more hosts");
 	    *action = KRB5_SENDTO_FAILED;
@@ -1302,6 +1519,17 @@ krb5_sendto_context(krb5_context context,
 		    if (ret)
 			goto out;
 		}
+		if (ctx->sitename) {
+		    ret = krb5_krbhst_set_sitename(context, handle, ctx->sitename);
+		    if (ret)
+			goto out;
+		}
+		if (ctx->contextflags & KRBHST_CTX_F_HAVE_DELEGATED_UUID) {
+		    ret = krb5_krbhst_set_delgated_uuid(context, handle, ctx->delegated_uuid);
+		    if (ret)
+			goto out;
+		}
+
 	    } else {
 		handle = heim_retain(ctx->krbhst);
 	    }
@@ -1313,7 +1541,7 @@ krb5_sendto_context(krb5_context context,
 	     * If we completed, just got to next step
 	     */
 
-	    if (ctx->stateflags & KRBHST_COMPLETED) {
+	    if (ctx->stateflags & KRBHST_SF_COMPLETED) {
 		action = KRB5_SENDTO_CONTINUE;
 		break;
 	    }
@@ -1341,7 +1569,7 @@ krb5_sendto_context(krb5_context context,
 		    action = KRB5_SENDTO_TIMEOUT;
 	    } else {
 		_krb5_debugx(context, 5, "out of hosts, waiting for replies");
-		ctx->stateflags |= KRBHST_COMPLETED;
+		ctx->stateflags |= KRBHST_SF_COMPLETED;
 	    }
 
 	    break;
@@ -1379,6 +1607,24 @@ krb5_sendto_context(krb5_context context,
 				   &ctx->response, &action);
 		if (ret)
 		    goto out;
+
+		/*
+		 * If we are not done, ask to continue/reset
+		 */
+		switch (action) {
+		case KRB5_SENDTO_DONE:
+		    break;
+		case KRB5_SENDTO_RESET:
+		case KRB5_SENDTO_CONTINUE:
+		    /* free response to clear it out so we don't loop */
+		    krb5_data_free(&ctx->response);
+		    break;
+		default:
+		    ret = KRB5_KDC_UNREACH;
+		    krb5_set_error_message(context, ret,
+					   "sendto filter funcation return unsupported state: %d", (int)action);
+		    goto out;
+		}
 	    }
 	    break;
 	case KRB5_SENDTO_FAILED:
@@ -1410,12 +1656,12 @@ krb5_sendto_context(krb5_context context,
     }
 
     _krb5_debugx(context, 1,
-		 "krb5_sendto_context %s done: %d hosts %lu packets %lu wc: %ld.%06d nr: %ld.%06d kh: %ld.%06d tid: %08x",
+		 "krb5_sendto_context %s done: %d hosts %lu packets %lu wc: %lld.%06d nr: %lld.%06d kh: %lld.%06d tid: %08x",
 		 ctx->realm, ret,
 		 ctx->stats.num_hosts, ctx->stats.sent_packets,
-		 stop_time.tv_sec, stop_time.tv_usec,
-		 ctx->stats.name_resolution.tv_sec, ctx->stats.name_resolution.tv_usec,
-		 ctx->stats.krbhst.tv_sec, ctx->stats.krbhst.tv_usec, ctx->stid);
+		 (long long) stop_time.tv_sec, stop_time.tv_usec,
+		 (long long) ctx->stats.name_resolution.tv_sec, ctx->stats.name_resolution.tv_usec,
+		 (long long) ctx->stats.krbhst.tv_sec, ctx->stats.krbhst.tv_usec, ctx->stid);
 
 
     if (freectx)

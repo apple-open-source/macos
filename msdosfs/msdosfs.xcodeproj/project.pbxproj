@@ -234,7 +234,7 @@
 		4D3DCF0708E0BBF700C78A0B /* dir.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = dir.c; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCF0808E0BBF700C78A0B /* dosfs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = dosfs.h; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCF0908E0BBF700C78A0B /* ext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ext.h; sourceTree = "<group>"; tabWidth = 4; };
-		4D3DCF0A08E0BBF700C78A0B /* fat.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = fat.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCF0A08E0BBF700C78A0B /* fat.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = fat.c; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
 		4D3DCF0B08E0BBF700C78A0B /* fsck_msdos.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = fsck_msdos.8; sourceTree = "<group>"; };
 		4D3DCF0C08E0BBF700C78A0B /* fsutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = fsutil.c; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCF0D08E0BBF700C78A0B /* fsutil.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = fsutil.h; sourceTree = "<group>"; tabWidth = 4; };
@@ -249,6 +249,10 @@
 		4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		7D91DB9F010FC00502CA2964 /* msdos.util */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = msdos.util; sourceTree = BUILT_PRODUCTS_DIR; };
+		9D8D72301B448C08001AB190 /* mount_msdos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = mount_msdos.entitlements; sourceTree = "<group>"; };
+		9D8D72311B448C19001AB190 /* msdos_util.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = msdos_util.entitlements; sourceTree = "<group>"; };
+		9D8D72321B448C29001AB190 /* fsck_msdos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fsck_msdos.entitlements; sourceTree = "<group>"; };
+		9DB62B6A1B45A941007EB026 /* newfs_msdos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = newfs_msdos.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -336,6 +340,7 @@
 			children = (
 				4D3DCC2808E0B4EC00C78A0B /* mount_msdos.8 */,
 				4D3DCC2908E0B4EC00C78A0B /* mount_msdos.c */,
+				9D8D72301B448C08001AB190 /* mount_msdos.entitlements */,
 			);
 			name = mount_msdos;
 			path = mount_msdos.tproj;
@@ -346,6 +351,7 @@
 			children = (
 				4D3DCC3108E0B53A00C78A0B /* dosutil.c */,
 				4D3DCC3408E0B53A00C78A0B /* msdos.util.8 */,
+				9D8D72311B448C19001AB190 /* msdos_util.entitlements */,
 			);
 			name = msdos.util;
 			path = msdos_util.tproj;
@@ -356,6 +362,7 @@
 			children = (
 				4D3DCC5A08E0B79E00C78A0B /* newfs_msdos.8 */,
 				4D3DCC5B08E0B79E00C78A0B /* newfs_msdos.c */,
+				9DB62B6A1B45A941007EB026 /* newfs_msdos.entitlements */,
 			);
 			path = newfs_msdos.tproj;
 			sourceTree = "<group>";
@@ -373,6 +380,7 @@
 				4D3DCF0C08E0BBF700C78A0B /* fsutil.c */,
 				4D3DCF0D08E0BBF700C78A0B /* fsutil.h */,
 				4D3DCF0E08E0BBF700C78A0B /* main.c */,
+				9D8D72321B448C29001AB190 /* fsck_msdos.entitlements */,
 			);
 			path = fsck_msdos.tproj;
 			sourceTree = "<group>";
@@ -564,7 +572,6 @@
 				4D3DCB6B08E084D400C78A0B /* Frameworks */,
 				4D3DCB6D08E084D400C78A0B /* Rez */,
 				4D3DCB6E08E084D400C78A0B /* CopyFiles */,
-				4D46756415097ADF00919D75 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -799,22 +806,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/fsck_msdos ${DSTROOT}/sbin/fsck_msdos\nchgrp -h wheel ${DSTROOT}/sbin/fsck_msdos\n";
-			showEnvVarsInLog = 0;
-		};
-		4D46756415097ADF00919D75 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/msdos.util",
-			);
-			outputPaths = (
-				"$(DSTROOT)$(FS_BUNDLE_PATH)/msdos.util",
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_DIR}/msdos.util ${DSTROOT}${FS_BUNDLE_PATH}/msdos.util";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -1060,6 +1051,8 @@
 		4D3DCB5108E084D400C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = /usr/local/include;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
@@ -1071,6 +1064,9 @@
 		4D3DCB5208E084D400C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = mount_msdos.tproj/mount_msdos.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = /usr/local/include;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
@@ -1104,6 +1100,7 @@
 		4D3DCB7108E084D400C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = msdos.util;
@@ -1113,6 +1110,8 @@
 		4D3DCB7208E084D400C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = msdos_util.tproj/msdos_util.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = msdos.util;
@@ -1122,6 +1121,7 @@
 		4D3DCC4D08E0B73400C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = newfs_msdos;
@@ -1131,6 +1131,8 @@
 		4D3DCC4E08E0B73400C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = newfs_msdos.tproj/newfs_msdos.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = newfs_msdos;
@@ -1140,6 +1142,7 @@
 		4D3DCEFF08E0BB1B00C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = fsck_msdos;
@@ -1149,6 +1152,8 @@
 		4D3DCF0008E0BB1B00C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = fsck_msdos.tproj/fsck_msdos.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = fsck_msdos;
@@ -1408,6 +1413,7 @@
 		4DD699560D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = msdos.util;
@@ -1428,6 +1434,8 @@
 		4DD699580D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = /usr/local/include;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
@@ -1439,6 +1447,7 @@
 		4DD699590D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = newfs_msdos;
@@ -1448,6 +1457,7 @@
 		4DD6995A0D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_TEST_COVERAGE_FILES = YES;
 				GCC_INSTRUMENT_PROGRAM_FLOW_ARCS = YES;

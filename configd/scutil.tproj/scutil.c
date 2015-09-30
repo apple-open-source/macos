@@ -110,6 +110,7 @@ static const struct option longopts[] = {
 	{ "password",		required_argument,	NULL,	0	},
 	{ "secret",		required_argument,	NULL,	0	},
 	{ "log",		required_argument,	NULL,	0	},
+	{ "disable-until-needed", no_argument,	NULL,	0	},
 	{ NULL,			0,			NULL,	0	}
 };
 
@@ -391,6 +392,7 @@ prompt(EditLine *el)
 int
 main(int argc, char * const argv[])
 {
+	Boolean			disableUntilNeeded = FALSE;
 	Boolean			doDNS	= FALSE;
 	Boolean			doNet	= FALSE;
 	Boolean			doNWI	= FALSE;
@@ -482,6 +484,9 @@ main(int argc, char * const argv[])
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "log") == 0) {
 				log = optarg;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "disable-until-needed") == 0) {
+				disableUntilNeeded = TRUE;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "user") == 0) {
 				username = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
@@ -607,6 +612,11 @@ main(int argc, char * const argv[])
 		/* NOT REACHED */
 	}
 
+	/* disableUntilNeeded */
+	if (disableUntilNeeded) {
+		do_disable_until_needed(argc, (char * *)argv);
+		/* NOT REACHED */
+	}
 	/* network connection commands */
 	if (nc_cmd) {
 		if (find_nc_cmd(nc_cmd) < 0) {

@@ -267,12 +267,14 @@ _od_rpc_call(const char *procname, xpc_object_t payload, xpc_pipe_t (*get_pipe)(
 	xpc_object_t reply;
 	xpc_pipe_t od_pipe;
 	int retries, rc;
+	bool free_payload = false;
 
 	od_pipe = get_pipe(false);
 	if (od_pipe == NULL) return NULL;
 
 	if (payload == NULL) {
 		payload = xpc_dictionary_create(NULL, NULL, 0);
+		free_payload = true;
 	}
 
 	// we nest it for backward compatibility so we can do independent submissions
@@ -307,6 +309,10 @@ _od_rpc_call(const char *procname, xpc_object_t payload, xpc_pipe_t (*get_pipe)(
 
 	if (od_pipe != NULL) {
 		xpc_release(od_pipe);
+	}
+
+	if (free_payload) {
+		xpc_release(payload);
 	}
 
 	return result;

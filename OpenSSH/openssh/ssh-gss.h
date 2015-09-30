@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh-gss.h,v 1.10 2007/06/12 08:20:00 djm Exp $ */
+/* $OpenBSD: ssh-gss.h,v 1.11 2014/02/26 20:28:44 djm Exp $ */
 /*
  * Copyright (c) 2001-2009 Simon Wilkinson. All rights reserved.
  *
@@ -121,6 +121,8 @@ void ssh_gssapi_set_oid_data(Gssctxt *, void *, size_t);
 void ssh_gssapi_set_oid(Gssctxt *, gss_OID);
 void ssh_gssapi_supported_oids(gss_OID_set *);
 ssh_gssapi_mech *ssh_gssapi_get_ctype(Gssctxt *);
+void ssh_gssapi_prepare_supported_oids(void);
+OM_uint32 ssh_gssapi_test_oid_supported(OM_uint32 *, gss_OID, int *);
 
 OM_uint32 ssh_gssapi_import_name(Gssctxt *, const char *);
 OM_uint32 ssh_gssapi_init_ctx(Gssctxt *, int,
@@ -153,6 +155,7 @@ OM_uint32 ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
 void ssh_gssapi_do_child(char ***, u_int *);
 void ssh_gssapi_cleanup_creds(void);
 void ssh_gssapi_storecreds(void);
+void ssh_gssapi_rekey_creds();
 
 char *ssh_gssapi_server_mechanisms(void);
 int ssh_gssapi_oid_table_ok();

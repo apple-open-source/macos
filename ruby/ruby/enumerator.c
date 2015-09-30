@@ -2,13 +2,13 @@
 
   enumerator.c - provides Enumerator class
 
-  $Author: nagachika $
+  $Author: usa $
 
   Copyright (C) 2001-2003 Akinori MUSHA
 
   $Idaemons: /home/cvs/rb/enumerator/enumerator.c,v 1.1.1.1 2001/07/15 10:12:48 knu Exp $
   $RoughId: enumerator.c,v 1.6 2003/07/27 11:03:24 nobu Exp $
-  $Id: enumerator.c 44150 2013-12-12 16:02:08Z nagachika $
+  $Id: enumerator.c 46745 2014-07-07 03:52:52Z usa $
 
 ************************************************/
 
@@ -795,7 +795,7 @@ enumerator_peek_values_m(VALUE obj)
  *   p e.peek   #=> 2
  *   p e.next   #=> 2
  *   p e.next   #=> 3
- *   p e.next   #raises StopIteration
+ *   p e.peek   #raises StopIteration
  *
  */
 

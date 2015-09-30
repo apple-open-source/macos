@@ -25,9 +25,8 @@
 #ifndef CachedResourceClient_h
 #define CachedResourceClient_h
 
-#include <wtf/FastMalloc.h>
-
 namespace WebCore {
+
 class CachedResource;
 
 class CachedResourceClient {
@@ -44,13 +43,15 @@ public:
     virtual ~CachedResourceClient() { }
     virtual void notifyFinished(CachedResource*) { }
     virtual void deprecatedDidReceiveCachedResource(CachedResource*) { }
-    
+    virtual bool isXMLHttpRequest() const { return false; }
+
     static CachedResourceClientType expectedType() { return BaseResourceType; }
     virtual CachedResourceClientType resourceClientType() const { return expectedType(); }
 
 protected:
     CachedResourceClient() { }
 };
+
 }
 
 #endif

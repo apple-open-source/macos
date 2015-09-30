@@ -31,13 +31,17 @@
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>
 
+namespace WebCore {
+class SecurityOrigin;
+}
+
 namespace WebKit {
 
 class StorageAreaMap;
 
 class StorageAreaImpl final : public WebCore::StorageArea {
 public:
-    static PassRefPtr<StorageAreaImpl> create(PassRefPtr<StorageAreaMap>);
+    static Ref<StorageAreaImpl> create(PassRefPtr<StorageAreaMap>);
     virtual ~StorageAreaImpl();
 
     uint64_t storageAreaID() const { return m_storageAreaID; }
@@ -59,6 +63,7 @@ private:
     virtual void incrementAccessCount() override;
     virtual void decrementAccessCount() override;
     virtual void closeDatabaseIfIdle() override;
+    WebCore::SecurityOrigin& securityOrigin() override;
 
     uint64_t m_storageAreaID;
     RefPtr<StorageAreaMap> m_storageAreaMap;

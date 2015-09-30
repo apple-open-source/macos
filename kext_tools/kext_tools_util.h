@@ -44,8 +44,8 @@ typedef struct {
 #define __kOSKextApplePrefix        CFSTR("com.apple.")
 
 #define kAppleInternalPath      "/AppleInternal"
-#define kDefaultKernelDevPath   "/System/Library/Kernels/kernel.development"
-#define kDefaultKernelSuffix    ".development"
+#define kDefaultDevKernelPath   "/System/Library/Kernels/kernel.development"
+#define kDefaultDevKernelSuffix ".development"
 
 #pragma mark Macros
 /*********************************************************************
@@ -214,6 +214,12 @@ void addKextToAlertDict(
                         OSKextRef theKext );
 
 char * getPathExtension(const char * pathPtr);
+
+int getFileDevAndIno(const char * thePath, dev_t * the_dev_t, ino_t * the_ino_t);
+Boolean isSameFileDevAndIno(int the_fd,
+                            const char * thePath,
+                            dev_t the_dev_t,
+                            ino_t the_ino_t);
 
 // bootcaches.plist helpers
 CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL);

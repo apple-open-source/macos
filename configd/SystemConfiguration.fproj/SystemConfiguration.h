@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008-2010, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008-2010, 2012, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -136,6 +136,9 @@ enum {
 #include <SystemConfiguration/SCNetworkReachability.h>
 #include <SystemConfiguration/SCNetworkConnection.h>
 
+CF_IMPLICIT_BRIDGING_ENABLED
+CF_ASSUME_NONNULL_BEGIN
+
 /*!
 	@const kCFErrorDomainSystemConfiguration
 	@discussion CFError domain associated with errors reported by
@@ -171,5 +174,8 @@ int		SCError			(void)				__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0);
 const char *	SCErrorString		(int	status)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0);
 
 __END_DECLS
+
+CF_ASSUME_NONNULL_END
+CF_IMPLICIT_BRIDGING_DISABLED
 
 #endif /* _SYSTEMCONFIGURATION_H */

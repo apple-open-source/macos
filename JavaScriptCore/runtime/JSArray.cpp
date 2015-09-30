@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2007, 2008, 2009, 2012, 2013 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2007, 2008, 2009, 2012, 2013, 2015 Apple Inc. All rights reserved.
  *  Copyright (C) 2003 Peter Kelly (pmk@post.com)
  *  Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
@@ -34,9 +34,7 @@
 #include "JSCInlines.h"
 #include "PropertyNameArray.h"
 #include "Reject.h"
-#include <wtf/AVLTree.h>
 #include <wtf/Assertions.h>
-#include <wtf/OwnPtr.h>
 
 using namespace std;
 using namespace WTF;
@@ -45,7 +43,7 @@ namespace JSC {
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSArray);
 
-const ClassInfo JSArray::s_info = {"Array", &JSNonFinalObject::s_info, 0, 0, CREATE_METHOD_TABLE(JSArray)};
+const ClassInfo JSArray::s_info = {"Array", &JSNonFinalObject::s_info, 0, CREATE_METHOD_TABLE(JSArray)};
 
 Butterfly* createArrayButterflyInDictionaryIndexingMode(
     VM& vm, JSCell* intendedOwner, unsigned initialLength)
@@ -108,11 +106,12 @@ bool JSArray::defineOwnProperty(JSObject* object, ExecState* exec, PropertyName 
         unsigned newLen = descriptor.value().toUInt32(exec);
         // d. If newLen is not equal to ToNumber( Desc.[[Value]]), throw a RangeError exception.
         if (newLen != descriptor.value().toNumber(exec)) {
-            exec->vm().throwException(exec, createRangeError(exec, "Invalid array length"));
+            exec->vm().throwException(exec, createRangeError(exec, ASCIILiteral("Invalid array length")));
             return false;
         }
 
         // Based on SameValue check in 8.12.9, this is always okay.
+        // FIXME: Nothing prevents this from being called on a RuntimeArray, and the length function will always return 0 in that case.
         if (newLen == array->length()) {
             if (descriptor.writablePresent())
                 array->setLengthWritable(exec, descriptor.writable());
@@ -159,9 +158,10 @@ bool JSArray::defineOwnProperty(JSObject* object, ExecState* exec, PropertyName 
 
     // 4. Else if P is an array index (15.4), then
     // a. Let index be ToUint32(P).
-    unsigned index = propertyName.asIndex();
-    if (index != PropertyName::NotAnIndex) {
+    if (Optional<uint32_t> optionalIndex = parseIndex(propertyName)) {
         // b. Reject if index >= oldLen and oldLenDesc.[[Writable]] is false.
+        uint32_t index = optionalIndex.value();
+        // FIXME: Nothing prevents this from being called on a RuntimeArray, and the length function will always return 0 in that case.
         if (index >= array->length() && !array->isLengthWritable())
             return reject(exec, throwException, "Attempting to define numeric property on array with non-writable length property.");
         // c. Let succeeded be the result of calling the default [[DefineOwnProperty]] internal method (8.12.9) on A passing P, Desc, and false as arguments.
@@ -227,7 +227,7 @@ void JSArray::getOwnNonIndexPropertyNames(JSObject* object, ExecState* exec, Pro
 {
     JSArray* thisObject = jsCast<JSArray*>(object);
 
-    if (mode == IncludeDontEnumProperties)
+    if (mode.includeDontEnumProperties())
         propertyNames.add(exec->propertyNames().length);
 
     JSObject::getOwnNonIndexPropertyNames(thisObject, exec, propertyNames, mode);
@@ -378,7 +378,7 @@ bool JSArray::setLengthWithArrayStorage(ExecState* exec, unsigned newLength, boo
         unsigned usedVectorLength = min(length, storage->vectorLength());
         for (unsigned i = newLength; i < usedVectorLength; ++i) {
             WriteBarrier<Unknown>& valueSlot = storage->m_vector[i];
-            bool hadValue = valueSlot;
+            bool hadValue = !!valueSlot;
             valueSlot.clear();
             storage->m_numValuesInVector -= hadValue;
         }
@@ -406,7 +406,7 @@ bool JSArray::setLength(ExecState* exec, unsigned newLength, bool throwException
     case ArrayWithUndecided:
     case ArrayWithInt32:
     case ArrayWithDouble:
-    case ArrayWithContiguous:
+    case ArrayWithContiguous: {
         if (newLength == m_butterfly->publicLength())
             return true;
         if (newLength >= MAX_ARRAY_INDEX // This case ensures that we can do fast push.
@@ -420,6 +420,14 @@ bool JSArray::setLength(ExecState* exec, unsigned newLength, bool throwException
             ensureLength(exec->vm(), newLength);
             return true;
         }
+
+        unsigned lengthToClear = m_butterfly->publicLength() - newLength;
+        unsigned costToAllocateNewButterfly = 64; // a heuristic.
+        if (lengthToClear > newLength && lengthToClear > costToAllocateNewButterfly) {
+            reallocateAndShrinkButterfly(exec->vm(), newLength);
+            return true;
+        }
+
         if (indexingType() == ArrayWithDouble) {
             for (unsigned i = m_butterfly->publicLength(); i-- > newLength;)
                 m_butterfly->contiguousDouble()[i] = PNaN;
@@ -429,6 +437,7 @@ bool JSArray::setLength(ExecState* exec, unsigned newLength, bool throwException
         }
         m_butterfly->setPublicLength(newLength);
         return true;
+    }
         
     case ArrayWithArrayStorage:
     case ArrayWithSlowPutArrayStorage:
@@ -523,7 +532,7 @@ JSValue JSArray::pop(ExecState* exec)
         return jsUndefined();
     // Call the [[Delete]] internal method of O with arguments indx and true.
     if (!deletePropertyByIndex(this, exec, index)) {
-        throwTypeError(exec, "Unable to delete property.");
+        throwTypeError(exec, ASCIILiteral("Unable to delete property."));
         return jsUndefined();
     }
     // Call the [[Put]] internal method of O with arguments "length", indx, and true.
@@ -567,7 +576,7 @@ void JSArray::push(ExecState* exec, JSValue value)
         if (length > MAX_ARRAY_INDEX) {
             methodTable(exec->vm())->putByIndex(this, exec, length, value, true);
             if (!exec->hadException())
-                exec->vm().throwException(exec, createRangeError(exec, "Invalid array length"));
+                exec->vm().throwException(exec, createRangeError(exec, ASCIILiteral("Invalid array length")));
             return;
         }
         
@@ -587,7 +596,7 @@ void JSArray::push(ExecState* exec, JSValue value)
         if (length > MAX_ARRAY_INDEX) {
             methodTable(exec->vm())->putByIndex(this, exec, length, value, true);
             if (!exec->hadException())
-                exec->vm().throwException(exec, createRangeError(exec, "Invalid array length"));
+                exec->vm().throwException(exec, createRangeError(exec, ASCIILiteral("Invalid array length")));
             return;
         }
         
@@ -619,7 +628,7 @@ void JSArray::push(ExecState* exec, JSValue value)
         if (length > MAX_ARRAY_INDEX) {
             methodTable(exec->vm())->putByIndex(this, exec, length, value, true);
             if (!exec->hadException())
-                exec->vm().throwException(exec, createRangeError(exec, "Invalid array length"));
+                exec->vm().throwException(exec, createRangeError(exec, ASCIILiteral("Invalid array length")));
             return;
         }
         
@@ -654,7 +663,7 @@ void JSArray::push(ExecState* exec, JSValue value)
             methodTable(exec->vm())->putByIndex(this, exec, storage->length(), value, true);
             // Per ES5.1 15.4.4.7 step 6 & 15.4.5.1 step 3.d.
             if (!exec->hadException())
-                exec->vm().throwException(exec, createRangeError(exec, "Invalid array length"));
+                exec->vm().throwException(exec, createRangeError(exec, ASCIILiteral("Invalid array length")));
             return;
         }
 
@@ -668,6 +677,68 @@ void JSArray::push(ExecState* exec, JSValue value)
     }
 }
 
+JSArray* JSArray::fastSlice(ExecState& exec, unsigned startIndex, unsigned count)
+{
+    auto arrayType = indexingType();
+    switch (arrayType) {
+    case ArrayWithDouble:
+    case ArrayWithInt32:
+    case ArrayWithContiguous: {
+        VM& vm = exec.vm();
+        if (count >= MIN_SPARSE_ARRAY_INDEX || structure(vm)->holesMustForwardToPrototype(vm))
+            return nullptr;
+
+        Structure* resultStructure = exec.lexicalGlobalObject()->arrayStructureForIndexingTypeDuringAllocation(arrayType);
+        JSArray* resultArray = JSArray::tryCreateUninitialized(vm, resultStructure, count);
+        if (!resultArray)
+            return nullptr;
+
+        auto& resultButterfly = *resultArray->butterfly();
+        if (arrayType == ArrayWithDouble)
+            memcpy(resultButterfly.contiguousDouble().data(), m_butterfly->contiguousDouble().data() + startIndex, sizeof(JSValue) * count);
+        else
+            memcpy(resultButterfly.contiguous().data(), m_butterfly->contiguous().data() + startIndex, sizeof(JSValue) * count);
+        resultButterfly.setPublicLength(count);
+
+        return resultArray;
+    }
+    default:
+        return nullptr;
+    }
+}
+
+EncodedJSValue JSArray::fastConcatWith(ExecState& exec, JSArray& otherArray)
+{
+    auto newArrayType = indexingType();
+
+    VM& vm = exec.vm();
+    ASSERT(newArrayType == fastConcatType(vm, *this, otherArray));
+
+    unsigned thisArraySize = m_butterfly->publicLength();
+    unsigned otherArraySize = otherArray.m_butterfly->publicLength();
+    ASSERT(thisArraySize + otherArraySize < MIN_SPARSE_ARRAY_INDEX);
+
+    Structure* resultStructure = exec.lexicalGlobalObject()->arrayStructureForIndexingTypeDuringAllocation(newArrayType);
+    JSArray* resultArray = JSArray::tryCreateUninitialized(vm, resultStructure, thisArraySize + otherArraySize);
+    if (!resultArray)
+        return JSValue::encode(throwOutOfMemoryError(&exec));
+
+    auto& resultButterfly = *resultArray->butterfly();
+    auto& otherButterfly = *otherArray.butterfly();
+    if (newArrayType == ArrayWithDouble) {
+        auto buffer = resultButterfly.contiguousDouble().data();
+        memcpy(buffer, m_butterfly->contiguousDouble().data(), sizeof(JSValue) * thisArraySize);
+        memcpy(buffer + thisArraySize, otherButterfly.contiguousDouble().data(), sizeof(JSValue) * otherArraySize);
+    } else {
+        auto buffer = resultButterfly.contiguous().data();
+        memcpy(buffer, m_butterfly->contiguous().data(), sizeof(JSValue) * thisArraySize);
+        memcpy(buffer + thisArraySize, otherButterfly.contiguous().data(), sizeof(JSValue) * otherArraySize);
+    }
+
+    resultButterfly.setPublicLength(thisArraySize + otherArraySize);
+    return JSValue::encode(resultArray);
+}
+
 bool JSArray::shiftCountWithArrayStorage(VM& vm, unsigned startIndex, unsigned count, ArrayStorage* storage)
 {
     unsigned oldLength = storage->length();
@@ -676,7 +747,7 @@ bool JSArray::shiftCountWithArrayStorage(VM& vm, unsigned startIndex, unsigned c
     // If the array contains holes or is otherwise in an abnormal state,
     // use the generic algorithm in ArrayPrototype.
     if ((storage->hasHoles() && this->structure(vm)->holesMustForwardToPrototype(vm)) 
-        || inSparseIndexingMode() 
+        || hasSparseMap() 
         || shouldUseSlowPut(indexingType())) {
         return false;
     }
@@ -995,519 +1066,6 @@ bool JSArray::unshiftCountWithAnyIndexingType(ExecState* exec, unsigned startInd
     }
 }
 
-static int compareNumbersForQSortWithInt32(const void* a, const void* b)
-{
-    int32_t ia = static_cast<const JSValue*>(a)->asInt32();
-    int32_t ib = static_cast<const JSValue*>(b)->asInt32();
-    return ia - ib;
-}
-
-static int compareNumbersForQSortWithDouble(const void* a, const void* b)
-{
-    double da = *static_cast<const double*>(a);
-    double db = *static_cast<const double*>(b);
-    return (da > db) - (da < db);
-}
-
-static int compareNumbersForQSort(const void* a, const void* b)
-{
-    double da = static_cast<const JSValue*>(a)->asNumber();
-    double db = static_cast<const JSValue*>(b)->asNumber();
-    return (da > db) - (da < db);
-}
-
-static int compareByStringPairForQSort(const void* a, const void* b)
-{
-    const ValueStringPair* va = static_cast<const ValueStringPair*>(a);
-    const ValueStringPair* vb = static_cast<const ValueStringPair*>(b);
-    return codePointCompare(va->second, vb->second);
-}
-
-template<IndexingType arrayIndexingType>
-void JSArray::sortNumericVector(ExecState* exec, JSValue compareFunction, CallType callType, const CallData& callData)
-{
-    ASSERT(arrayIndexingType == ArrayWithInt32 || arrayIndexingType == ArrayWithDouble || arrayIndexingType == ArrayWithContiguous || arrayIndexingType == ArrayWithArrayStorage);
-    
-    unsigned lengthNotIncludingUndefined;
-    unsigned newRelevantLength;
-    compactForSorting<arrayIndexingType>(
-        lengthNotIncludingUndefined,
-        newRelevantLength);
-    
-    ContiguousJSValues data = indexingData<arrayIndexingType>();
-    
-    if (arrayIndexingType == ArrayWithArrayStorage && arrayStorage()->m_sparseMap.get()) {
-        throwOutOfMemoryError(exec);
-        return;
-    }
-    
-    if (!lengthNotIncludingUndefined)
-        return;
-    
-    bool allValuesAreNumbers = true;
-    switch (arrayIndexingType) {
-    case ArrayWithInt32:
-    case ArrayWithDouble:
-        break;
-        
-    default:
-        for (size_t i = 0; i < newRelevantLength; ++i) {
-            if (!data[i].isNumber()) {
-                allValuesAreNumbers = false;
-                break;
-            }
-        }
-        break;
-    }
-    
-    if (!allValuesAreNumbers)
-        return sort(exec, compareFunction, callType, callData);
-    
-    // For numeric comparison, which is fast, qsort is faster than mergesort. We
-    // also don't require mergesort's stability, since there's no user visible
-    // side-effect from swapping the order of equal primitive values.
-    int (*compare)(const void*, const void*);
-    switch (arrayIndexingType) {
-    case ArrayWithInt32:
-        compare = compareNumbersForQSortWithInt32;
-        break;
-        
-    case ArrayWithDouble:
-        compare = compareNumbersForQSortWithDouble;
-        ASSERT(sizeof(WriteBarrier<Unknown>) == sizeof(double));
-        break;
-        
-    default:
-        compare = compareNumbersForQSort;
-        break;
-    }
-    ASSERT(data.length() >= newRelevantLength);
-    qsort(data.data(), newRelevantLength, sizeof(WriteBarrier<Unknown>), compare);
-    return;
-}
-
-void JSArray::sortNumeric(ExecState* exec, JSValue compareFunction, CallType callType, const CallData& callData)
-{
-    ASSERT(!inSparseIndexingMode());
-
-    switch (indexingType()) {
-    case ArrayClass:
-        return;
-        
-    case ArrayWithInt32:
-        sortNumericVector<ArrayWithInt32>(exec, compareFunction, callType, callData);
-        break;
-        
-    case ArrayWithDouble:
-        sortNumericVector<ArrayWithDouble>(exec, compareFunction, callType, callData);
-        break;
-        
-    case ArrayWithContiguous:
-        sortNumericVector<ArrayWithContiguous>(exec, compareFunction, callType, callData);
-        return;
-
-    case ArrayWithArrayStorage:
-        sortNumericVector<ArrayWithArrayStorage>(exec, compareFunction, callType, callData);
-        return;
-        
-    default:
-        CRASH();
-        return;
-    }
-}
-
-template <IndexingType> struct ContiguousTypeAccessor {
-    typedef WriteBarrier<Unknown> Type;
-    static JSValue getAsValue(ContiguousData<Type> data, size_t i) { return data[i].get(); }
-    static void setWithValue(VM& vm, JSArray* thisValue, ContiguousData<Type> data, size_t i, JSValue value)
-    {
-        data[i].set(vm, thisValue, value);
-    }
-    static void replaceDataReference(ContiguousData<Type>* outData, ContiguousJSValues inData)
-    {
-        *outData = inData;
-    }
-};
-
-template <> struct ContiguousTypeAccessor<ArrayWithDouble> {
-    typedef double Type;
-    static JSValue getAsValue(ContiguousData<Type> data, size_t i) { ASSERT(data[i] == data[i]); return JSValue(JSValue::EncodeAsDouble, data[i]); }
-    static void setWithValue(VM&, JSArray*, ContiguousData<Type> data, size_t i, JSValue value)
-    {
-        data[i] = value.asNumber();
-    }
-    static NO_RETURN_DUE_TO_CRASH void replaceDataReference(ContiguousData<Type>*, ContiguousJSValues)
-    {
-        RELEASE_ASSERT_WITH_MESSAGE(0, "Inconsistent indexing types during compact array sort.");
-    }
-};
-
-
-template<IndexingType arrayIndexingType, typename StorageType>
-void JSArray::sortCompactedVector(ExecState* exec, ContiguousData<StorageType> data, unsigned relevantLength)
-{
-    if (!relevantLength)
-        return;
-    
-    VM& vm = exec->vm();
-
-    // Converting JavaScript values to strings can be expensive, so we do it once up front and sort based on that.
-    // This is a considerable improvement over doing it twice per comparison, though it requires a large temporary
-    // buffer. Besides, this protects us from crashing if some objects have custom toString methods that return
-    // random or otherwise changing results, effectively making compare function inconsistent.
-        
-    Vector<ValueStringPair, 0, UnsafeVectorOverflow> values(relevantLength);
-    if (!values.begin()) {
-        throwOutOfMemoryError(exec);
-        return;
-    }
-        
-    Heap::heap(this)->pushTempSortVector(&values);
-        
-    bool isSortingPrimitiveValues = true;
-
-    for (size_t i = 0; i < relevantLength; i++) {
-        JSValue value = ContiguousTypeAccessor<arrayIndexingType>::getAsValue(data, i);
-        ASSERT(arrayIndexingType != ArrayWithInt32 || value.isInt32());
-        ASSERT(!value.isUndefined());
-        values[i].first = value;
-        if (arrayIndexingType != ArrayWithDouble && arrayIndexingType != ArrayWithInt32)
-            isSortingPrimitiveValues = isSortingPrimitiveValues && value.isPrimitive();
-    }
-        
-    // FIXME: The following loop continues to call toString on subsequent values even after
-    // a toString call raises an exception.
-        
-    for (size_t i = 0; i < relevantLength; i++)
-        values[i].second = values[i].first.toWTFStringInline(exec);
-        
-    if (exec->hadException()) {
-        Heap::heap(this)->popTempSortVector(&values);
-        return;
-    }
-        
-    // FIXME: Since we sort by string value, a fast algorithm might be to use a radix sort. That would be O(N) rather
-    // than O(N log N).
-        
-#if HAVE(MERGESORT)
-    if (isSortingPrimitiveValues)
-        qsort(values.begin(), values.size(), sizeof(ValueStringPair), compareByStringPairForQSort);
-    else
-        mergesort(values.begin(), values.size(), sizeof(ValueStringPair), compareByStringPairForQSort);
-#else
-    // FIXME: The qsort library function is likely to not be a stable sort.
-    // ECMAScript-262 does not specify a stable sort, but in practice, browsers perform a stable sort.
-    qsort(values.begin(), values.size(), sizeof(ValueStringPair), compareByStringPairForQSort);
-#endif
-    
-    // If the toString function changed the length of the array or vector storage,
-    // increase the length to handle the orignal number of actual values.
-    switch (arrayIndexingType) {
-    case ArrayWithInt32:
-    case ArrayWithDouble:
-    case ArrayWithContiguous:
-        ensureLength(vm, relevantLength);
-        break;
-        
-    case ArrayWithArrayStorage:
-        if (arrayStorage()->vectorLength() < relevantLength) {
-            increaseVectorLength(exec->vm(), relevantLength);
-            ContiguousTypeAccessor<arrayIndexingType>::replaceDataReference(&data, arrayStorage()->vector());
-        }
-        if (arrayStorage()->length() < relevantLength)
-            arrayStorage()->setLength(relevantLength);
-        break;
-        
-    default:
-        CRASH();
-    }
-
-    for (size_t i = 0; i < relevantLength; i++)
-        ContiguousTypeAccessor<arrayIndexingType>::setWithValue(vm, this, data, i, values[i].first);
-    
-    Heap::heap(this)->popTempSortVector(&values);
-}
-
-void JSArray::sort(ExecState* exec)
-{
-    ASSERT(!inSparseIndexingMode());
-    
-    switch (indexingType()) {
-    case ArrayClass:
-    case ArrayWithUndecided:
-        return;
-        
-    case ArrayWithInt32: {
-        unsigned lengthNotIncludingUndefined;
-        unsigned newRelevantLength;
-        compactForSorting<ArrayWithInt32>(
-            lengthNotIncludingUndefined, newRelevantLength);
-        
-        sortCompactedVector<ArrayWithInt32>(
-            exec, m_butterfly->contiguousInt32(), lengthNotIncludingUndefined);
-        return;
-    }
-        
-    case ArrayWithDouble: {
-        unsigned lengthNotIncludingUndefined;
-        unsigned newRelevantLength;
-        compactForSorting<ArrayWithDouble>(
-            lengthNotIncludingUndefined, newRelevantLength);
-        
-        sortCompactedVector<ArrayWithDouble>(
-            exec, m_butterfly->contiguousDouble(), lengthNotIncludingUndefined);
-        return;
-    }
-        
-    case ArrayWithContiguous: {
-        unsigned lengthNotIncludingUndefined;
-        unsigned newRelevantLength;
-        compactForSorting<ArrayWithContiguous>(
-            lengthNotIncludingUndefined, newRelevantLength);
-        
-        sortCompactedVector<ArrayWithContiguous>(
-            exec, m_butterfly->contiguous(), lengthNotIncludingUndefined);
-        return;
-    }
-        
-    case ArrayWithArrayStorage: {
-        unsigned lengthNotIncludingUndefined;
-        unsigned newRelevantLength;
-        compactForSorting<ArrayWithArrayStorage>(
-            lengthNotIncludingUndefined, newRelevantLength);
-        ArrayStorage* storage = m_butterfly->arrayStorage();
-        ASSERT(!storage->m_sparseMap);
-        
-        sortCompactedVector<ArrayWithArrayStorage>(exec, storage->vector(), lengthNotIncludingUndefined);
-        return;
-    }
-        
-    default:
-        RELEASE_ASSERT_NOT_REACHED();
-    }
-}
-
-struct AVLTreeNodeForArrayCompare {
-    JSValue value;
-
-    // Child pointers.  The high bit of gt is robbed and used as the
-    // balance factor sign.  The high bit of lt is robbed and used as
-    // the magnitude of the balance factor.
-    int32_t gt;
-    int32_t lt;
-};
-
-struct AVLTreeAbstractorForArrayCompare {
-    typedef int32_t handle; // Handle is an index into m_nodes vector.
-    typedef JSValue key;
-    typedef int32_t size;
-
-    Vector<AVLTreeNodeForArrayCompare, 0, UnsafeVectorOverflow> m_nodes;
-    ExecState* m_exec;
-    JSValue m_compareFunction;
-    CallType m_compareCallType;
-    const CallData* m_compareCallData;
-    OwnPtr<CachedCall> m_cachedCall;
-
-    handle get_less(handle h) { return m_nodes[h].lt & 0x7FFFFFFF; }
-    void set_less(handle h, handle lh) { m_nodes[h].lt &= 0x80000000; m_nodes[h].lt |= lh; }
-    handle get_greater(handle h) { return m_nodes[h].gt & 0x7FFFFFFF; }
-    void set_greater(handle h, handle gh) { m_nodes[h].gt &= 0x80000000; m_nodes[h].gt |= gh; }
-
-    int get_balance_factor(handle h)
-    {
-        if (m_nodes[h].gt & 0x80000000)
-            return -1;
-        return static_cast<unsigned>(m_nodes[h].lt) >> 31;
-    }
-
-    void set_balance_factor(handle h, int bf)
-    {
-        if (bf == 0) {
-            m_nodes[h].lt &= 0x7FFFFFFF;
-            m_nodes[h].gt &= 0x7FFFFFFF;
-        } else {
-            m_nodes[h].lt |= 0x80000000;
-            if (bf < 0)
-                m_nodes[h].gt |= 0x80000000;
-            else
-                m_nodes[h].gt &= 0x7FFFFFFF;
-        }
-    }
-
-    int compare_key_key(key va, key vb)
-    {
-        ASSERT(!va.isUndefined());
-        ASSERT(!vb.isUndefined());
-
-        if (m_exec->hadException())
-            return 1;
-
-        double compareResult;
-        if (m_cachedCall) {
-            m_cachedCall->setThis(jsUndefined());
-            m_cachedCall->setArgument(0, va);
-            m_cachedCall->setArgument(1, vb);
-            compareResult = m_cachedCall->call().toNumber(m_exec);
-        } else {
-            MarkedArgumentBuffer arguments;
-            arguments.append(va);
-            arguments.append(vb);
-            compareResult = call(m_exec, m_compareFunction, m_compareCallType, *m_compareCallData, jsUndefined(), arguments).toNumber(m_exec);
-        }
-        return (compareResult < 0) ? -1 : 1; // Not passing equality through, because we need to store all values, even if equivalent.
-    }
-
-    int compare_key_node(key k, handle h) { return compare_key_key(k, m_nodes[h].value); }
-    int compare_node_node(handle h1, handle h2) { return compare_key_key(m_nodes[h1].value, m_nodes[h2].value); }
-
-    static handle null() { return 0x7FFFFFFF; }
-};
-
-template<IndexingType arrayIndexingType>
-void JSArray::sortVector(ExecState* exec, JSValue compareFunction, CallType callType, const CallData& callData)
-{
-    ASSERT(!inSparseIndexingMode());
-    ASSERT(arrayIndexingType == indexingType());
-    
-    // FIXME: This ignores exceptions raised in the compare function or in toNumber.
-        
-    // The maximum tree depth is compiled in - but the caller is clearly up to no good
-    // if a larger array is passed.
-    ASSERT(m_butterfly->publicLength() <= static_cast<unsigned>(std::numeric_limits<int>::max()));
-    if (m_butterfly->publicLength() > static_cast<unsigned>(std::numeric_limits<int>::max()))
-        return;
-        
-    unsigned usedVectorLength = relevantLength<arrayIndexingType>();
-    unsigned nodeCount = usedVectorLength;
-        
-    if (!nodeCount)
-        return;
-        
-    AVLTree<AVLTreeAbstractorForArrayCompare, 44> tree; // Depth 44 is enough for 2^31 items
-    tree.abstractor().m_exec = exec;
-    tree.abstractor().m_compareFunction = compareFunction;
-    tree.abstractor().m_compareCallType = callType;
-    tree.abstractor().m_compareCallData = &callData;
-    tree.abstractor().m_nodes.grow(nodeCount);
-        
-    if (callType == CallTypeJS)
-        tree.abstractor().m_cachedCall = adoptPtr(new CachedCall(exec, jsCast<JSFunction*>(compareFunction), 2));
-        
-    if (!tree.abstractor().m_nodes.begin()) {
-        throwOutOfMemoryError(exec);
-        return;
-    }
-        
-    // FIXME: If the compare function modifies the array, the vector, map, etc. could be modified
-    // right out from under us while we're building the tree here.
-        
-    unsigned numDefined = 0;
-    unsigned numUndefined = 0;
-    
-    // Iterate over the array, ignoring missing values, counting undefined ones, and inserting all other ones into the tree.
-    for (; numDefined < usedVectorLength; ++numDefined) {
-        if (numDefined >= m_butterfly->vectorLength())
-            break;
-        JSValue v = getHolyIndexQuickly(numDefined);
-        if (!v || v.isUndefined())
-            break;
-        tree.abstractor().m_nodes[numDefined].value = v;
-        tree.insert(numDefined);
-    }
-    for (unsigned i = numDefined; i < usedVectorLength; ++i) {
-        if (i >= m_butterfly->vectorLength())
-            break;
-        JSValue v = getHolyIndexQuickly(i);
-        if (v) {
-            if (v.isUndefined())
-                ++numUndefined;
-            else {
-                tree.abstractor().m_nodes[numDefined].value = v;
-                tree.insert(numDefined);
-                ++numDefined;
-            }
-        }
-    }
-    
-    unsigned newUsedVectorLength = numDefined + numUndefined;
-        
-    // The array size may have changed. Figure out the new bounds.
-    unsigned newestUsedVectorLength = currentRelevantLength();
-        
-    unsigned elementsToExtractThreshold = min(min(newestUsedVectorLength, numDefined), static_cast<unsigned>(tree.abstractor().m_nodes.size()));
-    unsigned undefinedElementsThreshold = min(newestUsedVectorLength, newUsedVectorLength);
-    unsigned clearElementsThreshold = min(newestUsedVectorLength, usedVectorLength);
-        
-    // Copy the values back into m_storage.
-    AVLTree<AVLTreeAbstractorForArrayCompare, 44>::Iterator iter;
-    iter.start_iter_least(tree);
-    VM& vm = exec->vm();
-    for (unsigned i = 0; i < elementsToExtractThreshold; ++i) {
-        ASSERT(i < butterfly()->vectorLength());
-        if (indexingType() == ArrayWithDouble)
-            butterfly()->contiguousDouble()[i] = tree.abstractor().m_nodes[*iter].value.asNumber();
-        else
-            currentIndexingData()[i].set(vm, this, tree.abstractor().m_nodes[*iter].value);
-        ++iter;
-    }
-    // Put undefined values back in.
-    switch (indexingType()) {
-    case ArrayWithInt32:
-    case ArrayWithDouble:
-        ASSERT(elementsToExtractThreshold == undefinedElementsThreshold);
-        break;
-        
-    default:
-        for (unsigned i = elementsToExtractThreshold; i < undefinedElementsThreshold; ++i) {
-            ASSERT(i < butterfly()->vectorLength());
-            currentIndexingData()[i].setUndefined();
-        }
-    }
-
-    // Ensure that unused values in the vector are zeroed out.
-    for (unsigned i = undefinedElementsThreshold; i < clearElementsThreshold; ++i) {
-        ASSERT(i < butterfly()->vectorLength());
-        if (indexingType() == ArrayWithDouble)
-            butterfly()->contiguousDouble()[i] = PNaN;
-        else
-            currentIndexingData()[i].clear();
-    }
-    
-    if (hasAnyArrayStorage(indexingType()))
-        arrayStorage()->m_numValuesInVector = newUsedVectorLength;
-}
-
-void JSArray::sort(ExecState* exec, JSValue compareFunction, CallType callType, const CallData& callData)
-{
-    ASSERT(!inSparseIndexingMode());
-    
-    switch (indexingType()) {
-    case ArrayClass:
-    case ArrayWithUndecided:
-        return;
-        
-    case ArrayWithInt32:
-        sortVector<ArrayWithInt32>(exec, compareFunction, callType, callData);
-        return;
-
-    case ArrayWithDouble:
-        sortVector<ArrayWithDouble>(exec, compareFunction, callType, callData);
-        return;
-
-    case ArrayWithContiguous:
-        sortVector<ArrayWithContiguous>(exec, compareFunction, callType, callData);
-        return;
-
-    case ArrayWithArrayStorage:
-        sortVector<ArrayWithArrayStorage>(exec, compareFunction, callType, callData);
-        return;
-        
-    default:
-        RELEASE_ASSERT_NOT_REACHED();
-    }
-}
-
 void JSArray::fillArgList(ExecState* exec, MarkedArgumentBuffer& args)
 {
     unsigned i = 0;
@@ -1553,9 +1111,11 @@ void JSArray::fillArgList(ExecState* exec, MarkedArgumentBuffer& args)
         
     default:
         CRASH();
+#if COMPILER_QUIRK(CONSIDERS_UNREACHABLE_CODE)
         vector = 0;
         vectorEnd = 0;
         break;
+#endif
     }
     
     for (; i < vectorEnd; ++i) {
@@ -1564,18 +1124,22 @@ void JSArray::fillArgList(ExecState* exec, MarkedArgumentBuffer& args)
             break;
         args.append(v.get());
     }
-    
+
+    // FIXME: What prevents this from being called with a RuntimeArray? The length function will always return 0 in that case.
     for (; i < length(); ++i)
         args.append(get(exec, i));
 }
 
-void JSArray::copyToArguments(ExecState* exec, CallFrame* callFrame, uint32_t copyLength, int32_t firstVarArgOffset)
+void JSArray::copyToArguments(ExecState* exec, VirtualRegister firstElementDest, unsigned offset, unsigned length)
 {
-    unsigned i = firstVarArgOffset;
+    unsigned i = offset;
     WriteBarrier<Unknown>* vector;
     unsigned vectorEnd;
-    unsigned length = copyLength + firstVarArgOffset;
+    length += offset; // We like to think of the length as being our length, rather than the output length.
+
+    // FIXME: What prevents this from being called with a RuntimeArray? The length function will always return 0 in that case.
     ASSERT(length == this->length());
+
     switch (indexingType()) {
     case ArrayClass:
         return;
@@ -1601,7 +1165,7 @@ void JSArray::copyToArguments(ExecState* exec, CallFrame* callFrame, uint32_t co
             double v = m_butterfly->contiguousDouble()[i];
             if (v != v)
                 break;
-            callFrame->setArgument(i - firstVarArgOffset, JSValue(JSValue::EncodeAsDouble, v));
+            exec->r(firstElementDest + i - offset) = JSValue(JSValue::EncodeAsDouble, v);
         }
         break;
     }
@@ -1615,111 +1179,25 @@ void JSArray::copyToArguments(ExecState* exec, CallFrame* callFrame, uint32_t co
         
     default:
         CRASH();
+#if COMPILER_QUIRK(CONSIDERS_UNREACHABLE_CODE)
         vector = 0;
         vectorEnd = 0;
         break;
+#endif
     }
     
     for (; i < vectorEnd; ++i) {
         WriteBarrier<Unknown>& v = vector[i];
         if (!v)
             break;
-        callFrame->setArgument(i - firstVarArgOffset, v.get());
+        exec->r(firstElementDest + i - offset) = v.get();
     }
     
-    for (; i < length; ++i)
-        callFrame->setArgument(i - firstVarArgOffset, get(exec, i));
-}
-
-template<IndexingType arrayIndexingType>
-void JSArray::compactForSorting(unsigned& numDefined, unsigned& newRelevantLength)
-{
-    ASSERT(!inSparseIndexingMode());
-    ASSERT(arrayIndexingType == indexingType());
-
-    unsigned myRelevantLength = relevantLength<arrayIndexingType>();
-    
-    numDefined = 0;
-    unsigned numUndefined = 0;
-        
-    for (; numDefined < myRelevantLength; ++numDefined) {
-        ASSERT(numDefined < m_butterfly->vectorLength());
-        if (arrayIndexingType == ArrayWithInt32) {
-            JSValue v = m_butterfly->contiguousInt32()[numDefined].get();
-            if (!v)
-                break;
-            ASSERT(v.isInt32());
-            continue;
-        }
-        if (arrayIndexingType == ArrayWithDouble) {
-            double v = m_butterfly->contiguousDouble()[numDefined];
-            if (v != v)
-                break;
-            continue;
-        }
-        JSValue v = indexingData<arrayIndexingType>()[numDefined].get();
-        if (!v || v.isUndefined())
-            break;
+    for (; i < length; ++i) {
+        exec->r(firstElementDest + i - offset) = get(exec, i);
+        if (UNLIKELY(exec->vm().exception()))
+            return;
     }
-        
-    for (unsigned i = numDefined; i < myRelevantLength; ++i) {
-        ASSERT(i < m_butterfly->vectorLength());
-        if (arrayIndexingType == ArrayWithInt32) {
-            JSValue v = m_butterfly->contiguousInt32()[i].get();
-            if (!v)
-                continue;
-            ASSERT(v.isInt32());
-            ASSERT(numDefined < m_butterfly->vectorLength());
-            m_butterfly->contiguousInt32()[numDefined++].setWithoutWriteBarrier(v);
-            continue;
-        }
-        if (arrayIndexingType == ArrayWithDouble) {
-            double v = m_butterfly->contiguousDouble()[i];
-            if (v != v)
-                continue;
-            ASSERT(numDefined < m_butterfly->vectorLength());
-            m_butterfly->contiguousDouble()[numDefined++] = v;
-            continue;
-        }
-        JSValue v = indexingData<arrayIndexingType>()[i].get();
-        if (v) {
-            if (v.isUndefined())
-                ++numUndefined;
-            else {
-                ASSERT(numDefined < m_butterfly->vectorLength());
-                indexingData<arrayIndexingType>()[numDefined++].setWithoutWriteBarrier(v);
-            }
-        }
-    }
-        
-    newRelevantLength = numDefined + numUndefined;
-    
-    if (hasAnyArrayStorage(arrayIndexingType))
-        RELEASE_ASSERT(!arrayStorage()->m_sparseMap);
-    
-    switch (arrayIndexingType) {
-    case ArrayWithInt32:
-    case ArrayWithDouble:
-        RELEASE_ASSERT(numDefined == newRelevantLength);
-        break;
-        
-    default:
-        for (unsigned i = numDefined; i < newRelevantLength; ++i) {
-            ASSERT(i < m_butterfly->vectorLength());
-            indexingData<arrayIndexingType>()[i].setUndefined();
-        }
-        break;
-    }
-    for (unsigned i = newRelevantLength; i < myRelevantLength; ++i) {
-        ASSERT(i < m_butterfly->vectorLength());
-        if (arrayIndexingType == ArrayWithDouble)
-            m_butterfly->contiguousDouble()[i] = PNaN;
-        else
-            indexingData<arrayIndexingType>()[i].clear();
-    }
-
-    if (hasAnyArrayStorage(arrayIndexingType))
-        arrayStorage()->m_numValuesInVector = newRelevantLength;
 }
 
 } // namespace JSC

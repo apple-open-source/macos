@@ -37,6 +37,9 @@ namespace WebCore {
 
 bool JSStorage::canGetItemsForName(ExecState* exec, Storage* impl, PropertyName propertyName)
 {
+    if (propertyName.isSymbol())
+        return false;
+
     ExceptionCode ec = 0;
     bool result = impl->contains(propertyNameToString(propertyName), ec);
     setDOMException(exec, ec);
@@ -51,6 +54,9 @@ EncodedJSValue JSStorage::nameGetter(ExecState* exec, JSObject* slotBase, Encode
     if (prototype.isObject() && asObject(prototype)->getPropertySlot(exec, propertyName, slot))
         return JSValue::encode(slot.getValue(exec, propertyName));
 
+    if (propertyName.isSymbol())
+        return false;
+
     ExceptionCode ec = 0;
     JSValue result = jsStringOrNull(exec, thisObject->impl().getItem(propertyNameToString(propertyName), ec));
     setDOMException(exec, ec);
@@ -64,12 +70,15 @@ bool JSStorage::deleteProperty(JSCell* cell, ExecState* exec, PropertyName prope
     // Since hasProperty() would end up calling canGetItemsForName() and be fooled, we need to check
     // the native property slots manually.
     PropertySlot slot(thisObject);
-    if (getStaticValueSlot<JSStorage, Base>(exec, *s_info.propHashTable(exec), thisObject, propertyName, slot))
-        return false;
-        
+    if (getStaticValueSlot<JSStorage, Base>(exec, *s_info.staticPropHashTable, thisObject, propertyName, slot))
+        return Base::deleteProperty(thisObject, exec, propertyName);
+
     JSValue prototype = thisObject->prototype();
     if (prototype.isObject() && asObject(prototype)->getPropertySlot(exec, propertyName, slot))
-        return false;
+        return Base::deleteProperty(thisObject, exec, propertyName);
+
+    if (propertyName.isSymbol())
+        return Base::deleteProperty(thisObject, exec, propertyName);
 
     ExceptionCode ec = 0;
     thisObject->m_impl->removeItem(propertyNameToString(propertyName), ec);
@@ -91,7 +100,7 @@ void JSStorage::getOwnPropertyNames(JSObject* object, ExecState* exec, PropertyN
     if (exec->hadException())
         return;
     for (unsigned i = 0; i < length; ++i) {
-        propertyNames.add(Identifier(exec, thisObject->m_impl->key(i, ec)));
+        propertyNames.add(Identifier::fromString(exec, thisObject->m_impl->key(i, ec)));
         setDOMException(exec, ec);
         if (exec->hadException())
             return;
@@ -106,17 +115,20 @@ bool JSStorage::putDelegate(ExecState* exec, PropertyName propertyName, JSValue 
     // Since hasProperty() would end up calling canGetItemsForName() and be fooled, we need to check
     // the native property slots manually.
     PropertySlot slot(this);
-    if (getStaticValueSlot<JSStorage, Base>(exec, *s_info.propHashTable(exec), this, propertyName, slot))
+    if (getStaticValueSlot<JSStorage, Base>(exec, *s_info.staticPropHashTable, this, propertyName, slot))
         return false;
 
     JSValue prototype = this->prototype();
     if (prototype.isObject() && asObject(prototype)->getPropertySlot(exec, propertyName, slot))
         return false;
 
+    if (propertyName.isSymbol())
+        return false;
+
     String stringValue = value.toString(exec)->value(exec);
     if (exec->hadException())
         return true;
-    
+
     ExceptionCode ec = 0;
     impl().setItem(propertyNameToString(propertyName), stringValue, ec);
     setDOMException(exec, ec);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,7 @@
 #include "FTLJITCode.h"
 #include "FTLJITFinalizer.h"
 #include "FTLJSCall.h"
+#include "FTLJSCallVarargs.h"
 #include "FTLStackMaps.h"
 #include "FTLState.h"
 #include <wtf/Noncopyable.h>
@@ -65,22 +66,33 @@ public:
     LContext context;
     LModule module;
     LValue function;
+    bool allocationFailed { false }; // Throw out the compilation once LLVM returns.
     RefPtr<JITCode> jitCode;
     GeneratedFunction generatedFunction;
     JITFinalizer* finalizer;
     unsigned handleStackOverflowExceptionStackmapID;
     unsigned handleExceptionStackmapID;
     unsigned capturedStackmapID;
+    unsigned varargsSpillSlotsStackmapID;
     SegmentedVector<GetByIdDescriptor> getByIds;
     SegmentedVector<PutByIdDescriptor> putByIds;
+    SegmentedVector<CheckInDescriptor> checkIns;
     Vector<JSCall> jsCalls;
+    Vector<JSCallVarargs> jsCallVarargses;
     Vector<CString> codeSectionNames;
     Vector<CString> dataSectionNames;
-    void* compactUnwind;
-    size_t compactUnwindSize;
+    void* unwindDataSection;
+    size_t unwindDataSectionSize;
     RefPtr<DataSection> stackmapsSection;
     
     void dumpState(const char* when);
+    void dumpState(LModule, const char* when);
+
+    HashSet<CString> nativeLoadedLibraries;
+
+#if ENABLE(FTL_NATIVE_CALL_INLINING)
+    HashMap<CString, CString> symbolTable;
+#endif
 };
 
 } } // namespace JSC::FTL

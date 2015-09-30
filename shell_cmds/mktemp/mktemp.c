@@ -35,6 +35,9 @@
  */
 
 #include <err.h>
+#ifdef __APPLE__
+#include <limits.h>
+#endif
 #include <paths.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +46,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-	"$FreeBSD: src/usr.bin/mktemp/mktemp.c,v 1.5 2002/03/22 01:33:17 imp Exp $";
+	"$FreeBSD$";
 #endif /* not lint */
 
 static void usage(void);
@@ -56,6 +59,10 @@ main(int argc, char **argv)
 	const char *prefix;
 	char *name;
 	int dflag, qflag, tflag, uflag;
+#ifdef __APPLE__
+	char tmpbuf[PATH_MAX];
+	size_t len;
+#endif
 
 	ret = dflag = qflag = tflag = uflag = 0;
 	prefix = "mktemp";
@@ -87,17 +94,36 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
+	if (!tflag && argc < 1) {
+		tflag = 1;
+		prefix = "tmp";
+	}
+
 	if (tflag) {
+#ifdef __APPLE__
+		if (confstr(_CS_DARWIN_USER_TEMP_DIR, tmpbuf, sizeof(tmpbuf)) > 0) {
+			tmpdir = tmpbuf;
+		} else {
+			tmpdir = getenv("TMPDIR");
+		}
+
+		if (tmpdir == NULL) {
+			tmpdir = _PATH_TMP;
+		}
+
+		len = strlen(tmpdir);
+		if (len > 0 && tmpdir[len - 1] == '/') {
+			asprintf(&name, "%s%s.XXXXXXXX", tmpdir, prefix);
+		} else {
+			asprintf(&name, "%s/%s.XXXXXXXX", tmpdir, prefix);
+		}
+#else
 		tmpdir = getenv("TMPDIR");
 		if (tmpdir == NULL)
 			asprintf(&name, "%s%s.XXXXXXXX", _PATH_TMP, prefix);
-		else {
-			int len = strlen(tmpdir);
-			if (len > 0 && tmpdir[len - 1] == '/')
-				asprintf(&name, "%s%s.XXXXXXXX", tmpdir, prefix);
-			else
-				asprintf(&name, "%s/%s.XXXXXXXX", tmpdir, prefix);
-		}
+		else
+			asprintf(&name, "%s/%s.XXXXXXXX", tmpdir, prefix);
+#endif
 		/* if this fails, the program is in big trouble already */
 		if (name == NULL) {
 			if (qflag)
@@ -105,8 +131,6 @@ main(int argc, char **argv)
 			else
 				errx(1, "cannot generate template");
 		}
-	} else if (argc < 1) {
-		usage();
 	}
 		
 	/* generate all requested files */
@@ -148,7 +172,7 @@ main(int argc, char **argv)
 }
 
 static void
-usage()
+usage(void)
 {
 	fprintf(stderr,
 		"usage: mktemp [-d] [-q] [-t prefix] [-u] template ...\n");

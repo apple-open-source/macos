@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -203,7 +203,7 @@ open_NetworkPrefPane(MyType *myInstance)
 			      strlen(NETWORK_PREF_CMD),
 			      &aeDesc);
 	if (status != noErr) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: AECreateDesc() failed: %d"), (int)status);
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("AECreateDesc() failed: %d"), (int)status);
 	}
 
 	prefSpec.appURL		= NULL;
@@ -214,7 +214,7 @@ open_NetworkPrefPane(MyType *myInstance)
 
 	status = LSOpenFromURLSpec(&prefSpec, NULL);
 	if (status != noErr) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: LSOpenFromURLSpec() failed: %d"), (int)status);
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("LSOpenFromURLSpec() failed: %d"), (int)status);
 	}
 
 	CFRelease(prefArray);
@@ -249,7 +249,7 @@ notify_remove(MyType *myInstance, Boolean cancel)
 			status = CFUserNotificationCancel(myInstance->userNotification);
 			if (status != 0) {
 				SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-				      CFSTR("SCMonitor: CFUserNotificationCancel() failed, status=%d"),
+				      CFSTR("CFUserNotificationCancel() failed, status=%d"),
 				      (int)status);
 			}
 		}
@@ -278,7 +278,7 @@ notify_reply(CFUserNotificationRef userNotification, CFOptionFlags response_flag
 		}
 	}
 	if (myInstance == NULL) {
-		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("SCMonitor: can't find user notification"));
+		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("can't find user notification"));
 		return;
 	}
 
@@ -348,7 +348,7 @@ notify_add(MyType *myInstance)
 		CFDictionarySetValue(dict, kCFUserNotificationLocalizationURLKey, url);
 		CFRelease(url);
 	} else {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: can't find bundle"));
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("can't find bundle"));
 		goto done;
 	}
 
@@ -418,7 +418,7 @@ notify_add(MyType *myInstance)
 								&error,
 								dict);
 	if (myInstance->userNotification == NULL) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: CFUserNotificationCreate() failed, %d"), (int)error);
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("CFUserNotificationCreate() failed: %d"), (int)error);
 		goto done;
 	}
 
@@ -428,7 +428,7 @@ notify_add(MyType *myInstance)
 								    notify_reply,
 								    0);
 	if (myInstance->userRls == NULL) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("SCMonitor: CFUserNotificationCreateRunLoopSource() failed"));
+		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("CFUserNotificationCreateRunLoopSource() failed"));
 		CFRelease(myInstance->userNotification);
 		myInstance->userNotification = NULL;
 		goto done;
@@ -710,7 +710,7 @@ watcher_add_lan(MyType *myInstance)
 	store = SCDynamicStoreCreate(NULL, CFSTR("SCMonitor"), update_lan, &context);
 	if (store == NULL) {
 		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-		      CFSTR("SCMonitor: SCDynamicStoreCreate() failed: %s"),
+		      CFSTR("SCDynamicStoreCreate() failed: %s"),
 		      SCErrorString(SCError()));
 		return;
 	}
@@ -1019,7 +1019,7 @@ watcher_add_serial(MyType *myInstance)
 	myInstance->notifyPort = IONotificationPortCreate(kIOMasterPortDefault);
 	if (myInstance->notifyPort == NULL) {
 		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-		      CFSTR("SCMonitor: IONotificationPortCreate failed"));
+		      CFSTR("IONotificationPortCreate failed"));
 		return;
 	}
 

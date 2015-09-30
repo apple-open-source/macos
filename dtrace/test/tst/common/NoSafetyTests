@@ -128,6 +128,7 @@ aggs/tst.quantmany.d
 aggs/tst.quantround.d
 aggs/tst.quantzero.d
 aggs/tst.signature.d
+aggs/tst.stddev.d
 aggs/tst.subr.d
 aggs/tst.sum.d
 aggs/tst.trunc.d
@@ -214,6 +215,7 @@ builtinvar/tst.arg1to8.d
 builtinvar/tst.arg1to8clause.d
 builtinvar/tst.caller.d
 builtinvar/tst.caller1.d
+builtinvar/tst.cpu.d
 builtinvar/tst.epid.d
 builtinvar/tst.epid1.d
 builtinvar/tst.errno.d
@@ -412,6 +414,7 @@ fbtprovider/tst.offsetzero.d
 fbtprovider/tst.return.d
 fbtprovider/tst.return0.d
 fbtprovider/tst.tailcall.d
+funcs/tst.addrperm.d
 funcs/err.badalloca.d
 funcs/err.badbcopy.d
 funcs/err.badbcopy1.d
@@ -427,12 +430,14 @@ funcs/err.copyoutbadaddr.ksh
 funcs/err.copyoutstrbadaddr.ksh
 funcs/err.D_FUNC_UNDEF.progenyofbad1.d
 funcs/err.D_OP_VFPTR.badop.d
+funcs/err.D_PROTO_ARG.addrpermbadarg.d
 funcs/err.D_PROTO_ARG.chillbadarg.d
 funcs/err.D_PROTO_ARG.copyoutbadarg.d
 # funcs/err.D_PROTO_ARG.mobadarg.d				/* RADAR 4769158: Awaits mutex_enter mutex_owner probes. */
 funcs/err.D_PROTO_ARG.raisebadarg.d
 funcs/err.D_PROTO_ARG.tolowerbadarg.d
 funcs/err.D_PROTO_ARG.toupperbadarg.d
+funcs/err.D_PROTO_LEN.addrperm.d
 funcs/err.D_PROTO_LEN.allocanoarg.d
 funcs/err.D_PROTO_LEN.badbreakpoint.d
 funcs/err.D_PROTO_LEN.chilltoofew.d
@@ -643,6 +648,13 @@ preprocessor/tst.preexpelse.d
 preprocessor/tst.preexpif.d
 preprocessor/tst.preexpifelse.d
 preprocessor/tst.withinprobe.d
+print/err.D_PRINT_DYN.bad.d
+print/err.D_PRINT_VOID.bad.d
+print/err.D_PROTO_LEN.bad.d
+print/tst.array.d
+print/tst.bitfield.d
+print/tst.primitive.d
+print/tst.struct.d
 printa/err.D_PRINTA_AGGARG.badagg.d
 printa/err.D_PRINTA_AGGARG.badfmt.d
 printa/err.D_PRINTA_AGGARG.badval.d
@@ -962,6 +974,7 @@ tick-n/tst.ticksec.d
 tick-n/tst.tickus.d
 tick-n/tst.tickusec.d
 trace/err.D_PROTO_LEN.bad.d
+trace/err.D_TRACE_DYN.bad.d
 trace/err.D_TRACE_VOID.bad.d
 trace/tst.misc.d
 trace/tst.qstring.d
@@ -1066,6 +1079,7 @@ types/tst.stringconstants.d
 types/tst.struct.d
 types/tst.typedef.d
 types/tst.unaryop.d
+types/tst.userlandkey.ksh
 union/err.D_ADDROF_VAR.UnionPointer.d
 union/err.D_DECL_COMBO.UnionWithoutColon.d
 union/err.D_DECL_COMBO.UnionWithoutColon1.d

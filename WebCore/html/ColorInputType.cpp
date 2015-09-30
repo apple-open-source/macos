@@ -178,7 +178,7 @@ void ColorInputType::didChooseColor(const Color& color)
 
 void ColorInputType::didEndChooser()
 {
-    m_chooser.clear();
+    m_chooser = nullptr;
 }
 
 void ColorInputType::endColorChooser()
@@ -199,12 +199,14 @@ void ColorInputType::updateColorSwatch()
 HTMLElement* ColorInputType::shadowColorSwatch() const
 {
     ShadowRoot* shadow = element().userAgentShadowRoot();
-    return shadow ? toHTMLElement(shadow->firstChild()->firstChild()) : 0;
+    return shadow ? downcast<HTMLElement>(shadow->firstChild()->firstChild()) : nullptr;
 }
 
 IntRect ColorInputType::elementRectRelativeToRootView() const
 {
-    return element().document().view()->contentsToRootView(element().pixelSnappedBoundingBox());
+    if (!element().renderer())
+        return IntRect();
+    return element().document().view()->contentsToRootView(element().renderer()->absoluteBoundingBoxRect());
 }
 
 Color ColorInputType::currentColor()
@@ -227,8 +229,8 @@ Vector<Color> ColorInputType::suggestions() const
 #if ENABLE(DATALIST_ELEMENT)
     HTMLDataListElement* dataList = element().dataList();
     if (dataList) {
-        RefPtr<HTMLCollection> options = dataList->options();
-        for (unsigned i = 0; HTMLOptionElement* option = toHTMLOptionElement(options->item(i)); i++) {
+        Ref<HTMLCollection> options = dataList->options();
+        for (unsigned i = 0; HTMLOptionElement* option = downcast<HTMLOptionElement>(options->item(i)); ++i) {
             if (!element().isValidValue(option->value()))
                 continue;
             Color color(option->value());

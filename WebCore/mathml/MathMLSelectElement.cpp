@@ -46,12 +46,12 @@ MathMLSelectElement::MathMLSelectElement(const QualifiedName& tagName, Document&
 {
 }
 
-PassRefPtr<MathMLSelectElement> MathMLSelectElement::create(const QualifiedName& tagName, Document& document)
+Ref<MathMLSelectElement> MathMLSelectElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new MathMLSelectElement(tagName, document));
+    return adoptRef(*new MathMLSelectElement(tagName, document));
 }
 
-RenderPtr<RenderElement> MathMLSelectElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> MathMLSelectElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderMathMLRow>(*this, WTF::move(style));
 }
@@ -155,19 +155,19 @@ Element* MathMLSelectElement::getSelectedSemanticsChild()
 
     Element* child = firstElementChild();
     if (!child)
-        return child;
+        return nullptr;
 
-    if (!child->isMathMLElement() || !toMathMLElement(child)->isPresentationMathML()) { 
+    if (!is<MathMLElement>(*child) || !downcast<MathMLElement>(*child).isPresentationMathML()) {
         // The first child is not a presentation MathML element. Hence we move to the second child and start searching an annotation child that could be displayed.
         child = child->nextElementSibling();
-    } else if (!toMathMLElement(child)->isSemanticAnnotation()) {
+    } else if (!downcast<MathMLElement>(*child).isSemanticAnnotation()) {
         // The first child is a presentation MathML but not an annotation, so we can just display it.
         return child;
     }
     // Otherwise, the first child is an <annotation> or <annotation-xml> element. This is invalid, but some people use this syntax so we take care of this case too and start the search from this first child.
 
     for ( ; child; child = child->nextElementSibling()) {
-        if (!child->isMathMLElement())
+        if (!is<MathMLElement>(*child))
             continue;
 
         if (child->hasTagName(MathMLNames::annotationTag)) {

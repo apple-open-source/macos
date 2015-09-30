@@ -33,11 +33,14 @@
 #include <WebKit/WKGeometry.h>
 #include <WebKit/WKNativeEvent.h>
 #include <WebKit/WKPageContextMenuClient.h>
+#include <WebKit/WKPageDiagnosticLoggingClient.h>
 #include <WebKit/WKPageFindClient.h>
 #include <WebKit/WKPageFindMatchesClient.h>
 #include <WebKit/WKPageFormClient.h>
+#include <WebKit/WKPageInjectedBundleClient.h>
 #include <WebKit/WKPageLoadTypes.h>
 #include <WebKit/WKPageLoaderClient.h>
+#include <WebKit/WKPageNavigationClient.h>
 #include <WebKit/WKPagePolicyClient.h>
 #include <WebKit/WKPageUIClient.h>
 #include <WebKit/WKPageVisibilityTypes.h>
@@ -120,6 +123,8 @@ WK_EXPORT void WKPageSetApplicationNameForUserAgent(WKPageRef page, WKStringRef 
 WK_EXPORT WKStringRef WKPageCopyCustomUserAgent(WKPageRef page);
 WK_EXPORT void WKPageSetCustomUserAgent(WKPageRef page, WKStringRef userAgent);
 
+WK_EXPORT void WKPageSetUserContentExtensionsEnabled(WKPageRef, bool);
+    
 WK_EXPORT bool WKPageSupportsTextEncoding(WKPageRef page);
 WK_EXPORT WKStringRef WKPageCopyCustomTextEncodingName(WKPageRef page);
 WK_EXPORT void WKPageSetCustomTextEncodingName(WKPageRef page, WKStringRef encodingName);
@@ -141,6 +146,7 @@ WK_EXPORT void WKPageRestoreFromSessionState(WKPageRef page, WKTypeRef sessionSt
 
 WK_EXPORT double WKPageGetBackingScaleFactor(WKPageRef page);
 WK_EXPORT void WKPageSetCustomBackingScaleFactor(WKPageRef page, double customScaleFactor);
+WK_EXPORT void WKPageClearWheelEventTestTrigger(WKPageRef page);
 
 WK_EXPORT bool WKPageSupportsTextZoom(WKPageRef page);
 WK_EXPORT double WKPageGetTextZoomFactor(WKPageRef page);
@@ -207,12 +213,17 @@ WK_EXPORT void WKPageGetImageForFindMatch(WKPageRef page, int32_t matchIndex);
 WK_EXPORT void WKPageSelectFindMatch(WKPageRef page, int32_t matchIndex);
 
 WK_EXPORT void WKPageSetPageContextMenuClient(WKPageRef page, const WKPageContextMenuClientBase* client);
+WK_EXPORT void WKPageSetPageDiagnosticLoggingClient(WKPageRef page, const WKPageDiagnosticLoggingClientBase* client);
 WK_EXPORT void WKPageSetPageFindClient(WKPageRef page, const WKPageFindClientBase* client);
 WK_EXPORT void WKPageSetPageFindMatchesClient(WKPageRef page, const WKPageFindMatchesClientBase* client);
 WK_EXPORT void WKPageSetPageFormClient(WKPageRef page, const WKPageFormClientBase* client);
+WK_EXPORT void WKPageSetPageUIClient(WKPageRef page, const WKPageUIClientBase* client);
+WK_EXPORT void WKPageSetPageInjectedBundleClient(WKPageRef page, const WKPageInjectedBundleClientBase* client);
+
+// A client can implement either a navigation client or loader and policy clients, but never both.
 WK_EXPORT void WKPageSetPageLoaderClient(WKPageRef page, const WKPageLoaderClientBase* client);
 WK_EXPORT void WKPageSetPagePolicyClient(WKPageRef page, const WKPagePolicyClientBase* client);
-WK_EXPORT void WKPageSetPageUIClient(WKPageRef page, const WKPageUIClientBase* client);
+WK_EXPORT void WKPageSetPageNavigationClient(WKPageRef page, const WKPageNavigationClientBase* client);
 
 WK_EXPORT void WKPageSetSession(WKPageRef page, WKSessionRef session);
 

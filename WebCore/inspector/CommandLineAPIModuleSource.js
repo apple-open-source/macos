@@ -115,15 +115,20 @@ function CommandLineAPI(commandLineAPIImpl, callFrame)
         this[member].toString = customToStringMethod(member);
     }
 
-    for (var i = 0; i < 5; ++i) {
+    // $0
+    this.__defineGetter__("$0", bind(commandLineAPIImpl._inspectedObject, commandLineAPIImpl));
+
+    // $1-$99
+    for (var i = 1; i <= injectedScript._savedResults.length; ++i) {
         var member = "$" + i;
         if (member in inspectedWindow || inScopeVariables(member))
             continue;
 
-        this.__defineGetter__("$" + i, bind(commandLineAPIImpl._inspectedObject, commandLineAPIImpl, i));
+        this.__defineGetter__("$" + i, bind(injectedScript._savedResult, injectedScript, i));
     }
 
     this.$_ = injectedScript._lastResult;
+    this.$exception = injectedScript._exceptionValue;
 }
 
 /**
@@ -131,7 +136,7 @@ function CommandLineAPI(commandLineAPIImpl, callFrame)
  * @const
  */
 CommandLineAPI.members_ = [
-    "$", "$$", "$x", "dir", "dirxml", "keys", "values", "profile", "profileEnd",
+    "$", "$$", "$x", "dir", "dirxml", "keys", "values", "profile", "profileEnd", "table",
     "monitorEvents", "unmonitorEvents", "inspect", "copy", "clear", "getEventListeners"
 ];
 
@@ -242,6 +247,11 @@ CommandLineAPIImpl.prototype = {
         return inspectedWindow.console.profileEnd.apply(inspectedWindow.console, arguments)
     },
 
+    table: function()
+    {
+        return inspectedWindow.console.table.apply(inspectedWindow.console, arguments)
+    },
+
     /**
      * @param {Object} object
      * @param {Array.<string>|string=} types
@@ -299,12 +309,9 @@ CommandLineAPIImpl.prototype = {
         return CommandLineAPIHost.getEventListeners(node);
     },
 
-    /**
-     * @param {number} num
-     */
-    _inspectedObject: function(num)
+    _inspectedObject: function()
     {
-        return CommandLineAPIHost.inspectedObject(num);
+        return CommandLineAPIHost.inspectedObject();
     },
 
     /**

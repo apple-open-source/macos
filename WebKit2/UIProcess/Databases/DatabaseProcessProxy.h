@@ -31,46 +31,64 @@
 #include "ChildProcessProxy.h"
 #include "ProcessLauncher.h"
 #include "WebProcessProxyMessages.h"
+#include "WebsiteDataTypes.h"
 #include <wtf/Deque.h>
+
+namespace WebCore {
+class SecurityOrigin;
+class SessionID;
+}
 
 namespace WebKit {
 
-class WebContext;
+class WebProcessPool;
 
 class DatabaseProcessProxy : public ChildProcessProxy {
 public:
-    static PassRefPtr<DatabaseProcessProxy> create(WebContext*);
+    static Ref<DatabaseProcessProxy> create(WebProcessPool*);
     ~DatabaseProcessProxy();
+
+    void fetchWebsiteData(WebCore::SessionID, WebsiteDataTypes, std::function<void (WebsiteData)> completionHandler);
+    void deleteWebsiteData(WebCore::SessionID, WebsiteDataTypes, std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
+    void deleteWebsiteDataForOrigins(WebCore::SessionID, WebsiteDataTypes, const Vector<RefPtr<WebCore::SecurityOrigin>>& origins, std::function<void ()> completionHandler);
 
     void getDatabaseProcessConnection(PassRefPtr<Messages::WebProcessProxy::GetDatabaseProcessConnection::DelayedReply>);
 
 private:
-    DatabaseProcessProxy(WebContext*);
+    DatabaseProcessProxy(WebProcessPool*);
 
     // ChildProcessProxy
     virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
-    virtual void connectionWillOpen(IPC::Connection*) override;
-    virtual void connectionWillClose(IPC::Connection*) override;
+    virtual void processWillShutDown(IPC::Connection&) override;
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&) override;
-    virtual void didClose(IPC::Connection*) override;
-    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    virtual void didClose(IPC::Connection&) override;
+    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::UI; }
+    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Database; }
 
-    void didReceiveDatabaseProcessProxyMessage(IPC::Connection*, IPC::MessageDecoder&);
+    void didReceiveDatabaseProcessProxyMessage(IPC::Connection&, IPC::MessageDecoder&);
 
     // Message handlers
     void didCreateDatabaseToWebProcessConnection(const IPC::Attachment&);
+    void didFetchWebsiteData(uint64_t callbackID, const WebsiteData&);
+    void didDeleteWebsiteData(uint64_t callbackID);
+    void didDeleteWebsiteDataForOrigins(uint64_t callbackID);
 
     // ProcessLauncher::Client
     virtual void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
 
     void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&);
 
-    WebContext* m_webContext;
+    WebProcessPool* m_processPool;
 
     unsigned m_numPendingConnectionRequests;
     Deque<RefPtr<Messages::WebProcessProxy::GetDatabaseProcessConnection::DelayedReply>> m_pendingConnectionReplies;
+
+    HashMap<uint64_t, std::function<void (WebsiteData)>> m_pendingFetchWebsiteDataCallbacks;
+    HashMap<uint64_t, std::function<void ()>> m_pendingDeleteWebsiteDataCallbacks;
+    HashMap<uint64_t, std::function<void ()>> m_pendingDeleteWebsiteDataForOriginsCallbacks;
 };
 
 } // namespace WebKit

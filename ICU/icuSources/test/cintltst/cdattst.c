@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2014, International Business Machines Corporation and
+ * Copyright (c) 1997-2015, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -25,10 +25,12 @@
 #include "unicode/ucal.h"
 #include "unicode/unum.h"
 #include "unicode/ustring.h"
+#include "unicode/ufieldpositer.h"
 #include "cintltst.h"
 #include "cdattst.h"
 #include "cformtst.h"
 #include "cmemory.h"
+#include "unicode/uatimeunitformat.h" /* Apple-specific */
 
 #include <math.h>
 
@@ -37,6 +39,11 @@ static void TestAllLocales(void);
 static void TestRelativeCrash(void);
 static void TestContext(void);
 static void TestCalendarDateParse(void);
+static void TestParseErrorReturnValue(void);
+static void TestFormatForFields(void);
+static void TestApplyPatnOverridesTimeSep(void);
+static void TestTimeUnitFormat(void); /* Apple-specific */
+static void TestRemapPatternWithOpts(void); /* Apple-specific */
 
 #define LEN(a) (sizeof(a)/sizeof(a[0]))
 
@@ -55,6 +62,12 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestRelativeCrash);
     TESTCASE(TestContext);
     TESTCASE(TestCalendarDateParse);
+    TESTCASE(TestOverrideNumberFormat);
+    TESTCASE(TestParseErrorReturnValue);
+    TESTCASE(TestFormatForFields);
+    TESTCASE(TestApplyPatnOverridesTimeSep);
+    TESTCASE(TestTimeUnitFormat); /* Apple-specific */
+    TESTCASE(TestRemapPatternWithOpts); /* Apple-specific */
 }
 /* Testing the DateFormat API */
 static void TestDateFormat()
@@ -66,6 +79,7 @@ static void TestDateFormat()
     UChar* result = NULL;
     const UCalendar *cal;
     const UNumberFormat *numformat1, *numformat2;
+    UNumberFormat *adoptNF;
     UChar temp[50];
     int32_t numlocales;
     UDate d1;
@@ -185,7 +199,7 @@ static void TestDateFormat()
     }
     /*format using fr */
     
-    u_unescape("10 juil. 1996 16:05:28 heure avanc\\u00E9e du Pacifique", temp, 50);
+    u_unescape("10 juil. 1996 16:05:28 heure d\\u2019\\u00E9t\\u00E9 du Pacifique", temp, 50);
     if(result != NULL) {
         free(result);
         result = NULL;
@@ -197,7 +211,7 @@ static void TestDateFormat()
         log_data_err("FAIL: Date Format for french locale failed using udat_format().\n" );
 
     /*format using it */
-    u_uastrcpy(temp, "10/lug/1996 16:05:28");
+    u_uastrcpy(temp, "10 lug 1996, 16:05:28");
     
     { 
         UChar *fmtted;
@@ -338,6 +352,16 @@ static void TestDateFormat()
         log_err("FAIL: error in setNumberFormat or getNumberFormat()\n");
     else
         log_verbose("PASS:setNumberFormat and getNumberFormat succesful\n");
+        
+    /*Test getNumberFormat() and adoptNumberFormat() */
+    log_verbose("\nTesting the get and adopt NumberFormat properties of date format\n");
+    adoptNF= unum_open(UNUM_DEFAULT, NULL, 0, NULL, NULL, &status);
+    udat_adoptNumberFormat(def1, adoptNF);
+    numformat2=udat_getNumberFormat(def1);
+    if(u_strcmp(myNumformat(adoptNF, num), myNumformat(numformat2, num)) !=0)
+        log_err("FAIL: error in adoptNumberFormat or getNumberFormat()\n");
+    else
+        log_verbose("PASS:adoptNumberFormat and getNumberFormat succesful\n");
 
     /*try setting the number format to another format */
     numformat1=udat_getNumberFormat(def);
@@ -553,7 +577,7 @@ static void TestRelativeDateFormat()
 /*Testing udat_getSymbols() and udat_setSymbols() and udat_countSymbols()*/
 static void TestSymbols()
 {
-    UDateFormat *def, *fr;
+    UDateFormat *def, *fr, *zhChiCal;
     UErrorCode status = U_ZERO_ERROR;
     UChar *value=NULL; 
     UChar *result = NULL;
@@ -583,6 +607,15 @@ static void TestSymbols()
             myErrorName(status) );
         return;
     }
+    /*creating a dateformat with zh locale */
+    log_verbose("\ncreating a date format with zh locale for chinese calendar\n");
+    zhChiCal = udat_open(UDAT_NONE, UDAT_FULL, "zh@calendar=chinese", NULL, 0, NULL, 0, &status);
+    if(U_FAILURE(status))
+    {
+        log_data_err("error in creating the dateformat using full date, no time, locale zh@calendar=chinese -> %s (Are you missing data?)\n", 
+            myErrorName(status) );
+        return;
+    }
     
     
     /*Testing countSymbols, getSymbols and setSymbols*/
@@ -592,7 +625,8 @@ static void TestSymbols()
         udat_countSymbols(def, UDAT_SHORT_MONTHS)!=12 || udat_countSymbols(def, UDAT_WEEKDAYS)!=8 ||
         udat_countSymbols(def, UDAT_SHORT_WEEKDAYS)!=8 || udat_countSymbols(def, UDAT_AM_PMS)!=2 ||
         udat_countSymbols(def, UDAT_QUARTERS) != 4 || udat_countSymbols(def, UDAT_SHORT_QUARTERS) != 4 ||
-        udat_countSymbols(def, UDAT_LOCALIZED_CHARS)!=1 || udat_countSymbols(def, UDAT_SHORTER_WEEKDAYS)!=8)
+        udat_countSymbols(def, UDAT_LOCALIZED_CHARS)!=1 || udat_countSymbols(def, UDAT_SHORTER_WEEKDAYS)!=8 ||
+        udat_countSymbols(zhChiCal, UDAT_CYCLIC_YEARS_NARROW)!=60 || udat_countSymbols(zhChiCal, UDAT_ZODIAC_NAMES_NARROW)!=12)
     {
         log_err("FAIL: error in udat_countSymbols\n");
     }
@@ -647,7 +681,11 @@ static void TestSymbols()
     VerifygetSymbols(def, UDAT_QUARTERS, 3, "4th quarter");
     VerifygetSymbols(fr, UDAT_SHORT_QUARTERS, 1, "T2");
     VerifygetSymbols(def, UDAT_SHORT_QUARTERS, 2, "Q3");
-    VerifygetSymbols(def,UDAT_LOCALIZED_CHARS, 0, "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxr");
+    VerifygetSymbols(zhChiCal, UDAT_CYCLIC_YEARS_ABBREVIATED, 0, "\\u7532\\u5B50");
+    VerifygetSymbols(zhChiCal, UDAT_CYCLIC_YEARS_NARROW, 59, "\\u7678\\u4EA5");
+    VerifygetSymbols(zhChiCal, UDAT_ZODIAC_NAMES_ABBREVIATED, 0, "\\u9F20");
+    VerifygetSymbols(zhChiCal, UDAT_ZODIAC_NAMES_WIDE, 11, "\\u732A");
+    VerifygetSymbols(def,UDAT_LOCALIZED_CHARS, 0, "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxr:");
 
 
     if(result != NULL) {
@@ -761,8 +799,10 @@ free(pattern);
     VerifysetSymbols(fr, UDAT_SHORT_QUARTERS, 1, "QQ2");
     VerifysetSymbols(fr, UDAT_STANDALONE_QUARTERS, 2, "3rd Quar.");
     VerifysetSymbols(fr, UDAT_STANDALONE_SHORT_QUARTERS, 3, "4QQ");
+    VerifysetSymbols(zhChiCal, UDAT_CYCLIC_YEARS_ABBREVIATED, 1, "yi-chou");
+    VerifysetSymbols(zhChiCal, UDAT_ZODIAC_NAMES_ABBREVIATED, 1, "Ox");
 
-    
+
     /*run series of tests to test get and setSymbols regressively*/
     log_verbose("\nTesting get and set symbols regressively\n");
     VerifygetsetSymbols(fr, def, UDAT_WEEKDAYS, 1);
@@ -780,6 +820,7 @@ free(pattern);
     
     udat_close(fr);
     udat_close(def);
+    udat_close(zhChiCal);
     if(result != NULL) {
         free(result);
         result = NULL;
@@ -799,6 +840,10 @@ static void TestDateFormatCalendar() {
     int32_t pos;
     UDate when;
     UErrorCode ec = U_ZERO_ERROR;
+    UChar buf1[256];
+    int32_t len1;
+    const char *expected;
+    UChar uExpected[32];
 
     ctest_setTimeZone(NULL, &ec);
 
@@ -845,6 +890,19 @@ static void TestDateFormatCalendar() {
         goto FAIL;
     }
 
+    /* Check if formatCalendar matches the original date */
+    len1 = udat_formatCalendar(date, cal, buf1, UPRV_LENGTHOF(buf1), NULL, &ec);
+    if (U_FAILURE(ec)) {
+        log_err("FAIL: udat_formatCalendar(4/5/2001) failed with %s\n",
+                u_errorName(ec));
+        goto FAIL;
+    }
+    expected = "4/5/01";
+    u_uastrcpy(uExpected, expected);
+    if (u_strlen(uExpected) != len1 || u_strncmp(uExpected, buf1, len1) != 0) {
+        log_err("FAIL: udat_formatCalendar(4/5/2001), expected: %s", expected);
+    }
+
     /* Parse the time */
     u_uastrcpy(buf, "5:45 PM");
     pos = 0;
@@ -854,7 +912,20 @@ static void TestDateFormatCalendar() {
                 pos, u_errorName(ec));
         goto FAIL;
     }
-    
+
+    /* Check if formatCalendar matches the original time */
+    len1 = udat_formatCalendar(time, cal, buf1, UPRV_LENGTHOF(buf1), NULL, &ec);
+    if (U_FAILURE(ec)) {
+        log_err("FAIL: udat_formatCalendar(17:45) failed with %s\n",
+                u_errorName(ec));
+        goto FAIL;
+    }
+    expected = "5:45 PM";
+    u_uastrcpy(uExpected, expected);
+    if (u_strlen(uExpected) != len1 || u_strncmp(uExpected, buf1, len1) != 0) {
+        log_err("FAIL: udat_formatCalendar(17:45), expected: %s", expected);
+    }
+
     /* Check result */
     when = ucal_getMillis(cal, &ec);
     if (U_FAILURE(ec)) {
@@ -990,10 +1061,10 @@ static void VerifygetSymbols(UDateFormat* datfor, UDateFormatSymbolType type, in
     UErrorCode status = U_ZERO_ERROR;
     UChar *result=NULL;
     int32_t resultlength, resultlengthout;
-
+    int32_t patternSize = strlen(expected) + 1;
     
-    pattern=(UChar*)malloc(sizeof(UChar) * (strlen(expected)+1));
-    u_uastrcpy(pattern, expected);
+    pattern=(UChar*)malloc(sizeof(UChar) * patternSize);
+    u_unescape(expected, pattern, patternSize);
     resultlength=0;
     resultlengthout=udat_getSymbols(datfor, type, idx , NULL, resultlength, &status);
     if(status==U_BUFFER_OVERFLOW_ERROR)
@@ -1012,8 +1083,8 @@ static void VerifygetSymbols(UDateFormat* datfor, UDateFormatSymbolType type, in
     if(u_strcmp(result, pattern)==0)
         log_verbose("PASS: getSymbols retrieved the right value\n");
     else{
-        log_data_err("FAIL: getSymbols retrieved the wrong value\n Expected %s Got %s\n", austrdup(pattern), 
-            austrdup(result) );
+        log_data_err("FAIL: getSymbols retrieved the wrong value\n Expected %s Got %s\n", expected, 
+            aescstrdup(result,-1) );
     }
     free(result);
     free(pattern);
@@ -1025,10 +1096,11 @@ static void VerifysetSymbols(UDateFormat* datfor, UDateFormatSymbolType type, in
     UChar *value=NULL;
     int32_t resultlength, resultlengthout;
     UErrorCode status = U_ZERO_ERROR;
+    int32_t valueLen, valueSize = strlen(expected) + 1;
 
-    value=(UChar*)malloc(sizeof(UChar) * (strlen(expected) + 1));
-    u_uastrcpy(value, expected);
-    udat_setSymbols(datfor, type, idx, value, u_strlen(value), &status);
+    value=(UChar*)malloc(sizeof(UChar) * valueSize);
+    valueLen = u_unescape(expected, value, valueSize);
+    udat_setSymbols(datfor, type, idx, value, valueLen, &status);
     if(U_FAILURE(status))
         {
             log_err("FAIL: Error in udat_setSymbols()  %s\n", myErrorName(status) );
@@ -1050,8 +1122,8 @@ static void VerifysetSymbols(UDateFormat* datfor, UDateFormatSymbolType type, in
     }
     
     if(u_strcmp(result, value)!=0){
-        log_err("FAIL:Error in setting and then getting symbols\n Expected %s Got %s\n", austrdup(value),
-            austrdup(result) );
+        log_err("FAIL:Error in setting and then getting symbols\n Expected %s Got %s\n", expected,
+            aescstrdup(result,-1) );
     }
     else
         log_verbose("PASS: setSymbols successful\n");
@@ -1527,6 +1599,897 @@ static void TestContext(void) {
             ucal_close(ucal);
         } else {
             log_data_err("FAIL: ucal_open for locale root, status %s\n", u_errorName(status) );
+        }
+    }
+}
+
+
+// overrideNumberFormat[i][0] is to tell which field to set, 
+// overrideNumberFormat[i][1] is the expected result
+static const char * overrideNumberFormat[][2] = { 
+        {"", "\\u521D\\u4E03 \\u521D\\u4E8C"},
+        {"d", "07 \\u521D\\u4E8C"},
+        {"do", "07 \\u521D\\u4E8C"},
+        {"Md", "\\u521D\\u4E03 \\u521D\\u4E8C"},
+        {"MdMMd", "\\u521D\\u4E03 \\u521D\\u4E8C"},
+        {"mixed", "\\u521D\\u4E03 \\u521D\\u4E8C"}
+};
+
+static void TestOverrideNumberFormat(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UChar pattern[50];
+    UChar expected[50];
+    UChar fields[50];
+    char bbuf1[kBbufMax];
+    char bbuf2[kBbufMax];
+    const char* localeString = "zh@numbers=hanidays";
+    UDateFormat* fmt;
+    const UNumberFormat* getter_result;
+    int32_t i;
+
+    u_uastrcpy(fields, "d");
+    u_uastrcpy(pattern,"MM d");
+
+    fmt=udat_open(UDAT_PATTERN, UDAT_PATTERN, "en_US", zoneGMT, -1, pattern, u_strlen(pattern), &status);
+    if (!assertSuccess("udat_open()", &status)) {
+        return;
+    }
+
+    // loop 5 times to check getter/setter
+    for (i = 0; i < 5; i++){
+        UNumberFormat* overrideFmt;
+        overrideFmt = unum_open(UNUM_DEFAULT, NULL, 0, localeString, NULL, &status);
+        assertSuccess("unum_open()", &status);
+        udat_adoptNumberFormatForFields(fmt, fields, overrideFmt, &status);
+        overrideFmt = NULL; // no longer valid
+        assertSuccess("udat_setNumberFormatForField()", &status);
+
+        getter_result = udat_getNumberFormatForField(fmt, 'd');
+        if(getter_result == NULL) {
+            log_err("FAIL: udat_getNumberFormatForField did not return a valid pointer\n");
+        }
+    }
+    {
+      UNumberFormat* overrideFmt;
+      overrideFmt = unum_open(UNUM_DEFAULT, NULL, 0, localeString, NULL, &status);
+      assertSuccess("unum_open()", &status);
+      udat_setNumberFormat(fmt, overrideFmt); // test the same override NF will not crash
+      unum_close(overrideFmt);
+    }
+    udat_close(fmt);
+    
+    for (i=0; i<UPRV_LENGTHOF(overrideNumberFormat); i++){
+        UChar ubuf[kUbufMax];
+        UDateFormat* fmt2;
+        UNumberFormat* overrideFmt2;
+
+        fmt2 =udat_open(UDAT_PATTERN, UDAT_PATTERN,"en_US", zoneGMT, -1, pattern, u_strlen(pattern), &status);
+        assertSuccess("udat_open() with en_US", &status);
+
+        overrideFmt2 = unum_open(UNUM_DEFAULT, NULL, 0, localeString, NULL, &status);
+        assertSuccess("unum_open() in loop", &status);
+
+        u_uastrcpy(fields, overrideNumberFormat[i][0]);
+        u_unescape(overrideNumberFormat[i][1], expected, UPRV_LENGTHOF(expected));
+
+        if ( strcmp(overrideNumberFormat[i][0], "") == 0 ) { // use the one w/o field
+            udat_adoptNumberFormat(fmt2, overrideFmt2);
+        } else if ( strcmp(overrideNumberFormat[i][0], "mixed") == 0 ) { // set 1 field at first but then full override, both(M & d) should be override
+            const char* singleLocale = "en@numbers=hebr";
+            UNumberFormat* singleOverrideFmt;
+            u_uastrcpy(fields, "d");
+
+            singleOverrideFmt = unum_open(UNUM_DEFAULT, NULL, 0, singleLocale, NULL, &status);
+            assertSuccess("unum_open() in mixed", &status);
+
+            udat_adoptNumberFormatForFields(fmt2, fields, singleOverrideFmt, &status);
+            assertSuccess("udat_setNumberFormatForField() in mixed", &status);
+
+            udat_adoptNumberFormat(fmt2, overrideFmt2);
+        } else if ( strcmp(overrideNumberFormat[i][0], "do") == 0 ) { // o is an invalid field
+            udat_adoptNumberFormatForFields(fmt2, fields, overrideFmt2, &status);
+            if(status == U_INVALID_FORMAT_ERROR) {
+                udat_close(fmt2);
+                status = U_ZERO_ERROR;
+                continue;
+            }
+        } else {
+            udat_adoptNumberFormatForFields(fmt2, fields, overrideFmt2, &status);
+            assertSuccess("udat_setNumberFormatForField() in loop", &status);
+        }
+
+        udat_format(fmt2, july022008, ubuf, kUbufMax, NULL, &status);
+        assertSuccess("udat_format() july022008", &status);
+
+        if (u_strncmp(ubuf, expected, kUbufMax) != 0) 
+            log_err("fail: udat_format for locale, expected %s, got %s\n",
+                    u_austrncpy(bbuf1,expected,kUbufMax), u_austrncpy(bbuf2,ubuf,kUbufMax) );
+
+        udat_close(fmt2);
+    }
+}
+
+/*
+ * Ticket #11523
+ * udat_parse and udat_parseCalendar should have the same error code when given the same invalid input.
+ */
+static void TestParseErrorReturnValue(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UErrorCode expectStatus = U_PARSE_ERROR;
+    UDateFormat* df;
+    UCalendar* cal;
+
+    df = udat_open(UDAT_DEFAULT, UDAT_DEFAULT, NULL, NULL, -1, NULL, -1, &status);
+    if (!assertSuccessCheck("udat_open()", &status, TRUE)) {
+        return;
+    }
+
+    cal = ucal_open(NULL, 0, "en_US", UCAL_GREGORIAN, &status);
+    if (!assertSuccess("ucal_open()", &status)) {
+        return;
+    }
+
+    udat_parse(df, NULL, -1, NULL, &status);
+    if (status != expectStatus) {
+        log_err("%s should have been returned by udat_parse when given an invalid input, instead got - %s\n", u_errorName(expectStatus), u_errorName(status));
+    }
+
+    status = U_ZERO_ERROR;
+    udat_parseCalendar(df, cal, NULL, -1, NULL, &status);
+    if (status != expectStatus) {
+        log_err("%s should have been returned by udat_parseCalendar when given an invalid input, instead got - %s\n", u_errorName(expectStatus), u_errorName(status));
+    }
+
+    ucal_close(cal);
+    udat_close(df);
+}
+
+/*
+ * Ticket #11553
+ * Test new udat_formatForFields, udat_formatCalendarForFields (and UFieldPositionIterator)
+ */
+static const char localeForFields[] = "en_US";
+/* zoneGMT[]defined above */
+static const UDate date2015Feb25 = 1424841000000.0; /* Wednesday, February 25, 2015 at 5:10:00 AM GMT */
+
+typedef struct {
+    int32_t field;
+    int32_t beginPos;
+    int32_t endPos;
+} FieldsData;
+static const FieldsData expectedFields[] = {
+    { UDAT_DAY_OF_WEEK_FIELD /* 9*/,      0,  9 },
+    { UDAT_MONTH_FIELD /* 2*/,           11, 19 },
+    { UDAT_DATE_FIELD /* 3*/,            20, 22 },
+    { UDAT_YEAR_FIELD /* 1*/,            24, 28 },
+    { UDAT_HOUR1_FIELD /*15*/,           32, 33 },
+    { UDAT_TIME_SEPARATOR_FIELD /*35*/,  33, 34 }, // add this with ICU 55 roll-in
+    { UDAT_MINUTE_FIELD /* 6*/,          34, 36 },
+    { UDAT_TIME_SEPARATOR_FIELD /*35*/,  36, 37 }, // add this with ICU 55 roll-in
+    { UDAT_SECOND_FIELD /* 7*/,          37, 39 },
+    { UDAT_AM_PM_FIELD /*14*/,           40, 42 },
+    { UDAT_TIMEZONE_FIELD /*17*/,        43, 46 },
+    { -1,                                -1, -1 },
+};
+
+enum {kUBufFieldsLen = 128, kBBufFieldsLen = 256 };
+
+static void TestFormatForFields(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UFieldPositionIterator* fpositer = ufieldpositer_open(&status);
+    if ( U_FAILURE(status) ) {
+        log_err("ufieldpositer_open fails, status %s\n", u_errorName(status));
+    } else {
+        UDateFormat* udfmt = udat_open(UDAT_LONG, UDAT_FULL, localeForFields, zoneGMT, -1, NULL, 0, &status);
+        UCalendar* ucal = ucal_open(zoneGMT, -1, localeForFields, UCAL_DEFAULT, &status);
+        if ( U_FAILURE(status) ) {
+            log_data_err("udat_open or ucal_open fails for locale %s, status %s (Are you missing data?)\n", localeForFields, u_errorName(status));
+        } else {
+            int32_t ulen, field, beginPos, endPos;
+            UChar ubuf[kUBufFieldsLen];
+            const FieldsData * fptr;
+        
+            status = U_ZERO_ERROR;
+            ulen = udat_formatForFields(udfmt, date2015Feb25, ubuf, kUBufFieldsLen, fpositer, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("udat_formatForFields fails, status %s\n", u_errorName(status));
+            } else {
+                for (fptr = expectedFields; ; fptr++) {
+                    field = ufieldpositer_next(fpositer, &beginPos, &endPos);
+                    if (field != fptr->field || (field >= 0 && (beginPos != fptr->beginPos || endPos != fptr->endPos))) {
+                        if (fptr->field >= 0) {
+                            log_err("udat_formatForFields as \"%s\"; expect field %d range %d-%d, get field %d range %d-%d\n",
+                                    aescstrdup(ubuf, ulen), fptr->field, fptr->beginPos, fptr->endPos, field, beginPos, endPos);
+                        } else {
+                            log_err("udat_formatForFields as \"%s\"; expect field < 0, get field %d range %d-%d\n",
+                                    aescstrdup(ubuf, ulen), field, beginPos, endPos);
+                        }
+                        break;
+                    }
+                    if (field < 0) {
+                        break;
+                    }
+                }
+            }
+            
+            ucal_setMillis(ucal, date2015Feb25, &status);
+            status = U_ZERO_ERROR;
+            ulen = udat_formatCalendarForFields(udfmt, ucal, ubuf, kUBufFieldsLen, fpositer, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("udat_formatCalendarForFields fails, status %s\n", u_errorName(status));
+            } else {
+                for (fptr = expectedFields; ; fptr++) {
+                    field = ufieldpositer_next(fpositer, &beginPos, &endPos);
+                    if (field != fptr->field || (field >= 0 && (beginPos != fptr->beginPos || endPos != fptr->endPos))) {
+                        if (fptr->field >= 0) {
+                            log_err("udat_formatFudat_formatCalendarForFieldsorFields as \"%s\"; expect field %d range %d-%d, get field %d range %d-%d\n",
+                                    aescstrdup(ubuf, ulen), fptr->field, fptr->beginPos, fptr->endPos, field, beginPos, endPos);
+                        } else {
+                            log_err("udat_formatCalendarForFields as \"%s\"; expect field < 0, get field %d range %d-%d\n",
+                                    aescstrdup(ubuf, ulen), field, beginPos, endPos);
+                        }
+                        break;
+                    }
+                    if (field < 0) {
+                        break;
+                    }
+                }
+            }
+
+            ucal_close(ucal);
+            udat_close(udfmt);
+        }
+        ufieldpositer_close(fpositer);
+    }
+}
+
+/* defined above
+static const UChar zoneGMT[] = { 0x47,0x4D,0x54,0 }; // "GMT"
+static const UDate date2015Feb25 = 1424841000000.0; // Wednesday, February 25, 2015 at 5:10:00 AM GMT
+*/
+static const UChar patternHmm[]   = { 0x48,0x3A,0x6D,0x6D,0 }; /* "H:mm" */
+static const UChar formattedHmm[] = { 0x35,0x3A,0x31,0x30,0 }; /* "5:10" */
+
+enum { kUBufOverrideSepMax = 32, kBBufOverrideSepMax = 64 };
+
+static void TestApplyPatnOverridesTimeSep(void) {
+    UErrorCode status;
+    UDateFormat* udfmt;
+    const char *locale = "da"; /* uses period for time separator */
+    UChar ubuf[kUBufOverrideSepMax];
+    int32_t ulen;
+    
+    status = U_ZERO_ERROR;
+    udfmt = udat_open(UDAT_PATTERN, UDAT_PATTERN, locale, zoneGMT, -1, patternHmm, -1, &status);
+    if ( U_FAILURE(status) ) {
+        log_err("udat_open(UDAT_PATTERN, UDAT_PATTERN, \"%s\",...) fails, status %s\n", locale, u_errorName(status));
+    } else {
+        ulen = udat_format(udfmt, date2015Feb25, ubuf, kUBufOverrideSepMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("udat_format fails for UDAT_PATTERN \"%s\", status %s\n", locale, u_errorName(status));
+        } else if (u_strcmp(ubuf, formattedHmm) != 0) {
+            char bbuf[kBBufOverrideSepMax];
+            u_strToUTF8(bbuf, kBBufOverrideSepMax, NULL, ubuf, ulen, &status);
+            log_err("udat_format fails for UDAT_PATTERN \"%s\", expected 5:10, got %s\n", locale, bbuf);
+        }
+        udat_close(udfmt);
+    }
+    
+    status = U_ZERO_ERROR;
+    udfmt = udat_open(UDAT_SHORT, UDAT_NONE, locale, zoneGMT, -1, NULL, 0, &status);
+    if ( U_FAILURE(status) ) {
+        log_err("udat_open(UDAT_SHORT, UDAT_NONE, \"%s\",...) fails, status %s\n", locale, u_errorName(status));
+    } else {
+        udat_applyPattern(udfmt, FALSE, patternHmm, -1);
+        ulen = udat_format(udfmt, date2015Feb25, ubuf, kUBufOverrideSepMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("udat_format fails for UDAT_SHORT \"%s\" + applyPattern, status %s\n", locale, u_errorName(status));
+        } else if (u_strcmp(ubuf, formattedHmm) != 0) {
+            char bbuf[kBBufOverrideSepMax];
+            u_strToUTF8(bbuf, kBBufOverrideSepMax, NULL, ubuf, ulen, &status);
+            log_err("udat_format fails for UDAT_SHORT \"%s\" + applyPattern, expected 5:10, got %s\n", locale, bbuf);
+        }
+        udat_close(udfmt);
+    }
+    
+}
+
+/* *** */
+
+typedef struct {
+    const char*           locale;
+    UATimeUnitTimePattern patType;
+    const char*           expect; /* universal char subset + escaped Unicode chars */
+} TimePatternItem;
+static const TimePatternItem timePatternItems[] = {
+    { "en", UATIMEUNITTIMEPAT_HM,  "h:mm"    },
+    { "en", UATIMEUNITTIMEPAT_HMS, "h:mm:ss" },
+    { "en", UATIMEUNITTIMEPAT_MS,  "m:ss"    },
+    { "da", UATIMEUNITTIMEPAT_HM,  "h.mm"    },
+    { "da", UATIMEUNITTIMEPAT_HMS, "h.mm.ss" },
+    { "da", UATIMEUNITTIMEPAT_MS,  "m.ss"    },
+    { NULL, 0,                     NULL      }
+};
+
+typedef struct {
+    const char*           locale;
+    UATimeUnitStyle       width;
+    UATimeUnitListPattern patType;
+    const char*           expect; /* universal char subset + escaped Unicode chars */
+} ListPatternItem;
+static const ListPatternItem listPatternItems[] = {
+    { "en", UATIMEUNITSTYLE_FULL,   UATIMEUNITLISTPAT_TWO_ONLY,     "{0}, {1}"   },
+    { "en", UATIMEUNITSTYLE_FULL,   UATIMEUNITLISTPAT_END_PIECE,    "{0}, {1}"   },
+    { "en", UATIMEUNITSTYLE_FULL,   UATIMEUNITLISTPAT_MIDDLE_PIECE, "{0}, {1}"   },
+    { "en", UATIMEUNITSTYLE_FULL,   UATIMEUNITLISTPAT_START_PIECE,  "{0}, {1}"   },
+    { "en", UATIMEUNITSTYLE_NARROW, UATIMEUNITLISTPAT_TWO_ONLY,     "{0} {1}"    },
+    { "en", UATIMEUNITSTYLE_NARROW, UATIMEUNITLISTPAT_END_PIECE,    "{0} {1}"    },
+    { "en", UATIMEUNITSTYLE_NARROW, UATIMEUNITLISTPAT_MIDDLE_PIECE, "{0} {1}"    },
+    { "en", UATIMEUNITSTYLE_NARROW, UATIMEUNITLISTPAT_START_PIECE,  "{0} {1}"    },
+    { "fr", UATIMEUNITSTYLE_FULL,   UATIMEUNITLISTPAT_TWO_ONLY,     "{0} et {1}" },
+    { "fr", UATIMEUNITSTYLE_FULL,   UATIMEUNITLISTPAT_END_PIECE,    "{0} et {1}" },
+    { "fr", UATIMEUNITSTYLE_FULL,   UATIMEUNITLISTPAT_MIDDLE_PIECE, "{0}, {1}"   },
+    { "fr", UATIMEUNITSTYLE_FULL,   UATIMEUNITLISTPAT_START_PIECE,  "{0}, {1}"   },
+    { "fr", UATIMEUNITSTYLE_NARROW, UATIMEUNITLISTPAT_TWO_ONLY,     "{0} {1}"    },
+    { "fr", UATIMEUNITSTYLE_NARROW, UATIMEUNITLISTPAT_END_PIECE,    "{0} {1}"    },
+    { "fr", UATIMEUNITSTYLE_NARROW, UATIMEUNITLISTPAT_MIDDLE_PIECE, "{0} {1}"    },
+    { "fr", UATIMEUNITSTYLE_NARROW, UATIMEUNITLISTPAT_START_PIECE,  "{0} {1}"    },
+    { NULL, 0,                      0,                              NULL         }
+};
+
+enum {kUBufTimeUnitLen = 128, kBBufTimeUnitLen = 256 };
+
+static void TestTimeUnitFormat(void) { /* Apple-specific */
+    const TimePatternItem* timePatItemPtr;
+    const ListPatternItem* listPatItemPtr;
+    UChar uActual[kUBufTimeUnitLen];
+    UChar uExpect[kUBufTimeUnitLen];
+
+    for (timePatItemPtr = timePatternItems; timePatItemPtr->locale != NULL; timePatItemPtr++) {
+        UErrorCode status = U_ZERO_ERROR; 
+        int32_t ulenActual = uatmufmt_getTimePattern(timePatItemPtr->locale, timePatItemPtr->patType, uActual, kUBufTimeUnitLen, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("uatmufmt_getTimePattern for locale %s, patType %d: status %s\n", timePatItemPtr->locale, (int)timePatItemPtr->patType, u_errorName(status));
+        } else {
+            int32_t ulenExpect = u_unescape(timePatItemPtr->expect, uExpect, kUBufTimeUnitLen);
+            if (ulenActual != ulenExpect || u_strncmp(uActual, uExpect, ulenExpect) != 0) {
+                char bActual[kBBufTimeUnitLen];
+                u_strToUTF8(bActual, kBBufTimeUnitLen, NULL, uActual, ulenActual, &status);
+                log_err("uatmufmt_getTimePattern for locale %s, patType %d: unexpected result %s\n", timePatItemPtr->locale, (int)timePatItemPtr->patType, bActual);
+            }
+        }
+    }
+
+    for (listPatItemPtr = listPatternItems; listPatItemPtr->locale != NULL; listPatItemPtr++) {
+        UErrorCode status = U_ZERO_ERROR; 
+        int32_t ulenActual = uatmufmt_getListPattern(listPatItemPtr->locale, listPatItemPtr->width, listPatItemPtr->patType, uActual, kUBufTimeUnitLen, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("uatmufmt_getListPattern for locale %s, width %d, patType %d: status %s\n", listPatItemPtr->locale, (int)listPatItemPtr->width, (int)listPatItemPtr->patType, u_errorName(status));
+        } else {
+            int32_t ulenExpect = u_unescape(listPatItemPtr->expect, uExpect, kUBufTimeUnitLen);
+            if (ulenActual != ulenExpect || u_strncmp(uActual, uExpect, ulenExpect) != 0) {
+                char bActual[kBBufTimeUnitLen];
+                u_strToUTF8(bActual, kBBufTimeUnitLen, NULL, uActual, ulenActual, &status);
+                log_err("uatmufmt_getListPattern for locale %s, width %d, patType %d: unexpected result %s\n", listPatItemPtr->locale, (int)listPatItemPtr->width, (int)listPatItemPtr->patType, bActual);
+            }
+        }
+    }
+
+}
+
+typedef enum RemapTesttype {
+    REMAP_TESTTYPE_FULL     = UDAT_FULL,       // 0
+    REMAP_TESTTYPE_LONG     = UDAT_LONG,       // 1
+    REMAP_TESTTYPE_MEDIUM   = UDAT_MEDIUM,     // 2
+    REMAP_TESTTYPE_SHORT    = UDAT_SHORT,      // 3
+    REMAP_TESTTYPE_LONG_DF  = UDAT_LONG + 4,   // 5 long time, full date
+    REMAP_TESTTYPE_SHORT_DS = UDAT_SHORT + 16, // 3 short time, short date
+    REMAP_TESTTYPE_SKELETON = -1,
+    REMAP_TESTTYPE_PATTERN  = -2,
+} RemapTesttype;
+
+typedef struct {
+    const char *  pattern;
+    RemapTesttype testtype;
+    uint32_t      options;
+} RemapPatternTestItem;
+
+static const RemapPatternTestItem remapPatItems[] = {
+    { "full",                               REMAP_TESTTYPE_FULL,       0                                                            },
+    { "full",                               REMAP_TESTTYPE_FULL,       UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "full",                               REMAP_TESTTYPE_FULL,       UADATPG_FORCE_12_HOUR_CYCLE                                  },
+    { "long",                               REMAP_TESTTYPE_LONG,       0                                                            },
+    { "long",                               REMAP_TESTTYPE_LONG,       UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "long",                               REMAP_TESTTYPE_LONG,       UADATPG_FORCE_12_HOUR_CYCLE                                  },
+    { "medium",                             REMAP_TESTTYPE_MEDIUM,     0                                                            },
+    { "medium",                             REMAP_TESTTYPE_MEDIUM,     UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "medium",                             REMAP_TESTTYPE_MEDIUM,     UADATPG_FORCE_12_HOUR_CYCLE                                  },
+    { "short",                              REMAP_TESTTYPE_SHORT,      0                                                            },
+    { "short",                              REMAP_TESTTYPE_SHORT,      UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "short",                              REMAP_TESTTYPE_SHORT,      UADATPG_FORCE_12_HOUR_CYCLE                                  },
+    { "long_df",                            REMAP_TESTTYPE_LONG_DF,    0                                                            },
+    { "long_df",                            REMAP_TESTTYPE_LONG_DF,    UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "long_df",                            REMAP_TESTTYPE_LONG_DF,    UADATPG_FORCE_12_HOUR_CYCLE                                  },
+    { "short_ds",                           REMAP_TESTTYPE_SHORT_DS,   0                                                            },
+    { "short_ds",                           REMAP_TESTTYPE_SHORT_DS,   UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "short_ds",                           REMAP_TESTTYPE_SHORT_DS,   UADATPG_FORCE_12_HOUR_CYCLE                                  },
+
+    { "jmmss",                              REMAP_TESTTYPE_SKELETON,   0                                                            },
+    { "jmmss",                              REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "jmmss",                              REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_12_HOUR_CYCLE                                  },
+    { "jjmmss",                             REMAP_TESTTYPE_SKELETON,   0                                                            },
+    { "jjmmss",                             REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "jjmmss",                             REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_24_HOUR_CYCLE | UDATPG_MATCH_HOUR_FIELD_LENGTH },
+    { "jjmmss",                             REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_12_HOUR_CYCLE                                  },
+    { "jjmmss",                             REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_12_HOUR_CYCLE | UDATPG_MATCH_HOUR_FIELD_LENGTH },
+    { "Jmm",                                REMAP_TESTTYPE_SKELETON,   0                                                            },
+    { "Jmm",                                REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "Jmm",                                REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_12_HOUR_CYCLE                                  },
+    { "jmsv",                               REMAP_TESTTYPE_SKELETON,   0                                                            },
+    { "jmsv",                               REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "jmsv",                               REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_12_HOUR_CYCLE                                  },
+    { "jmsz",                               REMAP_TESTTYPE_SKELETON,   0                                                            },
+    { "jmsz",                               REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_24_HOUR_CYCLE                                  },
+    { "jmsz",                               REMAP_TESTTYPE_SKELETON,   UADATPG_FORCE_12_HOUR_CYCLE                                  },
+
+    { "h:mm:ss a",                          REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE }, // 12=hour patterns
+    { "h:mm:ss a",                          REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
+    { "a'xx'h:mm:ss d MMM y",               REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE },
+    { "a'xx'h:mm:ss d MMM y",               REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
+    { "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE },
+    { "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
+    { "EEE, d MMM y 'aha' a'xx'h:mm:ss",    REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE },
+    { "EEE, d MMM y 'aha' a'xx'h:mm:ss",    REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
+    { "yyMMddhhmmss",                       REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE },
+    { "yyMMddhhmmss",                       REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
+
+    { "H:mm:ss",                            REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE }, // 24=hour patterns
+    { "H:mm:ss",                            REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
+    { "H:mm:ss d MMM y",                    REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE },
+    { "H:mm:ss d MMM y",                    REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
+    { "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE },
+    { "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
+    { "EEE, d MMM y 'aha' H'h'mm'm'ss",     REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_12_HOUR_CYCLE },
+    { "EEE, d MMM y 'aha' H'h'mm'm'ss",     REMAP_TESTTYPE_PATTERN,    UADATPG_FORCE_24_HOUR_CYCLE },
+    { NULL,                                 (RemapTesttype)0,          0                           }
+};
+
+static const char * remapResults_root[] = {
+    "HH:mm:ss zzzz",  // full
+    "HH:mm:ss zzzz",  //   force24
+    "h:mm:ss a zzzz", //   force12
+    "HH:mm:ss z",     // long
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+    "HH:mm:ss",       // medium
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "HH:mm",          // short
+    "HH:mm",          //   force24
+    "h:mm a",         //   force12
+    "y MMMM d, EEEE HH:mm:ss z",  // long_df
+    "y MMMM d, EEEE HH:mm:ss z",  //   force24
+    "y MMMM d, EEEE h:mm:ss a z", //   force12
+    "y-MM-dd HH:mm",  // short_ds
+    "y-MM-dd HH:mm",  //   force24
+    "y-MM-dd h:mm a", //   force12
+
+    "HH:mm:ss",       // jmmss
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "HH:mm:ss",       // jjmmss
+    "HH:mm:ss",       //   force24
+    "HH:mm:ss",       //   force24 | match hour field length
+    "h:mm:ss a",      //   force12
+    "hh:mm:ss a",     //   force12 | match hour field length
+    "HH:mm",          // Jmm
+    "HH:mm",          //   force24
+    "hh:mm",          //   force12
+    "HH:mm:ss v",     // jmsv
+    "HH:mm:ss v",     //   force24
+    "h:mm:ss a v",    //   force12
+    "HH:mm:ss z",     // jmsz
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "HH:mm:ss",                           //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "HH:mm:ss d MMM y",                   //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "h:mm:ss a",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "h:mm:ss a d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+    NULL
+};
+
+static const char * remapResults_en[] = {
+    "h:mm:ss a zzzz", // full
+    "HH:mm:ss zzzz",  //   force24
+    "h:mm:ss a zzzz", //   force12
+    "h:mm:ss a z",    // long
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+    "h:mm:ss a",      // medium
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "h:mm a",         // short
+    "HH:mm",          //   force24
+    "h:mm a",         //   force12
+    "EEEE, MMMM d, y 'at' h:mm:ss a z",   // long_df
+    "EEEE, MMMM d, y 'at' HH:mm:ss z",    //   force24
+    "EEEE, MMMM d, y 'at' h:mm:ss a z",   //   force12
+    "M/d/yy, h:mm a", // short_ds
+    "M/d/yy, HH:mm",  //   force24
+    "M/d/yy, h:mm a", //   force12
+
+    "h:mm:ss a",      // jmmss
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "h:mm:ss a",      // jjmmss
+    "HH:mm:ss",       //   force24
+    "HH:mm:ss",       //   force24 | match hour field length
+    "h:mm:ss a",      //   force12
+    "hh:mm:ss a",     //   force12 | match hour field length
+    "hh:mm",          // Jmm
+    "HH:mm",          //   force24
+    "hh:mm",          //   force12
+    "h:mm:ss a v",    // jmsv
+    "HH:mm:ss v",     //   force24
+    "h:mm:ss a v",    //   force12
+    "h:mm:ss a z",    // jmsz
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "HH:mm:ss",                           //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "HH:mm:ss d MMM y",                   //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "h:mm:ss a",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "h:mm:ss a d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+    NULL
+};
+
+static const char * remapResults_ja[] = {
+    "H\\u6642mm\\u5206ss\\u79D2 zzzz",    // full
+    "H\\u6642mm\\u5206ss\\u79D2 zzzz",    //   force24
+    "aK:mm:ss zzzz",                      //   force12
+    "H:mm:ss z",     // long
+    "H:mm:ss z",     //   force24
+    "aK:mm:ss z",    //   force12
+    "H:mm:ss",       // medium
+    "H:mm:ss",       //   force24
+    "aK:mm:ss",      //   force12
+    "H:mm",          // short
+    "H:mm",          //   force24
+    "aK:mm",         //   force12
+    "y\\u5E74M\\u6708d\\u65E5EEEE H:mm:ss z",  // long_df
+    "y\\u5E74M\\u6708d\\u65E5EEEE H:mm:ss z",  //   force24
+    "y\\u5E74M\\u6708d\\u65E5EEEE aK:mm:ss z", //   force12
+    "y/MM/dd H:mm",  // short_ds
+    "y/MM/dd H:mm",  //   force24
+    "y/MM/dd aK:mm", //   force12
+
+    "H:mm:ss",       // jmmss
+    "H:mm:ss",       //   force24
+    "aK:mm:ss",      //   force12
+    "H:mm:ss",       // jjmmss
+    "H:mm:ss",       //   force24
+    "HH:mm:ss",      //   force24 | match hour field length
+    "aK:mm:ss",      //   force12
+    "aKK:mm:ss",     //   force12 | match hour field length
+    "H:mm",          // Jmm
+    "H:mm",          //   force24
+    "h:mm",          //   force12
+    "H:mm:ss v",     // jmsv
+    "H:mm:ss v",     //   force24
+    "aK:mm:ss v",    //   force12
+    "H:mm:ss z",     // jmsz
+    "H:mm:ss z",     //   force24
+    "aK:mm:ss z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "H:mm:ss",                            //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' H:mm:ss",         //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "aK:mm:ss",                           // "H:mm:ss"
+    "H:mm:ss",                            //
+    "aK:mm:ss d MMM y",                   // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' aK:mm:ss 'hrs'",  // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' aK'h'mm'm'ss",    // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+    NULL
+};
+
+static const char * remapResults_ko[] = {
+    "a h\\uC2DC m\\uBD84 s\\uCD08 zzzz", // full
+    "H\\uC2DC m\\uBD84 s\\uCD08 zzzz",   //   force24
+    "a h\\uC2DC m\\uBD84 s\\uCD08 zzzz", //   force12
+    "a h\\uC2DC m\\uBD84 s\\uCD08 z",    // long
+    "H\\uC2DC m\\uBD84 s\\uCD08 z",      //   force24
+    "a h\\uC2DC m\\uBD84 s\\uCD08 z",    //   force12
+    "a h:mm:ss",                         // medium
+    "HH:mm:ss",                          //   force24
+    "a h:mm:ss",                         //   force12
+    "a h:mm",                            // short
+    "HH:mm",                             //   force24
+    "a h:mm",                            //   force12
+    "y\\uB144 M\\uC6D4 d\\uC77C EEEE a h\\uC2DC m\\uBD84 s\\uCD08 z",    // long_df
+    "y\\uB144 M\\uC6D4 d\\uC77C EEEE H\\uC2DC m\\uBD84 s\\uCD08 z",      //   force24
+    "y\\uB144 M\\uC6D4 d\\uC77C EEEE a h\\uC2DC m\\uBD84 s\\uCD08 z",    //   force12
+    "y. M. d. a h:mm",                   // short_ds
+    "y. M. d. HH:mm",                    //   force24
+    "y. M. d. a h:mm",                   //   force12
+
+    "a h:mm:ss",  // jmmss
+    "HH:mm:ss",   //   force24
+    "a h:mm:ss",  //   force12
+    "a h:mm:ss",  // jjmmss
+    "HH:mm:ss",   //   force24
+    "HH:mm:ss",   //   force24 | match hour field length
+    "a h:mm:ss",  //   force12
+    "a hh:mm:ss", //   force12 | match hour field length
+    "hh:mm",      // Jmm
+    "HH:mm",      //   force24
+    "hh:mm",      //   force12
+    "a h:mm:ss v",                        // jmsv
+    "H\\uC2DC m\\uBD84 s\\uCD08 v",       //   force24
+    "a h:mm:ss v",                        //   force12
+    "a h\\uC2DC m\\uBD84 s\\uCD08 z",     // jmsz
+    "H\\uC2DC m\\uBD84 s\\uCD08 z",       //   force24
+    "a h\\uC2DC m\\uBD84 s\\uCD08 z",     //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "HH:mm:ss",                           //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "HH:mm:ss d MMM y",                   //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "a h:mm:ss",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "a h:mm:ss d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' a h:mm:ss 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' a h'h'mm'm'ss",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+    NULL
+};
+
+static const char * remapResults_th[] = {
+    "H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 zzzz",  // full
+    "H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 zzzz",  //   force24
+    "h:mm:ss a zzzz",                                                                                                                   //   force12
+    "H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 z",     // long
+    "H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 z",     //   force24
+    "h:mm:ss a z",                                                                                                                      //   force12
+    "HH:mm:ss",       // medium
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "HH:mm",          // short
+    "HH:mm",          //   force24
+    "h:mm a",         //   force12
+    "EEEE\\u0E17\\u0E35\\u0E48 d MMMM G y H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 z", // long_df
+    "EEEE\\u0E17\\u0E35\\u0E48 d MMMM G y H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 z", //   force24
+    "EEEE\\u0E17\\u0E35\\u0E48 d MMMM G y h:mm:ss a z",                                                                                                                  //   force12
+    "d/M/yy HH:mm",   // short_ds
+    "d/M/yy HH:mm",   //   force24
+    "d/M/yy h:mm a",  //   force12
+
+    "HH:mm:ss",       // jmmss
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "HH:mm:ss",       // jjmmss
+    "HH:mm:ss",       //   force24
+    "HH:mm:ss",       //   force24 | match hour field length
+    "h:mm:ss a",      //   force12
+    "hh:mm:ss a",     //   force12 | match hour field length
+    "HH:mm",          // Jmm
+    "HH:mm",          //   force24
+    "hh:mm",          //   force12
+    "H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 v",     // jmsv
+    "H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 v",     //   force24
+    "h:mm:ss a v",                                                                                                                      //   force12
+    "H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 z",     // jmsz
+    "H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 z",     //   force24
+    "h:mm:ss a z",                                                                                                                      //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "HH:mm:ss",                           //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "HH:mm:ss d MMM y",                   //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "h:mm:ss a",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "h:mm:ss a d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+    NULL
+};
+
+static const char * remapResults_hi[] = {
+    "a h:mm:ss zzzz", // full
+    "HH:mm:ss zzzz",  //   force24
+    "a h:mm:ss zzzz", //   force12
+    "a h:mm:ss z",    // long
+    "HH:mm:ss z",     //   force24
+    "a h:mm:ss z",    //   force12
+    "a h:mm:ss",      // medium
+    "HH:mm:ss",       //   force24
+    "a h:mm:ss",      //   force12
+    "a h:mm",         // short
+    "HH:mm",          //   force24
+    "a h:mm",         //   force12
+    "EEEE, d MMMM y, a h:mm:ss z",    // long_df
+    "EEEE, d MMMM y, HH:mm:ss z",     //   force24
+    "EEEE, d MMMM y, a h:mm:ss z",    //   force12
+    "d/M/yy, a h:mm", // short_ds
+    "d/M/yy, HH:mm",  //   force24
+    "d/M/yy, a h:mm", //   force12
+
+    "a h:mm:ss",      // jmmss
+    "HH:mm:ss",       //   force24
+    "a h:mm:ss",      //   force12
+    "a h:mm:ss",      // jjmmss
+    "HH:mm:ss",       //   force24
+    "HH:mm:ss",       //   force24 | match hour field length
+    "a h:mm:ss",      //   force12
+    "a hh:mm:ss",     //   force12 | match hour field length
+    "hh:mm",          // Jmm
+    "HH:mm",          //   force24
+    "hh:mm",          //   force12
+    "a h:mm:ss v",    // jmsv
+    "HH:mm:ss v",     //   force24
+    "a h:mm:ss v",    //   force12
+    "a h:mm:ss z",    // jmsz
+    "HH:mm:ss z",     //   force24
+    "a h:mm:ss z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "HH:mm:ss",                           //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "HH:mm:ss d MMM y",                   //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "a h:mm:ss",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "a h:mm:ss d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' a h:mm:ss 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' a h'h'mm'm'ss",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+    NULL
+};
+
+typedef struct {
+    const char * locale;
+    const char ** resultsPtr;
+} RemapPatternLocaleResults;
+
+static const RemapPatternLocaleResults remapLocResults[] = {
+    { "root",   remapResults_root },
+    { "en",     remapResults_en   },
+    { "ja",     remapResults_ja   },
+    { "ko",     remapResults_ko   },
+    { "th",     remapResults_th   },
+    { "hi",     remapResults_hi   },
+    { NULL,     NULL }
+};
+
+enum { kUBufRemapMax = 64, kBBufRemapMax = 128 };
+
+static void TestRemapPatternWithOpts(void) { /* Apple-specific */
+    const RemapPatternLocaleResults * locResPtr;
+    for (locResPtr = remapLocResults; locResPtr->locale != NULL; locResPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        UDateTimePatternGenerator* dtpg = udatpg_open(locResPtr->locale, &status);
+        if ( U_FAILURE(status) ) {
+            log_data_err("udatpg_open fails for locale %s, status %s (Are you missing data?)\n", locResPtr->locale, u_errorName(status));
+        } else {
+            const RemapPatternTestItem * testItemPtr = remapPatItems;
+            const char ** expResultsPtr = locResPtr->resultsPtr;
+            for (; testItemPtr->pattern != NULL && *expResultsPtr != NULL; testItemPtr++, expResultsPtr++) {
+                UChar uskel[kUBufRemapMax];
+                UChar upatn[kUBufRemapMax];
+                UChar uget[kUBufRemapMax];
+                UChar uexp[kUBufRemapMax];
+                int32_t uelen, ulen = 0;
+                
+                status = U_ZERO_ERROR;
+                if (testItemPtr->testtype >= 0) {
+                    UDateFormatStyle timeStyle = (UDateFormatStyle)((int32_t)testItemPtr->testtype & 0x03);
+                    UDateFormatStyle dateStyle = (UDateFormatStyle)((((int32_t)testItemPtr->testtype >> 2) & 0x07) - 1);
+                    UDateFormat* dfmt = udat_open(timeStyle, dateStyle, locResPtr->locale, NULL, 0, NULL, 0, &status);
+                    if ( U_FAILURE(status) ) {
+                        log_data_err("udat_open fails for locale %s, status %s (Are you missing data?)\n", locResPtr->locale, u_errorName(status));
+                        continue;
+                    } else {
+                        ulen = udat_toPattern(dfmt, FALSE, upatn, kUBufRemapMax, &status);
+                        udat_close(dfmt);
+                        if ( U_FAILURE(status) ) {
+                            log_err("udat_toPattern fails for locale %s, status %s\n", locResPtr->locale, u_errorName(status));
+                            continue;
+                        }
+                    }
+                } else if (testItemPtr->testtype == REMAP_TESTTYPE_SKELETON) {
+                    u_strFromUTF8(uskel, kUBufRemapMax, &ulen, testItemPtr->pattern, -1, &status);
+                    ulen = udatpg_getBestPatternWithOptions(dtpg, uskel, ulen, (UDateTimePatternMatchOptions)testItemPtr->options, upatn, kUBufRemapMax, &status);
+                    if ( U_FAILURE(status) ) {
+                        log_err("udatpg_getBestPatternWithOptions fails for locale %s, skeleton \"%s\": status %s\n", locResPtr->locale, testItemPtr->pattern, u_errorName(status));
+                        continue;
+                    }
+                } else {
+                    ulen = u_unescape(testItemPtr->pattern, upatn, kUBufRemapMax);
+                }
+                uelen = u_unescape(*expResultsPtr, uexp, kUBufRemapMax);
+                ulen = uadatpg_remapPatternWithOptions(dtpg, upatn, ulen, (UDateTimePatternMatchOptions)testItemPtr->options, uget, kUBufRemapMax, &status);
+                if ( U_FAILURE(status) ) {
+                    log_err("uadatpg_remapPatternWithOptions fails for locale %s pattern \"%s\" opts %08X: status %s\n",
+                            locResPtr->locale, testItemPtr->pattern, testItemPtr->options, u_errorName(status));
+                } else if (uelen != ulen || u_strncmp(uget, uexp, ulen) != 0) {
+                    char bebuf[kBBufRemapMax];
+                    char bbuf[kBBufRemapMax];
+                    UErrorCode tempStatus = U_ZERO_ERROR;
+                    u_strToUTF8(bebuf, kBBufRemapMax, NULL, uexp, uelen, &tempStatus);
+                    u_strToUTF8(bbuf, kBBufRemapMax, NULL, uget, ulen, &tempStatus);
+                    log_err("uadatpg_remapPatternWithOptions for locale %s pattern \"%s\" opts %08X: expect \"%s\", get \"%s\"\n",
+                            locResPtr->locale, testItemPtr->pattern, testItemPtr->options, bebuf, bbuf);
+                }
+            }
+            udatpg_close(dtpg);
         }
     }
 }

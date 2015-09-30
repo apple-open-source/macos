@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,7 +65,9 @@ enum Type {
     ArrayStorage,
     SlowPutArrayStorage,
     
-    Arguments,
+    DirectArguments,
+    ScopedArguments,
+    
     Int8Array,
     Int16Array,
     Int32Array,
@@ -87,14 +89,14 @@ enum Class {
 
 enum Speculation {
     SaneChain, // In bounds and the array prototype chain is still intact, i.e. loading a hole doesn't require special treatment.
+    
     InBounds, // In bounds and not loading a hole.
     ToHole, // Potentially storing to a hole.
     OutOfBounds // Out-of-bounds access and anything can happen.
 };
 enum Conversion {
     AsIs,
-    Convert,
-    RageConvert
+    Convert
 };
 } // namespace Array
 
@@ -220,9 +222,9 @@ public:
         return ArrayMode(type, arrayClass(), speculation(), conversion);
     }
     
-    ArrayMode refine(Graph&, Node*, SpeculatedType base, SpeculatedType index, SpeculatedType value = SpecNone, NodeFlags = 0) const;
+    ArrayMode refine(Graph&, Node*, SpeculatedType base, SpeculatedType index, SpeculatedType value = SpecNone) const;
     
-    bool alreadyChecked(Graph&, Node*, AbstractValue&) const;
+    bool alreadyChecked(Graph&, Node*, const AbstractValue&) const;
     
     void dump(PrintStream&) const;
     
@@ -294,7 +296,8 @@ public:
         case Array::Unprofiled:
         case Array::ForceExit:
         case Array::Generic:
-        case Array::Arguments:
+        case Array::DirectArguments:
+        case Array::ScopedArguments:
             return false;
         default:
             return true;
@@ -320,11 +323,9 @@ public:
     {
         switch (type()) {
         case Array::String:
+        case Array::DirectArguments:
+        case Array::ScopedArguments:
             return ArrayMode(Array::Generic);
-#if USE(JSVALUE32_64)
-        case Array::Arguments:
-            return ArrayMode(Array::Generic);
-#endif
         default:
             return *this;
         }
@@ -469,7 +470,7 @@ private:
         return arrayMode1 | arrayMode2;
     }
 
-    bool alreadyChecked(Graph&, Node*, AbstractValue&, IndexingType shape) const;
+    bool alreadyChecked(Graph&, Node*, const AbstractValue&, IndexingType shape) const;
     
     union {
         struct {

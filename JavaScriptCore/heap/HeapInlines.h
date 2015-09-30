@@ -29,6 +29,8 @@
 #include "Heap.h"
 #include "JSCell.h"
 #include "Structure.h"
+#include <type_traits>
+#include <wtf/Assertions.h>
 
 namespace JSC {
 
@@ -73,7 +75,6 @@ inline bool Heap::isRemembered(const void* ptr)
     const JSCell* cell = static_cast<const JSCell*>(ptr);
     ASSERT(cell);
     ASSERT(!Options::enableConcurrentJIT() || !isCompilationThread());
-    ASSERT(MarkedBlock::blockFor(cell)->isRemembered(cell) == cell->isRemembered());
     return cell->isRemembered();
 }
 
@@ -152,10 +153,39 @@ inline void Heap::writeBarrier(const JSCell* from)
 #endif
 }
 
-inline void Heap::reportExtraMemoryCost(size_t cost)
+inline void Heap::reportExtraMemoryAllocated(size_t size)
 {
-    if (cost > minExtraCost) 
-        reportExtraMemoryCostSlowCase(cost);
+    if (size > minExtraMemory) 
+        reportExtraMemoryAllocatedSlowCase(size);
+}
+
+inline void Heap::reportExtraMemoryVisited(JSCell* owner, size_t size)
+{
+#if ENABLE(GGC)
+    // We don't want to double-count the extra memory that was reported in previous collections.
+    if (operationInProgress() == EdenCollection && Heap::isRemembered(owner))
+        return;
+#else
+    UNUSED_PARAM(owner);
+#endif
+
+    size_t* counter = &m_extraMemorySize;
+    
+#if ENABLE(COMPARE_AND_SWAP)
+    for (;;) {
+        size_t oldSize = *counter;
+        if (WTF::weakCompareAndSwapSize(counter, oldSize, oldSize + size))
+            return;
+    }
+#else
+    (*counter) += size;
+#endif
+}
+
+inline void Heap::deprecatedReportExtraMemory(size_t size)
+{
+    if (size > minExtraMemory) 
+        deprecatedReportExtraMemorySlowCase(size);
 }
 
 template<typename Functor> inline typename Functor::ReturnType Heap::forEachProtectedCell(Functor& functor)
@@ -178,22 +208,13 @@ template<typename Functor> inline void Heap::forEachCodeBlock(Functor& functor)
     return m_codeBlocks.iterate<Functor>(functor);
 }
 
-inline void* Heap::allocateWithNormalDestructor(size_t bytes)
+inline void* Heap::allocateWithDestructor(size_t bytes)
 {
 #if ENABLE(ALLOCATION_LOGGING)
     dataLogF("JSC GC allocating %lu bytes with normal destructor.\n", bytes);
 #endif
     ASSERT(isValidAllocation(bytes));
-    return m_objectSpace.allocateWithNormalDestructor(bytes);
-}
-
-inline void* Heap::allocateWithImmortalStructureDestructor(size_t bytes)
-{
-#if ENABLE(ALLOCATION_LOGGING)
-    dataLogF("JSC GC allocating %lu bytes with immortal structure destructor.\n", bytes);
-#endif
-    ASSERT(isValidAllocation(bytes));
-    return m_objectSpace.allocateWithImmortalStructureDestructor(bytes);
+    return m_objectSpace.allocateWithDestructor(bytes);
 }
 
 inline void* Heap::allocateWithoutDestructor(size_t bytes)
@@ -203,6 +224,39 @@ inline void* Heap::allocateWithoutDestructor(size_t bytes)
 #endif
     ASSERT(isValidAllocation(bytes));
     return m_objectSpace.allocateWithoutDestructor(bytes);
+}
+
+template<typename ClassType>
+void* Heap::allocateObjectOfType(size_t bytes)
+{
+    // JSCell::classInfo() expects objects allocated with normal destructor to derive from JSDestructibleObject.
+    ASSERT((!ClassType::needsDestruction || (ClassType::StructureFlags & StructureIsImmortal) || std::is_convertible<ClassType, JSDestructibleObject>::value));
+
+    if (ClassType::needsDestruction)
+        return allocateWithDestructor(bytes);
+    return allocateWithoutDestructor(bytes);
+}
+
+template<typename ClassType>
+MarkedSpace::Subspace& Heap::subspaceForObjectOfType()
+{
+    // JSCell::classInfo() expects objects allocated with normal destructor to derive from JSDestructibleObject.
+    ASSERT((!ClassType::needsDestruction || (ClassType::StructureFlags & StructureIsImmortal) || std::is_convertible<ClassType, JSDestructibleObject>::value));
+    
+    if (ClassType::needsDestruction)
+        return subspaceForObjectDestructor();
+    return subspaceForObjectWithoutDestructor();
+}
+
+template<typename ClassType>
+MarkedAllocator& Heap::allocatorForObjectOfType(size_t bytes)
+{
+    // JSCell::classInfo() expects objects allocated with normal destructor to derive from JSDestructibleObject.
+    ASSERT((!ClassType::needsDestruction || (ClassType::StructureFlags & StructureIsImmortal) || std::is_convertible<ClassType, JSDestructibleObject>::value));
+    
+    if (ClassType::needsDestruction)
+        return allocatorForObjectWithDestructor(bytes);
+    return allocatorForObjectWithoutDestructor(bytes);
 }
 
 inline CheckedBoolean Heap::tryAllocateStorage(JSCell* intendedOwner, size_t bytes, void** outPtr)
@@ -240,16 +294,11 @@ inline void Heap::ascribeOwner(JSCell* intendedOwner, void* storage)
 #endif
 }
 
-inline BlockAllocator& Heap::blockAllocator()
-{
-    return m_blockAllocator;
-}
-
 #if USE(CF)
 template <typename T>
 inline void Heap::releaseSoon(RetainPtr<T>&& object)
 {
-    m_objectSpace.releaseSoon(WTF::move(object));
+    m_delayedReleaseObjects.append(WTF::move(object));
 }
 #endif
 
@@ -286,8 +335,18 @@ inline void Heap::decrementDeferralDepthAndGCIfNeeded()
 inline HashSet<MarkedArgumentBuffer*>& Heap::markListSet()
 {
     if (!m_markListSet)
-        m_markListSet = adoptPtr(new HashSet<MarkedArgumentBuffer*>); 
+        m_markListSet = std::make_unique<HashSet<MarkedArgumentBuffer*>>();
     return *m_markListSet;
+}
+
+inline void Heap::registerWeakGCMap(void* weakGCMap, std::function<void()> pruningCallback)
+{
+    m_weakGCMaps.add(weakGCMap, WTF::move(pruningCallback));
+}
+
+inline void Heap::unregisterWeakGCMap(void* weakGCMap)
+{
+    m_weakGCMaps.remove(weakGCMap);
 }
     
 } // namespace JSC

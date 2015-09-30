@@ -11,6 +11,7 @@
 #include "testbyteBuffer.h"
 #include "testmore.h"
 #include "capabilities.h"
+#include "ccMemory.h"
 
 
 CCCryptorStatus
@@ -251,7 +252,9 @@ CCCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions options, c
         diag("FAIL Decrypt Output %s\nDecrypt Expect %s\n", bytesToHexString(bb), bytesToHexString(pt));
         return 1;
     }
-    
+
+    free(bb);
+
     // if(ct->bytes && iv->bytes) diag("PASS Test for length %d\n", (int) pt->len);
     // if(ct && (iv->bytes == NULL)) diag("PASS NULL IV Test for length %d\n", (int) pt->len);
 
@@ -314,7 +317,9 @@ CCMultiCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions optio
         diag("FAIL Decrypt Output %s\nDecrypt Expect %s\n", bytesToHexString(bb), bytesToHexString(pt));
         return 1;
     }
-    
+
+    free(bb);
+
     // if(ct && iv->bytes) diag("PASS Test for length %d\n", (int) pt->len);
     // if(ct && (iv->bytes == NULL)) diag("PASS NULL IV Test for length %d\n", (int) pt->len);
 
@@ -378,7 +383,9 @@ CCModeTestCase(char *keyStr, char *ivStr, CCMode mode, CCAlgorithm alg, CCPaddin
         diag("FAIL Decrypt Output %s\nDecrypt Expect %s\n", bytesToHexString(bb), bytesToHexString(pt));
         return 1;
     }
-    
+
+    free(bb);
+
     // if(ct->bytes && iv->bytes) diag("PASS Test for length %d\n", (int) pt->len);
     // if(ct->bytes && (iv->bytes == NULL)) diag("PASS NULL IV Test for length %d\n", (int) pt->len);
 
@@ -446,6 +453,8 @@ CCMultiModeTestCase(char *keyStr, char *ivStr, CCMode mode, CCAlgorithm alg, CCP
         diag("FAIL Decrypt Output %s\nDecrypt Expect %s\n", bytesToHexString(bb), bytesToHexString(pt));
         return 1;
     }
+
+    free(bb);
     
     // if(ct && iv->bytes) diag("PASS Test for length %d\n", (int) pt->len);
     // if(ct && (iv->bytes == NULL)) diag("PASS NULL IV Test for length %d\n", (int) pt->len);
@@ -559,7 +568,7 @@ CCCryptorGCMTestCase(char *keyStr, char *ivStr, char *aDataStr, char *tagStr, CC
     dataLen = pt->len;
     
     tagDataOutlen = tag->len;
-    memset(tagDataOut, 0, 16);
+    CC_XZEROMEM(tagDataOut, 16);
     if((retval = CCCryptorGCM(kCCEncrypt, alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, pt->bytes, dataLen, cipherDataOut, tagDataOut, &tagDataOutlen)) != kCCSuccess) {
     	diag("Encrypt Failed\n");
         return 1;
@@ -587,7 +596,7 @@ CCCryptorGCMTestCase(char *keyStr, char *ivStr, char *aDataStr, char *tagStr, CC
 #endif
     
     tagDataOutlen = tag->len;
-    memset(tagDataOut, 0, 16);
+    CC_XZEROMEM(tagDataOut, 16);
     if((retval = CCCryptorGCM(kCCDecrypt, alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, cipherDataOut, dataLen, plainDataOut, tagDataOut, &tagDataOutlen)) != kCCSuccess) {
     	diag("Decrypt Failed\n");
         return 1;
@@ -644,7 +653,7 @@ CCCryptorGCMDiscreetTestCase(char *keyStr, char *ivStr, char *aDataStr, char *ta
     dataLen = pt->len;
     
     tagDataOutlen = tag->len;
-    memset(tagDataOut, 0, 4096);
+    CC_XZEROMEM(tagDataOut, 4096);
     if((retval = CCCryptorGCMDiscreet(kCCEncrypt, alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, pt->bytes, dataLen, cipherDataOut, tagDataOut, &tagDataOutlen)) != kCCSuccess) {
     	diag("Encrypt Failed\n");
         return 1;
@@ -673,7 +682,7 @@ CCCryptorGCMDiscreetTestCase(char *keyStr, char *ivStr, char *aDataStr, char *ta
 #endif
     
     tagDataOutlen = tag->len;
-    memset(tagDataOut, 0, 4096);
+    CC_XZEROMEM(tagDataOut, 4096);
     if((retval = CCCryptorGCMDiscreet(kCCDecrypt, alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, cipherDataOut, dataLen, plainDataOut, tagDataOut, &tagDataOutlen)) != kCCSuccess) {
     	diag("Decrypt Failed\n");
         return 1;

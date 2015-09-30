@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,6 +100,8 @@ typedef struct eapolClient_s {
 
     if_name_t			if_name;
     CFStringRef 		if_name_cf;
+    boolean_t			is_wifi;
+
     CFStringRef			notification_key;
     CFStringRef			force_renew_key;
     struct {
@@ -126,7 +128,8 @@ typedef struct eapolClient_s {
     CFDictionaryRef		loginwindow_config;
     CFSocketRef			eapol_sock;
     int				eapol_fd;
-    bool			packet_received;
+#define BAD_IDENTIFIER		(-1)
+    int				packet_identifier;
     struct ether_addr		authenticator_mac;
 
     bool			user_cancelled;	
@@ -359,7 +362,7 @@ eapolClientLookupSession(mach_port_t session_port)
 }
 
 eapolClientRef
-eapolClientAdd(const char * if_name)
+eapolClientAdd(const char * if_name, boolean_t is_wifi)
 {
     eapolClientRef client;
 
@@ -371,9 +374,11 @@ eapolClientAdd(const char * if_name)
     strlcpy(client->if_name, if_name, sizeof(client->if_name));
     client->if_name_cf = CFStringCreateWithCString(NULL, client->if_name, 
 						   kCFStringEncodingASCII);
+    client->is_wifi = is_wifi;
     client->pid = -1;
 #if ! TARGET_OS_EMBEDDED
     client->eapol_fd = -1;
+    client->packet_identifier = BAD_IDENTIFIER;
 #endif /* ! TARGET_OS_EMBEDDED */
     LIST_INSERT_HEAD(S_clientHead_p, client, link);
     return (client);
@@ -403,6 +408,9 @@ eapolClientInvalidate(eapolClientRef client)
     client->notification_sent = FALSE;
     client->console_user = FALSE;
     client->user_input_provided = FALSE;
+#if ! TARGET_OS_EMBEDDED
+    client->packet_identifier = BAD_IDENTIFIER;
+#endif /* ! TARGET_OS_EMBEDDED */
     my_CFRelease(&client->notification_key);
     my_CFRelease(&client->force_renew_key);
     if (client->notify_port != MACH_PORT_NULL) {
@@ -606,8 +614,8 @@ monitoring_callback(CFSocketRef s, CFSocketCallBackType type,
 
     bcopy(eh_p->ether_shost, &client->authenticator_mac,
 	  sizeof(client->authenticator_mac));
-    client->packet_received = TRUE;
-    EAPLOG(LOG_DEBUG, "EAPOLController: %s requires 802.1X", client->if_name);
+    client->packet_identifier = req_p->identifier;
+    EAPLOG(LOG_INFO, "EAPOLController: %s requires 802.1X", client->if_name);
     if (S_store != NULL) {
 	SCDynamicStoreNotifyValue(S_store, 
 				  kEAPOLControlAutoDetectInformationNotifyKey);
@@ -632,8 +640,7 @@ eapolClientStopMonitoring(eapolClientRef client)
 	close(client->eapol_fd);
     }
     client->eapol_fd = -1;
-    client->packet_received = FALSE;
-    EAPLOG(LOG_DEBUG, "EAPOLController: no longer monitoring %s",
+    EAPLOG(LOG_INFO, "EAPOLController: no longer monitoring %s",
 	   client->if_name);
     return;
 }
@@ -645,11 +652,11 @@ eapolClientStartMonitoring(eapolClientRef client)
     CFRunLoopSourceRef	rls;
 
     if (client->eapol_fd != -1) {
-	EAPLOG(LOG_DEBUG, "EAPOLController: already monitoring %s",
+	EAPLOG(LOG_INFO, "EAPOLController: already monitoring %s",
 	       client->if_name);
 	return;
     }
-    EAPLOG(LOG_DEBUG,
+    EAPLOG(LOG_INFO,
 	   "EAPOLController: starting monitoring on %s", client->if_name);
     client->eapol_fd = eapol_socket(client->if_name, FALSE);
     if (client->eapol_fd < 0) {
@@ -806,9 +813,8 @@ eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid,
 					   NULL,		/* 4 */
 					   NULL,		/* 5 */
 					   NULL,		/* 6 */
-					   NULL,		/* 7 */
 					   NULL };
-    exec_context_t	ec;
+    exec_context_t		ec;
     char			gid_str[32];
     int				status = 0;
     char			uid_str[32];
@@ -1012,7 +1018,7 @@ ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
 	    status = ENXIO;
 	    goto done;
 	}
-	client = eapolClientAdd(if_name);
+	client = eapolClientAdd(if_name, (ifm_type == IFM_IEEE80211));
 	if (client == NULL) {
 	    status = ENOMEM;
 	    goto done;
@@ -1263,8 +1269,20 @@ ControllerStartSystem(if_name_t if_name, uid_t uid, gid_t gid,
 {
     eapolClientRef 	client;
     CFDictionaryRef	dict = NULL;
+    int			ifm_type;
     CFDictionaryRef	itemID_dict = NULL;
     int			status = 0;
+
+    /* make sure the interface is a type we support */
+    ifm_type = get_ifm_type(if_name);
+    switch (ifm_type) {
+    case IFM_ETHER:
+    case IFM_IEEE80211:
+	break;
+    default:
+	status = ENXIO;
+	goto done;
+    }
 
     /* make sure that 802.1X isn't already running on the interface */
     client = eapolClientLookupInterface(if_name);
@@ -1311,7 +1329,7 @@ ControllerStartSystem(if_name_t if_name, uid_t uid, gid_t gid,
 
     /* if there's no client entry yet, create it */
     if (client == NULL) {
-	client = eapolClientAdd(if_name);
+	client = eapolClientAdd(if_name, (ifm_type == IFM_IEEE80211));
 	if (client == NULL) {
 	    status = ENOMEM;
 	    goto done;
@@ -1358,7 +1376,7 @@ ControllerCopyAutoDetectInformation(CFDictionaryRef * info_p)
 
 	if (scan->state != kEAPOLControlStateIdle
 	    || scan->eapol_fd == -1
-	    || scan->packet_received == FALSE) {
+	    || scan->packet_identifier == BAD_IDENTIFIER) {
 	    continue;
 	}
 	this_dict = CFDictionaryCreateMutable(NULL, 0,
@@ -1454,6 +1472,17 @@ ControllerClientAttach(pid_t pid, if_name_t if_name,
 	CFDictionarySetValue(dict, kEAPOLClientControlMode,
 			     mode_cf);
 	CFRelease(mode_cf);
+#if ! TARGET_OS_EMBEDDED
+	/* provide the identifier from the EAP Request Identity packet */
+	if (client->packet_identifier != BAD_IDENTIFIER) {
+	    CFNumberRef			packet_id;
+	    
+	    packet_id = make_number(client->packet_identifier);
+	    CFDictionarySetValue(dict, kEAPOLClientControlPacketIdentifier,
+				 packet_id);
+	    CFRelease(packet_id);
+	}
+#endif /* ! TARGET_OS_EMBEDDED */
     }
     else {
 	command_cf = make_number(kEAPOLClientControlCommandStop);
@@ -1704,16 +1733,18 @@ copy_interface_list(void)
 
 typedef struct {
     EAPOLClientConfigurationRef cfg;
-    CFMutableArrayRef		configured_iflist;
-    CFRange			configured_iflist_range;
+    CFMutableArrayRef		configured_ethernet;
+    CFRange			configured_ethernet_range;
+    CFMutableArrayRef		configured_wifi;
+    CFRange			configured_wifi_range;
     CFMutableDictionaryRef	system_mode_configurations;
     CFMutableArrayRef		system_mode_iflist;
-} EAPOLEthernetInfo, * EAPOLEthernetInfoRef;
+} EAPOLInterfaceInfo, * EAPOLInterfaceInfoRef;
 
 static void
-EAPOLEthernetInfoProcess(const void * key, const void * value, void * context)
+EAPOLInterfaceInfoProcess(const void * key, const void * value, void * context)
 {
-    EAPOLEthernetInfoRef	info_p = (EAPOLEthernetInfoRef)context;
+    EAPOLInterfaceInfoRef	info_p = (EAPOLInterfaceInfoRef)context;
 
     if (isA_CFDictionary(value) == NULL) {
 	return;
@@ -1762,23 +1793,33 @@ EAPOLEthernetInfoProcess(const void * key, const void * value, void * context)
 			       kCFStringEncodingASCII) == FALSE) {
 	    return;
 	}
-	if (CFArrayContainsValue(info_p->configured_iflist,
-				 info_p->configured_iflist_range, name)) {
-	    return;
-	}
 	ifm_type = get_ifm_type(ifname);
-	if (ifm_type != IFM_ETHER) {
-	    /* ignore non-ethernet */
-	    return;
+	switch (ifm_type) {
+	case IFM_ETHER:
+	    if (CFArrayContainsValue(info_p->configured_ethernet,
+				     info_p->configured_ethernet_range, name)) {
+		return;
+	    }
+	    CFArrayAppendValue(info_p->configured_ethernet, name);
+	    info_p->configured_ethernet_range.length++;
+	    break;
+	case IFM_IEEE80211:
+	    if (CFArrayContainsValue(info_p->configured_wifi,
+				     info_p->configured_wifi_range, name)) {
+		return;
+	    }
+	    CFArrayAppendValue(info_p->configured_wifi, name);
+	    info_p->configured_wifi_range.length++;
+	    break;
+	default:
+	    break;
 	}
-	CFArrayAppendValue(info_p->configured_iflist, name);
-	info_p->configured_iflist_range.length++;
     }
     return;
 }
 
 static void
-EAPOLEthernetInfoInit(EAPOLEthernetInfoRef info_p, boolean_t system_mode)
+EAPOLInterfaceInfoInit(EAPOLInterfaceInfoRef info_p, boolean_t system_mode)
 {
     int					count;
     int					i;
@@ -1811,7 +1852,9 @@ EAPOLEthernetInfoInit(EAPOLEthernetInfoRef info_p, boolean_t system_mode)
     }
 
     /* build list of configured services and System mode configurations */
-    info_p->configured_iflist 
+    info_p->configured_ethernet 
+	= CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    info_p->configured_wifi
 	= CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (system_mode) {
 	info_p->system_mode_configurations
@@ -1821,17 +1864,18 @@ EAPOLEthernetInfoInit(EAPOLEthernetInfoRef info_p, boolean_t system_mode)
 	info_p->system_mode_iflist
 	    = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     }
-    CFDictionaryApplyFunction(store_info, EAPOLEthernetInfoProcess,
+    CFDictionaryApplyFunction(store_info, EAPOLInterfaceInfoProcess,
 			      (void *)info_p);
     CFRelease(store_info);
     return;
 }
 
 static void
-EAPOLEthernetInfoFree(EAPOLEthernetInfoRef info_p)
+EAPOLInterfaceInfoFree(EAPOLInterfaceInfoRef info_p)
 {
     my_CFRelease(&info_p->cfg);
-    my_CFRelease(&info_p->configured_iflist);
+    my_CFRelease(&info_p->configured_ethernet);
+    my_CFRelease(&info_p->configured_wifi);
     my_CFRelease(&info_p->system_mode_configurations);
     my_CFRelease(&info_p->system_mode_iflist);
     return;
@@ -1929,7 +1973,7 @@ update_system_mode_interfaces(CFDictionaryRef system_mode_configurations,
 	    char *	if_name;
 
 	    if_name = my_CFStringToCString(if_name_cf, kCFStringEncodingASCII);
-	    client = eapolClientAdd(if_name);
+	    client = eapolClientAdd(if_name, FALSE);
 	    if (client == NULL) {
 		EAPLOG(LOG_NOTICE, 
 		       "EAPOLController handle_config_changed:"
@@ -1959,20 +2003,33 @@ update_system_mode_interfaces(CFDictionaryRef system_mode_configurations,
 }
 
 static void
-update_monitored_interfaces(CFArrayRef configured_iflist)
+update_ethernet_interfaces(CFArrayRef configured_ethernet)
 {
     int				i;
     CFRange			range;
     eapolClientRef		scan;
 
-    /* stop monitoring any interfaces that are no longer configured */
-    range = CFRangeMake(0, CFArrayGetCount(configured_iflist));
+    /*
+     * stop monitoring/authenticating on any interfaces that are no longer
+     * configured
+     */
+    range = CFRangeMake(0, CFArrayGetCount(configured_ethernet));
     LIST_FOREACH(scan, S_clientHead_p, link) {
-	if (CFArrayContainsValue(configured_iflist,
+	if (scan->is_wifi) {
+	    /* don't handle Wi-Fi interfaces */
+	    continue;
+	}
+	if (CFArrayContainsValue(configured_ethernet,
 				 range,
 				 scan->if_name_cf) == FALSE) {
 	    if (scan->state == kEAPOLControlStateIdle) {
 		eapolClientStopMonitoring(scan);
+	    }
+	    else {
+		EAPLOG(LOG_NOTICE,
+		       "EAPOLController: %s is no longer configured, stopping",
+		       scan->if_name);
+		(void)eapolClientStop(scan);
 	    }
 	}
     }
@@ -1983,7 +2040,7 @@ update_monitored_interfaces(CFArrayRef configured_iflist)
 	CFStringRef		if_name_cf;
 
 	if_name_cf 
-	    = (CFStringRef)CFArrayGetValueAtIndex(configured_iflist, i);
+	    = (CFStringRef)CFArrayGetValueAtIndex(configured_ethernet, i);
 	client = eapolClientLookupInterfaceCF(if_name_cf);
 	if (client == NULL 
 	    || (client->state == kEAPOLControlStateIdle
@@ -1992,7 +2049,7 @@ update_monitored_interfaces(CFArrayRef configured_iflist)
 
 	    if_name = my_CFStringToCString(if_name_cf, kCFStringEncodingASCII);
 	    if (client == NULL) {
-		client = eapolClientAdd(if_name);
+		client = eapolClientAdd(if_name, FALSE);
 		if (client == NULL) {
 		    EAPLOG(LOG_NOTICE, 
 			   "EAPOLController: monitor "
@@ -2009,26 +2066,104 @@ update_monitored_interfaces(CFArrayRef configured_iflist)
 }
 
 static void
+update_wifi_interfaces(CFArrayRef configured_wifi)
+{
+    CFRange			range;
+    eapolClientRef		scan;
+
+    /* stop client on interfaces that are no longer configured */
+    range = CFRangeMake(0, CFArrayGetCount(configured_wifi));
+    LIST_FOREACH(scan, S_clientHead_p, link) {
+	if (!scan->is_wifi) {
+	    /* not a Wi-Fi interface */
+	    continue;
+	}
+	if (scan->state != kEAPOLControlStateIdle
+	    && CFArrayContainsValue(configured_wifi,
+				    range,
+				    scan->if_name_cf) == FALSE) {
+	    EAPLOG(LOG_NOTICE,
+		   "EAPOLController: %s is no longer configured, stopping",
+		   scan->if_name);
+	    (void)eapolClientStop(scan);
+	}
+    }
+    return;
+}
+
+static void
 handle_config_changed(boolean_t start_system_mode)
 {
-    EAPOLEthernetInfo			info;
+    EAPOLInterfaceInfo			info;
 
     if (S_store == NULL) {
 	return;
     }
 
     /* get a snapshot of the configuration information */
-    EAPOLEthernetInfoInit(&info, start_system_mode);
+    EAPOLInterfaceInfoInit(&info, start_system_mode);
 
     if (start_system_mode) {
 	update_system_mode_interfaces(info.system_mode_configurations,
 				      info.system_mode_iflist);
     }
-    update_monitored_interfaces(info.configured_iflist);
+    update_ethernet_interfaces(info.configured_ethernet);
 
-    EAPOLEthernetInfoFree(&info);
+    update_wifi_interfaces(info.configured_wifi);
+
+    EAPOLInterfaceInfoFree(&info);
     return;
 }
+
+#include <net/ndrv.h>
+
+#ifdef SEND_EAPOL_START
+/*
+ * Don't send an EAPOL Start packet on link up to avoid issues
+ * authenticating with Cisco SG-300 (rdar://problem/20579502).
+ */
+
+static const struct ether_addr eapol_multicast = {
+    EAPOL_802_1_X_GROUP_ADDRESS
+};
+
+static void
+eapolClientTransmitStart(eapolClientRef client)
+{
+#define SEND_BUFSIZE	256
+    ALIGNED_BUF(buf, SEND_BUFSIZE, uint32_t);
+    EAPOLPacket *		eapol_p;
+    struct ether_header *	eh_p;
+    struct sockaddr_ndrv 	ndrv;
+    unsigned int		size;
+
+    size = sizeof(*eh_p) + sizeof(*eapol_p);
+    bzero(buf, size);
+    eh_p = (struct ether_header *)buf;
+    eapol_p = (void *)(eh_p + 1);
+
+    /* ethernet uses the multicast address */
+    bcopy(&eapol_multicast, &eh_p->ether_dhost, sizeof(eh_p->ether_dhost));
+    eh_p->ether_type = htons(EAPOL_802_1_X_ETHERTYPE);
+    eapol_p->protocol_version = EAPOL_802_1_X_PROTOCOL_VERSION;
+    eapol_p->packet_type = kEAPOLPacketTypeStart;
+
+    /* the contents of ndrv are ignored */
+    bzero(&ndrv, sizeof(ndrv));
+    ndrv.snd_len = sizeof(ndrv);
+    ndrv.snd_family = AF_NDRV;
+
+    EAPLOG(LOG_DEBUG, "EAPOLController: %s Transmit EAPOL Start",
+	   client->if_name);
+    if (sendto(client->eapol_fd, eh_p, size,
+	       0, (struct sockaddr *)&ndrv, sizeof(ndrv)) < size) {
+	EAPLOG(LOG_NOTICE, "eapolClientTransmitStart: %s sendto failed, %s",
+	       client->if_name, strerror(errno));
+    }
+    return;
+}
+
+#endif /* SEND_EAPOL_START */
 
 static void
 handle_link_changed(CFStringRef if_name)
@@ -2045,12 +2180,17 @@ handle_link_changed(CFStringRef if_name)
 	return;
     }
     link_active = S_if_get_link_active(client->if_name);
-    EAPLOG(LOG_DEBUG, "EAPOLController: %s link %sactive",
+    EAPLOG(LOG_INFO, "EAPOLController: %s link %sactive",
 	   client->if_name,
 	   link_active ? "" : "in");
     if (link_active == FALSE) {
-	client->packet_received = FALSE;
+	client->packet_identifier = BAD_IDENTIFIER;
     }
+#ifdef SEND_EAPOL_START
+    else {
+	eapolClientTransmitStart(client);
+    }
+#endif /* SEND_EAPOL_START */
     return;
 }
 

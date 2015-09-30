@@ -1351,7 +1351,7 @@ bool TargetLowering::SimplifyDemandedBits(SDValue Op,
     // into an AND, as we know the bits will be cleared.
     //    e.g. (X | C1) ^ C2 --> (X | C1) & ~C2 iff (C1&C2) == C2
     // NB: it is okay if more bits are known than are requested
-    if ((NewMask & (KnownZero|KnownOne)) == NewMask) { // all known on one side 
+    if ((NewMask & (KnownZero|KnownOne)) == NewMask) { // all known on one side
       if (KnownOne == KnownOne2) { // set bits are the same on both sides
         EVT VT = Op.getValueType();
         SDValue ANDC = TLO.DAG.getConstant(~KnownOne & NewMask, VT);
@@ -1923,8 +1923,11 @@ TargetLowering::SimplifySetCC(EVT VT, SDValue N0, SDValue N1,
 
   // Ensure that the constant occurs on the RHS, and fold constant
   // comparisons.
-  if (isa<ConstantSDNode>(N0.getNode()))
-    return DAG.getSetCC(dl, VT, N1, N0, ISD::getSetCCSwappedOperands(Cond));
+  ISD::CondCode SwappedCC = ISD::getSetCCSwappedOperands(Cond);
+  if (isa<ConstantSDNode>(N0.getNode()) &&
+      (DCI.isBeforeLegalizeOps() ||
+       isCondCodeLegal(SwappedCC, N0.getValueType())))
+    return DAG.getSetCC(dl, VT, N1, N0, SwappedCC);
 
   if (ConstantSDNode *N1C = dyn_cast<ConstantSDNode>(N1.getNode())) {
     const APInt &C1 = N1C->getAPIntValue();
@@ -2162,7 +2165,9 @@ TargetLowering::SimplifySetCC(EVT VT, SDValue N0, SDValue N1,
         ISD::CondCode CC = cast<CondCodeSDNode>(N0.getOperand(2))->get();
         CC = ISD::getSetCCInverse(CC,
                                   N0.getOperand(0).getValueType().isInteger());
-        return DAG.getSetCC(dl, VT, N0.getOperand(0), N0.getOperand(1), CC);
+        if (DCI.isBeforeLegalizeOps() ||
+            isCondCodeLegal(CC, N0.getOperand(0).getValueType()))
+          return DAG.getSetCC(dl, VT, N0.getOperand(0), N0.getOperand(1), CC);
       }
 
       if ((N0.getOpcode() == ISD::XOR ||
@@ -2240,18 +2245,28 @@ TargetLowering::SimplifySetCC(EVT VT, SDValue N0, SDValue N1,
     // Canonicalize GE/LE comparisons to use GT/LT comparisons.
     if (Cond == ISD::SETGE || Cond == ISD::SETUGE) {
       if (C1 == MinVal) return DAG.getConstant(1, VT);   // X >= MIN --> true
-      // X >= C0 --> X > (C0-1)
-      return DAG.getSetCC(dl, VT, N0,
-                          DAG.getConstant(C1-1, N1.getValueType()),
-                          (Cond == ISD::SETGE) ? ISD::SETGT : ISD::SETUGT);
+      // X >= C0 --> X > (C0 - 1)
+      APInt C = C1 - 1;
+      ISD::CondCode NewCC = (Cond == ISD::SETGE) ? ISD::SETGT : ISD::SETUGT;
+      if ((DCI.isBeforeLegalizeOps() ||
+           isCondCodeLegal(NewCC, VT.getSimpleVT()))) {
+         return DAG.getSetCC(dl, VT, N0,
+                            DAG.getConstant(C, N1.getValueType()),
+                            NewCC);
+      }    
     }
 
     if (Cond == ISD::SETLE || Cond == ISD::SETULE) {
       if (C1 == MaxVal) return DAG.getConstant(1, VT);   // X <= MAX --> true
       // X <= C0 --> X < (C0+1)
-      return DAG.getSetCC(dl, VT, N0,
-                          DAG.getConstant(C1+1, N1.getValueType()),
-                          (Cond == ISD::SETLE) ? ISD::SETLT : ISD::SETULT);
+
+      APInt C = C1 + 1;
+      ISD::CondCode NewCC = (Cond == ISD::SETLE) ? ISD::SETLT : ISD::SETULT;
+      if ((DCI.isBeforeLegalizeOps() || isCondCodeLegal(NewCC, VT.getSimpleVT()))) {
+        return DAG.getSetCC(dl, VT, N0,
+                            DAG.getConstant(C, N1.getValueType()),
+                            NewCC);
+      }
     }
 
     if ((Cond == ISD::SETLT || Cond == ISD::SETULT) && C1 == MinVal)
@@ -2593,16 +2608,22 @@ TargetLowering::SimplifySetCC(EVT VT, SDValue N0, SDValue N1,
       if (N0.getOperand(0) == N1 || N0.getOperand(1) == N1) {
         if (ValueHasExactlyOneBitSet(N1, DAG)) {
           Cond = ISD::getSetCCInverse(Cond, /*isInteger=*/true);
-          SDValue Zero = DAG.getConstant(0, N1.getValueType());
-          return DAG.getSetCC(dl, VT, N0, Zero, Cond);
+          if (DCI.isBeforeLegalizeOps() ||
+              isCondCodeLegal(Cond, N0.getValueType())) {
+            SDValue Zero = DAG.getConstant(0, N1.getValueType());
+            return DAG.getSetCC(dl, VT, N0, Zero, Cond);
+          }
         }
       }
     if (N1.getOpcode() == ISD::AND)
       if (N1.getOperand(0) == N0 || N1.getOperand(1) == N0) {
         if (ValueHasExactlyOneBitSet(N0, DAG)) {
           Cond = ISD::getSetCCInverse(Cond, /*isInteger=*/true);
-          SDValue Zero = DAG.getConstant(0, N0.getValueType());
-          return DAG.getSetCC(dl, VT, N1, Zero, Cond);
+          if (DCI.isBeforeLegalizeOps() ||
+              isCondCodeLegal(Cond, N1.getValueType())) {
+            SDValue Zero = DAG.getConstant(0, N0.getValueType());
+            return DAG.getSetCC(dl, VT, N1, Zero, Cond);
+          }
         }
       }
   }

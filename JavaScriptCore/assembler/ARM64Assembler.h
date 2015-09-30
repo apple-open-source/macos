@@ -624,9 +624,9 @@ public:
                 JumpType m_type : 8;
                 JumpLinkType m_linkType : 8;
                 Condition m_condition : 4;
-                bool m_is64Bit : 1;
                 unsigned m_bitNumber : 6;
-                RegisterID m_compareRegister : 5;
+                RegisterID m_compareRegister : 6;
+                bool m_is64Bit : 1;
             } realTypes;
             struct CopyTypes {
                 uint64_t content[3];
@@ -947,6 +947,7 @@ public:
     {
         ASSERT(!(offset & 0xfff));
         insn(pcRelative(true, offset >> 12, rd));
+        nopCortexA53Fix843419();
     }
 
     template<int datasize, SetFlags setFlags = DontSetFlags>
@@ -1568,6 +1569,7 @@ public:
     ALWAYS_INLINE void madd(RegisterID rd, RegisterID rn, RegisterID rm, RegisterID ra)
     {
         CHECK_DATASIZE();
+        nopCortexA53Fix835769<datasize>();
         insn(dataProcessing3Source(DATASIZE, DataOp_MADD, rm, ra, rn, rd));
     }
 
@@ -1620,6 +1622,7 @@ public:
     ALWAYS_INLINE void msub(RegisterID rd, RegisterID rn, RegisterID rm, RegisterID ra)
     {
         CHECK_DATASIZE();
+        nopCortexA53Fix835769<datasize>();
         insn(dataProcessing3Source(DATASIZE, DataOp_MSUB, rm, ra, rn, rd));
     }
 
@@ -1806,6 +1809,7 @@ public:
 
     ALWAYS_INLINE void smaddl(RegisterID rd, RegisterID rn, RegisterID rm, RegisterID ra)
     {
+        nopCortexA53Fix835769<64>();
         insn(dataProcessing3Source(Datasize_64, DataOp_SMADDL, rm, ra, rn, rd));
     }
 
@@ -1816,6 +1820,7 @@ public:
 
     ALWAYS_INLINE void smsubl(RegisterID rd, RegisterID rn, RegisterID rm, RegisterID ra)
     {
+        nopCortexA53Fix835769<64>();
         insn(dataProcessing3Source(Datasize_64, DataOp_SMSUBL, rm, ra, rn, rd));
     }
 
@@ -1958,7 +1963,13 @@ public:
     template<int datasize, SetFlags setFlags = DontSetFlags>
     ALWAYS_INLINE void sub(RegisterID rd, RegisterID rn, RegisterID rm)
     {
-        sub<datasize, setFlags>(rd, rn, rm, LSL, 0);
+        ASSERT_WITH_MESSAGE(!isSp(rd) || setFlags == DontSetFlags, "SUBS with shifted register does not support SP for Xd, it uses XZR for the register 31. SUBS with extended register support SP for Xd, but only if SetFlag is not used, otherwise register 31 is Xd.");
+        ASSERT_WITH_MESSAGE(!isSp(rm), "No encoding of SUBS supports SP for the third operand.");
+
+        if (isSp(rd) || isSp(rn))
+            sub<datasize, setFlags>(rd, rn, rm, UXTX, 0);
+        else
+            sub<datasize, setFlags>(rd, rn, rm, LSL, 0);
     }
 
     template<int datasize, SetFlags setFlags = DontSetFlags>
@@ -1972,12 +1983,8 @@ public:
     ALWAYS_INLINE void sub(RegisterID rd, RegisterID rn, RegisterID rm, ShiftType shift, int amount)
     {
         CHECK_DATASIZE();
-        if (isSp(rd) || isSp(rn)) {
-            ASSERT(shift == LSL);
-            ASSERT(!isSp(rm));
-            sub<datasize, setFlags>(rd, rn, rm, UXTX, amount);
-        } else
-            insn(addSubtractShiftedRegister(DATASIZE, AddOp_SUB, setFlags, shift, rm, amount, rn, rd));
+        ASSERT(!isSp(rd) && !isSp(rn) && !isSp(rm));
+        insn(addSubtractShiftedRegister(DATASIZE, AddOp_SUB, setFlags, shift, rm, amount, rn, rd));
     }
 
     template<int datasize>
@@ -2057,6 +2064,7 @@ public:
 
     ALWAYS_INLINE void umaddl(RegisterID rd, RegisterID rn, RegisterID rm, RegisterID ra)
     {
+        nopCortexA53Fix835769<64>();
         insn(dataProcessing3Source(Datasize_64, DataOp_UMADDL, rm, ra, rn, rd));
     }
 
@@ -2067,6 +2075,7 @@ public:
 
     ALWAYS_INLINE void umsubl(RegisterID rd, RegisterID rn, RegisterID rm, RegisterID ra)
     {
+        nopCortexA53Fix835769<64>();
         insn(dataProcessing3Source(Datasize_64, DataOp_UMSUBL, rm, ra, rn, rd));
     }
 
@@ -3229,7 +3238,7 @@ private:
         int insn = *static_cast<int*>(address);
         op = (insn >> 24) & 0x1;
         imm14 = (insn << 13) >> 18;
-        bitNumber = static_cast<unsigned>((((insn >> 26) & 0x20)) | ((insn > 19) & 0x1f));
+        bitNumber = static_cast<unsigned>((((insn >> 26) & 0x20)) | ((insn >> 19) & 0x1f));
         rt = static_cast<RegisterID>(insn & 0x1f);
         return (insn & 0x7e000000) == 0x36000000;
         
@@ -3625,6 +3634,37 @@ private:
         const int op3 = 0;
         const int op4 = 0;
         return (0xd6000000 | opc << 21 | op2 << 16 | op3 << 10 | xOrZr(rn) << 5 | op4);
+    }
+
+    // Workaround for Cortex-A53 erratum (835769). Emit an extra nop if the
+    // last instruction in the buffer is a load, store or prefetch. Needed
+    // before 64-bit multiply-accumulate instructions.
+    template<int datasize>
+    ALWAYS_INLINE void nopCortexA53Fix835769()
+    {
+#if CPU(ARM64_CORTEXA53)
+        CHECK_DATASIZE();
+        if (datasize == 64) {
+            if (LIKELY(m_buffer.codeSize() >= sizeof(int32_t))) {
+                // From ARMv8 Reference Manual, Section C4.1: the encoding of the
+                // instructions in the Loads and stores instruction group is:
+                // ---- 1-0- ---- ---- ---- ---- ---- ----
+                if (UNLIKELY((*reinterpret_cast_ptr<int32_t*>(reinterpret_cast_ptr<char*>(m_buffer.data()) + m_buffer.codeSize() - sizeof(int32_t)) & 0x0a000000) == 0x08000000))
+                    nop();
+            }
+        }
+#endif
+    }
+
+    // Workaround for Cortex-A53 erratum (843419). Emit extra nops to avoid
+    // wrong address access after ADRP instruction.
+    ALWAYS_INLINE void nopCortexA53Fix843419()
+    {
+#if CPU(ARM64_CORTEXA53)
+        nop();
+        nop();
+        nop();
+#endif
     }
 
     AssemblerBuffer m_buffer;

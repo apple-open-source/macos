@@ -509,6 +509,55 @@ exchangepointandmark(UNUSED(char **args))
 
 /**/
 int
+visualmode(UNUSED(char **args))
+{
+    if (virangeflag) {
+	prefixflag = 1;
+	zmod.flags &= ~MOD_LINE;
+	zmod.flags |= MOD_CHAR;
+	return 0;
+    }
+    switch (region_active) {
+    case 1:
+	region_active = 0;
+	break;
+    case 0:
+	mark = zlecs;
+	/* fall through */
+    case 2:
+	region_active = 1;
+	break;
+    }
+    return 0;
+}
+
+/**/
+int
+visuallinemode(UNUSED(char **args))
+{
+    if (virangeflag) {
+	prefixflag = 1;
+	zmod.flags &= ~MOD_CHAR;
+	zmod.flags |= MOD_LINE;
+	return 0;
+    }
+    switch (region_active) {
+    case 2:
+	region_active = 0;
+	break;
+    case 0:
+	mark = zlecs;
+	/* fall through */
+    case 1:
+	region_active = 2;
+	break;
+    }
+    return 0;
+}
+
+
+/**/
+int
 vigotocolumn(UNUSED(char **args))
 {
     int x, y, n = zmult;
@@ -538,7 +587,8 @@ vimatchbracket(UNUSED(char **args))
 
     if ((zlecs == zlell || zleline[zlecs] == '\n') && zlecs > 0)
 	DECCS();
-
+    if (virangeflag)
+	mark = zlecs;
   otog:
     if (zlecs == zlell || zleline[zlecs] == '\n') {
 	zlecs = ocs;
@@ -550,7 +600,6 @@ vimatchbracket(UNUSED(char **args))
 	oth = '}';
 	break;
     case /*{*/ '}':
-	virangeflag = -virangeflag;
 	dir = -1;
 	oth = '{'; /*}*/
 	break;
@@ -559,7 +608,6 @@ vimatchbracket(UNUSED(char **args))
 	oth = ')';
 	break;
     case ')':
-	virangeflag = -virangeflag;
 	dir = -1;
 	oth = '(';
 	break;
@@ -568,7 +616,6 @@ vimatchbracket(UNUSED(char **args))
 	oth = ']';
 	break;
     case ']':
-	virangeflag = -virangeflag;
 	dir = -1;
 	oth = '[';
 	break;
@@ -576,6 +623,8 @@ vimatchbracket(UNUSED(char **args))
 	INCCS();
 	goto otog;
     }
+    if (virangeflag && dir < 0)
+	INCPOS(mark); /* include starting position when going backwards */
     ct = 1;
     while (zlecs >= 0 && zlecs < zlell && ct) {
 	if (dir < 0)
@@ -599,7 +648,7 @@ vimatchbracket(UNUSED(char **args))
 int
 viforwardchar(char **args)
 {
-    int lim = findeol() - invicmdmode();
+    int lim = findeol();
     int n = zmult;
 
     if (n < 0) {
@@ -609,6 +658,8 @@ viforwardchar(char **args)
 	zmult = n;
 	return ret;
     }
+    if (invicmdmode() && !virangeflag)
+	DECPOS(lim);
     if (zlecs >= lim)
 	return 1;
     while (n-- && zlecs < lim)

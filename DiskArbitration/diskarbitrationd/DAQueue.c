@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,8 +41,8 @@ struct __DAResponseContext
 
 typedef struct __DAResponseContext __DAResponseContext;
 
-const CFGregorianUnits __kDAResponseTimerGrace = { 0, 0, 0, 0, 0,  1 };
-const CFGregorianUnits __kDAResponseTimerLimit = { 0, 0, 0, 0, 0, 10 };
+const CFTimeInterval __kDAResponseTimerGrace = 1;
+const CFTimeInterval __kDAResponseTimerLimit = 10;
 
 static void __DAResponseTimerRefresh( void );
 
@@ -80,13 +80,6 @@ static void __DAQueueRequest( _DARequestKind kind, DADiskRef argument0, CFIndex 
 {
     DARequestRef request;
 
-///w:start
-    if ( kind == _kDADiskMount )
-    {
-        request = DARequestCreate( kCFAllocatorDefault, kind, argument0, argument1, argument2, argument3, ___UID_UNKNOWN, ___GID_UNKNOWN, callback );
-    }
-    else
-///w:stop
     request = DARequestCreate( kCFAllocatorDefault, kind, argument0, argument1, argument2, argument3, ___UID_ROOT, ___GID_WHEEL, callback );
 
     if ( request )
@@ -181,9 +174,7 @@ static void __DAResponseTimerCallback( CFRunLoopTimerRef timer, void * info )
             {
                 CFAbsoluteTime timeout;
 
-                timeout = DACallbackGetTime( callback );
-
-                timeout = CFAbsoluteTimeAddGregorianUnits( timeout, NULL, __kDAResponseTimerLimit );
+                timeout = DACallbackGetTime( callback ) + __kDAResponseTimerLimit;
 
                 if ( timeout < clock )
                 {
@@ -243,9 +234,7 @@ static void __DAResponseTimerRefresh( void )
             {
                 CFAbsoluteTime timeout;
 
-                timeout = DACallbackGetTime( callback );
-
-                timeout = CFAbsoluteTimeAddGregorianUnits( timeout, NULL, __kDAResponseTimerLimit );
+                timeout = DACallbackGetTime( callback ) + __kDAResponseTimerLimit + __kDAResponseTimerGrace;
 
                 if ( timeout < clock )
                 {
@@ -254,8 +243,6 @@ static void __DAResponseTimerRefresh( void )
             }
         }
     }
-
-    clock = CFAbsoluteTimeAddGregorianUnits( clock, NULL, __kDAResponseTimerGrace );
 
     if ( timer )
     {
@@ -502,26 +489,23 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
                 case _kDADiskAppearedCallback:
                 case _kDADiskDisappearedCallback:
                 {
-                    if ( DADiskGetOption( argument0, kDADiskOptionPrivate ) == FALSE )
+                    callback = DACallbackCreateCopy( kCFAllocatorDefault, callback );
+
+                    if ( callback )
                     {
-                        callback = DACallbackCreateCopy( kCFAllocatorDefault, callback );
+                        DACallbackSetDisk( callback, argument0 );
 
-                        if ( callback )
-                        {
-                            DACallbackSetDisk( callback, argument0 );
+                        DACallbackSetArgument0( callback, DADiskGetSerialization( argument0 ) );
 
-                            DACallbackSetArgument0( callback, DADiskGetSerialization( argument0 ) );
+                        DASessionQueueCallback( session, callback );
 
-                            DASessionQueueCallback( session, callback );
+                        DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@.",
+                                    DACallbackGetAddress( callback ),
+                                    DACallbackGetContext( callback ),
+                                    _DACallbackKindGetName( DACallbackGetKind( callback ) ),
+                                    argument0 );
 
-                            DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@.",
-                                        DACallbackGetAddress( callback ),
-                                        DACallbackGetContext( callback ),
-                                        _DACallbackKindGetName( DACallbackGetKind( callback ) ),
-                                        argument0 );
-
-                            CFRelease( callback );
-                        }
+                        CFRelease( callback );
                     }
 
                     break;
@@ -623,57 +607,54 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
                 {
                     if ( DASessionGetState( session, kDASessionStateTimeout ) == FALSE )
                     {
-                        if ( DADiskGetOption( argument0, kDADiskOptionPrivate ) == FALSE )
+                        assert( argument1 == NULL );
+
+                        argument1 = ___CFNumberCreateWithIntegerValue( kCFAllocatorDefault, responseID );
+
+                        if ( argument1 )
                         {
-                            assert( argument1 == NULL );
+                            DACallbackRef response;
 
-                            argument1 = ___CFNumberCreateWithIntegerValue( kCFAllocatorDefault, responseID );
+                            response = DACallbackCreateCopy( kCFAllocatorDefault, callback );
 
-                            if ( argument1 )
+                            if ( response )
                             {
-                                DACallbackRef response;
+                                DACallbackSetDisk( response, argument0 );
 
-                                response = DACallbackCreateCopy( kCFAllocatorDefault, callback );
+                                DACallbackSetArgument1( response, argument1 );
 
-                                if ( response )
-                                {
-                                    DACallbackSetDisk( response, argument0 );
+                                DACallbackSetTime( response, CFAbsoluteTimeGetCurrent( ) );
 
-                                    DACallbackSetArgument1( response, argument1 );
+                                CFArrayAppendValue( gDAResponseList, response );
 
-                                    DACallbackSetTime( response, CFAbsoluteTimeGetCurrent( ) );
-
-                                    CFArrayAppendValue( gDAResponseList, response );
-
-                                    CFRelease( response );
-                                }
-
-                                callback = DACallbackCreateCopy( kCFAllocatorDefault, callback );
-
-                                if ( callback )
-                                {
-                                    DACallbackSetDisk( callback, argument0 );
-
-                                    DACallbackSetArgument0( callback, DADiskGetSerialization( argument0 ) );
-
-                                    DACallbackSetArgument1( callback, argument1 );
-
-                                    DASessionQueueCallback( session, callback );
-
-                                    DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@.",
-                                                DACallbackGetAddress( callback ),
-                                                DACallbackGetContext( callback ),
-                                                _DACallbackKindGetName( DACallbackGetKind( callback ) ),
-                                                argument0 );
-
-                                    CFRelease( callback );
-                                }
-
-                                CFRelease( argument1 );
+                                CFRelease( response );
                             }
 
-                            responseID++;
+                            callback = DACallbackCreateCopy( kCFAllocatorDefault, callback );
+
+                            if ( callback )
+                            {
+                                DACallbackSetDisk( callback, argument0 );
+
+                                DACallbackSetArgument0( callback, DADiskGetSerialization( argument0 ) );
+
+                                DACallbackSetArgument1( callback, argument1 );
+
+                                DASessionQueueCallback( session, callback );
+
+                                DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@.",
+                                            DACallbackGetAddress( callback ),
+                                            DACallbackGetContext( callback ),
+                                            _DACallbackKindGetName( DACallbackGetKind( callback ) ),
+                                            argument0 );
+
+                                CFRelease( callback );
+                            }
+
+                            CFRelease( argument1 );
                         }
+
+                        responseID++;
                     }
 
                     break;
@@ -683,64 +664,60 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
                     if ( DADiskGetState( argument0, kDADiskStateZombie ) == FALSE )
                     {
                         CFMutableArrayRef intersection;
+                        CFArrayRef        watch;
 
-                        if ( DADiskGetOption( argument0, kDADiskOptionPrivate ) == FALSE )
+                        watch = DACallbackGetWatch( callback );
+
+                        if ( watch )
                         {
-                            CFArrayRef watch;
-
-                            watch = DACallbackGetWatch( callback );
-
-                            if ( watch )
-                            {
-                                intersection = CFArrayCreateMutableCopy( kCFAllocatorDefault, 0, argument1 );
-
-                                if ( intersection )
-                                {
-                                    ___CFArrayIntersect( intersection, watch );
-                                }
-                            }
-                            else
-                            {
-                                intersection = ( void * ) CFRetain( argument1 );
-                            }
+                            intersection = CFArrayCreateMutableCopy( kCFAllocatorDefault, 0, argument1 );
 
                             if ( intersection )
                             {
-                                if ( CFArrayGetCount( intersection ) )
-                                {
-                                    callback = DACallbackCreateCopy( kCFAllocatorDefault, callback );
-
-                                    if ( callback )
-                                    {
-                                        CFIndex count;
-                                        CFIndex index;
-
-                                        count = CFArrayGetCount( intersection );
-
-                                        for ( index = 0; index < count; index++ )
-                                        {
-                                            DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@, key = %@.",
-                                                        DACallbackGetAddress( callback ),
-                                                        DACallbackGetContext( callback ),
-                                                        _DACallbackKindGetName( DACallbackGetKind( callback ) ),
-                                                        argument0,
-                                                        CFArrayGetValueAtIndex( intersection, index ) );
-                                        }
-
-                                        DACallbackSetDisk( callback, argument0 );
-
-                                        DACallbackSetArgument0( callback, DADiskGetSerialization( argument0 ) );
-
-                                        DACallbackSetArgument1( callback, intersection );
-
-                                        DASessionQueueCallback( session, callback );
-
-                                        CFRelease( callback );
-                                    }
-                                }
-
-                                CFRelease( intersection );
+                                ___CFArrayIntersect( intersection, watch );
                             }
+                        }
+                        else
+                        {
+                            intersection = ( void * ) CFRetain( argument1 );
+                        }
+
+                        if ( intersection )
+                        {
+                            if ( CFArrayGetCount( intersection ) )
+                            {
+                                callback = DACallbackCreateCopy( kCFAllocatorDefault, callback );
+
+                                if ( callback )
+                                {
+                                    CFIndex count;
+                                    CFIndex index;
+
+                                    count = CFArrayGetCount( intersection );
+
+                                    for ( index = 0; index < count; index++ )
+                                    {
+                                        DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@, key = %@.",
+                                                    DACallbackGetAddress( callback ),
+                                                    DACallbackGetContext( callback ),
+                                                    _DACallbackKindGetName( DACallbackGetKind( callback ) ),
+                                                    argument0,
+                                                    CFArrayGetValueAtIndex( intersection, index ) );
+                                    }
+
+                                    DACallbackSetDisk( callback, argument0 );
+
+                                    DACallbackSetArgument0( callback, DADiskGetSerialization( argument0 ) );
+
+                                    DACallbackSetArgument1( callback, intersection );
+
+                                    DASessionQueueCallback( session, callback );
+
+                                    CFRelease( callback );
+                                }
+                            }
+
+                            CFRelease( intersection );
                         }
                     }
 

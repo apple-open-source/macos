@@ -67,7 +67,7 @@ static void ccGenAESSubKey(const struct ccmode_ecb *aesmode, ccecb_ctx *ctx, voi
     uint8_t Z[16];
     uint8_t tmp[16];
     
-	memset(Z, 0, 16);
+	CC_XZEROMEM(Z, 16);
     
     aesmode->ecb(ctx, 1, Z, L);
     
@@ -140,7 +140,7 @@ void CCAESCmac(const void *key,
         xor_128(padded,K2,M_last);
     }
     
-    memset(X, 0, 16);
+    CC_XZEROMEM(X, 16);
     for (size_t i=0; i<n-1; i++ ) {
         xor_128(X,&data[16*i],Y); /* Y := Mi (+) X  */
         aesmode->ecb(ctx, 1, Y, X);
@@ -216,8 +216,8 @@ void CCAESCmacFinal(CCCmacContextPtr ctx, void *macOut) {
 
 void CCAESCmacDestroy(CCCmacContextPtr ctx) {
     if(ctx) {
-        CC_BZERO(ctx->buf, 16);
-        if(!ctx->ctxptr.b) CC_XFREE(ctx->ctxptr.b, cccmac_ctx_size(retval->cbc));
+        cc_clear(16,ctx->buf);
+        CC_XFREE(ctx->ctxptr.b, cccmac_ctx_size(retval->cbc));
         CC_XFREE(ctx, sizeof(struct CCCmacContext));
     }
 }

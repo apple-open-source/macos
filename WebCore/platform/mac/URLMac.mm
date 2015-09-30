@@ -49,7 +49,7 @@ URL::operator NSURL *() const
 {
     // Creating a toll-free bridged CFURL, because a real NSURL would not preserve the original string.
     // We'll need fidelity when round-tripping via CFURLGetBytes().
-    return CFBridgingRelease(createCFURL().leakRef());
+    return (NSURL *)createCFURL().autorelease();
 }
 
 RetainPtr<CFURLRef> URL::createCFURL() const
@@ -62,6 +62,11 @@ RetainPtr<CFURLRef> URL::createCFURL() const
         return reinterpret_cast<CFURLRef>(adoptNS([[NSURL alloc] initWithString:@""]).get());
     }
 
+    // Fast path if the input data is 8-bit to avoid copying into a temporary buffer.
+    if (LIKELY(m_string.is8Bit()))
+        return createCFURLFromBuffer(reinterpret_cast<const char*>(m_string.characters8()), m_string.length());
+
+    // Slower path.
     URLCharBuffer buffer;
     copyToBuffer(buffer);
     return createCFURLFromBuffer(buffer.data(), buffer.size());

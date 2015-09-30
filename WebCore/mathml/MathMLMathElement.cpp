@@ -38,20 +38,12 @@ inline MathMLMathElement::MathMLMathElement(const QualifiedName& tagName, Docume
 {
 }
 
-PassRefPtr<MathMLMathElement> MathMLMathElement::create(const QualifiedName& tagName, Document& document)
+Ref<MathMLMathElement> MathMLMathElement::create(const QualifiedName& tagName, Document& document)
 {
-    return adoptRef(new MathMLMathElement(tagName, document));
+    return adoptRef(*new MathMLMathElement(tagName, document));
 }
 
-Node::InsertionNotificationRequest MathMLMathElement::insertedInto(ContainerNode& insertionPoint)
-{
-    // There are sibling rules in the MathML default style.
-    if (insertionPoint.inDocument())
-        document().styleSheetCollection().setUsesSiblingRulesOverride(true);
-    return MathMLInlineContainerElement::insertedInto(insertionPoint);
-}
-
-RenderPtr<RenderElement> MathMLMathElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> MathMLMathElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderMathMLMath>(*this, WTF::move(style));
 }

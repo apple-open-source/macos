@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKit.h"
 #include "WebKitDLL.h"
 #include "WebURLProtectionSpace.h"
@@ -39,13 +38,13 @@ WebURLProtectionSpace::WebURLProtectionSpace(const ProtectionSpace& protectionSp
     , m_protectionSpace(protectionSpace)
 {
     gClassCount++;
-    gClassNameCount.add("WebURLProtectionSpace");
+    gClassNameCount().add("WebURLProtectionSpace");
 }
 
 WebURLProtectionSpace::~WebURLProtectionSpace()
 {
     gClassCount--;
-    gClassNameCount.remove("WebURLProtectionSpace");
+    gClassNameCount().remove("WebURLProtectionSpace");
 }
 
 WebURLProtectionSpace* WebURLProtectionSpace::createInstance()

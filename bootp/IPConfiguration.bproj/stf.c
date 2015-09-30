@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -178,11 +178,10 @@ stf_reachability_callback(SCNetworkReachabilityRef target,
 	if (sin->sin_family == AF_INET && sin->sin_addr.s_addr != 0) {
 	    struct in6_addr	relay;
 
-	    if (G_IPConfiguration_verbose) {
-		my_log(LOG_DEBUG, "6TO4 %s: resolved %s to " IP_FORMAT,
-		       if_name(if_p), stf->relay_hostname, 
-		       IP_LIST(&sin->sin_addr));
-	    }
+	    my_log(LOG_INFO, "6TO4 %s: resolved %s to " IP_FORMAT,
+		   if_name(if_p), stf->relay_hostname, 
+		   IP_LIST(&sin->sin_addr));
+
 	    /* don't need the reachability any longer */
 	    SCNetworkReachabilityUnscheduleFromRunLoop(stf->reach,
 						       CFRunLoopGetCurrent(),
@@ -223,7 +222,7 @@ stf_set_relay_hostname(ServiceRef service_p, const char * relay_hostname)
     }
     stf->reach = SCNetworkReachabilityCreateWithName(NULL, relay_hostname);
     if (stf->reach == NULL) {
-	my_log(LOG_ERR,
+	my_log(LOG_NOTICE,
 	       "6TO4 %s:SCNetworkReachabilityCreateWithName failed, %s",
 	       if_name(if_p),
 	       SCErrorString(SCError()));
@@ -233,7 +232,7 @@ stf_set_relay_hostname(ServiceRef service_p, const char * relay_hostname)
     if (SCNetworkReachabilitySetCallback(stf->reach,
 					 stf_reachability_callback,
 					 &context) == FALSE) {
-	my_log(LOG_ERR,
+	my_log(LOG_NOTICE,
 	       "6TO4 %s: SCNetworkReachabilitySetCallback failed, %s",
 	       if_name(if_p),
 	       SCErrorString(SCError()));
@@ -243,10 +242,8 @@ stf_set_relay_hostname(ServiceRef service_p, const char * relay_hostname)
     SCNetworkReachabilityScheduleWithRunLoop(stf->reach,
 					     CFRunLoopGetCurrent(),
 					     kCFRunLoopDefaultMode);
-    if (G_IPConfiguration_verbose) {
-	my_log(LOG_DEBUG, "6TO4 %s: resolving %s", if_name(if_p),
-	       relay_hostname);
-    }
+    my_log(LOG_INFO, "6TO4 %s: resolving %s", if_name(if_p),
+	   relay_hostname);
     stf->relay_hostname = strdup(relay_hostname);
     return;
 }
@@ -337,15 +334,13 @@ stf_remove_all_addresses(ServiceRef service_p)
 	goto done;
     }
     for (i = 0; i < list.count; i++) {
-	if (G_IPConfiguration_verbose) {
-	    char 	ntopbuf[INET6_ADDRSTRLEN];
+	char 	ntopbuf[INET6_ADDRSTRLEN];
 
-	    my_log(LOG_DEBUG, "6TO4 %s: removing %s/%d",
-		   if_name(if_p),
-		   inet_ntop(AF_INET6, &list.list[i].addr,
-			     ntopbuf, sizeof(ntopbuf)),
-		   list.list[i].prefix_length);
-	}
+	my_log(LOG_DEBUG, "6TO4 %s: removing %s/%d",
+	       if_name(if_p),
+	       inet_ntop(AF_INET6, &list.list[i].addr,
+			 ntopbuf, sizeof(ntopbuf)),
+	       list.list[i].prefix_length);
 	inet6_difaddr(s, if_name(if_p), &list.list[i].addr);
     }
     close(s);
@@ -369,21 +364,19 @@ stf_update_address(ServiceRef service_p, CFDictionaryRef info,
     /* if there is no primary IPv4 address, or it has changed since last time */
     if (local_ip.s_addr == 0
 	|| local_ip.s_addr != stf->local_ip.s_addr) {
+	interface_t *	if_p;
 	struct in6_addr	local_ip6;
 
-	if (G_IPConfiguration_verbose) {
-	    interface_t *	if_p;
 
-	    if_p = service_interface(service_p);
-	    if (local_ip.s_addr == 0) {
-		my_log(LOG_DEBUG, "6TO4 %s: no primary IPv4 address",
-		       if_name(if_p));
-	    }
-	    else {
-		my_log(LOG_DEBUG,
-		       "6TO4 %s: primary IPv4 address changed to " IP_FORMAT,
-		       if_name(if_p), IP_LIST(&local_ip));
-	    }
+	if_p = service_interface(service_p);
+	if (local_ip.s_addr == 0) {
+	    my_log(LOG_INFO, "6TO4 %s: no primary IPv4 address",
+		   if_name(if_p));
+	}
+	else {
+	    my_log(LOG_INFO,
+		   "6TO4 %s: primary IPv4 address changed to " IP_FORMAT,
+		   if_name(if_p), IP_LIST(&local_ip));
 	}
 
 	/* clear the old address */
@@ -519,10 +512,8 @@ stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t * method_data)
 	    /* we're currently using the anycast relay, nothing to do */
 	    return;
 	}
-	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG, "6TO4 %s: using default anycast relay",
-		   if_name(if_p));
-	}
+	my_log(LOG_INFO, "6TO4 %s: using default anycast relay",
+	       if_name(if_p));
 	stf->relay = stf_anycast_relay;
 	publish_new = TRUE;
 	break;
@@ -534,10 +525,8 @@ stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t * method_data)
 	    /* the same DNS server address, nothing to do */
 	    return;
 	}
-	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG, "6TO4 %s: specified DNS relay %s",
-		   if_name(if_p), method_data->relay_addr.dns);
-	}
+	my_log(LOG_INFO, "6TO4 %s: specified DNS relay %s",
+	       if_name(if_p), method_data->relay_addr.dns);
 	stf_set_relay_hostname(service_p, method_data->relay_addr.dns);
 	break;
 
@@ -550,10 +539,8 @@ stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t * method_data)
 	    /* new relay same as old, nothing to do */
 	    return;
 	}
-	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_DEBUG, "6TO4 %s: specified IPv4 relay " IP_FORMAT,
-		   if_name(if_p), IP_LIST(&method_data->relay_addr.v4));
-	}
+	my_log(LOG_INFO, "6TO4 %s: specified IPv4 relay " IP_FORMAT,
+	       if_name(if_p), IP_LIST(&method_data->relay_addr.v4));
 	stf->relay = requested_ip;
 	publish_new = TRUE;
 	break;
@@ -564,10 +551,10 @@ stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t * method_data)
 	    /* new relay same as old */
 	    return;
 	}
-	if (G_IPConfiguration_verbose) {
+	{
 	    char 	ntopbuf[INET6_ADDRSTRLEN];
 
-	    my_log(LOG_DEBUG, "6TO4 %s: specified IPv6 relay %s",
+	    my_log(LOG_INFO, "6TO4 %s: specified IPv6 relay %s",
 		   if_name(if_p), 
 		   inet_ntop(AF_INET6, &method_data->relay_addr.v6,
 			     ntopbuf, sizeof(ntopbuf)));
@@ -576,7 +563,7 @@ stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t * method_data)
 	publish_new = TRUE;
 	break;
     default:
-	my_log(LOG_ERR, "6TO4 %s: specified unknown relay type %d", 
+	my_log(LOG_NOTICE, "6TO4 %s: specified unknown relay type %d",
 	       if_name(if_p), relay_type);
 	return;
     }
@@ -607,7 +594,7 @@ stf_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	}
 	stf = malloc(sizeof(*stf));
 	if (stf == NULL) {
-	    my_log(LOG_ERR, "6TO4 %s: malloc failed", if_name(if_p));
+	    my_log(LOG_NOTICE, "6TO4 %s: malloc failed", if_name(if_p));
 	    status = ipconfig_status_allocation_failed_e;
 	    break;
 	}

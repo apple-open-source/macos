@@ -26,4 +26,10 @@ messages -> WebPageGroupProxy {
     RemoveAllUserStyleSheets();
     RemoveAllUserScripts();
     RemoveAllUserContent();
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    AddUserContentExtension(String name, WebKit::WebCompiledContentExtensionData contentExtension);
+    RemoveUserContentExtension(String name);
+    RemoveAllUserContentExtensions();
+#endif
 }

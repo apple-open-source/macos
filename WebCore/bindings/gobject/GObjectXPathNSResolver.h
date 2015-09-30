@@ -22,16 +22,16 @@
 #include "WebKitDOMXPathNSResolver.h"
 #include "XPathNSResolver.h"
 #include <wtf/PassRefPtr.h>
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 
 namespace WebCore {
 
 class GObjectXPathNSResolver : public XPathNSResolver {
 public:
 
-    static PassRefPtr<GObjectXPathNSResolver> create(WebKitDOMXPathNSResolver* resolver)
+    static Ref<GObjectXPathNSResolver> create(WebKitDOMXPathNSResolver* resolver)
     {
-        return adoptRef(new GObjectXPathNSResolver(resolver));
+        return adoptRef(*new GObjectXPathNSResolver(resolver));
     }
 
     virtual ~GObjectXPathNSResolver();

@@ -23,7 +23,7 @@
 
 - path: exceptionFuzz
   cmd: |
-      if $architecture !~ /x86/i and $hostOS == "darwin"
+      if ($hostOS == "windows")
           skip
       else
           runExceptionFuzz

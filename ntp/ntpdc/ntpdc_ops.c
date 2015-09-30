@@ -1740,7 +1740,7 @@ again:
 		if (rl->v6_flag != 0) {
 			addr = nntohost(&resaddr);
 		} else {
-			if ((rl->mask == (u_int32)0xffffffff))
+			if (rl->mask == (u_int32)0xffffffff)
 				addr = nntohost(&resaddr);
 			else
 				addr = stoa(&resaddr);

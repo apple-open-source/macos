@@ -26,10 +26,10 @@
 #include "config.h"
 #include "ViewClientEfl.h"
 
+#include "EwkDebug.h"
 #include "EwkView.h"
 #include "PageViewportController.h" 
 #include "WebViewportAttributes.h"
-#include "ewk_private.h"
 #include "ewk_view.h"
 #include <WebKit/WKString.h>
 #include <WebKit/WKView.h>
@@ -114,8 +114,6 @@ void ViewClientEfl::didRenderFrame(WKViewRef, WKSize contentsSize, WKRect covere
         ewkView->pageViewportController().didRenderFrame(toIntSize(contentsSize), toIntRect(coveredRect));
     else
         ewkView->scheduleUpdateDisplay();
-
-    ewkView->didCommitNewPage();
 }
 
 void ViewClientEfl::didCompletePageTransition(WKViewRef, const void* clientInfo)
@@ -128,12 +126,10 @@ void ViewClientEfl::didCompletePageTransition(WKViewRef, const void* clientInfo)
 void ViewClientEfl::didChangeViewportAttributes(WKViewRef, WKViewportAttributesRef attributes, const void* clientInfo)
 {
     EwkView* ewkView = toEwkView(clientInfo);
-    if (WKPageUseFixedLayout(ewkView->wkPage())) {
-        // FIXME: pageViewportController should accept WKViewportAttributesRef.
-        ewkView->pageViewportController().didChangeViewportAttributes(toImpl(attributes)->originalAttributes());
-        return;
-    }
-    ewkView->scheduleUpdateDisplay();
+    ASSERT(WKPageUseFixedLayout(ewkView->wkPage()));
+
+    // FIXME: pageViewportController should accept WKViewportAttributesRef.
+    ewkView->pageViewportController().didChangeViewportAttributes(toImpl(attributes)->originalAttributes());
 }
 
 void ViewClientEfl::didChangeTooltip(WKViewRef, WKStringRef tooltip, const void* clientInfo)

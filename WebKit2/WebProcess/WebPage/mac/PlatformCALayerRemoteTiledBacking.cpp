@@ -28,7 +28,7 @@
 
 #import "RemoteLayerTreeContext.h"
 #import <WebCore/GraphicsLayerCA.h>
-#import <WebCore/PlatformCALayerMac.h>
+#import <WebCore/PlatformCALayerCocoa.h>
 #import <WebCore/TiledBacking.h>
 #import <wtf/RetainPtr.h>
 
@@ -38,20 +38,22 @@ namespace WebKit {
 
 PlatformCALayerRemoteTiledBacking::PlatformCALayerRemoteTiledBacking(LayerType layerType, PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
     : PlatformCALayerRemote(layerType, owner, context)
+    , m_tileController(std::make_unique<TileController>(this))
 {
-    m_tileController = TileController::create(this);
 }
 
 PlatformCALayerRemoteTiledBacking::~PlatformCALayerRemoteTiledBacking()
 {
 }
 
-void PlatformCALayerRemoteTiledBacking::setNeedsDisplay(const FloatRect* dirtyRect)
+void PlatformCALayerRemoteTiledBacking::setNeedsDisplayInRect(const FloatRect& dirtyRect)
 {
-    if (dirtyRect)
-        m_tileController->setNeedsDisplayInRect(enclosingIntRect(*dirtyRect));
-    else
-        m_tileController->setNeedsDisplay();
+    m_tileController->setNeedsDisplayInRect(enclosingIntRect(dirtyRect));
+}
+
+void PlatformCALayerRemoteTiledBacking::setNeedsDisplay()
+{
+    m_tileController->setNeedsDisplay();
 }
 
 const WebCore::PlatformCALayerList* PlatformCALayerRemoteTiledBacking::customSublayers() const

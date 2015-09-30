@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2013 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2015 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,6 +38,9 @@
 #define ASL_STRING_QUANTUM 256
 static const char *cvis_7_13 = "abtnvfr";
 
+/* Forward */
+asl_string_t *asl_string_append_no_encoding_len(asl_string_t *str, const char *app, size_t copylen);
+
 asl_string_t *
 asl_string_new(uint32_t encoding)
 {
@@ -53,7 +56,7 @@ asl_string_new(uint32_t encoding)
 	str->bufsize = 0;
 	str->cursor = 0;
 
-	if (encoding & ASL_STRING_LEN) asl_string_append_no_encoding(str, "         0 ");
+	if (encoding & ASL_STRING_LEN) asl_string_append_no_encoding_len(str, "         0 ", 11);
 	return str;
 }
 
@@ -90,6 +93,13 @@ asl_string_release_return_bytes(asl_string_t *str)
 	char *out;
 	if (str == NULL) return NULL;
 
+	if (str->encoding & ASL_STRING_LEN)
+	{
+		char tmp[11];
+		snprintf(tmp, sizeof(tmp), "%10lu", str->cursor - 10);
+		memcpy(str->buf, tmp, 10);
+	}
+
 	if (OSAtomicDecrement32Barrier(&(str->refcount)) != 0)
 	{
 		/* string is still retained - copy buf */
@@ -98,7 +108,7 @@ asl_string_release_return_bytes(asl_string_t *str)
 			if (str->bufsize == 0) return NULL;
 
 			vm_address_t new = 0;
-			kern_return_t kstatus = vm_allocate(mach_task_self(), &new, str->bufsize, TRUE);
+			kern_return_t kstatus = vm_allocate(mach_task_self(), &new, str->bufsize, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_ASL));
 			if (kstatus != KERN_SUCCESS) return NULL;
 
 			memcpy((void *)new, str->buf, str->bufsize);
@@ -120,6 +130,14 @@ char *
 asl_string_bytes(asl_string_t *str)
 {
 	if (str == NULL) return NULL;
+
+	if (str->encoding & ASL_STRING_LEN)
+	{
+		char tmp[11];
+		snprintf(tmp, sizeof(tmp), "%10lu", str->cursor - 10);
+		memcpy(str->buf, tmp, 10);
+	}
+
 	return str->buf;
 }
 
@@ -166,7 +184,7 @@ _asl_string_grow(asl_string_t *str, size_t len)
 		kern_return_t kstatus;
 		vm_address_t new = 0;
 
-		kstatus = vm_allocate(mach_task_self(), &new, newlen, TRUE);
+		kstatus = vm_allocate(mach_task_self(), &new, newlen, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_ASL));
 		if (kstatus != KERN_SUCCESS)
 		{
 			new = 0;
@@ -208,32 +226,26 @@ asl_string_append_char_no_encoding(asl_string_t *str, const char c)
 
 	len = 1;
 	if (str->bufsize == 0) len++;
-
 	if (_asl_string_grow(str, len) < 0) return str;
 
 	str->buf[str->cursor] = c;
 	str->cursor++;
 	str->buf[str->cursor] = '\0';
 
-	if (str->encoding & ASL_STRING_LEN)
-	{
-		char tmp[11];
-		snprintf(tmp, sizeof(tmp), "%10lu", str->cursor - 10);
-		memcpy(str->buf, tmp, 10);
-	}
-
 	return str;
 }
 
 asl_string_t *
-asl_string_append_no_encoding(asl_string_t *str, const char *app)
+asl_string_append_no_encoding_len(asl_string_t *str, const char *app, size_t copylen)
 {
 	size_t len, applen;
 
 	if (str == NULL) return NULL;
 	if (app == NULL) return str;
 
-	applen = strlen(app);
+	applen = copylen;
+	if (applen == 0) applen = strlen(app);
+
 	len = applen;
 	if (str->bufsize == 0) len++;
 
@@ -244,21 +256,21 @@ asl_string_append_no_encoding(asl_string_t *str, const char *app)
 	str->cursor += applen;
 	str->buf[str->cursor] = '\0';
 
-	if (str->encoding & ASL_STRING_LEN)
-	{
-		char tmp[11];
-		snprintf(tmp, sizeof(tmp), "%10lu", str->cursor - 10);
-		memcpy(str->buf, tmp, 10);
-	}
-
 	return str;
+}
+
+asl_string_t *
+asl_string_append_no_encoding(asl_string_t *str, const char *app)
+{
+	return asl_string_append_no_encoding_len(str, app, 0);
 }
 
 static asl_string_t *
 asl_string_append_internal(asl_string_t *str, const char *app, int encode_space)
 {
-	uint8_t x;
-	const char *p;
+	uint8_t x, y, z;
+	const uint8_t *s, *p;
+	size_t copylen;
 
 	if (str == NULL) return NULL;
 	if (app == NULL) return str;
@@ -267,33 +279,91 @@ asl_string_append_internal(asl_string_t *str, const char *app, int encode_space)
 	{
 		case ASL_ENCODE_NONE:
 		{
-			return asl_string_append_no_encoding(str, app);
+			return asl_string_append_no_encoding_len(str, app, 0);
 		}
 		case ASL_ENCODE_SAFE:
 		{
 			/* minor encoding to reduce the likelyhood of spoof attacks */
 			const char *p;
 
+			s = NULL;
+			copylen = 0;
+
 			for (p = app; *p != '\0'; p++)
 			{
-				if ((*p == 10) || (*p == 13))
+				x = p[0];
+				y = 0;
+				z = 0;
+				
+				if (x != 0) y = p[1];
+				if (y != 0) z = p[2];
+				
+				if ((x == 10) || (x == 13))
 				{
-					asl_string_append_no_encoding(str, "\n\t");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "\n\t", 2);
 				}
-				else if (*p == 8)
+				else if (x == 8)
 				{
-					asl_string_append_no_encoding(str, "^H");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "^H", 2);
+				}
+				else if ((x == 0xc2) && (y == 0x85))
+				{
+					p++;
+					
+					/* next line - format like newline */
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+					
+					asl_string_append_no_encoding_len(str, "\n\t", 2);
+				}
+				else if ((x == 0xe2) && (y == 0x80) && ((z == 0xa8) || (z == 0xa9)))
+				{
+					p += 3;
+					
+					/* line separator or paragraph separator - format like newline */
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+					
+					asl_string_append_no_encoding_len(str, "\n\t", 2);
 				}
 				else
 				{
-					asl_string_append_char_no_encoding(str, *p);
+					if (s == NULL) s = p;
+					copylen++;
 				}
 			}
+
+			if (copylen > 0) asl_string_append_no_encoding_len(str, s, copylen);
 
 			return str;
 		}
 		case ASL_ENCODE_ASL:
 		{
+			s = NULL;
+			copylen = 0;
+
 			for (p = app; *p != '\0'; p++)
 			{
 				int meta = 0;
@@ -306,11 +376,25 @@ asl_string_append_internal(asl_string_t *str, const char *app, int encode_space)
 					/* except meta-space, which is \240 */
 					if (x == 160)
 					{
-						asl_string_append_no_encoding(str, "\\240");
+						if (copylen > 0)
+						{
+							asl_string_append_no_encoding_len(str, s, copylen);
+							s = NULL;
+							copylen = 0;
+						}
+
+						asl_string_append_no_encoding_len(str, "\\240", 4);
 						continue;
 					}
 
-					asl_string_append_no_encoding(str, "\\M");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "\\M", 2);
 					x &= 0x7f;
 					meta = 1;
 				}
@@ -320,26 +404,48 @@ asl_string_append_internal(asl_string_t *str, const char *app, int encode_space)
 				{
 					if (encode_space == 0)
 					{
-						asl_string_append_char_no_encoding(str, ' ');
+						if (s == NULL) s = p;
+						copylen++;
 						continue;
 					}
 
-					asl_string_append_no_encoding(str, "\\s");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "\\s", 2);
 					continue;
 				}
 
 				/* \ is escaped */
 				if ((meta == 0) && (x == 92))
 				{
-					asl_string_append_no_encoding(str, "\\\\");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "\\\\", 2);
 					continue;
 				}
 
 				/* [ and ] are escaped in ASL encoding */
 				if ((str->encoding & ASL_ENCODE_ASL) && (meta == 0) && ((*p == 91) || (*p == 93)))
 				{
-					if (*p == '[') asl_string_append_no_encoding(str, "\\[");
-					else asl_string_append_no_encoding(str, "\\]");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					if (*p == '[') asl_string_append_no_encoding_len(str, "\\[", 2);
+					else asl_string_append_no_encoding_len(str, "\\]", 2);
 					continue;
 				}
 
@@ -348,10 +454,24 @@ asl_string_append_internal(asl_string_t *str, const char *app, int encode_space)
 				{
 					if (meta == 0)
 					{
+						if (copylen > 0)
+						{
+							asl_string_append_no_encoding_len(str, s, copylen);
+							s = NULL;
+							copylen = 0;
+						}
+
 						asl_string_append_char_no_encoding(str, '\\');
 					}
 
-					asl_string_append_no_encoding(str, "^?");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "^?", 2);
 					continue;
 				}
 
@@ -360,16 +480,34 @@ asl_string_append_internal(asl_string_t *str, const char *app, int encode_space)
 				{
 					if (meta == 1)
 					{
+						if (copylen > 0)
+						{
+							asl_string_append_no_encoding_len(str, s, copylen);
+							s = NULL;
+							copylen = 0;
+						}
+
 						asl_string_append_char_no_encoding(str, '-');
+						asl_string_append_char_no_encoding(str, x);
+						continue;
 					}
 
-					asl_string_append_char_no_encoding(str, x);
+					if (s == NULL) s = p;
+					copylen++;
+
 					continue;
 				}
 
 				/* non-meta BEL, BS, HT, NL, VT, NP, CR (7-13) are \a, \b, \t, \n, \v, \f, and \r */
 				if ((meta == 0) && (x >= 7) && (x <= 13))
 				{
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
 					asl_string_append_char_no_encoding(str, '\\');
 					asl_string_append_char_no_encoding(str, cvis_7_13[x - 7]);
 					continue;
@@ -380,7 +518,21 @@ asl_string_append_internal(asl_string_t *str, const char *app, int encode_space)
 				{
 					if (meta == 0)
 					{
+						if (copylen > 0)
+						{
+							asl_string_append_no_encoding_len(str, s, copylen);
+							s = NULL;
+							copylen = 0;
+						}
+
 						asl_string_append_char_no_encoding(str, '\\');
+					}
+
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
 					}
 
 					asl_string_append_char_no_encoding(str, '^');
@@ -388,48 +540,111 @@ asl_string_append_internal(asl_string_t *str, const char *app, int encode_space)
 					continue;
 				}
 
-				asl_string_append_char_no_encoding(str, x);
+				if (s == NULL) s = p;
+				copylen++;
+			}
+
+			if (copylen > 0)
+			{
+				asl_string_append_no_encoding_len(str, s, copylen);
+				s = NULL;
+				copylen = 0;
 			}
 
 			return str;
 		}
 		case ASL_ENCODE_XML:
 		{
+			s = NULL;
+			copylen = 0;
+
 			for (p = app; *p != '\0'; p++)
 			{
 				x = *p;
 
 				if (x == '&')
 				{
-					asl_string_append_no_encoding(str, "&amp;");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "&amp;", 5);
 				}
 				else if (x == '<')
 				{
-					asl_string_append_no_encoding(str, "&lt;");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "&lt;", 4);
 				}
 				else if (x == '>')
 				{
-					asl_string_append_no_encoding(str, "&gt;");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "&gt;", 4);
 				}
 				else if (x == '"')
 				{
-					asl_string_append_no_encoding(str, "&quot;");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "&quot;", 6);
 				}
 				else if (x == '\'')
 				{
-					asl_string_append_no_encoding(str, "&apos;");
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
+					asl_string_append_no_encoding_len(str, "&apos;", 6);
 				}
 				else if (iscntrl(x))
 				{
+					if (copylen > 0)
+					{
+						asl_string_append_no_encoding_len(str, s, copylen);
+						s = NULL;
+						copylen = 0;
+					}
+
 					char tmp[8];
 					snprintf(tmp, sizeof(tmp), "&#x%02hhx;", x);
-					asl_string_append_no_encoding(str, tmp);
+					asl_string_append_no_encoding_len(str, tmp, 6);
 				}
 				else
 				{
-					asl_string_append_char_no_encoding(str, x);
+					if (s == NULL) s = p;
+					copylen++;
 				}
 			}
+
+			if (copylen > 0)
+			{
+				asl_string_append_no_encoding_len(str, s, copylen);
+				s = NULL;
+				copylen = 0;
+			}
+
+			return str;
 		}
 		default:
 		{
@@ -514,19 +729,19 @@ asl_string_append_op(asl_string_t *str, uint32_t op)
 	}
 
 	opstr[i] = '\0';
-	return asl_string_append_no_encoding(str, opstr);
+	return asl_string_append_no_encoding_len(str, opstr, 0);
 }
 
 asl_string_t *
 asl_string_append_xml_tag(asl_string_t *str, const char *tag, const char *s)
 {
-	asl_string_append_no_encoding(str, "\t\t<");
-	asl_string_append_no_encoding(str, tag);
-	asl_string_append_no_encoding(str, ">");
+	asl_string_append_no_encoding_len(str, "\t\t<", 3);
+	asl_string_append_no_encoding_len(str, tag, 0);
+	asl_string_append_char_no_encoding(str, '>');
 	asl_string_append_internal(str, s, 0);
-	asl_string_append_no_encoding(str, "</");
-	asl_string_append_no_encoding(str, tag);
-	asl_string_append_no_encoding(str, ">\n");
+	asl_string_append_no_encoding_len(str, "</", 2);
+	asl_string_append_no_encoding_len(str, tag, 0);
+	asl_string_append_no_encoding_len(str, ">\n", 2);
 	return str;
 }
 

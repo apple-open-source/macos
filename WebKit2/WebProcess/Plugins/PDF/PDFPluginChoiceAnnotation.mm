@@ -46,9 +46,9 @@ namespace WebKit {
 
 using namespace HTMLNames;
 
-PassRefPtr<PDFPluginChoiceAnnotation> PDFPluginChoiceAnnotation::create(PDFAnnotation *annotation, PDFLayerController *pdfLayerController, PDFPlugin* plugin)
+Ref<PDFPluginChoiceAnnotation> PDFPluginChoiceAnnotation::create(PDFAnnotation *annotation, PDFLayerController *pdfLayerController, PDFPlugin* plugin)
 {
-    return adoptRef(new PDFPluginChoiceAnnotation(annotation, pdfLayerController, plugin));
+    return adoptRef(*new PDFPluginChoiceAnnotation(annotation, pdfLayerController, plugin));
 }
 
 void PDFPluginChoiceAnnotation::updateGeometry()
@@ -61,7 +61,7 @@ void PDFPluginChoiceAnnotation::updateGeometry()
 
 void PDFPluginChoiceAnnotation::commit()
 {
-    choiceAnnotation().stringValue = toHTMLSelectElement(element())->value();
+    choiceAnnotation().stringValue = downcast<HTMLSelectElement>(element())->value();
 
     PDFPluginAnnotation::commit();
 }

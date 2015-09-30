@@ -1,20 +1,21 @@
 print [ -abcDilmnNoOpPrsSz ] [ -u n ] [ -f format ] [ -C cols ]
-  [ -R [ -en ]] [ arg ... ]
-       With the `-f' option the arguments are printed as  described  by
-       printf.   With  no flags or with the flag `-', the arguments are
-       printed on the standard output as described by  echo,  with  the
-       following  differences:  the escape sequence `\M-x' metafies the
-       character x (sets the highest bit), `\C-x'  produces  a  control
-       character  (`\C-@'  and  `\C-?'  give  the  characters  NUL  and
-       delete), and `\E' is a synonym for `\e'.  Finally, if not in  an
-       escape  sequence, `\' escapes the following character and is not
-       printed.
+      [ -R [ -en ]] [ arg ... ]
+       With  the  `-f' option the arguments are printed as described by
+       printf.  With no flags or with the flag `-', the  arguments  are
+       printed  on  the  standard output as described by echo, with the
+       following differences: the escape  sequence  `\M-x'  (or  `\Mx')
+       metafies  the  character  x  (sets  the highest bit), `\C-x' (or
+       `\Cx') produces a control character (`\C-@' and `\C-?' give  the
+       characters NULL and delete), a character code in octal is repre-
+       sented by `\NNN' (instead of `\0NNN'), and `\E' is a synonym for
+       `\e'.   Finally,  if  not in an escape sequence, `\' escapes the
+       following character and is not printed.
 
        -a     Print arguments with the column incrementing first.  Only
               useful with the -c and -C options.
 
        -b     Recognize  all the escape sequences defined for the bind-
-              key command, see zshzle(1).
+              key command, see the section `Zle Builtins' in zshzle(1).
 
        -c     Print the arguments in columns.  Unless -a is also given,
               arguments are printed with the row incrementing first.
@@ -68,8 +69,7 @@ print [ -abcDilmnNoOpPrsSz ] [ -u n ] [ -f format ] [ -C cols ]
               standard output.  In this case only a single argument  is
               allowed; it will be split into words as if it were a full
               shell command line.  The effect is similar to reading the
-              line  from  a history file with the HIST LEX WORDS option
-                                                      -   -
+              line  from  a history file with the HIST_LEX_WORDS option
               active.
 
        -u n   Print the arguments to file descriptor n.

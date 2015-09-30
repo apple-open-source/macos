@@ -61,7 +61,10 @@ bool IOHIDDeviceShim::handleStart( IOService * provider )
 				break;
 			}
 
-            if ((_device = (IOService *)device->metaCast("IOUSBDevice")) || (_device = (IOService *)device->metaCast("IOUSBInterface")))
+            if ( (_device = (IOService *)device->metaCast("IOUSBDevice")) ||
+                 (_device = (IOService *)device->metaCast("IOUSBInterface")) ||
+                 (_device = (IOService *)device->metaCast("IOUSBHostDevice")) ||
+                 (_device = (IOService *)device->metaCast("IOUSBHostInterface")) )
             {
                 _transport = kIOHIDTransportUSB;
                 break;

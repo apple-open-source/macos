@@ -28,6 +28,8 @@
 #include "config.h"
 #include "BitmapImage.h"
 
+#if USE(CAIRO)
+
 #include "CairoUtilities.h"
 #include "ImageObserver.h"
 #include "PlatformContextCairo.h"
@@ -39,6 +41,7 @@ namespace WebCore {
 BitmapImage::BitmapImage(PassRefPtr<cairo_surface_t> nativeImage, ImageObserver* observer)
     : Image(observer)
     , m_size(cairoSurfaceSize(nativeImage.get()))
+    , m_minimumSubsamplingLevel(0)
     , m_currentFrame(0)
     , m_repetitionCount(cAnimationNone)
     , m_repetitionCountStatus(Unknown)
@@ -119,6 +122,11 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
         imageObserver()->didDraw(this);
 }
 
+void BitmapImage::determineMinimumSubsamplingLevel() const
+{
+    m_minimumSubsamplingLevel = 0;
+}
+
 void BitmapImage::checkForSolidColor()
 {
     m_isSolidColor = false;
@@ -151,7 +159,7 @@ bool FrameData::clear(bool clearMetadata)
         m_haveMetadata = false;
 
     if (m_frame) {
-        m_frame.clear();
+        m_frame = nullptr;
         return true;
     }
     return false;
@@ -159,3 +167,4 @@ bool FrameData::clear(bool clearMetadata)
 
 } // namespace WebCore
 
+#endif // USE(CAIRO)

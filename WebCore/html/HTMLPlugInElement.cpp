@@ -23,7 +23,6 @@
 #include "config.h"
 #include "HTMLPlugInElement.h"
 
-#include "Attribute.h"
 #include "BridgeJSC.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
@@ -67,7 +66,7 @@ using namespace HTMLNames;
 HTMLPlugInElement::HTMLPlugInElement(const QualifiedName& tagName, Document& document)
     : HTMLFrameOwnerElement(tagName, document)
     , m_inBeforeLoadEventHandler(false)
-    , m_swapRendererTimer(this, &HTMLPlugInElement::swapRendererTimerFired)
+    , m_swapRendererTimer(*this, &HTMLPlugInElement::swapRendererTimerFired)
 #if ENABLE(NETSCAPE_PLUGIN_API)
     , m_NPObject(0)
 #endif
@@ -91,7 +90,7 @@ HTMLPlugInElement::~HTMLPlugInElement()
 
 bool HTMLPlugInElement::canProcessDrag() const
 {
-    const PluginViewBase* plugin = pluginWidget() && pluginWidget()->isPluginViewBase() ? toPluginViewBase(pluginWidget()) : nullptr;
+    const PluginViewBase* plugin = is<PluginViewBase>(pluginWidget()) ? downcast<PluginViewBase>(pluginWidget()) : nullptr;
     return plugin ? plugin->canProcessDrag() : false;
 }
 
@@ -105,7 +104,7 @@ bool HTMLPlugInElement::willRespondToMouseClickEvents()
 
 void HTMLPlugInElement::willDetachRenderers()
 {
-    m_instance.clear();
+    m_instance = nullptr;
 
     if (m_isCapturingMouseEvents) {
         if (Frame* frame = document().frame())
@@ -123,7 +122,7 @@ void HTMLPlugInElement::willDetachRenderers()
 
 void HTMLPlugInElement::resetInstance()
 {
-    m_instance.clear();
+    m_instance = nullptr;
 }
 
 PassRefPtr<JSC::Bindings::Instance> HTMLPlugInElement::getInstance()
@@ -207,17 +206,17 @@ void HTMLPlugInElement::defaultEventHandler(Event* event)
     // FIXME: Mouse down and scroll events are passed down to plug-in via custom code in EventHandler; these code paths should be united.
 
     auto renderer = this->renderer();
-    if (!renderer || !renderer->isWidget())
+    if (!is<RenderWidget>(renderer))
         return;
 
-    if (renderer->isEmbeddedObject()) {
-        if (toRenderEmbeddedObject(renderer)->isPluginUnavailable()) {
-            toRenderEmbeddedObject(renderer)->handleUnavailablePluginIndicatorEvent(event);
+    if (is<RenderEmbeddedObject>(*renderer)) {
+        if (downcast<RenderEmbeddedObject>(*renderer).isPluginUnavailable()) {
+            downcast<RenderEmbeddedObject>(*renderer).handleUnavailablePluginIndicatorEvent(event);
             return;
         }
 
-        if (toRenderEmbeddedObject(renderer)->isSnapshottedPlugIn() && displayState() < Restarting) {
-            toRenderSnapshottedPlugIn(renderer)->handleEvent(event);
+        if (is<RenderSnapshottedPlugIn>(*renderer) && displayState() < Restarting) {
+            downcast<RenderSnapshottedPlugIn>(*renderer).handleEvent(event);
             HTMLFrameOwnerElement::defaultEventHandler(event);
             return;
         }
@@ -226,7 +225,7 @@ void HTMLPlugInElement::defaultEventHandler(Event* event)
             return;
     }
 
-    RefPtr<Widget> widget = toRenderWidget(renderer)->widget();
+    RefPtr<Widget> widget = downcast<RenderWidget>(*renderer).widget();
     if (!widget)
         return;
     widget->handleEvent(event);
@@ -242,10 +241,10 @@ bool HTMLPlugInElement::isKeyboardFocusable(KeyboardEvent*) const
         return false;
 
     Widget* widget = pluginWidget();
-    if (!widget || !widget->isPluginViewBase())
+    if (!is<PluginViewBase>(widget))
         return false;
 
-    return toPluginViewBase(widget)->supportsKeyboardFocus();
+    return downcast<PluginViewBase>(*widget).supportsKeyboardFocus();
 }
 
 bool HTMLPlugInElement::isPluginElement() const
@@ -257,17 +256,17 @@ bool HTMLPlugInElement::isUserObservable() const
 {
     // No widget - can't be anything to see or hear here.
     Widget* widget = pluginWidget(PluginLoadingPolicy::DoNotLoad);
-    if (!widget || !widget->isPluginViewBase())
+    if (!is<PluginViewBase>(widget))
         return false;
 
-    PluginViewBase* pluginView = toPluginViewBase(widget);
+    PluginViewBase& pluginView = downcast<PluginViewBase>(*widget);
 
     // If audio is playing (or might be) then the plugin is detectable.
-    if (pluginView->audioHardwareActivity() != AudioHardwareActivityType::IsInactive)
+    if (pluginView.audioHardwareActivity() != AudioHardwareActivityType::IsInactive)
         return true;
 
     // If the plugin is visible and not vanishingly small in either dimension it is detectable.
-    return pluginView->isVisible() && widget->width() > 2 && widget->height() > 2;
+    return pluginView.isVisible() && pluginView.width() > 2 && pluginView.height() > 2;
 }
 
 bool HTMLPlugInElement::supportsFocus() const
@@ -275,9 +274,9 @@ bool HTMLPlugInElement::supportsFocus() const
     if (HTMLFrameOwnerElement::supportsFocus())
         return true;
 
-    if (useFallbackContent() || !renderer() || !renderer()->isEmbeddedObject())
+    if (useFallbackContent() || !is<RenderEmbeddedObject>(renderer()))
         return false;
-    return !toRenderEmbeddedObject(renderer())->isPluginUnavailable();
+    return !downcast<RenderEmbeddedObject>(*renderer()).isPluginUnavailable();
 }
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -292,15 +291,15 @@ NPObject* HTMLPlugInElement::getNPObject()
 
 #endif /* ENABLE(NETSCAPE_PLUGIN_API) */
 
-RenderPtr<RenderElement> HTMLPlugInElement::createElementRenderer(PassRef<RenderStyle> style)
+RenderPtr<RenderElement> HTMLPlugInElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition& insertionPosition)
 {
     if (m_pluginReplacement && m_pluginReplacement->willCreateRenderer())
-        return m_pluginReplacement->createElementRenderer(*this, WTF::move(style));
+        return m_pluginReplacement->createElementRenderer(*this, WTF::move(style), insertionPosition);
 
     return createRenderer<RenderEmbeddedObject>(*this, WTF::move(style));
 }
 
-void HTMLPlugInElement::swapRendererTimerFired(Timer&)
+void HTMLPlugInElement::swapRendererTimerFired()
 {
     ASSERT(displayState() == PreparingPluginReplacement || displayState() == DisplayingSnapshot);
     if (userAgentShadowRoot())

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2009, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,8 @@
 #include <sys/socket.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+CF_IMPLICIT_BRIDGING_ENABLED
+CF_ASSUME_NONNULL_BEGIN
 
 /*!
 	@header SCNetwork
@@ -195,5 +197,8 @@ SCNetworkInterfaceRefreshConfiguration	(
 					)				__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
 
 __END_DECLS
+
+CF_ASSUME_NONNULL_END
+CF_IMPLICIT_BRIDGING_DISABLED
 
 #endif /* _SCNETWORK_H */

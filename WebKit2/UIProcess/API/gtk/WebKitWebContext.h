@@ -25,13 +25,13 @@
 #define WebKitWebContext_h
 
 #include <glib-object.h>
-#include <webkit2/WebKitCertificateInfo.h>
 #include <webkit2/WebKitCookieManager.h>
 #include <webkit2/WebKitDefines.h>
 #include <webkit2/WebKitDownload.h>
 #include <webkit2/WebKitFaviconDatabase.h>
 #include <webkit2/WebKitSecurityManager.h>
 #include <webkit2/WebKitURISchemeRequest.h>
+#include <webkit2/WebKitWebsiteDataManager.h>
 
 G_BEGIN_DECLS
 
@@ -128,14 +128,16 @@ struct _WebKitWebContext {
 struct _WebKitWebContextClass {
     GObjectClass parent;
 
+    void (* download_started)          (WebKitWebContext *context,
+                                        WebKitDownload   *download);
+    void (* initialize_web_extensions) (WebKitWebContext *context);
+
     void (*_webkit_reserved0) (void);
     void (*_webkit_reserved1) (void);
     void (*_webkit_reserved2) (void);
     void (*_webkit_reserved3) (void);
     void (*_webkit_reserved4) (void);
     void (*_webkit_reserved5) (void);
-    void (*_webkit_reserved6) (void);
-    void (*_webkit_reserved7) (void);
 };
 
 WEBKIT_API GType
@@ -143,6 +145,15 @@ webkit_web_context_get_type                         (void);
 
 WEBKIT_API WebKitWebContext *
 webkit_web_context_get_default                      (void);
+
+WEBKIT_API WebKitWebContext *
+webkit_web_context_new                              (void);
+
+WEBKIT_API WebKitWebContext *
+webkit_web_context_new_with_website_data_manager    (WebKitWebsiteDataManager      *manager);
+
+WEBKIT_API WebKitWebsiteDataManager *
+webkit_web_context_get_website_data_manager         (WebKitWebContext              *context);
 
 WEBKIT_API void
 webkit_web_context_set_cache_model                  (WebKitWebContext              *context,
@@ -230,13 +241,13 @@ WEBKIT_API void
 webkit_web_context_prefetch_dns                     (WebKitWebContext              *context,
                                                      const gchar                   *hostname);
 
-WEBKIT_API void
+WEBKIT_DEPRECATED_FOR(webkit_web_context_new_with_website_data_manager) void
 webkit_web_context_set_disk_cache_directory         (WebKitWebContext              *context,
                                                      const gchar                   *directory);
 
 WEBKIT_API void
 webkit_web_context_allow_tls_certificate_for_host   (WebKitWebContext              *context,
-                                                     WebKitCertificateInfo         *info,
+                                                     GTlsCertificate               *certificate,
                                                      const gchar                   *host);
 
 WEBKIT_API void

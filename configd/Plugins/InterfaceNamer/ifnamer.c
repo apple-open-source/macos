@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -70,7 +70,6 @@
 #include <net/ethernet.h>
 #include <net/if_types.h>
 #include <pthread.h>
-#include <vproc.h>
 
 #include <CommonCrypto/CommonDigest.h>
 
@@ -129,12 +128,6 @@ static io_connect_t		S_connect		= MACH_PORT_NULL;
  *   that have been identified and [need to be] named.
  */
 static CFMutableArrayRef	S_dblist		= NULL;
-
-/*
- * S_debug
- *   A boolean that enables additional logging.
- */
-static boolean_t		S_debug			= FALSE;
 
 /*
  * S_iflist
@@ -201,15 +194,6 @@ static CFMutableDictionaryRef	S_state			= NULL;
 static CFRunLoopTimerRef	S_timer			= NULL;
 static double			S_stack_timeout		= WAIT_STACK_TIMEOUT_DEFAULT;
 static double			S_quiet_timeout		= WAIT_QUIET_TIMEOUT_DEFAULT;
-
-#if	!TARGET_OS_EMBEDDED
-/*
- * S_vproc_transaction
- *   The vproc transaction used to keep launchd from sending us
- *   a SIGKILL before we've had a chance to set the platform UUID
- */
-vproc_transaction_t		S_vproc_transaction	= NULL;
-#endif	// !TARGET_OS_EMBEDDED
 
 /*
  * Virtual network interface configuration
@@ -292,9 +276,7 @@ writeInterfaceList(CFArrayRef if_list)
 
     prefs = SCPreferencesCreate(NULL, MY_PLUGIN_ID, NETWORK_INTERFACES_PREFS);
     if (prefs == NULL) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesCreate failed, %s"),
-	      SCErrorString(SCError()));
+	SC_log(LOG_NOTICE, "SCPreferencesCreate() failed: %s", SCErrorString(SCError()));
 	return;
     }
 
@@ -319,10 +301,9 @@ writeInterfaceList(CFArrayRef if_list)
 	    SCPreferencesSetValue(prefs, history, cur_list);
 	    CFRelease(history);
 
-	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": Hardware model changed\n"
-			MY_PLUGIN_NAME ":   created on \"%@\"\n"
-			MY_PLUGIN_NAME ":   now on     \"%@\""),
+	    SC_log(LOG_INFO, "Hardware model changed\n"
+			     "  created on \"%@\"\n"
+			     "  now on     \"%@\"",
 		  old_model,
 		  new_model);
 
@@ -334,25 +315,15 @@ writeInterfaceList(CFArrayRef if_list)
 	    CFRelease(issue);
 	}
 
-	if (!SCPreferencesSetValue(prefs, MODEL, new_model)) {
-	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": SCPreferencesSetValue failed, %s"),
-		  SCErrorString(SCError()));
-	    goto done;
-	}
+	SCPreferencesSetValue(prefs, MODEL, new_model);
     }
 
-    if (!SCPreferencesSetValue(prefs, INTERFACES, if_list)) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesSetValue failed, %s"),
-	      SCErrorString(SCError()));
-	goto done;
-    }
+    SCPreferencesSetValue(prefs, INTERFACES, if_list);
 
     if (!SCPreferencesCommitChanges(prefs)) {
-	SCLog((SCError() != EROFS), LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesCommitChanges failed, %s"),
-	      SCErrorString(SCError()));
+	if (SCError() != EROFS) {
+	    SC_log(LOG_NOTICE, "SCPreferencesCommitChanges() failed: %s", SCErrorString(SCError()));
+	}
 	goto done;
     }
 
@@ -360,6 +331,41 @@ done:
 
     CFRelease(prefs);
     return;
+}
+
+static CFPropertyListRef
+restoreNIPrefsFromBackup(SCPreferencesRef prefs, CFStringRef current_model)
+{
+    CFPropertyListRef if_list;
+    CFStringRef key;
+
+    key = CFStringCreateWithFormat(NULL, 0, CFSTR("%@:%@"), INTERFACES, current_model);
+    if_list = SCPreferencesGetValue(prefs, key);
+    if_list = isA_CFArray(if_list);
+    if (if_list != NULL) {
+	/* Write the previously backed up Interface list for this hardware */
+	writeInterfaceList(if_list);
+
+	/* Synchronize the prefs */
+	SCPreferencesSynchronize(prefs);
+
+	/* Re-fetch the interface list */
+	if_list = SCPreferencesGetValue(prefs, INTERFACES);
+	if_list = isA_CFArray(if_list);
+	if (if_list != NULL) {
+	    /* We do not need the old interface list any more */
+	    SCPreferencesRemoveValue(prefs, key);
+	    if (!SCPreferencesCommitChanges(prefs)) {
+		if (SCError() != EROFS) {
+		    SC_log(LOG_NOTICE, "SCPreferencesCommitChanges() failed: %s", SCErrorString(SCError()));
+		}
+		if_list = NULL;
+	    }
+	}
+    }
+
+    CFRelease(key);
+    return if_list;
 }
 
 static CF_RETURNS_RETAINED CFMutableArrayRef
@@ -371,10 +377,8 @@ readInterfaceList()
     SCPreferencesRef	prefs	= NULL;
 
     prefs = SCPreferencesCreate(NULL, MY_PLUGIN_ID, NETWORK_INTERFACES_PREFS);
-    if (!prefs) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesCreate failed, %s"),
-	      SCErrorString(SCError()));
+    if (prefs == NULL) {
+	SC_log(LOG_NOTICE, "SCPreferencesCreate() failed: %s", SCErrorString(SCError()));
 	return (NULL);
     }
 
@@ -387,8 +391,9 @@ readInterfaceList()
 
 	new_model = _SC_hw_model(FALSE);
 	if (!_SC_CFEqual(old_model, new_model)) {
-	    // if interface list was created on other hardware
-	    if_list = NULL;
+	    /*	if interface list was created on other hardware,
+		Restore if a backup interface list is present	*/
+	    if_list = restoreNIPrefsFromBackup(prefs, new_model);
 	}
     }
 
@@ -483,9 +488,8 @@ updateBondInterfaceConfiguration(SCPreferencesRef prefs)
     S_bonds = interfaces;
 
     if (!_SCBondInterfaceUpdateConfiguration(prefs)) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": _SCBondInterfaceUpdateConfiguration failed, %s"),
-	      SCErrorString(SCError()));
+	SC_log(LOG_NOTICE, "_SCBondInterfaceUpdateConfiguration() failed: %s",
+	       SCErrorString(SCError()));
     }
 
     return;
@@ -513,9 +517,8 @@ updateBridgeInterfaceConfiguration(SCPreferencesRef prefs)
     S_bridges = interfaces;
 
     if (!_SCBridgeInterfaceUpdateConfiguration(prefs)) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": _SCBridgeInterfaceUpdateConfiguration failed, %s"),
-	      SCErrorString(SCError()));
+	SC_log(LOG_NOTICE, "_SCBridgeInterfaceUpdateConfiguration() failed: %s",
+	       SCErrorString(SCError()));
     }
 
     return;
@@ -542,9 +545,8 @@ updateVLANInterfaceConfiguration(SCPreferencesRef prefs)
     S_vlans = interfaces;
 
     if (!_SCVLANInterfaceUpdateConfiguration(prefs)) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": _SCVLANInterfaceUpdateConfiguration failed, %s"),
-	      SCErrorString(SCError()));
+	SC_log(LOG_NOTICE, "_SCVLANInterfaceUpdateConfiguration() failed: %s",
+	       SCErrorString(SCError()));
     }
 
     return;
@@ -555,9 +557,14 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 					   SCPreferencesNotification   notificationType,
 					   void				*info)
 {
+    os_activity_t   activity_id;
+
     if ((notificationType & kSCPreferencesNotificationApply) != kSCPreferencesNotificationApply) {
 	return;
     }
+
+    activity_id = os_activity_start("check/update virtual network interface configuration",
+				    OS_ACTIVITY_FLAG_DEFAULT);
 
     if (prefs == NULL) {
 	// if a new interface has been "named"
@@ -584,6 +591,9 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 
     // we are finished with current prefs, wait for changes
     SCPreferencesSynchronize(prefs);
+
+    os_activity_end(activity_id);
+
     return;
 }
 
@@ -936,9 +946,7 @@ interfaceExists(CFStringRef prefix, CFNumberRef unit)
 
     kr = IOMasterPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x"),
-	      kr);
+	SC_log(LOG_ERR, "IOMasterPort returned 0x%x", kr);
 	goto error;
     }
 
@@ -1264,9 +1272,7 @@ copyInterfaceForIORegistryEntryID(uint64_t entryID)
 
     kr = IOMasterPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x"),
-	      kr);
+	SC_log(LOG_ERR, "IOMasterPort returned 0x%x", kr);
 	goto error;
     }
 
@@ -1274,19 +1280,16 @@ copyInterfaceForIORegistryEntryID(uint64_t entryID)
 				      IORegistryEntryIDMatching(entryID),
 				      &iterator);
     if ((kr != KERN_SUCCESS) || (iterator == MACH_PORT_NULL)) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOServiceGetMatchingServices(0x%llx) returned 0x%x/%d"),
-	      entryID,
-	      kr,
-	      iterator);
+	SC_log(LOG_NOTICE, "IOServiceGetMatchingServices(0x%llx) returned 0x%x/%d",
+	       entryID,
+	       kr,
+	       iterator);
 	goto error;
     }
 
     entry = IOIteratorNext(iterator);
     if (entry == MACH_PORT_NULL) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IORegistryEntryIDMatching(0x%llx) failed"),
-	      entryID);
+	SC_log(LOG_NOTICE, "IORegistryEntryIDMatching(0x%llx) failed", entryID);
 	goto error;
     }
 
@@ -1355,17 +1358,13 @@ copyInterfaceForIOKitPath(CFStringRef if_path)
 
     kr = IOMasterPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x"),
-	      kr);
+	SC_log(LOG_ERR, "IOMasterPort returned 0x%x", kr);
 	goto error;
     }
     _SC_cfstring_to_cstring(if_path, path, sizeof(path), kCFStringEncodingASCII);
     entry = IORegistryEntryFromPath(masterPort, path);
     if (entry == MACH_PORT_NULL) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IORegistryEntryFromPath(%@) failed"),
-	      if_path);
+	SC_log(LOG_NOTICE, "IORegistryEntryFromPath(%@) failed", if_path);
 	goto error;
     }
 
@@ -1406,8 +1405,7 @@ displayInterface(SCNetworkInterfaceRef interface)
     type = _SCNetworkInterfaceGetIOInterfaceType(interface);
     addr = SCNetworkInterfaceGetHardwareAddressString(interface);
 
-    SCLog(TRUE, LOG_INFO,
-	  CFSTR(MY_PLUGIN_NAME ":   %s%@%sType: %@, %s%@%sMAC address: %@"),
+    SC_log(LOG_INFO, "  %s%@%sType: %@, %s%@%sMAC address: %@",
 	  (name != NULL) ? "BSD Name: " : "",
 	  (name != NULL) ? name : CFSTR(""),
 	  (name != NULL) ? ", " : "",
@@ -1510,15 +1508,12 @@ nameInterfaces(CFMutableArrayRef if_list)
 	entryID = _SCNetworkInterfaceGetIORegistryEntryID(interface);
 
 	if (unit != NULL) {
-	    if (S_debug) {
-		CFStringRef	if_name;
+	    CFStringRef	if_name;
 
-		if_name = SCNetworkInterfaceGetBSDName(interface);
-		if ((if_name == NULL) || !CFDictionaryContainsKey(S_state, if_name)) {
-			SCLog(TRUE, LOG_INFO,
-			      CFSTR(MY_PLUGIN_NAME ": Interface already has a unit number"));
-			displayInterface(interface);
-		}
+	    if_name = SCNetworkInterfaceGetBSDName(interface);
+	    if ((if_name == NULL) || !CFDictionaryContainsKey(S_state, if_name)) {
+		SC_log(LOG_INFO, "Interface already has a unit number");
+		displayInterface(interface);
 	    }
 
 	    // update the list of interfaces that were previously named
@@ -1539,9 +1534,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 		unit = CFDictionaryGetValue(dbdict, CFSTR(kIOInterfaceUnit));
 		CFRetain(unit);
 
-		SCLog(S_debug, LOG_INFO,
-		      CFSTR(MY_PLUGIN_NAME ": Interface assigned unit %@ (from database)"),
-		      unit);
+		SC_log(LOG_INFO, "Interface assigned unit %@ (from database)", unit);
 	    }
 
 	    if ((dbdict == NULL) && !isQuiet()) {
@@ -1562,9 +1555,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 		    unit = CFDictionaryGetValue(dbdict, CFSTR(kIOInterfaceUnit));
 		    CFRetain(unit);
 
-		    SCLog(S_debug, LOG_INFO,
-			  CFSTR(MY_PLUGIN_NAME ": Interface assigned unit %@ (updating database)"),
-			  unit);
+		    SC_log(LOG_INFO, "Interface assigned unit %@ (updating database)", unit);
 		}
 	    }
 
@@ -1596,9 +1587,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 		    unit = CFNumberCreate(NULL, kCFNumberIntType, &next_unit);
 		    if (!builtinAvailable(interface, unit)) {
 			// if [built-in] unit not available
-			SCLog(S_debug, LOG_INFO,
-			      CFSTR(MY_PLUGIN_NAME ": Interface not assigned [built-in] unit %@"),
-			      unit);
+			SC_log(LOG_INFO, "Interface not assigned [built-in] unit %@", unit);
 			CFRelease(unit);
 			unit = NULL;
 		    }
@@ -1622,10 +1611,9 @@ nameInterfaces(CFMutableArrayRef if_list)
 		    unit = CFNumberCreate(NULL, kCFNumberIntType, &next_unit);
 		}
 
-		SCLog(S_debug, LOG_INFO,
-		      CFSTR(MY_PLUGIN_NAME ": Interface assigned unit %@ (%s)"),
-		      unit,
-		      is_builtin ? "built-in" : "next available");
+		SC_log(LOG_INFO, "Interface assigned unit %@ (%s)",
+		       unit,
+		       is_builtin ? "built-in" : "next available");
 	    }
 
 	retry :
@@ -1651,20 +1639,17 @@ nameInterfaces(CFMutableArrayRef if_list)
 		signature = (dbdict == NULL) ? "failed to name new interface"
 					     : "failed to name known interface";
 
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR(MY_PLUGIN_NAME ": %s, kr=0x%x\n"
-			    MY_PLUGIN_NAME ":   path = %@\n"
-			    MY_PLUGIN_NAME ":   id   = 0x%llx\n"
-			    MY_PLUGIN_NAME ":   unit = %@"),
-		      signature,
-		      kr,
-		      path,
-		      entryID,
-		      unit);
+		SC_log(LOG_NOTICE, "%s, kr=0x%x\n"
+				   "  path = %@\n"
+				   "  id   = 0x%llx\n"
+				   "  unit = %@",
+		       signature,
+		       kr,
+		       path,
+		       entryID,
+		       unit);
 
-		if (S_debug) {
-		    displayInterface(interface);
-		}
+		displayInterface(interface);
 
 		// report issue w/MessageTracer
 		str = CFStringCreateWithFormat(NULL, NULL,
@@ -1684,15 +1669,14 @@ nameInterfaces(CFMutableArrayRef if_list)
 		CFNumberRef	new_unit;
 
 		if (retries > 0) {
-		    SCLog(TRUE, LOG_ERR,
-			  CFSTR(MY_PLUGIN_NAME ": %s interface named after %d %s\n"
-				MY_PLUGIN_NAME ":   path = %@\n"
-				MY_PLUGIN_NAME ":   unit = %@"),
-			  (dbdict == NULL) ? "New" : "Known",
-			  retries,
-			  (retries == 1) ? "try" : "tries",
-			  path,
-			  unit);
+		    SC_log(LOG_INFO, "%s interface named after %d %s\n"
+				     "  path = %@\n"
+				     "  unit = %@",
+			   (dbdict == NULL) ? "New" : "Known",
+			   retries,
+			   (retries == 1) ? "try" : "tries",
+			   path,
+			   unit);
 
 #ifdef	SHOW_NAMING_FAILURE
 		    str = CFStringCreateWithFormat(NULL,
@@ -1716,15 +1700,11 @@ nameInterfaces(CFMutableArrayRef if_list)
 
 		new_unit = _SCNetworkInterfaceGetIOInterfaceUnit(new_interface);
 		if (CFEqual(unit, new_unit) == FALSE) {
-		    SCLog(S_debug, LOG_INFO,
-			  CFSTR(MY_PLUGIN_NAME
-				": interface type %@ assigned "
-				"unit %@ instead of %@"),
-			  type, new_unit, unit);
+		    SC_log(LOG_INFO, "interface type %@ assigned unit %@ instead of %@",
+			   type, new_unit, unit);
 		}
-		if (S_debug) {
-		    displayInterface(new_interface);
-		}
+
+		displayInterface(new_interface);
 
 		// update if_list (with the interface name & unit)
 		CFArraySetValueAtIndex(if_list, i, new_interface);
@@ -1736,8 +1716,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 
 		    // update the list of [built-in] interfaces that were previously named
 		    if (lookupInterfaceByUnit(S_prev_active_list, interface, &where) != NULL) {
-			SCLog(S_debug, LOG_INFO,
-			      CFSTR(MY_PLUGIN_NAME ":   and updated database (new address)"));
+			SC_log(LOG_DEBUG, "  and updated database (new address)");
 			CFArrayRemoveValueAtIndex(S_prev_active_list, where);
 		    }
 		}
@@ -1763,7 +1742,7 @@ updateNetworkConfiguration(CFArrayRef if_list)
 
     set = SCNetworkSetCopyCurrent(prefs);
     if (set == NULL) {
-	SCLog(TRUE, LOG_ERR, CFSTR(MY_PLUGIN_NAME ": No current set"));
+	SC_log(LOG_INFO, "No current set");
 	goto done;
     }
 
@@ -1773,9 +1752,8 @@ updateNetworkConfiguration(CFArrayRef if_list)
 
 	interface = CFArrayGetValueAtIndex(if_list, i);
 	if (SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface)) {
-	    SCLog(TRUE, LOG_INFO,
-		  CFSTR(MY_PLUGIN_NAME ": adding default configuration for %@"),
-		  SCNetworkInterfaceGetBSDName(interface));
+	    SC_log(LOG_INFO, "adding default configuration for %@",
+		   SCNetworkInterfaceGetBSDName(interface));
 	    do_commit = TRUE;
 	}
     }
@@ -1785,17 +1763,13 @@ updateNetworkConfiguration(CFArrayRef if_list)
 
 	ok = SCPreferencesCommitChanges(prefs);
 	if (!ok) {
-	    SCLog(TRUE, LOG_INFO,
-		  CFSTR(MY_PLUGIN_NAME ": updateNetworkConfiguration: SCPreferencesCommitChanges() failed: %s"),
-		  SCErrorString(SCError()));
+	    SC_log(LOG_NOTICE, "SCPreferencesCommitChanges() failed: %s", SCErrorString(SCError()));
 	    goto done;
 	}
 
 	ok = SCPreferencesApplyChanges(prefs);
 	if (!ok) {
-	    SCLog(TRUE, LOG_INFO,
-		  CFSTR(MY_PLUGIN_NAME ": updateNetworkConfiguration: SCPreferencesApplyChanges() failed: %s"),
-		  SCErrorString(SCError()));
+	    SC_log(LOG_NOTICE, "SCPreferencesApplyChanges() failed: %s", SCErrorString(SCError()));
 	    goto done;
 	}
     }
@@ -1866,35 +1840,32 @@ updateInterfaces()
 	}
 
 	if (S_prev_active_list != NULL) {
-	    if (S_debug) {
-		CFIndex	i;
-		CFIndex	n;
+	    CFIndex	i;
+	    CFIndex	n;
 
-		n = CFArrayGetCount(S_prev_active_list);
-		if (n > 0) {
-		    SCLog(TRUE, LOG_INFO,
-			  CFSTR(MY_PLUGIN_NAME ": Interface%s not [yet] active"),
-			  (n > 1) ? "s" : "");
-		}
-		for (i = 0; i < n; i++) {
-		    CFDictionaryRef	if_dict;
-		    CFStringRef		name;
-		    CFNumberRef		type;
-		    CFNumberRef		unit;
-
-		    if_dict = CFArrayGetValueAtIndex(S_prev_active_list, i);
-		    name = CFDictionaryGetValue(if_dict, CFSTR(kIOBSDNameKey));
-		    type = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceType));
-		    unit = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceUnit));
-		    SCLog(TRUE, LOG_INFO,
-			  CFSTR(MY_PLUGIN_NAME ":   %s%@%sType: %@, Unit: %@"),
-			  (name != NULL) ? "BSD Name: " : "",
-			  (name != NULL) ? name : CFSTR(""),
-			  (name != NULL) ? ", " : "",
-			  type,
-			  unit);
-		}
+	    n = CFArrayGetCount(S_prev_active_list);
+	    if (n > 0) {
+		SC_log(LOG_INFO, "Interface%s not [yet] active",
+		       (n > 1) ? "s" : "");
 	    }
+	    for (i = 0; i < n; i++) {
+		CFDictionaryRef	if_dict;
+		CFStringRef		name;
+		CFNumberRef		type;
+		CFNumberRef		unit;
+
+		if_dict = CFArrayGetValueAtIndex(S_prev_active_list, i);
+		name = CFDictionaryGetValue(if_dict, CFSTR(kIOBSDNameKey));
+		type = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceType));
+		unit = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceUnit));
+		SC_log(LOG_INFO, "  %s%@%sType: %@, Unit: %@",
+		       (name != NULL) ? "BSD Name: " : "",
+		       (name != NULL) ? name : CFSTR(""),
+		       (name != NULL) ? ", " : "",
+		       type,
+		       unit);
+	    }
+
 	    CFRelease(S_prev_active_list);
 	    S_prev_active_list = NULL;
 	}
@@ -1905,8 +1876,7 @@ updateInterfaces()
 	     * were used during the previous boot.
 	     */
 	    addTimestamp(S_state, CFSTR("*RELEASE*"));
-	    SCLog(S_debug, LOG_INFO,
-		  CFSTR(MY_PLUGIN_NAME ": last boot interfaces have been named"));
+	    SC_log(LOG_INFO, "last boot interfaces have been named");
 	    updateStore();
 	    CFRelease(S_prev_active_list);
 	    S_prev_active_list = NULL;
@@ -1916,178 +1886,14 @@ updateInterfaces()
     return;
 }
 
-#if	!TARGET_OS_EMBEDDED
-static CFComparisonResult
-compareMacAddress(const void *val1, const void *val2, void *context)
-{
-    CFDataRef		mac1	= (CFDataRef)val1;
-    CFDataRef		mac2	= (CFDataRef)val2;
-    CFIndex		n1;
-    CFIndex		n2;
-    CFComparisonResult	res;
-
-    n1 = CFDataGetLength(mac1);
-    n2 = CFDataGetLength(mac2);
-    if (n1 < n2) {
-	res = kCFCompareLessThan;
-     } else if (n2 > n1) {
-	res = kCFCompareGreaterThan;
-     } else {
-	res = bcmp(CFDataGetBytePtr(mac1), CFDataGetBytePtr(mac2), n1);
-     }
-
-     return res;
-}
-
-static CFStringRef
-copyEthernetUUID()
-{
-    CFDataRef		addr;
-    CFMutableArrayRef	addrs	= NULL;
-    CFStringRef		guid	= NULL;
-    CFIndex		i;
-    CFIndex		n;
-
-    addrs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    n = (S_dblist != NULL) ? CFArrayGetCount(S_dblist) : 0;
-    for (i = 0; i < n; i++) {
-	CFBooleanRef	builtin;
-	CFDictionaryRef	dict;
-	CFStringRef	type;
-
-	dict = CFArrayGetValueAtIndex(S_dblist, i);
-	type = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceType));
-	if (!isA_CFString(type) || !CFEqual(type, kSCNetworkInterfaceTypeEthernet)) {
-	    continue;
-	}
-	builtin = CFDictionaryGetValue(dict, CFSTR(kIOBuiltin));
-	if (!isA_CFBoolean(builtin) || !CFBooleanGetValue(builtin)) {
-	    continue;
-	}
-	addr = CFDictionaryGetValue(dict, CFSTR(kIOMACAddress));
-	if (!isA_CFData(addr) || (CFDataGetLength(addr) != ETHER_ADDR_LEN)) {
-	    continue;
-	}
-	CFArrayAppendValue(addrs, addr);
-    }
-
-    if (CFArrayGetCount(addrs) == 0) {
-	// if no ethernet interfaces, look for wireless
-	for (i = 0; i < n; i++) {
-	    CFDictionaryRef	dict;
-	    CFStringRef		type;
-
-	    dict = CFArrayGetValueAtIndex(S_dblist, i);
-	    type = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceType));
-	    if (!isA_CFString(type) || !CFEqual(type, kSCNetworkInterfaceTypeIEEE80211)) {
-		continue;
-	    }
-	    addr = CFDictionaryGetValue(dict, CFSTR(kIOMACAddress));
-	    if (!isA_CFData(addr) || (CFDataGetLength(addr) != ETHER_ADDR_LEN)) {
-		continue;
-	    }
-	    CFArrayAppendValue(addrs, addr);
-	}
-    }
-
-    n = CFArrayGetCount(addrs);
-    switch (n) {
-	case 0 :
-	    // if no network interfaces
-	    break;
-	default :
-	    // sort by MAC address
-	    CFArraySortValues(addrs, CFRangeMake(0, n), compareMacAddress, NULL);
-
-	    // fall through
-	case 1 : {
-	    CFUUIDBytes		bytes	= { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00,
-					    0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-	    CFUUIDRef		uuid;
-
-	    // set GUID
-	    addr = CFArrayGetValueAtIndex(addrs, 0);
-	    bcopy(CFDataGetBytePtr(addr),
-		  (void *)&bytes + sizeof(bytes) - ETHER_ADDR_LEN,
-		  ETHER_ADDR_LEN);
-	    uuid = CFUUIDCreateFromUUIDBytes(NULL, bytes);
-	    guid = CFUUIDCreateString(NULL, uuid);
-	    CFRelease(uuid);
-
-	    SCLog(TRUE, LOG_INFO,
-		  CFSTR(MY_PLUGIN_NAME ": setting platform UUID [MAC] = %@"),
-		  guid);
-	    break;
-	}
-    }
-
-    if (addrs != NULL) CFRelease(addrs);
-    return guid;
-}
-
-#ifndef kIOPlatformUUIDKey
-#define kIOPlatformUUIDKey "IOPlatformUUID"
-#endif
-static void
-updatePlatformUUID()
-{
-    CFStringRef		guid	= NULL;
-    kern_return_t	kr;
-    io_registry_entry_t	platform;
-
-    platform = IORegistryEntryFromPath(kIOMasterPortDefault, kIODeviceTreePlane ":/");
-    if (platform == MACH_PORT_NULL) {
-	goto done;
-    }
-
-    guid = IORegistryEntryCreateCFProperty(platform, CFSTR(kIOPlatformUUIDKey), NULL, 0);
-    if (guid != NULL) {
-	// if GUID already defined
-	goto done;
-    }
-
-    guid = copyEthernetUUID();
-    if (guid == NULL) {
-	CFUUIDRef   uuid;
-
-	uuid = CFUUIDCreate(NULL);
-	guid = CFUUIDCreateString(NULL, uuid);
-	CFRelease(uuid);
-
-	SCLog(TRUE, LOG_INFO,
-	      CFSTR(MY_PLUGIN_NAME ": setting platform UUID [random] = %@"),
-	      guid);
-    }
-
-if (getenv("DO_NOT_SET_PLATFORM_UUID") == NULL) {
-    kr = IORegistryEntrySetCFProperty(platform, CFSTR(kIOPlatformUUIDKey), guid);
-    if (kr != KERN_SUCCESS) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IORegistryEntrySetCFProperty(platform UUID) failed, kr=0x%x"),
-	      kr);
-    }
-}
-
-    addTimestamp(S_state, CFSTR("*PLATFORM-UUID*"));
-    updateStore();
-
-  done :
-
-    if (S_vproc_transaction != NULL) {
-	vproc_transaction_end(NULL, S_vproc_transaction);
-	S_vproc_transaction = NULL;
-    }
-
-    if (platform != MACH_PORT_NULL) IOObjectRelease(platform);
-    if (guid != NULL) CFRelease(guid);
-    return;
-}
-#endif	// !TARGET_OS_EMBEDDED
-
 static void
 interfaceArrivalCallback(void *refcon, io_iterator_t iter)
 {
-    io_object_t	obj;
+    os_activity_t   activity_id;
+    io_object_t	    obj;
+
+    activity_id = os_activity_start("process new network interface",
+				    OS_ACTIVITY_FLAG_DEFAULT);
 
     while ((obj = IOIteratorNext(iter)) != MACH_PORT_NULL) {
 	SCNetworkInterfaceRef	interface;
@@ -2104,6 +1910,9 @@ interfaceArrivalCallback(void *refcon, io_iterator_t iter)
     }
 
     updateInterfaces();
+
+    os_activity_end(activity_id);
+
     return;
 }
 
@@ -2119,8 +1928,12 @@ interfaceArrivalCallback(void *refcon, io_iterator_t iter)
 static void
 stackCallback(void *refcon, io_iterator_t iter)
 {
+    os_activity_t	activity_id;
     kern_return_t	kr;
     io_object_t		stack;
+
+    activity_id = os_activity_start("process IONetworkStack",
+				    OS_ACTIVITY_FLAG_DEFAULT);
 
     stack = IOIteratorNext(iter);
     if (stack == MACH_PORT_NULL) {
@@ -2129,15 +1942,12 @@ stackCallback(void *refcon, io_iterator_t iter)
 
     kr = IOServiceOpen(stack, mach_task_self(), 0, &S_connect);
     if (kr != KERN_SUCCESS) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOServiceOpen returned 0x%x"),
-	      kr);
+	SC_log(LOG_ERR, "IOServiceOpen returned 0x%x", kr);
 	goto error;
     }
 
     addTimestamp(S_state, CFSTR("*STACK*"));
-    SCLog(S_debug, LOG_INFO,
-	  CFSTR(MY_PLUGIN_NAME ": IONetworkStack found"));
+    SC_log(LOG_INFO, "IONetworkStack found");
 
     if (S_stack != MACH_PORT_NULL) {
 	IOObjectRelease(S_stack);
@@ -2155,9 +1965,12 @@ stackCallback(void *refcon, io_iterator_t iter)
     updateInterfaces();
 
  error:
+
     if (stack != MACH_PORT_NULL) {
 	IOObjectRelease(stack);
     }
+
+    os_activity_end(activity_id);
 
     return;
 }
@@ -2168,21 +1981,24 @@ quietCallback(void		*refcon,
 	      natural_t		messageType,
 	      void		*messageArgument)
 {
+    os_activity_t	activity_id;
+
     if (messageArgument != NULL) {
 	// if not yet quiet
 	return;
     }
 
+    activity_id = os_activity_start("process IOKit quiet",
+				    OS_ACTIVITY_FLAG_DEFAULT);
+
     if (messageType == kIOMessageServiceBusyStateChange) {
 	addTimestamp(S_state, CFSTR("*QUIET*"));
-	SCLog(S_debug, LOG_INFO,
-	      CFSTR(MY_PLUGIN_NAME ": IOKit quiet"));
+	SC_log(LOG_INFO, "IOKit quiet");
     }
 
     if (S_connect == MACH_PORT_NULL) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": No network stack object"));
-	return;
+	SC_log(LOG_ERR, "No network stack object");
+	goto done;
     }
 
     if (S_quiet != MACH_PORT_NULL) {
@@ -2199,9 +2015,14 @@ quietCallback(void		*refcon,
     // grab (and name) any additional interfaces.
     interfaceArrivalCallback((void *)S_notify, S_iter);
 
-#if	!TARGET_OS_EMBEDDED
-    updatePlatformUUID();
-#endif	// !TARGET_OS_EMBEDDED
+    if (messageType == kIOMessageServiceBusyStateChange) {
+	addTimestamp(S_state, CFSTR("*QUIET&NAMED*"));
+	updateStore();
+    }
+
+  done :
+
+    os_activity_end(activity_id);
 
     return;
 }
@@ -2231,9 +2052,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef
 
 	kr = IORegistryEntryGetName(obj, name);
 	if (kr != kIOReturnSuccess) {
-	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": captureBusy IORegistryEntryGetName returned 0x%x"),
-		  kr);
+	    SC_log(LOG_NOTICE, "IORegistryEntryGetName() returned 0x%x", kr);
 	    goto next;
 	}
 
@@ -2249,9 +2068,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef
 	    case kIOReturnNotFound :
 		break;
 	    default :
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR(MY_PLUGIN_NAME ": captureBusy IORegistryEntryGetLocationInPlane returned 0x%x"),
-		      kr);
+		SC_log(LOG_NOTICE, "IORegistryEntryGetLocationInPlane() returned 0x%x", kr);
 		CFRelease(str);
 		goto next;
 	}
@@ -2261,9 +2078,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef
 
 	kr = IOServiceGetBusyStateAndTime(obj, &state, &busy_state, &accumulated_busy_time);
 	if (kr != kIOReturnSuccess) {
-	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": captureBusy IOServiceGetBusyStateAndTime returned 0x%x"),
-		  kr);
+	    SC_log(LOG_NOTICE, "IOServiceGetBusyStateAndTime() returned 0x%x", kr);
 	    goto next;
 	}
 
@@ -2293,9 +2108,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef
 
 	kr = IORegistryIteratorEnterEntry(iterator);
 	if (kr != kIOReturnSuccess) {
-	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": captureBusy IORegistryIteratorEnterEntry returned 0x%x"),
-		  kr);
+	    SC_log(LOG_NOTICE, "IORegistryIteratorEnterEntry() returned 0x%x", kr);
 	    goto next;
 	}
 
@@ -2303,9 +2116,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef
 
 	kr = IORegistryIteratorExitEntry(iterator);
 	if (kr != kIOReturnSuccess) {
-	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": captureBusy IORegistryIteratorExitEntry returned 0x%x"),
-		  kr);
+	    SC_log(LOG_NOTICE, "IORegistryIteratorExitEntry() returned 0x%x", kr);
 	}
 
       next :
@@ -2332,9 +2143,7 @@ captureBusy()
 				  0,
 				  &iterator);
     if (kr != kIOReturnSuccess) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": captureBusy IORegistryCreateIterator returned 0x%x"),
-	      kr);
+	SC_log(LOG_NOTICE, "IORegistryCreateIterator() returned 0x%x", kr);
 	return snapshot;
     }
 
@@ -2350,7 +2159,11 @@ captureBusy()
 static void
 timerCallback(CFRunLoopTimerRef	timer, void *info)
 {
-    CFStringRef	snapshot;
+    os_activity_t   activity_id;
+    CFStringRef	    snapshot;
+
+    activity_id = os_activity_start("process IOKit timer",
+				    OS_ACTIVITY_FLAG_DEFAULT);
 
     // We've been waiting for IOKit to quiesce and it just
     // hasn't happenned.  Time to just move on!
@@ -2358,13 +2171,17 @@ timerCallback(CFRunLoopTimerRef	timer, void *info)
 
     // log busy nodes
     snapshot = captureBusy();
-    SCLog(TRUE, LOG_ERR,
-	  CFSTR(MY_PLUGIN_NAME ": timed out waiting for IOKit to quiesce\n%@"),
-	  snapshot);
+    SC_log(LOG_ERR, "timed out waiting for IOKit to quiesce\n%@", snapshot);
     reportIssue("timed out waiting for IOKit to quiesce", snapshot);
     CFRelease(snapshot);
 
     quietCallback((void *)S_notify, MACH_PORT_NULL, 0, NULL);
+
+    addTimestamp(S_state, CFSTR("*TIMEOUT&NAMED*"));
+    updateStore();
+
+    os_activity_end(activity_id);
+
     return;
 }
 
@@ -2402,24 +2219,20 @@ setup_IOKit(CFBundleRef bundle)
     // notifications of new devices or state changes.
     kr = IOMasterPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x"),
-	      kr);
+	SC_log(LOG_ERR, "IOMasterPort returned 0x%x", kr);
 	goto done;
     }
 
     S_notify = IONotificationPortCreate(masterPort);
     if (S_notify == NULL) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IONotificationPortCreate failed"));
+	SC_log(LOG_ERR, "IONotificationPortCreate failed");
 	goto done;
     }
 
     // watch IOKit matching activity
     root = IORegistryEntryFromPath(masterPort, kIOServicePlane ":/");
     if (root == MACH_PORT_NULL) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IORegistryEntryFromPath failed"));
+	SC_log(LOG_ERR, "IORegistryEntryFromPath failed");
 	goto done;
     }
 
@@ -2430,17 +2243,13 @@ setup_IOKit(CFBundleRef bundle)
 					  (void *)S_notify,	// refCon
 					  &S_quiet);		// notification
     if (kr != KERN_SUCCESS) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOServiceAddInterestNotification returned 0x%x"),
-	      kr);
+	SC_log(LOG_ERR, "IOServiceAddInterestNotification returned 0x%x", kr);
 	goto done;
     }
 
     kr = IOServiceGetBusyState(root, &busy);
     if (kr != KERN_SUCCESS) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOServiceGetBusyState returned 0x%x"),
-	      kr);
+	SC_log(LOG_ERR, "IOServiceGetBusyState returned 0x%x", kr);
 	goto done;
     }
 
@@ -2453,8 +2262,7 @@ setup_IOKit(CFBundleRef bundle)
 				   timerCallback,
 				   NULL);
     if (S_timer == NULL) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": CFRunLoopTimerCreate failed"));
+	SC_log(LOG_ERR, "CFRunLoopTimerCreate failed");
 	goto done;
     }
 
@@ -2468,9 +2276,7 @@ setup_IOKit(CFBundleRef bundle)
 					  (void *)S_notify,	// refCon
 					  &S_stack);		// notification
     if (kr != KERN_SUCCESS) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOServiceAddMatchingNotification returned 0x%x"),
-	      kr);
+	SC_log(LOG_ERR, "IOServiceAddMatchingNotification returned 0x%x", kr);
 	goto done;
     }
 
@@ -2486,9 +2292,7 @@ setup_IOKit(CFBundleRef bundle)
 					  (void *)S_notify,	// refCon
 					  &S_iter);		// notification
     if (kr != KERN_SUCCESS) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOServiceAddMatchingNotification returned 0x%x"),
-	      kr);
+	SC_log(LOG_ERR, "IOServiceAddMatchingNotification returned 0x%x", kr);
 	goto done;
     }
 
@@ -2553,17 +2357,14 @@ setup_Virtual(CFBundleRef bundle)
     // open a SCPreferences session
     S_prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME), NULL);
     if (S_prefs == NULL) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesCreate() failed: %s"),
-	      SCErrorString(SCError()));
+	SC_log(LOG_ERR, "SCPreferencesCreate() failed: %s",
+	       SCErrorString(SCError()));
 	return FALSE;
     }
 
     // register for change notifications.
     if (!SCPreferencesSetCallback(S_prefs, updateVirtualNetworkInterfaceConfiguration, NULL)) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesSetCallBack() failed: %s"),
-	      SCErrorString(SCError()));
+	SC_log(LOG_ERR, "SCPreferencesSetCallBack() failed: %s", SCErrorString(SCError()));
 	CFRelease(S_prefs);
 	return FALSE;
     }
@@ -2571,9 +2372,7 @@ setup_Virtual(CFBundleRef bundle)
     // schedule
     if (!SCPreferencesScheduleWithRunLoop(S_prefs, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
 	if (SCError() != kSCStatusNoStoreServer) {
-	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": SCPreferencesScheduleWithRunLoop() failed: %s"),
-			SCErrorString(SCError()));
+	    SC_log(LOG_ERR, "SCPreferencesScheduleWithRunLoop() failed: %s", SCErrorString(SCError()));
 	    CFRelease(S_prefs);
 	    return FALSE;
 	}
@@ -2599,8 +2398,7 @@ exec_InterfaceNamer(void *arg)
 	    if (!isA_CFNumber(num) ||
 		!CFNumberGetValue(num, kCFNumberDoubleType, &S_stack_timeout) ||
 		(S_stack_timeout <= 0.0)) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR(MY_PLUGIN_NAME ": " WAIT_STACK_TIMEOUT_KEY " value error"));
+		SC_log(LOG_NOTICE, WAIT_STACK_TIMEOUT_KEY " value error");
 		S_stack_timeout = WAIT_STACK_TIMEOUT_DEFAULT;
 	    }
 	}
@@ -2610,8 +2408,7 @@ exec_InterfaceNamer(void *arg)
 	    if (!isA_CFNumber(num) ||
 		!CFNumberGetValue(num, kCFNumberDoubleType, &S_quiet_timeout) ||
 		(S_quiet_timeout <= 0.0)) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR(MY_PLUGIN_NAME ": " WAIT_QUIET_TIMEOUT_KEY " value error"));
+		SC_log(LOG_NOTICE, WAIT_QUIET_TIMEOUT_KEY " value error");
 		S_quiet_timeout = WAIT_QUIET_TIMEOUT_DEFAULT;
 	    }
 	}
@@ -2626,12 +2423,6 @@ exec_InterfaceNamer(void *arg)
     if (!setup_IOKit(bundle)) {
 	goto error;
     }
-
-#if	!TARGET_OS_EMBEDDED
-    // keep launchd from SIGKILL'ing us until after the platform-uuid has
-    // been updated
-    S_vproc_transaction = vproc_transaction_begin(NULL);
-#endif	// !TARGET_OS_EMBEDDED
 
     goto done;
 
@@ -2683,10 +2474,6 @@ load_InterfaceNamer(CFBundleRef bundle, Boolean bundleVerbose)
     pthread_attr_t  tattr;
     pthread_t	    tid;
 
-    if (bundleVerbose) {
-	S_debug = TRUE;
-    }
-
     CFRetain(bundle);	// released in exec_InterfaceNamer
 
     pthread_attr_init(&tattr);
@@ -2710,8 +2497,6 @@ main(int argc, char ** argv)
     _sc_log     = FALSE;
     _sc_verbose = (argc > 1) ? TRUE : FALSE;
 
-    S_debug = _sc_verbose;
-
     bundle = CFBundleGetMainBundle();
     CFRetain(bundle);	// released in exec_InterfaceNamer
 
@@ -2722,46 +2507,6 @@ main(int argc, char ** argv)
     return 0;
 }
 #endif /* MAIN */
-
-#ifdef	TEST_PLATFORM_UUID
-int
-main(int argc, char ** argv)
-{
-    CFStringRef	guid;
-    CFArrayRef	interfaces;
-
-    _sc_log     = FALSE;
-    _sc_verbose = (argc > 1) ? TRUE : FALSE;
-
-    S_dblist = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    interfaces = SCNetworkInterfaceCopyAll();
-    if (interfaces != NULL) {
-	CFIndex	i;
-	CFIndex	n;
-
-	n = CFArrayGetCount(interfaces);
-	for (i = 0; i < n; i++) {
-	    CFDictionaryRef		dict;
-	    SCNetworkInterfaceRef	interface;
-
-	    interface = CFArrayGetValueAtIndex(interfaces, i);
-	    dict = createInterfaceDict(interface);
-	    CFArrayAppendValue(S_dblist, dict);
-	    CFRelease(dict);
-	}
-	CFRelease(interfaces);
-    }
-
-    guid = copyEthernetUUID();
-    SCPrint(TRUE, stdout, CFSTR("copyEthernetUUID()  = %@\n"), (guid != NULL) ? guid : CFSTR("NULL"));
-    if (guid != NULL) CFRelease(guid);
-
-    updatePlatformUUID();
-    CFRelease(S_dblist);
-    exit(0);
-    return 0;
-}
-#endif	/* TEST_PLATFORM_UUID */
 
 #ifdef	TEST_SNAPSHOT
 int

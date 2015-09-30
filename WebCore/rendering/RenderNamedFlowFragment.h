@@ -49,17 +49,16 @@ class RenderStyle;
 
 class RenderNamedFlowFragment final : public RenderRegion {
 public:
-    RenderNamedFlowFragment(Document&, PassRef<RenderStyle>);
+    RenderNamedFlowFragment(Document&, Ref<RenderStyle>&&);
     virtual ~RenderNamedFlowFragment();
 
-    static PassRef<RenderStyle> createStyle(const RenderStyle& parentStyle);
+    static Ref<RenderStyle> createStyle(const RenderStyle& parentStyle);
 
-    virtual bool isRenderNamedFlowFragment() const override final { return true; }
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
     void getRanges(Vector<RefPtr<Range>>&) const;
 
-    virtual LayoutUnit pageLogicalHeight() const;
+    virtual LayoutUnit pageLogicalHeight() const override;
     LayoutUnit maxPageLogicalHeight() const;
     
     LayoutRect flowThreadPortionRectForClipping(bool isFirstRegionInRange, bool isLastRegionInRange) const;
@@ -69,7 +68,7 @@ public:
     
     virtual bool shouldClipFlowThreadContent() const override;
     
-    virtual LayoutSize offsetFromContainer(RenderObject*, const LayoutPoint&, bool* offsetDependsOnPoint = 0) const override;
+    virtual LayoutSize offsetFromContainer(RenderElement&, const LayoutPoint&, bool* offsetDependsOnPoint = nullptr) const override;
 
     bool isPseudoElementRegion() const { return parent() && parent()->isPseudoElement(); }
 
@@ -77,7 +76,7 @@ public:
     // parent renderer instead.
     // This method returns that renderer holding the layer.
     // The return value cannot be null because CSS Regions create Stacking Contexts (which means they create layers).
-    RenderLayerModelObject& layerOwner() const { return *toRenderLayerModelObject(parent()); }
+    RenderLayerModelObject& layerOwner() const { return downcast<RenderLayerModelObject>(*parent()); }
 
     bool hasCustomRegionStyle() const { return m_hasCustomRegionStyle; }
     void clearObjectStyleInRegion(const RenderObject*);
@@ -121,9 +120,10 @@ public:
     void invalidateRegionIfNeeded();
 
 private:
+    virtual bool isRenderNamedFlowFragment() const override { return true; }
     virtual const char* renderName() const override { return "RenderNamedFlowFragment"; }
 
-    PassRefPtr<RenderStyle> computeStyleInRegion(RenderElement&, RenderStyle& parentStyle);
+    PassRefPtr<RenderStyle> computeStyleInRegion(RenderElement&, RenderStyle& parentStyle) const;
     void computeChildrenStyleInRegion(RenderElement&);
     void setObjectStyleInRegion(RenderObject*, PassRefPtr<RenderStyle>, bool objectRegionStyleCached);
 
@@ -163,8 +163,8 @@ private:
     LayoutUnit m_computedAutoHeight;
 };
 
-RENDER_OBJECT_TYPE_CASTS(RenderNamedFlowFragment, isRenderNamedFlowFragment())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderNamedFlowFragment, isRenderNamedFlowFragment())
 
 #endif // RenderNamedFlowFragment_h

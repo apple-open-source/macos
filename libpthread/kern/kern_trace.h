@@ -101,6 +101,14 @@ TRACE_CODE(wq_override_start, _TRACE_SUB_WORKQUEUE, 0x12);
 TRACE_CODE(wq_override_end, _TRACE_SUB_WORKQUEUE, 0x13);
 TRACE_CODE(wq_override_dispatch, _TRACE_SUB_WORKQUEUE, 0x14);
 TRACE_CODE(wq_override_reset, _TRACE_SUB_WORKQUEUE, 0x15);
+TRACE_CODE(wq_req_event_manager, _TRACE_SUB_WORKQUEUE, 0x16);
+TRACE_CODE(wq_kevent_req_threads, _TRACE_SUB_WORKQUEUE, 0x17);
+TRACE_CODE(wq_req_kevent_threads, _TRACE_SUB_WORKQUEUE, 0x18);
+TRACE_CODE(wq_req_kevent_octhreads, _TRACE_SUB_WORKQUEUE, 0x19);
+TRACE_CODE(wq_thread_limit_exceeded, _TRACE_SUB_WORKQUEUE, 0x1a);
+TRACE_CODE(wq_thread_constrained_maxed, _TRACE_SUB_WORKQUEUE, 0x1b);
+TRACE_CODE(wq_thread_add_during_exit, _TRACE_SUB_WORKQUEUE, 0x1c);
+TRACE_CODE(wq_thread_create_failed, _TRACE_SUB_WORKQUEUE, 0x1d);
 
 // synch trace points
 TRACE_CODE(psynch_mutex_ulock, _TRACE_SUB_MUTEX, 0x0);

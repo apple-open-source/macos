@@ -56,7 +56,7 @@
 
 @interface MBCBoardWin : NSWindowController <NSWindowDelegate,
     GKAchievementViewControllerDelegate,
-    GKTurnBasedMatchmakerViewControllerDelegate> 
+    GKTurnBasedMatchmakerViewControllerDelegate, GKGameCenterControllerDelegate>
 {
     NSMutableArray *                fObservers;
     GKAchievementViewController *   fAchievements;
@@ -78,6 +78,7 @@
 @property (nonatomic, readonly) NSSpeechSynthesizer *           alternateSynth;
 @property (nonatomic, readonly) NSDictionary *                  primaryLocalization;
 @property (nonatomic, readonly) NSDictionary *                  alternateLocalization;
+@property (assign) IBOutlet NSMenu *playersPopupMenu;
 
 - (void) removeChessObservers;
 - (IBAction)takeback:(id)sender;

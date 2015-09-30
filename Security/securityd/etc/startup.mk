@@ -12,7 +12,6 @@ LAUNCH_DIR=$(DSTROOT)/System/Library/LaunchDaemons
 #AUTHORIZATION_LOCATION=$(ETC_DIR)
 #AUTHORIZATION_PLIST=$(AUTHORIZATION_LOCATION)/authorization
 VARDB=$(DSTROOT)/private/var/db
-CANDIDATES=$(VARDB)/CodeEquivalenceCandidates
 
 SRC=$(SRCROOT)/etc
 
@@ -41,9 +40,6 @@ install:
 	#chown root:wheel $(AUTHORIZATION_PLIST)
 	#chmod 644 $(AUTHORIZATION_PLIST)
 	mkdir -p $(VARDB)
-	cp $(SRC)/CodeEquivalenceCandidates $(CANDIDATES)
-	chown root:admin $(CANDIDATES)
-	chmod 644 $(CANDIDATES)
 
 installhdrs:
 	@echo null installhdrs.

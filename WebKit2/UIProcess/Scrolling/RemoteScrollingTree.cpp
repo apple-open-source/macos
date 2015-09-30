@@ -44,9 +44,9 @@ using namespace WebCore;
 
 namespace WebKit {
 
-RefPtr<RemoteScrollingTree> RemoteScrollingTree::create(RemoteScrollingCoordinatorProxy& scrollingCoordinator)
+Ref<RemoteScrollingTree> RemoteScrollingTree::create(RemoteScrollingCoordinatorProxy& scrollingCoordinator)
 {
-    return adoptRef(new RemoteScrollingTree(scrollingCoordinator));
+    return adoptRef(*new RemoteScrollingTree(scrollingCoordinator));
 }
 
 RemoteScrollingTree::RemoteScrollingTree(RemoteScrollingCoordinatorProxy& scrollingCoordinator)
@@ -132,6 +132,11 @@ PassRefPtr<ScrollingTreeNode> RemoteScrollingTree::createScrollingTreeNode(Scrol
         return ScrollingTreeStickyNode::create(*this, nodeID);
     }
     return nullptr;
+}
+
+void RemoteScrollingTree::currentSnapPointIndicesDidChange(ScrollingNodeID nodeID, unsigned horizontal, unsigned vertical)
+{
+    m_scrollingCoordinatorProxy.currentSnapPointIndicesDidChange(nodeID, horizontal, vertical);
 }
 
 } // namespace WebKit

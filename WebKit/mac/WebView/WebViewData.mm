@@ -46,6 +46,10 @@
 #import "WebGeolocationProviderIOS.h"
 #endif
 
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+#import "WebMediaPlaybackTargetPicker.h"
+#endif
+
 BOOL applicationIsTerminating = NO;
 int pluginDatabaseClientCount = 0;
 
@@ -72,6 +76,44 @@ WebViewLayerFlushScheduler::WebViewLayerFlushScheduler(LayerFlushController* flu
     , m_flushController(flushController)
 {
 }
+
+#if PLATFORM(MAC)
+
+@implementation WebWindowVisibilityObserver
+
+- (instancetype)initWithView:(WebView *)view
+{
+    self = [super init];
+    if (!self)
+        return nil;
+
+    _view = view;
+    return self;
+}
+
+- (void)startObserving:(NSWindow *)window
+{
+    // An NSView derived object such as WebView cannot observe these notifications, because NSView itself observes them.
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_windowVisibilityChanged:)
+                                                 name:@"NSWindowDidOrderOffScreenNotification" object:window];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_windowVisibilityChanged:)
+                                                 name:@"_NSWindowDidBecomeVisible" object:window];
+}
+
+- (void)stopObserving:(NSWindow *)window
+{
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:@"NSWindowDidOrderOffScreenNotification" object:window];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:@"_NSWindowDidBecomeVisible" object:window];
+}
+
+- (void)_windowVisibilityChanged:(NSNotification *)notification
+{
+    [_view _windowVisibilityChanged:notification];
+}
+
+@end
+
+#endif // PLATFORM(MAC)
 
 @implementation WebViewPrivate
 
@@ -120,7 +162,7 @@ WebViewLayerFlushScheduler::WebViewLayerFlushScheduler(LayerFlushController* flu
     pluginDatabaseClientCount++;
 
 #if USE(DICTATION_ALTERNATIVES)
-    m_alternativeTextUIController = adoptPtr(new WebCore::AlternativeTextUIController);
+    m_alternativeTextUIController = std::make_unique<WebCore::AlternativeTextUIController>();
 #endif
 
     return self;
@@ -146,7 +188,6 @@ WebViewLayerFlushScheduler::WebViewLayerFlushScheduler(LayerFlushController* flu
     [inspector release];
     [currentNodeHighlight release];
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
-    [actionMenuController release];
     [immediateActionController release];
 #endif
     [hostWindow release];
@@ -174,7 +215,6 @@ WebViewLayerFlushScheduler::WebViewLayerFlushScheduler(LayerFlushController* flu
 
 - (void)finalize
 {
-    ASSERT_MAIN_THREAD();
 #if !PLATFORM(IOS)
     ASSERT(!insertionPasteboard);
 #endif

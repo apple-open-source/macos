@@ -2,7 +2,7 @@
 
   proc.c - Proc, Binding, Env
 
-  $Author: nagachika $
+  $Author: usa $
   created at: Wed Jan 17 12:13:14 2007
 
   Copyright (C) 2004-2007 Koichi Sasada
@@ -259,6 +259,7 @@ binding_mark(void *ptr)
 	bind = ptr;
 	RUBY_MARK_UNLESS_NULL(bind->env);
 	RUBY_MARK_UNLESS_NULL(bind->path);
+	RUBY_MARK_UNLESS_NULL(bind->blockprocval);
     }
     RUBY_MARK_LEAVE("binding");
 }
@@ -278,8 +279,8 @@ static const rb_data_type_t binding_data_type = {
     },
 };
 
-static VALUE
-binding_alloc(VALUE klass)
+VALUE
+rb_binding_alloc(VALUE klass)
 {
     VALUE obj;
     rb_binding_t *bind;
@@ -291,12 +292,13 @@ binding_alloc(VALUE klass)
 static VALUE
 binding_dup(VALUE self)
 {
-    VALUE bindval = binding_alloc(rb_cBinding);
+    VALUE bindval = rb_binding_alloc(rb_cBinding);
     rb_binding_t *src, *dst;
     GetBindingPtr(self, src);
     GetBindingPtr(bindval, dst);
     dst->env = src->env;
     dst->path = src->path;
+    dst->blockprocval = src->blockprocval;
     dst->first_lineno = src->first_lineno;
     return bindval;
 }
@@ -313,30 +315,7 @@ binding_clone(VALUE self)
 VALUE
 rb_binding_new_with_cfp(rb_thread_t *th, const rb_control_frame_t *src_cfp)
 {
-    rb_control_frame_t *cfp = rb_vm_get_binding_creatable_next_cfp(th, src_cfp);
-    rb_control_frame_t *ruby_level_cfp = rb_vm_get_ruby_level_next_cfp(th, src_cfp);
-    VALUE bindval, envval;
-    rb_binding_t *bind;
-
-    if (cfp == 0 || ruby_level_cfp == 0) {
-	rb_raise(rb_eRuntimeError, "Can't create Binding Object on top of Fiber.");
-    }
-
-    while (1) {
-	envval = rb_vm_make_env_object(th, cfp);
-	if (cfp == ruby_level_cfp) {
-	    break;
-	}
-	cfp = rb_vm_get_binding_creatable_next_cfp(th, RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp));
-    }
-
-    bindval = binding_alloc(rb_cBinding);
-    GetBindingPtr(bindval, bind);
-    bind->env = envval;
-    bind->path = ruby_level_cfp->iseq->location.path;
-    bind->first_lineno = rb_vm_get_sourceline(ruby_level_cfp);
-
-    return bindval;
+    return rb_vm_make_binding(th, src_cfp);
 }
 
 VALUE
@@ -1392,6 +1371,7 @@ rb_mod_define_method(int argc, VALUE *argv, VALUE mod)
 	    }
 	}
 	rb_method_entry_set(mod, id, method->me, noex);
+	RB_GC_GUARD(body);
     }
     else if (rb_obj_is_proc(body)) {
 	rb_proc_t *proc;
@@ -1550,6 +1530,7 @@ rb_method_call_with_block(int argc, VALUE *argv, VALUE method, VALUE pass_procva
     if ((state = EXEC_TAG()) == 0) {
 	rb_thread_t *th = GET_THREAD();
 	rb_block_t *block = 0;
+	VALUE defined_class;
 
 	if (!NIL_P(pass_procval)) {
 	    rb_proc_t *pass_proc;
@@ -1558,7 +1539,9 @@ rb_method_call_with_block(int argc, VALUE *argv, VALUE method, VALUE pass_procva
 	}
 
 	th->passed_block = block;
-	result = rb_vm_call(th, data->recv, data->id,  argc, argv, data->me, data->defined_class);
+	defined_class = data->defined_class;
+	if (BUILTIN_TYPE(defined_class) == T_MODULE) defined_class = data->rclass;
+	result = rb_vm_call(th, data->recv, data->id, argc, argv, data->me, defined_class);
     }
     POP_TAG();
     if (safe >= 0)
@@ -1663,18 +1646,21 @@ static VALUE
 umethod_bind(VALUE method, VALUE recv)
 {
     struct METHOD *data, *bound;
+    VALUE methclass;
+    VALUE rclass;
 
     TypedData_Get_Struct(method, struct METHOD, &method_data_type, data);
 
-    if (!RB_TYPE_P(data->rclass, T_MODULE) &&
-	data->rclass != CLASS_OF(recv) && !rb_obj_is_kind_of(recv, data->rclass)) {
-	if (FL_TEST(data->rclass, FL_SINGLETON)) {
+    methclass = data->rclass;
+    if (!RB_TYPE_P(methclass, T_MODULE) &&
+	methclass != CLASS_OF(recv) && !rb_obj_is_kind_of(recv, methclass)) {
+	if (FL_TEST(methclass, FL_SINGLETON)) {
 	    rb_raise(rb_eTypeError,
 		     "singleton method called for a different object");
 	}
 	else {
 	    rb_raise(rb_eTypeError, "bind argument must be an instance of %s",
-		     rb_class2name(data->rclass));
+		     rb_class2name(methclass));
 	}
     }
 
@@ -1683,8 +1669,18 @@ umethod_bind(VALUE method, VALUE recv)
     bound->me = ALLOC(rb_method_entry_t);
     *bound->me = *data->me;
     if (bound->me->def) bound->me->def->alias_count++;
+    rclass = CLASS_OF(recv);
+    if (BUILTIN_TYPE(bound->defined_class) == T_MODULE) {
+	VALUE ic = rb_class_search_ancestor(rclass, bound->defined_class);
+	if (ic) {
+	    rclass = ic;
+	}
+	else {
+	    rclass = rb_include_class_new(methclass, rclass);
+	}
+    }
     bound->recv = recv;
-    bound->rclass = CLASS_OF(recv);
+    bound->rclass = rclass;
     data->ume = ALLOC(struct unlinked_method_entry_list_entry);
 
     return method;
@@ -2038,7 +2034,10 @@ static VALUE
 method_proc(VALUE method)
 {
     VALUE procval;
+    struct METHOD *meth;
     rb_proc_t *proc;
+    rb_env_t *env;
+
     /*
      * class Method
      *   def to_proc
@@ -2048,9 +2047,16 @@ method_proc(VALUE method)
      *   end
      * end
      */
+    TypedData_Get_Struct(method, struct METHOD, &method_data_type, meth);
     procval = rb_iterate(mlambda, 0, bmcall, method);
     GetProcPtr(procval, proc);
     proc->is_from_method = 1;
+    proc->block.self = meth->recv;
+    proc->block.klass = meth->defined_class;
+    GetEnvPtr(proc->envval, env);
+    env->block.self = meth->recv;
+    env->block.klass = meth->defined_class;
+    env->block.iseq = method_get_iseq(meth->me->def);
     return procval;
 }
 
@@ -2109,9 +2115,10 @@ proc_binding(VALUE self)
 	}
     }
 
-    bindval = binding_alloc(rb_cBinding);
+    bindval = rb_binding_alloc(rb_cBinding);
     GetBindingPtr(bindval, bind);
     bind->env = proc->envval;
+    bind->blockprocval = proc->blockprocval;
     if (RUBY_VM_NORMAL_ISEQ_P(proc->block.iseq)) {
 	bind->path = proc->block.iseq->location.path;
 	bind->first_lineno = rb_iseq_first_lineno(proc->block.iseq);

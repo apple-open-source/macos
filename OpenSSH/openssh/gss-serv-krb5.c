@@ -1,4 +1,4 @@
-/* $OpenBSD: gss-serv-krb5.c,v 1.7 2006/08/03 03:34:42 deraadt Exp $ */
+/* $OpenBSD: gss-serv-krb5.c,v 1.8 2013/07/20 01:55:13 djm Exp $ */
 
 /*
  * Copyright (c) 2001-2007 Simon Wilkinson. All rights reserved.
@@ -28,6 +28,8 @@
 
 #ifdef GSSAPI
 #ifdef KRB5
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 #include <sys/types.h>
 
@@ -39,6 +41,7 @@
 #include "hostfile.h"
 #include "auth.h"
 #include "log.h"
+#include "misc.h"
 #include "servconf.h"
 
 #include "buffer.h"
@@ -48,12 +51,11 @@ extern ServerOptions options;
 
 #ifdef HEIMDAL
 # include <krb5.h>
-#else
-# ifdef HAVE_GSSAPI_KRB5_H
-#  include <gssapi_krb5.h>
-# elif HAVE_GSSAPI_GSSAPI_KRB5_H
-#  include <gssapi/gssapi_krb5.h>
-# endif
+#endif
+#ifdef HAVE_GSSAPI_KRB5_H
+# include <gssapi_krb5.h>
+#elif HAVE_GSSAPI_GSSAPI_KRB5_H
+# include <gssapi/gssapi_krb5.h>
 #endif
 
 #ifdef __APPLE_CROSS_REALM__
@@ -91,7 +93,7 @@ od_kuserok(krb5_context context, krb5_principal principal, const char *luser)
 	uuid_t krb_uuid, un_uuid;
 
 	ret = krb5_unparse_name(context, principal, &kprinc);
-	if (!ret) {
+	if (ret  > 0) {
 		logit("od_kuserok - krb5_unparse_name failed: %d", ret);
 		goto error;
 	}
@@ -130,14 +132,16 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
 {
 	krb5_principal princ;
 	int retval;
+	const char *errmsg;
 
 	if (ssh_gssapi_krb5_init() == 0)
 		return 0;
 
 	if ((retval = krb5_parse_name(krb_context, client->exportedname.value,
 	    &princ))) {
-		logit("krb5_parse_name(): %.100s",
-		    krb5_get_err_text(krb_context, retval));
+		errmsg = krb5_get_error_message(krb_context, retval);
+		logit("krb5_parse_name(): %.100s", errmsg);
+		krb5_free_error_message(krb_context, errmsg);
 		return 0;
 	}
 	if (krb5_kuserok(krb_context, princ, name)) {
@@ -170,6 +174,7 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 	OM_uint32 maj_status, min_status;
 	int len;
 	const char *new_ccname;
+	const char *errmsg;
 
 	if (client->creds == NULL) {
 		debug("No credentials stored");
@@ -180,30 +185,40 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 		return;
 
 #ifdef HEIMDAL
-	if ((problem = krb5_cc_gen_new(krb_context, &krb5_acc_ops, &ccache))) {
-		logit("krb5_cc_gen_new(): %.100s",
-		    krb5_get_err_text(krb_context, problem));
+# ifdef HAVE_KRB5_CC_NEW_UNIQUE
+	if ((problem = krb5_cc_new_unique(krb_context, krb5_fcc_ops.prefix,
+	    NULL, &ccache)) != 0) {
+		errmsg = krb5_get_error_message(krb_context, problem);
+		logit("krb5_cc_new_unique(): %.100s", errmsg);
+# else
+	if ((problem = krb5_cc_gen_new(krb_context, &krb5_fcc_ops, &ccache))) {
+	    logit("krb5_cc_gen_new(): %.100s",
+		krb5_get_err_text(krb_context, problem));
+# endif
+		krb5_free_error_message(krb_context, errmsg);
 		return;
 	}
 #else
 	if ((problem = ssh_krb5_cc_gen(krb_context, &ccache))) {
-		logit("ssh_krb5_cc_gen(): %.100s",
-		    krb5_get_err_text(krb_context, problem));
+		errmsg = krb5_get_error_message(krb_context, problem);
+		logit("ssh_krb5_cc_gen(): %.100s", errmsg);
+		krb5_free_error_message(krb_context, errmsg);
 		return;
 	}
 #endif	/* #ifdef HEIMDAL */
 
 	if ((problem = krb5_parse_name(krb_context,
 	    client->exportedname.value, &princ))) {
-		logit("krb5_parse_name(): %.100s",
-		    krb5_get_err_text(krb_context, problem));
-		krb5_cc_destroy(krb_context, ccache);
+		errmsg = krb5_get_error_message(krb_context, problem);
+		logit("krb5_parse_name(): %.100s", errmsg);
+		krb5_free_error_message(krb_context, errmsg);
 		return;
 	}
 
 	if ((problem = krb5_cc_initialize(krb_context, ccache, princ))) {
-		logit("krb5_cc_initialize(): %.100s",
-		    krb5_get_err_text(krb_context, problem));
+		errmsg = krb5_get_error_message(krb_context, problem);
+		logit("krb5_cc_initialize(): %.100s", errmsg);
+		krb5_free_error_message(krb_context, errmsg);
 		krb5_free_principal(krb_context, princ);
 		krb5_cc_destroy(krb_context, ccache);
 		return;
@@ -228,7 +243,8 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 	xasprintf(&client->store.envval, "FILE:%s", new_ccname);
 	client->store.filename = xstrdup(new_ccname);
 #endif
-
+		
+		
 #ifdef USE_PAM
 	if (options.use_pam)
 		do_pam_putenv(client->store.envvar, client->store.envval);

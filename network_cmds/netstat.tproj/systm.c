@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2014-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -66,6 +66,7 @@
 #include <sys/sys_domain.h>
 #include <sys/kern_control.h>
 #include <sys/kern_event.h>
+#include <net/ntstat.h>
 
 #include <errno.h>
 #include <err.h>
@@ -360,7 +361,7 @@ kctl_stats(uint32_t off __unused, char *name, int af __unused)
 	p(kcs_conn_fail, "\t%llu connection failure%s\n");
 	p(kcs_send_fail, "\t%llu send failure%s\n");
 	p(kcs_send_list_fail, "\t%llu send list failure%s\n");
-	p(kcs_enqueue_fail, "\t%llu enqueus failure%s\n");
+	p(kcs_enqueue_fail, "\t%llu enqueue failure%s\n");
 	p(kcs_enqueue_fullsock, "\t%llu packet%s dropped due to full socket buffers\n");
 	
 #undef STATDIFF
@@ -397,10 +398,102 @@ kevt_stats(uint32_t off __unused, char *name, int af __unused)
 	p1a(kes_gencnt, "\t%llu kernel control generation count\n");
 	p(kes_badvendor, "\t%llu bad vendor failure%s\n");
 	p(kes_toobig, "\t%llu message too big failure%s\n");
-	p(kes_nomem, "\t%llu out of memeory failure%s\n");
+	p(kes_nomem, "\t%llu out of memory failure%s\n");
 	p(kes_fullsock, "\t%llu message%s dropped due to full socket buffers\n");
-	p(kes_posted, "\t%llu message posted%s\n");
-	
+	p(kes_posted, "\t%llu message%s posted\n");
+
+#undef STATDIFF
+#undef p
+#undef p1a
+
 	if (interval > 0)
 		bcopy(&kevtstat, &pkevtstat, len);
+}
+
+void
+print_extbkidle_stats(uint32_t off __unused, char *name, int af __unused)
+{
+	static struct soextbkidlestat psoextbkidlestat;
+	struct soextbkidlestat soextbkidlestat;
+	size_t len = sizeof(struct soextbkidlestat);
+	const char *mibvar = "kern.ipc.extbkidlestat";
+	
+	if (sysctlbyname(mibvar, &soextbkidlestat, &len, 0, 0) < 0) {
+		warn("sysctl: %s", mibvar);
+		return;
+	}
+
+#define	STATDIFF(f) (soextbkidlestat.f - psoextbkidlestat.f)
+#define	p(f, m) if (STATDIFF(f) || sflag <= 1) \
+    printf(m, STATDIFF(f), plural(STATDIFF(f)))
+#define	p1a(f, m) if (STATDIFF(f) || sflag <= 1) \
+    printf(m, STATDIFF(f))
+	
+	if (interval && vflag > 0)
+		print_time();
+	printf ("%s:\n", name);
+	
+	p1a(so_xbkidle_maxperproc, "\t%u max per process\n");
+	p1a(so_xbkidle_time, "\t%u maximum time (seconds)\n");
+	p1a(so_xbkidle_rcvhiwat, "\t%u high water mark\n");
+	p(so_xbkidle_notsupp, "\t%u socket option not supported failure%s\n");
+	p(so_xbkidle_toomany, "\t%u too many sockets failure%s\n");
+	p(so_xbkidle_wantok, "\t%u total socket%s requested OK\n");
+	p(so_xbkidle_active, "\t%u extended bk idle socket%s\n");
+	p(so_xbkidle_nocell, "\t%u no cellular failure%s\n");
+	p(so_xbkidle_notime, "\t%u no time failures%s\n");
+	p(so_xbkidle_forced, "\t%u forced defunct socket%s\n");
+	p(so_xbkidle_resumed, "\t%u resumed socket%s\n");
+	p(so_xbkidle_expired, "\t%u timeout expired failure%s\n");
+	p1a(so_xbkidle_expired, "\t%u timer rescheduled\n");
+	p(so_xbkidle_nodlgtd, "\t%u no delegated failure%s\n");
+
+#undef STATDIFF
+#undef p
+#undef p1a
+}
+
+void
+print_nstat_stats(uint32_t off __unused, char *name, int af __unused)
+{
+	static struct nstat_stats pnstat_stats;
+	struct nstat_stats nstat_stats;
+	size_t len = sizeof(struct nstat_stats);
+	const char *mibvar = "net.stats.stats";
+	
+	if (sysctlbyname(mibvar, &nstat_stats, &len, 0, 0) < 0) {
+		warn("sysctl: %s", mibvar);
+		return;
+	}
+	
+#define	STATDIFF(f) (nstat_stats.f - pnstat_stats.f)
+#define	p(f, m) if (STATDIFF(f) || sflag <= 1) \
+printf(m, STATDIFF(f), plural(STATDIFF(f)))
+#define	p1a(f, m) if (STATDIFF(f) || sflag <= 1) \
+printf(m, STATDIFF(f))
+	
+	if (interval && vflag > 0)
+		print_time();
+	printf ("%s:\n", name);
+	
+	p(nstat_successmsgfailures, "\t%u enqueue success message failure%s\n");
+	p(nstat_sendcountfailures, "\t%u enqueue source counts message failure%s\n");
+	p(nstat_sysinfofailures, "\t%u enqueue sysinfo message failure%s\n");
+	p(nstat_srcupatefailures, "\t%u enqueue source udpate message failure%s\n");
+	p(nstat_descriptionfailures, "\t%u enqueue description message failure%s\n");
+	p(nstat_msgremovedfailures, "\t%u enqueue remove message failure%s\n");
+	p(nstat_srcaddedfailures, "\t%u enqueue source added message failure%s\n");
+	p(nstat_msgerrorfailures, "\t%u enqueue error message failure%s\n");
+	p(nstat_copy_descriptor_failures, "\t%u copy descriptor failure%s\n");
+	p(nstat_provider_counts_failures, "\t%u provider counts failure%s\n");
+	p(nstat_control_send_description_failures, "\t%u control send description failure%s\n");
+	p(nstat_control_send_goodbye_failures, "\t%u control send goodbye failure%s\n");
+	p(nstat_flush_accumulated_msgs_failures, "\t%u flush accumulated messages failure%s\n");
+	p(nstat_accumulate_msg_failures, "\t%u accumulated message failure%s\n");
+	p(nstat_control_cleanup_source_failures, "\t%u control cleanup source failure%s\n");
+	p(nstat_handle_msg_failures, "\t%u handle message failure%s\n");
+
+#undef STATDIFF
+#undef p
+#undef p1a
 }

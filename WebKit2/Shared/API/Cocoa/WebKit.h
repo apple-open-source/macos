@@ -36,10 +36,13 @@
 #import <WebKit/WKProcessPool.h>
 #import <WebKit/WKScriptMessage.h>
 #import <WebKit/WKScriptMessageHandler.h>
+#import <WebKit/WKSecurityOrigin.h>
 #import <WebKit/WKUIDelegate.h>
 #import <WebKit/WKUserContentController.h>
 #import <WebKit/WKUserScript.h>
 #import <WebKit/WKWebView.h>
 #import <WebKit/WKWebViewConfiguration.h>
+#import <WebKit/WKWebsiteDataRecord.h>
+#import <WebKit/WKWebsiteDataStore.h>
 #import <WebKit/WKWindowFeatures.h>
 #import <WebKit/WebKitLegacy.h>

@@ -764,8 +764,10 @@ xdr_setup_connection(krb5_context context,
     snprintf (portstr, sizeof(portstr), "%u", ntohs(port));
 
     error = getaddrinfo (hostname, portstr, &hints, &ai);
-    if (error)
+    if (error) {
+	free(c);
 	return KADM5_BAD_SERVER_NAME;
+    }
 
     for (a = ai; a != NULL; a = a->ai_next) {
 	s = socket (a->ai_family, a->ai_socktype, a->ai_protocol);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,9 @@
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+CF_IMPLICIT_BRIDGING_ENABLED
+CF_ASSUME_NONNULL_BEGIN
+
 /*!
 	@header CaptiveNetwork
 	@discussion The CaptiveNetwork API allows applications to interact
@@ -48,7 +51,21 @@
 		These APIs are treated as advisory only.
 		There is no guarantee or contract that the operating system
 		will take the intended action.
+
+	@note IMPORTANT: This API is deprecated starting in iOS 9.
+		For captive network applications, this has been completely
+		replaced by <NetworkExtension/NEHotspotHelper.h>.
+		For other applications, there is no direct replacement.
+		Please file a bug describing your use of this API so that
+		we can consider your requirements as this situation evolves.
  */
+
+#define CN_DEPRECATION_NOTICE						\
+    "For captive network applications, this has been completely "	\
+    "replaced by <NetworkExtension/NEHotspotHelper.h>. "		\
+    "For other applications, there is no direct replacement. "		\
+    "Please file a bug describing your use of this API to that "	\
+    "we can consider your requirements as this situation evolves."
 
 __BEGIN_DECLS
 
@@ -71,7 +88,10 @@ __BEGIN_DECLS
 	@result Returns TRUE if the operation succeeded, FALSE otherwise.
  */
 Boolean
-CNSetSupportedSSIDs	(CFArrayRef	ssidArray)		__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_4_0);
+CNSetSupportedSSIDs	(CFArrayRef	ssidArray)
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_8, __MAC_NA,
+				       __IPHONE_4_0, __IPHONE_9_0,
+				       "Replaced by <NetworkExtension/NEHotspotHelper.h>");
 
 /*!
 	@function CNMarkPortalOnline
@@ -83,7 +103,10 @@ CNSetSupportedSSIDs	(CFArrayRef	ssidArray)		__OSX_AVAILABLE_STARTING(__MAC_10_8,
 	@result Returns TRUE if the operation succeeded, FALSE otherwise.
  */
 Boolean
-CNMarkPortalOnline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_4_0);
+CNMarkPortalOnline	(CFStringRef	interfaceName)
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_8, __MAC_NA,
+				       __IPHONE_4_0, __IPHONE_9_0,
+				       "Replaced by <NetworkExtension/NEHotspotHelper.h>");
 
 /*!
 	@function CNMarkPortalOffline
@@ -93,8 +116,10 @@ CNMarkPortalOnline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_1
 	@result Returns TRUE if the operation succeeded, FALSE otherwise.
  */
 Boolean
-CNMarkPortalOffline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_4_0);
-
+CNMarkPortalOffline	(CFStringRef	interfaceName)
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_8, __MAC_NA,
+				       __IPHONE_4_0, __IPHONE_9_0,
+				       "Replaced by <NetworkExtension/NEHotspotHelper.h>");
 
 /*!
  @function CNCopySupportedInterfaces
@@ -103,26 +128,38 @@ CNMarkPortalOffline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_
 	 Returns NULL if an error was encountered.
 	 You MUST release the returned value.
  */
-CFArrayRef
-CNCopySupportedInterfaces	(void)				__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_4_1);
+CFArrayRef __nullable
+CNCopySupportedInterfaces	(void)
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_8, __MAC_NA,
+				       __IPHONE_4_1, __IPHONE_9_0,
+				       CN_DEPRECATION_NOTICE);
 
 /*!
  @constant kCNNetworkInfoKeySSIDData
  @discussion NetworkInfo Dictionary key for SSID in CFData format
  */
-extern const CFStringRef kCNNetworkInfoKeySSIDData		__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
+extern const CFStringRef kCNNetworkInfoKeySSIDData
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_NA, __MAC_NA,
+				       __IPHONE_4_1, __IPHONE_9_0,
+				       CN_DEPRECATION_NOTICE);
 
 /*!
  @constant kCNNetworkInfoKeySSID
  @discussion NetworkInfo Dictionary key for SSID in CFString format
  */
-extern const CFStringRef kCNNetworkInfoKeySSID			__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
+extern const CFStringRef kCNNetworkInfoKeySSID
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_NA, __MAC_NA,
+				       __IPHONE_4_1, __IPHONE_9_0,
+				       CN_DEPRECATION_NOTICE);
 
 /*!
  @constant kCNNetworkInfoKeyBSSID
  @discussion NetworkInfo Dictionary key for BSSID in CFString format
  */
-extern const CFStringRef kCNNetworkInfoKeyBSSID			__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
+extern const CFStringRef kCNNetworkInfoKeyBSSID
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_NA, __MAC_NA,
+				       __IPHONE_4_1, __IPHONE_9_0,
+				       CN_DEPRECATION_NOTICE);
 
 /*!
  @function CNCopyCurrentNetworkInfo
@@ -143,9 +180,15 @@ extern const CFStringRef kCNNetworkInfoKeyBSSID			__OSX_AVAILABLE_STARTING(__MAC
 	 Returns NULL if an error was encountered.
 	 You MUST release the returned value.
  */
-CFDictionaryRef
-CNCopyCurrentNetworkInfo	(CFStringRef interfaceName)	__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
+CFDictionaryRef __nullable
+CNCopyCurrentNetworkInfo	(CFStringRef interfaceName)
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_NA, __MAC_NA,
+				       __IPHONE_4_1, __IPHONE_9_0,
+				       CN_DEPRECATION_NOTICE);
 
 __END_DECLS
+
+CF_ASSUME_NONNULL_END
+CF_IMPLICIT_BRIDGING_DISABLED
 
 #endif	/* _CAPTIVENETWORK_H */

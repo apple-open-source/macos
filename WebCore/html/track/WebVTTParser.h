@@ -64,11 +64,11 @@ public:
     virtual void fileFailedToParse() = 0;
 };
 
-class WebVTTCueData : public RefCounted<WebVTTCueData> {
+class WebVTTCueData final : public RefCounted<WebVTTCueData> {
 public:
 
-    static PassRefPtr<WebVTTCueData> create() { return adoptRef(new WebVTTCueData()); }
-    virtual ~WebVTTCueData() { }
+    static Ref<WebVTTCueData> create() { return adoptRef(*new WebVTTCueData()); }
+    ~WebVTTCueData() { }
 
     MediaTime startTime() const { return m_startTime; }
     void setStartTime(const MediaTime& startTime) { m_startTime = startTime; }
@@ -122,11 +122,6 @@ public:
             || tagName == rtTag;
     }
 
-    static inline bool isASpace(UChar c)
-    {
-        // WebVTT space characters are U+0020 SPACE, U+0009 CHARACTER TABULATION (tab), U+000A LINE FEED (LF), U+000C FORM FEED (FF), and U+000D CARRIAGE RETURN    (CR).
-        return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
-    }
     static inline bool isValidSettingDelimiter(UChar c)
     {
         // ... a WebVTT cue consists of zero or more of the following components, in any order, separated from each other by one or more 

@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "MemoryStream.h"
 
@@ -33,18 +32,18 @@ using namespace WebCore;
 // MemoryStream ---------------------------------------------------------------
 
 MemoryStream::MemoryStream(PassRefPtr<SharedBuffer> buffer)
-: m_refCount(0)
-, m_buffer(buffer)
-, m_pos(0)
+    : m_refCount(0)
+    , m_buffer(buffer)
+    , m_pos(0)
 {
     gClassCount++;
-    gClassNameCount.add("MemoryStream");
+    gClassNameCount().add("MemoryStream");
 }
 
 MemoryStream::~MemoryStream()
 {
     gClassCount--;
-    gClassNameCount.remove("MemoryStream");
+    gClassNameCount().remove("MemoryStream");
 }
 
 COMPtr<MemoryStream> MemoryStream::createInstance(PassRefPtr<SharedBuffer> buffer)
@@ -192,7 +191,7 @@ HRESULT STDMETHODCALLTYPE MemoryStream::CopyTo(
         cb.LowPart = (DWORD)-1;
     }
 
-    ULONG written;
+    ULONG written = 0;
     ULONG read = min(cb.LowPart, (ULONG)(m_buffer->size()-m_pos));
     HRESULT hr = pstm->Write(m_buffer->data()+m_pos, read, &written);
     if (pcbWritten) {

@@ -34,7 +34,7 @@
 
 namespace WebCore {
 
-PassRef<StyleRuleImport> StyleRuleImport::create(const String& href, PassRefPtr<MediaQuerySet> media)
+Ref<StyleRuleImport> StyleRuleImport::create(const String& href, PassRefPtr<MediaQuerySet> media)
 {
     return adoptRef(*new StyleRuleImport(href, media));
 }
@@ -70,10 +70,9 @@ void StyleRuleImport::setCSSStyleSheet(const String& href, const URL& baseURL, c
     if (!baseURL.isNull())
         context.baseURL = baseURL;
 
+    Document* document = m_parentStyleSheet ? m_parentStyleSheet->singleOwnerDocument() : nullptr;
     m_styleSheet = StyleSheetContents::create(this, href, context);
-
-    Document* document = m_parentStyleSheet ? m_parentStyleSheet->singleOwnerDocument() : 0;
-    m_styleSheet->parseAuthorStyleSheet(cachedStyleSheet, document ? document->securityOrigin() : 0);
+    m_styleSheet->parseAuthorStyleSheet(cachedStyleSheet, document ? document->securityOrigin() : nullptr);
 
     m_loading = false;
 
@@ -94,10 +93,6 @@ void StyleRuleImport::requestStyleSheet()
         return;
     Document* document = m_parentStyleSheet->singleOwnerDocument();
     if (!document)
-        return;
-
-    CachedResourceLoader* cachedResourceLoader = document->cachedResourceLoader();
-    if (!cachedResourceLoader)
         return;
 
     URL absURL;
@@ -124,9 +119,9 @@ void StyleRuleImport::requestStyleSheet()
     if (m_cachedSheet)
         m_cachedSheet->removeClient(&m_styleSheetClient);
     if (m_parentStyleSheet->isUserStyleSheet())
-        m_cachedSheet = cachedResourceLoader->requestUserCSSStyleSheet(request);
+        m_cachedSheet = document->cachedResourceLoader().requestUserCSSStyleSheet(request);
     else
-        m_cachedSheet = cachedResourceLoader->requestCSSStyleSheet(request);
+        m_cachedSheet = document->cachedResourceLoader().requestCSSStyleSheet(request);
     if (m_cachedSheet) {
         // if the import rule is issued dynamically, the sheet may be
         // removed from the pending sheet count, so let the doc know

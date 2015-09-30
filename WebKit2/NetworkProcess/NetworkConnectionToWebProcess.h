@@ -48,25 +48,27 @@ typedef uint64_t ResourceLoadIdentifier;
 
 class NetworkConnectionToWebProcess : public RefCounted<NetworkConnectionToWebProcess>, IPC::Connection::Client {
 public:
-    static PassRefPtr<NetworkConnectionToWebProcess> create(IPC::Connection::Identifier);
+    static Ref<NetworkConnectionToWebProcess> create(IPC::Connection::Identifier);
     virtual ~NetworkConnectionToWebProcess();
 
     IPC::Connection* connection() const { return m_connection.get(); }
 
-    bool isSerialLoadingEnabled() const { return m_serialLoadingEnabled; }
+    void didCleanupResourceLoader(NetworkResourceLoader&);
 
 private:
     NetworkConnectionToWebProcess(IPC::Connection::Identifier);
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection*, IPC::MessageDecoder&);
-    virtual void didReceiveSyncMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
-    virtual void didClose(IPC::Connection*);
-    virtual void didReceiveInvalidMessage(IPC::Connection*, IPC::StringReference messageReceiverName, IPC::StringReference messageName);
+    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    virtual void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    virtual void didClose(IPC::Connection&) override;
+    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::Network; }
+    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Web; }
 
     // Message handlers.
-    void didReceiveNetworkConnectionToWebProcessMessage(IPC::Connection*, IPC::MessageDecoder&);
-    void didReceiveSyncNetworkConnectionToWebProcessMessage(IPC::Connection*, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
+    void didReceiveNetworkConnectionToWebProcessMessage(IPC::Connection&, IPC::MessageDecoder&);
+    void didReceiveSyncNetworkConnectionToWebProcessMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
     
     void scheduleResourceLoad(const NetworkResourceLoadParameters&);
     void performSynchronousLoad(const NetworkResourceLoadParameters&, PassRefPtr<Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply>);
@@ -75,8 +77,6 @@ private:
     void removeLoadIdentifier(ResourceLoadIdentifier);
     void setDefersLoading(ResourceLoadIdentifier, bool);
     void crossOriginRedirectReceived(ResourceLoadIdentifier, const WebCore::URL& redirectURL);
-    void servePendingRequests(uint32_t resourceLoadPriority);
-    void setSerialLoadingEnabled(bool);
     void startDownload(WebCore::SessionID, uint64_t downloadID, const WebCore::ResourceRequest&);
     void convertMainResourceLoadToDownload(uint64_t mainResourceLoadIdentifier, uint64_t downloadID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
@@ -97,8 +97,6 @@ private:
     RefPtr<IPC::Connection> m_connection;
 
     HashMap<ResourceLoadIdentifier, RefPtr<NetworkResourceLoader>> m_networkResourceLoaders;
-
-    bool m_serialLoadingEnabled;
 };
 
 } // namespace WebKit

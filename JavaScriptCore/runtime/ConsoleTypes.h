@@ -38,6 +38,7 @@ enum class MessageSource {
     Rendering,
     CSS,
     Security,
+    ContentBlocker,
     Other,
 };
 
@@ -62,6 +63,7 @@ enum class MessageLevel {
     Warning = 2,
     Error = 3,
     Debug = 4,
+    Info = 5,
 };
 
 } // namespace JSC

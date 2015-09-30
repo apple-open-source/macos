@@ -23,7 +23,7 @@
 #include "WebKitBackForwardListPrivate.h"
 #include "WebKitMarshal.h"
 #include "WebKitPrivate.h"
-#include <wtf/gobject/GRefPtr.h>
+#include <wtf/glib/GRefPtr.h>
 
 /**
  * SECTION: WebKitBackForwardList
@@ -128,20 +128,18 @@ WebKitBackForwardList* webkitBackForwardListCreate(WebBackForwardList* backForwa
     return list;
 }
 
-void webkitBackForwardListChanged(WebKitBackForwardList* backForwardList, WebBackForwardListItem* webAddedItem, API::Array* webRemovedItems)
+void webkitBackForwardListChanged(WebKitBackForwardList* backForwardList, WebBackForwardListItem* webAddedItem, const Vector<RefPtr<WebBackForwardListItem>>& webRemovedItems)
 {
     WebKitBackForwardListItem* addedItem = webkitBackForwardListGetOrCreateItem(backForwardList, webAddedItem);
-    GList* removedItems = 0;
+    GList* removedItems = nullptr;
 
-    size_t removedItemsSize = webRemovedItems ? webRemovedItems->size() : 0;
     WebKitBackForwardListPrivate* priv = backForwardList->priv;
-    for (size_t i = 0; i < removedItemsSize; ++i) {
-        WebBackForwardListItem* webItem = static_cast<WebBackForwardListItem*>(webRemovedItems->at(i));
-        removedItems = g_list_prepend(removedItems, g_object_ref(G_OBJECT(priv->itemsMap.get(webItem).get())));
-        priv->itemsMap.remove(webItem);
+    for (auto& webItem : webRemovedItems) {
+        removedItems = g_list_prepend(removedItems, g_object_ref(priv->itemsMap.get(webItem.get()).get()));
+        priv->itemsMap.remove(webItem.get());
     }
 
-    g_signal_emit(backForwardList, signals[CHANGED], 0, addedItem, removedItems, NULL);
+    g_signal_emit(backForwardList, signals[CHANGED], 0, addedItem, removedItems, nullptr);
     g_list_free_full(removedItems, static_cast<GDestroyNotify>(g_object_unref));
 }
 
@@ -252,8 +250,8 @@ GList* webkit_back_forward_list_get_back_list_with_limit(WebKitBackForwardList* 
     g_return_val_if_fail(WEBKIT_IS_BACK_FORWARD_LIST(backForwardList), 0);
 
     WebKitBackForwardListPrivate* priv = backForwardList->priv;
-    RefPtr<API::Array> apiArray = priv->backForwardItems->backListAsAPIArrayWithLimit(limit);
-    return webkitBackForwardListCreateList(backForwardList, apiArray.get());
+    Ref<API::Array> apiArray = priv->backForwardItems->backListAsAPIArrayWithLimit(limit);
+    return webkitBackForwardListCreateList(backForwardList, apiArray.ptr());
 }
 
 /**
@@ -283,6 +281,6 @@ GList* webkit_back_forward_list_get_forward_list_with_limit(WebKitBackForwardLis
     g_return_val_if_fail(WEBKIT_IS_BACK_FORWARD_LIST(backForwardList), 0);
 
     WebKitBackForwardListPrivate* priv = backForwardList->priv;
-    RefPtr<API::Array> apiArray = priv->backForwardItems->forwardListAsAPIArrayWithLimit(limit);
-    return webkitBackForwardListCreateList(backForwardList, apiArray.get());
+    Ref<API::Array> apiArray = priv->backForwardItems->forwardListAsAPIArrayWithLimit(limit);
+    return webkitBackForwardListCreateList(backForwardList, apiArray.ptr());
 }

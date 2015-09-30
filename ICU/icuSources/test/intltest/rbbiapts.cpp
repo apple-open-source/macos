@@ -1179,7 +1179,7 @@ void RBBIAPITest::TestRefreshInputText() {
 
 }
 
-#if !UCONFIG_NO_BREAK_ITERATION && U_HAVE_STD_STRING
+#if !UCONFIG_NO_BREAK_ITERATION && U_HAVE_STD_STRING && !UCONFIG_NO_FILTERED_BREAK_ITERATION
 static void prtbrks(BreakIterator* brk, const UnicodeString &ustr, IntlTest &it) {
   static const UChar PILCROW=0x00B6, CHSTR=0x3010, CHEND=0x3011; // lenticular brackets
   it.logln(UnicodeString("String:'")+ustr+UnicodeString("'"));
@@ -1226,6 +1226,7 @@ void RBBIAPITest::TestFilteredBreakIteratorBuilder() {
   LocalPointer<FilteredBreakIteratorBuilder> builder;
   LocalPointer<BreakIterator> baseBI;
   LocalPointer<BreakIterator> filteredBI;
+  LocalPointer<BreakIterator> frenchBI;
 
   const UnicodeString text("In the meantime Mr. Weston arrived with his small ship, which he had now recovered. Capt. Gorges, who informed the Sgt. here that one purpose of his going east was to meet with Mr. Weston, took this opportunity to call him to account for some abuses he had to lay to his charge."); // (William Bradford, public domain. http://catalog.hathitrust.org/Record/008651224 ) - edited.
   const UnicodeString ABBR_MR("Mr.");
@@ -1240,19 +1241,21 @@ void RBBIAPITest::TestFilteredBreakIteratorBuilder() {
     baseBI.adoptInstead(BreakIterator::createSentenceInstance(Locale::getEnglish(), status));
     TEST_ASSERT_SUCCESS(status);
 
-    logln("Building new BI\n");
+	logln("Building new BI\n");
     filteredBI.adoptInstead(builder->build(baseBI.orphan(), status));
     TEST_ASSERT_SUCCESS(status);
 
-    logln("Testing:");
-    filteredBI->setText(text);
-    TEST_ASSERT(20 == filteredBI->next()); // Mr.
-    TEST_ASSERT(84 == filteredBI->next()); // recovered.
-    TEST_ASSERT(90 == filteredBI->next()); // Capt.
-    TEST_ASSERT(181 == filteredBI->next()); // Mr.
-    TEST_ASSERT(278 == filteredBI->next()); // charge.
-    filteredBI->first();
-    prtbrks(filteredBI.getAlias(), text, *this);
+	if (U_SUCCESS(status)) {
+        logln("Testing:");
+        filteredBI->setText(text);
+        TEST_ASSERT(20 == filteredBI->next()); // Mr.
+        TEST_ASSERT(84 == filteredBI->next()); // recovered.
+        TEST_ASSERT(90 == filteredBI->next()); // Capt.
+        TEST_ASSERT(181 == filteredBI->next()); // Mr.
+        TEST_ASSERT(278 == filteredBI->next()); // charge.
+        filteredBI->first();
+        prtbrks(filteredBI.getAlias(), text, *this);
+    }
   }
 
   {
@@ -1260,29 +1263,31 @@ void RBBIAPITest::TestFilteredBreakIteratorBuilder() {
     builder.adoptInstead(FilteredBreakIteratorBuilder::createInstance(status));
     TEST_ASSERT_SUCCESS(status);
 
-    logln("Adding Mr. as an exception\n");
-    TEST_ASSERT(TRUE == builder->suppressBreakAfter(ABBR_MR, status));
-    TEST_ASSERT(FALSE == builder->suppressBreakAfter(ABBR_MR, status)); // already have it
-    TEST_ASSERT(TRUE == builder->unsuppressBreakAfter(ABBR_MR, status));
-    TEST_ASSERT(FALSE == builder->unsuppressBreakAfter(ABBR_MR, status)); // already removed it
-    TEST_ASSERT(TRUE == builder->suppressBreakAfter(ABBR_MR, status));
-    TEST_ASSERT_SUCCESS(status);
+    if (U_SUCCESS(status)) {
+        logln("Adding Mr. as an exception\n");
+        TEST_ASSERT(TRUE == builder->suppressBreakAfter(ABBR_MR, status));
+        TEST_ASSERT(FALSE == builder->suppressBreakAfter(ABBR_MR, status)); // already have it
+        TEST_ASSERT(TRUE == builder->unsuppressBreakAfter(ABBR_MR, status));
+        TEST_ASSERT(FALSE == builder->unsuppressBreakAfter(ABBR_MR, status)); // already removed it
+        TEST_ASSERT(TRUE == builder->suppressBreakAfter(ABBR_MR, status));
+        TEST_ASSERT_SUCCESS(status);
 
-    logln("Constructing base BI\n");
-    baseBI.adoptInstead(BreakIterator::createSentenceInstance(Locale::getEnglish(), status));
-    TEST_ASSERT_SUCCESS(status);
+        logln("Constructing base BI\n");
+        baseBI.adoptInstead(BreakIterator::createSentenceInstance(Locale::getEnglish(), status));
+        TEST_ASSERT_SUCCESS(status);
 
-    logln("Building new BI\n");
-    filteredBI.adoptInstead(builder->build(baseBI.orphan(), status));
-    TEST_ASSERT_SUCCESS(status);
+        logln("Building new BI\n");
+        filteredBI.adoptInstead(builder->build(baseBI.orphan(), status));
+        TEST_ASSERT_SUCCESS(status);
 
-    logln("Testing:");
-    filteredBI->setText(text);
-    TEST_ASSERT(84 == filteredBI->next());
-    TEST_ASSERT(90 == filteredBI->next());// Capt.
-    TEST_ASSERT(278 == filteredBI->next());
-    filteredBI->first();
-    prtbrks(filteredBI.getAlias(), text, *this);
+        logln("Testing:");
+        filteredBI->setText(text);
+        TEST_ASSERT(84 == filteredBI->next());
+        TEST_ASSERT(90 == filteredBI->next());// Capt.
+        TEST_ASSERT(278 == filteredBI->next());
+        filteredBI->first();
+        prtbrks(filteredBI.getAlias(), text, *this);
+    }
   }
 
 
@@ -1291,52 +1296,26 @@ void RBBIAPITest::TestFilteredBreakIteratorBuilder() {
     builder.adoptInstead(FilteredBreakIteratorBuilder::createInstance(status));
     TEST_ASSERT_SUCCESS(status);
 
-    logln("Adding Mr. and Capt as an exception\n");
-    TEST_ASSERT(TRUE == builder->suppressBreakAfter(ABBR_MR, status));
-    TEST_ASSERT(TRUE == builder->suppressBreakAfter(ABBR_CAPT, status));
-    TEST_ASSERT_SUCCESS(status);
+    if (U_SUCCESS(status)) {
+        logln("Adding Mr. and Capt as an exception\n");
+        TEST_ASSERT(TRUE == builder->suppressBreakAfter(ABBR_MR, status));
+        TEST_ASSERT(TRUE == builder->suppressBreakAfter(ABBR_CAPT, status));
+        TEST_ASSERT_SUCCESS(status);
 
-    logln("Constructing base BI\n");
-    baseBI.adoptInstead(BreakIterator::createSentenceInstance(Locale::getEnglish(), status));
-    TEST_ASSERT_SUCCESS(status);
+        logln("Constructing base BI\n");
+        baseBI.adoptInstead(BreakIterator::createSentenceInstance(Locale::getEnglish(), status));
+        TEST_ASSERT_SUCCESS(status);
 
-    logln("Building new BI\n");
-    filteredBI.adoptInstead(builder->build(baseBI.orphan(), status));
-    TEST_ASSERT_SUCCESS(status);
+        logln("Building new BI\n");
+        filteredBI.adoptInstead(builder->build(baseBI.orphan(), status));
+        TEST_ASSERT_SUCCESS(status);
 
-    logln("Testing:");
-    filteredBI->setText(text);
-    TEST_ASSERT(84 == filteredBI->next());
-    TEST_ASSERT(278 == filteredBI->next());
-    filteredBI->first();
-    prtbrks(filteredBI.getAlias(), text, *this);
-  }
-
-
-  {
-    logln("Constructing English builder\n");
-    builder.adoptInstead(FilteredBreakIteratorBuilder::createInstance(Locale::getEnglish(), status));
-    TEST_ASSERT_SUCCESS(status);
-
-    logln("Constructing base BI\n");
-    baseBI.adoptInstead(BreakIterator::createSentenceInstance(Locale::getEnglish(), status));
-    TEST_ASSERT_SUCCESS(status);
-
-    logln("unsuppressing 'Capt'");
-    TEST_ASSERT(TRUE == builder->unsuppressBreakAfter(ABBR_CAPT, status));
-
-    logln("Building new BI\n");
-    filteredBI.adoptInstead(builder->build(baseBI.orphan(), status));
-    TEST_ASSERT_SUCCESS(status);
-
-    if(filteredBI.isValid()) {
-      logln("Testing:");
-      filteredBI->setText(text);
-      TEST_ASSERT(84 == filteredBI->next());
-      TEST_ASSERT(90 == filteredBI->next());
-      TEST_ASSERT(278 == filteredBI->next());
-      filteredBI->first();
-      prtbrks(filteredBI.getAlias(), text, *this);
+        logln("Testing:");
+        filteredBI->setText(text);
+        TEST_ASSERT(84 == filteredBI->next());
+        TEST_ASSERT(278 == filteredBI->next());
+        filteredBI->first();
+        prtbrks(filteredBI.getAlias(), text, *this);
     }
   }
 
@@ -1350,21 +1329,52 @@ void RBBIAPITest::TestFilteredBreakIteratorBuilder() {
     baseBI.adoptInstead(BreakIterator::createSentenceInstance(Locale::getEnglish(), status));
     TEST_ASSERT_SUCCESS(status);
 
-    logln("Building new BI\n");
-    filteredBI.adoptInstead(builder->build(baseBI.orphan(), status));
-    TEST_ASSERT_SUCCESS(status);
+    if (U_SUCCESS(status)) {
+        logln("unsuppressing 'Capt'");
+        TEST_ASSERT(TRUE == builder->unsuppressBreakAfter(ABBR_CAPT, status));
 
-    if(filteredBI.isValid()) {
-      logln("Testing:");
-      filteredBI->setText(text);
-      TEST_ASSERT(84 == filteredBI->next());
-      TEST_ASSERT(278 == filteredBI->next());
-      filteredBI->first();
-      prtbrks(filteredBI.getAlias(), text, *this);
+        logln("Building new BI\n");
+        filteredBI.adoptInstead(builder->build(baseBI.orphan(), status));
+        TEST_ASSERT_SUCCESS(status);
+
+        if(filteredBI.isValid()) {
+          logln("Testing:");
+          filteredBI->setText(text);
+          TEST_ASSERT(84 == filteredBI->next());
+          TEST_ASSERT(90 == filteredBI->next());
+          TEST_ASSERT(278 == filteredBI->next());
+          filteredBI->first();
+          prtbrks(filteredBI.getAlias(), text, *this);
+        }
     }
   }
 
-#if 0
+
+  {
+    logln("Constructing English builder\n");
+    builder.adoptInstead(FilteredBreakIteratorBuilder::createInstance(Locale::getEnglish(), status));
+    TEST_ASSERT_SUCCESS(status);
+
+    logln("Constructing base BI\n");
+    baseBI.adoptInstead(BreakIterator::createSentenceInstance(Locale::getEnglish(), status));
+    TEST_ASSERT_SUCCESS(status);
+
+    if (U_SUCCESS(status)) {
+        logln("Building new BI\n");
+        filteredBI.adoptInstead(builder->build(baseBI.orphan(), status));
+        TEST_ASSERT_SUCCESS(status);
+
+        if(filteredBI.isValid()) {
+          logln("Testing:");
+          filteredBI->setText(text);
+          TEST_ASSERT(84 == filteredBI->next());
+          TEST_ASSERT(278 == filteredBI->next());
+          filteredBI->first();
+          prtbrks(filteredBI.getAlias(), text, *this);
+        }
+    }
+  }
+
   // reenable once french is in
   {
     logln("Constructing French builder");
@@ -1375,20 +1385,36 @@ void RBBIAPITest::TestFilteredBreakIteratorBuilder() {
     baseBI.adoptInstead(BreakIterator::createSentenceInstance(Locale::getFrench(), status));
     TEST_ASSERT_SUCCESS(status);
 
-    logln("Building new BI\n");
-    filteredBI.adoptInstead(builder->build(baseBI.orphan(), status));
-    TEST_ASSERT_SUCCESS(status);
-
-    if(filteredBI.isValid()) {
-      logln("Testing:");
-      filteredBI->setText(text);
-      TEST_ASSERT(20 == filteredBI->next());
-      TEST_ASSERT(84 == filteredBI->next());
-      filteredBI->first();
-      prtbrks(filteredBI.getAlias(), text, *this);
+    if (U_SUCCESS(status)) {
+        logln("Building new BI\n");
+        frenchBI.adoptInstead(builder->build(baseBI.orphan(), status));
+        TEST_ASSERT_SUCCESS(status);
     }
+
+    if(frenchBI.isValid()) {
+      logln("Testing:");
+      UnicodeString frText("C'est MM. Duval.");
+      frenchBI->setText(frText);
+      TEST_ASSERT(16 == frenchBI->next());
+      TEST_ASSERT(BreakIterator::DONE == frenchBI->next());
+      frenchBI->first();
+      prtbrks(frenchBI.getAlias(), frText, *this);
+      logln("Testing against English:");
+      filteredBI->setText(frText);
+      TEST_ASSERT(10 == filteredBI->next()); // wrong for french, but filterBI is english.
+      TEST_ASSERT(16 == filteredBI->next());
+      TEST_ASSERT(BreakIterator::DONE == filteredBI->next());
+      filteredBI->first();
+      prtbrks(filteredBI.getAlias(), frText, *this);
+
+      // Verify ==
+      TEST_ASSERT_TRUE(*frenchBI   == *frenchBI);
+      TEST_ASSERT_TRUE(*filteredBI != *frenchBI);
+      TEST_ASSERT_TRUE(*frenchBI   != *filteredBI);
+    } else {
+      dataerrln("French BI: not valid.");
+	}
   }
-#endif
 
 #else
   logln("Skipped- not: !UCONFIG_NO_BREAK_ITERATION && U_HAVE_STD_STRING && !UCONFIG_NO_FILTERED_BREAK_ITERATION");

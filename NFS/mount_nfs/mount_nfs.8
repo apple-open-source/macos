@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 1999-2010 Apple Inc.  All rights reserved.
+.\" Copyright (c) 1999-2015 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -205,11 +205,27 @@ or
 .Cm nolocallocks
 ).
 .Pp
-.It Cm vers Ns = Ns Aq Ar num
-.It Cm nfsvers Ns = Ns Aq Ar num
-Set the NFS protocol version number - 2 for NFSv2, 3 for NFSv3 and 4 for
-NFSv4.  The default is to try version 3 first, and fall back to version 2
-if the mount fails.
+.It Cm vers Ns = Ns Ao Ar num Ns Bo Ns \&. Ns Ar num Bc Ns Ac Ns Op Ns Fl Ns Ao Ns Ar num Ns Bo Ns \&. Ns Ar num Bc Ns Ac
+.It Cm nfsvers Ns = Ns Ao Ar num Ns Bo Ns \&. Ns Ar num Bc Ns Ac Ns Op Ns Fl Ns Ao Ns Ar num Ns Bo Ns \&. Ns Ar num Bc Ns Ac
+NFS protocol version number - 2 for NFSv2, 3 for NFSv3 and 4 for
+NFSv4.  The default is to try version 3 first, and fall back to
+version 2 if the mount fails. A range of versions can be specified by
+including a dash and another version with no spaces between versions
+and the dash. In that case the highest version is tried first and if
+not successful fall back to each version down to the lowest version
+specified until the mount succeeds or the lowest version fails.  Note
+minor versions may be specified for versions greater than or equal to
+four by appending a dot and then the minor version number. Currently
+NFSv4 is the highest supported version with a minor version of
+zero. If no minor version is specified, zero is assumed. Specifying a
+non supported version or minor version will print a warning and ignore
+the
+.Cm vers
+or
+.Cm nfsvers
+option.
+Versions 2 or 3 do not support minor versioning so minor versions greater
+than zero are treated as above.
 .Pp
 .It Cm nfsv2
 .It Cm nfsv3
@@ -241,7 +257,6 @@ Use the specified principal for acquiring credentials for the mount.
 That principal will be used for all accesses by the mounting
 credential on the mounted file system. Note specifying a principal is useful for user initiated command line mounts, where the user knows the particular credential to use.
 .Pp
-.It
 .It Cm sprincipal Ns = Ns Aq Ar server-principal
 Use the specified server-principal for establishing credentials
 for the mount. That server principal will be use for all mount

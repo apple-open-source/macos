@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebDownload.h"
 
@@ -82,8 +81,14 @@ HRESULT STDMETHODCALLTYPE WebDownload::initWithRequest(
         /* [in] */ IWebURLRequest* request, 
         /* [in] */ IWebDownloadDelegate* delegate)
 {
-   notImplemented();
-   return E_FAIL;
+    BString url;
+
+    if (!SUCCEEDED(request->URL(&url)))
+        return E_FAIL;
+
+    init(URL(ParsedURLString, String(url)), delegate);
+
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebDownload::initToResumeWithBundle(

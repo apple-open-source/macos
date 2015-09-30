@@ -57,6 +57,7 @@ kdc(struct kdc_options *opt, int argc, char **argv)
     char host[MAXHOSTNAMELEN];
     krb5_error_code ret;
     int first_realm = 1;
+    krb5_uuid uuid;
     size_t n;
     int i;
     
@@ -68,8 +69,10 @@ kdc(struct kdc_options *opt, int argc, char **argv)
     if (opt->type_string) {
 
 	for (n = 0; n < sizeof(types)/sizeof(types[0]); n++) {
-	    if (strcasecmp(types[n].name, opt->type_string) == 0)
+	    if (strcasecmp(types[n].name, opt->type_string) == 0) {
 		type = types[n].type;
+		break;
+	    }
 	}
 	if (n == sizeof(types)/sizeof(types[0])) {
 	    printf("unknown type: %s\nAvailaile types are: \n", opt->type_string);
@@ -78,6 +81,11 @@ kdc(struct kdc_options *opt, int argc, char **argv)
 	    printf("\n");
 	    return 1;
 	}
+    }
+
+    if (opt->uuid_string) {
+	if (uuid_parse(opt->uuid_string, uuid) != 0)
+	    errx(1, "failed tp parse `%s` as a uuid", opt->uuid_string);
     }
 
     if (opt->json_flag)
@@ -92,8 +100,12 @@ kdc(struct kdc_options *opt, int argc, char **argv)
 	    return 1;
 	}
 
+	if (opt->uuid_string)
+	    krb5_krbhst_set_delgated_uuid(kcc_context, handle, uuid);
+
 	if (opt->json_flag) {
 	    int first = 1;
+
 	    printf("%s\n\t\"%s\" = [ ", first_realm ? "" : ",", realm);
 	    first_realm = 0;
 
@@ -104,11 +116,21 @@ kdc(struct kdc_options *opt, int argc, char **argv)
 
 	    printf("\n\t]");
 	} else {
+	    krb5_krbhst_info *hi = NULL;
+
 	    printf("[realms]\n");
 	    printf("\t%s = {\n", realm);
 
-	    while(krb5_krbhst_next_as_string(kcc_context, handle, host, sizeof(host)) == 0)
-		printf("\t\tkdc = %s\n", host);
+	    while ((ret = krb5_krbhst_next(kcc_context, handle, &hi)) == 0) {
+
+		ret = krb5_krbhst_format_string(kcc_context, hi, host, sizeof(host));
+		if (ret)
+		    krb5_warn(kcc_context, ret, "krb5_krbhst_format_string");
+
+		printf("\t\tkdc = %s  # source %s\n", host, hi->source);
+	    }
+	    if (ret != KRB5_KDC_UNREACH)
+		krb5_err(kcc_context, 1, ret, "Failed before getting to end of kdc list");
 	    
 	    printf("\t}\n");
 	}

@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include <initguid.h>
 #include "WebURLAuthenticationChallengeSender.h"
@@ -44,13 +43,13 @@ WebURLAuthenticationChallengeSender::WebURLAuthenticationChallengeSender(PassRef
 {
     ASSERT(m_client);
     gClassCount++;
-    gClassNameCount.add("WebURLAuthenticationChallengeSender");
+    gClassNameCount().add("WebURLAuthenticationChallengeSender");
 }
 
 WebURLAuthenticationChallengeSender::~WebURLAuthenticationChallengeSender()
 {
     gClassCount--;
-    gClassNameCount.remove("WebURLAuthenticationChallengeSender");
+    gClassNameCount().remove("WebURLAuthenticationChallengeSender");
 }
 
 WebURLAuthenticationChallengeSender* WebURLAuthenticationChallengeSender::createInstance(PassRefPtr<WebCore::AuthenticationClient> client)

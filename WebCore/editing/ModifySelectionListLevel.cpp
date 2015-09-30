@@ -178,7 +178,7 @@ void IncreaseSelectionListLevelCommand::doApply()
     Node* previousItem = startListChild->renderer()->previousSibling()->node();
     if (isListElement(previousItem)) {
         // move nodes up into preceding list
-        appendSiblingNodeRange(startListChild, endListChild, toElement(previousItem));
+        appendSiblingNodeRange(startListChild, endListChild, downcast<Element>(previousItem));
         m_listElement = previousItem;
     } else {
         // create a sublist for the preceding element and move nodes there
@@ -187,7 +187,7 @@ void IncreaseSelectionListLevelCommand::doApply()
             case InheritedListType:
                 newParent = startListChild->parentElement();
                 if (newParent)
-                    newParent = newParent->cloneElementWithoutChildren();
+                    newParent = newParent->cloneElementWithoutChildren(document());
                 break;
             case OrderedList:
                 newParent = createOrderedListElement(document());

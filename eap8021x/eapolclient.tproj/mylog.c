@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,10 +44,25 @@ eapolclient_log_flags(void)
     return (S_log_flags);
 }
 
+STATIC void
+enable_default_logging(void)
+{
+    /* enable default logging */
+    S_log_flags
+	= kLogFlagBasic
+	| kLogFlagConfig
+	| kLogFlagTunables
+	| kLogFlagDisableInnerDetails;
+    return;
+}
+
 PRIVATE_EXTERN void
 eapolclient_log_set_flags(uint32_t log_flags, bool log_it)
 {
     if (S_log_flags == log_flags) {
+	if (log_flags == 0) {
+	    enable_default_logging();
+	}
 	return;
     }
     if (log_flags != 0) {
@@ -63,7 +78,12 @@ eapolclient_log_set_flags(uint32_t log_flags, bool log_it)
 	}
 	EAPLogSetVerbose(FALSE);
     }
-    S_log_flags = log_flags;
+    if (log_flags != 0) {
+	S_log_flags = log_flags;
+    }
+    else {
+	enable_default_logging();
+    }
     return;
 }
 

@@ -40,7 +40,6 @@
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
 #import "WebLocalizableStringsInternal.h"
-#import "WebNSArrayExtras.h"
 #import "WebNSPasteboardExtras.h"
 #import "WebNSViewExtras.h"
 #import "WebPDFRepresentation.h"
@@ -49,7 +48,6 @@
 #import "WebUIDelegatePrivate.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
-#import <PDFKit/PDFKit.h>
 #import <WebCore/DataTransfer.h>
 #import <WebCore/EventNames.h>
 #import <WebCore/FormState.h>
@@ -66,6 +64,12 @@
 #import <WebCore/WebNSAttributedStringExtras.h>
 #import <wtf/Assertions.h>
 #import <wtf/CurrentTime.h>
+
+#ifdef BUILDING_WITH_CMAKE
+#import <PDFKit.h>
+#else
+#import <PDFKit/PDFKit.h>
+#endif
 
 #ifdef __has_include
 #if __has_include(<ApplicationServices/ApplicationServicesPriv.h>)
@@ -971,7 +975,7 @@ static BOOL isFrameInRange(WebFrame *frame, DOMRange *range)
     NSAttributedString *attributedString = [self selectedAttributedString];
     
     if ([types containsObject:NSRTFDPboardType]) {
-        NSData *RTFDData = [attributedString RTFDFromRange:NSMakeRange(0, [attributedString length]) documentAttributes:nil];
+        NSData *RTFDData = [attributedString RTFDFromRange:NSMakeRange(0, [attributedString length]) documentAttributes:@{ }];
         [pasteboard setData:RTFDData forType:NSRTFDPboardType];
     }        
     
@@ -979,7 +983,7 @@ static BOOL isFrameInRange(WebFrame *frame, DOMRange *range)
         if ([attributedString containsAttachments])
             attributedString = attributedStringByStrippingAttachmentCharacters(attributedString);
 
-        NSData *RTFData = [attributedString RTFFromRange:NSMakeRange(0, [attributedString length]) documentAttributes:nil];
+        NSData *RTFData = [attributedString RTFFromRange:NSMakeRange(0, [attributedString length]) documentAttributes:@{ }];
         [pasteboard setData:RTFData forType:NSRTFPboardType];
     }
     
@@ -1027,12 +1031,12 @@ static BOOL isFrameInRange(WebFrame *frame, DOMRange *range)
             [nsEvent modifierFlags] & NSAlternateKeyMask,
             [nsEvent modifierFlags] & NSShiftKeyMask,
             [nsEvent modifierFlags] & NSCommandKeyMask,
-            button, 0, 0, true);
+            button, 0, WebCore::ForceAtClick, 0, true);
     }
 
     // Call to the frame loader because this is where our security checks are made.
     Frame* frame = core([dataSource webFrame]);
-    frame->loader().loadFrameRequest(FrameLoadRequest(frame->document()->securityOrigin(), ResourceRequest(URL)), LockHistory::No, LockBackForwardList::No, event.get(), 0, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow);
+    frame->loader().loadFrameRequest(FrameLoadRequest(frame->document()->securityOrigin(), ResourceRequest(URL), LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, ShouldOpenExternalURLsPolicy::ShouldNotAllow), event.get(), nullptr);
 }
 
 - (void)PDFViewOpenPDFInNativeApplication:(PDFView *)sender
@@ -1140,6 +1144,31 @@ static BOOL isFrameInRange(WebFrame *frame, DOMRange *range)
         [PDFSubview performSelector:@selector(_searchInDictionary:) withObject:sender];
 }
 
+static void removeUselessMenuItemSeparators(NSMutableArray *menuItems)
+{
+    // Starting with a mutable array of NSMenuItems, removes any separators at the start,
+    // removes any separators at the end, and collapses any other adjacent separators to
+    // a single separator.
+
+    // Start this with YES so very last item will be removed if it's a separator.
+    BOOL removePreviousItemIfSeparator = YES;
+
+    for (NSInteger index = menuItems.count - 1; index >= 0; --index) {
+        NSMenuItem *item = [menuItems objectAtIndex:index];
+        ASSERT([item isKindOfClass:[NSMenuItem class]]);
+
+        BOOL itemIsSeparator = [item isSeparatorItem];
+        if (itemIsSeparator && (removePreviousItemIfSeparator || !index))
+            [menuItems removeObjectAtIndex:index];
+
+        removePreviousItemIfSeparator = itemIsSeparator;
+    }
+
+    // This could leave us with one initial separator; kill it off too
+    if (menuItems.count && [[menuItems objectAtIndex:0] isSeparatorItem])
+        [menuItems removeObjectAtIndex:0];
+}
+
 - (NSMutableArray *)_menuItemsFromPDFKitForEvent:(NSEvent *)theEvent
 {
     NSMutableArray *copiedItems = [NSMutableArray array];
@@ -1216,7 +1245,7 @@ static BOOL isFrameInRange(WebFrame *frame, DOMRange *range)
     // Since we might have removed elements supplied by PDFKit, and we want to minimize our hardwired
     // knowledge of the order and arrangement of PDFKit's menu items, we need to remove any bogus
     // separators that were left behind.
-    [copiedItems _webkit_removeUselessMenuItemSeparators];
+    removeUselessMenuItemSeparators(copiedItems);
     
     return copiedItems;
 }

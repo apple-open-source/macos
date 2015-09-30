@@ -151,11 +151,11 @@ item(tt(jobstates))(
 This associative array gives information about the states of the jobs
 currently known. The keys are the job numbers and the values are
 strings of the form
-`var(job-state):var(mark):var(pid)tt(=)var(state)tt(...)'. The
+`var(job-state)tt(:)var(mark)tt(:)var(pid)tt(=)var(state)...'. The
 var(job-state) gives the state the whole job is currently in, one of
 `tt(running)', `tt(suspended)', or `tt(done)'. The var(mark) is
 `tt(+)' for the current job, `tt(-)' for the previous job and empty
-otherwise. This is followed by one `var(pid)tt(=)var(state)' for every
+otherwise. This is followed by one `tt(:)var(pid)tt(=)var(state)' for every
 process in the job. The var(pid)s are, of course, the process IDs and
 the var(state) describes the state of that process.
 
@@ -212,6 +212,14 @@ This array contains the names of the functions, sourced files,
 and (if tt(EVAL_LINENO) is set) tt(eval) commands. currently being
 executed. The first element is the name of the function using the
 parameter.
+
+The standard shell array tt(zsh_eval_context) can be used to
+determine the type of shell construct being executed at each depth:
+note, however, that is in the opposite order, with the most recent
+item last, and it is more detailed, for example including an
+entry for tt(toplevel), the main shell code being executed
+either interactively or from a script, which is not present
+in tt($funcstack).
 )
 vindex(functrace)
 item(tt(functrace))(

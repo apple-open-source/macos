@@ -26,10 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
 #include "WebInspectorClient.h"
-
-#if ENABLE(INSPECTOR)
 
 #include "WebCoreBundleWin.h"
 #include "WebInspectorDelegate.h"
@@ -37,7 +34,6 @@
 #include "WebMutableURLRequest.h"
 #include "WebNodeHighlight.h"
 #include "WebView.h"
-
 #include <WebCore/BString.h>
 #include <WebCore/Element.h>
 #include <WebCore/FloatRect.h>
@@ -47,7 +43,6 @@
 #include <WebCore/Page.h>
 #include <WebCore/RenderObject.h>
 #include <WebCore/WindowMessageBroadcaster.h>
-
 #include <inspector/InspectorAgentBase.h>
 #include <wchar.h>
 #include <wtf/RetainPtr.h>
@@ -68,7 +63,6 @@ static const IntRect& defaultWindowRect()
 WebInspectorClient::WebInspectorClient(WebView* webView)
     : m_inspectedWebView(webView)
     , m_frontendPage(0)
-    , m_frontendClient(0)
 {
     ASSERT(m_inspectedWebView);
     m_inspectedWebView->viewWindow(&m_inspectedWebViewHandle);
@@ -171,9 +165,8 @@ WebCore::InspectorFrontendChannel* WebInspectorClient::openInspectorFrontend(Ins
         return 0;
 
     m_frontendPage = core(frontendWebView.get());
-    auto frontendClient = std::make_unique<WebInspectorFrontendClient>(m_inspectedWebView, m_inspectedWebViewHandle, frontendHwnd, frontendWebView, frontendWebViewHwnd, this, createFrontendSettings());
-    m_frontendClient = frontendClient.get();
-    m_frontendPage->inspectorController().setInspectorFrontendClient(WTF::move(frontendClient));
+    m_frontendClient = std::make_unique<WebInspectorFrontendClient>(m_inspectedWebView, m_inspectedWebViewHandle, frontendHwnd, frontendWebView, frontendWebViewHwnd, this, createFrontendSettings());
+    m_frontendPage->inspectorController().setInspectorFrontendClient(m_frontendClient.get());
     m_frontendHandle = frontendHwnd;
     return this;
 }
@@ -194,7 +187,7 @@ void WebInspectorClient::highlight()
     bool creatingHighlight = !m_highlight;
 
     if (creatingHighlight)
-        m_highlight = adoptPtr(new WebNodeHighlight(m_inspectedWebView));
+        m_highlight = std::make_unique<WebNodeHighlight>(m_inspectedWebView);
 
     if (m_highlight->isShowing())
         m_highlight->update();
@@ -219,7 +212,7 @@ void WebInspectorClient::updateHighlight()
 
 void WebInspectorClient::releaseFrontend()
 {
-    m_frontendClient = 0;
+    m_frontendClient = nullptr;
     m_frontendPage = 0;
     m_frontendHandle = 0;
 }
@@ -254,7 +247,7 @@ void WebInspectorFrontendClient::frontendLoaded()
     if (m_attached)
         restoreAttachedWindowHeight();
 
-    setAttachedWindow(m_attached ? DOCKED_TO_BOTTOM : UNDOCKED);
+    setAttachedWindow(m_attached ? DockSide::Bottom : DockSide::Undocked);
 }
 
 String WebInspectorFrontendClient::localizedStringsURL()
@@ -439,7 +432,7 @@ void WebInspectorFrontendClient::destroyInspectorView(bool notifyInspectorContro
     closeWindowWithoutNotifications();
 
     if (notifyInspectorController) {
-        m_inspectedWebView->page()->inspectorController().disconnectFrontend(Inspector::InspectorDisconnectReason::InspectorDestroyed);
+        m_inspectedWebView->page()->inspectorController().disconnectFrontend(Inspector::DisconnectReason::InspectorDestroyed);
         m_inspectorClient->updateHighlight();
     }
     ::DestroyWindow(m_frontendHwnd);
@@ -563,5 +556,3 @@ static ATOM registerWindowClass()
 
     return ::RegisterClassEx(&wcex);
 }
-
-#endif // ENABLE(INSPECTOR)

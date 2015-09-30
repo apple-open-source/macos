@@ -67,7 +67,7 @@
 			buildPhases = (
 			);
 			dependencies = (
-				8CF31BAC1922CE0900DFEA7B /* PBXTargetDependency */,
+				8C1DA6F31986C02A0041B69A /* PBXTargetDependency */,
 				72A1C142128E0B0700754139 /* PBXTargetDependency */,
 				72E815750CFE473600CF547E /* PBXTargetDependency */,
 				72EE05D91909C876009A2681 /* PBXTargetDependency */,
@@ -85,6 +85,7 @@
 		22A3A35518C923C5004EC1B1 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
 		22B9840916FBA91100BB59FC /* swd.c in Sources */ = {isa = PBXBuildFile; fileRef = 22B9840816FBA91100BB59FC /* swd.c */; };
 		22B9840A16FBABC800BB59FC /* com.apple.powerd.swd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 22B9840716FBA91100BB59FC /* com.apple.powerd.swd.plist */; };
+		481D3D3B1B166D5000201979 /* libsystemstats.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 481D3D3A1B166D5000201979 /* libsystemstats.dylib */; };
 		484EA0F216BEEB8400E70CF3 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
 		4874455916B31BB000F343A8 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
 		504E1BCE11372B3F00AAAA84 /* caffeinate.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 504E1BCC11372B0500AAAA84 /* caffeinate.8 */; };
@@ -118,6 +119,8 @@
 		727593FE125555EA00C59A8E /* ExternalMedia.c in Sources */ = {isa = PBXBuildFile; fileRef = 727593FC125555EA00C59A8E /* ExternalMedia.c */; };
 		727593FF125555EA00C59A8E /* ExternalMedia.h in Headers */ = {isa = PBXBuildFile; fileRef = 727593FD125555EA00C59A8E /* ExternalMedia.h */; };
 		727594341255613F00C59A8E /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 727594331255613F00C59A8E /* DiskArbitration.framework */; };
+		728F7A071A25689100EA70CC /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
+		728F7A081A2656D000EA70CC /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
 		728FBE1D11CC4EBE00CDB654 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 728FBE1C11CC4EBE00CDB654 /* libbsm.dylib */; };
 		728FBE1E11CC4EBE00CDB654 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 728FBE1C11CC4EBE00CDB654 /* libbsm.dylib */; };
 		729A74330A01EC0C000AB587 /* pmset.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 40D4F0DD01F4A1F40ACA2928 /* pmset.1 */; };
@@ -160,7 +163,6 @@
 		729F44BB12D7DB3600AD49A8 /* com.apple.powerd.plist in Resources */ = {isa = PBXBuildFile; fileRef = 729F44BA12D7DB3600AD49A8 /* com.apple.powerd.plist */; };
 		729F44FF12D7EC5000AD49A8 /* com.apple.powerd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 729F44BA12D7DB3600AD49A8 /* com.apple.powerd.plist */; };
 		72A1BF94128E0ACB00754139 /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; };
-		72A1BF95128E0ACB00754139 /* PrivateLib.c in Sources */ = {isa = PBXBuildFile; fileRef = A9FD4B72047C482B00FA82A6 /* PrivateLib.c */; };
 		72A1BF96128E0ACB00754139 /* pmset.c in Sources */ = {isa = PBXBuildFile; fileRef = 40D4F0DC01F4A1F40ACA2928 /* pmset.c */; };
 		72A1C13E128E0AD700754139 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
 		72A1C13F128E0AD700754139 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
@@ -184,7 +186,6 @@
 		72D9844A0B20BE7800D66087 /* TTYKeepAwake.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D984480B20BE7800D66087 /* TTYKeepAwake.c */; };
 		72D9844B0B20BE7800D66087 /* TTYKeepAwake.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D984490B20BE7800D66087 /* TTYKeepAwake.h */; };
 		72DC9D810E1D99910066B287 /* SystemLoad.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DC9D6B0E1D98210066B287 /* SystemLoad.c */; };
-		72E663120EFB14F9006D442E /* PrivateLib.c in Sources */ = {isa = PBXBuildFile; fileRef = A9FD4B72047C482B00FA82A6 /* PrivateLib.c */; };
 		72E8154C0CFE470B00CF547E /* AutoWakeScheduler.h in Headers */ = {isa = PBXBuildFile; fileRef = A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */; };
 		72E8154D0CFE470B00CF547E /* RepeatingAutoWake.h in Headers */ = {isa = PBXBuildFile; fileRef = A999C3F50450D9290018C661 /* RepeatingAutoWake.h */; };
 		72E8154E0CFE470B00CF547E /* PrivateLib.h in Headers */ = {isa = PBXBuildFile; fileRef = A9FD4B73047C482B00FA82A6 /* PrivateLib.h */; };
@@ -214,6 +215,22 @@
 		72EA6D2418EA303700FCE94F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E318C16D5B00E7B3B4 /* IOKit.framework */; };
 		72EB16B814C75E47002F68C3 /* AppWorkaround.plist in Resources */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
 		72EB16BB14C75EB0002F68C3 /* AppWorkaround.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
+		72FB64721A9CF63C008B6634 /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
+		72FB64731A9CF650008B6634 /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
+		80780E181AB0C600003409C8 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 80780E171AB0C600003409C8 /* libenergytrace.dylib */; };
+		80780E1A1AB12D52003409C8 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 80780E191AB12D52003409C8 /* libenergytrace.dylib */; };
+		8C1DA6DC1986BFE90041B69A /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
+		8C1DA6DD1986BFE90041B69A /* IOUPSPlugIn.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828188058E83D30055547B /* IOUPSPlugIn.h */; };
+		8C1DA6DF1986BFE90041B69A /* ioupspluginmig.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupspluginmig.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
+		8C1DA6E01986BFE90041B69A /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
+		8C1DA6E11986BFE90041B69A /* upsd.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828185058E83D30055547B /* upsd.c */; };
+		8C1DA6E21986BFE90041B69A /* ioupsplugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828187058E83D30055547B /* ioupsplugin.c */; };
+		8C1DA6E41986BFE90041B69A /* libIOAccessoryManager.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CCB23AD1979C99000F63BE8 /* libIOAccessoryManager.dylib */; };
+		8C1DA6E51986BFE90041B69A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
+		8C1DA6E61986BFE90041B69A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
+		8C1DA6E71986BFE90041B69A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
+		8C1DA6E91986BFE90041B69A /* IOUPSPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = F7828188058E83D30055547B /* IOUPSPlugIn.h */; };
+		8C1DA6EB1986BFE90041B69A /* ioupsd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA409AE4931003E0C4C /* ioupsd.8 */; };
 		C19023350EBA720300AE2356 /* SystemLoad.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DC9D6B0E1D98210066B287 /* SystemLoad.c */; };
 		D81001D21755323100140DD3 /* com.apple.powerd-embedded.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D81001D11755320200140DD3 /* com.apple.powerd-embedded.plist */; };
 		D81001D31755326000140DD3 /* com.apple.powerd-embedded.plist in Resources */ = {isa = PBXBuildFile; fileRef = D81001D11755320200140DD3 /* com.apple.powerd-embedded.plist */; };
@@ -332,12 +349,12 @@
 			remoteGlobalIDString = 72CEF7C618C16C8100E7B3B4;
 			remoteInfo = BATS;
 		};
-		8CF31BAB1922CE0900DFEA7B /* PBXContainerItemProxy */ = {
+		8C1DA6F21986C02A0041B69A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 729A757D0A01EDED000AB587;
-			remoteInfo = ioupsd;
+			remoteGlobalIDString = 8C1DA6DA1986BFE90041B69A;
+			remoteInfo = "ioupsd-Embedded";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -528,6 +545,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		8C1DA6E81986BFE90041B69A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/ps";
+			dstSubfolderSpec = 0;
+			files = (
+				8C1DA6E91986BFE90041B69A /* IOUPSPlugIn.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		8C1DA6EA1986BFE90041B69A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				8C1DA6EB1986BFE90041B69A /* ioupsd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -548,6 +585,7 @@
 		40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pmconfigd.c; path = pmconfigd/pmconfigd.c; sourceTree = SOURCE_ROOT; };
 		40D4F0DC01F4A1F40ACA2928 /* pmset.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = pmset.c; sourceTree = "<group>"; };
 		40D4F0DD01F4A1F40ACA2928 /* pmset.1 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = pmset.1; sourceTree = "<group>"; };
+		481D3D3A1B166D5000201979 /* libsystemstats.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsystemstats.dylib; path = usr/lib/libsystemstats.dylib; sourceTree = SDKROOT; };
 		4874455816B31BB000F343A8 /* libIOReport.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libIOReport.a; path = /usr/local/lib/libIOReport.a; sourceTree = "<group>"; };
 		504E1BC211372A6A00AAAA84 /* caffeinate */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = caffeinate; sourceTree = BUILT_PRODUCTS_DIR; };
 		504E1BCC11372B0500AAAA84 /* caffeinate.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = caffeinate.8; path = caffeinate/caffeinate.8; sourceTree = "<group>"; };
@@ -577,6 +615,8 @@
 		727593FD125555EA00C59A8E /* ExternalMedia.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ExternalMedia.h; sourceTree = "<group>"; };
 		727594331255613F00C59A8E /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
 		727D787D0A02D48D002EBD29 /* suidLauncherTool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = suidLauncherTool; sourceTree = BUILT_PRODUCTS_DIR; };
+		728F7A061A25687B00EA70CC /* CommonLib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = CommonLib.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
+		728F7A091A2657E800EA70CC /* CommonLib.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = CommonLib.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		728FBE1C11CC4EBE00CDB654 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
 		729A742C0A01EBB0000AB587 /* pmset */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pmset; sourceTree = BUILT_PRODUCTS_DIR; };
 		729A757E0A01EDED000AB587 /* ioupsd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioupsd; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -617,13 +657,16 @@
 		72FE22EF0A018A5700885E24 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		72FE7EA409AE4931003E0C4C /* ioupsd.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = ioupsd.8; sourceTree = "<group>"; };
 		72FE7EA609AE4942003E0C4C /* upsshutdown.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = upsshutdown.8; sourceTree = "<group>"; };
+		80780E171AB0C600003409C8 /* libenergytrace.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libenergytrace.dylib; path = usr/lib/libenergytrace.dylib; sourceTree = SDKROOT; };
+		80780E191AB12D52003409C8 /* libenergytrace.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libenergytrace.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.Internal.sdk/usr/lib/libenergytrace.dylib; sourceTree = DEVELOPER_DIR; };
+		8CCB23AD1979C99000F63BE8 /* libIOAccessoryManager.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libIOAccessoryManager.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/usr/lib/libIOAccessoryManager.dylib; sourceTree = DEVELOPER_DIR; };
 		A999C3F40450D9290018C661 /* RepeatingAutoWake.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = RepeatingAutoWake.c; path = pmconfigd/RepeatingAutoWake.c; sourceTree = SOURCE_ROOT; };
 		A999C3F50450D9290018C661 /* RepeatingAutoWake.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = RepeatingAutoWake.h; path = pmconfigd/RepeatingAutoWake.h; sourceTree = SOURCE_ROOT; };
 		A9D743DA05AF3D4D0075549C /* upsshutdown */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = upsshutdown; path = pmconfigd/upsshutdown; sourceTree = SOURCE_ROOT; };
 		A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = AutoWakeScheduler.c; sourceTree = "<group>"; };
 		A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AutoWakeScheduler.h; sourceTree = "<group>"; };
 		A9E691B80564519800938E2D /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
-		A9FD4B72047C482B00FA82A6 /* PrivateLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = PrivateLib.c; sourceTree = "<group>"; };
+		A9FD4B72047C482B00FA82A6 /* PrivateLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = PrivateLib.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		A9FD4B73047C482B00FA82A6 /* PrivateLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = PrivateLib.h; sourceTree = "<group>"; };
 		C110135B0EBB9C9F00FD5C2D /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		D81001D11755320200140DD3 /* com.apple.powerd-embedded.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.powerd-embedded.plist"; sourceTree = "<group>"; };
@@ -703,6 +746,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				481D3D3B1B166D5000201979 /* libsystemstats.dylib in Frameworks */,
 				22A3A35518C923C5004EC1B1 /* libIOReport.a in Frameworks */,
 				724B214A173AE8810064FE07 /* Security.framework in Frameworks */,
 				729A75CD0A01F350000AB587 /* CoreFoundation.framework in Frameworks */,
@@ -710,6 +754,7 @@
 				729A75CF0A01F350000AB587 /* IOKit.framework in Frameworks */,
 				728FBE1E11CC4EBE00CDB654 /* libbsm.dylib in Frameworks */,
 				727594341255613F00C59A8E /* DiskArbitration.framework in Frameworks */,
+				80780E181AB0C600003409C8 /* libenergytrace.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -759,6 +804,7 @@
 				72E815670CFE470B00CF547E /* IOKit.framework in Frameworks */,
 				728FBE1D11CC4EBE00CDB654 /* libbsm.dylib in Frameworks */,
 				22A3A35418C923BD004EC1B1 /* libIOReport.a in Frameworks */,
+				80780E1A1AB12D52003409C8 /* libenergytrace.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -771,12 +817,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8C1DA6E31986BFE90041B69A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C1DA6E41986BFE90041B69A /* libIOAccessoryManager.dylib in Frameworks */,
+				8C1DA6E51986BFE90041B69A /* CoreFoundation.framework in Frameworks */,
+				8C1DA6E61986BFE90041B69A /* IOKit.framework in Frameworks */,
+				8C1DA6E71986BFE90041B69A /* SystemConfiguration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		08FB7794FE84155DC02AAC07 /* pmconfigd */ = {
 			isa = PBXGroup;
 			children = (
+				728F7A021A2567D500EA70CC /* common */,
 				F7828182058E83A90055547B /* ioupsd */,
 				72CEF7C518C16C6200E7B3B4 /* BATS */,
 				22B9840616FBA91100BB59FC /* swd */,
@@ -883,6 +941,10 @@
 		40882B99019742A20ACA2928 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				481D3D3A1B166D5000201979 /* libsystemstats.dylib */,
+				80780E191AB12D52003409C8 /* libenergytrace.dylib */,
+				80780E171AB0C600003409C8 /* libenergytrace.dylib */,
+				8CCB23AD1979C99000F63BE8 /* libIOAccessoryManager.dylib */,
 				72CEF7E318C16D5B00E7B3B4 /* IOKit.framework */,
 				72CEF7E118C16D5400E7B3B4 /* CoreFoundation.framework */,
 				22996AFF18A3B5F7003ACA7D /* Security.framework */,
@@ -915,6 +977,15 @@
 			children = (
 			);
 			path = "powerassertions-timeouts.c";
+			sourceTree = "<group>";
+		};
+		728F7A021A2567D500EA70CC /* common */ = {
+			isa = PBXGroup;
+			children = (
+				728F7A061A25687B00EA70CC /* CommonLib.c */,
+				728F7A091A2657E800EA70CC /* CommonLib.h */,
+			);
+			path = common;
 			sourceTree = "<group>";
 		};
 		72A8C48D173AE68900562BA6 /* darktool */ = {
@@ -1032,6 +1103,15 @@
 				7266E1700E5BEDAE00F9BC0B /* PMConnection.h in Headers */,
 				723522121117A10A0089FB9F /* HIDEventWatcher.h in Headers */,
 				7221FC8F12DFEDEC00C69087 /* PMStore.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C1DA6DB1986BFE90041B69A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C1DA6DC1986BFE90041B69A /* IOUPSPrivate.h in Headers */,
+				8C1DA6DD1986BFE90041B69A /* IOUPSPlugIn.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1286,6 +1366,25 @@
 			productReference = 72EA6D1618EA2DE100FCE94F /* IOPSCreatePowerSource-simple */;
 			productType = "com.apple.product-type.tool";
 		};
+		8C1DA6DA1986BFE90041B69A /* ioupsd-Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8C1DA6EC1986BFE90041B69A /* Build configuration list for PBXNativeTarget "ioupsd-Embedded" */;
+			buildPhases = (
+				8C1DA6DB1986BFE90041B69A /* Headers */,
+				8C1DA6DE1986BFE90041B69A /* Sources */,
+				8C1DA6E31986BFE90041B69A /* Frameworks */,
+				8C1DA6E81986BFE90041B69A /* CopyFiles */,
+				8C1DA6EA1986BFE90041B69A /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "ioupsd-Embedded";
+			productName = "ioupsd tool";
+			productReference = 729A757E0A01EDED000AB587 /* ioupsd */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -1316,6 +1415,7 @@
 				72A1BF87128E037A00754139 /* pmset-Embedded */,
 				729A742B0A01EBB0000AB587 /* pmset */,
 				729A757D0A01EDED000AB587 /* ioupsd */,
+				8C1DA6DA1986BFE90041B69A /* ioupsd-Embedded */,
 				727D787C0A02D48D002EBD29 /* suidLauncherTool */,
 				504E1BC111372A6A00AAAA84 /* caffeinate */,
 				72D6393114BCD39100C8DF29 /* PowerManagement_executables */,
@@ -1417,8 +1517,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				728F7A071A25689100EA70CC /* CommonLib.c in Sources */,
 				7227113B0A6DA17900F34043 /* powermanagement.defs in Sources */,
-				72E663120EFB14F9006D442E /* PrivateLib.c in Sources */,
 				729A75750A01EC2A000AB587 /* pmset.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1438,6 +1538,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				728F7A081A2656D000EA70CC /* CommonLib.c in Sources */,
 				72DC9D810E1D99910066B287 /* SystemLoad.c in Sources */,
 				729A75C20A01F314000AB587 /* pmconfigd.c in Sources */,
 				729A75C30A01F314000AB587 /* BatteryTimeRemaining.c in Sources */,
@@ -1465,8 +1566,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72FB64721A9CF63C008B6634 /* CommonLib.c in Sources */,
 				72A1BF94128E0ACB00754139 /* powermanagement.defs in Sources */,
-				72A1BF95128E0ACB00754139 /* PrivateLib.c in Sources */,
 				72A1BF96128E0ACB00754139 /* pmset.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1501,6 +1602,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72FB64731A9CF650008B6634 /* CommonLib.c in Sources */,
 				72E815570CFE470B00CF547E /* pmconfigd.c in Sources */,
 				72E815580CFE470B00CF547E /* BatteryTimeRemaining.c in Sources */,
 				72E815590CFE470B00CF547E /* PMSettings.c in Sources */,
@@ -1526,6 +1628,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				72EA6D1A18EA2DE100FCE94F /* IOPSCreatePowerSource-simple.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C1DA6DE1986BFE90041B69A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C1DA6DF1986BFE90041B69A /* ioupspluginmig.defs in Sources */,
+				8C1DA6E01986BFE90041B69A /* IOUPSPrivate.c in Sources */,
+				8C1DA6E11986BFE90041B69A /* upsd.c in Sources */,
+				8C1DA6E21986BFE90041B69A /* ioupsplugin.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1612,10 +1725,10 @@
 			target = 72CEF7C618C16C8100E7B3B4 /* BATS */;
 			targetProxy = 72EE05D81909C876009A2681 /* PBXContainerItemProxy */;
 		};
-		8CF31BAC1922CE0900DFEA7B /* PBXTargetDependency */ = {
+		8C1DA6F31986C02A0041B69A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 729A757D0A01EDED000AB587 /* ioupsd */;
-			targetProxy = 8CF31BAB1922CE0900DFEA7B /* PBXContainerItemProxy */;
+			target = 8C1DA6DA1986BFE90041B69A /* ioupsd-Embedded */;
+			targetProxy = 8C1DA6F21986C02A0041B69A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -2151,6 +2264,7 @@
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
+				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
@@ -2166,6 +2280,7 @@
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
+				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -2792,6 +2907,10 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.Internal.sdk/usr/lib",
+				);
 				MACH_O_TYPE = mh_execute;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = powerd;
@@ -2835,6 +2954,10 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.Internal.sdk/usr/lib",
+				);
 				MACH_O_TYPE = mh_execute;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = powerd;
@@ -2981,6 +3104,54 @@
 			};
 			name = Deployment;
 		};
+		8C1DA6ED1986BFE90041B69A /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = ioupsd;
+				ZERO_LINK = NO;
+			};
+			name = "Development-Embedded";
+		};
+		8C1DA6EE1986BFE90041B69A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/usr/lib",
+				);
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = ioupsd;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		8C1DA6EF1986BFE90041B69A /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = ioupsd;
+				ZERO_LINK = NO;
+			};
+			name = "Deployment-Embedded";
+		};
+		8C1DA6F01986BFE90041B69A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/usr/lib",
+				);
+				PRODUCT_NAME = ioupsd;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
 		A60E72020CFE3809003989A7 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3037,6 +3208,7 @@
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
+				MACH_O_TYPE = mh_execute;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
@@ -3066,6 +3238,10 @@
 			buildSettings = {
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/usr/lib",
+				);
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = ioupsd;
 				ZERO_LINK = NO;
@@ -3166,6 +3342,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/usr/lib",
+				);
 				PRODUCT_NAME = ioupsd;
 				ZERO_LINK = NO;
 			};
@@ -3414,6 +3594,17 @@
 				72EA6D1E18EA2DE100FCE94F /* Development */,
 				72EA6D1F18EA2DE100FCE94F /* Deployment-Embedded */,
 				72EA6D2018EA2DE100FCE94F /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		8C1DA6EC1986BFE90041B69A /* Build configuration list for PBXNativeTarget "ioupsd-Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8C1DA6ED1986BFE90041B69A /* Development-Embedded */,
+				8C1DA6EE1986BFE90041B69A /* Development */,
+				8C1DA6EF1986BFE90041B69A /* Deployment-Embedded */,
+				8C1DA6F01986BFE90041B69A /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

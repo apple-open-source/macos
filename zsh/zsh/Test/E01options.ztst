@@ -430,7 +430,7 @@
   foo
   unfunction foo
 0:FUNCTION_ARGZERO option
->My name is ZTST_execchunk
+>My name is (anon)
 >My name is foo
 
   setopt _NO_glob_
@@ -783,14 +783,37 @@
 >print is a shell builtin
 ?(eval):8: command not found: print
 
-# This option seems to be problematic.  I don't quite know how it works.
-##   func() {
-##     setopt localoptions printexitvalue
-##     false
-##   }
-##   func
-## 1:PRINT_EXIT_VALUE option
-## ?(eval):2: exit 1
+  # With non-special command: original value restored
+  # With special builtin: new value kept
+  # With special builtin preceeded by "command": original value restored.
+  (setopt posixbuiltins
+  FOO=val0
+  FOO=val1 true; echo $FOO
+  FOO=val2 times 1>/dev/null 2>&1; echo $FOO
+  FOO=val3 command times 1>/dev/null 2>&1; echo $FOO)
+0:POSIX_BUILTINS and restoring variables
+>val0
+>val2
+>val2
+
+# PRINTEXITVALUE only works if shell input is coming from standard input.
+# Goodness only knows why.
+  $ZTST_testdir/../Src/zsh -f <<<'
+      setopt printexitvalue
+      func() {
+	  false
+      }
+      func
+  '
+1:PRINT_EXIT_VALUE option
+?zsh: exit 1
+
+  $ZTST_testdir/../Src/zsh -f <<<'
+      setopt printexitvalue
+      () { false; }
+  '
+1:PRINT_EXIT_VALUE option for anonymous function
+?zsh: exit 1
 
   setopt promptbang
   print -P !
@@ -1114,3 +1137,45 @@
 >1
 >1
 >2
+
+  for (( i = 0; i < 10; i++ )); do
+     () {
+        print $i
+        break
+     }
+  done
+0:NO_LOCAL_LOOPS
+>0
+
+  () {
+      emulate -L zsh
+      setopt localloops
+      for (( i = 0; i < 10; i++ )); do
+	  () {
+              setopt nolocalloops # ignored in parent
+              print $i
+              break
+	  }
+      done
+  }
+0:LOCAL_LOOPS
+>0
+>1
+>2
+>3
+>4
+>5
+>6
+>7
+>8
+>9
+?(anon):4: `break' active at end of function scope
+?(anon):4: `break' active at end of function scope
+?(anon):4: `break' active at end of function scope
+?(anon):4: `break' active at end of function scope
+?(anon):4: `break' active at end of function scope
+?(anon):4: `break' active at end of function scope
+?(anon):4: `break' active at end of function scope
+?(anon):4: `break' active at end of function scope
+?(anon):4: `break' active at end of function scope
+?(anon):4: `break' active at end of function scope

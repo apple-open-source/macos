@@ -23,8 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SimpleArgumentCoder_h
-#define SimpleArgumentCoder_h
+#ifndef ArgumentCoders_h
+#define ArgumentCoders_h
 
 #include "ArgumentDecoder.h"
 #include "ArgumentEncoder.h"
@@ -34,6 +34,10 @@
 #include <wtf/HashSet.h>
 #include <wtf/Optional.h>
 #include <wtf/Vector.h>
+
+#if HAVE(DTRACE)
+#include <uuid/uuid.h>
+#endif
 
 namespace IPC {
 
@@ -100,6 +104,23 @@ template<typename T, typename U> struct ArgumentCoder<std::pair<T, U>> {
 
         pair.first = first;
         pair.second = second;
+        return true;
+    }
+};
+
+template<typename Rep, typename Period> struct ArgumentCoder<std::chrono::duration<Rep, Period>> {
+    static void encode(ArgumentEncoder& encoder, const std::chrono::duration<Rep, Period>& duration)
+    {
+        static_assert(std::is_integral<Rep>::value && std::is_signed<Rep>::value && sizeof(Rep) <= sizeof(int64_t), "Serialization of this Rep type is not supported yet. Only signed integer type which can be fit in an int64_t is currently supported.");
+        encoder << static_cast<int64_t>(duration.count());
+    }
+
+    static bool decode(ArgumentDecoder& decoder, std::chrono::duration<Rep, Period>& result)
+    {
+        int64_t count;
+        if (!decoder.decode(count))
+            return false;
+        result = std::chrono::duration<Rep, Period>(static_cast<Rep>(count));
         return true;
     }
 };
@@ -261,6 +282,11 @@ template<typename KeyArg, typename HashArg, typename KeyTraitsArg> struct Argume
     }
 };
 
+template<> struct ArgumentCoder<std::chrono::system_clock::time_point> {
+    static void encode(ArgumentEncoder&, const std::chrono::system_clock::time_point&);
+    static bool decode(ArgumentDecoder&, std::chrono::system_clock::time_point&);
+};
+
 template<> struct ArgumentCoder<AtomicString> {
     static void encode(ArgumentEncoder&, const AtomicString&);
     static bool decode(ArgumentDecoder&, AtomicString&);
@@ -275,6 +301,13 @@ template<> struct ArgumentCoder<String> {
     static void encode(ArgumentEncoder&, const String&);
     static bool decode(ArgumentDecoder&, String&);
 };
+
+#if HAVE(DTRACE)
+template<> struct ArgumentCoder<uuid_t> {
+    static void encode(ArgumentEncoder&, const uuid_t&);
+    static bool decode(ArgumentDecoder&, uuid_t&);
+};
+#endif
 
 } // namespace IPC
 

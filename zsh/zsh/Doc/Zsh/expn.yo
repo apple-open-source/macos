@@ -1,7 +1,7 @@
 texinode(Expansion)(Parameters)(Prompt Expansion)(Top)
 chapter(Expansion)
-cindex(expansion)
 ifnztexi(sect(Description))
+cindex(expansion)
 The following types of expansions are performed in the indicated order in
 five steps:
 
@@ -316,7 +316,7 @@ the rightmost `tt(?)' in a context scan can similarly be omitted.  Note
 the same record of the last var(l) and var(r) is maintained across all
 forms of expansion.
 
-Note that if a `tt(&)' is used within glob qualifers an extra backslash
+Note that if a `tt(&)' is used within glob qualifiers an extra backslash
 is needed as a tt(&) is a special character in this case.
 
 If the option tt(HIST_SUBST_PATTERN) is set, var(l) is treated as
@@ -475,7 +475,7 @@ spawned from the parent shell which will wait for their completion.
 Another problem arises any time a job with a substitution that requires
 a temporary file is disowned by the shell, including the case where
 `tt(&!)' or `tt(&|)' appears at the end of a command containing a
-subsitution.  In that case the temporary file will not be cleaned up as
+substitution.  In that case the temporary file will not be cleaned up as
 the shell no longer has any memory of the job.  A workaround is to use
 a subshell, for example,
 
@@ -632,9 +632,33 @@ quoted, the elements of var(arrayname) are instead tested against the
 entire expression.
 )
 item(tt(${)var(name)tt(:*)var(arrayname)tt(}))(
-Similar to the preceding subsitution, but in the opposite sense,
+Similar to the preceding substitution, but in the opposite sense,
 so that entries present in both the original substitution and as
 elements of var(arrayname) are retained and others removed.
+)
+xitem(tt(${)var(name)tt(:^)var(arrayname)tt(}))
+item(tt(${)var(name)tt(:^^)var(arrayname)tt(}))(
+Zips two arrays, such that the output array is twice as long as the
+shortest (longest for `tt(:^^)') of tt(name) and tt(arrayname), with
+the elements alternatingly being picked from them. For `tt(:^)', if one
+of the input arrays is longer, the output will stop when the end of the
+shorter array is reached.  Thus,
+
+example(a=(1 2 3 4); b=(a b); print ${a:^b})
+
+will output `tt(1 a 2 b)'.  For `tt(:^^)', then the input is repeated
+until all of the longer array has been used up and the above will output
+`tt(1 a 2 b 3 a 4 b)'.
+
+Either or both inputs may be a scalar, they will be treated as an array
+of length 1 with the scalar as the only element. If either array is empty,
+the other array is output with no extra elements inserted.
+
+Currently the following code will output `tt(a b)' and `tt(1)' as two separate
+elements, which can be unexpected. The second print provides a workaround which
+should continue to work if this is changed.
+
+example(a=(a b); b=(1 2); print -l "${a:^b}"; print -l "${${a:^b}}")
 )
 xitem(tt(${)var(name)tt(:)var(offset)tt(}))
 item(tt(${)var(name)tt(:)var(offset)tt(:)var(length)tt(}))(
@@ -677,7 +701,7 @@ print ${foo:$(( 1 + 2))}
 print ${foo:$(echo 1 + 2)})
 
 all have the same effect, extracting the string starting at the fourth
-character of tt($foo) if the substution would otherwise return a scalar,
+character of tt($foo) if the substitution would otherwise return a scalar,
 or the array starting at the fourth element if tt($foo) would return an
 array.  Note that with the option tt(KSH_ARRAYS) tt($foo) always returns
 a scalar (regardless of the use of the offset syntax) and a form
@@ -753,6 +777,13 @@ This has the side-effect that joining is skipped even in quoted
 forms, which may affect other sub-expressions in var(spec).
 Note that `tt(^)', `tt(=)', and `tt(~)', below, must appear
 to the left of `tt(#)' when these forms are combined.
+
+If the option tt(POSIX_IDENTIFIERS) is not set, and var(spec) is a
+simple name, then the braces are optional; this is true even
+for special parameters so e.g. tt($#-) and tt($#*) take the length
+of the string tt($-) and the array tt($*) respectively.  If
+tt(POSIX_IDENTIFIERS) is set, then braces are required for
+the tt(#) to be treated in this fashion.
 )
 item(tt(${^)var(spec)tt(}))(
 pindex(RC_EXPAND_PARAM, toggle)
@@ -900,7 +931,7 @@ that result from field splitting.
 item(tt(D))(
 Assume the string or array elements contain directories and attempt
 to substitute the leading part of these by names.  The remainder of
-the path (the whole of it if the leading part was not subsituted)
+the path (the whole of it if the leading part was not substituted)
 is then quoted so that the whole string can be used as a shell
 argument.  This is the reverse of `tt(~)' substitution:  see
 ifnzman(noderef(Filename Expansion))\
@@ -919,7 +950,7 @@ item(tt(F))(
 Join the words of arrays together using newline as a separator.
 This is a shorthand for `tt(pj:\n:)'.
 )
-item(tt(g:opts:))(
+item(tt(g:)var(opts)tt(:))(
 Process escape sequences like the echo builtin when no options are given
 (tt(g::)).  With the tt(o) option, octal escapes don't take a leading
 zero.  With the tt(c) option, sequences like `tt(^X)' are also processed.
@@ -990,6 +1021,25 @@ form of single quoting is used that only quotes the string if needed to
 protect special characters.  Typically this form gives the most readable
 output.
 )
+item(tt(b))(
+Quote with backslashes only characters that are special to pattern
+matching. This is useful when the contents of the variable are to be
+tested using tt(GLOB_SUBST), including the tt(${~)var(...)tt(}) switch.
+
+Quoting using one of the tt(q) family of flags does not work
+for this purpose since quotes are not stripped from non-pattern
+characters by tt(GLOB_SUBST).  In other words,
+
+example(pattern=${(q)str}
+[[ $str = ${~pattern} ]])
+
+works if tt($str) is tt('a*b') but not if it is tt('a b'), whereas
+
+example(pattern=${(b)str}
+[[ $str = ${~pattern} ]])
+
+is always true for any possible value of tt($str).
+)
 item(tt(Q))(
 Remove one level of quotes from the resulting words.
 )
@@ -1036,6 +1086,9 @@ for arrays which keep only the first occurrence of duplicated values
 )
 item(tt(hide))(
 for parameters with the `hide' flag
+)
+item(tt(hideval))(
+for parameters with the `hideval' flag
 )
 item(tt(special))(
 for special parameters defined by the shell
@@ -1100,15 +1153,31 @@ item(tt(p))(
 Recognize the same escape sequences as the tt(print) builtin
 in string arguments to any of the flags described below that
 follow this argument.
+
+Alternatively, with this option string arguments may be in the form
+tt($)var(var) in which case the value of the variable is substituted.
+Note this form is strict; the string argument does not undergo general
+parameter expansion.
+
+For example,
+
+example(sep=:
+val=a:b:c
+print ${+LPAR()ps.$sep.+RPAR()val})
+
+splits the variable on a tt(:).
 )
 item(tt(~))(
-Force string arguments to any of the flags below that follow within
-the parentheses to be treated as patterns.  Compare with a tt(~)
+Strings inserted into the expansion by any of the flags below are to
+be treated as patterns.  This applies to the string arguments of flags
+that follow tt(~) within the same set of parentheses.  Compare with tt(~)
 outside parentheses, which forces the entire substituted string to
 be treated as a pattern.  Hence, for example,
+
 example([[ "?" = ${(~j.|.)array} ]])
-with the tt(EXTENDED_GLOB) option set succeeds if and only if tt($array)
-contains the string `tt(?)' as an element.  The argument may be
+
+treats `tt(|)' as a pattern and succeeds if and only if tt($array)
+contains the string `tt(?)' as an element.  The tt(~) may be
 repeated to toggle the behaviour; its effect only lasts to the
 end of the parenthesised group.
 )
@@ -1127,9 +1196,13 @@ optional; neither, the first, or both may be given.  Note that the same
 pairs of delimiters must be used for each of the three arguments.  The
 space to the left will be filled with var(string1) (concatenated as
 often as needed) or spaces if var(string1) is not given.  If both
-var(string1) and var(string2) are given, tt(string2) is inserted once
+var(string1) and var(string2) are given, var(string2) is inserted once
 directly to the left of each word, truncated if necessary, before
 var(string1) is used to produce any remaining padding.
+
+If either of var(string1) or var(string2) is present but empty,
+i.e. there are two delimiters together at that point, the first
+character of tt($IFS) is used instead.
 
 If the tt(MULTIBYTE) option is in effect, the flag tt(m) may also
 be given, in which case widths will be used for the calculation of
@@ -1185,7 +1258,7 @@ example(line="one::three"
 print -l "${(s.:.)line}")
 
 produces two lines of output for tt(one) and tt(three) and elides the
-empty field.  To override this behaviour, supply the "(@)" flag as well,
+empty field.  To override this behaviour, supply the `tt((@))' flag as well,
 i.e.  tt("${(@s.:.)line}").
 )
 item(tt(Z:)var(opts)tt(:))(
@@ -1269,14 +1342,14 @@ enditem()
 subsect(Rules)
 
 Here is a summary of the rules for substitution; this assumes that braces
-are present around the substitution, i.e. tt(${...}).  Some particular
+are present around the substitution, i.e. tt(${)var(...)tt(}).  Some particular
 examples are given below.  Note that the Zsh Development Group accepts
 em(no responsibility) for any brain damage which may occur during the
 reading of the following rules.
 
 startitem()
 item(tt(1.) em(Nested substitution))(
-If multiple nested tt(${...}) forms are present, substitution is
+If multiple nested tt(${)var(...)tt(}) forms are present, substitution is
 performed from the inside outwards.  At each level, the substitution takes
 account of whether the current value is a scalar or an array, whether the
 whole substitution is in double quotes, and what flags are supplied to the
@@ -1407,16 +1480,21 @@ item(tt(19.) em(Ordering))(
 If the result is still an array and one of the `tt((o))' or `tt((O))' flags
 was present, the array is reordered.
 )
-item(tt(20.) em(Re-evaluation))(
+item(tt(20.) tt(RC_EXPAND_PARAM))(
+At this point the decision is made whether any resulting array elements
+are to be combined element by element with surrounding text, as given
+by either the tt(RC_EXPAND_PARAM) option or the `tt(^)' flag.
+)
+item(tt(21.) em(Re-evaluation))(
 Any `tt((e))' flag is applied to the value, forcing it to be re-examined
 for new parameter substitutions, but also for command and arithmetic
 substitutions.
 )
-item(tt(21.) em(Padding))(
+item(tt(22.) em(Padding))(
 Any padding of the value by the `tt(LPAR()l.)var(fill)tt(.RPAR())' or
 `tt(LPAR()r.)var(fill)tt(.RPAR())' flags is applied.
 )
-item(tt(22.) em(Semantic joining))(
+item(tt(23.) em(Semantic joining))(
 In contexts where expansion semantics requires a single word to
 result, all words are rejoined with the first character of tt(IFS)
 between.  So in `tt(${LPAR()P)tt(RPAR()${LPAR()f)tt(RPAR()lines}})'
@@ -1425,7 +1503,7 @@ joined again before the tt(P) flag can be applied.
 
 If a single word is not required, this rule is skipped.
 )
-item(tt(23.) em(Empty argument removal))(
+item(tt(24.) em(Empty argument removal))(
 If the substitution does not appear in double quotes, any resulting
 zero-length argument, whether from a scalar or an element of an array,
 is elided from the list of arguments inserted into the command line.
@@ -1538,6 +1616,16 @@ that the step var(n3) doesn't evenly divide the range.  Zero padding can be
 specified in any of the three numbers, specifying it in the third can be useful
 to pad for example `tt({-99..100..01})' which is not possible to specify by putting a
 0 on either of the first two numbers (i.e. pad to two characters).
+
+An expression of the form `tt({)var(c1)tt(..)var(c2)tt(})', where
+var(c1) and var(c2) are single characters (which may be multibyte
+characters), is expanded to every character in the range from var(c1) to
+var(c2) in whatever character sequence is used internally.  For
+characters with code points below 128 this is US ASCII (this is the only
+case most users will need).  If any intervening character is not
+printable, appropriate quotation is used to render it printable.
+If the character sequence is reversed, the output is in reverse
+order, e.g. `tt({d..a})' is substituted as `tt(d c b a)'.
 
 If a brace expression matches none of the above forms, it is left
 unchanged, unless the option tt(BRACE_CCL) (an abbreviation for `brace
@@ -1962,7 +2050,7 @@ except that recursive directory searching is not supported.)
 )
 item(tt(PLUS()LPAR())...tt(RPAR()))(
 Match at least one occurrence.  (Like `tt(LPAR())...tt(RPAR()##)',
-except that recursive directory searching is not supported..)
+except that recursive directory searching is not supported.)
 )
 item(tt(?LPAR())...tt(RPAR()))(
 Match zero or one occurrence.  (Like `tt(LPAR()|)...tt(RPAR())'.)
@@ -2173,7 +2261,7 @@ tt(readme) with up to two errors.
 When using the ksh syntax for grouping both tt(KSH_GLOB) and
 tt(EXTENDED_GLOB) must be set and the left parenthesis should be
 preceded by tt(@).  Note also that the flags do not affect letters
-inside tt([...]) groups, in other words tt(LPAR()#i)tt(RPAR()[a-z])
+inside tt([)...tt(]) groups, in other words tt(LPAR()#i)tt(RPAR()[a-z])
 still matches only lowercase letters.  Finally, note that when
 examining whole paths case-insensitively every directory must be
 searched for all files which match, so that a pattern of the form
@@ -2284,7 +2372,8 @@ the glob pattern by doubling the parentheses, in this case producing
 `tt(((^x)))'.
 
 If the option tt(EXTENDED_GLOB) is set, a different syntax for glob
-qualifiers is available, namely `tt((#qx))' where tt(x) is any of the same
+qualifiers is available, namely `tt(LPAR()#q)var(x)tt(RPAR())'
+where var(x) is any of the same
 glob qualifiers used in the other format.  The qualifiers must still appear
 at the end of the pattern.  However, with this syntax multiple glob
 qualifiers may be chained together.  They are treated as a logical AND of
@@ -2295,7 +2384,13 @@ contained within it are balanced; appearance of `tt(|)', `tt(LPAR())' or
 recognised in this form even if a bare glob qualifier exists at the end of
 the pattern, for example `tt(*(#q*)(.))' will recognise executable regular
 files if both options are set; however, mixed syntax should probably be
-avoided for the sake of clarity.
+avoided for the sake of clarity.  Note that within conditions using the
+`tt([[)' form the presence of a parenthesised expression
+tt(LPAR()#q)var(...)tt(RPAR()) at the end of a string indicates that globbing
+should be performed; the expression may include glob qualifiers, but
+it is also valid if it is simply tt(LPAR()#q+RPAR()).  This does
+not apply to the right hand side of pattern match operators as the
+syntax already has special significance.
 
 A qualifier may be any one of the following:
 
@@ -2322,7 +2417,7 @@ item(tt(p))(
 named pipes (FIFOs)
 )
 item(tt(*))(
-executable plain files (0100)
+executable plain files (0100 or 0010 or 0001)
 )
 item(tt(%))(
 device files (character or block special)
@@ -2511,10 +2606,12 @@ item(tt(L)[tt(PLUS())|tt(-)]var(n))(
 files less than var(n) bytes (tt(-)), more than var(n) bytes (tt(PLUS())), or
 exactly var(n) bytes in length.
 
-If this flag is directly followed by a `tt(k)' (`tt(K)'), `tt(m)'
-(`tt(M)'), or `tt(p)' (`tt(P)') (e.g. `tt(Lk-50)') the check is performed
-with kilobytes, megabytes, or blocks (of 512 bytes) instead.  In this
-case a file is regarded as "exactly" the size if the file size rounded up
+If this flag is directly followed by a em(size specifier) `tt(k)' (`tt(K)'),
+`tt(m)' (`tt(M)'), or `tt(p)' (`tt(P)') (e.g. `tt(Lk-50)') the check is
+performed with kilobytes, megabytes, or blocks (of 512 bytes) instead.
+(On some systems additional specifiers are available for gigabytes,
+`tt(g)' or `tt(G)', and terabytes, `tt(t)' or `tt(T)'.) If a size specifier
+is used a file is regarded as "exactly" the size if the file size rounded up
 to the next unit is equal to the test size.  Hence `tt(*LPAR()Lm1+RPAR())'
 matches files from 1 byte up to 1 Megabyte inclusive.  Note also that
 the set of files "less than" the test size only includes files that would
@@ -2548,9 +2645,16 @@ item(tt(n))(
 sets the tt(NUMERIC_GLOB_SORT) option for the current pattern
 pindex(NUMERIC_GLOB_SORT, setting in pattern)
 )
+item(tt(Y)var(n))(
+enables short-circuit mode: the pattern will expand to at most var(n)
+filenames.  If more than var(n) matches exist, only the first var(n)
+matches in directory traversal order will be considered.
+
+Implies tt(oN) when no tt(o)var(c) qualifier is used.
+)
 item(tt(o)var(c))(
 specifies how the names of the files should be sorted. If var(c) is
-tt(n) they are sorted by name (the default); if it is tt(L) they
+tt(n) they are sorted by name; if it is tt(L) they
 are sorted depending on the size (length) of the files; if tt(l)
 they are sorted by the number of links; if tt(a), tt(m), or tt(c)
 they are sorted by the time of the last access, modification, or
@@ -2564,6 +2668,9 @@ youngest file. Also note that the modifiers tt(^) and tt(-) are used,
 so `tt(*(^-oL))' gives a list of all files sorted by file size in descending
 order, following any symbolic links.  Unless tt(oN) is used, multiple order
 specifiers may occur to resolve ties.
+
+The default sorting is tt(n) (by name) unless the tt(Y) glob qualifier is used,
+in which case it is tt(N) (unsorted).
 
 tt(oe) and tt(o+) are special cases; they are each followed by shell code,
 delimited as for the tt(e) glob qualifier and the tt(+) glob qualifier
@@ -2601,6 +2708,12 @@ list of glob qualifiers.
 A typical use for this is to prepend an option before all occurrences
 of a file name; for example, the pattern `tt(*(P:-f:))' produces the
 command line arguments `tt(-f) var(file1) tt(-f) var(file2) ...'
+
+If the modifier tt(^) is active, then var(string) will be appended
+instead of prepended.  Prepending and appending is done independently
+so both can be used on the same glob expression; for example by writing
+`tt(*(P:foo:^P:bar:^P:baz:))' which produces the command line arguments
+`tt(foo) tt(baz) var(file1) tt(bar) ...'
 )
 enditem()
 
@@ -2610,14 +2723,15 @@ whole list matches if at least one of the sublists matches (they are
 however, affect all matches generated, independent of the sublist in
 which they are given.  These are the qualifiers `tt(M)', `tt(T)',
 `tt(N)', `tt(D)', `tt(n)', `tt(o)', `tt(O)' and the subscripts given
-in brackets (`tt([...])').
+in brackets (`tt([)var(...)tt(])').
 
 If a `tt(:)' appears in a qualifier list, the remainder of the expression in
 parenthesis is interpreted as a modifier (see noderef(Modifiers)
 in noderef(History Expansion)).  Each modifier must be introduced by a
 separate `tt(:)'.  Note also that the result after modification does not
 have to be an existing file.  The name of any existing file can be followed
-by a modifier of the form `tt((:..))' even if no actual filename generation
+by a modifier of the form `tt(LPAR():)var(...)tt(RPAR())'
+even if no actual filename generation
 is performed, although note that the presence of the parentheses
 causes the entire expression to be subjected to any global pattern matching
 options such as tt(NULL_GLOB). Thus:
@@ -2626,6 +2740,10 @@ example(ls *(-/))
 
 lists all directories and symbolic links that point to directories,
 and
+
+example(ls *(-@))
+
+lists all broken symbolic links, and
 
 example(ls *(%W))
 

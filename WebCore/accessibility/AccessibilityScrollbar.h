@@ -35,9 +35,9 @@ namespace WebCore {
 
 class Scrollbar;
 
-class AccessibilityScrollbar : public AccessibilityMockObject {
+class AccessibilityScrollbar final : public AccessibilityMockObject {
 public:
-    static PassRefPtr<AccessibilityScrollbar> create(Scrollbar*);
+    static Ref<AccessibilityScrollbar> create(Scrollbar*);
 
     Scrollbar* scrollbar() const { return m_scrollbar.get(); }
     
@@ -62,8 +62,8 @@ private:
     RefPtr<Scrollbar> m_scrollbar;
 };
 
-ACCESSIBILITY_OBJECT_TYPE_CASTS(AccessibilityScrollbar, isAccessibilityScrollbar())
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_ACCESSIBILITY(AccessibilityScrollbar, isAccessibilityScrollbar())
 
 #endif // AccessibilityScrollbar_h

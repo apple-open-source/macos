@@ -7,12 +7,7 @@ SRC_PASSWD=
 SRC_GROUP=
 SRC_TTYS=ttys
 
-ifdef RC_TARGET_CONFIG
-Product=$(RC_TARGET_CONFIG)
-else
-Product=MacOSX
-endif
-ifeq "$(Product)" "iPhone"
+ifeq "$(CONTENT_PLATFORM)" "ios"
 SRC_PASSWD=master.passwd.iPhone
 SRC_GROUP=group.iPhone
 SRC_TTYS=ttys.embedded
@@ -27,16 +22,12 @@ validate-all:
 	done
 
 install-files:
-	@echo "Installing $(Destination) for $(Product)"
+ifneq "$(CONTENT_PLATFORM)" "ios_sim"
+	@echo "Installing $(Destination) for $(CONTENT_PLATFORM)"
 	$(_v) $(INSTALL_FILE) -m 0644 -c afpovertcp.cfg	 "$(Destination)/afpovertcp.cfg"
-ifeq "$(Product)" "MacOSX"
-	$(_v) $(INSTALL_FILE) -m 0644 -c asl.conf "$(Destination)/asl.conf"
-else
-	$(_v) $(INSTALL_FILE) -m 0644 -c asl.conf.ios "$(Destination)/asl.conf"
-endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c /dev/null	 "$(Destination)/find.codes"
 	$(_v) $(INSTALL_FILE) -m 0644 -c ftpusers	 "$(Destination)/ftpusers"
-ifeq "$(Product)" "iPhone"
+ifeq "$(CONTENT_PLATFORM)" "ios"
 	$(_v) $(INSTALL_FILE) -m 0644 -c fstab		 "$(Destination)/fstab"
 endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c fstab.hd	 "$(Destination)/fstab.hd"
@@ -45,10 +36,9 @@ endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c kern_loader.conf "$(Destination)/kern_loader.conf"
 	$(_v) $(INSTALL_FILE) -m 0644 -c /dev/null	 "$(Destination)/rmtab"
 	$(_v) $(INSTALL_FILE) -m 0644 -c shells		 "$(Destination)/shells"
-	$(_v) $(INSTALL_FILE) -m 0644 -c syslog.conf	 "$(Destination)/syslog.conf"
 	$(_v) $(INSTALL_FILE) -m 0644 -c $(SRC_TTYS)	 "$(Destination)/ttys"
 	$(_v) $(INSTALL_FILE) -m 0644 -c /dev/null	 "$(Destination)/xtab"
-ifeq "$(Product)" "MacOSX"
+ifeq "$(CONTENT_PLATFORM)" "osx"
 	$(_v) $(LN) -hfs ../var/run/resolv.conf            "$(Destination)"
 endif
 ifneq "$(SRC_GROUP)" ""
@@ -63,9 +53,10 @@ ifneq "$(SRC_PASSWD)" ""
 endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c networks	 "$(Destination)/networks"
 	$(_v) $(INSTALL_FILE) -m 0644 -c paths		 "$(Destination)/paths"
-ifeq "$(Product)" "iPhone"
+ifeq "$(CONTENT_PLATFORM)" "ios"
 	$(_v) cat paths.iPhone >> "$(Destination)/paths"
 endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c protocols	 "$(Destination)/protocols"
 	$(_v) $(INSTALL_FILE) -m 0644 -c rpc		 "$(Destination)/rpc"
 	$(_v) $(INSTALL_FILE) -m 0644 -c services	 "$(Destination)/services"
+endif

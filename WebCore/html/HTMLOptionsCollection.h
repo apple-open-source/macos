@@ -35,13 +35,13 @@ typedef int ExceptionCode;
 
 class HTMLOptionsCollection final : public HTMLCollection {
 public:
-    static PassRef<HTMLOptionsCollection> create(HTMLSelectElement&, CollectionType);
+    static Ref<HTMLOptionsCollection> create(HTMLSelectElement&, CollectionType);
 
-    HTMLSelectElement& selectElement() { return toHTMLSelectElement(ownerNode()); }
-    const HTMLSelectElement& selectElement() const { return toHTMLSelectElement(ownerNode()); }
+    HTMLSelectElement& selectElement() { return downcast<HTMLSelectElement>(ownerNode()); }
+    const HTMLSelectElement& selectElement() const { return downcast<HTMLSelectElement>(ownerNode()); }
 
-    void add(PassRefPtr<HTMLOptionElement>, ExceptionCode&);
-    void add(PassRefPtr<HTMLOptionElement>, int index, ExceptionCode&);
+    void add(HTMLElement*, HTMLElement* beforeElement, ExceptionCode&);
+    void add(HTMLElement*, int beforeIndex, ExceptionCode&);
     void remove(int index);
     void remove(HTMLOptionElement*);
 
@@ -54,6 +54,8 @@ private:
     explicit HTMLOptionsCollection(HTMLSelectElement&);
 };
 
-} //namespace
+} // namespace WebCore
 
-#endif
+SPECIALIZE_TYPE_TRAITS_HTMLCOLLECTION(HTMLOptionsCollection, SelectOptions)
+
+#endif // HTMLOptionsCollection_h

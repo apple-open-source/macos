@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
 #include "WebKitDLL.h"
 #include "WebNavigationData.h"
 
@@ -72,13 +71,13 @@ WebNavigationData::WebNavigationData(const String& url, const String& title, IWe
 
 {
     gClassCount++;
-    gClassNameCount.add("WebNavigationData");
+    gClassNameCount().add("WebNavigationData");
 }
 
 WebNavigationData::~WebNavigationData()
 {
     gClassCount--;
-    gClassNameCount.remove("WebNavigationData");
+    gClassNameCount().remove("WebNavigationData");
 }
 
 WebNavigationData* WebNavigationData::createInstance(const String& url, const String& title, IWebURLRequest* request, IWebURLResponse* response, bool hasSubstituteData, const String& clientRedirectSource)

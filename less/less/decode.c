@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 1984-2007  Mark Nudelman
+ * Copyright (C) 1984-2012  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
  *
- * For more information about less, or for information on how to 
- * contact the author, see the README file.
+ * For more information, see the README file.
  */
 
 
@@ -83,6 +82,7 @@ static unsigned char cmdtable[] =
 	'w',0,				A_B_WINDOW,
 	ESC,' ',0,			A_FF_SCREEN,
 	'F',0,				A_F_FOREVER,
+	ESC,'F',0,			A_F_UNTIL_HILITE,
 	'R',0,				A_FREPAINT,
 	'r',0,				A_REPAINT,
 	CONTROL('R'),0,			A_REPAINT,
@@ -137,6 +137,7 @@ static unsigned char cmdtable[] =
 	ESC,'n',0,			A_T_AGAIN_SEARCH,
 	'N',0,				A_REVERSE_SEARCH,
 	ESC,'N',0,			A_T_REVERSE_SEARCH,
+	'&',0,				A_FILTER,
 	'm',0,				A_SETMARK,
 	'\'',0,				A_GOMARK,
 	CONTROL('X'),CONTROL('X'),0,	A_GOMARK,
@@ -215,6 +216,7 @@ static unsigned char edittable[] =
 	SK(SK_UP_ARROW),0,		EC_UP,		/* UPARROW */
 	ESC,'j',0,			EC_DOWN,	/* ESC j */
 	SK(SK_DOWN_ARROW),0,		EC_DOWN,	/* DOWNARROW */
+	CONTROL('G'),0,			EC_ABORT,	/* CTRL-G */
 };
 
 /*

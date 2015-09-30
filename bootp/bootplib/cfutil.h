@@ -101,4 +101,7 @@ my_CFEqual(CFTypeRef val1, CFTypeRef val2);
 			 CFSTR(__format),		\
 			 ## __VA_ARGS__)
 
+CFArrayRef
+my_CFStringArrayCreate(const char * * strings, CFIndex strings_count);
+
 #endif /* _S_CFUTIL_H */

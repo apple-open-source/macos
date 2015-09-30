@@ -1,4 +1,4 @@
-/* $OpenBSD: rsa.h,v 1.16 2006/03/25 22:22:43 djm Exp $ */
+/* $OpenBSD: rsa.h,v 1.17 2014/06/24 01:13:21 djm Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -16,16 +16,11 @@
 #ifndef RSA_H
 #define RSA_H
 
-#ifdef __APPLE_CRYPTO__
-#include "ossl-bn.h"
-#include "ossl-rsa.h"
-#else
 #include <openssl/bn.h>
 #include <openssl/rsa.h>
-#endif
 
-void	 rsa_public_encrypt(BIGNUM *, BIGNUM *, RSA *);
+int	 rsa_public_encrypt(BIGNUM *, BIGNUM *, RSA *);
 int	 rsa_private_decrypt(BIGNUM *, BIGNUM *, RSA *);
-void	 rsa_generate_additional_parameters(RSA *);
+int	 rsa_generate_additional_parameters(RSA *);
 
 #endif				/* RSA_H */

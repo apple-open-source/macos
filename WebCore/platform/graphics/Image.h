@@ -38,6 +38,7 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/text/WTFString.h>
 
 #if USE(APPKIT)
@@ -75,20 +76,22 @@ class Image : public RefCounted<Image> {
 public:
     virtual ~Image();
     
-    static PassRefPtr<Image> create(ImageObserver* = 0);
-    static PassRefPtr<Image> loadPlatformResource(const char* name);
-    static bool supportsType(const String&); 
+    static PassRefPtr<Image> create(ImageObserver* = nullptr);
+    WEBCORE_EXPORT static PassRefPtr<Image> loadPlatformResource(const char* name);
+    WEBCORE_EXPORT static bool supportsType(const String&);
 
     virtual bool isSVGImage() const { return false; }
     virtual bool isBitmapImage() const { return false; }
     virtual bool isPDFDocumentImage() const { return false; }
     virtual bool currentFrameKnownToBeOpaque() = 0;
 
+    virtual bool isAnimated() { return false; }
+
     // Derived classes should override this if they can assure that 
     // the image contains only resources from its own security origin.
     virtual bool hasSingleSecurityOrigin() const { return false; }
 
-    static Image* nullImage();
+    WEBCORE_EXPORT static Image* nullImage();
     bool isNull() const { return size().isEmpty(); }
 
     virtual void setContainerSize(const FloatSize&) { }
@@ -107,12 +110,13 @@ public:
     virtual FloatSize originalSize() const { return size(); }
 #endif
 
-    bool setData(PassRefPtr<SharedBuffer> data, bool allDataReceived);
+    WEBCORE_EXPORT bool setData(PassRefPtr<SharedBuffer> data, bool allDataReceived);
     virtual bool dataChanged(bool /*allDataReceived*/) { return false; }
     
     virtual String filenameExtension() const { return String(); } // null string if unknown
 
     virtual void destroyDecodedData(bool destroyAll = true) = 0;
+    virtual bool decodedDataIsPurgeable() const { return false; }
 
     SharedBuffer* data() { return m_encodedImageData.get(); }
 
@@ -179,7 +183,7 @@ public:
         m_space = space;
     }
 protected:
-    Image(ImageObserver* = 0);
+    Image(ImageObserver* = nullptr);
 
     static void fillWithSolidColor(GraphicsContext*, const FloatRect& dstRect, const Color&, ColorSpace styleColorSpace, CompositeOperator);
 
@@ -202,9 +206,11 @@ private:
     FloatSize m_space;
 };
 
-#define IMAGE_TYPE_CASTS(ToClassName) \
-    TYPE_CASTS_BASE(ToClassName, Image, image, image->is##ToClassName(), image.is##ToClassName())
+} // namespace WebCore
 
-}
+#define SPECIALIZE_TYPE_TRAITS_IMAGE(ToClassName) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToClassName) \
+    static bool isType(const WebCore::Image& image) { return image.is##ToClassName(); } \
+SPECIALIZE_TYPE_TRAITS_END()
 
-#endif
+#endif // Image_h

@@ -141,9 +141,15 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB91DD08733DB10010E9CD /* Build configuration list for PBXProject "AppleFileSystemDriver" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleFileSystemDriver */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -200,7 +206,6 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1.1.0;
 				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/IOKit.framework/PrivateHeaders/storage/RAID;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -216,7 +221,6 @@
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 2.0;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/IOKit.framework/PrivateHeaders/storage/RAID;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -252,6 +256,115 @@
 				PREBINDING = NO;
 			};
 			name = Release;
+		};
+		30912ADD1A8D88EE006914D0 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+			};
+			name = ReleaseCoverage;
+		};
+		30912ADE1A8D88EE006914D0 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 2.0;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/IOKit.framework/PrivateHeaders/storage/RAID;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = com.apple.driver.AppleFileSystemDriver;
+				MODULE_VERSION = 2.0;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = AppleFileSystemDriver;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = ReleaseCoverage;
+		};
+		30912ADF1A8D88EE006914D0 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PREBINDING = NO;
+				PRODUCT_NAME = setbootuuid;
+				ZERO_LINK = NO;
+			};
+			name = ReleaseCoverage;
+		};
+		30912AE01A8D88FD006914D0 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				PREBINDING = NO;
+			};
+			name = DebugCoverage;
+		};
+		30912AE11A8D88FD006914D0 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1.1.0;
+				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/IOKit.framework/PrivateHeaders/storage/RAID;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = com.apple.driver.AppleFileSystemDriver;
+				MODULE_VERSION = 1.1.0;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = AppleFileSystemDriver;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = DebugCoverage;
+		};
+		30912AE21A8D88FD006914D0 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PREBINDING = NO;
+				PRODUCT_NAME = setbootuuid;
+			};
+			name = DebugCoverage;
 		};
 		C6061BFD0E07185F0017A7C8 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -290,7 +403,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB91DA08733DB10010E9CD /* Debug */,
+				30912AE11A8D88FD006914D0 /* DebugCoverage */,
 				1DEB91DB08733DB10010E9CD /* Release */,
+				30912ADE1A8D88EE006914D0 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -299,7 +414,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB91DE08733DB10010E9CD /* Debug */,
+				30912AE01A8D88FD006914D0 /* DebugCoverage */,
 				1DEB91DF08733DB10010E9CD /* Release */,
+				30912ADD1A8D88EE006914D0 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -308,7 +425,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C6061BFD0E07185F0017A7C8 /* Debug */,
+				30912AE21A8D88FD006914D0 /* DebugCoverage */,
 				C6061BFE0E07185F0017A7C8 /* Release */,
+				30912ADF1A8D88EE006914D0 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -173,6 +173,8 @@ getpermtext(Eprog prog, Wordcode c, int start_indent)
 {
     struct estate s;
 
+    queue_signals();
+
     if (!c)
 	c = prog->prog;
 
@@ -193,6 +195,9 @@ getpermtext(Eprog prog, Wordcode c, int start_indent)
     *tptr = '\0';
     freeeprog(prog);		/* mark as unused */
     untokenize(tbuf);
+
+    unqueue_signals();
+
     return tbuf;
 }
 
@@ -205,6 +210,8 @@ getjobtext(Eprog prog, Wordcode c)
     static char jbuf[JOBTEXTSIZE];
 
     struct estate s;
+
+    queue_signals();
 
     if (!c)
 	c = prog->prog;
@@ -224,6 +231,9 @@ getjobtext(Eprog prog, Wordcode c)
     *tptr = '\0';
     freeeprog(prog);		/* mark as unused */
     untokenize(jbuf);
+
+    unqueue_signals();
+
     return jbuf;
 }
 
@@ -592,6 +602,7 @@ gettext2(Estate state)
 	case WC_CASE:
 	    if (!s) {
 		Wordcode end = state->pc + WC_CASE_SKIP(code);
+		wordcode nalts;
 
 		taddstr("case ");
 		taddstr(ecgetstr(state, EC_NODUP, NULL));
@@ -612,8 +623,13 @@ gettext2(Estate state)
 			taddchr(' ');
 		    taddstr("(");
 		    code = *state->pc++;
-		    taddstr(ecgetstr(state, EC_NODUP, NULL));
-		    state->pc++;
+		    nalts = *state->pc++;
+		    while (nalts--) {
+			taddstr(ecgetstr(state, EC_NODUP, NULL));
+			state->pc++;
+			if (nalts)
+			    taddstr(" | ");
+		    }
 		    taddstr(") ");
 		    tindent++;
 		    n = tpush(code, 0);
@@ -621,6 +637,7 @@ gettext2(Estate state)
 		    n->pop = (state->pc - 2 + WC_CASE_SKIP(code) >= end);
 		}
 	    } else if (state->pc < s->u._case.end) {
+		wordcode nalts;
 		dec_tindent();
 		switch (WC_CASE_TYPE(code)) {
 		case WC_CASE_OR:
@@ -628,11 +645,11 @@ gettext2(Estate state)
 		    break;
 
 		case WC_CASE_AND:
-		    taddstr(";&");
+		    taddstr(" ;&");
 		    break;
 
 		default:
-		    taddstr(";|");
+		    taddstr(" ;|");
 		    break;
 		}
 		if (tnewlins)
@@ -641,8 +658,13 @@ gettext2(Estate state)
 		    taddchr(' ');
 		taddstr("(");
 		code = *state->pc++;
-		taddstr(ecgetstr(state, EC_NODUP, NULL));
-		state->pc++;
+		nalts = *state->pc++;
+		while (nalts--) {
+		    taddstr(ecgetstr(state, EC_NODUP, NULL));
+		    state->pc++;
+		    if (nalts)
+			taddstr(" | ");
+		}
 		taddstr(") ");
 		tindent++;
 		s->code = code;
@@ -656,11 +678,11 @@ gettext2(Estate state)
 		    break;
 
 		case WC_CASE_AND:
-		    taddstr(";&");
+		    taddstr(" ;&");
 		    break;
 
 		default:
-		    taddstr(";|");
+		    taddstr(" ;|");
 		    break;
 		}
 		dec_tindent();
@@ -834,6 +856,10 @@ gettext2(Estate state)
 	    taddstr("))");
 	    stack = 1;
 	    break;
+	case WC_AUTOFN:
+	    taddstr("builtin autoload -X");
+	    stack = 1;
+	    break;
 	case WC_TRY:
 	    if (!s) {
 		taddstr("{");
@@ -879,6 +905,9 @@ getredirs(LinkList redirs)
 	">", ">|", ">>", ">>|", "&>", "&>|", "&>>", "&>>|", "<>", "<",
 	"<<", "<<-", "<<<", "<&", ">&", NULL /* >&- */, "<", ">"
     };
+
+    queue_signals();
+
     taddchr(' ');
     for (n = firstnode(redirs); n; incnode(n)) {
 	Redir f = (Redir) getdata(n);
@@ -966,4 +995,6 @@ getredirs(LinkList redirs)
 	}
     }
     tptr--;
+
+    unqueue_signals();
 }
