@@ -51,7 +51,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 279;
+static int kTestTestCount = 324;
 
 static void tests(void)
 {
@@ -119,7 +119,7 @@ static void tests(void)
     ok(SOSAccountLeaveCircle(alice_account, &error), "Alice Leaves (%@)", error);
     CFReleaseNull(error);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 3, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
 
     accounts_agree("Alice bails", bob_account, alice_account);
     
@@ -151,7 +151,7 @@ static void tests(void)
     ok(SOSAccountJoinCircles(alice_account, &error), "Alice re-applies (%@)", error);
     CFReleaseNull(error);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 4, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
 
     {
         CFArrayRef applicants = SOSAccountCopyApplicants(alice_account, &error);
@@ -223,7 +223,7 @@ static void tests(void)
     ok(SOSAccountLeaveCircle(alice_account, &error), "Alice leaves once more  (%@)", error);
     CFReleaseNull(error);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 3, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
     accounts_agree("Alice and Bob see Alice out of circle", bob_account, alice_account);
     
     ok(SOSAccountJoinCircles(alice_account, &error), "Alice re-applies (%@)", error);
@@ -285,7 +285,50 @@ static void tests(void)
     }
     is(ProcessChangesUntilNoChange(changes, bob_account, carol_account, NULL), 3, "updates");
     accounts_agree("rdar://problem/13889901-II", bob_account, carol_account);
-    
+
+    // Alice has been out of the loop, bring her back up to speed before changing things (to avoid gen count race)
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 1, "Reset propogation");
+
+    // Test multiple removal, including our own departure via that API
+    ok(SOSAccountResetToOffering(alice_account, NULL), "Reset to offering");
+
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "Reset propogation");
+
+    ok(SOSAccountJoinCircles(bob_account, NULL), "bob joins again");
+
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "Bob request");
+
+    {
+        CFArrayRef applicants = SOSAccountCopyApplicants(alice_account, &error);
+
+        ok(applicants && CFArrayGetCount(applicants) == 1, "See one applicant %@ (%@)", applicants, error);
+        ok(SOSAccountAcceptApplicants(alice_account, applicants, &error), "Alice accepts (%@)", error);
+        CFReleaseNull(error);
+        CFReleaseNull(applicants);
+    }
+
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 3, "carol request");
+
+    ok(SOSAccountJoinCircles(carol_account, NULL), "carol joins again");
+
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "carol request");
+
+    CFArrayRef peers_to_remove_array = CFArrayCreateForCFTypes(kCFAllocatorDefault,
+                                                         SOSAccountGetMyPeerInfo(bob_account),
+                                                         SOSAccountGetMyPeerInfo(carol_account),
+                                                         NULL);
+
+    ok(SOSAccountRemovePeersFromCircle(bob_account, peers_to_remove_array, NULL));
+
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 4, "Remove peers");
+
+    ok(SOSAccountIsInCircle(alice_account, NULL), "Alice still here");
+    ok(!SOSAccountIsInCircle(bob_account, NULL), "Bob not in circle");
+    // Carol's not in circle, but reapplied, as she's persistent until positive rejection.
+    ok(!SOSAccountIsInCircle(carol_account, NULL), "carol not in circle");
+
+    CFReleaseNull(peers_to_remove_array);
+
     CFReleaseNull(alice_new_gestalt);
     
     CFReleaseNull(bob_account);

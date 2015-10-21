@@ -711,6 +711,8 @@ static bool SecErrorWith(CFErrorRef *in_error, bool (^perform)(CFErrorRef *error
 }
 #endif
 
+void (*SecTaskDiagnoseEntitlements)(CFArrayRef accessGroups) = NULL;
+
 /* AUDIT[securityd](done):
    query (ok) is a caller provided dictionary, only its cf type has been checked.
  */
@@ -720,6 +722,8 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
 {
     CFIndex ag_count;
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
+        if (SecTaskDiagnoseEntitlements)
+            SecTaskDiagnoseEntitlements(accessGroups);
         return SecError(errSecMissingEntitlement, error,
                          CFSTR("client has neither application-identifier nor keychain-access-groups entitlements"));
     }
@@ -785,6 +789,8 @@ _SecItemAdd(CFDictionaryRef attributes, CFArrayRef accessGroups,
     bool ok = true;
     CFIndex ag_count;
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
+        if (SecTaskDiagnoseEntitlements)
+            SecTaskDiagnoseEntitlements(accessGroups);
         return SecError(errSecMissingEntitlement, error,
                            CFSTR("client has neither application-identifier nor keychain-access-groups entitlements"));
     }
@@ -847,6 +853,8 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
 {
     CFIndex ag_count;
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
+        if (SecTaskDiagnoseEntitlements)
+            SecTaskDiagnoseEntitlements(accessGroups);
         return SecError(errSecMissingEntitlement, error,
                          CFSTR("client has neither application-identifier nor keychain-access-groups entitlements"));
     }
@@ -908,6 +916,8 @@ _SecItemDelete(CFDictionaryRef query, CFArrayRef accessGroups, CFErrorRef *error
 {
     CFIndex ag_count;
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
+        if (SecTaskDiagnoseEntitlements)
+            SecTaskDiagnoseEntitlements(accessGroups);
         return SecError(errSecMissingEntitlement, error,
                            CFSTR("client has neither application-identifier nor keychain-access-groups entitlements"));
     }
@@ -1991,4 +2001,61 @@ bool _SecServerRollKeys(bool force, CFErrorRef *error) {
 #else
     return true;
 #endif
+}
+
+bool
+_SecServerGetKeyStats(const SecDbClass *qclass,
+                      struct _SecServerKeyStats *stats)
+{
+    __block CFErrorRef error = NULL;
+    bool res = false;
+
+    Query *q = query_create(qclass, NULL, &error);
+    require(q, fail);
+
+    q->q_return_type = kSecReturnDataMask | kSecReturnAttributesMask;
+    q->q_limit = kSecMatchUnlimited;
+    q->q_keybag = KEYBAG_DEVICE;
+    query_add_or_attribute(kSecAttrAccessible, kSecAttrAccessibleWhenUnlocked, q);
+    query_add_or_attribute(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlock, q);
+    query_add_or_attribute(kSecAttrAccessible, kSecAttrAccessibleAlways, q);
+    query_add_or_attribute(kSecAttrAccessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly, q);
+    query_add_or_attribute(kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, q);
+    query_add_or_attribute(kSecAttrAccessible, kSecAttrAccessibleAlwaysThisDeviceOnly, q);
+    query_add_attribute(kSecAttrTombstone, kCFBooleanFalse, q);
+
+    kc_with_dbt(false, &error, ^(SecDbConnectionRef dbconn) {
+        CFErrorRef error2 = NULL;
+        __block CFIndex totalSize = 0;
+        stats->maxDataSize = 0;
+
+        SecDbItemSelect(q, dbconn, &error2, NULL, ^bool(const SecDbAttr *attr) {
+            return CFDictionaryContainsKey(q->q_item, attr->name);
+        }, NULL, NULL, ^(SecDbItemRef item, bool *stop) {
+            CFErrorRef error3 = NULL;
+            CFDataRef data = SecDbItemGetValue(item, &v6v_Data, &error3);
+            if (isData(data)) {
+                CFIndex size = CFDataGetLength(data);
+                if (size > stats->maxDataSize)
+                    stats->maxDataSize = size;
+                totalSize += size;
+                stats->items++;
+            }
+            CFReleaseNull(error3);
+        });
+        CFReleaseNull(error2);
+        if (stats->items)
+            stats->averageSize = totalSize / stats->items;
+
+        return (bool)true;
+    });
+
+
+    res = true;
+
+fail:
+    CFReleaseNull(error);
+    if (q)
+        query_destroy(q, NULL);
+    return res;
 }

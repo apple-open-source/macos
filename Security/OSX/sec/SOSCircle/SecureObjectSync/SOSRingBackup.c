@@ -168,6 +168,11 @@ static SOSConcordanceStatus SOSRingPeerKeyConcordanceTrust_Backup(SOSFullPeerInf
         return kSOSConcordanceGenOld;
     }
     
+    
+    if (SOSRingIsEmpty_Internal(proposedRing)) {
+        return kSOSConcordanceTrusted;
+    }
+
     SOSConcordanceStatus localstatus = SOSBackupRingEvaluateMyInclusion(proposedRing, me);
     if(localstatus == kSOSConcordanceMissingMe) {
         SOSCreateError(kSOSErrorReplay, CFSTR("Improper exclusion of this peer"), NULL, error);
@@ -177,10 +182,6 @@ static SOSConcordanceStatus SOSRingPeerKeyConcordanceTrust_Backup(SOSFullPeerInf
     if(localstatus == kSOSConcordanceImNotWorthy) {
         SOSCreateError(kSOSErrorReplay, CFSTR("Improper inclusion of this peer"), NULL, error);
         return localstatus;
-    }
-
-    if (SOSRingIsEmpty_Internal(proposedRing)) {
-        return kSOSConcordanceTrusted;
     }
     
     if(!SOSBackupRingPeersInViews(peers, proposedRing)) {

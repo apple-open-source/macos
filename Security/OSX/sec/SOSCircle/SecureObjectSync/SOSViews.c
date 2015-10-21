@@ -125,7 +125,7 @@ CFGiblisGetSingleton(CFSetRef, SOSViewsGetV0BackupBagViewSet, defaultViewSet, ^{
 });
 
 bool SOSViewsIsV0Subview(CFStringRef viewName) {
-    return CFSetContainsValue(SOSViewsGetV0BackupViewSet(), viewName);
+    return CFSetContainsValue(SOSViewsGetV0SubviewSet(), viewName);
 }
 
 CFSetRef sTestViewSet = NULL;
@@ -367,7 +367,16 @@ SOSViewResultCode SOSViewsQuery(SOSPeerInfoRef pi, CFStringRef viewname, CFError
         CFReleaseNull(views);
         return retval;
     }
-    retval = (CFSetContainsValue(views, viewname)) ? kSOSCCViewMember: kSOSCCViewNotMember;
+
+    // kSOSViewKeychainV0 is set if there is a V0 PeerInfo in the circle.  It represents all of the subviews in
+    // SOSViewsGetV0SubviewSet() so we return kSOSCCViewMember for that case.  kSOSViewKeychainV0 and the subviews
+    // are mutually exclusive.
+    else if(CFSetContainsValue(views, kSOSViewKeychainV0) && CFSetContainsValue(SOSViewsGetV0SubviewSet(), viewname)) {
+        retval = kSOSCCViewMember;
+    } else {
+        retval = (CFSetContainsValue(views, viewname)) ? kSOSCCViewMember: kSOSCCViewNotMember;
+    }
+    
     CFReleaseNull(views);
     return retval;
     

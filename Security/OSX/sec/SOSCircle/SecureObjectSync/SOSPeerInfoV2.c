@@ -26,6 +26,7 @@ CFStringRef sSecurityPropertiesKey      = CFSTR("SecurityProperties");
 CFStringRef kSOSHsaCrKeyDictionary      = CFSTR("HSADictionary");
 CFStringRef sRingState                  = CFSTR("RingState");
 CFStringRef sBackupKeyKey               = CFSTR("BackupKey");
+CFStringRef sEscrowRecord               = CFSTR("EscrowRecord");
 
 #if TARGET_OS_IPHONE
 
@@ -335,3 +336,11 @@ errOut:
     return NULL;
 }
 
+const CFMutableDictionaryRef SOSPeerInfoV2DictionaryCopyDictionary(SOSPeerInfoRef pi, const void *key) {
+    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    CFDictionaryRef value = asDictionary(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
+    if(value != NULL)
+        return CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(value), value);
+errOut:
+    return NULL;
+}

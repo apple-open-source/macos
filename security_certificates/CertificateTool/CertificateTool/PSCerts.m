@@ -2,8 +2,7 @@
 //  PSCerts.m
 //  CertificateTool
 //
-//  Created by James Murphy on 12/19/12.
-//  Copyright (c) 2012 James Murphy. All rights reserved.
+//  Copyright (c) 2012-2015 Apple Inc. All Rights Reserved.
 //
 
 #import "PSCerts.h"

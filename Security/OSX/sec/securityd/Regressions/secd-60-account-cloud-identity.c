@@ -51,7 +51,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 144;
+static int kTestTestCount = 141;
 
 static void tests(void)
 {
@@ -116,7 +116,7 @@ static void tests(void)
     ok(SOSAccountLeaveCircle(carole_account, &error), "Carol Leaves again");
     CFReleaseNull(error);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 3, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
 
     /*----- join - join after restore -----*/
     

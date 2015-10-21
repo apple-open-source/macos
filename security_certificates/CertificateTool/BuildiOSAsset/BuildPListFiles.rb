@@ -2,7 +2,7 @@
 #  BuildPListFiles.rb
 #  CertificateTool
 #
-#  Copyright 2012 Apple Inc. All rights reserved.
+#  Copyright 2012-2015 Apple Inc. All rights reserved.
 #
 
 require 'fileutils'
@@ -56,6 +56,12 @@ do_output_str(nil, true)
 do_output_str(" ")
 
 `#{cmd_str}`
+result = $?
+exit_status = result.to_i
+if exit_status != 0
+    puts result
+    raise "Failed command: #{cmd_str}"
+end
 
 #products_path = File.join(build_dir, "..")
 #FileUtils.cp_r output_directory, products_path

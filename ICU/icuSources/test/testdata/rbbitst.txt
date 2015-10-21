@@ -990,6 +990,8 @@ Bangkok)•</data>
 <data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
 # victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5, space, 
 <data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE•\u0020•</data>
+# writing_hand fitz-1-2, splayed_hand/fitz-3, middle_finger/fitz-4, sign_of_horns/fitz-5, eye zwj left_speech_bubble, space
+<data>•\u270D\U0001F3FB•\U0001F590\U0001F3FC•\U0001F595\U0001F3FD•\U0001F918\U0001F3FE•\U0001F441\u200D\U0001F5E8•\u0020•</data>
 # flags1    AE AF AL AM AO AR AT
 <data>•\U0001F1E6\U0001F1EA•\U0001F1E6\U0001F1EB•\U0001F1E6\U0001F1F1•\U0001F1E6\U0001F1F2•\U0001F1E6\U0001F1F4•\U0001F1E6\U0001F1F7•\U0001F1E6\U0001F1F9•</data>
 # flags2    AU AZ BA BD BE BF BG
@@ -1038,6 +1040,8 @@ Bangkok)•</data>
 <data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
 # victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5, space, 
 <data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE•\u0020•</data>
+# writing_hand fitz-1-2, splayed_hand/fitz-3, middle_finger/fitz-4, sign_of_horns/fitz-5, eye zwj left_speech_bubble, space
+<data>•\u270D\U0001F3FB•\U0001F590\U0001F3FC•\U0001F595\U0001F3FD•\U0001F918\U0001F3FE•\U0001F441\u200D\U0001F5E8•\u0020•</data>
 # flags1    AE AF AL AM AO AR AT
 <data>•\U0001F1E6\U0001F1EA•\U0001F1E6\U0001F1EB•\U0001F1E6\U0001F1F1•\U0001F1E6\U0001F1F2•\U0001F1E6\U0001F1F4•\U0001F1E6\U0001F1F7•\U0001F1E6\U0001F1F9•</data>
 # flags2    AU AZ BA BD BE BF BG
@@ -1086,6 +1090,8 @@ Bangkok)•</data>
 <data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
 # victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5 space, 
 <data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE\u0020•</data>
+# writing_hand fitz-1-2, splayed_hand/fitz-3, middle_finger/fitz-4, sign_of_horns/fitz-5, eye zwj left_speech_bubble, space
+<data>•\u270D\U0001F3FB•\U0001F590\U0001F3FC•\U0001F595\U0001F3FD•\U0001F918\U0001F3FE•\U0001F441\u200D\U0001F5E8\u0020•</data>
 # no special flags handling for line
 
 <locale ja@lb=loose>
@@ -1100,4 +1106,6 @@ Bangkok)•</data>
 <data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
 # victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5 space, 
 <data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE\u0020•</data>
+# writing_hand fitz-1-2, splayed_hand/fitz-3, middle_finger/fitz-4, sign_of_horns/fitz-5, eye zwj left_speech_bubble, space
+<data>•\u270D\U0001F3FB•\U0001F590\U0001F3FC•\U0001F595\U0001F3FD•\U0001F918\U0001F3FE•\U0001F441\u200D\U0001F5E8\u0020•</data>
 # no special flags handling for line

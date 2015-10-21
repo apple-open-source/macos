@@ -60,24 +60,15 @@ CFGiblisWithCompareFor(SOSCircle);
 
 SOSCircleRef SOSCircleCreate(CFAllocatorRef allocator, CFStringRef name, CFErrorRef *error) {
     SOSCircleRef c = CFTypeAllocate(SOSCircle, struct __OpaqueSOSCircle, allocator);
-    int64_t gen = 1;
-
     assert(name);
     
     c->name = CFStringCreateCopy(allocator, name);
-    c->generation = CFNumberCreate(allocator, kCFNumberSInt64Type, &gen);
+    c->generation = SOSGenerationCreate();
     c->peers = CFSetCreateMutableForSOSPeerInfosByID(allocator);
     c->applicants = CFSetCreateMutableForSOSPeerInfosByID(allocator);
     c->rejected_applicants = CFSetCreateMutableForSOSPeerInfosByID(allocator);
     c->signatures = CFDictionaryCreateMutableForCFTypes(allocator);
     return c;
-}
-
-static CFNumberRef SOSCircleGenerationCopy(CFNumberRef generation) {
-    int64_t value;
-    CFAllocatorRef allocator = CFGetAllocator(generation);
-    CFNumberGetValue(generation, kCFNumberSInt64Type, &value);
-    return CFNumberCreate(allocator, kCFNumberSInt64Type, &value);
 }
 
 static CFMutableSetRef CFSetOfPeerInfoDeepCopy(CFAllocatorRef allocator, CFSetRef peerInfoSet)
@@ -104,7 +95,7 @@ SOSCircleRef SOSCircleCopyCircle(CFAllocatorRef allocator, SOSCircleRef otherCir
 
     assert(otherCircle);
     c->name = CFStringCreateCopy(allocator, otherCircle->name);
-    c->generation = SOSCircleGenerationCopy(otherCircle->generation);
+    c->generation = SOSGenerationCopy(otherCircle->generation);
 
     c->peers = CFSetOfPeerInfoDeepCopy(allocator, otherCircle->peers);
     c->applicants = CFSetOfPeerInfoDeepCopy(allocator, otherCircle->applicants);
@@ -382,12 +373,8 @@ fail:
 
 
 bool SOSCircleGenerationSign(SOSCircleRef circle, SecKeyRef user_approver, SOSFullPeerInfoRef peerinfo, CFErrorRef *error) {
-    SecKeyRef ourKey = SOSFullPeerInfoCopyDeviceKey(peerinfo, error);
     SecKeyRef publicKey = NULL;
-    require_quiet(ourKey, fail);
-    
-    // Check if we're using an invalid peerinfo for this op.  There are cases where we might not be "upgraded".
-    require_quiet(SOSCircleUpgradePeerInfo(circle, user_approver, peerinfo), fail);
+
     SOSCircleRemoveRetired(circle, error); // Prune off retirees since we're signing this one
     CFSetRemoveAllValues(circle->rejected_applicants); // Dump rejects so we clean them up sometime.
     publicKey = SecKeyCreatePublicFromPrivate(user_approver);
@@ -395,15 +382,23 @@ bool SOSCircleGenerationSign(SOSCircleRef circle, SecKeyRef user_approver, SOSFu
     SOSCircleGenerationIncrement(circle);
     require_quiet(SOSCircleEnsureRingConsistency(circle, error), fail);
     require_quiet(SOSCircleRemoveSignatures(circle, error), fail);
-    require_quiet(SOSCircleSign(circle, user_approver, error), fail);
-    require_quiet(SOSCircleSign(circle, ourKey, error), fail);
-    
-    CFReleaseNull(ourKey);
+
+    if (SOSCircleCountPeers(circle) != 0) {
+        SecKeyRef ourKey = SOSFullPeerInfoCopyDeviceKey(peerinfo, error);
+        require_quiet(ourKey, fail);
+
+        // Check if we're using an invalid peerinfo for this op.  There are cases where we might not be "upgraded".
+        require_quiet(SOSCircleUpgradePeerInfo(circle, user_approver, peerinfo), fail);
+
+        require_quiet(SOSCircleSign(circle, user_approver, error), fail);
+        require_quiet(SOSCircleSign(circle, ourKey, error), fail);
+        CFReleaseNull(ourKey);
+    }
+
     CFReleaseNull(publicKey);
     return true;
     
 fail:
-    CFReleaseNull(ourKey);
     CFReleaseNull(publicKey);
     return false;
 }
@@ -737,53 +732,31 @@ const char *SOSCircleGetNameC(SOSCircleRef circle) {
     return CFStringToCString(name);
 }
 
-CFNumberRef SOSCircleGetGeneration(SOSCircleRef circle) {
+SOSGenCountRef SOSCircleGetGeneration(SOSCircleRef circle) {
     assert(circle);
     assert(circle->generation);
     return circle->generation;
 }
 
-void SOSCircleSetGeneration(SOSCircleRef circle, CFNumberRef gencount) {
+void SOSCircleSetGeneration(SOSCircleRef circle, SOSGenCountRef gencount) {
     assert(circle);
     CFReleaseNull(circle->generation);
     circle->generation = CFRetainSafe(gencount);
 }
 
 int64_t SOSCircleGetGenerationSint(SOSCircleRef circle) {
-    CFNumberRef gen = SOSCircleGetGeneration(circle);
-    int64_t value;
-    if(!gen) return 0;
-    CFNumberGetValue(gen, kCFNumberSInt64Type, &value);
-    return value;
+    SOSGenCountRef gen = SOSCircleGetGeneration(circle);
+    return SOSGetGenerationSint(gen);
 }
 
-void SOSCircleGenerationSetValue(SOSCircleRef circle, int64_t value)
-{
-    CFAllocatorRef allocator = CFGetAllocator(circle->generation);
-    CFAssignRetained(circle->generation, CFNumberCreate(allocator, kCFNumberSInt64Type, &value));
+void SOSCircleGenerationSetValue(SOSCircleRef circle, int64_t value) {
+    CFAssignRetained(circle->generation, SOSGenerationCreateWithValue(value));
 }
-
-
-static int64_t GenerationSetHighBits(int64_t value, int32_t high_31)
-{
-    value &= 0xFFFFFFFF; // Keep the low 32 bits.
-    value |= ((int64_t) high_31) << 32;
-
-    return value;
-}
-
 
 void SOSCircleGenerationIncrement(SOSCircleRef circle) {
-    int64_t value = SOSCircleGetGenerationSint(circle);
-
-    if ((value >> 32) == 0) {
-        uint32_t seconds = CFAbsoluteTimeGetCurrent(); // seconds
-        value = GenerationSetHighBits(value, (seconds >> 1));
-    }
-
-    value++;
-
-    SOSCircleGenerationSetValue(circle, value);
+    SOSGenCountRef old = circle->generation;
+    circle->generation = SOSGenerationIncrementAndCreate(old);
+    CFReleaseNull(old);
 }
 
 int SOSCircleCountPeers(SOSCircleRef circle) {
@@ -919,19 +892,9 @@ bool SOSCircleResetToEmpty(SOSCircleRef circle, CFErrorRef *error) {
     CFSetRemoveAllValues(circle->rejected_applicants);
     CFSetRemoveAllValues(circle->peers);
     CFDictionaryRemoveAllValues(circle->signatures);
-
-    int64_t old_value = SOSCircleGetGenerationSint(circle);
-
-    SOSCircleGenerationSetValue(circle, 0);
-    SOSCircleGenerationIncrement(circle); // Increment to get high bits set.
-
-    int64_t new_value = SOSCircleGetGenerationSint(circle);
-
-    if (new_value <= old_value) {
-        int64_t new_new_value = GenerationSetHighBits(new_value, (old_value >> 32) + 1);
-        SOSCircleGenerationSetValue(circle, new_new_value);
-    }
-
+    SOSGenCountRef oldGen = SOSCircleGetGeneration(circle);
+    SOSGenCountRef newGen = SOSGenerationCreateWithBaseline(oldGen);
+    SOSCircleSetGeneration(circle, newGen);
     return true;
 }
 
@@ -1007,23 +970,56 @@ bool SOSCircleUpdatePeerInfo(SOSCircleRef circle, SOSPeerInfoRef replacement_pee
     return false;
 }
 
-bool SOSCircleRemovePeer(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, SOSPeerInfoRef peer_to_remove, CFErrorRef *error) {
+static bool SOSCircleRemovePeerInternal(SOSCircleRef circle, SOSFullPeerInfoRef requestor, SOSPeerInfoRef peer_to_remove, CFErrorRef *error) {
     SOSPeerInfoRef requestor_peer_info = SOSFullPeerInfoGetPeerInfo(requestor);
-        
+
+    if (SOSCircleHasPeer(circle, peer_to_remove, NULL)) {
+        if (!SOSCircleHasPeer(circle, requestor_peer_info, error)) {
+            SOSCreateError(kSOSErrorAlreadyPeer, CFSTR("Must be peer to remove peer"), NULL, error);
+            return false;
+        }
+        CFSetRemoveValue(circle->peers, peer_to_remove);
+    }
+
     if (SOSCircleHasApplicant(circle, peer_to_remove, error)) {
         return SOSCircleRejectRequest(circle, requestor, peer_to_remove, error);
     }
 
-    if (!SOSCircleHasPeer(circle, requestor_peer_info, error)) {
-        SOSCreateError(kSOSErrorAlreadyPeer, CFSTR("Must be peer to remove peer"), NULL, error);
-        return false;
-    }
-
-    CFSetRemoveValue(circle->peers, peer_to_remove);
-
-    SOSCircleGenerationSign(circle, user_privkey, requestor, error);
-
     return true;
+}
+
+bool SOSCircleRemovePeers(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFSetRef peersToRemove, CFErrorRef *error) {
+
+    bool success = false;
+
+    __block bool removed_all = true;
+    CFSetForEach(peersToRemove, ^(const void *value) {
+        SOSPeerInfoRef peerInfo = asSOSPeerInfo(value);
+        if (peerInfo) {
+            removed_all &= SOSCircleRemovePeerInternal(circle, requestor, peerInfo, error);
+        }
+    });
+
+    require_quiet(removed_all, exit);
+
+    require_quiet(SOSCircleGenerationSign(circle, user_privkey, requestor, error), exit);
+
+    success = true;
+
+exit:
+    return success;
+}
+
+bool SOSCircleRemovePeer(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, SOSPeerInfoRef peer_to_remove, CFErrorRef *error) {
+    bool success = false;
+
+    require_quiet(SOSCircleRemovePeerInternal(circle, requestor, peer_to_remove, error), exit);
+
+    require_quiet(SOSCircleGenerationSign(circle, user_privkey, requestor, error), exit);
+
+    success = true;
+exit:
+    return success;
 }
 
 bool SOSCircleAcceptRequest(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef device_approver, SOSPeerInfoRef peerInfo, CFErrorRef *error) {

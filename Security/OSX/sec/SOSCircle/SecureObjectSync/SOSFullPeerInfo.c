@@ -283,6 +283,20 @@ bool SOSFullPeerInfoUpdateBackupKey(SOSFullPeerInfoRef peer, CFDataRef backupKey
     });
 }
 
+bool SOSFullPeerInfoAddEscrowRecord(SOSFullPeerInfoRef peer, CFStringRef dsid, CFDictionaryRef escrowRecord, CFErrorRef* error)
+{
+    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
+        return SOSPeerInfoCopyWithEscrowRecordUpdate(kCFAllocatorDefault, peer, dsid, escrowRecord, key, error);
+    });
+}
+
+bool SOSFullPeerInfoReplaceEscrowRecords(SOSFullPeerInfoRef peer, CFDictionaryRef escrowRecords, CFErrorRef* error)
+{
+    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
+        return SOSPeerInfoCopyWithReplacedEscrowRecords(kCFAllocatorDefault, peer, escrowRecords, key, error);
+    });
+}
+
 SOSViewResultCode SOSFullPeerInfoUpdateViews(SOSFullPeerInfoRef peer, SOSViewActionCode action, CFStringRef viewname, CFErrorRef* error)
 {
     __block SOSViewResultCode retval = kSOSCCGeneralViewError;

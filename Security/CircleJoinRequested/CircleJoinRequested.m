@@ -114,14 +114,19 @@ static BOOL processRequests(CFErrorRef *error) {
 	NSMutableArray *toReject = [[applicantsInState(ApplicantRejected) mapWithBlock:^id(id obj) {return (id)[obj rawPeerInfo];}] mutableCopy];
 	bool			ok = true;
 
-	NSLog(@"Process accept: %@", toAccept);
-	NSLog(@"Process reject: %@", toReject);
-
-	if ([toAccept count])
+	if ([toAccept count]) {
+		NSLog(@"Process accept: %@", toAccept);
 		ok = ok && SOSCCAcceptApplicants((__bridge CFArrayRef) toAccept, error);
+		if (ok) {
+			NSLog(@"kSOSCCHoldLockForInitialSync");
+			notify_post(kSOSCCHoldLockForInitialSync);
+		}
+	}
 
-	if ([toReject count])
+	if ([toReject count]) {
+		NSLog(@"Process reject: %@", toReject);
 		ok = ok && SOSCCRejectApplicants((__bridge CFArrayRef) toReject, error);
+	}
 
 	return ok;
 }
@@ -183,7 +188,7 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 		CFReleaseNull(error);
 	}
 
-	NSString *password = (__bridge NSString *)(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, 0));
+	NSString *password = (__bridge NSString *) CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, 0);
 	if (!password) {
 		NSLog(@"No password given, retry");
 		askAboutAll(true);
@@ -196,13 +201,13 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 	// (which results in a process error -- I think this is 13355140), as a workaround we retry
 	// failure a few times before we give up.
 	for (int try = 0; try < 5 && !processed; try++) {
-		if (!SOSCCTryUserCredentials(CFSTR(""), (__bridge CFDataRef)(passwordBytes), &error)) {
+		if (!SOSCCTryUserCredentials(CFSTR(""), (__bridge CFDataRef) passwordBytes, &error)) {
 			NSLog(@"Try user credentials failed %@", error);
 			if ((error == NULL) ||
 				(CFEqual(kSOSErrorDomain, CFErrorGetDomain(error)) && kSOSErrorWrongPassword == CFErrorGetCode(error))) {
 				NSLog(@"Calling askAboutAll again...");
 				[onScreen enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-					Applicant* applicant = (Applicant*) obj;
+					Applicant *applicant = (Applicant*) obj;
 					applicant.applicantUIState = ApplicantWaiting;
 				}];
 				askAboutAll(true);
@@ -241,7 +246,7 @@ static void passwordFailurePrompt()
 	};
 	CFOptionFlags		  flags = kCFUserNotificationPlainAlertLevel;
 	SInt32		  		  err;
-	CFUserNotificationRef note = CFUserNotificationCreate(NULL, 0.0, flags, &err, (__bridge CFDictionaryRef)noteAttributes);
+	CFUserNotificationRef note = CFUserNotificationCreate(NULL, 0.0, flags, &err, (__bridge CFDictionaryRef) noteAttributes);
 
 	if (note) {
 		CFUserNotificationReceiveResponse(note, 0.0, &flags);
@@ -324,14 +329,14 @@ static void askAboutAll(bool passwordFailure)
 	CFOptionFlags flags = flagsForAsk(applicantToAskAbout);
 
 	if (currentAlert) {
-		SInt32 err = CFUserNotificationUpdate(currentAlert, 0, flags, (__bridge CFDictionaryRef)noteAttributes);
+		SInt32 err = CFUserNotificationUpdate(currentAlert, 0, flags, (__bridge CFDictionaryRef) noteAttributes);
 		if (err) {
 			NSLog(@"CFUserNotificationUpdate err=%d", (int)err);
 			EXIT_LOGGED_FAILURE(EX_SOFTWARE);
 		}
 	} else {
 		SInt32 err = 0;
-		currentAlert = CFUserNotificationCreate(NULL, 0.0, flags, &err, (__bridge CFDictionaryRef)(noteAttributes));
+		currentAlert = CFUserNotificationCreate(NULL, 0.0, flags, &err, (__bridge CFDictionaryRef) noteAttributes);
 		if (err) {
 			NSLog(@"Can't make notification for %@ err=%x", applicantToAskAbout, (int)err);
 			EXIT_LOGGED_FAILURE(EX_SOFTWARE);
@@ -413,7 +418,8 @@ static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state,
 	NSString *body		= getLocalizedApplicationReminder();
 	bool      has_iCSC	= iCloudResetAvailable();
 
-	if (state.defaultPendingApplicationReminderAlertInterval != state.pendingApplicationReminderAlertInterval) {
+	if (CPIsInternalDevice() &&
+		state.defaultPendingApplicationReminderAlertInterval != state.pendingApplicationReminderAlertInterval) {
 		body = [body stringByAppendingFormat: @"〖debug interval %u; wait time %@〗",
 					state.pendingApplicationReminderAlertInterval,
 					[nowish copyDescriptionOfIntervalSince:state.applicationDate]];

@@ -525,7 +525,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 				greaterThan = memcmp([d1 bytes], [d2 bytes], [d1 length]);
 			} else {
 				// shouldn't happen as hashes are all the same length
-				int length = ([d1 length] > [d2 length]) ? [d2 length] : [d1 length]; 
+				NSUInteger length = ([d1 length] > [d2 length]) ? [d2 length] : [d1 length];
 				greaterThan = memcmp([d1 bytes], [d2 bytes], length);
 				if (!greaterThan) {
 					greaterThan = [d1 length] > [d2 length];
@@ -633,11 +633,13 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 	if (![self buildEVRootsData:file_name_to_cert])
 	{
 		NSLog(@"Unable to create the EVPlist data");
+		return result;
 	}
 
 	if (![self buildAllowListData])
 	{
 		NSLog(@"Unable to create the allow list plist data");
+		return result;
 	}
 
     result = YES;

@@ -76,11 +76,23 @@ CFStringRef __SecKeychainCopyPath(void);
 
 bool _SecServerRollKeys(bool force, CFErrorRef *error);
 
+struct _SecServerKeyStats {
+    unsigned long items;
+    CFIndex maxDataSize;
+    CFIndex averageSize;
+};
+
+bool _SecServerGetKeyStats(const SecDbClass *qclass, struct _SecServerKeyStats *stats);
+
+
+
 
 // Should all be blocks called from SecItemDb
 bool match_item(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFDictionaryRef item);
 bool itemInAccessGroup(CFDictionaryRef item, CFArrayRef accessGroups);
 void SecKeychainChanged(bool syncWithPeers);
+
+extern void (*SecTaskDiagnoseEntitlements)(CFArrayRef accessGroups);
 
 __END_DECLS
 

@@ -2,14 +2,14 @@
  * Copyright (c) 2012-2014 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -60,6 +60,7 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
 
 #define SECD_RUN_AS_ROOT_ERROR 550
 
+
 @implementation IDSKeychainSyncingProxy
 
 +   (IDSKeychainSyncingProxy *) idsProxy
@@ -101,8 +102,8 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
         
         [self doIDSInitialization];
         if(_isIDSInitDone)
-            [self doSetIDSDeviceID:nil];
-    
+        [self doSetIDSDeviceID:nil];
+        
         _syncTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
         dispatch_source_set_timer(_syncTimer, DISPATCH_TIME_FOREVER, DISPATCH_TIME_FOREVER, kSyncTimerLeeway);
         dispatch_source_set_event_handler(_syncTimer, ^{
@@ -120,8 +121,8 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
         [self updateUnlockedSinceBoot];
         [self updateIsLocked];
         if (!_isLocked)
-            [self keybagDidUnlock];
-
+        [self keybagDidUnlock];
+        
     }
     return self;
 }
@@ -157,7 +158,7 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
         return NO;
     }
     if (!_isLocked)
-        _unlockedSinceBoot = YES;
+    _unlockedSinceBoot = YES;
     return YES;
 }
 
@@ -167,11 +168,11 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
         BOOL wasLocked = _isLocked;
         if ([self updateIsLocked]) {
             if (wasLocked == _isLocked)
-                secdebug("event", "%@ still %s ignoring", self, _isLocked ? "locked" : "unlocked");
+            secdebug("event", "%@ still %s ignoring", self, _isLocked ? "locked" : "unlocked");
             else if (_isLocked)
-                [self keybagDidLock];
+            [self keybagDidLock];
             else
-                [self keybagDidUnlock];
+            [self keybagDidUnlock];
         }
     });
 }
@@ -188,7 +189,7 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
     char *desc = xpc_copy_description(notification);
     secnotice("event", "%@ event: %s name: %s desc: %s", self, eventName, notificationName, desc);
     if (desc)
-        free((void *)desc);
+    free((void *)desc);
 #endif
 }
 
@@ -196,7 +197,7 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
 {
     secdebug("IDS Transport", "%@ attempting to hand unhandled messages to securityd, here is our message queue: %@", self, _unhandledMessageBuffer);
     if([_unhandledMessageBuffer count] == 0)
-        _syncTimerScheduled = NO;
+    _syncTimerScheduled = NO;
     else if (_syncTimerScheduled && !_isLocked){
         [self handleAllPendingMessage];
     }
@@ -225,9 +226,9 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
     
     // Bump the timer by kMinMessageRetryDelay
     if (_syncTimerScheduled)
-        secdebug("timer", "%@ bumped timer", self);
+    secdebug("timer", "%@ bumped timer", self);
     else
-        secdebug("timer", "%@ scheduled timer", self);
+    secdebug("timer", "%@ scheduled timer", self);
     
     return nextSync;
 }
@@ -261,7 +262,7 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
         
         _isIDSInitDone = true;
         if(_isSecDRunningAsRoot == false)
-            [self doSetIDSDeviceID:nil];
+        [self doSetIDSDeviceID:nil];
     }
 }
 
@@ -288,7 +289,7 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
             
             _inCallout = YES;
             if (!_oldInCallout)
-                secnotice("deaf", ">>>>>>>>>>> _oldInCallout is NO and we're heading in to the callout!");
+            secnotice("deaf", ">>>>>>>>>>> _oldInCallout is NO and we're heading in to the callout!");
             
             _shadowHandleAllPendingMessages = NO;
         });
@@ -308,7 +309,7 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
             _shadowDoSetIDSDeviceID = NO;
             
             if(_setIDSDeviceID && !_isLocked && _isSecDRunningAsRoot == false)
-                [self doSetIDSDeviceID:&error];
+            [self doSetIDSDeviceID:&error];
             
             // Update handling pending messages
             _handleAllPendingMessages = ((myHandlePendingMessage && (!handledPendingMessage)) || _shadowHandleAllPendingMessages);
@@ -316,7 +317,7 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
             _shadowHandleAllPendingMessages = NO;
             
             if (handledPendingMessage)
-                _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
+            _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
             
             // Update pending messages and handle them
             [handledMessages enumerateKeysAndObjectsUsingBlock: ^(id key, id obj, BOOL *stop){
@@ -328,7 +329,7 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
             [self persistState];
             
             if ([_unhandledMessageBuffer count] > 0 || (!_isLocked && wasLocked))
-                [self handleAllPendingMessage];
+            [self handleAllPendingMessage];
             
             xpc_transaction_end();
         });
@@ -377,7 +378,7 @@ static const int64_t kMinMessageRetryDelay = (NSEC_PER_MSEC * 500); // 500ms min
                         _isSecDRunningAsRoot = true;
                     }
                     if(error)
-                        *error = (__bridge NSError *)(localError);
+                    *error = (__bridge NSError *)(localError);
                 }
                 handledSettingID = YES;
                 done(nil, NO, handledSettingID);
@@ -396,7 +397,7 @@ fail:
     return false;
 }
 
--(BOOL) sendIDSMessage:(NSData*)data name:(NSString*) deviceName peer:(NSString*) peerID error:(NSError**) error
+-(BOOL) sendIDSMessage:(NSDictionary*)data name:(NSString*) deviceName peer:(NSString*) peerID error:(NSError**) error
 {
     BOOL result = true;
     NSDictionary *userInfo;
@@ -417,20 +418,21 @@ fail:
     secdebug("IDS Transport", "[_service devices]: %@, we have their deviceName: %@", [_service devices], deviceName);
     ListOfIDSDevices = [_service devices];
     
-    require_action_quiet(ListOfIDSDevices > 0, fail, errorMessage=@"Could not send message: IDS devices are not registered yet"; code = kSecIDSErrorNotRegistered);
+    require_action_quiet([ListOfIDSDevices count]> 0, fail, errorMessage=@"Could not send message: IDS devices are not registered yet"; code = kSecIDSErrorNotRegistered);
     secinfo("IDS Transport", "This is our list of devices: %@", ListOfIDSDevices);
     
-        for(NSUInteger i = 0; i < [ ListOfIDSDevices count ]; i++){
-            device = ListOfIDSDevices[i];
-            if( [ deviceName compare:device.uniqueID ] == 0){
-                [destinations addObject: IDSCopyIDForDevice(device)];
-            }
+    for(NSUInteger i = 0; i < [ ListOfIDSDevices count ]; i++){
+        device = ListOfIDSDevices[i];
+        if( [ deviceName compare:device.uniqueID ] == 0){
+            [destinations addObject: IDSCopyIDForDevice(device)];
         }
-    require_action_quiet(destinations.count != 0, fail, errorMessage = @"Could not send message: IDS device ID for peer does not match any devices within an IDS Account"; code = kSecIDSErrorCouldNotFindMatchingAuthToken);
+    }
+    require_action_quiet([destinations count] != 0, fail, errorMessage = @"Could not send message: IDS device ID for peer does not match any devices within an IDS Account"; code = kSecIDSErrorCouldNotFindMatchingAuthToken);
     
-    result = [_service sendData:data toDestinations:destinations priority:priority options:options identifier:&identifier error:error ] ;
+    result = [_service sendMessage:data toDestinations:destinations priority:priority options:options identifier:&identifier error:error ] ;
     
-    require_quiet(*error == nil, errorFromSending);
+    require_action_quiet(*error == nil, fail, errorMessage = @"Had an error sending IDS message"; code = kSecIDSErrorFailedToSend);
+    
     secdebug("IDS Transport", "IDSKeychainSyncingProxy sent this message over IDS: %@", data);
     
     return result;
@@ -442,7 +444,6 @@ fail:
         secerror("%@", *error);
     }
     
-errorFromSending:
     return false;
 }
 
@@ -471,7 +472,7 @@ errorFromSending:
          {
              NSDictionary *messageAndFromID = (NSDictionary*)obj;
              NSString *fromID = (NSString*)key;
-            
+             
              if(_inCallout){
                  _shadowHandleAllPendingMessages = YES;
              }
@@ -483,108 +484,117 @@ errorFromSending:
                  [self sendKeysCallout:^NSMutableDictionary *(NSMutableDictionary *pending, NSError** error) {
                      success  = SOSCCHandleIDSMessage(((__bridge CFDictionaryRef)messageAndFromID), &cf_error);
                      
-                         if(success == kHandleIDSMessageLocked){
-                             secdebug("IDS Transport", "cannot handle messages when locked, error:%@", cf_error);
-                             [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
-                             
-                             _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
-                             _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
-                             //set timer
-                             [self scheduleSyncRequestTimer];
-                             return NULL;
-                         }
-                         else if(success == kHandleIDSMessageNotReady){
-                             secdebug("IDS Transport", "not ready to handle message, error:%@", cf_error);
-                             [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
-                             _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
-                             _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
-                             //set timer
-                             [self scheduleSyncRequestTimer];
-                             return NULL;
-                         }
-                         else if(success == kHandleIDSMessageOtherFail){
-                             secdebug("IDS Transport", "not ready to handle message, error:%@", cf_error);
-                             [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
-                             _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
-                             _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
-                             //set timer
-                             [self scheduleSyncRequestTimer];
-                             return NULL;
-                         }
-                         else{
-                             secdebug("IDS Transport", "IDSProxy handled this message! %@", messageAndFromID);
-                             _syncTimerScheduled = NO;
-                             return (NSMutableDictionary*)messageAndFromID;
-                         }
+                     if(success == kHandleIDSMessageLocked){
+                         secdebug("IDS Transport", "cannot handle messages when locked, error:%@", cf_error);
+                         [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
+                         
+                         _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
+                         _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
+                         //set timer
+                         [self scheduleSyncRequestTimer];
+                         return NULL;
+                     }
+                     else if(success == kHandleIDSMessageNotReady){
+                         secdebug("IDS Transport", "not ready to handle message, error:%@", cf_error);
+                         [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
+                         _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
+                         _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
+                         //set timer
+                         [self scheduleSyncRequestTimer];
+                         return NULL;
+                     }
+                     else if(success == kHandleIDSMessageOtherFail){
+                         secdebug("IDS Transport", "not ready to handle message, error:%@", cf_error);
+                         [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
+                         _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
+                         _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
+                         //set timer
+                         [self scheduleSyncRequestTimer];
+                         return NULL;
+                     }
+                     else{
+                         secdebug("IDS Transport", "IDSProxy handled this message! %@", messageAndFromID);
+                         _syncTimerScheduled = NO;
+                         return (NSMutableDictionary*)messageAndFromID;
+                     }
                  }];
              }
          }];
     }
 }
 
-- (void)service:(IDSService *)service account:(IDSAccount *)account incomingData:(NSData *)data fromID:(NSString *)fromID context:(IDSMessageContext *)context
+- (void)service:(IDSService *)service account:(IDSAccount *)account incomingMessage:(NSDictionary *)message fromID:(NSString *)fromID context:(IDSMessageContext *)context;
 {
-    secdebug("IDS Transport", "IDSKeychainSyncingProxy handling this message sent over IDS%@", data);
+    secdebug("IDS Transport", "IDSKeychainSyncingProxy handling this message sent over IDS%@", message);
     NSString *dataKey = [ NSString stringWithUTF8String: kMessageKeyIDSDataMessage ];
     NSString *deviceIDKey = [ NSString stringWithUTF8String: kMessageKeyDeviceID ];
     NSString *ID = nil;
+    uint32_t operationType;
+    bool hadError = false;
+    CFStringRef errorMessage = NULL;
+    __block NSString* operation = nil;
+    NSString *messageString = nil;
+    __block NSData *messageData = nil;
     
     NSArray *devices = [_service devices];
-    
     for(NSUInteger i = 0; i < [ devices count ]; i++){
         IDSDevice *device = devices[i];
         if( [(IDSCopyIDForDevice(device)) containsString: fromID] == YES){
             ID = device.uniqueID;
+            break;
         }
     }
+    require_action_quiet(ID, fail, hadError = true; errorMessage = CFSTR("require the sender's device ID"));
+    require_action_quiet([message count] == 1, fail, hadError = true; errorMessage = CFSTR("message contained too many objects"););
     
-    const void* bytes = [data bytes];
-    NSData* operationBuffer = [ [NSData alloc] initWithBytes: bytes length:1 ];
-    NSString* operationString = [ [NSString alloc] initWithData:operationBuffer encoding:NSUTF8StringEncoding];
-    uint32_t operationType = [ operationString intValue ];
+    [message enumerateKeysAndObjectsUsingBlock: ^(id key, id obj, BOOL *stop){
+        operation = (NSString*)key;
+        messageData = (NSData*)obj;
+    }];
     
-    NSRange withoutOperationRange = NSMakeRange(1, [data length]-1);
-    NSData* incomingDataOnly = [data subdataWithRange:withoutOperationRange];
+    operationType = [operation intValue];
     
     switch(operationType){
+        case kIDSPeerAvailabilityDone:
+        {
+            secdebug("ids transport", "received availability done!");
+            notify_post(kSOSCCPeerAvailable);
+            break;
+        }
+        case kIDSEndPingTestMessage:
+            secdebug("ids transport", "received pong message from other device: %@, ping test PASSED", ID);
+            break;
+        case kIDSSendOneMessage:
+            secdebug("ids transport","received ping test message, dropping on the floor now");
+            break;
+            
+        case kIDSPeerAvailability:
         case kIDSStartPingTestMessage:
         {
-            NSError* error;
-            NSString* operation = [NSString stringWithFormat:@"%d", kIDSEndPingTestMessage];
+            char* messageCharS;
+            if(operationType == kIDSPeerAvailability){
+                secdebug("ids transport", "Received Availability Message!");
+                asprintf(&messageCharS, "%d",kIDSPeerAvailabilityDone);
+            }
+            else{
+                secdebug("ids transport", "Received PingTest Message!");
+                asprintf(&messageCharS, "%d", kIDSEndPingTestMessage);
+            }
+     
+            NSString *operationString = [[NSString alloc] initWithUTF8String:messageCharS];
+            messageString = @"peer availability check finished";
+            NSDictionary* messsageDictionary = @{operationString : messageString};
             
-            NSData* operationData = [operation dataUsingEncoding:NSUTF8StringEncoding];
-            NSMutableData* mutableData = [NSMutableData dataWithCapacity:[operation length] + [incomingDataOnly length]];
+            NSError *localError = NULL;
+            [self sendIDSMessage:messsageDictionary name:ID peer:@"me" error:&localError];
+            free(messageCharS);
             
-            [mutableData appendData:operationData];
-            [mutableData appendData:incomingDataOnly];
-    
-            [[IDSKeychainSyncingProxy idsProxy] sendIDSMessage:mutableData name:fromID peer:nil error:&error];
             break;
+            
         }
-        case kIDSSyncMessagesRaw:
+        default:
         {
-            NSDictionary *messageAndFromID = [[NSDictionary alloc] initWithObjectsAndKeys: incomingDataOnly, dataKey, ID, deviceIDKey, nil];
-            
-            __block CFErrorRef error = NULL;
-            __block bool success = false;
-            
-            dispatch_async(_calloutQueue, ^{
-                success  = SOSCCHandleIDSMessage(((__bridge CFDictionaryRef)messageAndFromID), &error);
-                if(!success){
-                    secerror("IDSProxy could not hand securityd an IDS message, error:%@", error);
-                }
-                else{
-                    secdebug("IDS Transport", "IDSProxy handled this message! %@", messageAndFromID);
-                }
-            });
-            
-            CFReleaseSafe(error);
-            break;
-        }
-        case kIDSSyncMessagesCompact:
-        {
-            NSDictionary *messageAndFromID = [[NSDictionary alloc] initWithObjectsAndKeys: incomingDataOnly, dataKey, ID, deviceIDKey, nil];
-         
+            NSDictionary *messageAndFromID = @{dataKey : messageData, deviceIDKey: ID};
             if(_isLocked){
                 //hang on to the message and set the retry deadline
                 [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
@@ -596,56 +606,51 @@ errorFromSending:
                 _handleAllPendingMessages = YES;
                 
                 [self sendKeysCallout:^NSMutableDictionary *(NSMutableDictionary *pending, NSError** error) {
-                  
+                    
                     success  = SOSCCHandleIDSMessage(((__bridge CFDictionaryRef)messageAndFromID), &cf_error);
                     
-                        if(success == kHandleIDSMessageLocked){
-                            secdebug("IDS Transport", "cannot handle messages when locked, error:%@", cf_error);
-                            [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
-                            
-                            _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
-                            _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
-                            //set timer
-                            [self scheduleSyncRequestTimer];
-                            return NULL;
-                        }
-                        else if(success == kHandleIDSMessageNotReady){
-                            secdebug("IDS Transport", "not ready to handle message, error:%@", cf_error);
-                            [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
-                            _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
-                            _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
-                            //set timer
-                            [self scheduleSyncRequestTimer];
-                            return NULL;
-                        }
-                        else if(success == kHandleIDSMessageOtherFail){
-                            secdebug("IDS Transport", "not ready to handle message, error:%@", cf_error);
-                            [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
-                            _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
-                            _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
-                            //set timer
-                            [self scheduleSyncRequestTimer];
-                            return NULL;
-                        }
-                        else{
-                            secdebug("IDS Transport", "IDSProxy handled this message! %@", messageAndFromID);
-                            return (NSMutableDictionary*)messageAndFromID;
-                        }
-                    }];
-                 
+                    if(success == kHandleIDSMessageLocked){
+                        secdebug("IDS Transport", "cannot handle messages when locked, error:%@", cf_error);
+                        [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
+                        
+                        _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
+                        _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
+                        //set timer
+                        [self scheduleSyncRequestTimer];
+                        return NULL;
+                    }
+                    else if(success == kHandleIDSMessageNotReady){
+                        secdebug("IDS Transport", "not ready to handle message, error:%@", cf_error);
+                        [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
+                        _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
+                        _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
+                        //set timer
+                        [self scheduleSyncRequestTimer];
+                        return NULL;
+                    }
+                    else if(success == kHandleIDSMessageOtherFail){
+                        secdebug("IDS Transport", "not ready to handle message, error:%@", cf_error);
+                        [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
+                        _lastSyncTime = dispatch_time(DISPATCH_TIME_NOW, 0);
+                        _deadline = dispatch_time(DISPATCH_TIME_NOW, kAttemptFlushBufferInterval);
+                        //set timer
+                        [self scheduleSyncRequestTimer];
+                        return NULL;
+                    }
+                    else{
+                        secdebug("IDS Transport", "IDSProxy handled this message! %@", messageAndFromID);
+                        return (NSMutableDictionary*)messageAndFromID;
+                    }
+                }];
                 CFReleaseSafe(cf_error);
             }
             break;
         }
-        case kIDSEndPingTestMessage:
-            secdebug("ids transport", "received pong message from other device: %@, ping test PASSED", fromID);
-            break;
-        case kIDSSendOneMessage:
-            secdebug("ids transport","received ping test message, dropping on the floor now");
-        default:
-            secdebug("ids transport", "unknown format, dropping message: %d", operationType);
-            break;
     }
-
+fail:
+    if(hadError)
+        secerror("error:%@", errorMessage);
 }
+
 @end
+

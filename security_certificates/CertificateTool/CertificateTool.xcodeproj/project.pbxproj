@@ -76,7 +76,7 @@
 		72C8759C16B1E4D2003ECF12 /* PSCertData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PSCertData.h; sourceTree = "<group>"; };
 		72C8759D16B1E4D2003ECF12 /* PSCertData.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PSCertData.m; sourceTree = "<group>"; };
 		72C8BAB916C58FEE00A65BAD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		8501704E1B322EBF00327208 /* Allowed.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Allowed.plist; path = "Allowed.plist"; sourceTree = "<group>"; };
+		8501704E1B322EBF00327208 /* Allowed.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Allowed.plist; sourceTree = "<group>"; };
 		BE06D73A1A93FCE0008535D4 /* TrustStore.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = TrustStore.html; sourceTree = "<group>"; };
 		BE0875B819871FC000357E99 /* AppleBaselineEscrowCertificates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleBaselineEscrowCertificates.h; sourceTree = "<group>"; };
 		BE43DA4F1A71D140000A4297 /* AppleESCertificates.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = AppleESCertificates.plist; sourceTree = "<group>"; };
@@ -367,7 +367,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ASSETS=\"$BUILT_PRODUCTS_DIR/BuiltAssets\"\nmkdir -p \"$ASSETS\"\n\necho \"Generating html file\"\n\"$PROJECT_DIR\"/BuildiOSAsset/printroots -d \"$PROJECT_TEMP_DIR\" \"$PROJECT_DIR\"/../certificates > \"$ASSETS\"/TrustStore.html 2>/dev/null\necho \"Finished generating html file\"\n\necho \"Starting plist file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildPListFiles.rb\necho \"Finished plist file build\"\n\necho \"Starting asset file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildAsset.rb\necho \"Finished plist file build\"\n\nexit 0\n";
+			shellScript = "ASSETS=\"$BUILT_PRODUCTS_DIR/BuiltAssets\"\nmkdir -p \"$ASSETS\"\n\necho \"Generating html file\"\n\"$PROJECT_DIR\"/BuildiOSAsset/printroots -d \"$PROJECT_TEMP_DIR\" \"$PROJECT_DIR\"/../certificates > \"$ASSETS\"/TrustStore.html 2>/dev/null\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"printroots failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished generating html file\"\n\necho \"Starting plist file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildPListFiles.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildPListFiles.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished plist file build\"\n\necho \"Starting asset file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildAsset.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildAsset.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished asset file build\"\n\nexit 0\n";
 		};
 		BE88D63D1A78358300D1232E /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;

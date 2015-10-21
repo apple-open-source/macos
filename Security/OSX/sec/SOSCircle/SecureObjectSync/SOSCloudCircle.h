@@ -73,6 +73,8 @@ typedef int SOSCCStatus;
 extern const char * kSOSCCCircleChangedNotification;
 extern const char * kSOSCCViewMembershipChangedNotification;
 extern const char * kSOSCCInitialSyncChangedNotification;
+extern const char * kSOSCCHoldLockForInitialSync;
+extern const char * kSOSCCPeerAvailable;
 
 /*!
  @function SOSCCSetUserCredentials
@@ -120,11 +122,11 @@ bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_passw
 bool SOSCCTryUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error);
 
 /*!
- @function SOSCCRequestDeviceID
+ @function SOSCCCopyDeviceID
  @abstract Retrieves this device's IDS device ID
  @param error What went wrong if we returned false
  */
-CFStringRef SOSCCRequestDeviceID(CFErrorRef* error);
+CFStringRef SOSCCCopyDeviceID(CFErrorRef* error);
 
 /*!
  @function SOSCCSetDeviceID
@@ -267,12 +269,23 @@ bool SOSCCResetToEmpty(CFErrorRef* error);
 
 /*!
  @function SOSCCRemoveThisDeviceFromCircle
- @abstract Removes the current device from the circle. 
+ @abstract Removes the current device from the circle.
  @param error What went wrong trying to remove ourselves.
  @result true if we posted the removal. False if there was an error.
  @discussion This removes us from the circle.
  */
 bool SOSCCRemoveThisDeviceFromCircle(CFErrorRef* error);
+
+/*!
+ @function SOSCCRemoveThisDeviceFromCircle
+ @abstract Removes a list of peers from the circle.
+ @param peerList List of peers to ensure aren't in the circle
+ @param error What went wrong trying to remove the peers.
+ @result true if we posted a circle with none of the peers listed as members, false if we had an error.
+ @discussion This removes peers in the list from the circle. One likely error is
+             that we don't have the user credentail (need to prompt for password)
+ */
+bool SOSCCRemovePeersFromCircle(CFArrayRef peerList, CFErrorRef* error);
 
 /*!
  @function SOSCCRemoveThisDeviceFromCircle
@@ -356,6 +369,14 @@ CFArrayRef SOSCCCopyNotValidPeerPeerInfo(CFErrorRef* error);
 CFArrayRef SOSCCCopyRetirementPeerInfo(CFErrorRef* error);
 
 /*!
+ @function SOSCCCopyViewUnawarePeerInfo
+ @abstract Copies all the peers who are in the circle but are unable to handle views.
+ @param error What went wrong.
+ @result   Array of peer infos.
+ */
+CFArrayRef SOSCCCopyViewUnawarePeerInfo(CFErrorRef* error);
+
+/*!
  @function SOSCCCopyEngineState
  @abstract Get the list of peers the engine knows about and their state.
  @param error What went wrong.
@@ -397,6 +418,15 @@ CFArrayRef SOSCCCopyPeerPeerInfo(CFErrorRef* error);
  @result true if the operation succeeded, otherwise false.
  */
 bool SOSCCSetAutoAcceptInfo(CFDataRef autoaccept, CFErrorRef *error);
+
+/*!
+ @function SOSCCCheckPeerAvailability
+ @abstract Prompts IDSKeychainSyncingProxy to query all devices in the circle with the same view.
+ @param error What went wrong.
+ @result true if the operation succeeded, otherwise false.
+ */
+bool SOSCCCheckPeerAvailability(CFErrorRef *error);
+
 
 /*!
  @function SOSCCGetLastDepartureReason
@@ -599,8 +629,29 @@ SOSPeerInfoRef SOSCCCopyMyPeerWithNewDeviceRecoverySecret(CFDataRef secret, CFEr
  @result true if we saved the bag, false if we had an error
  @discussion Asserts the keybag for use for backups when having a single secret. All views get backed up with this single bag.
  */
-bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool includeV0Backups, CFErrorRef *error);
+bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool forV0Only, CFErrorRef *error);
 
+
+/*!
+ @function SOSCCSetEscrowRecord
+ @param escrow_label Account label
+ @param tries Number of attempts
+ @param error What went wrong trying to set the escrow label
+ @result true if we saved the escrow record, false if we had an error
+ @discussion persist escrow records in the account object or the peer info
+ */
+bool SOSCCSetEscrowRecord(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
+
+/*!
+ @function SOSCCCopyEscrowRecord
+ @param dsid Account DSID
+ @param escrow_label Account label
+ @param error What went wrong trying to set the escrow label
+ @result dictionary of the escrow record, false if we had an error, dictionary will be of format: [account label: <dictionary>], dictionary will contain (ex):   "Burned Recovery Attempt Attestation Date" = "[2015-08-19 15:21]";
+                                     "Burned Recovery Attempt Count" = 8;
+ @discussion for debugging - retrieve the escrow record
+ */
+CFDictionaryRef SOSCCCopyEscrowRecord(CFErrorRef *error);
 
 __END_DECLS
 

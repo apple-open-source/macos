@@ -2,7 +2,7 @@
  *  si-81-sectrust-server-auth.c
  *  Security
  *
- *  Copyright (c) 2014 Apple Inc. All Rights Reserved.
+ *  Copyright (c) 2014-2015 Apple Inc. All Rights Reserved.
  *
  */
 
@@ -443,7 +443,7 @@ static void test_apple_corp_ca_policy()
     isnt(anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create anchors array");
     CFArrayAppendValue(anchors, cert2);
 
-    /* Case 1: SSL server */
+    /* Case 1: SSL server (expected to fail) */
     isnt(policy = SecPolicyCreateSSL(true, CFSTR("com.apple.ist.ds.appleconnect2.production.vpn.8F2B3ADCD72ED2EA08DDC26AD0255A983B1DEBEB")), NULL, "create policy");
     policies = CFArrayCreate(NULL, (const void **)&policy, 1, &kCFTypeArrayCallBacks);
     CFRelease(policy);
@@ -465,7 +465,7 @@ static void test_apple_corp_ca_policy()
     CFRelease(trust);
     trust = NULL;
 
-    /* Case 2: SSL client */
+    /* Case 2: SSL client (expected to pass) */
     isnt(policy = SecPolicyCreateSSL(false, NULL), NULL, "create policy");
     policies = CFArrayCreate(NULL, (const void **)&policy, 1, &kCFTypeArrayCallBacks);
     CFRelease(policy);
@@ -487,7 +487,7 @@ static void test_apple_corp_ca_policy()
     CFRelease(trust);
     trust = NULL;
 
-    /* Case 3: EAP */
+    /* Case 3: EAP server (expected to fail) */
     isnt(servers = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(servers, CFSTR("com.apple.ist.ds.appleconnect2.production.vpn.8F2B3ADCD72ED2EA08DDC26AD0255A983B1DEBEB"));
     isnt(policy = SecPolicyCreateEAP(true, servers), NULL, "create policy");
@@ -504,14 +504,38 @@ static void test_apple_corp_ca_policy()
     date = NULL;
     ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set anchors");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
-    ok(trustResult == kSecTrustResultUnspecified, "trustResult 4 expected (got %d)",
+    ok(trustResult == kSecTrustResultRecoverableTrustFailure, "trustResult 5 expected (got %d)",
        (int)trustResult);
     chainLen = SecTrustGetCertificateCount(trust);
     ok(chainLen == 3, "chain length 3 expected (got %d)", (int)chainLen);
     CFRelease(trust);
     trust = NULL;
 
-    /* Case 4: IPsec */
+	/* Case 4: EAP client (expected to pass) */
+	isnt(servers = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
+	CFArrayAppendValue(servers, CFSTR("com.apple.ist.ds.appleconnect2.production.vpn.8F2B3ADCD72ED2EA08DDC26AD0255A983B1DEBEB"));
+	isnt(policy = SecPolicyCreateEAP(false, servers), NULL, "create policy");
+	policies = CFArrayCreate(NULL, (const void **)&policy, 1, &kCFTypeArrayCallBacks);
+	CFRelease(policy);
+	policy = NULL;
+	ok_status(SecTrustCreateWithCertificates(certs, policies, &trust), "create trust");
+	CFRelease(policies);
+	policies = NULL;
+	isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2014, 7, 20, 12, 0, 0),
+		 NULL, "create verify date");
+	ok_status(SecTrustSetVerifyDate(trust, date), "set date");
+	CFReleaseSafe(date);
+	date = NULL;
+	ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set anchors");
+	ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
+	ok(trustResult == kSecTrustResultUnspecified, "trustResult 4 expected (got %d)",
+	   (int)trustResult);
+	chainLen = SecTrustGetCertificateCount(trust);
+	ok(chainLen == 3, "chain length 3 expected (got %d)", (int)chainLen);
+	CFRelease(trust);
+	trust = NULL;
+
+    /* Case 5: IPsec client (expected to pass) */
     isnt(policy = SecPolicyCreateIPSec(false, NULL), NULL, "create policy");
     policies = CFArrayCreate(NULL, (const void **)&policy, 1, &kCFTypeArrayCallBacks);
     CFRelease(policy);
@@ -549,7 +573,7 @@ static void tests(void)
 
 int si_81_sectrust_server_auth(int argc, char *const *argv)
 {
-	plan_tests(48);
+	plan_tests(57);
 
 	tests();
 

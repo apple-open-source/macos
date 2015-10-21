@@ -106,24 +106,28 @@ struct PLArenaPool {
         PLArena *_a = (pool)->current; \
         typeof((nb)) _nb = PL_ARENA_ALIGN(pool, nb); /* __APPLE__ more to be generic */ \
         PRUword _p = _a->avail; \
-        PRUword _q = _p + _nb; \
-        if (_nb > (_a->limit - _a->avail)) {/* __APPLE__ */ \
+        if (_nb < nb) {\
+            _p = 0; \
+        } else if (_nb > (_a->limit - _a->avail)) { \
             _p = (PRUword)PL_ArenaAllocate(pool, _nb); \
         } else { \
-            _a->avail = _q; \
+            _a->avail += _nb; \
         } \
         p = (void *)_p; \
+        if(p) { \
         PL_ArenaCountAllocation(pool, nb); \
+        } \
     PR_END_MACRO
 
 #define PL_ARENA_GROW(p, pool, size, incr) \
     PR_BEGIN_MACRO \
         PLArena *_a = (pool)->current; \
-        PRUword _p = _a->avail; \
         PRUword _q = (PRUword)p + size + incr;  /*__APPLE__ */ \
-        if (_p == (PRUword)(p) + PL_ARENA_ALIGN(pool, size) && \
-            _a->limit >= PL_ARENA_ALIGN(pool,_q)) { /* __APPLE__ */ \
-            _a->avail = PL_ARENA_ALIGN(pool, _q); /*__APPLE__ */ \
+        if ((p < p + size) && (_q > p) &&  (_q > p + size) && /*__APPLE__ avoid overflow in _q*/ \
+            _a->avail == (PRUword)(p) + PL_ARENA_ALIGN(pool, size) && \
+            _q <= PL_ARENA_ALIGN(pool,_q) && /*__APPLE__ avoid overflow from alignment*/ \
+            _a->limit >= PL_ARENA_ALIGN(pool,_q)) { /* __APPLE__ expanded buffer within arena*/ \
+            _a->avail = PL_ARENA_ALIGN(pool, _q); /*__APPLE__ expand buffer*/ \
             PL_ArenaCountInplaceGrowth(pool, size, incr); \
         } else { \
             p = PL_ArenaGrow(pool, p, size, incr); \

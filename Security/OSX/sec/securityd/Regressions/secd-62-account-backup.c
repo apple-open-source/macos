@@ -64,7 +64,7 @@ static CFDataRef CopyBackupKeyForString(CFStringRef string, CFErrorRef *error)
     return result;
 }
 
-static int kTestTestCount = 106;
+static int kTestTestCount = 114;
 #else
 static int kTestTestCount = 1;
 #endif
@@ -134,9 +134,6 @@ static void tests(void)
 
     is(SOSAccountUpdateView(bob_account, kTestView1, kSOSCCViewEnable, &error), kSOSCCViewMember, "Enable view (%@)", error);
     CFReleaseNull(error);
-
-SKIP: {
-    skip("Labotomzed Public Key setting", 73, ENABLE_V2_BACKUP); // When we disable, these don't work.
 
     ok(SOSAccountSetBackupPublicKey(alice_account, alice_backup_key, &error), "Set backup public key, alice (%@)", error);
     CFReleaseNull(error);
@@ -220,8 +217,13 @@ SKIP: {
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key should be in the backup");
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Alice is in the backup");
+    
+    ok(SOSAccountResetToEmpty(alice_account, &error), "Reset circle to empty");
+    CFReleaseNull(error);
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
+    ok(SOSAccountIsBackupRingEmpty(bob_account, kTestView1), "Bob should not be in the backup");
+    ok(SOSAccountIsBackupRingEmpty(alice_account, kTestView1), "Alice should not be in the backup");
 
-}
     CFReleaseNull(bob_account);
     CFReleaseNull(alice_account);
     CFReleaseNull(cfpassword);

@@ -36,6 +36,7 @@
 #include <copyfile.h>
 #include <sandbox.h>
 #include <set>
+#include <assert.h>
 
 #define kAtomicFileMaxBlockSize INT_MAX
 
@@ -389,7 +390,9 @@ AtomicBufferedFile::~AtomicBufferedFile()
 {
 	if (mFileRef >= 0)
 	{
-		AtomicFile::rclose(mFileRef);
+	  	// In release mode, the assert() is compiled out so rv may be unused.
+	        __unused int rv = AtomicFile::rclose(mFileRef);
+		assert(rv == 0);
 		secdebug("atomicfile", "%p closed %s", this, mPath.c_str());
 	}
 
@@ -440,6 +443,7 @@ AtomicBufferedFile::open()
 		int error = errno;
 		secdebug("atomicfile", "lseek(%s, END): %s", path, strerror(error));
 		AtomicFile::rclose(mFileRef);
+		mFileRef = -1;
 		UnixError::throwMe(error);
 	}
 
@@ -488,7 +492,10 @@ AtomicBufferedFile::loadBuffer()
 				{
 					int error = errno;
 					secdebug("atomicfile", "lseek(%s, END): %s", mPath.c_str(), strerror(error));
-					AtomicFile::rclose(mFileRef);
+					if (mFileRef >= 0) {
+					  	AtomicFile::rclose(mFileRef);
+						mFileRef = -1;
+					}
 					UnixError::throwMe(error);
 				}
 			}
@@ -507,7 +514,10 @@ AtomicBufferedFile::loadBuffer()
 		{
 			int error = errno;
 			secdebug("atomicfile", "lseek(%s, END): %s", mPath.c_str(), strerror(error));
-			AtomicFile::rclose(mFileRef);
+			if (mFileRef >= 0) {
+			  	AtomicFile::rclose(mFileRef);
+				mFileRef = -1;
+			}
 			UnixError::throwMe(error);
 		}
 	}

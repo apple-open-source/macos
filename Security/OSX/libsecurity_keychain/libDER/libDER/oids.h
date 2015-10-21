@@ -36,7 +36,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
+
 /*
  * Basic data types
  */
@@ -109,7 +109,7 @@ extern const DERItem
     oidNetscapeCertType,
     oidEntrustVersInfo,
     oidMSNTPrincipalName;
-    
+
 /* Policy Qualifier IDs for Internet policy qualifiers. */
 extern const DERItem
     oidQtCps,

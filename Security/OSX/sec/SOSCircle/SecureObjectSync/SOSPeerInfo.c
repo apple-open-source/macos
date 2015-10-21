@@ -314,6 +314,7 @@ SOSPeerInfoRef SOSPeerInfoCreateCopy(CFAllocatorRef allocator, SOSPeerInfoRef to
     return pi;
 }
 
+
 bool SOSPeerInfoVersionIsCurrent(SOSPeerInfoRef pi) {
     return pi->version >= PEERINFO_CURRENT_VERSION;
 }
@@ -374,6 +375,7 @@ fail:
 SOSPeerInfoRef SOSPeerInfoCopyWithGestaltUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDictionaryRef gestalt, SecKeyRef signingKey, CFErrorRef* error) {
     return SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
                                            ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
+        if(!gestalt || !peerToModify) return false;
         CFRetainAssign(peerToModify->gestalt, gestalt);
         CFDictionarySetValue(peerToModify->description, sGestaltKey, peerToModify->gestalt);
         return true;
@@ -393,8 +395,52 @@ SOSPeerInfoRef SOSPeerInfoCopyWithBackupKeyUpdate(CFAllocatorRef allocator, SOSP
     });
 }
 
+static CFDictionaryRef SOSPeerInfoUpdateAndCopyRecord(SOSPeerInfoRef peer, CFStringRef dsid, CFDictionaryRef escrowRecord){
+   
+    CFMutableDictionaryRef existingEscrowRecords = SOSPeerInfoCopyEscrowRecord(peer);
+    
+    if(escrowRecord == NULL && existingEscrowRecords != NULL)
+    {
+        CFDictionaryRemoveValue(existingEscrowRecords, dsid);
+        return existingEscrowRecords;
+    }
+    
+    if(existingEscrowRecords == NULL)
+        existingEscrowRecords = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    
+    CFDictionarySetValue(existingEscrowRecords, dsid, escrowRecord);
+    
+    return existingEscrowRecords;
+}
+
+
+SOSPeerInfoRef SOSPeerInfoCopyWithEscrowRecordUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFStringRef dsid, CFDictionaryRef escrowRecord, SecKeyRef signingKey, CFErrorRef *error) {
+    return SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
+                                           ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
+                                               
+            CFDictionaryRef updatedEscrowRecords = SOSPeerInfoUpdateAndCopyRecord(peerToModify, dsid, escrowRecord);
+            SOSPeerInfoV2DictionarySetValue(peerToModify, sEscrowRecord, updatedEscrowRecords);
+            CFReleaseNull(updatedEscrowRecords);
+            return true;
+    });
+}
+
+SOSPeerInfoRef SOSPeerInfoCopyWithReplacedEscrowRecords(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDictionaryRef escrowRecords, SecKeyRef signingKey, CFErrorRef *error) {
+    return SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
+                                           ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
+            if(escrowRecords != NULL)
+                SOSPeerInfoV2DictionarySetValue(peerToModify, sEscrowRecord, escrowRecords);
+            
+            return true;
+    });
+}
+
 CFDataRef SOSPeerInfoCopyBackupKey(SOSPeerInfoRef peer) {
     return SOSPeerInfoV2DictionaryCopyData(peer, sBackupKeyKey);
+}
+
+CFMutableDictionaryRef SOSPeerInfoCopyEscrowRecord(SOSPeerInfoRef peer){
+    return SOSPeerInfoV2DictionaryCopyDictionary(peer, sEscrowRecord);
 }
 
 bool SOSPeerInfoHasBackupKey(SOSPeerInfoRef peer) {
@@ -435,8 +481,8 @@ SOSPeerInfoRef SOSPeerInfoCopyWithPing(CFAllocatorRef allocator, SOSPeerInfoRef 
     pi->id = SOSCopyIDOfKey(pub_key, error);
     require_quiet(pi->id, exit);
     require_action_quiet(SOSPeerInfoSign(signingKey, pi, error), exit, CFReleaseNull(pi));
-    
 exit:
+    CFReleaseNull(ping);
     CFReleaseNull(pub_key);
     return pi;
 }
@@ -678,6 +724,7 @@ static bool sospeer_application_hash(SOSPeerInfoRef pi, const struct ccdigest_in
 SOSPeerInfoRef SOSPeerInfoCopyAsApplication(SOSPeerInfoRef original, SecKeyRef userkey, SecKeyRef peerkey, CFErrorRef *error) {
     SOSPeerInfoRef result = NULL;
     SOSPeerInfoRef pi = SOSPeerInfoCreateCopy(kCFAllocatorDefault, original, error);
+    
     const struct ccdigest_info *di = ccsha256_di();
     uint8_t hbuf[di->output_size];
     CFDataRef usersig = NULL;

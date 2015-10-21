@@ -228,6 +228,22 @@ static void dumpCircleInfo()
     CFReleaseNull(confirmedDigests);
 }
 
+static bool enableDefaultViews()
+{
+    bool result = false;
+    CFMutableSetRef viewsToEnable = CFSetCreateMutable(NULL, 0, NULL);
+    CFMutableSetRef viewsToDisable = CFSetCreateMutable(NULL, 0, NULL);
+    CFSetAddValue(viewsToEnable, (void*)kSOSViewWiFi);
+    CFSetAddValue(viewsToEnable, (void*)kSOSViewAutofillPasswords);
+    CFSetAddValue(viewsToEnable, (void*)kSOSViewSafariCreditCards);
+    CFSetAddValue(viewsToEnable, (void*)kSOSViewOtherSyncable);
+    
+    result = SOSCCViewSet(viewsToEnable, viewsToDisable);
+    CFRelease(viewsToEnable);
+    CFRelease(viewsToDisable);
+    return result;
+}
+
 static bool requestToJoinCircle(CFErrorRef *error)
 {
     // Set the visual state of switch based on membership in circle
@@ -238,9 +254,11 @@ static bool requestToJoinCircle(CFErrorRef *error)
     {
     case kSOSCCCircleAbsent:
         hadError = !SOSCCResetToOffering(error);
+        hadError &= enableDefaultViews();
         break;
     case kSOSCCNotInCircle:
         hadError = !SOSCCRequestToJoinCircle(error);
+        hadError &= enableDefaultViews();
         break;
     default:
         printerr(CFSTR("Request to join circle with bad status:  %@ (%d)\n"), SOSCCGetStatusDescription(ccstatus), ccstatus);
@@ -943,6 +961,8 @@ keychain_sync(int argc, char * const *argv)
 	 "    -O     reset to offering"
 	 "    -R     reset circle"
 	 "    -X     [limit]  best effort bail from circle in limit seconds"
+     "    -o     list view unaware peers in circle"
+     "    -0     boot view unaware peers from circle"
 	 "
 	 "IDS"
 	 "    -g     set IDS device id"
@@ -970,12 +990,16 @@ keychain_sync(int argc, char * const *argv)
 	 "             propertynames are: hasentropy|screenlock|SEP|IOS\n"
 	 "    -U     purge private key material cache\n"
      "    -V     Report View Sync Status on all known clients.\n"
+     "    -H     Set escrow record.\n"
+     "    -J     Get the escrow record.\n"
+     "    -M     Check peer availability.\n"
+
      */
 	int ch, result = 0;
     CFErrorRef error = NULL;
     bool hadError = false;
     
-    while ((ch = getopt(argc, argv, "ab:deg:hikl:mpq:rsv:w:x:zA:B:CDEF:G:ILOP:RT:UW:X:VY")) != -1)
+    while ((ch = getopt(argc, argv, "ab:deg:hikl:mopq:rsv:w:x:zA:B:MNJCDEF:HG:ILOP:RT:UW:X:VY0")) != -1)
         switch  (ch) {
 		case 'l':
 		{
@@ -1016,7 +1040,7 @@ keychain_sync(int argc, char * const *argv)
 		case 'p':
 		{
 			printf("Grabbing DS ID\n");
-			CFStringRef deviceID = SOSCCRequestDeviceID(&error);
+			CFStringRef deviceID = SOSCCCopyDeviceID(&error);
 			if (error) {
 				hadError = true;
 				break;
@@ -1027,8 +1051,8 @@ keychain_sync(int argc, char * const *argv)
 					printf("IDS Device ID: %s\n", id);
 				else
 					printf("IDS Device ID is null!\n");
-				CFRelease(deviceID);
 			}
+            CFReleaseNull(deviceID);
 			break;
 		}
 			
@@ -1116,7 +1140,24 @@ keychain_sync(int argc, char * const *argv)
 		case 'k':
 			notify_post("com.apple.security.cloudkeychain.forceupdate");
 			break;
-			
+
+        case 'o':
+        {
+            printPeerInfos("view-unaware", ^(CFErrorRef *error) { return SOSCCCopyViewUnawarePeerInfo(error); });
+            break;
+        }
+
+        case '0':
+        {
+            CFArrayRef unawares = SOSCCCopyViewUnawarePeerInfo(&error);
+            if (unawares) {
+                hadError = !SOSCCRemovePeersFromCircle(unawares, &error);
+            } else {
+                hadError = true;
+            }
+            CFReleaseNull(unawares);
+        }
+
 		case 's':
 		#if TARGET_OS_EMBEDDED
 			SOSCloudKeychainRequestSyncWithAllPeers(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
@@ -1168,6 +1209,61 @@ keychain_sync(int argc, char * const *argv)
 			hadError = SOSCCEnableRing(ringName, &error);
 			break;
 		}
+        case 'H':
+        {
+            printf("Setting random escrow record\n");
+            bool success = SOSCCSetEscrowRecord(CFSTR("label"), 8, &error);
+            if(success)
+                hadError = false;
+            else
+                hadError = true;
+            break;
+        }
+        case 'J':
+        {
+            CFDictionaryRef attempts = SOSCCCopyEscrowRecord(&error);
+            if(attempts){
+                CFDictionaryForEach(attempts, ^(const void *key, const void *value) {
+                    if(isString(key)){
+                        char *keyString = CFStringToCString(key);
+                        printf("%s:\n", keyString);
+                        free(keyString);
+                    }
+                    if(isDictionary(value)){
+                        CFDictionaryForEach(value, ^(const void *key, const void *value) {
+                            if(isString(key)){
+                                char *keyString = CFStringToCString(key);
+                                printf("%s: ", keyString);
+                                free(keyString);
+                            }
+                            if(isString(value)){
+                                char *time = CFStringToCString(value);
+                                printf("timestamp: %s\n", time);
+                                free(time);
+                            }
+                            else if(isNumber(value)){
+                                uint64_t tries;
+                                CFNumberGetValue(value, kCFNumberLongLongType, &tries);
+                                printf("date: %llu\n", tries);
+                            }
+                        });
+                    }
+                  
+               });
+            }
+            CFReleaseNull(attempts);
+            hadError = false;
+            break;
+        }
+        case 'M':
+        {
+            bool success = SOSCCCheckPeerAvailability(&error);
+            if(success)
+                hadError = false;
+            else
+                hadError = true;
+            break;
+        }
 		case 'I':
 		{
 			printf("Printing all the rings\n");
@@ -1251,7 +1347,7 @@ keychain_sync(int argc, char * const *argv)
         case 'Y':
             hadError = dumpYetToSync(&error);
             break;
-
+                
 		case '?':
 		default:
 			return 2; /* Return 2 triggers usage message. */

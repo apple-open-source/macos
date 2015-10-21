@@ -55,8 +55,9 @@ extern "C" {
 	@constant kSecPolicyApplePPQSigning
 	@constant kSecPolicyAppleTestPPQSigning
 	@constant kSecPolicyAppleSWUpdateSigning
-    @constant kSecPolicyAppleATVAppSigning
-    @constant kSecPolicyAppleTestATVAppSigning
+	@constant kSecPolicyAppleATVAppSigning
+	@constant kSecPolicyAppleTestATVAppSigning
+	@constant kSecPolicyAppleOSXProvisioningProfileSigning
 
 */
 extern const CFStringRef kSecPolicyAppleMobileStore
@@ -94,6 +95,8 @@ extern const CFStringRef kSecPolicyAppleSWUpdateSigning
 extern const CFStringRef kSecPolicyAppleATVAppSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecPolicyAppleTestATVAppSigning
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+extern const CFStringRef kSecPolicyAppleOSXProvisioningProfileSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
 /*!
@@ -211,7 +214,7 @@ SecPolicyRef SecPolicyCreateAppleATVAppSigning(void)
  */
 SecPolicyRef SecPolicyCreateTestAppleATVAppSigning(void)
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
-    
+
 /*!
  @function SecPolicyCreateApplePayIssuerEncryption
  @abstract Check for intermediate certificate 'Apple Worldwide Developer Relations CA - G2' by name,
@@ -220,6 +223,15 @@ SecPolicyRef SecPolicyCreateTestAppleATVAppSigning(void)
  Leaf cert must have Apple Pay Issuer Encryption marker OID (1.2.840.113635.100.6.39).
  */
 SecPolicyRef SecPolicyCreateApplePayIssuerEncryption(void)
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+
+/*!
+ @function SecPolicyCreateOSXProvisioningProfileSigning
+ @abstract Check for leaf marker OID 1.2.840.113635.100.4.11,
+	 intermediate marker OID 1.2.840.113635.100.6.2.1,
+	 chains to Apple Root CA
+*/
+SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void)
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
 #if defined(__cplusplus)

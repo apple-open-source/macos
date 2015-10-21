@@ -112,13 +112,15 @@ bool SOSManifestDiff(SOSManifestRef a, SOSManifestRef b,
     if (SOSManifestGetCount(a) == 0) {
         //secnotice("manifest", "diff = b");
         SOSManifestRef empty = SOSManifestCreateWithBytes(NULL, 0, error);
-        if (a_minus_b) *a_minus_b = empty;
+        if (a_minus_b) CFRetainAssign(*a_minus_b, empty);
         if (b_minus_a) *b_minus_a = CFRetainSafe(b ? b : empty);
+        CFReleaseNull(empty);
     } else if (SOSManifestGetCount(b) == 0) {
         //secnotice("manifest", "diff = a");
         SOSManifestRef empty = SOSManifestCreateWithBytes(NULL, 0, error);
         if (a_minus_b) *a_minus_b = CFRetainSafe(a ? a : empty);
-        if (b_minus_a) *b_minus_a = empty;
+        if (b_minus_a) CFRetainAssign(*b_minus_a, empty);
+        CFReleaseNull(empty);
     } else {
         struct SOSDigestVector dvab = SOSDigestVectorInit, dvba = SOSDigestVectorInit;
         SOSDigestVectorDiffSorted(SOSManifestGetDigestVector(a), SOSManifestGetDigestVector(b), &dvab, &dvba);

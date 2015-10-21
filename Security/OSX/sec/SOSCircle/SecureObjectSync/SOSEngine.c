@@ -98,6 +98,8 @@ struct __OpaqueSOSEngine {
 
     dispatch_queue_t queue;                     // Engine queue
 
+    dispatch_source_t save_timer;               // Engine state save timer
+
     dispatch_queue_t syncCompleteQueue;             // Non-retained queue for async notificaion
     CFMutableDictionaryRef syncCompleteListeners;   // Map from PeerID->notification block
 };
@@ -411,11 +413,61 @@ static CFDataRef SOSEngineCopyState(SOSEngineRef engine, CFErrorRef *error) {
     return der;
 }
 
-static bool SOSEngineSave(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error) {
+static bool SOSEngineDoSave(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error) {
     CFDataRef derState = SOSEngineCopyState(engine, error);
     bool ok = derState && SOSDataSourceSetStateWithKey(engine->dataSource, txn, kSOSEngineState, kSecAttrAccessibleAlways, derState, error);
     CFReleaseSafe(derState);
     return ok;
+}
+
+#define SOSENGINE_SAVE_TIMEOUT  (NSEC_PER_MSEC * 500ull)
+#define SOSENGINE_SAVE_LEEWAY  (NSEC_PER_MSEC * 500ull)
+#define SOSENGINE_SAVE_MAX_DELAY  (NSEC_PER_MSEC * 500ull)
+
+#if !(TARGET_IPHONE_SIMULATOR)
+static void SOSEngineShouldSave(SOSEngineRef engine) {
+    if (engine->save_timer) {
+        // Possibly defer timer further up to engine->save_deadline
+        return;
+    }
+
+    // Schedule the timer to fire on a concurrent queue, so we can follow
+    // the proper procedure of aquiring a dataSource and then engine queues.
+    engine->save_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
+    dispatch_source_set_event_handler(engine->save_timer, ^{
+        CFErrorRef dsWithError = NULL;
+        if (!SOSDataSourceWith(engine->dataSource, &dsWithError, ^(SOSTransactionRef txn, bool *commit) {
+            dispatch_sync(engine->queue, ^{
+                CFErrorRef saveError = NULL;
+                if (!SOSEngineDoSave(engine, txn, &saveError)) {
+                    secerrorq("Failed to save engine state: %@", saveError);
+                    CFReleaseNull(saveError);
+                }
+            });
+        })) {
+            secerrorq("Failed to open dataSource to save engine state: %@", dsWithError);
+            CFReleaseNull(dsWithError);
+        }
+        xpc_transaction_end();
+    });
+    // Set the timer's fire time to now + SOSENGINE_SAVE_TIMEOUT seconds with a SOSENGINE_SAVE_LEEWAY fuzz factor.
+    dispatch_source_set_timer(engine->save_timer,
+                              dispatch_time(DISPATCH_TIME_NOW, SOSENGINE_SAVE_TIMEOUT),
+                              DISPATCH_TIME_FOREVER, SOSENGINE_SAVE_LEEWAY);
+    // Start a trasaction, then start the timer, the handler for the timer will end
+    // the transaction.
+    xpc_transaction_begin();
+    dispatch_resume(engine->save_timer);
+}
+#endif
+
+static bool SOSEngineSave(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error) {
+#if (TARGET_IPHONE_SIMULATOR)
+    return SOSEngineDoSave(engine, txn, error);
+#else
+    SOSEngineShouldSave(engine);
+#endif
+    return true;
 }
 
 static SOSManifestRef SOSEngineCreateManifestWithViewNameSet_locked(SOSEngineRef engine, CFSetRef viewNameSet, CFErrorRef *error) {
@@ -1082,8 +1134,17 @@ static void SOSEngineCloudKeychainTrace(SOSEngineRef engine, CFAbsoluteTime now)
         manifest = SOSDataSourceCopyManifestWithViewNameSet(engine->dataSource, SOSViewsGetV0ViewSet(), NULL);
     size_t num_items = SOSManifestGetCount(manifest);
     CFReleaseSafe(manifest);
+
+    struct _SecServerKeyStats genpStats = { };
+    struct _SecServerKeyStats inetStats = { };
+    struct _SecServerKeyStats keysStats = { };
+
+    _SecServerGetKeyStats(&genp_class, &genpStats);
+    _SecServerGetKeyStats(&inet_class, &inetStats);
+    _SecServerGetKeyStats(&keys_class, &keysStats);
+
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        CloudKeychainTrace(num_peers, num_items);
+        CloudKeychainTrace(num_peers, num_items, &genpStats, &inetStats, &keysStats);
     });
 }
 #endif
@@ -1419,8 +1480,8 @@ bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSM
     }
 
 exit:
-    secinfo("engine", "recv %@:%@ %@", engine->myID, SOSPeerGetID(peer), message);
-    secinfo("peer", "recv %@ -> %@", peerDesc, peer);
+    secnotice("engine", "recv %@:%@ %@", engine->myID, SOSPeerGetID(peer), message);
+    secnotice("peer", "recv %@ -> %@", peerDesc, peer);
 
     CFReleaseNull(base);
     CFReleaseSafe(confirmed);
@@ -1730,10 +1791,14 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSPeerRef peer,
         if (SOSManifestGetCount(pendingObjects) == 0 && SOSManifestGetCount(extra) == 0)
             SOSPeerSetSendObjects(peer, false);
 
+        // If we aren't missing anything, we've gotten all their data, so we're sync even if they haven't seen ours.
+        if (missing && SOSManifestGetCount(missing) == 0) {
+            SOSEngineCompletedSyncWithPeer(engine, peer);
+        }
+
         if (CFEqualSafe(local, SOSPeerGetProposedManifest(peer)) && !SOSPeerMustSendMessage(peer)) {
             bool send = false;
             if (CFEqual(confirmed, local)) {
-                SOSEngineCompletedSyncWithPeer(engine, peer);
                 secnoticeq("engine", "synced <No MSG> %@:%@", engine->myID,  peer);
             } else if (SOSManifestGetCount(pendingObjects) == 0 /* TODO: No entries moved from extra to pendingObjects. */
                        && SOSManifestGetCount(missing) == 0) {

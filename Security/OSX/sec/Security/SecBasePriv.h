@@ -124,6 +124,7 @@ enum
     errSecIDSNotRegistered       = -25333,  /* IDS is not set up or devices are not registered/available within an IDS account. */
     errSecFailedToSendIDSMessage = -25334,  /* Failed to send IDS message. */
     errSecDeviceIDNoMatch        = -25335,  /* The provided device ID does not match any device IDs in the ids account. */
+    errSecPeersNotAvailable      = -25336,  /* No peers in the circle are available/online. */
 
 };
 

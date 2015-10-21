@@ -460,6 +460,13 @@ representation is implied */
 #define APPLE_EXTENSION_ESCROW_SERVICE_LENGTH          APPLE_EXTENSION_OID_LENGTH + 2
 
 /*
+ * Apple OS X Provisioning Profile Signing Marker
+ * (note this is unfortunately under the EKU arc although it's used as a cert extension)
+ */
+#define APPLE_EXTENSION_PROVISIONING_PROFILE_SIGNING           APPLE_EKU_OID, 11
+#define APPLE_EXTENSION_PROVISIONING_PROFILE_SIGNING_LENGTH    APPLE_EKU_OID_LENGTH + 1
+
+/*
  * Marker for the AppleID Sharing Certificate
  * appleID OBJECT IDENTIFIER ::=
  *		{ appleExtendedKeyUsage 7}

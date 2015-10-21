@@ -247,12 +247,16 @@ static bool SOSBackupSliceKeyBagCreateBackupBag(SOSBackupSliceKeyBagRef vb, CFEr
 
     // Choose a random key.
     PerformWithBufferAndClear(kAKSBagSecretLength, ^(size_t size, uint8_t *buffer) {
-        SecRandomCopyBytes(kSecRandomDefault, size, buffer);
-        CFDataRef secret = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, buffer, size, kCFAllocatorNull);
+        CFDataRef secret = NULL;
+
+        require_quiet(SecError(SecRandomCopyBytes(kSecRandomDefault, size, buffer), error, CFSTR("SecRandom falied!")), fail);
+
+        secret = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, buffer, size, kCFAllocatorNull);
 
         CFAssignRetained(vb->wrapped_keys, SOSBackupSliceKeyBagCopyWrappedKeys(vb, secret, error));
         CFAssignRetained(vb->aks_bag, SecAKSCopyBackupBagWithSecret(size, buffer, error));
 
+    fail:
         CFReleaseSafe(secret);
     });
 

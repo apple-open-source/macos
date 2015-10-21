@@ -2,8 +2,7 @@
 //  PSAssetConstants.c
 //  CertificateTool
 //
-//  Created by James Murphy on 1/10/13.
-//  Copyright (c) 2013 James Murphy. All rights reserved.
+//  Copyright (c) 2013-2015 Apple Inc. All Rights Reserved.
 //
 
 #include "PSAssetConstants.h"

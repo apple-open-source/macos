@@ -75,14 +75,18 @@ typedef struct {
 	iSignExtenInfo		inhibitAnyPolicy;
 	iSignExtenInfo		certificatePolicies;
 
+	/* flag indicating presence of CSSMOID_APPLE_EXTENSION_PROVISIONING_PROFILE_SIGNING */
+	CSSM_BOOL			foundProvisioningProfileSigningMarker;
 	/* flag indicating presence of CSSMOID_APPLE_EXTENSION_PASSBOOK_SIGNING */
-	CSSM_BOOL			foundPassbookSigning;
+	CSSM_BOOL			foundPassbookSigningMarker;
 	/* flag indicating presence of CSSMOID_APPLE_EXTENSION_SYSINT2_INTERMEDIATE */
 	CSSM_BOOL			foundAppleSysInt2Marker;
 	/* flag indicating presence of CSSMOID_APPLE_EXTENSION_SERVER_AUTHENTICATION */
 	CSSM_BOOL			foundAppleServerAuthMarker;
 	/* flag indicating presence of CSSMOID_APPLE_EXTENSION_ESCROW_SERVICE */
 	CSSM_BOOL			foundEscrowServiceMarker;
+	/* flag indicating presence of CSSMOID_APPLE_EXTENSION_WWDR_INTERMEDIATE */
+	CSSM_BOOL			foundAppleWWDRIntMarker;
 	/* flag indicating presence of a critical extension we don't understand */
 	CSSM_BOOL			foundUnknownCritical;
 	/* flag indicating that this certificate was signed with a known-broken algorithm */
@@ -254,8 +258,10 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 	CSSM_HANDLE		searchHand = CSSM_INVALID_HANDLE;
 	uint32 			numFields = 0;
 
-	certInfo->foundPassbookSigning = CSSM_FALSE;
+	certInfo->foundProvisioningProfileSigningMarker = CSSM_FALSE;
+	certInfo->foundPassbookSigningMarker = CSSM_FALSE;
 	certInfo->foundAppleSysInt2Marker = CSSM_FALSE;
+	certInfo->foundAppleWWDRIntMarker = CSSM_FALSE;
 	certInfo->foundEscrowServiceMarker = CSSM_FALSE;
 
 	crtn = CSSM_CL_CertGetFirstCachedFieldValue(tpCert->clHand(),
@@ -285,7 +291,7 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 		!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_PASSBOOK_SIGNING.Data,
 		APPLE_EXTENSION_CODE_SIGNING_LENGTH+1)) {
 		/* this is the Passbook Signing extension */
-		certInfo->foundPassbookSigning = CSSM_TRUE;
+		certInfo->foundPassbookSigningMarker = CSSM_TRUE;
 	}
 	if (cssmExt->extnId.Length == APPLE_EXTENSION_SYSINT2_INTERMEDIATE_LENGTH &&
 		!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_SYSINT2_INTERMEDIATE.Data,
@@ -298,6 +304,18 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 		 APPLE_EXTENSION_ESCROW_SERVICE_LENGTH)) {
 		/* this is the Escrow Service Signing extension */
 		certInfo->foundEscrowServiceMarker = CSSM_TRUE;
+	}
+	if (cssmExt->extnId.Length == APPLE_EXTENSION_PROVISIONING_PROFILE_SIGNING_LENGTH &&
+		!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_PROVISIONING_PROFILE_SIGNING.Data,
+		 APPLE_EXTENSION_PROVISIONING_PROFILE_SIGNING_LENGTH)) {
+		/* this is the Provisioning Profile Signing extension */
+		certInfo->foundProvisioningProfileSigningMarker = CSSM_TRUE;
+	}
+	if (cssmExt->extnId.Length == APPLE_EXTENSION_WWDR_INTERMEDIATE_LENGTH &&
+		!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_WWDR_INTERMEDIATE.Data,
+		 APPLE_EXTENSION_WWDR_INTERMEDIATE_LENGTH)) {
+		/* this is the Apple WWDR extension */
+		certInfo->foundAppleWWDRIntMarker = CSSM_TRUE;
 	}
 
 	if(iSignVerifyCriticalExtension(cssmExt) != CSSM_OK) {
@@ -333,7 +351,7 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 				!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_PASSBOOK_SIGNING.Data,
 					APPLE_EXTENSION_CODE_SIGNING_LENGTH+1)) {
 			/* this is the Passbook Signing extension */
-			certInfo->foundPassbookSigning = CSSM_TRUE;
+			certInfo->foundPassbookSigningMarker = CSSM_TRUE;
 		}
 		if (cssmExt->extnId.Length == APPLE_EXTENSION_SYSINT2_INTERMEDIATE_LENGTH &&
 				!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_SYSINT2_INTERMEDIATE.Data,
@@ -352,6 +370,18 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 					APPLE_EXTENSION_ESCROW_SERVICE_LENGTH)) {
 			/* this is the Escrow Service Signing extension */
 			certInfo->foundEscrowServiceMarker = CSSM_TRUE;
+		}
+		if (cssmExt->extnId.Length == APPLE_EXTENSION_PROVISIONING_PROFILE_SIGNING_LENGTH &&
+				!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_PROVISIONING_PROFILE_SIGNING.Data,
+					APPLE_EXTENSION_PROVISIONING_PROFILE_SIGNING_LENGTH)) {
+			/* this is the Provisioning Profile Signing extension */
+			certInfo->foundProvisioningProfileSigningMarker = CSSM_TRUE;
+		}
+		if (cssmExt->extnId.Length == APPLE_EXTENSION_WWDR_INTERMEDIATE_LENGTH &&
+				!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_WWDR_INTERMEDIATE.Data,
+					APPLE_EXTENSION_WWDR_INTERMEDIATE_LENGTH)) {
+			/* this is the Apple WWDR extension */
+			certInfo->foundAppleWWDRIntMarker = CSSM_TRUE;
 		}
 
 		if(iSignVerifyCriticalExtension(cssmExt) != CSSM_OK) {
@@ -2336,7 +2366,7 @@ static CSSM_RETURN tp_verifyPassbookSigningOpts(TPCertGroup &certGroup,
 	}
 
 	/* Check that Passbook Signing marker extension is present */
-	if (!(isCertInfo->foundPassbookSigning == CSSM_TRUE)) {
+	if (!(isCertInfo->foundPassbookSigningMarker == CSSM_TRUE)) {
 		tpPolicyError("tp_verifyPassbookSigningOpts: no Passbook Signing extension in leaf");
 		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
 		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
@@ -2571,6 +2601,68 @@ static CSSM_RETURN tp_verifyPCSEscrowServiceSigningOpts(TPCertGroup &certGroup,
 											 const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
 {
 	return tp_verifyEscrowServiceCommon(certGroup, fieldOpts, certInfo, kSecCertificateProductionPCSEscrowRoot);
+}
+
+/*
+ * Verify Provisioning Profile Signing policy options.
+ *
+ * -- Do basic cert validation (OCSP-based certs)
+ * -- Chains to the Apple root CA
+ * -- Leaf has Provisioning Profile marker OID (1.2.840.113635.100.4.11)
+ * -- Intermediate has WWDR marker OID (1.2.840.113635.100.6.2.1)
+ */
+static CSSM_RETURN tp_verifyProvisioningProfileSigningOpts(TPCertGroup &certGroup,
+											 const CSSM_DATA *fieldOpts,
+											 const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
+{
+	unsigned numCerts = certGroup.numCerts();
+	const iSignCertInfo *isCertInfo;
+	TPCertInfo *tpCert;
+	CSSM_RETURN crtn = CSSM_OK;
+
+	isCertInfo = &certInfo[0];
+	tpCert = certGroup.certAtIndex(0);
+
+	/* Check that cert chain is anchored by the Apple Root CA */
+	if (numCerts < 3) {
+		tpPolicyError("tp_verifyProvisioningProfileSigningOpts: numCerts %u", numCerts);
+		crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+		goto cleanup;
+	}
+	else {
+		tpCert = certGroup.certAtIndex(numCerts-1);
+		const CSSM_DATA *certData = tpCert->itemData();
+		unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+		CC_SHA1(certData->Data, (CC_LONG)certData->Length, digest);
+		if (memcmp(digest, kAppleCASHA1, sizeof(digest))) {
+			tpPolicyError("tp_verifyProvisioningProfileSigningOpts: invalid anchor for policy");
+			tpCert->addStatusCode(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH);
+			crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+			goto cleanup;
+		}
+	}
+
+	/* Check that Provisioning Profile Signing marker extension is present */
+	if (!(isCertInfo->foundProvisioningProfileSigningMarker == CSSM_TRUE)) {
+		tpPolicyError("tp_verifyProvisioningProfileSigningOpts: no Provisioning Profile Signing extension in leaf");
+		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
+		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+		goto cleanup;
+	}
+
+	/* Check that Apple WWDR marker extension is present in intermediate */
+	isCertInfo = &certInfo[1];
+	tpCert = certGroup.certAtIndex(1);
+	if (!(isCertInfo->foundAppleWWDRIntMarker == CSSM_TRUE)) {
+		tpPolicyError("tp_verifyProvisioningProfileSigningOpts: intermediate marker extension not found");
+		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
+		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+		goto cleanup;
+	}
+
+cleanup:
+	return crtn;
+
 }
 
 /*
@@ -3258,6 +3350,9 @@ CSSM_RETURN tp_policyVerify(
 			break;
 		case kTP_PCSEscrowService:
 			policyError = tp_verifyPCSEscrowServiceSigningOpts(*certGroup, policyFieldData, certInfo);
+			break;
+		case kTP_ProvisioningProfileSigning:
+			policyError = tp_verifyProvisioningProfileSigningOpts(*certGroup, policyFieldData, certInfo);
 			break;
 		case kTPx509Basic:
 		case kTPiSign:

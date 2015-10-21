@@ -1,6 +1,6 @@
---- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2014-12-04 15:17:47.000000000 -0800
-+++ icuSources/data/unidata/DerivedCoreProperties.txt	2014-12-04 16:42:12.000000000 -0800
-@@ -162,6 +162,9 @@
+--- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2015-08-20 23:10:07.000000000 -0700
++++ icuSources/data/unidata/DerivedCoreProperties.txt	2015-08-20 23:10:53.000000000 -0700
+@@ -163,6 +163,9 @@
  29FE..2AFF    ; Math
  2B30..2B44    ; Math
  2B47..2B4C    ; Math
@@ -10,7 +10,7 @@
  FB29          ; Math
  FE61          ; Math
  FE62          ; Math
-@@ -252,7 +255,7 @@
+@@ -253,7 +256,7 @@
  1EEAB..1EEBB  ; Math
  1EEF0..1EEF1  ; Math
  
@@ -19,7 +19,7 @@
  
  # ================================================
  
-@@ -902,6 +905,11 @@
+@@ -903,6 +906,11 @@
  AC00..D7A3    ; Alphabetic
  D7B0..D7C6    ; Alphabetic
  D7CB..D7FB    ; Alphabetic
@@ -31,7 +31,7 @@
  F900..FA6D    ; Alphabetic
  FA70..FAD9    ; Alphabetic
  FB00..FB06    ; Alphabetic
-@@ -1168,7 +1176,7 @@
+@@ -1169,7 +1177,7 @@
  2B740..2B81D  ; Alphabetic
  2F800..2FA1D  ; Alphabetic
  
@@ -40,7 +40,7 @@
  
  # ================================================
  
-@@ -2913,6 +2921,10 @@
+@@ -2914,6 +2922,10 @@
  ABE5          ; Case_Ignorable
  ABE8          ; Case_Ignorable
  ABED          ; Case_Ignorable
@@ -51,7 +51,7 @@
  FB1E          ; Case_Ignorable
  FBB2..FBC1    ; Case_Ignorable
  FE00..FE0F    ; Case_Ignorable
-@@ -2993,7 +3005,7 @@
+@@ -2994,7 +3006,7 @@
  E0020..E007F  ; Case_Ignorable
  E0100..E01EF  ; Case_Ignorable
  
@@ -60,7 +60,7 @@
  
  # ================================================
  
-@@ -9195,6 +9207,9 @@
+@@ -9196,6 +9208,9 @@
  ABE5          ; Grapheme_Extend
  ABE8          ; Grapheme_Extend
  ABED          ; Grapheme_Extend
@@ -70,7 +70,7 @@
  FB1E          ; Grapheme_Extend
  FE00..FE0F    ; Grapheme_Extend
  FE20..FE2D    ; Grapheme_Extend
-@@ -9262,7 +9277,7 @@
+@@ -9263,7 +9278,7 @@
  1E8D0..1E8D6  ; Grapheme_Extend
  E0100..E01EF  ; Grapheme_Extend
  
@@ -79,7 +79,7 @@
  
  # ================================================
  
-@@ -10287,6 +10302,10 @@
+@@ -10288,6 +10303,10 @@
  AC00..D7A3    ; Grapheme_Base
  D7B0..D7C6    ; Grapheme_Base
  D7CB..D7FB    ; Grapheme_Base
@@ -90,18 +90,18 @@
  F900..FA6D    ; Grapheme_Base
  FA70..FAD9    ; Grapheme_Base
  FB00..FB06    ; Grapheme_Base
-@@ -10739,7 +10758,7 @@
+@@ -10737,7 +10756,7 @@
  2B740..2B81D  ; Grapheme_Base
  2F800..2FA1D  ; Grapheme_Base
  
--# Total code points: 111345
-+# Total code points: 111345+ApplePUA
+-# Total code points: 111386
++# Total code points: 111386+ApplePUA
  
  # ================================================
  
---- icuSources/data/unidata/base_unidata/ppucd.txt	2014-12-04 15:19:03.000000000 -0800
-+++ icuSources/data/unidata/ppucd.txt	2014-12-04 16:44:47.000000000 -0800
-@@ -18297,8 +18297,47 @@
+--- icuSources/data/unidata/base_unidata/ppucd.txt	2015-08-21 15:04:38.000000000 -0700
++++ icuSources/data/unidata/ppucd.txt	2015-08-21 15:03:54.000000000 -0700
+@@ -18298,8 +18298,47 @@
  block;DC00..DFFF;age=2.0;blk=Low_Surrogates;gc=Cs;GCB=CN;lb=SG
  # DC00..DFFF Low Surrogates
  
@@ -151,8 +151,8 @@
  
  block;F900..FAFF;age=1.1;Alpha;blk=CJK_Compat_Ideographs;Comp_Ex;CWKCF;dt=Can;ea=W;gc=Lo;Gr_Base;IDC;Ideo;IDS;lb=ID;NFC_QC=N;NFD_QC=N;NFKC_QC=N;NFKD_QC=N;SB=LE;sc=Hani;XIDC;XIDS
  # F900..FAFF CJK Compatibility Ideographs
---- icuSources/data/unidata/base_unidata/UnicodeData.txt	2014-12-04 15:17:16.000000000 -0800
-+++ icuSources/data/unidata/UnicodeData.txt	2014-12-04 16:47:15.000000000 -0800
+--- icuSources/data/unidata/base_unidata/UnicodeData.txt	2015-08-20 20:10:02.000000000 -0700
++++ icuSources/data/unidata/UnicodeData.txt	2015-08-20 20:10:03.000000000 -0700
 @@ -14762,7 +14762,65 @@
  DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
  DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;
@@ -220,8 +220,8 @@
  F900;CJK COMPATIBILITY IDEOGRAPH-F900;Lo;0;L;8C48;;;;N;;;;;
  F901;CJK COMPATIBILITY IDEOGRAPH-F901;Lo;0;L;66F4;;;;N;;;;;
  F902;CJK COMPATIBILITY IDEOGRAPH-F902;Lo;0;L;8ECA;;;;N;;;;;
---- icuSources/data/unidata/norm2/base_norm2/nfc.txt	2014-11-21 17:04:09.000000000 -0800
-+++ icuSources/data/unidata/norm2/nfc.txt	2014-12-04 16:48:53.000000000 -0800
+--- icuSources/data/unidata/norm2/base_norm2/nfc.txt	2015-08-12 13:42:56.000000000 -0700
++++ icuSources/data/unidata/norm2/nfc.txt	2015-08-12 13:42:56.000000000 -0700
 @@ -277,6 +277,8 @@
  AAC1:230
  AAF6:9

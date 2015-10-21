@@ -11,6 +11,7 @@
 
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <Security/SecureObjectSync/SOSGenCount.h>
 
 enum {
     kOnlyCompatibleVersion = 1, // Sometime in the future this name will be improved to reflect history.
@@ -20,7 +21,7 @@ enum {
 struct __OpaqueSOSCircle {
     CFRuntimeBase _base;
     CFStringRef name;
-    CFNumberRef generation;
+    SOSGenCountRef generation;
     CFMutableSetRef peers;
     CFMutableSetRef applicants;
     CFMutableSetRef rejected_applicants;

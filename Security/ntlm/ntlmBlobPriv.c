@@ -235,13 +235,16 @@ OSStatus ntlmStringFlatten(
 		if(cStr == NULL) {
 			return errSecAllocate;
 		}
-		if(CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0)) {
+        CFDataRef dataFromCString = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
+		if(dataFromCString) {
 			*flat = (unsigned char *)cStr;
 			*flatLen = (unsigned)strLen;
+            CFReleaseNull(dataFromCString);
 			return errSecSuccess;
 		}
 		dprintf("lmPasswordHash: UTF8 password conversion failed\n");
 		free(cStr);
+        CFReleaseNull(dataFromCString);
 		return NTLM_ERR_PARSE_ERR;
 	}
 }

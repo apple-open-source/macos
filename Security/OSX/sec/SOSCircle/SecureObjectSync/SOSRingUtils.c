@@ -286,6 +286,13 @@ bool SOSRingIsOlderGeneration(SOSRingRef olderRing, SOSRingRef newerRing) {
     return SOSGenerationIsOlder(old, new);
 }
 
+void SOSRingGenerationCreateWithBaseline(SOSRingRef newring, SOSRingRef baseline) {
+    if(!newring) return;
+    SOSGenCountRef gen = SOSGenerationCreateWithBaseline(SOSRingGetGeneration(baseline));
+    SOSRingSetGeneration(newring, gen);
+    CFReleaseNull(gen);
+}
+
 // MARK: Last Modifier
 CFStringRef SOSRingGetLastModifier(SOSRingRef ring) {
     assert(ring);
@@ -743,7 +750,7 @@ static CFStringRef CreateCommaSeparatedPeerIDs(CFSetRef peers) {
     return result;
 }
 
-CFDictionaryRef SOSRingPeerIDList(SOSRingRef ring) {
+CFDictionaryRef SOSRingCopyPeerIDList(SOSRingRef ring) {
     CFStringRef peerIDS = CreateCommaSeparatedPeerIDs(SOSRingGetPeerIDs(ring));
     CFStringRef applicantIDs = CreateCommaSeparatedPeerIDs(SOSRingGetApplicants(ring));
     CFStringRef rejectIDs = CreateCommaSeparatedPeerIDs(SOSRingGetRejections(ring));
@@ -759,7 +766,7 @@ CFDictionaryRef SOSRingPeerIDList(SOSRingRef ring) {
     return list;
 }
 
- CFStringRef SOSRingSignerList(SOSRingRef ring) {
+ CFStringRef SOSRingCopySignerList(SOSRingRef ring) {
     __block bool addSeparator = false;
    CFMutableStringRef signers = CFStringCreateMutable(ALLOCATOR, 0);
     CFDictionaryForEach(ring->signatures, ^(const void *key, const void *value) {
@@ -777,8 +784,8 @@ static CFStringRef SOSRingCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef 
 
     SOSRingAssertStable(ring);
 
-    CFDictionaryRef peers = SOSRingPeerIDList(ring);
-    CFStringRef signers = SOSRingSignerList(ring);
+    CFDictionaryRef peers = SOSRingCopyPeerIDList(ring);
+    CFStringRef signers = SOSRingCopySignerList(ring);
 
     CFDataRef payload = SOSRingGetPayload(ring, NULL);
 
@@ -811,7 +818,8 @@ static CFStringRef SOSRingCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef 
     CFReleaseNull(gcString);
     CFReleaseNull(peers);
     CFReleaseNull(signers);
-
+    CFReleaseNull(peers);
+    
     return description;
 }
 

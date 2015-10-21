@@ -188,6 +188,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "secd_65_account_retirement_reset"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "secd_70_engine"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -225,6 +229,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "sc_140_hsa2"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_95_escrow_persistence"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

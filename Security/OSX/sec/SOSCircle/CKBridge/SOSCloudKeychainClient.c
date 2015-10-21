@@ -446,7 +446,7 @@ static void SOSCloudTransportGetIDSDeviceID(SOSCloudTransportRef transport, Clou
     xpc_release(message);
 }
 
-static void SOSCloudTransportSendIDSMessage(SOSCloudTransportRef transport, CFDataRef messageData, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock){
+static void SOSCloudTransportSendIDSMessage(SOSCloudTransportRef transport, CFDictionaryRef messageData, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock){
     
     SOSXPCCloudTransportRef xpcTransport = (SOSXPCCloudTransportRef)transport;
     xpc_object_t xmessageData = _CFXPCCreateXPCObjectFromCFObject(messageData);
@@ -681,7 +681,7 @@ void SOSCloudKeychainUpdateKeys(CFDictionaryRef keys, dispatch_queue_t processQu
         cTransportRef->updateKeys(cTransportRef, keys, processQueue, replyBlock);
 }
 
-void SOSCloudKeychainSendIDSMessage(CFDataRef message, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock)
+void SOSCloudKeychainSendIDSMessage(CFDictionaryRef message, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock)
 {
     SOSCloudTransportRef cTransportRef = SOSCloudTransportDefaultTransport();
     if(cTransportRef)
@@ -769,3 +769,4 @@ void SOSCloudKeychainFlush(dispatch_queue_t processQueue, CloudKeychainReplyBloc
     if (cTransportRef)
         cTransportRef->flush(cTransportRef, processQueue, replyBlock);
 }
+

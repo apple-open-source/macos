@@ -2,8 +2,7 @@
 //  PSCertData.m
 //  CertificateTool
 //
-//  Created by local on 1/24/13.
-//  Copyright (c) 2013 James Murphy. All rights reserved.
+//  Copyright (c) 2012-2015 Apple Inc. All Rights Reserved.
 //
 
 #import "PSCertData.h"
@@ -51,7 +50,7 @@
         if (nil == normalized_subject_hash)
         {
             NSLog(@"Could not get the normalized hash for the cert at %@", aCert.file_path);
-            continue;
+            return NO;
         }
         
         // See if there is already an entry with this value

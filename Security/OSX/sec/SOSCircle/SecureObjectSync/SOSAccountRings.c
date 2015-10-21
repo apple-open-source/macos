@@ -166,7 +166,7 @@ bool SOSAccountEnsureRings(SOSAccountRef a, CFErrorRef *error) {
             ring = SOSAccountRingCreateForName(a, ringname, error);
             if(ring) {
                 CFDictionaryAddValue(a->trusted_rings, ringname, ring);
-                SOSUpdateKeyInterest();
+                SOSUpdateKeyInterest(a);
             }
             CFReleaseNull(ring);
         }
@@ -222,4 +222,25 @@ errOut:
     return NULL;
 }
 
+bool SOSAccountResetRing(SOSAccountRef account, CFStringRef ringName, CFErrorRef *error) {
+    bool retval = false;
+    SOSRingRef ring = SOSAccountGetRing(account, ringName, error);
+    SOSRingRef newring = SOSRingCreate(ringName, NULL, SOSRingGetType(ring), error);
+    SOSRingGenerationCreateWithBaseline(newring, ring);
+    SOSBackupRingSetViews(newring, account->my_identity, SOSBackupRingGetViews(ring, NULL), error);
+    require_quiet(newring, errOut);
+    retval = SOSAccountUpdateRing(account, newring, error);
+errOut:
+    CFReleaseNull(newring);
+    return retval;
+}
+
+bool SOSAccountResetAllRings(SOSAccountRef account, CFErrorRef *error) {
+    __block bool retval = true;
+    CFDictionaryForEach(account->trusted_rings, ^(const void *key, const void *value) {
+        CFStringRef ringName = (CFStringRef) key;
+        retval = retval && SOSAccountResetRing(account, ringName, error);
+    });
+    return retval;
+}
 

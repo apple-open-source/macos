@@ -50,6 +50,8 @@ SECURITY_COMMAND(
 	"    -O     reset to offering\n"
 	"    -R     reset circle\n"
 	"    -X     [limit]  best effort bail from circle in limit seconds\n"
+    "    -o     list view unaware peers in circle\n"
+    "    -0     boot view unaware peers from circle\n"
 	"\n"
 	"IDS\n"
 	"    -g     set IDS device id\n"
@@ -77,5 +79,8 @@ SECURITY_COMMAND(
 	"             propertynames are: hasentropy|screenlock|SEP|IOS\n"
 	"    -U     purge private key material cache\n"
     "    -V     Report View Sync Status on all known clients.\n"
-    "    -Y     Report yet to initial sync views\n",
+    "    -Y     Report yet to initial sync views\n"
+    "    -H     Set escrow record.\n"
+    "    -J     Get the escrow record.\n"
+    "    -M     Check peer availability.\n",
 	"Keychain Syncing controls." )

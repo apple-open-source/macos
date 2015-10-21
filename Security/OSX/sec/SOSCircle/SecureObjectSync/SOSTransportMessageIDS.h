@@ -10,7 +10,9 @@ typedef enum {
     kIDSEndPingTestMessage= 2,
     kIDSSendOneMessage = 3,
     kIDSSyncMessagesRaw = 4,
-    kIDSSyncMessagesCompact =5
+    kIDSSyncMessagesCompact = 5,
+    kIDSPeerAvailability = 6,
+    kIDSPeerAvailabilityDone = 7
 } idsOperation;
 
 //error handling stuff
@@ -20,7 +22,9 @@ typedef enum {
     kSecIDSErrorNotRegistered = -2,
     kSecIDSErrorFailedToSend=-3,
     kSecIDSErrorCouldNotFindMatchingAuthToken = -4,
-    kSecIDSErrorDeviceIsLocked = -5
+    kSecIDSErrorDeviceIsLocked = -5,
+    kSecIDSErrorNoPeersAvailable = -6
+
 } idsError;
 
 

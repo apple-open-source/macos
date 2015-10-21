@@ -26,7 +26,7 @@
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 647;
+static int kTestTestCount = 646;
 
 // Add 1000 items on each device.  Then delete 1000 items on each device.
 static void beer_servers(void) {

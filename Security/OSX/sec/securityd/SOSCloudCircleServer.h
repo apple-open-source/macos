@@ -44,7 +44,7 @@ bool SOSCCPurgeUserCredentials_Server(CFErrorRef *error);
 SOSCCStatus SOSCCThisDeviceIsInCircle_Server(CFErrorRef *error);
 bool SOSCCRequestToJoinCircle_Server(CFErrorRef* error);
 bool SOSCCRequestToJoinCircleAfterRestore_Server(CFErrorRef* error);
-CFStringRef SOSCCRequestDeviceID_Server(CFErrorRef *error);
+CFStringRef SOSCCCopyDeviceID_Server(CFErrorRef *error);
 bool SOSCCSetDeviceID_Server(CFStringRef IDS, CFErrorRef *error);
 HandleIDSMessageReason SOSCCHandleIDSMessage_Server(CFDictionaryRef messageDict, CFErrorRef* error);
 
@@ -53,6 +53,7 @@ bool SOSCCIDSPingTest_Server(CFStringRef message, CFErrorRef *error);
 bool SOSCCIDSDeviceIDIsAvailableTest_Server(CFErrorRef *error);
 
 bool SOSCCRemoveThisDeviceFromCircle_Server(CFErrorRef* error);
+bool SOSCCRemovePeersFromCircle_Server(CFArrayRef peers, CFErrorRef* error);
 bool SOSCCLoggedOutOfAccount_Server(CFErrorRef *error);
 bool SOSCCBailFromCircle_Server(uint64_t limit_in_seconds, CFErrorRef* error);
 bool SOSCCRequestEnsureFreshParameters_Server(CFErrorRef* error);
@@ -72,6 +73,7 @@ bool SOSCCValidateUserPublic_Server(CFErrorRef* error);
 
 CFArrayRef SOSCCCopyNotValidPeerPeerInfo_Server(CFErrorRef* error);
 CFArrayRef SOSCCCopyRetirementPeerInfo_Server(CFErrorRef* error);
+CFArrayRef SOSCCCopyViewUnawarePeerInfo_Server(CFErrorRef* error);
 bool SOSCCRejectApplicants_Server(CFArrayRef applicants, CFErrorRef* error);
 bool SOSCCAcceptApplicants_Server(CFArrayRef applicants, CFErrorRef* error);
 
@@ -80,7 +82,7 @@ CFArrayRef SOSCCCopyEngineState_Server(CFErrorRef* error);
 
 CFArrayRef SOSCCCopyPeerPeerInfo_Server(CFErrorRef* error);
 CFArrayRef SOSCCCopyConcurringPeerPeerInfo_Server(CFErrorRef* error);
-
+bool SOSCCCheckPeerAvailability_Server(CFErrorRef *error);
 bool SOSCCAccountSetToNew_Server(CFErrorRef *error);
 bool SOSCCResetToOffering_Server(CFErrorRef* error);
 bool SOSCCResetToEmpty_Server(CFErrorRef* error);
@@ -99,7 +101,7 @@ bool SOSCCProcessEnsurePeerRegistration_Server(CFErrorRef* error);
 SyncWithAllPeersReason SOSCCProcessSyncWithAllPeers_Server(CFErrorRef* error);
 
 SOSPeerInfoRef SOSCCSetNewPublicBackupKey_Server(CFDataRef newPublicBackup, CFErrorRef *error);
-bool SOSCCRegisterSingleRecoverySecret_Server(CFDataRef backupSlice, bool includeV0, CFErrorRef *error);
+bool SOSCCRegisterSingleRecoverySecret_Server(CFDataRef backupSlice, bool setupV0Only, CFErrorRef *error);
 
 bool SOSCCWaitForInitialSync_Server(CFErrorRef*);
 CFArrayRef SOSCCCopyYetToSyncViewsList_Server(CFErrorRef*);
@@ -110,7 +112,7 @@ CFArrayRef SOSCCCopyYetToSyncViewsList_Server(CFErrorRef*);
 // MARK: Internal kicks.
 //
 CF_RETURNS_RETAINED CFArrayRef SOSCCHandleUpdateMessage(CFDictionaryRef updates);
-void sync_the_last_data_to_kvs(SOSAccountRef account);
+void sync_the_last_data_to_kvs(SOSAccountRef account, bool waitForeverForSynchronization);
 
 
 // Expected to be called when the data source changes.
@@ -148,6 +150,10 @@ extern CFStringRef kSOSPeerDataLabel;
 
 CFDataRef SOSItemCopy(CFStringRef label, CFErrorRef* error);
 bool SOSItemUpdateOrAdd(CFStringRef label, CFStringRef accessibility, CFDataRef data, CFErrorRef *error);
+
+bool SOSCCSetEscrowRecord_Server(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
+CFDictionaryRef SOSCCCopyEscrowRecord_Server(CFErrorRef *error);
+
 
 __END_DECLS
 

@@ -30,6 +30,7 @@
 #include <Security/SecureObjectSync/SOSCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
+#include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
 #include <Security/SecureObjectSync/SOSInternal.h>
 #include <Security/SecureObjectSync/SOSUserKeygen.h>
 
@@ -46,7 +47,23 @@
 
 #include "SOSRegressionUtilities.h"
 
-static int kTestTestCount = 18;
+static int kTestGenerationCount = 2;
+static void test_generation(void)
+{
+    SOSGenCountRef generation = SOSGenerationCreate();
+    SOSGenCountRef olderGeneration = SOSGenerationCreateWithBaseline(generation);
+    SOSGenCountRef evenOlderGeneration = SOSGenerationCreateWithBaseline(olderGeneration);
+
+    ok(SOSGenerationIsOlder(olderGeneration, generation), "should be older");
+    ok(SOSGenerationIsOlder(evenOlderGeneration, olderGeneration), "should be older");
+
+    CFReleaseNull(generation);
+    CFReleaseNull(olderGeneration);
+    CFReleaseNull(evenOlderGeneration);
+}
+
+
+static int kTestTestCount = 26;
 static void tests(void)
 {
     SOSCircleRef circle = SOSCircleCreate(NULL, CFSTR("TEST DOMAIN"), NULL);
@@ -58,6 +75,8 @@ static void tests(void)
     //SecKeyRef publicKey = NULL;
     SecKeyRef dev_a_key = NULL;
     SecKeyRef dev_b_key = NULL;
+    SecKeyRef dev_c_key = NULL;
+    SecKeyRef dev_d_key = NULL;
     CFErrorRef error = NULL;
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     
@@ -74,7 +93,11 @@ static void tests(void)
     SOSFullPeerInfoRef peer_a_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer A"), &dev_a_key, NULL);
     
     SOSFullPeerInfoRef peer_b_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer B"), &dev_b_key, NULL);
-    
+
+    SOSFullPeerInfoRef peer_c_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer C"), &dev_c_key, NULL);
+
+    SOSFullPeerInfoRef peer_d_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer D"), &dev_d_key, NULL);
+
     ok(SOSCircleRequestAdmission(circle, user_privkey, peer_a_full_info, NULL));
     ok(SOSCircleRequestAdmission(circle, user_privkey, peer_a_full_info, NULL));
     ok(SOSCircleRequestAdmission(circle, user_privkey, peer_a_full_info, NULL));
@@ -102,15 +125,51 @@ static void tests(void)
     
     ok(SOSCircleRemovePeer(circle, user_privkey, peer_a_full_info, SOSFullPeerInfoGetPeerInfo(peer_a_full_info), NULL));
     ok(SOSCircleCountPeers(circle) == 0, "Peer count");
-    
+
+    // Try multiple peer removal:
+
+    ok(SOSCircleRequestAdmission(circle, user_privkey, peer_a_full_info, NULL));
+    ok(SOSCircleRequestAdmission(circle, user_privkey, peer_b_full_info, NULL));
+    ok(SOSCircleRequestAdmission(circle, user_privkey, peer_c_full_info, NULL));
+
+    ok(SOSCircleAcceptRequests(circle, user_privkey, peer_a_full_info, NULL));
+
+    ok(SOSCircleRequestAdmission(circle, user_privkey, peer_d_full_info, NULL));
+
+    CFArrayRef peer_array = CFArrayCreateForCFTypes(kCFAllocatorDefault,
+                                                     SOSFullPeerInfoGetPeerInfo(peer_b_full_info),
+                                                     SOSFullPeerInfoGetPeerInfo(peer_c_full_info),
+                                                     SOSFullPeerInfoGetPeerInfo(peer_d_full_info),
+                                                     NULL);
+
+    CFSetRef peers_to_remove = CFSetCreateMutableForSOSPeerInfosByIDWithArray(kCFAllocatorDefault, peer_array);
+    CFReleaseNull(peer_array);
+
+    ok(SOSCircleRemovePeers(circle, user_privkey, peer_a_full_info, peers_to_remove, NULL));
+    CFReleaseNull(peers_to_remove);
+
+    ok(SOSCircleCountPeers(circle) == 1);
+    ok(SOSCircleCountApplicants(circle) == 0);
+
     CFReleaseNull(dev_a_key);
+    CFReleaseNull(dev_b_key);
+    CFReleaseNull(dev_c_key);
+    CFReleaseNull(dev_d_key);
+
     CFReleaseNull(cfpassword);
+
+    CFReleaseNull(peer_a_full_info);
+    CFReleaseNull(peer_b_full_info);
+    CFReleaseNull(peer_c_full_info);
+    CFReleaseNull(peer_d_full_info);
 }
 
 int sc_40_circle(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
-	
+    plan_tests(kTestGenerationCount + kTestTestCount);
+
+    test_generation();
+
     tests();
 
 	return 0;

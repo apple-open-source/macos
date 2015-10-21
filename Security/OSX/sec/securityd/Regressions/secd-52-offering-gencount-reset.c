@@ -51,7 +51,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 85;
+static int kTestTestCount = 81;
 
 static void tests(void)
 {
@@ -111,7 +111,7 @@ static void tests(void)
     ok(SOSAccountLeaveCircle(alice_account, &error), "ALICE LEAVES THE CIRCLE (%@)", error);
     ok(SOSAccountResetToOffering(alice_account, &error), "Alice resets to offering again (%@)", error);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 4, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
 
     accounts_agree("bob&alice pair", bob_account, alice_account);
 

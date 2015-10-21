@@ -52,7 +52,7 @@
 #include "SecdTestKeychainUtilities.h"
 
 
-static int kTestTestCount = 261;
+static int kTestTestCount = 253;
 
 /*
  static void trim_retirements_from_circle(SOSAccountRef account) {
@@ -125,7 +125,7 @@ static void tests(void)
     ok(SOSAccountLeaveCircle(alice_account , &error), "Alice Leaves (%@)", error);
     CFReleaseNull(error);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 3, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 2, "updates");
 
     accounts_agree("Alice bails", bob_account, alice_account);
     
@@ -200,7 +200,7 @@ static void tests(void)
     ok(SOSAccountLeaveCircle(carole_account  , &error), "carole Leaves (%@)", error);
     CFReleaseNull(error);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 3, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 2, "updates");
 
     is(countPeers(bob_account), 1, "Bob sees 1 valid peer");
     is(countActivePeers(bob_account), 4, "Bob sees 4 active peers");

@@ -324,38 +324,57 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
 
 // try to synchronize asap, and invoke the handler on completion to take incoming changes.
 
+static bool isResubmitError(NSError* error) {
+    return error && (CFErrorGetCode((__bridge CFErrorRef) error) == UPDATE_RESUBMIT); // Why don't we check the domain?!
+}
 
 - (BOOL) AttemptSynchronization:(NSError **)failure
 {
   
-    __block bool tryAgain = false;
     __block NSError *tempFailure = NULL;
+    int triesRemaining = 10;
     
     NSUbiquitousKeyValueStore * store = [self cloudStore];
 
     dispatch_semaphore_t freshSemaphore = dispatch_semaphore_create(0);
-    secnoticeq("fresh", "%s CALLING OUT TO syncdefaultsd SWCH: %@", kWAIT2MINID, self);
-    [store synchronizeWithCompletionHandler:^(NSError *error) {
-        if (error) {
-            tempFailure = error;
-            secerrorq("%s RETURNING FROM syncdefaultsd SWCH: %@: %@", kWAIT2MINID, self, error);
-            if(CFErrorGetCode((__bridge CFErrorRef) error) == UPDATE_RESUBMIT){
-                tryAgain = true;
+
+    do {
+        --triesRemaining;
+        secnoticeq("fresh", "%s CALLING OUT TO syncdefaultsd SWCH: %@", kWAIT2MINID, self);
+
+        [store synchronizeWithCompletionHandler:^(NSError *error) {
+            if (error) {
+                tempFailure = error;
+                secerrorq("%s RETURNING FROM syncdefaultsd SWCH: %@: %@", kWAIT2MINID, self, error);
+            } else {
+                secnoticeq("fresh", "%s RETURNING FROM syncdefaultsd SWCH: %@", kWAIT2MINID, self);
+                [store synchronize]; // Per olivier in <rdar://problem/13412631>, sync before getting values
+                secnoticeq("fresh", "%s RETURNING FROM syncdefaultsd SYNC: %@", kWAIT2MINID, self);
             }
-        } else {
-            secnoticeq("fresh", "%s RETURNING FROM syncdefaultsd SWCH: %@", kWAIT2MINID, self);
-            
-            [store synchronize]; // Per olivier in <rdar://problem/13412631>, sync before getting values
-            secnoticeq("fresh", "%s RETURNING FROM syncdefaultsd SYNC: %@", kWAIT2MINID, self);
-        }
-        dispatch_semaphore_signal(freshSemaphore);
-    }];
-    dispatch_semaphore_wait(freshSemaphore, DISPATCH_TIME_FOREVER);
- 
-    if(*failure)
+            dispatch_semaphore_signal(freshSemaphore);
+        }];
+        dispatch_semaphore_wait(freshSemaphore, DISPATCH_TIME_FOREVER);
+    } while (triesRemaining > 0 && isResubmitError(tempFailure));
+
+    if (isResubmitError(tempFailure)) {
+        secerrorq("%s Number of retry attempts to request freshness exceeded", kWAIT2MINID);
+    }
+
+    if (failure && (*failure == NULL)) {
         *failure = tempFailure;
-    
-    return tryAgain;
+    }
+
+    return tempFailure == nil;
+}
+
+static void wait_until(dispatch_time_t when) {
+    static dispatch_once_t once;
+    static dispatch_semaphore_t never_fires = nil;
+    dispatch_once(&once, ^{
+        never_fires = dispatch_semaphore_create(0);
+    });
+
+    dispatch_semaphore_wait(never_fires, when); // Will always timeout.
 }
 
 - (void)waitForSynchronization:(NSArray *)keys handler:(void (^)(NSDictionary *values, NSError *err))handler
@@ -369,35 +388,21 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
     }
 
     secnoticeq("fresh", "%s Requesting freshness", kWAIT2MINID);
+
     dispatch_async(_freshParamsQueue, ^{
-        // _freshParamsQueue
-        __block dispatch_time_t next_time = _nextFreshnessTime;
-        __block NSError *failure = nil;
-        
-        dispatch_time_t now = dispatch_time(DISPATCH_TIME_NOW, 0);
-        if (now > next_time) {
-            bool attemptSynchronizationAgain = false;
-            int numberOfAttempts = 0;
-            do {
-                attemptSynchronizationAgain = [ self AttemptSynchronization:&failure ];
-                numberOfAttempts++;
-               
-            } while (attemptSynchronizationAgain && numberOfAttempts <= 10);
-            if(numberOfAttempts > 10)
-            {
-                secerrorq("%s Number of attempts to request freshness exceeded", kWAIT2MINID);
-            }
-            const uint64_t delayBeforeCallingAgainInSeconds = 5ull * NSEC_PER_SEC;
-            next_time  = dispatch_time(DISPATCH_TIME_NOW, delayBeforeCallingAgainInSeconds);
-        }
+        // Hold off (keeping the queue occupied) until we hit the next time we can fresh.
+        wait_until(_nextFreshnessTime);
+
+        NSError *error = nil;
+        BOOL success = [self AttemptSynchronization:&error];
+
+        // Advance the next time can can call freshness.
+        const uint64_t delayBeforeCallingAgainInSeconds = 5ull * NSEC_PER_SEC;
+        _nextFreshnessTime  = dispatch_time(DISPATCH_TIME_NOW, delayBeforeCallingAgainInSeconds);
 
         dispatch_async(dispatch_get_main_queue(), ^{
-            _nextFreshnessTime = next_time;
-
-            if (failure)
-                handler(@{}, failure);
-            else
-                handler([self copyValues:[NSSet setWithArray:keys]], NULL);
+            NSDictionary * freshValues = success ? [self copyValues:[NSSet setWithArray:keys]] : @{};
+            handler(freshValues, error);
         });
     });
 }

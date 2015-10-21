@@ -79,6 +79,20 @@ CFMutableSetRef CFSetCreateMutableForSOSPeerInfosByID(CFAllocatorRef allocator)
     return CFSetCreateMutable(allocator, 0, &kSOSPeerSetCallbacks);
 }
 
+CFMutableSetRef CFSetCreateMutableForSOSPeerInfosByIDWithArray(CFAllocatorRef allocator, CFArrayRef peerInfos)
+{
+    CFMutableSetRef newSet = CFSetCreateMutableForSOSPeerInfosByID(allocator);
+
+    CFArrayForEach(peerInfos, ^(const void *value) {
+        SOSPeerInfoRef peer = asSOSPeerInfo(value);
+        if (peer) {
+            CFSetAddValue(newSet, peer);
+        }
+    });
+
+    return newSet;
+}
+
 SOSPeerInfoRef SOSPeerInfoSetFindByID(CFSetRef set, CFStringRef id) {
     return (SOSPeerInfoRef) CFSetGetValue(set, id);
 }

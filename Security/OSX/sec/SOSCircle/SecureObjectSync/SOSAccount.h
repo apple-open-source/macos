@@ -106,6 +106,8 @@ bool SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(SOSAccountRef account
 SecKeyRef SOSAccountGetPrivateCredential(SOSAccountRef account, CFErrorRef* error);
 CFDataRef SOSAccountGetCachedPassword(SOSAccountRef account, CFErrorRef* error);
 
+void SOSAccountSetParameters(SOSAccountRef account, CFDataRef parameters);
+
 void SOSAccountPurgePrivateCredential(SOSAccountRef account);
 
 bool SOSAccountTryUserCredentials(SOSAccountRef account,
@@ -134,6 +136,7 @@ bool SOSAccountIsInCircle(SOSAccountRef account, CFErrorRef *error);
 bool SOSAccountJoinCircles(SOSAccountRef account, CFErrorRef* error);
 bool SOSAccountJoinCirclesAfterRestore(SOSAccountRef account, CFErrorRef* error);
 bool SOSAccountLeaveCircle(SOSAccountRef account,CFErrorRef* error);
+bool SOSAccountRemovePeersFromCircle(SOSAccountRef account, CFArrayRef peers, CFErrorRef* error);
 bool SOSAccountBail(SOSAccountRef account, uint64_t limit_in_seconds, CFErrorRef* error);
 bool SOSAccountAcceptApplicants(SOSAccountRef account, CFArrayRef applicants, CFErrorRef* error);
 bool SOSAccountRejectApplicants(SOSAccountRef account, CFArrayRef applicants, CFErrorRef* error);
@@ -150,6 +153,7 @@ CFArrayRef SOSAccountCopyValidPeers(SOSAccountRef account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyPeersToListenTo(SOSAccountRef account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyNotValidPeers(SOSAccountRef account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyRetired(SOSAccountRef account, CFErrorRef *error);
+CFArrayRef SOSAccountCopyViewUnaware(SOSAccountRef account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyPeers(SOSAccountRef account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyActivePeers(SOSAccountRef account, CFErrorRef *error);
 CFArrayRef SOSAccountCopyActiveValidPeers(SOSAccountRef account, CFErrorRef *error);
@@ -212,11 +216,12 @@ CFStringRef SOSAccountCopyIncompatibilityInfo(SOSAccountRef account, CFErrorRef*
 // MARK: Backup functions
 //
 
+bool SOSAccountIsBackupRingEmpty(SOSAccountRef account, CFStringRef viewName);
 bool SOSAccountStartNewBackup(SOSAccountRef account, CFStringRef viewName, CFErrorRef *error);
 
 bool SOSAccountSetBackupPublicKey(SOSAccountRef account, CFDataRef backupKey, CFErrorRef *error);
 bool SOSAccountRemoveBackupPublickey(SOSAccountRef account, CFErrorRef *error);
-bool SOSAccountSetBSKBagForAllSlices(SOSAccountRef account, CFDataRef backupSlice, bool includeV0, CFErrorRef *error);
+bool SOSAccountSetBSKBagForAllSlices(SOSAccountRef account, CFDataRef backupSlice, bool setupV0Only, CFErrorRef *error);
 
 //
 // MARK: Private functions

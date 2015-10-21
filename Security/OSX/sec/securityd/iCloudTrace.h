@@ -26,6 +26,8 @@
 #define sec_iCloudTrace_h
 #include <CoreFoundation/CoreFoundation.h>
 
+struct _SecServerKeyStats;
+
 extern const CFStringRef kNumberOfiCloudKeychainPeers
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
 extern const CFStringRef kNumberOfiCloudKeychainItemsBeingSynced
@@ -39,6 +41,9 @@ extern const CFStringRef kNumberOfiCloudKeychainConflictsResolved
 extern const CFStringRef kNumberOfiCloudKeychainTimesSyncedWithPeers
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
 
-void CloudKeychainTrace(CFIndex num_peers, size_t num_items);
+void CloudKeychainTrace(CFIndex num_peers, size_t num_items,
+                        const struct _SecServerKeyStats *genpStats,
+                        const struct _SecServerKeyStats *inetStats,
+                        const struct _SecServerKeyStats *keysStats);
 
 #endif

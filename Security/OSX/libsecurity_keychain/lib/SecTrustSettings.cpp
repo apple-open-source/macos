@@ -525,7 +525,10 @@ static void tsAddConditionalCerts(CFMutableArrayRef certArray)
 		tsCheckAppNameWorkaround(pathbuf)) {
 		// conditionally include these 1024-bit roots
 		const certmap_entry_t certmap[] = {
+			{ _EquifaxSecureCA, sizeof(_EquifaxSecureCA) },
 			{ _GTECyberTrustGlobalRootCA, sizeof(_GTECyberTrustGlobalRootCA) },
+			{ _ThawtePremiumServerCA, sizeof(_ThawtePremiumServerCA) },
+			{ _ThawteServerCA, sizeof(_ThawteServerCA) },
 			{ _VeriSignClass3CA, sizeof(_VeriSignClass3CA) },
 		};
 		unsigned int i, certmaplen = sizeof(certmap) / sizeof(certmap_entry_t);

@@ -34,7 +34,7 @@
 #include <Security/SecCertificate.h>
 #include <CoreFoundation/CFArray.h>
 
-OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRef subtrees, bool *matched);
+OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRef subtrees, bool *matched, bool permit);
 
 void SecNameConstraintsIntersectSubtrees(CFMutableArrayRef subtrees_state, CFArrayRef subtrees_new);
 

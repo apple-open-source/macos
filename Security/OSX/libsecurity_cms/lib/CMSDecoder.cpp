@@ -435,7 +435,7 @@ OSStatus CMSDecoderCopySignerStatus(
                                     SecTrustRef			*secTrust,				/* optional; RETURNED */
                                     OSStatus			*certVerifyResultCode)	/* optional; RETURNED */
 {
-	if((cmsDecoder == NULL) || (cmsDecoder->decState != DS_Final)) {
+	if((cmsDecoder == NULL) || (cmsDecoder->decState != DS_Final) || (!policyOrArray)) {
 		return errSecParam;
 	}
 	

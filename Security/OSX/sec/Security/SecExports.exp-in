@@ -55,6 +55,7 @@ _kSecPolicyAppleIPsec
 _kSecPolicyAppleCodeSigning
 _kSecPolicyAppleIDValidation
 _kSecPolicyAppleIDValidationRecordSigningPolicy
+_kSecPolicyAppleOSXProvisioningProfileSigning
 _kSecPolicyMacAppStoreReceipt
 _kSecPolicyAppleTimeStamping
 _kSecPolicyAppleRevocation
@@ -161,6 +162,7 @@ _SecPolicyCreateMacAppStoreReceipt
 _SecPolicyCreateMobileStoreSigner
 _SecPolicyCreateTestMobileStoreSigner
 _SecPolicyCreateOCSPSigner
+_SecPolicyCreateOSXProvisioningProfileSigning
 _SecPolicyCreateRevocation
 _SecPolicyCreatePassbookCardSigner
 _SecPolicyCreateSMIME
@@ -447,6 +449,9 @@ _kSecXPCKeyDSID
 _kSecXPCKeyUserPassword
 _sSecXPCErrorDomain
 _kSecXPCKeyOTAFileDirectory
+_kSecXPCKeyEscrowLabel
+_kSecXPCKeyTriesLabel
+_kSecXPCKeyAvailability
 
 //
 // Logging

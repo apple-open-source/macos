@@ -87,7 +87,8 @@ static bool SOSTransportKeyParameterKVSPublishCloudParameters(SOSTransportKeyPar
     SOSAccountRef a = SOSTransportKeyParameterGetAccount((SOSTransportKeyParameterRef)transport);
     CFDictionaryRef changes = NULL;
     CFDataRef timeData = NULL;
-
+    bool waitForeverForSynchronization = true;
+    
     CFMutableStringRef timeDescription = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("["));
     CFAbsoluteTime currentTimeAndDate = CFAbsoluteTimeGetCurrent();
 
@@ -127,7 +128,7 @@ static bool SOSTransportKeyParameterKVSPublishCloudParameters(SOSTransportKeyPar
     }
     bool success = SOSTransportKeyParameterKVSUpdateKVS(changes, error);
     
-    sync_the_last_data_to_kvs(a);
+    sync_the_last_data_to_kvs(a, waitForeverForSynchronization);
     
     CFReleaseNull(changes);
     CFReleaseNull(timeAndKeyParametersMutable);

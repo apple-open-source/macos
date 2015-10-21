@@ -209,6 +209,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_20_sectrust_att"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_21_sectrust_asr"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -429,11 +433,19 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "sc_30_peerinfo"
+            argument = "si_84_atv_appsigning"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_84_atv_appsigning"
+            argument = "si_85_sectrust_ssl_policy"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_86_sectrust_eap_tls"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "sc_30_peerinfo"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

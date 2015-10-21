@@ -193,7 +193,7 @@ else
 	endif
 endif
 ifneq "$(RC_ARCHS)" ""
-	ifneq "$(filter arm armv6 armv7 armv7s arm64,$(RC_ARCHS))" ""
+	ifneq "$(filter arm armv6 armv7 armv7s armv7k arm64,$(RC_ARCHS))" ""
 		CROSS_BUILD=YES
 		BUILD_TYPE=DEVICE
 	else ifeq "$(RC_INDIGO)" "YES"

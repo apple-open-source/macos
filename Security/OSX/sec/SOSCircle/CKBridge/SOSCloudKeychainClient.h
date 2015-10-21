@@ -67,7 +67,7 @@ struct SOSCloudTransport
     void (*put)(SOSCloudTransportRef transport, CFDictionaryRef valuesToPut, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
     void (*updateKeys)(SOSCloudTransportRef transport, CFDictionaryRef keys, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 
-    void (*sendIDSMessage)(SOSCloudTransportRef transport, CFDataRef data, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+    void (*sendIDSMessage)(SOSCloudTransportRef transport, CFDictionaryRef data, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
     void (*getDeviceID)(SOSCloudTransportRef transport, CloudKeychainReplyBlock replyBlock);
 
     // Debug calls
@@ -82,7 +82,7 @@ struct SOSCloudTransport
     void (*requestSyncWithAllPeers)(SOSCloudTransportRef transport, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
     void (*requestEnsurePeerRegistration)(SOSCloudTransportRef transport, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
     void (*flush)(SOSCloudTransportRef transport, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
-
+    void (*checkAvailability)(SOSCloudTransportRef transport, CFArrayRef peerList, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
     const void *itemsChangedBlock;
 };
 
@@ -91,7 +91,7 @@ struct SOSCloudTransport
 void SOSCloudKeychainSetTransport(SOSCloudTransportRef transport);
 
 void SOSCloudKeychainGetIDSDeviceID(CloudKeychainReplyBlock replyBlock);
-void SOSCloudKeychainSendIDSMessage(CFDataRef message, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+void SOSCloudKeychainSendIDSMessage(CFDictionaryRef message, CFStringRef deviceName, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 
 
 void SOSCloudKeychainUpdateKeys(CFDictionaryRef keys, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);

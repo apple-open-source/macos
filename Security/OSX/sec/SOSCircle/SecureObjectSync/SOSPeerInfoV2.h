@@ -27,16 +27,20 @@ extern CFStringRef sTransportType;              // Dictates the transport type
 extern CFStringRef sDeviceID;                   // The IDS device id
 extern CFStringRef sRingState;                  // Dictionary of Ring Membership States
 extern CFStringRef sBackupKeyKey;
+extern CFStringRef sEscrowRecord;
 
 bool SOSPeerInfoUpdateToV2(SOSPeerInfoRef pi, CFErrorRef *error);
 void SOSPeerInfoPackV2Data(SOSPeerInfoRef peer);
 bool SOSPeerInfoExpandV2Data(SOSPeerInfoRef pi, CFErrorRef *error);
 void SOSPeerInfoV2DictionarySetValue(SOSPeerInfoRef peer, const void *key, const void *value);
 void SOSPeerInfoV2DictionaryRemoveValue(SOSPeerInfoRef peer, const void *key);
+
 const CFMutableDataRef SOSPeerInfoV2DictionaryCopyData(SOSPeerInfoRef pi, const void *key);
 const CFMutableSetRef SOSPeerInfoV2DictionaryCopySet(SOSPeerInfoRef pi, const void *key);
 const CFMutableStringRef SOSPeerInfoV2DictionaryCopyString(SOSPeerInfoRef pi, const void *key);
 const CFBooleanRef SOSPeerInfoV2DictionaryCopyBoolean(SOSPeerInfoRef pi, const void *key);
+const CFMutableDictionaryRef SOSPeerInfoV2DictionaryCopyDictionary(SOSPeerInfoRef pi, const void *key);
+
 bool SOSPeerInfoV2DictionaryHasSet(SOSPeerInfoRef pi, const void *key);
 bool SOSPeerInfoV2DictionaryHasData(SOSPeerInfoRef pi, const void *key);
 bool SOSPeerInfoV2DictionaryHasString(SOSPeerInfoRef pi, const void *key);

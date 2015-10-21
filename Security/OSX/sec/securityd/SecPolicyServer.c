@@ -557,19 +557,28 @@ static bool SecDomainSuffixMatch(CFStringRef hostname, CFStringRef domain) {
    Trailing '.' characters in the hostname will be ignored.
 
    Returns true on match, else false.
+
+   RFC6125:
  */
 bool SecDNSMatch(CFStringRef hostname, CFStringRef servername) {
 	CFStringInlineBuffer hbuf, sbuf;
-	CFIndex hix, six,
-		hlength = CFStringGetLength(hostname),
-		slength = CFStringGetLength(servername);
+	CFIndex hix, six, tix,
+			hlength = CFStringGetLength(hostname),
+			slength = CFStringGetLength(servername);
 	CFRange hrange = { 0, hlength }, srange = { 0, slength };
 	CFStringInitInlineBuffer(hostname, &hbuf, hrange);
 	CFStringInitInlineBuffer(servername, &sbuf, srange);
+	bool prevLabel=false;
 
 	for (hix = six = 0; six < slength; ++six) {
-		UniChar hch, sch = CFStringGetCharacterFromInlineBuffer(&sbuf, six);
+		UniChar tch, hch, sch = CFStringGetCharacterFromInlineBuffer(&sbuf, six);
 		if (sch == '*') {
+			if (prevLabel) {
+				/* RFC6125: No wildcard after a Previous Label */
+				/* INVALID: Means we have something like foo.*.<public_suffix> */
+				return false;
+			}
+
 			if (six + 1 >= slength) {
 				/* Trailing '*' in servername, match until end of hostname or
 				   trailing '.'.  */
@@ -598,6 +607,17 @@ bool SecDNSMatch(CFStringRef hostname, CFStringRef servername) {
 
 			/* We're looking at the '.' after the '*' in something of the
 			   form 'foo*.com' or '*.com'. Match until next '.' in hostname. */
+			if (prevLabel==false) {                 /* RFC6125: Check if *.<tld> */
+				tix=six+1;
+				do {                                    /* Loop to end of servername */
+					if (tix > slength)
+						return false;    /* Means we have something like *.com */
+					tch = CFStringGetCharacterFromInlineBuffer(&sbuf, tix++);
+				} while (tch != '.');
+				if (tix > slength)
+					return false;        /* In case we have *.com. */
+			}
+
 			do {
 				/* Since we're not at the end of servername yet (that case
 				   was handled above), running out of chars in hostname
@@ -608,7 +628,7 @@ bool SecDNSMatch(CFStringRef hostname, CFStringRef servername) {
 			} while (hch != '.');
 		} else {
 			/* We're looking at a non wildcard character in the servername.
-			   If we reached the end of hostname it's not a match. */
+			   If we reached the end of hostname, it's not a match. */
 			if (hix >= hlength)
 				return false;
 
@@ -617,6 +637,8 @@ bool SecDNSMatch(CFStringRef hostname, CFStringRef servername) {
 			hch = CFStringGetCharacterFromInlineBuffer(&hbuf, hix++);
 			if (towlower(hch) != towlower(sch))
 				return false;
+			if (sch == '.')
+				prevLabel=true;   /* Set if a confirmed previous component */
 		}
 	}
 
@@ -624,7 +646,7 @@ bool SecDNSMatch(CFStringRef hostname, CFStringRef servername) {
 		/* We reached the end of servername but we have one or more characters
 		   left to compare against in the hostname. */
 		if (hix + 1 == hlength &&
-			CFStringGetCharacterFromInlineBuffer(&hbuf, hix) == '.') {
+				CFStringGetCharacterFromInlineBuffer(&hbuf, hix) == '.') {
 			/* Hostname has a single trailing '.', we're ok with that. */
 			return true;
 		}
@@ -1068,7 +1090,7 @@ static void SecPolicyCheckAnchorApple(SecPVCRef pvc,
     if (!foundMatch)
         if (!SecPVCSetResult(pvc, kSecPolicyCheckAnchorApple, 0, kCFBooleanFalse))
             return;
-    
+
     return;
 }
 
@@ -1329,7 +1351,7 @@ static bool SecPVCCheckCertificateAllowList(SecPVCRef pvc)
     CFIndex ix = 0, count = SecPVCGetCertificateCount(pvc);
     CFStringRef authKey = NULL;
     SecOTAPKIRef otapkiRef = NULL;
-    
+
     //get authKeyID from the last chain in the cert
     if (count < 1) {
         return result;
@@ -1340,7 +1362,7 @@ static bool SecPVCCheckCertificateAllowList(SecPVCRef pvc)
         return result;
     }
     authKey = CFDataCopyHexString(authKeyID);
-    
+
     //if allowList && key is in allowList, this would have chained up to a now-removed anchor
     otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
     if (NULL == otapkiRef) {
@@ -1350,7 +1372,7 @@ static bool SecPVCCheckCertificateAllowList(SecPVCRef pvc)
     if (NULL == allowList) {
         goto errout;
     }
-    
+
     CFArrayRef allowedCerts = CFDictionaryGetValue(allowList, authKey);
     if (!allowedCerts || !CFArrayGetCount(allowedCerts)) {
         goto errout;
@@ -1363,12 +1385,12 @@ static bool SecPVCCheckCertificateAllowList(SecPVCRef pvc)
         if (!cert) {
             goto errout;
         }
-        
+
         CFDataRef certHash = SecCertificateCopySHA256Digest(cert);
         if (!certHash) {
             goto errout;
         }
-        
+
         CFIndex position = CFArrayBSearchValues(allowedCerts, range, certHash,
                                                 (CFComparatorFunction)CFDataCompare, NULL);
         if (position < CFArrayGetCount(allowedCerts)) {
@@ -1378,10 +1400,10 @@ static bool SecPVCCheckCertificateAllowList(SecPVCRef pvc)
                 result = true;
             }
         }
-        
+
         CFRelease(certHash);
     }
-    
+
 errout:
     CFRelease(authKey);
     CFReleaseNull(otapkiRef);
@@ -1610,13 +1632,13 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
             bool found = false;
             /* Verify certificate Subject Name and SubjectAltNames are not within any of the excluded_subtrees */
             if(excluded_subtrees && CFArrayGetCount(excluded_subtrees)) {
-                if ((errSecSuccess != SecNameContraintsMatchSubtrees(cert, excluded_subtrees, &found)) || found) {
+                if ((errSecSuccess != SecNameContraintsMatchSubtrees(cert, excluded_subtrees, &found, false)) || found) {
                     if(!SecPVCSetResultForced(pvc, key, n - i, kCFBooleanFalse, true)) return;
                 }
             }
             /* Verify certificate Subject Name and SubjectAltNames are within the permitted_subtrees */
             if(permitted_subtrees && CFArrayGetCount(permitted_subtrees)) {
-               if ((errSecSuccess != SecNameContraintsMatchSubtrees(cert, permitted_subtrees, &found)) || !found) {
+               if ((errSecSuccess != SecNameContraintsMatchSubtrees(cert, permitted_subtrees, &found, true)) || !found) {
                    if(!SecPVCSetResultForced(pvc, key, n - i, kCFBooleanFalse, true)) return;
                }
             }
@@ -2335,7 +2357,7 @@ static void SecPolicyCheckCT(SecPVCRef pvc, CFStringRef key)
        A2: 2+ SCTs from external sources (OCSP stapled response and TLS extension)
          from independent logs valid at verify time. (operatorsValidatingExternalScts)
        B: All least one SCTs from a log valid at verify time.
-     
+
        Policy is based on: https://docs.google.com/viewer?a=v&pid=sites&srcid=ZGVmYXVsdGRvbWFpbnxjZXJ0aWZpY2F0ZXRyYW5zcGFyZW5jeXxneDo0ODhjNGRlOTIyMzYwNTcz
         with one difference: we consider SCTs from OCSP and TLS extensions as a whole.
        It sounds like this is what Google will eventually do, per:

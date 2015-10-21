@@ -122,6 +122,16 @@ CFArrayRef SOSAccountCopyRetired(SOSAccountRef account, CFErrorRef *error) {
     });
 }
 
+CFArrayRef SOSAccountCopyViewUnaware(SOSAccountRef account, CFErrorRef *error) {
+    return SOSAccountCopySortedPeerArray(account, error, ^(SOSCircleRef circle, CFMutableArrayRef appendPeersTo) {
+        SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
+            if (!SOSPeerInfoVersionHasV2Data(peer)) {
+                sosArrayAppendPeerCopy(appendPeersTo, peer);
+            }
+        });
+    });
+}
+
 CFArrayRef SOSAccountCopyApplicants(SOSAccountRef account, CFErrorRef *error) {
     return SOSAccountCopySortedPeerArray(account, error, ^(SOSCircleRef circle, CFMutableArrayRef appendPeersTo) {
         SOSCircleForEachApplicant(circle, ^(SOSPeerInfoRef peer) {

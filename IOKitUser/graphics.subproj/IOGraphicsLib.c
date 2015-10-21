@@ -2978,6 +2978,27 @@ IOFBIndexForPixelBits( IOFBConnectRef connectRef, IODisplayModeID mode,
     return( depth );
 }
 
+static IOIndex
+IOFBIndexForPixelFormat( IOFBConnectRef connectRef, IODisplayModeID mode,
+                      IOIndex maxIndex, IOPixelEncoding pixelFormat )
+{
+    IOPixelInformation  pixelInfo;
+    IOIndex             index, depth = -1;
+    kern_return_t       err;
+    
+    for( index = 0; index <= maxIndex; index++ ) {
+        
+        err = _IOFBGetPixelInformation( connectRef, mode, index,
+                                       kIOFBSystemAperture, &pixelInfo );
+        if( (kIOReturnSuccess == err) && (!strcmp(pixelFormat, pixelInfo.pixelFormat))) {
+            depth = index;
+            break;
+        }
+    }
+    
+    return( depth );
+}
+
 static kern_return_t
 IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
 {
@@ -3079,7 +3100,14 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
         else
             timingID = 0;
 
-        if (mode == connectRef->startMode) connectRef->startDepth = IOFBIndexForPixelBits(connectRef, mode, info->maxDepthIndex, 32);
+        if (mode == connectRef->startMode) {
+            IOIndex currentDepth = IOFBIndexForPixelFormat(connectRef, mode, info->maxDepthIndex, connectRef->currentModePixelInfo.pixelFormat);
+            if (currentDepth == -1) {
+                currentDepth = IOFBIndexForPixelBits(connectRef, mode, info->maxDepthIndex, 32);
+            }
+            
+            connectRef->startDepth = currentDepth;
+        }
 
         if( 0 == (info->flags & kDisplayModeValidFlag)) continue;
         if (kMirrorOnlyFlags & info->flags)             continue;
@@ -4641,6 +4669,7 @@ IOFBSetDisplayModeAndDepth( io_connect_t connect,
     if (kIOReturnSuccess == err)
     {
         IOFBResetTransform( connectRef );
+        _IOFBGetPixelInformation(connectRef, displayMode, depth, kIOFBSystemAperture, &connectRef->currentModePixelInfo);
     }
 
     return (err);

@@ -1,5 +1,6 @@
 # DerivedCoreProperties-7.0.0.txt
 # Date: 2014-02-19, 15:51:15 GMT [MD]
+# Plus updates for selected Unicode 8.0 characters
 #
 # Unicode Character Database
 # Copyright (c) 1991-2014 Unicode, Inc.
@@ -10715,16 +10716,10 @@ FFFC..FFFD    ; Grapheme_Base
 1F210..1F23A  ; Grapheme_Base
 1F240..1F248  ; Grapheme_Base
 1F250..1F251  ; Grapheme_Base
-1F300..1F32C  ; Grapheme_Base
-1F330..1F37D  ; Grapheme_Base
-1F380..1F3CE  ; Grapheme_Base
-1F3D4..1F3F7  ; Grapheme_Base
-1F3FB..1F4FE  ; Grapheme_Base
-1F500..1F54A  ; Grapheme_Base
+1F300..1F54E  ; Grapheme_Base
 1F550..1F579  ; Grapheme_Base
 1F57B..1F5A3  ; Grapheme_Base
-1F5A5..1F642  ; Grapheme_Base
-1F645..1F6CF  ; Grapheme_Base
+1F5A5..1F6D0  ; Grapheme_Base
 1F6E0..1F6EC  ; Grapheme_Base
 1F6F0..1F6F3  ; Grapheme_Base
 1F700..1F773  ; Grapheme_Base
@@ -10734,12 +10729,15 @@ FFFC..FFFD    ; Grapheme_Base
 1F850..1F859  ; Grapheme_Base
 1F860..1F887  ; Grapheme_Base
 1F890..1F8AD  ; Grapheme_Base
+1F910..1F918  ; Grapheme_Base
+1F980..1F984  ; Grapheme_Base
+1F9C0         ; Grapheme_Base
 20000..2A6D6  ; Grapheme_Base
 2A700..2B734  ; Grapheme_Base
 2B740..2B81D  ; Grapheme_Base
 2F800..2FA1D  ; Grapheme_Base
 
-# Total code points: 111345
+# Total code points: 111386
 
 # ================================================
 

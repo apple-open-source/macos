@@ -290,6 +290,7 @@
 		72B5923D17C6939A00AE738B /* iCloudTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B5923C17C6939A00AE738B /* iCloudTrace.c */; };
 		7DE20930192D29D90066419C /* si-79-smp-cert-policy.c in Sources */ = {isa = PBXBuildFile; fileRef = 7DE2092F192D29D90066419C /* si-79-smp-cert-policy.c */; };
 		ACFD56BE19007B2D00F5F5D9 /* ios6_1_keychain_2_db.h in Headers */ = {isa = PBXBuildFile; fileRef = ACFD56BD19007B2D00F5F5D9 /* ios6_1_keychain_2_db.h */; };
+		BE037D351B7E8DC700D21A94 /* si-20-sectrust-att.c in Sources */ = {isa = PBXBuildFile; fileRef = BE037D331B7E8DC200D21A94 /* si-20-sectrust-att.c */; };
 		BE061FCF1899E5BD00C739F6 /* si-76-shared-credentials.c in Sources */ = {isa = PBXBuildFile; fileRef = BE061FCE1899E5BD00C739F6 /* si-76-shared-credentials.c */; };
 		BE0CC6081A96B69000662E69 /* si-83-seccertificate-sighashalg.c in Sources */ = {isa = PBXBuildFile; fileRef = BE0CC6061A96B68400662E69 /* si-83-seccertificate-sighashalg.c */; };
 		BE4AC9B518B8022D00B84964 /* swcagent_client.h in Headers */ = {isa = PBXBuildFile; fileRef = BEF9640918B418A400813FA3 /* swcagent_client.h */; };
@@ -308,6 +309,8 @@
 		BE8D22921ABB726A009A4E18 /* SecTrustSettings.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD564F14CB6EB9008233F2 /* SecTrustSettings.c */; };
 		BE8D22931ABB7272009A4E18 /* SecTrustStore.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD565214CB6EB9008233F2 /* SecTrustStore.c */; };
 		BE8D22C21ABBA4D0009A4E18 /* SecCertificatePath.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562314CB6EB9008233F2 /* SecCertificatePath.c */; };
+		BECC54E51B98FF0000FB91DC /* si-86-sectrust-eap-tls.c in Sources */ = {isa = PBXBuildFile; fileRef = BECC54E31B98FF0000FB91DC /* si-86-sectrust-eap-tls.c */; settings = {ASSET_TAGS = (); }; };
+		BECC54E61B98FF0000FB91DC /* si-86-sectrust-eap-tls.h in Headers */ = {isa = PBXBuildFile; fileRef = BECC54E41B98FF0000FB91DC /* si-86-sectrust-eap-tls.h */; settings = {ASSET_TAGS = (); }; };
 		BEF9640D18B418A400813FA3 /* swcagent_client.c in Sources */ = {isa = PBXBuildFile; fileRef = BEF9640A18B418A400813FA3 /* swcagent_client.c */; };
 		BEFE994E14F2E17200356A97 /* SecDH.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562A14CB6EB9008233F2 /* SecDH.c */; };
 		C6766768189884D200E9A12C /* SecAccessControl.c in Sources */ = {isa = PBXBuildFile; fileRef = C6766767189884D200E9A12C /* SecAccessControl.c */; };
@@ -324,6 +327,7 @@
 		CD655E961AF02F1800BD1B6E /* sc-150-backupkeyderivation.c in Sources */ = {isa = PBXBuildFile; fileRef = E7C4F5431AD482E1000B5862 /* sc-150-backupkeyderivation.c */; };
 		CD773AC61ADDFDDB00C808BA /* SOSTransportBackupPeer.c in Sources */ = {isa = PBXBuildFile; fileRef = CD773AC21ADDF8C700C808BA /* SOSTransportBackupPeer.c */; };
 		CD8E09011A2E918900A2503A /* otr-40-edgecases.c in Sources */ = {isa = PBXBuildFile; fileRef = CD8E09001A2E918900A2503A /* otr-40-edgecases.c */; };
+		CD8F442D1B83C435004C0047 /* secd-95-escrow-persistence.c in Sources */ = {isa = PBXBuildFile; fileRef = CD8F442C1B83C435004C0047 /* secd-95-escrow-persistence.c */; };
 		CD95312B19228D8D005A76B2 /* SOSTransportTestTransports.c in Sources */ = {isa = PBXBuildFile; fileRef = CDAD4E9818EC8424007D4BC2 /* SOSTransportTestTransports.c */; };
 		CD95312C19228D92005A76B2 /* SOSTransportTestTransports.h in Headers */ = {isa = PBXBuildFile; fileRef = CDAD4E9A18EC8447007D4BC2 /* SOSTransportTestTransports.h */; };
 		CD95312D19228D96005A76B2 /* SOSAccountTesting.h in Headers */ = {isa = PBXBuildFile; fileRef = E7A10FAA1771245D00C4602F /* SOSAccountTesting.h */; };
@@ -399,6 +403,7 @@
 		CDF9BBE11B03E24D00D1AF0F /* secd-52-offering-gencount-reset.c in Sources */ = {isa = PBXBuildFile; fileRef = CDF9BBE01B03E24D00D1AF0F /* secd-52-offering-gencount-reset.c */; };
 		D4273AA61B5D54E70007D67B /* nameconstraints.c in Sources */ = {isa = PBXBuildFile; fileRef = D4273AA21B5D54CA0007D67B /* nameconstraints.c */; };
 		D445CDE11B44D53C005040AC /* si-84-sectrust-atv-appsigning.c in Sources */ = {isa = PBXBuildFile; fileRef = D445CDDF1B44D372005040AC /* si-84-sectrust-atv-appsigning.c */; };
+		D4B4A9A81B8BB9B70097B393 /* si-85-sectrust-ssl-policy.c in Sources */ = {isa = PBXBuildFile; fileRef = D4B4A9A61B8801960097B393 /* si-85-sectrust-ssl-policy.c */; };
 		E703811514E1FEEF007CB458 /* SOSCloudCircle.h in Headers */ = {isa = PBXBuildFile; fileRef = E703811114E1FEE4007CB458 /* SOSCloudCircle.h */; };
 		E71049F3169E023B00DB0045 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 521C0B9815FA5C4A00604B61 /* Foundation.framework */; };
 		E7104A01169E036E00DB0045 /* SecurityTool.c in Sources */ = {isa = PBXBuildFile; fileRef = E71049FF169E036E00DB0045 /* SecurityTool.c */; };
@@ -410,7 +415,6 @@
 		E7285C981AE1E4A800AD412D /* SOSEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C9DC91915B602760036D941 /* SOSEngine.h */; };
 		E7285CAC1AE1E4DF00AD412D /* SOSChangeTracker.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C31C3CB1A9E5CDA009098D8 /* SOSChangeTracker.c */; };
 		E7285CAD1AE1E4DF00AD412D /* SOSChangeTracker.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C31C3CC1A9E5CDA009098D8 /* SOSChangeTracker.h */; };
-		E73182A01B1FC9CD00FC334C /* secd-63-account-resurrection.c in Sources */ = {isa = PBXBuildFile; fileRef = E731829F1B1FC9CD00FC334C /* secd-63-account-resurrection.c */; };
 		E748744515A61AF800624935 /* si-68-secmatchissuer.c in Sources */ = {isa = PBXBuildFile; fileRef = E748744415A61AF800624935 /* si-68-secmatchissuer.c */; };
 		E75216AD1AF1F26500DDA573 /* SOSForerunnerSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BD2F7FB1ADCDD8C0037CD5D /* SOSForerunnerSession.c */; };
 		E75216AE1AF1F26500DDA573 /* SOSForerunnerSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4BD2F7FC1ADCDD8C0037CD5D /* SOSForerunnerSession.h */; };
@@ -422,6 +426,8 @@
 		E777C71E15B73F9E004044A8 /* SOSInternal.c in Sources */ = {isa = PBXBuildFile; fileRef = E777C71D15B73F9E004044A8 /* SOSInternal.c */; };
 		E777C72615B87545004044A8 /* SOSPeerInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = E777C72515B87544004044A8 /* SOSPeerInfo.c */; };
 		E777C72715B882E5004044A8 /* SOSPeerInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = E777C72415B87528004044A8 /* SOSPeerInfo.h */; };
+		E7850ED01BB30E80002A54CA /* secd-63-account-resurrection.c in Sources */ = {isa = PBXBuildFile; fileRef = E731829F1B1FC9CD00FC334C /* secd-63-account-resurrection.c */; settings = {ASSET_TAGS = (); }; };
+		E7850ED11BB30E87002A54CA /* secd-65-account-retirement-reset.c in Sources */ = {isa = PBXBuildFile; fileRef = E7850ECE1BB30E6E002A54CA /* secd-65-account-retirement-reset.c */; settings = {ASSET_TAGS = (); }; };
 		E790C10A169E4FD200E0C0C9 /* digest_calc.c in Sources */ = {isa = PBXBuildFile; fileRef = E790C109169E4FD200E0C0C9 /* digest_calc.c */; };
 		E790C110169E53DF00E0C0C9 /* leaks.c in Sources */ = {isa = PBXBuildFile; fileRef = E790C10E169E53DF00E0C0C9 /* leaks.c */; };
 		E790C141169E5C6200E0C0C9 /* add_internet_password.c in Sources */ = {isa = PBXBuildFile; fileRef = E790C136169E5C6200E0C0C9 /* add_internet_password.c */; };
@@ -875,6 +881,7 @@
 		72E2DC0716BC47C800E7B236 /* OTATrustUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OTATrustUtilities.h; sourceTree = "<group>"; };
 		7DE2092F192D29D90066419C /* si-79-smp-cert-policy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-79-smp-cert-policy.c"; sourceTree = "<group>"; };
 		ACFD56BD19007B2D00F5F5D9 /* ios6_1_keychain_2_db.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ios6_1_keychain_2_db.h; sourceTree = "<group>"; };
+		BE037D331B7E8DC200D21A94 /* si-20-sectrust-att.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-20-sectrust-att.c"; sourceTree = "<group>"; };
 		BE061FCE1899E5BD00C739F6 /* si-76-shared-credentials.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-76-shared-credentials.c"; sourceTree = "<group>"; };
 		BE0CC6061A96B68400662E69 /* si-83-seccertificate-sighashalg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-83-seccertificate-sighashalg.c"; sourceTree = "<group>"; };
 		BE556A5D19550E1600E6EE8C /* SecPolicyCerts.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecPolicyCerts.h; sourceTree = "<group>"; };
@@ -885,6 +892,8 @@
 		BE794825196DBEAD00F4BA63 /* si-81-sectrust-server-auth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-81-sectrust-server-auth.c"; sourceTree = "<group>"; };
 		BE8D228E1ABB7199009A4E18 /* libSecTrustOSX.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSecTrustOSX.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		BE8D22C11ABB9B6E009A4E18 /* SecTrustInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecTrustInternal.h; sourceTree = "<group>"; };
+		BECC54E31B98FF0000FB91DC /* si-86-sectrust-eap-tls.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-86-sectrust-eap-tls.c"; sourceTree = "<group>"; };
+		BECC54E41B98FF0000FB91DC /* si-86-sectrust-eap-tls.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-86-sectrust-eap-tls.h"; sourceTree = "<group>"; };
 		BEF9640618B4171200813FA3 /* libSWCAgent.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSWCAgent.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		BEF9640918B418A400813FA3 /* swcagent_client.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = swcagent_client.h; path = SharedWebCredential/swcagent_client.h; sourceTree = "<group>"; };
 		BEF9640A18B418A400813FA3 /* swcagent_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = swcagent_client.c; path = SharedWebCredential/swcagent_client.c; sourceTree = "<group>"; };
@@ -922,6 +931,7 @@
 		CD773AC31ADDF8C700C808BA /* SOSTransportBackupPeer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSTransportBackupPeer.h; sourceTree = "<group>"; };
 		CD86DE4D18BD554D00C90CDF /* SOSTransport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSTransport.c; sourceTree = "<group>"; };
 		CD8E09001A2E918900A2503A /* otr-40-edgecases.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "otr-40-edgecases.c"; sourceTree = "<group>"; };
+		CD8F442C1B83C435004C0047 /* secd-95-escrow-persistence.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-95-escrow-persistence.c"; sourceTree = "<group>"; };
 		CDA7729616B899F10069434D /* si-69-keydesc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-69-keydesc.c"; sourceTree = "<group>"; };
 		CDAD4E9818EC8424007D4BC2 /* SOSTransportTestTransports.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSTransportTestTransports.c; sourceTree = "<group>"; };
 		CDAD4E9A18EC8447007D4BC2 /* SOSTransportTestTransports.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSTransportTestTransports.h; sourceTree = "<group>"; };
@@ -964,6 +974,7 @@
 		D4273AA21B5D54CA0007D67B /* nameconstraints.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nameconstraints.c; sourceTree = "<group>"; };
 		D4273AA31B5D54CA0007D67B /* nameconstraints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nameconstraints.h; sourceTree = "<group>"; };
 		D445CDDF1B44D372005040AC /* si-84-sectrust-atv-appsigning.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-84-sectrust-atv-appsigning.c"; sourceTree = "<group>"; };
+		D4B4A9A61B8801960097B393 /* si-85-sectrust-ssl-policy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-85-sectrust-ssl-policy.c"; sourceTree = "<group>"; };
 		E702E75614E1F3EA00CDE635 /* libSecureObjectSync.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSecureObjectSync.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E702E77814E1F48800CDE635 /* libSOSRegressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSOSRegressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E703811114E1FEE4007CB458 /* SOSCloudCircle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSCloudCircle.h; sourceTree = "<group>"; };
@@ -992,6 +1003,7 @@
 		E777C72415B87528004044A8 /* SOSPeerInfo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSPeerInfo.h; sourceTree = "<group>"; };
 		E777C72515B87544004044A8 /* SOSPeerInfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSPeerInfo.c; sourceTree = "<group>"; };
 		E777C72815B9C9F0004044A8 /* sc-30-peerinfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sc-30-peerinfo.c"; sourceTree = "<group>"; };
+		E7850ECE1BB30E6E002A54CA /* secd-65-account-retirement-reset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-65-account-retirement-reset.c"; sourceTree = "<group>"; };
 		E790C0F4169E3D7200E0C0C9 /* SOSCommands.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSCommands.h; sourceTree = "<group>"; };
 		E790C108169E4E7900E0C0C9 /* builtin_commands.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = builtin_commands.h; sourceTree = "<group>"; };
 		E790C109169E4FD200E0C0C9 /* digest_calc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = digest_calc.c; sourceTree = "<group>"; };
@@ -1487,6 +1499,7 @@
 				4CC92A1C15A3ABD400C6D578 /* si-15-certificate.c */,
 				4CC92A1D15A3ABD400C6D578 /* si-16-ec-certificate.c */,
 				4CC92A1E15A3ABD400C6D578 /* si-20-sectrust-activation.c */,
+				BE037D331B7E8DC200D21A94 /* si-20-sectrust-att.c */,
 				4CC92A1F15A3ABD400C6D578 /* si-20-sectrust.c */,
 				4CC92A2015A3ABD400C6D578 /* si-21-sectrust-asr.c */,
 				4CC92A2115A3ABD400C6D578 /* si-22-sectrust-iap.c */,
@@ -1545,6 +1558,9 @@
 				BE0CC6061A96B68400662E69 /* si-83-seccertificate-sighashalg.c */,
 				F953A6A71B43538A006EC5E1 /* si-81-sectrust-appletv.c */,
 				D445CDDF1B44D372005040AC /* si-84-sectrust-atv-appsigning.c */,
+				D4B4A9A61B8801960097B393 /* si-85-sectrust-ssl-policy.c */,
+				BECC54E31B98FF0000FB91DC /* si-86-sectrust-eap-tls.c */,
+				BECC54E41B98FF0000FB91DC /* si-86-sectrust-eap-tls.h */,
 			);
 			name = secitem;
 			path = Regressions/secitem;
@@ -1646,6 +1662,7 @@
 				CD655E911AF02B9900BD1B6E /* secd-62-account-backup.c */,
 				48FABEDF1AD05C7100C061D1 /* secd-62-account-hsa-join.c */,
 				E731829F1B1FC9CD00FC334C /* secd-63-account-resurrection.c */,
+				E7850ECE1BB30E6E002A54CA /* secd-65-account-retirement-reset.c */,
 				48A0FEDD1B6046E2001D6180 /* secd-64-circlereset.c */,
 				527258CF1981C00F003CFCEC /* secd-70-engine.c */,
 				4C495EE01982171500BC1809 /* secd-70-engine-corrupt.c */,
@@ -1659,6 +1676,7 @@
 				5EA016361AD41AB20061BCD7 /* secd-81-item-acl.c */,
 				F9E0BD981AEF196A00554D49 /* secd-82-persistent-ref.c */,
 				48FABEE01AD05C7100C061D1 /* secd-90-hsa2.c */,
+				CD8F442C1B83C435004C0047 /* secd-95-escrow-persistence.c */,
 				E7A10FAA1771245D00C4602F /* SOSAccountTesting.h */,
 				E79D62BE1767A547005A9743 /* SecdTestKeychainUtilities.c */,
 				E79D62BF1767A55F005A9743 /* SecdTestKeychainUtilities.h */,
@@ -2121,6 +2139,7 @@
 				4CC92A8F15A3ABD400C6D578 /* si-63-scep.h in Headers */,
 				4CC92A9015A3ABD400C6D578 /* attached_no_data_signed_data.h in Headers */,
 				4CC92A9115A3ABD400C6D578 /* attached_signed_data.h in Headers */,
+				BECC54E61B98FF0000FB91DC /* si-86-sectrust-eap-tls.h in Headers */,
 				4CC92A9215A3ABD400C6D578 /* detached_content.h in Headers */,
 				4CC92A9315A3ABD400C6D578 /* detached_signed_data.h in Headers */,
 				4CC92A9415A3ABD400C6D578 /* privkey.h in Headers */,
@@ -2623,12 +2642,14 @@
 				F9EF72F21AC0F98400A4D24A /* secd-70-engine-smash.c in Sources */,
 				5384299418E492A300E91AFE /* secd-70-otr-remote.c in Sources */,
 				E7F18557177A502900177B23 /* secd-56-account-apply.c in Sources */,
+				E7850ED01BB30E80002A54CA /* secd-63-account-resurrection.c in Sources */,
 				0C664AE8175951270092D3D9 /* secd-02-upgrade-while-locked.c in Sources */,
 				48FB17061A771E5700B586C7 /* secd-80-views-basic.c in Sources */,
 				0CBF93F8177B7CFC001E5658 /* secd-03-corrupted-items.c in Sources */,
 				E75AB91B1AE9964800C5EF3F /* secd-40-cc-gestalt.c in Sources */,
 				0CBF93FC177BA9D9001E5658 /* secd-05-corrupted-items.c in Sources */,
 				527258D11981C00F003CFCEC /* secd-70-engine.c in Sources */,
+				E7850ED11BB30E87002A54CA /* secd-65-account-retirement-reset.c in Sources */,
 				4C495EDF1982145200BC1809 /* SOSTestDevice.c in Sources */,
 				0CBF93F9177B7CFC001E5658 /* secd-04-corrupted-items.c in Sources */,
 				4898223A17BDB277003BEF32 /* secd-52-account-changed.c in Sources */,
@@ -2693,11 +2714,11 @@
 				CDF9BBE11B03E24D00D1AF0F /* secd-52-offering-gencount-reset.c in Sources */,
 				18D4043D14CE1FE400A2BE4E /* SecCertificate.c in Sources */,
 				18D4043E14CE1FE400A2BE4E /* SecCertificatePath.c in Sources */,
-				E73182A01B1FC9CD00FC334C /* secd-63-account-resurrection.c in Sources */,
 				18D4043F14CE1FE400A2BE4E /* SecCertificateRequest.c in Sources */,
 				18D4044014CE1FE400A2BE4E /* SecCMS.c in Sources */,
 				18D4044114CE1FE400A2BE4E /* SecDH.c in Sources */,
 				449265291AB0D6FF00644D4C /* SecCTKKey.c in Sources */,
+				CD8F442D1B83C435004C0047 /* secd-95-escrow-persistence.c in Sources */,
 				18D4044214CE1FE400A2BE4E /* SecECKey.c in Sources */,
 				18D4044314CE1FE400A2BE4E /* SecFramework.c in Sources */,
 				18D4044414CE1FE400A2BE4E /* SecIdentity.c in Sources */,
@@ -2788,6 +2809,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4B4A9A81B8BB9B70097B393 /* si-85-sectrust-ssl-policy.c in Sources */,
 				D445CDE11B44D53C005040AC /* si-84-sectrust-atv-appsigning.c in Sources */,
 				BE794826196DBEAD00F4BA63 /* si-81-sectrust-server-auth.c in Sources */,
 				4CC92A5F15A3ABD400C6D578 /* pbkdf2-00-hmac-sha1.c in Sources */,
@@ -2809,6 +2831,7 @@
 				BE061FCF1899E5BD00C739F6 /* si-76-shared-credentials.c in Sources */,
 				4CC92A6B15A3ABD400C6D578 /* si-16-ec-certificate.c in Sources */,
 				4CC92A6C15A3ABD400C6D578 /* si-20-sectrust-activation.c in Sources */,
+				BE037D351B7E8DC700D21A94 /* si-20-sectrust-att.c in Sources */,
 				4CC92A6D15A3ABD400C6D578 /* si-20-sectrust.c in Sources */,
 				BE62D7601747FF3E001EAA9D /* si-72-syncableitems.c in Sources */,
 				4CC92A6E15A3ABD400C6D578 /* si-21-sectrust-asr.c in Sources */,
@@ -2847,6 +2870,7 @@
 				4CC92A8815A3ABD400C6D578 /* si-50-secrandom.c in Sources */,
 				4CC92A8915A3ABD400C6D578 /* si-60-cms.c in Sources */,
 				5DE4A7BD17441CCD0036339E /* si-71-mobile-store-policy.c in Sources */,
+				BECC54E51B98FF0000FB91DC /* si-86-sectrust-eap-tls.c in Sources */,
 				CDB6A8B61A409BBF00646CD6 /* otr-50-roll.c in Sources */,
 				F953A6A91B43597D006EC5E1 /* si-81-sectrust-appletv.c in Sources */,
 				CDD565A2173193AC00B6B074 /* si-73-secpasswordgenerate.c in Sources */,

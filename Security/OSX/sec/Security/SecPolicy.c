@@ -215,6 +215,7 @@ SEC_CONST_DECL (kSecPolicyAppleTestPPQSigning, "1.2.840.113625.100.1.36");
 SEC_CONST_DECL (kSecPolicyAppleATVAppSigning, "1.2.840.113625.100.1.37");
 SEC_CONST_DECL (kSecPolicyAppleTestATVAppSigning, "1.2.840.113625.100.1.38");
 SEC_CONST_DECL (kSecPolicyApplePayIssuerEncryption, "1.2.840.113625.100.1.39");
+SEC_CONST_DECL (kSecPolicyAppleOSXProvisioningProfileSigning, "1.2.840.113625.100.1.40");
 
 SEC_CONST_DECL (kSecPolicyOid, "SecPolicyOid");
 SEC_CONST_DECL (kSecPolicyName, "SecPolicyName");
@@ -271,6 +272,7 @@ static CFStringRef kSecPolicyOIDAppleIDValidationRecordSigningPolicy = CFSTR("Ap
 static CFStringRef kSecPolicyOIDAppleATVAppSigning = CFSTR("AppleATVAppSigning");
 static CFStringRef kSecPolicyOIDAppleTestATVAppSigning = CFSTR("AppleTestATVAppSigning");
 static CFStringRef kSecPolicyOIDApplePayIssuerEncryption = CFSTR("ApplePayIssuerEncryption");
+static CFStringRef kSecPolicyOIDAppleOSXProvisioningProfileSigning = CFSTR("AppleOSXProvisioningProfileSigning");
 
 /* Policies will now change to multiple categories of checks.
 
@@ -733,9 +735,12 @@ CFDictionaryRef SecPolicyCopyProperties(SecPolicyRef policyRef) {
         outOid = kSecPolicyAppleTestATVAppSigning;
     }
 #endif
-    else if (CFEqual(oid, kSecPolicyOIDApplePayIssuerEncryption)) {
-        outOid = kSecPolicyApplePayIssuerEncryption;
-    }
+	else if (CFEqual(oid, kSecPolicyOIDApplePayIssuerEncryption)) {
+		outOid = kSecPolicyApplePayIssuerEncryption;
+	}
+	else if (CFEqual(oid, kSecPolicyOIDAppleOSXProvisioningProfileSigning)) {
+		outOid = kSecPolicyAppleOSXProvisioningProfileSigning;
+	}
 
 	// Set kSecPolicyOid
 	CFDictionarySetValue(properties, (const void *)kSecPolicyOid,
@@ -1212,42 +1217,36 @@ SecPolicyRef SecPolicyCreateSSL(Boolean server, CFStringRef hostname) {
 	SecPolicyRef result = NULL;
 
 	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+				&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
-    SecPolicyAddBasicX509Options(options);
-
-#if 0
-	CFDictionaryAddValue(options, kSecPolicyCheckKeyUsage,
-		kCFBooleanTrue);
-#endif
+	SecPolicyAddBasicX509Options(options);
 
 	if (hostname) {
 		CFDictionaryAddValue(options, kSecPolicyCheckSSLHostname, hostname);
 	}
 
-    CFDictionaryAddValue(options, kSecPolicyCheckBlackListedLeaf,  kCFBooleanTrue);
-    CFDictionaryAddValue(options, kSecPolicyCheckGrayListedLeaf,   kCFBooleanTrue);
+	CFDictionaryAddValue(options, kSecPolicyCheckBlackListedLeaf,  kCFBooleanTrue);
+	CFDictionaryAddValue(options, kSecPolicyCheckGrayListedLeaf,   kCFBooleanTrue);
 
-    /* If server and EKU ext present then EKU ext should contain one of
-       CSSMOID_ServerAuth or CSSMOID_ExtendedKeyUsageAny or
-       CSSMOID_NetscapeSGC or CSSMOID_MicrosoftSGC.
-       else if !server and EKU ext present then EKU ext should contain one of
-       CSSMOID_ClientAuth or CSSMOID_ExtendedKeyUsageAny. */
+	/* If server and EKU ext present then EKU ext should contain one of
+	   ServerAuth or ExtendedKeyUsageAny or NetscapeSGC or MicrosoftSGC.
+	   else if !server and EKU ext present then EKU ext should contain one of
+	   ClientAuth or ExtendedKeyUsageAny. */
 
-    /* We always allow certification that specify oidAnyExtendedKeyUsage. */
-    add_eku(options, NULL); /* eku extension is optional */
-    add_eku(options, &oidAnyExtendedKeyUsage);
-    if (server) {
-        add_eku(options, &oidExtendedKeyUsageServerAuth);
-        add_eku(options, &oidExtendedKeyUsageMicrosoftSGC);
-        add_eku(options, &oidExtendedKeyUsageNetscapeSGC);
-    } else {
-        add_eku(options, &oidExtendedKeyUsageClientAuth);
-    }
+	/* We always allow certificates that specify oidAnyExtendedKeyUsage. */
+	add_eku(options, NULL); /* eku extension is optional */
+	add_eku(options, &oidAnyExtendedKeyUsage);
+	if (server) {
+		add_eku(options, &oidExtendedKeyUsageServerAuth);
+		add_eku(options, &oidExtendedKeyUsageMicrosoftSGC);
+		add_eku(options, &oidExtendedKeyUsageNetscapeSGC);
+	} else {
+		add_eku(options, &oidExtendedKeyUsageClientAuth);
+	}
 
 	require(result = SecPolicyCreate(
-		server ? kSecPolicyOIDSSLServer : kSecPolicyOIDSSLClient,
-		options), errOut);
+				server ? kSecPolicyOIDSSLServer : kSecPolicyOIDSSLClient,
+				options), errOut);
 
 errOut:
 	CFReleaseSafe(options);
@@ -1408,28 +1407,41 @@ SecPolicyRef SecPolicyCreateEAP(Boolean server, CFArrayRef trustedServerNames) {
 	SecPolicyRef result = NULL;
 
 	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+				&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
 
-    SecPolicyAddBasicX509Options(options);
+	SecPolicyAddBasicX509Options(options);
 
-#if 0
-	CFDictionaryAddValue(options, kSecPolicyCheckKeyUsage,
-		kCFBooleanTrue);
-	CFDictionaryAddValue(options, kSecPolicyCheckExtendedKeyUsage,
-		kCFBooleanTrue);
-#endif
-
-    /* Since EAP is used to setup the network we don't want evaluation
-       using this policy to access the network. */
+	/* Since EAP is used to setup the network we don't want evaluation
+	   using this policy to access the network. */
 	CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess,
-		kCFBooleanTrue);
+			kCFBooleanTrue);
+
 	if (trustedServerNames) {
 		CFDictionaryAddValue(options, kSecPolicyCheckEAPTrustedServerNames, trustedServerNames);
+
+		/* Specifying trusted server names implies EAP-TLS,
+		   so we need to check for EKU per rdar://22206018 */
+
+		/* If server and EKU ext present then EKU ext should contain one of
+		   ServerAuth or ExtendedKeyUsageAny or NetscapeSGC or MicrosoftSGC.
+		   else if !server and EKU ext present then EKU ext should contain one of
+		   ClientAuth or ExtendedKeyUsageAny. */
+
+		/* We always allow certificates that specify oidAnyExtendedKeyUsage. */
+		add_eku(options, NULL); /* eku extension is optional */
+		add_eku(options, &oidAnyExtendedKeyUsage);
+		if (server) {
+			add_eku(options, &oidExtendedKeyUsageServerAuth);
+			add_eku(options, &oidExtendedKeyUsageMicrosoftSGC);
+			add_eku(options, &oidExtendedKeyUsageNetscapeSGC);
+		} else {
+			add_eku(options, &oidExtendedKeyUsageClientAuth);
+		}
 	}
 
 	require(result = SecPolicyCreate(
-		server ? kSecPolicyOIDEAPServer : kSecPolicyOIDEAPClient,
-		options), errOut);
+				server ? kSecPolicyOIDEAPServer : kSecPolicyOIDEAPClient,
+				options), errOut);
 
 errOut:
 	CFReleaseSafe(options);
@@ -2230,6 +2242,36 @@ SecPolicyRef SecPolicyCreateQAConfigurationProfileSigner(void)
 errOut:
   CFReleaseSafe(options);
   return result;
+}
+
+SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void)
+{
+    SecPolicyRef result = NULL;
+    CFMutableDictionaryRef options = NULL;
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+    // Require valid chain from the Apple root
+    SecPolicyAddBasicX509Options(options);
+    SecPolicyAddAppleAnchorOptions(options);
+
+    // Require provisioning profile leaf marker OID (1.2.840.113635.100.4.11)
+    add_leaf_marker(options, &oidAppleCertExtOSXProvisioningProfileSigning);
+
+    // Require intermediate marker OID (1.2.840.113635.100.6.2.1)
+    add_oid(options, kSecPolicyCheckIntermediateMarkerOid, &oidAppleIntmMarkerAppleWWDR);
+
+    // Require key usage that allows signing
+    add_ku(options, kSecKeyUsageDigitalSignature);
+
+    // Ensure that revocation is checked (OCSP)
+    CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kCFBooleanFalse);
+
+    require(result = SecPolicyCreate(kSecPolicyOIDAppleOSXProvisioningProfileSigning, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    return result;
 }
 
 

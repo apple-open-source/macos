@@ -21,13 +21,13 @@
 	<dict>
 		<key>WAIT4DEBUGGER</key>
 		<string>NO</string>
-		<key>DEBUGSCOPE</key>
-		<string>all</string>
 	</dict>
 	<key>ProcessType</key>
 	<string>Adaptive</string>
 	<key>MachServices</key>
 	<dict>
+		<key>com.apple.private.alloy.keychainsync-idswake</key>
+		<true/>
 		<key>com.apple.security.idskeychainsyncingproxy</key>
 		<true/>
 	</dict>
@@ -39,7 +39,7 @@
 	<false/>
 	<key>EnablePressuredExit</key>
 	<true/>
-	<key>KeepAlive</key>
+	<key>enabletransactions</key>
 	<true/>
 </dict>
 </plist>

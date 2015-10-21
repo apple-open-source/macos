@@ -126,13 +126,18 @@ PR_IMPLEMENT(void *) PL_ArenaAllocate(PLArenaPool *pool, PRUint32 nb)
 {
     PLArena *a;   
     char *rp;     /* returned pointer */
+    PRUint32 nbOld;
 
     PR_ASSERT((nb & pool->mask) == 0);
+    nbOld = nb;
 #ifdef __APPLE__
     nb = PL_ARENA_ALIGN(pool, nb); /* force alignment, cast is useless/causes warning. */
 #else
     nb = (PRUword)PL_ARENA_ALIGN(pool, nb); /* force alignment */
 #endif
+    /* ensure that alignment didn't cause overflow */
+    if (nb < nbOld)
+        return NULL;
 
     /* attempt to allocate from arenas at pool->current */
     {
@@ -204,17 +209,24 @@ PR_IMPLEMENT(void *) PL_ArenaGrow(
 	PLArena *lastArena;
 	PRUint32 origAlignSize;		// bytes currently reserved for caller
 	PRUint32 newSize;			// bytes actually mallocd here
-	
-	/* expand at least by 2x */
-	origAlignSize = PL_ARENA_ALIGN(pool, origSize);
-    newSize = PR_MAX(origAlignSize+incr, 2*origAlignSize);
-    newSize = PL_ARENA_ALIGN(pool, newSize);
-#if __APPLE__
+
     // Enforce maximal size before any potential implicit truncation
-    if (newSize>=MAX_SIZE || origSize>=MAX_SIZE || incr>=MAX_SIZE) {
+    if (origSize>=MAX_SIZE || incr>=MAX_SIZE) {
         return NULL;
     }
-#endif
+	origAlignSize = PL_ARENA_ALIGN(pool, origSize);
+    if (origAlignSize>=MAX_SIZE) {
+        return NULL;
+    }
+
+    /* expand at least by 2x */
+    newSize = PR_MAX(origAlignSize+incr, 2*origAlignSize);
+    newSize = PL_ARENA_ALIGN(pool, newSize);
+
+    if (newSize>=MAX_SIZE) {
+        return NULL;
+    }
+
     PL_ARENA_ALLOCATE(newp, pool, newSize);
     if (newp == NULL) {
         return NULL;

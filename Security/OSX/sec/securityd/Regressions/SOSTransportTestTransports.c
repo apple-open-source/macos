@@ -420,7 +420,8 @@ bool SOSTransportCircleTestRemovePendingChange(SOSTransportCircleRef transport, 
     CFStringRef circle_key = SOSCircleKeyCreateWithName(circleName, error);
     if (circle_key)
         CFDictionaryRemoveValue(tkvs->changes, circle_key);
-    return circle_key;
+    CFReleaseNull(circle_key);
+    return true;
 }
 
 static bool postCircle(SOSTransportCircleRef transport,  CFStringRef circleName, CFDataRef circle_data, CFErrorRef *error){

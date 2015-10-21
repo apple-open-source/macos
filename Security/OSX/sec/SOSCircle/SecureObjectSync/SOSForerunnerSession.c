@@ -1211,7 +1211,7 @@ SOSForerunnerAcceptorSessionCreate(CFAllocatorRef allocator,
 
 xit:
 	if (error) {
-		if (!self->asCircleSecret) {
+		if (self && !self->asCircleSecret) {
 			free(secret);
 		}
 
@@ -1294,6 +1294,8 @@ xit:
 			free(challenge_der);
 		}
 	}
+
+    free(username_str);
 
 	return challenge;
 }

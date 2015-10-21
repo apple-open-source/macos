@@ -95,22 +95,16 @@ static bool SOSAccountInflateTransportsForCircle(SOSAccountRef account, CFString
 
     require_quiet(tKey, fail);
     require_quiet(tCircle, fail);
-
-
-    if (whichTransportType == kSOSTransportIDS || whichTransportType == kSOSTransportFuture || whichTransportType == kSOSTransportPresent) {
-        tidsMessage = (SOSTransportMessageRef)SOSTransportMessageIDSCreate(account, circleName, error);
-        require_quiet(tidsMessage, fail);
-
-        CFRetainAssign(account->ids_message_transport, tidsMessage);
-        
-        secnotice("transport", "We are going to use an IDS transport");
-    }
-
+    
+    tidsMessage = (SOSTransportMessageRef)SOSTransportMessageIDSCreate(account, circleName, error);
+    require_quiet(tidsMessage, fail);
+    
+    CFRetainAssign(account->ids_message_transport, tidsMessage);
     tkvsMessage = (SOSTransportMessageRef)SOSTransportMessageKVSCreate(account, circleName, error);
     require_quiet(tkvsMessage, fail);
-        
+    
     CFRetainAssign(account->kvs_message_transport, tkvsMessage);
-
+    
     CFRetainAssign(account->key_transport, (SOSTransportKeyParameterRef)tKey);
     CFRetainAssign(account->circle_transport, tCircle);
 
@@ -130,7 +124,7 @@ SOSCircleRef SOSAccountEnsureCircle(SOSAccountRef a, CFStringRef name, CFErrorRe
 
     if (a->trusted_circle == NULL) {
         a->trusted_circle = SOSCircleCreate(NULL, name, NULL);
-        SOSUpdateKeyInterest();
+        SOSUpdateKeyInterest(a);
     }
 
     

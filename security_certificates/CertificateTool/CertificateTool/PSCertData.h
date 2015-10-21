@@ -2,8 +2,7 @@
 //  PSCertData.h
 //  CertificateTool
 //
-//  Created by local on 1/24/13.
-//  Copyright (c) 2013 James Murphy. All rights reserved.
+//  Copyright (c) 2012-2015 Apple Inc. All Rights Reserved.
 //
 
 #import <Foundation/Foundation.h>

@@ -21,6 +21,7 @@ _SOSCCCopyNotValidPeerPeerInfo
 _SOSCCCopyPeerPeerInfo
 _SOSCCCopyRetirementPeerInfo
 _SOSCCCopyValidPeerPeerInfo
+_SOSCCCopyViewUnawarePeerInfo
 _SOSCCCopyYetToSyncViewsList
 _SOSCCGetLastDepartureReason
 _SOSCCGetStatusDescription
@@ -34,9 +35,10 @@ _SOSCCPurgeUserCredentials
 _SOSCCRegisterSingleRecoverySecret
 _SOSCCRegisterUserCredentials
 _SOSCCRejectApplicants
+_SOSCCRemovePeersFromCircle
 _SOSCCRemoveThisDeviceFromCircle
 _SOSCCLoggedOutOfAccount
-_SOSCCRequestDeviceID
+_SOSCCCopyDeviceID
 _SOSCCRequestEnsureFreshParameters
 _SOSCCRequestToJoinCircle
 _SOSCCRequestToJoinCircleAfterRestore
@@ -61,13 +63,17 @@ _SOSCCIsAppleTVSyncing
 _SOSCCIsHomeKitSyncing
 _SOSCCIsWiFiSyncing
 _SOSCCWaitForInitialSync
-
+_SOSCCSetEscrowRecord
+_SOSCCCopyEscrowRecord
+_SOSCCCheckPeerAvailability
 
 _UserParametersDescription
 
 _kSOSCCCircleChangedNotification
 _kSOSCCViewMembershipChangedNotification
 _kSOSCCInitialSyncChangedNotification
+_kSOSCCHoldLockForInitialSync
+_kSOSCCPeerAvailable
 
 _SOSCCSetLastDepartureReason
 _SOSCCAccountSetToNew
@@ -83,6 +89,7 @@ _SOSPeerInfoCopyEncodedData
 _SOSPeerInfoCopyPeerGestalt
 _SOSPeerInfoCopyPubKey
 _SOSPeerInfoCopyWithBackupKeyUpdate
+_SOSPeerInfoCopyWithEscrowRecordUpdate
 _SOSPeerInfoCopyWithGestaltUpdate
 _SOSPeerInfoCopyWithSecurityPropertyChange
 _SOSPeerInfoCopyWithViewsChange
@@ -128,7 +135,6 @@ _SOSPeerInfoUpgradeSignatures
 _SOSPeerInfoViewStatus
 _SOSPeerInfoExpandV2Data
 
-_SOSCCRequestDeviceID
 _SOSCCSetDeviceID
 _SOSCCHandleIDSMessage
 

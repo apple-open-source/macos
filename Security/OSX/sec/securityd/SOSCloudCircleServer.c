@@ -112,6 +112,10 @@ CFStringRef kSOSInternalAccessGroup = CFSTR("com.apple.security.sos");
 
 CFStringRef kSOSAccountLabel = CFSTR("iCloud Keychain Account Meta-data");
 
+CFStringRef kSOSBurnedRecoveryAttemptCount = CFSTR("Burned Recovery Attempt Count");
+
+CFStringRef kSOSBurnedRecoveryAttemptAttestationDate = CFSTR("Burned Recovery Attempt Attestation Date");
+
 static CFStringRef accountFileName = CFSTR("PersistedAccount.plist");
 
 static CFDictionaryRef SOSItemCopyQueryForSyncItems(CFStringRef service, bool returnData)
@@ -465,7 +469,7 @@ static SOSAccountRef GetSharedAccount(void) {
                 
                 if (CFSetContainsValue(peer_additions, me)) {
                     // TODO: Potentially remove from here and move this to the engine
-                    // TODO: We also need to do this when our views change.
+                    // TODO: We also need to do this when our views change.        
                     SOSCCSyncWithAllPeers();
                 }
             }
@@ -478,7 +482,23 @@ static SOSAccountRef GetSharedAccount(void) {
                 CFSetGetCount(applicant_additions) != 0 ||
                 CFSetGetCount(applicant_removals) != 0) {
 
+                if(CFSetGetCount(peer_removals) != 0)
+                {
+                    CFErrorRef localError = NULL;
+                    CFMutableArrayRef removed = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+                    CFSetForEach(peer_removals, ^(const void *value) {
+                        CFArrayAppendValue(removed, value);
+                    });
+                    SOSAccountRemoveBackupPeers(sSharedAccount, removed, &localError);
+                    if(localError)
+                        secerror("Had trouble removing: %@, error: %@", removed, localError);
+                    CFReleaseNull(localError);
+                    CFReleaseNull(removed);
+                }
                 notify_post(kSOSCCCircleChangedNotification);
+                // This might be a bit chatty for now, but it will get things moving for clients.
+                notify_post(kSOSCCViewMembershipChangedNotification);
+
            }
         });
     
@@ -516,6 +536,7 @@ static void do_with_account_dynamic(void (^action)(SOSAccountRef account), bool 
     if(account){
         dispatch_block_t do_action_and_save =  ^{
             SOSPeerInfoRef mpi = SOSAccountGetMyPeerInfo(account);
+            bool wasInCircle = SOSAccountIsInCircle(account, NULL);
             CFSetRef beforeViews = mpi ? SOSPeerInfoCopyEnabledViews(mpi) : NULL;
 
             action(account);
@@ -524,9 +545,11 @@ static void do_with_account_dynamic(void (^action)(SOSAccountRef account), bool 
             SOSAccountFinishTransaction(account);
 
             mpi = SOSAccountGetMyPeerInfo(account); // Update the peer
+            bool isInCircle = SOSAccountIsInCircle(account, NULL);
+
             CFSetRef afterViews = mpi ? SOSPeerInfoCopyEnabledViews(mpi) : NULL;
 
-            if(!CFEqualSafe(beforeViews, afterViews)) {
+            if(!CFEqualSafe(beforeViews, afterViews) || wasInCircle != isInCircle) {
                 notify_post(kSOSCCViewMembershipChangedNotification);
             }
 
@@ -697,7 +720,7 @@ SOSSecurityPropertyResultCode SOSCCSecurityProperty_Server(CFStringRef property,
     return status;
 }
 
-void sync_the_last_data_to_kvs(SOSAccountRef account){
+void sync_the_last_data_to_kvs(SOSAccountRef account, bool waitForeverForSynchronization){
     
     dispatch_semaphore_t wait_for = dispatch_semaphore_create(0);
     dispatch_retain(wait_for); // Both this scope and the block own it.
@@ -723,7 +746,12 @@ void sync_the_last_data_to_kvs(SOSAccountRef account){
     });
     
     CFReleaseNull(keysToGet);
-    dispatch_semaphore_wait(wait_for, DISPATCH_TIME_FOREVER);
+    
+    if(waitForeverForSynchronization)
+        dispatch_semaphore_wait(wait_for, DISPATCH_TIME_FOREVER);
+    else
+        dispatch_semaphore_wait(wait_for, dispatch_time(DISPATCH_TIME_NOW, 60ull * NSEC_PER_SEC));
+    
     dispatch_release(wait_for);
 }
 
@@ -735,7 +763,7 @@ static bool EnsureFreshParameters(SOSAccountRef account, CFErrorRef *error) {
 
     CFMutableArrayRef keysToGet = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFArrayAppendValue(keysToGet, kSOSKVSKeyParametersKey);
-    AppendCircleKeyName(keysToGet, SOSCircleGetName(account->trusted_circle));
+    // Only get key parameters due to: <rdar://problem/22794892> Upgrading from Donner with an iCDP enabled account resets iCloud keychain on devices in circle
 
     __block CFDictionaryRef valuesToUpdate = NULL;
     __block bool success = false;
@@ -827,6 +855,11 @@ static bool SOSCCAssertUserCredentialsAndOptionalDSID(CFStringRef user_label, CF
                 secnotice("updates", "Not Changing DSID: %@ to %@", accountDSID, dsid);
             }
             
+        }
+        
+        // Short Circuit if this passes, return immediately.
+        if(SOSAccountTryUserCredentials(account, user_label, user_password, NULL)) {
+            return true;
         }
 
         if (!EnsureFreshParameters(account, block_error)) {
@@ -1001,7 +1034,7 @@ SOSRingStatus SOSCCRingStatus_Server(CFStringRef ringName, CFErrorRef *error){
     return returned;
 }
 
-CFStringRef SOSCCRequestDeviceID_Server(CFErrorRef *error)
+CFStringRef SOSCCCopyDeviceID_Server(CFErrorRef *error)
 {
     __block CFStringRef result = NULL;
     
@@ -1107,12 +1140,10 @@ bool SOSCCIDSServiceRegistrationTest_Server(CFStringRef message, CFErrorRef *err
     __block CFErrorRef blockError = NULL;
     
     didSendTestMessages = do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
-        result = SOSAccountSendIDSTestMessage(account, message, block_error);
-        if(block_error)
-            blockError = CFRetainSafe(*block_error);
+        result = SOSAccountSendIDSTestMessage(account, message, &blockError);
         return result;
     });
-    if(blockError && error != NULL)
+    if(blockError != NULL && error != NULL)
         *error = blockError;
     
     return didSendTestMessages;
@@ -1122,15 +1153,14 @@ bool SOSCCIDSDeviceIDIsAvailableTest_Server(CFErrorRef *error){
     bool didSendTestMessages = false;
     __block bool result = true;
     __block CFErrorRef blockError = NULL;
-    
+
     didSendTestMessages = do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
-        result = SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(account, block_error);
-        if(block_error)
-            blockError = CFRetainSafe(*block_error);
+        result = SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(account, &blockError);
         return result;
     });
-    if(blockError && error != NULL)
+    if(blockError != NULL && error != NULL)
         *error = blockError;
+
     
     return didSendTestMessages;
 }
@@ -1179,19 +1209,33 @@ bool SOSCCRemoveThisDeviceFromCircle_Server(CFErrorRef* error)
     });
 }
 
+bool SOSCCRemovePeersFromCircle_Server(CFArrayRef peers, CFErrorRef* error)
+{
+    __block bool result = true;
+
+    return do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
+        result = SOSAccountRemovePeersFromCircle(account, peers, block_error);
+        return result;
+    });
+}
+
+
 bool SOSCCLoggedOutOfAccount_Server(CFErrorRef *error)
 {
     __block bool result = true;
     
     return do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
         secnotice("sosops", "Signed out of account!");
+        
+        bool waitForeverForSynchronization = true;
+        
         result = SOSAccountLeaveCircle(account, block_error);
 
         SOSAccountFinishTransaction(account); // Make sure this gets finished before we set to new.
 
         SOSAccountSetToNew(account);
         
-        sync_the_last_data_to_kvs(account);
+        sync_the_last_data_to_kvs(account, waitForeverForSynchronization);
 
         return result;
     });
@@ -1202,11 +1246,13 @@ bool SOSCCBailFromCircle_Server(uint64_t limit_in_seconds, CFErrorRef* error)
     __block bool result = true;
 
     return do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
+        bool waitForeverForSynchronization = false;
+        
         result = SOSAccountBail(account, limit_in_seconds, block_error);
        
         SOSAccountFinishTransaction(account); // Make sure this gets finished before we set to new.
                 
-        sync_the_last_data_to_kvs(account);
+        sync_the_last_data_to_kvs(account, waitForeverForSynchronization);
 
         return result;
     });
@@ -1276,12 +1322,24 @@ CFArrayRef SOSCCCopyNotValidPeerPeerInfo_Server(CFErrorRef* error)
 CFArrayRef SOSCCCopyRetirementPeerInfo_Server(CFErrorRef* error)
 {
     __block CFArrayRef result = NULL;
-    
+
     (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
         result = SOSAccountCopyRetired(account, block_error);
         return result != NULL;
     });
-    
+
+    return result;
+}
+
+CFArrayRef SOSCCCopyViewUnawarePeerInfo_Server(CFErrorRef* error)
+{
+    __block CFArrayRef result = NULL;
+
+    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
+        result = SOSAccountCopyViewUnaware(account, block_error);
+        return result != NULL;
+    });
+
     return result;
 }
 
@@ -1301,7 +1359,7 @@ CFArrayRef SOSCCCopyEngineState_Server(CFErrorRef* error)
 
 bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
     __block dispatch_semaphore_t inSyncSema = NULL;
-
+    
     bool result = do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
         bool alreadyInSync = SOSAccountCheckHasBeenInSync(account);
         int token = -1;
@@ -1362,6 +1420,110 @@ CFArrayRef SOSCCCopyYetToSyncViewsList_Server(CFErrorRef* error) {
     return views;
 }
 
+CFDictionaryRef SOSCCCopyEscrowRecord_Server(CFErrorRef *error){
+    
+    __block CFDictionaryRef result = NULL;
+    __block CFErrorRef block_error = NULL;
+    
+    (void) do_with_account_if_after_first_unlock(error, ^bool(SOSAccountRef account, CFErrorRef *error) {
+        SOSCCStatus status = SOSAccountGetCircleStatus(account, &block_error);
+        CFStringRef dsid = SOSAccountGetValue(account, kSOSDSIDKey, error);
+        CFDictionaryRef escrowRecords = NULL;
+        CFDictionaryRef record = NULL;
+        switch(status) {
+            case kSOSCCInCircle:
+                //get the escrow record in the peer info!
+                escrowRecords = SOSPeerInfoCopyEscrowRecord(SOSAccountGetMyPeerInfo(account));
+                if(escrowRecords){
+                    record = CFDictionaryGetValue(escrowRecords, dsid);
+                    if(record)
+                        result = CFRetainSafe(record);
+                }
+                CFReleaseNull(escrowRecords);
+                break;
+            case kSOSCCRequestPending:
+                //set the escrow record in the peer info/application?
+                break;
+            case kSOSCCNotInCircle:
+            case kSOSCCCircleAbsent:
+                //set the escrow record in the account expansion!
+                escrowRecords = SOSAccountGetValue(account, kSOSEscrowRecord, error);
+                if(escrowRecords){
+                    record = CFDictionaryGetValue(escrowRecords, dsid);
+                    if(record)
+                        result = CFRetainSafe(record);
+                }
+                break;
+            default:
+                secdebug("account", "no circle status!");
+                break;
+        }
+        return true;
+    });
+    
+    return result;
+}
+
+bool SOSCCSetEscrowRecord_Server(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error){
+   
+    __block bool result = true;
+    __block CFErrorRef block_error = NULL;
+    
+    (void) do_with_account_if_after_first_unlock(error, ^bool(SOSAccountRef account, CFErrorRef *error) {
+        SOSCCStatus status = SOSAccountGetCircleStatus(account, &block_error);
+        CFStringRef dsid = SOSAccountGetValue(account, kSOSDSIDKey, error);
+
+        CFMutableStringRef timeDescription = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("["));
+        CFAbsoluteTime currentTimeAndDate = CFAbsoluteTimeGetCurrent();
+        
+        withStringOfAbsoluteTime(currentTimeAndDate, ^(CFStringRef decription) {
+            CFStringAppend(timeDescription, decription);
+        });
+        CFStringAppend(timeDescription, CFSTR("]"));
+       
+        CFNumberRef attempts = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongLongType, (const void*)&tries);
+        
+        CFMutableDictionaryRef escrowTimeAndTries = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+        CFDictionaryAddValue(escrowTimeAndTries, kSOSBurnedRecoveryAttemptCount, attempts);
+        CFDictionaryAddValue(escrowTimeAndTries, kSOSBurnedRecoveryAttemptAttestationDate, timeDescription);
+       
+        CFMutableDictionaryRef escrowRecord = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+        CFDictionaryAddValue(escrowRecord, escrow_label, escrowTimeAndTries);
+
+        switch(status) {
+            case kSOSCCInCircle:
+                //set the escrow record in the peer info!
+                if(!SOSFullPeerInfoAddEscrowRecord(SOSAccountGetMyFullPeerInfo(account), dsid, escrowRecord, error)){
+                    secdebug("accout", "Could not set escrow record in the full peer info");
+                    result = false;
+                }
+                break;
+            case kSOSCCRequestPending:
+                //set the escrow record in the peer info/application?
+                break;
+            case kSOSCCNotInCircle:
+            case kSOSCCCircleAbsent:
+                //set the escrow record in the account expansion!
+                
+                if(!SOSAccountAddEscrowRecords(account, dsid, escrowRecord, error)) {
+                    secdebug("account", "Could not set escrow record in expansion data");
+                    result = false;
+                }
+                break;
+            default:
+                secdebug("account", "no circle status!");
+                break;
+        }
+        CFReleaseNull(attempts);
+        CFReleaseNull(timeDescription);
+        CFReleaseNull(escrowTimeAndTries);
+        CFReleaseNull(escrowRecord);
+        
+        return true;
+    });
+    
+    return result;
+}
 
 bool SOSCCAcceptApplicants_Server(CFArrayRef applicants, CFErrorRef* error)
 {
@@ -1438,9 +1600,9 @@ SOSPeerInfoRef SOSCCSetNewPublicBackupKey_Server(CFDataRef newPublicBackup, CFEr
     return result;
 }
 
-bool SOSCCRegisterSingleRecoverySecret_Server(CFDataRef aks_bag, bool includeV0, CFErrorRef *error){
+bool SOSCCRegisterSingleRecoverySecret_Server(CFDataRef aks_bag, bool setupV0Only, CFErrorRef *error){
     return do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
-        return SOSAccountSetBSKBagForAllSlices(account, aks_bag, includeV0, error);
+        return SOSAccountSetBSKBagForAllSlices(account, aks_bag, setupV0Only, error);
     });
 }
 
@@ -1455,6 +1617,69 @@ CFStringRef SOSCCCopyIncompatibilityInfo_Server(CFErrorRef* error)
 
     return result;
 }
+
+bool SOSCCCheckPeerAvailability_Server(CFErrorRef *error)
+{
+    __block bool pingedPeersInCircle = false;
+    __block dispatch_semaphore_t peerSemaphore = NULL;
+    __block bool peerIsAvailable = false;
+    
+    static dispatch_queue_t time_out;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        time_out = dispatch_queue_create("peersAvailableTimeout", DISPATCH_QUEUE_SERIAL);
+    });
+    __block int token = -1;
+    
+    bool result = do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
+        
+        peerSemaphore = dispatch_semaphore_create(0);
+        dispatch_retain(peerSemaphore);
+        notify_register_dispatch(kSOSCCPeerAvailable, &token, time_out, ^(int token) {
+            if(peerSemaphore != NULL){
+                dispatch_semaphore_signal(peerSemaphore);
+                dispatch_release(peerSemaphore);
+                peerIsAvailable = true;
+                notify_cancel(token);
+            }
+        });
+        
+        pingedPeersInCircle = SOSAccountCheckPeerAvailability(account, block_error);
+        return pingedPeersInCircle;
+    });
+    
+    if (result) {
+        dispatch_semaphore_wait(peerSemaphore, dispatch_time(DISPATCH_TIME_NOW, 7ull * NSEC_PER_SEC));
+    }
+    
+    if(peerSemaphore != NULL)
+        dispatch_release(peerSemaphore);
+    
+    if(time_out != NULL && peerSemaphore != NULL){
+        dispatch_sync(time_out, ^{
+            if(!peerIsAvailable){
+                dispatch_release(peerSemaphore);
+                peerSemaphore = NULL;
+                notify_cancel(token);
+                secnotice("peer available", "checking peer availability timed out, releasing semaphore");
+            }
+        });
+    }
+    if(!peerIsAvailable){
+        CFStringRef errorMessage = CFSTR("There are no peers in the circle currently available");
+        CFDictionaryRef userInfo = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, kCFErrorLocalizedDescriptionKey, errorMessage, NULL);
+        if(error != NULL){
+            *error =CFErrorCreate(kCFAllocatorDefault, CFSTR("com.apple.security.ids.error"), kSecIDSErrorNoPeersAvailable, userInfo);
+            secerror("%@", *error);
+        }
+        CFReleaseNull(userInfo);
+        return false;
+    }
+    else
+        return true;
+}
+
+
 
 enum DepartureReason SOSCCGetLastDepartureReason_Server(CFErrorRef* error)
 {

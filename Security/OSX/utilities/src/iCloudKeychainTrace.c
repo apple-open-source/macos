@@ -37,7 +37,11 @@ const CFStringRef kCloudKeychainNumberOfConflictsResolved = CFSTR("conflictsReso
 const CFStringRef kCloudKeychainNumberOfTimesSyncedWithPeers = CFSTR("syncedWithPeers");
 
 #if !TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_IPHONE
 static const char* gTopLevelKeyForiCloudKeychainTracing = "com.apple.icdp";
+#else
+static const char* gTopLevelKeyForiCloudKeychainTracing = "com.apple.icdp.KeychainStats";
+#endif
 #endif
 
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR))

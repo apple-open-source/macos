@@ -33,6 +33,36 @@
 #include <libDER/asn1Types.h>
 
 /* RFC 5280 Section 4.2.1.10:
+ DNS name restrictions are expressed as host.example.com.  Any DNS
+ name that can be constructed by simply adding zero or more labels to
+ the left-hand side of the name satisfies the name constraint.  For
+ example, www.host.example.com would satisfy the constraint but
+ host1.example.com would not.
+*/
+static bool SecDNSNameConstraintsMatch(CFStringRef DNSName, CFStringRef constraint) {
+    CFIndex clength = CFStringGetLength(constraint);
+    CFIndex dlength = CFStringGetLength(DNSName);
+
+    if (dlength < clength) return false;
+
+    /* Ensure that character to the left of the constraint in the DNSName is a '.'
+     so that badexample.com does not match example.com, but good.example.com does.
+     */
+    if ((dlength != clength) &&
+        ('.' != CFStringGetCharacterAtIndex(DNSName, dlength - clength -1))) {
+        return false;
+    }
+
+    CFRange compareRange = { dlength - clength, clength};
+
+    if (!CFStringCompareWithOptions(DNSName, constraint, compareRange, kCFCompareCaseInsensitive)) {
+        return true;
+    }
+
+    return false;
+}
+
+/* RFC 5280 Section 4.2.1.10:
  For URIs, the constraint applies to the host part of the name.  The
  constraint MUST be specified as a fully qualified domain name and MAY
  specify a host or a domain.  Examples would be "host.example.com" and
@@ -156,7 +186,6 @@ out:
 
 static bool nc_compare_DNSNames(const DERItem *certName, const DERItem *subtreeName) {
     bool result = false;
-    CFStringRef subtreeName_with_wildcard = NULL;
     CFStringRef certName_str = CFStringCreateWithBytes(kCFAllocatorDefault,
                                                        certName->data, certName->length,
                                                        kCFStringEncodingUTF8, FALSE);
@@ -165,26 +194,14 @@ static bool nc_compare_DNSNames(const DERItem *certName, const DERItem *subtreeN
                                                           kCFStringEncodingUTF8, FALSE);
     require_quiet(certName_str, out);
     require_quiet(subtreeName_str, out);
-    /*
-     * We'll also compose a string with a preceding wildcard label since:
-     *      "Any DNS name that can be constructed by simply adding zero or more labels to
-     *      the left-hand side of the name satisfies the name constraint."
-     */
-    subtreeName_with_wildcard = CFStringCreateWithFormat(kCFAllocatorDefault,
-                                                         NULL,
-                                                         CFSTR("*.%s"),
-                                                         CFStringGetCStringPtr(subtreeName_str,
-                                                                               kCFStringEncodingUTF8));
-    require_quiet(subtreeName_with_wildcard, out);
-    
-    if (SecDNSMatch(certName_str, subtreeName_str) || SecDNSMatch(certName_str, subtreeName_with_wildcard)) {
+
+    if (SecDNSNameConstraintsMatch(certName_str, subtreeName_str)) {
         result = true;
     }
     
 out:
     CFReleaseNull(certName_str) ;
     CFReleaseNull(subtreeName_str);
-    CFReleaseNull(subtreeName_with_wildcard);
     return result;
 }
 
@@ -342,21 +359,17 @@ out:
     return true;
 }
 
-static bool nc_compare_subject_to_subtrees(CFDataRef subject, CFArrayRef subtrees) {
-    /* An empty subject name is considered a match */
-    if (isEmptySubject(subject))
-        return true;
+static void nc_compare_subject_to_subtrees(CFDataRef subject, CFArrayRef subtrees, match_t *match) {
+    /* An empty subject name is considered not present */
+    if (isEmptySubject(subject)) {
+        return;
+    }
     
     CFIndex num_trees = CFArrayGetCount(subtrees);
     CFRange range = { 0, num_trees };
     const DERItem subject_der = { (unsigned char *)CFDataGetBytePtr(subject), CFDataGetLength(subject) };
-    match_t match = { false, false };
-    nc_match_context_t context = {GNT_DirectoryName, &subject_der, &match};
+    nc_match_context_t context = {GNT_DirectoryName, &subject_der, match};
     CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &context);
-    
-    /* If no directory name amongst the subtrees, then return success. */
-    if (!match.present) return true;
-    else return match.isMatch;
 }
 
 static void nc_compare_RFC822Name_to_subtrees(const void *value, void *context) {
@@ -419,7 +432,7 @@ static OSStatus nc_compare_subjectAltName_to_subtrees(void *context, SecCEGenera
     return errSecInvalidCertificate;
 }
 
-OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRef subtrees, bool *matched) {
+OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRef subtrees, bool *matched, bool permit) {
     CFDataRef subject = NULL;
     OSStatus status = errSecSuccess;
     CFArrayRef rfc822Names = NULL;
@@ -430,11 +443,12 @@ OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRe
     const DERItem *subjectAltNames = SecCertificateGetSubjectAltName(certificate);
 
     /* Reject certificates with neither Subject Name nor SubjectAltName */
-    require_action_quiet(!isEmptySubject(subject) || subjectAltNames, out, *matched = false);
+    require_action_quiet(!isEmptySubject(subject) || subjectAltNames, out, status = errSecInvalidCertificate);
     
     /* Verify that the subject name is within any of the subtrees for X.500 distinguished names */
-    require_action_quiet(nc_compare_subject_to_subtrees(subject,subtrees), out, *matched = false);
-    
+    match_t subject_match = { false, false };
+    nc_compare_subject_to_subtrees(subject,subtrees,&subject_match);
+
     match_t san_match = { false, true };
     nc_san_match_context_t san_context = {subtrees, &san_match};
     
@@ -442,15 +456,9 @@ OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRe
     if (!subjectAltNames) {
         rfc822Names = SecCertificateCopyRFC822Names(certificate);
         /* If there's also no emailAddress field then subject match is enough. */
-        require_action_quiet(rfc822Names, out, *matched = true);
-        CFRange range = { 0 , CFArrayGetCount(rfc822Names) };
-        CFArrayApplyFunction(rfc822Names, range, nc_compare_RFC822Name_to_subtrees, &san_context);
-        
-        if (san_match.present && !san_match.isMatch) {
-            *matched = false;
-        }
-        else {
-            *matched = true;
+        if (rfc822Names) {
+            CFRange range = { 0 , CFArrayGetCount(rfc822Names) };
+            CFArrayApplyFunction(rfc822Names, range, nc_compare_RFC822Name_to_subtrees, &san_context);
         }
     }
     else {
@@ -459,13 +467,30 @@ OSStatus SecNameContraintsMatchSubtrees(SecCertificateRef certificate, CFArrayRe
         status = SecCertificateParseGeneralNames(subjectAltNames,
                                                  &san_context,
                                                  nc_compare_subjectAltName_to_subtrees);
-        /* If failed to parse or failed to match SAN(s) to subtree(s) of same type */
-        if((status != errSecSuccess) || (san_match.present && !san_match.isMatch)) {
-            *matched = false;
+        /* If failed to parse */
+        require_action_quiet(status == errSecSuccess, out, *matched = false);
+    }
+
+    /* If we are excluding based on the subtrees, lack of names of the
+       same type is not a match. But if we are permitting, it is.
+       This logic is unfortunately complicated and could be cleaned up with
+       two separate functions for excluded and permitted subtrees.
+     */
+    if (subject_match.present) {
+        if (san_match.present &&
+            ((subject_match.isMatch && !san_match.isMatch) ||
+            (!subject_match.isMatch && san_match.isMatch))) {
+            *matched = permit ? false : true;
         }
         else {
-            *matched = true;
+            *matched = subject_match.isMatch;
         }
+    }
+    else if (san_match.present) {
+        *matched = san_match.isMatch;
+    }
+    else {
+        *matched = permit ? true : false;
     }
     
 out:

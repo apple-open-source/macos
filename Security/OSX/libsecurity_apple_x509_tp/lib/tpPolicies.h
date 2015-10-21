@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2015 Apple Inc. All Rights Reserved.
  *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -61,6 +61,7 @@ typedef enum {
 	kTP_ProfileSigning,	/* Apple Configuration Profile Signing */
 	kTP_QAProfileSigning,	/* Apple QA Configuration Profile Signing */
 	kTP_PCSEscrowService,	/* Apple PCS Escrow Service Signing */
+	kTP_ProvisioningProfileSigning, /* Apple OS X Provisioning Profile Signing */
 } TPPolicy;
 
 /*

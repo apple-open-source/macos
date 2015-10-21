@@ -203,6 +203,8 @@ static OSStatus osstatus_for_ids_error(CFIndex idsError) {
             return errSecFailedToSendIDSMessage;
         case kSecIDSErrorCouldNotFindMatchingAuthToken:
             return errSecDeviceIDNoMatch;
+        case kSecIDSErrorNoPeersAvailable:
+            return errSecPeersNotAvailable;
         default:
             return errSecInternal;
     }

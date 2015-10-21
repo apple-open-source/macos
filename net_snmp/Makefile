@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 146
+Submission	= 148
 
 
 #
@@ -139,7 +139,7 @@ AEP		= YES
 AEP_Version	= 5.6
 AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			container.patch darwin-header.patch \
-			host.patch \
+			host.patch CVE-2012-6151.patch CVE-2014-3565.patch \
 			lmsensors.patch darwin-sensors.patch \
 			darwin64.patch perl-cc.patch 
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist

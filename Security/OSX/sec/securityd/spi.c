@@ -86,6 +86,7 @@ static struct securityd spi = {
     .soscc_ViewSet                          = SOSCCViewSet_Server,
     .soscc_SecurityProperty                 = SOSCCSecurityProperty_Server,
     .soscc_RemoveThisDeviceFromCircle       = SOSCCRemoveThisDeviceFromCircle_Server,
+    .soscc_RemovePeersFromCircle            = SOSCCRemovePeersFromCircle_Server,
     .soscc_LoggedOutOfAccount               = SOSCCLoggedOutOfAccount_Server,
     .soscc_BailFromCircle                   = SOSCCBailFromCircle_Server,
     .soscc_AcceptApplicants                 = SOSCCAcceptApplicants_Server,
@@ -96,6 +97,7 @@ static struct securityd spi = {
     .soscc_ValidateUserPublic               = SOSCCValidateUserPublic_Server,
     .soscc_CopyNotValidPeerPeerInfo         = SOSCCCopyNotValidPeerPeerInfo_Server,
     .soscc_CopyRetirementPeerInfo           = SOSCCCopyRetirementPeerInfo_Server,
+    .soscc_CopyViewUnawarePeerInfo          = SOSCCCopyViewUnawarePeerInfo_Server,
     .soscc_CopyEngineState                  = SOSCCCopyEngineState_Server,
     .soscc_CopyPeerInfo                     = SOSCCCopyPeerPeerInfo_Server,
     .soscc_CopyConcurringPeerInfo           = SOSCCCopyConcurringPeerPeerInfo_Server,
@@ -104,7 +106,7 @@ static struct securityd spi = {
     .soscc_ProcessSyncWithAllPeers          = SOSCCProcessSyncWithAllPeers_Server,
     .soscc_EnsurePeerRegistration           = SOSCCProcessEnsurePeerRegistration_Server,
     .sec_roll_keys                          = _SecServerRollKeys,
-    .soscc_RequestDeviceID                  = SOSCCRequestDeviceID_Server,
+    .soscc_CopyDeviceID                     = SOSCCCopyDeviceID_Server,
     .soscc_SetDeviceID                      = SOSCCSetDeviceID_Server,
     .soscc_CheckIDSRegistration             = SOSCCIDSServiceRegistrationTest_Server,
     .soscc_PingTest                         = SOSCCIDSPingTest_Server,
@@ -121,6 +123,10 @@ static struct securityd spi = {
     .soscc_RegisterSingleRecoverySecret     = SOSCCRegisterSingleRecoverySecret_Server,
     .soscc_WaitForInitialSync               = SOSCCWaitForInitialSync_Server,
     .soscc_CopyYetToSyncViewsList           = SOSCCCopyYetToSyncViewsList_Server,
+    .soscc_SetEscrowRecords                 = SOSCCSetEscrowRecord_Server,
+    .soscc_CopyEscrowRecords                = SOSCCCopyEscrowRecord_Server,
+    .soscc_PeerAvailability                 = SOSCCCheckPeerAvailability_Server,
+
 };
 
 void securityd_init_server(void) {

@@ -57,6 +57,10 @@ static inline bool isSOSPeerInfo(CFTypeRef obj) {
     return obj && (CFGetTypeID(obj) == SOSPeerInfoGetTypeID());
 }
 
+static inline SOSPeerInfoRef asSOSPeerInfo(CFTypeRef obj) {
+    return isSOSPeerInfo(obj) ? (SOSPeerInfoRef) obj : NULL;
+}
+
 SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key, SecKeyRef signingKey, CFErrorRef* error);
 
 SOSPeerInfoRef SOSPeerInfoCreateWithTransportAndViews(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key,
@@ -74,6 +78,9 @@ bool SOSPeerInfoVersionIsCurrent(SOSPeerInfoRef pi);
 bool SOSPeerInfoVersionHasV2Data(SOSPeerInfoRef pi);
 SOSPeerInfoRef SOSPeerInfoCopyWithGestaltUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDictionaryRef gestalt, SecKeyRef signingKey, CFErrorRef* error);
 SOSPeerInfoRef SOSPeerInfoCopyWithBackupKeyUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDataRef backupKey, SecKeyRef signingKey, CFErrorRef* error);
+SOSPeerInfoRef SOSPeerInfoCopyWithEscrowRecordUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFStringRef dsid, CFDictionaryRef escrowRecord, SecKeyRef signingKey, CFErrorRef *error);
+SOSPeerInfoRef SOSPeerInfoCopyWithReplacedEscrowRecords(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDictionaryRef escrowRecords, SecKeyRef signingKey, CFErrorRef *error);
+
 
 SOSPeerInfoRef SOSPeerInfoCopyWithViewsChange(CFAllocatorRef allocator, SOSPeerInfoRef toCopy,
                                               SOSViewActionCode action, CFStringRef viewname, SOSViewResultCode *retval,
@@ -117,6 +124,7 @@ CFDataRef SOSPeerInfoCopyEncodedData(SOSPeerInfoRef peer, CFAllocatorRef allocat
 //
 bool SOSPeerInfoHasBackupKey(SOSPeerInfoRef peer);
 CFDataRef SOSPeerInfoCopyBackupKey(SOSPeerInfoRef peer);
+CFMutableDictionaryRef SOSPeerInfoCopyEscrowRecord(SOSPeerInfoRef peer);
 
 //
 // DER Import Export

@@ -2,7 +2,7 @@
 //  PSAssetConstants.h
 //  CertificateTool
 //
-//  Copyright (c) 2013 Apple. All rights reserved.
+//  Copyright (c) 2013-2015 Apple Inc. All Rights Reserved.
 //
 
 #ifndef _PSAssetConstants_h

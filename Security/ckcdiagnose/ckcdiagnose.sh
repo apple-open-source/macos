@@ -19,6 +19,7 @@ case $PRODUCT_NAME in
         secexec=security2
         OUTPUTPARENT=/var/tmp
         CRASHDIR=/Library/Logs/DiagnosticReports
+        CSDIR=$HOME/Library/Logs/CloudServices
         SECLOGPATH=/var/log/module/com.apple.securityd
         syd=/System/Library/PrivateFrameworks/SyncedDefaults.framework/Support/syncdefaultsd
         kvsutil=/AppleInternal/Applications/kvsutil
@@ -29,6 +30,7 @@ case $PRODUCT_NAME in
         secexec=security
         OUTPUTPARENT=/Library/Logs/CrashReporter
         CRASHDIR=/var/mobile/Library/Logs/CrashReporter
+        CSDIR=$CRASHDIR/DiagnosticLogs/CloudServices
         SECLOGPATH=/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs
         syd=/System/Library/PrivateFrameworks/SyncedDefaults.framework/Support/syncdefaultsd
         kvsutil=/usr/local/bin/kvsutil
@@ -58,8 +60,8 @@ set -x
 sw_vers > $OUTPUT/sw_vers.log
 
 $secexec sync -D > $OUTPUT/syncD.log
-
 $secexec sync -i > $OUTPUT/synci.log
+$secexec sync -L > $OUTPUT/syncL.log
 
 (( $SHORT )) || ([ -x $kvsutil ] && $kvsutil show com.apple.security.cloudkeychainproxy3 > $OUTPUT/kvsutil_show.txt 2>&1)
 
@@ -93,6 +95,7 @@ if (( ! $SHORT )); then
 fi
 
 (( $SHORT )) || (sbdtool status > $OUTPUT/sbdtool_status.log 2>&1)
+(( $SHORT )) || plutil -p $HOME/Library/SyncedPreferences/com.apple.sbd.plist > $OUTPUT/sbd_kvs.txt
 
 $syd status > $OUTPUT/syd_status.txt 2>&1
 $syd lastrequest > $OUTPUT/syd_lastrequest.txt 2>&1
@@ -121,6 +124,8 @@ if (( ! $SHORT )); then
     cp $CRASHDIR/*${secd}* $OUTPUT/
     cp $CRASHDIR/*syncdefaults* $OUTPUT/
     cp $CRASHDIR/*CloudKeychain* $OUTPUT/
+
+    (cd $CSDIR && for x in *_*.asl; do syslog -f "$x" > "$OUTPUT/${x%%.asl}.log"; done)
 
     (cd  $SECLOGPATH; gzcat -c -f security.log*) > $OUTPUT/security-complete.log
     

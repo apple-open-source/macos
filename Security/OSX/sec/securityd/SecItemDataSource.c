@@ -149,7 +149,7 @@ static Query *SecItemDataSourceAppendQuery(CFMutableArrayRef queries, const SecD
     return q;
 }
 
-static Query *SecItemDataSourceAppendQueryWithClass(CFMutableArrayRef queries, const SecDbClass *qclass, bool noTombstones, bool allowTkid, CFErrorRef *error) {
+static Query *SecItemDataSourceAppendQueryWithClassAndViewHint(CFMutableArrayRef queries, const SecDbClass *qclass, bool noTombstones, bool allowTkid, CFStringRef viewHint, CFErrorRef *error) {
     Query *q = SecItemDataSourceAppendQuery(queries, qclass, noTombstones, error);
     if (q) {
         // For each attribute in current schema but not in v6, look for the
@@ -159,15 +159,24 @@ static Query *SecItemDataSourceAppendQueryWithClass(CFMutableArrayRef queries, c
             if ((attr->flags & (kSecDbPrimaryKeyFlag | kSecDbDefaultEmptyFlag | kSecDbDefault0Flag | kSecDbNotNullFlag)) == kSecDbPrimaryKeyFlag) {
                 // attr is a primary key attribute added in schema version 7 or later
                 if (!allowTkid || attr != &v7tkid) {
-                    CFTypeRef value = SecDbAttrCopyDefaultValue(attr, &q->q_error);
-                    if (value)
-                        query_add_attribute_with_desc(attr, value, q);
-                    CFReleaseSafe(value);
+                    if (attr == &v7vwht && viewHint) {
+                        query_add_attribute_with_desc(attr, viewHint, q);
+                    } else {
+                        CFTypeRef value = SecDbAttrCopyDefaultValue(attr, &q->q_error);
+                        if (value) {
+                            query_add_attribute_with_desc(attr, value, q);
+                            CFRelease(value);
+                        }
+                    }
                 }
             }
         }
     }
     return q;
+}
+
+static Query *SecItemDataSourceAppendQueryWithClass(CFMutableArrayRef queries, const SecDbClass *qclass, bool noTombstones, bool allowTkid, CFErrorRef *error) {
+    return SecItemDataSourceAppendQueryWithClassAndViewHint(queries, qclass, noTombstones, allowTkid, NULL, error);
 }
 
 static Query *SecItemDataSourceAppendQueryWithClassAndAgrp(CFMutableArrayRef queries, const SecDbClass *qclass, bool noTombstones, bool allowTkid, CFStringRef agrp, CFErrorRef *error) {
@@ -223,6 +232,11 @@ static bool SecItemDataSourceAppendQueriesForViewName(SecItemDataSourceRef ds, C
 
         Query *q_keys = SecItemDataSourceAppendQueryWithClass(queries, &keys_class, noTombstones, allowTKID, error);
         query_add_not_attribute(kSecAttrAccessGroup, CFSTR("com.apple.security.sos"), q_keys);
+    } else {
+        // All other viewNames should match on the ViewHint attribute.
+        for (size_t class_ix = 0; class_ix < array_size(dsSyncedClasses); ++class_ix) {
+            SecItemDataSourceAppendQueryWithClassAndViewHint(queries, dsSyncedClasses[class_ix], noTombstones, allowTKID, viewName, error);
+        }
     }
 
     CFReleaseSafe(viewName);

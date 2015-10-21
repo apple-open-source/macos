@@ -38,5 +38,16 @@
 	<string>Interactive</string>
 	<key>MinimalBootProfile</key>
 	<true/>
+	<key>LaunchEvents</key>
+	<dict>
+		<key>com.apple.notifyd.matching</key>
+		<dict>
+			<key>kSOSCCHoldLockForInitialSync</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.security.secureobjectsync.holdlock</string>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

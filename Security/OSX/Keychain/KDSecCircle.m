@@ -191,6 +191,17 @@ typedef void (^applicantBlock)(id applicant);
 	} else {
 		SOSCCRequestToJoinCircle(&err);
 	}
+    
+    CFMutableSetRef viewsToEnable = CFSetCreateMutable(NULL, 0, NULL);
+    CFMutableSetRef viewsToDisable = CFSetCreateMutable(NULL, 0, NULL);
+    CFSetAddValue(viewsToEnable, (void*)kSOSViewWiFi);
+    CFSetAddValue(viewsToEnable, (void*)kSOSViewAutofillPasswords);
+    CFSetAddValue(viewsToEnable, (void*)kSOSViewSafariCreditCards);
+    CFSetAddValue(viewsToEnable, (void*)kSOSViewOtherSyncable);
+    
+    SOSCCViewSet(viewsToEnable, viewsToDisable);
+    CFRelease(viewsToEnable);
+    CFRelease(viewsToDisable);
 }
 
 -(void)disableSync

@@ -156,6 +156,14 @@ SOSFullPeerInfoRef SOSAccountGetMyFullPeerInfo(SOSAccountRef account) {
     return account->trusted_circle ? account->my_identity : NULL;
 }
 
+bool SOSAccountFullPeerInfoVerify(SOSAccountRef account, SecKeyRef privKey, CFErrorRef *error) {
+    if(!account->my_identity) return false;
+    SecKeyRef pubKey = SecKeyCreatePublicFromPrivate(privKey);
+    bool retval = SOSPeerInfoApplicationVerify(SOSFullPeerInfoGetPeerInfo(account->my_identity), pubKey, error);
+    CFReleaseNull(pubKey);
+    return retval;
+}
+
 SOSPeerInfoRef GenerateNewCloudIdentityPeerInfo(CFErrorRef *error) {
     SecKeyRef cloud_key = GeneratePermanentFullECKeyForCloudIdentity(256, kicloud_identity_name, error);
     SOSPeerInfoRef cloud_peer = NULL;

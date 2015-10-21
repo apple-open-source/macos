@@ -32,11 +32,13 @@
 
 #include "SOSRegressionUtilities.h"
 
-static int kTestTestCount = 5;
+static int kTestTestCount = 7;
+
 static void tests(void)
 {
     uint64_t beginvalue;
-    uint64_t incvalue;
+    uint64_t lastvalue;
+    uint64_t newvalue;
     
     SOSCircleRef circle = SOSCircleCreate(NULL, CFSTR("TEST DOMAIN"), NULL);
     
@@ -49,10 +51,18 @@ static void tests(void)
     SOSCircleGenerationSetValue(circle, 0);
     
     ok(0 == SOSCircleGetGenerationSint(circle)); // Know we're starting out with a zero value (forced)
-    
+        
     SOSCircleGenerationIncrement(circle);
     
-    ok(beginvalue < (incvalue = SOSCircleGetGenerationSint(circle))); // incremented value should be greater than where we began
+    ok(beginvalue <= (newvalue = SOSCircleGetGenerationSint(circle))); // incremented value should be greater or equal than where we began quantum is 2 seconds
+    lastvalue = newvalue;
+    
+    SOSCircleGenerationIncrement(circle);
+    ok(lastvalue < (newvalue = SOSCircleGetGenerationSint(circle))); // incremented value should be greater than last
+    lastvalue = newvalue;
+
+    SOSCircleResetToEmpty(circle, NULL);
+    ok(lastvalue < (newvalue = SOSCircleGetGenerationSint(circle))); // incremented value should be greater than last
     
     CFReleaseNull(circle);
 }

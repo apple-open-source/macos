@@ -34,6 +34,8 @@
 #include <Security/SecureObjectSync/SOSKVSKeys.h>
 #include <SOSPeerInfoDER.h>
 
+#include <Security/SecureObjectSync/SOSTransport.h>
+
 #include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
 
 
@@ -323,6 +325,8 @@ SOSAccountRef SOSAccountCreateFromDER(CFAllocatorRef allocator,
     }
 
     SOSAccountCheckHasBeenInSync(account);
+
+    SOSUpdateKeyInterest(account);
 
     result = CFRetainSafe(account);
 

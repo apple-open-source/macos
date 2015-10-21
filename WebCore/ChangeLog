@@ -1,3 +1,471 @@
+2015-09-25  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r190235. rdar://problem/22852382
+
+    2015-09-24  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Support composited content in WebView render-to-context methods
+            https://bugs.webkit.org/show_bug.cgi?id=149516
+            <rdar://problem/22635080>
+
+            Reviewed by Simon Fraser.
+
+            Extend the CACFLayerTreeHost implementation to render into a passed
+            device context when requested. When no context is provided (the default
+            case) paint as normal.
+
+            Will be tested by existing compositing tests in a future bug. DumpRenderTree
+            has to be extended to do this painting properly.
+
+            * platform/graphics/ca/win/CACFLayerTreeHost.cpp:
+            (WebCore::CACFLayerTreeHost::paint): Accept an optional HDC argument, and
+            pass it to the render method.
+            * platform/graphics/ca/win/CACFLayerTreeHost.h:
+            * platform/graphics/ca/win/LegacyCACFLayerTreeHost.cpp: Add missing SOFT_LINK
+            command for the WKCACFViewDrawIntoDC.
+            (WebCore::LegacyCACFLayerTreeHost::paint): Accept optional HDC argument and
+            pass it to the parent class.
+            (WebCore::LegacyCACFLayerTreeHost::render): Accept new optional HDC argument.
+            If provided, call WKCACFViewDrawIntoDC. Otherwise, call WKCACFVIewDraw.
+            * platform/graphics/ca/win/LegacyCACFLayerTreeHost.h:
+            * platform/graphics/ca/win/WKCACFViewLayerTreeHost.cpp: Add missing SOFT_LINK
+            command for the WKCACFViewDrawIntoDC.
+            (WebCore::WKCACFViewLayerTreeHost::paint): Accept optional HDC argument and
+            pass it to the parent class.
+            (WebCore::WKCACFViewLayerTreeHost::render): Accept new optional HDC argument.
+            If provided, call WKCACFViewDrawIntoDC. Otherwise, call WKCACFVIewDraw.
+            * platform/graphics/ca/win/WKCACFViewLayerTreeHost.h:
+
+2015-09-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r189200. rdar://problem/22803080
+
+    2015-08-31  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] WebKit cannot load pages based on "file://" URLs
+            https://bugs.webkit.org/show_bug.cgi?id=148596
+            <rdar://problem/22432585>
+
+            Reviewed by Dean Jackson.
+
+            * platform/URL.cpp:
+            (WebCore::URL::URL): Work around bug that causes this assertion to fire on
+            the Apple Windows build.
+            * platform/network/cf/SynchronousResourceHandleCFURLConnectionDelegate.cpp:
+            (WebCore::adjustMIMETypeIfNecessary): Added. If the URL is for a local file,
+            determine the MIME type based on extension. Otherwise use the default MIME type.
+            (WebCore::SynchronousResourceHandleCFURLConnectionDelegate::didReceiveResponse): If
+            the CFURLResponse has no MIME type, call 'adjustMIMETypeIfNecessary'.
+
+2015-09-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r189821.
+
+    2015-09-15  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Tiled drawing is rendering more times than it should
+            https://bugs.webkit.org/show_bug.cgi?id=149144
+            <rdar://problem/22313905>
+
+            Reviewed by Simon Fraser.
+
+            Provide a more faithful implemenation of the Objective C tiled drawing logic.
+            (1) Create a new WebTiledBackingLayerWin class that represents a the
+                container of tiles. This matches the Objective C design.
+            (2) Move implementation of several methods (e.g., isOpaque) to the internal
+                class implementation so that the Tile Drawing logic can perform special
+                handling in these cases.
+            (3) Remove the duplicated Tiled Drawing logic from PlatformCALayerWinInternal,
+                since it was just duplicating code in TileController and TileGrid.
+            (4) Clean up the display callback code to avoid performing incorrect flipping
+                of the coordinate system.
+
+            * PlatformAppleWin.cmake: Add new WebTiledBackingLayerWin file.            
+            * WebCore.vcxproj/WebCore.vcxproj: Add the new WebTiledBackingLayerWin files.
+            * WebCore.vcxproj/WebCore.vcxproj.filters: Ditto.
+            * platform/graphics/ca/PlatformCALayer.cpp:
+            (PlatformCALayer::flipContext): Added convenience method.
+            (PlatformCALayer::drawRepaintIndicator): Ditto.
+            * platform/graphics/ca/TileGrid.cpp:
+            (TileGrid::platformCALayerPaintContents): Flip the context before drawing the repaint
+            indicator on Windows.
+            * platform/graphics/ca/win/PlatformCALayerWin.cpp:
+            (PlatformCALayerWin::PlatformCALayerWin): Create a WebTiledBackingLayerWin
+            object if using tiled drawing.
+            (PlatformCALayerWin::~PlatformCALayerWin):
+            (PlatformCALayerWin::isOpaque): Move implementation to internal class.
+            (PlatformCALayerWin::setOpaque): Ditto.
+            (PlatformCALayerWin::setBorderWidth): Ditto.
+            (PlatformCALayerWin::setBorderColor): Ditto.
+            (PlatformCALayerWin::contentsScale): Ditto.
+            (PlatformCALayerWin::setContentsScale): Ditto.
+            (PlatformCALayerWin::cornerRadius): Ditto.
+            (PlatformCALayerWin::tiledBacking): Ditto.
+            (PlatformCALayerWin::drawTextAtPoint): New helper method to draw repaint counter
+            text. Needed to work around bug in CG.
+            * platform/graphics/ca/win/PlatformCALayerWinInternal.cpp:
+            (PlatformCALayerWinInternal::PlatformCALayerWinInternal): Remove tiling-logic
+            related member variables.
+            (PlatformCALayerWinInternal::~PlatformCALayerWinInternal):
+            (shouldInvertBeforeDrawingContent): Added convenience method.
+            (shouldInvertBeforeDrawingRepaintCounters): Ditto.
+            (PlatformCALayerWinInternal::displayCallback):
+            (PlatformCALayerWinInternal::drawRepaintCounters): Helper method to
+            share code between the two layer classes.
+            (PlatformCALayerWinInternal::internalSetNeedsDisplay): use nullptr.
+            (PlatformCALayerWinInternal::setNeedsDisplay): Ditto.
+            (PlatformCALayerWinInternal::setNeedsDisplayInRect): Move tiled code
+            to WebTiledBackingLayerWin and simplify the remaing code.
+            (PlatformCALayerWinInternal::setSublayers): Remove tile code.
+            (PlatformCALayerWinInternal::getSublayers): Ditto.
+            (PlatformCALayerWinInternal::removeAllSublayers): Ditto.
+            (PlatformCALayerWinInternal::insertSublayer): Ditto.
+            (PlatformCALayerWinInternal::sublayerCount): Ditto.
+            (PlatformCALayerWinInternal::indexOfSublayer): Ditto.
+            (PlatformCALayerWinInternal::sublayerAtIndex): Ditto.
+            (PlatformCALayerWinInternal::setBounds): Ditto.
+            (PlatformCALayerWinInternal::setFrame): Ditto.
+            (PlatformCALayerWinInternal::isOpaque): Ditto.
+            (PlatformCALayerWinInternal::setOpaque): Ditto.
+            (PlatformCALayerWinInternal::contentsScale): Ditto.
+            (PlatformCALayerWinInternal::setContentsScale): Ditto.
+            (PlatformCALayerWinInternal::setBorderWidth): Ditto.
+            (PlatformCALayerWinInternal::setBorderColor): Ditto.
+            (layerTypeIsTiled): Deleted.
+            (PlatformCALayerWinInternal::constrainedSize): Deleted.
+            (PlatformCALayerWinInternal::tileDisplayCallback): Deleted.
+            (PlatformCALayerWinInternal::addTile): Deleted.
+            (PlatformCALayerWinInternal::removeTile): Deleted.
+            (PlatformCALayerWinInternal::tileAtIndex): Deleted.
+            (PlatformCALayerWinInternal::tileCount): Deleted.
+            (PlatformCALayerWinInternal::updateTiles): Deleted.
+            (PlatformCALayerWinInternal::drawTile): Deleted.
+            (PlatformCALayerWinInternal::createTileController): Deleted.
+            (PlatformCALayerWinInternal::tiledBacking): Deleted.
+            * platform/graphics/ca/win/PlatformCALayerWinInternal.h:
+            (WebCore::PlatformCALayerWinInternal::owner):
+            * platform/graphics/ca/win/WebTiledBackingLayerWin.cpp: Added.
+            (WebTiledBackingLayerWin::WebTiledBackingLayerWin):
+            (WebTiledBackingLayerWin::~WebTiledBackingLayerWin):
+            (DisplayOnMainThreadContext::DisplayOnMainThreadContext):
+            (redispatchOnMainQueue):
+            (WebTiledBackingLayerWin::displayCallback):
+            (WebTiledBackingLayerWin::setNeedsDisplay):
+            (WebTiledBackingLayerWin::setNeedsDisplayInRect):
+            (WebTiledBackingLayerWin::setBounds):
+            (WebTiledBackingLayerWin::isOpaque):
+            (WebTiledBackingLayerWin::setOpaque):
+            (WebTiledBackingLayerWin::contentsScale):
+            (WebTiledBackingLayerWin::setContentsScale):
+            (WebTiledBackingLayerWin::setBorderWidth):
+            (WebTiledBackingLayerWin::setBorderColor):
+            (WebTiledBackingLayerWin::createTileController):
+            (WebTiledBackingLayerWin::tiledBacking):
+            (WebTiledBackingLayerWin::invalidate):
+            * platform/graphics/ca/win/WebTiledBackingLayerWin.h: Added.
+
+2015-09-11  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r189598.
+
+    2015-09-10  Chris Fleizach  <cfleizach@apple.com>
+
+            AX: Mavericks: Text cursor does not move along with VoiceOver cursor for text fields
+            https://bugs.webkit.org/show_bug.cgi?id=148891
+
+            Reviewed by Alexey Proskuryakov.
+
+            Asychronous focus setting DOES work on Yosemite, just not Mavericks.
+
+            * accessibility/mac/WebAccessibilityObjectWrapperMac.mm:
+            (-[WebAccessibilityObjectWrapper accessibilitySetValue:forAttribute:]):
+            (-[WebAccessibilityObjectWrapper _accessibilitySetValue:forAttribute:]):
+
+2015-09-11  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r189483.
+
+    2015-09-07  Chris Fleizach  <cfleizach@apple.com>
+
+            AX: Mavericks: Text cursor does not move along with VoiceOver cursor for text fields
+            https://bugs.webkit.org/show_bug.cgi?id=148891
+
+            Reviewed by Mario Sanchez Prada.
+
+            Undo the asynchronous dispatch of accessibility setting values on pre El Capitan machines
+            because it causes focus to not sync correctly.
+
+            Test: accessibility/mac/focus-moves-cursor.html
+
+            * accessibility/mac/WebAccessibilityObjectWrapperMac.mm:
+            (-[WebAccessibilityObjectWrapper accessibilitySetValue:forAttribute:]):
+            (-[WebAccessibilityObjectWrapper _accessibilitySetValue:forAttribute:]):
+
+2015-09-10  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r189469.
+
+    2015-09-07  Daniel Bates  <dabates@apple.com>
+
+            ASSERT_WITH_SECURITY_IMPLICATION in WebCore::DocumentOrderedMap::get(); update form
+            association after subtree insertion
+            https://bugs.webkit.org/show_bug.cgi?id=148919
+            <rdar://problem/21868036>
+
+            Reviewed by Andy Estes.
+
+            Currently we update the form association of a form control upon insertion into
+            the document. Instead we should update the form association of a form control
+            after its containing subtree is inserted into the document to avoid an assertion
+            failure when the containing subtree has an element whose id is identical to both
+            the id of some other element in the document and the name of the form referenced
+            by the inserted form control.
+
+            Tests: fast/forms/update-form-owner-in-moved-subtree-assertion-failure-2.html
+                   fast/forms/update-form-owner-in-moved-subtree-assertion-failure-3.html
+                   fast/forms/update-form-owner-in-moved-subtree-assertion-failure-4.html
+                   fast/forms/update-form-owner-in-moved-subtree-assertion-failure.html
+
+            * html/FormAssociatedElement.cpp:
+            (WebCore::FormAssociatedElement::insertedInto): Moved resetFormOwner() from here
+            to {HTMLFormControlElement, HTMLObjectElement}::finishedInsertingSubtree().
+            * html/HTMLFormControlElement.cpp:
+            (WebCore::HTMLFormControlElement::insertedInto): Return InsertionShouldCallFinishedInsertingSubtree
+            so that HTMLFormControlElement::finishedInsertingSubtree() is called.
+            (WebCore::HTMLFormControlElement::finishedInsertingSubtree): Added; turn around and
+            call FormAssociatedElement::resetFormOwner().
+            * html/HTMLFormControlElement.h:
+            * html/HTMLInputElement.cpp:
+            (WebCore::HTMLInputElement::insertedInto): Return InsertionShouldCallFinishedInsertingSubtree so
+            that HTMLInputElement::finishedInsertingSubtree() is called and move logic to update radio button
+            group from here...
+            (WebCore::HTMLInputElement::finishedInsertingSubtree): to here.
+            * html/HTMLInputElement.h:
+            * html/HTMLObjectElement.cpp:
+            (WebCore::HTMLObjectElement::insertedInto): Return InsertionShouldCallFinishedInsertingSubtree so
+            that HTMLObjectElement::finishedInsertingSubtree() is called.
+            (WebCore::HTMLObjectElement::finishedInsertingSubtree): Added; turn around and
+            call FormAssociatedElement::resetFormOwner().
+            * html/HTMLObjectElement.h:
+            * html/HTMLSelectElement.cpp:
+            (WebCore::HTMLSelectElement::insertedInto): Modified to return the result of
+            HTMLFormControlElementWithState::insertedInto(), which may schedule a callback after subtree
+            insertion.
+            * html/HTMLTextFormControlElement.cpp:
+            (WebCore::HTMLTextFormControlElement::insertedInto): Ditto.
+
+2015-09-03  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r189167.
+
+    2015-08-31  Enrica Casucci  <enrica@apple.com>
+
+            Incorrect cursor movement for U+26F9, U+1F3CB with variations.
+            https://bugs.webkit.org/show_bug.cgi?id=148629
+            rdar://problem/22492366
+
+            Reviewed by Ryosuke Niwa.
+
+            Updating text break iterator rules to correctly handle those two emoji with variations.
+
+            * platform/text/TextBreakIterator.cpp:
+            (WebCore::cursorMovementIterator):
+
+2015-09-03  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r189101.
+
+    2015-08-28  Brady Eidson  <beidson@apple.com>
+
+            Use new CFNetwork cookie jar SPI only on El Capitan.
+            https://bugs.webkit.org/show_bug.cgi?id=148574 and rdar://problem/22460752
+
+            Reviewed by David Kilzer.
+
+            * platform/network/mac/CookieJarMac.mm:
+            (WebCore::setCookiesFromDOM): Use OS X version to decide which API/SPI to use.
+            * platform/spi/cf/CFNetworkSPI.h: Forward declare the SPI
+
+2015-09-03  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r188659.
+
+    2015-08-19  Brent Fulgham  <bfulgham@apple.com>
+
+            Scrollable area container is not properly cleared when page is going into the PageCache
+            https://bugs.webkit.org/show_bug.cgi?id=148182
+            <rdar://problem/21969170>
+
+            Reviewed by Dean Jackson.
+
+            Must be tested manually going back and forth in history several times.
+
+            * history/CachedFrame.cpp:
+            (WebCore::CachedFrame::CachedFrame): Clear the cached ScrollableAreas from the FrameView.
+            * page/FrameView.cpp:
+            (WebCore::FrameView::clearScrollableAreas): Added.
+            * page/FrameView.h:
+
+2015-09-03  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r188370.
+
+    2015-08-12  Brent Fulgham  <bfulgham@apple.com>
+
+            Move RenderBox-specific Scroll Snap code from RenderElement to RenderBox
+            https://bugs.webkit.org/show_bug.cgi?id=147963
+
+            Reviewed by Simon Fraser.
+
+            No new tests: No change in functionality.
+
+            * rendering/RenderBox.cpp:
+            (WebCore::RenderBox::styleWillChange): Remove RenderBox-specific code.
+            (WebCore::RenderBox::willBeRemovedFromTree): Ditto.
+            * rendering/RenderBox.h:
+            * rendering/RenderElement.cpp:
+            (WebCore::RenderElement::styleWillChange): Move code from RenderElement to
+            handle Scroll Snap Points.
+            (WebCore::RenderElement::willBeRemovedFromTree): Added new override to handle
+            scroll-snap point logic.
+
+2015-09-03  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r188340.
+
+    2015-08-12  Brent Fulgham  <bfulgham@apple.com>
+
+            REGRESSION(r185606): ASSERT in WebCore::RenderElement::styleWillChange
+            https://bugs.webkit.org/show_bug.cgi?id=147596
+            <rdar://problem/21963355>
+
+            Reviewed by Jon Honeycutt.
+
+            Only add (or remove) a RenderElement from the container of RenderBoxes with
+            scroll snap coordinates if the element actually is a RenderBox.
+
+            Tested by css3/scroll-snap/improper-snap-points-crash.html.
+
+            * rendering/RenderElement.cpp:
+            (WebCore::RenderElement::styleWillChange):
+            (WebCore::RenderElement::willBeRemovedFromTree):
+
+2015-09-03  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r188271.
+
+    2015-08-11  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+            feMorphology is not rendered correctly on Retina display
+            https://bugs.webkit.org/show_bug.cgi?id=147589
+
+            Reviewed by Dean Jackson.
+
+            The result ImageBuffer of any FilterEffect is already scaled up for 2x
+            display. The FEMorphology needs to fix its painting data dimension and
+            radius by multiplying them by the filter scale factor.
+
+            Test: fast/hidpi/filters-morphology.html
+
+            * platform/graphics/filters/FEMorphology.cpp:
+            (WebCore::FEMorphology::platformApplySoftware):
+
+2015-09-03  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r188014.
+
+    2015-08-05  Chris Dumez  <cdumez@apple.com>
+
+            Crash when removing children of a MathMLSelectElement
+            https://bugs.webkit.org/show_bug.cgi?id=147704
+            <rdar://problem/21940321>
+
+            Reviewed by Ryosuke Niwa.
+
+            When MathMLSelectElement::childrenChanged() is called after its
+            children have been removed, MathMLSelectElement calls
+            updateSelectedChild() which accesses m_selectedChild. However,
+            in this case, m_selectedChild is the previously selected child
+            and it may be destroyed as this point if it was removed. To avoid
+            this problem, MathMLSelectElement now keep a strong ref to the
+            currently selected element.
+
+            Test: mathml/maction-removeChild.html
+
+            * mathml/MathMLSelectElement.h:
+
+2015-09-03  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r187564.
+
+    2015-07-29  Zalan Bujtas  <zalan@apple.com>
+
+            Remove the spanner placeholder from m_spannerMap when the placeholder object
+            gets transferred to a descendant flow.
+            https://bugs.webkit.org/show_bug.cgi?id=147380
+            rdar://problem/21981078
+
+            Reviewed by David Hyatt.
+
+            Before r180328, the spanner placeholder was removed from m_spannerMap through
+            RenderMultiColumnFlowThread::removeFlowChildInfo() by calling flowThreadRelativeWillBeRemoved()
+            when the placeholder renderer got transferred to the descendant flow.
+            Now we just remove it from the map when the renderer is being detached.
+
+            Test: fast/multicol/newmulticol/spanner-crash-with-embedded-columns.html
+
+            * rendering/RenderMultiColumnFlowThread.cpp:
+            (WebCore::RenderMultiColumnFlowThread::flowThreadDescendantInserted):
+
+2015-09-03  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r186984.
+
+    2015-07-17  Zalan Bujtas  <zalan@apple.com>
+
+            REGRESSION (r169105): Do not assign a renderer to multiple selection subtrees.
+            https://bugs.webkit.org/show_bug.cgi?id=147038
+            rdar://problem/21819351
+
+            Reviewed by David Kilzer.
+
+            A renderer should never be assigned to multiple selection subtrees. (Currently RenderObject maintains the last selection state.)
+            RenderView::applySubtreeSelection() loops from the start to the end of the selection to find renderers that are inside the selection.
+            However, in case of regions (when multiple selection roots are present) traversing the renderer tree by calling RenderObject::nextInPreOrder() could
+            end up going across selection roots.
+            This patch ensures that we assign renderers to a specific selection only when the current selection root and the renderer's selection root match.
+
+            Test: fast/regions/crash-when-renderer-is-in-multiple-selection-subtrees2.html
+
+            * rendering/RenderView.cpp:
+            (WebCore::SelectionIterator::SelectionIterator):
+            (WebCore::SelectionIterator::current):
+            (WebCore::SelectionIterator::checkForSpanner):
+            (WebCore::RenderView::applySubtreeSelection):
+
+2015-08-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r189024.
+
+    2015-08-27  Enrica Casucci  <enrica@apple.com>
+
+            Add some new emoji with modifiers and new sequence.
+            https://bugs.webkit.org/show_bug.cgi?id=148202
+            rdar://problem/21849857
+
+            Reviewed by Sam Weinig.
+
+            Adding support for some new emoji with modifiers and
+            one new emoji sequence.
+
+            * platform/graphics/FontCascade.cpp:
+            (WebCore::FontCascade::characterRangeCodePath):
+            * platform/text/CharacterProperties.h:
+            (WebCore::isEmojiGroupCandidate):
+            (WebCore::isEmojiModifier):
+            * platform/text/TextBreakIterator.cpp:
+            (WebCore::cursorMovementIterator):
+
 2015-08-21  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r188769. rdar://problem/22354983

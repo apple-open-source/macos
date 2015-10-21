@@ -130,6 +130,7 @@ void __security_simulatecrash(CFStringRef reason, uint32_t code);
 #define __sec_exception_code_DbItemDescribe         __sec_exception_code(4)
 #define __sec_exception_code_TwiceCorruptDb(db)     __sec_exception_code(5|((db)<<8))
 #define __sec_exception_code_AuthLoop               __sec_exception_code(6)
+#define __sec_exception_code_MissingEntitlements    __sec_exception_code(7)
 
 /* For testing only, turns off/on simulated crashes, when turning on, returns number of
    simulated crashes which were not reported since last turned off. */

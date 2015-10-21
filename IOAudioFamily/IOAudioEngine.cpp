@@ -1147,59 +1147,88 @@ IOReturn IOAudioEngine::detachUserClients()
 
 IOReturn IOAudioEngine::startClient(IOAudioEngineUserClient *userClient)
 {
-    IOReturn result = kIOReturnBadArgument;
+    IOReturn        result = kIOReturnSuccess;
+    int             retries = 10;
 
-    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineStartClient, (uintptr_t)this, (uintptr_t)userClient, 0, 0);
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineStartClient, (uintptr_t)this, isInactive(), (uintptr_t)audioDevice, audioDevice ? audioDevice->getPowerState() : 0);
     audioDebugIOLog(3, "+ IOAudioEngine[%p]::startClient(%p)\n", this, userClient);
 
-	while ( audioDevice->getPowerState() == kIOAudioDeviceSleep )
-	{
-		retain();
+    retain();
 
-		//  <rdar://10885615> Make sure the command gate remains valid while it is being used.
-		if (commandGate) {
-			IOReturn err;
-			setCommandGateUsage(this, true);	//	<rdar://8518215,10885615>
-			err = commandGate->commandSleep( &audioDevice->currentPowerState );
-			setCommandGateUsage(this, false);	//	<rdar://8518215,10885615>
-			
-			//  <rdar://9487554,10885615> On interruption or time out return the appropriate error. This
-			//  is to prevent it being stuck in the while loop waiting for the power state
-			//  change.
-			if ( THREAD_INTERRUPTED == err )
-			{
-				release();
-				return kIOReturnAborted;
-			}
-			else if ( THREAD_TIMED_OUT == err )
-			{
-				release();
-				return kIOReturnTimeout;
-			}
-			else if ( THREAD_RESTART == err )
-			{
-				release();
-				return kIOReturnNotPermitted;
-			}
-		}
-		
-        //  <rdar://11200354> If ::stop() is called while it is in command sleep, then the command gate
-        //  will no longer be valid afterwards.
-        if (isInactive() || (NULL == commandGate))
-        {
-            release();
-            return kIOReturnNoDevice;
-        }			
+    if (audioDevice && commandGate && !audioDevice->isInactive() && !isInactive())
+    {
+        audioDevice->retain();
+        setCommandGateUsage(this, true);                    //	<rdar://8518215,10885615>
         
-		release();
-	}
+        while ( retries-- && (result == kIOReturnSuccess) && (audioDevice->getPowerState() == kIOAudioDeviceSleep) )
+        {
+            IOReturn            kr;
+            AbsoluteTime        deadline;
+            
+            clock_interval_to_deadline(1, kSecondScale, &deadline);                // wait up to 1 second for each time around the loop
 
-    if (userClient) {
-        result = incrementActiveUserClients();
+            kr = commandGate->commandSleep( &audioDevice->currentPowerState, deadline, THREAD_ABORTSAFE );
+            
+            AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineStartClient, (uintptr_t)this, kr, isInactive(), 0);
+            
+            //  <rdar://9487554,10885615> On interruption or time out return the appropriate error. This
+            //  is to prevent it being stuck in the while loop waiting for the power state
+            //  change.
+            switch (kr)
+            {
+                case THREAD_AWAKENED:
+                case THREAD_TIMED_OUT:
+                    // either the 1 second timer expired or we go awakened by an actual power change. in either case we need to check to
+                    // see if we (and the device) are still active and if so, whether or not the power state is good
+                    // if everything is still active, then we will go around the loop and check the power state
+                    if (isInactive() || !commandGate || !audioDevice || audioDevice->isInactive() )
+                    {
+                        result = kIOReturnNoDevice;
+                    }
+                    break;
+
+                // we might get an interrupted status if the thread attempting to connect gets force quit
+                case THREAD_INTERRUPTED:
+                    result = kIOReturnAborted;
+                    break;
+                    
+                // we don't expeect RESTART or any other status, so log anything and abort
+                case THREAD_RESTART:
+                default:
+                    IOLog("Sound Assert: IOAudioEngine::startClient got kr 0x%08x\n", kr);
+                    result = kIOReturnAborted;
+                    break;
+                    
+            }
+            if ((result == kIOReturnSuccess) && audioDevice && (audioDevice->getPowerState() != kIOAudioDeviceSleep))
+            {
+                break;              // break out of the while loop without decrementing retries (catches a last ms success)
+            }
+        }
+        
+        if (retries == -1)
+        {
+            // we are timing out after 10 seconds. we need an assert for that case
+            IOLog("Sound Assert: IOAudioEngine::startClient timed out waiting\n");
+            result = kIOReturnTimeout;
+        }
+        
+        if (userClient && (result == kIOReturnSuccess))
+        {
+            result = incrementActiveUserClients();
+        }
+        
+        setCommandGateUsage(this, false);	//	<rdar://8518215,10885615>
+        audioDevice->release();
+    }
+    else
+    {
+        result = kIOReturnNoDevice;
     }
     
+    release();
     audioDebugIOLog(3, "- IOAudioEngine[%p]::startClient(%p) returns 0x%lX\n", this, userClient, (long unsigned int)result );
-    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineStartClient, (uintptr_t)this, (uintptr_t)userClient, 0, result);
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineStartClient, (uintptr_t)this, (uintptr_t)userClient, isInactive(), result);
     return result;
 }
 

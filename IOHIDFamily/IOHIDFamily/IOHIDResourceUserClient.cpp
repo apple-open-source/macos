@@ -769,7 +769,7 @@ IOReturn IOHIDResourceDeviceUserClient::terminateDevice()
     if (_device) {
         _device->terminate();
     }
-    OSSafeRelease(_device);
+    OSSafeReleaseNULL(_device);
 
     return kIOReturnSuccess;
 }

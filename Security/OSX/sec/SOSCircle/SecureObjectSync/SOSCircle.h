@@ -36,6 +36,8 @@
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
 #include <Security/SecureObjectSync/SOSPeer.h>
 #include <Security/SecureObjectSync/SOSConcordanceTrust.h>
+#include <Security/SecureObjectSync/SOSGenCount.h>
+
 
 __BEGIN_DECLS
 
@@ -77,13 +79,13 @@ int SOSCircleCountRejectedApplicants(SOSCircleRef circle);
 bool SOSCircleHasRejectedApplicant(SOSCircleRef circle, SOSPeerInfoRef peerInfo, CFErrorRef *error);
 SOSPeerInfoRef SOSCircleCopyRejectedApplicant(SOSCircleRef circle, SOSPeerInfoRef peerInfo, CFErrorRef *error);
 CFMutableArrayRef SOSCircleCopyRejectedApplicants(SOSCircleRef c, CFAllocatorRef allocator);
-void SOSCircleSetGeneration(SOSCircleRef circle, CFNumberRef gencount);
+void SOSCircleSetGeneration(SOSCircleRef circle, SOSGenCountRef gencount);
 
 CFStringRef SOSCircleGetName(SOSCircleRef circle);
 const char *SOSCircleGetNameC(SOSCircleRef circle);
 
 void SOSCircleGenerationSetValue(SOSCircleRef circle, int64_t value);
-CFNumberRef SOSCircleGetGeneration(SOSCircleRef circle);
+SOSGenCountRef SOSCircleGetGeneration(SOSCircleRef circle);
 int64_t SOSCircleGetGenerationSint(SOSCircleRef circle);
 void SOSCircleGenerationIncrement(SOSCircleRef circle);
 
@@ -130,6 +132,7 @@ bool SOSCirclePeerSigUpdate(SOSCircleRef circle, SecKeyRef userPrivKey, SOSFullP
 bool SOSCircleUpdatePeerInfo(SOSCircleRef circle, SOSPeerInfoRef replacement_peer_info);
 
 bool SOSCircleRemovePeer(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef device_approver, SOSPeerInfoRef peerInfo, CFErrorRef *error);
+bool SOSCircleRemovePeers(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef device_approver, CFSetRef peerInfo, CFErrorRef *error);
 
 bool SOSCircleRemoveRetired(SOSCircleRef circle, CFErrorRef *error);
 

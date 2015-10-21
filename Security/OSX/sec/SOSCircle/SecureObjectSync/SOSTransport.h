@@ -5,6 +5,7 @@
 #include <Security/SecureObjectSync/SOSTransportMessage.h>
 #include <Security/SecureObjectSync/SOSTransportCircle.h>
 #include <Security/SecureObjectSync/SOSTransportKeyParameter.h>
+#include <Security/SecureObjectSync/SOSAccount.h>
 
 CF_RETURNS_RETAINED CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictionaryRef updates, CFErrorRef *error);
 
@@ -21,7 +22,7 @@ void SOSUnregisterAllTransportCircles(void);
 void SOSUnregisterAllTransportKeyParameters(void);
 
 
-void SOSUpdateKeyInterest(void);
+void SOSUpdateKeyInterest(SOSAccountRef account);
 
 enum TransportType{
     kUnknown = 0,

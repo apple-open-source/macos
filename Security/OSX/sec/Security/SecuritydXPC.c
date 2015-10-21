@@ -64,6 +64,10 @@ const char *kSecXPCKeyIncludeV0 = "includeV0";
 const char *kSecXPCKeyReason = "reason";
 const char *kSecXPCKeyEnabledViewsKey = "enabledViews";
 const char *kSecXPCKeyDisabledViewsKey = "disabledViews";
+const char *kSecXPCKeyEscrowLabel = "escrow";
+const char *kSecXPCKeyTriesLabel = "tries";
+const char *kSecXPCKeyAvailability = "availability";
+
 
 //
 // XPC Functions for both client and server.
@@ -109,6 +113,8 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("CopyRetirementPeerInfo");
         case kSecXPCOpCopyValidPeerPeerInfo:
             return CFSTR("CopyValidPeerPeerInfo");
+        case kSecXPCOpCopyViewUnawarePeerInfo:
+            return CFSTR("CopyViewUnawarePeerInfo");
         case kSecXPCOpDeviceInCircle:
             return CFSTR("DeviceInCircle");
         case kSecXPCOpEnableRing:
@@ -135,6 +141,8 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("RejectApplicants");
         case kSecXPCOpRemoveThisDeviceFromCircle:
             return CFSTR("RemoveThisDeviceFromCircle");
+        case kSecXPCOpRemovePeersFromCircle:
+            return CFSTR("RemovePeersFromCircle");
         case kSecXPCOpRequestDeviceID:
             return CFSTR("RequestDeviceID");
         case kSecXPCOpRequestEnsureFreshParameters:
@@ -229,6 +237,10 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("trust_store_set_trust_settings");
         case soscc_EnsurePeerRegistration_id:
             return CFSTR("EnsurePeerRegistration");
+        case kSecXPCOpSetEscrowRecord:
+            return CFSTR("SetEscrowRecord");
+        case kSecXPCOpGetEscrowRecord:
+            return CFSTR("GetEscrowRecord");
         default:
             return CFSTR("Unknown xpc operation");
     }

@@ -82,7 +82,8 @@ extern const char *kSecXPCKeyNewPublicBackupKey;
 extern const char *kSecXPCKeyIncludeV0;
 extern const char *kSecXPCKeyEnabledViewsKey;
 extern const char *kSecXPCKeyDisabledViewsKey;
-
+extern const char *kSecXPCKeyEscrowLabel;
+extern const char *kSecXPCKeyAvailability;
 //
 // MARK: Dispatch macros
 //
@@ -122,7 +123,8 @@ extern const char *kSecXPCKeyViewName;
 extern const char *kSecXPCKeyViewActionCode;
 extern const char *kSecXPCKeySendIDSMessage;
 extern const char *kSecXPCKeyHSA2AutoAcceptInfo;
-
+extern const char *kSecXPCKeyEscrowLabel;
+extern const char *kSecXPCKeyTriesLabel;
 extern const char *kSecXPCKeyString;
 
 extern const char *kSecXPCKeyReason;
@@ -194,6 +196,7 @@ enum SecXPCOperation {
     kSecXPCOpViewSet,
     kSecXPCOpSecurityProperty,
     kSecXPCOpRemoveThisDeviceFromCircle,
+    kSecXPCOpRemovePeersFromCircle,
     kSecXPCOpLoggedOutOfAccount,
     kSecXPCOpBailFromCircle,
     kSecXPCOpAcceptApplicants,
@@ -209,6 +212,7 @@ enum SecXPCOperation {
     kSecXPCOpSetLastDepartureReason,
     kSecXPCOpCopyIncompatibilityInfo,
     kSecXPCOpCopyRetirementPeerInfo,
+    kSecXPCOpCopyViewUnawarePeerInfo,
     kSecXPCOpCopyEngineState,
     kSecXPCOpCopyMyPeerInfo,
 	kSecXPCOpAccountSetToNew,
@@ -217,6 +221,9 @@ enum SecXPCOperation {
     kSecXPCOpSetBagForAllSlices,
     kSecXPCOpWaitForInitialSync,
     kSecXPCOpCopyYetToSyncViews,
+    kSecXPCOpSetEscrowRecord,
+    kSecXPCOpGetEscrowRecord,
+    kSecXPCOpCheckPeerAvailability,
 };
 
 
@@ -260,7 +267,7 @@ struct securityd {
     bool (*soscc_WithdrawlFromARing)(CFStringRef ringName, CFErrorRef* error);
     bool (*soscc_EnableRing)(CFStringRef ringName, CFErrorRef* error);
     SOSRingStatus (*soscc_RingStatus)(CFStringRef ringName, CFErrorRef* error);
-    CFStringRef (*soscc_RequestDeviceID)(CFErrorRef* error);
+    CFStringRef (*soscc_CopyDeviceID)(CFErrorRef* error);
     bool (*soscc_SetDeviceID)(CFStringRef IDS, CFErrorRef *error);
     HandleIDSMessageReason (*soscc_HandleIDSMessage)(CFDictionaryRef IDS, CFErrorRef *error);
     bool (*soscc_CheckIDSRegistration)(CFStringRef message, CFErrorRef *error);
@@ -272,8 +279,9 @@ struct securityd {
     SOSViewResultCode (*soscc_View)(CFStringRef view, SOSViewActionCode action, CFErrorRef *error);
     bool (*soscc_ViewSet)(CFSetRef enabledViews, CFSetRef disabledViews);
     SOSSecurityPropertyResultCode (*soscc_SecurityProperty)(CFStringRef property, SOSSecurityPropertyActionCode action, CFErrorRef *error);
-    bool (*soscc_RegisterSingleRecoverySecret)(CFDataRef backupSlice, bool includeV0, CFErrorRef *error);
+    bool (*soscc_RegisterSingleRecoverySecret)(CFDataRef backupSlice, bool forV0Only, CFErrorRef *error);
     bool (*soscc_RemoveThisDeviceFromCircle)(CFErrorRef* error);
+    bool (*soscc_RemovePeersFromCircle)(CFArrayRef peers, CFErrorRef* error);
     bool (*soscc_LoggedOutOfAccount)(CFErrorRef* error);
     bool (*soscc_BailFromCircle)(uint64_t limit_in_seconds, CFErrorRef* error);
     bool (*soscc_AcceptApplicants)(CFArrayRef applicants, CFErrorRef* error);
@@ -285,6 +293,7 @@ struct securityd {
     CFArrayRef (*soscc_CopyValidPeerPeerInfo)(CFErrorRef* error);
     CFArrayRef (*soscc_CopyNotValidPeerPeerInfo)(CFErrorRef* error);
     CFArrayRef (*soscc_CopyRetirementPeerInfo)(CFErrorRef* error);
+    CFArrayRef (*soscc_CopyViewUnawarePeerInfo)(CFErrorRef* error);
     CFArrayRef (*soscc_CopyEngineState)(CFErrorRef* error);
     // Not sure why these are below the last entry in the enum order above, but they are:
     CFArrayRef (*soscc_CopyPeerInfo)(CFErrorRef* error);
@@ -305,6 +314,9 @@ struct securityd {
 	bool (*soscc_SetHSA2AutoAcceptInfo)(CFDataRef, CFErrorRef*);
     bool (*soscc_WaitForInitialSync)(CFErrorRef*);
     CFArrayRef (*soscc_CopyYetToSyncViewsList)(CFErrorRef*);
+    bool (*soscc_SetEscrowRecords)(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
+    CFDictionaryRef (*soscc_CopyEscrowRecords)(CFErrorRef *error);
+    bool (*soscc_PeerAvailability)(CFErrorRef *error);
 };
 
 extern struct securityd *gSecurityd;

@@ -52,7 +52,7 @@
 #include "SecdTestKeychainUtilities.h"
 
 
-static int kTestTestCount = 112;
+static int kTestTestCount = 109;
 
 typedef void (^stir_block)(int expected_iterations);
 typedef int (^execute_block)();
@@ -151,7 +151,7 @@ static void tests(void)
         ok(SOSAccountLeaveCircle(alice_account , &error), "Alice Leaves (%@)", error);
         CFReleaseNull(error);
 
-        return 3;
+        return 2;
     }, ^{
 
         accounts_agree("Alice bails", bob_account, alice_account);

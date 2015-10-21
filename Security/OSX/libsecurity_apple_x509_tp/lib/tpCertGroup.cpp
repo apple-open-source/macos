@@ -473,6 +473,10 @@ static bool checkPolicyOid(
 		tpPolicy = kTP_PCSEscrowService;
 		return true;
 	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING)) {
+		tpPolicy = kTP_ProvisioningProfileSigning;
+		return true;
+	}
 	return false;
 }
 

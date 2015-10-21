@@ -206,7 +206,7 @@ static bool SOSAccountSetKeybagForViewBackupRing(SOSAccountRef account, CFString
     
 errOut:
     
-    if (result && *error) {
+    if (result && NULL != error && NULL != *error) {
         secerror("Got Success and Error (dropping error): %@", *error);
         CFReleaseNull(*error);
     }
@@ -225,6 +225,15 @@ bool SOSAccountStartNewBackup(SOSAccountRef account, CFStringRef viewName, CFErr
         bool result = SOSAccountSetKeybagForViewBackupRing(account, viewName, bskb, error);
         return result;
     });
+}
+
+bool SOSAccountIsBackupRingEmpty(SOSAccountRef account, CFStringRef viewName) {
+    CFStringRef backupRing = SOSBackupCopyRingNameForView(viewName);
+    SOSRingRef ring = SOSAccountGetRing(account, backupRing, NULL);
+    CFReleaseNull(backupRing);
+    int peercnt = 0;
+    if(ring) peercnt = SOSRingCountPeers(ring);
+    return peercnt == 0;
 }
 
 static bool SOSAccountUpdatePeerInfo(SOSAccountRef account, CFStringRef updateDescription, CFErrorRef *error, bool (^update)(SOSFullPeerInfoRef fpi, CFErrorRef *error)) {
@@ -277,7 +286,7 @@ bool SOSAccountIsMyPeerInBackupAndCurrentInView(SOSAccountRef account, CFStringR
     CFDataRef myPeerInBSKBBK = SOSPeerInfoCopyBackupKey(myPeerInBSKB);
     result = CFEqualSafe(myBK, myPeerInBSKBBK);
     CFReleaseNull(myBK);
-    CFReleaseNull(myPeerInBSKB);
+    CFReleaseNull(myPeerInBSKBBK);
     
 exit:
     if (bsError) {
@@ -387,11 +396,6 @@ bool SOSAccountSetBackupPublicKey(SOSAccountRef account, CFDataRef backupKey, CF
 {
     __block bool result = false;
 
-#if !ENABLE_V2_BACKUP
-    // We should fill in an error, but exit does it for us.
-    goto exit;
-#endif
-
     require_quiet(SOSAccountIsInCircle(account, error), exit);
 
     if (CFEqualSafe(backupKey, account->backup_key))
@@ -433,8 +437,19 @@ static bool SOSAccountWithBSKBAndPeerInfosForView(SOSAccountRef account, CFArray
     SOSAccountWithBackupPeersForView(account, viewName, ^(CFSetRef peers) {
         CFMutableSetRef newPeerList = CFSetCreateMutableCopy(kCFAllocatorDefault, CFSetGetCount(peers), peers);
         CFArrayForEach(retiree, ^(const void *value) {
-            SOSPeerInfoRef peer = (SOSPeerInfoRef)value;
-            CFSetRemoveValue(newPeerList, peer);
+            if (!isSOSPeerInfo(value)) {
+                secerror("Peer list contains a non-peerInfo element");
+            } else {
+                SOSPeerInfoRef retiringPeer = (SOSPeerInfoRef)value;
+                CFStringRef retiringPeerID = SOSPeerInfoGetPeerID(retiringPeer);
+
+                CFSetForEach(newPeerList, ^(const void *peerFromAccount) {
+                    CFStringRef peerFromAccountID = SOSPeerInfoGetPeerID((SOSPeerInfoRef)peerFromAccount);
+                    if (peerFromAccountID && retiringPeerID && CFStringCompare(peerFromAccountID, retiringPeerID, 0) == 0){
+                        CFSetRemoveValue(newPeerList, peerFromAccount);
+                    }
+                });
+            }
         });
         bskb = SOSBackupSliceKeyBagCreate(kCFAllocatorDefault, newPeerList, error);
         CFReleaseNull(newPeerList);
@@ -482,46 +497,40 @@ exit:
     
 }
 
-bool SOSAccountSetBSKBagForAllSlices(SOSAccountRef account, CFDataRef aks_bag, bool includeV0, CFErrorRef *error){
+bool SOSAccountSetBSKBagForAllSlices(SOSAccountRef account, CFDataRef aks_bag, bool setupV0Only, CFErrorRef *error){
     __block bool result = false;
     SOSBackupSliceKeyBagRef backup_slice = NULL;
     
     require_quiet(SOSAccountIsInCircle(account, error), exit);
 
-    if (includeV0) {
+    if (setupV0Only) {
         result = SOSSaveV0Keybag(aks_bag, error);
         require_action_quiet(result, exit, secnotice("keybag", "failed to set V0 keybag (%@)", *error));
+    } else {
+        result = true;
+
+        backup_slice = SOSBackupSliceKeyBagCreateDirect(kCFAllocatorDefault, aks_bag, error);
+
+        SOSAccountForEachBackupView(account, ^(const void *value) {
+            CFStringRef viewname = (CFStringRef) value;
+            result &= SOSAccountSetKeybagForViewBackupRing(account, viewname, backup_slice, error);
+        });
     }
 
-    result = true;
-
-
-#if !ENABLE_V2_BACKUP
-    // We always succeed when no V2 backup.
-    goto exit;
-#endif
-    
-    backup_slice = SOSBackupSliceKeyBagCreateDirect(kCFAllocatorDefault, aks_bag, error);
-    
-    SOSAccountForEachBackupView(account, ^(const void *value) {
-        CFStringRef viewname = (CFStringRef) value;
-        result &= SOSAccountSetKeybagForViewBackupRing(account, viewname, backup_slice, error);
-    });
-    
 exit:
     CFReleaseNull(backup_slice);
     return result;
 }
 
-static CFMutableArrayRef SOSAccountIsRetiredPeerIDInBackupPeerList(SOSAccountRef account, CFArrayRef peerIDs, CFSetRef peersInBackup){
+static CFMutableArrayRef SOSAccountIsRetiredPeerIDInBackupPeerList(SOSAccountRef account, CFArrayRef peers, CFSetRef peersInBackup){
     CFMutableArrayRef removals = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     
     CFSetForEach(peersInBackup, ^(const void *value) {
         SOSPeerInfoRef peer = (SOSPeerInfoRef)value;
-        CFArrayForEach(peerIDs, ^(const void *value) {
-            CFStringRef peerID = (CFStringRef)value;
+        CFArrayForEach(peers, ^(const void *value) {
+            CFStringRef peerID = SOSPeerInfoGetPeerID((SOSPeerInfoRef)value);
             CFStringRef piPeerID = SOSPeerInfoGetPeerID(peer);
-            if (piPeerID && CFStringCompare(piPeerID, peerID, 0) == 0){
+            if (peerID && piPeerID && CFStringCompare(piPeerID, peerID, 0) == 0){
                 CFArrayAppendValue(removals, peer);
             }
         });
@@ -532,7 +541,7 @@ static CFMutableArrayRef SOSAccountIsRetiredPeerIDInBackupPeerList(SOSAccountRef
 
 }
 
-bool SOSAccountRemoveBackupPeers(SOSAccountRef account, CFArrayRef peerIDs, CFErrorRef *error){
+bool SOSAccountRemoveBackupPeers(SOSAccountRef account, CFArrayRef peers, CFErrorRef *error){
     __block bool result = true;
 
     SOSFullPeerInfoRef fpi = SOSAccountGetMyFullPeerInfo(account);
@@ -545,7 +554,7 @@ bool SOSAccountRemoveBackupPeers(SOSAccountRef account, CFArrayRef peerIDs, CFEr
             //grab current peers list
             CFSetRef peersInBackup = SOSAccountCopyBackupPeersForView(account, viewName);
             //get peer infos that have retired but are still in the backup peer list
-            CFMutableArrayRef removals = SOSAccountIsRetiredPeerIDInBackupPeerList(account, peerIDs, peersInBackup);
+            CFMutableArrayRef removals = SOSAccountIsRetiredPeerIDInBackupPeerList(account, peers, peersInBackup);
             result = SOSAccountWithBSKBAndPeerInfosForView(account, removals, viewName, error, ^(SOSBackupSliceKeyBagRef bskb, CFErrorRef *error) {
                 bool result = SOSAccountSetKeybagForViewBackupRing(account, viewName, bskb, error);
                 return result;

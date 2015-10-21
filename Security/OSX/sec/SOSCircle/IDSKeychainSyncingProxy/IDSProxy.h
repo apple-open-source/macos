@@ -40,7 +40,9 @@ typedef enum {
     kIDSEndPingTestMessage= 2,
     kIDSSendOneMessage = 3,
     kIDSSyncMessagesRaw = 4,
-    kIDSSyncMessagesCompact =5
+    kIDSSyncMessagesCompact = 5,
+    kIDSPeerAvailability = 6,
+    kIDSPeerAvailabilityDone = 7
 } idsOperation;
 
 typedef enum {
@@ -48,11 +50,12 @@ typedef enum {
     kSecIDSErrorNotRegistered = -2,
     kSecIDSErrorFailedToSend=-3,
     kSecIDSErrorCouldNotFindMatchingAuthToken = -4,
-    kSecIDSErrorDeviceIsLocked = -5
+    kSecIDSErrorDeviceIsLocked = -5,
+    kSecIDSErrorBatchControllerUninitialized = -6
 } idsError;
 
 
-@interface IDSKeychainSyncingProxy  :  NSObject <IDSServiceDelegate>
+@interface IDSKeychainSyncingProxy  :  NSObject <IDSServiceDelegate, IDSBatchIDQueryControllerDelegate>
 {
     CloudItemsChangedBlock itemsChangedCallback;
     IDSService      *_service;
@@ -86,7 +89,7 @@ typedef enum {
 - (void)setItemsChangedBlock:(CloudItemsChangedBlock)itemsChangedBlock;
 - (void)streamEvent:(xpc_object_t)notification;
 
-- (BOOL) sendIDSMessage:(NSData*)data name:(NSString*)deviceName peer:(NSString*) peerID error:(NSError**) error;
+- (BOOL) sendIDSMessage:(NSDictionary*)data name:(NSString*)deviceName peer:(NSString*) peerID error:(NSError**) error;
 - (BOOL) doSetIDSDeviceID: (NSError**)error;
 - (void) doIDSInitialization;
 - (void) calloutWith: (void(^)(NSMutableDictionary *pending, bool handlePendingMesssages, bool doSetDeviceID, dispatch_queue_t queue, void(^done)(NSMutableDictionary *handledMessages, bool handledPendingMessage, bool handledSettingDeviceID))) callout;

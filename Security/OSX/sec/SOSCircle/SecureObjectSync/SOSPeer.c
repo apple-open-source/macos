@@ -201,15 +201,15 @@ CFTypeRef SOSPeerOrStateSetViewsKeyBagAndCreateCopy(CFTypeRef peerOrState, CFSet
         SOSPeerSetViewNameSet(peer, views);
         SOSPeerSetKeyBag(peer, keyBag);
         return CFRetainSafe(peer);
-    } else if (peerOrState) {
-        CFMutableDictionaryRef state = (CFMutableDictionaryRef)peerOrState;
+    } else if (peerOrState && CFGetTypeID(peerOrState) == CFDictionaryGetTypeID()) {
+        CFMutableDictionaryRef state = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, peerOrState);
         // Deserialized peer, just updated the serialized state with the new views
         CFDictionarySetValue(state, kSOSPeerViewsKey, views);
         if (keyBag)
             CFDictionarySetValue(state, kSOSPeerKeyBagKey, keyBag);
         else
             CFDictionaryRemoveValue(state, kSOSPeerKeyBagKey);
-        return CFRetainSafe(state);
+        return state;
     } else {
         // New peer, just create a state object.
         if (keyBag)
@@ -226,11 +226,11 @@ CFTypeRef SOSPeerOrStateSetViewsAndCopyState(CFTypeRef peerOrState, CFSetRef vie
         SOSPeerRef peer = (SOSPeerRef)peerOrState;
         SOSPeerSetViewNameSet(peer, views);
         return SOSPeerCopyState(peer, NULL);
-    } else if (peerOrState) {
+    } else if (peerOrState && CFGetTypeID(peerOrState) == CFDictionaryGetTypeID()) {
         // We have a deflated peer.  Update its views and keep it deflated
-        CFMutableDictionaryRef state = (CFMutableDictionaryRef)peerOrState;
+        CFMutableDictionaryRef state = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, peerOrState);
         CFDictionarySetValue(state, kSOSPeerViewsKey, views);
-        return CFRetainSafe(peerOrState);
+        return state;
     } else {
         return NULL;
     }

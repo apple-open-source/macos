@@ -98,7 +98,7 @@ static void idskeychainsyncingproxy_peer_dictionary_handler(const xpc_connection
         
         NSString *deviceName = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xDeviceName));
         NSString *peerID = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xPeerID));
-        NSData *messageData = (__bridge_transfer NSData*)(_CFXPCCreateCFObjectFromXPCObject(xidsMessageData));
+        NSDictionary *messageData = (__bridge_transfer NSDictionary*)(_CFXPCCreateCFObjectFromXPCObject(xidsMessageData));
         NSError *error = NULL;
         
         BOOL object = [[IDSKeychainSyncingProxy idsProxy] sendIDSMessage:messageData name:deviceName peer:peerID error:&error];

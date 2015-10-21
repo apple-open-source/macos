@@ -33,6 +33,7 @@
 //
 const CFSetCallBacks kSOSPeerSetCallbacks;
 CFMutableSetRef CFSetCreateMutableForSOSPeerInfosByID(CFAllocatorRef allocator);
+CFMutableSetRef CFSetCreateMutableForSOSPeerInfosByIDWithArray(CFAllocatorRef allocator, CFArrayRef peerInfos);
 
 bool SOSPeerInfoSetContainsIdenticalPeers(CFSetRef set1, CFSetRef set2);
 SOSPeerInfoRef SOSPeerInfoSetFindByID(CFSetRef set, CFStringRef id);

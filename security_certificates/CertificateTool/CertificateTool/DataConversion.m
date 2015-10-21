@@ -1,14 +1,8 @@
 //
 //  DataConversion.m
-//  FIPSCAVS
+//  CertificateTool
 //
-//  Created by James Murphy on 04/26/13.
-//  Copyright 2013 Apple. All rights reserved.
-//
-// 	This is confidential and proprietary code of Apple Inc.  It may not be 
-//	used, copied or modified in any way without Apple's expressed 
-//	written permission in each case. No redistribution of this 
-//	Apple Confidential code is allowed.
+//  Copyright (c) 2013-2015 Apple Inc. All Rights Reserved.
 //
 
 #import "DataConversion.h"

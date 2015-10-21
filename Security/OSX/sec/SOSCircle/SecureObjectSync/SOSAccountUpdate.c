@@ -188,10 +188,8 @@ void SOSAccountNotifyEngines(SOSAccountRef account)
             CFReleaseNull(peerMeta);
         });
 
-#if ENABLE_V2_BACKUP
         // We don't make a backup peer for the magic V0 peer, so do it before we munge the set.
         SOSAccountAppendPeerMetasForViewBackups(account, myViews, syncing_peer_metas);
-#endif
 
         // If we saw someone else needing V0, we sync V0, too!
         if (addV0Views) {
@@ -224,6 +222,10 @@ static void SOSAccountNotifyOfChange(SOSAccountRef account, SOSCircleRef oldCirc
     CFMutableSetRef old_applicants = SOSCircleCopyApplicants(oldCircle, kCFAllocatorDefault);
     CFMutableSetRef new_applicants = SOSCircleCopyApplicants(newCircle, kCFAllocatorDefault);
 
+    SOSPeerInfoRef me = SOSAccountGetMyPeerInfo(account);
+    if(me && CFSetContainsValue(new_members, me))
+        SOSAccountSetValue(account, kSOSEscrowRecord, kCFNull, NULL); //removing the escrow records from the account object
+
     DifferenceAndCall(old_members, new_members, ^(CFSetRef added_members, CFSetRef removed_members) {
         DifferenceAndCall(old_applicants, new_applicants, ^(CFSetRef added_applicants, CFSetRef removed_applicants) {
             CFArrayForEach(account->change_blocks, ^(const void * notificationBlock) {
@@ -238,22 +240,6 @@ static void SOSAccountNotifyOfChange(SOSAccountRef account, SOSCircleRef oldCirc
     
     CFReleaseNull(old_members);
     CFReleaseNull(new_members);
-}
-
-static void SOSAccountRecordRetiredPeerInCircle(SOSAccountRef account, SOSPeerInfoRef retiree)
-{
-    // Replace Peer with RetiredPeer, if were a peer.
-    SOSAccountModifyCircle(account, NULL, ^(SOSCircleRef circle) {
-        bool updated = SOSCircleUpdatePeerInfo(circle, retiree);
-        if (updated) {
-            secnotice("retirement", "Updated retired peer %@ in %@", retiree, circle);
-            CFErrorRef cleanupError = NULL;
-            if (!SOSAccountCleanupAfterPeer(account, RETIREMENT_FINALIZATION_SECONDS, circle, retiree, &cleanupError))
-                secerror("Error cleanup up after peer (%@): %@", retiree, cleanupError);
-            CFReleaseSafe(cleanupError);
-        }
-        return updated;
-    });
 }
 
 CF_RETURNS_RETAINED
@@ -271,7 +257,7 @@ CFDictionaryRef SOSAccountHandleRetirementMessages(SOSAccountRef account, CFDict
             if(pi && CFEqual(key, SOSPeerInfoGetPeerID(pi)) && SOSPeerInfoInspectRetirementTicket(pi, error)) {
                 CFSetAddValue(account->retirees, pi);
 
-                SOSAccountRecordRetiredPeerInCircle(account, pi);
+                account->circle_rings_retirements_need_attention = true; // Have to handle retirements.
 
                 CFArrayAppendValue(handledRetirementIDs, key);
             }
@@ -376,10 +362,8 @@ bool SOSAccountHandleParametersChange(SOSAccountRef account, CFDataRef parameter
             success = true;
         } else {
             SOSAccountSetUnTrustedUserPublicKey(account, newKey);
-            CFReleaseNull(account->user_key_parameters);
-            account->user_key_parameters = newParameters;
+            SOSAccountSetParameters(account, newParameters);
             newKey = NULL;
-            newParameters = NULL;
 
             if(SOSAccountRetryUserCredentials(account)) {
                 secnotice("keygen", "Successfully used cached password with new parameters: %@", account->user_public);
@@ -390,7 +374,8 @@ bool SOSAccountHandleParametersChange(SOSAccountRef account, CFDataRef parameter
                 debugDumpUserParameters(CFSTR("params"), account->user_key_parameters);
             }
 
-            SOSUpdateKeyInterest();
+            account->circle_rings_retirements_need_attention = true;
+            SOSUpdateKeyInterest(account);
 
             success = true;
         }
@@ -676,7 +661,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
         
         if (writeUpdate)
             circleToPush = newCircle;
-        SOSUpdateKeyInterest();
+        SOSUpdateKeyInterest(account);
     }
     
     /*

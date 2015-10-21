@@ -78,16 +78,50 @@ static	int64_t Bucket(int64_t value)
     return value;
 }
 
+static int64_t
+Bucket2Significant(int64_t value)
+{
+    if (value < 100)
+	return value;
+    return 10 * Bucket2Significant(value / 10);
+}
+
+static void
+TraceKeyClassItem(void *token, CFStringRef keyclass, CFStringRef name, int64_t num)
+{
+    CFStringRef key = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@.%@"), keyclass, name);
+    if (key) {
+	num = Bucket2Significant(num);
+	AddKeyValuePairToKeychainLoggingTransaction(token, key, num);
+	CFReleaseNull(key);
+    }
+
+}
+
+static void
+TraceKeyClass(void *token, CFStringRef keyclass, const struct _SecServerKeyStats *stats)
+{
+    TraceKeyClassItem(token, keyclass, CFSTR("AverageSize"), stats->averageSize);
+    TraceKeyClassItem(token, keyclass, CFSTR("MaxSize"), stats->maxDataSize);
+    TraceKeyClassItem(token, keyclass, CFSTR("NumItems"), stats->items);
+}
+
 /* --------------------------------------------------------------------------
 	Function:		DoLogging
 	
 	Description:	If it has been determined that logging should be done
 					this function will perform the logging
    -------------------------------------------------------------------------- */
-void CloudKeychainTrace(CFIndex num_peers, size_t num_items)
+void CloudKeychainTrace(CFIndex num_peers, size_t num_items,
+                        const struct _SecServerKeyStats *genpStats,
+                        const struct _SecServerKeyStats *inetStats,
+                        const struct _SecServerKeyStats *keysStats)
 {
 	void *token = BeginCloudKeychainLoggingTransaction();
     AddKeyValuePairToKeychainLoggingTransaction(token, kNumberOfiCloudKeychainPeers, (int64_t)num_peers);
     AddKeyValuePairToKeychainLoggingTransaction(token, kNumberOfiCloudKeychainItemsBeingSynced, Bucket((int64_t)num_items));
+    TraceKeyClass(token, CFSTR("genp"), genpStats);
+    TraceKeyClass(token, CFSTR("inet"), inetStats);
+    TraceKeyClass(token, CFSTR("keys"), keysStats);
 	CloseCloudKeychainLoggingTransaction(token);
 }

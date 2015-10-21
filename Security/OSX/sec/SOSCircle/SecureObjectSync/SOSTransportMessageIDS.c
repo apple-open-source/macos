@@ -34,7 +34,7 @@ const CFStringRef kSecIDSErrorDomain = CFSTR("com.apple.security.ids.error");
 //
 // V-table implementation forward declarations
 //
-static bool sendToPeer(SOSTransportMessageRef transport, CFStringRef circleName, CFStringRef deviceID, CFStringRef peerID, idsOperation whichOTRType, CFDataRef message, CFErrorRef *error);
+static bool sendToPeer(SOSTransportMessageRef transport, CFStringRef circleName, CFStringRef deviceID, CFStringRef peerID, CFDictionaryRef message, CFErrorRef *error);
 static bool syncWithPeers(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef *error);
 static bool sendMessages(SOSTransportMessageRef transport, CFDictionaryRef circleToPeersToMessage, CFErrorRef *error);
 static void destroy(SOSTransportMessageRef transport);
@@ -61,53 +61,28 @@ SOSTransportMessageIDSRef SOSTransportMessageIDSCreate(SOSAccountRef account, CF
         ids->m.getTransportType = getTransportType;
         
         // Initialize ourselves
-        if ((whichTransportType == kSOSTransportIDS || whichTransportType == kSOSTransportFuture || whichTransportType == kSOSTransportPresent) && account->ids_message_transport) {
-            CFStringRef deviceID = SOSPeerInfoCopyDeviceID(SOSFullPeerInfoGetPeerInfo(account->my_identity));
-            if(deviceID == NULL || CFStringGetLength(deviceID) == 0){
-                
-                    __block bool success = false;
-                    
-                        SOSCloudKeychainGetIDSDeviceID(^(CFDictionaryRef returnedValues, CFErrorRef sync_error){
-                            success = (sync_error == NULL);
-                            if (*error) {
-                                CFRetainAssign(*error, sync_error);
-                            }
-                        });
-                        
-                        if(!success){
-                            secerror("Could not ask IDSKeychainSyncingProxy for Device ID: %@", *error);
-                        }
-                        else{
-                            secdebug("IDS Transport", "Attempting to retrieve the IDS Device ID");
-                        }
-                    }
-            CFReleaseNull(deviceID);
-        }
         
-        if (whichTransportType == kSOSTransportIDS) {
-            SOSPeerInfoRef myPeer = SOSAccountGetMyPeerInfo(account);
-            if(myPeer){
-                __block bool success = false;
-                CFStringRef deviceIDRefreshed = SOSPeerInfoCopyDeviceID(myPeer);
-                if(!deviceIDRefreshed || 0 == CFStringGetLength(deviceIDRefreshed)){
-                    SOSCloudKeychainGetIDSDeviceID(^(CFDictionaryRef returnedValues, CFErrorRef sync_error){
-                        success = (sync_error == NULL);
-                        if (error) {
-                            CFRetainAssign(*error, sync_error);
-                        }
-                    });
-                    
-                    if(!success){
-                        secerror("Could not ask IDSKeychainSyncingProxy for Device ID");
-                    }
-                    else{
-                        secdebug("IDS Transport", "Attempting to retrieve the IDS Device ID");
-                    }
-                    CFReleaseNull(deviceIDRefreshed);
+        CFStringRef deviceID = SOSPeerInfoCopyDeviceID(SOSFullPeerInfoGetPeerInfo(account->my_identity));
+        if(deviceID == NULL || CFStringGetLength(deviceID) == 0){
+            
+            __block bool success = true;
+            __block CFErrorRef localError = NULL;
+            SOSCloudKeychainGetIDSDeviceID(^(CFDictionaryRef returnedValues, CFErrorRef sync_error){
+                success = (sync_error == NULL);
+                if (!success) {
+                    CFRetainAssign(localError, sync_error);
                 }
+            });
+            
+            if(!success && localError != NULL && error != NULL){
+                secerror("Could not ask IDSKeychainSyncingProxy for Device ID: %@", localError);
+                *error = localError;
+            }
+            else{
+                secdebug("IDS Transport", "Attempting to retrieve the IDS Device ID");
             }
         }
-        
+        CFReleaseNull(deviceID);
         SOSRegisterTransportMessage((SOSTransportMessageRef)ids);
     }
     
@@ -156,7 +131,7 @@ HandleIDSMessageReason SOSTransportMessageIDSHandleMessage(SOSAccountRef account
         return kHandleIDSMessageNotReady;
     }
     
-    if(messageData){
+    if(messageData != NULL && CFDataGetLength(messageData) > 0){
         
         if (SOSTransportMessageHandlePeerMessage(account->ids_message_transport, peerID, messageData, error)) {
             CFMutableDictionaryRef peersToSyncWith = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -190,7 +165,7 @@ HandleIDSMessageReason SOSTransportMessageIDSHandleMessage(SOSAccountRef account
 }
 
 
-static bool sendToPeer(SOSTransportMessageRef transport, CFStringRef circleName, CFStringRef deviceID, CFStringRef peerID, idsOperation whichOTRType, CFDataRef message, CFErrorRef *error)
+static bool sendToPeer(SOSTransportMessageRef transport, CFStringRef circleName, CFStringRef deviceID, CFStringRef peerID,CFDictionaryRef message, CFErrorRef *error)
 {
     __block bool success = false;
     CFStringRef errorMessage = NULL;
@@ -203,28 +178,12 @@ static bool sendToPeer(SOSTransportMessageRef transport, CFStringRef circleName,
     
     require_action_quiet((deviceID != NULL && CFStringGetLength(deviceID) >0), fail, errorMessage = CFSTR("Need an IDS Device ID to sync"));
 
-    if(whichOTRType == kIDSSyncMessagesCompact)
-        operation = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), kIDSSyncMessagesCompact);
-    else
-        operation = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), kIDSSyncMessagesRaw);
-    
-    require_action_quiet(operation, fail, errorMessage = CFSTR("Failed to allocate a CFStringRef"));
-    
-    operationData = CFStringCreateExternalRepresentation(kCFAllocatorDefault, operation, kCFStringEncodingUTF8, 0);
-    require_action_quiet(operationData, fail, errorMessage = CFSTR("Failed to allocate data"));
-
-    mutableData = CFDataCreateMutable(kCFAllocatorDefault, CFDataGetLength(operationData) +  CFDataGetLength(message));
-    require_action_quiet(mutableData, fail, errorMessage = CFSTR("Failed to allocate mutable data"));
-    
-    CFDataAppend(mutableData, operationData);
-    CFDataAppend(mutableData, message);
-    
     dispatch_semaphore_t wait_for = dispatch_semaphore_create(0);
     dispatch_retain(wait_for); // Both this scope and the block own it.
     
     secnotice("ids transport", "Starting");
     
-    SOSCloudKeychainSendIDSMessage(mutableData, deviceID, ourPeerID, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFDictionaryRef returnedValues, CFErrorRef sync_error) {
+    SOSCloudKeychainSendIDSMessage(message, deviceID, ourPeerID, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFDictionaryRef returnedValues, CFErrorRef sync_error) {
         success = (sync_error == NULL);
         if (error) {
             CFRetainAssign(*error, sync_error);
@@ -289,25 +248,19 @@ static bool syncWithPeers(SOSTransportMessageRef transport, CFDictionaryRef circ
 static bool sendMessages(SOSTransportMessageRef transport, CFDictionaryRef circleToPeersToMessage, CFErrorRef *error) {
     __block bool result = true;
     SOSCircleRef circle = SOSAccountGetCircle(transport->account, error);
-    __block SOSAccountRef account = SOSTransportMessageGetAccount(transport);
-    __block SOSPeerInfoRef myPeerInfo = SOSFullPeerInfoGetPeerInfo(SOSAccountGetMyFullPeerInfo(account));
     
     CFDictionaryForEach(circleToPeersToMessage, ^(const void *key, const void *value) {
         if (isString(key) && isDictionary(value)) {
             CFStringRef circleName = (CFStringRef) key;
             CFDictionaryForEach(value, ^(const void *key, const void *value) {
-                if (isString(key) && isData(value)) {
+                if (isString(key) && isDictionary(value)) {
                     CFStringRef peerID = (CFStringRef) key;
-                    CFDataRef message = (CFDataRef) value;
+                    CFDictionaryRef message = (CFDictionaryRef) value;
                     SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
                         CFStringRef deviceID = SOSPeerInfoCopyDeviceID(peer);
                         if(CFEqualSafe(SOSPeerInfoGetPeerID(peer), peerID) || CFEqualSafe(deviceID, peerID)){
                             bool rx = false;
-                            if(SOSPeerInfoShouldUseIDSTransport(myPeerInfo, peer))
-                                rx = sendToPeer(transport, circleName, deviceID, peerID, kIDSSyncMessagesCompact, message, error);
-                            else
-                                rx = sendToPeer(transport, circleName, deviceID, peerID, kIDSSyncMessagesRaw, message, error);
-                            
+                            rx = sendToPeer(transport, circleName, deviceID, peerID, message, error);
                             result &= rx;
                         }
                         CFReleaseNull(deviceID);

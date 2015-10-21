@@ -59,6 +59,7 @@ extern const DERItem
     oidApplePolicyTestMobileStore,
     oidApplePolicyEscrowService,
     oidAppleCertExtensionAppleIDRecordValidationSigning,
+    oidAppleCertExtOSXProvisioningProfileSigning,
     oidAppleIntmMarkerAppleSystemIntg2,
     oidAppleIntmMarkerAppleSystemIntgG3,
     oidAppleCertExtAppleSMPEncryption,

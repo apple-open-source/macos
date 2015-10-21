@@ -402,15 +402,19 @@ static inline void FeedChangesTo(CFMutableDictionaryRef changes, SOSAccountRef a
     }
 
     CFMutableArrayRef handled = NULL;
-    
-    secnotice("changes", "Changes for %@: %@", SOSTransportKeyParameterTestGetName((SOSTransportKeyParameterTestRef) account->key_transport), account_pending_keys);
 
     CFErrorRef error = NULL;
     CFMutableDictionaryRef account_pending_messages = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     CFArrayForEach(account_pending_keys, ^(const void *value) {
         CFDictionaryAddValue(account_pending_messages, value, CFDictionaryGetValue(full_list, value));
     });
-    
+
+    secnotice("changes", "Changes for %@:", SOSTransportKeyParameterTestGetName((SOSTransportKeyParameterTestRef) account->key_transport));
+
+    CFDictionaryForEach(account_pending_messages, ^(const void *key, const void *value) {
+        secnotice("changes", "  %@", key);
+    });
+
     ok(handled = SOSTransportDispatchMessages(account, account_pending_messages, &error), "SOSTransportHandleMessages failed (%@)", error);
     
     if (isArray(handled)) {

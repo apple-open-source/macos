@@ -2,14 +2,14 @@
  * Copyright (c) 2004, 2006, 2008-2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -79,6 +79,7 @@ dns_config_t *
 dns_configuration_copy()
 {
 	uint8_t			*buf		= NULL;
+	size_t			bufLen;
 	dns_config_t		*config		= NULL;
 	static const char	*proc_name	= NULL;
 	xpc_object_t		reqdict;
@@ -90,13 +91,15 @@ dns_configuration_copy()
 			static const char	*service_name	= DNSINFO_SERVICE_NAME;
 
 			dispatch_once(&once, ^{
+#if	DEBUG
 				const char	*name;
 
 				// get [XPC] service name
 				name = getenv(service_name);
-				if ((name != NULL) && (issetugid() == 0)) {
+				if (name != NULL) {
 					service_name = strdup(name);
 				}
+#endif	// DEBUG
 
 				// get process name
 				proc_name = getprogname();
@@ -140,16 +143,43 @@ dns_configuration_copy()
 		if ((dataRef != NULL) &&
 		    ((dataLen >= sizeof(_dns_config_buf_t)) && (dataLen <= DNS_CONFIG_BUF_MAX))) {
 			_dns_config_buf_t       *config         = (_dns_config_buf_t *)(void *)dataRef;
-			uint32_t                n_padding       = ntohl(config->n_padding);
+			size_t			configLen;
+			uint32_t                n_attribute	= ntohl(config->n_attribute);
+			uint32_t		n_padding       = ntohl(config->n_padding);
 
-			if (n_padding <= (DNS_CONFIG_BUF_MAX - dataLen)) {
-				size_t        len;
+			/*
+			 * Check that the size of the configuration header plus the size of the
+			 * attribute data matches the size of the configuration buffer.
+			 *
+			 * If the sizes are different, something that should NEVER happen, CRASH!
+			 */
+			configLen = sizeof(_dns_config_buf_t) + n_attribute;
+			assert(configLen == dataLen);
 
-				len = dataLen + n_padding;
-				buf = malloc(len);
-				bcopy((void *)dataRef, buf, dataLen);
-				bzero(&buf[dataLen], n_padding);
-			}
+			/*
+			 * Check that the size of the requested padding would not result in our
+			 * allocating a configuration + padding buffer larger than our maximum size.
+			 *
+			 * If the requested padding size is too large, something that should NEVER
+			 * happen, CRASH!
+			 */
+			assert(n_padding <= (DNS_CONFIG_BUF_MAX - dataLen));
+
+			/*
+			 * Check that the actual size of the configuration data and any requested
+			 * padding will be less than the maximum possible size of the in-memory
+			 * configuration buffer.
+			 *
+			 * If the length needed is too large, something that should NEVER happen, CRASH!
+			 */
+			bufLen = dataLen + n_padding;
+			assert(bufLen <= DNS_CONFIG_BUF_MAX);
+
+			// allocate a buffer large enough to hold both the configuration
+			// data and the padding.
+			buf = malloc(bufLen);
+			bcopy((void *)dataRef, buf, dataLen);
+			bzero(&buf[dataLen], n_padding);
 		}
 
 		xpc_release(reply);

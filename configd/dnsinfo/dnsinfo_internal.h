@@ -93,10 +93,10 @@ _dns_configuration_expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, voi
 
 	resolver->n_nameserver = ntohl(resolver->n_nameserver);
 	if (!__dns_configuration_expand_add_list(padding,
-		      n_padding,
-		      resolver->n_nameserver,
-		      sizeof(DNS_PTR(struct sockaddr *, x)),
-		      (void **)&resolver->nameserver)) {
+						 n_padding,
+						 resolver->n_nameserver,
+						 sizeof(DNS_PTR(struct sockaddr *, x)),
+						 (void **)&resolver->nameserver)) {
 		goto error;
 	}
 
@@ -108,10 +108,10 @@ _dns_configuration_expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, voi
 
 	resolver->n_search = ntohl(resolver->n_search);
 	if (!__dns_configuration_expand_add_list(padding,
-		      n_padding,
-		      resolver->n_search,
-		      sizeof(DNS_PTR(char *, x)),
-		      (void **)&resolver->search)) {
+						 n_padding,
+						 resolver->n_search,
+						 sizeof(DNS_PTR(char *, x)),
+						 (void **)&resolver->search)) {
 		goto error;
 	}
 
@@ -119,10 +119,10 @@ _dns_configuration_expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, voi
 
 	resolver->n_sortaddr = ntohl(resolver->n_sortaddr);
 	if (!__dns_configuration_expand_add_list(padding,
-		      n_padding,
-		      resolver->n_sortaddr,
-		      sizeof(DNS_PTR(dns_sortaddr_t *, x)),
-		      (void **)&resolver->sortaddr)) {
+						 n_padding,
+						 resolver->n_sortaddr,
+						 sizeof(DNS_PTR(dns_sortaddr_t *, x)),
+						 (void **)&resolver->sortaddr)) {
 		goto error;
 	}
 
@@ -237,44 +237,45 @@ _dns_configuration_expand_config(_dns_config_buf_t *buf)
 	int32_t			n_service_specific_resolver	= 0;
 	void			*padding;
 
-	// establish padding
+	n_attribute = ntohl(buf->n_attribute);	// pre-validated (or known OK) at entry
+	n_padding   = ntohl(buf->n_padding);	// pre-validated (or known OK) at entry
 
-	padding   = &buf->attribute[ntohl(buf->n_attribute)];
-	n_padding = ntohl(buf->n_padding);
+	// establish the start of padding to be after the last attribute
+
+	padding = &buf->attribute[n_attribute];
 
 	// initialize resolver lists
 
 	config->n_resolver = ntohl(config->n_resolver);
 	if (!__dns_configuration_expand_add_list(&padding,
-		      &n_padding,
-		      config->n_resolver,
-		      sizeof(DNS_PTR(dns_resolver_t *, x)),
-		      (void **)&config->resolver)) {
+						 &n_padding,
+						 config->n_resolver,
+						 sizeof(DNS_PTR(dns_resolver_t *, x)),
+						 (void **)&config->resolver)) {
 		goto error;
 	}
 
 	config->n_scoped_resolver = ntohl(config->n_scoped_resolver);
 	if (!__dns_configuration_expand_add_list(&padding,
-		      &n_padding,
-		      config->n_scoped_resolver,
-		      sizeof(DNS_PTR(dns_resolver_t *, x)),
-		      (void **)&config->scoped_resolver)) {
+						 &n_padding,
+						 config->n_scoped_resolver,
+						 sizeof(DNS_PTR(dns_resolver_t *, x)),
+						 (void **)&config->scoped_resolver)) {
 		goto error;
 	}
 
 	config->n_service_specific_resolver = ntohl(config->n_service_specific_resolver);
 	if (!__dns_configuration_expand_add_list(&padding,
-		      &n_padding,
-		      config->n_service_specific_resolver,
-		      sizeof(DNS_PTR(dns_resolver_t *, x)),
-		      (void **)&config->service_specific_resolver)) {
+						 &n_padding,
+						 config->n_service_specific_resolver,
+						 sizeof(DNS_PTR(dns_resolver_t *, x)),
+						 (void **)&config->service_specific_resolver)) {
 		goto error;
 	}
 
 	// process configuration buffer "attribute" data
 
-	n_attribute = ntohl(buf->n_attribute);
-	attribute   = (dns_attribute_t *)(void *)&buf->attribute[0];
+	attribute = (dns_attribute_t *)(void *)&buf->attribute[0];
 
 	while (n_attribute >= sizeof(dns_attribute_t)) {
 		uint32_t	attribute_length	= ntohl(attribute->length);

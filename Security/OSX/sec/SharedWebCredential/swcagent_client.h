@@ -63,7 +63,8 @@ extern const char *kSecXPCKeySettings;
 extern const char *kSecXPCKeyDeviceID;
 extern const char *kSecXPCKeyIDSMessage;
 extern const char *kSecXPCKeySendIDSMessage;
-
+extern const char *kSecXPCKeyEscrowLabel;
+extern const char *kSecXPCKeyTriesLabel;
 extern const char *kSecXPCKeyViewName;
 extern const char *kSecXPCKeyViewActionCode;
 //

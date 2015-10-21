@@ -46,17 +46,17 @@ static const char *concordstring[] = {
 
 
 static bool SOSAccountIsPeerRetired(SOSAccountRef account, CFSetRef peers){
-    CFMutableArrayRef peerIDs = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFMutableArrayRef peerInfos = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     bool result = false;
     
     CFSetForEach(peers, ^(const void *value) {
         SOSPeerInfoRef peer = (SOSPeerInfoRef)value;
         if(SOSPeerInfoIsRetirementTicket(peer))
-            CFArrayAppendValue(peerIDs, peer);
+            CFArrayAppendValue(peerInfos, peer);
     });
-    if(CFArrayGetCount(peerIDs) > 0){
-        if(!SOSAccountRemoveBackupPeers(account, peerIDs, NULL))
-            secerror("Could not remove peers: %@, from the backup", peerIDs);
+    if(CFArrayGetCount(peerInfos) > 0){
+        if(!SOSAccountRemoveBackupPeers(account, peerInfos, NULL))
+            secerror("Could not remove peers: %@, from the backup", peerInfos);
         else
             return true;
     }
@@ -100,11 +100,10 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
     SOSFullPeerInfoRef fpi = account->my_identity;
     SOSPeerInfoRef     pi = SOSFullPeerInfoGetPeerInfo(fpi);
     CFStringRef        peerID = SOSPeerInfoGetPeerID(pi);
-    bool               neverWrite = !(fpi && pi && peerID && SOSAccountIsInCircle(account, NULL));
+    bool               peerActive = (fpi && pi && peerID && SOSAccountIsInCircle(account, NULL));
+    
 
-    secinfo("signing", "start:[%s] %@", localRemote, prospectiveRing);
-
-    require_action_quiet(!(writeUpdate && neverWrite), errOut, SOSCreateError(kSOSErrorNotReady, CFSTR("Can't update from local if FullPeerInfo not present"), NULL, error));
+    secnotice("signing", "start:[%s] %@", localRemote, prospectiveRing);
 
     require_quiet(SOSAccountHasPublicKey(account, error), errOut);
 
@@ -118,8 +117,6 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
     SOSRingRef oldRing = SOSAccountGetRing(account, ringName, NULL);
 
     SOSTransportCircleRef transport = account->circle_transport;
-
-    // SOSAccountScanForRetired(account, prospectiveRing, error);
     
     SOSRingRef newRing = CFRetainSafe(prospectiveRing); // TODO:  SOSAccountCloneRingWithRetirement(account, prospectiveRing, error);
 
@@ -137,7 +134,6 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
     };
 
     ringAction_t ringAction = ignore;
-    enum DepartureReason leaveReason = kSOSNeverLeftCircle;
 
     bool userTrustedoldRing = true;
 
@@ -190,7 +186,6 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
             break;
         case kSOSConcordanceNoPeer:
             ringAction = leave;
-            leaveReason = kSOSLeftUntrustedCircle;
             concStr = CFSTR("No trusted peer left");
             break;
         case kSOSConcordanceNoUserKey:
@@ -220,7 +215,7 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
     bool iAmInNewRing = peerID && SOSRingHasPeerID(newRing, peerID);
     bool ringIsBackup = SOSRingGetType(newRing) == kSOSRingBackup;
 
-    if (ringIsBackup && !neverWrite) {
+    if (ringIsBackup && peerActive) {
         if (ringAction == accept || ringAction == countersign) {
             CFErrorRef localError = NULL;
             SOSBackupSliceKeyBagRef bskb = SOSRingCopyBackupSliceKeyBag(newRing, &localError);
@@ -261,7 +256,6 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
                 secnotice("signing", "Can't leave ring %@", oldRing);
                 success = false;
             }
-            account->departure_code = leaveReason;
             ringAction = accept;
         } else {
             // We are not in this ring, but we need to update account with it, since we got it from cloud
@@ -320,7 +314,7 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
             // Our application is declared lost, let us reapply.
 
             if (SOSRingApply(newRing, account->user_public, fpi, NULL))
-                writeUpdate = true;
+                if(peerActive) writeUpdate = true;
         }
 
         if (pi && SOSRingHasPeerID(oldRing, peerID)) {
@@ -331,9 +325,9 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
 
         account->circle_rings_retirements_need_attention = true;
 
-        if (writeUpdate && !neverWrite)
+        if (writeUpdate)
             ringToPush = newRing;
-        SOSUpdateKeyInterest();
+        SOSUpdateKeyInterest(account);
     }
 
     /*
@@ -343,7 +337,7 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
      */
 
     if (ringAction == revert) {
-        if(haveOldRing && !neverWrite && SOSRingHasPeerID(oldRing, peerID)) {
+        if(haveOldRing && peerActive && SOSRingHasPeerID(oldRing, peerID)) {
             secnotice("signing", "%@, Rejecting: %@ re-publishing %@", concStr, newRing, oldRing);
             ringToPush = oldRing;
         } else {

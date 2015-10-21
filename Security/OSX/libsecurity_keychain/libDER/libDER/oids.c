@@ -306,6 +306,10 @@
 /* Apple Pay Issuer Encryption */
 #define APPLE_CERT_EXT_CRYPTO_SERVICES_EXT_ENCRYPTION   APPLE_CERT_EXT, 39
 
+/* Apple OS X Provisioning Profile Signing */
+/* (note this OID is unfortunately used as a cert extension even though it's under the EKU arc) */
+#define APPLE_CERT_EXT_OSX_PROVISIONING_PROFILE_SIGNING APPLE_EKU_OID, 11
+
 /*
  * Netscape OIDs.
  */
@@ -511,6 +515,7 @@ __unused static const DERByte
     _oidApplePolicyTestMobileStore[] = { APPLE_CERT_POLICY_TEST_MOBILE_STORE },
     _oidApplePolicyEscrowService[] = { APPLE_ESCROW_POLICY_OID },
     _oidAppleCertExtensionAppleIDRecordValidationSigning[] = { APPLE_CERT_EXT_APPLE_ID_VALIDATION_RECORD_SIGNING },
+    _oidAppleCertExtOSXProvisioningProfileSigning[] = { APPLE_CERT_EXT_OSX_PROVISIONING_PROFILE_SIGNING },
     _oidAppleIntmMarkerAppleSystemIntg2[] =  {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_SYSTEM_INTEGRATION_2},
     _oidAppleIntmMarkerAppleSystemIntgG3[] =  {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_SYSTEM_INTEGRATION_G3},
     _oidAppleCertExtAppleSMPEncryption[] = {APPLE_CERT_EXT_APPLE_SMP_ENCRYPTION},
@@ -664,6 +669,8 @@ __unused const DERItem
                                         sizeof(_oidApplePolicyEscrowService)},
     oidAppleCertExtensionAppleIDRecordValidationSigning = { (DERByte *)_oidAppleCertExtensionAppleIDRecordValidationSigning,
                                         sizeof(_oidAppleCertExtensionAppleIDRecordValidationSigning)},
+    oidAppleCertExtOSXProvisioningProfileSigning = { (DERByte *)_oidAppleCertExtOSXProvisioningProfileSigning,
+                                        sizeof(_oidAppleCertExtOSXProvisioningProfileSigning) },
     oidAppleIntmMarkerAppleSystemIntg2 = { (DERByte *) _oidAppleIntmMarkerAppleSystemIntg2,
                                         sizeof(_oidAppleIntmMarkerAppleSystemIntg2)},
     oidAppleIntmMarkerAppleSystemIntgG3 = { (DERByte *) _oidAppleIntmMarkerAppleSystemIntgG3,

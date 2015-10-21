@@ -1,4 +1,11 @@
 #!/usr/bin/env ruby -wKU
+#
+#  buildRootKeychain.rb
+#  CertificateTool
+#
+#  Copyright 2012-2015 Apple Inc. All rights reserved.
+#
+
 require 'fileutils'
 require 'singleton'
 

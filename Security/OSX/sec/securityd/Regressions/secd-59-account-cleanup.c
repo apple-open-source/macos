@@ -52,7 +52,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 126;
+static int kTestTestCount = 123;
 
 static void tests(void)
 {
@@ -111,7 +111,7 @@ static void tests(void)
     CFReleaseNull(error);
     CFReleaseNull(cfpassword);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 3, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
 
     accounts_agree("Alice bails", bob_account, alice_account);
     accounts_agree("Alice bails", bob_account, carole_account);

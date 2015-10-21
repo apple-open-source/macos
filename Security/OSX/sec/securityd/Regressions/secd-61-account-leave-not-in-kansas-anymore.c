@@ -50,7 +50,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 125;
+static int kTestTestCount = 118;
 
 /*
  static void trim_retirements_from_circle(SOSAccountRef account) {
@@ -143,7 +143,7 @@ static void tests(void)
     ok(SOSAccountLeaveCircle(alice_account, &error), "Alice Leaves (%@)", error);
     CFReleaseNull(error);
 
-    is(ProcessChangesUntilNoChange(changes, alice_account, carole_account, david_account, NULL), 3, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, carole_account, david_account, NULL), 2, "updates");
 
     
     ok(SOSAccountJoinCircles(david_account, &error), "David Applies (%@)", error);
@@ -157,7 +157,7 @@ static void tests(void)
     
     // ==============================  Bob comes out of the drawer seeing alice left and doesn't recognize the remainder. ============================================
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 4, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 3, "updates");
 
     CFReleaseNull(error);
     is(SOSAccountGetCircleStatus(carole_account, &error), kSOSCCInCircle, "Carole still in Circle  (%@)", error);

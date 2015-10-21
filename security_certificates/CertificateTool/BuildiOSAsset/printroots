@@ -457,7 +457,7 @@ generate_keychain()
 	    # skip the Apple Developer ID cert since it's the only
 	    # intermediate in this directory; it has no explicit trust
 	    if [ "$CERT" != "AppleDEVID.cer" ] ; then
-		security -q add-certificates -k "$KC" "$CERTS_DIR/$CERT"
+		security -q add-certificates -k "$KC" "$CERTS_DIR/$CERT" 2>&1 &>/dev/null
 	    fi
 	done
 	IFS="$TMPIFS"

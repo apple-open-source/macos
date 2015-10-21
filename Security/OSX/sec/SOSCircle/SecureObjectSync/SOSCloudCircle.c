@@ -66,6 +66,8 @@
 const char * kSOSCCCircleChangedNotification = "com.apple.security.secureobjectsync.circlechanged";
 const char * kSOSCCViewMembershipChangedNotification = "com.apple.security.secureobjectsync.viewschanged";
 const char * kSOSCCInitialSyncChangedNotification = "com.apple.security.secureobjectsync.initialsyncchanged";
+const char * kSOSCCHoldLockForInitialSync = "com.apple.security.secureobjectsync.holdlock";
+const char * kSOSCCPeerAvailable = "com.apple.security.secureobjectsync.peeravailable";
 
 #define do_if_registered(sdp, ...) if (gSecurityd && gSecurityd->sdp) { return gSecurityd->sdp(__VA_ARGS__); }
 
@@ -184,6 +186,32 @@ static bool simple_bool_error_request(enum SecXPCOperation op, CFErrorRef* error
     return result;
 }
 
+static bool escrow_to_bool_error_request(enum SecXPCOperation op, CFStringRef escrow_label, uint64_t tries, CFErrorRef* error)
+{
+    __block bool result = false;
+    
+    securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+      
+        bool success = false;
+        xpc_object_t xEscrowLabel = _CFXPCCreateXPCObjectFromCFObject(escrow_label);
+        if (xEscrowLabel){
+            xpc_dictionary_set_value(message, kSecXPCKeyEscrowLabel, xEscrowLabel);
+            success = true;
+            xpc_release(xEscrowLabel);
+        }
+        if(tries){
+            xpc_dictionary_set_int64(message, kSecXPCKeyTriesLabel, tries);
+            success = true;
+        }
+            
+        return success;
+    }, ^bool(xpc_object_t response, __unused CFErrorRef *error) {
+        result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
+        return result;
+    });
+    return result;
+}
+
 static CFArrayRef simple_array_error_request(enum SecXPCOperation op, CFErrorRef* error)
 {
     __block CFArrayRef result = NULL;
@@ -198,6 +226,28 @@ static CFArrayRef simple_array_error_request(enum SecXPCOperation op, CFErrorRef
             SOSErrorCreate(kSOSErrorUnexpectedType, error, NULL, CFSTR("Expected array, got: %@"), result);
             CFReleaseNull(result);
         }
+    }
+    return result;
+}
+
+static CFDictionaryRef strings_to_dictionary_error_request(enum SecXPCOperation op, CFErrorRef* error)
+{
+    __block CFDictionaryRef result = NULL;
+    
+    secdebug("sosops","enter - operation: %d", op);
+    
+    if (securityd_send_sync_and_do(op, error, NULL, ^bool(xpc_object_t response, CFErrorRef *error) {
+        xpc_object_t temp_result = xpc_dictionary_get_value(response, kSecXPCKeyResult);
+        if(temp_result)
+            result = _CFXPCCreateCFObjectFromXPCObject(temp_result);
+        return result != NULL;
+    })){
+        
+        if (!isDictionary(result)) {
+            SOSErrorCreate(kSOSErrorUnexpectedType, error, NULL, CFSTR("Expected dictionary, got: %@"), result);
+            CFReleaseNull(result);
+        }
+        
     }
     return result;
 }
@@ -506,6 +556,16 @@ bool SOSCCResetToEmpty(CFErrorRef* error)
     }, NULL)
 }
 
+bool SOSCCRemovePeersFromCircle(CFArrayRef peers, CFErrorRef* error)
+{
+    sec_trace_enter_api(NULL);
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_RemovePeersFromCircle, peers, error);
+
+        return info_array_to_bool_error_request(kSecXPCOpRemovePeersFromCircle, peers, error);
+    }, NULL)
+}
+
 bool SOSCCRemoveThisDeviceFromCircle(CFErrorRef* error)
 {
     sec_trace_enter_api(NULL);
@@ -630,8 +690,18 @@ CFArrayRef SOSCCCopyRetirementPeerInfo(CFErrorRef* error)
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyRetirementPeerInfo, error);
-        
+
         return array_of_info_error_request(kSecXPCOpCopyRetirementPeerInfo, error);
+    }, CFSTR("return=%@"));
+}
+
+CFArrayRef SOSCCCopyViewUnawarePeerInfo(CFErrorRef* error)
+{
+    sec_trace_enter_api(NULL);
+    sec_trace_return_api(CFArrayRef, ^{
+        do_if_registered(soscc_CopyViewUnawarePeerInfo, error);
+
+        return array_of_info_error_request(kSecXPCOpCopyViewUnawarePeerInfo, error);
     }, CFSTR("return=%@"));
 }
 
@@ -691,11 +761,11 @@ SOSPeerInfoRef SOSCCCopyMyPeerWithNewDeviceRecoverySecret(CFDataRef secret, CFEr
     return SOSSetNewPublicBackupKey(publicKeyData, error);
 }
 
-bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool includeV0Backups, CFErrorRef *error){
+bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool forV0Only, CFErrorRef *error){
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
-        do_if_registered(soscc_RegisterSingleRecoverySecret, aks_bag, includeV0Backups, error);
-        return keybag_and_bool_to_bool_error_request(kSecXPCOpSetBagForAllSlices, aks_bag, includeV0Backups, error);
+        do_if_registered(soscc_RegisterSingleRecoverySecret, aks_bag, forV0Only, error);
+        return keybag_and_bool_to_bool_error_request(kSecXPCOpSetBagForAllSlices, aks_bag, forV0Only, error);
     }, NULL);
 }
 
@@ -957,11 +1027,11 @@ CFStringRef SOSCCCopyIncompatibilityInfo(CFErrorRef* error) {
     }, NULL)
 }
 
-CFStringRef SOSCCRequestDeviceID(CFErrorRef* error)
+CFStringRef SOSCCCopyDeviceID(CFErrorRef* error)
 {
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFStringRef, ^{
-        do_if_registered(soscc_RequestDeviceID, error);
+        do_if_registered(soscc_CopyDeviceID, error);
         CFStringRef deviceID = simple_cfstring_error_request(kSecXPCOpRequestDeviceID, error);
         return deviceID;
     }, NULL)
@@ -1138,3 +1208,37 @@ bool SOSCCIsWiFiSyncing(void) {
     CFStringRef views[] = { kSOSViewWiFi };
     return sosIsViewSetSyncing(1, views);
 }
+
+bool SOSCCSetEscrowRecord(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error ){
+    secnotice("escrow", "enter SOSCCSetEscrowRecord");
+    sec_trace_enter_api(NULL);
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_SetEscrowRecords, escrow_label, tries, error);
+        
+        return escrow_to_bool_error_request(kSecXPCOpSetEscrowRecord, escrow_label, tries, error);
+    }, NULL)
+}
+
+CFDictionaryRef SOSCCCopyEscrowRecord(CFErrorRef *error){
+    secnotice("escrow", "enter SOSCCCopyEscrowRecord");
+    sec_trace_enter_api(NULL);
+    sec_trace_return_api(CFDictionaryRef, ^{
+        do_if_registered(soscc_CopyEscrowRecords, error);
+        
+        return strings_to_dictionary_error_request(kSecXPCOpGetEscrowRecord, error);
+    }, CFSTR("return=%@"))
+
+}
+
+bool SOSCCCheckPeerAvailability(CFErrorRef *error){
+    secnotice("peer", "enter SOSCCCheckPeerAvailability");
+    sec_trace_enter_api(NULL);
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_PeerAvailability, error);
+        
+        return simple_bool_error_request(kSecXPCOpCheckPeerAvailability, error);
+    }, NULL)
+    
+}
+
+

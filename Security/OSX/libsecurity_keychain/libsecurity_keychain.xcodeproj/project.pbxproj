@@ -111,6 +111,7 @@
 		BE50AE680F687AB900D28C54 /* TrustAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = BE50AE660F687AB900D28C54 /* TrustAdditions.h */; };
 		BEA830070EB17344001CA937 /* SecItemConstants.c in Sources */ = {isa = PBXBuildFile; fileRef = BEE897100A62CDD800BF88A5 /* SecItemConstants.c */; };
 		BECE5141106B056C0091E644 /* TrustKeychains.h in Headers */ = {isa = PBXBuildFile; fileRef = BECE5140106B056C0091E644 /* TrustKeychains.h */; settings = {ATTRIBUTES = (); }; };
+		BED2BCA21B96217B006CF43A /* si-20-sectrust-provisioning.c in Sources */ = {isa = PBXBuildFile; fileRef = BED2BCA11B96217B006CF43A /* si-20-sectrust-provisioning.c */; settings = {ASSET_TAGS = (); }; };
 		BEE896E20A61F0BB00BF88A5 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; settings = {ATTRIBUTES = (); }; };
 		BEE896E30A61F0BB00BF88A5 /* SecItemPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */; settings = {ATTRIBUTES = (); }; };
 		BEE896E70A61F12300BF88A5 /* SecItem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BEE896E60A61F12300BF88A5 /* SecItem.cpp */; };
@@ -311,11 +312,13 @@
 		52FB44A81146D769006D3B0A /* SecCertificateOIDs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateOIDs.h; sourceTree = "<group>"; };
 		AA31456E134B716B00133245 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		AC9ADAD2199AD6BA00BDAF54 /* kc-42-trust-revocation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-42-trust-revocation.c"; path = "regressions/kc-42-trust-revocation.c"; sourceTree = "<group>"; };
+		BE0FAED51B967FB30017DAC9 /* si-20-sectrust-provisioning.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "si-20-sectrust-provisioning.h"; path = "regressions/si-20-sectrust-provisioning.h"; sourceTree = "<group>"; };
 		BE296DBE0EAC299C00FD22BE /* SecImportExport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecImportExport.c; sourceTree = "<group>"; };
 		BE296DC40EAC2B5600FD22BE /* SecInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecInternal.h; sourceTree = "<group>"; };
 		BE50AE650F687AB900D28C54 /* TrustAdditions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TrustAdditions.cpp; sourceTree = "<group>"; };
 		BE50AE660F687AB900D28C54 /* TrustAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TrustAdditions.h; sourceTree = "<group>"; };
 		BECE5140106B056C0091E644 /* TrustKeychains.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TrustKeychains.h; sourceTree = "<group>"; };
+		BED2BCA11B96217B006CF43A /* si-20-sectrust-provisioning.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "si-20-sectrust-provisioning.c"; path = "regressions/si-20-sectrust-provisioning.c"; sourceTree = "<group>"; };
 		BEE896E00A61F0BB00BF88A5 /* SecItem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecItem.h; sourceTree = "<group>"; };
 		BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecItemPriv.h; sourceTree = "<group>"; };
 		BEE896E60A61F12300BF88A5 /* SecItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecItem.cpp; sourceTree = "<group>"; usesTabs = 1; };
@@ -669,6 +672,8 @@
 				0CBD509816C3246D00713B6C /* kc-40-seckey.c */,
 				0CBD509916C3246D00713B6C /* kc-41-sececkey.c */,
 				AC9ADAD2199AD6BA00BDAF54 /* kc-42-trust-revocation.c */,
+				BED2BCA11B96217B006CF43A /* si-20-sectrust-provisioning.c */,
+				BE0FAED51B967FB30017DAC9 /* si-20-sectrust-provisioning.h */,
 				188BB53F171DD774009D22CE /* si-33-keychain-backup.c */,
 				F92321371ACF69EE00634C21 /* si-34-one-true-keychain.c */,
 			);
@@ -1001,6 +1006,7 @@
 				AC9ADAD3199AD6BA00BDAF54 /* kc-42-trust-revocation.c in Sources */,
 				0CBD509B16C3246D00713B6C /* kc-41-sececkey.c in Sources */,
 				188BB546171DD8B5009D22CE /* si-33-keychain-backup.c in Sources */,
+				BED2BCA21B96217B006CF43A /* si-20-sectrust-provisioning.c in Sources */,
 				F92321381ACF69EE00634C21 /* si-34-one-true-keychain.c in Sources */,
 				0CBD509A16C3246D00713B6C /* kc-40-seckey.c in Sources */,
 			);

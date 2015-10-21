@@ -994,7 +994,7 @@ SMBRemountServer(const void *ptr, size_t len, au_asid_t asid)
 		return (EIO);
 	}
 	ret = vm_map_copyin(ipc_kernel_map, (vm_map_address_t) kmem_buf,
-	    (vm_map_size_t) tbuflen, TRUE, &copy);
+	    (vm_map_size_t) len, TRUE, &copy);
 	if (ret != KERN_SUCCESS) {
 		IOLog("autofs: vm_map_copyin failed, status 0x%08x\n", ret);
 		/* XXX - deal with Mach errors */

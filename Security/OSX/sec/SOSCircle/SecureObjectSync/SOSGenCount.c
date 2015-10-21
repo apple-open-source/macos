@@ -71,6 +71,12 @@ SOSGenCountRef SOSGenerationCreate() {
     return sosGenerationCreateOrIncrement(NULL);
 }
 
+
+// We need this for a circle gencount test
+SOSGenCountRef SOSGenerationCreateWithValue(int64_t value) {
+    return CFNumberCreate(NULL, kCFNumberSInt64Type, &value);
+}
+
 SOSGenCountRef SOSGenerationIncrementAndCreate(SOSGenCountRef gen) {
     return sosGenerationCreateOrIncrement(gen);
 }
@@ -83,4 +89,13 @@ SOSGenCountRef SOSGenerationCopy(SOSGenCountRef gen) {
 
 bool SOSGenerationIsOlder(SOSGenCountRef current, SOSGenCountRef proposed) {
     return CFNumberCompare(current, proposed, NULL) == kCFCompareGreaterThan;
+}
+
+SOSGenCountRef SOSGenerationCreateWithBaseline(SOSGenCountRef reference) {
+    SOSGenCountRef retval = SOSGenerationCreate();
+    if(!SOSGenerationIsOlder(retval, reference)) {
+        CFReleaseNull(retval);
+        retval = SOSGenerationIncrementAndCreate(reference);
+    }
+    return retval;
 }

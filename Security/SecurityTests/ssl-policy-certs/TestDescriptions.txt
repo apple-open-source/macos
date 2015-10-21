@@ -1,0 +1,264 @@
+This file describes the tests for the SSL Trust Policy.
+
+The password for the CA p12 is "Password4TestCA"
+
+Definitions
+----------
+CN = Common Name
+SAN = Subject Alternative Name (specifically the DNSName general name for these tests)
+EKU = Extended Key Usage
+
+Test 1
+----------
+Description: 	Hostname does not match CN or SAN.
+Certificate:	InvalidHostnameTest1.cer
+Hostname:	test.apple.com
+CN:		bad.apple.com
+SAN:		bad.apple.com
+Expected Result:FAIL
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 1
+
+Test 2
+---------
+Description:	Hostname matches CN but not SAN.
+Certificate:	InvalidHostnameTest2.cer
+Hostname:	test.apple.com
+CN:		test.apple.com
+SAN:		bad.apple.com
+Expected Result:FAIL
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 2
+
+Test 3
+---------
+Description:	Hostname matches CN. SAN extension is not present.
+Certificate:	ValidHostnameTest3.cer
+Hostname:	test.apple.com
+CN:		test.apple.com
+SAN not present
+Expected Result:SUCCEED
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 3
+
+Test 4
+---------
+Description:	Hostname matches SAN but not CN.
+Certificate:	ValidHostnameTest4.cer
+Hostname:	test.apple.com
+CN:		bad.apple.com
+SAN:		test.apple.com
+Expected Result:SUCCEED
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 4
+
+Test 5
+----------
+Description:	Wildcard not in the left-most label. Per RFC 2818, hostname matches. Per RFC 6125 hostname doesn't match.
+Certificate:	InvalidWildcardTest5Test6.cer
+Hostname:	test.bad.apple.com
+CN:		Test5 Test6
+SAN:		test.*.apple.com
+Expected Result:FAIL
+Actual Result:  FAIL
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 5, Bullet 1
+
+Test 6
+---------
+Description:	Wildcard not in left-most label. Hostname doesn't match.
+Certificate:	InvalidWildcardTest5Test6.cer
+Hostname:	test.apple.com
+CN:		Test5 Test6
+SAN:		test.*.apple.com
+Expected Result:FAIL
+
+Test 7
+----------
+Description:	Wildcard in left-most label. Hostname matches.
+Certificate:	ValidWildcardTest7Test8Test9.cer
+Hostname:	good.test.apple.com
+CN:		Test7 Test8 Test9
+SAN:		*.test.apple.com
+Expected Result:SUCCEED
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 5, Bullet 2
+
+Test 8
+----------
+Description:	Wildcard in left-most label. Hostname doesn't contain label for wildcard.
+Certificate:    ValidWildcardTest7Test8Test9.cer
+Hostname:	test.apple.com
+CN:		Test7 Test8 Test9
+SAN:		*.test.apple.com
+Expected Result:FAIL
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 5, Bullet 2
+
+Test 9
+---------
+Description:	Wildcard in left-most label. Hostname contains 2 labels for wildcard.
+Certificate:    ValidWildcardTest7Test8Test9.cer
+Hostname:	one.bad.test.apple.com
+CN:		Test7 Test8 Test9
+SAN:		*.test.apple.com
+Expected Result:FAIL
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 5, Bullet 2
+
+Test 10
+----------
+Description:	Wildcard immediately preceding top-level-domain.
+Certificate:	InvalidWildcardTest10.cer
+Hostname:	apple.com
+CN:		Test10
+SAN:		*.com
+Expected Result:FAIL
+Actual Result:	FAIL
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 5, Bullet 3
+
+Test 11
+----------
+Description:	Wildcard immediately preceding a public suffix with 2 domain levels.
+Certificate:	InvalidWildcardTest11.cer
+Hostname:	apple.co.uk
+CN:		Test11
+SAN:		*.co.uk
+Expected Result:FAIL
+Actual Result:	SUCCEED
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 5, Bullet 3
+
+Test 12
+----------
+Description:	Wildcard in the middle of a label.
+Certificate:	InvalidWildcardTest12.cer
+Hostname:	test.apple.com
+CN:		Test12
+SAN:		t*t.apple.com
+Expected Result:FAIL
+
+Test 13
+----------
+Description:	Wildcard at the end of a label. Hostname has no letter for wildcard.
+Certificate:	InvalidWildcardTest13Test14.cer
+Hostname:	apple.com
+CN:		Test13 Test14
+SAN:		apple*.com
+Expected Result:FAIL
+Actual Result:	FAIL
+Notes:		Technically this is allowed per specifications, but we think this allows evil.
+
+Test 14
+----------
+Description:	Wildcard at the end of a label. Hostname has letters for the wildcard.
+Certificate:	InvalidWildcardTest13Test14.cer
+Hostname:	appleseed.com
+CN:		Test13 Test14
+SAN:		apple*.com
+Expected Result:FAIL
+Actual Result:	FAIL
+Notes:		Not clear whether we should really allow this.
+
+Test 15
+----------
+Description:	Multiple wildcards in the DNSName.
+Certificate:	InvalidWildcardTest15.cer
+Hostname:	one.bad.apple.com
+CN:		Test15
+SAN:		*.*.apple.com
+Expected Result:FAIL
+
+Test 16
+----------
+Description:	EKU present but no Server Authentication OID.
+Certificate:	InvalidEKUTest16.cer
+Hostname:	test.apple.com
+CN:		Test16
+SAN:		test.apple.com
+EKU:		Email Protection
+Expected Result:FAIL
+Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.1, Assurance Activity Test 2
+
+Test 17
+----------
+Description:	No EKU present.
+Certificate:	ValidEKUTest17.cer
+Hostname:	test.apple.com
+CN:		Test17
+SAN:		test.apple.com
+EKU not present
+Expected Result:SUCCEED
+
+Test 18
+----------
+Description:	Hostname has trailing label.
+Certificate:	ValidHostnameTest18Test19Test20.cer
+Hostname:	test.apple.com.test
+CN:		Test18 Test19 Test20
+SAN:		test.apple.com
+Expected Result:FAIL
+
+Test 19
+----------
+Description:    Hostname has trailing '.'.
+Certificate:    ValidHostnameTest18Test19Test20.cer
+Hostname:       test.apple.com.
+CN:             Test18 Test19 Test20
+SAN:            test.apple.com
+Expected Result:FAIL
+
+Test 20
+----------
+Description:	Hostname has preceding '.'.
+Certificate:    ValidHostnameTest18Test19Test20.cer
+Hostname:	.test.apple.com
+CN:		Test18 Test19 Test20
+SAN:		test.apple.com
+Expected Result:FAIL
+
+Test 21
+----------
+Description:	SAN has trailing label.
+Certificate:	ValidHostnameTest21.cer
+Hostname:	test.apple.com
+CN:		Test21
+SAN:		test.apple.com.test
+Expected Result:FAIL
+
+Test 22
+----------
+Description:	SAN extension is present but doesn't contain DNSName.
+Certificate:	InvalidHostnameTest22.cer
+Hostname:	test.apple.com
+CN:		Test22
+SAN:		RFC822Name:test@apple.com
+Expected Result:FAIL
+
+Test 23
+----------
+Description:	SAN has trailing '.'.
+Certificate:	InvalidHostnameTest23.cer
+Hostname:	test.apple.com
+CN:		Test23
+SAN:		test.apple.com.
+Expected Result:FAIL
+
+Test 24
+----------
+Description:	SAN has preceding '.'.
+Certificate:	InvalidHostnameTest24.cer
+Hostname:	test.apple.com
+CN:		Test24
+SAN:		.test.apple.com
+Expected Result:FAIL
+
+Test 25
+----------
+Description:	Wildcard at the beginning of label. Hostname has letter for wildcard.
+Certificate:	InvalidWildcardTest25Test26.cer
+Hostname:	test.apple.com
+CN:		Test25 Test26
+SAN:		*est.apple.com
+Expected Result:FAIL
+
+Test 26
+---------
+Description:	Wilcard at the beginning of label. Hostname has no letter for wildcard.
+Certificate:    InvalidWildcardTest25Test26.cer
+Hostname:	est.apple.com
+CN:		Test25 Test26
+SAN:		*est.apple.com
+Expected Result:FAIL
+

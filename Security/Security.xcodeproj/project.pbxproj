@@ -654,6 +654,48 @@
 		CDF91EF31AAE024A00E88CF7 /* com.apple.private.alloy.keychainsync.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = CDF91EF11AAE023800E88CF7 /* com.apple.private.alloy.keychainsync.plist */; };
 		CDFD1D841A840F64004C2BEA /* com.apple.security.idskeychainsyncingproxy.plist in Copy Files */ = {isa = PBXBuildFile; fileRef = CD3F91151A802B4900E07119 /* com.apple.security.idskeychainsyncingproxy.plist */; };
 		D45D1A471B3A293E00C63E16 /* oids.h in Headers */ = {isa = PBXBuildFile; fileRef = D45D1A461B3A293E00C63E16 /* oids.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		D4B4A9FD1B8BBC5D0097B393 /* InvalidEKUTest16.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D31B8BBC1B0097B393 /* InvalidEKUTest16.cer */; };
+		D4B4A9FE1B8BBC5D0097B393 /* InvalidHostnameTest1.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D41B8BBC1B0097B393 /* InvalidHostnameTest1.cer */; };
+		D4B4A9FF1B8BBC5D0097B393 /* InvalidHostnameTest2.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D51B8BBC1B0097B393 /* InvalidHostnameTest2.cer */; };
+		D4B4AA001B8BBC5D0097B393 /* InvalidHostnameTest22.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D61B8BBC1B0097B393 /* InvalidHostnameTest22.cer */; };
+		D4B4AA011B8BBC5D0097B393 /* InvalidHostnameTest23.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D71B8BBC1B0097B393 /* InvalidHostnameTest23.cer */; };
+		D4B4AA021B8BBC5D0097B393 /* InvalidHostnameTest24.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D81B8BBC1B0097B393 /* InvalidHostnameTest24.cer */; };
+		D4B4AA031B8BBC5D0097B393 /* InvalidWildcardTest5Test6.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D91B8BBC1B0097B393 /* InvalidWildcardTest5Test6.cer */; };
+		D4B4AA041B8BBC5D0097B393 /* InvalidWildcardTest10.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DA1B8BBC1B0097B393 /* InvalidWildcardTest10.cer */; };
+		D4B4AA051B8BBC5D0097B393 /* InvalidWildcardTest11.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DB1B8BBC1B0097B393 /* InvalidWildcardTest11.cer */; };
+		D4B4AA061B8BBC5D0097B393 /* InvalidWildcardTest12.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DC1B8BBC1B0097B393 /* InvalidWildcardTest12.cer */; };
+		D4B4AA071B8BBC5D0097B393 /* InvalidWildcardTest13Test14.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DD1B8BBC1B0097B393 /* InvalidWildcardTest13Test14.cer */; };
+		D4B4AA081B8BBC5D0097B393 /* InvalidWildcardTest15.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DE1B8BBC1B0097B393 /* InvalidWildcardTest15.cer */; };
+		D4B4AA091B8BBC5D0097B393 /* InvalidWildcardTest25Test26.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DF1B8BBC1B0097B393 /* InvalidWildcardTest25Test26.cer */; };
+		D4B4AA0A1B8BBC5D0097B393 /* SSLTrustPolicyTest.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E01B8BBC1B0097B393 /* SSLTrustPolicyTest.plist */; };
+		D4B4AA0B1B8BBC5D0097B393 /* SSLTrustPolicyTestRootCertificate.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E11B8BBC1B0097B393 /* SSLTrustPolicyTestRootCertificate.cer */; };
+		D4B4AA0C1B8BBC5D0097B393 /* ValidEKUTest17.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E21B8BBC1B0097B393 /* ValidEKUTest17.cer */; };
+		D4B4AA0D1B8BBC5D0097B393 /* ValidHostnameTest3.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E31B8BBC1B0097B393 /* ValidHostnameTest3.cer */; };
+		D4B4AA0E1B8BBC5D0097B393 /* ValidHostnameTest4.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E41B8BBC1B0097B393 /* ValidHostnameTest4.cer */; };
+		D4B4AA0F1B8BBC5D0097B393 /* ValidHostnameTest18Test19Test20.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E51B8BBC1B0097B393 /* ValidHostnameTest18Test19Test20.cer */; };
+		D4B4AA101B8BBC5D0097B393 /* ValidHostnameTest21.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E61B8BBC1B0097B393 /* ValidHostnameTest21.cer */; };
+		D4B4AA111B8BBC5D0097B393 /* ValidWildcardTest7Test8Test9.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E71B8BBC1B0097B393 /* ValidWildcardTest7Test8Test9.cer */; };
+		D4B4AA131B8BC64E0097B393 /* InvalidEKUTest16.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D31B8BBC1B0097B393 /* InvalidEKUTest16.cer */; };
+		D4B4AA141B8BC64E0097B393 /* InvalidHostnameTest1.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D41B8BBC1B0097B393 /* InvalidHostnameTest1.cer */; };
+		D4B4AA151B8BC64E0097B393 /* InvalidHostnameTest2.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D51B8BBC1B0097B393 /* InvalidHostnameTest2.cer */; };
+		D4B4AA161B8BC64E0097B393 /* InvalidHostnameTest22.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D61B8BBC1B0097B393 /* InvalidHostnameTest22.cer */; };
+		D4B4AA171B8BC64E0097B393 /* InvalidHostnameTest23.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D71B8BBC1B0097B393 /* InvalidHostnameTest23.cer */; };
+		D4B4AA181B8BC64E0097B393 /* InvalidHostnameTest24.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D81B8BBC1B0097B393 /* InvalidHostnameTest24.cer */; };
+		D4B4AA191B8BC64E0097B393 /* InvalidWildcardTest5Test6.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9D91B8BBC1B0097B393 /* InvalidWildcardTest5Test6.cer */; };
+		D4B4AA1A1B8BC64E0097B393 /* InvalidWildcardTest10.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DA1B8BBC1B0097B393 /* InvalidWildcardTest10.cer */; };
+		D4B4AA1B1B8BC64E0097B393 /* InvalidWildcardTest11.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DB1B8BBC1B0097B393 /* InvalidWildcardTest11.cer */; };
+		D4B4AA1C1B8BC64E0097B393 /* InvalidWildcardTest12.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DC1B8BBC1B0097B393 /* InvalidWildcardTest12.cer */; };
+		D4B4AA1D1B8BC64E0097B393 /* InvalidWildcardTest13Test14.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DD1B8BBC1B0097B393 /* InvalidWildcardTest13Test14.cer */; };
+		D4B4AA1E1B8BC64E0097B393 /* InvalidWildcardTest15.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DE1B8BBC1B0097B393 /* InvalidWildcardTest15.cer */; };
+		D4B4AA1F1B8BC64E0097B393 /* InvalidWildcardTest25Test26.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9DF1B8BBC1B0097B393 /* InvalidWildcardTest25Test26.cer */; };
+		D4B4AA201B8BC64E0097B393 /* SSLTrustPolicyTest.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E01B8BBC1B0097B393 /* SSLTrustPolicyTest.plist */; };
+		D4B4AA211B8BC64E0097B393 /* SSLTrustPolicyTestRootCertificate.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E11B8BBC1B0097B393 /* SSLTrustPolicyTestRootCertificate.cer */; };
+		D4B4AA221B8BC64E0097B393 /* ValidEKUTest17.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E21B8BBC1B0097B393 /* ValidEKUTest17.cer */; };
+		D4B4AA231B8BC64E0097B393 /* ValidHostnameTest3.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E31B8BBC1B0097B393 /* ValidHostnameTest3.cer */; };
+		D4B4AA241B8BC64E0097B393 /* ValidHostnameTest4.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E41B8BBC1B0097B393 /* ValidHostnameTest4.cer */; };
+		D4B4AA251B8BC64E0097B393 /* ValidHostnameTest18Test19Test20.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E51B8BBC1B0097B393 /* ValidHostnameTest18Test19Test20.cer */; };
+		D4B4AA261B8BC64E0097B393 /* ValidHostnameTest21.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E61B8BBC1B0097B393 /* ValidHostnameTest21.cer */; };
+		D4B4AA271B8BC64E0097B393 /* ValidWildcardTest7Test8Test9.cer in CopyFiles */ = {isa = PBXBuildFile; fileRef = D4B4A9E71B8BBC1B0097B393 /* ValidWildcardTest7Test8Test9.cer */; };
 		E7104A07169E03CE00DB0045 /* libSecurityTool.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E7104A06169E038F00DB0045 /* libSecurityTool.a */; };
 		E7104A0C169E171900DB0045 /* security_tool_commands.c in Sources */ = {isa = PBXBuildFile; fileRef = E7104A0B169E171900DB0045 /* security_tool_commands.c */; };
 		E7104A24169E222F00DB0045 /* libSecurityCommands.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E7104A23169E21C000DB0045 /* libSecurityCommands.a */; };
@@ -2915,6 +2957,66 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		D4B4A9A91B8BBB2F0097B393 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "ssl-policy-certs";
+			dstSubfolderSpec = 7;
+			files = (
+				D4B4A9FD1B8BBC5D0097B393 /* InvalidEKUTest16.cer in CopyFiles */,
+				D4B4A9FE1B8BBC5D0097B393 /* InvalidHostnameTest1.cer in CopyFiles */,
+				D4B4A9FF1B8BBC5D0097B393 /* InvalidHostnameTest2.cer in CopyFiles */,
+				D4B4AA001B8BBC5D0097B393 /* InvalidHostnameTest22.cer in CopyFiles */,
+				D4B4AA011B8BBC5D0097B393 /* InvalidHostnameTest23.cer in CopyFiles */,
+				D4B4AA021B8BBC5D0097B393 /* InvalidHostnameTest24.cer in CopyFiles */,
+				D4B4AA031B8BBC5D0097B393 /* InvalidWildcardTest5Test6.cer in CopyFiles */,
+				D4B4AA041B8BBC5D0097B393 /* InvalidWildcardTest10.cer in CopyFiles */,
+				D4B4AA051B8BBC5D0097B393 /* InvalidWildcardTest11.cer in CopyFiles */,
+				D4B4AA061B8BBC5D0097B393 /* InvalidWildcardTest12.cer in CopyFiles */,
+				D4B4AA071B8BBC5D0097B393 /* InvalidWildcardTest13Test14.cer in CopyFiles */,
+				D4B4AA081B8BBC5D0097B393 /* InvalidWildcardTest15.cer in CopyFiles */,
+				D4B4AA091B8BBC5D0097B393 /* InvalidWildcardTest25Test26.cer in CopyFiles */,
+				D4B4AA0A1B8BBC5D0097B393 /* SSLTrustPolicyTest.plist in CopyFiles */,
+				D4B4AA0B1B8BBC5D0097B393 /* SSLTrustPolicyTestRootCertificate.cer in CopyFiles */,
+				D4B4AA0C1B8BBC5D0097B393 /* ValidEKUTest17.cer in CopyFiles */,
+				D4B4AA0D1B8BBC5D0097B393 /* ValidHostnameTest3.cer in CopyFiles */,
+				D4B4AA0E1B8BBC5D0097B393 /* ValidHostnameTest4.cer in CopyFiles */,
+				D4B4AA0F1B8BBC5D0097B393 /* ValidHostnameTest18Test19Test20.cer in CopyFiles */,
+				D4B4AA101B8BBC5D0097B393 /* ValidHostnameTest21.cer in CopyFiles */,
+				D4B4AA111B8BBC5D0097B393 /* ValidWildcardTest7Test8Test9.cer in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4B4AA121B8BC6240097B393 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "ssl-policy-certs";
+			dstSubfolderSpec = 7;
+			files = (
+				D4B4AA131B8BC64E0097B393 /* InvalidEKUTest16.cer in CopyFiles */,
+				D4B4AA141B8BC64E0097B393 /* InvalidHostnameTest1.cer in CopyFiles */,
+				D4B4AA151B8BC64E0097B393 /* InvalidHostnameTest2.cer in CopyFiles */,
+				D4B4AA161B8BC64E0097B393 /* InvalidHostnameTest22.cer in CopyFiles */,
+				D4B4AA171B8BC64E0097B393 /* InvalidHostnameTest23.cer in CopyFiles */,
+				D4B4AA181B8BC64E0097B393 /* InvalidHostnameTest24.cer in CopyFiles */,
+				D4B4AA191B8BC64E0097B393 /* InvalidWildcardTest5Test6.cer in CopyFiles */,
+				D4B4AA1A1B8BC64E0097B393 /* InvalidWildcardTest10.cer in CopyFiles */,
+				D4B4AA1B1B8BC64E0097B393 /* InvalidWildcardTest11.cer in CopyFiles */,
+				D4B4AA1C1B8BC64E0097B393 /* InvalidWildcardTest12.cer in CopyFiles */,
+				D4B4AA1D1B8BC64E0097B393 /* InvalidWildcardTest13Test14.cer in CopyFiles */,
+				D4B4AA1E1B8BC64E0097B393 /* InvalidWildcardTest15.cer in CopyFiles */,
+				D4B4AA1F1B8BC64E0097B393 /* InvalidWildcardTest25Test26.cer in CopyFiles */,
+				D4B4AA201B8BC64E0097B393 /* SSLTrustPolicyTest.plist in CopyFiles */,
+				D4B4AA211B8BC64E0097B393 /* SSLTrustPolicyTestRootCertificate.cer in CopyFiles */,
+				D4B4AA221B8BC64E0097B393 /* ValidEKUTest17.cer in CopyFiles */,
+				D4B4AA231B8BC64E0097B393 /* ValidHostnameTest3.cer in CopyFiles */,
+				D4B4AA241B8BC64E0097B393 /* ValidHostnameTest4.cer in CopyFiles */,
+				D4B4AA251B8BC64E0097B393 /* ValidHostnameTest18Test19Test20.cer in CopyFiles */,
+				D4B4AA261B8BC64E0097B393 /* ValidHostnameTest21.cer in CopyFiles */,
+				D4B4AA271B8BC64E0097B393 /* ValidWildcardTest7Test8Test9.cer in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E72783F3159BDF4C00028D6C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -3883,7 +3985,6 @@
 		4C52D0B416EFC61E0079966E /* CircleJoinRequested */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CircleJoinRequested; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C52D0B816EFC61E0079966E /* AspenFamily.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = AspenFamily.xcconfig; path = AppleInternal/XcodeConfig/AspenFamily.xcconfig; sourceTree = DEVELOPER_DIR; };
 		4C52D0B916EFC61E0079966E /* CircleJoinRequested.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CircleJoinRequested.m; sourceTree = "<group>"; };
-		4C52D0BB16EFC61E0079966E /* CircleJoinRequested.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = CircleJoinRequested.1; sourceTree = "<group>"; };
 		4C52D0BD16EFC61E0079966E /* Readme.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Readme.txt; sourceTree = "<group>"; };
 		4C52D0E216EFCCA20079966E /* Applicant.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Applicant.h; sourceTree = "<group>"; };
 		4C52D0E316EFCCA20079966E /* Applicant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Applicant.m; sourceTree = "<group>"; };
@@ -4496,6 +4597,27 @@
 		CDF42C2C1A884C3E0080BB05 /* idksmain.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = idksmain.m; path = OSX/sec/SOSCircle/IDSKeychainSyncingProxy/idksmain.m; sourceTree = SOURCE_ROOT; };
 		CDF91EF11AAE023800E88CF7 /* com.apple.private.alloy.keychainsync.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = com.apple.private.alloy.keychainsync.plist; sourceTree = "<group>"; };
 		D45D1A461B3A293E00C63E16 /* oids.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = oids.h; path = ../../libsecurity_keychain/libDER/libDER/oids.h; sourceTree = "<group>"; };
+		D4B4A9D31B8BBC1B0097B393 /* InvalidEKUTest16.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidEKUTest16.cer; path = "ssl-policy-certs/InvalidEKUTest16.cer"; sourceTree = "<group>"; };
+		D4B4A9D41B8BBC1B0097B393 /* InvalidHostnameTest1.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidHostnameTest1.cer; path = "ssl-policy-certs/InvalidHostnameTest1.cer"; sourceTree = "<group>"; };
+		D4B4A9D51B8BBC1B0097B393 /* InvalidHostnameTest2.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidHostnameTest2.cer; path = "ssl-policy-certs/InvalidHostnameTest2.cer"; sourceTree = "<group>"; };
+		D4B4A9D61B8BBC1B0097B393 /* InvalidHostnameTest22.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidHostnameTest22.cer; path = "ssl-policy-certs/InvalidHostnameTest22.cer"; sourceTree = "<group>"; };
+		D4B4A9D71B8BBC1B0097B393 /* InvalidHostnameTest23.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidHostnameTest23.cer; path = "ssl-policy-certs/InvalidHostnameTest23.cer"; sourceTree = "<group>"; };
+		D4B4A9D81B8BBC1B0097B393 /* InvalidHostnameTest24.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidHostnameTest24.cer; path = "ssl-policy-certs/InvalidHostnameTest24.cer"; sourceTree = "<group>"; };
+		D4B4A9D91B8BBC1B0097B393 /* InvalidWildcardTest5Test6.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidWildcardTest5Test6.cer; path = "ssl-policy-certs/InvalidWildcardTest5Test6.cer"; sourceTree = "<group>"; };
+		D4B4A9DA1B8BBC1B0097B393 /* InvalidWildcardTest10.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidWildcardTest10.cer; path = "ssl-policy-certs/InvalidWildcardTest10.cer"; sourceTree = "<group>"; };
+		D4B4A9DB1B8BBC1B0097B393 /* InvalidWildcardTest11.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidWildcardTest11.cer; path = "ssl-policy-certs/InvalidWildcardTest11.cer"; sourceTree = "<group>"; };
+		D4B4A9DC1B8BBC1B0097B393 /* InvalidWildcardTest12.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidWildcardTest12.cer; path = "ssl-policy-certs/InvalidWildcardTest12.cer"; sourceTree = "<group>"; };
+		D4B4A9DD1B8BBC1B0097B393 /* InvalidWildcardTest13Test14.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidWildcardTest13Test14.cer; path = "ssl-policy-certs/InvalidWildcardTest13Test14.cer"; sourceTree = "<group>"; };
+		D4B4A9DE1B8BBC1B0097B393 /* InvalidWildcardTest15.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidWildcardTest15.cer; path = "ssl-policy-certs/InvalidWildcardTest15.cer"; sourceTree = "<group>"; };
+		D4B4A9DF1B8BBC1B0097B393 /* InvalidWildcardTest25Test26.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = InvalidWildcardTest25Test26.cer; path = "ssl-policy-certs/InvalidWildcardTest25Test26.cer"; sourceTree = "<group>"; };
+		D4B4A9E01B8BBC1B0097B393 /* SSLTrustPolicyTest.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = SSLTrustPolicyTest.plist; path = "ssl-policy-certs/SSLTrustPolicyTest.plist"; sourceTree = "<group>"; };
+		D4B4A9E11B8BBC1B0097B393 /* SSLTrustPolicyTestRootCertificate.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = SSLTrustPolicyTestRootCertificate.cer; path = "ssl-policy-certs/SSLTrustPolicyTestRootCertificate.cer"; sourceTree = "<group>"; };
+		D4B4A9E21B8BBC1B0097B393 /* ValidEKUTest17.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = ValidEKUTest17.cer; path = "ssl-policy-certs/ValidEKUTest17.cer"; sourceTree = "<group>"; };
+		D4B4A9E31B8BBC1B0097B393 /* ValidHostnameTest3.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = ValidHostnameTest3.cer; path = "ssl-policy-certs/ValidHostnameTest3.cer"; sourceTree = "<group>"; };
+		D4B4A9E41B8BBC1B0097B393 /* ValidHostnameTest4.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = ValidHostnameTest4.cer; path = "ssl-policy-certs/ValidHostnameTest4.cer"; sourceTree = "<group>"; };
+		D4B4A9E51B8BBC1B0097B393 /* ValidHostnameTest18Test19Test20.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = ValidHostnameTest18Test19Test20.cer; path = "ssl-policy-certs/ValidHostnameTest18Test19Test20.cer"; sourceTree = "<group>"; };
+		D4B4A9E61B8BBC1B0097B393 /* ValidHostnameTest21.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = ValidHostnameTest21.cer; path = "ssl-policy-certs/ValidHostnameTest21.cer"; sourceTree = "<group>"; };
+		D4B4A9E71B8BBC1B0097B393 /* ValidWildcardTest7Test8Test9.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = ValidWildcardTest7Test8Test9.cer; path = "ssl-policy-certs/ValidWildcardTest7Test8Test9.cer"; sourceTree = "<group>"; };
 		E7104A0B169E171900DB0045 /* security_tool_commands.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = security_tool_commands.c; sourceTree = "<group>"; };
 		E710C7421331946400F85568 /* SecurityTests.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SecurityTests.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E710C74C1331946500F85568 /* SecurityTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "SecurityTests-Info.plist"; sourceTree = "<group>"; };
@@ -5250,7 +5372,6 @@
 				4C52D0E416EFCCA20079966E /* com.apple.security.CircleJoinRequested.plist */,
 				4C52D0E516EFCCA20079966E /* NSArray+map.h */,
 				4C52D0E616EFCCA20079966E /* NSArray+map.m */,
-				4C52D0BB16EFC61E0079966E /* CircleJoinRequested.1 */,
 				4C52D0BD16EFC61E0079966E /* Readme.txt */,
 				4C3DD6AE179755560093F9D8 /* NSDate+TimeIntervalDescription.h */,
 				4C3DD6AF179755560093F9D8 /* NSDate+TimeIntervalDescription.m */,
@@ -6104,9 +6225,38 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
+		D4B4A9D21B8BBBDF0097B393 /* ssl-policy-certs */ = {
+			isa = PBXGroup;
+			children = (
+				D4B4A9D31B8BBC1B0097B393 /* InvalidEKUTest16.cer */,
+				D4B4A9D41B8BBC1B0097B393 /* InvalidHostnameTest1.cer */,
+				D4B4A9D51B8BBC1B0097B393 /* InvalidHostnameTest2.cer */,
+				D4B4A9D61B8BBC1B0097B393 /* InvalidHostnameTest22.cer */,
+				D4B4A9D71B8BBC1B0097B393 /* InvalidHostnameTest23.cer */,
+				D4B4A9D81B8BBC1B0097B393 /* InvalidHostnameTest24.cer */,
+				D4B4A9D91B8BBC1B0097B393 /* InvalidWildcardTest5Test6.cer */,
+				D4B4A9DA1B8BBC1B0097B393 /* InvalidWildcardTest10.cer */,
+				D4B4A9DB1B8BBC1B0097B393 /* InvalidWildcardTest11.cer */,
+				D4B4A9DC1B8BBC1B0097B393 /* InvalidWildcardTest12.cer */,
+				D4B4A9DD1B8BBC1B0097B393 /* InvalidWildcardTest13Test14.cer */,
+				D4B4A9DE1B8BBC1B0097B393 /* InvalidWildcardTest15.cer */,
+				D4B4A9DF1B8BBC1B0097B393 /* InvalidWildcardTest25Test26.cer */,
+				D4B4A9E01B8BBC1B0097B393 /* SSLTrustPolicyTest.plist */,
+				D4B4A9E11B8BBC1B0097B393 /* SSLTrustPolicyTestRootCertificate.cer */,
+				D4B4A9E21B8BBC1B0097B393 /* ValidEKUTest17.cer */,
+				D4B4A9E31B8BBC1B0097B393 /* ValidHostnameTest3.cer */,
+				D4B4A9E41B8BBC1B0097B393 /* ValidHostnameTest4.cer */,
+				D4B4A9E51B8BBC1B0097B393 /* ValidHostnameTest18Test19Test20.cer */,
+				D4B4A9E61B8BBC1B0097B393 /* ValidHostnameTest21.cer */,
+				D4B4A9E71B8BBC1B0097B393 /* ValidWildcardTest7Test8Test9.cer */,
+			);
+			name = "ssl-policy-certs";
+			sourceTree = "<group>";
+		};
 		E710C74A1331946500F85568 /* SecurityTests */ = {
 			isa = PBXGroup;
 			children = (
+				D4B4A9D21B8BBBDF0097B393 /* ssl-policy-certs */,
 				4CC92ABA15A3B3D900C6D578 /* testlist.h */,
 				4CC92B1B15A3BF2F00C6D578 /* testmain.c */,
 				79E0D701143E558B0010CE0E /* AppleID-certs */,
@@ -6457,6 +6607,7 @@
 				79E0D708143E55F70010CE0E /* CopyFiles */,
 				79679E2B146202BC00CF997F /* CopyFiles */,
 				E7278400159BDFFF00028D6C /* CopyFiles */,
+				D4B4AA121B8BC6240097B393 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -6789,15 +6940,16 @@
 				79E0D700143E551F0010CE0E /* CopyFiles */,
 				79679E231462023800CF997F /* CopyFiles */,
 				E72783F3159BDF4C00028D6C /* CopyFiles */,
+				D4B4A9A91B8BBB2F0097B393 /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				0CCA418115C89ECD002AEC4C /* PBXTargetDependency */,
 				18F7F67414D77EE900F88A12 /* PBXTargetDependency */,
 				4C3AD81E157589380047A498 /* PBXTargetDependency */,
 				E7EE5A34139DC042005C78BE /* PBXTargetDependency */,
 				4CEC096F15758EAF008EB037 /* PBXTargetDependency */,
+				0CCA418115C89ECD002AEC4C /* PBXTargetDependency */,
 				E79D3389135CBEB1005777CF /* PBXTargetDependency */,
 				E7E0D8FB158FAB3B002CA176 /* PBXTargetDependency */,
 				4ACED92B15A1095B0060775A /* PBXTargetDependency */,

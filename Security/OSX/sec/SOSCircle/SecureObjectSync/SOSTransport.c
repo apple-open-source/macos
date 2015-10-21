@@ -99,7 +99,7 @@ void SOSUnregisterAllTransportKeyParameters() {
 //
 // Should we be dispatching back to our queue to handle later
 //
-void SOSUpdateKeyInterest(void)
+void SOSUpdateKeyInterest(SOSAccountRef account)
 {
     CFMutableArrayRef alwaysKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFMutableArrayRef afterFirstUnlockKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -108,7 +108,7 @@ void SOSUpdateKeyInterest(void)
     
     CFArrayForEach(SOSGetTransportKeyParameters(), ^(const void *value) {
         SOSTransportKeyParameterRef tKP = (SOSTransportKeyParameterRef) value;
-        if (SOSTransportKeyParameterGetTransportType(tKP, NULL) == kKVS) {
+        if (SOSTransportKeyParameterGetAccount(tKP) == account && SOSTransportKeyParameterGetTransportType(tKP, NULL) == kKVS) {
             SOSTransportKeyParameterKVSRef tkvs = (SOSTransportKeyParameterKVSRef) value;
             CFErrorRef localError = NULL;
         
@@ -132,7 +132,7 @@ void SOSUpdateKeyInterest(void)
     whenUnlockedKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     
     CFArrayForEach(SOSGetTransportCircles(), ^(const void *value) {
-        if (SOSTransportCircleGetTransportType((SOSTransportCircleRef)value, NULL) == kKVS) {
+        if (SOSTransportCircleGetAccount((SOSTransportCircleRef)value) == account && SOSTransportCircleGetTransportType((SOSTransportCircleRef)value, NULL) == kKVS) {
             SOSTransportCircleKVSRef tkvs = (SOSTransportCircleKVSRef) value;
             CFErrorRef localError = NULL;
 
@@ -142,11 +142,9 @@ void SOSUpdateKeyInterest(void)
             if(!SOSTransportCircleKVSAppendPeerInfoKeyInterest(tkvs, alwaysKeys, afterFirstUnlockKeys, whenUnlockedKeys, &localError)){
                 secerror("Error getting peer info interests %@", localError);
             }
-#if !ENABLE_V2_BACKUP
             if(!SOSTransportCircleKVSAppendRingKeyInterest(tkvs, alwaysKeys, afterFirstUnlockKeys, whenUnlockedKeys, &localError)){
                 secerror("Error getting ring interests %@", localError);
             }
-#endif
             if(!SOSTransportCircleKVSAppendDebugKeyInterest(tkvs, alwaysKeys, afterFirstUnlockKeys, whenUnlockedKeys, &localError)){
                 secerror("Error getting debug key interests %@", localError);
             }
@@ -168,7 +166,7 @@ void SOSUpdateKeyInterest(void)
     whenUnlockedKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     
     CFArrayForEach(SOSGetTransportMessages(), ^(const void *value) {
-        if (SOSTransportMessageGetTransportType((SOSTransportMessageRef) value, NULL) == kKVS) {
+        if (SOSTransportMessageGetAccount((SOSTransportMessageRef) value) == account && SOSTransportMessageGetTransportType((SOSTransportMessageRef) value, NULL) == kKVS) {
             SOSTransportMessageKVSRef tkvs = (SOSTransportMessageKVSRef) value;
             CFErrorRef localError = NULL;
         
@@ -188,24 +186,8 @@ void SOSUpdateKeyInterest(void)
     //
     // Log what we are about to do.
     //
-    if (CFArrayGetCount(whenUnlockedKeys) == 0) {
-        secnotice("sync", "Unlocked keys were empty!");
-    }
-    CFStringRef alwaysKeysDesc = SOSInterestListCopyDescription(alwaysKeys);
-    CFStringRef afterFirstUnlockKeysDesc = SOSInterestListCopyDescription(afterFirstUnlockKeys);
-    CFStringRef unlockedKeysDesc = SOSInterestListCopyDescription(whenUnlockedKeys);
-    secdebug("sync", "Updating interest: always: %@,\nfirstUnlock: %@,\nunlockedKeys: %@",
-             alwaysKeysDesc,
-             afterFirstUnlockKeysDesc,
-             unlockedKeysDesc);
-    CFReleaseNull(alwaysKeysDesc);
-    CFReleaseNull(afterFirstUnlockKeysDesc);
-    CFReleaseNull(unlockedKeysDesc);
+    secnotice("key-interests", "Updating interests: %@", keyDict);
 
-    
-    //
-    //
-    
     SOSCloudKeychainUpdateKeys(keyDict, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFDictionaryRef returnedValues, CFErrorRef error) {
         if (error) {
             secerror("Error updating keys: %@", error);
@@ -400,8 +382,9 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
                 ApplyScopeDictionaryForID(debugScope, kScopeIDCircle);
             }
         }
-
-        CFArrayAppendValue(handledKeys, SOSDebugInfoKeyCreateWithTypeName(kSOSAccountDebugScope));
+        CFStringRef debugInfoKey = SOSDebugInfoKeyCreateWithTypeName(kSOSAccountDebugScope);
+        CFArrayAppendValue(handledKeys, debugInfoKey);
+        CFReleaseNull(debugInfoKey);
     }
     
     if(CFDictionaryGetCount(circle_retirement_messages_table)) {

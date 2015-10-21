@@ -510,6 +510,8 @@ struct IOFBConnect
     // current mode is no longer marked as an alias mode but we still
     // need to treat mode switches as if the alias mode flag was set.
     Boolean                     inMuxSwitch;
+    
+    IOPixelInformation          currentModePixelInfo;
 
     struct IOAccelConnectStruct * transformSurface;
 

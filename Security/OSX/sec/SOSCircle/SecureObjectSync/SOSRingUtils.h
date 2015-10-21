@@ -74,8 +74,8 @@ SOSConcordanceStatus SOSRingPeerKeyConcordanceTrust(SOSFullPeerInfoRef me, CFSet
 bool SOSRingHasPeerWithID(SOSRingRef ring, CFStringRef peerid, CFErrorRef *error);
 
 int SOSRingCountPeers(SOSRingRef ring);
-CFStringRef SOSRingSignerList(SOSRingRef ring);
-CFDictionaryRef SOSRingPeerIDList(SOSRingRef ring);
+CFStringRef SOSRingCopySignerList(SOSRingRef ring);
+CFDictionaryRef SOSRingCopyPeerIDList(SOSRingRef ring);
 
 
 int SOSRingCountApplicants(SOSRingRef ring);
@@ -94,6 +94,7 @@ const char *SOSRingGetNameC(SOSRingRef ring);
 
 void SOSRingGenerationIncrement(SOSRingRef ring);
 bool SOSRingIsOlderGeneration(SOSRingRef olderRing, SOSRingRef newerRing);
+void SOSRingGenerationCreateWithBaseline(SOSRingRef newring, SOSRingRef baseline);
 
 bool SOSRingSetApplicants(SOSRingRef ring, CFMutableSetRef applicants);
 

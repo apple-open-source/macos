@@ -1051,6 +1051,35 @@ sec_asn1d_parse_more_length (sec_asn1d_state *state,
 }
 
 
+/*
+ * Helper function for sec_asn1d_prepare_for_contents.
+ * Checks that a value representing a number of bytes consumed can be
+ * subtracted from a remaining length. If so, returns PR_TRUE.
+ * Otherwise, sets the error SEC_ERROR_BAD_DER, indicates that there was a
+ * decoding error in the given SEC_ASN1DecoderContext, and returns PR_FALSE.
+ */
+static PRBool
+sec_asn1d_check_and_subtract_length (unsigned long *remaining,
+                                     unsigned long consumed,
+                                     SEC_ASN1DecoderContext *cx)
+{
+    PORT_Assert(remaining);
+    PORT_Assert(cx);
+    if (!remaining || !cx) {
+        PORT_SetError (SEC_ERROR_INVALID_ARGS);
+        cx->status = decodeError;
+        return PR_FALSE;
+    }
+    if (*remaining < consumed) {
+        PORT_SetError (SEC_ERROR_BAD_DER);
+        cx->status = decodeError;
+        return PR_FALSE;
+    }
+    *remaining -= consumed;
+    return PR_TRUE;
+}
+
+
 static void
 sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
 	#ifdef	__APPLE__
@@ -1068,6 +1097,60 @@ sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
                state->indefinite ? "indefinite" : "");
     }
 #endif
+
+    /**
+     * The maximum length for a child element should be constrained to the
+     * length remaining in the first definite length element in the ancestor
+     * stack. If there is no definite length element in the ancestor stack,
+     * there's nothing to constrain the length of the child, so there's no
+     * further processing necessary.
+     *
+     * It's necessary to walk the ancestor stack, because it's possible to have
+     * definite length children that are part of an indefinite length element,
+     * which is itself part of an indefinite length element, and which is
+     * ultimately part of a definite length element. A simple example of this
+     * would be the handling of constructed OCTET STRINGs in BER encoding.
+     *
+     * This algorithm finds the first definite length element in the ancestor
+     * stack, if any, and if so, ensures that the length of the child element
+     * is consistent with the number of bytes remaining in the constraining
+     * ancestor element (that is, after accounting for any other sibling
+     * elements that may have been read).
+     *
+     * It's slightly complicated by the need to account both for integer
+     * underflow and overflow, as well as ensure that for indefinite length
+     * encodings, there's also enough space for the End-of-Contents (EOC)
+     * octets (Tag = 0x00, Length = 0x00, or two bytes).
+     */
+
+    /* Determine the maximum length available for this element by finding the
+     * first definite length ancestor, if any. */
+    sec_asn1d_state *parent = sec_asn1d_get_enclosing_construct(state);
+    while (parent && parent->indefinite) {
+        parent = sec_asn1d_get_enclosing_construct(parent);
+    }
+    /* If parent is null, state is either the outermost state / at the top of
+     * the stack, or the outermost state uses indefinite length encoding. In
+     * these cases, there's nothing external to constrain this element, so
+     * there's nothing to check. */
+    if (parent) {
+        unsigned long remaining = parent->pending;
+        parent = state;
+        do {
+            if (!sec_asn1d_check_and_subtract_length(&remaining, parent->consumed, state->top) ||
+                /* If parent->indefinite is true, parent->contents_length is
+                 * zero and this is a no-op. */
+                !sec_asn1d_check_and_subtract_length(&remaining, parent->contents_length, state->top) ||
+                /* If parent->indefinite is true, then ensure there is enough
+                 * space for an EOC tag of 2 bytes. */
+                (parent->indefinite && !sec_asn1d_check_and_subtract_length(&remaining, 2, state->top))) {
+                /* This element is larger than its enclosing element, which is
+                 * invalid. */
+                return;
+            }
+        } while ((parent = sec_asn1d_get_enclosing_construct(parent)) &&
+                 parent->indefinite);
+    }
 
     /*
      * XXX I cannot decide if this allocation should exclude the case
@@ -1112,21 +1195,6 @@ sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
      */
     state->pending = state->contents_length;
 
-    /* If this item has definite length encoding, and 
-    ** is enclosed by a definite length constructed type,
-    ** make sure it isn't longer than the remaining space in that 
-    ** constructed type.  
-    */
-    if (state->contents_length > 0) {
-        sec_asn1d_state *parent = sec_asn1d_get_enclosing_construct(state);
-        if (parent && !parent->indefinite && 
-            state->consumed + state->contents_length > parent->pending) {
-            PORT_SetError (SEC_ERROR_BAD_DER);
-            state->top->status = decodeError;
-            return;
-        }
-    }
-    
     /*
      * An EXPLICIT is nothing but an outer header, which we have
      * already parsed and accepted.  Now we need to do the inner
@@ -1861,7 +1929,25 @@ sec_asn1d_next_substring (sec_asn1d_state *state)
 	PORT_Assert (state->indefinite);
 
 	item = (SecAsn1Item *)(child->dest);
-	if (item != NULL && item->Data != NULL) {
+    /*
+     * Iterate over ancestors to determine if any have definite length. If so,
+     * space has already been allocated for the substrings and we don't need to
+     * save them for concatenation.
+     */
+    PRBool copying_in_place = PR_FALSE;
+    sec_asn1d_state *temp_state = state;
+    while (temp_state && item == temp_state->dest && temp_state->indefinite) {
+        sec_asn1d_state *parent = sec_asn1d_get_enclosing_construct(temp_state);
+        if (!parent || parent->underlying_kind != temp_state->underlying_kind) {
+            break;
+        }
+        if (!parent->indefinite) {
+            copying_in_place = PR_TRUE;
+            break;
+        }
+        temp_state = parent;
+    }
+    if (item != NULL && item->Data != NULL && !copying_in_place) {
 	    /*
 	     * Save the string away for later concatenation.
 	     */

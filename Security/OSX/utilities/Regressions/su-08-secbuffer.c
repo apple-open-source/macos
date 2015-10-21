@@ -29,12 +29,18 @@
 
 #define kTestCount (2 * 12 + 3 * 12)
 
+const uint8_t testBytes[] = { 0xD0, 0xD0, 0xBA, 0xAD };
+
 static void
 tests(void) {
     for(size_t testSize = 1023; testSize < 2 * 1024 * 1024; testSize *= 2) {
         PerformWithBuffer(testSize, ^(size_t size, uint8_t *buffer) {
             ok(buffer, "got buffer");
             ok(size == testSize, "buffer size");
+
+            // Scribble on the end, make sure we can.
+            uint64_t *scribbleLocation = (uint64_t *) (buffer + testSize - sizeof(testBytes));
+            bcopy(testBytes, scribbleLocation, sizeof(testBytes));
         });
     }
     
@@ -44,8 +50,8 @@ tests(void) {
             ok(buffer, "got buffer");
             ok(size == testSize, "buffer size");
             
-            scribbleLocation = (uint64_t *) (buffer + testSize - sizeof(uint64_t));
-            *scribbleLocation = 0xD0D0BAAD;
+            scribbleLocation = (uint64_t *) (buffer + testSize - sizeof(testBytes));
+            bcopy(testBytes, scribbleLocation, sizeof(testBytes));
         });
         SKIP: {
             skip("memory might be unmapped leading to a crash", 1, false);
